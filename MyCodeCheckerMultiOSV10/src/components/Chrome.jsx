@@ -25,10 +25,40 @@ const PATHS = {
   gate: <><path d="M4 20V5h16v15" /><path d="M9 20v-6h6v6" /></>,
   layers: <path d="M12 3l9 5-9 5-9-5zM3 12l9 5 9-5M3 17l9 5 9-5" />,
   chevronDown: <path d="M6 9l6 6 6-6" />,
+  chevronLeft: <path d="M15 6l-6 6 6 6" />,
+  chevronRight: <path d="M9 6l6 6-6 6" />,
   palette: <><path d="M12 3a9 9 0 0 0 0 18h1.2a2 2 0 0 0 1.4-3.4 2 2 0 0 1 1.4-3.4H18a3 3 0 0 0 3-3A8.2 8.2 0 0 0 12 3z" /><circle cx="7.5" cy="10.5" r="1" fill="currentColor" /><circle cx="10.5" cy="7.5" r="1" fill="currentColor" /><circle cx="15" cy="7.5" r="1" fill="currentColor" /></>,
   download: <path d="M12 4v10M8 10l4 4 4-4M5 20h14" />,
   plus: <path d="M12 5v14M5 12h14" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  upload: <path d="M12 16V5M8 9l4-4 4 4M5 20h14" />,
+  save: <><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /><path d="M7 3v5h8V3M7 21v-7h10v7" /></>,
+  print: <><path d="M6 9V3h12v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M6 14h12v7H6z" /></>,
+  package: <><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5l8 4.5 8-4.5M12 12v9" /></>,
+  flow: <><circle cx="5" cy="6" r="2" /><circle cx="19" cy="18" r="2" /><path d="M7 6h6a3 3 0 0 1 0 6h-2a3 3 0 0 0 0 6h6" /></>,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
+  lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
+  branch: <><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="8" r="2" /><path d="M6 7v10M18 10a6 6 0 0 1-6 6H6" /></>,
+  users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6" /></>,
+  webhook: <><circle cx="12" cy="6" r="2.5" /><circle cx="5.5" cy="17" r="2.5" /><circle cx="18.5" cy="17" r="2.5" /><path d="M10.8 8.2L7 14.8M8 17h8M13.2 8.2L17 14.8" /></>,
+  key: <><circle cx="8" cy="14" r="4" /><path d="M11 11l9-9M16 6l3 3M14 8l2 2" /></>,
+  trash: <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />,
+  edit: <path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4" />,
+  refresh: <><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 13a8 8 0 0 0 14.3 4.9L20 16" /><path d="M4 3v5h5M20 21v-5h-5" /></>,
+  report: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 17v-3M12 17v-5M15 17v-2" /></>,
+  tree: <path d="M5 4v16M5 8h6M5 14h6M11 6h8v4h-8zM11 12h8v4h-8z" />,
+  filter: <path d="M4 5h16l-6 8v6l-4-2v-4z" />,
+  stop: <rect x="6" y="6" width="12" height="12" rx="2" />,
+  eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
+  link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12 15h5" /></>,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
+  group: <><circle cx="8" cy="9" r="3" /><circle cx="16" cy="9" r="3" /><path d="M2 20a6 6 0 0 1 12 0M10 20a6 6 0 0 1 12 0" /></>,
+  minus: <path d="M5 12h14" />,
+  cpu: <><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" /></>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
+  scale: <path d="M12 3v18M5 21h14M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z" />,
 };
 
 export function Icon({ name, size = 16 }) {
@@ -72,7 +102,7 @@ function WindowButtons() {
   );
 }
 
-export function MenuBar({ menus, onAction, theme }) {
+export function MenuBar({ menus, onAction, theme, startActive }) {
   useLanguage();
   const [open, setOpen] = useState(null);
   useEffect(() => {
@@ -103,7 +133,8 @@ export function MenuBar({ menus, onAction, theme }) {
         <img src="./icon.svg" alt="" width={16} height={16} className="tb-logo" draggable={false} />
         <span className="tb-title">{t('appName')}</span>
       </span>
-      <button type="button" className="menu-btn start-nav" onClick={() => onAction('showStart')}>
+      <button type="button" className={`menu-btn start-nav ${startActive ? 'active' : ''}`} aria-pressed={!!startActive}
+        onClick={() => onAction('showStart')}>
         <Icon name="home" size={14} />{t('start_nav')}
       </button>
       <span className="menus">
@@ -238,12 +269,22 @@ export function SideNav({ view, onView, disabled }) {
       ['policies', 'nav_policies', 'gate'],
       ['models', 'nav_models', 'code'],
     ]],
+    ['platform', [
+      ['compliance', 'nav_compliance', 'lock'],
+      ['misra', 'nav_misra', 'shield'],
+      ['reports', 'nav_reports', 'report'],
+      ['dependencies', 'nav_dependencies', 'package'],
+      ['snapshots', 'nav_snapshots', 'history'],
+      ['pullrequest', 'nav_pullrequest', 'branch'],
+      ['dast', 'nav_dast', 'globe'],
+      ['admin', 'nav_admin', 'users'],
+    ]],
   ];
   return (
     <nav className="sidenav">
       {groups.map(([id, items]) => (
         <div key={id} className="nav-group">
-          <div className="nav-label">{id === 'project' ? t('projects') : id === 'coverity' ? t('menu_coverity') : t('menu_quality')}</div>
+          <div className="nav-label">{id === 'project' ? t('projects') : id === 'coverity' ? t('menu_coverity') : id === 'platform' ? t('nav_platform') : t('menu_quality')}</div>
           {items.map(([key, label, icon]) => (
             <button key={key} type="button" className={`nav-item ${view === key ? 'on' : ''}`} disabled={disabled && id === 'project' && key !== 'rules'}
               onClick={() => onView(key)}>

@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
+import { Icon } from '../components/Chrome';
+import { IconSelect, Btn, Stepper, Toggle } from './common';
+import { ISSUE_STANDARDS, standardsOf, matchesStandard, standardChips, engineOf, ENGINE_ICON } from './standards';
 
 const METRIC_NAME = {
   bugs: ['버그', 'Bugs'],
@@ -30,14 +33,14 @@ function metricLabel(key, lang) {
   return name;
 }
 
-const SEV = ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'];
+export const SEV = ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'];
 const TYPES = ['BUG', 'VULNERABILITY', 'CODE_SMELL'];
 
 export function msg(issue) {
   return textOf(issue.message);
 }
 
-export function StartPage({ projects, onOpen, onSample, onRecent }) {
+export function StartPage({ projects, onOpen, onSample, onRecent, showOnLaunch, onShowOnLaunch }) {
   useLanguage();
   return (
     <div className="hero">
@@ -45,8 +48,8 @@ export function StartPage({ projects, onOpen, onSample, onRecent }) {
       <h1>{t('start_title')}</h1>
       <p>{t('start_body')}</p>
       <div className="hero-actions">
-        <button className="primary" onClick={onOpen}>{t('open_folder')}</button>
-        <button className="ghost" onClick={onSample}>{t('open_sample')}</button>
+        <Btn icon="folder" label={t('open_folder')} primary onClick={onOpen} />
+        <Btn icon="play" label={t('open_sample')} onClick={onSample} />
       </div>
       {projects.length > 0 && (
         <div className="panel" style={{ textAlign: 'left', marginTop: 28 }}>
@@ -59,6 +62,9 @@ export function StartPage({ projects, onOpen, onSample, onRecent }) {
           ))}
         </div>
       )}
+      <div className="hero-launch">
+        <Toggle icon="home" label={t('show_start_on_launch')} checked={showOnLaunch} onChange={onShowOnLaunch} />
+      </div>
     </div>
   );
 }
@@ -131,14 +137,25 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
   useLanguage();
   const [comment, setComment] = useState('');
   const [assignee, setAssignee] = useState('');
-  const list = useMemo(() => filterIssues(issues, filter, false), [issues, filter]);
-  const rule = selected && rules.find((r) => r.key === selected.rule);
+  const ruleMap = useMemo(() => new Map(rules.map((r) => [r.key, r])), [rules]);
+  const list = useMemo(() => filterIssues(issues, filter, false, ruleMap), [issues, filter, ruleMap]);
+  const engines = useMemo(() => [...new Set(issues.map(engineOf))].sort(), [issues]);
+  const rule = selected && ruleMap.get(selected.rule);
   const toggle = (key) => setChecked(checked.includes(key) ? checked.filter((k) => k !== key) : [...checked, key]);
+  const chips = selected ? standardChips(standardsOf(selected, rule)) : [];
+  const misraCategory = selected && (selected.misraCategory || (rule && rule.misraCategory));
   return (
     <div>
-      <Filters filter={filter} setFilter={setFilter} types={TYPES} />
+      <Filters filter={filter} setFilter={setFilter} types={TYPES} engines={engines} />
+      {filter.drillLabel && (
+        <div className="drill-bar">
+          <Icon name="filter" size={14} /><span>{t('ib_drill')}: <strong>{filter.drillLabel}</strong> ({list.length})</span>
+          <Btn icon="close" label={t('ib_clear_drill')} onClick={() => setFilter({ ...filter, rules: null, keys: null, drillLabel: '' })} />
+        </div>
+      )}
       <div className="split">
-        <div className="panel" style={{ padding: 0 }}>
+        <div className="panel tpanel">
+          <div className="table-wrap tall">
           <table>
             <thead><tr><th /><th>{t('severity')}</th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
             <tbody>
@@ -146,24 +163,31 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
                 <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}>
                   <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={checked.includes(issue.key)} onChange={() => toggle(issue.key)} /></td>
                   <td><span className={`sev ${issue.severity}`}>{issue.severity}</span>{issue.isNew && <div className="pill">{t('new_code')}</div>}</td>
-                  <td><div>{msg(issue)}</div><div className="small">{issue.rule} · {issue.type}</div></td>
-                  <td className="small">{issue.file}:{issue.line}</td>
+                  <td className="wrap"><div>{msg(issue)}</div><div className="small">{issue.rule} · {issue.type}{engineOf(issue) !== 'core' ? ` · ${engineOf(issue)}` : ''}</div></td>
+                  <td className="small wrap">{issue.file}:{issue.line}</td>
                   <td className="small">{issue.status}{issue.resolution ? ` / ${issue.resolution}` : ''}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {list.length === 0 && <p className="small" style={{ padding: 12 }}>{t('empty')}</p>}
+          </div>
         </div>
         <aside className="panel drawer">
           {!selected && <p className="small">{t('empty')}</p>}
           {selected && (
             <>
               <h3>{msg(selected)}</h3>
-              <div className="small">{selected.file}:{selected.line}</div>
-              <div className="snippet">{(selected.snippet || []).map((row) => (
+              <div className="small wrap">{selected.file}:{selected.line}</div>
+              <div className="chips">
+                <span className="chip engine"><Icon name={ENGINE_ICON[engineOf(selected)] || 'search'} size={11} />{t('ib_engine')} {engineOf(selected)}</span>
+                {misraCategory && <span className="chip misra">{t('ib_misra_category')} {misraCategory}</span>}
+                {chips.map((c) => <span key={c.text} className={`chip ${c.kind}`}>{c.text}</span>)}
+              </div>
+              {(selected.events || []).length > 1 && <EventPath events={selected.events} file={selected.file} />}
+              {(selected.snippet || []).length > 0 && <div className="snippet">{(selected.snippet || []).map((row) => (
                 <div key={row.line} className={row.hit ? 'hit' : ''}><span className="ln">{row.line}</span><span>{row.text}</span></div>
-              ))}</div>
+              ))}</div>}
               {rule && <><h3>{t('why')}</h3><p className="small">{textOf(rule.why)}</p><h3>{t('how_to_fix')}</h3><p className="small">{textOf(rule.fix)}</p></>}
               <div className="actions">
                 <button onClick={() => onUpdate([selected.key], { status: 'CONFIRMED' })}>{t('confirmed')}</button>
@@ -177,7 +201,7 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
             </>
           )}
           {checked.length > 0 && (
-            <div className="actions">
+            <div className="actions bulk">
               <span className="small">{t('bulk')} ({checked.length})</span>
               <input value={assignee} placeholder={t('assignee')} onChange={(e) => setAssignee(e.target.value)} />
               <button onClick={() => onUpdate(checked, { assignee })}>{t('assignee')}</button>
@@ -242,36 +266,69 @@ function labelStatus(status) {
   return status;
 }
 
-function Filters({ filter, setFilter, types }) {
-  const set = (patch) => setFilter({ ...filter, ...patch });
+// Source → sink steps of a finding; cross-file steps show their file.
+function EventPath({ events, file }) {
+  useLanguage();
   return (
-    <div className="hrow">
-      <input placeholder={t('search')} value={filter.q} onChange={(e) => set({ q: e.target.value })} />
-      <select value={filter.severity} onChange={(e) => set({ severity: e.target.value })}>
-        <option value="">{t('severity')}</option>
-        {SEV.map((s) => <option key={s}>{s}</option>)}
-      </select>
-      <select value={filter.type} onChange={(e) => set({ type: e.target.value })}>
-        <option value="">{t('type')}</option>
-        {types.map((s) => <option key={s}>{s}</option>)}
-      </select>
-      <select value={filter.status} onChange={(e) => set({ status: e.target.value })}>
-        <option value="">{t('status')}</option>
-        {['OPEN', 'CONFIRMED', 'REOPENED', 'RESOLVED', 'CLOSED', 'TO_REVIEW'].map((s) => <option key={s}>{s}</option>)}
-      </select>
-      <label className="check"><input type="checkbox" checked={filter.newOnly} onChange={(e) => set({ newOnly: e.target.checked })} />{t('new_only')}</label>
+    <>
+      <h3>{t('ib_path')}</h3>
+      <ol className="events path">
+        {events.map((ev, i) => (
+          <li key={i} className={`${ev.main ? 'main' : ''} ${ev.tag || ''}`}>
+            <span className="ev-tag">{t(`ib_ev_${ev.tag || 'step'}`) === `ib_ev_${ev.tag || 'step'}` ? (ev.tag || '') : t(`ib_ev_${ev.tag || 'step'}`)}</span>
+            {ev.file && ev.file !== file && <span className="ev-file">{ev.file}</span>}
+            <span className="ln">{ev.line}</span>
+            <span>{textOf(ev.text)}</span>
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
+export const TYPE_ICON = { BUG: 'bug', VULNERABILITY: 'lock', CODE_SMELL: 'code', SECURITY_HOTSPOT: 'shield' };
+export const SEV_ICON = { BLOCKER: 'alert', CRITICAL: 'alert', MAJOR: 'alert', MINOR: 'info', INFO: 'info' };
+
+function Filters({ filter, setFilter, types, engines }) {
+  useLanguage();
+  const set = (patch) => setFilter({ ...filter, ...patch });
+  const typeLabel = (s) => ({ BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells'), SECURITY_HOTSPOT: t('hotspots') }[s] || s);
+  return (
+    <div className="view-toolbar">
+      <input className="search" placeholder={t('search')} value={filter.q} onChange={(e) => set({ q: e.target.value })} />
+      <IconSelect value={filter.severity} onChange={(v) => set({ severity: v })} title={t('severity')} width={150}
+        options={[{ value: '', label: t('ib_any_severity'), icon: 'list' }, ...SEV.map((s) => ({ value: s, label: s, icon: SEV_ICON[s] }))]} />
+      <IconSelect value={filter.type} onChange={(v) => set({ type: v })} title={t('type')} width={150}
+        options={[{ value: '', label: t('ib_any_type'), icon: 'list' }, ...types.map((s) => ({ value: s, label: typeLabel(s), icon: TYPE_ICON[s] }))]} />
+      <IconSelect value={filter.status} onChange={(v) => set({ status: v })} title={t('status')} width={150}
+        options={[{ value: '', label: t('ib_any_status'), icon: 'list' }, ...['OPEN', 'CONFIRMED', 'REOPENED', 'RESOLVED', 'CLOSED', 'TO_REVIEW'].map((s) => ({ value: s, label: s, icon: s === 'RESOLVED' || s === 'CLOSED' ? 'check' : 'clock' }))]} />
+      {engines && (
+        <IconSelect value={filter.engine || ''} onChange={(v) => set({ engine: v })} title={t('ib_engine')} width={150}
+          options={[{ value: '', label: t('ib_any_engine'), icon: 'cpu' }, ...engines.map((e) => ({ value: e, label: e, icon: ENGINE_ICON[e] || 'cpu' }))]} />
+      )}
+      <IconSelect value={filter.standard || ''} onChange={(v) => set({ standard: v })} title={t('ib_standard')} width={160}
+        options={[{ value: '', label: t('ib_any_standard'), icon: 'shield' }, ...ISSUE_STANDARDS]} />
+      <button type="button" role="switch" aria-checked={!!filter.newOnly} className={`vbtn toggle ${filter.newOnly ? 'on' : ''}`} onClick={() => set({ newOnly: !filter.newOnly })}>
+        <span className="switch" aria-hidden="true"><span /></span><Icon name="clock" size={15} /><span>{t('new_only')}</span>
+      </button>
     </div>
   );
 }
 
-function filterIssues(issues, filter, hotspots) {
+function filterIssues(issues, filter, hotspots, ruleMap) {
+  const drillRules = filter.rules && filter.rules.length ? new Set(filter.rules) : null;
+  const drillKeys = filter.keys && filter.keys.length ? new Set(filter.keys) : null;
+  const drilled = !!(drillRules || drillKeys);
   return issues.filter((issue) => {
     if (hotspots) return issue.type === 'SECURITY_HOTSPOT';
-    if (issue.type === 'SECURITY_HOTSPOT') return false;
+    if (issue.type === 'SECURITY_HOTSPOT' && !drilled) return false;
+    if (drilled && !((drillKeys && drillKeys.has(issue.key)) || (drillRules && drillRules.has(issue.rule)))) return false;
     if (filter.type && issue.type !== filter.type) return false;
     if (filter.severity && issue.severity !== filter.severity) return false;
     if (filter.status && issue.status !== filter.status) return false;
     if (filter.newOnly && !issue.isNew) return false;
+    if (filter.engine && engineOf(issue) !== filter.engine) return false;
+    if (filter.standard && !matchesStandard(standardsOf(issue, ruleMap && ruleMap.get(issue.rule)), filter.standard)) return false;
     if (filter.q) {
       const blob = `${issue.rule} ${msg(issue)} ${issue.file}`.toLowerCase();
       if (!blob.includes(filter.q.toLowerCase())) return false;
@@ -379,36 +436,64 @@ export function RulesView({ rules, onDeactivate }) {
   useLanguage();
   const [q, setQ] = useState('');
   const [lang, setLang] = useState('');
-  const langs = [...new Set(rules.flatMap((r) => r.langs))].sort();
+  const [engine, setEngine] = useState('');
+  const [standard, setStandard] = useState('');
+  const [limit, setLimit] = useState(300);
+  const langs = [...new Set(rules.flatMap((r) => r.langs || []))].sort();
+  const engines = [...new Set(rules.map(engineOf))].sort();
   const list = rules.filter((r) => {
-    if (lang && !r.langs.includes(lang) && !r.langs.includes('*')) return false;
+    if (lang && !(r.langs || []).includes(lang) && !(r.langs || []).includes('*')) return false;
+    if (engine && engineOf(r) !== engine) return false;
+    if (standard && !matchesStandard(standardsOf(null, r), standard)) return false;
     if (!q) return true;
     const blob = `${r.key} ${textOf(r.name)} ${(r.tags || []).join(' ')}`.toLowerCase();
     return blob.includes(q.toLowerCase());
   });
   return (
     <div>
-      <p className="small">{t('rules_hint')} ({rules.length})</p>
-      <div className="hrow">
-        <input placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select value={lang} onChange={(e) => setLang(e.target.value)}>
-          <option value="">{t('all')}</option>
-          {langs.map((l) => <option key={l}>{l}</option>)}
-        </select>
+      <p className="small">{t('rules_hint')} ({list.length} / {rules.length})</p>
+      <div className="view-toolbar">
+        <input className="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <IconSelect value={lang} onChange={setLang} title={t('languages')} width={150}
+          options={[{ value: '', label: t('ib_any_language'), icon: 'code' }, ...langs.map((l) => ({ value: l, label: l === '*' ? t('all') : l, icon: 'file' }))]} />
+        <IconSelect value={engine} onChange={setEngine} title={t('ib_engine')} width={150}
+          options={[{ value: '', label: t('ib_any_engine'), icon: 'cpu' }, ...engines.map((e) => ({ value: e, label: e, icon: ENGINE_ICON[e] || 'cpu' }))]} />
+        <IconSelect value={standard} onChange={setStandard} title={t('ib_standard')} width={160}
+          options={[{ value: '', label: t('ib_any_standard'), icon: 'shield' }, ...ISSUE_STANDARDS]} />
       </div>
-      <table>
-        <thead><tr><th>{t('rule')}</th><th>{t('severity')}</th><th>{t('type')}</th><th /></tr></thead>
-        <tbody>
-          {list.map((r) => (
-            <tr key={r.key}>
-              <td><strong>{textOf(r.name)}</strong><div className="small">{r.key} {(r.tags || []).map((tag) => <span key={tag} className="pill tag">{tag}</span>)}</div><div className="small">{textOf(r.why)}</div></td>
-              <td className={`sev ${r.severity}`}>{r.severity}</td>
-              <td className="small">{r.type}</td>
-              <td><button className="ghost" onClick={() => onDeactivate(r.key)}>{t('inactive')}</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="panel tpanel">
+        <div className="table-wrap tall">
+          <table>
+            <thead><tr><th>{t('rule')}</th><th>{t('severity')}</th><th>{t('type')}</th><th className="act" /></tr></thead>
+            <tbody>
+              {list.slice(0, limit).map((r) => {
+                const chips = standardChips(standardsOf(null, r));
+                return (
+                  <tr key={r.key}>
+                    <td className="wrap">
+                      <strong>{textOf(r.name)}</strong>
+                      <div className="small">{r.key} {(r.tags || []).map((tag) => <span key={tag} className="pill tag">{tag}</span>)}</div>
+                      {(chips.length > 0 || r.misraCategory || r.decidable != null || engineOf(r) !== 'core') && (
+                        <div className="chips">
+                          {engineOf(r) !== 'core' && <span className="chip engine"><Icon name={ENGINE_ICON[engineOf(r)] || 'cpu'} size={11} />{engineOf(r)}</span>}
+                          {r.misraCategory && <span className="chip misra">{t('ib_misra_category')} {r.misraCategory}</span>}
+                          {r.decidable != null && <span className="chip">{r.decidable ? t('ib_decidable') : t('ms_undecidable')}</span>}
+                          {chips.map((c) => <span key={c.text} className={`chip ${c.kind}`}>{c.text}</span>)}
+                        </div>
+                      )}
+                      <div className="small">{textOf(r.why)}</div>
+                    </td>
+                    <td className={`sev ${r.severity}`}>{r.severity}</td>
+                    <td className="small">{r.type}</td>
+                    <td className="act"><Btn icon="minus" label={t('inactive')} onClick={() => onDeactivate(r.key)} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {list.length > limit && <div className="more-row"><Btn icon="plus" label={t('ib_show_more', { n: list.length - limit })} onClick={() => setLimit(limit + 300)} /></div>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -427,42 +512,47 @@ export function ProfilesView({ profiles, rules, onChange }) {
     return `${r.key} ${textOf(r.name)}`.toLowerCase().includes(q.toLowerCase());
   });
   const update = (next) => onChange(profiles.map((p) => (p.id === profile.id ? next : p)));
+  const sevOptions = SEV.map((s) => ({ value: s, label: s, icon: SEV_ICON[s] }));
   return (
     <div>
-      <div className="hrow">
-        <select value={profile.id} onChange={(e) => setId(e.target.value)}>
-          {profiles.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.language})</option>)}
-        </select>
-        <input placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="view-toolbar">
+        <IconSelect value={profile.id} onChange={setId} title={t('profile')} ariaLabel={t('profile')} width={240}
+          options={profiles.map((p) => ({ value: p.id, label: `${p.name} (${p.language})`, icon: 'layers' }))} />
+        <input className="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      <table>
-        <thead><tr><th>{t('active')}</th><th>{t('rule')}</th><th>{t('severity')}</th></tr></thead>
-        <tbody>
-          {list.map((r) => (
-            <tr key={r.key}>
-              <td><input type="checkbox" checked={!inactive.has(r.key)} onChange={(e) => {
-                const set = new Set(profile.inactive || []);
-                if (e.target.checked) set.delete(r.key); else set.add(r.key);
-                update({ ...profile, inactive: [...set] });
-              }} /></td>
-              <td>{textOf(r.name)}<div className="small">{r.key}</div></td>
-              <td>
-                <select value={(profile.overrides && profile.overrides[r.key]) || r.severity} onChange={(e) => {
-                  const overrides = { ...(profile.overrides || {}) };
-                  if (e.target.value === r.severity) delete overrides[r.key];
-                  else overrides[r.key] = e.target.value;
-                  update({ ...profile, overrides });
-                }}>
-                  {SEV.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="panel tpanel">
+        <div className="table-wrap tall">
+          <table>
+            <thead><tr><th>{t('active')}</th><th>{t('rule')}</th><th>{t('severity')}</th></tr></thead>
+            <tbody>
+              {list.map((r) => (
+                <tr key={r.key}>
+                  <td><input type="checkbox" aria-label={t('active')} checked={!inactive.has(r.key)} onChange={(e) => {
+                    const set = new Set(profile.inactive || []);
+                    if (e.target.checked) set.delete(r.key); else set.add(r.key);
+                    update({ ...profile, inactive: [...set] });
+                  }} /></td>
+                  <td className="wrap">{textOf(r.name)}<div className="small">{r.key}</div></td>
+                  <td className="nowrap">
+                    <IconSelect value={(profile.overrides && profile.overrides[r.key]) || r.severity} options={sevOptions} width={150} ariaLabel={t('severity')}
+                      onChange={(v) => {
+                        const overrides = { ...(profile.overrides || {}) };
+                        if (v === r.severity) delete overrides[r.key];
+                        else overrides[r.key] = v;
+                        update({ ...profile, overrides });
+                      }} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
+
+const GATE_OPS = { GT: '>', LT: '<', GTE: '≥', LTE: '≤', EQ: '=' };
 
 export function GatesView({ gates, project, onChange, onAssign }) {
   useLanguage();
@@ -472,41 +562,41 @@ export function GatesView({ gates, project, onChange, onAssign }) {
   if (!gate) return null;
   const metrics = ['new_bugs', 'new_vulnerabilities', 'new_code_smells', 'new_coverage', 'new_duplicated_lines_density', 'new_reliability_rating', 'new_security_rating', 'new_maintainability_rating', 'new_security_hotspots_reviewed', 'bugs', 'vulnerabilities', 'coverage', 'duplicated_lines_density', 'reliability_rating', 'security_rating', 'maintainability_rating'];
   const update = (next) => onChange(gates.map((g) => (g.id === gate.id ? next : g)));
+  const setCond = (c, patch) => update({ ...gate, conditions: gate.conditions.map((x) => x.id === c.id ? { ...x, ...patch } : x) });
+  const metricOptions = metrics.map((m) => ({ value: m, label: metricLabel(m, lang), icon: m.startsWith('new_') ? 'clock' : 'chart' }));
+  const opOptions = Object.keys(GATE_OPS).map((op) => ({ value: op, label: `${op} (${GATE_OPS[op]})`, icon: 'filter' }));
   return (
     <div>
-      <div className="hrow">
-        <select value={gate.id} onChange={(e) => setId(e.target.value)}>
-          {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-        </select>
-        <button className="ghost" onClick={() => {
+      <div className="view-toolbar">
+        <IconSelect value={gate.id} onChange={setId} title={t('gate_pick')} ariaLabel={t('gate_pick')} width={240}
+          options={gates.map((g) => ({ value: g.id, label: g.name, icon: 'gate' }))} />
+        <Btn icon="copy" label={t('gate_copy')} onClick={() => {
           const copy = { ...gate, id: `gate-${Date.now().toString(36)}`, name: `${gate.name} copy`, isDefault: false, conditions: gate.conditions.map((c) => ({ ...c, id: `c-${Math.random().toString(36).slice(2, 7)}` })) };
           onChange([...gates, copy]);
           setId(copy.id);
-        }}>{t('add')}</button>
-        {project && <button className="ghost" onClick={() => onAssign(gate.id)}>{t('profile')}: {project.name}</button>}
+        }} />
+        {project && <Btn icon="link" label={t('gate_assign', { name: project.name })} onClick={() => onAssign(gate.id)} />}
       </div>
-      <table>
-        <thead><tr><th>{t('measures_hint') && ''}</th><th>op</th><th></th><th /></tr></thead>
-        <tbody>
-          {gate.conditions.map((c) => (
-            <tr key={c.id}>
-              <td>
-                <select value={c.metric} onChange={(e) => update({ ...gate, conditions: gate.conditions.map((x) => x.id === c.id ? { ...x, metric: e.target.value } : x) })}>
-                  {metrics.map((m) => <option key={m} value={m}>{metricLabel(m, lang)}</option>)}
-                </select>
-              </td>
-              <td>
-                <select value={c.op} onChange={(e) => update({ ...gate, conditions: gate.conditions.map((x) => x.id === c.id ? { ...x, op: e.target.value } : x) })}>
-                  {['GT', 'LT', 'GTE', 'LTE', 'EQ'].map((op) => <option key={op}>{op}</option>)}
-                </select>
-              </td>
-              <td><input type="number" value={c.threshold} onChange={(e) => update({ ...gate, conditions: gate.conditions.map((x) => x.id === c.id ? { ...x, threshold: Number(e.target.value) } : x) })} /></td>
-              <td><button className="ghost" onClick={() => update({ ...gate, conditions: gate.conditions.filter((x) => x.id !== c.id) })}>{t('remove')}</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <button className="primary" onClick={() => update({ ...gate, conditions: [...gate.conditions, { id: `c-${Date.now().toString(36)}`, metric: 'bugs', op: 'GT', threshold: 0, on: 'overall' }] })}>{t('add')}</button>
+      <div className="panel tpanel">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>{t('gate_metric')}</th><th>{t('gate_op')}</th><th>{t('gate_threshold')}</th><th className="act" /></tr></thead>
+            <tbody>
+              {gate.conditions.map((c) => (
+                <tr key={c.id}>
+                  <td><IconSelect value={c.metric} options={metricOptions} width={300} ariaLabel={t('gate_metric')} onChange={(v) => setCond(c, { metric: v })} /></td>
+                  <td><IconSelect value={c.op} options={opOptions} width={120} ariaLabel={t('gate_op')} onChange={(v) => setCond(c, { op: v })} /></td>
+                  <td><Stepper value={c.threshold} min={0} max={1000000} ariaLabel={t('gate_threshold')} onChange={(v) => setCond(c, { threshold: v })} /></td>
+                  <td className="act"><Btn icon="trash" label={t('remove')} onClick={() => update({ ...gate, conditions: gate.conditions.filter((x) => x.id !== c.id) })} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="table-foot">
+        <Btn icon="plus" label={t('gate_add_condition')} primary onClick={() => update({ ...gate, conditions: [...gate.conditions, { id: `c-${Date.now().toString(36)}`, metric: 'bugs', op: 'GT', threshold: 0, on: 'overall' }] })} />
+      </div>
     </div>
   );
 }

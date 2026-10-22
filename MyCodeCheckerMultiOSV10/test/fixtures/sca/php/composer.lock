@@ -1,0 +1,49 @@
+{
+  "_readme": [
+    "This file locks the dependencies of your project to a known state"
+  ],
+  "content-hash": "abc",
+  "packages": [
+    {
+      "name": "guzzlehttp/guzzle",
+      "version": "7.4.2",
+      "license": [
+        "MIT"
+      ],
+      "require": {
+        "php": "^7.2.5 || ^8.0",
+        "guzzlehttp/psr7": "^1.8.3 || ^2.1"
+      }
+    },
+    {
+      "name": "guzzlehttp/psr7",
+      "version": "2.1.0",
+      "license": [
+        "MIT"
+      ]
+    },
+    {
+      "name": "phpmailer/phpmailer",
+      "version": "v5.2.16",
+      "license": [
+        "LGPL-2.1-only"
+      ]
+    },
+    {
+      "name": "monolog/monolog",
+      "version": "2.3.5",
+      "license": [
+        "MIT"
+      ]
+    }
+  ],
+  "packages-dev": [
+    {
+      "name": "phpunit/phpunit",
+      "version": "9.5.10",
+      "license": [
+        "BSD-3-Clause"
+      ]
+    }
+  ]
+}

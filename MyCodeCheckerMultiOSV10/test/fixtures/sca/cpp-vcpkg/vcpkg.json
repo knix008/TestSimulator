@@ -1,0 +1,22 @@
+{
+  "name": "imagetool",
+  "version": "0.1.0",
+  "dependencies": [
+    "fmt",
+    {
+      "name": "zlib",
+      "version>=": "1.2.11"
+    },
+    {
+      "name": "gtest",
+      "host": true
+    }
+  ],
+  "overrides": [
+    {
+      "name": "zlib",
+      "version": "1.2.12"
+    }
+  ],
+  "builtin-baseline": "3426db05b996481ca31e95fff3734cf23e0f51bc"
+}

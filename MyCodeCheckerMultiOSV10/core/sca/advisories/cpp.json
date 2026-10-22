@@ -1,0 +1,71 @@
+[
+  {
+    "schema_version": "1.6.0",
+    "id": "CVE-2022-37434",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [],
+    "summary": "zlib heap-based buffer over-read or overflow in inflate via a large gzip header extra field",
+    "details": "zlib heap-based buffer over-read or overflow in inflate via a large gzip header extra field. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "ConanCenter",
+          "name": "zlib",
+          "purl": "pkg:conan/zlib"
+        },
+        "ranges": [
+          {
+            "type": "ECOSYSTEM",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "1.2.13"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "package": {
+          "ecosystem": "vcpkg",
+          "name": "zlib",
+          "purl": "pkg:generic/vcpkg/zlib"
+        },
+        "ranges": [
+          {
+            "type": "ECOSYSTEM",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "1.2.13"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-37434"
+      }
+    ],
+    "database_specific": {
+      "severity": "CRITICAL",
+      "cwe_ids": [
+        "CWE-787"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+    ]
+  }
+]

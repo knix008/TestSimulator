@@ -11,6 +11,7 @@ const { readCoverage, coverageFor, parseLcov } = require('./coverage');
 const { rate, countOpen, isClosed } = require('./ratings');
 const { evaluateGate, SONAR_WAY } = require('./qualitygate');
 const { checkerCatalog, decorateIssue, pathDefects, summarizeCoverity } = require('./coverity');
+const { engines, engineCatalog, extraLineRules } = require('./engines');
 
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'target', 'vendor', '__pycache__',
@@ -78,7 +79,7 @@ function analyzeSources(files, options = {}) {
   const exclusions = options.exclusions || [];
   const onlyLangs = options.languages && options.languages.length ? new Set(options.languages) : null;
   const custom = (options.customRules || []).map(compileCustom).filter(Boolean);
-  const rules = RULES.filter((r) => !inactive.has(r.key));
+  const rules = [...RULES, ...extraLineRules()].filter((r) => !inactive.has(r.key));
   const started = Date.now();
   const warnings = [];
 
@@ -186,6 +187,8 @@ function analyzeSources(files, options = {}) {
     });
     dupInput.push({ path: file.path, lines: structural.code });
   }
+
+  runEngines(prepared, { inactive, root, options }, issues, overrides, warnings);
 
   const dup = findDuplications(dupInput);
   const ncloc = fileRows.reduce((n, f) => n + f.ncloc, 0);
@@ -316,8 +319,60 @@ function analyzeSources(files, options = {}) {
   };
 }
 
-function makeIssue({ rule, severity, lang, file, line, message, rawLine, lines }) {
-  const key = crypto.createHash('sha1').update(`${rule.key}|${file}|${String(rawLine).replace(/\s+/g, ' ').trim().slice(0, 240)}`).digest('hex').slice(0, 16);
+// Contract analyzers (core/ENGINE_CONTRACT.md) run once over all files so
+// they can follow calls and includes across files.
+function runEngines(prepared, ctx, issues, overrides, warnings) {
+  const byPath = new Map(prepared.map((file) => [file.path, file]));
+  const split = new Map();
+  const linesOf = (file) => {
+    if (!split.has(file)) split.set(file, String((byPath.get(file) || {}).text || '').split(/\r?\n/));
+    return split.get(file);
+  };
+  const suppressed = new Map();
+  for (const engine of engines()) {
+    const meta = new Map(engine.catalog().map((m) => [m.key, m]));
+    let found = [];
+    try {
+      found = engine.analyze(prepared, ctx) || [];
+    } catch (err) {
+      warnings.push({ engine: engine.id, message: String((err && err.message) || err) });
+      continue;
+    }
+    for (const f of found) {
+      if (!f || !f.rule || !f.line || ctx.inactive.has(f.rule)) continue;
+      const m = meta.get(f.rule) || {};
+      const lines = linesOf(f.file);
+      if (!suppressed.has(f.file)) suppressed.set(f.file, suppressionLines(lines.join('\n')));
+      if (suppressed.get(f.file).has(f.line)) continue;
+      const rule = { key: f.rule, type: f.type || m.type || 'CODE_SMELL', debtMin: m.debtMin || 10, tags: m.tags || [] };
+      const severity = overrides[f.rule] || f.severity || m.severity || 'MAJOR';
+      const lang = (byPath.get(f.file) || {}).lang || (m.langs && m.langs[0]) || '';
+      const item = makeIssue({
+        rule, severity, lang, file: f.file, line: f.line,
+        message: f.message || m.name, rawLine: lines[f.line - 1] || '', lines,
+        salt: `${f.line}|${(f.message && (f.message.en || f.message.ko)) || ''}`,
+      });
+      item.engine = engine.id;
+      if (f.column) item.column = f.column;
+      if (f.endLine) item.endLine = f.endLine;
+      if (f.endColumn) item.endColumn = f.endColumn;
+      if (f.fix) item.fix = f.fix;
+      if (f.fixes) item.fixes = f.fixes;
+      if (f.events) item.events = f.events;
+      if (f.function) item.function = f.function;
+      for (const field of ['checker', 'standards', 'misraCategory', 'cwe', 'cert']) {
+        if (m[field]) item[field] = m[field];
+      }
+      issues.push(item);
+    }
+  }
+}
+
+function makeIssue({ rule, severity, lang, file, line, message, rawLine, lines, salt }) {
+  // Engine findings add the line and message: several can share a manifest line,
+  // and files outside the language filter have no source lines to tell them apart.
+  const extra = salt ? `|${salt}` : '';
+  const key = crypto.createHash('sha1').update(`${rule.key}|${file}|${String(rawLine).replace(/\s+/g, ' ').trim().slice(0, 240)}${extra}`).digest('hex').slice(0, 16);
   const hotspot = rule.type === 'SECURITY_HOTSPOT';
   return {
     key,
@@ -352,7 +407,7 @@ function suppressionLines(text) {
   const set = new Set();
   const lines = String(text).split(/\r?\n/);
   lines.forEach((line, i) => {
-    if (/NOSONAR|\bnoqa\b|\bnolint\b|checker\s*:\s*ignore|mcc-ignore/i.test(line)) set.add(i + 1);
+    if (/NOSONAR|\bnoqa\b|\bnolint\b|checker\s*:\s*ignore|mcc-ignore|cov-ignore|coverity\[|parasoft-suppress|sparrow-ignore/i.test(line)) set.add(i + 1);
   });
   return set;
 }
@@ -407,7 +462,7 @@ function escapeReg(s) {
 }
 
 function listRules() {
-  return [...RULES.map(ruleMeta), ...structuralMeta(), ...checkerCatalog()];
+  return [...RULES.map(ruleMeta), ...extraLineRules().map(ruleMeta), ...structuralMeta(), ...checkerCatalog(), ...engineCatalog()];
 }
 
 module.exports = {

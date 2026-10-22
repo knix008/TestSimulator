@@ -8,12 +8,29 @@ const { createApi, serializeError } = require('../core/api');
 function createHandler(options = {}) {
   const api = options.api || createApi(options);
   const token = options.token || '';
+  // Origins allowed to call cross-origin (the Tauri page calls the sidecar on
+  // another port). The bearer token is still required for every POST.
+  const corsOrigins = new Set(options.corsOrigins || []);
 
   async function handle(req, res) {
     const host = req.headers.host || '127.0.0.1';
     let url;
     try { url = new URL(req.url, `http://${host}`); } catch { return false; }
     if (!url.pathname.startsWith('/api/')) return false;
+    const origin = req.headers.origin || '';
+    if (origin && corsOrigins.has(origin)) {
+      res.setHeader('access-control-allow-origin', origin);
+      res.setHeader('vary', 'Origin');
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204, {
+          'access-control-allow-methods': 'POST, OPTIONS',
+          'access-control-allow-headers': 'authorization, content-type',
+          'access-control-max-age': '600',
+        });
+        res.end();
+        return true;
+      }
+    }
     if (token) {
       const header = req.headers.authorization || '';
       const query = url.searchParams.get('token') || '';

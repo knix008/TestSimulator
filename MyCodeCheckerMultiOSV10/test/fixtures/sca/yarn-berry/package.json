@@ -1,0 +1,10 @@
+{
+  "name": "yb",
+  "version": "1.0.0",
+  "dependencies": {
+    "semver": "^7.3.0"
+  },
+  "devDependencies": {
+    "json5": "^2.2.0"
+  }
+}

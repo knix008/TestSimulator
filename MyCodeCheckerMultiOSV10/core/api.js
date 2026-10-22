@@ -7,6 +7,7 @@ const { toJson, toCsv, toSarif, toHtml, badge, toDefects } = require('./report')
 const { createStore, projectIdFor, freshWorkspace } = require('./store');
 const { SONAR_WAY } = require('./qualitygate');
 const { DEFAULT_POLICY, slimIssue, isDismissed } = require('./coverity');
+const { createExtensions } = require('./api-ext');
 
 function createApi(opts = {}) {
   const store = createStore(opts.configDir);
@@ -35,7 +36,9 @@ function createApi(opts = {}) {
     return { inactive: [...inactive], overrides };
   }
 
-  function scan(args) {
+  const ext = createExtensions({ workspace, saveWorkspace, configDir: opts.configDir });
+
+  async function scan(args) {
     const ws = workspace();
     const folder = args.path || sampleRoot;
     const abs = path.resolve(folder);
@@ -105,6 +108,7 @@ function createApi(opts = {}) {
         previousCids: branchState.cids || [],
         previousIssues,
         policy,
+        ...ext.engineOptions(ws, project),
       });
     } catch (err) {
       task.status = 'FAILED';
@@ -152,6 +156,7 @@ function createApi(opts = {}) {
     }
     project.branches = project.branches || {};
     delete project.desktop;
+    const previousLatest = branchState.latest || null;
     const history = [...(branchState.history || []), summary].slice(-30);
     project.branches[branch] = {
       latest: analysis,
@@ -160,6 +165,7 @@ function createApi(opts = {}) {
       cids: analysis.coverity.cids,
       measures: analysis.measures,
       snapshot,
+      snapshots: branchState.snapshots || [],
       updatedAt: analysis.finishedAt,
     };
     project.updatedAt = analysis.finishedAt;
@@ -169,25 +175,13 @@ function createApi(opts = {}) {
     task.gate = analysis.qualityGate.status;
     task.policy = analysis.coverity.policy.status;
     task.committed = true;
+    try {
+      await ext.afterScan(ws, project, branch, analysis, previousLatest);
+    } catch (err) {
+      task.warnings.push(err.message);
+    }
     ws.tasks = [task, ...(ws.tasks || [])].slice(0, 100);
     saveWorkspace(ws);
-    if (ws.settings.webhookUrl) {
-      try {
-        const http = ws.settings.webhookUrl.startsWith('https') ? require('https') : require('http');
-        const body = JSON.stringify({ project: project.key, branch, gate: analysis.qualityGate.status, measures: analysis.measures });
-        const url = new URL(ws.settings.webhookUrl);
-        const req = http.request({
-          hostname: url.hostname, port: url.port, path: url.pathname, method: 'POST',
-          headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
-          timeout: 4000,
-        });
-        req.on('error', (err) => { task.warnings.push(err.message); });
-        req.write(body);
-        req.end();
-      } catch (err) {
-        task.warnings.push(err.message);
-      }
-    }
     const publicHistory = (project.branches[branch].history || []).map(({ keys, cids, ...rest }) => rest);
     return { project: { ...publicProject(project), history: publicHistory }, analysis, task, committed: true };
   }
@@ -288,6 +282,7 @@ function createApi(opts = {}) {
       if (ws.activeProjectId === args.projectId) ws.activeProjectId = ws.projects[0] ? ws.projects[0].id : null;
       return saveWorkspace(ws);
     },
+    ...ext.methods,
   };
 
   async function call(name, args) {

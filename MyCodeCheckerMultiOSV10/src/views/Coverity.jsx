@@ -1,9 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
+import { Btn, BtnGroup, IconSelect } from './common';
 
 const PRESETS = ['outstanding', 'new', 'high', 'dismissed', 'fixed'];
 const CLASSIFICATIONS = ['Unclassified', 'Pending', 'Bug', 'False Positive', 'Intentional'];
 const ACTIONS = ['Undecided', 'Fix Required', 'Fix Submitted', 'Modeling Required', 'Ignore'];
+const PRESET_ICON = { outstanding: 'alert', new: 'clock', high: 'shield', dismissed: 'close', fixed: 'check' };
+const CLASSIFICATION_ICON = { Unclassified: 'info', Pending: 'clock', Bug: 'bug', 'False Positive': 'close', Intentional: 'check' };
+const ACTION_ICON = { Undecided: 'info', 'Fix Required': 'alert', 'Fix Submitted': 'check', 'Modeling Required': 'code', Ignore: 'eye' };
+const MODEL_KIND_ICON = { sink: 'download', allocator: 'package', source: 'upload' };
 
 function dismissed(issue) {
   if (!issue) return false;
@@ -55,9 +60,11 @@ export function DefectsView({ analysis, onUpdate }) {
   return (
     <div>
       <div className="hrow">
-        {PRESETS.map((id) => (
-          <button key={id} type="button" className={preset === id ? 'primary' : 'ghost'} onClick={() => setPreset(id)}>{t(`cov_${id}`)}</button>
-        ))}
+        <BtnGroup>
+          {PRESETS.map((id) => (
+            <Btn key={id} icon={PRESET_ICON[id]} label={t(`cov_${id}`)} primary={preset === id} onClick={() => setPreset(id)} />
+          ))}
+        </BtnGroup>
         <span className="spacer" />
         <span className={policy.status === 'ERROR' ? 'bad' : 'ok'}>{t('cov_policy')} {policy.status || '—'}</span>
       </div>
@@ -69,12 +76,10 @@ export function DefectsView({ analysis, onUpdate }) {
         <Stat n={dismissedCount} label={t('cov_dismissed')} />
         <Stat n={fixed.length} label={t('cov_fixed')} />
       </div>
-      <div className="hrow">
-        <input value={q} placeholder={t('search')} onChange={(e) => setQ(e.target.value)} />
-        <select value={checker} onChange={(e) => setChecker(e.target.value)}>
-          <option value="">{t('cov_checker')}</option>
-          {checkers.map((name) => <option key={name}>{name}</option>)}
-        </select>
+      <div className="view-toolbar">
+        <input className="search" value={q} placeholder={t('search')} onChange={(e) => setQ(e.target.value)} />
+        <IconSelect value={checker} onChange={setChecker} title={t('cov_checker')} ariaLabel={t('cov_checker')} width={220}
+          options={[{ value: '', label: t('cov_any_checker'), icon: 'list' }, ...checkers.map((name) => ({ value: name, label: name, icon: 'bug' }))]} />
       </div>
       <div className="split">
         <div className="panel" style={{ padding: 0 }}>
@@ -113,17 +118,17 @@ export function DefectsView({ analysis, onUpdate }) {
               ))}</div>}
               {preset !== 'fixed' && selected.key && (
                 <>
-                  <label className="form-row inline">{t('cov_classification')}
-                    <select value={selected.classification || 'Unclassified'} onChange={(e) => triage({ classification: e.target.value })}>
-                      {CLASSIFICATIONS.map((item) => <option key={item}>{item}</option>)}
-                    </select>
-                  </label>
-                  <label className="form-row inline">{t('cov_action')}
-                    <select value={selected.action || 'Undecided'} onChange={(e) => triage({ action: e.target.value })}>
-                      {ACTIONS.map((item) => <option key={item}>{item}</option>)}
-                    </select>
-                  </label>
-                  <Owner key={selected.cid} issue={selected} onUpdate={onUpdate} />
+                  <div className="form-grid single">
+                    <label>{t('cov_classification')}
+                      <IconSelect value={selected.classification || 'Unclassified'} onChange={(v) => triage({ classification: v })} ariaLabel={t('cov_classification')}
+                        options={CLASSIFICATIONS.map((item) => ({ value: item, label: item, icon: CLASSIFICATION_ICON[item] }))} />
+                    </label>
+                    <label>{t('cov_action')}
+                      <IconSelect value={selected.action || 'Undecided'} onChange={(v) => triage({ action: v })} ariaLabel={t('cov_action')}
+                        options={ACTIONS.map((item) => ({ value: item, label: item, icon: ACTION_ICON[item] }))} />
+                    </label>
+                    <Owner key={selected.cid} issue={selected} onUpdate={onUpdate} />
+                  </div>
                 </>
               )}
             </>
@@ -141,10 +146,13 @@ function Stat({ n, label }) {
 function Owner({ issue, onUpdate }) {
   const [owner, setOwner] = useState(issue.owner || '');
   return (
-    <label className="form-row inline">{t('cov_owner')}
-      <input value={owner} onChange={(e) => setOwner(e.target.value)} />
-      <button type="button" onClick={() => onUpdate([issue.key], { owner, cid: issue.cid })}>{t('save')}</button>
-    </label>
+    <div className="form-field">
+      <span>{t('cov_owner')}</span>
+      <div className="input-row">
+        <input value={owner} aria-label={t('cov_owner')} onChange={(e) => setOwner(e.target.value)} />
+        <Btn icon="save" label={t('save')} onClick={() => onUpdate([issue.key], { owner, cid: issue.cid })} />
+      </div>
+    </div>
   );
 }
 
@@ -164,6 +172,7 @@ export function StreamsView({ history, analysis }) {
     removed = [...a].filter((cid) => !b.has(cid)).length;
   }
   const cov = (analysis && analysis.coverity) || {};
+  const snapOptions = rows.map((row, i) => ({ value: i, label: String(i + 1), icon: 'history' }));
   return (
     <div>
       <p className="small">{t('cov_stream_hint')}</p>
@@ -191,9 +200,9 @@ export function StreamsView({ history, analysis }) {
       {rows.length > 1 && (
         <div className="hrow">
           <span>{t('cov_from')}</span>
-          <select value={left} onChange={(e) => setLeft(Number(e.target.value))}>{rows.map((row, i) => <option key={i} value={i}>{i + 1}</option>)}</select>
+          <IconSelect value={left} onChange={setLeft} options={snapOptions} width={110} ariaLabel={t('cov_from')} />
           <span>{t('cov_to')}</span>
-          <select value={right} onChange={(e) => setRight(Number(e.target.value))}>{rows.map((row, i) => <option key={i} value={i}>{i + 1}</option>)}</select>
+          <IconSelect value={right} onChange={setRight} options={snapOptions} width={110} ariaLabel={t('cov_to')} />
           <span>{t('cov_new')} {added}</span>
           <span>{t('cov_fixed')} {removed}</span>
         </div>
@@ -234,14 +243,14 @@ export function ComponentsEditor({ components, onChange }) {
       <p className="small">{t('cov_component_hint')}</p>
       <div className="panel" style={{ padding: 0 }}>
         <table>
-          <thead><tr><th>{t('name')}</th><th>{t('cov_owner')}</th><th>{t('pattern')}</th><th /></tr></thead>
+          <thead><tr><th>{t('name')}</th><th>{t('cov_owner')}</th><th>{t('pattern')}</th><th className="act" /></tr></thead>
           <tbody>
             {(components || []).map((component, i) => (
               <tr key={`${component.name}-${i}`}>
                 <td>{component.name}</td>
                 <td>{component.owner}</td>
                 <td className="small">{(component.patterns || []).join(', ')}</td>
-                <td><button type="button" className="ghost" onClick={() => onChange(components.filter((_, n) => n !== i))}>{t('remove')}</button></td>
+                <td className="act"><Btn icon="trash" label={t('remove')} onClick={() => onChange(components.filter((_, n) => n !== i))} /></td>
               </tr>
             ))}
           </tbody>
@@ -251,7 +260,7 @@ export function ComponentsEditor({ components, onChange }) {
         <input placeholder={t('name')} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
         <input placeholder={t('cov_owner')} value={draft.owner} onChange={(e) => setDraft({ ...draft, owner: e.target.value })} />
         <textarea placeholder={'src/api/**\nsrc/web/**'} value={draft.patterns} onChange={(e) => setDraft({ ...draft, patterns: e.target.value })} />
-        <button type="button" className="primary" onClick={add}>{t('add')}</button>
+        <Btn icon="plus" label={t('add')} primary onClick={add} />
       </div>
     </div>
   );
@@ -267,7 +276,7 @@ export function PoliciesEditor({ policies, project, onChange, onAssign }) {
         <div key={policy.id} className="panel">
           <div className="hrow">
             <strong>{text(policy.name) || policy.id}</strong>
-            {project && <button type="button" className={current === policy.id || (!current && policy.isDefault) ? 'primary' : 'ghost'} onClick={() => onAssign(policy.id)}>{t('cov_assign')}</button>}
+            {project && <Btn icon="link" label={t('cov_assign')} primary={current === policy.id || (!current && policy.isDefault)} onClick={() => onAssign(policy.id)} />}
           </div>
           <ul>{(policy.conditions || []).map((c, i) => <li key={i} className="small">{c.metric} {c.op} {c.threshold}</li>)}</ul>
         </div>
@@ -296,11 +305,11 @@ export function ModelsEditor({ models, onChange }) {
       <p className="small">{t('cov_model_hint')}</p>
       <div className="panel" style={{ padding: 0 }}>
         <table>
-          <thead><tr><th>{t('name')}</th><th>{t('type')}</th><th>{t('pattern')}</th><th /></tr></thead>
+          <thead><tr><th>{t('name')}</th><th>{t('type')}</th><th>{t('pattern')}</th><th className="act" /></tr></thead>
           <tbody>
             {(models || []).map((model, i) => (
               <tr key={model.key || i}><td>{model.name}</td><td>{model.kind}</td><td className="small">{model.pattern}</td>
-                <td><button type="button" className="ghost" onClick={() => onChange(models.filter((_, n) => n !== i))}>{t('remove')}</button></td></tr>
+                <td className="act"><Btn icon="trash" label={t('remove')} onClick={() => onChange(models.filter((_, n) => n !== i))} /></td></tr>
             ))}
           </tbody>
         </table>
@@ -308,11 +317,10 @@ export function ModelsEditor({ models, onChange }) {
       </div>
       <div className="hrow">
         <input placeholder={t('name')} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-        <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
-          {['sink', 'allocator', 'source'].map((kind) => <option key={kind}>{kind}</option>)}
-        </select>
+        <IconSelect value={draft.kind} onChange={(v) => setDraft({ ...draft, kind: v })} width={150} title={t('type')} ariaLabel={t('type')}
+          options={['sink', 'allocator', 'source'].map((kind) => ({ value: kind, label: kind, icon: MODEL_KIND_ICON[kind] }))} />
         <input placeholder={t('pattern')} value={draft.pattern} onChange={(e) => setDraft({ ...draft, pattern: e.target.value })} />
-        <button type="button" className="primary" onClick={add}>{t('add')}</button>
+        <Btn icon="plus" label={t('add')} primary onClick={add} />
       </div>
     </div>
   );

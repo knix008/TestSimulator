@@ -15,3 +15,21 @@ build/
 Thumbs.db
 .vite/
 .mcc/
+test/last-report.txt
+
+# IDE restores/builds of the SCA fixture projects (C# Dev Kit, Gradle for Java)
+test/fixtures/**/bin/
+test/fixtures/**/obj/
+test/fixtures/**/build/
+test/fixtures/**/.gradle/
+test/fixtures/**/.kotlin/
+test/fixtures/sca/dotnet/App/packages.lock.json
+
+# Editor and OS clutter
+.vscode/
+.idea/
+*.swp
+*~
+*.tmp
+coverage/
+.eslintcache

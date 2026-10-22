@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "hash": {
+      "sha256": "abc"
+    },
+    "pipfile-spec": 6,
+    "requires": {},
+    "sources": [
+      {
+        "name": "pypi",
+        "url": "https://pypi.org/simple",
+        "verify_ssl": true
+      }
+    ]
+  },
+  "default": {
+    "requests": {
+      "hashes": [
+        "sha256:x"
+      ],
+      "index": "pypi",
+      "version": "==2.25.0"
+    },
+    "urllib3": {
+      "hashes": [
+        "sha256:y"
+      ],
+      "version": "==1.26.2"
+    },
+    "pillow": {
+      "version": "==9.0.0"
+    }
+  },
+  "develop": {
+    "pytest": {
+      "version": "==7.1.0"
+    }
+  }
+}

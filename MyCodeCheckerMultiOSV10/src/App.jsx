@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, setLanguage, getLanguage } from './lib/i18n';
 import { applyTheme, setCustomThemes, nextThemeId, themeById } from './themes';
 import { call, pickFolder, quitApp } from './lib/backend';
@@ -6,10 +6,19 @@ import { MenuBar, Toolbar, StatusBar, Dialog, SideNav } from './components/Chrom
 import {
   StartPage, Overview, IssueBrowser, Hotspots, Measures, CodeView, Duplications,
   Activity, RulesView, ProfilesView, GatesView, Portfolios, Tasks,
+  SEV, TYPE_ICON, SEV_ICON,
 } from './views/Panels';
 import { DefectsView, StreamsView, ComponentsEditor, PoliciesEditor, ModelsEditor } from './views/Coverity';
+import { ComplianceView, MisraView } from './views/Compliance';
+import { ReportsView } from './views/Reports';
+import { ScaView } from './views/Sca';
+import { HistoryView } from './views/History';
+import { PullRequestView } from './views/PullRequest';
+import { AdminView } from './views/Admin';
+import { DastView } from './views/Dast';
+import { IconSelect, Stepper, Btn, BtnGroup, Toggle } from './views/common';
 
-const EMPTY_FILTER = { q: '', severity: '', type: '', status: '', newOnly: false };
+const EMPTY_FILTER = { q: '', severity: '', type: '', status: '', newOnly: false, engine: '', standard: '', rules: null, keys: null, drillLabel: '' };
 
 export default function App() {
   useLanguage();
@@ -17,6 +26,8 @@ export default function App() {
   const [ws, setWs] = useState(null);
   const [rules, setRules] = useState([]);
   const [view, setView] = useState('start');
+  // view to return to when the Start toggle is released
+  const viewBeforeStart = useRef('overview');
   const [branch, setBranch] = useState('main');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -69,7 +80,7 @@ export default function App() {
     if (current) {
       const name = current.mainBranch || 'main';
       setBranch(name);
-      if (current.branches && current.branches[name] && current.branches[name].latest) setView('overview');
+      if (settings.showStartOnLaunch === false && current.branches && current.branches[name] && current.branches[name].latest) setView('overview');
     }
   }, []);
 
@@ -190,7 +201,10 @@ export default function App() {
   };
 
   const onAction = async (id) => {
-    if (id === 'showStart') setView('start');
+    if (id === 'showStart') {
+      if (view === 'start') setView(viewBeforeStart.current);
+      else { viewBeforeStart.current = view; setView('start'); }
+    }
     else if (id === 'openFolder') openFolder();
     else if (id === 'openSample') scan('');
     else if (id === 'analyze') { if (project) scan(project.path); else openFolder(); }
@@ -223,6 +237,8 @@ export default function App() {
       { id: 'openFolder', label: t('open_folder') },
       { id: 'openSample', label: t('open_sample') },
       { sep: true },
+      { id: 'view:reports', label: t('menu_reports') },
+      { sep: true },
       { id: 'export:json', label: t('export_json') },
       { id: 'export:sarif', label: t('export_sarif') },
       { id: 'export:html', label: t('export_html') },
@@ -236,6 +252,9 @@ export default function App() {
       { id: 'desktop', label: t('cov_desktop') },
       { id: 'analyze', label: t('cov_commit') },
       { id: 'openSample', label: t('open_sample') },
+      { sep: true },
+      { id: 'view:pullrequest', label: t('menu_pullrequest') },
+      { id: 'view:dast', label: t('menu_dast') },
     ] },
     { id: 'issues', labelKey: 'menu_issues', icon: 'bug', items: () => [
       { id: 'view:issues', label: t('all') },
@@ -249,6 +268,9 @@ export default function App() {
       { id: 'view:profiles', label: t('nav_profiles') },
       { id: 'view:gates', label: t('nav_gates') },
       { id: 'view:portfolios', label: t('nav_portfolios') },
+      { sep: true },
+      { id: 'view:compliance', label: t('menu_security_reports') },
+      { id: 'view:misra', label: t('menu_misra') },
     ] },
     { id: 'view', labelKey: 'menu_view', icon: 'chart', items: () => [
       { id: 'view:overview', label: t('nav_overview') },
@@ -259,10 +281,15 @@ export default function App() {
       { id: 'view:defects', label: t('nav_defects') },
       { id: 'view:streams', label: t('nav_streams') },
       { id: 'view:tasks', label: t('nav_tasks') },
+      { sep: true },
+      { id: 'view:dependencies', label: t('menu_dependencies') },
+      { id: 'view:snapshots', label: t('menu_snapshots') },
     ] },
     { id: 'tools', labelKey: 'menu_tools', icon: 'settings', items: () => [
       { id: 'settings', label: t('settings') },
       { id: 'customRule', label: t('custom_rule') },
+      { sep: true },
+      { id: 'view:admin', label: t('menu_admin') },
     ] },
     { id: 'help', labelKey: 'menu_help', icon: 'info', items: () => [
       { id: 'help', label: t('help') },
@@ -275,16 +302,22 @@ export default function App() {
   if (error && !ws) return <div className="boot">{error}</div>;
 
   const branches = project && project.branches ? Object.keys(project.branches) : ['main'];
+  const stamp = (storedAnalysis && storedAnalysis.finishedAt) || '';
+  const drill = ({ rules: ruleKeys, keys, label }) => {
+    setFilter({ ...EMPTY_FILTER, rules: ruleKeys, keys, drillLabel: label });
+    setSelected(null);
+    setView('issues');
+  };
   if (branch && !branches.includes(branch)) branches.push(branch);
 
   return (
     <div className="app" onClick={() => {}}>
-      <MenuBar menus={menus} onAction={onAction} theme={(ws.settings && ws.settings.theme) || 'midnight'} />
+      <MenuBar menus={menus} onAction={onAction} theme={(ws.settings && ws.settings.theme) || 'midnight'} startActive={view === 'start'} />
       <Toolbar onAction={onAction} busy={busy} branch={branch} branches={branches} onBranch={(name) => { setDesktop(null); setBranch(name); }} />
       <div className="body-row">
-        <SideNav view={view} onView={setView} />
+        {view !== 'start' && <SideNav view={view} onView={setView} />}
         <main className="main">
-          {view === 'start' && <StartPage projects={ws.projects || []} onOpen={openFolder} onSample={() => scan('')} onRecent={async (p) => { await persist({ ...ws, activeProjectId: p.id }); setView('overview'); }} />}
+          {view === 'start' && <StartPage showOnLaunch={ws.settings.showStartOnLaunch !== false} onShowOnLaunch={(v) => patchSettings({ showStartOnLaunch: v })} projects={ws.projects || []} onOpen={openFolder} onSample={() => scan('')} onRecent={async (p) => { await persist({ ...ws, activeProjectId: p.id }); setView('overview'); }} />}
           {view === 'overview' && <Overview analysis={analysis} />}
           {view === 'issues' && <IssueBrowser issues={(analysis && analysis.issues) || []} rules={allRules} filter={filter} setFilter={setFilter} selected={selected} onSelect={setSelected} checked={checked} setChecked={setChecked} onUpdate={onUpdate} />}
           {view === 'hotspots' && <Hotspots issues={(analysis && analysis.issues) || []} rules={allRules} onUpdate={onUpdate} />}
@@ -311,6 +344,14 @@ export default function App() {
             const projects = ws.projects.map((p) => p.id === project.id ? { ...p, policyId } : p);
             persist({ ...ws, projects });
           }} />}
+          {view === 'compliance' && <ComplianceView project={project} branch={branch} stamp={stamp} onDrill={drill} />}
+          {view === 'misra' && <MisraView project={project} branch={branch} stamp={stamp} onDrill={drill} />}
+          {view === 'reports' && <ReportsView project={project} branch={branch} stamp={stamp} />}
+          {view === 'dependencies' && <ScaView project={project} stamp={stamp} />}
+          {view === 'snapshots' && <HistoryView project={project} branch={branch} stamp={stamp} />}
+          {view === 'pullrequest' && <PullRequestView project={project} branch={branch} stamp={stamp} />}
+          {view === 'dast' && <DastView />}
+          {view === 'admin' && <AdminView ws={ws} project={project} branch={branch} onSaveWorkspace={persist} onWorkspaceChanged={reload} />}
           {view === 'models' && <ModelsEditor models={(ws.coverity && ws.coverity.models) || []} onChange={(models) => persist({ ...ws, coverity: { ...ws.coverity, models } })} />}
         </main>
       </div>
@@ -369,46 +410,58 @@ function SettingsDialog({ ws, onClose, onSave }) {
   const set = (patch) => setDraft({ ...draft, ...patch });
   return (
     <Dialog title={t('settings')} onClose={onClose} wide>
-      <label className="form-row inline">{t('language')}
-        <select value={draft.language} onChange={(e) => set({ language: e.target.value })}>
-          <option value="ko">한국어</option>
-          <option value="en">English</option>
-        </select>
-      </label>
-      <label className="form-row inline">{t('new_code_mode')}
-        <select value={draft.newCode} onChange={(e) => set({ newCode: e.target.value })}>
-          <option value="previous">{t('previous_analysis')}</option>
-          <option value="days">{t('number_of_days')}</option>
-        </select>
-        <input type="number" value={draft.newCodeDays} onChange={(e) => set({ newCodeDays: Number(e.target.value) })} />
+      <div className="form-row inline">
+        <span className="form-label">{t('language')}</span>
+        <IconSelect value={draft.language} onChange={(v) => set({ language: v })} width={200} ariaLabel={t('language')} options={[
+          { value: 'ko', label: '한국어', icon: 'globe' },
+          { value: 'en', label: 'English', icon: 'globe' },
+        ]} />
+      </div>
+      <div className="form-row inline">
+        <span className="form-label">{t('start_nav')}</span>
+        <Toggle icon="home" label={t('show_start_on_launch')} checked={draft.showStartOnLaunch !== false} onChange={(v) => set({ showStartOnLaunch: v })} />
+      </div>
+      <div className="form-row inline">
+        <span className="form-label">{t('new_code_mode')}</span>
+        <IconSelect value={draft.newCode || 'previous'} onChange={(v) => set({ newCode: v })} width={200} ariaLabel={t('new_code_mode')} options={[
+          { value: 'previous', label: t('previous_analysis'), icon: 'history' },
+          { value: 'days', label: t('number_of_days'), icon: 'calendar' },
+          { value: 'scm', label: t('ad_nc_scm'), icon: 'branch' },
+        ]} />
+        <Stepper value={draft.newCodeDays ?? 30} min={1} max={3650} ariaLabel={t('number_of_days')} onChange={(v) => set({ newCodeDays: v })} />
         <span>{t('days')}</span>
-      </label>
+      </div>
       <label className="form-row">{t('exclusions')}
         <textarea value={draft.exclusionsText} onChange={(e) => set({ exclusionsText: e.target.value })} />
       </label>
       <label className="form-row">{t('webhook')}
         <input value={draft.webhookUrl || ''} onChange={(e) => set({ webhookUrl: e.target.value })} />
       </label>
-      <label className="form-row inline">{t('assignee')}
+      <label className="form-row inline"><span className="form-label">{t('assignee')}</span>
         <input value={draft.assignee || ''} onChange={(e) => set({ assignee: e.target.value })} />
       </label>
-      <label className="form-row inline">{t('limit_cognitive')}
-        <input type="number" value={draft.limits.cognitive || 15} onChange={(e) => set({ limits: { ...draft.limits, cognitive: Number(e.target.value) } })} />
-      </label>
-      <label className="form-row inline">{t('limit_params')}
-        <input type="number" value={draft.limits.parameters || 7} onChange={(e) => set({ limits: { ...draft.limits, parameters: Number(e.target.value) } })} />
-      </label>
-      <div className="hrow">
-        <button className="primary" onClick={() => onSave({
-          language: draft.language,
-          newCode: draft.newCode,
-          newCodeDays: draft.newCodeDays,
-          exclusions: draft.exclusionsText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean),
-          webhookUrl: draft.webhookUrl,
-          assignee: draft.assignee,
-          limits: draft.limits,
-        }).then(onClose)}>{t('save')}</button>
-        <button className="ghost" onClick={onClose}>{t('cancel')}</button>
+      <div className="form-row inline">
+        <span className="form-label">{t('limit_cognitive')}</span>
+        <Stepper value={draft.limits.cognitive || 15} min={1} max={1000} ariaLabel={t('limit_cognitive')} onChange={(v) => set({ limits: { ...draft.limits, cognitive: v } })} />
+      </div>
+      <div className="form-row inline">
+        <span className="form-label">{t('limit_params')}</span>
+        <Stepper value={draft.limits.parameters || 7} min={1} max={100} ariaLabel={t('limit_params')} onChange={(v) => set({ limits: { ...draft.limits, parameters: v } })} />
+      </div>
+      <div className="dialog-actions">
+        <BtnGroup>
+          <Btn icon="save" label={t('save')} primary onClick={() => onSave({
+            language: draft.language,
+            showStartOnLaunch: draft.showStartOnLaunch !== false,
+            newCode: draft.newCode,
+            newCodeDays: draft.newCodeDays,
+            exclusions: draft.exclusionsText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean),
+            webhookUrl: draft.webhookUrl,
+            assignee: draft.assignee,
+            limits: draft.limits,
+          }).then(onClose)} />
+          <Btn icon="close" label={t('cancel')} onClick={onClose} />
+        </BtnGroup>
       </div>
     </Dialog>
   );
@@ -421,19 +474,21 @@ function CustomRuleDialog({ onClose, onSave }) {
     <Dialog title={t('custom_rule')} onClose={onClose}>
       <label className="form-row">{t('pattern')}<input value={draft.pattern} onChange={(e) => setDraft({ ...draft, pattern: e.target.value })} /></label>
       <label className="form-row">{t('name')}<input value={draft.name.ko} onChange={(e) => setDraft({ ...draft, name: { ko: e.target.value, en: e.target.value } })} /></label>
-      <label className="form-row inline">{t('type')}
-        <select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })}>
-          {['BUG', 'VULNERABILITY', 'CODE_SMELL', 'SECURITY_HOTSPOT'].map((type) => <option key={type}>{type}</option>)}
-        </select>
-      </label>
-      <label className="form-row inline">{t('severity')}
-        <select value={draft.severity} onChange={(e) => setDraft({ ...draft, severity: e.target.value })}>
-          {['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'].map((s) => <option key={s}>{s}</option>)}
-        </select>
-      </label>
-      <div className="hrow">
-        <button className="primary" onClick={() => onSave({ ...draft, key: `custom:${Date.now().toString(36)}` })}>{t('save')}</button>
-        <button className="ghost" onClick={onClose}>{t('cancel')}</button>
+      <div className="form-row inline">
+        <span className="form-label">{t('type')}</span>
+        <IconSelect value={draft.type} onChange={(v) => setDraft({ ...draft, type: v })} width={220} ariaLabel={t('type')}
+          options={['BUG', 'VULNERABILITY', 'CODE_SMELL', 'SECURITY_HOTSPOT'].map((type) => ({ value: type, label: type, icon: TYPE_ICON[type] }))} />
+      </div>
+      <div className="form-row inline">
+        <span className="form-label">{t('severity')}</span>
+        <IconSelect value={draft.severity} onChange={(v) => setDraft({ ...draft, severity: v })} width={220} ariaLabel={t('severity')}
+          options={SEV.map((s) => ({ value: s, label: s, icon: SEV_ICON[s] }))} />
+      </div>
+      <div className="dialog-actions">
+        <BtnGroup>
+          <Btn icon="save" label={t('save')} primary onClick={() => onSave({ ...draft, key: `custom:${Date.now().toString(36)}` })} />
+          <Btn icon="close" label={t('cancel')} onClick={onClose} />
+        </BtnGroup>
       </div>
     </Dialog>
   );

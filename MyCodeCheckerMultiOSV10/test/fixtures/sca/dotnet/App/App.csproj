@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <JsonVersion>12.0.3</JsonVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="$(JsonVersion)" />
+    <PackageReference Include="System.Text.Encodings.Web">
+      <Version>4.7.1</Version>
+    </PackageReference>
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="all" />
+    <PackageReference Include="xunit" Version="2.4.*" />
+  </ItemGroup>
+</Project>

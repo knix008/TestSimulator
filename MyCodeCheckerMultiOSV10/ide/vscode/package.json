@@ -1,0 +1,90 @@
+{
+  "name": "mycodechecker",
+  "displayName": "MyCodeChecker",
+  "description": "MyCodeChecker for the editor: bugs, vulnerabilities, code smells, security hotspots and taint flows as you type, with quick fixes, rule descriptions (Korean / English) and connected mode to a MyCodeChecker server.",
+  "version": "1.0.0",
+  "publisher": "shkwon",
+  "author": { "name": "SHKWON", "email": "knix008@naver.com" },
+  "license": "MIT",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Linters", "Programming Languages"],
+  "keywords": ["static analysis", "sast", "misra", "cert", "security", "linter", "sonarlint", "coverity"],
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": "limited", "description": "Connected mode and custom core paths are read only in trusted workspaces." }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "mycodechecker.analyzeFile", "title": "Analyze Current File", "category": "MyCodeChecker", "icon": "$(search)" },
+      { "command": "mycodechecker.analyzeWorkspace", "title": "Analyze Workspace", "category": "MyCodeChecker", "icon": "$(checklist)" },
+      { "command": "mycodechecker.showRuleDescription", "title": "Show Rule Description", "category": "MyCodeChecker" },
+      { "command": "mycodechecker.toggleConnectedMode", "title": "Toggle Connected Mode", "category": "MyCodeChecker" },
+      { "command": "mycodechecker.setToken", "title": "Set Server Token", "category": "MyCodeChecker" },
+      { "command": "mycodechecker.openIssue", "title": "Open Issue in MyCodeChecker", "category": "MyCodeChecker" },
+      { "command": "mycodechecker.refreshSecurity", "title": "Refresh Security Findings", "category": "MyCodeChecker", "icon": "$(refresh)" },
+      { "command": "mycodechecker.deactivateRule", "title": "Deactivate Rule", "category": "MyCodeChecker" },
+      { "command": "mycodechecker.activateRule", "title": "Activate Rule", "category": "MyCodeChecker" },
+      { "command": "mycodechecker.restart", "title": "Restart Language Server", "category": "MyCodeChecker" }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "mycodechecker.analyzeFile", "group": "mycodechecker@1" },
+        { "command": "mycodechecker.showRuleDescription", "group": "mycodechecker@2" }
+      ],
+      "view/title": [
+        { "command": "mycodechecker.analyzeWorkspace", "when": "view == mycodechecker.security", "group": "navigation@1" },
+        { "command": "mycodechecker.refreshSecurity", "when": "view == mycodechecker.security", "group": "navigation@2" }
+      ]
+    },
+    "views": {
+      "explorer": [
+        { "id": "mycodechecker.security", "name": "MyCodeChecker Security" }
+      ]
+    },
+    "configuration": {
+      "title": "MyCodeChecker",
+      "properties": {
+        "mycodechecker.language": {
+          "type": "string", "enum": ["auto", "ko", "en"], "default": "auto",
+          "description": "Language of diagnostics, hovers and rule descriptions (auto follows the VS Code display language)."
+        },
+        "mycodechecker.rules.inactive": {
+          "type": "array", "items": { "type": "string" }, "default": [],
+          "description": "Rule keys to switch off locally, e.g. \"js:var\"."
+        },
+        "mycodechecker.rules.active": {
+          "type": "array", "items": { "type": "string" }, "default": [],
+          "description": "Rule keys to switch back on although the connected quality profile deactivates them."
+        },
+        "mycodechecker.rules.severityOverrides": {
+          "type": "object", "default": {},
+          "additionalProperties": { "type": "string", "enum": ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"] },
+          "description": "Severity per rule key."
+        },
+        "mycodechecker.exclusions": {
+          "type": "array", "items": { "type": "string" }, "default": [],
+          "description": "Glob patterns (workspace-relative) that are not analyzed, e.g. \"**/generated/**\"."
+        },
+        "mycodechecker.qualityProfile": {
+          "type": "string", "default": "",
+          "description": "Quality profile id or name on the server (connected mode). Empty = all profiles, like a server scan."
+        },
+        "mycodechecker.showHotspots": { "type": "boolean", "default": true, "description": "Show security hotspots as diagnostics." },
+        "mycodechecker.analyzeOnChange": { "type": "boolean", "default": true, "description": "Analyze while typing (debounced). Off = on open and save only." },
+        "mycodechecker.analyzeWorkspaceOnStart": { "type": "boolean", "default": false, "description": "Analyze the whole workspace at startup so cross-file findings (taint across files) appear." },
+        "mycodechecker.debounceMs": { "type": "number", "default": 600, "minimum": 0, "description": "Delay after the last keystroke before re-analysis." },
+        "mycodechecker.includeDirs": { "type": "array", "items": { "type": "string" }, "default": [], "description": "C/C++ include folders." },
+        "mycodechecker.defines": { "type": "object", "default": {}, "description": "C/C++ macro definitions, e.g. { \"DEBUG\": \"1\" }." },
+        "mycodechecker.connectedMode.enabled": { "type": "boolean", "default": false, "description": "Use the quality profile and issue statuses of a MyCodeChecker server." },
+        "mycodechecker.connectedMode.serverUrl": { "type": "string", "default": "", "description": "Server URL, e.g. http://127.0.0.1:5211" },
+        "mycodechecker.connectedMode.projectKey": { "type": "string", "default": "", "description": "Project key, id or name on the server. Empty = matched by folder path." },
+        "mycodechecker.connectedMode.token": { "type": "string", "default": "", "description": "Bearer token. Prefer the \"MyCodeChecker: Set Server Token\" command, which keeps it in the OS secret store." },
+        "mycodechecker.connectedMode.refreshMinutes": { "type": "number", "default": 5, "minimum": 0, "description": "How often to refresh the profile and issue statuses (0 = only on start)." },
+        "mycodechecker.corePath": { "type": "string", "default": "", "description": "Folder of a MyCodeChecker checkout (or its core folder). Empty = the copy bundled in the extension." },
+        "mycodechecker.nodePath": { "type": "string", "default": "", "description": "Node.js executable for the language server. Empty = the runtime that runs VS Code." },
+        "mycodechecker.trace.server": { "type": "string", "enum": ["off", "messages"], "default": "off", "description": "Log language server traffic in the MyCodeChecker output channel." }
+      }
+    }
+  }
+}

@@ -1,0 +1,999 @@
+[
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-jf85-cpcp-j695",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2019-10744"
+    ],
+    "summary": "Prototype Pollution in lodash (defaultsDeep)",
+    "details": "Prototype Pollution in lodash (defaultsDeep). Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "lodash",
+          "purl": "pkg:npm/lodash"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "4.17.12"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-jf85-cpcp-j695"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2019-10744"
+      }
+    ],
+    "database_specific": {
+      "severity": "CRITICAL",
+      "cwe_ids": [
+        "CWE-1321",
+        "CWE-20"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-p6mc-m468-83gw",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2020-8203"
+    ],
+    "summary": "Prototype Pollution in lodash (zipObjectDeep)",
+    "details": "Prototype Pollution in lodash (zipObjectDeep). Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "lodash",
+          "purl": "pkg:npm/lodash"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "3.7.0"
+              },
+              {
+                "fixed": "4.17.19"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-p6mc-m468-83gw"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-8203"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-1321",
+        "CWE-770"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-35jh-r3h4-6jhm",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2021-23337"
+    ],
+    "summary": "Command Injection in lodash (template)",
+    "details": "Command Injection in lodash (template). Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "lodash",
+          "purl": "pkg:npm/lodash"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "4.17.21"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-35jh-r3h4-6jhm"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-77",
+        "CWE-94"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-xvch-5gv4-984h",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2021-44906"
+    ],
+    "summary": "Prototype Pollution in minimist",
+    "details": "Prototype Pollution in minimist. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "minimist",
+          "purl": "pkg:npm/minimist"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "0.2.4"
+              },
+              {
+                "introduced": "1.0.0"
+              },
+              {
+                "fixed": "1.2.6"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-xvch-5gv4-984h"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44906"
+      }
+    ],
+    "database_specific": {
+      "severity": "CRITICAL",
+      "cwe_ids": [
+        "CWE-1321"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-vh95-rmgr-6w4m",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2020-7598"
+    ],
+    "summary": "Prototype Pollution in minimist (constructor/__proto__ keys)",
+    "details": "Prototype Pollution in minimist (constructor/__proto__ keys). Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "minimist",
+          "purl": "pkg:npm/minimist"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "0.2.1"
+              },
+              {
+                "introduced": "1.0.0"
+              },
+              {
+                "fixed": "1.2.3"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-vh95-rmgr-6w4m"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-7598"
+      }
+    ],
+    "database_specific": {
+      "severity": "MODERATE",
+      "cwe_ids": [
+        "CWE-1321"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-r683-j2x4-v87g",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2022-0235"
+    ],
+    "summary": "node-fetch forwards secure headers to untrusted sites on redirect",
+    "details": "node-fetch forwards secure headers to untrusted sites on redirect. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "node-fetch",
+          "purl": "pkg:npm/node-fetch"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "2.6.7"
+              },
+              {
+                "introduced": "3.0.0"
+              },
+              {
+                "fixed": "3.1.1"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-r683-j2x4-v87g"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-0235"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-173",
+        "CWE-200",
+        "CWE-601"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-w7rc-rwvf-8q5r",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2020-15168"
+    ],
+    "summary": "node-fetch size option not honored after following a redirect",
+    "details": "node-fetch size option not honored after following a redirect. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "node-fetch",
+          "purl": "pkg:npm/node-fetch"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "2.6.1"
+              },
+              {
+                "introduced": "3.0.0-beta.1"
+              },
+              {
+                "fixed": "3.0.0-beta.9"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-w7rc-rwvf-8q5r"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-15168"
+      }
+    ],
+    "database_specific": {
+      "severity": "LOW",
+      "cwe_ids": [
+        "CWE-20",
+        "CWE-400"
+      ],
+      "source": "mcc-bundled"
+    }
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-cph5-m8f7-6c5x",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2021-3749"
+    ],
+    "summary": "Inefficient regular expression complexity (ReDoS) in axios trim",
+    "details": "Inefficient regular expression complexity (ReDoS) in axios trim. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "axios",
+          "purl": "pkg:npm/axios"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "0.21.2"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-cph5-m8f7-6c5x"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-3749"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-400",
+        "CWE-1333"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-wf5p-g6vw-rhxx",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2023-45857"
+    ],
+    "summary": "Axios Cross-Site Request Forgery: XSRF-TOKEN revealed to third-party hosts",
+    "details": "Axios Cross-Site Request Forgery: XSRF-TOKEN revealed to third-party hosts. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "axios",
+          "purl": "pkg:npm/axios"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0.8.1"
+              },
+              {
+                "fixed": "0.28.0"
+              },
+              {
+                "introduced": "1.0.0"
+              },
+              {
+                "fixed": "1.6.0"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-wf5p-g6vw-rhxx"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2023-45857"
+      }
+    ],
+    "database_specific": {
+      "severity": "MODERATE",
+      "cwe_ids": [
+        "CWE-352"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:N/A:N"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-6c3j-c64m-qhgq",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2019-11358"
+    ],
+    "summary": "Prototype Pollution in jQuery extend",
+    "details": "Prototype Pollution in jQuery extend. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "jquery",
+          "purl": "pkg:npm/jquery"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "3.4.0"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-6c3j-c64m-qhgq"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2019-11358"
+      }
+    ],
+    "database_specific": {
+      "severity": "MODERATE",
+      "cwe_ids": [
+        "CWE-1321",
+        "CWE-79"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-gxr4-xjj5-5px2",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2020-11022"
+    ],
+    "summary": "Potential XSS vulnerability in jQuery htmlPrefilter",
+    "details": "Potential XSS vulnerability in jQuery htmlPrefilter. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "jquery",
+          "purl": "pkg:npm/jquery"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "1.2.0"
+              },
+              {
+                "fixed": "3.5.0"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-gxr4-xjj5-5px2"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2020-11022"
+      }
+    ],
+    "database_specific": {
+      "severity": "MODERATE",
+      "cwe_ids": [
+        "CWE-79"
+      ],
+      "source": "mcc-bundled"
+    }
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-3h5v-q93c-6h6q",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2024-37890"
+    ],
+    "summary": "ws affected by a DoS when handling a request with many HTTP headers",
+    "details": "ws affected by a DoS when handling a request with many HTTP headers. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "ws",
+          "purl": "pkg:npm/ws"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "2.1.0"
+              },
+              {
+                "fixed": "5.2.4"
+              },
+              {
+                "introduced": "6.0.0"
+              },
+              {
+                "fixed": "6.2.3"
+              },
+              {
+                "introduced": "7.0.0"
+              },
+              {
+                "fixed": "7.5.10"
+              },
+              {
+                "introduced": "8.0.0"
+              },
+              {
+                "fixed": "8.17.1"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-3h5v-q93c-6h6q"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-37890"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-476"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-c2qf-rxjj-qqgw",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2022-25883"
+    ],
+    "summary": "semver vulnerable to Regular Expression Denial of Service",
+    "details": "semver vulnerable to Regular Expression Denial of Service. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "semver",
+          "purl": "pkg:npm/semver"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "5.7.2"
+              },
+              {
+                "introduced": "6.0.0"
+              },
+              {
+                "fixed": "6.3.1"
+              },
+              {
+                "introduced": "7.0.0"
+              },
+              {
+                "fixed": "7.5.2"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-c2qf-rxjj-qqgw"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-25883"
+      }
+    ],
+    "database_specific": {
+      "severity": "MODERATE",
+      "cwe_ids": [
+        "CWE-1333"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-rv95-896h-c2vc",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2024-29041"
+    ],
+    "summary": "Express.js Open Redirect in malformed URLs",
+    "details": "Express.js Open Redirect in malformed URLs. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "express",
+          "purl": "pkg:npm/express"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "4.19.2"
+              },
+              {
+                "introduced": "5.0.0-alpha.1"
+              },
+              {
+                "fixed": "5.0.0-beta.3"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-rv95-896h-c2vc"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-29041"
+      }
+    ],
+    "database_specific": {
+      "severity": "MODERATE",
+      "cwe_ids": [
+        "CWE-601",
+        "CWE-1286"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-9c47-m6qq-7p4h",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2022-46175"
+    ],
+    "summary": "Prototype Pollution in JSON5 via parse method",
+    "details": "Prototype Pollution in JSON5 via parse method. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "json5",
+          "purl": "pkg:npm/json5"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "1.0.2"
+              },
+              {
+                "introduced": "2.0.0"
+              },
+              {
+                "fixed": "2.2.2"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-9c47-m6qq-7p4h"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-46175"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-1321"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:L/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-hrpp-h998-j3pp",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2022-24999"
+    ],
+    "summary": "qs vulnerable to Prototype Pollution",
+    "details": "qs vulnerable to Prototype Pollution. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "npm",
+          "name": "qs",
+          "purl": "pkg:npm/qs"
+        },
+        "ranges": [
+          {
+            "type": "SEMVER",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "6.2.4"
+              },
+              {
+                "introduced": "6.3.0"
+              },
+              {
+                "fixed": "6.3.3"
+              },
+              {
+                "introduced": "6.4.0"
+              },
+              {
+                "fixed": "6.4.1"
+              },
+              {
+                "introduced": "6.5.0"
+              },
+              {
+                "fixed": "6.5.3"
+              },
+              {
+                "introduced": "6.6.0"
+              },
+              {
+                "fixed": "6.6.1"
+              },
+              {
+                "introduced": "6.7.0"
+              },
+              {
+                "fixed": "6.7.3"
+              },
+              {
+                "introduced": "6.8.0"
+              },
+              {
+                "fixed": "6.8.3"
+              },
+              {
+                "introduced": "6.9.0"
+              },
+              {
+                "fixed": "6.9.7"
+              },
+              {
+                "introduced": "6.10.0"
+              },
+              {
+                "fixed": "6.10.3"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-hrpp-h998-j3pp"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-24999"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-1321"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+    ]
+  }
+]

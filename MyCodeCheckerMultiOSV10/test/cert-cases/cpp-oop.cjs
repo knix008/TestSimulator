@@ -1,0 +1,55 @@
+module.exports = [
+  { key: 'cert:OOP50-CPP',
+    bad: `class B { public: B() { seize(); } virtual ~B() { release(); } protected: virtual void seize(); virtual void release(); };`,
+    good: `class B { public: B() { B::seize(); helper(); } virtual ~B() { B::release(); } protected: virtual void seize(); virtual void release(); void helper(); };` },
+  { key: 'cert:OOP50-CPP',
+    bad: `class B { public: B(); virtual void init(); };\nB::B() { this->init(); }`,
+    good: `class B { public: B(); void init(); virtual void run(); };\nB::B() { this->init(); }\nvoid go(B &b) { b.run(); }` },
+
+  { key: 'cert:OOP51-CPP',
+    bad: `class Emp { public: virtual void print() const; };\nclass Mgr : public Emp { int level; public: void print() const override; };\nvoid show(Emp e) { e.print(); }`,
+    good: `class Emp { public: virtual void print() const; };\nclass Mgr : public Emp { int level; public: void print() const override; };\nvoid show(const Emp &e) { e.print(); }\nvoid f(Mgr &m) { show(m); }` },
+  { key: 'cert:OOP51-CPP',
+    bad: `struct Base { int a; };\nstruct Derived : Base { int b; };\nvoid f() { Derived d; Base b = d; Base c; c = d; }`,
+    good: `struct Base { int a; };\nstruct Derived : Base { int b; };\nvoid f() { Derived d; Base &b = d; Base *p = &d; Derived e = d; }` },
+
+  { key: 'cert:OOP52-CPP',
+    bad: `struct Base { virtual void f(); ~Base(); };\nstruct Derived : Base { void f() override; };\nvoid g() { Base *b = new Derived; delete b; }`,
+    good: `struct Base { virtual void f(); virtual ~Base(); };\nstruct Derived : Base { void f() override; };\nvoid g() { Base *b = new Derived; delete b; }` },
+  { key: 'cert:OOP52-CPP',
+    bad: `struct Base { int x; };\nstruct Derived : Base { int *buf; ~Derived(); };\nvoid g() { Base *b = new Derived(); delete b; }`,
+    good: `struct Base { int x; };\nstruct Derived : Base { int *buf; ~Derived(); };\nvoid g() { Derived *d = new Derived(); delete d; Base *b = new Base; delete b; }` },
+
+  { key: 'cert:OOP53-CPP',
+    bad: `class C { int dependsOnSomeVal; int someVal; public: C(int val) : someVal(val), dependsOnSomeVal(someVal + 1) {} };`,
+    good: `class C { int someVal; int dependsOnSomeVal; public: C(int val) : someVal(val), dependsOnSomeVal(someVal + 1) {} };` },
+
+  { key: 'cert:OOP54-CPP',
+    bad: `struct S { S(const S &); };\nclass T { int n; S *s; public: T &operator=(const T &rhs) { n = rhs.n; delete s; s = new S(*rhs.s); return *this; } };`,
+    good: `struct S { S(const S &); };\nclass T { int n; S *s; public: T &operator=(const T &rhs) { if (this != &rhs) { n = rhs.n; delete s; s = new S(*rhs.s); } return *this; } };` },
+
+  { key: 'cert:OOP55-CPP',
+    bad: `struct B { virtual ~B(); };\nstruct D : B { int i; };\nvoid f() { B *b = new B; int D::*pm = &D::i; b->*pm = 3; }`,
+    good: `struct B { virtual ~B(); int j; };\nstruct D : B { int i; };\nvoid f() { D *d = new D; int D::*pm = &D::i; d->*pm = 3; B b; int B::*pj = &B::j; b.*pj = 1; }` },
+
+  { key: 'cert:OOP56-CPP',
+    bad: `#include <exception>\nvoid term() { }\nvoid f() { std::set_terminate(term); }`,
+    good: `#include <exception>\n#include <cstdlib>\nvoid term() { std::abort(); }\nvoid f() { std::set_terminate(term); }` },
+  { key: 'cert:OOP56-CPP',
+    bad: `#include <new>\n#include <cstdio>\nvoid nh() { std::puts("out of memory"); }\nvoid f() { std::set_new_handler(nh); }`,
+    good: `#include <new>\nextern char *reserve;\nvoid nh() { if (reserve) { delete [] reserve; reserve = nullptr; return; } throw std::bad_alloc(); }\nvoid f() { std::set_new_handler(nh); }` },
+
+  { key: 'cert:OOP57-CPP',
+    bad: `#include <cstring>\nstruct S { virtual void f(); int i; };\nvoid g(S *s) { std::memset(s, 0, sizeof(S)); }`,
+    good: `#include <cstring>\nstruct P { int i; double d; };\nvoid g(P *p) { std::memset(p, 0, sizeof(P)); }` },
+  { key: 'cert:OOP57-CPP',
+    bad: `#include <cstring>\n#include <cstdlib>\n#include <string>\nstruct R { std::string name; };\nbool eq(const R &a, const R &b) { return std::memcmp(&a, &b, sizeof(R)) == 0; }\nR *mk() { return static_cast<R *>(std::malloc(sizeof(R))); }`,
+    good: `#include <cstring>\n#include <cstdlib>\nstruct R { int v[4]; };\nbool eq(const R &a, const R &b) { return std::memcmp(&a, &b, sizeof(R)) == 0; }\nR *mk() { return static_cast<R *>(std::malloc(sizeof(R))); }` },
+
+  { key: 'cert:OOP58-CPP',
+    bad: `class A { int *p; public: A(A &o) : p(o.p) { o.p = nullptr; } };`,
+    good: `class A { int *p; public: A(const A &o) : p(new int(*o.p)) {} A(A &&o) noexcept : p(o.p) { o.p = nullptr; } };` },
+  { key: 'cert:OOP58-CPP',
+    bad: `class A { mutable int n; public: A &operator=(const A &o) { n = o.n; o.n = 0; return *this; } };`,
+    good: `class A { int n; public: A &operator=(const A &o) { n = o.n; return *this; } };` },
+];

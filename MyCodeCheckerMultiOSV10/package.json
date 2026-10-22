@@ -21,11 +21,13 @@
     "build:win": "node scripts/platform-build.mjs win",
     "build:linux": "node scripts/platform-build.mjs linux",
     "build:mac": "node scripts/platform-build.mjs mac",
+    "build:vsix": "node ide/vscode/build-vsix.js",
     "web": "npm run build:web",
     "web:serve": "node server/server.js",
     "scan": "node scripts/scan.mjs",
     "cov": "node scripts/cov.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test --test-reporter=./test/reporter.mjs test/*.test.mjs",
+    "gen:cert-test": "node scripts/gen-cert-test.cjs",
     "generate:icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {

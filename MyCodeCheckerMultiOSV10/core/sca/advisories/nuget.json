@@ -1,0 +1,124 @@
+[
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-5crp-9r3c-p9vr",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2024-21907"
+    ],
+    "summary": "Improper Handling of Exceptional Conditions in Newtonsoft.Json (deeply nested input)",
+    "details": "Improper Handling of Exceptional Conditions in Newtonsoft.Json (deeply nested input). Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "NuGet",
+          "name": "Newtonsoft.Json",
+          "purl": "pkg:nuget/Newtonsoft.Json"
+        },
+        "ranges": [
+          {
+            "type": "ECOSYSTEM",
+            "events": [
+              {
+                "introduced": "0"
+              },
+              {
+                "fixed": "13.0.1"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-5crp-9r3c-p9vr"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-21907"
+      }
+    ],
+    "database_specific": {
+      "severity": "HIGH",
+      "cwe_ids": [
+        "CWE-755"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+    ]
+  },
+  {
+    "schema_version": "1.6.0",
+    "id": "GHSA-ghhp-997w-qr28",
+    "modified": "2026-10-01T00:00:00Z",
+    "aliases": [
+      "CVE-2021-26701"
+    ],
+    "summary": ".NET Core Remote Code Execution Vulnerability in System.Text.Encodings.Web",
+    "details": ".NET Core Remote Code Execution Vulnerability in System.Text.Encodings.Web. Bundled offline record from MyCodeChecker; see the references for the full advisory.",
+    "affected": [
+      {
+        "package": {
+          "ecosystem": "NuGet",
+          "name": "System.Text.Encodings.Web",
+          "purl": "pkg:nuget/System.Text.Encodings.Web"
+        },
+        "ranges": [
+          {
+            "type": "ECOSYSTEM",
+            "events": [
+              {
+                "introduced": "4.0.0"
+              },
+              {
+                "fixed": "4.5.1"
+              },
+              {
+                "introduced": "4.6.0"
+              },
+              {
+                "fixed": "4.7.2"
+              },
+              {
+                "introduced": "5.0.0"
+              },
+              {
+                "fixed": "5.0.1"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "references": [
+      {
+        "type": "ADVISORY",
+        "url": "https://github.com/advisories/GHSA-ghhp-997w-qr28"
+      },
+      {
+        "type": "ADVISORY",
+        "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-26701"
+      }
+    ],
+    "database_specific": {
+      "severity": "CRITICAL",
+      "cwe_ids": [
+        "CWE-94"
+      ],
+      "source": "mcc-bundled"
+    },
+    "severity": [
+      {
+        "type": "CVSS_V3",
+        "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+    ]
+  }
+]

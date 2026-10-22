@@ -1,0 +1,12 @@
+plugins { id "java" }
+def jacksonVersion = '2.12.5'
+ext {
+    snakeVersion = '1.33'
+}
+dependencies {
+    implementation 'org.apache.logging.log4j:log4j-core:2.16.0'
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    implementation group: 'org.yaml', name: 'snakeyaml', version: snakeVersion
+    runtimeOnly 'com.google.guava:guava:31.+'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.0'
+}

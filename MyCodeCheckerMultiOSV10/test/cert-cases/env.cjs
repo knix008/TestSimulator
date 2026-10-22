@@ -1,0 +1,8 @@
+module.exports = [
+  { key: 'cert:ENV30-C', bad: `#include <stdlib.h>\nvoid f(void){ char *p = getenv("TZ"); if (p) p[0] = 'X'; }`, good: `#include <stdlib.h>\n#include <string.h>\nvoid f(void){ const char *p = getenv("TZ"); char *q = p ? strdup(p) : NULL; if (q) { q[0] = 'X'; free(q); } }` },
+  { key: 'cert:ENV31-C', bad: `#include <stdlib.h>\n#include <stdio.h>\nint main(int argc, char *argv[], char *envp[]){ setenv("A", "1", 1); puts(envp[0]); return 0; }`, good: `#include <stdlib.h>\n#include <stdio.h>\nextern char **environ;\nint main(int argc, char *argv[], char *envp[]){ puts(envp[0]); setenv("A", "1", 1); puts(environ[0]); return 0; }` },
+  { key: 'cert:ENV32-C', bad: `#include <stdlib.h>\nstatic void bye(void){ exit(1); }\nint main(void){ atexit(bye); return 0; }`, good: `#include <stdlib.h>\n#include <stdio.h>\nstatic void bye(void){ fflush(stdout); }\nint main(void){ atexit(bye); return 0; }` },
+  { key: 'cert:ENV33-C', bad: `#include <stdlib.h>\nvoid f(const char *cmd){ system(cmd); }`, good: `#include <stdlib.h>\nint f(void){ return system(NULL); }` },
+  { key: 'cert:ENV33-C', bad: `#include <stdio.h>\nvoid f(void){ FILE *p = popen("ls", "r"); if (p) pclose(p); }`, good: `#include <unistd.h>\nvoid f(char *const argv[]){ execv("/bin/ls", argv); }` },
+  { key: 'cert:ENV34-C', bad: `#include <stdlib.h>\n#include <string.h>\nint f(void){ const char *a = getenv("A"); const char *b = getenv("B"); return strcmp(a, b); }`, good: `#include <stdlib.h>\n#include <string.h>\nint f(void){ char *a = strdup(getenv("A")); const char *b = getenv("B"); int r = strcmp(a, b); free(a); return r; }` },
+];

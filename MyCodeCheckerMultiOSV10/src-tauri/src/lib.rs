@@ -161,7 +161,15 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     let (child, port, token) = start_service(&root, &node, &config)?;
     let script = format!("window.__MCC_HOST__={{port:{port},token:\"{token}\",platform:\"{}\"}};", platform_name());
     app.manage(Host { port, token, child: Mutex::new(Some(child)) });
-    let win = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+    let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()));
+    // `npm start` gets its own WebView2 profile: sharing the installed app's
+    // profile fails with 0x800700AA (resource in use) while that app is open.
+    if cfg!(debug_assertions) {
+        if let Ok(dir) = app.path().app_local_data_dir() {
+            builder = builder.data_directory(dir.join("EBWebView-dev"));
+        }
+    }
+    let win = builder
         .title("MyCodeChecker")
         .inner_size(1280.0, 840.0)
         .min_inner_size(960.0, 640.0)

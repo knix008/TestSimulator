@@ -1,0 +1,12 @@
+{
+  "version": "0.5",
+  "requires": [
+    "zlib/1.2.11#8b7fd1cd2b1b4c1fdbf2f29dfb8bd7d1%1676036000.0",
+    "openssl/3.0.8#b3a8ef9b5f5b1fb6c0bcf5e1bd8c5ec8%1677000000.0",
+    "boost/1.83.0#abc%1690000000.0"
+  ],
+  "build_requires": [
+    "cmake/3.25.1#def%1670000000.0"
+  ],
+  "python_requires": []
+}

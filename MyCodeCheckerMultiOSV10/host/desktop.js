@@ -11,7 +11,13 @@ const { createHandler } = require('../server/handle');
 const root = path.join(__dirname, '..');
 const token = crypto.randomBytes(24).toString('hex');
 const config = arg('config');
-const { handle } = createHandler({ token, configDir: config || undefined, version: readVersion() });
+// Page origins of the Tauri window: the Vite dev server in `npm start`, and
+// the bundled app on Windows (http(s)://tauri.localhost) and macOS/Linux (tauri://localhost).
+const corsOrigins = [
+  'http://localhost:5210', 'http://127.0.0.1:5210',
+  'http://tauri.localhost', 'https://tauri.localhost', 'tauri://localhost',
+];
+const { handle } = createHandler({ token, corsOrigins, configDir: config || undefined, version: readVersion() });
 
 const server = http.createServer((req, res) => {
   handle(req, res).then((done) => {

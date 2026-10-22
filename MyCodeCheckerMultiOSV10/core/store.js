@@ -51,6 +51,7 @@ function freshWorkspace() {
       webhookUrl: '',
       assignee: '',
       limits: {},
+      showStartOnLaunch: true,
     },
     gates: [{ ...SONAR_WAY, conditions: SONAR_WAY.conditions.map((c) => ({ ...c })) }],
     profiles,
