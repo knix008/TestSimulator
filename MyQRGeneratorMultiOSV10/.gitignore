@@ -1,10 +1,20 @@
+# 의존성
 node_modules/
+
+# Rust 빌드 산출물 (네이티브·데스크톱·WebAssembly)
 qrcore/target/
 qrimage/target/
 src-tauri/target/
 src-tauri/gen/
+
+# 테스트가 남기는 화면 캡처와 보고서
 test/.out/
+
+# 브라우저 빌드용으로 컴파일된 WebAssembly. npm run build:wasm 이 다시 만듭니다.
 src/wasm/*.wasm
+
+# 데스크톱 설치 파일. 빌드가 프로젝트 루트로 복사합니다.
+# QRGenerator_* 는 이름을 바꾸기 전의 설치 파일입니다.
 QRGenerator_*-setup.exe
 QRGenerator_*.msi
 QRGenerator_*.dmg
@@ -15,6 +25,12 @@ MyQRGenerator_*.msi
 MyQRGenerator_*.dmg
 MyQRGenerator_*.AppImage
 MyQRGenerator_*.deb
+
+# npm run tutorial 이 만드는 영상. QRGenerator-Tutorial.mp4 는 이전 이름입니다.
+QRGenerator-Tutorial.mp4
+MyQRGenerator-Tutorial.mp4
+
+# 운영체제와 편집기가 만드는 잡동사니
 .DS_Store
 Thumbs.db
 desktop.ini
