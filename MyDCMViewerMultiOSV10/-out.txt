@@ -1,0 +1,8 @@
+17: minTrack=936x679 rect=1196x959
+11: minTrack=0x0 rect=1920x1200
+18: minTrack=1442x639 rect=1442x839
+0: minTrack=0x0 rect=16x16
+17: minTrack=936x679 rect=1196x959
+11: minTrack=0x0 rect=1920x1200
+18: minTrack=1442x639 rect=1442x839
+0: minTrack=0x0 rect=16x16

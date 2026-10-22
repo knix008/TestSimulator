@@ -8,11 +8,13 @@ const { fakeWindow, loadScript } = require('./helpers/dom');
 const SRC = path.join(__dirname, '..', 'src');
 const html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
 
-test('themes: exactly 20 built-in themes, unique ids, complete variable sets', () => {
+test('themes: 20 dark and 20 light built-in themes, unique ids, complete variable sets', () => {
   const w = loadScript('js/themes.js', fakeWindow());
   const list = w.Themes.list();
-  assert.equal(list.length, 20);
-  assert.equal(new Set(list.map((t) => t.id)).size, 20);
+  assert.equal(list.length, 40);
+  assert.equal(new Set(list.map((t) => t.id)).size, 40);
+  assert.equal(list.filter((t) => t.scheme === 'dark').length, 20);
+  assert.equal(list.filter((t) => t.scheme === 'light').length, 20);
   const keys = Object.keys(list[0].vars);
   for (const th of list) {
     assert.ok(['dark', 'light'].includes(th.scheme), th.id);

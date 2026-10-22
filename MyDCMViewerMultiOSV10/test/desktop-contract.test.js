@@ -17,7 +17,8 @@ const conf = JSON.parse(read('src-tauri/tauri.conf.json'));
 const defined = new Set(all(host, /#\[tauri::command\]\s*(?:pub\s+)?(?:async\s+)?fn\s+([a-z_0-9]+)/g));
 const handlerBlock = host.slice(host.indexOf('generate_handler!['), host.indexOf('])', host.indexOf('generate_handler![')));
 const registered = new Set(all(handlerBlock, /([a-z_0-9]+),/g));
-const invoked = new Set([...all(bridge, /invoke\('([a-z_0-9]+)'/g), ...all(transport, /invoke\('([a-z_0-9]+)'/g)]);
+const overlay = read('src/js/menu-overlay.js');   // the menu overlay window calls the host directly
+const invoked = new Set([...all(bridge, /invoke\('([a-z_0-9]+)'/g), ...all(transport, /invoke\('([a-z_0-9]+)'/g), ...all(overlay, /invoke\('([a-z_0-9]+)'/g)]);
 
 test('every command defined in lib.rs is registered, and every registered one exists', () => {
   assert.deepStrictEqual([...defined].filter((c) => !registered.has(c)), []);
@@ -34,6 +35,9 @@ test('every event the page listens for is emitted by the host', () => {
   const emitted = new Set(all(host, /emit(?:_to)?\((?:MAIN, )?"([a-z-]+)"/g));
   assert.deepStrictEqual([...listened].filter((e) => !emitted.has(e)), []);
   for (const e of ['net-data', 'net-closed', 'net-accept']) assert.ok(emitted.has(e), e);
+  const overlayEvents = all(overlay, /listen\('([a-z-]+)'/g);
+  assert.ok(overlayEvents.length >= 2);
+  assert.deepStrictEqual(overlayEvents.filter((e) => !host.includes(`emit_to(MENU_OVERLAY, "${e}"`)), [], 'menu overlay events');
 });
 
 test('the DICOM network commands are wired to net.rs and close their sockets on exit', () => {

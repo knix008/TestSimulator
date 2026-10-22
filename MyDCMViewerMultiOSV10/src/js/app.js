@@ -36,7 +36,7 @@
   const DEFAULTS = {
     theme: 'midnight', lang: 'ko', sidebar: true, sidebarWidth: 300, treeHeight: 50,
     interpolate: false, cornerInfo: true, markers: true, overlays: true, measurements: true, burnAnnotations: true, loop: true, invert: false,
-    ruler: false, grid: false, measureUnit: 'cm', wheelMode: 'zoom', defaultFps: 10, overlayColor: '#00ff80', annotationColor: '#ffd400', rememberLastDir: true, startupDir: '', confirmDelete: true,
+    ruler: false, scaleBar: true, scaleBarPos: null, grid: false, measureUnit: 'cm', wheelMode: 'zoom', defaultFps: 10, overlayColor: '#00ff80', annotationColor: '#ffd400', rememberLastDir: true, startupDir: '', confirmDelete: true,
     showStartOnLaunch: true, tutorialDone: false, startScreen: {}, syncScroll: true, refLines: true,
     pacsNodes: [], pacsLocalAE: 'MYDCMVIEWER', pacsLocalPort: 11112, pacsInbox: '',
   };
@@ -55,6 +55,7 @@
     document.body.classList.toggle('web', !P.isDesktop);
     document.body.classList.toggle('desktop', P.isDesktop);
     window.I18n.setLang(opt('lang'));
+    if (opt('customTheme')) window.Themes.setCustom(opt('customTheme'));
     applyTheme(opt('theme'));
     $('sidebar').style.width = `${opt('sidebarWidth')}px`;
     $('treeSection').style.flexBasis = `${opt('treeHeight')}%`;
@@ -65,6 +66,8 @@
     viewer.interpolate = !!opt('interpolate');
     viewer.showAnnotations = !!opt('measurements');
     viewer.showRuler = !!opt('ruler');
+    viewer.showScaleBar = !!opt('scaleBar');
+    viewer.scaleBarPos = opt('scaleBarPos');
     document.body.classList.toggle('ruler-on', !!opt('ruler'));
     viewer.showGrid = !!opt('grid');
     viewer.wheelMode = opt('wheelMode');
@@ -129,6 +132,8 @@
     setStatus('status.ready');
     History.sync();
     applyMinWindowSize();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(applyMinWindowSize);
+    window.addEventListener('resize', () => { clearTimeout(S.minSizeTimer); S.minSizeTimer = setTimeout(applyMinWindowSize, 200); });
     bindDesktopDrop();
     mountStartPage();
     if (opt('showStartOnLaunch') !== false) showStart();
@@ -186,7 +191,7 @@
     $('themeName').textContent = th.name;
     drawHistogram();
   }
-  async function setTheme(theme) { const th = window.Themes.get(theme); await setOpt({ theme, themeBg: th.vars['--bg'], themeScheme: th.scheme }); applyTheme(theme); syncMenuState(); Dlg.broadcast('theme', window.Themes.get(theme).id); }
+  async function setTheme(theme) { const th = window.Themes.get(theme); await setOpt({ theme, themeBg: th.vars['--bg'], themeScheme: th.scheme }); applyTheme(theme); syncMenuState(); Dlg.broadcast('theme', window.Themes.get(theme).id); setTimeout(applyMinWindowSize, 50); }
   async function setLang(lang) {
     await setOpt({ lang });
     window.I18n.setLang(lang);
@@ -210,12 +215,21 @@
   }
   function buildThemeMenus() {
     for (const panel of [$('themeMenu').querySelector('.menu-panel'), $('themeDropdown').querySelector('.menu-panel')]) {
+      // 20 dark and 20 light themes side by side, each column under its heading
       panel.innerHTML = '';
-      let scheme = '';
-      for (const th of window.Themes.list()) {
-        if (th.scheme !== scheme) { if (scheme) panel.append(Object.assign(document.createElement('div'), { className: 'menu-sep' })); scheme = th.scheme; }
-        panel.append(themeButton(th));
+      panel.classList.add('theme-columns');
+      for (const scheme of ['dark', 'light']) {
+        const col = document.createElement('div');
+        col.className = 'theme-col';
+        col.append(Object.assign(document.createElement('div'), { className: 'menu-heading', textContent: t(scheme === 'dark' ? 'view.themeDark' : 'view.themeLight') }));
+        for (const th of window.Themes.list()) if (th.scheme === scheme) col.append(themeButton(th));
+        panel.append(col);
       }
+      // the user's own theme: the last row, across both columns
+      const own = document.createElement('div');
+      own.className = 'theme-custom-row';
+      own.append(Object.assign(document.createElement('div'), { className: 'menu-sep' }), themeButton(window.Themes.custom()));
+      panel.append(own);
     }
   }
   const RECENT_MAX = 10;
@@ -390,6 +404,7 @@
     let open = null;
     const close = () => { if (open) { open.classList.remove('open'); open = null; } menus.classList.remove('active'); };
     const openMenu = (m) => { if (open === m) return; if (open) open.classList.remove('open'); open = m; m.classList.add('open'); menus.classList.add('active'); };
+    S.closeMenus = close;
     document.querySelectorAll('.menubar .menu, .toolbar .menu').forEach((m) => {
       const title = m.querySelector('.menu-title');
       title.addEventListener('click', (e) => { e.stopPropagation(); if (open === m) close(); else openMenu(m); });
@@ -414,6 +429,7 @@
   /* ══════════════ UI binding ══════════════ */
   function bindUI() {
     bindMenubar();
+    MenuMirror.init();
     // Toolbar / context menus / dialogs: any button with data-action
     document.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-action]');
@@ -537,6 +553,7 @@
       case 'm': return act('mpr');
       case 'M': return act(e.shiftKey ? 'volume' : 'mpr');
       case 'k': case 'K': return act('toggle', { dataset: { key: 'ruler' } });
+      case 'b': case 'B': return act('toggle', { dataset: { key: 'scaleBar' } });
       case 'g': case 'G': return act('toggle', { dataset: { key: 'grid' } });
       case 'a': case 'A': return act('wl-auto');
       case 'w': return act('wl-file');
@@ -728,6 +745,7 @@
       case 'interpolate': viewer.interpolate = value; break;
       case 'measurements': viewer.showAnnotations = value; break;
       case 'ruler': viewer.showRuler = value; document.body.classList.toggle('ruler-on', value); break;
+      case 'scaleBar': viewer.showScaleBar = value; break;
       case 'grid': viewer.showGrid = value; break;
       case 'overlays': if (img) await renderDicom({ overlays: value }); break;
       case 'cornerInfo': case 'markers': updateCorners(); break;
@@ -1377,6 +1395,7 @@
   function onViewerEvent(ev, payload) {
     switch (ev) {
       case 'view': updateCorners(); updateStatus(); break;
+      case 'scalebar': setOpt({ scaleBarPos: payload }); break;
       case 'wl': onWlDrag(payload); break;
       case 'stack': stepFrame(payload.delta); break;
       case 'hover': S.hover = payload; updateProbe(); break;
@@ -1620,10 +1639,21 @@
 
   function setStatus(key) { $('statusPath').textContent = t(key); }
   /* The window may not shrink below the width where toolbar or menu-bar buttons would be clipped. */
+  // Measured at their natural width (max-content), not at the current window width: fields such as the
+  // preset and colour-map lists would already have shrunk in a narrow window and give too small a minimum.
+  function naturalWidth(el) {
+    const saved = el.getAttribute('style');
+    el.style.width = 'max-content'; el.style.minWidth = 'max-content'; el.style.overflow = 'visible'; el.style.flex = 'none';
+    const w = el.getBoundingClientRect().width;
+    if (saved == null) el.removeAttribute('style'); else el.setAttribute('style', saved);
+    return w;
+  }
+  let minSizeSent = 0;
   function applyMinWindowSize() {
     if (!P.isDesktop) return;
-    const need = (el) => { let w = 0; for (const c of el.children) w += c.getBoundingClientRect().width + 3; return w + 24; };
-    const w = Math.ceil(Math.max(need($('toolbar')), need($('menubar')), 900));
+    const w = Math.ceil(Math.max(naturalWidth($('toolbar')), naturalWidth($('menubar')), 900)) + 2;
+    if (w === minSizeSent) return;
+    minSizeSent = w;
     window.desktopAPI.setMinSize(w, 600);
   }
   /* Window / tab title: program name and version, then the open file and its patient / modality. */
@@ -2016,7 +2046,7 @@
     S.ctx = ctx || null;
     menu.classList.add('open');
     const r = menu.getBoundingClientRect();
-    const px = Math.min(x, window.innerWidth - r.width - 4), py = Math.min(y, window.innerHeight - r.height - 4);
+    const px = MenuMirror.on ? x : Math.min(x, window.innerWidth - r.width - 4), py = MenuMirror.on ? y : Math.min(y, window.innerHeight - r.height - 4);
     menu.style.left = `${Math.max(0, px)}px`; menu.style.top = `${Math.max(0, py)}px`;
     if (menu === $('ctxTree')) {
       const one = ctx && ctx.paths.length === 1;
@@ -2025,6 +2055,69 @@
     }
   }
   function hideContextMenus() { document.querySelectorAll('.ctx-menu.open').forEach((m) => m.classList.remove('open')); }
+
+  /* Desktop: a page cannot draw past its window, so the open drop-down / context menu is shown by the menu
+   * overlay window (src/menu.html) instead. The panel stays open (but invisible) in this page, which keeps all
+   * the menu logic here: the overlay draws a copy at the same screen position, and what the user does there
+   * comes back as a click on the same button of the real panel. Watching the DOM catches every way a menu
+   * opens, closes or changes (check marks, recent files) without touching the code that does it. */
+  const MenuMirror = {
+    on: false, panel: null, sent: '', timer: 0,
+    init() {
+      if (!P.isDesktop || !window.desktopAPI || !window.desktopAPI.menuOpen) return;
+      this.on = true;
+      document.body.classList.add('menu-mirror');
+      new MutationObserver(() => this.schedule()).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'disabled', 'hidden'] });
+      window.desktopAPI.onMenuEvent((ev) => this.onEvent(ev));
+      window.addEventListener('resize', () => { if (this.panel) this.dismiss(); });
+    },
+    schedule() { if (!this.timer) this.timer = requestAnimationFrame(() => { this.timer = 0; this.sync(); }); },
+    current() { return document.querySelector('.menu.open > .menu-panel, .ctx-menu.open'); },
+    titles() { return [...document.querySelectorAll('.menu > .menu-title')]; },
+    sync() {
+      const panel = this.current();
+      if (!panel) { if (this.panel) { this.panel = null; this.sent = ''; window.desktopAPI.menuClose().catch(() => {}); } return; }
+      const r = panel.getBoundingClientRect();
+      const clone = panel.cloneNode(true);
+      clone.setAttribute('data-mirror-panel', '');
+      const html = clone.outerHTML;
+      const key = `${html}|${Math.round(r.left)},${Math.round(r.top)}|${document.body.className}|${document.documentElement.getAttribute('style')}`;
+      if (panel === this.panel && key === this.sent) return;
+      this.panel = panel; this.sent = key;
+      const chain = [];
+      for (let a = panel.parentElement; a && a !== document.body; a = a.parentElement) chain.unshift({ tag: a.tagName.toLowerCase(), cls: a.className });
+      const titles = this.titles();
+      const hot = titles.map((t, i) => { const q = t.getBoundingClientRect(); return { i, x: q.left, y: q.top, w: q.width, h: q.height }; }).filter((h) => h.w && h.h);
+      const owner = panel.parentElement && panel.parentElement.querySelector(':scope > .menu-title');
+      window.desktopAPI.menuOpen({
+        html, chain, hot, ownerIndex: owner ? titles.indexOf(owner) : null,
+        kind: panel.classList.contains('ctx-menu') ? 'ctx' : 'menu',
+        rect: { x: r.left, y: r.top },
+        rootStyle: document.documentElement.getAttribute('style') || '',
+        bodyClass: document.body.className.replace(/\bmenu-mirror\b/, ''),
+        theme: document.body.dataset.theme || '', scheme: document.body.dataset.scheme || '',
+      }).catch((e) => { console.error('menu overlay', e); this.on = false; document.body.classList.remove('menu-mirror'); });
+    },
+    dismiss() { if (S.closeMenus) S.closeMenus(); hideContextMenus(); },
+    onEvent(ev) {
+      const panel = this.panel;
+      if (!ev || !panel) return;
+      if (ev.type === 'dismiss') { this.dismiss(); return; }
+      if (ev.type === 'title') {
+        const t = this.titles()[ev.index];
+        if (!t) return;
+        if (ev.click) { if (panel.classList.contains('ctx-menu')) hideContextMenus(); t.click(); }
+        else t.dispatchEvent(new MouseEvent('mouseenter'));
+        return;
+      }
+      if (ev.type === 'pick') {
+        const b = panel.querySelectorAll('button')[ev.index];
+        if (!b || b.disabled) return;
+        const target = ev.remove ? b.querySelector('.menu-remove') || b : b;
+        target.click();
+      }
+    },
+  };
   let toastTimer = null;
   function toast(text, isError) {
     const el = $('toast');
@@ -2634,8 +2727,15 @@
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     switch (key) {
       case 'theme': await setTheme(value); return;
+      case 'customTheme': {
+        await setOpt({ customTheme: value });
+        window.Themes.setCustom(value);
+        buildThemeMenus(); syncMenuState();
+        if (window.Themes.get(opt('theme')).id === 'custom') await setTheme('custom');
+        return;
+      }
       case 'lang': await setLang(value); return;
-      case 'sidebar': case 'interpolate': case 'cornerInfo': case 'markers': case 'overlays': case 'measurements': case 'burnAnnotations': case 'loop': case 'syncScroll': case 'refLines':
+      case 'sidebar': case 'scaleBar': case 'interpolate': case 'cornerInfo': case 'markers': case 'overlays': case 'measurements': case 'burnAnnotations': case 'loop': case 'syncScroll': case 'refLines':
         if (!!opt(key) !== !!value) await toggleOption(key);
         return;
       default: break;
@@ -2739,6 +2839,6 @@
     }
   };
 
-  window.App = { state: S, get startPage() { return startPage; }, showStart, hideStart, openSample, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool, Progress, Dlg, History, get tabs() { return S.tabs; }, activateTab, closeTab };
+  window.App = { MenuMirror, state: S, get startPage() { return startPage; }, showStart, hideStart, openSample, get viewer() { return viewer; }, get tree() { return tree; }, openPath, runAction, renderDicom, setTool, Progress, Dlg, History, get tabs() { return S.tabs; }, activateTab, closeTab };
   document.addEventListener('DOMContentLoaded', () => { init().catch((err) => showError(err)); });
 })();

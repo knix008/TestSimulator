@@ -39,8 +39,10 @@
     const w = hint.width || 520;
     // measure at the target width so wrapped text is accounted for
     box.style.width = `${w}px`;
+    box.classList.add('measuring');   // lifts height caps that would otherwise follow the current window
     let h = hint.height || Math.ceil(box.getBoundingClientRect().height) + 2;
-    if (kind === 'settings') { if (lockedHeight) h = lockedHeight; else lockedHeight = h; }   // fixed size, whatever tab is shown
+    box.classList.remove('measuring');
+    if (kind === 'settings') { lockedHeight = Math.max(lockedHeight, h); h = lockedHeight; }   // one size for every tab: the tallest seen
     api.popupResize({ width: w, height: Math.min(h, screen.availHeight - 60) });
   }
 

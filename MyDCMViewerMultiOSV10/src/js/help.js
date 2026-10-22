@@ -13,7 +13,11 @@
 
   const STYLE = `
 .help { display: flex; flex-direction: column; gap: 10px; height: 100%; }
-.help-body { display: flex; gap: 14px; min-height: 0; height: 640px; }
+.help-body { display: flex; gap: 14px; min-height: 0; height: min(640px, 70vh); }
+/* the help window: the page fills the window and follows its size (the article scrolls, nothing is cut off) */
+.popup-box.help { width: auto !important; height: 100vh; box-sizing: border-box; overflow: hidden; }
+.popup-box.help > h2, .popup-box.help > .modal-actions { flex: none; margin: 0; }
+.popup-box.help .help-body { flex: 1; height: auto; }
 .help-nav { flex: 0 0 250px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .help-search { background: var(--panel-bg2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; color: var(--text); }
 .help-list { flex: 1; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
@@ -24,7 +28,7 @@
 .help-list button.on .n { color: inherit; }
 .help-list .sub { padding-left: 38px; font-size: 12px; color: var(--text-dim); }
 .help-list .hit { font-size: 11px; color: var(--text-dim); display: block; margin-top: 2px; }
-.help-article { flex: 1; min-width: 0; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 22px 22px; line-height: 1.65; font-size: 13.5px; }
+.help-article { flex: 1; min-width: 0; overflow-x: hidden; overflow-y: auto; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 8px; padding: 6px 22px 22px; line-height: 1.65; font-size: 13.5px; }
 .help-article h1 { font-size: 21px; margin: 14px 0 10px; }
 .help-article h2 { font-size: 16px; margin: 22px 0 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 .help-article h3 { font-size: 14px; margin: 16px 0 6px; }
@@ -37,12 +41,17 @@
 .help-article th { background: var(--panel-bg2); }
 .help-article code, .help-article kbd { font-family: var(--mono, monospace); font-size: 12px; background: var(--panel-bg2); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
 .help-article blockquote { margin: 10px 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 0 6px 6px 0; }
+.help-article pre { white-space: pre-wrap; }
 .help-article ul, .help-article ol { margin: 6px 0 12px; padding-left: 22px; }
 .help-tourbtn { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 10px; }
 .help-zoom { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.82); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
 .help-zoom img { max-width: 96vw; max-height: 94vh; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
 .help-empty { color: var(--text-dim); padding: 20px; }
 `;
+
+  const MIN_SIZE = { width: 920, height: 640 };
+  // default: wide enough for the pictures next to the list, as tall as the screen allows
+  const SIZE = { width: 1180, get height() { return typeof screen !== 'undefined' ? Math.max(MIN_SIZE.height, Math.min(920, screen.availHeight - 60)) : 900; } };
 
   function dialog(box, payload, ctx) {
     payload = payload || {};
@@ -52,6 +61,8 @@
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     if (!document.getElementById('helpStyle')) { const st = document.createElement('style'); st.id = 'helpStyle'; st.textContent = STYLE; document.head.append(st); }
     box.classList.add('help');
+    // a window that can be made smaller, but never so small that the list and the article stop fitting side by side
+    if (ctx.isPopup && typeof window !== 'undefined' && window.desktopAPI && window.desktopAPI.setMinSize) window.desktopAPI.setMinSize(MIN_SIZE.width, MIN_SIZE.height);
     const pages = window.HELP_PAGES || [];
     box.innerHTML = `<h2>${esc(t('helpwin.title', 'Help'))}</h2>
       <div class="help-body"><div class="help-nav"><input class="help-search" type="search" placeholder="${esc(t('helpwin.search', 'Search'))}"><div class="help-list"></div></div><article class="help-article"></article></div>`;
@@ -111,5 +122,5 @@
     box.append(close);
   }
 
-  return { dialog, SIZE: { width: 1120 } };
+  return { dialog, SIZE, MIN_SIZE };
 });

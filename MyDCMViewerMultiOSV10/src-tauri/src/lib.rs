@@ -8,6 +8,7 @@
 //   • files handed over by the shell (file associations, "Open with", drag & drop)
 //   • native file / message dialogs, file I/O, the Recycle Bin, folder watching
 //   • the popup windows every dialog opens in (owned by the main window)
+//   • the menu overlay: drop-down and context menus drawn past the main window's edges (src/menu.html)
 //   • clipboard pictures, printing straight to a printer, settings.json
 //   • raw TCP sockets for DICOM networking (the protocol itself is src/js/dicomNet.js)
 mod files;
@@ -32,6 +33,7 @@ use tauri_plugin_opener::OpenerExt;
 
 pub const MAIN: &str = "main";
 pub const POPUP_PREFIX: &str = "popup-";
+const MENU_OVERLAY: &str = "menu-overlay";
 const APP_NAME: &str = "MyDCMViewer";
 const MIN_WIDTH: f64 = 900.0;
 const MIN_HEIGHT: f64 = 600.0;
@@ -44,6 +46,14 @@ struct Watch {
 struct Popup {
   init: Option<Value>,
   positioned: bool,
+}
+
+/// The menu overlay window: the message for the menu that is open now (None = closed), and a serial so a
+/// late "drawn" report of a menu that was already closed again does not show the window.
+#[derive(Default)]
+struct MenuState {
+  open: Mutex<Option<Value>>,
+  serial: AtomicU64,
 }
 
 struct AppState {
@@ -573,7 +583,155 @@ fn window_ready(app: AppHandle, window: WebviewWindow) -> Vec<String> {
     let _ = window.set_focus();
   }
   let pending = std::mem::take(&mut *st.pending_open.lock().unwrap());
+  let handle = app.clone();
+  tauri::async_runtime::spawn(async move {
+    let _ = menu_overlay(&handle);
+  });
   pending
+}
+
+// ── Menu overlay: a page cannot draw outside its window, so open menus are drawn by a transparent window that
+// covers the monitor's work area and never takes the focus (src/menu.html, src/js/menu-overlay.js). ──
+fn menu_overlay(app: &AppHandle) -> Result<WebviewWindow, String> {
+  if let Some(w) = app.get_webview_window(MENU_OVERLAY) {
+    return Ok(w);
+  }
+  let mut builder = WebviewWindowBuilder::new(app, MENU_OVERLAY, WebviewUrl::App("menu.html".into()))
+    .title(APP_NAME)
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
+    .resizable(false)
+    .skip_taskbar(true)
+    .focusable(false)
+    .focused(false)
+    .visible(false)
+    .inner_size(16.0, 16.0)
+    .on_navigation(|url| is_app_url(url));
+  if let Some(main) = app.get_webview_window(MAIN) {
+    builder = builder.parent(&main).map_err(err)?;
+  }
+  if let Some(args) = browser_args() {
+    builder = builder.additional_browser_args(&args);
+  }
+  if let Some(dir) = webview_data_dir() {
+    builder = builder.data_directory(dir);
+  }
+  builder.build().map_err(err)
+}
+
+/// Show a menu: `payload` is the panel's markup and its place in the main window (CSS px of the main window).
+#[tauri::command]
+async fn menu_open(app: AppHandle, payload: Value) -> Result<u64, String> {
+  let main = app.get_webview_window(MAIN).ok_or("No main window")?;
+  let overlay = menu_overlay(&app)?;
+  let scale = main.scale_factor().unwrap_or(1.0);
+  let inner = main.inner_position().map_err(err)?;
+  let (pos, size) = match main.current_monitor() {
+    Ok(Some(m)) => (m.work_area().position, m.work_area().size),
+    _ => (main.outer_position().map_err(err)?, main.outer_size().map_err(err)?),
+  };
+  let _ = overlay.set_position(tauri::PhysicalPosition::new(pos.x, pos.y));
+  let _ = overlay.set_size(tauri::PhysicalSize::new(size.width, size.height));
+  let st = app.state::<MenuState>();
+  let serial = st.serial.fetch_add(1, Ordering::SeqCst) + 1;
+  let msg = json!({
+    "serial": serial,
+    "payload": payload,
+    "offset": { "x": f64::from(inner.x - pos.x) / scale, "y": f64::from(inner.y - pos.y) / scale },
+  });
+  *st.open.lock().unwrap() = Some(msg.clone());
+  let _ = app.emit_to(MENU_OVERLAY, "menu-open", msg);
+  Ok(serial)
+}
+
+/// The overlay has drawn menu `serial`: show it, unless that menu was closed meanwhile.
+#[tauri::command]
+fn menu_shown(app: AppHandle, serial: u64) -> bool {
+  let st = app.state::<MenuState>();
+  let current = st.open.lock().unwrap().as_ref().and_then(|m| m.get("serial")).and_then(|v| v.as_u64());
+  if current != Some(serial) {
+    return false;
+  }
+  if let Some(w) = app.get_webview_window(MENU_OVERLAY) {
+    show_native(&w, true);
+  }
+  true
+}
+
+/// Show() activates the window, which takes the focus from the main window (its blur closes context menus,
+/// and keys would go to the overlay). The overlay is shown the way native menus are: without activation.
+/// Hidden the same way: tao does not see a window shown behind its back, so its hide() would do nothing and
+/// leave an invisible window over the whole screen that swallows every click.
+fn show_native(w: &WebviewWindow, visible: bool) {
+  #[cfg(windows)]
+  {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    #[link(name = "user32")]
+    extern "system" {
+      fn ShowWindow(hwnd: isize, cmd: i32) -> i32;
+    }
+    const SW_HIDE: i32 = 0;
+    const SW_SHOWNOACTIVATE: i32 = 4;
+    if let Ok(handle) = w.window_handle() {
+      if let RawWindowHandle::Win32(raw) = handle.as_raw() {
+        unsafe { ShowWindow(raw.hwnd.get() as isize, if visible { SW_SHOWNOACTIVATE } else { SW_HIDE }) };
+        return;
+      }
+    }
+  }
+  let _ = if visible { w.show() } else { w.hide() };
+}
+
+#[tauri::command]
+fn menu_close(app: AppHandle) -> bool {
+  let st = app.state::<MenuState>();
+  st.serial.fetch_add(1, Ordering::SeqCst);
+  let was = st.open.lock().unwrap().take().is_some();
+  if let Some(w) = app.get_webview_window(MENU_OVERLAY) {
+    show_native(&w, false);
+    let _ = app.emit_to(MENU_OVERLAY, "menu-close", Value::Null);
+  }
+  was
+}
+
+/// The overlay page has loaded: the menu opened while it was loading, if any.
+#[tauri::command]
+fn menu_overlay_ready(app: AppHandle) -> Option<Value> {
+  app.state::<MenuState>().open.lock().unwrap().clone()
+}
+
+/// What the user did in the overlay (pick / title / dismiss) goes to the main page, which owns the menus.
+#[tauri::command]
+fn menu_event(app: AppHandle, data: Value) -> bool {
+  app.emit_to(MAIN, "menu-event", data).is_ok()
+}
+
+/// Whether the overlay window is on screen (Win32 state: tao does not track the native show/hide). The GUI
+/// tests use it: an overlay left visible after its menu closed covers the screen and swallows every click.
+#[tauri::command]
+fn menu_visible(app: AppHandle) -> bool {
+  let Some(w) = app.get_webview_window(MENU_OVERLAY) else {
+    return false;
+  };
+  #[cfg(windows)]
+  {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    #[link(name = "user32")]
+    extern "system" {
+      fn IsWindowVisible(hwnd: isize) -> i32;
+    }
+    if let Ok(handle) = w.window_handle() {
+      if let RawWindowHandle::Win32(raw) = handle.as_raw() {
+        return unsafe { IsWindowVisible(raw.hwnd.get() as isize) } != 0;
+      }
+    }
+  }
+  w.is_visible().unwrap_or(false)
+}
+
+fn menu_is_open(app: &AppHandle) -> bool {
+  app.try_state::<MenuState>().map(|st| st.open.lock().unwrap().is_some()).unwrap_or(false)
 }
 
 #[tauri::command]
@@ -953,7 +1111,23 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
   let label = window.label();
   if label == MAIN {
     match event {
-      WindowEvent::Moved(_) | WindowEvent::Resized(_) => remember_bounds(window),
+      WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
+        remember_bounds(window);
+        if menu_is_open(app) {
+          let _ = app.emit_to(MAIN, "menu-event", json!({ "type": "dismiss" }));
+        }
+      }
+      WindowEvent::Focused(false) if menu_is_open(app) => {
+        // the overlay never takes the focus, so losing it means another program (or a dialog) was activated
+        let handle = app.clone();
+        std::thread::spawn(move || {
+          std::thread::sleep(Duration::from_millis(120));
+          let focused = |l: &str| handle.get_webview_window(l).and_then(|w| w.is_focused().ok()).unwrap_or(false);
+          if !focused(MAIN) && !focused(MENU_OVERLAY) {
+            let _ = handle.emit_to(MAIN, "menu-event", json!({ "type": "dismiss" }));
+          }
+        });
+      }
       WindowEvent::CloseRequested { .. } => {
         let bounds = state(app).bounds.lock().unwrap().clone();
         if let Some(b) = bounds {
@@ -1058,6 +1232,7 @@ pub fn run() {
       watchers: Mutex::new(HashMap::new()),
       bounds: Mutex::new(None),
     })
+    .manage(MenuState::default())
     .setup(|app| {
       let cwd = std::env::current_dir().unwrap_or_default();
       let first = files::openable_from_args(std::env::args(), &cwd);
@@ -1079,6 +1254,12 @@ pub fn run() {
     })
     .on_window_event(on_window_event)
     .invoke_handler(tauri::generate_handler![
+      menu_open,
+      menu_shown,
+      menu_close,
+      menu_overlay_ready,
+      menu_event,
+      menu_visible,
       app_info,
       settings_get,
       settings_set,

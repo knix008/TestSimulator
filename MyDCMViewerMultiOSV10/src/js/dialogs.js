@@ -51,7 +51,7 @@ window.Dialogs = (function () {
       ['Ctrl+O', 'sc.open'], ['Ctrl+Shift+O', 'sc.openFolder'], ['Ctrl+E', 'sc.export'], ['Ctrl+C', 'sc.copy'], ['Ctrl+P', 'sc.print'], ['Ctrl+,', 'sc.settings'],
       ['Ctrl+0', 'sc.fit'], ['Ctrl+1', 'sc.actual'], ['+ / −', 'sc.zoom'], ['', 'sc.wheel'], ['Ctrl+← / →', 'sc.rotate'], ['H / V', 'sc.flip'], ['R', 'sc.reset'], ['I', 'sc.invert'],
       ['1 … 9, 0', 'sc.tools'], ['↑ / ↓', 'sc.frames'], ['Home / End', 'sc.frameEnds'], ['Space', 'sc.play'], ['S', 'sc.stop'], ['M / Shift+M', 'sc.mprVolume'], ['Shift+5 7 8 9 0', 'sc.moreTools'], ['Q', 'sc.magnify'], ['← / →, PgUp / PgDn', 'sc.series'],
-      ['A', 'sc.wlAuto'], ['W', 'sc.wlFile'], ['Shift+W', 'sc.wlReset'], ['Backspace / Del', 'sc.delete'], ['F9', 'sc.sidebar'], ['F11', 'sc.fullscreen'], ['Esc', 'sc.escape'], ['', 'sc.rightDrag'],
+      ['A', 'sc.wlAuto'], ['W', 'sc.wlFile'], ['Shift+W', 'sc.wlReset'], ['Backspace / Del', 'sc.delete'], ['F9', 'sc.sidebar'], ['B', 'sc.scaleBar'], ['K / G', 'sc.rulerGrid'], ['F11', 'sc.fullscreen'], ['Esc', 'sc.escape'], ['', 'sc.rightDrag'],
     ];
     const grid = el('div', 'shortcut-grid');
     grid.innerHTML = rows.map(([k, d]) => `<div class="sc-key">${k ? `<kbd>${esc(k)}</kbd>` : ''}</div><div class="sc-desc">${esc(t(d))}</div>`).join('');
@@ -99,6 +99,7 @@ window.Dialogs = (function () {
     { section: 'viewer', key: 'markers', type: 'bool' },
     { section: 'viewer', key: 'overlays', type: 'bool' },
     { section: 'viewer', key: 'measurements', type: 'bool' },
+    { section: 'viewer', key: 'scaleBar', type: 'bool' },
     { section: 'viewer', key: 'measureUnit', type: 'select', options: [['cm', 'settings.unitCm'], ['in', 'settings.unitIn']] },
     { section: 'viewer', key: 'burnAnnotations', type: 'bool' },
     { section: 'viewer', key: 'wheelMode', type: 'select', options: [['zoom', 'settings.wheelZoom'], ['stack', 'settings.wheelStack']] },
@@ -156,18 +157,73 @@ window.Dialogs = (function () {
       const label = el('div', 'label', esc(t(`settings.${spec.key}`)));
       const ctl = el('div', 'control');
       if (spec.type === 'themes') {
+        // one compact row per theme (colours + name), dark and light in four columns, then the custom theme
         r.style.gridTemplateColumns = '1fr';
-        const grid = el('div', 'theme-grid');
-        const current = window.Themes.get(value).id;
-        for (const th of window.Themes.list()) {
+        const wrap = el('div', 'theme-groups');
+        const rows = [];
+        const select = (id) => { change('theme', id); rows.forEach((x) => x.classList.toggle('active', x.dataset.id === id)); };
+        const themeRow = (th) => {
           const v = th.vars;
-          const card = el('button', `theme-card${th.id === current ? ' active' : ''}`);
-          card.type = 'button';
-          card.innerHTML = `<div class="preview" style="background:${v['--bg']}"><div class="pv-side" style="background:${v['--panel-bg']}"><i style="background:${v['--text-dim']}"></i><i style="background:${v['--text-dim']}"></i><i style="background:${v['--accent']}"></i></div><div class="pv-main" style="background:${v['--viewport-bg']}"><b style="background:${v['--accent']}"></b></div></div><span class="name">${esc(th.name)}</span><span class="scheme">${t(th.scheme === 'dark' ? 'view.themeDark' : 'view.themeLight')}</span>`;
-          card.addEventListener('click', () => { change('theme', th.id); grid.querySelectorAll('.theme-card').forEach((c) => c.classList.toggle('active', c === card)); });
-          grid.append(card);
+          const b = el('button', `theme-row${th.id === window.Themes.get(value).id ? ' active' : ''}`);
+          b.type = 'button'; b.dataset.id = th.id; b.title = th.name;
+          b.innerHTML = `<span class="sw">${['--bg', '--panel-bg', '--accent', '--text'].map((k) => `<i style="background:${v[k]}"></i>`).join('')}</span><span class="name">${esc(th.name)}</span>`;
+          b.addEventListener('click', () => select(th.id));
+          rows.push(b);
+          return b;
+        };
+        for (const scheme of ['dark', 'light']) {
+          wrap.append(el('div', 'theme-group-title', esc(t(scheme === 'dark' ? 'view.themeDark' : 'view.themeLight'))));
+          const list = el('div', 'theme-rows');
+          for (const th of window.Themes.list().filter((x) => x.scheme === scheme)) list.append(themeRow(th));
+          wrap.append(list);
         }
-        ctl.append(grid);
+        // custom theme: its row and the colours it is made of
+        wrap.append(el('div', 'theme-group-title', esc(t('view.themeCustom'))));
+        const own = el('div', 'theme-custom');
+        let customRow = themeRow(window.Themes.custom());
+        own.append(customRow);
+        const colors = el('div', 'theme-custom-colors');
+        const fields = [['scheme', 'settings.customScheme'], ['bg', 'settings.customBg'], ['panel', 'settings.customPanel'], ['text', 'settings.customText'], ['accent', 'settings.customAccent'], ['viewport', 'settings.customViewport']];
+        const inputs = {};
+        const commit = () => {
+          const spec = {};
+          for (const [k] of fields) spec[k] = inputs[k].value;
+          window.Themes.setCustom(spec);
+          values.customTheme = spec;
+          ctx.send('setting', { key: 'customTheme', value: spec });
+          const fresh = themeRow(window.Themes.custom());
+          rows.splice(rows.indexOf(customRow), 1);
+          customRow.replaceWith(fresh); customRow = fresh;
+          select('custom');
+        };
+        const fill = (c) => { for (const [k] of fields) inputs[k].value = c[k]; };
+        for (const [k, label] of fields) {
+          const f = el('label', 'cc-field');
+          let inp;
+          if (k === 'scheme') {
+            inp = el('select');
+            for (const sc of ['dark', 'light']) { const o = el('option', '', esc(t(sc === 'dark' ? 'view.themeDark' : 'view.themeLight'))); o.value = sc; inp.append(o); }
+            inp.addEventListener('change', commit);
+          } else {
+            inp = el('input'); inp.type = 'color';
+            inp.addEventListener('change', commit);
+          }
+          inputs[k] = inp;
+          f.append(el('span', '', esc(t(label))), inp);
+          colors.append(f);
+        }
+        fill(window.Themes.customColors());
+        const from = btn(t('settings.customFrom'), '', () => {
+          const th = window.Themes.get(values.theme);
+          if (th.id === 'custom') return;
+          const v = th.vars;
+          fill({ scheme: th.scheme, bg: v['--bg'], panel: v['--panel-bg'], text: v['--text'], accent: v['--accent'], viewport: v['--viewport-bg'] });
+          commit();
+        });
+        colors.append(from);
+        own.append(colors);
+        wrap.append(own, el('div', 'desc', esc(t('settings.customHint'))));
+        ctl.append(wrap);
         r.append(label, ctl);
         return r;
       }
@@ -366,7 +422,7 @@ window.Dialogs = (function () {
         <span class="mpr-status" id="mprStatus"></span>
       </div>
       <div class="mpr-grid">
-        ${['axial', 'coronal', 'sagittal'].map((v) => `<div class="mpr-view" data-view="${v}"><div class="mpr-label">${esc(t('mpr.' + v))} <span class="pos"></span></div><canvas></canvas><input type="range" min="0" max="0" value="0"></div>`).join('')}
+        ${['axial', 'coronal', 'sagittal'].map((v) => `<div class="mpr-view" data-view="${v}"><div class="mpr-label">${esc(t('mpr.' + v))} <span class="pos"></span></div><canvas></canvas><input type="range" min="0" max="0" value="0" data-spin-format="index"></div>`).join('')}
       </div>
       <div class="mpr-curved" id="mprCurvedView" hidden><div class="mpr-label">${esc(t('mpr.curvedView'))} <span id="mprCurveLen"></span></div><canvas id="mprCurveCanvas"></canvas></div>`;
     const q = (id) => box.querySelector('#' + id);

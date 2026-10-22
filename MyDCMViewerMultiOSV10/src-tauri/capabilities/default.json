@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window and the dialog popups. Files, dialogs, clipboard, printing and window control all go through MyDCMViewer's own commands (src-tauri/src/lib.rs); only event listening is opened here.",
-  "windows": ["main", "popup-*"],
+  "description": "The main window, the dialog popups and the menu overlay. Files, dialogs, clipboard, printing and window control all go through MyDCMViewer's own commands (src-tauri/src/lib.rs); only event listening is opened here.",
+  "windows": ["main", "popup-*", "menu-overlay"],
   "remote": {
     "urls": ["http://localhost:5193", "http://localhost:5193/*", "http://127.0.0.1:5193/*"]
   },

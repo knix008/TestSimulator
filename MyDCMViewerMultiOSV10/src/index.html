@@ -88,6 +88,7 @@
           <button data-action="toggle" data-key="measurements" data-icon="ruler" class="check" data-i18n="view.measurements">Measurements</button>
           <button data-action="toggle" data-key="burnAnnotations" data-icon="burn" class="check" data-i18n="view.burnAnnotations">Include annotations in export</button>
           <button data-action="toggle" data-key="ruler" data-icon="ruler" class="check"><span data-i18n="view.ruler">Scale ruler</span><kbd>K</kbd></button>
+          <button data-action="toggle" data-key="scaleBar" data-icon="scalebar" class="check"><span data-i18n="view.scaleBar">Scale bar</span><kbd>B</kbd></button>
           <button data-action="toggle" data-key="grid" data-icon="grid" class="check"><span data-i18n="view.grid">Grid</span><kbd>G</kbd></button>
           <div class="menu-sep"></div>
           <div class="menu-sub" id="layoutMenu"><button class="menu-sub-title" data-icon="compare"><span data-i18n="view.layout">Viewport layout</span><span class="chev">▸</span></button>
@@ -250,6 +251,10 @@
   <!-- ── Toolbar ── -->
   <div class="toolbar" id="toolbar">
     <div class="tb-group">
+      <button class="tb-btn toggle" data-action="toggle" data-key="sidebar" id="sidebarBtn" data-i18n-title="view.sidebarToggle"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M5 8h2M5 11h2M5 14h2"/></svg></button>
+    </div>
+    <div class="tb-sep"></div>
+    <div class="tb-group">
       <button class="tb-btn" data-action="open-file" data-i18n-title="file.open"><svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-7-7z"/><path d="M13 2v7h7"/></svg></button>
       <button class="tb-btn" data-action="open-folder" data-i18n-title="file.openFolder"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
     </div>
@@ -292,6 +297,7 @@
       <button class="tb-btn" data-action="zoom-in" data-i18n-title="view.zoomIn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M11 8v6M8 11h6"/></svg></button>
       <span class="tb-mini-sep"></span>
       <button class="tb-btn toggle" data-action="toggle" data-key="ruler" data-i18n-title="view.ruler"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="20" height="6" rx="1"/><path d="M6 9v3M10 9v2M14 9v3M18 9v2"/></svg></button>
+      <button class="tb-btn toggle" data-action="toggle" data-key="scaleBar" data-i18n-title="view.scaleBarTip"><svg viewBox="0 0 24 24"><path d="M3 15h18"/><path d="M3 12v6M21 12v6M12 13.5v3"/><path d="M3 15h4.5" stroke-width="4"/><path d="M12 15h4.5" stroke-width="4"/><path d="M8 8h8"/></svg></button>
       <button class="tb-btn toggle" data-action="toggle" data-key="grid" data-i18n-title="view.grid"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></button>
       <div class="menu tb-menu" id="transformMenu">
         <button class="menu-title tb-btn" data-i18n-title="view.transform" data-icon="rotate-right"><span class="caret">▾</span></button>
@@ -342,7 +348,6 @@
       <label class="tb-field" data-i18n-title="tb.preset"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg><select id="presetSelect"></select></label>
       <label class="tb-field" data-i18n-title="tb.colormap"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M8 8v8M13 8v8M18 8v8" stroke-opacity="0.5"/></svg><select id="colormapSelect"></select></label>
     </div>
-    <div class="tb-spacer"></div>
     <div class="tb-group export-group">
       <div class="menu tb-menu" id="exportMenu">
         <button class="menu-title tb-btn accent" data-i18n-title="file.export"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span class="caret">▾</span></button>
@@ -386,6 +391,7 @@
             <button class="icon-btn" data-action="tree-up" data-i18n-title="sidebar.up">↑</button>
             <button class="icon-btn" data-action="tree-refresh" data-i18n-title="sidebar.refresh">⟳</button>
             <button class="icon-btn" data-action="open-folder" data-i18n-title="sidebar.choose">…</button>
+            <button class="icon-btn side-collapse" data-action="toggle" data-key="sidebar" data-i18n-title="sidebar.collapse"><svg viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg></button>
           </span>
         </header>
         <div class="tree-path" id="treePath" title=""><bdi id="treePathText"></bdi></div>
@@ -418,6 +424,9 @@
       </section>
     </aside>
     <div class="sidebar-resizer" id="sidebarResizer"></div>
+    <div class="sidebar-rail" id="sidebarRail">
+      <button class="icon-btn" data-action="toggle" data-key="sidebar" data-i18n-title="sidebar.expand"><svg viewBox="0 0 24 24"><path d="M13 17l5-5-5-5M6 17l5-5-5-5"/></svg></button>
+    </div>
 
     <main class="viewer-area" id="viewerArea">
       <div class="tab-bar" id="tabBar">
@@ -469,10 +478,8 @@
         <label class="loop"><input type="checkbox" id="loopCheck" checked><span data-i18n="cine.loop">Loop</span></label>
       </div>
       <div class="series-bar" id="seriesBar">
-        <button class="icon-btn" data-action="series-prev" title="PgUp">◀</button>
-        <input type="range" id="seriesSlider" min="0" max="0" value="0">
+        <input type="range" id="seriesSlider" min="0" max="0" value="0" title="PgUp / PgDn">
         <span class="frame-label" id="seriesLabel"></span>
-        <button class="icon-btn" data-action="series-next" title="PgDn">▶</button>
       </div>
     </main>
   </div>
@@ -557,6 +564,7 @@
 <script src="i18n/ko.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/icons.js"></script>
+<script src="js/spin.js"></script>
 <script src="js/contextMenu.js"></script>
 <script src="js/dialogs.js"></script>
 <script src="js/fileTree.js"></script>
