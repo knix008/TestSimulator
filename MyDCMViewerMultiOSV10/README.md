@@ -7,7 +7,7 @@ RadiAnt DICOM Viewer · MicroDicom 수준의 기능(시작 화면, 튜토리얼,
 
 | 분류 | 기능 |
 | ---- | ---- |
-| 시작 | **시작 화면**(파일·폴더·DICOMDIR 열기, 일괄 변환, 설정, 최근 파일, 3D 움직이는 배경 18종, 투명도·속도 조절), **예제 영상 21종**(CT·MR·Enhanced MR/CT·컬러 도플러·XA·CR·초음파·오버레이·팔레트·Modality LUT·RT 선량/구조/계획·SR·심전도·DICOM 동영상 3종·DICOMDIR), **튜토리얼**(11장 42단계 — 모든 기능을 데모로 하나씩 실행, 장 선택 · 다시 실행, 도움말 › 튜토리얼), **도움말 창**(모든 기능을 그림과 함께 설명 · 찾기 · 해당 튜토리얼 단계로 바로 가기, Ctrl+F1), **튜토리얼 동영상** `MyDCMViewer-Tutorial.mp4` |
+| 시작 | **시작 화면**(파일·폴더·DICOMDIR 열기, 일괄 변환, 설정, 최근 파일, 3D 움직이는 배경 18종, 투명도·속도 조절), **예제 영상 21종**(CT·MR·Enhanced MR/CT·컬러 도플러·XA·CR·초음파·오버레이·팔레트·Modality LUT·RT 선량/구조/계획·SR·심전도·DICOM 동영상 3종·DICOMDIR), **튜토리얼**(11장 46단계 — 모든 기능을 데모로 하나씩 실행, 장 선택 · 다시 실행, 도움말 › 튜토리얼), **도움말 창**(모든 기능을 그림과 함께 설명 · 찾기 · 해당 튜토리얼 단계로 바로 가기, Ctrl+F1), **튜토리얼 동영상** `MyDCMViewer-Tutorial.mp4` |
 | 파일 | 파일마다 **탭**, DICOM(.dcm/.dicm/.dicom, 확장자 없는 파일·메타 없는 데이터셋 자동 감지) + JPEG/PNG/GIF/WebP/AVIF/BMP/ICO/SVG, TIFF(다중 페이지·16-bit), HEIF/HEIC, JPEG 2000, **DICOMDIR**(환자 › 검사 › 시리즈), **ZIP 압축 파일**, 폴더 트리, 끌어 놓기, `.dcm` 파일 연결 |
 | 디코딩 | 비압축(LE/BE), Deflated(데이터셋·프레임), RLE, JPEG Baseline/Extended/Process 6·10, JPEG Lossless, JPEG-LS, JPEG 2000 / HTJ2K · MONOCHROME1/2, RGB, YBR_FULL/422, PALETTE COLOR · 8/12/16/32-bit, float · 다중 프레임, Enhanced(functional groups), Modality/VOI/Presentation LUT, 오버레이(60xx) |
 | 보기 | 확대·이동·회전·반전·보간, 눈금자·격자, 모서리 정보, 방향 표시, 픽셀 값, **뷰포트 배치**(1×1 ~ 3×3), **동기 스크롤**(같은 슬라이스 위치), **기준선**, 실행 취소/다시 실행 |

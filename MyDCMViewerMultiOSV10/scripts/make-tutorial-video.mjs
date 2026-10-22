@@ -52,6 +52,8 @@ page = await launch({ lang: 'ko', width: W, height: H, settings: { showStartOnLa
 const steps = [];
 try {
   await page.waitFor('window.App && window.Tour && window.StartPage', 30000);
+  // the desktop window buttons (shown by the titlebar step) are drawn here too; in the browser they do nothing
+  await page.eval(`(document.body.classList.add('demo-chrome'), 0)`);
   await sleep(2500);
   const icon = await page.eval(`(() => { const i = document.querySelector('.start-brand img, img[src*="icon"]'); return i ? i.src : ''; })()`);
   await card(`${icon ? `<img src="${icon}" style="width:120px;height:120px">` : ''}<div style="font-size:46px;font-weight:700">MyDCMViewer 튜토리얼</div><div style="font-size:22px;color:#c8d4ff">DICOM 의료 영상 뷰어 — 모든 기능을 단계별로</div>`, 3500);

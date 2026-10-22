@@ -34,7 +34,7 @@
     calibration: null,   // [rowMm, colMm] per pixel — user scale; overrides DICOM PixelSpacing when set
   };
   const DEFAULTS = {
-    theme: 'midnight', lang: 'ko', sidebar: true, sidebarWidth: 300, treeHeight: 50,
+    theme: 'midnight', lang: 'ko', sidebar: true, sidebarWidth: 300, treeHeight: 50, rightPanel: true, rightPanelWidth: 290,
     interpolate: false, cornerInfo: true, markers: true, overlays: true, measurements: true, burnAnnotations: true, loop: true, invert: false,
     ruler: false, scaleBar: true, scaleBarPos: null, grid: false, measureUnit: 'cm', wheelMode: 'zoom', defaultFps: 10, overlayColor: '#00ff80', annotationColor: '#ffd400', rememberLastDir: true, startupDir: '', confirmDelete: true,
     showStartOnLaunch: true, tutorialDone: false, startScreen: {}, syncScroll: true, refLines: true,
@@ -58,6 +58,8 @@
     if (opt('customTheme')) window.Themes.setCustom(opt('customTheme'));
     applyTheme(opt('theme'));
     $('sidebar').style.width = `${opt('sidebarWidth')}px`;
+    $('rightPanel').style.width = `${opt('rightPanelWidth')}px`;
+    document.body.classList.toggle('no-right', !opt('rightPanel'));
     $('treeSection').style.flexBasis = `${opt('treeHeight')}%`;
     document.body.classList.toggle('no-sidebar', !opt('sidebar'));
     $('loopCheck').checked = !!opt('loop');
@@ -98,7 +100,7 @@
     if (P.isDesktop && window.desktopAPI.startResize) {
       const grip = $('resizeGrip');
       grip.hidden = false;
-      grip.addEventListener('pointerdown', (e) => { if (e.button === 0) { e.preventDefault(); window.desktopAPI.startResize(); } });
+      // (the drag itself: bindWindowChrome — the system resize loop does not run in this frameless window)
     }
     P.progress = {
       start: async (title) => { if (!Progress.open) Progress.start(title, { cancellable: false }); else Progress.update(0, 0, title); },
@@ -116,6 +118,8 @@
     const info = await P.appInfo();
     S.appInfo = info;
     updateTitle();
+    $('appVersion').textContent = info.version ? `v${info.version}` : '';
+    bindWindowChrome();
 
     renderDriveBar();
     if (P.isDesktop) {
@@ -338,6 +342,7 @@
   }
 
   function syncMenuState() {
+    if (props) props.refresh();
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     const st = img ? img.state : null;
     document.querySelectorAll('[data-action="toggle"]').forEach((b) => {
@@ -426,10 +431,163 @@
     });
   }
 
+  /* ══════════════ Right panel: properties of what is shown, changed in place ══════════════ */
+  let props = null;
+  function buildProps() {
+    const dicom = () => (S.file && S.file.kind === 'dicom' ? S.file.image : null);
+    const gray = () => { const img = dicom(); return !!(img && img.gray && !img.palette); };
+    const shown = () => !!(S.file && S.frameCanvas);
+    const flag = (key, label) => ({ type: 'check', label, get: () => !!opt(key), set: (v) => { if (!!opt(key) !== v) toggleOption(key); } });
+    const meta = (k) => { const img = dicom(); return img ? img.meta[k] : (S.file && S.file.meta ? S.file.meta[k] : ''); };
+    const sections = [
+      { id: 'file', icon: 'file', title: 'props.file', visible: () => !!S.file, fields: [
+        { label: 'meta.fileName', get: () => S.file.name },
+        { label: 'meta.fileSize', get: () => (S.file.size ? fmtSize(S.file.size) : '') },
+        { label: 'meta.imageSize', get: () => (S.frameCanvas ? `${S.frameCanvas.width} × ${S.frameCanvas.height}` : ''), visible: shown },
+        { label: 'meta.frames', get: () => frameCount(), visible: () => frameCount() > 1 },
+        { label: 'meta.pixelSpacing', get: () => { const sp = spacing(); return sp ? `${fmt(sp[0], 4)} × ${fmt(sp[1], 4)} mm` : ''; }, visible: shown },
+        { label: 'meta.modality', get: () => meta('modality') },
+        { label: 'meta.patientName', get: () => meta('patientName') },
+        { label: 'meta.studyDate', get: () => meta('studyDate') },
+        { label: 'meta.transferSyntax', get: () => meta('transferSyntax') },
+      ] },
+      { id: 'view', icon: 'view', title: 'props.view', visible: shown, fields: [
+        { type: 'number', label: 'props.zoom', unit: '%', min: 10, max: 6400, step: 10, decimals: 0, get: () => viewer.view.scale * 100, set: (v) => viewer.zoomBy(Math.max(2, v) / 100 / viewer.view.scale) },
+        { type: 'select', label: 'props.rotation', options: () => [0, 90, 180, 270].map((d) => [String(d), `${d}°`]), get: () => String(viewer.view.rotation), set: (v) => viewer.rotate(+v - viewer.view.rotation) },
+        { type: 'check', label: 'view.flipH', get: () => viewer.view.flipH, set: (v) => { if (viewer.view.flipH !== v) runAction('flip-h'); } },
+        { type: 'check', label: 'view.flipV', get: () => viewer.view.flipV, set: (v) => { if (viewer.view.flipV !== v) runAction('flip-v'); } },
+        flag('interpolate', 'props.smooth'),
+        { type: 'buttons', items: [
+          { icon: 'fit', title: t('view.fit'), run: () => runAction('fit') },
+          { icon: 'actual', title: t('view.actual'), run: () => runAction('actual') },
+          { icon: 'rotate-left', title: t('view.rotateLeft'), run: () => runAction('rotate-left') },
+          { icon: 'rotate-right', title: t('view.rotateRight'), run: () => runAction('rotate-right') },
+          { icon: 'reset', title: t('view.resetView'), run: () => runAction('reset-view') },
+        ] },
+      ] },
+      { id: 'wl', icon: 'wl', title: 'props.wl', visible: gray, fields: [
+        { type: 'number', label: 'props.ww', min: 1, step: 1, get: () => dicom().state.ww, set: (v) => renderDicom({ ww: Math.max(1, v), voiLut: -1 }) },
+        { type: 'number', label: 'props.wc', step: 1, get: () => dicom().state.wc, set: (v) => renderDicom({ wc: v, voiLut: -1 }) },
+        { type: 'select', label: 'props.preset', options: () => [...$('presetSelect').options].map((o) => [o.value, o.textContent]), get: () => $('presetSelect').value, set: (v) => applyPresetValue(v) },
+        { type: 'select', label: 'wl.colormap', options: () => D.COLORMAP_IDS.map((id) => [id, t(`cm.${id}`)]), get: () => dicom().state.colormap || 'gray', set: (v) => renderDicom({ colormap: v }) },
+        { type: 'select', label: 'props.voiFunction', options: () => ['LINEAR', 'LINEAR_EXACT', 'SIGMOID'].map((x) => [x, x]), get: () => dicom().state.voiFunction || 'LINEAR', set: (v) => runAction('voi-function', { dataset: { value: v } }) },
+        { type: 'check', label: 'props.invert', get: () => !!dicom().state.invert, set: (v) => { if (!!dicom().state.invert !== v) toggleOption('invert'); } },
+      ] },
+      { id: 'cine', icon: 'cine', title: 'props.cine', visible: () => frameCount() > 1, fields: [
+        { type: 'number', label: 'props.frame', min: 1, step: 1, decimals: 0, get: () => S.frame + 1, set: (v) => setFrame(Math.round(v) - 1) },
+        { type: 'number', label: 'props.fps', min: 1, max: 120, step: 1, decimals: 0, get: () => S.fps, set: (v) => { $('fpsInput').value = String(Math.round(v)); $('fpsInput').dispatchEvent(new Event('change')); } },
+        { type: 'check', label: 'cine.loop', get: () => $('loopCheck').checked, set: (v) => { if ($('loopCheck').checked !== v) toggleOption('loop'); } },
+        { type: 'buttons', items: [
+          { icon: 'first', title: t('cine.first'), run: () => runAction('frame-first') },
+          { icon: 'play', title: t('cine.play'), run: () => runAction('cine-play'), active: () => !!S.cine },
+          { icon: 'pause', title: t('cine.pause'), run: () => runAction('cine-pause') },
+          { icon: 'stop', title: t('cine.stop'), run: () => runAction('cine-stop') },
+          { icon: 'last', title: t('cine.last'), run: () => runAction('frame-last') },
+        ] },
+      ] },
+      { id: 'display', icon: 'layers', title: 'props.display', visible: shown, fields: [
+        flag('ruler', 'view.ruler'), flag('scaleBar', 'view.scaleBar'), flag('grid', 'view.grid'),
+        flag('cornerInfo', 'settings.cornerInfo'), flag('markers', 'settings.markers'), flag('measurements', 'settings.measurements'),
+        { ...flag('overlays', 'settings.overlays'), visible: () => !!dicom() },
+        { type: 'select', label: 'settings.measureUnit', options: () => [['cm', t('settings.unitCm')], ['in', t('settings.unitIn')]], get: () => opt('measureUnit'), set: (v) => applySetting('measureUnit', v) },
+        { type: 'color', label: 'settings.annotationColor', get: () => opt('annotationColor'), set: (v) => applySetting('annotationColor', v) },
+      ] },
+      { id: 'measure', icon: 'length', title: 'props.measure', visible: shown, fields: [
+        { type: 'list', empty: t('props.noMeasure'), items: () => viewer.annotations.map((a) => `${t(`tool.${a.type}`) !== `tool.${a.type}` ? t(`tool.${a.type}`) : a.type}${a.label ? ` — ${a.label}` : ''}`) },
+        { type: 'buttons', items: [{ icon: 'trash', title: t('props.clearMeasure'), run: () => runAction('clear-measurements') }] },
+      ] },
+    ];
+    props = window.PropsPanel.create({
+      body: $('propsBody'), rail: $('rightRail'), t, sections,
+      onRail: async (id) => { if (!opt('rightPanel')) await toggleOption('rightPanel'); requestAnimationFrame(() => props.open(id)); },
+    });
+    props.render();
+    document.addEventListener('langchange', () => props.render());
+  }
+
+  /* The page's own title row (desktop): the window buttons at the right of the menu bar, and the empty parts
+   * of the menu bar (and the icon / name) move the window like a title bar; a double click maximises. */
+  function bindWindowChrome() {
+    if (!P.isDesktop || !window.desktopAPI.setPosition) return;
+    const api = window.desktopAPI;
+    const setMax = (m) => { document.body.classList.toggle('maximized', !!m); const b = document.querySelector('.win-btn[data-win="max"]'); if (b) b.title = t(m ? 'win.restore' : 'win.maximize'); };
+    api.isMaximized().then(setMax).catch(() => {});
+    api.onWinState((s) => setMax(s && s.maximized));
+    $('winControls').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-win]');
+      if (!b) return;
+      if (b.dataset.win === 'min') api.minimize();
+      else if (b.dataset.win === 'max') api.toggleMaximize().then(setMax);
+      else runAction('exit');
+    });
+    const dragArea = (e) => e.button === 0 && !e.target.closest('button, input, select, a, .menu, .wl-bar, .theme-control, .win-controls');
+    const bar = $('menubar');
+    // mouse events on the window, like the image viewer: pointer capture on the menu bar made WebView2 end the press at once
+    let drag = null;
+    bar.addEventListener('mousedown', (e) => {
+      if (!dragArea(e) || e.detail > 1) return;
+      e.preventDefault();
+      drag = { sx: e.screenX, sy: e.screenY, wx: window.screenX, wy: window.screenY, moved: false, queued: false };
+    });
+    window.addEventListener('mousemove', async (e) => {
+      if (!drag) return;
+      if (!(e.buttons & 1)) { drag = null; return; }
+      const dx = e.screenX - drag.sx, dy = e.screenY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        // a maximised window is restored first and keeps the pointer at the same share of its width
+        if (document.body.classList.contains('maximized')) {
+          const share = (drag.sx - window.screenX) / Math.max(1, window.outerWidth);
+          await api.toggleMaximize().then(setMax);
+          await new Promise((r) => setTimeout(r, 60));
+          if (!drag) return;
+          drag.wx = drag.sx - share * window.outerWidth; drag.wy = window.screenY;
+        }
+      }
+      drag.x = drag.wx + dx; drag.y = drag.wy + dy;
+      if (drag.queued) return;
+      drag.queued = true;
+      requestAnimationFrame(() => { if (!drag) return; drag.queued = false; api.setPosition(drag.x, drag.y); });
+    });
+    window.addEventListener('mouseup', () => { drag = null; rs = null; });
+
+    // resizing: thin strips along the edges and corners, and the grip in the bottom-right corner
+    const edges = document.createElement('div');
+    edges.className = 'win-edges';
+    for (const d of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']) { const el = document.createElement('div'); el.className = `win-edge e-${d}`; el.dataset.dir = d; edges.append(el); }
+    document.body.append(edges);
+    let rs = null;
+    const startResize = (dir, e) => {
+      if (e.button !== 0 || document.body.classList.contains('maximized')) return;
+      e.preventDefault(); e.stopPropagation();
+      rs = { dir, sx: e.screenX, sy: e.screenY, x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight, queued: false };
+    };
+    edges.addEventListener('mousedown', (e) => { const el = e.target.closest('.win-edge'); if (el) startResize(el.dataset.dir, e); });
+    $('resizeGrip').addEventListener('mousedown', (e) => startResize('se', e));
+    window.addEventListener('mousemove', (e) => {
+      if (!rs) return;
+      if (!(e.buttons & 1)) { rs = null; return; }
+      const dx = e.screenX - rs.sx, dy = e.screenY - rs.sy;
+      const minW = Math.max(900, minSizeSent || 0), minH = 600;
+      let { x, y, w, h } = rs;
+      if (rs.dir.includes('e')) w = Math.max(minW, rs.w + dx);
+      if (rs.dir.includes('s')) h = Math.max(minH, rs.h + dy);
+      if (rs.dir.includes('w')) { w = Math.max(minW, rs.w - dx); x = rs.x + rs.w - w; }
+      if (rs.dir.includes('n')) { h = Math.max(minH, rs.h - dy); y = rs.y + rs.h - h; }
+      rs.next = { x, y, w, h };
+      if (rs.queued) return;
+      rs.queued = true;
+      requestAnimationFrame(() => { if (!rs) return; rs.queued = false; const n = rs.next; api.setBounds(n.x, n.y, n.w, n.h); });
+    });
+    bar.addEventListener('dblclick', (e) => { if (dragArea(e)) api.toggleMaximize().then(setMax); });
+  }
+
   /* ══════════════ UI binding ══════════════ */
   function bindUI() {
     bindMenubar();
     MenuMirror.init();
+    buildProps();
     // Toolbar / context menus / dialogs: any button with data-action
     document.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-action]');
@@ -440,8 +598,18 @@
     });
     $('modalHost').addEventListener('mousedown', (e) => { if (e.target === $('modalHost')) Dlg.closeAll(); });
 
+    // Folded left panel: a rail item unfolds the panel at that part (the folder tree or one of the tabs)
+    $('sidebarRail').addEventListener('click', async (e) => {
+      const item = e.target.closest('[data-rail]');
+      if (!item) return;
+      if (!opt('sidebar')) await toggleOption('sidebar');
+      const which = item.dataset.rail;
+      if (which === 'folder') $('fileTree').focus({ preventScroll: true });
+      else { const tab = document.querySelector(`.tabs .tab[data-tab="${which}"]`); if (tab) tab.click(); }
+    });
     // Tabs
     document.querySelectorAll('.tabs .tab').forEach((tab) => tab.addEventListener('click', () => {
+      document.querySelectorAll('#sidebarRail [data-rail]').forEach((r) => r.classList.toggle('current', r.dataset.rail === tab.dataset.tab));
       document.querySelectorAll('.tabs .tab').forEach((x) => x.classList.toggle('active', x === tab));
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${tab.dataset.tab}`));
       if (tab.dataset.tab === 'histogram') drawHistogram();
@@ -467,6 +635,11 @@
       $('sidebar').style.width = `${w}px`;
       return w;
     }, () => { S.sidebarStart = $('sidebar').getBoundingClientRect().width; }, (w) => setOpt({ sidebarWidth: w }));
+    bindDrag($('rightResizer'), (dx) => {
+      const w = Math.max(220, Math.min(560, S.rightStart - dx));
+      $('rightPanel').style.width = `${w}px`;
+      return w;
+    }, () => { S.rightStart = $('rightPanel').getBoundingClientRect().width; }, (w) => setOpt({ rightPanelWidth: w }));
     bindDrag($('sideSplitter'), (_dx, dy) => {
       const total = $('sidebar').getBoundingClientRect().height;
       const pct = Math.max(15, Math.min(85, S.treeStart + dy / total * 100));
@@ -532,6 +705,7 @@
     if (key === 'F1') return act(ctrl ? 'help-window' : 'shortcuts');
     if (ctrl && key === ',') return act('settings');
     if (key === 'F9') return act('toggle', { dataset: { key: 'sidebar' } });
+    if (key === 'F8') { e.preventDefault(); return act('toggle', { dataset: { key: 'rightPanel' } }); }
     if (key === 'F11') return act('fullscreen');
     if (key === 'F12' && P.isDesktop) return act('devtools');
     if (inInput) return;
@@ -643,6 +817,13 @@
         case 'tool': setTool(ds.tool); break;
         case 'delete-last': viewer.deleteLast(); History.push(); break;
         case 'clear-measurements': viewer.clear(); History.push(); break;
+        case 'scalebar-pos': {   // the tutorial moves the scale bar (the user drags it)
+          if (!opt('scaleBar')) await toggleOption('scaleBar');
+          viewer.scaleBarPos = ds.reset ? null : { fx: +ds.fx, fy: +ds.fy };
+          await setOpt({ scaleBarPos: viewer.scaleBarPos });
+          break;
+        }
+        case 'props-open': if (!opt('rightPanel')) await toggleOption('rightPanel'); if (props) props.open(ds.sec); break;
         case 'calibrate': await calibrateFromLength(); break;
         case 'clear-calibration': clearCalibration(); break;
         case 'wl-step': {
@@ -742,6 +923,7 @@
     await setOpt({ [key]: value });
     switch (key) {
       case 'sidebar': document.body.classList.toggle('no-sidebar', !value); viewer.resize(); break;
+      case 'rightPanel': document.body.classList.toggle('no-right', !value); viewer.resize(); if (value && props) props.refresh(); break;
       case 'interpolate': viewer.interpolate = value; break;
       case 'measurements': viewer.showAnnotations = value; break;
       case 'ruler': viewer.showRuler = value; document.body.classList.toggle('ruler-on', value); break;
@@ -1393,6 +1575,7 @@
 
   /* ══════════════ Viewer events ══════════════ */
   function onViewerEvent(ev, payload) {
+    if (props) props.refresh();
     switch (ev) {
       case 'view': updateCorners(); updateStatus(); break;
       case 'scalebar': setOpt({ scaleBarPos: payload }); break;
@@ -1617,6 +1800,7 @@
 
   function updateStatus() {
     updateTitle();
+    if (props) props.refresh();
     const f = S.file;
     const img = f && f.kind === 'dicom' ? f.image : null;
     $('statusPath').textContent = f ? f.path : t('status.ready');
@@ -2735,7 +2919,7 @@
         return;
       }
       case 'lang': await setLang(value); return;
-      case 'sidebar': case 'scaleBar': case 'interpolate': case 'cornerInfo': case 'markers': case 'overlays': case 'measurements': case 'burnAnnotations': case 'loop': case 'syncScroll': case 'refLines':
+      case 'sidebar': case 'rightPanel': case 'scaleBar': case 'interpolate': case 'cornerInfo': case 'markers': case 'overlays': case 'measurements': case 'burnAnnotations': case 'loop': case 'syncScroll': case 'refLines':
         if (!!opt(key) !== !!value) await toggleOption(key);
         return;
       default: break;

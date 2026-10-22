@@ -84,6 +84,12 @@
 
     ready: () => invoke('window_ready'),
     toggleFullscreen: () => invoke('win_toggle_fullscreen'),
+    /* the page's own title row (the window has no native one) */
+    minimize: () => invoke('win_minimize'),
+    toggleMaximize: () => invoke('win_toggle_maximize'),
+    isMaximized: () => invoke('win_is_maximized'),
+    setBounds: (x, y, w, h) => invoke('win_set_bounds', { x: Number(x) || 0, y: Number(y) || 0, width: Number(w) || 0, height: Number(h) || 0 }),
+    setPosition: (x, y) => invoke('win_set_position', { x: Number(x) || 0, y: Number(y) || 0 }),
     /** Menus drawn by the overlay window (past the main window's edges): see MenuMirror in app.js. */
     menuOpen: (payload) => invoke('menu_open', { payload }),
     menuClose: () => invoke('menu_close'),
@@ -138,5 +144,6 @@
     onDirChanged: on('dir-changed'),
     onFileDrop: on('file-drop'),
     onMenuEvent: on('menu-event'),
+    onWinState: on('win-state'),
   };
 })();
