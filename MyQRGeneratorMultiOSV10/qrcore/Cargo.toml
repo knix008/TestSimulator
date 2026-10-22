@@ -1,0 +1,17 @@
+[package]
+name = "qrcore"
+version = "1.0.0"
+description = "QR Code Model 2 encoder (ISO/IEC 18004) with no dependencies; native and WebAssembly."
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "qrcore"
+crate-type = ["rlib", "cdylib"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
