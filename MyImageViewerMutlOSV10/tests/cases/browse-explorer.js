@@ -204,7 +204,7 @@ module.exports = {
       assertIncludes(app, 'let target = filePath || null', 'selection drives the panel');
       assertIncludes(app, 'function _clearSelectionPanels', 'empty selection clears panels');
       assertIncludes(app, '_previewFileInfo(state.currentFile)', 'file view refreshes the panel');
-      assertIncludes(app, 'if (!_layout.right) _toggleRightPanel(true)', 'histogram panel opens on select');
+      assertIncludes(app, 'if (!_layout.left) _toggleLeftPanel(true)', 'File Info panel opens on select');
       assertIncludes(app, 'function _panelSelectionPath', 'shared selection for info + histogram');
       assert(!app.includes('if (!_layout.left) return;'), 'a collapsed panel still receives the update');
     });

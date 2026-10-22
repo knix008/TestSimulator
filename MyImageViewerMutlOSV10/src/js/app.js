@@ -2346,35 +2346,45 @@
 
   /** Bottom filmstrip of the same folder while an image is on screen. */
   async function _showFilmstripFor(filePath) {
-    if (!filePath || !window.Browse?.setFilmstrip) return;
+    if (!filePath || !window.Browse?.setFilmstrip) {
+      if (Browse.isVisible?.() && !Browse.isFilmstrip?.()) Browse.hide();
+      return;
+    }
     try {
       let dir = Browse.getDir?.() || '';
       if (!dir && window.electronAPI?.pathDirname) {
         dir = (await window.electronAPI.pathDirname(filePath)) || '';
       }
       if (!dir) {
-        if (Browse.isVisible?.() && !Browse.isFilmstrip?.()) Browse.hide();
+        if (Browse.isVisible?.()) Browse.hide();
         return;
       }
+      // Switch to filmstrip FIRST so the full sheet stops covering the viewer,
+      // then refresh folder contents if needed.
+      Browse.setFilmstrip(true);
       if (_normWatchPath(Browse.getDir?.() || '') !== _normWatchPath(dir)) {
         await Browse.open(dir);
+        Browse.setFilmstrip(true); // open() must not leave us in full-sheet mode
       }
-      Browse.setFilmstrip(true);
       Browse.select?.(filePath, { notify: false });
     } catch {
       if (Browse.isVisible?.() && !Browse.isFilmstrip?.()) Browse.hide();
+      else if (Browse.isVisible?.()) Browse.setFilmstrip?.(true);
     }
   }
 
   async function _openFile(filePath, { center = false } = {}) {
     if (!filePath) return;
     _hideHome();
-    // Opening a file: contact sheet becomes a bottom filmstrip of the same folder
-    // so the image is visible and siblings stay one click away.
+    // Opening a file: contact sheet becomes a bottom filmstrip so the image can show.
     _browseSheetHeld = true;
-    // An open file is a selection — surface File Info and the colour / histogram panel.
+    // File Info only — do not force the colour/adjust (edit) sidebar open.
     if (!_layout.left) _toggleLeftPanel(true);
-    if (!_layout.right) _toggleRightPanel(true);
+    // Collapse the old slide-in effects drawer if it was left open.
+    if (effectsPanel?.classList.contains('visible')) {
+      effectsPanel.classList.remove('visible');
+      state.effectsPanelVisible = false;
+    }
     await _showFilmstripFor(filePath);
     // Prevent overlapping opens (Windows fs.watch often fires when we read the file)
     if (_openingFile && _openingFile === filePath) return;
@@ -2550,16 +2560,27 @@
   /** Make sure a just-opened still image is actually on screen (sheet down, canvas up). */
   function _revealOpenedImage() {
     const shown = state.currentFile || _openingFile;
+    // Full contact sheet must never cover the viewer after an open.
     if (Browse.isVisible?.() && !Browse.isFilmstrip?.()) {
-      if (shown) _showFilmstripFor(shown).catch(() => {});
-      else Browse.hide();
+      if (shown && Browse.setFilmstrip) {
+        Browse.setFilmstrip(true);
+        Browse.select?.(shown, { notify: false });
+      } else {
+        Browse.hide();
+      }
     }
     viewerContainer?.classList.remove('is-switching');
-    if (state.isVideo || state.isAudio || state.isAnimated) return;
+    document.getElementById('viewer-area')?.classList.add('has-filmstrip');
+    if (state.isVideo || state.isAudio) return;
+    if (state.isAnimated) {
+      if (imagePlaceholder) imagePlaceholder.style.display = 'none';
+      return;
+    }
     if (!Editor.isLoaded?.()) return;
     if (imagePlaceholder) imagePlaceholder.style.display = 'none';
     if (displayCanvas) displayCanvas.style.display = 'block';
     if (selCanvas) selCanvas.style.display = 'block';
+    if (imageWrapper) imageWrapper.style.visibility = 'visible';
   }
 
   /** Blank the viewer for the length of an open: no old frame, no old sound. */
@@ -10807,9 +10828,8 @@
       _clearSelectionPanels();
       return;
     }
-    // A selection must surface File Info + colour/histogram panels.
+    // Selection fills File Info (left). Colour/adjust stays as the user left it.
     if (!_layout.left) _toggleLeftPanel(true);
-    if (!_layout.right) _toggleRightPanel(true);
     if (infoContent) {
       const name = String(target).split(/[/\\]/).pop() || target;
       infoContent.dataset.previewing = target;
