@@ -11,8 +11,11 @@ On Windows/Linux the window is **frameless**; chrome (brand, menus, current file
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Mode A: Tauri shell (src-tauri)                             │
-│  ─ Frameless window, asset protocol, CLI file open           │
+│  Mode A: Tauri shell (src-tauri/src/main.rs)                 │
+│  ─ Frameless main window (built in Rust), asset protocol     │
+│  ─ Menu overlay window (menus past the window edge)          │
+│  ─ Dialog windows (window.open → owned frameless windows)    │
+│  ─ OS file drag-out (drag crate), native file drop events    │
 │  ─ Spawns host/server.js when it is not already listening    │
 └────────────────────┬─────────────────────────────────────────┘
                      │  src/js/tauriAPI.js → http://127.0.0.1:17810/ipc
@@ -34,6 +37,7 @@ On Windows/Linux the window is **frameless**; chrome (brand, menus, current file
 │    ├─ FormatSupport, DicomDecoder + codecs                      │
 │    ├─ Info panel (file / capture / media / tags / DICOM)      │
 │    ├─ I18n, ContextMenu, Tooltip, Icons                       │
+│    ├─ DialogWindows, DragDrop (desktop only)                  │
 │    └─ fileRegistry / webAPI (web mode only)                   │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -68,16 +72,35 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
   - **Auto-provisioning**: `_resolvePython` prefers the machine's existing Python (env override → `python`/`py` → previously app-installed); `_ensureRembgPackages` pip-installs `rembg`/`onnxruntime` on demand into that interpreter. Only if **no** Python exists does `_installManagedPython` download the official installer (Windows, per-user, isolated under `userData/python`) — it never replaces or downgrades a system Python.
   - Progress is **monotonic**: download → install → package install → the worker's own model/inference progress are remapped into an always-advancing bar.
 
+### `src-tauri/src/main.rs` — Tauri shell
+- Builds the **main window in Rust** (`tauri.conf.json` has `"windows": []`) so it can carry an `on_new_window` hook: `window.open("about:blank#dialog-<id>")` from the page creates an owned, frameless, hidden **dialog window**; `fit_dialog` sizes it, centres it over the main window inside the work area and shows it; `close_dialog` destroys it.
+- **Menu overlay** (`menu-overlay`, `src/popup.html`): transparent, borderless, `focusable(false)`, owned by the main window, sized to the monitor work area. Shown and hidden with Win32 `ShowWindow(SW_SHOWNOACTIVATE / SW_HIDE)` — `show()` would activate it, the main window's blur would close the menu at once, and tao's `hide()` does not see a native show (an invisible full-screen window would then swallow every click). Commands: `popup_menu_show / shown / hide / refresh / ready / event / visible`.
+- **Drag-out**: `start_file_drag(paths)` runs `drag::start_drag` (DoDragDrop) on the main thread, offered as **copy** only.
+- Spawns `host/server.js` if port 17810 is free, passes the exe path and CLI files to it, and exits the app when the main window is destroyed (the overlay would keep it alive otherwise).
+
 ### `src/js/tauriAPI.js` — Desktop bridge
 - Installs `window.electronAPI` when `window.__TAURI__` is present.
 - `POST /ipc` for request/response; `GET /events` (SSE) for `open-file`, `open-folder`, `menu-action`, progress.
-- Window chrome (minimize, maximize, close, fullscreen, size) uses the Tauri window API. File URLs are rewritten with `convertFileSrc`.
+- Window chrome (minimize, maximize, close, fullscreen, size) uses the Tauri window API. File URLs are rewritten with `convertFileSrc` (asset protocol). Images drawn onto a canvas from those URLs must use `crossOrigin = 'anonymous'`, or the canvas is tainted.
+- Tauri commands (not the Node host): `popupMenu*` / `onPopupMenuEvent` (menu overlay), `startFileDrag`.
+- Native file drops: the window owns the webview's drop target, so HTML5 `dragover` / `drop` never reach the page. `onDragDropEvent` is forwarded as a `native-dragdrop` window event `{ type, paths, x, y }` (CSS px).
+
+### `src/js/popupMenu.js` + `src/popup.html` — Menu overlay page
+- Draws the serialised menu with the same `contextMenu.js`; row clicks go back by id (`action` / `remove`), a press outside closes it (`closed`), and the main window's menu bar titles are reported as `title` events so hover-switching File → Edit → View keeps working while the overlay covers the screen.
+
+### `src/js/dialogWindow.js` — Dialogs in their own windows (desktop)
+- A `MutationObserver` sees a `.dialog-overlay` become visible, opens its dialog window, **moves the overlay's DOM into that same-origin document** (listeners travel with the nodes), freezes the box at its in-page size (the CSS sizes ride `vw`/`vh`) and calls `fit_dialog`. Hiding the dialog moves the DOM back and closes the window. `progress-overlay` stays in the page.
+- While a dialog is out: `document.getElementById / querySelector / querySelectorAll` also search the dialog windows (app.js looks dialog elements up on `document`), Esc pressed in a dialog is re-dispatched to the main document, the main window is blocked by `#dialog-window-blocker`, the title row is an `app-region: drag` (macOS/Linux: `dialog_start_dragging`), tooltips draw in the dialog's own document.
+
+### `src/js/dragdrop.js` — Drag & drop (desktop)
+- In-app drags use **pointer events** (not HTML5 DnD): thumbnails / explorer files → explorer folder rows or folder tiles (move; Ctrl = copy), with a ghost and a `dd-target` highlight. Leaving the window mid-drag hands the same files to `startFileDrag` (OS drag-out).
+- `native-dragdrop` (files from Explorer / other apps) is routed by app.js: onto a folder row / tile → into that folder; onto the open contact sheet → into the folder it shows; else → open the folder / first media file. Mode follows Explorer: same drive = move, other drive = copy.
 
 ### `server.js` — Web Static Server
 - Serves `src/` on `127.0.0.1` (default port **8080**, increments if busy).
 - No conversion backend; decoding stays in the renderer / optional vendor scripts.
 - Exposes only the DICOM vendor packages under `/node_modules/<pkg>/…` (`dicom-parser`, the four `@cornerstonejs/codec-*` packages, `jpeg-lossless-decoder-js`) so the page's `../node_modules/…` script URLs resolve in both modes.
-- Menus are drawn in the page (`contextMenu.js`). The desktop shell does not open a separate menu window.
+- Menus are drawn in the page (`contextMenu.js`). On the desktop they are drawn by the menu overlay window instead (see `src-tauri/src/main.rs`), and fall back to the page if the overlay fails. `host/server.js` mounts the same vendor packages for the desktop.
 
 ### `src/js/webAPI.js` + `fileRegistry.js` — Web Shim
 - Implements the same `electronAPI` surface for the browser.
@@ -184,19 +207,22 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - Callbacks: `onOpenFile` / `onOpenDir` / `onContextMenu`, plus `onSelect` (selection only — `app.js` fills the File Info panel without opening the file) and `onVisibility` (the toolbar button and the viewer chrome follow what is on screen).
 - `applyI18n()` rebuilds the bar, because its labels are baked into the markup; the `thumb-ready` listener is bound once in `init` (`_bindThumbReady`) so rebuilds cannot stack copies.
 - **Selection** is a set (`_sel`, keys = `_norm(path)`) plus a focus (`_selected`, the item last clicked — Enter / File Info) and an `_anchor` for Shift ranges over `_shownPaths()` (display order). Click / `Ctrl` (`_toggle`) / `Shift` (`_selectRange`) / `Ctrl+A` (`selectAll`). `_bindMarquee` starts a box after 5 px of pointer travel (shorter = a click), hit-tests tiles by `offsetLeft/Top` against `.browse-grid` (`position: relative`), auto-scrolls past the top / bottom edge and swallows the click that ends the drag (`_suppressClick`). Right-click inside the selection keeps it and calls `onContextMenu(entry, x, y, getSelectedPaths())`; `app.js` passes that as `{ paths }` to `_showTreeContextMenu`, which then uses it instead of the explorer's selection (folders included for copy / move / delete, files only for Open). `refresh()` re-reads the folder with `keepSelection`, and `_scheduleTreeRefresh` calls it on directory-change events.
-- **Drag to the explorer**: tiles are `draggable` on desktop (`canDrag`); `dragstart` puts the selection in `application/x-imageviewer-paths` (JSON) with `effectAllowed = copyMove` and a count-badge ghost for several items. A press on a draggable tile therefore never starts the marquee. `fileTree.js` recognises that type in `dragover` (move unless `Ctrl`) and `drop`, and hands `{ paths, destDir, mode }` to `onInternalDrop` → `_transferPathsInto`, which refreshes the tree and the sheet in parallel. It deliberately does **not** use `webContents.startDrag`: on Windows that keeps the main process in the OS drag loop after a drop on our own window until the next click, so the move IPC stalled.
+- **Filmstrip scrolling** moves `#browse-grid` itself (`_grid.scrollTo`), never `scrollIntoView`: that scrolls every `overflow:hidden` ancestor too, and repeated `>` presses slid `#viewer-area` sideways (the parked effects drawer came into view, the `<` went under the sidebar). `#viewer-area` is `overflow: clip` for the same reason. `open()` drops a directory read superseded by a newer `open()` (`_openGen`) and keeps the selection when the same folder is re-read.
+- **Drag to the explorer** (Tauri desktop: `dragdrop.js`, pointer events — the HTML5 path below is the Electron / browser one): tiles are `draggable` when `canDrag`; `dragstart` puts the selection in `application/x-imageviewer-paths` (JSON) with `effectAllowed = copyMove` and a count-badge ghost for several items. A press on a draggable tile therefore never starts the marquee. `fileTree.js` recognises that type in `dragover` (move unless `Ctrl`) and `drop`, and hands `{ paths, destDir, mode }` to `onInternalDrop` → `_transferPathsInto`, which refreshes the tree and the sheet in parallel. It deliberately does **not** use `webContents.startDrag`: on Windows that keeps the main process in the OS drag loop after a drop on our own window until the next click, so the move IPC stalled.
 
 ### `src/js/thumbs.js` — Thumbnail cache
 - Bounded LRU (`MAX_CACHE`) with a small work queue (`CONCURRENCY`); `request(path, { front })` jumps the queue for a tile that just scrolled in, `prefetchDir` warms a folder in the background, and each finished thumbnail fires a `thumb-ready` window event.
 - `_sourceFor` takes whatever the loader produced: a file URL for native formats, a data URL, or a **canvas** — which is how DICOM arrives, so `.dcm` files get thumbnails too.
 - **Per-directory disk cache** (host/service.js, `thumb-cache-*` IPC): `<userData>/ThumbCache/<sha1(dir)>/index.json` (`{ v, dir, entries: { name: { size, mtimeMs, w, h, tw, th, file } } }`) plus `<sha1(name)>.jpg`. `thumb-cache-load` returns only entries whose source size + mtime still match (stale ones are deleted); `thumb-cache-put` writes the JPEG and batches index saves (1 s debounce, flushed synchronously on `before-quit`). Nothing is written into the user's folders. `request()` awaits `_ensureDir(dir)` (one load per directory per session) before queueing, so a known folder paints straight from `file://` URLs.
-- **Background generation**: `jpg/png/gif/bmp/webp/ico/avif` bytes (`readFileBytes`) are transferred to `src/js/thumbWorker.js`, which decodes with `createImageBitmap` (EXIF orientation applied), downsizes on an `OffscreenCanvas` and returns JPEG bytes. TIFF / HEIC / DICOM / SVG still need the page's decoders, so `_generateOnMainThread` runs them after `requestIdleCallback`. If the worker cannot start, everything falls back to that path. Settings ▸ General shows the cache size (`thumbCacheStats`) and clears it (`Thumbs.clearDiskCache`).
+- **Host-built thumbnails (desktop)**: `thumb-make(file)` decodes and downsizes with **sharp** in the Node host (EXIF-rotated, 256 px JPEG, same cache entry format), so no image bytes cross the IPC; `_generate()` asks the host first and only falls back to the page for formats sharp cannot read (BMP / ICO / HEIC / DICOM). `thumb-cache-build(dirs, { front })` builds whole folders in the background, one file at a time; a `front` request (the folder just opened) pre-empts the current folder, which is requeued and resumes cheaply. `prefetchDir` sends the opened folder as `front`; start-up sends the other recent folders (`Thumbs.warmDirs`).
+- **Background generation (page)**: `jpg/png/gif/bmp/webp/ico/avif` bytes (`readFileBytes`) are transferred to `src/js/thumbWorker.js`, which decodes with `createImageBitmap` (EXIF orientation applied), downsizes on an `OffscreenCanvas` and returns JPEG bytes. TIFF / HEIC / DICOM / SVG still need the page's decoders, so `_generateOnMainThread` runs them after `requestIdleCallback`. If the worker cannot start, everything falls back to that path. Settings ▸ General shows the cache size (`thumbCacheStats`) and clears it (`Thumbs.clearDiskCache`).
 - Opening a file adds `.is-switching` to `#viewer-container` (`_beginViewerSwitch`, which also pauses playing media) so the previous image never shows while the next decodes; only the newest open (`openGen === _openGen`) removes it.
 
 ### Other renderer modules
 - `i18n.js` — `en.json` / `ko.json`, `localStorage` lang
 - `icons.js` — inline SVG (undo/redo, rotate, drive, window controls)
-- `contextMenu.js` — dropdown / context menus drawn in the page: rows with icon, label, detail, shortcut, `checked`, `danger`, `inline`, `remove`, and `submenu`. `_place()` calls `_fitColumns()` first: a list taller than the screen (the 40-palette theme picker) gets a fixed height and an `is-columns` class.
+- `contextMenu.js` — dropdown / context menus: rows with icon, label, detail, shortcut, `checked`, `danger`, `inline`, `remove`, and `submenu`. **Every row shows an icon**: a checked row keeps its icon and adds `.ctx-checkmark` at the right; a row without one gets a neutral dot (or the check). `_place()` calls `_fitColumns()` first: a list taller than the screen (the 40-palette theme picker) gets a fixed height and an `is-columns` class. On the desktop menus are serialised to the menu overlay window (`electronAPI.popupMenu`), with the in-page menu as fallback.
+- `dragdrop.js`, `dialogWindow.js`, `popupMenu.js` — see above.
 - `tauriAPI.js` — desktop `electronAPI`. `webAPI.js` is the browser counterpart.
 - `tooltip.js`
 
@@ -250,6 +276,10 @@ Shared contract (`preload` and `webAPI`):
 | `openFileDialog` / `openFolderDialog` | Open |
 | `showSaveDialog` / `writeFile` / `saveFile` | Save |
 | `setLastOpenDir` / `getLastOpenDir` | Dialog default folder |
+| `getSavedLastOpenDir` | The folder really opened last (no Documents fallback) — start-up restore reads it first (desktop) |
+| `thumbMake` / `thumbCacheBuild` | Host-built thumbnails: one file now / whole folders in the background (desktop) |
+| `popupMenu` / `popupMenuHide` / `popupMenuRefresh` / `onPopupMenuEvent` | Menus in the overlay window (desktop, Tauri command) |
+| `startFileDrag` | OS file drag-out of the given paths, copy only (desktop, Tauri command) |
 | `showMessageBox` / `updateMenu` | UI chrome |
 | `windowMinimize` / `windowMaximize` / `windowClose` / `toggleFullscreen` | Frameless chrome |
 | `showItemInFolder` / `renamePath` / `deleteFile` / `startDrag` | Desktop-only |
@@ -295,7 +325,7 @@ Web mode is not packaged as a separate installer; deploy by serving `src/` (or r
 3. **Frameless chrome** — Native frame is off; drag region + custom min/max/close. Menu accelerators on Windows/Linux are handled in the renderer (`Ctrl+Z`, `F11`, …).
 4. **Single instance** — OS “Open with” / double-click should not spawn a second window.
 5. **Drive-rooted explorer** — Matches OS mental model; web approximates with a mountable virtual root.
-6. **Dialog `defaultPath`** — Last opened directory persisted in main-process userData (and renderer `localStorage`).
+6. **Dialog `defaultPath` and start-up folder** — Last opened directory persisted in the host's userData config (written at once) and renderer `localStorage`. Start-up reads the host copy first (the webview may lose its newest `localStorage` writes on an abrupt close), falls back to the newest recent folder that still exists, and opens it in **folder view** with the last image selected — not opened.
 7. **Equal sidebar split** — Tree and info use `flex: 1 1 0` so content-heavy metadata does not steal height; user split is stored as `sidebarTreeHeightV2`.
 8. **History includes effects** — Undo restores pixels plus rotation/flip/effect values, not pixels alone.
 9. **Effect sliders live on `input`** — Preview updates while dragging; history commits on `change` (release). No full-window progress dialog for interactive tweaks. Wheel scrolls the panel instead of nudging the range.
@@ -307,4 +337,7 @@ Web mode is not packaged as a separate installer; deploy by serving `src/` (or r
 15. **Curated, categorized presets** — the preset set is trimmed of near-duplicates and grouped into collapsible categories to reduce clutter while keeping distinct looks.
 16. **Status-bar progress for open** — a modal popup over the explorer caused flicker; load progress is painted on the status bar and left until the next status change.
 17. **Settings Theme tab** — palettes are buttons with live swatches, not a dropdown on General.
-18. **Feature tests** — `tests/run-feature-tests.js` loads every `tests/cases/*.js` suite, writes `tests/results.json` / `tests/results.html`, and prints a **summary** table then a **details** list (`# / result / name / execution time` to 3 decimal places, time right-aligned). `npm test -- --summary` prints the summary only.
+18. **Menus and dialogs past the window edge** — a page cannot draw outside its window, so on the desktop menus go to a transparent, non-activating overlay window and dialogs to windows of their own. Both reuse the existing in-page code (menus: `contextMenu.js` on both sides; dialogs: their DOM is moved, not rebuilt), so web mode and the desktop stay one implementation.
+19. **Drag & drop without HTML5 DnD on the desktop** — the Tauri window owns the OS drop target (real paths for dropped files), which keeps HTML5 drop events from the page; in-app drags use pointer events and hand over to an OS drag at the window edge.
+20. **Init order** — `app.js` runs its init calls near the top of one IIFE: module state those calls read must be declared in the early block (a `let` declared further down threw a TDZ `ReferenceError` at start-up and silently skipped every later init — keyboard, navigation, open listeners).
+21. **Feature tests** — `tests/run-feature-tests.js` loads every `tests/cases/*.js` suite, writes `tests/results.json` / `tests/results.html`, and prints a **summary** table then a **details** list (`# / result / name / execution time` to 3 decimal places, time right-aligned). `npm test -- --summary` prints the summary only.

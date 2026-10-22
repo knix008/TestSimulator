@@ -4,6 +4,7 @@
  */
 process.env.MYIMAGEVIEWER_RUNTIME = 'tauri';
 
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const shim = require('./electron-shim');
@@ -68,6 +69,28 @@ app.post('/ipc', async (req, res) => {
     res.json({ result: { error: err.message || String(err) } });
   }
 });
+
+// DICOM parser + codecs the renderer loads on demand from /node_modules/<pkg>/…
+// (same list as the web server.js — without it every DICOM file fails to open).
+const VENDOR_PKGS = [
+  'dicom-parser',
+  '@cornerstonejs/codec-openjpeg',
+  '@cornerstonejs/codec-charls',
+  '@cornerstonejs/codec-libjpeg-turbo-8bit',
+  '@cornerstonejs/codec-libjpeg-turbo-12bit',
+  'jpeg-lossless-decoder-js',
+];
+for (const pkg of VENDOR_PKGS) {
+  const dir = path.join(ROOT, 'node_modules', pkg);
+  if (fs.existsSync(dir)) {
+    app.use('/node_modules/' + pkg, express.static(dir, {
+      maxAge: '7d',
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('.cjs') || filePath.endsWith('.mjs')) res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+      },
+    }));
+  }
+}
 
 app.use('/doc', express.static(path.join(ROOT, 'doc')));
 app.use(express.static(path.join(ROOT, 'src')));

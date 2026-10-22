@@ -177,6 +177,7 @@ window.Thumbs = (() => {
   function _loadImage(src) {
     return new Promise((resolve, reject) => {
       const img = new Image();
+      img.crossOrigin = 'anonymous';   // asset-protocol URLs: toDataURL needs an untainted canvas
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error('decode'));
       img.src = src;
@@ -229,6 +230,14 @@ window.Thumbs = (() => {
   }
 
   async function _generate(path) {
+    // Desktop: the host makes it natively (no image bytes cross the IPC); null / unsupported
+    // means a format it cannot read, which the page's own decoders handle below.
+    if (typeof _api().thumbMake === 'function') {
+      try {
+        const made = await _api().thumbMake(path);
+        if (made && made.url) return made;
+      } catch { /* host busy or gone — fall through */ }
+    }
     if (WORKER_EXTS.has(_ext(path)) && !_workerBroken) {
       try {
         const thumb = await _generateInWorker(path);
@@ -296,6 +305,11 @@ window.Thumbs = (() => {
   async function prefetchDir(dirPath, { replaceQueue = true } = {}) {
     if (!dirPath) return 0;
     if (replaceQueue) cancelPending();
+    // The host builds the whole folder's thumbnail DB in the background, even after
+    // the user moves on; requests below for tiles on screen jump ahead of it.
+    if (typeof _api().thumbCacheBuild === 'function') {
+      _api().thumbCacheBuild(dirPath, { front: true }).catch(() => {});
+    }
     let entries = [];
     try {
       const [result] = await Promise.all([window.electronAPI.readDirectory(dirPath), _ensureDir(dirPath)]);
@@ -305,6 +319,13 @@ window.Thumbs = (() => {
     const files = entries.filter((e) => !e.isDirectory && canThumbnail(e.path) && !get(e.path));
     for (const file of files) request(file.path);
     return files.length;
+  }
+
+  /** Start-up: let the host warm recently opened folders, after the current one. */
+  function warmDirs(dirs) {
+    const list = (dirs || []).filter(Boolean);
+    if (!list.length || typeof _api().thumbCacheBuild !== 'function') return;
+    _api().thumbCacheBuild(list).catch(() => {});
   }
 
   /** Drop everything still waiting; work already running finishes. */
@@ -359,7 +380,7 @@ window.Thumbs = (() => {
   }
 
   return {
-    SIZE, get, request, prefetchDir, cancelPending, canThumbnail, failed, forget, clear,
+    SIZE, get, request, prefetchDir, warmDirs, cancelPending, canThumbnail, failed, forget, clear,
     clearDiskCache, diskStats, setPaused, stats,
   };
 })();

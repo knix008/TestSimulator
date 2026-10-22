@@ -46,7 +46,7 @@ const OPENABLE_EXTS = new Set([
   'heic', 'heif', 'hif', 'dcm', 'dicom', 'avif',
   'mp4', 'webm', 'ogv', 'mov', 'avi', 'mkv', 'm4v', 'flv', 'wmv', '3gp',
   'mpeg', 'mpg', 'ts', 'm2ts', 'vob', 'rm', 'rmvb',
-  'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'opus', 'wma', 'mid', 'midi', 'aiff', 'aif',
+  'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'opus', 'wma', 'aiff', 'aif',
 ]);
 
 let pendingOpenPath = null;
@@ -1579,6 +1579,121 @@ ipcMain.handle('thumb-cache-put', async (event, filePath, bytes, meta = {}) => {
   }
 });
 
+/* ── Host-side thumbnails (sharp): fast, and off the renderer entirely ──
+   Shipping every source image to the page (base64 over the IPC) and the JPEG back
+   was the slow part on the desktop. sharp decodes + downsizes natively here; the
+   renderer asks with thumb-make and only falls back to its own decoders for formats
+   sharp cannot read (BMP / ICO / HEIC / DICOM). thumb-cache-build warms a whole folder
+   in the background and keeps going after the user moves on. */
+const THUMB_SIZE = 256;
+const SHARP_THUMB_EXTS = new Set(['.jpg', '.jpeg', '.jfif', '.png', '.webp', '.gif', '.tif', '.tiff', '.avif', '.svg']);
+const _thumbMaking = new Map();   // file key → Promise of the entry
+const _thumbBuildQueue = [];      // directories waiting for a background build
+let _thumbBuilding = false;
+let _thumbBuildPreempt = false;   // a front request arrived while a folder was being built
+
+function _thumbFileKey(filePath) {
+  const p = path.resolve(String(filePath || ''));
+  return process.platform === 'win32' ? p.toLowerCase() : p;
+}
+
+function _thumbEntryFresh(ent, st) {
+  return !!ent && ent.size === st.size && Math.abs(st.mtimeMs - ent.mtimeMs) < 1;
+}
+
+/** One thumbnail via sharp (cached on disk). null when sharp cannot read the format. */
+function _thumbMake(filePath) {
+  const ext = path.extname(String(filePath || '')).toLowerCase();
+  if (!SHARP_THUMB_EXTS.has(ext)) return Promise.resolve(null);
+  const key = _thumbFileKey(filePath);
+  const running = _thumbMaking.get(key);
+  if (running) return running;
+  const job = (async () => {
+    const st = await fs.promises.stat(filePath);
+    const idx = await _thumbIndex(path.dirname(filePath));
+    const name = path.basename(filePath);
+    const have = idx.entries[name];
+    if (_thumbEntryFresh(have, st)) {
+      try {
+        await fs.promises.access(path.join(idx.folder, have.file));
+        return { url: _thumbUrl(idx, have), w: have.w, h: have.h, tw: have.tw, th: have.th };
+      } catch { /* index entry without its file — make it again */ }
+    }
+    const sharp = require('sharp');
+    // limitInputPixels off: big panoramas are exactly what needs a thumbnail most
+    const src = sharp(filePath, { failOn: 'none', limitInputPixels: false, animated: false });
+    const meta = await src.metadata();
+    const swap = (meta.orientation || 1) >= 5;   // EXIF 5–8 turn the picture a quarter
+    const w = (swap ? meta.height : meta.width) | 0;
+    const h = (swap ? meta.width : meta.height) | 0;
+    const { data, info } = await src
+      .rotate()   // apply EXIF orientation, like the renderer's decoders do
+      .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 76, mozjpeg: false })
+      .toBuffer({ resolveWithObject: true });
+    const file = _thumbFileName(name);
+    await fs.promises.mkdir(idx.folder, { recursive: true });
+    await fs.promises.writeFile(path.join(idx.folder, file), data);
+    const ent = { size: st.size, mtimeMs: st.mtimeMs, file, w, h, tw: info.width | 0, th: info.height | 0 };
+    idx.entries[name] = ent;
+    _thumbScheduleSave(idx);
+    return { url: _thumbUrl(idx, ent), w: ent.w, h: ent.h, tw: ent.tw, th: ent.th };
+  })().catch(() => null).finally(() => _thumbMaking.delete(key));
+  _thumbMaking.set(key, job);
+  return job;
+}
+
+/** Background build of whole folders, one file at a time so it never hogs the host. */
+async function _thumbBuildPump() {
+  if (_thumbBuilding) return;
+  _thumbBuilding = true;
+  try {
+    while (_thumbBuildQueue.length) {
+      const dir = _thumbBuildQueue.shift();
+      let names = [];
+      try { names = await fs.promises.readdir(dir, { withFileTypes: true }); } catch { continue; }
+      for (const d of names) {
+        if (!d.isFile() || !SHARP_THUMB_EXTS.has(path.extname(d.name).toLowerCase())) continue;
+        await _thumbMake(path.join(dir, d.name));
+        // The user opened another folder: build that first, finish this one afterwards
+        // (what is already done is skipped quickly by the fresh-entry check).
+        if (_thumbBuildPreempt) {
+          _thumbBuildPreempt = false;
+          _thumbBuildQueue.push(dir);
+          break;
+        }
+        await new Promise((r) => setImmediate(r));
+      }
+    }
+  } finally {
+    _thumbBuilding = false;
+  }
+}
+
+ipcMain.handle('thumb-make', async (event, filePath) => {
+  try { return (await _thumbMake(filePath)) || { unsupported: true }; }
+  catch (err) { return { error: err.message }; }
+});
+
+// Warm `dirs` (one path or a list) in the background. front: true = the folder just opened.
+ipcMain.handle('thumb-cache-build', async (event, dirs, opts = {}) => {
+  const list = (Array.isArray(dirs) ? dirs : [dirs]).filter((d) => typeof d === 'string' && d);
+  for (const dir of list) {
+    const key = _thumbFileKey(dir);
+    const at = _thumbBuildQueue.findIndex((d) => _thumbFileKey(d) === key);
+    if (at >= 0) _thumbBuildQueue.splice(at, 1);
+    if (opts.front) {
+      _thumbBuildQueue.unshift(dir);
+      if (_thumbBuilding) _thumbBuildPreempt = true;
+    } else {
+      _thumbBuildQueue.push(dir);
+    }
+  }
+  _thumbBuildPump();
+  return { queued: _thumbBuildQueue.length };
+});
+
 async function _thumbCacheBytes() {
   let bytes = 0, files = 0, folders = 0;
   let dirs = [];
@@ -1678,6 +1793,73 @@ async function _pruneHeicCache() {
 function _jpegDataUrl(buf) {
   return `data:image/jpeg;base64,${buf.toString('base64')}`;
 }
+
+/* ── Media the webview cannot decode (AVI, WMV, FLV, MPEG-2, TS, 3GP, OGV, AIFF, WMA …)
+   is converted once with ffmpeg into a cached MP4 (H.264 + AAC) or M4A, and that copy is
+   played. ffmpeg: MYIMAGEVIEWER_FFMPEG, then the bundled ffmpeg-static, then the PATH. */
+const _transcodeJobs = new Map();   // cache file → Promise
+let _ffmpegPath;
+
+function _findFfmpeg() {
+  if (_ffmpegPath !== undefined) return _ffmpegPath;
+  const tried = [];
+  if (process.env.MYIMAGEVIEWER_FFMPEG) tried.push(process.env.MYIMAGEVIEWER_FFMPEG);
+  try { const p = require('ffmpeg-static'); if (p) tried.push(p); } catch { /* not installed */ }
+  _ffmpegPath = tried.find((p) => { try { return fs.existsSync(p); } catch { return false; } }) || 'ffmpeg';
+  return _ffmpegPath;
+}
+
+function _mediaCacheRoot() { return path.join(app.getPath('userData'), 'MediaCache'); }
+
+async function _transcodeMedia(event, filePath, kind) {
+  const st = await fs.promises.stat(filePath);
+  const audioOnly = kind === 'audio';
+  const key = crypto.createHash('sha1').update(`${path.resolve(filePath).toLowerCase()}|${st.size}|${Math.round(st.mtimeMs)}`).digest('hex');
+  const out = path.join(_mediaCacheRoot(), `${key}${audioOnly ? '.m4a' : '.mp4'}`);
+  try { if ((await fs.promises.stat(out)).size > 0) return out; } catch { /* not converted yet */ }
+  if (_transcodeJobs.has(out)) return _transcodeJobs.get(out);
+  const job = (async () => {
+    await fs.promises.mkdir(_mediaCacheRoot(), { recursive: true });
+    const tmp = `${out}.part`;
+    const args = ['-hide_banner', '-nostdin', '-y', '-i', filePath];
+    if (audioOnly) args.push('-vn', '-c:a', 'aac', '-b:a', '192k');
+    else args.push('-map', '0:v:0?', '-map', '0:a:0?', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22', '-pix_fmt', 'yuv420p',
+      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart');
+    args.push('-f', audioOnly ? 'ipod' : 'mp4', tmp);
+    const { spawn } = require('child_process');
+    await new Promise((resolve, reject) => {
+      const p = spawn(_findFfmpeg(), args, { windowsHide: true });
+      let duration = 0, err = '';
+      p.stderr.on('data', (d) => {
+        const s = d.toString();
+        err = (err + s).slice(-2000);
+        const dm = /Duration: (\d+):(\d+):(\d+\.?\d*)/.exec(s);
+        if (dm) duration = (+dm[1]) * 3600 + (+dm[2]) * 60 + parseFloat(dm[3]);
+        const tm = /time=(\d+):(\d+):(\d+\.?\d*)/.exec(s);
+        if (tm && duration > 0) {
+          const t = (+tm[1]) * 3600 + (+tm[2]) * 60 + parseFloat(tm[3]);
+          _sendOpenProgress(event, Math.min(95, Math.round((t / duration) * 95)), 'converting');
+        }
+      });
+      p.on('error', (e) => reject(new Error(e.code === 'ENOENT' ? 'ffmpeg not found' : e.message)));
+      p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg failed (${code}): ${err.split('\n').filter(Boolean).pop() || ''}`))));
+    });
+    await fs.promises.rename(tmp, out);
+    return out;
+  })().finally(() => _transcodeJobs.delete(out));
+  _transcodeJobs.set(out, job);
+  return job;
+}
+
+// Playable copy of a media file the webview cannot decode → { url, path } or { error }
+ipcMain.handle('media-transcode', async (event, filePath, kind) => {
+  try {
+    const out = await _transcodeMedia(event, filePath, kind === 'audio' ? 'audio' : 'video');
+    return { path: out, url: url.pathToFileURL(out).href };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
 
 function _sendOpenProgress(event, percent, message) {
   try {
@@ -2442,6 +2624,9 @@ ipcMain.handle('set-last-open-dir', async (event, dirPath) => {
   return lastOpenDir;
 });
 ipcMain.handle('get-last-open-dir', async () => lastOpenDir || _dialogDefaultPath());
+// Only a folder the user really opened (no Documents fallback) — start-up restore reads
+// this first: it is on disk at once, while the webview may not have flushed localStorage.
+ipcMain.handle('get-saved-last-open-dir', async () => (lastOpenDir && fs.existsSync(lastOpenDir) ? lastOpenDir : null));
 ipcMain.handle('get-home-dir', async () => os.homedir());
 ipcMain.handle('read-help-doc', async (_event, lang) => {
   const name = lang === 'ko' ? '도움말.md' : 'help.md';
@@ -2617,6 +2802,13 @@ ipcMain.handle('window-toggle-fullscreen', () => {
 ipcMain.handle('show-message-box', async (event, options) => {
   if (!mainWindow) return { response: 0 };
   return dialog.showMessageBox(mainWindow, options);
+});
+
+// A mail / web link from the page (About ▸ contact) — handed to the OS, nothing else allowed
+ipcMain.handle('open-external', async (event, target) => {
+  const s = String(target || '');
+  if (!/^(mailto:|https?:\/\/)/i.test(s)) return { error: 'not allowed' };
+  try { await shell.openExternal(s); return { success: true }; } catch (err) { return { error: err.message }; }
 });
 
 ipcMain.handle('show-item-in-folder', async (event, filePath) => {

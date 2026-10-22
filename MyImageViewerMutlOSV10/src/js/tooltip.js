@@ -20,8 +20,24 @@ window.Tooltip = (() => {
     document.addEventListener('mousedown', hide, true);
   }
 
-  function show(text, x, y) {
+  /** The tooltip element of `doc`: a dialog in its own window (dialogWindow.js) gets its own. */
+  function _tipIn(doc) {
+    if (!doc || doc === document) return document.getElementById('tooltip') || tip;
+    let t = doc.getElementById('tooltip');
+    if (!t) {
+      t = doc.createElement('div');
+      t.id = 'tooltip';
+      t.className = 'tooltip';
+      doc.body.appendChild(t);
+    }
+    return t;
+  }
+
+  function show(text, x, y, doc) {
     if (!text) return;
+    const next = _tipIn(doc);
+    if (next !== tip) { hide(); tip = next; }
+    const view = tip.ownerDocument.defaultView || window;
     tip.textContent = text;
     tip.style.display = 'block';
 
@@ -29,8 +45,8 @@ window.Tooltip = (() => {
     const rect = tip.getBoundingClientRect();
     let left = x + 12;
     let top  = y + 20;
-    if (left + rect.width  > window.innerWidth)  left = x - rect.width  - 4;
-    if (top  + rect.height > window.innerHeight) top  = y - rect.height - 4;
+    if (left + rect.width  > view.innerWidth)  left = x - rect.width  - 4;
+    if (top  + rect.height > view.innerHeight) top  = y - rect.height - 4;
     tip.style.left = `${left}px`;
     tip.style.top  = `${top}px`;
   }
@@ -67,13 +83,13 @@ window.Tooltip = (() => {
       const warm = Date.now() - lastHiddenAt < WARM;
       showTimer = setTimeout(() => {
         const text = typeof getText === 'function' ? getText() : getText;
-        show(text, lastX, lastY);
+        show(text, lastX, lastY, element.ownerDocument);
       }, warm ? 0 : DELAY);
     });
     element.addEventListener('mousemove', (e) => {
       lastX = e.clientX; lastY = e.clientY;
       if (tip && tip.style.display === 'block') {
-        show(tip.textContent, e.clientX, e.clientY);
+        show(tip.textContent, e.clientX, e.clientY, element.ownerDocument);
       }
     });
     element.addEventListener('mouseleave', () => {

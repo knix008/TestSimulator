@@ -51,14 +51,17 @@ module.exports = {
       assertIncludes(html, `id="${id}"`, id);
     });
 
-    test('Edit theme / language / settings sit on the right', () => {
-      const spacer = html.indexOf('class="ew-spacer"');
-      const theme = html.indexOf('id="ew-theme"');
-      const settings = html.indexOf('id="ew-settings"');
-      assert(spacer > 0 && theme > spacer && settings > theme, 'chrome after spacer');
-      assertIncludes(html, 'class="ew-group ew-chrome"', 'chrome group');
-      assertIncludes(css, '#ew-toolbar-row .ew-chrome', 'right-align rule');
-      assertIncludes(css, 'margin-left: auto', 'pinned to the right');
+    test('Theme / language / settings / about sit on the menu bar, left of the window buttons', () => {
+      // Edit window: the chrome group is inside #ew-menubar, right before the window-button gutter
+      const bar = html.slice(html.indexOf('<div id="ew-menubar"'), html.indexOf('<div id="ew-win-gutter">'));
+      for (const id of ['ew-theme', 'ew-lang', 'ew-settings', 'ew-about']) assert(bar.includes(`id="${id}"`), `${id} on the edit menu bar`);
+      assert(bar.indexOf('id="edit-window-title"') < bar.indexOf('class="ew-group ew-chrome"'), 'after the file name');
+      assertIncludes(css, '#ew-menubar .ew-chrome', 'menu bar chrome style');
+      // Main window: the toolbar builder sends what follows its spacer to #menubar-chrome
+      const main = html.slice(html.indexOf('<div id="menubar"'), html.indexOf('<div id="win-ctrl-gutter">'));
+      assert(main.includes('id="menubar-chrome"'), 'main menu bar host before the window buttons');
+      assertIncludes(app, "if (chrome) { target = chrome; continue; }", 'builder targets the menu bar');
+      assertIncludes(css, '.menubar-chrome {', 'menu bar chrome style (main)');
     });
 
     test('Save / apply / cancel / print sit left of selection tools', () => {
@@ -144,6 +147,37 @@ module.exports = {
       assertIncludes(app, "getElementById('progress-overlay')", 'progress overlay wired');
       assertIncludes(editor, 'inEdit || _isHeavyEffectRender()', 'edit window always shows effect popup');
       assertIncludes(editor, 'function _yieldPaint', 'paint before blocking render');
+    });
+
+    /* ── Presets / Adjustments collapse to a rail (icon + title), like the viewer panels ── */
+
+    test('Edit panel headers carry an icon and a collapse button', () => {
+      for (const id of ['edit-effects-icon', 'edit-adjust-icon', 'ew-effects-collapse-btn', 'ew-adjust-collapse-btn']) {
+        assertIncludes(html, `id="${id}"`, id);
+      }
+      assertIncludes(app, "effectsIcon.innerHTML = Icons.layers", 'presets icon');
+      assertIncludes(app, "adjustIcon.innerHTML = Icons.sliders", 'adjustments icon');
+    });
+
+    test('Edit toolbar has left / right panel toggles', () => {
+      assertIncludes(html, 'id="ew-panel-left"', 'left toggle markup');
+      assertIncludes(html, 'id="ew-panel-right"', 'right toggle markup');
+      assertIncludes(app, "['ew-panel-left',  'panelLeft',  _ewLeftPanelTip,", 'left toggle wired');
+      assertIncludes(app, "['ew-panel-right', 'panelRight', _ewRightPanelTip,", 'right toggle wired');
+    });
+
+    test('Collapsed edit panels keep icon + vertical title on a 30px rail', () => {
+      assertIncludes(css, '#edit-effects-panel.collapsed > :not(.panel-header)', 'content hidden, header kept');
+      assertIncludes(css, 'min-width: 30px !important;', 'beats the inline min-width');
+      const rail = css.slice(css.indexOf('#edit-effects-panel.collapsed .panel-title'));
+      assertIncludes(rail.slice(0, 200), 'writing-mode: vertical-rl', 'vertical title');
+    });
+
+    test('Edit panel layout is its own persisted preference, declared before init', () => {
+      const declAt = app.indexOf("const EW_LAYOUT_KEY = 'editPanelLayoutV1';");
+      assert(declAt > 0 && declAt < app.indexOf('\n  _buildToolbar();'), 'declared in the early block');
+      assertIncludes(app, 'LAYOUT_KEY, EW_LAYOUT_KEY,', 'listed in PREF_KEYS');
+      assertIncludes(app, 'checked: _ewLayout.left', 'View menu entry');
     });
   },
 };

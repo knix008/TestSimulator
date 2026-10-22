@@ -9,7 +9,7 @@ window.FormatSupport = (() => {
     'mpeg','mpg','ts','m2ts','vob','rm','rmvb',
   ]);
   const AUDIO_EXTS = new Set([
-    'mp3','wav','flac','aac','m4a','ogg','opus','wma','mid','midi','aiff','aif',
+    'mp3','wav','flac','aac','m4a','ogg','opus','wma','aiff','aif',   // (no MIDI: nothing here can synthesise it)
   ]);
   const NATIVE_EXTS = new Set([
     'jpg','jpeg','png','gif','bmp','webp','svg','ico','avif',

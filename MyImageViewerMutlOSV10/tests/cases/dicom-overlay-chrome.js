@@ -143,8 +143,9 @@ module.exports = {
       assertIncludes(fn, 'if (window.Browse?.isVisible?.()) return false;', 'gated on the sheet');
     });
 
-    test('Media transport hides behind the contact sheet', () => {
-      assertIncludes(app, "&& !window.Browse?.isVisible?.();   // the contact sheet covers the player", 'gated');
+    test('Media transport hides behind the full contact sheet only (not the filmstrip); audio has it too', () => {
+      assertIncludes(app, 'const sheetUp = !!window.Browse?.isVisible?.() && !window.Browse?.isFilmstrip?.();', 'full sheet only');
+      assertIncludes(app, '(state.isVideo || state.isAudio || state.isAnimated) && !sheetUp', 'video, audio, animated');
     });
 
     test('Showing or hiding the sheet re-syncs the viewer chrome', () => {

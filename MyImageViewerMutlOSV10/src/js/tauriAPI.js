@@ -8,6 +8,7 @@
   if (!tauri || window.electronAPI) return;
 
   const HOST = 'http://127.0.0.1:17810';
+  const invoke = tauri.core && typeof tauri.core.invoke === 'function' ? tauri.core.invoke : null;
   const listeners = {};
   let unsaved = false;
   let closing = false;
@@ -63,12 +64,29 @@
     return value;
   }
 
+  let reviving = null;   // one host restart shared by every request that failed meanwhile
+
+  /** The Node host went away (crashed / killed): ask the shell to start it again. */
+  function reviveHost() {
+    if (!reviving) {
+      reviving = (invoke ? invoke('ensure_host') : Promise.resolve(false))
+        .catch(() => false)
+        .finally(() => { setTimeout(() => { reviving = null; }, 2000); });
+    }
+    return reviving;
+  }
+
   async function call(channel, ...args) {
-    const res = await fetch(`${HOST}/ipc`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel, args: args.map(encodeArg) }),
-    });
+    const body = JSON.stringify({ channel, args: args.map(encodeArg) });
+    const post = () => fetch(`${HOST}/ipc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    let res;
+    try {
+      res = await post();
+    } catch (err) {
+      // Network error = nothing listening: without the host nothing opens, so restart it and retry once
+      if (!(await reviveHost())) throw err;
+      res = await post();
+    }
     if (!res.ok) throw new Error(`host ${res.status}`);
     const data = await res.json();
     return rewrite(data ? data.result : null);
@@ -254,8 +272,13 @@
     thumbCacheLoad: (dirPath) => call('thumb-cache-load', dirPath),
     thumbCachePut: (filePath, bytes, meta) => call('thumb-cache-put', filePath, bytes, meta),
     thumbCacheStats: () => call('thumb-cache-stats'),
+    // Host-side thumbnails (sharp): one now, or whole folders in the background
+    thumbMake: (filePath) => call('thumb-make', filePath),
+    thumbCacheBuild: (dirs, opts) => call('thumb-cache-build', dirs, opts || {}),
     thumbCacheClear: () => call('thumb-cache-clear'),
     convertToPng: (filePath) => call('convert-to-png', filePath),
+    // Playable MP4 / M4A copy (ffmpeg) of media the webview cannot decode
+    transcodeMedia: (filePath, kind) => call('media-transcode', filePath, kind),
     rembgRemove: (opts) => call('rembg-remove', opts),
     onRembgProgress: (cb) => { on('rembg-progress', cb); return () => {}; },
     onOpenProgress: (cb) => { on('open-progress', cb); return () => {}; },
@@ -275,6 +298,7 @@
     openSubtitleDialog: (videoPath) => call('open-subtitle-dialog', videoPath),
     setLastOpenDir: (dirPath) => call('set-last-open-dir', dirPath),
     getLastOpenDir: () => call('get-last-open-dir'),
+    getSavedLastOpenDir: () => call('get-saved-last-open-dir'),
     showMessageBox: (options) => messageBox(options || {}),
 
     getHomeDir: () => call('get-home-dir'),
@@ -350,6 +374,7 @@
     onMenuAction: (cb) => on('menu-action', cb),
 
     showItemInFolder: (filePath) => call('show-item-in-folder', filePath),
+    openExternal: (target) => call('open-external', target),
     deleteFile: (filePath) => call('delete-file', filePath),
     renamePath: (src, newName) => call('rename-path', { src, newName }),
     transferIntoDir: (opts) => call('transfer-into-dir', opts),
@@ -367,6 +392,20 @@
         console.error('quit failed', err);
       }
     },
+
+    // Context menus / drop-downs drawn by the menu overlay window, so they can run past
+    // this window's edges (src-tauri main.rs, src/popup.html; contextMenu.js drives them).
+    ...(invoke ? {
+      popupMenu: (data) => invoke('popup_menu_show', { payload: data }),
+      popupMenuHide: () => invoke('popup_menu_hide'),
+      popupMenuRefresh: (data) => invoke('popup_menu_refresh', { payload: data }),
+      popupMenuVisible: () => invoke('popup_menu_visible'),
+      // An in-app drag that left the window becomes an OS file drag (dragdrop.js)
+      startFileDrag: (paths) => invoke('start_file_drag', { paths: (Array.isArray(paths) ? paths : [paths]).filter(Boolean) }),
+      onPopupMenuEvent: (cb) => {
+        if (tauri.event && tauri.event.listen) tauri.event.listen('popup-menu-event', (e) => cb(e.payload));
+      },
+    } : {}),
 
     watchDirectory: (dirPath) => call('watch-directory', dirPath),
     unwatchDirectory: (dirPath) => call('unwatch-directory', dirPath),
@@ -418,14 +457,32 @@
 
     try {
       if (win.onResized) await win.onResized(() => { queueRemember(); win.isMaximized().then((m) => dispatch('maximize-change', !!m)); });
-      if (win.onMoved) await win.onMoved(() => queueRemember());
+      // A menu in the overlay stays where it was drawn — moving the window closes it.
+      if (win.onMoved) await win.onMoved(() => { queueRemember(); window.ContextMenu?.hide?.(); });
     } catch { /* permissions */ }
 
     try {
       if (win.onDragDropEvent) {
+        // Files dragged in from another app. The window owns the drop target, so the page
+        // never sees HTML5 drop events: forward enter / over / drop / leave with the real
+        // paths and the position in CSS px; app.js decides where the files land.
+        let draggedPaths = [];
         await win.onDragDropEvent((event) => {
           const payload = event.payload || event;
-          if (payload && payload.type === 'drop' && Array.isArray(payload.paths)) dropped = payload.paths;
+          if (!payload) return;
+          if (Array.isArray(payload.paths) && payload.paths.length) draggedPaths = payload.paths;
+          if (payload.type === 'drop' && Array.isArray(payload.paths)) dropped = payload.paths;
+          const dpr = window.devicePixelRatio || 1;
+          const pos = payload.position || null;
+          window.dispatchEvent(new CustomEvent('native-dragdrop', {
+            detail: {
+              type: payload.type,
+              paths: payload.type === 'leave' ? [] : (payload.paths && payload.paths.length ? payload.paths : draggedPaths),
+              x: pos ? pos.x / dpr : null,
+              y: pos ? pos.y / dpr : null,
+            },
+          }));
+          if (payload.type === 'drop' || payload.type === 'leave') draggedPaths = [];
         });
       }
     } catch { /* drag-drop permission */ }

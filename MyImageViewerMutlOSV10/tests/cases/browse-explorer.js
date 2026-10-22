@@ -352,5 +352,69 @@ module.exports = {
       assert(ko['browse.fileType'].includes('{ext}'), 'ko placeholder');
       assert(en['browse.fileType'].includes('{ext}'), 'en placeholder');
     });
+
+    /* ── Regressions found running the Tauri build (2026-10-22) ── */
+
+    test('Selection-preview state is declared before _initBrowse() runs (no TDZ at start-up)', () => {
+      // _initBrowse → _syncBrowseChrome → _previewFileInfo reads these during init;
+      // declared below the call, the throw aborted the rest of app.js start-up.
+      const initAt = app.indexOf('\n  _initBrowse();');
+      assert(initAt > 0, '_initBrowse() call');
+      for (const name of ['_previewInfoTimer', '_histPreviewGen', '_histPreview']) {
+        const declAt = app.indexOf(`let ${name} =`);
+        assert(declAt > 0 && declAt < initAt, `${name} declared before _initBrowse()`);
+      }
+    });
+
+    test('Browse.open drops a superseded directory read', () => {
+      assertIncludes(browse, 'const gen = ++_openGen;', 'generation taken');
+      assertIncludes(browse, 'if (gen !== _openGen) return;', 'stale read dropped');
+    });
+
+    test('Re-opening the shown folder keeps the selection (filmstrip prev / next stay live)', () => {
+      assertIncludes(browse, 'if (!(keepSelection || sameDir)) {', 'same-folder open keeps selection');
+    });
+
+    test('Browse path compare treats / and \\ alike', () => {
+      const norm = (p) => String(p || '').replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase();
+      assertIncludes(browse, ".replace(/[\\\\/]+/g, '/')", 'separator folding in _norm');
+      assert(norm('D:\\A\\b.jpg') === norm('d:/a/b.jpg'), 'mixed separators match');
+      assert(norm('D:\\A\\') === norm('D:\\A'), 'trailing separator ignored');
+    });
+
+    test('Filmstrip is built from the open image’s own folder', () => {
+      const body = app.slice(app.indexOf('async function _showFilmstripFor('), app.indexOf('async function _openFile('));
+      assert(body.indexOf('pathDirname(filePath)') >= 0, 'dirname of the file');
+      assert(body.indexOf('pathDirname(filePath)') < body.indexOf('Browse.getDir?.()'), 'dirname wins over the sheet folder');
+    });
+
+    test('Opening / previewing a file does not expand a collapsed side panel', () => {
+      const openBody = app.slice(app.indexOf('async function _openFile('), app.indexOf('function _revealOpenedImage('));
+      const prevBody = app.slice(app.indexOf('function _previewFileInfo('), app.indexOf('function _browseTip('));
+      assert(!openBody.includes('_toggleLeftPanel(true)'), '_openFile');
+      assert(!prevBody.includes('_toggleLeftPanel(true)'), '_previewFileInfo');
+    });
+
+    test('Open Folder in browse mode leaves the filmstrip for the full sheet', () => {
+      const body = app.slice(app.indexOf('async function _openFolder('), app.indexOf('function _zoom('));
+      assert(body.indexOf('Browse.setFilmstrip?.(false)') >= 0
+        && body.indexOf('Browse.setFilmstrip?.(false)') < body.indexOf('Browse.show(dirPath)'), 'strip off before show');
+    });
+
+    test('Asset-protocol images are loaded with crossOrigin (canvas stays readable)', () => {
+      assertIncludes(h.read('src/js/thumbs.js'), "img.crossOrigin = 'anonymous'", 'thumbnail generator');
+      const hist = app.slice(app.indexOf('async function _loadHistPreview('), app.indexOf('function _previewFileInfo('));
+      assertIncludes(hist, "img.crossOrigin = 'anonymous'", 'histogram preview');
+    });
+
+    test('Desktop host serves the DICOM vendor packages', () => {
+      const host = h.read('host/server.js');
+      for (const pkg of ['dicom-parser', '@cornerstonejs/codec-openjpeg', '@cornerstonejs/codec-charls',
+        '@cornerstonejs/codec-libjpeg-turbo-8bit', '@cornerstonejs/codec-libjpeg-turbo-12bit', 'jpeg-lossless-decoder-js']) {
+        assertIncludes(host, `'${pkg}'`, pkg);
+      }
+      assertIncludes(host, "app.use('/node_modules/' + pkg", 'mounted under /node_modules');
+      assertIncludes(h.read('src/js/dicomDecoder.js'), "'http://127.0.0.1:17810/node_modules/'", 'Tauri vendor base');
+    });
   },
 };

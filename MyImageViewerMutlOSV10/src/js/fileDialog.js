@@ -119,7 +119,7 @@ window.FileDialog = (() => {
       if (!row) return;
       _activateRow(row, false);
     });
-    document.addEventListener('keydown', (ev) => {
+    const onKey = (ev) => {
       if (!_overlay || _overlay.style.display !== 'flex') return;
       if (ev.key === 'Escape') {
         ev.preventDefault();
@@ -131,6 +131,11 @@ window.FileDialog = (() => {
         ev.preventDefault();
         _confirm();
       }
+    };
+    document.addEventListener('keydown', onKey, true);
+    // In its own window (dialogWindow.js) the keys never reach this document
+    e.overlay?.addEventListener('keydown', (ev) => {
+      if (_overlay && _overlay.ownerDocument !== document) onKey(ev);
     }, true);
   }
 

@@ -246,6 +246,30 @@ html, body {
 }
 body.frameless #win-ctrl-gutter { display: block; }
 
+/* Theme · language · settings · about on the menu bar, just left of the window buttons */
+.menubar-chrome {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  padding-right: 4px;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+.menubar-chrome:empty { display: none; }
+.menubar-chrome .toolbar-btn { height: 28px; }
+#ew-menubar .ew-chrome {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+#ew-menubar .ew-chrome,
+#ew-menubar .ew-chrome * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* ========== Menu bar (also the window drag strip; title content lives here) ========== */
 #menubar {
   display: flex;
@@ -1506,6 +1530,16 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
 #color-content.is-disabled #cp-adjust,
 #color-content.is-disabled .cp-actions { opacity: 0.45; }
 #color-content.is-disabled .cp-wheel { cursor: default; }
+/* The same block at the top of the edit window's Adjustments panel */
+#ew-color-host:empty { display: none; }
+#ew-color-host {
+  flex-shrink: 0;
+  padding: 4px 12px 8px;
+  border-bottom: 1px solid var(--border);
+}
+#cp-wheel-block.is-disabled .cp-wheel-wrap,
+#cp-wheel-block.is-disabled #cp-tint-amount-row { opacity: 0.45; }
+#cp-wheel-block.is-disabled .cp-wheel { cursor: default; }
 #color-content.is-empty .cp-histogram,
 #color-content.is-empty .cp-hist-legend,
 #color-content.is-empty .cp-wheel-wrap,
@@ -1729,18 +1763,21 @@ body.resizing-row * {
 .browse-film-nav { display: none; }
 
 #browse-view.is-filmstrip {
-  /* Must override #browse-view { inset: 0 } or the sheet keeps covering the image. */
-  inset: auto 0 0 0 !important;
-  top: auto !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  left: 0 !important;
+  /* A real row of #viewer-area (a flex column), below the viewer — not an overlay.
+     The viewer ends where the strip starts, so the picture, the media / DICOM bars
+     and the nav arrows are never covered by it. */
+  position: relative !important;
+  inset: auto !important;
+  order: 1;
+  flex: 0 0 104px;
   height: 104px !important;
   width: auto !important;
+  min-width: 0;   /* the tiles scroll inside the strip; they never widen the viewer */
   z-index: 5;
-  border-top: 1px solid var(--border);
+  /* Divider between the viewer and the strip */
+  border-top: 2px solid var(--border);
+  box-shadow: inset 0 1px 0 var(--toolbar-border, rgba(255, 255, 255, 0.06));
   background: var(--panel-title-bg);
-  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.18);
   pointer-events: auto;
 }
 #browse-view.is-filmstrip .browse-bar,
@@ -1749,6 +1786,7 @@ body.resizing-row * {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   align-items: stretch;
   gap: 0;
 }
@@ -1822,9 +1860,9 @@ body.resizing-row * {
   margin-top: 4px;
 }
 #browse-view.is-filmstrip .browse-meta { display: none !important; }
-#viewer-area.has-filmstrip #viewer-container {
-  padding-bottom: 104px;
-}
+/* (The strip is its own row now — the viewer needs no bottom padding for it.) */
+/* Audio has no subtitles */
+.media-controls.is-audio .media-ctrl-subtitle-wrap { display: none !important; }
 .browse-bar {
   display: flex;
   align-items: center;
@@ -1937,6 +1975,55 @@ body.resizing-row * {
 }
 .browse-tile.selected.focused { outline: 1px dashed var(--accent); outline-offset: -3px; }
 .browse-grid.is-dragging .browse-tile.selected { opacity: 0.55; }
+
+/* ── Desktop drag & drop (dragdrop.js): ghost under the pointer + the folder it would land in ── */
+body.dd-dragging, body.dd-dragging * { user-select: none !important; cursor: grabbing !important; }
+body.dd-dragging #browse-view .browse-tile.selected { opacity: 0.55; }
+.dd-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60000;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 140px;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--context-bg);
+  border: 1px solid var(--accent);
+  box-shadow: 0 6px 18px var(--shadow);
+  opacity: 0.92;
+}
+.dd-ghost img { max-width: 120px; max-height: 90px; border-radius: 3px; display: block; }
+.dd-ghost.no-image { padding: 8px 10px; }
+.dd-ghost-name { font-size: 11px; color: var(--text-primary); max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-ghost-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tree-item.dd-target,
+.browse-tile.dd-target {
+  background: var(--accent) !important;
+  color: #fff !important;
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+#browse-view.dd-target { box-shadow: inset 0 0 0 3px var(--accent); }
 /* Drag image for several tiles: the pressed thumbnail plus a count badge */
 .browse-drag-ghost {
   position: fixed;
@@ -2142,7 +2229,12 @@ body.resizing-row * {
   flex-direction: column;
   position: relative;
   z-index: 1;
-  overflow: hidden;
+  /* A flex item of the main row: without this the filmstrip's single line of tiles
+     becomes its minimum width and the viewer runs far past the window. */
+  min-width: 0;
+  /* clip, not hidden: an overflow:hidden box can still be scrolled from script, and
+     then the effects drawer parked off its right edge slides into view */
+  overflow: clip;
   background: var(--viewer-bg);
 }
 
@@ -2918,6 +3010,18 @@ body.resizing-se { cursor: nwse-resize !important; }
 }
 .ctx-item .ctx-icon svg { width: 14px; height: 14px; fill: currentColor; }
 .ctx-item .ctx-icon svg [stroke] { fill: none; stroke: currentColor; }
+/* A checked row that has its own icon: the check sits at the right, before the shortcut */
+.ctx-item .ctx-checkmark {
+  margin-left: auto;
+  padding-left: 12px;
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
+.ctx-item .ctx-checkmark svg { width: 14px; height: 14px; fill: currentColor; }
+.ctx-item .ctx-checkmark + .ctx-shortcut,
+.ctx-item .ctx-checkmark + .ctx-chevron { margin-left: 0; }
+.ctx-item:hover .ctx-checkmark { color: inherit; }
 
 .ctx-separator {
   height: 1px;
@@ -2964,6 +3068,58 @@ body.resizing-se { cursor: nwse-resize !important; }
   pointer-events: auto;
 }
 .dialog-overlay.visible { display: flex; }
+
+/* ── A dialog in its own window (dialogWindow.js): the window is the dialog ── */
+html.dialog-window,
+html.dialog-window body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--dialog-bg);
+}
+html.dialog-window .dialog-overlay {
+  position: static !important;
+  inset: auto !important;
+  width: max-content;
+  height: max-content;
+  background: none !important;
+  animation: none !important;
+  display: flex !important;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+html.dialog-window .dialog-box {
+  position: static !important;
+  margin: 0 !important;
+  transform: none !important;
+  animation: none !important;
+  max-width: none !important;
+  max-height: none !important;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* The title row moves the window (Windows app-region); its buttons stay clickable */
+html.dialog-window .dialog-overlay .dialog-header,
+html.dialog-window .dialog-overlay .dialog-header *:not(button):not(input):not(select):not(a) {
+  -webkit-app-region: drag !important;
+  app-region: drag !important;
+}
+html.dialog-window .dialog-overlay .dialog-header button,
+html.dialog-window .dialog-overlay .dialog-header button *,
+html.dialog-window .dialog-overlay .dialog-header input,
+html.dialog-window .dialog-overlay .dialog-header select {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
+}
+/* The main window while a dialog window is up: blocked, like behind the in-page overlay */
+#dialog-window-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 49990;
+  background: var(--dialog-overlay);
+}
 .dialog-overlay *,
 .dialog-box {
   -webkit-app-region: no-drag !important;
@@ -3592,65 +3748,34 @@ body.resizing-se { cursor: nwse-resize !important; }
 }
 
 /* ========== About Dialog ========== */
-.about-logo {
+/* Top: icon · name · version · description. Below: label | value rows, aligned. */
+.dialog-box.about-box { width: 560px; min-width: 420px; max-width: 640px; }
+.about-body { padding-top: 16px; }
+.about-hero {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 14px;
   margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
-.about-logo svg {
-  width: 48px;
-  height: 48px;
-  fill: var(--accent);
-}
-.about-logo-text h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 2px;
-}
-.about-logo-text p {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin: 2px 0;
-}
-.about-version-line,
-.about-build-line {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-}
+.about-hero img { width: 64px; height: 64px; flex-shrink: 0; }
+.about-hero-text { min-width: 0; }
+.about-hero-text h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: var(--text-primary); }
+.about-version-line { display: flex; gap: 6px; align-items: baseline; margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
 .about-version-line #about-version-num,
-.about-build-line #about-build-num {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-.about-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
-  line-height: 1.6;
-}
-.about-formats {
-  font-size: 12px;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px 10px;
-  line-height: 1.7;
-}
-.about-copyright {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--text-muted);
-  text-align: center;
-}
-.about-copyright p { margin: 2px 0; }
-.about-copyright a { color: var(--accent); text-decoration: none; }
-.about-copyright a:hover { text-decoration: underline; }
+.about-version-line #about-build-num { font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.about-build-chip { color: var(--text-muted); }
+.about-desc { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.about-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.about-table th,
+.about-table td { padding: 6px 8px; vertical-align: top; text-align: left; border-bottom: 1px solid var(--border); }
+.about-table tr:last-child th,
+.about-table tr:last-child td { border-bottom: none; }
+.about-table th { width: 128px; white-space: nowrap; font-weight: 600; color: var(--text-secondary); }
+.about-table td { color: var(--text-primary); line-height: 1.55; word-break: break-word; }
+.about-table a { color: var(--accent); text-decoration: none; }
+.about-table a:hover { text-decoration: underline; }
 
 /* ========== Error Dialog ========== */
 .error-header { background: var(--bg-secondary); }
@@ -4168,6 +4293,46 @@ body.frameless #ew-win-gutter { display: block; }
 
 #edit-adjust-panel .effects-actions {
   flex-shrink: 0;
+}
+
+#edit-effects-panel .panel-header-spacer,
+#edit-adjust-panel .panel-header-spacer { flex: 1 1 auto; }
+
+/* ── Edit window: Presets / Adjustments collapse to a rail like the viewer's
+   side panels — collapse button on top, then the icon and the title down the rail ── */
+#edit-effects-panel.collapsed,
+#edit-adjust-panel.collapsed {
+  /* !important: the resize code writes inline width / min-width */
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  cursor: pointer;
+}
+#edit-effects-panel.collapsed > :not(.panel-header),
+#edit-adjust-panel.collapsed > :not(.panel-header),
+#edit-effects-panel.collapsed .panel-header-spacer,
+#edit-adjust-panel.collapsed .panel-header-spacer { display: none; }
+#edit-effects-panel.collapsed .panel-header,
+#edit-adjust-panel.collapsed .panel-header {
+  flex-direction: column;
+  height: auto;
+  flex: 1 1 auto;
+  padding: 5px 0 10px;
+  gap: 8px;
+  border-bottom: none;
+  background: var(--effects-bg);
+}
+#edit-effects-panel.collapsed:hover .panel-header,
+#edit-adjust-panel.collapsed:hover .panel-header { background: var(--btn-hover); }
+#edit-effects-panel.collapsed .panel-collapse-btn,
+#edit-adjust-panel.collapsed .panel-collapse-btn { order: -1; margin: 0; }
+#edit-effects-panel.collapsed .panel-icon,
+#edit-adjust-panel.collapsed .panel-icon { margin: 0; }
+#edit-effects-panel.collapsed .panel-title,
+#edit-adjust-panel.collapsed .panel-title {
+  writing-mode: vertical-rl;
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* ========== Drag-over highlight ========== */
@@ -4932,6 +5097,14 @@ body.home-open #main-area { display: none !important; }
   margin: 0 0 10px;
   color: #f4f7fb;
   font-size: 13px;
+}
+/* In the header: pushed to the top-right corner */
+.start-head .start-show {
+  margin: 0 0 0 auto;
+  align-self: flex-start;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  cursor: pointer;
 }
 .start-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
 .start-scene {

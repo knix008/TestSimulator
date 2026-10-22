@@ -26,6 +26,8 @@
       </button>
       <div id="menubar-menus" class="menubar-menus"></div>
       <div id="titlebar-file" class="titlebar-file" title=""></div>
+      <!-- Theme · language · settings · about, left of the window buttons (built by app.js) -->
+      <div id="menubar-chrome" class="menubar-chrome" role="group"></div>
       <div id="win-ctrl-gutter"></div>
     </div>
 
@@ -265,7 +267,8 @@
           <!-- Audio player -->
           <div id="audio-player-wrap" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
             <svg style="width:80px;height:80px;opacity:0.4;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v9.28a4.39 4.39 0 0 0-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>
-            <audio id="audio-player" controls style="width:80%;max-width:500px;"></audio>
+            <!-- No native controls: the app's transport bar (play / pause / stop, seek, volume) drives it -->
+            <audio id="audio-player" style="display:none;"></audio>
             <div id="audio-filename" style="font-size:14px;opacity:0.7;text-align:center;"></div>
           </div>
 
@@ -314,17 +317,21 @@
             <canvas id="cp-histogram" class="cp-histogram" width="256" height="96" aria-label="Histogram"></canvas>
             <div class="cp-hist-legend" id="cp-hist-legend"></div>
 
-            <div class="cp-section" data-i18n="color.wheel">COLOR</div>
-            <div class="cp-wheel-wrap">
-              <canvas id="cp-wheel" class="cp-wheel" width="180" height="180" tabindex="0" role="slider"
-                aria-label="Color wheel"></canvas>
-              <div class="cp-wheel-side">
-                <div class="cp-swatch" id="cp-swatch"></div>
-                <div class="cp-hex" id="cp-hex">—</div>
-                <button type="button" class="cp-btn" id="cp-tint-clear" data-i18n="color.clearTint">No tint</button>
+            <!-- Colour wheel block: moved to the top of the edit window's Adjustments
+                 panel while the edit window is open (_moveColorWheel in app.js) -->
+            <div id="cp-wheel-block">
+              <div class="cp-section" data-i18n="color.wheel">COLOR</div>
+              <div class="cp-wheel-wrap">
+                <canvas id="cp-wheel" class="cp-wheel" width="180" height="180" tabindex="0" role="slider"
+                  aria-label="Color wheel"></canvas>
+                <div class="cp-wheel-side">
+                  <div class="cp-swatch" id="cp-swatch"></div>
+                  <div class="cp-hex" id="cp-hex">—</div>
+                  <button type="button" class="cp-btn" id="cp-tint-clear" data-i18n="color.clearTint">No tint</button>
+                </div>
               </div>
+              <div id="cp-tint-amount-row"></div>
             </div>
-            <div id="cp-tint-amount-row"></div>
 
             <div class="cp-section" data-i18n="color.adjust">ADJUST</div>
             <div id="cp-adjust"></div>
@@ -577,7 +584,7 @@ Do you want to save before closing?</p>
   </div>
 
   <div id="about-overlay" class="dialog-overlay" style="display:none;">
-    <div class="dialog-box" style="min-width:400px;max-width:480px;">
+    <div class="dialog-box about-box">
       <div class="dialog-header">
         <span class="dialog-title">
           <span class="dialog-title-icon" data-icon="info"></span>
@@ -587,30 +594,24 @@ Do you want to save before closing?</p>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </div>
-      <div class="dialog-body">
-        <div class="about-logo">
-          <img id="about-app-icon" src="./assets/icon.png" alt="App Icon" style="width:48px;height:48px;" onerror="this.style.display='none'">
-          <div class="about-logo-text">
+      <div class="dialog-body about-body">
+        <!-- Top: icon · name · version · description -->
+        <div class="about-hero">
+          <img id="about-app-icon" src="./assets/icon.png" alt="" onerror="this.style.display='none'">
+          <div class="about-hero-text">
             <h2 data-i18n="app.title">MyImageViewer</h2>
             <p class="about-version-line">
               <span data-i18n="about.version">Version</span>
               <span id="about-version-num">1.0.2</span>
+              <span class="about-build-chip">(<span data-i18n="about.build">Build</span> <span id="about-build-num">—</span>)</span>
             </p>
-            <p class="about-build-line">
-              <span data-i18n="about.build">Build</span>
-              <span id="about-build-num">—</span>
-            </p>
+            <p class="about-desc" data-i18n="about.desc">A multi-platform image viewer and editor.</p>
           </div>
         </div>
-        <p class="about-desc" data-i18n="about.desc">A multi-platform image viewer and editor.</p>
-        <div class="about-formats" data-i18n="about.formats">
-          Supported: JPEG, PNG, GIF, BMP, WebP, SVG, ICO, TIFF, HEIC/HEIF, DICOM (DCM),<br>
-          Video: MP4, WebM, MOV, MKV, AVI and more
-        </div>
-        <div class="about-copyright">
-          <p data-i18n="about.copyright">Copyright © 2024–2026 SHKWON</p>
-          <p><a href="#" id="about-email-link" data-i18n="about.contact">knix008@naver.com</a></p>
-        </div>
+        <!-- Below: label | value rows, aligned; the format rows come from FormatSupport (app.js) -->
+        <table class="about-table">
+          <tbody id="about-rows"></tbody>
+        </table>
       </div>
       <div class="dialog-footer">
         <button class="btn-icon primary" data-close-dialog>
@@ -631,6 +632,14 @@ Do you want to save before closing?</p>
       </div>
       <div id="ew-menubar-menus" class="menubar-menus"></div>
       <span id="edit-window-title" class="titlebar-file" title=""></span>
+      <!-- Theme · language · settings · about, left of the window buttons -->
+      <div class="ew-group ew-chrome" role="group">
+        <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
+        <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
+        <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
+        <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
+        <button class="ew-btn" id="ew-about" data-i18n-title="menu.about"></button>
+      </div>
       <div id="ew-win-gutter"></div>
     </div>
 
@@ -705,22 +714,28 @@ Do you want to save before closing?</p>
           <button class="ew-btn" id="ew-zoom-in"  data-i18n-title="toolbar.zoomIn"></button>
           <button class="ew-btn" id="ew-fit"      data-i18n-title="toolbar.fitWindow"></button>
         </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Side panels: Presets (left) / Adjustments (right) -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-panel-left"  data-i18n-title="toolbar.collapseLeft"></button>
+          <button class="ew-btn" id="ew-panel-right" data-i18n-title="toolbar.collapseRight"></button>
+        </div>
       </div>
 
       <span class="ew-spacer"></span>
-      <div class="ew-group ew-chrome" role="group">
-        <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
-        <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
-        <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
-        <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
-      </div>
     </div>
 
     <!-- Body: presets (left) + canvas + adjustments (right) -->
     <div id="edit-window-body">
+      <!-- Both side panels collapse to a rail showing their icon + title (built by app.js) -->
       <div id="edit-effects-panel">
         <div class="panel-header">
+          <span class="panel-icon" id="edit-effects-icon" aria-hidden="true"></span>
           <span class="panel-title" data-i18n="effects.presets">PRESETS</span>
+          <span class="panel-header-spacer"></span>
+          <button type="button" class="panel-hdr-btn panel-collapse-btn" id="ew-effects-collapse-btn"></button>
         </div>
         <div id="edit-effects-content"></div>
         <div id="edit-effects-resize"></div>
@@ -738,8 +753,14 @@ Do you want to save before closing?</p>
       </div>
       <div id="edit-adjust-panel">
         <div class="panel-header">
+          <span class="panel-icon" id="edit-adjust-icon" aria-hidden="true"></span>
           <span class="panel-title" data-i18n="effects.title">ADJUSTMENTS</span>
+          <span class="panel-header-spacer"></span>
+          <button type="button" class="panel-hdr-btn panel-collapse-btn" id="ew-adjust-collapse-btn"></button>
         </div>
+        <!-- The viewer's colour wheel block sits here (top, outside the scroller) while
+             editing; #edit-adjust-content is rebuilt on every open, so not inside it -->
+        <div id="ew-color-host"></div>
         <div id="edit-adjust-content"></div>
         <div class="effects-actions">
           <button id="edit-effects-reset-btn" data-i18n="effects.reset">Reset</button>
@@ -825,7 +846,7 @@ Do you want to save before closing?</p>
           </div>
           <div class="settings-row">
             <label for="settings-restore-session">
-              <span data-i18n="settings.restoreSession">Reopen the last folder and file at startup</span>
+              <span data-i18n="settings.restoreSession">Open the last folder in folder view at startup</span>
             </label>
             <input type="checkbox" id="settings-restore-session" class="settings-toggle">
           </div>
@@ -1441,6 +1462,8 @@ Do you want to save before closing?</p>
   <script src="./js/browse.js"></script>
   <script src="./js/editor.js"></script>
   <script src="./js/fileTree.js"></script>
+  <script src="./js/dragdrop.js"></script>
+  <script src="./js/dialogWindow.js"></script>
   <script src="./js/app.js"></script>
 
   <script>

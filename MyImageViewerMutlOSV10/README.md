@@ -20,6 +20,8 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Edit window: **Cancel** discards the session; **Apply** commits — dirty/save prompt only after Apply with unsaved changes
   - Edit window has the same chrome as the main window: menu bar (file name, window buttons, File / Edit / View / Effects / Help) and toolbar with undo / redo
   - Long effects show an in-window progress popup; Save / Cancel / Apply are **icon-only** on the toolbar; the preset panel is wide enough for every effect label; category bars keep their accent colors
+  - Presets (left) and Adjustments (right) **collapse to a rail** showing the panel icon and vertical title — from the panel header, two toolbar buttons, or View ▸ Left / Right panel; the layout is remembered
+  - The **colour wheel** (tint + strength) sits at the top of Adjustments while editing; an **About** button sits right of Settings
 
 - **Background removal / 배경 제거**
   - Algorithmic: corner/border flood, color key, chroma, brightness, selection-guided
@@ -42,8 +44,9 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Field tokens (`{file}`, `{date}`, `{gps}`, …) and editable template
 
 - **Media playback / 미디어 재생**
-  - Video & audio transport: Play / Pause / Stop, seek bar, time display
-  - Click video (without drag) to toggle play/pause; `Space` for play/pause
+  - Video **and audio** transport bar inside the viewer: Play / Pause / Stop, seek bar, time display, volume
+  - Click the video or the audio screen (without drag) to play / pause / play again; `Space` for play/pause
+  - Formats the webview cannot decode (AVI, WMV, FLV, MPEG-1/2, TS, VOB, RM, 3GP, OGV, WMA, AIFF …) are **converted once** by the host with ffmpeg (bundled `ffmpeg-static`, cached under the user-data folder) and the copy is played
   - On-screen cues: play/stop flash briefly; pause badge stays while paused
   - Animated GIF play / pause / stop via the same controls
 
@@ -52,12 +55,12 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Drive buttons in the explorer title bar — click a drive to open it immediately
   - **Path bar with an Up button and clickable breadcrumbs** — jump to any ancestor in one click; `Backspace` or `Alt+↑` goes up one level
   - Opening a folder **keeps branches you opened on other paths expanded**, so several places stay reachable at once
-  - Last-opened folder remembered for open/save dialogs
+  - **Start-up opens the last folder in folder view** (the last image selected, not opened); if that folder is gone, the newest recent folder that still exists
   - Previous / Next image in folder (`←` / `→`, `Page Up` / `Page Down`); explorer `↑` / `↓` moves the tree row and opens the image
   - **Double-clicking an image** leaves the thumbnail contact sheet and shows just that image
   - Flipping images only updates the selected row (no full tree redraw); the row scrolls into view if it is off-screen
   - Right-click: copy / move / print / **rename** / **delete** (delete is shown in red). Rename is not offered for drive roots
-  - Copy / move by drag-and-drop
+  - **Drag & drop** (desktop): thumbnails / files onto an explorer folder or folder tile **move** them (`Ctrl` = copy); drag past the window edge to hand them to Explorer, the desktop or another app (copy); files dropped in from outside land in the folder under the pointer or the open contact sheet (same drive = move, other drive = copy), anywhere else they open
 
 - **Thumbnail browser / 썸네일 보기**
   - Contact sheet for one folder: subfolders first, then media; double-click to open
@@ -67,7 +70,8 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Selecting a file fills the **File Info** panel without opening the image
   - **Multi-select**: `Ctrl`+click toggles, `Shift`+click selects a range, mouse drag draws a selection box (auto-scrolls at the edges), `Ctrl+A` selects all; right-clicking inside the selection applies the context menu (open / copy / move / clipboard / delete) to every selected item
   - **Drag to the explorer**: drag tiles (the whole selection) onto a folder in the explorer tree to **move** them there; hold `Ctrl` to copy. The sheet stays in its folder and drops the moved tiles; a drag that starts on a tile moves files, a box selection starts from empty space
-  - Thumbnails are made **in the background** (a Web Worker for JPG / PNG / WebP / GIF / BMP / ICO / AVIF; idle time for TIFF / HEIC / DICOM / SVG) and kept in a **per-directory disk cache** under the app's user-data folder, so a folder seen before shows its thumbnails at once — only new or changed files are redone. Settings ▸ General shows the cache size and can clear it
+  - Thumbnails are made **in the background** and kept in a **per-directory thumbnail DB** under the app's user-data folder, so a folder seen before shows its thumbnails at once — only new or changed files are redone. On the desktop the host builds them natively (sharp) for every folder you open — and for recent folders at start-up — even after you move on; formats it cannot read (BMP / ICO / HEIC / DICOM) are made in the page. Settings ▸ General shows the cache size and can clear it
+  - Bottom **filmstrip** while viewing an image: always the image's own folder, `<` / `>` and `←` / `→` step through it
   - The thumbnail toolbar button reflects what is on screen: it turns off when you open an image and brings the sheet back when pressed again
 
 - **File information / 파일 정보**
@@ -95,11 +99,15 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Same decoder in desktop and web mode; codecs load on first use
 
 - **Window chrome / 창 구성**
+  - Theme · language · settings · about sit on the **menu bar, left of the minimise button** (main and edit window)
+  - **About** shows icon, name, version and description on top, then aligned rows: version, image / video / audio formats (from the same lists the app opens files by), formats converted for playback, platform, copyright, contact
   - **Menu bar** (app icon · name · version · File / Edit / View / Window / Help · Home · current file · window buttons — every menu item with an icon and shortcut) and an icon toolbar
   - File menu: open file, open folder (browse **or** pick a recent folder — each removable, clear all), save as, **export** (PNG / JPEG / WebP / BMP / clipboard), **print** (`Ctrl+P`, also a toolbar button — opens a print preview: printer with the system default pre-selected, paper, orientation, margins, scale, copies, colour; prints directly to the chosen printer), file info, show in Explorer, delete, exit
 
 - **Viewer / 뷰어**
-  - Mouse-wheel zoom, pan, fit to window, actual size, zoom input
+  - Mouse-wheel zoom, pan, zoom input
+  - **Display modes on the toolbar** for pictures and video: fit to window, fit width, fit height, original size (remembered, re-applied on resize / next file), centre, fullscreen
+  - The bottom filmstrip is its own row under the viewer (divider line): the picture, the media bar and the arrows are never covered by it
   - Frameless window (minimize / maximize / close on the menu bar)
   - Fullscreen (`F11`)
 
@@ -109,7 +117,8 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Korean / English — language button shows the flag of the language you can switch **to**; the thumbnail-browser toolbar and the explorer path bar are relabelled with it
   - Settings dialog (gear button, tabs, no scroll — sized so all 40 theme tiles fit): **General** (language, startup restore, recent folders, default viewer), **Theme**, **Viewer & editing**, **DICOM**, **Media** — plus **Reset all settings**
   - Opening a file shows live progress on the **status bar** (not a modal popup); the last result stays until the next status change (`Loading Done.` when finished)
-  - Context and menu-bar menus open in the window; the viewer context menu keeps everyday actions top-level (including Delete, in red) and groups the rest (Transform / Zoom / More tools, DICOM Frames / Window / Colour map / Measure / Export)
+  - Context and menu-bar menus **can extend past the window edge** (desktop: drawn in a transparent overlay window that never takes the focus); **every row has an icon**, a checked row keeps its icon and shows a check at the right; the viewer context menu keeps everyday actions top-level (including Delete, in red) and groups the rest (Transform / Zoom / More tools, DICOM Frames / Window / Colour map / Measure / Export)
+  - **Dialogs open in windows of their own** on the desktop (Settings, About, Print, Resize, Details, confirmations …) — drag them by the title anywhere on screen, past the main window; the main window waits behind them
   - Toolbar, custom app icon (`src/assets`)
 
 - **Installer / 설치**
@@ -160,6 +169,8 @@ npm run build:win        # Windows NSIS installer (Tauri)
 npm run build:mac        # macOS DMG
 npm run build:linux      # Linux deb
 ```
+
+Each `build:*` ends with `scripts/copy-installer.js`, which copies the new installer from `src-tauri/target/release/bundle/<kind>/` to the **project root** (root installers are gitignored).
 
 Every `build:*` first runs `scripts/stamp-version.js`, which writes the build date (`YYYYMMDD`) as `buildNumber` into `package.json` and `src/version.json`, and copies the version into `src-tauri/tauri.conf.json`. The About dialog reads that build number.
 
@@ -229,7 +240,7 @@ Uncomment the script tags in `src/index.html` after downloading.
 
 ```
 MyImageViewer/
-├── src-tauri/              # Tauri / Rust shell (window, bundle)
+├── src-tauri/              # Tauri / Rust shell: main + dialog windows, menu overlay, drag-out, bundle
 ├── host/
 │   ├── server.js           # Desktop host (static files + IPC)
 │   ├── service.js          # File, image, DICOM, print, associations
@@ -243,6 +254,7 @@ MyImageViewer/
 │   └── rembg_worker.py     # Optional background-removal helper
 ├── src/
 │   ├── index.html
+│   ├── popup.html          # Menu overlay page (desktop: menus past the window edge)
 │   ├── assets/             # App icons (icon.ico, icon.png, icon_512.png, …)
 │   ├── styles/main.css
 │   ├── js/
@@ -258,7 +270,10 @@ MyImageViewer/
 │   │   ├── fileRegistry.js # Virtual FS (web)
 │   │   ├── tauriAPI.js     # Desktop electronAPI bridge (Tauri)
 │   │   ├── webAPI.js       # electronAPI shim (web)
-│   │   ├── contextMenu.js  # In-page menus
+│   │   ├── contextMenu.js  # Menus (in the page, or in the overlay window on the desktop)
+│   │   ├── popupMenu.js    # Menu overlay page driver
+│   │   ├── dialogWindow.js # Desktop: dialogs moved into windows of their own
+│   │   ├── dragdrop.js     # Desktop drag & drop (in → in, in → out, out → in)
 │   │   ├── tooltip.js
 │   │   ├── icons.js
 │   │   └── i18n.js

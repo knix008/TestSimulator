@@ -700,8 +700,9 @@ window.FileTree = (() => {
       if (_onContextMenu) _onContextMenu({ ...entry, isDirectory: isDir, isDrive }, e.clientX, e.clientY);
     });
 
-    // Drag-out to OS (Explorer, Desktop, other apps) — Electron only
-    if (!isDrive && window.electronAPI.platform !== 'web') {
+    // Drag-out to OS (Explorer, Desktop, other apps) — Electron only. The Tauri desktop
+    // drags with pointer events (dragdrop.js), so the rows stay non-draggable there.
+    if (!isDrive && window.electronAPI.platform !== 'web' && typeof window.electronAPI.startFileDrag !== 'function') {
       row.draggable = true;
       row.addEventListener('dragstart', (e) => {
         // Required for webContents.startDrag (native file drag)
@@ -1093,5 +1094,6 @@ window.FileTree = (() => {
     init, loadDrives, revealPath, openRoot, getRoot, getSelected, setSelected,
     getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath, remapPath, handleKey,
     setFoldersOnly, isFoldersOnly, goUp, navigateTo, parentOf: _parentOf, applyI18n,
+    pathsForDrag: _pathsForDragOut,
   };
 })();

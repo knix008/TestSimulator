@@ -13,6 +13,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["protocol-asset"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Win32 handle of the menu overlay: it is shown without activation (SW_SHOWNOACTIVATE)
+raw-window-handle = "0.6"
+# Native drag-out: thumbnails dragged past the window edge become an OS file drag (DoDragDrop)
+drag = "2"
 
 [profile.release]
 panic = "abort"

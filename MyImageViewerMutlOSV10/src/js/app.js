@@ -51,6 +51,9 @@
   // initialising, so they have to be declared before the init calls below.
   const LAYOUT_KEY = 'panelLayoutV2';
   const _layout = { left: true, right: true };
+  // Edit window: Presets (left) and Adjustments (right), each expanded or collapsed to a rail
+  const EW_LAYOUT_KEY = 'editPanelLayoutV1';
+  const _ewLayout = { left: true, right: true };
   const CP_SLIDERS = [
     { key:'brightness', label:'effects.brightness', min:0,    max:200, def:100 },
     { key:'contrast',   label:'effects.contrast',   min:0,    max:200, def:100 },
@@ -72,6 +75,19 @@
   // After opening a file from the contact sheet, keep the sheet from covering the
   // viewer until the user explicitly asks for it again.
   let _browseSheetHeld = false;
+  // Display mode for images and video: 'window' | 'width' | 'height' | 'actual'. Re-applied on
+  // open and resize while _wantFit is on; a manual zoom turns that off until a mode is picked.
+  let _wantFit = true;   // re-apply the display mode on open / resize (off after a manual zoom)
+  const VIEW_MODE_KEY = 'viewFitModeV1';
+  let _viewMode = (() => {
+    try { const v = localStorage.getItem(VIEW_MODE_KEY); return ['window', 'width', 'height', 'actual'].includes(v) ? v : 'window'; }
+    catch { return 'window'; }
+  })();
+  // Selection preview (File Info + histogram). _initBrowse() → _syncBrowseChrome()
+  // → _previewFileInfo() reads these during init.
+  let _previewInfoTimer = null;
+  let _histPreviewGen = 0;
+  let _histPreview = null;   // { path, src, w, h } for a selected file not in the editor
   let _appInfoCache = null;
   // Ruler / grid overlays were removed from the UI; keep the paint path inert.
   const GUIDE_KEY = 'viewGuidesV1';
@@ -110,8 +126,9 @@
         if (w && h) return { w, h };
       }
     }
-    if (Editor.isLoaded()) return Editor.getDimensions();
+    // Video first: the editor still holds the last picture while a video is open
     if (state.isVideo) return { w: videoEl.videoWidth || 0, h: videoEl.videoHeight || 0 };
+    if (Editor.isLoaded()) return Editor.getDimensions();
     return { w: 0, h: 0 };
   }
 
@@ -271,7 +288,7 @@
     'dicomAnnotations', 'sidebarWidth', 'sidebarTreeHeightV2', 'editEffectsPanelWidth', 'editAdjustPanelWidth',
     // Panel layout is a setting like any other: which panels are expanded, every
     // panel width, the explorer / file-info split, and the browse view.
-    LAYOUT_KEY, BROWSE_KEY, 'browseViewV1', 'rightSidebarWidth',
+    LAYOUT_KEY, EW_LAYOUT_KEY, BROWSE_KEY, 'browseViewV1', 'rightSidebarWidth',
     'dicomRulerAxes', 'dicomScaleBar', 'dicomScalePos',
     ...Object.keys(PREF_DEFAULTS),
   ];
@@ -412,6 +429,7 @@
   _initVerticalResize();
   _initPanelLayout();
   _initBrowse();
+  _initDesktopDragDrop();
   _initEditEffectsResize();
   _initEditAdjustResize();
 
@@ -428,6 +446,15 @@
   _initInfoTagFilter();
 
   /* ─── Context menu ─── */
+  // The webview's own menu (Back / Refresh / Save as / Inspect) is never the app's menu:
+  // suppress it everywhere except text fields, which keep their cut / copy / paste menu.
+  document.addEventListener('contextmenu', (e) => {
+    const t = e.target;
+    const editable = t && (t.isContentEditable
+      || (t.tagName === 'TEXTAREA')
+      || (t.tagName === 'INPUT' && !/^(range|checkbox|radio|button|color|file)$/i.test(t.type || '')));
+    if (!editable) e.preventDefault();
+  });
   // Capture phase so Chromium's native <video> menu is suppressed
   viewerContainer.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -509,10 +536,12 @@
       return;
     }
 
-    // Check if a folder was dropped (Electron)
-    for (const f of files) {
-      const p = _dropPath(f);
-      if (!p) continue;
+    await _openDroppedPaths(files.map(_dropPath).filter(Boolean));
+  });
+
+  /** Dropped paths that do not land in a folder: open a dropped folder, else the first media file. */
+  async function _openDroppedPaths(paths) {
+    for (const p of paths) {
       const stats = await window.electronAPI.getFileStats(p);
       if (stats && !stats.error && stats.isDirectory) {
         await _openFolder(p);
@@ -520,32 +549,80 @@
         return;
       }
     }
+    const isMedia = (p) => {
+      const ext = FormatSupport.getExtension(p);
+      return FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext);
+    };
+    // The first supported file (else the first file anyway), with its folder revealed
+    const p = paths.find(isMedia) || paths[0];
+    if (!p) return;
+    const dir = await window.electronAPI.pathDirname(p);
+    await _openFile(p, { center: true });
+    await FileTree.revealPath(dir);
+    await FileTree.refresh({ force: true });
+    FileTree.setSelected(p, { center: true });
+  }
 
-    // Open first supported file and reveal its folder in the explorer
-    for (const f of files) {
-      const p = _dropPath(f);
-      if (!p) continue;
-      const ext = FormatSupport.getExtension(f.name);
-      if (FormatSupport.IMAGE_EXTS.has(ext) || FormatSupport.VIDEO_EXTS.has(ext) || FormatSupport.AUDIO_EXTS.has(ext)) {
-        const dir = await window.electronAPI.pathDirname(p);
-        await _openFile(p, { center: true });
-        await FileTree.revealPath(dir);
-        await FileTree.refresh({ force: true });
-        FileTree.setSelected(p, { center: true });
+  /* ─── Desktop drag & drop (dragdrop.js): in → in, in → out, out → in ─── */
+  /** The drop folder an element stands for: an explorer folder row or a folder tile. */
+  function _dropFolderOf(el) {
+    const row = el?.closest?.('#file-tree-scroll .tree-item[data-path]');
+    if (row && row.dataset.isDir === '1') return { el: row, dir: row.dataset.path };
+    const tile = el?.closest?.('#browse-view .browse-tile.is-dir');
+    if (tile) return { el: tile, dir: tile.dataset.path };
+    // Anywhere else on the full contact sheet: the folder it shows
+    const sheet = el?.closest?.('#browse-view');
+    if (sheet && Browse.isVisible?.() && !Browse.isFilmstrip?.() && Browse.getDir?.()) {
+      return { el: sheet, dir: Browse.getDir() };
+    }
+    return null;
+  }
+
+  /** Explorer's rule for files coming from elsewhere: same drive → move, other drive → copy. */
+  function _dropMode(paths, destDir) {
+    const drive = (p) => (/^([a-z]):/i.exec(String(p || '')) || [])[1]?.toLowerCase() || (String(p).startsWith('/') ? '/' : '');
+    const d = drive(destDir);
+    return paths.every((p) => drive(p) === d) ? 'move' : 'copy';
+  }
+
+  function _initDesktopDragDrop() {
+    if (!window.DragDrop || typeof window.electronAPI.startFileDrag !== 'function') return;
+    DragDrop.init({
+      pathsFor(el) {
+        const tile = el?.closest?.('#browse-view .browse-tile.is-file');
+        if (tile) {
+          const sel = Browse.getSelectedPaths?.() || [];
+          return sel.some((p) => _normWatchPath(p) === _normWatchPath(tile.dataset.path)) ? sel : [tile.dataset.path];
+        }
+        const row = el?.closest?.('#file-tree-scroll .tree-item[data-path]');
+        if (row && row.dataset.isDir !== '1' && !row.dataset.isDrive) return FileTree.pathsForDrag?.(row.dataset.path) || [row.dataset.path];
+        return null;
+      },
+      folderAt: _dropFolderOf,
+      ghostImage: (el) => el?.closest?.('.browse-tile')?.querySelector('.browse-thumb img')?.src || '',
+      onDropInto: (paths, dir, mode) => _transferPathsInto(paths, dir, mode),
+    });
+    // Files dragged in from Explorer / the desktop / another app (or our own drag-out coming back)
+    window.addEventListener('native-dragdrop', async (e) => {
+      const { type, paths = [], x, y } = e.detail || {};
+      if (type === 'enter' || type === 'over') { DragDrop.hoverAt(x, y); return; }
+      DragDrop.hoverAt(null);
+      if (type !== 'drop' || !paths.length) return;
+      const hit = x == null ? null : DragDrop.folderAt(x, y);
+      // Into a folder — unless they are already there (then it is just "open")
+      if (hit && !paths.every((p) => _normWatchPath(_parentDir(p)) === _normWatchPath(hit.dir))) {
+        await _transferPathsInto(paths.filter((p) => _normWatchPath(p) !== _normWatchPath(hit.dir)), hit.dir, _dropMode(paths, hit.dir));
         return;
       }
-    }
-    // Fallback: try the first file anyway
-    if (files[0]) {
-      const p = _dropPath(files[0]);
-      if (!p) return;
-      const dir = await window.electronAPI.pathDirname(p);
-      await _openFile(p, { center: true });
-      await FileTree.revealPath(dir);
-      await FileTree.refresh({ force: true });
-      FileTree.setSelected(p, { center: true });
-    }
-  });
+      await _openDroppedPaths(paths);
+    });
+  }
+
+  function _parentDir(p) {
+    const s = String(p || '').replace(/[\\/]+$/, '');
+    const i = Math.max(s.lastIndexOf('\\'), s.lastIndexOf('/'));
+    return i > 0 ? s.slice(0, i) : s;
+  }
 
   /* ─── Electron IPC listeners ─── */
   window.electronAPI.onOpenFile(async (p) => {
@@ -635,17 +712,29 @@
       } catch (_) { /* folder may be gone */ }
       _openFile(launchFile, { center: true }).catch(() => {});
     } else if (_prefOn('restoreSession')) {
-      // Prefer the renderer copy; fall back to the host config written on quit.
-      let lastDir = localStorage.getItem('lastOpenedDir') || '';
+      // Prefer the host's copy: it is written to disk on every folder open, while the
+      // webview can lose its newest localStorage writes when the app is closed abruptly.
+      let lastDir = '';
+      if (window.electronAPI.getSavedLastOpenDir) {
+        try { lastDir = (await window.electronAPI.getSavedLastOpenDir()) || ''; } catch { lastDir = ''; }
+      }
+      if (!lastDir) lastDir = localStorage.getItem('lastOpenedDir') || '';
       if (!lastDir && window.electronAPI.getLastOpenDir) {
         try { lastDir = (await window.electronAPI.getLastOpenDir()) || ''; } catch { lastDir = ''; }
       }
-      let lastDirOk = false;
-      if (lastDir) {
+      const isDir = async (p) => {
+        if (!p) return false;
         try {
-          const stats = await window.electronAPI.getFileStats(lastDir);
-          lastDirOk = !!(stats && !stats.error && stats.isDirectory);
-        } catch { lastDirOk = false; }
+          const stats = await window.electronAPI.getFileStats(p);
+          return !!(stats && !stats.error && stats.isDirectory);
+        } catch { return false; }
+      };
+      let lastDirOk = await isDir(lastDir);
+      // The last folder was deleted / renamed / on a removed drive: the newest recent one that still exists
+      if (!lastDirOk) {
+        for (const p of _getRecentDirs()) {
+          if (_normDirKey(p) !== _normDirKey(lastDir) && await isDir(p)) { lastDir = p; lastDirOk = true; break; }
+        }
       }
       if (lastDirOk) {
         // Always reopen and show the last folder (contact sheet), not the start screen.
@@ -667,15 +756,14 @@
             await Browse.open(lastDir);
           } catch { /* folder may be gone */ }
         }
+        // Start in folder view: the last image is selected in the sheet (File Info shows
+        // it), not opened — reopening it turned the sheet into a filmstrip at once.
         const lastFile = localStorage.getItem('lastOpenedFile');
-        if (lastFile) {
-          try {
-            const fileStats = await window.electronAPI.getFileStats(lastFile);
-            if (fileStats && !fileStats.error && !fileStats.isDirectory) {
-              _openFile(lastFile, { center: true }).catch(() => {});
-            }
-          } catch { /* ignore */ }
+        if (lastFile && _normWatchPath(await window.electronAPI.pathDirname(lastFile).catch(() => '')) === _normWatchPath(lastDir)) {
+          Browse.select?.(lastFile);
         }
+        // Warm the other recent folders' thumbnail DB in the background (host side)
+        Thumbs.warmDirs?.(_getRecentDirs().filter((d) => _normDirKey(d) !== _normDirKey(lastDir)));
       }
     }
   }
@@ -697,8 +785,12 @@
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
       { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },
       { separator: true },
-      { id:'btn-fit',         icon:'fitWindow',  tip:'toolbar.fitWindow',  action: _fitToWindow,      disabled: true },
+      { id:'btn-fit',         icon:'fitWindow',  tip:'toolbar.fitWindow',  action: () => _setViewMode('window'), disabled: true },
+      { id:'btn-fit-width',   icon:'fitWidth',   tip:'toolbar.fitWidth',   action: () => _setViewMode('width'),  disabled: true },
+      { id:'btn-fit-height',  icon:'fitHeight',  tip:'toolbar.fitHeight',  action: () => _setViewMode('height'), disabled: true },
       { id:'btn-actual',      icon:'actualSize', tip:'toolbar.actualSize', action: _actualSize,       disabled: true },
+      { id:'btn-center',      icon:'center',     tip:'toolbar.center',     action: _centerView,       disabled: true },
+      { id:'btn-fullscreen',  icon:'fullscreen', tip:'toolbar.fullscreen', action: () => window.electronAPI.toggleFullscreen?.() },
       { separator: true },
       { id:'btn-rotate-l',    icon:'rotateLeft', tip:'toolbar.rotateLeft', action: () => _rotate(-90), disabled: true },
       { id:'btn-rotate-r',    icon:'rotateRight',tip:'toolbar.rotateRight',action: () => _rotate(90),  disabled: true },
@@ -739,14 +831,20 @@
       return zw;
     })();
     toolbar.innerHTML = '';
+    // What follows the spacer (theme · language · settings · about) lives on the menu bar,
+    // left of the window buttons; without that host it stays at the toolbar's right end.
+    const chrome = document.getElementById('menubar-chrome');
+    if (chrome) chrome.innerHTML = '';
+    let target = toolbar;
     for (const b of buttons) {
       if (b.separator) {
         const sep = document.createElement('div');
         sep.className = 'toolbar-sep';
-        toolbar.appendChild(sep);
+        target.appendChild(sep);
         continue;
       }
       if (b.spacer) {
+        if (chrome) { target = chrome; continue; }
         const sp = document.createElement('div');
         sp.className = 'toolbar-spacer';
         toolbar.appendChild(sp);
@@ -810,7 +908,7 @@
       });
       Tooltip.attach(btn, typeof b.tip === 'function' ? b.tip : () => I18n.t(b.tip));
       hit.appendChild(btn);
-      toolbar.appendChild(hit);
+      target.appendChild(hit);
     }
 
     _updateZoomDisplay();
@@ -955,6 +1053,9 @@
       { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', action: () => _ewFit() },
       { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', action: () => _ewZoomTo(1) },
       { separator: true },
+      { icon: Icons.panelLeft,  label: t('menu.ewLeftPanel'),  checked: _ewLayout.left,  action: () => _toggleEwLeftPanel() },
+      { icon: Icons.panelRight, label: t('menu.ewRightPanel'), checked: _ewLayout.right, action: () => _toggleEwRightPanel() },
+      { separator: true },
       !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
       !_isWeb() && { separator: true },
       { icon: Icons.palette,  label: t('menu.theme'),    action: () => _openThemePicker() },
@@ -1075,7 +1176,10 @@
     return [
       { icon: Icons.zoomIn,     label: t('menu.zoomIn'),      shortcut: 'Ctrl++', disabled: !hasVisual, action: () => _zoom(1.25) },
       { icon: Icons.zoomOut,    label: t('menu.zoomOut'),     shortcut: 'Ctrl+-', disabled: !hasVisual, action: () => _zoom(0.8) },
-      { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', disabled: !hasVisual, action: () => _fitToWindow() },
+      { icon: Icons.fitWindow,  label: t('menu.fitToWindow'), shortcut: 'Ctrl+0', disabled: !hasVisual, checked: _wantFit && _viewMode === 'window', action: () => _setViewMode('window') },
+      { icon: Icons.fitWidth,   label: t('toolbar.fitWidth'),  disabled: !hasVisual, checked: _wantFit && _viewMode === 'width', action: () => _setViewMode('width') },
+      { icon: Icons.fitHeight,  label: t('toolbar.fitHeight'), disabled: !hasVisual, checked: _wantFit && _viewMode === 'height', action: () => _setViewMode('height') },
+      { icon: Icons.center,     label: t('toolbar.center'),    disabled: !hasVisual, action: () => _centerView() },
       { icon: Icons.actualSize, label: t('menu.actualSize'),  shortcut: 'Ctrl+1', disabled: !hasImg,    action: () => _actualSize() },
       { separator: true },
       { icon: Icons.prev, label: t('menu.previousImage'), shortcut: '← / Page Up', disabled: !canPrev, action: () => _prevImage() },
@@ -1509,7 +1613,7 @@
     }));
     speeds.appendChild(reset);
     const sceneBody = document.createElement('div');
-    sceneBody.append(showLabel, scenes, speeds);
+    sceneBody.append(scenes, speeds);
 
     const board = document.createElement('div');
     board.className = 'start-board';
@@ -1530,6 +1634,8 @@
     const startVer = head.querySelector('.start-version');
     if (startVer) startVer.textContent = _appInfoCache ? _versionLabel(_appInfoCache) : (document.querySelector('.app-brand-ver')?.textContent || 'V1.0.2');
     head.querySelector('p').textContent = I18n.t('home.lead');
+    // "Show this screen at startup" sits at the top right of the header
+    head.appendChild(showLabel);
     wrap.append(head, board);
     scroll.appendChild(wrap);
     _syncStartScreenControls();
@@ -2216,8 +2322,10 @@
     // Navigation / view (available for images; limited for A/V)
     set('btn-zoom-in', isImage || k === 'video' || state.isAnimated);
     set('btn-zoom-out', isImage || k === 'video' || state.isAnimated);
-    set('btn-fit', isImage || k === 'video' || state.isAnimated);
-    set('btn-actual', isImage || state.isAnimated);
+    // Display modes work for pictures and video alike
+    const visual = isImage || k === 'video' || state.isAnimated;
+    for (const id of ['btn-fit', 'btn-fit-width', 'btn-fit-height', 'btn-actual', 'btn-center']) set(id, visual);
+    _syncViewModeButtons();
     const zd = document.getElementById('zoom-display');
     if (zd) zd.disabled = !(isImage || k === 'video' || state.isAnimated);
     _updateNavButtons();
@@ -2351,10 +2459,13 @@
       return;
     }
     try {
-      let dir = Browse.getDir?.() || '';
-      if (!dir && window.electronAPI?.pathDirname) {
+      // The strip is always the image's own folder — not whatever folder the sheet
+      // showed last, or prev / next would walk a list the image is not in.
+      let dir = '';
+      if (window.electronAPI?.pathDirname) {
         dir = (await window.electronAPI.pathDirname(filePath)) || '';
       }
+      if (!dir) dir = Browse.getDir?.() || '';
       if (!dir) {
         if (Browse.isVisible?.()) Browse.hide();
         return;
@@ -2378,8 +2489,8 @@
     _hideHome();
     // Opening a file: contact sheet becomes a bottom filmstrip so the image can show.
     _browseSheetHeld = true;
-    // File Info only — do not force the colour/adjust (edit) sidebar open.
-    if (!_layout.left) _toggleLeftPanel(true);
+    // Panels stay as the user left them — stepping through images must not
+    // expand a collapsed side panel.
     // Collapse the old slide-in effects drawer if it was left open.
     if (effectsPanel?.classList.contains('visible')) {
       effectsPanel.classList.remove('visible');
@@ -2633,6 +2744,9 @@
         return;
       }
       const img = new Image();
+      // Desktop file URLs are another origin (asset protocol); without CORS the
+      // editor canvas is tainted and getImageData / export throw.
+      img.crossOrigin = 'anonymous';
       const done = () => resolve();
       // Safety: never leave the loading overlay waiting forever
       const timer = setTimeout(() => {
@@ -4011,8 +4125,8 @@
       items.push({ icon: Icons.mediaPlay, label: t('dicom.frames'), submenu: () => [
         { icon: Icons.prev, label: t('dicom.prevFrame'), shortcut: 'Ctrl+PgUp', disabled: d.state.frame <= 0, action: () => _dicomFrame(d.state.frame - 1) },
         { icon: Icons.next, label: t('dicom.nextFrame'), shortcut: 'Ctrl+PgDn', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.state.frame + 1) },
-        { label: t('dicom.firstFrame'), shortcut: 'Home', disabled: d.state.frame <= 0, action: () => _dicomFrame(0) },
-        { label: t('dicom.lastFrame'), shortcut: 'End', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.frames - 1) },
+        { icon: Icons.first, label: t('dicom.firstFrame'), shortcut: 'Home', disabled: d.state.frame <= 0, action: () => _dicomFrame(0) },
+        { icon: Icons.last, label: t('dicom.lastFrame'), shortcut: 'End', disabled: d.state.frame >= d.frames - 1, action: () => _dicomFrame(d.frames - 1) },
         { separator: true },
         { icon: _dicomCineTimer ? Icons.mediaPause : Icons.mediaPlay, label: t(_dicomCineTimer ? 'dicom.cineStop' : 'dicom.cine'), shortcut: 'Space', action: _dicomToggleCine },
       ] });
@@ -4026,21 +4140,21 @@
           { separator: true },
         ];
         _dicomFrameWindows(d).forEach((w, i) => {
-          sub.push({ label: `${t('dicom.preset.file')}${w.label ? ` — ${w.label}` : ''}  (C ${_dicomFmt(w.wc)} / W ${_dicomFmt(w.ww)})`, checked: cur === `file:${i}`, action: () => _dicomPresetApply(`file:${i}`) });
+          sub.push({ icon: Icons.fileInfo, label: `${t('dicom.preset.file')}${w.label ? ` — ${w.label}` : ''}  (C ${_dicomFmt(w.wc)} / W ${_dicomFmt(w.ww)})`, checked: cur === `file:${i}`, action: () => _dicomPresetApply(`file:${i}`) });
         });
         (d.voiLuts || []).forEach((l, i) => {
-          sub.push({ label: `${t('dicom.preset.lut')} — ${l.label}`, checked: cur === `lut:${i}`, action: () => _dicomPresetApply(`lut:${i}`) });
+          sub.push({ icon: Icons.layers, label: `${t('dicom.preset.lut')} — ${l.label}`, checked: cur === `lut:${i}`, action: () => _dicomPresetApply(`lut:${i}`) });
         });
-        sub.push({ label: t('dicom.preset.auto'), checked: cur === 'auto', action: () => _dicomPresetApply('auto') });
+        sub.push({ icon: Icons.magicWand, label: t('dicom.preset.auto'), checked: cur === 'auto', action: () => _dicomPresetApply('auto') });
         (d.presets || []).forEach((p) => {
-          sub.push({ label: `${t(`dicom.preset.${p.id}`)}  (C ${p.wc} / W ${p.ww})`, checked: cur === p.id, action: () => _dicomPresetApply(p.id) });
+          sub.push({ icon: Icons.sliders, label: `${t(`dicom.preset.${p.id}`)}  (C ${p.wc} / W ${p.ww})`, checked: cur === p.id, action: () => _dicomPresetApply(p.id) });
         });
         return sub;
       } });
       items.push({ icon: Icons.palette, label: t('dicom.colormap'), shortcut: 'M', submenu: () => (d.colormaps || ['gray']).map((id) => {
         const key = `dicom.cm.${id}`;
         const label = t(key);
-        return { label: label && label !== key ? label : id, checked: (d.state.colormap || 'gray') === id, action: () => _dicomSetColormap(id) };
+        return { icon: Icons.palette, label: label && label !== key ? label : id, checked: (d.state.colormap || 'gray') === id, action: () => _dicomSetColormap(id) };
       }) });
     }
     items.push({ icon: Icons.annotations, label: t('dicom.annotations'), shortcut: 'O', checked: _dicomAnnotOn, action: _dicomToggleAnnotations });
@@ -4201,6 +4315,13 @@
     _syncMediaTransportButtons();
   }
 
+  /** The element the transport bar drives (loaded media, shown or not). */
+  function _mediaEl() {
+    if (state.isVideo && videoEl) return videoEl;
+    if (state.isAudio && audioEl) return audioEl;
+    return null;
+  }
+
   function _activeMediaEl() {
     if (state.isVideo && videoEl && videoEl.style.display !== 'none') return videoEl;
     if (state.isAudio && audioEl && audioWrap && audioWrap.style.display !== 'none') return audioEl;
@@ -4224,12 +4345,15 @@
 
   function _updateMediaControlsVisibility() {
     if (!mediaControls) return;
-    const show = !state.editMode && (state.isVideo || state.isAnimated)
-      && !window.Browse?.isVisible?.();   // the contact sheet covers the player
+    // Video, audio and animated images get the bar. Only the full contact sheet hides it —
+    // the bottom filmstrip sits below the viewer, not over it.
+    const sheetUp = !!window.Browse?.isVisible?.() && !window.Browse?.isFilmstrip?.();
+    const show = !state.editMode && (state.isVideo || state.isAudio || state.isAnimated) && !sheetUp;
     mediaControls.hidden = !show;
     mediaControls.style.display = show ? 'flex' : 'none';
     mediaControls.classList.toggle('is-on', show);
     mediaControls.classList.toggle('is-animated', !!state.isAnimated && !state.isVideo);
+    mediaControls.classList.toggle('is-audio', !!state.isAudio && !state.isVideo);
     if (show) _syncMediaTransportButtons();
   }
 
@@ -4252,18 +4376,20 @@
     mcPauseBtn?.classList.toggle('is-active', playing);
     mcStopBtn?.classList.toggle('is-active', false);
 
-    if (state.isVideo && videoEl) {
+    if (_mediaEl()) {
       _applyMediaVolume();
       _syncMediaSeekUi();
       _syncMediaVolumeUi();
-      _syncSubtitleControls();
+      if (state.isVideo) _syncSubtitleControls();
     }
   }
 
   function _applyMediaVolume() {
-    if (!videoEl) return;
-    videoEl.volume = _mediaVolume;
-    videoEl.muted = _mediaMuted || _mediaVolume <= 0;
+    for (const el of [videoEl, audioEl]) {
+      if (!el) continue;
+      el.volume = _mediaVolume;
+      el.muted = _mediaMuted || _mediaVolume <= 0;
+    }
   }
 
   function _persistMediaVolume() {
@@ -4310,9 +4436,10 @@
   }
 
   function _syncMediaSeekUi() {
-    if (!mcSeek || !videoEl || !state.isVideo) return;
-    const dur = videoEl.duration;
-    const cur = videoEl.currentTime || 0;
+    const el = _mediaEl();
+    if (!mcSeek || !el) return;
+    const dur = el.duration;
+    const cur = el.currentTime || 0;
     if (Number.isFinite(dur) && dur > 0) {
       mcSeek.max = '1000';
       if (!_mcSeekDragging) {
@@ -4331,11 +4458,12 @@
       _playAnimated();
       return;
     }
-    if (!state.isVideo || !videoEl) return;
-    if (videoEl.ended) {
-      try { videoEl.currentTime = 0; } catch {}
+    const el = _mediaEl();
+    if (!el) return;
+    if (el.ended) {
+      try { el.currentTime = 0; } catch {}
     }
-    const p = videoEl.play();
+    const p = el.play();
     if (p && typeof p.catch === 'function') p.catch(() => {});
     // Cue comes from the 'play' event so we don't double-flash
     _syncMediaTransportButtons();
@@ -4346,9 +4474,10 @@
       _pauseAnimated();
       return;
     }
-    if (!state.isVideo || !videoEl || videoEl.paused) return;
+    const el = _mediaEl();
+    if (!el || el.paused) return;
     _mediaCueFromUser = 'pause';
-    videoEl.pause();
+    el.pause();
     // Keep pause cue visible until play / stop
     _showMediaCue('pause', true);
     _syncMediaTransportButtons();
@@ -4359,10 +4488,11 @@
       _stopAnimated();
       return;
     }
-    if (!state.isVideo || !videoEl) return;
+    const el = _mediaEl();
+    if (!el) return;
     _mediaCueFromUser = 'stop';
-    videoEl.pause();
-    try { videoEl.currentTime = 0; } catch {}
+    el.pause();
+    try { el.currentTime = 0; } catch {}
     // Brief stop flash, then clear
     _showMediaCue('stop', false);
     _syncMediaTransportButtons();
@@ -4694,6 +4824,52 @@
     }
   }
 
+  /* ── Media the webview cannot decode is converted by the host (ffmpeg) and the copy is
+     played. Known containers go straight to conversion; anything else converts only when
+     the webview reports it cannot play it (or shows no picture). Function-local data on
+     purpose: a launch file can be opened before the code further down has run (TDZ). ── */
+  function _needsTranscode(filePath) {
+    return /\.(avi|wmv|asf|flv|f4v|mpe?g|m2v|ts|mts|m2ts|vob|rm|rmvb|3gp|3g2|ogv|divx|xvid|wma|aiff?|aifc|ac3|amr|ape|wv|dts)$/i.test(String(filePath || ''));
+  }
+
+  async function _convertForPlayback(filePath, kind) {
+    if (typeof window.electronAPI.transcodeMedia !== 'function') return null;
+    const name = String(filePath).split(/[/\\]/).pop();
+    _updateStatus({ msg: I18n.t('progress.converting') || 'Converting for playback…' });
+    const r = await window.electronAPI.transcodeMedia(filePath, kind).catch((err) => ({ error: err.message }));
+    if (r && r.url) {
+      _updateStatus({ msg: I18n.t('progress.done') || 'Loading Done.' });
+      return r.url;
+    }
+    if (state.currentFile === filePath) {
+      _showError(`${I18n.t('error.openFile') || 'Failed to open file'}: ${name}`, r?.error || 'convert failed');
+    }
+    return null;
+  }
+
+  /** URL to give the <video> / <audio> element for `filePath`. */
+  async function _mediaSourceUrl(filePath, kind, el) {
+    if (_needsTranscode(filePath)) {
+      if (el) el.dataset.convertedFor = filePath;   // no second conversion from the error fallback
+      const conv = await _convertForPlayback(filePath, kind);
+      if (conv) return conv;
+    }
+    return window.electronAPI.getFileUrl(filePath);
+  }
+
+  /** The webview could not play it after all: convert once and play the copy. */
+  async function _mediaFallback(el, kind) {
+    const p = state.currentFile;
+    if (!p || !el.getAttribute('src') || el.dataset.convertedFor === p) return;
+    if ((kind === 'video' && !state.isVideo) || (kind === 'audio' && !state.isAudio)) return;
+    el.dataset.convertedFor = p;
+    const url = await _convertForPlayback(p, kind);
+    if (url && state.currentFile === p) {
+      el.src = url;
+      el.load();
+    }
+  }
+
   function _showVideoPlayer(filePath) {
     if (filePath) {
       displayCanvas.style.display = 'none';
@@ -4704,7 +4880,9 @@
       _clearSubtitleTracks();
       videoEl.src = '';
       videoEl.load();
-      window.electronAPI.getFileUrl(filePath).then(url => {
+      delete videoEl.dataset.convertedFor;
+      _mediaSourceUrl(filePath, 'video', videoEl).then(url => {
+        if (!url || state.currentFile !== filePath) return;
         videoEl.src = url;
         videoEl.load();
         _applyMediaVolume();
@@ -4728,6 +4906,7 @@
 
   function _videoCueActive() {
     return !!(state.isVideo && videoEl && videoEl.style.display !== 'none')
+      || !!(state.isAudio && audioEl && audioWrap && audioWrap.style.display !== 'none')
       || !!(state.isAnimated && !state.editMode);
   }
 
@@ -4782,11 +4961,12 @@
     mcSeek?.addEventListener('pointerdown', () => { _mcSeekDragging = true; });
     mcSeek?.addEventListener('pointerup', () => { _mcSeekDragging = false; _syncMediaSeekUi(); });
     mcSeek?.addEventListener('input', () => {
-      if (!state.isVideo || !videoEl) return;
-      const dur = videoEl.duration;
+      const el = _mediaEl();
+      if (!el) return;
+      const dur = el.duration;
       if (!Number.isFinite(dur) || dur <= 0) return;
       const t = (Number(mcSeek.value) / 1000) * dur;
-      try { videoEl.currentTime = t; } catch {}
+      try { el.currentTime = t; } catch {}
       if (mcTime) mcTime.textContent = `${_fmtMediaTime(t)} / ${_fmtMediaTime(dur)}`;
     });
 
@@ -4794,12 +4974,12 @@
     mcVolume?.addEventListener('click', (e) => e.stopPropagation());
     mcVolume?.addEventListener('input', (e) => {
       e.stopPropagation();
-      if (!state.isVideo) return;
+      if (!_mediaEl()) return;
       _setMediaVolume(mcVolume.value);
     });
     mcMuteBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (!state.isVideo) return;
+      if (!_mediaEl()) return;
       _toggleMediaMute();
     });
     mcSubtitleBtn?.addEventListener('click', (e) => {
@@ -4867,6 +5047,32 @@
       if (state.isAudio && state.currentFile) {
         _updateInfoQueue(state.currentFile).catch(() => {});
       }
+      if (state.isAudio) _syncMediaSeekUi();
+    });
+    audioEl?.addEventListener('play', () => {
+      if (!state.isAudio) return;
+      _mediaCueFromUser = null;
+      _showMediaCue('play', false);
+      _syncMediaTransportButtons();
+    });
+    audioEl?.addEventListener('pause', () => {
+      if (!state.isAudio) return;
+      _syncMediaTransportButtons();
+      if (_mediaCueFromUser === 'pause' || _mediaCueFromUser === 'stop') { _mediaCueFromUser = null; return; }
+    });
+    audioEl?.addEventListener('ended', () => {
+      if (!state.isAudio) return;
+      _mediaCueFromUser = 'stop';
+      _showMediaCue('stop', false);
+      _syncMediaTransportButtons();
+    });
+    audioEl?.addEventListener('timeupdate', () => { if (state.isAudio) _syncMediaSeekUi(); });
+    // Not playable here (codec / container): convert once with the host's ffmpeg
+    audioEl?.addEventListener('error', () => _mediaFallback(audioEl, 'audio'));
+    videoEl?.addEventListener('error', () => _mediaFallback(videoEl, 'video'));
+    // Sound but no picture (e.g. H.263 in 3GP, Theora in OGV): the video codec is missing
+    videoEl?.addEventListener('loadedmetadata', () => {
+      if (state.isVideo && videoEl.readyState >= 1 && !videoEl.videoWidth) _mediaFallback(videoEl, 'video');
     });
 
     mediaCueBadge?.addEventListener('click', (e) => {
@@ -4891,7 +5097,11 @@
         audioEl.load();
       }
       if (audioLabel) audioLabel.textContent = filePath.split(/[/\\]/).pop();
-      window.electronAPI.getFileUrl(filePath).then(url => {
+      if (statusDims) statusDims.textContent = '—';   // no picture: not the last image's size
+      if (statusFmt) statusFmt.textContent = (String(filePath).split('.').pop() || '').toUpperCase();
+      if (audioEl) delete audioEl.dataset.convertedFor;
+      _mediaSourceUrl(filePath, 'audio', audioEl).then(url => {
+        if (!url || state.currentFile !== filePath) return;
         if (audioEl) {
           audioEl.src = url;
           audioEl.load();
@@ -5094,8 +5304,12 @@
     // Every folder open warms the thumbnail cache; in browse mode it also fills the grid
     Thumbs.prefetchDir(dirPath);
     if (_browseMode) {
+      // An explicit folder open shows that folder's sheet, not a strip under the old image.
+      _browseSheetHeld = false;
+      Browse.setFilmstrip?.(false);
       Browse.show(dirPath);
       await Browse.open(dirPath);
+      _syncBrowseChrome();
       return;
     }
     if (!openFirst) return;
@@ -5114,6 +5328,7 @@
   function _zoom(factor, cx, cy) {
     if (!_hasViewerVisual()) return;
     _wantFit = false;
+    _syncViewModeButtons();
     const newZoom = Math.min(Math.max(state.zoom * factor, 0.02), 32);
     const ratio   = newZoom / state.zoom;
 
@@ -5140,7 +5355,7 @@
     _updateStatus({ zoom: true });
   }
 
-  let _wantFit = true;
+  // (_wantFit is declared in the early block — the toolbar build at init reads it)
   function _fitZoomFor(container, w, h) {
     if (!container || !w || !h) return 1;
     const cw = Math.max(1, container.clientWidth  - 16);
@@ -5159,23 +5374,49 @@
     // Always remember that fit is wanted — a first pass can run before the
     // canvas or the viewer box has a size; the open finally-block refits then.
     _wantFit = true;
+    _syncViewModeButtons();
     const { w, h } = _getViewerDims();
     if (!w || !h) return;
     if (!viewerContainer || !(viewerContainer.clientWidth > 0) || !(viewerContainer.clientHeight > 0)) return;
-    state.zoom = _fitZoomFor(viewerContainer, w, h);
+    const cw = Math.max(1, viewerContainer.clientWidth - 16), ch = Math.max(1, viewerContainer.clientHeight - 16);
+    const z = { window: _fitZoomFor(viewerContainer, w, h), width: cw / w, height: ch / h, actual: 1 }[_viewMode] || _fitZoomFor(viewerContainer, w, h);
+    state.zoom = Math.min(Math.max(z, 0.02), 32);
     state.panX = 0; state.panY = 0;
+    // Fit width starts at the top of a tall picture, fit height at the left of a wide one
+    if (_viewMode === 'width') state.panY = Math.max(0, (h * state.zoom - viewerContainer.clientHeight) / 2);
+    if (_viewMode === 'height') state.panX = Math.max(0, (w * state.zoom - viewerContainer.clientWidth) / 2);
     _applyTransform();
     _updateZoomDisplay();
     _updateStatus({ zoom: true });
   }
 
+  /** Pick a display mode (remembered) and apply it now. */
+  function _setViewMode(mode) {
+    if (!['window', 'width', 'height', 'actual'].includes(mode)) return;
+    _viewMode = mode;
+    try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch { /* ignore */ }
+    if (state.editMode) { if (mode === 'actual') _ewZoomTo(1); else _ewFit(); return; }
+    _fitToWindow();
+  }
+
+  /** Back to the middle, same zoom. */
+  function _centerView() {
+    if (!_hasViewerVisual()) return;
+    state.panX = 0; state.panY = 0;
+    _applyTransform();
+  }
+
+  /** The mode buttons show the mode in force; none while the zoom is the user's own. */
+  function _syncViewModeButtons() {
+    const ids = { window: 'btn-fit', width: 'btn-fit-width', height: 'btn-fit-height', actual: 'btn-actual' };
+    for (const [mode, id] of Object.entries(ids)) {
+      document.getElementById(id)?.classList.toggle('active', !!_wantFit && _viewMode === mode && !state.editMode);
+    }
+  }
+
   function _actualSize() {
     if (!_hasViewerVisual()) return;
-    _wantFit = false;
-    state.zoom = 1; state.panX = 0; state.panY = 0;
-    _applyTransform();
-    _updateZoomDisplay();
-    _updateStatus({ zoom: true });
+    _setViewMode('actual');
   }
 
   function _placeImageWrapper(container, panX, panY, zoom, dims) {
@@ -5441,6 +5682,14 @@
     }
 
     _placeImageWrapper(viewerContainer, state.panX, state.panY, state.zoom, dims);
+    if (state.isVideo && videoEl && dims.w && dims.h) {
+      const vw = dims.w * state.zoom, vh = dims.h * state.zoom;
+      Object.assign(videoEl.style, {
+        width: `${Math.round(vw)}px`, height: `${Math.round(vh)}px`,
+        left: `${Math.round(viewerContainer.clientWidth / 2 + state.panX - vw / 2)}px`,
+        top: `${Math.round(viewerContainer.clientHeight / 2 + state.panY - vh / 2)}px`,
+      });
+    }
     if (state.dicom) _dicomOverlayRequest();
   }
 
@@ -5510,13 +5759,14 @@
       }
     });
 
-    // Click video (without drag) → play / pause toggle
+    // Click the video / the audio screen (without drag) → play / pause / play again
     viewerContainer.addEventListener('click', (e) => {
-      if (state.editMode || !state.isVideo) return;
+      if (state.editMode || !(state.isVideo || state.isAudio)) return;
       if (e.button != null && e.button !== 0) return;
       if (_panDidMove) return;
       if (e.target.closest?.('#media-controls')) return;
       if (e.target.closest?.('#media-cue-badge')) return;
+      if (e.target.closest?.('.viewer-nav-btn')) return;   // ‹ / › go to the neighbour file
       e.preventDefault();
       _toggleMediaPlayback();
     });
@@ -7253,6 +7503,8 @@
 
     // Move image-wrapper into edit canvas area
     editCanvasArea.appendChild(imageWrapper);
+    // …and the colour wheel to the top of the Adjustments panel
+    _moveColorWheel(true);
 
     editWindow.classList.add('visible');
     state.editMode = true;
@@ -7455,6 +7707,7 @@
 
     // Move image-wrapper back to main viewer container
     viewerContainer.appendChild(imageWrapper);
+    _moveColorWheel(false);
 
     if (apply) {
       Editor.commitEditSession();
@@ -7527,6 +7780,9 @@
     ['ew-zoom-in',   'zoomIn',      'toolbar.zoomIn',       () => _ewZoomBy(1.25)],
     ['ew-zoom-out',  'zoomOut',     'toolbar.zoomOut',      () => _ewZoomBy(0.8)],
     ['ew-fit',       'fitWindow',   'toolbar.fitWindow',    () => _ewFit()],
+    ['ew-panel-left',  'panelLeft',  _ewLeftPanelTip,       () => _toggleEwLeftPanel()],
+    ['ew-panel-right', 'panelRight', _ewRightPanelTip,      () => _toggleEwRightPanel()],
+    ['ew-about',     'info',        'menu.about',           () => _showDialog('about-overlay')],
   ];
 
   function _ewSyncTitle() {
@@ -7550,12 +7806,80 @@
       const name = el.dataset.icon;
       if (name && Icons[name]) el.innerHTML = Icons[name];
     });
+    const effectsIcon = document.getElementById('edit-effects-icon');
+    if (effectsIcon) effectsIcon.innerHTML = Icons.layers || '';   // not 'effects': it is the same glyph as Adjustments' sliders
+    const adjustIcon = document.getElementById('edit-adjust-icon');
+    if (adjustIcon) adjustIcon.innerHTML = Icons.sliders || '';
+    _applyEwPanelLayout();
+  }
+
+  /* ─── Edit window side panels: Presets (left) / Adjustments (right) ─── */
+  function _loadEwLayout() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(EW_LAYOUT_KEY) || '{}');
+      if (typeof saved.left === 'boolean') _ewLayout.left = saved.left;
+      if (typeof saved.right === 'boolean') _ewLayout.right = saved.right;
+    } catch { /* defaults */ }
+  }
+
+  function _ewLeftPanelTip()  { return I18n.t(_ewLayout.left ? 'toolbar.collapseLeft' : 'toolbar.expandLeft'); }
+  function _ewRightPanelTip() { return I18n.t(_ewLayout.right ? 'toolbar.collapseRight' : 'toolbar.expandRight'); }
+
+  /** Same rule as the viewer: a collapsed panel is a rail with its icon and title, never gone. */
+  function _applyEwPanelLayout() {
+    document.getElementById('edit-effects-panel')?.classList.toggle('collapsed', !_ewLayout.left);
+    document.getElementById('edit-adjust-panel')?.classList.toggle('collapsed', !_ewLayout.right);
+    const leftBtn = document.getElementById('ew-effects-collapse-btn');
+    if (leftBtn) {
+      leftBtn.innerHTML = Icons[_ewLayout.left ? 'chevronLeft' : 'chevronRight'] || '';
+      leftBtn.setAttribute('aria-expanded', String(_ewLayout.left));
+    }
+    const rightBtn = document.getElementById('ew-adjust-collapse-btn');
+    if (rightBtn) {
+      rightBtn.innerHTML = Icons[_ewLayout.right ? 'chevronRight' : 'chevronLeft'] || '';
+      rightBtn.setAttribute('aria-expanded', String(_ewLayout.right));
+    }
+    document.getElementById('ew-panel-left')?.classList.toggle('active', _ewLayout.left);
+    document.getElementById('ew-panel-right')?.classList.toggle('active', _ewLayout.right);
+  }
+
+  function _toggleEwLeftPanel(force) {
+    _ewLayout.left = typeof force === 'boolean' ? force : !_ewLayout.left;
+    try { localStorage.setItem(EW_LAYOUT_KEY, JSON.stringify(_ewLayout)); } catch { /* ignore */ }
+    _applyEwPanelLayout();
+  }
+
+  function _toggleEwRightPanel(force) {
+    _ewLayout.right = typeof force === 'boolean' ? force : !_ewLayout.right;
+    try { localStorage.setItem(EW_LAYOUT_KEY, JSON.stringify(_ewLayout)); } catch { /* ignore */ }
+    _applyEwPanelLayout();
+  }
+
+  function _initEwPanelLayout() {
+    _loadEwLayout();
+    const leftBtn = document.getElementById('ew-effects-collapse-btn');
+    if (leftBtn) {
+      Tooltip.attach(leftBtn, _ewLeftPanelTip);
+      leftBtn.addEventListener('click', (e) => { e.stopPropagation(); _toggleEwLeftPanel(); });
+    }
+    const rightBtn = document.getElementById('ew-adjust-collapse-btn');
+    if (rightBtn) {
+      Tooltip.attach(rightBtn, _ewRightPanelTip);
+      rightBtn.addEventListener('click', (e) => { e.stopPropagation(); _toggleEwRightPanel(); });
+    }
+    // A collapsed rail is one big target: clicking anywhere on it expands the panel
+    document.getElementById('edit-effects-panel')
+      ?.addEventListener('click', () => { if (!_ewLayout.left) _toggleEwLeftPanel(true); });
+    document.getElementById('edit-adjust-panel')
+      ?.addEventListener('click', () => { if (!_ewLayout.right) _toggleEwRightPanel(true); });
+    _applyEwPanelLayout();
   }
 
   function _initEditWindowOnce() {
     _applyEditWindowIcons();
     if (_ewInitDone) return;
     _ewInitDone = true;
+    _initEwPanelLayout();
     _lockBarScroll(document.getElementById('ew-menubar'));
     _lockBarScroll(document.getElementById('ew-toolbar-row'));
 
@@ -8267,7 +8591,12 @@
   }
 
   function _viewerInfoDims(basic) {
-    if (Editor.isLoaded()) {
+    // A video's own size — the editor may still hold the last picture
+    if (state.isVideo) {
+      const d = _getViewerDims();
+      if (d.w && d.h) return d;
+    }
+    if (Editor.isLoaded() && !state.isVideo && !state.isAudio) {
       const d = Editor.getDimensions();
       if (d.w && d.h) return d;
     }
@@ -8743,7 +9072,7 @@
     if (ewZoom) ewZoom.textContent = zoomText;
 
     let dimText = null;
-    if (Editor.isLoaded()) {
+    if (Editor.isLoaded() && !state.isVideo && !state.isAudio) {
       const d = Editor.getDimensions();
       dimText = `${d.w} × ${d.h} ${I18n.t('status.dimensions')}`;
     } else if (state.isAnimated || state.isVideo) {
@@ -10322,7 +10651,7 @@
       if (ctrl && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); _pickOpenFile(); return; }
       if (ctrl && (e.key === '=' || e.key === '+')) { e.preventDefault(); _zoom(1.25); return; }
       if (ctrl && e.key === '-') { e.preventDefault(); _zoom(0.8); return; }
-      if (ctrl && e.key === '0') { e.preventDefault(); _fitToWindow(); return; }
+      if (ctrl && e.key === '0') { e.preventDefault(); _setViewMode('window'); return; }
       if (ctrl && e.key === '1') { e.preventDefault(); _actualSize(); return; }
       if (ctrl && e.key === '[') { e.preventDefault(); _rotate(-90); return; }
       if (ctrl && e.key === ']') { e.preventDefault(); _rotate(90); return; }
@@ -10370,8 +10699,6 @@
         else if (_isEditableImage()) _copyToClipboard();
         return;
       }
-
-      if (e.key === 'Escape' && !ctrl && _browseBack()) { e.preventDefault(); return; }
 
       // DICOM: PgUp / PgDn / Home / End = frames, Space = cine, I = invert, W = reset window
       if (_dicomKeydown(e)) { e.preventDefault(); return; }
@@ -10430,6 +10757,8 @@
           _requestCloseEditWindow(false);
           return;
         }
+        // Only once no dialog / edit window claims Esc: back to the contact sheet.
+        if (!ctrl && _browseBack()) { e.preventDefault(); return; }
         Editor.clearSelection();
         _setTool('pointer');
         return;
@@ -10464,7 +10793,7 @@
       'open-folder':   _pickOpenFolder,
       'zoom-in':       () => _zoom(1.25),
       'zoom-out':      () => _zoom(0.8),
-      'fit-window':    _fitToWindow,
+      'fit-window':    () => _setViewMode('window'),
       'actual-size':   _actualSize,
       'rotate-left':   () => _rotate(-90),
       'rotate-right':  () => _rotate(90),
@@ -10581,9 +10910,60 @@
     const label = _versionLabel(info);
     if (verEl) verEl.textContent = String(info.version || '1.0.2');
     if (buildEl) buildEl.textContent = String(info.buildNumber || '').trim() || '—';
+    _fillAboutRows(info);
     if (brandVer) brandVer.textContent = label;
     const startVer = document.querySelector('.start-version');
     if (startVer) startVer.textContent = label;
+  }
+
+  /**
+   * About ▸ the rows under the header: label | value. The format rows are built from the
+   * same lists FormatSupport opens files by, so they cannot drift from what really opens.
+   */
+  function _fillAboutRows(info) {
+    const host = document.getElementById('about-rows');
+    if (!host) return;
+    const t = I18n.t.bind(I18n);
+    const list = (set) => [...set].map((e) => e.toUpperCase()).join(', ');
+    // Played from a copy converted by ffmpeg (the webview has no decoder for them)
+    const converted = [...FormatSupport.VIDEO_EXTS, ...FormatSupport.AUDIO_EXTS].filter((e) => _needsTranscode(`x.${e}`));
+    const desktop = window.electronAPI.platform !== 'web';
+    const rows = [
+      [t('about.version'), `${info.version || '1.0.2'}${String(info.buildNumber || '').trim() ? ` (${t('about.build')} ${String(info.buildNumber).trim()})` : ''}`],
+      [t('about.images'), list(FormatSupport.IMAGE_EXTS)],
+      [t('about.video'), list(FormatSupport.VIDEO_EXTS)],
+      [t('about.audio'), list(FormatSupport.AUDIO_EXTS)],
+      desktop && [t('about.converted'), converted.map((e) => e.toUpperCase()).join(', ')],
+      [t('about.platform'), desktop ? `${t('about.platformDesktop')} · ${window.electronAPI.platform}` : t('about.platformWeb')],
+      [t('about.copyrightLabel'), t('about.copyright')],
+      [t('about.contactLabel'), null],
+    ].filter(Boolean);
+    host.innerHTML = '';
+    for (const [label, value] of rows) {
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.scope = 'row';
+      th.textContent = label;
+      const td = document.createElement('td');
+      if (value == null) {
+        // contact: a mail link (opens the mail app)
+        const a = document.createElement('a');
+        a.href = '#';
+        a.id = 'about-email-link';
+        a.textContent = t('about.contact');
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          const mail = `mailto:${t('about.contact')}`;
+          if (window.electronAPI.openExternal) window.electronAPI.openExternal(mail);
+          else location.href = mail;
+        });
+        td.appendChild(a);
+      } else {
+        td.textContent = value;
+      }
+      tr.append(th, td);
+      host.appendChild(tr);
+    }
   }
 
   // Fill version/build as soon as the UI is ready
@@ -10738,12 +11118,8 @@
    * Selecting (not opening) a file fills File Info + histogram. An empty
    * selection clears those panels back to the default / disabled state.
    * Debounced because clicking down a row of thumbnails would otherwise queue
-   * a read each time.
+   * a read each time. (State is declared at the top — init reads it.)
    */
-  let _previewInfoTimer = null;
-  let _histPreviewGen = 0;
-  let _histPreview = null;   // { path, src, w, h } for a selected file not in the editor
-
   function _clearSelectionPanels() {
     clearTimeout(_previewInfoTimer);
     _histPreviewGen++;
@@ -10790,6 +11166,7 @@
     }
     const img = new Image();
     img.decoding = 'async';
+    img.crossOrigin = 'anonymous';   // asset-protocol thumbs would taint the histogram canvas
     img.src = thumb.url;
     try {
       if (img.decode) await img.decode();
@@ -10828,8 +11205,7 @@
       _clearSelectionPanels();
       return;
     }
-    // Selection fills File Info (left). Colour/adjust stays as the user left it.
-    if (!_layout.left) _toggleLeftPanel(true);
+    // Selection fills File Info (left); both panels stay as the user left them.
     if (infoContent) {
       const name = String(target).split(/[/\\]/).pop() || target;
       infoContent.dataset.previewing = target;
@@ -10915,7 +11291,9 @@
       onSelect: (p) => _previewFileInfo(p),
       onVisibility: () => _syncBrowseChrome(),
       // Desktop: tiles can be dragged onto a folder in the explorer (move; Ctrl = copy)
-      canDrag: window.electronAPI.platform !== 'web' && typeof window.electronAPI.transferIntoDir === 'function',
+      // (HTML5 drag; on the Tauri desktop dragdrop.js drags with pointer events instead)
+      canDrag: window.electronAPI.platform !== 'web' && typeof window.electronAPI.transferIntoDir === 'function'
+        && typeof window.electronAPI.startFileDrag !== 'function',
     });
     _applyBrowseMode({ initial: true });
   }
@@ -11017,7 +11395,51 @@
     return Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode && !state.dicom;
   }
 
-  function _cpSlider(host, s) {
+  /** The colour wheel also works in the edit window, where it sits at the top of Adjustments. */
+  function _canTintEdit() {
+    return Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.dicom
+      && (!state.editMode || _wheelInEditWindow());
+  }
+
+  function _wheelInEditWindow() {
+    return !!document.getElementById('ew-color-host')?.contains(document.getElementById('cp-wheel-block'));
+  }
+
+  /**
+   * One colour wheel for both windows: while the edit window is open its block (wheel,
+   * swatch, hex, No tint, tint strength) moves to the top of Adjustments, and back after.
+   * Both drive the same Editor tint effect, so undo / Save / Cancel see one history.
+   */
+  function _moveColorWheel(toEdit) {
+    const block = document.getElementById('cp-wheel-block');
+    const host = document.getElementById('ew-color-host');
+    const home = document.getElementById('color-content');
+    if (!block || !host || !home) return;
+    if (toEdit) {
+      if (!host.contains(block)) host.appendChild(block);
+    } else if (!home.contains(block)) {
+      // back to its place: after the histogram legend, before ADJUST
+      const legend = document.getElementById('cp-hist-legend');
+      if (legend && legend.parentNode === home) legend.after(block);
+      else home.prepend(block);
+    }
+    _syncColorWheelControls();
+    _queueColorPanelSync();
+  }
+
+  /** Enable / disable the wheel block wherever it is (the viewer panel's sync skips it in the edit window). */
+  function _syncColorWheelControls() {
+    const block = document.getElementById('cp-wheel-block');
+    if (!block) return;
+    const can = _canTintEdit();
+    block.classList.toggle('is-disabled', !can);
+    block.querySelectorAll('input, button, #cp-wheel').forEach((el) => {
+      if (el.id === 'cp-wheel') el.setAttribute('aria-disabled', String(!can));
+      else el.disabled = !can;
+    });
+  }
+
+  function _cpSlider(host, s, can = _canColorEdit) {
     const group = document.createElement('div');
     group.className = 'effect-group';
     const lbl = document.createElement('span');
@@ -11037,12 +11459,12 @@
     val.textContent = s.def;
     slider.addEventListener('input', () => { val.textContent = slider.value; });
     slider.addEventListener('change', () => {
-      if (!_canColorEdit()) return;
+      if (!can()) return;
       Editor.setEffect(s.key, parseFloat(slider.value), true);
     });
     // Double-click a slider to put it back to its default
     slider.addEventListener('dblclick', () => {
-      if (!_canColorEdit()) return;
+      if (!can()) return;
       slider.value = s.def; val.textContent = s.def;
       Editor.setEffect(s.key, s.def, true);
     });
@@ -11056,7 +11478,7 @@
     if (adjust) for (const s of CP_SLIDERS) _cpSlider(adjust, s);
     const amountRow = document.getElementById('cp-tint-amount-row');
     if (amountRow) {
-      _cpSlider(amountRow, { key:'tintAmount', label:'color.tintAmount', min:0, max:100, def:0 });
+      _cpSlider(amountRow, { key:'tintAmount', label:'color.tintAmount', min:0, max:100, def:0 }, _canTintEdit);
       // Strength without a colour does nothing — pick one first
       document.getElementById('cp-tintAmount')?.addEventListener('change', (e) => {
         if (!Editor.getEffects().tintColor) e.target.value = 0;
@@ -11064,7 +11486,7 @@
     }
 
     document.getElementById('cp-tint-clear')?.addEventListener('click', () => {
-      if (_canColorEdit()) Editor.setEffects({ tintColor: '', tintAmount: 0 });
+      if (_canTintEdit()) Editor.setEffects({ tintColor: '', tintAmount: 0 });
     });
     document.getElementById('cp-reset')?.addEventListener('click', () => {
       if (!_canColorEdit()) return;
@@ -11157,7 +11579,7 @@
       Editor.setEffects(next);
     };
     cv.addEventListener('pointerdown', (e) => {
-      if (!_canColorEdit() || e.button !== 0) return;
+      if (!_canTintEdit() || e.button !== 0) return;
       e.preventDefault();
       cv.setPointerCapture(e.pointerId);
       _cpWheelDrag = pick(e);
@@ -11178,7 +11600,7 @@
     cv.addEventListener('pointercancel', () => { _cpWheelDrag = null; _syncColorPick(); });
     // Keyboard: ←/→ turn the hue, ↑/↓ change the saturation
     cv.addEventListener('keydown', (e) => {
-      if (!_canColorEdit()) return;
+      if (!_canTintEdit()) return;
       const cur = _hexToHs(Editor.getEffects().tintColor) || { h: 0, s: 0.5 };
       const step = { ArrowLeft: [-5, 0], ArrowRight: [5, 0], ArrowUp: [0, 0.05], ArrowDown: [0, -0.05] }[e.key];
       if (!step) return;
@@ -11358,6 +11780,7 @@
         if (v) v.textContent = s.def;
       }
     }
+    if (_wheelInEditWindow()) _syncColorWheelControls();
     _syncColorPick();
     // Histogram follows the selection (or stays blank when nothing is selected).
     if (_layout.right || hasSel) _drawHistogram();

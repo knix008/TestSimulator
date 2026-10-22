@@ -28,6 +28,10 @@ Drag the empty menu bar or the program name to move the window. Buttons do not d
 
 The **Help** menu contains **Help**, **Keyboard Shortcuts** and **About**. Help opens this guide, and so does `F1`. Shortcuts and About each open their own window.
 
+Menus and right-click menus may extend past the edge of the window, so nothing is cut off. Every menu item has an icon. A ticked item keeps its icon and shows ✓ at the right. Click outside a menu or press `Esc` to close it.
+
+Dialogs (Settings, About, Print, Resize, Details, confirmations) open as windows of their own. Drag one by its title to move it anywhere on the screen, even past the main window. The main window waits behind it until you close the dialog.
+
 ## File menu
 
 - **Open File** (`Ctrl+O`) picks one file and points the explorer and previous/next list at its folder.
@@ -39,7 +43,7 @@ The **Help** menu contains **Help**, **Keyboard Shortcuts** and **About**. Help 
 - **Show in Explorer** and **Delete** exist on the desktop app. Delete asks first, then removes the file.
 - **Exit** closes the window.
 
-You can also drop a file onto the viewer.
+You can also drop a file or folder onto the window. A folder opens; a file opens in the viewer. Dropped onto a folder in the explorer, or onto the thumbnail sheet, the files go into that folder instead: the same drive moves them, another drive copies them.
 
 ## Explorer
 
@@ -53,12 +57,14 @@ The collapse button on the panel title, or the left-panel button on the toolbar,
 
 In the browser (`npm run web`) you only see folders the browser was allowed to read. Rename, delete and Show in Explorer are desktop-only.
 
+At startup the last folder you opened appears as a thumbnail sheet, with the last picture selected. If that folder is gone, the newest recent folder that still exists opens instead. Settings › General can turn this off.
+
 ## Viewing images
 
 The centre is the viewer. An empty viewer shows a short hint. An open picture is drawn on a canvas.
 
 - **Zoom**: `Ctrl++`, `Ctrl+-`, the magnifier buttons, or the wheel over the picture. You can also type `100%` in the zoom box. The wheel step (5/10/25/50%) is in Settings.
-- **Fit to window** (`Ctrl+0`) and **actual size** (`Ctrl+1`).
+- **Display modes** on the toolbar, for pictures and video alike: fit to window (`Ctrl+0`), fit width, fit height, actual size (`Ctrl+1`), centre, fullscreen (`F11`). The chosen mode is kept for the next file.
 - **Pan**: drag with the pointer tool. The cursor is a hand.
 - **Previous / next**: `Left` / `Right`, `Page Up` / `Page Down`, or the arrows at the edges. Order is the images, video and audio in the same folder.
 - **Rotate** (`Ctrl+[`, `Ctrl+]`) and **flip** horizontal or vertical. Each step can be undone.
@@ -69,7 +75,13 @@ The right side is **colour**. It shows a histogram (red, green, blue and luminan
 
 ## Thumbnails
 
-**Window › Folder thumbnails**, or the thumbnail card on Home, shows the folder as a grid. Click a cell to open that file and leave the sheet. Sort order and icon/list layout are on the sheet's own tools. Thumbnails are cached so the next visit is faster. Settings shows the cache size and can clear it.
+**Window › Folder thumbnails**, or the thumbnail card on Home, shows the folder as a grid. Click a cell to open that file and leave the sheet. Sort order and icon/list layout are on the sheet's own tools.
+
+Thumbnails are built in the background for every folder you open, and for your recent folders at startup, and kept in a thumbnail database. The next visit shows them at once. Settings shows the cache size and can clear it.
+
+While a picture is open, a filmstrip of its folder runs along the bottom. ‹ and › on its sides, or `Left` and `Right`, step through it.
+
+**Drag and drop**: drag a thumbnail (or the whole selection) onto a folder in the explorer or a folder cell to move it there. Hold `Ctrl` to copy. `Esc` cancels. Keep dragging past the window edge to drop the files on Explorer, the desktop or another program; that always copies.
 
 ## Video and audio
 
@@ -114,7 +126,7 @@ Tools:
 - **Remove background** makes the background transparent. Pick the algorithm first. Separate methods suit a person in the frame and a product shot.
 - Rotate, flip, resize, undo (`Ctrl+Z`), redo (`Ctrl+Y`)
 
-Presets (grayscale, sepia, invert and others) are on the left. Brightness, contrast and the other adjustments are on the right. **Apply** writes the edit back to the viewer and closes the window. **Cancel** (`Esc`) drops it. **Save as new file** leaves the original and suggests a name such as `name_변경.png`. A HEIC original is offered as JPEG.
+Presets (grayscale, sepia, invert and others) are on the left. Brightness, contrast and the other adjustments are on the right, with the colour wheel at the top. Each panel title has an icon. The ‹ / › button on a title, the two panel buttons on the toolbar, or **View › Left / Right panel** fold a panel into a rail that keeps its icon and title; click the rail to open it again. The ⓘ button right of Settings shows About. **Apply** writes the edit back to the viewer and closes the window. **Cancel** (`Esc`) drops it. **Save as new file** leaves the original and suggests a name such as `name_변경.png`. A HEIC original is offered as JPEG.
 
 Rotate, flip and colour changes made in the viewer share the same undo stack. **Reset all edits** reloads the file as it was opened.
 

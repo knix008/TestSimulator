@@ -56,7 +56,7 @@ function formatExt(filePath) {
 
 const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','bmp','webp','svg','ico','tiff','tif','heic','heif','hif','dcm','dicom','avif']);
 const VIDEO_EXTS = new Set(['mp4','webm','ogv','mov','avi','mkv','m4v','flv','wmv','3gp','mpeg','mpg','ts','m2ts','vob','rm','rmvb']);
-const AUDIO_EXTS = new Set(['mp3','wav','flac','aac','m4a','ogg','opus','wma','mid','midi','aiff','aif']);
+const AUDIO_EXTS = new Set(['mp3','wav','flac','aac','m4a','ogg','opus','wma','aiff','aif']);
 
 function fmtMs(ms) {
   const n = Number(ms);

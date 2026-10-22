@@ -22,6 +22,7 @@ window.Browse = (() => {
   let _onVisibility = null;
   let _canDrag      = false;   // tiles can be dragged onto explorer folders (desktop only)
   let _filmstrip    = false;   // bottom strip of folder siblings while viewing an image
+  let _openGen      = 0;       // newest open() — an older directory read is dropped
   // In-app drag payload: JSON array of paths. The explorer tree accepts it as a move.
   const DRAG_MIME   = 'application/x-imageviewer-paths';
   let _bound       = false;
@@ -42,7 +43,8 @@ window.Browse = (() => {
     return (v && v !== key) ? v : (fallback || key);
   };
 
-  const _norm = (p) => String(p || '').replace(/[\\/]+$/, '').toLowerCase();
+  // `C:\a\b.jpg` and `C:/a/b.jpg` are the same file (CLI args / drops can use either).
+  const _norm = (p) => String(p || '').replace(/[\\/]+/g, '/').replace(/\/$/, '').toLowerCase();
   const _same = (a, b) => _norm(a) === _norm(b);
 
   function _loadView() {
@@ -802,9 +804,12 @@ window.Browse = (() => {
   /** Show `dirPath` in the grid. Also warms the thumbnail cache for it. */
   async function open(dirPath, { keepSelection = false } = {}) {
     if (!dirPath || !_root) return;
+    const gen = ++_openGen;
     const sameDir = _same(dirPath, _dir);
     _dir = dirPath;
-    if (!(keepSelection && sameDir)) {
+    // Re-reading the folder already shown keeps the selection: the app selects the
+    // open image right after open(), and a second open() of that folder must not undo it.
+    if (!(keepSelection || sameDir)) {
       _selected = '';
       _anchor = '';
       _sel.clear();
@@ -819,6 +824,9 @@ window.Browse = (() => {
       const result = await read(dirPath);
       if (Array.isArray(result)) entries = result;
     } catch { /* unreadable */ }
+    // A newer open() started while this folder was being read — its listing wins,
+    // or the grid would show this folder under the other folder's path.
+    if (gen !== _openGen) return;
 
     _entries = entries.filter((e) => e.isDirectory || FormatSupport.isSupportedFile(e.path));
     _render();
@@ -885,7 +893,18 @@ window.Browse = (() => {
     if (!_grid || !_selected) return;
     const tile = [..._grid.querySelectorAll('.browse-tile')]
       .find((el) => _same(el.dataset.path, _selected));
-    tile?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    if (!tile) return;
+    // Scroll the grid only. scrollIntoView would also scroll every overflow:hidden
+    // ancestor — #viewer-area slid sideways on repeated ">" presses, which pulled the
+    // parked effects drawer into view and pushed the "<" under the sidebar.
+    const g = _grid.getBoundingClientRect(), r = tile.getBoundingClientRect();
+    if (_filmstrip) {
+      const left = _grid.scrollLeft + (r.left - g.left) - (g.width - r.width) / 2;
+      _grid.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+    } else if (r.top < g.top || r.bottom > g.bottom) {
+      const top = _grid.scrollTop + (r.top < g.top ? r.top - g.top : r.bottom - g.bottom);
+      _grid.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
   }
 
   function applyI18n() {

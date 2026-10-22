@@ -7,14 +7,20 @@
  *   { separator: true }
  *   `items` may also be a function returning the items (re-run by refreshSubmenu).
  *
- * Menus are drawn in the page (#context-menu). If electronAPI.popupMenu exists, the
- * same module can also drive a detached popup; the Tauri shell does not, so menus stay
- * in the window. Actions run here when a row is clicked.
+ * On the desktop the menu is shown in the menu overlay window (electronAPI.popupMenu →
+ * src-tauri main.rs → src/popup.html, which draws it with this same module), so it can
+ * extend past the app window instead of being clipped. Actions are kept here by id and
+ * run when the overlay reports a click. The overlay covers the screen while a menu is
+ * open, so it also reports the pointer over the menu bar titles ('title' events) to keep
+ * File → Edit → View hover-switching working. In web mode, inside the overlay page, or if
+ * the overlay fails, the menu is drawn in the page itself (#context-menu).
  */
 window.ContextMenu = (() => {
   const CHEVRON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>';
   const CHECK   = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>';
-  const CROSS   = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+  // Fallback for a row that came without an icon — the icon column is never empty
+  const DOT     = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3.2"/></svg>';
+  const CROSS   ='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
 
   let _menu   = null;
   let _active = false;
@@ -25,6 +31,8 @@ window.ContextMenu = (() => {
   let _lastItems = null;     // remote menu: root items (array or function) for refresh
   let _seq = 0;
   let _idSeq = 0;
+  let _hotEls = [];          // remote menu: menu bar titles whose rects the overlay reports on
+  let _remoteBroken = false; // the overlay failed once — draw in the page from then on
 
   function init() {
     _menu = document.getElementById('context-menu');
@@ -47,6 +55,12 @@ window.ContextMenu = (() => {
         // (the menu that was just replaced by another one) must not close the current one.
         if (ev.seq !== undefined && ev.seq !== _seq) return;
         if (ev.type === 'closed') { _active = false; _fireHide(); return; }
+        if (ev.type === 'title') {
+          // Pointer over / pressed on a menu bar title under the overlay: replay it here
+          const el = _hotEls[ev.index];
+          if (el) el.dispatchEvent(new MouseEvent(ev.click ? 'mousedown' : 'mouseenter', { bubbles: !!ev.click, cancelable: true, button: 0 }));
+          return;
+        }
         const fn = _actions.get(ev.id);
         if (ev.type === 'action') {
           _active = false;
@@ -60,7 +74,19 @@ window.ContextMenu = (() => {
   }
 
   function _remote() {
-    return !!(window.electronAPI && typeof window.electronAPI.popupMenu === 'function');
+    return !_remoteBroken && !!(window.electronAPI && typeof window.electronAPI.popupMenu === 'function');
+  }
+
+  /** Visible menu bar titles (main or edit window), in screen order, with their rects. */
+  function _hotTitles() {
+    _hotEls = [...document.querySelectorAll('.menubar-btn')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+    return _hotEls.map((el, i) => {
+      const r = el.getBoundingClientRect();
+      return { i, x: r.left, y: r.top, w: r.width, h: r.height, open: el.classList.contains('is-open') };
+    });
   }
 
   // Serializable copy of the items for the popup window; actions are kept here by id.
@@ -91,7 +117,10 @@ window.ContextMenu = (() => {
 
   function _payload(items) {
     const root = document.documentElement;
-    return { seq: _seq, items, theme: root.getAttribute('data-theme') || '', kind: root.getAttribute('data-theme-kind') || '', lang: root.getAttribute('lang') || '' };
+    return {
+      seq: _seq, items, theme: root.getAttribute('data-theme') || '', kind: root.getAttribute('data-theme-kind') || '',
+      lang: root.getAttribute('lang') || '', rootStyle: root.getAttribute('style') || '', hot: _hotTitles(),
+    };
   }
 
   async function _showRemote(x, y, items) {
@@ -101,7 +130,17 @@ window.ContextMenu = (() => {
     const list = await _serialize(typeof items === 'function' ? await items() : items);
     if (seq !== _seq) return;   // another menu was requested meanwhile
     _active = true;
-    try { await window.electronAPI.popupMenu({ x, y, ...(_payload(list)) }); } catch (err) { console.error(err); _active = false; }
+    try {
+      await window.electronAPI.popupMenu({ x, y, ...(_payload(list)) });
+    } catch (err) {
+      // No overlay (missing window, permissions): the menu must still open — in the page.
+      console.error('menu overlay unavailable, drawing in the page:', err);
+      _remoteBroken = true;
+      _active = false;
+      const onHide = _onHide;
+      _onHide = null;   // show() fires the previous onHide first — this menu's must survive
+      show(x, y, items, { onHide });
+    }
   }
 
   async function _refreshRemote() {
@@ -161,11 +200,12 @@ window.ContextMenu = (() => {
       + `${item.checked ? ' checked' : ''}${item.inline ? ' inline' : ''}${item.submenu ? ' has-sub' : ''}`;
     el._ctxItem = item;
 
+    // Every row shows an icon. A checked row keeps its own icon and gets a separate
+    // check mark at the right; only a row without an icon uses the check as its icon.
     const iconWrap = document.createElement('div');
-    iconWrap.className = 'ctx-icon' + (item.checked ? ' ctx-check' : '');
-    // A check mark takes the icon slot so the current choice stands out
-    if (item.checked) iconWrap.innerHTML = CHECK;
-    else if (item.icon) iconWrap.innerHTML = item.icon;
+    iconWrap.className = 'ctx-icon' + (item.checked && !item.icon ? ' ctx-check' : '');
+    if (item.icon) iconWrap.innerHTML = item.icon;
+    else iconWrap.innerHTML = item.checked ? CHECK : DOT;
     el.appendChild(iconWrap);
 
     const textWrap = document.createElement('div');
@@ -182,6 +222,13 @@ window.ContextMenu = (() => {
     }
     el.appendChild(textWrap);
     if (item.title) el.title = item.title;
+
+    if (item.checked && item.icon) {
+      const mark = document.createElement('span');
+      mark.className = 'ctx-checkmark';
+      mark.innerHTML = CHECK;
+      el.appendChild(mark);
+    }
 
     if (item.shortcut) {
       const sc = document.createElement('span');

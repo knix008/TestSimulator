@@ -10,9 +10,9 @@
     "web": "node server.js",
     "create-icons": "node scripts/create-icons.js",
     "stamp": "node scripts/stamp-version.js",
-    "build:win": "node scripts/stamp-version.js && tauri build --bundles nsis",
-    "build:mac": "node scripts/stamp-version.js && tauri build --bundles dmg",
-    "build:linux": "node scripts/stamp-version.js && tauri build --bundles deb",
+    "build:win": "node scripts/stamp-version.js && tauri build --bundles nsis && node scripts/copy-installer.js nsis",
+    "build:mac": "node scripts/stamp-version.js && tauri build --bundles dmg && node scripts/copy-installer.js dmg",
+    "build:linux": "node scripts/stamp-version.js && tauri build --bundles deb && node scripts/copy-installer.js deb",
     "tauri": "tauri"
   },
   "devDependencies": {
@@ -26,6 +26,7 @@
     "@cornerstonejs/codec-openjpeg": "^1.3.6",
     "dicom-parser": "^1.8.21",
     "exifr": "^7.1.3",
+    "ffmpeg-static": "^5.3.0",
     "heic-convert": "^2.1.0",
     "heic-decode": "^2.1.0",
     "jpeg-lossless-decoder-js": "^2.1.2",

@@ -100,6 +100,13 @@ scratch/
 # Local profiles left behind when driving the app
 udata/
 .electron-user-data/
+# WebView2 / host profiles of a test-driven Tauri run (WEBVIEW2_USER_DATA_FOLDER, APPDATA)
+.webview2/
+EBWebView/
+appdata*/
+# Throwaway folders for drag & drop / file-move checks (never real user files)
+tests/.dnd-tmp/
+tests/.tmp*/
 
 # Editor / tooling local overrides
 .claude/settings.local.json

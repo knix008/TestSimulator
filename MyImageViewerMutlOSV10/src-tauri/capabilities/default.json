@@ -1,7 +1,7 @@
 {
   "identifier": "default",
-  "description": "MyImageViewer main window",
-  "windows": ["main"],
+  "description": "MyImageViewer main window and its menu overlay (context menus / drop-downs past the window edge)",
+  "windows": ["main", "menu-overlay"],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
