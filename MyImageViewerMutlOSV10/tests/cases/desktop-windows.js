@@ -240,7 +240,7 @@ module.exports = {
       const raw = require('fs').readFileSync(require('path').join(h.ROOT, 'src-tauri', 'windows', 'hooks.nsh'));
       assert(raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf, 'UTF-8 with BOM (Korean text)');
       const nsh = raw.toString('utf8');
-      for (const s of ['!macro NSIS_HOOK_PREINSTALL', 'MessageBox MB_YESNO', '$LANGUAGE == 1042', 'ReadRegStr $R6 SHCTX "${MANUPRODUCTKEY}" ""',
+      for (const s of ['!define MUI_LANGDLL_ALWAYSSHOW', '!macro NSIS_HOOK_PREINSTALL', 'MessageBox MB_YESNO', '$LANGUAGE == 1042', 'ReadRegStr $R6 SHCTX "${MANUPRODUCTKEY}" ""',
         '53fff549-80b5-525f-a34e-7d99abc7f4b6', 'ExecShellWait "open"', '!macro NSIS_HOOK_POSTUNINSTALL', '$DeleteAppDataCheckboxState = 1']) {
         assertIncludes(nsh, s, s);
       }

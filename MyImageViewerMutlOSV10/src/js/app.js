@@ -6734,6 +6734,10 @@
       { id: 'midcentury',   label: 'effects.midcentury' },
       { id: 'horror',       label: 'effects.horror' },
       { id: 'miniature',    label: 'effects.miniature' },
+      { id: 'gold200',      label: 'effects.gold200' },
+      { id: 'diana',        label: 'effects.diana' },
+      { id: 'technicolor',  label: 'effects.technicolor' },
+      { id: 'overexposed',  label: 'effects.overexposed' },
     ];
 
     // Group presets into collapsible categories. The flat `presets` array
@@ -6744,12 +6748,12 @@
     presets.forEach((p) => { _labelOf[p.id] = p.label; });
 
     const PRESET_CATS = [
-      { key: 'catFilmColor', ids: ['filmcamera', 'disposable', 'portra', 'ektar', 'fuji400h', 'superia', 'lomochrome'] },
+      { key: 'catFilmColor', ids: ['filmcamera', 'disposable', 'portra', 'ektar', 'fuji400h', 'superia', 'lomochrome', 'gold200'] },
       { key: 'catSlide',     ids: ['kodachrome', 'velvia', 'provia', 'slide'] },
       { key: 'catBW',        ids: ['silver', 'noir', 'trix', 'delta3200', 'tmax100', 'newspaper', 'charcoal', 'ink', 'selenium', 'platinum', 'lith', 'silhouette', 'steel', 'sketch'] },
-      { key: 'catInstant',   ids: ['vintage', 'polaroid', 'sx70', 'instax', 'holga', 'lomo', 'sprocket'] },
-      { key: 'catCinema',    ids: ['cinestill', 'vision3500t', 'tealorange', 'dayfornight', 'horror'] },
-      { key: 'catProcess',   ids: ['expired', 'expiredcool', 'redscale', 'crossprocess', 'crossfuji', 'bleachbypass', 'nightflash', 'halfFrame', 'doubleExp', 'dramatic', 'glitch', 'push', 'pull'] },
+      { key: 'catInstant',   ids: ['vintage', 'polaroid', 'sx70', 'instax', 'holga', 'lomo', 'sprocket', 'diana'] },
+      { key: 'catCinema',    ids: ['cinestill', 'vision3500t', 'tealorange', 'dayfornight', 'horror', 'technicolor'] },
+      { key: 'catProcess',   ids: ['expired', 'expiredcool', 'redscale', 'crossprocess', 'crossfuji', 'bleachbypass', 'nightflash', 'halfFrame', 'doubleExp', 'dramatic', 'glitch', 'push', 'pull', 'overexposed'] },
       { key: 'catWarm',      ids: ['warm', 'golden', 'sunset', 'autumn', 'dusk', 'tungsten', 'retro70', 'desert', 'candy', 'summer', 'peach', 'coral', 'copper', 'amber', 'romance', 'midcentury'] },
       { key: 'catCool',      ids: ['cool', 'arctic', 'moonlight', 'fog', 'spring', 'fluorescent', 'retro80', 'underwater', 'forest', 'lavender', 'midnight', 'winter', 'rainy', 'denim', 'amethyst', 'gothic', 'cyberpunk', 'vaporwave'] },
       { key: 'catBasic',     ids: ['vivid', 'pop', 'fade', 'pastel', 'matte', 'soft', 'crisp', 'clarity', 'bleach', 'highkey', 'lowkey', 'muted', 'flat', 'bloom', 'punch', 'documentary'] },

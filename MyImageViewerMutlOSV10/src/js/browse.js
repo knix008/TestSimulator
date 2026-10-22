@@ -770,6 +770,8 @@ window.Browse = (() => {
   function _render() {
     if (!_grid) return;
     const rows = _sorted(_entries);
+    // Emptying the grid drops its scroll to 0; a re-render (refresh, sort) must not jump
+    const keepLeft = _grid.scrollLeft, keepTop = _grid.scrollTop;
     _grid.replaceChildren();
     if (!rows.length) {
       const empty = document.createElement('div');
@@ -780,6 +782,8 @@ window.Browse = (() => {
       const frag = document.createDocumentFragment();
       for (const entry of rows) frag.appendChild(_tile(entry));
       _grid.appendChild(frag);
+      _grid.scrollLeft = keepLeft;
+      _grid.scrollTop = keepTop;
     }
     // Keep only what still exists (a refresh after delete / move)
     const alive = new Set(rows.map((e) => _norm(e.path)));
@@ -829,6 +833,8 @@ window.Browse = (() => {
     if (gen !== _openGen) return;
 
     _entries = entries.filter((e) => e.isDirectory || FormatSupport.isSupportedFile(e.path));
+    // Another folder starts at its beginning; the same folder re-read keeps its place
+    if (!sameDir && _grid) _grid.scrollTo({ left: 0, top: 0 });
     _render();
     if (isVisible()) _notify();
     Thumbs.prefetchDir(dirPath);
@@ -899,6 +905,10 @@ window.Browse = (() => {
     // parked effects drawer into view and pushed the "<" under the sidebar.
     const g = _grid.getBoundingClientRect(), r = tile.getBoundingClientRect();
     if (_filmstrip) {
+      // A tile already on screen stays where it is: centring it slid the strip under the
+      // mouse after every click, so the next click landed on another picture. Only a tile
+      // (partly) out of view is brought in — centred, so stepping on with < / > has room.
+      if (r.left >= g.left - 1 && r.right <= g.right + 1) return;
       const left = _grid.scrollLeft + (r.left - g.left) - (g.width - r.width) / 2;
       _grid.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
     } else if (r.top < g.top || r.bottom > g.bottom) {

@@ -34,9 +34,36 @@ window.FormatSupport = (() => {
   function isHeic(filePath)  { return HEIC_EXTS.has(getExtension(filePath)); }
   function isDcm(filePath)   { return DCM_EXTS.has(getExtension(filePath)); }
   /** Formats that should keep frame animation in an <img> (not canvas). */
+  /** A format that can hold an animation (whether this file does: hasAnimation). */
   function isAnimatedImage(filePath) {
     const ext = getExtension(filePath);
     return ext === 'gif' || ext === 'webp';
+  }
+
+  /**
+   * Does this GIF / WebP (a data URL of the file) really have more than one frame?
+   * Most WebP files and many GIFs are stills: those open in the editor like any picture,
+   * so the right panel (histogram, colour, adjustments) works on them.
+   *   WebP: an extended header (VP8X) with the animation flag, or an ANIM chunk.
+   *   GIF:  more than one Graphic Control Extension (one per frame of an animation).
+   */
+  function hasAnimation(dataUrl) {
+    try {
+      const comma = dataUrl.indexOf(',');
+      const bin = atob(dataUrl.slice(comma + 1));
+      if (bin.startsWith('RIFF') && bin.slice(8, 12) === 'WEBP') {
+        if (bin.slice(12, 16) === 'VP8X' && (bin.charCodeAt(20) & 0x02)) return true;
+        return bin.includes('ANIM');
+      }
+      if (bin.startsWith('GIF')) {
+        let frames = 0;
+        for (let i = bin.indexOf('\x21\xF9\x04'); i >= 0; i = bin.indexOf('\x21\xF9\x04', i + 3)) {
+          if (++frames > 1) return true;
+        }
+        return false;
+      }
+    } catch { /* unreadable: treat as animated, as before */ }
+    return true;
   }
 
   /* ── TIFF decoder using UTIF.js (optional vendor dependency) ── */
@@ -123,7 +150,7 @@ window.FormatSupport = (() => {
     if (isNativeImage(filePath)) {
       const dataUrl = await window.electronAPI.readFileBase64(filePath);
       if (dataUrl && !dataUrl.error && typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
-        if (isAnimatedImage(filePath)) return { type: 'animated', dataUrl };
+        if (isAnimatedImage(filePath) && hasAnimation(dataUrl)) return { type: 'animated', dataUrl };
         return { type: 'image', dataUrl };
       }
       if (ext === 'webp' || ext === 'avif') {
@@ -237,7 +264,7 @@ window.FormatSupport = (() => {
 
   return {
     getExtension, isImage, isVideo, isAudio, isSupportedFile,
-    isNativeImage, isTiff, isHeic, isDcm, isAnimatedImage,
+    isNativeImage, isTiff, isHeic, isDcm, isAnimatedImage, hasAnimation,
     loadImageFile, loadDicomFile, readFileBytes, formatFileSize, formatDate, decodeDicomBuffer,
     IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS,
   };

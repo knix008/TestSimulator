@@ -149,7 +149,7 @@ Until 1.0.2 this was a Node process (`host/service.js`) the page reached over HT
 | Concern | Implementation |
 |---|---|
 | Effects | CSS filters + pixel convolution + vignette / grain / posterize / solarize |
-| Presets | ~118 curated presets (`PRESETS` map) rendered as **collapsible categories**; per-category collapse state in `localStorage` (`fxCat:*`) |
+| Presets | ~122 curated presets (`PRESETS` map) rendered as **collapsible categories**; per-category collapse state in `localStorage` (`fxCat:*`) |
 | Miniature | `_applyMiniatureDof` — soft horizontal shallow DOF + toy-model color grade (`tiltShift` / diorama depth) |
 | Border | Mat pad up to 480px, shadow styles, caption with configurable typography |
 | Selection | Rect, lasso, polygon, magic wand (BFS) |

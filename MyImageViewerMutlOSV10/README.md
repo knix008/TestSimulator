@@ -33,7 +33,7 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
 - **Effects & Adjustments / 효과 및 조정**
   - Brightness, Contrast, Saturation, Hue, Blur, Sharpen, Vignette, Warmth, Grayscale, Sepia, Invert, Grain, Posterize, Solarize
   - **Miniature** preset + **Diorama depth** (tilt-shift style shallow DOF)
-  - ~118 curated presets grouped into **10 collapsible categories** (Color Film, Slide Film, B&W, Instant/Toy, Cinema, Cross/Experimental, Warm, Cool, Tonal, Creative). Expand/collapse state is remembered.
+  - ~122 curated presets grouped into **10 collapsible categories** (Color Film, Slide Film, B&W, Instant/Toy, Cinema, Cross/Experimental, Warm, Cool, Tonal, Creative). Expand/collapse state is remembered.
   - Live preview while dragging sliders; history commits on release
   - Wheel over sliders scrolls the panel (does not nudge values)
   - Presets: Vivid, Vintage, Dramatic, Noir, Golden Hour, Miniature, and many more

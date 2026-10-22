@@ -14,6 +14,12 @@
 ;
 ; Keep this file UTF-8 with BOM, or NSIS reads the Korean text as ANSI.
 
+; Ask for the installer language (Korean / English) every time. Without this the template's
+; MUI_LANGDLL_DISPLAY skips the question whenever an earlier install left its choice in
+; HKCU\Software\SHKWON\MyImageViewer "Installer Language" — that choice is now only the
+; pre-selected entry. (This file is included before .onInit, where the dialog is shown.)
+!define MUI_LANGDLL_ALWAYSSHOW
+
 ; Electron-builder's uninstall key = UUIDv5(appId "com.shkwon.imageviewer")
 !define MIV_ELECTRON_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\53fff549-80b5-525f-a34e-7d99abc7f4b6"
 !define MIV_DATA_DIR "$APPDATA\image-viewer-multios"

@@ -28,6 +28,8 @@ module.exports = {
 
     test('FormatSupport exposes animated / TIFF / HEIC / DICOM helpers', () => {
       assertIncludes(formatSupport, 'function isAnimatedImage', 'gif/webp');
+      // Only a GIF / WebP with frames is played as an animation; stills open in the editor
+      assertIncludes(formatSupport, 'if (isAnimatedImage(filePath) && hasAnimation(dataUrl))', 'frames checked, not just the extension');
       assertIncludes(formatSupport, 'function isTiff', 'tiff');
       assertIncludes(formatSupport, 'function isHeic', 'heic');
       assertIncludes(formatSupport, 'function isDcm', 'dicom');

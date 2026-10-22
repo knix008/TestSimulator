@@ -1566,6 +1566,14 @@ window.Editor = (() => {
     pull:       { contrast: 88, saturation: 68, brightness: 118, grain: 10, warmth: 12, blur: 0.3 },
     midcentury: { sepia: 34, warmth: 45, saturation: 60, contrast: 98, brightness: 112, vignette: 36 },
     horror:     { hue: -15, warmth: -20, brightness: 78, contrast: 155, saturation: 50, vignette: 55, grain: 30 },
+    // Kodak Gold 200: warm consumer negative, rich yellows and reds, visible grain
+    gold200:    { warmth: 48, saturation: 122, contrast: 104, brightness: 106, hue: 6, grain: 26, vignette: 14 },
+    // Diana toy camera: soft plastic lens, heavy fall-off, punchy colour
+    diana:      { saturation: 128, contrast: 112, brightness: 104, vignette: 72, blur: 0.9, grain: 30, warmth: 12 },
+    // Technicolor three-strip: saturated, dense primaries, deep contrast
+    technicolor:{ saturation: 175, contrast: 128, brightness: 98, warmth: 14, hue: -6, sharpen: 10 },
+    // Overexposed negative: washed-out highlights, lifted shadows, low contrast
+    overexposed:{ brightness: 138, contrast: 78, saturation: 84, warmth: 12, grain: 18 },
     // Miniature diorama: dual-plane DOF + toy color (grade also inside tiltShift)
     miniature:  {
       tiltShift: 48,
