@@ -51,7 +51,7 @@ window.Dialogs = (function () {
       ['Ctrl+O', 'sc.open'], ['Ctrl+Shift+O', 'sc.openFolder'], ['Ctrl+E', 'sc.export'], ['Ctrl+C', 'sc.copy'], ['Ctrl+P', 'sc.print'], ['Ctrl+,', 'sc.settings'],
       ['Ctrl+0', 'sc.fit'], ['Ctrl+1', 'sc.actual'], ['+ / −', 'sc.zoom'], ['', 'sc.wheel'], ['Ctrl+← / →', 'sc.rotate'], ['H / V', 'sc.flip'], ['R', 'sc.reset'], ['I', 'sc.invert'],
       ['1 … 9, 0', 'sc.tools'], ['↑ / ↓', 'sc.frames'], ['Home / End', 'sc.frameEnds'], ['Space', 'sc.play'], ['S', 'sc.stop'], ['M / Shift+M', 'sc.mprVolume'], ['Shift+5 7 8 9 0', 'sc.moreTools'], ['Q', 'sc.magnify'], ['← / →, PgUp / PgDn', 'sc.series'],
-      ['A', 'sc.wlAuto'], ['W', 'sc.wlFile'], ['Shift+W', 'sc.wlReset'], ['Backspace / Del', 'sc.delete'], ['F9', 'sc.sidebar'], ['B', 'sc.scaleBar'], ['K / G', 'sc.rulerGrid'], ['F11', 'sc.fullscreen'], ['Esc', 'sc.escape'], ['', 'sc.rightDrag'],
+      ['A', 'sc.wlAuto'], ['W', 'sc.wlFile'], ['Shift+W', 'sc.wlReset'], ['Backspace / Del', 'sc.delete'], ['F9', 'sc.sidebar'], ['F8', 'sc.rightPanel'], ['B', 'sc.scaleBar'], ['K / G', 'sc.rulerGrid'], ['F11', 'sc.fullscreen'], ['Esc', 'sc.escape'], ['', 'sc.rightDrag'],
     ];
     const grid = el('div', 'shortcut-grid');
     grid.innerHTML = rows.map(([k, d]) => `<div class="sc-key">${k ? `<kbd>${esc(k)}</kbd>` : ''}</div><div class="sc-desc">${esc(t(d))}</div>`).join('');
@@ -92,6 +92,7 @@ window.Dialogs = (function () {
     { section: 'appearance', key: 'theme', type: 'themes' },
     { section: 'appearance', key: 'lang', type: 'select', options: [['ko', '한국어'], ['en', 'English']] },
     { section: 'appearance', key: 'sidebar', type: 'bool' },
+    { section: 'appearance', key: 'rightPanel', type: 'bool' },
     { section: 'appearance', key: 'showStartOnLaunch', type: 'bool' },
     { section: 'appearance', key: 'tutorialDone', type: 'bool' },
     { section: 'viewer', key: 'interpolate', type: 'bool' },

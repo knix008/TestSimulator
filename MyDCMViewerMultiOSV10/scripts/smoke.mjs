@@ -230,6 +230,29 @@ try {
       await page.eval(`(document.querySelector('#sidebarRail button').click(), 0)`); await sleep(300);
       assert(await page.eval(`!document.body.classList.contains('no-sidebar') && document.getElementById('sidebarBtn').classList.contains('checked')`), 'not unfolded');
     });
+    await check('view', 'right panel: values follow the image and change it (− / + fields, switches)', async () => {
+      if (!(await page.eval('App.state.settings.rightPanel !== false && !document.body.classList.contains("no-right")'))) await actWait('toggle', { key: 'rightPanel' });
+      const ww0 = await st('ww');
+      await page.eval(`(document.querySelector('.prop-section[data-sec="wl"] .prop-row .spin-inc').click(), 0)`); await sleep(400);
+      const ww1 = await st('ww');
+      assert(ww1 === ww0 + 1, `W ${ww0} → ${ww1}`);
+      const shownW = await page.eval(`document.querySelector('.prop-section[data-sec="wl"] input').value`);
+      assert(+shownW === ww1, `panel shows ${shownW}`);
+      const grid0 = await page.eval('App.viewer.showGrid');
+      await page.eval(`(document.querySelectorAll('.prop-section[data-sec="display"] .prop-switch')[2].click(), 0)`); await sleep(200);
+      assert((await page.eval('App.viewer.showGrid')) === !grid0, 'grid switch did nothing');
+      await page.eval(`(document.querySelectorAll('.prop-section[data-sec="display"] .prop-switch')[2].click(), 0)`);
+      return `W ${ww0} → ${ww1}`;
+    });
+    await check('view', 'right panel folds to a rail of icons + titles and unfolds from it', async () => {
+      await page.eval(`(document.querySelector('#rightPanel .side-collapse').click(), 0)`); await sleep(300);
+      const items = await page.eval(`[...document.querySelectorAll('#rightRail [data-sec]')].filter((x) => !x.hidden && x.querySelector('svg') && x.textContent.trim()).length`);
+      assert(await page.eval(`document.body.classList.contains('no-right')`), 'not folded');
+      assert(items >= 4, `${items} rail items with icon and title`);
+      await page.eval(`(document.querySelector('#rightRail [data-sec="wl"]').click(), 0)`); await sleep(400);
+      assert(await page.eval(`!document.body.classList.contains('no-right') && document.getElementById('rightPanelBtn').classList.contains('checked')`), 'not unfolded');
+      return `${items} rail items`;
+    });
     await check('view', 'undo / redo', async () => { await actWait('wl-step', { what: 'wc', dir: 1 }); const a = await st('wc'); await actWait('undo'); const b = await st('wc'); await actWait('redo'); const c = await st('wc'); assert(a !== b && c === a, `${a} / ${b} / ${c}`); });
     await check('view', 'viewport layout 2×2 and back', async () => {
       await actWait('layout', { value: '2x2' }); await sleep(500);

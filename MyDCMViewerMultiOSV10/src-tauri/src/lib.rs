@@ -4,7 +4,8 @@
 // encoding. Everything it needs from the operating system goes through the
 // commands below; src/js/desktop-bridge.js wraps them into `window.desktopAPI`,
 // the object src/js/platform.js talks to. The host owns:
-//   • the main window (shown once the page has drawn), single instance, window bounds
+//   • the main window (shown once the page has drawn), single instance, window bounds; it has no native
+//     title bar — the page draws icon, name, version and the window buttons in its menu bar
 //   • files handed over by the shell (file associations, "Open with", drag & drop)
 //   • native file / message dialogs, file I/O, the Recycle Bin, folder watching
 //   • the popup windows every dialog opens in (owned by the main window)
@@ -734,6 +735,57 @@ fn menu_is_open(app: &AppHandle) -> bool {
   app.try_state::<MenuState>().map(|st| st.open.lock().unwrap().is_some()).unwrap_or(false)
 }
 
+// ── The window buttons and the drag area of the page's own title row ──
+#[tauri::command]
+fn win_minimize(window: WebviewWindow) -> bool {
+  window.minimize().is_ok()
+}
+
+/// Maximise or restore; answers the new state.
+#[tauri::command]
+fn win_toggle_maximize(window: WebviewWindow) -> bool {
+  if window.is_maximized().unwrap_or(false) {
+    let _ = window.unmaximize();
+    false
+  } else {
+    let _ = window.maximize();
+    true
+  }
+}
+
+#[tauri::command]
+fn win_is_maximized(window: WebviewWindow) -> bool {
+  window.is_maximized().unwrap_or(false)
+}
+
+/// Moving the window from the menu bar: the page follows the pointer and places the window (CSS px of the
+/// screen). The system move loop (start_dragging) never moved this window: WebView2 keeps the mouse capture.
+#[tauri::command]
+fn win_set_position(window: WebviewWindow, x: f64, y: f64) -> bool {
+  place_client(&window, x, y)
+}
+
+/// Put the window so that its client area (what the page calls screenX / screenY) starts at x, y. The frameless
+/// window's outer rectangle has an invisible border (8 px left / right / bottom, 1 px top), and set_position
+/// places that outer rectangle.
+fn place_client(window: &WebviewWindow, x: f64, y: f64) -> bool {
+  let scale = window.scale_factor().unwrap_or(1.0);
+  let (dx, dy) = match (window.inner_position(), window.outer_position()) {
+    (Ok(i), Ok(o)) => (f64::from(i.x - o.x) / scale, f64::from(i.y - o.y) / scale),
+    _ => (0.0, 0.0),
+  };
+  window.set_position(LogicalPosition::new((x - dx).round(), (y - dy).round())).is_ok()
+}
+
+/// Resizing from the page (its edge strips and the corner grip): the window has no native frame, and WebView2
+/// covers the whole window, so the system never sees the border.
+#[tauri::command]
+fn win_set_bounds(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64) -> bool {
+  let a = window.set_size(LogicalSize::new(width.round().max(MIN_WIDTH), height.round().max(MIN_HEIGHT))).is_ok();
+  let b = place_client(&window, x, y);
+  a && b
+}
+
 #[tauri::command]
 fn win_toggle_fullscreen(window: WebviewWindow) -> bool {
   let next = !window.is_fullscreen().unwrap_or(false);
@@ -1033,6 +1085,7 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
   let handle = app.clone();
   let mut builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
     .title(APP_NAME)
+    .decorations(false)
     .inner_size(width, height)
     .min_inner_size(MIN_WIDTH, MIN_HEIGHT)
     .visible(false)
@@ -1113,6 +1166,9 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
     match event {
       WindowEvent::Moved(_) | WindowEvent::Resized(_) => {
         remember_bounds(window);
+        if let WindowEvent::Resized(_) = event {
+          let _ = app.emit_to(MAIN, "win-state", json!({ "maximized": window.is_maximized().unwrap_or(false) }));
+        }
         if menu_is_open(app) {
           let _ = app.emit_to(MAIN, "menu-event", json!({ "type": "dismiss" }));
         }
@@ -1286,6 +1342,11 @@ pub fn run() {
       dialog_message,
       window_ready,
       win_toggle_fullscreen,
+      win_minimize,
+      win_toggle_maximize,
+      win_is_maximized,
+      win_set_position,
+      win_set_bounds,
       win_set_min_size,
       win_start_resize,
       win_toggle_devtools,
