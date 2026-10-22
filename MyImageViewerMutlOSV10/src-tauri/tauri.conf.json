@@ -33,11 +33,9 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../host",
-      "../doc",
-      "../scripts/rembg_worker.py"
-    ],
+    "resources": {
+      "runtime/": "runtime/"
+    },
     "publisher": "SHKWON",
     "copyright": "Copyright (c) 2024-2026 SHKWON (knix008@naver.com)",
     "shortDescription": "Image viewer and editor",

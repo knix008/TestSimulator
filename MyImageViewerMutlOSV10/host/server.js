@@ -99,6 +99,14 @@ const server = app.listen(PORT, '127.0.0.1', () => {
   console.log(`[host] MyImageViewer listening at http://127.0.0.1:${PORT}`);
 });
 
+// Started by the Tauri app: go when it goes, even if it was killed and never stopped us
+const parentPid = Number(process.env.MYIMAGEVIEWER_PARENT_PID) || 0;
+if (parentPid) {
+  setInterval(() => {
+    try { process.kill(parentPid, 0); } catch (err) { if (err.code !== 'EPERM') process.exit(0); }
+  }, 1500).unref();
+}
+
 server.on('error', (err) => {
   console.error(`[host] ${err.message}`);
   process.exit(1);

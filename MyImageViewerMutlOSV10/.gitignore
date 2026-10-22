@@ -6,6 +6,9 @@ dist/
 out/
 src-tauri/target/
 src-tauri/gen/
+# Node + host bundled into the installer (npm run stage-runtime)
+src-tauri/runtime/*
+!src-tauri/runtime/.gitkeep
 *.exe
 *.msi
 *.dmg

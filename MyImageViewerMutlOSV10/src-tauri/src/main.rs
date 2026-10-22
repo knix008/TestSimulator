@@ -46,27 +46,71 @@ fn port_open() -> bool {
     TcpStream::connect_timeout(&host_addr(), Duration::from_millis(250)).is_ok()
 }
 
+/// Where the Node host runs from: (node binary, app root holding host/server.js).
+/// A release build uses the Node and host files the installer put in its resources
+/// (scripts/stage-runtime.js), so it needs neither Node nor this source tree on the PC;
+/// `tauri dev` / debug builds run the source tree with the Node on PATH.
+static RUNTIME: std::sync::OnceLock<(PathBuf, PathBuf)> = std::sync::OnceLock::new();
+
+fn init_runtime(app: &AppHandle) {
+    let bundled = if cfg!(debug_assertions) {
+        None
+    } else {
+        app.path().resource_dir().ok().map(|r| plain_path(r).join("runtime")).and_then(|dir| {
+            let node = dir.join(if cfg!(windows) { "node.exe" } else { "node" });
+            let root = dir.join("app");
+            (node.is_file() && root.join("host").join("server.js").is_file()).then_some((node, root))
+        })
+    };
+    let _ = RUNTIME.set(bundled.unwrap_or_else(|| (PathBuf::from("node"), project_root())));
+}
+
+/// resource_dir() is a \\?\ path on Windows: the host would hand that form on to Python,
+/// ffmpeg and the paths it shows, so it starts from the plain one.
+fn plain_path(p: PathBuf) -> PathBuf {
+    match p.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
+        Some(rest) if !rest.starts_with("UNC\\") => PathBuf::from(rest),
+        _ => p,
+    }
+}
+
+fn runtime() -> (PathBuf, PathBuf) {
+    RUNTIME.get().cloned().unwrap_or_else(|| (PathBuf::from("node"), project_root()))
+}
+
 fn spawn_host(exe: &std::path::Path) {
     if port_open() {
         return;
     }
-    let root = project_root();
+    let (node, root) = runtime();
     let script = root.join("host").join("server.js");
     if !script.exists() {
         eprintln!("[myimageviewer] host script missing: {}", script.display());
         return;
     }
-    let mut cmd = Command::new("node");
+    let mut cmd = Command::new(&node);
     cmd.arg(&script)
         .current_dir(&root)
         .env("MYIMAGEVIEWER_RUNTIME", "tauri")
         .env("MYIMAGEVIEWER_EXE", exe)
         .env("MYIMAGEVIEWER_HOST_PORT", host_port_value().to_string())
+        // The host exits with this process even when it is killed (no Exit event then),
+        // so no orphan node keeps the install folder's files locked
+        .env("MYIMAGEVIEWER_PARENT_PID", std::process::id().to_string())
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
     if !cfg!(debug_assertions) {
         cmd.env("MYIMAGEVIEWER_PACKAGED", "1");
+        // The release exe has no console, so Windows would give node.exe a console window
+        // of its own just to print "listening at …": start it without one.
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
     }
     match cmd.spawn() {
         Ok(child) => {
@@ -517,6 +561,7 @@ fn main() {
         })
         .setup(|app| {
             let exe = std::env::current_exe().unwrap_or_else(|_| project_root().join("myimageviewer"));
+            init_runtime(app.handle());
             spawn_host(&exe);
             build_main_window(app.handle())?;
             let exe2 = exe.clone();

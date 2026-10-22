@@ -76,7 +76,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - Builds the **main window in Rust** (`tauri.conf.json` has `"windows": []`) so it can carry an `on_new_window` hook: `window.open("about:blank#dialog-<id>")` from the page creates an owned, frameless, hidden **dialog window**; `fit_dialog` sizes it, centres it over the main window inside the work area and shows it; `close_dialog` destroys it.
 - **Menu overlay** (`menu-overlay`, `src/popup.html`): transparent, borderless, `focusable(false)`, owned by the main window, sized to the monitor work area. Shown and hidden with Win32 `ShowWindow(SW_SHOWNOACTIVATE / SW_HIDE)` — `show()` would activate it, the main window's blur would close the menu at once, and tao's `hide()` does not see a native show (an invisible full-screen window would then swallow every click). Commands: `popup_menu_show / shown / hide / refresh / ready / event / visible`.
 - **Drag-out**: `start_file_drag(paths)` runs `drag::start_drag` (DoDragDrop) on the main thread, offered as **copy** only.
-- Spawns `host/server.js` if port 17810 is free, passes the exe path and CLI files to it, and exits the app when the main window is destroyed (the overlay would keep it alive otherwise).
+- Spawns `host/server.js` if port 17810 is free, passes the exe path and CLI files to it, and exits the app when the main window is destroyed (the overlay would keep it alive otherwise). A release build runs the bundled `runtime/node(.exe)` on `runtime/app/host/server.js` from its resource folder, with no console window (`CREATE_NO_WINDOW`); debug / `tauri dev` runs the source tree with the `node` on PATH. The host gets `MYIMAGEVIEWER_PARENT_PID` and exits when the app is gone, even after a kill.
 
 ### `src/js/tauriAPI.js` — Desktop bridge
 - Installs `window.electronAPI` when `window.__TAURI__` is present.
@@ -306,7 +306,7 @@ Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows *
 
 **Tauri** packages the app (`npm run build:win` / `build:mac` / `build:linux`). `scripts/stamp-version.js` runs first and writes the build date into `buildNumber` (`package.json` and `src/version.json`) and the version into `src-tauri/tauri.conf.json`.
 
-The installer is the webview shell. Image decoding, metadata, DICOM, and background removal stay in the Node host (`host/server.js`), so a packaged build still needs Node and this project's `node_modules` beside the host script. File associations are registered from **Settings** inside the app (Windows registry), not by the installer page. Video and audio extensions are not associated.
+Image decoding, metadata, DICOM, and background removal stay in the Node host (`host/server.js`), so the installer carries its own Node: `scripts/stage-runtime.js` (run by every `build:*`) fills `src-tauri/runtime/` with the building machine's `node(.exe)`, `package.json`, `host/`, `src/`, `doc/`, `scripts/rembg_worker.py` and the `dependencies` closure of `node_modules` (no dev tools; the platform parts of sharp / ffmpeg-static are those of the build OS), and `tauri.conf.json` bundles that folder as the `runtime/` resource. The installed app needs neither Node nor the source tree. Only `.gitkeep` of `src-tauri/runtime/` is tracked (tauri-build needs the folder to exist). The uninstaller stops a leftover `runtime\node.exe` before deleting files. File associations are registered from **Settings** inside the app (Windows registry), not by the installer page. Video and audio extensions are not associated.
 
 | Platform | Output |
 |---|---|

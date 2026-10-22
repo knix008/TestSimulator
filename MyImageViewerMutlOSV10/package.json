@@ -10,16 +10,17 @@
     "web": "node server.js",
     "create-icons": "node scripts/create-icons.js",
     "stamp": "node scripts/stamp-version.js",
-    "build:win": "node scripts/stamp-version.js && tauri build --bundles nsis && node scripts/copy-installer.js nsis",
-    "build:mac": "node scripts/stamp-version.js && tauri build --bundles dmg && node scripts/copy-installer.js dmg",
-    "build:linux": "node scripts/stamp-version.js && tauri build --bundles deb && node scripts/copy-installer.js deb",
+    "stage-runtime": "node scripts/stage-runtime.js",
+    "build:win": "node scripts/stamp-version.js && node scripts/stage-runtime.js && tauri build --bundles nsis && node scripts/copy-installer.js nsis",
+    "build:mac": "node scripts/stamp-version.js && node scripts/stage-runtime.js && tauri build --bundles dmg && node scripts/copy-installer.js dmg",
+    "build:linux": "node scripts/stamp-version.js && node scripts/stage-runtime.js && tauri build --bundles deb && node scripts/copy-installer.js deb",
     "tauri": "tauri"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.8.0",
-    "express": "^4.22.2"
+    "@tauri-apps/cli": "^2.8.0"
   },
   "dependencies": {
+    "express": "^4.22.2",
     "@cornerstonejs/codec-charls": "^1.2.7",
     "@cornerstonejs/codec-libjpeg-turbo-12bit": "^0.4.7",
     "@cornerstonejs/codec-libjpeg-turbo-8bit": "^1.2.8",
