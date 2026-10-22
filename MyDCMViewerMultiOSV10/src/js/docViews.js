@@ -156,7 +156,7 @@ window.DocViews = (function () {
     const zs = [...new Set(rois.flatMap((r) => r.contours.map((c) => (c.points[0] ? +c.points[0][2].toFixed(2) : null)).filter((z) => z != null)))].sort((a, b) => a - b);
     host.innerHTML = head(ctx, doc.label || doc.name || t('doc.rtstruct'), common(doc), [['csv', t('doc.saveCsv')]])
       + table(ctx, rois.map((r) => [{ html: `<span class="doc-swatch" style="background:rgb(${(r.color || [200, 200, 200]).join(',')})"></span>${esc(r.name || '')}` }, r.number, r.interpretedType || '', r.contours.length, r.contours.reduce((s, c) => s + c.points.length, 0)]), [t('doc.roi'), '#', t('doc.type'), t('doc.contours'), t('doc.points')])
-      + (zs.length ? `<div class="doc-controls"><label>${esc(t('doc.slice'))} <input type="range" min="0" max="${zs.length - 1}" value="${zs.length >> 1}" data-ctl="z"></label><span data-z></span></div><canvas class="doc-canvas" width="512" height="512"></canvas>` : '');
+      + (zs.length ? `<div class="doc-controls"><label>${esc(t('doc.slice'))} <input type="range" min="0" max="${zs.length - 1}" value="${zs.length >> 1}" data-ctl="z" data-spin-format="index"></label><span data-z></span></div><canvas class="doc-canvas" width="512" height="512"></canvas>` : '');
     const canvas = host.querySelector('canvas');
     const draw = () => {
       const z = zs[+host.querySelector('[data-ctl="z"]').value];

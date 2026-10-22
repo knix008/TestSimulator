@@ -41,7 +41,8 @@ async function waitFor(url, ms = 30000) {
 }
 
 export function desktopExe() {
-  const dir = path.join(root, 'src-tauri', 'target', 'debug');
+  // MYDCMVIEWER_EXE_DIR: a copy built elsewhere (CARGO_TARGET_DIR), e.g. while `npm start` holds target/debug
+  const dir = process.env.MYDCMVIEWER_EXE_DIR || path.join(root, 'src-tauri', 'target', 'debug');
   for (const n of ['MyDCMViewer.exe', 'mydcmviewer.exe', 'MyDCMViewer', 'mydcmviewer']) if (fs.existsSync(path.join(dir, n))) return path.join(dir, n);
   return null;
 }

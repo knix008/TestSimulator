@@ -777,7 +777,7 @@ void main() { o = texture(uTex, vUv * 0.5 + 0.5); }`;
         </div>
       </div>`;
     // the clip rows: label '0' / '1' read as min / max
-    box.querySelectorAll('[id^=vrClip]').forEach((inp) => { if (inp.type === 'range') inp.parentElement.firstElementChild.textContent = inp.id.endsWith('0') ? 'min' : 'max'; });
+    box.querySelectorAll('[id^=vrClip]').forEach((inp) => { if (inp.type === 'range') inp.closest('.vr-row').firstElementChild.textContent = inp.id.endsWith('0') ? 'min' : 'max'; });
     const q = (id) => box.querySelector('#' + id);
     const status = document.createElement('span'); status.className = 'vr-status';
     const exportBtn = document.createElement('button'); exportBtn.type = 'button'; exportBtn.className = 'btn'; exportBtn.textContent = t('vr.export'); exportBtn.disabled = true;

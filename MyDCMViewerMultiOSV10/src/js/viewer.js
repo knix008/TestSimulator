@@ -5,6 +5,8 @@
  *   v.setTool('pan' | 'wl' | 'zoom' | 'stack' | 'probe' | 'magnify' | 'length' | 'angle' | 'cobb' | 'rect' | 'ellipse' |
  *             'polygon' | 'freehand' | 'arrow' | 'point' | 'text')
  *   v.finishPolygon() · v.cancelDrawing()
+ *   v.showScaleBar / v.scaleBarPos   a scale bar on the image (unit from the pixel spacing), moved with the mouse;
+ *                                    its place is { fx, fy } (centre, fractions of the viewport), 'scalebar' event on drop
  *   v.fit() · v.actual() · v.zoomBy(f, client?) · v.rotate(±90) · v.flip('h' | 'v') · v.reset()
  *   v.annotations (image-space) · v.deleteLast() · v.clear() · v.redraw()
  *   v.imageToClient(x, y) · v.clientToImage(cx, cy) · v.exportCanvas(burnAnnotations) → canvas
@@ -38,16 +40,24 @@ window.Viewer = (function () {
     let fitScale = 1;
     let vw = 0, vh = 0;
     let wheelMode = 'zoom';   // 'zoom' | 'stack' — what a plain wheel does (Ctrl inverts it)
-    let showRuler = false, showGrid = false;
+    let showRuler = false, showGrid = false, showScaleBar = false;
+    let scaleBarPos = null;    // { fx, fy }: centre of the scale bar as fractions of the viewport; null = bottom centre
+    let scaleBarBox = null;    // where it was last drawn (client px), for the mouse
     let measureUnit = 'cm';   // display unit for the ruler: cm | in | mm | px
     const COLORS = { ...DEFAULT_COLORS };
     const UNIT_FROM_MM = { mm: 1, cm: 0.1, in: 1 / 25.4 };
 
     /* ── Geometry ── */
+    /** The part of the viewport the image is fitted and centred in: all of it, less the rulers when they are on. */
+    function freeArea() {
+      const l = showRuler ? RULER_W : 0, t = showRuler ? RULER_H : 0;
+      return { l, t, w: Math.max(1, vw - l), h: Math.max(1, vh - t), cx: l + (vw - l) / 2, cy: t + (vh - t) / 2 };
+    }
     function matrix() {
       const m = new DOMMatrix();
       if (!source) return m;
-      m.translateSelf(vw / 2 + view.tx, vh / 2 + view.ty);
+      const a = freeArea();
+      m.translateSelf(a.cx + view.tx, a.cy + view.ty);
       m.rotateSelf(view.rotation);
       m.scaleSelf(view.flipH ? -1 : 1, view.flipV ? -1 : 1);
       m.scaleSelf(view.scale, view.scale * (source.aspect || 1));
@@ -64,7 +74,8 @@ window.Viewer = (function () {
       const rot = ((view.rotation % 180) + 180) % 180 !== 0;
       const w = rot ? source.height * (source.aspect || 1) : source.width;
       const h = rot ? source.width : source.height * (source.aspect || 1);
-      return Math.min((vw - 16) / w, (vh - 16) / h, 8) || 1;
+      const a = freeArea();
+      return Math.min((a.w - 16) / w, (a.h - 16) / h, 8) || 1;
     }
 
     /* ── Size ── */
@@ -112,6 +123,7 @@ window.Viewer = (function () {
       }
       if (showGrid) drawGrid(c);
       if (showRuler) drawRuler(c);
+      if (showScaleBar && c === octx) drawScaleBar(c);
       // extra drawing of the owner (reference lines of the other viewports)
       if (opts.extraDraw) { c.save(); try { opts.extraDraw(c, { imageToClient, source }); } finally { c.restore(); } }
       if (lens) drawLens(c, lens.local);
@@ -175,6 +187,39 @@ window.Viewer = (function () {
       };
       return { unit, along };
     }
+
+    /* Scale bar: a bar of a round length (1-2-5 steps, 70–170 screen px) in the ruler's unit, split in five
+     * black / white parts, with its length written above. Drawn where the user put it (bottom centre at first). */
+    function drawScaleBar(c) {
+      const { unit, along } = axisScale();
+      const H = along(true);
+      const steps = unit === 'px' ? RULER_STEPS_PX : RULER_STEPS_UNIT;
+      let len = steps.find((s) => s * H.perUnit >= 70) || steps[steps.length - 1];
+      const w = len * H.perUnit;
+      const label = `${Math.abs(len - Math.round(len)) < 1e-6 ? Math.round(len) : +len.toFixed(2)} ${unit}`;
+      c.save();
+      c.font = '600 12px "Segoe UI", system-ui, sans-serif';
+      const bw = Math.max(w, c.measureText(label).width) + 24, bh = 40;
+      const pos = scaleBarPos || { fx: 0.5, fy: (vh - 34 - bh / 2) / vh };
+      const x = Math.round(Math.max(2, Math.min(vw - bw - 2, pos.fx * vw - bw / 2)));
+      const y = Math.round(Math.max(2, Math.min(vh - bh - 2, pos.fy * vh - bh / 2)));
+      scaleBarBox = { x, y, w: bw, h: bh };
+      c.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      c.beginPath(); if (c.roundRect) c.roundRect(x, y, bw, bh, 6); else c.rect(x, y, bw, bh); c.fill();
+      if (drag && drag.kind === 'scalebar') { c.strokeStyle = COLORS.active; c.lineWidth = 1; c.stroke(); }
+      const x0 = x + (bw - w) / 2, by = y + bh - 14;
+      for (let i = 0; i < 5; i++) {
+        c.fillStyle = i % 2 ? '#111111' : '#ffffff';
+        c.fillRect(x0 + (w * i) / 5, by, w / 5, 6);
+      }
+      c.strokeStyle = '#ffffff'; c.lineWidth = 1;
+      c.strokeRect(x0 + 0.5, by + 0.5, w - 1, 5);
+      c.beginPath(); c.moveTo(x0 + 0.5, by - 4); c.lineTo(x0 + 0.5, by + 6); c.moveTo(x0 + w - 0.5, by - 4); c.lineTo(x0 + w - 0.5, by + 6); c.stroke();
+      c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'bottom';
+      c.fillText(label, x0 + w / 2, by - 5);
+      c.restore();
+    }
+    const onScaleBar = (p) => showScaleBar && scaleBarBox && p.x >= scaleBarBox.x && p.x <= scaleBarBox.x + scaleBarBox.w && p.y >= scaleBarBox.y && p.y <= scaleBarBox.y + scaleBarBox.h;
 
     /* Grid over the whole viewport (not just the image), on the ruler's ticks: a faint line every minor tick and a
      * stronger one every major tick, so each major cell holds 5 × 5 small ones. Zooming changes the ruler's step,
@@ -395,6 +440,13 @@ window.Viewer = (function () {
       if (e.button === 1) { e.preventDefault(); drag = { kind: 'pan', last: local }; return; }
       if (e.button === 2) { drag = { kind: 'wl-maybe', start: local, last: local, moved: false }; return; }
       if (e.button !== 0) return;
+      if (onScaleBar(local)) {
+        const b = scaleBarBox;
+        drag = { kind: 'scalebar', off: { x: local.x - (b.x + b.w / 2), y: local.y - (b.y + b.h / 2) }, last: local };
+        viewport.style.cursor = 'grabbing';
+        drawOverlay();
+        return;
+      }
       const hit = hitHandle(local);
       if (hit) { drag = { kind: 'handle', ...hit, last: local }; annotations.forEach((a) => { a.selected = a === hit.ann; }); redraw(); return; }
       annotations.forEach((a) => { a.selected = false; });
@@ -466,7 +518,7 @@ window.Viewer = (function () {
         else if (drawing && drawing.type === 'polygon') { drawing.points[drawing.points.length - 1] = img; drawOverlay(); }
         else if (tool === 'probe' || showRuler) drawOverlay();
         const hit = hitHandle(local);
-        viewport.style.cursor = hit ? 'move' : cursorFor(tool);
+        viewport.style.cursor = onScaleBar(local) ? 'grab' : hit ? 'move' : cursorFor(tool);
         return;
       }
       const dx = local.x - drag.last.x, dy = local.y - drag.last.y;
@@ -497,6 +549,11 @@ window.Viewer = (function () {
           break;
         }
         case 'magnify': lens = { local }; drawOverlay(); break;
+        case 'scalebar':
+          scaleBarPos = { fx: Math.max(0, Math.min(1, (local.x - drag.off.x) / vw)), fy: Math.max(0, Math.min(1, (local.y - drag.off.y) / vh)) };
+          drag.last = local;
+          drawOverlay();
+          break;
         case 'handle': drag.ann.points[drag.pointIndex] = img; emit('measure', { annotation: drag.ann, done: false }); drawOverlay(); break;
         default: break;
       }
@@ -506,6 +563,7 @@ window.Viewer = (function () {
       if (!drag) return;
       const d = drag;
       drag = null;
+      if (d.kind === 'scalebar') { viewport.style.cursor = 'grab'; drawOverlay(); emit('scalebar', { ...scaleBarPos }); return; }
       if (d.kind === 'wl-maybe' && !d.moved) { emit('context', { clientX: e.clientX, clientY: e.clientY }); return; }
       if (d.kind === 'wl' || d.kind === 'wl-maybe') { emit('wlend'); return; }
       if (d.kind === 'draw') {
@@ -563,7 +621,8 @@ window.Viewer = (function () {
       f = next / view.scale;
       if (at) {
         // keep the image point under the cursor fixed
-        const cx = vw / 2 + view.tx, cy = vh / 2 + view.ty;
+        const fa = freeArea();
+        const cx = fa.cx + view.tx, cy = fa.cy + view.ty;
         view.tx += (at.x - cx) * (1 - f);
         view.ty += (at.y - cy) * (1 - f);
       }
@@ -634,7 +693,19 @@ window.Viewer = (function () {
       set showAnnotations(v) { showAnnotations = !!v; redraw(); }, get showAnnotations() { return showAnnotations; },
       set wheelMode(v) { wheelMode = v === 'stack' ? 'stack' : 'zoom'; }, get wheelMode() { return wheelMode; },
       set colors(v) { Object.assign(COLORS, v || {}); redraw(); }, get colors() { return { ...COLORS }; },
-      set showRuler(v) { showRuler = !!v; drawOverlay(); }, get showRuler() { return showRuler; },
+      set showRuler(v) {
+        if (showRuler === !!v) return;
+        const wasFit = Math.abs(view.scale - fitScale) < 1e-6;
+        showRuler = !!v;
+        fitScale = computeFit();
+        if (wasFit) view.scale = fitScale;
+        redraw();
+        emit('view', viewState());
+      },
+      get showRuler() { return showRuler; },
+      set showScaleBar(v) { showScaleBar = !!v; if (!showScaleBar) scaleBarBox = null; drawOverlay(); }, get showScaleBar() { return showScaleBar; },
+      set scaleBarPos(v) { scaleBarPos = v && Number.isFinite(v.fx) && Number.isFinite(v.fy) ? { fx: v.fx, fy: v.fy } : null; drawOverlay(); },
+      get scaleBarPos() { return scaleBarPos && { ...scaleBarPos }; },
       set showGrid(v) { showGrid = !!v; drawOverlay(); }, get showGrid() { return showGrid; },
       set measureUnit(v) { measureUnit = (v === 'in' || v === 'mm' || v === 'px') ? v : 'cm'; drawOverlay(); },
       get measureUnit() { return measureUnit; },

@@ -243,6 +243,7 @@ window.Tour = (function () {
     c.root.querySelector('.tour-replay').disabled = !(step.play || []).some(Array.isArray);
     c.root.querySelector('.tour-next').textContent = index === STEPS.length - 1 ? (c.lang === 'ko' ? '마치기' : 'Finish') : (c.lang === 'ko' ? '다음' : 'Next');
     c.spot = step.target || null;
+    c.scrolled = false;
     c.root.querySelector('.tour-card').classList.add('measuring');
     place(c);
     c.playing = true;
@@ -252,7 +253,7 @@ window.Tour = (function () {
         const [action, data] = item;
         try { await c.run(action, data || {}); } catch (err) { console.warn('[tour]', action, err); }
       } else if (item.wait) await new Promise((r) => setTimeout(r, item.wait));
-      else if (item.spot) c.spot = item.spot;
+      else if (item.spot) { c.spot = item.spot; c.scrolled = false; }
       place(c);
     }
     if (cur === c && token === c.token) c.playing = false;
@@ -264,9 +265,22 @@ window.Tour = (function () {
     const el = c.spot ? document.querySelector(c.spot) : null;
     const W = window.innerWidth, H = window.innerHeight;
     let r = el ? el.getBoundingClientRect() : null;
+    // a target below / above the visible part of a scrolled area (the start page) is scrolled into view first
+    if (r && (r.top < 0 || r.bottom > H || r.left < 0 || r.right > W) && !c.scrolled) {
+      c.scrolled = true;
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      r = el.getBoundingClientRect();
+    }
     if (r && (r.width < 2 || r.height < 2)) r = null;
-    const pad = 6;
-    const box = r ? { x: Math.max(0, r.left - pad), y: Math.max(0, r.top - pad), w: Math.min(W, r.width + pad * 2), h: Math.min(H, r.height + pad * 2) } : { x: W / 2, y: H / 2, w: 0, h: 0 };
+    // the ring (2 px border + 4 px glow) stays whole inside the window: every side is clamped, not only the
+    // top-left corner — a target at the right / bottom edge used to push the ring out of the window
+    const pad = 6, inset = 7;
+    let box = { x: W / 2, y: H / 2, w: 0, h: 0 };
+    if (r) {
+      const x0 = Math.max(inset, r.left - pad), y0 = Math.max(inset, r.top - pad);
+      const x1 = Math.min(W - inset, r.right + pad), y1 = Math.min(H - inset, r.bottom + pad);
+      box = { x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) };
+    }
     const set = (side, x, y, w, h) => Object.assign(c.root.querySelector(`[data-side="${side}"]`).style, { left: `${x}px`, top: `${y}px`, width: `${Math.max(0, w)}px`, height: `${Math.max(0, h)}px` });
     set('top', 0, 0, W, box.y);
     set('bottom', 0, box.y + box.h, W, H - box.y - box.h);

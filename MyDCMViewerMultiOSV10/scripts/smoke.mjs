@@ -195,6 +195,41 @@ try {
       await actWait('reset-view');
       assert(z1 !== z0, 'zoom did not change');
     });
+    // where the image sits: the middle of the free area (less the rulers when they are on)
+    const offCentre = `(() => { const v = App.viewer, s = v.source, vp = document.getElementById('viewport').getBoundingClientRect(); const a = v.imageToClient(0, 0), b = v.imageToClient(s.width, s.height); const l = v.showRuler ? 34 : 0, t = v.showRuler ? 22 : 0; return Math.round(Math.hypot((a.x + b.x) / 2 - (l + (vp.width - l) / 2), (a.y + b.y) / 2 - (t + (vp.height - t) / 2))); })()`;
+    await check('view', 'an opened image is centred, also with the rulers on', async () => {
+      const d0 = await page.eval(offCentre);
+      await actWait('toggle', { key: 'ruler' }); await sleep(200);
+      const d1 = await page.eval(offCentre);
+      await actWait('toggle', { key: 'ruler' });
+      assert(d0 <= 1 && d1 <= 1, `off by ${d0} / ${d1} px`);
+    });
+    await check('view', 'scale bar: on / off and moved with the mouse', async () => {
+      if (!(await page.eval('App.viewer.showScaleBar'))) await actWait('toggle', { key: 'scaleBar' });
+      const vp = await page.rect('#viewport');
+      const from = { x: vp.x + vp.w / 2, y: vp.y + vp.h - 34 - 12 };
+      const before = await page.eval(`JSON.stringify({ pos: App.viewer.scaleBarPos, el: (document.elementFromPoint(${from.x}, ${from.y}) || {}).id, vp: ${JSON.stringify(vp)} })`);
+      await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y });
+      await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
+      for (let i = 1; i <= 6; i++) await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x - i * 40, y: from.y - i * 40, buttons: 1 });
+      await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: from.x - 240, y: from.y - 240, button: 'left', buttons: 0, clickCount: 1 });
+      await sleep(200);
+      const pos = await page.eval('App.viewer.scaleBarPos');
+      const pan = await page.eval('App.viewer.view.tx + App.viewer.view.ty');
+      assert(pos && pos.fy < 0.8, `not moved: ${JSON.stringify(pos)}`);
+      assert(pan === 0, `the drag panned the image instead ${before}`);
+      await actWait('toggle', { key: 'scaleBar' });
+      assert(!(await page.eval('App.viewer.showScaleBar')), 'still shown');
+      await actWait('toggle', { key: 'scaleBar' });
+      return `moved to ${pos.fx.toFixed(2)}, ${pos.fy.toFixed(2)}`;
+    });
+    await check('view', 'left panel folds and unfolds (panel button, rail)', async () => {
+      await page.eval(`(document.querySelector('.side-collapse').click(), 0)`); await sleep(300);
+      assert(await page.eval(`document.body.classList.contains('no-sidebar') && getComputedStyle(document.getElementById('sidebarRail')).display !== 'none'`), 'not folded');
+      assert((await page.eval(offCentre)) <= 1, 'image not centred after folding');
+      await page.eval(`(document.querySelector('#sidebarRail button').click(), 0)`); await sleep(300);
+      assert(await page.eval(`!document.body.classList.contains('no-sidebar') && document.getElementById('sidebarBtn').classList.contains('checked')`), 'not unfolded');
+    });
     await check('view', 'undo / redo', async () => { await actWait('wl-step', { what: 'wc', dir: 1 }); const a = await st('wc'); await actWait('undo'); const b = await st('wc'); await actWait('redo'); const c = await st('wc'); assert(a !== b && c === a, `${a} / ${b} / ${c}`); });
     await check('view', 'viewport layout 2×2 and back', async () => {
       await actWait('layout', { value: '2x2' }); await sleep(500);
@@ -480,6 +515,44 @@ print(json.dumps({'name': str(a.PatientName), 'removed': str(a.get('PatientIdent
   }
 
   /* ── PACS (desktop: real sockets) against scripts/mini-pacs.cjs ── */
+  /* ── Desktop menus: drawn by the overlay window, which must be gone again once a menu closes (a forgotten
+   *    overlay covers the screen and swallows every click: the program looks frozen) ── */
+  if (want('menus') && desktop) {
+    console.log(`${C.b}Menus (overlay window)${C.x}`);
+    const overlayGone = async () => { await sleep(400); assert(!(await page.eval('window.desktopAPI.menuVisible()')), 'the menu overlay is still on screen'); };
+    const titles = await page.eval('[...document.querySelectorAll(".menu > .menu-title")].map((t, i) => t.offsetParent ? i : -1).filter((i) => i >= 0)');
+    await check('menus', `every menu opens in the overlay and closes with Esc (${titles.length})`, async () => {
+      for (const i of titles) {
+        await page.eval(`(document.querySelectorAll(".menu > .menu-title")[${i}].click(), 0)`);
+        await page.waitFor('!!App.MenuMirror.panel', 5000);
+        await sleep(300);
+        assert(await page.eval('window.desktopAPI.menuVisible()'), `menu ${i} not shown`);
+        await page.eval('(document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })), 0)');
+        await page.waitFor('!App.MenuMirror.panel', 5000);
+        await overlayGone();
+      }
+    });
+    for (const [kind, action] of [['help', 'help-window'], ['about', 'about'], ['settings', 'settings'], ['shortcuts', 'shortcuts']]) {
+      await check('menus', `${kind}: picked in the menu, opened and closed, the program still answers`, async () => {
+        const i = await page.eval(`[...document.querySelectorAll("#menus .menu")].findIndex((m) => m.querySelector('[data-action="${action}"]'))`);
+        await page.eval(`(document.querySelectorAll("#menus .menu")[${i}].querySelector(".menu-title").click(), 0)`);
+        await page.waitFor('!!App.MenuMirror.panel', 5000);
+        // what the overlay reports when the item is clicked there
+        await page.eval(`(() => { const p = App.MenuMirror.panel; const index = [...p.querySelectorAll("button")].indexOf(p.querySelector('[data-action="${action}"]')); App.MenuMirror.onEvent({ type: "pick", index }); return 0; })()`);
+        let t = null;
+        for (let k = 0; k < 60 && !t; k++) { t = (await page.targets()).find((x) => new RegExp(`popup\\.html.*kind=${kind}\\b`).test(x.url)); if (!t) await sleep(250); }
+        assert(t, `no ${kind} window`);
+        await overlayGone();
+        await sleep(800);
+        await page.eval(`App.Dlg.close("${kind}")`);
+        await sleep(800);
+        await overlayGone();
+        const info = await page.eval('window.desktopAPI.appInfo().then((x) => !!x)', 5000);
+        assert(info, 'the host does not answer');
+      });
+    }
+  }
+
   if (want('pacs') && desktop) {
     console.log(`${C.b}PACS${C.x}`);
     pacsProc = spawn(process.execPath, [path.join(root, 'scripts', 'mini-pacs.cjs'), '--port', String(PACS_PORT), '--dest', `MYDCMVIEWER=127.0.0.1:${SCP_PORT}`], { stdio: ['ignore', 'pipe', 'inherit'] });

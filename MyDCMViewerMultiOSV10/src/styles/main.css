@@ -82,6 +82,11 @@ body:not(.has-gray) .dicom-only { opacity: 0.45; pointer-events: none; }
 .workspace { display: flex; flex: 1; min-height: 0; }
 .sidebar { display: flex; flex-direction: column; width: 300px; min-width: 200px; background: var(--panel-bg); border-right: 1px solid var(--border); }
 body.no-sidebar .sidebar, body.no-sidebar .sidebar-resizer { display: none; }
+/* the folded left panel leaves a narrow rail with the button that opens it again */
+.sidebar-rail { display: none; flex: none; width: 24px; flex-direction: column; align-items: center; padding-top: 6px; background: var(--panel-bg); border-right: 1px solid var(--border); }
+body.no-sidebar .sidebar-rail { display: flex; }
+.sidebar-rail .icon-btn, .side-collapse { width: 22px; height: 22px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.sidebar-rail svg, .side-collapse svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar-resizer { width: 5px; cursor: col-resize; background: transparent; }
 .sidebar-resizer:hover { background: var(--accent); opacity: 0.5; }
 .side-section { display: flex; flex-direction: column; min-height: 80px; }
@@ -344,8 +349,12 @@ body.popup-page { background: var(--panel-bg); overflow: hidden; }
 .mpr-view input[type=range] { width: 100%; accent-color: var(--accent); }
 .side-header.tabs .tab { white-space: nowrap; font-size: 12px; padding: 0 2px; }
 
-/* fixed-height settings body (same size on every tab) */
-.settings-body { height: 548px; overflow: hidden; }
+/* settings window: as tall as its tallest tab (popup.js keeps the largest height measured); on a screen too
+   small for that, the body scrolls instead of being cut off */
+.popup-box.settings { max-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; }
+.popup-box.settings:not(.measuring) { height: 100vh; }
+.popup-box.settings.measuring { max-height: none; }
+.popup-box.settings .settings-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .menu-panel.recent { min-width: 320px; max-width: 560px; }
 .menu-panel.recent button { padding-right: 34px; }
 .menu-panel.recent button > span:first-of-type:not(.mi) { overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
@@ -488,7 +497,7 @@ body.start-open .frame-bar, body.start-open .series-bar { visibility: hidden; }
 /* ── Guided tutorial (js/tour.js) ── */
 .tour { position: fixed; inset: 0; z-index: 2000; pointer-events: none; }
 .tour-shade { position: fixed; background: rgba(0, 0, 0, 0.55); pointer-events: auto; }
-.tour-ring { position: fixed; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); pointer-events: none; transition: all 0.18s ease; }
+.tour-ring { position: fixed; box-sizing: border-box; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); pointer-events: none; transition: all 0.18s ease; }
 .tour-card { position: fixed; width: 380px; max-width: calc(100vw - 20px); padding: 14px 16px; border-radius: 12px; background: var(--panel-bg); color: var(--text); border: 1px solid var(--accent); box-shadow: var(--shadow); pointer-events: auto; }
 .tour-card.measuring { visibility: hidden; }
 .tour-card h3 { margin: 4px 0 6px; font-size: 15px; }
@@ -612,3 +621,51 @@ body.multi-view .view-cell.active { outline: 2px solid var(--accent); outline-of
 
 /* a hidden form row stays hidden (display: grid would override the attribute) */
 .form-row[hidden] { display: none !important; }
+
+/* theme menus: dark and light columns; the settings grid in two groups */
+/* grid only while open: a plain display:grid here kept the theme list always on screen */
+.menu.open > .menu-panel.theme-columns, .menu-sub:hover > .menu-panel.theme-columns { display: grid; }
+.menu-panel.theme-columns { grid-template-columns: repeat(2, minmax(190px, 1fr)); gap: 0 8px; max-height: min(78vh, 760px); overflow-y: auto; }
+.theme-col { display: flex; flex-direction: column; min-width: 0; }
+.menu-heading { font-size: 11px; font-weight: 600; color: var(--text-dim); padding: 6px 10px 4px; text-transform: uppercase; letter-spacing: .04em; }
+.theme-groups { display: flex; flex-direction: column; gap: 6px; }
+.theme-group-title { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-top: 4px; }
+
+/* toolbar and menu-bar items keep their size: the window's minimum width (applyMinWindowSize) makes room for all of them */
+.toolbar > *, .tb-group > *, .menus > *, .menubar-right > * { flex-shrink: 0; }
+
+/* Desktop: open menus are drawn by the menu overlay window (src/menu.html), the page keeps them invisible */
+body.menu-mirror .menu.open > .menu-panel, body.menu-mirror .ctx-menu.open { visibility: hidden !important; }
+html:has(body.menu-overlay-page), body.menu-overlay-page { background: transparent !important; overflow: hidden; }
+body.menu-overlay-page #menuRoot { position: fixed; inset: 0; }
+
+/* Settings › theme: one compact row per theme (colours + name) */
+.theme-rows { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px 6px; }
+.theme-row { display: flex; align-items: center; gap: 8px; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel-bg2); color: var(--text); cursor: pointer; text-align: left; font-size: 12px; }
+.theme-row:hover { border-color: var(--text-dim); }
+.theme-row.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.theme-row .sw { display: inline-flex; flex: none; border-radius: 3px; overflow: hidden; border: 1px solid rgba(128,128,128,0.45); }
+.theme-row .sw i { width: 9px; height: 14px; }
+.theme-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-custom { display: grid; grid-template-columns: minmax(150px, 1fr) 3fr; gap: 6px; align-items: start; }
+.theme-custom-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.theme-custom-colors .cc-field { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-dim); }
+.theme-custom-colors input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; }
+.theme-custom-colors select { height: 24px; }
+/* theme drop-downs: the custom theme is the last row, across both columns */
+.menu-panel.theme-columns .theme-custom-row { grid-column: 1 / -1; }
+
+/* Step buttons (js/spin.js): number fields [−][value][+], sliders [−][slider][+] value */
+.spin { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; max-width: 100%; }
+.spin-btn { flex: none; width: 22px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--panel-bg2); color: var(--text); font: 600 14px/1 var(--font); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; user-select: none; touch-action: none; }
+.spin-btn:hover:not(:disabled) { background: var(--hover); border-color: var(--text-dim); }
+.spin-btn:active:not(:disabled) { background: var(--active); }
+.spin-btn:disabled { opacity: 0.4; cursor: default; }
+.spin-number input[type=number] { text-align: center; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.spin-range { flex: 1 1 auto; min-width: 0; }
+.spin-range input[type=range] { flex: 1 1 auto; min-width: 60px; width: auto; margin: 0 2px; }
+.spin-range > .spin-val, .spin-range > .val, .spin-range > .frame-label, .spin-range > [id$="V"] { flex: none; min-width: 3.6em; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: 12px; }
+.mpr-view .spin-range, .form-row .spin-range, .vr-row .spin-range, .doc-controls .spin-range { display: flex; }
+.mpr-view .spin-range { width: 100%; }
