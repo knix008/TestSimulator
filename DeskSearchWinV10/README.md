@@ -27,7 +27,7 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 | 설정 | 배경/테두리/글자/아이콘 색, 테두리 두께, 불투명도, 대소문자 구분, 정규식, **검색 결과 정렬**, 검색 제외, 항상 위 |
 | 인덱싱 진행률 | 설정 창에서 단계(스캔·분석·인덱스 적용), 진행률(%)·항목 수 확인; **인덱싱** / **멈춤** / **초기화** / **데이터 폴더** |
 | 검색 인덱스 업그레이드 | 검색 구조 개선이 필요하면 확인 대화상자 후 진행률(%) 표시 (최초 1회, 건너뛰기 가능) |
-| Windows 시작 시 실행 | HKCU `Run` 레지스트리로 로그온 시 자동 시작 (레거시 예약 작업 자동 제거) |
+| Windows 시작 시 실행 | HKCU `Run` 레지스트리(`DeskSearch.exe --autostart`)로 로그온 시 자동 시작. 셸과 입력 서비스(ctfmon/TSF)가 준비될 때까지 기다린 뒤 창을 띄워 부팅 직후에도 검색창 입력 가능 (레거시 예약 작업 자동 제거) |
 | 단일 인스턴스 | 이미 실행 중이면 새 창 대신 기존 검색창 표시 |
 | 다크 테마 | 어두운 배경 선택 시 글자·테두리·아이콘 색 자동 조정 |
 | 다국어 UI | 한국어 / English; 설정에서 **언어 변경 시 즉시 반영** (취소 시 복원) |
@@ -40,6 +40,26 @@ Windows용 상시 표시 파일·폴더 검색 위젯 (.NET 8 / WPF)
 dotnet build DeskSearchWinV10.slnx
 dotnet run --project DeskSearch/DeskSearch.csproj
 ```
+
+빌드·정리 스크립트 (저장소 루트):
+
+| 명령 | 동작 |
+|------|------|
+| `build.cmd` | Debug 빌드 |
+| `build.cmd -Release` | Release 빌드 + MSI (실행 중인 DeskSearch.exe는 종료됨) |
+| `build.cmd -Release -NoMsi` | Release 빌드만 (MSI 생략) |
+| `build.cmd -Clean` / `-Run` | 정리 후 빌드 / 빌드 후 실행 (조합 가능) |
+| `build.cmd -Stop` | 이 폴더에서 빌드한 DeskSearch가 실행 중이면 종료한 뒤 빌드 (없으면 실행 중일 때 안내 후 중단 — 실행 파일이 잠겨 빌드가 실패하므로) |
+| `clean.cmd` | `DeskSearch`·`DeskSearch.Installer`의 `bin/`·`obj/` 삭제 (사용자 데이터 `%AppData%\DeskSearch`는 유지; 이 폴더의 DeskSearch.exe가 실행 중이면 중단) |
+
+빌드가 끝나면 결과물이 **저장소 루트**에 복사됩니다.
+
+| 파일 | 설명 |
+|------|------|
+| `DeskSearch.exe` | self-contained 단일 파일 (런타임·아이콘 포함, 이 파일 하나로 실행) |
+| `DeskSearchSetup.msi`, `DeskSearchSetup.en-US.msi` | `-Release` 빌드 시 (`-NoMsi` 제외) |
+
+PowerShell에서는 `.\build.ps1 -Release`, `.\clean.ps1`로 직접 실행할 수 있습니다.
 
 **요구사항:** .NET 8 SDK, Windows 10 이상
 

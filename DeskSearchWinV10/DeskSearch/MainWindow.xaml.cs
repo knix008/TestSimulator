@@ -466,6 +466,11 @@ public partial class MainWindow : Window
         if (SearchBox.IsKeyboardFocusWithin)
             return;
 
+        // Focus() only sets logical focus on an inactive window; activate it first so
+        // the click really gives the search box the keyboard.
+        if (!IsActive)
+            Activate();
+
         SearchBox.Focus();
         e.Handled = true;
     }

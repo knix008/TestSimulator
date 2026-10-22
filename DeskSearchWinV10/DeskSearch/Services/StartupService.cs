@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 namespace DeskSearch.Services;
@@ -6,6 +7,7 @@ namespace DeskSearch.Services;
 public static class StartupService
 {
     public const string TaskName = "DeskSearch";
+    public const string AutostartArgument = "--autostart";
 
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "DeskSearch";
@@ -85,17 +87,15 @@ public static class StartupService
         }
     }
 
+    // The value must match exactly (path + autostart flag), so entries written by older
+    // versions without the flag are rewritten on the next launch.
     private static bool IsRegisteredFor(string exePath)
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
-            if (key?.GetValue(ValueName) is not string value)
-                return false;
-
-            var registeredExe = TryExtractExecutablePath(value);
-            return registeredExe is not null
-                && string.Equals(registeredExe, Path.GetFullPath(exePath), StringComparison.OrdinalIgnoreCase);
+            return key?.GetValue(ValueName) is string value
+                && string.Equals(value.Trim(), BuildRunValue(exePath), StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
@@ -104,31 +104,49 @@ public static class StartupService
     }
 
     private static string BuildRunValue(string exePath) =>
-        $"\"{Path.GetFullPath(exePath)}\"";
+        $"\"{Path.GetFullPath(exePath)}\" {AutostartArgument}";
 
-    private static string? TryExtractExecutablePath(string runValue)
+    public static bool IsAutostartLaunch(IEnumerable<string> args) =>
+        args.Any(arg => string.Equals(arg, AutostartArgument, StringComparison.OrdinalIgnoreCase));
+
+    // At logon the Run key fires before the shell and the text input service (ctfmon/TSF)
+    // are up. A WPF TextBox that takes keyboard focus before TSF is ready never accepts
+    // typing (the IME in particular), so wait for both before creating any window.
+    public static void WaitForInteractiveDesktop(TimeSpan timeout)
     {
-        if (string.IsNullOrWhiteSpace(runValue))
-            return null;
-
-        var trimmed = runValue.Trim();
-        if (trimmed.StartsWith('"'))
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
         {
-            var endQuote = trimmed.IndexOf('"', 1);
-            if (endQuote > 1)
-            {
-                var quoted = trimmed[1..endQuote];
-                if (IsExistingExecutable(quoted))
-                    return Path.GetFullPath(quoted);
-            }
+            if (IsShellReady() && IsTextInputServiceRunning())
+                return;
+
+            Thread.Sleep(500);
         }
-
-        var firstToken = trimmed.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-        if (IsExistingExecutable(firstToken))
-            return Path.GetFullPath(firstToken!);
-
-        return null;
     }
+
+    private static bool IsShellReady() =>
+        FindWindow("Shell_TrayWnd", null) != nint.Zero && GetShellWindow() != nint.Zero;
+
+    private static bool IsTextInputServiceRunning()
+    {
+        var sessionId = Process.GetCurrentProcess().SessionId;
+        var processes = Process.GetProcessesByName("ctfmon");
+        try
+        {
+            return processes.Any(p => p.SessionId == sessionId);
+        }
+        finally
+        {
+            foreach (var process in processes)
+                process.Dispose();
+        }
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint FindWindow(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetShellWindow();
 
     private static bool IsExistingExecutable(string? path) =>
         !string.IsNullOrWhiteSpace(path)

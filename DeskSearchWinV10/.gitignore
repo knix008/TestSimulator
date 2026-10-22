@@ -44,6 +44,9 @@ artifacts/
 DeskSearch.Installer/bin/
 DeskSearch.Installer/obj/
 *.msi
+
+# build.ps1 이 루트에 복사하는 단일 파일 실행 파일
+/DeskSearch.exe
 *.msm
 *.msp
 *.cab

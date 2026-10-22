@@ -45,9 +45,25 @@ public partial class App : System.Windows.Application
         RegisterExceptionHandlers();
         base.OnStartup(e);
 
+        if (StartupService.IsAutostartLaunch(e.Args))
+            _ = ShowMainWindowWhenDesktopReadyAsync();
+        else
+            ShowMainWindow();
+    }
+
+    private void ShowMainWindow()
+    {
         var mainWindow = new MainWindow(Settings);
         MainWindow = mainWindow;
         mainWindow.Show();
+    }
+
+    private async Task ShowMainWindowWhenDesktopReadyAsync()
+    {
+        await Task.Run(() => StartupService.WaitForInteractiveDesktop(TimeSpan.FromSeconds(90)));
+        // Grace period: ctfmon exists slightly before its TSF hooks accept clients.
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        ShowMainWindow();
     }
 
     private void RegisterExceptionHandlers()
