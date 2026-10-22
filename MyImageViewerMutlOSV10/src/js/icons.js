@@ -1,0 +1,249 @@
+/* SVG icon definitions */
+window.Icons = {
+  openFile: `<svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.11 0-2 .89-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>`,
+  openFolder: `<svg viewBox="0 0 24 24"><path d="M19 20H4c-1.11 0-2-.9-2-2V6c0-1.11.89-2 2-2h6l2 2h7c1.11 0 2 .9 2 2H4v10l2.14-8H21l-2.14 8c-.3 1.11-1.37 2-2.5 2z"/></svg>`,
+  save: `<svg viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm2 16H5V5h11.17L19 7.83V19zm-7-7c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zM6 6h9v4H6z"/></svg>`,
+  saveAs: `<svg viewBox="0 0 24 24"><path d="M14 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h8v-2H5V5h8.17L16 7.83V11h2V7l-4-4zM6 6h7v3H6z"/><path d="M19 13v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>`,
+  zoomIn: `<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-7H9v2H7v1h2v2h1v-2h2V9h-2z"/></svg>`,
+  zoomOut: `<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7z"/></svg>`,
+  fitWindow: `<svg viewBox="0 0 24 24"><path d="M3 3h7v2H5v5H3zm11 0h7v7h-2V5h-5zm-9 11H3v7h7v-2H5zm14 5h-5v2h7v-7h-2z"/></svg>`,
+  actualSize: `<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM8 15H6v-4H4v-1l4-3v8zm4-2.5h-1V11h-1V9.5L12 9v3.5zm7-3.5h-3V8h4v1l-2 5h-1z"/></svg>`,
+  rotateLeft: `<svg viewBox="0 0 24 24"><rect x="6.5" y="12" width="11" height="8" rx="1.3" opacity=".42"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18.5 10.2C18.2 5.8 14.7 3.8 12 3.8 8.4 3.8 5.6 6.4 5.2 9.6"/><path d="M1.8 9.8L6.7 6.3v7z"/></svg>`,
+  rotateRight: `<svg viewBox="0 0 24 24"><rect x="6.5" y="12" width="11" height="8" rx="1.3" opacity=".42"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 10.2C5.8 5.8 9.3 3.8 12 3.8c3.6 0 6.4 2.6 6.8 5.8"/><path d="M22.2 9.8L17.3 6.3v7z"/></svg>`,
+  flipH: `<svg viewBox="0 0 24 24"><path d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zm0 4h2v-2h-2v2zm0 4h2v-2h-2v2zm-4-4h2v-2h-2v2zM3 3v18h2V3H3zm8 18h2v-2h-2v2zm4-16h2V3h-2v2zm-4 0h2V3h-2v2zm0 4h2V7h-2v2zm0 8h2v-2h-2v2zm0-4h2v-2h-2v2z"/></svg>`,
+  flipV: `<svg viewBox="0 0 24 24"><path d="M3 15v2h2v-2H3zm4 4h2v-2H7v2zm4 2v-2h-2v2h2zm-4-8h2v-2H7v2zM3 3v2h18V3H3zm12 16h2v-2h-2v2zm-4-8h2v-2h-2v2zm4-4h2V5h-2v2zm0 4h2v-2h-2v2zm0 8h2v-2h-2v2z"/></svg>`,
+  resize: `<svg viewBox="0 0 24 24"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>`,
+  prev: `<svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>`,
+  next: `<svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>`,
+  undo: `<svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>`,
+  redo: `<svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.91 16c1.05-3.19 4.05-5.5 7.59-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>`,
+  edit: `<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`,
+  effects: `<svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zm0-10v2h10V7H3zm10 12v-2h8v-2h-8v-2h-2v6h2zm-4-8v-2H3v2h6zm6-2v2h8v-2h-8zm-2-2h2V5h-2V3h-2v6h2V9z"/></svg>`,
+  sun: `<svg viewBox="0 0 24 24"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg>`,
+  moon: `<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>`,
+  image: `<svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`,
+  folder: `<svg viewBox="0 0 24 24"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>`,
+  folderOpen: `<svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-1 11H5l2.5-8h14z"/></svg>`,
+  drive: `<svg viewBox="0 0 24 24"><path d="M2 20h20v-4H2v4zm2-3h2v2H4v-2zM2 4v12h20V4H2zm10 7c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>`,
+  file: `<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>`,
+  chevronLeft: `<svg viewBox="0 0 24 24"><path d="M14 6l1.41 1.41L10.83 12l4.58 4.59L14 18l-6-6z"/></svg>`,
+  chevronRight: `<svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>`,
+  close: `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>`,
+  delete: `<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
+  arrowUp: `<svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8z"/></svg>`,
+  viewGrid: `<svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>`,
+  viewList: `<svg viewBox="0 0 24 24"><path d="M3 5h4v4H3V5zm6 1h12v2H9V6zM3 11h4v4H3v-4zm6 1h12v2H9v-2zm-6 5h4v4H3v-4zm6 1h12v2H9v-2z"/></svg>`,
+  viewDetails: `<svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 4h18v2H3V9zm0 4h18v2H3v-2zm0 4h18v2H3v-2z"/></svg>`,
+  sortAsc: `<svg viewBox="0 0 24 24"><path d="M12 4l6 7h-4v9h-4v-9H6l6-7z"/></svg>`,
+  sortDesc: `<svg viewBox="0 0 24 24"><path d="M12 20l-6-7h4V4h4v9h4l-6 7z"/></svg>`,
+  folderTree: `<svg viewBox="0 0 24 24"><path d="M3 4h6l2 2h10v3H3V4zm0 6h18v10H3V10zm2 2v6h14v-6H5z"/></svg>`,
+  panelLeft: `<svg viewBox="0 0 24 24"><path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h6V5H3zm8 0v14h10V5H11z"/></svg>`,
+  panelRight: `<svg viewBox="0 0 24 24"><path d="M3 3h18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h10V5H3zm12 0v14h6V5h-6z"/></svg>`,
+  info: `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`,
+  /* Menu bar icons */
+  print: `<svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>`,
+  export: `<svg viewBox="0 0 24 24"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67 2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/></svg>`,
+  exit: `<svg viewBox="0 0 24 24"><path d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>`,
+  fullscreen: `<svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>`,
+  recent: `<svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>`,
+  language: `<svg viewBox="0 0 24 24"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>`,
+  grayscale: `<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>`,
+  sepia: `<svg viewBox="0 0 24 24"><path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8zm0 18c-3.35 0-6-2.57-6-6.2 0-2.34 1.95-5.44 6-9.14 4.05 3.7 6 6.79 6 9.14 0 3.63-2.65 6.2-6 6.2zm-4.17-6c.37 0 .67.26.74.62.41 2.22 2.28 2.98 3.64 2.87.43-.02.79.32.79.75 0 .4-.32.73-.72.75-2.13.13-4.62-1.09-5.19-4.12a.75.75 0 0 1 .74-.87z"/></svg>`,
+  invertColors: `<svg viewBox="0 0 24 24"><path d="M17.66 7.93 12 2.27 6.34 7.93c-3.12 3.12-3.12 8.19 0 11.31A7.98 7.98 0 0 0 12 21.58c2.05 0 4.1-.78 5.66-2.34 3.12-3.12 3.12-8.19 0-11.31zM12 19.59c-1.6 0-3.11-.62-4.24-1.76C6.62 16.69 6 15.19 6 13.59s.62-3.11 1.76-4.24L12 5.1v14.49z"/></svg>`,
+  help: `<svg viewBox="0 0 24 24"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>`,
+  fileInfo: `<svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-7-3h2v-5h-2v5zm0-7h2V8h-2v2z"/></svg>`,
+  fmtImage: `<svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`,
+  sliders: `<svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>`,
+  copy: `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`,
+  explorer: `<svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"/></svg>`,
+  reset: `<svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`,
+  keyboard: `<svg viewBox="0 0 24 24"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 5H5v-2h2v2zm0-3H5v-2h2v2zm0-3H5V8h2v2zm9 6H8v-2h8v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2zm3 6h-2v-2h2v2zm0-3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>`,
+  pointer: `<svg viewBox="0 0 24 24"><path d="M4 0l16 12.3-6.4.9-3.7 6.5z"/></svg>`,
+  rectSelect: `<svg viewBox="0 0 24 24"><path d="M3 5v14h18V5H3zm16 12H5V7h14v10z" opacity=".5"/><path d="M3 5v4h2V7h2V5H3zm16 0h-4v2h2v2h2V5zM3 19v-4H5v2h2v2H3zm16 0h-4v-2h2v-2h2v4z"/></svg>`,
+  lasso: `<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h.5l1 3h3l1-3H15c.55 0 1-.45 1-1v-2.26C17.81 13.47 19 11.38 19 9c0-3.87-3.13-7-7-7zm-1 15v-1.45A6.98 6.98 0 0 1 12 16a6.98 6.98 0 0 1 1-.45V17h-2z" opacity=".4"/><path d="M12 4C9.24 4 7 6.24 7 9s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z"/></svg>`,
+  polygon: `<svg viewBox="0 0 24 24"><path d="M3 17L9 7l6 4 3-6 3 4v9H3z" opacity=".4"/><circle cx="3" cy="17" r="2"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="11" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="21" cy="9" r="2"/><circle cx="21" cy="18" r="2"/></svg>`,
+  magicWand: `<svg viewBox="0 0 24 24"><path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a1 1 0 0 0-1.41 0L1.29 18.96a1 1 0 0 0 0 1.41l2.34 2.34a1 1 0 0 0 1.41 0L16.7 11.04a1 1 0 0 0 0-1.41l-2.33-2.34zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/></svg>`,
+  bgRemove: `<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" opacity=".5"/><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 2v.93l-7 7-2.29-2.29 5.08-5.64H21zm-11.71 6L7 8.71V5h7.62l-5.33 6zM3 19v-5.34l3.66 3.66L3 19zm1.41 0L19 4.41V5H5.41L4.41 5 3 6.41V5H4.41z" opacity=".3"/><path d="M3 5h2v2H3zm16 0h2v2h-2zM3 17h2v2H3zm16 0h2v2h-2z"/></svg>`,
+  paste: `<svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h6v-2H5V4h2v3h10V4h2v7h2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm3 11v9h7v-9h-7zm5 7h-3v-5h3v5z"/></svg>`,
+  cut: `<svg viewBox="0 0 24 24"><path d="M9.64 7.64c.23-.5.36-1.05.36-1.64C10 4.01 8.99 3 7.5 3S5 4.01 5 5.5 6.01 8 7.5 8c.59 0 1.14-.13 1.64-.36L11 9.94 9.15 11.79A3.504 3.504 0 0 0 7.5 11.5C6.01 11.5 5 12.51 5 14s1.01 2.5 2.5 2.5S10 15.49 10 14c0-.59-.13-1.14-.36-1.64L11.5 11l6.5 6.5H21l-7.36-7.36 1.5-1.5L18.5 12H21l-4-4 2.64-2.64C18.86 4.86 18.31 4.5 17.72 4.5c-.49 0-.91.22-1.21.56L15 6.59 13.5 5.09C13.22 4.73 12.79 4.5 12.28 4.5c-.59 0-1.14.13-1.64.36L9.06 6.44 9.64 7.64z"/></svg>`,
+  crop: `<svg viewBox="0 0 24 24"><path d="M7 1H5v4H1v2h4v10a2 2 0 0 0 2 2h10v4h2v-4h4v-2H7zM17 15h2V7a2 2 0 0 0-2-2H9v2h8z"/></svg>`,
+  palette: `<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01a1.49 1.49 0 0 1 1.11-2.49H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>`,
+  caretDown: `<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>`,
+  warning: `<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>`,
+  /* Flags (language switch). Drawn with fills only so the toolbar's currentColor
+     stroke rules cannot recolour them. 3:2 aspect. */
+  flagKo: `<svg viewBox="0 0 36 24" class="flag-icon"><rect width="36" height="24" fill="#fff"/>`
+    + `<g transform="translate(18 12) rotate(-56.3)"><circle r="6" fill="#cd2e3a"/><path fill="#0047a0" d="M0-6A3 3 0 0 0 0 0A3 3 0 0 1 0 6A6 6 0 0 1 0-6Z"/>`
+    + `<g fill="#000"><rect x="-3" y="-13.2" width="6" height="1.1"/><rect x="-3" y="-11.55" width="6" height="1.1"/><rect x="-3" y="-9.9" width="6" height="1.1"/>`
+    + `<rect x="-3" y="8.8" width="2.4" height="1.1"/><rect x=".6" y="8.8" width="2.4" height="1.1"/><rect x="-3" y="10.45" width="2.4" height="1.1"/><rect x=".6" y="10.45" width="2.4" height="1.1"/><rect x="-3" y="12.1" width="2.4" height="1.1"/><rect x=".6" y="12.1" width="2.4" height="1.1"/></g></g>`
+    + `<g transform="translate(18 12) rotate(56.3)" fill="#000"><rect x="-3" y="-13.2" width="2.4" height="1.1"/><rect x=".6" y="-13.2" width="2.4" height="1.1"/><rect x="-3" y="-11.55" width="6" height="1.1"/><rect x="-3" y="-9.9" width="2.4" height="1.1"/><rect x=".6" y="-9.9" width="2.4" height="1.1"/>`
+    + `<rect x="-3" y="8.8" width="6" height="1.1"/><rect x="-3" y="10.45" width="2.4" height="1.1"/><rect x=".6" y="10.45" width="2.4" height="1.1"/><rect x="-3" y="12.1" width="6" height="1.1"/></g></svg>`,
+  flagUs: `<svg viewBox="0 0 36 24" class="flag-icon"><rect width="36" height="24" fill="#fff"/>`
+    + `<path fill="#b22234" d="M0 0h36v1.85H0zM0 3.69h36v1.85H0zM0 7.38h36v1.85H0zM0 11.08h36v1.84H0zM0 14.77h36v1.85H0zM0 18.46h36v1.85H0zM0 22.15h36V24H0z"/>`
+    + `<rect width="14.4" height="12.92" fill="#3c3b6e"/>`
+    + `<g fill="#fff"><circle cx="2.4" cy="2.2" r=".6"/><circle cx="5.3" cy="2.2" r=".6"/><circle cx="8.2" cy="2.2" r=".6"/><circle cx="11.1" cy="2.2" r=".6"/>`
+    + `<circle cx="3.85" cy="4.4" r=".6"/><circle cx="6.75" cy="4.4" r=".6"/><circle cx="9.65" cy="4.4" r=".6"/><circle cx="12.55" cy="4.4" r=".6"/>`
+    + `<circle cx="2.4" cy="6.6" r=".6"/><circle cx="5.3" cy="6.6" r=".6"/><circle cx="8.2" cy="6.6" r=".6"/><circle cx="11.1" cy="6.6" r=".6"/>`
+    + `<circle cx="3.85" cy="8.8" r=".6"/><circle cx="6.75" cy="8.8" r=".6"/><circle cx="9.65" cy="8.8" r=".6"/><circle cx="12.55" cy="8.8" r=".6"/>`
+    + `<circle cx="2.4" cy="11" r=".6"/><circle cx="5.3" cy="11" r=".6"/><circle cx="8.2" cy="11" r=".6"/><circle cx="11.1" cy="11" r=".6"/></g></svg>`,
+
+  /* ── Format-specific file icons (tree view) ── */
+  fmtJpg: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`,
+  fmtPng: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6V6h12v13z"/><path d="M8 16l2.5-3.2 1.8 2.2L15 11l3 5H8z" opacity=".9"/><path d="M6 6h3v3H6zm3 0h3v3H9zm0 3h3v3H9zm-3 0h3v3H6z" opacity=".35"/></svg>`,
+  fmtGif: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M8.5 14.5l2 2.5 2.5-3.2L16 17H7l1.5-2.5z"/><path d="M16.5 8.2a2.8 2.8 0 0 0-2.3-1.3v1.2c.5 0 .95.2 1.3.5l.1.1.9-.9-.1-.1c-.2-.2-.4-.3-.6-.4z" opacity=".85"/><path d="M15 9.5V11h1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  fmtWebp: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 16l2.2-3 1.6 2 2.4-3.2L17 16H7z"/><circle cx="9" cy="8.5" r="1.3"/></svg>`,
+  fmtBmp: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h3v3H7zm4 0h3v3h-3zm4 0h3v3h-3zM7 11h3v3H7zm4 0h3v3h-3zm4 0h3v3h-3zM7 15h3v3H7zm4 0h3v3h-3zm4 0h3v3h-3z" opacity=".75"/></svg>`,
+  fmtSvg: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7.5 16.5c2-4 3.5-6 5-6s2.2 1.2 3.5 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="9" r="1.4"/><circle cx="16.5" cy="14.5" r="1.4"/></svg>`,
+  fmtIco: `<svg viewBox="0 0 24 24"><path d="M18 4H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H6V6h12v12z"/><path d="M8 10h3v3H8zm5-2h3v3h-3zm-1 5l2.2 2.8L16 14l2 3H9l3-4z" opacity=".9"/></svg>`,
+  fmtTiff: `<svg viewBox="0 0 24 24"><path d="M6 4h11l3 3v13H6c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" opacity=".35"/><path d="M8 2h11l3 3v13H8c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm0 2v12h12V6h-3V4H8z"/><path d="M10 14l2-2.5 1.5 1.8L16 10l2.5 4H10z"/></svg>`,
+  fmtHeic: `<svg viewBox="0 0 24 24"><path d="M18 4H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H6V6h12v12z"/><path d="M8.2 15.2l2.3-2.9 1.7 2.1 2.4-3.1 3.2 3.9H8.2z"/><circle cx="9.5" cy="9" r="1.2"/></svg>`,
+  fmtAvif: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7.5 16l2.4-3.1 1.7 2.1 2.5-3.3L17.5 16h-10z"/><path d="M15.2 7.2l.8 1.6 1.7.3-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.3z"/></svg>`,
+  fmtDcm: `<svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4z"/></svg>`,
+  fmtVideo: `<svg viewBox="0 0 24 24"><path d="M18 4v1h-2V4H8v1H6V4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2v-1h2v1h8v-1h2v1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/><path d="M10 9.5v5l4.5-2.5z"/></svg>`,
+  fmtMp4: `<svg viewBox="0 0 24 24"><path d="M18 4v1h-2V4H8v1H6V4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2v-1h2v1h8v-1h2v1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/><path d="M10 9.2v5.6l4.8-2.8z"/></svg>`,
+  fmtWebm: `<svg viewBox="0 0 24 24"><path d="M4 6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v12h12V6H6z"/><path d="M10 9v6l5-3z"/><path d="M16.5 7.5l1 1-1 1M17.5 8.5h-2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+  fmtMov: `<svg viewBox="0 0 24 24"><path d="M4 6c0-1.1.9-2 2-2h8l6 6v8c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v12h12v-7h-5V6H6z"/><path d="M9.5 11.2v5.2l4.5-2.6z"/></svg>`,
+  fmtMkv: `<svg viewBox="0 0 24 24"><path d="M4 6c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6zm2 0v12h12V6H6z"/><path d="M9 9v6l5-3z"/><path d="M15.5 8h1.2l.8 2 .8-2H19l-1.3 3L19 16h-1.3l-.8-2-.8 2H15.5l1.2-3z"/></svg>`,
+  fmtAvi: `<svg viewBox="0 0 24 24"><path d="M18 4v1h-2V4H8v1H6V4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2v-1h2v1h8v-1h2v1c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/><path d="M9 15V9h1.3l1.2 3.2L12.7 9H14v6h-1.1v-3.6L11.6 15h-.9l-1.3-3.6V15H9z"/></svg>`,
+  fmtAudio: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>`,
+  fmtMp3: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/><circle cx="10" cy="17" r="2.2"/></svg>`,
+  fmtWav: `<svg viewBox="0 0 24 24"><path d="M4 12h2v4H4zm3-3h2v10H7zm3-3h2v16h-2zm3 5h2v6h-2zm3-4h2v14h-2zm3 2h2v10h-2z"/></svg>`,
+  fmtFlac: `<svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/><path d="M5 8h1.5v8H5zm2.5 2H9v4H7.5z" opacity=".7"/></svg>`,
+  home: `<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>`,
+
+  mediaPlay: `<svg viewBox="0 0 24 24"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>`,
+  mediaPause: `<svg viewBox="0 0 24 24"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>`,
+  mediaStop: `<svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.2"/></svg>`,
+  // DICOM viewer
+  layers: `<svg viewBox="0 0 24 24"><path d="M12 3 2 8.5l10 5.5 10-5.5L12 3zm0 2.3 5.9 3.2L12 11.7 6.1 8.5 12 5.3zM4.2 12.6 2 13.8l10 5.5 10-5.5-2.2-1.2L12 17l-7.8-4.4z"/></svg>`,
+  annotations: `<svg viewBox="0 0 24 24"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 0h2v6h-6v-2h4v-4zM9 8h6v2h-2v6h-2v-6H9V8z"/></svg>`,
+  ruler: `<svg viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 6v12M20 6v12M7 12h10M10 9l-3 3 3 3M14 9l3 3-3 3"/></svg>`,
+  guideRuler: `<svg viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round" d="M3 7h18v11H3zM7 7v4M11 7v2.5M15 7v4M19 7v2.5"/></svg>`,
+  guideGrid: `<svg viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:1.6" d="M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16"/></svg>`,
+  angle: `<svg viewBox="0 0 24 24"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 20h16M4 20 18 6M12 20A8 8 0 0 0 9.66 14.34"/></svg>`,
+  ellipse: `<svg viewBox="0 0 24 24"><path d="M12 5c-5 0-9 3.1-9 7s4 7 9 7 9-3.1 9-7-4-7-9-7zm0 2c3.9 0 7 2.2 7 5s-3.1 5-7 5-7-2.2-7-5 3.1-5 7-5z"/></svg>`,
+  rectRoi: `<svg viewBox="0 0 24 24"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5z"/></svg>`,
+  sceneValley: `<svg viewBox="0 0 24 24"><path d="M2 18 8 8l4 6 3-4 7 8H2zm8.2 0c.6-1.6 1.6-2.4 2.8-2.4s2.2.8 2.8 2.4H10.2z"/></svg>`,
+  sceneOcean: `<svg viewBox="0 0 24 24"><path d="M2 9c1.6-1.6 3.4-1.6 5 0s3.4 1.6 5 0 3.4-1.6 5 0 3.4 1.6 5 0v2c-1.6 1.6-3.4 1.6-5 0s-3.4-1.6-5 0-3.4 1.6-5 0-3.4-1.6-5 0V9zm0 6c1.6-1.6 3.4-1.6 5 0s3.4 1.6 5 0 3.4-1.6 5 0 3.4 1.6 5 0v2c-1.6 1.6-3.4 1.6-5 0s-3.4-1.6-5 0-3.4 1.6-5 0-3.4-1.6-5 0v-2z"/></svg>`,
+  sceneAurora: `<svg viewBox="0 0 24 24"><path d="M4 20c2-6 2-10 0-16h2c2 6 2 10 0 16H4zm5 0c2-7 3-11 1-16h2c2 5 1 9-1 16H9zm6 0c3-6 2-11 0-16h2c2 5 3 10 0 16h-2z"/></svg>`,
+  sceneStars: `<svg viewBox="0 0 24 24"><path d="M12 2.5 14.1 9H21l-5.5 4 2.1 6.5L12 15.6 6.4 19.5 8.5 13 3 9h6.9L12 2.5z"/></svg>`,
+  sceneRain: `<svg viewBox="0 0 24 24"><path d="M6 15a5 5 0 0 1-.4-10 6 6 0 0 1 11.5-1.2A4.5 4.5 0 0 1 18 15H6zm1.2 2.2 1.2 2.6h2.1l-1.2-2.6H7.2zm5 0 1.2 2.6h2.1l-1.2-2.6h-2.1z"/></svg>`,
+  sceneSnow: `<svg viewBox="0 0 24 24"><path d="M11 2h2v4.2l2.6-2.6 1.4 1.4L13.4 8.6 18 10v2l-4.6-1.4 1.6 3.2 3.6 1.2-1 1.8-3.6-1.2L13 20.2V22h-2v-1.8l-1 4.6-3.6 1.2-1-1.8 3.6-1.2L11.6 10.6 7 12v-2l4.6-1.4L8 5l1.4-1.4L12 6.2V2z"/></svg>`,
+  sceneDusk: `<svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 0 10H3a7 7 0 0 1 9-9.9V7zm-8 12h16v2H4v-2z"/></svg>`,
+  sceneForest: `<svg viewBox="0 0 24 24"><path d="M12 2 6 10h3L5 17h14l-4-7h3L12 2zM11 17h2v5h-2z"/></svg>`,
+  sceneDunes: `<svg viewBox="0 0 24 24"><path d="M2 16c2.2-3 4.2-3 6.2 0 1.6 2.4 3.4 2.6 5.2.4C15.6 14 18 13.2 22 16v4H2v-4z"/></svg>`,
+  sceneCity: `<svg viewBox="0 0 24 24"><path d="M3 21V9h6v12H3zm2-8h2v2H5v-2zm0 4h2v2H5v-2zM11 21V3h8v18h-8zm2-14h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/></svg>`,
+  sceneNebula: `<svg viewBox="0 0 24 24"><path d="M12 3c2.4 2.2 3.2 4.4 2.2 6.2 1.8-.2 3.6.4 5 1.8-2 .2-3.6 1.2-4.4 2.8 1.6.8 2.6 2.2 2.8 4.2-2.2-.6-4-.2-5.4 1-1-1.6-2.6-2.6-4.8-2.8 1.2-1.4 1.6-3 .8-4.8-2 .6-3.8 0-5.2-1.6C5.2 8 7.6 6.2 12 3z"/></svg>`,
+  sceneBokeh: `<svg viewBox="0 0 24 24"><path d="M8 5a3.2 3.2 0 1 0 .1 6.4A3.2 3.2 0 0 0 8 5zm8 1.5a2.4 2.4 0 1 0 .1 4.8 2.4 2.4 0 0 0-.1-4.8zM11 12a4 4 0 1 0 .1 8 4 4 0 0 0-.1-8z"/></svg>`,
+  sceneGrid: `<svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></svg>`,
+  sceneRibbons: `<svg viewBox="0 0 24 24"><path d="M3 8c3-4 6-4 9 0s6 4 9 0v3c-3 4-6 4-9 0s-6-4-9 0V8zm0 7c3-3 6-3 9 0s6 3 9 0v3c-3 3-6 3-9 0s-6-3-9 0v-3z"/></svg>`,
+  sceneEmbers: `<svg viewBox="0 0 24 24"><path d="M12 2s4 4.2 4 8c0 2.2-1.2 3.6-2.4 4.4.8 2.6-1 5.6-1.6 5.6S8 16.8 9.2 14C7.6 13.2 6 11.4 6 9.2 6 5.6 12 2 12 2z"/></svg>`,
+  sceneLake: `<svg viewBox="0 0 24 24"><path d="M4 8 8 4l4 3 4-3 4 4v2H4V8zM2 14c1.8-2 3.6-2 5.4 0S11 16 12.8 14s3.6-2 5.4 0 3.6 2 5.4 0v4H2v-4z"/></svg>`,
+  sceneSunrise: `<svg viewBox="0 0 24 24"><path d="M12 6a5 5 0 0 1 5 5H7a5 5 0 0 1 5-5zM3 13h18v2H3v-2zm2 4h14v2H5v-2zM11 2h2v3h-2V2z"/></svg>`,
+  sceneFireflies: `<svg viewBox="0 0 24 24"><path d="M7 4.5 8 7l2.5 1L8 9l-1 2.5L6 9 3.5 8 6 7 7 4.5zM16 8l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2zM12 14l1.2 2.8L16 18l-2.8 1.2L12 22l-1.2-2.8L8 18l2.8-1.2L12 14z"/></svg>`,
+  sceneGeometry: `<svg viewBox="0 0 24 24"><path d="M12 3 4 16h16L12 3zm-7 15h6v4H5v-4zm8 0h6v4h-6v-4z"/></svg>`,
+  sceneInk: `<svg viewBox="0 0 24 24"><path d="M12 3c3 2 7 3 8 7 1 4-1 8-5 9s-8-1-9-5-1-8 2-10c1.2 2 3 3 4 1 0 0 .2-1 0-2z"/></svg>`,
+  scenePetals: `<svg viewBox="0 0 24 24"><path d="M12 8c0-3 1.6-5 1.6-5S16 5 16 8s-1.8 3-4 3-4-1.2-4-3 2.4-5 2.4-5S12 5 12 8zm0 8c0 3-1.6 5-1.6 5S8 19 8 16s1.8-3 4-3 4 1.2 4 3-2.4 5-2.4 5S12 19 12 16zM8 12c-3 0-5-1.6-5-1.6S5 8 8 8s3 1.8 3 4-1.2 4-3 4-5-2.4-5-2.4S5 12 8 12zm8 0c3 0 5 1.6 5 1.6S19 16 16 16s-3-1.8-3-4 1.2-4 3-4 5 2.4 5 2.4S19 12 16 12zM11 11h2v2h-2z"/></svg>`,
+  sceneMountains: `<svg viewBox="0 0 24 24"><path d="M2 19 9 6l4 7 2-3 7 9H2zm8.2-4.2L12 12l1.5 2.6-1.3.2z"/></svg>`,
+
+  /**
+   * Pick a tree-view icon + CSS class for a file extension.
+   * @param {string} ext lowercase extension without dot
+   * @returns {{ html: string, className: string }}
+   */
+  forExtension(ext) {
+    const e = (ext || '').toLowerCase();
+    const map = {
+      jpg:  { html: this.fmtJpg,  className: 'fmt-icon fmt-jpg' },
+      jpeg: { html: this.fmtJpg,  className: 'fmt-icon fmt-jpg' },
+      png:  { html: this.fmtPng,  className: 'fmt-icon fmt-png' },
+      gif:  { html: this.fmtGif,  className: 'fmt-icon fmt-gif' },
+      webp: { html: this.fmtWebp, className: 'fmt-icon fmt-webp' },
+      bmp:  { html: this.fmtBmp,  className: 'fmt-icon fmt-bmp' },
+      svg:  { html: this.fmtSvg,  className: 'fmt-icon fmt-svg' },
+      ico:  { html: this.fmtIco,  className: 'fmt-icon fmt-ico' },
+      tiff: { html: this.fmtTiff, className: 'fmt-icon fmt-tiff' },
+      tif:  { html: this.fmtTiff, className: 'fmt-icon fmt-tiff' },
+      heic: { html: this.fmtHeic, className: 'fmt-icon fmt-heic' },
+      heif: { html: this.fmtHeic, className: 'fmt-icon fmt-heic' },
+      hif:  { html: this.fmtHeic, className: 'fmt-icon fmt-heic' },
+      avif: { html: this.fmtAvif, className: 'fmt-icon fmt-avif' },
+      dcm:  { html: this.fmtDcm,  className: 'fmt-icon fmt-dcm' },
+      dicom:{ html: this.fmtDcm,  className: 'fmt-icon fmt-dcm' },
+      mp4:  { html: this.fmtMp4,  className: 'fmt-icon fmt-mp4' },
+      m4v:  { html: this.fmtMp4,  className: 'fmt-icon fmt-mp4' },
+      webm: { html: this.fmtWebm, className: 'fmt-icon fmt-webm' },
+      mov:  { html: this.fmtMov,  className: 'fmt-icon fmt-mov' },
+      mkv:  { html: this.fmtMkv,  className: 'fmt-icon fmt-mkv' },
+      avi:  { html: this.fmtAvi,  className: 'fmt-icon fmt-avi' },
+      mp3:  { html: this.fmtMp3,  className: 'fmt-icon fmt-mp3' },
+      wav:  { html: this.fmtWav,  className: 'fmt-icon fmt-wav' },
+      flac: { html: this.fmtFlac, className: 'fmt-icon fmt-flac' },
+      aac:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      m4a:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      ogg:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      opus: { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+      wma:  { html: this.fmtAudio, className: 'fmt-icon fmt-audio' },
+    };
+    if (map[e]) return map[e];
+    // Fallbacks by media family
+    const video = new Set(['ogv','flv','wmv','3gp','mpeg','mpg','ts','m2ts','vob','rm','rmvb']);
+    const audio = new Set(['mid','midi','aiff','aif']);
+    if (video.has(e)) return { html: this.fmtVideo, className: 'fmt-icon fmt-video' };
+    if (audio.has(e)) return { html: this.fmtAudio, className: 'fmt-icon fmt-audio' };
+    return { html: this.file, className: 'file-icon' };
+  },
+};
+
+/* Every toolbar, menu and tree glyph keeps its own colour (currentColor). */
+(function _colorIcons() {
+  const named = {
+    openFile: '#4c8dff', openFolder: '#e8b84a', save: '#3ecf8e', saveAs: '#2fbf7a',
+    zoomIn: '#7aa2f7', zoomOut: '#9aa5ce', fitWindow: '#2dd4bf', actualSize: '#38bdf8',
+    rotateLeft: '#c084fc', rotateRight: '#a78bfa', flipH: '#f472b6', flipV: '#fb7185',
+    resize: '#fb923c', prev: '#60a5fa', next: '#38bdf8', undo: '#fbbf24', redo: '#f59e0b',
+    edit: '#34d399', effects: '#e879f9', sun: '#facc15', moon: '#a5b4fc', image: '#86efac',
+    folder: '#e8b84a', folderOpen: '#f0c14a', folderTree: '#e8b84a', drive: '#38bdf8',
+    file: '#94a3b8', close: '#f87171', delete: '#ef4444', print: '#818cf8', export: '#22d3ee',
+    exit: '#fb7185', fullscreen: '#22d3ee', recent: '#fcd34d', language: '#4ade80',
+    grayscale: '#cbd5e1', sepia: '#d4a574', invertColors: '#c084fc', help: '#38bdf8',
+    fileInfo: '#7dd3fc', sliders: '#f472b6', copy: '#93c5fd', explorer: '#fbbf24',
+    reset: '#fb923c', keyboard: '#a3e635', pointer: '#e2e8f0', rectSelect: '#60a5fa',
+    lasso: '#f472b6', polygon: '#c084fc', magicWand: '#e879f9', bgRemove: '#2dd4bf',
+    paste: '#86efac', cut: '#fb7185', crop: '#fbbf24', palette: '#f472b6', settings: '#94a3b8',
+    caretDown: '#94a3b8', warning: '#fbbf24', info: '#38bdf8', panelLeft: '#7dd3fc',
+    panelRight: '#a5b4fc', viewGrid: '#34d399', viewList: '#60a5fa', viewDetails: '#c084fc',
+    sortAsc: '#4ade80', sortDesc: '#fb923c', chevronLeft: '#94a3b8', chevronRight: '#94a3b8',
+    arrowUp: '#60a5fa', layers: '#818cf8', annotations: '#f472b6', ruler: '#fbbf24',
+    guideRuler: '#fbbf24', guideGrid: '#7dd3fc',
+    sceneValley: '#4ade80', sceneOcean: '#38bdf8', sceneAurora: '#34d399', sceneStars: '#fde68a',
+    sceneRain: '#7dd3fc', sceneSnow: '#e2e8f0', sceneDusk: '#fb923c', sceneForest: '#22c55e',
+    sceneDunes: '#fbbf24', sceneCity: '#a5b4fc', sceneNebula: '#c084fc', sceneBokeh: '#f472b6',
+    sceneGrid: '#67e8f9', sceneRibbons: '#f9a8d4', sceneEmbers: '#f97316', sceneLake: '#22d3ee',
+    sceneSunrise: '#facc15', sceneFireflies: '#bef264', sceneGeometry: '#818cf8', sceneInk: '#94a3b8',
+    scenePetals: '#fb7185', sceneMountains: '#86efac',
+    angle: '#fb923c', ellipse: '#34d399', rectRoi: '#60a5fa', mediaPlay: '#4ade80',
+    mediaPause: '#fbbf24', mediaStop: '#f87171', home: '#4c8dff',
+    fmtJpg: '#f97316', fmtPng: '#22c55e', fmtGif: '#a855f7', fmtWebp: '#06b6d4',
+    fmtBmp: '#3b82f6', fmtSvg: '#eab308', fmtIco: '#ec4899', fmtTiff: '#8b5cf6',
+    fmtHeic: '#14b8a6', fmtAvif: '#f43f5e', fmtDcm: '#ef4444', fmtVideo: '#6366f1',
+    fmtMp4: '#818cf8', fmtWebm: '#22d3ee', fmtMov: '#f59e0b', fmtMkv: '#a78bfa',
+    fmtAvi: '#fb7185', fmtAudio: '#34d399', fmtMp3: '#4ade80', fmtWav: '#2dd4bf', fmtFlac: '#38bdf8',
+    fmtImage: '#86efac',
+  };
+  const hue = (name) => {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 33 + name.charCodeAt(i)) >>> 0;
+    return `hsl(${h % 360} 70% 58%)`;
+  };
+  for (const key of Object.keys(window.Icons)) {
+    const html = window.Icons[key];
+    if (typeof html !== 'string' || html.indexOf('<svg') !== 0) continue;
+    if (key.indexOf('flag') === 0) continue;
+    const color = named[key] || hue(key);
+    window.Icons[key] = html.includes('class="')
+      ? html.replace('class="', `class="ico ico-${key}" style="color:${color}" `)
+      : html.replace('<svg', `<svg class="ico ico-${key}" style="color:${color}"`);
+  }
+})();

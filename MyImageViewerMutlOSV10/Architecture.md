@@ -1,0 +1,310 @@
+# Architecture
+
+## Overview
+
+MyImageViewer **v1.0.2** is a cross-platform image viewer and editor. The desktop shell is **Tauri 2** (Rust + the system webview). The same renderer (`src/`) runs in two modes:
+
+1. **Desktop** — Tauri window + Node host (`npm start`)
+2. **Web** — Express static server + browser `electronAPI` shim (`npm run web`)
+
+On Windows/Linux the window is **frameless**; chrome (brand, menus, current file, window buttons) lives on the menu bar.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Mode A: Tauri shell (src-tauri)                             │
+│  ─ Frameless window, asset protocol, CLI file open           │
+│  ─ Spawns host/server.js when it is not already listening    │
+└────────────────────┬─────────────────────────────────────────┘
+                     │  src/js/tauriAPI.js → http://127.0.0.1:17810/ipc
+┌────────────────────┼─────────────────────────────────────────┐
+│  host/service.js   │  fs, sharp/heic, exifr, DICOM, rembg    │
+│                    │  thumbnail cache, file associations     │
+├────────────────────┼─────────────────────────────────────────┤
+│  Mode B: Web       │  server.js (Express → src/)             │
+│                    │  webAPI.js + fileRegistry.js            │
+│                    │  (same electronAPI contract)            │
+└────────────────────┼─────────────────────────────────────────┘
+                     ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Renderer (src/)                                              │
+│  index.html → app.js                                          │
+│    ├─ Editor (history = pixels + effects + transforms)        │
+│    ├─ Media transport + cues (video / audio / animated GIF)   │
+│    ├─ FileTree (drive-rooted), Browse + Thumbs (contact sheet)  │
+│    ├─ FormatSupport, DicomDecoder + codecs                      │
+│    ├─ Info panel (file / capture / media / tags / DICOM)      │
+│    ├─ I18n, ContextMenu, Tooltip, Icons                       │
+│    └─ fileRegistry / webAPI (web mode only)                   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Run Modes
+
+| | Desktop | Web |
+|--|---------|-----|
+| Entry | `tauri dev` → `host/server.js` | `node server.js` |
+| API | `src/js/tauriAPI.js` | `src/js/webAPI.js` |
+| FS | Real paths / drives | Virtual paths via `FileRegistry` |
+| Icons | `src/assets` + rcedit / branded exe (dev) | Favicon from `src/assets` |
+| Metadata | `read-image-meta` / `read-media-meta` | File stats only |
+
+Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs the shim and sets `platform: 'web'`.
+
+---
+
+## Module Descriptions
+
+### `host/service.js` — Desktop host
+- Frameless `BrowserWindow` (`frame: false`); Windows/Linux application menu is cleared so accelerators are handled in the renderer.
+- Sets Windows `AppUserModelId` (`com.shkwon.imageviewer` when packaged; a hashed `.dev.*` id while unpackaged).
+- **Single-instance lock**: a second launch with a file path focuses the existing window and sends `open-file`.
+- Startup file from `process.argv` (Windows/Linux) or `open-file` (macOS); renderer reads it via `get-launch-file`.
+- Persists `lastOpenDir` under userData for open/save dialogs.
+- IPC: directory listing, **list-drives**, path helpers, file read/write (`read-file-base64`, `read-file-bytes` → raw `Uint8Array` for renderer-side decoders), TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode (fallback only — the renderer decodes DICOM itself), **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, **rename-path** (basename-only, rejects `\/:*?"<>|`), **delete-file**, window min/max/close.
+- Close intercept for unsaved changes (`window-close` vs force close).
+- **AI background removal** (`rembg-remove`): spawns `scripts/rembg_worker.py` (`rembg1`=U2Net, `rembg2`=RMBG-2.0, `rembg3`=ISNet) and streams `rembg-progress` events.
+  - **Auto-provisioning**: `_resolvePython` prefers the machine's existing Python (env override → `python`/`py` → previously app-installed); `_ensureRembgPackages` pip-installs `rembg`/`onnxruntime` on demand into that interpreter. Only if **no** Python exists does `_installManagedPython` download the official installer (Windows, per-user, isolated under `userData/python`) — it never replaces or downgrades a system Python.
+  - Progress is **monotonic**: download → install → package install → the worker's own model/inference progress are remapped into an always-advancing bar.
+
+### `src/js/tauriAPI.js` — Desktop bridge
+- Installs `window.electronAPI` when `window.__TAURI__` is present.
+- `POST /ipc` for request/response; `GET /events` (SSE) for `open-file`, `open-folder`, `menu-action`, progress.
+- Window chrome (minimize, maximize, close, fullscreen, size) uses the Tauri window API. File URLs are rewritten with `convertFileSrc`.
+
+### `server.js` — Web Static Server
+- Serves `src/` on `127.0.0.1` (default port **8080**, increments if busy).
+- No conversion backend; decoding stays in the renderer / optional vendor scripts.
+- Exposes only the DICOM vendor packages under `/node_modules/<pkg>/…` (`dicom-parser`, the four `@cornerstonejs/codec-*` packages, `jpeg-lossless-decoder-js`) so the page's `../node_modules/…` script URLs resolve in both modes.
+- Menus are drawn in the page (`contextMenu.js`). The desktop shell does not open a separate menu window.
+
+### `src/js/webAPI.js` + `fileRegistry.js` — Web Shim
+- Implements the same `electronAPI` surface for the browser.
+- `FileRegistry`: maps virtual paths (`/…`) to `File` / `FileSystemDirectoryHandle`.
+- Open file → `<input type="file">`; open folder → `showDirectoryPicker()` or `webkitdirectory`.
+- Save → `showSaveFilePicker()` or `<a download>`.
+- No-ops / errors: `showItemInFolder`, `renamePath`, `deleteFile`, `startDrag`, `fs.watch`, `readImageMeta`, `readMediaMeta`, `getLaunchFile`.
+
+### `src/js/app.js` — Orchestrator
+- State: lang, theme, currentFile, fileList, zoom/pan, dirty flag, cached `imageMeta` / `mediaMeta` / `dicomMeta`.
+- **Edit window chrome**: `#edit-window-titlebar` (32 px drag region: brand "Edit Image", file name, window-button gutter), `#ew-menubar` (built by `_buildMenubarInto()` from `_ewMenubarDefs()` — File / Edit / View reuse the editor actions, Effects / Help share the main items; button ids `menubar-ew-*`, `_menubarOpen` keys carry the prefix) and `#ew-toolbar-row` (tool / action / transform / undo-redo / zoom / theme groups, spacer, Save · Cancel · Apply). `_editMinWidth()` measures the toolbar row (`_measureFlexContentWidth` now counts margins) and sizes the window on open.
+- **Preferences**: every persisted option is a `localStorage` key; `PREF_DEFAULTS` / `_pref()` / `_setPref()` / `PREF_KEYS` (app.js) back the Settings dialog (`_initSettingsDialog` — `min(900px, 100vw - 48px)` × `min(620px, 100vh - 48px)`, wide enough that all 40 theme tiles fit with the body still `overflow: hidden`; tabbed: General / **Theme** / Viewer & editing / DICOM / Media, `_syncSettingsDialog` refills it, `_resetAllSettings` clears `PREF_KEYS` and reloads). The sizing rule is `.dialog-box.settings-dialog-box` — two classes, because the generic `.dialog-box` rule is declared later in `main.css`. The Theme tab is filled by `_fillSettingsThemeButtons()` (one color-preview button per `Themes` entry; click → `_applyTheme`) into an `auto-fill` grid so the tiles reflow to the dialog width. Options: `restoreSession`, `zoomStep`, `viewerChecker`, `imageSmoothing` (`_applyViewerPrefs` → CSS classes), `dicomDefaultFps`, `dicomOverlayColor`, `dicomAnnotations`, plus the non-dialog toggles `dicomRulerAxes` / `dicomScaleBar` / `dicomScalePos`, `browseViewV1`, `panelLayoutV2` (`{ left, right }` expanded flags), and the older `theme`, `lang`, `bgRemoveAlgo`, `subtitlesEnabled`, `subtitleLanguage`, `mediaVolume` / `mediaMuted`.
+- **Chrome** is three rows: `#titlebar` (brand = icon · name · version, centred current-file name, drag region, fixed `#window-controls` at the right — 32 px, 40 px while the edit window is open), `#menubar` (built by `_buildMenubar()`), `#toolbar` (icon buttons + zoom input, no drag).
+- **Menu bar**: `_menubarDefs()` → File / Edit / View / Effects / Help; each menu is a `ContextMenu` dropdown built on open (`_fileMenuItems()` …) so enabled / checked state is always current. Every item has an icon (`icons.js`). `mousedown` on a menu button opens / toggles it (so the document click that closes menus cannot race), `mouseenter` on a sibling switches menus while one is open; `ContextMenu.show(x, y, items, { onHide })` clears the highlight. File menu: open file, open folder (click = browse; hover = **recent folders** flyout with per-row × via `item.remove` and `ContextMenu.refreshSubmenu()`), save as, **Export ▸** (`_exportAs(ext)` → `_saveAs(false, { ext })` presets the extension), **Print…** (`_printImage`), file info, show in Explorer, delete, exit (desktop only).
+- **Print**: toolbar 🖨 / File ▸ Print… / `Ctrl+P` → `_openPrintPreview()` (`#print-overlay`). The renderer exports the current view as PNG (`Editor.exportAsDataUrl`, or a snapshot of the animated frame), lists printers via `getPrinters` IPC (`webContents.getPrintersAsync`, default first + selected), and computes the page geometry in mm (`_printLayout`: paper table, auto/portrait/landscape, margins, fit / actual (96 dpi) / custom %) — the preview paper is drawn to scale. **Print** → `printImage` IPC with `{ deviceName, pageSize, landscape, marginMm, imgWmm, imgHmm, copies, color }`; main renders the image at exactly that mm size in a hidden `BrowserWindow` and calls `webContents.print({ silent: true, deviceName, pageSize, landscape, margins: custom(px), copies, color })` — no system dialog. Without a printer (web) it falls back to the popup + `window.print()` with `@page { size; margin }`. Paper/margin/scale prefs persist in `localStorage.printPrefs`.
+- **Themes**: `src/js/themes.js` is the registry (id, dark/light kind, name, swatch colours) shared by the renderer (`window.Themes`) and `host/service.js` (`require`). `main.css` defines per-theme `--t-*` base tokens under `[data-theme="<id>"]`; one shared `:root[data-theme]` block derives every other variable from them with `color-mix()`, and `:root[data-theme-kind="dark|light"]` holds the kind-only values (hover tints, shadows, tooltip). `_applyTheme(id)` sets both attributes, persists `theme`, and re-syncs toolbar / settings / native menu. Toolbar: palette button = `_nextTheme()` (wraps through the list), ▾ = `_openThemeMenu()` (ContextMenu with `Themes.swatchSvg`). Native menu actions are `theme:<id>`.
+- Language button shows the flag (`Icons.flagKo` / `Icons.flagUs`) of the **target** language (US flag when UI is Korean, Korean flag when UI is English).
+- **Settings dialog** (`#settings-overlay`, `_initSettingsDialog` / `_syncSettingsDialog`): Theme tab color buttons, language flag buttons, background-removal algorithm (mirrors `#ew-bg-algo` / `bgRemoveAlgo`), subtitles default. Opened by the gear toolbar button, File ▸ Settings…, or the `show-settings` menu action.
+- **Status-bar progress**: file open / folder load paint `#status-progress` (and the edit-window twin) instead of a modal overlay on the main viewer. Edit-window long effects still use the modal `ProgressDialog`.
+- **Explorer rename**: tree context **Rename** → `#rename-overlay` (`_promptRename`) → `renamePath` IPC → `FileTree.remapPath` + rewrite of `state.currentFile` / `fileList` / recent dirs / watches.
+- Dialog headers use `.dialog-title` = `.dialog-title-icon[data-icon]` + label; icons are filled from `Icons` at init (the file dialog swaps `#fd-title-icon` per mode).
+- Toolbar, viewer, edit window, dirty title (`●`), save-as MIME by extension.
+- **Edit session dirty**: previews inside the edit window do not mark the file dirty; **Cancel** / Esc discards with no Save dialog; **Apply** commits the session and marks dirty only if something changed.
+- Side panels: `#sidebar` (explorer over `#info-panel`, split by `#sidebar-v-resize`) and `#right-sidebar` (`#color-panel`). `_layout = { left, right }`; `_applyPanelLayout()` toggles a `.collapsed` class (never `hidden`) — CSS shrinks the side to a 30px rail that keeps each `.panel-header` (icon + `writing-mode: vertical-rl` title) with the single `.panel-collapse-btn` on top. Toolbar `btn-panel-left` / `btn-panel-right`, Window menu and native menu (`panel-left` / `panel-right`) call the same `_toggleLeftPanel` / `_toggleRightPanel`.
+- Colour panel: `_initColorPanel` builds sliders with ids `cp-<effect>` (so `_syncSlidersFromEffects('cp')` refreshes them) and the wheel canvas `#cp-wheel` (HSV disc; commits on pointer-up through `Editor.setEffects({ tintColor, tintAmount })` → one history step). Editor effect `tintColor` / `tintAmount` is applied in `_composePhoto` by `_applyTint` (a `color`-blend layer clipped to the photo's alpha). `_queueColorPanelSync()` (rAF-coalesced) runs from the Editor render callback, `_onHistoryChange` and `_updateInfoPanel`; it redraws the histogram from `_imageStats(_colorSource())`. The panel constants and state (`CP_SLIDERS`, `_cpWheelDrag`, `_cpSyncQueued`) are declared at the top of app.js because `_initPanelLayout()` runs during module init (TDZ).
+- Details dialog: `_showFileInfoDialog(path)` fills `#details-overlay` with `_renderInfoSections` (same tables as the panel, `_bindInfoTagFilter` on both), prepends `_analysisSection(_imageStats(..., 1024))` for the open file, and restores the open file's metadata caches when it reads another file.
+- Info panel: images → file / capture / location / DICOM / all metadata; A/V → **File / Media / Tags** (HTML-escaped). DICOM shows the summary (`meta`, labelled through `info.<key>`) and an **All DICOM tags** section (`state.dicomTags`: nested sequence items indented by `depth`, `Item n` header rows, a filter `<input>` in the section header handled by `_initInfoTagFilter` through `data-search`).
+- **Menus**: `ContextMenu.show()` (contextMenu.js) draws the menu in the page. The viewer context menu keeps everyday actions top-level and groups the rest into **Transform / Zoom / More tools** flyouts; DICOM adds compact **Frames / Window / Colour map / Annotations / Overlay planes / Measure / DICOM export** entries (`_dicomContextItems`, shared with the View menu).
+- **DICOM bar** (`#dicom-controls`, same styling as the media bar): `state.dicom` holds the decoder session; `_dicomApply()` re-renders one request at a time (a request made while busy is coalesced), swaps the picture with `Editor.replaceSource()` (keeps rotation / flip / effects, drops pixel edits) and restores the previous dirty state — windowing never marks the file changed. Frames: buttons / slider / wheel / `PgUp` `PgDn` `Home` `End`, cine (`Space`; `setTimeout` chain using the Frame Time Vector, else the file's rate, else the `dicomDefaultFps` preference; `#dcm-fps` overrides). Window: preset select (per-frame file windows via `windowsFor()`, `lut:i` VOI LUT entries, auto, CT presets; `_dicomPresetId` detects the active one), C / W inputs (disabled while a LUT is active), invert (`I`), reset (`W` → `resetWindow: true`), colour map select (`M` cycles), overlay toggle (`V`, only when the file has overlay planes), annotations toggle (`O`), measurement tool buttons, **Ctrl+drag / middle-drag** (`_dicomBeginWindowDrag`, runs before the pan handler). The bar shows for every DICOM (frame / window groups only when applicable) and hides in edit mode.
+- **DICOM overlay layer** (`#dcm-overlay`, a canvas covering the viewer, drawn in screen space so line widths / text never scale): `_dicomMapping()` converts image pixels ↔ viewer pixels through the display canvas rect, the border-frame padding and the Editor rotation / flip; `_dicomGeomValid()` disables the layer once a crop / resize changed the photo size or in edit mode. `_dicomOverlayDraw()` (requested via rAF from `_applyTransform`, `_dicomApply`, resize) draws the corner annotations (`_dicomDrawAnnotations`: patient / study / geometry / window text, orientation markers from `image.dirLabel()` of the screen axes mapped into image space), the **axis rulers**, the **scale bar** and the measurements (`_dicomDrawMeasurements`: ruler in mm / px, angle, ellipse / rectangle ROI with `image.stats()`); labels stay above the DICOM bar. Tools (`_dicomTool`, `_dicomMeas`, `_dicomDraft`) capture mouse events on the overlay while active (`is-tool`), `Esc` / `Delete` handled in `_dicomKeydown`. Measurement changes go through `_dicomMeasCommit()` (snapshot history `_dicomMeasHist`, 50 steps): `_dicomMeasAdd / Delete / DeleteLast / Clear / Undo / Redo`; `_undoEdit` / `_redoEdit` pick the measurement history or the Editor history by which changed last (`_actionSeq` vs `_editorSeq`), and `_updateUndoRedoBtns` enables the viewer buttons for either. `_dicomMeasHitTest(x, y)` finds the measurement under a right-click (segment distance / inside an ROI) for the context menu's "Delete measurement" entry; `_dicomMeasRows()` lists them with × buttons in the Measure flyout. The **pixel probe** (`_dicomProbeRefresh`, `#status-probe`) reads `image.valueAt()` on mouse move.
+- **DICOM rulers and scale bar** are two independent toggles, each with its own button in the DICOM tools group, a shortcut (`G` / `B`) and a context-menu row. `_dicomScreenUnits(map)` turns the pixel spacing plus the current rotation / flip into physical units per *screen* pixel along each screen axis, and `_dicomTickStep` picks a round step at least ~64 px wide. `_dicomDrawRulerAxes` paints graduated bands down the full top (X) and left (Y) edges, zeroed on `toScreen(0, 0)`, in mm / cm when a spacing exists and in pixels otherwise. `_dicomDrawScaleBar` draws a horizontal bar at `_dicomScalePos` — a `{ x, y }` **fraction** of the viewer box, so it survives resizes — and records `_dicomScaleBox` for hit testing. `_initDicomScaleDrag` grabs it from `viewerContainer` in the capture phase (only when no measurement tool is active, so it cannot steal a drag from one), moves it live and persists the spot on drop under `dicomScalePos`; `_dicomResetScalePos` puts it back at the top-left.
+- **Viewer chrome vs. the contact sheet**: `#browse-view` sits above the viewer, so `_dicomHasBar()` returns false while `Browse.isVisible()` — that hides the DICOM bar and the overlay in one place — and `_updateMediaControlsVisibility` does the same for the transport bar. `_syncBrowseChrome()` (fired by `Browse`'s `onVisibility`) re-runs all three whenever the sheet appears or disappears.
+- **DICOM export**: `_dicomExportFrames` (pick a directory, render every frame through the session, `writeFile` PNGs, restore the frame), `_dicomExportTags` (in-app save dialog with `saveTypes` JSON / CSV / TXT → `_dicomTagsText`), `_dicomCopyTags` (clipboard).
+- **Media transport** (`#media-controls`): Play / Pause / Stop, seek + time for video; same play/pause/stop for animated GIF. Overlay cues (`#media-cue`): play/stop flash; pause badge persists only while actually paused (not on first open). Video click (without drag) toggles playback; context menu includes Play/Pause/Stop.
+- Sidebar: explorer and info panels `flex: 1 1 0` (equal height); vertical splitter persists `sidebarTreeHeightV2`.
+- Effect sliders: `input` → live preview (`setEffect(..., false)`); `change` → history commit. Wheel over a slider scrolls the panel.
+- Effect presets: `_buildEffectsPanelIn` groups presets into collapsible category sections (`.fx-cat`); any preset missing from a category falls into a **Misc** group so nothing can silently disappear. Category headers persist collapse state (`fxCat:*`).
+- AI background removal: `rembgRemove` (IPC) with a progress dialog fed by `rembg-progress`; `_progressMessage` maps worker phase codes (incl. `downloading_python` / `installing_python` / `installing_deps`) to localized strings.
+- Border/caption UI: thickness (px, max 480), shadow, caption template tokens, font family/size/color, bold/italic/underline/strikethrough.
+- Desktop: restores last folder/file unless a launch file was passed on the command line.
+- Web: skips path restore; drag-drop registers `File` objects into `FileRegistry`.
+
+### `src/js/editor.js` — Canvas Editor
+| Concern | Implementation |
+|---|---|
+| Effects | CSS filters + pixel convolution + vignette / grain / posterize / solarize |
+| Presets | ~118 curated presets (`PRESETS` map) rendered as **collapsible categories**; per-category collapse state in `localStorage` (`fxCat:*`) |
+| Miniature | `_applyMiniatureDof` — soft horizontal shallow DOF + toy-model color grade (`tiltShift` / diorama depth) |
+| Border | Mat pad up to 480px, shadow styles, caption with configurable typography |
+| Selection | Rect, lasso, polygon, magic wand (BFS) |
+| Overlay | Yellow dashed selection on `#sel-canvas`; stroke width / dash / handles are divided by the canvas-to-display scale (`_selScale`) so outlines keep a constant on-screen thickness at any zoom or image size |
+| BG remove / crop | Algorithmic (mask-guided alpha, flood/chroma) + AI (`rembg` via main-process worker); crop uses off-screen canvas |
+| Undo/Redo | Snapshots of pixels **and** effects / rotation / flip (`MAX_HISTORY` 20) |
+| Source swap | `replaceSource(img)` — new picture (DICOM window / frame) keeping transforms and effects; resets history |
+
+### `src/js/formatSupport.js` — Format Loader
+| Format | Desktop | Web |
+|---|---|---|
+| JPEG/PNG/GIF/BMP/WebP/SVG/ICO/AVIF | Native load; WebP/AVIF may fall back to `convertToPng` (sharp) | `FileReader` data URL |
+| TIFF | sharp in main | Optional UTIF; canvas fallback |
+| HEIC/HEIF/HIF | heic-convert / heic-decode | Optional heic2any |
+| DICOM | `dicomDecoder.js` in the renderer (`read-file-bytes` → `DicomDecoder.load`); `decode-dicom` (main) only as fallback | Same decoder in the renderer |
+| Video/Audio | `file://` URL | `blob:` object URL |
+
+### `src/js/dicomDecoder.js` — DICOM session decoder
+- Shared Node / browser UMD module. `DicomDecoder.load(bytes)` parses with **dicom-parser** and returns an *image session* that keeps the decoded samples per frame (cached) and re-renders on demand: `render({ frame, wc, ww, invert, voiLut, voiFunction, colormap, overlays, overlayColor, resetWindow })` → RGBA, `toCanvas()` / `toDataUrl()` in the browser.
+- **Transfer syntaxes**: implicit / explicit LE, explicit BE, deflated (own RFC 1951 inflater — the browser's `DecompressionStream` aborts on trailing bytes), RLE (own PackBits-per-plane decoder), JPEG baseline / extended (**libjpeg-turbo** 8-bit and 12-bit builds, tried in turn), JPEG lossless (**jpeg-lossless-decoder-js**), JPEG-LS (**CharLS**), JPEG 2000 / HTJ2K (**OpenJPEG**).
+- **Codec loading**: `vendor(kind)` — `require()` in Node; in the renderer a `<script>` tag from `../node_modules/…` (relative to `document.baseURI`, override with `setVendorBase()`). The pure-JS (`*_decode.js`) Emscripten builds are used so no `.wasm` fetch is needed on `file://`. The CommonJS lossless decoder is loaded through a temporary `window.module` shim. Each module loads once and is cached.
+- **Frames**: uncompressed frames are sliced by size; encapsulated frames use the basic offset table, one-fragment-per-frame, a JPEG-marker–built table, or an even fragment split.
+- **Pixels**: 1 / 8 / 12 (packed) / 16 / 32-bit, signed / unsigned, planar or interleaved; YBR → RGB (uncompressed only — JPEG codecs already return RGB); PALETTE COLOR LUTs; pixel padding value excluded from the auto range.
+- **Values**: bits above High Bit are masked (sign-extended for signed data) so embedded overlay bits never reach the values; Rescale Slope / Intercept or a **Modality LUT Sequence** give the rescaled value (`valueFnFor(frame)`); pixel padding value / range excluded from ranges and statistics; **float pixel data** (7FE0,0008 / 0009) decoded as Float32 / Float64.
+- **Window**: VOI = window centre / width with the file's **VOI LUT Function** (LINEAR per C.11.2.1.2.1, LINEAR_EXACT, SIGMOID) or a **VOI LUT Sequence** table (`voiLuts`, `state.voiLut`); integer data ≤ 16 bit goes through one 256 / 65536-entry lookup table per render. Default invert = MONOCHROME1 xor Presentation LUT Shape INVERSE. Windows follow each frame's own values (enhanced multi-frame `Frame VOI LUT`) until the caller sets one (`windowCustom`); `resetWindow` returns to them. `fileWindows` / `windowsFor(frame)`, `presets` (CT Hounsfield presets), `autoWindow()`, `defaultWindow(frame)`, `defaultInvert()`.
+- **Colour maps**: `colormap` option (`COLORMAP_IDS`: gray, hotiron, pet, hotmetalblue, pet20, jet, rainbow, bone) applied to the 8-bit grey output; `DicomDecoder.colormap(id)` returns the 256 × RGB table.
+- **Overlay planes**: `readOverlays()` scans groups 6000–601E (rows / cols / origin / frames / Image Frame Origin / label; packed 1-bit data, or an *embedded* overlay in an unused high bit of the samples) → `overlays`; `render({ overlays, overlayColor })` blends them after the grey / colour pass.
+- **Enhanced multi-frame**: `readFunctionalGroups()` reads the Shared and Per-frame Functional Groups (Frame VOI LUT, Pixel Value Transformation, Plane Position / Orientation, Pixel Measures, Frame Content); `frameInfo(i)` merges top-level → shared → per-frame values (windows, slope / intercept, position, orientation, pixel spacing, slice thickness / location computed along the slice normal, stack / in-stack position).
+- **Geometry / cine**: `geometry` (pixel spacing with its source tag, slice thickness, orientation, position, anatomical `markers`, aspect), `dirLabel(sx, sy)` (label of an image-space direction from the orientation cosines or Patient Orientation), `frameTimes` (Frame Time Vector) and `frameRate` (Recommended Display Frame Rate → Cine Rate → Frame Time), `units` (HU for CT rescale, Rescale Type, PET Units).
+- **Probe / statistics**: `valueAt(x, y, frame)` (stored + rescaled value, units, padding flag, RGB for colour / palette), `stats({ x, y, w, h, shape })` (n, mean, std, min, max, area px / mm²), `histogram(bins)` — all synchronous on the cached frame.
+- **Metadata**: `meta` (flat summary keyed like the `info.*` i18n labels — now also frame rate, image position / orientation, VOI LUTs, units, Presentation LUT, overlays) and `tags` (every element, sequence items nested with `depth` / `item` rows up to 4 levels, built-in name dictionary incl. overlay groups, VR-aware formatting, binary summarised).
+- Partial datasets thrown by dicom-parser (`{ exception, dataSet }`) are used when they still carry pixel data (truncated files).
+- `decode()` / `decodeToDisplay()` remain for the main-process fallback and old callers.
+
+### `src/js/themes.js` — Theme registry
+- Shared by the renderer (`window.Themes`) and `host/service.js` (`require`). 40 palettes (20 dark, 20 light) with `id`, `kind`, display name, `nameKey`, and a 3-color `swatch` used by menus and the Settings Theme tab.
+- `normalize` / `kindOf` / `ofKind` / `next` / `label` / `swatchSvg`. Colours themselves live in `main.css` (`[data-theme="<id>"]`).
+- Every registered id must have a matching `[data-theme]` block; `tests/cases/status-i18n-theme.js` checks that pairing.
+
+### `src/js/fileTree.js` — Explorer
+- Roots from `listDrives()` (Windows letters, macOS volumes, Linux mounts; web → **Local Files**).
+- Drive buttons in the panel title (`#tree-drive-bar`) open that root immediately.
+- Lazy expand; `revealPath()` expands ancestors to a full absolute path. It **merges** the chain into `_expandedDirs` rather than replacing it, so branches the user opened elsewhere survive a folder open; `_pruneExpanded` caps the set at `MAX_EXPANDED` (oldest first, never the live chain or a drive root) to keep `refresh` cheap.
+- Path bar (`#tree-path-bar`) is a small toolbar: an **Up** button (`#tree-up-btn`, disabled at a root) plus clickable **breadcrumbs** (`#tree-crumbs`) built by `_pathCrumbs`. `_parentOf` stops at `C:\` and `/`. Both land in `navigateTo(dir)`, which expands the chain, focuses it, scrolls it into view and calls `onDirOpen(dir, { activate: false })`.
+- `setSelected` only highlights the row (no tree rebuild); `scrollTop` moves the row into view if needed. `refresh({ force: true })` is the only structural rebuild — its signature walk (`_walkExpandedPaths`) applies the same folders-only filter as `_renderDir`, or a browse-mode switch would look like "nothing changed".
+- `handleKey` / `_moveBy`: `ArrowUp` / `ArrowDown` move among visible rows and call `onSelect` for supported media (folders stay highlight-only); `Backspace` and `Alt+ArrowUp` call `goUp()`. Wired from `app.js` when not typing and not in edit mode.
+- Double-clicking a media row calls `onActivate`, the explicit "show me only this image" gesture.
+- `remapPath` / `forgetPath` keep expansion and selection consistent after rename / delete.
+- `applyI18n()` re-labels the chrome this module builds in JS (the Up button title, crumbs) after a language switch.
+- Drag-out to OS only when not in web mode.
+
+### `src/js/browse.js` — Thumbnail contact sheet
+- One folder at a time in `#browse-view` (z-index above the viewer). Subfolders first, then media, filtered by `FormatSupport.isSupportedFile`.
+- Three modes — `grid` / `list` / `details` — plus sort key, direction and a single **size** value, all persisted under `browseViewV1`.
+- Size moves along the `SIZES` ladder from the toolbar stepper (`#browse-size-dec` / `#browse-size-val` / `#browse-size-inc`), `Ctrl`+wheel and `Ctrl` `+`/`-`. It sets `--browse-tile` (grid) and a derived `--browse-row` (list / details row thumbnails), so one control scales every mode.
+- `details` adds a header row (`#browse-head`) whose cells double as sort buttons, over columns Name · Type · Size · Dimensions · Modified · Created. Dimensions arrive from `Thumbs` as thumbnails finish; `Created` comes from `birthtimeMs` on `read-directory-detailed`.
+- Callbacks: `onOpenFile` / `onOpenDir` / `onContextMenu`, plus `onSelect` (selection only — `app.js` fills the File Info panel without opening the file) and `onVisibility` (the toolbar button and the viewer chrome follow what is on screen).
+- `applyI18n()` rebuilds the bar, because its labels are baked into the markup; the `thumb-ready` listener is bound once in `init` (`_bindThumbReady`) so rebuilds cannot stack copies.
+- **Selection** is a set (`_sel`, keys = `_norm(path)`) plus a focus (`_selected`, the item last clicked — Enter / File Info) and an `_anchor` for Shift ranges over `_shownPaths()` (display order). Click / `Ctrl` (`_toggle`) / `Shift` (`_selectRange`) / `Ctrl+A` (`selectAll`). `_bindMarquee` starts a box after 5 px of pointer travel (shorter = a click), hit-tests tiles by `offsetLeft/Top` against `.browse-grid` (`position: relative`), auto-scrolls past the top / bottom edge and swallows the click that ends the drag (`_suppressClick`). Right-click inside the selection keeps it and calls `onContextMenu(entry, x, y, getSelectedPaths())`; `app.js` passes that as `{ paths }` to `_showTreeContextMenu`, which then uses it instead of the explorer's selection (folders included for copy / move / delete, files only for Open). `refresh()` re-reads the folder with `keepSelection`, and `_scheduleTreeRefresh` calls it on directory-change events.
+- **Drag to the explorer**: tiles are `draggable` on desktop (`canDrag`); `dragstart` puts the selection in `application/x-imageviewer-paths` (JSON) with `effectAllowed = copyMove` and a count-badge ghost for several items. A press on a draggable tile therefore never starts the marquee. `fileTree.js` recognises that type in `dragover` (move unless `Ctrl`) and `drop`, and hands `{ paths, destDir, mode }` to `onInternalDrop` → `_transferPathsInto`, which refreshes the tree and the sheet in parallel. It deliberately does **not** use `webContents.startDrag`: on Windows that keeps the main process in the OS drag loop after a drop on our own window until the next click, so the move IPC stalled.
+
+### `src/js/thumbs.js` — Thumbnail cache
+- Bounded LRU (`MAX_CACHE`) with a small work queue (`CONCURRENCY`); `request(path, { front })` jumps the queue for a tile that just scrolled in, `prefetchDir` warms a folder in the background, and each finished thumbnail fires a `thumb-ready` window event.
+- `_sourceFor` takes whatever the loader produced: a file URL for native formats, a data URL, or a **canvas** — which is how DICOM arrives, so `.dcm` files get thumbnails too.
+- **Per-directory disk cache** (host/service.js, `thumb-cache-*` IPC): `<userData>/ThumbCache/<sha1(dir)>/index.json` (`{ v, dir, entries: { name: { size, mtimeMs, w, h, tw, th, file } } }`) plus `<sha1(name)>.jpg`. `thumb-cache-load` returns only entries whose source size + mtime still match (stale ones are deleted); `thumb-cache-put` writes the JPEG and batches index saves (1 s debounce, flushed synchronously on `before-quit`). Nothing is written into the user's folders. `request()` awaits `_ensureDir(dir)` (one load per directory per session) before queueing, so a known folder paints straight from `file://` URLs.
+- **Background generation**: `jpg/png/gif/bmp/webp/ico/avif` bytes (`readFileBytes`) are transferred to `src/js/thumbWorker.js`, which decodes with `createImageBitmap` (EXIF orientation applied), downsizes on an `OffscreenCanvas` and returns JPEG bytes. TIFF / HEIC / DICOM / SVG still need the page's decoders, so `_generateOnMainThread` runs them after `requestIdleCallback`. If the worker cannot start, everything falls back to that path. Settings ▸ General shows the cache size (`thumbCacheStats`) and clears it (`Thumbs.clearDiskCache`).
+- Opening a file adds `.is-switching` to `#viewer-container` (`_beginViewerSwitch`, which also pauses playing media) so the previous image never shows while the next decodes; only the newest open (`openGen === _openGen`) removes it.
+
+### Other renderer modules
+- `i18n.js` — `en.json` / `ko.json`, `localStorage` lang
+- `icons.js` — inline SVG (undo/redo, rotate, drive, window controls)
+- `contextMenu.js` — dropdown / context menus drawn in the page: rows with icon, label, detail, shortcut, `checked`, `danger`, `inline`, `remove`, and `submenu`. `_place()` calls `_fitColumns()` first: a list taller than the screen (the 40-palette theme picker) gets a fixed height and an `is-columns` class.
+- `tauriAPI.js` — desktop `electronAPI`. `webAPI.js` is the browser counterpart.
+- `tooltip.js`
+
+### `scripts/`
+| Script | Role |
+|---|---|
+| `create-icons.js` | Rebuild PNG / ICO from `src/assets/icon.svg` |
+| `stamp-version.js` | Write the build date as `buildNumber` and sync `tauri.conf.json` |
+| `rembg_worker.py` | Optional Python helper for background removal |
+
+Packaged Windows: runtime `AppUserModelId` matches `build.appId`. Taskbar icon prefers an unpacked `.ico` or `process.execPath` (Shell cannot load icons from `app.asar`). Assets `icon.ico` / `icon.png` / `icon_512.png` are `asarUnpack`ed as a fallback.
+
+---
+
+## Image metadata pipeline
+
+Desktop `read-image-meta`:
+
+1. **sharp** `.metadata()` — width, height, format, space, channels, density, alpha, ICC flag, chroma, etc.
+2. **exifr.parse** — TIFF/EXIF, XMP, IPTC, ICC summary, JFIF, GPS (`mergeOutput: false`, flattened keys such as `exif.ISO`, `ifd0.Make`).
+3. Binary blobs (thumbnails, MakerNote) are skipped or shown as `[binary N bytes]`; UserComment is decoded when it is ASCII/Unicode.
+
+The renderer formats a **summary** (camera, exposure as `1/n s`, GPS decimal degrees) and lists **every remaining tag** under “All metadata”. Values are HTML-escaped. Cache key is the current file path so language switches re-render without re-parsing.
+
+## A/V metadata pipeline
+
+Desktop `read-media-meta` (used for video/audio info panel):
+
+1. Probe container / tracks (avoid mislabeling video codec boxes as audio, e.g. `<avc1>` vs AAC).
+2. Normalize codec pretty names and container labels (MP4, WebM, …).
+3. Duration, channels (Mono/Stereo), sample/frame rates where available; **estimated bitrate** when not tagged; `lossless: false` unless known otherwise.
+4. Renderer shows **File / Media / Tags** (not the photo Capture section).
+
+---
+
+## IPC / API Surface
+
+Shared contract (`preload` and `webAPI`):
+
+| API | Purpose |
+|---|---|
+| `listDrives` / `readDirectory` / `pathAncestors` | Explorer |
+| `getFileStats` / `getFileUrl` / `readFileBase64` | Load media |
+| `readFileBytes` | Raw file bytes as `Uint8Array` (DICOM decoding in the renderer) |
+| `printImage` | Print a data-URL picture through the system dialog (desktop: hidden window; web: popup) |
+| `readImageMeta` | EXIF / IPTC / XMP / sharp basic (desktop) |
+| `readMediaMeta` | A/V container / codecs / duration / bitrate (desktop) |
+| `getLaunchFile` | Path passed on process start |
+| `convertToPng` / `decodeDicom` | Special formats |
+| `rembgRemove` + `onRembgProgress` | AI background removal (desktop) + progress events |
+| `openFileDialog` / `openFolderDialog` | Open |
+| `showSaveDialog` / `writeFile` / `saveFile` | Save |
+| `setLastOpenDir` / `getLastOpenDir` | Dialog default folder |
+| `showMessageBox` / `updateMenu` | UI chrome |
+| `windowMinimize` / `windowMaximize` / `windowClose` / `toggleFullscreen` | Frameless chrome |
+| `showItemInFolder` / `renamePath` / `deleteFile` / `startDrag` | Desktop-only |
+| `watchDirectory` / `watchFile` | Desktop live reload |
+| `onOpenFile` / `onOpenFolder` / `onMenuAction` / `onMaximizeChange` | Events |
+| `platform` | `'win32'` / `'darwin'` / `'linux'` / `'web'` |
+
+---
+
+## Assets & Branding
+
+| File | Use |
+|---|---|
+| `src/assets/icon.ico` | Windows window and file-type default icon |
+| `src/assets/icon.png` | About dialog, favicon, toolbar brand |
+| `src/assets/icon_512.png` | Large icon source |
+| `src/assets/icon.svg` | Source artwork. `npm run create-icons` regenerates PNG / ICO. Tauri bundle icons live in `src-tauri/icons`. |
+
+Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows **V1.0.2** next to the product name.
+
+---
+
+## Build & Distribution
+
+**Tauri** packages the app (`npm run build:win` / `build:mac` / `build:linux`). `scripts/stamp-version.js` runs first and writes the build date into `buildNumber` (`package.json` and `src/version.json`) and the version into `src-tauri/tauri.conf.json`.
+
+The installer is the webview shell. Image decoding, metadata, DICOM, and background removal stay in the Node host (`host/server.js`), so a packaged build still needs Node and this project's `node_modules` beside the host script. File associations are registered from **Settings** inside the app (Windows registry), not by the installer page. Video and audio extensions are not associated.
+
+| Platform | Output |
+|---|---|
+| Windows | NSIS |
+| macOS | DMG |
+| Linux | deb |
+
+Web mode is not packaged as a separate installer; deploy by serving `src/` (or running `server.js`).
+
+---
+
+## Key Design Decisions
+
+1. **Single renderer, dual host** — One UI; the Tauri bridge and the web shim share `electronAPI` names so `app.js` stays mostly mode-agnostic.
+2. **No Node in the webview** — Privileged work goes through the desktop host or browser APIs.
+3. **Frameless chrome** — Native frame is off; drag region + custom min/max/close. Menu accelerators on Windows/Linux are handled in the renderer (`Ctrl+Z`, `F11`, …).
+4. **Single instance** — OS “Open with” / double-click should not spawn a second window.
+5. **Drive-rooted explorer** — Matches OS mental model; web approximates with a mountable virtual root.
+6. **Dialog `defaultPath`** — Last opened directory persisted in main-process userData (and renderer `localStorage`).
+7. **Equal sidebar split** — Tree and info use `flex: 1 1 0` so content-heavy metadata does not steal height; user split is stored as `sidebarTreeHeightV2`.
+8. **History includes effects** — Undo restores pixels plus rotation/flip/effect values, not pixels alone.
+9. **Effect sliders live on `input`** — Preview updates while dragging; history commits on `change` (release). No full-window progress dialog for interactive tweaks. Wheel scrolls the panel instead of nudging the range.
+10. **Edit Apply vs Cancel** — Only Apply can leave the main viewer dirty; Cancel discards the edit session without a save prompt.
+11. **Image associations only** — Default-app registration covers still images (including DICOM/HEIC), not video/audio.
+12. **Media cues match state** — Pause overlay appears only when media is actually paused by the user (or after stop); opening a video does not show a pause badge.
+13. **AI provisioning, non-destructive** — rembg runs in a Python worker. The app installs only the missing packages into the user's existing Python and never downgrades or replaces it; downloading a fresh Python is a Windows-only last resort into an isolated `userData/python`. Progress is streamed and kept monotonic across download/install/inference phases.
+14. **Selection outlines are DPI/zoom-aware** — the selection canvas buffer matches the image's native pixels, so fixed-width strokes vanish on large images; widths are scaled by the display ratio (`_selScale`) to a constant on-screen thickness.
+15. **Curated, categorized presets** — the preset set is trimmed of near-duplicates and grouped into collapsible categories to reduce clutter while keeping distinct looks.
+16. **Status-bar progress for open** — a modal popup over the explorer caused flicker; load progress is painted on the status bar and left until the next status change.
+17. **Settings Theme tab** — palettes are buttons with live swatches, not a dropdown on General.
+18. **Feature tests** — `tests/run-feature-tests.js` loads every `tests/cases/*.js` suite, writes `tests/results.json` / `tests/results.html`, and prints a **summary** table then a **details** list (`# / result / name / execution time` to 3 decimal places, time right-aligned). `npm test -- --summary` prints the summary only.

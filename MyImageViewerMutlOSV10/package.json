@@ -1,0 +1,35 @@
+{
+  "name": "image-viewer-multios",
+  "version": "1.0.2",
+  "buildNumber": "20261022",
+  "description": "MyImageViewer — multi-platform image viewer and editor with dark/light themes and Korean/English support",
+  "author": "SHKWON",
+  "scripts": {
+    "start": "tauri dev",
+    "test": "node tests/run-feature-tests.js",
+    "web": "node server.js",
+    "create-icons": "node scripts/create-icons.js",
+    "stamp": "node scripts/stamp-version.js",
+    "build:win": "node scripts/stamp-version.js && tauri build --bundles nsis",
+    "build:mac": "node scripts/stamp-version.js && tauri build --bundles dmg",
+    "build:linux": "node scripts/stamp-version.js && tauri build --bundles deb",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.0",
+    "express": "^4.22.2"
+  },
+  "dependencies": {
+    "@cornerstonejs/codec-charls": "^1.2.7",
+    "@cornerstonejs/codec-libjpeg-turbo-12bit": "^0.4.7",
+    "@cornerstonejs/codec-libjpeg-turbo-8bit": "^1.2.8",
+    "@cornerstonejs/codec-openjpeg": "^1.3.6",
+    "dicom-parser": "^1.8.21",
+    "exifr": "^7.1.3",
+    "heic-convert": "^2.1.0",
+    "heic-decode": "^2.1.0",
+    "jpeg-lossless-decoder-js": "^2.1.2",
+    "music-metadata": "^11.14.0",
+    "sharp": "^0.35.3"
+  }
+}

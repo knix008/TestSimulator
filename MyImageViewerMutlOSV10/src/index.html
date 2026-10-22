@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file: asset: http://asset.localhost https://asset.localhost; media-src 'self' data: blob: file: asset: http://asset.localhost https://asset.localhost; connect-src 'self' blob: file: data: http://127.0.0.1:* http://localhost:* ipc: http://ipc.localhost https://ipc.localhost;">
+  <title>MyImageViewer</title>
+  <link rel="icon" type="image/png" href="./assets/icon.png">
+  <link rel="shortcut icon" href="./assets/icon.ico">
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ═══ Menu bar: brand · home · menus · current file (drag region; window buttons at the right) ═══ -->
+    <div id="menubar" role="menubar">
+      <div id="app-brand" class="app-brand">
+        <img src="./assets/icon.png" alt="" draggable="false">
+        <span class="app-brand-name" data-i18n="app.title">MyImageViewer</span>
+        <span class="app-brand-ver">V1.0.2</span>
+      </div>
+      <button type="button" id="menubar-home" class="menubar-btn menubar-home" aria-pressed="false">
+        <span id="menubar-home-icon"></span>
+        <span data-i18n="home.button">Home</span>
+      </button>
+      <div id="menubar-menus" class="menubar-menus"></div>
+      <div id="titlebar-file" class="titlebar-file" title=""></div>
+      <div id="win-ctrl-gutter"></div>
+    </div>
+
+    <!-- ═══ Toolbar ═══ -->
+    <div id="toolbar">
+      <div id="zoom-input-wrap">
+        <input id="zoom-display" type="text" value="100%" title="Zoom level">
+      </div>
+    </div>
+
+    <!-- ═══ Start / home (shown until a file or folder is opened) ═══ -->
+    <div id="start-page" hidden>
+      <div class="start-bg" aria-hidden="true"></div>
+      <div class="start-scroll" id="start-scroll"></div>
+    </div>
+
+    <!-- ═══ Main Area ═══ -->
+    <div id="main-area">
+
+      <!-- ── Left panel: Explorer (collapses to a rail showing its icon + title) ── -->
+      <div id="sidebar">
+
+        <!-- File Tree Panel -->
+        <div id="file-tree-panel">
+          <div class="panel-header">
+            <span class="panel-icon" id="tree-panel-icon" aria-hidden="true"></span>
+            <span class="panel-title" data-i18n="tree.title">EXPLORER</span>
+            <div id="tree-drive-bar" class="tree-drive-bar" role="toolbar" aria-label="Drives"></div>
+            <button type="button" class="panel-hdr-btn panel-collapse-btn" id="tree-collapse-btn"></button>
+          </div>
+          <div id="tree-path-bar" hidden>
+            <button type="button" id="tree-up-btn" class="tree-path-btn" tabindex="-1"></button>
+            <div id="tree-crumbs" class="tree-crumbs"></div>
+          </div>
+          <div id="file-tree-scroll" tabindex="0">
+            <div id="file-tree-empty">
+              <div data-i18n="tree.noDir">No folder opened</div>
+              <span class="open-folder-link" id="ft-open-link" data-i18n="tree.openFolder">Open Folder</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vertical resize handle -->
+        <div id="sidebar-v-resize"></div>
+
+        <!-- Info Panel (bottom of the left panel) -->
+        <div id="info-panel">
+          <div class="panel-header">
+            <span class="panel-icon" id="info-panel-icon" aria-hidden="true"></span>
+            <span class="panel-title" data-i18n="info.title">FILE INFO</span>
+          </div>
+          <div id="info-content">
+            <div class="info-no-file" data-i18n="info.noFile">No file selected</div>
+          </div>
+        </div>
+
+        <!-- Horizontal resize handle -->
+        <div id="sidebar-resize-handle"></div>
+      </div>
+
+      <!-- ── Viewer Area ── -->
+      <div id="viewer-area">
+
+        <!-- Browse view: folder contact sheet (built by browse.js) -->
+        <div id="browse-view" hidden></div>
+
+        <!-- Image/Canvas viewer -->
+        <div id="viewer-container">
+          <!-- Placeholder -->
+          <div id="image-placeholder">
+            <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            <p data-i18n="status.noImage">No image loaded</p>
+            <p style="font-size:12px;opacity:0.5" data-i18n="placeholder.hint">Open a file or folder to begin</p>
+          </div>
+
+          <!-- Loading overlay -->
+          <div id="loading-overlay" data-i18n="status.loading">Loading...</div>
+
+          <!-- Image wrapper (canvas elements) -->
+          <div id="image-wrapper">
+            <div style="position:relative;">
+              <canvas id="display-canvas" style="display:none;"></canvas>
+              <canvas id="sel-canvas" style="display:none;position:absolute;top:0;left:0;pointer-events:auto;"></canvas>
+              <img id="animated-image" alt="" draggable="false"
+                style="display:none;max-width:none;max-height:none;image-rendering:auto;pointer-events:none;user-select:none;-webkit-user-drag:none;">
+              <canvas id="animated-freeze" aria-hidden="true"
+                style="display:none;max-width:none;max-height:none;pointer-events:none;"></canvas>
+            </div>
+          </div>
+
+          <!-- Video player -->
+          <video id="video-player"
+            style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;outline:none;background:#000;"
+            preload="metadata">
+          </video>
+
+          <!-- Custom media transport (video / animated GIF) -->
+          <div id="media-controls" class="media-controls" style="display:none;" hidden>
+            <button type="button" class="media-ctrl-btn" id="mc-play" data-i18n-title="toolbar.play" title="Play">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>
+            </button>
+            <button type="button" class="media-ctrl-btn" id="mc-pause" data-i18n-title="toolbar.pause" title="Pause">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>
+            </button>
+            <button type="button" class="media-ctrl-btn" id="mc-stop" data-i18n-title="toolbar.stop" title="Stop">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="1.2"/></svg>
+            </button>
+            <div class="media-ctrl-seek-wrap">
+              <input type="range" id="mc-seek" class="media-ctrl-seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+            </div>
+            <span id="mc-time" class="media-ctrl-time">0:00 / 0:00</span>
+            <div class="media-ctrl-subtitle-wrap" id="mc-subtitle-wrap" hidden>
+              <button type="button" class="media-ctrl-btn media-ctrl-subtitle-btn" id="mc-subtitle"
+                data-i18n-title="toolbar.subtitles" title="Subtitles" aria-pressed="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 5h16c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2zm0 2v10h16V7H4zm2 4h5v2H6v-2zm7 0h5v2h-5v-2zm-7 3h8v2H6v-2zm10 0h2v2h-2v-2z"/>
+                </svg>
+              </button>
+              <button type="button" class="media-ctrl-btn media-ctrl-subtitle-file-btn" id="mc-subtitle-file"
+                data-i18n-title="toolbar.chooseSubtitle" title="Choose subtitle file">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 4l2 2h8c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2L2.01 6c0-1.1.89-2 1.99-2h6zm-6 4v10h16V8H4zm3 3h5v2H7v-2zm7 0h3v2h-3v-2zm-7 3h8v2H7v-2z"/>
+                </svg>
+              </button>
+              <select id="mc-subtitle-lang" class="media-ctrl-subtitle-select"
+                data-i18n-title="toolbar.subtitleLanguage" title="Subtitle language" aria-label="Subtitle language"></select>
+            </div>
+            <div class="media-ctrl-vol-wrap" id="mc-vol-wrap">
+              <button type="button" class="media-ctrl-btn media-ctrl-vol-btn" id="mc-mute"
+                data-i18n-title="toolbar.mute" title="Mute" aria-pressed="false">
+                <svg class="mc-vol-icon-on" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                </svg>
+                <svg class="mc-vol-icon-off" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+                  <path d="M16.34 9.05 15 10.4l2.1 2.1-2.1 2.1 1.34 1.35 2.1-2.1 2.1 2.1 1.35-1.35-2.1-2.1 2.1-2.1L20.54 9.05l-2.1 2.1-2.1-2.1z"/>
+                </svg>
+              </button>
+              <input type="range" id="mc-volume" class="media-ctrl-volume" min="0" max="100" value="100" step="1"
+                data-i18n-title="toolbar.volume" title="Volume" aria-label="Volume">
+              <span id="mc-vol-label" class="media-ctrl-vol-label">100%</span>
+            </div>
+          </div>
+
+          <!-- DICOM bar: two fixed rows, grouped by kind.
+               Top row    – how the image is displayed: window preset, C / W, invert, reset, colour map, value range.
+               Bottom row – what you look at and measure: frame / cine navigation, overlay toggles, measurement tools. -->
+          <div id="dicom-controls" class="media-controls dicom-controls" style="display:none;" hidden>
+            <!-- Row 1 — display (window / level / colour) -->
+            <div class="dicom-row" id="dcm-row-display" data-i18n-title="dicom.dragHint" hidden>
+              <div class="dicom-window" id="dcm-window-wrap" hidden>
+                <select id="dcm-preset" class="media-ctrl-subtitle-select dicom-preset" data-i18n-title="dicom.presetTitle" title="Window preset" aria-label="Window preset"></select>
+                <label class="dicom-wl" data-i18n-title="dicom.center" title="Window center">
+                  <span>C</span><input type="number" id="dcm-wc" step="1" aria-label="Window center">
+                </label>
+                <label class="dicom-wl" data-i18n-title="dicom.width" title="Window width">
+                  <span>W</span><input type="number" id="dcm-ww" step="1" min="1" aria-label="Window width">
+                </label>
+                <button type="button" class="media-ctrl-btn" id="dcm-invert" data-i18n-title="dicom.invert" title="Invert (I)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18V4a8 8 0 0 1 0 16z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-reset" data-i18n-title="dicom.resetWindow" title="Reset window (W)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+                </button>
+                <select id="dcm-colormap" class="media-ctrl-subtitle-select dicom-colormap" data-i18n-title="dicom.colormapTitle" title="Colour map (M)" aria-label="Colour map"></select>
+                <span class="dicom-meta" id="dcm-range-wrap" data-i18n-title="dicom.rangeHint" hidden>
+                  <span class="dicom-meta-label" data-i18n="dicom.rangeLabel">Value range</span>
+                  <span id="dcm-range" class="dicom-range"></span>
+                </span>
+                <span class="dicom-meta" id="dcm-voi-wrap" data-i18n-title="dicom.voiHint" hidden>
+                  <span class="dicom-meta-label" data-i18n="dicom.voiLabel">VOI function</span>
+                  <span id="dcm-voi" class="dicom-range"></span>
+                </span>
+              </div>
+            </div>
+            <!-- Row 2 — navigation + annotation / measurement -->
+            <div class="dicom-row" id="dcm-row-tools">
+              <div class="dicom-frames" id="dcm-frames-wrap" hidden>
+                <button type="button" class="media-ctrl-btn" id="dcm-prev-frame" data-i18n-title="dicom.prevFrame" title="Previous frame">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+                </button>
+                <input type="range" id="dcm-frame" class="media-ctrl-seek dicom-frame-seek" min="0" max="0" value="0" step="1" aria-label="Frame">
+                <button type="button" class="media-ctrl-btn" id="dcm-next-frame" data-i18n-title="dicom.nextFrame" title="Next frame">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
+                </button>
+                <span id="dcm-frame-label" class="media-ctrl-time dicom-frame-label">1 / 1</span>
+                <button type="button" class="media-ctrl-btn" id="dcm-play" data-i18n-title="dicom.cine" title="Play frames" aria-pressed="false">
+                  <svg class="dcm-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72L19.5 12 8 5.14z"/></svg>
+                  <svg class="dcm-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4.2v14H6zm7.8 0H18v14h-4.2z"/></svg>
+                </button>
+                <label class="dicom-wl dicom-fps" data-i18n-title="dicom.fps" title="Cine speed (frames per second)">
+                  <input type="number" id="dcm-fps" min="1" max="120" step="1" aria-label="Frames per second"><span>fps</span>
+                </label>
+                <span class="dicom-sep" id="dcm-frames-sep"></span>
+              </div>
+              <div class="dicom-tools" id="dcm-tools-wrap">
+                  <button type="button" class="media-ctrl-btn" id="dcm-overlays" data-i18n-title="dicom.overlays" title="Overlay planes (V)" aria-pressed="false" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 8.5l10 5.5 10-5.5L12 3zm0 2.3 5.9 3.2L12 11.7 6.1 8.5 12 5.3zM4.2 12.6 2 13.8l10 5.5 10-5.5-2.2-1.2L12 17l-7.8-4.4z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-annot" data-i18n-title="dicom.annotations" title="Annotations (O)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 0h2v6h-6v-2h4v-4zM9 8h6v2h-2v6h-2v-6H9V8z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-ruler-axes" data-i18n-title="dicom.rulerAxes" title="Rulers (G)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h2v18H3V3zm18 0v2H3V3h18zM7 5h1v3H7V5zm3 0h1v5h-1V5zm3 0h1v3h-1V5zm3 0h1v5h-1V5zm3 0h1v3h-1V5zM5 7h3v1H5V7zm0 3h5v1H5v-1zm0 3h3v1H5v-1zm0 3h5v1H5v-1zm0 3h3v1H5v-1z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-scale" data-i18n-title="dicom.scaleBar" title="Scale bar (B)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v4H3v-4zm2 2h14v-1H5v1zm1-4h1v3H6V8zm4 0h1v3h-1V8zm4 0h1v3h-1V8zm4 0h1v3h-1V8zM3 17h18v2H3v-2z"/></svg>
+                </button>
+                <span class="dicom-sep"></span>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ruler" data-tool="ruler" data-i18n-title="dicom.tool.ruler" title="Ruler (R)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 6v12M20 6v12M7 12h10M10 9l-3 3 3 3M14 9l3 3-3 3"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-angle" data-tool="angle" data-i18n-title="dicom.tool.angle" title="Angle (A)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round" d="M4 20h16M4 20 18 6M12 20A8 8 0 0 0 9.66 14.34"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-ellipse" data-tool="ellipse" data-i18n-title="dicom.tool.ellipse" title="Ellipse ROI (E)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-5 0-9 3.1-9 7s4 7 9 7 9-3.1 9-7-4-7-9-7zm0 2c3.9 0 7 2.2 7 5s-3.1 5-7 5-7-2.2-7-5 3.1-5 7-5z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn dcm-tool" id="dcm-tool-rect" data-tool="rect" data-i18n-title="dicom.tool.rect" title="Rectangle ROI (T)" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5z"/></svg>
+                </button>
+                <button type="button" class="media-ctrl-btn" id="dcm-meas-clear" data-i18n-title="dicom.clearMeasurements" title="Clear measurements">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- DICOM overlay layer: corner annotations, orientation markers, scale bar, measurements -->
+          <canvas id="dcm-overlay" class="dcm-overlay" aria-hidden="true"></canvas>
+
+          <!-- Play / pause / stop cue overlay -->
+          <div id="media-cue" class="media-cue" aria-hidden="true">
+            <div class="media-cue-badge" id="media-cue-badge"></div>
+          </div>
+
+          <!-- Audio player -->
+          <div id="audio-player-wrap" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
+            <svg style="width:80px;height:80px;opacity:0.4;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v9.28a4.39 4.39 0 0 0-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>
+            <audio id="audio-player" controls style="width:80%;max-width:500px;"></audio>
+            <div id="audio-filename" style="font-size:14px;opacity:0.7;text-align:center;"></div>
+          </div>
+
+          <button type="button" class="viewer-nav-btn viewer-nav-prev is-disabled" id="viewer-nav-prev"
+            data-i18n-title="toolbar.prev" title="Previous image" hidden aria-label="Previous image">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </button>
+          <button type="button" class="viewer-nav-btn viewer-nav-next is-disabled" id="viewer-nav-next"
+            data-i18n-title="toolbar.next" title="Next image" hidden aria-label="Next image">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+          </button>
+        </div>
+
+        <!-- Effects Panel (slides in from right) -->
+        <div id="effects-panel">
+          <div class="panel-header">
+            <span class="panel-title" data-i18n="effects.title">ADJUSTMENTS</span>
+            <button class="panel-btn" id="effects-close-btn" data-i18n-title="effects.close">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+          </div>
+          <div id="effects-content">
+            <!-- Populated by app.js -->
+          </div>
+          <div class="effects-actions">
+            <button id="effects-reset-btn" data-i18n="effects.reset">Reset</button>
+            <button id="effects-apply-btn" class="primary" data-i18n="effects.close">Close</button>
+          </div>
+        </div>
+
+      </div><!-- /viewer-area -->
+
+      <!-- ── Right panel: colour (histogram, colour wheel) + adjustments
+           (collapses to a rail showing its icon + title; built by app.js) ── -->
+      <div id="right-sidebar">
+        <div id="right-sidebar-resize-handle"></div>
+        <div id="color-panel">
+          <div class="panel-header">
+            <span class="panel-icon" id="color-panel-icon" aria-hidden="true"></span>
+            <span class="panel-title" data-i18n="color.title">COLOR &amp; ADJUST</span>
+            <span class="panel-header-spacer"></span>
+            <button type="button" class="panel-hdr-btn panel-collapse-btn" id="color-collapse-btn"></button>
+          </div>
+          <div id="color-content">
+            <div class="cp-section" data-i18n="color.histogram">HISTOGRAM</div>
+            <canvas id="cp-histogram" class="cp-histogram" width="256" height="96" aria-label="Histogram"></canvas>
+            <div class="cp-hist-legend" id="cp-hist-legend"></div>
+
+            <div class="cp-section" data-i18n="color.wheel">COLOR</div>
+            <div class="cp-wheel-wrap">
+              <canvas id="cp-wheel" class="cp-wheel" width="180" height="180" tabindex="0" role="slider"
+                aria-label="Color wheel"></canvas>
+              <div class="cp-wheel-side">
+                <div class="cp-swatch" id="cp-swatch"></div>
+                <div class="cp-hex" id="cp-hex">—</div>
+                <button type="button" class="cp-btn" id="cp-tint-clear" data-i18n="color.clearTint">No tint</button>
+              </div>
+            </div>
+            <div id="cp-tint-amount-row"></div>
+
+            <div class="cp-section" data-i18n="color.adjust">ADJUST</div>
+            <div id="cp-adjust"></div>
+            <div class="cp-actions">
+              <button type="button" class="cp-btn" id="cp-reset" data-i18n="color.reset">Reset colour</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /main-area -->
+
+    <!-- ═══ Status Bar ═══ -->
+    <div id="status-bar">
+      <div class="status-item" id="status-zoom">Zoom: 100%</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="status-dims">—</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="status-format">—</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="status-idx"></div>
+      <div class="status-sep" id="status-probe-sep" hidden></div>
+      <div class="status-item" id="status-probe" hidden></div>
+      <div id="status-spacer"></div>
+      <div class="status-item" id="status-msg"></div>
+      <div id="status-progress" hidden>
+        <span id="status-progress-msg"></span>
+        <div id="status-progress-bar" class="status-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="status-progress-fill" class="status-progress-fill"></div>
+        </div>
+        <span id="status-progress-pct">0%</span>
+      </div>
+      <div class="win-resize-grip" role="presentation" data-i18n-title="window.resize" title="Resize">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="2" r="1.15"/><circle cx="6" cy="6" r="1.15"/><circle cx="10" cy="6" r="1.15"/><circle cx="2" cy="10" r="1.15"/><circle cx="6" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg>
+      </div>
+    </div>
+
+  </div><!-- /app -->
+
+  <!-- ═══ Custom Context Menu ═══ -->
+  <div id="context-menu"></div>
+
+  <!-- ═══ Tooltip ═══ -->
+  <div id="tooltip" class="tooltip"></div>
+
+  <!-- ═══ Error Dialog ═══ -->
+  <div id="error-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box" style="min-width:480px;max-width:640px;">
+      <div class="dialog-header error-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="warning" id="error-title-icon"></span>
+          <span id="error-title" data-i18n="error.title">Error</span>
+        </span>
+        <button class="dialog-close-btn" id="error-close-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="error-icon-row">
+          <svg class="error-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          <p id="error-message" class="error-message"></p>
+        </div>
+        <div id="error-detail-wrap" class="error-detail-wrap" style="display:none;">
+          <div class="error-detail-label" data-i18n="error.detail">Details:</div>
+          <textarea id="error-detail" class="error-detail-text" readonly rows="6"></textarea>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon" id="error-copy-btn" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          <span data-i18n="error.copy">Copy</span>
+        </button>
+        <button class="btn-icon primary" id="error-ok-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          <span data-i18n="error.ok">OK</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Progress Dialog ═══ -->
+  <div id="progress-overlay" class="dialog-overlay progress-overlay" style="display:none;" aria-busy="true" aria-live="polite">
+    <div class="dialog-box progress-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="recent"></span>
+          <span id="progress-title" data-i18n="progress.title">Working…</span>
+        </span>
+        <button class="dialog-close-btn" id="progress-close" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body progress-dialog-body">
+        <p id="progress-message" class="progress-message"></p>
+        <div class="progress-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar">
+          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+        <div class="progress-percent-row">
+          <span id="progress-percent" class="progress-percent">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Unsaved Changes Dialog ═══ -->
+  <div id="unsaved-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box unsaved-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="save"></span>
+          <span data-i18n="dialog.unsaved.title">Unsaved Changes</span>
+        </span>
+        <button class="dialog-close-btn" id="unsaved-close" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <p id="unsaved-message" class="confirm-message" data-i18n="dialog.unsaved.message">You have unsaved changes.
+Do you want to save before closing?</p>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn-icon" id="unsaved-dont">
+          <span class="ew-action-icon" data-icon="exit"></span>
+          <span data-i18n="dialog.unsaved.dontSave">Don't Save</span>
+        </button>
+        <button type="button" class="btn-icon" id="unsaved-cancel">
+          <span class="ew-action-icon" data-icon="close"></span>
+          <span data-i18n="dialog.unsaved.cancel">Cancel</span>
+        </button>
+        <button type="button" class="btn-icon primary" id="unsaved-save">
+          <span class="ew-action-icon" data-icon="save"></span>
+          <span data-i18n="dialog.unsaved.save">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Rename Dialog ═══ -->
+  <div id="rename-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box rename-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="edit" id="rename-title-icon"></span>
+          <span id="rename-title" data-i18n="context.rename">Rename</span>
+        </span>
+        <button class="dialog-close-btn" id="rename-close" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <label class="rename-label" for="rename-input" id="rename-label"></label>
+        <input id="rename-input" class="rename-input" type="text" spellcheck="false" autocomplete="off">
+        <p id="rename-error" class="rename-error" hidden></p>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="primary" id="rename-ok" data-i18n="dialog.rename.ok">Rename</button>
+        <button type="button" id="rename-cancel" data-i18n="dialog.rename.cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Confirm / Save Dialog ═══ -->
+  <div id="confirm-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box confirm-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="save" id="confirm-title-icon"></span>
+          <span id="confirm-title"></span>
+        </span>
+        <button class="dialog-close-btn" id="confirm-close" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <p id="confirm-message" class="confirm-message"></p>
+        <p id="confirm-detail" class="confirm-detail" hidden></p>
+      </div>
+      <div class="dialog-footer" id="confirm-footer"></div>
+    </div>
+  </div>
+
+  <!-- ═══ About Dialog ═══ -->
+  <!-- ═══ Details: everything known about one file, as tables (filled by app.js) ═══ -->
+  <div id="details-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box details-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="fileInfo"></span>
+          <span data-i18n="details.title">Details</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body details-body">
+        <div class="details-head">
+          <div class="details-name" id="details-name"></div>
+          <div class="details-path" id="details-path"></div>
+        </div>
+        <div class="details-analysis" id="details-analysis" hidden>
+          <canvas id="details-hist" class="cp-histogram details-hist" width="512" height="120" aria-label="Histogram"></canvas>
+        </div>
+        <div id="details-content" class="details-content"></div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn-icon" id="details-copy">
+          <span class="ew-action-icon" data-icon="copy"></span>
+          <span data-i18n="details.copy">Copy all</span>
+        </button>
+        <button type="button" class="btn-icon primary" data-close-dialog>
+          <span data-i18n="details.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Help: feature guide loaded from doc/ ═══ -->
+  <div id="help-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box help-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="help"></span>
+          <span data-i18n="help.title">Help</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body help-body">
+        <nav id="help-nav" class="help-nav" data-i18n-aria="help.toc" aria-label="Contents"></nav>
+        <article id="help-doc" class="help-doc">
+          <p class="help-status" data-i18n="help.loading">Loading help…</p>
+        </article>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn-icon" id="help-shortcuts">
+          <span class="ew-action-icon" data-icon="keyboard"></span>
+          <span data-i18n="menu.shortcuts">Keyboard Shortcuts</span>
+        </button>
+        <button type="button" class="btn-icon" id="help-about">
+          <span class="ew-action-icon" data-icon="info"></span>
+          <span data-i18n="menu.about">About</span>
+        </button>
+        <button type="button" class="btn-icon primary" data-close-dialog>
+          <span data-i18n="about.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="about-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box" style="min-width:400px;max-width:480px;">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="info"></span>
+          <span data-i18n="about.title">About MyImageViewer</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="about-logo">
+          <img id="about-app-icon" src="./assets/icon.png" alt="App Icon" style="width:48px;height:48px;" onerror="this.style.display='none'">
+          <div class="about-logo-text">
+            <h2 data-i18n="app.title">MyImageViewer</h2>
+            <p class="about-version-line">
+              <span data-i18n="about.version">Version</span>
+              <span id="about-version-num">1.0.2</span>
+            </p>
+            <p class="about-build-line">
+              <span data-i18n="about.build">Build</span>
+              <span id="about-build-num">—</span>
+            </p>
+          </div>
+        </div>
+        <p class="about-desc" data-i18n="about.desc">A multi-platform image viewer and editor.</p>
+        <div class="about-formats" data-i18n="about.formats">
+          Supported: JPEG, PNG, GIF, BMP, WebP, SVG, ICO, TIFF, HEIC/HEIF, DICOM (DCM),<br>
+          Video: MP4, WebM, MOV, MKV, AVI and more
+        </div>
+        <div class="about-copyright">
+          <p data-i18n="about.copyright">Copyright © 2024–2026 SHKWON</p>
+          <p><a href="#" id="about-email-link" data-i18n="about.contact">knix008@naver.com</a></p>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon primary" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="about.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Edit Window ═══ -->
+  <div id="edit-window">
+    <!-- Menu bar carries the old title-bar contents: icon · Edit Image · file name · window gutter -->
+    <div id="ew-menubar" role="menubar">
+      <div class="app-brand ew-brand" id="ew-brand">
+        <img src="./assets/icon.png" alt="" draggable="false">
+        <span class="app-brand-name" data-i18n="editWindow.title">Edit Image</span>
+      </div>
+      <div id="ew-menubar-menus" class="menubar-menus"></div>
+      <span id="edit-window-title" class="titlebar-file" title=""></span>
+      <div id="ew-win-gutter"></div>
+    </div>
+
+    <!-- Toolbar row: save/apply/cancel/print · tools · theme/lang/settings -->
+    <div id="ew-toolbar-row">
+      <div class="ew-actions">
+        <button type="button" class="ew-action-btn" id="ew-save" data-i18n-title="editWindow.saveNew">
+          <span class="ew-action-icon" data-icon="saveAs"></span>
+        </button>
+        <button type="button" class="ew-action-btn primary" id="ew-apply" data-i18n-title="editWindow.apply">
+          <span class="ew-action-icon" data-icon="edit"></span>
+        </button>
+        <button type="button" class="ew-action-btn danger" id="ew-cancel" data-i18n-title="editWindow.cancel">
+          <span class="ew-action-icon" data-icon="close"></span>
+        </button>
+        <button type="button" class="ew-btn" id="ew-print" data-i18n-title="toolbar.print"></button>
+      </div>
+      <div class="ew-sep"></div>
+      <div class="ew-toolbar">
+        <!-- Selection tools -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn active" id="ew-tool-pointer"  data-i18n-title="toolbar.toolPointer"></button>
+          <button class="ew-btn"        id="ew-tool-rect"     data-i18n-title="toolbar.toolRect"></button>
+          <button class="ew-btn"        id="ew-tool-lasso"    data-i18n-title="toolbar.toolLasso"></button>
+          <button class="ew-btn"        id="ew-tool-polygon"  data-i18n-title="toolbar.toolPolygon"></button>
+          <button class="ew-btn"        id="ew-tool-magic"    data-i18n-title="toolbar.toolMagic"></button>
+          <div class="ew-tolerance-wrap" id="ew-tolerance-wrap" style="display:none;">
+            <label data-i18n="editWindow.tolerance">Tol:</label>
+            <input class="ew-tolerance-input" id="ew-tolerance" type="number" min="1" max="255" value="32">
+          </div>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Edit actions -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn is-disabled" id="ew-cut"        data-i18n-title="context.cut"       aria-disabled="true"></button>
+          <button class="ew-btn is-disabled" id="ew-copy"       data-i18n-title="context.copy"      aria-disabled="true"></button>
+          <select id="ew-bg-algo" class="ew-select" data-i18n-title="toolbar.bgAlgo"></select>
+          <button class="ew-btn" id="ew-bg-remove"  data-i18n-title="toolbar.bgRemove"></button>
+          <button class="ew-btn is-disabled" id="ew-crop-sel"   data-i18n-title="editWindow.cropSel" aria-disabled="true"></button>
+          <button class="ew-btn is-disabled" id="ew-clear-sel"  data-i18n-title="editWindow.clearSel" aria-disabled="true"></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Transform -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-rotate-l" data-i18n-title="toolbar.rotateLeft"></button>
+          <button class="ew-btn" id="ew-rotate-r" data-i18n-title="toolbar.rotateRight"></button>
+          <button class="ew-btn" id="ew-flip-h"   data-i18n-title="toolbar.flipH"></button>
+          <button class="ew-btn" id="ew-flip-v"   data-i18n-title="toolbar.flipV"></button>
+          <button class="ew-btn" id="ew-resize"   data-i18n-title="toolbar.resize"></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Undo / Redo -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn is-disabled" id="ew-undo" data-i18n-title="editWindow.undo" aria-disabled="true"></button>
+          <button class="ew-btn is-disabled" id="ew-redo" data-i18n-title="editWindow.redo" aria-disabled="true"></button>
+        </div>
+
+        <div class="ew-sep"></div>
+
+        <!-- Zoom: [−] [100%] [+] -->
+        <div class="ew-group" role="group">
+          <button class="ew-btn" id="ew-zoom-out" data-i18n-title="toolbar.zoomOut"></button>
+          <div class="ew-zoom-wrap">
+            <input id="ew-zoom-display" type="text" value="100%" title="Zoom level">
+          </div>
+          <button class="ew-btn" id="ew-zoom-in"  data-i18n-title="toolbar.zoomIn"></button>
+          <button class="ew-btn" id="ew-fit"      data-i18n-title="toolbar.fitWindow"></button>
+        </div>
+      </div>
+
+      <span class="ew-spacer"></span>
+      <div class="ew-group ew-chrome" role="group">
+        <button class="ew-btn" id="ew-theme" data-i18n-title="toolbar.theme"></button>
+        <button class="ew-btn caret-btn" id="ew-theme-menu" data-i18n-title="toolbar.themeMenu" aria-haspopup="menu"></button>
+        <button class="ew-btn ew-lang-btn" id="ew-lang" data-i18n-title="toolbar.lang"></button>
+        <button class="ew-btn" id="ew-settings" data-i18n-title="toolbar.settings"></button>
+      </div>
+    </div>
+
+    <!-- Body: presets (left) + canvas + adjustments (right) -->
+    <div id="edit-window-body">
+      <div id="edit-effects-panel">
+        <div class="panel-header">
+          <span class="panel-title" data-i18n="effects.presets">PRESETS</span>
+        </div>
+        <div id="edit-effects-content"></div>
+        <div id="edit-effects-resize"></div>
+      </div>
+      <div id="edit-canvas-area">
+        <!-- The shared image-wrapper is moved here during edit mode -->
+        <button type="button" class="viewer-nav-btn viewer-nav-prev is-disabled" id="ew-nav-prev"
+          data-i18n-title="toolbar.prev" title="Previous image" hidden aria-label="Previous image">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button type="button" class="viewer-nav-btn viewer-nav-next is-disabled" id="ew-nav-next"
+          data-i18n-title="toolbar.next" title="Next image" hidden aria-label="Next image">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+        </button>
+      </div>
+      <div id="edit-adjust-panel">
+        <div class="panel-header">
+          <span class="panel-title" data-i18n="effects.title">ADJUSTMENTS</span>
+        </div>
+        <div id="edit-adjust-content"></div>
+        <div class="effects-actions">
+          <button id="edit-effects-reset-btn" data-i18n="effects.reset">Reset</button>
+        </div>
+        <div id="edit-adjust-resize"></div>
+      </div>
+    </div>
+
+    <div id="ew-status-bar">
+      <div class="status-item" id="ew-status-zoom">Zoom: 100%</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="ew-status-dims">—</div>
+      <div class="status-sep"></div>
+      <div class="status-item" id="ew-status-format">—</div>
+      <div class="status-spacer"></div>
+      <div class="status-item" id="ew-status-msg"></div>
+      <div id="ew-status-progress" hidden>
+        <span id="ew-status-progress-msg"></span>
+        <div id="ew-status-progress-bar" class="status-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="ew-status-progress-fill" class="status-progress-fill"></div>
+        </div>
+        <span id="ew-status-progress-pct">0%</span>
+      </div>
+      <div class="win-resize-grip" role="presentation" data-i18n-title="window.resize" title="Resize">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="10" cy="2" r="1.15"/><circle cx="6" cy="6" r="1.15"/><circle cx="10" cy="6" r="1.15"/><circle cx="2" cy="10" r="1.15"/><circle cx="6" cy="10" r="1.15"/><circle cx="10" cy="10" r="1.15"/></svg>
+      </div>
+    </div>
+  </div><!-- /edit-window -->
+
+  <div id="window-controls">
+    <button type="button" id="win-min" title="Minimize" aria-label="Minimize">
+      <svg viewBox="0 0 12 12"><rect x="1" y="5.5" width="10" height="1.2" rx="0.4"/></svg>
+    </button>
+    <button type="button" id="win-max" title="Maximize" aria-label="Maximize">
+      <svg class="win-max-icon" viewBox="0 0 12 12" aria-hidden="true">
+        <rect x="2" y="2" width="8" height="8" rx="0.2" fill="none" stroke="currentColor" stroke-width="1.15"/>
+      </svg>
+      <svg class="win-restore-icon" viewBox="0 0 12 12" aria-hidden="true">
+        <path d="M3.5 4.2V2.6h5.9V8.5H7.8" fill="none" stroke="currentColor" stroke-width="1.15"/>
+        <rect x="2.2" y="4.2" width="5.9" height="5.9" fill="none" stroke="currentColor" stroke-width="1.15"/>
+      </svg>
+    </button>
+    <button type="button" id="win-close" title="Close" aria-label="Close">
+      <svg viewBox="0 0 12 12"><path d="M2.2 2.2l7.6 7.6M9.8 2.2L2.2 9.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <!-- ═══ Settings Dialog ═══ -->
+  <div id="settings-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box settings-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="settings"></span>
+          <span data-i18n="settings.title">Settings</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <!-- Fixed-size, tabbed body: every tab fits without scrolling -->
+      <div class="settings-tabs" role="tablist">
+        <button type="button" class="settings-tab active" role="tab" data-tab="general" aria-selected="true" data-i18n="settings.tab.general">General</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="theme" aria-selected="false" data-i18n="settings.tab.theme">Theme</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="viewer" aria-selected="false" data-i18n="settings.tab.viewer">Viewer &amp; editing</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="dicom" aria-selected="false">DICOM</button>
+        <button type="button" class="settings-tab" role="tab" data-tab="media" aria-selected="false" data-i18n="settings.tab.media">Media</button>
+      </div>
+      <div class="dialog-body settings-body">
+        <div class="settings-panel active" data-panel="general" role="tabpanel">
+          <div class="settings-row">
+            <span data-i18n="settings.language">Language</span>
+            <div class="settings-lang-row" role="radiogroup">
+              <button type="button" class="settings-lang-btn" data-lang="ko"><span class="settings-lang-flag"></span><span>한국어</span></button>
+              <button type="button" class="settings-lang-btn" data-lang="en"><span class="settings-lang-flag"></span><span>English</span></button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="settings-show-home">
+              <span data-i18n="settings.showHome">Always show the start screen at startup</span>
+              <span class="settings-hint" data-i18n="settings.showHomeHint">When off, the restore option above opens the last folder. Opened folders stay on the start screen.</span>
+            </label>
+            <input type="checkbox" id="settings-show-home" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-restore-session">
+              <span data-i18n="settings.restoreSession">Reopen the last folder and file at startup</span>
+            </label>
+            <input type="checkbox" id="settings-restore-session" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-start-scene">
+              <span data-i18n="settings.startScene">Start screen background</span>
+            </label>
+            <select id="settings-start-scene" class="resize-select"></select>
+          </div>
+          <div class="settings-start-grid">
+            <div class="settings-start-item">
+              <label for="settings-start-transparency"><span data-i18n="start.transparency">Background transparency</span></label>
+              <span class="settings-start-ctrl">
+                <button type="button" class="settings-start-step" data-start-step="-1" data-i18n-title="start.speedDown" title="Decrease">−</button>
+                <input type="range" id="settings-start-transparency" min="0" max="100" step="5" data-start-key="transparency">
+                <span id="settings-start-transparency-val">0%</span>
+                <button type="button" class="settings-start-step" data-start-step="1" data-i18n-title="start.speedUp" title="Increase">+</button>
+              </span>
+            </div>
+            <div class="settings-start-item">
+              <label for="settings-start-motion"><span data-i18n="start.motion">Overall speed</span></label>
+              <span class="settings-start-ctrl">
+                <button type="button" class="settings-start-step" data-start-step="-1" data-i18n-title="start.speedDown" title="Decrease">−</button>
+                <input type="range" id="settings-start-motion" min="0" max="100" step="5" data-start-key="motion">
+                <span id="settings-start-motion-val">20%</span>
+                <button type="button" class="settings-start-step" data-start-step="1" data-i18n-title="start.speedUp" title="Increase">+</button>
+              </span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="settings-clear-recent">
+              <span data-i18n="settings.recentFolders">Recent folders</span>
+              <span class="settings-hint" id="settings-recent-count"></span>
+            </label>
+            <button type="button" class="settings-btn" id="settings-clear-recent" data-i18n="toolbar.clearRecentFolders">Clear recent folders</button>
+          </div>
+          <div class="settings-row" id="settings-thumb-cache-row">
+            <label for="settings-clear-thumbs">
+              <span data-i18n="settings.thumbCache">Thumbnail cache</span>
+              <span class="settings-hint" id="settings-thumb-cache-size"></span>
+            </label>
+            <button type="button" class="settings-btn" id="settings-clear-thumbs" data-i18n="settings.clearThumbCache">Clear thumbnail cache</button>
+          </div>
+          <div class="settings-row settings-row-assoc">
+            <label>
+              <span data-i18n="settings.defaultViewer">Default image viewer</span>
+              <span class="settings-hint" data-i18n="settings.defaultViewerHint">Open common image files with this app</span>
+              <span class="settings-ext-chips" id="settings-assoc-exts"></span>
+              <span class="settings-hint" id="settings-assoc-status"></span>
+            </label>
+            <div class="settings-assoc-actions">
+              <button type="button" class="settings-btn" id="settings-set-default" data-i18n="settings.setAsDefault">Set as default</button>
+              <button type="button" class="settings-btn" id="settings-open-default-apps" data-i18n="settings.openDefaultApps">Windows settings</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-panel" data-panel="theme" role="tabpanel">
+          <div class="settings-theme-kind" data-i18n="menu.darkThemes">Dark Themes</div>
+          <div id="settings-theme-dark" class="settings-theme-grid"></div>
+          <div class="settings-theme-kind" data-i18n="menu.lightThemes">Light Themes</div>
+          <div id="settings-theme-light" class="settings-theme-grid"></div>
+          <div class="settings-theme-kind" data-i18n="theme.custom">Custom theme</div>
+          <div class="theme-custom" id="settings-custom-theme">
+            <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1e1e1e"></label>
+            <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#cccccc"></label>
+            <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#0078d4"></label>
+            <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
+          </div>
+        </div>
+        <div class="settings-panel" data-panel="viewer" role="tabpanel">
+          <div class="settings-row">
+            <label for="settings-zoom-step">
+              <span data-i18n="settings.zoomStep">Mouse-wheel zoom step</span>
+            </label>
+            <select id="settings-zoom-step" class="resize-select">
+              <option value="5">5%</option>
+              <option value="10">10%</option>
+              <option value="25">25%</option>
+              <option value="50">50%</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <label for="settings-checker">
+              <span data-i18n="settings.checker">Checkerboard behind transparent images</span>
+            </label>
+            <input type="checkbox" id="settings-checker" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-smoothing">
+              <span data-i18n="settings.smoothing">Smooth pixels when zoomed in</span>
+              <span class="settings-hint" data-i18n="settings.smoothingHint">Off shows the individual pixels (medical / pixel-art images)</span>
+            </label>
+            <input type="checkbox" id="settings-smoothing" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-bg-algo" data-i18n="toolbar.bgAlgo">Background removal algorithm</label>
+            <select id="settings-bg-algo" class="resize-select"></select>
+          </div>
+        </div>
+        <div class="settings-panel" data-panel="dicom" role="tabpanel">
+          <div class="settings-row">
+            <label for="settings-dicom-annot">
+              <span data-i18n="settings.dicomAnnotations">Show annotations on DICOM images</span>
+              <span class="settings-hint" data-i18n="settings.dicomAnnotationsHint">Patient / study text, orientation markers, scale bar (O)</span>
+            </label>
+            <input type="checkbox" id="settings-dicom-annot" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-dicom-fps">
+              <span data-i18n="settings.dicomFps">Default cine speed</span>
+              <span class="settings-hint" data-i18n="settings.dicomFpsHint">Used when the file carries no frame rate</span>
+            </label>
+            <div class="settings-inline">
+              <input type="number" id="settings-dicom-fps" class="resize-input" min="1" max="120" step="1"><span>fps</span>
+            </div>
+          </div>
+          <div class="settings-row">
+            <label for="settings-dicom-overlay-color">
+              <span data-i18n="settings.dicomOverlayColor">Overlay plane colour</span>
+            </label>
+            <div class="settings-inline">
+              <input type="color" id="settings-dicom-overlay-color" class="settings-color">
+              <button type="button" class="settings-btn" id="settings-dicom-overlay-reset" data-i18n="settings.default">Default</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-panel" data-panel="media" role="tabpanel">
+          <div class="settings-row">
+            <label for="settings-subtitles" data-i18n="settings.subtitles">Show subtitles when available</label>
+            <input type="checkbox" id="settings-subtitles" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-subtitle-lang" data-i18n="settings.subtitleLang">Preferred subtitle language</label>
+            <select id="settings-subtitle-lang" class="resize-select"></select>
+          </div>
+          <div class="settings-row">
+            <label for="settings-volume">
+              <span data-i18n="settings.volume">Volume</span>
+              <span class="settings-hint" data-i18n="settings.volumeHint">Remembered between sessions</span>
+            </label>
+            <div class="settings-inline">
+              <input type="range" id="settings-volume" min="0" max="100" step="1" class="settings-range">
+              <span id="settings-volume-label" class="settings-value">100%</span>
+              <label class="settings-check"><input type="checkbox" id="settings-mute"><span data-i18n="settings.mute">Mute</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-footer settings-footer">
+        <button class="btn-icon settings-reset-btn" id="settings-reset">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+          <span data-i18n="settings.resetAll">Reset all settings</span>
+        </button>
+        <span class="settings-footer-spacer"></span>
+        <button class="btn-icon primary" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="shortcuts.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Shortcuts Dialog ═══ -->
+  <div id="shortcuts-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box" style="min-width:440px;">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="keyboard"></span>
+          <span data-i18n="shortcuts.title">Keyboard Shortcuts</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <table class="shortcuts-table">
+          <tr><td>Open File</td><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td></tr>
+          <tr><td>Open Folder</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td></tr>
+          <tr><td>Save As</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td></tr>
+          <tr><td data-i18n="menu.print">Print...</td><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td></tr>
+          <tr><td data-i18n="menu.fileInfo">File Information...</td><td><kbd>Ctrl</kbd>+<kbd>I</kbd></td></tr>
+          <tr><td>Edit Image</td><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td></tr>
+          <tr><td>Zoom In</td><td><kbd>Ctrl</kbd>+<kbd>+</kbd></td></tr>
+          <tr><td>Zoom Out</td><td><kbd>Ctrl</kbd>+<kbd>-</kbd></td></tr>
+          <tr><td>Fit to Window</td><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td></tr>
+          <tr><td>Actual Size</td><td><kbd>Ctrl</kbd>+<kbd>1</kbd></td></tr>
+          <tr><td>Rotate Left</td><td><kbd>Ctrl</kbd>+<kbd>[</kbd></td></tr>
+          <tr><td>Rotate Right</td><td><kbd>Ctrl</kbd>+<kbd>]</kbd></td></tr>
+          <tr><td data-i18n="shortcuts.resize">Resize Image</td><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd></td></tr>
+          <tr><td>Previous Image</td><td><kbd>←</kbd> / <kbd>Page Up</kbd></td></tr>
+          <tr><td>Next Image</td><td><kbd>→</kbd> / <kbd>Page Down</kbd></td></tr>
+          <tr><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td></tr>
+          <tr><td>Redo</td><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
+          <tr><td>Copy</td><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td></tr>
+          <tr><td>Clear Selection / Cancel</td><td><kbd>Esc</kbd></td></tr>
+          <tr><td>Fullscreen</td><td><kbd>F11</kbd></td></tr>
+          <tr><td>DICOM: Previous / Next Frame</td><td><kbd>Ctrl</kbd>+<kbd>PgUp</kbd> / <kbd>Ctrl</kbd>+<kbd>PgDn</kbd></td></tr>
+          <tr><td>DICOM: First / Last Frame</td><td><kbd>Home</kbd> / <kbd>End</kbd></td></tr>
+          <tr><td>DICOM: Play Frames</td><td><kbd>Space</kbd></td></tr>
+          <tr><td>DICOM: Invert / Reset Window</td><td><kbd>I</kbd> / <kbd>W</kbd></td></tr>
+          <tr><td>DICOM: Window (center / width)</td><td><kbd>Ctrl</kbd>+drag</td></tr>
+        </table>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon primary" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="shortcuts.close">Close</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Resize Dialog ═══ -->
+  <div id="resize-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box resize-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="resize"></span>
+          <span data-i18n="resize.title">Resize Image</span>
+        </span>
+        <button class="dialog-close-btn" id="resize-close" type="button" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body resize-dialog-body">
+        <div class="resize-preview-col">
+          <div class="resize-preview-frame">
+            <canvas id="resize-preview" width="280" height="200"></canvas>
+          </div>
+          <div class="resize-size-summary" id="resize-summary"></div>
+        </div>
+        <div class="resize-controls-col">
+          <div class="resize-label" data-i18n="resize.method">Resize method</div>
+          <div class="resize-mode-row" role="radiogroup">
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="percent" checked> <span data-i18n="resize.mode.percent">Percent</span></label>
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="pixels"> <span data-i18n="resize.mode.pixels">Pixels</span></label>
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="longest"> <span data-i18n="resize.mode.longest">Longest side</span></label>
+            <label class="resize-chip"><input type="radio" name="resize-mode" value="fit"> <span data-i18n="resize.mode.fit">Fit within</span></label>
+          </div>
+
+          <div class="resize-label" data-i18n="resize.presets">Presets</div>
+          <div class="resize-preset-row" id="resize-presets"></div>
+
+          <div class="resize-fields" id="resize-fields-percent">
+            <label class="resize-field">
+              <span data-i18n="resize.percent">Scale</span>
+              <span class="resize-field-inline">
+                <input id="resize-percent" type="number" min="1" max="400" step="1" value="50">
+                <span>%</span>
+              </span>
+            </label>
+          </div>
+          <div class="resize-fields" id="resize-fields-pixels" hidden>
+            <label class="resize-field">
+              <span data-i18n="resize.width">Width</span>
+              <span class="resize-field-inline">
+                <input id="resize-width" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+            <label class="resize-field">
+              <span data-i18n="resize.height">Height</span>
+              <span class="resize-field-inline">
+                <input id="resize-height" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+          </div>
+          <div class="resize-fields" id="resize-fields-longest" hidden>
+            <label class="resize-field">
+              <span data-i18n="resize.longest">Longest side</span>
+              <span class="resize-field-inline">
+                <input id="resize-longest" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+          </div>
+          <div class="resize-fields" id="resize-fields-fit" hidden>
+            <label class="resize-field">
+              <span data-i18n="resize.maxWidth">Max width</span>
+              <span class="resize-field-inline">
+                <input id="resize-max-w" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+            <label class="resize-field">
+              <span data-i18n="resize.maxHeight">Max height</span>
+              <span class="resize-field-inline">
+                <input id="resize-max-h" type="number" min="1" max="16384" step="1">
+                <span data-i18n="resize.px">px</span>
+              </span>
+            </label>
+          </div>
+          <label class="resize-check" id="resize-lock-wrap">
+            <input type="checkbox" id="resize-lock" checked>
+            <span data-i18n="resize.lockAspect">Lock aspect ratio</span>
+          </label>
+
+          <div class="resize-label" data-i18n="resize.quality">Resample quality</div>
+          <select id="resize-interp" class="resize-select">
+            <option value="high" data-i18n="resize.quality.high">High (smooth)</option>
+            <option value="medium" data-i18n="resize.quality.medium">Medium</option>
+            <option value="nearest" data-i18n="resize.quality.nearest">Nearest neighbor (pixel)</option>
+          </select>
+
+          <div class="resize-divider"></div>
+
+          <div class="resize-label" data-i18n="resize.saveTo">Save to</div>
+          <label class="resize-field">
+            <span data-i18n="resize.folder">Folder</span>
+            <span class="resize-path-row">
+              <input id="resize-dir" type="text" spellcheck="false">
+              <button type="button" class="resize-browse" id="resize-browse-dir" data-i18n="resize.browse">Browse…</button>
+            </span>
+          </label>
+          <label class="resize-field">
+            <span data-i18n="resize.fileName">File name</span>
+            <input id="resize-name" type="text" spellcheck="false">
+          </label>
+          <div class="resize-format-row">
+            <label class="resize-field">
+              <span data-i18n="resize.format">Format</span>
+              <select id="resize-format" class="resize-select">
+                <option value="png">PNG</option>
+                <option value="jpg">JPEG</option>
+                <option value="webp">WebP</option>
+                <option value="bmp">BMP</option>
+              </select>
+            </label>
+            <label class="resize-field" id="resize-file-quality-wrap">
+              <span data-i18n="resize.fileQuality">File quality</span>
+              <span class="resize-field-inline">
+                <input id="resize-file-quality" type="range" min="40" max="100" step="1" value="92">
+                <span id="resize-file-quality-val">92</span>
+              </span>
+            </label>
+          </div>
+          <label class="resize-check">
+            <input type="checkbox" id="resize-apply" checked>
+            <span data-i18n="resize.applyCurrent">Also apply to the current image</span>
+          </label>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="resize-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="resize-ok" data-i18n="resize.ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Print Preview Dialog ═══ -->
+  <div id="print-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box print-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="print"></span>
+          <span data-i18n="print.title">Print Preview</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body print-dialog-body">
+        <div class="print-preview-col">
+          <div class="print-preview-stage" id="print-preview-stage">
+            <div class="print-paper" id="print-paper">
+              <div class="print-band print-header" id="print-header">
+                <span class="print-slot print-slot-l" id="print-header-l"></span>
+                <span class="print-slot print-slot-c" id="print-header-c"></span>
+                <span class="print-slot print-slot-r" id="print-header-r"></span>
+              </div>
+              <div class="print-content" id="print-content">
+                <canvas id="print-preview-img"></canvas>
+              </div>
+              <div class="print-band print-footer" id="print-footer">
+                <span class="print-slot print-slot-l" id="print-footer-l"></span>
+                <span class="print-slot print-slot-c" id="print-footer-c"></span>
+                <span class="print-slot print-slot-r" id="print-footer-r"></span>
+              </div>
+            </div>
+          </div>
+          <div class="print-page-info" id="print-page-info"></div>
+        </div>
+        <div class="print-controls-col">
+          <label class="print-field print-field-full">
+            <span data-i18n="print.printer">Printer</span>
+            <select id="print-printer" class="resize-select"></select>
+          </label>
+
+          <div class="print-pair">
+            <label class="print-field">
+              <span data-i18n="print.paper">Paper size</span>
+              <select id="print-paper-size" class="resize-select">
+                <option value="A4">A4 (210 × 297 mm)</option>
+                <option value="Letter">Letter (216 × 279 mm)</option>
+                <option value="Legal">Legal (216 × 356 mm)</option>
+                <option value="A3">A3 (297 × 420 mm)</option>
+                <option value="A5">A5 (148 × 210 mm)</option>
+                <option value="Tabloid">Tabloid (279 × 432 mm)</option>
+              </select>
+            </label>
+            <label class="print-field">
+              <span data-i18n="print.margins">Margins</span>
+              <select id="print-margins" class="resize-select">
+                <option value="0" data-i18n="print.marginNone">None</option>
+                <option value="5" data-i18n="print.marginNarrow">Narrow (5 mm)</option>
+                <option value="10" selected data-i18n="print.marginNormal">Normal (10 mm)</option>
+                <option value="20" data-i18n="print.marginWide">Wide (20 mm)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="print-field print-field-full">
+            <span data-i18n="print.orientation">Orientation</span>
+            <div class="resize-mode-row" role="radiogroup">
+              <label class="resize-chip"><input type="radio" name="print-orient" value="auto" checked> <span data-i18n="print.auto">Auto</span></label>
+              <label class="resize-chip"><input type="radio" name="print-orient" value="portrait"> <span data-i18n="print.portrait">Portrait</span></label>
+              <label class="resize-chip"><input type="radio" name="print-orient" value="landscape"> <span data-i18n="print.landscape">Landscape</span></label>
+            </div>
+          </div>
+
+          <div class="print-field print-field-full">
+            <span data-i18n="print.scale">Scale</span>
+            <div class="resize-mode-row" role="radiogroup">
+              <label class="resize-chip"><input type="radio" name="print-scale" value="fit" checked> <span data-i18n="print.fit">Fit to page</span></label>
+              <label class="resize-chip"><input type="radio" name="print-scale" value="actual"> <span data-i18n="print.actual">Actual size</span></label>
+              <label class="resize-chip"><input type="radio" name="print-scale" value="custom"> <span data-i18n="print.custom">Custom</span></label>
+            </div>
+          </div>
+          <label class="print-field print-field-full" id="print-scale-custom-wrap" hidden>
+            <span data-i18n="print.scalePct">Scale (% of fit)</span>
+            <span class="resize-field-inline">
+              <input id="print-scale-pct" type="number" min="5" max="400" step="1" value="100">
+              <span>%</span>
+            </span>
+          </label>
+
+          <div class="print-pair">
+            <label class="print-field">
+              <span data-i18n="print.copies">Copies</span>
+              <input id="print-copies" type="number" min="1" max="99" step="1" value="1">
+            </label>
+            <label class="print-field">
+              <span data-i18n="print.color">Color</span>
+              <select id="print-color" class="resize-select">
+                <option value="color" data-i18n="print.colorColor">Color</option>
+                <option value="gray" data-i18n="print.grayscale">Grayscale</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="resize-divider"></div>
+
+          <label class="resize-check">
+            <input type="checkbox" id="print-header-on" checked>
+            <span data-i18n="print.headerShow">Show header</span>
+          </label>
+          <div id="print-header-opts" class="print-opts">
+            <div class="print-pair">
+              <label class="print-field">
+                <span data-i18n="print.headerContent">Header text</span>
+                <select id="print-header-kind" class="resize-select">
+                  <option value="filename" data-i18n="print.headerFilename">File name</option>
+                  <option value="date" data-i18n="print.headerDate">Date</option>
+                  <option value="both" data-i18n="print.headerBoth">File name + date</option>
+                  <option value="custom" data-i18n="print.headerCustom">Custom</option>
+                </select>
+              </label>
+              <div class="print-field">
+                <span data-i18n="print.headerAlign">Header position</span>
+                <div class="resize-mode-row" role="radiogroup">
+                  <label class="resize-chip"><input type="radio" name="print-header-align" value="left"> <span data-i18n="print.alignLeft">Left</span></label>
+                  <label class="resize-chip"><input type="radio" name="print-header-align" value="center" checked> <span data-i18n="print.alignCenter">Center</span></label>
+                  <label class="resize-chip"><input type="radio" name="print-header-align" value="right"> <span data-i18n="print.alignRight">Right</span></label>
+                </div>
+              </div>
+            </div>
+            <label class="print-field print-field-full" id="print-header-custom-wrap" hidden>
+              <span data-i18n="print.headerText">Custom header</span>
+              <input id="print-header-text" type="text" maxlength="200" spellcheck="false">
+            </label>
+          </div>
+
+          <label class="resize-check">
+            <input type="checkbox" id="print-pageno-on" checked>
+            <span data-i18n="print.pageNoShow">Show page number</span>
+          </label>
+          <div id="print-pageno-opts" class="print-opts">
+            <div class="print-pair">
+              <label class="print-field">
+                <span data-i18n="print.pageNoPos">Number position</span>
+                <select id="print-pageno-pos" class="resize-select">
+                  <option value="footer-center" data-i18n="print.posFooterCenter" selected>Footer center</option>
+                  <option value="footer-left" data-i18n="print.posFooterLeft">Footer left</option>
+                  <option value="footer-right" data-i18n="print.posFooterRight">Footer right</option>
+                  <option value="header-left" data-i18n="print.posHeaderLeft">Header left</option>
+                  <option value="header-center" data-i18n="print.posHeaderCenter">Header center</option>
+                  <option value="header-right" data-i18n="print.posHeaderRight">Header right</option>
+                </select>
+              </label>
+              <label class="print-field">
+                <span data-i18n="print.pageNoFmt">Number format</span>
+                <select id="print-pageno-fmt" class="resize-select">
+                  <option value="nOfN" data-i18n="print.fmtNofN">1 / 1</option>
+                  <option value="n" data-i18n="print.fmtN">1</option>
+                  <option value="pageN" data-i18n="print.fmtPageN">Page 1</option>
+                  <option value="dash" data-i18n="print.fmtDash">- 1 -</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-icon" data-close-dialog>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          <span data-i18n="print.cancel">Cancel</span>
+        </button>
+        <button class="btn-icon primary" id="print-go">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+          <span data-i18n="print.print">Print</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ File / Folder / Save Dialog ═══ -->
+  <div id="file-dialog-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box file-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="openFile" id="fd-title-icon"></span>
+          <span id="fd-title">Open File</span>
+        </span>
+        <button class="dialog-close-btn" id="fd-close" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="fd-nav">
+        <button type="button" class="fd-nav-btn" id="fd-up" title="Up"></button>
+        <button type="button" class="fd-nav-btn" id="fd-home" title="Home"></button>
+        <input id="fd-path" class="fd-path" type="text" spellcheck="false">
+      </div>
+      <div class="fd-split">
+        <div id="fd-drives" class="fd-drives"></div>
+        <div id="fd-list" class="fd-list"></div>
+      </div>
+      <div class="fd-name-row" id="fd-name-row">
+        <label for="fd-name" id="fd-name-label" data-i18n="fd.fileName">File name</label>
+        <input id="fd-name" type="text" spellcheck="false">
+        <select id="fd-filter"></select>
+      </div>
+      <div class="fd-quality-row" id="fd-quality-row" style="display:none;">
+        <label for="fd-quality" data-i18n="fd.quality">Image quality</label>
+        <input id="fd-quality" type="range" min="40" max="100" step="1" value="92">
+        <span class="fd-quality-val" id="fd-quality-val">92</span>
+        <span class="fd-quality-hint" data-i18n="fd.qualityHint">Higher = better quality, larger file</span>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="fd-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="fd-ok"><span id="fd-ok-label">Open</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="theme-picker-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box theme-picker-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="palette"></span>
+          <span data-i18n="menu.theme">Theme</span>
+        </span>
+        <button class="dialog-close-btn" data-close-dialog type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body theme-picker-body">
+        <div class="theme-picker-kind" data-i18n="menu.darkThemes">Dark Themes</div>
+        <div id="theme-picker-dark" class="theme-picker-grid"></div>
+        <div class="theme-picker-kind" data-i18n="menu.lightThemes">Light Themes</div>
+        <div id="theme-picker-light" class="theme-picker-grid"></div>
+        <div class="theme-picker-kind" data-i18n="theme.custom">Custom theme</div>
+        <div class="theme-custom" id="theme-picker-custom">
+          <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1e1e1e"></label>
+          <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#cccccc"></label>
+          <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#0078d4"></label>
+          <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor (optional – TIFF/HEIC support in web mode) -->
+  <!-- <script src="./vendor/UTIF.js"></script> -->
+  <!-- <script src="./vendor/heic2any.min.js"></script> -->
+
+  <script src="./js/tauriAPI.js"></script>
+  <script>
+    // Web mode: the Tauri bridge did not install electronAPI → load the browser shim
+    window.__IS_WEB__ = typeof window.electronAPI === 'undefined';
+  </script>
+  <script src="./js/icons.js"></script>
+  <script src="./js/themes.js"></script>
+  <script src="./js/i18n.js"></script>
+  <script src="./js/dicomDecoder.js"></script>
+  <script src="./js/formatSupport.js"></script>
+  <script src="./js/fileRegistry.js"></script>
+  <script src="./js/webAPI.js"></script>
+  <script src="./js/tooltip.js"></script>
+  <script src="./js/contextMenu.js"></script>
+  <script src="./js/fileDialog.js"></script>
+  <script src="./js/thumbs.js"></script>
+  <script src="./js/browse.js"></script>
+  <script src="./js/editor.js"></script>
+  <script src="./js/fileTree.js"></script>
+  <script src="./js/app.js"></script>
+
+  <script>
+    document.getElementById('ft-open-link')?.addEventListener('click', () => {
+      window.FileDialog?.openFolder().then((r) => {
+        if (r && !r.canceled && r.filePath) window.dispatchEvent(new CustomEvent('app-open-folder', { detail: r.filePath }));
+      });
+    });
+  </script>
+</body>
+</html>
