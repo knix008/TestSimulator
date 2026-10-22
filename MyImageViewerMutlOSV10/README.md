@@ -71,7 +71,7 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Selecting a file fills the **File Info** panel without opening the image
   - **Multi-select**: `Ctrl`+click toggles, `Shift`+click selects a range, mouse drag draws a selection box (auto-scrolls at the edges), `Ctrl+A` selects all; right-clicking inside the selection applies the context menu (open / copy / move / clipboard / delete) to every selected item
   - **Drag to the explorer**: drag tiles (the whole selection) onto a folder in the explorer tree to **move** them there; hold `Ctrl` to copy. The sheet stays in its folder and drops the moved tiles; a drag that starts on a tile moves files, a box selection starts from empty space
-  - Thumbnails are made **in the background** and kept in a **per-directory thumbnail DB** under the app's user-data folder, so a folder seen before shows its thumbnails at once — only new or changed files are redone. On the desktop the host builds them natively (sharp) for every folder you open — and for recent folders at start-up — even after you move on; formats it cannot read (BMP / ICO / HEIC / DICOM) are made in the page. Settings ▸ General shows the cache size and can clear it
+  - Thumbnails are made **in the background** and kept in a **per-directory thumbnail DB** under the app's user-data folder, so a folder seen before shows its thumbnails at once — only new or changed files are redone. On the desktop the app's host builds them natively (JPEG / PNG / WebP / GIF / TIFF) for every folder you open — and for recent folders at start-up — even after you move on; other formats (BMP / ICO / AVIF / SVG / HEIC / DICOM) are made in the page. Settings ▸ General shows the cache size and can clear it
   - Bottom **filmstrip** while viewing an image: always the image's own folder, `<` / `>` and `←` / `→` step through it
   - The thumbnail toolbar button reflects what is on screen: it turns off when you open an image and brings the sheet back when pressed again
 
@@ -154,7 +154,7 @@ npm install
 npm start
 ```
 
-`npm start` opens the Tauri window (`tauri dev`). The window loads the renderer from the local host (`host/server.js` on port 17810), which keeps file, image, DICOM, and background-removal work in Node. Rust and the Tauri CLI are required.
+`npm start` opens the Tauri window (`tauri dev`). The page comes from `src/`; file, thumbnail, conversion, metadata and background-removal work is done by the app's own host (`src-tauri/src/host/`, Rust). `scripts/vendor.js` runs first and copies the DICOM / HEIC / EXIF browser builds into `src/vendor/node_modules/`. Rust and the Tauri CLI are required; Node is only needed for `npm` itself — the installed app does not use it.
 
 ### Run — Web / 웹 실행
 
@@ -181,7 +181,7 @@ On Windows, **Settings** can register MyImageViewer as the default app for JPEG,
 
 | Script | Description |
 |--------|-------------|
-| `npm start` | Tauri desktop app (`tauri dev` + `host/server.js`) |
+| `npm start` | Tauri desktop app (`tauri dev`) |
 | `npm test` | Feature tests (`tests/cases/`) — summary table, then every case with a 3-decimal execution time |
 | `npm run web` | Web server (Express → `src/`) |
 | `npm run create-icons` | Rebuild `src/assets` PNG / ICO from `icon.svg` |
@@ -212,7 +212,7 @@ For enhanced TIFF and HEIC/HEIF support (especially in **web** mode), add librar
 
 Uncomment the script tags in `src/index.html` after downloading.
 
-> **Note:** On Windows desktop, HEIC may also work with [HEIF Image Extensions](https://apps.microsoft.com/store/detail/heif-image-extensions/9PMMSR1CGPWG). The desktop host uses `sharp` / `heic-convert` / `heic-decode`. EXIF and related tags are read with **exifr**.
+> **Note:** On Windows desktop, HEIC may also work with [HEIF Image Extensions](https://apps.microsoft.com/store/detail/heif-image-extensions/9PMMSR1CGPWG). The desktop app decodes HEIC itself with **libheif** (its WebAssembly build, in a worker), TIFF with the host's `image` crate, and plays other video / audio through the bundled **ffmpeg**. EXIF and related tags are read with **exifr**.
 
 ## Keyboard Shortcuts / 단축키
 

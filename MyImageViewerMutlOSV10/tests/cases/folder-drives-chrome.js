@@ -31,11 +31,9 @@ module.exports = {
       // DICOM rows stay in the View menu, where they were.
       const view = app.slice(app.indexOf('function _viewMenuItems'), app.indexOf('function _themeMenuItems'));
       assertIncludes(view, '..._dicomContextItems(),', 'DICOM block back in View');
-      assertIncludes(main, "label: t('menu.window')", 'native menu too');
-      assert(!/label: t\('menu\.effects'\)/.test(main), 'native Effects menu gone');
+      // (There is no native menu: the menubar is the page's own, on every OS.)
       for (const action of ['panel-left', 'panel-right', 'toggle-browse']) {
         assertIncludes(app, `'${action}':`, `${action} handled in the renderer`);
-        assertIncludes(main, `'${action}'`, `${action} sent by the native menu`);
       }
     });
 

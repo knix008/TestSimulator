@@ -176,7 +176,8 @@ module.exports = {
 
     test('Directory listing supplies size, mtime and birthtime', () => {
       assertIncludes(main, 'read-directory-detailed', 'detailed ipc');
-      assertIncludes(main, 'row.birthtimeMs = st.birthtimeMs;', 'created time');
+      assertIncludes(main, 'birth = st.created().map(ms_since_epoch).unwrap_or(0.0);', 'created time');
+      assertIncludes(main, '"birthtimeMs": birth', 'sent to the page');
       assertIncludes(browse, 'entry.birthtimeMs', 'used by the view');
     });
 
@@ -275,13 +276,14 @@ module.exports = {
 
     test('Thumbnails are cached on disk, one cache per directory', () => {
       const { thumbs, preload } = src;
-      // Main process: <userData>/ThumbCache/<sha1(dir)>/index.json + one JPEG per image
-      assertIncludes(main, "path.join(app.getPath('userData'), 'ThumbCache')", 'cache root in userData');
-      assertIncludes(main, "const folder = path.join(_thumbRoot(), key);", 'one folder per source directory');
-      assertIncludes(main, 'st.size === ent.size && Math.abs(st.mtimeMs - ent.mtimeMs) < 1', 'stale entries are not served');
-      assertIncludes(main, "app.on('before-quit', _thumbFlushAllSync);", 'pending index writes survive quit');
+      // Host: <userData>/ThumbCache/<sha1(dir)>/index.json + one JPEG per image
+      assertIncludes(main, 'super::user_data_dir().join("ThumbCache")', 'cache root in userData');
+      assertIncludes(main, 'let folder = root().join(&key);', 'one folder per source directory');
+      assertIncludes(main, 'ent.size == size && (mtime - ent.mtime_ms).abs() < 1.0', 'stale entries are not served');
+      assertIncludes(h.read('src-tauri/src/main.rs'), 'host::shutdown();', 'pending index writes survive quit');
+      assertIncludes(main, 'thumbs::flush_all();', 'shutdown writes them');
       for (const ch of ['thumb-cache-load', 'thumb-cache-put', 'thumb-cache-stats', 'thumb-cache-clear']) {
-        assertIncludes(main, `ipcMain.handle('${ch}'`, `${ch} handled`);
+        assertIncludes(main, `"${ch}" =>`, `${ch} handled`);
         assertIncludes(preload, `'${ch}'`, `${ch} exposed`);
       }
       // Renderer: the directory's cache is read before anything is generated
@@ -407,14 +409,18 @@ module.exports = {
       assertIncludes(hist, "img.crossOrigin = 'anonymous'", 'histogram preview');
     });
 
-    test('Desktop host serves the DICOM vendor packages', () => {
-      const host = h.read('host/server.js');
-      for (const pkg of ['dicom-parser', '@cornerstonejs/codec-openjpeg', '@cornerstonejs/codec-charls',
-        '@cornerstonejs/codec-libjpeg-turbo-8bit', '@cornerstonejs/codec-libjpeg-turbo-12bit', 'jpeg-lossless-decoder-js']) {
-        assertIncludes(host, `'${pkg}'`, pkg);
-      }
-      assertIncludes(host, "app.use('/node_modules/' + pkg", 'mounted under /node_modules');
-      assertIncludes(h.read('src/js/dicomDecoder.js'), "${window.__MIV_HOST__ || 'http://127.0.0.1:17810'}/node_modules/", 'Tauri vendor base = the host of this copy');
+    test('Desktop page carries the DICOM / HEIC / EXIF vendor builds', () => {
+      const vendor = h.read('scripts/vendor.js');
+      const decoder = h.read('src/js/dicomDecoder.js');
+      // Every browser build dicomDecoder.js loads is copied next to the page
+      const browserPaths = [...decoder.matchAll(/browser: '([^']+)'/g)].map((m) => m[1]);
+      assert(browserPaths.length >= 6, 'VENDOR table read');
+      for (const p of browserPaths) assertIncludes(vendor, `'${p}'`, p);
+      assertIncludes(vendor, "'libheif-js/libheif-wasm/libheif-bundle.js'", 'HEIC decoder');
+      assertIncludes(vendor, "'exifr/dist/full.umd.js'", 'EXIF reader');
+      assertIncludes(decoder, "new URL('vendor/node_modules/', document.baseURI)", 'Tauri vendor base = next to the page');
+      const conf = JSON.parse(h.read('src-tauri/tauri.conf.json'));
+      assert(conf.build.beforeDevCommand === 'node scripts/vendor.js' && conf.build.beforeBuildCommand === 'node scripts/vendor.js', 'copied before dev and build');
     });
   },
 };

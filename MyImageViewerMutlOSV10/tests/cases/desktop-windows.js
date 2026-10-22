@@ -12,7 +12,7 @@ module.exports = {
     const conf = JSON.parse(h.read('src-tauri/tauri.conf.json'));
     const caps = JSON.parse(h.read('src-tauri/capabilities/default.json'));
     const bridge = h.read('src/js/tauriAPI.js');
-    const host = h.read('host/service.js');
+    const host = h.readHost();
     const overlayPage = h.read('src/popup.html');
     const overlayJs = h.read('src/js/popupMenu.js');
     const dialogs = h.read('src/js/dialogWindow.js');
@@ -115,8 +115,8 @@ module.exports = {
 
     /* ── Thumbnail DB + start-up ── */
 
-    test('Host builds thumbnails with sharp, per folder in the background', () => {
-      for (const s of ["ipcMain.handle('thumb-make'", "ipcMain.handle('thumb-cache-build'", '.rotate()', '_thumbBuildPreempt']) {
+    test('Host builds thumbnails itself, per folder in the background', () => {
+      for (const s of ['"thumb-make" =>', '"thumb-cache-build" =>', 'img.apply_orientation(orientation);', 'q.preempt = true;']) {
         assertIncludes(host, s, s);
       }
       assertIncludes(thumbs, 'await _api().thumbMake(path)', 'renderer asks the host first');
@@ -125,7 +125,7 @@ module.exports = {
 
     test('Start-up: last folder in folder view, falling back to the newest recent one', () => {
       assertIncludes(app, 'getSavedLastOpenDir', 'host copy first');
-      assertIncludes(host, "ipcMain.handle('get-saved-last-open-dir'", 'host channel');
+      assertIncludes(host, '"get-saved-last-open-dir" =>', 'host channel');
       assertIncludes(app, "if (_normDirKey(p) !== _normDirKey(lastDir) && await isDir(p))", 'recent fallback');
       assertIncludes(app, 'Browse.select?.(lastFile);', 'last image selected, not opened');
       assertIncludes(app, 'Thumbs.warmDirs?.(', 'recent folders warmed');
@@ -167,8 +167,9 @@ module.exports = {
     /* ── Media: every listed format plays; audio has the transport too ── */
 
     test('Undecodable media is converted by the host (ffmpeg) and the copy played', () => {
-      assertIncludes(host, "ipcMain.handle('media-transcode'", 'host channel');
-      assertIncludes(host, "require('ffmpeg-static')", 'bundled ffmpeg');
+      assertIncludes(host, '"media-transcode" =>', 'host channel');
+      assertIncludes(host, 'super::runtime_dir().map(|d| d.join(exe))', 'bundled ffmpeg');
+      assertIncludes(h.read('scripts/stage-runtime.js'), "require('ffmpeg-static')", 'ffmpeg-static staged for the installer');
       assertIncludes(bridge, "transcodeMedia: (filePath, kind) => call('media-transcode', filePath, kind)", 'bridge');
       assertIncludes(app, 'function _needsTranscode(filePath)', 'known containers');
       assertIncludes(app, "videoEl?.addEventListener('error', () => _mediaFallback(videoEl, 'video'));", 'fallback on error');
@@ -200,9 +201,10 @@ module.exports = {
     });
 
     test('AI models: provided by the host (download with timeouts, .part file, checksum), never by the worker', () => {
-      for (const s of ['function _downloadFile(fileUrl, destPath, onProgress, opts = {})', "const part = `${destPath}.part`;",
-        'connectMs = 20000, stallMs = 30000', "'checksum mismatch (damaged download)'", 'async function _ensureRembgModel(key, emit',
-        "hex: '60024c5c889badc19c04ad937298a77b'", "code: err.code || 'MODEL_DOWNLOAD_FAILED', retry: true", 'const WORKER_LIMIT_MS = 10 * 60000;']) {
+      for (const s of ['fn download(url: &str, dest: &Path', 'format!("{}.part", dest.to_string_lossy())',
+        '.timeout_connect(Duration::from_secs(20))', '.timeout_read(Duration::from_secs(30))', '"checksum mismatch (damaged download)"',
+        'fn ensure_model(m: &Model', 'hash_hex: "60024c5c889badc19c04ad937298a77b"', '"code": "MODEL_DOWNLOAD_FAILED", "retry": true',
+        'const WORKER_LIMIT: Duration = Duration::from_secs(10 * 60);']) {
         assertIncludes(host, s, s);
       }
       const worker = h.read('scripts/rembg_worker.py');
@@ -216,8 +218,11 @@ module.exports = {
       assertIncludes(app, 'if (retry) setTimeout(() => { _runRembg(algo); }, 0);', 'retry runs again (from finally)');
     });
 
-    test('Host progress events are actually sent (webContents.isDestroyed exists)', () => {
-      assertIncludes(h.read('host/electron-shim.js'), 'isDestroyed: () => false,', 'shim method');
+    test('Host progress events reach the page (host-event)', () => {
+      assertIncludes(host, 'app.emit_to("main", "host-event", json!({ "channel": channel, "payload": payload }))', 'host sends');
+      assertIncludes(host, 'emit("rembg-progress"', 'background removal progress');
+      assertIncludes(host, 'emit("open-progress"', 'open / convert progress');
+      assertIncludes(bridge, "tauri.event.listen('host-event'", 'page listens');
     });
 
     /* ── Installer ── */
@@ -252,7 +257,7 @@ module.exports = {
     test('Start-up honours "show this screen at startup"; no saved folder → the home folder', () => {
       assertIncludes(app, 'const homeAtStart = _startScreen().showOnStart;', 'setting read at start-up');
       assertIncludes(app, 'if (homeAtStart) showHome = true;', 'start screen on top of the restored folder');
-      assertIncludes(host, 'return os.homedir();', 'default folder = home');
+      assertIncludes(host, '.unwrap_or_else(|| super::home_dir().to_string_lossy().into_owned())', 'default folder = home');
     });
 
     test('Start screen: Explorer is the first card of "What you can do" and opens the main view', () => {
@@ -263,13 +268,11 @@ module.exports = {
       assertIncludes(app, '_showFolderInCenter(dir);', 'main view with the folder sheet');
     });
 
-    test('Several copies can run at once: each has its own host on its own port', () => {
-      assertIncludes(rust, 'static HOST_PORT: std::sync::atomic::AtomicU16', 'per-copy port');
-      assertIncludes(rust, 'TcpListener::bind("127.0.0.1:0")', 'free port');
-      assertIncludes(rust, '.env("MYIMAGEVIEWER_HOST_PORT", host_port_value().to_string())', 'port handed to the host');
-      assertIncludes(bridge, "invoke('host_port')", 'page asks for its host');
-      assertIncludes(bridge, 'await hostReady;', 'calls wait for the port');
-      assert(!/requestSingleInstanceLock\(\)\s*\)\s*\{?\s*app\.quit/.test(host), 'no single-instance quit');
+    test('Several copies can run at once: each has its host inside itself', () => {
+      assertIncludes(rust, 'host::ipc,', 'host is a command of this process');
+      assertIncludes(bridge, "invoke('ipc', { channel, args: args.map(encodeArg) })", 'page calls it directly');
+      assert(!/127\.0\.0\.1|EventSource|fetch\(/.test(bridge), 'no local server, port or HTTP');
+      assert(!/single[-_]instance/i.test(rust + h.read('src-tauri/Cargo.toml')), 'no single-instance lock');
     });
 
     /* ── Edit window extras ── */

@@ -4,7 +4,7 @@
 
 MyImageViewer **v1.0.2** is a cross-platform image viewer and editor. The desktop shell is **Tauri 2** (Rust + the system webview). The same renderer (`src/`) runs in two modes:
 
-1. **Desktop** — Tauri window + Node host (`npm start`)
+1. **Desktop** — Tauri window; the host (files, thumbnails, conversions, metadata) is Rust in the same process (`npm start`)
 2. **Web** — Express static server + browser `electronAPI` shim (`npm run web`)
 
 On Windows/Linux the window is **frameless**; chrome (brand, menus, current file, window buttons) lives on the menu bar.
@@ -16,12 +16,11 @@ On Windows/Linux the window is **frameless**; chrome (brand, menus, current file
 │  ─ Menu overlay window (menus past the window edge)          │
 │  ─ Dialog windows (window.open → owned frameless windows)    │
 │  ─ OS file drag-out (drag crate), native file drop events    │
-│  ─ Spawns host/server.js when it is not already listening    │
+│  ─ src/host/: fs, thumbnails (image crate), TIFF, ffmpeg,    │
+│    rembg, dialogs, settings, file associations               │
 └────────────────────┬─────────────────────────────────────────┘
-                     │  src/js/tauriAPI.js → http://127.0.0.1:17810/ipc
-┌────────────────────┼─────────────────────────────────────────┐
-│  host/service.js   │  fs, sharp/heic, exifr, DICOM, rembg    │
-│                    │  thumbnail cache, file associations     │
+                     │  src/js/tauriAPI.js → invoke('ipc', { channel, args })
+                     │                      ← event 'host-event'
 ├────────────────────┼─────────────────────────────────────────┤
 │  Mode B: Web       │  server.js (Express → src/)             │
 │                    │  webAPI.js + fileRegistry.js            │
@@ -48,7 +47,7 @@ On Windows/Linux the window is **frameless**; chrome (brand, menus, current file
 
 | | Desktop | Web |
 |--|---------|-----|
-| Entry | `tauri dev` → `host/server.js` | `node server.js` |
+| Entry | `tauri dev` (page from `src/`, `scripts/vendor.js` first) | `node server.js` |
 | API | `src/js/tauriAPI.js` | `src/js/webAPI.js` |
 | FS | Real paths / drives | Virtual paths via `FileRegistry` |
 | Icons | `src/assets` + rcedit / branded exe (dev) | Favicon from `src/assets` |
@@ -60,29 +59,32 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 
 ## Module Descriptions
 
-### `host/service.js` — Desktop host
-- Frameless `BrowserWindow` (`frame: false`); Windows/Linux application menu is cleared so accelerators are handled in the renderer.
-- Sets Windows `AppUserModelId` (`com.shkwon.imageviewer` when packaged; a hashed `.dev.*` id while unpackaged).
-- **Single-instance lock**: a second launch with a file path focuses the existing window and sends `open-file`.
-- Startup file from `process.argv` (Windows/Linux) or `open-file` (macOS); renderer reads it via `get-launch-file`.
-- Persists `lastOpenDir` under userData for open/save dialogs.
-- IPC: directory listing, **list-drives**, path helpers, file read/write (`read-file-base64`, `read-file-bytes` → raw `Uint8Array` for renderer-side decoders), TIFF/HEIC via **sharp** / **heic-convert** / **heic-decode**, DICOM decode (fallback only — the renderer decodes DICOM itself), **read-image-meta** (exifr + sharp), **read-media-meta** (A/V container/codecs/duration/bitrate), dialogs, watchers, drag-out, **rename-path** (basename-only, rejects `\/:*?"<>|`), **delete-file**, window min/max/close.
-- Close intercept for unsaved changes (`window-close` vs force close).
-- **AI background removal** (`rembg-remove`): spawns `scripts/rembg_worker.py` (`rembg1`=U2Net, `rembg2`=RMBG-2.0, `rembg3`=ISNet) and streams `rembg-progress` events.
-  - **Auto-provisioning**: `_resolvePython` prefers the machine's existing Python (env override → `python`/`py` → previously app-installed); `_ensureRembgPackages` pip-installs `rembg`/`onnxruntime` on demand into that interpreter. Only if **no** Python exists does `_installManagedPython` download the official installer (Windows, per-user, isolated under `userData/python`) — it never replaces or downgrades a system Python.
+### `src-tauri/src/host/` — Desktop host (Rust, in the app process)
+Until 1.0.2 this was a Node process (`host/service.js`) the page reached over HTTP on a local port; it now runs inside the app, so the installer needs no Node. The page still calls the same channel names: `tauriAPI.js` sends them through one command, `ipc(channel, args)`, answered on the blocking thread pool (`spawn_blocking`) so neither the main thread nor the async runtime waits on files or child processes. What the host pushes (progress, folder / file changes, `open-file`, `menu-action`) goes out as the `host-event` event `{ channel, payload }`. Channels answer what the Node handlers answered, errors included (`{ error }`, not a rejected call). Large binary reads use their own command, `read_file_bytes(path, max?)`, which returns a raw `ArrayBuffer`.
+- `mod.rs` — dispatcher and shared helpers: user data folder (`%APPDATA%\image-viewer-multios`, the same as before), Node-compatible path functions (`node_join / dirname / basename / resolve`, so paths the page compares come back in the same form), `hidden_command` (child processes with `CREATE_NO_WINDOW`), `runtime_dir()` (the installer's `runtime/` resources; `None` in a debug build).
+- `files.rs` — listings (folders first, case-insensitive), drives, ancestors, stats (ISO dates like `Date.toISOString`), `read-file-base64`, write, **rename-path** (basename only, rejects `\/:*?"<>|`), **delete-file**, **transfer-into-dir** (copy / move, `name (1).ext` on clashes, cross-drive move = copy + delete), watchers (`notify`, 300 / 400 ms quiet time).
+- `thumbs.rs` — the thumbnail cache (layout below, unchanged, so old caches stay valid) and `thumb-make` / `thumb-cache-build` with the `image` crate: EXIF orientation applied, fit in 256 × 256 without enlarging, flattened on white, JPEG 76. JPEG / PNG / WebP / GIF / TIFF here; other formats answer `{ unsupported }` and the page's decoders take them. One background thread builds whole folders; a folder just opened pre-empts the one being built.
+- `imaging.rs` — TIFF → PNG (`convert-to-png`) and the `basic` part of `read-image-meta` (size, format, channels, depth, alpha, ICC, orientation, progressive JPEG).
+- `media.rs` — **ffmpeg**: `media-transcode` (cached MP4 H.264 / AAC or M4A in `userData/MediaCache`, progress from ffmpeg's `time=`) and `read-media-meta` (read from `ffmpeg -i`: container, duration, bitrate, streams, codecs, size, fps, sample rate, channels, bit depth, tags). ffmpeg: `MYIMAGEVIEWER_FFMPEG` → `runtime/ffmpeg(.exe)` → `node_modules/ffmpeg-static` (source tree) → PATH.
+- `rembg.rs` — **AI background removal** (`rembg-remove`): runs `rembg_worker.py` (`rembg1`=U2Net, `rembg2`=RMBG-2.0, `rembg3`=ISNet) and sends `rembg-progress`.
+  - **Auto-provisioning**: prefers the machine's existing Python (`IMAGEVIEWER_PYTHON` → `python`/`py` → previously app-installed); pip-installs `rembg`/`onnxruntime` on demand into that interpreter. Only if **no** Python exists does it download the official installer (Windows, per-user, isolated under `userData/python`) — it never replaces or downgrades a system Python.
+  - Models: found on the computer, or downloaded by the host (`.part` file, 20 s connect / 30 s stall timeouts, md5 / sha256 check) before the worker starts; a failure answers `MODEL_DOWNLOAD_FAILED` with `retry`.
   - Progress is **monotonic**: download → install → package install → the worker's own model/inference progress are remapped into an always-advancing bar.
+- `system.rs` — native dialogs (`tauri-plugin-dialog`, owned by the main window), launch file, app info (version from the app, build number from `src/version.json` at compile time), help text (`doc/` compiled in), links / "show in folder" (`tauri-plugin-opener`), printers, per-user file associations (`winreg`).
+- `config.rs` — `image-viewer-ui.json`: last opened folder and window bounds (dropped when no monitor shows them).
 
 ### `src-tauri/src/main.rs` — Tauri shell
 - Builds the **main window in Rust** (`tauri.conf.json` has `"windows": []`) so it can carry an `on_new_window` hook: `window.open("about:blank#dialog-<id>")` from the page creates an owned, frameless, hidden **dialog window**; `fit_dialog` sizes it, centres it over the main window inside the work area and shows it; `close_dialog` destroys it.
 - **Menu overlay** (`menu-overlay`, `src/popup.html`): transparent, borderless, `focusable(false)`, owned by the main window, sized to the monitor work area. Shown and hidden with Win32 `ShowWindow(SW_SHOWNOACTIVATE / SW_HIDE)` — `show()` would activate it, the main window's blur would close the menu at once, and tao's `hide()` does not see a native show (an invisible full-screen window would then swallow every click). Commands: `popup_menu_show / shown / hide / refresh / ready / event / visible`.
 - **Drag-out**: `start_file_drag(paths)` runs `drag::start_drag` (DoDragDrop) on the main thread, offered as **copy** only.
-- Spawns `host/server.js` if port 17810 is free, passes the exe path and CLI files to it, and exits the app when the main window is destroyed (the overlay would keep it alive otherwise). A release build runs the bundled `runtime/node(.exe)` on `runtime/app/host/server.js` from its resource folder, with no console window (`CREATE_NO_WINDOW`); debug / `tauri dev` runs the source tree with the `node` on PATH. The host gets `MYIMAGEVIEWER_PARENT_PID` and exits when the app is gone, even after a kill.
+- Starts the host (`host::init`, with the first command-line argument that is a file as the launch file), exits the app when the main window is destroyed (the overlay would keep it alive otherwise) and lets the host write pending thumbnail indexes on exit (`host::shutdown`). Several copies can run side by side; each has its own host.
 
 ### `src/js/tauriAPI.js` — Desktop bridge
 - Installs `window.electronAPI` when `window.__TAURI__` is present.
-- `POST /ipc` for request/response; `GET /events` (SSE) for `open-file`, `open-folder`, `menu-action`, progress.
+- `invoke('ipc', { channel, args })` for request/response (`Uint8Array` arguments travel as `{ __bytes: base64 }`); the `host-event` event for `open-file`, `menu-action`, folder / file changes, progress.
+- Done in the page itself: **HEIC / HEIF** → JPEG in `js/heicWorker.js` (libheif's wasm build — the decoder heic-convert used — first top-level image, kept for the last 8 files), **EXIF / XMP / IPTC / ICC** tags with exifr's browser build on the file's bytes (the first 16 MB of a bigger file; an asset URL cannot be fetched from the page), flattened exactly as the Node host did, and the **print page** HTML.
 - Window chrome (minimize, maximize, close, fullscreen, size) uses the Tauri window API. File URLs are rewritten with `convertFileSrc` (asset protocol). Images drawn onto a canvas from those URLs must use `crossOrigin = 'anonymous'`, or the canvas is tainted.
-- Tauri commands (not the Node host): `popupMenu*` / `onPopupMenuEvent` (menu overlay), `startFileDrag`.
+- Other Tauri commands: `popupMenu*` / `onPopupMenuEvent` (menu overlay), `startFileDrag`.
 - Native file drops: the window owns the webview's drop target, so HTML5 `dragover` / `drop` never reach the page. `onDragDropEvent` is forwarded as a `native-dragdrop` window event `{ type, paths, x, y }` (CSS px).
 
 ### `src/js/popupMenu.js` + `src/popup.html` — Menu overlay page
@@ -100,7 +102,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - Serves `src/` on `127.0.0.1` (default port **8080**, increments if busy).
 - No conversion backend; decoding stays in the renderer / optional vendor scripts.
 - Exposes only the DICOM vendor packages under `/node_modules/<pkg>/…` (`dicom-parser`, the four `@cornerstonejs/codec-*` packages, `jpeg-lossless-decoder-js`) so the page's `../node_modules/…` script URLs resolve in both modes.
-- Menus are drawn in the page (`contextMenu.js`). On the desktop they are drawn by the menu overlay window instead (see `src-tauri/src/main.rs`), and fall back to the page if the overlay fails. `host/server.js` mounts the same vendor packages for the desktop.
+- Menus are drawn in the page (`contextMenu.js`). On the desktop they are drawn by the menu overlay window instead (see `src-tauri/src/main.rs`), and fall back to the page if the overlay fails. The desktop page loads the same vendor builds from `src/vendor/node_modules/…`, copied there by `scripts/vendor.js` (run before `tauri dev` / `tauri build`; generated, not in git) — the DICOM codecs, libheif and exifr.
 
 ### `src/js/webAPI.js` + `fileRegistry.js` — Web Shim
 - Implements the same `electronAPI` surface for the browser.
@@ -116,7 +118,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - **Chrome** is three rows: `#titlebar` (brand = icon · name · version, centred current-file name, drag region, fixed `#window-controls` at the right — 32 px, 40 px while the edit window is open), `#menubar` (built by `_buildMenubar()`), `#toolbar` (icon buttons + zoom input, no drag).
 - **Menu bar**: `_menubarDefs()` → File / Edit / View / Effects / Help; each menu is a `ContextMenu` dropdown built on open (`_fileMenuItems()` …) so enabled / checked state is always current. Every item has an icon (`icons.js`). `mousedown` on a menu button opens / toggles it (so the document click that closes menus cannot race), `mouseenter` on a sibling switches menus while one is open; `ContextMenu.show(x, y, items, { onHide })` clears the highlight. File menu: open file, open folder (click = browse; hover = **recent folders** flyout with per-row × via `item.remove` and `ContextMenu.refreshSubmenu()`), save as, **Export ▸** (`_exportAs(ext)` → `_saveAs(false, { ext })` presets the extension), **Print…** (`_printImage`), file info, show in Explorer, delete, exit (desktop only).
 - **Print**: toolbar 🖨 / File ▸ Print… / `Ctrl+P` → `_openPrintPreview()` (`#print-overlay`). The renderer exports the current view as PNG (`Editor.exportAsDataUrl`, or a snapshot of the animated frame), lists printers via `getPrinters` IPC (`webContents.getPrintersAsync`, default first + selected), and computes the page geometry in mm (`_printLayout`: paper table, auto/portrait/landscape, margins, fit / actual (96 dpi) / custom %) — the preview paper is drawn to scale. **Print** → `printImage` IPC with `{ deviceName, pageSize, landscape, marginMm, imgWmm, imgHmm, copies, color }`; main renders the image at exactly that mm size in a hidden `BrowserWindow` and calls `webContents.print({ silent: true, deviceName, pageSize, landscape, margins: custom(px), copies, color })` — no system dialog. Without a printer (web) it falls back to the popup + `window.print()` with `@page { size; margin }`. Paper/margin/scale prefs persist in `localStorage.printPrefs`.
-- **Themes**: `src/js/themes.js` is the registry (id, dark/light kind, name, swatch colours) shared by the renderer (`window.Themes`) and `host/service.js` (`require`). `main.css` defines per-theme `--t-*` base tokens under `[data-theme="<id>"]`; one shared `:root[data-theme]` block derives every other variable from them with `color-mix()`, and `:root[data-theme-kind="dark|light"]` holds the kind-only values (hover tints, shadows, tooltip). `_applyTheme(id)` sets both attributes, persists `theme`, and re-syncs toolbar / settings / native menu. Toolbar: palette button = `_nextTheme()` (wraps through the list), ▾ = `_openThemeMenu()` (ContextMenu with `Themes.swatchSvg`). Native menu actions are `theme:<id>`.
+- **Themes**: `src/js/themes.js` is the registry (id, dark/light kind, name, swatch colours) used by the renderer (`window.Themes`). `main.css` defines per-theme `--t-*` base tokens under `[data-theme="<id>"]`; one shared `:root[data-theme]` block derives every other variable from them with `color-mix()`, and `:root[data-theme-kind="dark|light"]` holds the kind-only values (hover tints, shadows, tooltip). `_applyTheme(id)` sets both attributes, persists `theme`, and re-syncs toolbar / settings / native menu. Toolbar: palette button = `_nextTheme()` (wraps through the list), ▾ = `_openThemeMenu()` (ContextMenu with `Themes.swatchSvg`). Native menu actions are `theme:<id>`.
 - Language button shows the flag (`Icons.flagKo` / `Icons.flagUs`) of the **target** language (US flag when UI is Korean, Korean flag when UI is English).
 - **Settings dialog** (`#settings-overlay`, `_initSettingsDialog` / `_syncSettingsDialog`): Theme tab color buttons, language flag buttons, background-removal algorithm (mirrors `#ew-bg-algo` / `bgRemoveAlgo`), subtitles default. Opened by the gear toolbar button, File ▸ Settings…, or the `show-settings` menu action.
 - **Status-bar progress**: file open / folder load paint `#status-progress` (and the edit-window twin) instead of a modal overlay on the main viewer. Edit-window long effects still use the modal `ProgressDialog`.
@@ -159,10 +161,10 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 ### `src/js/formatSupport.js` — Format Loader
 | Format | Desktop | Web |
 |---|---|---|
-| JPEG/PNG/GIF/BMP/WebP/SVG/ICO/AVIF | Native load; WebP/AVIF may fall back to `convertToPng` (sharp) | `FileReader` data URL |
-| TIFF | sharp in main | Optional UTIF; canvas fallback |
-| HEIC/HEIF/HIF | heic-convert / heic-decode | Optional heic2any |
-| DICOM | `dicomDecoder.js` in the renderer (`read-file-bytes` → `DicomDecoder.load`); `decode-dicom` (main) only as fallback | Same decoder in the renderer |
+| JPEG/PNG/GIF/BMP/WebP/SVG/ICO/AVIF | Native load (the webview decodes them) | `FileReader` data URL |
+| TIFF | `convert-to-png` in the host (image crate) | Optional UTIF; canvas fallback |
+| HEIC/HEIF/HIF | libheif (wasm) in `js/heicWorker.js` | Optional heic2any |
+| DICOM | `dicomDecoder.js` in the renderer (`read-file-bytes` → `DicomDecoder.load`); no host decoder | Same decoder in the renderer |
 | Video/Audio | `file://` URL | `blob:` object URL |
 
 ### `src/js/dicomDecoder.js` — DICOM session decoder
@@ -183,7 +185,7 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 - `decode()` / `decodeToDisplay()` remain for the main-process fallback and old callers.
 
 ### `src/js/themes.js` — Theme registry
-- Shared by the renderer (`window.Themes`) and `host/service.js` (`require`). 40 palettes (20 dark, 20 light) with `id`, `kind`, display name, `nameKey`, and a 3-color `swatch` used by menus and the Settings Theme tab.
+- Used by the renderer (`window.Themes`). 40 palettes (20 dark, 20 light) with `id`, `kind`, display name, `nameKey`, and a 3-color `swatch` used by menus and the Settings Theme tab.
 - `normalize` / `kindOf` / `ofKind` / `next` / `label` / `swatchSvg`. Colours themselves live in `main.css` (`[data-theme="<id>"]`).
 - Every registered id must have a matching `[data-theme]` block; `tests/cases/status-i18n-theme.js` checks that pairing.
 
@@ -213,8 +215,8 @@ Detection: if `window.electronAPI` is missing at page load, `webAPI.js` installs
 ### `src/js/thumbs.js` — Thumbnail cache
 - Bounded LRU (`MAX_CACHE`) with a small work queue (`CONCURRENCY`); `request(path, { front })` jumps the queue for a tile that just scrolled in, `prefetchDir` warms a folder in the background, and each finished thumbnail fires a `thumb-ready` window event.
 - `_sourceFor` takes whatever the loader produced: a file URL for native formats, a data URL, or a **canvas** — which is how DICOM arrives, so `.dcm` files get thumbnails too.
-- **Per-directory disk cache** (host/service.js, `thumb-cache-*` IPC): `<userData>/ThumbCache/<sha1(dir)>/index.json` (`{ v, dir, entries: { name: { size, mtimeMs, w, h, tw, th, file } } }`) plus `<sha1(name)>.jpg`. `thumb-cache-load` returns only entries whose source size + mtime still match (stale ones are deleted); `thumb-cache-put` writes the JPEG and batches index saves (1 s debounce, flushed synchronously on `before-quit`). Nothing is written into the user's folders. `request()` awaits `_ensureDir(dir)` (one load per directory per session) before queueing, so a known folder paints straight from `file://` URLs.
-- **Host-built thumbnails (desktop)**: `thumb-make(file)` decodes and downsizes with **sharp** in the Node host (EXIF-rotated, 256 px JPEG, same cache entry format), so no image bytes cross the IPC; `_generate()` asks the host first and only falls back to the page for formats sharp cannot read (BMP / ICO / HEIC / DICOM). `thumb-cache-build(dirs, { front })` builds whole folders in the background, one file at a time; a `front` request (the folder just opened) pre-empts the current folder, which is requeued and resumes cheaply. `prefetchDir` sends the opened folder as `front`; start-up sends the other recent folders (`Thumbs.warmDirs`).
+- **Per-directory disk cache** (`src-tauri/src/host/thumbs.rs`, `thumb-cache-*` IPC): `<userData>/ThumbCache/<sha1(dir)>/index.json` (`{ v, dir, entries: { name: { size, mtimeMs, w, h, tw, th, file } } }`) plus `<sha1(name)>.jpg`. `thumb-cache-load` returns only entries whose source size + mtime still match (stale ones are deleted); `thumb-cache-put` writes the JPEG and batches index saves (1 s debounce, written on exit). Nothing is written into the user's folders. `request()` awaits `_ensureDir(dir)` (one load per directory per session) before queueing, so a known folder paints straight from `file://` URLs.
+- **Host-built thumbnails (desktop)**: `thumb-make(file)` decodes and downsizes in the host with the **image** crate (JPEG / PNG / WebP / GIF / TIFF; EXIF-rotated, 256 px JPEG, same cache entry format), so no image bytes cross the IPC; `_generate()` asks the host first and only falls back to the page for formats it does not read (BMP / ICO / AVIF / SVG / HEIC / DICOM). `thumb-cache-build(dirs, { front })` builds whole folders in the background, one file at a time; a `front` request (the folder just opened) pre-empts the current folder, which is requeued and resumes cheaply. `prefetchDir` sends the opened folder as `front`; start-up sends the other recent folders (`Thumbs.warmDirs`).
 - **Background generation (page)**: `jpg/png/gif/bmp/webp/ico/avif` bytes (`readFileBytes`) are transferred to `src/js/thumbWorker.js`, which decodes with `createImageBitmap` (EXIF orientation applied), downsizes on an `OffscreenCanvas` and returns JPEG bytes. TIFF / HEIC / DICOM / SVG still need the page's decoders, so `_generateOnMainThread` runs them after `requestIdleCallback`. If the worker cannot start, everything falls back to that path. Settings ▸ General shows the cache size (`thumbCacheStats`) and clears it (`Thumbs.clearDiskCache`).
 - Opening a file adds `.is-switching` to `#viewer-container` (`_beginViewerSwitch`, which also pauses playing media) so the previous image never shows while the next decodes; only the newest open (`openGen === _openGen`) removes it.
 
@@ -241,8 +243,8 @@ Packaged Windows: runtime `AppUserModelId` matches `build.appId`. Taskbar icon p
 
 Desktop `read-image-meta`:
 
-1. **sharp** `.metadata()` — width, height, format, space, channels, density, alpha, ICC flag, chroma, etc.
-2. **exifr.parse** — TIFF/EXIF, XMP, IPTC, ICC summary, JFIF, GPS (`mergeOutput: false`, flattened keys such as `exif.ISO`, `ifd0.Make`).
+1. The host (`imaging.rs`) — width, height, format, space, channels, depth, alpha, ICC flag, orientation, progressive JPEG.
+2. **exifr.parse** in the page (`tauriAPI.js`, exifr's browser build on the file's first 16 MB) — TIFF/EXIF, XMP, IPTC, ICC summary, JFIF, GPS (`mergeOutput: false`, flattened keys such as `exif.ISO`, `ifd0.Make`).
 3. Binary blobs (thumbnails, MakerNote) are skipped or shown as `[binary N bytes]`; UserComment is decoded when it is ASCII/Unicode.
 
 The renderer formats a **summary** (camera, exposure as `1/n s`, GPS decimal degrees) and lists **every remaining tag** under “All metadata”. Values are HTML-escaped. Cache key is the current file path so language switches re-render without re-parsing.
@@ -268,8 +270,8 @@ Shared contract (`preload` and `webAPI`):
 | `getFileStats` / `getFileUrl` / `readFileBase64` | Load media |
 | `readFileBytes` | Raw file bytes as `Uint8Array` (DICOM decoding in the renderer) |
 | `printImage` | Print a data-URL picture through the system dialog (desktop: hidden window; web: popup) |
-| `readImageMeta` | EXIF / IPTC / XMP / sharp basic (desktop) |
-| `readMediaMeta` | A/V container / codecs / duration / bitrate (desktop) |
+| `readImageMeta` | EXIF / IPTC / XMP (exifr in the page) + header facts from the host (desktop) |
+| `readMediaMeta` | A/V container / codecs / duration / bitrate, from `ffmpeg -i` (desktop) |
 | `getLaunchFile` | Path passed on process start |
 | `convertToPng` / `decodeDicom` | Special formats |
 | `rembgRemove` + `onRembgProgress` | AI background removal (desktop) + progress events |
@@ -306,7 +308,7 @@ Packaged builds use `package.json → build.win/mac/linux.icon`. Toolbar shows *
 
 **Tauri** packages the app (`npm run build:win` / `build:mac` / `build:linux`). `scripts/stamp-version.js` runs first and writes the build date into `buildNumber` (`package.json` and `src/version.json`) and the version into `src-tauri/tauri.conf.json`.
 
-Image decoding, metadata, DICOM, and background removal stay in the Node host (`host/server.js`), so the installer carries its own Node: `scripts/stage-runtime.js` (run by every `build:*`) fills `src-tauri/runtime/` with the building machine's `node(.exe)`, `package.json`, `host/`, `src/`, `doc/`, `scripts/rembg_worker.py` and the `dependencies` closure of `node_modules` (no dev tools; the platform parts of sharp / ffmpeg-static are those of the build OS), and `tauri.conf.json` bundles that folder as the `runtime/` resource. The installed app needs neither Node nor the source tree. Only `.gitkeep` of `src-tauri/runtime/` is tracked (tauri-build needs the folder to exist). The uninstaller stops a leftover `runtime\node.exe` before deleting files. File associations are registered from **Settings** inside the app (Windows registry), not by the installer page. Video and audio extensions are not associated.
+The installer needs no Node: the host is part of the app. Programs it runs beside itself go in as the `runtime/` resource, gathered by `scripts/stage-runtime.js` (run by every `build:*`) into `src-tauri/runtime/`: **ffmpeg** (from `ffmpeg-static`, the build of the OS the build runs on) and `rembg_worker.py`. The page's vendor builds (DICOM codecs, libheif, exifr) are copied into `src/vendor/` by `scripts/vendor.js` (`beforeBuildCommand`) and embedded with the page. Only `.gitkeep` of `src-tauri/runtime/` is tracked (tauri-build needs the folder to exist). The uninstaller stops a still-running `runtime\ffmpeg.exe` before deleting files. Windows installer: about 25 MB (the app 7 MB, ffmpeg the rest). File associations are registered from **Settings** inside the app (Windows registry), not by the installer page. Video and audio extensions are not associated.
 
 | Platform | Output |
 |---|---|

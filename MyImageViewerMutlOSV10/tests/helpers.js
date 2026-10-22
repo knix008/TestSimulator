@@ -11,6 +11,12 @@ function read(rel) {
 function exists(rel) {
   return fs.existsSync(path.join(ROOT, rel));
 }
+/** The desktop host (src-tauri/src/host/*.rs), as one text. */
+function readHost() {
+  const dir = path.join(ROOT, 'src-tauri', 'src', 'host');
+  return fs.readdirSync(dir).filter((n) => n.endsWith('.rs')).sort()
+    .map((n) => fs.readFileSync(path.join(dir, n), 'utf8')).join('\n');
+}
 function assert(cond, msg) {
   if (!cond) throw new Error(msg || 'assertion failed');
 }
@@ -84,7 +90,7 @@ function loadSources() {
     html: read('src/index.html'),
     app: read('src/js/app.js'),
     editor: read('src/js/editor.js'),
-    main: read('host/service.js'),
+    main: readHost(),
     preload: read('src/js/tauriAPI.js'),
     css: read('src/styles/main.css'),
     icons: read('src/js/icons.js'),
@@ -102,7 +108,7 @@ function loadSources() {
 }
 
 module.exports = {
-  ROOT, read, exists, assert, assertIncludes,
+  ROOT, read, readHost, exists, assert, assertIncludes,
   printLayout, pageNumberText, formatExt, fmtMs,
   extractPresetIds, extractThemeIds, i18nPrefixes,
   IMAGE_EXTS, VIDEO_EXTS, AUDIO_EXTS, loadSources,

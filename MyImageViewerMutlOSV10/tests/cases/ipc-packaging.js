@@ -20,16 +20,16 @@ module.exports = {
     });
 
     const handlers = [
-      'print-image', 'list-drives', 'read-directory', 'decode-dicom',
+      'list-drives', 'read-directory', 'decode-dicom',
       'get-printers', 'watch-directory', 'get-file-assoc-status',
       'rename-path', 'delete-file',
     ];
-    each(handlers, (ch) => `main handles ${ch}`, (ch) => {
-      assertIncludes(main, `'${ch}'`, ch);
+    each(handlers, (ch) => `host handles ${ch}`, (ch) => {
+      assertIncludes(main, `"${ch}" =>`, ch);
     });
 
-    test('main builds print HTML', () => {
-      assertIncludes(main, '_printPageHtml', 'print html');
+    test('page builds print HTML', () => {
+      assertIncludes(preload, 'function printPageHtml', 'print html');
     });
 
     test('package.json version and appId', () => {

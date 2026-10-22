@@ -149,14 +149,14 @@ module.exports = {
         assertIncludes(prefs, key, `${key} counts as a setting`);
       }
       // Window size / position / maximised state, stored next to lastOpenDir.
-      assertIncludes(main, 'function _saveWindowState', 'save');
-      assertIncludes(main, 'function _usableWindowState', 'validate before reuse');
-      assertIncludes(main, 'getNormalBounds', 'stores the unmaximised rect');
-      assertIncludes(main, 'screen.getAllDisplays()', 'never restores off-screen');
-      assertIncludes(main, "if (winState?.maximized) mainWindow.maximize()", 'maximised state restored');
-      assertIncludes(main, "mainWindow.on('move', _queueSaveWindowState)", 'move tracked');
-      assertIncludes(main, 'width: winState?.width || 1400', 'size applied at create');
-      assertIncludes(main, '_patchUiConfig(', 'merged into the ui config file');
+      const bridge = h.read('src/js/tauriAPI.js');
+      assertIncludes(main, 'pub fn window_remember(bounds: &Value)', 'save');
+      assertIncludes(main, 'pub fn window_recall()', 'validate before reuse');
+      assertIncludes(main, 'app.available_monitors()', 'never restores off-screen');
+      assertIncludes(main, 'cfg.insert("window".into(), state.clone());', 'merged into the ui config file');
+      assertIncludes(bridge, "const saved = await call('window-recall');", 'recalled at start-up');
+      assertIncludes(bridge, 'if (saved.maximized && win.maximize) await win.maximize();', 'maximised state restored');
+      assertIncludes(bridge, 'if (win.onMoved) await win.onMoved(() => { queueRemember();', 'move tracked');
     });
 
     test('Open File / Open Folder / Save As dialog is a fixed rectangle', () => {

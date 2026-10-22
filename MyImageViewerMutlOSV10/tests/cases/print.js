@@ -40,10 +40,10 @@ module.exports = {
       assert(!open.includes('_printableDataUrl()'), 'must not encode PNG before the dialog opens');
     });
 
-    test('Native File menu and IPC print exist', () => {
-      assertIncludes(main, "t('menu.print')", 'main File menu');
-      assertIncludes(main, "menu-action', 'print'", 'print action');
-      assertIncludes(main, 'print-image', 'ipc');
+    test('Print is laid out and sent from the page; printers come from the host', () => {
+      assertIncludes(preload, 'function printPageHtml(dataUrl, title', 'print page');
+      assertIncludes(preload, 'return printHtml(printPageHtml(dataUrl, title,', 'printed from a hidden frame');
+      assertIncludes(main, '"get-printers" => system::printers()', 'printer list');
       assertIncludes(preload, 'printImage:', 'preload');
       assertIncludes(preload, 'getPrinters:', 'preload printers');
     });

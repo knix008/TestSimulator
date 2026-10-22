@@ -4,9 +4,9 @@
   "version": "1.0.2",
   "identifier": "com.shkwon.imageviewer",
   "build": {
-    "devUrl": "http://127.0.0.1:17810",
     "frontendDist": "../src",
-    "beforeDevCommand": "node host/server.js"
+    "beforeDevCommand": "node scripts/vendor.js",
+    "beforeBuildCommand": "node scripts/vendor.js"
   },
   "app": {
     "withGlobalTauri": true,

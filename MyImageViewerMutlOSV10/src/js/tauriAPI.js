@@ -1,6 +1,7 @@
 /**
  * Desktop bridge. When the page runs inside Tauri this installs window.electronAPI
- * (the same names the renderer already calls) and talks to host/server.js.
+ * (the same names the renderer already calls) and talks to the app's host
+ * (src-tauri/src/host/) through one command, ipc(channel, args).
  * In a plain browser it does nothing, and webAPI.js takes over.
  */
 (function initTauriAPI() {
@@ -8,13 +9,6 @@
   if (!tauri || window.electronAPI) return;
 
   const invoke = tauri.core && typeof tauri.core.invoke === 'function' ? tauri.core.invoke : null;
-  // This copy's own Node host (several copies of the app can run at once, each with its
-  // own host and port). Every call waits for the port; 17810 is the old fixed fallback.
-  let HOST = 'http://127.0.0.1:17810';
-  const hostReady = (invoke ? invoke('host_port') : Promise.resolve(0))
-    .then((port) => { if (port) HOST = `http://127.0.0.1:${port}`; })
-    .catch(() => { /* older shell: fixed port */ })
-    .then(() => { window.__MIV_HOST__ = HOST; });
   const listeners = {};
   let unsaved = false;
   let closing = false;
@@ -57,7 +51,6 @@
     try { return convert(fileUrlToPath(fileUrl)) + query; }
     catch { return fileUrl; }
   }
-
   function rewrite(value) {
     if (typeof value === 'string') return value.startsWith('file:') ? toAsset(value) : value;
     if (Array.isArray(value)) return value.map(rewrite);
@@ -70,33 +63,248 @@
     return value;
   }
 
-  let reviving = null;   // one host restart shared by every request that failed meanwhile
-
-  /** The Node host went away (crashed / killed): ask the shell to start it again. */
-  function reviveHost() {
-    if (!reviving) {
-      reviving = (invoke ? invoke('ensure_host') : Promise.resolve(false))
-        .catch(() => false)
-        .finally(() => { setTimeout(() => { reviving = null; }, 2000); });
-    }
-    return reviving;
+  async function call(channel, ...args) {
+    if (!invoke) throw new Error('Tauri invoke is not available');
+    return rewrite(await invoke('ipc', { channel, args: args.map(encodeArg) }));
   }
 
-  async function call(channel, ...args) {
-    await hostReady;
-    const body = JSON.stringify({ channel, args: args.map(encodeArg) });
-    const post = () => fetch(`${HOST}/ipc`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-    let res;
-    try {
-      res = await post();
-    } catch (err) {
-      // Network error = nothing listening: without the host nothing opens, so restart it and retry once
-      if (!(await reviveHost())) throw err;
-      res = await post();
+  /** The bytes of a file as a Uint8Array (a raw ArrayBuffer from the host, no base64);
+   *  with `max`, only the first `max` bytes. */
+  async function fileBytes(filePath, max) {
+    return new Uint8Array(await invoke('read_file_bytes', max ? { path: filePath, max } : { path: filePath }));
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`Could not load ${src}`));
+      document.head.appendChild(s);
+    });
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error || new Error('read failed'));
+      r.readAsDataURL(blob);
+    });
+  }
+
+  /* ── HEIC / HEIF → JPEG in a worker (libheif, the decoder the Node host used through
+     heic-convert). Kept for the last few files, so the neighbours app.js converts ahead of
+     time open at once. ── */
+  const HEIC_MEM_MAX = 8;
+  const heicCache = new Map();      // path|size|mtime → data URL
+  const heicInflight = new Map();
+  let heicWorker = null;
+  let heicSeq = 0;
+  const heicJobs = new Map();
+
+  function getHeicWorker() {
+    if (!heicWorker) {
+      heicWorker = new Worker(new URL('js/heicWorker.js', document.baseURI).href);
+      heicWorker.onmessage = (e) => {
+        const job = heicJobs.get(e.data.id);
+        if (!job) return;
+        heicJobs.delete(e.data.id);
+        if (e.data.error) job.reject(new Error(e.data.error));
+        else job.resolve(e.data);
+      };
+      heicWorker.onerror = (e) => {
+        heicJobs.forEach((job) => job.reject(new Error(e.message || 'HEIC worker failed')));
+        heicJobs.clear();
+        heicWorker = null;
+      };
     }
-    if (!res.ok) throw new Error(`host ${res.status}`);
-    const data = await res.json();
-    return rewrite(data ? data.result : null);
+    return heicWorker;
+  }
+
+  async function convertHeic(filePath) {
+    const note = (percent, message) => dispatch('open-progress', { percent, message });
+    note(8, 'reading');
+    const st = await call('get-file-stats', filePath);
+    if (st && st.error) throw new Error(st.error);
+    const key = `${filePath}|${st && st.size}|${st && st.modified}`;
+    const hit = heicCache.get(key);
+    if (hit) {
+      heicCache.delete(key);
+      heicCache.set(key, hit);
+      note(92, 'displaying');
+      return hit;
+    }
+    if (heicInflight.has(key)) return heicInflight.get(key);
+    const work = (async () => {
+      note(18, 'reading');
+      const bytes = await fileBytes(filePath);
+      note(28, 'decoding');
+      const buf = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes.buffer : bytes.slice().buffer;
+      const res = await new Promise((resolve, reject) => {
+        const id = ++heicSeq;
+        heicJobs.set(id, { resolve, reject });
+        getHeicWorker().postMessage({ id, bytes: buf, quality: 0.88 }, [buf]);
+      });
+      note(78, 'caching');
+      const url = await blobToDataUrl(new Blob([res.jpeg], { type: 'image/jpeg' }));
+      heicCache.set(key, url);
+      while (heicCache.size > HEIC_MEM_MAX) heicCache.delete(heicCache.keys().next().value);
+      note(94, 'displaying');
+      return url;
+    })();
+    heicInflight.set(key, work);
+    try { return await work; } finally { heicInflight.delete(key); }
+  }
+
+  function isHeicPath(p) {
+    return /\.(heic|heif|hif)$/i.test(String(p || ''));
+  }
+
+  /* ── Info panel tags: EXIF / XMP / IPTC / ICC read with exifr, flattened the way the Node
+     host did. exifr gets the file's bytes (the first 16 MB of a bigger one — where the
+     metadata of a photo is); an asset URL cannot be fetched from the page. ── */
+  const EXIF_READ_MAX = 16 * 1024 * 1024;
+  let exifrReady = null;
+  function getExifr() {
+    if (!exifrReady) {
+      exifrReady = (window.exifr ? Promise.resolve() : loadScript(new URL('vendor/node_modules/exifr/dist/full.umd.js', document.baseURI).href))
+        .then(() => window.exifr)
+        .catch((err) => { exifrReady = null; throw err; });
+    }
+    return exifrReady;
+  }
+
+  function viewToMeta(view) {
+    const u8 = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+    if (!u8.length) return null;
+    const text = (enc, bytes) => { try { return new TextDecoder(enc).decode(bytes); } catch { return ''; } };
+    if (u8.length >= 8) {
+      const head = text('latin1', u8.subarray(0, 8));
+      const rest = u8.subarray(8);
+      if (head.startsWith('ASCII')) {
+        const s = text('utf-8', rest).replace(/\0/g, '').trim();
+        if (s) return s;
+      } else if (head.startsWith('UNICODE') || head.startsWith('Unicode')) {
+        const s = text('utf-16le', rest).replace(/\0/g, '').trim();
+        if (s) return s;
+      }
+    }
+    const ascii = text('latin1', u8).replace(/\0/g, '').trim();
+    if (ascii && /^[\x20-\x7E]+$/.test(ascii)) return ascii;
+    if (u8.length <= 16) return Array.from(u8).join(', ');
+    return `[binary ${u8.length} bytes]`;
+  }
+
+  function metaJsonSafe(value, depth = 0) {
+    if (value == null) return null;
+    if (typeof value === 'string') {
+      const s = value.replace(/\0/g, '').trim();
+      return s || null;
+    }
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+    if (ArrayBuffer.isView(value)) return viewToMeta(value);
+    if (Array.isArray(value)) {
+      if (value.every((v) => typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean')) {
+        return value.map((v) => String(v)).join(', ');
+      }
+      if (depth > 6) return value.map((v) => String(v)).join(', ');
+      const arr = value.map((v) => metaJsonSafe(v, depth + 1)).filter((v) => v != null && v !== '');
+      return arr.length ? arr : null;
+    }
+    if (typeof value === 'object') {
+      if (depth > 8) return String(value);
+      const out = {};
+      for (const [k, v] of Object.entries(value)) {
+        if (/thumbnail/i.test(k)) continue;
+        const s = metaJsonSafe(v, depth + 1);
+        if (s != null && s !== '') out[k] = s;
+      }
+      return Object.keys(out).length ? out : null;
+    }
+    return String(value);
+  }
+
+  function flattenMeta(value, prefix, out, depth = 0) {
+    if (value == null) return;
+    const isPlain = typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date) && !ArrayBuffer.isView(value);
+    if (!isPlain || depth > 8) {
+      const safe = metaJsonSafe(value, depth);
+      if (safe != null && safe !== '' && safe !== false) out[prefix] = safe;
+      return;
+    }
+    for (const [k, v] of Object.entries(value)) {
+      if (/thumbnail/i.test(k)) continue;
+      flattenMeta(v, prefix ? `${prefix}.${k}` : k, out, depth + 1);
+    }
+  }
+
+  async function readImageMeta(filePath) {
+    if (!filePath) return null;
+    let out = null;
+    try { out = await call('read-image-meta', filePath); } catch { /* host side failed */ }
+    if (!out || typeof out !== 'object' || out.error) out = { basic: {}, tags: {}, all: {} };
+    out.tags = out.tags || {};
+    out.all = out.all || {};
+    try {
+      const exifr = await getExifr();
+      const parsed = await Promise.race([
+        exifr.parse(await fileBytes(filePath, EXIF_READ_MAX), {
+          tiff: true, xmp: true, icc: true, iptc: true, jfif: true, ihdr: true,
+          ifd0: true, ifd1: false, exif: true, gps: true, interop: true,
+          makerNote: false, userComment: true, multiSegment: false,
+          translateKeys: true, translateValues: true, reviveValues: true,
+          mergeOutput: false, sanitize: false, silentErrors: true,
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('exif timeout')), 4000)),
+      ]);
+      if (parsed && typeof parsed === 'object') {
+        flattenMeta(parsed, '', out.all);
+        for (const [k, v] of Object.entries(out.all)) {
+          if (v == null || v === '' || v === false) continue;
+          const short = k.includes('.') ? k.slice(k.lastIndexOf('.') + 1) : k;
+          if (out.tags[short] == null) out.tags[short] = v;
+        }
+      }
+    } catch { /* no tags (or not readable) */ }
+    return out;
+  }
+
+  /* ── Print: the preview dialog decides paper / orientation / margins / image size; the
+     picture is laid out at exactly that size and printed from a hidden frame. ── */
+  function printPageHtml(dataUrl, title, {
+    marginMm = 10, imgWmm, imgHmm, color, header, footer, headerMm = 0, footerMm = 0,
+  } = {}) {
+    const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const imgCss = (imgWmm > 0 && imgHmm > 0)
+      ? `width: ${imgWmm}mm; height: ${imgHmm}mm;`
+      : 'max-width: 100%; max-height: 100%; object-fit: contain;';
+    const filter = color === 'gray' ? 'filter: grayscale(1);' : '';
+    const band = (cls, mm, slots) => {
+      if (!(mm > 0) || !slots) return '';
+      return `<div class="band ${cls}" style="height:${mm}mm">`
+        + `<span class="l">${esc(slots.left)}</span>`
+        + `<span class="c">${esc(slots.center)}</span>`
+        + `<span class="r">${esc(slots.right)}</span></div>`;
+    };
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+  @page { margin: ${marginMm}mm; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; }
+  body { display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+  .band { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center;
+          font: 10pt/1.2 "Segoe UI", system-ui, sans-serif; color: #111; }
+  .band span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .band .l { text-align: left; } .band .c { text-align: center; } .band .r { text-align: right; }
+  .pic { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  img { ${imgCss} ${filter} }
+</style></head><body>
+${band('hdr', headerMm, header)}
+<div class="pic"><img src="${dataUrl}" alt=""></div>
+${band('ftr', footerMm, footer)}
+</body></html>`;
   }
 
   function on(channel, cb) {
@@ -110,15 +318,13 @@
     });
   }
 
-  hostReady.then(() => {
-    const es = new EventSource(`${HOST}/events`);
-    es.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        dispatch(msg.channel, msg.payload);
-      } catch { /* keepalive or noise */ }
-    };
-  });
+  // What the host pushes (progress, folder / file changes, open-file …)
+  if (tauri.event && tauri.event.listen) {
+    tauri.event.listen('host-event', (e) => {
+      const msg = e && e.payload;
+      if (msg && msg.channel) dispatch(msg.channel, msg.payload);
+    });
+  }
 
   function getWin() {
     const w = tauri.window;
@@ -272,12 +478,14 @@
     listDrives: () => call('list-drives'),
     pathAncestors: (targetPath) => call('path-ancestors', targetPath),
     getFileStats: (filePath) => call('get-file-stats', filePath),
-    readImageMeta: (filePath) => call('read-image-meta', filePath),
+    readImageMeta: (filePath) => readImageMeta(filePath),
     readMediaMeta: (filePath) => call('read-media-meta', filePath),
     getFileUrl: (filePath) => call('get-file-url', filePath),
     readFileBase64: (filePath) => call('read-file-base64', filePath),
     readHelpDoc: (lang) => call('read-help-doc', lang),
-    readFileBytes: (filePath) => call('read-file-bytes', filePath),
+    readFileBytes: async (filePath) => {
+      try { return await fileBytes(filePath); } catch (err) { return { error: String((err && err.message) || err) }; }
+    },
     thumbCacheLoad: (dirPath) => call('thumb-cache-load', dirPath),
     thumbCachePut: (filePath, bytes, meta) => call('thumb-cache-put', filePath, bytes, meta),
     thumbCacheStats: () => call('thumb-cache-stats'),
@@ -285,7 +493,11 @@
     thumbMake: (filePath) => call('thumb-make', filePath),
     thumbCacheBuild: (dirs, opts) => call('thumb-cache-build', dirs, opts || {}),
     thumbCacheClear: () => call('thumb-cache-clear'),
-    convertToPng: (filePath) => call('convert-to-png', filePath),
+    // TIFF → PNG in the host; HEIC / HEIF → JPEG here (libheif worker)
+    convertToPng: async (filePath) => {
+      if (!isHeicPath(filePath)) return call('convert-to-png', filePath);
+      try { return await convertHeic(filePath); } catch (err) { return { error: (err && err.message) || 'HEIC convert failed' }; }
+    },
     // Playable MP4 / M4A copy (ffmpeg) of media the webview cannot decode
     transcodeMedia: (filePath, kind) => call('media-transcode', filePath, kind),
     rembgRemove: (opts) => call('rembg-remove', opts),
@@ -294,10 +506,11 @@
     decodeDicom: (filePath) => call('decode-dicom', filePath),
     saveFile: (data) => call('save-file', data),
     showSaveDialog: (data) => call('show-save-dialog', data),
-    printImage: async (data) => {
-      const res = await call('print-image', data);
-      if (res && res.html) return printHtml(res.html);
-      return res;
+    printImage: async (opts = {}) => {
+      const { dataUrl, title, marginMm, imgWmm, imgHmm, color, header, footer, headerMm, footerMm } = opts;
+      if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return { error: 'Nothing to print' };
+      const mm = Number.isFinite(marginMm) ? Math.max(0, marginMm) : 10;
+      return printHtml(printPageHtml(dataUrl, title, { marginMm: mm, imgWmm, imgHmm, color, header, footer, headerMm, footerMm }));
     },
     getPrinters: () => call('get-printers'),
     writeFile: (data) => call('write-file', data),

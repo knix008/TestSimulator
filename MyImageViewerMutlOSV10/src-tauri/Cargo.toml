@@ -17,6 +17,27 @@ serde_json = "1"
 raw-window-handle = "0.6"
 # Native drag-out: thumbnails dragged past the window edge become an OS file drag (DoDragDrop)
 drag = "2"
+# ── The desktop host (src/host/): what the Node host/service.js used to do ──
+# Open / save / folder dialogs
+tauri-plugin-dialog = "2"
+# Links, "show in folder"
+tauri-plugin-opener = "2"
+# Thumbnails, TIFF → PNG, image header facts (no AVIF / SVG: the webview decodes those)
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "tiff", "bmp", "ico"] }
+# Folder / file change notifications
+notify = "8"
+base64 = "0.22"
+# Cache keys (same sha1 names as the Node host, so its thumbnail cache stays valid) and
+# the rembg model checksums
+sha1 = "0.10"
+md-5 = "0.10"
+sha2 = "0.10"
+# rembg: Python installer and model downloads
+ureq = "2"
+
+[target.'cfg(windows)'.dependencies]
+# Default image viewer: per-user file associations
+winreg = "0.55"
 
 [profile.release]
 panic = "abort"

@@ -1,163 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod host;
 mod window_icon;
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use std::time::Duration;
 use tauri::webview::{NewWindowFeatures, NewWindowResponse};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
-static HOST: Mutex<Option<Child>> = Mutex::new(None);
-
-// Each running copy of the app has its own Node host on its own port, so several copies
-// can run side by side: a file opened in one never shows up in another, and closing one
-// does not take the others' host away. (In `tauri dev` the page itself still comes from
-// the dev server on 17810; only the IPC goes to this copy's host.)
-static HOST_PORT: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
-
-fn host_port_value() -> u16 {
-    use std::sync::atomic::Ordering;
-    let cur = HOST_PORT.load(Ordering::SeqCst);
-    if cur != 0 {
-        return cur;
-    }
-    let chosen = std::env::var("MYIMAGEVIEWER_HOST_PORT")
-        .ok()
-        .and_then(|v| v.parse::<u16>().ok())
-        .or_else(|| std::net::TcpListener::bind("127.0.0.1:0").ok().and_then(|l| l.local_addr().ok()).map(|a| a.port()))
-        .unwrap_or(17810);
-    HOST_PORT.store(chosen, Ordering::SeqCst);
-    chosen
-}
-
-fn host_addr() -> std::net::SocketAddr {
-    std::net::SocketAddr::from(([127, 0, 0, 1], host_port_value()))
-}
-
-fn project_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")
-}
-
-fn port_open() -> bool {
-    TcpStream::connect_timeout(&host_addr(), Duration::from_millis(250)).is_ok()
-}
-
-/// Where the Node host runs from: (node binary, app root holding host/server.js).
-/// A release build uses the Node and host files the installer put in its resources
-/// (scripts/stage-runtime.js), so it needs neither Node nor this source tree on the PC;
-/// `tauri dev` / debug builds run the source tree with the Node on PATH.
-static RUNTIME: std::sync::OnceLock<(PathBuf, PathBuf)> = std::sync::OnceLock::new();
-
-fn init_runtime(app: &AppHandle) {
-    let bundled = if cfg!(debug_assertions) {
-        None
-    } else {
-        app.path().resource_dir().ok().map(|r| plain_path(r).join("runtime")).and_then(|dir| {
-            let node = dir.join(if cfg!(windows) { "node.exe" } else { "node" });
-            let root = dir.join("app");
-            (node.is_file() && root.join("host").join("server.js").is_file()).then_some((node, root))
-        })
-    };
-    let _ = RUNTIME.set(bundled.unwrap_or_else(|| (PathBuf::from("node"), project_root())));
-}
-
-/// resource_dir() is a \\?\ path on Windows: the host would hand that form on to Python,
-/// ffmpeg and the paths it shows, so it starts from the plain one.
-fn plain_path(p: PathBuf) -> PathBuf {
-    match p.to_str().and_then(|s| s.strip_prefix(r"\\?\")) {
-        Some(rest) if !rest.starts_with("UNC\\") => PathBuf::from(rest),
-        _ => p,
-    }
-}
-
-fn runtime() -> (PathBuf, PathBuf) {
-    RUNTIME.get().cloned().unwrap_or_else(|| (PathBuf::from("node"), project_root()))
-}
-
-fn spawn_host(exe: &std::path::Path) {
-    if port_open() {
-        return;
-    }
-    let (node, root) = runtime();
-    let script = root.join("host").join("server.js");
-    if !script.exists() {
-        eprintln!("[myimageviewer] host script missing: {}", script.display());
-        return;
-    }
-    let mut cmd = Command::new(&node);
-    cmd.arg(&script)
-        .current_dir(&root)
-        .env("MYIMAGEVIEWER_RUNTIME", "tauri")
-        .env("MYIMAGEVIEWER_EXE", exe)
-        .env("MYIMAGEVIEWER_HOST_PORT", host_port_value().to_string())
-        // The host exits with this process even when it is killed (no Exit event then),
-        // so no orphan node keeps the install folder's files locked
-        .env("MYIMAGEVIEWER_PARENT_PID", std::process::id().to_string())
-        .stdin(Stdio::null())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-    if !cfg!(debug_assertions) {
-        cmd.env("MYIMAGEVIEWER_PACKAGED", "1");
-        // The release exe has no console, so Windows would give node.exe a console window
-        // of its own just to print "listening at …": start it without one.
-        cmd.stdout(Stdio::null()).stderr(Stdio::null());
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-            cmd.creation_flags(CREATE_NO_WINDOW);
-        }
-    }
-    match cmd.spawn() {
-        Ok(child) => {
-            if let Ok(mut slot) = HOST.lock() {
-                *slot = Some(child);
-            }
-        }
-        Err(err) => eprintln!("[myimageviewer] could not start node host: {err}"),
-    }
-}
-
-fn post_ipc(body: &str) {
-    let Ok(mut stream) = TcpStream::connect_timeout(&host_addr(), Duration::from_millis(800)) else {
-        return;
-    };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(800)));
-    let req = format!(
-        "POST /ipc HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        host_port_value(),
-        body.len(),
-        body
-    );
-    if stream.write_all(req.as_bytes()).is_err() {
-        return;
-    }
-    let mut buf = [0u8; 64];
-    let _ = stream.read(&mut buf);
-}
-
-fn tell_host(exe: &std::path::Path) {
-    if let Ok(body) = serde_json::to_string(&serde_json::json!({
-        "channel": "set-host-exe",
-        "args": [exe]
-    })) {
-        post_ipc(&body);
-    }
-    for arg in std::env::args().skip(1) {
-        if arg.starts_with('-') {
-            continue;
-        }
-        if let Ok(body) = serde_json::to_string(&serde_json::json!({
-            "channel": "queue-open-file",
-            "args": [arg]
-        })) {
-            post_ipc(&body);
-        }
-    }
+/// The image the app was started with ("Open with", a double-clicked file): the first
+/// argument that is an existing file; the page asks for it once it is up (get-launch-file).
+fn launch_file() -> Option<String> {
+    std::env::args().skip(1).filter(|a| !a.starts_with('-')).find(|a| std::path::Path::new(a).is_file())
 }
 
 // ── Menu overlay: a page cannot draw outside its window, so context menus and drop-downs
@@ -459,34 +313,6 @@ fn dialog_start_dragging(app: AppHandle, label: String) -> bool {
     app.get_webview_window(&label).is_some_and(|w| w.start_dragging().is_ok())
 }
 
-/// The port of this copy's Node host (the page sends its IPC there).
-#[tauri::command]
-fn host_port() -> u16 {
-    host_port_value()
-}
-
-/// The page lost the Node host (it crashed or was killed): start it again. True when the
-/// host is listening afterwards — the page then retries its request once.
-#[tauri::command]
-async fn ensure_host() -> bool {
-    if port_open() {
-        return true;
-    }
-    let exe = std::env::current_exe().unwrap_or_else(|_| project_root().join("myimageviewer"));
-    spawn_host(&exe);
-    for _ in 0..50 {
-        if port_open() {
-            // Only the exe path: re-sending the command-line files would reopen them
-            if let Ok(body) = serde_json::to_string(&serde_json::json!({ "channel": "set-host-exe", "args": [exe] })) {
-                post_ipc(&body);
-            }
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    false
-}
-
 // ── Drag-out: an in-app drag that leaves the window becomes a real OS file drag, so the
 // files can be dropped on Explorer, the desktop or another app. Offered as copy only:
 // a drop somewhere else never takes the original away. ──
@@ -530,8 +356,12 @@ async fn start_file_drag(window: WebviewWindow, paths: Vec<String>) -> Result<bo
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(MenuState::default())
         .invoke_handler(tauri::generate_handler![
+            host::ipc,
+            host::read_file_bytes,
             popup_menu_show,
             popup_menu_shown,
             popup_menu_hide,
@@ -540,8 +370,6 @@ fn main() {
             popup_menu_event,
             popup_menu_visible,
             start_file_drag,
-            ensure_host,
-            host_port,
             fit_dialog,
             close_dialog,
             dialog_start_dragging,
@@ -560,20 +388,8 @@ fn main() {
             }
         })
         .setup(|app| {
-            let exe = std::env::current_exe().unwrap_or_else(|_| project_root().join("myimageviewer"));
-            init_runtime(app.handle());
-            spawn_host(&exe);
+            host::init(app.handle(), launch_file());
             build_main_window(app.handle())?;
-            let exe2 = exe.clone();
-            std::thread::spawn(move || {
-                for _ in 0..40 {
-                    if port_open() {
-                        tell_host(&exe2);
-                        break;
-                    }
-                    std::thread::sleep(Duration::from_millis(100));
-                }
-            });
             // Built up front (hidden) so the first menu does not wait for a webview to start.
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -592,11 +408,7 @@ fn main() {
                 }
             }
             if let tauri::RunEvent::Exit = event {
-                if let Ok(mut slot) = HOST.lock() {
-                    if let Some(child) = slot.as_mut() {
-                        let _ = child.kill();
-                    }
-                }
+                host::shutdown();
             }
         });
 }

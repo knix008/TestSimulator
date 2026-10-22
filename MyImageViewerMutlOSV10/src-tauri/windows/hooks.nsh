@@ -97,9 +97,8 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  ; The app's Node host (runtime\node.exe) goes on its own within ~2 s of the app; stop it
-  ; now so its files are not locked when they are deleted
-  nsExec::Exec `powershell.exe -NoProfile -NonInteractive -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like '$INSTDIR\runtime\*' } | Stop-Process -Force"`
+  ; A media conversion still running (runtime\ffmpeg.exe) would keep its file locked
+  nsExec::Exec `powershell.exe -NoProfile -NonInteractive -Command "Get-Process ffmpeg -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like '$INSTDIR\runtime\*' } | Stop-Process -Force"`
   Pop $R0
 !macroend
 
