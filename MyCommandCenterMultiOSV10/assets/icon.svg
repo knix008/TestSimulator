@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Command Center application icon.
+     One place for every command: a raised, three-dimensional tile — a thick
+     slab seen slightly from above, lit from the top-left, standing on its own
+     shadow — carrying a single bold glyph: the command prompt chevron with its
+     cursor bar. Around it, four small nodes tied to the centre hint at the
+     commands that all meet here. Deliberately simple so it reads at 16 px:
+     one shape, one glyph, one colour family (deep blue slab, cyan light).
+     The same file drives the app, installer, uninstaller and shortcut icons on
+     every platform, plus the web favicon (scripts/generate-icons.mjs). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- the lit top face of the slab -->
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a7bd5"/>
+      <stop offset="0.55" stop-color="#1f4fa3"/>
+      <stop offset="1" stop-color="#132f6b"/>
+    </linearGradient>
+    <!-- the visible sides of the slab: darker, the light falls off downwards -->
+    <linearGradient id="side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10275a"/>
+      <stop offset="1" stop-color="#050d24"/>
+    </linearGradient>
+    <!-- the highlight sweep across the top face -->
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- the glyph: bright cyan-white with a light source at the top (user-space units: a horizontal stroke has no bounding-box height, so an objectBoundingBox gradient would leave the cursor bar unpainted) -->
+    <linearGradient id="glyph" gradientUnits="userSpaceOnUse" x1="0" y1="330" x2="0" y2="700">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#9fe8ff"/>
+    </linearGradient>
+    <radialGradient id="ground" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- user-space region: the cursor bar has no bounding-box height, so a bbox-relative region would clip its shadow away -->
+    <filter id="soft" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+
+  <!-- ground shadow the slab stands on -->
+  <ellipse cx="530" cy="905" rx="400" ry="70" fill="url(#ground)"/>
+
+  <!-- the slab: the sides first (an extrusion of the top face, 70 px down and 24 px right) … -->
+  <path d="M 120 236 a 96 96 0 0 1 96 -96 h 592 a 96 96 0 0 1 96 96 v 552 a 96 96 0 0 1 -96 96 h -592 a 96 96 0 0 1 -96 -96 z"
+        transform="translate(24 70)" fill="url(#side)"/>
+  <!-- … a thin darker seam where the top face meets the side, then the top face -->
+  <path d="M 120 236 a 96 96 0 0 1 96 -96 h 592 a 96 96 0 0 1 96 96 v 552 a 96 96 0 0 1 -96 96 h -592 a 96 96 0 0 1 -96 -96 z"
+        transform="translate(6 18)" fill="#0a1a40"/>
+  <path d="M 120 236 a 96 96 0 0 1 96 -96 h 592 a 96 96 0 0 1 96 96 v 552 a 96 96 0 0 1 -96 96 h -592 a 96 96 0 0 1 -96 -96 z"
+        fill="url(#face)"/>
+  <path d="M 120 236 a 96 96 0 0 1 96 -96 h 592 a 96 96 0 0 1 96 96 v 552 a 96 96 0 0 1 -96 96 h -592 a 96 96 0 0 1 -96 -96 z"
+        fill="url(#sheen)"/>
+  <!-- a bright edge on the lit top-left rim -->
+  <path d="M 150 300 a 90 90 0 0 1 90 -90 h 540" fill="none" stroke="#8fc6ff" stroke-opacity="0.55" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- four nodes reaching in to the centre: every command meets here -->
+  <g stroke="#7fd8ff" stroke-opacity="0.45" stroke-width="10" stroke-linecap="round" fill="none">
+    <path d="M 250 300 L 392 415"/>
+    <path d="M 774 300 L 632 415"/>
+    <path d="M 250 724 L 392 609"/>
+    <path d="M 774 724 L 632 609"/>
+  </g>
+  <g fill="#bff0ff" filter="url(#glow)">
+    <circle cx="250" cy="300" r="22"/>
+    <circle cx="774" cy="300" r="22"/>
+    <circle cx="250" cy="724" r="22"/>
+    <circle cx="774" cy="724" r="22"/>
+  </g>
+
+  <!-- the glyph's own shadow on the face, then the glyph: a prompt chevron and its cursor bar -->
+  <g transform="translate(20 30)" fill="none" stroke="#04102c" stroke-opacity="0.6" stroke-width="88" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft)">
+    <path d="M 330 372 L 486 512 L 330 652"/>
+    <path d="M 540 660 H 720"/>
+  </g>
+  <g fill="none" stroke="url(#glyph)" stroke-width="88" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 330 372 L 486 512 L 330 652"/>
+    <path d="M 540 660 H 720"/>
+  </g>
+</svg>

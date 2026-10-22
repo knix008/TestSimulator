@@ -1,0 +1,76 @@
+{
+  "name": "commandcenter",
+  "version": "1.0.0",
+  "description": "Command Center — dual-panel file manager for Windows, macOS, Linux and the web (Tauri desktop shell, copy/move between panels, archives with split volumes, search).",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prepare:assets": "node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "prestart": "node scripts/free-port.mjs 5185 && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "start": "tauri dev",
+    "tauri": "tauri",
+    "tauri:build": "tauri build",
+    "build:win": "tauri build --bundles nsis",
+    "postbuild:win": "node scripts/copy-installer.mjs",
+    "predev": "node scripts/free-port.mjs 5185 && node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "dev": "vite --port 5185",
+    "web": "npm run build && node server/server.js",
+    "web:serve": "node server/server.js",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "sync:svgs": "node scripts/sync-public-svgs.mjs",
+    "prebuild": "node scripts/sync-public-svgs.mjs && node scripts/generate-build-info.mjs",
+    "build": "vite build",
+    "test": "node --import ./test/helpers/resolve.mjs --test --test-reporter=./scripts/test-reporter.mjs test/*.test.mjs",
+    "test:raw": "node --import ./test/helpers/resolve.mjs --test test/*.test.mjs",
+    "free:port": "node scripts/free-port.mjs 5185",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
+  },
+  "dependencies": {
+    "@cornerstonejs/codec-charls": "^1.2.7",
+    "@cornerstonejs/codec-libjpeg-turbo-12bit": "^0.4.7",
+    "@cornerstonejs/codec-libjpeg-turbo-8bit": "^1.2.8",
+    "@cornerstonejs/codec-openjpeg": "^1.3.6",
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "compressjs": "^1.0.3",
+    "dicom-parser": "^1.8.21",
+    "iconv-lite": "^0.6.3",
+    "jpeg-lossless-decoder-js": "^2.1.2",
+    "libheif-js": "^1.23.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "utif": "^3.1.0",
+    "yauzl": "^3.2.0",
+    "yazl": "^3.3.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4",
+    "@vitejs/plugin-react": "^4.3.1",
+    "happy-dom": "^21.0.3",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true
+  },
+  "homepage": "https://github.com/knix008/TestSimulator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/knix008/TestSimulator.git"
+  },
+  "keywords": [
+    "file-manager",
+    "dual-panel",
+    "archive",
+    "split-archive",
+    "tauri"
+  ]
+}

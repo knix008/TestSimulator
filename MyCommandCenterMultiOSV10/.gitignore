@@ -1,0 +1,61 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (npm run build, npm run tauri:build) ──
+dist/
+release/
+# intermediate icon set from assets/icon.svg (npm run generate:icons). The icons the app ships are src-tauri/icons/.
+build/icons/
+src/build-info.json
+# synced copy of assets/icon.svg for the web favicon / About dialog
+public/icon.svg
+# (assets/tool-icons/*.png — title-bar icons of the tool windows — are committed on purpose: node scripts/generate-tool-icons.mjs)
+
+# ── Installers, if a bundle is copied to the project root ──
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.zip
+*.blockmap
+
+# ── Local scratch (screenshots, private profiles, tutorial frame dumps) ──
+.smoke/
+.record/
+playwright-report/
+test-results/
+
+# ── Linker leftovers if a build is run outside src-tauri/target ──
+*.pdb
+# samples/ (images · video · audio · DICOM for the tests) is committed;
+# scripts/generate-samples.mjs rewrites the generated ones
+samples/.record.cjs
+.icons-preview.png
+.npm-install.log
+
+# ── Dev profiles (CC_USER_DATA=<folder>), local env, exported prompt themes ──
+.profile*/
+.env
+.env.*
+*.local.json
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.eslintcache
+coverage/
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.claude/
+
+# ── Tauri (Rust) build output. Cargo.lock is committed. ─
+src-tauri/target/
+src-tauri/gen/

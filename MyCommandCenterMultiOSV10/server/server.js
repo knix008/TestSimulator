@@ -1,0 +1,323 @@
+#!/usr/bin/env node
+// Command Center — web version.
+//
+// Serves the built UI (dist/) and exposes core/api.js over HTTP, so the same
+// dual-panel file manager runs in a browser against the file system of the
+// machine this server runs on (a NAS, a lab PC, a remote Linux box…).
+//
+//   npm run web              build + serve on http://127.0.0.1:5186
+//   node server/server.js --port 8080 --host 0.0.0.0 --token secret
+//   node server/server.js --host 0.0.0.0 --token secret --allow-open
+//                            (also let double-click open files on the server)
+//
+// Only the loopback interface is bound by default: the API gives full
+// read/write access to the server's files. Binding another interface should
+// go together with --token (sent as `Authorization: Bearer …` or `?token=`).
+'use strict';
+
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const { createApi, serializeError } = require('../core/api');
+const fsops = require('../core/fsops');
+
+const root = path.join(__dirname, '..');
+const distDir = path.join(root, 'dist');
+
+function arg(name, fallback) {
+  const i = process.argv.indexOf(`--${name}`);
+  if (i >= 0 && process.argv[i + 1]) return process.argv[i + 1];
+  const env = process.env[`CC_${name.toUpperCase()}`];
+  return env !== undefined ? env : fallback;
+}
+
+const PORT = Number(arg('port', 5186));
+const HOST = arg('host', '127.0.0.1');
+const TOKEN = arg('token', '');
+// 'web' for the browser, 'tauri' when the desktop shell spawned this process.
+const HOST_NAME = process.env.CC_HOST_NAME || 'web';
+const CONFIG_DIR = process.env.CC_CONFIG_DIR || '';
+const OPEN = !process.argv.includes('--no-open') && !process.env.CC_NO_OPEN;
+// Double-click / Enter on a file launches the registered application — on
+// the machine this server runs on. That is what people expect when the server
+// is their own desktop (loopback), and a surprise on a remote box, so
+// elsewhere it needs an explicit --allow-open (or CC_ALLOW_OPEN=1).
+const LOOPBACK = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
+const ALLOW_OPEN = LOOPBACK || process.argv.includes('--allow-open') || !!process.env.CC_ALLOW_OPEN;
+
+let buildInfo = null;
+try { buildInfo = JSON.parse(fs.readFileSync(path.join(root, 'src', 'build-info.json'), 'utf-8')); } catch { /* none */ }
+let version = '';
+try { version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8')).version; } catch { /* none */ }
+
+// Windows has no freedesktop trash folder. The Tauri shell is a desktop app, so
+// send the file to the recycle bin the way a double-click delete would.
+function desktopTrash(p) {
+  const { execFile } = require('child_process');
+  const q = String(p).replace(/'/g, "''");
+  const script = [
+    'Add-Type -AssemblyName Microsoft.VisualBasic',
+    `$p = '${q}'`,
+    "if (-not (Test-Path -LiteralPath $p)) { exit 0 }",
+    "if (Test-Path -LiteralPath $p -PathType Container) {",
+    "  [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($p, 'OnlyErrorDialogs', 'SendToRecycleBin')",
+    '} else {',
+    "  [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin')",
+    '}',
+  ].join('; ');
+  return new Promise((resolve, reject) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 20000 }, (err, _stdout, stderr) => {
+      if (err) reject(new Error(String(stderr || '').trim() || err.message || 'trash failed'));
+      else resolve();
+    });
+  });
+}
+
+const api = createApi({
+  name: HOST_NAME,
+  version,
+  buildInfo,
+  configDir: CONFIG_DIR || undefined,
+  openPath: ALLOW_OPEN ? fsops.openWithDefaultApp : null,
+  // Files the app cannot print itself go through the OS, same as the Electron host.
+  printPath: HOST_NAME === 'tauri' ? fsops.printWithDefaultApp : null,
+  trashPath: HOST_NAME === 'tauri' && process.platform === 'win32' ? desktopTrash : null,
+});
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2', '.map': 'application/json',
+};
+
+function send(res, status, body, type = 'application/json; charset=utf-8') {
+  const data = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body);
+  res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store', 'content-length': Buffer.byteLength(data) });
+  res.end(data);
+}
+
+// The desktop window is served from the Vite origin (or tauri.localhost) and
+// calls this core on another loopback port. That fetch is cross-origin, so
+// the browser drops the response unless these headers are present. Only
+// loopback and the Tauri page origins are reflected; a public site cannot
+// read the API.
+function allowedPageOrigin(origin) {
+  if (!origin) return '';
+  let url;
+  try { url = new URL(origin); } catch { return ''; }
+  const host = url.hostname;
+  const loopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+  const tauriPage = host === 'tauri.localhost' || host === 'asset.localhost';
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+  return loopback || tauriPage ? origin : '';
+}
+
+function applyPageCors(req, res) {
+  const origin = allowedPageOrigin(req.headers.origin);
+  if (!origin) return;
+  const headers = {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'GET, HEAD, POST, OPTIONS',
+    'access-control-allow-headers': 'authorization, content-type, range',
+    'access-control-expose-headers': 'accept-ranges, content-length, content-range, content-disposition',
+    'access-control-allow-private-network': 'true',
+    vary: 'Origin',
+  };
+  const writeHead = res.writeHead;
+  res.writeHead = function patched(status, extra) {
+    return writeHead.call(this, status, { ...headers, ...(extra || {}) });
+  };
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (c) => { size += c.length; if (size > 8 << 20) { reject(new Error('Body too large')); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+function authorized(req, url) {
+  if (!TOKEN) return true;
+  const h = req.headers.authorization || '';
+  if (h === `Bearer ${TOKEN}`) return true;
+  return url.searchParams.get('token') === TOKEN;
+}
+
+// Drag & drop with the browser (src/lib/dragdrop.js): a file dragged out of a
+// panel is fetched as a download, files dropped on a panel are streamed in.
+function downloadFile(req, res, url) {
+  const p = url.searchParams.get('path') || '';
+  fs.stat(p, (err, st) => {
+    if (err || !st.isFile()) return send(res, 404, { ok: false, error: { code: 'ENOENT', message: `Not a file: ${p}`, path: p } });
+    const name = path.basename(p);
+    res.writeHead(200, {
+      'content-type': MIME[path.extname(p).toLowerCase()] || 'application/octet-stream',
+      'content-length': st.size,
+      'content-disposition': `attachment; filename="${name.replace(/[^\x20-\x7e]|["\\]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      'cache-control': 'no-store',
+    });
+    if (req.method === 'HEAD') return res.end();
+    fs.createReadStream(p).on('error', () => res.destroy()).pipe(res);
+  });
+}
+
+// GET /api/media?path=<file>: a video / audio / image file streamed inline for the viewer's <video> /
+// <audio> / <img>, with Range requests (seeking) — only files readFile calls media or image are served.
+function streamMedia(req, res, url) {
+  const p = url.searchParams.get('path') || '';
+  const ext = path.extname(p).toLowerCase();
+  const mime = fsops.MEDIA_TYPES[ext] || fsops.IMAGE_TYPES[ext] || fsops.DOC_TYPES[ext];
+  if (!mime) return send(res, 415, { ok: false, error: { code: 'UNSUPPORTED', message: `Not a media file: ${p}`, path: p } });
+  fs.stat(p, (err, st) => {
+    if (err || !st.isFile()) return send(res, 404, { ok: false, error: { code: 'ENOENT', message: `Not a file: ${p}`, path: p } });
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    let start = 0, end = st.size - 1, status = 200;
+    if (range && st.size > 0) {
+      if (range[1]) { start = Number(range[1]); end = range[2] ? Math.min(Number(range[2]), st.size - 1) : st.size - 1; }
+      else if (range[2]) { start = Math.max(0, st.size - Number(range[2])); }
+      if (start > end || start >= st.size) { res.writeHead(416, { 'content-range': `bytes */${st.size}` }); return res.end(); }
+      status = 206;
+    }
+    const headers = { 'content-type': mime, 'content-length': end - start + 1, 'accept-ranges': 'bytes', 'cache-control': 'no-store' };
+    if (status === 206) headers['content-range'] = `bytes ${start}-${end}/${st.size}`;
+    res.writeHead(status, headers);
+    if (req.method === 'HEAD') return res.end();
+    fs.createReadStream(p, { start, end }).on('error', () => res.destroy()).pipe(res);
+  });
+}
+
+// POST /api/upload?dir=<folder>&rel=<name or sub/path/name>[&overwrite=1][&mkdir=1]
+// The body is the file (`mkdir=1`: no body, an empty folder is created). `rel` stays inside `dir`.
+async function uploadFile(req, res, url) {
+  const dir = url.searchParams.get('dir') || '';
+  const rel = (url.searchParams.get('rel') || '').replace(/\\/g, '/');
+  const overwrite = url.searchParams.get('overwrite') === '1';
+  const mkdir = url.searchParams.get('mkdir') === '1';
+  const fail = (status, code, message) => send(res, status, { ok: false, error: { code, message, path: rel } });
+  if (!dir || !rel) return fail(400, 'EINVAL', 'dir and rel are required');
+  if (path.isAbsolute(rel) || rel.split('/').some((s) => s === '..' || s === '')) return fail(400, 'EINVAL', `Bad relative path: ${rel}`);
+  const base = path.resolve(dir);
+  const dest = path.resolve(base, ...rel.split('/'));
+  if (!dest.startsWith(base + path.sep)) return fail(400, 'EINVAL', `Outside the folder: ${rel}`);
+  try {
+    if (!(await fsops.isDirectory(base))) return fail(400, 'ENOTDIR', `Destination is not a folder: ${dir}`);
+    if (mkdir) {
+      await fs.promises.mkdir(dest, { recursive: true });
+      return send(res, 200, { ok: true, data: { path: dest } });
+    }
+    const existed = await fsops.exists(dest);
+    if (existed && !overwrite) { req.resume(); return fail(200, 'EXISTS', `Already exists: ${rel}`); }
+    if (existed && (await fsops.isDirectory(dest))) return fail(200, 'EISDIR', `A folder is in the way: ${rel}`);
+    await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+    await new Promise((resolve, reject) => {
+      const out = fs.createWriteStream(dest);
+      req.on('error', reject);
+      out.on('error', reject);
+      out.on('finish', resolve);
+      req.on('aborted', () => { out.destroy(); fs.unlink(dest, () => reject(new Error('Upload aborted'))); });
+      req.pipe(out);
+    });
+    send(res, 200, { ok: true, data: { path: dest, existed } });
+  } catch (err) {
+    send(res, 200, { ok: false, error: serializeError(err) });
+  }
+}
+
+async function handleApi(req, res, url) {
+  if (!authorized(req, url)) return send(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+  const name = decodeURIComponent(url.pathname.slice('/api/'.length));
+  if (name === 'download' && (req.method === 'GET' || req.method === 'HEAD')) return downloadFile(req, res, url);
+  if (name === 'media' && (req.method === 'GET' || req.method === 'HEAD')) return streamMedia(req, res, url);
+  if (name === 'upload' && req.method === 'POST') return uploadFile(req, res, url);
+  if (req.method !== 'POST') return send(res, 405, { ok: false, error: { code: 'METHOD', message: 'POST only' } });
+  let args = {};
+  try {
+    const raw = await readBody(req);
+    args = raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    return send(res, 400, { ok: false, error: serializeError(err) });
+  }
+  try {
+    const data = await api.call(name, args);
+    send(res, 200, { ok: true, data });
+  } catch (err) {
+    send(res, 200, { ok: false, error: serializeError(err) });
+  }
+}
+
+// The manual in doc/ is also a page of its own (/doc/). Prefer the source
+// tree so a running server shows the current text; fall through to dist/doc
+// when this process is serving a build that already copied the folder.
+function serveDoc(req, res, url) {
+  let rel = decodeURIComponent(url.pathname);
+  if (rel !== '/doc' && !rel.startsWith('/doc/')) return false;
+  let name = rel === '/doc' || rel === '/doc/' ? 'index.html' : rel.slice('/doc/'.length);
+  if (!name || name.endsWith('/')) name += 'index.html';
+  const base = path.normalize(path.join(root, 'doc'));
+  const file = path.normalize(path.join(base, name));
+  if (!file.startsWith(base)) return false;
+  let st;
+  try { st = fs.statSync(file); } catch { return false; }
+  if (!st.isFile()) return false;
+  res.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'content-length': st.size, 'cache-control': 'no-cache' });
+  if (req.method === 'HEAD') { res.end(); return true; }
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
+
+function serveStatic(req, res, url) {
+  let rel = decodeURIComponent(url.pathname);
+  if (rel === '/' || rel === '') rel = '/index.html';
+  const file = path.normalize(path.join(distDir, rel));
+  if (!file.startsWith(distDir)) return send(res, 403, 'Forbidden', 'text/plain');
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) {
+      // SPA fallback
+      if (rel !== '/index.html') return serveStatic(req, res, new URL('/', url));
+      return send(res, 404, 'dist/ not found — run `npm run build` first.', 'text/plain');
+    }
+    res.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'content-length': st.size, 'cache-control': 'no-cache' });
+    fs.createReadStream(file).pipe(res);
+  });
+}
+
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (url.pathname.startsWith('/api/')) {
+    applyPageCors(req, res);
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, { 'access-control-max-age': '600', 'content-length': 0 });
+      return res.end();
+    }
+    return handleApi(req, res, url).catch((err) => send(res, 500, { ok: false, error: serializeError(err) }));
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
+  if (serveDoc(req, res, url)) return;
+  serveStatic(req, res, url);
+});
+
+server.listen(PORT, HOST, () => {
+  const shown = HOST === '0.0.0.0' ? 'localhost' : HOST;
+  const urlStr = `http://${shown}:${PORT}/${TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : ''}`;
+  console.log(`[web] Command Center web version: ${urlStr}`);
+  if (!fs.existsSync(path.join(distDir, 'index.html'))) console.log('[web] dist/ is missing — run `npm run build` (or `npm run web`).');
+  if (!LOOPBACK && !TOKEN) console.log('[web] WARNING: listening on a non-loopback interface without --token.');
+  if (!ALLOW_OPEN) console.log('[web] Opening files with their application is off on a non-loopback host (pass --allow-open to enable).');
+  if (OPEN && !process.env.CC_SMOKE) openBrowser(urlStr);
+});
+
+function openBrowser(u) {
+  const { spawn } = require('child_process');
+  try {
+    if (process.platform === 'win32') spawn('cmd', ['/c', 'start', '', u.replace(/&/g, '^&')], { detached: true, stdio: 'ignore' }).unref();
+    else if (process.platform === 'darwin') spawn('open', [u], { detached: true, stdio: 'ignore' }).unref();
+    else spawn('xdg-open', [u], { detached: true, stdio: 'ignore' }).unref();
+  } catch { /* the URL is printed anyway */ }
+}
+
+const stop = () => { api.jobs.cancelAll(); api.shutdown(); server.close(); process.exit(0); };
+process.on('SIGINT', stop);
+process.on('SIGTERM', stop);
