@@ -413,6 +413,10 @@ public partial class SettingsWindow : Window
         SearchMultilingualNoteLabel.Text = LocalizationService.T("Settings_SearchMultilingualNote");
         ExclusionLabel.Text = LocalizationService.T("Settings_Exclusion");
         ExcludedDrivesDescLabel.Text = LocalizationService.T("Settings_ExcludedDrivesDesc");
+        IncludedDirectoriesLabel.Text = LocalizationService.T("Settings_IncludedDirectories");
+        IncludedDirectoriesDescLabel.Text = LocalizationService.T("Settings_IncludedDirectoriesDesc");
+        BrowseIncludedDirectoryButton.Content = CreateIconLabel("\uE838", LocalizationService.T("Settings_BrowseFolder"), SettingsIconColors.BrowseFolder);
+        RemoveIncludedDirectoryButton.Content = CreateIconLabel("\uE74D", LocalizationService.T("Settings_RemoveExcluded"), SettingsIconColors.Remove);
         ExcludedDirectoriesLabel.Text = LocalizationService.T("Settings_ExcludedDirectories");
         ExcludedDirectoriesDescLabel.Text = LocalizationService.T("Settings_ExcludedDirectoriesDesc");
         BrowseExcludedDirectoryButton.Content = CreateIconLabel("\uE838", LocalizationService.T("Settings_BrowseFolder"), SettingsIconColors.BrowseFolder);
@@ -421,6 +425,9 @@ public partial class SettingsWindow : Window
         ResetIndexButton.Content = CreateIconLabel("\uE894", LocalizationService.T("Settings_ResetIndex"), SettingsIconColors.Reset);
         OpenDataFolderButton.Content = CreateIconLabel("\uE8DA", LocalizationService.T("Settings_OpenDataFolder"), SettingsIconColors.OpenDataFolder);
         ApplyIndexActionButtonAppearance(_indexActionIsStopMode);
+        PeriodicResyncLabel.Text = LocalizationService.T("Settings_PeriodicResync");
+        PeriodicResyncDescLabel.Text = LocalizationService.T("Settings_PeriodicResyncDesc");
+        LoadPeriodicResyncOptions();
         StartupLabel.Text = LocalizationService.T("Settings_Startup");
         RunAtStartupCheckBox.Content = LocalizationService.T("Settings_RunAtStartup");
         RunAtStartupDescLabel.Text = LocalizationService.T("Settings_RunAtStartupDesc");
@@ -508,6 +515,7 @@ public partial class SettingsWindow : Window
         CaseSensitiveSearchCheckBox.IsChecked = Settings.CaseSensitiveSearch;
         UseRegexSearchCheckBox.IsChecked = Settings.UseRegexSearch;
         SelectSearchResultSort(Settings.SearchResultSort);
+        SelectPeriodicResyncHours(Settings.PeriodicIndexIntervalHours);
         RunAtStartupCheckBox.IsChecked = Settings.RunAtStartup;
         SelectColorTarget(ColorSettingTarget.Background);
         BorderThicknessSlider.Value = Settings.BorderThickness;
@@ -518,6 +526,7 @@ public partial class SettingsWindow : Window
         PriorityNormalRadio.IsChecked = !Settings.AlwaysOnTop;
         BuildIncludedDrivesUi();
         LoadIncludedDirectories();
+        LoadExcludedDirectories();
         RefreshThemePreviews();
         UpdateOpacityLabels();
     }
@@ -592,6 +601,59 @@ public partial class SettingsWindow : Window
         return SearchResultSortOrder.MatchQuality;
     }
 
+    private void LoadPeriodicResyncOptions()
+    {
+        var selected = PeriodicResyncComboBox.SelectedItem is ComboBoxItem { Tag: int hours }
+            ? hours
+            : Settings.PeriodicIndexIntervalHours;
+
+        PeriodicResyncComboBox.Items.Clear();
+        foreach (var optionHours in AppSettings.AllowedPeriodicIndexIntervalHours)
+        {
+            PeriodicResyncComboBox.Items.Add(new ComboBoxItem
+            {
+                Content = FormatPeriodicResyncLabel(optionHours),
+                Tag = optionHours,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(8, 0, 8, 0)
+            });
+        }
+
+        SelectPeriodicResyncHours(selected);
+    }
+
+    private static string FormatPeriodicResyncLabel(int hours) => hours switch
+    {
+        0 => LocalizationService.T("Settings_Resync_Disabled"),
+        168 => LocalizationService.T("Settings_Resync_Weekly"),
+        _ => LocalizationService.F("Settings_Resync_Hours", hours)
+    };
+
+    private void SelectPeriodicResyncHours(int hours)
+    {
+        hours = AppSettings.NormalizePeriodicIndexIntervalHours(hours);
+
+        foreach (ComboBoxItem item in PeriodicResyncComboBox.Items)
+        {
+            if (item.Tag is int value && value == hours)
+            {
+                PeriodicResyncComboBox.SelectedItem = item;
+                return;
+            }
+        }
+
+        if (PeriodicResyncComboBox.Items.Count > 0)
+            PeriodicResyncComboBox.SelectedIndex = 0;
+    }
+
+    private int GetSelectedPeriodicResyncHours()
+    {
+        if (PeriodicResyncComboBox.SelectedItem is ComboBoxItem { Tag: int hours })
+            return AppSettings.NormalizePeriodicIndexIntervalHours(hours);
+
+        return 0;
+    }
+
     private void BuildIncludedDrivesUi()
     {
         ExcludedDrivesPanel.Children.Clear();
@@ -657,9 +719,21 @@ public partial class SettingsWindow : Window
 
     private void LoadIncludedDirectories()
     {
-        ExcludedDirectoriesListBox.Items.Clear();
+        IncludedDirectoriesListBox.Items.Clear();
 
         foreach (var path in Settings.IncludedDirectories)
+        {
+            var display = IndexInclusionPolicy.NormalizeDirectoryDisplay(path);
+            if (!string.IsNullOrWhiteSpace(display))
+                IncludedDirectoriesListBox.Items.Add(display);
+        }
+    }
+
+    private void LoadExcludedDirectories()
+    {
+        ExcludedDirectoriesListBox.Items.Clear();
+
+        foreach (var path in Settings.ExcludedDirectories)
         {
             var display = IndexInclusionPolicy.NormalizeDirectoryDisplay(path);
             if (!string.IsNullOrWhiteSpace(display))
@@ -667,7 +741,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void BrowseExcludedDirectory_Click(object sender, RoutedEventArgs e)
+    private void BrowseIncludedDirectory_Click(object sender, RoutedEventArgs e)
     {
         var ownerHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
         string[]? selectedPaths;
@@ -678,14 +752,34 @@ public partial class SettingsWindow : Window
             return;
 
         foreach (var path in selectedPaths)
-            AddIncludedDirectory(path);
+            AddDirectoryToList(IncludedDirectoriesListBox, path);
 
         var lastPath = selectedPaths.LastOrDefault();
         if (!string.IsNullOrWhiteSpace(lastPath))
             Settings.LastIncludedDirectoryBrowsePath = lastPath;
     }
 
-    private void AddIncludedDirectory(string path)
+    private void BrowseExcludedDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        var ownerHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        var initialPath = Settings.LastExcludedDirectoryBrowsePath
+            ?? Settings.LastIncludedDirectoryBrowsePath;
+        string[]? selectedPaths;
+        using (SuppressDeactivateClose())
+            selectedPaths = MultiFolderBrowserDialog.ShowDialog(ownerHandle, initialPath);
+
+        if (selectedPaths is null)
+            return;
+
+        foreach (var path in selectedPaths)
+            AddDirectoryToList(ExcludedDirectoriesListBox, path);
+
+        var lastPath = selectedPaths.LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(lastPath))
+            Settings.LastExcludedDirectoryBrowsePath = lastPath;
+    }
+
+    private static void AddDirectoryToList(System.Windows.Controls.ListBox listBox, string path)
     {
         if (string.IsNullOrWhiteSpace(path))
             return;
@@ -695,7 +789,7 @@ public partial class SettingsWindow : Window
             return;
 
         var display = normalized.TrimEnd('\\');
-        var alreadyListed = ExcludedDirectoriesListBox.Items
+        var alreadyListed = listBox.Items
             .Cast<string>()
             .Any(item =>
             {
@@ -707,7 +801,15 @@ public partial class SettingsWindow : Window
         if (alreadyListed)
             return;
 
-        ExcludedDirectoriesListBox.Items.Add(display);
+        listBox.Items.Add(display);
+    }
+
+    private void RemoveIncludedDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        if (IncludedDirectoriesListBox.SelectedItem is not string)
+            return;
+
+        IncludedDirectoriesListBox.Items.Remove(IncludedDirectoriesListBox.SelectedItem);
     }
 
     private void RemoveExcludedDirectory_Click(object sender, RoutedEventArgs e)
@@ -726,13 +828,17 @@ public partial class SettingsWindow : Window
             .OrderBy(static drive => drive, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        Settings.IncludedDirectories = ExcludedDirectoriesListBox.Items
+        Settings.IncludedDirectories = ReadDirectoryList(IncludedDirectoriesListBox);
+        Settings.ExcludedDirectories = ReadDirectoryList(ExcludedDirectoriesListBox);
+    }
+
+    private static List<string> ReadDirectoryList(System.Windows.Controls.ListBox listBox) =>
+        listBox.Items
             .Cast<string>()
             .Select(IndexInclusionPolicy.NormalizeDirectoryDisplay)
             .Where(static path => !string.IsNullOrWhiteSpace(path))
             .Cast<string>()
             .ToList();
-    }
 
     private SolidColorBrush CreateBackgroundBrush()
     {
@@ -1143,6 +1249,7 @@ public partial class SettingsWindow : Window
         Settings.CaseSensitiveSearch = CaseSensitiveSearchCheckBox.IsChecked == true;
         Settings.UseRegexSearch = UseRegexSearchCheckBox.IsChecked == true;
         Settings.SearchResultSort = GetSelectedSearchResultSort();
+        Settings.PeriodicIndexIntervalHours = GetSelectedPeriodicResyncHours();
         Settings.RunAtStartup = RunAtStartupCheckBox.IsChecked == true;
         SaveIncludedPaths();
         Settings.AlwaysOnTop = PriorityAboveOthersRadio.IsChecked == true;

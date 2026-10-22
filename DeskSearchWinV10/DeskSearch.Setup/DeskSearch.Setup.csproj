@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>..\DeskSearch\Assets\app.ico</ApplicationIcon>
+    <AssemblyName>DeskSearchSetup</AssemblyName>
+    <RootNamespace>DeskSearch.Setup</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- Avoid satellite assemblies; UI strings are bilingual in-code. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- Release installer packaging embeds both culture MSIs into Setup.exe. -->
+  <ItemGroup Condition="'$(EmbedInstallers)' == 'true'">
+    <EmbeddedResource Include="$(KoreanMsiPath)"
+                      LogicalName="DeskSearchSetup.ko-KR.msi"
+                      Condition="'$(KoreanMsiPath)' != '' AND Exists('$(KoreanMsiPath)')" />
+    <EmbeddedResource Include="$(EnglishMsiPath)"
+                      LogicalName="DeskSearchSetup.en-US.msi"
+                      Condition="'$(EnglishMsiPath)' != '' AND Exists('$(EnglishMsiPath)')" />
+  </ItemGroup>
+
+</Project>

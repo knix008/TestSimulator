@@ -64,17 +64,18 @@ DeskSearch is a .NET 8 WPF desktop application that keeps a lightweight search w
 
 ## Packaging
 
-- `DeskSearch.Installer` contains WiX authoring for MSI output.
+- `DeskSearch.Installer` contains WiX authoring for culture-specific MSI output (ko-KR, en-US). The shipped root artifact is a single `DeskSearchSetup.msi` with `LanguageDlg` (한국어 / English) that writes `HKCU\Software\DeskSearch\InstallLanguage` for first-run app UI.
+- `DeskSearch.Setup` remains an optional WinForms bootstrapper that can launch culture-specific embedded MSIs; it is not copied to the repository root.
 - The installer project builds localized MSI packages and can install optional shortcuts while app data remains under the user profile.
 - Upgrades are major upgrades scheduled `afterInstallValidate`, so the old product is fully removed before files are installed. Custom actions in `Package.wxs`:
   - `KillDeskSearch` (immediate, before `InstallValidate`) closes a running copy so the old version's files are not in use when it is removed.
   - `PurgeInstallFolder` deletes anything left in the install folder; it is only scheduled when `INSTALLFOLDER` ends with `\DeskSearch\`.
-  - `RemoveUserData` deletes `%AppData%\DeskSearch` when the user ticks the box in `UserDataDlg`.
+  - `RemoveUserData` deletes `%AppData%\DeskSearch` only when `UserDataDlg` was shown (`USERDATAPROMPTSHOWN=1`) and the user ticked the box (`REMOVEUSERDATA=1`). Nested uninstall during MajorUpgrade (`UPGRADINGPRODUCTCODE`) never deletes profile data.
   - `RemoveAutostartEntry` deletes the HKCU `Run` value on uninstall, or when user data is deleted.
-- `UserDataDlg` appears on upgrade, on uninstall, and on a fresh install when `USERDATAEXISTS` (an `AppSearch` for `%AppData%\DeskSearch`) finds leftover data. Install-path transitions in `WixUI_FeatureTree_Custom.wxs` are guarded with `NOT Installed`, because `USERDATAEXISTS` is usually also true during uninstall.
+- `UserDataDlg` appears on upgrade, on uninstall, and on a fresh install when AppSearch finds `%AppData%\DeskSearch\settings.json` or `index.db`. Install-path transitions in `WixUI_FeatureTree_Custom.wxs` are guarded with `NOT Installed`, because leftover profile data is usually also present during uninstall.
 
 ## Build Scripts
 
-- `build.cmd` / `build.ps1` builds `DeskSearch.csproj` in Release by default; its `BuildInstallerOnRelease` target builds the MSI once, and the script copies both MSIs to the repository root. Building the `.slnx` in Release is avoided because it builds the WiX project twice in parallel (`#cab1.cab` in use).
+- `build.cmd` / `build.ps1` builds `DeskSearch.csproj` in Release by default; its `BuildInstallerOnRelease` target builds both culture MSIs (and Setup.exe internally), and the script copies only `DeskSearchSetup.msi` to the repository root. Building the `.slnx` in Release is avoided because it builds the WiX project twice in parallel (`#cab1.cab` in use).
 - The script restores the solution first (the nested WiX build does not restore) and refuses to build while a DeskSearch built from the repository is running (`-Stop` closes it).
-- `clean.cmd` / `clean.ps1` removes `bin/`, `obj/` of both projects and the root MSIs, retrying briefly on locked files; user data is never touched.
+- `clean.cmd` / `clean.ps1` removes `bin/`, `obj/` of both projects and root installer copies, retrying briefly on locked files; user data is never touched.

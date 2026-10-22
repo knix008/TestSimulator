@@ -21,6 +21,7 @@ public partial class MainWindow
     {
         ApplyWindowSettings(settings);
         ApplyRuntimeSettings(settings);
+        ConfigurePeriodicIndexing(settings);
     }
 
     private void ApplyWindowSettings(AppSettings settings)

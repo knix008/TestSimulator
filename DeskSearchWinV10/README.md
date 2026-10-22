@@ -51,14 +51,13 @@ dotnet run --project DeskSearch/DeskSearch.csproj
 | `build.cmd -Debug` | 개발용 Debug 빌드만 (설치 파일 없음) |
 | `build.cmd -Clean` / `-Run` | 정리 후 빌드 / 빌드 후 실행 (조합 가능) |
 | `build.cmd -Stop` | 이 폴더에서 빌드한 DeskSearch가 실행 중이면 종료한 뒤 빌드 (없으면 실행 중일 때 안내 후 중단 — 실행 파일이 잠겨 빌드가 실패하므로) |
-| `clean.cmd` | `DeskSearch`·`DeskSearch.Installer`의 `bin/`·`obj/`와 루트의 설치 파일 삭제 (사용자 데이터 `%AppData%\DeskSearch`는 유지; 이 폴더의 DeskSearch.exe가 실행 중이면 중단) |
+| `clean.cmd` | `DeskSearch`·`DeskSearch.Installer`·`DeskSearch.Setup`의 `bin/`·`obj/`와 루트의 설치 파일 삭제 (사용자 데이터 `%AppData%\DeskSearch`는 유지; 이 폴더의 DeskSearch.exe가 실행 중이면 중단) |
 
 `build.cmd`가 루트에 복사하는 설치 파일:
 
 | 파일 | 설명 |
 |------|------|
-| `DeskSearchSetup.msi` | 설치 패키지 (설치 UI: 한국어) |
-| `DeskSearchSetup.en-US.msi` | 설치 패키지 (설치 UI: English) |
+| `DeskSearchSetup.msi` | 설치 패키지 (시작 시 한국어 / English 선택) |
 
 PowerShell에서는 `.\build.ps1`, `.\clean.ps1`로 직접 실행할 수 있습니다.
 
@@ -81,10 +80,13 @@ dotnet build DeskSearch/DeskSearch.csproj -c Release
 
 | 출력 | 설명 |
 |------|------|
-| `DeskSearchSetup.msi`, `DeskSearchSetup.en-US.msi` (루트) | `build.cmd`가 아래 MSI를 복사한 것 |
-| `DeskSearch.Installer/bin/Release/DeskSearchSetup.msi` | 설치 패키지 (설치 UI: 한국어, ~52MB) |
-| `DeskSearch.Installer/bin/Release/DeskSearchSetup.en-US.msi` | 설치 패키지 (설치 UI: English) |
+| `DeskSearchSetup.msi` (루트) | `build.cmd`가 복사한 설치 패키지 — 설치 마법사에서 **한국어 / English** 선택 |
+| `DeskSearch.Installer/bin/Release/DeskSearchSetup.msi` | 설치 패키지 (기본 설치 UI: 한국어) |
+| `DeskSearch.Installer/bin/Release/DeskSearchSetup.en-US.msi` | 영어 설치 UI MSI (내부/Setup.exe용) |
+| `DeskSearch.Installer/bin/Release/DeskSearchSetup.exe` | 선택용 부트스트랩퍼 (두 MSI 내장, 배포에는 사용하지 않음) |
 | `DeskSearch/bin/Release/net8.0-windows/win-x64/publish/` | self-contained 배포 파일 (~141MB, 디버그·HTTP3 등 불필요 런타임 파일 제외 후) |
+
+배포 시에는 루트의 `DeskSearchSetup.msi`만 전달하면 됩니다. 설치 시작 직후 언어(한국어·영어)를 고르면, 앱 최초 실행 시 UI 언어 기본값에도 반영됩니다.
 
 Release publish 시 `PruneUnnecessaryPublishFiles` 대상으로 디버그/덤프용 파일(`createdump`, `mscordaccore*`, `mscordbi`, `msquic` 등)을 제거합니다. WiX `Package.wxs`에서도 동일 항목을 MSI에 포함하지 않습니다.
 
@@ -269,13 +271,14 @@ DeskSearchWinV10/
 │   ├── Assets/                       # app.ico, app.png, CreateIcon.ps1
 │   ├── Services/StartupService.cs    # 자동 시작(HKCU Run, --autostart)·로그온 직후 입력 서비스 대기
 │   └── app.manifest                  # asInvoker, longPathAware
-├── DeskSearch.Installer/             # WiX MSI 프로젝트
+├── DeskSearch.Installer/             # WiX MSI 프로젝트 (ko-KR / en-US)
 │   ├── Package.wxs                   # 패키지·업그레이드·완전 삭제·사용자 데이터 제거 CA
 │   ├── UserDataDlg.wxs               # 사용자 데이터 선택 대화상자
 │   ├── WixUI_FeatureTree_Custom.wxs  # 설치 UI 흐름
 │   ├── UiStrings.wxl                 # 설치 UI 문자열 (ko-kr)
 │   ├── UiStrings.en-us.wxl           # 설치 UI 문자열 (en-us)
 │   └── DeskSearch.Installer.wixproj
+├── DeskSearch.Setup/                 # 설치 언어 선택 Setup.exe (한국어 / English)
 ├── build.cmd / build.ps1             # 빌드 (기본: Release + MSI → 루트에 복사)
 └── clean.cmd / clean.ps1             # bin/obj·루트 MSI 정리
 ```

@@ -3,8 +3,8 @@
     Removes DeskSearch build outputs (bin/, obj/, publish, MSI).
 
 .DESCRIPTION
-    Deletes bin/ and obj/ of DeskSearch and DeskSearch.Installer, and the
-    DeskSearchSetup*.msi installers that build.ps1 copies to the repository root.
+    Deletes bin/ and obj/ of DeskSearch, DeskSearch.Installer, and DeskSearch.Setup,
+    and the DeskSearchSetup.msi installer that build.ps1 copies to the repository root.
     User data in %AppData%\DeskSearch (settings.json, index.db) is never touched.
     If DeskSearch.exe from this folder is running, the script stops and asks you
     to quit it first instead of killing it.
@@ -20,9 +20,13 @@ $targets = @(
     'DeskSearch\obj',
     'DeskSearch.Installer\bin',
     'DeskSearch.Installer\obj',
+    'DeskSearch.Setup\bin',
+    'DeskSearch.Setup\obj',
+    'DeskSearchSetup.exe',
     'DeskSearchSetup.msi',
     'DeskSearchSetup.en-US.msi'
 ) | ForEach-Object { Join-Path $root $_ }
+# Legacy root copies from older builds are still cleaned above.
 
 $running = Get-Process -Name DeskSearch -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -and $_.Path.StartsWith($root, [StringComparison]::OrdinalIgnoreCase) }

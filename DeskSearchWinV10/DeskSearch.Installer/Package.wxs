@@ -16,16 +16,30 @@
                   IgnoreRemoveFailure="no" />
     <MediaTemplate EmbedCab="yes" />
 
-    <Property Id="REMOVEUSERDATA" Value="0" Secure="yes" />
-    <Property Id="USERDATAPROMPTSHOWN" Value="0" Secure="yes" />
+    <!-- Unchecked by default: only "1" after the user ticks the box on UserDataDlg. -->
+    <Property Id="REMOVEUSERDATA" Secure="yes" />
+    <Property Id="USERDATAPROMPTSHOWN" Secure="yes" />
+    <!-- App UI language chosen on LanguageDlg (ko / en). Written to HKCU on install. -->
+    <Property Id="APPINSTALLLANGUAGE" Secure="yes" Value="ko" />
 
-    <!-- Set when %AppData%\DeskSearch is left over (e.g. uninstalled earlier keeping user data):
-         a fresh install then also asks whether to delete it. -->
+    <!-- True when %AppData%\DeskSearch already has settings or an index (leftover or upgrade). -->
     <Property Id="USERDATAEXISTS" Secure="yes">
-      <DirectorySearch Id="UserDataFolderSearch" Path="[AppDataFolder]DeskSearch" Depth="0" />
+      <DirectorySearch Id="AppDataRoamingSearch" Path="[AppDataFolder]">
+        <DirectorySearch Id="DeskSearchDataFolderSearch" Path="DeskSearch" Depth="0">
+          <FileSearch Id="DeskSearchSettingsSearch" Name="settings.json" />
+        </DirectorySearch>
+      </DirectorySearch>
+    </Property>
+    <Property Id="USERINDEXEXISTS" Secure="yes">
+      <DirectorySearch Id="AppDataRoamingIndexSearch" Path="[AppDataFolder]">
+        <DirectorySearch Id="DeskSearchIndexFolderSearch" Path="DeskSearch" Depth="0">
+          <FileSearch Id="DeskSearchIndexSearch" Name="index.db" />
+        </DirectorySearch>
+      </DirectorySearch>
     </Property>
 
     <InstallUISequence>
+      <!-- Uninstall via ARP / msiexec when the feature-tree Remove path did not show UserDataDlg. -->
       <Show Dialog="UserDataDlg"
             Before="ProgressDlg"
             Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE AND NOT USERDATAPROMPTSHOWN" />
@@ -56,9 +70,11 @@
                   Impersonate="yes"
                   Return="ignore" />
 
+    <!-- [AppDataFolder] is formatted when the action is scheduled (user context with Impersonate).
+         Must not run unless UserDataDlg was shown and the delete box was checked. -->
     <CustomAction Id="RemoveUserData"
                   Directory="SystemFolder"
-                  ExeCommand="cmd.exe /c if exist &quot;%APPDATA%\DeskSearch&quot; rmdir /s /q &quot;%APPDATA%\DeskSearch&quot;"
+                  ExeCommand="cmd.exe /c if exist &quot;[AppDataFolder]DeskSearch&quot; rmdir /s /q &quot;[AppDataFolder]DeskSearch&quot;"
                   Execute="deferred"
                   Impersonate="yes"
                   Return="ignore" />
@@ -77,12 +93,15 @@
       <Custom Action="RemoveStartupTask"
               After="InstallInitialize"
               Condition="WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;" />
+      <!-- Never delete AppData unless the user saw UserDataDlg and explicitly checked the box.
+           NOT UPGRADINGPRODUCTCODE: the old product's nested uninstall during MajorUpgrade must
+           not wipe profile data — only this install session may, after the prompt. -->
       <Custom Action="RemoveUserData"
               After="RemoveStartupTask"
-              Condition="REMOVEUSERDATA=&quot;1&quot; AND (WIX_UPGRADE_DETECTED OR USERDATAEXISTS OR REMOVE~=&quot;ALL&quot;)" />
+              Condition="REMOVEUSERDATA=&quot;1&quot; AND USERDATAPROMPTSHOWN=&quot;1&quot; AND NOT UPGRADINGPRODUCTCODE AND (WIX_UPGRADE_DETECTED OR USERDATAEXISTS OR USERINDEXEXISTS OR REMOVE~=&quot;ALL&quot;)" />
       <Custom Action="RemoveAutostartEntry"
               After="RemoveUserData"
-              Condition="(REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE) OR (REMOVEUSERDATA=&quot;1&quot; AND (WIX_UPGRADE_DETECTED OR USERDATAEXISTS))" />
+              Condition="(REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE) OR (REMOVEUSERDATA=&quot;1&quot; AND USERDATAPROMPTSHOWN=&quot;1&quot; AND NOT UPGRADINGPRODUCTCODE AND (WIX_UPGRADE_DETECTED OR USERDATAEXISTS OR USERINDEXEXISTS))" />
       <Custom Action="PurgeInstallFolder"
               After="RemoveAutostartEntry"
               Condition="(WIX_UPGRADE_DETECTED OR REMOVE~=&quot;ALL&quot;) AND INSTALLFOLDER ~&gt;&gt; &quot;\DeskSearch\&quot;" />
@@ -95,7 +114,16 @@
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="DeskSearch" />
+      <Directory Id="INSTALLFOLDER" Name="DeskSearch">
+        <Component Id="InstallLanguageComponent" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+          <RegistryValue Root="HKCU"
+                         Key="Software\DeskSearch"
+                         Name="InstallLanguage"
+                         Type="string"
+                         Value="[APPINSTALLLANGUAGE]"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">
@@ -144,6 +172,7 @@
              AllowAbsent="no"
              Display="expand">
       <ComponentGroupRef Id="DeskSearchComponents" />
+      <ComponentRef Id="InstallLanguageComponent" />
 
       <Feature Id="StartMenuShortcutFeature"
                Title="!(loc.StartMenuShortcutFeatureTitle)"

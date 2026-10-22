@@ -3,9 +3,8 @@
     Builds the DeskSearch installer and copies it to the repository root.
 
 .DESCRIPTION
-    Default : Release build (self-contained publish) + MSI installers, then copies
-                DeskSearchSetup.msi        (installer UI: Korean)
-                DeskSearchSetup.en-US.msi  (installer UI: English)
+    Default : Release build (self-contained publish) + installer, then copies
+                DeskSearchSetup.msi        (language selection + install)
               to the repository root.
               Note: a Release build closes a running DeskSearch.exe (it locks the publish files).
     -Debug  : development build only (DeskSearch/bin/Debug/net8.0-windows/DeskSearch.exe),
@@ -90,15 +89,23 @@ if ($LASTEXITCODE -ne 0) {
 $copied = @()
 if ($buildInstaller) {
     $installerDir = Join-Path $root 'DeskSearch.Installer\bin\Release'
-    foreach ($name in 'DeskSearchSetup.msi', 'DeskSearchSetup.en-US.msi') {
-        $path = Join-Path $installerDir $name
-        if (-not (Test-Path $path)) {
-            Write-Host "  installer missing: $path" -ForegroundColor Red
-            exit 1
-        }
-        Copy-Item -LiteralPath $path -Destination $root -Force
-        $copied += Join-Path $root $name
+    $msiName = 'DeskSearchSetup.msi'
+    $path = Join-Path $installerDir $msiName
+    if (-not (Test-Path $path)) {
+        Write-Host "  installer missing: $path" -ForegroundColor Red
+        exit 1
     }
+
+    # Keep a single MSI at the repo root (remove prior Setup.exe / en-US copies).
+    foreach ($stale in 'DeskSearchSetup.exe', 'DeskSearchSetup.en-US.msi') {
+        $stalePath = Join-Path $root $stale
+        if (Test-Path $stalePath) {
+            Remove-Item -LiteralPath $stalePath -Force
+        }
+    }
+
+    Copy-Item -LiteralPath $path -Destination $root -Force
+    $copied += Join-Path $root $msiName
 }
 
 $stopwatch.Stop()

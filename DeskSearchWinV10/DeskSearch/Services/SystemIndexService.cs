@@ -30,8 +30,8 @@ public sealed class SystemIndexService : IDisposable
     private readonly object _progressLock = new();
     private IndexInclusionPolicy _inclusion = IndexInclusionPolicy.Empty;
 
-    // Set for the duration of ExecuteManualFullIndexScan; PromoteBuildingStore runs only while this is true.
-    private volatile bool _manualFullScanActive;
+    // Set for the duration of a full rebuild (manual or scheduled); PromoteBuildingStore runs only while this is true.
+    private volatile bool _fullScanPromoteAllowed;
 
     private int _lastProgressReport = -1;    private DateTime _lastProgressTime = DateTime.MinValue;
     private int _entriesSinceYield;
@@ -267,13 +267,21 @@ public sealed class SystemIndexService : IDisposable
         return _isScanning || !_isScanComplete || _awaitingFreshFullScan;
     }
 
-    /// <summary>Entry count of index.db used for live search.</summary>
+    /// <summary>Entry count of the store currently used for live search.</summary>
     public int SearchIndexCount
     {
         get
         {
             lock (_indexStoreSwapLock)
+            {
+                if (_indexStore is not null && _indexStore.Count > 0)
+                    return _indexStore.Count;
+
+                if (_activeBuildingStore is not null)
+                    return _activeBuildingStore.Count;
+
                 return _indexStore?.Count ?? 0;
+            }
         }
     }
 
@@ -359,14 +367,31 @@ public sealed class SystemIndexService : IDisposable
     {
         lock (_indexStoreSwapLock)
         {
+            // Prefer the completed search DB during a shadow rebuild.
+            if (_indexStore is not null && _indexStore.Count > 0)
+                return _indexStore;
+
+            // First-time indexing: search against the in-progress building DB as it grows.
+            if (_activeBuildingStore is not null && _activeBuildingStore.Count > 0)
+                return _activeBuildingStore;
+
             if (_indexStore is not null)
                 return _indexStore;
 
-            throw new InvalidOperationException("No search index (index.db) is available.");
+            throw new InvalidOperationException("No search index is available.");
         }
     }
 
-    public bool IsSearchEnabled => HasStableSearchIndex;
+    private bool HasSearchableBuildingIndex
+    {
+        get
+        {
+            lock (_indexStoreSwapLock)
+                return _activeBuildingStore is not null && _activeBuildingStore.Count > 0;
+        }
+    }
+
+    public bool IsSearchEnabled => HasStableSearchIndex || HasSearchableBuildingIndex;
     public bool IsScanComplete => _isScanComplete;
     public bool IsIndexingPaused => _indexingPaused;
     public bool CanResumeIndexing => false;
@@ -381,7 +406,15 @@ public sealed class SystemIndexService : IDisposable
         get
         {
             lock (_indexStoreSwapLock)
+            {
+                if (_indexStore is not null && _indexStore.Count > 0)
+                    return _indexStore.Count;
+
+                if (_activeBuildingStore is not null)
+                    return _activeBuildingStore.Count;
+
                 return _indexStore?.Count ?? 0;
+            }
         }
     }
 
@@ -408,12 +441,14 @@ public sealed class SystemIndexService : IDisposable
     public event EventHandler? SearchEnabled;
     public event EventHandler<IndexProgressEventArgs>? IndexProgress;
     public event EventHandler? IndexUpdated;
-    /// <summary>Raised when a user-requested full index rebuild starts.</summary>
+    /// <summary>Raised when a full index rebuild (manual or scheduled) starts.</summary>
     public event EventHandler? FullIndexRebuildStarted;
+    /// <summary>Raised after a full rebuild successfully promotes building → search DB.</summary>
+    public event EventHandler? FullIndexRebuildCompleted;
 
     /// <summary>
     /// Applies scope/metadata maintenance on startup. Does not scan filesystem paths.
-    /// Full indexing is manual via <see cref="RestartScan"/> only.
+    /// Full indexing runs via <see cref="RestartScan"/> (manual or scheduled).
     /// </summary>
     public void StartBackgroundScan()
     {
@@ -421,8 +456,9 @@ public sealed class SystemIndexService : IDisposable
     }
 
     /// <summary>
-    /// Starts a user-requested full index from scratch. Always discards any partial
+    /// Starts a full index from scratch (manual or scheduled). Always discards any partial
     /// building DB, cancels in-progress work, and rescans every configured drive root.
+    /// On success, <c>index.building.db</c> replaces <c>index.db</c>.
     /// </summary>
     public void RestartScan()
     {
@@ -664,8 +700,8 @@ public sealed class SystemIndexService : IDisposable
     }
 
     /// <summary>
-    /// User-triggered full rebuild: wait for any prior scan to finish, discard partial
-    /// state, then scan every drive root into a fresh building DB.
+    /// Full rebuild (manual or scheduled): wait for any prior scan to finish, discard partial
+    /// state, then scan every drive root into a fresh building DB and promote on success.
     /// </summary>
     private void ExecuteManualFullIndexScan(CancellationToken cancellationToken)
     {
@@ -675,7 +711,7 @@ public sealed class SystemIndexService : IDisposable
         if (cancellationToken.IsCancellationRequested)
             return;
 
-        _manualFullScanActive = true;
+        _fullScanPromoteAllowed = true;
         try
         {
             PrepareFreshFullScanState();
@@ -691,7 +727,7 @@ public sealed class SystemIndexService : IDisposable
         }
         finally
         {
-            _manualFullScanActive = false;
+            _fullScanPromoteAllowed = false;
         }
     }
 
@@ -1174,7 +1210,7 @@ public sealed class SystemIndexService : IDisposable
 
         EnsureLiveIndexAnalyzedForSearch();
 
-        // Existing search DB is usable immediately; full re-index is manual only.
+        // Existing search DB is usable immediately; full re-index is manual or scheduled.
         _isScanComplete = true;
         _scanProgressPercent = 100;
         _totalScanSteps = 1;
@@ -1183,8 +1219,9 @@ public sealed class SystemIndexService : IDisposable
         ReportProgress(null, true, force: true);
     }
 
-    // Every full scan writes into a fresh index.building.db. Search always reads index.db;
-    // building.db replaces index.db only when a manual full index completes successfully.
+    // Every full scan writes into a fresh index.building.db.
+    // Search prefers index.db when present; otherwise searches the in-progress building DB.
+    // building.db replaces index.db only when a full index (manual or scheduled) completes successfully.
     private void RunScan(CancellationToken cancellationToken, int scanGeneration)
     {
         FullIndexRebuildStarted?.Invoke(this, EventArgs.Empty);
@@ -1305,6 +1342,7 @@ public sealed class SystemIndexService : IDisposable
                 _scanProgressPercent = 100;
                 Interlocked.Exchange(ref _approximateLiveCount, _indexStore?.Count ?? 0);
                 ReportProgress(null, true, force: true);
+                FullIndexRebuildCompleted?.Invoke(this, EventArgs.Empty);
             }
             else if (promoted)
             {
@@ -1325,6 +1363,7 @@ public sealed class SystemIndexService : IDisposable
                     _scanProgressPercent = 100;
                     Interlocked.Exchange(ref _approximateLiveCount, _indexStore?.Count ?? 0);
                     ReportProgress(null, true, force: true);
+                    FullIndexRebuildCompleted?.Invoke(this, EventArgs.Empty);
                 }
             }
             else
@@ -1457,8 +1496,8 @@ public sealed class SystemIndexService : IDisposable
 
     private void PromoteBuildingStore(IndexStore buildingStore, string buildingPath)
     {
-        if (!_manualFullScanActive)
-            throw new InvalidOperationException("index.db can only be replaced after a completed manual full index.");
+        if (!_fullScanPromoteAllowed)
+            throw new InvalidOperationException("index.db can only be replaced after a completed full index.");
 
         var canonicalPath = GetCanonicalDatabasePath();
         var backupPath = canonicalPath + ".previous";
@@ -1612,6 +1651,14 @@ public sealed class SystemIndexService : IDisposable
         _activeStepEntries.AddOrUpdate(root, batch.Count, (_, existing) => existing + batch.Count);
         UpdateScanProgressPercent();
         ReportProgress(root, false);
+
+        // First-time index (no index.db yet): let search use the growing building DB.
+        if (ReferenceEquals(target, _activeBuildingStore) && !HasCompletedSearchIndex())
+        {
+            Interlocked.Exchange(ref _approximateLiveCount, target.Count);
+            EnableSearchIfNeeded();
+            NotifyIndexUpdatedIfNeeded();
+        }
     }
 
     private void NotifyIndexUpdatedIfNeeded()
@@ -1901,7 +1948,10 @@ public sealed class SystemIndexService : IDisposable
 
     private void EnableSearchIfNeeded()
     {
-        if (!HasStableSearchIndex || _searchEnabledEventRaised)
+        if (_searchEnabledEventRaised)
+            return;
+
+        if (!HasStableSearchIndex && !HasSearchableBuildingIndex)
             return;
 
         _searchEnabledEventRaised = true;

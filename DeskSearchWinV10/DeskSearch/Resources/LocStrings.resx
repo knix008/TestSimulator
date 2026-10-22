@@ -102,8 +102,10 @@
   <data name="Settings_SearchMultilingualNote" xml:space="preserve"><value>파일·폴더 이름은 한국어, 영어, 일본어, 중국어 등 모든 언어로 검색할 수 있습니다. (화면 언어와 무관)</value></data>
   <data name="Settings_Exclusion" xml:space="preserve"><value>인덱싱 범위</value></data>
   <data name="Settings_ExcludedDrivesDesc" xml:space="preserve"><value>선택한 드라이브를 인덱싱·검색합니다.</value></data>
-  <data name="Settings_ExcludedDirectories" xml:space="preserve"><value>추가 인덱싱 폴더</value></data>
-  <data name="Settings_ExcludedDirectoriesDesc" xml:space="preserve"><value>목록의 폴더와 하위 항목도 인덱싱·검색합니다.</value></data>
+  <data name="Settings_IncludedDirectories" xml:space="preserve"><value>추가 인덱싱 폴더</value></data>
+  <data name="Settings_IncludedDirectoriesDesc" xml:space="preserve"><value>목록의 폴더와 하위 항목도 인덱싱·검색합니다.</value></data>
+  <data name="Settings_ExcludedDirectories" xml:space="preserve"><value>인덱싱 제외 폴더</value></data>
+  <data name="Settings_ExcludedDirectoriesDesc" xml:space="preserve"><value>목록의 폴더와 하위 항목은 인덱싱·검색하지 않습니다.</value></data>
   <data name="Settings_BrowseFolder" xml:space="preserve"><value>찾아보기...</value></data>
   <data name="Settings_RemoveExcluded" xml:space="preserve"><value>제거</value></data>
   <data name="Settings_DriveUnavailable" xml:space="preserve"><value>현재 연결되지 않음</value></data>

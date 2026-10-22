@@ -22,9 +22,22 @@ public sealed class AppSettings
     public bool RunAtStartup { get; set; } = true;
     public List<string> IncludedDrives { get; set; } = [];
     public List<string> IncludedDirectories { get; set; } = [];
-    /// <summary>Legacy folder exclusions migrated from older settings; still honored at index time.</summary>
+    /// <summary>Folders (and descendants) skipped during indexing and search.</summary>
     public List<string> ExcludedDirectories { get; set; } = [];
     public string? LastIncludedDirectoryBrowsePath { get; set; }
+    public string? LastExcludedDirectoryBrowsePath { get; set; }
+    /// <summary>
+    /// Hours between automatic full re-index runs. 0 disables scheduling.
+    /// Allowed values: 0, 6, 12, 24, 168 (weekly).
+    /// </summary>
+    public int PeriodicIndexIntervalHours { get; set; }
+    /// <summary>UTC time of the last successful full index promote (index.building.db → index.db).</summary>
+    public DateTime? LastFullIndexCompletedUtc { get; set; }
+
+    public static readonly int[] AllowedPeriodicIndexIntervalHours = [0, 6, 12, 24, 168];
+
+    public static int NormalizePeriodicIndexIntervalHours(int hours) =>
+        Array.IndexOf(AllowedPeriodicIndexIntervalHours, hours) >= 0 ? hours : 0;
 
     public AppSettings Clone() => new()
     {
@@ -49,6 +62,9 @@ public sealed class AppSettings
         IncludedDrives = [.. IncludedDrives],
         IncludedDirectories = [.. IncludedDirectories],
         ExcludedDirectories = [.. ExcludedDirectories],
-        LastIncludedDirectoryBrowsePath = LastIncludedDirectoryBrowsePath
+        LastIncludedDirectoryBrowsePath = LastIncludedDirectoryBrowsePath,
+        LastExcludedDirectoryBrowsePath = LastExcludedDirectoryBrowsePath,
+        PeriodicIndexIntervalHours = PeriodicIndexIntervalHours,
+        LastFullIndexCompletedUtc = LastFullIndexCompletedUtc
     };
 }

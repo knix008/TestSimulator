@@ -15,4 +15,9 @@
   <String Id="UserDataDlgUninstallDescription" Value="DeskSearch program files will be removed completely. Choose whether to delete saved settings and the search index as well." Overridable="yes" />
   <String Id="UserDataDlgCheckBox" Value="Delete user data (settings and search index)" Overridable="yes" />
   <String Id="UserDataDlgCheckBoxDescription" Value="Deletes %AppData%\DeskSearch\ (settings.json, index.db, etc.). Leave unchecked to keep your user data." Overridable="yes" />
+  <String Id="LanguageDlg_Title" Value="DeskSearch language" Overridable="yes" />
+  <String Id="LanguageDlgTitle" Value="Select the language to use" Overridable="yes" />
+  <String Id="LanguageDlgDescription" Value="This sets the installer and the app's default UI language. You can change it later in Settings." Overridable="yes" />
+  <String Id="LanguageDlg_Korean" Value="Korean" Overridable="yes" />
+  <String Id="LanguageDlg_English" Value="English" Overridable="yes" />
 </WixLocalization>

@@ -62,7 +62,7 @@
     <Delete Files="@(UnnecessaryPublishFile)" TreatErrorsAsWarnings="true" />
   </Target>
 
-  <!-- Release 빌드 후 MSI 생성 (Visual Studio 단일 프로젝트 빌드 포함). -->
+  <!-- Release 빌드 후 MSI + 언어 선택 Setup.exe 생성 (Visual Studio 단일 프로젝트 빌드 포함). -->
   <Target Name="BuildInstallerOnRelease"
           AfterTargets="Build"
           Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
@@ -72,6 +72,21 @@
              Properties="Configuration=Release;Platform=x64;SkipInstaller=true"
              Targets="Build" />
     <Message Importance="high" Text="MSI created: $(MSBuildProjectDirectory)\..\DeskSearch.Installer\bin\Release\DeskSearchSetup.msi" />
+    <PropertyGroup>
+      <_InstallerOutDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\DeskSearch.Installer\bin\Release'))</_InstallerOutDir>
+      <_KoreanMsi>$(_InstallerOutDir)\DeskSearchSetup.msi</_KoreanMsi>
+      <_EnglishMsi>$(_InstallerOutDir)\DeskSearchSetup.en-US.msi</_EnglishMsi>
+    </PropertyGroup>
+    <Error Text="Korean MSI missing: $(_KoreanMsi)" Condition="!Exists('$(_KoreanMsi)')" />
+    <Error Text="English MSI missing: $(_EnglishMsi)" Condition="!Exists('$(_EnglishMsi)')" />
+    <Message Importance="high" Text="Building language-selection Setup.exe..." />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\DeskSearch.Setup\DeskSearch.Setup.csproj"
+             Properties="Configuration=Release;EmbedInstallers=true;KoreanMsiPath=$(_KoreanMsi);EnglishMsiPath=$(_EnglishMsi)"
+             Targets="Rebuild" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\DeskSearch.Setup\bin\Release\net8.0-windows\DeskSearchSetup.exe"
+          DestinationFiles="$(_InstallerOutDir)\DeskSearchSetup.exe"
+          SkipUnchangedFiles="false" />
+    <Message Importance="high" Text="Setup created: $(_InstallerOutDir)\DeskSearchSetup.exe" />
   </Target>
 
 </Project>

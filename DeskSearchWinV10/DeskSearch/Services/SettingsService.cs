@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using DeskSearch.Helpers;
 using DeskSearch.Models;
+using Microsoft.Win32;
 
 namespace DeskSearch.Services;
 
@@ -28,8 +29,10 @@ public sealed class SettingsService
             if (!File.Exists(_settingsPath))
             {
                 Current = new AppSettings();
+                ApplyInstallLanguagePreference(Current);
                 NormalizeSettings(Current);
                 ApplyDefaultIndexScopeIfEmpty(Current);
+                PersistWithoutNormalization(Current);
                 return Current;
             }
 
@@ -80,6 +83,8 @@ public sealed class SettingsService
         settings.BackgroundOpacity = Math.Clamp(settings.BackgroundOpacity, 0, 100);
         settings.BorderThickness = Math.Clamp(settings.BorderThickness, 0, 6);
         settings.SearchResultSort = SearchResultSortPolicy.Normalize(settings.SearchResultSort);
+        settings.PeriodicIndexIntervalHours =
+            AppSettings.NormalizePeriodicIndexIntervalHours(settings.PeriodicIndexIntervalHours);
 
         if (rawJson is null)
             return false;
@@ -159,6 +164,26 @@ public sealed class SettingsService
     {
         if (settings.IncludedDrives.Count == 0 && settings.IncludedDirectories.Count == 0)
             settings.IncludedDrives = IndexInclusionPolicy.GetAllReadyDriveRoots().ToList();
+    }
+
+    /// <summary>
+    /// Uses the language chosen in DeskSearchSetup.exe when creating settings for the first time.
+    /// </summary>
+    private static void ApplyInstallLanguagePreference(AppSettings settings)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\DeskSearch");
+            var value = key?.GetValue("InstallLanguage") as string;
+            if (string.Equals(value, LocalizationService.English, StringComparison.OrdinalIgnoreCase))
+                settings.Language = LocalizationService.English;
+            else if (string.Equals(value, LocalizationService.Korean, StringComparison.OrdinalIgnoreCase))
+                settings.Language = LocalizationService.Korean;
+        }
+        catch
+        {
+            // keep AppSettings default
+        }
     }
 
     private static IEnumerable<string> ReadStringArray(JsonElement arrayElement)

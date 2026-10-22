@@ -85,6 +85,8 @@ public partial class MainWindow : Window
                     InvalidateSearchForIndexRebuild();
             });
 
+        _indexService.FullIndexRebuildCompleted += OnFullIndexRebuildCompleted;
+
         _indexService.IndexUpdated += (_, _) =>
             SafeBeginInvoke(() =>
             {

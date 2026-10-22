@@ -210,6 +210,25 @@
                 <WrapPanel x:Name="ExcludedDrivesPanel"
                            Margin="0,0,0,12"/>
 
+                <TextBlock x:Name="IncludedDirectoriesLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="IncludedDirectoriesDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,6"
+                           TextWrapping="Wrap"/>
+                <ListBox x:Name="IncludedDirectoriesListBox"
+                         Style="{StaticResource ExcludedDirectoriesListBoxStyle}"
+                         Height="96"
+                         Margin="0,0,0,6"/>
+                <WrapPanel Margin="0,0,0,16">
+                    <Button x:Name="BrowseIncludedDirectoryButton"
+                            Style="{StaticResource SettingsActionButton}"
+                            Click="BrowseIncludedDirectory_Click"/>
+                    <Button x:Name="RemoveIncludedDirectoryButton"
+                            Style="{StaticResource SettingsActionButton}"
+                            Click="RemoveIncludedDirectory_Click"/>
+                </WrapPanel>
+
                 <TextBlock x:Name="ExcludedDirectoriesLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <TextBlock x:Name="ExcludedDirectoriesDescLabel"
                            FontSize="11"
@@ -218,7 +237,7 @@
                            TextWrapping="Wrap"/>
                 <ListBox x:Name="ExcludedDirectoriesListBox"
                          Style="{StaticResource ExcludedDirectoriesListBoxStyle}"
-                         Height="112"
+                         Height="96"
                          Margin="0,0,0,6"/>
                 <WrapPanel Margin="0,0,0,16">
                     <Button x:Name="BrowseExcludedDirectoryButton"
@@ -273,6 +292,17 @@
                             Style="{StaticResource SettingsActionButton}"
                             Click="OpenDataFolder_Click"/>
                 </WrapPanel>
+
+                <TextBlock x:Name="PeriodicResyncLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock x:Name="PeriodicResyncDescLabel"
+                           FontSize="11"
+                           Foreground="#888888"
+                           Margin="0,0,0,6"
+                           TextWrapping="Wrap"/>
+                <ComboBox x:Name="PeriodicResyncComboBox"
+                          Margin="0,0,0,16"
+                          MinHeight="28"
+                          VerticalContentAlignment="Center"/>
 
                 <TextBlock x:Name="StartupLabel" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <CheckBox x:Name="RunAtStartupCheckBox"

@@ -91,6 +91,7 @@
                    NoPrefix="yes"
                    Text="!(loc.UserDataDlgDescription)"
                    HideCondition="WixUI_InstallMode = &quot;Remove&quot; OR REMOVE~=&quot;ALL&quot;" />
+        <!-- Default unchecked: Property has no initial value; only set to 1 when ticked. -->
         <Control Id="RemoveUserDataCheckBox"
                    Type="CheckBox"
                    X="25"
