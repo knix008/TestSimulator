@@ -63,6 +63,7 @@ export function trainViewHtml(app) {
     <aside class="train-side">
       ${variantHtml}
       <section class="panel-section"><h3>${icon('gpu')}<span>${escapeHtml(t('train.engine'))}</span></h3>
+        ${app.deviceSelect()}
         <p class="muted small engine-line">${escapeHtml(engine === 'tfjs' ? t('train.tfjsInfo', { backend: app.tfBackend() ?? '…' }) : pyInfo ? t('train.torchInfo', { torch: pyInfo.torch ?? '–', python: pyInfo.version, device: pyInfo.cuda ? `CUDA (${pyInfo.gpu ?? 'GPU'})` : pyInfo.mps ? 'Apple MPS' : 'CPU' }) : t('train.torchMissing'))}</p>
         ${engine === 'torch' ? `<div class="data-import"><button class="button small" data-train-action="pyenv">${icon('python')}<span>${escapeHtml(t('train.pyenv'))}</span></button>
           <button class="button small" data-train-action="openCode">${icon('tabCode')}<span>${escapeHtml(t('train.showCode'))}</span></button></div>
@@ -93,7 +94,8 @@ export function trainViewHtml(app) {
         </div>
         <div class="progress-line"><i style="width:${progress}%"></i></div>
         <p class="muted small status-line">${escapeHtml(statusText(app))}</p>
-        ${last ? `<dl class="kv compact"><dt>${escapeHtml(t('train.lossShort'))}</dt><dd>${fmt(last.loss, 4)}${last.valLoss != null ? ` / ${fmt(last.valLoss, 4)}` : ''}</dd>${last.acc != null ? `<dt>${escapeHtml(t('train.accShort'))}</dt><dd>${fmt(last.acc * 100, 1)}%${last.valAcc != null ? ` / ${fmt(last.valAcc * 100, 1)}%` : ''}</dd>` : ''}</dl>` : ''}
+        ${(() => { const rows = app.trainSummary(); return rows.length && !busy ? `</section><section class="panel-section train-summary"><h3>${icon('confusion')}<span>${escapeHtml(t('summary.title'))}</span></h3><table class="summary-kv">${rows.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('')}</table>` : ''; })()}
+        ${last && busy ? `<dl class="kv compact"><dt>${escapeHtml(t('train.lossShort'))}</dt><dd>${fmt(last.loss, 4)}${last.valLoss != null ? ` / ${fmt(last.valLoss, 4)}` : ''}</dd>${last.acc != null ? `<dt>${escapeHtml(t('train.accShort'))}</dt><dd>${fmt(last.acc * 100, 1)}%${last.valAcc != null ? ` / ${fmt(last.valAcc * 100, 1)}%` : ''}</dd>` : ''}</dl>` : ''}
       </section>
     </aside>
     <div class="train-main">

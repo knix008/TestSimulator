@@ -24,6 +24,8 @@ export const POPUPS = {
   samples: { width: 1060, height: 680 },
   prompt: { width: 520, height: 220 },
   export: { width: 640, height: 412 },
+  summary: { width: 500, height: 362 },
+  report: { width: 1180, height: 780 },
   shortcuts: { width: 740, height: 482 },
   menu: { width: 300, height: 200 },
   // The theme drop-down (all themes at once); its height follows the number of themes (themesPopupSize).

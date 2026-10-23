@@ -130,7 +130,9 @@ def load_data():
     return data
 
 
-def device():
+def device(choice="auto"):
+    if choice == "cpu":
+        return "cpu"
     if torch.cuda.is_available():
         return "cuda"
     if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():

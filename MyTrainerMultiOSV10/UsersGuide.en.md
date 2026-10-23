@@ -131,7 +131,8 @@ A **complete PyTorch script** holding the model and the training settings:
 | Setting | Meaning |
 |---|---|
 | Model | For a sample with several models (e.g. **ResNet CNN / DS-CNN / BC-ResNet** for Korean keyword spotting) pick the one to train. Edits are kept per model. |
-| Engine | Chosen with the toolbar's **TensorFlow / PyTorch** buttons: TensorFlow is TensorFlow.js in the app (WebGPU → WebGL → CPU, chosen automatically), PyTorch trains through Python on the desktop. This part shows the backend / Python in use. |
+| Engine | Chosen with the toolbar's **TensorFlow / PyTorch** buttons: TensorFlow is TensorFlow.js in the app, PyTorch trains through Python on the desktop. |
+| Device | **Training works without a GPU.** TensorFlow: auto (WebGPU → WebGL → **CPU — WASM** → CPU — JavaScript) or pick one; WASM is fast CPU training with SIMD (small models even beat the GPU). PyTorch: auto (CUDA · MPS) or CPU. |
 | Optimizer | Adam, SGD, SGD + momentum, RMSprop, Adagrad, Adadelta, Adamax |
 | Learning rate · schedule | Constant, step decay, exponential decay, cosine |
 | Loss | Automatic (classification: cross-entropy; regression and reconstruction: MSE), MAE, Huber |
@@ -140,6 +141,8 @@ A **complete PyTorch script** holding the model and the training settings:
 | Label smoothing · mixup (α) (advanced) | Targets of (1−ε) instead of 100 % / training on blends λ : 1−λ of two samples and their targets (λ ~ Beta(α, α)); both classification only. Mixup makes a model steadier on data it has not seen; the Korean keyword sample uses 0.3 |
 
 **Start (F5) · pause / resume (F6) · one batch (F10) · stop (Shift+F5) · reset**. With TensorFlow, a stopped run can **continue**. When preparing the data and the model and the first epoch take a while, a **progress window** shows how far it is; it also appears while a large dataset such as the sound clips is made for the first time. When training has finished (not when you stopped it), a **popup** shows the epochs, the time, the loss and the accuracy (Settings › General can turn it off). An **error** opens a popup with the message, where, when, version, engine and stack; **Copy the details** copies it all.
+
+When training has finished, the left panel shows the **training summary** (epochs and time, the last loss and accuracy, the best validation epoch, the test accuracy and F1, the parameters, the device).
 
 The Train tab's **neuron activity** card: every output neuron at the end carries its **class label and value** (probabilities in %), the largest one highlighted. ◀ Input n / N ▶ 🎲 change the input going through the network (a training sample — at once, also while training); with **change every epoch** another sample goes through at every epoch. − [percent] + and **Reset view** zoom; drag to move.
 
@@ -158,6 +161,20 @@ Every chart card has a title; hover over it (ⓘ) to see what the card shows (th
 - **Evaluation** (automatic after training): accuracy, macro F1, loss, per-class precision · recall · F1, the **confusion matrix** (click a cell to list only those mistakes), pictures of the mistakes (click one to use it as input). Regression: MAE · RMSE · R², predicted vs actual and the error distribution.
 
 After training, the PyTorch engine keeps its run alive (`mt.serve`) to answer test requests; **End PyTorch** ends it.
+
+## Printing · the results report
+
+The toolbar's **Print** button, **File › Print…** (Ctrl+P) and **File › Save the results report…** open the report window: pick the **paper** (A4 · Letter · A3), the **orientation**, the **margins** and the **contents** (overview · model · training settings · training summary · test evaluation · results on the chosen inputs · performance) on the left; the **preview** on the right shows the pages.
+
+- **Print…** prints those pages (a PDF printer works too).
+- **Save…** saves them in the chosen format, the pictures (loss and accuracy charts, confusion matrix) included:
+
+| Format | Saved |
+|---|---|
+| **PDF** | one PDF with the pages of the preview |
+| **Word (.docx)** | a Word document with the tables and pictures, ready to edit |
+| **Markdown** | `report.md` + `images/*.png` (desktop: a folder, web: a ZIP) |
+| **CSV** | `report.csv` (tables and values, opens in Excel) + `images/*.png` |
 
 ## Exporting the model
 
@@ -219,6 +236,7 @@ The sample gallery, recent files and **twenty AI-themed moving backgrounds** (ne
 | Keys | Action |
 |---|---|
 | Ctrl+N · Ctrl+O · Ctrl+S · Ctrl+Shift+S | New · open · save · save as |
+| Ctrl+P | Print · results report |
 | Ctrl+Z · Ctrl+Y | Undo · redo |
 | Ctrl+1 … Ctrl+6 | Data · Model · Neurons · Code · Train · Test |
 | Delete · Ctrl+D · Ctrl+A | Delete · duplicate · select all (Model tab) |

@@ -5,6 +5,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import appIcon from '../assets/icon-256.png';
 import { SAMPLE_GROUPS, SAMPLE_IDS, SAMPLES } from './domain/samples.js';
+import { defaultReportSettings, renderPages } from './report/report.js';
 import { COLOR_MAPS, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, defaultSettings, loadSettings, storeSettings, CODE_FONT_SIZE } from './domain/settings.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
@@ -127,10 +128,11 @@ const tabsHtml = (list, current) => `<nav class="tabs" role="tablist"><div class
 // ───────────────────────── popups
 
 function render() {
-  const renderers = { export: renderExport, settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, pyenv: renderPyEnv, samples: renderSamples, prompt: renderPrompt, shortcuts: renderShortcuts, themes: renderThemes };
+  const renderers = { report: renderReport, summary: renderSummary, export: renderExport, settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, pyenv: renderPyEnv, samples: renderSamples, prompt: renderPrompt, shortcuts: renderShortcuts, themes: renderThemes };
   const html = (renderers[kind] ?? renderSettings)();
   if (html != null) root.innerHTML = html;
   bindSteppers(root, (key, value) => update({ [key]: value }));
+  if (kind === 'report') drawReportPreview().catch(() => {});
   requestAnimationFrame(ready);
 }
 
@@ -237,6 +239,72 @@ function renderConfirm() {
   const p = P();
   const buttons = (p.buttons ?? [['ok', t('common.ok'), 'primary'], ['cancel', t('common.cancel'), '']]).map(([value, label, extra]) => button('choice', label, '', extra, value)).join('');
   return frame({ glyph: 'question', title: p.title ?? t('common.confirm'), body: `<p class="confirm-text">${escapeHtml(p.message ?? '')}</p>`, foot: `<span class="grow"></span>${buttons}` });
+}
+
+/**
+ * Print / save the results: page settings, the sections and the file format on the left, the pages on the
+ * right (drawn by the same layout as the printout and the PDF).
+ */
+function renderReport() {
+  const p = P();
+  state.reportSettings ??= { ...defaultReportSettings(), ...(p.settings ?? {}) };
+  const st = state.reportSettings;
+  state.reportFormat ??= 'pdf';
+  const sections = p.report?.sections ?? [];
+  const on = (id) => st.sections?.[id] !== false;
+  const opt = (value, label, current) => `<option value="${value}" ${String(current) === String(value) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  const side = `<div class="report-side">
+      <h4>${icon('pageSetup', 'icon tiny')}${escapeHtml(t('report.page'))}</h4>
+      <label class="prop-row"><span class="prop-label">${escapeHtml(t('report.paper'))}</span><span class="prop-control"><select data-report="paper">${opt('a4', 'A4 (210 × 297 mm)', st.paper)}${opt('letter', 'Letter (8.5 × 11 in)', st.paper)}${opt('a3', 'A3 (297 × 420 mm)', st.paper)}</select></span></label>
+      <div class="prop-row"><span class="prop-label">${escapeHtml(t('report.orientation'))}</span><span class="prop-control"><span class="segmented"><button class="segment ${st.landscape ? '' : 'active'}" data-report-landscape="0">${escapeHtml(t('report.portrait'))}</button><button class="segment ${st.landscape ? 'active' : ''}" data-report-landscape="1">${escapeHtml(t('report.landscape'))}</button></span></span></div>
+      <label class="prop-row"><span class="prop-label">${escapeHtml(t('report.margin'))}</span><span class="prop-control"><select data-report="margin">${[10, 15, 20, 25].map((m) => opt(m, `${m} mm`, st.margin)).join('')}</select></span></label>
+      <h4>${icon('list', 'icon tiny')}${escapeHtml(t('report.sections'))}</h4>
+      <div class="report-sections">${sections.map((s) => `<label class="inline-check"><input type="checkbox" data-report-section="${s.id}" ${on(s.id) ? 'checked' : ''}/><span>${escapeHtml(s.name)}</span></label>`).join('')}</div>
+      <h4>${icon('save', 'icon tiny')}${escapeHtml(t('report.saveAs'))}</h4>
+      <label class="prop-row"><span class="prop-label">${escapeHtml(t('report.format'))}</span><span class="prop-control"><select data-report-format>${opt('pdf', 'PDF (.pdf)', state.reportFormat)}${opt('docx', 'Word (.docx)', state.reportFormat)}${opt('md', t('report.mdOption'), state.reportFormat)}${opt('csv', t('report.csvOption'), state.reportFormat)}</select></span></label>
+      <p class="muted small">${escapeHtml(t(`report.formatHint.${state.reportFormat}`))}</p>
+      <p class="muted small report-pages" data-report-count></p>
+    </div>`;
+  return frame({ glyph: 'print', title: t('report.dialogTitle'), body: `<div class="report-layout">${side}<div class="report-preview" data-report-preview><p class="muted">${escapeHtml(t('report.drawing'))}</p></div></div>`, foot: `${button('reportPrint', t('report.print'), 'print', p.mode === 'print' ? 'primary' : '')}${button('reportSave', t('report.save'), 'save', p.mode === 'save' ? 'primary' : '')}<span class="grow"></span>${button('close', t('common.close'), 'close')}` });
+}
+
+/** The pages of the report drawn into the preview (after every change of the settings). */
+let previewTurn = 0;
+async function drawReportPreview() {
+  const host = root.querySelector('[data-report-preview]');
+  const report = P().report;
+  if (!host || !report) return;
+  const turn = ++previewTurn;
+  const pages = await renderPages(report, state.reportSettings, 110);
+  if (turn !== previewTurn) return;
+  host.replaceChildren(...pages.map((canvas) => { canvas.className = 'report-page'; return canvas; }));
+  const count = root.querySelector('[data-report-count]');
+  if (count) count.textContent = t('report.pageCount', { n: pages.length });
+}
+
+/** Prints the pages (drawn sharper than the preview) through a hidden frame: one picture per sheet. */
+async function printReport() {
+  const st = state.reportSettings;
+  const pages = await renderPages(P().report, st, 200);
+  const size = `${st.paper === 'letter' ? 'letter' : st.paper === 'a3' ? 'A3' : 'A4'} ${st.landscape ? 'landscape' : 'portrait'}`;
+  const frameEl = document.createElement('iframe');
+  frameEl.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px';
+  document.body.appendChild(frameEl);
+  const doc = frameEl.contentDocument;
+  doc.open();
+  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(P().report.title)}</title><style>@page { size: ${size}; margin: 0 } html, body { margin: 0 } img { display: block; width: 100%; height: auto; page-break-after: always; break-after: page } img:last-child { page-break-after: auto; break-after: auto }</style></head><body>${pages.map((c) => `<img src="${c.toDataURL('image/png')}">`).join('')}</body></html>`);
+  doc.close();
+  await Promise.all([...doc.images].map((img) => (img.complete ? null : new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; }))));
+  frameEl.contentWindow.focus();
+  frameEl.contentWindow.print();
+  setTimeout(() => frameEl.remove(), 60000);
+}
+
+/** A summary: a lead line and [label, value] rows (the end of a training). */
+function renderSummary() {
+  const p = P();
+  const rows = (p.rows ?? []).map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+  return frame({ glyph: 'check', title: p.title ?? '', body: `<p class="summary-lead">${escapeHtml(p.lead ?? '')}</p><table class="summary-kv">${rows}</table>`, foot: `<span class="grow"></span>${button('close', t('common.ok'), 'check', 'primary')}` });
 }
 
 /** Export: pick the format (ONNX · TensorFlow.js · C/C++ · PyTorch code). */
@@ -384,6 +452,8 @@ root.addEventListener('click', (event) => {
   if (group) { state.group = group.dataset.group || null; render(); return; }
   const sample = target.closest('[data-sample]');
   if (sample) { close({ sample: sample.dataset.sample }); return; }
+  const landscape = target.closest('[data-report-landscape]');
+  if (landscape) { state.reportSettings = { ...state.reportSettings, landscape: landscape.dataset.reportLandscape === '1' }; render(); return; }
   const format = target.closest('[data-format]');
   if (format && !format.disabled) { state.format = format.dataset.format; render(); return; }
   const set = target.closest('[data-set]');
@@ -395,6 +465,8 @@ root.addEventListener('click', (event) => {
     case 'close': dismiss(); break;
     case 'settingsOk': close({ ok: true }); break;
     case 'exportGo': close({ format: state.format ?? 'onnx' }); break;
+    case 'reportPrint': printReport().catch((error) => action('report-error', { message: String(error?.message ?? error), detail: String(error?.stack ?? ''), context: 'print' })); break;
+    case 'reportSave': action('report-save', { format: state.reportFormat ?? 'pdf', settings: state.reportSettings }); break;
     case 'settingsCancel': cancelSettings(); break;
     case 'settingsReset': resetSettings(); break;
     case 'choice': close({ choice: actionButton.dataset.value }); break;
@@ -428,6 +500,15 @@ root.addEventListener('input', (event) => {
 });
 
 root.addEventListener('change', (event) => {
+  const reportField = event.target.closest?.('[data-report], [data-report-section], [data-report-format]');
+  if (reportField) {
+    const el = reportField;
+    if (el.dataset.reportFormat !== undefined) state.reportFormat = el.value;
+    else if (el.dataset.reportSection) state.reportSettings = { ...state.reportSettings, sections: { ...(state.reportSettings.sections ?? {}), [el.dataset.reportSection]: el.checked } };
+    else state.reportSettings = { ...state.reportSettings, [el.dataset.report]: el.dataset.report === 'margin' ? Number(el.value) : el.value };
+    render();
+    return;
+  }
   const target = event.target;
   if (target.matches('[data-custom-use]')) { if (target.checked) updateCustom({}); else update({ theme: 'light' }); return; }
   if (target.matches('[data-custom-dark]')) { updateCustom({ dark: target.checked }); return; }

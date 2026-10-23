@@ -1,8 +1,17 @@
 // TensorFlow.js training in a Web Worker, so the window stays responsive while
-// a model trains. Backend: WebGPU when the browser has it, then WebGL, then CPU.
+// a model trains. Backend: WebGPU when the browser has it, then WebGL, then WASM (the CPU with
+// SIMD — training without a GPU), then the plain JavaScript CPU backend. The user can pick one.
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgpu';
+import { setWasmPaths } from '@tensorflow/tfjs-backend-wasm';
+import wasmPlain from '@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm.wasm?url';
+import wasmSimd from '@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm-simd.wasm?url';
+import wasmThreads from '@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm-threaded-simd.wasm?url';
+import { registerWasmTrainingKernels } from './wasm-kernels.js';
 import { Trainer } from './trainer-core.js';
+
+setWasmPaths({ 'tfjs-backend-wasm.wasm': wasmPlain, 'tfjs-backend-wasm-simd.wasm': wasmSimd, 'tfjs-backend-wasm-threaded-simd.wasm': wasmThreads });
+registerWasmTrainingKernels(tf);
 
 const trainer = new Trainer(tf, (message, transfer) => self.postMessage(message, transfer));
 let ready = null;
@@ -10,7 +19,7 @@ let queue = Promise.resolve();
 const CONTROLS = new Set(['pause', 'resume', 'step', 'stop', 'setProbe']);
 
 async function chooseBackend(preferred) {
-  const order = preferred && preferred !== 'auto' ? [preferred, 'webgl', 'cpu'] : ['webgpu', 'webgl', 'cpu'];
+  const order = preferred && preferred !== 'auto' ? [preferred, 'wasm', 'cpu'] : ['webgpu', 'webgl', 'wasm', 'cpu'];
   for (const name of order) {
     if (name === 'webgpu' && !globalThis.navigator?.gpu) continue;
     try {

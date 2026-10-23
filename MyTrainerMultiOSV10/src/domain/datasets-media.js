@@ -699,6 +699,15 @@ export function fromSounds(clips, options = {}) {
   for (;;) { const step = steps.next(); if (step.done) return step.value; }
 }
 
+/**
+ * Lets the page draw and answer between steps. A message on a MessageChannel, not setTimeout: browsers slow
+ * timers in a hidden or minimised window down to one a minute, which would stall a long build.
+ */
+function yieldToPage() {
+  if (typeof MessageChannel !== 'function') return new Promise((resolve) => setTimeout(resolve, 0));
+  return new Promise((resolve) => { const channel = new MessageChannel(); channel.port1.onmessage = () => { channel.port1.close(); resolve(); }; channel.port2.postMessage(0); });
+}
+
 /** fromSounds a little at a time: onProgress(0…1) between steps, the page stays responsive. */
 export async function fromSoundsAsync(clips, options = {}, onProgress = () => {}) {
   const steps = soundSteps(clips, options);
@@ -706,7 +715,7 @@ export async function fromSoundsAsync(clips, options = {}, onProgress = () => {}
     const step = steps.next();
     if (step.done) return step.value;
     onProgress(step.value);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await yieldToPage();
   }
 }
 

@@ -65,6 +65,8 @@ export const FILE_TYPES = {
   py: { name: 'Python (*.py)', extensions: ['py'] },
   png: { name: 'PNG (*.png)', extensions: ['png'] },
   json: { name: 'JSON (*.json)', extensions: ['json'] },
+  pdf: { name: 'PDF (*.pdf)', extensions: ['pdf'] },
+  docx: { name: 'Word (*.docx)', extensions: ['docx'] },
 };
 
 // Tests answer the system file dialogs through these (E2E only; normal use never sets them).

@@ -46,6 +46,8 @@ import { generateC } from './domain/export-c.js';
 import { modelBudget, shortBytes, shortCount } from './domain/budget.js';
 import { generateOnnx } from './domain/export-onnx.js';
 import { zipBlob } from './platform/zip.js';
+import { defaultReportSettings, renderPages, toCsv, toDocx, toMarkdown, toPdf } from './report/report.js';
+import { confusionChart, lineChart, SERIES } from './ui/charts.js';
 import { canonicalWeights } from './engine/tfbuild.js';
 import { decodePicture, IMAGE_ACCEPT, IMAGE_EXTENSIONS, isImageName } from './ui/imagedecode.js';
 import { clipFrom, LiveCamera, LiveMicrophone, pictureFrom, speechInput } from './ui/live.js';
@@ -253,7 +255,7 @@ function analyse() {
 }
 
 function generatedCode() {
-  return generatePytorch({ project: state.project, task: state.task, inputShape: state.prepared?.inputShape ?? null, hooks: state.settings.codeHooks }).code;
+  return generatePytorch({ project: state.project, task: state.task, inputShape: state.prepared?.inputShape ?? null, hooks: state.settings.codeHooks, device: state.settings.torchDevice }).code;
 }
 
 function snapshotOfProject() {
@@ -362,7 +364,7 @@ async function prepareTfNow({ force = false, key }) {
   // Never rebuild under a running training: edits apply to the next run.
   if (engine.state === 'training' || engine.state === 'paused') return engine;
   if (!state.prepared) throw new Error(state.dataError ?? t('data.none'));
-  await engine.start();
+  await engine.start(state.settings.tfBackend);
   state.backend = engine.backend;
   // The model may have been edited while the engine started (a cut right after opening a sample): never build a
   // graph with errors, and remember the model that is actually built.
@@ -378,6 +380,55 @@ async function prepareTfNow({ force = false, key }) {
     try { engine.importWeights(JSON.parse(state.project.weights.data)); } catch { /* damaged: train again */ }
   }
   return engine;
+}
+
+/**
+ * The result of the last training as [label, value] rows: epochs and time, the last and the best
+ * validation figures (with the epoch), the test accuracy / F1 (or regression errors), size and device.
+ */
+function trainSummaryRows() {
+  const history = state.run.history ?? [];
+  if (!history.length) return [];
+  const last = history.at(-1);
+  const pct = (v) => `${(v * 100).toFixed(1)}%`;
+  const num = (v) => Number(v).toFixed(4);
+  const rows = [[t('summary.epochs'), `${history.length}${state.run.lastTime != null ? ` · ${(state.run.lastTime / 1000).toFixed(1)} ${t('summary.seconds')}` : ''}`]];
+  rows.push([t('test.loss'), `${num(last.loss)}${last.valLoss != null ? ` · ${t('log.valLoss')} ${num(last.valLoss)}` : ''}`]);
+  if (last.acc != null) rows.push([t('test.accuracy'), `${pct(last.acc)}${last.valAcc != null ? ` · ${t('log.valAcc')} ${pct(last.valAcc)}` : ''}`]);
+  const withVal = history.filter((h) => h.valLoss != null);
+  if (withVal.length) {
+    const best = withVal.reduce((a, b) => (b.valLoss < a.valLoss ? b : a));
+    rows.push([t('summary.best'), `${t('summary.epoch', { n: best.epoch })} · ${t('log.valLoss')} ${num(best.valLoss)}${best.valAcc != null ? ` · ${pct(best.valAcc)}` : ''}`]);
+  }
+  const report = state.report;
+  if (report?.kind === 'classification') rows.push([t('summary.test'), `${pct(report.accuracy)} · F1 ${report.macroF1.toFixed(3)}`]);
+  else if (report?.kind === 'regression') rows.push([t('summary.test'), `MAE ${Number(report.mae).toFixed(4)} · R² ${Number(report.r2).toFixed(3)}`]);
+  rows.push([t('inspector.params'), totalParams(state.shapes).total.toLocaleString()]);
+  rows.push([t('device.title'), api.engineLabel()]);
+  return rows;
+}
+
+/** Where the current engine trains: TensorFlow's backend (GPU or CPU) or PyTorch's device. */
+function deviceSelect() {
+  const torch = state.project.engine === 'torch';
+  const key = torch ? 'torchDevice' : 'tfBackend';
+  const options = torch ? ['auto', 'cpu'] : ['auto', 'webgpu', 'webgl', 'wasm', 'cpu'];
+  return `<label class="prop-row device-row" title="${escapeHtml(t('device.tip'))}"><span class="prop-label">${icon('gpu')}<span>${escapeHtml(t('device.title'))}</span></span>
+    <span class="prop-control"><select data-device="${key}" ${busy() ? 'disabled' : ''}>${options.map((o) => `<option value="${o}" ${state.settings[key] === o ? 'selected' : ''}>${escapeHtml(t(`device.${torch ? 'torch' : 'tf'}.${o}`))}</option>`).join('')}</select></span></label>`;
+}
+
+/** Another device: TensorFlow's worker starts again on that backend (the model is built again). */
+async function setDevice(key, value) {
+  updateSettings({ [key]: value }, { quiet: true });
+  if (key === 'tfBackend') {
+    state.engineKey = null;
+    state.run = { ...state.run, history: [], canContinue: false };
+    const ready = await engines.tfjs.restart(value);
+    state.backend = ready?.backend ?? engines.tfjs.backend;
+    log(t('device.switched', { backend: state.backend }), state.backend === value || value === 'auto' ? 'success' : 'warning');
+    if (value !== 'auto' && state.backend !== value) notify(t('device.unavailable', { wanted: value, backend: state.backend }), 'warning');
+  } else if (!state.project.code.custom) state.project.code.text = generatedCode();
+  renderAll();
 }
 
 /** ◀ n / N ▶ 🎲: which training sample goes through the network in the Neuron and Train tabs. */
@@ -605,6 +656,7 @@ function onEngine(message) {
     case 'evaluation':
       state.evaluation = message;
       state.report = evaluationReport(message, state.task);
+      if (state.run.summaryWaiting) { const open = state.run.summaryWaiting; state.run.summaryWaiting = null; open(); }
       if (state.view.tab === 'test') renderCenter();
       break;
     case 'done': {
@@ -613,18 +665,13 @@ function onEngine(message) {
       const summary = message.evaluation;
       log(t('log.done', { epochs: message.epochs, time: ((message.time ?? 0) / 1000).toFixed(1), result: summary ? `${t('test.loss')} ${Number(summary.loss ?? 0).toFixed(4)}${summary.acc != null ? ` · ${t('test.accuracy')} ${(summary.acc * 100).toFixed(1)}%` : ''}` : '' }), 'success');
       notify(t('log.doneShort'), 'success');
+      state.run.lastTime = message.time ?? null;
       recordRun(message);
       renderAll();
       if (!message.stopped && state.settings.notifyTrainDone) {
-        const last = (message.history ?? []).at(-1) ?? {};
-        const pct = (v) => `${(v * 100).toFixed(1)}%`;
-        const lines = [
-          t('train.doneSummary', { epochs: message.epochs, time: ((message.time ?? 0) / 1000).toFixed(1) }),
-          last.loss != null ? `${t('test.loss')} ${Number(last.loss).toFixed(4)}${last.valLoss != null ? ` · ${t('log.valLoss')} ${Number(last.valLoss).toFixed(4)}` : ''}` : '',
-          last.acc != null ? `${t('test.accuracy')} ${pct(last.acc)}${last.valAcc != null ? ` · ${t('log.valAcc')} ${pct(last.valAcc)}` : ''}` : '',
-          summary?.acc != null ? `${t('test.accuracy')} (${t('test.part.test')}) ${pct(summary.acc)}` : '',
-        ].filter(Boolean);
-        popups.open('confirm', { title: t('train.doneTitle'), message: lines.join('\n'), buttons: [['ok', t('common.ok'), 'primary']] }).catch(() => {});
+        // The test figures arrive with the evaluation a moment later: the popup waits for them (briefly).
+        const open = () => popups.open('summary', { title: t('train.doneTitle'), lead: t('train.doneSummary', { epochs: message.epochs, time: ((message.time ?? 0) / 1000).toFixed(1) }), rows: trainSummaryRows() }).catch(() => {});
+        if (state.report) open(); else { state.run.summaryWaiting = open; setTimeout(() => { if (state.run.summaryWaiting === open) { state.run.summaryWaiting = null; open(); } }, 3000); }
       }
       if (engine.kind === 'tfjs' && state.settings.saveWeights) storeWeights();
       break;
@@ -701,6 +748,8 @@ const api = {
   inputKind: () => inputKindFor(state.data),
   examples: () => examplesForData(),
   zoomControls: () => zoomControls(),
+  deviceSelect: () => deviceSelect(),
+  trainSummary: () => trainSummaryRows(),
   probeNav: () => probeNav(),
   recent: () => state.recent,
   view: state.view,
@@ -1012,6 +1061,8 @@ const commands = {
   exportOnnx: { label: 'menu.exportOnnx', icon: 'exportOnnx', enabled: () => !busy(), run: () => exportModel('onnx') },
   exportTfjs: { label: 'menu.exportTfjs', icon: 'exportFile', enabled: () => !busy(), run: () => exportModel('tfjs') },
   exportModel: { label: 'menu.export', icon: 'exportOnnx', enabled: () => !busy(), run: () => openExport() },
+  print: { label: 'menu.print', icon: 'print', key: 'Ctrl+P', run: () => openReport('print') },
+  saveReport: { label: 'menu.saveReport', icon: 'reportPdf', run: () => openReport('save') },
   save: { label: 'menu.save', icon: 'save', key: 'Ctrl+S', run: () => saveFile(false) },
   saveAs: { label: 'menu.saveAs', icon: 'saveAs', key: 'Ctrl+Shift+S', run: () => saveFile(true) },
   exportPy: { label: 'menu.exportPy', icon: 'exportFile', run: () => codeAction('save') },
@@ -1058,7 +1109,7 @@ const commands = {
 for (const [i, tab] of VIEW_TABS.entries()) commands[`tab_${tab}`] = { label: `tab.${tab}`, icon: `tab${tab[0].toUpperCase()}${tab.slice(1)}`, key: `Ctrl+${i + 1}`, checked: () => !state.showStart && state.view.tab === tab, run: () => switchTab(tab) };
 
 const MENUS = {
-  file: ['new', 'open', 'recent', 'gallery', 'sep', 'save', 'saveAs', 'sep', 'exportModel', 'sep', 'exportOnnx', 'exportTfjs', 'exportC', 'exportPy', 'sep', 'home', 'exit'],
+  file: ['new', 'open', 'recent', 'gallery', 'sep', 'save', 'saveAs', 'sep', 'exportModel', 'sep', 'exportOnnx', 'exportTfjs', 'exportC', 'exportPy', 'sep', 'print', 'saveReport', 'sep', 'home', 'exit'],
   edit: ['undo', 'redo', 'sep', 'delete', 'duplicate', 'selectAll', 'sep', 'settings'],
   view: ['tab_data', 'tab_model', 'tab_neurons', 'tab_code', 'tab_train', 'tab_test', 'sep', 'zoomIn', 'zoomOut', 'fit', 'sep', 'graphVertical', 'graphHorizontal', 'toggleGrid', 'sep', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'sep', 'theme', 'language'],
   model: ['addLayer', 'autoLayout', 'sep', 'delete', 'duplicate'],
@@ -1067,7 +1118,7 @@ const MENUS = {
   help: ['guide', 'shortcuts', 'sep', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', model: 'tabModel', data: 'tabData', train: 'tabTrain', help: 'question' };
-const TOOLBAR = [['new', 'open', 'save', 'exportModel'], ['undo', 'redo'], ['addLayer', 'autoLayout', 'fit', 'neurons'], ['train', 'pause', 'step', 'stop', 'reset']];
+const TOOLBAR = [['new', 'open', 'save', 'exportModel', 'print'], ['undo', 'redo'], ['addLayer', 'autoLayout', 'fit', 'neurons'], ['train', 'pause', 'step', 'stop', 'reset']];
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
 
 const enabled = (id) => (commands[id]?.enabled ? commands[id].enabled() : true);
@@ -1427,6 +1478,7 @@ async function refreshPython() {
 }
 
 popups.on('settings-preview', () => settingsFromStorage());
+popups.on('report-save', ({ format, settings }) => { saveReport(format, settings).catch((error) => reportError(error, 'report')); });
 popups.on('py-refresh', () => refreshPython());
 popups.on('py-use', ({ path }) => { updateSettings({ pythonPath: path }, { quiet: true }); popups.post('pyenv', { type: 'detection', detection: state.python, chosen: path }); renderAll(); });
 popups.on('py-install', async ({ base, variant }) => {
@@ -2175,6 +2227,8 @@ function bindShell() {
       state.test.errorsOnly = target.checked; testAction('next');
     } else if (target.matches('[data-test="sentence"]')) {
       state.test.sentence = target.value; runTest();
+    } else if (target.matches('[data-device]')) {
+      setDevice(target.dataset.device, target.value).catch((error) => reportError(error, 'device'));
     } else if (target.matches('[data-probe-cycle]')) {
       state.project.train.probeCycle = target.checked;
       for (const box of root.querySelectorAll('[data-probe-cycle]')) box.checked = target.checked;
@@ -2814,6 +2868,138 @@ async function trainedWeights() {
 }
 
 /** Writes the model with its trained weights as C source (model.h / model.c / example.c) or as ONNX. */
+/** A chart drawn off screen (light colours, for paper) → a PNG data URL with its size. */
+function chartImage(name, width, height, draw, caption) {
+  const holder = document.createElement('div');
+  holder.style.cssText = `position:fixed;left:-30000px;top:0;width:${width}px;height:${height}px`;
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = `width:${width}px;height:${height}px;display:block`;
+  holder.appendChild(canvas);
+  document.body.appendChild(holder);
+  try { draw(canvas); return { kind: 'image', name, dataUrl: canvas.toDataURL('image/png'), width, height, caption }; } finally { holder.remove(); }
+}
+
+/** The results report (see report/report.js): overview, model, training settings and results, evaluation, inputs, speed. */
+function buildReport() {
+  const blocks = [];
+  const section = (id, text) => blocks.push({ kind: 'heading', level: 1, text, section: id });
+  const pct = (v) => (v == null ? '' : `${(v * 100).toFixed(1)}%`);
+  const num = (v, d = 4) => (v == null || !Number.isFinite(Number(v)) ? '' : Number(v).toFixed(d));
+  const data = state.data; const prepared = state.prepared; const train = state.project.train;
+  const history = state.run.history ?? [];
+  section('overview', t('report.overview'));
+  blocks.push({ kind: 'kv', rows: [
+    [t('report.project'), state.project.name],
+    [t('report.task'), state.task ? `${t(`task.${state.task.kind}`, null, state.task.kind)}${state.task.classes ? ` · ${state.task.classes}` : ''}` : ''],
+    [t('report.data'), data?.name ?? ''],
+    [t('report.samples'), prepared ? `${t('report.trainPart')} ${prepared.train.n} · ${t('report.valPart')} ${prepared.val.n} · ${t('report.testPart')} ${prepared.test.n}${state.project.dataset.split?.group !== false && data?.groups ? ` · ${t('data.group')}` : ''}` : ''],
+    [t('report.input'), prepared ? prepared.inputShape.join(' × ') : ''],
+    ...(data?.labels ? [[t('report.classes'), data.labels.join(', ')]] : []),
+    [t('inspector.params'), totalParams(state.shapes).total.toLocaleString()],
+    [t('device.title'), api.engineLabel()],
+    [t('report.app'), `MyTrainer ${VERSION}`],
+  ] });
+  section('model', t('report.model'));
+  let order = [];
+  try { order = topoOrder(model()); } catch { order = model().nodes.map((n) => n.id); }
+  blocks.push({ kind: 'table', head: [t('report.layer'), t('report.type'), t('report.shape'), t('inspector.params')], rows: order.map((id) => { const node = nodeById(model(), id); const info = state.shapes.get(id); return [node.name, t(`layer.${node.type}`), info?.shape ? info.shape.join('×') : '', (info?.params?.total ?? 0).toLocaleString()]; }) });
+  section('training', t('report.training'));
+  blocks.push({ kind: 'kv', rows: [
+    [t('train.optimizer'), train.optimizer], [t('train.learningRate'), String(train.learningRate)], [t('train.schedule'), t(`schedule.${train.schedule}`, null, train.schedule)],
+    [t('train.epochs'), String(train.epochs)], [t('train.batchSize'), String(train.batchSize)], [t('train.loss'), train.loss ?? 'auto'],
+    ...(train.labelSmoothing ? [[t('train.labelSmoothing'), String(train.labelSmoothing)]] : []), ...(train.mixup ? [[t('train.mixup'), String(train.mixup)]] : []),
+    ...(train.earlyStop ? [[t('train.earlyStop'), `${train.monitor} · ${train.patience}`]] : []),
+  ] });
+  // The charts in light colours whatever the app's theme (paper is white).
+  applyTheme(resolveTheme('light', false, null));
+  try {
+    if (history.length) {
+      section('results', t('summary.title'));
+      blocks.push({ kind: 'kv', rows: trainSummaryRows() });
+      blocks.push(chartImage('loss.png', 760, 300, (c) => lineChart(c, [
+        { name: t('train.trainLoss'), color: SERIES.train, values: history.map((e) => [e.epoch, e.loss]) },
+        { name: t('train.valLoss'), color: SERIES.val, values: history.map((e) => [e.epoch, e.valLoss]) },
+      ], { xLabel: t('train.epoch'), width: 760, height: 300 }), t('report.lossCaption')));
+      if (state.task?.kind === 'classification') blocks.push(chartImage('accuracy.png', 760, 300, (c) => lineChart(c, [
+        { name: t('train.trainAcc'), color: SERIES.train, values: history.map((e) => [e.epoch, e.acc == null ? null : e.acc * 100]) },
+        { name: t('train.valAcc'), color: SERIES.val, values: history.map((e) => [e.epoch, e.valAcc == null ? null : e.valAcc * 100]) },
+      ], { xLabel: t('train.epoch'), yMin: 0, yMax: 100, width: 760, height: 300 }), t('report.accCaption')));
+      blocks.push({ kind: 'heading', level: 2, text: t('report.history') });
+      blocks.push({ kind: 'table', head: [t('train.epoch'), t('test.loss'), t('test.accuracy'), t('log.valLoss'), t('log.valAcc'), t('train.lr'), t('report.time')], rows: history.map((h) => [h.epoch, num(h.loss), pct(h.acc), num(h.valLoss), pct(h.valAcc), num(h.lr, 5), num((h.time ?? 0) / 1000, 1)]) });
+    }
+    const report = state.report;
+    if (report?.kind === 'classification') {
+      section('evaluation', t('report.evaluation'));
+      blocks.push({ kind: 'kv', rows: [[t('test.accuracy'), pct(report.accuracy)], [t('test.macroF1'), num(report.macroF1, 3)], [t('report.testCount'), String(report.predicted?.length ?? '')]] });
+      const n = report.matrix.length;
+      const size = Math.min(620, 90 + n * 46);
+      blocks.push(chartImage('confusion.png', size, size, (c) => confusionChart(c, report.matrix, data?.labels ?? report.matrix.map((_, i) => `C${i}`)), t('report.confusionCaption')));
+      blocks.push({ kind: 'table', head: [t('report.class'), t('test.precision', null, 'Precision'), t('test.recall', null, 'Recall'), 'F1', t('report.support')], rows: report.perClass.map((c, i) => [data?.labels?.[i] ?? `C${i}`, pct(c.precision), pct(c.recall), num(c.f1, 3), report.matrix[i].reduce((a, b) => a + b, 0)]) });
+    } else if (report?.kind === 'regression') {
+      section('evaluation', t('report.evaluation'));
+      blocks.push({ kind: 'kv', rows: [['MAE', num(report.mae)], ['RMSE', num(report.rmse)], ['R²', num(report.r2, 3)]] });
+    }
+  } finally { applyLook(); }
+  const items = state.batch.items.filter((item) => !item.error);
+  if (items.length) {
+    section('inputs', t('report.inputs'));
+    blocks.push({ kind: 'table', head: [t('batch.input'), t('test.output'), '%'], rows: items.map((item) => [item.name, item.prediction ?? '', item.confidence != null ? `${(item.confidence * 100).toFixed(1)}%` : '']) });
+  }
+  const b = state.test.bench;
+  if (b && !b.running && !b.error && b.mean != null) {
+    section('performance', t('bench.title'));
+    blocks.push({ kind: 'kv', rows: [[t('bench.mean'), `${b.mean.toFixed(2)} ms ± ${b.std.toFixed(2)} ms`], [t('bench.range'), `${b.min.toFixed(2)} … ${b.max.toFixed(2)} ms`], [t('bench.median'), `${b.median.toFixed(2)} ms · p95 ${b.p95.toFixed(2)} ms`], [t('bench.throughput'), `${Math.round(b.throughput)} ${t('bench.perSecond')}`], [t('bench.engine'), b.engine]] });
+  }
+  const sections = blocks.filter((x) => x.kind === 'heading' && x.section).map((x) => ({ id: x.section, name: x.text }));
+  return { title: `${state.project.name} — ${t('report.title')}`, date: new Date().toLocaleString(), blocks, sections };
+}
+
+/** Print / save the results: the report popup (settings on the left, the pages on the right). */
+async function openReport(mode = 'print') {
+  try {
+    const report = buildReport();
+    state.reportDoc = report;
+    await popups.open('report', { report, mode, settings: state.reportSettings ?? defaultReportSettings() });
+  } catch (error) { reportError(error, 'report'); }
+}
+
+/** Saves the report as PDF, Word, Markdown or CSV (the last two: a folder with the pictures, ZIP on the web). */
+async function saveReport(format, settings) {
+  const report = state.reportDoc ?? buildReport();
+  state.reportSettings = settings;
+  const base = `${cName(state.project.name)}-report`;
+  let single = null; let files = null;
+  if (format === 'pdf') single = { name: `${base}.pdf`, bytes: toPdf(await renderPages(report, settings, 150), report.title), type: 'pdf' };
+  else if (format === 'docx') single = { name: `${base}.docx`, bytes: new Uint8Array(await toDocx(report, settings).arrayBuffer()), type: 'docx' };
+  else files = format === 'md' ? toMarkdown(report, settings) : toCsv(report, settings);
+  if (desktop) {
+    if (single) {
+      const path = await native.chooseSavePath(single.name, [single.type]);
+      if (!path) return;
+      await native.writeBase64File(path, native.bytesToBase64(single.bytes), 'save');
+      notify(t('file.saved', { name: baseName(path) }), 'success');
+    } else {
+      const dir = await native.chooseFolder();
+      if (!dir) return;
+      const sep = dir.includes('\\') ? '\\' : '/';
+      const folder = `${dir}${sep}${base}-${format}`;
+      for (const [name, content] of Object.entries(files)) {
+        const path = `${folder}${sep}${name.replace(/\//g, sep)}`;
+        if (typeof content === 'string') await native.writeTextFile(path, content, 'save');
+        else await native.writeBase64File(path, native.bytesToBase64(content), 'save');
+      }
+      notify(t('export.done', { folder }), 'success');
+    }
+  } else if (single) {
+    native.downloadBlob(new Blob([single.bytes], { type: single.type === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), single.name);
+    notify(t('export.downloaded', { name: single.name }), 'success');
+  } else {
+    native.downloadBlob(zipBlob(files), `${base}-${format}.zip`);
+    notify(t('export.downloaded', { name: `${base}-${format}.zip` }), 'success');
+  }
+  log(t('report.saved', { format: format.toUpperCase() }), 'success');
+}
+
 /** "Export…": the formats to choose from (a popup), then that export. */
 async function openExport() {
   const answer = await popups.open('export', { engine: state.project.engine, trained: Boolean(state.run.history.length || state.project.weights) });
@@ -3046,6 +3232,7 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'F1') { event.preventDefault(); run('guide'); return; }
   if (ctrl && key === 's') { event.preventDefault(); run(event.shiftKey ? 'saveAs' : 'save'); return; }
   if (ctrl && key === 'o') { event.preventDefault(); run('open'); return; }
+  if (ctrl && key === 'p') { event.preventDefault(); run('print'); return; }
   if (ctrl && key === 'n') { event.preventDefault(); run('new'); return; }
   if (ctrl && /^[1-6]$/.test(event.key)) { event.preventDefault(); switchTab(VIEW_TABS[Number(event.key) - 1]); return; }
   if (typing) return;

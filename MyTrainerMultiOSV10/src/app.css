@@ -112,8 +112,8 @@ select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not
 .neuron-canvas { display: block; flex: none; margin: auto; cursor: grab; }
 .example-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; max-height: 150px; overflow: auto; }
 .example-list .chip.active { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.card-head { display: flex; align-items: center; gap: 8px; }
-.card-head .card-title { flex: 1; min-width: 0; }
+.card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.card-head .card-title { flex: 0 0 auto; white-space: nowrap; margin-right: auto; }
 .card-head .zoom-group .button.small { padding: 1px 7px; }
 
 .bench-table { width: 100%; border-collapse: collapse; font-size: 0.86em; margin-top: 6px; font-variant-numeric: tabular-nums; }
@@ -130,6 +130,23 @@ select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not
 .export-card:disabled { opacity: 0.5; cursor: not-allowed; }
 .export-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .export-text .muted { font-size: 0.86em; white-space: normal; }
+.device-row { margin: 4px 0; }
+.device-row .prop-label { display: inline-flex; align-items: center; gap: 6px; }
+.summary-kv { width: 100%; border-collapse: collapse; font-size: 0.88em; font-variant-numeric: tabular-nums; }
+.summary-kv td { padding: 4px 6px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.summary-kv td:first-child { color: var(--muted); white-space: nowrap; width: 1%; }
+.summary-lead { margin: 2px 0 8px; }
+.popup-summary .popup-body { overflow: hidden; }
+.popup-report .popup-body { padding: 0; }
+.report-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: 100%; min-height: 0; }
+.report-side { padding: 12px 14px; border-right: 1px solid var(--border); overflow: auto; background: var(--panel); }
+.report-side h4 { display: flex; align-items: center; gap: 6px; margin: 12px 0 6px; font-size: 0.86em; color: var(--muted); }
+.report-side h4:first-child { margin-top: 0; }
+.report-side .prop-row { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 8px; margin: 4px 0; }
+.report-side select { width: 100%; }
+.report-sections { display: grid; gap: 4px; }
+.report-preview { overflow: auto; padding: 16px; background: color-mix(in srgb, var(--text) 10%, var(--bg)); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.report-page { width: min(100%, 640px); height: auto; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); background: #fff; flex: none; }
 .chosen-input { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; }
 .neuron-canvas.dragging { cursor: grabbing; }
 .neuron-tip { position: absolute; z-index: 5; padding: 3px 8px; border-radius: 6px; background: var(--text); color: var(--surface); font-size: 0.8em; pointer-events: none; white-space: nowrap; }

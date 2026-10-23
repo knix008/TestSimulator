@@ -35,6 +35,16 @@ export class TfEngine extends Emitter {
     this.pending = new Map();
   }
 
+  /** Another backend: the worker is started again (the model is built again on the next run). */
+  restart(backend) {
+    this.worker?.terminate();
+    this.worker = null;
+    this.backend = null;
+    this.state = 'idle';
+    this.pending.clear();
+    return this.start(backend);
+  }
+
   start(backend = 'auto') {
     if (this.worker) return this.readyPromise;
     this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });

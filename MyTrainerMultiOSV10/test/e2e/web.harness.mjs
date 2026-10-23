@@ -1,6 +1,6 @@
 // The web build under test: Vite on a free port (no hot reload, so edits during a run do not
 // reload the page) and headless Edge / Chrome driven over the DevTools protocol.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,7 +41,9 @@ export async function startWeb({ width = 1600, height = 1000, storage = null, he
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mytrainer-web-'));
   const args = [`--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, '--no-first-run', '--no-default-browser-check', '--enable-unsafe-webgpu',
     // A fake microphone (a beep) and camera (a test pattern) that need no permission prompt: the live input tests.
-    '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', ...browserArgs, 'about:blank'];
+    '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
+    // A headless page counts as hidden: without these its timers slow to one a minute after a while.
+    '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', ...browserArgs, 'about:blank'];
   if (headless) args.unshift('--headless=new');
   const child = spawn(browser, args, { stdio: 'ignore' });
   const target = await waitTarget(debugPort, (t) => t.type === 'page');
@@ -59,8 +61,10 @@ export async function startWeb({ width = 1600, height = 1000, storage = null, he
   await page.waitFor('Boolean(window.__mytrainer)', { timeout: 60000, message: 'the app did not start' });
   const close = async () => {
     page.close();
-    child.kill();
-    vite.kill();
+    // The browser's helper processes too: on Windows kill() ends only the first one (hundreds piled up).
+    const end = (proc) => { if (process.platform === 'win32' && proc.pid) spawnSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); else proc.kill(); };
+    end(child);
+    end(vite);
     await sleep(300);
     try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* still held */ }
   };

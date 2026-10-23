@@ -56,6 +56,9 @@ export function defaultSettings(language = 'ko') {
     micThreshold: 0.012,
     pythonPath: '',
     torchVariant: 'auto',
+    // Where TensorFlow trains (auto: WebGPU → WebGL → WASM → CPU) and whether PyTorch may use a GPU.
+    tfBackend: 'auto',
+    torchDevice: 'auto',
     // The first start installs Python / PyTorch when there are none (once; the Python window can do it again).
     pythonAutoSetup: true,
     saveWeights: true,
@@ -109,6 +112,8 @@ export function normalizeSettings(raw = {}, language = 'ko') {
     micThreshold: Number.isFinite(Number(s.micThreshold)) ? Math.min(0.2, Math.max(0.001, Number(s.micThreshold))) : base.micThreshold,
     pythonPath: typeof s.pythonPath === 'string' ? s.pythonPath : '',
     torchVariant: ['auto', 'cpu', 'cuda', 'default'].includes(s.torchVariant) ? s.torchVariant : 'auto',
+    tfBackend: ['auto', 'webgpu', 'webgl', 'wasm', 'cpu'].includes(s.tfBackend) ? s.tfBackend : 'auto',
+    torchDevice: s.torchDevice === 'cpu' ? 'cpu' : 'auto',
     pythonAutoSetup: s.pythonAutoSetup !== false,
     saveWeights: s.saveWeights !== false,
     confirmExit: s.confirmExit !== false,

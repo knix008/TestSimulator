@@ -60,7 +60,7 @@ function samePadding(length, kernel, stride) {
  * Generates the script. options = { project, task (effectiveTask), inputShape, hooks (mt.trace lines, default true) }.
  * Returns { code, errors: [] } — errors when the model cannot be turned into PyTorch (the code is still the best effort).
  */
-export function generatePytorch({ project, task, inputShape, hooks = true }) {
+export function generatePytorch({ project, task, inputShape, hooks = true, device = 'auto' }) {
   const graph = project.model;
   const train = project.train;
   const errors = [];
@@ -408,7 +408,7 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push('');
   lines.push('def main():');
   lines.push('    data = mt.load_data()  # dict: x_train, y_train, x_val, y_val, x_test, y_test (torch tensors)');
-  lines.push('    device = mt.device()  # "cuda", "mps" or "cpu"');
+  lines.push(device === 'cpu' ? '    device = mt.device("cpu")  # the CPU, even when there is a GPU' : '    device = mt.device()  # "cuda", "mps" or "cpu"');
   lines.push('    model = Net().to(device)');
   lines.push('    mt.watch(model, loss_fn)  # weights, gradients and activations for MyTrainer');
   lines.push('    lr, wd = CONFIG["learning_rate"], CONFIG["weight_decay"]');
