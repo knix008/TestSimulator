@@ -62,7 +62,7 @@ export function backgroundControlsHtml(values, { t, theme = 'classic', row } = {
   if (kind === 'image') {
     const name = bg.image ? `${bg.imageWidth || '?'} × ${bg.imageHeight || '?'} px` : t('bg.noImage');
     out += line(t('bg.image'), `<span class="bg-image-row"><button class="button small" data-bg-action="pick" title="${esc(t('action.chooseImage'))}">${icon('picture')}<span>${esc(t('action.chooseImage'))}</span></button><button class="button small" data-bg-action="clear" ${bg.image ? '' : 'disabled'} title="${esc(t('bg.clearImage'))}">${icon('close')}<span>${esc(t('bg.clearImage'))}</span></button><span class="bg-image-size">${esc(name)}</span></span>`, '', 'picture');
-    out += line(t('bg.fit'), `<select data-bg-input="backgroundFit" aria-label="${esc(t('bg.fit'))}" title="${esc(t('bg.fit'))}">${DIAGRAM_BG_FITS.map((f) => `<option value="${f}" ${bg.fit === f ? 'selected' : ''}>${esc(t(`bg.fit.${f}`))}</option>`).join('')}</select>`, '', 'fitPage');
+    out += line(t('bg.fit'), `<select data-icon="imageBg" data-bg-input="backgroundFit" aria-label="${esc(t('bg.fit'))}" title="${esc(t('bg.fit'))}">${DIAGRAM_BG_FITS.map((f) => `<option value="${f}" ${bg.fit === f ? 'selected' : ''}>${esc(t(`bg.fit.${f}`))}</option>`).join('')}</select>`, '', 'fitPage');
     out += line(t('bg.opacity'), slider('backgroundOpacity', bg.opacity, 0, 100, 5, t('bg.opacity')), '', 'eye');
   }
   if (kind === 'pattern') {

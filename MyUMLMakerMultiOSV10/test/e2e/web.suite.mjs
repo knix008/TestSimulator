@@ -640,4 +640,129 @@ export const cases = [
     assert.ok(!outside.length, `the outline never runs past an edge of the window: ${outside.join(' · ')}`);
     await noError(app, 'tutorial');
   } },
+  { group: '드롭다운', name: '모든 드롭다운에 아이콘: 선택 목록(속성·스타일·설정 팝업)과 입력 제안 목록(스테레오타입), 키보드·마우스로 고름, 마인드맵 토픽에는 스테레오타입 없음', async run(app) {
+    await freshSample(app);
+    const views = `(() => { const all = []; const walk = (vs) => { for (const x of vs ?? []) { all.push(x); walk(x.subViews); } }; walk(api.diagram().ownedViews); return all; })()`;
+    // Earlier cases may leave another editor tab open: the Properties tab first.
+    const id = await W(app, `(() => { w.state.rightTab = 'properties'; const v = ${views}.find((x) => x._type === 'UMLClassView'); a.select([v._id]); return v.model.$ref; })()`);
+    await sleep(300);
+    // A real press on a control, scrolled into view first (the window may be small).
+    const press = async (selector) => { const where = await app.main.eval(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return JSON.stringify({ tab: window.__myumlmaker.state.rightTab, right: window.__myumlmaker.state.settings.showRightPanel, focus: document.activeElement?.outerHTML.slice(0, 90), fields: [...document.querySelectorAll('#editors [data-field]')].map((x) => x.dataset.field).slice(0, 8), sel: window.__myumlmaker.state.selection.ids.length }); e.scrollIntoView({ block: 'center', behavior: 'instant' }); return ''; })()`); assert.equal(where, '', `${selector} is on the page`); await sleep(100); const c = await app.main.center(selector); await app.main.realClick(c.x, c.y); };
+    const listInfo = () => app.main.eval(`(() => { const l = document.querySelector('.dd-list'); if (!l) return null; const items = [...l.querySelectorAll('.dd-item')]; const r = l.getBoundingClientRect(); return { n: items.length, icons: items.filter((i) => i.querySelector('svg.icon')).length, chosen: l.querySelector('.dd-item.chosen')?.dataset.value ?? null, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
+    const field = (key) => W(app, `a.activeDoc().index.get(${JSON.stringify(id)}).${key} ?? null`);
+    // Every select of the window is one of ours and shows its option's icon.
+    const plain = await app.main.eval(`[...document.querySelectorAll('select')].filter((s) => !s.classList.contains('dd-select') || !s.style.backgroundImage.includes('svg')).map((s) => s.outerHTML.slice(0, 80))`);
+    assert.deepEqual(plain, [], 'every select shows an icon');
+    // A select: the list opens on a press, every item has an icon, ↓ Enter picks.
+    await press('#editors select[data-field="visibility"]');
+    await sleep(300);
+    let info = await listInfo();
+    assert.ok(info && info.n >= 4 && info.icons === info.n && info.inside, `the list has an icon on every item ${JSON.stringify(info)}`);
+    const before = (await field('visibility')) ?? 'public';
+    assert.equal(info.chosen, before, 'the current value is marked');
+    await app.main.key('ArrowDown');
+    await app.main.key('Enter');
+    await sleep(300);
+    assert.equal(await listInfo(), null, 'Enter closes the list');
+    assert.notEqual(await field('visibility'), before, 'and sets the next value');
+    // A suggestion list: icons, filtered while typing, a click picks.
+    await press('#editors input[data-field="stereotype"]');
+    await sleep(300);
+    info = await listInfo();
+    assert.ok(info && info.n > 10 && info.icons === info.n, `the stereotype suggestions have icons ${JSON.stringify(info)}`);
+    await app.main.type('bound');
+    await sleep(200);
+    const item = await app.main.center('.dd-list .dd-item[data-value="boundary"]');
+    await app.main.realClick(item.x, item.y);
+    await sleep(400);
+    assert.equal(await field('stereotype'), 'boundary', 'a click on a suggestion sets it');
+    // The next click is not lost (the box let go of the focus): the Style tab opens.
+    await press('[data-editor-tab="style"]');
+    await sleep(300);
+    await press('#editors select[data-style="stereotypeDisplay"]');
+    await sleep(200);
+    assert.equal((await listInfo())?.icons, 4, 'stereotype display: four items with icons');
+    await app.main.key('Escape');
+    await sleep(200);
+    assert.equal(await listInfo(), null, 'Esc closes it');
+    // A popup (a frame here, a window on the desktop): Settings › Font › weight.
+    await W(app, `(w.run('settings'), 1)`);
+    await app.waitFrame('settings', `Boolean(document.querySelector('.popup'))`);
+    await app.frame('settings', `(document.querySelector('[data-action="tab"][data-value="font"]').click(), 1)`);
+    await sleep(300);
+    await app.frame('settings', `(() => { const s = document.querySelector('select[data-select="fontWeight"]'); s.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 })); return 1; })()`);
+    await sleep(300);
+    assert.ok(await app.frame('settings', `(() => { const items = [...document.querySelectorAll('.dd-list .dd-item')]; return items.length >= 4 && items.every((i) => i.querySelector('svg')); })()`), 'a popup has the same dropdown');
+    await closeFrames(app);
+    // A mind map topic has no stereotype field (its shape never shows one).
+    await W(app, `(a.openDiagram(M.allDiagrams(a.activeDoc().project).find((d) => d._type === 'MMMindmapDiagram')._id), 1)`);
+    await sleep(300);
+    await W(app, `(a.select([${views}.find((x) => x._type === 'MMNodeView')._id]), 1)`);
+    await press('[data-editor-tab="properties"]');
+    await sleep(300);
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('#editors [data-field="stereotype"]'))`), false, 'no stereotype field on a mind map topic');
+    assert.equal(await app.main.eval(`Boolean(document.querySelector('#editors [data-field="shape"]'))`), true, 'its own fields are there');
+    await noError(app, 'dropdowns');
+  } },
+  { group: '메뉴', name: '메뉴 막대의 모든 항목(하위 메뉴 포함)이 오류 없이 실행됨: 클래스·관계선·마인드맵 토픽을 골라 두고 하나씩', async run(app) {
+    // Every command of every menu and submenu, once each.
+    const ids = await W(app, `(() => {
+      const { MENUS, SUBMENUS } = w.menus;
+      const out = []; const seen = new Set();
+      const walk = (list, path) => { for (const id of list) {
+        if (id === '-') continue;
+        if (typeof id === 'object') { walk(SUBMENUS[id.sub].items, [...path, id.sub]); continue; }
+        if (!seen.has(id)) { seen.add(id); out.push({ id, path: path.join(' › ') }); }
+      } };
+      for (const [name, list] of Object.entries(MENUS)) walk(list, [name]);
+      return out;
+    })()`);
+    assert.ok(ids.length > 120, `the menus have many commands (${ids.length})`);
+    // Leaves the app, or needs the desktop or a native file dialog the browser has no answer for.
+    const SKIP = new Set(['exit', 'open', 'dbOpen', 'dbSave', 'compareFile', 'importMdj', 'importXmi', 'importFragment', 'openFolder']);
+    const settings = await W(app, `JSON.stringify(w.state.settings)`);
+    const views = `(() => { const all = []; const walk = (vs) => { for (const x of vs ?? []) { all.push(x); walk(x.subViews); } }; walk(api.diagram().ownedViews); return all; })()`;
+    // Each state puts the app where more commands apply: a class, a line, two classes, a mind map topic, nothing.
+    const states = [
+      ['class', `(() => { a.openDiagram(M.allDiagrams(a.activeDoc().project).find((d) => d._type === 'UMLClassDiagram')._id); const v = ${views}.find((x) => x._type === 'UMLClassView'); a.select([v._id]); return 1; })()`],
+      ['two classes', `(() => { a.openDiagram(M.allDiagrams(a.activeDoc().project).find((d) => d._type === 'UMLClassDiagram')._id); const v = ${views}.filter((x) => x._type === 'UMLClassView').slice(0, 3); a.select(v.map((x) => x._id)); return 1; })()`],
+      ['line', `(() => { a.openDiagram(M.allDiagrams(a.activeDoc().project).find((d) => d._type === 'UMLClassDiagram')._id); const v = ${views}.find((x) => M.isEdgeView(x)); a.select([v._id]); return 1; })()`],
+      ['mind map topic', `(() => { a.openDiagram(M.allDiagrams(a.activeDoc().project).find((d) => d._type === 'MMMindmapDiagram')._id); const v = ${views}.find((x) => x._type === 'MMNodeView'); a.select([v._id]); return 1; })()`],
+      ['BPMN', `(() => { a.openDiagram(M.allDiagrams(a.activeDoc().project).find((d) => d._type === 'BPMNDiagram')._id); a.select([]); return 1; })()`],
+      ['nothing', `(() => { a.select([]); return 1; })()`],
+      // Undo, redo, clear bends and clear recent need history, a bent line and recent files.
+      ['after an edit', `(() => { a.change('op.edit', (p) => { p.name = 'Walk'; }); return 1; })()`],
+      ['after an undo', `(() => { a.undo(); return 1; })()`],
+      ['bent line', `(() => { a.openDiagram(M.allDiagrams(a.activeDoc().project).find((d) => d._type === 'UMLClassDiagram')._id); const v = ${views}.find((x) => M.isEdgeView(x)); a.change('op.edit', (p, d) => { const e = M.findView(d, v._id); e.points = [{ x: 300, y: 40 }]; }); a.select([v._id]); return 1; })()`],
+      ['recent files', `(() => { w.state.recent = [{ path: 'walk.myuml', title: 'Walk', web: true }]; return 1; })()`],
+    ];
+    const ran = []; const failed = []; const neverEnabled = [];
+    for (const { id, path } of ids) {
+      if (SKIP.has(id)) continue;
+      let done = false;
+      await freshSample(app);
+      for (const [label, setup] of states) {
+        await W(app, setup);
+        await sleep(120);
+        if (!(await W(app, `w.menus.enabled(${JSON.stringify(id)})`))) continue;
+        app.main.errors.length = 0;
+        await W(app, `(Promise.resolve(w.run(${JSON.stringify(id)})).catch((e) => { window.__menuWalkError = String(e?.stack ?? e); }), 1)`);
+        await sleep(450);
+        const problem = await app.main.eval(`(() => { const e = window.__menuWalkError; window.__menuWalkError = null; const f = document.querySelector('.web-popup-error'); return e || (f && getComputedStyle(f).visibility !== 'hidden' ? (f.querySelector('iframe')?.contentDocument?.querySelector('.popup')?.innerText ?? 'error popup').slice(0, 400) : null); })()`);
+        const errors = [...app.main.errors];
+        if (problem || errors.length) failed.push(`${path} › ${id} [${label}]: ${problem ?? errors[0]}`);
+        ran.push(id);
+        done = true;
+        // Undo what it opened or started, and the settings it changed.
+        await W(app, `(() => { try { w.tutorial()?.stop?.(); } catch {} try { a.stopPresentation(); } catch {} try { a.closeDocFrames(); } catch {} a.updateSettings(${settings}, { quiet: true }); return 1; })()`).catch(() => {});
+        await app.main.key('Escape').catch(() => {});
+        await closeFrames(app);
+        break;
+      }
+      if (!done) neverEnabled.push(`${path} › ${id}`);
+    }
+    console.log(`      메뉴 항목 ${ran.length}개 실행, 건너뜀 ${[...SKIP].length}개, 어느 상태에서도 꺼져 있음 ${neverEnabled.length}개${neverEnabled.length ? `: ${neverEnabled.join(', ')}` : ''}`);
+    assert.deepEqual(failed, [], 'every menu command runs without an error');
+    assert.ok(ran.length > 110, `most commands ran (${ran.length})`);
+  } },
 ];

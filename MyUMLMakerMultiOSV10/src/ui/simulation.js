@@ -194,7 +194,7 @@ export class SimulationController {
       + (this.playing ? b('pause', 'pause', t('sim.pause')) : b('play', 'play', t('sim.play')))
       + b('step', 'stepForward', t('sim.step'), this.animation ? 'disabled' : '')
       + b('reset', 'refresh', t('sim.reset'))
-      + `<label class="sim-speed" title="${escapeHtml(t('sim.speed'))}">${icon('speed')}<select data-sim-speed aria-label="${escapeHtml(t('sim.speed'))}">${SPEEDS.map((s) => `<option value="${s}" ${s === this.speed ? 'selected' : ''}>${s}×</option>`).join('')}</select></label>`
+      + `<label class="sim-speed" title="${escapeHtml(t('sim.speed'))}">${icon('speed')}<select data-icon="speed" data-sim-speed aria-label="${escapeHtml(t('sim.speed'))}">${SPEEDS.map((s) => `<option value="${s}" ${s === this.speed ? 'selected' : ''}>${s}×</option>`).join('')}</select></label>`
       + `<button class="button small" data-sim="analyse" title="${escapeHtml(t('sim.analyseTip'))}">${icon('reportData')}<span>${escapeHtml(t('sim.analyse'))}</span></button>`
       + `<span class="sim-status ${tone}" data-sim-status>${escapeHtml(this.statusText())}</span>`
       + b('close', 'close', t('sim.close'));

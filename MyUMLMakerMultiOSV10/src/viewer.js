@@ -81,9 +81,9 @@ function barHtml() {
   const title = `<h1 class="viewer-title">${icon(info.glyph)}<span>${escapeHtml(t(info.title))}</span></h1>`;
   if (kind === 'video') {
     return `${title}
-      <select class="viewer-chapters" data-video-chapter title="${escapeHtml(t('reader.videoChapters'))}" aria-label="${escapeHtml(t('reader.videoChapters'))}">${chapterOptions()}</select>
+      <select class="viewer-chapters" data-icon="tutorialVideo" data-video-chapter title="${escapeHtml(t('reader.videoChapters'))}" aria-label="${escapeHtml(t('reader.videoChapters'))}">${chapterOptions()}</select>
       <span class="grow"></span>
-      <label class="viewer-speed" title="${escapeHtml(t('reader.speed'))}">${icon('speed')}<select data-video-speed aria-label="${escapeHtml(t('reader.speed'))}">${VIDEO_SPEEDS.map((s) => `<option value="${s}" ${s === state.video.speed ? 'selected' : ''}>${s}×</option>`).join('')}</select></label>
+      <label class="viewer-speed" title="${escapeHtml(t('reader.speed'))}">${icon('speed')}<select data-icon="speed" data-video-speed aria-label="${escapeHtml(t('reader.speed'))}">${VIDEO_SPEEDS.map((s) => `<option value="${s}" ${s === state.video.speed ? 'selected' : ''}>${s}×</option>`).join('')}</select></label>
       <button class="button" data-viewer="fullscreen" title="${escapeHtml(t('reader.fullscreen'))}">${icon('fullscreen')}<span>${escapeHtml(t('reader.fullscreen').replace(/\s*\(.*\)$/, ''))}</span></button>
       ${languages}
       ${desktop ? `<button class="button" data-viewer="external" title="${escapeHtml(t('reader.videoExternalTip'))}">${icon('readerExternal')}<span>${escapeHtml(t('reader.videoExternal'))}</span></button>` : ''}
@@ -91,7 +91,7 @@ function barHtml() {
   }
   const q = state.find.query;
   return `${title}
-    <select class="viewer-chapters" data-viewer-chapter title="${escapeHtml(t('reader.chapters'))}" aria-label="${escapeHtml(t('reader.chapters'))}">${chapterOptions()}</select>
+    <select class="viewer-chapters" data-icon="docText" data-viewer-chapter title="${escapeHtml(t('reader.chapters'))}" aria-label="${escapeHtml(t('reader.chapters'))}">${chapterOptions()}</select>
     <span class="grow"></span>
     <span class="viewer-find" title="${escapeHtml(t('reader.find'))}">${icon('search')}<input type="search" data-viewer-find value="${escapeHtml(q)}" placeholder="${escapeHtml(t('reader.findPlaceholder'))}" aria-label="${escapeHtml(t('reader.find'))}" spellcheck="false" /><output data-find-count>${escapeHtml(findCountText())}</output>
       <button class="icon-button" data-viewer="find-prev" title="${escapeHtml(t('reader.findPrev'))}" aria-label="${escapeHtml(t('reader.findPrev'))}">${icon('chevronUp')}</button>

@@ -14,7 +14,7 @@ import {
   normalizeProject, parseProject, stripExtension, withExtension, isXmiFileName, normalizeBackground,
 } from './domain/format.js';
 import { buildSample, buildTemplate, TEMPLATES } from './domain/templates.js';
-import { CLASSIFIER_TYPES, DIAGRAM_TYPES, TYPES, typeDef, typeLabel, viewDef } from './domain/meta.js';
+import { CLASSIFIER_TYPES, DIAGRAM_TYPES, hasStereotype, TYPES, typeDef, typeLabel, viewDef } from './domain/meta.js';
 import { toolboxFor, toolById } from './domain/toolbox.js';
 import * as E from './domain/edit.js';
 import * as MM from './domain/mindmap.js';
@@ -272,6 +272,8 @@ const hasSelection = () => state.selection.ids.length > 0;
 const viewById = (id) => M.findView(currentDiagram(), id);
 const selectedViews = () => selectedIds().map(viewById).filter(Boolean);
 const selectedNodeViews = () => selectedViews().filter((v) => !M.isEdgeView(v));
+/** Selected shapes that show a stereotype (Format › Stereotype applies to these). */
+const stereotypeViews = () => selectedNodeViews().filter((v) => hasStereotype(String(v._type).replace(/View$/, '')));
 const selectedElements = () => { const tab = activeTab(); return tab ? selectedViews().map((v) => tab.index.get(M.refId(v.model))).filter(Boolean) : []; };
 const isSelected = (id) => state.selection.ids.includes(id);
 
@@ -1138,7 +1140,7 @@ const commands = {
   showVisibility: { icon: 'visibility', label: 'action.showVisibility', enabled: hasSelection, checked: () => hasSelection() && selectedViews().every((v) => v.showVisibility !== false), run: () => setViewStyle({ showVisibility: selectedViews().every((v) => v.showVisibility !== false) ? false : null }) },
   showNamespace: { icon: 'namespace', label: 'action.showNamespace', enabled: () => selectedNodeViews().length > 0, checked: () => selectedNodeViews().length > 0 && selectedNodeViews().every((v) => v.showNamespace), run: () => setViewStyle({ showNamespace: !selectedNodeViews().every((v) => v.showNamespace) || null }) },
   showSignature: { icon: 'signature', label: 'action.showSignature', enabled: () => selectedNodeViews().length > 0, checked: () => selectedNodeViews().length > 0 && selectedNodeViews().every((v) => v.showOperationSignature !== false), run: () => setViewStyle({ showOperationSignature: selectedNodeViews().every((v) => v.showOperationSignature !== false) ? false : null }) },
-  ...Object.fromEntries(['label', 'decoration', 'icon', 'none'].map((s) => [`stereotype:${s}`, { icon: `stereo${s[0].toUpperCase()}${s.slice(1)}`, label: `stereotypeDisplay.${s}`, enabled: () => selectedNodeViews().length > 0, checked: () => selectedNodeViews().length > 0 && selectedNodeViews().every((v) => (v.stereotypeDisplay ?? 'label') === s), run: () => setViewStyle({ stereotypeDisplay: s === 'label' ? null : s }) }])),
+  ...Object.fromEntries(['label', 'decoration', 'icon', 'none'].map((s) => [`stereotype:${s}`, { icon: `stereo${s[0].toUpperCase()}${s.slice(1)}`, label: `stereotypeDisplay.${s}`, enabled: () => stereotypeViews().length > 0, checked: () => stereotypeViews().length > 0 && stereotypeViews().every((v) => (v.stereotypeDisplay ?? 'label') === s), run: () => setViewStyle({ stereotypeDisplay: s === 'label' ? null : s }, stereotypeViews().map((v) => v._id)) }])),
   // arrange
   bringFront: { icon: 'bringFront', label: 'action.bringFront', key: 'Ctrl+Shift+F', enabled: hasSelection, run: () => reorder('front') },
   sendBack: { icon: 'sendBack', label: 'action.sendBack', key: 'Ctrl+Shift+K', enabled: hasSelection, run: () => reorder('back') },
@@ -4331,6 +4333,8 @@ window.__myumlmaker = {
   commands,
   popups,
   run,
+  /** The menu bar's menus and their submenus (the E2E menu walk runs every item). */
+  menus: { MENUS, SUBMENUS, enabled: (id) => commandEnabled(id) },
   api: appApi,
   debug: () => ({ openMenu: state.openMenu, showStart: state.showStart, tool: state.tool?.id ?? null, focus: document.activeElement?.outerHTML?.slice(0, 80) ?? null, pending: [...popups.pending.keys()] }),
   actions: {

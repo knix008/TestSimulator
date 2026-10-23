@@ -137,7 +137,9 @@ function frame({ glyph, title, body, foot = '', tabs = '' }) {
 const button = (actionName, label, glyph = '', extra = '', value = '', attrs = '') =>
   `<button class="button ${extra}" data-action="${actionName}" ${value !== '' ? `data-value="${escapeHtml(value)}"` : ''} title="${escapeHtml(label)}" ${attrs}>${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`;
 
-const row = (glyph, label, control, title = label, cls = '') => `<div class="row ${cls}" title="${escapeHtml(title)}"><span class="row-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="row-control">${control}</span></div>`;
+// A dropdown in a row shows the row's icon on its items unless it names its own (ui/dropdown.js).
+const withIcon = (control, glyph) => (glyph ? String(control).replace(/<select(?![^>]*data-icon=)/g, `<select data-icon="${glyph}"`) : control);
+const row = (glyph, label, control, title = label, cls = '') => `<div class="row ${cls}" title="${escapeHtml(title)}"><span class="row-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="row-control">${withIcon(control, glyph)}</span></div>`;
 
 /** [−] value [+] for a number. */
 const numberField = (key, value, min, max, step, unit, label) => stepperHtml({
@@ -150,7 +152,7 @@ const toggle = (key, label, glyph, checked = s()[key], attr = 'data-toggle') => 
 const segmented = (key, options, current, attr = 'data-setting') => `<span class="segmented" role="radiogroup">${options.map(([value, label, glyph]) => `
   <button class="segment ${String(current) === String(value) ? 'active' : ''}" role="radio" aria-checked="${String(current) === String(value)}" ${attr}="${key}" data-value="${escapeHtml(value)}" title="${escapeHtml(label)}">${glyph ? icon(glyph) : ''}${escapeHtml(label)}</button>`).join('')}</span>`;
 
-const select = (attrName, key, options, current, label) => `<select ${attrName}="${key}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${String(current) === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
+const select = (attrName, key, options, current, label, extra = '') => `<select ${attrName}="${key}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" ${extra}>${options.map(([value, text, glyph]) => `<option value="${escapeHtml(value)}"${glyph ? ` data-icon="${glyph}"` : ''} ${String(current) === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
 
 // Tabs scroll inside their strip; "<" ">" at the right end move it (no scroll bar).
 const tabsHtml = (list, current, actionName = 'tab') => `<nav class="tabs" role="tablist"><div class="tabs-strip">${list.map(([id, glyph, label]) => `
@@ -410,7 +412,7 @@ function settingsBackground() {
   const name = s().backgroundName || (s().backgroundImage ? s().backgroundImage : t('settings.bgNone'));
   return [
     row('layers', t('settings.bgKind'), segmented('backgroundKind', BACKGROUND_KINDS.map((k) => [k, t(`bgKind.${k}`)]), s().backgroundKind)),
-    row('sparkles', t('settings.animation'), select('data-select', 'animation', ANIMATIONS.map((a) => [a, t(`animation.${a}`)]), s().animation, t('settings.animation'))
+    row('sparkles', t('settings.animation'), select('data-select', 'animation', ANIMATIONS.map((a) => [a, t(`animation.${a}`)]), s().animation, t('settings.animation'), 'data-icon-prefix="anim"')
       + button('shuffle-background', t('action.shuffleBackground'), 'dice', 'small'), t('settings.animation'), 'full'),
     row('speed', t('settings.animationSpeed'), numberField('animationSpeed', s().animationSpeed, 0, 300, 10, '%', t('settings.animationSpeed'))),
     toggle('animationRandom', t('settings.bgRandom'), 'dice'),
@@ -1198,7 +1200,7 @@ function renderRequirements() {
   const shown = requirementsShown();
   const [items, pager] = paged('requirements', shown, 13);
   const head = REQ_COLUMNS.map(([key, label]) => `<th class="${typeof all[0]?.[key] === 'number' ? 'num' : ''}"><button class="sort-head ${d.sort === key ? 'active' : ''}" data-action="req-sort" data-value="${key}" title="${escapeHtml(t('req.sortBy', { name: t(label) }))}">${escapeHtml(t(label))}${d.sort === key ? icon(d.desc ? 'chevronDown' : 'chevronUp', 'icon tiny') : ''}</button></th>`).join('');
-  const pick = (r, key, options) => `<select data-req-field="${key}" data-id="${escapeHtml(r.id)}" title="${escapeHtml(t(`field.${key}`))}" aria-label="${escapeHtml(t(`field.${key}`))}">${options.map((o) => `<option value="${o}" ${r[key] === o ? 'selected' : ''}>${escapeHtml(enumText(o))}</option>`).join('')}</select>`;
+  const pick = (r, key, options) => `<select data-icon="${{ status: 'check', priority: 'flag', kind: 'tag', risk: 'warning' }[key] ?? 'list'}" data-req-field="${key}" data-id="${escapeHtml(r.id)}" title="${escapeHtml(t(`field.${key}`))}" aria-label="${escapeHtml(t(`field.${key}`))}">${options.map((o) => `<option value="${o}" ${r[key] === o ? 'selected' : ''}>${escapeHtml(enumText(o))}</option>`).join('')}</select>`;
   const count = (n, warn) => `<td class="num ${warn && !n ? 'missing' : ''}" ${warn && !n ? `title="${escapeHtml(t('req.uncovered'))}"` : ''}>${n}</td>`;
   const body = items.map((r) => {
     const committed = COMMITTED_STATUSES.includes(r.status) && !r.children;
@@ -1240,7 +1242,7 @@ function traceOptionsHtml(o, p) {
   const types = [['', t('trace.anyType')], ...(p.elementTypes ?? []).map((x) => [x.type, `${x.label} (${x.count})`])];
   const scopes = [['', t('trace.wholeProject')], ...(p.scopes ?? []).map((x) => [x.id, x.path || x.name])];
   const rels = [['', t('trace.allRelations')], ...(p.relationTypes ?? []).map((x) => [x.type, x.label])];
-  const sel = (key, options, label) => `<select data-trace="${key}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${String(o[key] ?? '') === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
+  const sel = (key, options, label) => `<select data-icon="table" data-trace="${key}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${String(o[key] ?? '') === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
   return `<div class="trace-options">
     <span class="trace-label">${icon('list')}${escapeHtml(t('trace.source'))}</span>${sel('sourceType', types, t('trace.sourceType'))}${sel('sourceScope', scopes, t('trace.sourceScope'))}
     <button class="icon-button" data-action="trace-swap" title="${escapeHtml(t('trace.swap'))}" aria-label="${escapeHtml(t('trace.swap'))}">${icon('viewSwitch')}</button>
@@ -1323,7 +1325,7 @@ function renderCodegen() {
         ${optionRows}
       </div>
       <div class="codegen-preview">
-        <div class="preview-files">${files.length ? `<select data-preview-file>${files.map((f, i) => `<option value="${i}" ${i === state.previewIndex ? 'selected' : ''}>${escapeHtml(f.path)}</option>`).join('')}</select><span class="muted">${escapeHtml(t('codegen.fileCount', { count: files.length }))}</span>` : `<span class="muted">${escapeHtml(preview?.error ?? (preview ? t('codegen.nothing') : t('codegen.previewing')))}</span>`}</div>
+        <div class="preview-files">${files.length ? `<select data-preview-file data-icon="file">${files.map((f, i) => `<option value="${i}" ${i === state.previewIndex ? 'selected' : ''}>${escapeHtml(f.path)}</option>`).join('')}</select><span class="muted">${escapeHtml(t('codegen.fileCount', { count: files.length }))}</span>` : `<span class="muted">${escapeHtml(preview?.error ?? (preview ? t('codegen.nothing') : t('codegen.previewing')))}</span>`}</div>
         <pre class="code-preview">${escapeHtml(shown?.content ?? '')}</pre>
       </div>
     </div>`,
@@ -1373,7 +1375,7 @@ function renderTextImport() {
     glyph: 'mermaid', title: t('textImport.title'),
     body: `<div class="editor text-import">
       ${row('mermaid', t('textImport.format'), segmented('format', [['mermaid', 'Mermaid'], ['plantuml', 'PlantUML']], d.format, 'data-draft-segment'))}
-      ${row('samples', t('textImport.samples'), `<select data-text-sample title="${escapeHtml(t('textImport.samples'))}" aria-label="${escapeHtml(t('textImport.samples'))}"><option value="">${escapeHtml(t('textImport.samplePick'))}</option>${Object.keys(samples).map((k) => `<option value="${k}">${escapeHtml(t(`textImport.sample.${k}`))}</option>`).join('')}</select>`)}
+      ${row('samples', t('textImport.samples'), `<select data-text-sample title="${escapeHtml(t('textImport.samples'))}" aria-label="${escapeHtml(t('textImport.samples'))}"><option value="">${escapeHtml(t('textImport.samplePick'))}</option>${Object.keys(samples).map((k) => `<option value="${k}" data-icon="${{ class: 'dgClass', sequence: 'dgSequence', flowchart: 'dgFlowchart', er: 'dgErd', state: 'dgState', usecase: 'dgUseCase', activity: 'dgActivity', component: 'dgComponent', mindmap: 'dgMindmap', gantt: 'dgGantt' }[k] ?? 'samples'}">${escapeHtml(t(`textImport.sample.${k}`))}</option>`).join('')}</select>`)}
       <textarea class="code-input" data-draft="text" spellcheck="false" placeholder="${escapeHtml(t(d.format === 'plantuml' ? 'textImport.placeholderPlantUml' : 'textImport.placeholder'))}">${escapeHtml(d.text)}</textarea>
       <p class="muted">${escapeHtml(t(d.format === 'plantuml' ? 'textImport.hintPlantUml' : 'textImport.hint'))}</p>
     </div>`,

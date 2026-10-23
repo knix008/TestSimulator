@@ -513,6 +513,32 @@ export const typeLabel = (type, language = 'ko') => {
 };
 /** Field definitions for the Properties panel. */
 export const fieldsOf = (type) => TYPES[type]?.fields ?? [];
+
+/**
+ * Element types (outside UML, SysML and ER) whose shape never shows a stereotype: a «stereotype» set on them
+ * would change nothing on the diagram, so the Properties panel hides the field and the stereotype display
+ * commands are off for them. A stereotype read from a file is still kept. UML, SysML and ER elements keep the
+ * field even where their shape does not show it, because it goes into StarUML, XMI and generated code.
+ * test/unit/stereotype.test.js renders every type and keeps this list in step with the shapes.
+ */
+export const STEREOTYPE_NOT_SHOWN = new Set([
+  'FCOr', 'FCSummingJunction', 'FCCollate', 'FCSort', 'FCMerge', 'FCExtract', 'FCFlow',
+  'DFDProcess', 'DFDDataStore', 'DFDDataFlow',
+  'BPMNParticipant', 'BPMNLane', 'BPMNTask', 'BPMNSubProcess', 'BPMNCallActivity', 'BPMNStartEvent', 'BPMNIntermediateEvent', 'BPMNBoundaryEvent', 'BPMNEndEvent',
+  'BPMNExclusiveGateway', 'BPMNParallelGateway', 'BPMNInclusiveGateway', 'BPMNEventBasedGateway', 'BPMNComplexGateway', 'BPMNGroup', 'BPMNSequenceFlow',
+  'C4Person', 'C4SoftwareSystem', 'C4Container', 'C4ContainerDatabase', 'C4Component', 'C4Boundary', 'C4DeploymentNode', 'C4Relationship',
+  'MMNode', 'MMBoundary',
+  'WFDesktopFrame', 'WFWebFrame', 'WFMobileFrame', 'WFPanel', 'WFButton', 'WFText', 'WFLink', 'WFInput', 'WFTextArea', 'WFCheckbox', 'WFRadio', 'WFSwitch',
+  'WFDropdown', 'WFSlider', 'WFTabList', 'WFImage', 'WFAvatar', 'WFList', 'WFTable', 'WFDivider', 'WFProgress', 'WFIcon',
+  'CloudGroup', 'CloudConnection',
+  'GanttCalendar', 'GanttTask', 'GanttMilestone', 'GanttSeparator', 'WBSNode', 'TLTimeline', 'TLEvent', 'TLPeriod',
+  'ArchiMateGrouping', 'ArchiMateJunction', 'ArchiMateInfluence',
+  'NWNetwork', 'NWNode', 'NWGroup',
+  'USActivity', 'USStep', 'USStory', 'USRelease', 'CJPersona', 'CJStage', 'CJLane', 'CJTouchpoint', 'CJCard', 'CJEmotion',
+  'DSDocument', 'EBNFRule', 'RegexPattern',
+]);
+/** Whether the Properties panel offers a stereotype for this element type (see STEREOTYPE_NOT_SHOWN). */
+export const hasStereotype = (type) => !STEREOTYPE_NOT_SHOWN.has(type) && fieldsOf(type).some((f) => f.key === 'stereotype');
 /** View type for a model element type (StarUML convention: UMLClass → UMLClassView). */
 export const viewTypeOf = (type) => `${type}View`;
 /** Model type of a view type ('' for annotation views). */

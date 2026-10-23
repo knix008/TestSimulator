@@ -1531,3 +1531,22 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 /* The editor panel has no side padding: sections fill it exactly (the -10px side margins made it 20px wider than
    the panel, cutting the first letters of the labels and the right end of the background controls). */
 .editors .editor-body > .prop-section { margin-left: 0; margin-right: 0; }
+
+/* ───────────────────────── dropdowns with icons (ui/dropdown.js): the select keeps its place and shows the
+   chosen option's icon; its list (and the suggestions of a text box) is ours, an icon on every item. */
+select.dd-select { background-repeat: no-repeat; background-position: 8px center; background-size: 15px 15px; padding-left: 29px; }
+.dd-list {
+  position: fixed; z-index: 10000; overflow-y: auto; overscroll-behavior: contain; max-width: min(520px, calc(100vw - 8px)); padding: 4px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 10px 28px -6px var(--shadow, rgba(0, 0, 0, 0.3)), 0 2px 6px color-mix(in srgb, var(--shadow, #000) 40%, transparent);
+  font: inherit; font-size: 0.95em; scrollbar-width: thin; user-select: none;
+}
+.dd-item { display: grid; grid-template-columns: 18px minmax(0, 1fr) 16px; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; cursor: default; white-space: nowrap; }
+.dd-item > span { overflow: hidden; text-overflow: ellipsis; }
+.dd-item .icon { width: 16px; height: 16px; color: var(--accent); }
+.dd-item .dd-check { width: 14px; height: 14px; color: inherit; }
+.dd-item.chosen { font-weight: 600; }
+.dd-item.active { background: var(--accent); color: var(--accent-text); }
+.dd-item.active .icon { color: inherit; }
+.dd-item.disabled { opacity: 0.4; }
+.dd-group { padding: 6px 8px 2px; font-size: 0.78em; font-weight: 600; color: var(--muted); text-transform: uppercase; }

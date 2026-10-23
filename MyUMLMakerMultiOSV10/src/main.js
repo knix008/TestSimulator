@@ -5,6 +5,7 @@ import './styles.css';
 import { loadSettings, resetForNewInstall } from './domain/settings.js';
 import { setLanguage } from './i18n.js';
 import { applyFont, applyTheme, resolveTheme } from './themes.js';
+import { installDropdowns } from './ui/dropdown.js';
 
 // First start after the installer ran: preferences go back to their defaults, the user's data stays
 // (the desktop app hands the installer's token to the main window only).
@@ -14,6 +15,9 @@ setLanguage(settings.language);
 // Before the first paint, so no window flashes in the wrong colours.
 applyTheme(resolveTheme(settings.theme, globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches, settings.customTheme));
 applyFont(settings);
+
+// Every <select> and <input list> of every window gets the dropdown with icons.
+installDropdowns(document);
 
 const search = new URLSearchParams(location.search);
 const framed = search.get('popup');

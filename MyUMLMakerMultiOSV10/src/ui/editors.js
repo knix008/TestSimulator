@@ -5,7 +5,7 @@
 // (colours, font, line style and display options of the selected views),
 // Documentation, and Tags & Constraints. Edits are sent to the app through
 // data-* attributes (one undo step each).
-import { CLASSIFIER_TYPES, fieldsOf, TYPE_TARGETS, typeDef, typeLabel, VISIBILITIES } from '../domain/meta.js';
+import { CLASSIFIER_TYPES, fieldsOf, hasStereotype, TYPE_TARGETS, typeDef, typeLabel, VISIBILITIES } from '../domain/meta.js';
 import { displayName, elementsWhere, isDiagram, isEdgeView, isRelationship, projectStereotypes, qualifiedName, refId, relationshipEnds } from '../domain/model.js';
 import { MULTIPLICITIES, operationText, attributeText } from '../domain/labels.js';
 import { escapeHtml } from './dom.js';
@@ -30,6 +30,13 @@ export function refCandidates(project, key, element) {
   return elementsWhere(project, (e) => e !== element && (types ? types.includes(e._type) : Boolean(e.name)) && !isDiagram(e));
 }
 
+/** Icons of the enum fields' dropdowns (an option's own icon, when one is named after its value, comes first). */
+const FIELD_ICONS = {
+  visibility: 'visibility', direction: 'arrowEnd', aggregation: 'umlAggregation', shape: 'roundRect', mindLayout: 'mmMap', boundaryShape: 'mmBoundary',
+  kind: 'tag', priority: 'flag', status: 'check', risk: 'warning', verifyMethod: 'validate', messageSort: 'umlMessage', provider: 'cloudService',
+  device: 'nwServer', format: 'docText', emotion: 'cjEmotion', concurrency: 'umlFork', layer: 'layers', aspect: 'archimateModel',
+};
+const TAG_KIND_ICONS = { string: 'textTool', boolean: 'check', number: 'percent', reference: 'link', hidden: 'eye' };
 const fieldLabel = (t, key) => { const text = t(`field.${key}`); return text === `field.${key}` ? key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()) : text; };
 const row = (label, control, { tall = false, title = label } = {}) => `<div class="prop-row ${tall ? 'tall' : ''}" title="${escapeHtml(title)}"><span class="prop-label"><span>${escapeHtml(label)}</span></span><span class="prop-control">${control}</span></div>`;
 const section = (app, id, glyph, title, body, actions = '') => {
@@ -46,7 +53,7 @@ function fieldControl(app, project, element, field) {
   const index = app.tab().index;
   switch (field.type) {
     case 'bool': return `<label class="switch-wrap"><input type="checkbox" ${attrs} ${value ? 'checked' : ''} /><span class="switch" aria-hidden="true"></span></label>`;
-    case 'enum': return `<select ${attrs}>${field.options.map((o) => `<option value="${escapeHtml(o)}" ${String(value ?? field.def ?? '') === o ? 'selected' : ''}>${escapeHtml(o === '' ? '—' : t(`enum.${o}`) === `enum.${o}` ? o : t(`enum.${o}`))}</option>`).join('')}</select>`;
+    case 'enum': return `<select ${attrs} data-icon="${FIELD_ICONS[field.key] ?? 'list'}">${field.options.map((o) => `<option value="${escapeHtml(o)}" ${String(value ?? field.def ?? '') === o ? 'selected' : ''}>${escapeHtml(o === '' ? '—' : t(`enum.${o}`) === `enum.${o}` ? o : t(`enum.${o}`))}</option>`).join('')}</select>`;
     // The source text of a data view (JSON/YAML document, EBNF rule, regular expression) gets room and a fixed-width font.
     case 'text': return ['DSDocument', 'EBNFRule', 'RegexPattern'].includes(element._type) && field.key !== 'documentation'
       ? `<textarea ${attrs} rows="${element._type === 'DSDocument' ? 12 : 4}" spellcheck="false" wrap="off" style="font-family: Consolas, 'D2Coding', monospace; white-space: pre">${escapeHtml(value ?? '')}</textarea>`
@@ -72,7 +79,7 @@ function fieldControl(app, project, element, field) {
       }
       const current = refId(value);
       const list = refCandidates(project, field.key, element).slice(0, 2000);
-      return `<span class="type-field"><select ${attrs}><option value="">—</option>${list.map((e) => `<option value="${e._id}" ${e._id === current ? 'selected' : ''}>${escapeHtml(`${displayName(e, app.language())}  (${qualifiedName(project, e._id, index)})`)}</option>`).join('')}</select>${current ? `<button class="icon-button" data-goto="${current}" title="${escapeHtml(t('props.goTo'))}">${icon('goTo')}</button>` : ''}</span>`;
+      return `<span class="type-field"><select ${attrs} data-icon="link"><option value="" data-icon="stereoNone">—</option>${list.map((e) => `<option value="${e._id}" data-icon="${typeDef(e._type)?.icon ?? 'umlClass'}" ${e._id === current ? 'selected' : ''}>${escapeHtml(`${displayName(e, app.language())}  (${qualifiedName(project, e._id, index)})`)}</option>`).join('')}</select>${current ? `<button class="icon-button" data-goto="${current}" title="${escapeHtml(t('props.goTo'))}">${icon('goTo')}</button>` : ''}</span>`;
     }
     case 'refs': {
       const list = (Array.isArray(value) ? value : []).map((r) => index.get(refId(r))).filter(Boolean);
@@ -139,7 +146,7 @@ export function propertiesHtml(app, element) {
   const def = typeDef(element._type);
   const title = element._type === 'Project' ? t('explorer.project') : typeLabel(element._type, lang);
   const qname = element._type === 'Project' ? '' : qualifiedName(project, element._id, app.tab().index);
-  const fields = element._type === 'Project' ? [{ key: 'name', type: 'string' }, ...fieldsOf('Project').filter((f) => f.key !== 'name' && f.key !== 'stereotype')] : fieldsOf(element._type).filter((f) => f.key !== 'documentation' && !f.background);
+  const fields = element._type === 'Project' ? [{ key: 'name', type: 'string' }, ...fieldsOf('Project').filter((f) => f.key !== 'name' && f.key !== 'stereotype')] : fieldsOf(element._type).filter((f) => f.key !== 'documentation' && !f.background && (f.key !== 'stereotype' || hasStereotype(element._type)));
   out += section(app, 'general', def?.icon ?? 'umlProject', title, `${qname ? row(t('props.qualifiedName'), `<span class="prop-value" title="${escapeHtml(qname)}">${escapeHtml(qname)}</span>`) : ''}${fields.map((f) => row(fieldLabel(t, f.key), fieldControl(app, project, element, f), { tall: f.type === 'text' })).join('')}`);
   for (const key of ['end1', 'end2']) {
     const end = element[key];
@@ -165,7 +172,7 @@ export function diagramPropertiesHtml(app, diagram) {
   const check = (key, on) => row(fieldLabel(t, key), `<label class="switch-wrap"><input type="checkbox" data-field="${key}" data-target="${diagram._id}" ${on ? 'checked' : ''} /><span class="switch" aria-hidden="true"></span></label>`);
   if (diagram._type === 'UMLSequenceDiagram' || diagram._type === 'UMLCommunicationDiagram') {
     body += check('showSequenceNumber', diagram.showSequenceNumber !== false);
-    body += row(fieldLabel(t, 'messageSignature'), `<select data-field="messageSignature" data-target="${diagram._id}">${['none', 'nameOnly', 'typeOnly', 'nameAndType'].map((o) => `<option value="${o}" ${(diagram.messageSignature ?? 'nameAndType') === o ? 'selected' : ''}>${escapeHtml(t(`enum.${o}`))}</option>`).join('')}</select>`);
+    body += row(fieldLabel(t, 'messageSignature'), `<select data-field="messageSignature" data-target="${diagram._id}" data-icon="signature">${['none', 'nameOnly', 'typeOnly', 'nameAndType'].map((o) => `<option value="${o}" ${(diagram.messageSignature ?? 'nameAndType') === o ? 'selected' : ''}>${escapeHtml(t(`enum.${o}`))}</option>`).join('')}</select>`);
     if (diagram._type === 'UMLSequenceDiagram') body += check('showActivation', diagram.showActivation !== false);
   }
   const stats = (diagram.ownedViews ?? []).length;
@@ -205,12 +212,13 @@ export function styleHtml(app, views) {
   body += row(t('style.lineColor'), color('lineColor'));
   body += row(t('style.fontColor'), color('fontColor'));
   body += row(t('style.fontFace'), `<input type="text" list="dl-fonts" data-style="fontFace" value="${escapeHtml(same('fontFace') ? first.fontFace ?? '' : '')}" placeholder="${escapeHtml(t('style.default'))}" />`);
-  body += row(t('style.fontSize'), `<select data-style="fontSize">${FONT_SIZES.map((s) => `<option value="${s}" ${(Number(first.fontSize) || 0) === s ? 'selected' : ''}>${s ? `${s} px` : escapeHtml(t('style.default'))}</option>`).join('')}</select>`);
+  body += row(t('style.fontSize'), `<select data-style="fontSize" data-icon="font">${FONT_SIZES.map((s) => `<option value="${s}" ${(Number(first.fontSize) || 0) === s ? 'selected' : ''}>${s ? `${s} px` : escapeHtml(t('style.default'))}</option>`).join('')}</select>`);
   body += row(t('style.fontStyle'), `<span class="segmented small"><button class="segment ${views.every((v) => v.bold) ? 'active' : ''}" data-style-toggle="bold" title="${escapeHtml(t('action.bold'))}">${icon('bold')}</button><button class="segment ${views.every((v) => v.italic) ? 'active' : ''}" data-style-toggle="italic" title="${escapeHtml(t('action.italic'))}">${icon('italic')}</button></span>`);
-  body += row(t('style.lineWidth'), `<select data-style="lineWidth">${[1, 1.5, 2, 3, 4].map((w) => `<option value="${w}" ${(Number(first.lineWidth) || 1) === w ? 'selected' : ''}>${w} px</option>`).join('')}</select>`);
+  body += row(t('style.lineWidth'), `<select data-style="lineWidth" data-icon="lineWeight">${[1, 1.5, 2, 3, 4].map((w) => `<option value="${w}" ${(Number(first.lineWidth) || 1) === w ? 'selected' : ''}>${w} px</option>`).join('')}</select>`);
   if (edges) body += row(t('style.lineStyle'), `<span class="segmented small">${['', 'rectilinear', 'oblique', 'roundRect', 'curve'].map((s) => `<button class="segment ${(first.lineStyle ?? '') === s && same('lineStyle') ? 'active' : ''}" data-style-set="lineStyle:${s}" title="${escapeHtml(t(`lineStyle.${s || 'default'}`))}">${icon(`line${s ? s[0].toUpperCase() + s.slice(1) : 'Default'}`)}</button>`).join('')}</span>`);
   if (nodes) {
-    body += row(t('style.stereotypeDisplay'), `<select data-style="stereotypeDisplay">${['label', 'decoration', 'icon', 'none'].map((s) => `<option value="${s}" ${(first.stereotypeDisplay ?? 'label') === s ? 'selected' : ''}>${escapeHtml(t(`stereotypeDisplay.${s}`))}</option>`).join('')}</select>`);
+    // Only for shapes that show a stereotype (see STEREOTYPE_NOT_SHOWN).
+    if (views.some((v) => hasStereotype(String(v._type).replace(/View$/, '')))) body += row(t('style.stereotypeDisplay'), `<select data-style="stereotypeDisplay" data-icon-prefix="stereo">${['label', 'decoration', 'icon', 'none'].map((s) => `<option value="${s}" ${(first.stereotypeDisplay ?? 'label') === s ? 'selected' : ''}>${escapeHtml(t(`stereotypeDisplay.${s}`))}</option>`).join('')}</select>`);
     for (const key of STYLE_FLAGS.node) body += check(key);
     if (views.some((v) => typeDef(String(v._type).replace(/View$/, ''))?.compartments)) for (const key of STYLE_FLAGS.classifier) body += check(key);
   } else if (edges) for (const key of STYLE_FLAGS.edge) body += check(key);
@@ -234,7 +242,7 @@ export function tagsHtml(app, element) {
   const tags = element.tags ?? [];
   const rules = element.ownedRules ?? [];
   const tagRows = tags.map((tag) => `<div class="tag-row"><input type="text" data-tag-field="${tag._id}:name" value="${escapeHtml(tag.name)}" placeholder="${escapeHtml(t('tags.name'))}" />
-    <select data-tag-field="${tag._id}:kind">${['string', 'boolean', 'number', 'reference', 'hidden'].map((k) => `<option value="${k}" ${tag.kind === k ? 'selected' : ''}>${escapeHtml(t(`tagKind.${k}`))}</option>`).join('')}</select>
+    <select data-tag-field="${tag._id}:kind">${['string', 'boolean', 'number', 'reference', 'hidden'].map((k) => `<option value="${k}" data-icon="${TAG_KIND_ICONS[k]}" ${tag.kind === k ? 'selected' : ''}>${escapeHtml(t(`tagKind.${k}`))}</option>`).join('')}</select>
     <input type="text" data-tag-field="${tag._id}:value" value="${escapeHtml(tag.value ?? '')}" placeholder="${escapeHtml(t('tags.value'))}" />
     <button class="icon-button danger" data-tag-delete="${tag._id}" title="${escapeHtml(t('tags.delete'))}">${icon('trash')}</button></div>`).join('');
   const ruleRows = rules.map((rule) => `<div class="tag-row"><input type="text" data-field="name" data-target="${rule._id}" value="${escapeHtml(rule.name ?? '')}" placeholder="${escapeHtml(t('tags.name'))}" />
@@ -247,8 +255,15 @@ export function tagsHtml(app, element) {
 /** <datalist>s shared by the editors. */
 export function datalistsHtml(app) {
   const tab = app.tab();
-  const classifiers = tab ? elementsWhere(tab.project, (e) => TYPE_TARGETS.includes(e._type)).map((e) => e.name).filter(Boolean) : [];
+  const classifiers = tab ? elementsWhere(tab.project, (e) => TYPE_TARGETS.includes(e._type) && e.name) : [];
   const stereotypes = tab ? projectStereotypes(tab.project).map((e) => e.name) : [];
-  const list = (id, values) => `<datalist id="${id}">${[...new Set(values)].map((v) => `<option value="${escapeHtml(v)}"></option>`).join('')}</datalist>`;
-  return list('dl-types', [...classifiers, ...PRIMITIVES]) + list('dl-sqltypes', SQL_TYPES) + list('dl-multiplicity', MULTIPLICITIES.filter(Boolean)) + list('dl-stereotypes', [...stereotypes, ...STANDARD_STEREOTYPES]) + list('dl-fonts', app.state.fonts ?? []) + list('dl-visibility', VISIBILITIES);
+  // Each suggestion list shows an icon on every item (ui/dropdown.js): the list's own, or the item's (a class, an enum …).
+  const list = (id, glyph, values) => {
+    const seen = new Set();
+    const items = values.map((v) => (typeof v === 'string' ? [v, ''] : v)).filter(([v]) => v && !seen.has(v) && seen.add(v));
+    return `<datalist id="${id}" data-icon="${glyph}">${items.map(([v, own]) => `<option value="${escapeHtml(v)}"${own ? ` data-icon="${own}"` : ''}></option>`).join('')}</datalist>`;
+  };
+  return list('dl-types', 'umlPrimitive', [...classifiers.map((e) => [e.name, typeDef(e._type)?.icon ?? 'umlClass']), ...PRIMITIVES])
+    + list('dl-sqltypes', 'erdColumn', SQL_TYPES) + list('dl-multiplicity', 'list', MULTIPLICITIES.filter(Boolean))
+    + list('dl-stereotypes', 'umlStereotype', [...stereotypes, ...STANDARD_STEREOTYPES]) + list('dl-fonts', 'font', app.state.fonts ?? []) + list('dl-visibility', 'visibility', VISIBILITIES);
 }
