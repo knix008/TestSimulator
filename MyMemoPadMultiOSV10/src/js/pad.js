@@ -13,7 +13,7 @@ import {
 import { showAlert, showConfirm } from './dialogs.js';
 
 export function initPad({
-  isElectron,
+  isDesktop,
   isWeb,
   api,
   getMemos,
@@ -49,7 +49,7 @@ export function initPad({
     else editor.style.fontWeight = '';
     if (look.fontStyle?.toLowerCase().includes('italic')) editor.style.fontStyle = 'italic';
     else editor.style.fontStyle = '';
-    if (persistOpacity && isElectron && api?.setWindowOpacity) {
+    if (persistOpacity && isDesktop && api?.setWindowOpacity) {
       api.setWindowOpacity(transparencyToOpacity(look.transparencyPercent));
     }
     notifyState();
@@ -121,13 +121,15 @@ export function initPad({
     sourceIndex = -1;
     sourceMemo = null;
     skipSave = true;
+    // Tell the main side too: it saves the last reported text when the window closes, and
+    // would otherwise bring the deleted memo back (or overwrite the one after it).
+    editor.innerHTML = '';
+    notifyState();
     if (isWeb) {
-      editor.innerHTML = '';
       onWebBack?.();
       return;
     }
-    if (api?.closePad) api.closePad();
-    else editor.innerHTML = '';
+    api?.closePad?.();
   }
 
   let savedRange = null;
@@ -174,6 +176,14 @@ export function initPad({
     editor.focus();
     restoreSelection();
     if (whole) document.execCommand('selectAll', false);
+    document.execCommand(command, false);
+    rememberSelection();
+    notifyState();
+  }
+
+  /** A formatting or editing command from the context menu, on the current selection. */
+  function format(command) {
+    editor.focus();
     document.execCommand(command, false);
     rememberSelection();
     notifyState();
@@ -259,7 +269,7 @@ export function initPad({
   wireToolbar();
   applyLook(look);
 
-  if (isElectron && api?.onPadLoad) {
+  if (isDesktop && api?.onPadLoad) {
     api.onPadLoad((payload) => loadPayload(payload));
   }
 
@@ -271,6 +281,7 @@ export function initPad({
     loadPayload,
     persistCurrent,
     handleSettingsCommand,
+    format,
     getSourceIndex: () => sourceIndex,
     getHtml: () => currentHtml(),
     setSourceIndex: (n) => {

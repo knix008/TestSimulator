@@ -25,7 +25,7 @@ export function measureSettingsHeight() {
   return Math.ceil(barH + inner);
 }
 
-export function initSettings({ isElectron, getAppInfo }) {
+export function initSettings({ isDesktop, getAppInfo }) {
   lockSettingsTheme();
   const view = document.getElementById('view-settings');
   const form = document.getElementById('settings-form');
@@ -58,6 +58,8 @@ export function initSettings({ isElectron, getAppInfo }) {
     sw.type = 'button';
     sw.className = 'swatch';
     sw.style.background = hex;
+    sw.dataset.color = hex.toUpperCase();
+    sw.setAttribute('aria-label', hex);
     sw.addEventListener('click', () => {
       backColor.value = hex;
       previewBack(hex);
@@ -69,7 +71,15 @@ export function initSettings({ isElectron, getAppInfo }) {
     return form.querySelector('input[name="scope"]:checked')?.value !== 'selection';
   }
 
+  function markSwatch(hex) {
+    const value = String(hex || '').toUpperCase();
+    palette.querySelectorAll('.swatch').forEach((sw) => {
+      sw.classList.toggle('active', sw.dataset.color === value);
+    });
+  }
+
   function previewBack(hex) {
+    markSwatch(hex);
     sendSettingsCommand({ type: 'previewColor', color: hex });
   }
 
@@ -152,7 +162,7 @@ export function initSettings({ isElectron, getAppInfo }) {
       language: languageSelect.value,
       windowTransparencyPercent: look.transparencyPercent
     };
-    if (isElectron && typeof autostartCheck.checked === 'boolean') {
+    if (isDesktop && typeof autostartCheck.checked === 'boolean') {
       await window.desktopAPI.setAutoStart(autostartCheck.checked);
     }
     sendSettingsCommand({
@@ -183,6 +193,7 @@ export function initSettings({ isElectron, getAppInfo }) {
     fontSize.value = String(look.fontSize || 12);
     fontColor.value = look.foreColor || '#000000';
     backColor.value = look.editorBackColor || DEFAULT_LOOK.editorBackColor;
+    markSwatch(backColor.value);
     opacityRange.value = String(look.transparencyPercent || 0);
     opacityValue.textContent = t('settings.opacity.value', { n: opacityRange.value });
     languageSelect.value = settings?.language || getLocale();
@@ -221,9 +232,9 @@ export function initSettings({ isElectron, getAppInfo }) {
     setLocale(context.settings.language || getLocale());
     fillFromLook(context.look, context.settings);
     opacityField.hidden = context.ownerRole === 'list';
-    autostartNote.hidden = isElectron;
-    autostartCheck.disabled = !isElectron;
-    if (isElectron && window.desktopAPI?.getAutoStart) {
+    autostartNote.hidden = isDesktop;
+    autostartCheck.disabled = !isDesktop;
+    if (isDesktop && window.desktopAPI?.getAutoStart) {
       autostartCheck.checked = await window.desktopAPI.getAutoStart();
     } else {
       autostartCheck.checked = false;

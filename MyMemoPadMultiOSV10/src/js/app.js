@@ -26,15 +26,16 @@ import {
   onSettingsLoad,
   openSettingsWindow
 } from './settings-bus.js';
+import { editEntries, initContextMenus, shortcut } from './contextmenu.js';
 
-const isElectron = Boolean(window.desktopAPI?.isElectron);
+const isDesktop = Boolean(window.desktopAPI?.isDesktop);
 const api = window.desktopAPI || {};
 const params = new URLSearchParams(location.search);
-const role = isElectron
+const role = isDesktop
   ? (params.get('role') || 'pad')
   : (params.get('role') === 'settings' ? 'settings' : 'web');
 
-document.body.classList.toggle('is-electron', isElectron);
+document.body.classList.toggle('is-desktop', isDesktop);
 document.body.classList.add(`role-${role}`);
 document.documentElement.classList.add(`role-${role}`);
 if (role === 'settings') {
@@ -51,7 +52,7 @@ function getMemos() {
 
 function setMemos(items) {
   memos = items.slice();
-  if (isElectron) api.saveMemos(memos);
+  if (isDesktop) api.saveMemos(memos);
   else webSaveMemos(memos);
   list?.render();
 }
@@ -62,36 +63,115 @@ function getSettings() {
 
 function setSettings(next) {
   settings = { ...settings, ...next };
-  if (isElectron) api.saveSettings(settings);
+  if (isDesktop) api.saveSettings(settings);
   else webSaveSettings(settings);
 }
 
 function setLook(index, look) {
-  if (isElectron) api.setLook(index, look);
+  if (isDesktop) api.setLook(index, look);
   else webSetLook(index, look);
 }
 
 function removeLook(index) {
-  if (isElectron) api.removeLook(index);
+  if (isDesktop) api.removeLook(index);
   else webRemoveLook(index);
 }
 
 function wireWindowDrag() {
-  if (!isElectron) return;
+  if (!isDesktop) return;
+  // The OS moves the window from here until the button is released (snap included).
   document.querySelectorAll('[data-drag="1"]').forEach((el) => {
     el.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
+      e.preventDefault();
       api.beginWindowDrag();
-      const move = (ev) => api.updateWindowDrag(ev.screenX, ev.screenY);
-      const up = () => {
-        api.endWindowDrag();
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
     });
   });
+}
+
+function wireWindowButtons() {
+  for (const id of ['btn-minimize', 'list-minimize']) {
+    document.getElementById(id)?.addEventListener('click', () => api.minimize?.());
+  }
+}
+
+function padMenu() {
+  const editor = pad.editor;
+  const items = [
+    {
+      row: [
+        { icon: 'bold', label: t('settings.style.bold'), shortcut: shortcut('B'), action: () => pad.format('bold') },
+        { icon: 'italic', label: t('settings.style.italic'), shortcut: shortcut('I'), action: () => pad.format('italic') },
+        { icon: 'underline', label: t('settings.style.underline'), shortcut: shortcut('U'), action: () => pad.format('underline') },
+        { icon: 'strike', label: t('settings.style.strike'), shortcut: shortcut('Shift+S'), action: () => pad.format('strikeThrough') }
+      ]
+    },
+    '-',
+    { icon: 'undo', label: t('ctx.undo'), shortcut: shortcut('Z'), action: () => pad.format('undo') },
+    { icon: 'redo', label: t('ctx.redo'), shortcut: shortcut('Y'), action: () => pad.format('redo') },
+    '-',
+    ...editEntries(editor),
+    '-',
+    { icon: 'new-memo', label: t('ctx.newMemo'), action: () => document.getElementById('btn-add').click() },
+    { icon: 'list', label: t('ctx.list'), action: () => document.getElementById('btn-list').click() },
+    { icon: 'settings', label: t('ctx.settings'), action: () => openSettingsFrom('pad') }
+  ];
+  return items;
+}
+
+function padToolbarMenu() {
+  return [
+    { icon: 'new-memo', label: t('ctx.newMemo'), action: () => document.getElementById('btn-add').click() },
+    { icon: 'list', label: t('ctx.list'), action: () => document.getElementById('btn-list').click() },
+    { icon: 'settings', label: t('ctx.settings'), action: () => openSettingsFrom('pad') },
+    '-',
+    { icon: 'delete', label: t('main.delete'), danger: true, action: () => document.getElementById('btn-delete').click() },
+    '-',
+    isDesktop && { icon: 'minimize', label: t('main.minimize'), action: () => api.minimize?.() },
+    !document.body.classList.contains('role-web') && {
+      icon: 'close',
+      label: t('ctx.close'),
+      action: () => document.getElementById('btn-close').click()
+    }
+  ];
+}
+
+function listMenu(e) {
+  const card = e.target.closest('.memo-card');
+  const common = [
+    { icon: 'new-memo', label: t('ctx.newMemo'), action: () => document.getElementById('btn-new').click() },
+    { icon: 'import', label: t('ctx.import'), action: () => document.getElementById('btn-load').click() },
+    '-',
+    { icon: 'settings', label: t('ctx.settings'), action: () => openSettingsFrom('list') }
+  ];
+  if (card) {
+    const index = Number(card.dataset.index);
+    list.select(index);
+    return [
+      { icon: 'open', label: t('ctx.open'), shortcut: 'Enter', action: () => list.open(index) },
+      { icon: 'delete', label: t('ctx.delete'), shortcut: 'Del', danger: true, action: () => list.deleteAt(index) },
+      '-',
+      ...common
+    ];
+  }
+  if (e.target.closest('#list-toolbar') && isDesktop) {
+    return [
+      ...common,
+      '-',
+      { icon: 'minimize', label: t('main.minimize'), action: () => api.minimize?.() },
+      { icon: 'close', label: t('ctx.close'), action: () => api.close?.() }
+    ];
+  }
+  return common;
+}
+
+function resolveContextMenu(e) {
+  if (e.target.closest('dialog[open]')) return null;
+  if (e.target.closest('#view-pad')) {
+    return e.target.closest('#memo-editor') ? padMenu() : padToolbarMenu();
+  }
+  if (e.target.closest('#view-list')) return listMenu(e);
+  return null;
 }
 
 function showWebView(which) {
@@ -122,7 +202,7 @@ function applyCommit(cmd) {
   if (!cmd?.look || !cmd.settings) return;
   setSettings(cmd.settings);
   if (cmd.look.editorBackColor) {
-    if (!isElectron) webApplyBackColorToAllLooks(cmd.look.editorBackColor);
+    if (!isDesktop) webApplyBackColorToAllLooks(cmd.look.editorBackColor);
     applyThemeVars(cmd.look.editorBackColor);
     if (role === 'pad' || document.body.classList.contains('web-pad')) {
       pad.applyLook({
@@ -149,7 +229,7 @@ async function restoreLooksFromStore() {
   }
   if (role === 'pad' || document.body.classList.contains('web-pad')) {
     const index = pad.getSourceIndex();
-    const look = isElectron ? await api.getLook(index) : webGetLook(index);
+    const look = isDesktop ? await api.getLook(index) : webGetLook(index);
     if (look) pad.applyLook(look);
   }
 }
@@ -158,14 +238,14 @@ initErrorDialog();
 initTooltips(document);
 
 const pad = initPad({
-  isElectron,
+  isDesktop,
   isWeb: role === 'web',
   api,
   getMemos,
   setMemos,
   getSettings,
   setSettings,
-  getLook: (index) => (isElectron ? api.getLook(index) : webGetLook(index)),
+  getLook: (index) => (isDesktop ? api.getLook(index) : webGetLook(index)),
   setLook,
   removeLook,
   showList: () => api.showList?.(),
@@ -182,7 +262,7 @@ const pad = initPad({
 });
 
 const list = initList({
-  isElectron,
+  isDesktop,
   isWeb: role === 'web',
   api,
   getMemos,
@@ -191,7 +271,7 @@ const list = initList({
   removeLook,
   openSettings: () => openSettingsFrom('list'),
   openMemo: async (index) => {
-    if (isElectron) {
+    if (isDesktop) {
       await api.openMemoIndex(index);
       return;
     }
@@ -205,7 +285,7 @@ const list = initList({
     showWebView('pad');
   },
   openNew: async () => {
-    if (isElectron) {
+    if (isDesktop) {
       await api.openNewMemo();
       return;
     }
@@ -214,7 +294,7 @@ const list = initList({
     window.open(url.toString(), '_blank');
   },
   importFile: async () => {
-    if (isElectron) {
+    if (isDesktop) {
       const result = await api.openTextFile();
       if (result?.error === 'missing') await showAlert(t('list.openFile.missing'), t('common.error'));
       if (result?.error === 'failed') await showAlert(t('list.openFile.failed'), t('common.error'));
@@ -270,7 +350,7 @@ if (role !== 'settings') {
 }
 
 async function boot() {
-  if (isElectron) {
+  if (isDesktop) {
     appInfo = (await api.getAppInfo()) || appInfo;
     settings = (await api.getSettings()) || settings;
     memos = (await api.getMemos()) || [];
@@ -324,15 +404,17 @@ async function boot() {
     document.getElementById('view-settings').hidden = false;
     document.title = t('settings.title');
     const settingsUi = initSettings({
-      isElectron,
+      isDesktop,
       getAppInfo: () => appInfo
     });
-    if (isElectron && api.getSettingsContext) {
+    if (isDesktop && api.getSettingsContext) {
       const existing = await api.getSettingsContext();
       if (existing) await settingsUi.load({ ...existing, appInfo });
     }
     onSettingsLoad((context) => settingsUi.load({ ...context, appInfo }));
     wireWindowDrag();
+    initContextMenus(() => null);
+    api.windowReady?.();
     return;
   }
 
@@ -354,6 +436,9 @@ async function boot() {
   }
 
   wireWindowDrag();
+  wireWindowButtons();
+  initContextMenus(resolveContextMenu);
+  api.windowReady?.();
 }
 
 boot();

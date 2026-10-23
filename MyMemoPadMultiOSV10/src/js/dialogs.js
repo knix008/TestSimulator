@@ -3,6 +3,8 @@ import { t } from './i18n.js';
 export function showAlert(message, title) {
   const dialog = document.getElementById('alert-dialog');
   document.getElementById('alert-title').textContent = title || t('common.info');
+  const isError = title === t('common.error');
+  document.getElementById('alert-icon').src = isError ? 'icons/warning.svg' : title === t('common.done') ? 'icons/ok.svg' : 'icons/info.svg';
   document.getElementById('alert-message').textContent = message;
   if (!dialog.open) dialog.showModal();
   return new Promise((resolve) => {

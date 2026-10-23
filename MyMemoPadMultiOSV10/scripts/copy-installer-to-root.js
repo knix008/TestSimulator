@@ -1,74 +1,66 @@
 'use strict';
 
 /**
- * Copy final electron-builder installers from dist/ to the project root.
+ * Tauri 가 만든 설치 파일을 프로젝트 루트로 복사한다.
+ *
+ *   src-tauri/target/release/bundle/nsis/MyMemoPad_1.0.0_x64-setup.exe → MyMemoPad-Setup-1.0.0.exe
+ *   src-tauri/target/release/bundle/dmg/MyMemoPad_1.0.0_*.dmg          → MyMemoPad-1.0.0.dmg
+ *   src-tauri/target/release/bundle/appimage/MyMemoPad_1.0.0_*.AppImage → MyMemoPad-1.0.0.AppImage
+ *   src-tauri/target/release/bundle/deb/MyMemoPad_1.0.0_amd64.deb      → MyMemoPad_1.0.0_amd64.deb
+ *
+ * 루트의 이름은 Electron 판과 같게 둔다 (안내 문서·.gitignore 가 그대로 맞는다).
+ * 같은 종류의 옛 설치 파일은 지우고 새것 하나만 남긴다.
  */
 const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const distDir = path.join(root, 'dist');
-const pkg = require(path.join(root, 'package.json'));
+const target = process.env.CARGO_TARGET_DIR
+  ? path.resolve(root, 'src-tauri', process.env.CARGO_TARGET_DIR)
+  : path.join(root, 'src-tauri', 'target');
+const bundleDir = path.resolve(process.argv[2] || path.join(target, 'release', 'bundle'));
+const { version } = require(path.join(root, 'package.json'));
 
-const productName = (pkg.build && pkg.build.productName) || pkg.name;
-const version = pkg.version;
-
-const preferredNames = [
-  `${productName}-Setup-${version}.exe`,
-  `${productName}-${version}.dmg`,
-  `${productName}-${version}.AppImage`,
-  `${productName}_${version}_amd64.deb`,
-  `${productName}-${version}.exe`
+/** 종류마다 — 번들 안에서 찾을 꼴, 루트에 둘 이름, 루트에서 지울 옛 이름 */
+const KINDS = [
+  { match: /^MyMemoPad_.*-setup\.exe$/i, name: `MyMemoPad-Setup-${version}.exe`, old: /^MyMemoPad-Setup-.*\.exe$/i },
+  { match: /^MyMemoPad_.*\.dmg$/i, name: `MyMemoPad-${version}.dmg`, old: /^MyMemoPad-.*\.dmg$/i },
+  { match: /^MyMemoPad_.*\.AppImage$/i, name: `MyMemoPad-${version}.AppImage`, old: /^MyMemoPad-.*\.AppImage$/i },
+  { match: /^MyMemoPad_.*\.deb$/i, name: null, old: /^MyMemoPad_.*\.deb$/i }
 ];
 
-function isInstallerName(name) {
-  const lower = name.toLowerCase();
-  if (name.endsWith('.blockmap') || name.endsWith('.yml') || name.endsWith('.yaml')) {
-    return false;
+function walk(dir, found = []) {
+  if (!fs.existsSync(dir)) return found;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    // macOS 의 .app 은 폴더다 — 그 안은 볼 필요가 없다.
+    if (entry.isDirectory()) {
+      if (!entry.name.endsWith('.app')) walk(full, found);
+    } else {
+      found.push({ full, name: entry.name, time: fs.statSync(full).mtimeMs });
+    }
   }
-  return (
-    /-Setup-\d/.test(name) ||
-    lower.endsWith('.dmg') ||
-    lower.endsWith('.appimage') ||
-    lower.endsWith('.deb') ||
-    (lower.endsWith('.exe') && /setup/i.test(name))
-  );
+  return found;
 }
 
 function main() {
-  if (!fs.existsSync(distDir)) {
-    console.error('[copy-installer] dist/ not found');
-    process.exit(1);
-  }
-
-  const distFiles = fs.readdirSync(distDir);
-  const selected = new Set();
-
-  for (const name of preferredNames) {
-    if (distFiles.includes(name)) {
-      selected.add(name);
+  const files = walk(bundleDir);
+  let copied = 0;
+  for (const kind of KINDS) {
+    const newest = files.filter((f) => kind.match.test(f.name)).sort((a, b) => b.time - a.time)[0];
+    if (!newest) continue;
+    for (const name of fs.readdirSync(root)) {
+      if (kind.old.test(name)) fs.rmSync(path.join(root, name), { force: true });
     }
-  }
-
-  if (selected.size === 0) {
-    for (const name of distFiles) {
-      if (isInstallerName(name)) {
-        selected.add(name);
-      }
-    }
-  }
-
-  if (selected.size === 0) {
-    console.error('[copy-installer] No installer artifact found in dist/');
-    process.exit(1);
-  }
-
-  for (const name of selected) {
-    const src = path.join(distDir, name);
-    const dest = path.join(root, name);
-    fs.copyFileSync(src, dest);
+    const dest = path.join(root, kind.name || newest.name);
+    fs.copyFileSync(newest.full, dest);
     const sizeMb = (fs.statSync(dest).size / (1024 * 1024)).toFixed(1);
-    console.log(`[copy-installer] ${name} → ./ (${sizeMb} MB)`);
+    console.log(`[copy-installer] ${path.basename(dest)} → ./ (${sizeMb} MB)`);
+    copied += 1;
+  }
+  if (!copied) {
+    console.error(`[copy-installer] ${path.relative(root, bundleDir)} 에 설치 파일이 없습니다. 먼저 npm run build:win 등을 실행하세요.`);
+    process.exit(1);
   }
 }
 

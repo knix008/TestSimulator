@@ -1,5 +1,8 @@
 # Dependencies & build
 node_modules/
+# Tauri: Rust build output (several GB) and generated schemas; Cargo.lock is committed
+src-tauri/target/
+src-tauri/gen/
 dist/
 out/
 *.asar
@@ -36,6 +39,6 @@ Desktop.ini
 .cache/
 .turbo/
 
-# Electron / local crash dumps
+# Local crash dumps
 *.dmp
 crashpad/

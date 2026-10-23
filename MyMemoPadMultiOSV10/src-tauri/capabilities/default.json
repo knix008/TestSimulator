@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Every MyMemoPad window. Window, file, tray and clipboard work goes through MyMemoPad's own commands (src-tauri/src/lib.rs); only event listening is opened here.",
+  "windows": ["pad-*", "list", "settings"],
+  "permissions": ["core:event:default"]
+}

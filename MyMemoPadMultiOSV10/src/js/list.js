@@ -3,7 +3,7 @@ import { applyThemeVars, htmlToPlain, lookFromSettings, storedToHtml } from './s
 import { showAlert, showConfirm } from './dialogs.js';
 
 export function initList({
-  isElectron,
+  isDesktop,
   isWeb,
   api,
   getMemos,
@@ -18,7 +18,17 @@ export function initList({
   const host = document.getElementById('card-host');
   const empty = document.getElementById('list-empty');
   const view = document.getElementById('view-list');
+  const count = document.getElementById('list-count');
   let selected = 0;
+
+  /** Moves the highlight without rebuilding the cards (a rebuild between two clicks loses the double-click). */
+  function select(index) {
+    selected = index;
+    host.querySelectorAll('.memo-card').forEach((card) => {
+      card.classList.toggle('selected', Number(card.dataset.index) === index);
+    });
+    host.querySelector('.memo-card.selected')?.scrollIntoView({ block: 'nearest' });
+  }
 
   function applyTheme() {
     const settings = getSettings();
@@ -28,6 +38,7 @@ export function initList({
   function render() {
     const memos = getMemos();
     host.innerHTML = '';
+    if (count) count.textContent = memos.length ? t('list.count', { n: memos.length }) : '';
     if (!memos.length) {
       empty.hidden = false;
       selected = -1;
@@ -43,17 +54,14 @@ export function initList({
       card.innerHTML = `
         <div class="card-no">#${index + 1}</div>
         <div class="card-preview"></div>
-        <button type="button" class="card-delete" data-i18n-tooltip="list.delete" aria-label="🗑">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM6 8h12l-1 13H7L6 8z"/>
-          </svg>
+        <button type="button" class="card-delete" data-tooltip="${t('list.delete')}" aria-label="${t('list.delete')}">
+          <img class="icon" src="icons/delete.svg" alt="" draggable="false" />
         </button>
       `;
       card.querySelector('.card-preview').textContent = preview;
       card.addEventListener('click', (e) => {
         if (e.target.closest('.card-delete')) return;
-        selected = index;
-        render();
+        select(index);
       });
       card.addEventListener('dblclick', () => openMemo(index));
       card.querySelector('.card-delete').addEventListener('click', (e) => {
@@ -62,6 +70,7 @@ export function initList({
       });
       host.appendChild(card);
     });
+    host.querySelector('.memo-card.selected')?.scrollIntoView({ block: 'nearest' });
   }
 
   async function deleteAt(index) {
@@ -88,12 +97,10 @@ export function initList({
   host.addEventListener('keydown', (e) => {
     const memos = getMemos();
     if (e.key === 'ArrowDown' && selected < memos.length - 1) {
-      selected += 1;
-      render();
+      select(selected + 1);
       e.preventDefault();
     } else if (e.key === 'ArrowUp' && selected > 0) {
-      selected -= 1;
-      render();
+      select(selected - 1);
       e.preventDefault();
     } else if (e.key === 'Enter') {
       if (selected >= 0) openMemo(selected);
@@ -101,7 +108,7 @@ export function initList({
     } else if (e.key === 'Delete' && selected >= 0) {
       deleteAt(selected);
       e.preventDefault();
-    } else if (e.key === 'Escape' && isElectron) {
+    } else if (e.key === 'Escape' && isDesktop) {
       api?.close?.();
     }
   });
@@ -109,5 +116,5 @@ export function initList({
   applyTheme();
   render();
 
-  return { view, render, applyTheme, getSelected: () => selected };
+  return { view, render, applyTheme, select, open: openMemo, deleteAt, getSelected: () => selected };
 }

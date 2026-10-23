@@ -11,10 +11,15 @@
   --card-face: #fcebaa;
   --card-selected: #fff2be;
   --border: rgba(120, 90, 30, 0.35);
+  --btn-border: rgba(120, 90, 30, 0.14);
   --text-muted: #78601e;
   --danger: #b22222;
   --shadow: rgba(50, 40, 20, 0.18);
   --font: "Malgun Gothic", "맑은 고딕", "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+  /* Three text sizes for all window chrome: titles, labels/buttons, hints. */
+  --fs-title: 14px;
+  --fs-ui: 13px;
+  --fs-small: 12px;
 }
 
 html,
@@ -23,18 +28,19 @@ body {
   height: 100%;
   overflow: hidden;
   font-family: var(--font);
+  font-size: var(--fs-ui);
   background: var(--memo-back);
   color: var(--memo-fore);
 }
 
-body.is-electron {
+body.is-desktop {
   user-select: none;
 }
 
-body.is-electron .editor,
-body.is-electron input,
-body.is-electron textarea,
-body.is-electron select {
+body.is-desktop .editor,
+body.is-desktop input,
+body.is-desktop textarea,
+body.is-desktop select {
   user-select: text;
   -webkit-user-select: text;
 }
@@ -58,13 +64,22 @@ textarea {
   display: none !important;
 }
 
+.icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
   gap: 2px;
   height: 40px;
-  padding: 0 6px;
+  padding: 0 4px 0 6px;
   background: var(--toolbar);
+  border-bottom: 1px solid rgba(120, 90, 30, 0.18);
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
@@ -76,11 +91,52 @@ textarea {
   cursor: grab;
 }
 
+body:not(.is-desktop) .toolbar-drag,
+body:not(.is-desktop) .toolbar-title {
+  cursor: default;
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tb-group + .tb-group {
+  margin-left: 4px;
+  padding-left: 6px;
+  border-left: 1px solid rgba(120, 90, 30, 0.22);
+}
+
+.toolbar-logo {
+  width: 20px;
+  height: 20px;
+  margin: 0 2px 0 4px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
 .toolbar-title {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  align-self: stretch;
+  line-height: 40px;
+  font-size: var(--fs-title);
   font-weight: 700;
-  padding: 0 8px;
+  padding: 0 6px;
   white-space: nowrap;
+  cursor: grab;
+}
+
+.toolbar-count {
+  font-size: var(--fs-small);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+body:not(.is-desktop) .desktop-only {
+  display: none !important;
 }
 
 .settings-app {
@@ -95,23 +151,38 @@ textarea {
 }
 
 .tb-btn {
-  width: 44px;
-  height: 34px;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
-  font-size: 18px;
-  font-weight: 700;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
+  transition: background-color 0.12s ease;
 }
 
 .tb-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.09);
 }
 
-.tb-btn.danger {
-  color: var(--danger);
-  font-size: 15px;
+.tb-btn:active {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.tb-btn:focus-visible,
+.text-btn:focus-visible,
+.style-btn:focus-visible,
+.dialog-actions button:focus-visible {
+  outline: 2px solid #2f6fe4;
+  outline-offset: 1px;
+}
+
+#btn-add .icon {
+  width: 20px;
+  height: 20px;
 }
 
 .editor-wrap {
@@ -142,10 +213,19 @@ textarea {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
   align-items: center;
   justify-content: center;
   color: #696969;
-  font-size: 15px;
+  font-size: var(--fs-ui);
+  pointer-events: none;
+}
+
+.list-empty img {
+  width: 56px;
+  height: 56px;
+  opacity: 0.85;
 }
 
 .list-empty[hidden] {
@@ -166,24 +246,33 @@ textarea {
   padding: 10px 36px 12px 12px;
   background: var(--card-face);
   border: 1px solid var(--border);
-  box-shadow: 4px 4px 0 var(--shadow);
+  border-radius: 4px;
+  box-shadow: 3px 3px 0 var(--shadow);
   cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.memo-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--shadow);
 }
 
 .memo-card.selected {
   background: var(--card-selected);
-  border-color: rgba(120, 90, 30, 0.55);
+  border-color: rgba(120, 90, 30, 0.7);
+  outline: 2px solid rgba(47, 111, 228, 0.55);
+  outline-offset: -1px;
 }
 
 .memo-card .card-no {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 700;
   color: #785a1e;
   margin-bottom: 6px;
 }
 
 .memo-card .card-preview {
-  font-size: 13px;
+  font-size: var(--fs-ui);
   color: #282828;
   display: -webkit-box;
   -webkit-line-clamp: 4;
@@ -194,41 +283,64 @@ textarea {
 
 .memo-card .card-delete {
   position: absolute;
-  top: 4px;
+  top: 6px;
   right: 6px;
-  width: 28px;
+  width: 26px;
   height: 26px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
+  border-radius: 6px;
   background: transparent;
-  color: #b22222;
   cursor: pointer;
+  opacity: 0.55;
 }
 
-.memo-card .card-delete svg {
+.memo-card:hover .card-delete,
+.memo-card.selected .card-delete {
+  opacity: 1;
+}
+
+.memo-card .card-delete:hover {
+  background: rgba(229, 72, 77, 0.16);
+}
+
+.memo-card .card-delete .icon {
   width: 16px;
   height: 16px;
-  display: block;
-  margin: 0 auto;
-  fill: currentColor;
 }
 
 .list-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 10px;
+  padding: 8px 10px;
   background: var(--toolbar);
   border-top: 1px solid var(--border);
 }
 
+.footer-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .text-btn {
-  min-width: 112px;
-  height: 34px;
+  min-width: 104px;
+  height: 32px;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  gap: 6px;
+  border: 1px solid var(--btn-border);
   background: var(--card-face);
   color: var(--memo-fore);
   border-radius: 4px;
@@ -240,8 +352,10 @@ textarea {
   font-weight: 600;
 }
 
-.text-btn:hover {
-  filter: brightness(0.97);
+.text-btn:hover,
+.style-btn:hover,
+.dialog-actions button:hover {
+  filter: brightness(0.95);
 }
 
 .modal {
@@ -261,22 +375,52 @@ textarea {
 
 .confirm-form,
 .error-form {
-  padding: 16px 18px 14px;
   overflow: auto;
   max-height: calc(100vh - 40px);
+}
+
+/* Popup title bar: icon + title, like the settings window */
+.dialog-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  background: #f6ecc8;
+  border-bottom: 1px solid rgba(120, 90, 30, 0.18);
+}
+
+.dialog-titlebar h2 {
+  margin: 0 !important;
+}
+
+.dialog-body {
+  padding: 14px 18px 14px;
+}
+
+#confirm-message,
+#alert-message {
+  margin: 2px 0 0;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.copied-note {
+  margin: 6px 0 0;
+  text-align: center;
 }
 
 .settings-form h2,
 .confirm-form h2,
 .error-form h2 {
   margin: 0 0 8px;
-  font-size: 17px;
+  font-size: var(--fs-title);
 }
 
 .hint {
   margin: 0 0 12px;
   color: #666;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 fieldset {
@@ -289,7 +433,7 @@ fieldset {
 
 legend {
   padding: 0 4px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 600;
 }
 
@@ -315,16 +459,58 @@ legend {
 
 #font-name {
   flex: 1;
+  min-width: 0;
 }
 
 #font-size {
   width: 64px;
+  padding: 0 4px;
+}
+
+.row input[type="color"] {
+  width: 40px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+label.row {
+  cursor: pointer;
+}
+
+.row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.range-end {
+  font-size: var(--fs-small);
+  color: var(--text-muted);
+}
+
+.range-value {
+  min-width: 40px;
+  text-align: right;
+}
+
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
 }
 
 .style-btn {
   height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  border: 1px solid var(--btn-border);
   background: var(--card-selected);
   color: var(--memo-fore);
   border-radius: 4px;
@@ -348,14 +534,37 @@ legend {
   grid-template-columns: repeat(13, 24px);
   gap: 6px;
   margin-bottom: 8px;
-  justify-content: start;
+  justify-content: space-between;
 }
 
 .swatch {
   width: 24px;
   height: 24px;
+  padding: 0;
   border: 1px solid #888;
+  border-radius: 4px;
   cursor: pointer;
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+}
+
+.swatch.active {
+  outline: 2px solid #2f6fe4;
+  outline-offset: 1px;
+}
+
+.about-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.about-row img {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
 }
 
 .check {
@@ -367,19 +576,22 @@ legend {
 .dialog-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
-}
-
-.dialog-actions .spacer {
-  flex: 1;
+  margin-top: 14px;
 }
 
 .dialog-actions button,
 .settings-form button[type="submit"] {
   min-width: 84px;
   height: 32px;
-  border: 1px solid var(--border);
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--btn-border);
   background: var(--card-face);
   color: var(--memo-fore);
   border-radius: 4px;
@@ -401,7 +613,7 @@ button.primary {
   width: 100%;
   min-height: 180px;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 12px;
+  font-size: var(--fs-small);
   resize: vertical;
 }
 
@@ -412,13 +624,111 @@ button.primary {
   padding: 4px 8px;
   background: #333;
   color: #fff;
-  font-size: 12px;
+  font-size: var(--fs-small);
   border-radius: 4px;
   pointer-events: none;
 }
 
-body:not(.is-electron) .toolbar-drag {
+/* Context menus (src/js/contextmenu.js) */
+.ctx-menu {
+  position: fixed;
+  z-index: 9000;
+  min-width: 196px;
+  max-width: calc(100vw - 8px);
+  overflow-y: auto;
+  padding: 4px;
+  background: #ffffff;
+  color: #1f1f1f;
+  border: 1px solid #c9c9c9;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  font-size: var(--fs-ui);
+  user-select: none;
+}
+
+.ctx-item {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ctx-item .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ctx-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.ctx-key {
+  color: #8a8a8a;
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+
+.ctx-item:hover:not([disabled]),
+.ctx-item:focus-visible {
+  background: #e8f0fe;
+  outline: none;
+}
+
+.ctx-item.danger:hover:not([disabled]) {
+  background: #fde8e8;
+  color: #b42318;
+}
+
+.ctx-item[disabled],
+.ctx-row-btn[disabled] {
   cursor: default;
+  color: #a8a8a8;
+}
+
+.ctx-item[disabled] .icon,
+.ctx-row-btn[disabled] .icon {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.ctx-row {
+  display: flex;
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.ctx-row-btn {
+  flex: 1;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.ctx-row-btn:hover:not([disabled]),
+.ctx-row-btn:focus-visible {
+  background: #e8f0fe;
+  border-color: #b7cdf7;
+  outline: none;
+}
+
+.ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: #e2e2e2;
 }
 
 body.role-web #btn-close,
@@ -493,15 +803,15 @@ body.role-settings {
 #view-settings .style-btn,
 #view-settings .dialog-actions button,
 #view-settings button[type="submit"] {
-  background: #e1e1e1 !important;
+  background: #e9e9e9 !important;
   color: #000000 !important;
-  border-color: #adadad !important;
+  border-color: rgba(0, 0, 0, 0.07) !important;
 }
 
 #view-settings .style-btn:hover,
 #view-settings .dialog-actions button:hover,
 #view-settings .tb-btn:hover {
-  background: #e5f1fb !important;
+  background: #dde9f9 !important;
 }
 
 #view-settings .dialog-actions {
@@ -516,4 +826,12 @@ body.role-settings {
 #view-settings .palette {
   gap: 4px;
   margin-bottom: 6px;
+}
+
+#view-settings .toolbar-title {
+  line-height: 32px;
+}
+
+body.role-web .win-buttons {
+  display: none;
 }

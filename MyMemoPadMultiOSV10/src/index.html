@@ -13,16 +13,22 @@
   </script>
   <link rel="icon" href="favicon.png" />
   <link rel="stylesheet" href="styles/main.css" />
+  <script src="js/bridge.js"></script>
 </head>
 <body>
   <div id="view-pad" class="app pad-app" hidden>
     <header class="toolbar" id="pad-toolbar">
-      <button type="button" class="tb-btn" id="btn-add" data-i18n-tooltip="main.add" aria-label="+">+</button>
+      <button type="button" class="tb-btn" id="btn-add" data-i18n-tooltip="main.add"><img class="icon" src="icons/add.svg" alt="" draggable="false" /></button>
       <span class="toolbar-drag" data-drag="1"></span>
-      <button type="button" class="tb-btn danger" id="btn-delete" data-i18n-tooltip="main.delete">🗑</button>
-      <button type="button" class="tb-btn" id="btn-settings" data-i18n-tooltip="main.settings">⚙</button>
-      <button type="button" class="tb-btn" id="btn-list" data-i18n-tooltip="main.listBtn">☰</button>
-      <button type="button" class="tb-btn" id="btn-close" data-i18n-tooltip="main.close">X</button>
+      <div class="tb-group">
+        <button type="button" class="tb-btn" id="btn-delete" data-i18n-tooltip="main.delete"><img class="icon" src="icons/delete.svg" alt="" draggable="false" /></button>
+        <button type="button" class="tb-btn" id="btn-settings" data-i18n-tooltip="main.settings"><img class="icon" src="icons/settings.svg" alt="" draggable="false" /></button>
+        <button type="button" class="tb-btn" id="btn-list" data-i18n-tooltip="main.listBtn"><img class="icon" src="icons/list.svg" alt="" draggable="false" /></button>
+      </div>
+      <div class="tb-group win-buttons">
+        <button type="button" class="tb-btn desktop-only" id="btn-minimize" data-i18n-tooltip="main.minimize"><img class="icon" src="icons/minimize.svg" alt="" draggable="false" /></button>
+        <button type="button" class="tb-btn" id="btn-close" data-i18n-tooltip="main.close"><img class="icon" src="icons/close.svg" alt="" draggable="false" /></button>
+      </div>
     </header>
     <div class="editor-wrap">
       <div id="memo-editor" class="editor" contenteditable="true" spellcheck="false"></div>
@@ -31,25 +37,40 @@
 
   <div id="view-list" class="app list-app" hidden>
     <header class="toolbar" id="list-toolbar">
-      <button type="button" class="tb-btn" id="list-settings" data-i18n-tooltip="list.settings">⚙</button>
+      <img class="toolbar-logo" src="favicon.png" alt="" draggable="false" />
+      <span class="toolbar-title" data-drag="1">
+        <span data-i18n="list.title"></span>
+        <span class="toolbar-count" id="list-count"></span>
+      </span>
       <span class="toolbar-drag" data-drag="1"></span>
-      <button type="button" class="tb-btn" id="list-close" data-i18n-tooltip="main.close">X</button>
+      <div class="tb-group">
+        <button type="button" class="tb-btn" id="list-settings" data-i18n-tooltip="list.settings"><img class="icon" src="icons/settings.svg" alt="" draggable="false" /></button>
+      </div>
+      <div class="tb-group win-buttons">
+        <button type="button" class="tb-btn desktop-only" id="list-minimize" data-i18n-tooltip="main.minimize"><img class="icon" src="icons/minimize.svg" alt="" draggable="false" /></button>
+        <button type="button" class="tb-btn" id="list-close" data-i18n-tooltip="main.close"><img class="icon" src="icons/close.svg" alt="" draggable="false" /></button>
+      </div>
     </header>
     <div class="list-body">
-      <div id="list-empty" class="list-empty" hidden data-i18n="list.empty"></div>
+      <div id="list-empty" class="list-empty" hidden>
+        <img src="icons/empty-notes.svg" alt="" draggable="false" />
+        <span data-i18n="list.empty"></span>
+      </div>
       <div id="card-host" class="card-host" tabindex="0"></div>
     </div>
     <footer class="list-footer">
-      <button type="button" class="text-btn" id="btn-load" data-i18n="list.load"></button>
-      <button type="button" class="text-btn primary" id="btn-new" data-i18n="list.new"></button>
+      <span class="footer-hint" data-i18n="list.hint"></span>
+      <button type="button" class="text-btn" id="btn-load" data-i18n-tooltip="list.load.tip"><img class="icon" src="icons/import.svg" alt="" draggable="false" /><span data-i18n="list.load"></span></button>
+      <button type="button" class="text-btn primary" id="btn-new" data-i18n-tooltip="list.new.tip"><img class="icon" src="icons/new-memo.svg" alt="" draggable="false" /><span data-i18n="list.new"></span></button>
     </footer>
   </div>
 
   <div id="view-settings" class="app settings-app" hidden>
     <header class="toolbar" id="settings-toolbar">
-      <span class="toolbar-title" data-i18n="settings.title"></span>
+      <img class="toolbar-logo" src="icons/settings.svg" alt="" draggable="false" />
+      <span class="toolbar-title" data-i18n="settings.title" data-drag="1"></span>
       <span class="toolbar-drag" data-drag="1"></span>
-      <button type="button" class="tb-btn" id="settings-close" data-i18n-tooltip="main.close">X</button>
+      <button type="button" class="tb-btn" id="settings-close" data-i18n-tooltip="main.close"><img class="icon" src="icons/close.svg" alt="" draggable="false" /></button>
     </header>
     <form id="settings-form" class="settings-form">
       <p class="hint" data-i18n="settings.hint"></p>
@@ -84,30 +105,30 @@
 
       <fieldset>
         <legend data-i18n="settings.style"></legend>
-        <div class="row wrap">
-          <button type="button" class="style-btn" id="style-bold" data-i18n="settings.style.bold"></button>
-          <button type="button" class="style-btn italic" id="style-italic" data-i18n="settings.style.italic"></button>
-          <button type="button" class="style-btn underline" id="style-underline" data-i18n="settings.style.underline"></button>
-          <button type="button" class="style-btn strike" id="style-strike" data-i18n="settings.style.strike"></button>
+        <div class="style-grid">
+          <button type="button" class="style-btn" id="style-bold"><img class="icon" src="icons/bold.svg" alt="" draggable="false" /><span data-i18n="settings.style.bold"></span></button>
+          <button type="button" class="style-btn italic" id="style-italic"><img class="icon" src="icons/italic.svg" alt="" draggable="false" /><span data-i18n="settings.style.italic"></span></button>
+          <button type="button" class="style-btn underline" id="style-underline"><img class="icon" src="icons/underline.svg" alt="" draggable="false" /><span data-i18n="settings.style.underline"></span></button>
+          <button type="button" class="style-btn strike" id="style-strike"><img class="icon" src="icons/strike.svg" alt="" draggable="false" /><span data-i18n="settings.style.strike"></span></button>
         </div>
       </fieldset>
 
       <fieldset>
         <legend data-i18n="settings.back"></legend>
         <div id="color-palette" class="palette"></div>
-        <div class="row">
+        <label class="row">
           <input id="back-color" type="color" value="#F8E18C" />
           <span data-i18n="settings.back.custom"></span>
-        </div>
+        </label>
       </fieldset>
 
       <fieldset id="opacity-field">
         <legend data-i18n="settings.opacity"></legend>
         <div class="row">
-          <span>0%</span>
+          <span class="range-end">0%</span>
           <input id="opacity-range" type="range" min="0" max="100" value="0" />
-          <span>100%</span>
-          <strong id="opacity-value">0%</strong>
+          <span class="range-end">100%</span>
+          <strong id="opacity-value" class="range-value">0%</strong>
         </div>
       </fieldset>
 
@@ -130,50 +151,68 @@
 
       <fieldset>
         <legend data-i18n="settings.about"></legend>
-        <p id="about-author"></p>
-        <p id="about-version" class="hint"></p>
+        <div class="about-row">
+          <img src="favicon.png" alt="" draggable="false" />
+          <div>
+            <p id="about-author"></p>
+            <p id="about-version" class="hint"></p>
+          </div>
+        </div>
       </fieldset>
 
       <div class="dialog-actions">
-        <button type="button" id="settings-default" data-i18n="settings.default"></button>
-        <span class="spacer"></span>
-        <button type="button" id="settings-cancel" data-i18n="common.cancel"></button>
-        <button type="submit" class="primary" data-i18n="common.ok"></button>
+        <button type="button" id="settings-default"><img class="icon" src="icons/reset.svg" alt="" draggable="false" /><span data-i18n="settings.default"></span></button>
+        <button type="button" id="settings-cancel"><img class="icon" src="icons/cancel.svg" alt="" draggable="false" /><span data-i18n="common.cancel"></span></button>
+        <button type="submit" class="primary"><img class="icon" src="icons/ok.svg" alt="" draggable="false" /><span data-i18n="common.ok"></span></button>
       </div>
     </form>
   </div>
 
   <dialog id="confirm-dialog" class="modal">
     <form method="dialog" class="confirm-form">
-      <h2 id="confirm-title"></h2>
-      <p id="confirm-message"></p>
-      <div class="dialog-actions">
-        <button type="submit" value="no" data-i18n="common.cancel"></button>
-        <button type="submit" value="yes" class="danger" data-i18n="common.ok"></button>
+      <div class="dialog-titlebar">
+        <img class="icon" src="icons/warning.svg" alt="" draggable="false" />
+        <h2 id="confirm-title"></h2>
+      </div>
+      <div class="dialog-body">
+        <p id="confirm-message"></p>
+        <div class="dialog-actions">
+          <button type="submit" value="no"><img class="icon" src="icons/cancel.svg" alt="" draggable="false" /><span data-i18n="common.cancel"></span></button>
+          <button type="submit" value="yes" class="danger"><img class="icon" src="icons/delete.svg" alt="" draggable="false" /><span data-i18n="common.ok"></span></button>
+        </div>
       </div>
     </form>
   </dialog>
 
   <dialog id="alert-dialog" class="modal">
     <form method="dialog" class="confirm-form">
-      <h2 id="alert-title"></h2>
-      <p id="alert-message"></p>
-      <div class="dialog-actions">
-        <button type="submit" class="primary" data-i18n="common.ok"></button>
+      <div class="dialog-titlebar">
+        <img class="icon" id="alert-icon" src="icons/info.svg" alt="" draggable="false" />
+        <h2 id="alert-title"></h2>
+      </div>
+      <div class="dialog-body">
+        <p id="alert-message"></p>
+        <div class="dialog-actions">
+          <button type="submit" class="primary"><img class="icon" src="icons/ok.svg" alt="" draggable="false" /><span data-i18n="common.ok"></span></button>
+        </div>
       </div>
     </form>
   </dialog>
 
   <dialog id="error-dialog" class="modal">
     <form method="dialog" class="error-form">
-      <h2 data-i18n="error.dialog.title"></h2>
-      <p id="error-hint" class="hint"></p>
-      <textarea id="error-detail" readonly></textarea>
-      <div class="dialog-actions">
-        <span id="error-copied" class="hint" hidden></span>
-        <span class="spacer"></span>
-        <button type="button" id="error-copy" data-i18n="error.dialog.copy"></button>
-        <button type="submit" class="primary" data-i18n="common.ok"></button>
+      <div class="dialog-titlebar">
+        <img class="icon" src="icons/warning.svg" alt="" draggable="false" />
+        <h2 data-i18n="error.dialog.title"></h2>
+      </div>
+      <div class="dialog-body">
+        <p id="error-hint" class="hint"></p>
+        <textarea id="error-detail" readonly></textarea>
+        <p id="error-copied" class="hint copied-note" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" id="error-copy"><img class="icon" src="icons/copy.svg" alt="" draggable="false" /><span data-i18n="error.dialog.copy"></span></button>
+          <button type="submit" class="primary"><img class="icon" src="icons/ok.svg" alt="" draggable="false" /><span data-i18n="common.ok"></span></button>
+        </div>
       </div>
     </form>
   </dialog>
