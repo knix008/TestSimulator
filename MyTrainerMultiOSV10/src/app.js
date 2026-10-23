@@ -28,7 +28,7 @@ import { icon } from './icons.js';
 import * as native from './platform/native.js';
 import { PopupHost, POPUPS, themesPopupSize } from './platform/popups.js';
 import { bindSteppers } from './stepper.js';
-import { applyFont, applyTheme, CUSTOM, customFrom, DARK_THEMES, LIGHT_THEMES, randomThemeId, resolveTheme, SYSTEM } from './themes.js';
+import { applyFont, applyTheme, CUSTOM, customFrom, DARK_THEMES, DOC_THEME_KEY, docTheme, LIGHT_THEMES, randomThemeId, resolveTheme, SYSTEM } from './themes.js';
 import { AnimatedBackground } from './ui/background.js';
 import { CodeView } from './ui/codeview.js';
 import { dataViewHtml, drawDataView } from './ui/dataview.js';
@@ -141,6 +141,8 @@ function updateSettings(patch, { quiet = false } = {}) {
 function applyLook() {
   const theme = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme);
   applyTheme(theme);
+  // The user's guide follows the app's theme (it reads this, also while open).
+  try { localStorage.setItem(DOC_THEME_KEY, JSON.stringify(docTheme(theme))); } catch { /* storage unavailable */ }
   native.setWindowTheme(theme.dark);
   codeView?.applyLook();
 }
@@ -1380,6 +1382,7 @@ function renderMenubar() {
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${button('maximize', state.maximized ? 'winRestore' : 'winMaximize', state.maximized ? 'window.restore' : 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
   bar.innerHTML = `${brand}${home}${menus}<div class="menubar-drag" data-window-drag></div>${controls}`;
+  updateMinimumWidth();
   if (desktop) appWindow.setTitle(`${title} — MyTrainer v${VERSION}`).catch(() => {});
   document.title = `${title} — MyTrainer`;
 }
@@ -1397,15 +1400,34 @@ function renderToolbar() {
   updateMinimumWidth();
 }
 
-/** The window never gets so narrow that toolbar buttons or menus are cut off: its minimum width follows them. */
+/** The width a bar needs to show everything unsqueezed: laid out once at max-content (items at their full
+ * width, gaps, padding, the fillers at their minimum), measured, and put back. */
+function naturalWidth(bar, ...inner) {
+  const elements = [bar, ...inner];
+  const saved = elements.map((el) => el.style.width);
+  for (const el of elements) el.style.width = 'max-content';
+  const width = bar.getBoundingClientRect().width;
+  elements.forEach((el, i) => { el.style.width = saved[i]; });
+  return width;
+}
+
+/** The window never gets so narrow that toolbar buttons, menus or the window buttons are cut off: its minimum width follows them. */
 function updateMinimumWidth() {
+  // Measured again once the fonts are in: the text of the bars may get wider.
+  if (!updateMinimumWidth.fonts) {
+    updateMinimumWidth.fonts = document.fonts?.ready.then(() => updateMinimumWidth());
+    // A window made narrower some other way (a restored placement, another program) grows back to the minimum.
+    window.addEventListener('resize', () => {
+      const needed = updateMinimumWidth.last;
+      if (needed && window.innerWidth < needed - 1) native.setMinimumSize(needed, 680).catch(() => {});
+    });
+  }
   requestAnimationFrame(() => {
-    const left = root.querySelector('#toolbar .toolbar-left');
-    const right = root.querySelector('#toolbar .toolbar-right');
-    const menubar = [...root.querySelectorAll('#menubar > *')].filter((el) => !el.classList.contains('menubar-drag')).reduce((sum, el) => sum + el.getBoundingClientRect().width, 0) + 120;
-    if (!left || !right) return;
-    const toolbar = left.scrollWidth + right.scrollWidth + 40;
-    const needed = Math.ceil(Math.max(1100, toolbar, menubar));
+    const toolbarRow = root.querySelector('#toolbar');
+    const inner = root.querySelector('#toolbar .toolbar-inner');
+    const menubarRow = root.querySelector('#menubar');
+    if (!toolbarRow || !inner || !menubarRow) return;
+    const needed = Math.ceil(Math.max(1100, naturalWidth(toolbarRow, inner), naturalWidth(menubarRow)) + 2);
     root.style.setProperty('--min-width', `${needed}px`);
     if (needed !== updateMinimumWidth.last) { updateMinimumWidth.last = needed; native.setMinimumSize(needed, 680).catch(() => {}); }
   });
@@ -1905,7 +1927,7 @@ function bindShell() {
       const value = target.value;
       if (value.startsWith('bank:')) {
         const bank = value.slice(5);
-        state.project.dataset.source = { kind: 'sounds', bank, name: t(`bank.${bank}`), seconds: SOUND_BANKS[bank].seconds, copies: 3, noiseClass: true, layout: 'image', seed: 1 };
+        state.project.dataset.source = { kind: 'sounds', bank, name: t(`bank.${bank}`), seconds: SOUND_BANKS[bank].seconds, copies: 4, noiseClass: true, layout: 'image', seed: 1 };
         state.project.dataset.steps = [];
         state.tableRows = null;
         rebuildData();

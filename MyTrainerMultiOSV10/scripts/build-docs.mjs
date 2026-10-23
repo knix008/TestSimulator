@@ -8,7 +8,9 @@
 //
 // No dependencies: a small Markdown converter (headings, paragraphs, nested lists, tables, fenced
 // code, blockquotes, rules, images, links, inline code, bold, italic) with a table of contents from
-// the h2/h3 headings, light and dark colours (prefers-color-scheme) and a Korean font stack.
+// the h2/h3 headings, light and dark colours (prefers-color-scheme) and a Korean font stack. Opened from
+// the app, a page takes the app's theme colours (localStorage mytrainer.docTheme, written by the app) and
+// follows when the theme changes while it is open.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -339,6 +341,8 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 }
 `;
 
+const THEME_SCRIPT = "(function () { var key = 'mytrainer.docTheme'; function apply(raw) { try { var t = JSON.parse(raw); if (!t || !t.vars) return; var root = document.documentElement; for (var name in t.vars) root.style.setProperty(name, t.vars[name]); root.style.colorScheme = t.dark ? 'dark' : 'light'; } catch (e) { /* keep the page's own colours */ } } try { apply(localStorage.getItem(key)); } catch (e) { /* no storage */ } addEventListener('storage', function (e) { if (e.key === key) apply(e.newValue); }); })();";
+
 function page({ title, lang, html, toc, other, otherLabel }) {
   const tocHtml = toc.length ? `<nav class="toc" aria-label="${lang === 'ko' ? '목차' : 'Contents'}"><p class="toc-title">${lang === 'ko' ? '목차' : 'Contents'}</p><ul>${toc.map((item) => `<li class="h${item.level}"><a href="#${item.id}">${item.html.replace(/<a [^>]*>|<\/a>/g, '')}</a></li>`).join('')}</ul></nav>` : '<nav class="toc" aria-hidden="true"></nav>';
   return `<!doctype html>
@@ -349,6 +353,7 @@ function page({ title, lang, html, toc, other, otherLabel }) {
 <meta name="generator" content="MyTrainer scripts/build-docs.mjs" />
 <title>${escapeHtml(title)}</title>
 <style>${CSS}</style>
+<script>${THEME_SCRIPT}</script>
 </head>
 <body>
 <header class="topbar"><span class="brand">MyTrainer <small>v${escapeHtml(version)}</small></span><span class="grow"></span>${other ? `<a class="lang" href="${escapeHtml(other)}" hreflang="${lang === 'ko' ? 'en' : 'ko'}">${escapeHtml(otherLabel)}</a>` : ''}</header>

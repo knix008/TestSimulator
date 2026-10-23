@@ -8,7 +8,7 @@ import { nodeById } from '../domain/graph.js';
 import { icon } from '../icons.js';
 import { stepperHtml } from '../stepper.js';
 import { barChart, CLASS_COLORS, drawPicture, fmt, histogramChart, lineChart, scatterPlot, SERIES, setupCanvas, theme } from './charts.js';
-import { escapeHtml } from './dom.js';
+import { cardTitle, escapeHtml } from './dom.js';
 
 /** Advanced training settings: only the ones that apply to the chosen optimizer, schedule and stopping. */
 function advancedHtml(app, { row, step, busy }) {
@@ -100,14 +100,14 @@ export function trainViewHtml(app) {
       </section>
     </aside>
     <div class="train-main">
+      <div class="chart-card neuron-card">${cardTitle(icon('nodesView', 'icon tiny'), t('train.neurons'), t('card.neuronsTip'))}<div class="neuron-host" data-neuron="train"></div></div>
       <div class="chart-grid">
-        <div class="chart-card"><canvas data-chart="loss"></canvas></div>
-        <div class="chart-card"><canvas data-chart="acc"></canvas></div>
-        <div class="chart-card"><canvas data-chart="visual"></canvas></div>
-        <div class="chart-card"><h4>${icon('lyActivation', 'icon tiny')} ${escapeHtml(t('train.gradFlow'))}</h4><canvas data-chart="grads"></canvas><p class="muted small">${escapeHtml(t('train.gradHint'))}</p></div>
+        <div class="chart-card">${cardTitle(icon('animLoss', 'icon tiny'), t('train.lossChart'), t('card.lossTip'))}<canvas data-chart="loss"></canvas></div>
+        <div class="chart-card">${app.task()?.kind === 'classification' ? cardTitle(icon('tabTrain', 'icon tiny'), t('train.accChart'), t('card.accTip')) : cardTitle(icon('tabTrain', 'icon tiny'), t('train.lrChart'), t('card.lrTip'))}<canvas data-chart="acc"></canvas></div>
+        <div class="chart-card">${cardTitle(icon('blkHead', 'icon tiny'), t('card.visual'), t('card.visualTip'), 'data-visual-title')}<canvas data-chart="visual"></canvas></div>
+        <div class="chart-card">${cardTitle(icon('lyActivation', 'icon tiny'), t('train.gradFlow'), t('card.gradTip'))}<canvas data-chart="grads"></canvas><p class="muted small">${escapeHtml(t('train.gradHint'))}</p></div>
       </div>
-      <div class="chart-card hist-row"><h4>${icon('histogram', 'icon tiny')} ${escapeHtml(t('train.weightHists'))}</h4><div class="hist-strip" data-chart="hists"></div></div>
-      <div class="chart-card neuron-card"><h4>${icon('nodesView', 'icon tiny')} ${escapeHtml(t('train.neurons'))}</h4><div class="neuron-host" data-neuron="train"></div></div>
+      <div class="chart-card hist-row">${cardTitle(icon('histogram', 'icon tiny'), t('train.weightHists'), t('card.histTip'))}<div class="hist-strip" data-chart="hists"></div></div>
     </div>
   </div>`;
 }
@@ -138,7 +138,7 @@ export function drawTrainView(app, host) {
       { name: t('train.valLoss'), color: SERIES.val, values: h.map((e) => [e.epoch, e.valLoss]) },
     ];
     for (const old of past) if (old.history?.length && old !== run.saved) series.unshift({ name: '', color: theme().border, values: old.history.map((e) => [e.epoch, e.loss]), dash: [3, 3], width: 1, dots: false });
-    lineChart(loss, series, { title: t('train.lossChart'), xLabel: t('train.epoch'), emptyText: t('train.noRun') });
+    lineChart(loss, series, { xLabel: t('train.epoch'), emptyText: t('train.noRun') });
   }
   const acc = host.querySelector('[data-chart="acc"]');
   if (acc) {
@@ -147,9 +147,9 @@ export function drawTrainView(app, host) {
       lineChart(acc, [
         { name: t('train.trainAcc'), color: SERIES.train, values: h.map((e) => [e.epoch, e.acc == null ? null : e.acc * 100]) },
         { name: t('train.valAcc'), color: SERIES.val, values: h.map((e) => [e.epoch, e.valAcc == null ? null : e.valAcc * 100]) },
-      ], { title: t('train.accChart'), xLabel: t('train.epoch'), yMin: 0, yMax: 100, emptyText: t('train.noRun') });
+      ], { xLabel: t('train.epoch'), yMin: 0, yMax: 100, emptyText: t('train.noRun') });
     } else {
-      lineChart(acc, [{ name: t('train.lr'), color: SERIES.lr, values: h.map((e) => [e.epoch, e.lr]) }], { title: t('train.lrChart'), xLabel: t('train.epoch'), emptyText: t('train.noRun') });
+      lineChart(acc, [{ name: t('train.lr'), color: SERIES.lr, values: h.map((e) => [e.epoch, e.lr]) }], { xLabel: t('train.epoch'), emptyText: t('train.noRun') });
     }
   }
   drawVisual(app, host.querySelector('[data-chart="visual"]'));
@@ -200,11 +200,12 @@ function drawVisual(app, canvas) {
   const snapshot = app.snapshot();
   if (prepared?.kind === 'points2d' && prepared.inputShape[0] === 2) {
     scatterPlot(canvas, prepared.train.x, Array.from(prepared.train.y), { boundary: visual.boundary, classes: data.task.classes, align: 'left' });
-    labelCanvas(canvas, t('train.boundary'));
+    visualTitle(canvas, t('train.boundary'), t('card.boundaryTip'));
   } else if (prepared?.kind === 'function1d' && prepared.inputShape[0] === 1) {
     scatterPlot(canvas, prepared.train.x, Array.from(prepared.train.y), { task: 'regression', curve: visual.curve });
-    labelCanvas(canvas, t('train.curve'));
+    visualTitle(canvas, t('train.curve'), t('card.curveTip'));
   } else if (prepared?.task.kind === 'reconstruction' && snapshot?.input?.data) {
+    visualTitle(canvas, t('card.recon'), t('card.reconTip'));
     const { ctx, width, height } = setupCanvas(canvas);
     const out = snapshot.nodes[app.outputId()]?.act;
     const shape = prepared.inputShape;
@@ -217,22 +218,27 @@ function drawVisual(app, canvas) {
     const out = snapshot.nodes[app.outputId()].act.data;
     const labels = data?.labels;
     if (data?.task.kind === 'classification') {
+      visualTitle(canvas, t('card.probs'), t('card.probsTip'));
       const probs = out.length === 1 ? [1 - out[0], out[0]] : Array.from(out);
       barChart(canvas, probs.map((p, c) => ({ label: labels?.[c] ?? `C${c}`, value: p, color: CLASS_COLORS[c % CLASS_COLORS.length], highlight: c === snapshot.label })), { min: 0, max: 1, labelWidth: 80 });
     } else {
+      visualTitle(canvas, t('card.outputs'), t('card.outputsTip'));
       barChart(canvas, Array.from(out).slice(0, 12).map((value, i) => ({ label: `y${i}`, value })), { labelWidth: 40 });
     }
   } else {
+    visualTitle(canvas, t('card.visual'), t('card.visualTip'));
     const { ctx, width, height } = setupCanvas(canvas);
     ctx.fillStyle = theme().muted; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
     ctx.fillText(t('train.noRun'), width / 2, height / 2);
   }
 }
 
-function labelCanvas(canvas, text) {
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = theme().text; ctx.font = '600 11px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(text, 6, 4);
+/** The visual card shows different things by task: its title and tooltip follow. */
+function visualTitle(canvas, text, tip) {
+  const title = canvas.parentElement?.querySelector('[data-visual-title]');
+  if (!title) return;
+  title.title = tip;
+  title.querySelector('[data-card-text]').textContent = text;
 }
 
 export { nodeById };

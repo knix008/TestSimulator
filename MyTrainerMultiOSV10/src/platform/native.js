@@ -225,12 +225,17 @@ export async function listFonts() {
 
 export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
 
+/** The page needs at least width × height (CSS px). The window is a little larger than the page in it (a frameless
+ * window keeps a resize border around the web view, about 7 px a side on Windows), so that difference is added. */
 export async function setMinimumSize(width, height) {
   if (!isDesktop()) return;
   const appWindow = getCurrentWindow();
-  await appWindow.setMinSize(new LogicalSize(width, height));
+  const inner = (await appWindow.innerSize()).toLogical(await appWindow.scaleFactor());
+  const extraW = Math.max(0, Math.ceil(inner.width - window.innerWidth));
+  const extraH = Math.max(0, Math.ceil(inner.height - window.innerHeight));
+  await appWindow.setMinSize(new LogicalSize(width + extraW, height + extraH));
   // An already narrower window grows to the new minimum at once.
-  if (window.innerWidth < width - 1 || window.innerHeight < height - 1) await appWindow.setSize(new LogicalSize(Math.max(width, window.innerWidth), Math.max(height, window.innerHeight)));
+  if (window.innerWidth < width - 1 || window.innerHeight < height - 1) await appWindow.setSize(new LogicalSize(Math.max(width, window.innerWidth) + extraW, Math.max(height, window.innerHeight) + extraH));
 }
 
 export const quitApp = () => (isDesktop() ? invoke('quit_app') : Promise.resolve());

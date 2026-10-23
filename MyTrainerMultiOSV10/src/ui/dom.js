@@ -30,3 +30,8 @@ export function throttleFrame(fn) {
     requestAnimationFrame(() => { pending = false; fn(...lastArgs); });
   };
 }
+
+/** A card's title with what the card shows as its tooltip; the ⓘ mark tells there is one. */
+export function cardTitle(iconHtml, text, tip, attrs = '') {
+  return `<h4 class="card-title" title="${escapeHtml(tip)}" ${attrs}>${iconHtml}<span data-card-text>${escapeHtml(text)}</span><i class="tip-mark" aria-hidden="true">ⓘ</i></h4>`;
+}
