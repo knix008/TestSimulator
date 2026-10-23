@@ -11,7 +11,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import appIcon from '../assets/icon-256.png';
 import { generatePytorch } from './domain/codegen.js';
-import { describeTable, fromSource, generatorDefaults, parseCsv, sampleX, sampleY } from './domain/datasets.js';
+import { describeTable, fromSource, generatorDefaults, parseCsv, prepareSounds, sampleX, sampleY, soundsReady } from './domain/datasets.js';
 import {
   addBlock, addNode, addResidual, canConnect, cleanName, cloneModel, connect, duplicateNodes, incoming, inferShapes, insertAfter, insertBefore,
   layoutModel, NODE_H, nodeById, outputNodes, removeEdge, removeNodes, replaceType, setParam, topoOrder, totalParams, validateModel,
@@ -26,7 +26,7 @@ import { TfEngine, TorchEngine } from './engine/engines.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
-import { PopupHost, POPUPS, themesPopupSize } from './platform/popups.js';
+import { PopupHost, popupKey, POPUPS, themesPopupSize } from './platform/popups.js';
 import { bindSteppers } from './stepper.js';
 import { applyFont, applyTheme, CUSTOM, customFrom, DARK_THEMES, DOC_THEME_KEY, docTheme, LIGHT_THEMES, randomThemeId, resolveTheme, SYSTEM } from './themes.js';
 import { AnimatedBackground } from './ui/background.js';
@@ -157,16 +157,57 @@ function signature() {
 /** Builds the dataset and runs the preprocessing pipeline. */
 /** Built-in sound banks, loaded once (public/datasets/*.bin). */
 const soundBanks = new Map();
+/** Per bank: { voices, counts {label: clips}, total } for the Data tab. */
+const bankInfo = new Map();
 function loadSoundBank(id) {
   if (soundBanks.has(id)) return;
   soundBanks.set(id, null);
   fetch(SOUND_BANKS[id].file)
     .then((response) => { if (!response.ok) throw new Error(`${SOUND_BANKS[id].file}: HTTP ${response.status}`); return response.arrayBuffer(); })
     .then((buffer) => {
-      soundBanks.set(id, parseSoundBank(buffer).clips);
+      const bank = parseSoundBank(buffer);
+      soundBanks.set(id, bank.clips);
+      const counts = {};
+      for (const clip of bank.clips) counts[clip.label] = (counts[clip.label] ?? 0) + 1;
+      bankInfo.set(id, { voices: bank.index.voices?.length ?? new Set(bank.clips.map((clip) => clip.voice)).size, counts, total: bank.clips.length });
       if (state.project.dataset.source.bank === id) { rebuildData(); renderAll(); }
     })
     .catch((error) => { soundBanks.delete(id); reportError(error, 'sounds'); });
+}
+
+/**
+ * Work that may take a while, with a progress popup: shown only if it is still running after 400 ms.
+ * update(share 0…1, message) moves the bar; done() closes it.
+ */
+function progressTask(title, message = '') {
+  let shown = false; let closed = false;
+  let params = { title, message, percent: 0 };
+  const write = () => { try { localStorage.setItem(popupKey('progress'), JSON.stringify(params)); } catch { /* the popup shows its defaults */ } };
+  const timer = setTimeout(() => { if (closed) return; shown = true; popups.open('progress', params); }, 400);
+  let last = 0;
+  return {
+    update(share, text = params.message) {
+      params = { ...params, message: text, percent: Math.round(Math.max(0, Math.min(1, share)) * 100) };
+      if (!shown || Date.now() - last < 120) return;
+      last = Date.now();
+      write();
+      popups.post('progress', { type: 'refresh' });
+    },
+    done() { closed = true; clearTimeout(timer); if (shown) popups.close('progress'); },
+  };
+}
+
+/** A sounds dataset is made in the background (with a progress popup); rebuildData then finds it ready. */
+let soundsBuild = null;
+function buildSoundsInBackground(source, clips) {
+  if (soundsBuild?.clips === clips && soundsBuild.key === JSON.stringify(source)) return;
+  const task = progressTask(t('progress.dataTitle'), t('progress.dataMessage', { n: clips.length }));
+  const build = { clips, key: JSON.stringify(source) };
+  soundsBuild = build;
+  prepareSounds(source, clips, (share) => task.update(share))
+    .then(() => { if (soundsBuild !== build) return; soundsBuild = null; rebuildData(); renderAll(); })
+    .catch((error) => { if (soundsBuild === build) soundsBuild = null; reportError(error, 'sounds'); })
+    .finally(() => task.done());
 }
 
 function rebuildData() {
@@ -178,6 +219,10 @@ function rebuildData() {
     if (ds.source.kind === 'sounds' && ds.source.bank) {
       sounds = soundBanks.get(ds.source.bank) ?? null;
       if (!sounds) loadSoundBank(ds.source.bank);
+      else if (!soundsReady(ds.source, sounds)) {
+        buildSoundsInBackground(ds.source, sounds);
+        throw new Error('data.preparingSounds');
+      }
     }
     const data = fromSource(ds.source, { rows: state.tableRows, decode: native.base64ToBytes, sounds });
     state.data = data;
@@ -357,6 +402,7 @@ async function startTraining() {
     return;
   }
   state.selectedUnit = null;
+  startTrainTask();
   if (state.project.engine === 'torch') return startTorch();
   try {
     state.run.state = 'preparing';
@@ -364,15 +410,24 @@ async function startTraining() {
     const continuing = state.run.canContinue && state.engineKey === `${signature()}|${JSON.stringify(state.project.train)}|${JSON.stringify(state.project.dataset)}`;
     const engine = await prepareTf();
     state.run = { state: 'training', epoch: continuing ? state.run.epoch : 0, epochs: state.project.train.epochs, from: continuing ? state.run.epoch : 0, history: continuing ? state.run.history : [], canContinue: true };
-    log(t('log.trainStart', { engine: `TensorFlow.js (${engine.backend})`, epochs: state.project.train.epochs }));
+    log(t('log.trainStart', { engine: `TensorFlow (${engine.backend})`, epochs: state.project.train.epochs }));
     engine.train();
     if (!['train', 'model', 'neurons'].includes(state.view.tab)) switchTab('train');
     renderAll();
   } catch (error) {
     state.run.state = 'idle';
+    endTrainTask();
     reportError(error, 'train');
   }
 }
+
+/** Until the first epoch is done (preparing the data and the model, then its batches) a progress popup shows how far it is. */
+let trainTask = null;
+function startTrainTask() {
+  endTrainTask();
+  trainTask = progressTask(t('progress.trainTitle'), t('progress.trainPreparing'));
+}
+function endTrainTask() { trainTask?.done(); trainTask = null; }
 
 async function choosePython({ ask = true } = {}) {
   if (!desktop) return null;
@@ -393,7 +448,7 @@ async function choosePython({ ask = true } = {}) {
 
 async function startTorch() {
   const python = await choosePython();
-  if (!python) { notify(t('py.needTorch'), 'error'); return; }
+  if (!python) { endTrainTask(); notify(t('py.needTorch'), 'error'); return; }
   try {
     const engine = engines.torch;
     const code = state.project.code.custom ? state.project.code.text : generatedCode();
@@ -406,6 +461,7 @@ async function startTorch() {
     renderAll();
   } catch (error) {
     state.run.state = 'idle';
+    endTrainTask();
     reportError(error, 'torch');
     renderAll();
   }
@@ -485,8 +541,13 @@ function onEngine(message) {
       if (message.state === 'training' && message.epochs) state.run.epochs = message.epochs;
       renderAllSoon();
       break;
-    case 'batch': state.run.batch = message; renderTrainLive(); break;
+    case 'batch':
+      state.run.batch = message;
+      trainTask?.update(message.batch / Math.max(1, message.batches), t('progress.trainFirstEpoch', { batch: message.batch, batches: message.batches }));
+      renderTrainLive();
+      break;
     case 'epoch':
+      endTrainTask();
       state.run.epoch = message.epoch;
       state.run.history.push({ epoch: message.epoch, loss: message.loss, acc: message.acc, valLoss: message.valLoss, valAcc: message.valAcc, lr: message.lr, time: message.time });
       logEpoch(message);
@@ -505,6 +566,7 @@ function onEngine(message) {
       if (state.view.tab === 'test') renderCenter();
       break;
     case 'done': {
+      endTrainTask();
       state.run.state = engine.kind === 'torch' ? 'serving' : 'idle';
       const summary = message.evaluation;
       log(t('log.done', { epochs: message.epochs, time: ((message.time ?? 0) / 1000).toFixed(1), result: summary ? `${t('test.loss')} ${Number(summary.loss ?? 0).toFixed(4)}${summary.acc != null ? ` · ${t('test.accuracy')} ${(summary.acc * 100).toFixed(1)}%` : ''}` : '' }), 'success');
@@ -520,9 +582,11 @@ function onEngine(message) {
       log(`${message.message}${message.stack ? `\n${message.stack}` : ''}`, 'error');
       notify(message.message, 'error');
       if (state.run.state === 'preparing') state.run.state = 'idle';
+      endTrainTask();
       renderAllSoon();
       break;
     case 'exit':
+      endTrainTask();
       if (message.code && message.code !== 0) { log(t('log.exitCode', { code: message.code }), 'error'); notify(t('log.exitCode', { code: message.code }), 'error'); }
       state.run.state = 'idle';
       renderAll();
@@ -572,6 +636,7 @@ const api = {
   data: () => state.data,
   prepared: () => state.prepared,
   dataError: () => state.dataError,
+  bankInfo: (id) => bankInfo.get(id) ?? null,
   task: () => state.task,
   run: () => state.run,
   liveState: () => state.live,
@@ -600,7 +665,7 @@ const api = {
     const out = outputId();
     return { layers: model().nodes.length, params: totalParams(state.shapes), inputShape: state.prepared?.inputShape ?? null, outputShape: out ? state.shapes.get(out)?.shape : null, task: state.task };
   },
-  engineLabel: () => (state.project.engine === 'torch' ? `PyTorch${api.pythonInfo()?.torch ? ` ${api.pythonInfo().torch}` : ''}` : `TensorFlow.js${engines.tfjs.backend ? ` (${engines.tfjs.backend})` : ''}`),
+  engineLabel: () => (state.project.engine === 'torch' ? `PyTorch${api.pythonInfo()?.torch ? ` ${api.pythonInfo().torch}` : ''}` : `TensorFlow${engines.tfjs.backend ? ` (${engines.tfjs.backend})` : ''}`),
   explainContext: () => ({ ...state.snapshot, inputNodeId: inputId(), featureNames: state.prepared?.featureNames ?? state.data?.featureNames, vocab: state.data?.vocab, probeLabel: state.snapshot?.label != null ? (state.data?.labels?.[state.snapshot.label] ?? state.snapshot.label) : null }),
   engineReadyText: () => {
     if (state.project.engine === 'torch') return engines.torch?.canServe ? t('test.torchReady') : t('test.torchNeedsRun');
@@ -1234,8 +1299,15 @@ async function openGallery() {
 
 async function openSettings(tab = null) {
   await popups.open('settings', tab ? { tab } : {});
+  settingsFromStorage();
+}
+
+/** What the settings window stored: shown at once (every change while it is open, and its Cancel). */
+function settingsFromStorage() {
+  const before = state.settings.language;
   state.settings = loadSettings(storage);
   setLanguage(state.settings.language);
+  if (state.settings.language !== before) native.setBackendLanguage(state.settings.language);
   applyLook();
   applyFont(state.settings);
   if (!state.project.code.custom) state.project.code.text = generatedCode();
@@ -1262,6 +1334,7 @@ async function refreshPython() {
   }
 }
 
+popups.on('settings-preview', () => settingsFromStorage());
 popups.on('py-refresh', () => refreshPython());
 popups.on('py-use', ({ path }) => { updateSettings({ pythonPath: path }, { quiet: true }); popups.post('pyenv', { type: 'detection', detection: state.python, chosen: path }); renderAll(); });
 popups.on('py-install', async ({ base, variant }) => {
@@ -1391,7 +1464,7 @@ function renderToolbar() {
   const bar = root.querySelector('#toolbar');
   const button = (id) => (id === 'language' ? `<button class="tool-button lang-button" data-command="language" title="${escapeHtml(tip('language'))}" aria-label="${escapeHtml(t(commands.language.label))}"><span class="lang-glyph" lang="${lang() === 'ko' ? 'en' : 'ko'}">${lang() === 'ko' ? 'Aa' : 'ᄒᆞᆫ'}</span></button>` : id === 'themeSplit' ? `<span class="split-button"><button class="tool-button" data-command="theme" title="${escapeHtml(tip('theme'))}">${icon('palette')}</button><button class="tool-button split-arrow" data-command="themeMenu" title="${escapeHtml(t('menu.themeMenu'))}" aria-haspopup="true">${icon('chevronDown')}</button></span>` : `<button class="tool-button" data-command="${id}" title="${escapeHtml(tip(id))}" aria-label="${escapeHtml(t(commands[id].label))}">${icon(id === 'pause' && state.run.state === 'paused' ? 'play' : commands[id].icon)}</button>`);
   const engine = `<span class="segmented tool-engine" role="radiogroup" title="${escapeHtml(t('train.engine'))}">
-    <button class="segment ${state.project.engine === 'tfjs' ? 'active' : ''}" data-command="engineTf">${icon('engineTf')}<span>TF.js</span></button>
+    <button class="segment ${state.project.engine === 'tfjs' ? 'active' : ''}" data-command="engineTf">${icon('engineTf')}<span>TensorFlow</span></button>
     <button class="segment ${state.project.engine === 'torch' ? 'active' : ''}" data-command="engineTorch" ${desktop ? '' : 'disabled'} title="${escapeHtml(desktop ? t('menu.engineTorch') : t('web.desktopOnly'))}">${icon('engineTorch')}<span>PyTorch</span></button>
   </span>`;
   bar.innerHTML = `<div class="toolbar-inner"><div class="toolbar-left">${TOOLBAR.map((group) => `<div class="tool-group">${group.map(button).join('')}</div>`).join('<span class="tool-sep"></span>')}<span class="tool-sep"></span>${engine}</div>
@@ -1964,7 +2037,7 @@ function bindShell() {
       state.project.dataset.steps[Number(target.dataset.stepToggle)].enabled = target.checked; commit('data', { data: true });
     } else if (target.matches('[data-train]')) {
       const key = target.dataset.train;
-      const value = target.type === 'checkbox' ? target.checked : ['learningRate', 'weightDecay', 'epsilon', 'minLearningRate', 'minDelta', 'labelSmoothing'].includes(key) ? Number(target.value) : target.value;
+      const value = target.type === 'checkbox' ? target.checked : ['learningRate', 'weightDecay', 'epsilon', 'minLearningRate', 'minDelta', 'labelSmoothing', 'mixup'].includes(key) ? Number(target.value) : target.value;
       state.project.train = cleanTrain({ ...state.project.train, [key]: value });
       commit('train', { render: false });
       // The advanced rows follow the optimizer, the schedule and early stopping; a clamped value is shown as kept.

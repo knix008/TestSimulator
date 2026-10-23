@@ -41,6 +41,19 @@ test('training XOR reports epochs, snapshots, an evaluation and a done message',
   assert.ok(messages.some((m) => m.type === 'evaluation'));
 });
 
+test('mixup trains on blended batches, learns, and leaves no tensors behind', async () => {
+  const { messages, trainer } = await run('blobs', 12, (project) => { project.train.mixup = 0.3; });
+  assert.deepEqual(messages.filter((m) => m.type === 'error'), []);
+  assert.equal(trainer.mixup, 0.3);
+  const epochs = messages.filter((m) => m.type === 'epoch');
+  assert.equal(epochs.length, 12);
+  assert.ok(epochs.at(-1).valAcc > 0.85, `validation accuracy ${epochs.at(-1).valAcc}`);
+  // Another run on the same trainer: the batches made for mixup are all disposed.
+  const before = tf.memory().numTensors;
+  await trainer.handle({ type: 'train' });
+  assert.ok(tf.memory().numTensors - before < 20, `${tf.memory().numTensors - before} tensors more`);
+});
+
 test('a snapshot has the activation of every node, weights and gradients of the weighted layers', async () => {
   const { messages, project } = await run('checker', 1);
   const snapshot = messages.filter((m) => m.type === 'snapshot').at(-1);

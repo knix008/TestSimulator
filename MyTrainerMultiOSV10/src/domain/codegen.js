@@ -282,6 +282,7 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   const last = out ? lastActivation(graph, out) : 'linear';
   const classification = task?.kind === 'classification';
   const binary = classification && task.classes === 2 && task.binaryOutput === 1;
+  const mixup = loss === 'categoricalCrossentropy' && train.mixup > 0;
   const lossLine = {
     categoricalCrossentropy: train.labelSmoothing > 0
       ? (last === 'softmax' ? `lambda out, y: -(((1 - ${pyNumber(train.labelSmoothing)}) * F.one_hot(y, out.shape[1]) + ${pyNumber(train.labelSmoothing)} / out.shape[1]) * torch.log(out.clamp_min(1e-7))).sum(1).mean()  # label smoothing` : `nn.CrossEntropyLoss(label_smoothing=${pyNumber(train.labelSmoothing)})`)
@@ -344,6 +345,7 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push(`    "rho": ${pyNumber(train.rho)},`);
   lines.push(`    "shuffle": ${pyBool(train.shuffle)},`);
   lines.push(`    "label_smoothing": ${pyNumber(train.labelSmoothing)},`);
+  if (mixup) lines.push(`    "mixup": ${pyNumber(train.mixup)},  # mixup α: blends of two samples`);
   lines.push(`    "monitor": ${pyString(train.monitor)},  # what early stopping watches`);
   lines.push(`    "min_delta": ${pyNumber(train.minDelta)},`);
   lines.push(`    "restore_best": ${pyBool(train.restoreBest)},`);
@@ -421,8 +423,16 @@ export function generatePytorch({ project, task, inputShape, hooks = true }) {
   lines.push('        for xb, yb in mt.batches(data["x_train"], data["y_train"], CONFIG["batch_size"], shuffle=CONFIG["shuffle"]):');
   lines.push('            xb, yb = xb.to(device), yb.to(device)');
   lines.push('            optimizer.zero_grad()');
-  lines.push('            out = model(xb)');
-  lines.push('            loss = loss_fn(out, yb)');
+  if (mixup) {
+    lines.push('            # mixup: a blend λ·a + (1 − λ)·b of each sample and another, the loss blended alike');
+    lines.push('            lam = float(torch.distributions.Beta(CONFIG["mixup"], CONFIG["mixup"]).sample())');
+    lines.push('            other = torch.randperm(len(xb), device=device)');
+    lines.push('            out = model(lam * xb + (1 - lam) * xb[other])');
+    lines.push('            loss = lam * loss_fn(out, yb) + (1 - lam) * loss_fn(out, yb[other])');
+  } else {
+    lines.push('            out = model(xb)');
+    lines.push('            loss = loss_fn(out, yb)');
+  }
   lines.push('            loss.backward()');
   lines.push('            optimizer.step()');
   lines.push('            total += loss.item() * len(xb)');

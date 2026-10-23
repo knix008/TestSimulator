@@ -332,10 +332,20 @@ export const SAMPLES = {
   },
   kwsKo: {
     group: 'speech', icon: 'smKwsKo', ko: '한국어 키워드 인식: 출근·퇴근·경비·해제', en: 'Korean keyword spotting: 출근·퇴근·경비·해제',
-    descKo: 'Supertonic TTS 화자 80명(기본 10명 + 두 목소리를 섞은 30명 + 세 목소리를 섞어 조금 바꾼 40명)이 여러 억양·빠르기로 말한 음성 2880개로 출퇴근·경비 명령어 4개 + unknown(비슷한 말과 일상어 120여 개) + noise(배경 소음)를 구별합니다. 학습 탭의 "모델 구조"에서 임베디드용 DS-CNN 과 BC-ResNet 중 하나를 골라 학습하고 비교하세요. data/predict/kws-ko 의 파일로 "파일로 실행"도 해 보세요.',
-    descEn: '2880 clips from 80 Supertonic TTS voices (the 10 built-in ones, 30 blends of two and 40 nudged mixes of three) in several intonations and speeds: tell four commands (clock in / clock out / arm / disarm) from unknown (about 120 similar and everyday words) and noise. In the Train tab pick the embedded model — DS-CNN or BC-ResNet — under "Model", train and compare. Try "Run on files" with data/predict/kws-ko.',
+    descKo: 'Supertonic TTS 화자 120명(기본 10명 + 두 목소리를 섞은 30명 + 세 목소리를 섞어 조금 바꾼 80명)이 여러 억양·빠르기로 말한 음성 5520개로 출퇴근·경비 명령어 4개 + unknown(비슷한 말과 일상어 120여 개) + noise(배경 소음)를 구별합니다. 학습 탭의 "모델 구조"에서 ResNet CNN(권장, 기본) · 임베디드용 DS-CNN · BC-ResNet 중 하나를 골라 학습하고 비교하세요. data/predict/kws-ko 의 파일로 "파일로 실행"도 해 보세요.',
+    descEn: '5520 clips from 120 Supertonic TTS voices (the 10 built-in ones, 30 blends of two and 80 nudged mixes of three) in several intonations and speeds: tell four commands (clock in / clock out / arm / disarm) from unknown (about 120 similar and everyday words) and noise. In the Train tab pick the model under "Model" — ResNet CNN (recommended, the default), or the embedded DS-CNN or BC-ResNet — train and compare. Try "Run on files" with data/predict/kws-ko.',
     dataset: { source: { kind: 'sounds', bank: 'kws-ko', name: 'Korean keywords', seconds: 1, copies: 4, noiseClass: true, layout: 'image', seed: 1 }, steps: [], split: { ...defaultSplit(), stratify: true } },
     variants: {
+      resCnn: {
+        ko: 'ResNet CNN (권장)', en: 'ResNet CNN (recommended)',
+        descKo: '3×3 합성곱 두 개와 잔차 연결로 된 블록 3개 (48 채널). DS-CNN 보다 매개변수가 많지만 처음 듣는 목소리에도 더 고르게 맞힙니다. 라벨 스무딩·믹스업(두 음성 섞기)·코사인 학습률로 한 단어에 쏠리지 않게 학습합니다.',
+        descEn: 'Three residual blocks of two 3×3 convolutions (48 channels). More parameters than DS-CNN, but steadier on voices it has not heard; label smoothing, mixup (blends of two clips) and a cosine learning rate keep it from favouring one word.',
+        layers: [['input', 'input', { shape: '32,32,1' }], ['conv_1', 'conv2d', { filters: 48, kernelSize: 3, activation: 'linear' }], ['bn_1', 'batchNorm', { momentum: 0.9 }], ['relu_1', 'activation', { activation: 'relu' }], ['pool_1', 'avgPool2d', { poolSize: 2, strides: 2 }],
+          ['r1_conv_a', 'conv2d', { filters: 48, kernelSize: 3, activation: 'linear' }], ['r1_bn_a', 'batchNorm', { momentum: 0.9 }], ['r1_relu_a', 'activation', { activation: 'relu' }], ['r1_conv_b', 'conv2d', { filters: 48, kernelSize: 3, activation: 'linear' }], ['r1_bn_b', 'batchNorm', { momentum: 0.9 }], ['r1_add', 'add', {}, ['r1_bn_b', 'pool_1']], ['r1_relu', 'activation', { activation: 'relu' }],
+          ['r2_conv_a', 'conv2d', { filters: 48, kernelSize: 3, activation: 'linear' }], ['r2_bn_a', 'batchNorm', { momentum: 0.9 }], ['r2_relu_a', 'activation', { activation: 'relu' }], ['r2_conv_b', 'conv2d', { filters: 48, kernelSize: 3, activation: 'linear' }], ['r2_bn_b', 'batchNorm', { momentum: 0.9 }], ['r2_add', 'add', {}, ['r2_bn_b', 'r1_relu']], ['r2_relu', 'activation', { activation: 'relu' }], ['pool_2', 'maxPool2d', { poolSize: 2, strides: 2 }],
+          ['r3_conv_a', 'conv2d', { filters: 48, kernelSize: 3, activation: 'linear' }], ['r3_bn_a', 'batchNorm', { momentum: 0.9 }], ['r3_relu_a', 'activation', { activation: 'relu' }], ['r3_conv_b', 'conv2d', { filters: 48, kernelSize: 3, activation: 'linear' }], ['r3_bn_b', 'batchNorm', { momentum: 0.9 }], ['r3_add', 'add', {}, ['r3_bn_b', 'pool_2']], ['r3_relu', 'activation', { activation: 'relu' }],
+          ['dropout', 'dropout', { rate: 0.3 }], ['gap', 'globalAvgPool2d'], ['output', 'dense', { units: 6, activation: 'softmax' }]],
+      },
       dsCnn: {
         ko: 'DS-CNN', en: 'DS-CNN', descKo: '깊이별 + 점별 합성곱 블록 4개 (Hello Edge). 매개변수가 적고 마이크로컨트롤러에서 빠릅니다.', descEn: 'Four depthwise + pointwise blocks (Hello Edge): few parameters, fast on a microcontroller.',
         layers: [['input', 'input', { shape: '32,32,1' }], ['conv_1', 'conv2d', { filters: 64, kernelSize: 3, strides: 2, activation: 'linear' }], ['bn_1', 'batchNorm', { momentum: 0.9 }], ['relu_1', 'activation', { activation: 'relu' }],
@@ -357,7 +367,7 @@ export const SAMPLES = {
           ['head', 'conv2d', { filters: 32, kernelSize: 1, activation: 'relu' }], ['gap', 'globalAvgPool2d'], ['output', 'dense', { units: 6, activation: 'softmax' }]],
       },
     },
-    train: { learningRate: 0.003, epochs: 20, batchSize: 32 },
+    train: { learningRate: 0.003, epochs: 20, batchSize: 32, schedule: 'cosine', labelSmoothing: 0.1, mixup: 0.3 },
   },
   // ── language models (LLM)
   gptEn: {

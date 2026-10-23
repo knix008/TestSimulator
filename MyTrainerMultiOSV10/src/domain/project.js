@@ -45,6 +45,7 @@ export function defaultTrain() {
     restoreBest: false,
     shuffle: true,
     labelSmoothing: 0,
+    mixup: 0,             // mixup α (classification): 0 = off
   };
 }
 
@@ -86,6 +87,7 @@ export function cleanTrain(raw = {}) {
     restoreBest: raw.restoreBest === true,
     shuffle: raw.shuffle !== false,
     labelSmoothing: clampNumber(raw.labelSmoothing, 0, 0.5, base.labelSmoothing),
+    mixup: clampNumber(raw.mixup, 0, 1, base.mixup),
   };
 }
 

@@ -62,6 +62,7 @@ export function dataViewHtml(app) {
           <button class="button small" data-data="sounds">${icon('volume')}<span>${escapeHtml(t('data.importSounds'))}</span></button>
         </div>
         <p class="muted small">${escapeHtml(source.kind === 'generator' ? t(`genDesc.${source.id}`) : source.kind === 'table' ? t('data.csvDesc') : source.kind === 'sounds' ? (source.bank ? t(`bankDesc.${source.bank}`) : t('data.soundsDesc')) : t('data.imagesDesc'))}</p>
+        ${bankHtml(app, source)}
         ${genParams}${tableOptions}${soundOptions}
       </section>
       <section class="panel-section"><h3>${icon('ppStandardize')}<span>${escapeHtml(t('data.pipeline'))}</span></h3>
@@ -320,4 +321,18 @@ function drawVideoRows(canvas, data, app, probe) {
     ctx.fillText(`#${raw} ${data.labels?.[data.y[i]] ?? data.y[i]}`, used + 22, y + frameSize / 2 + 4);
     canvas.hits.push({ x: 0, y, w: width, h: frameSize, index: raw });
   }
+}
+
+/** A built-in sound bank: how many clips each word has, how many voices, and where the files are. */
+function bankHtml(app, source) {
+  if (source.kind !== 'sounds' || !source.bank) return '';
+  const t = app.t;
+  const info = app.bankInfo(source.bank);
+  if (!info) return '';
+  const counts = Object.entries(info.counts).map(([label, n]) => `<span class="bank-count"><b>${escapeHtml(label)}</b> ${n.toLocaleString()}</span>`).join('');
+  return `<div class="bank-info">
+    <p class="small">${escapeHtml(t('bank.stats', { n: info.total.toLocaleString(), voices: info.voices, copies: source.copies ?? 1 }))}</p>
+    <div class="bank-counts">${counts}</div>
+    <p class="muted small">${escapeHtml(t('bank.where', { file: `public/${SOUND_BANKS[source.bank].file}`, folder: `data/audio/${source.bank}/`, script: 'scripts/make-kws-ko.py' }))}</p>
+  </div>`;
 }

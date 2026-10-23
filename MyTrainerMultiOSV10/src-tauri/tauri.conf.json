@@ -44,6 +44,7 @@
       }
     ],
     "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
       "nsis": {
         "installMode": "currentUser",
         "languages": ["Korean", "English"],

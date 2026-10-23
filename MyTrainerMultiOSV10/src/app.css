@@ -465,3 +465,7 @@ kbd { padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2p
 .advanced-train > summary::after { content: '▸'; margin-left: auto; transition: transform 0.15s; }
 .advanced-train[open] > summary::after { transform: rotate(90deg); }
 .lr-input { width: 100%; min-width: 0; box-sizing: border-box; }
+
+.bank-info { margin: 6px 0 4px; }
+.bank-counts { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0; }
+.bank-count { padding: 1px 7px; border-radius: 999px; background: var(--surface2, var(--panel)); border: 1px solid var(--hairline); font-size: 0.85em; }

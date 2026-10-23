@@ -37,6 +37,34 @@ export async function runWebSuite({ log = console.log, report } = {}) {
       await page.waitFor(`__mytrainer.state.project.sample === 'moons' && !__mytrainer.state.showStart`);
       assert.equal(await state('s.problems.filter((p) => p.level === "error").length'), 0);
     });
+    await step('settings: a theme applies at once; Cancel puts it back, Reset and OK keep the defaults', async () => {
+      const popup = `document.querySelector('.web-popup-settings iframe')?.contentDocument`;
+      const open = async () => {
+        await page.eval(`void __mytrainer.run('settings')`);
+        await page.waitFor(`${popup}?.querySelector('[data-action="settingsOk"]')`);
+        await page.eval(`${popup}.querySelector('[data-tab="appearance"]').click()`);
+      };
+      const press = (name) => page.eval(`${popup}.querySelector('[data-action="${name}"]').click()`);
+      const pick = (theme) => page.eval(`${popup}.querySelector('[data-set="theme"][data-value="${theme}"]').click()`);
+      const shown = () => page.eval('document.documentElement.dataset.theme');
+      const closed = () => page.waitFor(`!document.querySelector('.web-popup-settings iframe')`);
+      await open();
+      await pick('midnight');
+      await page.waitFor(`document.documentElement.dataset.theme === 'midnight'`);
+      assert.equal(await state('s.settings.theme'), 'midnight', 'the main window follows while the window is open');
+      await press('settingsCancel'); await closed();
+      assert.equal(await shown(), 'light'); assert.equal(await state('s.settings.theme'), 'light');
+      await open();
+      await press('settingsReset');
+      await page.waitFor(`__mytrainer.state.settings.theme === 'system'`);
+      await press('settingsOk'); await closed();
+      assert.equal(await state('s.settings.theme'), 'system');
+      assert.equal(await state('s.settings.language'), 'ko', 'Reset keeps the language');
+      await open();
+      await pick('light');
+      await press('settingsOk'); await closed();
+      assert.equal(await shown(), 'light');
+    });
     await step('palette: clicking a layer inserts it after the selected layer; undo removes it', async () => {
       await page.eval(`__mytrainer.switchTab('model')`);
       const before = await state('s.project.model.nodes.length');

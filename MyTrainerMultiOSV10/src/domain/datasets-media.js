@@ -560,6 +560,35 @@ export function soundFeatures(wave, media) {
 }
 
 /**
+ * Band-limited resampling (windowed sinc, cut off just below the lower Nyquist frequency). The browser's own
+ * conversion (an AudioBufferSourceNode in an OfflineAudioContext) does not filter: going from 48 kHz to 8 kHz
+ * it folds everything above 4 kHz — the hiss of ㅊ ㅎ, breath, microphone noise — into the speech band, which
+ * the training clips (resampled band-limited by scripts/make-kws-ko.py) never have.
+ */
+export function resampleWave(wave, from, to) {
+  if (from === to) return Float32Array.from(wave);
+  const ratio = from / to;
+  const out = new Float32Array(Math.max(1, Math.round(wave.length / ratio)));
+  const cutoff = 0.92 * 0.5 * Math.min(1, 1 / ratio); // cycles per input sample
+  const half = Math.ceil(16 / (2 * cutoff)); // 16 zero crossings each side
+  for (let i = 0; i < out.length; i++) {
+    const t = i * ratio;
+    const lo = Math.max(0, Math.ceil(t - half));
+    const hi = Math.min(wave.length - 1, Math.floor(t + half));
+    let sum = 0; let weight = 0;
+    for (let k = lo; k <= hi; k++) {
+      const x = k - t;
+      const arg = 2 * cutoff * x;
+      const sinc = arg === 0 ? 1 : Math.sin(Math.PI * arg) / (Math.PI * arg);
+      const w = sinc * (0.5 + 0.5 * Math.cos((Math.PI * x) / half)); // Hann window
+      sum += wave[k] * w; weight += w;
+    }
+    out[i] = weight ? sum / weight : 0;
+  }
+  return out;
+}
+
+/**
  * The `seconds` of a recording the model should hear: centred on the speech, as every training clip is
  * (scripts/make-kws-ko.py centres the words). Speech is where the energy over 50 ms rises clearly above the
  * recording's noise floor. (Taking the window with the most energy instead would put a short word anywhere in
@@ -665,24 +694,44 @@ function reverb(wave, rt60, wet, size) {
  * half of them with the frequencies stretched or squeezed a little (VTLP: a longer or shorter vocal tract,
  * i.e. another speaker), and a few with a band of the spectrogram or a moment masked out (SpecAugment).
  */
-export function fromSounds(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseClass = true, layout = 'image', seed = 1, labels = null } = {}) {
+export function fromSounds(clips, options = {}) {
+  const steps = soundSteps(clips, options);
+  for (;;) { const step = steps.next(); if (step.done) return step.value; }
+}
+
+/** fromSounds a little at a time: onProgress(0…1) between steps, the page stays responsive. */
+export async function fromSoundsAsync(clips, options = {}, onProgress = () => {}) {
+  const steps = soundSteps(clips, options);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+    onProgress(step.value);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+/** fromSounds as steps: yields the share done (0…1) every few dozen samples, returns the dataset. */
+function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseClass = true, layout = 'image', seed = 1, labels = null, bands = 32, frames = 32, stretch = 1.25 } = {}) {
   const r = rng(seed);
   const n = Math.round(RATE * seconds);
-  const bands = 32; const frames = 32;
   const media = { type: 'audio', rate: RATE, layout, bands, frames, seconds, hop: soundHop(seconds, frames) };
   const names = labels ?? [...new Set(clips.map((clip) => clip.label))].sort();
   if (noiseClass && !names.includes('noise')) names.push('noise');
-  const xs = []; const ys = []; const waves = [];
+  const noiseCount = noiseClass ? Math.max(1, Math.round((clips.length * copies) / Math.max(1, names.length - 1))) : 0;
+  const size = bands * frames;
+  // Thousands of samples: the features go straight into one typed array (a plain array of numbers takes many times the memory).
+  const xs = new Float32Array((clips.length * copies + noiseCount) * size); const ys = []; const waves = [];
   const gauss = () => Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r());
-  // Waves are kept for "play" only: 16-bit, a quarter of the memory of the copies' floats.
-  const push = (wave, label, mask = false, warp = 1) => {
-    waves.push(Int16Array.from(wave, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767)));
+  // Waves are kept for "play" only: an original is the clip itself, a copy 16-bit (half the memory of floats).
+  const push = (wave, label, mask = false, warp = 1, original = null) => {
+    waves.push(original ?? Int16Array.from(wave, (v) => Math.round(Math.max(-1, Math.min(1, v)) * 32767)));
     const f = soundFeatures(wave, media);
     if (warp !== 1) warpFeatures(f, media, warp);
     if (mask) maskFeatures(f, media, r);
-    for (let i = 0; i < f.length; i++) xs.push(f[i]);
+    xs.set(f, ys.length * size);
     ys.push(names.indexOf(label));
   };
+  const total = clips.length * copies + noiseCount;
   // Room noise: brown-ish with a little mains hum, pink-ish and white; a few buffers made once, then read
   // from a random offset at a random level for every copy.
   const pool = Array.from({ length: 18 }, (_, k) => {
@@ -712,7 +761,7 @@ export function fromSounds(clips, { name = 'Sounds', seconds = 1, copies = 3, no
       const source = clip.wave;
       if (c === 0) wave.set(source.subarray(0, n));
       else {
-        const rate = 0.87 + r() * 0.26; // > 1: faster and higher
+        const rate = Math.exp((r() * 2 - 1) * Math.log(stretch)); // > 1: faster and higher
         const shift = (r() - 0.5) * 0.24 * RATE;
         const gain = 0.35 + r() * 0.65;
         const middle = source.length / 2;
@@ -734,18 +783,19 @@ export function fromSounds(clips, { name = 'Sounds', seconds = 1, copies = 3, no
           for (let i = 0; i < n; i++) { const j = i + offset; if (j >= 0 && j < other.length) wave[i] += level * other[j]; }
         }
       }
-      push(wave, clip.label, c > 0 && r() < 0.25, c > 0 && r() < 0.5 ? 0.88 + r() * 0.24 : 1);
+      push(wave, clip.label, c > 0 && r() < 0.25, c > 0 && r() < 0.5 ? 0.88 + r() * 0.24 : 1, c === 0 && clip.wave.length === n ? clip.wave : null);
+      if (ys.length % 96 === 0) yield ys.length / total;
     }
   }
   if (noiseClass) {
-    const perClass = Math.max(1, Math.round((clips.length * copies) / Math.max(1, names.length - 1)));
-    for (let i = 0; i < perClass; i++) {
+    for (let i = 0; i < noiseCount; i++) {
       const wave = background(0.005 + r() * 0.1);
       if (r() < 0.3) highPass(wave, 80 + r() * 420);
       if (r() < 0.3) lowPass(wave, 1600 + r() * 2200);
       // A knock or a click now and then: noise is not always steady.
       if (r() < 0.3) { const at = Math.floor(r() * (n - 200)); const level = 0.1 + r() * 0.5; for (let k = 0; k < 200; k++) wave[at + k] += level * gauss() * Math.exp(-k / 30); }
       push(wave, 'noise');
+      if (ys.length % 96 === 0) yield ys.length / total;
     }
   }
   const data = makeDataset({ name, kind: 'audio', inputShape: layout === 'image' ? [bands, frames, 1] : [frames, bands], xs, ys, task: classification(names.length), labels: names });

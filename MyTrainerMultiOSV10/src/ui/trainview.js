@@ -34,6 +34,7 @@ function advancedHtml(app, { row, step, busy }) {
   }
   rows.push(row(t('train.shuffle'), check('shuffle'), t('train.shuffleTip')));
   if (app.task()?.kind === 'classification') rows.push(row(t('train.labelSmoothing'), choose('labelSmoothing', [0, 0.05, 0.1, 0.15, 0.2]), t('train.labelSmoothingTip')));
+  if (app.task()?.kind === 'classification') rows.push(row(t('train.mixup'), choose('mixup', [0, 0.1, 0.2, 0.3, 0.4, 0.5], (o) => (o ? String(o) : t('train.mixupOff'))), t('train.mixupTip')));
   return `<details class="panel-section advanced-train" ${app.view.trainAdvanced ? 'open' : ''}><summary data-train-advanced>${icon('tune')}<span>${escapeHtml(t('train.advanced'))}</span></summary>
     ${rows.join('')}
     <p class="muted small">${escapeHtml(t('train.advancedHint'))}</p></details>`;
@@ -63,7 +64,7 @@ export function trainViewHtml(app) {
       ${variantHtml}
       <section class="panel-section"><h3>${icon('gpu')}<span>${escapeHtml(t('train.engine'))}</span></h3>
         <span class="segmented engine-switch" role="radiogroup">
-          <button class="segment ${engine === 'tfjs' ? 'active' : ''}" data-engine="tfjs" ${busy ? 'disabled' : ''}>${icon('engineTf')}<span>TensorFlow.js</span></button>
+          <button class="segment ${engine === 'tfjs' ? 'active' : ''}" data-engine="tfjs" ${busy ? 'disabled' : ''}>${icon('engineTf')}<span>TensorFlow</span></button>
           <button class="segment ${engine === 'torch' ? 'active' : ''}" data-engine="torch" ${busy || !app.desktop ? 'disabled' : ''} title="${escapeHtml(app.desktop ? t('train.torchTip') : t('web.desktopOnly'))}">${icon('engineTorch')}<span>PyTorch</span></button>
         </span>
         <p class="muted small engine-line">${escapeHtml(engine === 'tfjs' ? t('train.tfjsInfo', { backend: app.tfBackend() ?? '…' }) : pyInfo ? t('train.torchInfo', { torch: pyInfo.torch ?? '–', python: pyInfo.version, device: pyInfo.cuda ? `CUDA (${pyInfo.gpu ?? 'GPU'})` : pyInfo.mps ? 'Apple MPS' : 'CPU' }) : t('train.torchMissing'))}</p>

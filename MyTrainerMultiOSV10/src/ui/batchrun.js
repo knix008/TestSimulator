@@ -3,7 +3,7 @@
 // data was made (picture size and channels, speech → log-mel spectrogram, CSV columns → the same
 // numbers and one-hot columns); the app then applies the same preprocessing and asks the engine.
 import { encodeTableRows, parseCsv } from '../domain/datasets.js';
-import { encodePrompt, soundFeatures } from '../domain/datasets-media.js';
+import { encodePrompt, resampleWave, soundFeatures, speechWindow } from '../domain/datasets-media.js';
 import { decodePicture, IMAGE_ACCEPT, IMAGE_EXTENSIONS } from './imagedecode.js';
 import { clipFrom, pictureFrom, videoFileFrames } from './live.js';
 
@@ -25,40 +25,21 @@ async function pictureInput(file, data) {
   return pictureFrom(bitmap, bitmap.width, bitmap.height, data, { fit: 'contain' });
 }
 
-/** A sound file → the training's mel spectrogram (8 kHz, 0.6 s around the loudest part). */
-/** Any audio file (bytes) → mono wave at `rate` Hz (the browser decodes and resamples). */
+/** Any audio file (bytes) → mono wave at `rate` Hz: decoded by the browser at 48 kHz, mixed to mono, then
+ * brought down band-limited (resampleWave — the browser's own conversion to 8 kHz would fold the high
+ * frequencies into the speech band). */
 export async function decodeSound(bytes, rate) {
-  const context = new OfflineAudioContext(1, 1, rate);
-  const decoded = await context.decodeAudioData(bytes.slice(0));
-  const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * rate)), rate);
-  const source = offline.createBufferSource();
-  source.buffer = decoded;
-  source.connect(offline.destination);
-  source.start();
-  return (await offline.startRendering()).getChannelData(0);
+  const decoded = await new OfflineAudioContext(1, 1, 48000).decodeAudioData(bytes.slice(0));
+  const mono = new Float32Array(decoded.length);
+  for (let c = 0; c < decoded.numberOfChannels; c++) {
+    const data = decoded.getChannelData(c);
+    for (let i = 0; i < mono.length; i++) mono[i] += data[i] / decoded.numberOfChannels;
+  }
+  return resampleWave(mono, decoded.sampleRate, rate);
 }
 
-/** The `seconds` window with the most energy, peak-normalised to 0.9 (shorter sounds are centred). */
-export function loudestWindow(rendered, rate, seconds) {
-  const target = Math.round(rate * seconds);
-  const wave = new Float32Array(target);
-  if (rendered.length <= target) {
-    wave.set(rendered, Math.floor((target - rendered.length) / 2));
-  } else {
-    let best = 0; let bestEnergy = -1;
-    const step = Math.max(1, Math.floor(rate * 0.02));
-    for (let start = 0; start + target <= rendered.length; start += step) {
-      let energy = 0;
-      for (let i = start; i < start + target; i++) energy += rendered[i] * rendered[i];
-      if (energy > bestEnergy) { bestEnergy = energy; best = start; }
-    }
-    wave.set(rendered.subarray(best, best + target));
-  }
-  let peak = 0;
-  for (const v of wave) peak = Math.max(peak, Math.abs(v));
-  if (peak > 0) for (let i = 0; i < wave.length; i++) wave[i] = (wave[i] / peak) * 0.9;
-  return wave;
-}
+/** The `seconds` around the speech, centred and peak-normalised to 0.9, as the training clips are made. */
+export const loudestWindow = (rendered, rate, seconds) => speechWindow(rendered, rate, seconds).wave;
 
 async function soundInput(file, data) {
   const media = data.media;

@@ -19,7 +19,7 @@ release/
 test-results/
 *.log
 
-# Python caches (python/)
+# Python caches (python/, scripts/)
 __pycache__/
 *.pyc
 
@@ -32,5 +32,15 @@ __pycache__/
 Thumbs.db
 desktop.ini
 
-# Text-to-speech tools for scripts/make-kws-ko.py
+# Dev-tools Python (scripts/venv-tts.mjs): Supertonic TTS for npm run data:kws, onnxruntime for the export tests
 .venv-tts/
+
+# Other local Python environments and secrets
+.venv/
+venv/
+.env
+.env.*
+
+# Scratch files
+*.tmp
+*.bak

@@ -5,7 +5,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import appIcon from '../assets/icon-256.png';
 import { SAMPLE_GROUPS, SAMPLE_IDS, SAMPLES } from './domain/samples.js';
-import { COLOR_MAPS, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, loadSettings, storeSettings, CODE_FONT_SIZE } from './domain/settings.js';
+import { COLOR_MAPS, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, defaultSettings, loadSettings, storeSettings, CODE_FONT_SIZE } from './domain/settings.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
 import * as native from './platform/native.js';
@@ -61,6 +61,8 @@ const state = {
   group: null,
 };
 const s = () => state.settings;
+// Settings: every change shows in the main window at once; Cancel puts back what was there when the window opened.
+let original = kind === 'settings' ? { ...state.settings } : null;
 const P = () => state.params;
 const L = () => getLanguage();
 
@@ -74,7 +76,29 @@ function update(patch) {
   state.settings = { ...state.settings, ...patch };
   storeSettings(globalThis.localStorage, state.settings);
   applyLook();
+  if (kind === 'settings') action('settings-preview');
   render();
+}
+
+/** Reset: the defaults of what this window shows (the window layout and the Python set-up are kept). */
+function resetSettings() {
+  const keep = ['language', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'leftWidth', 'rightWidth', 'bottomHeight', 'pythonAutoSetup', 'micGain', 'micThreshold'];
+  const defaults = defaultSettings(s().language);
+  for (const key of keep) delete defaults[key];
+  update(defaults);
+}
+
+function cancelSettings() {
+  state.settings = { ...original };
+  storeSettings(globalThis.localStorage, state.settings);
+  action('settings-preview');
+  close(null);
+}
+
+/** The window's × and Escape: Cancel in the settings, else what each popup does. */
+function dismiss() {
+  if (kind === 'settings') cancelSettings();
+  else close(kind === 'confirm' ? { choice: 'cancel' } : null);
 }
 
 window.addEventListener('error', (event) => action('report-error', { message: String(event.error?.message ?? event.message), detail: String(event.error?.stack ?? ''), context: `popup-${kind}` }));
@@ -189,7 +213,7 @@ function renderSettings() {
       break;
     default: break;
   }
-  return frame({ glyph: 'gear', title: t('settings.title'), tabs: tabsHtml(tabs, state.tab), body: `<div class="settings-body">${body}</div>`, foot: `<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
+  return frame({ glyph: 'gear', title: t('settings.title'), tabs: tabsHtml(tabs, state.tab), body: `<div class="settings-body">${body}</div>`, foot: `${button('settingsReset', t('settings.reset'), 'undo', '', '', `title="${escapeHtml(t('settings.resetTip'))}"`)}<span class="grow"></span>${button('settingsOk', t('common.ok'), 'check', 'primary')}${button('settingsCancel', t('common.cancel'), 'close')}` });
 }
 
 function renderAbout() {
@@ -236,7 +260,7 @@ function renderShortcuts() {
     ['Ctrl+= / Ctrl+-', 'shortcut.zoom'], ['Ctrl+0', 'menu.fit'], ['F5', 'menu.train'], ['F6', 'menu.pause'], ['F10', 'menu.step'], ['Shift+F5', 'menu.stop'], ['F1', 'menu.guide'],
     ['Ctrl+F', 'shortcut.find'], ['Ctrl+Space', 'shortcut.complete'], ['Shift+drag', 'shortcut.band'], ['Ctrl+wheel', 'shortcut.zoom'],
   ];
-  return frame({ glyph: 'keyboard', title: t('menu.shortcuts'), body: `<table class="shortcut-table">${list.map(([key, label]) => `<tr><td><kbd>${escapeHtml(key)}</kbd></td><td>${escapeHtml(t(label))}</td></tr>`).join('')}</table>`, foot: `<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
+  return frame({ glyph: 'keyboard', title: t('menu.shortcuts'), body: `<table class="shortcut-table">${list.map(([key, label]) => `<tr><td><kbd>${escapeHtml(key)}</kbd></td><td>${escapeHtml(t(label))}</td></tr>`).join('')}</table>`, foot: `${button('settingsReset', t('settings.reset'), 'undo', '', '', `title="${escapeHtml(t('settings.resetTip'))}"`)}<span class="grow"></span>${button('settingsOk', t('common.ok'), 'check', 'primary')}${button('settingsCancel', t('common.cancel'), 'close')}` });
 }
 
 function renderSamples() {
@@ -351,7 +375,10 @@ root.addEventListener('click', (event) => {
   if (!actionButton || actionButton.disabled) return;
   const name = actionButton.dataset.action;
   switch (name) {
-    case 'close': close(kind === 'confirm' ? { choice: 'cancel' } : null); break;
+    case 'close': dismiss(); break;
+    case 'settingsOk': close({ ok: true }); break;
+    case 'settingsCancel': cancelSettings(); break;
+    case 'settingsReset': resetSettings(); break;
     case 'choice': close({ choice: actionButton.dataset.value }); break;
     case 'promptOk': close({ value: root.querySelector('[data-prompt]')?.value ?? '' }); break;
     case 'copy': navigator.clipboard.writeText(`${P().message}\n${P().detail}`).catch(() => {}); break;
@@ -403,19 +430,19 @@ root.addEventListener('pointerdown', (event) => {
 window.addEventListener('contextmenu', (event) => {
   event.preventDefault();
   const items = textMenuItems(event.target, t);
-  if (kind !== 'menu') items.push(...(items.length ? ['sep'] : []), { label: t('common.close'), icon: 'close', action: () => close(kind === 'confirm' ? { choice: 'cancel' } : null) });
+  if (kind !== 'menu') items.push(...(items.length ? ['sep'] : []), { label: t('common.close'), icon: 'close', action: dismiss });
   showContextMenu(items, { x: event.clientX, y: event.clientY });
 });
 
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') close(kind === 'confirm' ? { choice: 'cancel' } : null);
+  if (event.key === 'Escape') dismiss();
   if (event.key === 'Enter' && kind === 'prompt') close({ value: root.querySelector('[data-prompt]')?.value ?? '' });
 });
 
 // Messages from the main window
 if (desktop) {
   native.listen('popup-message', onHostMessage);
-  native.listen('popup-refresh', () => { state.params = popupParams(kind); state.settings = loadSettings(globalThis.localStorage); applyLook(); state.log = []; state.message = null; render(); });
+  native.listen('popup-refresh', () => { state.params = popupParams(kind); state.settings = loadSettings(globalThis.localStorage); if (original) original = { ...state.settings }; applyLook(); state.log = []; state.message = null; render(); });
 }
 window.addEventListener('message', (event) => {
   if (event.origin === location.origin && event.data?.mytrainerHost) onHostMessage(event.data);

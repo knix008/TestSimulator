@@ -32,10 +32,12 @@
 |---|---|
 | `src/domain/layers.js` | 층 카탈로그: 종류별 매개변수, 모양 추론(배치 축 없이, 채널이 마지막), 매개변수 수, 팔레트 묶음, 블록, 활성화 함수 식 |
 | `src/domain/graph.js` | 모델 그래프(노드 = 층, 간선 = 텐서): 추가 · 연결(순환 금지) · 끼우기 · 삭제(이어 붙임) · 바꾸기 · 복제 · 잔차 · 블록 · 위상 정렬 · 모양 · 검증 · 자동 배치 · 파일 복구 |
-| `src/domain/datasets.js` | 씨앗이 있는 내장 데이터 생성기 18종(획 래스터화로 만든 숫자·도형 그림 포함), CSV 파서와 표 → 데이터, 그림 → 데이터, 통계 |
+| `src/domain/datasets.js` | 씨앗이 있는 내장 데이터 생성기(획 래스터화로 만든 숫자·도형 그림 포함), CSV 파서와 표 → 데이터, 그림 → 데이터, 음성 → 데이터(클립 묶음마다 마지막 결과를 기억, `prepareSounds` 는 진행률을 알리며 미리 만듦), 통계 |
+| `src/domain/datasets-media.js` | 음성 · 영상 생성기, µ-law, `fromSounds`/`fromSoundsAsync`(멜 스펙트로그램 + 증강: 빠르기·높이, EQ, 울림, 색 잡음, 뒤 말소리, VTLP, SpecAugment) |
+| `public/datasets/kws-ko.bin` | 한국어 키워드 음성 묶음(Supertonic 화자 120명, 5520개, Int16) — `npm run data:kws` = `scripts/make-kws-ko.py` 를 `.venv-tts` 로 실행 |
 | `src/domain/preprocess.js` | 층화 분할, 전처리 단계(학습 데이터로 맞추고 셋 모두 적용, 증강은 학습 데이터만), 정답 원-핫, `transformInput`(직접 입력에 같은 전처리) |
 | `src/domain/project.js` | `.mytrain` 형식(직렬화 · 파싱 · 복구), 학습 설정, `effectiveTask`(이진 분류 출력 1개/2개), 손실 선택, 학습률 일정 |
-| `src/domain/samples.js` | 샘플 23종(`graphOf` 로 층 목록 → 그래프) |
+| `src/domain/samples.js` | 샘플 38종(모델이 여럿인 샘플은 `variants`, `graphOf` 로 층 목록 → 그래프) |
 | `src/domain/codegen.js` | 그래프 → PyTorch 스크립트. 텐서마다 배치(layout: flat · nhwc · nchw · nlc · ncl)를 추적해 필요한 `permute`/`transpose` 를 넣고, same 패딩(보폭 > 1)은 `ZeroPad2d`, Keras BN 모멘텀은 `1 − m` |
 | `src/domain/pydict.js` | Python · PyTorch 사전(편집기 완성 · 설명 · 사전 패널) |
 | `src/domain/metrics.js` | 혼동 행렬, 정밀도 · 재현율 · F1, MAE · RMSE · R² |

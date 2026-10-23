@@ -3,7 +3,7 @@
 MyTrainer lets you **draw** neural networks, prepare data, train them and **watch what every layer and neuron does**. A trained model can be tried straight away — draw a picture, click a point, type values — and the same model is available as **PyTorch code** that you can edit and run with PyTorch.
 
 - The same app runs in a web browser and on Windows, macOS and Linux (Tauri 2).
-- Two training engines: **TensorFlow.js** inside the app (WebGPU · WebGL · CPU), and **PyTorch** through this computer's Python (desktop app).
+- Two training engines: **TensorFlow** inside the app (TensorFlow.js — WebGPU · WebGL · CPU), and **PyTorch** through this computer's Python (desktop app).
 - 23 sample models (MLP, CNN, autoencoders, RNN · LSTM · GRU, Conv1D, embeddings, residual connections, wide & deep), all with data generated offline.
 
 ![Start page](docs/images/start.png)
@@ -20,7 +20,7 @@ MyTrainer lets you **draw** neural networks, prepare data, train them and **watc
 | Where | What |
 |---|---|
 | Menu bar | Home · File · Edit · View · Model · Data · Train · Help. It is also the title bar (drag to move the window, double-click to maximize). |
-| Toolbar | New · open · save, undo / redo, add layer · auto layout · fit · neuron view, start · pause · one batch · stop · reset, **engine (TF.js / PyTorch)**, theme · language · settings |
+| Toolbar | New · open · save, undo / redo, add layer · auto layout · fit · neuron view, start · pause · one batch · stop · reset, **engine (TensorFlow / PyTorch)**, theme · language · settings |
 | Left: layer palette | Every layer and block: drag onto the model or click to add. The project name and description below. |
 | Centre: work tabs | **Data · Model · Code · Train · Test** (Ctrl+1 … Ctrl+5) |
 | Right: properties | The selected layer's settings, the selected neuron's arithmetic, or — nothing selected — the model summary and its problems |
@@ -33,9 +33,13 @@ MyTrainer lets you **draw** neural networks, prepare data, train them and **watc
 
 ### Where the data comes from
 
-- **18 built-in datasets** — 2-D points (XOR, circles, moons, spiral, blobs, checkerboard), functions and tables (line, sine, Friedman), pictures (digits 0–9, shapes, coloured shapes), sequences (sine forecasting, patterns, counting ones, motion sensor) and text (short sentence sentiment). Change the sample count, noise, seed … and the data is generated again at once.
+- **Built-in datasets** — 2-D points (XOR, circles, moons, spiral, blobs, checkerboard), functions and tables (line, sine, Friedman), pictures (digits 0–9, shapes, coloured shapes, objects), letters (English A–Z, Hangul consonants), **speech commands** (formant synthesis, mel spectrogram), **video** (clips of moving objects), sequences (sine forecasting, patterns, counting ones, motion sensor) and text (short sentence sentiment, **English and Korean sentences for character-level language models**). Change the sample count, noise, seed … and the data is generated again at once.
+- **Recorded speech (real data)** — **Korean keywords: 출근 · 퇴근 · 경비 · 해제** (clock in · clock out · arm · disarm). 5520 clips (3840 keywords + 1680 unknown) from 120 Supertonic TTS voices (the built-in 5 male and 5 female, 30 blends of two and 80 nudged mixes of three) as a statement, a command and a question at several speeds, plus about 120 similar-sounding and everyday words (unknown: 출발 · 퇴장 · 경보 · 해지 …). **Augmented copies** (speed and pitch, time shift, gain, microphone colour, room echo, background noise, people talking behind, VTLP, SpecAugment) and a **background noise class** can be added. Making the spectrograms of all copies takes a while the first time; a progress window shows how far it is.
 - **Import CSV** — comma, semicolon and tab are detected. Pick the target column: text or few distinct values make it **classification**, otherwise **regression**. Text feature columns become one-hot columns; missing numbers get the column mean. Try `samples/student-pass.csv` (pass / fail, classification) and `samples/house-prices.csv` (regression).
-- **Import a picture folder** — sub-folder names are the classes (`cats/`, `dogs/` …). Pictures are shrunk to 28×28 grey and kept in the project.
+- **Import a picture folder** — sub-folder names are the classes (`cats/`, `dogs/` …). PNG · JPEG · GIF · WebP · BMP · AVIF · ICO · SVG · **TIFF · TGA** are read.
+- **Import a sound folder** — sub-folder names are the classes. WAV · MP3 · OGG · FLAC · M4A · WebM are read; the loudest second is kept at 8 kHz.
+
+The `data/` folder has ready examples: CSV (`csv/`), pictures (`images/`), sounds (`audio/speech/`, `audio/kws-ko/`) and files to predict (`predict/`). See `data/README.md`.
 
 Click a sample to make it the **probe input**: the neuron view and the Train tab's neuron picture show that input passing through the network. The mouse wheel pages through the samples.
 
@@ -97,7 +101,7 @@ The network drawn **unit by unit**, from the input (left) to the output (right).
 | Embedding | The word id and its row (vector) |
 | Add · Concatenate | The value from each input |
 
-The **✓ engine** mark next to the result says that the value recomputed with the formula equals the value the engine (TensorFlow.js or PyTorch) actually computed.
+The **✓ engine** mark next to the result says that the value recomputed with the formula equals the value the engine (TensorFlow or PyTorch) actually computed.
 
 ![CNN neurons](docs/images/cnn-neurons.png)
 
@@ -123,14 +127,16 @@ A **complete PyTorch script** holding the model and the training settings:
 
 | Setting | Meaning |
 |---|---|
-| Engine | **TensorFlow.js** (in the app; backend WebGPU → WebGL → CPU, chosen automatically) or **PyTorch** (desktop) |
+| Model | For a sample with several models (e.g. **ResNet CNN / DS-CNN / BC-ResNet** for Korean keyword spotting) pick the one to train. Edits are kept per model. |
+| Engine | **TensorFlow** (TensorFlow.js in the app; backend WebGPU → WebGL → CPU, chosen automatically) or **PyTorch** (desktop) |
 | Optimizer | Adam, SGD, SGD + momentum, RMSprop, Adagrad, Adadelta, Adamax |
 | Learning rate · schedule | Constant, step decay, exponential decay, cosine |
 | Loss | Automatic (classification: cross-entropy; regression and reconstruction: MSE), MAE, Huber |
 | Weight decay · early stopping · patience | Less overfitting |
 | Snapshot every | How often (epochs) every layer's activations, weights and gradients are fetched |
+| Label smoothing · mixup (α) (advanced) | Targets of (1−ε) instead of 100 % / training on blends λ : 1−λ of two samples and their targets (λ ~ Beta(α, α)); both classification only. Mixup makes a model steadier on data it has not seen; the Korean keyword sample uses 0.3 |
 
-**Start (F5) · pause / resume (F6) · one batch (F10) · stop (Shift+F5) · reset**. With TensorFlow.js, a stopped run can **continue**.
+**Start (F5) · pause / resume (F6) · one batch (F10) · stop (Shift+F5) · reset**. With TensorFlow, a stopped run can **continue**. When preparing the data and the model and the first epoch take a while, a **progress window** shows how far it is; it also appears while a large dataset such as the sound clips is made for the first time.
 
 Every chart card has a title; hover over it (ⓘ) to see what the card shows (the Data and Test tabs work the same way). For classification, the **output probabilities** card shows each class's probability (e.g. 경비 · 출근 · 퇴근 · 해제) for the probe input under the current model; the bar in bold text is the true class. At the top, the probe input's **neuron activity** shows it passing through the network while you train. Below it the charts: loss (train / validation; earlier runs dashed), accuracy or learning rate, the **decision boundary** (2-D points) · **fitted curve** (1-D functions) · **original / reconstructed** (autoencoders) · output probabilities, **gradient flow** (mean |∇W| per layer — small red bars in the early layers mean vanishing gradients) and the **weight distribution per layer**.
 
@@ -163,7 +169,12 @@ A PyTorch run gets a folder (`runs/` in the app's data folder) with the script (
 |---|---|
 | Classification basics | XOR, circles, polynomial features + logistic regression, two moons, spiral (3 classes), softmax regression, checkerboard + batch norm |
 | Regression | Linear regression, sine curve fitting, tabular regression (Friedman) |
-| Pictures (CNN) | Digits (MLP), digits (CNN), shapes (CNN + BN + augmentation), coloured shapes (RGB CNN) |
+| Tables (CSV) | Student pass prediction, house prices |
+| Pictures (CNN) | Digits (MLP), digits (CNN), shapes (CNN + BN + augmentation), coloured shapes (RGB CNN), objects (CNN) |
+| Letters (OCR) | English capitals, Hangul consonants |
+| Speech | Speech commands (CNN · GRU), **keyword spotting DS-CNN · BC-ResNet (embedded)**, **Korean keyword spotting: 출근 · 퇴근 · 경비 · 해제** (Supertonic voices; ResNet CNN / DS-CNN / BC-ResNet) |
+| Video | Action recognition (frames + LSTM, stacked-frame CNN) |
+| Language models (LLM) | **Mini GPT** (English · Korean, character-level transformer), LSTM language model |
 | Autoencoders | Autoencoder, convolutional autoencoder |
 | Sequences · text | Forecasting (LSTM), pattern classification (GRU), counting ones (RNN), activity recognition (Conv1D), sentiment (embedding + LSTM) |
 | Graph structures | Residual connection (ResNet block), wide & deep (concatenate) |
@@ -182,7 +193,7 @@ The sample gallery, recent files and **twenty AI-themed moving backgrounds** (ne
 
 ## Settings
 
-**Edit › Settings…**: language (한국어 / English), start page, ask to save on exit, save weights / theme (20 light · 20 dark · system) / font, size, weight / visualization (colour map, neurons shown per layer, signal animation) / code (font size, wrapping, visualization hooks) / PyTorch (Python path, build to install).
+**Edit › Settings…**: language (한국어 / English), start page, ask to save on exit, save weights / theme (20 light · 20 dark · system) / font, size, weight / visualization (colour map, neurons shown per layer, signal animation) / code (font size, wrapping, visualization hooks) / PyTorch (Python path, build to install). Changes (theme, font, language …) **apply to the main window at once**. **OK** keeps them, **Cancel** (or ×, Esc) puts back the settings the window opened with, and **Reset** sets this window's settings to their defaults (language and window layout stay; kept only with OK).
 
 ## Keyboard shortcuts
 

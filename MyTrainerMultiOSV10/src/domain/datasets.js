@@ -10,7 +10,7 @@
 // become datasets through fromTable() / fromImages().
 
 import { makeDataset, rasterize, rng } from './datasets-core.js';
-import { fromMulaw, fromSounds, MEDIA_GENERATORS } from './datasets-media.js';
+import { fromMulaw, fromSounds, fromSoundsAsync, MEDIA_GENERATORS } from './datasets-media.js';
 
 export { makeDataset, rasterize, rng };
 const make = makeDataset;
@@ -526,7 +526,24 @@ export function featureStats(data, limit = 64) {
  * The dataset a project's data source describes: a generator (params, `overrides` on top — tests
  * shrink n), a CSV table (`rows` reuses parsed rows) or pictures (base64 bytes per item).
  */
+// Spectrograms of a few thousand clips take a while: the last result per clip set is kept.
 const soundMemo = new WeakMap();
+
+function soundRecipe(source, overrides = {}) {
+  const p = { ...source, ...overrides };
+  return { key: JSON.stringify([source.name, p.seconds, p.copies, p.noiseClass, p.seed, p.layout]), options: { name: source.name, seconds: p.seconds, copies: p.copies, noiseClass: p.noiseClass, seed: p.seed, layout: p.layout } };
+}
+
+/** Is the dataset of these clips for this source made already (fromSource would return at once)? */
+export const soundsReady = (source, clips) => soundMemo.get(clips)?.key === soundRecipe(source).key;
+
+/** Makes the dataset of a sounds source in the background (onProgress 0…1); fromSource then returns it at once. */
+export async function prepareSounds(source, clips, onProgress) {
+  const { key, options } = soundRecipe(source);
+  if (soundMemo.get(clips)?.key === key) return;
+  const data = await fromSoundsAsync(clips, options, onProgress);
+  soundMemo.set(clips, { key, data });
+}
 
 export function fromSource(source, { overrides = {}, rows = null, decode = null, sounds = null } = {}) {
   if (source.kind === 'generator') return generate(source.id, { ...source.params, ...overrides });
@@ -539,12 +556,10 @@ export function fromSource(source, { overrides = {}, rows = null, decode = null,
     // The clips: a built-in bank (loaded by the app, passed in) or the project's own µ-law items.
     const clips = sounds ?? (source.items?.length && decode ? source.items.map((item) => ({ label: item.label, wave: fromMulaw(decode(item.data)) })) : null);
     if (!clips) throw new Error('data.loadingSounds');
-    const p = { ...source, ...overrides };
-    // Spectrograms of a few thousand clips take a while: the last result per clip set is kept.
-    const key = JSON.stringify([source.name, p.seconds, p.copies, p.noiseClass, p.seed, p.layout]);
+    const { key, options } = soundRecipe(source, overrides);
     const memo = soundMemo.get(clips);
     if (memo?.key === key) return memo.data;
-    const data = fromSounds(clips, { name: source.name, seconds: p.seconds, copies: p.copies, noiseClass: p.noiseClass, seed: p.seed, layout: p.layout });
+    const data = fromSounds(clips, options);
     soundMemo.set(clips, { key, data });
     return data;
   }

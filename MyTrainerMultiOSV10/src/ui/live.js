@@ -2,7 +2,7 @@
 // models) and video files. Every source becomes a raw input made exactly like the training data
 // (speech: the loudest second at 8 kHz → mel spectrogram; pictures: the model's size and channels;
 // clips: frames × size × size grey), so the app can preprocess it and ask the engine.
-import { soundFeatures } from '../domain/datasets-media.js';
+import { resampleWave, soundFeatures, speechWindow } from '../domain/datasets-media.js';
 
 const mean = (values) => { let s = 0; for (const v of values) s += v; return s / Math.max(1, values.length); };
 
@@ -52,41 +52,21 @@ export class LiveMicrophone {
     this.stream = null; this.context = null; this.node = null; this.gain = null; this.level = 0;
   }
 
-  /** The last `seconds` of sound resampled to `rate` Hz. */
+  /** The last `seconds` of sound resampled (band-limited, like the training clips) to `rate` Hz. */
   async last(seconds, rate) {
     const n = Math.min(this.ring.length, Math.round(this.rate * seconds));
     const raw = new Float32Array(n);
     for (let i = 0; i < n; i++) raw[i] = this.ring[(this.pos - n + i + this.ring.length) % this.ring.length];
-    const offline = new OfflineAudioContext(1, Math.max(1, Math.round(n * rate / this.rate)), rate);
-    const buffer = offline.createBuffer(1, n, this.rate);
-    buffer.copyToChannel(raw, 0);
-    const source = offline.createBufferSource();
-    source.buffer = buffer;
-    source.connect(offline.destination);
-    source.start();
-    return (await offline.startRendering()).getChannelData(0);
+    return resampleWave(raw, this.rate, rate);
   }
 }
 
 /**
- * A recording → the model's input: the `seconds` window with the most energy (peak-normalised), its
- * features, and whether it is loud enough to be speech at all.
+ * A recording → the model's input: the `seconds` window centred on the speech (peak-normalised, as the
+ * training clips are made), its features, and whether it is loud enough to be speech at all.
  */
 export function speechInput(recorded, media, threshold = 0.012) {
-  const n = Math.round(media.rate * (media.seconds ?? 0.6));
-  let best = 0; let bestEnergy = -1;
-  const step = Math.max(1, Math.floor(media.rate * 0.02));
-  for (let start = 0; start + n <= recorded.length; start += step) {
-    let energy = 0;
-    for (let i = start; i < start + n; i++) energy += recorded[i] * recorded[i];
-    if (energy > bestEnergy) { bestEnergy = energy; best = start; }
-  }
-  const wave = new Float32Array(n);
-  wave.set(recorded.subarray(best, best + n));
-  let peak = 0;
-  for (const v of wave) peak = Math.max(peak, Math.abs(v));
-  const rms = Math.sqrt(Math.max(0, bestEnergy) / n);
-  if (peak > 0) for (let i = 0; i < n; i++) wave[i] = (wave[i] / peak) * 0.9;
+  const { wave, rms } = speechWindow(recorded, media.rate, media.seconds ?? 0.6);
   return { raw: soundFeatures(wave, media), wave, rms, loud: rms > threshold };
 }
 

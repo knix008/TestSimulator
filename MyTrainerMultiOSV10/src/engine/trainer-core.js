@@ -35,6 +35,25 @@ function meanAbs(values) {
 
 const tensorInfo = (shape, data) => (data.length <= MAX_VALUES ? { shape, data } : { shape, data: null, stats: histogram(data) });
 
+/** A Gamma(shape, 1) draw (Marsaglia–Tsang; shape < 1 boosted). */
+function gamma(shape) {
+  if (shape < 1) return gamma(shape + 1) * Math.random() ** (1 / shape);
+  const d = shape - 1 / 3; const c = 1 / Math.sqrt(9 * d);
+  for (;;) {
+    let x; let v;
+    do { x = Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random()); v = 1 + c * x; } while (v <= 0);
+    v = v * v * v;
+    const u = Math.random();
+    if (Math.log(u) < 0.5 * x * x + d - d * v + d * Math.log(v)) return d * v;
+  }
+}
+
+/** A Beta(α, α) draw: how much of the first sample a mixup blend keeps. */
+export function mixupWeight(alpha) {
+  const a = gamma(alpha); const b = gamma(alpha);
+  return a / (a + b);
+}
+
 function optimizerFor(tf, train) {
   const lr = train.learningRate;
   switch (train.optimizer) {
@@ -123,6 +142,8 @@ export class Trainer {
     this.lossName = resolveLoss(train, task);
     // Label smoothing (categorical): the targets become (1 − ε)·onehot + ε / classes.
     const smoothing = this.lossName === 'categoricalCrossentropy' && train.labelSmoothing > 0 ? train.labelSmoothing : 0;
+    // Mixup (categorical): batches of blends λ·a + (1 − λ)·b of two samples, the targets blended alike.
+    this.mixup = this.lossName === 'categoricalCrossentropy' && train.mixup > 0 ? train.mixup : 0;
     const tf = this.tf;
     const loss = smoothing
       ? (yTrue, yPred) => tf.tidy(() => {
@@ -134,7 +155,7 @@ export class Trainer {
     built.model.compile({
       optimizer: optimizerFor(tf, train),
       loss,
-      metrics: task.kind === 'classification' ? [smoothing ? 'categoricalAccuracy' : 'accuracy'] : [],
+      metrics: task.kind === 'classification' ? [smoothing || this.mixup ? 'categoricalAccuracy' : 'accuracy'] : [],
     });
     this.history = [];
     this.epoch = 0;
@@ -187,11 +208,9 @@ export class Trainer {
     const batches = Math.ceil(data.train.n / train.batchSize);
     if (startEpoch === 0) await this.snapshot(null, null, 'epoch');
     const self = this;
-    await model.fit(data.train.x, data.train.y, {
+    const options = {
       epochs: endEpoch,
       initialEpoch: startEpoch,
-      batchSize: train.batchSize,
-      shuffle: train.shuffle !== false,
       validationData: data.val ? [data.val.x, data.val.y] : undefined,
       verbose: 0,
       callbacks: {
@@ -204,7 +223,7 @@ export class Trainer {
           const now = Date.now();
           if (now - self.lastBatchPost > 120 || batch === batches - 1) {
             self.lastBatchPost = now;
-            self.send('batch', { epoch: self.epoch, batch: batch + 1, batches, loss: logs.loss, acc: logs.acc });
+            self.send('batch', { epoch: self.epoch, batch: batch + 1, batches, loss: logs.loss, acc: logs.acc ?? logs.categoricalAccuracy });
           }
           if (self.stepMode) { self.paused = true; self.status('paused', { step: true }); }
           await self.waitIfPaused();
@@ -231,7 +250,9 @@ export class Trainer {
           if (self.stopRequested) model.stopTraining = true;
         },
       },
-    });
+    };
+    if (this.mixup) await model.fitDataset(this.mixupBatches(data.train, train.batchSize, train.shuffle !== false), options);
+    else await model.fit(data.train.x, data.train.y, { ...options, batchSize: train.batchSize, shuffle: train.shuffle !== false });
     if (this.bestWeights) {
       // Restore the best epoch's weights (early stopping with "restore best").
       model.setWeights(this.bestWeights);
@@ -243,6 +264,25 @@ export class Trainer {
     const evaluation = await this.evaluate();
     this.status('idle');
     this.send('done', { epochs: this.epoch, stopped: Boolean(this.stopRequested), history: this.history, evaluation: evaluation?.summary ?? null, time: Date.now() - started });
+  }
+
+  /** Mixup batches for fitDataset: each batch blended with itself in another order, one λ per batch. */
+  mixupBatches(part, batchSize, shuffle) {
+    const tf = this.tf;
+    const alpha = this.mixup;
+    return tf.data.generator(function* batches() {
+      const order = shuffle ? tf.util.createShuffledIndices(part.n) : Uint32Array.from({ length: part.n }, (_, i) => i);
+      for (let at = 0; at < part.n; at += batchSize) {
+        yield tf.tidy(() => {
+          const pick = tf.tensor1d(Int32Array.from(order.subarray(at, at + batchSize)), 'int32');
+          const other = tf.tensor1d(Int32Array.from(tf.util.createShuffledIndices(pick.shape[0])), 'int32');
+          const x = tf.gather(part.x, pick); const y = tf.gather(part.y, pick);
+          const lam = mixupWeight(alpha);
+          const blend = (t) => tf.add(tf.mul(t, lam), tf.mul(tf.gather(t, other), 1 - lam));
+          return { xs: blend(x), ys: blend(y) };
+        });
+      }
+    });
   }
 
   /** The input for a snapshot: the given values, or the chosen probe sample of the data. */
