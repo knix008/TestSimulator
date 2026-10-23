@@ -116,6 +116,7 @@ export default {
 
   // neuron explanations
   'neuron.unit': '유닛', 'neuron.empty': '모델이 비어 있습니다.', 'neuron.noSnapshot': '아직 활성값이 없습니다 — 학습을 시작하거나 "탐침 입력 다시 계산"을 누르세요.', 'neuron.more': '+{n}개 더',
+  'neuron.weights.initial': '학습 전 · 초기 가중치', 'neuron.weights.saved': '저장된 가중치 · {n} 에포크', 'neuron.weights.trained': '학습한 가중치 · {n} 에포크', 'neuron.weights.training': '학습 중 · {n} 에포크 완료',
   'neuron.probeIs': '탐침 입력: {label}', 'neuron.probeSample': '학습 데이터의 탐침 샘플', 'neuron.checkTip': '엔진이 계산한 값과 이 식으로 다시 계산한 값이 같은지', 'neuron.engine': '엔진 값',
   'neuron.weightedSum': '가중합', 'neuron.contribHint': '입력 {count}개 중 영향이 큰 {shown}개 (xᵢ·wᵢ)', 'neuron.rest': '나머지 {n}개의 합: {value}', 'neuron.input': '입력',
   'neuron.kernel': '이 필터의 {k}×{k} 가중치 (입력 채널별)', 'neuron.activation': '활성화', 'neuron.dropoutText': '학습할 때 {rate}% 확률로 0이 되지만, 예측할 때는 값이 그대로 지나갑니다.',

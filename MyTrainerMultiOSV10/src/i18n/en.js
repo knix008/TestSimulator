@@ -109,6 +109,7 @@ export default {
   'hint.quick': 'A selected layer shows quick buttons: insert, ± neurons, change, residual, delete.', 'hint.neurons': 'In the "Neuron view", click a neuron, feature map or time step to see its formula.', 'hint.train': 'F5 trains, F6 pauses, F10 runs one batch.',
 
   'neuron.unit': 'unit', 'neuron.empty': 'The model is empty.', 'neuron.noSnapshot': 'No activations yet — start training or press "Recompute the probe input".', 'neuron.more': '+{n} more',
+  'neuron.weights.initial': 'Untrained · initial weights', 'neuron.weights.saved': 'Saved weights · {n} epochs', 'neuron.weights.trained': 'Trained weights · {n} epochs', 'neuron.weights.training': 'Training · {n} epochs done',
   'neuron.probeIs': 'Probe input: {label}', 'neuron.probeSample': 'the probe sample of the training data', 'neuron.checkTip': 'Whether the engine\'s value matches this formula', 'neuron.engine': 'engine',
   'neuron.weightedSum': 'Weighted sum', 'neuron.contribHint': 'The {shown} most influential of {count} inputs (xᵢ·wᵢ)', 'neuron.rest': 'Sum of the other {n}: {value}', 'neuron.input': 'Input',
   'neuron.kernel': "This filter's {k}×{k} weights (per input channel)", 'neuron.activation': 'Activation', 'neuron.dropoutText': 'While training it is 0 with a {rate}% chance; for predictions the value passes through.',

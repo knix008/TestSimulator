@@ -68,7 +68,7 @@ html.is-popup #app { min-width: 0; display: block; }
 #toolbar { padding: 3px 6px; background: var(--toolbar); border-bottom: 1px solid var(--border); overflow: hidden; }
 .toolbar-inner { display: flex; align-items: center; gap: 3px; white-space: nowrap; width: 100%; }
 .toolbar-left { display: inline-flex; align-items: center; gap: 3px; flex: none; }
-.toolbar-right { flex: none; padding-left: 6px; border-left: 1px solid var(--border); align-items: center; }
+.toolbar-right { flex: none; display: inline-flex; padding-left: 6px; border-left: 1px solid var(--border); align-items: center; }
 .tool-group { display: inline-flex; gap: 1px; align-items: center; }
 .tool-sep { width: 1px; height: 22px; background: var(--border); margin: 0 3px; flex: none; }
 .tool-button {
@@ -139,9 +139,9 @@ html.is-popup #app { min-width: 0; display: block; }
 
 /* workspace: left panel | splitter | center | splitter | right panel */
 #workspace { display: grid; grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 5px var(--right-width); min-height: 0; }
-#app.no-left #workspace { grid-template-columns: 68px 0 minmax(0, 1fr) 5px var(--right-width); }
-#app.no-right #workspace { grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 0 68px; }
-#app.no-left.no-right #workspace { grid-template-columns: 68px 0 minmax(0, 1fr) 0 68px; }
+#app.no-left #workspace { grid-template-columns: 40px 0 minmax(0, 1fr) 5px var(--right-width); }
+#app.no-right #workspace { grid-template-columns: var(--left-width) 5px minmax(0, 1fr) 0 40px; }
+#app.no-left.no-right #workspace { grid-template-columns: 40px 0 minmax(0, 1fr) 0 40px; }
 /* The start page fills the window whatever the panels are set to (the no-left.no-right rule above is more specific). */
 #app.on-start #workspace, #app.on-start.no-left.no-right #workspace { grid-template-columns: minmax(0, 1fr); }
 #app.on-start .side-panel, #app.on-start #right-panel, #app.on-start .panel-split { display: none; }
@@ -162,18 +162,15 @@ html.is-popup #app { min-width: 0; display: block; }
 }
 .panel-header > .icon { color: var(--accent); }
 .panel-header span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.panel-rail { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; }
-.rail-title { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 6px; margin: 2px 0; font-size: 0.72em; font-weight: 700; color: var(--accent); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); width: 56px; text-align: center; }
-.rail-title .icon { width: 16px; height: 16px; }
-.rail-button {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 60px; min-height: 44px; padding: 4px 2px;
-  border: 1px solid transparent; border-radius: 7px; background: none; color: var(--text); cursor: pointer;
+.panel-rail { display: flex; flex-direction: column; align-items: center; height: 100%; padding: 4px 0; box-sizing: border-box; }
+.rail-expand {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; width: 34px; min-height: 0; max-height: 100%; padding: 6px 0;
+  border: 1px solid transparent; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; overflow: hidden;
 }
-.rail-button.expand { color: var(--accent); min-height: 38px; }
-.rail-label { font-size: 0.66em; line-height: 1.15; max-width: 56px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: keep-all; text-align: center; }
-.rail-button:hover:not(:disabled) { background: var(--hover); border-color: var(--border); }
-.rail-button.active { color: var(--accent); border-color: var(--accent); }
-.rail-button:disabled { opacity: 0.4; cursor: default; }
+.rail-expand:hover { background: var(--hover); border-color: var(--border); color: var(--text); }
+.rail-icon { display: flex; color: var(--accent); padding-top: 6px; border-top: 1px solid var(--border); }
+.rail-icon .icon { width: 18px; height: 18px; }
+.rail-name { writing-mode: vertical-rl; font-size: 1.2em; letter-spacing: 0.02em; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 0; }
 .panel-section { padding: 8px 10px; border-bottom: 1px solid var(--border); }
 .panel-section h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .panel-section h3 .icon { width: 14px; height: 14px; }

@@ -22,12 +22,13 @@ export class NeuronView {
     this.hits = [];
     this.wave = 1;
     this.hover = null;
-    host.innerHTML = '<div class="neuron-scroll"><canvas class="neuron-canvas"></canvas></div><div class="neuron-tip" hidden></div><div class="neuron-empty" hidden></div>';
+    host.innerHTML = '<div class="neuron-scroll"><canvas class="neuron-canvas"></canvas></div><div class="neuron-tip" hidden></div><div class="neuron-empty" hidden></div><div class="neuron-weights" hidden></div>';
     this.scroll = host.querySelector('.neuron-scroll');
     this.canvas = host.querySelector('canvas');
     this.canvas.view = this;
     this.tip = host.querySelector('.neuron-tip');
     this.empty = host.querySelector('.neuron-empty');
+    this.weights = host.querySelector('.neuron-weights');
     this.canvas.addEventListener('click', (event) => { if (this.dragged) { this.dragged = false; return; } this.click(event); });
     this.canvas.addEventListener('pointermove', (event) => { if (!this.drag) this.move(event); });
     // Dragging moves the view (a click without moving still picks a neuron).
@@ -129,6 +130,13 @@ export class NeuronView {
     const settings = this.app.settings();
     const cols = this.columns(model, snapshot);
     this.empty.hidden = Boolean(cols.length);
+    // Which weights the values come from: before any training they are the untrained initial ones.
+    const weights = cols.length ? snapshot?.weights : null;
+    this.weights.hidden = !weights;
+    if (weights) {
+      this.weights.dataset.kind = weights.kind;
+      this.weights.textContent = this.app.t(`neuron.weights.${weights.kind}`, { n: weights.epoch ?? '?' });
+    }
     if (!cols.length) {
       this.empty.textContent = this.app.t('neuron.empty');
       this.canvas.style.display = 'none';

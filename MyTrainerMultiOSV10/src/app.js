@@ -88,6 +88,8 @@ const state = {
   run: { state: 'idle', epoch: 0, epochs: 0, from: 0, history: [], canContinue: false },
   live: { mode: null, camera: false, busy: false, result: null, preview: null, level: 0, error: null, recent: [] },
   snapshot: null,
+  /** Where the built model's weights came from: { kind: 'initial' } or { kind: 'saved', epoch } (saved with the project). */
+  weightsFrom: null,
   visual: { boundary: null, curve: null },
   evaluation: null,
   report: null,
@@ -375,6 +377,7 @@ async function prepareTfNow({ force = false, key, fresh = false }) {
   await engine.prepare({ graph: cloneModel(model()), inputShape: state.prepared.inputShape, task: state.task, train: state.project.train, prepared: state.prepared });
   state.engineKey = key;
   state.run = { ...state.run, epoch: 0, canContinue: false, history: [] };
+  state.weightsFrom = { kind: 'initial' };
   // Weights saved with the project, for exactly this model (not for a new training: that starts from scratch).
   if (!fresh && state.project.weights?.signature === signature() && state.project.weights.data) {
     try { engine.importWeights(JSON.parse(state.project.weights.data)); } catch { /* damaged: train again */ }
@@ -662,6 +665,7 @@ function onEngine(message) {
   if (engine !== currentEngine()) return;
   switch (message.type) {
     case 'ready': state.backend = message.backend; log(t('log.backend', { backend: message.backend, version: message.version })); renderStatus(); break;
+    case 'weightsLoaded': if (message.layers) state.weightsFrom = { kind: 'saved', epoch: state.project.weights?.epoch ?? null }; break;
     case 'built': log(t('log.built', { params: Number(message.params ?? 0).toLocaleString(), backend: message.backend ?? '' })); break;
     case 'status':
       state.run.state = message.state === 'idle' && state.run.state === 'serving' ? 'idle' : message.state;
@@ -681,7 +685,7 @@ function onEngine(message) {
       renderTrainLive();
       break;
     case 'snapshot':
-      state.snapshot = { ...message, labels: state.data?.labels ?? null, featureNames: state.prepared?.featureNames ?? state.data?.featureNames ?? null, vocab: state.data?.vocab ?? null };
+      state.snapshot = { ...message, weights: snapshotWeights(message), labels: state.data?.labels ?? null, featureNames: state.prepared?.featureNames ?? state.data?.featureNames ?? null, vocab: state.data?.vocab ?? null };
       if (message.reason === 'probe' && state.view.tab === 'test') state.test.lastOutput = message.nodes[outputId()]?.act?.data ?? null;
       if (message.probeIndex != null && state.prepared?.train?.n) {
         state.project.train.probeIndex = message.probeIndex;
@@ -700,6 +704,8 @@ function onEngine(message) {
     case 'done': {
       endTrainTask();
       state.run.state = engine.kind === 'torch' ? 'serving' : 'idle';
+      // The last snapshot came while training: its values are now those of the trained weights.
+      if (state.snapshot?.weights?.kind === 'training') state.snapshot.weights = { kind: 'trained', epoch: message.epochs ?? state.snapshot.weights.epoch };
       const summary = message.evaluation;
       log(t('log.done', { epochs: message.epochs, time: ((message.time ?? 0) / 1000).toFixed(1), result: summary ? `${t('test.loss')} ${Number(summary.loss ?? 0).toFixed(4)}${summary.acc != null ? ` · ${t('test.accuracy')} ${(summary.acc * 100).toFixed(1)}%` : ''}` : '' }), 'success');
       notify(t('log.doneShort'), 'success');
@@ -1157,7 +1163,7 @@ const MENUS = {
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', model: 'tabModel', data: 'tabData', train: 'tabTrain', help: 'question' };
 const TOOLBAR = [['new', 'open', 'save', 'exportModel', 'print'], ['undo', 'redo'], ['addLayer', 'autoLayout', 'fit', 'neurons'], ['train', 'pause', 'step', 'stop', 'reset']];
-const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
+const TOOLBAR_RIGHT = [['leftPanel', 'rightPanel'], ['themeSplit', 'language', 'settings', 'about']];
 
 const enabled = (id) => (commands[id]?.enabled ? commands[id].enabled() : true);
 const tip = (id) => `${t(commands[id].label)}${commands[id].key ? ` (${commands[id].key})` : ''}`;
@@ -1421,6 +1427,13 @@ async function codeAction(action) {
   }
 }
 
+/** What a snapshot's values were computed with: weights being trained, trained, saved with the project, or the untrained initial ones. */
+function snapshotWeights(message) {
+  if (['training', 'paused'].includes(state.run.state)) return { kind: 'training', epoch: message.epoch ?? 0 };
+  if (message.epoch > 0 || message.engine === 'torch') return { kind: 'trained', epoch: message.epoch ?? 0 };
+  return state.weightsFrom ?? { kind: 'initial' };
+}
+
 function setEngine(kind) {
   if (busy() || state.project.engine === kind) return;
   if (kind === 'torch' && !desktop) { notify(t('web.desktopOnly'), 'error'); return; }
@@ -1669,7 +1682,7 @@ function renderToolbar() {
     <button class="segment ${state.project.engine === 'torch' ? 'active' : ''}" data-command="engineTorch" ${desktop ? '' : 'disabled'} title="${escapeHtml(desktop ? t('menu.engineTorch') : t('web.desktopOnly'))}">${icon('engineTorch')}<span>PyTorch</span></button>
   </span>`;
   bar.innerHTML = `<div class="toolbar-inner"><div class="toolbar-left">${TOOLBAR.map((group) => `<div class="tool-group">${group.map(button).join('')}</div>`).join('<span class="tool-sep"></span>')}<span class="tool-sep"></span>${engine}</div>
-    <span class="grow"></span><div class="toolbar-right tool-group">${TOOLBAR_RIGHT.map(button).join('')}</div></div>`;
+    <span class="grow"></span><div class="toolbar-right">${TOOLBAR_RIGHT.map((group) => `<div class="tool-group">${group.map(button).join('')}</div>`).join('<span class="tool-sep"></span>')}</div></div>`;
   renderToolbarState();
   updateMinimumWidth();
 }
@@ -1717,10 +1730,15 @@ function renderToolbarState() {
   }
 }
 
+/** A collapsed side panel: the expand arrow, the panel's icon and its title written top to bottom; a click anywhere opens it. */
+function railHtml(command, arrow, panelIcon, title) {
+  return `<div class="panel-rail"><button class="rail-expand" data-command="${command}" title="${escapeHtml(t(`menu.${command}`))}">${icon(arrow)}<span class="rail-icon">${icon(panelIcon)}</span><span class="rail-name">${escapeHtml(title)}</span></button></div>`;
+}
+
 function renderLeft() {
   const panel = root.querySelector('#left-panel');
   if (!state.settings.showLeftPanel) {
-    panel.innerHTML = `<div class="panel-rail"><button class="rail-button expand" data-command="leftPanel" title="${escapeHtml(t('menu.leftPanel'))}">${icon('panelLeft')}</button></div>`;
+    panel.innerHTML = railHtml('leftPanel', 'chevronRight', 'tabModel', t('palette.title'));
     return;
   }
   const filter = (state.paletteFilter ?? '').toLowerCase();
@@ -1886,7 +1904,7 @@ function renderTrainLive() {
 function renderRight() {
   const panel = root.querySelector('#right-panel');
   if (!state.settings.showRightPanel) {
-    panel.innerHTML = `<div class="panel-rail"><button class="rail-button expand" data-command="rightPanel" title="${escapeHtml(t('menu.rightPanel'))}">${icon('panelRight')}</button></div>`;
+    panel.innerHTML = railHtml('rightPanel', 'chevronLeft', 'info', t('inspector.title'));
     return;
   }
   const scroll = panel.querySelector('.inspector')?.scrollTop ?? 0;
@@ -2180,9 +2198,10 @@ function bindShell() {
       }
       return;
     }
-    const testCmd = target.closest('[data-test]');
-    if (testCmd && target.closest('button') && testCmd.dataset.test === 'generate') { if (!state.test.generation?.running) generateText(); return; }
-    if (testCmd && target.tagName === 'BUTTON') { testAction(testCmd.dataset.test); return; }
+    // The button, wherever in it the click lands (its icon and label too, not only its edge).
+    const testCmd = target.closest('button[data-test]');
+    if (testCmd && !testCmd.disabled && testCmd.dataset.test === 'generate') { if (!state.test.generation?.running) generateText(); return; }
+    if (testCmd && !testCmd.disabled) { testAction(testCmd.dataset.test); return; }
     const testMode = target.closest('[data-test-mode]');
     if (testMode) { state.test.mode = testMode.dataset.testMode; renderCenter(); runTest(); return; }
     const word = target.closest('[data-word]');

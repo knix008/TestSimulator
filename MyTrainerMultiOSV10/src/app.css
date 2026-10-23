@@ -151,6 +151,12 @@ select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not
 .neuron-canvas.dragging { cursor: grabbing; }
 .neuron-tip { position: absolute; z-index: 5; padding: 3px 8px; border-radius: 6px; background: var(--text); color: var(--surface); font-size: 0.8em; pointer-events: none; white-space: nowrap; }
 .neuron-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+.neuron-weights {
+  position: absolute; z-index: 4; bottom: 6px; right: 14px; padding: 2px 9px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+  font-size: 0.78em; font-weight: 600; color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+}
+.neuron-weights[data-kind='initial'] { color: var(--warning); border-color: currentColor; }
+.neuron-weights[data-kind='training'], .neuron-weights[data-kind='trained'] { color: var(--accent); border-color: currentColor; }
 .neuron-host.full { background: var(--bg); }
 
 /* inspector */
