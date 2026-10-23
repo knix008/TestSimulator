@@ -46,7 +46,7 @@ Pick a template tile on the start page or **File › New from template**. Each t
 
 | Template | Holds |
 |---|---|
-| **Blank project** | One model and an empty class diagram |
+| **Blank project** | One model and one empty diagram of the type you choose in the [New diagram popup](#new-diagram-popup) |
 | **Class model** | Classes, inheritance and associations |
 | **Use cases** | Actors, use cases and the subject (system boundary) |
 | **Sequence** | Lifelines and messages |

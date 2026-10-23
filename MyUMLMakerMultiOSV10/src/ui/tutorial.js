@@ -327,8 +327,16 @@ export class Tutorial {
     const target = q(step.target);
     let outline = '';
     if (target) {
+      // 4 px around the target, but always inside the window: a target at an edge (the workspace, a side
+      // panel, the start page) would otherwise have part of the outline outside it.
       const r = target.getBoundingClientRect();
-      outline = `<div class="tour-outline" style="left:${r.left - 4}px;top:${r.top - 4}px;width:${r.width + 8}px;height:${r.height + 8}px"></div>`;
+      // Every edge is clamped, so a target scrolled out of a narrow window still gets a small outline at the edge.
+      const M = 4; const MIN = 12;
+      const clamp = (value, max) => Math.min(Math.max(value, M), max - M);
+      let left = clamp(r.left - 4, window.innerWidth); let top = clamp(r.top - 4, window.innerHeight);
+      const right = clamp(r.right + 4, window.innerWidth); const bottom = clamp(r.bottom + 4, window.innerHeight);
+      left = Math.min(left, right - MIN); top = Math.min(top, bottom - MIN);
+      outline = `<div class="tour-outline" style="left:${left}px;top:${top}px;width:${right - left}px;height:${bottom - top}px"></div>`;
     }
     this.layer.innerHTML = `${outline}
       <div class="tour-card" role="dialog" aria-label="${escapeHtml(t('tutorial.title'))}" style="right:${this.card.right}px;bottom:${this.card.bottom}px">

@@ -520,8 +520,11 @@ test('EA code engineering: reverse engineering of PHP source', () => {
 
 // ───────────────────────── repository, search
 
-test('EA DBMS repository (domain side): SQLite / MariaDB / MySQL / PostgreSQL settings, connection checks, and the project text that is stored and read back', () => {
-  assert.deepEqual(DB_KINDS, ['none', 'sqlite', 'mariadb', 'mysql', 'postgres']);
+test('EA DBMS repository (domain side): SQLite / MariaDB / MySQL / PostgreSQL / SQL Server settings, connection checks, and the project text that is stored and read back', () => {
+  assert.deepEqual(DB_KINDS, ['none', 'sqlite', 'mariadb', 'mysql', 'postgres', 'mssql']);
+  const sqlServer = normalizeSettings({ dbKind: 'mssql', dbHost: 'sql.local', dbName: 'models', dbUser: 'ea' });
+  assert.deepEqual(dbConfig(sqlServer, 'pw'), { kind: 'mssql', host: 'sql.local', port: 1433, database: 'models', user: 'ea', password: 'pw', file: null });
+  assert.equal(dbDescribe(sqlServer), 'SQL Server · ea@sql.local:1433/models');
   const server = normalizeSettings({ dbKind: 'postgres', dbHost: 'db.local', dbName: 'models', dbUser: 'ea' });
   assert.deepEqual(dbProblems(server), []);
   assert.deepEqual(dbConfig(server, 'pw'), { kind: 'postgres', host: 'db.local', port: 5432, database: 'models', user: 'ea', password: 'pw', file: null });

@@ -619,20 +619,25 @@ export const cases = [
     for (const item of (await listTargets(app.port)).filter((x) => x.type === 'page' && x.url.includes('viewer='))) await fetch(`http://127.0.0.1:${app.port}/json/close/${item.id}`).catch(() => {});
     await noError(app, 'document tabs');
   } },
-  { group: '도움말', name: '튜토리얼의 모든 단계가 오류 없이 대상 요소를 그림', async run(app) {
+  { group: '도움말', name: '튜토리얼의 모든 단계가 오류 없이 대상 요소를 그림, 강조 사각형은 늘 창 안쪽', async run(app) {
     await closeFrames(app);
     await W(app, `(a.startTutorial(), 1)`);
     const count = await W(app, 'w.domain.tutorialSteps()');
     const missing = [];
+    const outside = [];
     for (let i = 0; i < count; i += 1) {
       await app.main.waitFor(`window.__myumlmaker.tutorial()?.state().index === ${i} && !window.__myumlmaker.tutorial().state().busy`, { timeout: 20000 });
       const step = await W(app, 'w.tutorial().state().id');
       if (!await app.main.eval(`Boolean(document.querySelector('.tour-outline'))`)) missing.push(step);
+      // The whole outline (its border) inside the window, also for targets at an edge of the window.
+      const box = await app.main.eval(`(() => { const o = document.querySelector('.tour-outline'); if (!o) return null; o.style.transition = 'none'; const r = o.getBoundingClientRect(); return { l: r.left, t: r.top, r: innerWidth - r.right, b: innerHeight - r.bottom, iw: innerWidth, ih: innerHeight }; })()`);
+      if (box && Math.min(box.l, box.t, box.r, box.b) < 0) outside.push(`${step} ${JSON.stringify(box)}`);
       if (i < count - 1) await app.main.eval(`(document.querySelector('[data-tour="next"]').click(), 1)`);
     }
     await W(app, `(w.tutorial().stop(), 1)`);
     await sleep(500);
     assert.deepEqual(missing, [], 'every step outlines its target');
+    assert.ok(!outside.length, `the outline never runs past an edge of the window: ${outside.join(' · ')}`);
     await noError(app, 'tutorial');
   } },
 ];

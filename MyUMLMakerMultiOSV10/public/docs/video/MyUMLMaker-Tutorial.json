@@ -1,0 +1,723 @@
+{
+  "version": 1,
+  "video": "MyUMLMaker-Tutorial.mp4",
+  "width": 1440,
+  "height": 900,
+  "duration": 481.76,
+  "recorded": "2026-10-23T05:31:06.904Z",
+  "chapters": [
+    {
+      "id": "start",
+      "start": 0.51,
+      "title": {
+        "ko": "시작",
+        "en": "Start"
+      }
+    },
+    {
+      "id": "model",
+      "start": 32.75,
+      "title": {
+        "ko": "모델",
+        "en": "The model"
+      }
+    },
+    {
+      "id": "draw",
+      "start": 88.03,
+      "title": {
+        "ko": "그리기",
+        "en": "Drawing"
+      }
+    },
+    {
+      "id": "diagrams",
+      "start": 155.43,
+      "title": {
+        "ko": "다이어그램 종류",
+        "en": "Kinds of diagrams"
+      }
+    },
+    {
+      "id": "format",
+      "start": 255.8,
+      "title": {
+        "ko": "서식·정렬",
+        "en": "Format & arrange"
+      }
+    },
+    {
+      "id": "tools",
+      "start": 301.79,
+      "title": {
+        "ko": "모델 도구",
+        "en": "Model tools"
+      }
+    },
+    {
+      "id": "files",
+      "start": 366.71,
+      "title": {
+        "ko": "파일·내보내기",
+        "en": "Files & export"
+      }
+    },
+    {
+      "id": "customize",
+      "start": 410.15,
+      "title": {
+        "ko": "꾸미기",
+        "en": "Customizing"
+      }
+    },
+    {
+      "id": "help",
+      "start": 449.19,
+      "title": {
+        "ko": "도움말",
+        "en": "Help"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "welcome",
+      "chapter": "start",
+      "start": 0.51,
+      "title": {
+        "ko": "MyUMLMaker에 오신 것을 환영합니다",
+        "en": "Welcome to MyUMLMaker"
+      }
+    },
+    {
+      "id": "home",
+      "chapter": "start",
+      "start": 5.35,
+      "title": {
+        "ko": "홈 버튼",
+        "en": "The Home button"
+      }
+    },
+    {
+      "id": "templates",
+      "chapter": "start",
+      "start": 10.99,
+      "title": {
+        "ko": "새 프로젝트 만들기",
+        "en": "Creating a project"
+      }
+    },
+    {
+      "id": "recent",
+      "chapter": "start",
+      "start": 15.8,
+      "title": {
+        "ko": "최근 파일과 폴더",
+        "en": "Recent files and folders"
+      }
+    },
+    {
+      "id": "background",
+      "chapter": "start",
+      "start": 20.62,
+      "title": {
+        "ko": "움직이는 배경",
+        "en": "Moving background"
+      }
+    },
+    {
+      "id": "sample",
+      "chapter": "model",
+      "start": 32.75,
+      "title": {
+        "ko": "예제 프로젝트",
+        "en": "The sample project"
+      }
+    },
+    {
+      "id": "explorer",
+      "chapter": "model",
+      "start": 37.46,
+      "title": {
+        "ko": "모델 탐색기",
+        "en": "The Model Explorer"
+      }
+    },
+    {
+      "id": "modelView",
+      "chapter": "model",
+      "start": 44.28,
+      "title": {
+        "ko": "모델과 뷰",
+        "en": "Model and views"
+      }
+    },
+    {
+      "id": "workingDiagrams",
+      "chapter": "model",
+      "start": 51.83,
+      "title": {
+        "ko": "다이어그램 탭",
+        "en": "Diagram tabs"
+      }
+    },
+    {
+      "id": "addDiagram",
+      "chapter": "model",
+      "start": 60.59,
+      "title": {
+        "ko": "다이어그램 추가",
+        "en": "Adding diagrams"
+      }
+    },
+    {
+      "id": "diagramTypes",
+      "chapter": "model",
+      "start": 65.31,
+      "title": {
+        "ko": "다이어그램 고르기",
+        "en": "Choosing a diagram"
+      }
+    },
+    {
+      "id": "editors",
+      "chapter": "model",
+      "start": 77.82,
+      "title": {
+        "ko": "편집기",
+        "en": "The editors"
+      }
+    },
+    {
+      "id": "toolbox",
+      "chapter": "draw",
+      "start": 88.03,
+      "title": {
+        "ko": "도구 상자",
+        "en": "The Toolbox"
+      }
+    },
+    {
+      "id": "createClass",
+      "chapter": "draw",
+      "start": 95.51,
+      "title": {
+        "ko": "요소 만들기",
+        "en": "Creating elements"
+      }
+    },
+    {
+      "id": "quickEdit",
+      "chapter": "draw",
+      "start": 102.35,
+      "title": {
+        "ko": "빠른 편집",
+        "en": "Quick edit"
+      }
+    },
+    {
+      "id": "quickButtons",
+      "chapter": "draw",
+      "start": 111.22,
+      "title": {
+        "ko": "빠른 단추",
+        "en": "Quick buttons"
+      }
+    },
+    {
+      "id": "relationships",
+      "chapter": "draw",
+      "start": 117.83,
+      "title": {
+        "ko": "관계",
+        "en": "Relationships"
+      }
+    },
+    {
+      "id": "addRelated",
+      "chapter": "draw",
+      "start": 125.59,
+      "title": {
+        "ko": "관련 요소 추가",
+        "en": "Adding related elements"
+      }
+    },
+    {
+      "id": "moveResize",
+      "chapter": "draw",
+      "start": 132.19,
+      "title": {
+        "ko": "옮기기와 크기",
+        "en": "Moving and resizing"
+      }
+    },
+    {
+      "id": "dragFromExplorer",
+      "chapter": "draw",
+      "start": 138.75,
+      "title": {
+        "ko": "탐색기에서 끌어 놓기",
+        "en": "Drag from the explorer"
+      }
+    },
+    {
+      "id": "deleteModel",
+      "chapter": "draw",
+      "start": 145.35,
+      "title": {
+        "ko": "삭제",
+        "en": "Deleting"
+      }
+    },
+    {
+      "id": "undo",
+      "chapter": "draw",
+      "start": 150.15,
+      "title": {
+        "ko": "실행 취소·다시 실행",
+        "en": "Undo and redo"
+      }
+    },
+    {
+      "id": "useCase",
+      "chapter": "diagrams",
+      "start": 155.43,
+      "title": {
+        "ko": "유스케이스 다이어그램",
+        "en": "Use case diagram"
+      }
+    },
+    {
+      "id": "sequence",
+      "chapter": "diagrams",
+      "start": 160.2,
+      "title": {
+        "ko": "시퀀스 다이어그램",
+        "en": "Sequence diagram"
+      }
+    },
+    {
+      "id": "fragments",
+      "chapter": "diagrams",
+      "start": 167.71,
+      "title": {
+        "ko": "결합 프래그먼트",
+        "en": "Combined fragments"
+      }
+    },
+    {
+      "id": "stateMachine",
+      "chapter": "diagrams",
+      "start": 172.51,
+      "title": {
+        "ko": "상태 머신 다이어그램",
+        "en": "Statechart diagram"
+      }
+    },
+    {
+      "id": "activity",
+      "chapter": "diagrams",
+      "start": 177.28,
+      "title": {
+        "ko": "액티비티 다이어그램",
+        "en": "Activity diagram"
+      }
+    },
+    {
+      "id": "component",
+      "chapter": "diagrams",
+      "start": 182.03,
+      "title": {
+        "ko": "컴포넌트 다이어그램",
+        "en": "Component diagram"
+      }
+    },
+    {
+      "id": "deployment",
+      "chapter": "diagrams",
+      "start": 186.75,
+      "title": {
+        "ko": "배치 다이어그램",
+        "en": "Deployment diagram"
+      }
+    },
+    {
+      "id": "erd",
+      "chapter": "diagrams",
+      "start": 191.51,
+      "title": {
+        "ko": "ER 다이어그램",
+        "en": "ER diagram"
+      }
+    },
+    {
+      "id": "others",
+      "chapter": "diagrams",
+      "start": 196.27,
+      "title": {
+        "ko": "그 밖의 다이어그램",
+        "en": "More diagrams"
+      }
+    },
+    {
+      "id": "moreDiagrams",
+      "chapter": "diagrams",
+      "start": 207.48,
+      "title": {
+        "ko": "간트·WBS·ArchiMate·네트워크·데이터",
+        "en": "Gantt, WBS, ArchiMate, network, data"
+      }
+    },
+    {
+      "id": "mindmapKeys",
+      "chapter": "diagrams",
+      "start": 222.75,
+      "title": {
+        "ko": "마인드맵: Tab·Enter로 생각 펼치기",
+        "en": "Mind map: Tab and Enter"
+      }
+    },
+    {
+      "id": "mindmapOutline",
+      "chapter": "diagrams",
+      "start": 233.11,
+      "title": {
+        "ko": "마인드맵 개요",
+        "en": "Mind map outline"
+      }
+    },
+    {
+      "id": "storyMap",
+      "chapter": "diagrams",
+      "start": 240.66,
+      "title": {
+        "ko": "사용자 스토리 맵",
+        "en": "User story map"
+      }
+    },
+    {
+      "id": "journeyMap",
+      "chapter": "diagrams",
+      "start": 248.23,
+      "title": {
+        "ko": "고객 여정 지도",
+        "en": "Customer journey map"
+      }
+    },
+    {
+      "id": "style",
+      "chapter": "format",
+      "start": 255.8,
+      "title": {
+        "ko": "스타일",
+        "en": "Style"
+      }
+    },
+    {
+      "id": "colors",
+      "chapter": "format",
+      "start": 262.43,
+      "title": {
+        "ko": "색",
+        "en": "Colours"
+      }
+    },
+    {
+      "id": "diagramBackground",
+      "chapter": "format",
+      "start": 267.23,
+      "title": {
+        "ko": "다이어그램 배경",
+        "en": "Diagram background"
+      }
+    },
+    {
+      "id": "lineStyle",
+      "chapter": "format",
+      "start": 274.91,
+      "title": {
+        "ko": "선 모양",
+        "en": "Line styles"
+      }
+    },
+    {
+      "id": "align",
+      "chapter": "format",
+      "start": 283.95,
+      "title": {
+        "ko": "맞춤과 분배",
+        "en": "Align and distribute"
+      }
+    },
+    {
+      "id": "layout",
+      "chapter": "format",
+      "start": 288.71,
+      "title": {
+        "ko": "자동 레이아웃",
+        "en": "Auto layout"
+      }
+    },
+    {
+      "id": "zoom",
+      "chapter": "format",
+      "start": 296.51,
+      "title": {
+        "ko": "확대와 이동",
+        "en": "Zoom and pan"
+      }
+    },
+    {
+      "id": "validate",
+      "chapter": "tools",
+      "start": 301.79,
+      "title": {
+        "ko": "모델 검증",
+        "en": "Model validation"
+      }
+    },
+    {
+      "id": "bpmnSimulation",
+      "chapter": "tools",
+      "start": 306.55,
+      "title": {
+        "ko": "BPMN 프로세스 시뮬레이션",
+        "en": "BPMN process simulation"
+      }
+    },
+    {
+      "id": "problemsPanel",
+      "chapter": "tools",
+      "start": 316.43,
+      "title": {
+        "ko": "문제 패널",
+        "en": "Problems panel"
+      }
+    },
+    {
+      "id": "find",
+      "chapter": "tools",
+      "start": 325.19,
+      "title": {
+        "ko": "찾기",
+        "en": "Find"
+      }
+    },
+    {
+      "id": "codegen",
+      "chapter": "tools",
+      "start": 329.91,
+      "title": {
+        "ko": "코드 생성",
+        "en": "Code generation"
+      }
+    },
+    {
+      "id": "requirements",
+      "chapter": "tools",
+      "start": 337.44,
+      "title": {
+        "ko": "요구사항 목록",
+        "en": "Requirements list"
+      }
+    },
+    {
+      "id": "traceMatrix",
+      "chapter": "tools",
+      "start": 344.99,
+      "title": {
+        "ko": "추적 매트릭스",
+        "en": "Traceability matrix"
+      }
+    },
+    {
+      "id": "baselines",
+      "chapter": "tools",
+      "start": 352.51,
+      "title": {
+        "ko": "기준선과 비교",
+        "en": "Baselines and comparison"
+      }
+    },
+    {
+      "id": "reverse",
+      "chapter": "tools",
+      "start": 357.28,
+      "title": {
+        "ko": "역공학",
+        "en": "Reverse engineering"
+      }
+    },
+    {
+      "id": "textImport",
+      "chapter": "tools",
+      "start": 361.95,
+      "title": {
+        "ko": "Mermaid·PlantUML 가져오기",
+        "en": "Mermaid & PlantUML import"
+      }
+    },
+    {
+      "id": "save",
+      "chapter": "files",
+      "start": 366.71,
+      "title": {
+        "ko": "저장",
+        "en": "Saving"
+      }
+    },
+    {
+      "id": "fileMenu",
+      "chapter": "files",
+      "start": 371.43,
+      "title": {
+        "ko": "파일 메뉴",
+        "en": "The File menu"
+      }
+    },
+    {
+      "id": "exportImage",
+      "chapter": "files",
+      "start": 376.15,
+      "title": {
+        "ko": "그림으로 내보내기",
+        "en": "Exporting pictures"
+      }
+    },
+    {
+      "id": "exportDocs",
+      "chapter": "files",
+      "start": 380.91,
+      "title": {
+        "ko": "문서와 다른 형식",
+        "en": "Docs and other formats"
+      }
+    },
+    {
+      "id": "generateDocument",
+      "chapter": "files",
+      "start": 385.63,
+      "title": {
+        "ko": "문서 생성",
+        "en": "Generate documents"
+      }
+    },
+    {
+      "id": "xmi",
+      "chapter": "files",
+      "start": 393.15,
+      "title": {
+        "ko": "XMI와 PlantUML",
+        "en": "XMI and PlantUML"
+      }
+    },
+    {
+      "id": "starUml",
+      "chapter": "files",
+      "start": 400.71,
+      "title": {
+        "ko": "StarUML 호환",
+        "en": "StarUML compatibility"
+      }
+    },
+    {
+      "id": "print",
+      "chapter": "files",
+      "start": 405.43,
+      "title": {
+        "ko": "인쇄와 미리 보기",
+        "en": "Printing and preview"
+      }
+    },
+    {
+      "id": "theme",
+      "chapter": "customize",
+      "start": 410.15,
+      "title": {
+        "ko": "테마",
+        "en": "Themes"
+      }
+    },
+    {
+      "id": "diagramTheme",
+      "chapter": "customize",
+      "start": 419.47,
+      "title": {
+        "ko": "다이어그램 색 구성",
+        "en": "Diagram colours"
+      }
+    },
+    {
+      "id": "language",
+      "chapter": "customize",
+      "start": 431.55,
+      "title": {
+        "ko": "언어",
+        "en": "Language"
+      }
+    },
+    {
+      "id": "panels",
+      "chapter": "customize",
+      "start": 436.27,
+      "title": {
+        "ko": "패널 접기",
+        "en": "Collapsing panels"
+      }
+    },
+    {
+      "id": "settings",
+      "chapter": "customize",
+      "start": 444.47,
+      "title": {
+        "ko": "설정",
+        "en": "Settings"
+      }
+    },
+    {
+      "id": "presentation",
+      "chapter": "help",
+      "start": 449.19,
+      "title": {
+        "ko": "프레젠테이션 모드",
+        "en": "Presentation mode"
+      }
+    },
+    {
+      "id": "shortcuts",
+      "chapter": "help",
+      "start": 455.75,
+      "title": {
+        "ko": "단축키",
+        "en": "Keyboard shortcuts"
+      }
+    },
+    {
+      "id": "about",
+      "chapter": "help",
+      "start": 460.47,
+      "title": {
+        "ko": "프로그램 정보",
+        "en": "About"
+      }
+    },
+    {
+      "id": "tutorialDoc",
+      "chapter": "help",
+      "start": 465.23,
+      "title": {
+        "ko": "튜토리얼 문서 읽기",
+        "en": "Reading the tutorial document"
+      }
+    },
+    {
+      "id": "finish",
+      "chapter": "help",
+      "start": 473.26,
+      "title": {
+        "ko": "다 둘러봤습니다",
+        "en": "That's the tour"
+      }
+    }
+  ]
+}

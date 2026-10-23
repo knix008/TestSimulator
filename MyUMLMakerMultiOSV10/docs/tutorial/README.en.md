@@ -81,13 +81,13 @@ Every diagram of the project has a tab at the top. Click a tab or use Ctrl+Tab, 
 
 ### 10. Adding diagrams
 
-Add any of the 15 UML diagrams, ERD, flowchart, DFD, four SysML diagrams, BPMN, C4, mind map, wireframe, AWS, Azure and GCP. Sequence diagrams go into an interaction, statecharts into a state machine automatically.
+The + at the end of the tab bar opens the New Diagram popup. Pick the diagram you want and just that one diagram is added to the project, with its own tab. Sequence diagrams go into an interaction, statecharts into a state machine automatically.
 
 ![Adding diagrams](images/10-addDiagram.jpg)
 
 ### 11. Choosing a diagram
 
-Pick a group in the upper row (UML Structure, UML Behavior, ER, SysML, BPMN …) and a type in the lower row. Its diagram opens (a new one when there is none) and the Toolbox shows just the tools that diagram needs. The number is how many diagrams of that type there are.
+Pick a group on the left (UML Structure, UML Behavior, ER, SysML, BPMN …) and its diagrams show on the right with a short description. The search box finds diagrams by name or description, and a name can be typed below. Double-click or press Enter to create it. The number is how many the project already has.
 
 ![Choosing a diagram](images/11-diagramTypes.jpg)
 
@@ -355,7 +355,7 @@ Turns Mermaid (class, sequence, flowchart, ER, state) and PlantUML (every UML di
 
 ### 54. Saving
 
-A project is saved as one .myuml file (templates: .mumlt), and can also be stored in a database (SQLite, MariaDB, MySQL, PostgreSQL).
+A project is saved as one .myuml file (templates: .mumlt), and can also be stored in the database chosen in Settings › Database (SQLite, MariaDB, MySQL, PostgreSQL, SQL Server).
 
 ![Saving](images/54-save.jpg)
 

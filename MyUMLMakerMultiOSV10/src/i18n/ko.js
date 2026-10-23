@@ -1392,7 +1392,7 @@ export default {
   'template.aws': "AWS 아키텍처",
   'template.aws.desc': "VPC·서비스·연결",
   'template.blank': "빈 프로젝트",
-  'template.blank.desc': "모델 하나와 빈 클래스 다이어그램",
+  'template.blank.desc': "모델 하나와 고른 종류의 빈 다이어그램 하나",
   'template.bpmn': "BPMN",
   'template.bpmn.desc': "풀·태스크·게이트웨이·이벤트",
   'template.c4': "C4",

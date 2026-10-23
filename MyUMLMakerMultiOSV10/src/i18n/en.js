@@ -1392,7 +1392,7 @@ export default {
   'template.aws': "AWS architecture",
   'template.aws.desc': "VPC, services, connections",
   'template.blank': "Blank project",
-  'template.blank.desc': "One model and an empty class diagram",
+  'template.blank.desc': "One model and one empty diagram of the type you choose",
   'template.bpmn': "BPMN",
   'template.bpmn.desc': "Pools, tasks, gateways, events",
   'template.c4': "C4",
