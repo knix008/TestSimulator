@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# build output (npm run build:web / build:*)
+dist/
+release/
+src-tauri/target/
+src-tauri/gen/schemas/
+# installers copied to the project root by scripts/build.mjs
+/MyCircuit_*.exe
+/MyCircuit_*.dmg
+/MyCircuit_*.AppImage
+/MyCircuit_*.deb
+# the Electron build (V1.0 before Tauri)
+/MyCircuit-*.exe
+/MyCircuit-*.dmg
+/MyCircuit-*.zip
+/MyCircuit-*.AppImage
+/MyCircuit-*.deb
+/MyCircuit-*.tar.gz
+
+# generated at build time by scripts/build-info.mjs (version, commit, date)
+src/buildinfo.js
+
+# test output (npm test --json, npm run smoke -- --shots <dir>)
+test-results/
+smoke-shots/
+coverage/
+*.log
+npm-debug.log*
+
+# editors and operating systems
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyCircuit",
+  "mainBinaryName": "MyCircuit",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mycircuit",
+  "build": {
+    "beforeDevCommand": {
+      "script": "node scripts/dev-server.mjs",
+      "wait": false
+    },
+    "devUrl": "http://localhost:5196",
+    "beforeBuildCommand": "node scripts/build-info.mjs && node scripts/build-web.mjs",
+    "frontendDist": "../dist/web"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "app", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "category": "DeveloperTool",
+    "shortDescription": "Schematic, PCB, 3D and simulation electronics design",
+    "longDescription": "Draw the schematic, lay out and route the printed circuit board, check it in 3D, simulate the circuit and write every manufacturing file (Gerber, drill, BOM, pick-and-place, PDF, STL/GLB), with KiCad import.",
+    "icon": [
+      "../assets/icons/32x32.png",
+      "../assets/icons/128x128.png",
+      "../assets/icons/256x256.png",
+      "../assets/icon.icns",
+      "../assets/icon.ico"
+    ],
+    "resources": {
+      "../assets/file-icon.ico": "file-icon.ico"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mycircuit"],
+        "name": "MyCircuit.Project",
+        "description": "MyCircuit Project",
+        "mimeType": "application/x-mycircuit",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "../assets/icon.ico",
+        "headerImage": "../build/installerHeader.bmp",
+        "sidebarImage": "../build/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}
