@@ -35,7 +35,7 @@ export class GraphView {
     this.selectedEdge = null;
     this.drag = null;
     this.flowUntil = 0;
-    host.innerHTML = `<div class="graph-wrap" tabindex="0" aria-label="model graph">
+    host.innerHTML = `<div class="graph-wrap" tabindex="0" aria-label="${escapeHtml(app.t('tab.model'))}">
       <svg class="graph-svg" xmlns="http://www.w3.org/2000/svg"><defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="arrow-head"/></marker>
         <marker id="arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="arrow-head sel"/></marker>

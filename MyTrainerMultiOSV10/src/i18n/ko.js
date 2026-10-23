@@ -355,6 +355,8 @@ export default {
   'data.noiseClass': "배경 소음(noise) 부류 추가",
   'data.loadingSounds': "음성 데이터를 불러오는 중…",
   'test.file': "내 파일",
+  'train.startTip': "새 학습: 가중치를 무작위로 새로 만들고, 이전 학습 기록·결과·평가를 모두 지우고 시작합니다 (F5)",
+  'train.continueTip': "지난 학습의 가중치와 기록에 이어서 에포크를 더 학습합니다",
   'menu.print': "인쇄…",
   'menu.saveReport': "결과 보고서 저장…",
   'report.title': "학습 결과 보고서",

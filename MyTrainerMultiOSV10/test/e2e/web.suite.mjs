@@ -222,6 +222,14 @@ export async function runWebSuite({ log = console.log, report } = {}) {
       await page.eval(`__mytrainer.run('language')`);
       await sleep(300);
       assert.equal(await page.eval(`document.querySelector('[data-menu="file"] span').textContent`), 'File');
+      // A sample opened in Korean: its name, description and models follow the switch.
+      await page.eval(`__mytrainer.openSampleNow('kwsKo')`);
+      await page.eval(`__mytrainer.run('language')`);
+      await page.eval(`__mytrainer.run('language')`);
+      await sleep(300);
+      const texts = JSON.parse(await state('JSON.stringify([s.project.name, s.project.description, ...(s.project.variants?.list ?? []).flatMap((v) => [v.name, v.description])])'));
+      const korean = texts.filter((x) => /[가-힣]/.test(x.replace(/출근|퇴근|경비|해제/g, '')));
+      assert.deepEqual(korean, [], 'English texts only (the keywords themselves are Korean)');
       await page.eval(`__mytrainer.run('language')`);
     });
     await step('no page errors', async () => {

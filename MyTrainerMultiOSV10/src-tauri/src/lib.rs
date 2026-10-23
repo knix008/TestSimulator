@@ -16,7 +16,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
-const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "pyenv", "samples", "prompt", "shortcuts", "menu", "themes"];
+const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "pyenv", "samples", "prompt", "shortcuts", "menu", "themes", "summary", "export", "report"];
 
 #[derive(Default)]
 struct Shared {

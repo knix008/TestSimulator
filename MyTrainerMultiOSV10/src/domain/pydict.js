@@ -210,6 +210,18 @@ export const PY_DICTIONARY = [
 
 export const DICTIONARY_KINDS = ['syntax', 'keyword', 'builtin', 'dict', 'list', 'torch', 'tensor', 'nn', 'F', 'optim', 'mt'];
 
+/** The Korean placeholder words of the signatures and examples, in English. */
+const PLACEHOLDERS = {
+  반복가능객체: 'iterable', 다른딕셔너리: 'other_dict', 입력크기: 'input_size', 은닉크기: 'hidden_size', 입력채널: 'in_channels',
+  출력채널: 'out_channels', 특성수: 'num_features', 입력수: 'in_features', 출력수: 'out_features', 채널수: 'num_channels',
+  어휘수: 'num_embeddings', 벡터크기: 'embedding_dim', 기본값: 'default', 목록: 'items', 값: 'value', 키: 'key', 조건: 'condition',
+  이름: 'name', 시작: 'start', 끝: 'stop', 객체: 'obj', 변수: 'var', 식: 'expr', 간격: 'step', 인자: 'args', 모듈: 'module',
+  오류: 'error', 설명: 'message', 함수: 'func', 위치: 'index', 층: 'layer', 부모: 'parent', 별칭: 'alias', 컨텍스트: 'context',
+  글자: 'chars', 자릿수: 'digits', 타입: 'type', 경로: 'path', 데이터: 'data', 개수: 'count', 왼: 'left', 오: 'right', 위: 'top', 아래: 'bottom',
+};
+/** A signature or example in the UI language (Korean placeholders → English words for 'en'). */
+export const inLanguage = (text, language) => (language === 'en' ? String(text ?? '').replace(/[가-힣]+/g, (word) => PLACEHOLDERS[word] ?? word) : text);
+
 /** Entries matching a search text (label, signature or description), best matches first. */
 export function searchDictionary(query, language = 'ko', kind = null) {
   const q = String(query ?? '').trim().toLowerCase();

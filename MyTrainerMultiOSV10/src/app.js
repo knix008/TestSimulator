@@ -20,7 +20,7 @@ import { BLOCK_IDS, BLOCKS, LAYER_GROUPS, LAYERS, parseShape, shapeText } from '
 import { evaluationReport } from './domain/metrics.js';
 import { cleanSplit, cleanSteps, newStep, prepare, transformInput } from './domain/preprocess.js';
 import { baseName, cleanTrain, effectiveTask, newProject, normalizeProject, parseProject, serializeProject, stripExtension } from './domain/project.js';
-import { sampleProject } from './domain/samples.js';
+import { sampleProject, SAMPLES } from './domain/samples.js';
 import { addRecent, ANIMATIONS, History, loadRecent, loadSettings, removeRecent, SESSION_KEY, storeRecent, storeSettings, VIEW_TABS } from './domain/settings.js';
 import { TfEngine, TorchEngine } from './engine/engines.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
@@ -134,7 +134,7 @@ function problemText(problem) {
 function updateSettings(patch, { quiet = false } = {}) {
   state.settings = { ...state.settings, ...patch };
   storeSettings(storage, state.settings);
-  if ('language' in patch) { setLanguage(state.settings.language); native.setBackendLanguage(state.settings.language); }
+  if ('language' in patch) { setLanguage(state.settings.language); native.setBackendLanguage(state.settings.language); relocalizeProject(); }
   if ('theme' in patch || 'customTheme' in patch) applyLook();
   if (['fontFamily', 'fontSize', 'fontWeight', 'fontStyle'].some((key) => key in patch)) applyFont(state.settings);
   if (!quiet) renderAll();
@@ -358,7 +358,7 @@ function prepareTf(options = {}) {
   return promise;
 }
 
-async function prepareTfNow({ force = false, key }) {
+async function prepareTfNow({ force = false, key, fresh = false }) {
   const engine = engines.tfjs;
   if (!force && state.engineKey === key) return engine;
   // Never rebuild under a running training: edits apply to the next run.
@@ -375,8 +375,8 @@ async function prepareTfNow({ force = false, key }) {
   await engine.prepare({ graph: cloneModel(model()), inputShape: state.prepared.inputShape, task: state.task, train: state.project.train, prepared: state.prepared });
   state.engineKey = key;
   state.run = { ...state.run, epoch: 0, canContinue: false, history: [] };
-  // Weights saved with the project, for exactly this model.
-  if (state.project.weights?.signature === signature() && state.project.weights.data) {
+  // Weights saved with the project, for exactly this model (not for a new training: that starts from scratch).
+  if (!fresh && state.project.weights?.signature === signature() && state.project.weights.data) {
     try { engine.importWeights(JSON.parse(state.project.weights.data)); } catch { /* damaged: train again */ }
   }
   return engine;
@@ -479,7 +479,43 @@ async function probe(x = null, reason = 'probe', label = null) {
   } else if (engine.canServe) engine.probe(x ?? probeValues(), label, reason);
 }
 
-async function startTraining() {
+/**
+ * A sample opened in one language, the UI now in the other: its name, description and model descriptions in
+ * the new language — only the texts still as the sample had them (what the user wrote stays).
+ */
+function relocalizeProject() {
+  codeView?.applyLook();
+  const sample = SAMPLES[state.project.sample];
+  if (!sample) return;
+  const en = state.settings.language === 'en';
+  const swap = (current, ko, english) => (current === (en ? ko : english) ? (en ? english : ko) : current);
+  state.project.name = swap(state.project.name, sample.ko, sample.en);
+  state.project.description = swap(state.project.description, sample.descKo, sample.descEn);
+  for (const v of state.project.variants?.list ?? []) {
+    const original = sample.variants?.[v.id];
+    if (!original) continue;
+    v.name = swap(v.name, original.ko, original.en);
+    v.description = swap(v.description, original.descKo, original.descEn);
+  }
+}
+
+/** Dates and times as the UI language writes them. */
+const when = (date = new Date()) => date.toLocaleString(state.settings.language === 'en' ? 'en-US' : 'ko-KR');
+
+/** Everything an earlier training left: its history, charts, evaluation, run results and measurement. */
+function clearRunResults() {
+  state.engineKey = null;
+  state.run = { state: 'idle', epoch: 0, epochs: 0, from: 0, history: [], canContinue: false };
+  state.evaluation = null; state.report = null; state.visual = { boundary: null, curve: null };
+  state.test.bench = null; state.test.lastOutput = null;
+  state.batch = { items: [], running: false, selected: null, message: null };
+}
+
+/**
+ * A training: new (resume false — a new model with random weights, nothing of an earlier run kept) or the
+ * continuation of the last TensorFlow run (resume true — its weights, history and epoch count).
+ */
+async function startTraining({ resume = false } = {}) {
   if (busy()) return;
   if (!state.prepared) { notify(state.dataError ?? t('data.none'), 'error'); switchTab('data'); return; }
   const errors = state.problems.filter((p) => p.level === 'error');
@@ -491,13 +527,14 @@ async function startTraining() {
     return;
   }
   state.selectedUnit = null;
+  const continuing = resume && state.project.engine === 'tfjs' && state.run.canContinue && state.engineKey === engineKey();
+  if (!continuing) clearRunResults();
   startTrainTask();
   if (state.project.engine === 'torch') return startTorch();
   try {
     state.run.state = 'preparing';
     renderTrainLive();
-    const continuing = state.run.canContinue && state.engineKey === engineKey();
-    const engine = await prepareTf();
+    const engine = await prepareTf(continuing ? {} : { force: true, fresh: true });
     state.run = { state: 'training', epoch: continuing ? state.run.epoch : 0, epochs: state.project.train.epochs, from: continuing ? state.run.epoch : 0, history: continuing ? state.run.history : [], canContinue: true };
     log(t('log.trainStart', { engine: `TensorFlow (${engine.backend})`, epochs: state.project.train.epochs }));
     engine.train();
@@ -579,6 +616,7 @@ function trainAction(action) {
   const engine = currentEngine();
   switch (action) {
     case 'train': startTraining(); break;
+    case 'continue': startTraining({ resume: true }); break;
     case 'pause': engine?.pause(); break;
     case 'resume': engine?.resume(); break;
     case 'step': engine?.step(); break;
@@ -1450,7 +1488,7 @@ function settingsFromStorage() {
   const before = state.settings.language;
   state.settings = loadSettings(storage);
   setLanguage(state.settings.language);
-  if (state.settings.language !== before) native.setBackendLanguage(state.settings.language);
+  if (state.settings.language !== before) { native.setBackendLanguage(state.settings.language); relocalizeProject(); }
   applyLook();
   applyFont(state.settings);
   if (!state.project.code.custom) state.project.code.text = generatedCode();
@@ -1543,7 +1581,7 @@ function showError(message, context, stack = null) {
   errorOpen = true;
   const detail = [
     `${t('error.where')}: ${context}`,
-    `${t('error.when')}: ${new Date().toLocaleString()}`,
+    `${t('error.when')}: ${when()}`,
     `MyTrainer ${VERSION} · ${desktop ? 'desktop' : 'web'} · ${api.engineLabel()}`,
     state.project?.name ? `${t('error.project')}: ${state.project.name}` : '',
     stack ? `\n${stack}` : '',
@@ -2951,7 +2989,7 @@ function buildReport() {
     blocks.push({ kind: 'kv', rows: [[t('bench.mean'), `${b.mean.toFixed(2)} ms ± ${b.std.toFixed(2)} ms`], [t('bench.range'), `${b.min.toFixed(2)} … ${b.max.toFixed(2)} ms`], [t('bench.median'), `${b.median.toFixed(2)} ms · p95 ${b.p95.toFixed(2)} ms`], [t('bench.throughput'), `${Math.round(b.throughput)} ${t('bench.perSecond')}`], [t('bench.engine'), b.engine]] });
   }
   const sections = blocks.filter((x) => x.kind === 'heading' && x.section).map((x) => ({ id: x.section, name: x.text }));
-  return { title: `${state.project.name} — ${t('report.title')}`, date: new Date().toLocaleString(), blocks, sections };
+  return { title: `${state.project.name} — ${t('report.title')}`, date: when(), blocks, sections };
 }
 
 /** Print / save the results: the report popup (settings on the left, the pages on the right). */

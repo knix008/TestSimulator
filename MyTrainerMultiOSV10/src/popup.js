@@ -222,7 +222,7 @@ function renderSettings() {
 function renderAbout() {
   if (!state.info) native.appInfo().then((info) => { state.info = info; render(); });
   const i = state.info;
-  const rows = i ? [[t('about.version'), i.version], [t('about.build'), `${i.commit} · ${new Date(i.buildDate).toLocaleString()}`], [t('about.target'), i.target], ['Tauri', i.tauri], [t('about.os'), `${i.os} ${i.arch}`]] : [];
+  const rows = i ? [[t('about.version'), i.version], [t('about.build'), `${i.commit} · ${new Date(i.buildDate).toLocaleString(L() === 'en' ? 'en-US' : 'ko-KR')}`], [t('about.target'), i.target], ['Tauri', i.tauri], [t('about.os'), `${i.os} ${i.arch}`]] : [];
   root.innerHTML = frame({
     glyph: 'info', title: t('menu.about'),
     body: `<div class="about"><img src="${appIcon}" alt="" class="about-icon"/><div><h1>MyTrainer</h1><p>${escapeHtml(t('start.tagline'))}</p>

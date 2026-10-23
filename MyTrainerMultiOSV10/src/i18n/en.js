@@ -341,6 +341,8 @@ export default {
   'data.noiseClass': "Add a background-noise class",
   'data.loadingSounds': "Loading the sound data…",
   'test.file': "My file",
+  'train.startTip': "A new training: new random weights, and everything of the earlier run (history, results, evaluation) cleared (F5)",
+  'train.continueTip': "More epochs on top of the last run's weights and history",
   'menu.print': "Print…",
   'menu.saveReport': "Save the results report…",
   'report.title': "Training results report",

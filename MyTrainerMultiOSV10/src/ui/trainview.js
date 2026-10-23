@@ -84,7 +84,8 @@ export function trainViewHtml(app) {
       ${advancedHtml(app, { row, step, busy })}
       <section class="panel-section train-controls">
         <div class="control-row">
-          <button class="button primary" data-train-action="train" ${busy ? 'disabled' : ''}>${icon('train')}<span>${escapeHtml(run.epoch && engine === 'tfjs' && run.canContinue ? t('train.continue') : t('train.start'))}</span></button>
+          <button class="button primary" data-train-action="train" ${busy ? 'disabled' : ''} title="${escapeHtml(t('train.startTip'))}">${icon('train')}<span>${escapeHtml(t('train.start'))}</span></button>
+          ${run.epoch && engine === 'tfjs' && run.canContinue && !busy ? `<button class="button" data-train-action="continue" title="${escapeHtml(t('train.continueTip'))}">${icon('play')}<span>${escapeHtml(t('train.continue'))}</span></button>` : ''}
           ${status === 'paused' ? `<button class="button" data-train-action="resume">${icon('play')}<span>${escapeHtml(t('train.resume'))}</span></button>` : `<button class="button" data-train-action="pause" ${status !== 'training' ? 'disabled' : ''}>${icon('trainPause')}<span>${escapeHtml(t('train.pause'))}</span></button>`}
         </div>
         <div class="control-row">

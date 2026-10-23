@@ -13,7 +13,7 @@ import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/sea
 import { Compartment, EditorState } from '@codemirror/state';
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, lineNumbers, rectangularSelection } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
-import { DICTIONARY_KINDS, lookupWord, PY_DICTIONARY, searchDictionary } from '../domain/pydict.js';
+import { DICTIONARY_KINDS, lookupWord, PY_DICTIONARY, searchDictionary, inLanguage } from '../domain/pydict.js';
 import { icon } from '../icons.js';
 import { escapeHtml } from './dom.js';
 
@@ -72,13 +72,21 @@ function dictionaryCompletions(context) {
       if (!entry.label.startsWith(prefix) && !(entry.kind === 'dict' || entry.kind === 'list' || entry.kind === 'tensor' || entry.kind === 'optim')) continue;
       const label = entry.label.startsWith(prefix) ? entry.label.slice(prefix.length) : entry.label.split('.').pop();
       if (label.includes('.')) continue;
-      options.push({ label, type: entry.kind === 'keyword' || entry.kind === 'syntax' ? 'keyword' : entry.kind === 'nn' ? 'class' : 'function', detail: entry.signature.split('\n')[0], info: entry.ko, boost: entry.label.startsWith(prefix) ? 2 : 0 });
+      options.push({ label, type: entry.kind === 'keyword' || entry.kind === 'syntax' ? 'keyword' : entry.kind === 'nn' ? 'class' : 'function', detail: inLanguage(entry.signature, app_.lang()).split('\n')[0], info: app_.lang() === 'en' ? entry.en : entry.ko, boost: entry.label.startsWith(prefix) ? 2 : 0 });
     } else {
-      options.push({ label: entry.label, type: entry.kind === 'keyword' || entry.kind === 'syntax' ? 'keyword' : entry.kind === 'nn' ? 'class' : 'function', detail: entry.signature.split('\n')[0], info: entry.ko });
+      options.push({ label: entry.label, type: entry.kind === 'keyword' || entry.kind === 'syntax' ? 'keyword' : entry.kind === 'nn' ? 'class' : 'function', detail: inLanguage(entry.signature, app_.lang()).split('\n')[0], info: app_.lang() === 'en' ? entry.en : entry.ko });
     }
   }
   return { from: word.from + (dot >= 0 ? dot + 1 : 0), options, validFor: /^\w*$/ };
 }
+
+/** CodeMirror's own words (fold markers, search panel) in Korean for a Korean UI. */
+const KO_PHRASES = {
+  'Fold line': '접기', 'Unfold line': '펼치기', 'folded code': '접힌 코드', 'unfold': '펼치기', 'Find': '찾기', 'Replace': '바꾸기', 'next': '다음', 'previous': '이전',
+  'all': '모두', 'match case': '대/소문자 구분', 'regexp': '정규식', 'by word': '단어 단위', 'replace': '바꾸기', 'replace all': '모두 바꾸기', 'close': '닫기',
+  'current match': '현재 일치', 'on line': '줄', 'Go to line': '줄로 이동', 'go': '이동', 'Control character': '제어 문자', 'Selection deleted': '선택 영역을 지웠습니다',
+};
+const editorPhrases = (language) => EditorState.phrases.of(language === 'en' ? {} : KO_PHRASES);
 
 export class CodeView {
   constructor(app) {
@@ -86,6 +94,7 @@ export class CodeView {
     this.themeCompartment = new Compartment();
     this.wrapCompartment = new Compartment();
     this.sizeCompartment = new Compartment();
+    this.phrasesCompartment = new Compartment();
     this.languageCompartment = new Compartment();
     this.suppress = false;
     this.element = document.createElement('div');
@@ -115,7 +124,7 @@ export class CodeView {
         create: () => {
           const dom = document.createElement('div');
           dom.className = 'code-hover';
-          dom.innerHTML = `<b>${escapeHtml(entry.label)}</b><code>${escapeHtml(entry.signature)}</code><p>${escapeHtml(app_.lang() === 'en' ? entry.en : entry.ko)}</p>`;
+          dom.innerHTML = `<b>${escapeHtml(entry.label)}</b><code>${escapeHtml(inLanguage(entry.signature, app_.lang()))}</code><p>${escapeHtml(app_.lang() === 'en' ? entry.en : entry.ko)}</p>`;
           return { dom };
         },
       };
@@ -158,6 +167,7 @@ export class CodeView {
           this.themeCompartment.of(syntaxHighlighting(lightStyle)),
           this.wrapCompartment.of([]),
           this.sizeCompartment.of(EditorView.theme({ '&': { fontSize: '14px' } })),
+          this.phrasesCompartment.of(editorPhrases(app_.lang())),
           EditorView.updateListener.of((update) => {
             if (update.docChanged && !this.suppress) this.app.codeEdited(update.state.doc.toString());
           }),
@@ -207,6 +217,7 @@ export class CodeView {
       this.themeCompartment.reconfigure(syntaxHighlighting(this.app.dark() ? darkStyle : lightStyle)),
       this.wrapCompartment.reconfigure(s.codeWrap ? EditorView.lineWrapping : []),
       this.sizeCompartment.reconfigure(EditorView.theme({ '&': { fontSize: `${s.codeFontSize}px` } })),
+      this.phrasesCompartment.reconfigure(editorPhrases(this.app.lang())),
     ] });
   }
 
@@ -235,7 +246,7 @@ export class CodeView {
     const list = searchDictionary(this.dictState.query, lang, this.dictState.kind);
     const selected = PY_DICTIONARY.find((entry) => entry.label === this.dictState.selected) ?? list[0] ?? null;
     const listHtml = list.slice(0, 200).map((entry) => `<button class="dict-item ${entry === selected ? 'active' : ''}" data-dict-entry="${escapeHtml(entry.label)}"><span class="dict-kind k-${entry.kind}">${escapeHtml(t(`dictKind.${entry.kind}`))}</span><b>${escapeHtml(entry.label)}</b></button>`).join('');
-    const detail = selected ? `<div class="dict-detail"><h4>${escapeHtml(selected.label)}</h4><pre class="dict-sig">${escapeHtml(selected.signature)}</pre><p>${escapeHtml(lang === 'en' ? selected.en : selected.ko)}</p>
+    const detail = selected ? `<div class="dict-detail"><h4>${escapeHtml(selected.label)}</h4><pre class="dict-sig">${escapeHtml(inLanguage(selected.signature, lang))}</pre><p>${escapeHtml(lang === 'en' ? selected.en : selected.ko)}</p>
       ${selected.example ? `<pre class="dict-example">${escapeHtml(selected.example)}</pre>` : ''}
       <button class="button small" data-dict-insert="${escapeHtml(selected.label)}">${icon('plus')}<span>${escapeHtml(t('code.insert'))}</span></button></div>` : '';
     if (full) {
