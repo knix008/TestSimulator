@@ -106,10 +106,22 @@ export class Trainer {
         case 'resume': this.stepMode = false; return this.resume();
         case 'step': this.stepMode = true; return this.resume();
         case 'stop': this.stopRequested = true; return this.resume();
-        case 'probe': return await this.snapshot(message.x, message.label ?? null, message.reason ?? 'probe');
+        case 'probe':
+          // Values from the app: it knows which input that is (the trainer's own pick no longer applies).
+          if (message.x) this.probeIndex = null;
+          return await this.snapshot(message.x, message.label ?? null, message.reason ?? 'probe');
+        case 'setProbe': {
+          // Another input to watch: while training it is taken at the next batch, otherwise at once.
+          this.probe = Float32Array.from(message.x);
+          this.probeLabel = message.label ?? null;
+          this.probeIndex = message.index ?? null;
+          if (this.state === 'training') { this.probePending = true; return undefined; }
+          return await this.snapshot(null, this.probeLabel, 'probe');
+        }
         case 'predict': return this.predict(message);
         case 'evaluate': return await this.evaluate();
         case 'exportWeights': return this.exportWeights();
+        case 'exportTfjs': return await this.exportTfjs();
         case 'importWeights': return this.importWeights(message.weights);
         case 'dispose': return this.dispose();
         default: return undefined;
@@ -225,6 +237,7 @@ export class Trainer {
             self.lastBatchPost = now;
             self.send('batch', { epoch: self.epoch, batch: batch + 1, batches, loss: logs.loss, acc: logs.acc ?? logs.categoricalAccuracy });
           }
+          if (self.probePending) { self.probePending = false; await self.snapshot(null, self.probeLabel, 'probe'); }
           if (self.stepMode) { self.paused = true; self.status('paused', { step: true }); }
           await self.waitIfPaused();
           if (self.stopRequested) model.stopTraining = true;
@@ -235,7 +248,11 @@ export class Trainer {
           const entry = { epoch: epoch + 1, loss: logs.loss, acc: logs.acc ?? logs.categoricalAccuracy ?? null, valLoss: logs.val_loss ?? null, valAcc: logs.val_acc ?? logs.val_categoricalAccuracy ?? null, lr: self.rate, time: Date.now() - started };
           self.history.push(entry);
           self.send('epoch', { ...entry, epochs: endEpoch });
-          if ((epoch + 1 - startEpoch) % train.snapshotEvery === 0 || epoch + 1 === endEpoch) await self.snapshot(null, null, 'epoch');
+          if ((epoch + 1 - startEpoch) % train.snapshotEvery === 0 || epoch + 1 === endEpoch) {
+            // "Another input every epoch": a random training sample goes through the network this time.
+            if (train.probeCycle && data.train.n > 1) self.pickProbe(Math.floor(Math.random() * data.train.n));
+            await self.snapshot(null, self.probeLabel ?? null, 'epoch');
+          }
           // Early stopping watches one figure (lower loss / higher accuracy is better), by at least minDelta.
           const pick = { val_loss: entry.valLoss ?? entry.loss, loss: entry.loss, val_acc: entry.valAcc ?? entry.acc, acc: entry.acc }[train.monitor ?? 'val_loss'] ?? entry.loss;
           const watched = (train.monitor ?? 'val_loss').endsWith('acc') ? -(pick ?? 0) : pick;
@@ -285,6 +302,15 @@ export class Trainer {
     });
   }
 
+  /** Training sample `index` as the probe input (with its class, for a classification). */
+  pickProbe(index) {
+    const s = size(this.inputShape);
+    const part = this.data.train;
+    this.probe = part.raw.x.slice(index * s, (index + 1) * s);
+    this.probeIndex = index;
+    this.probeLabel = this.task?.kind === 'classification' && part.raw.y ? part.raw.y[index] : null;
+  }
+
   /** The input for a snapshot: the given values, or the chosen probe sample of the data. */
   probeInput(x) {
     const tf = this.tf;
@@ -329,7 +355,7 @@ export class Trainer {
       if (grads?.has(id)) nodes[id].grads = grads.get(id);
     }
     input.dispose();
-    this.send('snapshot', { reason, epoch: this.epoch, input: { shape: this.inputShape, data: this.probe }, label, nodes });
+    this.send('snapshot', { reason, epoch: this.epoch, input: { shape: this.inputShape, data: this.probe }, label, nodes, probeIndex: this.probeIndex ?? null });
     await this.visualExtras();
   }
 
@@ -441,6 +467,17 @@ export class Trainer {
       if (values.length) out[id] = await Promise.all(values.map(async (w) => ({ shape: w.shape, data: Array.from(await w.data()) })));
     }
     this.send('weights', { weights: out, epoch: this.epoch });
+  }
+
+  /** The model in TensorFlow.js format (what model.save writes): topology, weight specs, weight bytes. */
+  async exportTfjs() {
+    if (!this.built) { this.send('tfjsModel', { error: 'no model' }); return; }
+    const tf = this.tf;
+    await this.built.model.save(tf.io.withSaveHandler(async (artifacts) => {
+      const data = artifacts.weightData instanceof ArrayBuffer ? artifacts.weightData : new Uint8Array(artifacts.weightData).buffer;
+      this.send('tfjsModel', { topology: artifacts.modelTopology, weightSpecs: artifacts.weightSpecs, weightData: data }, [data]);
+      return { modelArtifactsInfo: { dateSaved: new Date(), modelTopologyType: 'JSON' } };
+    }));
   }
 
   importWeights(weights) {

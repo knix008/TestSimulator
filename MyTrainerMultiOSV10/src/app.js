@@ -36,7 +36,7 @@ import { escapeHtml, dragPointer } from './ui/dom.js';
 import { drawFrameStrip, drawSpectrogram, playWave } from './ui/media.js';
 import { barChart, CLASS_COLORS, drawPicture, setupCanvas } from './ui/charts.js';
 import { textMenuItems } from './ui/contextmenu.js';
-import { describeOutput, inputKindFor, inputsFromFiles, resultsCsv } from './ui/batchrun.js';
+import { describeOutput, exampleFile, examplesFor, inputKindFor, inputsFromFiles, resultsCsv } from './ui/batchrun.js';
 import { GraphView } from './ui/graphview.js';
 import { drawInspector, inspectorHtml } from './ui/inspector.js';
 import { NeuronView } from './ui/neuronview.js';
@@ -338,8 +338,17 @@ function stopEverything() {
 }
 
 /** Builds the TensorFlow.js model and hands it the data (when the model, data or settings changed). */
+/**
+ * What the built TF.js model depends on: the graph, the training settings and the data. Which sample is
+ * watched (probeIndex, probeCycle) is left out — choosing another input must not rebuild the trained model.
+ */
+function engineKey() {
+  const { probeIndex, probeCycle, ...train } = state.project.train;
+  return `${signature()}|${JSON.stringify(train)}|${JSON.stringify(state.project.dataset)}`;
+}
+
 function prepareTf(options = {}) {
-  const key = `${signature()}|${JSON.stringify(state.project.train)}|${JSON.stringify(state.project.dataset)}`;
+  const key = engineKey();
   // One preparation at a time: a second request for the same model waits for the first.
   if (prepareTf.pending?.key === key && !options.force) return prepareTf.pending.promise;
   const promise = prepareTfNow({ ...options, key }).finally(() => { if (prepareTf.pending?.promise === promise) prepareTf.pending = null; });
@@ -359,7 +368,7 @@ async function prepareTfNow({ force = false, key }) {
   // graph with errors, and remember the model that is actually built.
   const errors = state.problems.filter((p) => p.level === 'error').length;
   if (errors) throw new Error(t('train.fixProblems', { n: errors }));
-  key = `${signature()}|${JSON.stringify(state.project.train)}|${JSON.stringify(state.project.dataset)}`;
+  key = engineKey();
   if (!force && state.engineKey === key) return engine;
   await engine.prepare({ graph: cloneModel(model()), inputShape: state.prepared.inputShape, task: state.task, train: state.project.train, prepared: state.prepared });
   state.engineKey = key;
@@ -369,6 +378,35 @@ async function prepareTfNow({ force = false, key }) {
     try { engine.importWeights(JSON.parse(state.project.weights.data)); } catch { /* damaged: train again */ }
   }
   return engine;
+}
+
+/** ◀ n / N ▶ 🎲: which training sample goes through the network in the Neuron and Train tabs. */
+function probeNav() {
+  const n = state.prepared?.train?.n ?? 0;
+  if (!n) return '';
+  const at = Math.min(state.project.train.probeIndex, n - 1);
+  return `<span class="probe-nav" title="${escapeHtml(t('probe.navTip'))}">
+      <button class="icon-button" data-probe="prev" title="${escapeHtml(t('test.prev'))}" aria-label="${escapeHtml(t('test.prev'))}">${icon('chevronLeft')}</button>
+      <span class="probe-at" data-probe-at>${escapeHtml(t('probe.at', { n: at + 1, total: n }))}</span>
+      <button class="icon-button" data-probe="next" title="${escapeHtml(t('test.next'))}" aria-label="${escapeHtml(t('test.next'))}">${icon('chevronRight')}</button>
+      <button class="icon-button" data-probe="random" title="${escapeHtml(t('test.random'))}" aria-label="${escapeHtml(t('test.random'))}">${icon('dice')}</button>
+      <label class="inline-check" title="${escapeHtml(t('probe.cycleTip'))}"><input type="checkbox" data-probe-cycle ${state.project.train.probeCycle !== false ? 'checked' : ''}/><span>${escapeHtml(t('probe.cycle'))}</span></label>
+    </span>`;
+}
+
+/** Another training sample as the probe input: the network is run on it at once (also while training). */
+function moveProbe(how) {
+  const train = state.prepared?.train;
+  if (!train?.n) return;
+  const at = Math.min(state.project.train.probeIndex, train.n - 1);
+  const next = how === 'random' ? Math.floor(Math.random() * train.n) : (at + (how === 'prev' ? -1 : 1) + train.n) % train.n;
+  state.project.train.probeIndex = next;
+  const raw = train.index?.[next];
+  const label = raw == null ? null : state.data.task.kind === 'classification' ? state.data.y[raw] : sampleY(state.data, raw)?.[0] ?? null;
+  for (const element of root.querySelectorAll('[data-probe-at]')) element.textContent = t('probe.at', { n: next + 1, total: train.n });
+  const engine = currentEngine();
+  if (engine.kind === 'tfjs' && engine.setProbe && busy()) engine.setProbe(probeValues(), label, next);
+  else probe(null, 'probe', label).catch((error) => reportError(error, 'probe'));
 }
 
 /** Probe input values for a sample of the training data. */
@@ -407,7 +445,7 @@ async function startTraining() {
   try {
     state.run.state = 'preparing';
     renderTrainLive();
-    const continuing = state.run.canContinue && state.engineKey === `${signature()}|${JSON.stringify(state.project.train)}|${JSON.stringify(state.project.dataset)}`;
+    const continuing = state.run.canContinue && state.engineKey === engineKey();
     const engine = await prepareTf();
     state.run = { state: 'training', epoch: continuing ? state.run.epoch : 0, epochs: state.project.train.epochs, from: continuing ? state.run.epoch : 0, history: continuing ? state.run.history : [], canContinue: true };
     log(t('log.trainStart', { engine: `TensorFlow (${engine.backend})`, epochs: state.project.train.epochs }));
@@ -556,6 +594,10 @@ function onEngine(message) {
     case 'snapshot':
       state.snapshot = { ...message, labels: state.data?.labels ?? null, featureNames: state.prepared?.featureNames ?? state.data?.featureNames ?? null, vocab: state.data?.vocab ?? null };
       if (message.reason === 'probe' && state.view.tab === 'test') state.test.lastOutput = message.nodes[outputId()]?.act?.data ?? null;
+      if (message.probeIndex != null && state.prepared?.train?.n) {
+        state.project.train.probeIndex = message.probeIndex;
+        for (const element of root.querySelectorAll('[data-probe-at]')) element.textContent = t('probe.at', { n: message.probeIndex + 1, total: state.prepared.train.n });
+      }
       onSnapshot();
       break;
     case 'boundary': state.visual.boundary = message; renderTrainLive(); if (state.view.tab === 'test') redrawCenter(); break;
@@ -573,6 +615,17 @@ function onEngine(message) {
       notify(t('log.doneShort'), 'success');
       recordRun(message);
       renderAll();
+      if (!message.stopped && state.settings.notifyTrainDone) {
+        const last = (message.history ?? []).at(-1) ?? {};
+        const pct = (v) => `${(v * 100).toFixed(1)}%`;
+        const lines = [
+          t('train.doneSummary', { epochs: message.epochs, time: ((message.time ?? 0) / 1000).toFixed(1) }),
+          last.loss != null ? `${t('test.loss')} ${Number(last.loss).toFixed(4)}${last.valLoss != null ? ` · ${t('log.valLoss')} ${Number(last.valLoss).toFixed(4)}` : ''}` : '',
+          last.acc != null ? `${t('test.accuracy')} ${pct(last.acc)}${last.valAcc != null ? ` · ${t('log.valAcc')} ${pct(last.valAcc)}` : ''}` : '',
+          summary?.acc != null ? `${t('test.accuracy')} (${t('test.part.test')}) ${pct(summary.acc)}` : '',
+        ].filter(Boolean);
+        popups.open('confirm', { title: t('train.doneTitle'), message: lines.join('\n'), buttons: [['ok', t('common.ok'), 'primary']] }).catch(() => {});
+      }
       if (engine.kind === 'tfjs' && state.settings.saveWeights) storeWeights();
       break;
     }
@@ -580,7 +633,7 @@ function onEngine(message) {
     case 'output': log(message.text, message.stream === 'stderr' ? 'stderr' : 'output'); break;
     case 'error':
       log(`${message.message}${message.stack ? `\n${message.stack}` : ''}`, 'error');
-      notify(message.message, 'error');
+      showError(message.message, engine.kind === 'torch' ? 'PyTorch' : 'TensorFlow', message.stack ?? null);
       if (state.run.state === 'preparing') state.run.state = 'idle';
       endTrainTask();
       renderAllSoon();
@@ -646,6 +699,9 @@ const api = {
   testState: () => state.test,
   batchState: () => state.batch,
   inputKind: () => inputKindFor(state.data),
+  examples: () => examplesForData(),
+  zoomControls: () => zoomControls(),
+  probeNav: () => probeNav(),
   recent: () => state.recent,
   view: state.view,
   outputId,
@@ -687,7 +743,7 @@ const api = {
     commit('connect');
   },
   commit: (label) => commit(label),
-  zoomChanged: () => renderStatus(),
+  zoomChanged: () => { renderStatus(); showZoom(); },
   selectUnit: (sel) => { state.selectedUnit = sel; if (sel) graphView?.select([]); state.selectedUnit = sel; for (const view of [neuronModel, neuronTrain, neuronTest]) view?.render(); renderRight(); },
   bindDrawPad: (pad) => bindDrawPad(pad),
   // code editor
@@ -954,6 +1010,8 @@ const commands = {
   gallery: { label: 'menu.samples', icon: 'samples', run: () => openGallery() },
   exportC: { label: 'menu.exportC', icon: 'exportC', enabled: () => !busy(), run: () => exportModel('c') },
   exportOnnx: { label: 'menu.exportOnnx', icon: 'exportOnnx', enabled: () => !busy(), run: () => exportModel('onnx') },
+  exportTfjs: { label: 'menu.exportTfjs', icon: 'exportFile', enabled: () => !busy(), run: () => exportModel('tfjs') },
+  exportModel: { label: 'menu.export', icon: 'exportOnnx', enabled: () => !busy(), run: () => openExport() },
   save: { label: 'menu.save', icon: 'save', key: 'Ctrl+S', run: () => saveFile(false) },
   saveAs: { label: 'menu.saveAs', icon: 'saveAs', key: 'Ctrl+Shift+S', run: () => saveFile(true) },
   exportPy: { label: 'menu.exportPy', icon: 'exportFile', run: () => codeAction('save') },
@@ -967,9 +1025,12 @@ const commands = {
   settings: { label: 'menu.settings', icon: 'gear', run: () => openSettings() },
   addLayer: { label: 'menu.addLayer', icon: 'plus', run: () => { switchTab('model'); const r = root.querySelector('[data-command="addLayer"]')?.getBoundingClientRect(); openLayerPicker({ x: r?.left ?? 200, y: (r?.bottom ?? 100) + 4 }, {}); } },
   autoLayout: { label: 'menu.autoLayout', icon: 'layoutAuto', key: 'Ctrl+L', run: () => { layoutModel(model()); commit('layout'); requestAnimationFrame(() => graphView.fit()); } },
-  fit: { label: 'menu.fit', icon: 'fitPage', key: 'Ctrl+0', run: () => { switchTab('model'); graphView.fit(); } },
-  zoomIn: { label: 'menu.zoomIn', icon: 'zoomIn', key: 'Ctrl+=', run: () => graphView.zoomBy(1.2) },
-  zoomOut: { label: 'menu.zoomOut', icon: 'zoomOut', key: 'Ctrl+-', run: () => graphView.zoomBy(1 / 1.2) },
+  fit: { label: 'menu.fit', icon: 'fitPage', key: 'Ctrl+0', run: () => { const view = zoomView(); if (view) view.fit(); else { switchTab('model'); graphView.fit(); } } },
+  zoomIn: { label: 'menu.zoomIn', icon: 'zoomIn', key: 'Ctrl+=', run: () => zoomView()?.zoomBy(1.2) },
+  zoomOut: { label: 'menu.zoomOut', icon: 'zoomOut', key: 'Ctrl+-', run: () => zoomView()?.zoomBy(1 / 1.2) },
+  graphVertical: { label: 'menu.graphVertical', icon: 'flowDown', checked: () => state.settings.graphDirection !== 'horizontal', run: () => setGraphDirection('vertical') },
+  graphHorizontal: { label: 'menu.graphHorizontal', icon: 'flowRight', checked: () => state.settings.graphDirection === 'horizontal', run: () => setGraphDirection('horizontal') },
+  toggleGrid: { label: 'menu.grid', icon: 'grid', key: 'Ctrl+G', checked: () => state.settings.showGrid, run: () => { updateSettings({ showGrid: !state.settings.showGrid }); graphView?.render(); } },
   neurons: { label: 'menu.neurons', icon: 'nodesView', key: 'Ctrl+E', checked: () => !state.showStart && state.view.tab === 'neurons', run: () => switchTab(state.view.tab === 'neurons' && !state.showStart ? 'model' : 'neurons') },
   train: { label: 'menu.train', icon: 'train', key: 'F5', enabled: () => !busy(), run: () => startTraining() },
   pause: { label: 'menu.pause', icon: 'trainPause', key: 'F6', enabled: () => busy(), run: () => trainAction(state.run.state === 'paused' ? 'resume' : 'pause') },
@@ -997,16 +1058,16 @@ const commands = {
 for (const [i, tab] of VIEW_TABS.entries()) commands[`tab_${tab}`] = { label: `tab.${tab}`, icon: `tab${tab[0].toUpperCase()}${tab.slice(1)}`, key: `Ctrl+${i + 1}`, checked: () => !state.showStart && state.view.tab === tab, run: () => switchTab(tab) };
 
 const MENUS = {
-  file: ['new', 'open', 'recent', 'gallery', 'sep', 'save', 'saveAs', 'sep', 'exportPy', 'exportC', 'exportOnnx', 'sep', 'home', 'exit'],
+  file: ['new', 'open', 'recent', 'gallery', 'sep', 'save', 'saveAs', 'sep', 'exportModel', 'sep', 'exportOnnx', 'exportTfjs', 'exportC', 'exportPy', 'sep', 'home', 'exit'],
   edit: ['undo', 'redo', 'sep', 'delete', 'duplicate', 'selectAll', 'sep', 'settings'],
-  view: ['tab_data', 'tab_model', 'tab_neurons', 'tab_code', 'tab_train', 'tab_test', 'sep', 'zoomIn', 'zoomOut', 'fit', 'sep', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'sep', 'theme', 'language'],
+  view: ['tab_data', 'tab_model', 'tab_neurons', 'tab_code', 'tab_train', 'tab_test', 'sep', 'zoomIn', 'zoomOut', 'fit', 'sep', 'graphVertical', 'graphHorizontal', 'toggleGrid', 'sep', 'leftPanel', 'rightPanel', 'bottomPanel', 'statusBar', 'sep', 'theme', 'language'],
   model: ['addLayer', 'autoLayout', 'sep', 'delete', 'duplicate'],
   data: ['tab_data', 'importCsv', 'importImages', 'newSeed'],
   train: ['train', 'pause', 'step', 'stop', 'reset', 'sep', 'engineTf', 'engineTorch', 'pyenv', 'sep', 'evaluate'],
   help: ['guide', 'shortcuts', 'sep', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', model: 'tabModel', data: 'tabData', train: 'tabTrain', help: 'question' };
-const TOOLBAR = [['new', 'open', 'save'], ['undo', 'redo'], ['addLayer', 'autoLayout', 'fit', 'neurons'], ['train', 'pause', 'step', 'stop', 'reset']];
+const TOOLBAR = [['new', 'open', 'save', 'exportModel'], ['undo', 'redo'], ['addLayer', 'autoLayout', 'fit', 'neurons'], ['train', 'pause', 'step', 'stop', 'reset']];
 const TOOLBAR_RIGHT = ['themeSplit', 'language', 'settings', 'about'];
 
 const enabled = (id) => (commands[id]?.enabled ? commands[id].enabled() : true);
@@ -1297,6 +1358,37 @@ async function openGallery() {
   if (result?.sample) openSample(result.sample);
 }
 
+/** The canvas the zoom commands work on: the neuron view on its tab, else the model graph. */
+function zoomView() {
+  if (state.showStart) return null;
+  const tab = state.view.tab;
+  if (tab === 'neurons') return neuronModel ?? null;
+  if (tab === 'train') return neuronTrain ?? null;
+  if (tab === 'test') return neuronTest ?? null;
+  return tab === 'model' ? graphView : null;
+}
+const zoomPercent = () => `${Math.round((zoomView()?.zoom ?? zoomView()?.fitScale ?? 1) * 100)}%`;
+
+/** − [zoom %] + and "fit": the zoom of the model graph or the neuron view, shown between its buttons. */
+function zoomControls() {
+  return `<span class="zoom-group">
+      <button class="icon-button" data-command="zoomOut" title="${escapeHtml(tip('zoomOut'))}" aria-label="${escapeHtml(tip('zoomOut'))}">${icon('zoomOut')}</button>
+      <span class="zoom-value" data-zoom-value title="${escapeHtml(t('model.zoom'))}">${zoomPercent()}</span>
+      <button class="icon-button" data-command="zoomIn" title="${escapeHtml(tip('zoomIn'))}" aria-label="${escapeHtml(tip('zoomIn'))}">${icon('zoomIn')}</button>
+      <button class="button small" data-command="fit" title="${escapeHtml(tip('fit'))}">${icon('fitPage')}<span>${escapeHtml(t('model.resetView'))}</span></button>
+    </span>`;
+}
+function showZoom() {
+  const label = root.querySelector('[data-zoom-value]');
+  if (label) label.textContent = zoomPercent();
+}
+
+function setGraphDirection(direction) {
+  if (state.settings.graphDirection === direction) return;
+  updateSettings({ graphDirection: direction });
+  requestAnimationFrame(() => graphView?.fit());
+}
+
 async function openSettings(tab = null) {
   await popups.open('settings', tab ? { tab } : {});
   settingsFromStorage();
@@ -1385,7 +1477,26 @@ popups.on('report-error', (data) => log(`${data.context}: ${data.message}\n${dat
 function reportError(error, context) {
   const text = native.errorText(error);
   log(`${context}: ${text}`, 'error');
-  notify(text, 'error');
+  showError(text, context, error?.stack);
+}
+
+/**
+ * An error in a popup: the message, then the details (where, when, version, platform, engine, stack) that
+ * the popup's "Copy" puts on the clipboard. One at a time (the next ones are in the console).
+ */
+let errorOpen = false;
+function showError(message, context, stack = null) {
+  notify(message, 'error');
+  if (errorOpen || state.settings.errorPopups === false) return;
+  errorOpen = true;
+  const detail = [
+    `${t('error.where')}: ${context}`,
+    `${t('error.when')}: ${new Date().toLocaleString()}`,
+    `MyTrainer ${VERSION} · ${desktop ? 'desktop' : 'web'} · ${api.engineLabel()}`,
+    state.project?.name ? `${t('error.project')}: ${state.project.name}` : '',
+    stack ? `\n${stack}` : '',
+  ].filter(Boolean).join('\n');
+  popups.open('error', { message, detail }).catch(() => {}).finally(() => { errorOpen = false; });
 }
 
 async function requestExit() {
@@ -1585,13 +1696,17 @@ function renderCenter() {
     const warnings = state.problems.length - errors;
     bar.innerHTML = `${mode === 'graph' ? `<button class="button small" data-command="addLayer">${icon('plus')}<span>${escapeHtml(t('menu.addLayer'))}</span></button>
       <button class="button small" data-command="autoLayout">${icon('layoutAuto')}<span>${escapeHtml(t('menu.autoLayout'))}</span></button>
-      <button class="icon-button" data-command="zoomOut" title="${escapeHtml(tip('zoomOut'))}">${icon('zoomOut')}</button>
-      <button class="icon-button" data-command="fit" title="${escapeHtml(tip('fit'))}">${icon('fitPage')}</button>
-      <button class="icon-button" data-command="zoomIn" title="${escapeHtml(tip('zoomIn'))}">${icon('zoomIn')}</button>` : `<button class="button small" data-probe-run>${icon('probe')}<span>${escapeHtml(t('model.runProbe'))}</span></button>
+      <span class="tool-sep"></span>
+      <span class="segmented" role="group" aria-label="${escapeHtml(t('model.direction'))}">${['graphVertical', 'graphHorizontal'].map((id) => `<button class="segment ${commands[id].checked() ? 'active' : ''}" data-command="${id}" title="${escapeHtml(tip(id))}">${icon(commands[id].icon)}<span>${escapeHtml(t(`model.${id}`))}</span></button>`).join('')}</span>
+      <button class="button small ${state.settings.showGrid ? 'active' : ''}" data-command="toggleGrid" title="${escapeHtml(tip('toggleGrid'))}" aria-pressed="${state.settings.showGrid}">${icon('grid')}<span>${escapeHtml(t('model.grid'))}</span></button>
+      <span class="tool-sep"></span>
+      ${zoomControls()}` : `${probeNav()}<button class="button small" data-probe-run>${icon('probe')}<span>${escapeHtml(t('model.runProbe'))}</span></button>
       <label class="inline-check">${escapeHtml(t('model.colorMap'))}<select data-setting="colorMap">${['diverging', 'viridis', 'magma', 'gray'].map((m) => `<option value="${m}" ${state.settings.colorMap === m ? 'selected' : ''}>${escapeHtml(t(`colorMap.${m}`))}</option>`).join('')}</select></label>
       <label class="inline-check">${escapeHtml(t('model.maxNeurons'))}<select data-setting="maxNeurons">${[8, 12, 16, 24, 32, 48, 64].map((n) => `<option value="${n}" ${state.settings.maxNeurons === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
       <label class="inline-check"><input type="checkbox" data-setting="showLinks" ${state.settings.showLinks ? 'checked' : ''}/>${escapeHtml(t('model.showLinks'))}</label>
-      <label class="inline-check"><input type="checkbox" data-setting="animateFlow" ${state.settings.animateFlow ? 'checked' : ''}/>${escapeHtml(t('model.animate'))}</label>`}
+      <label class="inline-check"><input type="checkbox" data-setting="animateFlow" ${state.settings.animateFlow ? 'checked' : ''}/>${escapeHtml(t('model.animate'))}</label>
+      <span class="tool-sep"></span>
+      ${zoomControls()}`}
       <span class="grow"></span>
       <span class="model-check ${errors ? 'error' : warnings ? 'warning' : 'ok'}" data-bottom-tab="problems" title="${escapeHtml(t('inspector.problems'))}">${icon(errors ? 'error' : warnings ? 'warning' : 'check')}<span>${escapeHtml(errors || warnings ? t('model.problems', { errors, warnings }) : t('model.ok'))}</span></span>
       <span class="muted small">${escapeHtml(t('inspector.params'))}: ${totalParams(state.shapes).total.toLocaleString()}</span>`;
@@ -1605,6 +1720,7 @@ function renderCenter() {
       if (stage.firstChild !== neuronHost) stage.replaceChildren(neuronHost);
       neuronModel.render();
     }
+    showZoom();
     return;
   }
   if (tab === 'code') {
@@ -1918,6 +2034,8 @@ function bindShell() {
     if (reveal) { switchTab('model'); requestAnimationFrame(() => graphView.reveal(reveal.dataset.reveal)); return; }
     const mode = target.closest('[data-model-mode]');
     if (mode) { switchTab(mode.dataset.modelMode === 'neurons' ? 'neurons' : 'model'); return; }
+    const probeCmd = target.closest('[data-probe]');
+    if (probeCmd) { moveProbe(probeCmd.dataset.probe); return; }
     if (target.closest('[data-probe-run]')) { probe(null, 'probe').catch((error) => reportError(error, 'probe')); return; }
     const palette = target.closest('[data-palette-layer]');
     if (palette) { switchTab('model'); addLayer(palette.dataset.paletteLayer, {}); return; }
@@ -1951,6 +2069,8 @@ function bindShell() {
     if (preview?.hits) { previewClick(preview, event); return; }
     const liveCmd = target.closest('[data-live]');
     if (liveCmd && !liveCmd.disabled) { liveAction(liveCmd.dataset.live); return; }
+    const exampleCmd = target.closest('[data-example]');
+    if (exampleCmd && !exampleCmd.disabled) { runOnExamples(exampleCmd.dataset.example === '*' ? null : [exampleCmd.dataset.example]); return; }
     const batchCmd = target.closest('[data-batch]');
     if (batchCmd && !batchCmd.disabled) {
       const what = batchCmd.dataset.batch;
@@ -2019,6 +2139,8 @@ function bindShell() {
       state.project.dataset.steps.push(newStep(target.value)); commit('data', { data: true });
     } else if (target.matches('[data-data="noiseClass"]')) {
       state.project.dataset.source.noiseClass = target.checked; rebuildData(); adaptModelToData(); commit('data', { data: false });
+    } else if (target.matches('[data-data="group"]')) {
+      state.project.dataset.split = cleanSplit({ ...state.project.dataset.split, group: target.checked }); commit('data', { data: true });
     } else if (target.matches('[data-data="stratify"]')) {
       state.project.dataset.split = cleanSplit({ ...state.project.dataset.split, stratify: target.checked }); commit('data', { data: true });
     } else if (target.matches('[data-data="target"]') || target.matches('[data-data="task"]')) {
@@ -2053,6 +2175,11 @@ function bindShell() {
       state.test.errorsOnly = target.checked; testAction('next');
     } else if (target.matches('[data-test="sentence"]')) {
       state.test.sentence = target.value; runTest();
+    } else if (target.matches('[data-probe-cycle]')) {
+      state.project.train.probeCycle = target.checked;
+      for (const box of root.querySelectorAll('[data-probe-cycle]')) box.checked = target.checked;
+    } else if (target.matches('[data-test="benchRuns"]')) {
+      state.test.benchRuns = Number(target.value);
     } else if (target.matches('[data-test="genLength"], [data-test="temperature"]')) {
       state.test.generation = { ...(state.test.generation ?? {}), [target.dataset.test === 'genLength' ? 'length' : 'temperature']: Number(target.value) };
     } else if (target.matches('[data-feature-value]')) {
@@ -2278,6 +2405,7 @@ function testAction(action) {
     case 'next': move(1); break;
     case 'random': state.test.index = wrong ? wrong[Math.floor(Math.random() * wrong.length)] : Math.floor(Math.random() * part.n); break;
     case 'evaluate': evaluateNow(); return;
+    case 'bench': benchmark().catch((error) => { state.test.bench = { running: false, error: native.errorText(error) }; renderCenter(); }); return;
     case 'play': if (state.data?.media?.type === 'audio') playWave(state.data.media.waves[part.index[Math.min(state.test.index, part.n - 1)]], state.data.media.rate); return;
     case 'clearPad': clearPad(); return;
     case 'loadSample': padFromSample(); return;
@@ -2285,6 +2413,50 @@ function testAction(action) {
   }
   renderCenter();
   runTest();
+}
+
+/**
+ * How fast the finished model answers: `runs` single inputs one after another (test samples, after a few
+ * warm-up runs), each timed from asking the engine to having the answer (what an app using the model
+ * waits), and one batch of up to 256 inputs (the throughput). Mean, standard deviation, min, median, p95, max.
+ */
+async function benchmark() {
+  const prepared = state.prepared;
+  const part = prepared?.test.n ? prepared.test : prepared?.val;
+  if (!part?.n) return;
+  const engine = currentEngine();
+  if (engine.kind === 'torch' && !engine.canServe) { notify(t('test.torchNeedsRun'), 'error'); return; }
+  const runs = state.test.benchRuns ?? 50;
+  state.test.bench = { running: true, done: 0, runs };
+  renderCenter();
+  if (engine.kind === 'tfjs') await prepareTf();
+  const size = prepared.inputShape.reduce((a, b) => a * b, 1);
+  const sample = (k) => part.x.slice((k % part.n) * size, ((k % part.n) + 1) * size);
+  for (let k = 0; k < 5; k++) await engine.predict(sample(k), 1);
+  const times = [];
+  for (let k = 0; k < runs; k++) {
+    const x = sample(k);
+    const started = performance.now();
+    const answer = await engine.predict(x, 1);
+    times.push(performance.now() - started);
+    if (!answer) throw new Error(t('batch.noAnswer'));
+    if (k % 10 === 9) { state.test.bench.done = k + 1; const bar = root.querySelector('[data-bench-progress]'); if (bar) bar.style.width = `${Math.round(((k + 1) / runs) * 100)}%`; }
+  }
+  const batch = Math.min(part.n, 256);
+  const started = performance.now();
+  await engine.predict(part.x.slice(0, batch * size), batch);
+  const batchMs = performance.now() - started;
+  const sorted = [...times].sort((a, b) => a - b);
+  const mean = times.reduce((a, b) => a + b, 0) / times.length;
+  const std = Math.sqrt(times.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, times.length - 1));
+  const at = (q) => sorted[Math.min(sorted.length - 1, Math.round(q * (sorted.length - 1)))];
+  state.test.bench = {
+    running: false, runs, mean, std, min: sorted[0], median: at(0.5), p95: at(0.95), max: sorted.at(-1),
+    batch, batchMs, perSample: batchMs / batch, throughput: (batch / batchMs) * 1000,
+    engine: engine.kind === 'torch' ? `PyTorch${state.python?.chosen?.cuda ? ' (CUDA)' : ''}` : `TensorFlow (${state.backend ?? engine.backend ?? ''})`,
+  };
+  log(t('bench.log', { runs, mean: mean.toFixed(2), std: std.toFixed(2), throughput: Math.round(state.test.bench.throughput) }), 'success');
+  renderCenter();
 }
 
 /** Sends the Test tab's current input through the network. */
@@ -2295,7 +2467,10 @@ function runTest() {
   const s = prepared.inputShape.reduce((a, b) => a * b, 1);
   let x = null;
   let label = null;
-  if (state.test.mode === 'sample' && part.n) {
+  if (state.test.mode === 'file' || state.test.mode === 'example') {
+    // A picked file or an example: the one chosen in the list goes through the network again.
+    x = state.batch.items[state.batch.selected]?.x ?? null;
+  } else if (state.test.mode === 'sample' && part.n) {
     const i = Math.min(state.test.index, part.n - 1);
     x = part.x.slice(i * s, (i + 1) * s);
     label = state.data.task.kind === 'classification' ? part.y[i] : state.data.task.kind === 'regression' ? part.y[i] : null;
@@ -2418,6 +2593,7 @@ const microphone = new LiveMicrophone();
 microphone.onLevel = (level) => { state.live.level = level; const bar = root.querySelector('[data-live-level]'); if (bar) bar.style.width = `${Math.round(level * 100)}%`; };
 const camera = new LiveCamera();
 let liveTimer = null;
+let liveLoop = 0; // "listen" runs as a loop of words; a new number ends the old loop
 
 /** Live input commands from the Test tab. */
 async function liveAction(what) {
@@ -2428,14 +2604,16 @@ async function liveAction(what) {
     if (engine.kind === 'torch' && !engine.canServe) throw new Error(t('test.torchNeedsRun'));
     microphone.setGain(state.settings.micGain);
     if (what === 'say') {
-      // Say one word: record 1.5 s (the model takes its loudest second / 0.6 s).
+      // Say one word: wait (up to 4 s) for it to begin, then for a moment of quiet after it — the whole word,
+      // however late it starts, goes to the model.
       await microphone.start();
       stopLiveLoop();
       state.live.mode = 'say';
       renderCenter();
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const seconds = await microphone.utterance(state.settings.micThreshold, { cancelled: () => state.live.mode !== 'say' });
+      if (state.live.mode !== 'say') return;
       state.live.mode = null;
-      await liveSpeech({ probeToo: true });
+      if (seconds == null) { state.live.result = { quiet: true }; updateLiveView(); } else await liveSpeech({ probeToo: true, seconds });
       if (!state.live.mode) microphone.stop();
     } else if (what === 'listen') {
       if (state.live.mode === 'listen') { stopLive(); return; }
@@ -2443,8 +2621,13 @@ async function liveAction(what) {
       state.live.mode = 'listen';
       state.live.recent = [];
       renderCenter();
-      let n = 0;
-      liveTimer = setInterval(() => { if (!state.live.busy) liveSpeech({ smooth: true, probeToo: ++n % 6 === 0 }).catch(liveFailed); }, 250);
+      // Every word once it is over (judging half a word, as a sliding window does, mostly gives "unknown").
+      const loop = ++liveLoop;
+      while (state.live.mode === 'listen' && loop === liveLoop) {
+        const seconds = await microphone.utterance(state.settings.micThreshold, { timeout: 0, cancelled: () => state.live.mode !== 'listen' || loop !== liveLoop });
+        if (seconds == null) break;
+        await liveSpeech({ probeToo: true, seconds }).catch(liveFailed);
+      }
     } else if (what === 'camera') {
       if (camera.on) { stopLive(); return; }
       await camera.start();
@@ -2469,7 +2652,7 @@ function liveFailed(error) {
   renderCenter();
 }
 
-function stopLiveLoop() { clearInterval(liveTimer); liveTimer = null; }
+function stopLiveLoop() { clearInterval(liveTimer); liveTimer = null; liveLoop++; }
 
 function stopLive() {
   stopLiveLoop();
@@ -2480,9 +2663,11 @@ function stopLive() {
 }
 
 /** The last recording → a prediction (smooth: averaged over the last three, like keyword spotters do). */
-async function liveSpeech({ smooth = false, probeToo = false } = {}) {
+async function liveSpeech({ smooth = false, probeToo = false, seconds = null } = {}) {
   const media = state.data.media;
-  const recorded = await microphone.last(smooth ? Math.max(1.2, (media.seconds ?? 0.6) + 0.3) : 1.5, media.rate);
+  // The word just said (how long it took, from microphone.utterance) with some quiet around it.
+  const span = seconds != null ? Math.min(1.9, Math.max((media.seconds ?? 0.6) + 0.3, seconds + 0.2)) : smooth ? Math.max(1.2, (media.seconds ?? 0.6) + 0.3) : 1.5;
+  const recorded = await microphone.last(span, media.rate);
   const input = speechInput(recorded, media, state.settings.micThreshold);
   state.live.preview = { kind: 'audio', raw: input.raw, wave: input.wave };
   if (!input.loud) {
@@ -2629,8 +2814,16 @@ async function trainedWeights() {
 }
 
 /** Writes the model with its trained weights as C source (model.h / model.c / example.c) or as ONNX. */
+/** "Export…": the formats to choose from (a popup), then that export. */
+async function openExport() {
+  const answer = await popups.open('export', { engine: state.project.engine, trained: Boolean(state.run.history.length || state.project.weights) });
+  if (answer?.format === 'py') codeAction('save');
+  else if (answer?.format) exportModel(answer.format);
+}
+
 async function exportModel(format) {
   try {
+    if (format === 'tfjs') { await exportTfjs(); return; }
     if (!state.prepared) throw new Error(state.dataError ?? t('data.none'));
     if (state.problems.some((p) => p.level === 'error')) throw new Error(t('export.modelErrors'));
     if (!state.run.history.length && !state.project.weights) notify(t('export.untrained'), 'warning');
@@ -2668,6 +2861,68 @@ async function exportModel(format) {
       notify(t('export.downloaded', { name: `${base}-${format}.zip` }), 'success');
     }
   } catch (error) { reportError(error, 'export'); }
+}
+
+/** The TensorFlow.js layers model (tf.loadLayersModel; tensorflowjs_converter turns it into Keras / SavedModel). */
+async function exportTfjs() {
+  if (!state.prepared) throw new Error(state.dataError ?? t('data.none'));
+  if (state.problems.some((p) => p.level === 'error')) throw new Error(t('export.modelErrors'));
+  if (state.project.engine === 'torch') throw new Error(t('export.tfjsNeedsTf'));
+  if (!state.run.history.length && !state.project.weights) notify(t('export.untrained'), 'warning');
+  await prepareTf();
+  const saved = await engines.tfjs.exportTfjs();
+  if (!saved || saved.error) throw new Error(saved?.error ?? t('batch.noAnswer'));
+  const data = state.data;
+  const modelJson = {
+    format: 'layers-model', generatedBy: `MyTrainer ${VERSION}`, convertedBy: null,
+    modelTopology: saved.topology,
+    weightsManifest: [{ paths: ['weights.bin'], weights: saved.weightSpecs }],
+  };
+  const info = {
+    name: state.project.name, task: state.task?.kind, labels: data.labels ?? null,
+    input: { shape: ['N', ...state.prepared.inputShape], note: 'the values after MyTrainer\'s preprocessing steps (see steps); speech: the log-mel spectrogram' },
+    steps: state.project.dataset.steps ?? [], media: data.media ? { type: data.media.type, rate: data.media.rate, bands: data.media.bands, frames: data.media.frames, seconds: data.media.seconds } : null,
+  };
+  const readme = `# ${state.project.name} — TensorFlow.js export
+
+Made by MyTrainer ${VERSION}. A Keras-style layers model: \`model.json\` (layers and weight list) and \`weights.bin\`.
+
+## JavaScript (browser or Node)
+
+\`\`\`js
+const model = await tf.loadLayersModel('model.json');   // or 'file://…/model.json' in Node
+const y = model.predict(tf.tensor(input, [1, ${state.prepared.inputShape.join(', ')}]));
+\`\`\`
+
+## Python (Keras / TensorFlow SavedModel)
+
+\`\`\`bash
+pip install tensorflowjs
+tensorflowjs_converter --input_format=tfjs_layers_model --output_format=keras model.json model.h5
+\`\`\`
+
+- Input: float32 (N, ${state.prepared.inputShape.join(', ')}) — the values after MyTrainer's preprocessing (\`mytrainer.json\` lists the steps)${data.media?.type === 'audio' ? '; speech: the log-mel spectrogram MyTrainer computes (8 kHz, 32 bands × 32 frames)' : ''}.
+- Output: ${data.labels ? `class probabilities — ${data.labels.join(', ')}` : 'the model output'}.
+- Layers of MyTrainer's own (token + position embedding, self-attention, last step, frequency average) must be registered before loading.
+`;
+  const files = { 'model.json': JSON.stringify(modelJson), 'weights.bin': new Uint8Array(saved.weightData), 'mytrainer.json': JSON.stringify(info, null, 2), 'README.md': readme };
+  const base = cName(state.project.name);
+  if (desktop) {
+    const dir = await native.chooseFolder();
+    if (!dir) return;
+    const sep = dir.includes('\\') ? '\\' : '/';
+    const folder = `${dir}${sep}${base}-tfjs`;
+    for (const [name, content] of Object.entries(files)) {
+      const path = `${folder}${sep}${name}`;
+      if (typeof content === 'string') await native.writeTextFile(path, content, 'save');
+      else await native.writeBase64File(path, native.bytesToBase64(content), 'save');
+    }
+    notify(t('export.done', { folder }), 'success');
+    log(t('export.done', { folder }), 'success');
+  } else {
+    native.downloadBlob(zipBlob(files), `${base}-tfjs.zip`);
+    notify(t('export.downloaded', { name: `${base}-tfjs.zip` }), 'success');
+  }
 }
 
 const cName = (text) => String(text || 'model').normalize('NFKD').replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'model';
@@ -2708,12 +2963,39 @@ y = session.run(None, {"input": np.zeros((1, ${shape(data.inputShape)}), np.floa
 ${data.kind === 'audio' ? '\nSpeech: the input is the log-mel spectrogram MyTrainer computes (32 bands × 32 frames, 8 kHz), not the waveform.\n' : ''}`;
 }
 
+// The example inputs (data/predict, bundled as examples/…): the list is fetched once.
+let exampleList = null;
+function examplesForData() {
+  if (!exampleList) {
+    exampleList = [];
+    fetch('examples/index.json').then((response) => (response.ok ? response.json() : [])).catch(() => []).then((list) => { exampleList = list; renderCenter(); });
+    return null;
+  }
+  return examplesFor(state.project.dataset.source, exampleList);
+}
+
+/** Runs the model on some of the example inputs (all of them: null). */
+async function runOnExamples(names) {
+  try {
+    const files = await Promise.all((names ?? examplesForData() ?? []).map((rel) => exampleFile(rel)));
+    await runOnFiles(files);
+  } catch (error) { reportError(error, 'batch'); }
+}
+
 async function runOnPickedData(folder = false) {
+  try {
+    if (!state.prepared) { notify(state.dataError ?? t('data.none'), 'error'); return; }
+    const files = await pickInputFiles(folder);
+    if (files.length) await runOnFiles(files);
+  } catch (error) { reportError(error, 'batch'); }
+}
+
+/** The finished model on files the user chose ([{ name, bytes | text }]): the first one becomes the input shown. */
+async function runOnFiles(files) {
   if (!state.prepared) { notify(state.dataError ?? t('data.none'), 'error'); return; }
   const engine = currentEngine();
   if (engine.kind === 'torch' && !engine.canServe) { notify(t('test.torchNeedsRun'), 'error'); return; }
   try {
-    const files = await pickInputFiles(folder);
     if (!files.length) return;
     state.batch = { items: [], running: true, selected: null, message: t('batch.reading', { n: files.length }) };
     renderCenter();
@@ -2769,6 +3051,7 @@ window.addEventListener('keydown', (event) => {
   if (typing) return;
   if (ctrl && key === 'z') { event.preventDefault(); run(event.shiftKey ? 'redo' : 'undo'); return; }
   if (ctrl && key === 'y') { event.preventDefault(); run('redo'); return; }
+  if (!state.showStart && ['neurons', 'train', 'test'].includes(state.view.tab) && ctrl && ['=', '+', '-', '0'].includes(key)) { event.preventDefault(); run(key === '-' ? 'zoomOut' : key === '0' ? 'fit' : 'zoomIn'); return; }
   if (state.showStart || state.view.tab !== 'model') return;
   if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); run('delete'); return; }
   if (ctrl && key === 'd') { event.preventDefault(); run('duplicate'); return; }
@@ -2777,6 +3060,7 @@ window.addEventListener('keydown', (event) => {
   if (ctrl && key === 'e') { event.preventDefault(); run('neurons'); return; }
   if (ctrl && (key === '=' || key === '+')) { event.preventDefault(); run('zoomIn'); return; }
   if (ctrl && key === '-') { event.preventDefault(); run('zoomOut'); return; }
+  if (ctrl && key === 'g' && !event.shiftKey) { event.preventDefault(); run('toggleGrid'); return; }
   if (ctrl && key === '0') { event.preventDefault(); run('fit'); return; }
   if (event.key.startsWith('Arrow') && selectedNodes().length) {
     event.preventDefault();
@@ -2796,8 +3080,14 @@ window.addEventListener('keydown', (event) => {
 
 window.addEventListener('resize', () => { closeMenu(); graphView?.render(); redrawCenter(); });
 window.addEventListener('beforeunload', (event) => { saveSession(); if (!desktop && state.dirty) { event.preventDefault(); event.returnValue = ''; } });
-window.addEventListener('error', (event) => log(`${event.message} (${event.filename}:${event.lineno})`, 'error'));
-window.addEventListener('unhandledrejection', (event) => log(`${native.errorText(event.reason)}`, 'error'));
+window.addEventListener('error', (event) => {
+  log(`${event.message} (${event.filename}:${event.lineno})`, 'error');
+  showError(String(event.message), `${event.filename}:${event.lineno}:${event.colno}`, event.error?.stack ?? null);
+});
+window.addEventListener('unhandledrejection', (event) => {
+  log(`${native.errorText(event.reason)}`, 'error');
+  showError(native.errorText(event.reason), 'promise', event.reason?.stack ?? null);
+});
 
 // ───────────────────────── start
 

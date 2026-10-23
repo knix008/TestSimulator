@@ -63,10 +63,6 @@ export function trainViewHtml(app) {
     <aside class="train-side">
       ${variantHtml}
       <section class="panel-section"><h3>${icon('gpu')}<span>${escapeHtml(t('train.engine'))}</span></h3>
-        <span class="segmented engine-switch" role="radiogroup">
-          <button class="segment ${engine === 'tfjs' ? 'active' : ''}" data-engine="tfjs" ${busy ? 'disabled' : ''}>${icon('engineTf')}<span>TensorFlow</span></button>
-          <button class="segment ${engine === 'torch' ? 'active' : ''}" data-engine="torch" ${busy || !app.desktop ? 'disabled' : ''} title="${escapeHtml(app.desktop ? t('train.torchTip') : t('web.desktopOnly'))}">${icon('engineTorch')}<span>PyTorch</span></button>
-        </span>
         <p class="muted small engine-line">${escapeHtml(engine === 'tfjs' ? t('train.tfjsInfo', { backend: app.tfBackend() ?? '…' }) : pyInfo ? t('train.torchInfo', { torch: pyInfo.torch ?? '–', python: pyInfo.version, device: pyInfo.cuda ? `CUDA (${pyInfo.gpu ?? 'GPU'})` : pyInfo.mps ? 'Apple MPS' : 'CPU' }) : t('train.torchMissing'))}</p>
         ${engine === 'torch' ? `<div class="data-import"><button class="button small" data-train-action="pyenv">${icon('python')}<span>${escapeHtml(t('train.pyenv'))}</span></button>
           <button class="button small" data-train-action="openCode">${icon('tabCode')}<span>${escapeHtml(t('train.showCode'))}</span></button></div>
@@ -101,7 +97,7 @@ export function trainViewHtml(app) {
       </section>
     </aside>
     <div class="train-main">
-      <div class="chart-card neuron-card">${cardTitle(icon('nodesView', 'icon tiny'), t('train.neurons'), t('card.neuronsTip'))}<div class="neuron-host" data-neuron="train"></div></div>
+      <div class="chart-card neuron-card"><div class="card-head">${cardTitle(icon('nodesView', 'icon tiny'), t('train.neurons'), t('card.neuronsTip'))}${app.probeNav()}${app.zoomControls()}</div><div class="neuron-host" data-neuron="train"></div></div>
       <div class="chart-grid">
         <div class="chart-card">${cardTitle(icon('animLoss', 'icon tiny'), t('train.lossChart'), t('card.lossTip'))}<canvas data-chart="loss"></canvas></div>
         <div class="chart-card">${app.task()?.kind === 'classification' ? cardTitle(icon('tabTrain', 'icon tiny'), t('train.accChart'), t('card.accTip')) : cardTitle(icon('tabTrain', 'icon tiny'), t('train.lrChart'), t('card.lrTip'))}<canvas data-chart="acc"></canvas></div>

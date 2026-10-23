@@ -63,7 +63,14 @@ select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not
 .model-check.warning { color: var(--warning); }
 .model-check.error { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .graph-host, .neuron-host { flex: 1; min-width: 0; min-height: 0; position: relative; display: flex; }
-.graph-wrap { flex: 1; position: relative; overflow: hidden; outline: none; background-color: var(--bg); background-image: radial-gradient(color-mix(in srgb, var(--text) 13%, transparent) 1px, transparent 1px); background-size: 20px 20px; }
+.graph-wrap { flex: 1; position: relative; overflow: hidden; outline: none; background-color: var(--bg); }
+.grid-minor { fill: none; stroke: color-mix(in srgb, var(--text) 4.5%, transparent); }
+.grid-major { fill: none; stroke: color-mix(in srgb, var(--text) 16%, transparent); }
+.graph-grid { pointer-events: none; }
+.zoom-group { display: inline-flex; align-items: center; gap: 2px; }
+.zoom-value { min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+.model-toolbar .tool-sep { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--hairline); }
+.model-toolbar .button.active { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--accent); }
 .graph-svg { width: 100%; height: 100%; display: block; user-select: none; }
 .node { cursor: grab; }
 .node-box { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--shadow) 70%, transparent)); }
@@ -101,8 +108,30 @@ select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not
 .graph-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--muted); pointer-events: none; }
 .graph-empty .icon { width: 48px; height: 48px; color: var(--accent); opacity: 0.6; }
 .graph-empty b { font-size: 1.1em; color: var(--text); }
-.neuron-scroll { position: absolute; inset: 0; overflow: auto; }
-.neuron-canvas { display: block; }
+.neuron-scroll { position: absolute; inset: 0; overflow: auto; display: flex; }
+.neuron-canvas { display: block; flex: none; margin: auto; cursor: grab; }
+.example-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; max-height: 150px; overflow: auto; }
+.example-list .chip.active { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.card-head { display: flex; align-items: center; gap: 8px; }
+.card-head .card-title { flex: 1; min-width: 0; }
+.card-head .zoom-group .button.small { padding: 1px 7px; }
+
+.bench-table { width: 100%; border-collapse: collapse; font-size: 0.86em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.bench-table td { padding: 3px 4px; border-bottom: 1px solid var(--hairline); }
+.bench-table td:first-child { color: var(--muted); white-space: nowrap; }
+.bench-bar { height: 4px; border-radius: 2px; background: var(--hairline); margin-top: 6px; overflow: hidden; }
+.bench-bar i { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.probe-nav { display: inline-flex; align-items: center; gap: 2px; }
+.probe-at { min-width: 92px; text-align: center; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.export-cards { display: grid; gap: 8px; }
+.export-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); text-align: left; cursor: pointer; color: var(--text); }
+.export-card .icon { width: 22px; height: 22px; flex: none; color: var(--accent); }
+.export-card.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: 0 0 0 1px var(--accent) inset; }
+.export-card:disabled { opacity: 0.5; cursor: not-allowed; }
+.export-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.export-text .muted { font-size: 0.86em; white-space: normal; }
+.chosen-input { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; }
+.neuron-canvas.dragging { cursor: grabbing; }
 .neuron-tip { position: absolute; z-index: 5; padding: 3px 8px; border-radius: 6px; background: var(--text); color: var(--surface); font-size: 0.8em; pointer-events: none; white-space: nowrap; }
 .neuron-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 .neuron-host.full { background: var(--bg); }
@@ -314,7 +343,7 @@ canvas[data-test-canvas="output"] { width: 100%; display: block; }
 
 /* popups */
 .settings-body { height: 100%; overflow: auto; padding-right: 4px; }
-.theme-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.theme-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .theme-columns h4 { margin: 6px 0; color: var(--muted); font-size: 0.82em; }
 .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
 .theme-row { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: 1px solid transparent; border-radius: 7px; background: none; cursor: pointer; text-align: left; color: var(--text); }
@@ -346,12 +375,15 @@ canvas[data-test-canvas="output"] { width: 100%; display: block; }
 .py-status.warn .icon { color: var(--warning); }
 .py-status.busy .icon { animation: spin 1.4s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.py-table-wrap { max-height: 210px; overflow: auto; border: 1px solid var(--hairline); border-radius: 8px; flex: none; }
+/* The list of Pythons takes the room the install log is not using (the log shows while installing). */
+.py-table-wrap { flex: 1 1 210px; min-height: 120px; overflow: auto; border: 1px solid var(--hairline); border-radius: 8px; }
+.popup-pyenv .popup-body:has(.py-log:not([hidden])) .py-table-wrap { flex: none; max-height: 210px; }
 .py-table th, .py-table td { padding: 4px 8px; border-bottom: 1px solid var(--hairline); text-align: left; white-space: nowrap; }
 .py-table th { position: sticky; top: 0; background: var(--toolbar); }
 .py-table td:first-child { max-width: 380px; overflow: hidden; text-overflow: ellipsis; }
 .py-table tr.current td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-.py-install { display: flex; flex-direction: column; gap: 6px; min-height: 0; flex: 1; }
+.py-install { display: flex; flex-direction: column; gap: 6px; min-height: 0; flex: none; }
+.py-install:has(.py-log:not([hidden])) { flex: 1; }
 .py-install h4 { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; }
 .py-install-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .py-install-row select { max-width: 360px; }
@@ -365,8 +397,11 @@ kbd { padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2p
 .popup-body { overflow: auto; }
 
 /* Settings: one label column wide enough for the longest label (Korean and English). */
-.popup-settings { --label-col: 290px; }
-.popup-settings .row { min-height: 40px; }
+.popup-settings { --label-col: 250px; }
+.popup-settings .row { min-height: 36px; }
+.popup-settings .theme-grid .theme-row { height: 29px; }
+.popup-settings .font-preview { margin: 8px 0 2px; padding: 7px 10px; }
+.settings-section { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; padding-bottom: 4px; font-size: 0.82em; color: var(--muted); border-bottom: 1px solid var(--border); }
 .links-canvas { width: 100%; display: block; margin: 4px 0 6px; }
 .attention-canvas { width: 100%; display: block; margin: 2px 0 6px; }
 
@@ -409,7 +444,10 @@ kbd { padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2p
 .custom-color code { margin-left: auto; color: var(--muted); font-size: 0.85em; }
 .custom-actions { display: flex; gap: 8px; margin: 6px 0; }
 .custom-actions select { max-width: 320px; }
-.custom-preview { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid; border-radius: 10px; margin-top: 8px; }
+.custom-preview { display: flex; flex-direction: column; border: 1px solid; border-radius: 10px; margin-top: 8px; overflow: hidden; }
+.custom-preview .preview-bar { display: flex; align-items: center; gap: 12px; padding: 6px 12px; font-size: 0.9em; }
+.custom-preview .preview-main { display: flex; align-items: center; gap: 10px; padding: 14px 12px 18px; }
+.code-preview { margin: 8px 0 0; padding: 8px 10px; border: 1px dashed var(--border); border-radius: 8px; font-family: var(--code-font, Consolas, Menlo, monospace); white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .theme-head .row-control { gap: 10px; }
 
 /* Theme drop-down (popup "themes") */
@@ -469,3 +507,9 @@ kbd { padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2p
 .bank-info { margin: 6px 0 4px; }
 .bank-counts { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 4px 0; }
 .bank-count { padding: 1px 7px; border-radius: 999px; background: var(--surface2, var(--panel)); border: 1px solid var(--hairline); font-size: 0.85em; }
+.popup-shortcuts .shortcut-row { height: 30px; }
+.popup-shortcuts .shortcut-row kbd { flex: none; min-width: 118px; }
+.test-side .segmented { flex-wrap: wrap; row-gap: 3px; }
+/* The stop button: a red square (grey while there is nothing to stop). */
+.stop-fill { fill: #e5484d; stroke: #e5484d; }
+:disabled .stop-fill, .disabled .stop-fill { fill: currentColor; stroke: currentColor; opacity: 0.45; }

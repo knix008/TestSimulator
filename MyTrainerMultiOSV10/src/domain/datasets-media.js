@@ -711,16 +711,35 @@ export async function fromSoundsAsync(clips, options = {}, onProgress = () => {}
 }
 
 /** fromSounds as steps: yields the share done (0…1) every few dozen samples, returns the dataset. */
-function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseClass = true, layout = 'image', seed = 1, labels = null, bands = 32, frames = 32, stretch = 1.25 } = {}) {
+function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseClass = true, layout = 'image', seed = 1, labels = null, bands = 32, frames = 32, stretch = 1.25, balance = true } = {}) {
   const r = rng(seed);
   const n = Math.round(RATE * seconds);
   const media = { type: 'audio', rate: RATE, layout, bands, frames, seconds, hop: soundHop(seconds, frames) };
   const names = labels ?? [...new Set(clips.map((clip) => clip.label))].sort();
   if (noiseClass && !names.includes('noise')) names.push('noise');
-  const noiseCount = noiseClass ? Math.max(1, Math.round((clips.length * copies) / Math.max(1, names.length - 1))) : 0;
+  // Balanced classes: every class gets as many samples as the smallest one has with `copies` copies (a class
+  // with more clips gets fewer augmented copies of each; every clip keeps at least its original), and noise
+  // as many again. A class with more samples than the others becomes the model's guess whenever it is unsure.
+  const counts = new Map();
+  for (const clip of clips) counts.set(clip.label, (counts.get(clip.label) ?? 0) + 1);
+  const target = copies * Math.min(...counts.values());
+  const seen = new Map();
+  const plan = clips.map((clip) => {
+    if (!balance) return copies;
+    const share = Math.max(1, target / counts.get(clip.label));
+    const k = seen.get(clip.label) ?? 0;
+    seen.set(clip.label, k + 1);
+    return Math.floor(share) + (Math.floor((k + 1) * (share % 1)) > Math.floor(k * (share % 1)) ? 1 : 0); // the fraction spread evenly
+  });
+  const made = plan.reduce((a, b) => a + b, 0);
+  const noiseCount = noiseClass ? Math.max(1, balance ? target : Math.round(made / Math.max(1, names.length - 1))) : 0;
   const size = bands * frames;
   // Thousands of samples: the features go straight into one typed array (a plain array of numbers takes many times the memory).
-  const xs = new Float32Array((clips.length * copies + noiseCount) * size); const ys = []; const waves = [];
+  const xs = new Float32Array((made + noiseCount) * size); const ys = []; const waves = [];
+  // The group of every sample (see splitIndices): its speaker, or its recording; each noise sample alone.
+  const groupIds = new Map(); const groups = [];
+  const groupOf = (key) => { if (!groupIds.has(key)) groupIds.set(key, groupIds.size); return groupIds.get(key); };
+  let group = 0;
   const gauss = () => Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r());
   // Waves are kept for "play" only: an original is the clip itself, a copy 16-bit (half the memory of floats).
   const push = (wave, label, mask = false, warp = 1, original = null) => {
@@ -729,9 +748,10 @@ function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseCla
     if (warp !== 1) warpFeatures(f, media, warp);
     if (mask) maskFeatures(f, media, r);
     xs.set(f, ys.length * size);
+    groups.push(group);
     ys.push(names.indexOf(label));
   };
-  const total = clips.length * copies + noiseCount;
+  const total = made + noiseCount;
   // Room noise: brown-ish with a little mains hum, pink-ish and white; a few buffers made once, then read
   // from a random offset at a random level for every copy.
   const pool = Array.from({ length: 18 }, (_, k) => {
@@ -755,8 +775,9 @@ function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseCla
   };
   // Other people talking in the background: only clips that are no keyword ('unknown' when there is one).
   const chatter = clips.filter((clip) => clip.label === 'unknown');
-  for (const clip of clips) {
-    for (let c = 0; c < copies; c++) {
+  for (const [index, clip] of clips.entries()) {
+    group = groupOf(clip.voice ? `voice:${clip.voice}` : `clip:${index}`);
+    for (let c = 0; c < plan[index]; c++) {
       const wave = new Float32Array(n);
       const source = clip.wave;
       if (c === 0) wave.set(source.subarray(0, n));
@@ -789,6 +810,7 @@ function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseCla
   }
   if (noiseClass) {
     for (let i = 0; i < noiseCount; i++) {
+      group = groupOf(`noise:${i}`);
       const wave = background(0.005 + r() * 0.1);
       if (r() < 0.3) highPass(wave, 80 + r() * 420);
       if (r() < 0.3) lowPass(wave, 1600 + r() * 2200);
@@ -800,6 +822,7 @@ function* soundSteps(clips, { name = 'Sounds', seconds = 1, copies = 3, noiseCla
   }
   const data = makeDataset({ name, kind: 'audio', inputShape: layout === 'image' ? [bands, frames, 1] : [frames, bands], xs, ys, task: classification(names.length), labels: names });
   data.media = { ...media, waves };
+  data.groups = Int32Array.from(groups);
   return data;
 }
 

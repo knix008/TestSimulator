@@ -52,6 +52,33 @@ export class LiveMicrophone {
     this.stream = null; this.context = null; this.node = null; this.gain = null; this.level = 0;
   }
 
+  /** Loudness (RMS, after the gain) of the last `seconds`. */
+  rms(seconds = 0.05) {
+    const n = Math.min(this.ring.length, Math.round(this.rate * seconds));
+    let sum = 0;
+    for (let i = 0; i < n; i++) { const v = this.ring[(this.pos - n + i + this.ring.length) % this.ring.length]; sum += v * v; }
+    return Math.sqrt(sum / n);
+  }
+
+  /**
+   * Waits for one spoken word: sound louder than `threshold`, then `silence` seconds of quiet (or `longest`
+   * seconds of sound). Returns how many seconds back the word began (plus a margin), or null when nothing was
+   * said within `timeout` seconds or `cancelled()` turns true. A word is judged whole, never half of it.
+   */
+  async utterance(threshold, { timeout = 4, silence = 0.3, longest = 1.6, cancelled = () => false } = {}) {
+    const started = performance.now();
+    let onset = null; let quietSince = null;
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      if (cancelled() || !this.stream) return null;
+      const now = performance.now();
+      // The ring holds the signal after the gain; the threshold is for the 8 kHz window (the same scale).
+      if (this.rms(0.05) > threshold) { onset ??= now; quietSince = null; } else if (onset != null) quietSince ??= now;
+      if (onset != null && ((quietSince != null && now - quietSince >= silence * 1000) || now - onset >= longest * 1000)) return (now - onset) / 1000 + 0.25;
+      if (onset == null && timeout && now - started > timeout * 1000) return null;
+    }
+  }
+
   /** The last `seconds` of sound resampled (band-limited, like the training clips) to `rate` Hz. */
   async last(seconds, rate) {
     const n = Math.min(this.ring.length, Math.round(this.rate * seconds));

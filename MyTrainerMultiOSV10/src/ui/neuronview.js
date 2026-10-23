@@ -11,6 +11,9 @@ import { incoming, nodeById, topoOrder } from '../domain/graph.js';
 import { shapeText } from '../domain/layers.js';
 import { colorOf, drawHeatmap, range, rgb, theme, fmt, CLASS_COLORS } from './charts.js';
 
+const OUTPUT_FONT = '12px system-ui, sans-serif';
+const OUTPUT_FONT_BOLD = '700 12px system-ui, sans-serif';
+
 export class NeuronView {
   constructor(host, app, { compact = false } = {}) {
     this.host = host;
@@ -25,11 +28,66 @@ export class NeuronView {
     this.canvas.view = this;
     this.tip = host.querySelector('.neuron-tip');
     this.empty = host.querySelector('.neuron-empty');
-    this.canvas.addEventListener('click', (event) => this.click(event));
-    this.canvas.addEventListener('pointermove', (event) => this.move(event));
+    this.canvas.addEventListener('click', (event) => { if (this.dragged) { this.dragged = false; return; } this.click(event); });
+    this.canvas.addEventListener('pointermove', (event) => { if (!this.drag) this.move(event); });
+    // Dragging moves the view (a click without moving still picks a neuron).
+    this.canvas.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      this.drag = { x: event.clientX, y: event.clientY, left: this.scroll.scrollLeft, top: this.scroll.scrollTop, moved: false };
+      this.dragged = false;
+    });
+    this.onDragMove = (event) => {
+      const d = this.drag;
+      if (!d) return;
+      const dx = event.clientX - d.x; const dy = event.clientY - d.y;
+      if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+      if (!d.moved) { d.moved = true; this.tip.hidden = true; this.canvas.classList.add('dragging'); }
+      this.scroll.scrollLeft = d.left - dx;
+      this.scroll.scrollTop = d.top - dy;
+    };
+    this.onDragEnd = () => {
+      if (!this.drag) return;
+      this.dragged = this.drag.moved;
+      this.drag = null;
+      this.canvas.classList.remove('dragging');
+    };
+    window.addEventListener('pointermove', this.onDragMove);
+    window.addEventListener('pointerup', this.onDragEnd);
     this.canvas.addEventListener('pointerleave', () => { this.tip.hidden = true; this.hover = null; });
+    this.zoom = null; // null: fit to the window's width
+    this.scale = 1;
+    this.canvas.addEventListener('wheel', (event) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      this.zoomBy(event.deltaY < 0 ? 1.12 : 1 / 1.12, event);
+    }, { passive: false });
     this.resizeObserver = new ResizeObserver(() => this.render());
     this.resizeObserver.observe(host);
+  }
+
+  /** Zoom by a factor around a pointer (or the middle of the window); the window keeps that point in place. */
+  zoomBy(factor, at = null) {
+    const before = this.scale;
+    const next = Math.max(0.1, Math.min(4, before * factor));
+    const r = this.scroll.getBoundingClientRect();
+    const px = at ? at.clientX - r.left : r.width / 2;
+    const py = at ? at.clientY - r.top : r.height / 2;
+    const cx = (this.scroll.scrollLeft + px - this.canvas.offsetLeft) / before;
+    const cy = (this.scroll.scrollTop + py - this.canvas.offsetTop) / before;
+    this.zoom = Math.abs(next - this.fitScale) < 0.005 ? null : next;
+    this.render();
+    this.scroll.scrollLeft = cx * this.scale + this.canvas.offsetLeft - px;
+    this.scroll.scrollTop = cy * this.scale + this.canvas.offsetTop - py;
+    this.app.zoomChanged?.();
+  }
+
+  /** Back to where it started: the whole network across the window's width, scrolled to the start. */
+  fit() {
+    this.zoom = null;
+    this.render();
+    this.scroll.scrollLeft = 0;
+    this.scroll.scrollTop = 0;
+    this.app.zoomChanged?.();
   }
 
   /** Sweeps the signal through the columns (a new snapshot). */
@@ -77,19 +135,32 @@ export class NeuronView {
       return;
     }
     this.canvas.style.display = '';
-    const hostW = this.host.clientWidth;
-    const hostH = Math.max(160, this.host.clientHeight - 4);
+    const viewW = Math.max(120, this.host.clientWidth - 4);
+    const viewH = Math.max(160, this.host.clientHeight - 4);
     const minGap = this.compact ? 38 : 64;
-    const right = this.compact ? 50 : 70;
-    const need = cols.reduce((sum, c) => sum + c.width, 0) + minGap * (cols.length - 1) + 20 + right;
-    const width = Math.max(hostW, need);
+    // What each output neuron stands for and its value, at the end of the network; drawn at screen size
+    // (readable however small the network is drawn), so their room is kept in screen pixels.
+    const last = cols.at(-1);
+    const outputs = last.kind === 'vector' ? last.index.map((unit) => this.outputText(last, unit)) : [];
+    this.measure ??= document.createElement('canvas').getContext('2d');
+    this.measure.font = OUTPUT_FONT;
+    const labelPx = outputs.length ? Math.ceil(Math.max(...outputs.map((o) => this.measure.measureText(`${o.name}  ${o.value}`).width))) + 18 : 0;
+    const core = cols.reduce((sum, c) => sum + c.width, 0) + minGap * (cols.length - 1) + 20 + (this.compact ? 50 : 16);
+    // Fit: the whole network across the window's width (drawn smaller when it is wider); a zoom
+    // scales that drawing (the window scrolls when it is bigger, it is centred when it is smaller).
+    this.fitScale = Math.max(0.05, Math.min(1, (viewW - labelPx) / core));
+    this.scale = this.zoom ?? this.fitScale;
+    const right = (this.compact ? 50 : 16) + labelPx / this.scale;
+    const width = Math.max(core - (this.compact ? 50 : 16) + right, viewW / this.fitScale);
+    const hostH = viewH / this.fitScale;
     const ratio = Math.min(3, globalThis.devicePixelRatio || 1);
-    this.canvas.width = Math.round(width * ratio);
-    this.canvas.height = Math.round(hostH * ratio);
-    this.canvas.style.width = `${width}px`;
-    this.canvas.style.height = `${hostH}px`;
+    const pixels = Math.min(1, 16000 / (Math.max(width, hostH) * this.scale * ratio)); // a canvas side has a limit
+    this.canvas.width = Math.round(width * this.scale * ratio * pixels);
+    this.canvas.height = Math.round(hostH * this.scale * ratio * pixels);
+    this.canvas.style.width = `${Math.round(width * this.scale)}px`;
+    this.canvas.style.height = `${Math.round(hostH * this.scale)}px`;
     const ctx = this.canvas.getContext('2d');
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.setTransform(ratio * this.scale * pixels, 0, 0, ratio * this.scale * pixels, 0, 0);
     ctx.clearRect(0, 0, width, hostH);
     const gap = cols.length > 1 ? (width - 20 - right - cols.reduce((sum, c) => sum + c.width, 0)) / (cols.length - 1) : 0;
     const top = this.compact ? 30 : 44;
@@ -158,7 +229,7 @@ export class NeuronView {
           ctx.stroke();
           this.hits.push({ kind: 'circle', x: cx, y: cy, r: col.r + 2, nodeId: col.id, unit, value, col });
           const label = this.unitLabel(col, unit);
-          if (label && col.r >= 5 && !this.compact) {
+          if (label && col.r >= 5 && !this.compact && !(col === last && outputs.length)) {
             ctx.fillStyle = t.muted; ctx.font = '10px system-ui, sans-serif';
             const right = ci === cols.length - 1;
             ctx.textAlign = right ? 'left' : 'right';
@@ -209,6 +280,25 @@ export class NeuronView {
       }
       ctx.globalAlpha = 1;
     });
+    if (outputs.length) {
+      // Output labels at screen size: "name  value", the largest one (the prediction) bold in the accent colour.
+      const s = this.scale * ratio * pixels;
+      const values = outputs.map((o) => o.raw ?? -Infinity);
+      const best = values.some(Number.isFinite) && outputs.length > 1 ? values.indexOf(Math.max(...values)) : -1;
+      ctx.save();
+      ctx.setTransform(ratio * pixels, 0, 0, ratio * pixels, 0, 0);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      outputs.forEach((o, k) => {
+        const x = (last.x + last.width / 2 + last.r + 6) * (s / (ratio * pixels));
+        const y = last.ys[k] * (s / (ratio * pixels));
+        ctx.font = k === best ? OUTPUT_FONT_BOLD : OUTPUT_FONT;
+        ctx.fillStyle = k === best ? t.accent : t.text;
+        ctx.fillText(o.name, x, y);
+        ctx.fillStyle = k === best ? t.accent : t.muted;
+        ctx.fillText(o.value, x + this.measure.measureText(`${o.name}  `).width, y);
+      });
+      ctx.restore();
+    }
     if (this.wave < 1) {
       // The signal front.
       const fx = 20 + this.wave * (width - 40);
@@ -382,6 +472,16 @@ export class NeuronView {
     }
   }
 
+  /** An output neuron's name (its class, or y / y1, y2 …) and value (a probability as a percentage). */
+  outputText(col, unit) {
+    const raw = col.act?.data ? col.act.data[unit] : null;
+    const classes = this.app.task?.()?.kind === 'classification';
+    const name = this.unitLabel(col, unit) ?? (classes && col.units > 1 ? this.app.t('neuron.class', { n: unit }) : col.units === 1 ? 'y' : `y${unit + 1}`);
+    const probability = ['softmax', 'sigmoid'].includes(col.node.params?.activation);
+    const value = raw == null ? '' : probability ? `${(raw * 100).toFixed(1)}%` : fmt(raw, 3);
+    return { name, value, raw };
+  }
+
   unitLabel(col, unit) {
     const snapshot = this.app.snapshot();
     if (col.node.type === 'input' && snapshot?.featureNames?.[unit]) return snapshot.featureNames[unit];
@@ -395,8 +495,8 @@ export class NeuronView {
 
   hitAt(event) {
     const rect = this.canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const x = (event.clientX - rect.left) / this.scale;
+    const y = (event.clientY - rect.top) / this.scale;
     for (const hit of this.hits) {
       if (hit.kind === 'circle' && Math.hypot(x - hit.x, y - hit.y) <= hit.r) return { hit };
       if (hit.kind !== 'circle' && x >= hit.x && x <= hit.x + hit.w && y >= hit.y && y <= hit.y + hit.h) {
@@ -436,6 +536,8 @@ export class NeuronView {
   }
 
   destroy() {
+    window.removeEventListener('pointermove', this.onDragMove);
+    window.removeEventListener('pointerup', this.onDragEnd);
     this.resizeObserver.disconnect();
     cancelAnimationFrame(this.waveFrame);
   }

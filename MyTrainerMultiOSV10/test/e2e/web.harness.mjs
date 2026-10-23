@@ -30,7 +30,7 @@ async function waitHttp(url, timeout = 30000) {
 }
 
 /** Starts the dev server and a browser on the app. Returns { page, url, close }. */
-export async function startWeb({ width = 1600, height = 1000, storage = null, headless = true } = {}) {
+export async function startWeb({ width = 1600, height = 1000, storage = null, headless = true, browserArgs = [] } = {}) {
   const browser = BROWSERS.find((candidate) => fs.existsSync(candidate));
   if (!browser) throw new Error('Edge or Chrome is needed for the web tests');
   const port = await freeDevPort(1490);
@@ -41,12 +41,15 @@ export async function startWeb({ width = 1600, height = 1000, storage = null, he
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mytrainer-web-'));
   const args = [`--remote-debugging-port=${debugPort}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`, '--no-first-run', '--no-default-browser-check', '--enable-unsafe-webgpu',
     // A fake microphone (a beep) and camera (a test pattern) that need no permission prompt: the live input tests.
-    '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', 'about:blank'];
+    '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', ...browserArgs, 'about:blank'];
   if (headless) args.unshift('--headless=new');
   const child = spawn(browser, args, { stdio: 'ignore' });
   const target = await waitTarget(debugPort, (t) => t.type === 'page');
   const page = await new Page(target).open();
   await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+  // Tests drive the app themselves: no "training finished" popup in the way (unless a test asks for it).
+  const settingsKey = 'mytrainer.settings.v1';
+  if (storage?.[settingsKey] && typeof storage[settingsKey] === 'object') storage = { ...storage, [settingsKey]: { notifyTrainDone: false, ...storage[settingsKey] } };
   if (storage) {
     await page.send('Page.navigate', { url });
     await sleep(500);

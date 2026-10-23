@@ -101,7 +101,7 @@ export const AI_ICONS = {
   // ── training
   train: '<path d="M6 4l14 8-14 8z" fill="currentColor" fill-opacity="0.15"/><path d="M6 4l14 8-14 8z"/>',
   trainPause: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
-  trainStop: '<rect x="5" y="5" width="14" height="14" rx="2"/>',
+  trainStop: '<rect class="stop-fill" x="5" y="5" width="14" height="14" rx="2"/>',
   trainStep: '<path d="M5 5l9 7-9 7z"/><path d="M18 5v14"/>',
   resetWeights: '<path d="M4 12a8 8 0 1 0 2.3-5.7"/><path d="M4 4v4h4"/><circle cx="12" cy="12" r="2"/>',
   probe: '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L21 21"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/>',
@@ -123,6 +123,8 @@ export const AI_ICONS = {
   replaceLayer: '<rect x="3" y="4" width="8" height="6" rx="1"/><rect x="13" y="14" width="8" height="6" rx="1"/><path d="M15 7h3v4M16.5 9.5L18 11l1.5-1.5M9 17H6v-4M7.5 14.5L6 13l-1.5 1.5"/>',
   residual: '<rect x="4" y="3" width="10" height="4" rx="1"/><rect x="4" y="10" width="10" height="4" rx="1"/><circle cx="9" cy="20" r="2"/><path d="M9 7v3M9 14v4M14 5h5v15h-8"/>',
   duplicateLayer: '<rect x="3" y="3" width="12" height="7" rx="1.5"/><rect x="9" y="14" width="12" height="7" rx="1.5"/><path d="M9 10v4"/>',
+  flowDown: '<rect x="7" y="2" width="10" height="5" rx="1.2"/><rect x="7" y="17" width="10" height="5" rx="1.2"/><path d="M12 7v8M9 12l3 3 3-3"/>',
+  flowRight: '<rect x="2" y="7" width="5" height="10" rx="1.2"/><rect x="17" y="7" width="5" height="10" rx="1.2"/><path d="M7 12h8M12 9l3 3-3 3"/>',
   layoutAuto: '<rect x="9" y="2" width="6" height="4" rx="1"/><rect x="3" y="18" width="6" height="4" rx="1"/><rect x="15" y="18" width="6" height="4" rx="1"/><rect x="9" y="10" width="6" height="4" rx="1"/><path d="M12 6v4M12 14v2H6v2M12 16h6v2"/>',
   disconnect: '<path d="M9 7l-3 3a3 3 0 0 0 4 4l1-1M15 17l3-3a3 3 0 0 0-4-4l-1 1"/><path d="M4 4l16 16"/>',
   widthUp: '<circle cx="6" cy="7" r="2"/><circle cx="6" cy="17" r="2"/><circle cx="14" cy="12" r="2"/><path d="M18 9v6M15 12h6"/>',

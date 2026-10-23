@@ -19,6 +19,27 @@ export function inputKindFor(data) {
   return { kind: 'table', extensions: ['csv', 'tsv', 'txt'], accept: '.csv,.tsv,.txt', folder: false };
 }
 
+/** The example inputs (data/predict, served as examples/…) that suit a data source: a test on inputs the model never saw. */
+const EXAMPLES = {
+  digits: /^images\/digit_/, digitsAuto: /^images\/digit_/, letters: /^images\/letter_/, hangul: /^images\/hangul_/, objects: /^images\/object_/,
+  speech: /^audio\//, speechSeq: /^audio\//, 'bank:kws-ko': /^kws-ko\//,
+  sentiment: /^sentences\.txt$/, charLm: /^sentences\.txt$/, charLmKo: /^sentences\.txt$/,
+  'student-pass.csv': /^new-students\.csv$/, 'house-prices.csv': /^new-houses\.csv$/,
+};
+export function examplesFor(source, list) {
+  const key = source?.kind === 'generator' ? source.id : source?.kind === 'sounds' ? `bank:${source.bank}` : source?.kind === 'table' ? source.name : null;
+  const rule = EXAMPLES[key];
+  return rule ? list.filter((rel) => rule.test(rel)) : [];
+}
+
+/** An example input file → { name, bytes } or { name, text } (what inputsFromFiles takes). */
+export async function exampleFile(rel) {
+  const response = await fetch(`examples/${rel.split('/').map(encodeURIComponent).join('/')}`);
+  if (!response.ok) throw new Error(`${rel}: ${response.status}`);
+  const name = rel.split('/').pop();
+  return /\.(csv|tsv|txt)$/i.test(rel) ? { name, text: await response.text() } : { name, bytes: await response.arrayBuffer() };
+}
+
 /** A picture file (any format) → height × width × channels values in 0…1, inverted when its background is the opposite of the training pictures'. */
 async function pictureInput(file, data) {
   const bitmap = await decodePicture(file.bytes, file.name);

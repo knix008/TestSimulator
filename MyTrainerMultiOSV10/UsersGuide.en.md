@@ -58,7 +58,7 @@ Statistics (means, ranges) are fitted on the **training part only** and applied 
 
 ### Split
 
-Validation and test percentages, the shuffle seed and **keep class proportions** (stratified). The bar below shows the three parts.
+Validation and test percentages, the shuffle seed and **keep class proportions** (stratified). Speech data also has **split by speaker (recording)** (on by default): a speaker's clips (or a recording and its augmented copies) go to only one of training, validation and test, so validation and test accuracy is the accuracy on voices the model has never heard. The bar below shows the three parts.
 
 ## Model tab — building models without code
 
@@ -75,7 +75,8 @@ The model is a graph of layer cards and wires. A card shows the layer's name, ty
 | Quick edits | A selected layer shows buttons: **insert above · add below · neurons/filters −/+ · change to another layer · duplicate · residual connection · delete** |
 | Several layers at once | **Blocks** (Dense+BN+ReLU+dropout, Conv+BN+ReLU+pooling, classifier head, two LSTM layers …) |
 | Change settings | The properties panel: name (the variable name in the code), type, neurons, activation, kernel size … |
-| Tidy up | **Auto layout** (Ctrl+L), **fit** (Ctrl+0), zoom (Ctrl+wheel, Ctrl+= / Ctrl+-) |
+| Tidy up | **Auto layout** (Ctrl+L), **fit** (Ctrl+0, centred), zoom (− [percent] + buttons, Ctrl+wheel, Ctrl+= / Ctrl+-) |
+| Direction · grid | **Top → bottom / Left → right**: the same layout shown vertically or horizontally (the arrangement is kept). **Grid** (Ctrl+G): a 5×5 grid with a darker line every five cells, on or off. |
 | Select | Click, Shift+click, Shift+drag (rectangle), Ctrl+A |
 
 Shapes are computed from the data to the output; a mismatch marks the card in red with an explanation (e.g. "Needs a picture input (height, width, channels)", "The output shape (3) differs from the (4) the data wants"). The state line above the model and the **Problems** tab list everything; clicking a problem goes to its layer. When the data changes, the output layer's units and activation follow the task.
@@ -83,6 +84,8 @@ Shapes are computed from the data to the output; a mismatch marks the card in re
 ### Neuron view
 
 ![Neuron view](docs/images/neuron-view.png)
+
+At first the whole network **fits the window's width**; the toolbar's − [percent] + buttons (or Ctrl+wheel, Ctrl+= / Ctrl+-) zoom, the fit button (Ctrl+0) fits the width again. Smaller than the window it is centred, bigger it scrolls.
 
 The network drawn **unit by unit**, from the input (left) to the output (right).
 
@@ -128,7 +131,7 @@ A **complete PyTorch script** holding the model and the training settings:
 | Setting | Meaning |
 |---|---|
 | Model | For a sample with several models (e.g. **ResNet CNN / DS-CNN / BC-ResNet** for Korean keyword spotting) pick the one to train. Edits are kept per model. |
-| Engine | **TensorFlow** (TensorFlow.js in the app; backend WebGPU → WebGL → CPU, chosen automatically) or **PyTorch** (desktop) |
+| Engine | Chosen with the toolbar's **TensorFlow / PyTorch** buttons: TensorFlow is TensorFlow.js in the app (WebGPU → WebGL → CPU, chosen automatically), PyTorch trains through Python on the desktop. This part shows the backend / Python in use. |
 | Optimizer | Adam, SGD, SGD + momentum, RMSprop, Adagrad, Adadelta, Adamax |
 | Learning rate · schedule | Constant, step decay, exponential decay, cosine |
 | Loss | Automatic (classification: cross-entropy; regression and reconstruction: MSE), MAE, Huber |
@@ -136,7 +139,9 @@ A **complete PyTorch script** holding the model and the training settings:
 | Snapshot every | How often (epochs) every layer's activations, weights and gradients are fetched |
 | Label smoothing · mixup (α) (advanced) | Targets of (1−ε) instead of 100 % / training on blends λ : 1−λ of two samples and their targets (λ ~ Beta(α, α)); both classification only. Mixup makes a model steadier on data it has not seen; the Korean keyword sample uses 0.3 |
 
-**Start (F5) · pause / resume (F6) · one batch (F10) · stop (Shift+F5) · reset**. With TensorFlow, a stopped run can **continue**. When preparing the data and the model and the first epoch take a while, a **progress window** shows how far it is; it also appears while a large dataset such as the sound clips is made for the first time.
+**Start (F5) · pause / resume (F6) · one batch (F10) · stop (Shift+F5) · reset**. With TensorFlow, a stopped run can **continue**. When preparing the data and the model and the first epoch take a while, a **progress window** shows how far it is; it also appears while a large dataset such as the sound clips is made for the first time. When training has finished (not when you stopped it), a **popup** shows the epochs, the time, the loss and the accuracy (Settings › General can turn it off). An **error** opens a popup with the message, where, when, version, engine and stack; **Copy the details** copies it all.
+
+The Train tab's **neuron activity** card: every output neuron at the end carries its **class label and value** (probabilities in %), the largest one highlighted. ◀ Input n / N ▶ 🎲 change the input going through the network (a training sample — at once, also while training); with **change every epoch** another sample goes through at every epoch. − [percent] + and **Reset view** zoom; drag to move.
 
 Every chart card has a title; hover over it (ⓘ) to see what the card shows (the Data and Test tabs work the same way). For classification, the **output probabilities** card shows each class's probability (e.g. 경비 · 출근 · 퇴근 · 해제) for the probe input under the current model; the bar in bold text is the true class. At the top, the probe input's **neuron activity** shows it passing through the network while you train. Below it the charts: loss (train / validation; earlier runs dashed), accuracy or learning rate, the **decision boundary** (2-D points) · **fitted curve** (1-D functions) · **original / reconstructed** (autoencoders) · output probabilities, **gradient flow** (mean |∇W| per layer — small red bars in the early layers mean vanishing gradients) and the **weight distribution per layer**.
 
@@ -145,11 +150,25 @@ Every chart card has a title; hover over it (ⓘ) to see what the card shows (th
 ![Test tab](docs/images/test.png)
 
 - **Test sample**: previous / next / random; after an evaluation, **mistakes only**.
+- **Choose the input**: **Test sample** · **My file** (open picture, sound, CSV or text files or a folder and run them) · **Examples** (example inputs that come with the app, not used for training: one click runs one, **Run all** runs them all) · your own input. The input goes through the network and the prediction shows below.
+- **Microphone** (speech models): press **Say a word** and say one word within 4 s; when it is over (a moment of quiet) the whole word, centred like the training data, is predicted. **Keep listening** predicts each word as soon as it is over (never half a word).
 - **Your own input**: **draw** pictures in the black square, **click** the plane for 2-D points, **type** a sentence (click known words to add them), or type values in their original units for tables and functions (the preprocessing is applied for you).
 - The input passing through the network is shown as a large neuron view, with the prediction (class probabilities · value · reconstruction).
+- **Performance (inference time)**: **Measure** puts test inputs through one at a time, 20 · 50 · 100 · 200 times: **mean ± standard deviation**, min … max, median, p95, and the **throughput** (inputs/s) of up to 256 inputs at once — from asking the engine to having the answer (what the app really waits).
 - **Evaluation** (automatic after training): accuracy, macro F1, loss, per-class precision · recall · F1, the **confusion matrix** (click a cell to list only those mistakes), pictures of the mistakes (click one to use it as input). Regression: MAE · RMSE · R², predicted vs actual and the error distribution.
 
 After training, the PyTorch engine keeps its run alive (`mt.serve`) to answer test requests; **End PyTorch** ends it.
+
+## Exporting the model
+
+The toolbar's **Export** button (or **File › Export the model…**) opens a choice of formats; the trained weights go with the model (desktop: a `<name>-onnx` / `<name>-tfjs` / `<name>-c` folder under the folder you pick, web: a ZIP download).
+
+| Format | Files | Where it runs |
+|---|---|---|
+| **ONNX** | `model.onnx` (opset 13, the preprocessing inside — the input is the raw values), `model.json` (shapes, class names, a test sample), `README.md` | ONNX Runtime: C, C++, C#, Java, Python, JavaScript, mobile |
+| **TensorFlow.js** | `model.json` + `weights.bin` (a Keras-style layers model), `mytrainer.json` (class names, input shape, preprocessing steps), `README.md` | `tf.loadLayersModel` in the browser or Node; `tensorflowjs_converter` turns it into Keras (.h5) or a SavedModel. Models trained with the TensorFlow engine |
+| **C/C++** | `model.h`, `model.c` (weights as `const float` arrays, no library, no dynamic memory), a self-checking `example.c`, `README.md` | Any C or C++ program, microcontrollers |
+| **PyTorch code** | the model and training script (`.py`), no weights | PyTorch |
 
 ## The PyTorch engine and the Python environment
 
@@ -193,7 +212,7 @@ The sample gallery, recent files and **twenty AI-themed moving backgrounds** (ne
 
 ## Settings
 
-**Edit › Settings…**: language (한국어 / English), start page, ask to save on exit, save weights / theme (20 light · 20 dark · system) / font, size, weight / visualization (colour map, neurons shown per layer, signal animation) / code (font size, wrapping, visualization hooks) / PyTorch (Python path, build to install). Changes (theme, font, language …) **apply to the main window at once**. **OK** keeps them, **Cancel** (or ×, Esc) puts back the settings the window opened with, and **Reset** sets this window's settings to their defaults (language and window layout stay; kept only with OK).
+**Edit › Settings…** (a window of one fixed size, four tabs): **General** (language, start page, ask to save on exit, save weights, a popup when training has finished · visualization: colour map, neurons shown per layer, signal animation · PyTorch: Python path, build to install) / **Theme** (20 light · 20 dark · system) / **Custom theme** (background, surface, text, accent colours, dark or not, start from a theme, preview) / **Font · code** (font, size, weight, style · code font size, wrapping, visualization hooks). Changes (theme, font, language …) **apply to the main window at once**. **OK** keeps them, **Cancel** (or ×, Esc) puts back the settings the window opened with, and **Reset** sets this window's settings to their defaults (language and window layout stay; kept only with OK).
 
 ## Keyboard shortcuts
 
@@ -201,9 +220,10 @@ The sample gallery, recent files and **twenty AI-themed moving backgrounds** (ne
 |---|---|
 | Ctrl+N · Ctrl+O · Ctrl+S · Ctrl+Shift+S | New · open · save · save as |
 | Ctrl+Z · Ctrl+Y | Undo · redo |
-| Ctrl+1 … Ctrl+5 | Data · Model · Code · Train · Test |
+| Ctrl+1 … Ctrl+6 | Data · Model · Neurons · Code · Train · Test |
 | Delete · Ctrl+D · Ctrl+A | Delete · duplicate · select all (Model tab) |
 | Ctrl+L · Ctrl+0 · Ctrl+E | Auto layout · fit · neuron view |
+| Ctrl+= · Ctrl+- · Ctrl+G | Zoom in · out (model and neuron view) · grid on/off |
 | Arrow keys (Shift: further) | Move the selected layers |
 | F5 · F6 · F10 · Shift+F5 | Start · pause / resume · one batch · stop |
 | F1 | User's guide |

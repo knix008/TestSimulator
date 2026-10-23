@@ -56,6 +56,10 @@ export class TfEngine extends Emitter {
           this.pending.get('weights')(message.weights);
           this.pending.delete('weights');
         }
+        if (message.type === 'tfjsModel' && this.pending.has('tfjsModel')) {
+          this.pending.get('tfjsModel')(message);
+          this.pending.delete('tfjsModel');
+        }
         this.emit(message.type, message);
       };
       this.worker.onerror = (event) => this.emit('error', { message: event.message || 'worker error', during: 'worker' });
@@ -82,6 +86,8 @@ export class TfEngine extends Emitter {
   step() { this.post({ type: 'step' }); }
   stop() { this.post({ type: 'stop' }); }
   probe(x, label = null, reason = 'probe') { this.post({ type: 'probe', x, label, reason }); }
+  /** Another probe input that takes effect at once, also while training (index: the training sample). */
+  setProbe(x, label = null, index = null) { this.post({ type: 'setProbe', x, label, index }); }
   evaluate() { this.post({ type: 'evaluate' }); }
   importWeights(weights) { this.post({ type: 'importWeights', weights }); }
 
@@ -98,6 +104,15 @@ export class TfEngine extends Emitter {
       this.pending.set('weights', resolve);
       this.post({ type: 'exportWeights' });
       setTimeout(() => { if (this.pending.has('weights')) { this.pending.delete('weights'); resolve(null); } }, 15000);
+    });
+  }
+
+  /** The built model as TensorFlow.js files: { topology, weightSpecs, weightData } (or null). */
+  exportTfjs() {
+    return new Promise((resolve) => {
+      this.pending.set('tfjsModel', resolve);
+      this.post({ type: 'exportTfjs' });
+      setTimeout(() => { if (this.pending.has('tfjsModel')) { this.pending.delete('tfjsModel'); resolve(null); } }, 30000);
     });
   }
 

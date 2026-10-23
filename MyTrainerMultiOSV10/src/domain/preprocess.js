@@ -39,7 +39,7 @@ export function cleanSteps(steps) {
   });
 }
 
-export const defaultSplit = () => ({ val: 0.15, test: 0.15, seed: 42, shuffle: true, stratify: true });
+export const defaultSplit = () => ({ val: 0.15, test: 0.15, seed: 42, shuffle: true, stratify: true, group: true });
 
 export function cleanSplit(split = {}) {
   const base = defaultSplit();
@@ -50,12 +50,19 @@ export function cleanSplit(split = {}) {
     seed: Math.round(clamp(split.seed, 1, 99999, base.seed)),
     shuffle: split.shuffle !== false,
     stratify: split.stratify !== false,
+    group: split.group !== false,
   };
   if (out.val + out.test > 0.8) out.test = Math.max(0, 0.8 - out.val);
   return out;
 }
 
-/** Index lists for the three parts. Stratified: each class is split in the same proportions. */
+/**
+ * Index lists for the three parts. Stratified: each class is split in the same proportions.
+ * Grouped (data.groups, one id per sample — a speaker, or a recording and its augmented copies): every
+ * group goes to one part only, so validation and test measure inputs the model has never heard (not
+ * a copy of a training clip, not a training speaker). Groups are dealt out in random order until each
+ * part has its share of the samples.
+ */
 export function splitIndices(data, split) {
   const s = cleanSplit(split);
   const r = rng(s.seed);
@@ -67,6 +74,24 @@ export function splitIndices(data, split) {
     }
     return list;
   };
+  if (s.group && data.groups?.length === data.n) {
+    const members = new Map();
+    for (let i = 0; i < data.n; i++) {
+      const g = data.groups[i];
+      if (!members.has(g)) members.set(g, []);
+      members.get(g).push(i);
+    }
+    const ids = shuffle([...members.keys()]);
+    const train = []; const val = []; const test = [];
+    const wantTest = Math.round(data.n * s.test); const wantVal = Math.round(data.n * s.val);
+    for (const id of ids) {
+      const list = members.get(id);
+      if (test.length < wantTest) test.push(...list);
+      else if (val.length < wantVal) val.push(...list);
+      else train.push(...list);
+    }
+    return { train: shuffle(train), val: shuffle(val), test: shuffle(test) };
+  }
   const groups = [];
   if (s.stratify && data.task.kind === 'classification') {
     const byClass = Array.from({ length: data.task.classes }, () => []);

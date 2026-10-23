@@ -77,6 +77,39 @@ export async function runWebSuite({ log = console.log, report } = {}) {
       await page.eval(`__mytrainer.run('undo')`);
       assert.equal(await state('s.project.model.nodes.length'), before);
     });
+    await step('model canvas: left to right keeps the layout, the grid toggles, zoom shows its percentage', async () => {
+      const positions = await state('JSON.stringify(s.project.model.nodes.map((n) => [n.x, n.y]))');
+      const port = () => page.eval(`(() => { const c = document.querySelector('.node .port-out'); return c.getAttribute('cx') + ',' + c.getAttribute('cy'); })()`);
+      const vertical = await port();
+      await page.click('[data-command="graphHorizontal"]');
+      assert.equal(await state('s.settings.graphDirection'), 'horizontal');
+      assert.notEqual(await port(), vertical, 'the output port moves to the right side');
+      assert.equal(await state('JSON.stringify(s.project.model.nodes.map((n) => [n.x, n.y]))'), positions, 'the stored layout is unchanged');
+      await page.click('[data-command="graphVertical"]');
+      assert.equal(await port(), vertical);
+      await page.click('[data-command="toggleGrid"]');
+      assert.equal(await page.eval(`getComputedStyle(document.querySelector('.graph-grid')).display`), 'none');
+      await page.click('[data-command="toggleGrid"]');
+      assert.notEqual(await page.eval(`getComputedStyle(document.querySelector('.graph-grid')).display`), 'none');
+      const before = await page.eval(`document.querySelector('[data-zoom-value]').textContent`);
+      await page.click('[data-command="zoomIn"]');
+      const after = await page.eval(`document.querySelector('[data-zoom-value]').textContent`);
+      assert.match(after, /^\d+%$/);
+      assert.ok(parseInt(after, 10) > parseInt(before, 10), `${before} → ${after}`);
+      await page.click('[data-command="fit"]');
+    });
+    await step('neuron view: fits the window width, zooms in with a scroll bar', async () => {
+      await page.eval(`__mytrainer.switchTab('neurons')`);
+      await sleep(300);
+      const size = () => page.eval(`JSON.stringify((() => { const c = document.querySelector('.neuron-host.full canvas'); const s = c.parentElement; return [c.clientWidth, s.clientWidth, s.scrollWidth]; })())`);
+      const [canvas, view] = JSON.parse(await size());
+      assert.ok(canvas <= view, `fit: ${canvas} ≤ ${view}`);
+      await page.click('[data-command="zoomIn"]'); await page.click('[data-command="zoomIn"]');
+      const [, view2, scroll] = JSON.parse(await size());
+      assert.ok(scroll > view2, 'zoomed in past the width: it scrolls');
+      await page.click('[data-command="fit"]');
+      await page.eval(`__mytrainer.switchTab('model')`);
+    });
     await step('dropping a palette layer on a wire inserts it there', async () => {
       const before = await state('s.project.model.nodes.length');
       const edge = await page.eval(`(() => { const r = document.querySelector('[data-edge] .edge-hit').getBoundingClientRect(); const path = document.querySelector('[data-edge] .edge-hit'); const len = path.getTotalLength(); const p = path.getPointAtLength(len / 2); const m = path.getScreenCTM(); return { x: p.x * m.a + m.e, y: p.y * m.d + m.f }; })()`);
@@ -134,6 +167,17 @@ export async function runWebSuite({ log = console.log, report } = {}) {
       assert.ok(acc > 0.9, `accuracy ${acc}`);
       assert.ok(await state('Boolean(s.visual.boundary)'), 'decision boundary');
       assert.ok(await state('s.report && s.report.accuracy > 0.85'), 'test evaluation');
+    });
+    await step('another watched input keeps the trained model (no rebuild, history kept)', async () => {
+      const before = await state('s.run.history.length');
+      assert.ok(before > 0, 'trained before');
+      await page.eval(`__mytrainer.switchTab('train')`);
+      await sleep(300);
+      const at = await state('s.project.train.probeIndex');
+      await page.click('[data-probe="next"]');
+      await sleep(800);
+      assert.equal(await state('s.run.history.length'), before, 'the history (and the weights) stay');
+      assert.notEqual(await state('s.project.train.probeIndex'), at, 'another input is watched');
     });
     await step('neuron view: a neuron explains its weighted sum, and it matches the engine', async () => {
       await page.eval(`__mytrainer.switchTab('model')`);

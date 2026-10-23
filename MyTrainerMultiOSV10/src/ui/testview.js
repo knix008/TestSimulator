@@ -18,11 +18,15 @@ export function testViewHtml(app) {
   const kind = prepared.kind;
   const part = prepared.test.n ? prepared.test : prepared.val;
   const custom = kind === 'image' || kind === 'points2d' || kind === 'tokens' || kind === 'vector' || kind === 'function1d';
+  const spec = app.inputKind();
+  const examples = spec ? app.examples() : null;
   const report = app.report();
   const inputPanel = `
     <section class="panel-section"><h3 title="${escapeHtml(t('card.inputTip'))}">${icon('probe')}<span>${escapeHtml(t('test.input'))}</span></h3>
       <span class="segmented" role="radiogroup">
         <button class="segment ${test.mode === 'sample' ? 'active' : ''}" data-test-mode="sample">${icon('dataset')}<span>${escapeHtml(t('test.sample'))}</span></button>
+        ${spec ? `<button class="segment ${test.mode === 'file' ? 'active' : ''}" data-test-mode="file">${icon('folderOpen')}<span>${escapeHtml(t('test.file'))}</span></button>` : ''}
+        ${examples?.length ? `<button class="segment ${test.mode === 'example' ? 'active' : ''}" data-test-mode="example">${icon('samples')}<span>${escapeHtml(t('test.examples'))}</span></button>` : ''}
         ${custom ? `<button class="segment ${test.mode === 'custom' ? 'active' : ''}" data-test-mode="custom">${icon(kind === 'image' ? 'pencil' : kind === 'points2d' ? 'pointer' : 'edit')}<span>${escapeHtml(t(kind === 'image' ? 'test.draw' : kind === 'points2d' ? 'test.click' : 'test.type'))}</span></button>` : ''}
       </span>
       ${test.mode === 'sample' ? `<div class="sample-nav">
@@ -34,7 +38,7 @@ export function testViewHtml(app) {
           ${kind === 'audio' ? `<button class="icon-button" data-test="play" title="${escapeHtml(t('test.play'))}">${icon('volume')}</button>` : ''}
           ${report?.wrong?.length ? `<label class="inline-check" title="${escapeHtml(t('test.errorsOnlyTip'))}"><input type="checkbox" data-test="errorsOnly" ${test.errorsOnly ? 'checked' : ''}/><span>${escapeHtml(t('test.errorsOnly', { n: report.wrong.length }))}</span></label>` : ''}
         </div>
-        <div class="sample-view"><canvas data-test-canvas="sample"></canvas></div>` : customHtml(app, kind)}
+        <div class="sample-view"><canvas data-test-canvas="sample"></canvas></div>` : test.mode === 'file' ? fileHtml(app, spec) : test.mode === 'example' ? examplesHtml(app, examples) : customHtml(app, kind)}
       <p class="muted small">${escapeHtml(app.engineReadyText())}</p>
     </section>
     ${liveHtml(app)}
@@ -42,17 +46,65 @@ export function testViewHtml(app) {
     <section class="panel-section"><h3 title="${escapeHtml(t('card.outputTip'))}">${icon('blkHead')}<span>${escapeHtml(t('test.output'))}</span></h3>
       <div class="prediction-head">${predictionHead(app)}</div>
       <canvas data-test-canvas="output"></canvas>
-    </section>`;
+    </section>
+    ${benchHtml(app)}`;
   const evaluation = report ? evaluationHtml(app, report) : `<p class="muted">${escapeHtml(t('test.noEvaluation'))}</p>
     <button class="button small" data-test="evaluate">${icon('confusion')}<span>${escapeHtml(t('test.evaluate'))}</span></button>`;
   return `<div class="test-view">
     <aside class="test-side">${inputPanel}</aside>
     <div class="test-main">
-      <div class="chart-card neuron-card big">${cardTitle(icon('nodesView', 'icon tiny'), t('test.flow'), t('card.flowTip'))}<div class="neuron-host" data-neuron="test"></div></div>
+      <div class="chart-card neuron-card big"><div class="card-head">${cardTitle(icon('nodesView', 'icon tiny'), t('test.flow'), t('card.flowTip'))}${app.zoomControls()}</div><div class="neuron-host" data-neuron="test"></div></div>
       <div class="chart-card evaluation">${cardTitle(icon('confusion', 'icon tiny'), t('test.evaluation', { part: t(`test.part.${report?.summary?.part ?? 'test'}`) }), t('card.evalTip'))}${evaluation}</div>
     </div>
   </div>`;
   void data;
+}
+
+/** Inference time: how long one input takes to come back (mean ± standard deviation …) and the throughput. */
+function benchHtml(app) {
+  const t = app.t;
+  const b = app.testState().bench;
+  const ms = (v) => `${fmt(v, v < 10 ? 2 : 1)} ms`;
+  const rows = b && !b.running && !b.error ? [
+    [t('bench.mean'), `<b>${ms(b.mean)}</b> ± ${ms(b.std)}`],
+    [t('bench.range'), `${ms(b.min)} … ${ms(b.max)}`],
+    [t('bench.median'), `${ms(b.median)} · p95 ${ms(b.p95)}`],
+    [t('bench.batch', { n: b.batch }), `${ms(b.batchMs)} (${ms(b.perSample)} / ${t('bench.input')})`],
+    [t('bench.throughput'), `<b>${fmt(b.throughput, b.throughput < 100 ? 1 : 0)}</b> ${t('bench.perSecond')}`],
+    [t('bench.engine'), escapeHtml(b.engine)],
+  ].map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td>${value}</td></tr>`).join('') : '';
+  return `<section class="panel-section bench-section"><h3 title="${escapeHtml(t('bench.tip'))}">${icon('speed')}<span>${escapeHtml(t('bench.title'))}</span></h3>
+    <div class="control-row">
+      <label class="inline-check">${escapeHtml(t('bench.runs'))}<select data-test="benchRuns">${[20, 50, 100, 200].map((n) => `<option value="${n}" ${(app.testState().benchRuns ?? 50) === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      <button class="button small primary" data-test="bench" ${b?.running ? 'disabled' : ''}>${icon('play')}<span>${escapeHtml(b?.running ? t('bench.running') : t('bench.run'))}</span></button>
+    </div>
+    ${b?.running ? `<div class="bench-bar"><i data-bench-progress style="width:0%"></i></div>` : ''}
+    ${b?.error ? `<p class="small error-text">${escapeHtml(b.error)}</p>` : ''}
+    ${rows ? `<table class="bench-table">${rows}</table>` : `<p class="muted small">${escapeHtml(t('bench.hint'))}</p>`}
+  </section>`;
+}
+
+/** "My file": pick pictures, recordings, CSV or text files (or a folder); each runs through the model. */
+function fileHtml(app, spec) {
+  const t = app.t;
+  const batch = app.batchState();
+  const chosen = batch.items[batch.selected];
+  return `<div class="control-row">
+      <button class="button small primary" data-batch="files" ${batch.running ? 'disabled' : ''}>${icon('folderOpen')}<span>${escapeHtml(t('test.openFile'))}</span></button>
+      ${spec.folder ? `<button class="button small" data-batch="folder" ${batch.running ? 'disabled' : ''}>${icon('folder')}<span>${escapeHtml(t('batch.folder'))}</span></button>` : ''}
+    </div>
+    <p class="muted small">${escapeHtml(t(`batch.hint.${spec.kind}`))}</p>
+    ${chosen ? `<p class="chosen-input">${icon('check', 'icon tiny')}<b>${escapeHtml(chosen.name)}</b>${chosen.prediction != null ? ` → ${escapeHtml(chosen.prediction)}${chosen.confidence != null ? ` (${fmt(chosen.confidence * 100, 1)}%)` : ''}` : ''}</p>` : ''}`;
+}
+
+/** Examples that come with the app (inputs the model has never seen): one click runs one, or all of them. */
+function examplesHtml(app, examples) {
+  const t = app.t;
+  const batch = app.batchState();
+  const chosen = batch.items[batch.selected]?.name;
+  return `<div class="example-list">${examples.map((rel) => { const name = rel.split('/').pop(); return `<button class="chip ${chosen === name ? 'active' : ''}" data-example="${escapeHtml(rel)}" title="${escapeHtml(rel)}">${escapeHtml(name.replace(/\.[^.]+$/, ''))}</button>`; }).join('')}</div>
+    <div class="control-row"><button class="button small" data-example="*" ${batch.running ? 'disabled' : ''}>${icon('folderRun')}<span>${escapeHtml(t('test.runAllExamples', { n: examples.length }))}</span></button></div>
+    <p class="muted small">${escapeHtml(t('test.examplesHint'))}</p>`;
 }
 
 function customHtml(app, kind) {
@@ -245,6 +297,9 @@ export function drawTestView(app, host) {
   }
   const pad = host.querySelector('[data-test-canvas="pad"]');
   if (pad && !pad.dataset.ready) app.bindDrawPad(pad);
+  // The prediction line follows every new result (a sample, a drawing, a picked file or an example).
+  const head = host.querySelector('.prediction-head');
+  if (head) head.innerHTML = predictionHead(app);
   const output = host.querySelector('[data-test-canvas="output"]');
   const out = app.probeOutput();
   if (output) {

@@ -29,6 +29,7 @@ export function defaultTrain() {
     weightDecay: 0,
     snapshotEvery: 1,
     probeIndex: 0,
+    probeCycle: true,     // another training sample through the network at every epoch's snapshot
     // Advanced: optimizer hyperparameters, schedule, early stopping, data order, loss.
     momentum: 0.9,
     nesterov: false,
@@ -72,6 +73,7 @@ export function cleanTrain(raw = {}) {
     weightDecay: clampNumber(raw.weightDecay, 0, 1, base.weightDecay),
     snapshotEvery: clampNumber(raw.snapshotEvery, 1, 1000, base.snapshotEvery, true),
     probeIndex: clampNumber(raw.probeIndex, 0, 1e7, base.probeIndex, true),
+    probeCycle: raw.probeCycle !== false,
     momentum: clampNumber(raw.momentum, 0, 0.999, base.momentum),
     nesterov: raw.nesterov === true,
     beta1: clampNumber(raw.beta1, 0, 0.9999, base.beta1),

@@ -54,6 +54,22 @@ test('mixup trains on blended batches, learns, and leaves no tensors behind', as
   assert.ok(tf.memory().numTensors - before < 20, `${tf.memory().numTensors - before} tensors more`);
 });
 
+test('TensorFlow.js export loads back with tf.loadLayersModel and predicts the same', async () => {
+  for (const id of ['blobs', 'bcResNet']) {
+    const { messages, trainer, prepared } = await run(id, 1);
+    await trainer.handle({ type: 'exportTfjs' });
+    const saved = messages.find((m) => m.type === 'tfjsModel');
+    assert.ok(saved?.topology && saved.weightData?.byteLength > 0, `${id}: model.json and weights`);
+    const loaded = await tf.loadLayersModel(tf.io.fromMemory({ modelTopology: saved.topology, weightSpecs: saved.weightSpecs, weightData: saved.weightData }));
+    const s = prepared.inputShape.reduce((a, b) => a * b, 1);
+    const x = tf.tensor(prepared.test.x.slice(0, 4 * s), [4, ...prepared.inputShape]);
+    const a = await trainer.built.model.predict(x).data();
+    const b = await loaded.predict(x).data();
+    for (let i = 0; i < a.length; i++) assert.ok(Math.abs(a[i] - b[i]) < 1e-5, `${id}: output ${i} ${a[i]} vs ${b[i]}`);
+    x.dispose(); loaded.dispose();
+  }
+});
+
 test('a snapshot has the activation of every node, weights and gradients of the weighted layers', async () => {
   const { messages, project } = await run('checker', 1);
   const snapshot = messages.filter((m) => m.type === 'snapshot').at(-1);

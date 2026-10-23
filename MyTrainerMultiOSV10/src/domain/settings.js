@@ -48,6 +48,9 @@ export function defaultSettings(language = 'ko') {
     maxNeurons: 24,
     animateFlow: true,
     showLinks: true,
+    // Model canvas: cards top to bottom or left to right, and the 5×5 grid under them.
+    graphDirection: 'vertical',
+    showGrid: true,
     // Microphone (Test tab): input gain ×, and the loudness (RMS) below which nothing counts as speech.
     micGain: 1,
     micThreshold: 0.012,
@@ -57,6 +60,8 @@ export function defaultSettings(language = 'ko') {
     pythonAutoSetup: true,
     saveWeights: true,
     confirmExit: true,
+    // A popup when training has finished.
+    notifyTrainDone: true,
     startRecentCount: 8,
   };
 }
@@ -98,6 +103,8 @@ export function normalizeSettings(raw = {}, language = 'ko') {
     maxNeurons: clamp(s.maxNeurons, [4, 64], base.maxNeurons),
     animateFlow: s.animateFlow !== false,
     showLinks: s.showLinks !== false,
+    graphDirection: s.graphDirection === 'horizontal' ? 'horizontal' : 'vertical',
+    showGrid: s.showGrid !== false,
     micGain: Number.isFinite(Number(s.micGain)) ? Math.min(8, Math.max(0.25, Number(s.micGain))) : base.micGain,
     micThreshold: Number.isFinite(Number(s.micThreshold)) ? Math.min(0.2, Math.max(0.001, Number(s.micThreshold))) : base.micThreshold,
     pythonPath: typeof s.pythonPath === 'string' ? s.pythonPath : '',
@@ -105,6 +112,7 @@ export function normalizeSettings(raw = {}, language = 'ko') {
     pythonAutoSetup: s.pythonAutoSetup !== false,
     saveWeights: s.saveWeights !== false,
     confirmExit: s.confirmExit !== false,
+    notifyTrainDone: s.notifyTrainDone !== false,
     startRecentCount: clamp(s.startRecentCount, [0, 10], base.startRecentCount),
   };
 }

@@ -7,7 +7,7 @@ import { Trainer } from './trainer-core.js';
 const trainer = new Trainer(tf, (message, transfer) => self.postMessage(message, transfer));
 let ready = null;
 let queue = Promise.resolve();
-const CONTROLS = new Set(['pause', 'resume', 'step', 'stop']);
+const CONTROLS = new Set(['pause', 'resume', 'step', 'stop', 'setProbe']);
 
 async function chooseBackend(preferred) {
   const order = preferred && preferred !== 'auto' ? [preferred, 'webgl', 'cpu'] : ['webgpu', 'webgl', 'cpu'];

@@ -51,7 +51,7 @@ function ready() {
 const state = {
   settings: loadSettings(globalThis.localStorage),
   params: popupParams(kind),
-  tab: popupParams(kind).tab ?? 'general',
+  tab: { font: 'fontCode', code: 'fontCode', visual: 'general', python: 'general' }[popupParams(kind).tab] ?? popupParams(kind).tab ?? 'general',
   fonts: null,
   info: null,
   log: [],
@@ -120,14 +120,14 @@ function frame({ glyph, title, body, foot = '', tabs = '' }) {
 
 const button = (name, label, glyph = '', extra = '', value = '', attrs = '') => `<button class="button ${extra}" data-action="${name}" ${value !== '' ? `data-value="${escapeHtml(value)}"` : ''} ${attrs}>${glyph ? icon(glyph) : ''}<span>${escapeHtml(label)}</span></button>`;
 const row = (glyph, label, control, title = label) => `<div class="row" title="${escapeHtml(title)}"><span class="row-label">${icon(glyph)}<span>${escapeHtml(label)}</span></span><span class="row-control">${control}</span></div>`;
-const toggle = (key, label, glyph) => row(glyph, label, `<label class="switch-wrap"><input type="checkbox" data-toggle="${key}" ${s()[key] ? 'checked' : ''} aria-label="${escapeHtml(label)}"/><span class="switch"></span></label>`);
+const toggle = (key, label, glyph, title = label) => row(glyph, label, `<label class="switch-wrap"><input type="checkbox" data-toggle="${key}" ${s()[key] ? 'checked' : ''} aria-label="${escapeHtml(label)}"/><span class="switch"></span></label>`, title);
 const select = (key, options, current, label) => `<select data-setting="${key}" aria-label="${escapeHtml(label)}">${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${String(current) === String(value) ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select>`;
 const tabsHtml = (list, current) => `<nav class="tabs" role="tablist"><div class="tabs-strip">${list.map(([id, glyph, label]) => `<button class="tab ${current === id ? 'active' : ''}" data-tab="${id}" role="tab">${icon(glyph)} ${escapeHtml(label)}</button>`).join('')}</div></nav>`;
 
 // ───────────────────────── popups
 
 function render() {
-  const renderers = { settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, pyenv: renderPyEnv, samples: renderSamples, prompt: renderPrompt, shortcuts: renderShortcuts, themes: renderThemes };
+  const renderers = { export: renderExport, settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, pyenv: renderPyEnv, samples: renderSamples, prompt: renderPrompt, shortcuts: renderShortcuts, themes: renderThemes };
   const html = (renderers[kind] ?? renderSettings)();
   if (html != null) root.innerHTML = html;
   bindSteppers(root, (key, value) => update({ [key]: value }));
@@ -151,7 +151,10 @@ function renderThemes() {
 }
 
 function renderSettings() {
-  const tabs = [['general', 'gear', t('settings.general')], ['appearance', 'palette', t('settings.appearance')], ['custom', 'edit', t('settings.customTheme')], ['font', 'font', t('settings.font')], ['visual', 'nodesView', t('settings.visual')], ['code', 'tabCode', t('settings.code')], ['python', 'python', t('settings.python')]];
+  // Four tabs of about the same height (the window has one fixed size): general with visualization and
+  // PyTorch, the theme list, the custom theme, font with code.
+  const tabs = [['general', 'gear', t('settings.general')], ['appearance', 'palette', t('settings.appearance')], ['custom', 'edit', t('settings.customTheme')], ['fontCode', 'font', t('settings.fontCode')]];
+  const section = (glyph, title) => `<h4 class="settings-section">${icon(glyph, 'icon tiny')}<span>${escapeHtml(title)}</span></h4>`;
   let body = '';
   switch (state.tab) {
     case 'general':
@@ -159,7 +162,14 @@ function renderSettings() {
         + toggle('showStartPage', t('settings.showStartPage'), 'home')
         + toggle('confirmExit', t('settings.confirmExit'), 'exit')
         + toggle('saveWeights', t('settings.saveWeights'), 'save')
-        + toggle('showStatusBar', t('menu.statusBar'), 'statusBar');
+        + toggle('notifyTrainDone', t('settings.notifyTrainDone'), 'flag')
+        + section('nodesView', t('settings.visual'))
+        + row('palette', t('model.colorMap'), select('colorMap', COLOR_MAPS.map((m) => [m, t(`colorMap.${m}`)]), s().colorMap, t('model.colorMap')), t('settings.visualHint'))
+        + row('neuron', t('model.maxNeurons'), stepperHtml({ key: 'maxNeurons', value: s().maxNeurons, min: 4, max: 64, step: 4, label: t('model.maxNeurons') }), t('settings.visualHint'))
+        + toggle('animateFlow', t('model.animate'), 'animNeural')
+        + section('python', t('settings.python'))
+        + row('python', t('settings.pythonPath'), `<input type="text" data-setting="pythonPath" value="${escapeHtml(s().pythonPath)}" spellcheck="false" placeholder="${escapeHtml(t('settings.pythonAuto'))}"/>`, t('settings.pythonHint'))
+        + row('install', t('settings.torchVariant'), select('torchVariant', ['auto', 'cpu', 'cuda', 'default'].map((v) => [v, t(`py.variant.${v}`)]), s().torchVariant, t('settings.torchVariant')), t('settings.pythonHint'));
       break;
     case 'appearance': {
       const themeRow = (theme) => `<button class="theme-row ${s().theme === theme.id ? 'active' : ''}" data-set="theme" data-value="${theme.id}"><span class="swatches">${theme.swatch.map((c) => `<i style="background:${c}"></i>`).join('')}</span><span>${escapeHtml(theme.name[L()] ?? theme.name.en)}</span></button>`;
@@ -180,36 +190,27 @@ function renderSettings() {
           <select data-custom-from><option value="">${escapeHtml(t('settings.customFrom'))}</option>${[...LIGHT_THEMES, ...DARK_THEMES].map((th) => `<option value="${th.id}">${escapeHtml(th.name[L()] ?? th.name.en)}</option>`).join('')}</select>
         </div>
         <div class="custom-preview" style="background:${preview.colors.bg};color:${preview.colors.text};border-color:${preview.colors.border}">
-          <span class="preview-chip" style="background:${preview.colors.surface};border:1px solid ${preview.colors.border}">${escapeHtml(t('settings.previewSurface'))}</span>
-          <span class="preview-chip" style="background:${preview.colors.accent};color:${preview.colors.accentText}">${escapeHtml(t('settings.previewAccent'))}</span>
-          <span style="color:${preview.colors.muted}">${escapeHtml(t('settings.previewMuted'))}</span>
+          <div class="preview-bar" style="background:${preview.colors.panel ?? preview.colors.surface};border-bottom:1px solid ${preview.colors.border}"><b>MyTrainer</b><span style="color:${preview.colors.muted}">${escapeHtml(t('settings.previewMuted'))}</span></div>
+          <div class="preview-main">
+            <span class="preview-chip" style="background:${preview.colors.surface};border:1px solid ${preview.colors.border}">${escapeHtml(t('settings.previewSurface'))}</span>
+            <span class="preview-chip" style="background:${preview.colors.accent};color:${preview.colors.accentText}">${escapeHtml(t('settings.previewAccent'))}</span>
+            <span style="color:${preview.colors.muted}">${escapeHtml(t('settings.previewMuted'))}</span>
+          </div>
         </div>`;
       break;
     }
-    case 'font':
+    case 'fontCode':
       if (!state.fonts) native.listFonts().then((fonts) => { state.fonts = fonts; render(); }).catch(() => { state.fonts = []; render(); });
       body = row('font', t('settings.fontFamily'), `<select data-setting="fontFamily"><option value="">${escapeHtml(t('settings.fontDefault'))}</option>${(state.fonts ?? []).map((f) => `<option value="${escapeHtml(f)}" ${s().fontFamily === f ? 'selected' : ''}>${escapeHtml(f)}</option>`).join('')}</select>`)
         + row('fontUp', t('settings.fontSize'), stepperHtml({ key: 'fontSize', value: s().fontSize, min: FONT_SIZE.min, max: FONT_SIZE.max, step: 1, unit: 'px', label: t('settings.fontSize') }))
         + row('bold', t('settings.fontWeight'), select('fontWeight', FONT_WEIGHTS.map((w) => [w, String(w)]), s().fontWeight, t('settings.fontWeight')))
         + row('italic', t('settings.fontStyle'), select('fontStyle', FONT_STYLES.map((v) => [v, t(`settings.style.${v}`)]), s().fontStyle, t('settings.fontStyle')))
-        + `<p class="font-preview" style="font-family:var(--font-family)">${escapeHtml(t('settings.fontPreview'))}</p>`;
-      break;
-    case 'visual':
-      body = row('palette', t('model.colorMap'), select('colorMap', COLOR_MAPS.map((m) => [m, t(`colorMap.${m}`)]), s().colorMap, t('model.colorMap')))
-        + row('neuron', t('model.maxNeurons'), stepperHtml({ key: 'maxNeurons', value: s().maxNeurons, min: 4, max: 64, step: 4, label: t('model.maxNeurons') }))
-        + toggle('animateFlow', t('model.animate'), 'animNeural')
-        + `<p class="muted">${escapeHtml(t('settings.visualHint'))}</p>`;
-      break;
-    case 'code':
-      body = row('fontUp', t('code.fontSize'), stepperHtml({ key: 'codeFontSize', value: s().codeFontSize, min: CODE_FONT_SIZE.min, max: CODE_FONT_SIZE.max, step: 1, unit: 'px', label: t('code.fontSize') }))
+        + `<p class="font-preview" style="font-family:var(--font-family)">${escapeHtml(t('settings.fontPreview'))}</p>`
+        + section('tabCode', t('settings.code'))
+        + row('fontUp', t('code.fontSize'), stepperHtml({ key: 'codeFontSize', value: s().codeFontSize, min: CODE_FONT_SIZE.min, max: CODE_FONT_SIZE.max, step: 1, unit: 'px', label: t('code.fontSize') }))
         + toggle('codeWrap', t('code.wrap'), 'textAlignLeft')
-        + toggle('codeHooks', t('code.hooks'), 'probe')
-        + `<p class="muted">${escapeHtml(t('code.hooksTip'))}</p>`;
-      break;
-    case 'python':
-      body = row('python', t('settings.pythonPath'), `<input type="text" data-setting="pythonPath" value="${escapeHtml(s().pythonPath)}" spellcheck="false" placeholder="${escapeHtml(t('settings.pythonAuto'))}"/>`)
-        + row('install', t('settings.torchVariant'), select('torchVariant', ['auto', 'cpu', 'cuda', 'default'].map((v) => [v, t(`py.variant.${v}`)]), s().torchVariant, t('settings.torchVariant')))
-        + `<p class="muted">${escapeHtml(t('settings.pythonHint'))}</p>`;
+        + toggle('codeHooks', t('code.hooks'), 'probe', t('code.hooksTip'))
+        + `<pre class="code-preview" style="font-size:${s().codeFontSize}px">model = nn.Sequential(nn.Linear(2, 16), nn.ReLU())  # ${escapeHtml(t('settings.fontPreview'))}</pre>`;
       break;
     default: break;
   }
@@ -238,9 +239,23 @@ function renderConfirm() {
   return frame({ glyph: 'question', title: p.title ?? t('common.confirm'), body: `<p class="confirm-text">${escapeHtml(p.message ?? '')}</p>`, foot: `<span class="grow"></span>${buttons}` });
 }
 
+/** Export: pick the format (ONNX · TensorFlow.js · C/C++ · PyTorch code). */
+function renderExport() {
+  const p = P();
+  state.format ??= 'onnx';
+  const formats = [
+    ['onnx', 'exportOnnx', t('export.onnx'), t('export.onnxDesc')],
+    ['tfjs', 'exportFile', t('export.tfjs'), t('export.tfjsDesc'), p.engine === 'torch' ? t('export.tfjsNeedsTf') : null],
+    ['c', 'exportC', t('export.c'), t('export.cDesc')],
+    ['py', 'tabCode', t('export.py'), t('export.pyDesc')],
+  ];
+  const cards = formats.map(([id, glyph, name, desc, off]) => `<button class="export-card ${state.format === id ? 'active' : ''}" data-format="${id}" ${off ? `disabled title="${escapeHtml(off)}"` : ''}>${icon(glyph)}<span class="export-text"><b>${escapeHtml(name)}</b><span class="muted">${escapeHtml(off ?? desc)}</span></span></button>`).join('');
+  return frame({ glyph: 'exportOnnx', title: t('export.title'), body: `<div class="export-cards">${cards}</div>${p.trained ? '' : `<p class="small warning-text">${escapeHtml(t('export.untrained'))}</p>`}`, foot: `<span class="grow"></span>${button('exportGo', t('export.go'), 'exportFile', 'primary')}${button('close', t('common.cancel'), 'close')}` });
+}
+
 function renderError() {
   const p = P();
-  return frame({ glyph: 'error', title: t('error.title'), body: `<p>${escapeHtml(p.message ?? '')}</p><pre class="error-detail">${escapeHtml(p.detail ?? '')}</pre>`, foot: `${button('copy', t('code.copy'), 'copy')}<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
+  return frame({ glyph: 'error', title: t('error.title'), body: `<p>${escapeHtml(p.message ?? '')}</p><pre class="error-detail">${escapeHtml(p.detail ?? '')}</pre>`, foot: `${button('copy', state.copied ? t('error.copied') : t('error.copy'), state.copied ? 'check' : 'copy')}<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
 }
 
 function renderProgress() {
@@ -256,11 +271,11 @@ function renderPrompt() {
 function renderShortcuts() {
   const list = [
     ['Ctrl+N', 'menu.new'], ['Ctrl+O', 'menu.open'], ['Ctrl+S', 'menu.save'], ['Ctrl+Shift+S', 'menu.saveAs'], ['Ctrl+Z', 'menu.undo'], ['Ctrl+Y', 'menu.redo'],
-    ['Ctrl+1 … 5', 'shortcut.tabs'], ['Del', 'menu.delete'], ['Ctrl+D', 'menu.duplicate'], ['Ctrl+A', 'menu.selectAll'], ['Ctrl+L', 'menu.autoLayout'], ['Ctrl+E', 'menu.neurons'],
-    ['Ctrl+= / Ctrl+-', 'shortcut.zoom'], ['Ctrl+0', 'menu.fit'], ['F5', 'menu.train'], ['F6', 'menu.pause'], ['F10', 'menu.step'], ['Shift+F5', 'menu.stop'], ['F1', 'menu.guide'],
+    ['Ctrl+1 … 6', 'shortcut.tabs'], ['Del', 'menu.delete'], ['Ctrl+D', 'menu.duplicate'], ['Ctrl+A', 'menu.selectAll'], ['Ctrl+L', 'menu.autoLayout'], ['Ctrl+E', 'menu.neurons'],
+    ['Ctrl+= / Ctrl+-', 'shortcut.zoom'], ['Ctrl+0', 'menu.fit'], ['Ctrl+G', 'menu.grid'], ['F5', 'menu.train'], ['F6', 'menu.pause'], ['F10', 'menu.step'], ['Shift+F5', 'menu.stop'], ['F1', 'menu.guide'],
     ['Ctrl+F', 'shortcut.find'], ['Ctrl+Space', 'shortcut.complete'], ['Shift+drag', 'shortcut.band'], ['Ctrl+wheel', 'shortcut.zoom'],
   ];
-  return frame({ glyph: 'keyboard', title: t('menu.shortcuts'), body: `<table class="shortcut-table">${list.map(([key, label]) => `<tr><td><kbd>${escapeHtml(key)}</kbd></td><td>${escapeHtml(t(label))}</td></tr>`).join('')}</table>`, foot: `${button('settingsReset', t('settings.reset'), 'undo', '', '', `title="${escapeHtml(t('settings.resetTip'))}"`)}<span class="grow"></span>${button('settingsOk', t('common.ok'), 'check', 'primary')}${button('settingsCancel', t('common.cancel'), 'close')}` });
+  return frame({ glyph: 'keyboard', title: t('menu.shortcuts'), body: `<div class="shortcut-grid">${list.map(([key, label]) => `<div class="shortcut-row"><kbd>${escapeHtml(key)}</kbd><span>${escapeHtml(t(label))}</span></div>`).join('')}</div>`, foot: `<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}` });
 }
 
 function renderSamples() {
@@ -369,6 +384,8 @@ root.addEventListener('click', (event) => {
   if (group) { state.group = group.dataset.group || null; render(); return; }
   const sample = target.closest('[data-sample]');
   if (sample) { close({ sample: sample.dataset.sample }); return; }
+  const format = target.closest('[data-format]');
+  if (format && !format.disabled) { state.format = format.dataset.format; render(); return; }
   const set = target.closest('[data-set]');
   if (set) { update({ [set.dataset.set]: set.dataset.value }); return; }
   const actionButton = target.closest('[data-action]');
@@ -377,11 +394,12 @@ root.addEventListener('click', (event) => {
   switch (name) {
     case 'close': dismiss(); break;
     case 'settingsOk': close({ ok: true }); break;
+    case 'exportGo': close({ format: state.format ?? 'onnx' }); break;
     case 'settingsCancel': cancelSettings(); break;
     case 'settingsReset': resetSettings(); break;
     case 'choice': close({ choice: actionButton.dataset.value }); break;
     case 'promptOk': close({ value: root.querySelector('[data-prompt]')?.value ?? '' }); break;
-    case 'copy': navigator.clipboard.writeText(`${P().message}\n${P().detail}`).catch(() => {}); break;
+    case 'copy': navigator.clipboard.writeText(`${P().message}\n${P().detail}`).then(() => { state.copied = true; render(); }).catch(() => {}); break;
     case 'use': action('py-use', { path: actionButton.dataset.value }); break;
     case 'detect': state.detecting = true; state.message = null; render(); action('py-refresh'); break;
     case 'install': {
@@ -442,7 +460,7 @@ window.addEventListener('keydown', (event) => {
 // Messages from the main window
 if (desktop) {
   native.listen('popup-message', onHostMessage);
-  native.listen('popup-refresh', () => { state.params = popupParams(kind); state.settings = loadSettings(globalThis.localStorage); if (original) original = { ...state.settings }; applyLook(); state.log = []; state.message = null; render(); });
+  native.listen('popup-refresh', () => { state.params = popupParams(kind); state.copied = false; state.settings = loadSettings(globalThis.localStorage); if (original) original = { ...state.settings }; applyLook(); state.log = []; state.message = null; render(); });
 }
 window.addEventListener('message', (event) => {
   if (event.origin === location.origin && event.data?.mytrainerHost) onHostMessage(event.data);
