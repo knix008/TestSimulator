@@ -61,7 +61,7 @@ import {
 } from "./ui/popups.js";
 import { TAB_WIDTH, layoutTabScroller } from "./ui/tab-scroller.js";
 import { attachWindowDrag } from "./ui/window-drag.js";
-import { BOARD_HEAD, BOARD_ROW, CONTENT_PADDING, SCENE_GAP_BASE, SCENE_LABEL_BASE, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, contentBoxFor, fontWindowScale, isCompactWidth, sceneFit, showsTitleText } from "./ui/window-spec.js";
+import { BOARD_HEAD, BOARD_ROW, CONTENT_PADDING, FONT_FIT_MIN, SCENE_GAP_BASE, SCENE_LABEL_BASE, SCENE_TEXT, WINDOW_DEFAULT, boardWindowSize, clampWindowSize, contentBoxFor, fontWindowScale, isCompactWidth, sceneFit, showsTitleText } from "./ui/window-spec.js";
 import { boardRowCount, clampPage, panelFitHeight, panelMaxBody, panelPageCount, panelRowCount, renderMarketHtml, renderPanelHtml } from "./ui/market-view.js";
 
 export function createApp(container, options = {}) {
@@ -766,6 +766,7 @@ class MoneyApp {
   applyFont() {
     const fonts = this.settings.fonts;
     applyFontRoles(this.content, surfaceFonts(fonts, "scene"));
+    this.applySceneScale();
     document.querySelectorAll('[data-popup="panel"] [data-gui="panel"]').forEach((panel) => {
       const kind = FONT_SURFACES.includes(panel.dataset.panelKind) ? panel.dataset.panelKind : "stocks";
       applyFontRoles(panel, surfaceFonts(fonts, kind));
@@ -1239,9 +1240,15 @@ class MoneyApp {
       ? { width: contentBoxFor(WINDOW_DEFAULT).width, height: BOARD_HEAD + rows * BOARD_ROW }
       : undefined;
     // Settings stores the size at the smallest window. Every piece then grows by this one ratio.
-    this.content.style.setProperty("--font-scale", String(fontWindowScale(available, reference)));
+    const grow = fontWindowScale(available, reference);
+    this.content.style.setProperty("--font-scale", String(grow));
     this.content.style.setProperty("--scene-text", `${SCENE_LABEL_BASE}px`);
     this.content.style.setProperty("--scene-gap", `${SCENE_GAP_BASE}px`);
+    this.applyArtScale(available, measured);
+    if (measured) this.shrinkToFit(grow);
+  }
+
+  applyArtScale(available, measured) {
     const fit = sceneFit(available, SCENE_TEXT);
     const boxKey = `${Math.round(available.width)}x${Math.round(available.height)}`;
     if (this.content.dataset.sceneReady === "1" && this._sceneBox === boxKey) return;
@@ -1259,6 +1266,53 @@ class MoneyApp {
       this._sceneBox = boxKey;
       this.content.dataset.sceneReady = "1";
     }
+  }
+
+  /**
+   * The window's ratio is only the size wished for: text that would still spill out of the
+   * window (a long date, a wide price, a large font) shrinks until it fits. Every piece
+   * shrinks by the same ratio, so they stay in proportion. Text is measured as drawn, so a
+   * few passes settle the pieces that do not scale exactly.
+   */
+  shrinkToFit(scale) {
+    let next = scale;
+    for (let pass = 0; pass < 4; pass += 1) {
+      const room = this.sceneRoom();
+      if (room >= 0.995) break;
+      next = Math.max(FONT_FIT_MIN, Math.floor(next * room * 1000) / 1000);
+      this.content.style.setProperty("--font-scale", String(next));
+      if (next === FONT_FIT_MIN) break;
+    }
+    return next;
+  }
+
+  /** How much room the text has against its drawn size: 1 or more means it all fits. */
+  sceneRoom() {
+    const market = this.content.querySelector(".market");
+    if (!market || !market.clientWidth || !market.clientHeight) return 1;
+    const copy = market.querySelector(".scene-copy");
+    if (copy) {
+      const scene = copy.parentElement;
+      const art = scene.querySelector(".scene-art");
+      const artWidth = art ? art.getBoundingClientRect().width : 0;
+      const gap = parseFloat(getComputedStyle(scene).columnGap) || 0;
+      const textWidth = Math.max(copy.clientWidth, ...[...copy.children].map((piece) => piece.scrollWidth));
+      const wide = (market.clientWidth - artWidth) / Math.max(1, gap + textWidth);
+      const tall = market.clientHeight / Math.max(1, copy.scrollHeight);
+      return Math.min(wide, tall);
+    }
+    const rows = market.querySelector(".board-rows");
+    if (!rows) return 1;
+    let room = 1;
+    // A cell cut short by its column needs smaller type; the columns themselves do not change.
+    for (const cell of rows.querySelectorAll(".quote-row span, .quote-row strong, .quote-row em, .rate-row span")) {
+      if (cell.childElementCount || !cell.clientWidth || cell.scrollWidth <= cell.clientWidth + 1) continue;
+      room = Math.min(room, cell.clientWidth / cell.scrollWidth);
+    }
+    const above = rows.getBoundingClientRect().top - market.getBoundingClientRect().top;
+    const height = rows.scrollHeight;
+    if (height > 0) room = Math.min(room, (market.clientHeight - above) / height);
+    return room;
   }
 
   toggleSource(id, enabled) {

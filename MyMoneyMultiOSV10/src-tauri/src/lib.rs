@@ -1367,8 +1367,10 @@ fn window_boot(app: AppHandle, window: WebviewWindow) -> Value {
   json!({ "slot": slot, "primary": primary, "canAddWindow": slot_count(&app) < MAX_EXTRA_WINDOWS, "windowCount": window_count })
 }
 
+/// Async on purpose: a sync command runs on the main thread, and building a webview window
+/// there waits for that same thread, so the new window stays blank and the old one hangs.
 #[tauri::command]
-fn new_window(app: AppHandle, board: Option<Value>) -> bool {
+async fn new_window(app: AppHandle, board: Option<Value>) -> bool {
   open_new_window(&app, board.unwrap_or(Value::Null))
 }
 
@@ -1603,7 +1605,20 @@ fn open_external(url: String) -> Result<(), String> {
 
 #[tauri::command]
 fn clipboard_write(text: Option<String>) -> Result<(), String> {
-  arboard::Clipboard::new().and_then(|mut c| c.set_text(text.unwrap_or_default())).map_err(|e| e.to_string())
+  // Clipboard managers open the clipboard for a moment after every change; a copy that
+  // lands in that moment waits a little instead of failing.
+  let text = text.unwrap_or_default();
+  let mut tries = 0;
+  loop {
+    match arboard::Clipboard::new().and_then(|mut c| c.set_text(text.clone())) {
+      Ok(()) => return Ok(()),
+      Err(arboard::Error::ClipboardOccupied) if tries < 10 => {
+        tries += 1;
+        std::thread::sleep(std::time::Duration::from_millis(30));
+      }
+      Err(error) => return Err(error.to_string()),
+    }
+  }
 }
 
 #[tauri::command]
@@ -1804,13 +1819,24 @@ fn update_popup(app: AppHandle, id: String, patch: Value) {
   }
 }
 
-/// A popup that measured its own page asks for exactly that much window.
+/// A popup that measured its own page asks for exactly that much window. While the reader drags
+/// an edge (`keepCorner`), the top-left corner stays put and the size stops at the screen's edge,
+/// so the window never slides under the pointer.
 #[tauri::command]
 fn resize_popup(app: AppHandle, window: WebviewWindow, size: Value) -> Value {
   let Some(b) = bounds(&window) else { return Value::Null };
   let area = area_for(&work_areas(&app), &b);
   let width = num(&size, "width").filter(|w| *w != 0.0).unwrap_or(b.width).round().max(240.0).min(area.width);
   let height = num(&size, "height").filter(|h| *h != 0.0).unwrap_or(b.height).round().max(160.0).min(area.height);
+  if size.get("keepCorner").and_then(Value::as_bool).unwrap_or(false) {
+    // The screen's edge stops growth; it never shrinks a window that already reaches past it.
+    let room_w = (area.x + area.width - b.x).round().max(b.width);
+    let room_h = (area.y + area.height - b.y).round().max(b.height);
+    let width = if width > b.width { width.min(room_w) } else { width };
+    let height = if height > b.height { height.min(room_h) } else { height };
+    set_bounds(&window, &Rect { x: b.x, y: b.y, width, height });
+    return json!({ "width": width, "height": height });
+  }
   set_bounds(&window, &keep_inside(Rect { x: b.x, y: b.y, width, height }, &area));
   json!({ "width": width, "height": height })
 }

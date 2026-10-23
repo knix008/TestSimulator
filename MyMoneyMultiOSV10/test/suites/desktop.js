@@ -36,6 +36,7 @@ export function registerDesktop(h) {
   h.category("Desktop (Tauri)");
   let app = null;
   let main = null;
+  let about = null;
   // A failed step must not leave the test copy running behind the tray.
   process.on("exit", () => {
     if (app && app.exited === null) app.child.kill();
@@ -123,6 +124,8 @@ export function registerDesktop(h) {
     await main.eval("window.__TAURI_INTERNALS__.invoke('menu_command', { id: 'show-window' })");
     await waitFor(() => main.eval("window.__heard.length > 0"), { what: "the owner to hear it" });
     assert.deepEqual(await popup.eval("window.__heard"), []);
+    // The next two tests count and weigh the processes with this dialog open.
+    about = popup;
   });
 
   h.test("every window shares one renderer process", async () => {
@@ -144,6 +147,9 @@ export function registerDesktop(h) {
   h.test("memory stays well under the Electron build", async () => {
     const memory = memoryOf(app.child.pid);
     assert.ok(memory.privateMB < 180, JSON.stringify(memory));
+    // Opening About again only brings this one forward, so the tests after this need it gone.
+    await about?.eval("window.__TAURI_INTERNALS__.invoke('finish_popup', { result: { action: 'close' } })").catch(() => {});
+    await waitFor(async () => !(await app.targets()).some((t) => t.id === about?.target.id), { what: "about to close" });
   });
 
   h.test("a second launch leaves at once and the first copy keeps running", async () => {
@@ -151,6 +157,91 @@ export function registerDesktop(h) {
     const code = await new Promise((resolve) => second.on("exit", resolve));
     assert.equal(code, 0);
     assert.equal(app.exited, null);
+  });
+
+  h.test("moving a symbol to a new window from the quote menu opens it and frees the first window", async () => {
+    await waitFor(() => main.eval("window.__mymoney.currentTab().board.symbols.length > 1 && Boolean(document.querySelector('.content [data-symbol]'))"), { what: "quotes" });
+    const before = await main.eval("window.__mymoney.currentTab().board.symbols.map((s) => s.symbol)");
+    await main.eval("(() => { const q = document.querySelector('.content [data-symbol]'); q.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80, screenX: 240, screenY: 200, button: 2 })); })()");
+    const menu = await app.page("menu-host.html");
+    await waitFor(() => menu.eval("document.querySelector('[data-cmd=\"detach-symbol\"]')?.dataset.enabled === 'true'"), { what: "an enabled move item" });
+    const moved = await main.eval("window.__mymoney.currentTab().selectedSymbol || window.__mymoney.currentTab().board.activeSymbol");
+    await menu.eval("document.querySelector('[data-cmd=\"detach-symbol\"]').click()").catch(() => {});
+    // A window built inside a synchronous command used to hang here: blank new window, frozen first one.
+    const extra = await app.page("src/index.html");
+    // The window draws the starter watchlist first and takes its own board once its settings arrive.
+    await waitFor(() => extra.eval("window.__mymoney?.ready ? window.__mymoney.ready.then(() => true) : false"), { what: "the new window" });
+    assert.deepEqual(await extra.eval("window.__mymoney.currentTab().board.symbols.map((s) => s.symbol)"), [moved]);
+    assert.equal(await extra.eval("window.__mymoney.windowInfo.primary"), false);
+    await waitFor(() => main.eval(`!window.__mymoney.currentTab().board.symbols.some((s) => s.symbol === ${JSON.stringify(moved)})`), { what: "the symbol to leave the first window" });
+    assert.equal((await main.eval("window.__mymoney.currentTab().board.symbols.length")), before.length - 1);
+    await extra.eval("window.__TAURI_INTERNALS__.invoke('remove_window')").catch(() => {});
+    await waitFor(async () => (await windows("src/index.html")).length === 1, { what: "the new window to go" });
+    await main.eval(`window.__mymoney.undo()`);
+  });
+
+  h.test("the stocks and rates windows show every piece of a row at one size", async () => {
+    for (const kind of ["stocks", "rates"]) {
+      void main.eval(`window.__mymoney.run('${kind}')`);
+      const popup = await app.page("popup-host.html");
+      await waitFor(() => popup.eval("document.querySelectorAll('[data-gui=panel] .board-rows > *').length > 0"), { what: `${kind} rows` });
+      const sizes = await popup.eval(`[...new Set([...document.querySelectorAll('[data-gui=panel] .board-rows :is(strong, em, span)')].filter((el) => !el.childElementCount && el.textContent.trim()).map((el) => getComputedStyle(el).fontSize))]`);
+      assert.deepEqual(sizes, ["13px"], kind);
+      await popup.eval("window.__TAURI_INTERNALS__.invoke('finish_popup', { result: { action: 'close' } })").catch(() => {});
+      await waitFor(async () => !(await app.targets()).some((t) => t.id === popup.target.id), { what: `${kind} to close` });
+    }
+  });
+
+  h.test("a stocks window resizes by its corner grip and its list follows; settings and about do not resize", async () => {
+    void main.eval("window.__mymoney.run('stocks')");
+    const popup = await app.page("popup-host.html");
+    await waitFor(() => popup.eval("document.querySelectorAll('[data-resize]').length === 3"), { what: "resize handles" });
+    const measure = () => popup.eval("({ w: innerWidth, h: innerHeight, list: document.querySelector('.panel-fit').getBoundingClientRect().height })");
+    // The window is shown before its page has finished laying out; wait until two readings agree.
+    let before = await measure();
+    await waitFor(async () => {
+      const next = await measure();
+      const same = JSON.stringify(next) === JSON.stringify(before);
+      before = next;
+      return same;
+    }, { what: "the stocks window to settle", every: 250 });
+    const mouse = (type, x, y, buttons = 1) => popup.send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons, clickCount: 1 });
+    await mouse("mouseMoved", before.w - 8, before.h - 8, 0);
+    await mouse("mousePressed", before.w - 8, before.h - 8);
+    for (let i = 1; i <= 5; i += 1) await mouse("mouseMoved", before.w - 8 - i * 20, before.h - 8 - i * 8);
+    await mouse("mouseReleased", before.w - 108, before.h - 48, 0);
+    // The page hears of the new size one frame after the window has it.
+    await waitFor(() => popup.eval(`innerWidth === ${before.w - 100} && innerHeight === ${before.h - 40} && document.querySelector('[data-popup]').getBoundingClientRect().height === innerHeight`), { what: "the smaller window" });
+    const after = await popup.eval("({ popup: document.querySelector('[data-popup]').getBoundingClientRect().height, list: document.querySelector('.panel-fit').getBoundingClientRect().height })");
+    assert.equal(after.popup, before.h - 40);
+    assert.equal(Math.round(after.list), Math.round(before.list) - 40);
+    await popup.eval("window.__TAURI_INTERNALS__.invoke('finish_popup', { result: { action: 'close' } })").catch(() => {});
+    await waitFor(async () => !(await app.targets()).some((t) => t.id === popup.target.id), { what: "stocks to close" });
+    for (const kind of ["settings", "about"]) {
+      void main.eval(`window.__mymoney.run('${kind}')`);
+      const fixed = await app.page("popup-host.html");
+      await waitFor(() => fixed.eval(`Boolean(document.querySelector('[data-popup=${kind}]'))`), { what: kind });
+      assert.equal(await fixed.eval("document.querySelectorAll('[data-resize]').length"), 0, kind);
+      await fixed.eval("window.__TAURI_INTERNALS__.invoke('finish_popup', { result: { action: 'close' } })").catch(() => {});
+      await waitFor(async () => !(await app.targets()).some((t) => t.id === fixed.target.id), { what: `${kind} to close` });
+    }
+  });
+
+  h.test("the first window's quote text fits inside it, the date included", async () => {
+    const size = await main.eval("({ width: innerWidth, height: innerHeight })");
+    await main.invoke("window_size", { size: { width: 1600, height: 900 } });
+    await waitFor(() => main.eval("innerWidth === 1600"), { what: "the larger window" });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const spill = await main.eval(`(() => {
+      const market = document.querySelector('.market').getBoundingClientRect();
+      return [...document.querySelectorAll('.scene-copy > *')].map((piece) => {
+        const r = piece.getBoundingClientRect();
+        return Math.max(r.left + piece.scrollWidth - market.right, piece.scrollWidth - piece.parentElement.clientWidth);
+      });
+    })()`);
+    assert.ok(spill.length >= 3 && spill.every((px) => px <= 1), JSON.stringify(spill));
+    await main.invoke("window_size", { size });
+    await waitFor(() => main.eval(`innerWidth === ${size.width} && innerHeight === ${size.height}`), { what: "the earlier size" });
   });
 
   h.test("quitting saves the window's place in settings.json and ends the process", async () => {

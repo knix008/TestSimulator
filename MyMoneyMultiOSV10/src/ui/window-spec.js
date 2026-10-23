@@ -114,6 +114,11 @@ export function sceneFit(box, textWidth = SCENE_TEXT) {
  */
 export const FONT_SCALE_MIN = 1;
 export const FONT_SCALE_MAX = 16;
+/**
+ * Text that does not fit the window shrinks below the chosen size, but not past this,
+ * where it would stop being readable at all.
+ */
+export const FONT_FIT_MIN = 0.4;
 
 /** The content box inside a window of the given outer size. */
 export function contentBoxFor(size = WINDOW_DEFAULT) {

@@ -339,10 +339,12 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   overflow: hidden;
   scrollbar-width: none;
 }
+/* The column holds a seven-digit price at least, so a live price rarely moves the picture,
+   and widens for a longer line such as the date instead of cutting it off. */
 .scene-copy {
-  flex: 0 0 calc(var(--scene-text) * var(--font-scale, 1));
-  width: calc(var(--scene-text) * var(--font-scale, 1));
-  min-width: 0;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: calc(var(--scene-text) * var(--font-scale, 1));
   overflow: hidden;
 }
 .scene-name { min-height: calc(var(--font-name-size, 22px) * 1.2 * var(--font-scale, 1)); font-size: calc(var(--font-name-size, 22px) * var(--font-scale, 1)); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -434,10 +436,10 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   overflow: hidden;
   transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
-/* A larger window grows the watchlist rows with the type, and never squeezes them below one line. */
+/* A larger window grows the watchlist rows with the type; type shrunk to fit a small window takes the rows with it. */
 .market-board .quote-row, .market-board .rate-row {
-  height: max(32px, calc(18px * var(--font-scale, 1)));
-  flex-basis: max(32px, calc(18px * var(--font-scale, 1)));
+  height: max(calc(32px * min(1, var(--font-scale, 1))), calc(18px * var(--font-scale, 1)));
+  flex-basis: max(calc(32px * min(1, var(--font-scale, 1))), calc(18px * var(--font-scale, 1)));
 }
 .quote-row:hover, .rate-row:hover, .news-row:hover,
 .quote-row:focus-visible, .news-row:focus-visible {
@@ -553,6 +555,15 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
   text-decoration: none;
 }
 .host-body { margin: 0; background: transparent; overflow: hidden; }
+/* A popup window that can be resized: edges and a corner grip, and the list or text takes the new room. */
+.popup-resize { position: absolute; z-index: 4; }
+.popup-resize[data-resize="right"] { top: 18px; right: 0; bottom: 18px; width: 6px; cursor: ew-resize; }
+.popup-resize[data-resize="bottom"] { left: 18px; right: 18px; bottom: 0; height: 6px; cursor: ns-resize; }
+.popup-resize.resize-grip { right: 2px; bottom: 2px; width: 16px; height: 16px; }
+.host-body.is-resizing, .host-body.is-resizing * { user-select: none; }
+.host-body[data-resizable="true"] .popup-body > .popup-panel { height: 100%; }
+.host-body[data-resizable="true"] :is(.panel-fit, .text-block) { flex: 1 1 auto !important; height: auto !important; min-height: 0; }
+.host-body[data-resizable="true"] .text-block textarea { flex: 1 1 auto; min-height: 0; }
 .popup[data-popup="panel"] {
   background: linear-gradient(180deg, var(--bg-top), var(--bg));
   border-radius: 22px;
@@ -809,6 +820,9 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 }
 .quote-name em, .quote-exchange, .quote-volume, .rate-name, .news-meta { font-size: calc(var(--font-note-size, 16px) * var(--list-font-scale, 1)); }
 .content .quote-name em, .content .quote-exchange, .content .quote-volume, .content .rate-name, .content .news-meta { font-size: calc(var(--font-note-size, 16px) * var(--list-font-scale, 1) * var(--font-scale, 1)); }
+/* The stocks, rates and news windows show every piece of a row at one size, so a source or an
+   exchange is as readable as the price. Only the main window sizes the pieces apart. */
+[data-gui="panel"] :is(.quote-name strong, .quote-name em, .quote-exchange, .quote-price, .quote-change, .quote-percent, .quote-volume, .rate-pair, .rate-value, .rate-name, .news-title, .news-meta) { font-size: 13px; }
 .font-toggles { display: flex; flex: 1 1 auto; min-width: 0; gap: 4px; }
 .font-toggle { position: relative; flex: 1 1 0; min-width: 0; height: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; overflow: hidden; }
 .font-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }

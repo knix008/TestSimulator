@@ -1,4 +1,4 @@
-const INTERACTIVE = "button, a, input, select, textarea, .resize-grip, .menu-item";
+const INTERACTIVE = "button, a, input, select, textarea, .resize-grip, [data-resize], .menu-item";
 
 export function attachWindowDrag(root, onStep) {
   if (!root) return () => {};
