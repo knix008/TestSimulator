@@ -36,9 +36,11 @@ export const DIAGRAM_THEME_IDS = ['classic', 'pastel', 'blueprint', 'dark'];
 export const GRID_SIZES = [5, 10, 15, 20, 25, 40];
 export const PAPERS = ['A3', 'A4', 'A5', 'B4', 'B5', 'Letter', 'Legal', 'Tabloid'];
 /** Where "Save to database" stores plans (desktop app; Settings › Database). */
-export const DB_KINDS = ['none', 'sqlite', 'mariadb', 'mysql', 'postgres'];
-export const DB_DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgres: 5432 };
-export const usesDbServer = (kind) => kind === 'mariadb' || kind === 'mysql' || kind === 'postgres';
+export const DB_KINDS = ['none', 'sqlite', 'mariadb', 'mysql', 'postgres', 'mssql'];
+export const DB_DEFAULT_PORTS = { mariadb: 3306, mysql: 3306, postgres: 5432, mssql: 1433 };
+export const usesDbServer = (kind) => kind === 'mariadb' || kind === 'mysql' || kind === 'postgres' || kind === 'mssql';
+/** The names the UI shows for each database kind. */
+export const DB_NAMES = { sqlite: 'SQLite', mariadb: 'MariaDB', mysql: 'MySQL', postgres: 'PostgreSQL', mssql: 'SQL Server' };
 
 export function defaultSettings(language = 'ko') {
   return {
@@ -106,6 +108,8 @@ export function defaultSettings(language = 'ko') {
     autoSaveMinutes: 0,
     rowHeight: 26,
     tutorialOffered: false,
+    /** The welcome popup at every start (its own check box and Settings › Start page). */
+    showWelcome: true,
     tutorialDone: false,
     // Database (Settings › Database). The password is stored only with dbSavePassword;
     // otherwise it is kept for this run of the app only.
@@ -167,7 +171,7 @@ export function normalizeSettings(raw = {}, language) {
   s.reverseLanguage = typeof s.reverseLanguage === 'string' ? s.reverseLanguage : base.reverseLanguage;
   s.autoSaveMinutes = [0, 1, 5, 10, 30].includes(Number(s.autoSaveMinutes)) ? Number(s.autoSaveMinutes) : 0;
   for (const key of ['showStartPage', 'showLeftPanel', 'showRightPanel', 'showBottomPanel', 'showStatusBar', 'restoreSession', 'confirmDelete', 'showTime', 'statusClock', 'showGrid', 'showRulers',
-    'showMinimap', 'snapToGrid', 'showShadow', 'showQuickButtons', 'explorerSort', 'toolboxCompact', 'reparentOnDrop', 'autoValidate', 'tutorialOffered', 'tutorialDone', 'animationOnStartOnly',
+    'showMinimap', 'snapToGrid', 'showShadow', 'showQuickButtons', 'explorerSort', 'toolboxCompact', 'reparentOnDrop', 'autoValidate', 'tutorialOffered', 'showWelcome', 'tutorialDone', 'animationOnStartOnly',
     'startShowRecent', 'startShowFolders', 'startShowSamples', 'startShowBackground', 'startShowTutorialBanner']) {
     s[key] = typeof s[key] === 'boolean' ? s[key] : base[key];
   }
@@ -216,10 +220,9 @@ export function dbConfig(settings, password = '') {
 
 /** "MariaDB · me@localhost:3306/myumlmaker" / "SQLite · C:\…\plans.db" (no password). */
 export function dbDescribe(settings) {
-  const names = { sqlite: 'SQLite', mariadb: 'MariaDB', mysql: 'MySQL', postgres: 'PostgreSQL' };
   if (settings.dbKind === 'sqlite') return `SQLite · ${settings.dbFile}`;
   if (!usesDbServer(settings.dbKind)) return '';
-  return `${names[settings.dbKind]} · ${settings.dbUser ? `${settings.dbUser}@` : ''}${settings.dbHost}:${dbPortOf(settings)}/${settings.dbName}`;
+  return `${DB_NAMES[settings.dbKind]} · ${settings.dbUser ? `${settings.dbUser}@` : ''}${settings.dbHost}:${dbPortOf(settings)}/${settings.dbName}`;
 }
 
 const systemLanguage = () => (String(globalThis.navigator?.language ?? 'ko').toLowerCase().startsWith('ko') ? 'ko' : 'en');

@@ -39,6 +39,7 @@ export const POPUPS = {
   requirements: { width: 1120, height: 640 },
   tracematrix: { width: 1120, height: 740 },
   background: { width: 960, height: 500 },
+  diagram: { width: 900, height: 600 },
 };
 
 export const popupKey = (kind) => `myumlmaker.popup.${kind}`;

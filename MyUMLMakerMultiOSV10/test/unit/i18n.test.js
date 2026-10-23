@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import ko from '../../src/i18n/ko.js';
 import en from '../../src/i18n/en.js';
 import { ANIMATIONS, BACKGROUND_FITS, FONT_WEIGHTS, LINE_STYLES, DIAGRAM_THEME_IDS } from '../../src/domain/settings.js';
-import { TYPES } from '../../src/domain/meta.js';
+import { DIAGRAM_TYPES, TYPES } from '../../src/domain/meta.js';
 import { TEMPLATES } from '../../src/domain/templates.js';
 import { RELATED } from '../../src/domain/edit.js';
 import { LAYOUT_DIRECTIONS } from '../../src/domain/layout.js';
@@ -31,7 +31,7 @@ const text = sources.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const appText = fs.readFileSync(path.join(root, 'src', 'app.js'), 'utf8');
 
 /** Namespaces whose literal keys are checked (the code's own, not element type names). */
-const NAMESPACES = ['about', 'action', 'canvas', 'codegen', 'color', 'common', 'confirm', 'db', 'doc', 'drop', 'editors', 'error', 'explorer', 'find', 'image', 'members', 'menu', 'notice', 'op', 'panel', 'present', 'print', 'progress', 'props', 'quick', 'reader', 'recent', 'reverse', 'settings', 'start', 'stats', 'status', 'style', 'submenu', 'tabs', 'tags', 'textImport', 'tip', 'toolbox', 'tutorial', 'validation', 'welcome'];
+const NAMESPACES = ['about', 'action', 'canvas', 'codegen', 'color', 'common', 'confirm', 'db', 'doc', 'drop', 'editors', 'error', 'explorer', 'find', 'image', 'members', 'menu', 'notice', 'op', 'panel', 'picker', 'present', 'print', 'progress', 'props', 'quick', 'reader', 'recent', 'reverse', 'settings', 'start', 'stats', 'status', 'style', 'submenu', 'tabs', 'tags', 'textImport', 'tip', 'toolbox', 'tutorial', 'validation', 'welcome'];
 
 /** Every quoted string in the sources that looks like a key of a known namespace. */
 function literalKeys() {
@@ -61,6 +61,7 @@ function dynamicKeys() {
   add('group', [...new Set(Object.values(TYPES).map((def) => def.group))]);
   add('field', [...new Set(Object.values(TYPES).flatMap((def) => def.fields.map((field) => field.key)))]);
   add('enum', [...new Set(Object.values(TYPES).flatMap((def) => def.fields.filter((field) => field.type === 'enum').flatMap((field) => field.options.filter(Boolean))))]);
+  add('picker.desc', Object.keys(DIAGRAM_TYPES));
   add('related', Object.keys(RELATED)); add('layout', LAYOUT_DIRECTIONS);
   add('lineStyle', ['default', ...LINE_STYLES]); add('diagramTheme', DIAGRAM_THEME_IDS); add('stereotypeDisplay', ['label', 'decoration', 'icon', 'none']);
   add('codegen.option', [...new Set(Object.values(DEFAULT_CODEGEN_OPTIONS).flatMap((options) => Object.keys(options)))]);

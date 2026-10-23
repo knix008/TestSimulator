@@ -19,7 +19,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 const POPUP_KINDS: &[&str] = &[
     "settings", "about", "confirm", "error", "progress", "recent", "print", "menu", "theme", "welcome", "image", "database",
     "find", "validation", "codegen", "textimport", "color", "prompt", "requirements", "tracematrix", "document", "baselines", "compare",
-    "background",
+    "background", "diagram",
 ];
 
 #[derive(Default)]

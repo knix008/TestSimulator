@@ -167,7 +167,7 @@ test('loading recent lists survives bad data', () => {
 test('database settings: defaults and repairs', () => {
   const base = S.defaultSettings('ko');
   assert.equal(base.dbKind, 'none', 'no database until one is chosen');
-  assert.deepEqual(S.DB_KINDS, ['none', 'sqlite', 'mariadb', 'mysql', 'postgres']);
+  assert.deepEqual(S.DB_KINDS, ['none', 'sqlite', 'mariadb', 'mysql', 'postgres', 'mssql']);
   const good = S.normalizeSettings({ dbKind: 'postgres', dbHost: ' db.local ', dbPort: '6543', dbName: ' plans ', dbUser: 'me', dbFile: ' C:\\data\\plans.db ' }, 'ko');
   assert.deepEqual([good.dbKind, good.dbHost, good.dbPort, good.dbName, good.dbUser, good.dbFile], ['postgres', 'db.local', 6543, 'plans', 'me', 'C:\\data\\plans.db']);
   const bad = S.normalizeSettings({ dbKind: 'oracle', dbHost: '  ', dbPort: 70000, dbName: 5, dbUser: null, dbFile: {}, dbSavePassword: 'yes' }, 'ko');
@@ -188,7 +188,12 @@ test('database connection settings for the backend', () => {
   const server = S.normalizeSettings({ dbKind: 'mariadb', dbHost: 'db', dbName: 'plans', dbUser: 'me' });
   assert.equal(S.dbPortOf(server), 3306, 'the usual port when none is set');
   assert.equal(S.dbPortOf({ ...server, dbKind: 'postgres' }), 5432);
+  assert.equal(S.dbPortOf({ ...server, dbKind: 'mssql' }), 1433, 'SQL Server');
   assert.equal(S.dbPortOf({ ...server, dbPort: 3307 }), 3307);
+  const mssql = S.normalizeSettings({ dbKind: 'mssql', dbHost: 'sql', dbName: 'plans', dbUser: 'sa' });
+  assert.deepEqual(S.dbProblems(mssql), [], 'SQL Server is a server database like the others');
+  assert.deepEqual(S.dbConfig(mssql, 'pw'), { kind: 'mssql', host: 'sql', port: 1433, database: 'plans', user: 'sa', password: 'pw', file: null });
+  assert.equal(S.dbDescribe(mssql), 'SQL Server · sa@sql:1433/plans');
   assert.deepEqual(S.dbConfig(server, 'run-pw'), { kind: 'mariadb', host: 'db', port: 3306, database: 'plans', user: 'me', password: 'run-pw', file: null });
   assert.equal(S.dbConfig({ ...server, dbSavePassword: true, dbPassword: 'saved' }, 'run-pw').password, 'saved', 'a saved password wins');
   const lite = S.normalizeSettings({ dbKind: 'sqlite', dbFile: 'C:\\p\\plans.db', dbUser: 'ignored' });

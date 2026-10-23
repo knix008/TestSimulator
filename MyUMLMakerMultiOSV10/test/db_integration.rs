@@ -4,9 +4,10 @@
 //! git-ignored test/db.local.json, or by hand):
 //!   MYUMLMAKER_TEST_MYSQL_URL     mysql://user:password@host:port      (MariaDB or MySQL)
 //!   MYUMLMAKER_TEST_POSTGRES_URL  postgres://user:password@host:port
+//!   MYUMLMAKER_TEST_MSSQL_URL     mssql://user:password@host:port      (Microsoft SQL Server)
 //! Each test creates a database of its own (myumlmaker_test_<pid>), uses it
 //! through the app's storage code, and drops it again. Without a MySQL/MariaDB
-//! URL that test is skipped (reported as SKIP). Without a PostgreSQL URL the
+//! URL (or a SQL Server URL) that test is skipped (reported as SKIP). Without a PostgreSQL URL the
 //! test starts a temporary PostgreSQL server of its own (postgresql_embedded:
 //! the binaries are downloaded on first use and cached), so it always runs.
 use myumlmaker_lib::db::{self, DbConfig, PlanRow};
@@ -51,11 +52,27 @@ fn server(variable: &str, kind: &'static str) -> Option<Server> {
 }
 
 async fn admin(server: &Server, statement: &str) {
+    if server.kind == "mssql" {
+        return admin_mssql(server, statement).await;
+    }
     install_default_drivers();
     let base = if server.kind == "postgres" { format!("{}/postgres", server.url) } else { format!("{}/", server.url) };
     let pool = AnyPoolOptions::new().max_connections(1).connect(&base).await.expect("admin connection");
     sqlx::query(statement).execute(&pool).await.expect(statement);
     pool.close().await;
+}
+
+/// SQL Server has no sqlx driver: the admin statements go through tiberius like the app does.
+async fn admin_mssql(server: &Server, statement: &str) {
+    use tokio_util::compat::TokioAsyncWriteCompatExt;
+    let mut config = tiberius::Config::new();
+    config.host(&server.host);
+    config.port(if server.port == 0 { 1433 } else { server.port });
+    config.authentication(tiberius::AuthMethod::sql_server(&server.user, &server.password));
+    config.trust_cert();
+    let tcp = tokio::net::TcpStream::connect(config.get_addr()).await.expect("admin connection");
+    let mut client = tiberius::Client::connect(config, tcp.compat_write()).await.expect("admin login");
+    client.simple_query(statement).await.expect(statement).into_results().await.expect(statement);
 }
 
 fn plan(id: &str, title: &str, tasks: usize) -> PlanRow {
@@ -80,7 +97,7 @@ async fn exercise(server: Server, kind: &str) {
         let version = db::test(&config).await?;
         println!("{kind} server {version}");
         assert!(db::list(&config).await?.is_empty(), "a new database has no plans");
-        // ~1 MB of Korean text and emoji: LONGTEXT on MySQL/MariaDB, TEXT on PostgreSQL.
+        // ~1 MB of Korean text and emoji: LONGTEXT on MySQL/MariaDB, TEXT on PostgreSQL, NVARCHAR(MAX) on SQL Server.
         let big = plan("prj-db", "DB 계획 😀", 600);
         assert!(big.data.len() > 900_000, "{}", big.data.len());
         db::save(&config, &big).await?;
@@ -140,4 +157,12 @@ fn postgres_round_trip() {
         exercise(server, "postgres").await;
         postgres.stop().await.expect("PostgreSQL stop");
     });
+}
+
+#[test]
+fn sql_server_round_trip() {
+    match server("MYUMLMAKER_TEST_MSSQL_URL", "mssql") {
+        Some(server) => tauri::async_runtime::block_on(exercise(server, "mssql")),
+        None => println!("SKIP: MYUMLMAKER_TEST_MSSQL_URL is not set (test/db.local.json \"mssql\")"),
+    }
 }

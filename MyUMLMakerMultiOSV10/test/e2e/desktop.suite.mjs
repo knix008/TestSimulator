@@ -311,14 +311,33 @@ async function runMenu(app, menu, ...ids) {
   }
 }
 
-/** Opens a diagram type with the type tabs (real clicks): its group tab, then its type tab. */
-async function openTypeByTabs(app, type) {
+/** Adds a diagram with + of the tab bar and the new-diagram popup (real clicks): its group, its card, then Create. */
+async function addDiagramWithPicker(app, type, { name = '', from = '#tabs .tab-add' } = {}) {
   const group = await app.main.eval(`import('/src/domain/toolbox.js').then((m) => m.diagramTabOf(${JSON.stringify(type)}))`);
-  await clickOn(app.main, `.type-family[data-type-group="${group}"]`);
-  await sleep(200);
-  await clickOn(app.main, `.type-tab[data-diagram-type="${type}"]`);
-  await app.main.waitFor(`window.__myumlmaker.api.diagram()?._type === ${JSON.stringify(type)}`, { timeout: 5000, message: `${type} opens from its type tab` });
+  await clickOn(app.main, from);
+  const page = await app.popup('diagram');
+  try {
+    await page.waitFor(`Boolean(document.querySelector('.dg-card'))`, { timeout: 5000 });
+    await clickOn(page, `[data-action="picker-group"][data-value="${group}"]`);
+    await sleep(150);
+    await clickOn(page, `[data-action="picker-type"][data-value="${type}"]`);
+    if (name) { await clickOn(page, '[data-draft="name"]'); await page.type(name); }
+    await clickOn(page, '[data-action="picker-create"]');
+  } finally {
+    page.close();
+  }
+  await app.main.waitFor(`window.__myumlmaker.api.diagram()?._type === ${JSON.stringify(type)}`, { timeout: 5000, message: `${type} is added from the new-diagram popup` });
   await sleep(250);
+}
+
+/** Opens a diagram type like a user: its tab in the tab bar when the project has one, else + and the new-diagram popup. */
+async function openTypeByTabs(app, type) {
+  const id = await W(app, `M.elementsWhere(a.activeDoc().project, (e) => e._type === ${JSON.stringify(type)})[0]?._id ?? null`);
+  if (!id) return addDiagramWithPicker(app, type);
+  await clickOn(app.main, `#tabs [data-diagram-tab="${id}"]`);
+  await app.main.waitFor(`window.__myumlmaker.api.diagram()?._id === ${JSON.stringify(id)}`, { timeout: 5000, message: `${type} opens from its tab` });
+  await sleep(250);
+  return undefined;
 }
 
 /** Node tools to draw per diagram type: [the tool drawn twice and connected, …tools drawn once]. Others: the first tools of the toolbox. */
@@ -432,17 +451,29 @@ const drawCase = (name, types) => ({ group: '다이어그램 종류', name: `${n
 
 export const cases = [
   // ───────────────────────── first start
-  { group: '처음 실행', name: '튜토리얼 안내 팝업 (독립 OS 창) → 나중에', async run(app) {
+  { group: '처음 실행', name: '튜토리얼 안내 팝업 (독립 OS 창): "시작할 때 이 창 보이기" 끄고 나중에, 도움말 › 시작 안내 창으로 다시 열림 (실제 클릭)', async run(app) {
     const page = await app.popup('welcome');
     await expectPopupWindow(app, page, 'welcome');
     const text = await page.eval(`document.querySelector('.popup').innerText`);
     assert.match(text, /튜토리얼|tutorial/i);
     assert.deepEqual(await page.eval(`[...document.querySelectorAll('[data-action="choice"]')].map((b) => b.dataset.value)`), ['later', 'sample', 'tutorial']);
+    assert.equal(await page.eval(`document.querySelector('[data-toggle="showWelcome"]')?.checked`), true, 'the box is on at first');
+    await clickOn(page, '[data-toggle="showWelcome"]');
+    await sleep(300);
+    assert.equal(await page.eval(`document.querySelector('[data-toggle="showWelcome"]').checked`), false);
     await page.click('[data-value="later"]');
     page.close();
     await sleep(400);
+    assert.equal(await W(app, 'w.state.settings.showWelcome'), false, 'no welcome at the next start');
     assert.equal(await W(app, 'w.state.settings.tutorialOffered'), true, 'offered once');
     assert.equal(await W(app, 'Boolean(w.tutorial()?.state().active)'), false, 'no tutorial started');
+    // Help › Welcome window opens it again, with the box as it was left.
+    await W(app, "(w.run('welcome'), 1)");
+    const again = await app.popup('welcome');
+    assert.equal(await again.eval(`document.querySelector('[data-toggle="showWelcome"]').checked`), false);
+    await again.click('[data-value="later"]');
+    again.close();
+    await sleep(300);
   } },
   { group: '처음 실행', name: '시작 페이지: 템플릿 전부, 최근 파일·폴더, 예제, 튜토리얼·도움말, 패널 숨김', async run(app) {
     await W(app, '(a.showStartPage(true), 1)');
@@ -513,19 +544,20 @@ export const cases = [
     await W(app, `(w.run('startPage'), 1)`);
     await sleep(300);
     assert.equal(await app.main.eval(`document.querySelector('#start-page').hidden`), true, 'File › Start page brings the diagram back');
-    // One project at a time: the bar shows the project and a tab per diagram (model order), then +.
+    // One project at a time: its name is in the title bar; the bar has only a tab per diagram (model order), then +.
     const bar = await app.main.eval(`(() => {
       const tabs = document.querySelector('#tabs');
       const kids = [...tabs.children].map((e) => e.className.split(' ')[0]);
       const old = document.querySelector('.diagram-tabs');
-      return { kids, project: tabs.querySelector('.tab-project .tab-name')?.textContent, ids: [...tabs.querySelectorAll('.tab[data-diagram-tab]')].map((t) => t.dataset.diagramTab),
+      return { kids, project: document.querySelector('#menubar .app-brand-project-name')?.textContent, projectTab: Boolean(tabs.querySelector('.tab-project')), ids: [...tabs.querySelectorAll('.tab[data-diagram-tab]')].map((t) => t.dataset.diagramTab),
         active: tabs.querySelector('.tab.active')?.dataset.diagramTab, docTabs: tabs.querySelectorAll('[data-doc], [data-tab-new], [data-close-doc]').length, oldBar: Boolean(old && old.getClientRects().length) };
     })()`);
     const model = await W(app, `({ ids: M.elementsWhere(a.activeDoc().project, (e) => M.isDiagram(e)).map((d) => d._id), current: api.diagram()._id, name: a.activeDoc().project.name, docs: w.state.docs.length })`);
-    assert.deepEqual(bar.kids.slice(0, 2), ['tab-project', 'tab-strip'], `project first, then the diagram tabs ${JSON.stringify(bar.kids)}`);
+    assert.equal(bar.kids[0], 'tab-strip', `only the diagram tabs ${JSON.stringify(bar.kids)}`);
+    assert.equal(bar.projectTab, false, 'no project tab');
     assert.ok(bar.kids.includes('tab-add'), '+ adds a diagram');
     assert.equal(model.docs, 1, 'one project');
-    assert.equal(bar.project, model.name, 'the project name comes first');
+    assert.equal(bar.project, model.name, 'the project name is in the title bar');
     assert.deepEqual(bar.ids, model.ids, 'a tab per diagram, in model order');
     assert.equal(bar.active, model.current, 'the open diagram is the active tab');
     assert.equal(bar.docTabs, 0, 'no project tabs, no new-tab / close-tab buttons');
@@ -565,7 +597,7 @@ export const cases = [
       const one = await attach([]);
       pages.push(one);
       // What a later copy must not restore: session restore on, the sample "open".
-      await one.eval(`(() => { const s = JSON.parse(localStorage.getItem('myumlmaker.settings.v1') || '{}'); Object.assign(s, { restoreSession: true, tutorialOffered: true }); localStorage.setItem('myumlmaker.settings.v1', JSON.stringify(s)); localStorage.setItem('myumlmaker.session.v1', JSON.stringify({ files: [${JSON.stringify(sample)}] })); return 1; })()`);
+      await one.eval(`(() => { const s = JSON.parse(localStorage.getItem('myumlmaker.settings.v1') || '{}'); Object.assign(s, { restoreSession: true, tutorialOffered: true, showWelcome: false }); localStorage.setItem('myumlmaker.settings.v1', JSON.stringify(s)); localStorage.setItem('myumlmaker.session.v1', JSON.stringify({ files: [${JSON.stringify(sample)}] })); return 1; })()`);
       const a = await facts(one);
       assert.deepEqual(a.instance, { first: true, others: 0 }, 'the first copy knows it is the first');
       second = spawn(exe, [], { env, stdio: 'ignore' });
@@ -871,34 +903,57 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.equal(await app.main.eval(`!document.querySelector('#start-page').hidden`), true, 'and the start page shows');
     await noErrorPopup(app, 'diagram tabs');
   } },
-  { group: '프로젝트·탭', name: '다이어그램 종류 탭: 누르면 그 종류를 열거나 만들고 도구 상자가 그 도구로 바뀜, + 는 같은 종류 하나 더 (실제 마우스)', async run(app) {
+  { group: '프로젝트·탭', name: '탭은 한 줄(다이어그램 탭 + "+", 프로젝트 이름은 제목 표시줄), + 는 새 다이어그램 창에서 고른 종류 하나만 추가 (실제 마우스·키보드)', async run(app) {
     await freshProject(app);
-    const click = async (selector) => { const p = await app.main.center(selector); await app.main.realClick(p.x, p.y); await sleep(350); };
-    const info = await app.main.eval(`(() => { const t = document.querySelector('.type-tabs'); const r = t.getBoundingClientRect(); const c = document.querySelector('.canvas-scroll').getBoundingClientRect(); return { shown: !t.hidden && r.height > 10, above: r.bottom <= c.top + 1, families: [...t.querySelectorAll('.type-family')].map((f) => f.dataset.typeGroup), active: t.querySelector('.type-tab.active')?.dataset.diagramType }; })()`);
-    assert.ok(info.shown && info.above, `type tabs above the canvas ${JSON.stringify(info)}`);
-    assert.ok(info.families.includes('umlStructure') && info.families.includes('umlBehavior') && info.families.length >= 10, JSON.stringify(info.families));
-    assert.equal(info.active, 'UMLClassDiagram', 'the open diagram type is marked');
-    const diagrams = () => W(app, `M.elementsWhere(a.activeDoc().project, (e) => M.isDiagram(e)).length`);
+    const info = await app.main.eval(`(() => { const t = document.querySelector('#tabs'); const r = t.getBoundingClientRect(); const c = document.querySelector('.canvas-scroll').getBoundingClientRect(); const tops = new Set([...t.querySelectorAll('.tab')].map((e) => Math.round(e.getBoundingClientRect().top))); const add = t.querySelector('.tab-add').getBoundingClientRect(); return { rows: tops.size + (add.top >= r.top && add.bottom <= r.bottom ? 0 : 1), height: r.height, above: r.bottom <= c.top + 1, typeTabs: document.querySelectorAll('.type-tabs, .type-tab, .type-family').length }; })()`);
+    assert.equal(info.typeTabs, 0, 'no diagram-type tab rows');
+    assert.ok(info.rows === 1 && info.height < 44 && info.above, `one row of tabs above the canvas ${JSON.stringify(info)}`);
+    const diagrams = () => W(app, `M.elementsWhere(a.activeDoc().project, (e) => M.isDiagram(e)).map((d) => d._type)`);
     const before = await diagrams();
-    await click('.type-family[data-type-group="umlBehavior"]');
-    assert.ok(await app.main.eval(`Boolean(document.querySelector('.type-tab[data-diagram-type="UMLSequenceDiagram"]'))`), 'the family shows its types');
-    await click('.type-tab[data-diagram-type="UMLSequenceDiagram"]');
-    assert.equal(await W(app, 'api.diagram()._type'), 'UMLSequenceDiagram', 'a sequence diagram opens');
-    assert.equal(await diagrams(), before + 1, 'created, since the project had none');
+    // Cancel: nothing is added.
+    await clickOn(app.main, '#tabs .tab-add');
+    let page = await app.popup('diagram');
+    await expectPopupWindow(app, page, 'diagram');
+    const shown = await page.eval(`({ groups: [...document.querySelectorAll('[data-action="picker-group"]')].map((b) => b.dataset.value), active: document.querySelector('.dg-card.active')?.dataset.value, cards: document.querySelectorAll('.dg-card').length, overflow: document.querySelector('.dg-grid').scrollHeight > document.querySelector('.dg-grid').clientHeight + 1 })`);
+    assert.ok(shown.groups.includes('umlStructure') && shown.groups.includes('umlBehavior') && shown.groups.length >= 10, JSON.stringify(shown.groups));
+    assert.equal(shown.active, 'UMLClassDiagram', 'the open diagram type is chosen at first');
+    assert.ok(shown.cards >= 7 && !shown.overflow, `the group's cards fit without scrolling ${JSON.stringify(shown)}`);
+    await clickOn(page, '[data-action="close"]');
+    page.close();
+    await sleep(400);
+    assert.deepEqual(await diagrams(), before, 'Cancel adds nothing');
+    // A sequence diagram: just that one is added and gets its tab; the toolbox shows its tools.
+    await addDiagramWithPicker(app, 'UMLSequenceDiagram', { name: '주문 흐름' });
+    assert.deepEqual(await diagrams(), [...before, 'UMLSequenceDiagram'], 'one diagram of the chosen type');
+    assert.equal(await W(app, 'api.diagram().name'), '주문 흐름', 'with the typed name');
     const tools = await W(app, `w.domain.toolboxFor('UMLSequenceDiagram').flatMap(([, , , list]) => list).map((t) => t.id)`);
-    const shown = await app.main.eval(`[...document.querySelectorAll('#left-panel .tool-item[data-tool]')].map((t) => t.dataset.tool)`);
-    assert.ok(shown.length > 3 && shown.every((id) => tools.includes(id)) && shown.includes('UMLLifeline'), `the toolbox shows the sequence tools ${JSON.stringify(shown.slice(0, 8))}`);
-    assert.ok(await app.main.eval(`Boolean(document.querySelector('#tabs [data-diagram-tab].active'))`), 'and the diagram has its tab');
-    await click('.type-family[data-type-group="umlStructure"]');
-    await click('.type-tab[data-diagram-type="UMLClassDiagram"]');
-    assert.equal(await W(app, 'api.diagram()._type'), 'UMLClassDiagram', 'back to the class diagram');
-    assert.equal(await diagrams(), before + 1, 'the existing one is opened, none created');
-    assert.ok(await app.main.eval(`Boolean(document.querySelector('#left-panel .tool-item[data-tool="UMLClass"]'))`), 'class tools again');
-    await click('.type-tabs .type-add');
-    assert.equal(await diagrams(), before + 2, '+ adds another diagram of the type');
-    assert.equal(await W(app, 'api.diagram()._type'), 'UMLClassDiagram');
-    assert.match(await app.main.eval(`document.querySelector('.type-tab[data-diagram-type="UMLClassDiagram"] .type-count')?.textContent ?? ''`), /^2$/, 'the type tab counts its diagrams');
-    await noErrorPopup(app, 'type tabs');
+    const toolbox = await app.main.eval(`[...document.querySelectorAll('#left-panel .tool-item[data-tool]')].map((t) => t.dataset.tool)`);
+    assert.ok(toolbox.length > 3 && toolbox.every((id) => tools.includes(id)) && toolbox.includes('UMLLifeline'), `the toolbox shows the sequence tools ${JSON.stringify(toolbox.slice(0, 8))}`);
+    assert.ok(await app.main.eval(`document.querySelector('#tabs [data-diagram-tab].active')?.textContent.includes('주문 흐름')`), 'and the diagram has its tab');
+    // Search and Enter: the ER diagram.
+    await clickOn(app.main, '#tabs .tab-add');
+    page = await app.popup('diagram');
+    await page.waitFor(`document.activeElement?.dataset.draft === 'query'`, { timeout: 3000, message: 'the search box has the focus' });
+    await page.type('ER');
+    await page.waitFor(`[...document.querySelectorAll('.dg-card')].some((c) => c.dataset.value === 'ERDDiagram')`, { timeout: 3000, message: 'the search finds the ER diagram' });
+    await clickOn(page, '[data-action="picker-type"][data-value="ERDDiagram"]');
+    await clickOn(page, '[data-draft="query"]');
+    await page.key('Enter');
+    page.close();
+    await app.main.waitFor(`window.__myumlmaker.api.diagram()?._type === 'ERDDiagram'`, { timeout: 5000, message: 'Enter creates the chosen diagram' });
+    assert.deepEqual(await diagrams(), [...before, 'UMLSequenceDiagram', 'ERDDiagram']);
+    // Double click on a card creates it at once.
+    await clickOn(app.main, '#tabs .tab-add');
+    page = await app.popup('diagram');
+    await page.waitFor(`Boolean(document.querySelector('.dg-card'))`);
+    await clickOn(page, '[data-action="picker-group"][data-value="mindmap"]');
+    const card = await page.center('[data-action="picker-type"][data-value="MMMindmapDiagram"]');
+    await page.realClick(card.x, card.y);
+    await page.realClick(card.x, card.y, { clickCount: 2 });
+    page.close();
+    await app.main.waitFor(`window.__myumlmaker.api.diagram()?._type === 'MMMindmapDiagram'`, { timeout: 5000, message: 'a double click creates the diagram' });
+    assert.equal((await diagrams()).length, before.length + 3);
+    await noErrorPopup(app, 'new diagram popup');
   } },
   { group: '프로젝트·탭', name: '저장 안 한 프로젝트가 있을 때 다른 프로젝트를 열면 물어봄: 취소하면 그대로, 저장 안 함이면 바뀜 (실제 마우스)', async run(app) {
     await freshSample(app);
@@ -923,7 +978,14 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     page = await askNew();
     await page.click('[data-value="discard"]');
     page.close();
+    const picker = await app.popup('diagram');
+    assert.equal(await picker.eval(`document.querySelector('.popup-head h2').textContent.trim()`), await W(app, `w.t('picker.projectTitle')`), 'then the first diagram of the new project is chosen');
+    await clickOn(picker, '[data-action="picker-group"][data-value="umlBehavior"]');
+    await clickOn(picker, '[data-action="picker-type"][data-value="UMLUseCaseDiagram"]');
+    await clickOn(picker, '[data-action="picker-create"]');
+    picker.close();
     await sleep(500);
+    assert.deepEqual(await W(app, `M.elementsWhere(a.activeDoc().project, (e) => M.isDiagram(e)).map((d) => d._type)`), ['UMLUseCaseDiagram'], 'the new project holds just the chosen diagram');
     assert.equal(await W(app, 'w.state.docs.length'), 1, 'still one project');
     assert.notEqual(await W(app, 'a.activeDoc().id'), id, "Don't save: replaced by the new project");
     assert.equal(await W(app, 'a.activeDoc().dirty'), false);
@@ -1855,39 +1917,32 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
   drawCase('새 종류 1 (네트워크·간트·WBS·타임라인·ArchiMate)', ['NetworkDiagram', 'GanttDiagram', 'WBSDiagram', 'TimelineDiagram', 'ArchiMateDiagram']),
   drawCase('새 종류 2 (JSON·YAML·EBNF·정규식)', ['JSONDiagram', 'YAMLDiagram', 'EBNFDiagram', 'RegexDiagram']),
   drawCase('새 종류 3 (사용자 스토리 맵·고객 여정 지도)', ['UserStoryMapDiagram', 'CustomerJourneyDiagram']),
-  { group: '다이어그램 종류', name: '종류 탭은 40종, 줄마다 한 줄이고 좁은 창에서는 ‹ › 와 휠로 옆으로 넘김 (실제 마우스)', async run(app) {
-    await freshProject(app);
+  { group: '다이어그램 종류', name: '다이어그램이 많아도 탭은 한 줄이고 좁은 창에서는 ‹ › 로 옆으로 넘김; 새 다이어그램 창은 40종을 모두 고를 수 있음 (실제 마우스)', async run(app) {
+    await freshSample(app);
     const count = await app.main.eval(`import('/src/domain/toolbox.js').then((m) => m.DIAGRAM_TABS.flatMap((g) => g[3]).length)`);
-    assert.equal(count, 40, 'every diagram type has a type tab');
-    const families = await app.main.eval(`[...document.querySelectorAll('.type-family')].map((f) => f.dataset.typeGroup)`);
-    for (const group of ['project', 'archimate', 'data', 'cloud']) assert.ok(families.includes(group), `${group} group ${JSON.stringify(families)}`);
+    assert.equal(count, 40, 'every diagram type is in a group of the popup');
     const min = await W(app, 'w.state.minWidth');
     await resize(app, min, 700);
     await sleep(700);
     try {
-      const rows = () => app.main.eval(`[...document.querySelectorAll('.type-tabs .type-row')].map((row) => { const s = row.querySelector('.type-strip'); const n = row.querySelector('.type-nav'); const tops = new Set([...s.children].map((c) => Math.round(c.getBoundingClientRect().top))); return { overflow: row.classList.contains('overflow'), nav: getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().width > 0, lines: tops.size, scroll: s.scrollLeft, bar: s.offsetHeight - s.clientHeight }; })`);
-      const before = await rows();
-      assert.ok(before[0].overflow && before[0].nav, `the group row overflows at ${min}px and shows ‹ › ${JSON.stringify(before)}`);
-      assert.ok(before.every((r) => r.lines <= 1 && r.bar === 0), `each row is one line without a scroll bar ${JSON.stringify(before)}`);
-      await clickOn(app.main, '.type-tabs .type-row:first-child [data-type-scroll="1"]');
+      const row = () => app.main.eval(`(() => { const t = document.querySelector('#tabs'); const s = t.querySelector('.tab-strip'); const tops = new Set([...t.querySelectorAll('.tab')].map((c) => Math.round(c.getBoundingClientRect().top))); return { overflow: t.classList.contains('overflow'), lines: tops.size, scroll: s.scrollLeft, height: t.getBoundingClientRect().height }; })()`);
+      const before = await row();
+      assert.ok(before.overflow && before.lines === 1 && before.height < 44, `the sample's tabs stay on one row at ${min}px and show ‹ › ${JSON.stringify(before)}`);
+      await clickOn(app.main, '#tabs [data-tab-scroll="1"]');
       await sleep(250);
-      const right = await rows();
-      assert.ok(right[0].scroll > before[0].scroll, `› scrolls the groups ${before[0].scroll} → ${right[0].scroll}`);
-      await clickOn(app.main, '.type-tabs .type-row:first-child [data-type-scroll="-1"]');
+      const right = await row();
+      assert.ok(right.scroll > before.scroll, `› scrolls the tabs ${before.scroll} → ${right.scroll}`);
+      await clickOn(app.main, '#tabs [data-tab-scroll="-1"]');
       await sleep(250);
-      assert.ok((await rows())[0].scroll < right[0].scroll, '‹ scrolls them back');
-      const strip = await app.main.center('.type-tabs .type-row:first-child .type-strip');
-      const scrolled = (await rows())[0].scroll;
-      await app.main.wheel(strip.x, strip.y, 200);
-      await sleep(250);
-      assert.ok((await rows())[0].scroll > scrolled, 'the mouse wheel scrolls the row sideways');
-      // The last group can still be reached and opened.
-      await openTypeByTabs(app, 'RegexDiagram');
+      assert.ok((await row()).scroll < right.scroll, '‹ scrolls them back');
+      // The last group can still be reached in the popup and its diagram added.
+      await addDiagramWithPicker(app, 'RegexDiagram');
+      assert.equal((await row()).lines, 1, 'still one row');
     } finally {
       await resize(app, 1480, 900);
       await sleep(400);
     }
-    await noErrorPopup(app, 'type tab overflow');
+    await noErrorPopup(app, 'tab overflow');
   } },
 
   // ───────────────────────── requirements, traceability, baselines, documents, XMI, PlantUML
@@ -2262,7 +2317,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     assert.ok(fs.existsSync(file));
     assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).project, before, 'the file holds the project');
     assert.equal(await W(app, 'a.activeDoc().dirty'), false);
-    assert.equal(await app.main.eval(`document.querySelector('#tabs .tab-project .tab-name').textContent`), 'saved.myuml', 'the project is named after the file');
+    assert.equal(await app.main.eval(`document.querySelector('#menubar .app-brand-project-name').textContent`), 'saved.myuml', 'the project is named after the file');
     await W(app, closeAllDocs);
     await W(app, `a.openPath(${JSON.stringify(file)}).then(() => 1)`);
     await sleep(400);
@@ -2288,7 +2343,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await app.main.waitFor(`window.__myumlmaker.actions.activeDoc()?.path?.endsWith('one.myuml')`, { timeout: 10000 });
     await sleep(400);
     assert.equal(await W(app, 'w.state.docs.length'), 1, 'one project');
-    assert.equal(await app.main.eval(`document.querySelector('#tabs .tab-project .tab-name').textContent`), 'one.myuml', 'the first file is opened');
+    assert.equal(await app.main.eval(`document.querySelector('#menubar .app-brand-project-name').textContent`), 'one.myuml', 'the first file is opened');
     assert.equal(await W(app, 'api.diagram()._type'), 'UMLClassDiagram', 'its diagram is shown');
     assert.ok(!(await W(app, 'w.state.recent.some((r) => r.path.endsWith("two.myuml"))')), 'the second file was not opened');
   } },
@@ -2486,7 +2541,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
     await freshSample(app);
     await W(app, `(a.change('op.edit', (p) => { p.name = '바뀜'; }), 1)`);
     assert.equal(await W(app, 'a.activeDoc().dirty'), true);
-    assert.ok(await app.main.eval(`(() => { const p = document.querySelector('#tabs .tab-project'); return p.classList.contains('dirty') && getComputedStyle(p.querySelector('.tab-dirty')).display !== 'none'; })()`), 'the project name shows ● for the change');
+    assert.ok(await app.main.eval(`(() => { const p = document.querySelector('#menubar .app-brand-project'); return p.classList.contains('dirty') && getComputedStyle(p.querySelector('.app-brand-dirty')).display !== 'none'; })()`), 'the project name shows ● for the change');
     const answer = W(app, 'a.confirmExit()');
     const page = await app.popup('confirm');
     await expectPopupWindow(app, page, 'confirm');
@@ -2789,7 +2844,7 @@ for($i=1;$i -le 10;$i++){[void][M]::SetCursorPos($p.X+12*$i,$p.Y+8*$i);Start-Sle
       return { menu, ids, place };
     };
     let { menu, ids, place } = await openHelp();
-    assert.deepEqual(ids, ['tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', 'settings', 'about'], 'the Help menu items');
+    assert.deepEqual(ids, ['welcome', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', 'settings', 'about'], 'the Help menu items');
     const button = await app.main.eval(`(() => { const r = document.querySelector('[data-start="help-menu"]').getBoundingClientRect(); return { bottom: window.screenY + r.bottom }; })()`);
     assert.ok(place.y >= button.bottom - 40, `the menu opens below the button ${JSON.stringify({ place, button })}`);
     const opened = [];

@@ -13,9 +13,9 @@
 // results are written to test-results/results.json.
 //
 // Database servers for the "db" category come from the git-ignored
-// test/db.local.json: { "mysql": "mysql://user:pw@host:port", "postgres": "postgres://…" }
-// (or the MYUMLMAKER_TEST_MYSQL_URL / MYUMLMAKER_TEST_POSTGRES_URL variables). Without a MySQL/MariaDB
-// server that test is skipped; without a PostgreSQL URL a temporary PostgreSQL server is started.
+// test/db.local.json: { "mysql": "mysql://user:pw@host:port", "postgres": "postgres://…", "mssql": "mssql://sa:pw@host:1433" }
+// (or the MYUMLMAKER_TEST_MYSQL_URL / _POSTGRES_URL / _MSSQL_URL variables). Without a MySQL/MariaDB or SQL Server
+// server its test is skipped; without a PostgreSQL URL a temporary PostgreSQL server is started.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -37,7 +37,7 @@ const CATEGORIES = [
   { id: 'conformance', title: '기능 비교 (StarUML · Enterprise Architect · PlantUML)', subtitle: '각 도구의 다이어그램과 기능을 하나씩 확인', tint: c.teal, run: runJs('conformance') },
   { id: 'package', title: '패키징 · 아이콘 · 문서', subtitle: '3D 아이콘 · 파일 형식 등록 · 설치 언어 · 사용자 데이터 삭제 질문 · 기존 설치 완전 제거 · 여러 실행 · 문서 포함', tint: c.purple, run: runJs('static') },
   { id: 'rust', title: 'Rust 단위 테스트', subtitle: '파일 입출력·진행률 · 글꼴 · 창 위치 · 여러 실행(첫 실행 판별 · 창 비켜 열기)', tint: c.magenta, run: (report) => runCargo(['test', '--lib'])(report) },
-  { id: 'db', title: 'DB 통합 테스트', subtitle: '실제 MariaDB/MySQL 서버 (test/db.local.json) · 임시 PostgreSQL 서버 · 프로젝트 저장/읽기/목록/삭제', tint: c.green, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
+  { id: 'db', title: 'DB 통합 테스트', subtitle: '실제 MariaDB/MySQL · SQL Server 서버 (test/db.local.json) · 임시 PostgreSQL 서버 · 프로젝트 저장/읽기/목록/삭제', tint: c.green, run: (report) => runCargo(['test', '--test', 'db_integration'], { nocapture: true, env: dbEnv() })(report) },
   { id: 'web', title: 'E2E · 웹', subtitle: '웹 빌드를 헤드리스 Edge/Chrome 으로 조작 (CDP)', tint: c.blue, run: runWeb },
   { id: 'desktop', title: 'E2E · 데스크톱 GUI', subtitle: '실제 앱 실행 후 메뉴·툴바·팝업·다이어그램·모델 탐색기·파일·인쇄·설정 조작 (CDP + Win32)', tint: c.yellow, run: runDesktop },
   { id: 'tutorial', title: '튜토리얼', subtitle: '실제 앱에서 튜토리얼의 모든 단계를 실행 (오류 없음)', tint: c.teal, run: runTutorial },
@@ -67,8 +67,9 @@ function dbEnv() {
     const local = JSON.parse(fs.readFileSync(path.join(root, 'test', 'db.local.json'), 'utf8'));
     if (local.mysql) env.MYUMLMAKER_TEST_MYSQL_URL = local.mysql;
     if (local.postgres) env.MYUMLMAKER_TEST_POSTGRES_URL = local.postgres;
+    if (local.mssql) env.MYUMLMAKER_TEST_MSSQL_URL = local.mssql;
   } catch { /* no local servers */ }
-  for (const key of ['MYUMLMAKER_TEST_MYSQL_URL', 'MYUMLMAKER_TEST_POSTGRES_URL']) if (process.env[key]) env[key] = process.env[key];
+  for (const key of ['MYUMLMAKER_TEST_MYSQL_URL', 'MYUMLMAKER_TEST_POSTGRES_URL', 'MYUMLMAKER_TEST_MSSQL_URL']) if (process.env[key]) env[key] = process.env[key];
   return env;
 }
 

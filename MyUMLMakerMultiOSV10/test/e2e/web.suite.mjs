@@ -58,9 +58,11 @@ export const cases = [
     assert.equal(await app.main.eval('document.title'), `MyUMLMaker v${VERSION}`);
     assert.ok(await app.main.eval(`Boolean(document.querySelector('link[rel="icon"]'))`));
   } },
-  { group: '페이지', name: '처음 열면 튜토리얼 안내 (프레임 팝업) → 나중에', async run(app) {
+  { group: '페이지', name: '처음 열면 튜토리얼 안내 (프레임 팝업): 시작할 때 보이기 끄고 → 나중에', async run(app) {
     await app.waitFrame('welcome', `document.querySelector('.popup-head h2 svg')`);
     assert.match(await app.frame('welcome', `document.querySelector('.popup').innerText`), /튜토리얼/);
+    await app.frame('welcome', `(document.querySelector('[data-toggle="showWelcome"]').click(), 1)`);
+    await app.main.waitFor(`window.__myumlmaker.state.settings.showWelcome === false`, { timeout: 3000, message: 'the box turns the welcome at start off' });
     await app.frame('welcome', `(document.querySelector('[data-value="later"]').click(), 1)`);
     await app.main.waitFor(`!document.querySelector('.web-popup-welcome')`);
   } },
@@ -84,13 +86,13 @@ export const cases = [
       editorTabs: document.querySelectorAll('#editor-tabs .editor-tab').length,
       diagramTab: document.querySelector('#tabs .tab[data-diagram-tab].active')?.textContent.trim(),
       diagramTabs: document.querySelectorAll('#tabs .tab[data-diagram-tab]').length,
-      project: document.querySelector('#tabs .tab-project .tab-name')?.textContent,
+      project: document.querySelector('#menubar .app-brand-project-name')?.textContent,
       views: document.querySelectorAll('.canvas-svg [data-view]').length,
     })`);
     assert.ok(info.tools > 20 && info.tree > 3 && info.editorTabs === 4 && info.views > 10, JSON.stringify(info));
     assert.ok(info.diagramTab, 'the open diagram has a tab');
     assert.equal(info.diagramTabs, await W(app, 'M.elementsWhere(a.activeDoc().project, (e) => M.isDiagram(e)).length'), 'a tab per diagram');
-    assert.ok(info.project, 'the project name before the diagram tabs');
+    assert.ok(info.project, 'the project name in the title bar');
   } },
   { group: '다이어그램', name: '클래스를 누르면 선택·탐색기에서 선택·속성 표시 (실제 마우스)', async run(app) {
     await freshSample(app);

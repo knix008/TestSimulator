@@ -36,7 +36,7 @@
 | `├ meta.js` | 메타모델: 요소 타입 316개(`TYPES`, 다이어그램 타입 포함, UML 2와 ERD · 순서도 · DFD · SysML · BPMN · C4 · 마인드맵(관계선 `MMRelationship` · 경계 `MMBoundary` 포함) · 와이어프레임 · 클라우드 · 간트·WBS·타임라인 · ArchiMate · 네트워크 · 애자일·UX(`UXModel`, 스토리 맵 `US*`, 고객 여정 `CJ*`) · JSON·YAML·EBNF·정규식), 다이어그램 40종(`DIAGRAM_TYPES`, `DIAGRAM_FAMILIES` 15계열), 요구사항 속성 값(`REQUIREMENT_KINDS` · `REQUIREMENT_STATUSES` · `REQUIREMENT_PRIORITIES` · `VERIFY_METHODS`), 타입별 필드(속성 패널을 만듦), 자식이 들어갈 컬렉션(`collectionFor`), 모델 없는 주석 뷰(`VIEW_ONLY`), 뷰의 `shape` |
 | `├ model.js` | 프로젝트 트리와 모든 모델 편집: id(`newId`), `$ref` 참조, 색인(`buildIndex`), 요소·다이어그램 추가/삭제/이동, 관계 끝, 뷰 생성(`createNodeView`/`createEdgeView`), 찾기, 통계, 복제(`cloneWithNewIds`) |
 | `├ edit.js` | 모델과 뷰를 함께 바꾸는 편집: 도구로 요소+뷰 만들기(알맞은 소유자 찾기), 두 뷰 사이 관계 그리기, 기존 요소 보이기, 관련 클래스 빠른 추가(`RELATED`), 이동·맞춤·분배·같은 크기·순서, 패키지에 놓으면 소유자 바꾸기 |
-| `├ toolbox.js` | 다이어그램 종류별 도구 상자(`TOOLBOX`, 40종): 노드·간선·주석 도구(같은 타입에 다른 기본값을 준 도구도 있음: 떠 있는 토픽, 생각·고통 지점·기회·아이디어 카드). `DIAGRAM_TABS`(다이어그램 종류 탭의 묶음 15개 — UML 구조 · UML 행위 · ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 프로젝트 · ArchiMate · 애자일·UX · 데이터 — 와 그 종류, 모든 종류가 정확히 한 묶음에)와 `diagramTabOf(type)` |
+| `├ toolbox.js` | 다이어그램 종류별 도구 상자(`TOOLBOX`, 40종): 노드·간선·주석 도구(같은 타입에 다른 기본값을 준 도구도 있음: 떠 있는 토픽, 생각·고통 지점·기회·아이디어 카드). `DIAGRAM_TABS`(새 다이어그램 창의 묶음 15개 — UML 구조 · UML 행위 · ER · 순서도 · 데이터 흐름 · SysML · BPMN · C4 · 마인드맵 · 와이어프레임 · 클라우드 · 프로젝트 · ArchiMate · 애자일·UX · 데이터 — 와 그 종류, 모든 종류가 정확히 한 묶음에)와 `diagramTabOf(type)` |
 | `├ labels.js` | UML 표기 문자열(`+ name: Type [0..*] = 1`, 오퍼레이션 서명, «스테레오타입», 메시지·전이 레이블)과 그 역(빠른 편집 입력 → 필드: `parseAttribute`, `parseOperation`) |
 | `├ layout.js` | 자동 레이아웃(층 배치, 방향 `TB`/`BT`/`LR`/`RL`, 일반화는 위로)과 시퀀스 다이어그램 정리 |
 | `├ validate.js` | 모델 검증 규칙 34개(`RULES`, 오류/경고, 한/영 메시지 — 날짜·기간·데이터 문법, 요구사항 충족·검증·ID 중복, ERD 중복 열·엔터티·열 타입·외래 키 타입·관계의 외래 키 포함)와 `validate`(앱의 색인을 받아 다시 만들지 않음), `summarize`, `sqlTypeKey` |
@@ -59,7 +59,7 @@
 | `├ cloud.js` | AWS · Azure · Google Cloud 서비스 목록과 그룹 종류(타일 색만, 공급자 그림 없음) |
 | `├ settings.js`, `recent.js` | 설정 기본값·검증·저장(localStorage), DB 연결 설정, 설치 후 초기화, 최근 파일·폴더 10개 |
 | `src/render/` | `notation.js`(뷰 상자, 시퀀스 기하, 선 경로와 UML 장식, SVG, `renderDiagramSvg`, `diagramThumbnail`, 다이어그램 색 구성 `DIAGRAM_THEMES`), `shapes.js`(`SHAPES`: `shape`마다 `size`/`draw`/`clip`, 145종 — `shapes-more.js`의 간트 막대·WBS·타임라인·ArchiMate·네트워크·JSON/YAML 나무 표·철도 다이어그램·스토리 맵 카드와 릴리스 띠·고객 여정 단계/행/카드/감정을 합침. 날짜를 따르는 뷰는 `place`가 위치를 정함), `text.js`(이스케이프, 폭 추정, 줄바꿈) |
-| `src/views/diagram.js` | `DiagramView`: 다이어그램 편집기(마우스 조작 전부, 제자리 편집, 빠른 버튼, 확대·이동, 눈금자·격자, 다이어그램 종류 탭 `renderTypeTabs`, 시뮬레이션 프레임을 `.canvas-sim` 층에 그리는 `drawSimulation`) |
+| `src/views/diagram.js` | `DiagramView`: 다이어그램 편집기(마우스 조작 전부, 제자리 편집, 빠른 버튼, 확대·이동, 눈금자·격자, 시뮬레이션 프레임을 `.canvas-sim` 층에 그리는 `drawSimulation`) |
 | `src/ui/` | `explorer.js`(`ModelExplorer`), `editors.js`(속성·스타일·설명·태그와 제약 패널), `startpage.js`, `tutorial.js`(`CHAPTERS` · `STEPS`), `background.js`(움직이는 배경 20종), `simulation.js`(`SimulationController`: BPMN 시뮬레이션 막대 — 재생·한 단계·처음부터·속도·100회 분석·닫기·상태 줄 — 와 흐름을 따라 움직이는 토큰 애니메이션, `bpmnsim.js`를 씀), `dom.js` |
 | `src/print/render.js` | 인쇄용 SVG 용지(맞춤·실제 크기·배율 나눠 찍기, 머리글·바닥글, 테마와 무관한 흰 바탕) |
 | `src/export/` | `image-encode.js`(BMP·TIFF 인코더, 그림 크기 제한), `files.js`(ZIP 작성기, base64, JPEG 쪽 → PDF), `docx.js`(Word 작성기: 스타일, 열 때 갱신되는 목차 필드, 표, PNG 그림, 쪽 번호), `report-pdf.js`(문서 블록 → A4 SVG 쪽, 앱이 JPEG로 그려 PDF로 묶음) |
@@ -119,11 +119,11 @@
 
 ### 4. 다이어그램 편집기 (`views/diagram.js`)
 
-`DiagramView`는 끝없는 캔버스와 눈금을 그리고, 선택(클릭, Shift/Ctrl+클릭, 영역), 이동(눈금 맞춤, 컨테이너는 안의 뷰와 함께, 패키지에 놓으면 요소 소유자 변경), 크기 조절, 꺾임점(점 끌기, 선분 가운데를 끌어 추가, 두 번 클릭해 삭제), 선 끝 다시 붙이기, 시퀀스 메시지 위아래 이동, 도구(클릭·끌기로 노드, 뷰에서 뷰로 끌어 선), 제자리 편집(이름, 메모, 클래스의 빠른 편집: 이름·속성·오퍼레이션을 텍스트로), 선택한 클래스 아래 빠른 버튼(+속성, +오퍼레이션, 관련 클래스 …), 확대·이동, 다이어그램 종류 탭을 처리합니다. 끄는 동안은 뷰를 바로 바꾸고(`moveViewsLive`) 놓을 때 `commitViews`로 실행 취소 한 단계를 만듭니다.
+`DiagramView`는 끝없는 캔버스와 눈금을 그리고, 선택(클릭, Shift/Ctrl+클릭, 영역), 이동(눈금 맞춤, 컨테이너는 안의 뷰와 함께, 패키지에 놓으면 요소 소유자 변경), 크기 조절, 꺾임점(점 끌기, 선분 가운데를 끌어 추가, 두 번 클릭해 삭제), 선 끝 다시 붙이기, 시퀀스 메시지 위아래 이동, 도구(클릭·끌기로 노드, 뷰에서 뷰로 끌어 선), 제자리 편집(이름, 메모, 클래스의 빠른 편집: 이름·속성·오퍼레이션을 텍스트로), 선택한 클래스 아래 빠른 버튼(+속성, +오퍼레이션, 관련 클래스 …), 확대·이동을 처리합니다. 끄는 동안은 뷰를 바로 바꾸고(`moveViewsLive`) 놓을 때 `commitViews`로 실행 취소 한 단계를 만듭니다.
 
 - **격자**(`drawGrid`): 격자 간격(`gridSize`, 5–40)은 **화면 픽셀**입니다. `gridStep()`이 확대 비율에 맞는 다이어그램 좌표 간격(정수)을 골라 화면에서 늘 같은 간격으로 보이게 하고, 확대하면 더 촘촘하게·축소하면 더 성기게 다시 그립니다. SVG 패턴 하나에 가는 선(간격마다, 화면에서 5px 이상 떨어질 때만)과 진한 선(5칸마다, 5×5)을 그리며 색은 다이어그램 색 구성(`grid`, `gridMajor`)을 따릅니다. 격자 맞추기(`snap`)와 방향키 이동도 같은 `gridStep()`을 쓰므로, 10px 격자는 200%에서 5, 50%에서 20 단위로 맞춰집니다.
 - **눈금자**(`drawRulers`): 위쪽·왼쪽 가장자리에 다이어그램 좌표를 그립니다. 눈금은 격자선에, 숫자는 진한 격자선에(붐비면 2·4…칸마다) 붙고, 포인터 위치(`onHover`)를 표시합니다. 설정 `showRulers`(보기 › 표시 › 눈금자, 설정 › 다이어그램).
-- **다이어그램 종류 탭**(`renderTypeTabs`): `DIAGRAM_TABS`의 묶음 줄과 고른 묶음의 종류 줄(종류마다 다이어그램 수 배지), 끝에 지금 종류를 하나 더 만드는 **+**. 종류를 누르면 `app.openDiagramType(type)`이 `view.open`에서 마지막으로 연 그 종류의 다이어그램 → 첫 다이어그램 → 새 다이어그램 순으로 엽니다. 다이어그램 탭 자체는 `app.js`의 `renderTabs`가 그립니다([문서와 실행 취소](#문서와-실행-취소) 참고).
+- **탭 줄과 새 다이어그램 창**: `app.js`의 `renderTabs`가 다이어그램 탭만 한 줄로 그리고(넘치면 ‹ ›), 프로젝트 이름은 제목 표시줄(메뉴 막대 줄)의 `renderTitleProject`가 고정 폭으로 보여 줍니다. 끝의 **+**·**다이어그램 추가**는 `addDiagramAsk` → `pickDiagramType`으로 `popup.js`의 `diagram` 팝업(`DIAGRAM_TABS` 묶음 목록, 설명 카드, 검색, 이름)을 열고, 고른 종류 하나만 `addDiagram`으로 추가합니다. 빈 새 프로젝트(`newProjectAsk`)도 같은 팝업으로 첫 다이어그램을 고릅니다.
 - **마인드맵**: 접힌 토픽 아래의 뷰는 `mindmap.js`의 `hiddenViews`가 고른 대로 그리지 않고(접힌 토픽 옆에 숨은 토픽 수), 토픽을 더하거나 접으면 `layoutMindmap`이 다이어그램의 **맵 배치**대로 다시 배치합니다(`free`는 움직이지 않음). `Tab` · `Insert` · `Shift+Enter` · `Enter` · `Ctrl+.`은 `app.js`의 `mmAddChild` · `mmAddSibling` · `mmToggle` 명령입니다.
 - **시뮬레이션 층**: `.canvas-sim` SVG 층은 뷰 위에 얹히고, `SimulationController`가 넘기는 프레임(지나간·토큰이 있는·교착 요소의 테두리, 합류에서 기다리는 토큰 수, 흐름 위를 움직이는 토큰, 분석 결과의 도달 비율과 도달하지 않는 요소·쓰이지 않는 흐름)을 `drawSimulation`이 그립니다. 모델과 실행 취소 기록은 건드리지 않습니다.
 
@@ -219,7 +219,7 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 
 ## 데이터베이스
 
-`db.rs`: sqlx `Any` 드라이버로 SQLite · MariaDB · MySQL · PostgreSQL에 저장합니다. 테이블은 하나(`myumlmaker_projects (id, title, data, updated)`, 처음 쓸 때 생성)이고 `data`는 `.myuml` 파일 내용 그대로라 DB에서 읽은 프로젝트는 파일처럼 열립니다. 저장은 한 트랜잭션으로 행을 바꿉니다. PostgreSQL은 자리표시자를 `$1…`로 바꿉니다. 연결 설정은 **설정 › 데이터베이스**(`settings.js`의 `dbConfig`/`dbProblems`)에 있고, 비밀번호는 저장을 고르지 않으면 이번 실행에만 기억합니다. DB가 설정되어 있으면 **저장**이 파일과 DB에 함께 씁니다. 오류 문구에는 비밀번호를 넣지 않습니다.
+`db.rs`: sqlx `Any` 드라이버로 SQLite · MariaDB · MySQL · PostgreSQL에, tiberius(TDS, tokio TCP)로 SQL Server에 저장합니다(sqlx 0.8에는 MSSQL 드라이버가 없습니다). 테이블은 하나(`myumlmaker_projects (id, title, data, updated)`, 처음 쓸 때 생성)이고 `data`는 `.myuml` 파일 내용 그대로라 DB에서 읽은 프로젝트는 파일처럼 열립니다. 저장은 한 트랜잭션으로 행을 바꿉니다. PostgreSQL은 자리표시자를 `$1…`로, SQL Server는 `@P1…`로 바꾸고, SQL Server 표는 `IF OBJECT_ID(…) IS NULL CREATE TABLE`과 `NVARCHAR(MAX)`로 만듭니다. 연결 설정은 **설정 › 데이터베이스**(`settings.js`의 `dbConfig`/`dbProblems`)에 있고, 비밀번호는 저장을 고르지 않으면 이번 실행에만 기억합니다. DB가 설정되어 있으면 **저장**이 파일과 DB에 함께 씁니다. 오류 문구에는 비밀번호를 넣지 않습니다.
 
 ## 여러 실행
 
@@ -280,7 +280,7 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 | 기능 비교 (`conformance`) | `test/conformance/*.test.js` — 기능 하나가 테스트 하나인 점검표. `staruml.test.js`: StarUML의 모든 다이어그램 종류와 도구 상자, 모든 도구 그리기·잇기·렌더링, 다이어그램마다 `createNode`/`createEdge`로 그린 작은 다이어그램의 SVG 표기 검사(`canvas.js`: 뷰별 SVG, 글자, 끝 표시 판별), 빠른 편집 파서, 모델 탐색기 조작, 서식 옵션, 자동 레이아웃, 모델 조각, 언어별 코드 생성·역공학, 문서, 검증. `enterprise-architect.test.js`: 구현한 EA 기능 점검표(UML 2.5 · SysML · BPMN · ArchiMate 3 · 데이터 모델링 · 간트/WBS/타임라인 · 네트워크, 요구사항·관계 매트릭스, 기준선·비교·복원, 문서 템플릿·docx·PDF·HTML, XMI(EA · MagicDraw · Papyrus), 코드 엔지니어링, DB 저장, 검색); 없는 기능은 `{ todo }`. `plantuml.test.js`: PlantUML 언어 점검표(종류별 문법, 전처리기, skinparam/테마, 제목 — 가져오기 · 렌더링 · 내보내기 · 다시 가져오기). `npm test -- --only conformance`; `todo`는 결과에 "건너뜀 — TODO: 이유"로 나옴 |
 | 패키징 · 아이콘 · 문서 (`package`) | `test/static/` — 아이콘, 파일 형식 등록, 설치 언어·훅·재설치, 설정 초기화, 문서(`docs.test.js`: HTML·링크·그림·README 빌드 명령·한/영 장 구성·단축키 표·튜토리얼 단계 수와 그림 번호) |
 | Rust 단위 (`rust`) | `cargo test --lib` — 파일 입출력·진행률, 글꼴, 창 위치(여러 복사본이 함께 써도 깨지지 않음), 여러 실행(복사본 세기·창 비켜 열기), DB URL·SQLite |
-| DB 통합 (`db`) | `cargo test --test db_integration` — `test/db.local.json`의 MariaDB/MySQL(없으면 건너뜀), 임시 PostgreSQL 서버 |
+| DB 통합 (`db`) | `cargo test --test db_integration` — `test/db.local.json`의 MariaDB/MySQL · SQL Server(없으면 건너뜀), 임시 PostgreSQL 서버 |
 | E2E 웹 (`web`) | 웹 빌드를 헤드리스 Edge/Chrome으로 조작 (`test/e2e/web.harness.mjs`, `web.suite.mjs`, CDP 실제 포인터 이벤트) |
 | E2E 데스크톱 GUI (`desktop`) | 실제 앱을 띄워 메뉴·툴바·팝업·다이어그램·모델 탐색기·파일·인쇄·설정을 조작 (`test/e2e/harness.mjs`, `desktop.suite.mjs`, WebView2 CDP + Win32 `dialogs.ps1`; 팝업 정렬·잘림은 `align-check.mjs`·`clip-check.mjs`) |
 | 튜토리얼 (`tutorial`) | 모든 단계가 오류 없이 대상 요소를 표시하는지, 끝나면 설정·화면이 돌아오는지 |
@@ -309,6 +309,6 @@ Rust 패닉 훅이 메시지·위치·스레드·백트레이스를 데이터 �
 | `MYUMLMAKER_OPEN_LOG` | 문서·링크를 여는 대신 경로를 이 파일에 기록 |
 | `MYUMLMAKER_NO_OPEN` | 문서·링크를 열지 않음 |
 | `MYUMLMAKER_TUTORIAL_VIDEO` | 튜토리얼 동영상 파일 대신 쓸 경로(없는 경로면 "동영상이 없음" 안내 확인) |
-| `MYUMLMAKER_TEST_MYSQL_URL`, `MYUMLMAKER_TEST_POSTGRES_URL` | DB 통합 테스트 서버(`test/db.local.json` 대신) |
+| `MYUMLMAKER_TEST_MYSQL_URL`, `MYUMLMAKER_TEST_POSTGRES_URL`, `MYUMLMAKER_TEST_MSSQL_URL` | DB 통합 테스트 서버(`test/db.local.json` 대신) |
 
 WebView2의 CDP 포트와 사용자 데이터 폴더는 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, `WEBVIEW2_USER_DATA_FOLDER`로 테스트마다 따로 잡아 사용자의 설정·최근 기록을 건드리지 않습니다.

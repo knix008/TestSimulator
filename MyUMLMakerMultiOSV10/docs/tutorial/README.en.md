@@ -85,11 +85,11 @@ Add any of the 15 UML diagrams, ERD, flowchart, DFD, four SysML diagrams, BPMN, 
 
 ![Adding diagrams](images/10-addDiagram.jpg)
 
-### 11. Diagram type tabs
+### 11. Choosing a diagram
 
 Pick a group in the upper row (UML Structure, UML Behavior, ER, SysML, BPMN …) and a type in the lower row. Its diagram opens (a new one when there is none) and the Toolbox shows just the tools that diagram needs. The number is how many diagrams of that type there are.
 
-![Diagram type tabs](images/11-diagramTypes.jpg)
+![Choosing a diagram](images/11-diagramTypes.jpg)
 
 ### 12. The editors
 

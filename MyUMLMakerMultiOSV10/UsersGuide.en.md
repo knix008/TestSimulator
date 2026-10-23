@@ -10,7 +10,7 @@ This guide is organised by task. Menu and command names are written exactly as t
 
 ### First start
 
-On the first start the **Welcome to MyUMLMaker** window opens. It explains that the tutorial uses a sample project to show every feature in turn, from the Model Explorer and diagrams to quick edit, relationships, formatting, layout, code generation, exports and settings, and says where to find the tutorial, the sample project and the user's guide.
+At start the **Welcome to MyUMLMaker** window opens. It explains that the tutorial uses a sample project to show every feature in turn, from the Model Explorer and diagrams to quick edit, relationships, formatting, layout, code generation, exports and settings, and says where to find the tutorial, the sample project and the user's guide.
 
 ![The welcome window and the start page](docs/tutorial/images/01-welcome.jpg)
 
@@ -20,7 +20,7 @@ On the first start the **Welcome to MyUMLMaker** window opens. It explains that 
 | **Open the sample** | Opens the "Online Shop" sample project |
 | **Later** | Closes the window. The tutorial is always at **Help › Tutorial** (`F11`) |
 
-The welcome window shows only once. You can run several MyUMLMaker desktop apps at once: every start opens one more window (see [Running several windows](#running-several-windows)).
+Turn off **Show this window at start** at its bottom and it no longer opens at start. **Help › Welcome window** opens it any time, and **Settings › Start page › Show the welcome window at start** turns it on again. You can run several MyUMLMaker desktop apps at once: every start opens one more window (see [Running several windows](#running-several-windows)).
 
 ### Start page
 
@@ -70,7 +70,7 @@ Pick a template tile on the start page or **File › New from template**. Each t
 | **User Story Map** | Activities, steps, stories, releases |
 | **Customer Journey Map** | Stages, rows, emotion curve, persona |
 
-**New project** on the toolbar (`Ctrl+N`) makes a blank project. Only one project is open at a time, so a new project, a template or the sample replaces the current project. When the current project has unsaved changes, you are asked first: **Save** · **Don't save** · **Cancel** (see [Unsaved changes](#unsaved-changes)). A project made from a template has no file yet, so the first save asks for a file name.
+**New project** on the toolbar (`Ctrl+N`) makes a blank project: first pick its first diagram in the [New diagram popup](#new-diagram-popup), and the project holds just that diagram. Only one project is open at a time, so a new project, a template or the sample replaces the current project. When the current project has unsaved changes, you are asked first: **Save** · **Don't save** · **Cancel** (see [Unsaved changes](#unsaved-changes)). A project made from a template has no file yet, so the first save asks for a file name.
 
 ### The sample project
 
@@ -163,7 +163,7 @@ A recording of the whole tutorial (71 steps) on auto play. The **Tutorial video*
 
 ## The screen
 
-From the top there are the menu bar and the **Toolbar** (one row). Below them, the **Toolbox** is on the left, and the **Model Explorer** (top) and the editors (bottom) are on the right. In the middle, from the top, are the row with the project name and the **diagram tabs**, the two rows of **diagram type tabs**, and the diagram with rulers along its top and left edges. At the very bottom is the **Status bar**. Dragging the splitters between the panels changes their width, and dragging the horizontal splitter between the Model Explorer and the editors changes how the height is shared. Dragging the bottom right corner of the window resizes the window. The window cannot be made narrower than the width that keeps every toolbar button and menu visible.
+From the top there are the menu bar (which is also the title bar: program name · version · the open project's name) and the **Toolbar** (one row). Below them, the **Toolbox** is on the left, and the **Model Explorer** (top) and the editors (bottom) are on the right. In the middle, at the top, is the one row holding only the **diagram tabs**, and under it the diagram with rulers along its top and left edges. At the very bottom is the **Status bar**. Dragging the splitters between the panels changes their width, and dragging the horizontal splitter between the Model Explorer and the editors changes how the height is shared. Dragging the bottom right corner of the window resizes the window. The window cannot be made narrower than the width that keeps every toolbar button and menu visible.
 
 ### Menu bar
 
@@ -222,9 +222,7 @@ Type a number in the zoom box, or step it with the Up and Down arrow keys.
 
 ### The diagram tab row
 
-Only one project is open at a time. The row above the diagram starts with the project name; a ● after it means there are unsaved changes (pointing at it shows the file path). After it come **one tab for every diagram of the project**, in model order, and a **+** at the end that opens the **Add diagram** menu. Only when the tabs do not fit, ‹ › (**Scroll tabs left** · **Scroll tabs right**) appear at the right end to scroll the row. See [Diagram tabs](#diagram-tabs) for how to use them.
-
-The two rows under it are the **diagram type tabs**: pick a group in the upper row and a diagram type in the lower row (see [Diagram type tabs](#diagram-type-tabs)).
+Only one project is open at a time. Its name is in the title bar at the top, after the program name and version, in a fixed width (… when it is longer); a ● after it means there are unsaved changes (pointing at it shows the file path). The row above the diagram holds **only diagram tabs**: **one tab for every diagram of the project**, in model order, and a **+** at the end that opens the [New diagram popup](#new-diagram-popup). The tabs always stay on one row; only when they do not fit, ‹ › (**Scroll tabs left** · **Scroll tabs right**) appear at the right end to scroll the row. See [Diagram tabs](#diagram-tabs) for how to use them.
 
 **File › Close project** (`Ctrl+W`) closes the project and goes back to the start page.
 
@@ -324,11 +322,11 @@ The **Add diagram** · **Add element** buttons in the panel header put a new dia
 
 ### Adding diagrams
 
-Choose one from **Model › Add diagram**, **Add diagram** on the toolbar, or **+** in the Model Explorer header or at the end of the diagram tab row. The menu is grouped into UML · ERD · Flowchart · Data Flow · SysML · BPMN · C4 · Mind Map · Wireframe · Cloud · Project Management · ArchiMate · Network · Data · Agile & UX (40 kinds, see [Kinds of diagrams](#kinds-of-diagrams)).
+**Model › Add diagram**, **Add diagram** on the toolbar, or **+** in the Model Explorer header or at the end of the diagram tab row opens the [New diagram popup](#new-diagram-popup). Pick the diagram you want and **just that one diagram** is added to the project, with its own tab (40 kinds, see [Kinds of diagrams](#kinds-of-diagrams)).
 
 A new diagram is made under the package or model selected in the Model Explorer (else in the package of the current diagram) and opens at once. Owners that some kinds need are made automatically: sequence, communication and timing diagrams go inside an interaction, state machine diagrams inside a state machine, activity and interaction overview diagrams inside an activity, ER diagrams inside a data model, Gantt charts, WBS and timeline diagrams inside a project plan, ArchiMate diagrams inside an ArchiMate model, network diagrams inside a network model, JSON, YAML, EBNF and regex diagrams inside a data specification, and user story maps and customer journey maps inside an Agile & UX model.
 
-The **+** (**Add another {type}**) at the end of the [diagram type tabs](#diagram-type-tabs) makes one more diagram of the current diagram's type.
+A new blank project (**New project**, `Ctrl+N`) uses the same popup for its first diagram (titled **New Project — Choose the First Diagram**), and the project holds just the chosen diagram. **Cancel** in the popup makes nothing.
 
 ### Diagram tabs
 
@@ -340,26 +338,27 @@ The row above the diagram has one tab for every diagram of the project, in the s
 - `Ctrl+Tab` · `Ctrl+Shift+Tab` or `Ctrl+PageDown` · `Ctrl+PageUp` (**Next diagram** · **Previous diagram**) go to the next or previous tab.
 - Double-clicking a tab renames it in place.
 - Right-clicking a tab offers **Rename** · **Select in Model Explorer** · **Previous diagram** · **Next diagram** and the exports (picture · SVG · Mermaid · PlantUML).
-- **+** at the end opens the **Add diagram** menu.
+- **+** at the end opens the [New diagram popup](#new-diagram-popup).
 - When the tabs do not fit, ‹ › (**Scroll tabs left** · **Scroll tabs right**) appear at the right end. Opening another diagram scrolls the row so that its tab shows.
 - To remove a diagram, use **Delete from model** in the Model Explorer; the tabs have no close button.
 
-### Diagram type tabs
+### New diagram popup
 
-Under the diagram tab row are the two rows of **diagram type tabs**.
+The popup that **+** at the end of the diagram tab row (or **Add diagram**) opens.
 
-| Row | Contents |
+| Part | Contents |
 |---|---|
-| Upper row (**Diagram groups**) | UML Structure · UML Behavior · ER · Flowchart · Data Flow · SysML · BPMN · C4 · Mind Map · Wireframe · Cloud · Project · ArchiMate · Agile & UX · Data |
-| Lower row (**Diagram types**) | The diagram types of the chosen group. For example UML Structure has Class · Package · Object · Composite Structure · Component · Deployment · Profile, UML Behavior has Use Case · Activity · Statechart · Sequence · Communication · Timing · Interaction Overview · Information Flow, SysML has Requirement · Block Definition · Internal Block · Parametric, Cloud has AWS · Azure · GCP · Network, Project has Gantt Chart · WBS · Timeline, Agile & UX has User Story Map · Customer Journey Map, and Data has JSON · YAML · EBNF · Regex |
+| Left (**Diagram groups**) | UML Structure · UML Behavior · ER · Flowchart · Data Flow · SysML · BPMN · C4 · Mind Map · Wireframe · Cloud · Project · ArchiMate · Agile & UX · Data. The number is how many types the group has, after how many diagrams of the group the project already has |
+| Right (**Diagram types**) | The diagrams of the chosen group as cards with an icon, the name and a one-line description. For example UML Structure has Class · Package · Object · Composite Structure · Component · Deployment · Profile, and UML Behavior has Use Case · Activity · Statechart · Sequence · Communication · Timing · Interaction Overview · Information Flow |
+| Top (**Find a diagram**) | Searches every group by name, description and group name (for example "cloud" → AWS · Azure · GCP · Network) |
+| Bottom (**Name**) | The name of the new diagram; left empty, it gets one automatically |
 
-- Clicking a group switches the lower row to its types. Opening a diagram picks its group by itself.
-- The number next to a type is how many diagrams of that type the project has.
-- Clicking a type opens the diagram of that type you used last (else the first one), or makes a new one when the project has none yet (the tooltip says **Open the {type}** or **Create a {type} (none yet)**).
-- The **Toolbox** then shows just the tools of that diagram type.
-- **+** at the end of the lower row (**Add another {type}**) adds one more diagram of the current type.
+- At first the type of the current diagram is chosen. The number at the top right of a card is how many diagrams of that type the project already has.
+- Click a card and **Create**, double-click a card, or press `Enter` to create it. The arrow keys move the choice between cards. `Esc` or **Cancel** makes nothing.
+- The new diagram opens at once, and the **Toolbox** shows just the tools of that diagram type.
+- Diagrams that already exist are opened from the diagram tabs or the Model Explorer.
 
-![Diagram type tabs](docs/tutorial/images/11-diagramTypes.jpg)
+![New diagram popup](docs/tutorial/images/11-diagramTypes.jpg)
 
 ### Editors
 
@@ -393,7 +392,7 @@ On the **Tags & constraints** tab, **Add tag** adds a name, a kind (String · Bo
 
 ![The toolbox](docs/tutorial/images/13-toolbox.jpg)
 
-The toolbox shows the tools for the kind of the current diagram. Changing the type on the [diagram type tabs](#diagram-type-tabs) changes the toolbox to that type's tools. The diagram kind is at the top, with the **Find a tool** box and the **Pointer** tool under it. Clicking a tool group header (for example Classes · Relationships · Annotations) collapses or expands it; the number next to the header is the number of tools. The **Icons only** button in the header hides the names and packs the icons closely.
+The toolbox shows the tools for the kind of the current diagram. Opening a diagram of another type changes the toolbox to that type's tools. The diagram kind is at the top, with the **Find a tool** box and the **Pointer** tool under it. Clicking a tool group header (for example Classes · Relationships · Annotations) collapses or expands it; the number next to the header is the number of tools. The **Icons only** button in the header hides the names and packs the icons closely.
 
 | Kind of tool | How to use it |
 |---|---|
@@ -660,7 +659,7 @@ On a BPMN diagram you can watch tokens move along the flows (see [BPMN process s
 
 ![Gantt, WBS, ArchiMate, network, data](docs/tutorial/images/32-moreDiagrams.jpg)
 
-These are the kinds PlantUML and Enterprise Architect draw. In the diagram type tabs they are in the **Project** (Gantt Chart · WBS · Timeline), **ArchiMate**, **Cloud** (Network) and **Data** (JSON · YAML · EBNF · Regex) groups. All of them import from and export to PlantUML (see [PlantUML and Mermaid](#plantuml-and-mermaid)).
+These are the kinds PlantUML and Enterprise Architect draw. In the New diagram popup they are in the **Project** (Gantt Chart · WBS · Timeline), **ArchiMate**, **Cloud** (Network) and **Data** (JSON · YAML · EBNF · Regex) groups. All of them import from and export to PlantUML (see [PlantUML and Mermaid](#plantuml-and-mermaid)).
 
 | Diagram | Toolbox |
 |---|---|
@@ -687,7 +686,7 @@ Dates are written as `YYYY-MM-DD`. [Model validation](#model-validation) reports
 
 ![User story map](docs/tutorial/images/35-storyMap.jpg)
 
-These kinds draw agile planning and user experience, the way Visual Paradigm does. They are in the **Agile & UX** group of the diagram type tabs, and a new one is made inside an **Agile & UX Model**.
+These kinds draw agile planning and user experience, the way Visual Paradigm does. They are in the **Agile & UX** group of the New diagram popup, and a new one is made inside an **Agile & UX Model**.
 
 | Diagram | Toolbox |
 |---|---|
@@ -1099,7 +1098,7 @@ The installed desktop app is associated with `.myuml` and `.mumlt` files, so dou
 
 ### Templates
 
-**File › Save as template…** saves the current project as `.mumlt`. Opening a template always makes a new, unnamed project, so it is a good starting point for new work holding the package structure, stereotypes and example diagrams you use often. A project made from a template shows a template icon next to its name at the start of the diagram tab row.
+**File › Save as template…** saves the current project as `.mumlt`. Opening a template always makes a new, unnamed project, so it is a good starting point for new work holding the package structure, stereotypes and example diagrams you use often.
 
 ### Exchanging with StarUML
 
@@ -1203,16 +1202,17 @@ The desktop app can save projects to a database as well as to files. A web brows
 
 ### Connection settings
 
-Choose the **Database type** on the **Settings › Database** tab: **None** · SQLite · MariaDB · MySQL · PostgreSQL.
+Choose the **Database type** on the **Settings › Database** tab: **None** · SQLite (SQLite 3) · MariaDB · MySQL · PostgreSQL · SQL Server (Microsoft SQL Server, MSSQL).
 
 | Database type | What to enter |
 |---|---|
 | SQLite | The **SQLite file** (for example `C:\Data\myumlmaker.db`). Pick it with **Browse…** or give a new file name |
-| MariaDB · MySQL · PostgreSQL | **Server (host)**, **Port** (3306 for MariaDB and MySQL, 5432 for PostgreSQL by default), **Database name** (letters, digits, `_`, `$` and `-` only), **User**, **Password** |
+| MariaDB · MySQL · PostgreSQL · SQL Server | **Server (host)**, **Port** (3306 for MariaDB and MySQL, 5432 for PostgreSQL, 1433 for SQL Server by default), **Database name** (letters, digits, `_`, `$` and `-` only), **User**, **Password** |
 
 - With **Save the password in the settings** off, the password is not stored but only remembered until the program closes.
 - **Test connection** tries to connect and shows "Connected — (server version)" or the error.
-- The table that holds the projects is made automatically on the first save.
+- The table that holds the projects is made automatically on the first save. The database itself has to exist already.
+- SQL Server is reached with SQL Server authentication (user and password); the connection is encrypted and the server certificate (usually self-signed) is trusted as it is. Titles and contents are stored as `NVARCHAR`, so any language works.
 
 ### Saving and opening
 
@@ -1252,6 +1252,7 @@ In **Settings › Font** set the **Font** (from the fonts installed on the syste
 **Settings › Start page**:
 
 - **Show the start page at start-up**
+- **Show the welcome window at start** (the same setting as **Show this window at start** in the welcome window)
 - **Show recent files** · **Recent files shown** (1–10) · **Show recent folders** · **Show sample projects** · **Show the moving background picker** · **Show the tutorial banner**
 - **Start page › Open now** opens the start page at once.
 
@@ -1398,6 +1399,7 @@ In presentation mode these keys work:
 
 | Command | What it does |
 |---|---|
+| **Welcome window** | Opens the welcome window of the start again (see [First start](#first-start)) |
 | **Tutorial** (`F11`) | Starts the 71 steps tutorial (see [Tutorial](#tutorial)) |
 | **Tutorial document** | Opens a document of every tutorial step with its picture in its own window ([Document windows](#document-windows)) |
 | **Tutorial video** | Plays a recording of the whole tutorial in its own window ([Tutorial video](#tutorial-video)) |

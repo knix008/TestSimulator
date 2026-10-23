@@ -76,11 +76,11 @@ const op = (project, owner, name, params = [], ret = '', extra = {}) => {
   return o;
 };
 
-/** A new project from a template. */
-export function buildTemplate(id, { language = 'ko' } = {}) {
+/** A new project from a template. The blank one starts with one diagram of the chosen type (a class diagram by default). */
+export function buildTemplate(id, { language = 'ko', diagramType = 'UMLClassDiagram', diagramName = '' } = {}) {
   const entry = TEMPLATES.find(([key]) => key === id) ?? TEMPLATES[0];
   const name = L(language, '새 프로젝트', 'New Project');
-  if (id === 'blank') return createProject({ name, language });
+  if (id === 'blank') return createProject({ name, language, diagram: diagramType, diagramName });
   const project = createProject({ name, language, diagram: null });
   const model = project.ownedElements[0];
   const diagram = addDiagram(project, model._id, entry[1], { language, defaultDiagram: true });

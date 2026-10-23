@@ -266,7 +266,7 @@ export function toolById(diagramType, id) {
 /** Every diagram type has a toolbox. */
 export const DIAGRAM_TYPE_IDS = Object.keys(DIAGRAM_TYPES);
 
-/** The diagram-type tabs above the canvas: [id, ko, en, diagram types]. Every diagram type is in exactly one group. */
+/** The groups of the new-diagram popup: [id, ko, en, diagram types]. Every diagram type is in exactly one group. */
 export const DIAGRAM_TABS = [
   ['umlStructure', 'UML 구조', 'UML Structure', ['UMLClassDiagram', 'UMLPackageDiagram', 'UMLObjectDiagram', 'UMLCompositeStructureDiagram', 'UMLComponentDiagram', 'UMLDeploymentDiagram', 'UMLProfileDiagram']],
   ['umlBehavior', 'UML 행위', 'UML Behavior', ['UMLUseCaseDiagram', 'UMLActivityDiagram', 'UMLStatechartDiagram', 'UMLSequenceDiagram', 'UMLCommunicationDiagram', 'UMLTimingDiagram', 'UMLInteractionOverviewDiagram', 'UMLInformationFlowDiagram']],

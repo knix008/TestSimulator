@@ -14,7 +14,7 @@ import {
   normalizeProject, parseProject, stripExtension, withExtension, isXmiFileName, normalizeBackground,
 } from './domain/format.js';
 import { buildSample, buildTemplate, TEMPLATES } from './domain/templates.js';
-import { CLASSIFIER_TYPES, DIAGRAM_FAMILIES, DIAGRAM_TYPES, TYPES, typeDef, typeLabel, viewDef } from './domain/meta.js';
+import { CLASSIFIER_TYPES, DIAGRAM_TYPES, TYPES, typeDef, typeLabel, viewDef } from './domain/meta.js';
 import { toolboxFor, toolById } from './domain/toolbox.js';
 import * as E from './domain/edit.js';
 import * as MM from './domain/mindmap.js';
@@ -163,8 +163,8 @@ function addTab(tab) {
   return tab;
 }
 
-function newProject(templateId = 'blank') {
-  const project = buildTemplate(templateId, { language: lang() });
+function newProject(templateId = 'blank', { type = 'UMLClassDiagram', name = '' } = {}) {
+  const project = buildTemplate(templateId, { language: lang(), diagramType: type, diagramName: name });
   project.name = templateId === 'blank' ? untitledName() : t(`template.${templateId}`);
   const tab = addTab(new ProjectDocument(project, { name: project.name, template: templateId !== 'blank' }));
   if (templateId !== 'blank') tab.markSaved(null);
@@ -184,10 +184,22 @@ async function confirmReplace() {
   return choice === 'discard';
 }
 
-/** New project from the UI (menu, toolbar, start page, template): asks about unsaved changes first. */
+/** New project from the UI (menu, toolbar, start page, template): asks about unsaved changes first.
+ * A blank project then asks for its first diagram and holds just that one. */
 async function newProjectAsk(templateId = 'blank') {
   if (!(await confirmReplace())) return null;
-  return newProject(templateId);
+  if (templateId !== 'blank') return newProject(templateId);
+  const choice = await pickDiagramType({ project: true });
+  return choice ? newProject('blank', choice) : null;
+}
+
+/** The new-diagram popup: a diagram type (and an optional name), or null when cancelled. */
+async function pickDiagramType({ project = false } = {}) {
+  const tab = project ? null : activeTab();
+  const counts = {};
+  if (tab) for (const e of tab.index.byId.values()) if (DIAGRAM_TYPES[e._type]) counts[e._type] = (counts[e._type] ?? 0) + 1;
+  const result = await popups.open('diagram', { project, type: (tab && currentDiagram()?._type) || 'UMLClassDiagram', counts });
+  return result?.type && DIAGRAM_TYPES[result.type] ? { type: result.type, name: String(result.name ?? '').trim() } : null;
 }
 
 async function openSampleAsk() {
@@ -332,10 +344,10 @@ function closeDiagram(id) {
 }
 
 /** Adds a diagram of a type under the selected element (or a sensible owner). */
-function addDiagram(type) {
+function addDiagram(type, { name = '' } = {}) {
   const tab = activeTab() ?? newProject();
   const owner = state.explorer.map((id) => tab.index.get(id)).find((e) => e && (typeDef(e._type)?.namespace || e._type === 'Project')) ?? diagramOwnerOrModel();
-  const diagram = change('op.addDiagram', (project) => M.addDiagram(project, owner?._id ?? project.ownedElements[0]?._id, type, { language: lang() }));
+  const diagram = change('op.addDiagram', (project) => M.addDiagram(project, owner?._id ?? project.ownedElements[0]?._id, type, { language: lang(), name: name || null }));
   if (diagram) { openDiagram(diagram._id); notify('success', t('notice.diagramAdded', { name: diagram.name })); }
   return diagram;
 }
@@ -858,17 +870,13 @@ function addElementMenu(anchor, ownerId = state.explorer[0] ?? selectedElements(
   return showMenu(items, anchor ?? anchorFor('addElement'), 'context', { handlers, header: { icon: 'plus', title: t('action.addElementTo', { name: M.displayName(owner, lang()) || t('explorer.project') }) } });
 }
 
-function addDiagramMenu(anchor) {
-  const items = []; const handlers = {};
-  for (const [family, ko, en] of DIAGRAM_FAMILIES) {
-    const types = Object.keys(DIAGRAM_TYPES).filter((type) => DIAGRAM_TYPES[type].family === family);
-    const leaves = types.map((type) => { handlers[`custom:${type}`] = () => addDiagram(type); return { id: `custom:${type}`, label: typeLabel(type, lang()), icon: DIAGRAM_TYPES[type].icon }; });
-    if (leaves.length === 1) { items.push(leaves[0]); continue; }
-    const key = `diagram:${family}`;
-    state.dynamicMenus.set(key, { items: leaves, handlers, header: { icon: 'dgClass', title: lang() === 'ko' ? ko : en } });
-    items.push({ id: `submenu:${key}`, label: lang() === 'ko' ? ko : en, icon: DIAGRAM_TYPES[types[0]].icon, submenu: true });
-  }
-  return showMenu(items, anchor ?? anchorFor('addDiagram'), 'context', { handlers, header: { icon: 'dgClass', title: t('action.addDiagram') } });
+/** Add diagram (the + of the tab bar, menus, explorer): pick the type in the new-diagram popup, then just that diagram is added. */
+async function addDiagramAsk() {
+  const owners = [...state.explorer];
+  const choice = await pickDiagramType();
+  if (!choice) return null;
+  state.explorer = owners.filter((id) => activeTab()?.index.get(id));
+  return addDiagram(choice.type, { name: choice.name });
 }
 
 function moveInModel(direction) {
@@ -1095,7 +1103,7 @@ const commands = {
   mmExpandAll: { icon: 'mmExpandAll', label: 'action.mmExpandAll', enabled: isMindMap, run: () => collapseMindMap(false) },
   mmRelayout: { icon: 'mmRelayout', label: 'action.mmRelayout', enabled: isMindMap, run: () => relayoutMindMap() },
   // model
-  addDiagram: { icon: 'dgAdd', label: 'action.addDiagram', run: (context) => addDiagramMenu(context?.anchor) },
+  addDiagram: { icon: 'dgAdd', label: 'action.addDiagram', run: () => addDiagramAsk() },
   addElement: { icon: 'plus', label: 'action.addElement', enabled: hasDoc, run: (context) => addElementMenu(context?.anchor) },
   moveUp: { icon: 'arrowUp', label: 'action.moveUp', key: 'Ctrl+Up', enabled: hasElementSel, run: () => moveInModel(-1) },
   moveDown: { icon: 'arrowDown', label: 'action.moveDown', key: 'Ctrl+Down', enabled: hasElementSel, run: () => moveInModel(1) },
@@ -1187,6 +1195,7 @@ const commands = {
   shortcuts: { icon: 'keyboard', label: 'action.shortcuts', run: () => popups.open('settings', { tab: 'shortcuts' }) },
   settings: { icon: 'gear', label: 'action.settings', key: 'Ctrl+,', run: () => popups.open('settings', { tab: 'general' }) },
   about: { icon: 'info', label: 'action.about', key: 'F1', run: () => popups.open('about') },
+  welcome: { icon: 'bulb', label: 'action.welcome', run: () => openWelcome() },
   quickAddHere: { icon: 'quickAdd', label: 'action.quickAdd', enabled: hasDiagram, run: (context) => quickAddMenu(context?.point) },
 };
 
@@ -1298,7 +1307,7 @@ const MENUS = {
   format: [sub('font'), 'fillColor', 'lineColor', '-', sub('lineStyle'), sub('stereotype'), sub('display'), '-', 'autoResize', 'fitContent', '-', 'diagramBackground'],
   arrange: [sub('order'), sub('align'), '-', 'layoutMenu', sub('layout'), sub('mindmap')],
   tools: ['generateCode', 'generateDdl', 'generateDocument', 'reverse', '-', 'validate', 'bpmnSimulate', '-', 'settings'],
-  help: ['tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
+  help: ['welcome', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'userGuide', 'shortcuts', '-', 'settings', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', model: 'umlModel', view: 'eye', format: 'formatShape', arrange: 'bringFront', tools: 'tools', help: 'question' };
 
@@ -1351,12 +1360,24 @@ function renderMenubar() {
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-home title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
   // No system title bar: this row starts with the icon, name and version, ends with the window buttons,
   // and its empty parts move the window (double-click maximizes).
-  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyUMLMaker v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyUMLMaker</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span></div>`;
+  const brand = `<div class="app-brand" data-window-drag title="${escapeHtml(`MyUMLMaker v${VERSION}`)}"><img class="app-brand-icon" src="${APP_ICON}" alt="" data-window-drag /><span class="app-brand-name" data-window-drag>MyUMLMaker</span><span class="app-brand-version" data-window-drag>v${escapeHtml(VERSION)}</span><span class="app-brand-project" data-window-drag><span class="app-brand-project-name" data-window-drag></span><span class="app-brand-dirty" data-window-drag>●</span></span></div>`;
   const button = (id, glyph, key) => `<button class="window-button ${id === 'close' ? 'close' : ''}" data-window="${id}" title="${escapeHtml(t(key))}" aria-label="${escapeHtml(t(key))}">${icon(glyph)}</button>`;
   const controls = desktop ? `<div class="window-controls">${button('minimize', 'winMinimize', 'window.minimize')}${state.maximized ? button('maximize', 'winRestore', 'window.restore') : button('maximize', 'winMaximize', 'window.maximize')}${button('close', 'winClose', 'window.close')}</div>` : '';
   menubar.innerHTML = brand + home + Object.keys(MENUS).map((name) => `
     <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('')
     + `<div class="menubar-drag" data-window-drag></div>${controls}`;
+  renderTitleProject();
+}
+
+/** The open project in the title bar, after the program name and version: a fixed width, … when longer, ● for unsaved changes. */
+function renderTitleProject() {
+  const box = root.querySelector('.app-brand-project');
+  if (!box) return;
+  const doc = state.showStart ? null : activeTab();
+  box.classList.toggle('empty', !doc);
+  box.classList.toggle('dirty', Boolean(doc?.dirty));
+  box.querySelector('.app-brand-project-name').textContent = doc ? docName(doc) : '';
+  box.title = doc ? `${doc.path ?? docName(doc)}${doc.dirty ? ` (${t('status.modified')})` : ''}` : '';
 }
 
 /** The window buttons of the menu bar row. Close goes through the normal close (it asks about unsaved changes). */
@@ -1444,7 +1465,7 @@ function updateMinimumWidth() {
   requestAnimationFrame(() => {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
-    const menus = [...root.querySelectorAll('.menubar-item')].reduce((sum, el) => sum + el.offsetWidth + 2, 24);
+    const menus = [...root.querySelectorAll('.app-brand, .menubar-item, .window-controls')].reduce((sum, el) => sum + el.offsetWidth + 2, 48);
     const width = Math.ceil(Math.max(menus, left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
@@ -1455,8 +1476,9 @@ function updateMinimumWidth() {
 
 // ───────────────────────── project tabs
 
-/** The tab bar: the project (one at a time) and a tab for each of its diagrams; ‹ › when they do not fit. */
+/** The tab bar: one row with a tab for each diagram of the project (its name is in the title bar); ‹ › when they do not fit. */
 function renderTabs() {
+  renderTitleProject();
   const tabs = root.querySelector('#tabs');
   const doc = activeTab();
   tabs.hidden = !doc || state.showStart;
@@ -1466,7 +1488,6 @@ function renderTabs() {
   const ko = lang() === 'ko';
   const diagrams = M.elementsWhere(doc.project, (e) => M.isDiagram(e));
   tabs.innerHTML = `
-    <div class="tab-project ${doc.dirty ? 'dirty' : ''}" title="${escapeHtml(doc.path ?? docName(doc))}">${icon(doc.fromTemplate ? 'template' : 'umlProject')}<span class="tab-name">${escapeHtml(docName(doc))}</span><span class="tab-dirty" title="${escapeHtml(t('status.modified'))}">●</span></div>
     <div class="tab-strip"><div class="tab-list" role="tablist" aria-label="${escapeHtml(t('tabs.diagrams'))}">
       ${diagrams.map((d) => {
         const def = typeDef(d._type);
@@ -3452,7 +3473,7 @@ function contextMenu(event, kind, payload = {}) {
     const handlers = {
       'custom:open': () => openDiagram(element._id),
       'custom:add': () => addElementMenu(anchor, element._id),
-      'custom:addDiagram': () => { state.explorer = [element._id]; addDiagramMenu(anchor); },
+      'custom:addDiagram': () => { state.explorer = [element._id]; addDiagramAsk(); },
       'custom:rename': () => explorerView?.startRename(element._id),
       'custom:codegen': () => openCodegen(),
       'custom:fragment': () => exportAs('mfj'),
@@ -4291,14 +4312,16 @@ async function start() {
     await appWindow.setFocus();
     setTimeout(() => popups.prewarm('menu'), 400);
   }
-  if (!state.settings.tutorialOffered && !globalThis.__MYUMLMAKER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) {
-    updateSettings({ tutorialOffered: true }, { quiet: true });
-    setTimeout(async () => {
-      const result = await popups.open('welcome', {});
-      if (result?.choice === 'tutorial') startTutorial();
-      else if (result?.choice === 'sample') openSampleAsk();
-    }, 600);
-  }
+  // The welcome popup at every start until its "Show at start" box (or Settings › Start page) is turned off.
+  if (state.settings.showWelcome && !globalThis.__MYUMLMAKER_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) setTimeout(openWelcome, 600);
+}
+
+/** The welcome popup (at start, and Help › Welcome): tutorial, sample, or later. */
+async function openWelcome() {
+  updateSettings({ tutorialOffered: true }, { quiet: true });
+  const result = await popups.open('welcome', {});
+  if (result?.choice === 'tutorial') startTutorial();
+  else if (result?.choice === 'sample') openSampleAsk();
 }
 
 // Test hook: the E2E suites drive the app through this (no effect on normal use).

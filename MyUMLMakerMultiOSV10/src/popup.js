@@ -8,7 +8,7 @@ import { loadRecent, loadRecentDirs, MAX_RECENT, removeRecent, storeRecent, stor
 import {
   ANIMATIONS, BACKGROUND_FITS, BACKGROUND_KINDS, defaultSettings, FONT_SIZE, FONT_STYLES, FONT_WEIGHTS, loadSettings, PRINT_KEY,
   RECENT_DIRS_KEY, RECENT_KEY, STORAGE_KEY, storeSettings, ZOOM, GRID_SIZES, LINE_STYLES, DIAGRAM_THEME_IDS,
-  DB_KINDS, dbPortOf, dbProblems, usesDbServer,
+  DB_KINDS, DB_NAMES, dbPortOf, dbProblems, usesDbServer,
 } from './domain/settings.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
 import { icon } from './icons.js';
@@ -30,6 +30,7 @@ import { REPORT_SECTIONS, REPORT_TEMPLATE_IDS, REPORT_TEMPLATES } from './domain
 import { PLANTUML_MORE_EXAMPLES } from './domain/interop/plantuml-examples.js';
 import { DIFF_CATEGORIES, DIFF_STATUSES, diffTree } from './domain/diff.js';
 import { typeDef } from './domain/meta.js';
+import { DIAGRAM_TABS, diagramTabOf } from './domain/toolbox.js';
 import { REQUIREMENT_KINDS, REQUIREMENT_PRIORITIES, REQUIREMENT_STATUSES } from './domain/meta.js';
 import { COMMITTED_STATUSES, matrixCsv, matrixTsv, requirementsCsv } from './domain/trace.js';
 
@@ -201,7 +202,7 @@ function render() {
       print: renderPrint, menu: renderMenu, theme: renderThemePicker, welcome: renderWelcome, image: renderImage, database: renderDatabase,
       find: renderFind, validation: renderValidation, codegen: renderCodegen, textimport: renderTextImport, color: renderColor, prompt: renderPrompt,
       document: renderDocument, baselines: renderBaselines, compare: renderCompare, background: renderBackground,
-      requirements: renderRequirements, tracematrix: renderTraceMatrix,
+      requirements: renderRequirements, tracematrix: renderTraceMatrix, diagram: renderDiagramPicker,
     })[kind]?.();
     alignRows();
     updateTabsNav();
@@ -287,6 +288,7 @@ function settingsGeneral() {
 function settingsStart() {
   return [
     toggle('showStartPage', t('settings.showStartPage'), 'home'),
+    toggle('showWelcome', t('settings.showWelcome'), 'bulb'),
     toggle('startShowRecent', t('settings.startShowRecent'), 'recent'),
     row('list', t('settings.startRecentCount'), numberField('startRecentCount', s().startRecentCount, 1, 10, 1, '', t('settings.startRecentCount'))),
     toggle('startShowFolders', t('settings.startShowFolders'), 'recentFolder'),
@@ -426,7 +428,6 @@ function settingsBackground() {
 // The desktop app also shows popups as frames (tutorial); the database needs the desktop app.
 // (__myumlmakerDbPreview: layout checks draw the full tab in the web build.)
 const desktopApp = () => desktop || Boolean(globalThis.__myumlmakerDbPreview) || (() => { try { return Boolean(globalThis.parent?.__TAURI_INTERNALS__); } catch { return false; } })();
-const DB_NAMES = { sqlite: 'SQLite', mariadb: 'MariaDB', mysql: 'MySQL', postgres: 'PostgreSQL' };
 const dbText = (key, label, attrs = '') => `<input type="text" data-db-text="${key}" value="${escapeHtml(s()[key])}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" spellcheck="false" autocomplete="off" ${attrs} />`;
 
 function settingsDatabase() {
@@ -609,6 +610,7 @@ function renderWelcome() {
         <li>${icon('samples')}<span>${escapeHtml(t('welcome.point2'))}</span></li>
         <li>${icon('userGuide')}<span>${escapeHtml(t('welcome.point3'))}</span></li>
       </ul>
+      <label class="welcome-again" title="${escapeHtml(t('welcome.showAtStartTip'))}"><input type="checkbox" data-toggle="showWelcome" ${s().showWelcome ? 'checked' : ''} /><span>${escapeHtml(t('welcome.showAtStart'))}</span></label>
     </div>`,
     foot: `${button('choice', t('welcome.later'), 'close', '', 'later')}<span class="grow"></span>${button('choice', t('welcome.sample'), 'samples', '', 'sample')}${button('choice', t('welcome.start'), 'play', 'primary', 'tutorial')}`,
   });
@@ -1598,6 +1600,110 @@ function renderPrompt() {
   ready();
 }
 
+// ───────────────────────── new diagram (pick its type)
+
+const typeName = (type) => (L() === 'ko' ? typeDef(type).ko : typeDef(type).en);
+const groupName = ([, ko, en]) => (L() === 'ko' ? ko : en);
+
+/** The types the picker shows: the chosen group's, or every type matching the search (name, description, group). */
+function pickerTypes() {
+  const d = state.draft;
+  const query = d.query.trim().toLowerCase();
+  if (!query) return DIAGRAM_TABS.find(([id]) => id === d.group)?.[3] ?? [];
+  return DIAGRAM_TABS.flatMap((group) => group[3].filter((type) => {
+    const def = typeDef(type);
+    return [def.ko, def.en, t(`picker.desc.${type}`), group[1], group[2]].some((text) => text.toLowerCase().includes(query));
+  }));
+}
+
+function pickerCards() {
+  const d = state.draft;
+  const types = pickerTypes();
+  if (!types.length) return `<p class="dg-none">${icon('search')}<span>${escapeHtml(t('picker.none', { query: d.query.trim() }))}</span></p>`;
+  const counts = P().counts ?? {};
+  return types.map((type) => {
+    const count = counts[type] ?? 0;
+    const chosen = type === d.type;
+    return `<button class="dg-card ${chosen ? 'active' : ''}" role="option" aria-selected="${chosen}" data-action="picker-type" data-value="${type}" title="${escapeHtml(`${typeName(type)} — ${t(`picker.desc.${type}`)}`)}">
+      <span class="dg-card-icon">${icon(typeDef(type).icon ?? 'dgClass')}</span>
+      <span class="dg-card-text"><b>${escapeHtml(typeName(type))}</b><small>${escapeHtml(t(`picker.desc.${type}`))}</small></span>
+      ${count ? `<span class="dg-count" title="${escapeHtml(t('picker.count', { count }))}">${count}</span>` : ''}
+    </button>`;
+  }).join('');
+}
+
+/** Redraws the cards and the group list only, so the search box keeps its focus and caret. */
+function renderPickerCards() {
+  const d = state.draft;
+  const types = pickerTypes();
+  if (types.length && !types.includes(d.type)) d.type = types[0];
+  const searching = Boolean(d.query.trim());
+  root.querySelector('.dg-grid').innerHTML = pickerCards();
+  root.querySelector('.dg-grid-title').textContent = searching ? t('picker.results', { count: types.length }) : groupName(DIAGRAM_TABS.find(([id]) => id === d.group));
+  for (const button of root.querySelectorAll('.dg-group')) button.classList.toggle('active', !searching && button.dataset.value === d.group);
+  root.querySelector('[data-action="picker-create"]').disabled = !types.length;
+}
+
+function renderDiagramPicker() {
+  const p = P();
+  if (!state.draft) {
+    const type = p.type && typeDef(p.type)?.diagram ? p.type : 'UMLClassDiagram';
+    state.draft = { type, group: diagramTabOf(type), query: '', name: '' };
+  }
+  const d = state.draft;
+  const counts = p.counts ?? {};
+  const groups = DIAGRAM_TABS.map((group) => {
+    const [id, , , types] = group;
+    const has = types.reduce((sum, type) => sum + (counts[type] ?? 0), 0);
+    return `<button class="dg-group ${id === d.group && !d.query.trim() ? 'active' : ''}" role="tab" data-action="picker-group" data-value="${id}" title="${escapeHtml(groupName(group))}">
+      ${icon(typeDef(types[0]).icon ?? 'dgClass')}<span>${escapeHtml(groupName(group))}</span><small>${has ? `<b>${has}</b> / ` : ''}${types.length}</small>
+    </button>`;
+  }).join('');
+  root.innerHTML = frame({
+    glyph: p.project ? 'fileNew' : 'dgAdd', title: t(p.project ? 'picker.projectTitle' : 'picker.title'),
+    body: `<div class="dg-picker">
+      <nav class="dg-groups" role="tablist" aria-label="${escapeHtml(t('picker.groups'))}">${groups}</nav>
+      <section class="dg-main">
+        <label class="search-box" title="${escapeHtml(t('picker.search'))}">${icon('search')}<input type="text" data-draft="query" value="${escapeHtml(d.query)}" placeholder="${escapeHtml(t('picker.search'))}" aria-label="${escapeHtml(t('picker.search'))}" /></label>
+        <h3 class="dg-grid-title"></h3>
+        <div class="dg-grid" role="listbox" aria-label="${escapeHtml(t('picker.types'))}"></div>
+        <p class="dg-hint">${icon('info')}<span>${escapeHtml(t('picker.hint'))}</span></p>
+      </section>
+    </div>`,
+    foot: `<label class="dg-name" title="${escapeHtml(t('picker.name'))}"><span>${escapeHtml(t('picker.name'))}</span><input type="text" data-draft="name" value="${escapeHtml(d.name)}" placeholder="${escapeHtml(t('picker.namePlaceholder'))}" aria-label="${escapeHtml(t('picker.name'))}" /></label>
+      <span class="grow"></span>${button('close', t('common.cancel'), 'close')}${button('picker-create', t(p.project ? 'picker.createProject' : 'picker.create'), 'check', 'primary')}`,
+  });
+  renderPickerCards();
+  root.querySelector('.dg-card.active')?.scrollIntoView({ block: 'nearest' });
+  root.querySelector('[data-draft="query"]')?.focus();
+  ready();
+}
+
+/** Marks a card chosen in place (no redraw: a redraw between the two clicks would lose the double click). */
+function pickDiagramCard(type) {
+  state.draft.type = type;
+  for (const card of root.querySelectorAll('.dg-card')) {
+    const chosen = card.dataset.value === type;
+    card.classList.toggle('active', chosen);
+    card.setAttribute('aria-selected', String(chosen));
+    if (chosen) card.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+/** Arrow keys move the choice through the cards (← → one card, ↑ ↓ one row; only ↑ ↓ while typing). */
+function pickerKey(event) {
+  const typing = event.target.matches?.('input[type="text"]');
+  const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 'down', ArrowUp: 'up' }[event.key];
+  if (!step || (typing && typeof step === 'number')) return;
+  const cards = [...root.querySelectorAll('.dg-card')];
+  if (!cards.length) return;
+  event.preventDefault();
+  const at = Math.max(0, cards.findIndex((card) => card.dataset.value === state.draft.type));
+  const columns = Math.max(1, cards.filter((card) => card.offsetTop === cards[0].offsetTop).length);
+  const delta = typeof step === 'number' ? step : (step === 'down' ? columns : -columns);
+  pickDiagramCard(cards[Math.min(cards.length - 1, Math.max(0, at + delta))].dataset.value);
+}
+
 // ───────────────────────── events
 
 root.addEventListener('click', async (event) => {
@@ -1696,6 +1802,9 @@ root.addEventListener('click', async (event) => {
     case 'text-sample': d.text = TEXT_SAMPLES[d.format][value]; return render();
     case 'text-apply': return close({ format: d.format, text: d.text });
     case 'prompt-apply': return close({ value: d.value });
+    case 'picker-group': d.group = value; d.query = ''; root.querySelector('[data-draft="query"]').value = ''; d.type = pickerTypes().includes(d.type) ? d.type : pickerTypes()[0]; renderPickerCards(); return undefined;
+    case 'picker-type': pickDiagramCard(value); return event.detail >= 2 ? close({ type: d.type, name: d.name.trim() }) : undefined;
+    case 'picker-create': return close({ type: d.type, name: d.name.trim() });
     case 'background-apply': return close({ fields: d.fields, hasImage: d.hasImage });
     default: return undefined;
   }
@@ -1759,6 +1868,7 @@ root.addEventListener('input', (event) => {
   }
   if (target.dataset.draft && state.draft) {
     state.draft[target.dataset.draft] = target.value;
+    if (kind === 'diagram' && target.dataset.draft === 'query') renderPickerCards();
     if (kind === 'textimport') { const btn = root.querySelector('[data-action="text-apply"]'); if (btn) btn.disabled = !target.value.trim(); }
     if (kind === 'requirements') {
       // The list filters as you type; the box keeps focus and caret over the redraw.
@@ -1787,10 +1897,11 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id, document.activeElement); }
     if (event.key === 'ArrowLeft') { event.preventDefault(); closeInnermostSubmenu(); }
   }
+  if (kind === 'diagram') pickerKey(event);
   if (kind === 'print' && event.key === 'PageDown') { state.page += 1; render(); }
   if (kind === 'print' && event.key === 'PageUp') { state.page -= 1; render(); }
   if (event.key === 'Enter' && event.target.matches?.('input[type="text"]') && !event.target.matches('.stepper-value')) {
-    const primary = { find: 'find-run', prompt: 'prompt-apply' }[kind];
+    const primary = { find: 'find-run', prompt: 'prompt-apply', diagram: 'picker-create' }[kind];
     if (primary) {
       event.preventDefault();
       event.target.dispatchEvent(new Event('change', { bubbles: true }));

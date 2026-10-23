@@ -18,10 +18,14 @@ arboard = { version = "3.6", default-features = false }
 fontdb = "0.23"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Projects in a database (Settings › Database): SQLite, MariaDB/MySQL, PostgreSQL.
+# Projects in a database (Settings › Database): SQLite, MariaDB/MySQL, PostgreSQL through sqlx;
+# Microsoft SQL Server through tiberius (sqlx 0.8 has no MSSQL driver) on a tokio TCP stream.
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "any", "mysql", "postgres", "sqlite"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
+tiberius = { version = "0.13", default-features = false, features = ["tds73", "rustls"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+tokio = { version = "1", features = ["net"] }
 
 [dev-dependencies]
 tempfile = "3"

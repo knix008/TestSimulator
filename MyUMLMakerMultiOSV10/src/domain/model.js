@@ -250,10 +250,10 @@ export function numberRequirement(project, element) {
 }
 
 /** A new project: one model with a class diagram (or the given diagram type). */
-export function createProject({ name = 'Untitled', language = 'en', diagram = 'UMLClassDiagram', author = '' } = {}) {
+export function createProject({ name = 'Untitled', language = 'en', diagram = 'UMLClassDiagram', diagramName = '', author = '' } = {}) {
   const project = { _type: 'Project', _id: newId(), name, author, company: '', copyright: '', version: '1.0', documentation: '', ownedElements: [] };
   const model = insertElement(project, createElement('UMLModel', { name: language === 'ko' ? '모델' : 'Model' }));
-  if (diagram) addDiagram(project, model._id, diagram, { language, name: language === 'ko' ? '기본' : 'Main', defaultDiagram: true });
+  if (diagram) addDiagram(project, model._id, diagram, { language, name: diagramName || (language === 'ko' ? '기본' : 'Main'), defaultDiagram: true });
   return project;
 }
 

@@ -14,7 +14,6 @@ import { isEdgeView, refId } from '../domain/model.js';
 import { typeDef, viewDef } from '../domain/meta.js';
 import { CANVAS_ZOOM } from '../domain/settings.js';
 import { relatedFor } from '../domain/edit.js';
-import { DIAGRAM_TABS, diagramTabOf } from '../domain/toolbox.js';
 import { escapeHtml, frameThrottle } from '../ui/dom.js';
 import { icon } from '../icons.js';
 
@@ -63,10 +62,6 @@ export class DiagramView {
     host.classList.add('canvas-host');
     host.innerHTML = `
       <div class="canvas-view">
-        <div class="type-tabs">
-          <div class="type-row"><div class="type-strip type-families" role="tablist" aria-label="${escapeHtml(app.t('typeTabs.families'))}"></div><span class="type-nav"><button class="type-scroll" data-type-scroll="-1" title="${escapeHtml(app.t('tabs.left'))}" aria-label="${escapeHtml(app.t('tabs.left'))}">${icon('chevronLeft')}</button><button class="type-scroll" data-type-scroll="1" title="${escapeHtml(app.t('tabs.right'))}" aria-label="${escapeHtml(app.t('tabs.right'))}">${icon('chevronRight')}</button></span></div>
-          <div class="type-row types"><div class="type-strip type-list" role="tablist" aria-label="${escapeHtml(app.t('typeTabs.types'))}"></div><span class="type-nav"><button class="type-scroll" data-type-scroll="-1" title="${escapeHtml(app.t('tabs.left'))}" aria-label="${escapeHtml(app.t('tabs.left'))}">${icon('chevronLeft')}</button><button class="type-scroll" data-type-scroll="1" title="${escapeHtml(app.t('tabs.right'))}" aria-label="${escapeHtml(app.t('tabs.right'))}">${icon('chevronRight')}</button></span></div>
-        </div>
         <div class="canvas-main">
           <div class="ruler-corner" title="${escapeHtml(app.t('canvas.rulerCorner'))}">${icon('rulers')}</div>
           <canvas class="ruler ruler-h" aria-hidden="true"></canvas>
@@ -101,7 +96,6 @@ export class DiagramView {
     this.minimap = host.querySelector('.minimap');
     this.empty = host.querySelector('.canvas-empty');
     this.tabs = host.querySelector('.diagram-tabs');
-    this.typeTabs = host.querySelector('.type-tabs');
     this.rulerH = host.querySelector('.ruler-h');
     this.rulerV = host.querySelector('.ruler-v');
     this.drawFrame = frameThrottle(() => this.drawLive());
@@ -112,7 +106,6 @@ export class DiagramView {
       this.growNearEdges();
       this.drawMinimap();
       this.drawRulers();
-      this.updateTypeNav();
     });
     this.resizeObserver.observe(this.scroll);
   }
@@ -638,25 +631,6 @@ export class DiagramView {
       const tab = event.target.closest('[data-diagram]');
       if (tab) this.app.openDiagram(tab.dataset.diagram);
     });
-    this.typeTabs.addEventListener('click', (event) => {
-      const group = event.target.closest('[data-type-group]');
-      if (group) { this.typeGroup = group.dataset.typeGroup; this.renderTypeTabs(); return; }
-      const type = event.target.closest('[data-diagram-type]');
-      if (type) { this.app.openDiagramType(type.dataset.diagramType); return; }
-      const add = event.target.closest('[data-type-add]');
-      if (add) { this.app.addDiagram(add.dataset.typeAdd); return; }
-      const scroll = event.target.closest('[data-type-scroll]');
-      if (scroll) {
-        const strip = scroll.closest('.type-row').querySelector('.type-strip');
-        strip.scrollBy({ left: Number(scroll.dataset.typeScroll) * Math.max(120, strip.clientWidth * 0.6), behavior: 'instant' });
-        this.updateTypeNav();
-      }
-    });
-    // One line per row: the mouse wheel scrolls it sideways, and ‹ › follow the scroll position.
-    for (const strip of this.typeTabs.querySelectorAll('.type-strip')) {
-      strip.addEventListener('wheel', (event) => { if (strip.scrollWidth <= strip.clientWidth) return; event.preventDefault(); strip.scrollLeft += event.deltaY || event.deltaX; }, { passive: false });
-      strip.addEventListener('scroll', () => this.updateTypeNav(), { passive: true });
-    }
     this.tabs.addEventListener('dblclick', (event) => { const tab = event.target.closest('[data-diagram]'); if (tab) this.renameDiagramInline(tab); });
     this.tabs.addEventListener('contextmenu', (event) => { const tab = event.target.closest('[data-diagram]'); if (tab) { event.preventDefault(); this.app.openDiagram(tab.dataset.diagram); this.app.contextMenu(event, 'diagramTab', { id: tab.dataset.diagram }); } });
     this.minimap.addEventListener('pointerdown', (event) => this.onMinimapDown(event));
@@ -1066,6 +1040,8 @@ export class DiagramView {
     this.miniContent = b.w ? { x: b.x - 20, y: b.y - 20, w: b.w + 40, h: b.h + 40 } : { x: 0, y: 0, w: 400, h: 300 };
     const svg = this.minimap.querySelector('svg');
     const bg = this.ctx.backdrop;
+    // The same colour as the canvas (diagram theme or the diagram's own background), also around the drawing.
+    this.minimap.style.background = this.ctx.background ?? '';
     svg.innerHTML = (bg ? backgroundLayers(bg, this.world ?? this.miniContent, { id: `mbg-${this.diagram._id}`, view: this.miniContent }) : '') + this.content.innerHTML;
     this.drawMinimapView();
   }
@@ -1119,59 +1095,8 @@ export class DiagramView {
 
   // ───────────────────────── working diagram tabs
 
-  /** Tabs per diagram type: a row of groups (UML structure, UML behavior, ER, …) and a row of the group's types. */
-  renderTypeTabs() {
-    const tab = this.tab;
-    if (!tab) { this.typeTabs.hidden = true; return; }
-    this.typeTabs.hidden = false;
-    const ko = this.app.language() === 'ko';
-    const currentType = this.diagram?._type ?? null;
-    // The group follows the open diagram; a group tab the user picked stays until the diagram type changes.
-    if (currentType !== this.typeTabsFor) { this.typeTabsFor = currentType; this.typeGroup = currentType ? diagramTabOf(currentType) : this.typeGroup ?? 'umlStructure'; }
-    const counts = new Map();
-    for (const e of tab.index.byId.values()) if (typeDef(e._type)?.diagram) counts.set(e._type, (counts.get(e._type) ?? 0) + 1);
-    const short = (type) => {
-      const def = typeDef(type);
-      return (ko ? def.ko : def.en).replace(/ ?(다이어그램|Diagram)$/, '').replace(/^SysML /, '');
-    };
-    this.typeTabs.querySelector('.type-families').innerHTML = DIAGRAM_TABS.map(([id, groupKo, groupEn, types]) => {
-      const active = id === this.typeGroup;
-      const has = types.some((type) => counts.get(type));
-      return `<button class="type-family ${active ? 'active' : ''} ${has ? 'has' : ''}" role="tab" aria-selected="${active}" data-type-group="${id}" title="${escapeHtml(ko ? groupKo : groupEn)}">${icon(typeDef(types[0]).icon ?? 'dgClass')}<span>${escapeHtml(ko ? groupKo : groupEn)}</span></button>`;
-    }).join('');
-    const types = DIAGRAM_TABS.find(([id]) => id === this.typeGroup)?.[3] ?? [];
-    this.typeTabs.querySelector('.type-list').innerHTML = types.map((type) => {
-      const def = typeDef(type);
-      const count = counts.get(type) ?? 0;
-      const active = type === currentType;
-      const name = ko ? def.ko : def.en;
-      const tip = count ? this.app.t('typeTabs.open', { name }) : this.app.t('typeTabs.create', { name });
-      return `<button class="type-tab ${active ? 'active' : ''}" role="tab" aria-selected="${active}" data-diagram-type="${type}" title="${escapeHtml(tip)}">${icon(def.icon ?? 'dgClass')}<span>${escapeHtml(short(type))}</span>${count ? `<span class="type-count">${count}</span>` : ''}</button>`;
-    }).join('') + (currentType && types.includes(currentType)
-      ? `<button class="type-add" data-type-add="${currentType}" title="${escapeHtml(this.app.t('typeTabs.add', { name: ko ? typeDef(currentType).ko : typeDef(currentType).en }))}">${icon('plus')}</button>` : '');
-    // The chosen group and type stay in view.
-    for (const active of this.typeTabs.querySelectorAll('.type-family.active, .type-tab.active')) {
-      const strip = active.parentElement;
-      if (active.offsetLeft < strip.scrollLeft) strip.scrollLeft = active.offsetLeft - 4;
-      else if (active.offsetLeft + active.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = active.offsetLeft + active.offsetWidth - strip.clientWidth + 4;
-    }
-    this.updateTypeNav();
-  }
-
-  /** ‹ › of each type-tab row: shown only when its tabs do not fit, disabled at either end. */
-  updateTypeNav() {
-    for (const row of this.typeTabs.querySelectorAll('.type-row')) {
-      const strip = row.querySelector('.type-strip');
-      row.classList.toggle('overflow', strip.scrollWidth > strip.clientWidth + 1);
-      const [left, right] = row.querySelectorAll('.type-scroll');
-      left.disabled = strip.scrollLeft <= 0;
-      right.disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1;
-    }
-  }
-
-  /** The diagram tabs live in the app's tab bar above the canvas (one project, a tab per diagram); here only the type tabs. */
+  /** The diagram tabs live in the app's tab bar above the canvas (one project, a tab per diagram, one row). */
   renderTabs() {
-    this.renderTypeTabs();
     this.tabs.hidden = true;
   }
 

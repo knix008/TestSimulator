@@ -657,6 +657,8 @@ kbd { min-width: 128px; font-family: Consolas, Menlo, monospace; font-size: 0.82
 .welcome-list { list-style: none; margin: 10px 0 0; padding: 0; }
 .welcome-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .welcome-list .icon { color: var(--accent); }
+.welcome-again { display: flex; align-items: center; gap: 8px; margin: 12px 0 2px; padding-top: 10px; border-top: 1px solid var(--hairline, var(--border)); color: var(--muted); cursor: pointer; width: fit-content; }
+.welcome-again input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 
 /* confirm, error, progress */
 .confirm-message { display: flex; gap: 12px; align-items: flex-start; }
@@ -1312,39 +1314,43 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .text-import .code-input { flex: 1; min-height: 300px; width: 100%; box-sizing: border-box; resize: none; font-family: "Cascadia Mono", Consolas, "D2Coding", monospace; font-size: 12.5px; line-height: 1.45; }
 .text-import .small-button { margin-right: 4px; }
 
-/* ───────────────────────── diagram-type tabs (groups, then the types of a group) */
-.type-tabs { flex: none; display: flex; flex-direction: column; background: var(--panel); border-bottom: 1px solid var(--border); min-width: 0; }
-.type-tabs[hidden] { display: none; }
-/* Each row is one line; when its tabs do not fit, ‹ › at the right end scroll it (also the mouse wheel). */
-.type-row { display: flex; align-items: stretch; min-width: 0; }
-.type-row.types { background: var(--surface); border-top: 1px solid var(--border); }
-.type-strip { display: flex; flex-wrap: nowrap; align-items: stretch; gap: 2px; padding: 3px 6px 0; flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.type-strip::-webkit-scrollbar { display: none; }
-.type-list { padding: 3px 6px; }
-.type-nav { display: none; align-items: center; gap: 2px; flex: none; padding: 0 6px; border-left: 1px solid var(--hairline, var(--border)); }
-.type-row.overflow .type-nav { display: inline-flex; }
-.type-scroll { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
-.type-scroll:hover:not(:disabled) { background: var(--hover); color: var(--text); }
-.type-scroll:disabled { opacity: 0.35; cursor: default; }
-.type-scroll svg { width: 16px; height: 16px; }
-.type-family, .type-tab, .type-add { display: inline-flex; align-items: center; gap: 5px; flex: none; padding: 3px 8px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; white-space: nowrap; font: inherit; }
-.type-family { border-radius: 8px 8px 0 0; border-bottom: 0; }
-.type-family.has { color: var(--text); }
-.type-family:hover, .type-tab:hover, .type-add:hover { background: var(--hover); }
-.type-family.active { background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 600; margin-bottom: -1px; box-shadow: inset 0 2px 0 var(--accent); }
-.type-tab { border-radius: 7px; }
-.type-tab.active { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--text); font-weight: 600; }
-.type-family svg, .type-tab svg, .type-add svg { width: 16px; height: 16px; flex: none; }
-.type-count { min-width: 16px; padding: 0 5px; border-radius: 8px; background: var(--hover); color: var(--muted); font-size: 0.82em; font-weight: 600; text-align: center; }
-.type-tab.active .type-count { background: var(--accent); color: var(--accent-text, #fff); }
-.type-add { border-radius: 7px; padding: 4px 7px; }
+/* ───────────────────────── new diagram popup: groups on the left, the group's types as cards, a name below */
+.popup-diagram .popup-body { padding: 0; }
+.dg-picker { display: grid; grid-template-columns: 210px minmax(0, 1fr); height: 100%; min-height: 0; }
+.dg-groups { display: flex; flex-direction: column; gap: 1px; padding: 8px; border-right: 1px solid var(--hairline, var(--border)); background: color-mix(in srgb, var(--panel) 70%, var(--surface)); overflow-y: auto; scrollbar-width: thin; }
+.dg-group { display: flex; align-items: center; gap: 8px; flex: none; height: 29px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--text); cursor: pointer; text-align: left; font: inherit; white-space: nowrap; }
+.dg-group > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dg-group small { color: var(--muted); font-size: 0.8em; font-variant-numeric: tabular-nums; }
+.dg-group small b { color: var(--accent); }
+.dg-group svg { width: 16px; height: 16px; flex: none; color: var(--muted); }
+.dg-group:hover { background: var(--hover); }
+.dg-group.active { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+.dg-group.active svg { color: var(--accent); }
+.dg-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 12px 14px 8px; }
+.dg-main .search-box { margin: 0; height: 32px; box-sizing: border-box; }
+.dg-main .search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent); }
+.dg-main .search-box input:focus { outline: none; box-shadow: none; }
+.dg-grid-title { margin: 10px 2px 6px; font-size: 0.8em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+.dg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 72px; gap: 8px; flex: 1; min-height: 0; overflow-y: auto; align-content: start; padding: 2px; scrollbar-width: thin; }
+.dg-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; text-align: left; font: inherit; transition: border-color 0.12s, background-color 0.12s; }
+.dg-card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); background: var(--hover); }
+.dg-card.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 11%, var(--surface)); box-shadow: 0 0 0 1px var(--accent); }
+.dg-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dg-card-icon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 9%, var(--surface2, var(--panel))); color: var(--accent); }
+.dg-card-icon svg { width: 28px; height: 28px; }
+.dg-card-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dg-card-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-card-text small { color: var(--muted); font-size: 0.84em; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dg-count { position: absolute; top: 6px; right: 8px; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--accent-text, #fff); font-size: 0.76em; font-weight: 600; text-align: center; }
+.dg-none { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 24px auto; color: var(--muted); }
+.dg-none svg { width: 18px; height: 18px; }
+.dg-hint { display: flex; align-items: center; gap: 6px; margin: 8px 2px 0; color: var(--muted); font-size: 0.82em; }
+.dg-hint svg { width: 14px; height: 14px; flex: none; }
+.dg-name { display: inline-flex; align-items: center; gap: 8px; flex: 0 1 380px; min-width: 0; }
+.dg-name input { flex: 1; min-width: 0; height: 30px; box-sizing: border-box; }
 
 /* ───────────────────────── tab bar: the project, then a tab per diagram */
 #tabs[hidden] { display: none; }
-.tab-project { display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 240px; padding: 4px 10px 4px 4px; margin-right: 4px; border-right: 1px solid var(--hairline, var(--border)); color: var(--text); font-weight: 600; }
-.tab-project .tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tab-project .icon, .tab-project svg { width: 16px; height: 16px; flex: none; }
-.tab-project.dirty .tab-dirty { display: inline; }
 
 /* Settings: a long label (English) wraps onto a second line instead of being cut off. */
 .popup-settings .row-label > span { white-space: normal; line-height: 1.25; }
@@ -1415,6 +1421,12 @@ html.popup-kind-color body, html.popup-kind-color #app { background: var(--surfa
 .app-brand-icon { width: 20px; height: 20px; flex: none; pointer-events: auto; }
 .app-brand-name { font-weight: 700; }
 .app-brand-version { color: var(--muted); font-size: 0.86em; }
+/* The open project after the name and version: a fixed width, … when longer, ● for unsaved changes. */
+.app-brand-project { display: inline-flex; align-items: center; gap: 4px; width: 220px; height: 20px; margin-left: 5px; padding: 0 8px; border-left: 1px solid var(--hairline, var(--border)); color: var(--text); font-weight: 600; box-sizing: border-box; overflow: hidden; }
+.app-brand-project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-brand-dirty { display: none; flex: none; color: var(--warning); font-size: 10px; }
+.app-brand-project.dirty .app-brand-dirty { display: inline; }
+.app-brand-project.empty { border-left-color: transparent; }
 .menubar-drag { flex: 1; min-width: 24px; align-self: stretch; }
 .window-controls { display: flex; align-items: stretch; flex: none; margin-left: auto; }
 .window-button { display: inline-grid; place-items: center; width: 46px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--text); cursor: default; }
