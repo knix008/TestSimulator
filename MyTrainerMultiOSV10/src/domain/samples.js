@@ -332,9 +332,9 @@ export const SAMPLES = {
   },
   kwsKo: {
     group: 'speech', icon: 'smKwsKo', ko: '한국어 키워드 인식: 출근·퇴근·경비·해제', en: 'Korean keyword spotting: 출근·퇴근·경비·해제',
-    descKo: 'Supertonic TTS 화자 10명이 말한 실제 음성으로 출퇴근·경비 명령어 4개 + unknown(비슷한 다른 말) + noise(배경 소음)를 구별합니다. 학습 탭의 "모델 구조"에서 임베디드용 DS-CNN 과 BC-ResNet 중 하나를 골라 학습하고 비교하세요. data/predict/kws-ko 의 파일로 "파일로 실행"도 해 보세요.',
-    descEn: 'Real speech from the ten Supertonic TTS voices: tell four commands (clock in / clock out / arm / disarm) from unknown (similar other words) and noise. In the Train tab pick the embedded model — DS-CNN or BC-ResNet — under "Model", train and compare. Try "Run on files" with data/predict/kws-ko.',
-    dataset: { source: { kind: 'sounds', bank: 'kws-ko', name: 'Korean keywords', seconds: 1, copies: 3, noiseClass: true, layout: 'image', seed: 1 }, steps: [], split: { ...defaultSplit(), stratify: true } },
+    descKo: 'Supertonic TTS 화자 80명(기본 10명 + 두 목소리를 섞은 30명 + 세 목소리를 섞어 조금 바꾼 40명)이 여러 억양·빠르기로 말한 음성 2880개로 출퇴근·경비 명령어 4개 + unknown(비슷한 말과 일상어 120여 개) + noise(배경 소음)를 구별합니다. 학습 탭의 "모델 구조"에서 임베디드용 DS-CNN 과 BC-ResNet 중 하나를 골라 학습하고 비교하세요. data/predict/kws-ko 의 파일로 "파일로 실행"도 해 보세요.',
+    descEn: '2880 clips from 80 Supertonic TTS voices (the 10 built-in ones, 30 blends of two and 40 nudged mixes of three) in several intonations and speeds: tell four commands (clock in / clock out / arm / disarm) from unknown (about 120 similar and everyday words) and noise. In the Train tab pick the embedded model — DS-CNN or BC-ResNet — under "Model", train and compare. Try "Run on files" with data/predict/kws-ko.',
+    dataset: { source: { kind: 'sounds', bank: 'kws-ko', name: 'Korean keywords', seconds: 1, copies: 4, noiseClass: true, layout: 'image', seed: 1 }, steps: [], split: { ...defaultSplit(), stratify: true } },
     variants: {
       dsCnn: {
         ko: 'DS-CNN', en: 'DS-CNN', descKo: '깊이별 + 점별 합성곱 블록 4개 (Hello Edge). 매개변수가 적고 마이크로컨트롤러에서 빠릅니다.', descEn: 'Four depthwise + pointwise blocks (Hello Edge): few parameters, fast on a microcontroller.',

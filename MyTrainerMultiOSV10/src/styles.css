@@ -267,7 +267,9 @@ input.invalid { border-color: var(--danger) !important; }
 /* ───────────────────────── start page */
 .start-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #start-page.with-image .start-scroll { background: var(--start-image) center / cover no-repeat; }
-.start-scroll { position: absolute; inset: 0; overflow: auto; }
+/* No scrollbar (the wheel and keys still scroll): it would take room on the right only, and the margins left and right of the content must be equal. */
+.start-scroll { position: absolute; inset: 0; overflow: auto; scrollbar-width: none; }
+.start-scroll::-webkit-scrollbar { display: none; }
 .start-inner { max-width: 1240px; margin: 0 auto; padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 14px; }
 .start-hero { display: flex; align-items: center; gap: 18px; padding: 16px 20px; border-radius: 16px; background: color-mix(in srgb, var(--surface) 74%, transparent); border: 1px solid var(--border); backdrop-filter: blur(6px); box-shadow: 0 10px 30px var(--shadow); }
 .start-icon { width: 76px; height: 76px; filter: drop-shadow(0 6px 10px var(--shadow)); }

@@ -132,7 +132,7 @@ A **complete PyTorch script** holding the model and the training settings:
 
 **Start (F5) · pause / resume (F6) · one batch (F10) · stop (Shift+F5) · reset**. With TensorFlow.js, a stopped run can **continue**.
 
-Charts: loss (train / validation; earlier runs dashed), accuracy or learning rate, the **decision boundary** (2-D points) · **fitted curve** (1-D functions) · **original / reconstructed** (autoencoders) · output probabilities, **gradient flow** (mean |∇W| per layer — small red bars in the early layers mean vanishing gradients), **weight distribution per layer**, and the probe input's **neuron activity**.
+Every chart card has a title; hover over it (ⓘ) to see what the card shows (the Data and Test tabs work the same way). For classification, the **output probabilities** card shows each class's probability (e.g. 경비 · 출근 · 퇴근 · 해제) for the probe input under the current model; the bar in bold text is the true class. At the top, the probe input's **neuron activity** shows it passing through the network while you train. Below it the charts: loss (train / validation; earlier runs dashed), accuracy or learning rate, the **decision boundary** (2-D points) · **fitted curve** (1-D functions) · **original / reconstructed** (autoencoders) · output probabilities, **gradient flow** (mean |∇W| per layer — small red bars in the early layers mean vanishing gradients) and the **weight distribution per layer**.
 
 ## Test tab
 

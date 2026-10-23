@@ -9,7 +9,7 @@ import { shapeText } from '../domain/layers.js';
 import { icon } from '../icons.js';
 import { stepperHtml } from '../stepper.js';
 import { barChart, CLASS_COLORS, drawPicture, fmt, histogramChart, scatterPlot, sequenceChart, setupCanvas, theme } from './charts.js';
-import { escapeHtml } from './dom.js';
+import { cardTitle, escapeHtml } from './dom.js';
 import { drawFrameStrip, drawPlayBadge, drawSpectrogram } from './media.js';
 import { SOUND_BANKS, tokensText } from '../domain/datasets-media.js';
 
@@ -86,10 +86,10 @@ export function dataViewHtml(app) {
         <span class="grow"></span>
         <span class="muted small">${escapeHtml(t('data.clickProbe'))}</span>
       </div>
-      <div class="data-preview"><canvas class="preview-canvas" data-preview="main"></canvas></div>
+      <div class="data-preview">${cardTitle(icon('dataset', 'icon tiny'), t('card.preview'), t('card.previewTip'))}<canvas class="preview-canvas" data-preview="main"></canvas></div>
       <div class="data-stats">
-        <div class="stat-card"><h4>${escapeHtml(t('data.balance'))}</h4><canvas data-preview="balance"></canvas></div>
-        <div class="stat-card wide"><h4>${escapeHtml(t('data.features'))}</h4><div class="feature-grid" data-preview="features"></div></div>
+        <div class="stat-card">${cardTitle('', t('data.balance'), t('card.balanceTip'))}<canvas data-preview="balance"></canvas></div>
+        <div class="stat-card wide">${cardTitle('', t('data.features'), t('card.featuresTip'))}<div class="feature-grid" data-preview="features"></div></div>
       </div>
     </div>
   </div>`;

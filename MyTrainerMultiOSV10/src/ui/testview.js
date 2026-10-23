@@ -5,7 +5,7 @@
 // the misclassified samples, or predicted-vs-actual for regression.
 import { icon } from '../icons.js';
 import { barChart, CLASS_COLORS, confusionChart, drawHeatmap, drawPicture, fmt, histogramChart, scatterPlot, sequenceChart, setupCanvas, theme } from './charts.js';
-import { escapeHtml } from './dom.js';
+import { cardTitle, escapeHtml } from './dom.js';
 import { drawSpectrogram } from './media.js';
 import { tokensText, videoFrames } from '../domain/datasets-media.js';
 
@@ -20,7 +20,7 @@ export function testViewHtml(app) {
   const custom = kind === 'image' || kind === 'points2d' || kind === 'tokens' || kind === 'vector' || kind === 'function1d';
   const report = app.report();
   const inputPanel = `
-    <section class="panel-section"><h3>${icon('probe')}<span>${escapeHtml(t('test.input'))}</span></h3>
+    <section class="panel-section"><h3 title="${escapeHtml(t('card.inputTip'))}">${icon('probe')}<span>${escapeHtml(t('test.input'))}</span></h3>
       <span class="segmented" role="radiogroup">
         <button class="segment ${test.mode === 'sample' ? 'active' : ''}" data-test-mode="sample">${icon('dataset')}<span>${escapeHtml(t('test.sample'))}</span></button>
         ${custom ? `<button class="segment ${test.mode === 'custom' ? 'active' : ''}" data-test-mode="custom">${icon(kind === 'image' ? 'pencil' : kind === 'points2d' ? 'pointer' : 'edit')}<span>${escapeHtml(t(kind === 'image' ? 'test.draw' : kind === 'points2d' ? 'test.click' : 'test.type'))}</span></button>` : ''}
@@ -39,7 +39,7 @@ export function testViewHtml(app) {
     </section>
     ${liveHtml(app)}
     ${batchHtml(app)}
-    <section class="panel-section"><h3>${icon('blkHead')}<span>${escapeHtml(t('test.output'))}</span></h3>
+    <section class="panel-section"><h3 title="${escapeHtml(t('card.outputTip'))}">${icon('blkHead')}<span>${escapeHtml(t('test.output'))}</span></h3>
       <div class="prediction-head">${predictionHead(app)}</div>
       <canvas data-test-canvas="output"></canvas>
     </section>`;
@@ -48,8 +48,8 @@ export function testViewHtml(app) {
   return `<div class="test-view">
     <aside class="test-side">${inputPanel}</aside>
     <div class="test-main">
-      <div class="chart-card neuron-card big"><h4>${icon('nodesView', 'icon tiny')} ${escapeHtml(t('test.flow'))}</h4><div class="neuron-host" data-neuron="test"></div></div>
-      <div class="chart-card evaluation"><h4>${icon('confusion', 'icon tiny')} ${escapeHtml(t('test.evaluation', { part: t(`test.part.${report?.summary?.part ?? 'test'}`) }))}</h4>${evaluation}</div>
+      <div class="chart-card neuron-card big">${cardTitle(icon('nodesView', 'icon tiny'), t('test.flow'), t('card.flowTip'))}<div class="neuron-host" data-neuron="test"></div></div>
+      <div class="chart-card evaluation">${cardTitle(icon('confusion', 'icon tiny'), t('test.evaluation', { part: t(`test.part.${report?.summary?.part ?? 'test'}`) }), t('card.evalTip'))}${evaluation}</div>
     </div>
   </div>`;
   void data;

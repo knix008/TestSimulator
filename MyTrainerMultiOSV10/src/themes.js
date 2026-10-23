@@ -223,6 +223,22 @@ export function applyTheme(theme, root = globalThis.document?.documentElement) {
   root.style.colorScheme = theme.dark ? 'dark' : 'light';
 }
 
+/** Where the app leaves its current colours for the user's guide pages (same origin, plain HTML without the app's code). */
+export const DOC_THEME_KEY = 'mytrainer.docTheme';
+
+/** The guide pages' colour variables (scripts/build-docs.mjs) from an app theme. */
+export function docTheme(theme) {
+  const c = theme.colors;
+  return {
+    dark: Boolean(theme.dark),
+    vars: {
+      '--bg': c.bg, '--surface': c.surface, '--text': c.text, '--muted': c.muted, '--border': c.border, '--accent': c.accent,
+      '--accent-soft': mix(c.surface, c.accent, theme.dark ? 0.22 : 0.12), '--code-bg': c.surface2 ?? c.panel, '--row-alt': c.gridAlt ?? c.panel,
+      '--shadow': `0 1px 3px ${c.shadow ?? 'rgba(0,0,0,.12)'}`,
+    },
+  };
+}
+
 export function applyFont(settings, root = globalThis.document?.documentElement) {
   if (!root) return;
   const family = settings.fontFamily ? `"${settings.fontFamily.replace(/"/g, '')}", ` : '';

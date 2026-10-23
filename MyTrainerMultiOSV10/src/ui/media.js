@@ -14,7 +14,7 @@ export function playWave(wave, rate) {
     if (audioContext.state === 'suspended') audioContext.resume();
     playing?.stop();
     const buffer = audioContext.createBuffer(1, wave.length, rate);
-    buffer.copyToChannel(Float32Array.from(wave), 0);
+    buffer.copyToChannel(wave instanceof Int16Array ? Float32Array.from(wave, (v) => v / 32767) : Float32Array.from(wave), 0);
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(audioContext.destination);
