@@ -1,0 +1,331 @@
+{
+  "format": "myheat",
+  "version": 1,
+  "name": "하루 동안의 외벽 (시간 경계 조건)",
+  "description": "바깥 기온과 대류 계수가 하루 동안 표에 따라 바뀌고(Tinf(t) · h(t)), 실내는 난방 일정(T(t))을 따릅니다. 단열 외벽 속 온도와 실내 표면 열 흐름이 하루에 어떻게 바뀌는지 봅니다.",
+  "domain": {
+    "dim": 2,
+    "width": 330,
+    "height": 60,
+    "depth": 1000,
+    "nx": 165,
+    "ny": 6,
+    "nz": 10,
+    "background": null
+  },
+  "ambient": 15,
+  "gravity": [
+    0,
+    -9.81
+  ],
+  "materials": [
+    {
+      "id": "brick",
+      "kind": "solid",
+      "color": "#a5523a",
+      "k": 0.72,
+      "rho": 1920,
+      "cp": 835,
+      "emissivity": 0.93,
+      "E": 15000000000,
+      "nu": 0.2,
+      "alpha": 0.000006,
+      "sigma": 0,
+      "name": "벽돌"
+    },
+    {
+      "id": "eps",
+      "kind": "solid",
+      "color": "#f2f2f2",
+      "k": 0.035,
+      "rho": 20,
+      "cp": 1300,
+      "emissivity": 0.9,
+      "E": 5000000,
+      "nu": 0.1,
+      "alpha": 0.00007,
+      "sigma": 0,
+      "name": "EPS 단열재"
+    },
+    {
+      "id": "gypsum",
+      "kind": "solid",
+      "color": "#ece6dc",
+      "k": 0.17,
+      "rho": 800,
+      "cp": 1090,
+      "emissivity": 0.9,
+      "E": 2000000000,
+      "nu": 0.2,
+      "alpha": 0.000018,
+      "sigma": 0,
+      "name": "석고보드"
+    }
+  ],
+  "bodies": [
+    {
+      "id": "brick",
+      "name": "벽돌",
+      "shape": "rect",
+      "material": "brick",
+      "x": 0,
+      "y": 0,
+      "w": 200,
+      "h": 60,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "eps",
+      "name": "단열재 (EPS)",
+      "shape": "rect",
+      "material": "eps",
+      "x": 200,
+      "y": 0,
+      "w": 115,
+      "h": 60,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "plaster",
+      "name": "석고 마감",
+      "shape": "rect",
+      "material": "gypsum",
+      "x": 315,
+      "y": 0,
+      "w": 15,
+      "h": 60,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "outside",
+      "name": "바깥 (하루 변화)",
+      "target": "left",
+      "range": null,
+      "region": null,
+      "curve": null,
+      "type": "convection",
+      "T": 25,
+      "q": 0,
+      "h": 20,
+      "Tinf": 8,
+      "emissivity": 0,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": [
+        [
+          0,
+          25
+        ],
+        [
+          43200,
+          12
+        ],
+        [
+          86400,
+          25
+        ]
+      ],
+      "Tinft": [
+        [
+          0,
+          8
+        ],
+        [
+          21600,
+          10
+        ],
+        [
+          36000,
+          24
+        ],
+        [
+          50400,
+          30
+        ],
+        [
+          64800,
+          20
+        ],
+        [
+          86400,
+          8
+        ]
+      ],
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    },
+    {
+      "id": "inside",
+      "name": "실내 (난방 일정)",
+      "target": "right",
+      "range": null,
+      "region": null,
+      "curve": null,
+      "type": "convection",
+      "T": 25,
+      "q": 0,
+      "h": 7.7,
+      "Tinf": 20,
+      "emissivity": 0,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": [
+        [
+          0,
+          17
+        ],
+        [
+          21600,
+          17
+        ],
+        [
+          25200,
+          21
+        ],
+        [
+          79200,
+          21
+        ],
+        [
+          82800,
+          17
+        ],
+        [
+          86400,
+          17
+        ]
+      ],
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "name": "벽돌 가운데",
+      "x": 100,
+      "y": 30,
+      "z": 500
+    },
+    {
+      "id": "p2",
+      "name": "단열재 안쪽",
+      "x": 312,
+      "y": 30,
+      "z": 500
+    },
+    {
+      "id": "p3",
+      "name": "실내 표면",
+      "x": 329,
+      "y": 30,
+      "z": 500
+    }
+  ],
+  "study": {
+    "type": "transient",
+    "flow": false,
+    "natural": false,
+    "stress": false,
+    "planeStrain": false,
+    "Tref": 25,
+    "initialT": 15,
+    "endTime": 172800,
+    "dt": 600,
+    "frames": 96,
+    "tolerance": 0.000001,
+    "maxIter": 20000,
+    "flowSteps": 3000,
+    "turbulence": "laminar",
+    "electric": false,
+    "thermalStrain": true,
+    "gravityLoad": false,
+    "modal": {
+      "enabled": false,
+      "modes": 6
+    },
+    "comfort": {
+      "met": 1.2,
+      "clo": 0.5,
+      "rh": 50,
+      "tr": null
+    },
+    "s2s": false,
+    "s2sMedium": "void"
+  },
+  "reliability": {
+    "components": []
+  },
+  "view": {
+    "sample": "sunWallDay"
+  }
+}

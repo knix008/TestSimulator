@@ -1,0 +1,128 @@
+/* Start page and tutorial tour, after MyUMLMaker's, on MyCAD's tokens
+   (--panel = surface, --line = border, --button = hover). */
+
+.workspace { position: relative; }
+.workspace.starting > .panel, .workspace.starting > .center { visibility: hidden; }
+.start-page { position: absolute; inset: 0; z-index: 30; overflow: hidden; background: var(--bg); }
+.start-page[hidden] { display: none; }
+.start-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.start-scroll { position: absolute; inset: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.start-inner { max-width: 1240px; margin: 0 auto; padding: 22px 26px 18px; display: flex; flex-direction: column; gap: 14px; }
+.start-page .icon { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; flex: none; color: var(--accent); }
+.start-page .grow { flex: 1 1 auto; }
+.start-page .button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 6px; background: var(--button); cursor: pointer; }
+.start-page .button.big { height: 38px; padding: 0 14px; font-size: 1.02em; }
+.start-page .button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.start-page .button.primary .icon { color: var(--bg); }
+.start-page .small-button { height: 24px; padding: 0 9px; border-radius: 5px; font-size: 0.86em; cursor: pointer; }
+.start-page .small-button.danger:hover { border-color: var(--danger); color: var(--danger); }
+.start-page .icon-button { width: 24px; height: 24px; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.start-page .icon-button:hover { color: var(--danger); background: var(--button); }
+
+.start-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; row-gap: 12px; padding: 16px 20px; border-radius: 16px; background: color-mix(in srgb, var(--panel) 76%, transparent); border: 1px solid var(--line); backdrop-filter: blur(6px); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); }
+.start-icon { width: 76px; height: 76px; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .35)); }
+.start-hero h1 { margin: 0; font-size: 1.8em; }
+.start-hero h1 small { font-size: 0.5em; color: var(--accent); }
+.start-hero p { margin: 4px 0 0; color: var(--muted); line-height: 1.5; }
+.start-hero > div:not(.start-hero-actions) { flex: 1 1 260px; min-width: 0; }
+.start-hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; }
+.start-docs { display: flex; flex-wrap: wrap; gap: 6px; padding-right: 10px; border-right: 1px solid var(--line); }
+.start-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 22%, var(--panel)); border: 1px solid var(--accent); }
+.start-banner > span:nth-child(2) { flex: 1; line-height: 1.5; }
+.start-grid { display: grid; grid-template-columns: 1.25fr 1fr 0.95fr; gap: 14px; align-items: start; }
+.start-card { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--panel) 72%, transparent); border: 1px solid var(--line); backdrop-filter: blur(2px); box-shadow: 0 8px 24px rgba(0, 0, 0, .22); min-width: 0; }
+.start-card h2 { display: flex; align-items: center; gap: 7px; margin: 4px 0 8px; font-size: 1em; }
+.start-card h2:not(:first-child) { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.template-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.template-tile { display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: auto auto; gap: 0 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; text-align: left; min-width: 0; }
+.template-tile .icon { grid-row: span 2; width: 30px; height: 30px; font-size: 22px; }
+.template-tile b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.template-tile small { color: var(--muted); font-size: 0.8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.template-tile:hover { border-color: var(--accent); background: var(--button); }
+.start-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.start-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.start-list.samples { max-height: 236px; overflow: auto; scrollbar-width: thin; }
+.start-row { display: flex; align-items: center; gap: 2px; }
+.start-link { flex: 1; display: grid; grid-template-columns: 20px auto minmax(0, 1fr); align-items: center; gap: 6px; padding: 5px 8px; border: 0; border-radius: 7px; background: none; cursor: pointer; text-align: left; min-width: 0; }
+.start-link.compact { grid-template-columns: 20px minmax(0, 1fr) auto; }
+.start-link .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-link .path { font-size: 0.8em; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-link:hover { background: var(--button); }
+.start-empty { display: flex; align-items: center; gap: 6px; padding: 8px; color: var(--muted); font-size: 0.88em; }
+.anim-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.anim-chip { display: flex; align-items: center; justify-content: flex-start; gap: 4px; height: 28px; min-width: 0; padding: 0 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); cursor: pointer; font-size: 0.86em; white-space: nowrap; overflow: hidden; }
+.anim-chip span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.anim-chip.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.anim-chip.active .icon { color: var(--bg); }
+.start-speed { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; font-size: 0.88em; }
+.start-speed input { flex: 1; width: auto; }
+.start-speed output { min-width: 42px; text-align: right; color: var(--accent); font-weight: 600; }
+.start-check { display: flex; align-items: center; gap: 6px; font-size: 0.88em; }
+.start-foot { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--panel) 82%, transparent); font-size: 0.88em; }
+@media (max-width: 1180px) { .start-grid { grid-template-columns: 1fr 1fr; } .start-card.side { grid-column: 1 / -1; } }
+
+/* Tutorial tour: a dimmed window with the step's target outlined, and the card. */
+.tour-layer { position: fixed; inset: 0; z-index: 70; pointer-events: none; display: none; }
+.tour-layer.active { display: block; }
+.tour-outline { position: fixed; border: 3px solid #f5b942; border-radius: 10px; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.14), 0 0 18px #f5b942; pointer-events: none; transition: all 0.3s; }
+.tour-card { position: fixed; width: 440px; max-width: calc(100vw - 24px); pointer-events: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4); overflow: hidden; }
+.tour-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; background: var(--accent); color: var(--bg); cursor: move; user-select: none; }
+.tour-head .grow, .tour-foot .grow { flex: 1 1 auto; }
+.tour-head .icon-button { color: var(--bg); background: transparent; border: 0; width: 24px; height: 24px; padding: 0; cursor: pointer; }
+.tour-chapter { font-size: 0.82em; opacity: 0.9; }
+.tour-progress { height: 4px; background: var(--panel-alt); }
+.tour-progress i { display: block; height: 100%; background: #f5b942; transition: width 0.3s; }
+.tour-card h3 { margin: 12px 14px 4px; font-size: 1.08em; }
+.tour-card p { margin: 0 14px 10px; line-height: 1.6; white-space: normal; }
+.tour-foot { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--line); background: var(--panel-alt); }
+.tour-foot select { max-width: 160px; height: 26px; }
+.tour-foot .icon-button { width: 28px; height: 26px; padding: 0; cursor: pointer; }
+.tour-foot .icon-button.active { border-color: var(--accent); color: var(--accent); }
+.tour-foot .primary.small { height: 26px; padding: 0 10px; background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; cursor: pointer; }
+.tour-count { font-size: 0.85em; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Samples: their own section under the cards, one card per sample with a preview. */
+.start-samples h2 .small-button { font-weight: 400; }
+.start-sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.start-sample { display: flex; flex-direction: column; gap: 5px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; text-align: left; min-width: 0; white-space: normal; }
+.start-sample:hover { border-color: var(--accent); background: var(--button); }
+.start-sample canvas { width: 100%; height: 96px; border-radius: 6px; background: var(--bg); }
+.start-sample b { font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-sample small { color: var(--muted); font-size: 0.78em; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.start-sample .tags { display: flex; gap: 3px; flex-wrap: wrap; }
+
+/* Sample cards: one size, aligned — preview, then name, tags and two lines of description. */
+.start-sample-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; align-items: stretch; }
+.start-sample { display: grid; grid-template-rows: 64px auto auto 2.6em; gap: 4px; padding: 6px; height: 100%; font-size: 12px; overflow: hidden; }
+.start-sample canvas { width: 100%; height: 64px; }
+.start-sample b { font-size: 12px; line-height: 1.3; }
+.start-sample .tags { flex-wrap: nowrap; overflow: hidden; height: 16px; }
+.start-sample .tag { flex: 0 0 auto; font-size: 9.5px; padding: 0 5px; line-height: 14px; }
+.start-sample small { font-size: 10.5px; line-height: 1.3em; max-height: 2.6em; }
+
+/* New: the full width of the page, starting points grouped by field (one column per group). */
+.start-grid .start-card.templates { grid-column: 1 / -1; }
+.start-grid .start-card.recent { grid-column: span 2; }
+.template-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: start; }
+.template-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.template-group-title { margin: 0 0 2px; padding-bottom: 3px; border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.template-group .template-tile { grid-template-columns: 26px minmax(0, 1fr); padding: 6px 8px; }
+.template-group .template-tile .icon { width: 24px; height: 24px; font-size: 18px; }
+.template-group .template-tile b { font-size: 12px; }
+.template-group .template-tile small { font-size: 10.5px; }
+@media (max-width: 1180px) { .start-grid .start-card.recent { grid-column: 1 / -1; } }
+
+/* Movable, resizable start page cards (layout saved in the settings). */
+.start-board { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; }
+.start-board > .start-card { position: relative; grid-column: span 1; }
+.start-board > .start-card.fixed-height { overflow: auto; scrollbar-width: thin; }
+.start-board > .start-card.dragging { opacity: .6; outline: 2px dashed var(--accent); }
+.start-board > .start-card.resizing { outline: 2px solid var(--accent); }
+.card-handle { cursor: grab; color: var(--muted); font-size: 14px; padding: 0 2px; user-select: none; touch-action: none; }
+.card-handle:hover { color: var(--accent); }
+.card-resize { position: absolute; right: 2px; bottom: 2px; width: 16px; height: 16px; cursor: nwse-resize; touch-action: none; color: var(--muted);
+  background: linear-gradient(135deg, transparent 0 55%, currentColor 55% 65%, transparent 65% 75%, currentColor 75% 85%, transparent 85%); opacity: .7; }
+.card-resize:hover { color: var(--accent); opacity: 1; }
+@media (max-width: 1180px) { .start-board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.card-ghost { position: fixed; z-index: 100; margin: 0; opacity: .82; pointer-events: none; transform: rotate(1.2deg) scale(1.01); box-shadow: 0 22px 50px rgba(0, 0, 0, .5); outline: 2px solid var(--accent); }
+.card-placeholder { border: 2px dashed var(--accent); border-radius: 14px; background: color-mix(in srgb, var(--accent) 10%, transparent); min-height: 80px; }

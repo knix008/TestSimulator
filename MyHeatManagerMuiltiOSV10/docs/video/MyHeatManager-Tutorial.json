@@ -1,0 +1,431 @@
+{
+  "video": "MyHeatManager-Tutorial.mp4",
+  "width": 1600,
+  "height": 900,
+  "duration": 492.4,
+  "recorded": "2026-10-24T05:16:53.446Z",
+  "chapters": [
+    {
+      "id": "start",
+      "title": "시작 화면",
+      "start": 1.4
+    },
+    {
+      "id": "model",
+      "title": "화면 둘러보기",
+      "start": 40.2
+    },
+    {
+      "id": "draw",
+      "title": "모델 그리기",
+      "start": 114.3
+    },
+    {
+      "id": "materials",
+      "title": "재료",
+      "start": 136.5
+    },
+    {
+      "id": "loads",
+      "title": "열원과 경계 조건",
+      "start": 152.6
+    },
+    {
+      "id": "study",
+      "title": "해석",
+      "start": 173.9
+    },
+    {
+      "id": "results",
+      "title": "결과 보기",
+      "start": 190.4
+    },
+    {
+      "id": "advanced",
+      "title": "고급 해석",
+      "start": 238.4
+    },
+    {
+      "id": "simscale",
+      "title": "SimScale 방식 해석",
+      "start": 263.2
+    },
+    {
+      "id": "tools",
+      "title": "신뢰성 · U-값 · 히트맵",
+      "start": 395
+    },
+    {
+      "id": "files",
+      "title": "파일과 출력",
+      "start": 428.4
+    },
+    {
+      "id": "customize",
+      "title": "꾸미기",
+      "start": 452.8
+    }
+  ],
+  "steps": [
+    {
+      "id": "welcome",
+      "title": "환영합니다",
+      "start": 1.4
+    },
+    {
+      "id": "startNew",
+      "title": "새로 만들기",
+      "start": 6.7
+    },
+    {
+      "id": "startRecent",
+      "title": "최근 파일과 도움말",
+      "start": 12.1
+    },
+    {
+      "id": "startBackground",
+      "title": "예제와 배경",
+      "start": 17.4
+    },
+    {
+      "id": "startLayout",
+      "title": "카드 옮기기와 크기",
+      "start": 29.5
+    },
+    {
+      "id": "startSamples",
+      "title": "예제 구역",
+      "start": 34.9
+    },
+    {
+      "id": "openSample",
+      "title": "튜토리얼 예제",
+      "start": 40.2
+    },
+    {
+      "id": "menubar",
+      "title": "메뉴 막대",
+      "start": 45.5
+    },
+    {
+      "id": "workbench",
+      "title": "작업대",
+      "start": 50.8
+    },
+    {
+      "id": "toolbar",
+      "title": "도구 모음",
+      "start": 60.8
+    },
+    {
+      "id": "zoomReset",
+      "title": "원위치",
+      "start": 66.1
+    },
+    {
+      "id": "tree",
+      "title": "모델 트리",
+      "start": 72.1
+    },
+    {
+      "id": "properties",
+      "title": "속성 패널",
+      "start": 77.4
+    },
+    {
+      "id": "statusbar",
+      "title": "상태 표시줄",
+      "start": 82.6
+    },
+    {
+      "id": "panelsFold",
+      "title": "패널 접기와 펼치기",
+      "start": 87.9
+    },
+    {
+      "id": "viewButtons",
+      "title": "격자 · 계산 격자 · 눈금자",
+      "start": 95.8
+    },
+    {
+      "id": "contextMenu",
+      "title": "오른쪽 단추 메뉴",
+      "start": 103.8
+    },
+    {
+      "id": "tabs",
+      "title": "탭과 < > 이동",
+      "start": 109.1
+    },
+    {
+      "id": "domain",
+      "title": "해석 영역과 격자",
+      "start": 114.3
+    },
+    {
+      "id": "drawRect",
+      "title": "사각형 그리기",
+      "start": 119.9
+    },
+    {
+      "id": "drawShapes",
+      "title": "원과 다각형",
+      "start": 125.2
+    },
+    {
+      "id": "moveResize",
+      "title": "이동 · 크기 · 순서",
+      "start": 130.5
+    },
+    {
+      "id": "library",
+      "title": "재료 라이브러리",
+      "start": 136.5
+    },
+    {
+      "id": "assign",
+      "title": "재료 지정",
+      "start": 142
+    },
+    {
+      "id": "anisotropic",
+      "title": "재료 속성과 방향별 k",
+      "start": 147.3
+    },
+    {
+      "id": "heatSource",
+      "title": "열원",
+      "start": 152.6
+    },
+    {
+      "id": "convection",
+      "title": "경계 조건",
+      "start": 158
+    },
+    {
+      "id": "boundaryTarget",
+      "title": "경계의 대상과 영역",
+      "start": 163.3
+    },
+    {
+      "id": "probe",
+      "title": "탐침",
+      "start": 168.6
+    },
+    {
+      "id": "studySettings",
+      "title": "해석 설정",
+      "start": 173.9
+    },
+    {
+      "id": "validate",
+      "title": "모델 검사",
+      "start": 179.4
+    },
+    {
+      "id": "run",
+      "title": "해석 실행",
+      "start": 184.9
+    },
+    {
+      "id": "temperature",
+      "title": "온도 분포",
+      "start": 190.4
+    },
+    {
+      "id": "flux",
+      "title": "열유속과 벡터",
+      "start": 195.7
+    },
+    {
+      "id": "isotherms",
+      "title": "등온선",
+      "start": 201
+    },
+    {
+      "id": "lineCut",
+      "title": "단면선",
+      "start": 206.3
+    },
+    {
+      "id": "view3d",
+      "title": "3D 보기",
+      "start": 211.6
+    },
+    {
+      "id": "guides3d",
+      "title": "3D 격자와 좌표축",
+      "start": 218.1
+    },
+    {
+      "id": "bottomPanel",
+      "title": "아래쪽 그래프 패널",
+      "start": 227.6
+    },
+    {
+      "id": "report",
+      "title": "해석 보고서",
+      "start": 232.9
+    },
+    {
+      "id": "transient",
+      "title": "과도 해석과 애니메이션",
+      "start": 238.4
+    },
+    {
+      "id": "cht",
+      "title": "유동과 연성 열전달 (CHT)",
+      "start": 251.4
+    },
+    {
+      "id": "stress",
+      "title": "열응력",
+      "start": 257.4
+    },
+    {
+      "id": "turbulence",
+      "title": "난류 유동 (k-ω SST)",
+      "start": 263.2
+    },
+    {
+      "id": "residuals",
+      "title": "수렴 곡선",
+      "start": 272.5
+    },
+    {
+      "id": "flowMetrics",
+      "title": "유량과 압력 강하",
+      "start": 277.8
+    },
+    {
+      "id": "joule",
+      "title": "줄 발열 (전기)",
+      "start": 283.1
+    },
+    {
+      "id": "contact",
+      "title": "접촉 열저항",
+      "start": 288.9
+    },
+    {
+      "id": "structural",
+      "title": "정적 구조 해석",
+      "start": 294.2
+    },
+    {
+      "id": "modal",
+      "title": "고유 진동수 (모드)",
+      "start": 299.6
+    },
+    {
+      "id": "comfort",
+      "title": "열 쾌적성 (PMV)",
+      "start": 312.1
+    },
+    {
+      "id": "bioheat",
+      "title": "생체 열전달 (Pennes)",
+      "start": 365.6
+    },
+    {
+      "id": "fanCurve",
+      "title": "팬 곡선",
+      "start": 372.2
+    },
+    {
+      "id": "parametric",
+      "title": "매개변수 연구",
+      "start": 377.5
+    },
+    {
+      "id": "autoMesh",
+      "title": "격자 자동 설정",
+      "start": 389.7
+    },
+    {
+      "id": "reliability",
+      "title": "신뢰성 (수명)",
+      "start": 395
+    },
+    {
+      "id": "uFactor",
+      "title": "U-값 (건물 외피)",
+      "start": 400.7
+    },
+    {
+      "id": "heatmap",
+      "title": "절점 데이터 히트맵",
+      "start": 406.4
+    },
+    {
+      "id": "thermal",
+      "title": "열분석 (DSC / TGA)",
+      "start": 412
+    },
+    {
+      "id": "interop",
+      "title": "CalculiX · DXF",
+      "start": 417.6
+    },
+    {
+      "id": "batch",
+      "title": "배치 실행 (API)",
+      "start": 422.9
+    },
+    {
+      "id": "save",
+      "title": "저장",
+      "start": 428.4
+    },
+    {
+      "id": "export",
+      "title": "내보내기",
+      "start": 433.7
+    },
+    {
+      "id": "print",
+      "title": "인쇄",
+      "start": 439
+    },
+    {
+      "id": "gallery",
+      "title": "예제 갤러리",
+      "start": 447.2
+    },
+    {
+      "id": "theme",
+      "title": "테마",
+      "start": 452.8
+    },
+    {
+      "id": "themeMenu",
+      "title": "테마 목록",
+      "start": 462.9
+    },
+    {
+      "id": "settings",
+      "title": "환경 설정",
+      "start": 468.4
+    },
+    {
+      "id": "customTheme",
+      "title": "사용자 테마",
+      "start": 473.9
+    },
+    {
+      "id": "docWindow",
+      "title": "설명서 창",
+      "start": 479.4
+    },
+    {
+      "id": "popouts",
+      "title": "창 밖으로 나오는 창과 메뉴",
+      "start": 484.7
+    },
+    {
+      "id": "finish",
+      "title": "끝",
+      "start": 490
+    }
+  ]
+}

@@ -1,0 +1,256 @@
+{
+  "format": "myheat",
+  "version": 1,
+  "name": "Tumour RF ablation (bioheat)",
+  "description": "An electrode in a liver tumour heats for 10 minutes. With blood perfusion and metabolic heat (Pennes bioheat equation), see whether the tumour reaches 50 °C (cell death) and how hot the tissue round it gets.",
+  "domain": {
+    "dim": 2,
+    "width": 80,
+    "height": 80,
+    "depth": 30,
+    "nx": 160,
+    "ny": 160,
+    "nz": 10,
+    "background": null
+  },
+  "ambient": 37,
+  "gravity": [
+    0,
+    -9.81
+  ],
+  "materials": [
+    {
+      "id": "tissue",
+      "name": "Liver tissue",
+      "kind": "solid",
+      "color": "#c97a7a",
+      "k": 0.52,
+      "rho": 1060,
+      "cp": 3600,
+      "emissivity": 0.95,
+      "perfusion": 0.0064,
+      "metabolic": 700,
+      "bloodT": 37,
+      "E": 10000,
+      "nu": 0.45,
+      "alpha": 0
+    },
+    {
+      "id": "tumor",
+      "name": "Tumour",
+      "kind": "solid",
+      "color": "#8b3a62",
+      "k": 0.52,
+      "rho": 1060,
+      "cp": 3600,
+      "emissivity": 0.95,
+      "perfusion": 0.0016,
+      "metabolic": 4000,
+      "bloodT": 37,
+      "E": 10000,
+      "nu": 0.45,
+      "alpha": 0
+    },
+    {
+      "id": "ss304",
+      "kind": "solid",
+      "color": "#9ea7ad",
+      "k": 16.2,
+      "rho": 8000,
+      "cp": 500,
+      "emissivity": 0.3,
+      "E": 193000000000,
+      "nu": 0.29,
+      "alpha": 0.0000173,
+      "sigma": 1390000,
+      "alphaR": 0.001,
+      "name": "Stainless steel 304"
+    }
+  ],
+  "bodies": [
+    {
+      "id": "liver",
+      "name": "Liver",
+      "shape": "rect",
+      "material": "tissue",
+      "x": 0,
+      "y": 0,
+      "w": 80,
+      "h": 80,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 30,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "tumour",
+      "name": "Tumour",
+      "shape": "circle",
+      "material": "tumor",
+      "x": 0,
+      "y": 0,
+      "w": 10,
+      "h": 10,
+      "cx": 40,
+      "cy": 40,
+      "r": 12,
+      "points": [],
+      "z0": 0,
+      "z1": 30,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "probe",
+      "name": "Electrode",
+      "shape": "rect",
+      "material": "ss304",
+      "x": 39,
+      "y": 30,
+      "w": 2,
+      "h": 50,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 30,
+      "power": 0,
+      "powerProfile": [
+        [
+          0,
+          0
+        ],
+        [
+          5,
+          26
+        ],
+        [
+          600,
+          26
+        ],
+        [
+          605,
+          0
+        ],
+        [
+          900,
+          0
+        ]
+      ],
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "skin",
+      "name": "Body temperature",
+      "target": "exterior",
+      "range": null,
+      "region": null,
+      "curve": null,
+      "type": "temperature",
+      "T": 37,
+      "q": 0,
+      "h": 10,
+      "Tinf": 25,
+      "emissivity": 0,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "name": "Tumour edge",
+      "x": 51,
+      "y": 40,
+      "z": 15
+    },
+    {
+      "id": "p2",
+      "name": "Electrode tip",
+      "x": 42.5,
+      "y": 31,
+      "z": 15
+    },
+    {
+      "id": "p3",
+      "name": "Healthy tissue",
+      "x": 65,
+      "y": 40,
+      "z": 15
+    }
+  ],
+  "study": {
+    "type": "transient",
+    "flow": false,
+    "natural": false,
+    "stress": false,
+    "planeStrain": false,
+    "Tref": 25,
+    "initialT": 37,
+    "endTime": 900,
+    "dt": 5,
+    "frames": 60,
+    "tolerance": 0.000001,
+    "maxIter": 20000,
+    "flowSteps": 3000,
+    "turbulence": "laminar",
+    "electric": false,
+    "thermalStrain": true,
+    "gravityLoad": false,
+    "modal": {
+      "enabled": false,
+      "modes": 6
+    },
+    "comfort": {
+      "met": 1.2,
+      "clo": 0.5,
+      "rh": 50,
+      "tr": null
+    },
+    "s2s": false,
+    "s2sMedium": "void"
+  },
+  "reliability": {
+    "components": []
+  },
+  "view": {
+    "sample": "tumorAblation"
+  }
+}

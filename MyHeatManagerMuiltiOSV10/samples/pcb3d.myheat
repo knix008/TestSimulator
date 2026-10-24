@@ -1,0 +1,369 @@
+{
+  "format": "myheat",
+  "version": 1,
+  "name": "PCB 부품 배치 (3D)",
+  "description": "4층 PCB 위 부품들의 발열과 자연 대류·복사 냉각을 3D로 계산하고, 부품 온도로 신뢰성(수명)을 추정합니다.",
+  "domain": {
+    "dim": 3,
+    "width": 80,
+    "height": 60,
+    "depth": 8,
+    "nx": 80,
+    "ny": 60,
+    "nz": 8,
+    "background": null
+  },
+  "ambient": 25,
+  "gravity": [
+    0,
+    -9.81
+  ],
+  "materials": [
+    {
+      "id": "pcb4",
+      "kind": "solid",
+      "color": "#2e6b34",
+      "k": 0.4,
+      "rho": 2100,
+      "cp": 1100,
+      "emissivity": 0.9,
+      "E": 25000000000,
+      "nu": 0.15,
+      "alpha": 0.000016,
+      "kx": 25,
+      "kz": 25,
+      "sigma": 0,
+      "name": "PCB 4층 (유효)"
+    },
+    {
+      "id": "emc",
+      "kind": "solid",
+      "color": "#26262b",
+      "k": 0.8,
+      "rho": 1900,
+      "cp": 900,
+      "emissivity": 0.9,
+      "E": 25000000000,
+      "nu": 0.3,
+      "alpha": 0.000012,
+      "sigma": 0,
+      "name": "에폭시 몰딩 컴파운드"
+    },
+    {
+      "id": "silicon",
+      "kind": "solid",
+      "color": "#3c4a6e",
+      "k": 148,
+      "rho": 2330,
+      "cp": 712,
+      "emissivity": 0.6,
+      "E": 130000000000,
+      "nu": 0.28,
+      "alpha": 0.0000026,
+      "kT": [
+        [
+          -50,
+          230
+        ],
+        [
+          25,
+          148
+        ],
+        [
+          100,
+          105
+        ],
+        [
+          150,
+          85
+        ],
+        [
+          200,
+          70
+        ]
+      ],
+      "sigma": 0,
+      "name": "실리콘 (다이)"
+    },
+    {
+      "id": "copper",
+      "kind": "solid",
+      "color": "#c87533",
+      "k": 391,
+      "rho": 8933,
+      "cp": 385,
+      "emissivity": 0.05,
+      "E": 117000000000,
+      "nu": 0.34,
+      "alpha": 0.0000166,
+      "sigma": 59600000,
+      "alphaR": 0.00393,
+      "name": "구리"
+    },
+    {
+      "id": "al6061",
+      "kind": "solid",
+      "color": "#b8c2cc",
+      "k": 167,
+      "rho": 2700,
+      "cp": 896,
+      "emissivity": 0.09,
+      "E": 68900000000,
+      "nu": 0.33,
+      "alpha": 0.0000236,
+      "sigma": 25000000,
+      "alphaR": 0.0039,
+      "name": "알루미늄 6061"
+    }
+  ],
+  "bodies": [
+    {
+      "id": "board",
+      "name": "보드",
+      "shape": "rect",
+      "material": "pcb4",
+      "x": 0,
+      "y": 0,
+      "w": 80,
+      "h": 60,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 2,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "mcu",
+      "name": "MCU",
+      "shape": "rect",
+      "material": "emc",
+      "x": 26,
+      "y": 22,
+      "w": 16,
+      "h": 16,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 2,
+      "z1": 4,
+      "power": 0.8,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "pmic",
+      "name": "전원 IC",
+      "shape": "rect",
+      "material": "emc",
+      "x": 58,
+      "y": 38,
+      "w": 10,
+      "h": 10,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 2,
+      "z1": 4,
+      "power": 1.2,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "ldo",
+      "name": "LDO",
+      "shape": "rect",
+      "material": "emc",
+      "x": 8,
+      "y": 44,
+      "w": 7,
+      "h": 7,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 2,
+      "z1": 4,
+      "power": 0.8,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "ind",
+      "name": "인덕터",
+      "shape": "rect",
+      "material": "emc",
+      "x": 58,
+      "y": 10,
+      "w": 10,
+      "h": 10,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 2,
+      "z1": 7,
+      "power": 0.4,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "sink",
+      "name": "방열판",
+      "shape": "rect",
+      "material": "al6061",
+      "x": 57,
+      "y": 37,
+      "w": 12,
+      "h": 12,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 4,
+      "z1": 6,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "air",
+      "name": "공기 (자연 대류 + 복사)",
+      "target": "exterior",
+      "range": null,
+      "region": null,
+      "curve": null,
+      "type": "convection",
+      "T": 25,
+      "q": 0,
+      "h": 10,
+      "Tinf": 25,
+      "emissivity": 0.85,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "name": "MCU",
+      "x": 34,
+      "y": 30,
+      "z": 3
+    },
+    {
+      "id": "p2",
+      "name": "전원 IC",
+      "x": 63,
+      "y": 43,
+      "z": 3
+    },
+    {
+      "id": "p3",
+      "name": "LDO",
+      "x": 11.5,
+      "y": 47.5,
+      "z": 3
+    }
+  ],
+  "study": {
+    "type": "steady",
+    "flow": false,
+    "natural": false,
+    "stress": false,
+    "planeStrain": false,
+    "Tref": 25,
+    "initialT": 25,
+    "endTime": 600,
+    "dt": 1,
+    "frames": 40,
+    "tolerance": 0.000001,
+    "maxIter": 20000,
+    "flowSteps": 3000,
+    "turbulence": "laminar",
+    "electric": false,
+    "thermalStrain": true,
+    "gravityLoad": false,
+    "modal": {
+      "enabled": false,
+      "modes": 6
+    },
+    "comfort": {
+      "met": 1.2,
+      "clo": 0.5,
+      "rh": 50,
+      "tr": null
+    },
+    "s2s": false,
+    "s2sMedium": "void"
+  },
+  "reliability": {
+    "components": [
+      {
+        "body": "mcu",
+        "Ea": 0.7,
+        "Tref": 55,
+        "mttfRef": 2000000,
+        "cycles": 3650
+      },
+      {
+        "body": "pmic",
+        "Ea": 0.7,
+        "Tref": 55,
+        "mttfRef": 1000000,
+        "cycles": 3650
+      },
+      {
+        "body": "ldo",
+        "Ea": 0.6,
+        "Tref": 55,
+        "mttfRef": 1000000,
+        "cycles": 3650
+      }
+    ]
+  },
+  "view": {
+    "sample": "pcb3d"
+  }
+}

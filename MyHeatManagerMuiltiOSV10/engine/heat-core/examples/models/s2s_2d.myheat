@@ -1,0 +1,25 @@
+{
+  "format": "myheat", "version": 1,
+  "name": "S2S radiation: heater in an evacuated enclosure",
+  "description": "A powered block radiates to the cold walls of a void cavity (surface-to-surface radiation, 2D crossed strings); a slot in the top wall opens to the ambient.",
+  "domain": { "dim": 2, "width": 120, "height": 80, "depth": 100, "nx": 120, "ny": 80, "background": null },
+  "ambient": 20,
+  "materials": [
+    { "id": "al", "kind": "solid", "k": 167, "rho": 2700, "cp": 896, "emissivity": 0.85 },
+    { "id": "steel", "kind": "solid", "k": 16, "rho": 7900, "cp": 500, "emissivity": 0.3 }
+  ],
+  "bodies": [
+    { "id": "floor", "shape": "rect", "x": 0, "y": 0, "w": 120, "h": 5, "material": "steel" },
+    { "id": "left", "shape": "rect", "x": 0, "y": 5, "w": 5, "h": 75, "material": "steel" },
+    { "id": "right", "shape": "rect", "x": 115, "y": 5, "w": 5, "h": 75, "material": "steel" },
+    { "id": "roofL", "shape": "rect", "x": 5, "y": 75, "w": 50, "h": 5, "material": "steel" },
+    { "id": "roofR", "shape": "rect", "x": 65, "y": 75, "w": 50, "h": 5, "material": "steel" },
+    { "id": "heater", "name": "Heater", "shape": "rect", "x": 45, "y": 20, "w": 30, "h": 15, "material": "al", "power": 40 },
+    { "id": "stand", "shape": "rect", "x": 55, "y": 5, "w": 10, "h": 15, "material": "steel" }
+  ],
+  "boundaries": [
+    { "id": "sink", "target": "bottom", "type": "temperature", "T": 20 },
+    { "id": "sides", "target": "exterior", "type": "convection", "h": 5, "Tinf": 20 }
+  ],
+  "study": { "type": "steady", "s2s": true, "s2sMedium": "void" }
+}

@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyHeatManager scripts/build-docs.mjs" />
+<title>MyHeatManager Tutorial</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { display: inline-flex; align-items: center; padding: 3px; border: 1px solid var(--border); border-radius: 4px; line-height: 0; }
+.topbar .lang:hover { border-color: var(--accent, #1478b8); }
+.topbar .lang svg { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+<script>(function () { var key = 'myheatmanager.docTheme'; function apply(raw) { try { var t = JSON.parse(raw); if (!t || !t.vars) return; var root = document.documentElement; for (var name in t.vars) root.style.setProperty(name, t.vars[name]); root.style.colorScheme = t.dark ? 'dark' : 'light'; } catch (e) { /* keep the page's own colours */ } } try { apply(localStorage.getItem(key)); } catch (e) { /* no storage */ } addEventListener('storage', function (e) { if (e.key === key) apply(e.newValue); }); })();</script>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyHeatManager <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="Tutorial.html" hreflang="ko" title="한국어" aria-label="한국어"><svg width="27" height="18" viewBox="0 0 60 40" role="img" aria-hidden="true"><rect width="60" height="40" fill="#ffffff"/><g transform="rotate(-33.69 30 20) translate(60 0) scale(-1 1)"><circle cx="30" cy="20" r="10" fill="#CD2E3A"/><path d="M20,20 a5,5 0 0,1 10,0 a5,5 0 0,0 10,0 a10,10 0 0,1 -20,0" fill="#0047A0"/></g><g transform="rotate(-56.31 10.6 7.1)"><rect x="4.6" y="2.4999999999999996" width="12" height="2" fill="#000"/><rect x="4.6" y="6.1" width="12" height="2" fill="#000"/><rect x="4.6" y="9.7" width="12" height="2" fill="#000"/></g><g transform="rotate(56.31 49.4 7.1)"><rect x="43.4" y="2.4999999999999996" width="5" height="2" fill="#000"/><rect x="50.4" y="2.4999999999999996" width="5" height="2" fill="#000"/><rect x="43.4" y="6.1" width="12" height="2" fill="#000"/><rect x="43.4" y="9.7" width="5" height="2" fill="#000"/><rect x="50.4" y="9.7" width="5" height="2" fill="#000"/></g><g transform="rotate(-123.69 10.6 32.9)"><rect x="4.6" y="28.299999999999997" width="12" height="2" fill="#000"/><rect x="4.6" y="31.9" width="5" height="2" fill="#000"/><rect x="11.6" y="31.9" width="5" height="2" fill="#000"/><rect x="4.6" y="35.5" width="12" height="2" fill="#000"/></g><g transform="rotate(123.69 49.4 32.9)"><rect x="43.4" y="28.299999999999997" width="5" height="2" fill="#000"/><rect x="50.4" y="28.299999999999997" width="5" height="2" fill="#000"/><rect x="43.4" y="31.9" width="5" height="2" fill="#000"/><rect x="50.4" y="31.9" width="5" height="2" fill="#000"/><rect x="43.4" y="35.5" width="5" height="2" fill="#000"/><rect x="50.4" y="35.5" width="5" height="2" fill="#000"/></g></svg></a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-start-page">1. Start page</a></li><li class="h3"><a href="#1-welcome">1. Welcome</a></li><li class="h3"><a href="#2-new-model">2. New model</a></li><li class="h3"><a href="#3-recent-files-and-help">3. Recent files and help</a></li><li class="h3"><a href="#4-samples-and-background">4. Samples and background</a></li><li class="h3"><a href="#5-moving-and-sizing-the-cards">5. Moving and sizing the cards</a></li><li class="h3"><a href="#6-the-samples-section">6. The samples section</a></li><li class="h2"><a href="#2-finding-your-way">2. Finding your way</a></li><li class="h3"><a href="#7-the-tutorial-sample">7. The tutorial sample</a></li><li class="h3"><a href="#8-menu-bar">8. Menu bar</a></li><li class="h3"><a href="#9-workbenches">9. Workbenches</a></li><li class="h3"><a href="#10-toolbar">10. Toolbar</a></li><li class="h3"><a href="#11-reset-view">11. Reset view</a></li><li class="h3"><a href="#12-model-tree">12. Model tree</a></li><li class="h3"><a href="#13-property-panel">13. Property panel</a></li><li class="h3"><a href="#14-status-bar">14. Status bar</a></li><li class="h3"><a href="#15-folding-panels">15. Folding panels</a></li><li class="h3"><a href="#16-grid-mesh-and-rulers">16. Grid, mesh and rulers</a></li><li class="h3"><a href="#17-right-click-menus">17. Right-click menus</a></li><li class="h3"><a href="#18-tabs-and">18. Tabs and &lt; &gt;</a></li><li class="h2"><a href="#3-drawing-a-model">3. Drawing a model</a></li><li class="h3"><a href="#19-domain-and-grid">19. Domain and grid</a></li><li class="h3"><a href="#20-drawing-a-rectangle">20. Drawing a rectangle</a></li><li class="h3"><a href="#21-circles-and-polygons">21. Circles and polygons</a></li><li class="h3"><a href="#22-move-resize-order">22. Move, resize, order</a></li><li class="h2"><a href="#4-materials">4. Materials</a></li><li class="h3"><a href="#23-material-library">23. Material library</a></li><li class="h3"><a href="#24-assigning-a-material">24. Assigning a material</a></li><li class="h3"><a href="#25-material-properties-and-per-axis-k">25. Material properties and per-axis k</a></li><li class="h2"><a href="#5-heat-sources-and-boundaries">5. Heat sources and boundaries</a></li><li class="h3"><a href="#26-heat-sources">26. Heat sources</a></li><li class="h3"><a href="#27-boundary-conditions">27. Boundary conditions</a></li><li class="h3"><a href="#28-targets-and-regions">28. Targets and regions</a></li><li class="h3"><a href="#29-probes">29. Probes</a></li><li class="h2"><a href="#6-solving">6. Solving</a></li><li class="h3"><a href="#30-study-settings">30. Study settings</a></li><li class="h3"><a href="#31-checking-the-model">31. Checking the model</a></li><li class="h3"><a href="#32-running-the-study">32. Running the study</a></li><li class="h2"><a href="#7-results">7. Results</a></li><li class="h3"><a href="#33-temperature-field">33. Temperature field</a></li><li class="h3"><a href="#34-heat-flux-and-vectors">34. Heat flux and vectors</a></li><li class="h3"><a href="#35-isotherms">35. Isotherms</a></li><li class="h3"><a href="#36-line-cut">36. Line cut</a></li><li class="h3"><a href="#37-3d-view">37. 3D view</a></li><li class="h3"><a href="#38-3d-grid-and-axes">38. 3D grid and axes</a></li><li class="h3"><a href="#39-bottom-chart-panel">39. Bottom chart panel</a></li><li class="h3"><a href="#40-study-report">40. Study report</a></li><li class="h2"><a href="#8-advanced-studies">8. Advanced studies</a></li><li class="h3"><a href="#41-transients-and-animation">41. Transients and animation</a></li><li class="h3"><a href="#42-flow-and-conjugate-heat-transfer-cht">42. Flow and conjugate heat transfer (CHT)</a></li><li class="h3"><a href="#43-thermal-stress">43. Thermal stress</a></li><li class="h2"><a href="#9-simscale-style-studies">9. SimScale-style studies</a></li><li class="h3"><a href="#44-turbulent-flow-k-ω-sst">44. Turbulent flow (k-ω SST)</a></li><li class="h3"><a href="#45-convergence">45. Convergence</a></li><li class="h3"><a href="#46-flow-rates-and-pressure-drop">46. Flow rates and pressure drop</a></li><li class="h3"><a href="#47-joule-heating-electric">47. Joule heating (electric)</a></li><li class="h3"><a href="#48-contact-resistance">48. Contact resistance</a></li><li class="h3"><a href="#49-static-structural">49. Static structural</a></li><li class="h3"><a href="#50-natural-frequencies-modal">50. Natural frequencies (modal)</a></li><li class="h3"><a href="#51-thermal-comfort-pmv">51. Thermal comfort (PMV)</a></li><li class="h3"><a href="#52-bioheat-pennes">52. Bioheat (Pennes)</a></li><li class="h3"><a href="#53-fan-curve">53. Fan curve</a></li><li class="h3"><a href="#54-parameter-study">54. Parameter study</a></li><li class="h3"><a href="#55-auto-mesh">55. Auto mesh</a></li><li class="h2"><a href="#10-reliability--u-factor--heat-maps">10. Reliability · U-factor · heat maps</a></li><li class="h3"><a href="#56-reliability-life">56. Reliability (life)</a></li><li class="h3"><a href="#57-u-factor-envelope">57. U-factor (envelope)</a></li><li class="h3"><a href="#58-node-data-heat-maps">58. Node-data heat maps</a></li><li class="h3"><a href="#59-thermal-analysis-dsc--tga">59. Thermal analysis (DSC / TGA)</a></li><li class="h3"><a href="#60-calculix-and-dxf">60. CalculiX and DXF</a></li><li class="h3"><a href="#61-batch-runs-api">61. Batch runs (API)</a></li><li class="h2"><a href="#11-files-and-output">11. Files and output</a></li><li class="h3"><a href="#62-saving">62. Saving</a></li><li class="h3"><a href="#63-export">63. Export</a></li><li class="h3"><a href="#64-printing">64. Printing</a></li><li class="h3"><a href="#65-sample-gallery">65. Sample gallery</a></li><li class="h2"><a href="#12-customizing">12. Customizing</a></li><li class="h3"><a href="#66-themes">66. Themes</a></li><li class="h3"><a href="#67-theme-list">67. Theme list</a></li><li class="h3"><a href="#68-settings">68. Settings</a></li><li class="h3"><a href="#69-custom-theme">69. Custom theme</a></li><li class="h3"><a href="#70-document-windows">70. Document windows</a></li><li class="h3"><a href="#71-windows-and-menus-past-the-main-window">71. Windows and menus past the main window</a></li><li class="h3"><a href="#72-done">72. Done</a></li></ul></nav>
+<main>
+<h1 id="myheatmanager-tutorial">MyHeatManager Tutorial</h1>
+<p>This tutorial walks through MyHeatManager on the real screen, from the start page to drawing a model, solving it and reading the results. The same steps run inside the program: <strong>Help › Tutorial</strong> (or <strong>Start the tutorial</strong> on the start page) moves the window for you, with previous / next, auto play and a chapter list on a card at the bottom right.</p>
+<h2 id="contents">Contents <a class="anchor" href="#contents" aria-hidden="true">#</a></h2>
+<ol><li>Start page</li><li>Finding your way</li><li>Drawing a model</li><li>Materials</li><li>Heat sources and boundaries</li><li>Solving</li><li>Results</li><li>Advanced studies</li><li>SimScale-style studies</li><li>Reliability · U-factor · heat maps</li><li>Files and output</li><li>Customizing</li></ol>
+<h2 id="1-start-page">1. Start page <a class="anchor" href="#1-start-page" aria-hidden="true">#</a></h2>
+<h3 id="1-welcome">1. Welcome <a class="anchor" href="#1-welcome" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/01-welcome.jpg" alt="Welcome" loading="lazy" /></p>
+<p>MyHeatManager simulates heat in devices. This tutorial moves the real screen to show the features one by one. Press [Next] on the card at the bottom right, ▶ to play it by itself, or jump to a chapter from the list.</p>
+<h3 id="2-new-model">2. New model <a class="anchor" href="#2-new-model" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/02-startNew.jpg" alt="New model" loading="lazy" /></p>
+<p>Start from one of 22 starting points grouped by field — basic (empty 2D / 3D), electronics and power, flow and CHT, energy and materials, structure, building and daily life, space and other. Open, the sample gallery and node-data import are here too.</p>
+<h3 id="3-recent-files-and-help">3. Recent files and help <a class="anchor" href="#3-recent-files-and-help" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/03-startRecent.jpg" alt="Recent files and help" loading="lazy" /></p>
+<p>Open a model you used recently (✕ removes it from the list). Below are the tutorial, the tutorial document, the user&#39;s guide, shortcuts and the batch-run guide.</p>
+<h3 id="4-samples-and-background">4. Samples and background <a class="anchor" href="#4-samples-and-background" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/04-startBackground.jpg" alt="Samples and background" loading="lazy" /></p>
+<p>The moving background is one of 20 — heat plume, isotherms, convection cells, infrared camera, vortex street, boiling and more — with shuffle, speed and transparency (also in Settings › Start page). Untick the box below to skip this page at start (🏠 Home brings it back any time).</p>
+<h3 id="5-moving-and-sizing-the-cards">5. Moving and sizing the cards <a class="anchor" href="#5-moving-and-sizing-the-cards" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/05-startLayout.jpg" alt="Moving and sizing the cards" loading="lazy" /></p>
+<p>Drag ⠿ in a card heading to move it and the bottom-right corner to resize it (1–3 columns wide, any height). The arrangement is saved for the next start (Settings › Start page resets it).</p>
+<h3 id="6-the-samples-section">6. The samples section <a class="anchor" href="#6-the-samples-section" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/06-startSamples.jpg" alt="The samples section" loading="lazy" /></p>
+<p>All 30 samples sit in their own section with a preview, name, tags and description; click one to open it in a new tab.</p>
+<h2 id="2-finding-your-way">2. Finding your way <a class="anchor" href="#2-finding-your-way" aria-hidden="true">#</a></h2>
+<h3 id="7-the-tutorial-sample">7. The tutorial sample <a class="anchor" href="#7-the-tutorial-sample" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/07-openSample.jpg" alt="The tutorial sample" loading="lazy" /></p>
+<p>The tutorial opens its own sample (a power module) in a new tab — your models are not touched, and at the end the tab closes and the settings it changed go back. Two MOSFETs (6 W each) on a PCB pass their heat through a thermal pad into an aluminium heat sink.</p>
+<h3 id="8-menu-bar">8. Menu bar <a class="anchor" href="#8-menu-bar" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/08-menubar.jpg" alt="Menu bar" loading="lazy" /></p>
+<p>The top row of the window — instead of a system title bar: the icon, name and version and the 🏠 start-page button on the left, then the File, Edit, View, Model, Simulate, Results, Tools and Help menus, and minimize, maximize and close at the right end. Drag its empty part to move the window; double-click to maximize.</p>
+<h3 id="9-workbenches">9. Workbenches <a class="anchor" href="#9-workbenches" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/09-workbench.jpg" alt="Workbenches" loading="lazy" /></p>
+<p>The workbench at the right end of the menu bar (Geometry · Materials · Loads &amp; BCs · Study · Results · Reliability · Heat map) switches the tool panel on the left to the tools for that job.</p>
+<h3 id="10-toolbar">10. Toolbar <a class="anchor" href="#10-toolbar" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/10-toolbar.jpg" alt="Toolbar" loading="lazy" /></p>
+<p>The everyday commands: new, open, save, undo, drawing tools, fit, 2D/3D, grid, mesh and rulers, ▶ run, result fields and display, panel switches. At the right end: language, theme, settings and about. Drag the size grip in the bottom right corner to resize the window.</p>
+<h3 id="11-reset-view">11. Reset view <a class="anchor" href="#11-reset-view" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/11-zoomReset.jpg" alt="Reset view" loading="lazy" /></p>
+<p>The reset-view button next to zoom (⌖, Ctrl+0) puts the model in the middle of the view at its original scale (100 %). In the 3D view it goes back to the starting view.</p>
+<h3 id="12-model-tree">12. Model tree <a class="anchor" href="#12-model-tree" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/12-tree.jpg" alt="Model tree" loading="lazy" /></p>
+<p>The study, domain, materials, bodies, boundary conditions, probes and results at a glance. Click an item to select it; ◉ next to a body hides it (hidden bodies are left out of the study). « on the panel title bar folds it to a narrow strip with its icon and title.</p>
+<h3 id="13-property-panel">13. Property panel <a class="anchor" href="#13-property-panel" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/13-properties.jpg" alt="Property panel" loading="lazy" /></p>
+<p>Edit the selected item in the right panel. Number fields take − / + buttons, the arrow keys and expressions (e.g. 2*3). With nothing selected, the model name and the study settings show.</p>
+<h3 id="14-status-bar">14. Status bar <a class="anchor" href="#14-status-bar" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/14-statusbar.jpg" alt="Status bar" loading="lazy" /></p>
+<p>The state, cell count, selection, cursor position (mm) and the value under it, the engine (native Rust on the desktop, WebAssembly on the web) and whether the model is saved.</p>
+<h3 id="15-folding-panels">15. Folding panels <a class="anchor" href="#15-folding-panels" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/15-panelsFold.jpg" alt="Folding panels" loading="lazy" /></p>
+<p>« / » on a side panel&#39;s title bar folds it to a narrow strip with its icon and title; click the strip to unfold it.</p>
+<h3 id="16-grid-mesh-and-rulers">16. Grid, mesh and rulers <a class="anchor" href="#16-grid-mesh-and-rulers" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/16-viewButtons.jpg" alt="Grid, mesh and rulers" loading="lazy" /></p>
+<p>▦ Grid (G) is the millimetre drawing grid, # Mesh (M) the computational cells, 📏 Rulers the ticks along the whole x and y axes with the cursor. Switch each on and off from the toolbar.</p>
+<h3 id="17-right-click-menus">17. Right-click menus <a class="anchor" href="#17-right-click-menus" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/17-contextMenu.jpg" alt="Right-click menus" loading="lazy" /></p>
+<p>Right-click the viewport, a tree item, a tab, the chart or a text field for the commands that fit that place, each with its icon.</p>
+<h3 id="18-tabs-and">18. Tabs and &lt; &gt; <a class="anchor" href="#18-tabs-and" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/18-tabs.jpg" alt="Tabs and &lt; &gt;" loading="lazy" /></p>
+<p>Every open model has a tab; &lt; &gt; at the right of the tab row step through them, and the wheel scrolls too.</p>
+<h2 id="3-drawing-a-model">3. Drawing a model <a class="anchor" href="#3-drawing-a-model" aria-hidden="true">#</a></h2>
+<h3 id="19-domain-and-grid">19. Domain and grid <a class="anchor" href="#19-domain-and-grid" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/19-domain.jpg" alt="Domain and grid" loading="lazy" /></p>
+<p>2D (a section with a thickness) or 3D, the size (mm), the cell counts and the background where there is no body (none = not simulated). Keep cells thinner than the thinnest layer, or the layer drops out of the grid.</p>
+<h3 id="20-drawing-a-rectangle">20. Drawing a rectangle <a class="anchor" href="#20-drawing-a-rectangle" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/20-drawRect.jpg" alt="Drawing a rectangle" loading="lazy" /></p>
+<p>Drag with the rectangle tool (R) to make a body; in 3D it is a box whose height is the z range in the property panel. Here a capacitor was drawn on the right.</p>
+<h3 id="21-circles-and-polygons">21. Circles and polygons <a class="anchor" href="#21-circles-and-polygons" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/21-drawShapes.jpg" alt="Circles and polygons" loading="lazy" /></p>
+<p>Drag a circle (C) from its centre; click the points of a polygon (P) and double-click or press Enter to close it. Where bodies overlap, the later one&#39;s material wins.</p>
+<h3 id="22-move-resize-order">22. Move, resize, order <a class="anchor" href="#22-move-resize-order" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/22-moveResize.jpg" alt="Move, resize, order" loading="lazy" /></p>
+<p>Drag bodies with the select tool (V) and resize them with the handles. Bring to front / send to back change the overlap order; undo (Ctrl+Z) and redo (Ctrl+Y) take changes back.</p>
+<h2 id="4-materials">4. Materials <a class="anchor" href="#4-materials" aria-hidden="true">#</a></h2>
+<h3 id="23-material-library">23. Material library <a class="anchor" href="#23-material-library" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/23-library.jpg" alt="Material library" loading="lazy" /></p>
+<p>50 materials: metals, electronics, ceramics, building materials, polymers, batteries, fluids, phase change and porous media. Adding one copies it into the model, so the file opens on its own.</p>
+<h3 id="24-assigning-a-material">24. Assigning a material <a class="anchor" href="#24-assigning-a-material" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/24-assign.jpg" alt="Assigning a material" loading="lazy" /></p>
+<p>Select a body and pick from the material list in the property panel. Here the heat sink became copper.</p>
+<h3 id="25-material-properties-and-per-axis-k">25. Material properties and per-axis k <a class="anchor" href="#25-material-properties-and-per-axis-k" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/25-anisotropic.jpg" alt="Material properties and per-axis k" loading="lazy" /></p>
+<p>Pick a material in the model tree to edit its conductivity, density, specific heat, emissivity, modulus and expansion. Directional materials like a PCB get separate kx, ky, kz (this PCB: 25 in-plane, 0.4 through the thickness).</p>
+<h2 id="5-heat-sources-and-boundaries">5. Heat sources and boundaries <a class="anchor" href="#5-heat-sources-and-boundaries" aria-hidden="true">#</a></h2>
+<h3 id="26-heat-sources">26. Heat sources <a class="anchor" href="#26-heat-sources" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/26-heatSource.jpg" alt="Heat sources" loading="lazy" /></p>
+<p>Enter a body&#39;s heat (W). In a transient study a power schedule (time, W) or a current schedule with a resistance (I²R) varies it over time.</p>
+<h3 id="27-boundary-conditions">27. Boundary conditions <a class="anchor" href="#27-boundary-conditions" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/27-convection.jpg" alt="Boundary conditions" loading="lazy" /></p>
+<p>Fixed temperature, heat flux, convection, radiation, adiabatic, plus flow and structural ones. The fan air here is convection (h = 40 W/m²K, 30 °C). Select a body and pick a condition to put it on that body&#39;s outer faces.</p>
+<h3 id="28-targets-and-regions">28. Targets and regions <a class="anchor" href="#28-targets-and-regions" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/28-boundaryTarget.jpg" alt="Targets and regions" loading="lazy" /></p>
+<p>A condition targets an edge, all outer faces or a body, narrowed by a span (part of an edge) or a region (an x0, y0, x1, y1 rectangle). This model splits its outer faces at 4.5 mm height into fan air and the air round the board.</p>
+<h3 id="29-probes">29. Probes <a class="anchor" href="#29-probes" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/29-probe.jpg" alt="Probes" loading="lazy" /></p>
+<p>A probe (T) records the temperature at a point. Its value shows on the result, and a transient study plots it over time in the chart below.</p>
+<h2 id="6-solving">6. Solving <a class="anchor" href="#6-solving" aria-hidden="true">#</a></h2>
+<h3 id="30-study-settings">30. Study settings <a class="anchor" href="#30-study-settings" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/30-studySettings.jpg" alt="Study settings" loading="lazy" /></p>
+<p>Steady or transient, flow (CHT), natural convection and thermal stress, the time step and end time, the tolerance.</p>
+<h3 id="31-checking-the-model">31. Checking the model <a class="anchor" href="#31-checking-the-model" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/31-validate.jpg" alt="Checking the model" loading="lazy" /></p>
+<p>Before solving, finds bodies without a material, no way for heat to leave, bodies thinner than a cell and so on. A model with errors is not solved.</p>
+<h3 id="32-running-the-study">32. Running the study <a class="anchor" href="#32-running-the-study" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/32-run.jpg" alt="Running the study" loading="lazy" /></p>
+<p>Press ▶ (F5) to solve. A progress bar appears over the viewport and ■ stops it. This model finishes in a moment.</p>
+<h2 id="7-results">7. Results <a class="anchor" href="#7-results" aria-hidden="true">#</a></h2>
+<h3 id="33-temperature-field">33. Temperature field <a class="anchor" href="#33-temperature-field" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/33-temperature.jpg" alt="Temperature field" loading="lazy" /></p>
+<p>Colours and the colour bar show the temperature; hover for the value in the status bar. The MOSFETs are hottest, cooling towards the fin tips.</p>
+<h3 id="34-heat-flux-and-vectors">34. Heat flux and vectors <a class="anchor" href="#34-heat-flux-and-vectors" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/34-flux.jpg" alt="Heat flux and vectors" loading="lazy" /></p>
+<p>The heat flux field |q| and the vectors show where the heat goes — from the chips through the pad into the sink.</p>
+<h3 id="35-isotherms">35. Isotherms <a class="anchor" href="#35-isotherms" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/35-isotherms.jpg" alt="Isotherms" loading="lazy" /></p>
+<p>Isotherms join points of equal temperature. Where they crowd, the temperature drop (the thermal resistance) is concentrated — here the thermal pad.</p>
+<h3 id="36-line-cut">36. Line cut <a class="anchor" href="#36-line-cut" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/36-lineCut.jpg" alt="Line cut" loading="lazy" /></p>
+<p>Click two points with the line-cut tool to plot the values along the line in the chart below. Here: vertically from a chip to a fin tip.</p>
+<h3 id="37-3d-view">37. 3D view <a class="anchor" href="#37-3d-view" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/37-view3d.jpg" alt="3D view" loading="lazy" /></p>
+<p>In the 3D view (3) a 2D result becomes a carpet plot (value as height and colour); 3D models are coloured on the outer faces of the cells. Drag to rotate, wheel to zoom.</p>
+<h3 id="38-3d-grid-and-axes">38. 3D grid and axes <a class="anchor" href="#38-3d-grid-and-axes" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/38-guides3d.jpg" alt="3D grid and axes" loading="lazy" /></p>
+<p>The 3D view has an endless floor grid and the x, y and z axes. The tick numbers carry the length unit and re-space as you zoom. The grid and the axes always sit behind the bodies, and the numbers are never hidden by the grid. Switch them with the grid and axes buttons; the length unit (mm, cm, m, in) and the temperature unit are set in Settings.</p>
+<h3 id="39-bottom-chart-panel">39. Bottom chart panel <a class="anchor" href="#39-bottom-chart-panel" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/39-bottomPanel.jpg" alt="Bottom chart panel" loading="lazy" /></p>
+<p>On the right of the bottom chart panel&#39;s title row, ▾ folds it (only the title row stays) and ✕ hides it; the chart-panel button on the toolbar brings it back. Drag the edge above it to change its height.</p>
+<h3 id="40-study-report">40. Study report <a class="anchor" href="#40-study-report" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/40-report.jpg" alt="Study report" loading="lazy" /></p>
+<p>Minimum, mean and maximum temperature per body, heat per boundary, the energy balance (generated = removed) and the solver log on one page — save as HTML or print.</p>
+<h2 id="8-advanced-studies">8. Advanced studies <a class="anchor" href="#8-advanced-studies" aria-hidden="true">#</a></h2>
+<h3 id="41-transients-and-animation">41. Transients and animation <a class="anchor" href="#41-transients-and-animation" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/41-transient.jpg" alt="Transients and animation" loading="lazy" /></p>
+<p>The phase-change heat sink: paraffin melts while it absorbs a 10-minute heat pulse. The frame slider and the animation (Space) show the change over time and the chart the probes — note the flat stretch while it melts.</p>
+<h3 id="42-flow-and-conjugate-heat-transfer-cht">42. Flow and conjugate heat transfer (CHT) <a class="anchor" href="#42-flow-and-conjugate-heat-transfer-cht" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/42-cht.jpg" alt="Flow and conjugate heat transfer (CHT)" loading="lazy" /></p>
+<p>The microchannel sample: water flowing in a channel inside a silicon chip, solved together with the chip&#39;s conduction. The velocity field and vectors show the flow.</p>
+<h3 id="43-thermal-stress">43. Thermal stress <a class="anchor" href="#43-thermal-stress" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/43-stress.jpg" alt="Thermal stress" loading="lazy" /></p>
+<p>The LED module: von Mises stress from mismatched thermal expansion, and the exaggerated deformed shape.</p>
+<h2 id="9-simscale-style-studies">9. SimScale-style studies <a class="anchor" href="#9-simscale-style-studies" aria-hidden="true">#</a></h2>
+<h3 id="44-turbulent-flow-k-ω-sst">44. Turbulent flow (k-ω SST) <a class="anchor" href="#44-turbulent-flow-k-ω-sst" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/44-turbulence.jpg" alt="Turbulent flow (k-ω SST)" loading="lazy" /></p>
+<p>The heated duct: water at Re ≈ 20 000 with the k-ω SST model. The turbulence choice in the study settings and the inlet turbulence intensity are the inputs; the velocity and eddy-viscosity fields and streamlines show the flow.</p>
+<h3 id="45-convergence">45. Convergence <a class="anchor" href="#45-convergence" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/45-residuals.jpg" alt="Convergence" loading="lazy" /></p>
+<p>The Residuals tab of the chart panel plots the continuity, u, v, T, k and ω residuals on a log scale; when they have dropped and flattened, the study has converged.</p>
+<h3 id="46-flow-rates-and-pressure-drop">46. Flow rates and pressure drop <a class="anchor" href="#46-flow-rates-and-pressure-drop" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/46-flowMetrics.jpg" alt="Flow rates and pressure drop" loading="lazy" /></p>
+<p>Select an inlet or outlet: the property panel shows its mass flow, volume flow, mean pressure and temperature; the report gives the pressure drop.</p>
+<h3 id="47-joule-heating-electric">47. Joule heating (electric) <a class="anchor" href="#47-joule-heating-electric" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/47-joule.jpg" alt="Joule heating (electric)" loading="lazy" /></p>
+<p>The busbar: a 400 A current-in and a ground boundary with the materials&#39; conductivity give the potential, the current density and the Joule heat; the joint, where the current crowds, is hottest.</p>
+<h3 id="48-contact-resistance">48. Contact resistance <a class="anchor" href="#48-contact-resistance" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/48-contact.jpg" alt="Contact resistance" loading="lazy" /></p>
+<p>A thermal contact resistance (m²K/W) on the faces where two bodies touch, such as the busbar&#39;s bolted joint, adds the temperature step of an imperfect contact.</p>
+<h3 id="49-static-structural">49. Static structural <a class="anchor" href="#49-static-structural" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/49-structural.jpg" alt="Static structural" loading="lazy" /></p>
+<p>The cantilever: a fixed end, a 500 N tip load and its own weight give the displacement and stress (thermal expansion off). The deformed shape exaggerates the deflection.</p>
+<h3 id="50-natural-frequencies-modal">50. Natural frequencies (modal) <a class="anchor" href="#50-natural-frequencies-modal" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/50-modal.jpg" alt="Natural frequencies (modal)" loading="lazy" /></p>
+<p>The L-bracket: the first six natural frequencies and mode shapes; pick a mode above the viewport to see its shape.</p>
+<h3 id="51-thermal-comfort-pmv">51. Thermal comfort (PMV) <a class="anchor" href="#51-thermal-comfort-pmv" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/51-comfort.jpg" alt="Thermal comfort (PMV)" loading="lazy" /></p>
+<p>The office: ISO 7730 PMV from the temperature and speed of the air moved by natural convection. Near 0 is comfortable; blue zones such as by the window feel cold.</p>
+<h3 id="52-bioheat-pennes">52. Bioheat (Pennes) <a class="anchor" href="#52-bioheat-pennes" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/52-bioheat.jpg" alt="Bioheat (Pennes)" loading="lazy" /></p>
+<p>The tumour-ablation sample: with blood perfusion, metabolic heat and blood temperature on the materials, the Pennes bioheat equation is solved. Watch the probe chart to see whether the tumour edge passes 50 °C while the electrode heats for ten minutes.</p>
+<h3 id="53-fan-curve">53. Fan curve <a class="anchor" href="#53-fan-curve" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/53-fanCurve.jpg" alt="Fan curve" loading="lazy" /></p>
+<p>In the fan-enclosure sample the fan boundary uses a fan curve (flow against pressure) instead of a fixed speed. The solver finds the operating point where the curve meets the enclosure&#39;s resistance and cools the parts with that flow.</p>
+<h3 id="54-parameter-study">54. Parameter study <a class="anchor" href="#54-parameter-study" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/54-parametric.jpg" alt="Parameter study" loading="lazy" /></p>
+<p>Solve again and again with one value varied over a range (power, coefficient, inlet speed, conductivity, mesh scale …) and compare a result in a table and chart — here the MOSFET temperature against the fan coefficient.</p>
+<h3 id="55-auto-mesh">55. Auto mesh <a class="anchor" href="#55-auto-mesh" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/55-autoMesh.jpg" alt="Auto mesh" loading="lazy" /></p>
+<p>Auto mesh picks cell counts so the thinnest body spans at least two cells. Then solve again with twice the cells: if the result hardly changes, the mesh is fine enough.</p>
+<h2 id="10-reliability--u-factor--heat-maps">10. Reliability · U-factor · heat maps <a class="anchor" href="#10-reliability--u-factor--heat-maps" aria-hidden="true">#</a></h2>
+<h3 id="56-reliability-life">56. Reliability (life) <a class="anchor" href="#56-reliability-life" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/56-reliability.jpg" alt="Reliability (life)" loading="lazy" /></p>
+<p>From the simulated part temperatures: Arrhenius MTTF and FIT, and Coffin–Manson solder fatigue life, with the system life and the 5-year survival.</p>
+<h3 id="57-u-factor-envelope">57. U-factor (envelope) <a class="anchor" href="#57-u-factor-envelope" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/57-uFactor.jpg" alt="U-factor (envelope)" loading="lazy" /></p>
+<p>The window frame sample&#39;s thermal transmittance U, R-value and coupling coefficient L2D, from the indoor and outdoor convection boundaries (THERM-style).</p>
+<h3 id="58-node-data-heat-maps">58. Node-data heat maps <a class="anchor" href="#58-node-data-heat-maps" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/58-heatmap.jpg" alt="Node-data heat maps" loading="lazy" /></p>
+<p>Import node temperatures (Thermal Desktop, SINDA, thermocouple readings) as CSV for a heat map, statistics and the nodes over a limit.</p>
+<h3 id="59-thermal-analysis-dsc--tga">59. Thermal analysis (DSC / TGA) <a class="anchor" href="#59-thermal-analysis-dsc--tga" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/59-thermal.jpg" alt="Thermal analysis (DSC / TGA)" loading="lazy" /></p>
+<p>Integrate a DSC peak over a baseline for the enthalpy and onset / peak / endset, calibrate against a standard such as indium, and add the result as a phase-change material. TGA gives the mass-loss temperatures and residue.</p>
+<h3 id="60-calculix-and-dxf">60. CalculiX and DXF <a class="anchor" href="#60-calculix-and-dxf" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/60-interop.jpg" alt="CalculiX and DXF" loading="lazy" /></p>
+<p>File › Export CalculiX writes the grid, materials and boundaries as a CalculiX input deck (.inp) for the FreeCAD / Gmsh / ParaView workflow; Import DXF brings in a drawing&#39;s closed polylines and circles as bodies.</p>
+<h3 id="61-batch-runs-api">61. Batch runs (API) <a class="anchor" href="#61-batch-runs-api" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/61-batch.jpg" alt="Batch runs (API)" loading="lazy" /></p>
+<p>The installed program solves models without a window with --batch, writing a summary JSON, CSV and a heat-map PNG — for comparing design variants from scripts or CI.</p>
+<h2 id="11-files-and-output">11. Files and output <a class="anchor" href="#11-files-and-output" aria-hidden="true">#</a></h2>
+<h3 id="62-saving">62. Saving <a class="anchor" href="#62-saving" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/62-save.jpg" alt="Saving" loading="lazy" /></p>
+<p>Models are .myheat (JSON) files: save (Ctrl+S), save as (Ctrl+Shift+S). The web version saves as a download.</p>
+<h3 id="63-export">63. Export <a class="anchor" href="#63-export" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/63-export.jpg" alt="Export" loading="lazy" /></p>
+<p>From the File menu export results as CSV (cell values), PNG (the view) or VTK (ParaView), and save or print the report.</p>
+<h3 id="64-printing">64. Printing <a class="anchor" href="#64-printing" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/64-print.jpg" alt="Printing" loading="lazy" /></p>
+<p>The Print button on the toolbar (right of Save, Ctrl+P) opens the print window. On the left choose the paper size, orientation, margins, what to print (title, viewport picture, colour legend, chart, model tables, result summary, solver log), header and footer, colour or greyscale and the font size; the preview on the right shows every page at once. Print then opens the system print dialog for the printer and the number of copies.</p>
+<h3 id="65-sample-gallery">65. Sample gallery <a class="anchor" href="#65-sample-gallery" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/65-gallery.jpg" alt="Sample gallery" loading="lazy" /></p>
+<p>36 samples covering every kind of study and field — choose from the previews and descriptions.</p>
+<h2 id="12-customizing">12. Customizing <a class="anchor" href="#12-customizing" aria-hidden="true">#</a></h2>
+<h3 id="66-themes">66. Themes <a class="anchor" href="#66-themes" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/66-theme.jpg" alt="Themes" loading="lazy" /></p>
+<p>The theme button moves to the next theme; ▾ opens all 20 dark and 20 light themes, each in two lines: a strip of its colours (background, panel, button, accent, text) and its name.</p>
+<h3 id="67-theme-list">67. Theme list <a class="anchor" href="#67-theme-list" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/67-themeMenu.jpg" alt="Theme list" loading="lazy" /></p>
+<p>▾ drops the dark and the light themes in two columns, each theme in two lines — its colour strip and its name. At the bottom are your custom theme and &quot;Custom theme settings…&quot; and &quot;Theme settings…&quot;, which open those tabs of Settings.</p>
+<h3 id="68-settings">68. Settings <a class="anchor" href="#68-settings" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/68-settings.jpg" alt="Settings" loading="lazy" /></p>
+<p>Every preference, in tabs: general, theme, custom theme, font, start page, result display, editor, panels, files. Changes show at once; Apply keeps them, Cancel goes back to how it was, Reset to the defaults. The flag switches 한국어 ↔ English — the names on the canvas follow.</p>
+<h3 id="69-custom-theme">69. Custom theme <a class="anchor" href="#69-custom-theme" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/69-customTheme.jpg" alt="Custom theme" loading="lazy" /></p>
+<p>Settings › Custom theme: start from a theme and change its 13 colours (background, panel, accent …) to make your own; every change shows at once.</p>
+<h3 id="70-document-windows">70. Document windows <a class="anchor" href="#70-document-windows" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/70-docWindow.jpg" alt="Document windows" loading="lazy" /></p>
+<p>Help › User&#39;s guide and Tutorial document open in a window of their own that follows the app&#39;s theme, also when you change it.</p>
+<h3 id="71-windows-and-menus-past-the-main-window">71. Windows and menus past the main window <a class="anchor" href="#71-windows-and-menus-past-the-main-window" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/71-popouts.jpg" alt="Windows and menus past the main window" loading="lazy" /></p>
+<p>In the desktop program dialogs and drop-down menus (menu bar, right-click, theme list) open in windows of their own and may reach past the main window. While a dialog is open the main window is dimmed; clicking it brings the dialog forward. Drag a dialog by its title row. The web version and the tutorial draw them inside the window.</p>
+<h3 id="72-done">72. Done <a class="anchor" href="#72-done" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/72-finish.jpg" alt="Done" loading="lazy" /></p>
+<p>That&#39;s the tutorial! The settings go back and the tutorial tabs close. Run it again any time from the 🏠 start page or the Help menu; the tutorial document and the user&#39;s guide go into more detail.</p>
+<hr />
+<p>See the <a href="UsersGuide.en.html">user&#39;s guide</a> for every feature in detail.</p>
+<p>© SHKWON (knix008@naver.com)</p>
+</main>
+</div>
+<footer>MyHeatManager v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

@@ -1,0 +1,36 @@
+[package]
+name = "myheatmanager"
+version = "1.0.0"
+description = "Thermal simulation workbench (conduction, convection, radiation, phase change, CHT, thermal stress)"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "myheatmanager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+fontdb = "0.23"
+# The solver: the same crate is compiled to WebAssembly for the web build (engine/heat-wasm).
+heat-core = { path = "../engine/heat-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+# Installed app: smaller and faster (whole-program optimisation, no debug symbols). Debug builds and tests are unaffected.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+# The solver is the hot loop: optimise it even in debug builds, or a study in `npm start` takes minutes.
+[profile.dev.package.heat-core]
+opt-level = 3

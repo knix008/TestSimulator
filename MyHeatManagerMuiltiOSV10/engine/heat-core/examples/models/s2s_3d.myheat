@@ -1,0 +1,20 @@
+{
+  "format": "myheat", "version": 1,
+  "name": "S2S radiation 3D: vacuum oven",
+  "description": "A powered graphite plate floats in a closed 3D vacuum box and loses its heat only by radiation to the steel walls; view factors by Monte-Carlo ray tracing.",
+  "domain": { "dim": 3, "width": 60, "height": 60, "depth": 60, "nx": 15, "ny": 15, "nz": 15, "background": null },
+  "ambient": 20,
+  "materials": [{ "id": "steel", "kind": "solid", "k": 16, "rho": 7900, "cp": 500, "emissivity": 0.6 },
+                { "id": "graphite", "kind": "solid", "k": 100, "rho": 1800, "cp": 710, "emissivity": 0.9 }],
+  "bodies": [
+    { "id": "floor", "shape": "rect", "x": 0, "y": 0, "w": 60, "h": 4, "z0": 0, "z1": 60, "material": "steel" },
+    { "id": "roof", "shape": "rect", "x": 0, "y": 56, "w": 60, "h": 4, "z0": 0, "z1": 60, "material": "steel" },
+    { "id": "left", "shape": "rect", "x": 0, "y": 4, "w": 4, "h": 52, "z0": 0, "z1": 60, "material": "steel" },
+    { "id": "right", "shape": "rect", "x": 56, "y": 4, "w": 4, "h": 52, "z0": 0, "z1": 60, "material": "steel" },
+    { "id": "front", "shape": "rect", "x": 4, "y": 4, "w": 52, "h": 52, "z0": 0, "z1": 4, "material": "steel" },
+    { "id": "back", "shape": "rect", "x": 4, "y": 4, "w": 52, "h": 52, "z0": 56, "z1": 60, "material": "steel" },
+    { "id": "plate", "name": "Hot plate", "shape": "rect", "x": 16, "y": 24, "w": 28, "h": 8, "z0": 16, "z1": 44, "material": "graphite", "power": 30 }
+  ],
+  "boundaries": [{ "id": "cool", "target": "exterior", "type": "convection", "h": 15, "Tinf": 20 }],
+  "study": { "type": "steady", "s2s": true }
+}

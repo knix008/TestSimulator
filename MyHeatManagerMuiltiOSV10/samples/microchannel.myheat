@@ -1,0 +1,294 @@
+{
+  "format": "myheat",
+  "version": 1,
+  "name": "마이크로채널 냉각기 (미세 유체)",
+  "description": "실리콘 칩 안의 300 µm 물 채널이 50 W/cm² 열유속을 식히는 미세 유체 연성 열전달 예제입니다.",
+  "domain": {
+    "dim": 2,
+    "width": 10,
+    "height": 1,
+    "depth": 1,
+    "nx": 200,
+    "ny": 40,
+    "nz": 10,
+    "background": null
+  },
+  "ambient": 25,
+  "gravity": [
+    0,
+    -9.81
+  ],
+  "materials": [
+    {
+      "id": "silicon",
+      "kind": "solid",
+      "color": "#3c4a6e",
+      "k": 148,
+      "rho": 2330,
+      "cp": 712,
+      "emissivity": 0.6,
+      "E": 130000000000,
+      "nu": 0.28,
+      "alpha": 0.0000026,
+      "kT": [
+        [
+          -50,
+          230
+        ],
+        [
+          25,
+          148
+        ],
+        [
+          100,
+          105
+        ],
+        [
+          150,
+          85
+        ],
+        [
+          200,
+          70
+        ]
+      ],
+      "sigma": 0,
+      "name": "실리콘 (다이)"
+    },
+    {
+      "id": "water",
+      "kind": "fluid",
+      "color": "#4aa3ff",
+      "k": 0.613,
+      "rho": 996,
+      "cp": 4178,
+      "mu": 0.000798,
+      "beta": 0.0003,
+      "emissivity": 0,
+      "sigma": 0,
+      "name": "물"
+    }
+  ],
+  "bodies": [
+    {
+      "id": "chip",
+      "name": "실리콘",
+      "shape": "rect",
+      "material": "silicon",
+      "x": 0,
+      "y": 0,
+      "w": 10,
+      "h": 1,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "channel",
+      "name": "물 채널",
+      "shape": "rect",
+      "material": "water",
+      "x": 0,
+      "y": 0.35,
+      "w": 10,
+      "h": 0.3,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "heat",
+      "name": "발열 영역",
+      "target": "bottom",
+      "range": [
+        2,
+        8
+      ],
+      "region": null,
+      "curve": null,
+      "type": "flux",
+      "T": 25,
+      "q": 500000,
+      "h": 10,
+      "Tinf": 25,
+      "emissivity": 0,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    },
+    {
+      "id": "in",
+      "name": "유입",
+      "target": "left",
+      "range": [
+        0.35,
+        0.65
+      ],
+      "region": null,
+      "curve": null,
+      "type": "inlet",
+      "T": 25,
+      "q": 0,
+      "h": 10,
+      "Tinf": 25,
+      "emissivity": 0,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 0.5,
+      "Tin": 20,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    },
+    {
+      "id": "out",
+      "name": "유출",
+      "target": "right",
+      "range": [
+        0.35,
+        0.65
+      ],
+      "region": null,
+      "curve": null,
+      "type": "outlet",
+      "T": 25,
+      "q": 0,
+      "h": 10,
+      "Tinf": 25,
+      "emissivity": 0,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "name": "최고점 근처",
+      "x": 7.5,
+      "y": 0.05,
+      "z": 0.5
+    },
+    {
+      "id": "p2",
+      "name": "출구 물",
+      "x": 9.9,
+      "y": 0.5,
+      "z": 0.5
+    }
+  ],
+  "study": {
+    "type": "steady",
+    "flow": true,
+    "natural": false,
+    "stress": false,
+    "planeStrain": false,
+    "Tref": 25,
+    "initialT": 25,
+    "endTime": 600,
+    "dt": 1,
+    "frames": 40,
+    "tolerance": 0.000001,
+    "maxIter": 20000,
+    "flowSteps": 3000,
+    "turbulence": "laminar",
+    "electric": false,
+    "thermalStrain": true,
+    "gravityLoad": false,
+    "modal": {
+      "enabled": false,
+      "modes": 6
+    },
+    "comfort": {
+      "met": 1.2,
+      "clo": 0.5,
+      "rh": 50,
+      "tr": null
+    },
+    "s2s": false,
+    "s2sMedium": "void"
+  },
+  "reliability": {
+    "components": []
+  },
+  "view": {
+    "sample": "microchannel"
+  }
+}

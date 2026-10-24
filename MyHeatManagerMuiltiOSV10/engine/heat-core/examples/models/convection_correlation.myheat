@@ -1,0 +1,19 @@
+{
+  "format": "myheat", "version": 1,
+  "name": "Convection correlations: vertical fin and horizontal base",
+  "description": "Natural convection from correlations (Churchill-Chu on the vertical fin faces, horizontal-plate correlations on the base) plus a forced-flow top edge; hMean is reported per boundary.",
+  "domain": { "dim": 2, "width": 60, "height": 110, "depth": 100, "nx": 60, "ny": 110, "background": null },
+  "ambient": 25,
+  "materials": [{ "id": "al", "kind": "solid", "k": 200, "rho": 2700, "cp": 900, "emissivity": 0.1 }],
+  "bodies": [
+    { "id": "base", "name": "Base", "shape": "rect", "x": 0, "y": 0, "w": 60, "h": 10, "material": "al", "power": 15 },
+    { "id": "fin", "name": "Fin", "shape": "rect", "x": 26, "y": 10, "w": 8, "h": 100, "material": "al" }
+  ],
+  "boundaries": [
+    { "id": "finSides", "target": "body:fin", "type": "convection", "hMode": "naturalVertical", "length": 100, "region": [0, 10, 60, 109.5] },
+    { "id": "finTip", "target": "body:fin", "type": "convection", "hMode": "forcedPlate", "length": 8, "velocity": 0.5, "region": [0, 109.5, 60, 110] },
+    { "id": "baseTop", "target": "body:base", "type": "convection", "hMode": "naturalHorizontalUp", "length": 15, "region": [0, 9.5, 60, 10.5] },
+    { "id": "baseBottom", "target": "bottom", "type": "convection", "hMode": "naturalHorizontalDown", "length": 15 }
+  ],
+  "study": { "type": "steady" }
+}

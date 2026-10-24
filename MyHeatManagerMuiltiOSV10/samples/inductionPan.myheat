@@ -1,0 +1,292 @@
+{
+  "format": "myheat",
+  "version": 1,
+  "name": "인덕션 냄비 물 데우기 (과도)",
+  "description": "인덕션이 강철 냄비 바닥에 직접 2 kW 를 넣어 물을 데웁니다. 유리 세라믹 상판으로 새는 열과, 냄비 바닥·물의 온도가 시간에 따라 오르는 모습을 봅니다 (물의 대류는 유효 전도율로 근사).",
+  "domain": {
+    "dim": 2,
+    "width": 300,
+    "height": 160,
+    "depth": 200,
+    "nx": 150,
+    "ny": 80,
+    "nz": 10,
+    "background": null
+  },
+  "ambient": 22,
+  "gravity": [
+    0,
+    -9.81
+  ],
+  "materials": [
+    {
+      "id": "steel",
+      "kind": "solid",
+      "color": "#6b7178",
+      "k": 51.9,
+      "rho": 7850,
+      "cp": 486,
+      "emissivity": 0.6,
+      "E": 200000000000,
+      "nu": 0.29,
+      "alpha": 0.000012,
+      "sigma": 5900000,
+      "alphaR": 0.005,
+      "name": "탄소강"
+    },
+    {
+      "id": "glass",
+      "kind": "solid",
+      "color": "#9fd3e6",
+      "k": 1,
+      "rho": 2500,
+      "cp": 840,
+      "emissivity": 0.84,
+      "E": 70000000000,
+      "nu": 0.22,
+      "alpha": 0.000009,
+      "sigma": 0,
+      "name": "판유리"
+    },
+    {
+      "id": "waterEff",
+      "kind": "solid",
+      "color": "#4aa3ff",
+      "k": 25,
+      "rho": 996,
+      "cp": 4178,
+      "mu": 0.000798,
+      "beta": 0.0003,
+      "emissivity": 0,
+      "sigma": 0,
+      "name": "물 (유효 전도율)"
+    }
+  ],
+  "bodies": [
+    {
+      "id": "hob",
+      "name": "유리 세라믹 상판",
+      "shape": "rect",
+      "material": "glass",
+      "x": 0,
+      "y": 0,
+      "w": 300,
+      "h": 6,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 200,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "bottom",
+      "name": "냄비 바닥 (발열)",
+      "shape": "rect",
+      "material": "steel",
+      "x": 50,
+      "y": 6,
+      "w": 200,
+      "h": 4,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 200,
+      "power": 0,
+      "powerProfile": [
+        [
+          0,
+          0
+        ],
+        [
+          2,
+          2000
+        ],
+        [
+          600,
+          2000
+        ]
+      ],
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "wallL",
+      "name": "냄비 벽 (왼쪽)",
+      "shape": "rect",
+      "material": "steel",
+      "x": 50,
+      "y": 10,
+      "w": 2,
+      "h": 120,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 200,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "wallR",
+      "name": "냄비 벽 (오른쪽)",
+      "shape": "rect",
+      "material": "steel",
+      "x": 248,
+      "y": 10,
+      "w": 2,
+      "h": 120,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 200,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "water",
+      "name": "물",
+      "shape": "rect",
+      "material": "waterEff",
+      "x": 52,
+      "y": 10,
+      "w": 196,
+      "h": 100,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 200,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "room",
+      "name": "주방 공기",
+      "target": "exterior",
+      "range": null,
+      "region": null,
+      "curve": null,
+      "type": "convection",
+      "T": 25,
+      "q": 0,
+      "h": 10,
+      "Tinf": 22,
+      "emissivity": 0.8,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "name": "냄비 바닥",
+      "x": 150,
+      "y": 8,
+      "z": 100
+    },
+    {
+      "id": "p2",
+      "name": "물 가운데",
+      "x": 150,
+      "y": 60,
+      "z": 100
+    },
+    {
+      "id": "p3",
+      "name": "물 표면",
+      "x": 150,
+      "y": 108,
+      "z": 100
+    },
+    {
+      "id": "p4",
+      "name": "상판 가장자리",
+      "x": 20,
+      "y": 3,
+      "z": 100
+    }
+  ],
+  "study": {
+    "type": "transient",
+    "flow": false,
+    "natural": false,
+    "stress": false,
+    "planeStrain": false,
+    "Tref": 25,
+    "initialT": 22,
+    "endTime": 600,
+    "dt": 5,
+    "frames": 60,
+    "tolerance": 0.000001,
+    "maxIter": 20000,
+    "flowSteps": 3000,
+    "turbulence": "laminar",
+    "electric": false,
+    "thermalStrain": true,
+    "gravityLoad": false,
+    "modal": {
+      "enabled": false,
+      "modes": 6
+    },
+    "comfort": {
+      "met": 1.2,
+      "clo": 0.5,
+      "rh": 50,
+      "tr": null
+    },
+    "s2s": false,
+    "s2sMedium": "void"
+  },
+  "reliability": {
+    "components": []
+  },
+  "view": {
+    "sample": "inductionPan"
+  }
+}

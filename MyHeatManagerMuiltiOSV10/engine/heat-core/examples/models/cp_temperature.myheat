@@ -1,0 +1,17 @@
+{
+  "format": "myheat", "version": 1,
+  "name": "cp(T): steel billet heated by a burner",
+  "description": "Carbon steel with a temperature-dependent specific heat (enthalpy formulation) heated by a flux ramp.",
+  "domain": { "dim": 2, "width": 100, "height": 100, "depth": 100, "nx": 25, "ny": 25, "background": null },
+  "ambient": 20,
+  "materials": [{ "id": "steel", "kind": "solid", "k": 45, "rho": 7850, "cp": 470, "emissivity": 0.8,
+                  "kT": [[20, 52], [400, 42], [800, 26]],
+                  "cpT": [[20, 450], [200, 520], [400, 600], [600, 750], [700, 1000], [750, 3500], [800, 800], [1000, 650]] }],
+  "bodies": [{ "id": "billet", "name": "Billet", "shape": "rect", "x": 0, "y": 0, "w": 100, "h": 100, "material": "steel" }],
+  "boundaries": [
+    { "id": "burner", "target": "bottom", "type": "flux", "q": 0, "qt": [[0, 0], [300, 60000], [3600, 60000]] },
+    { "id": "loss", "target": "top", "type": "convection", "h": 10, "Tinf": 20, "emissivity": 0.8, "Tamb": 20 }
+  ],
+  "probes": [{ "id": "core", "name": "Core", "x": 50, "y": 50 }],
+  "study": { "type": "transient", "endTime": 3600, "dt": 10, "frames": 36, "initialT": 20 }
+}

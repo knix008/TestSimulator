@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="heat" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#2e64e0"/>
+      <stop offset="0.35" stop-color="#9b2fae"/>
+      <stop offset="0.65" stop-color="#f0522a"/>
+      <stop offset="1" stop-color="#ffd34d"/>
+    </linearGradient>
+  </defs>
+  <path d="M208 64 H640 L848 272 V912 a48 48 0 0 1 -48 48 H208 a48 48 0 0 1 -48 -48 V112 a48 48 0 0 1 48 -48 Z" fill="#f4f7fb" stroke="#5d6d7e" stroke-width="20"/>
+  <path d="M640 64 V240 a32 32 0 0 0 32 32 H848" fill="#dfe6ee" stroke="#5d6d7e" stroke-width="20"/>
+  <rect x="270" y="380" width="484" height="380" rx="40" fill="url(#heat)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="12">
+    <path d="M300 700 C 420 600 600 600 724 700"/>
+    <path d="M300 600 C 420 500 600 500 724 600"/>
+    <path d="M300 500 C 420 420 600 420 724 500"/>
+  </g>
+  <text x="512" y="880" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="120" font-weight="700" fill="#34495e">HEAT</text>
+</svg>

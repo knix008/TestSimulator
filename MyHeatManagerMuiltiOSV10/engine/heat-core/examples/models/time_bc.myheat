@@ -1,0 +1,16 @@
+{
+  "format": "myheat", "version": 1,
+  "name": "Time-dependent boundaries: wall with a daily temperature cycle",
+  "description": "Outside air temperature (Tinft) and film coefficient (ht) follow tables; the inside face is held by a temperature ramp (Tt).",
+  "domain": { "dim": 2, "width": 200, "height": 20, "depth": 1000, "nx": 100, "ny": 4, "background": "concrete" },
+  "ambient": 20,
+  "materials": [{ "id": "concrete", "kind": "solid", "k": 1.4, "rho": 2300, "cp": 880 }],
+  "boundaries": [
+    { "id": "outside", "target": "left", "type": "convection", "h": 25, "Tinf": 5,
+      "Tinft": [[0, 5], [21600, 15], [43200, 25], [64800, 15], [86400, 5]],
+      "ht": [[0, 25], [43200, 10], [86400, 25]] },
+    { "id": "inside", "target": "right", "type": "temperature", "T": 20, "Tt": [[0, 18], [28800, 22], [86400, 22]] }
+  ],
+  "probes": [{ "id": "mid", "name": "Mid wall", "x": 100, "y": 10 }],
+  "study": { "type": "transient", "endTime": 86400, "dt": 600, "frames": 48, "initialT": 18 }
+}

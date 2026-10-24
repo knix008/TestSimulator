@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-myheatmanager">
+    <comment>MyHeatManager Project</comment>
+    <comment xml:lang="ko">MyHeatManager 프로젝트</comment>
+    <glob pattern="*.myheat"/>
+  </mime-type>
+</mime-info>

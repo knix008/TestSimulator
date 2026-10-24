@@ -1,0 +1,440 @@
+{
+  "format": "myheat",
+  "version": 1,
+  "name": "Solar module over a day (transient)",
+  "description": "A PV module section (glass, EVA, cell, backsheet) warms in the sun and cools over a day, with convection and sky radiation in front and convection behind: the daily cell temperature.",
+  "domain": {
+    "dim": 2,
+    "width": 40,
+    "height": 4.6,
+    "depth": 1000,
+    "nx": 20,
+    "ny": 92,
+    "nz": 10,
+    "background": null
+  },
+  "ambient": 25,
+  "gravity": [
+    0,
+    -9.81
+  ],
+  "materials": [
+    {
+      "id": "glass",
+      "kind": "solid",
+      "color": "#9fd3e6",
+      "k": 1,
+      "rho": 2500,
+      "cp": 840,
+      "emissivity": 0.84,
+      "E": 70000000000,
+      "nu": 0.22,
+      "alpha": 0.000009,
+      "sigma": 0,
+      "name": "Float glass"
+    },
+    {
+      "id": "silicone",
+      "kind": "solid",
+      "color": "#c4d6c1",
+      "k": 0.2,
+      "rho": 1100,
+      "cp": 1300,
+      "emissivity": 0.9,
+      "E": 5000000,
+      "nu": 0.48,
+      "alpha": 0.00025,
+      "sigma": 0,
+      "name": "Silicone rubber"
+    },
+    {
+      "id": "silicon",
+      "kind": "solid",
+      "color": "#3c4a6e",
+      "k": 148,
+      "rho": 2330,
+      "cp": 712,
+      "emissivity": 0.6,
+      "E": 130000000000,
+      "nu": 0.28,
+      "alpha": 0.0000026,
+      "kT": [
+        [
+          -50,
+          230
+        ],
+        [
+          25,
+          148
+        ],
+        [
+          100,
+          105
+        ],
+        [
+          150,
+          85
+        ],
+        [
+          200,
+          70
+        ]
+      ],
+      "sigma": 0,
+      "name": "Silicon (die)"
+    },
+    {
+      "id": "pvc",
+      "kind": "solid",
+      "color": "#f4f4ee",
+      "k": 0.17,
+      "rho": 1380,
+      "cp": 900,
+      "emissivity": 0.9,
+      "E": 3000000000,
+      "nu": 0.38,
+      "alpha": 0.00007,
+      "sigma": 0,
+      "name": "PVC frame"
+    }
+  ],
+  "bodies": [
+    {
+      "id": "back",
+      "name": "Backsheet",
+      "shape": "rect",
+      "material": "pvc",
+      "x": 0,
+      "y": 0,
+      "w": 40,
+      "h": 0.3,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "eva2",
+      "name": "EVA 2",
+      "shape": "rect",
+      "material": "silicone",
+      "x": 0,
+      "y": 0.3,
+      "w": 40,
+      "h": 0.45,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "cell",
+      "name": "Solar cell",
+      "shape": "rect",
+      "material": "silicon",
+      "x": 0,
+      "y": 0.75,
+      "w": 40,
+      "h": 0.2,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": [
+        [
+          0,
+          0
+        ],
+        [
+          3600,
+          0
+        ],
+        [
+          7200,
+          0
+        ],
+        [
+          10800,
+          0
+        ],
+        [
+          14400,
+          0
+        ],
+        [
+          18000,
+          0
+        ],
+        [
+          21600,
+          0
+        ],
+        [
+          25200,
+          18.117333157176454
+        ],
+        [
+          28800,
+          34.99999999999999
+        ],
+        [
+          32400,
+          49.49747468305832
+        ],
+        [
+          36000,
+          60.6217782649107
+        ],
+        [
+          39600,
+          67.61480784023477
+        ],
+        [
+          43200,
+          70
+        ],
+        [
+          46800,
+          67.61480784023477
+        ],
+        [
+          50400,
+          60.62177826491071
+        ],
+        [
+          54000,
+          49.49747468305833
+        ],
+        [
+          57600,
+          34.99999999999999
+        ],
+        [
+          61200,
+          18.11733315717647
+        ],
+        [
+          64800,
+          8.572527594031473e-15
+        ],
+        [
+          68400,
+          0
+        ],
+        [
+          72000,
+          0
+        ],
+        [
+          75600,
+          0
+        ],
+        [
+          79200,
+          0
+        ],
+        [
+          82800,
+          0
+        ],
+        [
+          86400,
+          0
+        ]
+      ],
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "eva1",
+      "name": "EVA 1",
+      "shape": "rect",
+      "material": "silicone",
+      "x": 0,
+      "y": 0.95,
+      "w": 40,
+      "h": 0.45,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    },
+    {
+      "id": "glassTop",
+      "name": "Front glass",
+      "shape": "rect",
+      "material": "glass",
+      "x": 0,
+      "y": 1.4,
+      "w": 40,
+      "h": 3.2,
+      "cx": 0,
+      "cy": 0,
+      "r": 5,
+      "points": [],
+      "z0": 0,
+      "z1": 1000,
+      "power": 0,
+      "powerProfile": null,
+      "current": null,
+      "resistance": null,
+      "hidden": false
+    }
+  ],
+  "boundaries": [
+    {
+      "id": "front",
+      "name": "Front (wind + sky)",
+      "target": "top",
+      "range": null,
+      "region": null,
+      "curve": null,
+      "type": "convection",
+      "T": 25,
+      "q": 0,
+      "h": 10,
+      "Tinf": 25,
+      "emissivity": 0.9,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    },
+    {
+      "id": "rear",
+      "name": "Rear",
+      "target": "bottom",
+      "range": null,
+      "region": null,
+      "curve": null,
+      "type": "convection",
+      "T": 25,
+      "q": 0,
+      "h": 5,
+      "Tinf": 25,
+      "emissivity": 0.8,
+      "Tamb": 25,
+      "Tt": null,
+      "qt": null,
+      "ht": null,
+      "Tinft": null,
+      "Tambt": null,
+      "hMode": "fixed",
+      "length": 100,
+      "velocity": 1,
+      "Tin": 25,
+      "turbulenceIntensity": 0.05,
+      "mixingLength": null,
+      "resistance": 0.0001,
+      "V": 1,
+      "I": 1,
+      "p": 100000,
+      "fx": 0,
+      "fy": -10,
+      "fz": 0,
+      "thickness": 0.1,
+      "k": 1,
+      "mode": "resistive",
+      "tag": null,
+      "projectedLength": null
+    }
+  ],
+  "probes": [
+    {
+      "id": "p1",
+      "name": "Cell",
+      "x": 20,
+      "y": 0.85,
+      "z": 500
+    },
+    {
+      "id": "p2",
+      "name": "Glass surface",
+      "x": 20,
+      "y": 4.55,
+      "z": 500
+    }
+  ],
+  "study": {
+    "type": "transient",
+    "flow": false,
+    "natural": false,
+    "stress": false,
+    "planeStrain": false,
+    "Tref": 25,
+    "initialT": 18,
+    "endTime": 86400,
+    "dt": 300,
+    "frames": 96,
+    "tolerance": 0.000001,
+    "maxIter": 20000,
+    "flowSteps": 3000,
+    "turbulence": "laminar",
+    "electric": false,
+    "thermalStrain": true,
+    "gravityLoad": false,
+    "modal": {
+      "enabled": false,
+      "modes": 6
+    },
+    "comfort": {
+      "met": 1.2,
+      "clo": 0.5,
+      "rh": 50,
+      "tr": null
+    },
+    "s2s": false,
+    "s2sMedium": "void"
+  },
+  "reliability": {
+    "components": []
+  },
+  "view": {
+    "sample": "solarPanel"
+  }
+}

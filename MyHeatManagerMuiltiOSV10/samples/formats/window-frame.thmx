@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ThermModel>
+  <Version>1</Version>
+  <ThermVersion>Version 7.8 (MyHeatManager export)</ThermVersion>
+  <FileVersion>1</FileVersion>
+  <Title>Window frame section U-factor (THERM-style)</Title>
+  <CreatedBy>MyHeatManager</CreatedBy>
+  <Notes>2D conduction through an aluminium frame with a thermal break and an argon double glazing; U-factor from −18 °C outdoor / 21 °C indoor films.</Notes>
+  <Units>SI</Units>
+  <Materials>
+    <Material Name="Aluminium 6061" Type="0" Conductivity="167" Tir="0" EmissivityFront="0.09" EmissivityBack="0.09" RGBColor="0xB8C2CC" Density="2700" SpecificHeat="896" />
+    <Material Name="Thermal break (polyamide)" Type="0" Conductivity="0.3" Tir="0" EmissivityFront="0.9" EmissivityBack="0.9" RGBColor="0x555555" Density="1450" SpecificHeat="1600" />
+    <Material Name="Air cavity (effective k)" Type="0" Conductivity="0.05" Tir="0" EmissivityFront="0.9" EmissivityBack="0.9" RGBColor="0xCFE8FF" Density="1.2" SpecificHeat="1007" />
+    <Material Name="Float glass" Type="0" Conductivity="1" Tir="0" EmissivityFront="0.84" EmissivityBack="0.84" RGBColor="0x9FD3E6" Density="2500" SpecificHeat="840" />
+    <Material Name="Argon cavity (effective k)" Type="0" Conductivity="0.03" Tir="0" EmissivityFront="0.9" EmissivityBack="0.9" RGBColor="0xD9D0FF" Density="1.66" SpecificHeat="520" />
+    <Material Name="Stainless steel 304" Type="0" Conductivity="16.2" Tir="0" EmissivityFront="0.3" EmissivityBack="0.3" RGBColor="0x9EA7AD" Density="8000" SpecificHeat="500" />
+    <Material Name="Silicone rubber" Type="0" Conductivity="0.2" Tir="0" EmissivityFront="0.9" EmissivityBack="0.9" RGBColor="0xC4D6C1" Density="1100" SpecificHeat="1300" />
+  </Materials>
+  <BoundaryConditions>
+    <BoundaryCondition Name="Adiabatic" Type="0" H="0" HeatFlux="0" Temperature="0" RGBColor="0x000000" Tr="0" Hr="0" Ei="0" Viewfactor="1" RadiationModel="1" ConvectionFlag="0" FluxFlag="0" RadiationFlag="0" ConstantTemperatureFlag="0" EmisModifier="1" />
+    <BoundaryCondition Name="Exterior (NFRC winter)" Type="0" H="26" HeatFlux="0" Temperature="-18" RGBColor="0x000000" Tr="-18" Hr="0" Ei="0" Viewfactor="1" RadiationModel="1" ConvectionFlag="1" FluxFlag="0" RadiationFlag="0" ConstantTemperatureFlag="0" EmisModifier="1" />
+    <BoundaryCondition Name="Interior" Type="0" H="7.7" HeatFlux="0" Temperature="21" RGBColor="0x000000" Tr="21" Hr="0" Ei="0" Viewfactor="1" RadiationModel="1" ConvectionFlag="1" FluxFlag="0" RadiationFlag="0" ConstantTemperatureFlag="0" EmisModifier="1" />
+    <BoundaryCondition Name="Glazing cut" Type="0" H="0" HeatFlux="0" Temperature="0" RGBColor="0x000000" Tr="0" Hr="0" Ei="0" Viewfactor="1" RadiationModel="1" ConvectionFlag="0" FluxFlag="0" RadiationFlag="0" ConstantTemperatureFlag="0" EmisModifier="1" />
+    <BoundaryCondition Name="Wall joint" Type="0" H="0" HeatFlux="0" Temperature="0" RGBColor="0x000000" Tr="0" Hr="0" Ei="0" Viewfactor="1" RadiationModel="1" ConvectionFlag="0" FluxFlag="0" RadiationFlag="0" ConstantTemperatureFlag="0" EmisModifier="1" />
+  </BoundaryConditions>
+  <Polygons>
+    <Polygon ID="1" Material="Aluminium 6061" NSides="4" Type="1" units="mm">
+      <Point index="0" x="0" y="0" />
+      <Point index="1" x="30" y="0" />
+      <Point index="2" x="30" y="40" />
+      <Point index="3" x="0" y="40" />
+    </Polygon>
+    <Polygon ID="2" Material="Thermal break (polyamide)" NSides="4" Type="1" units="mm">
+      <Point index="0" x="30" y="6" />
+      <Point index="1" x="45" y="6" />
+      <Point index="2" x="45" y="34" />
+      <Point index="3" x="30" y="34" />
+    </Polygon>
+    <Polygon ID="3" Material="Aluminium 6061" NSides="4" Type="1" units="mm">
+      <Point index="0" x="45" y="0" />
+      <Point index="1" x="75" y="0" />
+      <Point index="2" x="75" y="40" />
+      <Point index="3" x="45" y="40" />
+    </Polygon>
+    <Polygon ID="4" Material="Air cavity (effective k)" NSides="4" Type="1" units="mm">
+      <Point index="0" x="5" y="8" />
+      <Point index="1" x="25" y="8" />
+      <Point index="2" x="25" y="32" />
+      <Point index="3" x="5" y="32" />
+    </Polygon>
+    <Polygon ID="5" Material="Air cavity (effective k)" NSides="4" Type="1" units="mm">
+      <Point index="0" x="50" y="8" />
+      <Point index="1" x="70" y="8" />
+      <Point index="2" x="70" y="32" />
+      <Point index="3" x="50" y="32" />
+    </Polygon>
+    <Polygon ID="6" Material="Float glass" NSides="4" Type="1" units="mm">
+      <Point index="0" x="20" y="40" />
+      <Point index="1" x="24" y="40" />
+      <Point index="2" x="24" y="120" />
+      <Point index="3" x="20" y="120" />
+    </Polygon>
+    <Polygon ID="7" Material="Argon cavity (effective k)" NSides="4" Type="1" units="mm">
+      <Point index="0" x="24" y="46" />
+      <Point index="1" x="40" y="46" />
+      <Point index="2" x="40" y="120" />
+      <Point index="3" x="24" y="120" />
+    </Polygon>
+    <Polygon ID="8" Material="Stainless steel 304" NSides="4" Type="1" units="mm">
+      <Point index="0" x="24" y="40" />
+      <Point index="1" x="40" y="40" />
+      <Point index="2" x="40" y="46" />
+      <Point index="3" x="24" y="46" />
+    </Polygon>
+    <Polygon ID="9" Material="Float glass" NSides="4" Type="1" units="mm">
+      <Point index="0" x="40" y="40" />
+      <Point index="1" x="44" y="40" />
+      <Point index="2" x="44" y="120" />
+      <Point index="3" x="40" y="120" />
+    </Polygon>
+    <Polygon ID="10" Material="Silicone rubber" NSides="4" Type="1" units="mm">
+      <Point index="0" x="14" y="40" />
+      <Point index="1" x="20" y="40" />
+      <Point index="2" x="20" y="48" />
+      <Point index="3" x="14" y="48" />
+    </Polygon>
+    <Polygon ID="11" Material="Silicone rubber" NSides="4" Type="1" units="mm">
+      <Point index="0" x="44" y="40" />
+      <Point index="1" x="50" y="40" />
+      <Point index="2" x="50" y="48" />
+      <Point index="3" x="44" y="48" />
+    </Polygon>
+  </Polygons>
+  <Boundaries>
+    <BCPolygon ID="1" BC="Wall joint" units="mm" PolygonID="1" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="0" y="0" />
+      <Point index="1" x="30" y="0" />
+    </BCPolygon>
+    <BCPolygon ID="2" BC="Exterior (NFRC winter)" units="mm" PolygonID="1" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="30" y="0" />
+      <Point index="1" x="30" y="6" />
+    </BCPolygon>
+    <BCPolygon ID="3" BC="Exterior (NFRC winter)" units="mm" PolygonID="1" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="30" y="34" />
+      <Point index="1" x="30" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="4" BC="Exterior (NFRC winter)" units="mm" PolygonID="1" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="14.00000001" y="40" />
+      <Point index="1" x="0" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="5" BC="Exterior (NFRC winter)" units="mm" PolygonID="1" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="0" y="40" />
+      <Point index="1" x="0" y="0" />
+    </BCPolygon>
+    <BCPolygon ID="6" BC="Interior" units="mm" PolygonID="2" EnclosureID="0" MaterialName="Thermal break (polyamide)">
+      <Point index="0" x="30" y="6" />
+      <Point index="1" x="45" y="6" />
+    </BCPolygon>
+    <BCPolygon ID="7" BC="Interior" units="mm" PolygonID="2" EnclosureID="0" MaterialName="Thermal break (polyamide)">
+      <Point index="0" x="45" y="34" />
+      <Point index="1" x="30" y="34" />
+    </BCPolygon>
+    <BCPolygon ID="8" BC="Wall joint" units="mm" PolygonID="3" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="45" y="0" />
+      <Point index="1" x="75" y="0" />
+    </BCPolygon>
+    <BCPolygon ID="9" BC="Interior" units="mm" PolygonID="3" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="75" y="0" />
+      <Point index="1" x="75" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="10" BC="Interior" units="mm" PolygonID="3" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="75" y="40" />
+      <Point index="1" x="50.00000001" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="11" BC="Interior" units="mm" PolygonID="3" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="45" y="40" />
+      <Point index="1" x="45" y="34" />
+    </BCPolygon>
+    <BCPolygon ID="12" BC="Interior" units="mm" PolygonID="3" EnclosureID="0" MaterialName="Aluminium 6061">
+      <Point index="0" x="45" y="6" />
+      <Point index="1" x="45" y="0" />
+    </BCPolygon>
+    <BCPolygon ID="13" BC="Glazing cut" units="mm" PolygonID="6" EnclosureID="0" MaterialName="Float glass">
+      <Point index="0" x="24" y="120" />
+      <Point index="1" x="20" y="120" />
+    </BCPolygon>
+    <BCPolygon ID="14" BC="Exterior (NFRC winter)" units="mm" PolygonID="6" EnclosureID="0" MaterialName="Float glass">
+      <Point index="0" x="20" y="120" />
+      <Point index="1" x="20" y="48" />
+    </BCPolygon>
+    <BCPolygon ID="15" BC="Glazing cut" units="mm" PolygonID="7" EnclosureID="0" MaterialName="Argon cavity (effective k)">
+      <Point index="0" x="40" y="120" />
+      <Point index="1" x="24" y="120" />
+    </BCPolygon>
+    <BCPolygon ID="16" BC="Interior" units="mm" PolygonID="8" EnclosureID="0" MaterialName="Stainless steel 304">
+      <Point index="0" x="30" y="40" />
+      <Point index="1" x="40" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="17" BC="Interior" units="mm" PolygonID="9" EnclosureID="0" MaterialName="Float glass">
+      <Point index="0" x="40" y="40" />
+      <Point index="1" x="44" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="18" BC="Interior" units="mm" PolygonID="9" EnclosureID="0" MaterialName="Float glass">
+      <Point index="0" x="44" y="48" />
+      <Point index="1" x="44" y="120" />
+    </BCPolygon>
+    <BCPolygon ID="19" BC="Glazing cut" units="mm" PolygonID="9" EnclosureID="0" MaterialName="Float glass">
+      <Point index="0" x="44" y="120" />
+      <Point index="1" x="40" y="120" />
+    </BCPolygon>
+    <BCPolygon ID="20" BC="Exterior (NFRC winter)" units="mm" PolygonID="10" EnclosureID="0" MaterialName="Silicone rubber">
+      <Point index="0" x="20" y="48" />
+      <Point index="1" x="14" y="48" />
+    </BCPolygon>
+    <BCPolygon ID="21" BC="Exterior (NFRC winter)" units="mm" PolygonID="10" EnclosureID="0" MaterialName="Silicone rubber">
+      <Point index="0" x="14" y="48" />
+      <Point index="1" x="14" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="22" BC="Interior" units="mm" PolygonID="11" EnclosureID="0" MaterialName="Silicone rubber">
+      <Point index="0" x="44" y="40" />
+      <Point index="1" x="45" y="40" />
+    </BCPolygon>
+    <BCPolygon ID="23" BC="Interior" units="mm" PolygonID="11" EnclosureID="0" MaterialName="Silicone rubber">
+      <Point index="0" x="50" y="40" />
+      <Point index="1" x="50" y="48" />
+    </BCPolygon>
+    <BCPolygon ID="24" BC="Interior" units="mm" PolygonID="11" EnclosureID="0" MaterialName="Silicone rubber">
+      <Point index="0" x="50" y="48" />
+      <Point index="1" x="44" y="48" />
+    </BCPolygon>
+  </Boundaries>
+</ThermModel>

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyHeatManager",
+  "mainBinaryName": "MyHeatManager",
+  "version": "../package.json",
+  "identifier": "com.shkwon.myheatmanager",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1490",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Utility",
+    "shortDescription": "Thermal simulation workbench",
+    "longDescription": "Model devices in 2D or 3D, assign materials, heat sources and boundary conditions, and simulate steady-state and transient heat transfer: conduction, convection, radiation, phase change, conjugate heat transfer with fluid flow, porous media and thermal stress, with reliability estimates and heat maps.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../docs/UsersGuide.html": "docs/UsersGuide.html",
+      "../docs/UsersGuide.en.html": "docs/UsersGuide.en.html",
+      "../docs/Tutorial.html": "docs/Tutorial.html",
+      "../docs/Tutorial.en.html": "docs/Tutorial.en.html",
+      "../docs/images/": "docs/images/",
+      "../samples/": "samples/",
+      "icons/project.ico": "project.ico"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["myheat"],
+        "name": "MyHeatManager.Project",
+        "description": "MyHeatManager Model",
+        "mimeType": "application/x-myheatmanager",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MyHeatManager"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "files": {
+          "/usr/share/mime/packages/myheatmanager.xml": "linux/myheatmanager.xml"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3"],
+        "files": {
+          "/usr/share/mime/packages/myheatmanager.xml": "linux/myheatmanager.xml"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

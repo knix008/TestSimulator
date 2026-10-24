@@ -1,0 +1,516 @@
+solid Board
+  facet normal 0 0 1
+    outer loop
+      vertex 0 60 2
+      vertex 0 0 2
+      vertex 80 0 2
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 0 60 0
+      vertex 80 0 0
+      vertex 0 0 0
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 80 0 2
+      vertex 80 60 2
+      vertex 0 60 2
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 80 0 0
+      vertex 0 60 0
+      vertex 80 60 0
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 0 0
+      vertex 80 0 0
+      vertex 80 0 2
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 0 0 0
+      vertex 80 0 2
+      vertex 0 0 2
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 80 0 0
+      vertex 80 60 0
+      vertex 80 60 2
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 80 0 0
+      vertex 80 60 2
+      vertex 80 0 2
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 80 60 0
+      vertex 0 60 0
+      vertex 0 60 2
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 80 60 0
+      vertex 0 60 2
+      vertex 80 60 2
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 0 60 0
+      vertex 0 0 0
+      vertex 0 0 2
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 0 60 0
+      vertex 0 0 2
+      vertex 0 60 2
+    endloop
+  endfacet
+endsolid Board
+solid MCU
+  facet normal 0 0 1
+    outer loop
+      vertex 26 38 4
+      vertex 26 22 4
+      vertex 42 22 4
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 26 38 2
+      vertex 42 22 2
+      vertex 26 22 2
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 42 22 4
+      vertex 42 38 4
+      vertex 26 38 4
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 42 22 2
+      vertex 26 38 2
+      vertex 42 38 2
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 26 22 2
+      vertex 42 22 2
+      vertex 42 22 4
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 26 22 2
+      vertex 42 22 4
+      vertex 26 22 4
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 42 22 2
+      vertex 42 38 2
+      vertex 42 38 4
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 42 22 2
+      vertex 42 38 4
+      vertex 42 22 4
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 42 38 2
+      vertex 26 38 2
+      vertex 26 38 4
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 42 38 2
+      vertex 26 38 4
+      vertex 42 38 4
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 26 38 2
+      vertex 26 22 2
+      vertex 26 22 4
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 26 38 2
+      vertex 26 22 4
+      vertex 26 38 4
+    endloop
+  endfacet
+endsolid MCU
+solid Power_IC
+  facet normal 0 0 1
+    outer loop
+      vertex 58 48 4
+      vertex 58 38 4
+      vertex 68 38 4
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 58 48 2
+      vertex 68 38 2
+      vertex 58 38 2
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 68 38 4
+      vertex 68 48 4
+      vertex 58 48 4
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 68 38 2
+      vertex 58 48 2
+      vertex 68 48 2
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 58 38 2
+      vertex 68 38 2
+      vertex 68 38 4
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 58 38 2
+      vertex 68 38 4
+      vertex 58 38 4
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 68 38 2
+      vertex 68 48 2
+      vertex 68 48 4
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 68 38 2
+      vertex 68 48 4
+      vertex 68 38 4
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 68 48 2
+      vertex 58 48 2
+      vertex 58 48 4
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 68 48 2
+      vertex 58 48 4
+      vertex 68 48 4
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 58 48 2
+      vertex 58 38 2
+      vertex 58 38 4
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 58 48 2
+      vertex 58 38 4
+      vertex 58 48 4
+    endloop
+  endfacet
+endsolid Power_IC
+solid LDO
+  facet normal 0 0 1
+    outer loop
+      vertex 8 51 4
+      vertex 8 44 4
+      vertex 15 44 4
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 8 51 2
+      vertex 15 44 2
+      vertex 8 44 2
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 15 44 4
+      vertex 15 51 4
+      vertex 8 51 4
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 15 44 2
+      vertex 8 51 2
+      vertex 15 51 2
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 8 44 2
+      vertex 15 44 2
+      vertex 15 44 4
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 8 44 2
+      vertex 15 44 4
+      vertex 8 44 4
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 15 44 2
+      vertex 15 51 2
+      vertex 15 51 4
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 15 44 2
+      vertex 15 51 4
+      vertex 15 44 4
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 15 51 2
+      vertex 8 51 2
+      vertex 8 51 4
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 15 51 2
+      vertex 8 51 4
+      vertex 15 51 4
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 8 51 2
+      vertex 8 44 2
+      vertex 8 44 4
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 8 51 2
+      vertex 8 44 4
+      vertex 8 51 4
+    endloop
+  endfacet
+endsolid LDO
+solid Inductor
+  facet normal 0 0 1
+    outer loop
+      vertex 58 20 7
+      vertex 58 10 7
+      vertex 68 10 7
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 58 20 2
+      vertex 68 10 2
+      vertex 58 10 2
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 68 10 7
+      vertex 68 20 7
+      vertex 58 20 7
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 68 10 2
+      vertex 58 20 2
+      vertex 68 20 2
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 58 10 2
+      vertex 68 10 2
+      vertex 68 10 7
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 58 10 2
+      vertex 68 10 7
+      vertex 58 10 7
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 68 10 2
+      vertex 68 20 2
+      vertex 68 20 7
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 68 10 2
+      vertex 68 20 7
+      vertex 68 10 7
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 68 20 2
+      vertex 58 20 2
+      vertex 58 20 7
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 68 20 2
+      vertex 58 20 7
+      vertex 68 20 7
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 58 20 2
+      vertex 58 10 2
+      vertex 58 10 7
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 58 20 2
+      vertex 58 10 7
+      vertex 58 20 7
+    endloop
+  endfacet
+endsolid Inductor
+solid Heat_spreader
+  facet normal 0 0 1
+    outer loop
+      vertex 57 49 6
+      vertex 57 37 6
+      vertex 69 37 6
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 57 49 4
+      vertex 69 37 4
+      vertex 57 37 4
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 69 37 6
+      vertex 69 49 6
+      vertex 57 49 6
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 69 37 4
+      vertex 57 49 4
+      vertex 69 49 4
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 57 37 4
+      vertex 69 37 4
+      vertex 69 37 6
+    endloop
+  endfacet
+  facet normal 0 -1 0
+    outer loop
+      vertex 57 37 4
+      vertex 69 37 6
+      vertex 57 37 6
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 69 37 4
+      vertex 69 49 4
+      vertex 69 49 6
+    endloop
+  endfacet
+  facet normal 1 0 0
+    outer loop
+      vertex 69 37 4
+      vertex 69 49 6
+      vertex 69 37 6
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 69 49 4
+      vertex 57 49 4
+      vertex 57 49 6
+    endloop
+  endfacet
+  facet normal 0 1 0
+    outer loop
+      vertex 69 49 4
+      vertex 57 49 6
+      vertex 69 49 6
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 57 49 4
+      vertex 57 37 4
+      vertex 57 37 6
+    endloop
+  endfacet
+  facet normal -1 0 0
+    outer loop
+      vertex 57 49 4
+      vertex 57 37 6
+      vertex 57 49 6
+    endloop
+  endfacet
+endsolid Heat_spreader
