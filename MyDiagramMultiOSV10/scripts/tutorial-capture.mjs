@@ -19,8 +19,8 @@ import { slugify } from './build-docs.mjs';
 
 const mode = process.argv[2] ?? 'docs';
 const P = 'window.__mydiagram';
-const WIDTH = 1440;
-const HEIGHT = 900;
+const WIDTH = 1640; // the default window size (the window is never narrower than its toolbar, ~1590 px)
+const HEIGHT = 920;
 
 const app = new App();
 await app.start();

@@ -18,6 +18,13 @@
 ;
 ; Keep this file UTF-8 with BOM, or NSIS reads the Korean text as ANSI.
 
+; Installer language (Korean / English): ask every time. MUI remembers the last
+; choice in HKCU\${MANUPRODUCTKEY}\Installer Language and, without ALWAYSSHOW,
+; skips the question whenever that value is there — after any earlier install.
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_WINDOWTITLE "설치 언어 / Installer Language"
+!define MUI_LANGDLL_INFO "설치에 사용할 언어를 고르세요.$\r$\nPlease select the language for the installer."
+
 !macro NSIS_HOOK_PREINSTALL
   ; 2. Previous installation
   ReadRegStr $R6 SHCTX "${MANUPRODUCTKEY}" ""

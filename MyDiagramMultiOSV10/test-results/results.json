@@ -1,677 +1,1857 @@
 {
-  "date": "2026-10-25T03:51:35.819Z",
-  "passed": 94,
-  "failed": 1,
+  "date": "2026-10-25T04:03:25.547Z",
+  "passed": 244,
+  "failed": 4,
   "skipped": 0,
   "categories": [
     {
-      "id": "desktop",
-      "title": "E2E · 데스크톱 GUI",
-      "ms": 219763,
+      "id": "js",
+      "title": "JS 단위 테스트",
+      "ms": 901,
       "results": [
         {
-          "name": "앱 빌드 (cargo build)",
-          "group": "빌드",
+          "name": "ticks start at 0, use round steps, cover the maximum with little room to spare",
+          "group": "axes",
           "ok": true,
-          "ms": 7509.9636,
+          "skipped": false,
+          "ms": 2.1196,
           "error": null
         },
         {
-          "name": "앱 실행 · DevTools 연결",
+          "name": "a cap on the number of intervals (narrow bar charts)",
+          "group": "axes",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.1303,
+          "error": null
+        },
+        {
+          "name": "nothing to show still gives an axis",
+          "group": "axes",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.0973,
+          "error": null
+        },
+        {
+          "name": "value axes: hours from minutes, money in 만/억 or K/M, percent fixed 0–100",
+          "group": "axes",
+          "ok": true,
+          "skipped": false,
+          "ms": 12.5328,
+          "error": null
+        },
+        {
+          "name": "date labels are spaced so they do not touch",
+          "group": "axes",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.1994,
+          "error": null
+        },
+        {
+          "name": "a new document is clean, has no history and opens on its first page",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.7446,
+          "error": null
+        },
+        {
+          "name": "apply records one undo step, undo and redo restore the drawing",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.6413,
+          "error": null
+        },
+        {
+          "name": "a change that changes nothing is not recorded; a failing change leaves no step",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3949,
+          "error": null
+        },
+        {
+          "name": "routes are cached per page and recomputed after a change",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.8876,
+          "error": null
+        },
+        {
+          "name": "markSaved clears the dirty flag and the template mark; text() reads back",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.4719,
+          "error": null
+        },
+        {
+          "name": "lengths convert between units",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3812,
+          "error": null
+        },
+        {
+          "name": "a new document follows its language: paper, units, page name",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3126,
+          "error": null
+        },
+        {
+          "name": "deleting a shape deletes the connectors glued to it",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2623,
+          "error": null
+        },
+        {
+          "name": "grouping, moving a group and ungrouping",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.9813,
+          "error": null
+        },
+        {
+          "name": "a group left with one member dissolves",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.4147,
+          "error": null
+        },
+        {
+          "name": "align, distribute and same size",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5577,
+          "error": null
+        },
+        {
+          "name": "rotate and flip",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5495,
+          "error": null
+        },
+        {
+          "name": "z-order: front, back, forward, backward",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.4181,
+          "error": null
+        },
+        {
+          "name": "styles patch and reset; quick styles drop explicit colours",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3352,
+          "error": null
+        },
+        {
+          "name": "shape data is cleaned and its keys are listed",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2313,
+          "error": null
+        },
+        {
+          "name": "layers: new shapes go on the active layer; deleting a layer frees or deletes its shapes",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2875,
+          "error": null
+        },
+        {
+          "name": "pages: add, duplicate (new ids, glue kept), move, delete",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5957,
+          "error": null
+        },
+        {
+          "name": "copy and paste: new ids, connectors between copied shapes stay glued",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5437,
+          "error": null
+        },
+        {
+          "name": "find and replace across pages",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.5598,
+          "error": null
+        },
+        {
+          "name": "statistics and the connection graph",
+          "group": "document",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3304,
+          "error": null
+        },
+        {
+          "name": "stencils: every category has masters, every master renders without NaN",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 12.853,
+          "error": null
+        },
+        {
+          "name": "stencils: connection points, parameters and search",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.8647,
+          "error": null
+        },
+        {
+          "name": "routing: orthogonal route between two shapes, simplified, with right angles only",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.8945,
+          "error": null
+        },
+        {
+          "name": "routing: connectors go around shapes in the way; straight and curved routes",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.2754,
+          "error": null
+        },
+        {
+          "name": "routing: crossing connectors get line jumps",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.6413,
+          "error": null
+        },
+        {
+          "name": "layout: every layout places connected shapes without overlaps",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 3.7235,
+          "error": null
+        },
+        {
+          "name": "Visio: export → import keeps pages, shapes, text, glue, rotation and data",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 30.7432,
+          "error": null
+        },
+        {
+          "name": "CSV: shape data export, data link and org chart from data",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.5983,
+          "error": null
+        },
+        {
+          "name": "render: pages, content and selection areas; fields; print-only layers",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 19.1717,
+          "error": null
+        },
+        {
+          "name": "templates and samples build and render in both languages",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 23.2788,
+          "error": null
+        },
+        {
+          "name": "print: page ranges, fit to one sheet, tiles at 100 %",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 7.8773,
+          "error": null
+        },
+        {
+          "name": "paths: parse, scale and bounds",
+          "group": "engine",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3133,
+          "error": null
+        },
+        {
+          "name": "serialize / parseDiagram round trip keeps the drawing",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 8.6796,
+          "error": null
+        },
+        {
+          "name": "every template and the English sample survive a round trip",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 12.2191,
+          "error": null
+        },
+        {
+          "name": "parseDiagram refuses what is not a drawing, with a code",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.507,
+          "error": null
+        },
+        {
+          "name": "parseDiagram accepts a byte order mark and a bare document object",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.21,
+          "error": null
+        },
+        {
+          "name": "a minimal document gets every field",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.1994,
+          "error": null
+        },
+        {
+          "name": "documents, pages and options are repaired",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.0295,
+          "error": null
+        },
+        {
+          "name": "shapes are repaired: unknown masters, bad numbers, styles, layers, duplicate ids",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5778,
+          "error": null
+        },
+        {
+          "name": "groups keep their members and boxes; members of missing groups are freed",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2373,
+          "error": null
+        },
+        {
+          "name": "file name helpers",
+          "group": "format",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5649,
+          "error": null
+        },
+        {
+          "name": "Korean and English have exactly the same keys",
+          "group": "i18n",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.1774,
+          "error": null
+        },
+        {
+          "name": "every key used in the source exists in both languages",
+          "group": "i18n",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.025,
+          "error": null
+        },
+        {
+          "name": "placeholders match between the languages and texts are not empty",
+          "group": "i18n",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.1907,
+          "error": null
+        },
+        {
+          "name": "Korean texts are Korean and English texts are English",
+          "group": "i18n",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.6508,
+          "error": null
+        },
+        {
+          "name": "every tutorial step has a title and a text in both languages",
+          "group": "i18n",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2079,
+          "error": null
+        },
+        {
+          "name": "the command table is complete",
+          "group": "icons",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.1781,
+          "error": null
+        },
+        {
+          "name": "no two commands share an icon",
+          "group": "icons",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.3962,
+          "error": null
+        },
+        {
+          "name": "every icon a command, menu, template or the code uses exists",
+          "group": "icons",
+          "ok": true,
+          "skipped": false,
+          "ms": 7.1919,
+          "error": null
+        },
+        {
+          "name": "menu headings have their own icons",
+          "group": "icons",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2116,
+          "error": null
+        },
+        {
+          "name": "the toolbar shows only commands, each once",
+          "group": "icons",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.8671,
+          "error": null
+        },
+        {
+          "name": "icons are well-formed SVG with a fallback",
+          "group": "icons",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.4065,
+          "error": null
+        },
+        {
+          "name": "formats: six, unique extensions; JPEG is the only one without transparency",
+          "group": "image-encode",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.0066,
+          "error": null
+        },
+        {
+          "name": "raster size: scale, and never more than 16 000 px a side",
+          "group": "image-encode",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.1376,
+          "error": null
+        },
+        {
+          "name": "BMP: BITMAPV4 header, 32-bit bit fields with an alpha mask, bottom-up BGRA rows",
+          "group": "image-encode",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.7507,
+          "error": null
+        },
+        {
+          "name": "TIFF: little-endian, RGBA 8-bit, unassociated alpha, pixel strip intact",
+          "group": "image-encode",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3636,
+          "error": null
+        },
+        {
+          "name": "CRC-32 matches the standard check value",
+          "group": "report-export",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.6467,
+          "error": null
+        },
+        {
+          "name": "the ZIP writer round-trips names and bytes (UTF-8 names)",
+          "group": "report-export",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.846,
+          "error": null
+        },
+        {
+          "name": "HTML: a standalone UTF-8 page with title, project, date, KPIs, SVG charts and escaped tables",
+          "group": "report-export",
+          "ok": true,
+          "skipped": false,
+          "ms": 12.3543,
+          "error": null
+        },
+        {
+          "name": "Markdown: headings, GitHub tables with alignment, chart numbers as tables, escaped pipes",
+          "group": "report-export",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.486,
+          "error": null
+        },
+        {
+          "name": "Word: a valid .docx package (ZIP, content types, relationships, well-formed XML, Korean text)",
+          "group": "report-export",
+          "ok": true,
+          "skipped": false,
+          "ms": 4.0569,
+          "error": null
+        },
+        {
+          "name": "PDF: header, one page per JPEG, xref offsets point at their objects, stream lengths, %%EOF",
+          "group": "report-export",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.9313,
+          "error": null
+        },
+        {
+          "name": "every report has an export model, and every format renders it",
+          "group": "report-export",
+          "ok": true,
+          "skipped": false,
+          "ms": 18.1911,
+          "error": null
+        },
+        {
+          "name": "defaults per language",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 1.2881,
+          "error": null
+        },
+        {
+          "name": "normalizeSettings fills gaps and keeps the language consistent",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.4907,
+          "error": null
+        },
+        {
+          "name": "normalizeSettings clamps every number",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.399,
+          "error": null
+        },
+        {
+          "name": "normalizeSettings repairs choices, booleans and text",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2539,
+          "error": null
+        },
+        {
+          "name": "loadSettings / storeSettings with a storage object",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5821,
+          "error": null
+        },
+        {
+          "name": "zoomStep zooms in and out through the drawing zoom steps",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.1381,
+          "error": null
+        },
+        {
+          "name": "addRecent puts the newest first, without duplicates",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2139,
+          "error": null
+        },
+        {
+          "name": "addRecent keeps at most ten",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3144,
+          "error": null
+        },
+        {
+          "name": "removeRecent matches like addRecent",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.2716,
+          "error": null
+        },
+        {
+          "name": "recent files and recent folders are stored separately",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.4466,
+          "error": null
+        },
+        {
+          "name": "loading recent lists survives bad data",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.583,
+          "error": null
+        },
+        {
+          "name": "database settings: defaults and repairs",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3376,
+          "error": null
+        },
+        {
+          "name": "database password is stored only when asked to",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.1401,
+          "error": null
+        },
+        {
+          "name": "database connection settings for the backend",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5778,
+          "error": null
+        },
+        {
+          "name": "database settings problems",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3699,
+          "error": null
+        },
+        {
+          "name": "start page background: random at start (default on) and an automatic change interval from a fixed list",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.3233,
+          "error": null
+        },
+        {
+          "name": "a new installation resets the preferences once and keeps the user data",
+          "group": "settings",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5044,
+          "error": null
+        },
+        {
+          "name": "20 light and 20 dark themes with unique ids and names in both languages",
+          "group": "themes",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.7757,
+          "error": null
+        },
+        {
+          "name": "text is readable on every background of every theme",
+          "group": "themes",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.1546,
+          "error": null
+        },
+        {
+          "name": "the theme button picks a random theme, never the current one, eventually all of them",
+          "group": "themes",
+          "ok": true,
+          "skipped": false,
+          "ms": 2.7473,
+          "error": null
+        },
+        {
+          "name": "custom theme: copied from a theme, repaired, readable defaults; system follows the OS",
+          "group": "themes",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.5734,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "rust",
+      "title": "Rust 단위 테스트",
+      "ms": 15822,
+      "results": [
+        {
+          "name": "connection_errors_are_reported_without_the_password",
+          "group": "db",
+          "ms": 10008.0118,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "postgres_placeholders_are_numbered",
+          "group": "db",
+          "ms": 0.608699999998862,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "sqlite_save_load_list_delete",
+          "group": "db",
+          "ms": 1149.9298000000017,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "urls_for_each_database",
+          "group": "db",
+          "ms": 0.21110000000044238,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "atomic_write_leaves_no_temporary_file",
+          "group": "files",
+          "ms": 2.252599999999802,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "copy_reports_total_bytes",
+          "group": "files",
+          "ms": 18.3849999999984,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "diagram_files_keeps_existing_drawings_only",
+          "group": "files",
+          "ms": 1.1574000000000524,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "read_rejects_binary_and_missing_files",
+          "group": "files",
+          "ms": 3.6882000000005064,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "read_strips_utf8_bom",
+          "group": "files",
+          "ms": 8.274600000000646,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "write_then_read_round_trips_and_reports_progress",
+          "group": "files",
+          "ms": 13.591899999999441,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "finds_installed_fonts_sorted_without_duplicates",
+          "group": "fonts",
+          "ms": 87.02769999999873,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "message_names_the_program_and_says_it_closes",
+          "group": "instance",
+          "ms": 0.23410000000149012,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "second_lock_fails_until_the_first_is_released",
+          "group": "instance",
+          "ms": 1.6208000000005995,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "a_new_installation_resets_the_window_place_once",
+          "group": "window_state",
+          "ms": 2.5648999999975786,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "round_trips_through_the_file",
+          "group": "window_state",
+          "ms": 15.515800000001036,
+          "ok": true,
+          "skipped": false
+        },
+        {
+          "name": "saved_place_must_be_on_a_connected_monitor",
+          "group": "window_state",
+          "ms": 0.11240000000179862,
+          "ok": true,
+          "skipped": false
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "title": "E2E · 웹",
+      "ms": 73687,
+      "results": [
+        {
+          "name": "웹 빌드 (vite build → dist/)",
+          "group": "빌드",
+          "ok": true,
+          "ms": 1279.625100000001,
+          "error": null
+        },
+        {
+          "name": "브라우저 실행 · 페이지 열기",
           "group": "실행",
           "ok": true,
-          "ms": 18177.228
+          "ms": 1077.246500000001
         },
         {
-          "name": "튜토리얼 안내 팝업 (독립 OS 창) → 나중에",
-          "group": "처음 실행",
+          "name": "제목에 프로그램 이름과 버전, 아이콘",
+          "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 1705.1506000000008
+          "ms": 1.1723999999994703
         },
         {
-          "name": "시작 페이지: 템플릿 전부, 최근 파일·폴더, 예제, 튜토리얼 시작 버튼",
-          "group": "처음 실행",
+          "name": "처음 열면 튜토리얼 안내 (프레임 팝업)",
+          "group": "페이지",
           "ok": true,
           "skipped": false,
-          "ms": 311.4477000000006
+          "ms": 626.520199999999
         },
         {
-          "name": "시작 페이지 배경이 움직이고 바꿀 수 있음",
-          "group": "처음 실행",
+          "name": "템플릿·예제·튜토리얼·움직이는 배경",
+          "group": "시작 페이지",
           "ok": true,
           "skipped": false,
-          "ms": 1479.439400000003
+          "ms": 1844.1396999999997
         },
         {
-          "name": "템플릿 타일을 누르면 새 드로잉 (그리기 보기)",
-          "group": "처음 실행",
+          "name": "배경: 시작할 때마다 무작위, 정한 시간마다 자동으로 바뀜",
+          "group": "시작 페이지",
           "ok": true,
           "skipped": false,
-          "ms": 766.8761999999988
+          "ms": 16559.092999999997
         },
         {
-          "name": "메뉴바: 아이콘·이름·버전, 드로잉 이름, 홈, 창 버튼; 좌우 패널은 툴바 바로 아래·페이지 탭은 두 패널 사이 위쪽",
+          "name": "메뉴바: 아이콘·이름·버전, 드로잉 이름, 홈; 좌우 패널은 툴바 바로 아래·페이지 탭은 두 패널 사이 위쪽",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1336.6998000000021
+          "ms": 1187.3966
         },
         {
-          "name": "타이틀 바: 프로그램 이름과 버전",
-          "group": "창",
-          "ok": true,
-          "skipped": false,
-          "ms": 444.0779000000002
-        },
-        {
-          "name": "이미 실행 중이면 오류 팝업 후 종료 (두 번째 실행)",
-          "group": "창",
-          "ok": true,
-          "skipped": false,
-          "ms": 4412.703600000001
-        },
-        {
-          "name": "최소 창 폭: 툴바·메뉴가 가려지지 않고 툴바는 한 줄",
-          "group": "창",
-          "ok": true,
-          "skipped": false,
-          "ms": 1824.683299999997
-        },
-        {
-          "name": "오른쪽 아래 모서리의 크기 조절 표시로 창 크기 바꾸기 (실제 마우스)",
-          "group": "창",
-          "ok": true,
-          "skipped": false,
-          "ms": 3634.924899999998
-        },
-        {
-          "name": "상태 표시줄: 페이지·저장 상태·도형 수·확대 비율과 명령 결과",
-          "group": "창",
-          "ok": true,
-          "skipped": false,
-          "ms": 1065.3175999999949
-        },
-        {
-          "name": "모든 버튼에 툴팁 · 한 줄 · 아이콘은 서로 다름",
+          "name": "모든 버튼에 툴팁, 한 줄, 투명도 조절 없음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 775.520199999999
+          "ms": 606.5468000000037
         },
         {
-          "name": "프로그램 정보 버튼: 빌드 정보와 제작자",
+          "name": "메뉴: 한 줄, 아이콘+이름, 머리글, 바깥 클릭으로 닫힘",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 146.29639999999927
+        },
+        {
+          "name": "하위 메뉴: 마우스를 올리면 옆에 펼쳐지고, 다른 줄로 가면 닫힘 (실제 마우스)",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 2711.1779000000024
+        },
+        {
+          "name": "컨텍스트 메뉴의 하위 메뉴: 도형 › 정렬 순서 (실제 마우스)",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 732.1558000000005
+        },
+        {
+          "name": "툴바: 저장 바로 오른쪽 인쇄, 눈금자·격자 켜고 끄기 (실제 클릭)",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 894.1788000000015
+          "ms": 1807.8164000000033
         },
         {
-          "name": "테마 버튼은 매번 다른 테마를 무작위로",
+          "name": "인쇄 창: 탭 없이 범위·페이지 설정·머리글을 한 열에, 좁은 설정 열",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 1356.6097000000009
+        },
+        {
+          "name": "페이지 탭은 늘 보임: 숨기는 버튼·명령 없음",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 623.0656999999992
+        },
+        {
+          "name": "컨텍스트 메뉴: 도형·연결선·빈 캔버스·페이지 탭이 서로 다름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 1125.2523999999976
+        },
+        {
+          "name": "팝업 프레임: 아이콘+제목, 스크롤 없음, 머리글을 끌어 이동",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 3009.4401
+        },
+        {
+          "name": "도형 서식·페이지 설정·디자인·레이어·찾기 팝업이 잘리지 않음",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2808.306899999996
+        },
+        {
+          "name": "테마 드롭다운: 다크 20 | 라이트 20 두 줄",
+          "group": "테마",
+          "ok": true,
+          "skipped": false,
+          "ms": 453.7720000000045
+        },
+        {
+          "name": "보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음",
           "group": "툴바",
           "ok": true,
           "skipped": false,
-          "ms": 1092.3255999999965
-        },
-        {
-          "name": "테마 드롭다운: 다크 | 라이트 두 줄, 사용자 정의",
-          "group": "툴바",
-          "ok": true,
-          "skipped": false,
-          "ms": 1031.152399999999
-        },
-        {
-          "name": "모든 테마에서 글자가 잘 보임 (실제 화면 색 대비)",
-          "group": "툴바",
-          "ok": true,
-          "skipped": false,
-          "ms": 4583.484499999999
-        },
-        {
-          "name": "언어 버튼: 한국어일 때 영국 국기, 영어일 때 태극기",
-          "group": "툴바",
-          "ok": true,
-          "skipped": false,
-          "ms": 947.5780000000013
-        },
-        {
-          "name": "창 투명도 설정은 없음",
-          "group": "툴바",
-          "ok": true,
-          "skipped": false,
-          "ms": 1.1067000000039116
-        },
-        {
-          "name": "보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음, 메뉴바에 드로잉 이름 없음",
-          "group": "툴바",
-          "ok": true,
-          "skipped": false,
-          "ms": 1733.9761999999973
-        },
-        {
-          "name": "그리기 도구 버튼: 누르면 도구가 바뀌고 눌림 표시",
-          "group": "툴바",
-          "ok": true,
-          "skipped": false,
-          "ms": 1409.8925000000017
-        },
-        {
-          "name": "메뉴 \"파일\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 996.8970000000045
-        },
-        {
-          "name": "메뉴 \"편집\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 968.1068000000014
-        },
-        {
-          "name": "메뉴 \"보기\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 981.6005000000005
-        },
-        {
-          "name": "메뉴 \"삽입\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 968.0954000000056
-        },
-        {
-          "name": "메뉴 \"서식\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 970.3752999999997
-        },
-        {
-          "name": "메뉴 \"정렬\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 981.4913000000015
-        },
-        {
-          "name": "메뉴 \"디자인\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 987.7750999999989
-        },
-        {
-          "name": "메뉴 \"데이터\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 991.6794000000009
-        },
-        {
-          "name": "메뉴 \"페이지\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 969.0925000000061
-        },
-        {
-          "name": "메뉴 \"도움말\": 독립 창, 한 줄, 아이콘+이름",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 983.051099999997
-        },
-        {
-          "name": "메뉴는 작은 주 창 밖으로 펼쳐짐",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 1684.7535000000062
-        },
-        {
-          "name": "긴 메뉴는 분류된 하위 메뉴 (보기 › 보기 전환 › ShapeSheet)",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 2154.1717999999964
-        },
-        {
-          "name": "메뉴 항목 실행: 페이지 › 새 페이지 (실제 클릭)",
-          "group": "메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 1254.4743000000017
-        },
-        {
-          "name": "대상마다 다른 메뉴 (도형·연결선·여러 도형·빈 캔버스·페이지 탭·문서 탭·스텐실), 모든 항목에 아이콘",
-          "group": "컨텍스트 메뉴",
-          "ok": true,
-          "skipped": false,
-          "ms": 4635.56180000001
-        },
-        {
-          "name": "\"settings\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 3997.9180999999953
-        },
-        {
-          "name": "\"shape\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 3188.087499999994
-        },
-        {
-          "name": "\"data\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2168.926099999997
-        },
-        {
-          "name": "\"page\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2823.4477000000043
-        },
-        {
-          "name": "\"layers\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2336.646000000008
-        },
-        {
-          "name": "\"find\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2856.4651000000013
-        },
-        {
-          "name": "\"document\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2670.4365999999864
-        },
-        {
-          "name": "\"layout\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2323.2515999999887
-        },
-        {
-          "name": "\"hyperlink\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2338.0964999999997
-        },
-        {
-          "name": "\"design\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2646.9052999999985
-        },
-        {
-          "name": "\"import\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2804.8647000000055
-        },
-        {
-          "name": "\"stencil\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2331.325299999997
-        },
-        {
-          "name": "\"print\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2294.2804000000033
-        },
-        {
-          "name": "\"recent\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2488.085500000001
-        },
-        {
-          "name": "\"prompt\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
-          "group": "팝업",
-          "ok": true,
-          "skipped": false,
-          "ms": 2280.9176000000007
-        },
-        {
-          "name": "스텐실 도형 클릭 → 캔버스에 추가, Ctrl+Z / Ctrl+Y",
-          "group": "도형",
-          "ok": true,
-          "skipped": false,
-          "ms": 1399.625899999999
-        },
-        {
-          "name": "스텐실에서 캔버스로 끌어다 놓으면 놓은 자리에 도형 하나 (실제 마우스)",
-          "group": "도형",
-          "ok": true,
-          "skipped": false,
-          "ms": 1602.9225999999908
-        },
-        {
-          "name": "사각형 도구로 끌어 그리기, 도형 끌어 이동 (실행 취소 한 번), 화살표 키로 미세 이동 (실제 마우스)",
-          "group": "도형",
-          "ok": false,
-          "ms": 1307.2163,
-          "error": "AssertionError [ERR_ASSERTION]: {\"master\":\"rect\",\"w\":260,\"h\":140,\"tool\":\"rect\"}\n    at Object.run (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/desktop.suite.mjs:639:12)\n    at async runCases (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/scripts/test.mjs:269:23)\n    at async Object.runDesktop [as run] (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/scripts/test.mjs:332:3)"
-        },
-        {
-          "name": "크기 조절 핸들과 회전 핸들 (실제 마우스)",
-          "group": "도형",
-          "ok": true,
-          "skipped": false,
-          "ms": 2139.0374999999913
-        },
-        {
-          "name": "두 번 클릭해 텍스트 입력, Ctrl+Enter 로 끝냄",
-          "group": "도형",
-          "ok": true,
-          "skipped": false,
-          "ms": 857.8696999999956
-        },
-        {
-          "name": "도형 서식 팝업: 채우기 색을 바꾸면 도형에 반영",
-          "group": "도형",
-          "ok": true,
-          "skipped": false,
-          "ms": 1386.444199999998
-        },
-        {
-          "name": "정렬·그룹·회전·대칭·순서",
-          "group": "도형",
-          "ok": true,
-          "skipped": false,
-          "ms": 1067.625
-        },
-        {
-          "name": "연결선 도구: 도형에서 도형으로 끌면 양쪽에 붙은 연결선 (실제 마우스)",
-          "group": "연결선",
-          "ok": true,
-          "skipped": false,
-          "ms": 1609.6180000000022
-        },
-        {
-          "name": "도형을 마우스로 옮기면 연결선이 따라감 (직각 경로)",
-          "group": "연결선",
-          "ok": true,
-          "skipped": false,
-          "ms": 1666.8631000000023
-        },
-        {
-          "name": "클립보드: Ctrl+C 로 글자가 OS 클립보드에, Ctrl+V 로 도형 붙여넣기, 외부 텍스트 붙여넣기",
-          "group": "편집",
-          "ok": true,
-          "skipped": false,
-          "ms": 2667.0448999999935
-        },
-        {
-          "name": "Ctrl+마우스 휠: 캔버스 확대/축소",
-          "group": "편집",
-          "ok": true,
-          "skipped": false,
-          "ms": 1190.9029999999912
-        },
-        {
-          "name": "페이지 탭: + 로 추가, 두 번 클릭해 이름 바꾸기, 메뉴로 삭제 (다른 보기를 다녀온 뒤, 실제 마우스)",
-          "group": "편집",
-          "ok": true,
-          "skipped": false,
-          "ms": 2645.7153999999864
-        },
-        {
-          "name": "찾기·바꾸기 팝업: 모두 바꾸기",
-          "group": "편집",
-          "ok": true,
-          "skipped": false,
-          "ms": 1338.1283000000112
-        },
-        {
-          "name": "자동 레이아웃 팝업: 도형을 다시 배치",
-          "group": "편집",
-          "ok": true,
-          "skipped": false,
-          "ms": 1540.9053999999887
-        },
-        {
-          "name": "좌우 패널: 접으면 아이콘+제목 레일 (펼치기 버튼이 위), 구분자로 너비 조절, 최소 너비",
-          "group": "패널",
-          "ok": true,
-          "skipped": false,
-          "ms": 3258.6655999999784
-        },
-        {
-          "name": "드로잉은 탭 대신 메뉴바의 이름: 여러 개면 개수, 눌러서 바꾸기 (실제 클릭)",
-          "group": "탭",
-          "ok": true,
-          "skipped": false,
-          "ms": 1877.8403000000108
+          "ms": 1583.7900000000009
         },
         {
           "name": "홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀",
           "group": "창",
           "ok": true,
           "skipped": false,
-          "ms": 1292.4351000000024
+          "ms": 1267.4689999999973
         },
         {
-          "name": "drawing 보기가 그려짐",
-          "group": "보기",
+          "name": "스텐실 도형 클릭 → 캔버스에 추가, Ctrl+Z / Ctrl+Y",
+          "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1407.8864000000176
+          "ms": 1057.7395000000033
         },
         {
-          "name": "pages 보기가 그려짐",
-          "group": "보기",
+          "name": "스텐실에서 캔버스로 끌어다 놓으면 놓은 자리에 도형 하나 (실제 마우스)",
+          "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1406.459199999983
+          "ms": 1278.529800000004
         },
         {
-          "name": "shapeSheet 보기가 그려짐",
-          "group": "보기",
+          "name": "사각형 도구로 실제 마우스 끌기 → 새 도형, 끌어서 이동, 화살표로 미세 이동",
+          "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1412.761599999998
+          "ms": 1902.1479000000036
         },
         {
-          "name": "shapeData 보기가 그려짐",
-          "group": "보기",
+          "name": "크기 조절 핸들과 회전 핸들 (실제 마우스)",
+          "group": "도형",
           "ok": true,
           "skipped": false,
-          "ms": 1414.733500000002
+          "ms": 1791.310900000004
         },
         {
-          "name": "reports 보기가 그려짐",
-          "group": "보기",
+          "name": "연결선이 도형을 잇고, 도형을 옮기면 따라감",
+          "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 1406.959200000012
+          "ms": 796.3050000000003
         },
         {
-          "name": "보고서: 모든 보고서가 그려짐",
-          "group": "보기",
+          "name": "연결선 도구: 도형에서 도형으로 끌면 붙은 연결선",
+          "group": "연결선",
           "ok": true,
           "skipped": false,
-          "ms": 2047.5445999999938
+          "ms": 1264.3630000000048
         },
         {
-          "name": "페이지 보기: 페이지 카드를 두 번 누르면 그 페이지의 그리기 보기",
-          "group": "보기",
+          "name": "두 번 클릭해 텍스트 입력, Ctrl+Enter 로 끝냄",
+          "group": "텍스트",
           "ok": true,
           "skipped": false,
-          "ms": 1666.0954999999958
+          "ms": 538.4032000000007
         },
         {
-          "name": "프레젠테이션: F5 로 시작, 페이지 넘김, Esc 로 끝",
-          "group": "보기",
+          "name": "클립보드: Ctrl+C 로 브라우저 클립보드에 글자, Ctrl+V 로 붙여넣기",
+          "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 1557.5200999999943
+          "ms": 1107.3187000000034
         },
         {
-          "name": "새로 설치한 뒤 첫 실행: 설정은 기본값으로, 최근 파일·DB 연결·배경 이미지는 그대로 (한 번만)",
-          "group": "설치",
+          "name": "Ctrl+휠 확대·축소 (캔버스)",
+          "group": "편집",
           "ok": true,
           "skipped": false,
-          "ms": 2157.516100000008
+          "ms": 719.8243999999977
         },
         {
-          "name": "DB를 설정하면 저장은 파일과 DB 둘 다 (SQLite)",
+          "name": "빠른 스타일·디자인·정렬·그룹",
+          "group": "서식",
+          "ok": true,
+          "skipped": false,
+          "ms": 631.6502000000037
+        },
+        {
+          "name": "페이지 추가·이름 바꾸기·이동·삭제 (페이지 탭)",
+          "group": "페이지",
+          "ok": true,
+          "skipped": false,
+          "ms": 892.2302000000054
+        },
+        {
+          "name": "파일 끌어다 놓기: 드로잉은 새 탭, 이미지는 그림 도형",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1228.581600000005
+          "ms": 2450.208599999998
         },
         {
-          "name": "저장(.mdg) → 열기: 같은 내용, 최근 파일·폴더에 기록",
+          "name": "저장(브라우저 저장 창)·Visio/SVG/HTML/CSV/그림 내보내기",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1863.572600000014
+          "ms": 3564.5945999999967
         },
         {
-          "name": "최근 파일 최대 10개, 하나씩·전체 지우기 (파일 메뉴의 최근 파일 창)",
+          "name": "Visio(.vsdx)로 내보낸 것을 다시 열면 같은 도형·연결",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 2336.8433999999834
+          "ms": 1210.0626000000047
         },
         {
-          "name": "이미지로 내보내기 팝업: 형식·배경·영역·배율 → 선택이 내보내기에 쓰임",
+          "name": "내보내기 버튼: 그림 형식 고르기, 투명 배경은 지원하는 형식에서만, 화살표는 모든 내보내기 형식",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 1856.1279000000068
+        },
+        {
+          "name": "열기(브라우저 파일 선택)",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 1752.8817999999737
+          "ms": 30.98639999999432
         },
         {
-          "name": "그림 내보내기: PNG·JPEG·WebP·BMP·TIFF·SVG, 투명 배경",
+          "name": "저장 안 한 변경이 있으면 페이지를 떠날 때 확인",
           "group": "파일",
           "ok": true,
           "skipped": false,
-          "ms": 2210.759300000005
+          "ms": 1187.0323999999964
         },
         {
-          "name": "Visio(.vsdx)·SVG·HTML·CSV·템플릿·PDF 내보내기 (파일 머리 확인)",
-          "group": "파일",
-          "ok": true,
-          "skipped": false,
-          "ms": 1020.7142999999924
-        },
-        {
-          "name": "Visio(.vsdx)로 내보낸 파일을 다시 열면 같은 페이지·도형·연결선",
-          "group": "파일",
-          "ok": true,
-          "skipped": false,
-          "ms": 1495.4598000000115
-        },
-        {
-          "name": "오래 걸리는 파일 작업은 진행 팝업 (진행률 막대)",
-          "group": "파일",
-          "ok": true,
-          "skipped": false,
-          "ms": 10294.4473
-        },
-        {
-          "name": "끌어다 놓기: 드로잉 파일은 새 탭, 이미지는 그림 도형, 텍스트는 도형",
-          "group": "파일",
-          "ok": true,
-          "skipped": false,
-          "ms": 1721.3757999999798
-        },
-        {
-          "name": "저장 안 한 변경이 있으면 끝낼 때 저장 여부를 물음 (취소하면 그대로)",
-          "group": "파일",
-          "ok": true,
-          "skipped": false,
-          "ms": 1513.5881999999983
-        },
-        {
-          "name": "인쇄 미리 보기: 전체/현재 페이지, 용지 방향, 바로 인쇄",
-          "group": "인쇄",
-          "ok": true,
-          "skipped": false,
-          "ms": 2555.6201
-        },
-        {
-          "name": "설정 창: 테마 탭(다크/라이트/사용자 정의), 글꼴(시스템의 모든 글꼴·크기·굵기·기울임)",
+          "name": "설정은 새로 고침 뒤에도 남음 (localStorage)",
           "group": "설정",
           "ok": true,
           "skipped": false,
-          "ms": 1471.4101000000082
+          "ms": 540.193100000004
         },
         {
-          "name": "설정 창 › 그리기: 격자 표시를 끄면 캔버스에서 격자가 사라짐",
-          "group": "설정",
+          "name": "drawing",
+          "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1666.4605999999912
+          "ms": 1060.2065000000002
         },
         {
-          "name": "설정은 다음 실행 때 다시 읽힘",
-          "group": "설정",
+          "name": "pages",
+          "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 4715.281900000002
+          "ms": 435.7972999999911
         },
         {
-          "name": "오류는 팝업으로 자세히, 내용 복사 가능",
-          "group": "오류",
+          "name": "shapeSheet",
+          "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 1564.6315999999933
+          "ms": 436.803899999999
         },
         {
-          "name": "백엔드 심각한 오류(패닉)도 위치·스레드·백트레이스와 함께 팝업",
-          "group": "오류",
+          "name": "shapeData",
+          "group": "보기",
           "ok": true,
           "skipped": false,
-          "ms": 720.449099999998
+          "ms": 447.6600000000035
+        },
+        {
+          "name": "reports",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 439.88649999999325
+        },
+        {
+          "name": "보고서: 모든 보고서가 그려지고 HTML·CSV 로 내보냄",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1875.3459999999905
         },
         {
           "name": "튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)",
           "group": "도움말",
           "ok": true,
           "skipped": false,
-          "ms": 1217.6141000000061
+          "ms": 917.9035000000003
+        },
+        {
+          "name": "인쇄 미리 보기 → 브라우저 인쇄",
+          "group": "인쇄",
+          "ok": true,
+          "skipped": false,
+          "ms": 1245.0669000000053
+        },
+        {
+          "name": "F5 전체 화면 프레젠테이션: 페이지 넘김, Esc·전체 화면 해제로 끝",
+          "group": "프레젠테이션",
+          "ok": true,
+          "skipped": false,
+          "ms": 1191.131699999998
+        },
+        {
+          "name": "잘못된 파일 → 오류 팝업, 자세히 복사",
+          "group": "오류",
+          "ok": true,
+          "skipped": false,
+          "ms": 1164.5639000000083
+        }
+      ]
+    },
+    {
+      "id": "desktop",
+      "title": "E2E · 데스크톱 GUI",
+      "ms": 466739,
+      "results": [
+        {
+          "name": "앱 빌드 (cargo build)",
+          "group": "빌드",
+          "ok": true,
+          "ms": 550.4837000000116,
+          "error": null
+        },
+        {
+          "name": "앱 실행 · DevTools 연결",
+          "group": "실행",
+          "ok": true,
+          "ms": 17663.76629999999
+        },
+        {
+          "name": "튜토리얼 안내 팝업 (독립 OS 창) → 나중에",
+          "group": "처음 실행",
+          "ok": true,
+          "skipped": false,
+          "ms": 1597.4627000000037
+        },
+        {
+          "name": "시작 페이지: 템플릿 전부, 최근 파일·폴더, 예제, 튜토리얼 시작 버튼",
+          "group": "처음 실행",
+          "ok": true,
+          "skipped": false,
+          "ms": 310.68910000000324
+        },
+        {
+          "name": "시작 페이지 배경이 움직이고 바꿀 수 있음",
+          "group": "처음 실행",
+          "ok": true,
+          "skipped": false,
+          "ms": 1478.7217999999993
+        },
+        {
+          "name": "템플릿 타일을 누르면 새 드로잉 (그리기 보기)",
+          "group": "처음 실행",
+          "ok": true,
+          "skipped": false,
+          "ms": 763.0244000000093
+        },
+        {
+          "name": "메뉴바: 아이콘·이름·버전, 드로잉 이름, 홈, 창 버튼; 좌우 패널은 툴바 바로 아래·페이지 탭은 두 패널 사이 위쪽",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 1329.172900000005
+        },
+        {
+          "name": "타이틀 바: 프로그램 이름과 버전",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 436.1157999999996
+        },
+        {
+          "name": "이미 실행 중이면 오류 팝업 후 종료 (두 번째 실행)",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 4452.691200000001
+        },
+        {
+          "name": "최소 창 폭: 툴바·메뉴가 가려지지 않고 툴바는 한 줄",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 1838.5359000000026
+        },
+        {
+          "name": "오른쪽 아래 모서리의 크기 조절 표시로 창 크기 바꾸기 (실제 마우스)",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 3647.777199999997
+        },
+        {
+          "name": "상태 표시줄: 페이지·저장 상태·도형 수·확대 비율과 명령 결과",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 1050.325600000011
+        },
+        {
+          "name": "모든 버튼에 툴팁 · 한 줄 · 아이콘은 서로 다름",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 763.7428000000073
+        },
+        {
+          "name": "프로그램 정보 버튼: 빌드 정보와 제작자",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 978.6977999999945
+        },
+        {
+          "name": "테마 버튼은 매번 다른 테마를 무작위로",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 1075.8539000000019
+        },
+        {
+          "name": "테마 드롭다운: 다크 | 라이트 두 줄, 사용자 정의",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 1030.9525999999896
+        },
+        {
+          "name": "모든 테마에서 글자가 잘 보임 (실제 화면 색 대비)",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 4602.0429
+        },
+        {
+          "name": "언어 버튼: 한국어일 때 영국 국기, 영어일 때 태극기",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 945.107400000008
+        },
+        {
+          "name": "창 투명도 설정은 없음",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 0.8338999999978114
+        },
+        {
+          "name": "보기 드롭다운: 보기를 바꿔도 툴바 버튼이 움직이지 않음, 메뉴바에 드로잉 이름 없음",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 1731.3389000000025
+        },
+        {
+          "name": "그리기 도구 버튼: 누르면 도구가 바뀌고 눌림 표시",
+          "group": "툴바",
+          "ok": true,
+          "skipped": false,
+          "ms": 1401.1989999999932
+        },
+        {
+          "name": "메뉴 \"파일\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 968.5076999999874
+        },
+        {
+          "name": "메뉴 \"편집\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 969.4494000000122
+        },
+        {
+          "name": "메뉴 \"보기\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 953.6959999999963
+        },
+        {
+          "name": "메뉴 \"삽입\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 966.9801999999909
+        },
+        {
+          "name": "메뉴 \"서식\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 968.0328999999911
+        },
+        {
+          "name": "메뉴 \"정렬\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 971.3899000000092
+        },
+        {
+          "name": "메뉴 \"디자인\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 955.6347999999998
+        },
+        {
+          "name": "메뉴 \"데이터\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 971.1062000000093
+        },
+        {
+          "name": "메뉴 \"페이지\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 969.4734999999928
+        },
+        {
+          "name": "메뉴 \"도움말\": 독립 창, 한 줄, 아이콘+이름",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 977.0892999999924
+        },
+        {
+          "name": "메뉴는 작은 주 창 밖으로 펼쳐짐",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 1685.2148999999918
+        },
+        {
+          "name": "긴 메뉴는 분류된 하위 메뉴 (보기 › 보기 전환 › ShapeSheet)",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 2174.4841000000015
+        },
+        {
+          "name": "메뉴 항목 실행: 페이지 › 새 페이지 (실제 클릭)",
+          "group": "메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 1243.6823999999906
+        },
+        {
+          "name": "대상마다 다른 메뉴 (도형·연결선·여러 도형·빈 캔버스·페이지 탭·문서 탭·스텐실), 모든 항목에 아이콘",
+          "group": "컨텍스트 메뉴",
+          "ok": true,
+          "skipped": false,
+          "ms": 4645.021600000007
+        },
+        {
+          "name": "\"settings\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 4035.384699999995
+        },
+        {
+          "name": "\"shape\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 3175.2641000000003
+        },
+        {
+          "name": "\"data\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2152.755199999985
+        },
+        {
+          "name": "\"page\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2682.7303000000247
+        },
+        {
+          "name": "\"layers\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2168.5794999999925
+        },
+        {
+          "name": "\"find\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2669.6137000000163
+        },
+        {
+          "name": "\"document\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2629.061400000006
+        },
+        {
+          "name": "\"layout\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2306.2378000000026
+        },
+        {
+          "name": "\"hyperlink\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2167.104500000016
+        },
+        {
+          "name": "\"design\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2492.2933000000194
+        },
+        {
+          "name": "\"import\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2790.773600000015
+        },
+        {
+          "name": "\"stencil\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2297.9320000000007
+        },
+        {
+          "name": "\"print\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2306.1610999999975
+        },
+        {
+          "name": "\"recent\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2631.5518000000156
+        },
+        {
+          "name": "\"prompt\": 독립 OS 창 · 크기 고정 · 스크롤 없음 · 아이콘+제목 · 정렬 · 이동 가능",
+          "group": "팝업",
+          "ok": true,
+          "skipped": false,
+          "ms": 2276.550199999998
+        },
+        {
+          "name": "스텐실 도형 클릭 → 캔버스에 추가, Ctrl+Z / Ctrl+Y",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1401.8767999999982
+        },
+        {
+          "name": "스텐실에서 캔버스로 끌어다 놓으면 놓은 자리에 도형 하나 (실제 마우스)",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1617.0253000000084
+        },
+        {
+          "name": "사각형 도구로 끌어 그리기, 도형 끌어 이동 (실행 취소 한 번), 화살표 키로 미세 이동 (실제 마우스)",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 2624.199800000002
+        },
+        {
+          "name": "크기 조절 핸들과 회전 핸들 (실제 마우스)",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 2161.402300000016
+        },
+        {
+          "name": "두 번 클릭해 텍스트 입력, Ctrl+Enter 로 끝냄",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 894.2215999999898
+        },
+        {
+          "name": "도형 서식 팝업: 채우기 색을 바꾸면 도형에 반영",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1392.482799999998
+        },
+        {
+          "name": "정렬·그룹·회전·대칭·순서",
+          "group": "도형",
+          "ok": true,
+          "skipped": false,
+          "ms": 1038.5301000000036
+        },
+        {
+          "name": "연결선 도구: 도형에서 도형으로 끌면 양쪽에 붙은 연결선 (실제 마우스)",
+          "group": "연결선",
+          "ok": true,
+          "skipped": false,
+          "ms": 1646.1708000000217
+        },
+        {
+          "name": "도형을 마우스로 옮기면 연결선이 따라감 (직각 경로)",
+          "group": "연결선",
+          "ok": true,
+          "skipped": false,
+          "ms": 1605.585700000025
+        },
+        {
+          "name": "클립보드: Ctrl+C 로 글자가 OS 클립보드에, Ctrl+V 로 도형 붙여넣기, 외부 텍스트 붙여넣기",
+          "group": "편집",
+          "ok": true,
+          "skipped": false,
+          "ms": 2690.4184999999998
+        },
+        {
+          "name": "Ctrl+마우스 휠: 캔버스 확대/축소",
+          "group": "편집",
+          "ok": true,
+          "skipped": false,
+          "ms": 1170.0666999999958
+        },
+        {
+          "name": "페이지 탭: + 로 추가, 두 번 클릭해 이름 바꾸기, 메뉴로 삭제 (다른 보기를 다녀온 뒤, 실제 마우스)",
+          "group": "편집",
+          "ok": true,
+          "skipped": false,
+          "ms": 2635.6921999999904
+        },
+        {
+          "name": "찾기·바꾸기 팝업: 모두 바꾸기",
+          "group": "편집",
+          "ok": true,
+          "skipped": false,
+          "ms": 1337.995900000009
+        },
+        {
+          "name": "자동 레이아웃 팝업: 도형을 다시 배치",
+          "group": "편집",
+          "ok": true,
+          "skipped": false,
+          "ms": 1515.9112000000023
+        },
+        {
+          "name": "좌우 패널: 접으면 아이콘+제목 레일 (펼치기 버튼이 위), 구분자로 너비 조절, 최소 너비",
+          "group": "패널",
+          "ok": true,
+          "skipped": false,
+          "ms": 3285.0756999999867
+        },
+        {
+          "name": "드로잉은 탭 대신 메뉴바의 이름: 여러 개면 개수, 눌러서 바꾸기 (실제 클릭)",
+          "group": "탭",
+          "ok": true,
+          "skipped": false,
+          "ms": 1902.882500000007
+        },
+        {
+          "name": "홈 화면은 좌우 패널을 모두 숨겨도 창 전체 폭을 씀",
+          "group": "창",
+          "ok": true,
+          "skipped": false,
+          "ms": 1278.7078000000038
+        },
+        {
+          "name": "drawing 보기가 그려짐",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1401.8277999999991
+        },
+        {
+          "name": "pages 보기가 그려짐",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1419.5622000000149
+        },
+        {
+          "name": "shapeSheet 보기가 그려짐",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1416.8329999999842
+        },
+        {
+          "name": "shapeData 보기가 그려짐",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1421.4907999999996
+        },
+        {
+          "name": "reports 보기가 그려짐",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1414.6075999999885
+        },
+        {
+          "name": "보고서: 모든 보고서가 그려짐",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 2057.177400000015
+        },
+        {
+          "name": "페이지 보기: 페이지 카드를 두 번 누르면 그 페이지의 그리기 보기",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1684.8166999999958
+        },
+        {
+          "name": "프레젠테이션: F5 로 시작, 페이지 넘김, Esc 로 끝",
+          "group": "보기",
+          "ok": true,
+          "skipped": false,
+          "ms": 1531.4076999999816
+        },
+        {
+          "name": "새로 설치한 뒤 첫 실행: 설정은 기본값으로, 최근 파일·DB 연결·배경 이미지는 그대로 (한 번만)",
+          "group": "설치",
+          "ok": true,
+          "skipped": false,
+          "ms": 2060.464799999987
+        },
+        {
+          "name": "DB를 설정하면 저장은 파일과 DB 둘 다 (SQLite)",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1237.0143000000098
+        },
+        {
+          "name": "저장(.mdg) → 열기: 같은 내용, 최근 파일·폴더에 기록",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1874.4879000000074
+        },
+        {
+          "name": "최근 파일 최대 10개, 하나씩·전체 지우기 (파일 메뉴의 최근 파일 창)",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 2322.0917999999947
+        },
+        {
+          "name": "이미지로 내보내기 팝업: 형식·배경·영역·배율 → 선택이 내보내기에 쓰임",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1762.7472000000125
+        },
+        {
+          "name": "그림 내보내기: PNG·JPEG·WebP·BMP·TIFF·SVG, 투명 배경",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 2231.9162999999826
+        },
+        {
+          "name": "Visio(.vsdx)·SVG·HTML·CSV·템플릿·PDF 내보내기 (파일 머리 확인)",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1028.688300000009
+        },
+        {
+          "name": "Visio(.vsdx)로 내보낸 파일을 다시 열면 같은 페이지·도형·연결선",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1487.7190999999875
+        },
+        {
+          "name": "오래 걸리는 파일 작업은 진행 팝업 (진행률 막대)",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 10353.600299999991
+        },
+        {
+          "name": "끌어다 놓기: 드로잉 파일은 새 탭, 이미지는 그림 도형, 텍스트는 도형",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1710.737300000037
+        },
+        {
+          "name": "저장 안 한 변경이 있으면 끝낼 때 저장 여부를 물음 (취소하면 그대로)",
+          "group": "파일",
+          "ok": true,
+          "skipped": false,
+          "ms": 1440.6688999999897
+        },
+        {
+          "name": "인쇄 미리 보기: 전체/현재 페이지, 용지 방향, 바로 인쇄",
+          "group": "인쇄",
+          "ok": true,
+          "skipped": false,
+          "ms": 2356.534800000023
+        },
+        {
+          "name": "설정 창: 테마 탭(다크/라이트/사용자 정의), 글꼴(시스템의 모든 글꼴·크기·굵기·기울임)",
+          "group": "설정",
+          "ok": true,
+          "skipped": false,
+          "ms": 1482.0212000000174
+        },
+        {
+          "name": "설정 창 › 그리기: 격자 표시를 끄면 캔버스에서 격자가 사라짐",
+          "group": "설정",
+          "ok": true,
+          "skipped": false,
+          "ms": 1650.6600000000326
+        },
+        {
+          "name": "설정은 다음 실행 때 다시 읽힘",
+          "group": "설정",
+          "ok": true,
+          "skipped": false,
+          "ms": 4663.190600000031
+        },
+        {
+          "name": "오류는 팝업으로 자세히, 내용 복사 가능",
+          "group": "오류",
+          "ok": true,
+          "skipped": false,
+          "ms": 1508.9615999999805
+        },
+        {
+          "name": "백엔드 심각한 오류(패닉)도 위치·스레드·백트레이스와 함께 팝업",
+          "group": "오류",
+          "ok": false,
+          "ms": 15114.791499999992,
+          "error": "Error: page target not found\n    at waitTarget (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:174:9)\n    at async App.popup (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/harness.mjs:130:22)\n    at async Object.run (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/desktop.suite.mjs:1340:18)"
+        },
+        {
+          "name": "튜토리얼 문서를 프로그램 안에서 읽기 (홈 화면 항목)",
+          "group": "도움말",
+          "ok": false,
+          "ms": 15427.080599999987,
+          "error": "Error: timed out waiting for document.querySelectorAll('[data-reader-chapter] option').length > 5 (last: false)\n    at Page.waitFor (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:152:11)\n    at async Object.run (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/desktop.suite.mjs:1354:5)\n    at async runCases (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/scripts/test.mjs:269:23)"
         },
         {
           "name": "사용 설명서 열기 (설치된 문서)",
           "group": "도움말",
-          "ok": true,
-          "skipped": false,
-          "ms": 9866.0919
+          "ok": false,
+          "ms": 82271.3983,
+          "error": "Error: timed out waiting for Boolean(window.__mydiagram && document.querySelector('#toolbar .tool-button') && document.querySelector('#statusbar .status-notice')) (last: false)\n    at Page.waitFor (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:152:11)\n    at async App.launch (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/harness.mjs:101:7)\n    at async App.restart (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/harness.mjs:109:5)"
         },
         {
           "name": "튜토리얼: 시작·다음·끝내면 원래대로",
           "group": "도움말",
-          "ok": true,
-          "skipped": false,
-          "ms": 11410.517500000016
+          "ok": false,
+          "ms": 203.7711999999592,
+          "error": "Error: TypeError: Cannot read properties of undefined (reading 'actions')\n    at <anonymous>:1:52\n    at <anonymous>:1:233\n    at Page.eval (file:///D:/Home/Projects/TestSimulator/MyDiagramMultiOSV10/test/e2e/cdp.mjs:67:24)"
         }
       ]
     }
