@@ -31,6 +31,7 @@ import { AnimatedBackground } from './ui/background.js';
 import { startPageHtml } from './ui/startpage.js';
 import { STEPS as TUTORIAL_STEPS, Tutorial } from './ui/tutorial.js';
 import { CanvasView, canvasMeasure } from './views/canvas.js';
+import appIcon from '../assets/icon-256.png';
 import { ShapeSheetView, ShapeDataView } from './views/sheets.js';
 import { PagesView } from './views/pages.js';
 import { REPORTS, ReportsView, reportModel } from './views/reports.js';
@@ -176,7 +177,6 @@ function activate(id) {
 function activateDoc(id) {
   if (state.active === id && !state.showStart) return;
   activate(id);
-  scrollActiveTabIntoView();
 }
 
 const view = () => state.view;
@@ -194,7 +194,7 @@ function change(labelKey, mutate, { right = true, left = false } = {}) {
 function afterChange({ right = true, left = false } = {}) {
   pruneSelection();
   updateView();
-  renderTabs();
+  renderDocTitle();
   renderStatus();
   renderToolbarState();
   if (right) renderRight();
@@ -974,6 +974,7 @@ const commands = {
   zoomReset: { icon: 'zoomReset', label: 'action.zoomReset', key: 'Ctrl+0', enabled: hasDoc, run: () => setCanvasZoom(100) },
   fitPage: { icon: 'fitPage', label: 'action.fitPage', key: 'Ctrl+Shift+W', enabled: hasDoc, run: () => { ensureDrawingView(); state.view?.fitPage?.(); } },
   fitWidth: { icon: 'fitWidth', label: 'action.fitWidth', enabled: hasDoc, run: () => { ensureDrawingView(); state.view?.fitWidth?.(); } },
+  fitHeight: { icon: 'fitHeight', label: 'action.fitHeight', enabled: hasDoc, run: () => { ensureDrawingView(); state.view?.fitHeight?.(); } },
   zoomSelection: { icon: 'zoomSelection', label: 'action.zoomSelection', enabled: hasSelection, run: () => { ensureDrawingView(); state.view?.zoomSelection?.(); } },
   rulers: { icon: 'rulers', label: 'action.rulers', checked: () => state.settings.showRulers, run: () => toggle('showRulers') },
   grid: { icon: 'grid', label: 'action.grid', checked: () => state.settings.showGrid, run: () => toggle('showGrid') },
@@ -1114,11 +1115,11 @@ function afterHistory(text) {
 
 // ───────────────────────── layout
 
-// Long menus are grouped: a { sub } entry opens its items in a menu beside it.
+// Long menus are grouped: a { sub } entry opens its items in a panel beside it (hover or click).
 const SUBMENUS = {
   exportTo: { icon: 'exportFile', items: ['exportVsdx', 'exportPdf', 'exportSvg', 'exportImage', 'exportHtml', 'exportData'] },
   views: { icon: 'viewSwitch', items: VIEWS.map((id) => `view:${id}`) },
-  zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'fitPage', 'fitWidth', 'zoomSelection'] },
+  zoom: { icon: 'zoomIn', items: ['zoomIn', 'zoomOut', 'zoomReset', '-', 'fitPage', 'fitWidth', 'fitHeight', 'zoomSelection'] },
   show: { icon: 'eye', items: ['rulers', 'grid', 'guides', 'pageBreaks', 'connectionPoints', 'minimap', '-', 'leftPanel', 'rightPanel', 'statusBar'] },
   snapping: { icon: 'snap', items: ['snapGrid', 'smartGuides', 'glue', 'autoConnectToggle'] },
   appearance: { icon: 'palette', items: ['theme', 'themeMenu', 'language', '-', 'shuffleBackground', 'backgroundImage', 'clearBackground'] },
@@ -1148,15 +1149,15 @@ const MENUS = {
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', insert: 'plus', format: 'formatShape', arrange: 'bringFront', design: 'design', data: 'shapeData', page: 'pageSetup', help: 'question' };
 
 const TOOLBAR = [
-  ['new', 'open', 'save', 'exportSplit'],
+  ['new', 'open', 'save', 'print', 'exportSplit'],
   ['undo', 'redo'],
   ['copy', 'paste', 'formatPainter'],
   ['tool:pointer', 'tool:connector', 'tool:text', 'tool:rect', 'tool:ellipse', 'tool:line'],
   ['fillSplit', 'lineSplit'],
   ['bringFront', 'sendBack', 'alignMenu', 'group'],
   ['viewSplit'],
-  ['zoom', 'fitPage'],
-  ['leftPanel', 'rightPanel'],
+  ['zoom', 'zoomReset', 'fitWidth', 'fitHeight', 'fitPage', 'zoomSelection'],
+  ['rulers', 'grid', 'leftPanel', 'rightPanel'],
 ];
 /** Right end of the toolbar: tutorial, theme (random + dropdown), language, settings, about. */
 const TOOLBAR_RIGHT = ['tutorial', 'themeSplit', 'language', 'settings', 'about'];
@@ -1170,7 +1171,6 @@ function renderShell() {
       <aside id="left-panel" class="side-panel" aria-label="${escapeHtml(t('panel.leftTitle'))}"></aside>
       <div class="splitter vertical panel-split" data-split="left" title="${escapeHtml(t('tip.panelSplitter'))}" role="separator" aria-orientation="vertical"></div>
       <section id="center">
-        <div id="tabs"></div>
         <div id="center-body">
           <div id="view-host" class="view-host"></div>
           <div id="start-page" hidden></div>
@@ -1191,8 +1191,37 @@ function renderMenubar() {
   const menubar = root.querySelector('#menubar');
   const onStart = state.showStart || !activeTab();
   const home = `<button class="menubar-item menubar-home ${onStart ? 'current' : ''}" data-home title="${escapeHtml(t('tip.home'))}" aria-label="${escapeHtml(t('menu.home'))}" aria-pressed="${onStart}">${icon('home')}<span>${escapeHtml(t('menu.home'))}</span></button><span class="menubar-sep" aria-hidden="true"></span>`;
-  menubar.innerHTML = home + Object.keys(MENUS).map((name) => `
-    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('');
+  // No OS title bar: icon, name and version, then the drawing's name; the empty part moves the window.
+  const brand = `<span class="app-brand" data-drag-window><img src="${appIcon}" alt="" draggable="false" /><b>MyDiagram</b><span class="app-version">v${escapeHtml(state.info?.version ?? VERSION)}</span></span>`;
+  const title = `<button class="doc-title" id="doc-title" data-doc-menu aria-haspopup="true" hidden>${icon('diagram')}<span class="doc-title-name"></span><span class="doc-title-dirty" aria-hidden="true">●</span><span class="doc-title-count"></span>${icon('chevronDown')}</button>`;
+  const controls = desktop ? `<span class="win-controls">
+    <button class="win-button" data-window="minimize" title="${escapeHtml(t('window.minimize'))}" aria-label="${escapeHtml(t('window.minimize'))}">${icon('winMinimize')}</button>
+    <button class="win-button" data-window="maximize" title="${escapeHtml(t(windowMaximized ? 'window.restore' : 'window.maximize'))}" aria-label="${escapeHtml(t(windowMaximized ? 'window.restore' : 'window.maximize'))}">${icon(windowMaximized ? 'winRestore' : 'winMaximize')}</button>
+    <button class="win-button close" data-window="close" title="${escapeHtml(t('window.close'))}" aria-label="${escapeHtml(t('window.close'))}">${icon('close')}</button></span>` : '';
+  menubar.innerHTML = brand + title + '<span class="menubar-sep" aria-hidden="true"></span>' + home + Object.keys(MENUS).map((name) => `
+    <button class="menubar-item ${state.openMenu === name ? 'open' : ''}" data-menu="${name}" role="menuitem" aria-haspopup="true" title="${escapeHtml(t(`menu.${name}`))}">${icon(MENU_ICONS[name])}<span>${escapeHtml(t(`menu.${name}`))}</span></button>`).join('') + '<span class="menubar-drag" data-drag-window></span>' + controls;
+  renderDocTitle();
+}
+
+let windowMaximized = false;
+async function syncMaximized() {
+  if (!desktop) return;
+  const maximized = await appWindow.isMaximized().catch(() => windowMaximized);
+  if (maximized === windowMaximized) return;
+  windowMaximized = maximized;
+  document.documentElement.classList.toggle('window-maximized', maximized);
+  const button = root.querySelector('[data-window="maximize"]');
+  if (!button) return;
+  const label = t(maximized ? 'window.restore' : 'window.maximize');
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = icon(maximized ? 'winRestore' : 'winMaximize');
+}
+
+function windowButton(action) {
+  if (action === 'minimize') return appWindow?.minimize().catch(() => {});
+  if (action === 'maximize') return appWindow?.toggleMaximize().then(syncMaximized).catch(() => {});
+  return run('exit');
 }
 
 /** Language the toolbar was built in (renderAll rebuilds it only when that changes). */
@@ -1267,7 +1296,9 @@ function updateMinimumWidth() {
   requestAnimationFrame(() => {
     const toolbar = root.querySelector('#toolbar');
     const style = getComputedStyle(toolbar);
-    const menus = [...root.querySelectorAll('.menubar-item')].reduce((sum, el) => sum + el.offsetWidth + 2, 24);
+    // The menu bar also holds the program's name, room for the drawing's name (it shortens) and the window buttons.
+    const fixed = ['.app-brand', '.win-controls'].reduce((sum, selector) => sum + (root.querySelector(selector)?.offsetWidth ?? 0), 0);
+    const menus = [...root.querySelectorAll('.menubar-item')].reduce((sum, el) => sum + el.offsetWidth + 2, 24 + fixed + 200);
     const width = Math.ceil(Math.max(menus, left.scrollWidth + right.scrollWidth + 24 + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2));
     if (Math.abs(width - state.minWidth) < 1) return;
     state.minWidth = width;
@@ -1278,54 +1309,24 @@ function updateMinimumWidth() {
 
 // ───────────────────────── tabs
 
-function renderTabs() {
-  const tabs = root.querySelector('#tabs');
-  const scroll = tabs.querySelector('.tab-strip')?.scrollLeft ?? 0;
-  tabs.innerHTML = `
-    <div class="tab-strip"><div class="tab-list" role="tablist">
-      ${state.docs.map((doc) => `
-        <div class="tab ${doc.id === state.active && !state.showStart ? 'active' : ''} ${doc.dirty ? 'dirty' : ''}" role="tab" aria-selected="${doc.id === state.active}" data-doc="${doc.id}" title="${escapeHtml(doc.path ?? docName(doc))}">
-          ${icon(doc.fromTemplate ? 'template' : 'diagram')}<span class="tab-name">${escapeHtml(docName(doc))}</span>
-          <span class="tab-dirty" title="${escapeHtml(t('status.modified'))}">●</span>
-          <button class="tab-close" data-close-doc="${doc.id}" title="${escapeHtml(t('tabs.close'))}" aria-label="${escapeHtml(t('tabs.close'))}">${icon('close')}</button>
-        </div>`).join('')}
-    </div></div>
-    <button class="tab-add" data-tab-new title="${escapeHtml(t('tabs.new'))}" aria-label="${escapeHtml(t('tabs.new'))}">${icon('plus')}</button>
-    <div class="tab-nav">
-      <button class="tab-scroll" data-tab-scroll="-1" title="${escapeHtml(t('tabs.left'))}" aria-label="${escapeHtml(t('tabs.left'))}">${icon('chevronLeft')}</button>
-      <button class="tab-scroll" data-tab-scroll="1" title="${escapeHtml(t('tabs.right'))}" aria-label="${escapeHtml(t('tabs.right'))}">${icon('chevronRight')}</button>
-    </div>`;
-  const strip = tabs.querySelector('.tab-strip');
-  strip.scrollLeft = scroll;
-  updateTabNav();
-}
-
-function updateTabNav() {
-  const tabs = root.querySelector('#tabs');
-  const strip = tabs?.querySelector('.tab-strip');
-  if (!strip) return;
-  const overflow = strip.scrollWidth > strip.clientWidth + 1;
-  tabs.classList.toggle('overflow', overflow);
-  const [left, right] = tabs.querySelectorAll('.tab-scroll');
-  left.disabled = strip.scrollLeft <= 0;
-  right.disabled = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1;
-}
-
-function scrollTabs(direction) {
-  const strip = root.querySelector('.tab-strip');
-  strip.scrollBy({ left: direction * Math.max(160, strip.clientWidth * 0.6), behavior: 'instant' });
-  updateTabNav();
-}
-
-function scrollActiveTabIntoView() {
-  const strip = root.querySelector('.tab-strip');
-  const tab = strip?.querySelector('.tab.active');
+/** The drawing's name in the menu bar (with ● while it has unsaved changes). */
+function renderDocTitle() {
+  const title = root.querySelector('#doc-title');
+  if (!title) return;
+  const tab = state.showStart ? null : activeTab();
+  title.hidden = !tab;
   if (!tab) return;
-  const left = tab.offsetLeft;
-  const right = left + tab.offsetWidth;
-  if (left < strip.scrollLeft) strip.scrollLeft = left;
-  else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = right - strip.clientWidth;
-  updateTabNav();
+  title.classList.toggle('dirty', Boolean(tab.dirty));
+  title.title = `${tab.path ?? docName(tab)}${state.docs.length > 1 ? ` — ${t('doc.switchTip', { count: state.docs.length })}` : ''}`;
+  title.querySelector('.doc-title-name').textContent = docName(tab);
+  title.querySelector('.doc-title-count').textContent = state.docs.length > 1 ? String(state.docs.length) : '';
+}
+
+/** Open drawings (switch to one) and the drawing's file commands. */
+function docMenu(anchor) {
+  const items = state.docs.map((doc) => ({ id: `custom:doc:${doc.id}`, label: `${docName(doc)}${doc.dirty ? ' ●' : ''}`, icon: doc.fromTemplate ? 'template' : 'diagram', checked: doc.id === state.active && !state.showStart }));
+  const handlers = Object.fromEntries(state.docs.map((doc) => [`custom:doc:${doc.id}`, () => activateDoc(doc.id)]));
+  return showMenu([...items, { separator: true }, ...menuItems(['save', 'saveAs', 'saveTemplate', '-', 'docProps', 'print', '-', 'closeTab', 'closeAll', '-', 'new'])], anchor ?? anchorBelow(root.querySelector('#doc-title')), 'context', { handlers, header: { icon: 'diagram', title: t('doc.menu') } });
 }
 
 function cycleTab(direction) {
@@ -1765,7 +1766,7 @@ function renderAll() {
   root.dataset.tool = state.tool;
   renderMenubar();
   if (toolbarLanguage !== getLanguage()) renderToolbar(); else renderToolbarState();
-  renderTabs();
+  renderDocTitle();
   renderLeft();
   renderView();
   renderRight();
@@ -2752,7 +2753,7 @@ async function openDocumentProps() {
   const result = await popups.open('document', { props, created: doc.created, path: tab.path, stats: { ...stats, byMaster: stats.byMaster.size } });
   if (result?.action !== 'apply') return;
   change('op.docProps', (d) => Object.assign(d, result.props));
-  renderTabs();
+  renderDocTitle();
   notify('success', t('notice.docProps'));
 }
 
@@ -2873,7 +2874,8 @@ function toScreen(x, y) {
 function anchorBelow(element) {
   const rect = element.getBoundingClientRect();
   const point = toScreen(rect.left, rect.bottom + 2);
-  return { ...point, flipY: toScreen(rect.left, rect.top - 2).y };
+  // flipX: the right edge to line up with when there is no room on the right (theme dropdown).
+  return { ...point, flipY: toScreen(rect.left, rect.top - 2).y, flipX: toScreen(rect.right, rect.bottom).x };
 }
 
 const anchorFor = (command) => anchorBelow(root.querySelector(`[data-command="${command}"]`) ?? root.querySelector('#toolbar'));
@@ -2882,6 +2884,7 @@ function menuItems(ids) {
   return ids.map((id) => (id === '-' ? { separator: true } : typeof id === 'object' ? {
     id: `submenu:${id.sub}`, label: t(`submenu.${id.sub}`), icon: SUBMENUS[id.sub].icon, submenu: true,
     disabled: !SUBMENUS[id.sub].items.some((item) => item !== '-' && commandEnabled(item)),
+    children: menuItems(SUBMENUS[id.sub].items),
   } : {
     id, label: t(commands[id].label), icon: commands[id].icon, shortcut: commands[id].key ? keyLabel(commands[id].key) : '', disabled: !commandEnabled(id), checked: commands[id].checked?.(),
   }));
@@ -2899,11 +2902,6 @@ async function showMenu(items, anchor, name = 'context', context = {}) {
   }
   const id = result?.id;
   if (!id) return undefined;
-  if (id.startsWith('submenu:')) {
-    const key = id.slice('submenu:'.length);
-    const at = result.at ?? anchor;
-    return showMenu(menuItems(SUBMENUS[key].items), { x: at.x, y: at.y, flipY: at.flipY ?? at.y }, name, { ...context, header: { icon: SUBMENUS[key].icon, title: t(`submenu.${key}`) } });
-  }
   if (id.startsWith('custom:')) return context.handlers?.[id]?.();
   return run(id, context);
 }
@@ -3287,20 +3285,25 @@ function bindEvents() {
         else { const c = target2.comments.find((x) => x.id === id); if (c) c.done = !c.done; }
       });
     }
-    const closeButton = target.closest('[data-close-doc]');
-    if (closeButton) return closeDoc(state.docs.find((doc) => doc.id === closeButton.dataset.closeDoc));
-    const tab = target.closest('[data-doc]');
-    if (tab) return activateDoc(tab.dataset.doc);
-    if (target.closest('[data-tab-new]')) return newDrawing();
-    const scroll = target.closest('[data-tab-scroll]');
-    if (scroll) return scrollTabs(Number(scroll.dataset.tabScroll));
+    const windowAction = target.closest('[data-window]');
+    if (windowAction) return windowButton(windowAction.dataset.window);
+    const docTitle = target.closest('[data-doc-menu]');
+    if (docTitle) {
+      if (state.lastMenuClose.name === 'context' && Date.now() - state.lastMenuClose.at < 300) return undefined;
+      return docMenu();
+    }
     return undefined;
   });
 
-  root.addEventListener('dblclick', (event) => {
-    const tabs = event.target.closest('#tabs');
-    if (tabs && !event.target.closest('[data-doc], button')) newDrawing();
-  });
+  // Windows moves the window through app-region: drag (CSS); macOS and Linux need it asked for.
+  if (desktop && !/Windows/i.test(navigator.userAgent)) {
+    root.addEventListener('mousedown', (event) => {
+      if (event.button === 0 && event.target.closest('[data-drag-window]')) appWindow.startDragging().catch(() => {});
+    });
+    root.addEventListener('dblclick', (event) => {
+      if (event.target.closest('[data-drag-window]')) appWindow.toggleMaximize().then(syncMaximized).catch(() => {});
+    });
+  }
 
   // Shapes panel → canvas with the pointer. (HTML5 drag & drop does not reach the page in the
   // desktop app on Windows, where the window takes files dropped from outside.)
@@ -3345,8 +3348,7 @@ function bindEvents() {
     event.preventDefault();
     const tile = event.target.closest('[data-master]');
     if (tile) return contextMenu(event, 'stencil', { master: tile.dataset.master, stencil: tile.closest('[data-stencil]')?.dataset.stencil });
-    const tab = event.target.closest('[data-doc]');
-    if (tab) return contextMenu(event, 'tab', { id: tab.dataset.doc });
+    if (event.target.closest('[data-doc-menu]')) return contextMenu(event, 'tab', { id: state.active });
     if (event.target.closest('#start-page')) return contextMenu(event, 'start');
     if (event.target.closest('#statusbar')) return contextMenu(event, 'status');
     if (event.target.closest('.side-panel, #toolbar, #menubar')) return contextMenu(event, 'panel');
@@ -3418,14 +3420,6 @@ function bindEvents() {
     setUiZoom(state.settings.zoom + (event.deltaY < 0 ? ZOOM.step : -ZOOM.step));
   }, { passive: false });
 
-  root.querySelector('#tabs').addEventListener('wheel', (event) => {
-    const strip = root.querySelector('.tab-strip');
-    if (!strip || strip.scrollWidth <= strip.clientWidth) return;
-    event.preventDefault();
-    strip.scrollLeft += event.deltaY || event.deltaX;
-    updateTabNav();
-  }, { passive: false });
-
   root.querySelectorAll('[data-split]').forEach((splitter) => splitter.addEventListener('pointerdown', (event) => {
     const side = splitter.dataset.split;
     if ((side === 'left' && !state.settings.showLeftPanel) || (side === 'right' && !state.settings.showRightPanel)) return;
@@ -3451,7 +3445,7 @@ function bindEvents() {
   });
 
   window.addEventListener('resize', frameThrottle(() => {
-    updateTabNav();
+    syncMaximized();
     state.view?.drawRulers?.();
     state.view?.grid?.drawRows?.();
     if (state.presenting) renderPresentation();
@@ -3761,6 +3755,7 @@ async function start() {
   if (desktop) {
     await appWindow.show();
     await appWindow.setFocus();
+    syncMaximized();
     setTimeout(() => popups.prewarm('menu'), 400);
   }
   if (!state.settings.tutorialOffered && !globalThis.__MYDIAGRAM_NO_WELCOME && !new URLSearchParams(location.search).has('nowelcome')) {
@@ -3785,7 +3780,7 @@ window.__mydiagram = {
   actions: {
     newDrawing, openPath, openContent, saveDoc, closeDoc, select, change, undo, redo, copySelection, pasteClipboard, duplicate, deleteSelection,
     setCanvasZoom, updateSettings, handleDroppedPaths, handleDroppedFiles, setBackgroundFromPath, removeBackground, confirmExit, openRecent, showError, openMenubarMenu,
-    contextMenu, activeDoc, toScreen, docName, scrollTabs, withProgress, switchView, showStartPage, exportAs, exportImage, exportPdf, exportReport, dropMaster, addShapeAt,
+    contextMenu, activeDoc, toScreen, docName, withProgress, switchView, showStartPage, exportAs, exportImage, exportPdf, exportReport, dropMaster, addShapeAt,
     connectShapes, autoConnect, align, distribute, reorder, groupSelection, ungroupSelection, rotateBy, flip, setStyle, setShapeText, addPage, goToPage, deletePage, renamePage,
     duplicatePage, setTool, findNext, replaceAll, addComment, insertTitleBlock, startTutorial, startPresentation, stopPresentation, presentStep, addPicture, setRoute, addFreeform,
     rememberDirectory, saveToMyShapes, applyColor, autoAlign, layoutPage, openSampleBuiltin, shuffleBackground,

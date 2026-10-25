@@ -321,6 +321,11 @@ async fn open_popup(app: AppHandle, kind: String, x: f64, y: f64, width: f64, he
     if kind == "menu" || kind == "progress" || kind == "theme" {
         builder = builder.always_on_top(true);
     }
+    // Menus draw their own panels and shadow in a transparent window: it grows
+    // to hold a submenu beside the menu without showing an empty rectangle.
+    if kind == "menu" {
+        builder = builder.transparent(true).shadow(false);
+    }
     if let Some(main) = app.get_webview_window("main") {
         builder = builder.parent(&main).map_err(|error| error.to_string())?;
     }
@@ -345,9 +350,11 @@ struct Placement {
 /// Sizes the calling popup to its content and places it at (x, y) — logical
 /// screen pixels — so that it is entirely on the monitor's work area, whatever
 /// the size of the main window. When there is no room below, it opens above
-/// `flip_y` (the top of the button that opened it).
+/// `flip_y` (the top of the button that opened it); when there is no room on
+/// the right, its right edge lines up with `flip_x` (the button's right edge).
 #[tauri::command]
-fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, flip_y: Option<f64>, show: Option<bool>) -> Result<Placement, String> {
+#[allow(clippy::too_many_arguments)]
+fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, flip_y: Option<f64>, flip_x: Option<f64>, show: Option<bool>) -> Result<Placement, String> {
     let monitors = window.available_monitors().map_err(|error| error.to_string())?;
     let monitor = monitors
         .iter()
@@ -370,7 +377,10 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
         let (left, top) = (f64::from(area.position.x), f64::from(area.position.y));
         let (right, bottom) = (left + f64::from(area.size.width), top + f64::from(area.size.height));
         if px + pw > right {
-            px = (right - pw).max(left);
+            px = match flip_x {
+                Some(flip) if flip * scale - pw >= left => flip * scale - pw,
+                _ => (right - pw).max(left),
+            };
         }
         px = px.max(left);
         if py + ph > bottom {
@@ -382,7 +392,15 @@ fn place_popup(window: WebviewWindow, x: f64, y: f64, width: f64, height: f64, f
         py = py.max(top);
     }
     window.set_size(PhysicalSize::new(pw.round() as u32, ph.round() as u32)).map_err(|error| error.to_string())?;
-    window.set_position(PhysicalPosition::new(px.round() as i32, py.round() as i32)).map_err(|error| error.to_string())?;
+    // (x, y) is where the content goes; the position also counts the invisible
+    // resize border of a window with a shadow (8 px left on Windows).
+    // A hidden window made ahead of time (far off screen) can report anything: only a border counts.
+    let border = |d: i32| if (0..=16).contains(&d) { f64::from(d) } else { 0.0 };
+    let (bx, by) = match (window.outer_position(), window.inner_position()) {
+        (Ok(outer), Ok(inner)) => (border(inner.x - outer.x), border(inner.y - outer.y)),
+        _ => (0.0, 0.0),
+    };
+    window.set_position(PhysicalPosition::new((px - bx).round() as i32, (py - by).round() as i32)).map_err(|error| error.to_string())?;
     if show.unwrap_or(true) {
         let _ = window.show();
         let _ = window.set_focus();
@@ -527,6 +545,10 @@ pub fn run() {
             let placement = state_path.as_deref().and_then(|path| window_state::saved_placement(app.handle(), path));
             let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title(app_title(app.package_info()))
+                // No OS title bar: the menu bar shows the icon, name, version, the drawing's
+                // name and the window buttons, and moves the window (app-region: drag).
+                .decorations(false)
+                .shadow(true)
                 .min_inner_size(1000.0, 600.0)
                 .visible(false)
                 .additional_browser_args(BROWSER_ARGS);
@@ -539,7 +561,7 @@ pub fn run() {
                     .position(f64::from(state.x) / scale, f64::from(state.y) / scale)
                     .inner_size(f64::from(state.width) / scale, f64::from(state.height) / scale)
                     .maximized(state.maximized),
-                None => builder.inner_size(1480.0, 900.0).center(),
+                None => builder.inner_size(1640.0, 920.0).center(),
             };
             let main = builder.build()?;
             if let Some(path) = state_path {

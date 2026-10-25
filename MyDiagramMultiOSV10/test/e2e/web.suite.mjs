@@ -29,6 +29,23 @@ function drop(app, files, point, text = '') {
   })()`);
 }
 
+/** Main-page point of an element inside the menu frame. */
+function menuPoint(app, selector) {
+  return app.main.eval(`(() => { const f = document.querySelector('.web-popup-menu iframe'); const fr = f.getBoundingClientRect(); const r = f.contentDocument.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: fr.left + r.left + r.width / 2, y: fr.top + r.top + r.height / 2 }; })()`);
+}
+
+/** Real mouse moves onto a menu row. */
+async function hoverMenu(app, selector) {
+  const p = await menuPoint(app, selector);
+  await app.main.mouse('mouseMoved', p.x - 20, p.y, { button: 'none' });
+  await app.main.mouse('mouseMoved', p.x, p.y, { button: 'none' });
+}
+
+async function closeMenuFrame(app) {
+  await app.main.eval(`document.querySelector('.web-popup-shield').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1`);
+  await app.main.waitFor(`!document.querySelector('.web-popup-menu')`);
+}
+
 async function closeFrames(app) {
   await app.main.eval(`window.__mydiagram.popups.closeAll().then(() => 1)`).catch(() => {});
   await sleep(150);
@@ -123,16 +140,25 @@ export const cases = [
     await app.main.waitFor(`window.__mydiagram.state.settings.animation !== ${JSON.stringify(second)}`, { timeout: 20000, message: 'the background changes by itself' });
     await W(app, `a.updateSettings({ animationInterval: 30 })`);
   } },
-  { group: '창', name: '메뉴바의 홈 버튼, 좌우 패널은 툴바 바로 아래·탭은 두 패널 사이', async run(app) {
+  { group: '창', name: '메뉴바: 아이콘·이름·버전, 드로잉 이름, 홈; 좌우 패널은 툴바 바로 아래·페이지 탭은 두 패널 사이 위쪽', async run(app) {
     await freshSample(app);
     const layout = await app.main.eval(`(() => {
       const r = (s) => document.querySelector(s).getBoundingClientRect();
-      const first = document.querySelector('#menubar').firstElementChild;
-      return { homeFirst: first.matches('[data-home]'), homeIcon: Boolean(first.querySelector('svg')), homeTitle: first.title,
+      const bar = document.querySelector('#menubar');
+      const home = bar.querySelector('[data-home]');
+      const kids = [...bar.children];
+      return { brandFirst: kids[0].matches('.app-brand') && /MyDiagram/.test(kids[0].textContent) && /v[0-9]/.test(kids[0].textContent) && Boolean(kids[0].querySelector('img')),
+        title: document.querySelector('#doc-title .doc-title-name')?.textContent, titleGap: Math.round(r('#doc-title').left - r('.app-brand').right),
+        homeBeforeMenus: kids.indexOf(home) < kids.indexOf(bar.querySelector('[data-menu]')), homeIcon: Boolean(home.querySelector('svg')), homeTitle: home.title,
+        drawingTabs: document.querySelectorAll('.tab[data-doc], #tabs').length,
         toolbarBottom: Math.round(r('#toolbar').bottom), leftTop: Math.round(r('#left-panel').top), rightTop: Math.round(r('#right-panel').top),
-        tabsLeft: Math.round(r('#tabs').left), tabsRight: Math.round(r('#tabs').right), leftRight: Math.round(r('#left-panel').right), rightLeft: Math.round(r('#right-panel').left) };
+        tabsLeft: Math.round(r('.page-tabs').left), tabsRight: Math.round(r('.page-tabs').right), tabsTop: Math.round(r('.page-tabs').top), canvasTop: Math.round(r('.canvas-main').top),
+        leftRight: Math.round(r('#left-panel').right), rightLeft: Math.round(r('#right-panel').left) };
     })()`);
-    assert.ok(layout.homeFirst && layout.homeIcon && layout.homeTitle, JSON.stringify(layout));
+    assert.ok(layout.brandFirst && layout.homeBeforeMenus && layout.homeIcon && layout.homeTitle, JSON.stringify(layout));
+    assert.ok(layout.title && layout.titleGap >= 20, `the drawing's name, a little apart from the program name ${JSON.stringify(layout)}`);
+    assert.equal(layout.drawingTabs, 0, 'drawings have no tabs');
+    assert.ok(layout.tabsTop < layout.canvasTop, `page tabs above the drawing ${JSON.stringify(layout)}`);
     assert.equal(await app.main.eval(`document.querySelectorAll('#toolbar [data-command="startPage"], #toolbar [data-home]').length`), 0, 'no home button on the toolbar: Home is in the menu bar');
     assert.ok(Math.abs(layout.leftTop - layout.toolbarBottom) <= 1 && Math.abs(layout.rightTop - layout.toolbarBottom) <= 1, `panels start right under the toolbar ${JSON.stringify(layout)}`);
     assert.ok(layout.tabsLeft >= layout.leftRight && layout.tabsRight <= layout.rightLeft, `tabs sit between the panels ${JSON.stringify(layout)}`);
@@ -159,6 +185,80 @@ export const cases = [
     assert.equal(info.head, '편집');
     await app.main.eval(`document.querySelector('.web-popup-shield').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); 1`);
     await app.main.waitFor(`!document.querySelector('.web-popup-menu')`);
+  } },
+  { group: '메뉴', name: '하위 메뉴: 마우스를 올리면 옆에 펼쳐지고, 다른 줄로 가면 닫힘 (실제 마우스)', async run(app) {
+    await freshSample(app);
+    await app.main.click('[data-menu="view"]');
+    await app.waitFrame('menu', `document.querySelector('[data-id="submenu:views"]')`);
+    await hoverMenu(app, '[data-id="submenu:views"]');
+    await app.waitFrame('menu', `document.querySelector('.popup-menu.sub [data-id="view:shapeSheet"]')`, 3000);
+    const layout = await app.frame('menu', `(() => { const m = document.querySelector('.popup-menu.main').getBoundingClientRect(); const s = document.querySelector('.popup-menu.sub').getBoundingClientRect(); const row = document.querySelector('[data-id="submenu:views"]'); const r = row.getBoundingClientRect(); return { beside: Math.abs(s.left - m.right) < 6 || Math.abs(s.right - m.left) < 6, level: Math.abs(s.top - r.top) < 12, open: row.classList.contains('sub-open'), count: document.querySelectorAll('.popup-menu.sub .menu-item').length, label: document.querySelector('.popup-menu.sub').getAttribute('aria-label'), inside: s.right <= innerWidth && s.bottom <= innerHeight && m.left >= 0 }; })()`);
+    assert.ok(layout.count >= 5, JSON.stringify(layout));
+    assert.deepEqual({ ...layout, count: 0 }, { beside: true, level: true, open: true, count: 0, label: '보기 전환', inside: true });
+    // Another group swaps the submenu; a plain row closes it.
+    await hoverMenu(app, '[data-id="submenu:zoom"]');
+    await app.waitFrame('menu', `document.querySelector('.popup-menu.sub [data-id="zoomIn"]')`, 3000);
+    await hoverMenu(app, '[data-id="presentation"]');
+    await app.waitFrame('menu', `!document.querySelector('.popup-menu.sub')`, 3000);
+    await hoverMenu(app, '[data-id="submenu:views"]');
+    await app.waitFrame('menu', `document.querySelector('.popup-menu.sub [data-id="view:shapeSheet"]')`, 3000);
+    const target = await menuPoint(app, '.popup-menu.sub [data-id="view:shapeSheet"]');
+    await app.main.realClick(target.x, target.y);
+    await app.main.waitFor(`!document.querySelector('.web-popup-menu')`);
+    await app.main.waitFor(`window.__mydiagram.api.doc().view.id === 'shapeSheet'`);
+    await W(app, `a.switchView('drawing')`);
+    await sleep(350); // the menu bar ignores a click on the menu that just closed
+    // Keyboard: Right opens and enters the submenu, Left goes back.
+    await app.main.click('[data-menu="view"]');
+    await app.waitFrame('menu', `document.querySelector('[data-id="submenu:zoom"]')`);
+    await app.frame('menu', `(document.querySelector('[data-id="submenu:zoom"]').focus(), document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })), 1)`);
+    assert.equal(await app.frame('menu', `document.activeElement?.dataset.id`), 'zoomIn');
+    await app.frame('menu', `(document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })), 1)`);
+    assert.deepEqual(await app.frame('menu', `[document.activeElement?.dataset.id, Boolean(document.querySelector('.popup-menu.sub'))]`), ['submenu:zoom', false]);
+    await closeMenuFrame(app);
+  } },
+  { group: '메뉴', name: '컨텍스트 메뉴의 하위 메뉴: 도형 › 정렬 순서 (실제 마우스)', async run(app) {
+    const ids = await freshDrawing(app);
+    const p = await clientOf(app, ids.a);
+    await app.main.realClick(p.x, p.y, { button: 'right' });
+    await app.waitFrame('menu', `document.querySelector('[data-id="submenu:order"]')`);
+    await hoverMenu(app, '[data-id="submenu:order"]');
+    await app.waitFrame('menu', `document.querySelector('.popup-menu.sub [data-id="bringFront"]')`, 3000);
+    assert.ok(await app.frame('menu', `Boolean(document.querySelector('.popup-menu.main [data-id="cut"]'))`), 'the context menu stays open beside its submenu');
+    await closeMenuFrame(app);
+  } },
+  { group: '툴바', name: '툴바: 저장 바로 오른쪽 인쇄, 눈금자·격자 켜고 끄기 (실제 클릭)', async run(app) {
+    await freshSample(app);
+    const order = await app.main.eval(`[...document.querySelectorAll('#toolbar [data-command]')].map((b) => b.dataset.command)`);
+    assert.equal(order[order.indexOf('save') + 1], 'print', order.join(','));
+    for (const [command, key] of [['rulers', 'showRulers'], ['grid', 'showGrid']]) {
+      const before = await W(app, `w.state.settings.${key}`);
+      const p = await app.main.center(`#toolbar [data-command="${command}"]`);
+      await app.main.realClick(p.x, p.y);
+      await sleep(250);
+      assert.equal(await W(app, `w.state.settings.${key}`), !before, command);
+      assert.equal(await app.main.eval(`document.querySelector('#toolbar [data-command="${command}"]').getAttribute('aria-pressed')`), String(!before), `${command}: the button shows the state`);
+      await app.main.realClick(p.x, p.y);
+      await sleep(250);
+      assert.equal(await W(app, `w.state.settings.${key}`), before);
+    }
+  } },
+  { group: '팝업', name: '인쇄 창: 탭 없이 범위·페이지 설정·머리글을 한 열에, 좁은 설정 열', async run(app) {
+    await freshSample(app);
+    await W(app, `(w.run('print'), 1)`);
+    await app.waitFrame('print', `document.querySelector('.print-options')`);
+    await sleep(400);
+    const info = await app.frame('print', `({ tabs: document.querySelectorAll('.tabs, [data-action="tab"]').length, sections: document.querySelectorAll('.print-options .print-section').length, width: document.querySelector('.print-options').offsetWidth, all: ['[data-print-range]', '[data-print="paper"]', '[data-print-text="headerText"]'].every((q) => document.querySelector(q)) })`);
+    assert.deepEqual({ ...info, width: info.width <= 460 }, { tabs: 0, sections: 3, width: true, all: true }, JSON.stringify(info));
+    assert.deepEqual(await app.frame('print', FRAME_SCROLL_CHECK), [], 'no scroll bar');
+    assert.deepEqual(await app.frame('print', CLIP_CHECK), [], 'nothing cut off');
+    await closeFrames(app);
+  } },
+  { group: '보기', name: '페이지 탭은 늘 보임: 숨기는 버튼·명령 없음', async run(app) {
+    await freshSample(app);
+    assert.ok(await app.main.eval(`document.querySelector('.page-tabs').getBoundingClientRect().height > 0`));
+    assert.equal(await app.main.eval(`document.querySelectorAll('[data-command="pageTabs"], [data-command="bottomPanel"]').length`), 0, 'no toggle on the toolbar');
+    assert.equal(await W(app, `'pageTabs' in w.commands || 'showPageTabs' in w.state.settings`), false);
   } },
   { group: '메뉴', name: '컨텍스트 메뉴: 도형·연결선·빈 캔버스·페이지 탭이 서로 다름', async run(app) {
     const ids = await freshDrawing(app);
@@ -217,6 +317,11 @@ export const cases = [
     await app.main.click('[data-command="themeMenu"]');
     await app.waitFrame('theme', `document.querySelectorAll('[data-pick-theme]').length > 30`);
     assert.deepEqual(await app.frame('theme', `[...document.querySelectorAll('.picker-column')].map((c) => c.querySelectorAll('[data-pick-theme]').length)`), [20, 20]);
+    // Narrow, under the dropdown button: left edges lined up, or right edges when the page ends first.
+    const fit = await app.main.eval(`(() => { const b = document.querySelector('#toolbar [data-command="themeMenu"]').closest('.split-button').getBoundingClientRect(); const f = document.querySelector('.web-popup-theme').getBoundingClientRect(); return { width: Math.round(f.width), left: Math.abs(f.left - b.left) < 2, right: Math.abs(f.right - b.right) < 2, roomRight: b.left + f.width <= innerWidth - 4, below: f.top >= b.bottom }; })()`);
+    assert.ok(fit.width < 560, JSON.stringify(fit));
+    assert.ok(fit.below && (fit.roomRight ? fit.left : fit.right), JSON.stringify(fit));
+    assert.deepEqual(await app.frame('theme', CLIP_CHECK), [], 'theme names are not cut off');
     await app.frame('theme', `(document.querySelector('[data-pick-theme="monokai"]').click(), 1)`);
     await sleep(300);
     assert.equal(await W(app, 'w.state.settings.theme'), 'monokai');

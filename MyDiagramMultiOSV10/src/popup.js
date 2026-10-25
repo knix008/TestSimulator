@@ -358,9 +358,22 @@ function renderThemePicker() {
   const anchor = P().anchor;
   if (anchor && !state.placed) {
     state.placed = true;
-    const size = POPUPS.theme;
-    if (desktop) native.invoke('place_popup', { x: anchor.x, y: anchor.y, width: size.width, height: size.height, flipY: anchor.flipY ?? null, show: true }).catch(() => {});
-    else send('place', { x: anchor.x, y: anchor.y, width: size.width, height: size.height, flipY: anchor.flipY ?? null });
+    // As wide as its two columns (and its buttons), under the dropdown button: left edges
+    // lined up, or right edges when the screen ends first.
+    const popup = root.querySelector('.popup');
+    const picker = root.querySelector('.theme-picker');
+    popup.style.width = 'max-content';
+    popup.style.height = 'auto';
+    picker.classList.add('measure');
+    const box = popup.getBoundingClientRect();
+    const width = Math.ceil(box.width) + 2;
+    const height = Math.min(POPUPS.theme.height, Math.ceil(box.height) + 2);
+    popup.style.width = '';
+    popup.style.height = '';
+    picker.classList.remove('measure');
+    const place = { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null, flipX: anchor.flipX ?? null };
+    if (desktop) native.invoke('place_popup', { ...place, show: true }).catch(() => {});
+    else send('place', place);
   }
   ready();
 }
@@ -699,28 +712,133 @@ function renderMenu() {
   if (p.prewarm || !Array.isArray(p.items) || !shownOnce()) return;
   const items = p.items;
   setOsTitle(p.header?.title);
+  closeSubmenu(false);
   // Items only: no name/icon header row (the name stays the window title and the accessible name).
-  const header = '';
-  root.innerHTML = `<div class="popup-menu" role="menu" aria-label="${escapeHtml(p.header?.title ?? '')}">${header}${items.map((item, index) => (item.separator
+  root.innerHTML = `<div class="menu-stage">${menuPanel(items, p.header?.title ?? '', 'popup-menu main')}</div>`;
+  const menu = root.querySelector('.popup-menu');
+  menu.style.left = `${MENU_MARGIN}px`;
+  menu.style.top = `${MENU_MARGIN}px`;
+  const width = Math.ceil(menu.scrollWidth) + 2;
+  const height = Math.ceil(menu.scrollHeight) + 2;
+  menuSize = { width, height };
+  const anchor = p.anchor ?? { x: 100, y: 100 };
+  // The window is transparent with a margin for the menu's shadow (and, later, room for a submenu).
+  placeMenuWindow(anchor.x - MENU_MARGIN, anchor.y - MENU_MARGIN, width + 2 * MENU_MARGIN, height + 2 * MENU_MARGIN, anchor.flipY != null ? anchor.flipY + MENU_MARGIN : null);
+  menuOpen = true;
+}
+
+/** Room around the menu panels inside the transparent menu window (their shadow). */
+const MENU_MARGIN = 10;
+let menuSize = { width: 0, height: 0 };
+
+function menuPanel(items, label, className) {
+  return `<div class="${className}" role="menu" aria-label="${escapeHtml(label)}">${items.map((item, index) => (item.separator
     ? '<div class="menu-sep" role="separator"></div>'
-    : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
+    : `<button class="menu-item ${item.danger ? 'danger' : ''} ${item.submenu ? 'has-sub' : ''}" role="menuitem" data-index="${index}" data-id="${escapeHtml(item.id)}" ${item.submenu ? 'aria-haspopup="menu" aria-expanded="false"' : ''} ${item.disabled ? 'disabled aria-disabled="true"' : ''} title="${escapeHtml(item.label)}">
         <span class="menu-icon">${icon(item.icon)}</span>
         <span class="menu-label">${escapeHtml(item.label)}</span>
         <span class="menu-key">${escapeHtml(item.shortcut ?? '')}</span>
         <span class="menu-check">${item.submenu ? icon('chevronRight') : item.checked ? icon('check') : ''}</span>
       </button>`)).join('')}</div>`;
-  const menu = root.querySelector('.popup-menu');
-  const width = Math.ceil(menu.scrollWidth) + 2;
-  const height = Math.ceil(menu.scrollHeight) + 2;
-  const anchor = p.anchor ?? { x: 100, y: 100 };
+}
+
+function placeMenuWindow(x, y, width, height, flipY = null) {
   if (desktop) {
-    native.invoke('place_popup', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null, show: true })
+    return native.invoke('place_popup', { x, y, width, height, flipY, show: true })
       .then(() => window.focus())
       .catch(() => {});
-  } else {
-    send('place', { x: anchor.x, y: anchor.y, width, height, flipY: anchor.flipY ?? null });
   }
-  menuOpen = true;
+  return send('place', { x, y, width, height, flipY });
+}
+
+/** Where this menu's window (or frame) is, in screen CSS pixels, and the area it must stay in. */
+function menuScreen() {
+  const frame = window.frameElement?.getBoundingClientRect();
+  if (frame) {
+    const host = window.parent;
+    return { x: window.screenX + frame.left, y: window.screenY + frame.top, area: { left: window.screenX + 4, top: window.screenY + 4, right: window.screenX + host.innerWidth - 4, bottom: window.screenY + host.innerHeight - 4 } };
+  }
+  const s = window.screen;
+  const left = s.availLeft ?? 0;
+  const top = s.availTop ?? 0;
+  return { x: window.screenX, y: window.screenY, area: { left, top, right: left + s.availWidth, bottom: top + s.availHeight } };
+}
+
+let submenuFor = null;
+let submenuTimer = 0;
+
+/** Opens a group's items in a panel beside its row; the window grows to hold both panels. */
+function openSubmenu(row, { focus = false } = {}) {
+  clearTimeout(submenuTimer);
+  if (!row || row.disabled || !menuOpen) return;
+  if (submenuFor === row) {
+    if (focus) root.querySelector('.popup-menu.sub .menu-item:not([disabled])')?.focus();
+    return;
+  }
+  closeSubmenu(false);
+  const item = P().items[Number(row.dataset.index)];
+  if (!item?.children?.length) return;
+  const main = root.querySelector('.popup-menu.main');
+  main.insertAdjacentHTML('afterend', menuPanel(item.children, item.label, 'popup-menu sub'));
+  const sub = root.querySelector('.popup-menu.sub');
+  const subW = Math.ceil(sub.scrollWidth) + 2;
+  const subH = Math.ceil(sub.scrollHeight) + 2;
+  const { x: ox, y: oy, area } = menuScreen();
+  // Screen rectangles of the menu and of the row.
+  const mx = ox + main.offsetLeft;
+  const my = oy + main.offsetTop;
+  const rowTop = oy + row.getBoundingClientRect().top;
+  // Right of the menu, or left of it when the screen ends first; level with the row, moved up at the bottom.
+  let sx = mx + menuSize.width - 2;
+  if (sx + subW + MENU_MARGIN > area.right && mx - subW + 2 - MENU_MARGIN >= area.left) sx = mx - subW + 2;
+  let sy = rowTop - 7;
+  if (sy + subH + MENU_MARGIN > area.bottom) sy = Math.max(area.top + MENU_MARGIN, area.bottom - subH - MENU_MARGIN);
+  const left = Math.min(mx, sx) - MENU_MARGIN;
+  const top = Math.min(my, sy) - MENU_MARGIN;
+  const right = Math.max(mx + menuSize.width, sx + subW) + MENU_MARGIN;
+  const bottom = Math.max(my + menuSize.height, sy + subH) + MENU_MARGIN;
+  Object.assign(main.style, { left: `${mx - left}px`, top: `${my - top}px` });
+  Object.assign(sub.style, { left: `${sx - left}px`, top: `${sy - top}px` });
+  row.classList.add('sub-open');
+  row.setAttribute('aria-expanded', 'true');
+  submenuFor = row;
+  placeMenuWindow(left, top, right - left, bottom - top);
+  if (focus) sub.querySelector('.menu-item:not([disabled])')?.focus();
+}
+
+function closeSubmenu(resize = true) {
+  clearTimeout(submenuTimer);
+  const sub = root.querySelector('.popup-menu.sub');
+  const row = submenuFor;
+  submenuFor = null;
+  if (!sub) return;
+  row?.classList.remove('sub-open');
+  row?.setAttribute('aria-expanded', 'false');
+  const main = root.querySelector('.popup-menu.main');
+  const { x: ox, y: oy } = menuScreen();
+  const mx = ox + main.offsetLeft;
+  const my = oy + main.offsetTop;
+  sub.remove();
+  if (!resize) return;
+  Object.assign(main.style, { left: `${MENU_MARGIN}px`, top: `${MENU_MARGIN}px` });
+  placeMenuWindow(mx - MENU_MARGIN, my - MENU_MARGIN, menuSize.width + 2 * MENU_MARGIN, menuSize.height + 2 * MENU_MARGIN);
+}
+
+// Hovering a group opens it after a moment; hovering another row of the menu closes it.
+if (kind === 'menu') {
+  root.addEventListener('pointerover', (event) => {
+    if (!menuOpen) return;
+    if (event.target.closest('.popup-menu.sub')) { clearTimeout(submenuTimer); return; }
+    const row = event.target.closest('.popup-menu.main .menu-item');
+    if (!row || row === submenuFor) { clearTimeout(submenuTimer); return; }
+    clearTimeout(submenuTimer);
+    if (row.classList.contains('has-sub') && !row.disabled) submenuTimer = setTimeout(() => openSubmenu(row), submenuFor ? 220 : 160);
+    else if (submenuFor) submenuTimer = setTimeout(() => closeSubmenu(), 300);
+  });
+  // A click on the transparent room around the panels closes the menu.
+  root.addEventListener('pointerdown', (event) => {
+    if (menuOpen && !event.target.closest('.popup-menu')) chooseMenu(null);
+  });
 }
 
 let menuOpen = false;
@@ -731,21 +849,17 @@ function shownOnce() {
 }
 async function chooseMenu(id) {
   if (!menuOpen) return;
-  menuOpen = false;
   const item = id ? root.querySelector(`.menu-item[data-id="${CSS.escape(id)}"]`) : null;
-  // A group: the host opens its items in a menu just right of this row (screen coordinates).
-  if (item?.classList.contains('has-sub')) {
-    const rect = item.getBoundingClientRect();
-    const frame = window.frameElement?.getBoundingClientRect() ?? { left: 0, top: 0 };
-    const x = window.screenX + frame.left + rect.right + 2;
-    const y = window.screenY + frame.top + rect.top - 6;
-    return hide({ id, at: { x, y, flipY: window.screenY + frame.top + rect.bottom + 6 } });
-  }
+  // A group opens beside its row instead of answering.
+  if (item?.classList.contains('has-sub')) return openSubmenu(item, { focus: true });
+  menuOpen = false;
+  clearTimeout(submenuTimer);
   await hide({ id });
 }
 
 function moveMenuFocus(direction) {
-  const items = [...root.querySelectorAll('.menu-item:not([disabled])')];
+  const panel = document.activeElement?.closest('.popup-menu') ?? root.querySelector('.popup-menu.main');
+  const items = [...(panel ?? root).querySelectorAll('.menu-item:not([disabled])')];
   if (!items.length) return;
   const current = items.indexOf(document.activeElement);
   items[(current + direction + items.length) % items.length].focus();
@@ -810,14 +924,20 @@ function renderPrint() {
   const sel = (key, values, label) => select('data-print', key, values, options[key], label);
   const check = (key, label, glyph) => row(glyph, label, `<label class="switch-wrap" title="${escapeHtml(label)}"><input type="checkbox" data-print-toggle="${key}" ${options[key] ? 'checked' : ''} aria-label="${escapeHtml(label)}" /><span class="switch" aria-hidden="true"></span></label>`);
   const custom = options.range === 'custom';
-  const tab = ['range', 'page', 'header'].includes(state.tab) ? state.tab : 'range';
+  const section = (glyph, title) => `<h3 class="print-section">${icon(glyph)}<span>${escapeHtml(title)}</span></h3>`;
   const count = printDoc().pages.filter((pg) => !pg.background).length;
   root.innerHTML = frame({
     glyph: 'print', title: t('print.title'),
-    tabs: tabsHtml([['range', 'list', t('print.tabRange')], ['page', 'pageSetup', t('print.tabPage')], ['header', 'notes', t('print.tabHeader')]], tab),
     body: `<div class="print-view">
       <div class="print-options">
-        ${tab === 'page' ? [
+        ${section('list', t('print.tabRange'))}
+        ${[
+          ...RANGES.map((range) => `<label class="row radio-row" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} /><span>${icon({ all: 'selectAll', current: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
+          row('list', t('print.pages'), `${numberField('print:from', Math.min(options.from, count), 1, Math.max(1, count), 1, '', t('print.from'))}<span>–</span>${numberField('print:to', Math.min(options.to, count), 1, Math.max(1, count), 1, '', t('print.to'))}`, t('print.pages'), custom ? '' : 'disabled-row'),
+          row('info', t('print.summary'), `<span class="muted">${escapeHtml(t('print.summaryText', { pages: count, sheets: layout.count }))}</span>`),
+        ].join('')}
+        ${section('pageSetup', t('print.tabPage'))}
+        ${[
           row('file', t('print.paper'), sel('paper', Object.keys(PAPERS).map((paper) => [paper, paper]), t('print.paper'))),
           row('pageSetup', t('print.orientation'), segmented('orientation', [['portrait', t('print.portrait')], ['landscape', t('print.landscape')]], options.orientation, 'data-print-segment')),
           row('fitPage', t('print.margin'), sel('margin', Object.keys(MARGINS).map((margin) => [margin, t(`print.margin.${margin}`)]), t('print.margin'))),
@@ -825,15 +945,13 @@ function renderPrint() {
           row('zoomIn', t('print.scale'), numberField('print:scale', options.scale, 10, 400, 10, '%', t('print.scale')), t('print.scale'), options.fit === 'percent' ? '' : 'disabled-row'),
           check('center', t('print.center'), 'alignCenter'),
           check('background', t('print.background'), 'fillColor'),
-        ].join('') : tab === 'header' ? [
+        ].join('')}
+        ${section('notes', t('print.tabHeader'))}
+        ${[
           check('header', t('print.header'), 'notes'),
           row('edit', t('print.headerText'), `<input type="text" data-print-text="headerText" value="${escapeHtml(options.headerText)}" placeholder="${escapeHtml(p.title ?? '')}" title="${escapeHtml(t('print.headerText'))}" />`),
           check('footer', t('print.footer'), 'pageSetup'),
           row('edit', t('print.footerText'), `<input type="text" data-print-text="footerText" value="${escapeHtml(options.footerText)}" placeholder="MyDiagram" title="${escapeHtml(t('print.footerText'))}" />`),
-        ].join('') : [
-          ...RANGES.map((range) => `<label class="row radio-row" title="${escapeHtml(t(`print.range.${range}`))}"><input type="radio" name="range" data-print-range="${range}" ${options.range === range ? 'checked' : ''} /><span>${icon({ all: 'selectAll', current: 'eye', custom: 'filter' }[range])}${escapeHtml(t(`print.range.${range}`))}</span></label>`),
-          row('list', t('print.pages'), `${numberField('print:from', Math.min(options.from, count), 1, Math.max(1, count), 1, '', t('print.from'))}<span>–</span>${numberField('print:to', Math.min(options.to, count), 1, Math.max(1, count), 1, '', t('print.to'))}`, t('print.pages'), custom ? '' : 'disabled-row'),
-          row('info', t('print.summary'), `<span class="muted">${escapeHtml(t('print.summaryText', { pages: count, sheets: layout.count }))}</span>`),
         ].join('')}
       </div>
       <div class="print-preview" id="print-preview">
@@ -1553,14 +1671,18 @@ root.addEventListener('input', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault();
-    if (kind === 'menu') chooseMenu(null);
-    else if (kind !== 'progress') { if (kind === 'color') colorDone = true; close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null); }
+    if (kind === 'menu') {
+      // Esc in a submenu goes back to its row; in the menu it closes the menu.
+      const row = submenuFor;
+      if (row && document.activeElement?.closest('.popup-menu.sub')) { closeSubmenu(); row.focus(); } else chooseMenu(null);
+    } else if (kind !== 'progress') { if (kind === 'color') colorDone = true; close(kind === 'confirm' || kind === 'welcome' ? { choice: 'cancel' } : null); }
   }
   if (kind === 'menu') {
     if (event.key === 'ArrowDown') { event.preventDefault(); moveMenuFocus(1); }
     if (event.key === 'ArrowUp') { event.preventDefault(); moveMenuFocus(-1); }
     if (event.key === 'Enter' && document.activeElement?.classList.contains('menu-item')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id); }
-    if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); chooseMenu(document.activeElement.dataset.id); }
+    if (event.key === 'ArrowRight' && document.activeElement?.classList.contains('has-sub')) { event.preventDefault(); openSubmenu(document.activeElement, { focus: true }); }
+    if (event.key === 'ArrowLeft' && submenuFor && document.activeElement?.closest('.popup-menu.sub')) { event.preventDefault(); const row = submenuFor; closeSubmenu(); row.focus(); }
   }
   if (kind === 'print' && event.key === 'PageDown') { state.page += 1; render(); }
   if (kind === 'print' && event.key === 'PageUp') { state.page -= 1; render(); }

@@ -75,6 +75,9 @@ const paths = {
   keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7 14h10"/>',
   bug: '<rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 7v13M9 4l1.5 3M15 4l-1.5 3M3 13h4M17 13h4M4 8l3 2M20 8l-3 2M4 19l3-2M20 19l-3-2"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  winMinimize: '<path d="M5 12h14"/>',
+  winMaximize: '<rect x="5" y="5" width="14" height="14" rx="1"/>',
+  winRestore: '<rect x="5" y="8" width="11" height="11" rx="1"/><path d="M8 8V5h11v11h-3"/>',
   clear: '<path d="M4 20h16"/><path d="M7 16l9.5-9.5a2.1 2.1 0 0 0-3-3L4 13l3 3z"/>',
   chevronLeft: '<path d="M15 5l-7 7 7 7"/>',
   chevronRight: '<path d="M9 5l7 7-7 7"/>',
@@ -228,6 +231,7 @@ const paths = {
   // ── view
   fitPage: '<rect x="6" y="6" width="12" height="12" rx="1"/><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>',
   fitWidth: '<rect x="6" y="6" width="12" height="12" rx="1"/><path d="M2 12h3M19 12h3M4 10l-2 2 2 2M20 10l2 2-2 2"/>',
+  fitHeight: '<rect x="6" y="6" width="12" height="12" rx="1"/><path d="M12 2v3M12 19v3M10 4l2-2 2 2M10 20l2 2 2-2"/>',
   zoomSelection: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/><rect x="8" y="8" width="6" height="6" rx="1" stroke-dasharray="2 1.5"/>',
   rulers: '<path d="M3 3h18v5H8v13H3z"/><path d="M7 3v2M11 3v3M15 3v2M19 3v3M3 12h2M3 16h3M3 20h2"/>',
   grid: '<rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',

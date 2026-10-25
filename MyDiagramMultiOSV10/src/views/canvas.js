@@ -59,6 +59,7 @@ export class CanvasView {
     host.classList.add('canvas-host');
     host.innerHTML = `
       <div class="canvas-view">
+        <div class="page-tabs" role="tablist"></div>
         <div class="canvas-main">
           <div class="ruler-corner" title="${escapeHtml(app.t('canvas.rulerCorner'))}">${icon('rulers', 'icon tiny')}</div>
           <canvas class="ruler ruler-h" title="${escapeHtml(app.t('canvas.rulerTip'))}"></canvas>
@@ -77,7 +78,6 @@ export class CanvasView {
           </div>
           <div class="minimap" hidden><svg class="minimap-svg"></svg><div class="minimap-view"></div></div>
         </div>
-        <div class="page-tabs" role="tablist"></div>
       </div>`;
     this.root = host.querySelector('.canvas-view');
     this.scroll = host.querySelector('.canvas-scroll');
@@ -1327,6 +1327,19 @@ export class CanvasView {
     const box = this.drawingBox();
     const w = this.scroll.clientWidth || 800;
     const z = clamp(((w - 40) / box.w) * 100, CANVAS_ZOOM.min, 400) / 100;
+    this.doc.view.zoom = Math.round(z * 1000) / 10;
+    this.scrollPageTo({ x: box.x, y: box.y }, 20, 20);
+    this.renderContent();
+    this.renderOverlay();
+    this.drawRulers();
+    this.drawMinimap();
+    this.app.zoomChanged();
+  }
+
+  fitHeight() {
+    const box = this.drawingBox();
+    const h = this.scroll.clientHeight || 600;
+    const z = clamp(((h - 40) / box.h) * 100, CANVAS_ZOOM.min, 400) / 100;
     this.doc.view.zoom = Math.round(z * 1000) / 10;
     this.scrollPageTo({ x: box.x, y: box.y }, 20, 20);
     this.renderContent();

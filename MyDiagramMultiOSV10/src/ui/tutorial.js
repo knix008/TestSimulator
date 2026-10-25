@@ -355,7 +355,12 @@ export class Tutorial {
     let outline = '';
     if (target) {
       const r = target.getBoundingClientRect();
-      outline = `<div class="tour-outline" style="left:${r.left - 4}px;top:${r.top - 4}px;width:${r.width + 8}px;height:${r.height + 8}px"></div>`;
+      // 4 px around the target, but never past the window's edges (the menu bar is the window's top).
+      const left = Math.max(0, r.left - 4);
+      const top = Math.max(0, r.top - 4);
+      const right = Math.min(window.innerWidth, r.right + 4);
+      const bottom = Math.min(window.innerHeight, r.bottom + 4);
+      if (right > left && bottom > top) outline = `<div class="tour-outline" style="left:${left}px;top:${top}px;width:${right - left}px;height:${bottom - top}px"></div>`;
     }
     this.layer.innerHTML = `${outline}
       <div class="tour-card" role="dialog" aria-label="${escapeHtml(t('tutorial.title'))}" style="right:${this.card.right}px;bottom:${this.card.bottom}px">

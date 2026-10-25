@@ -83,17 +83,17 @@ Start it with **Help › Tutorial** (F11), the graduation-cap toolbar button or 
 
 ![The window](docs/tutorial/images/07-layout.jpg)
 
-From the top: the **menu bar** and the **toolbar** (one line), then the **drawing tabs**. Under them the **Shapes** panel is on the left, the drawing in the middle (with rulers, the page and the page tabs at the bottom) and the **Properties** panel on the right; the **status bar** is at the bottom. Drag the separators between the panels to resize them, and the bottom-right corner to resize the window. The window never gets narrower than the toolbar and menus need.
+The window has no OS title bar. The top line, the **menu bar**, shows the program icon, name and version, then (a little apart) the current drawing's name and the menus, with **Minimize · Maximize · Close** at its right end. Drag an empty part of the menu bar to move the window; double-click it to maximize. Below it is the **toolbar** (one line); then the **Shapes** panel is on the left, the drawing in the middle (page tabs on top, rulers, the page) and the **Properties** panel on the right; the **status bar** is at the bottom. Drag the separators between the panels to resize them, and the bottom-right corner to resize the window. The window never gets narrower than the toolbar and menus need.
 
 ### Menu bar
 
-The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to the start page at any time; open drawings stay in their tabs. Long menus are grouped into submenus (▸).
+The **Home** button at the start of the menu bar (`Ctrl+Shift+H`) goes back to the start page at any time; open drawings stay open. Long menus are grouped into submenus (▸).
 
 | Menu | Commands |
 |---|---|
 | **File** | New drawing · Open… · Start page · Recent files… · Recent folders · Clear all recent files and folders · Save · Save as… · Save all · Save as template… · Open from database… · Save to database (desktop app) · Open Visio file (.vsdx)… · Export ▸ (Save as Visio (.vsdx)… · Export as PDF… · Export as SVG (current page)… · Export as picture (PNG, JPEG, SVG…)… · Export as web page (.html)… · Export shape data to CSV…) · Print… · Document properties… · Close tab · Close all tabs · Exit |
 | **Edit** | Undo · Redo · Cut · Copy · Paste · Duplicate · Delete · Select ▸ (Select all · Select shapes · Select connectors · Select same master · Clear selection) · Find… · Replace… · Go to page · Format painter |
-| **View** | Switch view ▸ (Drawing · Pages · Shape sheet · Shape data · Shape reports) · Switch view · Zoom ▸ (Zoom in · Zoom out · Zoom 100% · Fit page · Fit width · Zoom to selection) · Show ▸ (Rulers · Grid · Guides · Page breaks · Connection points · Pan & zoom window · Show/hide tool panel · Show/hide properties panel · Status bar) · Snap & glue ▸ (Snap to grid · Smart guides (snap to shapes) · Glue to shapes · AutoConnect arrows) · Presentation mode · Theme, language and background ▸ (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
+| **View** | Switch view ▸ (Drawing · Pages · Shape sheet · Shape data · Shape reports) · Switch view · Zoom ▸ (Zoom in · Zoom out · Zoom 100% · Fit page · Fit width · Fit height · Zoom to selection) · Show ▸ (Rulers · Grid · Guides · Page breaks · Connection points · Pan & zoom window · Show/hide tool panel · Show/hide properties panel · Status bar) · Snap & glue ▸ (Snap to grid · Smart guides (snap to shapes) · Glue to shapes · AutoConnect arrows) · Presentation mode · Theme, language and background ▸ (Random theme · Choose theme · Switch language · Change moving background · Background image… · Turn background off) |
 | **Insert** | Drawing tools ▸ (Pointer · Pan · Connector · Text · Rectangle · Ellipse · Line · Pencil (freeform) · Polyline) · Insert text box · Insert picture… · Insert container · Insert callout · Hyperlink… · Add comment · Insert field · Borders & title (background page) · Save selection to My Shapes… · Manage my shapes… |
 | **Format** | Format shape… · Quick styles… · Fill color · Line ▸ (Line color · Line weight · Line pattern · Begin arrow · End arrow) · Text ▸ (Bold · Italic · Underline · Strikethrough · Align text left · Center text · Align text right · Text top · Text middle · Text bottom · Increase font size · Decrease font size · Font color) · Shadow · Connector ▸ (Right-angle connector · Straight connector · Curved connector · Reverse ends · Reset connector · Line jumps · Route connectors around shapes) · Clear formatting (back to the theme) |
 | **Arrange** | Order ▸ (Bring to front · Send to back · Bring forward · Send backward) · Align & distribute ▸ (Align left · Align center · Align right · Align top · Align middle · Align bottom · Distribute horizontally · Distribute vertically · Same size) · Rotate & flip ▸ (Rotate right 90° · Rotate left 90° · Flip horizontal · Flip vertical) · Group · Ungroup · Size & position… · Protection… · Re-layout page… · Auto align & space |
@@ -108,14 +108,14 @@ Every menu item shows an icon and its shortcut, and menus may extend outside the
 
 | Where | Buttons |
 |---|---|
-| Left | New drawing · Open · Save · Export + ▾ │ Undo · Redo │ Copy · Paste · Format painter │ Pointer · Connector · Text · Rectangle · Ellipse · Line │ Fill color ▾ · Line color ▾ │ Bring to front · Send to back · Align · Group │ Switch view (current view name ▾) │ Zoom `[−] 100% [+]` · Fit page │ Show/hide tool panel · Show/hide properties panel |
+| Left | New drawing · Open · Save · Print · Export + ▾ │ Undo · Redo │ Copy · Paste · Format painter │ Pointer · Connector · Text · Rectangle · Ellipse · Line │ Fill color ▾ · Line color ▾ │ Bring to front · Send to back · Align · Group │ Switch view (current view name ▾) │ Zoom `[−] 100% [+]` · Actual size (100%) · Fit width (left–right) · Fit height (top–bottom) · Fit page · Zoom to selection │ Rulers · Grid · Show/hide tool panel · Show/hide properties panel (pressed while on) |
 | Right | Tutorial (graduation cap) · Random theme + ▾ · Switch language (flag) · Settings · About (ⓘ) |
 
 The **Export** button opens Export as picture (PNG · JPEG · WebP · BMP · TIFF · SVG; a transparent background can be chosen for the formats that support it), and its ▾ lists every export format: Visio, PDF, SVG, picture, HTML and shape data (CSV). Every button has a tooltip with its shortcut. The Undo and Redo tooltips say what will be undone (for example "Undo: Move"). The left half of **Fill color** and **Line color** applies the colour used last (shown by the bar under the icon); the ▾ opens the colour picker.
 
-### Drawing tabs
+### Drawing name (several drawings)
 
-Each drawing gets a tab. When there are many, scroll them with the arrows at the right; `Ctrl+Tab` goes to the next tab (`Ctrl+Shift+Tab`: previous). The **+** after the tabs creates a new blank drawing. A drawing with unsaved changes shows ● on its tab. Right-click a tab for Save · Save as… · Save as template… · Document properties… · Print… · Close tab · Close all tabs · New drawing.
+Drawings do not get tabs. The current drawing's name is in the menu bar next to the program name, with ● while it has unsaved changes and the number of open drawings when there are several. Click the name for the list of open drawings (click one to switch) and Save · Save as… · Save as template… · Document properties… · Print… · Close tab · Close all tabs · New drawing. `Ctrl+Tab` · `Ctrl+Shift+Tab` go to the next · previous drawing.
 
 ### Shapes panel (left)
 
@@ -162,7 +162,7 @@ Each place has its own menu, with a header naming what it is for.
 | Several shapes | Cut · Copy · Duplicate · Delete · Group · Ungroup · Align & distribute ▸ · Order ▸ · Rotate & flip ▸ · Format shape… · Quick styles… · Re-layout page… · Save selection to My Shapes… |
 | Empty page | Paste (at the pointer) · Select all · Drawing tools ▸ · Insert text box · Insert picture… · Insert container · Page setup… · Layers… · Themes & variants… · Zoom in · Zoom out · Fit page · Show ▸ (on a guide: **Delete guide**) |
 | Page tab | Insert page · Add background page · Duplicate page · Rename page… · Delete page · Page setup… · Assign background page · Layers… · Move left · Move right |
-| Drawing tab | Save · Save as… · Save as template… · Document properties… · Print… · Close tab · Close all tabs · New drawing |
+| Drawing name in the menu bar | Save · Save as… · Save as template… · Document properties… · Print… · Close tab · Close all tabs · New drawing |
 | Report | The six reports · Export report ▸ · Copy report |
 | Status bar | Status bar · Zoom in · Zoom out · Zoom 100% · Fit page · Random theme · Switch language |
 | Text field | Undo typing · Cut · Copy · Paste · Select all |
@@ -451,7 +451,7 @@ The ruler corner shows the ruler origin (the top left of the page). Units follow
 ![Pan & zoom window](docs/tutorial/images/49-minimap.jpg)
 
 - **Zoom** (10–800%): `Ctrl+mouse wheel`, `Ctrl+=` · `Ctrl+-` · `Ctrl+0`, the toolbar `[−] 100% [+]` (the value can be typed) or the status bar slider. With **Settings › Drawing › Mouse wheel zooms (without Ctrl)** the wheel zooms by itself.
-- **Fit page** (`Ctrl+Shift+W`), **Fit width** and **Zoom to selection**.
+- **Fit page** (`Ctrl+Shift+W`), **Fit width** (left–right), **Fit height** (top–bottom) and **Zoom to selection** — all on the toolbar too.
 - Move the view with the scroll bars, the middle mouse button, `Space`+drag or the **Pan** tool.
 - **View › Show › Pan & zoom window** shows the whole page in a small window at the bottom right; drag its rectangle to move around.
 
@@ -461,7 +461,7 @@ The ruler corner shows the ruler origin (the top left of the page). Units follow
 
 ![Several pages](docs/tutorial/images/28-pageTabs.jpg)
 
-- Switch pages with the tabs under the drawing, the arrows at their left, `Ctrl+PageUp` · `Ctrl+PageDown`, **Page › Go to page** or the page number on the status bar.
+- Switch pages with the tabs above the drawing, the arrows at their left, `Ctrl+PageUp` · `Ctrl+PageDown`, **Page › Go to page** or the page number on the status bar.
 - **+** after the tabs or **Page › Insert page** (`Shift+F11`) adds a page; **Duplicate page** copies the current one with its shapes.
 - Double-click a tab (or **Rename page…**) to rename it; drag tabs to reorder them, or use **Move left** · **Move right** from the tab's right-click menu.
 - **Delete page** removes the current page (asking first when it has shapes). The last page cannot be deleted.
@@ -784,9 +784,9 @@ Choose in **Settings › Database**.
 
 ![Printing and preview](docs/tutorial/images/41-print.jpg)
 
-**File › Print…** (`Ctrl+P`) opens the **Print preview** window. The preview on the right follows every change; the arrows at the bottom turn the sheets.
+**File › Print…** (`Ctrl+P`) opens the **Print preview** window. The preview on the right follows every change; the arrows at the bottom turn the sheets. The settings on the left are one column, without tabs.
 
-| Tab | Fields |
+| Part | Fields |
 |---|---|
 | **What to print** | **All pages** · **Current page** · **Page range** (From page – To page), and **To print** (pages and sheets) |
 | **Page setup** | **Paper**, **Orientation** (Portrait / Landscape), **Margins** (None · Narrow · Normal · Wide), **Size** (**Fit to sheet** · **Actual size** · **Percent**), **Scale** (10–400%, for Percent), **Center on the sheet**, **Print page color and background page** |

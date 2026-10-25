@@ -20,7 +20,7 @@ export const POPUPS = {
   error: { width: 720, height: 500 },
   progress: { width: 480, height: 210 },
   recent: { width: 800, height: 600 },
-  print: { width: 1180, height: 760 },
+  print: { width: 1180, height: 880 },
   menu: { width: 300, height: 200 },
   theme: { width: 620, height: 680 },
   welcome: { width: 640, height: 470 },
@@ -215,8 +215,9 @@ export class PopupHost {
     frame.shield = shield;
   }
 
-  placeFrame(frame, left, top, width, height, flipTop = null) {
-    let x = Math.min(left, window.innerWidth - width - 4);
+  placeFrame(frame, left, top, width, height, flipTop = null, flipRight = null) {
+    let x = left;
+    if (x + width > window.innerWidth - 4) x = flipRight != null && flipRight - width >= 4 ? flipRight - width : window.innerWidth - width - 4;
     let y = top;
     if (y + height > window.innerHeight - 4) y = flipTop != null && flipTop - height >= 0 ? flipTop - height : window.innerHeight - height - 4;
     x = Math.max(4, x);
@@ -239,7 +240,7 @@ export class PopupHost {
     else if (type === 'place') {
       const left = data.x - window.screenX;
       const top = data.y - window.screenY;
-      this.placeFrame(frame, left, top, data.width, data.height, data.flipY != null ? data.flipY - window.screenY : null);
+      this.placeFrame(frame, left, top, data.width, data.height, data.flipY != null ? data.flipY - window.screenY : null, data.flipX != null ? data.flipX - window.screenX : null);
       frame.style.visibility = '';
       frame.querySelector('iframe')?.focus();
     } else if (type === 'resize') {
