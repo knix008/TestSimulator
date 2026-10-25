@@ -1,0 +1,168 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "처프 신호 스펙트로그램",
+  "description": "10 → 250 Hz 로 훑는 처프의 시간-주파수 지도와 전력 스펙트럼 밀도.",
+  "nodes": [
+    {
+      "id": "chirp",
+      "type": "source.signal",
+      "name": "처프 10→250 Hz",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "waveform": "chirp",
+        "frequency": 10,
+        "frequency2": 250,
+        "amplitude": 1,
+        "offset": 0,
+        "phase": 0,
+        "duty": 0.5,
+        "delay": 0,
+        "fs": 1000,
+        "duration": 4,
+        "noise": 0.2,
+        "seed": 1,
+        "column": "y"
+      },
+      "disabled": false
+    },
+    {
+      "id": "spec",
+      "type": "signal.spectrogram",
+      "name": "스펙트로그램",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "segment": 128,
+        "overlap": 85,
+        "window": "hann",
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "psd",
+      "type": "signal.psd",
+      "name": "전력 스펙트럼 밀도",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "segment": 512,
+        "overlap": 50,
+        "window": "hann",
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "env",
+      "type": "signal.envelope",
+      "name": "포락선 (힐베르트)",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotSpec",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "스펙트로그램"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotPsd",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "PSD",
+        "y": "dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotEnv",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "순간 주파수",
+        "y": "frequency"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "chirp",
+      "fromPort": "out",
+      "to": "spec",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "chirp",
+      "fromPort": "out",
+      "to": "psd",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "chirp",
+      "fromPort": "out",
+      "to": "env",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "spec",
+      "fromPort": "out",
+      "to": "plotSpec",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "psd",
+      "fromPort": "out",
+      "to": "plotPsd",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "env",
+      "fromPort": "out",
+      "to": "plotEnv",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

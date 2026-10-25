@@ -1,0 +1,131 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Quarter-car suspension (state space)",
+  "description": "The road-step response of a four-state suspension model, its eigenvalues and controllability.",
+  "nodes": [
+    {
+      "id": "ss",
+      "type": "ctrl.statespace",
+      "name": "Suspension model",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "A": "0 1 0 0; -20 -2 20 2; 0 0 0 1; 200 20 -2200 -20",
+        "B": "0; 0; 0; 2000",
+        "C": "1 0 0 0; 0 0 1 0",
+        "input": "step",
+        "amplitude": 0.05,
+        "frequency": 1,
+        "channel": 1,
+        "tEnd": 5,
+        "dt": 0.002,
+        "method": "rk45",
+        "D": ""
+      },
+      "disabled": false
+    },
+    {
+      "id": "p",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Body and wheel",
+        "y": "y1, y2"
+      },
+      "disabled": false
+    },
+    {
+      "id": "eig",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Eigenvalues",
+        "table": "eigenvalues",
+        "x": "real",
+        "y": "imag"
+      },
+      "disabled": false
+    },
+    {
+      "id": "fft",
+      "type": "signal.fft",
+      "name": "Spectrum (FFT)",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "window": "hann",
+        "removeMean": true,
+        "zeroPad": true,
+        "fs": 0,
+        "column": "y1"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pf",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": true,
+        "equal": false,
+        "span": "1",
+        "title": "Body spectrum",
+        "y": "amplitude"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "ss",
+      "fromPort": "out",
+      "to": "p",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "ss",
+      "fromPort": "out",
+      "to": "eig",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "ss",
+      "fromPort": "out",
+      "to": "fft",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "fft",
+      "fromPort": "out",
+      "to": "pf",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

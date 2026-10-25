@@ -1,0 +1,159 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "비선형 곡선 맞춤",
+  "description": "측정한 냉각 곡선에 지수 감쇠 모델을 레벤버그-마쿼트로 맞추고 매개변수 신뢰 구간을 구합니다.",
+  "nodes": [
+    {
+      "id": "f",
+      "type": "source.function",
+      "name": "냉각 곡선",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "expression": "T0 = 25 + 60*exp(-t/180)",
+        "variable": "t",
+        "from": 0,
+        "to": 900,
+        "points": 91
+      },
+      "disabled": false
+    },
+    {
+      "id": "e",
+      "type": "source.random",
+      "name": "측정 잡음",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "distribution": "normal",
+        "p1": 0,
+        "p2": 0.8,
+        "p3": 1,
+        "count": 91,
+        "columns": 1,
+        "prefix": "noise",
+        "seed": 2
+      },
+      "disabled": false
+    },
+    {
+      "id": "mg",
+      "type": "data.merge",
+      "name": "표 합치기",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "mode": "columns"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ex",
+      "type": "data.expression",
+      "name": "측정 온도",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "expressions": "T = T0 + noise"
+      },
+      "disabled": false
+    },
+    {
+      "id": "fit",
+      "type": "opt.fit",
+      "name": "모델 맞춤",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "model": "Ta + dT*exp(-x/tau)",
+        "parameters": "Ta = 20, dT = 50, tau = 100",
+        "variable": "x",
+        "maxIterations": 200,
+        "x": "t",
+        "y": "T"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 1100,
+      "y": 50,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "데이터와 맞춤",
+        "y": "T, fit"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 1100,
+      "y": 330,
+      "params": {
+        "label": "시정수 τ",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "tau",
+        "unit": "s"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "f",
+      "fromPort": "out",
+      "to": "mg",
+      "toPort": "a"
+    },
+    {
+      "id": "l2",
+      "from": "e",
+      "fromPort": "out",
+      "to": "mg",
+      "toPort": "b"
+    },
+    {
+      "id": "l3",
+      "from": "mg",
+      "fromPort": "out",
+      "to": "ex",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "ex",
+      "fromPort": "out",
+      "to": "fit",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "fit",
+      "fromPort": "out",
+      "to": "p",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "fit",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

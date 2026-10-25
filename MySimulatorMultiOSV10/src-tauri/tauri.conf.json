@@ -1,0 +1,101 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MySimulator",
+  "mainBinaryName": "MySimulator",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mysimulator",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1510",
+    "beforeBuildCommand": "npm run build:web",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Utility",
+    "shortDescription": "Unified simulation workbench",
+    "longDescription": "Build simulation pipelines from nodes and run them on one screen: signal generation and processing (FFT, filters, spectrogram), dynamic systems and control (ODEs, transfer functions, Bode, PID, state space), statistics and machine learning (regression, clustering, PCA, neural networks), Monte Carlo and optimisation, with Python and command-line tool integration, dashboards and batch automation.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../docs/UsersGuide.html": "docs/UsersGuide.html",
+      "../docs/UsersGuide.en.html": "docs/UsersGuide.en.html",
+      "../docs/Tutorial.html": "docs/Tutorial.html",
+      "../docs/Tutorial.en.html": "docs/Tutorial.en.html",
+      "../docs/images/": "docs/images/",
+      "../samples/": "samples/",
+      "icons/project.ico": "project.ico"
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "mysim"
+        ],
+        "name": "MySimulator.Project",
+        "description": "MySimulator Pipeline",
+        "mimeType": "application/x-mysimulator",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Korean",
+          "English"
+        ],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "windows/installerHeader.bmp",
+        "sidebarImage": "windows/installerSidebar.bmp",
+        "installerHooks": "windows/hooks.nsh",
+        "startMenuFolder": "MySimulator"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "files": {
+          "/usr/share/mime/packages/mysimulator.xml": "linux/mysimulator.xml"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ],
+        "files": {
+          "/usr/share/mime/packages/mysimulator.xml": "linux/mysimulator.xml"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      }
+    }
+  }
+}

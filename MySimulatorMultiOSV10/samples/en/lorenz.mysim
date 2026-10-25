@@ -1,0 +1,128 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Lorenz attractor (chaos)",
+  "description": "The chaotic trajectory of the Lorenz equations, also in the 3D view.",
+  "nodes": [
+    {
+      "id": "lor",
+      "type": "dyn.ode",
+      "name": "Lorenz equations",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "equations": "x' = s*(y - x)\ny' = x*(r - z) - y\nz' = x*y - b*z",
+        "constants": "s = 10, r = 28, b = 8/3",
+        "initial": "x = 1, y = 1, z = 1",
+        "tStart": 0,
+        "tEnd": 50,
+        "dt": 0.005,
+        "method": "rk45",
+        "tolerance": 0.000001,
+        "substeps": 10
+      },
+      "disabled": false
+    },
+    {
+      "id": "pxz",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "xy",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "x – z",
+        "x": "x",
+        "y": "z"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pt",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Time series",
+        "y": "x, y, z"
+      },
+      "disabled": false
+    },
+    {
+      "id": "psd",
+      "type": "signal.psd",
+      "name": "Power spectral density",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "segment": 1024,
+        "overlap": 50,
+        "window": "hann",
+        "fs": 0,
+        "column": "x"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ppsd",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "PSD x",
+        "y": "dB"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "lor",
+      "fromPort": "out",
+      "to": "pxz",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "lor",
+      "fromPort": "out",
+      "to": "pt",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "lor",
+      "fromPort": "out",
+      "to": "psd",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "psd",
+      "fromPort": "out",
+      "to": "ppsd",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

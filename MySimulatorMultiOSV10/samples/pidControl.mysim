@@ -1,0 +1,199 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "PID 제어와 안정 여유",
+  "description": "3차 플랜트를 PID 로 제어하고(외란·포화 포함), 플랜트의 보드 선도로 이득·위상 여유와 지글러-니콜스 값을 구합니다.",
+  "nodes": [
+    {
+      "id": "pid",
+      "type": "ctrl.pid",
+      "name": "PID 루프",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "num": "1",
+        "den": "1, 3, 3, 1",
+        "kp": 2.5,
+        "ki": 1.2,
+        "kd": 1.5,
+        "tf": 0.05,
+        "derivativeOnMeasurement": true,
+        "setpoint": 1,
+        "stepTime": 1,
+        "disturbance": -0.3,
+        "disturbanceTime": 20,
+        "noise": 0,
+        "tEnd": 40,
+        "dt": 0.01,
+        "seed": 1,
+        "uMin": -5,
+        "uMax": 5
+      },
+      "disabled": false
+    },
+    {
+      "id": "bode",
+      "type": "ctrl.bode",
+      "name": "개루프 보드",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "num": "1",
+        "den": "1, 3, 3, 1",
+        "gain": 2.5,
+        "delay": 0,
+        "from": 0.01,
+        "to": 100,
+        "units": "rad/s",
+        "points": 500
+      },
+      "disabled": false
+    },
+    {
+      "id": "py",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "목표·출력·제어 입력",
+        "y": "r, y, u"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pb",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "보드 크기",
+        "y": "dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pp",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "보드 위상",
+        "y": "phase"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "오버슈트",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "overshoot",
+        "unit": "%",
+        "high": 30
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "정착 시간",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "settling time (2%)",
+        "unit": "s"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k3",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "위상 여유",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "phase margin",
+        "unit": "°",
+        "low": 30
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "pid",
+      "fromPort": "out",
+      "to": "py",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "bode",
+      "fromPort": "out",
+      "to": "pb",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "bode",
+      "fromPort": "out",
+      "to": "pp",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "pid",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "pid",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "bode",
+      "fromPort": "out",
+      "to": "k3",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# Installers (npm run build:win / build:mac / build:linux / build:all)
+release/
+/MySimulator-*.exe
+/MySimulator-*.msi
+/MySimulator-*.dmg
+/MySimulator-*.deb
+/MySimulator-*.rpm
+/MySimulator-*.AppImage
+/MySimulator-*.zip
+/MySimulator-*.tar.gz
+/MySimulator_*
+
+# Test runs (npm test; the desktop E2E builds into src-tauri/target/e2e)
+test-results/
+coverage/
+*.log
+*.tmp
+
+# Local settings and secrets
+.env
+.env.*
+*.local
+.claude/settings.local.json
+
+# Editors and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Engine builds; sim.wasm is rebuilt by npm run dev / build:web (engine/build-wasm.mjs)
+engine/*/target/
+public/sim.wasm
+
+# Vite cache
+.vite/
+node_modules/.vite/
+
+# Tutorial videos (npm run tutorial:video) — large, regenerated from the app.
+# public/docs/ and docs/images/ stay tracked: the web build serves them as they are.
+/MySimulator-Tutorial*.mp4
+docs/video/*.mp4

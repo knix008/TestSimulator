@@ -1,0 +1,132 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "3D finite elements: heat sink and bracket",
+  "description": "Two SolidWorks Simulation/Ansys-style 3D analyses: the temperature of an eight-fin aluminium heat sink carrying a 10 W chip in air, and the von Mises stress and safety factor of a steel L bracket bolted to a wall under 1.5 kN. Turn the coloured surfaces in the 3D view.",
+  "nodes": [
+    {
+      "id": "sink",
+      "type": "fem.solid",
+      "name": "Heat sink temperature",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "physics": "heat",
+        "part": "# Aluminium heat sink: a base with eight fins, a 10 W chip under it, air all round\nunits: mm\nmaterial: aluminium\nbase plate: box 0 0 0 80 60 5\nadd fins: box 2 0 5 6 60 35, repeat = 8, dx = 10\nmesh: n = 60\nsource: box 30 20 0 50 40 2, power = 10\nconvection: all, h = 12, Tinf = 25\nprobe chip: 40 30 0\nprobe fin: 7 30 35",
+        "deform": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "bracket",
+      "type": "fem.solid",
+      "name": "Bracket stress",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "physics": "elasticity",
+        "part": "# Steel L bracket bolted to a wall (x = 0), 1.5 kN down on the end of the foot\nunits: mm\nmaterial: steel\nbase foot: box 0 0 0 120 60 10\nadd wall: box 0 0 10 10 60 80\ncut slot: cylinder z 80 30 -1 12 8\nmesh: n = 50\nfix: x-\nload: box 100 0 10 120 60 10, f = 0 0 -1500\nprobe end: 120 30 10",
+        "deform": 1,
+        "yield": 275000000
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Temperature, middle slice (°C)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "von Mises stress, middle slice (Pa)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "label": "Chip temperature",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "T(chip)",
+        "unit": "°C",
+        "high": 85
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "Safety factor",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "safety factor",
+        "low": 2
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "sink",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "bracket",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "sink",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "bracket",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

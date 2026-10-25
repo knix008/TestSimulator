@@ -1,0 +1,124 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "자동화: 파일 → Python → 필터 → 보고서",
+  "description": "load-measurement.csv 를 디스크에서 읽어 Python 으로 추세를 빼고, 저역 통과 필터와 피크 찾기를 거쳐 정제한 데이터를 CSV 파일로 씁니다. 데스크톱 앱이나 MySimulator --batch 로 실행합니다.",
+  "nodes": [
+    {
+      "id": "read",
+      "type": "io.readFile",
+      "name": "측정 하중",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "path": "load-measurement.csv"
+      }
+    },
+    {
+      "id": "py",
+      "type": "io.python",
+      "name": "추세 제거 (Python)",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "code": "n = len(data['t'])\nt = data['t']\ny = data['load']\nmt = sum(t) / n\nmy = sum(y) / n\nb = sum((a - mt) * (c - my) for a, c in zip(t, y)) / sum((a - mt) ** 2 for a in t)\nout['t'] = t\nout['load'] = [c - (my + b * (a - mt)) for a, c in zip(t, y)]\nresult('trend slope', b)",
+        "timeout": 60
+      }
+    },
+    {
+      "id": "lp",
+      "type": "signal.filter",
+      "name": "저역 통과 2 Hz",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "design": "butterworth",
+        "type": "lowpass",
+        "cutoff": 2,
+        "order": 4,
+        "zeroPhase": true,
+        "column": "load"
+      }
+    },
+    {
+      "id": "pk",
+      "type": "signal.peaks",
+      "name": "하중 피크",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "column": "filtered",
+        "minProminence": 1
+      }
+    },
+    {
+      "id": "write",
+      "type": "io.writeFile",
+      "name": "정제 데이터 쓰기",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "path": "load-cleaned.csv"
+      }
+    },
+    {
+      "id": "plot",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "title": "추세 제거·필터 결과",
+        "chart": "line",
+        "y": "load, filtered",
+        "span": "2"
+      }
+    },
+    {
+      "id": "kpi",
+      "type": "out.kpi",
+      "name": "피크 수",
+      "x": 1100,
+      "y": 330,
+      "params": {
+        "label": "피크 수",
+        "source": "peaks"
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "read",
+      "to": "py"
+    },
+    {
+      "id": "l2",
+      "from": "py",
+      "to": "lp"
+    },
+    {
+      "id": "l3",
+      "from": "lp",
+      "to": "pk"
+    },
+    {
+      "id": "l4",
+      "from": "lp",
+      "to": "write"
+    },
+    {
+      "id": "l5",
+      "from": "lp",
+      "to": "plot"
+    },
+    {
+      "id": "l6",
+      "from": "pk",
+      "to": "kpi"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  }
+}

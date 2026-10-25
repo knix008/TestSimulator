@@ -1,0 +1,157 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "CAD: part mass properties",
+  "description": "Two parts built from SolidWorks-style feature trees (a flange with 8 bolt holes, a spoked wheel): volume, mass, centre of gravity and inertia, the volume after each feature, a thickness map seen from above and the surface points in the 3D view.",
+  "nodes": [
+    {
+      "id": "flange",
+      "type": "cad.part",
+      "name": "Flange",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "part": "units: mm\nmaterial: steel\nbase disc: cylinder z 0 0 0 12 60\nadd hub: cylinder z 0 0 12 30 30\ncut bore: cylinder z 0 0 -1 50 15\ncut bolts: cylinder z 45 0 -1 14 6, around = 0 0, count = 8\ncut chamfer: cone z 0 0 34 9 15 24",
+        "resolution": 300,
+        "points": 30000
+      },
+      "disabled": false
+    },
+    {
+      "id": "wheel",
+      "type": "cad.part",
+      "name": "Spoked wheel",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "part": "units: mm\nmaterial: aluminium\nbase rim: cylinder z 0 0 0 20 100\ncut inside: cylinder z 0 0 -1 22 88\nadd hub: cylinder z 0 0 0 20 20\ncut axle: cylinder z 0 0 -1 22 8\nadd spokes: box 18 -4 4 90 4 16, around = 0 0, count = 5",
+        "resolution": 300,
+        "points": 30000
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Flange thickness (mm)",
+        "table": "thickness"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Volume after each feature (mm³)",
+        "table": "features",
+        "y": "volume after"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Wheel thickness (mm)",
+        "table": "thickness"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "Flange mass",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "mass",
+        "unit": "kg"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "Wheel inertia about its axis",
+        "aggregate": "last",
+        "scale": 10000,
+        "source": "Izz",
+        "unit": "kg·cm²"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "flange",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "flange",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "wheel",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "flange",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "wheel",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

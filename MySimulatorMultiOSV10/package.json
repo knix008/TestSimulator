@@ -1,0 +1,40 @@
+{
+  "name": "mysimulator",
+  "productName": "MySimulator",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Unified simulation workbench for Web, Windows, macOS and Linux (Tauri + Rust engine + WebAssembly) — node pipelines for signal processing, dynamics and control, statistics and machine learning, Monte Carlo and optimisation, with Python and command-line tool integration, dashboards and batch automation",
+  "author": "SHKWON <knix008@naver.com>",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "predev": "node engine/build-wasm.mjs",
+    "dev": "vite",
+    "build:wasm": "node engine/build-wasm.mjs",
+    "build:web": "npm run build:wasm && vite build",
+    "preview": "vite preview --port 4190 --strictPort",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:js": "node --test test/unit/*.test.js",
+    "test:rust": "node scripts/test.mjs --only rust",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:icons": "node scripts/render-icons.mjs",
+    "build:docs": "node scripts/build-docs.mjs",
+    "test:e2e": "node scripts/test.mjs --only web,desktop",
+    "check:samples": "node scripts/check-samples.mjs",
+    "samples": "node scripts/make-samples.mjs",
+    "docs:capture": "node scripts/capture-docs.mjs && node scripts/build-docs.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "vite": "^7.1.7"
+  }
+}

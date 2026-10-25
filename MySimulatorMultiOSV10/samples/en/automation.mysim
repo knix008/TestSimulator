@@ -1,0 +1,124 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Automation: file → Python → filter → report",
+  "description": "Reads load-measurement.csv from disk, removes the trend in Python, low-pass filters, finds the peaks and writes the cleaned data back to a CSV file. Run it in the desktop app or with MySimulator --batch.",
+  "nodes": [
+    {
+      "id": "read",
+      "type": "io.readFile",
+      "name": "Measured load",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "path": "../load-measurement.csv"
+      }
+    },
+    {
+      "id": "py",
+      "type": "io.python",
+      "name": "Detrend (Python)",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "code": "n = len(data['t'])\nt = data['t']\ny = data['load']\nmt = sum(t) / n\nmy = sum(y) / n\nb = sum((a - mt) * (c - my) for a, c in zip(t, y)) / sum((a - mt) ** 2 for a in t)\nout['t'] = t\nout['load'] = [c - (my + b * (a - mt)) for a, c in zip(t, y)]\nresult('trend slope', b)",
+        "timeout": 60
+      }
+    },
+    {
+      "id": "lp",
+      "type": "signal.filter",
+      "name": "Low pass 2 Hz",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "design": "butterworth",
+        "type": "lowpass",
+        "cutoff": 2,
+        "order": 4,
+        "zeroPhase": true,
+        "column": "load"
+      }
+    },
+    {
+      "id": "pk",
+      "type": "signal.peaks",
+      "name": "Load peaks",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "column": "filtered",
+        "minProminence": 1
+      }
+    },
+    {
+      "id": "write",
+      "type": "io.writeFile",
+      "name": "Write cleaned data",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "path": "load-cleaned.csv"
+      }
+    },
+    {
+      "id": "plot",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "title": "Detrended and filtered",
+        "chart": "line",
+        "y": "load, filtered",
+        "span": "2"
+      }
+    },
+    {
+      "id": "kpi",
+      "type": "out.kpi",
+      "name": "Peaks",
+      "x": 1100,
+      "y": 330,
+      "params": {
+        "label": "Peaks",
+        "source": "peaks"
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "read",
+      "to": "py"
+    },
+    {
+      "id": "l2",
+      "from": "py",
+      "to": "lp"
+    },
+    {
+      "id": "l3",
+      "from": "lp",
+      "to": "pk"
+    },
+    {
+      "id": "l4",
+      "from": "lp",
+      "to": "write"
+    },
+    {
+      "id": "l5",
+      "from": "lp",
+      "to": "plot"
+    },
+    {
+      "id": "l6",
+      "from": "pk",
+      "to": "kpi"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  }
+}

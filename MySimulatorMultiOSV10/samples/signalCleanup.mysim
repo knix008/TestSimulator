@@ -1,0 +1,199 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "신호 잡음 제거와 스펙트럼",
+  "description": "잡음 섞인 50 Hz 신호를 버터워스 저역 통과 필터로 정제하고 FFT 로 성분을 확인합니다.",
+  "nodes": [
+    {
+      "id": "sig",
+      "type": "source.signal",
+      "name": "측정 신호",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "waveform": "sine",
+        "frequency": 50,
+        "frequency2": 50,
+        "amplitude": 1,
+        "offset": 0,
+        "phase": 0,
+        "duty": 0.5,
+        "delay": 0,
+        "fs": 2000,
+        "duration": 1,
+        "noise": 0.5,
+        "seed": 7,
+        "column": "y",
+        "components": "180:0.4"
+      },
+      "disabled": false
+    },
+    {
+      "id": "lp",
+      "type": "signal.filter",
+      "name": "저역 통과 90 Hz",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "design": "butterworth",
+        "type": "lowpass",
+        "cutoff": 90,
+        "cutoff2": 50,
+        "order": 6,
+        "taps": 101,
+        "width": 9,
+        "zeroPhase": true,
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "fftRaw",
+      "type": "signal.fft",
+      "name": "원신호 스펙트럼",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "window": "hann",
+        "removeMean": true,
+        "zeroPad": false,
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "fftClean",
+      "type": "signal.fft",
+      "name": "정제 후 스펙트럼",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "window": "hann",
+        "removeMean": true,
+        "zeroPad": false,
+        "fs": 0,
+        "column": "filtered"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotTime",
+      "type": "out.plot",
+      "name": "시간 영역",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "원신호와 필터 출력",
+        "y": "y, filtered"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotSpec",
+      "type": "out.plot",
+      "name": "스펙트럼",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "스펙트럼 (dB)",
+        "y": "dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "kpiF",
+      "type": "out.kpi",
+      "name": "주 주파수",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "주 주파수",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "dominant frequency",
+        "unit": "Hz"
+      },
+      "disabled": false
+    },
+    {
+      "id": "kpiRms",
+      "type": "out.kpi",
+      "name": "제거된 잡음",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "제거된 잡음 RMS",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "RMS removed",
+        "high": 0.6
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "sig",
+      "fromPort": "out",
+      "to": "lp",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "sig",
+      "fromPort": "out",
+      "to": "fftRaw",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "lp",
+      "fromPort": "out",
+      "to": "fftClean",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "lp",
+      "fromPort": "out",
+      "to": "plotTime",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "fftRaw",
+      "fromPort": "out",
+      "to": "plotSpec",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "fftClean",
+      "fromPort": "out",
+      "to": "kpiF",
+      "toPort": "in"
+    },
+    {
+      "id": "l7",
+      "from": "lp",
+      "fromPort": "out",
+      "to": "kpiRms",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

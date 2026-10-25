@@ -1,0 +1,155 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "PID derivative gain sweep",
+  "description": "A parameter sweep of Kd from 0 to 3 shows how the overshoot changes.",
+  "nodes": [
+    {
+      "id": "pid",
+      "type": "ctrl.pid",
+      "name": "PID loop",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "num": "1",
+        "den": "1, 2, 1",
+        "kp": 4,
+        "ki": 2,
+        "kd": 0.5,
+        "tf": 0.05,
+        "derivativeOnMeasurement": true,
+        "setpoint": 1,
+        "stepTime": 0,
+        "disturbance": 0,
+        "disturbanceTime": 10,
+        "noise": 0,
+        "tEnd": 20,
+        "dt": 0.01,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "sw",
+      "type": "opt.sweep",
+      "name": "Kd sweep → overshoot",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "from": 0,
+        "to": 3,
+        "steps": 13,
+        "log": false,
+        "2from": 0,
+        "2to": 1,
+        "2steps": 5,
+        "aggregate": "max",
+        "node": "pid",
+        "param": "kd",
+        "metricNode": "pid",
+        "metric": "overshoot"
+      },
+      "disabled": false
+    },
+    {
+      "id": "sw2",
+      "type": "opt.sweep",
+      "name": "Kp·Ki map → IAE",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "from": 1,
+        "to": 8,
+        "steps": 8,
+        "log": false,
+        "2from": 0.5,
+        "2to": 4,
+        "2steps": 8,
+        "aggregate": "max",
+        "node": "pid",
+        "param": "kp",
+        "node2": "pid",
+        "param2": "ki",
+        "metricNode": "pid",
+        "metric": "IAE"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Overshoot vs Kd"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "IAE over Kp × Ki"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Loop response",
+        "y": "r, y"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "sw",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "sw2",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "pid",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

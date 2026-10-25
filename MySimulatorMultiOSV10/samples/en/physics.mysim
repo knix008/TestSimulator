@@ -1,0 +1,203 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "3D physics: a vehicle, Newton's cradle, a box tower",
+  "description": "Gazebo/Webots-style rigid-body physics: a vehicle climbing a ramp on four motor-driven wheels, Newton's cradle passing its energy along, and a box tower knocked down by a heavy ball. Pick a node and press ▶ Play in the 3D view to watch the scene.",
+  "nodes": [
+    {
+      "id": "car",
+      "type": "physics.rigid",
+      "name": "Motor-driven vehicle",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "world": "# A four-wheel vehicle: wheels on hinge motors, driving onto a ramp\nground: friction = 0.9, restitution = 0\nbody chassis: box size = 0.8 0.4 0.12, mass = 4, pos = 0 0 0.25, color = blue\nbody fl: sphere r = 0.12, mass = 0.4, pos = 0.3 0.28 0.12, friction = 1, restitution = 0, color = black\nbody fr: sphere r = 0.12, mass = 0.4, pos = 0.3 -0.28 0.12, friction = 1, restitution = 0, color = black\nbody rl: sphere r = 0.12, mass = 0.4, pos = -0.3 0.28 0.12, friction = 1, restitution = 0, color = black\nbody rr: sphere r = 0.12, mass = 0.4, pos = -0.3 -0.28 0.12, friction = 1, restitution = 0, color = black\nstatic ramp: box size = 1.5 2 0.1, pos = 3 0 0.18, rot = 0 -12 0, color = grey\njoint h1: hinge a = fl, b = chassis, at = 0.3 0.28 0.12, axis = 0 1 0, motor = 12*min(t, 1), torque = 4\njoint h2: hinge a = fr, b = chassis, at = 0.3 -0.28 0.12, axis = 0 1 0, motor = 12*min(t, 1), torque = 4\njoint h3: hinge a = rl, b = chassis, at = -0.3 0.28 0.12, axis = 0 1 0, motor = 12*min(t, 1), torque = 4\njoint h4: hinge a = rr, b = chassis, at = -0.3 -0.28 0.12, axis = 0 1 0, motor = 12*min(t, 1), torque = 4",
+        "tEnd": 5,
+        "dt": 0.0020833333333333333,
+        "iterations": 40,
+        "fps": 60
+      },
+      "disabled": false
+    },
+    {
+      "id": "cradle",
+      "type": "physics.rigid",
+      "name": "Newton's cradle",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "world": "# Newton's cradle: five steel balls on ropes, the first released from 45°\ngravity: 0 0 -9.81\nbody b1: sphere r = 0.05, mass = 1, pos = -0.553553 0 0.646447, restitution = 1, friction = 0, color = grey\nbody b2: sphere r = 0.05, mass = 1, pos = -0.100000 0 0.500000, restitution = 1, friction = 0, color = grey\nbody b3: sphere r = 0.05, mass = 1, pos = 0.000000 0 0.500000, restitution = 1, friction = 0, color = grey\nbody b4: sphere r = 0.05, mass = 1, pos = 0.100000 0 0.500000, restitution = 1, friction = 0, color = grey\nbody b5: sphere r = 0.05, mass = 1, pos = 0.200000 0 0.500000, restitution = 1, friction = 0, color = grey\njoint r1: distance a = b1, b = world, to = -0.2 0 1, length = 0.5\njoint r2: distance a = b2, b = world, to = -0.1 0 1, length = 0.5\njoint r3: distance a = b3, b = world, to = 0.0 0 1, length = 0.5\njoint r4: distance a = b4, b = world, to = 0.1 0 1, length = 0.5\njoint r5: distance a = b5, b = world, to = 0.2 0 1, length = 0.5",
+        "tEnd": 4,
+        "dt": 0.0005,
+        "iterations": 60,
+        "fps": 60
+      },
+      "disabled": false
+    },
+    {
+      "id": "tower",
+      "type": "physics.rigid",
+      "name": "Box tower and ball",
+      "x": 60,
+      "y": 610,
+      "params": {
+        "world": "# A tower of boxes hit by a heavy ball\nground: friction = 0.7, restitution = 0.1\nbody box00: box size = 0.3 0.3 0.3, mass = 1, pos = 0 -0.32 0.15, friction = 0.6, restitution = 0.05\nbody box01: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.00 0.15, friction = 0.6, restitution = 0.05\nbody box02: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.32 0.15, friction = 0.6, restitution = 0.05\nbody box10: box size = 0.3 0.3 0.3, mass = 1, pos = 0 -0.16 0.45, friction = 0.6, restitution = 0.05\nbody box11: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.16 0.45, friction = 0.6, restitution = 0.05\nbody box20: box size = 0.3 0.3 0.3, mass = 1, pos = 0 -0.32 0.75, friction = 0.6, restitution = 0.05\nbody box21: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.00 0.75, friction = 0.6, restitution = 0.05\nbody box22: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.32 0.75, friction = 0.6, restitution = 0.05\nbody box30: box size = 0.3 0.3 0.3, mass = 1, pos = 0 -0.16 1.05, friction = 0.6, restitution = 0.05\nbody box31: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.16 1.05, friction = 0.6, restitution = 0.05\nbody box40: box size = 0.3 0.3 0.3, mass = 1, pos = 0 -0.32 1.35, friction = 0.6, restitution = 0.05\nbody box41: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.00 1.35, friction = 0.6, restitution = 0.05\nbody box42: box size = 0.3 0.3 0.3, mass = 1, pos = 0 0.32 1.35, friction = 0.6, restitution = 0.05\nbody ball: sphere r = 0.2, mass = 8, pos = -3 0 0.6, vel = 7 0 1.5, restitution = 0.2, color = red",
+        "tEnd": 4,
+        "dt": 0.002777777777777778,
+        "iterations": 30,
+        "fps": 60
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Vehicle position (m)",
+        "table": "trajectories",
+        "y": "chassis.x, chassis.z"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Wheel motor torque (N·m)",
+        "table": "joints",
+        "y": "h1 torque, h3 torque"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Cradle: first and last ball (m)",
+        "table": "trajectories",
+        "y": "b1.x, b5.x"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p4",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 610,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Energy of the tower (J)",
+        "table": "energy",
+        "y": "kinetic, potential, total"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "Distance driven",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "chassis.x (end)",
+        "unit": "m"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "Energy kept by the cradle",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "energy (end)",
+        "unit": "J"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "car",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "car",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "cradle",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "tower",
+      "fromPort": "out",
+      "to": "p4",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "car",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "cradle",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

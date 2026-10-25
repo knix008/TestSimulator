@@ -1,0 +1,189 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Neural network regression",
+  "description": "An MLP learns a noisy sinc function; train/test loss and the prediction curve.",
+  "nodes": [
+    {
+      "id": "f",
+      "type": "source.function",
+      "name": "True function",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "expression": "clean = sinc(x/2)",
+        "variable": "x",
+        "from": -10,
+        "to": 10,
+        "points": 400
+      },
+      "disabled": false
+    },
+    {
+      "id": "noise",
+      "type": "source.random",
+      "name": "Noise",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "distribution": "normal",
+        "p1": 0,
+        "p2": 0.08,
+        "p3": 1,
+        "count": 400,
+        "columns": 1,
+        "prefix": "e",
+        "seed": 3
+      },
+      "disabled": false
+    },
+    {
+      "id": "mg",
+      "type": "data.merge",
+      "name": "Merge tables",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "mode": "columns"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ex",
+      "type": "data.expression",
+      "name": "Measured",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "expressions": "y = clean + e"
+      },
+      "disabled": false
+    },
+    {
+      "id": "mlp",
+      "type": "ml.mlp",
+      "name": "Neural network (MLP)",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "task": "regression",
+        "hidden": "24, 24",
+        "activation": "tanh",
+        "epochs": 400,
+        "learningRate": 0.01,
+        "batch": 32,
+        "l2": 0,
+        "testFraction": 0.2,
+        "seed": 1,
+        "features": "x",
+        "target": "y"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pc",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 1100,
+      "y": 50,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Fit",
+        "y": "y, prediction"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pl",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 1100,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": true,
+        "equal": false,
+        "span": "1",
+        "title": "Loss",
+        "table": "loss",
+        "y": "train, test"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 1100,
+      "y": 190,
+      "params": {
+        "label": "Test R²",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "test R²",
+        "low": 0.9
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "f",
+      "fromPort": "out",
+      "to": "mg",
+      "toPort": "a"
+    },
+    {
+      "id": "l2",
+      "from": "noise",
+      "fromPort": "out",
+      "to": "mg",
+      "toPort": "b"
+    },
+    {
+      "id": "l3",
+      "from": "mg",
+      "fromPort": "out",
+      "to": "ex",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "ex",
+      "fromPort": "out",
+      "to": "mlp",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "mlp",
+      "fromPort": "out",
+      "to": "pc",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "mlp",
+      "fromPort": "out",
+      "to": "pl",
+      "toPort": "in"
+    },
+    {
+      "id": "l7",
+      "from": "mlp",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

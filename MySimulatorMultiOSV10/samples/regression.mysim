@@ -1,0 +1,170 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "실험 데이터 회귀 분석",
+  "description": "엔진 회전수-토크 시험 데이터의 기술 통계, 2차 회귀, 잔차 분포.",
+  "nodes": [
+    {
+      "id": "data",
+      "type": "source.table",
+      "name": "시험 데이터",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "data": "rpm,torque (N·m),temp (°C)\n1000,127.0,77.9\n1125,134.6,78.9\n1250,142.6,81.0\n1375,143.2,79.6\n1500,146.7,83.7\n1625,151.9,83.8\n1750,158.9,83.0\n1875,159.6,86.0\n2000,161.6,84.8\n2125,166.0,86.5\n2250,169.7,87.0\n2375,177.0,91.0\n2500,177.2,91.2\n2625,176.9,93.7\n2750,178.5,91.3\n2875,184.3,93.1\n3000,186.1,93.6\n3125,181.9,98.0\n3250,188.8,96.2\n3375,189.9,96.5\n3500,188.0,101.0\n3625,182.8,99.2\n3750,189.6,100.1\n3875,188.4,102.9\n4000,186.9,102.6\n4125,181.1,104.1\n4250,183.4,106.7\n4375,176.0,106.5\n4500,177.5,108.3\n4625,177.7,107.3\n4750,175.1,109.6\n4875,170.9,112.5\n5000,171.6,111.6\n5125,166.9,111.8\n5250,163.8,112.6\n5375,156.9,113.4\n5500,155.9,116.8\n5625,149.4,116.4\n5750,146.9,116.5\n5875,137.2,118.2\n6000,133.9,119.5",
+        "tableName": "data"
+      },
+      "disabled": false
+    },
+    {
+      "id": "desc",
+      "type": "stat.describe",
+      "name": "기술 통계",
+      "x": 320,
+      "y": 50,
+      "params": {},
+      "disabled": false
+    },
+    {
+      "id": "reg",
+      "type": "stat.regression",
+      "name": "2차 회귀",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "model": "polynomial",
+        "degree": 2,
+        "x": "rpm",
+        "y": "torque"
+      },
+      "disabled": false
+    },
+    {
+      "id": "hist",
+      "type": "stat.histogram",
+      "name": "잔차 분포",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "bins": 12,
+        "column": "residual"
+      },
+      "disabled": false
+    },
+    {
+      "id": "corr",
+      "type": "stat.correlation",
+      "name": "상관 행렬",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "method": "pearson"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pfit",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "토크 곡선",
+        "y": "torque, fit"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "label": "R²",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "R²",
+        "low": 0.9
+      },
+      "disabled": false
+    },
+    {
+      "id": "ph",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "잔차 히스토그램",
+        "y": "count"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "data",
+      "fromPort": "out",
+      "to": "desc",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "data",
+      "fromPort": "out",
+      "to": "reg",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "data",
+      "fromPort": "out",
+      "to": "corr",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "reg",
+      "fromPort": "out",
+      "to": "hist",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "reg",
+      "fromPort": "out",
+      "to": "pfit",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "reg",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    },
+    {
+      "id": "l7",
+      "from": "hist",
+      "fromPort": "out",
+      "to": "ph",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

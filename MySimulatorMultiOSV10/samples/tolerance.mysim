@@ -1,0 +1,145 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "공차 누적 몬테카를로",
+  "description": "부품 치수 공차가 조립 간극에 주는 영향: 분포, 불량 확률, 민감도.",
+  "nodes": [
+    {
+      "id": "mc",
+      "type": "mc.simulate",
+      "name": "간극 시뮬레이션",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "model": "housing ~ normal(50.0, 0.05)\npartA ~ normal(20.0, 0.04)\npartB ~ normal(29.8, 0.04)\nshim ~ uniform(-0.02, 0.02)\ngap = housing - partA - partB + shim",
+        "samples": 100000,
+        "sampling": "random",
+        "keepRows": 20000,
+        "seed": 1,
+        "condition": "gap < 0.05"
+      },
+      "disabled": false
+    },
+    {
+      "id": "h",
+      "type": "stat.histogram",
+      "name": "히스토그램",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "bins": 40,
+        "column": "gap"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ph",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "간극 분포",
+        "y": "density, normal fit"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ps",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "민감도",
+        "table": "sensitivity",
+        "y": "share of variance"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pc",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "평균의 수렴",
+        "table": "convergence"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "label": "불량률 (간극 < 0.05)",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "P(condition)",
+        "unit": "%",
+        "high": 1
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "mc",
+      "fromPort": "out",
+      "to": "h",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "h",
+      "fromPort": "out",
+      "to": "ph",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "mc",
+      "fromPort": "out",
+      "to": "ps",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "mc",
+      "fromPort": "out",
+      "to": "pc",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "mc",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

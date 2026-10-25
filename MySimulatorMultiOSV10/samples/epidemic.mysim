@@ -1,0 +1,166 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "감염병 SIR 과 전파율 스윕",
+  "description": "SIR 모델을 풀고, 전파율 β 에 따라 최대 감염자 수가 어떻게 바뀌는지 스윕합니다.",
+  "nodes": [
+    {
+      "id": "sir",
+      "type": "dyn.ode",
+      "name": "SIR 모델",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "equations": "S' = -beta*S*I/N\nI' = beta*S*I/N - gamma*I\nR' = gamma*I",
+        "constants": "beta = 0.3, gamma = 0.1, N = 1000",
+        "initial": "S = 999, I = 1, R = 0",
+        "tStart": 0,
+        "tEnd": 160,
+        "dt": 0.5,
+        "method": "rk45",
+        "tolerance": 0.000001,
+        "substeps": 10
+      },
+      "disabled": false
+    },
+    {
+      "id": "beta",
+      "type": "source.function",
+      "name": "β(t) (스윕 대상)",
+      "x": 60,
+      "y": 470,
+      "params": {
+        "expression": "beta = b",
+        "variable": "t",
+        "from": 0,
+        "to": 160,
+        "points": 321,
+        "constants": "b = 0.3"
+      },
+      "disabled": false
+    },
+    {
+      "id": "sirU",
+      "type": "dyn.ode",
+      "name": "SIR (β 입력)",
+      "x": 320,
+      "y": 470,
+      "params": {
+        "equations": "S' = -u*S*I/N\nI' = u*S*I/N - gamma*I\nR' = gamma*I",
+        "constants": "gamma = 0.1, N = 1000",
+        "initial": "S = 999, I = 1, R = 0",
+        "tStart": 0,
+        "tEnd": 160,
+        "dt": 0.5,
+        "method": "rk45",
+        "tolerance": 0.000001,
+        "substeps": 10,
+        "uColumn": "beta"
+      },
+      "disabled": false
+    },
+    {
+      "id": "sw",
+      "type": "opt.sweep",
+      "name": "β 스윕 → 최대 감염자",
+      "x": 580,
+      "y": 470,
+      "params": {
+        "from": 0.12,
+        "to": 0.6,
+        "steps": 13,
+        "log": false,
+        "2from": 0,
+        "2to": 1,
+        "2steps": 5,
+        "aggregate": "max",
+        "node": "beta",
+        "param": "b",
+        "metricNode": "sirU",
+        "metric": "I"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "S, I, R",
+        "y": "S, I, R"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ps",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 840,
+      "y": 470,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "β 에 따른 최대 감염자"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "label": "최대 감염자",
+        "aggregate": "max",
+        "scale": 1,
+        "source": "I"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "sir",
+      "fromPort": "out",
+      "to": "p",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "sir",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "beta",
+      "fromPort": "out",
+      "to": "sirU",
+      "toPort": "u"
+    },
+    {
+      "id": "l4",
+      "from": "sw",
+      "fromPort": "out",
+      "to": "ps",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

@@ -1,0 +1,224 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "디지털 논리와 마이크로컨트롤러 (Proteus 형)",
+  "description": "Proteus 처럼 회로와 펌웨어를 함께 돌립니다: 보행자 버튼을 읽는 신호등 MCU, 소프트웨어 PWM 으로 밝기를 바꾸는 MCU, 리셋 있는 4비트 카운터의 타이밍도, 전가산기 진리표. 사건 구동 시뮬레이션이 게이트 지연까지 계산합니다.",
+  "nodes": [
+    {
+      "id": "mcu",
+      "type": "circuit.logic",
+      "name": "신호등 MCU",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "circuit": "# Green until the crossing button is pressed, then yellow, red and back\ninput walk: 0@0, 1@40, 0@45, 1@160, 0@165\nmcu u1: period = 1, out = green yellow red, in = walk\nprogram u1:\ngo: ldi r1, 1\n  out r1         ; green\nwait: sbic 0     ; skip unless pressed\n  jmp wait\n  ldi r1, 2\n  out r1         ; yellow\n  delay 10\n  ldi r1, 4\n  out r1         ; red\n  delay 30\n  jmp go\nend",
+        "mode": "timing",
+        "tEnd": 260,
+        "delay": 0,
+        "unit": "ns",
+        "glitch": 0,
+        "maxRows": 20000,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "pwm",
+      "type": "circuit.logic",
+      "name": "PWM MCU",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "circuit": "# Software PWM: the duty rises 0 → 15 out of 16 and repeats\nmcu u1: period = 1, out = pwm\nprogram u1:\n  ldi r1, 0      ; duty\nframe: ldi r2, 0 ; position in the 16-step period\nstep: cp r2, r1\n  jc high\n  cbi 0\n  jmp next\nhigh: sbi 0\nnext: inc r2\n  cp r2, 16\n  jnz step\n  inc r1\n  and r1, 15\n  jmp frame\nend",
+        "mode": "timing",
+        "tEnd": 2000,
+        "delay": 0,
+        "unit": "ns",
+        "glitch": 0,
+        "maxRows": 40000,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "cnt",
+      "type": "circuit.logic",
+      "name": "4비트 카운터",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "circuit": "# 4-bit binary counter with reset\nclock clk: period = 10\ninput reset: 1@0, 0@12\nc[4] = counter(clk, reset)\nbus count = c\ndiv2 = tff(1, clk, reset)\ncarry = c0 & c1 & c2 & c3",
+        "mode": "timing",
+        "tEnd": 200,
+        "delay": 1,
+        "unit": "ns",
+        "glitch": 0,
+        "maxRows": 20000,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "add",
+      "type": "circuit.logic",
+      "name": "전가산기",
+      "x": 60,
+      "y": 610,
+      "params": {
+        "circuit": "# Full adder\ninputs a b cin: binary\nsum = a ^ b ^ cin\ncout = a & b | cin & (a ^ b)\nbus total = cout sum",
+        "mode": "truth",
+        "tEnd": 200,
+        "delay": 1,
+        "unit": "ns",
+        "glitch": 0,
+        "maxRows": 20000,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "step",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "신호등과 버튼",
+        "table": "timing diagram"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "chart": "step",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "PWM 출력",
+        "table": "timing",
+        "y": "pwm"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "step",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "카운터 타이밍",
+        "table": "timing diagram"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p4",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 610,
+      "params": {
+        "chart": "table",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "진리표"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "실행한 명령",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "u1 instructions"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "끝 카운트",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "count (end)"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "mcu",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "pwm",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "cnt",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "add",
+      "fromPort": "out",
+      "to": "p4",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "mcu",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "cnt",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

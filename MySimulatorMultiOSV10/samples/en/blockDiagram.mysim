@@ -1,0 +1,168 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Block diagrams: cruise control and motor control",
+  "description": "Two Simulink-style block diagrams: cruise control of a car meeting a hill (PI, air drag, saturation) and a DC motor speed loop (rate limiter, load step). The feedback loops are solved together at every time step.",
+  "nodes": [
+    {
+      "id": "car",
+      "type": "dyn.blocks",
+      "name": "Cruise control",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "diagram": "v_ref = step(t0 = 2, a = 25, before = 20)\nhill = step(t0 = 30, a = -400)\nforce = pid(v_ref - v, kp = 800, ki = 40, umin = -2000, umax = 3000)\nacc = (force + hill - 0.5*1.2*0.32*2.2*v^2 - 150) / m\nv = integrator(acc, x0 = 20)",
+        "tEnd": 60,
+        "dt": 0.02,
+        "substeps": 10,
+        "seed": 1,
+        "constants": "m = 1200",
+        "measure": ""
+      },
+      "disabled": false
+    },
+    {
+      "id": "mot",
+      "type": "dyn.blocks",
+      "name": "Motor speed loop",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "diagram": "cmd = step(t0 = 0.2, a = 100)\nref = ratelimit(cmd, rise = 200)\nvolt = pid(ref - w, kp = 0.5, ki = 5, umin = -24, umax = 24)\ni = integrator((volt - R*i - K*w)/L)\nw = integrator((K*i - b*w - load)/J)\nload = step(t0 = 1.2, a = 0.05)",
+        "tEnd": 2,
+        "dt": 0.0005,
+        "substeps": 4,
+        "seed": 1,
+        "constants": "R = 1, L = 0.5e-3, K = 0.05, J = 1e-4, b = 1e-5",
+        "measure": ""
+      },
+      "disabled": false
+    },
+    {
+      "id": "pv",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Speed (m/s)",
+        "y": "v_ref, v"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pf",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Engine force (N)",
+        "y": "force"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pw",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Motor speed (rad/s)",
+        "y": "ref, w"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pi",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Voltage and current",
+        "y": "volt, i"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "label": "Final speed",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "v",
+        "unit": "m/s",
+        "low": 24.5,
+        "high": 25.5
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "car",
+      "fromPort": "out",
+      "to": "pv",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "car",
+      "fromPort": "out",
+      "to": "pf",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "mot",
+      "fromPort": "out",
+      "to": "pw",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "mot",
+      "fromPort": "out",
+      "to": "pi",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "car",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

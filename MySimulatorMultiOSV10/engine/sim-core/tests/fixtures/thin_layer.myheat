@@ -1,0 +1,25 @@
+{
+  "format": "myheat", "version": 1,
+  "name": "Thin layers: chip with TIM and a conductive copper foil",
+  "description": "A 0.1 mm thermal interface material (resistive) around the chip and a 35 µm copper foil (conductive) on the board surface spreading heat sideways.",
+  "domain": { "dim": 2, "width": 80, "height": 20, "depth": 20, "nx": 80, "ny": 20, "background": null },
+  "ambient": 25,
+  "materials": [
+    { "id": "fr4", "kind": "solid", "k": 0.3, "rho": 1850, "cp": 1100 },
+    { "id": "si", "kind": "solid", "k": 148, "rho": 2330, "cp": 700 },
+    { "id": "al", "kind": "solid", "k": 200, "rho": 2700, "cp": 900 }
+  ],
+  "bodies": [
+    { "id": "board", "name": "Board", "shape": "rect", "x": 0, "y": 0, "w": 80, "h": 2, "material": "fr4" },
+    { "id": "chip", "name": "Chip", "shape": "rect", "x": 30, "y": 2, "w": 20, "h": 2, "material": "si", "power": 3 },
+    { "id": "sink", "name": "Heat sink", "shape": "rect", "x": 20, "y": 4, "w": 40, "h": 6, "material": "al" }
+  ],
+  "boundaries": [
+    { "id": "tim", "name": "TIM", "target": "body:chip", "type": "thinLayer", "thickness": 0.1, "k": 3, "mode": "resistive" },
+    { "id": "foil", "name": "Copper foil", "target": "body:board", "type": "thinLayer", "thickness": 0.035, "k": 390, "mode": "conductive",
+      "region": [0, 1.5, 80, 2.5] },
+    { "id": "fan", "target": "body:sink", "type": "convection", "h": 40, "Tinf": 25, "region": [0, 4.5, 80, 20] },
+    { "id": "under", "target": "bottom", "type": "convection", "h": 5, "Tinf": 25 }
+  ],
+  "study": { "type": "steady" }
+}

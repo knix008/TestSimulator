@@ -1,0 +1,142 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Optimisation (local and global)",
+  "description": "Nelder–Mead on the Rosenbrock function and a global differential evolution search on the many-minima Rastrigin function.",
+  "nodes": [
+    {
+      "id": "nm",
+      "type": "opt.minimize",
+      "name": "Rosenbrock (Nelder–Mead)",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "objective": "(1 - x)^2 + 100*(y - x^2)^2",
+        "variables": "x: -2 .. 2 = -1.2\ny: -1 .. 3 = 1",
+        "goal": "minimize",
+        "method": "nelderMead",
+        "maxIterations": 2000,
+        "tolerance": 1e-10,
+        "logMap": true,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "de",
+      "type": "opt.minimize",
+      "name": "Rastrigin (differential evolution)",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "objective": "20 + x^2 - 10*cos(2*pi*x) + y^2 - 10*cos(2*pi*y)",
+        "variables": "x: -5.12 .. 5.12\ny: -5.12 .. 5.12",
+        "goal": "minimize",
+        "method": "de",
+        "maxIterations": 300,
+        "tolerance": 1e-10,
+        "logMap": true,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Rosenbrock map and path"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": true,
+        "equal": false,
+        "span": "1",
+        "title": "Convergence",
+        "table": "history",
+        "y": "objective"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Rastrigin map and path"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "label": "Global minimum found",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "optimum"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "nm",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "nm",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "de",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "de",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

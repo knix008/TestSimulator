@@ -1,0 +1,166 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Clustering and PCA",
+  "description": "Three blobs of points are split by k-means; PCA finds the main axes.",
+  "nodes": [
+    {
+      "id": "rnd",
+      "type": "source.random",
+      "name": "Random",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "distribution": "normal",
+        "p1": 0,
+        "p2": 0.6,
+        "p3": 1,
+        "count": 600,
+        "columns": 3,
+        "prefix": "x",
+        "seed": 5
+      },
+      "disabled": false
+    },
+    {
+      "id": "blobs",
+      "type": "data.expression",
+      "name": "Three blobs",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "expressions": "group = floor(i / 200) + 1\nx = x1 + 3*(group == 2) - 2*(group == 3)\ny = x2 + 3*(group == 3) + 0.5*x\nz = x3 + 0.3*x - 0.2*y"
+      },
+      "disabled": false
+    },
+    {
+      "id": "km",
+      "type": "ml.kmeans",
+      "name": "k-means clustering",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "k": 3,
+        "standardize": true,
+        "iterations": 100,
+        "restarts": 5,
+        "seed": 1,
+        "columns": "x, y, z"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pca",
+      "type": "ml.pca",
+      "name": "Principal components (PCA)",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "components": 2,
+        "standardize": true,
+        "columns": "x, y, z"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Clusters",
+        "x": "x",
+        "y": "y",
+        "color": "cluster"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Explained variance",
+        "table": "explained variance",
+        "y": "ratio"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "Silhouette",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "silhouette",
+        "low": 0.5
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "rnd",
+      "fromPort": "out",
+      "to": "blobs",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "blobs",
+      "fromPort": "out",
+      "to": "km",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "blobs",
+      "fromPort": "out",
+      "to": "pca",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "km",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "pca",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "km",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

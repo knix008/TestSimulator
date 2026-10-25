@@ -1,0 +1,147 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Production line discrete-event simulation",
+  "description": "Orders pass cutting (2 machines), welding and inspection, then ship, go to rework or are scrapped. Utilisation and waiting per station, queues over time and throughput show the bottleneck.",
+  "nodes": [
+    {
+      "id": "line",
+      "type": "des.process",
+      "name": "Production line",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "model": "source orders: interval = exponential(2)\nstation cutting: servers = 2, time = triangular(2.5, 3, 4)\nstation welding: servers = 1, time = normal(1.6, 0.2)\nstation inspection: servers = 1, time = uniform(0.5, 1)\nstation rework: servers = 1, time = exponential(3)\nsink shipped\nsink scrap\nroute orders -> cutting\nroute cutting -> welding\nroute welding -> inspection\nroute inspection -> shipped 0.85, rework 0.12, scrap 0.03\nroute rework -> inspection",
+        "tEnd": 2400,
+        "warmup": 120,
+        "points": 400,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "pu",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Utilisation (%)",
+        "table": "stations",
+        "y": "utilization"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pq",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "step",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Queues over time",
+        "table": "timeline",
+        "y": "cutting queue, welding queue, inspection queue, rework queue"
+      },
+      "disabled": false
+    },
+    {
+      "id": "po",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "area",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Finished orders",
+        "table": "output"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "label": "Throughput (per min)",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "throughput"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "Mean time in system",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "mean time in system",
+        "unit": "min",
+        "high": 30
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "line",
+      "fromPort": "out",
+      "to": "pu",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "line",
+      "fromPort": "out",
+      "to": "pq",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "line",
+      "fromPort": "out",
+      "to": "po",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "line",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "line",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

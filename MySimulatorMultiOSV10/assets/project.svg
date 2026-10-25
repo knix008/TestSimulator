@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="nodeA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc8ff"/><stop offset="1" stop-color="#3a9ae8"/></linearGradient>
+    <linearGradient id="nodeB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#ee9f2e"/></linearGradient>
+    <linearGradient id="nodeC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ef0e2"/><stop offset="1" stop-color="#2fbfab"/></linearGradient>
+  </defs>
+  <path d="M208 64 H640 L848 272 V912 a48 48 0 0 1 -48 48 H208 a48 48 0 0 1 -48 -48 V112 a48 48 0 0 1 48 -48 Z" fill="#f4f7fb" stroke="#5d6d7e" stroke-width="20"/>
+  <path d="M640 64 V240 a32 32 0 0 0 32 32 H848" fill="#dfe6ee" stroke="#5d6d7e" stroke-width="20"/>
+  <g fill="none" stroke-width="18" stroke-linecap="round">
+    <path d="M410 420 C 480 420 460 540 530 540" stroke="#3a9ae8"/>
+    <path d="M690 540 C 740 540 720 650 760 650" stroke="#ee9f2e"/>
+  </g>
+  <rect x="250" y="360" width="160" height="120" rx="22" fill="#2a3a52"/>
+  <path d="M250 382 a22 22 0 0 1 22 -22 H388 a22 22 0 0 1 22 22 V398 H250 Z" fill="url(#nodeA)"/>
+  <path d="M272 448 C 292 410 312 410 330 448 S 368 486 388 440" fill="none" stroke="#7cc8ff" stroke-width="12" stroke-linecap="round"/>
+  <rect x="530" y="480" width="160" height="120" rx="22" fill="#2a3a52"/>
+  <path d="M530 502 a22 22 0 0 1 22 -22 H668 a22 22 0 0 1 22 22 V518 H530 Z" fill="url(#nodeB)"/>
+  <g fill="#ffcf6e"><rect x="556" y="560" width="16" height="24" rx="3"/><rect x="582" y="534" width="16" height="50" rx="3"/><rect x="608" y="548" width="16" height="36" rx="3"/><rect x="634" y="566" width="16" height="18" rx="3"/></g>
+  <circle cx="760" cy="650" r="46" fill="url(#nodeC)"/>
+  <path d="M746 626 L782 650 L746 674 Z" fill="#0f2a33"/>
+  <text x="512" y="880" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="120" font-weight="700" fill="#34495e">SIM</text>
+</svg>

@@ -1,0 +1,335 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Circuit analysis (LTspice-style): filter, transistor, CMOS, op-amp",
+  "description": "Five SPICE netlists: the transient and Bode plot of an RC low-pass, a BJT common-emitter amplifier (about 51 dB of gain), the DC transfer curve of a CMOS inverter, an op-amp built as a subcircuit (B source) and a switching buck converter, plus an RC filter fed with a noisy signal generator through INPUT.",
+  "nodes": [
+    {
+      "id": "rc",
+      "type": "circuit.spice",
+      "name": "RC low-pass",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "netlist": "* RC low-pass filter\nV1 in 0 PULSE(0 1 0 1n 1n 2m 4m) AC 1\nR1 in out 1k\nC1 out 0 1u\n.tran 5u 8m\n.ac dec 40 10 100k",
+        "probes": ""
+      },
+      "disabled": false
+    },
+    {
+      "id": "bjt",
+      "type": "circuit.spice",
+      "name": "BJT amplifier",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "netlist": "* Common-emitter amplifier with emitter degeneration\nVcc vcc 0 12\nVin in 0 SIN(0 10m 1k) AC 1\nC1 in b 10u\nR1 vcc b 47k\nR2 b 0 10k\nRc vcc c 3.3k\nRe e 0 470\nCe e 0 100u\nQ1 c b e Qn\n.model Qn NPN(IS=1e-14 BF=200 BR=2)\n.op\n.tran 10u 5m\n.ac dec 20 10 1meg",
+        "probes": "in, c"
+      },
+      "disabled": false
+    },
+    {
+      "id": "cmos",
+      "type": "circuit.spice",
+      "name": "CMOS inverter",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "netlist": "* CMOS inverter transfer curve\nVdd vdd 0 5\nVin in 0 0\nM1 out in 0 0 Nch W=2u L=1u\nM2 out in vdd vdd Pch W=4u L=1u\n.model Nch NMOS(LEVEL=1 VTO=1 KP=100u LAMBDA=0.01)\n.model Pch PMOS(LEVEL=1 VTO=-1 KP=50u LAMBDA=0.01)\n.dc Vin 0 5 0.05",
+        "probes": "in, out"
+      },
+      "disabled": false
+    },
+    {
+      "id": "opamp",
+      "type": "circuit.spice",
+      "name": "Op-amp (subcircuit)",
+      "x": 60,
+      "y": 470,
+      "params": {
+        "netlist": "Non-inverting amplifier, gain 11 (LTspice style)\nVp vp 0 12\nVn vn 0 -12\nVin in 0 SIN(0 0.5 1k)\nXU1 in fb out vp vn OPAMP\nR2 fb out 100k\nR3 fb 0 10k\nRl out 0 10k\n.subckt OPAMP inp inn out vp vn\nB1 out 0 V=max(min(1e5*(V(inp)-V(inn)), V(vp)), V(vn))\n.ends\n.tran 2u 3m\n.end",
+        "probes": "in, out"
+      },
+      "disabled": false
+    },
+    {
+      "id": "buck",
+      "type": "circuit.spice",
+      "name": "Buck converter",
+      "x": 60,
+      "y": 610,
+      "params": {
+        "netlist": "* Buck converter, 50 % duty at 20 kHz\nVin vin 0 12\nVg g 0 PULSE(0 5 0 100n 100n 25u 50u)\nS1 vin sw g 0 RON=0.05 ROFF=1meg VT=2.5\nD1 0 sw IS=1e-12\nL1 sw out 100u\nC1 out 0 100u\nR1 out 0 5\n.tran 1u 5m",
+        "probes": "sw, out"
+      },
+      "disabled": false
+    },
+    {
+      "id": "sig",
+      "type": "source.signal",
+      "name": "Noisy square wave",
+      "x": 60,
+      "y": 5,
+      "params": {
+        "waveform": "square",
+        "frequency": 5,
+        "frequency2": 50,
+        "amplitude": 1,
+        "offset": 0,
+        "phase": 0,
+        "duty": 0.5,
+        "delay": 0,
+        "fs": 2000,
+        "duration": 1,
+        "noise": 0.2,
+        "seed": 1,
+        "column": "y"
+      },
+      "disabled": false
+    },
+    {
+      "id": "filt",
+      "type": "circuit.spice",
+      "name": "Signal → RC filter",
+      "x": 320,
+      "y": 5,
+      "params": {
+        "netlist": "* RC filter driven by the signal\nV1 in 0 INPUT(y)\nR1 in out 1k\nC1 out 0 4.7u\n.tran 200u 1",
+        "probes": "in, out"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "RC Bode magnitude (dB)",
+        "table": "ac",
+        "y": "V(out) dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "BJT amplifier gain (dB)",
+        "table": "ac",
+        "y": "V(c) dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "CMOS transfer (V)",
+        "table": "dc sweep",
+        "y": "V(out)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p4",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 470,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Op-amp: in and out (V)",
+        "table": "transient",
+        "y": "V(in), V(out)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p5",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 610,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Buck converter (V)",
+        "table": "transient",
+        "y": "V(sw), V(out)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p6",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 5,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Filtered signal (V)",
+        "table": "transient",
+        "y": "V(in), V(out)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "RC −3 dB frequency",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "−3 dB frequency",
+        "unit": "Hz"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "BJT mid-band gain",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "peak gain",
+        "unit": "dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k3",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 610,
+      "params": {
+        "label": "Buck output (end)",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "V(out)",
+        "table": "transient",
+        "unit": "V",
+        "low": 5,
+        "high": 6.5
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "rc",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "bjt",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "cmos",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "opamp",
+      "fromPort": "out",
+      "to": "p4",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "buck",
+      "fromPort": "out",
+      "to": "p5",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "sig",
+      "fromPort": "out",
+      "to": "filt",
+      "toPort": "in"
+    },
+    {
+      "id": "l7",
+      "from": "filt",
+      "fromPort": "out",
+      "to": "p6",
+      "toPort": "in"
+    },
+    {
+      "id": "l8",
+      "from": "rc",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l9",
+      "from": "bjt",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    },
+    {
+      "id": "l10",
+      "from": "buck",
+      "fromPort": "out",
+      "to": "k3",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

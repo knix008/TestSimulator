@@ -1,0 +1,168 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Chirp spectrogram",
+  "description": "The time–frequency map and the PSD of a 10 → 250 Hz chirp.",
+  "nodes": [
+    {
+      "id": "chirp",
+      "type": "source.signal",
+      "name": "Chirp 10→250 Hz",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "waveform": "chirp",
+        "frequency": 10,
+        "frequency2": 250,
+        "amplitude": 1,
+        "offset": 0,
+        "phase": 0,
+        "duty": 0.5,
+        "delay": 0,
+        "fs": 1000,
+        "duration": 4,
+        "noise": 0.2,
+        "seed": 1,
+        "column": "y"
+      },
+      "disabled": false
+    },
+    {
+      "id": "spec",
+      "type": "signal.spectrogram",
+      "name": "Spectrogram",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "segment": 128,
+        "overlap": 85,
+        "window": "hann",
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "psd",
+      "type": "signal.psd",
+      "name": "Power spectral density",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "segment": 512,
+        "overlap": 50,
+        "window": "hann",
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "env",
+      "type": "signal.envelope",
+      "name": "Envelope (Hilbert)",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "fs": 0
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotSpec",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Spectrogram"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotPsd",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "PSD",
+        "y": "dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotEnv",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Instantaneous frequency",
+        "y": "frequency"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "chirp",
+      "fromPort": "out",
+      "to": "spec",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "chirp",
+      "fromPort": "out",
+      "to": "psd",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "chirp",
+      "fromPort": "out",
+      "to": "env",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "spec",
+      "fromPort": "out",
+      "to": "plotSpec",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "psd",
+      "fromPort": "out",
+      "to": "plotPsd",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "env",
+      "fromPort": "out",
+      "to": "plotEnv",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

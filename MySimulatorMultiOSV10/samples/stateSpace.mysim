@@ -1,0 +1,131 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "1/4 차량 현가 (상태공간)",
+  "description": "4 상태 현가 모델의 노면 계단 응답, 고유값과 가제어성.",
+  "nodes": [
+    {
+      "id": "ss",
+      "type": "ctrl.statespace",
+      "name": "현가 모델",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "A": "0 1 0 0; -20 -2 20 2; 0 0 0 1; 200 20 -2200 -20",
+        "B": "0; 0; 0; 2000",
+        "C": "1 0 0 0; 0 0 1 0",
+        "input": "step",
+        "amplitude": 0.05,
+        "frequency": 1,
+        "channel": 1,
+        "tEnd": 5,
+        "dt": 0.002,
+        "method": "rk45",
+        "D": ""
+      },
+      "disabled": false
+    },
+    {
+      "id": "p",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "차체와 바퀴",
+        "y": "y1, y2"
+      },
+      "disabled": false
+    },
+    {
+      "id": "eig",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "고유값",
+        "table": "eigenvalues",
+        "x": "real",
+        "y": "imag"
+      },
+      "disabled": false
+    },
+    {
+      "id": "fft",
+      "type": "signal.fft",
+      "name": "스펙트럼 (FFT)",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "window": "hann",
+        "removeMean": true,
+        "zeroPad": true,
+        "fs": 0,
+        "column": "y1"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pf",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": true,
+        "equal": false,
+        "span": "1",
+        "title": "차체 스펙트럼",
+        "y": "amplitude"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "ss",
+      "fromPort": "out",
+      "to": "p",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "ss",
+      "fromPort": "out",
+      "to": "eig",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "ss",
+      "fromPort": "out",
+      "to": "fft",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "fft",
+      "fromPort": "out",
+      "to": "pf",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

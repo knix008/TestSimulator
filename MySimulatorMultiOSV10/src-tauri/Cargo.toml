@@ -1,0 +1,39 @@
+[package]
+name = "mysimulator"
+version = "1.0.0"
+description = "Unified simulation workbench: signal processing, dynamics and control, statistics and machine learning, Monte Carlo and optimisation pipelines"
+authors = ["SHKWON <knix008@naver.com>"]
+edition = "2021"
+
+[lib]
+name = "mysimulator_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+fontdb = "0.23"
+# The solver: the same crate is compiled to WebAssembly for the web build (engine/sim-wasm).
+sim-core = { path = "../engine/sim-core", features = ["parallel"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+# Installed app: smaller and faster (whole-program optimisation, no debug symbols). Debug builds and tests are unaffected.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+# The solver is the hot loop: optimise it even in debug builds, or a study in `npm start` takes minutes.
+[profile.dev.package.sim-core]
+opt-level = 3
+
+[profile.dev.package.heat-core]
+opt-level = 3

@@ -1,0 +1,199 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "PID control and stability margins",
+  "description": "A PID controls a third-order plant (with a disturbance and saturation); the plant's Bode plot gives the margins and Ziegler–Nichols values.",
+  "nodes": [
+    {
+      "id": "pid",
+      "type": "ctrl.pid",
+      "name": "PID loop",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "num": "1",
+        "den": "1, 3, 3, 1",
+        "kp": 2.5,
+        "ki": 1.2,
+        "kd": 1.5,
+        "tf": 0.05,
+        "derivativeOnMeasurement": true,
+        "setpoint": 1,
+        "stepTime": 1,
+        "disturbance": -0.3,
+        "disturbanceTime": 20,
+        "noise": 0,
+        "tEnd": 40,
+        "dt": 0.01,
+        "seed": 1,
+        "uMin": -5,
+        "uMax": 5
+      },
+      "disabled": false
+    },
+    {
+      "id": "bode",
+      "type": "ctrl.bode",
+      "name": "Open-loop Bode",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "num": "1",
+        "den": "1, 3, 3, 1",
+        "gain": 2.5,
+        "delay": 0,
+        "from": 0.01,
+        "to": 100,
+        "units": "rad/s",
+        "points": 500
+      },
+      "disabled": false
+    },
+    {
+      "id": "py",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Setpoint, output, control",
+        "y": "r, y, u"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pb",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Bode magnitude",
+        "y": "dB"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pp",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": true,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Bode phase",
+        "y": "phase"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "Overshoot",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "overshoot",
+        "unit": "%",
+        "high": 30
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "Settling time",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "settling time (2%)",
+        "unit": "s"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k3",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "Phase margin",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "phase margin",
+        "unit": "°",
+        "low": 30
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "pid",
+      "fromPort": "out",
+      "to": "py",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "bode",
+      "fromPort": "out",
+      "to": "pb",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "bode",
+      "fromPort": "out",
+      "to": "pp",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "pid",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "pid",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "bode",
+      "fromPort": "out",
+      "to": "k3",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

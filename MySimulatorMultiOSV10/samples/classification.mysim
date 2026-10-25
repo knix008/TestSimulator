@@ -1,0 +1,175 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "신경망 분류 (두 개의 달)",
+  "description": "서로 맞물린 두 반달 모양 점을 MLP 로 분류하고 예측 지도와 혼동 행렬을 봅니다.",
+  "nodes": [
+    {
+      "id": "rnd",
+      "type": "source.random",
+      "name": "난수",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "distribution": "uniform",
+        "p1": 0,
+        "p2": 1,
+        "p3": 1,
+        "count": 800,
+        "columns": 3,
+        "prefix": "x",
+        "seed": 11
+      },
+      "disabled": false
+    },
+    {
+      "id": "moons",
+      "type": "data.expression",
+      "name": "두 개의 달",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "expressions": "cls = (x1 > 0.5)\nang = pi*x2\nx = if(cls, 1 - cos(ang), cos(ang)) + 0.15*(x3 - 0.5)\ny = if(cls, 0.5 - sin(ang), sin(ang)) + 0.15*(x3 - 0.5) + 0.1*(x1 - 0.5)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "mlp",
+      "type": "ml.mlp",
+      "name": "신경망 (MLP)",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "task": "classification",
+        "hidden": "16, 16",
+        "activation": "tanh",
+        "epochs": 200,
+        "learningRate": 0.02,
+        "batch": 32,
+        "l2": 0,
+        "testFraction": 0.2,
+        "seed": 1,
+        "features": "x, y",
+        "target": "cls"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pm",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "예측 지도",
+        "table": "prediction map"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pc",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 1100,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "혼동 행렬",
+        "table": "confusion"
+      },
+      "disabled": false
+    },
+    {
+      "id": "pd",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "데이터",
+        "x": "x",
+        "y": "y",
+        "color": "cls"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "검증 정확도",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "test accuracy",
+        "unit": "%",
+        "low": 90
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "rnd",
+      "fromPort": "out",
+      "to": "moons",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "moons",
+      "fromPort": "out",
+      "to": "mlp",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "mlp",
+      "fromPort": "out",
+      "to": "pm",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "mlp",
+      "fromPort": "out",
+      "to": "pc",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "moons",
+      "fromPort": "out",
+      "to": "pd",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "mlp",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

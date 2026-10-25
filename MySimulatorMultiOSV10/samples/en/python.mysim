@@ -1,0 +1,101 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Python integration (desktop)",
+  "description": "A signal is processed by a script in the installed Python and the result comes back into the pipeline. Runs in the desktop app with Python installed.",
+  "nodes": [
+    {
+      "id": "sig",
+      "type": "source.signal",
+      "name": "Signal",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "waveform": "sine",
+        "frequency": 3,
+        "frequency2": 50,
+        "amplitude": 1,
+        "offset": 0,
+        "phase": 0,
+        "duty": 0.5,
+        "delay": 0,
+        "fs": 200,
+        "duration": 4,
+        "noise": 0.3,
+        "seed": 1,
+        "column": "y"
+      },
+      "disabled": false
+    },
+    {
+      "id": "py",
+      "type": "io.python",
+      "name": "Python moving average",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "code": "import math\n# data: the input table, out: the result table\nt = data['t']\ny = data['y']\nk = 9\nsmooth = []\nfor i in range(len(y)):\n    w = y[max(0, i - k):i + k + 1]\n    smooth.append(sum(w) / len(w))\nout['t'] = t\nout['y'] = y\nout['smooth'] = smooth\nresult('peak', max(smooth))\nprint('rows:', len(t))",
+        "timeout": 60
+      },
+      "disabled": false
+    },
+    {
+      "id": "p",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Python result",
+        "y": "y, smooth"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "label": "Peak (from Python)",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "peak"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "sig",
+      "fromPort": "out",
+      "to": "py",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "py",
+      "fromPort": "out",
+      "to": "p",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "py",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

@@ -1,0 +1,151 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "MyHeatManager heat studies (built-in engine)",
+  "description": "MyHeatManager's solver is built into MySimulator, so .myheat models run without any other program: a chip with a thermal interface and a copper foil under a heat sink (steady) and a wall under a daily outdoor temperature cycle (transient). The results feed charts and KPIs like any other node.",
+  "nodes": [
+    {
+      "id": "chip",
+      "type": "io.myheat",
+      "name": "Chip and heat sink",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "field": "T",
+        "content": "ewogICJmb3JtYXQiOiAibXloZWF0IiwgInZlcnNpb24iOiAxLAogICJuYW1lIjogIlRoaW4gbGF5ZXJzOiBjaGlwIHdpdGggVElNIGFuZCBhIGNvbmR1Y3RpdmUgY29wcGVyIGZvaWwiLAogICJkZXNjcmlwdGlvbiI6ICJBIDAuMSBtbSB0aGVybWFsIGludGVyZmFjZSBtYXRlcmlhbCAocmVzaXN0aXZlKSBhcm91bmQgdGhlIGNoaXAgYW5kIGEgMzUgwrVtIGNvcHBlciBmb2lsIChjb25kdWN0aXZlKSBvbiB0aGUgYm9hcmQgc3VyZmFjZSBzcHJlYWRpbmcgaGVhdCBzaWRld2F5cy4iLAogICJkb21haW4iOiB7ICJkaW0iOiAyLCAid2lkdGgiOiA4MCwgImhlaWdodCI6IDIwLCAiZGVwdGgiOiAyMCwgIm54IjogODAsICJueSI6IDIwLCAiYmFja2dyb3VuZCI6IG51bGwgfSwKICAiYW1iaWVudCI6IDI1LAogICJtYXRlcmlhbHMiOiBbCiAgICB7ICJpZCI6ICJmcjQiLCAia2luZCI6ICJzb2xpZCIsICJrIjogMC4zLCAicmhvIjogMTg1MCwgImNwIjogMTEwMCB9LAogICAgeyAiaWQiOiAic2kiLCAia2luZCI6ICJzb2xpZCIsICJrIjogMTQ4LCAicmhvIjogMjMzMCwgImNwIjogNzAwIH0sCiAgICB7ICJpZCI6ICJhbCIsICJraW5kIjogInNvbGlkIiwgImsiOiAyMDAsICJyaG8iOiAyNzAwLCAiY3AiOiA5MDAgfQogIF0sCiAgImJvZGllcyI6IFsKICAgIHsgImlkIjogImJvYXJkIiwgIm5hbWUiOiAiQm9hcmQiLCAic2hhcGUiOiAicmVjdCIsICJ4IjogMCwgInkiOiAwLCAidyI6IDgwLCAiaCI6IDIsICJtYXRlcmlhbCI6ICJmcjQiIH0sCiAgICB7ICJpZCI6ICJjaGlwIiwgIm5hbWUiOiAiQ2hpcCIsICJzaGFwZSI6ICJyZWN0IiwgIngiOiAzMCwgInkiOiAyLCAidyI6IDIwLCAiaCI6IDIsICJtYXRlcmlhbCI6ICJzaSIsICJwb3dlciI6IDMgfSwKICAgIHsgImlkIjogInNpbmsiLCAibmFtZSI6ICJIZWF0IHNpbmsiLCAic2hhcGUiOiAicmVjdCIsICJ4IjogMjAsICJ5IjogNCwgInciOiA0MCwgImgiOiA2LCAibWF0ZXJpYWwiOiAiYWwiIH0KICBdLAogICJib3VuZGFyaWVzIjogWwogICAgeyAiaWQiOiAidGltIiwgIm5hbWUiOiAiVElNIiwgInRhcmdldCI6ICJib2R5OmNoaXAiLCAidHlwZSI6ICJ0aGluTGF5ZXIiLCAidGhpY2tuZXNzIjogMC4xLCAiayI6IDMsICJtb2RlIjogInJlc2lzdGl2ZSIgfSwKICAgIHsgImlkIjogImZvaWwiLCAibmFtZSI6ICJDb3BwZXIgZm9pbCIsICJ0YXJnZXQiOiAiYm9keTpib2FyZCIsICJ0eXBlIjogInRoaW5MYXllciIsICJ0aGlja25lc3MiOiAwLjAzNSwgImsiOiAzOTAsICJtb2RlIjogImNvbmR1Y3RpdmUiLAogICAgICAicmVnaW9uIjogWzAsIDEuNSwgODAsIDIuNV0gfSwKICAgIHsgImlkIjogImZhbiIsICJ0YXJnZXQiOiAiYm9keTpzaW5rIiwgInR5cGUiOiAiY29udmVjdGlvbiIsICJoIjogNDAsICJUaW5mIjogMjUsICJyZWdpb24iOiBbMCwgNC41LCA4MCwgMjBdIH0sCiAgICB7ICJpZCI6ICJ1bmRlciIsICJ0YXJnZXQiOiAiYm90dG9tIiwgInR5cGUiOiAiY29udmVjdGlvbiIsICJoIjogNSwgIlRpbmYiOiAyNSB9CiAgXSwKICAic3R1ZHkiOiB7ICJ0eXBlIjogInN0ZWFkeSIgfQp9Cg==",
+        "fileName": "thin_layer.myheat"
+      },
+      "disabled": false
+    },
+    {
+      "id": "wall",
+      "type": "io.myheat",
+      "name": "A wall over a day",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "field": "T",
+        "content": "ewogICJmb3JtYXQiOiAibXloZWF0IiwgInZlcnNpb24iOiAxLAogICJuYW1lIjogIlRpbWUtZGVwZW5kZW50IGJvdW5kYXJpZXM6IHdhbGwgd2l0aCBhIGRhaWx5IHRlbXBlcmF0dXJlIGN5Y2xlIiwKICAiZGVzY3JpcHRpb24iOiAiT3V0c2lkZSBhaXIgdGVtcGVyYXR1cmUgKFRpbmZ0KSBhbmQgZmlsbSBjb2VmZmljaWVudCAoaHQpIGZvbGxvdyB0YWJsZXM7IHRoZSBpbnNpZGUgZmFjZSBpcyBoZWxkIGJ5IGEgdGVtcGVyYXR1cmUgcmFtcCAoVHQpLiIsCiAgImRvbWFpbiI6IHsgImRpbSI6IDIsICJ3aWR0aCI6IDIwMCwgImhlaWdodCI6IDIwLCAiZGVwdGgiOiAxMDAwLCAibngiOiAxMDAsICJueSI6IDQsICJiYWNrZ3JvdW5kIjogImNvbmNyZXRlIiB9LAogICJhbWJpZW50IjogMjAsCiAgIm1hdGVyaWFscyI6IFt7ICJpZCI6ICJjb25jcmV0ZSIsICJraW5kIjogInNvbGlkIiwgImsiOiAxLjQsICJyaG8iOiAyMzAwLCAiY3AiOiA4ODAgfV0sCiAgImJvdW5kYXJpZXMiOiBbCiAgICB7ICJpZCI6ICJvdXRzaWRlIiwgInRhcmdldCI6ICJsZWZ0IiwgInR5cGUiOiAiY29udmVjdGlvbiIsICJoIjogMjUsICJUaW5mIjogNSwKICAgICAgIlRpbmZ0IjogW1swLCA1XSwgWzIxNjAwLCAxNV0sIFs0MzIwMCwgMjVdLCBbNjQ4MDAsIDE1XSwgWzg2NDAwLCA1XV0sCiAgICAgICJodCI6IFtbMCwgMjVdLCBbNDMyMDAsIDEwXSwgWzg2NDAwLCAyNV1dIH0sCiAgICB7ICJpZCI6ICJpbnNpZGUiLCAidGFyZ2V0IjogInJpZ2h0IiwgInR5cGUiOiAidGVtcGVyYXR1cmUiLCAiVCI6IDIwLCAiVHQiOiBbWzAsIDE4XSwgWzI4ODAwLCAyMl0sIFs4NjQwMCwgMjJdXSB9CiAgXSwKICAicHJvYmVzIjogW3sgImlkIjogIm1pZCIsICJuYW1lIjogIk1pZCB3YWxsIiwgIngiOiAxMDAsICJ5IjogMTAgfV0sCiAgInN0dWR5IjogeyAidHlwZSI6ICJ0cmFuc2llbnQiLCAiZW5kVGltZSI6IDg2NDAwLCAiZHQiOiA2MDAsICJmcmFtZXMiOiA0OCwgImluaXRpYWxUIjogMTggfQp9Cg==",
+        "fileName": "time_bc.myheat"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Temperature (°C)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Wall at the end of the day (°C)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "Hottest point",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "Tmax",
+        "unit": "°C"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "Heat balance error",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "balance error"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k3",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "Mid-wall temperature",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "probe mid",
+        "unit": "°C"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "chip",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "wall",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "chip",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "chip",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "wall",
+      "fromPort": "out",
+      "to": "k3",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

@@ -1,0 +1,169 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "감쇠 진동과 감쇠비 추정",
+  "description": "질량-스프링-댐퍼 ODE 를 풀고, 피크의 대수 감쇠율로 감쇠비를, FFT 로 고유 진동수를 구합니다.",
+  "nodes": [
+    {
+      "id": "msd",
+      "type": "dyn.ode",
+      "name": "질량-스프링-댐퍼",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "equations": "x' = v\nv' = (-c*v - k*x)/m\nE = 0.5*m*v^2 + 0.5*k*x^2",
+        "constants": "m = 1, c = 0.4, k = 16",
+        "initial": "x = 1, v = 0",
+        "tStart": 0,
+        "tEnd": 20,
+        "dt": 0.005,
+        "method": "rk45",
+        "tolerance": 0.000001,
+        "substeps": 10
+      },
+      "disabled": false
+    },
+    {
+      "id": "pk",
+      "type": "signal.peaks",
+      "name": "피크",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "minProminence": 0.01,
+        "minDistance": 0,
+        "maxCount": 50,
+        "valleys": false,
+        "column": "x"
+      },
+      "disabled": false
+    },
+    {
+      "id": "fft",
+      "type": "signal.fft",
+      "name": "진동 스펙트럼",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "window": "hann",
+        "removeMean": true,
+        "zeroPad": true,
+        "fs": 0,
+        "column": "x"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotX",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "변위와 에너지",
+        "y": "x, E"
+      },
+      "disabled": false
+    },
+    {
+      "id": "plotPhase",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "xy",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "위상 평면",
+        "x": "x",
+        "y": "v"
+      },
+      "disabled": false
+    },
+    {
+      "id": "kz",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "감쇠비 ζ",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "damping ratio (log decrement)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "kf",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "label": "감쇠 진동수",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "dominant frequency",
+        "unit": "Hz"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "msd",
+      "fromPort": "out",
+      "to": "pk",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "msd",
+      "fromPort": "out",
+      "to": "fft",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "msd",
+      "fromPort": "out",
+      "to": "plotX",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "msd",
+      "fromPort": "out",
+      "to": "plotPhase",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "pk",
+      "fromPort": "out",
+      "to": "kz",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "fft",
+      "fromPort": "out",
+      "to": "kf",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

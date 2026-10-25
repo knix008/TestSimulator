@@ -1,0 +1,177 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "유한요소: 열과 응력",
+  "description": "Ansys·COMSOL 형 2D 유한요소 해석 세 가지: 냉각 구멍이 있는 판의 온도 분포, 구멍 난 판의 인장 응력 집중(이론값 약 3배), 막대가 데워지는 과도 열전도.",
+  "nodes": [
+    {
+      "id": "heat",
+      "type": "fem.field",
+      "name": "판의 온도",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "physics": "heat",
+        "model": "# Steel plate heated on the left, cooled by air on the right and by water in the bore\ndomain: width = 0.4, height = 0.2, nx = 40, ny = 20\nmaterial: k = 45\nhole bore: circle 0.26 0.1 0.04\nleft: T = 150\nright: convection h = 25, Tinf = 20\nbore: convection h = 800, Tinf = 15\nprobe centre: 0.15, 0.1",
+        "tEnd": 100,
+        "steps": 100,
+        "T0": 20
+      },
+      "disabled": false
+    },
+    {
+      "id": "stress",
+      "type": "fem.field",
+      "name": "구멍 주위 응력",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "physics": "elasticity",
+        "model": "# Kirsch problem: the hole edge sees about 3 × the far-field stress\ndomain: width = 1, height = 0.5, nx = 80, ny = 40\nmaterial: E = 200e9, nu = 0.3\nhole bore: circle 0.5 0.25 0.05\nleft: ux = 0\nbottom: uy = 0\nright: traction tx = 50e6\nprobe edge: 0.5, 0.3",
+        "tEnd": 100,
+        "steps": 100,
+        "T0": 20,
+        "yield": 250000000
+      },
+      "disabled": false
+    },
+    {
+      "id": "warm",
+      "type": "fem.field",
+      "name": "막대 가열",
+      "x": 60,
+      "y": 610,
+      "params": {
+        "physics": "transient",
+        "model": "# Aluminium bar, one end suddenly at 200 °C\ndomain: width = 0.3, height = 0.03, nx = 30, ny = 3\nmaterial: k = 205, rho = 2700, c = 900\nleft: T = 200\nright: convection h = 15, Tinf = 20\nprobe near: 0.05, 0.015\nprobe middle: 0.15, 0.015\nprobe end: 0.3, 0.015",
+        "tEnd": 600,
+        "steps": 120,
+        "T0": 20
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "온도 (°C)",
+        "table": "T"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "von Mises 응력 (Pa)",
+        "table": "von Mises"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 610,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "시간에 따른 온도 (°C)",
+        "table": "history"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "label": "판에 들어간 열",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "heat in (left)",
+        "unit": "W/m"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 580,
+      "y": 470,
+      "params": {
+        "label": "응력 집중 계수",
+        "aggregate": "last",
+        "scale": 2e-8,
+        "source": "von Mises max",
+        "low": 2.5,
+        "high": 3.6
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "heat",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "stress",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "warm",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "heat",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "stress",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

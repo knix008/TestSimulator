@@ -1,0 +1,25 @@
+# Copied from MyHeatManager (engine/heat-core) by scripts/vendor-heat-core.mjs. Do not edit.
+[package]
+name = "heat-core"
+version = "0.1.0"
+edition = "2021"
+description = "MyHeatManager numerical engine: conduction, CHT flow, phase change, thermal stress"
+license = "MIT"
+
+[lib]
+name = "heat_core"
+path = "src/lib.rs"
+
+[features]
+default = ["parallel"]
+# Multithreaded mat-vecs and stress operator (native only; must stay off for wasm32).
+parallel = ["dep:rayon"]
+# Long exploration and timing runs (minutes): compiled only with `cargo test --release --features slow-tests -- --nocapture`,
+# so the normal test run has no ignored (skipped) tests.
+slow-tests = []
+
+[dependencies]
+serde = "1"
+serde_json = "1"
+rayon = { version = "1", optional = true }
+

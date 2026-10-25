@@ -1,0 +1,159 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Nonlinear curve fit",
+  "description": "An exponential cooling model is fitted to measured data by Levenberg–Marquardt, with parameter confidence intervals.",
+  "nodes": [
+    {
+      "id": "f",
+      "type": "source.function",
+      "name": "Cooling curve",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "expression": "T0 = 25 + 60*exp(-t/180)",
+        "variable": "t",
+        "from": 0,
+        "to": 900,
+        "points": 91
+      },
+      "disabled": false
+    },
+    {
+      "id": "e",
+      "type": "source.random",
+      "name": "Noise",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "distribution": "normal",
+        "p1": 0,
+        "p2": 0.8,
+        "p3": 1,
+        "count": 91,
+        "columns": 1,
+        "prefix": "noise",
+        "seed": 2
+      },
+      "disabled": false
+    },
+    {
+      "id": "mg",
+      "type": "data.merge",
+      "name": "Merge tables",
+      "x": 320,
+      "y": 190,
+      "params": {
+        "mode": "columns"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ex",
+      "type": "data.expression",
+      "name": "Measured T",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "expressions": "T = T0 + noise"
+      },
+      "disabled": false
+    },
+    {
+      "id": "fit",
+      "type": "opt.fit",
+      "name": "Model fit",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "model": "Ta + dT*exp(-x/tau)",
+        "parameters": "Ta = 20, dT = 50, tau = 100",
+        "variable": "x",
+        "maxIterations": 200,
+        "x": "t",
+        "y": "T"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 1100,
+      "y": 50,
+      "params": {
+        "chart": "scatter",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Data and fit",
+        "y": "T, fit"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 1100,
+      "y": 330,
+      "params": {
+        "label": "Time constant τ",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "tau",
+        "unit": "s"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "f",
+      "fromPort": "out",
+      "to": "mg",
+      "toPort": "a"
+    },
+    {
+      "id": "l2",
+      "from": "e",
+      "fromPort": "out",
+      "to": "mg",
+      "toPort": "b"
+    },
+    {
+      "id": "l3",
+      "from": "mg",
+      "fromPort": "out",
+      "to": "ex",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "ex",
+      "fromPort": "out",
+      "to": "fit",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "fit",
+      "fromPort": "out",
+      "to": "p",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "fit",
+      "fromPort": "out",
+      "to": "k",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

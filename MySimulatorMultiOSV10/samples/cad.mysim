@@ -1,0 +1,157 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "CAD: 부품 질량 특성",
+  "description": "SolidWorks 형 특징 트리로 만든 부품 두 개(볼트 구멍 8개 플랜지, 스포크 휠)의 부피·질량·무게중심·관성. 특징마다 부피가 어떻게 바뀌는지, 위에서 본 두께 지도, 3D 보기의 표면 점.",
+  "nodes": [
+    {
+      "id": "flange",
+      "type": "cad.part",
+      "name": "플랜지",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "part": "units: mm\nmaterial: steel\nbase disc: cylinder z 0 0 0 12 60\nadd hub: cylinder z 0 0 12 30 30\ncut bore: cylinder z 0 0 -1 50 15\ncut bolts: cylinder z 45 0 -1 14 6, around = 0 0, count = 8\ncut chamfer: cone z 0 0 34 9 15 24",
+        "resolution": 300,
+        "points": 30000
+      },
+      "disabled": false
+    },
+    {
+      "id": "wheel",
+      "type": "cad.part",
+      "name": "스포크 휠",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "part": "units: mm\nmaterial: aluminium\nbase rim: cylinder z 0 0 0 20 100\ncut inside: cylinder z 0 0 -1 22 88\nadd hub: cylinder z 0 0 0 20 20\ncut axle: cylinder z 0 0 -1 22 8\nadd spokes: box 18 -4 4 90 4 16, around = 0 0, count = 5",
+        "resolution": 300,
+        "points": 30000
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "플랜지 두께 (mm)",
+        "table": "thickness"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "특징별 부피 (mm³)",
+        "table": "features",
+        "y": "volume after"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "휠 두께 (mm)",
+        "table": "thickness"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "플랜지 질량",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "mass",
+        "unit": "kg"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "휠 축 관성",
+        "aggregate": "last",
+        "scale": 10000,
+        "source": "Izz",
+        "unit": "kg·cm²"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "flange",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "flange",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "wheel",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "flange",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "wheel",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

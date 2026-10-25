@@ -1,0 +1,30 @@
+[package]
+name = "sim-core"
+version = "0.1.0"
+edition = "2021"
+description = "MySimulator numerical engine: pipeline graph executor with signal processing, dynamics and control, statistics and machine learning, Monte Carlo and optimisation nodes"
+license = "MIT"
+
+[lib]
+name = "sim_core"
+path = "src/lib.rs"
+
+[features]
+default = []
+# Multithreaded heat-core solver (native builds only; off for wasm32).
+parallel = ["heat-core/parallel"]
+
+[dependencies]
+serde_json = "1"
+# MyHeatManager's engine, copied in by scripts/vendor-heat-core.mjs (the MyHeatManager node runs it in-process).
+heat-core = { path = "../heat-core", default-features = false }
+
+# The numerical tests are heavy; keep debug/test builds optimised.
+[profile.dev]
+opt-level = 2
+
+[profile.test]
+opt-level = 2
+
+[profile.release]
+opt-level = 3

@@ -1,0 +1,146 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "주가 경로 시뮬레이션 (GBM)",
+  "description": "기하 브라운 운동으로 1년 주가 경로 2000개를 만들어 분위수 띠, 최종값 분포, VaR 를 봅니다.",
+  "nodes": [
+    {
+      "id": "gbm",
+      "type": "mc.process",
+      "name": "GBM 경로",
+      "x": 60,
+      "y": 190,
+      "params": {
+        "process": "gbm",
+        "x0": 100,
+        "mu": 0.08,
+        "sigma": 0.25,
+        "theta": 1,
+        "jumpRate": 0,
+        "jumpSize": 0,
+        "horizon": 1,
+        "steps": 252,
+        "paths": 2000,
+        "showPaths": 8,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "pp",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "경로와 분위수 띠"
+      },
+      "disabled": false
+    },
+    {
+      "id": "h",
+      "type": "stat.histogram",
+      "name": "히스토그램",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "bins": 50,
+        "table": "final values",
+        "column": "final"
+      },
+      "disabled": false
+    },
+    {
+      "id": "ph",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "bar",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "최종값 분포",
+        "y": "count"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 580,
+      "y": 190,
+      "params": {
+        "label": "VaR 95%",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "VaR 95%"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 190,
+      "params": {
+        "label": "손실 확률",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "P(final < x0)",
+        "unit": "%"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "gbm",
+      "fromPort": "out",
+      "to": "pp",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "gbm",
+      "fromPort": "out",
+      "to": "h",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "h",
+      "fromPort": "out",
+      "to": "ph",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "gbm",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "gbm",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

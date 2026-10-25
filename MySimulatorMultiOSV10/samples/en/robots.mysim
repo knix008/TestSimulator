@@ -1,0 +1,197 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Robots: a mobile robot and an arm",
+  "description": "Two Gazebo/Webots-style robot simulations: a mobile robot that avoids obstacles with its lidar on the way to a goal, and the multibody dynamics of a two-joint arm whose tip draws a circle by inverse kinematics.",
+  "nodes": [
+    {
+      "id": "bot",
+      "type": "robot.mobile",
+      "name": "Obstacle-avoiding robot",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "world": "# Obstacles between the start and the goal\narena: width = 10, height = 8\nbox: 3.5 2 4.5 6\ncircle: 6.5 4.5 0.7\nwall: 7 1 7 3\ngoal: 9 6.5\nrobot: x = 1, y = 2, heading = 0, wmax = 3\nlidar: rays = 31, fov = 240, range = 3, noise = 0.01, clear = 1.2",
+        "controller": "# Steer into the open direction nearest the goal (follow the gap)\nw = clamp(3*gap_angle, -wmax, wmax)\nv = min(0.8, goal_dist) * clamp((nearest - 0.15)/0.6, 0.1, 1) * clamp(1 - abs(gap_angle)/2, 0.2, 1)",
+        "tEnd": 60,
+        "dt": 0.05,
+        "stopAtGoal": true,
+        "seed": 1
+      },
+      "disabled": false
+    },
+    {
+      "id": "arm",
+      "type": "robot.arm",
+      "name": "Arm drawing a circle",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "arm": "link: length = 0.6, mass = 2\nlink: length = 0.5, mass = 1\npayload: mass = 0.5",
+        "mode": "cartesian",
+        "q0": "20, 60",
+        "kp": "400",
+        "kd": "60",
+        "ki": "0",
+        "gravityComp": true,
+        "gravity": 9.81,
+        "damping": 0,
+        "tEnd": 6,
+        "dt": 0.001,
+        "targets": "x = 0.6 + 0.15*cos(2*t)\ny = 0.4 + 0.15*sin(2*t)"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "xy",
+        "logX": false,
+        "logY": false,
+        "equal": true,
+        "span": "2",
+        "title": "Map and path",
+        "table": "map",
+        "y": "walls, path, goals"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Speed and lidar",
+        "table": "trajectory",
+        "y": "v, front"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "xy",
+        "logX": false,
+        "logY": false,
+        "equal": true,
+        "span": "1",
+        "title": "Arm poses",
+        "table": "poses",
+        "y": "arm, tip path"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p4",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 330,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Joint torques (N·m)",
+        "table": "joints",
+        "y": "tau1, tau2"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "Time to goal",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "time to goal",
+        "unit": "s"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "Tip error (rms)",
+        "aggregate": "last",
+        "scale": 1000,
+        "source": "rms tip error",
+        "unit": "mm",
+        "high": 5
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "bot",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "bot",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "arm",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "arm",
+      "fromPort": "out",
+      "to": "p4",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "bot",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "arm",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}
