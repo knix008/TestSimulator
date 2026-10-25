@@ -314,6 +314,31 @@ const SAMPLES = {
     n('k2', 'out.kpi', 3, 1, { label: lang === 'en' ? 'Safety factor' : '안전율', source: 'safety factor', low: 2 });
     l('sink', 'p1'); l('bracket', 'p2'); l('sink', 'k1'); l('bracket', 'k2');
   }),
+  flow: (lang) => build(lang, ['유동 해석 CFD: 공동과 가열 원기둥', 'Flow CFD: a cavity and a heated cylinder'], ['Fluent·COMSOL 형 비압축성 유동 두 가지: 덮개가 미끄러지는 정사각 공동(Re 100, Ghia 1982 벤치마크와 비교되는 중심선 속도), 20 °C 공기가 60 °C 원기둥을 식히는 강제대류(속도·온도 지도, 항력 계수, 원기둥이 내놓는 열).', 'Two Fluent/COMSOL-style incompressible flows: a square cavity with a sliding lid (Re 100, the centre-line velocity of the Ghia 1982 benchmark) and 20 °C air cooling a 60 °C cylinder by forced convection (speed and temperature maps, the drag coefficient and the heat the cylinder gives off).'], (n, l) => {
+    const preset = (id) => ({ ...nodeSpec('cfd.flow').presets.find((p) => p.id === id).params });
+    n('cavity', 'cfd.flow', 0, 0, preset('cavity'), ['덮개 구동 공동', 'Lid-driven cavity']);
+    n('tube', 'cfd.flow', 0, 2, preset('heated'), ['가열 원기둥', 'Heated cylinder']);
+    n('p1', 'out.plot', 1, 0, { title: lang === 'en' ? 'Speed in the cavity (m/s)' : '공동 속 속도 (m/s)', chart: 'heatmap', table: 'speed' });
+    n('p2', 'out.plot', 2, 0, { title: lang === 'en' ? 'u on the vertical centre line (m/s)' : '세로 중심선의 u (m/s)', table: 'vertical centre line', y: 'u' });
+    n('p3', 'out.plot', 1, 2, { title: lang === 'en' ? 'Temperature around the cylinder (°C)' : '원기둥 둘레 온도 (°C)', chart: 'heatmap', table: 'temperature', span: '2' });
+    n('k1', 'out.kpi', 3, 0, { label: lang === 'en' ? 'Reynolds number' : '레이놀즈 수', source: 'Reynolds number' });
+    n('k2', 'out.kpi', 3, 2, { label: lang === 'en' ? 'Heat from the cylinder' : '원기둥 방열', source: 'heat out (tube)', unit: 'W/m' });
+    n('k3', 'out.kpi', 3, 3, { label: lang === 'en' ? 'Drag coefficient' : '항력 계수', source: 'Cd (tube)' });
+    l('cavity', 'p1'); l('cavity', 'p2'); l('tube', 'p3'); l('cavity', 'k1'); l('tube', 'k2'); l('tube', 'k3');
+  }),
+  structures: (lang) => build(lang, ['구조 해석: 골조·트러스·고유진동수', 'Structures: frames, trusses, natural frequencies'], ['SAP2000·Ansys 형 구조 해석 세 가지: 분포 하중과 풍하중을 받는 강철 문형 골조(부재력, 처짐, 좌굴 하중 배수), 워런 트러스 교량(축력과 먼저 좌굴하는 부재), 외팔보의 고유진동수(3D 유한요소 모달, 이론값 약 181 Hz). 골조를 고르고 3D 보기에서 원래·변형 모양을 봅니다.', 'Three SAP2000/Ansys-style structural analyses: a steel portal frame under a distributed and a wind load (member forces, deflection, buckling load factor), a Warren truss bridge (axial forces and the bar that buckles first) and the natural frequencies of a cantilever (3D finite element modal analysis, about 181 Hz in theory). Pick a frame and see its original and deformed shape in the 3D view.'], (n, l) => {
+    const preset = (type, id) => ({ ...nodeSpec(type).presets.find((p) => p.id === id).params });
+    n('portal', 'frame.struct', 0, 0, preset('frame.struct', 'portal'), ['문형 골조', 'Portal frame']);
+    n('truss', 'frame.struct', 0, 2, preset('frame.struct', 'warren'), ['워런 트러스', 'Warren truss']);
+    n('modes', 'fem.solid', 0, 4, preset('fem.solid', 'modal'), ['외팔보 고유진동수', 'Cantilever natural frequencies']);
+    n('p1', 'out.plot', 1, 0, { title: lang === 'en' ? 'Portal: member forces' : '문형 골조: 부재력', chart: 'table', table: 'member forces', span: '2' });
+    n('p2', 'out.plot', 1, 2, { title: lang === 'en' ? 'Truss: axial force (N)' : '트러스: 축력 (N)', chart: 'bar', table: 'member forces', y: 'N', span: '2' });
+    n('p3', 'out.plot', 1, 4, { title: lang === 'en' ? 'Natural frequencies (Hz)' : '고유진동수 (Hz)', chart: 'bar', table: 'modes', y: 'frequency' });
+    n('k1', 'out.kpi', 3, 0, { label: lang === 'en' ? 'Portal buckling factor' : '골조 좌굴 배수', source: 'buckling load factor', low: 3 });
+    n('k2', 'out.kpi', 3, 2, { label: lang === 'en' ? 'Truss safety factor' : '트러스 안전율', source: 'safety factor', low: 2 });
+    n('k3', 'out.kpi', 2, 4, { label: lang === 'en' ? 'First frequency' : '1차 고유진동수', source: 'f1', unit: 'Hz' });
+    l('portal', 'p1'); l('truss', 'p2'); l('modes', 'p3'); l('portal', 'k1'); l('truss', 'k2'); l('modes', 'k3');
+  }),
   physics: (lang) => build(lang, ['3D 물리 엔진: 차량·뉴턴의 요람·상자 탑', '3D physics: a vehicle, Newton\'s cradle, a box tower'], ['Gazebo·Webots 형 강체 물리: 모터 바퀴 네 개로 경사로를 오르는 차량, 에너지를 그대로 전하는 뉴턴의 요람, 쇠공에 무너지는 상자 탑. 노드를 고르고 3D 보기에서 ▶ 재생을 누르면 장면이 움직입니다.', 'Gazebo/Webots-style rigid-body physics: a vehicle climbing a ramp on four motor-driven wheels, Newton\'s cradle passing its energy along, and a box tower knocked down by a heavy ball. Pick a node and press ▶ Play in the 3D view to watch the scene.'], (n, l) => {
     const preset = (id) => ({ ...nodeSpec('physics.rigid').presets.find((p) => p.id === id).params });
     n('car', 'physics.rigid', 0, 0, preset('car'), ['모터 바퀴 차량', 'Motor-driven vehicle']);
@@ -382,7 +407,7 @@ SAMPLES.epidemic = (lang) => build(lang, ['감염병 SIR 과 전파율 스윕', 
 });
 
 /** Sample ids in gallery order. */
-const ORDER = ['blockDiagram', 'circuits', 'mycircuit', 'logic', 'fem', 'solid', 'cad', 'physics', 'robots', 'factory', 'heatStudy', 'audio'];
+const ORDER = ['blockDiagram', 'circuits', 'mycircuit', 'logic', 'fem', 'solid', 'flow', 'structures', 'cad', 'physics', 'robots', 'factory', 'heatStudy', 'audio'];
 export const SAMPLE_IDS = [...ORDER.filter((id) => SAMPLES[id]), ...Object.keys(SAMPLES).filter((id) => !ORDER.includes(id))];
 
 /** Tags per sample (shown on the cards; "desktop" = needs the desktop app). */
@@ -390,7 +415,7 @@ export const SAMPLE_TAGS = {
   signalCleanup: ['signal'], chirpSpectrogram: ['signal'], vibration: ['dynamics', 'signal'], lorenz: ['dynamics'],
   pidControl: ['control'], pidSweep: ['control', 'sweep'], stateSpace: ['control'], regression: ['statistics'],
   clustering: ['ml'], neuralRegression: ['ml'], classification: ['ml'], tolerance: ['montecarlo'], finance: ['montecarlo'],
-  optimization: ['optimization'], curveFit: ['optimization'], blockDiagram: ['control', 'dynamics'], factory: ['process'], circuits: ['circuit'], logic: ['circuit'], fem: ['physics'], robots: ['robotics'], cad: ['cad'], solid: ['physics', 'cad'], physics: ['robotics'], heatStudy: ['physics', 'integration'], mycircuit: ['circuit', 'integration'], audio: ['signal'], epidemic: ['dynamics', 'sweep'], python: ['integration', 'desktop'],
+  optimization: ['optimization'], curveFit: ['optimization'], blockDiagram: ['control', 'dynamics'], factory: ['process'], circuits: ['circuit'], logic: ['circuit'], fem: ['physics'], robots: ['robotics'], cad: ['cad'], solid: ['physics', 'cad'], flow: ['physics'], structures: ['physics'], physics: ['robotics'], heatStudy: ['physics', 'integration'], mycircuit: ['circuit', 'integration'], audio: ['signal'], epidemic: ['dynamics', 'sweep'], python: ['integration', 'desktop'],
 };
 
 export function sampleModel(id, lang = 'ko') {

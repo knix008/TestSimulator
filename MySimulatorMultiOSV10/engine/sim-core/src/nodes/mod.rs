@@ -7,10 +7,12 @@ use crate::Ctx;
 
 pub mod blocks;
 pub mod cad;
+pub mod cfd;
 pub mod des;
 pub mod dynamics;
 pub mod fem;
 pub mod fem3d;
+pub mod frame;
 pub mod logic;
 pub mod mcu;
 pub mod io;
@@ -72,6 +74,8 @@ pub static SPECS: &[Spec] = &[
     Spec { kind: "circuit.logic", inputs: IN, required: NONE, run: logic::simulate },
     Spec { kind: "fem.field", inputs: NONE, required: NONE, run: fem::simulate },
     Spec { kind: "fem.solid", inputs: NONE, required: NONE, run: fem3d::simulate },
+    Spec { kind: "cfd.flow", inputs: NONE, required: NONE, run: cfd::simulate },
+    Spec { kind: "frame.struct", inputs: NONE, required: NONE, run: frame::simulate },
     Spec { kind: "robot.mobile", inputs: NONE, required: NONE, run: robot::mobile },
     Spec { kind: "robot.arm", inputs: NONE, required: NONE, run: robot::arm },
     Spec { kind: "physics.rigid", inputs: NONE, required: NONE, run: physics::simulate },

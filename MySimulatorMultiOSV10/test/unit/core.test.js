@@ -25,7 +25,7 @@ test('the catalogue lists exactly the engine\'s node types', () => {
   const engineKinds = [...rust.matchAll(/Spec \{ kind: "([^"]+)"/g)].map((m) => m[1]).sort();
   const ui = NODES.map((n) => n.type).sort();
   assert.deepEqual(ui, engineKinds);
-  assert.equal(ui.length, 52);
+  assert.equal(ui.length, 54);
   // The engine's input ports match the catalogue's.
   for (const m of rust.matchAll(/Spec \{ kind: "([^"]+)", inputs: ([A-Z]+|&\[[^\]]*\])/g)) {
     const ports = m[2] === 'IN' ? ['in'] : m[2] === 'NONE' ? [] : m[2] === 'AB' ? ['a', 'b'] : [...m[2].matchAll(/"([a-z]+)"/g)].map((x) => x[1]);

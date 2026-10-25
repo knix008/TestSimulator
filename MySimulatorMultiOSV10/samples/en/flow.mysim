@@ -1,0 +1,180 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "Flow CFD: a cavity and a heated cylinder",
+  "description": "Two Fluent/COMSOL-style incompressible flows: a square cavity with a sliding lid (Re 100, the centre-line velocity of the Ghia 1982 benchmark) and 20 °C air cooling a 60 °C cylinder by forced convection (speed and temperature maps, the drag coefficient and the heat the cylinder gives off).",
+  "nodes": [
+    {
+      "id": "cavity",
+      "type": "cfd.flow",
+      "name": "Lid-driven cavity",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "model": "# The classic benchmark (Ghia 1982): a square box with a sliding lid\ndomain: width = 1, height = 1, nx = 48, ny = 48\nfluid: rho = 1, nu = 0.01\ntop: wall, u = 1",
+        "tEnd": 40,
+        "steady": 0.00001,
+        "cfl": 0.5
+      },
+      "disabled": false
+    },
+    {
+      "id": "tube",
+      "type": "cfd.flow",
+      "name": "Heated cylinder",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "model": "# Air at 20 °C cools a 60 °C cylinder in a channel\ndomain: width = 0.6, height = 0.2, nx = 96, ny = 32\nfluid: rho = 1.2, mu = 1.8e-5, k = 0.026, cp = 1005\nleft: inlet, u = 0.05, T = 20\nright: outlet\nobstacle tube: circle 0.15 0.1 0.02, T = 60",
+        "tEnd": 30,
+        "steady": 0,
+        "cfl": 0.5,
+        "T0": 20
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "Speed in the cavity (m/s)",
+        "table": "speed"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "u on the vertical centre line (m/s)",
+        "table": "vertical centre line",
+        "y": "u"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "Chart",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "Temperature around the cylinder (°C)",
+        "table": "temperature"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "Reynolds number",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "Reynolds number"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "Heat from the cylinder",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "heat out (tube)",
+        "unit": "W/m"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k3",
+      "type": "out.kpi",
+      "name": "KPI value",
+      "x": 840,
+      "y": 470,
+      "params": {
+        "label": "Drag coefficient",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "Cd (tube)"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "cavity",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "cavity",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "tube",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "cavity",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "tube",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "tube",
+      "fromPort": "out",
+      "to": "k3",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

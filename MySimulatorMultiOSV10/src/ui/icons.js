@@ -1,7 +1,7 @@
 // Command icons that need a drawing rather than a character: the 3D view is a
 // shaded cube (three faces, lit from the top left), drawn in currentColor so it
 // follows the theme, the hover and the "on" state like the text icons.
-import { svg } from './dom.js';
+import { svg, h } from './dom.js';
 import { commandIcon } from '../core/commands.js';
 
 const DRAWN = {
@@ -30,5 +30,8 @@ const DRAWN = {
 
 /** The icon of a command: a drawn one where there is, else its character. */
 export function iconOf(id) {
-  return DRAWN[id] ? DRAWN[id]() : commandIcon(id);
+  if (DRAWN[id]) return DRAWN[id]();
+  // Undo and redo arrows are shown upside down (the arrow curls over the top).
+  if (id === 'undo' || id === 'redo') return h('span', { className: 'flip-v' }, commandIcon(id));
+  return commandIcon(id);
 }

@@ -456,7 +456,7 @@ fn encoded_bytes_round_trip_the_header() {
 fn every_catalogue_type_is_known() {
     // The frontend catalogue (src/core/catalog.js) must list exactly these.
     let kinds: Vec<&str> = sim_core::nodes::SPECS.iter().map(|s| s.kind).collect();
-    assert_eq!(kinds.len(), 52);
+    assert_eq!(kinds.len(), 54);
     let mut sorted = kinds.clone();
     sorted.sort();
     sorted.dedup();
@@ -1148,4 +1148,87 @@ fn microcontroller_firmware_drives_the_logic() {
     assert!(scalar(&r, "count", "u2 instructions") > 90.0);
     let bad = r.node("bad").unwrap().error.clone().unwrap_or_default();
     assert!(bad.contains("unknown instruction"), "{bad}");
+}
+
+#[test]
+fn flow_matches_benchmarks() {
+    let r = run(json!({
+        "nodes": [
+            // Lid-driven cavity, Re = 100: Ghia et al. (1982) give min u = −0.2109 on the vertical centre line.
+            node("cavity", "cfd.flow", json!({ "model": "domain: width = 1, height = 1, nx = 48, ny = 48\nfluid: rho = 1, nu = 0.01\ntop: wall, u = 1", "tEnd": 40, "steady": 1e-5 })),
+            // A channel at Re = 10: the developed profile is parabolic (centre 1.5 U) with dp/dx = −12 μ U / H².
+            node("channel", "cfd.flow", json!({ "model": "domain: width = 6, height = 1, nx = 90, ny = 20\nfluid: rho = 1, nu = 0.1\nleft: inlet, u = 1\nright: outlet", "tEnd": 40, "steady": 1e-6 })),
+            // A square cavity heated from the left, Ra = 10³, Pr = 0.71: de Vahl Davis (1983) Nu = 1.118.
+            node("natural", "cfd.flow", json!({ "model": "domain: width = 1, height = 1, nx = 32, ny = 32\nfluid: rho = 1, nu = 0.026646, alpha = 0.037530, cp = 1, beta = 1, tref = 0.5\ngravity: 0 -1\nleft: wall, T = 1\nright: wall, T = 0", "tEnd": 80, "steady": 1e-6 })),
+        ],
+        "links": [],
+    }));
+    let vl = data(&r, "cavity").tables.iter().find(|t| t.name == "vertical centre line").unwrap();
+    let umin = vl.column("u").unwrap().values.iter().cloned().fold(f64::INFINITY, f64::min);
+    assert!((umin + 0.2109).abs() < 0.015, "cavity min u {umin}");
+    assert_eq!(scalar(&r, "cavity", "steady"), 1.0);
+    let hl = data(&r, "channel").tables.iter().find(|t| t.name == "horizontal centre line").unwrap();
+    let x = &hl.x_column().unwrap().values;
+    let uc = &hl.column("u").unwrap().values;
+    let pc = &hl.column("p").unwrap().values;
+    let k = x.iter().position(|v| *v > 5.0).unwrap();
+    assert!((uc[k] - 1.5).abs() < 0.04, "channel centre u {}", uc[k]);
+    let k4 = x.iter().position(|v| *v > 4.0).unwrap();
+    let grad = (pc[k] - pc[k4]) / (x[k] - x[k4]);
+    assert!((grad + 1.2).abs() < 0.06, "dp/dx {grad}");
+    assert!((scalar(&r, "channel", "flow in (left)") - scalar(&r, "channel", "flow in (right)") * -1.0).abs() < 0.01);
+    let nu = scalar(&r, "natural", "Nusselt (left)");
+    assert!((nu - 1.118).abs() < 0.06, "Nusselt {nu}");
+    assert!((scalar(&r, "natural", "Rayleigh number") - 1000.0).abs() < 1.0);
+}
+
+#[test]
+fn modal_analysis_matches_beam_theory() {
+    // A steel cantilever 1 m × 0.1 × 0.1: f₁ = (1.8751² / 2π) √(EI / ρA L⁴) ≈ 81.5 Hz, twice (square section).
+    let r = run(json!({ "nodes": [node("m", "fem.solid", json!({ "physics": "modal", "modes": 3, "part": "units: m\nmaterial: E = 200e9, nu = 0.3, density = 7850\nbase: box 0 0 0 1 0.1 0.1\nmesh: n = 40\nfix: x-" }))], "links": [] }));
+    let i = 0.1f64.powi(4) / 12.0;
+    let f1 = 1.8751f64.powi(2) / (2.0 * std::f64::consts::PI) * (200e9 * i / (7850.0 * 0.01)).sqrt();
+    for k in ["f1", "f2"] {
+        let f = scalar(&r, "m", k);
+        assert!((f - f1).abs() / f1 < 0.04, "{k} = {f} vs {f1}");
+    }
+    // The third: the second bending pair is far higher, a torsion mode lies between.
+    assert!(scalar(&r, "m", "f3") > 1.5 * f1);
+}
+
+#[test]
+fn frame_matches_beam_theory() {
+    // A steel cantilever 2 m, rect 0.05 × 0.1, tip load 1 kN down: δ = P L³ / 3 E I.
+    let model = "material: E = 200e9, nu = 0.3, density = 0, yield = 250e6\nsection s: rect b = 0.05, h = 0.1\nnode a: 0 0 0\nnode b: 2 0 0\nbeam c: a b, section = s\nsupport a: fixed\nload b: 0 0 -1000";
+    let r = run(json!({ "nodes": [node("f", "frame.struct", json!({ "frame": model }))], "links": [] }));
+    let i = 0.05 * 0.1f64.powi(3) / 12.0;
+    let exact = 1000.0 * 8.0 / (3.0 * 200e9 * i);
+    let uz = scalar(&r, "f", "uz(b)");
+    assert!((uz + exact).abs() / exact < 1e-6, "uz = {uz} vs {exact}");
+    // Root moment P L over the section modulus.
+    let s = scalar(&r, "f", "stress max");
+    assert!((s - 2000.0 * 0.05 / i).abs() / s < 1e-6, "stress {s}");
+
+    // Euler: a cantilever column, P_cr = π² E I / (4 L²); the load factor for a 1 kN push.
+    let col = "material: E = 200e9, nu = 0.3, density = 0\nsection s: pipe d = 0.1, t = 0.005\nnode a: 0 0 0\nnode b: 0 0 3\nbeam c: a b, section = s\nsupport a: fixed\nload b: 0 0 -1000";
+    let r = run(json!({ "nodes": [node("f", "frame.struct", json!({ "frame": col }))], "links": [] }));
+    let ip = std::f64::consts::PI / 64.0 * (0.1f64.powi(4) - 0.09f64.powi(4));
+    let pcr = std::f64::consts::PI.powi(2) * 200e9 * ip / (4.0 * 9.0);
+    let lf = scalar(&r, "f", "buckling load factor");
+    assert!((lf * 1000.0 - pcr).abs() / pcr < 0.01, "λ = {lf} vs {}", pcr / 1000.0);
+
+    // A two-bar truss (45°): each bar carries P / √2, the apex drops by P L / (E A) · √2 … checked by statics.
+    let truss = "material: steel\nsection s: custom A = 1e-4, Iy = 1e-8\nnode l: -1 0 0\nnode r: 1 0 0\nnode t: 0 0 1\ntruss a: l t, section = s\ntruss b: r t, section = s\nsupport l: pinned\nsupport r: pinned\nsupport t: dofs = uy\nload t: 0 0 -10000";
+    let r = run(json!({ "nodes": [node("f", "frame.struct", json!({ "frame": truss }))], "links": [] }));
+    let force = 10000.0 / 2f64.sqrt();
+    let l = 2f64.sqrt();
+    // Bar shortening P L / E A along 45° → vertical drop = shortening · √2.
+    let drop = force * l / (200e9 * 1e-4) * 2f64.sqrt();
+    let uz = scalar(&r, "f", "uz(t)");
+    assert!((uz + drop).abs() / drop < 1e-6, "truss uz {uz} vs {drop}");
+    assert!((scalar(&r, "f", "stress max") - force / 1e-4).abs() < 1.0);
+    // Both bars are pushed: each buckles on its own at π² E I / L².
+    let bar = std::f64::consts::PI.powi(2) * 200e9 * 1e-8 / (l * l * force);
+    let lf = scalar(&r, "f", "buckling load factor");
+    assert!((lf - bar).abs() / bar < 1e-9, "bar λ = {lf} vs {bar}");
 }

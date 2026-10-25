@@ -151,20 +151,33 @@ export class Plot3D {
     const table = lut(data.colormap ?? 'turbo', 0);
     const cvals = data.color;
     const cr = cvals ? range(cvals) : null;
+    // Lines are drawn as segments between neighbouring points, so a missing value (NaN) breaks the line.
+    const points = data.mode === 'points';
+    let last = null;
     for (let i = 0; i < n; i += step) {
       const x = data.x[i]; const y = data.y[i]; const z = data.z[i];
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
-      pos.push(nx(x), nz(z), -ny(y));
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) { last = null; continue; }
       const t = cvals ? (cvals[i] - cr[0]) / (cr[1] - cr[0]) : i / Math.max(1, n - 1);
-      const k = Math.max(0, Math.min(255, Math.round(t * 255)));
-      col.push(table[k * 3] / 255, table[k * 3 + 1] / 255, table[k * 3 + 2] / 255);
+      const k = Math.max(0, Math.min(255, Math.round((Number.isFinite(t) ? t : 0) * 255)));
+      const p = [nx(x), nz(z), -ny(y)];
+      const c = [table[k * 3] / 255, table[k * 3 + 1] / 255, table[k * 3 + 2] / 255];
+      if (points) {
+        pos.push(...p);
+        col.push(...c);
+      } else {
+        if (last) {
+          pos.push(...last.p, ...p);
+          col.push(...last.c, ...c);
+        }
+        last = { p, c };
+      }
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    const obj = data.mode === 'points'
+    const obj = points
       ? new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.025, vertexColors: true }))
-      : new THREE.Line(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
+      : new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
     this.group.add(obj);
     // The box and the axes.
     const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2, 2, 2)), new THREE.LineBasicMaterial({ color: lineColor, transparent: true, opacity: 0.45 }));

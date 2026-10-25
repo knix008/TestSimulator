@@ -23,7 +23,7 @@
 use super::cad::Geometry;
 use super::fem::Csr;
 use crate::data::{Column, Dataset, Grid, Table};
-use crate::linalg::inverse;
+use crate::linalg::{inverse, sym_eigen};
 use crate::Ctx;
 
 #[derive(Clone, Debug)]
@@ -271,7 +271,9 @@ pub fn simulate(ctx: &mut Ctx) -> Result<Dataset, String> {
             }
         }
     }
-    let heat = ctx.str("physics", "elasticity") == "heat";
+    let physics = ctx.str("physics", "elasticity");
+    let heat = physics == "heat";
+    let modal = physics == "modal";
     let b = geo.bounds()?;
     let size = [b[3] - b[0], b[4] - b[1], b[5] - b[2]];
     let longest = size.iter().cloned().fold(0.0, f64::max);
@@ -467,13 +469,28 @@ pub fn simulate(ctx: &mut Ctx) -> Result<Dataset, String> {
             }
         }
     }
-    // Equation numbers.
+    // Equation numbers: nodes taken with the shortest axis fastest, so the matrix is a narrow band.
     let mut eq = vec![usize::MAX; ndof];
     let mut neq = 0;
-    for dof in 0..ndof {
-        if used[dof / dofs_per] && fixed[dof].is_none() {
-            eq[dof] = neq;
-            neq += 1;
+    let g = [gx, gy, nz + 1];
+    let mut axes = [0usize, 1, 2];
+    axes.sort_by_key(|&a| g[a]);
+    for c2 in 0..g[axes[2]] {
+        for c1 in 0..g[axes[1]] {
+            for c0 in 0..g[axes[0]] {
+                let mut ijk = [0usize; 3];
+                ijk[axes[0]] = c0;
+                ijk[axes[1]] = c1;
+                ijk[axes[2]] = c2;
+                let v = nid(ijk[0], ijk[1], ijk[2]);
+                for kk in 0..dofs_per {
+                    let dof = v * dofs_per + kk;
+                    if used[v] && fixed[dof].is_none() {
+                        eq[dof] = neq;
+                        neq += 1;
+                    }
+                }
+            }
         }
     }
     // The element matrix (the same for every cell of the structured mesh).
@@ -533,9 +550,40 @@ pub fn simulate(ctx: &mut Ctx) -> Result<Dataset, String> {
         }
     }
     ctx.report(0.3, "solving");
-    let k = Csr::from(neq, trip);
+    let k = Solver::new(neq, trip)?;
     let mut x = vec![0.0; neq];
-    let iterations = k.solve(&rhs, &mut x, ctx)?;
+    let iterations;
+    let mut mode_rows: Vec<(f64, f64)> = Vec::new();
+    if modal {
+        // Lumped mass: each cell's mass shared by its eight corners.
+        let mut mass = vec![0.0; neq];
+        for &c in &cells {
+            for v in cell_nodes(c) {
+                for kk in 0..3 {
+                    let dof = 3 * v + kk;
+                    if eq[dof] != usize::MAX {
+                        mass[eq[dof]] += geo.density * vol_cell / 8.0;
+                    }
+                }
+            }
+        }
+        let count = ctx.count("modes", 6, 1, 30)?;
+        let (lams, shapes, its) = subspace(&k, &mass, count, ctx)?;
+        iterations = its;
+        let which = ctx.count("mode", 1, 1, count as i64)? - 1;
+        x = shapes[which].clone();
+        // Normalised so the largest displacement is 1 (the shape, not a size).
+        let big = x.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+        if big > 0.0 {
+            x.iter_mut().for_each(|v| *v /= big);
+        }
+        for (i, l) in lams.iter().enumerate() {
+            let f = l.max(0.0).sqrt() / (2.0 * std::f64::consts::PI);
+            mode_rows.push(((i + 1) as f64, f));
+        }
+    } else {
+        iterations = k.solve(&rhs, &mut x, ctx)?;
+    }
     let mut u = vec![0.0; ndof];
     for dof in 0..ndof {
         u[dof] = if eq[dof] != usize::MAX { x[eq[dof]] } else { fixed[dof].unwrap_or(0.0) };
@@ -595,8 +643,11 @@ pub fn simulate(ctx: &mut Ctx) -> Result<Dataset, String> {
             ncnt[v] += 1.0;
         }
     }
-    let node_val: Vec<f64> = (0..nn).map(|v| if heat { u[v] } else if ncnt[v] > 0.0 { nsum[v] / ncnt[v] } else { f64::NAN }).collect();
-    let (field, unit) = if heat { ("T", "°C") } else { ("von Mises", "Pa") };
+    // A mode shape is shown by how far each point moves (its size is arbitrary).
+    let node_val: Vec<f64> = (0..nn)
+        .map(|v| if heat { u[v] } else if modal { (u[3 * v].powi(2) + u[3 * v + 1].powi(2) + u[3 * v + 2].powi(2)).sqrt() } else if ncnt[v] > 0.0 { nsum[v] / ncnt[v] } else { f64::NAN })
+        .collect();
+    let (field, unit) = if heat { ("T", "°C") } else if modal { ("mode shape", "") } else { ("von Mises", "Pa") };
     let used_nodes: Vec<usize> = (0..nn).filter(|&v| used[v]).collect();
     let umag = |v: usize| if heat { 0.0 } else { (u[3 * v].powi(2) + u[3 * v + 1].powi(2) + u[3 * v + 2].powi(2)).sqrt() };
     let umax = used_nodes.iter().map(|&v| umag(v)).fold(0.0, f64::max);
@@ -664,7 +715,8 @@ pub fn simulate(ctx: &mut Ctx) -> Result<Dataset, String> {
         if !conv_faces.is_empty() {
             d.scalar("heat in (convection)", qc, "W");
         }
-    } else {
+    } else if !modal {
+        // (A mode shape has no size: its stresses and reactions mean nothing.)
         d.scalar("displacement max", umax, "m");
         let (_, hi) = finite(&mut cells.iter().map(|&c| cell_val[c]));
         d.scalar("von Mises max", hi, "Pa");
@@ -697,8 +749,176 @@ pub fn simulate(ctx: &mut Ctx) -> Result<Dataset, String> {
             }
         }
     }
+    if modal {
+        let mut mt = Table::new("modes");
+        mt.push(Column::new("mode", "", mode_rows.iter().map(|r| r.0).collect()));
+        mt.push(Column::new("frequency", "Hz", mode_rows.iter().map(|r| r.1).collect()));
+        for (i, r) in mode_rows.iter().enumerate() {
+            d.scalar(&format!("f{}", i + 1), r.1, "Hz");
+        }
+        d.tables.push(mt);
+        d.text = format!("mode {} shape (largest displacement scaled to 1)", ctx.int("mode", 1)?);
+    }
     d.scalar("cells", cells.len() as f64, "");
     d.scalar("nodes", used_nodes.len() as f64, "");
     d.scalar("iterations", iterations as f64, "");
     Ok(d)
+}
+
+/// The lowest `count` eigenpairs of K φ = λ M φ (M diagonal) by subspace iteration with
+/// Rayleigh–Ritz: λ ascending, φ mass-normalised.
+fn subspace(k: &Solver, m: &[f64], count: usize, ctx: &Ctx) -> Result<(Vec<f64>, Vec<Vec<f64>>, usize), String> {
+    let n = m.len();
+    let q = (2 * count).min(count + 8).min(n);
+    if q == 0 {
+        return Err("nothing moves (every node is fixed)".into());
+    }
+    // Start vectors: mass-weighted and varied (a fixed pattern, so runs repeat).
+    let mut x: Vec<Vec<f64>> = (0..q).map(|j| (0..n).map(|i| m[i] * (1.0 + (((i * 7919 + j * 104_729) % 1000) as f64 / 1000.0 - 0.5) * if j == 0 { 0.2 } else { 2.0 })).collect()).collect();
+    let mut y: Vec<Vec<f64>> = vec![vec![0.0; n]; q];
+    let mut lam_old = vec![0.0; q];
+    let mut its = 0;
+    for it in 0..80 {
+        its = it + 1;
+        for j in 0..q {
+            let rhs: Vec<f64> = (0..n).map(|i| m[i] * x[j][i]).collect();
+            k.solve(&rhs, &mut y[j], ctx)?;
+        }
+        // Projected matrices: K Y = M X, so Yᵀ K Y = Yᵀ M X.
+        let mut kr = vec![vec![0.0; q]; q];
+        let mut mr = vec![vec![0.0; q]; q];
+        for a in 0..q {
+            for b in a..q {
+                let kv: f64 = (0..n).map(|i| y[a][i] * m[i] * x[b][i]).sum();
+                let kv2: f64 = (0..n).map(|i| y[b][i] * m[i] * x[a][i]).sum();
+                let mv: f64 = (0..n).map(|i| y[a][i] * m[i] * y[b][i]).sum();
+                kr[a][b] = 0.5 * (kv + kv2);
+                kr[b][a] = kr[a][b];
+                mr[a][b] = mv;
+                mr[b][a] = mv;
+            }
+        }
+        // Cholesky Mr = L Lᵀ, then the standard problem L⁻¹ Kr L⁻ᵀ z = λ z.
+        let mut l = vec![vec![0.0; q]; q];
+        for i in 0..q {
+            for j in 0..=i {
+                let s: f64 = mr[i][j] - (0..j).map(|p| l[i][p] * l[j][p]).sum::<f64>();
+                if i == j {
+                    if s <= 0.0 {
+                        return Err("the modal subspace lost rank (fewer modes?)".into());
+                    }
+                    l[i][i] = s.sqrt();
+                } else {
+                    l[i][j] = s / l[j][j];
+                }
+            }
+        }
+        // W = L⁻¹ Kr (forward substitution per column), A = W L⁻ᵀ = L⁻¹ (L⁻¹ Kr)ᵀ.
+        let fwd = |b: &Vec<f64>| -> Vec<f64> {
+            let mut z = vec![0.0; q];
+            for i in 0..q {
+                z[i] = (b[i] - (0..i).map(|p| l[i][p] * z[p]).sum::<f64>()) / l[i][i];
+            }
+            z
+        };
+        let w: Vec<Vec<f64>> = (0..q).map(|c| fwd(&(0..q).map(|r| kr[r][c]).collect())).collect(); // columns of L⁻¹ Kr
+        let wt: Vec<Vec<f64>> = (0..q).map(|r| (0..q).map(|c| w[c][r]).collect()).collect(); // rows
+        let a_cols: Vec<Vec<f64>> = (0..q).map(|c| fwd(&(0..q).map(|r| wt[c][r]).collect())).collect();
+        let a: Vec<Vec<f64>> = (0..q).map(|r| (0..q).map(|c| 0.5 * (a_cols[c][r] + a_cols[r][c])).collect()).collect();
+        let (vals, vecs) = sym_eigen(&a);
+        let mut order: Vec<usize> = (0..q).collect();
+        order.sort_by(|&i, &j| vals[i].partial_cmp(&vals[j]).unwrap());
+        // Back to the subspace coefficients: c = L⁻ᵀ z.
+        let back = |z: Vec<f64>| -> Vec<f64> {
+            let mut c = vec![0.0; q];
+            for i in (0..q).rev() {
+                c[i] = (z[i] - (i + 1..q).map(|p| l[p][i] * c[p]).sum::<f64>()) / l[i][i];
+            }
+            c
+        };
+        let lam: Vec<f64> = order.iter().map(|&i| vals[i]).collect();
+        x = order
+            .iter()
+            .map(|&i| {
+                let c = back((0..q).map(|r| vecs[r][i]).collect());
+                (0..n).map(|e| (0..q).map(|p| c[p] * y[p][e]).sum()).collect()
+            })
+            .collect();
+        let done = (0..count).all(|i| (lam[i] - lam_old[i]).abs() <= 1e-9 * lam[i].abs().max(1e-30));
+        lam_old = lam;
+
+        ctx.check()?;
+        if done && it > 1 {
+            break;
+        }
+    }
+    Ok((lam_old[..count].to_vec(), x[..count].to_vec(), its))
+}
+
+/// A symmetric positive definite system: a banded Cholesky factor when the band fits in memory
+/// (exact, and every further solve is two cheap substitutions), else conjugate gradients.
+enum Solver {
+    Band { n: usize, bw: usize, l: Vec<f64> },
+    Cg(Csr),
+}
+
+impl Solver {
+    fn new(n: usize, trip: Vec<(usize, usize, f64)>) -> Result<Solver, String> {
+        let bw = trip.iter().map(|&(i, j, _)| i.abs_diff(j)).max().unwrap_or(0);
+        if n == 0 || (bw + 1) * n > 30_000_000 {
+            return Ok(Solver::Cg(Csr::from(n, trip)));
+        }
+        // Lower band: row i keeps columns i − bw … i at l[i·(bw+1) + (j − i + bw)].
+        let w = bw + 1;
+        let mut l = vec![0.0; n * w];
+        for (i, j, v) in trip {
+            if j <= i {
+                l[i * w + (j + bw - i)] += v;
+            }
+        }
+        for i in 0..n {
+            let lo = i.saturating_sub(bw);
+            for j in lo..=i {
+                let start = lo.max(j.saturating_sub(bw));
+                let mut sum = l[i * w + (j + bw - i)];
+                for k in start..j {
+                    sum -= l[i * w + (k + bw - i)] * l[j * w + (k + bw - j)];
+                }
+                if i == j {
+                    if sum <= 0.0 {
+                        return Err("the system is singular (is the part held? a field needs a fixed value)".into());
+                    }
+                    l[i * w + bw] = sum.sqrt();
+                } else {
+                    l[i * w + (j + bw - i)] = sum / l[j * w + bw];
+                }
+            }
+        }
+        Ok(Solver::Band { n, bw, l })
+    }
+
+    /// Solves into x (the start value is used by conjugate gradients); returns iterations (0 when direct).
+    fn solve(&self, b: &[f64], x: &mut [f64], ctx: &Ctx) -> Result<usize, String> {
+        match self {
+            Solver::Cg(k) => k.solve(b, x, ctx),
+            Solver::Band { n, bw, l } => {
+                let (n, bw, w) = (*n, *bw, bw + 1);
+                for i in 0..n {
+                    let mut s = b[i];
+                    for k in i.saturating_sub(bw)..i {
+                        s -= l[i * w + (k + bw - i)] * x[k];
+                    }
+                    x[i] = s / l[i * w + bw];
+                }
+                for i in (0..n).rev() {
+                    let mut s = x[i];
+                    for k in i + 1..(i + bw + 1).min(n) {
+                        s -= l[k * w + (i + bw - k)] * x[k];
+                    }
+                    x[i] = s / l[i * w + bw];
+                }
+                Ok(0)
+            }
+        }
+    }
 }

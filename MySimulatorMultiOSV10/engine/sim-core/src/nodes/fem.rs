@@ -489,26 +489,60 @@ impl Csr {
 
     /// Preconditioned conjugate gradients; returns the iterations used.
     pub(crate) fn solve(&self, b: &[f64], x: &mut [f64], ctx: &Ctx) -> Result<usize, String> {
+        self.solve_to(b, x, ctx, 1e-11)
+    }
+
+    /// z = M⁻¹ r for the symmetric Gauss–Seidel (SSOR, ω = 1) preconditioner M = (D + L) D⁻¹ (D + U).
+    fn ssor(&self, d: &[f64], r: &[f64], z: &mut [f64]) {
+        let n = self.n;
+        for i in 0..n {
+            let mut s = r[i];
+            for k in self.ptr[i]..self.ptr[i + 1] {
+                let c = self.col[k];
+                if c < i {
+                    s -= self.val[k] * z[c];
+                }
+            }
+            z[i] = s / d[i];
+        }
+        for i in 0..n {
+            z[i] *= d[i];
+        }
+        for i in (0..n).rev() {
+            let mut s = z[i];
+            for k in self.ptr[i]..self.ptr[i + 1] {
+                let c = self.col[k];
+                if c > i {
+                    s -= self.val[k] * z[c];
+                }
+            }
+            z[i] = s / d[i];
+        }
+    }
+
+    /// Conjugate gradients (SSOR-preconditioned) to a relative residual `tol`; time steps
+    /// start from the last solution.
+    pub(crate) fn solve_to(&self, b: &[f64], x: &mut [f64], ctx: &Ctx, tol: f64) -> Result<usize, String> {
         let n = self.n;
         if n == 0 {
             return Ok(0);
         }
-        let d = self.diag();
-        let inv: Vec<f64> = d.iter().map(|v| if v.abs() > 0.0 { 1.0 / v } else { 1.0 }).collect();
+        let d: Vec<f64> = self.diag().iter().map(|v| if v.abs() > 0.0 { *v } else { 1.0 }).collect();
         let mut r = vec![0.0; n];
         self.mul(x, &mut r);
         for i in 0..n {
             r[i] = b[i] - r[i];
         }
         let bnorm = b.iter().map(|v| v * v).sum::<f64>().sqrt().max(1e-300);
-        let mut z: Vec<f64> = (0..n).map(|i| r[i] * inv[i]).collect();
+        let mut z = vec![0.0; n];
+        self.ssor(&d, &r, &mut z);
         let mut p = z.clone();
         let mut rz: f64 = (0..n).map(|i| r[i] * z[i]).sum();
         let mut ap = vec![0.0; n];
         let max = 20 * n + 1000;
         for it in 0..max {
             let rn = r.iter().map(|v| v * v).sum::<f64>().sqrt();
-            if rn <= 1e-11 * bnorm {
+            if rn <= tol * bnorm {
                 return Ok(it);
             }
             if it % 200 == 0 {
@@ -523,8 +557,8 @@ impl Csr {
             for i in 0..n {
                 x[i] += a * p[i];
                 r[i] -= a * ap[i];
-                z[i] = r[i] * inv[i];
             }
+            self.ssor(&d, &r, &mut z);
             let rz2: f64 = (0..n).map(|i| r[i] * z[i]).sum();
             let beta = rz2 / rz;
             rz = rz2;

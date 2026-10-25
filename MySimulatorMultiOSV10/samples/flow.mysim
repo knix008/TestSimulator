@@ -1,0 +1,180 @@
+{
+  "format": "mysim",
+  "version": 1,
+  "name": "유동 해석 CFD: 공동과 가열 원기둥",
+  "description": "Fluent·COMSOL 형 비압축성 유동 두 가지: 덮개가 미끄러지는 정사각 공동(Re 100, Ghia 1982 벤치마크와 비교되는 중심선 속도), 20 °C 공기가 60 °C 원기둥을 식히는 강제대류(속도·온도 지도, 항력 계수, 원기둥이 내놓는 열).",
+  "nodes": [
+    {
+      "id": "cavity",
+      "type": "cfd.flow",
+      "name": "덮개 구동 공동",
+      "x": 60,
+      "y": 50,
+      "params": {
+        "model": "# The classic benchmark (Ghia 1982): a square box with a sliding lid\ndomain: width = 1, height = 1, nx = 48, ny = 48\nfluid: rho = 1, nu = 0.01\ntop: wall, u = 1",
+        "tEnd": 40,
+        "steady": 0.00001,
+        "cfl": 0.5
+      },
+      "disabled": false
+    },
+    {
+      "id": "tube",
+      "type": "cfd.flow",
+      "name": "가열 원기둥",
+      "x": 60,
+      "y": 330,
+      "params": {
+        "model": "# Air at 20 °C cools a 60 °C cylinder in a channel\ndomain: width = 0.6, height = 0.2, nx = 96, ny = 32\nfluid: rho = 1.2, mu = 1.8e-5, k = 0.026, cp = 1005\nleft: inlet, u = 0.05, T = 20\nright: outlet\nobstacle tube: circle 0.15 0.1 0.02, T = 60",
+        "tEnd": 30,
+        "steady": 0,
+        "cfl": 0.5,
+        "T0": 20
+      },
+      "disabled": false
+    },
+    {
+      "id": "p1",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 50,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "공동 속 속도 (m/s)",
+        "table": "speed"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p2",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 580,
+      "y": 50,
+      "params": {
+        "chart": "line",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "1",
+        "title": "세로 중심선의 u (m/s)",
+        "table": "vertical centre line",
+        "y": "u"
+      },
+      "disabled": false
+    },
+    {
+      "id": "p3",
+      "type": "out.plot",
+      "name": "차트",
+      "x": 320,
+      "y": 330,
+      "params": {
+        "chart": "heatmap",
+        "logX": false,
+        "logY": false,
+        "equal": false,
+        "span": "2",
+        "title": "원기둥 둘레 온도 (°C)",
+        "table": "temperature"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k1",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 50,
+      "params": {
+        "label": "레이놀즈 수",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "Reynolds number"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k2",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 330,
+      "params": {
+        "label": "원기둥 방열",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "heat out (tube)",
+        "unit": "W/m"
+      },
+      "disabled": false
+    },
+    {
+      "id": "k3",
+      "type": "out.kpi",
+      "name": "KPI 값",
+      "x": 840,
+      "y": 470,
+      "params": {
+        "label": "항력 계수",
+        "aggregate": "last",
+        "scale": 1,
+        "source": "Cd (tube)"
+      },
+      "disabled": false
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "from": "cavity",
+      "fromPort": "out",
+      "to": "p1",
+      "toPort": "in"
+    },
+    {
+      "id": "l2",
+      "from": "cavity",
+      "fromPort": "out",
+      "to": "p2",
+      "toPort": "in"
+    },
+    {
+      "id": "l3",
+      "from": "tube",
+      "fromPort": "out",
+      "to": "p3",
+      "toPort": "in"
+    },
+    {
+      "id": "l4",
+      "from": "cavity",
+      "fromPort": "out",
+      "to": "k1",
+      "toPort": "in"
+    },
+    {
+      "id": "l5",
+      "from": "tube",
+      "fromPort": "out",
+      "to": "k2",
+      "toPort": "in"
+    },
+    {
+      "id": "l6",
+      "from": "tube",
+      "fromPort": "out",
+      "to": "k3",
+      "toPort": "in"
+    }
+  ],
+  "settings": {
+    "seed": 1
+  },
+  "view": null
+}

@@ -69,6 +69,22 @@ if (!binary || !assets.length || missing.length) {
   process.exit(1);
 }
 
+// Tauri shows makensis' output only when it fails, so its warnings would pass unseen. The script is
+// compiled once more with the warnings shown (the same installer is written): there must be none.
+const nsisScript = path.join(releaseDir, 'nsis', 'x64', 'installer.nsi');
+const makensis = path.join(process.env.LOCALAPPDATA ?? '', 'tauri', 'NSIS', 'makensis.exe');
+if (requested === 'win' && fs.existsSync(nsisScript) && fs.existsSync(makensis)) {
+  const check = spawnSync(makensis, ['/V2', nsisScript], { cwd: path.dirname(nsisScript), encoding: 'utf8' });
+  const warnings = `${check.stdout}\n${check.stderr}`.split(/\r?\n/).filter((line) => /^warning \d+:/i.test(line.trim()));
+  if (check.status !== 0 || warnings.length) {
+    console.error(c.red(`\nmakensis ${check.status !== 0 ? 'failed' : `gave ${warnings.length} warning${warnings.length === 1 ? '' : 's'}`}:`));
+    for (const line of [...new Set(warnings)]) console.error(`  ${line.trim()}`);
+    if (check.status !== 0) console.error(check.stdout.slice(-2000));
+    process.exit(1);
+  }
+  console.log(`${c.green('✓')} NSIS: no warnings`);
+}
+
 const bundleDir = path.join(root, 'src-tauri', 'target', 'release', 'bundle');
 const release = path.join(root, 'release');
 fs.mkdirSync(release, { recursive: true });

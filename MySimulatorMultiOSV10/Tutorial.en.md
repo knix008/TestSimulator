@@ -100,7 +100,7 @@ Edit parameters in the property panel; number fields accept expressions (2*pi, 1
 
 ### 16. Node library
 
-All 52 node types by area, searchable, with their help, inputs, parameters and defaults on the right.
+All 54 node types by area, searchable, with their help, inputs, parameters and defaults on the right.
 
 ![Node library](docs/images/tutorial/en/16-library.jpg)
 

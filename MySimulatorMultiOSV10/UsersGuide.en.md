@@ -43,7 +43,7 @@ The marks in the tree and at the top right of every node show the last run.
 - **Click in the palette**: the node goes to the right of the selected node and is linked to it. With nothing selected it lands in the middle of the view.
 - **Drag from the palette**: drop it where you want (not linked).
 - **Node and Analysis menus**: every node, by area.
-- **Node library** (Ctrl+K, or double-click empty space): search all 52 nodes, read their help, inputs and parameters, and add one.
+- **Node library** (Ctrl+K, or double-click empty space): search all 54 nodes, read their help, inputs and parameters, and add one.
 - **Drag an output port onto empty space**: the node library opens and the node you pick is linked to that output.
 
 ![Node library](docs/images/guide/en/library.jpg)
@@ -190,7 +190,9 @@ The **report** gathers the pipeline (nodes and their inputs), every node's value
 | --- | --- |
 | Circuit analysis (SPICE/LTspice-style) | solves a netlist by modified nodal analysis with Newton–Raphson. Elements R, C, L, V, I (DC, AC, SIN, PULSE, PWL, `INPUT(column)`), D (IS, N, RS, BV), Q (BJT), M (MOSFET), B (behavioural), E, G, F, H, S, X (subcircuits); cards `.op` `.dc` `.ac` `.tran` `.model` `.subckt` `.param`. The first line is a title, as in SPICE, and `;` starts a comment. Transient, AC, DC sweep and operating-point tables, the −3 dB frequency and peak gain. Hard operating points are found by gmin stepping, source stepping and pseudo-transient continuation |
 | Digital logic (Proteus-style) | event-driven gate simulation: gate delays, D, JK and T flip-flops, latches, counters, shift registers, clock and pattern inputs, bus values, and **microcontrollers** (an 8-bit CPU: 16 registers, 8-pin output and input ports, assembly firmware `program … end` run with the circuit, one instruction per clock); timing diagram, truth table (minterms), transitions, frequency and narrowest pulse per signal, glitch warnings |
-| 3D finite elements (parts) | a part made with the CAD feature tree, meshed into hexahedra (incompatible modes: no locking in bending), in linear elasticity or steady heat conduction: fixed faces or boxes, loads, gravity, temperature, convection, flux and sources (power = W), probes; a coloured (exaggerated) surface in the 3D view, the middle slice, the largest displacement, von Mises stress, reactions and safety factor, or temperatures and heat flows |
+| 3D finite elements (parts) | a part made with the CAD feature tree, meshed into hexahedra (incompatible modes: no locking in bending), in linear elasticity, **natural frequencies (modal: the number of modes and the mode shown; a frequency table and the mode shape)** or steady heat conduction: fixed faces or boxes, loads, gravity, temperature, convection, flux and sources (power = W), probes; a coloured (exaggerated) surface in the 3D view, the middle slice, the largest displacement, von Mises stress, reactions and safety factor, or temperatures and heat flows |
+| 2D flow CFD (Fluent/COMSOL-style) | incompressible Navier–Stokes (staggered grid, projection method) with heat transfer and buoyancy (natural convection): domain, fluid properties and gravity, wall (sliding), slip, inlet (parabolic profile) and outlet sides with temperatures, round and rectangular obstacles (with temperatures); speed, pressure, vorticity, stream function and temperature maps, centre lines, arrows, drag, lift and Cd of obstacles, flow rates, wall heat and Nusselt numbers, Reynolds and Rayleigh numbers |
+| Frames and trusses (SAP2000/Ansys beam-style) | 3D beams (axial, bending, torsion) and truss members; materials (steel, aluminium, wood, concrete …), sections (rectangle, pipe, box or given properties), fixed, pinned, roller or per-DOF supports, node loads, distributed loads and self-weight; node displacements, member forces (N, Vy, Vz, T, My, Mz), reactions, the largest stress and safety factor, the **linear buckling load factor** (of the whole frame, and Euler for each truss bar), the original and deformed shape in the 3D view |
 | 2D finite elements (Ansys/COMSOL-style) | quadratic triangles for heat conduction (steady and transient), electrostatics and plane stress: material regions, holes (boundary nodes fitted to the outline), sources, fixed value, flux, convection, fixed, displacement, traction and pressure boundaries, probes; heat maps of temperature, potential, stress and displacement, the middle line, heat flow, charge or reactions per boundary, capacitance, safety factor |
 
 ### Robots and multibody
@@ -350,6 +352,8 @@ Export: the selected node's results as CSV (a table, a grid or the values) or JS
 | Digital logic and microcontrollers | traffic-light MCU with a crossing button, PWM MCU, counter timing diagram, full adder truth table |
 | 2D finite elements | plate temperature, stress concentration at a hole, a bar warming up |
 | 3D finite elements | heat sink temperature, L bracket stress and safety factor |
+| Flow CFD | lid-driven cavity (Re 100), forced convection from a heated cylinder |
+| Structures | portal frame, Warren truss, natural frequencies of a cantilever |
 | 3D physics engine | a motor-driven vehicle, Newton's cradle, a box tower (3D playback) |
 | Robots | an obstacle-avoiding mobile robot, an arm drawing a circle |
 | CAD | mass properties of a flange and a spoked wheel, 3D surface |

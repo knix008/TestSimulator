@@ -1089,7 +1089,8 @@ export function startApp(root, settings) {
       y: pick(state.plot3d.y, values[1] ?? cols[1] ?? cols[0]),
       z: pick(state.plot3d.z, values[2] ?? (table.x != null ? table.columns[table.x].name : cols[2] ?? cols[0])),
       // A solid's field points are coloured by the field (the fourth column) unless a colour is chosen.
-      color: pick(state.plot3d.color, table.name === 'field points' ? (cols[3] ?? '') : ''),
+      // A frame's shape lines are coloured undeformed / deformed.
+      color: pick(state.plot3d.color, table.name === 'field points' || table.name === 'shape lines' ? (cols[3] ?? '') : ''),
     };
   }
 
@@ -1131,8 +1132,9 @@ export function startApp(root, settings) {
       const col = (name) => findColumn(table, name)?.values ?? new Float64Array(0);
       // A point cloud (a CAD part's surface) is drawn as points at true proportions.
       const cloud = /points/i.test(table.name);
-      const mode = cloud ? 'points' : state.plot3d.mode;
-      plot3d.setData({ x: col(r.x), y: col(r.y), z: col(r.z), names: [r.x, r.y, r.z], color: r.color ? col(r.color) : null, mode, equal: cloud, colormap: state.settings.colormap },
+      const shape = table.name === 'shape lines';
+      const mode = cloud ? 'points' : shape ? 'line' : state.plot3d.mode;
+      plot3d.setData({ x: col(r.x), y: col(r.y), z: col(r.z), names: [r.x, r.y, r.z], color: r.color ? col(r.color) : null, mode, equal: cloud || shape, colormap: state.settings.colormap },
         `${d.id}:${node.id}:${out.elapsedMs}:${JSON.stringify(r)}:${mode}:${state.settings.colormap}:${state.settings.theme}`);
     }
   }

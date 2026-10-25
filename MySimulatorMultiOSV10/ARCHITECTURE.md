@@ -31,7 +31,8 @@ an input port. The three layers:
 │ formats.rs data files: CSV, JSON, STL, WAV, XLSX (zip), MAT v5, PNG;        │
 │            its own DEFLATE/zlib and base64 (the same in WebAssembly)        │
 │ nodes/     source, table, signal, dynamics, blocks, spice, logic, mcu, fem, │
-│            fem3d, physics, robot, cad, des, stats, ml, mc, optimize, io,    │
+│            fem3d, cfd, frame, physics, robot, cad, des, stats, ml, mc,      │
+│            optimize, io,                                                    │
 │            output — one                                                     │
 │            function per node type (nodes/mod.rs: SPECS)                     │
 │ result.rs  binary encoding of every node's output                           │
@@ -81,7 +82,7 @@ implements it; the web build uses `NoHost`, whose methods return a clear
 | Data | `data.expression`, `data.filter`, `data.select`, `data.merge`, `data.resample`, `data.calculus` |
 | Signal | `signal.fft`, `signal.psd`, `signal.filter`, `signal.spectrogram`, `signal.peaks`, `signal.correlate`, `signal.envelope` |
 | Dynamics & control | `dyn.ode`, `ctrl.step`, `ctrl.bode`, `ctrl.pid`, `ctrl.statespace`, `dyn.blocks` |
-| Circuits & physics | `circuit.spice`, `circuit.logic`, `fem.field`, `fem.solid` |
+| Circuits & physics | `circuit.spice`, `circuit.logic`, `fem.field`, `fem.solid`, `cfd.flow`, `frame.struct` |
 | Robots & multibody | `physics.rigid`, `robot.mobile`, `robot.arm` |
 | CAD & geometry | `cad.part` |
 | Statistics & ML | `stat.describe`, `stat.histogram`, `stat.regression`, `stat.correlation`, `ml.kmeans`, `ml.pca`, `ml.mlp` |
@@ -103,8 +104,9 @@ Notes on the newer solvers:
   to gmin stepping, source stepping and pseudo-transient continuation (B
   sources lag their expression) for high-gain loops such as clipped op-amps.
 - `fem.rs` meshes a rectangle with six-node triangles on a structured grid;
-  hole edges are fitted to the true outline before solving (preconditioned
-  conjugate gradients on a CSR matrix).
+  hole edges are fitted to the true outline before solving (conjugate gradients
+  on a CSR matrix with a symmetric Gauss–Seidel (SSOR) preconditioner; `Csr` is
+  shared with `cfd.rs`).
 - `cad.rs` integrates mass properties exactly along vertical rays (interval
   Booleans per ray), so curved sides converge with the grid; meshes use
   Eberly's polyhedral integrals.
@@ -115,6 +117,17 @@ Notes on the newer solvers:
   description that `plot3d.js` plays back (`setScene`, `seekScene`).
 - `fem3d.rs` meshes a CAD part (`cad::Geometry`) into equal box hexahedra; the
   elasticity element uses Wilson–Taylor incompatible modes condensed once.
+  Equations are numbered with the shortest axis fastest and factored by a banded
+  Cholesky (`Solver`; CG when the band would not fit). Modal analysis uses a
+  lumped mass and subspace iteration with Rayleigh–Ritz.
+- `cfd.rs` solves 2D incompressible flow on a MAC staggered grid: Chorin
+  projection, donor-cell blended convection, a pressure Poisson equation by
+  `fem::Csr` CG (warm start), Boussinesq buoyancy and an upwind temperature
+  equation. Checked against Ghia (cavity), Poiseuille and de Vahl Davis.
+- `frame.rs` is a 3D Euler–Bernoulli beam / truss stiffness method (dense,
+  beams split into segments); linear buckling solves K φ = λ (−K_G) φ through a
+  Cholesky-reduced symmetric eigenproblem, and each compressed truss bar is
+  also checked by Euler.
 - `mcu.rs` is the 8-bit CPU the logic node clocks as a part (`Part::Mcu`).
 - `engine/heat-core` is MyHeatManager's engine, copied by
   `scripts/vendor-heat-core.mjs`; `io.myheat` calls `heat_core::run` in-process.
