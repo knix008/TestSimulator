@@ -259,217 +259,295 @@ In the 3D view (3) a 2D result becomes a carpet plot (value as height and colour
 
 The 3D view has an endless floor grid and the x, y and z axes. The tick numbers carry the length unit and re-space as you zoom. The grid and the axes always sit behind the bodies, and the numbers are never hidden by the grid. Switch them with the grid and axes buttons; the length unit (mm, cm, m, in) and the temperature unit are set in Settings.
 
-### 39. Bottom chart panel
+### 39. 3D slices and isosurfaces
 
-![Bottom chart panel](docs/images/tutorial/en/39-bottomPanel.jpg)
+![3D slices and isosurfaces](docs/images/tutorial/en/39-slice3d.jpg)
+
+On a 3D result, the "Slice" chip on the view cuts through it on an x, y or z plane; its number moves the plane. "Isosurface" draws the surface of one value (e.g. 60 °C), with the outer surface turned see-through. Results › 3D line cut plots the values along a line through the volume between two typed points (x, y, z). Clicking the model in the 3D view shows the value there; with the probe tool the click places a probe.
+
+### 40. Bottom chart panel
+
+![Bottom chart panel](docs/images/tutorial/en/40-bottomPanel.jpg)
 
 On the right of the bottom chart panel's title row, ▾ folds it (only the title row stays) and ✕ hides it; the chart-panel button on the toolbar brings it back. Drag the edge above it to change its height.
 
-### 40. Study report
+### 41. Calculator and histogram
 
-![Study report](docs/images/tutorial/en/40-report.jpg)
+![Calculator and histogram](docs/images/tutorial/en/41-calculator.jpg)
+
+Results › Calculator · histogram computes an expression such as T + 273.15 or sqrt(qx^2 + qy^2) in every cell: minimum, mean and maximum and a histogram of the volume fraction; paint it in the viewport as the calculated field or save it as CSV.
+
+### 42. Study report
+
+![Study report](docs/images/tutorial/en/42-report.jpg)
 
 Minimum, mean and maximum temperature per body, heat per boundary, the energy balance (generated = removed) and the solver log on one page — save as HTML or print.
 
 ## 8. Advanced studies
 
-### 41. Transients and animation
+### 43. Transients and animation
 
-![Transients and animation](docs/images/tutorial/en/41-transient.jpg)
+![Transients and animation](docs/images/tutorial/en/43-transient.jpg)
 
 The phase-change heat sink: paraffin melts while it absorbs a 10-minute heat pulse. The frame slider and the animation (Space) show the change over time and the chart the probes — note the flat stretch while it melts.
 
-### 42. Flow and conjugate heat transfer (CHT)
+### 44. Flow and conjugate heat transfer (CHT)
 
-![Flow and conjugate heat transfer (CHT)](docs/images/tutorial/en/42-cht.jpg)
+![Flow and conjugate heat transfer (CHT)](docs/images/tutorial/en/44-cht.jpg)
 
 The microchannel sample: water flowing in a channel inside a silicon chip, solved together with the chip's conduction. The velocity field and vectors show the flow.
 
-### 43. Thermal stress
+### 45. 3D flow and CHT
 
-![Thermal stress](docs/images/tutorial/en/43-stress.jpg)
+![3D flow and CHT](docs/images/tutorial/en/45-cht3d.jpg)
+
+The heat sink in a duct: the 3D flow of duct air between the plate fins on a chip, solved together with the solid conduction. Slice the 3D view to see the speed between the fins; inlets and outlets also go on the front and back faces in 3D.
+
+### 46. Thermal stress
+
+![Thermal stress](docs/images/tutorial/en/46-stress.jpg)
 
 The LED module: von Mises stress from mismatched thermal expansion, and the exaggerated deformed shape.
 
 ## 9. SimScale-style studies
 
-### 44. Turbulent flow (k-ω SST)
+### 47. Turbulent flow (k-ω SST)
 
-![Turbulent flow (k-ω SST)](docs/images/tutorial/en/44-turbulence.jpg)
+![Turbulent flow (k-ω SST)](docs/images/tutorial/en/47-turbulence.jpg)
 
 The heated duct: water at Re ≈ 20 000 with the k-ω SST model. The turbulence choice in the study settings and the inlet turbulence intensity are the inputs; the velocity and eddy-viscosity fields and streamlines show the flow.
 
-### 45. Convergence
+### 48. Convergence
 
-![Convergence](docs/images/tutorial/en/45-residuals.jpg)
+![Convergence](docs/images/tutorial/en/48-residuals.jpg)
 
 The Residuals tab of the chart panel plots the continuity, u, v, T, k and ω residuals on a log scale; when they have dropped and flattened, the study has converged.
 
-### 46. Flow rates and pressure drop
+### 49. Flow rates and pressure drop
 
-![Flow rates and pressure drop](docs/images/tutorial/en/46-flowMetrics.jpg)
+![Flow rates and pressure drop](docs/images/tutorial/en/49-flowMetrics.jpg)
 
 Select an inlet or outlet: the property panel shows its mass flow, volume flow, mean pressure and temperature; the report gives the pressure drop.
 
-### 47. Joule heating (electric)
+### 50. Joule heating (electric)
 
-![Joule heating (electric)](docs/images/tutorial/en/47-joule.jpg)
+![Joule heating (electric)](docs/images/tutorial/en/50-joule.jpg)
 
 The busbar: a 400 A current-in and a ground boundary with the materials' conductivity give the potential, the current density and the Joule heat; the joint, where the current crowds, is hottest.
 
-### 48. Contact resistance
+### 51. Contact resistance
 
-![Contact resistance](docs/images/tutorial/en/48-contact.jpg)
+![Contact resistance](docs/images/tutorial/en/51-contact.jpg)
 
 A thermal contact resistance (m²K/W) on the faces where two bodies touch, such as the busbar's bolted joint, adds the temperature step of an imperfect contact.
 
-### 49. Static structural
+### 52. Static structural
 
-![Static structural](docs/images/tutorial/en/49-structural.jpg)
+![Static structural](docs/images/tutorial/en/52-structural.jpg)
 
 The cantilever: a fixed end, a 500 N tip load and its own weight give the displacement and stress (thermal expansion off). The deformed shape exaggerates the deflection.
 
-### 50. Natural frequencies (modal)
+### 53. Natural frequencies (modal)
 
-![Natural frequencies (modal)](docs/images/tutorial/en/50-modal.jpg)
+![Natural frequencies (modal)](docs/images/tutorial/en/53-modal.jpg)
 
 The L-bracket: the first six natural frequencies and mode shapes; pick a mode above the viewport to see its shape.
 
-### 51. Thermal comfort (PMV)
+### 54. Thermal comfort (PMV)
 
-![Thermal comfort (PMV)](docs/images/tutorial/en/51-comfort.jpg)
+![Thermal comfort (PMV)](docs/images/tutorial/en/54-comfort.jpg)
 
 The office: ISO 7730 PMV from the temperature and speed of the air moved by natural convection. Near 0 is comfortable; blue zones such as by the window feel cold.
 
-### 52. Bioheat (Pennes)
+### 55. Bioheat (Pennes)
 
-![Bioheat (Pennes)](docs/images/tutorial/en/52-bioheat.jpg)
+![Bioheat (Pennes)](docs/images/tutorial/en/55-bioheat.jpg)
 
 The tumour-ablation sample: with blood perfusion, metabolic heat and blood temperature on the materials, the Pennes bioheat equation is solved. Watch the probe chart to see whether the tumour edge passes 50 °C while the electrode heats for ten minutes.
 
-### 53. Fan curve
+### 56. Fan curve
 
-![Fan curve](docs/images/tutorial/en/53-fanCurve.jpg)
+![Fan curve](docs/images/tutorial/en/56-fanCurve.jpg)
 
 In the fan-enclosure sample the fan boundary uses a fan curve (flow against pressure) instead of a fixed speed. The solver finds the operating point where the curve meets the enclosure's resistance and cools the parts with that flow.
 
-### 54. Parameter study
+### 57. Internal fan
 
-![Parameter study](docs/images/tutorial/en/54-parametric.jpg)
+![Internal fan](docs/images/tutorial/en/57-internalFan.jpg)
+
+The chassis sample: Model › Internal fan puts a fan inside the flow, in a region (2D or 3D). Set the blowing direction, the fan curve and the region in the properties; the curve's pressure rise across the middle plane of the region pushes the air at the operating point where it meets the chassis resistance.
+
+### 58. Surface-to-surface radiation (S2S)
+
+![Surface-to-surface radiation (S2S)](docs/images/tutorial/en/58-s2s.jpg)
+
+The vacuum-oven sample: with "Surface-to-surface radiation" on in the study, body surfaces exchange heat through view factors and radiosity (using the materials' emissivity) — what matters in vacuum and cavities without convection. The result also holds the net radiative flux qrad.
+
+### 59. Solar load
+
+![Solar load](docs/images/tutorial/en/59-solar.jpg)
+
+The outdoor cabinet: the solar load of the study settings (irradiance, elevation, azimuth) and the materials' solar absorptivity heat the exposed faces that face the sun. The sunshade casts its shadow on the roof, and the result summary shows the absorbed sunlight (W).
+
+### 60. Parameter study
+
+![Parameter study](docs/images/tutorial/en/60-parametric.jpg)
 
 Solve again and again with one value varied over a range (power, coefficient, inlet speed, conductivity, mesh scale …) and compare a result in a table and chart — here the MOSFET temperature against the fan coefficient.
 
-### 55. Auto mesh
+### 61. Auto mesh
 
-![Auto mesh](docs/images/tutorial/en/55-autoMesh.jpg)
+![Auto mesh](docs/images/tutorial/en/61-autoMesh.jpg)
 
 Auto mesh picks cell counts so the thinnest body spans at least two cells. Then solve again with twice the cells: if the result hardly changes, the mesh is fine enough.
 
 ## 10. Reliability · U-factor · heat maps
 
-### 56. Reliability (life)
+### 62. Reliability (life)
 
-![Reliability (life)](docs/images/tutorial/en/56-reliability.jpg)
+![Reliability (life)](docs/images/tutorial/en/62-reliability.jpg)
 
 From the simulated part temperatures: Arrhenius MTTF and FIT, and Coffin–Manson solder fatigue life, with the system life and the 5-year survival.
 
-### 57. U-factor (envelope)
+### 63. U-factor (envelope)
 
-![U-factor (envelope)](docs/images/tutorial/en/57-uFactor.jpg)
+![U-factor (envelope)](docs/images/tutorial/en/63-uFactor.jpg)
 
-The window frame sample's thermal transmittance U, R-value and coupling coefficient L2D, from the indoor and outdoor convection boundaries (THERM-style).
+The window frame sample's thermal transmittance U, R-value and coupling coefficient L2D, from the indoor and outdoor convection boundaries (THERM-style), with U-factors per tag and a frame-cavity equivalent conductivity that can be applied to the cavity material.
 
-### 58. Node-data heat maps
+### 64. Node-data heat maps
 
-![Node-data heat maps](docs/images/tutorial/en/58-heatmap.jpg)
+![Node-data heat maps](docs/images/tutorial/en/64-heatmap.jpg)
 
 Import node temperatures (Thermal Desktop, SINDA, thermocouple readings) as CSV for a heat map, statistics and the nodes over a limit.
 
-### 59. Thermal analysis (DSC / TGA)
+### 65. 3D node heat maps
 
-![Thermal analysis (DSC / TGA)](docs/images/tutorial/en/59-thermal.jpg)
+![3D node heat maps](docs/images/tutorial/en/65-heatmap3d.jpg)
+
+Node data with several z values shows a plan map and statistics per layer through the z range, or turnable dots in temperature colours in the 3D point view. The 3D sample is a battery module with thermocouples on three layers.
+
+### 66. Thermal analysis (DSC / TGA)
+
+![Thermal analysis (DSC / TGA)](docs/images/tutorial/en/66-thermal.jpg)
 
 Integrate a DSC peak over a baseline for the enthalpy and onset / peak / endset, calibrate against a standard such as indium, and add the result as a phase-change material. TGA gives the mass-loss temperatures and residue.
 
-### 60. CalculiX and DXF
+### 67. DSC kinetics, Tg and cp
 
-![CalculiX and DXF](docs/images/tutorial/en/60-interop.jpg)
+![DSC kinetics, Tg and cp](docs/images/tutorial/en/67-kinetics.jpg)
+
+The Kinetics tab of the thermal-analysis window: from several DSC runs at different heating rates, Kissinger, Ozawa–Flynn–Wall and Friedman give the activation energy Ea, with the model-free Ea(α) profile. The DSC tab also finds the glass transition (Tg), the derivative, a sigmoid baseline with conversion, and several peaks; TGA finds the mass-loss steps; the cp tab measures cp(T) by the sapphire method (ASTM E1269) and adds it as a material.
+
+### 68. Electronics helpers
+
+![Electronics helpers](docs/images/tutorial/en/68-electronics.jpg)
+
+Tools › JEDEC two-resistor package, Heat sink generator, PCB stack-up calculator and Import power map build bodies and materials from a few values (Icepak-style). The heat-sink window previews the fins and says when they do not fit.
+
+### 69. Solder fatigue and life
+
+![Solder fatigue and life](docs/images/tutorial/en/69-fatigue.jpg)
+
+Tools › Solder fatigue and life (Sherlock-style): rainflow counting of the transient temperature history with Coffin–Manson and Engelmaier for Miner damage and life, the Norris–Landzberg acceleration factor, a Weibull reliability curve (B10), and Steinberg vibration fatigue from the natural frequency.
+
+### 70. Vibration PSD table and shock
+
+![Vibration PSD table and shock](docs/images/tutorial/en/70-shock.jpg)
+
+In the solder-fatigue window the Vibration tab integrates a PSD table (MIL-STD-810 and IEC presets) over its band for the response G rms and the Steinberg life, and the Shock tab gives the single-degree-of-freedom response to a half-sine shock (peak displacement, acceleration, shock response) and the margin. The harmonic-response window computes the transmissibility at a probe from the mode shapes.
+
+### 71. CalculiX and DXF
+
+![CalculiX and DXF](docs/images/tutorial/en/71-interop.jpg)
 
 File › Export CalculiX writes the grid, materials and boundaries as a CalculiX input deck (.inp) for the FreeCAD / Gmsh / ParaView workflow; Import DXF brings in a drawing's closed polylines and circles as bodies.
 
-### 61. Batch runs (API)
+### 72. Batch runs (API)
 
-![Batch runs (API)](docs/images/tutorial/en/61-batch.jpg)
+![Batch runs (API)](docs/images/tutorial/en/72-batch.jpg)
 
 The installed program solves models without a window with --batch, writing a summary JSON, CSV and a heat-map PNG — for comparing design variants from scripts or CI.
 
 ## 11. Files and output
 
-### 62. Saving
+### 73. Saving
 
-![Saving](docs/images/tutorial/en/62-save.jpg)
+![Saving](docs/images/tutorial/en/73-save.jpg)
 
 Models are .myheat (JSON) files: save (Ctrl+S), save as (Ctrl+Shift+S). The web version saves as a download.
 
-### 63. Export
+### 74. Export
 
-![Export](docs/images/tutorial/en/63-export.jpg)
+![Export](docs/images/tutorial/en/74-export.jpg)
 
 From the File menu export results as CSV (cell values), PNG (the view) or VTK (ParaView), and save or print the report.
 
-### 64. Printing
+### 75. Other products' file formats
 
-![Printing](docs/images/tutorial/en/64-print.jpg)
+![Other products' file formats](docs/images/tutorial/en/75-formats.jpg)
+
+The File menu imports THERM .thmx, Gmsh .msh, DXF, Nastran, Ansys, CalculiX, COMSOL and IDF files as new models and exports CalculiX .inp, Nastran .bdf, Ansys .cdb, COMSOL .mphtxt, Gmsh .msh, THERM .thmx, STL, DXF, VTU and VTK. File › Supported file formats lists them all and the formats that cannot be supported (proprietary binaries such as .mph and .sldprt). The samples/formats folder holds an example file of every format.
+
+### 76. Importing solver decks and IDF boards
+
+![Importing solver decks and IDF boards](docs/images/tutorial/en/76-importDecks.jpg)
+
+File › Import opens Nastran .bdf, Ansys .cdb, CalculiX .inp and COMSOL .mphtxt files as new models with their nodes, cells, materials, thermal boundaries and heat, and turns IDF 3.0 boards (.emn + .emp) into 3D board and component models. Shown: the tutorial model saved as a Nastran deck and opened again.
+
+### 77. Printing
+
+![Printing](docs/images/tutorial/en/77-print.jpg)
 
 The Print button on the toolbar (right of Save, Ctrl+P) opens the print window. On the left choose the paper size, orientation, margins, what to print (title, viewport picture, colour legend, chart, model tables, result summary, solver log), header and footer, colour or greyscale and the font size; the preview on the right shows every page at once. Print then opens the system print dialog for the printer and the number of copies.
 
-### 65. Sample gallery
+### 78. Sample gallery
 
-![Sample gallery](docs/images/tutorial/en/65-gallery.jpg)
+![Sample gallery](docs/images/tutorial/en/78-gallery.jpg)
 
-36 samples covering every kind of study and field — choose from the previews and descriptions.
+43 samples covering every kind of study and field — choose from the previews and descriptions.
 
 ## 12. Customizing
 
-### 66. Themes
+### 79. Themes
 
-![Themes](docs/images/tutorial/en/66-theme.jpg)
+![Themes](docs/images/tutorial/en/79-theme.jpg)
 
 The theme button moves to the next theme; ▾ opens all 20 dark and 20 light themes, each in two lines: a strip of its colours (background, panel, button, accent, text) and its name.
 
-### 67. Theme list
+### 80. Theme list
 
-![Theme list](docs/images/tutorial/en/67-themeMenu.jpg)
+![Theme list](docs/images/tutorial/en/80-themeMenu.jpg)
 
 ▾ drops the dark and the light themes in two columns, each theme in two lines — its colour strip and its name. At the bottom are your custom theme and "Custom theme settings…" and "Theme settings…", which open those tabs of Settings.
 
-### 68. Settings
+### 81. Settings
 
-![Settings](docs/images/tutorial/en/68-settings.jpg)
+![Settings](docs/images/tutorial/en/81-settings.jpg)
 
 Every preference, in tabs: general, theme, custom theme, font, start page, result display, editor, panels, files. Changes show at once; Apply keeps them, Cancel goes back to how it was, Reset to the defaults. The flag switches 한국어 ↔ English — the names on the canvas follow.
 
-### 69. Custom theme
+### 82. Custom theme
 
-![Custom theme](docs/images/tutorial/en/69-customTheme.jpg)
+![Custom theme](docs/images/tutorial/en/82-customTheme.jpg)
 
 Settings › Custom theme: start from a theme and change its 13 colours (background, panel, accent …) to make your own; every change shows at once.
 
-### 70. Document windows
+### 83. Document windows
 
-![Document windows](docs/images/tutorial/en/70-docWindow.jpg)
+![Document windows](docs/images/tutorial/en/83-docWindow.jpg)
 
 Help › User's guide and Tutorial document open in a window of their own that follows the app's theme, also when you change it.
 
-### 71. Windows and menus past the main window
+### 84. Windows and menus past the main window
 
-![Windows and menus past the main window](docs/images/tutorial/en/71-popouts.jpg)
+![Windows and menus past the main window](docs/images/tutorial/en/84-popouts.jpg)
 
 In the desktop program dialogs and drop-down menus (menu bar, right-click, theme list) open in windows of their own and may reach past the main window. While a dialog is open the main window is dimmed; clicking it brings the dialog forward. Drag a dialog by its title row. The web version and the tutorial draw them inside the window.
 
-### 72. Done
+### 85. Done
 
-![Done](docs/images/tutorial/en/72-finish.jpg)
+![Done](docs/images/tutorial/en/85-finish.jpg)
 
 That's the tutorial! The settings go back and the tutorial tabs close. Run it again any time from the 🏠 start page or the Help menu; the tutorial document and the user's guide go into more detail.
 

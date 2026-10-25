@@ -27,7 +27,7 @@ const browsers = [
 ];
 const browser = browsers.find((candidate) => fs.existsSync(candidate));
 if (!browser) {
-  console.error('Edge 또는 Chrome 이 필요합니다 (아이콘 래스터화용).');
+  console.error('Edge or Chrome is needed (to rasterise the icons).');
   process.exit(1);
 }
 
@@ -161,4 +161,4 @@ for (const [name, large, small] of [['project', images.projectIcon, images.proje
   fs.rmSync(scratch, { recursive: true, force: true });
 }
 try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* the browser may still hold its profile for a moment */ }
-console.log('assets/icon.png·project.png, icon.ico·icns, src-tauri/icons/* (project.* 포함), public/icon.png, installer BMPs 생성 완료');
+console.log('Written: assets/icon.png and project.png, icon.ico and .icns, src-tauri/icons/* (project.* too), public/icon.png, installer BMPs');

@@ -1,7 +1,8 @@
 // npm run samples (second part) — writes one example file for every supported file format to
-// samples/formats/: the open/save formats (THERM .thmx, Gmsh .msh, DXF, node-data CSV, DSC/TGA CSV) and
-// the export-only ones (CalculiX .inp, Nastran .bdf, Ansys .cdb, COMSOL .mphtxt, STL, VTK, VTU, field
-// CSV). Result files come from a real solve with public/heat.wasm (npm run build:wasm first).
+// samples/formats/: the open/save formats (THERM .thmx, Gmsh .msh, DXF, node-data CSV, DSC/TGA CSV, and the
+// solver decks CalculiX .inp, Nastran .bdf, Ansys .cdb, COMSOL .mphtxt, which also open again) and the export-only
+// ones (STL, VTK, VTU, field CSV). Result files come from a real solve with public/heat.wasm (npm run build:wasm
+// first). The IDF pair controller-board.emn / .emp is hand-written source data and is left as it is.
 // test/unit/formats-samples.test.js opens every file again and checks it.
 import fs from 'node:fs';
 import path from 'node:path';

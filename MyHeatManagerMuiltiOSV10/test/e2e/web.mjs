@@ -8,6 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { startVite, launchBrowser, sleep, waitFor } from './cdp.mjs';
+import { resultLine, totalsLine } from './report.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const shots = path.join(root, 'test-results', 'web');
@@ -42,10 +43,10 @@ async function step(name, fn) {
     await fn();
     if (errors.length > before) throw new Error(`page errors: ${errors.slice(before).join(' | ')}`);
     results.push({ name, ok: true, ms: performance.now() - started });
-    console.log(`  ✔ ${name} (${Math.round(performance.now() - started)} ms)`);
+    console.log(resultLine({ status: 'pass', name, ms: performance.now() - started }));
   } catch (error) {
     results.push({ name, ok: false, ms: performance.now() - started, error: error.message });
-    console.log(`  ✖ ${name}: ${error.message}`);
+    console.log(resultLine({ status: 'fail', name, ms: performance.now() - started, error: error.message }));
     try { await cdp.screenshot(path.join(shots, `fail-${name.replace(/[^\w-]+/g, '_')}.png`)); } catch { /* browser gone */ }
     await closeDialogs().catch(() => {});
   }
@@ -59,6 +60,9 @@ async function solveCurrent(timeout = 240000) {
   if (!s.hasResult) throw new Error(`no result (${s.status})`);
   return js('(() => { const h = window.__myheat.doc().result.header; return { ok: h.ok, stats: h.stats, warnings: h.warnings, fields: Object.keys(h.fields), balance: h.balance, times: h.times.length, probes: h.probes, bodies: h.bodies }; })()');
 }
+
+// The program starts in Korean; the tests run it in English so that everything they print is English.
+await js('window.__myheat.state.settings.language === "en" || window.__myheat.api.patchSettings({ language: "en" })');
 
 try {
   await step('shell: menu bar, toolbar, panels, status bar', async () => {
@@ -103,12 +107,13 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     assert(!(await q('[data-testid=menu-popup]')), 'menu still open');
   });
 
-  await step('language: the flag switches Korean ↔ English', async () => {
-    await clickSel('[data-testid=tb-language]');
-    assert((await state()).language === 'en', 'not English');
-    assert((await js('document.querySelector("[data-testid=menu-file]").textContent')).includes('File'), 'menu not translated');
+  await step('language: the flag switches English ↔ Korean', async () => {
     await clickSel('[data-testid=tb-language]');
     assert((await state()).language === 'ko', 'not Korean');
+    assert(!(await js('document.querySelector("[data-testid=menu-file]").textContent')).includes('File'), 'menu not translated to Korean');
+    await clickSel('[data-testid=tb-language]');
+    assert((await state()).language === 'en', 'not English');
+    assert((await js('document.querySelector("[data-testid=menu-file]").textContent')).includes('File'), 'menu not translated to English');
   });
 
   await step('theme: cycle button and gallery', async () => {
@@ -280,7 +285,7 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     assert((await js('window.__myheat.state.settings.startBgTransparency')) === 0, 'settings did not apply');
     assert(Math.abs(Number(await js('getComputedStyle(document.querySelector(".start-bg")).opacity')) - 1) < 0.01, 'start page did not follow Settings');
     await clickSel('[data-testid=dialog-close-settings]');
-    assert((await js('document.querySelector("[data-testid=tb-home]").textContent')).includes('홈'), 'home button has no label');
+    assert((await js('document.querySelector("[data-testid=tb-home]").textContent')).includes('Home'), 'home button has no label');
     await js('window.__myheat.api.showStart(false)');
   });
 
@@ -345,6 +350,11 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     await js('window.__myheat.run("settings")');
     await clickSel('[data-testid=settings-reset]');
     assert((await js('window.__myheat.state.settings.colormap')) === 'turbo', 'Reset did not restore');
+    // Reset also puts the language back to Korean (and redraws the window): the tests run in English.
+    await closeDialogs();
+    await js('window.__myheat.api.patchSettings({ language: "en" })');
+    await js('window.__myheat.run("settings")');
+    await waitFor(() => q('[data-testid=settings-tabCustomTheme]'), 3000);
     await clickSel('[data-testid=settings-tabCustomTheme]');
     await js("(() => { const el = document.querySelector('[data-testid=settings-custom-colors] input[type=color]'); el.value = '#204060'; el.dispatchEvent(new Event('input')); })()");
     assert((await js('window.__myheat.state.settings.theme')) === 'custom', 'custom theme not in use');
@@ -459,6 +469,31 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     await closeDialogs();
   });
 
+  await step('imports: Nastran, Ansys, CalculiX and COMSOL decks and an IDF board open as new models', async () => {
+    await closeDialogs();
+    const opened = await js(`(async () => {
+      const get = async (name) => (await fetch('/samples/formats/' + name)).text();
+      const out = [];
+      for (const name of ['heatsink-2d.bdf', 'heatsink-2d.cdb', 'heatsink-2d.inp', 'heatsink-2d.mphtxt', 'pcb-3d.bdf', 'pcb-3d.cdb']) {
+        const before = window.__myheat.state.docs.length;
+        window.__myheat.api.openText(name, await get(name));
+        const d = window.__myheat.doc();
+        out.push({ name, newTab: window.__myheat.state.docs.length === before + 1, bodies: d.model.bodies.length, dim: d.model.domain.dim, power: d.model.bodies.reduce((s, b) => s + (b.power || 0), 0), bcs: d.model.boundaries.length });
+      }
+      const before = window.__myheat.state.docs.length;
+      window.__myheat.api.openText('controller-board.emn', await get('controller-board.emn'), { library: await get('controller-board.emp') });
+      const d = window.__myheat.doc();
+      out.push({ name: 'controller-board.emn', newTab: window.__myheat.state.docs.length === before + 1, bodies: d.model.bodies.length, dim: d.model.domain.dim, power: d.model.bodies.reduce((s, b) => s + (b.power || 0), 0), bcs: d.model.boundaries.length });
+      return out;
+    })()`);
+    for (const o of opened) assert(o.newTab && o.bodies > 0 && o.bcs > 0, `${o.name}: ${JSON.stringify(o)}`);
+    assert(opened.filter((o) => o.name.startsWith('pcb-3d')).every((o) => o.dim === 3 && Math.abs(o.power - 3.2) < 1e-6), `3D decks: ${JSON.stringify(opened)}`);
+    const idf = opened.at(-1);
+    assert(idf.dim === 3 && idf.bodies === 5 && Math.abs(idf.power - 4.55) < 1e-6, `IDF board: ${JSON.stringify(idf)}`);
+    const r = await solveCurrent();
+    assert(r.ok && r.stats.Tmax > 25, `the IDF board did not solve: ${JSON.stringify(r.stats)}`);
+  });
+
   await step('3D post-processing: slice, isosurface, 3D line cut, probe and line CSV, body integrals', async () => {
     await closeDialogs();
     await js('window.__myheat.run("newFromSample")');
@@ -545,6 +580,126 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     await closeDialogs();
   });
 
+  await step('new tools: calculator and histogram, PSD table, half-sine shock, cavity k to a material', async () => {
+    await closeDialogs();
+    await js('window.__myheat.run("newFromSample")');
+    await clickSel('[data-testid=sample-tutorial]');
+    await solveCurrent();
+    await js('window.__myheat.run("calculator")');
+    await waitFor(() => q('[data-testid=calc-result]'), 3000);
+    const setExpr = (value) => js(`(() => { const el = document.querySelector('[data-testid=calc-expr]'); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await setExpr('T + 273.15');
+    const tmax = await js('window.__myheat.doc().result.header.stats.Tmax');
+    const kmax = parseFloat(await js("document.querySelector('[data-testid=calc-max]').textContent"));
+    assert(Math.abs(kmax - (tmax + 273.15)) < 0.01, `calculator max ${kmax} vs ${tmax + 273.15}`);
+    await setExpr('T +* 2');
+    assert(await q('[data-testid=calc-error]'), 'a broken expression shows no error');
+    await setExpr('T - Tamb');
+    await clickSel('[data-testid=calc-show]');
+    assert((await js('window.__myheat.state.fieldKind')) === 'calc', 'the calculated field is not shown');
+    assert(await js('Boolean(window.__myheat.doc().result.derived?.calc?.values?.length)'), 'no derived field');
+    await closeDialogs();
+    // Fatigue window: a PSD table and the half-sine shock tab.
+    await js('window.__myheat.run("solderFatigue")');
+    await waitFor(() => q('[data-testid=fatigue-tab-vibration]'), 3000);
+    await clickSel('[data-testid=fatigue-tab-vibration]');
+    await js(`(() => { const el = document.querySelector('[data-testid=fatigue-vib-input]'); el.value = 'table'; el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await waitFor(() => q('[data-testid=fatigue-vib-table]'), 2000);
+    const gin = parseFloat(await js("document.querySelector('[data-testid=fatigue-vib-grms-in]').textContent"));
+    assert(Math.abs(gin - 6.06) < 0.05, `PSD table input Grms ${gin}`);
+    assert(parseFloat(await js("document.querySelector('[data-testid=fatigue-vib-grms]').textContent")) > gin, 'no resonance amplification');
+    await clickSel('[data-testid=fatigue-tab-shock]');
+    await waitFor(() => q('[data-testid=fatigue-shock-srs]'), 2000);
+    const srs = parseFloat(await js("document.querySelector('[data-testid=fatigue-shock-srs]').textContent"));
+    assert(srs > 0.1 && srs < 2, `shock response ${srs}`);
+    assert(Number.isFinite(parseFloat(await js("document.querySelector('[data-testid=fatigue-shock-margin]').textContent"))), 'no shock margin');
+    await closeDialogs();
+    // THERM: the cavity conductivity goes into a material.
+    await js('window.__myheat.run("newFromSample")');
+    await clickSel('[data-testid=sample-windowFrame]');
+    await solveCurrent();
+    await js('window.__myheat.run("uFactor")');
+    await waitFor(() => q('[data-testid=cavity-apply]'), 3000);
+    const target = await js("document.querySelector('[data-testid=cavity-material]').value");
+    const k = parseFloat(await js("document.querySelector('[data-testid=cavity-k]').textContent"));
+    await clickSel('[data-testid=cavity-apply]');
+    const applied = await js(`window.__myheat.doc().model.materials.find((m) => m.id === ${JSON.stringify(target)}).k`);
+    assert(Math.abs(applied - k) < 1e-3 * Math.max(1, k), `cavity k ${k} not applied (${applied})`);
+    await closeDialogs();
+  });
+
+  await step('internal fan and solar load: an internal fan from the Model menu, flow in 3D, the sun in the study settings', async () => {
+    await closeDialogs();
+    await js('window.__myheat.run("newFromSample")');
+    await clickSel('[data-testid=sample-pcb3d]');
+    await js('window.__myheat.run("toggleFlow")');
+    assert(await js('window.__myheat.doc().model.study.flow'), 'flow did not switch on for a 3D model');
+    await js('window.__myheat.run("toggleFlow")');
+    await js('window.__myheat.run("bcInternalFan")');
+    const fan = await js('window.__myheat.doc().model.boundaries.at(-1)');
+    assert(fan.type === 'internalFan' && fan.target === 'interior' && fan.region?.length === 6 && fan.direction === '+x' && fan.curve?.length >= 2, `internal fan: ${JSON.stringify(fan)}`);
+    await waitFor(() => q('[data-testid=prop-fan-direction]'), 2000);
+    assert(await js("[...document.querySelector('[data-testid=prop-fan-direction]').options].some((o) => o.value === '-z')"), 'no z directions in 3D');
+    assert(await q('[data-testid=prop-fan-curve]'), 'no fan curve field');
+    // Solar load in the study settings.
+    await js('window.__myheat.api.select({ kind: "study", ids: [] })');
+    await waitFor(() => q('[data-testid=study-solar]'), 2000);
+    await clickSel('[data-testid=study-solar]');
+    assert(await js('window.__myheat.doc().model.study.solar.enabled'), 'solar load did not switch on');
+    await waitFor(() => q('[data-testid=study-solar-el]'), 2000);
+    assert(await q('[data-testid=study-solar-g]') && await q('[data-testid=study-solar-az]'), 'no irradiance / azimuth fields');
+  });
+
+  await step('new views: 3D node heat map, a probe placed by clicking the 3D view, transmissibility at a probe', async () => {
+    await closeDialogs();
+    await js('window.__myheat.run("heatmapView")');
+    await waitFor(() => q('[data-testid=heatmap-sample-3d]'), 3000);
+    await clickSel('[data-testid=heatmap-sample-3d]');
+    await sleep(300);
+    assert((await js("document.querySelector('[data-testid=heatmap-view]').value")) === '3d', '3D view not chosen');
+    assert(await q('[data-testid=heatmap-z0]'), 'no z range');
+    await js(`(() => { const el = document.querySelector('[data-testid=heatmap-view]'); el.value = '2d'; el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await sleep(200);
+    assert(await js('Boolean(window.__myheat.state.heatmap.raster?.raster?.length)'), 'no plan map for the 3D data');
+    await closeDialogs();
+    // Leave the heat map window empty, as the later heat-map step expects.
+    await js('Object.assign(window.__myheat.state.heatmap, { data: null, raster: null, zRange: null, view: "2d" })');
+    // Probe by clicking the 3D view of a 3D model.
+    await js('window.__myheat.run("newFromSample")');
+    await clickSel('[data-testid=sample-pcb3d]');
+    await js('window.__myheat.api.setView("3d")');
+    await waitFor(() => q('[data-testid=view3d] canvas'), 5000);
+    await sleep(600);
+    await js('window.__myheat.run("probe")');
+    const probes = () => js('window.__myheat.doc().model.probes.length');
+    const before = await probes();
+    const box = await js('(() => { const r = document.querySelector("[data-testid=view3d] canvas").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()');
+    await cdp.click(box[0], box[1]);
+    await sleep(300);
+    assert((await probes()) === before + 1, 'clicking the 3D view did not place a probe');
+    const p = await js('window.__myheat.doc().model.probes.at(-1)');
+    const dom = await js('window.__myheat.doc().model.domain');
+    assert(p.z >= 0 && p.z <= dom.depth && p.x >= 0 && p.x <= dom.width, `probe outside the domain: ${JSON.stringify(p)}`);
+    await js('window.__myheat.run("select")');
+    await js('window.__myheat.api.setView("2d")');
+    // Transmissibility at a probe of a modal result.
+    await js('window.__myheat.run("newFromSample")');
+    await clickSel('[data-testid=sample-bracketModal]');
+    // The free end of the L-bracket (fixed on the left edge) is at x 100–110, y 80–90.
+    await js("window.__myheat.api.updateModel((m) => ({ ...m, probes: [...m.probes, { id: 'tip', name: 'tip', x: 105, y: 85, z: 2.5 }] }))");
+    const r = await solveCurrent();
+    assert(r.ok, 'modal study failed');
+    assert(await js('window.__myheat.doc().result.header.modes.every((m) => Array.isArray(m.factor))'), 'the engine wrote no participation factors');
+    await js('window.__myheat.run("harmonic")');
+    await waitFor(() => q('[data-testid=harmonic-kind]'), 3000);
+    assert(await js("[...document.querySelector('[data-testid=harmonic-kind]').options].some((o) => o.value === 'probe:tip')"), 'no probe response option');
+    await js(`(() => { const el = document.querySelector('[data-testid=harmonic-kind]'); el.value = 'probe:tip'; el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await sleep(300);
+    const peak = parseFloat(await js("document.querySelector('[data-testid=harmonic-peak-table] tbody tr td:nth-child(2)')?.textContent ?? 'NaN'"));
+    assert(peak > 3, `no resonance in the transmissibility (peak ${peak})`);
+    await closeDialogs();
+  });
+
   await step('view: reset view centres at 100 %, bottom panel folds, hides and comes back', async () => {
     await clickSel('[data-testid=tb-zoomIn]').catch(() => {});
     await clickSel('[data-testid=tb-zoomReset]');
@@ -618,7 +773,11 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     const kin = await text('[data-testid=thermal-kin-result]');
     const ea = num(kin, /Ea([\d.]+) kJ/);
     assert(Math.abs(ea - 80) < 6, `Kissinger Ea ${ea} (${kin})`);
-    assert(/Ozawa/.test(kin) && (kin.match(/kJ\/mol/g) ?? []).length === 2, `OFW missing: ${kin}`);
+    assert(/Ozawa/.test(kin) && /Friedman/.test(kin), `OFW / Friedman missing: ${kin}`);
+    const friedmanEa = num(kin.slice(kin.indexOf('Friedman')), /Ea([\d.]+) kJ/);
+    assert(Math.abs(friedmanEa - 80) < 6, `Friedman Ea ${friedmanEa}`);
+    assert(await js('document.querySelectorAll("[data-testid=thermal-kin-profile] tbody tr").length') === 9, 'no Ea(α) profile');
+    await clickSel('[data-testid=thermal-view-ea]');
     await clickSel('[data-testid=thermal-view-curves]');
     await clickSel('[data-testid=thermal-view-kissinger]');
     // TGA steps
@@ -632,9 +791,9 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     const cp = await text('[data-testid=thermal-cp-result]');
     const lo = num(cp, /([\d.]+) –/);
     assert(Math.abs(lo - 1.29) < 0.05, `cp ${cp}`);
-    await js('window.__myheat.api.addMaterialCpT ??= ((rows, name) => { window.__cpT = { rows, name }; })');
+    const cpBefore = await js('window.__myheat.doc().model.materials.filter((m) => m.cpT).length');
     await clickSel('[data-testid=thermal-cp-use]');
-    assert(await js('Array.isArray(window.__cpT?.rows) && window.__cpT.rows.length > 10 && window.__cpT.rows[0].length === 2'), 'cp(T) callback not called');
+    assert(await js(`(() => { const m = window.__myheat.doc().model.materials.filter((m) => m.cpT); return m.length === ${cpBefore} + 1 && m.at(-1).cpT.length > 10 && m.at(-1).cpT[0].length === 2; })()`), 'cp(T) material not added');
     await cdp.screenshot(path.join(shots, '05-thermal.png'));
     await clickSel('[data-testid=dialog-close-thermal]');
   });
@@ -660,6 +819,9 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
     sunWallDay: (r) => r.times > 10 && r.stats.Tmax > 10 && r.stats.Tmax < 40,
     coatedTurbine: (r) => r.stats.Tmax > 1000 && r.stats.Tmax < 1200,
     naturalFins: (r) => r.stats.Tmax > 35 && r.stats.Tmax < 80,
+    heatSink3d: (r) => r.stats.Tmax > 45 && r.stats.Tmax < 75 && r.fields.includes('w'),
+    fanChassis3d: (r) => r.stats.Tmax > 50 && r.stats.Tmax < 95 && r.fields.includes('w'),
+    sunCabinet3d: (r) => r.stats.Tmax > 38 && r.stats.Tmax < 55,
   };
   await step('3D guides: grid and tick numbers stay behind the bodies, numbers over the grid, unit on the numbers', async () => {
     await closeDialogs();
@@ -786,7 +948,7 @@ await step('start page: shown at start, templates, samples, backgrounds, home bu
   const failed = results.length - passed;
   fs.mkdirSync(shots, { recursive: true });
   fs.writeFileSync(path.join(shots, 'results.json'), JSON.stringify(results, null, 2));
-  console.log(`\nE2E: ${passed} passed, ${failed} failed`);
+  console.log(`\n${totalsLine('E2E', passed, failed)}`);
   stop();
   vite.stop();
   process.exitCode = failed ? 1 : 0;

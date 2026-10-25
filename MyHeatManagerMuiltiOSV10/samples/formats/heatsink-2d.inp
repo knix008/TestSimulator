@@ -1,5 +1,6 @@
 ** MyHeatManager ? CalculiX input deck
 ** Tutorial: power module - 2D DC2D4, SI units (m, kg, s, K, W)
+** MyHeatManager domain 2 80 30 40 160 60 1
 *HEADING
 Tutorial: power module
 *NODE

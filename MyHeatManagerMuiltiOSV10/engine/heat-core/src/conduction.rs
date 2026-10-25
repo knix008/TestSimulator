@@ -68,7 +68,7 @@ pub struct BFace {
     pub s2s: bool,
 }
 
-/// Advection terms for the energy equation (2D CHT).
+/// Advection terms for the energy equation (CHT, 2D and 3D).
 #[derive(Clone, Debug, Default)]
 pub struct Adv {
     /// ρcp·u·A (W/K) through each internal face, positive from a to b.
@@ -114,6 +114,8 @@ pub struct Thermal<'m> {
     pub flowing: Vec<bool>,
     /// Extra heat source per unknown (W), e.g. Joule heating (empty = none).
     pub extra_q: std::cell::RefCell<Vec<f64>>,
+    /// Absorbed sunlight per unknown (W), fixed (study.solar); None when off.
+    pub solar: Option<crate::solar::SolarLoad>,
     /// Electric conduction problem (study.electric).
     pub electric: std::cell::RefCell<Option<crate::electric::Electric>>,
     /// k depends on T (kT tables, pcm) or radiation present.
@@ -222,21 +224,21 @@ impl<'m> Thermal<'m> {
                         let mut contact = -1i32;
                         let mut a_is_body = true;
                         if mesh.mat[nc_] != mesh.mat[c] {
-                            let (mut fx, mut fy, _) = g.centre(c);
+                            let (mut fx, mut fy, mut fz) = g.centre(c);
                             if d == 1 {
                                 fx += 0.5 * g.dx;
                             } else if d == 3 {
                                 fy += 0.5 * g.dy;
+                            } else if d == 5 {
+                                fz += 0.5 * g.dz;
                             }
+                            let fz = (g.dim == 3).then_some(fz);
                             for (bi, b) in model.boundaries.iter().enumerate() {
                                 if b.btype != BType::Contact {
                                     continue;
                                 }
-                                if let Some((x0, y0, x1, y1)) = b.region {
-                                    let e = 1e-9;
-                                    if !(fx >= x0 - e && fx <= x1 + e && fy >= y0 - e && fy <= y1 + e) {
-                                        continue;
-                                    }
+                                if !b.in_region(fx, fy, fz) {
+                                    continue;
                                 }
                                 if let crate::model::Target::Body(t) = b.target {
                                     if mesh.owner[c] == t as u32 {
@@ -312,6 +314,7 @@ impl<'m> Thermal<'m> {
         let has_layer = !layer_of.is_empty();
         // Surface-to-surface radiation.
         let s2s = if model.study.s2s { crate::s2s::S2s::new(model, mesh, &unk) } else { None };
+        let solar = crate::solar::solar_load(model, mesh, &unk, n);
         let mut s2s_overridden = 0;
         if let Some(r) = &s2s {
             let set: std::collections::HashSet<(u32, u8)> = r.faces.iter().map(|f| (f.u, f.d)).collect();
@@ -392,6 +395,7 @@ impl<'m> Thermal<'m> {
             turb_k_wall: std::cell::RefCell::new(Vec::new()),
             flowing,
             extra_q: std::cell::RefCell::new(Vec::new()),
+            solar,
             electric: std::cell::RefCell::new(None),
             nonlinear: has_pcm || has_kt || has_rad || has_hmode || has_cpt || s2s.is_some(),
             mat_cpt,
@@ -609,6 +613,11 @@ impl<'m> Thermal<'m> {
                 q.copy_from_slice(&ex);
             }
         }
+        if let Some(sl) = &self.solar {
+            for (qi, si) in q.iter_mut().zip(&sl.q) {
+                *qi += si;
+            }
+        }
         for (bi, us) in self.body_unknowns.iter().enumerate() {
             if us.is_empty() {
                 continue;
@@ -626,7 +635,7 @@ impl<'m> Thermal<'m> {
     }
 
     pub fn generated(&self, time: f64) -> f64 {
-        let extra: f64 = self.extra_q.borrow().iter().sum();
+        let extra: f64 = self.extra_q.borrow().iter().sum::<f64>() + self.solar.as_ref().map_or(0.0, |s| s.absorbed);
         extra + self.body_unknowns
             .iter()
             .enumerate()
@@ -776,7 +785,7 @@ impl<'m> Thermal<'m> {
     }
 
     fn flow_on(&self) -> bool {
-        self.model.study.flow && self.model.dim == 2
+        self.model.study.flow
     }
 
     /// Assemble the energy system at temperature `t`.
@@ -1240,6 +1249,10 @@ impl<'m> Thermal<'m> {
 pub struct FlowOut {
     pub u: Vec<f32>,
     pub v: Vec<f32>,
+    /// z-velocity (3D only).
+    pub w: Option<Vec<f32>>,
+    /// Velocity magnitude |U| (m/s).
+    pub speed: Vec<f32>,
     pub p: Vec<f32>,
     pub vmax: f64,
     /// Face area (m²) of flow-only boundaries (wall / slip) per model boundary.
@@ -1257,6 +1270,8 @@ pub struct FlowOut {
     pub yplus_max: f64,
     /// Fan operating point (Q m³/s, Δp Pa) per model boundary.
     pub fan_points: Vec<Option<(f64, f64)>>,
+    /// Internal fans: (mass flow kg/s, volume flow m³/s) along the fan direction.
+    pub fan_flow: Vec<Option<(f64, f64)>>,
 }
 
 /// Result of the thermal (and flow) solution.
@@ -1411,19 +1426,17 @@ fn layer_map(model: &Model, mesh: &Mesh) -> HashMap<u64, usize> {
             if !mesh.simulated(c) {
                 return;
             }
-            let (mut fx, mut fy, _) = g.centre(c);
+            let (mut fx, mut fy, mut fz) = g.centre(c);
             match d {
                 0 => fx -= 0.5 * g.dx,
                 1 => fx += 0.5 * g.dx,
                 2 => fy -= 0.5 * g.dy,
                 3 => fy += 0.5 * g.dy,
-                _ => {}
+                4 => fz -= 0.5 * g.dz,
+                _ => fz += 0.5 * g.dz,
             }
-            if let Some((x0, y0, x1, y1)) = b.region {
-                let e = 1e-9;
-                if !(fx >= x0 - e && fx <= x1 + e && fy >= y0 - e && fy <= y1 + e) {
-                    return;
-                }
+            if !b.in_region(fx, fy, (g.dim == 3).then_some(fz)) {
+                return;
             }
             m.insert((c as u64) * 8 + d as u64, bi);
         };
@@ -1459,6 +1472,7 @@ fn layer_map(model: &Model, mesh: &Mesh) -> HashMap<u64, usize> {
                         let sv = match d {
                             0 | 1 => cy,
                             2 | 3 => cx,
+                            _ if g.dim == 3 => cx,
                             _ => f64::NAN,
                         };
                         if sv.is_finite() && !(sv >= r0 - 1e-12 && sv <= r1 + 1e-12) {
@@ -1468,7 +1482,7 @@ fn layer_map(model: &Model, mesh: &Mesh) -> HashMap<u64, usize> {
                     claim(c, d);
                 }
             }
-            Target::Exterior => {}
+            Target::Exterior | Target::Interior => {}
         }
     }
     m

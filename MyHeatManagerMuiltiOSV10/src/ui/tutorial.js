@@ -13,6 +13,9 @@
 import { h, replace } from './dom.js';
 import { t, getLanguage } from '../core/i18n.js';
 import { sampleModel } from '../core/samples.js';
+import { nastranBdf } from '../core/formats.js';
+import { nastranToModel } from '../core/decks.js';
+import { parseNodeCsv, sampleNodeCsv3d } from '../core/heatmap.js';
 import { materialFromLibrary } from '../core/materials.js';
 import { CHAPTERS, STEP_TEXT, stepText, chapterName } from '../core/tutorial-text.js';
 
@@ -106,6 +109,7 @@ export const STEPS = [
     a.api.setDisplay({ slice: null, iso: { on: true, value: 60 } });
   } },
   { id: 'bottomPanel', target: '[data-testid=chart-strip]', async run(a) { await a.result('fieldT'); a.api.setChartTab('probes'); } },
+  { id: 'calculator', target: '[data-testid=dialog-calculator]', async run(a) { await a.result('fieldT'); await a.dialog('calculator'); } },
   { id: 'report', target: '[data-testid=dialog-report]', async run(a) { await a.result('fieldT'); await a.dialog('exportReport'); } },
   { id: 'transient', target: '[data-testid=chart-strip]', dwell: 8000, async run(a) {
     await a.other('pcmSink'); await a.solve();
@@ -115,6 +119,10 @@ export const STEPS = [
     if (a.active()) a.api.run('animate');
   } },
   { id: 'cht', target: '[data-testid=viewport]', async run(a) { await a.other('microchannel'); await a.solve(); a.display({ vectors: true }); a.api.run('fieldVelocity'); } },
+  { id: 'cht3d', target: '[data-testid=viewport]', dwell: 7000, async run(a) {
+    await a.other('heatSink3d'); await a.solve(); a.api.run('fieldVelocity'); a.api.run('view3d'); await sleep(400);
+    a.api.setDisplay({ slice: { axis: 'z', index: 13 }, iso: null });
+  } },
   { id: 'stress', target: '[data-testid=viewport]', async run(a) { await a.other('ledStress'); await a.solve(); a.display({ deformed: true }); a.api.run('fieldStress'); } },
   { id: 'turbulence', target: '[data-testid=viewport]', dwell: 7000, async run(a) { await a.other('turbulentDuct'); await a.solve(); a.display({ streamlines: true }); a.api.run('fieldVelocity'); } },
   { id: 'residuals', target: '[data-testid=chart-strip]', async run(a) { await a.other('turbulentDuct'); await a.solve(); a.api.setChartTab('residuals'); } },
@@ -126,7 +134,9 @@ export const STEPS = [
   { id: 'comfort', target: '[data-testid=viewport]', async run(a) { await a.other('officeComfort'); await a.solve(); a.api.run('fieldComfort'); } },
   { id: 'bioheat', target: '[data-testid=viewport]', async run(a) { await a.other('tumorAblation'); await a.solve(); a.api.run('fieldT'); a.api.setFrame(40); } },
   { id: 'fanCurve', target: '[data-testid=right-panel]', async run(a) { await a.other('fanEnclosure'); a.select('boundary', 'fan'); } },
+  { id: 'internalFan', target: '[data-testid=right-panel]', async run(a) { await a.other('fanChassis3d'); a.select('boundary', 'fan'); } },
   { id: 's2s', target: '[data-testid=viewport]', async run(a) { await a.other('vacuumOven'); await a.solve(); a.api.run('fieldT'); } },
+  { id: 'solar', target: '[data-testid=viewport]', async run(a) { await a.other('sunCabinet3d'); await a.solve(); a.api.run('fieldT'); a.api.run('view3d'); } },
   { id: 'parametric', target: '[data-testid=dialog-parametric]', dwell: 9000, async run(a) {
     await a.sample(); await a.dialog('parametric');
     const pick = (sel, value) => { const el = document.querySelector(sel); if (el) { el.value = value; el.dispatchEvent(new Event('change')); } };
@@ -142,15 +152,26 @@ export const STEPS = [
     await a.sample(); await a.dialog('heatmapView');
     q('[data-testid=heatmap-sample]')?.click();
   } },
+  { id: 'heatmap3d', target: '[data-testid=dialog-heatmap]', async run(a) {
+    await a.sample();
+    Object.assign(a.api.state.heatmap, { data: parseNodeCsv(sampleNodeCsv3d()), name: 'battery-module-nodes.csv', zRange: null, view: '3d', time: null });
+    await a.dialog('heatmapView');
+  } },
   { id: 'thermal', target: '[data-testid=dialog-thermal]', async run(a) { await a.sample(); await a.dialog('thermalAnalysis'); document.querySelector('[data-testid=thermal-dsc]')?.click(); await sleep(100); document.querySelector('[data-testid=thermal-sample]')?.click(); } },
   { id: 'kinetics', target: '[data-testid=dialog-thermal]', dwell: 7000, async run(a) { await a.sample(); await a.dialog('thermalAnalysis'); a.api.query('[data-testid=thermal-kinetics]')?.click(); await sleep(150); a.api.query('[data-testid=thermal-kin-sample]')?.click(); } },
   { id: 'electronics', target: '[data-testid=dialog-heatsink]', async run(a) { await a.sample(); await a.dialog('heatSink'); } },
   { id: 'fatigue', target: '[data-testid=dialog-fatigue]', async run(a) { await a.other('battery'); await a.solve(); await a.dialog('solderFatigue'); } },
+  { id: 'shock', target: '[data-testid=dialog-fatigue]', async run(a) { await a.other('battery'); await a.solve(); await a.dialog('solderFatigue'); q('[data-testid=fatigue-tab-shock]')?.click(); await sleep(200); } },
   { id: 'interop', target: '[data-testid=menu-popup]', async run(a) { await a.sample(); a.api.openMenuById('file'); } },
   { id: 'batch', target: '[data-testid=dialog-batch]', async run(a) { await a.sample(); await a.dialog('batchHelp'); } },
   { id: 'save', target: '[data-testid=tb-save]', run: (a) => a.sample() },
   { id: 'export', target: '[data-testid=menu-popup]', async run(a) { await a.sample(); a.api.openMenuById('file'); } },
   { id: 'formats', target: '[data-testid=dialog-formats]', async run(a) { await a.sample(); await a.dialog('fileFormats'); } },
+  { id: 'importDecks', target: '[data-testid=viewport]', async run(a) {
+    // The tutorial model written as a Nastran deck and read back, as File › Import does with a .bdf.
+    await a.other('importDecks', () => nastranToModel(nastranBdf(sampleModel('tutorial', getLanguage())), { language: getLanguage() }).model);
+    a.select('body', null);
+  } },
   { id: 'print', target: '[data-testid=dialog-print]', dwell: 7000, async run(a) { await a.result('fieldT'); await a.dialog('print'); await sleep(500); } },
   { id: 'gallery', target: '[data-testid=dialog-samples]', async run(a) { await a.sample(); await a.dialog('newFromSample'); } },
   { id: 'theme', target: '[data-testid=tb-theme]', dwell: 6000, async run(a) {
@@ -189,12 +210,13 @@ export class Tutorial {
   helpers() {
     const tour = this;
     const api = this.api;
-    const open = async (sampleId) => {
+    // A sample by id, or a model made by `build` (kept under `sampleId` and closed at the end like the samples).
+    const open = async (sampleId, build = null) => {
       tour.closeAll();
       api.stopPlaying();
       let doc = api.state.docs.find((d) => d.id === tour.docs.get(sampleId));
       if (!doc) {
-        doc = api.openModel(sampleModel(sampleId, getLanguage()), null, { keepPristine: true });
+        doc = api.openModel(build ? build() : sampleModel(sampleId, getLanguage()), null, { keepPristine: true });
         doc.dirty = false;
         tour.docs.set(sampleId, doc.id);
       }
@@ -215,7 +237,7 @@ export class Tutorial {
       active: () => tour.active,
       async start() { tour.closeAll(); api.stopPlaying(); api.showStart(true); await sleep(200); },
       sample: () => open('tutorial'),
-      other: (id) => open(id),
+      other: (id, build) => open(id, build),
       select(kind, id) { api.select(id ? { kind, ids: [id] } : null); },
       ensureBody(body) {
         if (api.doc().model.bodies.some((b) => b.id === body.id)) return;

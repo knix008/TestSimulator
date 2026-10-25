@@ -104,8 +104,7 @@ test('every sample is valid: no errors, materials present, targets resolve', () 
       const errors = checkModel(m).filter((i) => i.level === 'error');
       assert.deepEqual(errors, [], `${id} (${lang}): ${JSON.stringify(errors)}`);
       assert.ok(m.name && m.description, id);
-      const targets = boundaryTargets(m);
-      for (const bc of m.boundaries) assert.ok(targets.includes(bc.target), `${id}: ${bc.target}`);
+      for (const bc of m.boundaries) assert.ok(boundaryTargets(m, bc.type).includes(bc.target), `${id}: ${bc.target}`);
       for (const c of m.reliability.components) assert.ok(m.bodies.some((b) => b.id === c.body), `${id}: reliability ${c.body}`);
       assert.ok(cellCount(m.domain) <= 120_000, `${id} has ${cellCount(m.domain)} cells`);
     }

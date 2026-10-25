@@ -1,6 +1,7 @@
 $ MyHeatManager -> Nastran / Simcenter bulk data (SOL 153 steady heat transfer)
 $ Tutorial: power module - 2D CQUAD4 + PSHELL (thickness 0.04 m)
 $ SI units (m, kg, s, W), temperatures in deg C; radiation linearised: h_r = 4*eps*sigma*(T_inf+273.15)^3 added to h
+$ MyHeatManager domain 2 80 30 40 160 60 1
 SOL 153
 CEND
 TITLE = Tutorial: power module

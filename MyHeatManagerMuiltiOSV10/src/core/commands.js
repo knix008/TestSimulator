@@ -75,7 +75,8 @@ const C = {
   // Study
   steady: ['⏸', '정상 상태', 'Steady state', '시간에 따라 변하지 않는 평형 온도', 'Equilibrium temperature that no longer changes'],
   transient: ['⏱', '과도 상태', 'Transient', '시간에 따른 온도 변화', 'Temperature over time'],
-  toggleFlow: ['🌊', '유동 (CHT)', 'Flow (CHT)', '유체 영역의 유동과 연성 열전달 (2D)', 'Fluid flow and conjugate heat transfer (2D)'],
+  toggleFlow: ['🌊', '유동 (CHT)', 'Flow (CHT)', '유체 영역의 유동과 연성 열전달 (2D · 3D)', 'Fluid flow and conjugate heat transfer (2D and 3D)'],
+  bcInternalFan: ['🌀', '내부 팬', 'Internal fan', '유동 안에 놓는 팬: 영역(또는 물체)의 한 단면에 팬 곡선의 압력 상승을 줍니다 (Icepak 방식)', 'A fan inside the flow: the pressure rise of its curve across one plane of a region (or body), Icepak-style'],
   toggleNatural: ['♨', '자연 대류', 'Natural convection', '부력(부시네스크)에 의한 유동', 'Buoyancy-driven flow (Boussinesq)'],
   toggleStress: ['⚖', '열응력', 'Thermal stress', '온도 분포에 의한 응력·변형', 'Stress and deformation from the temperature'],
   toggleTurbulence: ['🌀', '난류 (k-ω SST)', 'Turbulence (k-ω SST)', '유동에 k-ω SST 난류 모델을 씁니다', 'Use the k-ω SST turbulence model for the flow'],
@@ -109,6 +110,8 @@ const C = {
   lineCut: ['╱', '단면선', 'Line cut', '두 점을 찍어 그 선을 따라 값을 그래프로 봅니다', 'Click two points to plot values along the line'],
   lineCut3d: ['⟋', '3D 단면선…', '3D line cut…', '3D 결과에서 두 점(x, y, z)을 입력해 그 선을 따라 값을 봅니다', 'Type two points (x, y, z) to plot a 3D result along the line between them'],
   probeChart: ['📈', '탐침 그래프', 'Probe chart', '탐침 온도의 시간 변화', 'Probe temperatures over time'],
+  calculator: ['🧮', '계산기 · 히스토그램…', 'Calculator · histogram…', '결과 필드로 식을 계산해 새 필드로 보고, 값의 분포(부피 비율)를 히스토그램으로 봅니다 (ParaView 방식)', 'Compute an expression of the result fields as a new field and see the distribution of its values (volume fraction) as a histogram (ParaView-style)'],
+  fieldCalc: ['🧮', '계산 필드', 'Calculated field', '계산기에서 만든 필드', 'The field made in the calculator'],
   clearResults: ['⌫', '결과 지우기', 'Clear results', '결과를 지우고 편집으로 돌아갑니다', 'Drop the results and go back to editing'],
   // Reliability (Sherlock-style)
   compactModel: ['🔲', 'JEDEC 2저항 패키지…', 'JEDEC two-resistor package…', 'Rjc · Rjb · 전력으로 칩 패키지를 3층 물체로 만듭니다 (Icepak 콤팩트 모델)', 'Build a chip package from Rjc, Rjb and power as three layered bodies (Icepak compact model)'],
@@ -135,7 +138,7 @@ const C = {
   exportStl: ['🧊', 'STL 내보내기…', 'Export STL…', '물체를 STL 솔리드로 저장합니다 (SOLIDWORKS · FreeCAD · SimScale)', 'Save the bodies as STL solids (SOLIDWORKS, FreeCAD, SimScale)'],
   exportDxf: ['📐', 'DXF 내보내기…', 'Export DXF…', '물체 외곽선을 DXF(R12) 도면으로 저장합니다', 'Save the body outlines as a DXF (R12) drawing'],
   exportTherm: ['🪟', 'THERM 내보내기 (.thmx)…', 'Export THERM (.thmx)…', '2D 단면을 LBNL THERM 형식으로 저장합니다', 'Save the 2D section in the LBNL THERM format'],
-  importModel: ['📥', '가져오기 (THERM · Gmsh · DXF)…', 'Import (THERM, Gmsh, DXF)…', 'THERM .thmx · Gmsh .msh · DXF 파일을 새 모델로 엽니다', 'Open a THERM .thmx, Gmsh .msh or DXF file as a new model'],
+  importModel: ['📥', '가져오기 (THERM · Gmsh · 해석기 · IDF)…', 'Import (THERM, Gmsh, decks, IDF)…', 'THERM .thmx · Gmsh .msh · DXF · Nastran .bdf · Ansys .cdb · CalculiX .inp · COMSOL .mphtxt · IDF .emn 파일을 새 모델로 엽니다', 'Open a THERM .thmx, Gmsh .msh, DXF, Nastran .bdf, Ansys .cdb, CalculiX .inp, COMSOL .mphtxt or IDF .emn file as a new model'],
   fileFormats: ['🗂', '지원 파일 형식…', 'Supported file formats…', '열고 저장할 수 있는 파일 형식과 지원하지 않는 형식', 'The file formats that can be opened and saved, and those that cannot'],
   importDxf: ['📐', 'DXF 가져오기…', 'Import DXF…', 'DXF 도면의 닫힌 폴리라인과 원을 물체로 가져옵니다', 'Bring in the closed polylines and circles of a DXF drawing as bodies'],
   batchHelp: ['⌨', '배치 실행 (API)…', 'Batch run (API)…', '명령줄에서 모델을 일괄 실행하는 방법', 'How to run models from the command line'],
@@ -187,9 +190,9 @@ export const MENUS = [
   { id: 'file', icon: '📁', ko: '파일', en: 'File', items: ['new', 'newFromSample', 'open', 'importModel', 'importDxf', '|', 'save', 'saveAs', '|', 'exportCsv', 'exportPng', 'exportVtk', 'exportVtu', '|', 'exportCalculix', 'exportNastran', 'exportAnsys', 'exportComsol', 'exportGmsh', 'exportTherm', 'exportStl', 'exportDxf', 'fileFormats', '|', 'exportReport', 'print', '|', 'closeTab', 'quit'] },
   { id: 'edit', icon: '✎', ko: '편집', en: 'Edit', items: ['undo', 'redo', '|', 'copy', 'paste', 'duplicate', 'delete', 'selectAll', '|', 'bringFront', 'sendBack'] },
   { id: 'view', icon: '👁', ko: '보기', en: 'View', items: ['fit', 'zoomReset', 'zoomIn', 'zoomOut', '|', 'view2d', 'view3d', '|', 'showGrid', 'showMesh', 'showAxes', 'showRulers', 'showLabels', '|', 'toolPanel', 'propertyPanel', 'chartPanel', 'fullscreen'] },
-  { id: 'model', icon: '⬚', ko: '모델', en: 'Model', items: ['select', 'rect', 'circle', 'polygon', 'probe', '|', 'domain', 'autoMesh', 'materials', 'assignMaterial', '|', 'heatSource', 'bcTemperature', 'bcFlux', 'bcConvection', 'bcRadiation', 'bcAdiabatic', 'bcContact', 'bcThinLayer', '|', 'bcInlet', 'bcOutlet', 'bcOpen', '|', 'bcVoltage', 'bcGround', 'bcCurrent', '|', 'bcFixed', 'bcPressure', 'bcForce'] },
+  { id: 'model', icon: '⬚', ko: '모델', en: 'Model', items: ['select', 'rect', 'circle', 'polygon', 'probe', '|', 'domain', 'autoMesh', 'materials', 'assignMaterial', '|', 'heatSource', 'bcTemperature', 'bcFlux', 'bcConvection', 'bcRadiation', 'bcAdiabatic', 'bcContact', 'bcThinLayer', '|', 'bcInlet', 'bcOutlet', 'bcOpen', 'bcInternalFan', '|', 'bcVoltage', 'bcGround', 'bcCurrent', '|', 'bcFixed', 'bcPressure', 'bcForce'] },
   { id: 'simulate', icon: '▶', ko: '해석', en: 'Simulate', items: ['steady', 'transient', '|', 'toggleFlow', 'toggleNatural', 'toggleTurbulence', 'toggleElectric', 'toggleStress', 'toggleModal', '|', 'solverSettings', 'validate', 'parametric', '|', 'run', 'stop'] },
-  { id: 'results', icon: '🌡', ko: '결과', en: 'Results', items: ['fieldT', 'fieldFlux', 'fieldVelocity', 'fieldPressure', 'fieldTurbulence', 'fieldStress', 'fieldDisp', 'fieldMode', 'fieldLiquid', 'fieldVoltage', 'fieldCurrent', 'fieldComfort', 'fieldPPD', '|', 'isotherms', 'vectors', 'streamlines', 'deformed', 'animate', '|', 'lineCut', 'lineCut3d', 'probeChart', '|', 'reliability', 'uFactor', 'parametric', 'exportReport', 'clearResults'] },
+  { id: 'results', icon: '🌡', ko: '결과', en: 'Results', items: ['fieldT', 'fieldFlux', 'fieldVelocity', 'fieldPressure', 'fieldTurbulence', 'fieldStress', 'fieldDisp', 'fieldMode', 'fieldLiquid', 'fieldVoltage', 'fieldCurrent', 'fieldComfort', 'fieldPPD', 'fieldCalc', '|', 'isotherms', 'vectors', 'streamlines', 'deformed', 'animate', '|', 'lineCut', 'lineCut3d', 'probeChart', 'calculator', '|', 'reliability', 'uFactor', 'parametric', 'exportReport', 'clearResults'] },
   { id: 'tools', icon: '🛠', ko: '도구', en: 'Tools', items: ['compactModel', 'heatSink', 'pcbStackup', 'powerMap', '|', 'solderFatigue', 'harmonic', '|', 'heatmapImport', 'heatmapView', 'heatmapStats', 'heatmapExport', 'heatmapCompare', '|', 'thermalAnalysis', '|', 'batchHelp', '|', 'materials', 'settings'] },
   { id: 'help', icon: '❓', ko: '도움말', en: 'Help', items: ['home', 'tutorial', 'tutorialDoc', '|', 'usage', 'shortcuts', '|', 'about'] },
 ];
@@ -204,8 +207,8 @@ export const WORKBENCHES = [
     { id: 'library', icon: '🧱', ko: '라이브러리', en: 'Library', tools: ['materials', 'assignMaterial', 'newMaterial', 'thermalAnalysis'] },
   ] },
   { id: 'loads', icon: '🔥', ko: '열원·경계', en: 'Loads & BCs', groups: [
-    { id: 'thermal', icon: '🌡', ko: '열 경계', en: 'Thermal', tools: ['heatSource', 'bcTemperature', 'bcFlux', 'bcConvection', 'bcRadiation', 'bcAdiabatic', 'bcContact'] },
-    { id: 'flow', icon: '🌊', ko: '유동 경계', en: 'Flow', tools: ['bcInlet', 'bcOutlet', 'bcOpen'] },
+    { id: 'thermal', icon: '🌡', ko: '열 경계', en: 'Thermal', tools: ['heatSource', 'bcTemperature', 'bcFlux', 'bcConvection', 'bcRadiation', 'bcAdiabatic', 'bcContact', 'bcThinLayer'] },
+    { id: 'flow', icon: '🌊', ko: '유동 경계', en: 'Flow', tools: ['bcInlet', 'bcOutlet', 'bcOpen', 'bcInternalFan'] },
     { id: 'electric', icon: '⚡', ko: '전기', en: 'Electric', tools: ['bcVoltage', 'bcGround', 'bcCurrent'] },
     { id: 'structure', icon: '⚖', ko: '구조', en: 'Structure', tools: ['bcFixed', 'bcPressure', 'bcForce'] },
   ] },
@@ -214,8 +217,8 @@ export const WORKBENCHES = [
     { id: 'solve', icon: '▶', ko: '실행', en: 'Solve', tools: ['domain', 'autoMesh', 'solverSettings', 'validate', 'parametric', 'run', 'stop'] },
   ] },
   { id: 'results', icon: '🌡', ko: '결과', en: 'Results', groups: [
-    { id: 'fields', icon: '🌡', ko: '필드', en: 'Fields', tools: ['fieldT', 'fieldFlux', 'fieldVelocity', 'fieldPressure', 'fieldTurbulence', 'fieldStress', 'fieldDisp', 'fieldMode', 'fieldLiquid', 'fieldVoltage', 'fieldCurrent', 'fieldComfort', 'fieldPPD'] },
-    { id: 'display', icon: '👁', ko: '표시', en: 'Display', tools: ['isotherms', 'vectors', 'streamlines', 'deformed', 'animate', 'lineCut', 'probeChart'] },
+    { id: 'fields', icon: '🌡', ko: '필드', en: 'Fields', tools: ['fieldT', 'fieldFlux', 'fieldVelocity', 'fieldPressure', 'fieldTurbulence', 'fieldStress', 'fieldDisp', 'fieldMode', 'fieldLiquid', 'fieldVoltage', 'fieldCurrent', 'fieldComfort', 'fieldPPD', 'fieldCalc'] },
+    { id: 'display', icon: '👁', ko: '표시', en: 'Display', tools: ['isotherms', 'vectors', 'streamlines', 'deformed', 'animate', 'lineCut', 'lineCut3d', 'probeChart', 'calculator'] },
     { id: 'output', icon: '⇩', ko: '출력', en: 'Output', tools: ['exportReport', 'exportCsv', 'exportPng', 'exportVtk', 'exportVtu', 'exportCalculix', 'exportNastran', 'exportAnsys', 'exportComsol', 'exportGmsh', 'exportTherm', 'exportStl', 'exportDxf', 'importModel', 'fileFormats', 'clearResults'] },
   ] },
   { id: 'reliability', icon: '🛡', ko: '신뢰성', en: 'Reliability', groups: [

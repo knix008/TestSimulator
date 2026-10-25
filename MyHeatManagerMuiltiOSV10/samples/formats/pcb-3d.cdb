@@ -1,6 +1,7 @@
 /COM, MyHeatManager -> Ansys MAPDL input
 /COM, PCB component layout (3D) - 3D SOLID70
 /COM, SI units (m, kg, s, W), temperatures in deg C; radiation linearised into the film coefficient
+/COM, MyHeatManager domain 3 80 60 8 40 30 4
 /PREP7
 /UNITS,SI
 ET,1,70

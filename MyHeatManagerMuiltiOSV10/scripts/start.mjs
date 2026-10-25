@@ -43,10 +43,12 @@ const servedByUs = holders.length > 0 && (await servesMyHeatManager());
 for (const holder of holders) {
   const ours = /vite/i.test(holder.command) && (servedByUs || holder.command.toLowerCase().includes(root.toLowerCase()));
   if (!ours) {
-    console.error(`포트 ${PORT} 을(를) 다른 프로그램이 쓰고 있습니다 (PID ${holder.pid}):\n  ${holder.command}\n그 프로그램을 끈 뒤 다시 실행하세요.`);
+    console.error(`Port ${PORT} is used by another program (PID ${holder.pid}):
+  ${holder.command}
+Close that program and start again.`);
     process.exit(1);
   }
-  console.log(`남아 있던 이 프로젝트의 Vite (PID ${holder.pid}) 를 종료합니다.`);
+  console.log(`Stopping this project's leftover Vite (PID ${holder.pid}).`);
   try { process.kill(holder.pid); } catch { /* already gone */ }
 }
 

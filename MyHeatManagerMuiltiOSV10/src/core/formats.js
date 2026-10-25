@@ -20,10 +20,10 @@ const N = (ko, en) => ({ ko, en });
 /** Every file format the program reads or writes (the UI builds its menus and file filters from this). */
 export const FORMATS = [
   { id: 'myheat', ext: 'myheat', name: N('MyHeatManager 모델', 'MyHeatManager model'), product: 'MyHeatManager', open: true, save: true },
-  { id: 'calculix', ext: 'inp', name: N('CalculiX 입력 덱', 'CalculiX input deck'), product: 'CalculiX', open: false, save: true },
-  { id: 'nastran', ext: 'bdf', name: N('Nastran 벌크 데이터 (SOL 153)', 'Nastran bulk data (SOL 153)'), product: 'Nastran / Simcenter', open: false, save: true },
-  { id: 'ansys', ext: 'cdb', name: N('Ansys MAPDL 입력 (.cdb)', 'Ansys MAPDL input (.cdb)'), product: 'Ansys', open: false, save: true },
-  { id: 'comsol', ext: 'mphtxt', name: N('COMSOL 텍스트 메시', 'COMSOL text mesh'), product: 'COMSOL', open: false, save: true },
+  { id: 'calculix', ext: 'inp', name: N('CalculiX / Abaqus 입력 덱', 'CalculiX / Abaqus input deck'), product: 'CalculiX', open: true, save: true },
+  { id: 'nastran', ext: 'bdf', name: N('Nastran 벌크 데이터 (SOL 153)', 'Nastran bulk data (SOL 153)'), product: 'Nastran / Simcenter', open: true, save: true },
+  { id: 'ansys', ext: 'cdb', name: N('Ansys MAPDL 입력 (.cdb)', 'Ansys MAPDL input (.cdb)'), product: 'Ansys', open: true, save: true },
+  { id: 'comsol', ext: 'mphtxt', name: N('COMSOL 텍스트 메시', 'COMSOL text mesh'), product: 'COMSOL', open: true, save: true },
   { id: 'gmsh', ext: 'msh', name: N('Gmsh 메시 (MSH 2.2)', 'Gmsh mesh (MSH 2.2)'), product: 'Gmsh', open: true, save: true },
   { id: 'therm', ext: 'thmx', name: N('THERM 7 단면', 'THERM 7 section'), product: 'THERM', open: true, save: true },
   { id: 'vtk', ext: 'vtk', name: N('VTK 레거시 결과', 'Legacy VTK result'), product: 'ParaView', open: false, save: true },
@@ -32,7 +32,11 @@ export const FORMATS = [
   { id: 'dxf', ext: 'dxf', name: N('DXF 도면 (R12)', 'DXF drawing (R12)'), product: 'DXF (CAD)', open: true, save: true },
   { id: 'csv', ext: 'csv', name: N('CSV (필드 값 / 측정점)', 'CSV (field values / measured nodes)'), product: 'CSV', open: true, save: true },
   { id: 'png', ext: 'png', name: N('PNG 그림', 'PNG image'), product: 'PNG', open: false, save: true },
+  { id: 'idf', ext: 'emn', name: N('IDF 3.0 기판 (.emn + 부품 라이브러리 .emp)', 'IDF 3.0 board (.emn + .emp part library)'), product: 'ECAD (IDF)', open: true, save: false },
 ];
+
+/** Extensions that open as a new model through import (core/decks.js, core/idf.js, THERM, Gmsh, DXF). */
+export const IMPORT_EXTENSIONS = ['thmx', 'msh', 'dxf', 'bdf', 'dat', 'nas', 'cdb', 'inp', 'mphtxt', 'emn'];
 
 /** Vendor formats that cannot be read or written without the vendor's own libraries, and what to use instead. */
 export const UNSUPPORTED = [
@@ -81,6 +85,9 @@ function conductivity(m) {
 
 /** Linearised radiation coefficient 4·ε·σ·T³ (W/m²K) at T °C. */
 const hRadiation = (emissivity, T) => 4 * emissivity * SIGMA * (T + 273.15) ** 3;
+
+/** The domain in mm and the grid, noted in a comment so decks read back (decks.js) get the same domain and cells. */
+export const domainNote = (d) => `MyHeatManager domain ${d.dim === 3 ? 3 : 2} ${num(d.width)} ${num(d.height)} ${num(d.depth)} ${d.nx} ${d.ny} ${d.dim === 3 ? d.nz : 1}`;
 
 // ───────────────────────── the grid mesh shared by every solver export
 
@@ -258,6 +265,7 @@ export function nastranBdf(input) {
     '$ MyHeatManager -> Nastran / Simcenter bulk data (SOL 153 steady heat transfer)',
     `$ ${ascii(model.name || 'model')} - ${is3d ? '3D CHEXA + PSOLID' : `2D CQUAD4 + PSHELL (thickness ${num(mesh.d.depth * s)} m)`}`,
     '$ SI units (m, kg, s, W), temperatures in deg C; radiation linearised: h_r = 4*eps*sigma*(T_inf+273.15)^3 added to h',
+    `$ ${domainNote(model.domain)}`,
   ];
   if (model.study.type === 'transient') lines.push('$ Note: the model is transient in MyHeatManager; this deck is the steady-state (SOL 153) version.');
   const groups = boundaryGroups(model, mesh);
@@ -351,6 +359,7 @@ export function ansysCdb(input) {
     '/COM, MyHeatManager -> Ansys MAPDL input',
     `/COM, ${ascii(model.name || 'model')} - ${is3d ? '3D SOLID70' : '2D PLANE55 with thickness'}`,
     '/COM, SI units (m, kg, s, W), temperatures in deg C; radiation linearised into the film coefficient',
+    `/COM, ${domainNote(model.domain)}`,
     '/PREP7',
     '/UNITS,SI',
   ];
@@ -416,7 +425,7 @@ export function comsolMphtxt(input) {
   const faceLex = (n) => (n.length === 4 ? [n[0], n[1], n[3], n[2]] : n);
   const out = [
     '# Created by COMSOL Multiphysics.', '',
-    `# MyHeatManager -> COMSOL text mesh: ${ascii(model.name || 'model')}; coordinates in m`, '',
+    `# MyHeatManager -> COMSOL text mesh: ${ascii(model.name || 'model')}; coordinates in m`, `# ${domainNote(model.domain)}`, '',
     '# Major & minor version', '0 1', '1 # number of tags', '# Tags', '5 mesh1', '1 # number of types', '# Types', '3 obj', '',
     '# --------- Object 0 ----------', '', '0 0 1', '4 Mesh # class', '4 # version', `${is3d ? 3 : 2} # sdim`,
     `${mesh.nodes.length} # number of mesh vertices`, '0 # lowest mesh vertex index', '', '# Mesh vertex coordinates',

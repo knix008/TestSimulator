@@ -11,8 +11,15 @@ import { formatValue, lut } from '../core/colormap.js';
 import { newId, bodyBounds } from '../core/model.js';
 import { MATERIAL_LIBRARY, materialFromLibrary, materialName } from '../core/materials.js';
 import { jedecTwoResistor, heatSink, pcbStackup, powerMapBodies } from '../core/compact.js';
-import { componentLife, rainflow, miner, coffinManson, norrisLandzberg, engelmaier, steinberg, weibull } from '../core/reliability.js';
-import { harmonicResponse, responsePeaks, dominantAxis } from '../core/harmonic.js';
+import { componentLife, rainflow, miner, coffinManson, norrisLandzberg, engelmaier, steinberg, weibull, randomVibration, halfSineShock } from '../core/reliability.js';
+
+/** Random-vibration profiles (Hz:g²/Hz): the MIL-STD-810 minimum-integrity shape (+3 dB/oct to 80 Hz, flat 0.04 to 350 Hz, −3 dB/oct to 2 kHz), an IEC 60068-2-64 flat band, a flat test. */
+const PSD_PRESETS = { mil: '20:0.01, 80:0.04, 350:0.04, 2000:0.007', iec: '10:0.02, 2000:0.02', flat: '20:0.04, 2000:0.04' };
+/** "f:psd, f:psd" (also newlines or semicolons) → [[f, psd], …]. */
+const parsePsd = (text) => String(text).split(/[,;\n]+/).map((pair) => pair.split(':').map((x) => Number(x.trim()))).filter((p) => p.length === 2 && p.every(Number.isFinite));
+import { harmonicResponse, responsePeaks, dominantAxis, pointTransmissibility } from '../core/harmonic.js';
+import { evaluateField, histogram, histogramCsv, resultVariables } from '../core/calculator.js';
+import { field, fieldCsv, cellAt } from '../core/result.js';
 import { parseNodeCsv, nodesAt, nodeStats, nodeBounds, idwRaster, deltaMap, envelope, sampleNodeCsv } from '../core/heatmap.js';
 import * as native from '../platform/native.js';
 
@@ -53,15 +60,25 @@ const STR = {
     fn: '고유 진동수 fn', fromModes: (f) => `모드 해석 1차 ${f} Hz`, input: '입력', gLevel: 'G rms', psd: 'PSD', bandwidth: '대역폭', boardB: '기판 변 B', compL: '부품 길이 L',
     boardH: '기판 두께 h', posR: '위치 계수 r', compC: '부품 상수 c', zAllow: 'Z 허용', zResp: 'Z 응답 (3σ)', ratioZ: 'Z허용/Z응답', hours: '시간',
     steinNote: 'Z허용 = 0.00022·B/(c·h·r·√L) (in, 2천만 회), Z1σ = 9.8·Grms/fn², Nf = 2·10⁷·(Z허용/Z응답)^6.4. PSD 입력이면 Miles 식으로 Grms 를 구합니다 (Q = √fn).',
+    psdTable: 'PSD 표', psdRows: 'PSD 표 (Hz:g²/Hz, …)', psdPreset: '프리셋', presetMil: 'MIL-STD-810 최소 내구 형태 (6.1 Grms)', presetIec: 'IEC 60068-2-64 평탄 (6.3 Grms)', presetFlat: '평탄 0.04 g²/Hz (20–2000 Hz)',
+    grmsResponse: '응답 G rms', grmsMiles: 'Miles 식 (비교)', psdChart: 'PSD (log₁₀ g²/Hz)', tableNote: 'PSD 표를 1자유도 전달 함수 |H|² 로 대역 전체에서 적분합니다 (Q = √fn). 응답 G rms 로 스타인버그 수명을 셉니다.',
+    tabShock: '충격 (반정현파)', peakG: '최대 가속도', duration: '펄스 길이', qShock: '증폭 Q', zMaxShock: '최대 상대 변위', aMaxShock: '질량의 최대 가속도', srs: '충격 응답 (aMax / 입력)', residual: '최대가 펄스 뒤 (잔류 진동)', yes: '예', no: '아니요',
+    shockMargin: 'Z허용 / 최대 변위', shockNote: '1자유도 기판 모드에 반정현파 바닥 가속도를 주고 운동 방정식을 시간 적분합니다 (RK4). Z허용 은 진동 탭의 스타인버그 값(보수적)이며, 비가 1보다 크면 여유가 있습니다.',
     // harmonic
     harmonicTitle: '조화 응답 (사인 스윕)', needModes: '모드 결과가 없습니다. 모드 해석(해석 설정 → 고유 진동수)을 켜고 해석을 실행하세요.',
     fMin: '최저 주파수', fMax: '최고 주파수', dampingPct: '감쇠비', kind: '종류', kindModal: '모드 중첩 (상대 진폭)', kindBase: '바닥 반력 / 강체', axis: '축', auto: '자동',
     amplitude: '진폭', phase: '위상 (°)', peaks: '응답 최대점', mode: '모드', logF: 'log₁₀ f (Hz)',
     harmonicNote: '모드 형상 없이 유효 질량비의 √ 를 참여 계수로 쓰므로 진폭은 상대값입니다 (한 점의 전달률이 아님).',
+    kindPoint: (name) => `탐침 ${name} 의 전달률 (모드 형상)`, pointNote: '탐침 위치의 모드 형상과 엔진의 참여 계수로 바닥 가속도 대비 절대 가속도의 비(전달률)를 계산합니다. 아래 그래프는 상대 변위 (mm/g) 입니다.', transmissibility: '전달률', dispPerG: '상대 변위 (mm/g)', needFactor: '이 결과에는 참여 계수가 없어 탐침 전달률을 쓸 수 없습니다 — 다시 해석하세요.',
     // heat map compare
     hmTitle: '노드 열지도 비교', addFile: 'CSV 추가…', sets: '데이터', modeLabel: '방식', modeDelta: 'B − A 차이', modeEnvelope: '포락선 (최대)', setA: 'A', setB: 'B',
     time: '시간', stats: '통계', exportCsv: 'CSV 내보내기', nodes: '노드', minV: '최소', maxV: '최대', avgV: '평균', needTwo: 'CSV 파일을 두 개 이상 불러오세요.',
     noMatch: 'A 와 B 에 같은 노드 번호가 없습니다.', loadFailed: '불러오기 실패', samplePair: '예제 한 쌍', removeSet: '빼기',
+    // calculator
+    calcTitle: '계산기 · 히스토그램', expression: '식', calcName: '이름', calcUnit: '단위', bins: '구간 수', presets: '예시', calcCells: '셀 수', calcInvalid: '계산 안 됨',
+    calcShow: '뷰포트에 표시', calcSaveField: '필드 CSV 저장', calcSaveHist: '히스토그램 CSV 저장', calcShown: (n) => `"${n}" 필드를 뷰포트에 표시합니다 (필드 선택: 계산기)`,
+    calcHelp: '셀마다 계산할 식: + − * / ^ ( ), 비교 < > (1 / 0), 함수 sqrt abs exp log log10 sin cos min max pow, 상수 pi.', calcVars: '쓸 수 있는 이름', fraction: '부피 비율',
+    presetK: '온도 (K)', presetRise: '주위보다 오른 온도', presetQ: '열유속 크기', presetHot: '80 °C 넘는 곳 (1 / 0)', presetGrad: '셀 중심 x 위치',
   },
   en: {
     close: 'Close', addToModel: 'Add to model', add: 'Add', remove: 'Remove', up: 'Up', down: 'Down', name: 'Name', material: 'Material',
@@ -94,13 +111,22 @@ const STR = {
     fn: 'Natural frequency fn', fromModes: (f) => `first modal frequency ${f} Hz`, input: 'Input', gLevel: 'G rms', psd: 'PSD', bandwidth: 'Bandwidth', boardB: 'Board edge B', compL: 'Component length L',
     boardH: 'Board thickness h', posR: 'Position factor r', compC: 'Component constant c', zAllow: 'Z allowable', zResp: 'Z response (3σ)', ratioZ: 'Z_allow / Z_resp', hours: 'Hours',
     steinNote: 'Z_allow = 0.00022·B/(c·h·r·√L) (in, 20 million cycles), Z_1σ = 9.8·G_rms/fn², Nf = 2·10⁷·(Z_allow/Z_resp)^6.4. A PSD input gives G_rms by Miles (Q = √fn).',
+    psdTable: 'PSD table', psdRows: 'PSD table (Hz:g²/Hz, …)', psdPreset: 'Preset', presetMil: 'MIL-STD-810 minimum-integrity shape (6.1 Grms)', presetIec: 'IEC 60068-2-64 flat (6.3 Grms)', presetFlat: 'Flat 0.04 g²/Hz (20–2000 Hz)',
+    grmsResponse: 'Response G rms', grmsMiles: 'Miles (for comparison)', psdChart: 'PSD (log₁₀ g²/Hz)', tableNote: 'The PSD table is integrated over its whole band with the single-degree-of-freedom |H|² (Q = √fn); the response G rms feeds the Steinberg life.',
+    tabShock: 'Shock (half-sine)', peakG: 'Peak acceleration', duration: 'Pulse duration', qShock: 'Amplification Q', zMaxShock: 'Peak relative displacement', aMaxShock: 'Peak acceleration of the mass', srs: 'Shock response (aMax / input)', residual: 'Peak after the pulse (residual)', yes: 'yes', no: 'no',
+    shockMargin: 'Z_allow / peak displacement', shockNote: 'A half-sine base acceleration on a single-degree-of-freedom board mode, integrated in time (RK4). Z_allow is the Steinberg value of the vibration tab (conservative); a ratio above 1 leaves margin.',
     harmonicTitle: 'Harmonic response (sine sweep)', needModes: 'No modal result. Turn on the modal study (study settings → natural frequencies) and run the analysis.',
     fMin: 'Min frequency', fMax: 'Max frequency', dampingPct: 'Damping ratio', kind: 'Kind', kindModal: 'Modal superposition (relative)', kindBase: 'Base force / rigid', axis: 'Axis', auto: 'Auto',
     amplitude: 'Amplitude', phase: 'Phase (°)', peaks: 'Response peaks', mode: 'Mode', logF: 'log₁₀ f (Hz)',
     harmonicNote: 'Without mode shapes, √(effective mass fraction) stands in for the participation factor, so the amplitude is relative (not the transmissibility of one point).',
+    kindPoint: (name) => `Transmissibility at probe ${name} (mode shapes)`, pointNote: 'The mode shapes at the probe and the engine\'s participation factors give the ratio of the absolute acceleration to the base acceleration (transmissibility). The lower chart is the relative displacement (mm/g).', transmissibility: 'Transmissibility', dispPerG: 'Relative displacement (mm/g)', needFactor: 'This result has no participation factors, so the probe transmissibility is not available — run the study again.',
     hmTitle: 'Node heat-map comparison', addFile: 'Add CSV…', sets: 'Data sets', modeLabel: 'Mode', modeDelta: 'B − A delta', modeEnvelope: 'Envelope (max)', setA: 'A', setB: 'B',
     time: 'Time', stats: 'Statistics', exportCsv: 'Export CSV', nodes: 'Nodes', minV: 'Min', maxV: 'Max', avgV: 'Mean', needTwo: 'Load two or more CSV files.',
     noMatch: 'A and B share no node ids.', loadFailed: 'Could not load', samplePair: 'Sample pair', removeSet: 'Remove',
+    calcTitle: 'Calculator · histogram', expression: 'Expression', calcName: 'Name', calcUnit: 'Unit', bins: 'Bins', presets: 'Examples', calcCells: 'Cells', calcInvalid: 'Not computable',
+    calcShow: 'Show in the viewport', calcSaveField: 'Save field CSV', calcSaveHist: 'Save histogram CSV', calcShown: (n) => `Showing the field "${n}" in the viewport (field selector: Calculator)`,
+    calcHelp: 'An expression per cell: + − * / ^ ( ), comparisons < > (1 / 0), functions sqrt abs exp log log10 sin cos min max pow, the constant pi.', calcVars: 'Names you can use', fraction: 'Volume fraction',
+    presetK: 'Temperature (K)', presetRise: 'Rise over ambient', presetQ: 'Heat-flux magnitude', presetHot: 'Above 80 °C (1 / 0)', presetGrad: 'Cell centre x',
   },
 };
 
@@ -552,7 +578,9 @@ export function showSolderFatigue(app) {
   const tabsEl = h('div', { className: 'eng-tabs' });
   const pane = h('div', { className: 'eng-pane eng-tabpane' });
   const charts = [];
-  const tabs = [['cycles', s.tabCycles], ['nl', s.tabNL], ['weibull', s.tabWeibull], ['vibration', s.tabVibration]];
+  st.vib.table ??= PSD_PRESETS.mil;
+  st.shock ??= { peakG: 50, duration: 11, Q: 10 };
+  const tabs = [['cycles', s.tabCycles], ['nl', s.tabNL], ['weibull', s.tabWeibull], ['vibration', s.tabVibration], ['shock', s.tabShock]];
 
   const histories = () => resultHistories(app.doc());
   const pickSource = (list) => {
@@ -713,15 +741,25 @@ export function showSolderFatigue(app) {
     const modes = app.doc()?.result?.header?.modes ?? [];
     const f1 = modes.find((m) => m.frequency > 0)?.frequency;
     if (v.fn == null) v.fn = Number.isFinite(f1) ? f1 : 200;
-    const r = steinberg({ fn: v.fn, gLevel: v.input === 'g' ? v.g : null, psd: v.input === 'psd' ? v.psd : null, bandwidth: v.input === 'psd' ? v.bandwidth : null, B: v.B, L: v.L, h: v.h, r: v.r, c: v.c });
+    let rv = null;
+    if (v.input === 'table') { try { rv = randomVibration({ psd: parsePsd(v.table), fn: v.fn }); } catch { rv = null; } }
+    const r = steinberg({ fn: v.fn, gLevel: v.input === 'g' ? v.g : v.input === 'table' ? (rv?.GrmsResponse ?? 0) : null, psd: v.input === 'psd' ? v.psd : null, bandwidth: v.input === 'psd' ? v.bandwidth : null, B: v.B, L: v.L, h: v.h, r: v.r, c: v.c });
     const f = (key, step, suffix, opts = {}) => num(v[key], (x) => { v[key] = x; render(); }, { step, suffix, testid: `fatigue-vib-${key}`, ...opts });
+    const chart = rv ? h('canvas', { className: 'eng-chart', dataset: tid('fatigue-vib-chart') }) : null;
+    if (rv) {
+      const lg = (list, key) => list.filter((p) => p[key] > 0).map((p) => [Math.log10(p.f), Math.log10(p[key])]);
+      charts.push(() => drawLineChart(chart, [{ name: s.input, points: lg(rv.curve, 'input') }, { name: s.grmsResponse, points: lg(rv.curve, 'response') }], { xLabel: 'log₁₀ f (Hz)', yLabel: s.psdChart, css: cssOf(chart) }));
+    }
     return [
       h('div', { className: 'eng-grid2' },
         h('div', { className: 'print-options' },
           row(s.fn, f('fn', 10, 'Hz', { min: 0.1 }), Number.isFinite(f1) ? button('↺', () => { v.fn = f1; render(); }, 'fatigue-vib-fn-reset', { title: s.fromModes(fmt(f1)) }) : null),
           Number.isFinite(f1) ? h('p', { className: 'part-help' }, s.fromModes(fmt(f1))) : null,
-          row(s.input, select(v.input, [['g', s.gLevel], ['psd', s.psd]], (x) => { v.input = x; render(); }, 'fatigue-vib-input')),
-          v.input === 'g' ? row(s.gLevel, f('g', 0.5, 'g', { min: 0 })) : [row(s.psd, f('psd', 0.01, 'g²/Hz', { min: 0 })), row(s.bandwidth, f('bandwidth', 100, 'Hz', { min: 1 }))],
+          row(s.input, select(v.input, [['g', s.gLevel], ['psd', s.psd], ['table', s.psdTable]], (x) => { v.input = x; render(); }, 'fatigue-vib-input')),
+          v.input === 'g' ? row(s.gLevel, f('g', 0.5, 'g', { min: 0 }))
+            : v.input === 'psd' ? [row(s.psd, f('psd', 0.01, 'g²/Hz', { min: 0 })), row(s.bandwidth, f('bandwidth', 100, 'Hz', { min: 1 }))]
+              : [row(s.psdPreset, select(Object.entries(PSD_PRESETS).find(([, text]) => text === v.table)?.[0] ?? '', [['', '—'], ['mil', s.presetMil], ['iec', s.presetIec], ['flat', s.presetFlat]], (x) => { if (PSD_PRESETS[x]) { v.table = PSD_PRESETS[x]; render(); } }, 'fatigue-vib-preset')),
+                h('label', { className: 'eng-area' }, h('span', null, s.psdRows), h('textarea', { rows: 3, value: v.table, dataset: tid('fatigue-vib-table'), onChange: (e) => { v.table = e.target.value; render(); } }))],
           row(s.boardB, f('B', 5, 'mm', { min: 1 })),
           row(s.compL, f('L', 1, 'mm', { min: 0.1 })),
           row(s.boardH, f('h', 0.1, 'mm', { min: 0.1 })),
@@ -736,15 +774,58 @@ export function showSolderFatigue(app) {
             stat(s.ratioZ, fmt(r.ratio)),
             stat(s.nf, `${fmt(r.Nf)}`, 'fatigue-vib-nf'),
             stat(s.hours, `${fmt(r.hours)} h`),
-            r.GrmsInput != null ? stat(`G rms (${s.input})`, `${fmt(r.GrmsInput)} g`) : null),
-          h('p', { className: 'part-help' }, s.steinNote))),
+            r.GrmsInput != null ? stat(`G rms (${s.input})`, `${fmt(r.GrmsInput)} g`) : null,
+            rv ? stat(`G rms (${s.input})`, `${fmt(rv.GrmsInput)} g`, 'fatigue-vib-grms-in') : null,
+            rv ? stat(s.grmsMiles, `${fmt(rv.GrmsMiles)} g`) : null),
+          h('p', { className: 'part-help' }, v.input === 'table' ? s.tableNote : s.steinNote),
+          chart)),
+    ];
+  }
+
+  function shockTab() {
+    const v = st.vib;
+    const k = st.shock;
+    const modes = app.doc()?.result?.header?.modes ?? [];
+    const f1 = modes.find((m) => m.frequency > 0)?.frequency;
+    if (v.fn == null) v.fn = Number.isFinite(f1) ? f1 : 200;
+    let r = null;
+    try { r = halfSineShock({ peakG: k.peakG, durationMs: k.duration, fn: v.fn, Q: k.Q }); } catch { r = null; }
+    const allow = steinberg({ fn: v.fn, gLevel: 1, B: v.B, L: v.L, h: v.h, r: v.r, c: v.c }).Zallow;
+    const g = (key, step, suffix, opts = {}) => num(k[key], (x) => { k[key] = x; render(); }, { step, suffix, testid: `fatigue-shock-${key}`, ...opts });
+    const chart = h('canvas', { className: 'eng-chart', dataset: tid('fatigue-shock-chart') });
+    if (r) {
+      // The displacement is drawn scaled onto the acceleration axis (one y axis): its timing against the pulse.
+      const zScale = Math.max(...r.history.map((p) => Math.abs(p.z))) || 1;
+      charts.push(() => drawLineChart(chart, [
+        { name: `${s.input} (g)`, points: r.history.map((p) => [p.t, p.a]) },
+        { name: `z (${fmt(zScale)} mm = ${fmt(k.peakG)} g)`, points: r.history.map((p) => [p.t, (p.z / zScale) * k.peakG]) },
+      ], { xLabel: 't (ms)', yLabel: 'g', css: cssOf(chart) }));
+    }
+    return [
+      h('div', { className: 'eng-grid2' },
+        h('div', { className: 'print-options' },
+          row(s.fn, num(v.fn, (x) => { v.fn = x; render(); }, { step: 10, min: 0.1, suffix: 'Hz', testid: 'fatigue-shock-fn' }), Number.isFinite(f1) ? button('↺', () => { v.fn = f1; render(); }, 'fatigue-shock-fn-reset', { title: s.fromModes(fmt(f1)) }) : null),
+          row(s.peakG, g('peakG', 5, 'g', { min: 0.1 })),
+          row(s.duration, g('duration', 0.5, 'ms', { min: 0.05 })),
+          row(s.qShock, g('Q', 1, '', { min: 0.6 })),
+          h('p', { className: 'part-help' }, `${s.boardB} ${fmt(v.B)} mm · ${s.compL} ${fmt(v.L)} mm · ${s.boardH} ${fmt(v.h)} mm (${s.tabVibration})`)),
+        h('div', { className: 'eng-col' },
+          r ? h('div', { className: 'stat-grid two' },
+            stat(s.zMaxShock, `${fmt(r.zMax)} mm`, 'fatigue-shock-zmax'),
+            stat(s.aMaxShock, `${fmt(r.aMax)} g`, 'fatigue-shock-amax'),
+            stat(s.srs, fmt(r.amplification), 'fatigue-shock-srs'),
+            stat(s.residual, r.residual ? s.yes : s.no),
+            stat(s.zAllow, `${fmt(allow)} mm`),
+            stat(s.shockMargin, fmt(allow / r.zMax), 'fatigue-shock-margin')) : null,
+          h('p', { className: 'part-help' }, s.shockNote),
+          chart)),
     ];
   }
 
   function render() {
     replace(tabsEl, ...tabs.map(([id, label]) => h('button', { type: 'button', className: st.tab === id ? 'on' : null, dataset: tid(`fatigue-tab-${id}`), onClick: () => { st.tab = id; render(); } }, label)));
     charts.length = 0;
-    const content = st.tab === 'nl' ? nlTab() : st.tab === 'weibull' ? weibullTab() : st.tab === 'vibration' ? vibrationTab() : cyclesTab();
+    const content = st.tab === 'nl' ? nlTab() : st.tab === 'weibull' ? weibullTab() : st.tab === 'vibration' ? vibrationTab() : st.tab === 'shock' ? shockTab() : cyclesTab();
     replace(pane, ...content);
     const draw = () => charts.forEach((fn) => fn());
     later(draw);
@@ -784,18 +865,37 @@ export function showHarmonic(app) {
   const msg = h('div', { className: 'eng-msg' });
   const dims = (modes[0].participation?.length ?? 2) >= 3 ? 3 : 2;
   const axisNames = ['x', 'y', 'z'].slice(0, dims);
+  // Mode shapes at a probe (the cell under it) for the physical transmissibility; needs the engine's signed factors.
+  const hasFactor = modes.every((m) => Array.isArray(m.factor));
+  const shapesAt = (probe) => {
+    const g = doc.result.header.grid;
+    const c = cellAt(g, probe.x, probe.y, probe.z);
+    const all = doc.result.header.modes;
+    return modes.map((m) => {
+      const k = all.indexOf(m) + 1;
+      return ['X', 'Y', 'Z'].map((a) => (c >= 0 ? field(doc.result, `mode${a}_${k}`)?.[c] ?? 0 : 0));
+    });
+  };
+  const kinds = [['modal', s.kindModal], ['baseForce', s.kindBase], ...(hasFactor ? doc.model.probes.map((p) => [`probe:${p.id}`, s.kindPoint(p.name || p.id)]) : [])];
   let curve = [];
   const paint = () => {
     if (!curve.length) return;
     const lg = (f) => Math.log10(f);
-    drawLineChart(ampChart, [{ name: s.amplitude, points: curve.map((p) => [lg(p.f), p.amplitude]) }], { xLabel: s.logF, yLabel: s.amplitude, css: cssOf(ampChart) });
-    drawLineChart(phaseChart, [{ name: s.phase, points: curve.map((p) => [lg(p.f), p.phase]), color: '#ff7a59' }], { xLabel: s.logF, yLabel: s.phase, css: cssOf(phaseChart) });
+    const point = st.kind.startsWith('probe:');
+    const yAmp = point ? s.transmissibility : s.amplitude;
+    drawLineChart(ampChart, [{ name: yAmp, points: curve.map((p) => [lg(p.f), p.amplitude]) }], { xLabel: s.logF, yLabel: yAmp, css: cssOf(ampChart) });
+    if (point) drawLineChart(phaseChart, [{ name: s.dispPerG, points: curve.map((p) => [lg(p.f), p.disp]), color: '#ff7a59' }], { xLabel: s.logF, yLabel: s.dispPerG, css: cssOf(phaseChart) });
+    else drawLineChart(phaseChart, [{ name: s.phase, points: curve.map((p) => [lg(p.f), p.phase]), color: '#ff7a59' }], { xLabel: s.logF, yLabel: s.phase, css: cssOf(phaseChart) });
   };
   const update = () => {
     if (!(st.fMax > st.fMin)) { message(msg, `${s.fMax} > ${s.fMin}`); return; }
     message(msg, '');
     const axis = st.axis === 'auto' ? dominantAxis(modes) : Number(st.axis);
-    curve = harmonicResponse({ modes, fMin: st.fMin, fMax: st.fMax, points: 500, damping: st.damping / 100, axis, kind: st.kind });
+    if (st.kind.startsWith('probe:')) {
+      const probe = doc.model.probes.find((p) => `probe:${p.id}` === st.kind);
+      if (!probe || !hasFactor) { st.kind = 'modal'; return update(); }
+      curve = pointTransmissibility({ modes, shapes: shapesAt(probe), fMin: st.fMin, fMax: st.fMax, points: 500, damping: st.damping / 100, axis });
+    } else curve = harmonicResponse({ modes, fMin: st.fMin, fMax: st.fMax, points: 500, damping: st.damping / 100, axis, kind: st.kind });
     const list = responsePeaks(curve, 8);
     const nearest = (f) => modes.reduce((best, m, i) => (Math.abs(m.frequency - f) < Math.abs(modes[best].frequency - f) ? i : best), 0);
     replace(peaks, h('strong', null, s.peaks),
@@ -808,10 +908,10 @@ export function showHarmonic(app) {
     row(s.fMin, num(st.fMin, (v) => { st.fMin = v; update(); }, { step: 10, min: 0.01, suffix: 'Hz', testid: 'harmonic-fmin' })),
     row(s.fMax, num(st.fMax, (v) => { st.fMax = v; update(); }, { step: 100, min: 0.02, suffix: 'Hz', testid: 'harmonic-fmax' })),
     row(s.dampingPct, num(st.damping, (v) => { st.damping = v; update(); }, { step: 0.5, min: 0.01, max: 100, suffix: '%', testid: 'harmonic-damping' })),
-    row(s.kind, select(st.kind, [['modal', s.kindModal], ['baseForce', s.kindBase]], (v) => { st.kind = v; update(); }, 'harmonic-kind')),
+    row(s.kind, select(st.kind, kinds, (v) => { st.kind = v; update(); }, 'harmonic-kind')),
     row(s.axis, select(st.axis, [['auto', `${s.auto} (${axisNames[dominantAxis(modes)] ?? 'y'})`], ...axisNames.map((a, i) => [String(i), a])], (v) => { st.axis = v; update(); }, 'harmonic-axis')),
     msg, peaks,
-    h('p', { className: 'part-help' }, s.harmonicNote));
+    h('p', { className: 'part-help' }, hasFactor && doc.model.probes.length ? `${s.harmonicNote} ${s.pointNote}` : s.harmonicNote));
   const dialog = popup({
     id: 'harmonic', title: s.harmonicTitle, icon: '〰', width: 1040, height: 680,
     body: h('div', { className: 'eng eng-layout wide-side' }, form, h('div', { className: 'eng-col' }, ampChart, phaseChart)),
@@ -969,5 +1069,75 @@ export function showHeatmapCompare(app) {
     id: 'hmcompare', title: s.hmTitle, icon: '🗺', width: 1040, height: 680,
     body: h('div', { className: 'eng heatmap-layout' }, canvas, side),
     actions: [{ label: s.close, primary: true, testid: 'hmcompare-close' }],
+  });
+}
+
+// ───────────────────────── 8. field calculator and histogram (ParaView Calculator / Histogram)
+
+export function showCalculator(app) {
+  const s = S();
+  const doc = app.doc();
+  if (!doc?.result) {
+    return popup({ id: 'calculator', title: s.calcTitle, icon: '🧮', width: 520, height: 200, body: h('div', { className: 'eng' }, h('p', { className: 'error-headline', dataset: tid('calc-need-result') }, s.needResult)), actions: [{ label: s.close, primary: true, testid: 'calc-close' }] });
+  }
+  const st = memory.calc ??= { expr: 'T - Tamb', name: 'calc', unit: '°C', bins: 20 };
+  const presets = [['T + 273.15', s.presetK, 'K'], ['T - Tamb', s.presetRise, '°C'], ['q', s.presetQ, 'W/m²'], ['T > 80', s.presetHot, ''], ['x', s.presetGrad, 'mm']];
+  const side = h('div', { className: 'print-options' });
+  const out = h('div', { className: 'eng-col' });
+  const chart = h('canvas', { className: 'eng-chart', dataset: tid('calc-chart') });
+  let current = null;
+  const compute = () => {
+    const d = app.doc();
+    try {
+      const r = evaluateField(d.result, st.expr, { frame: d.frame ?? 0, ambient: d.model.ambient });
+      return { ...r, hist: histogram(r.values, field(d.result, 'mat'), { bins: st.bins }) };
+    } catch (error) { return { error: error.message }; }
+  };
+  const render = () => {
+    current = compute();
+    const vars = resultVariables(app.doc().result).names;
+    replace(side,
+      row(s.presets, select('', [['', '—'], ...presets.map(([e, label]) => [e, `${label}  ·  ${e}`])], (e) => { const p = presets.find((x) => x[0] === e); if (p) { st.expr = p[0]; st.unit = p[2]; render(); } }, 'calc-preset')),
+      h('label', { className: 'eng-area' }, h('span', null, s.expression), h('textarea', { rows: 3, value: st.expr, spellcheck: false, dataset: tid('calc-expr'), onChange: (e) => { st.expr = e.target.value; render(); } })),
+      row(s.calcName, h('input', { type: 'text', value: st.name, dataset: tid('calc-name'), onChange: (e) => { st.name = e.target.value || 'calc'; } })),
+      row(s.calcUnit, h('input', { type: 'text', value: st.unit, dataset: tid('calc-unit'), onChange: (e) => { st.unit = e.target.value; } })),
+      row(s.bins, num(st.bins, (v) => { st.bins = Math.max(2, Math.round(v)); render(); }, { step: 5, min: 2, max: 200, testid: 'calc-bins' })),
+      h('p', { className: 'part-help' }, s.calcHelp),
+      h('p', { className: 'part-help' }, `${s.calcVars}: ${vars.join(', ')}`));
+    if (current.error) {
+      replace(out, h('p', { className: 'error-headline', dataset: tid('calc-error') }, current.error));
+      return;
+    }
+    const { hist } = current;
+    charts.length = 0;
+    // Bars as a step line: up and down at every bin edge, the height is the volume fraction in %.
+    const bars = [];
+    hist.counts.forEach((_, k) => { const y = hist.fraction[k] * 100; bars.push([hist.edges[k], 0], [hist.edges[k], y], [hist.edges[k + 1], y], [hist.edges[k + 1], 0]); });
+    replace(out,
+      h('div', { className: 'stat-grid two', dataset: tid('calc-result') },
+        stat(s.minV, `${fmt(current.min)} ${st.unit}`, 'calc-min'),
+        stat(s.avgV, `${fmt(current.mean)} ${st.unit}`, 'calc-mean'),
+        stat(s.maxV, `${fmt(current.max)} ${st.unit}`, 'calc-max'),
+        stat(s.calcCells, String(current.count)),
+        current.invalid ? stat(s.calcInvalid, String(current.invalid), 'calc-invalid') : null),
+      h('div', { className: 'row eng-buttons' },
+        button(s.calcShow, () => {
+          const d = app.doc();
+          d.result.derived = { ...(d.result.derived ?? {}), calc: { values: current.values, unit: st.unit, name: st.name } };
+          app.setDisplay({ fieldKind: 'calc', showResult: true });
+          app.setStatus(s.calcShown(st.name));
+        }, 'calc-show', { className: 'primary' }),
+        button(s.calcSaveField, () => { const d = app.doc(); app.saveText(`${d.model.name || 'model'}-${st.name}.csv`, fieldCsv(d.result, current.values, st.name, st.unit), 'csvFilesOut', 'csv'); }, 'calc-save-field'),
+        button(s.calcSaveHist, () => { const d = app.doc(); app.saveText(`${d.model.name || 'model'}-${st.name}-histogram.csv`, histogramCsv(hist, st.name, st.unit), 'csvFilesOut', 'csv'); }, 'calc-save-hist')),
+      chart);
+    charts.push(() => drawLineChart(chart, [{ name: `${s.fraction} (%)`, points: bars }], { xLabel: st.unit ? `${st.name} (${st.unit})` : st.name, yLabel: '%', css: cssOf(chart) }));
+    later(() => charts.forEach((fn) => fn()));
+  };
+  const charts = [];
+  render();
+  return popup({
+    id: 'calculator', title: s.calcTitle, icon: '🧮', width: 940, height: 620,
+    body: h('div', { className: 'eng eng-grid2' }, side, out),
+    actions: [{ label: s.close, primary: true, testid: 'calc-close' }],
   });
 }

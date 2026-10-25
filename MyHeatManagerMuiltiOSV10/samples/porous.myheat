@@ -119,6 +119,7 @@
         65
       ],
       "region": null,
+      "direction": "+x",
       "curve": null,
       "type": "flux",
       "T": 25,
@@ -157,6 +158,7 @@
       "target": "left",
       "range": null,
       "region": null,
+      "direction": "+x",
       "curve": null,
       "type": "inlet",
       "T": 25,
@@ -195,6 +197,7 @@
       "target": "right",
       "range": null,
       "region": null,
+      "direction": "+x",
       "curve": null,
       "type": "outlet",
       "T": 25,
@@ -264,6 +267,12 @@
       "clo": 0.5,
       "rh": 50,
       "tr": null
+    },
+    "solar": {
+      "enabled": false,
+      "irradiance": 1000,
+      "elevation": 60,
+      "azimuth": 0
     },
     "s2s": false,
     "s2sMedium": "void"

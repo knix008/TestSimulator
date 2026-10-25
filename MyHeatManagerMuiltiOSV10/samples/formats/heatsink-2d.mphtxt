@@ -1,6 +1,7 @@
 # Created by COMSOL Multiphysics.
 
 # MyHeatManager -> COMSOL text mesh: Tutorial: power module; coordinates in m
+# MyHeatManager domain 2 80 30 40 160 60 1
 
 # Major & minor version
 0 1

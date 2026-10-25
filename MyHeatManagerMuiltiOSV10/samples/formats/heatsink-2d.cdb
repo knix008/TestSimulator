@@ -1,6 +1,7 @@
 /COM, MyHeatManager -> Ansys MAPDL input
 /COM, Tutorial: power module - 2D PLANE55 with thickness
 /COM, SI units (m, kg, s, W), temperatures in deg C; radiation linearised into the film coefficient
+/COM, MyHeatManager domain 2 80 30 40 160 60 1
 /PREP7
 /UNITS,SI
 ET,1,55

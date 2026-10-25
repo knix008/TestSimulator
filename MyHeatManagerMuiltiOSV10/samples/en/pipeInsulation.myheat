@@ -171,6 +171,7 @@
       "target": "body:bore",
       "range": null,
       "region": null,
+      "direction": "+x",
       "curve": null,
       "type": "temperature",
       "T": 150,
@@ -209,6 +210,7 @@
       "target": "exterior",
       "range": null,
       "region": null,
+      "direction": "+x",
       "curve": null,
       "type": "convection",
       "T": 25,
@@ -278,6 +280,12 @@
       "clo": 0.5,
       "rh": 50,
       "tr": null
+    },
+    "solar": {
+      "enabled": false,
+      "irradiance": 1000,
+      "elevation": 60,
+      "azimuth": 0
     },
     "s2s": false,
     "s2sMedium": "void"

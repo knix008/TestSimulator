@@ -425,7 +425,7 @@ export function build() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { written, images } = build();
-  console.log('문서 HTML:');
+  console.log('Document HTML:');
   for (const { output, note } of written) console.log(`  ${path.relative(root, output).split(path.sep).join('/')}  (${kb(fs.statSync(output).size)}) ← ${note}`);
-  console.log(`public/docs/ 에 복사: HTML ${PAGES.length}개, 그림 ${images.length}개`);
+  console.log(`Copied to public/docs/: ${PAGES.length} HTML files, ${images.length} images`);
 }

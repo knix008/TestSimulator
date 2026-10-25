@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { c, heading, padEnd, padStart } from '../test/e2e/report.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -27,11 +28,11 @@ const targets = {
 
 const requested = process.argv[2] === 'all' || !process.argv[2] ? host : process.argv[2];
 if (!targets[requested]) {
-  console.error(`알 수 없는 대상: ${process.argv[2]} (win | mac | linux | all)`);
+  console.error(c.red(`Unknown target: ${process.argv[2]} (win | mac | linux | all)`));
   process.exit(1);
 }
 if (requested !== host) {
-  console.error(`${requested} 설치 파일은 ${requested === 'win' ? 'Windows' : requested === 'mac' ? 'macOS' : 'Linux'} 에서 만들어야 합니다 (Tauri는 교차 빌드를 지원하지 않습니다).`);
+  console.error(c.red(`The ${requested} installer has to be built on ${requested === 'win' ? 'Windows' : requested === 'mac' ? 'macOS' : 'Linux'} (Tauri does not cross-compile).`));
   process.exit(1);
 }
 
@@ -43,7 +44,8 @@ if (process.platform === 'win32') {
 }
 
 const bundles = targets[requested].bundles;
-console.log(`> tauri build --bundles ${bundles.join(',')}`);
+console.log(`${heading(`Building the ${requested} installer`, c.dim(`tauri build --bundles ${bundles.join(',')}`))}`);
+const started = performance.now();
 const result = spawnSync(process.execPath, [path.join(root, 'node_modules', '@tauri-apps', 'cli', 'tauri.js'), 'build', '--bundles', bundles.join(',')], {
   cwd: root,
   stdio: 'inherit',
@@ -62,8 +64,8 @@ const assets = fs.readdirSync(path.join(root, 'dist', 'assets')).filter((file) =
 const embedded = binary ? fs.readFileSync(binary).toString('latin1') : '';
 const missing = assets.filter((file) => !embedded.includes(`/assets/${file}`));
 if (!binary || !assets.length || missing.length) {
-  console.error(`\n프로그램에 웹 페이지가 들어가지 않았습니다 (${binary ? path.basename(binary) : '실행 파일 없음'}: 빠진 파일 ${missing.length}/${assets.length}개).`);
-  console.error('빌드 중에 dist/ 가 다시 만들어진 것 같습니다. 다른 vite build 가 끝난 뒤 다시 빌드하세요.');
+  console.error(c.red(`\nThe web page was not embedded in the program (${binary ? path.basename(binary) : 'no program file'}: ${missing.length} of ${assets.length} files missing).`));
+  console.error('dist/ seems to have been rebuilt during the build. Build again once the other vite build has finished.');
   process.exit(1);
 }
 
@@ -91,12 +93,21 @@ for (const kind of fs.existsSync(bundleDir) ? fs.readdirSync(bundleDir) : []) {
     const target = rule[1](file);
     fs.copyFileSync(path.join(directory, file), path.join(release, target));
     fs.copyFileSync(path.join(directory, file), path.join(root, target));
-    collected.push(target);
+    collected.push({ file: target, kind, bytes: fs.statSync(path.join(directory, file)).size });
   }
 }
 
 if (!collected.length) {
-  console.error('설치 파일을 찾지 못했습니다. 위 Tauri 빌드 로그를 확인하세요.');
+  console.error(c.red('No installer was found. Check the Tauri build log above.'));
   process.exit(1);
 }
-console.log(`\n설치 파일 (release/ 와 프로젝트 루트):\n${collected.map((file) => `  ${file}`).join('\n')}`);
+// Summary: one aligned row per installer.
+const size = (bytes) => (bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
+const W = { file: Math.max(36, ...collected.map((x) => x.file.length)), kind: 10, size: 10 };
+console.log(`\n${heading('Installer summary')}`);
+console.log(`  ${c.bold(padEnd('Installer', W.file))}  ${c.bold(padEnd('Type', W.kind))}${c.bold(padStart('Size', W.size))}   ${c.bold('Copied to')}`);
+console.log(`  ${c.dim('─'.repeat(W.file + W.kind + W.size + 30))}`);
+for (const x of collected) console.log(`  ${c.green(padEnd(x.file, W.file))}  ${padEnd(x.kind, W.kind)}${padStart(size(x.bytes), W.size)}   ${c.dim('release/, project root')}`);
+console.log(`  ${c.dim('─'.repeat(W.file + W.kind + W.size + 30))}`);
+const seconds = (performance.now() - started) / 1000;
+console.log(`  ${c.onGreen(' BUILD OK ')} ${collected.length} installer${collected.length === 1 ? '' : 's'}, version ${version}  ${c.dim(`${seconds >= 60 ? `${Math.floor(seconds / 60)} m ${Math.round(seconds % 60)} s` : `${seconds.toFixed(1)} s`}`)}`);

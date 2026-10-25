@@ -24,8 +24,9 @@ heat-map processing) for Web, Windows, macOS and Linux.
 │                time-dependent boundary conditions                             │
 │ convection.rs  h correlations (natural / forced) with air properties          │
 │ s2s.rs    surface-to-surface radiation: patches, view factors, radiosity      │
-│ flow.rs   2D incompressible flow (MAC grid, projection), forced and natural   │
-│           (Boussinesq) convection, Darcy–Brinkman porous media, CHT energy    │
+│ flow.rs   2D/3D incompressible flow (MAC grid, projection), forced and        │
+│           natural (Boussinesq) convection, Darcy–Brinkman porous media, fans  │
+│           (edge and internal), CHT energy; turbulence.rs k-ω SST (2D/3D)      │
 │ stress.rs thermal stress (2D plane stress quads / 3D hexahedra, matrix-free)  │
 │ result.rs statistics, boundary heat flows, energy balance, binary encoding    │
 │ lib.rs    run(model, progress, cancel) -> Result bytes                        │
@@ -60,7 +61,7 @@ velocities **m/s**, times **s**. The engine converts mm → m internally.
     "background": "air"           // material id of cells not covered by a body, or null = void (not simulated)
   },
   "ambient": 25,                  // °C, default reference/initial temperature
-  "gravity": [0, -9.81],          // m/s² (x, y) for natural convection
+  "gravity": [0, -9.81],          // m/s² (x, y[, z]) for natural convection (z used in 3D)
   "materials": [{
     "id": "al6061", "name": "Aluminium 6061",
     "kind": "solid",              // solid | fluid | pcm | porous
@@ -95,11 +96,16 @@ velocities **m/s**, times **s**. The engine converts mm → m internally.
     "target": "top",              // left | right | bottom | top | front | back (3D z-min/z-max)
                                   // | exterior (every face between a simulated cell and void or the domain edge)
                                   // | body:<id> (faces of that body's cells that touch void, the edge, or another material)
-    "range": null,                // optional [from, to] mm along the edge (left/right: y; bottom/top: x)
+    "range": null,                // optional [from, to] mm along the edge (left/right: y; bottom/top: x;
+                                  // 3D front/back: x)
     "region": null,               // optional [x0, y0, x1, y1] mm: only faces whose face-centre (x, y)
-                                  // lies inside this rectangle (inclusive); works with every target
+                                  // lies inside this rectangle (inclusive); works with every target.
+                                  // 3D: also [x0, y0, z0, x1, y1, z1] (a box, face-centre z tested too)
     "type": "convection",         // temperature | flux | convection | radiation | adiabatic
-                                  // | inlet | outlet | wall | slip | open | fan   (flow, 2D edges)
+                                  // | inlet | outlet | wall | slip | open | fan   (flow: 2D edges,
+                                  //   3D domain faces incl. front/back)
+                                  // | internalFan (flow, inside the domain; target body:<id> or
+                                  //   "interior" with a region)
                                   // | fixed | rollerX | rollerY | pressure | force (structural)
                                   // | contact (body:<id> only) | voltage | ground | currentIn (electric)
                                   // | thinLayer (body:<id> or a domain edge)
@@ -113,7 +119,9 @@ velocities **m/s**, times **s**. The engine converts mm → m internally.
     "thickness": 0.1, "k": 1, "mode": "resistive",   // thinLayer: mm, W/(m·K), resistive | conductive
     "velocity": 1, "Tin": 25,     // inlet: normal speed into the domain, inlet temperature
     "turbulenceIntensity": 0.05, "mixingLength": null,   // inlet/fan turbulence (mm; null = 0.07·Dh)
-    "curve": [[0, 60], [0.002, 0]],   // fan: [[Q m³/s through the face of the depth slice, Δp Pa], …]
+    "curve": [[0, 60], [0.002, 0]],   // fan / internalFan: [[Q m³/s, Δp Pa], …] — 2D: Q through the
+                                  // depth slice (edge length × depth); 3D: Q through the fan's face area
+    "direction": "+x",            // internalFan: +x | -x | +y | -y | +z | -z (z only in 3D)
     "resistance": 1e-4,           // contact: thermal contact resistance (m²K/W)
     "V": 1, "I": 1,               // voltage: potential (V); currentIn: total current (A, + into the domain)
     "p": 1e5, "fx": 0, "fy": -10, "fz": 0   // pressure: Pa (+ pushes into the body); force: total N
@@ -121,7 +129,7 @@ velocities **m/s**, times **s**. The engine converts mm → m internally.
   "probes": [{ "id": "p1", "name": "Junction", "x": 50, "y": 8, "z": 5 }],
   "study": {
     "type": "steady",             // steady | transient
-    "flow": false,                // solve 2D flow in fluid/porous cells (CHT)
+    "flow": false,                // solve flow in fluid/porous cells (CHT), 2D and 3D
     "natural": false,             // buoyancy (Boussinesq) in the flow
     "stress": false,              // thermal stress after the thermal solution
     "planeStrain": false,         // 2D stress: plane strain instead of plane stress
@@ -130,7 +138,7 @@ velocities **m/s**, times **s**. The engine converts mm → m internally.
     "endTime": 600, "dt": 1, "frames": 40,   // transient: end time, step, number of stored frames
     "tolerance": 1e-6, "maxIter": 20000,
     "flowSteps": 3000,            // steady flow: pseudo-time steps (upper limit)
-    "turbulence": "laminar",      // laminar | kOmegaSST   (2D flow)
+    "turbulence": "laminar",      // laminar | kOmegaSST   (2D and 3D flow)
     "electric": false,            // Joule heating from voltage/ground/currentIn boundaries
     "structural": false,          // run the stress solve (mechanical; thermal strain off by default)
     "thermalStrain": true,        // include α(T − Tref) (default true, false when structural)
@@ -226,6 +234,8 @@ Header:
     "qrad": …,                             // S2S: net radiative flux into the cell (W/m², last frame)
     "liquid": …,                           // pcm liquid fraction (frames)
     "u": …, "v": …, "p": …,                // flow, cell centred (last frame)
+    "w": …,                                // flow z-velocity (3D only)
+    "speed": …,                            // flow |U| = √(u²+v²(+w²)) (m/s, every flow study)
     "k": …, "omega": …, "nut": …,         // k-ω SST (last frame)
     "V": …, "J": …,                        // electric potential (V), |current density| (A/m²)
     "dispX": …, "dispY": …, "dispZ": …,    // stress: displacement (m), cell centred
@@ -240,7 +250,7 @@ Header:
   "balance": { "generated": 12.5, "boundaries": -12.4, "stored": 0.0, "error": 0.008 },
   "log": [{ "phase": "conduction", "iterations": 412, "residual": 8e-7 }],
   "stats": { "Tmin": 25, "Tmax": 61.3, "vmax": 0.0, "vonMisesMax": 0.0, "yPlusMax": 0.0 },
-  "residuals": { "iterations": [1, 2, …], "series": { "continuity": [1, …], "u": […], "v": […], "T": […], "k": […], "omega": […] } },
+  "residuals": { "iterations": [1, 2, …], "series": { "continuity": [1, …], "u": […], "v": […], "w": […] /* 3D */, "T": […], "k": […], "omega": […] } },
   "flow": { "pressureDrop": 12.3 },                         // flow studies
   "electric": { "current": 400, "power": 12.5, "resistance": 7.8e-5, "boundaries": [{ "id": "plus", "current": 400, "voltage": null }] },
   "modes": [{ "frequency": 818.2, "participation": [0.0, 0.61] }],  // modal studies
@@ -254,7 +264,9 @@ Cell index: `i + nx·(j + ny·k)` with `i` along x (left → right), `j` along y
 Result details (heat-core):
 
 - Fields present: `mat`, `T` (frames), `qx`, `qy` (+ `qz` in 3D); `liquid` (frames)
-  only when pcm cells exist; `qrad` only when S2S radiation found radiating faces; `u`, `v`, `p` only for flow studies; stress fields only
+  only when pcm cells exist; `qrad` only when S2S radiation found radiating faces; `u`, `v`,
+  `speed`, `p` only for flow studies, plus `w` in 3D flow studies (same rule as `qz`; 2D results
+  never carry `w`); stress fields only
   when the stress solve ran: `dispX`, `dispY`, `sxx`, `syy`, `sxy`, `vonMises`, plus
   `dispZ` and `szz` in 3D, and `szz` in 2D plane strain (plane stress: szz = 0, omitted).
 - Void cells: `T`, `liquid` and `qrad` are **NaN**; all other fields are 0. `qrad` is the
@@ -280,7 +292,7 @@ Result details (heat-core):
   studies `residual` is the final steadiness measure, see below), `pressure` (summed
   iterations), `energy`, `stress`.
 - Steady flow studies: converged when the RMS velocity change over a window of 25
-  pseudo-steps, expressed per flow-through time (max(width, height)/U) relative to
+  pseudo-steps, expressed per flow-through time (max(width, height[, depth in 3D])/U) relative to
   the velocity scale U, stays below 1e-3 for two windows (natural convection: the
   temperature drift, relative to the temperature spread, as well). Physically
   unsteady flows (vortex shedding) are detected when that measure stops improving;
@@ -301,7 +313,7 @@ Material fields (all optional): `sigma` (S/m, electrical conductivity at 20 °C,
 insulator), `alphaR` (1/K, σ = σ0/(1 + αR(T − 20))), `perfusion` (1/s, blood perfusion
 ω_b), `metabolic` (W/m³), `bloodRho` (1060), `bloodCp` (3770), `bloodT` (°C, 37).
 
-**Turbulence** (`study.turbulence: "kOmegaSST"`, 2D flow, steady and transient):
+**Turbulence** (`study.turbulence: "kOmegaSST"`, 2D and 3D flow, steady and transient):
 k-ω SST (Menter 2003) in pure fluid cells (porous cells stay laminar, νt = 0).
 Implicit k/ω transport with the flow step (first-order upwind, SGS sweeps), production
 limiter 10β*kω, νt = a1k/max(a1ω, S·F2). Momentum uses ν + νt (∇·(ν_eff∇u) form);
@@ -313,7 +325,13 @@ log-law wall function (effective wall viscosity u_τκy/ln(Ey+), E = 9.8) and th
 wall heat conductance to ρcp·ν_w/Prt (Reynolds analogy, P-function neglected, so
 heat transfer is best for Pr ≈ 1 or y+ < 5). Inlet: k = 1.5(I·U)², ω = √k/(Cμ^¼ l),
 I = `turbulenceIntensity` (0.05), l = `mixingLength` (mm) or 0.07·Dh with Dh = 2 × the
-inlet opening (parallel plates). Fields `k` (m²/s²), `omega` (1/s), `nut` (m²/s);
+inlet opening (2D, parallel plates) or Dh = 2A/(a + b) in 3D (A = inlet face area, a × b
+its bounding box: a square opening gives its side, a wide slot twice its height). 3D: the
+strain rate is the full tensor S² = 2SijSij, cross-diffusion uses ∇k·∇ω in x, y, z, the
+wall distance propagates the nearest wall-face point over the 26 neighbours. The log-law
+wall function (y+ > 11.06) overpredicts friction in coarse meshes (2D and 3D alike: a
+channel with first-cell y+ ≈ 50–75 gives f ≈ 1.7× Dean); keep y+ near or below ≈ 11 where
+friction matters. Fields `k` (m²/s²), `omega` (1/s), `nut` (m²/s);
 `stats.yPlusMax`. Benchmarks (tests): channel at Re_Dh = 20 000, Cf within 15 % of
 Dean, Nu within 25 % of Dittus–Boelter.
 
@@ -321,23 +339,43 @@ Dean, Nu within 25 % of Dittus–Boelter.
 ≤ 400 rows (evenly down-sampled; `iterations` are the original row numbers), every
 series divided by its first non-zero value (so it starts at 1; `null` where a series
 was not recorded). Rows: steady flow = one per pseudo-step (`continuity` = RMS
-divergence of the predicted velocity, `u`/`v` = RMS velocity change rate, `k`/`omega`
+divergence of the predicted velocity, `u`/`v`/`w` (w: 3D) = RMS velocity change rate, `k`/`omega`
 = RMS change rate, `T` = max temperature change rate when natural convection marches
 the energy equation); steady nonlinear conduction = one per Picard iteration (`T` =
 max ΔT); transient = one per time step (`T` = max ΔT per step, plus flow series in CHT).
 
 **Flow boundary metrics**: `boundaries[]` entries of flow edges (inlet / outlet / open /
-fan) carry `massFlow` (kg/s through the depth slice, + into the domain), `volumeFlow`
+fan) carry `massFlow` (kg/s, + into the domain; 2D: through the depth slice, 3D: through
+the boundary's face area), `volumeFlow`
 (m³/s), `pressureAvg` (Pa, area-weighted: inlet/fan = adjacent cell pressure,
 outlet/open = 0) and `temperatureAvg` (mass-flow weighted; inflow uses Tin/ambient;
 area-weighted cell T without flow). Header `flow: { pressureDrop }` = area-averaged
 inlet+fan pressure − area-averaged outlet/open pressure (null without both).
 
-**Fan** (`type: "fan"`, 2D edge): an inlet whose normal speed is Q/A, with Q relaxed
+**Fan** (`type: "fan"`, 2D edge or 3D domain face incl. front/back): an inlet whose normal
+speed is Q/A (A = the fan's face area: 2D edge length × depth, 3D the real face area, so
+the curve's Q is the flow through the whole fan face), with Q relaxed
 each flow step towards the operating point where the curve Δp(Q) (linear between the
 points, clamped) equals the measured pressure rise (area-averaged pressure of the
 cells at the fan face; outlets at 0). The curve Δp must not increase with Q.
 `boundaries[]` gets `operatingPoint: { flow (m³/s), pressure (Pa) }`.
+
+**Internal fan** (`type: "internalFan"`, 2D and 3D flow): a fan inside the domain
+(Icepak/FloTHERM style), modelled as a pressure jump Δp across one plane.
+`target: "body:<id>"` (the fan cells are that body's fluid/porous cells; an optional
+`region` narrows them) or `target: "interior"` with a `region` (2D rectangle
+[x0, y0, x1, y1], 3D box [x0, y0, z0, x1, y1, z1], mm; cells whose centre lies inside).
+`direction`: `+x | -x | +y | -y | +z | -z` (z only in 3D). `curve`: as for `fan`
+(Q m³/s through the fan plane — 2D: per depth slice — and Δp Pa, Δp non-increasing).
+The fan plane is the plane of faces normal to the direction at the middle of the fan
+cells' extent along it (faces between two flowing cells only). Each flow step Q is
+measured through the plane (+ along `direction`) and Δp relaxes towards curve(Q)
+(5 % per step, ≤ 2 % of the curve's largest |Δp|); Δp/(ρ h) is added to the momentum
+of the plane's faces, so at convergence the flow sits at the point where the curve meets
+the system resistance. Not a thermal boundary (heat 0). `boundaries[]` gets
+`operatingPoint: { flow (m³/s), pressure (Pa, the jump) }`, `massFlow`, `volumeFlow`
+(along the direction) and `area` (plane area, m²). A fan with no face is ignored with a
+warning. Like the edge fan, an internal fan only acts in flow studies.
 
 **Contact resistance** (`type: "contact"`, `target: "body:<id>"`, `resistance` m²K/W):
 on faces between that body's cells and simulated cells of another material the face
@@ -453,6 +491,24 @@ h is evaluated at the face surface temperature of the half-cell/film network (lo
 fixed point together with radiation) and the outer Picard loop converges it.
 `boundaries[]` entries get `hMean` (area-weighted mean h at the final state, W/m²K).
 
+## Solar load (`study.solar`)
+
+```jsonc
+"study": { "solar": { "enabled": true, "irradiance": 1000, "elevation": 60, "azimuth": 0 } },
+"materials": [{ "id": "roof", "absorptivity": 0.6 /* solar absorptivity, default 0.6 */ }]
+```
+
+- The sun direction is s = (cos el·cos az, sin el, cos el·sin az): `elevation` (degrees) above the x-z
+  plane (y is up), `azimuth` from +x towards +z. A sun at or below the horizon lights nothing.
+- Exposed faces are faces of opaque cells (simulated, not fluid) that look into a void or fluid cell or out of
+  the domain. A face with outward normal n and n·s > 0 gets α·G·(n·s)·A when the ray from its centre towards
+  the sun leaves the domain without crossing another opaque cell (shadows; 2D models trace them in the x-y
+  plane, the section being infinitely long in z).
+- The absorbed heat is a fixed source of the cell behind the face (`solar.rs`), added to the generated heat of
+  the energy balance. It works with every boundary condition on the same face (e.g. convection).
+- Result header: `"solar": { "absorbed": W, "litFaces": n, "shadedFaces": n }`.
+- Not modelled: diffuse sky light, reflections, transmission through glass.
+
 ## Engine crates
 
 `engine/heat-core` (library `heat_core`, deps serde + serde_json, optional rayon via the
@@ -472,8 +528,11 @@ Numerics: FV conduction (harmonic face conductance) solved with PCG + MIC(0)
 Picard iteration, phase change by Newton on the enthalpy (residual ρ·ΔH/Δt with the
 piecewise dH/dT Jacobian, energy-exact at convergence; inner solves reduce the
 residual ≥ 10×), preconditioner refreshed per solve, extrapolated start per step;
-2D flow on a MAC grid with incremental projection (pressure Poisson: PCG + MIC(0) on
-the structured stencil), implicit Darcy–Brinkman drag. Transient studies: explicit
+2D and 3D flow on a MAC grid (u, v, w on x-, y-, z-faces; one code path, a 2D model is a
+single layer without z terms, bit-identical to the former 2D-only solver) with incremental
+projection (pressure Poisson: PCG + MIC(0) on the structured 5-point / 7-point stencil),
+implicit Darcy–Brinkman drag, buoyancy along all components of `gravity`; the u/v/w
+predictors run in parallel on native builds (rayon). Transient studies: explicit
 hybrid advection/viscous terms with CFL/viscous-limited sub-steps. Steady studies:
 pseudo-time march with an implicit hybrid-upwind momentum predictor (lagged fluxes,
 symmetric Gauss–Seidel sweeps) at 20× the explicit step limit; with natural

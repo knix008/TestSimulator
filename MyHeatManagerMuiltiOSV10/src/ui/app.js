@@ -17,23 +17,25 @@ import { THEMES, resolveTheme, themeVars, themesByMode, CUSTOM_THEME_ID, createC
 import { saveSettings, addRecent, toDisplayT, tUnitLabel, fromDisplayT, ANIMATIONS, toDisplayLength } from '../core/settings.js';
 import {
   emptyModel, normalizeModel, parseModel, serializeModel, newId, bodyBounds, moveBody, resizeBody, checkModel, engineModel,
-  cellCount, boundaryTargets, EXTENSION, interpolate,
+  cellCount, boundaryTargets, EXTENSION, interpolate, cellSize,
 } from '../core/model.js';
 import { materialFromLibrary, materialName } from '../core/materials.js';
-import { field, viewField, range, rangeAllFrames, sampleLine, fieldCsv, resultVtk, probesCsv, lineCsv, sampleLine3D, slice as sliceField, bodyIntegrals } from '../core/result.js';
+import { field, viewField, range, rangeAllFrames, sampleLine, fieldCsv, resultVtk, probesCsv, lineCsv, sampleLine3D, slice as sliceField, bodyIntegrals, cellAt } from '../core/result.js';
 import { lut, niceTicks, formatValue } from '../core/colormap.js';
 import { parseNodeCsv } from '../core/heatmap.js';
 import { comfortFields } from '../core/comfort.js';
 import { relabelModel } from '../core/model-i18n.js';
 import { calculixDeck, bodiesFromDxf } from '../core/interop.js';
-import { nastranBdf, ansysCdb, comsolMphtxt, gmshMsh, resultVtu, modelStl, dxfFromModel, thermToModel, modelToTherm, gmshToModel } from '../core/formats.js';
+import { nastranBdf, ansysCdb, comsolMphtxt, gmshMsh, resultVtu, modelStl, dxfFromModel, thermToModel, modelToTherm, gmshToModel, IMPORT_EXTENSIONS } from '../core/formats.js';
+import { deckReader } from '../core/decks.js';
+import { idfToModel } from '../core/idf.js';
 import * as native from '../platform/native.js';
 import { popoutsEnabled, openPopout, placePopout, hidePopout, setInlinePredicate, popoutDocuments } from '../platform/popout.js';
 import { runStudy, cancelStudy, engineKind } from '../platform/solver.js';
 
-const FIELD_COMMANDS = { fieldT: 'T', fieldFlux: 'flux', fieldVelocity: 'velocity', fieldPressure: 'pressure', fieldTurbulence: 'turbulence', fieldStress: 'stress', fieldDisp: 'disp', fieldMode: 'mode', fieldLiquid: 'liquid', fieldVoltage: 'voltage', fieldCurrent: 'current', fieldComfort: 'comfort', fieldPPD: 'ppd' };
+const FIELD_COMMANDS = { fieldT: 'T', fieldFlux: 'flux', fieldVelocity: 'velocity', fieldPressure: 'pressure', fieldTurbulence: 'turbulence', fieldStress: 'stress', fieldDisp: 'disp', fieldMode: 'mode', fieldLiquid: 'liquid', fieldVoltage: 'voltage', fieldCurrent: 'current', fieldComfort: 'comfort', fieldPPD: 'ppd', fieldCalc: 'calc' };
 const FIELD_REQUIRES = { T: 'T', flux: 'qx', velocity: 'u', pressure: 'p', turbulence: 'nut', stress: 'vonMises', disp: 'dispX', mode: 'modeX_1', liquid: 'liquid', voltage: 'V', current: 'J', comfort: 'u', ppd: 'u' };
-const BC_COMMANDS = { bcTemperature: 'temperature', bcFlux: 'flux', bcConvection: 'convection', bcRadiation: 'radiation', bcAdiabatic: 'adiabatic', bcContact: 'contact', bcThinLayer: 'thinLayer', bcInlet: 'inlet', bcOutlet: 'outlet', bcOpen: 'open', bcVoltage: 'voltage', bcGround: 'ground', bcCurrent: 'currentIn', bcFixed: 'fixed', bcPressure: 'pressure', bcForce: 'force' };
+const BC_COMMANDS = { bcTemperature: 'temperature', bcFlux: 'flux', bcConvection: 'convection', bcRadiation: 'radiation', bcAdiabatic: 'adiabatic', bcContact: 'contact', bcThinLayer: 'thinLayer', bcInlet: 'inlet', bcOutlet: 'outlet', bcOpen: 'open', bcInternalFan: 'internalFan', bcVoltage: 'voltage', bcGround: 'ground', bcCurrent: 'currentIn', bcFixed: 'fixed', bcPressure: 'pressure', bcForce: 'force' };
 const TOOLS = ['select', 'rect', 'circle', 'polygon', 'probe', 'lineCut'];
 const START_KEEPS = new Set(['showAxes', 'thermalAnalysis', 'textCut', 'textCopy', 'textPaste', 'textSelectAll', 'exportChart', 'showGrid', 'showMesh', 'showRulers', 'about', 'home', 'settings', 'shortcuts', 'usage', 'tutorialDoc', 'tutorial', 'batchHelp', 'newFromSample', 'open', 'materials', 'heatmapImport', 'heatmapView', 'heatmapStats', 'heatmapExport', 'heatmapCompare', 'pcbStackup', 'quit', 'clearRecent', 'toolPanel', 'propertyPanel', 'chartPanel', 'fullscreen']);
 
@@ -846,14 +848,14 @@ export function startApp(root, settings) {
     if (sel?.kind === 'boundary') {
       const bc = m.boundaries.find((b) => b.id === sel.ids[0]);
       if (!bc) return [];
-      const targets = boundaryTargets(m).map((target) => {
+      const targets = boundaryTargets(m, bc.type).map((target) => {
         if (target.startsWith('body:')) {
           const body = m.bodies.find((b) => `body:${b.id}` === target);
           return [target, `▣ ${body?.name || target.slice(5)}`];
         }
         return [target, t(`edge${target[0].toUpperCase()}${target.slice(1)}`)];
-      });
-      const types = ['temperature', 'flux', 'convection', 'radiation', 'adiabatic', 'contact', 'thinLayer', 'inlet', 'fan', 'outlet', 'open', 'wall', 'slip', 'voltage', 'ground', 'currentIn', 'fixed', 'rollerX', 'rollerY', 'pressure', 'force'];
+      }).concat(bc.type !== 'internalFan' && bc.target === 'interior' ? [['interior', t('edgeInterior')]] : []);
+      const types = ['temperature', 'flux', 'convection', 'radiation', 'adiabatic', 'contact', 'thinLayer', 'inlet', 'fan', 'internalFan', 'outlet', 'open', 'wall', 'slip', 'voltage', 'ground', 'currentIn', 'fixed', 'rollerX', 'rollerY', 'pressure', 'force'];
       const values = [];
       if (bc.type === 'temperature') values.push(propRow(t('temperature'), tempField(bc.T, (v) => patchBoundary(bc.id, { T: v }), 'prop-T')));
       if (bc.type === 'flux') values.push(propRow(t('heatFlux'), num(bc.q, (v) => patchBoundary(bc.id, { q: v }), { step: 100, suffix: 'W/m²' })));
@@ -874,10 +876,14 @@ export function startApp(root, settings) {
         values.push(propRow(t('uTag'), h('select', { dataset: { testid: 'prop-tag' }, onChange: (event) => patchBoundary(bc.id, { tag: event.target.value || null }) },
           ...[['', '—'], ['Frame', 'Frame'], ['Edge', 'Edge'], ['COG', 'COG (center of glass)'], ['Divider', 'Divider'], ['SHGC Exterior', 'SHGC Exterior'], ['Interior', 'Interior'], ['Exterior', 'Exterior']].map(([v, label]) => h('option', { value: v, selected: (bc.tag ?? '') === v }, label)))));
       }
-      if (bc.type === 'fan') {
+      if (bc.type === 'internalFan') {
+        const dirs = m.domain.dim === 3 ? ['+x', '-x', '+y', '-y', '+z', '-z'] : ['+x', '-x', '+y', '-y'];
+        values.push(propRow(t('fanDirection'), selectEl(bc.direction, dirs.map((x) => [x, x]), (v) => patchBoundary(bc.id, { direction: v }), 'prop-fan-direction')));
+      }
+      if (bc.type === 'fan' || bc.type === 'internalFan') {
         // The fan curve as "flow m³/s : pressure Pa" pairs; the solver finds where it meets the system's resistance.
         const curveText = (bc.curve ?? []).map(([q, p]) => `${q}:${p}`).join(', ');
-        values.push(propRow(t('inletT'), tempField(bc.Tin, (v) => patchBoundary(bc.id, { Tin: v }))));
+        if (bc.type === 'fan') values.push(propRow(t('inletT'), tempField(bc.Tin, (v) => patchBoundary(bc.id, { Tin: v }))));
         values.push(propRow(t('fanCurve'), textInput(curveText, (text) => {
           const curve = text.split(/[,;\n]+/).map((pair) => pair.split(':').map(Number)).filter((pq) => pq.length === 2 && pq.every(Number.isFinite)).sort((a, b) => a[0] - b[0]);
           if (curve.length >= 2) patchBoundary(bc.id, { curve });
@@ -926,13 +932,13 @@ export function startApp(root, settings) {
       return [
         fieldGroup(`≋ ${bc.name || bc.id}`,
           propRow(t('name'), textInput(bc.name, (v) => patchBoundary(bc.id, { name: v }), 'prop-bc-name')),
-          propRow(t('type'), selectEl(bc.type, types.map((x) => [x, bcTypeName(x)]), (v) => patchBoundary(bc.id, { type: v }), 'prop-bc-type')),
+          propRow(t('type'), selectEl(bc.type, types.map((x) => [x, bcTypeName(x)]), (v) => patchBoundary(bc.id, retypeBoundary(m, bc, v)), 'prop-bc-type')),
           propRow(t('target'), selectEl(bc.target, targets, (v) => patchBoundary(bc.id, { target: v }), 'prop-bc-target')),
           ...values,
           edge ? propRow(t('range'), h('span', { className: 'pair' },
             num(bc.range?.[0] ?? NaN, (v) => patchBoundary(bc.id, { range: Number.isFinite(v) ? [v, bc.range?.[1] ?? (bc.target === 'left' || bc.target === 'right' ? m.domain.height : m.domain.width)] : null }), { suffix: 'mm' }),
             num(bc.range?.[1] ?? NaN, (v) => patchBoundary(bc.id, { range: Number.isFinite(v) ? [bc.range?.[0] ?? 0, v] : null }), { suffix: 'mm' }))) : null,
-          propRow(t('region'), textInput(bc.region ? bc.region.join(', ') : '', (v) => { const r = v.split(/[,\s]+/).map(parseNumber); patchBoundary(bc.id, { region: r.length === 4 && r.every(Number.isFinite) ? r : null }); }))),
+          propRow(t('region'), textInput(bc.region ? bc.region.join(', ') : '', (v) => { const r = v.split(/[,\s]+/).map(parseNumber); patchBoundary(bc.id, { region: (r.length === 4 || (r.length === 6 && m.domain.dim === 3)) && r.every(Number.isFinite) ? r : null }); }, 'prop-region'), h('span', { className: 'muted' }, m.domain.dim === 3 ? t('regionHint3d') : t('regionHint2d')))),
         heat ? fieldGroup(`🌡 ${t('treeResults')}`, resultTable([
           [t('heat'), `${formatValue(heat.heat)} W`], [t('area'), `${formatValue(heat.area * 1e6)} mm²`], ['q̄', `${formatValue(heat.area ? heat.heat / heat.area : 0)} W/m²`],
           ...(heat.massFlow != null ? [[t('massFlow'), `${formatValue(heat.massFlow * 1000)} g/s`], [t('volumeFlow'), `${formatValue(heat.volumeFlow * 6e4)} L/min`], [t('pressureAvg'), `${formatValue(heat.pressureAvg)} Pa`], [t('temperatureAvg'), `${formatValue(dispT(heat.temperatureAvg))} ${tUnit()}`]] : []),
@@ -991,6 +997,7 @@ export function startApp(root, settings) {
         [t('maxT'), `${formatValue(dispT(header.stats.Tmax))} ${tUnit()}`],
         ...(header.stats.vmax ? [['v max', `${formatValue(header.stats.vmax)} m/s`]] : []),
         ...(header.stats.vonMisesMax ? [['σ vM max', `${formatValue(header.stats.vonMisesMax / 1e6)} MPa`]] : []),
+        ...(header.solar ? [[t('solarAbsorbed'), `${formatValue(header.solar.absorbed)} W`]] : []),
         ...(header.balance ? [[t('balanceError'), `${formatValue((header.balance.error ?? 0) * 100)} %`]] : []),
         [t('elapsed'), `${formatValue((header.elapsedMs ?? 0) / 1000)} s`],
       ])) : null,
@@ -1086,7 +1093,7 @@ export function startApp(root, settings) {
     if ((d.result.derived?.pmv && d.result.derived.comfortKey === key) || !d.result.header.fields.u) return;
     const fluidIndex = d.result.header.materials.map((id, i) => [id, i]).filter(([id]) => d.model.materials.find((m) => m.id === id)?.kind === 'fluid').map(([, i]) => i);
     const lastT = (d.result.header.fields.T.frames ?? 1) - 1;
-    d.result.derived = { ...(d.result.derived ?? {}), ...comfortFields(field(d.result, 'T', lastT), field(d.result, 'u'), field(d.result, 'v'), field(d.result, 'mat'), fluidIndex, d.model.study.comfort), comfortKey: key };
+    d.result.derived = { ...(d.result.derived ?? {}), ...comfortFields(field(d.result, 'T', lastT), field(d.result, 'u'), field(d.result, 'v'), field(d.result, 'mat'), fluidIndex, d.model.study.comfort, field(d.result, 'w')), comfortKey: key };
   }
 
   const fieldFrame = (d) => (state.fieldKind === 'mode' ? state.mode : d.frame);
@@ -1266,6 +1273,7 @@ export function startApp(root, settings) {
         const { View3D } = await import('./view3d.js');
         if (state.view !== '3d') return;
         view3d ??= new View3D(els.viewport);
+        view3d.onPick = (hit) => pick3d(hit);
       }
       view3d.el.style.display = '';
       view3d.setState(common);
@@ -1274,6 +1282,37 @@ export function startApp(root, settings) {
       if (view3d) view3d.el.style.display = 'none';
       editor.setState(common);
     }
+  }
+
+  /**
+   * A click on the 3D view: with the probe tool a probe goes to that point of a 3D model; otherwise the status bar shows
+   * the point and the value of the cell just inside the surface.
+   */
+  function pick3d(hit) {
+    const d = doc();
+    if (!d) return;
+    const dom = d.model.domain;
+    const { dx, dy, dz } = cellSize(dom);
+    // Half a cell into the body, against the face normal, so the point lies in the cell that was clicked.
+    const p = [hit.x - hit.normal[0] * dx * 0.5, hit.y - hit.normal[1] * dy * 0.5, hit.z - hit.normal[2] * (dom.dim === 3 ? dz : 0) * 0.5];
+    const clamp = (v, hi) => Math.min(Math.max(v, 0), hi);
+    const [x, y, z] = [clamp(p[0], dom.width), clamp(p[1], dom.height), dom.dim === 3 ? clamp(p[2], dom.depth) : dom.depth / 2];
+    const len = (v) => formatValue(toDisplayLength(v, state.settings.lengthUnit), 5);
+    const at = `x ${len(x)}, y ${len(y)}${dom.dim === 3 ? `, z ${len(z)}` : ''} ${state.settings.lengthUnit}`;
+    if (state.tool === 'probe' && dom.dim === 3) {
+      const id = newId('p', d.model.probes.map((q) => q.id));
+      updateModel((m) => ({ ...m, probes: [...m.probes, { id, name: `${t('newProbe')} ${m.probes.length + 1}`, x, y, z }] }));
+      doc().selection = { kind: 'probe', ids: [id] };
+      state.status = `${t('probePlaced3d')} ${at}`;
+      update({ props: true });
+      return;
+    }
+    const vf = d.result && state.showResult ? viewField(d.result, state.fieldKind, fieldFrame(d)) : null;
+    const cell = vf ? cellAt(d.result.header.grid, x, y, z) : -1;
+    const value = cell >= 0 ? vf.values[cell] * (vf.scale ?? 1) : null;
+    const shown = value == null || !Number.isFinite(value) ? '' : ` → ${state.fieldKind === 'T' ? `${formatValue(dispT(value))} ${tUnit()}` : `${formatValue(value)} ${vf.unit}`}`;
+    state.status = `${at}${shown}`;
+    renderStatus();
   }
 
   const editorCallbacks = {
@@ -1396,6 +1435,7 @@ export function startApp(root, settings) {
   // ───────────────────────── commands
   function hasField(kind) {
     const d = doc();
+    if (kind === 'calc') return Boolean(d?.result?.derived?.calc);
     const name = FIELD_REQUIRES[kind];
     return Boolean(d?.result?.header.fields?.[name]);
   }
@@ -1416,10 +1456,8 @@ export function startApp(root, settings) {
       case 'deformed': return hasField('disp');
       case 'vectors': return Boolean(d.result?.header.fields?.qx || d.result?.header.fields?.u);
       case 'streamlines': return Boolean(d.result?.header.fields?.u);
-      case 'toggleTurbulence': return d.model.domain.dim === 2;
-      case 'isotherms': case 'lineCut': case 'clearResults': case 'exportCsv': case 'exportVtk': case 'exportVtu': case 'probeChart': return Boolean(d.result);
+      case 'isotherms': case 'lineCut': case 'clearResults': case 'exportCsv': case 'exportVtk': case 'exportVtu': case 'probeChart': case 'calculator': return Boolean(d.result);
       case 'exportTherm': return d.model.domain.dim === 2;
-      case 'toggleFlow': case 'toggleNatural': return d.model.domain.dim === 2;
       case 'heatmapExport': case 'heatmapStats': return Boolean(state.heatmap.data);
       case 'toggleHide': return d.selection?.kind === 'body';
       case 'closeOthers': return state.docs.length > 1;
@@ -1487,6 +1525,9 @@ export function startApp(root, settings) {
       if (id === 'lineCut') {
         state.view = '2d';
         if (d) d.lineCut = null;
+      } else if (id === 'probe' && state.view === '3d' && d?.model.domain.dim === 3) {
+        // In the 3D view of a 3D model a probe goes where the model is clicked (pick3d).
+        state.status = t('probePick3d');
       } else if (id !== 'select') {
         state.showResult = false;
         state.view = '2d';
@@ -1593,6 +1634,7 @@ export function startApp(root, settings) {
       case 'powerMap': engineering.showPowerMap(api); break;
       case 'solderFatigue': engineering.showSolderFatigue(api); break;
       case 'harmonic': engineering.showHarmonic(api); break;
+      case 'calculator': engineering.showCalculator(api); break;
       case 'heatmapCompare': engineering.showHeatmapCompare(api); break;
       case 'exportNastran': if (d) await saveText(downloadName(d.model.name, 'bdf'), nastranBdf(d.model), 'nastranFiles', 'bdf'); break;
       case 'exportAnsys': if (d) await saveText(downloadName(d.model.name, 'cdb'), ansysCdb(d.model), 'ansysFiles', 'cdb'); break;
@@ -1656,6 +1698,19 @@ export function startApp(root, settings) {
     return checkModel(model).map((issue) => ({ ...issue, text: t(issue.key, issue.args) }));
   }
 
+  /** The patch for changing a boundary's type: an internal fan needs an interior target, a region and a curve; others an edge. */
+  function retypeBoundary(m, bc, type) {
+    if (type === 'internalFan') {
+      const dom = m.domain;
+      const r = (v) => Math.round(v * 100) / 100;
+      const region = bc.region ?? (dom.dim === 3
+        ? [r(dom.width * 0.45), r(dom.height * 0.2), r(dom.depth * 0.2), r(dom.width * 0.55), r(dom.height * 0.8), r(dom.depth * 0.8)]
+        : [r(dom.width * 0.45), r(dom.height * 0.2), r(dom.width * 0.55), r(dom.height * 0.8)]);
+      return { type, target: bc.target.startsWith('body:') ? bc.target : 'interior', region, curve: bc.curve?.length >= 2 ? bc.curve : (dom.dim === 3 ? [[0, 60], [0.004, 30], [0.008, 0]] : [[0, 60], [0.002, 30], [0.004, 0]]) };
+    }
+    return { type, target: bc.target === 'interior' ? 'exterior' : bc.target };
+  }
+
   function addBoundary(type) {
     const d = doc();
     if (!d) return;
@@ -1666,11 +1721,21 @@ export function startApp(root, settings) {
     // An existing boundary that is selected just changes its type.
     if (d.selection?.kind === 'boundary' && !bodies.length) {
       const bcId = d.selection.ids[0];
-      updateModel((m) => ({ ...m, boundaries: m.boundaries.map((b) => (b.id === bcId ? { ...b, type } : b)) }));
+      updateModel((m) => ({ ...m, boundaries: m.boundaries.map((b) => (b.id === bcId ? { ...b, ...retypeBoundary(m, b, type) } : b)) }));
       renderRight(true);
       return;
     }
-    const targets = bodies.length ? bodies.map((b) => `body:${b.id}`) : [defaults[type] ?? (d.model.domain.background ? 'top' : 'exterior')];
+    const targets = type === 'internalFan' ? ['interior'] : bodies.length ? bodies.map((b) => `body:${b.id}`) : [defaults[type] ?? (d.model.domain.background ? 'top' : 'exterior')];
+    if (type === 'internalFan') {
+      // A thin slab across the middle of the domain, blowing along +x; the curve is a small axial fan's.
+      const dom = d.model.domain;
+      const r = (v) => Math.round(v * 100) / 100;
+      base.region = dom.dim === 3
+        ? [r(dom.width * 0.45), r(dom.height * 0.2), r(dom.depth * 0.2), r(dom.width * 0.55), r(dom.height * 0.8), r(dom.depth * 0.8)]
+        : [r(dom.width * 0.45), r(dom.height * 0.2), r(dom.width * 0.55), r(dom.height * 0.8)];
+      base.direction = '+x';
+      base.curve = dom.dim === 3 ? [[0, 60], [0.004, 30], [0.008, 0]] : [[0, 60], [0.002, 30], [0.004, 0]];
+    }
     const ids = [];
     updateModel((m) => {
       const taken = m.boundaries.map((b) => b.id);
@@ -1895,7 +1960,7 @@ export function startApp(root, settings) {
 
   async function openFile() {
     try {
-      const file = await native.openTextFile([...modelFilters(), { name: t('importFiles'), extensions: ['thmx', 'msh', 'dxf'] }, { name: t('csvFiles'), extensions: ['csv', 'txt'] }]);
+      const file = await native.openTextFile([...modelFilters(), { name: t('importFiles'), extensions: IMPORT_EXTENSIONS }, { name: t('csvFiles'), extensions: ['csv', 'txt'] }]);
       if (!file) return;
       openText(file.name, file.text, native.isTauri ? file.path : null);
     } catch (error) {
@@ -1903,27 +1968,37 @@ export function startApp(root, settings) {
     }
   }
 
-  function openText(name, text, path) {
+  function openText(name, text, path, extra = {}) {
     if (/\.(csv|txt)$/i.test(name)) {
       dialogs.showHeatmap(api, { data: parseNodeCsv(text), name });
       return;
     }
-    if (/\.(thmx|msh|dxf)$/i.test(name)) {
-      importText(name, text);
+    if (IMPORT_EXTENSIONS.includes(name.split('.').pop().toLowerCase())) {
+      importText(name, text, path, extra);
       return;
     }
     openModel(parseModel(text), path);
   }
 
-  /** THERM .thmx, Gmsh .msh or DXF as a new (unsaved) model; the warnings of the conversion go to the status bar. */
-  function importText(name, text) {
+  /**
+   * THERM .thmx, Gmsh .msh, DXF, a solver deck (Nastran, Ansys, CalculiX, COMSOL) or an IDF board as a new (unsaved)
+   * model; the warnings of the conversion go to the status bar.
+   */
+  async function importText(name, text, path = null, extra = {}) {
     const lang = getLanguage();
     const base = name.replace(/\.[^.]+$/, '');
     let model;
     let warnings = [];
-    if (/\.thmx$/i.test(name)) model = thermToModel(text, { language: lang });
-    else if (/\.msh$/i.test(name)) ({ model, warnings } = gmshToModel(text, { language: lang }));
-    else {
+    try {
+      if (/\.thmx$/i.test(name)) model = thermToModel(text, { language: lang });
+      else if (/\.msh$/i.test(name)) ({ model, warnings } = gmshToModel(text, { language: lang }));
+      else if (/\.emn$/i.test(name)) ({ model, warnings } = idfToModel(text, extra.library ?? await idfLibrary(path), { language: lang }));
+      else if (deckReader(name)) ({ model, warnings } = deckReader(name)(text, { language: lang }));
+    } catch (error) {
+      dialogs.showError(t('fileOpenFailed'), `${name}: ${String(error?.message ?? error)}`);
+      return;
+    }
+    if (!model) {
       model = emptyModel(lang);
       const material = model.materials.find((m) => m.kind !== 'fluid')?.id ?? model.materials[0]?.id ?? null;
       const { bodies, bounds } = bodiesFromDxf(text, { material });
@@ -1939,10 +2014,23 @@ export function startApp(root, settings) {
     editor?.fit();
   }
 
+  /** The IDF part library beside a board file: the same name with .emp on the desktop, else picked by the user (may be skipped). */
+  async function idfLibrary(boardPath) {
+    if (native.isTauri && boardPath) {
+      for (const ext of ['emp', 'EMP']) {
+        try { return (await native.readTextFile(boardPath.replace(/\.[^.\\/]+$/, `.${ext}`))).text; } catch { /* not there */ }
+      }
+    }
+    state.status = t('idfPickLibrary');
+    update();
+    const file = await native.openTextFile([{ name: t('idfLibraryFiles'), extensions: ['emp'] }]);
+    return file?.text ?? '';
+  }
+
   async function importModelFile() {
     try {
-      const file = await native.openTextFile([{ name: t('importFiles'), extensions: ['thmx', 'msh', 'dxf'] }]);
-      if (file) importText(file.name, file.text);
+      const file = await native.openTextFile([{ name: t('importFiles'), extensions: IMPORT_EXTENSIONS }]);
+      if (file) await importText(file.name, file.text, native.isTauri ? file.path : null);
     } catch (error) {
       dialogs.showError(t('fileOpenFailed'), String(error?.message ?? error));
     }
@@ -2204,7 +2292,7 @@ export function startApp(root, settings) {
     refreshStart: () => startPage?.render(),
     refreshToolbar: () => renderToolbar(),
     /** Opens file text as the Open command would (model, THERM, Gmsh, DXF, node CSV) — tests and drops use it. */
-    openText: (name, text) => openText(name, text, null),
+    openText: (name, text, extra) => openText(name, text, null, extra),
     openMenuById: (id) => { const menu = MENUS.find((m) => m.id === id); const anchor = els.menubar.querySelector(`[data-testid=menu-${id}]`); if (menu && anchor) openMenu(menu, anchor); },
     closeMenu,
     activate,

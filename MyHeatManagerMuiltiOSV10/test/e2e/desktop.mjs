@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Cdp, freePort, sleep, waitFor } from './cdp.mjs';
+import { resultLine, totalsLine } from './report.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const shots = path.join(root, 'test-results', 'desktop');
@@ -56,10 +57,10 @@ async function step(name, fn) {
     await fn();
     if (errors.length > before) throw new Error(`page errors: ${errors.slice(before).join(' | ')}`);
     results.push({ name, ok: true });
-    console.log(`  ✔ ${name} (${Math.round(performance.now() - started)} ms)`);
+    console.log(resultLine({ status: 'pass', name, ms: performance.now() - started }));
   } catch (error) {
     results.push({ name, ok: false, error: error.message });
-    console.log(`  ✖ ${name}: ${error.message}`);
+    console.log(resultLine({ status: 'fail', name, ms: performance.now() - started, error: error.message }));
     try { await cdp?.screenshot(path.join(shots, `fail-${name.replace(/[^\w-]+/g, '_')}.png`)); } catch { /* gone */ }
   }
 }
@@ -77,6 +78,8 @@ try {
   await cdp.send('Page.enable');
   await waitFor(() => cdp.evaluate('Boolean(window.__myheat)'), 30000);
   const js = (expression) => cdp.evaluate(expression);
+  // The program starts in Korean; the tests run it in English so that everything they print is English.
+  await js('window.__myheat.state.settings.language === "en" || window.__myheat.api.patchSettings({ language: "en" })');
   const solve = async (sample) => {
     await js(`(async () => { const m = await import('./src/core/samples.js').catch(() => null); return Boolean(m); })()`).catch(() => false);
     await js(`window.__myheat.run('newFromSample')`);
@@ -219,6 +222,8 @@ await step('batch: a broken model fails with exit code 2', async () => {
 });
 
 const passed = results.filter((r) => r.ok).length;
-console.log(`\nE2E: ${passed} passed, ${results.length - passed} failed`);
+fs.mkdirSync(shots, { recursive: true });
+fs.writeFileSync(path.join(shots, 'results.json'), JSON.stringify(results, null, 2));
+console.log(`\n${totalsLine('E2E', passed, results.length - passed)}`);
 setTimeout(() => { try { fs.rmSync(scratch, { recursive: true, force: true }); } catch { /* locked */ } }, 1500);
 process.exitCode = passed === results.length ? 0 : 1;

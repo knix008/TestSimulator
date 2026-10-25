@@ -7,6 +7,11 @@ fn main() {
         let bytes = heat_core::run(&json, &mut |_| {}, &|| false);
         let el = t.elapsed().as_secs_f64();
         let d = heat_core::decode(&bytes).expect("decode");
+        if let Ok(dir) = std::env::var("HM_SAVE") {
+            // Keep the raw result for `compare_results` (before/after checks).
+            let name = std::path::Path::new(&path).file_stem().unwrap().to_string_lossy().to_string();
+            std::fs::write(format!("{dir}/{name}.hmht"), &bytes).expect("save result");
+        }
         let h = &d.header;
         println!(
             "{path}: ok={} {:.2} s  Tmax={:.10} vmax={:.4}  balance={}  log={}  warnings={}  error={}",

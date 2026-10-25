@@ -18,6 +18,9 @@ pub struct ModeInfo {
     pub frequency: f64,
     /// Effective modal mass fraction per direction (x, y[, z]).
     pub participation: Vec<f64>,
+    /// Signed participation factor Γ/m per direction for the shape as output (cell-centred, max |φ| = 1):
+    /// a base acceleration a along c moves a point by φ(p)·factor[c]·a / (ω² − Ω² + 2iζωΩ).
+    pub factor: Vec<f64>,
 }
 
 pub struct ModalOut {
@@ -275,12 +278,10 @@ pub fn solve(model: &Model, mesh: &Mesh, ctx: &mut Ctx) -> Result<Option<ModalOu
         }
         let phi = &x[r];
         let mm = mdot(phi, phi).max(1e-300);
-        let participation: Vec<f64> = (0..nd)
-            .map(|c| {
-                let gamma: f64 = (0..s.nnode).map(|n| n * nd + c).filter(|&i| free[i]).map(|i| mass[i] * phi[i]).sum();
-                gamma * gamma / mm / total_mass[c].max(1e-300)
-            })
+        let gammas: Vec<f64> = (0..nd)
+            .map(|c| (0..s.nnode).map(|n| n * nd + c).filter(|&i| free[i]).map(|i| mass[i] * phi[i]).sum())
             .collect();
+        let participation: Vec<f64> = (0..nd).map(|c| gammas[c] * gammas[c] / mm / total_mass[c].max(1e-300)).collect();
         let freq = lam[r].max(0.0).sqrt() / (2.0 * std::f64::consts::PI);
         // Cell-centred shape, normalised to max |φ| = 1.
         let mut sh = [vec![0.0f32; ncell], vec![0.0f32; ncell], vec![0.0f32; ncell]];
@@ -303,7 +304,9 @@ pub fn solve(model: &Model, mesh: &Mesh, ctx: &mut Ctx) -> Result<Option<ModalOu
                 sh[comp][c] = (cellv[c][comp] * inv) as f32;
             }
         }
-        modes.push(ModeInfo { frequency: freq, participation });
+        // For φ̂ = inv·φ: Γ̂/m̂ = inv·γ / (inv²·mm) = γ / (inv·mm).
+        let factor: Vec<f64> = (0..nd).map(|c| if inv > 0.0 { gammas[c] / (inv * mm) } else { 0.0 }).collect();
+        modes.push(ModeInfo { frequency: freq, participation, factor });
         shapes.push(sh);
     }
     if !fully && dropped > 0 {

@@ -701,9 +701,224 @@ impl Stencil5 {
     }
 }
 
+/// Symmetric 7-point stencil on a structured nx × ny × nz grid (index
+/// i + nx·(j + ny·k)): like [`Stencil5`] plus a coupling `t` to x_{i+nx·ny}
+/// (zero on the last layer). PCG with MIC(0), used for the 3D pressure Poisson
+/// equation.
+pub struct Stencil7 {
+    nx: usize,
+    nxy: usize,
+    n: usize,
+    c: Vec<f64>,
+    e: Vec<f64>,
+    s: Vec<f64>,
+    t: Vec<f64>,
+    w: Vec<f64>,
+    so: Vec<f64>,
+    bo: Vec<f64>,
+    inv: Vec<f64>,
+    wi: Vec<f64>,
+    soi: Vec<f64>,
+    boi: Vec<f64>,
+    ei: Vec<f64>,
+    si: Vec<f64>,
+    ti: Vec<f64>,
+}
+
+impl Stencil7 {
+    pub fn new(nx: usize, ny: usize, c: Vec<f64>, e: Vec<f64>, s: Vec<f64>, t: Vec<f64>, omega: f64) -> Stencil7 {
+        let n = c.len();
+        let nxy = nx * ny;
+        let mut w = vec![0.0; n];
+        let mut so = vec![0.0; n];
+        let mut bo = vec![0.0; n];
+        for i in 1..n {
+            w[i] = e[i - 1];
+        }
+        for i in nx..n {
+            so[i] = s[i - nx];
+        }
+        for i in nxy..n {
+            bo[i] = t[i - nxy];
+        }
+        let mut inv = vec![0.0; n];
+        for i in 0..n {
+            let mut d = c[i];
+            if w[i] != 0.0 {
+                d -= (w[i] * w[i] + omega * w[i] * (s[i - 1] + t[i - 1])) * inv[i - 1];
+            }
+            if so[i] != 0.0 {
+                d -= (so[i] * so[i] + omega * so[i] * (e[i - nx] + t[i - nx])) * inv[i - nx];
+            }
+            if bo[i] != 0.0 {
+                d -= (bo[i] * bo[i] + omega * bo[i] * (e[i - nxy] + s[i - nxy])) * inv[i - nxy];
+            }
+            if !(d > 1e-12 * c[i]) {
+                d = c[i];
+            }
+            inv[i] = 1.0 / d;
+        }
+        let sc = |v: &Vec<f64>| -> Vec<f64> { (0..n).map(|i| v[i] * inv[i]).collect() };
+        let (wi, soi, boi, ei, si, ti) = (sc(&w), sc(&so), sc(&bo), sc(&e), sc(&s), sc(&t));
+        Stencil7 { nx, nxy, n, c, e, s, t, w, so, bo, inv, wi, soi, boi, ei, si, ti }
+    }
+
+    /// y = A·x where `xp` is x padded with nx·ny zeros on both sides. Returns x·y.
+    #[inline]
+    fn matvec_padded(&self, xp: &[f64], y: &mut [f64]) -> f64 {
+        let (nx, p, n) = (self.nx, self.nxy, self.n);
+        let xc = &xp[p..p + n];
+        let xe = &xp[p + 1..p + 1 + n];
+        let xw = &xp[p - 1..p - 1 + n];
+        let xn = &xp[p + nx..p + nx + n];
+        let xs = &xp[p - nx..p - nx + n];
+        let xt = &xp[2 * p..2 * p + n];
+        let xb = &xp[0..n];
+        let (c, e, w, s, so, t, bo) = (&self.c[..n], &self.e[..n], &self.w[..n], &self.s[..n], &self.so[..n], &self.t[..n], &self.bo[..n]);
+        let y = &mut y[..n];
+        let mut acc = [0.0f64; 4];
+        for i in 0..n {
+            let v = c[i] * xc[i] - e[i] * xe[i] - w[i] * xw[i] - s[i] * xn[i] - so[i] * xs[i] - t[i] * xt[i] - bo[i] * xb[i];
+            y[i] = v;
+            acc[i & 3] += v * xc[i];
+        }
+        (acc[0] + acc[1]) + (acc[2] + acc[3])
+    }
+
+    /// z = M⁻¹ r (z padded by nx·ny on both sides); returns r·z.
+    #[inline]
+    fn precond(&self, r: &[f64], zp: &mut [f64]) -> f64 {
+        let (nx, p, n) = (self.nx, self.nxy, self.n);
+        let (wi, soi, boi, ei, si, ti, inv) = (&self.wi[..n], &self.soi[..n], &self.boi[..n], &self.ei[..n], &self.si[..n], &self.ti[..n], &self.inv[..n]);
+        let r = &r[..n];
+        let mut prev = 0.0;
+        for i in 0..n {
+            let k = i + p;
+            let t = r[i] * inv[i] + soi[i] * zp[k - nx] + boi[i] * zp[k - p];
+            prev = t + wi[i] * prev;
+            zp[k] = prev;
+        }
+        let mut rz = 0.0;
+        let mut next = 0.0;
+        for i in (0..n).rev() {
+            let k = i + p;
+            let t = zp[k] + si[i] * zp[k + nx] + ti[i] * zp[k + p];
+            next = t + ei[i] * next;
+            zp[k] = next;
+            rz += r[i] * next;
+        }
+        rz
+    }
+
+    pub fn pcg(&self, b: &[f64], x: &mut [f64], tol: Tol, monitor: &mut Monitor) -> Result<SolveStats, Error> {
+        let (n, p) = (self.n, self.nxy);
+        let bn = dot(b, b).sqrt();
+        if bn == 0.0 {
+            x.iter_mut().for_each(|v| *v = 0.0);
+            return Ok(SolveStats { iterations: 0, residual: 0.0, converged: true });
+        }
+        let target = (tol.rel * bn).max(tol.abs);
+        let mut pp = vec![0.0; n + 2 * p];
+        pp[p..p + n].copy_from_slice(x);
+        let mut r = vec![0.0; n];
+        self.matvec_padded(&pp, &mut r);
+        let mut rn2 = 0.0;
+        for i in 0..n {
+            r[i] = b[i] - r[i];
+            rn2 += r[i] * r[i];
+        }
+        if rn2.sqrt() <= target {
+            return Ok(SolveStats { iterations: 0, residual: rn2.sqrt() / bn, converged: true });
+        }
+        let mut zp = vec![0.0; n + 2 * p];
+        let mut rz = self.precond(&r, &mut zp);
+        pp.copy_from_slice(&zp);
+        let mut q = vec![0.0; n];
+        let mut it = 0;
+        let mut rn = rn2.sqrt();
+        while it < tol.max_iter {
+            it += 1;
+            let pq = self.matvec_padded(&pp, &mut q);
+            if !(pq.abs() > 0.0) || !pq.is_finite() {
+                break;
+            }
+            let alpha = rz / pq;
+            let mut acc = [0.0f64; 4];
+            {
+                let pc = &pp[p..p + n];
+                let (x, r, q) = (&mut x[..n], &mut r[..n], &q[..n]);
+                for i in 0..n {
+                    x[i] += alpha * pc[i];
+                    let ri = r[i] - alpha * q[i];
+                    r[i] = ri;
+                    acc[i & 3] += ri * ri;
+                }
+            }
+            let rr = (acc[0] + acc[1]) + (acc[2] + acc[3]);
+            rn = rr.sqrt();
+            monitor(it, rn / bn)?;
+            if rn <= target || !rn.is_finite() {
+                break;
+            }
+            let rz2 = self.precond(&r, &mut zp);
+            let beta = rz2 / rz;
+            rz = rz2;
+            {
+                let zc = &zp[p..p + n];
+                let pc = &mut pp[p..p + n];
+                for i in 0..n {
+                    pc[i] = zc[i] + beta * pc[i];
+                }
+            }
+        }
+        Ok(SolveStats { iterations: it, residual: rn / bn, converged: rn <= target })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stencil7_matches_csr_solution() {
+        // 3D Laplacian with a Dirichlet-like diagonal shift: Stencil7 PCG
+        // must reproduce A·x = b.
+        let (nx, ny, nz) = (6usize, 5usize, 4usize);
+        let n = nx * ny * nz;
+        let mut c = vec![0.0; n];
+        let mut e = vec![0.0; n];
+        let mut s = vec![0.0; n];
+        let mut t = vec![0.0; n];
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let id = i + nx * (j + ny * k);
+                    c[id] = 6.5;
+                    if i + 1 < nx {
+                        e[id] = 1.0;
+                    }
+                    if j + 1 < ny {
+                        s[id] = 1.0;
+                    }
+                    if k + 1 < nz {
+                        t[id] = 1.0;
+                    }
+                }
+            }
+        }
+        let st = Stencil7::new(nx, ny, c, e, s, t, 0.97);
+        let xs: Vec<f64> = (0..n).map(|i| ((i * 7) % 11) as f64 - 5.0).collect();
+        let mut pp = vec![0.0; n + 2 * nx * ny];
+        pp[nx * ny..nx * ny + n].copy_from_slice(&xs);
+        let mut b = vec![0.0; n];
+        st.matvec_padded(&pp, &mut b);
+        let mut x = vec![0.0; n];
+        let r = st.pcg(&b, &mut x, Tol { rel: 1e-12, abs: 0.0, max_iter: 500 }, &mut |_, _| Ok(())).unwrap();
+        assert!(r.converged, "{r:?}");
+        for i in 0..n {
+            assert!((x[i] - xs[i]).abs() < 1e-8, "{i}: {} vs {}", x[i], xs[i]);
+        }
+    }
 
     fn lap1d(n: usize) -> Csr {
         let mut nb = vec![Vec::new(); n];

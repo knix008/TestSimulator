@@ -385,6 +385,50 @@ export function ozawaFlynnWall(runs) {
 }
 
 /**
+ * Temperature (°C) where a conversion list [{ T, alpha }] reaches α and the slope dα/dT there (1/K), the slope from a
+ * least-squares line over a few points on each side (the list is a sampled, slightly noisy curve). null when α is not reached.
+ */
+export function conversionAt(list, alpha) {
+  const i = list.findIndex((p, k) => k > 0 && p.alpha >= alpha);
+  if (i < 1) return null;
+  const p = list[i - 1];
+  const q = list[i];
+  const T = q.alpha === p.alpha ? q.T : p.T + ((alpha - p.alpha) / (q.alpha - p.alpha)) * (q.T - p.T);
+  const half = Math.max(1, Math.round(list.length / 150));
+  const window = list.slice(Math.max(0, i - 1 - half), Math.min(list.length, i + half + 1));
+  const fit = linearFit(window.map((x) => x.T), window.map((x) => x.alpha));
+  return { T, dadT: fit.slope };
+}
+
+/**
+ * Friedman differential isoconversional method: runs [{ rate (K/min), T (°C at α), dadT (1/K at α) }] →
+ * { Ea (J/mol), Ea_kJ, lnAf (ln[A·f(α)], A in 1/s), r2, points } from ln(β·dα/dT) = ln[A·f(α)] − Ea/(R·T_α), β in K/s.
+ * Unlike OFW it needs no temperature-integral approximation, so it follows Ea changing with α exactly.
+ */
+export function friedman(runs) {
+  const points = runs.filter((r) => r.dadT > 0).map((r) => ({ x: 1 / (r.T + KELVIN), y: Math.log((r.rate / 60) * r.dadT) }));
+  if (points.length < 2) throw new Error('need at least two heating rates');
+  const fit = linearFit(points.map((p) => p.x), points.map((p) => p.y));
+  const Ea = -fit.slope * R_GAS;
+  return { Ea, Ea_kJ: Ea / 1000, lnAf: fit.intercept, r2: fit.r2, points };
+}
+
+/**
+ * Model-free Ea(α) profile: runs [{ rate (K/min), conv: [{ T, alpha }] }] → [{ alpha, ofw (kJ/mol), friedman (kJ/mol) }]
+ * for each α of `alphas` (NaN where fewer than two runs reach it). A flat profile means one reaction step.
+ */
+export function isoconversionalProfile(runs, alphas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]) {
+  return alphas.map((alpha) => {
+    const at = runs.map((r) => ({ rate: r.rate, ...(conversionAt(r.conv, alpha) ?? { T: NaN, dadT: NaN }) })).filter((r) => Number.isFinite(r.T) && r.rate > 0);
+    let ofw = NaN;
+    let fr = NaN;
+    try { ofw = ozawaFlynnWall(at).Ea_kJ; } catch { /* fewer than two runs */ }
+    try { fr = friedman(at).Ea_kJ; } catch { /* fewer than two runs */ }
+    return { alpha, ofw, friedman: fr };
+  });
+}
+
+/**
  * TGA steps: the DTG (−d mass%/dT, smoothed) is split at its minima between peaks above `minPeak` × the largest.
  * Per step { Tstart, Tend, massLossPct, dtgPeakT, dtgPeak (%/K), extrapolatedOnset (°C, ISO 11358: the tangent at the
  * DTG peak meets the preceding plateau level), extrapolatedEnd }. opts: { minPeak = 0.05, window = 9, threshold = 0.02 }.

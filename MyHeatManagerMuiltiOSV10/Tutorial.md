@@ -263,7 +263,7 @@ MyHeatManager 는 장치의 열을 시뮬레이션하는 프로그램입니다. 
 
 ![3D 단면과 등치면](docs/images/tutorial/ko/39-slice3d.jpg)
 
-3D 결과에서 화면 위 칩의 "단면"으로 x · y · z 평면을 골라 결과 속을 자르고, 번호로 위치를 옮깁니다. "등치면"을 켜면 정한 값(예: 60 °C)의 면이 그려집니다. 이때 바깥 면은 반투명해져 안이 보입니다. 결과 › 3D 단면선은 두 점(x, y, z)을 입력해 부피를 가로지르는 선의 값을 그래프로 보여 줍니다.
+3D 결과에서 화면 위 칩의 "단면"으로 x · y · z 평면을 골라 결과 속을 자르고, 번호로 위치를 옮깁니다. "등치면"을 켜면 정한 값(예: 60 °C)의 면이 그려집니다. 이때 바깥 면은 반투명해져 안이 보입니다. 결과 › 3D 단면선은 두 점(x, y, z)을 입력해 부피를 가로지르는 선의 값을 그래프로 보여 줍니다. 3D 보기에서 모델을 누르면 그 점의 값이 나오고, 탐침 도구로 누르면 그 자리에 탐침이 놓입니다.
 
 ### 40. 아래쪽 그래프 패널
 
@@ -271,241 +271,283 @@ MyHeatManager 는 장치의 열을 시뮬레이션하는 프로그램입니다. 
 
 아래쪽 그래프 패널의 제목 줄 오른쪽에서 ▾ 로 접고(제목 줄만 남음) ✕ 로 감춥니다. 도구 모음의 그래프 패널 단추로 다시 보입니다. 패널 위 경계를 끌어 높이를 바꿉니다.
 
-### 41. 해석 보고서
+### 41. 계산기 · 히스토그램
 
-![해석 보고서](docs/images/tutorial/ko/41-report.jpg)
+![계산기 · 히스토그램](docs/images/tutorial/ko/41-calculator.jpg)
+
+결과 › 계산기 · 히스토그램: T + 273.15 나 sqrt(qx^2 + qy^2) 같은 식을 셀마다 계산해 최솟값 · 평균 · 최댓값과 부피 비율 히스토그램을 보고, 뷰포트에 계산 필드로 칠하거나 CSV 로 저장합니다.
+
+### 42. 해석 보고서
+
+![해석 보고서](docs/images/tutorial/ko/42-report.jpg)
 
 물체별 최저·평균·최고 온도, 경계별 열량, 에너지 수지(발생 = 빠져나간 열), 계산 기록을 한 장으로 보고 HTML 로 저장하거나 인쇄합니다.
 
 ## 8. 고급 해석
 
-### 42. 과도 해석과 애니메이션
+### 43. 과도 해석과 애니메이션
 
-![과도 해석과 애니메이션](docs/images/tutorial/ko/42-transient.jpg)
+![과도 해석과 애니메이션](docs/images/tutorial/ko/43-transient.jpg)
 
 상변화 재료 히트싱크 예제: 10분 동안의 열 펄스를 파라핀이 녹으며 흡수합니다. 프레임 슬라이더와 애니메이션(Space)으로 시간 변화를, 아래 그래프로 탐침 온도를 봅니다 — 녹는 동안 온도가 평평해지는 구간이 보입니다.
 
-### 43. 유동과 연성 열전달 (CHT)
+### 44. 유동과 연성 열전달 (CHT)
 
-![유동과 연성 열전달 (CHT)](docs/images/tutorial/ko/43-cht.jpg)
+![유동과 연성 열전달 (CHT)](docs/images/tutorial/ko/44-cht.jpg)
 
 마이크로채널 예제: 실리콘 칩 속 물 채널의 유동과 칩의 열전도를 함께 풉니다. 속도 필드와 벡터로 유동을 봅니다.
 
-### 44. 열응력
+### 45. 3D 유동과 CHT
 
-![열응력](docs/images/tutorial/ko/44-stress.jpg)
+![3D 유동과 CHT](docs/images/tutorial/ko/45-cht3d.jpg)
+
+3D 방열판 덕트 예제: 덕트 공기가 칩 위 판형 핀 사이를 흐르는 3D 유동과 고체 전도를 함께 풉니다. 3D 보기의 단면으로 핀 사이 유속을 보고, 유입구 · 유출구는 3D 의 앞 · 뒤 면에도 둘 수 있습니다.
+
+### 46. 열응력
+
+![열응력](docs/images/tutorial/ko/46-stress.jpg)
 
 LED 모듈 예제: 재료마다 다른 열팽창으로 생기는 폰 미세스 응력과, 과장해서 그린 변형 형상을 봅니다.
 
 ## 9. SimScale 방식 해석
 
-### 45. 난류 유동 (k-ω SST)
+### 47. 난류 유동 (k-ω SST)
 
-![난류 유동 (k-ω SST)](docs/images/tutorial/ko/45-turbulence.jpg)
+![난류 유동 (k-ω SST)](docs/images/tutorial/ko/47-turbulence.jpg)
 
 가열 덕트 예제: Re ≈ 20 000 의 물을 k-ω SST 난류 모델로 풉니다. 해석 설정의 난류 선택과 유입구의 난류 강도가 입력이고, 속도 · 난류 점성 필드와 유선으로 흐름을 봅니다.
 
-### 46. 수렴 곡선
+### 48. 수렴 곡선
 
-![수렴 곡선](docs/images/tutorial/ko/46-residuals.jpg)
+![수렴 곡선](docs/images/tutorial/ko/48-residuals.jpg)
 
 그래프 패널의 잔차 탭에 연속 · u · v · T · k · ω 잔차가 로그 눈금으로 그려집니다. 곡선이 충분히 내려가 평평해지면 수렴한 것입니다.
 
-### 47. 유량과 압력 강하
+### 49. 유량과 압력 강하
 
-![유량과 압력 강하](docs/images/tutorial/ko/47-flowMetrics.jpg)
+![유량과 압력 강하](docs/images/tutorial/ko/49-flowMetrics.jpg)
 
 유입 · 유출 경계를 고르면 속성 패널에 질량 유량 · 체적 유량 · 평균 압력 · 평균 온도가, 해석 보고서에는 압력 강하가 나옵니다.
 
-### 48. 줄 발열 (전기)
+### 50. 줄 발열 (전기)
 
-![줄 발열 (전기)](docs/images/tutorial/ko/48-joule.jpg)
+![줄 발열 (전기)](docs/images/tutorial/ko/50-joule.jpg)
 
 버스바 예제: 400 A 전류 유입과 접지 경계, 재료의 전기 전도도로 전위장을 풀어 전류 밀도와 줄 발열을 구합니다. 전류가 몰리는 접합부가 가장 뜨겁습니다.
 
-### 49. 접촉 열저항
+### 51. 접촉 열저항
 
-![접촉 열저항](docs/images/tutorial/ko/49-contact.jpg)
+![접촉 열저항](docs/images/tutorial/ko/51-contact.jpg)
 
 두 물체가 닿은 면에 접촉 열저항(m²K/W)을 줍니다. 버스바의 볼트 접합면처럼 실제 접촉이 완전하지 않은 곳의 온도 차를 나타냅니다.
 
-### 50. 정적 구조 해석
+### 52. 정적 구조 해석
 
-![정적 구조 해석](docs/images/tutorial/ko/50-structural.jpg)
+![정적 구조 해석](docs/images/tutorial/ko/52-structural.jpg)
 
 외팔보 예제: 고정단 · 끝 하중 500 N · 자중으로 변위와 응력을 구합니다(열팽창은 끔). 변형 형상을 켜면 처짐이 과장되어 보입니다.
 
-### 51. 고유 진동수 (모드)
+### 53. 고유 진동수 (모드)
 
-![고유 진동수 (모드)](docs/images/tutorial/ko/51-modal.jpg)
+![고유 진동수 (모드)](docs/images/tutorial/ko/53-modal.jpg)
 
 L 브래킷 예제: 처음 여섯 고유 진동수와 모드 형상입니다. 뷰포트 위의 모드 선택으로 형상을 바꿔 봅니다.
 
-### 52. 열 쾌적성 (PMV)
+### 54. 열 쾌적성 (PMV)
 
-![열 쾌적성 (PMV)](docs/images/tutorial/ko/52-comfort.jpg)
+![열 쾌적성 (PMV)](docs/images/tutorial/ko/54-comfort.jpg)
 
 사무실 예제: 자연 대류로 움직이는 공기의 온도 · 속도로 ISO 7730 PMV 를 계산합니다. 0 에 가까울수록 쾌적하고, 창가처럼 파란 곳은 춥게 느껴집니다.
 
-### 53. 생체 열전달 (Pennes)
+### 55. 생체 열전달 (Pennes)
 
-![생체 열전달 (Pennes)](docs/images/tutorial/ko/53-bioheat.jpg)
+![생체 열전달 (Pennes)](docs/images/tutorial/ko/55-bioheat.jpg)
 
 종양 고주파 소작 예제: 재료에 혈류 관류율 · 대사열 · 혈액 온도를 넣으면 Pennes 생체 열전달식으로 풉니다. 전극이 10분 동안 열을 내는 동안 종양 가장자리가 50 °C 를 넘는지 탐침 그래프로 봅니다.
 
-### 54. 팬 곡선
+### 56. 팬 곡선
 
-![팬 곡선](docs/images/tutorial/ko/54-fanCurve.jpg)
+![팬 곡선](docs/images/tutorial/ko/56-fanCurve.jpg)
 
 팬 함체 예제의 팬 경계는 고정 유속 대신 팬 곡선(유량–압력)을 씁니다. 해석기는 팬 곡선과 함체의 저항이 만나는 운전점을 찾아 유량을 정하고, 그 공기로 부품 온도를 구합니다.
 
-### 55. 면 사이 복사 (S2S)
+### 57. 내부 팬
 
-![면 사이 복사 (S2S)](docs/images/tutorial/ko/55-s2s.jpg)
+![내부 팬](docs/images/tutorial/ko/57-internalFan.jpg)
+
+내부 팬 섀시 예제: 모델 › 내부 팬은 유동 안의 영역(2D · 3D)에 팬을 둡니다. 속성에서 바람 방향 · 팬 곡선 · 영역을 정하면 영역 가운데 단면에 곡선의 압력 상승을 주어, 섀시 저항과 만나는 운전점에서 공기를 밉니다.
+
+### 58. 면 사이 복사 (S2S)
+
+![면 사이 복사 (S2S)](docs/images/tutorial/ko/58-s2s.jpg)
 
 진공 오븐 예제: 해석 설정에서 "면 사이 복사"를 켜면 물체 표면끼리 뷰 팩터와 복사도로 열을 주고받습니다(재료의 방사율 사용). 대류가 없는 진공이나 공동에서 중요합니다. 결과에는 순 복사 열 흐름 qrad 가 함께 나옵니다.
 
-### 56. 매개변수 연구
+### 59. 태양 복사 하중
 
-![매개변수 연구](docs/images/tutorial/ko/56-parametric.jpg)
+![태양 복사 하중](docs/images/tutorial/ko/59-solar.jpg)
+
+햇빛 아래 옥외 함체 예제: 해석 설정의 태양 복사 하중(일사량 · 고도 · 방위각)과 재료의 태양 흡수율로 해를 향한 드러난 면이 햇빛을 받습니다. 차양판이 지붕에 그림자를 드리우고, 결과 요약에 흡수한 햇빛(W)이 나옵니다.
+
+### 60. 매개변수 연구
+
+![매개변수 연구](docs/images/tutorial/ko/60-parametric.jpg)
 
 값 하나(발열 · 열전달 계수 · 유입 속도 · 열전도율 · 격자 배율 …)를 범위 안에서 바꿔 가며 여러 번 풀고 결과를 표와 그래프로 비교합니다. 여기서는 팬의 열전달 계수에 따른 MOSFET 최고 온도입니다.
 
-### 57. 격자 자동 설정
+### 61. 격자 자동 설정
 
-![격자 자동 설정](docs/images/tutorial/ko/57-autoMesh.jpg)
+![격자 자동 설정](docs/images/tutorial/ko/61-autoMesh.jpg)
 
 격자 자동 설정은 가장 얇은 물체가 셀 두 개 이상이 되도록 셀 수를 정합니다. 그 뒤 격자를 두 배로 해 다시 풀어 결과가 거의 같으면 충분히 촘촘한 것입니다.
 
 ## 10. 신뢰성 · U-값 · 히트맵
 
-### 58. 신뢰성 (수명)
+### 62. 신뢰성 (수명)
 
-![신뢰성 (수명)](docs/images/tutorial/ko/58-reliability.jpg)
+![신뢰성 (수명)](docs/images/tutorial/ko/62-reliability.jpg)
 
 해석한 부품 온도로 아레니우스 MTTF · FIT 와 코핀-맨슨 솔더 피로 수명을 계산합니다. 시스템 수명과 5년 생존 확률도 나옵니다.
 
-### 59. U-값 (건물 외피)
+### 63. U-값 (건물 외피)
 
-![U-값 (건물 외피)](docs/images/tutorial/ko/59-uFactor.jpg)
+![U-값 (건물 외피)](docs/images/tutorial/ko/63-uFactor.jpg)
 
-창틀 단면 예제의 열관류율 U, R-값, 선 열관류 L2D 를 실내·실외 대류 경계로부터 구합니다(THERM 방식).
+창틀 단면 예제의 열관류율 U, R-값, 선 열관류 L2D 를 실내·실외 대류 경계로부터 구합니다(THERM 방식). 태그별 U-값과, 프레임 공동의 유효 열전도율을 구해 공동 재료에 바로 적용하는 칸도 있습니다.
 
-### 60. 절점 데이터 히트맵
+### 64. 절점 데이터 히트맵
 
-![절점 데이터 히트맵](docs/images/tutorial/ko/60-heatmap.jpg)
+![절점 데이터 히트맵](docs/images/tutorial/ko/64-heatmap.jpg)
 
 Thermal Desktop · SINDA 같은 절점 모델이나 열전대 측정값의 CSV 를 가져와 히트맵과 통계, 한계 온도 초과 절점을 봅니다.
 
-### 61. 열분석 (DSC / TGA)
+### 65. 3D 절점 히트맵
 
-![열분석 (DSC / TGA)](docs/images/tutorial/ko/61-thermal.jpg)
+![3D 절점 히트맵](docs/images/tutorial/ko/65-heatmap3d.jpg)
+
+z 값이 여럿인 절점 데이터는 z 범위로 층마다 평면 지도와 통계를 보거나, 3D 점 보기에서 온도 색 점을 끌어 돌려 봅니다. 3D 예제는 세 층에 열전대가 붙은 배터리 모듈입니다.
+
+### 66. 열분석 (DSC / TGA)
+
+![열분석 (DSC / TGA)](docs/images/tutorial/ko/66-thermal.jpg)
 
 DSC 곡선의 피크를 기준선 위에서 적분해 잠열 · 시작 · 피크 · 끝 온도를 구하고, 인듐 같은 표준 물질로 보정한 뒤 상변화 재료로 모델에 넣습니다. TGA 에서는 감량 온도와 잔류량을 구합니다.
 
-### 62. DSC 반응 속도론 · Tg · cp
+### 67. DSC 반응 속도론 · Tg · cp
 
-![DSC 반응 속도론 · Tg · cp](docs/images/tutorial/ko/62-kinetics.jpg)
+![DSC 반응 속도론 · Tg · cp](docs/images/tutorial/ko/67-kinetics.jpg)
 
-열분석 창의 반응 속도론 탭: 가열 속도가 다른 DSC 곡선 여러 개를 넣으면 Kissinger 와 Ozawa–Flynn–Wall 로 활성화 에너지 Ea 를 구합니다. DSC 탭에서는 유리 전이(Tg), 미분 곡선, 시그모이드 기준선과 전환율, 여러 피크를, TGA 탭에서는 질량 감소 단계를, cp 탭에서는 사파이어 법(ASTM E1269)으로 비열 cp(T)를 구해 재료로 넣습니다.
+열분석 창의 반응 속도론 탭: 가열 속도가 다른 DSC 곡선 여러 개를 넣으면 Kissinger · Ozawa–Flynn–Wall · Friedman 으로 활성화 에너지 Ea 를 구하고, 모델 없는 Ea(α) 곡선을 봅니다. DSC 탭에서는 유리 전이(Tg), 미분 곡선, 시그모이드 기준선과 전환율, 여러 피크를, TGA 탭에서는 질량 감소 단계를, cp 탭에서는 사파이어 법(ASTM E1269)으로 비열 cp(T)를 구해 재료로 넣습니다.
 
-### 63. 전자 냉각 도우미
+### 68. 전자 냉각 도우미
 
-![전자 냉각 도우미](docs/images/tutorial/ko/63-electronics.jpg)
+![전자 냉각 도우미](docs/images/tutorial/ko/68-electronics.jpg)
 
 도구 메뉴의 JEDEC 2저항 패키지 · 방열판 만들기 · PCB 적층 계산기 · 발열 지도 가져오기는 값만 넣으면 물체와 재료를 모델에 만들어 줍니다(Icepak 방식). 방열판 창은 핀 배치를 미리 보여 주고, 핀이 맞지 않으면 알려 줍니다.
 
-### 64. 솔더 피로 · 수명
+### 69. 솔더 피로 · 수명
 
-![솔더 피로 · 수명](docs/images/tutorial/ko/64-fatigue.jpg)
+![솔더 피로 · 수명](docs/images/tutorial/ko/69-fatigue.jpg)
 
 도구 › 솔더 피로 · 수명 분석(Sherlock 방식): 과도 해석의 온도 이력을 레인플로로 세어 Coffin–Manson · Engelmaier 로 마이너 손상과 수명을 구하고, Norris–Landzberg 가속 계수, Weibull 신뢰도 곡선(B10), 고유 진동수로 Steinberg 진동 피로를 계산합니다.
 
-### 65. CalculiX · DXF
+### 70. 진동 PSD 표 · 충격
 
-![CalculiX · DXF](docs/images/tutorial/ko/65-interop.jpg)
+![진동 PSD 표 · 충격](docs/images/tutorial/ko/70-shock.jpg)
+
+솔더 피로 창의 진동 탭은 PSD 표(MIL-STD-810 · IEC 형태 프리셋)를 대역 전체로 적분해 응답 G rms 와 스타인버그 수명을, 충격 탭은 반정현파 충격에 대한 1자유도 응답(최대 변위 · 가속도 · 충격 응답)과 여유를 보여 줍니다. 조화 응답 창은 탐침 위치의 전달률을 모드 형상으로 계산합니다.
+
+### 71. CalculiX · DXF
+
+![CalculiX · DXF](docs/images/tutorial/ko/71-interop.jpg)
 
 파일 메뉴의 CalculiX 내보내기는 격자 · 재료 · 경계 조건을 CalculiX 입력 파일(.inp)로 저장하고(FreeCAD · Gmsh · ParaView 워크플로), DXF 가져오기는 도면의 닫힌 폴리라인과 원을 물체로 가져옵니다.
 
-### 66. 배치 실행 (API)
+### 72. 배치 실행 (API)
 
-![배치 실행 (API)](docs/images/tutorial/ko/66-batch.jpg)
+![배치 실행 (API)](docs/images/tutorial/ko/72-batch.jpg)
 
 설치한 프로그램은 --batch 로 창 없이 여러 모델을 풀고 요약 JSON · CSV · 히트맵 PNG 를 씁니다. 스크립트나 CI 에서 설계안을 비교할 때 씁니다.
 
 ## 11. 파일과 출력
 
-### 67. 저장
+### 73. 저장
 
-![저장](docs/images/tutorial/ko/67-save.jpg)
+![저장](docs/images/tutorial/ko/73-save.jpg)
 
 모델은 .myheat(JSON) 파일입니다. 저장(Ctrl+S), 다른 이름으로 저장(Ctrl+Shift+S). 웹판에서는 내려받기로 저장합니다.
 
-### 68. 내보내기
+### 74. 내보내기
 
-![내보내기](docs/images/tutorial/ko/68-export.jpg)
+![내보내기](docs/images/tutorial/ko/74-export.jpg)
 
 파일 메뉴에서 결과를 CSV(셀 값) · PNG(화면) · VTK(ParaView) 로 내보내고, 보고서를 저장하거나 인쇄합니다.
 
-### 69. 다른 제품의 파일 형식
+### 75. 다른 제품의 파일 형식
 
-![다른 제품의 파일 형식](docs/images/tutorial/ko/69-formats.jpg)
+![다른 제품의 파일 형식](docs/images/tutorial/ko/75-formats.jpg)
 
-파일 메뉴에서 THERM .thmx · Gmsh .msh · DXF 를 새 모델로 가져오고, CalculiX .inp · Nastran .bdf · Ansys .cdb · COMSOL .mphtxt · Gmsh .msh · THERM .thmx · STL · DXF · VTU · VTK 로 내보냅니다. 파일 › 지원 파일 형식 에서 전체 목록과 지원하지 않는 형식(.mph · .sldprt 등 독점 바이너리)을 봅니다. samples/formats 폴더에 형식마다 예제 파일이 있습니다.
+파일 메뉴에서 THERM .thmx · Gmsh .msh · DXF · Nastran · Ansys · CalculiX · COMSOL · IDF 를 새 모델로 가져오고, CalculiX .inp · Nastran .bdf · Ansys .cdb · COMSOL .mphtxt · Gmsh .msh · THERM .thmx · STL · DXF · VTU · VTK 로 내보냅니다. 파일 › 지원 파일 형식 에서 전체 목록과 지원하지 않는 형식(.mph · .sldprt 등 독점 바이너리)을 봅니다. samples/formats 폴더에 형식마다 예제 파일이 있습니다.
 
-### 70. 인쇄
+### 76. 해석기 파일 · IDF 가져오기
 
-![인쇄](docs/images/tutorial/ko/70-print.jpg)
+![해석기 파일 · IDF 가져오기](docs/images/tutorial/ko/76-importDecks.jpg)
+
+파일 › 가져오기 는 Nastran .bdf · Ansys .cdb · CalculiX .inp · COMSOL .mphtxt 를 노드 · 요소 · 재료 · 열 경계 · 발열과 함께 새 모델로 열고, IDF 3.0 기판(.emn + .emp)을 3D 기판 · 부품 모델로 만듭니다. 화면은 튜토리얼 모델을 Nastran 파일로 저장했다가 다시 연 모델입니다.
+
+### 77. 인쇄
+
+![인쇄](docs/images/tutorial/ko/77-print.jpg)
 
 도구 모음의 인쇄 단추(저장 오른쪽, Ctrl+P)는 인쇄 창을 엽니다. 왼쪽에서 용지 크기 · 방향 · 여백 · 인쇄할 내용(제목, 뷰포트 그림, 색 범례, 차트, 모델 표, 결과 요약, 해석 기록) · 머리글과 바닥글 · 컬러/흑백 · 글자 크기를 고르면 오른쪽 미리보기에 쪽마다 바로 나타납니다. 인쇄를 누르면 시스템 인쇄 창에서 프린터와 매수를 고릅니다.
 
-### 71. 예제 갤러리
+### 78. 예제 갤러리
 
-![예제 갤러리](docs/images/tutorial/ko/71-gallery.jpg)
+![예제 갤러리](docs/images/tutorial/ko/78-gallery.jpg)
 
-해석 종류와 분야마다 대표적인 예제 40개가 있습니다 — 미리보기와 설명을 보고 고릅니다.
+해석 종류와 분야마다 대표적인 예제 43개가 있습니다 — 미리보기와 설명을 보고 고릅니다.
 
 ## 12. 꾸미기
 
-### 72. 테마
+### 79. 테마
 
-![테마](docs/images/tutorial/ko/72-theme.jpg)
+![테마](docs/images/tutorial/ko/79-theme.jpg)
 
 테마 단추를 누르면 다음 테마로, ▾ 를 누르면 어두운 20 · 밝은 20 테마가 색 띠(배경 · 패널 · 단추 · 강조 · 글자)와 이름의 두 줄로 펼쳐집니다.
 
-### 73. 테마 목록
+### 80. 테마 목록
 
-![테마 목록](docs/images/tutorial/ko/73-themeMenu.jpg)
+![테마 목록](docs/images/tutorial/ko/80-themeMenu.jpg)
 
 ▾ 를 누르면 어두운 테마와 밝은 테마가 두 열로 내려옵니다. 테마마다 두 줄 — 색 띠와 이름 — 으로 보이고, 맨 아래에 사용자 정의 테마와 "사용자 정의 테마 설정…", "테마 설정…" 이 있어 설정 창의 그 탭으로 바로 갑니다.
 
-### 74. 환경 설정
+### 81. 환경 설정
 
-![환경 설정](docs/images/tutorial/ko/74-settings.jpg)
+![환경 설정](docs/images/tutorial/ko/81-settings.jpg)
 
 일반 · 테마 · 사용자 테마 · 글꼴 · 시작 화면 · 결과 표시 · 편집기 · 패널 · 파일 탭에 모든 설정이 있습니다. 바꾸는 즉시 적용되어 보이고, 적용 · 취소(열었을 때로) · Reset(기본값) 단추가 있습니다. 국기 단추는 한국어 ↔ English 를 바꾸며, 캔버스의 이름도 함께 바뀝니다.
 
-### 75. 사용자 테마
+### 82. 사용자 테마
 
-![사용자 테마](docs/images/tutorial/ko/75-customTheme.jpg)
+![사용자 테마](docs/images/tutorial/ko/82-customTheme.jpg)
 
 설정 › 사용자 테마에서 기본 테마를 고른 뒤 배경 · 패널 · 강조 등 13가지 색을 바꿔 자신의 테마를 만듭니다. 바꾸는 즉시 화면에 보입니다.
 
-### 76. 설명서 창
+### 83. 설명서 창
 
-![설명서 창](docs/images/tutorial/ko/76-docWindow.jpg)
+![설명서 창](docs/images/tutorial/ko/83-docWindow.jpg)
 
 도움말 › 사용 설명서와 튜토리얼 문서는 별도의 창에서 열리고 앱 테마를 그대로 따릅니다. 테마를 바꾸면 열린 문서 창도 함께 바뀝니다.
 
-### 77. 창 밖으로 나오는 창과 메뉴
+### 84. 창 밖으로 나오는 창과 메뉴
 
-![창 밖으로 나오는 창과 메뉴](docs/images/tutorial/ko/77-popouts.jpg)
+![창 밖으로 나오는 창과 메뉴](docs/images/tutorial/ko/84-popouts.jpg)
 
 데스크톱 판에서 대화 상자와 드롭다운 메뉴(메뉴 막대, 오른쪽 클릭, 테마 목록)는 각자의 창으로 열려 주 창 밖으로 나올 수 있습니다. 대화 상자가 열려 있는 동안 주 창은 어두워지고, 누르면 대화 상자가 앞으로 옵니다. 대화 상자의 제목 줄을 끌어 옮깁니다. 웹 판과 튜토리얼에서는 창 안에 그려집니다.
 
-### 78. 끝
+### 85. 끝
 
-![끝](docs/images/tutorial/ko/78-finish.jpg)
+![끝](docs/images/tutorial/ko/85-finish.jpg)
 
 튜토리얼을 마쳤습니다! 바뀐 설정은 되돌리고 튜토리얼 탭은 닫습니다. 🏠 시작 화면이나 도움말 메뉴에서 언제든 다시 볼 수 있고, 튜토리얼 문서와 사용 설명서에 더 자세한 설명이 있습니다.
 

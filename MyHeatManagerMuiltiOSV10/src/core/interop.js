@@ -5,6 +5,7 @@
 // from DXF drawings (closed polylines and circles become bodies).
 // SI units in the deck (m, kg, s, K, W). Pure functions, unit-tested in Node.
 import { cellSize, materialAt, newId } from './model.js';
+import { domainNote } from './formats.js';
 
 /** Cell material ids on the grid (null = void), the same cell-centre rule as the engine. */
 function cellMaterials(model) {
@@ -31,7 +32,7 @@ export function calculixDeck(model) {
   const mats = cellMaterials(model);
   const cell = (i, j, k) => (i < 0 || j < 0 || k < 0 || i >= d.nx || j >= d.ny || k >= nz ? null : mats[i + d.nx * (j + d.ny * k)]);
   const nodeId = (i, j, k) => 1 + i + (d.nx + 1) * (j + (d.ny + 1) * k);
-  const lines = ['** MyHeatManager → CalculiX input deck', `** ${model.name || 'model'} — ${is3d ? '3D DC3D8' : '2D DC2D4'}, SI units (m, kg, s, K, W)`, '*HEADING', model.name || 'MyHeatManager model', '*NODE'];
+  const lines = ['** MyHeatManager → CalculiX input deck', `** ${model.name || 'model'} — ${is3d ? '3D DC3D8' : '2D DC2D4'}, SI units (m, kg, s, K, W)`, `** ${domainNote(d)}`, '*HEADING', model.name || 'MyHeatManager model', '*NODE'];
   const used = new Set();
   const elements = [];
   for (let k = 0; k < nz; k++) for (let j = 0; j < d.ny; j++) for (let i = 0; i < d.nx; i++) {
@@ -79,12 +80,27 @@ export function calculixDeck(model) {
       }
     }
   }
-  const matches = (bc, f) => {
-    if (bc.region && !(f.x >= bc.region[0] && f.x <= bc.region[2] && f.y >= bc.region[1] && f.y <= bc.region[3])) return false;
-    if (bc.target === 'exterior') return true;
-    if (bc.target.startsWith('body:')) return model.bodies.find((b) => `body:${b.id}` === bc.target)?.material === f.e.m;
-    return f.edge === bc.target;
+  // One condition per face, as the engine applies them (ARCHITECTURE.md): body:<id> > edge > exterior, the last of a class wins.
+  // Writing every matching condition let a later "all outer faces" film overwrite an edge's in CalculiX.
+  const rank = (bc, f) => {
+    if (bc.region && !(f.x >= bc.region[0] && f.x <= bc.region[2] && f.y >= bc.region[1] && f.y <= bc.region[3])) return -1;
+    if (bc.target === 'exterior') return 0;
+    if (bc.target.startsWith('body:')) return model.bodies.find((b) => `body:${b.id}` === bc.target)?.material === f.e.m ? 2 : -1;
+    if (f.edge !== bc.target) return -1;
+    if (bc.range) {
+      const s = bc.target === 'left' || bc.target === 'right' ? f.y : bc.target === 'bottom' || bc.target === 'top' ? f.x : null;
+      if (s != null && (s < Math.min(...bc.range) || s > Math.max(...bc.range))) return -1;
+    }
+    return 1;
   };
+  for (const f of outside) {
+    let best = -1;
+    for (const bc of model.boundaries) {
+      const r = rank(bc, f);
+      if (r >= 0 && r >= best) { best = r; f.bc = bc; }
+    }
+  }
+  const matches = (bc, f) => f.bc === bc;
   // Every node in use (CalculiX rejects sets that name nodes it does not have), 16 per line.
   const all = [...used].sort((a, b) => a - b);
   lines.push('*NSET, NSET=NALL');

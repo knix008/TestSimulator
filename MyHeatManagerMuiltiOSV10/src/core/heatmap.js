@@ -136,6 +136,27 @@ export function sampleNodeCsv() {
 }
 
 /**
+ * Sample 3D node data: thermocouples on three layers (z = 0, 40, 80 mm) of a 200 × 120 mm battery module, hottest in
+ * the middle layer near the busbar end (x = 180 mm) — for the z range and the 3D point view.
+ */
+export function sampleNodeCsv3d() {
+  const rows = ['node,x,y,z,T'];
+  let id = 1;
+  for (const z of [0, 40, 80]) {
+    for (let j = 0; j <= 6; j++) {
+      for (let i = 0; i <= 10; i++) {
+        const x = i * 20;
+        const y = j * 20;
+        const core = Math.exp(-(((x - 180) / 70) ** 2 + ((y - 60) / 50) ** 2 + ((z - 40) / 45) ** 2));
+        const T = 24 + 21 * core + 0.06 * x + 1.5 * Math.cos(i * 0.7 + j * 0.5);
+        rows.push(`${id++},${x},${y},${z},${T.toFixed(2)}`);
+      }
+    }
+  }
+  return `${rows.join('\n')}\n`;
+}
+
+/**
  * Difference of two node sets matched by node id: [{ id, x, y, z (from B), T: TB − TA, TA, TB }] — node-shaped, so it
  * feeds nodeStats / idwRaster directly. Nodes present in only one set are left out.
  */

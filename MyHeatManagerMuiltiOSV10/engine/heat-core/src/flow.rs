@@ -1,19 +1,24 @@
-//! 2D incompressible flow on a staggered (MAC) grid and conjugate heat transfer.
+//! Incompressible flow on a staggered (MAC) grid, 2D and 3D, and conjugate heat
+//! transfer.
 //!
-//! * Velocities u on vertical faces, v on horizontal faces, pressure in cells.
+//! * Velocities u on x-faces, v on y-faces, w on z-faces (3D), pressure in cells.
+//!   One code path serves both dimensions: a 2D model is a single layer
+//!   (nz = 1) without z-faces, z-derivatives or front/back flow boundaries.
 //! * Incremental projection: the predictor uses the old pressure gradient,
 //!   explicit hybrid (central/upwind by cell Péclet number) advection, explicit
 //!   viscous terms and an implicit Darcy–Brinkman drag μ/K·u; a pressure
-//!   correction δp from a Poisson equation (PCG + IC(0)) makes the field
-//!   divergence free. The time step is limited by CFL and viscous stability.
-//! * Faces between flowing cells and solids/void, and domain edges with no flow
+//!   correction δp from a Poisson equation (5-point in 2D, 7-point in 3D, PCG +
+//!   MIC(0)) makes the field divergence free. The time step is limited by CFL
+//!   and viscous stability.
+//! * Faces between flowing cells and solids/void, and domain faces with no flow
 //!   boundary, are no-slip walls (ghost velocity −u for the tangential part).
-//! * Natural convection: Boussinesq force −β(T − Tref)·g per unit mass.
+//! * Natural convection: Boussinesq force −β(T − Tref)·g per unit mass along
+//!   the model's gravity vector (x, y and, in 3D, z).
 //! * Energy: implicit upwind convection–diffusion over all simulated cells
 //!   (conjugate), assembled by `conduction::Thermal::assemble` with `Adv` terms.
 
 use crate::conduction::{Adv, AdvB, FlowOut, SolverCache, Solution, Thermal};
-use crate::linalg::{Csr, Stencil5, Tol};
+use crate::linalg::{Csr, Monitor, SolveStats, Stencil5, Stencil7, Tol};
 use crate::mesh::Across;
 use crate::model::{BType, Layer};
 use crate::{mesh, Ctx, Error};
@@ -37,7 +42,7 @@ pub(crate) enum FBcKind {
 
 impl FBc {
     /// Zero shear for the tangential velocity.
-    fn free(self) -> bool {
+    pub(crate) fn free(self) -> bool {
         matches!(self, FBc::Slip | FBc::Outlet | FBc::Open)
     }
 }
@@ -57,52 +62,118 @@ pub struct StepInfo {
     pub umax: f64,
     /// RMS divergence of the predicted velocity (1/s) before the projection.
     pub continuity: f64,
-    /// RMS velocity change rates (m/s²).
+    /// RMS velocity change rates (m/s²) of u, v and w (w = 0 in 2D).
     pub u_res: f64,
     pub v_res: f64,
+    pub w_res: f64,
 }
 
-const FIXED: u8 = 0;
-const ACTIVE: u8 = 1;
-const OUTLET: u8 = 2;
+pub(crate) const FIXED: u8 = 0;
+pub(crate) const ACTIVE: u8 = 1;
+pub(crate) const OUTLET: u8 = 2;
+
+/// Pressure-correction preconditioned operator (structured).
+pub(crate) enum PStencil {
+    S5(Stencil5),
+    S7(Stencil7),
+}
+
+impl PStencil {
+    fn pcg(&self, b: &[f64], x: &mut [f64], tol: Tol, monitor: &mut Monitor) -> Result<SolveStats, Error> {
+        match self {
+            PStencil::S5(s) => s.pcg(b, x, tol, monitor),
+            PStencil::S7(s) => s.pcg(b, x, tol, monitor),
+        }
+    }
+}
+
+/// Fan inside the domain: a pressure jump across a plane of faces of one
+/// velocity component, following the fan curve at the measured flow.
+#[derive(Clone, Debug)]
+pub(crate) struct IFan {
+    /// Model boundary index.
+    pub bi: usize,
+    /// Axis of the pushed flow and its sign (+1 / −1).
+    pub axis: usize,
+    pub sign: f64,
+    /// Faces (indices into the component's face array) of the fan plane.
+    pub faces: Vec<usize>,
+    /// Plane area (m²; 2D: times the depth).
+    pub area: f64,
+    /// Current flow through the plane (m³/s, + along the fan direction) and
+    /// pressure jump (Pa).
+    pub q: f64,
+    pub dp: f64,
+}
+
+/// Δp of a (non-increasing) fan curve at flow q, linear and clamped.
+fn curve_dp(curve: &[(f64, f64)], q: f64) -> f64 {
+    if q <= curve[0].0 {
+        return curve[0].1;
+    }
+    for w in curve.windows(2) {
+        let ((q0, p0), (q1, p1)) = (w[0], w[1]);
+        if q <= q1 {
+            return if q1 > q0 { p0 + (p1 - p0) * (q - q0) / (q1 - q0) } else { p1 };
+        }
+    }
+    curve[curve.len() - 1].1
+}
+
+/// Tangential neighbourhood of a velocity face along one axis b.
+struct Tang {
+    /// Neighbour face on the + / − side exists (both cells flowing).
+    pin: bool,
+    min: bool,
+    /// On the domain edge with a zero-shear condition on both cells.
+    pfree: bool,
+    mfree: bool,
+    /// Transverse velocity (component b) averaged over the + / − side faces.
+    vp: f64,
+    vm: f64,
+}
 
 pub struct FlowSolver<'a> {
     pub(crate) th: &'a Thermal<'a>,
     pub(crate) nx: usize,
     pub(crate) ny: usize,
-    pub(crate) dx: f64,
-    pub(crate) dy: f64,
-    pub(crate) depth: f64,
+    pub(crate) nz: usize,
+    /// 3D model (z-faces, w velocity, front/back boundaries).
+    pub(crate) d3: bool,
+    pub(crate) n3: [usize; 3],
+    /// Cell sizes (m); in 2D h[2] is the out-of-plane depth.
+    pub(crate) h: [f64; 3],
+    /// Cell index strides along x, y, z.
+    pub(crate) cs: [usize; 3],
+    /// Face-array dimensions and strides of each velocity component.
+    pub(crate) fdim: [[usize; 3]; 3],
+    pub(crate) fstr: [[usize; 3]; 3],
     pub(crate) fluid: Vec<bool>,
     pub(crate) rho: Vec<f64>,
     pub(crate) nu: Vec<f64>,
     pub(crate) drag: Vec<f64>, // μ/K (Pa·s/m²)
     pub(crate) beta: Vec<f64>,
     pub(crate) rcp: Vec<f64>, // fluid ρcp
-    pub(crate) u: Vec<f64>,
-    pub(crate) v: Vec<f64>,
+    /// Face velocities u, v, w.
+    pub(crate) vel: [Vec<f64>; 3],
     pub(crate) p: Vec<f64>,
-    pub(crate) uk: Vec<u8>,
-    pub(crate) vk: Vec<u8>,
-    // Edge flow conditions (per edge cell) and the boundary index that set them.
-    pub(crate) left: Vec<(FBc, i64)>,
-    pub(crate) right: Vec<(FBc, i64)>,
-    pub(crate) bottom: Vec<(FBc, i64)>,
-    pub(crate) top: Vec<(FBc, i64)>,
+    pub(crate) kind: [Vec<u8>; 3],
+    /// Flow conditions on the domain faces (sides −x, +x, −y, +y, −z, +z), per
+    /// edge cell, with the boundary index that set them. Index of the edge cell
+    /// within a side: x sides j + ny·k, y sides i + nx·k, z sides i + nx·j.
+    pub(crate) ebc: [Vec<(FBc, i64)>; 6],
     pub(crate) pidx: Vec<u32>,
     pub(crate) np: usize,
     pub(crate) pmat: Option<Csr>,
-    pub(crate) pic: Option<Stencil5>,
+    pub(crate) pic: Option<PStencil>,
     pub(crate) last_dp: Vec<f64>,
     pub(crate) pinned: Vec<bool>,
     pub(crate) comp: Vec<u32>,
     pub(crate) comp_dirichlet: Vec<bool>,
     pub(crate) built_dt: f64,
     pub(crate) has_porous: bool,
-    pub(crate) wu: Vec<f64>,
-    pub(crate) wv: Vec<f64>,
-    pub(crate) gx: f64,
-    pub(crate) gy: f64,
+    pub(crate) wgt: [Vec<f64>; 3],
+    pub(crate) grav: [f64; 3],
     pub(crate) tref: f64,
     pub(crate) natural: bool,
     pub(crate) u_inlet: f64,
@@ -120,6 +191,8 @@ pub struct FlowSolver<'a> {
     pub(crate) turb: Option<crate::turbulence::Turb>,
     /// Fan boundaries: (boundary index, face area m², current flow Q m³/s, last Δp Pa).
     pub(crate) fans: Vec<(usize, f64, f64, f64)>,
+    /// Internal fans (pressure jumps inside the domain).
+    pub(crate) ifans: Vec<IFan>,
 }
 
 impl<'a> FlowSolver<'a> {
@@ -127,8 +200,9 @@ impl<'a> FlowSolver<'a> {
         let model = th.model;
         let mesh = th.mesh;
         let g = &mesh.grid;
-        let (nx, ny) = (g.nx, g.ny);
-        let n = nx * ny;
+        let d3 = g.dim == 3;
+        let (nx, ny, nz) = (g.nx, g.ny, if d3 { g.nz } else { 1 });
+        let n = nx * ny * nz;
         let mut fluid = vec![false; n];
         let mut rho = vec![1.0; n];
         let mut nu = vec![0.0; n];
@@ -164,6 +238,18 @@ impl<'a> FlowSolver<'a> {
             rcp[c] = fm.rho * fm.cp;
             nu_max = nu_max.max(nu[c]);
         }
+        let n3 = [nx, ny, nz];
+        let cs = [1, nx, nx * ny];
+        let mut fdim = [[0usize; 3]; 3];
+        let mut fstr = [[0usize; 3]; 3];
+        for a in 0..3 {
+            let mut d = n3;
+            d[a] += 1;
+            fdim[a] = d;
+            fstr[a] = [1, d[0], d[0] * d[1]];
+        }
+        let cidx = |q: [usize; 3]| q[0] + nx * (q[1] + ny * q[2]);
+        let fidx = |a: usize, q: [usize; 3]| q[0] + fdim[a][0] * (q[1] + fdim[a][1] * q[2]);
         let edge_bc = |c: usize, d: usize| -> (FBc, i64) {
             if !fluid[c] {
                 return (FBc::Wall, -1);
@@ -184,47 +270,70 @@ impl<'a> FlowSolver<'a> {
                 None => (FBc::Wall, -1),
             }
         };
-        let left: Vec<_> = (0..ny).map(|j| edge_bc(j * nx, 0)).collect();
-        let right: Vec<_> = (0..ny).map(|j| edge_bc(j * nx + nx - 1, 1)).collect();
-        let bottom: Vec<_> = (0..nx).map(|i| edge_bc(i, 2)).collect();
-        let top: Vec<_> = (0..nx).map(|i| edge_bc((ny - 1) * nx + i, 3)).collect();
-
-        let mut u = vec![0.0; (nx + 1) * ny];
-        let mut v = vec![0.0; nx * (ny + 1)];
-        let mut uk = vec![FIXED; (nx + 1) * ny];
-        let mut vk = vec![FIXED; nx * (ny + 1)];
-        let mut u_inlet: f64 = 0.0;
-        for j in 0..ny {
-            for i in 1..nx {
-                if fluid[j * nx + i - 1] && fluid[j * nx + i] {
-                    uk[j * (nx + 1) + i] = ACTIVE;
+        // Edge conditions per side (z sides only in 3D).
+        let ndir = if d3 { 6 } else { 4 };
+        let mut ebc: [Vec<(FBc, i64)>; 6] = Default::default();
+        for d in 0..ndir {
+            let a = d / 2;
+            let hi = d % 2 == 1;
+            let (t1, t2) = match a {
+                0 => (1, 2),
+                1 => (0, 2),
+                _ => (0, 1),
+            };
+            let mut list = Vec::with_capacity(n3[t1] * n3[t2]);
+            for s2 in 0..n3[t2] {
+                for s1 in 0..n3[t1] {
+                    let mut q = [0usize; 3];
+                    q[t1] = s1;
+                    q[t2] = s2;
+                    q[a] = if hi { n3[a] - 1 } else { 0 };
+                    list.push(edge_bc(cidx(q), d));
                 }
             }
-            for (i, bc, sign) in [(0usize, left[j].0, 1.0), (nx, right[j].0, -1.0)] {
-                match bc {
-                    FBc::Inlet(vel, _) => {
-                        u[j * (nx + 1) + i] = sign * vel;
-                        u_inlet = u_inlet.max(vel.abs());
+            ebc[d] = list;
+        }
+
+        let mut vel: [Vec<f64>; 3] = Default::default();
+        let mut kind: [Vec<u8>; 3] = Default::default();
+        let mut u_inlet: f64 = 0.0;
+        for a in 0..3 {
+            let nf = fdim[a][0] * fdim[a][1] * fdim[a][2];
+            vel[a] = vec![0.0; nf];
+            kind[a] = vec![FIXED; nf];
+        }
+        for a in 0..if d3 { 3 } else { 2 } {
+            let fd = fdim[a];
+            for k in 0..fd[2] {
+                for j in 0..fd[1] {
+                    for i in 0..fd[0] {
+                        let q = [i, j, k];
+                        if q[a] == 0 || q[a] == n3[a] {
+                            continue;
+                        }
+                        let r = cidx(q);
+                        if fluid[r - cs[a]] && fluid[r] {
+                            kind[a][fidx(a, q)] = ACTIVE;
+                        }
                     }
-                    FBc::Outlet | FBc::Open => uk[j * (nx + 1) + i] = OUTLET,
-                    _ => {}
                 }
             }
         }
-        for i in 0..nx {
-            for j in 1..ny {
-                if fluid[(j - 1) * nx + i] && fluid[j * nx + i] {
-                    vk[j * nx + i] = ACTIVE;
-                }
-            }
-            for (j, bc, sign) in [(0usize, bottom[i].0, 1.0), (ny, top[i].0, -1.0)] {
-                match bc {
-                    FBc::Inlet(vel, _) => {
-                        v[j * nx + i] = sign * vel;
-                        u_inlet = u_inlet.max(vel.abs());
+        // Boundary faces: inlet velocities and outlet faces, side by side in the
+        // order lo/hi per edge cell.
+        for a in 0..if d3 { 3 } else { 2 } {
+            let nl = ebc[2 * a].len();
+            for l in 0..nl {
+                for (d, sign) in [(2 * a, 1.0), (2 * a + 1, -1.0)] {
+                    let (_, f) = side_face(n3, &fdim, d, l);
+                    match ebc[d][l].0 {
+                        FBc::Inlet(v, _) => {
+                            vel[a][f] = sign * v;
+                            u_inlet = u_inlet.max(v.abs());
+                        }
+                        FBc::Outlet | FBc::Open => kind[a][f] = OUTLET,
+                        _ => {}
                     }
-                    FBc::Outlet | FBc::Open => vk[j * nx + i] = OUTLET,
-                    _ => {}
                 }
             }
         }
@@ -238,28 +347,28 @@ impl<'a> FlowSolver<'a> {
         }
         let study = &model.study;
         let tref = study.tref;
+        let wgt = [vec![0.0; vel[0].len()], vec![0.0; vel[1].len()], vec![0.0; vel[2].len()]];
         let mut fs = FlowSolver {
             th,
             nx,
             ny,
-            dx: g.dx,
-            dy: g.dy,
-            depth: g.dz,
+            nz,
+            d3,
+            n3,
+            h: [g.dx, g.dy, g.dz],
+            cs,
+            fdim,
+            fstr,
             fluid,
             rho,
             nu,
             drag,
             beta,
             rcp,
-            u,
-            v,
+            vel,
             p: vec![0.0; n],
-            uk,
-            vk,
-            left,
-            right,
-            bottom,
-            top,
+            kind,
+            ebc,
             pidx,
             np,
             pmat: None,
@@ -270,10 +379,8 @@ impl<'a> FlowSolver<'a> {
             comp_dirichlet: Vec::new(),
             built_dt: -1.0,
             has_porous,
-            wu: vec![0.0; (nx + 1) * ny],
-            wv: vec![0.0; nx * (ny + 1)],
-            gx: model.gravity[0],
-            gy: model.gravity[1],
+            wgt,
+            grav: [model.gravity[0], model.gravity[1], if d3 { model.gravity[2] } else { 0.0 }],
             tref,
             natural: study.natural,
             u_inlet,
@@ -285,6 +392,7 @@ impl<'a> FlowSolver<'a> {
             nue_max: nu_max,
             turb: None,
             fans: Vec::new(),
+            ifans: Vec::new(),
         };
         fs.nue = fs.nu.clone();
         fs.nuw = fs.nu.clone();
@@ -292,8 +400,9 @@ impl<'a> FlowSolver<'a> {
         {
             let nbc = model.boundaries.len();
             let mut area = vec![0.0; nbc];
-            for (list, a) in [(&fs.left, fs.dy * fs.depth), (&fs.right, fs.dy * fs.depth), (&fs.bottom, fs.dx * fs.depth), (&fs.top, fs.dx * fs.depth)] {
-                for &(_, bi) in list.iter() {
+            for d in 0..fs.ndir() {
+                let a = fs.face_area(d / 2);
+                for &(_, bi) in fs.ebc[d].iter() {
                     if bi >= 0 && model.boundaries[bi as usize].btype == BType::Fan {
                         area[bi as usize] += a;
                     }
@@ -310,65 +419,231 @@ impl<'a> FlowSolver<'a> {
                 fs.set_fan_velocity(bi, q / a);
             }
         }
+        fs.init_internal_fans();
         if model.study.turbulence {
             fs.init_turbulence();
         }
         fs
     }
 
-    #[inline]
-    pub(crate) fn ui(&self, i: usize, j: usize) -> usize {
-        j * (self.nx + 1) + i
-    }
-    #[inline]
-    pub(crate) fn vi(&self, i: usize, j: usize) -> usize {
-        j * self.nx + i
-    }
-    #[inline]
-    pub(crate) fn fl(&self, i: usize, j: usize) -> bool {
-        self.fluid[j * self.nx + i]
+    /// Internal fans: the fan cells are the flowing cells of the body (or inside
+    /// the region box), the fan plane is the plane of faces normal to the fan
+    /// axis at the middle of their extent along that axis, limited to faces
+    /// between two flowing cells.
+    fn init_internal_fans(&mut self) {
+        let model = self.th.model;
+        let mesh = self.th.mesh;
+        let g = &mesh.grid;
+        for (bi, b) in model.boundaries.iter().enumerate() {
+            if b.btype != BType::InternalFan {
+                continue;
+            }
+            let axis = b.fan_dir / 2;
+            let sign = if b.fan_dir % 2 == 1 { 1.0 } else { -1.0 };
+            let mut fan = IFan { bi, axis, sign, faces: Vec::new(), area: 0.0, q: 0.0, dp: 0.5 * b.curve.first().map_or(0.0, |c| c.1) };
+            if axis >= self.ncomp() || self.n3[axis] < 2 {
+                self.ifans.push(fan);
+                continue;
+            }
+            let n = self.fluid.len();
+            let cells: Vec<usize> = (0..n)
+                .filter(|&c| {
+                    if !self.fluid[c] {
+                        return false;
+                    }
+                    let (x, y, z) = g.centre(c);
+                    let inside = match b.target {
+                        crate::model::Target::Body(t) => mesh.owner[c] == t as u32,
+                        crate::model::Target::Interior => true,
+                        _ => false,
+                    };
+                    inside && b.in_region(x, y, self.d3.then_some(z))
+                })
+                .collect();
+            if !cells.is_empty() {
+                let (mut pmin, mut pmax) = (usize::MAX, 0usize);
+                for &c in &cells {
+                    let p = self.cq(c)[axis];
+                    pmin = pmin.min(p);
+                    pmax = pmax.max(p);
+                }
+                let pf = ((pmin + pmax + 1) / 2).clamp(1, self.n3[axis] - 1);
+                let mut mark = vec![false; self.vel[axis].len()];
+                for &c in &cells {
+                    let mut q = self.cq(c);
+                    q[axis] = pf;
+                    let f = self.fidx(axis, q);
+                    if !mark[f] && self.kind[axis][f] == ACTIVE {
+                        mark[f] = true;
+                        fan.faces.push(f);
+                    }
+                }
+                fan.faces.sort_unstable();
+                fan.area = fan.faces.len() as f64 * self.face_area(axis);
+            }
+            self.ifans.push(fan);
+        }
     }
 
-    /// Mean effective viscosity at the cell corner (x = i·dx, y = j·dy); only
-    /// called where all four surrounding cells are flowing.
+    /// Flow through each internal fan and the relaxed pressure jump towards
+    /// the curve's Δp at that flow.
+    fn update_internal_fans(&mut self) {
+        let model = self.th.model;
+        for k in 0..self.ifans.len() {
+            let (axis, sign) = (self.ifans[k].axis, self.ifans[k].sign);
+            if self.ifans[k].faces.is_empty() {
+                continue;
+            }
+            let fa = self.face_area(axis);
+            let q: f64 = self.ifans[k].faces.iter().map(|&f| sign * self.vel[axis][f] * fa).sum();
+            let curve = &model.boundaries[self.ifans[k].bi].curve;
+            let target = curve_dp(curve, q);
+            let pscale = curve.iter().fold(0.0f64, |m, c| m.max(c.1.abs())).max(1e-300);
+            let dp = self.ifans[k].dp;
+            let step = (0.05 * (target - dp)).clamp(-0.02 * pscale, 0.02 * pscale);
+            self.ifans[k].q = q;
+            self.ifans[k].dp = dp + step;
+        }
+    }
+
+    /// Momentum source (m/s², per unit mass) of the internal fans on the faces
+    /// of component a: Δp/(ρ·h) along the fan direction; None without fans.
+    fn fan_source(&self, a: usize) -> Option<Vec<f64>> {
+        if !self.ifans.iter().any(|f| f.axis == a && !f.faces.is_empty()) {
+            return None;
+        }
+        let mut s = vec![0.0; self.vel[a].len()];
+        let fd = self.fdim[a];
+        for fan in self.ifans.iter().filter(|f| f.axis == a) {
+            for &f in &fan.faces {
+                let q = [f % fd[0], (f / fd[0]) % fd[1], f / (fd[0] * fd[1])];
+                let r = self.cidx(q);
+                let rho = 0.5 * (self.rho[r - self.cs[a]] + self.rho[r]);
+                s[f] += fan.sign * fan.dp / (rho * self.h[a]);
+            }
+        }
+        Some(s)
+    }
+
+    /// Number of domain sides that carry flow conditions (4 in 2D, 6 in 3D).
     #[inline]
-    fn nu_corner(&self, i: usize, j: usize) -> f64 {
-        let nx = self.nx;
-        0.25 * (self.nue[(j - 1) * nx + i - 1] + self.nue[(j - 1) * nx + i] + self.nue[j * nx + i - 1] + self.nue[j * nx + i])
+    pub(crate) fn ndir(&self) -> usize {
+        if self.d3 {
+            6
+        } else {
+            4
+        }
+    }
+    /// Number of velocity components (2 or 3).
+    #[inline]
+    pub(crate) fn ncomp(&self) -> usize {
+        if self.d3 {
+            3
+        } else {
+            2
+        }
+    }
+    /// Area of a face normal to axis a (m²; 2D: times the depth).
+    #[inline]
+    pub(crate) fn face_area(&self, a: usize) -> f64 {
+        match a {
+            0 => self.h[1] * self.h[2],
+            1 => self.h[0] * self.h[2],
+            _ => self.h[0] * self.h[1],
+        }
+    }
+    #[inline]
+    pub(crate) fn cidx(&self, q: [usize; 3]) -> usize {
+        q[0] + self.nx * (q[1] + self.ny * q[2])
+    }
+    #[inline]
+    pub(crate) fn cq(&self, c: usize) -> [usize; 3] {
+        [c % self.nx, (c / self.nx) % self.ny, c / (self.nx * self.ny)]
+    }
+    #[inline]
+    pub(crate) fn fidx(&self, a: usize, q: [usize; 3]) -> usize {
+        let d = &self.fdim[a];
+        q[0] + d[0] * (q[1] + d[1] * q[2])
+    }
+    /// Index of the edge cell with coordinates q within side d.
+    #[inline]
+    pub(crate) fn eidx(&self, d: usize, q: [usize; 3]) -> usize {
+        match d / 2 {
+            0 => q[1] + self.ny * q[2],
+            1 => q[0] + self.nx * q[2],
+            _ => q[0] + self.nx * q[1],
+        }
+    }
+    /// Flow condition on side d of the edge cell with coordinates q.
+    #[inline]
+    pub(crate) fn edge(&self, d: usize, q: [usize; 3]) -> (FBc, i64) {
+        self.ebc[d][self.eidx(d, q)]
+    }
+    /// (edge cell, boundary face index of component d/2) of entry l of side d.
+    #[inline]
+    pub(crate) fn side(&self, d: usize, l: usize) -> (usize, usize) {
+        side_face(self.n3, &self.fdim, d, l)
+    }
+    /// Tangential axes of component a (the z axis only in 3D).
+    #[inline]
+    fn tang(&self, a: usize) -> ([usize; 2], usize) {
+        let ax = match a {
+            0 => [1, 2],
+            1 => [0, 2],
+            _ => [0, 1],
+        };
+        let cnt = if self.d3 || a == 2 { 2 } else { 1 };
+        (ax, cnt)
+    }
+
+    /// Mean effective viscosity on the cell edge shared by the four cells
+    /// lo, lo + cs[a], lo + cs[b], lo + cs[a] + cs[b] (summed in index order);
+    /// only called where all four are flowing.
+    #[inline]
+    fn nu_corner(&self, lo: usize, a: usize, b: usize) -> f64 {
+        let (s1, s2) = if self.cs[a] < self.cs[b] { (self.cs[a], self.cs[b]) } else { (self.cs[b], self.cs[a]) };
+        0.25 * (self.nue[lo] + self.nue[lo + s1] + self.nue[lo + s2] + self.nue[lo + s1 + s2])
+    }
+
+    /// Tangential neighbourhood of face q (component a; cells L = R − cs[a] and
+    /// R = cell q) along axis b, with the transverse velocities `vb`.
+    #[inline]
+    fn tangent(&self, a: usize, b: usize, q: [usize; 3], l: usize, r: usize, vb: &[f64]) -> Tang {
+        let mut ql = q;
+        ql[a] -= 1;
+        let mut qlp = ql;
+        qlp[b] += 1;
+        let mut qp = q;
+        qp[b] += 1;
+        let vp = 0.5 * (vb[self.fidx(b, qlp)] + vb[self.fidx(b, qp)]);
+        let vm = 0.5 * (vb[self.fidx(b, ql)] + vb[self.fidx(b, q)]);
+        let sb = self.cs[b];
+        let nb = self.n3[b];
+        let (pin, pfree) = if q[b] + 1 < nb {
+            (self.fluid[l + sb] && self.fluid[r + sb], false)
+        } else {
+            (false, self.edge(2 * b + 1, ql).0.free() && self.edge(2 * b + 1, q).0.free())
+        };
+        let (min, mfree) = if q[b] > 0 {
+            (self.fluid[l - sb] && self.fluid[r - sb], false)
+        } else {
+            (false, self.edge(2 * b, ql).0.free() && self.edge(2 * b, q).0.free())
+        };
+        Tang { pin, min, pfree, mfree, vp, vm }
     }
 
     /// Impose the normal inflow speed v on every face of fan boundary `bi`.
     fn set_fan_velocity(&mut self, bi: usize, v: f64) {
-        let (nx, ny) = (self.nx, self.ny);
-        for j in 0..ny {
-            if self.left[j].1 == bi as i64 {
-                if let FBc::Inlet(_, t) = self.left[j].0 {
-                    self.left[j].0 = FBc::Inlet(v, t);
-                    let k = self.ui(0, j);
-                    self.u[k] = v;
-                }
-            }
-            if self.right[j].1 == bi as i64 {
-                if let FBc::Inlet(_, t) = self.right[j].0 {
-                    self.right[j].0 = FBc::Inlet(v, t);
-                    let k = self.ui(nx, j);
-                    self.u[k] = -v;
-                }
-            }
-        }
-        for i in 0..nx {
-            if self.bottom[i].1 == bi as i64 {
-                if let FBc::Inlet(_, t) = self.bottom[i].0 {
-                    self.bottom[i].0 = FBc::Inlet(v, t);
-                    let k = self.vi(i, 0);
-                    self.v[k] = v;
-                }
-            }
-            if self.top[i].1 == bi as i64 {
-                if let FBc::Inlet(_, t) = self.top[i].0 {
-                    self.top[i].0 = FBc::Inlet(v, t);
-                    let k = self.vi(i, ny);
-                    self.v[k] = -v;
+        for d in 0..self.ndir() {
+            let a = d / 2;
+            let sign = if d % 2 == 0 { 1.0 } else { -1.0 };
+            for l in 0..self.ebc[d].len() {
+                if self.ebc[d][l].1 == bi as i64 {
+                    if let FBc::Inlet(_, t) = self.ebc[d][l].0 {
+                        self.ebc[d][l].0 = FBc::Inlet(v, t);
+                        let (_, f) = self.side(d, l);
+                        self.vel[a][f] = sign * v;
+                    }
                 }
             }
         }
@@ -380,28 +655,18 @@ impl<'a> FlowSolver<'a> {
     /// average of the pressure in the cells at the fan face, outlets at 0).
     fn update_fans(&mut self) {
         let model = self.th.model;
-        let (nx, ny) = (self.nx, self.ny);
         let fans = self.fans.clone();
         for (idx, (bi, area, q, _)) in fans.into_iter().enumerate() {
+            // Mean over the fan's faces (= area average: a fan sits on one side).
             let (mut ps, mut n) = (0.0, 0usize);
-            for j in 0..ny {
-                if self.left[j].1 == bi as i64 {
-                    ps += self.p[j * nx];
-                    n += 1;
-                }
-                if self.right[j].1 == bi as i64 {
-                    ps += self.p[j * nx + nx - 1];
-                    n += 1;
-                }
-            }
-            for i in 0..nx {
-                if self.bottom[i].1 == bi as i64 {
-                    ps += self.p[i];
-                    n += 1;
-                }
-                if self.top[i].1 == bi as i64 {
-                    ps += self.p[(ny - 1) * nx + i];
-                    n += 1;
+            for a in 0..self.ncomp() {
+                for l in 0..self.ebc[2 * a].len() {
+                    for d in [2 * a, 2 * a + 1] {
+                        if self.ebc[d][l].1 == bi as i64 {
+                            ps += self.p[self.side(d, l).0];
+                            n += 1;
+                        }
+                    }
                 }
             }
             let dp = ps / n.max(1) as f64;
@@ -440,20 +705,26 @@ impl<'a> FlowSolver<'a> {
     }
 
     pub fn has_outflow(&self) -> bool {
-        self.uk.iter().chain(self.vk.iter()).any(|&k| k == OUTLET)
+        self.kind.iter().any(|k| k.iter().any(|&x| x == OUTLET))
+    }
+
+    fn vmax_comp(&self, a: usize) -> f64 {
+        self.vel[a].iter().fold(0.0f64, |m, x| m.max(x.abs())).max(self.u_inlet)
     }
 
     /// Stable explicit time step for the current velocities.
     pub fn pick_dt(&self) -> f64 {
-        let umax = self.u.iter().fold(0.0f64, |m, x| m.max(x.abs())).max(self.u_inlet);
-        let vmax = self.v.iter().fold(0.0f64, |m, x| m.max(x.abs())).max(self.u_inlet);
         let nuv = if self.implicit { self.nu_max } else { self.nue_max.max(self.nu_max) };
-        let dt_diff = if nuv > 0.0 {
-            0.8 / (2.0 * nuv * (1.0 / (self.dx * self.dx) + 1.0 / (self.dy * self.dy)))
-        } else {
-            f64::INFINITY
-        };
-        let rate = umax / self.dx + vmax / self.dy;
+        let (dx, dy, dz) = (self.h[0], self.h[1], self.h[2]);
+        let mut ih2 = 1.0 / (dx * dx) + 1.0 / (dy * dy);
+        if self.d3 {
+            ih2 += 1.0 / (dz * dz);
+        }
+        let dt_diff = if nuv > 0.0 { 0.8 / (2.0 * nuv * ih2) } else { f64::INFINITY };
+        let mut rate = self.vmax_comp(0) / dx + self.vmax_comp(1) / dy;
+        if self.d3 {
+            rate += self.vmax_comp(2) / dz;
+        }
         let dt_cfl = if rate > 0.0 { 0.5 / rate } else { f64::INFINITY };
         let dt = dt_diff.min(dt_cfl);
         if dt.is_finite() {
@@ -464,7 +735,10 @@ impl<'a> FlowSolver<'a> {
     }
 
     pub fn vel_scale(&self, t_cells: Option<&[f64]>) -> f64 {
-        let umax = self.u.iter().chain(self.v.iter()).fold(0.0f64, |m, x| m.max(x.abs()));
+        let mut umax: f64 = 0.0;
+        for a in 0..self.ncomp() {
+            umax = self.vel[a].iter().fold(umax, |m, x| m.max(x.abs()));
+        }
         let mut s = umax.max(self.u_inlet);
         if self.natural {
             if let Some(t) = t_cells {
@@ -475,8 +749,12 @@ impl<'a> FlowSolver<'a> {
                 }
                 let dtmp = (hi - lo).max(0.0);
                 let bmax = self.beta.iter().fold(0.0f64, |m, x| m.max(*x));
-                let gmag = (self.gx * self.gx + self.gy * self.gy).sqrt();
-                let l = (self.dx * self.nx as f64).min(self.dy * self.ny as f64);
+                let g = &self.grav;
+                let gmag = (g[0] * g[0] + g[1] * g[1] + g[2] * g[2]).sqrt();
+                let mut l = (self.h[0] * self.nx as f64).min(self.h[1] * self.ny as f64);
+                if self.d3 {
+                    l = l.min(self.h[2] * self.nz as f64);
+                }
                 s = s.max((gmag * bmax * dtmp * l).sqrt());
             }
         }
@@ -491,89 +769,111 @@ impl<'a> FlowSolver<'a> {
         1.0 / (rho * (1.0 + dt * drag / rho))
     }
 
+    /// Cell next to boundary face q (component a) on the domain side.
+    #[inline]
+    fn edge_cell(&self, a: usize, q: [usize; 3]) -> usize {
+        let mut qc = q;
+        if qc[a] == self.n3[a] {
+            qc[a] -= 1;
+        }
+        self.cidx(qc)
+    }
+
     /// (Re)build the pressure-correction matrix −∇·(w∇) for time step dt.
     fn build_pressure(&mut self, dt: f64) {
-        let (nx, ny) = (self.nx, self.ny);
-        let (dx, dy) = (self.dx, self.dy);
+        let (nx, ny, nz) = (self.nx, self.ny, self.nz);
+        let ncomp = self.ncomp();
         // face weights
-        for j in 0..ny {
-            for i in 0..=nx {
-                let k = self.ui(i, j);
-                self.wu[k] = match self.uk[k] {
-                    ACTIVE => self.face_w(j * nx + i - 1, Some(j * nx + i), dt),
-                    OUTLET => self.face_w(j * nx + if i == 0 { 0 } else { nx - 1 }, None, dt),
-                    _ => 0.0,
-                };
+        for a in 0..ncomp {
+            let fd = self.fdim[a];
+            let mut wv = std::mem::take(&mut self.wgt[a]);
+            for k in 0..fd[2] {
+                for j in 0..fd[1] {
+                    for i in 0..fd[0] {
+                        let q = [i, j, k];
+                        let f = self.fidx(a, q);
+                        wv[f] = match self.kind[a][f] {
+                            ACTIVE => {
+                                let r = self.cidx(q);
+                                self.face_w(r - self.cs[a], Some(r), dt)
+                            }
+                            OUTLET => self.face_w(self.edge_cell(a, q), None, dt),
+                            _ => 0.0,
+                        };
+                    }
+                }
             }
+            self.wgt[a] = wv;
         }
-        for j in 0..=ny {
-            for i in 0..nx {
-                let k = self.vi(i, j);
-                self.wv[k] = match self.vk[k] {
-                    ACTIVE => self.face_w((j - 1) * nx + i, Some(j * nx + i), dt),
-                    OUTLET => self.face_w(if j == 0 { i } else { (ny - 1) * nx + i }, None, dt),
-                    _ => 0.0,
-                };
-            }
-        }
+        // Face index of the + side face of cell q along axis a.
+        let up = |s: &Self, a: usize, q: [usize; 3]| -> usize {
+            let mut qq = q;
+            qq[a] += 1;
+            s.fidx(a, qq)
+        };
         if self.pmat.is_none() {
             // Pattern + connected components (once).
             let mut nb = vec![Vec::new(); self.np];
-            for j in 0..ny {
-                for i in 0..nx {
-                    let c = j * nx + i;
-                    if !self.fluid[c] {
-                        continue;
-                    }
-                    let r = self.pidx[c] as usize;
-                    if i + 1 < nx && self.uk[self.ui(i + 1, j)] == ACTIVE {
-                        nb[r].push(self.pidx[c + 1]);
-                        nb[self.pidx[c + 1] as usize].push(r as u32);
-                    }
-                    if j + 1 < ny && self.vk[self.vi(i, j + 1)] == ACTIVE {
-                        nb[r].push(self.pidx[c + nx]);
-                        nb[self.pidx[c + nx] as usize].push(r as u32);
+            for k in 0..nz {
+                for j in 0..ny {
+                    for i in 0..nx {
+                        let q = [i, j, k];
+                        let c = self.cidx(q);
+                        if !self.fluid[c] {
+                            continue;
+                        }
+                        let r = self.pidx[c] as usize;
+                        for a in 0..ncomp {
+                            if q[a] + 1 < self.n3[a] && self.kind[a][up(self, a, q)] == ACTIVE {
+                                let o = self.pidx[c + self.cs[a]];
+                                nb[r].push(o);
+                                nb[o as usize].push(r as u32);
+                            }
+                        }
                     }
                 }
             }
             let mut comp = vec![u32::MAX; self.np];
-            let mut ncomp = 0u32;
+            let mut ncmp = 0u32;
             let mut stack = Vec::new();
             for s in 0..self.np {
                 if comp[s] != u32::MAX {
                     continue;
                 }
-                comp[s] = ncomp;
+                comp[s] = ncmp;
                 stack.push(s);
                 while let Some(x) = stack.pop() {
                     for &y in &nb[x] {
                         if comp[y as usize] == u32::MAX {
-                            comp[y as usize] = ncomp;
+                            comp[y as usize] = ncmp;
                             stack.push(y as usize);
                         }
                     }
                 }
-                ncomp += 1;
+                ncmp += 1;
             }
-            let mut dir = vec![false; ncomp as usize];
-            for j in 0..ny {
-                for i in 0..nx {
-                    let c = j * nx + i;
-                    if !self.fluid[c] {
-                        continue;
-                    }
-                    let out = self.uk[self.ui(i, j)] == OUTLET
-                        || self.uk[self.ui(i + 1, j)] == OUTLET
-                        || self.vk[self.vi(i, j)] == OUTLET
-                        || self.vk[self.vi(i, j + 1)] == OUTLET;
-                    if out {
-                        dir[comp[self.pidx[c] as usize] as usize] = true;
+            let mut dir = vec![false; ncmp as usize];
+            for k in 0..nz {
+                for j in 0..ny {
+                    for i in 0..nx {
+                        let q = [i, j, k];
+                        let c = self.cidx(q);
+                        if !self.fluid[c] {
+                            continue;
+                        }
+                        let mut out = false;
+                        for a in 0..ncomp {
+                            out = out || self.kind[a][self.fidx(a, q)] == OUTLET || self.kind[a][up(self, a, q)] == OUTLET;
+                        }
+                        if out {
+                            dir[comp[self.pidx[c] as usize] as usize] = true;
+                        }
                     }
                 }
             }
             // Pin the first cell of every closed component (pure Neumann problem).
             let mut pinned = vec![false; self.np];
-            let mut seen = vec![false; ncomp as usize];
+            let mut seen = vec![false; ncmp as usize];
             for r in 0..self.np {
                 let k = comp[r] as usize;
                 if !dir[k] && !seen[k] {
@@ -586,502 +886,396 @@ impl<'a> FlowSolver<'a> {
             self.comp_dirichlet = dir;
             self.pmat = Some(Csr::from_neighbours(self.np, &nb));
         }
-        let mut a = self.pmat.take().unwrap();
-        a.clear();
-        let (ix2, iy2) = (1.0 / (dx * dx), 1.0 / (dy * dy));
-        for j in 0..ny {
-            for i in 0..nx {
-                let c = j * nx + i;
-                if !self.fluid[c] {
-                    continue;
-                }
-                let r = self.pidx[c] as usize;
-                let faces = [
-                    (self.uk[self.ui(i, j)], self.wu[self.ui(i, j)], ix2, (i > 0).then(|| c - 1)),
-                    (self.uk[self.ui(i + 1, j)], self.wu[self.ui(i + 1, j)], ix2, (i + 1 < nx).then(|| c + 1)),
-                    (self.vk[self.vi(i, j)], self.wv[self.vi(i, j)], iy2, (j > 0).then(|| c - nx)),
-                    (self.vk[self.vi(i, j + 1)], self.wv[self.vi(i, j + 1)], iy2, (j + 1 < ny).then(|| c + nx)),
-                ];
-                for (kind, w, ih2, nbr) in faces {
-                    match kind {
-                        ACTIVE => {
-                            let s = self.pidx[nbr.unwrap()] as usize;
-                            let coef = w * ih2;
-                            a.val[a.diag[r]] += coef;
-                            if !self.pinned[r] && !self.pinned[s] {
-                                let p = a.pos(r, s);
-                                a.val[p] -= coef;
-                            }
-                        }
-                        OUTLET => a.val[a.diag[r]] += 2.0 * w * ih2,
-                        _ => {}
+        let mut am = self.pmat.take().unwrap();
+        am.clear();
+        let ih2 = [1.0 / (self.h[0] * self.h[0]), 1.0 / (self.h[1] * self.h[1]), 1.0 / (self.h[2] * self.h[2])];
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let q = [i, j, k];
+                    let c = self.cidx(q);
+                    if !self.fluid[c] {
+                        continue;
                     }
-                }
-                if self.pinned[r] {
-                    let d = a.diag[r];
-                    if a.val[d] <= 0.0 {
-                        a.val[d] = 1.0;
+                    let r = self.pidx[c] as usize;
+                    // faces in the order −x, +x, −y, +y, −z, +z
+                    for d in 0..2 * ncomp {
+                        let a = d / 2;
+                        let (f, nbr) = if d % 2 == 0 {
+                            (self.fidx(a, q), (q[a] > 0).then(|| c - self.cs[a]))
+                        } else {
+                            (up(self, a, q), (q[a] + 1 < self.n3[a]).then(|| c + self.cs[a]))
+                        };
+                        let w = self.wgt[a][f];
+                        match self.kind[a][f] {
+                            ACTIVE => {
+                                let s = self.pidx[nbr.unwrap()] as usize;
+                                let coef = w * ih2[a];
+                                am.val[am.diag[r]] += coef;
+                                if !self.pinned[r] && !self.pinned[s] {
+                                    let pp = am.pos(r, s);
+                                    am.val[pp] -= coef;
+                                }
+                            }
+                            OUTLET => am.val[am.diag[r]] += 2.0 * w * ih2[a],
+                            _ => {}
+                        }
+                    }
+                    if self.pinned[r] {
+                        let dg = am.diag[r];
+                        if am.val[dg] <= 0.0 {
+                            am.val[dg] = 1.0;
+                        }
                     }
                 }
             }
         }
         // Isolated cells with only walls: identity rows.
         for r in 0..self.np {
-            let d = a.diag[r];
-            if a.val[d] <= 0.0 {
-                a.val[d] = 1.0;
+            let dg = am.diag[r];
+            if am.val[dg] <= 0.0 {
+                am.val[dg] = 1.0;
                 self.pinned[r] = true;
             }
         }
         // Structured copy of the matrix for the fast stencil solver
         // (non-fluid cells become identity rows).
-        let n = nx * ny;
-        let mut c = vec![1.0; n];
-        let mut e = vec![0.0; n];
-        let mut s = vec![0.0; n];
+        let n = nx * ny * nz;
+        let mut cc = vec![1.0; n];
+        let mut cpl = [vec![0.0; n], vec![0.0; n], vec![0.0; if self.d3 { n } else { 0 }]];
         for cell in 0..n {
             if !self.fluid[cell] {
                 continue;
             }
             let r = self.pidx[cell] as usize;
-            c[cell] = a.val[a.diag[r]];
-            let (i, j) = (cell % nx, cell / nx);
-            if i + 1 < nx && self.fluid[cell + 1] && self.uk[self.ui(i + 1, j)] == ACTIVE {
-                e[cell] = -a.val[a.pos(r, self.pidx[cell + 1] as usize)];
-            }
-            if j + 1 < ny && self.fluid[cell + nx] && self.vk[self.vi(i, j + 1)] == ACTIVE {
-                s[cell] = -a.val[a.pos(r, self.pidx[cell + nx] as usize)];
+            cc[cell] = am.val[am.diag[r]];
+            let q = self.cq(cell);
+            for a in 0..ncomp {
+                let o = cell + self.cs[a];
+                if q[a] + 1 < self.n3[a] && self.fluid[o] && self.kind[a][up(self, a, q)] == ACTIVE {
+                    cpl[a][cell] = -am.val[am.pos(r, self.pidx[o] as usize)];
+                }
             }
         }
-        self.pic = Some(Stencil5::new(nx, c, e, s, 0.97));
-        self.pmat = Some(a);
+        let [e, s, t] = cpl;
+        self.pic = Some(if self.d3 { PStencil::S7(Stencil7::new(nx, ny, cc, e, s, t, 0.97)) } else { PStencil::S5(Stencil5::new(nx, cc, e, s, 0.97)) });
+        self.pmat = Some(am);
         self.built_dt = dt;
     }
 
-    /// Tangential ghost/neighbour value for a u-face (i,j): north (dir=+1) or south (−1).
-    #[inline]
-    fn u_ns(&self, i: usize, j: usize, north: bool) -> f64 {
-        let uc = self.u[self.ui(i, j)];
-        if north {
-            if j + 1 < self.ny {
-                if self.fl(i - 1, j + 1) && self.fl(i, j + 1) {
-                    self.u[self.ui(i, j + 1)]
-                } else {
-                    -uc
-                }
-            } else if self.top[i - 1].0.free() && self.top[i].0.free() {
-                uc
-            } else {
-                -uc
-            }
-        } else if j > 0 {
-            if self.fl(i - 1, j - 1) && self.fl(i, j - 1) {
-                self.u[self.ui(i, j - 1)]
-            } else {
-                -uc
-            }
-        } else if self.bottom[i - 1].0.free() && self.bottom[i].0.free() {
-            uc
-        } else {
-            -uc
-        }
-    }
-
-    #[inline]
-    fn v_ew(&self, i: usize, j: usize, east: bool) -> f64 {
-        let vc = self.v[self.vi(i, j)];
-        if east {
-            if i + 1 < self.nx {
-                if self.fl(i + 1, j - 1) && self.fl(i + 1, j) {
-                    self.v[self.vi(i + 1, j)]
-                } else {
-                    -vc
-                }
-            } else if self.right[j - 1].0.free() && self.right[j].0.free() {
-                vc
-            } else {
-                -vc
-            }
-        } else if i > 0 {
-            if self.fl(i - 1, j - 1) && self.fl(i - 1, j) {
-                self.v[self.vi(i - 1, j)]
-            } else {
-                -vc
-            }
-        } else if self.left[j - 1].0.free() && self.left[j].0.free() {
-            vc
-        } else {
-            -vc
-        }
-    }
-
-
-    /// Implicit (backward Euler) momentum predictor for steady pseudo-time
-    /// marching: hybrid upwind convection with lagged fluxes, implicit viscous
-    /// terms and drag, old pressure gradient and buoyancy on the right-hand side.
-    /// The diagonally dominant systems are relaxed with symmetric Gauss–Seidel
-    /// sweeps; an exact solve is unnecessary because a converged pseudo-time
-    /// state is a fixed point of the sweeps. This removes the viscous step limit
-    /// and allows CFL numbers well above one.
-    fn predict_implicit(&self, dt: f64, t_cells: Option<&[f64]>) -> (Vec<f64>, Vec<f64>) {
-        let (nx, ny, dx, dy) = (self.nx, self.ny, self.dx, self.dy);
+    /// Implicit (backward Euler) momentum predictor of component a for steady
+    /// pseudo-time marching: hybrid upwind convection with lagged fluxes,
+    /// implicit viscous terms and drag, old pressure gradient and buoyancy on
+    /// the right-hand side. The diagonally dominant system is relaxed with
+    /// symmetric Gauss–Seidel sweeps; an exact solve is unnecessary because a
+    /// converged pseudo-time state is a fixed point of the sweeps. This removes
+    /// the viscous step limit and allows CFL numbers well above one.
+    fn predict_implicit(&self, a: usize, dt: f64, t_cells: Option<&[f64]>) -> Vec<f64> {
         let buoy = self.natural && t_cells.is_some();
         let tc = t_cells.unwrap_or(&[]);
         // Patankar hybrid neighbour coefficients; f = outward flux rate (1/s).
         let a_down = |f: f64, d: f64| -> f64 { (-f).max(d - 0.5 * f).max(0.0) };
         let a_up = |f: f64, d: f64| -> f64 { f.max(d + 0.5 * f).max(0.0) };
         let inv_dt = 1.0 / dt;
-
-        // ---------------- u
-        let nu_f = (nx + 1) * ny;
-        let mut ap = vec![0.0; nu_f];
-        let mut nb = vec![[0.0f64; 4]; nu_f]; // E, W, N, S couplings to active faces
-        let mut bb = vec![0.0; nu_f];
-        let u = &self.u;
-        let v = &self.v;
-        for j in 0..ny {
-            for i in 1..nx {
-                let k = self.ui(i, j);
-                if self.uk[k] != ACTIVE {
-                    continue;
-                }
-                let (l, r) = (j * nx + i - 1, j * nx + i);
-                let rho = 0.5 * (self.rho[l] + self.rho[r]);
-                let c = 0.5 * (self.drag[l] + self.drag[r]) / rho;
-                let nu_wall = 0.5 * (self.nuw[l] + self.nuw[r]);
-                let (ke, kw) = (self.ui(i + 1, j), self.ui(i - 1, j));
-                let fe = 0.5 * (u[k] + u[ke]) / dx;
-                let fw = 0.5 * (u[kw] + u[k]) / dx;
-                let fnn = 0.5 * (v[self.vi(i - 1, j + 1)] + v[self.vi(i, j + 1)]) / dy;
-                let fs = 0.5 * (v[self.vi(i - 1, j)] + v[self.vi(i, j)]) / dy;
-                let (ix2, iy2) = (1.0 / (dx * dx), 1.0 / (dy * dy));
-                let mut b = u[k] * inv_dt;
-                let mut sum_nb = 0.0;
-                let mut extra = 0.0;
-                let mut dflux = 0.0;
-                // east / west (normal direction): neighbours are u faces
-                let ae = a_down(fe, self.nue[r] * ix2);
-                sum_nb += ae;
-                dflux += fe;
-                if self.uk[ke] == ACTIVE {
-                    nb[k][0] = ae;
-                } else {
-                    b += ae * u[ke];
-                }
-                let aw = a_up(fw, self.nue[l] * ix2);
-                sum_nb += aw;
-                dflux -= fw;
-                if self.uk[kw] == ACTIVE {
-                    nb[k][1] = aw;
-                } else {
-                    b += aw * u[kw];
-                }
-                // north / south (tangential): neighbour face or wall ghost
-                if j + 1 < ny && self.fl(i - 1, j + 1) && self.fl(i, j + 1) {
-                    let an = a_down(fnn, self.nu_corner(i, j + 1) * iy2);
-                    nb[k][2] = an;
-                    sum_nb += an;
-                    dflux += fnn;
-                } else {
-                    let free = j + 1 == ny && self.top[i - 1].0.free() && self.top[i].0.free();
-                    if !free {
-                        extra += 2.0 * nu_wall * iy2;
-                    }
-                    extra += fnn.max(0.0);
-                }
-                if j > 0 && self.fl(i - 1, j - 1) && self.fl(i, j - 1) {
-                    let as_ = a_up(fs, self.nu_corner(i, j) * iy2);
-                    nb[k][3] = as_;
-                    sum_nb += as_;
-                    dflux -= fs;
-                } else {
-                    let free = j == 0 && self.bottom[i - 1].0.free() && self.bottom[i].0.free();
-                    if !free {
-                        extra += 2.0 * nu_wall * iy2;
-                    }
-                    extra += (-fs).max(0.0);
-                }
-                if buoy {
-                    let tf = 0.5 * (tc[l] + tc[r]);
-                    b += -0.5 * (self.beta[l] + self.beta[r]) * (tf - self.tref) * self.gx;
-                }
-                b -= (self.p[r] - self.p[l]) / (rho * dx);
-                let base = inv_dt + c + sum_nb + extra;
-                ap[k] = (base + dflux).max(base);
-                bb[k] = b;
-            }
-        }
-        let mut us = self.u.clone();
-        let nbu = |k: usize| -> [usize; 4] {
-            let nxp = nx + 1;
-            [k + 1, k.wrapping_sub(1), k + nxp, k.wrapping_sub(nxp)]
-        };
-        for _ in 0..2 {
-            for pass in 0..2 {
-                for kk in 0..nu_f {
-                    let k = if pass == 0 { kk } else { nu_f - 1 - kk };
-                    if ap[k] == 0.0 {
+        let vel = &self.vel[a];
+        let kinds = &self.kind[a];
+        let nf = vel.len();
+        let fd = self.fdim[a];
+        let fsa = self.fstr[a];
+        let ha = self.h[a];
+        let iha2 = 1.0 / (ha * ha);
+        let (tax, tcnt) = self.tang(a);
+        let ga = self.grav[a];
+        let src = self.fan_source(a);
+        let mut ap = vec![0.0; nf];
+        // Couplings: normal +, normal −, then (+, −) per tangential axis.
+        let mut nb = vec![[0.0f64; 6]; nf];
+        let mut bb = vec![0.0; nf];
+        for k in 0..fd[2] {
+            for j in 0..fd[1] {
+                for i in 0..fd[0] {
+                    let q = [i, j, k];
+                    let f = self.fidx(a, q);
+                    if kinds[f] != ACTIVE {
                         continue;
                     }
-                    let n4 = nbu(k);
-                    let c = &nb[k];
-                    let mut s = bb[k];
-                    for q in 0..4 {
-                        if c[q] != 0.0 {
-                            s += c[q] * us[n4[q]];
-                        }
-                    }
-                    us[k] = s / ap[k];
-                }
-            }
-        }
-
-        // ---------------- v
-        let nv_f = nx * (ny + 1);
-        let mut ap = vec![0.0; nv_f];
-        let mut nb = vec![[0.0f64; 4]; nv_f]; // N, S, E, W
-        let mut bb = vec![0.0; nv_f];
-        for j in 1..ny {
-            for i in 0..nx {
-                let k = self.vi(i, j);
-                if self.vk[k] != ACTIVE {
-                    continue;
-                }
-                let (bc, tcl) = ((j - 1) * nx + i, j * nx + i);
-                let rho = 0.5 * (self.rho[bc] + self.rho[tcl]);
-                let c = 0.5 * (self.drag[bc] + self.drag[tcl]) / rho;
-                let nu_wall = 0.5 * (self.nuw[bc] + self.nuw[tcl]);
-                let (kn, ks) = (self.vi(i, j + 1), self.vi(i, j - 1));
-                let fnn = 0.5 * (v[k] + v[kn]) / dy;
-                let fs = 0.5 * (v[ks] + v[k]) / dy;
-                let fe = 0.5 * (u[self.ui(i + 1, j - 1)] + u[self.ui(i + 1, j)]) / dx;
-                let fw = 0.5 * (u[self.ui(i, j - 1)] + u[self.ui(i, j)]) / dx;
-                let (ix2, iy2) = (1.0 / (dx * dx), 1.0 / (dy * dy));
-                let mut b = v[k] * inv_dt;
-                let mut sum_nb = 0.0;
-                let mut extra = 0.0;
-                let mut dflux = 0.0;
-                let an = a_down(fnn, self.nue[tcl] * iy2);
-                sum_nb += an;
-                dflux += fnn;
-                if self.vk[kn] == ACTIVE {
-                    nb[k][0] = an;
-                } else {
-                    b += an * v[kn];
-                }
-                let as_ = a_up(fs, self.nue[bc] * iy2);
-                sum_nb += as_;
-                dflux -= fs;
-                if self.vk[ks] == ACTIVE {
-                    nb[k][1] = as_;
-                } else {
-                    b += as_ * v[ks];
-                }
-                if i + 1 < nx && self.fl(i + 1, j - 1) && self.fl(i + 1, j) {
-                    let ae = a_down(fe, self.nu_corner(i + 1, j) * ix2);
-                    nb[k][2] = ae;
+                    let r = self.cidx(q);
+                    let l = r - self.cs[a];
+                    let rho = 0.5 * (self.rho[l] + self.rho[r]);
+                    let c = 0.5 * (self.drag[l] + self.drag[r]) / rho;
+                    let nu_wall = 0.5 * (self.nuw[l] + self.nuw[r]);
+                    let (kp, km) = (f + fsa[a], f - fsa[a]);
+                    let fp = 0.5 * (vel[f] + vel[kp]) / ha;
+                    let fm = 0.5 * (vel[km] + vel[f]) / ha;
+                    let mut b = vel[f] * inv_dt;
+                    let mut sum_nb = 0.0;
+                    let mut extra = 0.0;
+                    let mut dflux = 0.0;
+                    // normal direction: neighbours are faces of the same component
+                    let ae = a_down(fp, self.nue[r] * iha2);
                     sum_nb += ae;
-                    dflux += fe;
-                } else {
-                    let free = i + 1 == nx && self.right[j - 1].0.free() && self.right[j].0.free();
-                    if !free {
-                        extra += 2.0 * nu_wall * ix2;
+                    dflux += fp;
+                    if kinds[kp] == ACTIVE {
+                        nb[f][0] = ae;
+                    } else {
+                        b += ae * vel[kp];
                     }
-                    extra += fe.max(0.0);
-                }
-                if i > 0 && self.fl(i - 1, j - 1) && self.fl(i - 1, j) {
-                    let aw = a_up(fw, self.nu_corner(i, j) * ix2);
-                    nb[k][3] = aw;
+                    let aw = a_up(fm, self.nue[l] * iha2);
                     sum_nb += aw;
-                    dflux -= fw;
-                } else {
-                    let free = i == 0 && self.left[j - 1].0.free() && self.left[j].0.free();
-                    if !free {
-                        extra += 2.0 * nu_wall * ix2;
+                    dflux -= fm;
+                    if kinds[km] == ACTIVE {
+                        nb[f][1] = aw;
+                    } else {
+                        b += aw * vel[km];
                     }
-                    extra += (-fw).max(0.0);
+                    // tangential directions: neighbour face or wall ghost
+                    for (slot, &bx) in tax[..tcnt].iter().enumerate() {
+                        let ihb2 = 1.0 / (self.h[bx] * self.h[bx]);
+                        let tg = self.tangent(a, bx, q, l, r, &self.vel[bx]);
+                        let (fnn, fs) = (tg.vp / self.h[bx], tg.vm / self.h[bx]);
+                        if tg.pin {
+                            let an = a_down(fnn, self.nu_corner(l, a, bx) * ihb2);
+                            nb[f][2 + 2 * slot] = an;
+                            sum_nb += an;
+                            dflux += fnn;
+                        } else {
+                            if !tg.pfree {
+                                extra += 2.0 * nu_wall * ihb2;
+                            }
+                            extra += fnn.max(0.0);
+                        }
+                        if tg.min {
+                            let as_ = a_up(fs, self.nu_corner(l - self.cs[bx], a, bx) * ihb2);
+                            nb[f][3 + 2 * slot] = as_;
+                            sum_nb += as_;
+                            dflux -= fs;
+                        } else {
+                            if !tg.mfree {
+                                extra += 2.0 * nu_wall * ihb2;
+                            }
+                            extra += (-fs).max(0.0);
+                        }
+                    }
+                    if buoy {
+                        let tf = 0.5 * (tc[l] + tc[r]);
+                        b += -0.5 * (self.beta[l] + self.beta[r]) * (tf - self.tref) * ga;
+                    }
+                    b -= (self.p[r] - self.p[l]) / (rho * ha);
+                    if let Some(s) = &src {
+                        b += s[f];
+                    }
+                    let base = inv_dt + c + sum_nb + extra;
+                    ap[f] = (base + dflux).max(base);
+                    bb[f] = b;
                 }
-                if buoy {
-                    let tf = 0.5 * (tc[bc] + tc[tcl]);
-                    b += -0.5 * (self.beta[bc] + self.beta[tcl]) * (tf - self.tref) * self.gy;
-                }
-                b -= (self.p[tcl] - self.p[bc]) / (rho * dy);
-                let base = inv_dt + c + sum_nb + extra;
-                ap[k] = (base + dflux).max(base);
-                bb[k] = b;
             }
         }
-        let mut vs = self.v.clone();
-        let nbv = |k: usize| -> [usize; 4] { [k + nx, k.wrapping_sub(nx), k + 1, k.wrapping_sub(1)] };
+        // Symmetric Gauss–Seidel on a zero-padded copy: every coupling is a
+        // branch-free multiply-add (inactive couplings are 0).
+        let o0 = fsa[a];
+        let o1 = fsa[tax[0]];
+        let o2 = if tcnt == 2 { fsa[tax[1]] } else { 0 };
+        let pad = o0.max(o1).max(o2);
+        let mut xp = vec![0.0; nf + 2 * pad];
+        xp[pad..pad + nf].copy_from_slice(vel);
         for _ in 0..2 {
             for pass in 0..2 {
-                for kk in 0..nv_f {
-                    let k = if pass == 0 { kk } else { nv_f - 1 - kk };
+                for kk in 0..nf {
+                    let k = if pass == 0 { kk } else { nf - 1 - kk };
                     if ap[k] == 0.0 {
                         continue;
                     }
-                    let n4 = nbv(k);
-                    let c = &nb[k];
+                    let cf = &nb[k];
+                    let x = k + pad;
                     let mut s = bb[k];
-                    for q in 0..4 {
-                        if c[q] != 0.0 {
-                            s += c[q] * vs[n4[q]];
-                        }
+                    s += cf[0] * xp[x + o0];
+                    s += cf[1] * xp[x - o0];
+                    s += cf[2] * xp[x + o1];
+                    s += cf[3] * xp[x - o1];
+                    if tcnt == 2 {
+                        s += cf[4] * xp[x + o2];
+                        s += cf[5] * xp[x - o2];
                     }
-                    vs[k] = s / ap[k];
+                    xp[x] = s / ap[k];
                 }
             }
         }
-        (us, vs)
+        xp.drain(..pad);
+        xp.truncate(nf);
+        xp
+    }
+
+    /// Explicit predictor of component a (transient studies).
+    fn predict_explicit(&self, a: usize, dt: f64, t_cells: Option<&[f64]>) -> Vec<f64> {
+        let hyb = |vel: f64, x: f64, y: f64, h: f64, nu: f64| -> f64 {
+            // Hybrid scheme: central when the cell Péclet number < 2, else upwind.
+            if vel.abs() * h < 2.0 * nu {
+                0.5 * (x + y)
+            } else if vel > 0.0 {
+                x
+            } else {
+                y
+            }
+        };
+        let buoy = self.natural && t_cells.is_some();
+        let tc = t_cells.unwrap_or(&[]);
+        let vel = &self.vel[a];
+        let kinds = &self.kind[a];
+        let fd = self.fdim[a];
+        let fsa = self.fstr[a];
+        let ha = self.h[a];
+        let (tax, tcnt) = self.tang(a);
+        let ga = self.grav[a];
+        let src = self.fan_source(a);
+        let mut us = vel.clone();
+        for k in 0..fd[2] {
+            for j in 0..fd[1] {
+                for i in 0..fd[0] {
+                    let q = [i, j, k];
+                    let f = self.fidx(a, q);
+                    if kinds[f] != ACTIVE {
+                        continue;
+                    }
+                    let r = self.cidx(q);
+                    let l = r - self.cs[a];
+                    let rho = 0.5 * (self.rho[l] + self.rho[r]);
+                    let nu = 0.5 * (self.nue[l] + self.nue[r]);
+                    let c = 0.5 * (self.drag[l] + self.drag[r]) / rho;
+                    let uc = vel[f];
+                    let nu_wall = 0.5 * (self.nuw[l] + self.nuw[r]);
+                    let ue_n = vel[f + fsa[a]];
+                    let uw_n = vel[f - fsa[a]];
+                    let ue = 0.5 * (uc + ue_n);
+                    let uw = 0.5 * (uw_n + uc);
+                    // advection: normal direction first, then the tangential ones
+                    let mut adv = (ue * hyb(ue, uc, ue_n, ha, nu) - uw * hyb(uw, uw_n, uc, ha, nu)) / ha;
+                    // viscous terms per axis, summed in axis order x, y, z
+                    let mut vt = [0.0f64; 3];
+                    vt[a] = (self.nue[r] * (ue_n - uc) - self.nue[l] * (uc - uw_n)) / (ha * ha);
+                    for &bx in &tax[..tcnt] {
+                        let hb = self.h[bx];
+                        let tg = self.tangent(a, bx, q, l, r, &self.vel[bx]);
+                        let un = if tg.pin {
+                            vel[f + fsa[bx]]
+                        } else if tg.pfree {
+                            uc
+                        } else {
+                            -uc
+                        };
+                        let usn = if tg.min {
+                            vel[f - fsa[bx]]
+                        } else if tg.mfree {
+                            uc
+                        } else {
+                            -uc
+                        };
+                        let nu_n = if tg.pin { self.nu_corner(l, a, bx) } else { nu_wall };
+                        let nu_s = if tg.min { self.nu_corner(l - self.cs[bx], a, bx) } else { nu_wall };
+                        let (vn, vsf) = (tg.vp, tg.vm);
+                        adv += (vn * hyb(vn, uc, un, hb, nu) - vsf * hyb(vsf, usn, uc, hb, nu)) / hb;
+                        vt[bx] = (nu_n * (un - uc) - nu_s * (uc - usn)) / (hb * hb);
+                    }
+                    let visc = if self.d3 { vt[0] + vt[1] + vt[2] } else { vt[0] + vt[1] };
+                    let mut force = 0.0;
+                    if buoy {
+                        let tf = 0.5 * (tc[l] + tc[r]);
+                        force = -0.5 * (self.beta[l] + self.beta[r]) * (tf - self.tref) * ga;
+                    }
+                    if let Some(s) = &src {
+                        force += s[f];
+                    }
+                    let gp = (self.p[r] - self.p[l]) / (rho * ha);
+                    us[f] = (uc + dt * (-adv + visc + force - gp)) / (1.0 + dt * c);
+                }
+            }
+        }
+        us
     }
 
     /// One projection step. `t_cells`: temperature per cell (for buoyancy).
     /// Returns the relative velocity change, or Err(()) if the step blew up
     /// (state restored).
     pub fn step(&mut self, dt: f64, t_cells: Option<&[f64]>, ctx: &mut Ctx) -> Result<Result<StepInfo, ()>, Error> {
-        let (nx, ny, dx, dy) = (self.nx, self.ny, self.dx, self.dy);
+        let (nx, ny, nz) = (self.nx, self.ny, self.nz);
+        let ncomp = self.ncomp();
         if !self.fans.is_empty() {
             self.update_fans();
+        }
+        if !self.ifans.is_empty() {
+            self.update_internal_fans();
         }
         if self.pmat.is_none() || (self.has_porous && ((dt - self.built_dt).abs() > 0.2 * self.built_dt)) {
             self.build_pressure(dt);
         }
-        let hyb = |vel: f64, a: f64, b: f64, h: f64, nu: f64| -> f64 {
-            // Hybrid scheme: central when the cell Péclet number < 2, else upwind.
-            if vel.abs() * h < 2.0 * nu {
-                0.5 * (a + b)
-            } else if vel > 0.0 {
-                a
+        // The component predictors are independent (old velocities only).
+        let pred = |a: usize| -> Vec<f64> {
+            if a >= ncomp {
+                self.vel[a].clone()
+            } else if self.implicit {
+                self.predict_implicit(a, dt, t_cells)
             } else {
-                b
+                self.predict_explicit(a, dt, t_cells)
             }
         };
-        let buoy = self.natural && t_cells.is_some();
-        let tc = t_cells.unwrap_or(&[]);
-        let mut us = self.u.clone();
-        let mut vs = self.v.clone();
-        if self.implicit {
-            let (a, b) = self.predict_implicit(dt, t_cells);
-            us = a;
-            vs = b;
-        } else {
-        // ---- u predictor
-        for j in 0..ny {
-            for i in 1..nx {
-                let k = self.ui(i, j);
-                if self.uk[k] != ACTIVE {
-                    continue;
-                }
-                let (l, r) = (j * nx + i - 1, j * nx + i);
-                let rho = 0.5 * (self.rho[l] + self.rho[r]);
-                let nu = 0.5 * (self.nue[l] + self.nue[r]);
-                let c = 0.5 * (self.drag[l] + self.drag[r]) / rho;
-                let uc = self.u[k];
-                let nu_wall = 0.5 * (self.nuw[l] + self.nuw[r]);
-                let nu_n = if j + 1 < ny && self.fl(i - 1, j + 1) && self.fl(i, j + 1) { self.nu_corner(i, j + 1) } else { nu_wall };
-                let nu_s = if j > 0 && self.fl(i - 1, j - 1) && self.fl(i, j - 1) { self.nu_corner(i, j) } else { nu_wall };
-                let ue_n = self.u[self.ui(i + 1, j)];
-                let uw_n = self.u[self.ui(i - 1, j)];
-                let un = self.u_ns(i, j, true);
-                let usn = self.u_ns(i, j, false);
-                let ue = 0.5 * (uc + ue_n);
-                let uw = 0.5 * (uw_n + uc);
-                let vn = 0.5 * (self.v[self.vi(i - 1, j + 1)] + self.v[self.vi(i, j + 1)]);
-                let vsf = 0.5 * (self.v[self.vi(i - 1, j)] + self.v[self.vi(i, j)]);
-                let adv = (ue * hyb(ue, uc, ue_n, dx, nu) - uw * hyb(uw, uw_n, uc, dx, nu)) / dx
-                    + (vn * hyb(vn, uc, un, dy, nu) - vsf * hyb(vsf, usn, uc, dy, nu)) / dy;
-                let visc = (self.nue[r] * (ue_n - uc) - self.nue[l] * (uc - uw_n)) / (dx * dx)
-                    + (nu_n * (un - uc) - nu_s * (uc - usn)) / (dy * dy);
-                let mut force = 0.0;
-                if buoy {
-                    let tf = 0.5 * (tc[l] + tc[r]);
-                    force = -0.5 * (self.beta[l] + self.beta[r]) * (tf - self.tref) * self.gx;
-                }
-                let gp = (self.p[r] - self.p[l]) / (rho * dx);
-                us[k] = (uc + dt * (-adv + visc + force - gp)) / (1.0 + dt * c);
-            }
-        }
-        // ---- v predictor
-        for j in 1..ny {
-            for i in 0..nx {
-                let k = self.vi(i, j);
-                if self.vk[k] != ACTIVE {
-                    continue;
-                }
-                let (bc, tcl) = ((j - 1) * nx + i, j * nx + i);
-                let rho = 0.5 * (self.rho[bc] + self.rho[tcl]);
-                let nu = 0.5 * (self.nue[bc] + self.nue[tcl]);
-                let c = 0.5 * (self.drag[bc] + self.drag[tcl]) / rho;
-                let vc = self.v[k];
-                let nu_wall = 0.5 * (self.nuw[bc] + self.nuw[tcl]);
-                let nu_e = if i + 1 < nx && self.fl(i + 1, j - 1) && self.fl(i + 1, j) { self.nu_corner(i + 1, j) } else { nu_wall };
-                let nu_w = if i > 0 && self.fl(i - 1, j - 1) && self.fl(i - 1, j) { self.nu_corner(i, j) } else { nu_wall };
-                let vn_n = self.v[self.vi(i, j + 1)];
-                let vs_n = self.v[self.vi(i, j - 1)];
-                let ve = self.v_ew(i, j, true);
-                let vw = self.v_ew(i, j, false);
-                let vn = 0.5 * (vc + vn_n);
-                let vsf = 0.5 * (vs_n + vc);
-                let ue = 0.5 * (self.u[self.ui(i + 1, j - 1)] + self.u[self.ui(i + 1, j)]);
-                let uw = 0.5 * (self.u[self.ui(i, j - 1)] + self.u[self.ui(i, j)]);
-                let adv = (vn * hyb(vn, vc, vn_n, dy, nu) - vsf * hyb(vsf, vs_n, vc, dy, nu)) / dy
-                    + (ue * hyb(ue, vc, ve, dx, nu) - uw * hyb(uw, vw, vc, dx, nu)) / dx;
-                let visc = (nu_e * (ve - vc) - nu_w * (vc - vw)) / (dx * dx)
-                    + (self.nue[tcl] * (vn_n - vc) - self.nue[bc] * (vc - vs_n)) / (dy * dy);
-                let mut force = 0.0;
-                if buoy {
-                    let tf = 0.5 * (tc[bc] + tc[tcl]);
-                    force = -0.5 * (self.beta[bc] + self.beta[tcl]) * (tf - self.tref) * self.gy;
-                }
-                let gp = (self.p[tcl] - self.p[bc]) / (rho * dy);
-                vs[k] = (vc + dt * (-adv + visc + force - gp)) / (1.0 + dt * c);
-            }
-        }
-        }
+        #[cfg(feature = "parallel")]
+        let mut vs: [Vec<f64>; 3] = {
+            /// SAFETY: the predictors only read plain fields of the solver
+            /// (velocities, pressure, properties, flags); they never touch
+            /// `th` and its RefCells, so sharing `&FlowSolver` across the
+            /// three read-only tasks is sound.
+            struct Shared<'s, F: Fn(usize) -> Vec<f64>>(&'s F);
+            unsafe impl<'s, F: Fn(usize) -> Vec<f64>> Sync for Shared<'s, F> {}
+            unsafe impl<'s, F: Fn(usize) -> Vec<f64>> Send for Shared<'s, F> {}
+            let sh = Shared(&pred);
+            let shr = &sh;
+            let (x, (y, z)) = rayon::join(move || (shr.0)(0), move || rayon::join(move || (shr.0)(1), move || (shr.0)(2)));
+            [x, y, z]
+        };
+        #[cfg(not(feature = "parallel"))]
+        let mut vs: [Vec<f64>; 3] = [pred(0), pred(1), pred(2)];
         // ---- outlet faces: zero-gradient extrapolation of the predictor
-        for j in 0..ny {
-            let k0 = self.ui(0, j);
-            if self.uk[k0] == OUTLET {
-                let k1 = self.ui(1, j);
-                us[k0] = if nx > 1 && self.uk[k1] == ACTIVE { us[k1] } else { self.u[k0] };
-            }
-            let kn = self.ui(nx, j);
-            if self.uk[kn] == OUTLET {
-                let km = self.ui(nx - 1, j);
-                us[kn] = if nx > 1 && self.uk[km] == ACTIVE { us[km] } else { self.u[kn] };
-            }
-        }
-        for i in 0..nx {
-            let k0 = self.vi(i, 0);
-            if self.vk[k0] == OUTLET {
-                let k1 = self.vi(i, 1);
-                vs[k0] = if ny > 1 && self.vk[k1] == ACTIVE { vs[k1] } else { self.v[k0] };
-            }
-            let kn = self.vi(i, ny);
-            if self.vk[kn] == OUTLET {
-                let km = self.vi(i, ny - 1);
-                vs[kn] = if ny > 1 && self.vk[km] == ACTIVE { vs[km] } else { self.v[kn] };
+        for a in 0..ncomp {
+            let st = self.fstr[a][a];
+            for l in 0..self.ebc[2 * a].len() {
+                let (_, f0) = self.side(2 * a, l);
+                if self.kind[a][f0] == OUTLET {
+                    let f1 = f0 + st;
+                    vs[a][f0] = if self.n3[a] > 1 && self.kind[a][f1] == ACTIVE { vs[a][f1] } else { self.vel[a][f0] };
+                }
+                let (_, fnn) = self.side(2 * a + 1, l);
+                if self.kind[a][fnn] == OUTLET {
+                    let fm = fnn - st;
+                    vs[a][fnn] = if self.n3[a] > 1 && self.kind[a][fm] == ACTIVE { vs[a][fm] } else { self.vel[a][fnn] };
+                }
             }
         }
         // ---- pressure correction
         let np = self.np;
         let mut b = vec![0.0; np];
         let mut div2 = 0.0;
-        for j in 0..ny {
-            for i in 0..nx {
-                let c = j * nx + i;
-                if !self.fluid[c] {
-                    continue;
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let q = [i, j, k];
+                    let c = self.cidx(q);
+                    if !self.fluid[c] {
+                        continue;
+                    }
+                    let mut div = 0.0;
+                    for a in 0..ncomp {
+                        let f = self.fidx(a, q);
+                        let term = (vs[a][f + self.fstr[a][a]] - vs[a][f]) / self.h[a];
+                        div = if a == 0 { term } else { div + term };
+                    }
+                    b[self.pidx[c] as usize] = -div / dt;
+                    div2 += div * div;
                 }
-                let div = (us[self.ui(i + 1, j)] - us[self.ui(i, j)]) / dx + (vs[self.vi(i, j + 1)] - vs[self.vi(i, j)]) / dy;
-                b[self.pidx[c] as usize] = -div / dt;
-                div2 += div * div;
             }
         }
         // Closed components: make the Neumann problem compatible.
-        let ncomp = self.comp_dirichlet.len();
-        let mut sum = vec![0.0; ncomp];
-        let mut cnt = vec![0usize; ncomp];
+        let ncmp = self.comp_dirichlet.len();
+        let mut sum = vec![0.0; ncmp];
+        let mut cnt = vec![0usize; ncmp];
         for r in 0..np {
             let k = self.comp[r] as usize;
             if !self.comp_dirichlet[k] {
@@ -1099,10 +1293,13 @@ impl<'a> FlowSolver<'a> {
             }
         }
         let uref = self.vel_scale(t_cells);
-        let hmin = dx.min(dy);
+        let mut hmin = self.h[0].min(self.h[1]);
+        if self.d3 {
+            hmin = hmin.min(self.h[2]);
+        }
         let tol = Tol { rel: 1e-12, abs: 1e-6 * uref / (hmin * dt) * (np as f64).sqrt(), max_iter: 3000 };
         // Warm start from the previous correction (smooth in time).
-        let ncell = nx * ny;
+        let ncell = nx * ny * nz;
         let mut bf = vec![0.0; ncell];
         let mut xf = self.last_dp.clone();
         for c in 0..ncell {
@@ -1123,85 +1320,70 @@ impl<'a> FlowSolver<'a> {
         };
         self.iters += st.iterations;
         self.last_dp.copy_from_slice(&xf);
-        let mut dp = vec![0.0; np];
-        for c in 0..ncell {
-            if self.fluid[c] {
-                dp[self.pidx[c] as usize] = xf[c];
-            }
-        }
-        // ---- correct velocities and pressure
-        let (u_old, v_old, p_old) = (self.u.clone(), self.v.clone(), self.p.clone());
-        let pd = |c: usize| -> f64 { dp[self.pidx[c] as usize] };
-        for j in 0..ny {
-            for i in 0..=nx {
-                let k = self.ui(i, j);
-                match self.uk[k] {
-                    ACTIVE => us[k] -= dt * self.wu[k] * (pd(j * nx + i) - pd(j * nx + i - 1)) / dx,
-                    OUTLET => {
-                        if i == 0 {
-                            us[k] -= dt * self.wu[k] * (pd(j * nx) - 0.0) / (0.5 * dx);
-                        } else {
-                            us[k] -= dt * self.wu[k] * (0.0 - pd(j * nx + nx - 1)) / (0.5 * dx);
+        // ---- correct velocities and pressure (xf = δp per cell)
+        for a in 0..ncomp {
+            let fd = self.fdim[a];
+            let ha = self.h[a];
+            let na = self.n3[a];
+            let csa = self.cs[a];
+            let (kinds, wv) = (&self.kind[a], &self.wgt[a]);
+            let va = &mut vs[a];
+            for k in 0..fd[2] {
+                for j in 0..fd[1] {
+                    for i in 0..fd[0] {
+                        let q = [i, j, k];
+                        let f = q[0] + fd[0] * (q[1] + fd[1] * q[2]);
+                        match kinds[f] {
+                            ACTIVE => {
+                                let r = q[0] + nx * (q[1] + ny * q[2]);
+                                va[f] -= dt * wv[f] * (xf[r] - xf[r - csa]) / ha;
+                            }
+                            OUTLET => {
+                                if q[a] == 0 {
+                                    let r = q[0] + nx * (q[1] + ny * q[2]);
+                                    va[f] -= dt * wv[f] * (xf[r] - 0.0) / (0.5 * ha);
+                                } else {
+                                    let mut qc = q;
+                                    qc[a] = na - 1;
+                                    let r = qc[0] + nx * (qc[1] + ny * qc[2]);
+                                    va[f] -= dt * wv[f] * (0.0 - xf[r]) / (0.5 * ha);
+                                }
+                            }
+                            _ => {}
                         }
                     }
-                    _ => {}
-                }
-            }
-        }
-        for j in 0..=ny {
-            for i in 0..nx {
-                let k = self.vi(i, j);
-                match self.vk[k] {
-                    ACTIVE => vs[k] -= dt * self.wv[k] * (pd(j * nx + i) - pd((j - 1) * nx + i)) / dy,
-                    OUTLET => {
-                        if j == 0 {
-                            vs[k] -= dt * self.wv[k] * (pd(i) - 0.0) / (0.5 * dy);
-                        } else {
-                            vs[k] -= dt * self.wv[k] * (0.0 - pd((ny - 1) * nx + i)) / (0.5 * dy);
-                        }
-                    }
-                    _ => {}
                 }
             }
         }
         let mut newp = self.p.clone();
-        for c in 0..nx * ny {
+        for c in 0..ncell {
             if self.fluid[c] {
-                newp[c] += pd(c);
+                newp[c] += xf[c];
             }
         }
         // ---- sanity / divergence guard
         let mut umax: f64 = 0.0;
         let mut dmax: f64 = 0.0;
         let mut finite = true;
-        for k in 0..us.len() {
-            if !us[k].is_finite() {
-                finite = false;
-                break;
+        'outer: for a in 0..ncomp {
+            for k in 0..vs[a].len() {
+                if !vs[a][k].is_finite() {
+                    finite = false;
+                    break 'outer;
+                }
+                umax = umax.max(vs[a][k].abs());
+                dmax = dmax.max((vs[a][k] - self.vel[a][k]).abs());
             }
-            umax = umax.max(us[k].abs());
-            dmax = dmax.max((us[k] - u_old[k]).abs());
-        }
-        for k in 0..vs.len() {
-            if !vs[k].is_finite() {
-                finite = false;
-                break;
-            }
-            umax = umax.max(vs[k].abs());
-            dmax = dmax.max((vs[k] - v_old[k]).abs());
         }
         let limit = 1e3 * uref.max(1e-2);
         if !finite || umax > limit || newp.iter().any(|x| !x.is_finite()) {
-            self.u = u_old;
-            self.v = v_old;
-            self.p = p_old;
             return Ok(Err(()));
         }
-        let rms = |a: &[f64], b: &[f64], kinds: &[u8]| -> f64 {
+        let rms = |x: &[f64], y: &[f64], kinds: &[u8]| -> f64 {
             let (mut s2, mut n) = (0.0, 0usize);
-            for k in 0..a.len() {
+            for k in 0..x.len() {
                 if kinds[k] != FIXED {
-                    s2 += (a[k] - b[k]) * (a[k] - b[k]);
+                    s2 += (x[k] - y[k]) * (x[k] - y[k]);
                     n += 1;
                 }
             }
@@ -1211,11 +1393,11 @@ impl<'a> FlowSolver<'a> {
             dmax,
             umax,
             continuity: (div2 / np.max(1) as f64).sqrt(),
-            u_res: rms(&us, &u_old, &self.uk),
-            v_res: rms(&vs, &v_old, &self.vk),
+            u_res: rms(&vs[0], &self.vel[0], &self.kind[0]),
+            v_res: rms(&vs[1], &self.vel[1], &self.kind[1]),
+            w_res: if self.d3 { rms(&vs[2], &self.vel[2], &self.kind[2]) } else { 0.0 },
         };
-        self.u = us;
-        self.v = vs;
+        self.vel = vs;
         self.p = newp;
         if self.turb.is_some() {
             self.turb_step(dt);
@@ -1226,25 +1408,23 @@ impl<'a> FlowSolver<'a> {
     /// Advection terms for the energy equation from the current velocities.
     pub fn adv(&self) -> Adv {
         let th = self.th;
-        let g = &th.mesh.grid;
-        let nx = self.nx;
         let mut face_f = vec![0.0; th.faces.len()];
         for (fi, f) in th.faces.iter().enumerate() {
-            if f.axis > 1 {
+            let ax = f.axis as usize;
+            if ax >= self.ncomp() {
                 continue;
             }
             let (ca, cb) = (th.cell_of[f.a as usize] as usize, th.cell_of[f.b as usize] as usize);
             if !(self.fluid[ca] && self.fluid[cb]) {
                 continue;
             }
-            let (i, j, _) = g.ijk(ca);
-            let vel = if f.axis == 0 { self.u[self.ui(i + 1, j)] } else { self.v[self.vi(i, j + 1)] };
+            let mut q = self.cq(ca);
+            q[ax] += 1;
+            let vel = self.vel[ax][self.fidx(ax, q)];
             face_f[fi] = 0.5 * (self.rcp[ca] + self.rcp[cb]) * vel * f.area;
         }
         let mut bnd = Vec::new();
         let amb = th.model.ambient;
-        let ax = self.dy * self.depth;
-        let ay = self.dx * self.depth;
         let mut push = |c: usize, out_vel: f64, area: f64, bc: (FBc, i64)| {
             if out_vel == 0.0 || !self.fluid[c] {
                 return;
@@ -1257,47 +1437,58 @@ impl<'a> FlowSolver<'a> {
             };
             bnd.push(AdvB { u: th.unk[c], f_out: self.rcp[c] * out_vel * area, t_in, bc: bc.1 });
         };
-        for j in 0..self.ny {
-            if self.uk[self.ui(0, j)] != ACTIVE {
-                push(j * nx, -self.u[self.ui(0, j)], ax, self.left[j]);
+        for a in 0..self.ncomp() {
+            let area = self.face_area(a);
+            for l in 0..self.ebc[2 * a].len() {
+                let (c0, f0) = self.side(2 * a, l);
+                push(c0, -self.vel[a][f0], area, self.ebc[2 * a][l]);
+                let (c1, f1) = self.side(2 * a + 1, l);
+                push(c1, self.vel[a][f1], area, self.ebc[2 * a + 1][l]);
             }
-            push(j * nx + nx - 1, self.u[self.ui(nx, j)], ax, self.right[j]);
-        }
-        for i in 0..nx {
-            push(i, -self.v[self.vi(i, 0)], ay, self.bottom[i]);
-            push((self.ny - 1) * nx + i, self.v[self.vi(i, self.ny)], ay, self.top[i]);
         }
         Adv { face_f, bnd }
+    }
+
+    /// Cell-centred velocity components.
+    pub(crate) fn cell_velocity(&self, c: usize) -> [f64; 3] {
+        let q = self.cq(c);
+        let mut out = [0.0; 3];
+        for a in 0..self.ncomp() {
+            let f = self.fidx(a, q);
+            out[a] = 0.5 * (self.vel[a][f] + self.vel[a][f + self.fstr[a][a]]);
+        }
+        out
     }
 
     /// Cell-centred output, boundary flow metrics and turbulence fields.
     /// `t`: temperature per thermal unknown.
     pub fn output(&self, t: &[f64]) -> FlowOut {
-        let n = self.nx * self.ny;
+        let n = self.nx * self.ny * self.nz;
         let mut u = vec![0.0f32; n];
         let mut v = vec![0.0f32; n];
+        let mut w = vec![0.0f32; if self.d3 { n } else { 0 }];
+        let mut speed = vec![0.0f32; n];
         let mut p = vec![0.0f32; n];
         let mut vmax: f64 = 0.0;
-        for j in 0..self.ny {
-            for i in 0..self.nx {
-                let c = j * self.nx + i;
-                if !self.fluid[c] {
-                    continue;
-                }
-                let uc = 0.5 * (self.u[self.ui(i, j)] + self.u[self.ui(i + 1, j)]);
-                let vc = 0.5 * (self.v[self.vi(i, j)] + self.v[self.vi(i, j + 1)]);
-                u[c] = uc as f32;
-                v[c] = vc as f32;
-                p[c] = self.p[c] as f32;
-                vmax = vmax.max((uc * uc + vc * vc).sqrt());
+        for c in 0..n {
+            if !self.fluid[c] {
+                continue;
             }
+            let [uc, vc, wc] = self.cell_velocity(c);
+            u[c] = uc as f32;
+            v[c] = vc as f32;
+            if self.d3 {
+                w[c] = wc as f32;
+            }
+            p[c] = self.p[c] as f32;
+            let s = if self.d3 { (uc * uc + vc * vc + wc * wc).sqrt() } else { (uc * uc + vc * vc).sqrt() };
+            speed[c] = s as f32;
+            vmax = vmax.max(s);
         }
         let model = self.th.model;
         let nb = model.boundaries.len();
         // Areas of flow-only boundaries (wall / slip) for the report.
         let mut areas = vec![0.0; nb];
-        let ax = self.dy * self.depth;
-        let ay = self.dx * self.depth;
         // Flow metrics accumulators: mass, volume, Σp·A, ΣA, Σ|ṁ|T, Σ|ṁ|, ΣT·A
         let mut acc = vec![[0.0f64; 7]; nb];
         let mut seen = vec![false; nb];
@@ -1309,8 +1500,6 @@ impl<'a> FlowSolver<'a> {
                 t[un as usize]
             }
         };
-        let nx = self.nx;
-        let ny = self.ny;
         let mut edge = |c: usize, bcx: (FBc, i64), area: f64, vin: f64| {
             let bi = bcx.1;
             if bi < 0 {
@@ -1354,13 +1543,14 @@ impl<'a> FlowSolver<'a> {
                 }
             }
         };
-        for j in 0..ny {
-            edge(j * nx, self.left[j], ax, self.u[self.ui(0, j)]);
-            edge(j * nx + nx - 1, self.right[j], ax, -self.u[self.ui(nx, j)]);
-        }
-        for i in 0..nx {
-            edge(i, self.bottom[i], ay, self.v[self.vi(i, 0)]);
-            edge((ny - 1) * nx + i, self.top[i], ay, -self.v[self.vi(i, ny)]);
+        for a in 0..self.ncomp() {
+            let area = self.face_area(a);
+            for l in 0..self.ebc[2 * a].len() {
+                let (c0, f0) = self.side(2 * a, l);
+                edge(c0, self.ebc[2 * a][l], area, self.vel[a][f0]);
+                let (c1, f1) = self.side(2 * a + 1, l);
+                edge(c1, self.ebc[2 * a + 1][l], area, -self.vel[a][f1]);
+            }
         }
         let mut metrics = vec![None; nb];
         let (mut pin, mut ain, mut pout, mut aout) = (0.0, 0.0, 0.0, 0.0);
@@ -1391,8 +1581,62 @@ impl<'a> FlowSolver<'a> {
         for &(bi, _, q, dp) in &self.fans {
             fan_points[bi] = Some((q, dp));
         }
-        FlowOut { u, v, p, vmax, areas, metrics, pressure_drop, k, omega, nut, yplus_max, fan_points }
+        let mut fan_flow = vec![None; nb];
+        for fan in &self.ifans {
+            let fa = self.face_area(fan.axis);
+            let (mut m, mut vq) = (0.0, 0.0);
+            let fd = self.fdim[fan.axis];
+            for &f in &fan.faces {
+                let q = [f % fd[0], (f / fd[0]) % fd[1], f / (fd[0] * fd[1])];
+                let r = self.cidx(q);
+                let rho = 0.5 * (self.rho[r - self.cs[fan.axis]] + self.rho[r]);
+                let vf = fan.sign * self.vel[fan.axis][f] * fa;
+                m += rho * vf;
+                vq += vf;
+            }
+            fan_points[fan.bi] = Some((vq, fan.dp));
+            fan_flow[fan.bi] = Some((m, vq));
+            areas[fan.bi] += fan.area;
+        }
+        FlowOut {
+            u,
+            v,
+            w: if self.d3 { Some(w) } else { None },
+            speed,
+            p,
+            vmax,
+            areas,
+            metrics,
+            pressure_drop,
+            k,
+            omega,
+            nut,
+            yplus_max,
+            fan_points,
+            fan_flow,
+        }
     }
+}
+
+/// (edge cell, boundary face of component d/2) of entry l of side d.
+fn side_face(n3: [usize; 3], fdim: &[[usize; 3]; 3], d: usize, l: usize) -> (usize, usize) {
+    let a = d / 2;
+    let hi = d % 2 == 1;
+    let (t1, t2) = match a {
+        0 => (1, 2),
+        1 => (0, 2),
+        _ => (0, 1),
+    };
+    let mut q = [0usize; 3];
+    q[t1] = l % n3[t1];
+    q[t2] = l / n3[t1];
+    q[a] = if hi { n3[a] - 1 } else { 0 };
+    let c = q[0] + n3[0] * (q[1] + n3[1] * q[2]);
+    if hi {
+        q[a] = n3[a];
+    }
+    let f = q[0] + fdim[a][0] * (q[1] + fdim[a][1] * q[2]);
+    (c, f)
 }
 
 fn cells_t(th: &Thermal, t: &[f64]) -> Vec<f64> {
@@ -1403,13 +1647,22 @@ fn cells_t(th: &Thermal, t: &[f64]) -> Vec<f64> {
     tc
 }
 
-/// Conjugate heat transfer study (2D).
+/// Conjugate heat transfer study (2D or 3D).
 pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
     let study = &th.model.study;
     let mut flow = FlowSolver::new(th);
     if flow.u_inlet > 0.0 && !flow.has_outflow() {
         ctx.warn("An inlet is defined but there is no outlet/open boundary: mass cannot leave the domain");
     }
+    for fan in &flow.ifans {
+        if fan.faces.is_empty() {
+            ctx.warn(format!(
+                "Internal fan \"{}\" has no face between two fluid cells across its direction; it is ignored",
+                th.model.boundaries[fan.bi].id
+            ));
+        }
+    }
+    let d3 = flow.d3;
     let mut t = vec![study.initial_t; th.n];
     let mut cache = SolverCache::default();
     let mut rec = th.new_record();
@@ -1439,6 +1692,15 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
             }
         }};
     }
+    // Residual row of a flow step (w only in 3D).
+    let flow_row = |row: &mut Vec<(&'static str, f64)>, info: &StepInfo| {
+        row.push(("continuity", info.continuity));
+        row.push(("u", info.u_res));
+        row.push(("v", info.v_res));
+        if d3 {
+            row.push(("w", info.w_res));
+        }
+    };
 
     if !study.transient {
         ctx.phase("flow");
@@ -1464,9 +1726,12 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
         // pressure-solver noise floor when steps are small, so they are not used.
         const WINDOW: usize = 25;
         const STEADY_RATE: f64 = 1e-3;
-        let lflow = th.model.width.max(th.model.height);
-        let mut snap_u = flow.u.clone();
-        let mut snap_v = flow.v.clone();
+        let mut lflow = th.model.width.max(th.model.height);
+        if d3 {
+            lflow = lflow.max(th.model.depth);
+        }
+        let ncomp = flow.ncomp();
+        let mut snap = flow.vel.clone();
         let mut snap_t = 0.0f64;
         let mut ptime = 0.0f64;
         let mut quiet_windows = 0usize;
@@ -1482,8 +1747,7 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
         let mut averaging = false;
         let mut avg_start = 0usize;
         let mut unsteady = false;
-        let mut sum_u = vec![0.0; flow.u.len()];
-        let mut sum_v = vec![0.0; flow.v.len()];
+        let mut sum_vel: [Vec<f64>; 3] = [vec![0.0; flow.vel[0].len()], vec![0.0; flow.vel[1].len()], vec![0.0; flow.vel[2].len()]];
         let mut sum_p = vec![0.0; flow.p.len()];
         let mut n_avg = 0usize;
         let couple_every = 2usize;
@@ -1506,14 +1770,13 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
             ptime += dt;
             let mut t_res = f64::NAN;
             if averaging {
-                for (a, b) in sum_u.iter_mut().zip(flow.u.iter()) {
-                    *a += b;
+                for a in 0..ncomp {
+                    for (x, y) in sum_vel[a].iter_mut().zip(flow.vel[a].iter()) {
+                        *x += y;
+                    }
                 }
-                for (a, b) in sum_v.iter_mut().zip(flow.v.iter()) {
-                    *a += b;
-                }
-                for (a, b) in sum_p.iter_mut().zip(flow.p.iter()) {
-                    *a += b;
+                for (x, y) in sum_p.iter_mut().zip(flow.p.iter()) {
+                    *x += y;
                 }
                 n_avg += 1;
             }
@@ -1533,7 +1796,8 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
                 tcells = cells_t(th, &t);
             }
             {
-                let mut row: Vec<(&str, f64)> = vec![("continuity", info.continuity), ("u", info.u_res), ("v", info.v_res)];
+                let mut row: Vec<(&'static str, f64)> = Vec::new();
+                flow_row(&mut row, &info);
                 if let Some(tb) = &flow.turb {
                     row.push(("k", tb.res_k));
                     row.push(("omega", tb.res_w));
@@ -1547,18 +1811,21 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
                 let uref = flow.vel_scale(Some(&tcells[..]));
                 let mut ss = 0.0;
                 let mut nn = 0usize;
-                for (a, b) in flow.u.iter().zip(snap_u.iter()).chain(flow.v.iter().zip(snap_v.iter())) {
-                    if *a != 0.0 || *b != 0.0 {
-                        ss += (a - b) * (a - b);
-                        nn += 1;
+                for a in 0..ncomp {
+                    for (x, y) in flow.vel[a].iter().zip(snap[a].iter()) {
+                        if *x != 0.0 || *y != 0.0 {
+                            ss += (x - y) * (x - y);
+                            nn += 1;
+                        }
                     }
                 }
                 let rms = (ss / nn.max(1) as f64).sqrt();
                 wrate = rms / (ptime - snap_t).max(1e-300) * lflow / (uref * uref);
                 let snap_t_prev = snap_t;
                 wrate_hist.push(wrate);
-                snap_u.copy_from_slice(&flow.u);
-                snap_v.copy_from_slice(&flow.v);
+                for a in 0..ncomp {
+                    snap[a].copy_from_slice(&flow.vel[a]);
+                }
                 snap_t = ptime;
                 // Temperature settled too (natural convection): relative to the spread.
                 let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
@@ -1609,9 +1876,9 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
             let plateau = unsteady || averaging;
             if plateau && n_avg > 0 {
                 let inv = 1.0 / n_avg as f64;
-                let _ = steps;
-                flow.u = sum_u.iter().map(|x| x * inv).collect();
-                flow.v = sum_v.iter().map(|x| x * inv).collect();
+                for a in 0..ncomp {
+                    flow.vel[a] = sum_vel[a].iter().map(|x| x * inv).collect();
+                }
                 flow.p = sum_p.iter().map(|x| x * inv).collect();
                 ctx.warn(format!(
                     "The flow is unsteady (periodic, e.g. vortex shedding) and has no steady state; velocities, pressure and temperatures use the flow averaged over the last {n_avg} pseudo-time steps. A transient study resolves the fluctuations."
@@ -1714,11 +1981,9 @@ pub fn run_cht(th: &Thermal, ctx: &mut Ctx) -> Result<Solution, Error> {
             stepno += 1;
             {
                 let tr = (0..th.n).map(|u| (t[u] - told[u]).abs()).fold(0.0, f64::max) / dt;
-                let mut row: Vec<(&str, f64)> = vec![("T", tr)];
+                let mut row: Vec<(&'static str, f64)> = vec![("T", tr)];
                 if flow_steps > 0 {
-                    row.push(("continuity", last_info.continuity));
-                    row.push(("u", last_info.u_res));
-                    row.push(("v", last_info.v_res));
+                    flow_row(&mut row, &last_info);
                     if let Some(tb) = &flow.turb {
                         row.push(("k", tb.res_k));
                         row.push(("omega", tb.res_w));

@@ -161,6 +161,107 @@ export function steinberg({ fn, gLevel = null, psd = null, bandwidth = null, B, 
   return { Zallow, Zresp, Zresp1sigma: z1In * inch, Grms, GrmsInput: psd != null && bandwidth != null ? Math.sqrt(psd * bandwidth) : null, Q: q, ratio, Nf, hours: Nf / fn / 3600 };
 }
 
+/** PSD (g²/Hz) at f from a breakpoint table [[f, g²/Hz], …], interpolated on log–log axes (straight dB/octave lines) and 0 outside. */
+export function psdAt(table, f) {
+  const t = table.filter(([x, y]) => x > 0 && y > 0).sort((a, b) => a[0] - b[0]);
+  if (!t.length || f < t[0][0] || f > t.at(-1)[0]) return 0;
+  for (let i = 1; i < t.length; i++) {
+    if (f <= t[i][0]) {
+      const [f0, p0] = t[i - 1];
+      const [f1, p1] = t[i];
+      return p0 * Math.exp((Math.log(p1 / p0) * Math.log(f / f0)) / Math.log(f1 / f0));
+    }
+  }
+  return t.at(-1)[1];
+}
+
+/**
+ * Random vibration of a board mode as a single-degree-of-freedom system on a shaken base: input PSD table
+ * [[f (Hz), g²/Hz], …] (e.g. MIL-STD-810 / IEC 60068-2-64 profiles), natural frequency fn (Hz), amplification Q
+ * (√fn when not given, Steinberg's rule for boards). Integrated numerically over the table's band:
+ * absolute response G_rms² = ∫ PSD·|H|² df with |H|² = (1 + (2ζr)²) / ((1 − r²)² + (2ζr)²), r = f/fn, ζ = 1/(2Q), and the
+ * relative displacement z_rms² = ∫ PSD·g² / ((2π)⁴·((fn² − f²)² + (2ζ·fn·f)²)) df. Returns { GrmsInput, GrmsResponse,
+ * GrmsMiles (Miles' equation at fn, for comparison), zRms (mm), z3sigma (mm), Q, curve: [{ f, input, response }] }.
+ */
+export function randomVibration({ psd, fn, Q = null }) {
+  const table = (psd ?? []).filter(([f, p]) => f > 0 && p > 0).sort((a, b) => a[0] - b[0]);
+  if (table.length < 2 || !(fn > 0)) throw new Error('need a PSD table with two or more points and a natural frequency');
+  const q = Q ?? Math.sqrt(fn);
+  const zeta = 1 / (2 * q);
+  const g = 9.80665;
+  const fLo = table[0][0];
+  const fHi = table.at(-1)[0];
+  // Log-spaced points, with extra resolution across the resonance (its half-power width is fn/Q).
+  const freqs = new Set();
+  const n = 4000;
+  for (let i = 0; i <= n; i++) freqs.add(fLo * (fHi / fLo) ** (i / n));
+  for (let i = -400; i <= 400; i++) { const f = fn * (1 + (i / 400) * (6 / q)); if (f >= fLo && f <= fHi) freqs.add(f); }
+  const fs = [...freqs].sort((a, b) => a - b);
+  let gIn = 0;
+  let gOut = 0;
+  let z2 = 0;
+  const curve = [];
+  let prev = null;
+  for (const f of fs) {
+    const p = psdAt(table, f);
+    const r = f / fn;
+    const den = (1 - r * r) ** 2 + (2 * zeta * r) ** 2;
+    const H2 = (1 + (2 * zeta * r) ** 2) / den;
+    const Z2 = (g * g) / ((2 * Math.PI) ** 4 * ((fn * fn - f * f) ** 2 + (2 * zeta * fn * f) ** 2));
+    const cur = { f, input: p, response: p * H2, z: p * Z2 };
+    if (prev) {
+      const df = f - prev.f;
+      gIn += 0.5 * (cur.input + prev.input) * df;
+      gOut += 0.5 * (cur.response + prev.response) * df;
+      z2 += 0.5 * (cur.z + prev.z) * df;
+    }
+    prev = cur;
+    if (curve.length < 600 || Math.abs(r - 1) < 0.05) curve.push({ f, input: p, response: cur.response });
+  }
+  const zRms = Math.sqrt(z2) * 1000;
+  return { GrmsInput: Math.sqrt(gIn), GrmsResponse: Math.sqrt(gOut), GrmsMiles: Math.sqrt((Math.PI / 2) * fn * q * psdAt(table, fn)), zRms, z3sigma: 3 * zRms, Q: q, curve: curve.filter((_, i, a) => i % Math.max(1, Math.floor(a.length / 400)) === 0) };
+}
+
+/**
+ * Half-sine shock on a single-degree-of-freedom board mode (Sherlock's mechanical-shock check): base acceleration
+ * a(t) = peak·sin(πt/T) for 0 ≤ t ≤ T (peak in g, T = durationMs), natural frequency fn (Hz), amplification Q (ζ = 1/2Q).
+ * The relative motion z'' + 2ζω z' + ω² z = −a(t) is integrated through the
+ * pulse and three periods of free vibration after it. Returns { zMax (mm, peak relative displacement), aMax (g, peak
+ * absolute acceleration of the mass), amplification (aMax / peak, the shock response spectrum value), residual (bool:
+ * the peak comes after the pulse), history: [{ t (ms), a (g), z (mm) }] }.
+ */
+export function halfSineShock({ peakG, durationMs, fn, Q = 10 }) {
+  if (!(peakG > 0) || !(durationMs > 0) || !(fn > 0)) throw new Error('peak, duration and natural frequency must be positive');
+  const g = 9.80665;
+  const T = durationMs / 1000;
+  const w = 2 * Math.PI * fn;
+  const zeta = 1 / (2 * Q);
+  const dt = Math.min(T, 1 / fn) / 400;
+  const end = T + 3 / fn;
+  const base = (t) => (t <= T ? peakG * g * Math.sin((Math.PI * t) / T) : 0);
+  // 4th-order Runge–Kutta on the state (z, v), about 400 steps per period or per pulse.
+  const f = (t, z, v) => [v, -base(t) - 2 * zeta * w * v - w * w * z];
+  let z = 0;
+  let v = 0;
+  let zMax = 0;
+  let aMax = 0;
+  let tPeak = 0;
+  const history = [];
+  for (let t = 0, i = 0; t <= end; t += dt, i++) {
+    const absA = Math.abs(-2 * zeta * w * v - w * w * z);
+    if (Math.abs(z) > zMax) zMax = Math.abs(z);
+    if (absA > aMax) { aMax = absA; tPeak = t; }
+    if (i % 4 === 0) history.push({ t: t * 1000, a: base(t) / g, z: z * 1000 });
+    const k1 = f(t, z, v);
+    const k2 = f(t + dt / 2, z + (dt / 2) * k1[0], v + (dt / 2) * k1[1]);
+    const k3 = f(t + dt / 2, z + (dt / 2) * k2[0], v + (dt / 2) * k2[1]);
+    const k4 = f(t + dt, z + dt * k3[0], v + dt * k3[1]);
+    z += (dt / 6) * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+    v += (dt / 6) * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+  }
+  return { zMax: zMax * 1000, aMax: aMax / g, amplification: aMax / g / peakG, residual: tPeak > T, history };
+}
+
 /** Γ(x) by the Lanczos approximation (g = 7, 9 terms; reflection for x < ½). */
 export function gamma(x) {
   if (x < 0.5) return Math.PI / (Math.sin(Math.PI * x) * gamma(1 - x));

@@ -129,6 +129,10 @@ pub fn build(
     if let Some(fo) = &sol.flow {
         fields.add("u", n, &[&fo.u]);
         fields.add("v", n, &[&fo.v]);
+        if let Some(w) = &fo.w {
+            fields.add("w", n, &[w]);
+        }
+        fields.add("speed", n, &[&fo.speed]);
         fields.add("p", n, &[&fo.p]);
         vmax = fo.vmax;
         if let (Some(k), Some(w), Some(nt)) = (&fo.k, &fo.omega, &fo.nut) {
@@ -241,6 +245,10 @@ pub fn build(
                 if let Some((q, dp)) = fo.fan_points[i] {
                     o["operatingPoint"] = json!({ "flow": jn(q), "pressure": jn(dp) });
                 }
+                if let Some((m, q)) = fo.fan_flow[i] {
+                    o["massFlow"] = jn(m);
+                    o["volumeFlow"] = jn(q);
+                }
                 if let Some(m) = fo.metrics[i] {
                     o["massFlow"] = jn(m[0]);
                     o["volumeFlow"] = jn(m[1]);
@@ -342,7 +350,13 @@ pub fn build(
         let modes: Vec<Value> = m
             .modes
             .iter()
-            .map(|x| json!({ "frequency": jn(x.frequency), "participation": x.participation.iter().map(|v| jn(*v)).collect::<Vec<_>>() }))
+            .map(|x| {
+                json!({
+                    "frequency": jn(x.frequency),
+                    "participation": x.participation.iter().map(|v| jn(*v)).collect::<Vec<_>>(),
+                    "factor": x.factor.iter().map(|v| jn(*v)).collect::<Vec<_>>(),
+                })
+            })
             .collect();
         h.insert("modes".into(), Value::Array(modes));
     }
@@ -354,6 +368,9 @@ pub fn build(
     }
     if let Some(fo) = &sol.flow {
         h.insert("flow".into(), json!({ "pressureDrop": fo.pressure_drop.map(jn).unwrap_or(Value::Null) }));
+    }
+    if let Some(sl) = &th.solar {
+        h.insert("solar".into(), json!({ "absorbed": jn(sl.absorbed), "litFaces": sl.lit, "shadedFaces": sl.shaded }));
     }
     Output { header: h, data }
 }

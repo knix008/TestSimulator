@@ -252,6 +252,9 @@ input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); bo
 .theme-menu-edit { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; background: transparent; border: 1px solid transparent; border-radius: 4px; color: var(--text); font-size: 12px; cursor: pointer; text-align: left; }
 .theme-menu-edit:hover { background: var(--button); border-color: var(--accent); }
 
+/* A menu drawn in the page (web, tutorial) that is taller than the window scrolls instead of running off it */
+.menu-popup { max-height: calc(100vh - 8px); overflow-y: auto; }
+
 /* Pop-out windows (desktop): a dialog or a menu fills a window of its own */
 .popout-body { margin: 0; height: 100vh; overflow: hidden; background: transparent; }
 #popout-root { height: 100%; }

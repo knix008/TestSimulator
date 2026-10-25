@@ -42,6 +42,8 @@ pub struct Material {
     /// Cumulative sensible enthalpy ∫cp dT (J/kg) at the cpT nodes, relative to the first node.
     pub hcum: Vec<f64>,
     pub emissivity: f64,
+    /// Solar absorptivity of the surface (study.solar), 0.6 by default.
+    pub absorptivity: f64,
     pub e: f64,
     pub nu: f64,
     pub alpha: f64,
@@ -181,6 +183,8 @@ pub enum Target {
     Edge(Edge),
     Exterior,
     Body(usize),
+    /// Cells inside `region` (internal fans only).
+    Interior,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -207,8 +211,11 @@ pub enum BType {
     Pressure,
     /// Structural force (total N spread over the faces).
     Force,
-    /// Fan with a pressure–flow curve (2D flow edge, acts as an inlet).
+    /// Fan with a pressure–flow curve (flow edge / 3D domain face, acts as an inlet).
     Fan,
+    /// Fan inside the domain: a pressure jump with a pressure–flow curve across
+    /// a plane of the fluid cells of `body:<id>` or of an `interior` region.
+    InternalFan,
     /// Thin layer (thermal resistance d/k, optionally in-plane conduction) on a
     /// body's surface or a domain edge (handled outside the layers, like Contact).
     ThinLayer,
@@ -246,6 +253,10 @@ pub struct Boundary {
     pub range: Option<(f64, f64)>,
     /// Optional [x0, y0, x1, y1] rectangle (m, sorted): only faces whose centre lies inside.
     pub region: Option<(f64, f64, f64, f64)>,
+    /// z range of a 6-number region [x0, y0, z0, x1, y1, z1] (m, sorted; 3D only).
+    pub region_z: Option<(f64, f64)>,
+    /// Internal fan: direction 0..6 (−x, +x, −y, +y, −z, +z) of the pushed flow.
+    pub fan_dir: usize,
     pub btype: BType,
     pub t: f64,
     pub q: f64,
@@ -303,6 +314,24 @@ fn at(tab: &Option<Vec<(f64, f64)>>, c: f64, time: f64) -> f64 {
 }
 
 impl Boundary {
+    /// Face/cell centre (m) inside `region` (z tested only when given and the
+    /// region has a z range).
+    #[inline]
+    pub fn in_region(&self, x: f64, y: f64, z: Option<f64>) -> bool {
+        let e = 1e-9;
+        if let Some((x0, y0, x1, y1)) = self.region {
+            if !(x >= x0 - e && x <= x1 + e && y >= y0 - e && y <= y1 + e) {
+                return false;
+            }
+        }
+        if let (Some((z0, z1)), Some(z)) = (self.region_z, z) {
+            if !(z >= z0 - e && z <= z1 + e) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Temperature (°C) at time `time` (s).
     #[inline]
     pub fn t_at(&self, time: f64) -> f64 {
@@ -374,6 +403,17 @@ pub struct Study {
     pub s2s: bool,
     /// S2S: fluid cells are transparent too (otherwise only void cells).
     pub s2s_fluids: bool,
+    /// Direct sunlight on the exposed surfaces (solar.rs).
+    pub solar: Option<Solar>,
+}
+
+/// The sun of `study.solar`: irradiance G (W/m²) and the unit vector towards the sun,
+/// s = (cos el·cos az, sin el, cos el·sin az) from the elevation el above the x-z plane
+/// (y is up) and the azimuth az measured from +x towards +z (degrees).
+#[derive(Clone, Debug)]
+pub struct Solar {
+    pub irradiance: f64,
+    pub dir: [f64; 3],
 }
 
 impl Study {
@@ -726,6 +766,7 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
             cpt,
             hcum,
             emissivity: numd(m, "emissivity", 0.1),
+            absorptivity: numd(m, "absorptivity", 0.6),
             e,
             nu,
             alpha: numd(m, "alpha", 23.6e-6),
@@ -885,6 +926,7 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
             "front" => Target::Edge(Edge::Front),
             "back" => Target::Edge(Edge::Back),
             "exterior" => Target::Exterior,
+            "interior" => Target::Interior,
             s if s.starts_with("body:") => {
                 let bid = &s[5..];
                 match body_ids.iter().position(|x| x == bid) {
@@ -925,6 +967,7 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
             "pressure" => BType::Pressure,
             "force" => BType::Force,
             "fan" => BType::Fan,
+            "internalFan" => BType::InternalFan,
             "thinLayer" => BType::ThinLayer,
             other => {
                 errs.push(format!("Boundary \"{id}\": unknown type \"{other}\""));
@@ -945,7 +988,20 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
                 None
             }
         };
+        let mut region_z = None;
         let region = match b.get("region") {
+            Some(Value::Array(r)) if r.len() >= 6 => {
+                // 3D box [x0, y0, z0, x1, y1, z1]
+                let v: Vec<Option<f64>> = r.iter().take(6).map(value_num).collect();
+                if v.iter().all(|x| x.is_some()) {
+                    let v: Vec<f64> = v.into_iter().map(|x| x.unwrap()).collect();
+                    region_z = Some((v[2].min(v[5]) * MM, v[2].max(v[5]) * MM));
+                    Some((v[0].min(v[3]) * MM, v[1].min(v[4]) * MM, v[0].max(v[3]) * MM, v[1].max(v[4]) * MM))
+                } else {
+                    errs.push(format!("Boundary \"{id}\": region must be [x0, y0, x1, y1] or [x0, y0, z0, x1, y1, z1]"));
+                    None
+                }
+            }
             Some(Value::Array(r)) if r.len() >= 4 => {
                 let v: Vec<Option<f64>> = r.iter().take(4).map(value_num).collect();
                 if v.iter().all(|x| x.is_some()) {
@@ -970,8 +1026,15 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
         if !(0.0..=1.0).contains(&eps) {
             errs.push(format!("Boundary \"{id}\": emissivity must be in [0, 1]"));
         }
-        if dim == 2 && matches!(btype, BType::Inlet | BType::Outlet | BType::Open) {
-            if !matches!(target, Target::Edge(Edge::Left | Edge::Right | Edge::Bottom | Edge::Top) | Target::Exterior) {
+        if matches!(btype, BType::Inlet | BType::Outlet | BType::Open) {
+            // 2D: the four edges; 3D: the six domain faces (front/back = z-min/z-max).
+            let ok = match target {
+                Target::Exterior => true,
+                Target::Edge(Edge::Front | Edge::Back) => dim == 3,
+                Target::Edge(_) => true,
+                Target::Body(_) | Target::Interior => false,
+            };
+            if !ok {
                 errs.push(format!("Boundary \"{id}\": flow boundaries must target a domain edge"));
             }
         }
@@ -991,13 +1054,49 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
                 Vec::new()
             }
         };
+        let fan_dir = match text(b, "direction").as_deref().unwrap_or("+x") {
+            "-x" => 0,
+            "+x" | "x" => 1,
+            "-y" => 2,
+            "+y" | "y" => 3,
+            "-z" => 4,
+            "+z" | "z" => 5,
+            other => {
+                if btype == BType::InternalFan {
+                    errs.push(format!("Boundary \"{id}\": direction must be +x, -x, +y, -y, +z or -z (got \"{other}\")"));
+                }
+                1
+            }
+        };
+        if btype == BType::InternalFan {
+            if curve.len() < 2 {
+                errs.push(format!("Boundary \"{id}\": a fan needs a curve with at least two [Q, dp] points"));
+            } else if curve.windows(2).any(|w| w[1].1 > w[0].1) {
+                errs.push(format!("Boundary \"{id}\": the fan curve pressure must not increase with the flow"));
+            }
+            if dim == 2 && fan_dir >= 4 {
+                errs.push(format!("Boundary \"{id}\": a 2D internal fan blows along x or y"));
+            }
+            match target {
+                Target::Body(_) => {}
+                Target::Interior if region.is_some() => {}
+                _ => errs.push(format!("Boundary \"{id}\": an internal fan must target body:<id> or interior with a region")),
+            }
+        } else if matches!(target, Target::Interior) {
+            errs.push(format!("Boundary \"{id}\": target \"interior\" is only for internal fans"));
+        }
         if btype == BType::Fan {
             if curve.len() < 2 {
                 errs.push(format!("Boundary \"{id}\": a fan needs a curve with at least two [Q, dp] points"));
             } else if curve.windows(2).any(|w| w[1].1 > w[0].1) {
                 errs.push(format!("Boundary \"{id}\": the fan curve pressure must not increase with the flow"));
             }
-            if dim == 2 && !matches!(target, Target::Edge(Edge::Left | Edge::Right | Edge::Bottom | Edge::Top)) {
+            let ok = match target {
+                Target::Edge(Edge::Front | Edge::Back) => dim == 3,
+                Target::Edge(_) => true,
+                _ => false,
+            };
+            if !ok {
                 errs.push(format!("Boundary \"{id}\": a fan must target a domain edge"));
             }
         }
@@ -1064,6 +1163,8 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
             target,
             range,
             region,
+            region_z,
+            fan_dir,
             btype,
             t: numd(b, "T", ambient),
             q: numd(b, "q", 0.0),
@@ -1152,6 +1253,22 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
             false
         }
     };
+    let solar = match s.get("solar") {
+        Some(o @ Value::Object(_)) if boolean(o, "enabled", true) => {
+            let g = numd(o, "irradiance", 1000.0);
+            let el = numd(o, "elevation", 60.0);
+            let az = numd(o, "azimuth", 0.0);
+            if !(g >= 0.0 && g <= 5000.0) {
+                errs.push("study.solar.irradiance must be between 0 and 5000 W/m²".into());
+            }
+            if !(-90.0..=90.0).contains(&el) {
+                errs.push("study.solar.elevation must be between -90 and 90 degrees".into());
+            }
+            let (el, az) = (el.to_radians(), az.to_radians());
+            Some(Solar { irradiance: g.clamp(0.0, 5000.0), dir: [el.cos() * az.cos(), el.sin(), el.cos() * az.sin()] })
+        }
+        _ => None,
+    };
     let modal_modes = match s.get("modal") {
         Some(m @ Value::Object(_)) => {
             if boolean(m, "enabled", true) {
@@ -1189,6 +1306,7 @@ pub fn parse(json: &str) -> (Option<Model>, Vec<String>) {
         modal_modes,
         s2s: boolean(s, "s2s", false),
         s2s_fluids,
+        solar,
     };
 
     if materials.is_empty() {

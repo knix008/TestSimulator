@@ -1,8 +1,8 @@
 //! MyHeatManager numerical engine.
 //!
 //! `run(model_json, progress, cancel)` parses a `.myheat` model, solves the
-//! requested study (conduction, phase change, 2D conjugate heat transfer with
-//! flow, thermal stress) and returns the binary result described in
+//! requested study (conduction, phase change, 2D/3D conjugate heat transfer
+//! with flow, thermal stress) and returns the binary result described in
 //! ARCHITECTURE.md. It never panics outward and always returns result bytes.
 
 pub mod conduction;
@@ -17,6 +17,7 @@ pub mod turbulence;
 pub mod electric;
 pub mod modal;
 pub mod s2s;
+pub mod solar;
 
 pub use result::{decode, field_csv, Decoded};
 
@@ -227,6 +228,9 @@ pub fn run(model_json: &str, progress: &mut dyn FnMut(&Progress), cancel: &dyn F
     }
 }
 
+/// Fluid cells above which a 3D flow study warns about run time.
+const FLOW_CELLS_3D_WARN: usize = 1_000_000;
+
 fn run_inner(json: &str, ctx: &mut Ctx) -> Result<result::Output, Error> {
     ctx.phase("setup");
     ctx.report(0.0, "Reading model")?;
@@ -268,17 +272,22 @@ fn run_inner(json: &str, ctx: &mut Ctx) -> Result<result::Output, Error> {
             ));
         }
     }
-    if model.study.flow && model.dim == 3 {
-        ctx.warn("Flow is solved in 2D only; the 3D study is conduction only");
-    }
-    let has_flow_cells = (0..th.n).any(|u| model.materials[th.mat_of[u] as usize].kind.is_flowing());
-    let flow_on = model.study.flow && model.dim == 2 && has_flow_cells;
-    if model.study.flow && model.dim == 2 && !has_flow_cells {
+    let flow_cells = (0..th.n).filter(|&u| model.materials[th.mat_of[u] as usize].kind.is_flowing()).count();
+    let flow_on = model.study.flow && flow_cells > 0;
+    if model.study.flow && flow_cells == 0 {
         ctx.warn("Flow is enabled but no cell is fluid or porous");
+    }
+    if flow_on && model.dim == 3 && flow_cells > FLOW_CELLS_3D_WARN {
+        ctx.warn(format!(
+            "The 3D flow has {flow_cells} fluid cells; a solve of this size can take a long time and much memory (consider a coarser mesh)"
+        ));
     }
     if !model.study.flow {
         if model.boundaries.iter().any(|b| matches!(b.btype, model::BType::Inlet | model::BType::Outlet | model::BType::Open)) {
             ctx.warn("Inlet/outlet/open boundaries are ignored (adiabatic) because flow is off");
+        }
+        if model.boundaries.iter().any(|b| matches!(b.btype, model::BType::Fan | model::BType::InternalFan)) {
+            ctx.warn("Fans are ignored because flow is off");
         }
     }
 

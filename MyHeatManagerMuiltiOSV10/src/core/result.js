@@ -57,7 +57,8 @@ export function viewField(result, kind, frame = 0) {
       return values && { values, unit: 'W/m²', frames: 1 };
     }
     case 'velocity': {
-      const values = magnitude(field(result, 'u'), field(result, 'v'));
+      // The engine writes |U| as "speed" (with w in 3D); older results have u and v only.
+      const values = field(result, 'speed') ?? magnitude(field(result, 'u'), field(result, 'v'), field(result, 'w'));
       return values && { values, unit: 'm/s', frames: 1 };
     }
     case 'pressure': return field(result, 'p') && { values: field(result, 'p'), unit: 'Pa', frames: 1 };
@@ -78,6 +79,7 @@ export function viewField(result, kind, frame = 0) {
     }
     case 'comfort': return result.derived?.pmv ? { values: result.derived.pmv, unit: 'PMV', frames: 1 } : null;
     case 'ppd': return result.derived?.ppd ? { values: result.derived.ppd, unit: 'PPD %', frames: 1 } : null;
+    case 'calc': return result.derived?.calc ? { values: result.derived.calc.values, unit: result.derived.calc.unit, frames: 1 } : null;
     default: return null;
   }
 }

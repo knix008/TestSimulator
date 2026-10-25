@@ -233,24 +233,23 @@ pub fn resolve(model: &Model, mesh: &Mesh, layer: Layer, cell: usize, d: usize, 
     let out_of_plane = g.dim == 2 && d >= 4;
     let owner = mesh.owner[cell];
     // Face centre (m) for `region` tests.
-    let (mut fx, mut fy, _) = g.centre(cell);
+    let (mut fx, mut fy, mut fz) = g.centre(cell);
     match d {
         0 => fx -= 0.5 * g.dx,
         1 => fx += 0.5 * g.dx,
         2 => fy -= 0.5 * g.dy,
         3 => fy += 0.5 * g.dy,
-        _ => {}
+        4 => fz -= 0.5 * g.dz,
+        _ => fz += 0.5 * g.dz,
     }
+    let fz = (g.dim == 3).then_some(fz);
     let mut best: Option<(u8, usize)> = None;
     for (bi, bc) in model.boundaries.iter().enumerate() {
         if !bc.btype.in_layer(layer) {
             continue;
         }
-        if let Some((x0, y0, x1, y1)) = bc.region {
-            let e = 1e-9;
-            if !(fx >= x0 - e && fx <= x1 + e && fy >= y0 - e && fy <= y1 + e) {
-                continue;
-            }
+        if !bc.in_region(fx, fy, fz) {
+            continue;
         }
         let prio = match &bc.target {
             Target::Body(b) => {
@@ -265,9 +264,11 @@ pub fn resolve(model: &Model, mesh: &Mesh, layer: Layer, cell: usize, d: usize, 
                 }
                 if let Some((r0, r1)) = bc.range {
                     let (cx, cy, _) = g.centre(cell);
+                    // range along y (left/right), x (bottom/top, 3D front/back)
                     let s = match d {
                         0 | 1 => cy,
                         2 | 3 => cx,
+                        _ if g.dim == 3 => cx,
                         _ => f64::NAN,
                     };
                     if s.is_finite() && !(s >= r0 - 1e-12 && s <= r1 + 1e-12) {
@@ -276,6 +277,7 @@ pub fn resolve(model: &Model, mesh: &Mesh, layer: Layer, cell: usize, d: usize, 
                 }
                 2
             }
+            Target::Interior => continue,
             Target::Exterior => {
                 if out_of_plane || across == Across::Other {
                     continue;

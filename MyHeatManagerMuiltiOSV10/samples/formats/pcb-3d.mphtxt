@@ -1,6 +1,7 @@
 # Created by COMSOL Multiphysics.
 
 # MyHeatManager -> COMSOL text mesh: PCB component layout (3D); coordinates in m
+# MyHeatManager domain 3 80 60 8 40 30 4
 
 # Major & minor version
 0 1

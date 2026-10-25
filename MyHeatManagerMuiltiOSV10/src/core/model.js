@@ -27,6 +27,8 @@ export const BOUNDARY_TYPES = {
   ground: { electric: true, fields: [] },
   currentIn: { electric: true, fields: ['I'] },
   fan: { flow: true, fields: ['Tin'] },
+  // A fan inside the flow (pressure jump across a plane of the region, ARCHITECTURE.md): target interior + region, or a body.
+  internalFan: { flow: true, fields: [] },
   pressure: { structural: true, fields: ['p'] },
   force: { structural: true, fields: ['fx', 'fy', 'fz'] },
 };
@@ -42,6 +44,8 @@ export const DEFAULT_STUDY = {
   thermalStrain: true, gravityLoad: false, // stress: thermal expansion, self weight
   modal: { enabled: false, modes: 6 },
   comfort: { met: 1.2, clo: 0.5, rh: 50, tr: null },
+  // Direct sunlight on exposed surfaces (engine solar.rs): W/m², degrees above the x-z plane, degrees from +x towards +z.
+  solar: { enabled: false, irradiance: 1000, elevation: 60, azimuth: 0 },
 };
 
 let counter = 0;
@@ -95,7 +99,9 @@ export function normalizeModel(input) {
   const bodies = (Array.isArray(raw.bodies) ? raw.bodies : []).filter(Boolean).map((b) => normalizeBody(b, domain));
   const boundaries = (Array.isArray(raw.boundaries) ? raw.boundaries : []).filter(Boolean).map((bc) => ({
     id: String(bc.id ?? newId('bc')), name: bc.name ?? '', target: bc.target ?? 'exterior', range: Array.isArray(bc.range) ? bc.range.slice(0, 2).map(Number) : null,
-    region: Array.isArray(bc.region) && bc.region.length === 4 ? bc.region.map(Number) : null,
+    // 2D rectangle [x0, y0, x1, y1] or 3D box [x0, y0, z0, x1, y1, z1] (mm)
+    region: Array.isArray(bc.region) && (bc.region.length === 4 || bc.region.length === 6) ? bc.region.map(Number) : null,
+    direction: ['+x', '-x', '+y', '-y', '+z', '-z'].includes(bc.direction) ? bc.direction : '+x',
     curve: Array.isArray(bc.curve) ? bc.curve.map((p) => [num(p[0], 0), num(p[1], 0)]) : null,
     type: BOUNDARY_TYPES[bc.type] || bc.type === 'thinLayer' ? bc.type : 'convection',
     T: num(bc.T, 25), q: num(bc.q, 0), h: num(bc.h, 10), Tinf: num(bc.Tinf, 25), emissivity: num(bc.emissivity, 0), Tamb: num(bc.Tamb, 25),
@@ -131,6 +137,7 @@ export function normalizeModel(input) {
     study: {
       ...DEFAULT_STUDY, s2s: false, s2sMedium: 'void', ...(raw.study ?? {}),
       modal: { ...DEFAULT_STUDY.modal, ...(raw.study?.modal ?? {}) }, comfort: { ...DEFAULT_STUDY.comfort, ...(raw.study?.comfort ?? {}) },
+      solar: { ...DEFAULT_STUDY.solar, ...(raw.study?.solar ?? {}) },
       ...(raw.study?.s2sMedium === 'fluids' ? {} : { s2sMedium: 'void' }), // surface-to-surface radiation medium: void | fluids
     },
     reliability: { components: Array.isArray(raw.reliability?.components) ? raw.reliability.components : [] },
@@ -270,9 +277,12 @@ export function materialAt(model, x, y, z = null) {
 }
 
 /** The labels of the selectable targets a boundary condition can be applied to. */
-export function boundaryTargets(model) {
+export function boundaryTargets(model, type = null) {
+  const bodies = model.bodies.map((b) => `body:${b.id}`);
+  // An internal fan sits inside the flow: in a region ("interior") or in a body's fluid cells.
+  if (type === 'internalFan') return ['interior', ...bodies];
   const edges = model.domain.dim === 3 ? EDGE_TARGETS_3D : EDGE_TARGETS_2D;
-  return [...edges, 'exterior', ...model.bodies.map((b) => `body:${b.id}`)];
+  return [...edges, 'exterior', ...bodies];
 }
 
 /** Power of a body at time t (W): Joule heating, a power profile, or the constant power. */
@@ -327,11 +337,18 @@ export function checkModel(model) {
   const thermal = model.boundaries.filter((bc) => ['temperature', 'convection', 'radiation', 'open', 'outlet', 'inlet'].includes(bc.type));
   if (!thermal.length) issues.push({ level: study.type === 'steady' ? 'error' : 'warning', key: 'issueNoSink' });
   if (study.flow) {
-    if (domain.dim === 3) issues.push({ level: 'error', key: 'issueFlow3d' });
     const fluids = model.materials.filter((m) => m.kind === 'fluid' || m.kind === 'porous').map((m) => m.id);
     const hasFluid = fluids.includes(domain.background) || model.bodies.some((b) => fluids.includes(b.material));
     if (!hasFluid) issues.push({ level: 'error', key: 'issueNoFluid' });
-    if (!study.natural && !model.boundaries.some((bc) => bc.type === 'inlet')) issues.push({ level: 'warning', key: 'issueNoInlet' });
+    if (!study.natural && !model.boundaries.some((bc) => ['inlet', 'fan', 'internalFan'].includes(bc.type))) issues.push({ level: 'warning', key: 'issueNoInlet' });
+  }
+  for (const bc of model.boundaries.filter((b) => b.type === 'internalFan')) {
+    const name = bc.name || bc.id;
+    const curve = bc.curve ?? [];
+    if (curve.length < 2 || curve.some((p, i) => i > 0 && p[1] > curve[i - 1][1])) issues.push({ level: 'error', key: 'issueInternalFanCurve', args: { name } });
+    if (bc.target === 'interior' && !bc.region) issues.push({ level: 'error', key: 'issueInternalFanRegion', args: { name } });
+    if (bc.direction.endsWith('z') && domain.dim !== 3) issues.push({ level: 'error', key: 'issueInternalFanDirection', args: { name } });
+    if (!study.flow) issues.push({ level: 'warning', key: 'issueInternalFanNoFlow', args: { name } });
   }
   for (const m of model.materials) {
     if (!(m.k > 0) || !(m.rho > 0) || !(m.cp > 0)) issues.push({ level: 'error', key: 'issueMaterialProps', args: { name: m.name || m.id } });

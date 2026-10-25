@@ -13,13 +13,13 @@ import { drawLineChart } from './charts.js';
 import {
   parseCurveCsv, integratePeak, applyCalibration, calibration, analyseTga, pcmFromDsc, specificHeat, sampleDscCsv, sampleTgaCsv, DSC_STANDARDS,
   linearFit, derivative, glassTransition, sigmoidBaseline, conversion, kissinger, ozawaFlynnWall, tgaSteps, sapphireCpAt, sapphireCp,
-  multiPointCalibration, sampleTgCurve, sampleKineticRuns,
+  multiPointCalibration, sampleTgCurve, sampleKineticRuns, conversionAt, friedman, isoconversionalProfile,
 } from '../core/thermalanalysis.js';
 
 const STR = {
   ko: {
     kinetics: '반응 속도론', cpTab: 'cp (사파이어)',
-    viewCurve: '곡선', viewAlpha: '전환율 α(T)', viewKissinger: 'Kissinger 그림', viewCurves: '모든 곡선', viewCp: 'cp(T)',
+    viewCurve: '곡선', viewAlpha: '전환율 α(T)', viewKissinger: 'Kissinger 그림', viewEa: 'Ea(α) (모델 없음)', friedman: 'Friedman', eaProfile: 'Ea(α) — 등전환율법', viewCurves: '모든 곡선', viewCp: 'cp(T)',
     derivative: 'dy/dT 겹치기', derivSeries: 'dy/dT (정규화)', dtgOverlay: 'DTG 겹치기',
     baseline: '기준선', linear: '직선', sigmoid: '시그모이드',
     peaks: '피크', peak: (n) => `피크 ${n}`, addPeak: '+ 피크 추가', remove: '삭제',
@@ -42,7 +42,7 @@ const STR = {
   },
   en: {
     kinetics: 'Kinetics', cpTab: 'cp (sapphire)',
-    viewCurve: 'Curve', viewAlpha: 'Conversion α(T)', viewKissinger: 'Kissinger plot', viewCurves: 'All curves', viewCp: 'cp(T)',
+    viewCurve: 'Curve', viewAlpha: 'Conversion α(T)', viewKissinger: 'Kissinger plot', viewEa: 'Ea(α) (model-free)', friedman: 'Friedman', eaProfile: 'Ea(α) — isoconversional', viewCurves: 'All curves', viewCp: 'cp(T)',
     derivative: 'Overlay dy/dT', derivSeries: 'dy/dT (scaled)', dtgOverlay: 'Overlay DTG',
     baseline: 'Baseline', linear: 'Linear', sigmoid: 'Sigmoid',
     peaks: 'Peaks', peak: (n) => `Peak ${n}`, addPeak: '+ Add peak', remove: 'Remove',
@@ -196,9 +196,12 @@ export function showThermalAnalysis(app, popup) {
     const rows = k.runs.map((run) => {
       const r = integratePeak(run.curve, { T1: k.T1, T2: k.T2, mass: run.curve.mass ?? 1, rate: run.rate });
       const conv = conversion(run.curve, k.T1, k.T2, 'linear');
-      return { Tp: r.peak, Ta: tAtAlpha(conv, k.alpha) };
+      return { Tp: r.peak, Ta: tAtAlpha(conv, k.alpha), at: conversionAt(conv, k.alpha), conv };
     });
     const out = { rows };
+    const fRuns = k.runs.map((run, i) => ({ rate: run.rate, ...(rows[i].at ?? { T: NaN, dadT: NaN }) })).filter((r) => Number.isFinite(r.T) && r.rate > 0);
+    try { out.fr = friedman(fRuns); } catch { out.fr = null; }
+    out.profile = isoconversionalProfile(k.runs.map((run, i) => ({ rate: run.rate, conv: rows[i].conv })));
     const kRuns = k.runs.map((run, i) => ({ rate: run.rate, Tp: rows[i].Tp })).filter((r) => Number.isFinite(r.Tp) && r.rate > 0);
     const oRuns = k.runs.map((run, i) => ({ rate: run.rate, T: rows[i].Ta })).filter((r) => Number.isFinite(r.T) && r.rate > 0);
     try { out.kis = kissinger(kRuns); } catch { out.kis = null; }
@@ -240,6 +243,11 @@ export function showThermalAnalysis(app, popup) {
         return;
       }
       const a = kinAnalysis();
+      if (k.view === 'ea') {
+        const line = (key) => a.profile.filter((p) => Number.isFinite(p[key])).map((p) => [p.alpha, p[key]]);
+        drawLineChart(canvas, [{ name: s.ofw, points: line('ofw'), color: '#3ec1ff' }, { name: s.friedman, points: line('friedman'), color: '#ff7a59' }], { xLabel: 'α', yLabel: 'Ea (kJ/mol)' });
+        return;
+      }
       if (!a.kis) { blank(); return; }
       const pts = a.kis.points.map((p) => [1000 * p.x, p.y]).sort((p, q) => p[0] - q[0]);
       const fit = linearFit(pts.map((p) => p[0]), pts.map((p) => p[1]));
@@ -321,7 +329,7 @@ export function showThermalAnalysis(app, popup) {
   const views = () => {
     const s = S();
     const opts = st.mode === 'dsc' ? [['curve', s.viewCurve], ['alpha', s.viewAlpha]]
-      : st.mode === 'kinetics' ? [['kissinger', s.viewKissinger], ['curves', s.viewCurves]]
+      : st.mode === 'kinetics' ? [['kissinger', s.viewKissinger], ['ea', s.viewEa], ['curves', s.viewCurves]]
         : st.mode === 'cp' ? [['cp', s.viewCp], ['curves', s.viewCurves]] : [];
     const current = st.mode === 'kinetics' ? st.kin.view : st.mode === 'cp' ? st.cpw.view : st.view;
     const set = (v) => { if (st.mode === 'kinetics') st.kin.view = v; else if (st.mode === 'cp') st.cpw.view = v; else st.view = v; render(); };
@@ -476,7 +484,11 @@ export function showThermalAnalysis(app, popup) {
           h('strong', null, s.kissinger),
           a.kis ? table([['Ea', `${fmt(a.kis.Ea_kJ)} kJ/mol`], ['A', `${a.kis.A.toExponential(3)} 1/s`], ['R²', fmt(a.kis.r2, 5)]]) : h('p', { className: 'part-help' }, s.needTwo),
           h('strong', null, `${s.ofw} (α = ${fmt(k.alpha, 3)})`),
-          a.ofw ? table([['Ea', `${fmt(a.ofw.Ea_kJ)} kJ/mol`], ['R²', fmt(a.ofw.r2, 5)]]) : h('p', { className: 'part-help' }, s.needTwo)),
+          a.ofw ? table([['Ea', `${fmt(a.ofw.Ea_kJ)} kJ/mol`], ['R²', fmt(a.ofw.r2, 5)]]) : h('p', { className: 'part-help' }, s.needTwo),
+          h('strong', null, `${s.friedman} (α = ${fmt(k.alpha, 3)})`),
+          a.fr ? table([['Ea', `${fmt(a.fr.Ea_kJ)} kJ/mol`], ['ln[A·f(α)]', fmt(a.fr.lnAf, 4)], ['R²', fmt(a.fr.r2, 5)]]) : h('p', { className: 'part-help' }, s.needTwo),
+          a.profile?.some((p) => Number.isFinite(p.friedman)) ? [h('strong', null, s.eaProfile),
+            grid(['α', `${s.ofw} kJ/mol`, `${s.friedman} kJ/mol`], a.profile.map((p) => [fmt(p.alpha, 2), fmt(p.ofw), fmt(p.friedman)]), 'thermal-kin-profile')] : null),
       ] : null,
     ];
   };

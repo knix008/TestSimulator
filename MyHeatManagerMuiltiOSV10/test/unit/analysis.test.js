@@ -5,14 +5,15 @@ import assert from 'node:assert/strict';
 import {
   parseCurveCsv, integratePeak, sampleDscCsv, sampleTgaCsv, glassTransition, derivative, smoothCurve, sigmoidBaseline, conversion,
   integratePeaks, kissinger, ozawaFlynnWall, tgaSteps, sapphireCp, sapphireCpAt, multiPointCalibration, sampleTgCurve, sampleKineticRuns,
+  friedman, conversionAt, isoconversionalProfile,
   linearFit, calibration,
 } from '../../src/core/thermalanalysis.js';
-import { rainflow, miner, norrisLandzberg, engelmaier, steinberg, weibull, gamma, coffinManson } from '../../src/core/reliability.js';
+import { rainflow, miner, norrisLandzberg, engelmaier, steinberg, weibull, gamma, coffinManson, psdAt, randomVibration, halfSineShock } from '../../src/core/reliability.js';
 import { jedecTwoResistor, heatSink, pcbStackup, powerMapBodies } from '../../src/core/compact.js';
 import { marchingCubes, nodeValues } from '../../src/core/isosurface.js';
 import { sampleLine, sampleLine3D, slice, bodyIntegrals, probesCsv, lineCsv } from '../../src/core/result.js';
-import { harmonicResponse, responsePeaks, dominantAxis } from '../../src/core/harmonic.js';
-import { deltaMap, envelope, nodeStats } from '../../src/core/heatmap.js';
+import { harmonicResponse, responsePeaks, dominantAxis, pointTransmissibility } from '../../src/core/harmonic.js';
+import { deltaMap, envelope, nodeStats, parseNodeCsv, sampleNodeCsv3d } from '../../src/core/heatmap.js';
 import { cavityK, uFactorByTag } from '../../src/core/interop.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg ?? ''} expected ${b} ± ${tol}, got ${a}`);
@@ -445,4 +446,70 @@ test('cavity equivalent conductivity and U per tag', () => {
   near(edge.projectedLength, edge.length, 1e-12);
   near(uFactorByTag({ boundaries, results, depth: 1, Twarm: 20, Tcold: 0, projected: { Edge: 25 } }).find((r) => r.tag === 'Edge').Uprojected, 2 / (0.025 * 0.001 * 20), 1e-9);
   assert.equal(rows.length, 2);
+});
+
+test('Friedman and the model-free Ea(α) profile recover the activation energy of synthetic runs', () => {
+  const runs = sampleKineticRuns({ Ea: 80e3 }).map((r) => ({ rate: r.rate, conv: conversion(r.curve, 20, 300, 'linear') }));
+  const at = runs.map((r) => ({ rate: r.rate, ...conversionAt(r.conv, 0.5) }));
+  assert.ok(at.every((r) => r.dadT > 0), 'dα/dT positive at α = 0.5');
+  const fr = friedman(at);
+  assert.ok(Math.abs(fr.Ea_kJ - 80) < 3, `Friedman Ea ${fr.Ea_kJ}`);
+  assert.ok(fr.r2 > 0.999);
+  const profile = isoconversionalProfile(runs);
+  assert.equal(profile.length, 9);
+  for (const p of profile.slice(1, 8)) {
+    assert.ok(Math.abs(p.friedman - 80) < 3, `Friedman at α ${p.alpha}: ${p.friedman}`);
+    assert.ok(Math.abs(p.ofw - 80) < 5, `OFW at α ${p.alpha}: ${p.ofw}`);
+  }
+  assert.throws(() => friedman(at.slice(0, 1)), /two heating rates/);
+});
+
+test('random vibration over a PSD table agrees with Miles and Steinberg for white noise', () => {
+  assert.ok(Math.abs(psdAt([[20, 0.01], [80, 0.04]], 40) - 0.02) < 1e-12, '+3 dB/oct line is straight on log–log axes');
+  assert.equal(psdAt([[20, 0.01], [80, 0.04]], 10), 0);
+  const r = randomVibration({ psd: [[20, 0.04], [2000, 0.04]], fn: 300 });
+  assert.ok(Math.abs(r.GrmsInput - Math.sqrt(0.04 * 1980)) < 1e-3, `input ${r.GrmsInput}`);
+  assert.ok(Math.abs(r.GrmsResponse / r.GrmsMiles - 1) < 0.01, `response ${r.GrmsResponse} vs Miles ${r.GrmsMiles}`);
+  const s = steinberg({ fn: 300, psd: 0.04, B: 100, L: 20, h: 1.6 });
+  assert.ok(Math.abs(r.z3sigma / s.Zresp - 1) < 0.02, `3σ displacement ${r.z3sigma} vs ${s.Zresp}`);
+  assert.throws(() => randomVibration({ psd: [[20, 0.04]], fn: 300 }), /two or more points/);
+});
+
+test('half-sine shock follows the classic shock response spectrum', () => {
+  // Undamped half-sine SRS: small fn·T → ≈ 4·fn·T (residual), maximum ≈ 1.77 near fn·T = 0.8, → 1 for long pulses.
+  const srs = (fT) => halfSineShock({ peakG: 50, durationMs: 1, fn: fT * 1000, Q: 1000 });
+  assert.ok(Math.abs(srs(0.05).amplification - 0.2) < 0.01 && srs(0.05).residual);
+  assert.ok(Math.abs(srs(0.8).amplification - 1.77) < 0.02);
+  assert.ok(Math.abs(srs(10).amplification - 1) < 0.08);
+  // Quasi-static limit: a long pulse moves the mass by peak·g/ω².
+  const slow = halfSineShock({ peakG: 10, durationMs: 200, fn: 500, Q: 10 });
+  const zStatic = (10 * 9.80665) / (2 * Math.PI * 500) ** 2 * 1000;
+  assert.ok(Math.abs(slow.zMax / zStatic - 1) < 0.05, `${slow.zMax} vs ${zStatic}`);
+});
+
+test('3D node sample: three layers, hottest node in the middle layer near the busbar end', () => {
+  const data = parseNodeCsv(sampleNodeCsv3d());
+  assert.equal(data.nodes.length, 3 * 7 * 11);
+  assert.deepEqual([...new Set(data.nodes.map((n) => n.z))], [0, 40, 80]);
+  const hottest = data.nodes.reduce((a, b) => (b.T > a.T ? b : a));
+  assert.equal(hottest.z, 40);
+  assert.ok(hottest.x >= 160, `hottest at x ${hottest.x}`);
+});
+
+test('point transmissibility from mode shapes: one mode is the classic SDOF transmissibility', () => {
+  const zeta = 0.05;
+  const curve = pointTransmissibility({ modes: [{ frequency: 100, factor: [0, 1] }], shapes: [[0, 1, 0]], fMin: 10, fMax: 1000, points: 301, damping: zeta, axis: 1 });
+  for (const p of curve) {
+    const r = p.f / 100;
+    const classic = Math.sqrt((1 + (2 * zeta * r) ** 2) / ((1 - r * r) ** 2 + (2 * zeta * r) ** 2));
+    assert.ok(Math.abs(p.amplitude - classic) < 1e-9 * Math.max(1, classic), `f ${p.f}: ${p.amplitude} vs ${classic}`);
+  }
+  const peak = curve.reduce((a, b) => (b.amplitude > a.amplitude ? b : a));
+  assert.ok(Math.abs(peak.f - 100) < 3 && Math.abs(peak.amplitude - Math.sqrt(1 + 1 / (4 * zeta * zeta))) < 0.2, 'Q ≈ 1/(2ζ) at resonance');
+  assert.ok(Math.abs(curve[0].amplitude - 1) < 0.02, 'rigid at low frequency');
+  // Static limit of the relative displacement: φ·L·g/ω² (mm per g).
+  near(curve[0].disp, (9.80665 / (2 * Math.PI * 100) ** 2) * 1000 * (1 / (1 - 0.01)), 1e-3);
+  // A point on a node line of the mode (φ = 0) only follows the base.
+  const still = pointTransmissibility({ modes: [{ frequency: 100, factor: [0, 1] }], shapes: [[0, 0, 0]], fMin: 10, fMax: 1000, points: 11, axis: 1 });
+  assert.ok(still.every((p) => Math.abs(p.amplitude - 1) < 1e-12));
 });

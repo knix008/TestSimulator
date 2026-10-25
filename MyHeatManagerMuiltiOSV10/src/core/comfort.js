@@ -61,7 +61,7 @@ export const COMFORT_DEFAULTS = { met: 1.2, clo: 0.5, rh: 50, tr: null };
  * PMV and PPD fields over the fluid cells of a result (NaN elsewhere). `fluidIndex`: the material
  * indices (as in the result's "mat" field) that are fluids.
  */
-export function comfortFields(T, u, v, mat, fluidIndex, input = COMFORT_DEFAULTS) {
+export function comfortFields(T, u, v, mat, fluidIndex, input = COMFORT_DEFAULTS, w = null) {
   const params = { ...COMFORT_DEFAULTS, ...(input ?? {}) };
   const tr = Number.isFinite(params.tr) ? params.tr : null;
   const n = T.length;
@@ -70,7 +70,8 @@ export function comfortFields(T, u, v, mat, fluidIndex, input = COMFORT_DEFAULTS
   const fluids = new Set(fluidIndex);
   for (let i = 0; i < n; i++) {
     if (!fluids.has(mat[i])) continue;
-    const speed = u && v ? Math.hypot(u[i], v[i]) : 0.1;
+    // Air speed: the 2D in-plane speed, with the z component in 3D results.
+    const speed = u && v ? Math.hypot(u[i], v[i], w ? w[i] : 0) : 0.1;
     const value = pmv(T[i], tr ?? T[i], Math.max(0.05, speed), params.rh, params.met, params.clo);
     pmvField[i] = value;
     ppdField[i] = ppd(value);

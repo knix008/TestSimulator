@@ -624,12 +624,14 @@ fn progress_is_reported() {
 
 // ------------------------------------------------------------- timing (ignored)
 
+#[cfg(feature = "slow-tests")]
 fn timed(model: &Value) -> (Decoded, f64) {
     let t = std::time::Instant::now();
     let d = solve(model);
     (d, t.elapsed().as_secs_f64())
 }
 
+#[cfg(feature = "slow-tests")]
 fn big_conduction(nx: usize, ny: usize, nz: usize, dim: usize) -> Value {
     json!({
         "domain": { "dim": dim, "width": 100, "height": 100, "depth": 30, "nx": nx, "ny": ny, "nz": nz, "background": "s" },
@@ -644,8 +646,8 @@ fn big_conduction(nx: usize, ny: usize, nz: usize, dim: usize) -> Value {
     })
 }
 
+#[cfg(feature = "slow-tests")]
 #[test]
-#[ignore]
 fn timing_conduction() {
     for (nx, ny, nz, dim) in [(200, 200, 1, 2), (400, 400, 1, 2), (100, 100, 30, 3)] {
         let (d, s) = timed(&big_conduction(nx, ny, nz, dim));
@@ -653,6 +655,7 @@ fn timing_conduction() {
     }
 }
 
+#[cfg(feature = "slow-tests")]
 fn cht_model(nx: usize, ny: usize, steps: usize) -> Value {
     json!({
         "domain": { "dim": 2, "width": 200, "height": 100, "depth": 10, "nx": nx, "ny": ny, "background": "air" },
@@ -675,8 +678,8 @@ fn cht_model(nx: usize, ny: usize, steps: usize) -> Value {
     })
 }
 
+#[cfg(feature = "slow-tests")]
 #[test]
-#[ignore]
 fn timing_cht() {
     for (nx, ny, steps) in [(120, 60, 3000), (200, 100, 3000)] {
         let (d, s) = timed(&cht_model(nx, ny, steps));

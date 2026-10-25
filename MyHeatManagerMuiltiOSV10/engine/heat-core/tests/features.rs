@@ -44,8 +44,8 @@ fn turbulent_channel(ny_fluid: usize, heated: bool) -> Value {
     })
 }
 
+#[cfg(feature = "slow-tests")]
 #[test]
-#[ignore]
 fn turbulent_channel_explore() {
     for ny in [8usize, 12, 20] {
         let t = std::time::Instant::now();

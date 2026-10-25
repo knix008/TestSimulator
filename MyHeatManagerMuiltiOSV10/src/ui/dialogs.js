@@ -10,7 +10,7 @@ import { MATERIAL_LIBRARY, MATERIAL_CATEGORIES, materialFromLibrary, materialNam
 import { SAMPLE_IDS, SAMPLE_TAGS, sampleModel } from '../core/samples.js';
 import { bodyBounds, newId, cellCount } from '../core/model.js';
 import { componentLife, systemLife, survival, sectionFigures } from '../core/reliability.js';
-import { parseNodeCsv, nodesAt, nodeStats, nodeBounds, idwRaster, sampleNodeCsv } from '../core/heatmap.js';
+import { parseNodeCsv, nodesAt, nodeStats, nodeBounds, idwRaster, sampleNodeCsv, sampleNodeCsv3d } from '../core/heatmap.js';
 import { materialColor } from './editor2d.js';
 import { field as fieldOf } from '../core/result.js';
 import { ANIMATION_KINDS, ANIMATION_ICONS } from './background.js';
@@ -382,6 +382,7 @@ const MATERIAL_FIELDS = [
   ['rho', 'density', 'kg/m³', 10],
   ['cp', 'specificHeat', 'J/kg·K', 10],
   ['emissivity', 'emissivity', '', 0.05],
+  ['absorptivity', 'absorptivity', '', 0.05],
   ['E', 'youngs', 'GPa', 1, 1e9],
   ['nu', 'poisson', '', 0.01],
   ['alpha', 'cte', 'ppm/K', 0.5, 1e-6],
@@ -415,7 +416,8 @@ export function materialEditor(material, onPatch, model = null) {
   ];
   for (const [key, label, unit, step, factor = 1, only] of MATERIAL_FIELDS) {
     if (only && only !== material.kind) continue;
-    const value = material[key];
+    // A material without a solar absorptivity uses the engine's default, 0.6.
+    const value = material[key] ?? (key === 'absorptivity' ? 0.6 : null);
     const labelText = key.startsWith('k') && key.length === 2 ? `${t(label)} ${unit}` : t(label);
     rows.push(row(labelText, numberField({
       value: value == null ? NaN : value / factor, step, suffix: key.length === 2 && key.startsWith('k') ? 'W/m·K' : unit,
@@ -527,6 +529,15 @@ export function studyFields(study, onPatch, dim) {
     row(commandName('toggleModal', lang), check(study.modal?.enabled, (v) => onPatch({ modal: { ...(study.modal ?? {}), enabled: v } }), 'study-modal')),
     row(t('s2sRadiation'), check(study.s2s, (v) => onPatch({ s2s: v }), 'study-s2s')),
   ];
+  const solar = study.solar ?? { enabled: false, irradiance: 1000, elevation: 60, azimuth: 0 };
+  rows.push(row(t('solarLoad'), check(solar.enabled, (v) => onPatch({ solar: { ...solar, enabled: v } }), 'study-solar')));
+  if (solar.enabled) {
+    rows.push(
+      row(t('solarIrradiance'), numberField({ value: solar.irradiance, min: 0, max: 5000, step: 50, suffix: 'W/m²', testid: 'study-solar-g', onChange: (v) => onPatch({ solar: { ...solar, irradiance: v } }) })),
+      row(t('solarElevation'), numberField({ value: solar.elevation, min: -90, max: 90, step: 5, suffix: '°', testid: 'study-solar-el', onChange: (v) => onPatch({ solar: { ...solar, elevation: v } }) })),
+      row(t('solarAzimuth'), numberField({ value: solar.azimuth, min: -360, max: 360, step: 15, suffix: '°', testid: 'study-solar-az', onChange: (v) => onPatch({ solar: { ...solar, azimuth: v } }) })),
+    );
+  }
   if (study.s2s) rows.push(row(t('s2sMedium'), select(study.s2sMedium ?? 'void', [['void', t('s2sVoid')], ['fluids', t('s2sFluids')]], (v) => onPatch({ s2sMedium: v }), 'study-s2s-medium')));
   if (study.stress) {
     rows.push(row(t('thermalStrain'), check(study.thermalStrain !== false, (v) => onPatch({ thermalStrain: v }))));
@@ -808,8 +819,24 @@ export function showUFactor(app) {
       row('ΔT · T_m', numberField({ value: cav.dT, min: 0.1, max: 60, step: 1, suffix: 'K', onChange: (v) => set({ dT: v }) }), numberField({ value: cav.Tmean, min: -30, max: 60, step: 1, suffix: '°C', onChange: (v) => set({ Tmean: v }) })),
       row('ε₁ · ε₂', numberField({ value: cav.e1, min: 0.02, max: 1, step: 0.05, onChange: (v) => set({ e1: v }) }), numberField({ value: cav.e2, min: 0.02, max: 1, step: 0.05, onChange: (v) => set({ e2: v }) })),
       row(t('cavityFlow'), select(cav.heatFlow, [['horizontal', t('flowHorizontal')], ['up', t('flowUp')], ['down', t('flowDown')]], (v) => set({ heatFlow: v }))),
+      cavityTarget(r.k),
       h('div', { className: 'stat-grid' }, h('div', { className: 'stat' }, h('span', null, 'k_eq (W/mK)'), h('b', { dataset: { testid: 'cavity-k' } }, formatValue(r.k))),
         h('div', { className: 'stat' }, h('span', null, 'h_a (W/m²K)'), h('b', null, formatValue(r.ha))), h('div', { className: 'stat' }, h('span', null, 'h_r (W/m²K)'), h('b', null, formatValue(r.hr)))));
+  };
+  // The equivalent conductivity goes into a cavity material of the model (THERM's frame-cavity workflow).
+  const cavityTarget = (k) => {
+    const mats = app.doc().model.materials.filter((m) => m.kind !== 'fluid');
+    if (!mats.length) return null;
+    cav.material = mats.some((m) => m.id === cav.material) ? cav.material : (mats.find((m) => /cavity|gap|공동/i.test(`${m.id} ${m.name}`)) ?? mats[0]).id;
+    const target = mats.find((m) => m.id === cav.material);
+    return h('div', { className: 'row' }, h('span', null, t('cavityMaterial')),
+      select(cav.material, mats.map((m) => [m.id, `${m.name} (k ${formatValue(m.k)})`]), (v) => { cav.material = v; render(); }, 'cavity-material'),
+      h('button', { type: 'button', dataset: { testid: 'cavity-apply' }, onClick: () => {
+        const value = Number(k.toPrecision(4));
+        app.updateMaterial(target.id, { k: value, kx: null, ky: null, kz: null });
+        app.setStatus(t('cavityApplied', { name: target.name, k: formatValue(value) }));
+        render();
+      } }, t('cavityApply')));
   };
   const rh = { value: 50 };
   const condensation = (model, result, warm, cold) => {
@@ -847,7 +874,13 @@ export function showHeatmap(app, initial = null) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, rect.width, rect.height);
     if (!hm.data) return;
-    const nodes = nodesAt(hm.data, hm.time);
+    const nodes = shownNodes();
+    if (!nodes.length) {
+      ctx.fillStyle = getComputedStyle(canvas).getPropertyValue('--muted') || '#888';
+      ctx.fillText(t('heatmapNoNodes'), 20, 30);
+      return;
+    }
+    if (hm.view === '3d' && zSpread()) { paint3d(ctx, rect, nodes); return; }
     const b = nodeBounds(nodes);
     const aspect = (b.y1 - b.y0) / (b.x1 - b.x0);
     const nx = hm.resolution;
@@ -896,17 +929,90 @@ export function showHeatmap(app, initial = null) {
     ctx.fillText(`${formatValue(lo)} °C`, barX + 18, oy + hgt);
     hm.raster = { raster, nx, ny, bounds: b, lo, hi };
   };
+  // 3D node data (a z column with more than one value): a z range for the plan map and a turnable point view.
+  const zSpread = () => {
+    const zs = (hm.data?.nodes ?? []).map((n) => n.z);
+    return zs.length ? Math.max(...zs) - Math.min(...zs) : 0;
+  };
+  const shownNodes = () => {
+    const all = nodesAt(hm.data, hm.time);
+    if (!zSpread() || !hm.zRange) return all;
+    return all.filter((n) => n.z >= hm.zRange[0] - 1e-9 && n.z <= hm.zRange[1] + 1e-9);
+  };
+  hm.yaw ??= -0.6;
+  hm.pitch ??= 0.5;
+  const paint3d = (ctx, rect, nodes) => {
+    const xs = nodes.map((n) => n.x); const ys = nodes.map((n) => n.y); const zs = nodes.map((n) => n.z);
+    const c = [xs, ys, zs].map((a) => (Math.min(...a) + Math.max(...a)) / 2);
+    const size = Math.max(...[xs, ys, zs].map((a) => Math.max(...a) - Math.min(...a))) || 1;
+    const scale = (Math.min(rect.width - 110, rect.height - 40) / size) * 0.8;
+    const [cy, sy, cp, sp] = [Math.cos(hm.yaw), Math.sin(hm.yaw), Math.cos(hm.pitch), Math.sin(hm.pitch)];
+    // Orthographic view: turn about z (yaw), then tilt about the screen x axis (pitch); depth for back-to-front drawing.
+    const project = (x, y, z) => {
+      const X = (x - c[0]) * cy - (y - c[1]) * sy;
+      const Y = (x - c[0]) * sy + (y - c[1]) * cy;
+      const Z = z - c[2];
+      return [rect.width / 2 - 35 + X * scale, rect.height / 2 - (Z * cp - Y * sp) * scale, Y * cp + Z * sp];
+    };
+    const Ts = nodes.map((n) => n.T);
+    const lo = Math.min(...Ts); const hi = Math.max(...Ts);
+    const table = lut(app.state.settings.colormap, app.state.settings.colorSteps);
+    const text = getComputedStyle(canvas).getPropertyValue('--text');
+    // Axes from the lower corner.
+    const o = [Math.min(...xs), Math.min(...ys), Math.min(...zs)];
+    ctx.lineWidth = 1;
+    ctx.font = '11px "Segoe UI", sans-serif';
+    for (const [d, label, col] of [[[size * 0.3, 0, 0], 'x', '#e5534b'], [[0, size * 0.3, 0], 'y', '#57ab5a'], [[0, 0, size * 0.3], 'z', '#539bf5']]) {
+      const a = project(...o); const e = project(o[0] + d[0], o[1] + d[1], o[2] + d[2]);
+      ctx.strokeStyle = col; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+      ctx.fillStyle = col; ctx.fillText(label, e[0] + 3, e[1] - 3);
+    }
+    const pts = nodes.map((n) => ({ n, p: project(n.x, n.y, n.z) })).sort((a, b) => b.p[2] - a.p[2]);
+    for (const { n, p } of pts) {
+      const k = Math.max(0, Math.min(255, Math.round(((n.T - lo) / (hi - lo || 1)) * 255)));
+      ctx.fillStyle = hm.limit != null && n.T > hm.limit ? '#ff3030' : `rgb(${table[k * 3]},${table[k * 3 + 1]},${table[k * 3 + 2]})`;
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.arc(p[0], p[1], 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    const barX = rect.width - 60; const top = 30; const hgt = rect.height - 60;
+    for (let y = 0; y < hgt; y++) {
+      const n = Math.round((1 - y / hgt) * 255);
+      ctx.fillStyle = `rgb(${table[n * 3]},${table[n * 3 + 1]},${table[n * 3 + 2]})`;
+      ctx.fillRect(barX, top + y, 14, 1);
+    }
+    ctx.fillStyle = text;
+    ctx.fillText(`${formatValue(hi)} °C`, barX - 4, top - 8);
+    ctx.fillText(`${formatValue(lo)} °C`, barX - 4, top + hgt + 16);
+    hm.raster = null;
+  };
+  let turning = null;
+  canvas.addEventListener('pointerdown', (e) => { if (hm.view === '3d') { turning = [e.clientX, e.clientY, hm.yaw, hm.pitch]; canvas.setPointerCapture(e.pointerId); } });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!turning) return;
+    hm.yaw = turning[2] + (e.clientX - turning[0]) * 0.01;
+    hm.pitch = Math.max(-1.5, Math.min(1.5, turning[3] + (e.clientY - turning[1]) * 0.01));
+    paint();
+  });
+  canvas.addEventListener('pointerup', () => { turning = null; });
   const renderSide = () => {
     if (!hm.data) {
       replace(side, h('p', { className: 'part-help' }, t('heatmapHint')),
         h('button', { type: 'button', dataset: { testid: 'heatmap-import' }, onClick: () => app.importNodeData() }, `${commandIcon('heatmapImport')} ${commandName('heatmapImport', getLanguage())}`),
-        h('button', { type: 'button', dataset: { testid: 'heatmap-sample' }, onClick: () => { hm.data = parseNodeCsv(sampleNodeCsv()); hm.name = 'radiator-nodes.csv'; renderSide(); paint(); } }, t('heatmapSample')));
+        h('button', { type: 'button', dataset: { testid: 'heatmap-sample' }, onClick: () => { hm.data = parseNodeCsv(sampleNodeCsv()); hm.name = 'radiator-nodes.csv'; renderSide(); paint(); } }, t('heatmapSample')),
+        h('button', { type: 'button', dataset: { testid: 'heatmap-sample-3d' }, onClick: () => { hm.data = parseNodeCsv(sampleNodeCsv3d()); hm.name = 'battery-module-nodes.csv'; hm.zRange = null; hm.view = '3d'; renderSide(); paint(); } }, t('heatmapSample3d')));
       return;
     }
-    const nodes = nodesAt(hm.data, hm.time);
-    const stats = nodeStats(nodes, hm.limit);
+    const spread = zSpread();
+    if (spread && !hm.zRange) { const zs = hm.data.nodes.map((n) => n.z); hm.zRange = [Math.min(...zs), Math.max(...zs)]; }
+    if (!spread) hm.zRange = null;
+    const nodes = shownNodes();
+    const stats = nodeStats(nodes.length ? nodes : nodesAt(hm.data, hm.time), hm.limit);
     replace(side,
       h('strong', null, hm.name ?? ''),
+      spread ? h('div', { className: 'row' }, h('span', null, t('heatmapView')), select(hm.view ?? '2d', [['2d', t('heatmapView2d')], ['3d', t('heatmapView3d')]], (v) => { hm.view = v; renderSide(); paint(); }, 'heatmap-view')) : null,
+      spread ? h('div', { className: 'row' }, h('span', null, t('heatmapZRange')),
+        numberField({ value: hm.zRange[0], step: spread / 10, testid: 'heatmap-z0', onChange: (v) => { hm.zRange = [v, hm.zRange[1]]; renderSide(); paint(); } }),
+        numberField({ value: hm.zRange[1], step: spread / 10, testid: 'heatmap-z1', onChange: (v) => { hm.zRange = [hm.zRange[0], v]; renderSide(); paint(); } })) : null,
       hm.data.times.length > 1 ? h('div', { className: 'row' }, h('span', null, t('heatmapTime')), select(hm.time ?? hm.data.times[hm.data.times.length - 1], hm.data.times.map((x) => [x, String(x)]), (v) => { hm.time = Number(v); renderSide(); paint(); })) : null,
       h('div', { className: 'row' }, h('span', null, t('heatmapLimit')), numberField({ value: hm.limit ?? NaN, step: 5, suffix: '°C', onChange: (v) => { hm.limit = Number.isFinite(v) ? v : null; renderSide(); paint(); } })),
       h('div', { className: 'row' }, h('span', null, t('heatmapPower')), numberField({ value: hm.power, step: 0.5, min: 0.5, max: 8, onChange: (v) => { hm.power = v; paint(); } })),

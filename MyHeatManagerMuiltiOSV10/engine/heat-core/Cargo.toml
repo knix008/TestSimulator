@@ -13,6 +13,9 @@ path = "src/lib.rs"
 default = ["parallel"]
 # Multithreaded mat-vecs and stress operator (native only; must stay off for wasm32).
 parallel = ["dep:rayon"]
+# Long exploration and timing runs (minutes): compiled only with `cargo test --release --features slow-tests -- --nocapture`,
+# so the normal test run has no ignored (skipped) tests.
+slow-tests = []
 
 [dependencies]
 serde = "1"

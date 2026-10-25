@@ -1,6 +1,7 @@
 $ MyHeatManager -> Nastran / Simcenter bulk data (SOL 153 steady heat transfer)
 $ PCB component layout (3D) - 3D CHEXA + PSOLID
 $ SI units (m, kg, s, W), temperatures in deg C; radiation linearised: h_r = 4*eps*sigma*(T_inf+273.15)^3 added to h
+$ MyHeatManager domain 3 80 60 8 40 30 4
 SOL 153
 CEND
 TITLE = PCB component layout (3D)

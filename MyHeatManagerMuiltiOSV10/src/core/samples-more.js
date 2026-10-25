@@ -391,6 +391,79 @@ export const EXTRA_BUILDERS_LIST = {
     };
   },
 
+  heatSink3d(language) {
+    const fins = Array.from({ length: 6 }, (_, i) => rect(`fin${i + 1}`, `${L(language, '핀', 'Fin')} ${i + 1}`, 'al6061', 30, 4, 60, 30, { z0: 12 + i * 6, z1: 14 + i * 6 }));
+    return {
+      name: L(language, '3D 방열판 덕트 (3D CHT)', 'Heat sink in a duct (3D CHT)'),
+      description: L(language, '덕트 속 공기(1.5 m/s)가 칩 위의 판형 핀 방열판 사이를 흐릅니다. 3D 유동과 고체 전도를 함께 풀어 핀 사이 유속 · 칩 온도 · 압력 강하를 보고, 3D 보기의 단면으로 핀 사이 흐름을 봅니다.', 'Duct air at 1.5 m/s flows between the plate fins of a heat sink on a chip. 3D flow and solid conduction are solved together: the speed between the fins, the chip temperature and the pressure drop; slice the 3D view to see the flow between the fins.'),
+      domain: { dim: 3, width: 120, height: 50, depth: 60, nx: 48, ny: 20, nz: 30, background: 'air' },
+      materials: mats(language, 'air', 'al6061', 'silicon'),
+      bodies: [
+        rect('base', L(language, '베이스', 'Base'), 'al6061', 30, 0, 60, 4, { z0: 10, z1: 50 }),
+        ...fins,
+        rect('chip', L(language, '칩', 'Chip'), 'silicon', 50, 0, 20, 2, { z0: 22, z1: 38, power: 15 }),
+      ],
+      boundaries: [
+        bc('in', L(language, '유입 (1.5 m/s)', 'Inlet (1.5 m/s)'), 'left', 'inlet', { velocity: 1.5, Tin: 25 }),
+        bc('out', L(language, '유출', 'Outlet'), 'right', 'outlet'),
+      ],
+      probes: [{ id: 'p1', name: L(language, '칩', 'Chip'), x: 60, y: 1, z: 30 }, { id: 'p2', name: L(language, '출구 중앙', 'Outlet centre'), x: 118, y: 25, z: 30 }],
+      study: { type: 'steady', flow: true, flowSteps: 3000 },
+      ambient: 25,
+    };
+  },
+
+  sunCabinet3d(language) {
+    return {
+      name: L(language, '햇빛 아래 옥외 함체 (태양 하중, 3D)', 'Outdoor cabinet in the sun (solar load, 3D)'),
+      description: L(language, '여름 한낮(일사 900 W/m², 고도 65°) 옥외 통신 함체가 안의 장비 열 40 W 와 햇빛을 함께 받습니다. 위의 차양판이 함체 윗면에 그림자를 드리웁니다 — 해석 설정의 태양 고도 · 방위각을 바꾸거나 차양을 숨겨 장비 온도를 비교해 보세요.', 'An outdoor telecom cabinet at summer noon (900 W/m², 65° elevation) takes 40 W of equipment heat and the sun. A sunshade above casts its shadow on the roof — change the sun elevation and azimuth in the study settings, or hide the shade, and compare the equipment temperature.'),
+      domain: { dim: 3, width: 800, height: 900, depth: 600, nx: 40, ny: 45, nz: 30, background: null },
+      materials: [
+        { ...materialFromLibrary('steel', language), id: 'shell', name: L(language, '도장 강판 (밝은 회색)', 'Painted steel (light grey)'), absorptivity: 0.45, emissivity: 0.9 },
+        { ...materialFromLibrary('air', language), id: 'innerAir', kind: 'solid', name: L(language, '내부 공기 (유효 전도)', 'Inside air (effective conduction)'), k: 2, color: '#cfe3f0' },
+        ...mats(language, 'al6061'),
+      ],
+      bodies: [
+        rect('box', L(language, '함체', 'Cabinet'), 'shell', 200, 0, 400, 600, { z0: 100, z1: 500 }),
+        rect('inside', L(language, '내부', 'Inside'), 'innerAir', 220, 20, 360, 560, { z0: 120, z1: 480 }),
+        rect('rack', L(language, '장비', 'Equipment'), 'al6061', 300, 120, 200, 300, { z0: 200, z1: 400, power: 40 }),
+        rect('shade', L(language, '차양판', 'Sunshade'), 'shell', 160, 700, 480, 20, { z0: 60, z1: 540 }),
+        rect('post', L(language, '차양 기둥', 'Shade post'), 'shell', 380, 600, 40, 100, { z0: 280, z1: 320 }),
+      ],
+      boundaries: [
+        bc('air', L(language, '바깥 공기 (대류 + 복사)', 'Outside air (convection + radiation)'), 'exterior', 'convection', { h: 8, Tinf: 35, emissivity: 0.9 }),
+      ],
+      probes: [{ id: 'p1', name: L(language, '장비', 'Equipment'), x: 400, y: 270, z: 300 }, { id: 'p2', name: L(language, '함체 윗면', 'Cabinet roof'), x: 400, y: 590, z: 300 }],
+      study: { type: 'steady', solar: { enabled: true, irradiance: 900, elevation: 65, azimuth: 30 } },
+      ambient: 35,
+    };
+  },
+
+  fanChassis3d(language) {
+    return {
+      name: L(language, '내부 팬 섀시 (3D)', 'Chassis with an internal fan (3D)'),
+      description: L(language, '양 끝이 열린 섀시 안의 내부 팬이 팬 곡선을 따라 공기를 밀어 두 보드의 부품을 식힙니다. 팬 곡선과 섀시 저항이 만나는 운전점(L/s · Pa)을 팬의 속성에서, 부품 온도를 탐침에서 봅니다.', 'An internal fan inside a chassis open at both ends pushes air along its fan curve over the parts on two boards. The operating point where the curve meets the chassis resistance (L/s, Pa) is in the fan\'s properties, the part temperatures in the probes.'),
+      domain: { dim: 3, width: 160, height: 60, depth: 80, nx: 64, ny: 24, nz: 32, background: 'air' },
+      materials: mats(language, 'air', 'fr4', 'emc', 'al6061'),
+      bodies: [
+        rect('board1', L(language, '보드 1', 'Board 1'), 'fr4', 50, 7.5, 100, 2.5, { z0: 5, z1: 75 }),
+        rect('cpu', 'CPU', 'emc', 80, 10, 24, 2.5, { z0: 27.5, z1: 52.5, power: 4 }),
+        rect('sink', L(language, 'CPU 방열판', 'CPU heat sink'), 'al6061', 80, 12.5, 24, 2.5, { z0: 25, z1: 55 }),
+        ...[25, 35, 45, 52.5].map((z0, i) => rect(`sinkFin${i + 1}`, `${L(language, '방열핀', 'Sink fin')} ${i + 1}`, 'al6061', 80, 15, 24, 15, { z0, z1: z0 + 2.5 })),
+        rect('board2', L(language, '보드 2', 'Board 2'), 'fr4', 50, 35, 100, 2.5, { z0: 5, z1: 75 }),
+        rect('vr', L(language, '전원부', 'Voltage regulator'), 'emc', 110, 37.5, 15, 5, { z0: 12.5, z1: 35, power: 1 }),
+      ],
+      boundaries: [
+        bc('fan', L(language, '내부 팬', 'Internal fan'), 'interior', 'internalFan', { region: [20, 0, 0, 27.5, 60, 80], direction: '+x', curve: [[0, 20], [0.002, 12], [0.004, 0]] }),
+        bc('front', L(language, '앞 열림', 'Front opening'), 'left', 'open', { Tinf: 25 }),
+        bc('rear', L(language, '뒤 배기구', 'Rear exhaust'), 'right', 'outlet'),
+      ],
+      probes: [{ id: 'p1', name: 'CPU', x: 92, y: 11.25, z: 40 }, { id: 'p2', name: L(language, '전원부', 'Voltage regulator'), x: 117.5, y: 38.75, z: 23.75 }],
+      study: { type: 'steady', flow: true, turbulence: 'kOmegaSST', flowSteps: 3000 },
+      ambient: 25,
+    };
+  },
+
 
   balconySlab(language) {
     return {
@@ -611,6 +684,9 @@ export const MORE_TAGS = {
   sunWallDay: ['Transient', 'Time BC', 'Simcenter'],
   coatedTurbine: ['Thin layer', 'COMSOL'],
   naturalFins: ['h correlation', 'SOLIDWORKS', 'Steady'],
+  heatSink3d: ['3D', 'CHT', 'Icepak'],
+  fanChassis3d: ['3D', 'Internal fan', 'Icepak'],
+  sunCabinet3d: ['3D', 'Solar', 'Icepak'],
   balconySlab: ['THERM', 'Steady', 'Building'],
   iceThaw: ['Phase change', 'Transient', 'COMSOL'],
   massConcrete: ['Transient', 'Civil', 'Simcenter'],

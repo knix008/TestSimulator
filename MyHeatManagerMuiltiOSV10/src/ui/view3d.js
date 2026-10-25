@@ -41,6 +41,18 @@ export class View3D {
       if (value) value.textContent = `${this.zoomPercent()}%`;
     });
     this.key = null;
+    // A left click without a drag reports the model point under the pointer: onPick({ x, y, z (mm), normal }).
+    this.onPick = null;
+    let down = null;
+    this.renderer.domElement.addEventListener('pointerdown', (event) => { down = event.button === 0 ? [event.clientX, event.clientY] : null; });
+    this.renderer.domElement.addEventListener('pointerup', (event) => {
+      if (!down || event.button !== 0) return;
+      const moved = Math.hypot(event.clientX - down[0], event.clientY - down[1]);
+      down = null;
+      if (moved > 4 || !this.onPick) return;
+      const hit = this.pick(event.clientX, event.clientY);
+      if (hit) this.onPick(hit);
+    });
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(host);
     this.resize();
@@ -70,6 +82,21 @@ export class View3D {
 
   render() {
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** The first opaque surface of the model under a client point: { x, y, z } in mm and its outward normal, or null. */
+  pick(clientX, clientY) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    const meshes = [];
+    this.group.traverse((o) => { if (o.isMesh && !(o.material?.transparent && o.material.opacity < 0.5)) meshes.push(o); });
+    const hit = ray.intersectObjects(meshes, false)[0];
+    if (!hit) return null;
+    const normal = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new THREE.Vector3();
+    const p = this.group.worldToLocal(hit.point.clone());
+    return { x: p.x, y: p.y, z: p.z, normal: [normal.x, normal.y, normal.z] };
   }
 
   updateGuides() {
