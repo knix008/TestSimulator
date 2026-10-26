@@ -341,3 +341,22 @@ fn mat_files_of_every_kind_and_v73() {
     assert!(d.text.contains("opts.method = 'ode45'"));
     assert!(d.text.contains("empty is empty"));
 }
+
+#[test]
+fn svm_handles_large_data() {
+    // 10 000 rows (the old solver stopped at 3 000): two overlapping rings, RBF kernel.
+    let mut csv = String::from("x1,x2,label\n");
+    let mut rng = sim_core::rng::Rng::new(11);
+    for k in 0..10_000 {
+        let inner = k % 2 == 0;
+        let r = if inner { 1.0 } else { 2.2 } + 0.25 * rng.normal();
+        let a = rng.uniform() * std::f64::consts::TAU;
+        csv.push_str(&format!("{},{},{}\n", r * a.cos(), r * a.sin(), if inner { "in" } else { "out" }));
+    }
+    let started = std::time::Instant::now();
+    let r = run(json!({ "nodes": [table_node("d", &csv), node("m", "ml.svm", json!({ "target": "label", "kernel": "rbf", "testFraction": 0.2, "map": false }))], "links": [link("d", "m")] }));
+    let secs = started.elapsed().as_secs_f64();
+    assert!(scalar(&r, "m", "test accuracy") > 97.0, "{}", scalar(&r, "m", "test accuracy"));
+    assert!(secs < 60.0, "took {secs} s");
+    eprintln!("svm 10k rows: {secs:.2} s, support vectors {}", scalar(&r, "m", "support vectors"));
+}

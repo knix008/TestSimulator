@@ -192,6 +192,21 @@ try {
     });
   }
 
+  await step('MATLAB desktop: the native session keeps its workspace', async () => {
+    const call = (code, st) => js(`window.__TAURI_INTERNALS__.invoke('matlab_eval', { request: JSON.stringify({ code: ${JSON.stringify(code)}, files: [], state: ${st ?? 'null'}, seed: 1 }), baseDir: null }).then((t) => JSON.parse(t))`);
+    const r1 = await call('A = magic(4); s = sum(A(:))');
+    assert(r1.ok && r1.output.includes('s = 136'), JSON.stringify(r1).slice(0, 300));
+    const r2 = await call('t = trace(A)', JSON.stringify(r1.state));
+    assert(r2.ok && r2.output.includes('t = 34'), JSON.stringify(r2).slice(0, 300));
+    // The view itself: switch, run a command through the UI, back to the graph.
+    await js(`window.__mysim.run('viewMatlab')`);
+    await sleep(300);
+    await js(`(() => { const ta = window.__mysim.query('[data-testid=ml-input]'); ta.value = 'x = linspace(0, 1, 5)'; ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()`);
+    await waitFor(() => js('Boolean(window.__mysim.doc().mlab?.vars?.some((v) => v.name === "x"))'), 20000, 100);
+    await cdp.screenshot(path.join(shots, 'matlab-desktop.png'));
+    await js(`window.__mysim.run('viewGraph')`);
+  });
+
   await step('python node: runs the installed Python after the permission question', async () => {
     const python = await js('window.__TAURI_INTERNALS__.invoke("python_info")');
     if (!python) {

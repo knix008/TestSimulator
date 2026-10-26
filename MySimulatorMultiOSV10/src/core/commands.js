@@ -41,6 +41,7 @@ const C = {
   viewGraph: ['⛓', '파이프라인', 'Pipeline', '노드 그래프 편집 화면', 'The node graph editor'],
   viewDashboard: ['▦', '대시보드', 'Dashboard', '차트·KPI 노드를 한 화면에 모아 봅니다', 'The chart and KPI nodes on one screen'],
   viewData: ['☷', '데이터', 'Data', '선택한 노드의 결과를 크게 봅니다 (차트·표·값)', 'The selected node\'s results in full (chart, table, values)'],
+  viewMatlab: ['Ⓜ', 'MATLAB', 'MATLAB', 'MATLAB 데스크톱: 편집기 · 명령 창 · 작업 공간 · 그림', 'The MATLAB desktop: editor, command window, workspace, figures'],
   view3d: ['◇', '3D 궤적', '3D trajectory', '세 열을 3D 곡선이나 점으로 봅니다 (로렌츠 끌개 등)', 'Three columns as a 3D curve or points (Lorenz attractor …)'],
   showGrid: ['#', '격자', 'Grid', '편집 화면의 격자를 보입니다', 'Show the canvas grid'],
   snap: ['⌗', '격자에 맞추기', 'Snap to grid', '노드를 격자에 맞춰 놓습니다', 'Place nodes on the grid'],
@@ -127,7 +128,7 @@ const adds = (cat) => nodesIn(cat).map((n) => `add:${n.type}`);
 export const MENUS = [
   { id: 'file', icon: '📁', ko: '파일', en: 'File', items: ['new', 'newFromSample', 'open', 'importData', '|', 'save', 'saveAs', '|', 'exportCsv', 'exportJson', 'exportAllCsv', 'exportPng', 'exportReport', 'print', '|', 'closeTab', 'quit'] },
   { id: 'edit', icon: '✎', ko: '편집', en: 'Edit', items: ['undo', 'redo', '|', 'copy', 'paste', 'duplicate', 'delete', 'selectAll', '|', 'rename', 'toggleDisable', 'disconnect', 'autoLayout', '|', 'pipelineSettings'] },
-  { id: 'view', icon: '👁', ko: '보기', en: 'View', items: ['viewGraph', 'viewDashboard', 'viewData', 'view3d', '|', 'fit', 'zoomReset', 'zoomIn', 'zoomOut', '|', 'showGrid', 'showRulers', 'snap', 'chartGrid', 'grid3d', 'axes3d', 'showPreviews', '|', 'toolPanel', 'propertyPanel', 'chartPanel', 'fullscreen'] },
+  { id: 'view', icon: '👁', ko: '보기', en: 'View', items: ['viewGraph', 'viewDashboard', 'viewData', 'view3d', 'viewMatlab', '|', 'fit', 'zoomReset', 'zoomIn', 'zoomOut', '|', 'showGrid', 'showRulers', 'snap', 'chartGrid', 'grid3d', 'axes3d', 'showPreviews', '|', 'toolPanel', 'propertyPanel', 'chartPanel', 'fullscreen'] },
   { id: 'node', icon: '⬡', ko: '노드', en: 'Node', items: ['nodeLibrary', '|', ...adds('source'), '|', ...adds('data'), '|', ...adds('output')] },
   { id: 'analysis', icon: '∿', ko: '해석', en: 'Analysis', items: [...adds('signal'), '|', ...adds('dynamics'), '|', ...adds('physics'), '|', ...adds('robotics'), '|', ...adds('cad'), '|', ...adds('analysis'), '|', ...adds('montecarlo'), '|', ...adds('script'), '|', ...adds('integration')] },
   { id: 'run', icon: '▶', ko: '실행', en: 'Run', items: ['run', 'runSelected', 'stop', '|', 'validate', 'autoRun', 'clearResults', '|', 'pipelineSettings'] },
@@ -158,7 +159,7 @@ export const WORKBENCHES = [
 export const TOOLBAR_GROUPS = [
   ['new', 'open', 'save', 'print'],
   ['undo', 'redo'],
-  ['viewGraph', 'viewDashboard', 'viewData', 'view3d'],
+  ['viewGraph', 'viewDashboard', 'viewData', 'view3d', 'viewMatlab'],
   ['fit', 'autoLayout', 'showGrid', 'showRulers', 'snap', 'chartGrid', 'showPreviews'],
   ['run', 'runSelected', 'stop', 'autoRun'],
   ['nodeLibrary', 'toggleDisable', 'delete'],
@@ -183,6 +184,6 @@ export const SHORTCUTS = {
   new: 'Ctrl+N', open: 'Ctrl+O', save: 'Ctrl+S', saveAs: 'Ctrl+Shift+S', print: 'Ctrl+P', closeTab: 'Ctrl+W',
   undo: 'Ctrl+Z', redo: 'Ctrl+Y', copy: 'Ctrl+C', paste: 'Ctrl+V', duplicate: 'Ctrl+D', delete: 'Delete', selectAll: 'Ctrl+A',
   rename: 'F2', toggleDisable: 'Ctrl+E', autoLayout: 'Ctrl+L', nodeLibrary: 'Ctrl+K',
-  fit: 'F', zoomReset: 'Ctrl+0', zoomIn: '+', zoomOut: '-', viewGraph: '1', viewDashboard: '2', viewData: '3', view3d: '4', showGrid: 'G', showRulers: 'Ctrl+R',
+  fit: 'F', zoomReset: 'Ctrl+0', zoomIn: '+', zoomOut: '-', viewGraph: '1', viewDashboard: '2', viewData: '3', view3d: '4', viewMatlab: '5', showGrid: 'G', showRulers: 'Ctrl+R',
   run: 'F5', runSelected: 'Ctrl+F5', stop: 'Shift+F5', fullscreen: 'F11', usage: 'F1',
 };

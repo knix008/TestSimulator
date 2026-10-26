@@ -15,6 +15,9 @@ pub struct Arr {
     pub re: Vec<f64>,
     pub im: Option<Vec<f64>>,
     pub logical: bool,
+    /// All the dimensions when there are three or more (r × c is then the folded
+    /// view: rows × everything else, MATLAB's column-major layout); empty for 2-D.
+    pub nd: Vec<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -32,13 +35,29 @@ pub enum Value {
     /// items[element][field]
     Struct { r: usize, c: usize, fields: Vec<String>, items: Vec<Vec<Value>> },
     Func(Func),
+    /// An object: a Control System Toolbox model or an instance of a classdef class.
+    Obj(Rc<Object>),
+}
+
+#[derive(Debug)]
+pub struct Object {
+    pub class: String,
+    pub data: ObjData,
+}
+
+#[derive(Debug)]
+pub enum ObjData {
+    Lti(super::lti::Lti),
+    User(super::classes::Instance),
+    /// Graphics handles (one or more: a graphics array).
+    Gfx(Vec<super::graphics::GRef>),
 }
 
 pub type R<T> = Result<T, String>;
 
 impl Arr {
     pub fn new(r: usize, c: usize, re: Vec<f64>) -> Arr {
-        Arr { r, c, re, im: None, logical: false }
+        Arr { r, c, re, im: None, logical: false, nd: Vec::new() }
     }
     pub fn zeros(r: usize, c: usize) -> Arr {
         Arr::new(r, c, vec![0.0; r * c])
@@ -53,7 +72,7 @@ impl Arr {
         Arr::new(v.len(), 1, v)
     }
     pub fn complex(r: usize, c: usize, re: Vec<f64>, im: Vec<f64>) -> Arr {
-        let mut a = Arr { r, c, re, im: Some(im), logical: false };
+        let mut a = Arr { r, c, re, im: Some(im), logical: false, nd: Vec::new() };
         a.simplify();
         a
     }
@@ -97,7 +116,7 @@ impl Arr {
                 }
             }
         }
-        Arr { r: self.c, c: self.r, re, im, logical: self.logical }
+        Arr { r: self.c, c: self.r, re, im, logical: self.logical, nd: Vec::new() }
     }
     pub fn to_rows(&self) -> Vec<Vec<f64>> {
         (0..self.r).map(|i| (0..self.c).map(|j| self.get(i, j)).collect()).collect()
@@ -113,8 +132,33 @@ impl Arr {
         }
         Arr::new(r, c, re)
     }
+    /// The dimensions as MATLAB reports them (at least two).
+    pub fn dims(&self) -> Vec<usize> {
+        if self.nd.is_empty() { vec![self.r, self.c] } else { self.nd.clone() }
+    }
+
+    /// Sets the dimensions (trailing singletons beyond the second are dropped).
+    pub fn set_dims(&mut self, dims: &[usize]) {
+        let mut d: Vec<usize> = dims.to_vec();
+        while d.len() > 2 && *d.last().unwrap() == 1 {
+            d.pop();
+        }
+        while d.len() < 2 {
+            d.push(1);
+        }
+        self.r = d[0];
+        self.c = d[1..].iter().product();
+        self.nd = if d.len() > 2 { d } else { Vec::new() };
+    }
+
+    pub fn with_dims(re: Vec<f64>, dims: &[usize]) -> Arr {
+        let mut a = Arr::new(0, 0, re);
+        a.set_dims(dims);
+        a
+    }
+
     pub fn boolean(r: usize, c: usize, v: Vec<bool>) -> Arr {
-        Arr { r, c, re: v.into_iter().map(|b| if b { 1.0 } else { 0.0 }).collect(), im: None, logical: true }
+        Arr { r, c, re: v.into_iter().map(|b| if b { 1.0 } else { 0.0 }).collect(), im: None, logical: true, nd: Vec::new() }
     }
 }
 
@@ -142,6 +186,7 @@ impl Value {
             Value::Cell { .. } => "cell",
             Value::Struct { .. } => "struct",
             Value::Func(_) => "function_handle",
+            Value::Obj(_) => "object",
         }
     }
     pub fn dims(&self) -> (usize, usize) {
@@ -149,12 +194,26 @@ impl Value {
             Value::Num(a) => (a.r, a.c),
             Value::Str(s) => (if s.is_empty() { 0 } else { 1 }, s.chars().count()),
             Value::Cell { r, c, .. } | Value::Struct { r, c, .. } => (*r, *c),
+            Value::Obj(o) => match &o.data {
+                ObjData::Gfx(r) => (if r.is_empty() { 0 } else { 1 }, r.len()),
+                _ => (1, 1),
+            },
             Value::Func(_) => (1, 1),
         }
     }
     pub fn numel(&self) -> usize {
         let (r, c) = self.dims();
         r * c
+    }
+    /// All the dimensions (numeric arrays can have more than two).
+    pub fn full_dims(&self) -> Vec<usize> {
+        match self {
+            Value::Num(a) => a.dims(),
+            _ => {
+                let (r, c) = self.dims();
+                vec![r, c]
+            }
+        }
     }
     /// As a numeric array (char → codes).
     pub fn arr(&self) -> R<Arr> {
@@ -164,6 +223,7 @@ impl Value {
             Value::Cell { .. } => Err("a cell array cannot be used as a number (use {} to get its contents)".into()),
             Value::Struct { .. } => Err("a structure cannot be used as a number".into()),
             Value::Func(_) => Err("a function handle cannot be used as a number (call it with ( ))".into()),
+            Value::Obj(o) => Err(format!("a {} object cannot be used as a number", o.class)),
         }
     }
     pub fn scalar(&self) -> R<f64> {
@@ -209,8 +269,103 @@ fn idx(a: &Arr, i: usize, j: usize) -> usize {
     (if a.c == 1 { 0 } else { j }) * a.r + if a.r == 1 { 0 } else { i }
 }
 
+/// The extents n subscripts see: missing dimensions are 1, the last subscript folds the rest.
+pub fn fold_dims(d: &[usize], n: usize) -> Vec<usize> {
+    let mut e: Vec<usize> = (0..n).map(|k| *d.get(k).unwrap_or(&1)).collect();
+    if d.len() > n && n > 0 {
+        e[n - 1] = d[n - 1..].iter().product();
+    }
+    e
+}
+
+/// Linear positions of every combination of subscripts (the first varies fastest).
+pub fn nd_positions(e: &[usize], subs: &[Vec<usize>]) -> Vec<usize> {
+    let st = strides(e);
+    let total: usize = subs.iter().map(|s| s.len()).product();
+    let mut out = Vec::with_capacity(total);
+    if total == 0 {
+        return out;
+    }
+    let mut ctr = vec![0usize; subs.len()];
+    loop {
+        out.push(ctr.iter().enumerate().map(|(k, &c)| subs[k][c] * st[k]).sum());
+        let mut k = 0;
+        loop {
+            if k == ctr.len() {
+                return out;
+            }
+            ctr[k] += 1;
+            if ctr[k] < subs[k].len() {
+                break;
+            }
+            ctr[k] = 0;
+            k += 1;
+        }
+    }
+}
+
+/// Strides of a column-major array.
+pub fn strides(d: &[usize]) -> Vec<usize> {
+    let mut s = vec![1; d.len()];
+    for k in 1..d.len() {
+        s[k] = s[k - 1] * d[k - 1];
+    }
+    s
+}
+
+/// The output dimensions of implicit expansion across any number of dimensions.
+fn broadcast_nd(a: &[usize], b: &[usize]) -> R<Vec<usize>> {
+    let n = a.len().max(b.len());
+    (0..n)
+        .map(|k| {
+            let (x, y) = (*a.get(k).unwrap_or(&1), *b.get(k).unwrap_or(&1));
+            if x == y || y == 1 {
+                Ok(x)
+            } else if x == 1 {
+                Ok(y)
+            } else {
+                Err(format!("sizes do not match: {} and {}", a.iter().map(|v| v.to_string()).collect::<Vec<_>>().join("×"), b.iter().map(|v| v.to_string()).collect::<Vec<_>>().join("×")))
+            }
+        })
+        .collect()
+}
+
+/// For every output element, the linear indices into a and b (singleton dimensions repeat).
+fn nd_pairs(da: &[usize], db: &[usize], out: &[usize]) -> Vec<(usize, usize)> {
+    let (sa, sb) = (strides(da), strides(db));
+    let total: usize = out.iter().product();
+    let mut sub = vec![0usize; out.len()];
+    let mut pairs = Vec::with_capacity(total);
+    for _ in 0..total {
+        let (mut ia, mut ib) = (0, 0);
+        for k in 0..out.len() {
+            if *da.get(k).unwrap_or(&1) > 1 {
+                ia += sub[k] * sa[k];
+            }
+            if *db.get(k).unwrap_or(&1) > 1 {
+                ib += sub[k] * sb[k];
+            }
+        }
+        pairs.push((ia, ib));
+        for k in 0..out.len() {
+            sub[k] += 1;
+            if sub[k] < out[k] {
+                break;
+            }
+            sub[k] = 0;
+        }
+    }
+    pairs
+}
+
 /// Element-wise with implicit expansion.
 pub fn elementwise(a: &Arr, b: &Arr, f: &dyn Fn(f64, f64) -> f64) -> R<Arr> {
+    if !a.nd.is_empty() || !b.nd.is_empty() {
+        let (da, db) = (a.dims(), b.dims());
+        let out = broadcast_nd(&da, &db)?;
+        let re = nd_pairs(&da, &db, &out).into_iter().map(|(i, j)| f(a.re[i], b.re[j])).collect();
+        return Ok(Arr::with_dims(re, &out));
+    }
     let (r, c) = broadcast(a, b)?;
     let mut re = Vec::with_capacity(r * c);
     for j in 0..c {
@@ -222,6 +377,16 @@ pub fn elementwise(a: &Arr, b: &Arr, f: &dyn Fn(f64, f64) -> f64) -> R<Arr> {
 }
 
 pub fn elementwise_c(a: &Arr, b: &Arr, f: &dyn Fn(C64, C64) -> C64) -> R<Arr> {
+    if !a.nd.is_empty() || !b.nd.is_empty() {
+        let (da, db) = (a.dims(), b.dims());
+        let out = broadcast_nd(&da, &db)?;
+        let v: Vec<C64> = nd_pairs(&da, &db, &out).into_iter().map(|(i, j)| f(a.at_c(i), b.at_c(j))).collect();
+        let mut r = Arr::from_c(1, v.len(), &v);
+        let im = r.im.take();
+        let mut r2 = Arr::with_dims(r.re, &out);
+        r2.im = im;
+        return Ok(r2);
+    }
     let (r, c) = broadcast(a, b)?;
     let mut out = Vec::with_capacity(r * c);
     for j in 0..c {
@@ -243,6 +408,9 @@ fn cpow(a: C64, b: C64) -> C64 {
 pub fn matmul(a: &Arr, b: &Arr) -> R<Arr> {
     if a.len() == 1 || b.len() == 1 {
         return binary(Bin::EMul, a, b);
+    }
+    if !a.nd.is_empty() || !b.nd.is_empty() {
+        return Err("matrix multiplication needs 2-D arrays; use .* or pagemtimes for N-D arrays".into());
     }
     if a.c != b.r {
         return Err(format!("inner matrix dimensions must agree: {}×{} * {}×{}", a.r, a.c, b.r, b.c));
@@ -437,17 +605,21 @@ pub fn binary(op: Bin, a: &Arr, b: &Arr) -> R<Arr> {
 }
 
 pub fn negate(a: &Arr) -> Arr {
-    Arr { r: a.r, c: a.c, re: a.re.iter().map(|v| -v).collect(), im: a.im.as_ref().map(|im| im.iter().map(|v| -v).collect()), logical: false }
+    Arr { r: a.r, c: a.c, re: a.re.iter().map(|v| -v).collect(), im: a.im.as_ref().map(|im| im.iter().map(|v| -v).collect()), logical: false, nd: a.nd.clone() }
 }
 
 /// Applies a real function element-wise (complex inputs use `fc` when given).
 pub fn map(a: &Arr, f: &dyn Fn(f64) -> f64) -> Arr {
-    Arr::new(a.r, a.c, a.re.iter().map(|v| f(*v)).collect())
+    let mut out = Arr::new(a.r, a.c, a.re.iter().map(|v| f(*v)).collect());
+    out.nd = a.nd.clone();
+    out
 }
 
 pub fn map_c(a: &Arr, f: &dyn Fn(C64) -> C64) -> Arr {
     let v: Vec<C64> = a.to_c().into_iter().map(f).collect();
-    Arr::from_c(a.r, a.c, &v)
+    let mut out = Arr::from_c(a.r, a.c, &v);
+    out.nd = a.nd.clone();
+    out
 }
 
 // ───────────────────────── display
@@ -481,6 +653,28 @@ pub fn display(name: &str, v: &Value) -> String {
         Value::Num(a) => {
             if a.is_empty() {
                 return format!("{name} =\n\n     []\n");
+            }
+            if !a.nd.is_empty() {
+                // One page per index of the third and later dimensions.
+                let d = a.nd.clone();
+                let page = d[0] * d[1];
+                let pages = a.len() / page.max(1);
+                let mut out = String::new();
+                for p in 0..pages.min(50) {
+                    let mut rest = p;
+                    let mut subs = Vec::new();
+                    for &k in &d[2..] {
+                        subs.push(rest % k + 1);
+                        rest /= k;
+                    }
+                    let mut pa = Arr::new(d[0], d[1], a.re[p * page..(p + 1) * page].to_vec());
+                    pa.im = a.im.as_ref().map(|im| im[p * page..(p + 1) * page].to_vec());
+                    pa.logical = a.logical;
+                    let label = format!("{name}(:,:,{})", subs.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(","));
+                    out.push_str(&display(&label, &Value::Num(pa)));
+                    out.push('\n');
+                }
+                return out;
             }
             if a.len() == 1 {
                 let s = match &a.im {
@@ -533,6 +727,11 @@ pub fn display(name: &str, v: &Value) -> String {
             }
         }
         Value::Func(f) => format!("{name} = {}\n", func_text(f)),
+        Value::Obj(o) => match &o.data {
+            ObjData::Lti(g) => super::lti::display(name, g),
+            ObjData::User(i) => super::classes::display_instance(name, i),
+            ObjData::Gfx(r) => format!("{name} = \n\n  {}×{} {}\n", if r.is_empty() { 0 } else { 1 }, r.len(), o.class),
+        },
     }
 }
 
@@ -540,7 +739,7 @@ pub fn func_text(f: &Func) -> String {
     match f {
         Func::Named(n) => format!("@{n}"),
         Func::User(u) => format!("@{}", u.name),
-        Func::Anon { params, .. } => format!("@({}) …", params.join(", ")),
+        Func::Anon { params, body, .. } => format!("@({}) {}", params.join(", "), super::session::expr_src(body)),
     }
 }
 
@@ -557,5 +756,6 @@ pub fn short(v: &Value) -> String {
         Value::Cell { r, c, .. } => format!("{{{r}×{c} cell}}"),
         Value::Struct { r, c, .. } => format!("[{r}×{c} struct]"),
         Value::Func(f) => func_text(f),
+        Value::Obj(o) => format!("[1×1 {}]", o.class),
     }
 }

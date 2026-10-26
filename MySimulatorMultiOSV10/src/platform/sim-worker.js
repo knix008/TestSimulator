@@ -60,6 +60,9 @@ self.onmessage = async (event) => {
     if (message.type === 'run') {
       const bytes = call('sm_run', message.model);
       self.postMessage({ type: 'result', bytes: bytes.buffer }, [bytes.buffer]);
+    } else if (message.type === 'matlab') {
+      const bytes = call('sm_matlab', message.request);
+      self.postMessage({ type: 'matlab', reply: decoder.decode(bytes) });
     } else if (message.type === 'validate') {
       const bytes = call('sm_validate', message.model);
       self.postMessage({ type: 'validated', problems: JSON.parse(decoder.decode(bytes)) });

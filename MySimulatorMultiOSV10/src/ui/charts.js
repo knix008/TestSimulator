@@ -87,6 +87,10 @@ export function drawLineChart(canvas, series, opts = {}) {
     const cx = (x0 + x1) / 2; const cy = (y0 + y1) / 2;
     x0 = cx - (k * plotW) / 2; x1 = cx + (k * plotW) / 2; y0 = cy - (k * plotH) / 2; y1 = cy + (k * plotH) / 2;
   }
+  // Fixed axis limits (MATLAB xlim / ylim).
+  const lim = (l, t) => (Array.isArray(l) && l.length === 2 && Number.isFinite(t(l[0])) && Number.isFinite(t(l[1])) && t(l[1]) > t(l[0]) ? [t(l[0]), t(l[1])] : null);
+  const xl = lim(opts.xLim, tx); if (xl) [x0, x1] = xl;
+  const yl = lim(opts.yLim, ty); if (yl) [y0, y1] = yl;
   const sx = (x) => left + ((x - x0) / (x1 - x0)) * plotW;
   const sy = (y) => top + plotH - ((y - y0) / (y1 - y0)) * plotH;
   ctx.font = '11px "Segoe UI", sans-serif';
@@ -181,6 +185,8 @@ export function drawLineChart(canvas, series, opts = {}) {
       ctx.globalAlpha = 1;
       return;
     }
+    // MATLAB line specs: a dash pattern and point markers.
+    ctx.setLineDash(s.dash ?? []);
     ctx.beginPath();
     let started = false;
     let last = null;
@@ -208,14 +214,41 @@ export function drawLineChart(canvas, series, opts = {}) {
       const base = sy(opts.logY ? y0 : Math.max(y0, Math.min(0, y1)));
       ctx.lineTo(last[0], base); ctx.lineTo(first[0], base); ctx.closePath();
       ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1;
-    } else ctx.stroke();
-    if (pts.length < 40 && mode === 'line') {
+    } else if (!s.noLine) ctx.stroke();
+    ctx.setLineDash([]);
+    if ((pts.length < 40 && mode === 'line' && !s.dash) || s.marker) {
       for (const [px, py] of pts) {
         const x = tx(px); const y = ty(py);
         if (Number.isFinite(x) && Number.isFinite(y)) { ctx.beginPath(); ctx.arc(sx(x), sy(y), 2.4, 0, Math.PI * 2); ctx.fill(); }
       }
     }
   });
+  // Constant lines (xline / yline) and text labels, in data coordinates.
+  for (const l of opts.lines ?? []) {
+    const v = l.axis === 'x' ? tx(l.value) : ty(l.value);
+    if (!Number.isFinite(v)) continue;
+    ctx.strokeStyle = l.color ?? c.text;
+    ctx.lineWidth = l.width ?? 1;
+    ctx.setLineDash(l.dash ?? []);
+    ctx.beginPath();
+    if (l.axis === 'x') { ctx.moveTo(Math.round(sx(v)) + 0.5, top); ctx.lineTo(Math.round(sx(v)) + 0.5, top + plotH); } else { ctx.moveTo(left, Math.round(sy(v)) + 0.5); ctx.lineTo(left + plotW, Math.round(sy(v)) + 0.5); }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (l.label) {
+      ctx.fillStyle = l.color ?? c.text;
+      ctx.textAlign = l.axis === 'x' ? 'left' : 'right';
+      ctx.fillText(l.label, l.axis === 'x' ? sx(v) + 4 : left + plotW - 4, l.axis === 'x' ? top + 12 : sy(v) - 4);
+    }
+  }
+  for (const t of opts.texts ?? []) {
+    const x = tx(t.x); const y = ty(t.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    ctx.fillStyle = t.color ?? c.text;
+    ctx.textAlign = 'left';
+    if (t.size) ctx.font = `${Math.round(t.size * 1.2)}px "Segoe UI", sans-serif`;
+    ctx.fillText(t.text, sx(x), sy(y) + 4);
+    ctx.font = '11px "Segoe UI", sans-serif';
+  }
   if (opts.marker != null && Number.isFinite(opts.marker)) {
     ctx.strokeStyle = c.text;
     ctx.setLineDash([4, 3]);

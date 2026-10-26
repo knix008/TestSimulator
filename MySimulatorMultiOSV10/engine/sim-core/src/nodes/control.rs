@@ -36,15 +36,15 @@ pub fn poly_add(a: &[f64], b: &[f64]) -> Vec<f64> {
     out
 }
 
-fn poly_scale(a: &[f64], k: f64) -> Vec<f64> {
+pub fn poly_scale(a: &[f64], k: f64) -> Vec<f64> {
     a.iter().map(|v| v * k).collect()
 }
 
-fn poly_pow(a: &[f64], k: usize) -> Vec<f64> {
+pub fn poly_pow(a: &[f64], k: usize) -> Vec<f64> {
     (0..k).fold(vec![1.0], |acc, _| poly_mul(&acc, a))
 }
 
-fn poly_der(a: &[f64]) -> Vec<f64> {
+pub fn poly_der(a: &[f64]) -> Vec<f64> {
     let n = a.len();
     if n <= 1 {
         return vec![0.0];
@@ -66,7 +66,7 @@ pub fn poly_from_roots(roots: &[C64]) -> Vec<f64> {
     c.iter().map(|v| v.re).collect()
 }
 
-fn trim(mut p: Vec<f64>) -> Vec<f64> {
+pub fn trim(mut p: Vec<f64>) -> Vec<f64> {
     let scale = p.iter().fold(0.0f64, |m, v| m.max(v.abs())).max(1e-300);
     while p.len() > 1 && p[0].abs() <= 1e-12 * scale {
         p.remove(0);
@@ -446,9 +446,9 @@ pub fn design(ctx: &mut Ctx) -> Result<Dataset, String> {
 // ───────────────────────── model conversion
 
 /// A SISO model in its three forms.
-struct Siso {
-    num: Vec<f64>,
-    den: Vec<f64>,
+pub struct Siso {
+    pub num: Vec<f64>,
+    pub den: Vec<f64>,
 }
 
 impl Siso {
@@ -459,7 +459,7 @@ impl Siso {
 }
 
 /// C(sI − A)⁻¹B + D as num/den: num = det(sI − A + BC) − det(sI − A) + D·det(sI − A).
-fn ss_to_tf(a: &Mat, b: &[f64], c: &[f64], d: f64) -> Siso {
+pub fn ss_to_tf(a: &Mat, b: &[f64], c: &[f64], d: f64) -> Siso {
     let n = a.len();
     let den = linalg::char_poly(a);
     let mut abc = a.clone();
@@ -473,7 +473,7 @@ fn ss_to_tf(a: &Mat, b: &[f64], c: &[f64], d: f64) -> Siso {
 }
 
 /// G(s) → Gd(z) by the bilinear (Tustin) substitution s = (2/T)(z − 1)/(z + 1).
-fn tustin(g: &Siso, ts: f64) -> Siso {
+pub fn tustin(g: &Siso, ts: f64) -> Siso {
     let n = g.den.len() - 1;
     let sub = |p: &[f64]| -> Vec<f64> {
         let deg = p.len() - 1;
@@ -492,7 +492,7 @@ fn tustin(g: &Siso, ts: f64) -> Siso {
 }
 
 /// Pole–zero matching z = e^{sT}, with the gain matched at DC (or at s = 0 removed poles' frequency).
-fn matched(g: &Siso, ts: f64) -> Siso {
+pub fn matched(g: &Siso, ts: f64) -> Siso {
     let (z, p, _) = g.zpk();
     let zd: Vec<C64> = z.iter().map(|r| r.scale(ts).exp()).collect();
     let pd: Vec<C64> = p.iter().map(|r| r.scale(ts).exp()).collect();
@@ -513,7 +513,7 @@ fn matched(g: &Siso, ts: f64) -> Siso {
 }
 
 /// Zero-order hold (or first-order hold) by the matrix exponential of the augmented system.
-fn hold(g: &Siso, ts: f64, foh: bool) -> Siso {
+pub fn hold(g: &Siso, ts: f64, foh: bool) -> Siso {
     let tf = Tf { num: g.num.clone(), den: g.den.clone() };
     let (a, b, c, d) = tf.to_ss();
     let n = a.len();
@@ -553,7 +553,7 @@ fn hold(g: &Siso, ts: f64, foh: bool) -> Siso {
 }
 
 /// Step response of a discrete transfer function (difference equation).
-fn dstep(g: &Siso, steps: usize) -> Vec<f64> {
+pub fn dstep(g: &Siso, steps: usize) -> Vec<f64> {
     let nd = g.den.len();
     let mut num = vec![0.0; nd - g.num.len()];
     num.extend(&g.num);

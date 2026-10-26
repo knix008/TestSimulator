@@ -19,7 +19,7 @@ pub enum Tok {
     Eof,
 }
 
-const KEYWORDS: &[&str] = &["if", "elseif", "else", "end", "for", "parfor", "while", "switch", "case", "otherwise", "function", "return", "break", "continue", "try", "catch", "global", "persistent", "do", "until"];
+const KEYWORDS: &[&str] = &["if", "elseif", "else", "end", "for", "parfor", "while", "switch", "case", "otherwise", "function", "return", "break", "continue", "try", "catch", "global", "persistent", "do", "until", "classdef"];
 const OPS: &[&str] = &[".^", ".*", "./", ".\\", ".'", "==", "~=", "!=", "<=", ">=", "&&", "||", "+", "-", "*", "/", "\\", "^", "'", "<", ">", "&", "|", "~", "!", "=", "(", ")", "[", "]", "{", "}", ":", ".", "@"];
 /// Words that take command syntax when followed by a bare word (`hold on`, `format long`).
 const COMMANDS: &[&str] = &["hold", "grid", "format", "close", "clc", "clear", "figure", "axis", "warning", "more", "disp", "box", "drawnow", "pkg", "clearvars", "echo", "rng"];
@@ -339,6 +339,8 @@ pub enum Expr {
     DynField(Box<Expr>, Box<Expr>),
     Anon(Rc<Vec<String>>, Rc<Expr>),
     Handle(String),
+    /// obj@Super(args) in a constructor, or method@Super(obj, args).
+    SuperCall(String, String, Vec<Expr>),
 }
 
 #[derive(Clone, Debug)]
@@ -367,6 +369,29 @@ pub struct Function {
 pub struct Program {
     pub body: Vec<Stmt>,
     pub functions: Vec<Rc<Function>>,
+    pub classes: Vec<Rc<ClassDef>>,
+}
+
+/// One property: name, default value, attributes (Constant, Dependent, Access …).
+#[derive(Clone, Debug)]
+pub struct PropDef {
+    pub name: String,
+    pub default: Option<Expr>,
+    pub constant: bool,
+    pub dependent: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ClassDef {
+    pub name: String,
+    pub supers: Vec<String>,
+    pub props: Vec<PropDef>,
+    pub methods: Vec<Rc<Function>>,
+    pub statics: Vec<Rc<Function>>,
+    pub events: Vec<String>,
+    /// Enumeration members: name and constructor arguments.
+    pub enums: Vec<(String, Vec<Expr>)>,
+    pub abstract_class: bool,
 }
 
 struct Parser {
@@ -873,7 +898,32 @@ impl Parser {
             Tok::Num(v) => Ok(Expr::Num(v)),
             Tok::Imag(v) => Ok(Expr::Imag(v)),
             Tok::Str(s) | Tok::DStr(s) => Ok(Expr::Str(s)),
-            Tok::Ident(n) => Ok(Expr::Ident(n)),
+            Tok::Ident(n) => {
+                // obj@Super(args) / method@Super(args)
+                if self.is_op("@") && !self.t[self.p].space_before && matches!(self.peek_at(1), Tok::Ident(_)) {
+                    self.next();
+                    let mut sup = match self.next() {
+                        Tok::Ident(s) => s,
+                        _ => unreachable!(),
+                    };
+                    while self.is_op(".") {
+                        if let Tok::Ident(m) = self.peek_at(1).clone() {
+                            self.p += 2;
+                            sup = format!("{sup}.{m}");
+                        } else {
+                            break;
+                        }
+                    }
+                    let args = if self.is_op("(") {
+                        self.next();
+                        self.args(")")?
+                    } else {
+                        Vec::new()
+                    };
+                    return Ok(Expr::SuperCall(n, sup, args));
+                }
+                Ok(Expr::Ident(n))
+            }
             Tok::Kw("end") if self.index_depth > 0 => Ok(Expr::End),
             Tok::Op("(") => {
                 let saved = (self.index_depth, self.in_matrix);
@@ -965,6 +1015,16 @@ impl Parser {
                 name = first;
             }
         }
+        // get.Prop / set.Prop accessors (and other dotted names) in classdef methods.
+        let mut name = name;
+        while self.is_op(".") {
+            if let Tok::Ident(m) = self.peek_at(1).clone() {
+                self.p += 2;
+                name = format!("{name}.{m}");
+            } else {
+                break;
+            }
+        }
         let mut params = Vec::new();
         if self.eat_op("(") {
             while !self.is_op(")") {
@@ -982,6 +1042,182 @@ impl Parser {
             self.next();
         }
         Ok(Function { name, params, outputs, body })
+    }
+
+    /// "(Static, Access = private)" after a block keyword: the words in it.
+    fn attributes(&mut self) -> Vec<String> {
+        let mut words = Vec::new();
+        if !self.is_op("(") {
+            return words;
+        }
+        let mut depth = 0;
+        loop {
+            match self.next() {
+                Tok::Op("(") => depth += 1,
+                Tok::Op(")") => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                Tok::Ident(w) => words.push(w.to_ascii_lowercase()),
+                Tok::Eof => break,
+                _ => {}
+            }
+        }
+        words
+    }
+
+    fn classdef(&mut self) -> Result<ClassDef, String> {
+        let line = self.line();
+        self.next();
+        let class_attrs = self.attributes();
+        let name = match self.next() {
+            Tok::Ident(n) => n,
+            t => return Err(format!("line {line}: expected the class name after classdef, found {}", describe(&t))),
+        };
+        let mut supers = Vec::new();
+        if self.eat_op("<") {
+            loop {
+                let mut sup = match self.next() {
+                    Tok::Ident(s) => s,
+                    t => return Err(format!("line {line}: expected a superclass, found {}", describe(&t))),
+                };
+                while self.is_op(".") {
+                    if let Tok::Ident(m) = self.peek_at(1).clone() {
+                        self.p += 2;
+                        sup = format!("{sup}.{m}");
+                    } else {
+                        break;
+                    }
+                }
+                supers.push(sup);
+                if !self.eat_op("&") {
+                    break;
+                }
+            }
+        }
+        let mut def = ClassDef { name, supers, props: Vec::new(), methods: Vec::new(), statics: Vec::new(), events: Vec::new(), enums: Vec::new(), abstract_class: class_attrs.iter().any(|w| w == "abstract") };
+        loop {
+            self.skip_newlines();
+            let tok = self.peek().clone();
+            match tok {
+                Tok::Kw("end") => {
+                    self.next();
+                    break;
+                }
+                Tok::Ident(section) if section == "properties" => {
+                    self.next();
+                    let attrs = self.attributes();
+                    let constant = attrs.iter().any(|w| w == "constant");
+                    let dependent = attrs.iter().any(|w| w == "dependent");
+                    loop {
+                        self.skip_newlines();
+                        if self.is_kw("end") {
+                            self.next();
+                            break;
+                        }
+                        let pname = match self.next() {
+                            Tok::Ident(n) => n,
+                            t => return Err(format!("line {}: expected a property name, found {}", self.line(), describe(&t))),
+                        };
+                        // Skip size, class and validators: x (1,1) double {mustBePositive} = 3
+                        let mut depth = 0;
+                        let mut default = None;
+                        loop {
+                            match self.peek() {
+                                Tok::Op("(") | Tok::Op("[") | Tok::Op("{") => {
+                                    depth += 1;
+                                    self.next();
+                                }
+                                Tok::Op(")") | Tok::Op("]") | Tok::Op("}") => {
+                                    depth -= 1;
+                                    self.next();
+                                }
+                                Tok::Op("=") if depth == 0 => {
+                                    self.next();
+                                    default = Some(self.expr()?);
+                                    break;
+                                }
+                                Tok::Newline | Tok::Semi | Tok::Eof if depth == 0 => break,
+                                Tok::Comma if depth == 0 => break,
+                                _ => {
+                                    self.next();
+                                }
+                            }
+                        }
+                        self.end_of_statement();
+                        def.props.push(PropDef { name: pname, default, constant, dependent });
+                    }
+                }
+                Tok::Ident(section) if section == "methods" => {
+                    self.next();
+                    let attrs = self.attributes();
+                    let is_static = attrs.iter().any(|w| w == "static");
+                    loop {
+                        self.skip_newlines();
+                        if self.is_kw("end") {
+                            self.next();
+                            break;
+                        }
+                        if self.is_kw("function") {
+                            let f = Rc::new(self.function()?);
+                            if is_static {
+                                def.statics.push(f);
+                            } else {
+                                def.methods.push(f);
+                            }
+                            continue;
+                        }
+                        // A method signature declared here and defined in its own file: skip the line.
+                        while !matches!(self.peek(), Tok::Newline | Tok::Semi | Tok::Eof) {
+                            self.next();
+                        }
+                    }
+                }
+                Tok::Ident(section) if section == "events" => {
+                    self.next();
+                    self.attributes();
+                    loop {
+                        self.skip_newlines();
+                        if self.is_kw("end") {
+                            self.next();
+                            break;
+                        }
+                        match self.next() {
+                            Tok::Ident(e) => def.events.push(e),
+                            Tok::Eof => return Err("an events block has no end".into()),
+                            _ => {}
+                        }
+                    }
+                }
+                Tok::Ident(section) if section == "enumeration" => {
+                    self.next();
+                    loop {
+                        self.skip_newlines();
+                        if self.is_kw("end") {
+                            self.next();
+                            break;
+                        }
+                        let member = match self.next() {
+                            Tok::Ident(e) => e,
+                            Tok::Eof => return Err("an enumeration block has no end".into()),
+                            _ => continue,
+                        };
+                        let args = if self.is_op("(") {
+                            self.next();
+                            self.args(")")?
+                        } else {
+                            Vec::new()
+                        };
+                        def.enums.push((member, args));
+                    }
+                }
+                Tok::Eof => return Err(format!("line {line}: classdef {} is not closed by end", def.name)),
+                t => return Err(format!("line {}: unexpected {} in classdef (properties, methods, events, enumeration)", self.line(), describe(&t))),
+            }
+        }
+        Ok(def)
     }
 }
 
@@ -1014,16 +1250,18 @@ pub fn parse(src: &str) -> Result<Program, String> {
     let mut p = Parser { t: tokens, p: 0, index_depth: 0, in_matrix: 0 };
     let mut body = Vec::new();
     let mut functions = Vec::new();
+    let mut classes = Vec::new();
     loop {
         p.skip_newlines();
         match p.peek() {
             Tok::Eof => break,
             Tok::Kw("function") => functions.push(Rc::new(p.function()?)),
+            Tok::Kw("classdef") => classes.push(Rc::new(p.classdef()?)),
             Tok::Kw(k @ ("end" | "else" | "elseif" | "case" | "otherwise" | "catch" | "until")) => return Err(format!("line {}: \"{k}\" without an opening statement", p.line())),
             _ => body.push(p.statement()?),
         }
     }
-    Ok(Program { body, functions })
+    Ok(Program { body, functions, classes })
 }
 
 #[cfg(test)]

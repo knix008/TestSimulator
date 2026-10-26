@@ -4,7 +4,7 @@
 
 - **3층 구조** — 코어 엔진(Rust `sim-core`: 수치 연산, 신호 분석, ODE, 최적화, 신경망) · 연동 층(CSV/JSON 파일, Python 스크립트, 명령줄 도구, 배치 CLI) · GUI(노드 편집기, 대시보드, 보고서).
 - **노드 65종**
-  - MATLAB: **MATLAB/Octave 스크립트 노드**(내장 인터프리터 — 행렬·복소수·셀·구조체·함수 핸들·스크립트 안 함수, ode45·fsolve·fft·butter·lqr 등 내장 함수 약 400개, plot·surf 그림이 차트로), MAT 파일 v5·v7·v7.3(HDF5) 읽기와 v5 쓰기(셀·구조체·문자·희소·복소수·N차원)
+  - MATLAB: **MATLAB/Octave 스크립트 노드**(내장 인터프리터 — 행렬·N차원 배열·복소수·셀·구조체·함수 핸들·스크립트 안 함수·classdef 클래스·정규식·tf/zpk/ss 객체, ode45·fsolve·fft·butter·lqr 등 내장 함수 약 400개, plot·surf 그림이 차트로), MAT 파일 v5·v7·v7.3(HDF5) 읽기와 v5 쓰기(셀·구조체·문자·희소·복소수·N차원)
   - 소스: 신호 발생기(정현·구형·처프·펄스·잡음 …), CSV 데이터 표, 파일 데이터(Excel · WAV · STL · MATLAB .mat · PNG), 난수 표본(분포 10종), 함수 표본
   - 데이터: 계산 열(수식), 행 거르기, 열 선택·정렬, 표 합치기, 재표본화, 미분·적분
   - 신호 처리: FFT(주 주파수·THD), Welch PSD, 필터(버터워스·체비셰프 I/II·타원·베셀 IIR 영위상 · FIR · 이동 평균 · 중앙값 · 지수), 스펙트로그램, 피크(감쇠비), 상관, 힐베르트 포락선, 웨이블릿(DWT 잡음 제거·다해상도, CWT 스케일로그램), 표본율 변환(decimate·interp·resample)

@@ -454,6 +454,58 @@ try {
     await js('window.__mysim.run("closeOthers")');
   });
 
+  await step('MATLAB desktop: editor F5, command window, workspace, figures, history', async () => {
+    await openSample('matlabScripts');
+    // A direct click: earlier drag steps can leave the synthetic mouse in a state that eats the first press.
+    await js('window.__mysim.query("[data-testid=view-matlab]").click()');
+    await sleep(150);
+    assert((await state()).view === 'matlab', 'the MATLAB view');
+    assert(await js('window.__mysim.query("[data-testid=left-panel]").getBoundingClientRect().width') < 1, 'the node panels step aside');
+    const idle = () => waitFor(() => js('!window.__mysim.doc().mlab?.busy'), 60000, 100);
+    const command = async (text) => {
+      await js(`(() => { const ta = window.__mysim.query('[data-testid=ml-input]'); ta.value = ${JSON.stringify(text)}; ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()`);
+      await sleep(100);
+      await idle();
+    };
+    await js('window.__mysim.query("[data-testid=ml-new-script]").click()');
+    await sleep(100);
+    await js(`(() => { const ta = window.__mysim.query('[data-testid=ml-code]'); ta.value = "x = 0:0.5:2;\\ny = x.^2;\\nplot(x, y, 'r--o'); title('sq')\\ntotal = sum(y)\\n"; ta.dispatchEvent(new Event('input', { bubbles: true })); ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'F5', bubbles: true })); })()`);
+    await sleep(100);
+    await idle();
+    await command('A = magic(3);');
+    await command('d = det(A)');
+    await command('bad(');
+    const r = await js(`(() => { const d = window.__mysim.doc(); const log = [...window.__mysim.query('[data-testid=ml-log]').querySelectorAll('pre')].map((p) => p.textContent).join('\\n');
+      return { log, vars: d.mlab.vars.map((v) => v.name), figs: d.mlab.figures.length, style: d.mlab.figures[0]?.series[0]?.style, hist: d.mlab.history, files: (d.model.matlab?.files ?? []).map((f) => f.name) }; })()`);
+    assert(r.log.includes('total = 7.5000'), r.log);
+    assert(r.log.includes('d = -360'), r.log);
+    assert(/Error: .*/.test(r.log.split('\n').pop()), 'syntax error shown');
+    for (const v of ['A', 'd', 'total', 'x', 'y']) assert(r.vars.includes(v), `workspace ${v}: ${r.vars}`);
+    assert(r.figs === 1 && r.style === 'r--o', `figure ${r.figs} ${r.style}`);
+    assert(r.hist.length === 3, `history ${r.hist}`);
+    assert(r.files.includes('untitled.m'), `files ${r.files}`);
+    // The figure is drawn and the variable editor opens on a double-click.
+    assert(await js('window.__mysim.query("[data-testid=ml-figure]").width > 100'), 'figure canvas');
+    await js(`window.__mysim.query('[data-testid=ml-var-A]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+    assert(await js('Boolean(document.querySelector("[data-testid=ml-var-editor]"))'), 'variable editor');
+    await js('document.querySelector(".ml-var-backdrop")?.remove()');
+    // An app: uifigure with a slider whose callback updates a label and the plot; handles take set/get.
+    await command("f = uifigure('Name', 'Gain'); lbl = uilabel(f, 'Text', 'k = 1'); s = uislider(f, 'Limits', [1 5], 'Value', 1); ax = uiaxes(f); h = plot(ax, 0:4, 0:4); s.ValueChangedFcn = @(src, e) set(lbl, 'Text', sprintf('k = %g', e.Value)); h.LineWidth = 2; msgbox('ready');");
+    const app = await js(`(() => { const d = window.__mysim.doc().mlab; const f = d.figures[d.figures.length - 1]; return { n: f.controls.length, slider: f.controls.find((c) => c.style === 'slider')?.id, label: f.controls.find((c) => c.style === 'label')?.id, ui: Boolean(window.__mysim.query('[data-testid=ml-app]')), dialog: window.__mysim.query('[data-testid=ml-dialog]')?.textContent ?? '' }; })()`);
+    assert(app.n === 2 && app.ui, `app window ${JSON.stringify(app)}`);
+    assert(app.dialog.includes('ready'), `msgbox ${app.dialog}`);
+    await js(`(() => { const el = window.__mysim.query('[data-testid=ml-ctl-${app.slider}] input'); el.value = '3'; el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await sleep(100);
+    await idle();
+    const label = await js(`window.__mysim.query('[data-testid=ml-ctl-${app.label}]').textContent`);
+    assert(label === 'k = 3', `the callback ran: ${label}`);
+    if (process.env.E2E_SHOT) await cdp.screenshot(process.env.E2E_SHOT);
+    await command('w = get(h, "LineWidth")');
+    assert((await js(`[...window.__mysim.query('[data-testid=ml-log]').querySelectorAll('pre')].map((p) => p.textContent).join('\\n')`)).includes('w = 2'), 'get on a handle');
+    await clickSel('[data-testid=view-graph]');
+    await js('window.__mysim.run("closeOthers")');
+  });
+
   await step('sweep sample: the overshoot falls as Kd grows', async () => {
     await openSample('pidSweep');
     await runAndWait();

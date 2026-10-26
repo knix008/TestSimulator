@@ -24,7 +24,7 @@ const opt = (value, ko, en = ko) => [value, ko, en];
 const IN = [{ port: 'in', ko: '입력', en: 'Input' }];
 
 const WINDOWS = [opt('hann', 'Hann'), opt('hamming', 'Hamming'), opt('blackman', 'Blackman'), opt('flattop', 'Flat top'), opt('bartlett', 'Bartlett'), opt('rect', '사각(없음)', 'Rectangular (none)')];
-const METHODS = [opt('rk45', 'ode45 · RK45 (적응형)', 'ode45 · RK45 (adaptive)'), opt('ode23', 'ode23 · RK23 (적응형)', 'ode23 · RK23 (adaptive)'), opt('ode15s', 'ode15s · TR-BDF2 (강성)', 'ode15s · TR-BDF2 (stiff)'), opt('ode23s', 'ode23s · 로젠브록 (강성)', 'ode23s · Rosenbrock (stiff)'), opt('rk4', 'RK4 (고정 간격)', 'RK4 (fixed step)'), opt('euler', '오일러', 'Euler')];
+const METHODS = [opt('rk45', 'ode45 · RK45 (적응형)', 'ode45 · RK45 (adaptive)'), opt('ode23', 'ode23 · RK23 (적응형)', 'ode23 · RK23 (adaptive)'), opt('ode15s', 'ode15s · NDF 가변 차수 (강성)', 'ode15s · variable-order NDF (stiff)'), opt('ode23s', 'ode23s · 로젠브록 (강성)', 'ode23s · Rosenbrock (stiff)'), opt('ode23tb', 'ode23tb · TR-BDF2 (강성)', 'ode23tb · TR-BDF2 (stiff)'), opt('rk4', 'RK4 (고정 간격)', 'RK4 (fixed step)'), opt('euler', '오일러', 'Euler')];
 const AGGREGATES = ['last', 'max', 'min', 'mean', 'rms', 'std', 'absmax', 'range', 'median', 'sum', 'first', 'count', 'p5', 'p95'].map((v) => opt(v, v));
 const TABLE = P('table', 'table', '', '입력 표', 'Input table', { help: ['비우면 첫 번째 표', 'Empty = the first table'] });
 
@@ -235,7 +235,7 @@ export const NODES = [
   // ───────────────────────── dynamics and control
   {
     type: 'dyn.ode', cat: 'dynamics', icon: '⟳', ko: '미분방정식 (ODE)', en: 'Differential equations (ODE)',
-    help: ['"x\' = 식" 으로 상태 방정식을 씁니다. \' 가 없는 줄은 보조 값(출력 열)입니다. 입력 u 를 연결하면 식에서 u 로 씁니다. 적분법: ode45·ode23(적응형), 강성 문제는 ode15s(TR-BDF2)·ode23s(로젠브록). delay(x, τ) 는 τ 초 전의 상태(지연 미분방정식, dde23). 이벤트 줄 "식, falling, stop" 은 식이 0 을 지날 때 멈추고, "y, falling, v = -0.8*v" 는 상태를 바꿔 이어 갑니다(튀는 공).', 'Write the state equations as "x\' = expression". Lines without \' are helper values (also output). Connect u to use an input signal as u. Methods: ode45 and ode23 (adaptive), ode15s (TR-BDF2) and ode23s (Rosenbrock) for stiff problems. delay(x, τ) is the state τ seconds earlier (delay equations, dde23). An event line "expression, falling, stop" stops where the expression crosses zero; "y, falling, v = -0.8*v" resets states and goes on (a bouncing ball).'],
+    help: ['"x\' = 식" 으로 상태 방정식을 씁니다. \' 가 없는 줄은 보조 값(출력 열)입니다. 입력 u 를 연결하면 식에서 u 로 씁니다. 적분법: ode45·ode23(적응형), 강성 문제는 ode15s(가변 차수 NDF)·ode23s(로젠브록)·ode23tb(TR-BDF2). delay(x, τ) 는 τ 초 전의 상태(지연 미분방정식, dde23). 이벤트 줄 "식, falling, stop" 은 식이 0 을 지날 때 멈추고, "y, falling, v = -0.8*v" 는 상태를 바꿔 이어 갑니다(튀는 공).', 'Write the state equations as "x\' = expression". Lines without \' are helper values (also output). Connect u to use an input signal as u. Methods: ode45 and ode23 (adaptive), ode15s (variable-order NDF), ode23s (Rosenbrock) and ode23tb (TR-BDF2) for stiff problems. delay(x, τ) is the state τ seconds earlier (delay equations, dde23). An event line "expression, falling, stop" stops where the expression crosses zero; "y, falling, v = -0.8*v" resets states and goes on (a bouncing ball).'],
     inputs: [{ port: 'u', ko: '입력 u (선택)', en: 'Input u (optional)', optional: true }],
     presets: [
       { id: 'msd', ko: '질량-스프링-댐퍼', en: 'Mass–spring–damper', params: { equations: "x' = v\nv' = (F*sin(w*t) - c*v - k*x)/m\nE = 0.5*m*v^2 + 0.5*k*x^2", constants: 'm = 1, c = 0.4, k = 4, F = 0, w = 2', initial: 'x = 1, v = 0', tEnd: 20, dt: 0.01 } },

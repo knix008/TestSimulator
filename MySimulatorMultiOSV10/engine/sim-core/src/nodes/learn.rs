@@ -149,67 +149,178 @@ impl Svm {
     }
 }
 
-/// Sequential minimal optimisation (Platt, with the second-choice heuristic of Keerthi's simplified variant).
-fn smo(x: &[Vec<f64>], y: &[f64], c: f64, kernel: Kernel, tol: f64, max_passes: usize, rng: &mut crate::rng::Rng) -> Svm {
-    let n = x.len();
-    let kmat: Vec<Vec<f64>> = (0..n).map(|i| (0..n).map(|j| kernel.k(&x[i], &x[j])).collect()).collect();
-    let mut alpha = vec![0.0; n];
-    let mut b = 0.0;
-    let f = |alpha: &[f64], b: f64, i: usize| -> f64 { (0..n).map(|j| alpha[j] * y[j] * kmat[j][i]).sum::<f64>() + b };
-    let mut passes = 0;
-    let mut iter = 0;
-    while passes < max_passes && iter < 20_000 {
-        iter += 1;
-        let mut changed = 0;
-        for i in 0..n {
-            let ei = f(&alpha, b, i) - y[i];
-            if (y[i] * ei < -tol && alpha[i] < c) || (y[i] * ei > tol && alpha[i] > 0.0) {
-                // The partner with the largest |Ei − Ej|, else a random one.
-                let mut j = (0..n).filter(|&j| j != i).max_by(|&p, &q| {
-                    let ep = (f(&alpha, b, p) - y[p] - ei).abs();
-                    let eq = (f(&alpha, b, q) - y[q] - ei).abs();
-                    ep.partial_cmp(&eq).unwrap_or(std::cmp::Ordering::Equal)
-                }).unwrap_or(0);
-                if iter % 3 == 0 {
-                    j = (i + 1 + rng.below(n - 1)) % n;
-                }
-                let ej = f(&alpha, b, j) - y[j];
-                let (ai, aj) = (alpha[i], alpha[j]);
-                let (lo, hi) = if y[i] != y[j] { ((aj - ai).max(0.0), (c + aj - ai).min(c)) } else { ((ai + aj - c).max(0.0), (ai + aj).min(c)) };
-                if lo >= hi {
-                    continue;
-                }
-                let eta = 2.0 * kmat[i][j] - kmat[i][i] - kmat[j][j];
-                if eta >= 0.0 {
-                    continue;
-                }
-                let mut nj = aj - y[j] * (ei - ej) / eta;
-                nj = nj.clamp(lo, hi);
-                if (nj - aj).abs() < 1e-7 {
-                    continue;
-                }
-                let ni = ai + y[i] * y[j] * (aj - nj);
-                let b1 = b - ei - y[i] * (ni - ai) * kmat[i][i] - y[j] * (nj - aj) * kmat[i][j];
-                let b2 = b - ej - y[i] * (ni - ai) * kmat[i][j] - y[j] * (nj - aj) * kmat[j][j];
-                b = if ni > 0.0 && ni < c { b1 } else if nj > 0.0 && nj < c { b2 } else { (b1 + b2) / 2.0 };
-                alpha[i] = ni;
-                alpha[j] = nj;
-                changed += 1;
-            }
-        }
-        passes = if changed == 0 { passes + 1 } else { 0 };
-    }
-    let mut sv = Vec::new();
-    let mut coef = Vec::new();
-    for i in 0..n {
-        if alpha[i] > 1e-8 {
-            sv.push(x[i].clone());
-            coef.push(alpha[i] * y[i]);
-        }
-    }
-    Svm { sv, coef, b, kernel }
+//// Kernel rows Q_i = y_i y_j K(x_i, x_j), computed on demand and kept in a bounded cache.
+struct KernelCache<'a> {
+    x: &'a [Vec<f64>],
+    y: &'a [f64],
+    kernel: Kernel,
+    rows: std::collections::HashMap<usize, std::rc::Rc<Vec<f64>>>,
+    order: std::collections::VecDeque<usize>,
+    capacity: usize,
 }
 
+impl<'a> KernelCache<'a> {
+    fn new(x: &'a [Vec<f64>], y: &'a [f64], kernel: Kernel) -> Self {
+        // About 256 MB of rows.
+        let capacity = ((256usize << 20) / (8 * x.len().max(1))).max(2);
+        KernelCache { x, y, kernel, rows: std::collections::HashMap::new(), order: std::collections::VecDeque::new(), capacity }
+    }
+
+    fn row(&mut self, i: usize) -> std::rc::Rc<Vec<f64>> {
+        if let Some(r) = self.rows.get(&i) {
+            return r.clone();
+        }
+        let xi = &self.x[i];
+        let yi = self.y[i];
+        let r: Vec<f64> = (0..self.x.len()).map(|j| yi * self.y[j] * self.kernel.k(xi, &self.x[j])).collect();
+        let r = std::rc::Rc::new(r);
+        if self.rows.len() >= self.capacity {
+            if let Some(old) = self.order.pop_front() {
+                self.rows.remove(&old);
+            }
+        }
+        self.rows.insert(i, r.clone());
+        self.order.push_back(i);
+        r
+    }
+}
+
+/// C-SVC dual by sequential minimal optimisation with LIBSVM's second-order working set
+/// selection (Fan, Chen and Lin 2005): no n × n matrix, so the data size is not capped.
+fn smo(x: &[Vec<f64>], y: &[f64], c: f64, kernel: Kernel, tol: f64, cancel: &dyn Fn() -> bool) -> Result<Svm, String> {
+    let n = x.len();
+    let tau = 1e-12;
+    let mut alpha = vec![0.0; n];
+    let mut grad = vec![-1.0; n];
+    let qd: Vec<f64> = (0..n).map(|i| kernel.k(&x[i], &x[i])).collect();
+    let mut cache = KernelCache::new(x, y, kernel);
+    let up = |a: f64, yi: f64| (yi > 0.0 && a < c) || (yi < 0.0 && a > 0.0);
+    let low = |a: f64, yi: f64| (yi > 0.0 && a > 0.0) || (yi < 0.0 && a < c);
+    let max_iter = (100 * n).max(10_000_000.min(1000 * n));
+    for iter in 0..max_iter {
+        if iter % 1000 == 0 && cancel() {
+            return Err("cancelled".into());
+        }
+        // i: the most violating index in I_up.
+        let mut gmax = f64::NEG_INFINITY;
+        let mut i = usize::MAX;
+        for t in 0..n {
+            if up(alpha[t], y[t]) {
+                let v = -y[t] * grad[t];
+                if v >= gmax {
+                    gmax = v;
+                    i = t;
+                }
+            }
+        }
+        if i == usize::MAX {
+            break;
+        }
+        let qi = cache.row(i);
+        // j: the second-order choice in I_low.
+        let mut gmin = f64::INFINITY;
+        let mut best = f64::INFINITY;
+        let mut j = usize::MAX;
+        for t in 0..n {
+            if !low(alpha[t], y[t]) {
+                continue;
+            }
+            let v = -y[t] * grad[t];
+            gmin = gmin.min(v);
+            let b = gmax - v;
+            if b > 0.0 {
+                let a = qd[i] + qd[t] - 2.0 * y[i] * y[t] * qi[t];
+                let a = if a > 0.0 { a } else { tau };
+                let obj = -(b * b) / a;
+                if obj <= best {
+                    best = obj;
+                    j = t;
+                }
+            }
+        }
+        if gmax - gmin < tol || j == usize::MAX {
+            break;
+        }
+        let qj = cache.row(j);
+        let (oi, oj) = (alpha[i], alpha[j]);
+        if y[i] != y[j] {
+            let quad = (qd[i] + qd[j] + 2.0 * qi[j]).max(tau);
+            let delta = (-grad[i] - grad[j]) / quad;
+            let diff = alpha[i] - alpha[j];
+            alpha[i] += delta;
+            alpha[j] += delta;
+            if diff > 0.0 {
+                if alpha[j] < 0.0 {
+                    alpha[j] = 0.0;
+                    alpha[i] = diff;
+                }
+            } else if alpha[i] < 0.0 {
+                alpha[i] = 0.0;
+                alpha[j] = -diff;
+            }
+            if diff > 0.0 {
+                if alpha[i] > c {
+                    alpha[i] = c;
+                    alpha[j] = c - diff;
+                }
+            } else if alpha[j] > c {
+                alpha[j] = c;
+                alpha[i] = c + diff;
+            }
+        } else {
+            let quad = (qd[i] + qd[j] - 2.0 * qi[j]).max(tau);
+            let delta = (grad[i] - grad[j]) / quad;
+            let sum = alpha[i] + alpha[j];
+            alpha[i] -= delta;
+            alpha[j] += delta;
+            if sum > c {
+                if alpha[i] > c {
+                    alpha[i] = c;
+                    alpha[j] = sum - c;
+                }
+            } else if alpha[j] < 0.0 {
+                alpha[j] = 0.0;
+                alpha[i] = sum;
+            }
+            if sum > c {
+                if alpha[j] > c {
+                    alpha[j] = c;
+                    alpha[i] = sum - c;
+                }
+            } else if alpha[i] < 0.0 {
+                alpha[i] = 0.0;
+                alpha[j] = sum;
+            }
+        }
+        let (di, dj) = (alpha[i] - oi, alpha[j] - oj);
+        for t in 0..n {
+            grad[t] += qi[t] * di + qj[t] * dj;
+        }
+    }
+    // ρ from the free support vectors (else the middle of the feasible range).
+    let (mut sum, mut count, mut ub, mut lb) = (0.0, 0usize, f64::INFINITY, f64::NEG_INFINITY);
+    for t in 0..n {
+        let yg = y[t] * grad[t];
+        if alpha[t] > 0.0 && alpha[t] < c {
+            sum += yg;
+            count += 1;
+        } else if (alpha[t] >= c && y[t] < 0.0) || (alpha[t] <= 0.0 && y[t] > 0.0) {
+            ub = ub.min(yg);
+        } else {
+            lb = lb.max(yg);
+        }
+    }
+    let rho = if count > 0 { sum / count as f64 } else { (ub + lb) / 2.0 };
+    let mut sv = Vec::new();
+    let mut coef = Vec::new();
+    for t in 0..n {
+        if alpha[t] > 1e-12 {
+            sv.push(x[t].clone());
+            coef.push(alpha[t] * y[t]);
+        }
+    }
+    Ok(Svm { sv, coef, b: -rho, kernel })
+}
 pub fn svm(ctx: &mut Ctx) -> Result<Dataset, String> {
     let data = load(ctx, true, ctx.flag("standardize", true))?;
     let d = data.names.len();
@@ -220,9 +331,6 @@ pub fn svm(ctx: &mut Ctx) -> Result<Dataset, String> {
         other => return Err(format!("unknown kernel \"{other}\" (linear, rbf, poly)")),
     };
     let c = ctx.positive("C", 1.0)?;
-    if data.x.len() > 3000 {
-        return Err(format!("{} rows are too many for this SVM (at most 3000)", data.x.len()));
-    }
     let mut rng = ctx.rng();
     let (train, test) = split(data.x.len(), ctx.num("testFraction", 0.25)?.clamp(0.0, 0.9), &mut rng);
     let k = data.classes.len();
@@ -230,14 +338,14 @@ pub fn svm(ctx: &mut Ctx) -> Result<Dataset, String> {
     // One machine (two classes) or one per class against the rest.
     let machines: Vec<Svm> = if k == 2 {
         let yt: Vec<f64> = train.iter().map(|&i| if data.y[i] == 1.0 { 1.0 } else { -1.0 }).collect();
-        vec![smo(&xt, &yt, c, kernel, 1e-3, 5, &mut rng)]
+        vec![smo(&xt, &yt, c, kernel, 1e-3, ctx.cancel)?]
     } else {
         (0..k)
             .map(|cls| {
                 let yt: Vec<f64> = train.iter().map(|&i| if data.y[i] as usize == cls { 1.0 } else { -1.0 }).collect();
-                smo(&xt, &yt, c, kernel, 1e-3, 5, &mut rng)
+                smo(&xt, &yt, c, kernel, 1e-3, ctx.cancel)
             })
-            .collect()
+            .collect::<Result<_, _>>()?
     };
     ctx.check()?;
     let predict = |x: &[f64]| -> (usize, f64) {

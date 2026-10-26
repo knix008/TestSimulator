@@ -177,7 +177,7 @@ ok = if(T > 80, 0, 1)
 
 | 노드 | 결과 |
 | --- | --- |
-| 미분방정식 (ODE) | `x' = 식` 상태 방정식, `'` 없는 줄은 보조 값(출력 열). 상수, 초기값, ode45(RK45)·ode23(적응형), 강성 문제용 ode15s(TR-BDF2)·ode23s(로젠브록), RK4·오일러, 입력 u. `delay(x, τ)` 로 지연 미분방정식(dde23). 이벤트 줄 `식, falling, stop`(그 자리에서 멈춤) 또는 `y, falling, v = -0.8*v`(상태를 바꿔 계속: 튀는 공) — 이벤트 표에 시각과 상태 |
+| 미분방정식 (ODE) | `x' = 식` 상태 방정식, `'` 없는 줄은 보조 값(출력 열). 상수, 초기값, ode45(RK45)·ode23(적응형), 강성 문제용 ode15s(가변 차수 NDF, 1–5차)·ode23s(로젠브록)·ode23tb(TR-BDF2), RK4·오일러, 입력 u. `delay(x, τ)` 로 지연 미분방정식(dde23). 이벤트 줄 `식, falling, stop`(그 자리에서 멈춤) 또는 `y, falling, v = -0.8*v`(상태를 바꿔 계속: 튀는 공) — 이벤트 표에 시각과 상태 |
 | 전달함수 응답 | num/den(높은 차수부터)의 계단·임펄스·램프 응답, 극점·영점, 상승 시간·오버슈트·피크·정착 시간·DC 이득 |
 | 보드·나이퀴스트 | 크기(dB)·위상, 나이퀴스트 곡선, 이득·위상 여유와 교차 주파수, 대역폭, 폐루프 극점·안정, 궁극 이득·주기와 지글러-니콜스 PID 값. 루프 이득, 시간 지연 |
 | PID 제어 루프 | 디지털 PID(미분 필터, 측정값 미분), 출력 포화와 와인드업 방지, 입력 외란, 측정 잡음, 기준 r 입력. r·y·u·e, 성능 지표(오버슈트·정착·IAE·ISE·ITAE) |
@@ -269,6 +269,24 @@ ok = if(T > 80, 0, 1)
 
 ## 5. MATLAB 스크립트
 
+### MATLAB 데스크톱
+
+보기 탭의 **Ⓜ MATLAB**(단축키 5)은 MATLAB 과 같은 배치의 작업 화면입니다. 노드 패널은 비켜나고 다음 창이 나옵니다.
+
+| 창 | 하는 일 |
+| --- | --- |
+| 도구 띠 (홈 · 플롯 · 편집기) | 새 스크립트·새 함수, 열기(.m), 저장, 실행·중지, 작업 공간·명령 지우기, 그림 모두 닫기, 파이프라인 노드로 보내기 / 작업 공간에서 고른 변수로 plot · scatter · bar · stairs · area · stem · histogram · surf · mesh · contour · imagesc / 주석 달기·해제(Ctrl+R · Ctrl+T), 들여쓰기, 선택 실행(F9) |
+| 현재 폴더 | 이 문서의 .m 파일(스크립트·함수 파일)과 파이프라인의 MATLAB 스크립트 노드. 함수 파일은 이름으로 부르고, 스크립트 파일도 이름으로 실행합니다. 파일은 파이프라인 문서(.mysim)에 함께 저장됩니다 |
+| 편집기 | 줄 번호, MATLAB 색(키워드·문자열·주석), 자동 들여쓰기, 탭. F5(또는 Ctrl+Enter) 로 실행 |
+| 그림 | plot·surf 등으로 그린 그림이 Figure 창으로(흰 바탕, MATLAB 선 색, 'r--o' 같은 선 지정, parula). PNG 저장 |
+| 명령 창 | `>>` 에 명령을 쓰고 Enter. ↑ ↓ 로 이전 명령, Shift+Enter 로 여러 줄, Ctrl+C 로 중지, `clc`. 오류는 빨간색 |
+| 작업 공간 | 변수의 이름·값·크기·클래스. 고른 변수로 플롯 탭 그림을 그리고(Ctrl+클릭으로 x·y 두 개), 두 번 누르면 변수 편집기(행렬·문자·구조체·셀) |
+| 명령 기록 | 지금까지의 명령. 두 번 누르면 다시 실행 |
+
+명령 사이에 변수·그림·난수 흐름이 이어집니다(MATLAB 처럼). 웹에서는 별도 작업자(WebAssembly), 데스크톱에서는 네이티브 엔진이 돌리며, 데스크톱에서는 `load`·`save`·`readmatrix` 가 문서 폴더 기준으로 파일을 읽고 씁니다.
+
+### 스크립트 노드
+
 **MATLAB 스크립트** 노드는 MATLAB/Octave 언어를 내장 인터프리터로 실행합니다. MATLAB 이 설치돼 있지 않아도 웹과 데스크톱에서 같은 결과가 나옵니다.
 
 ```matlab
@@ -282,7 +300,12 @@ rmsNoise = std(y - yf)
 - 언어: 행렬·복소수, `:`·`end`·논리 인덱싱, 자라고 지워지는 배열(`A(:, 2) = []`), 문자열, 셀(`c{i}`, `c{:}`), 구조체와 구조체 배열(`s(2).f`), 함수 핸들과 익명 함수, 스크립트 안의 `function`(varargin·nargin·여러 출력), `if/elseif/else`, `for`, `while`, `switch`, `try/catch`, `break/continue/return`, 명령 문법(`hold on`).
 - 내장 함수 약 400개: 배열 만들기와 모양, 수학(복소수 포함), 합·평균·최대·정렬·찾기, 선형대수(`\`, `inv`, `det`, `eig`, `svd`, `qr`, `lu`, `chol`, `expm`, `null`, `pinv`), 다항식(`polyfit`, `roots`, `conv`), 보간과 적분(`interp1`, `spline`, `pchip`, `interp2`, `trapz`, `integral`), ODE(`ode45`, `ode23`, `ode15s`, `ode23s`, `deval`), 최적화(`fzero`, `fminbnd`, `fminsearch`, `fsolve`), 신호(`fft`, `ifft`, `filter`, `filtfilt`, `butter`, `cheby1`, `cheby2`, `ellip`, `freqz`, `xcorr`, 창 함수), 제어(`lqr`, `dlqr`, `lqe`, `care`, `dare`, `place`, `ctrb`, `obsv`), 통계(`std`, `var`, `median`, `cov`, `corrcoef`, `histcounts`, `normcdf`, `tcdf`, `ttest`), 문자열(`sprintf`, `fprintf`, `num2str`, `strsplit`, `strjoin`, `strcmp` …), 셀·구조체(`cellfun`, `arrayfun`, `struct`, `fieldnames` …), 파일(`load`/`save` .mat, `readmatrix`, `writematrix` — 데스크톱).
 - 결과: `plot`·`scatter`·`bar`·`stairs` 등으로 그린 그림은 표(제목·범례 이름 그대로), `surf`·`mesh`·`contour`·`imagesc` 는 격자로 나와 차트 노드에 연결됩니다. 작업 공간의 숫자는 결과 값, 벡터와 행렬은 표, 글·셀·구조체는 결과 글로 나옵니다(입력 그대로인 변수는 빼고, "내보낼 변수" 로 고를 수 있음). 명령 창 출력(`disp`, `fprintf`, 세미콜론 없는 줄)은 결과 글에 있습니다.
-- 지원하지 않는 것: 3차원 이상 배열 연산(읽은 N차원 배열은 쪽으로 나뉩니다), 클래스 정의(classdef), 정규식, 그래픽 핸들 속성(set/get), 툴박스의 객체(tf 객체 등 — 대신 제어·신호 노드를 쓰십시오).
+- N차원 배열: `zeros(2,3,4)`·`reshape`·`cat(3, …)`·`repmat`, `A(i,j,k)` 인덱싱·대입(자람)·`A(:,:,k) = []`, `size`·`ndims`·`squeeze`·`permute`·`ipermute`, 차원을 넘는 암시적 확장(`A .* reshape(w,1,1,[])`), 아무 차원 따라 `sum`·`mean`·`max`·`cumsum` …; 출력은 `A(:,:,k) =` 쪽마다. MAT 파일의 N차원 배열도 그대로 읽고 씁니다.
+- 클래스(classdef): 속성(기본값·Constant·Dependent), 메서드·정적 메서드, 생성자와 상속(`obj@Super(…)`), `handle` 클래스(참조 공유·`delete`·`isvalid`), 값 클래스(복사), `get.X`/`set.X`, 연산자 오버로드(`plus`, `mtimes`, `eq`, `disp` …), 열거형, 이벤트(`addlistener`·`notify`). MATLAB 데스크톱에서는 폴더의 `.m` 파일로 두거나 명령 창에 바로 써도 됩니다.
+- 정규식: `regexp`·`regexpi`(match·tokens·names·start·end·split·once, 이름 있는 그룹 `(?<n>…)`, 앞뒤 보기), `regexprep`(`$1`·`${name}`).
+- 제어 툴박스 객체: `tf`·`zpk`·`ss` 객체와 `+ * / feedback series parallel`, `pole`·`zero`·`dcgain`·`damp`·`c2d`·`d2c`·`pade`·`minreal`, `step`·`impulse`·`lsim`·`stepinfo`·`bode`·`nyquist`·`margin`·`pzmap`·`rlocus`(그림으로).
+- 그래픽 핸들: `figure`·`gcf`·`gca`·`plot`·`surf`·`text`·`xline`·`title` … 이 핸들을 돌려줍니다. `set`/`get`, `h.LineWidth = 2`, `ax.Title.String = '…'`, `findobj`, `delete`, `isvalid`, `[h1 h2]` 배열, `legend([h1 h2], …)`, `xlim`·`ylim`·`grid`·`axis`. 선 색·굵기·모양·표식, 축 범위·눈금선·로그 축, 글자와 상수 선이 그림에 그대로 그려집니다.
+- 앱(GUI): `uicontrol`(pushbutton·slider·edit·text·popupmenu·checkbox·radiobutton·togglebutton·listbox)과 `uifigure` 구성 요소(`uibutton`·`uislider`·`uilabel`·`uieditfield`·`uidropdown`·`uicheckbox`·`uispinner`·`uitextarea`·`uigauge`·`uiswitch`, `uiaxes`). MATLAB 데스크톱의 그림 창에 실제 컨트롤로 나오고, 값을 바꾸거나 누르면 `Callback`·`ValueChangedFcn`·`ButtonPushedFcn`(함수 핸들 `@(src, event) …`, `{@f, 인자}`, 또는 코드 글)이 작업 공간에서 실행됩니다. `Position` 이 없는 컨트롤은 왼쪽에 차례로 놓입니다. `msgbox`·`errordlg`·`warndlg`·`uialert` 는 대화 상자로 뜹니다. `questdlg`·`inputdlg`·`uiconfirm` 은 스크립트가 기다릴 수 없어 기본 답을 쓰고 경고를 남깁니다. `eval`·`evalin`·`assignin` 도 됩니다.
 
 ## 6. Python 과 외부 프로그램 연동
 

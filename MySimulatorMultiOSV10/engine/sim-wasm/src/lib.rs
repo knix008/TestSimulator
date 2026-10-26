@@ -7,6 +7,8 @@
 //!   of the result bytes that follow. Release it with `sm_result_free(out)`.
 //! * `sm_validate(ptr, len) -> out`: same framing; payload is a JSON array of
 //!   problem strings.
+//! * `sm_matlab(ptr, len) -> out`: same framing; runs a MATLAB session request
+//!   (sim_core::mlang::session) and returns the reply JSON.
 //!
 //! Imports (module "env"):
 //! * `sm_progress(phase_ptr, phase_len, fraction: f64, msg_ptr, msg_len)`
@@ -86,6 +88,16 @@ pub unsafe extern "C" fn sm_run(ptr: *const u8, len: usize) -> *mut u8 {
     let cancel = || sm_cancelled() != 0;
     let bytes = sim_core::run(json, &mut progress, &cancel, &sim_core::NoHost);
     framed(&bytes)
+}
+
+/// # Safety
+/// `ptr..ptr+len` must be readable UTF-8 JSON (a MATLAB session request).
+#[no_mangle]
+pub unsafe extern "C" fn sm_matlab(ptr: *const u8, len: usize) -> *mut u8 {
+    let json = input(ptr, len);
+    let cancel = || sm_cancelled() != 0;
+    let reply = sim_core::mlang::session::session(json, &cancel, &sim_core::NoHost);
+    framed(reply.as_bytes())
 }
 
 /// # Safety

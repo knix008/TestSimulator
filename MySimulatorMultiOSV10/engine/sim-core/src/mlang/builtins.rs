@@ -10,6 +10,7 @@ use super::interp::{concat, index_value, range, Figure, Interp, Series, Surface}
 use super::value::*;
 use crate::fft::{fft as fft_in_place, C64};
 use std::f64::consts::PI;
+use std::rc::Rc;
 
 type Out = R<Vec<Value>>;
 
@@ -37,6 +38,73 @@ fn text(args: &[Value], k: usize, f: &str) -> R<String> {
     arg(args, k, f)?.text().map_err(|e| format!("{f}: {e}"))
 }
 
+/// Size arguments with any number of dimensions: f(n), f(r, c, p, …), f([r c p …]).
+fn size_dims(args: &[Value], f: &str) -> R<Vec<usize>> {
+    let nums: Vec<&Value> = args.iter().filter(|a| !matches!(a, Value::Str(_))).collect();
+    let d: Vec<usize> = match nums.len() {
+        0 => vec![1, 1],
+        1 => {
+            let a = nums[0].arr()?;
+            if a.len() >= 2 {
+                a.re.iter().map(|v| v.max(0.0) as usize).collect()
+            } else {
+                let n = a.re.first().copied().unwrap_or(0.0).max(0.0) as usize;
+                vec![n, n]
+            }
+        }
+        _ => nums.iter().map(|v| v.scalar().map(|x| x.max(0.0) as usize).map_err(|e| format!("{f}: {e}"))).collect::<R<_>>()?,
+    };
+    if d.iter().fold(1usize, |p, &x| p.saturating_mul(x)) > 50_000_000 {
+        return Err(format!("{f}: {} is too large", d.iter().map(|v| v.to_string()).collect::<Vec<_>>().join("×")));
+    }
+    Ok(d)
+}
+
+/// Before, along and after counts for working along dimension `dim` (1-based).
+fn fibers(d: &[usize], dim: usize) -> (usize, usize, usize) {
+    let k = dim - 1;
+    if k >= d.len() {
+        return (d.iter().product(), 1, 1);
+    }
+    (d[..k].iter().product(), d[k], d[k + 1..].iter().product())
+}
+
+fn reduce_nd(a: &Arr, dim: usize, f: &dyn Fn(&[f64]) -> f64) -> Arr {
+    let d = a.dims();
+    let (before, len, after) = fibers(&d, dim);
+    let mut out = vec![0.0; before * after];
+    let mut v = vec![0.0; len];
+    for l in 0..after {
+        for i in 0..before {
+            for (j, x) in v.iter_mut().enumerate() {
+                *x = a.re[i + j * before + l * before * len];
+            }
+            out[i + l * before] = f(&v);
+        }
+    }
+    let mut od = d.clone();
+    if dim - 1 < od.len() {
+        od[dim - 1] = 1;
+    }
+    Arr::with_dims(out, &od)
+}
+
+fn running_nd(a: &Arr, dim: usize, f: &dyn Fn(&[f64]) -> Vec<f64>) -> Arr {
+    let (before, len, after) = fibers(&a.dims(), dim);
+    let mut out = a.clone();
+    out.logical = false;
+    out.im = None;
+    for l in 0..after {
+        for i in 0..before {
+            let v: Vec<f64> = (0..len).map(|j| a.re[i + j * before + l * before * len]).collect();
+            for (j, x) in f(&v).into_iter().enumerate() {
+                out.re[i + j * before + l * before * len] = x;
+            }
+        }
+    }
+    out
+}
+
 /// Size arguments: f(n), f(r, c), f([r c]).
 fn size_args(args: &[Value], f: &str) -> R<(usize, usize)> {
     let nums: Vec<&Value> = args.iter().filter(|a| !matches!(a, Value::Str(_))).collect();
@@ -58,7 +126,7 @@ fn size_args(args: &[Value], f: &str) -> R<(usize, usize)> {
 /// The dimension a reduction works along: given, or the first non-singleton.
 fn dim_of(a: &Arr, args: &[Value], k: usize) -> R<usize> {
     match args.get(k) {
-        Some(Value::Str(_)) | None => Ok(if a.r == 1 { 2 } else { 1 }),
+        Some(Value::Str(_)) | None => Ok(a.dims().iter().position(|&d| d != 1).map_or(1, |k| k + 1)),
         Some(v) => {
             let d = v.usize()?;
             if d == 0 {
@@ -71,6 +139,9 @@ fn dim_of(a: &Arr, args: &[Value], k: usize) -> R<usize> {
 
 /// Applies f to every column (dim 1) or row (dim 2).
 fn reduce(a: &Arr, dim: usize, f: &dyn Fn(&[f64]) -> f64) -> Arr {
+    if !a.nd.is_empty() || dim > 2 && !a.is_empty() {
+        return reduce_nd(a, dim, f);
+    }
     if dim == 1 {
         let out: Vec<f64> = (0..a.c).map(|j| f(&a.re[j * a.r..(j + 1) * a.r])).collect();
         Arr::new(if a.r == 0 && a.c == 0 { 1 } else { 1 }, a.c.max(if a.r == 0 && a.c == 0 { 1 } else { 0 }), if a.r == 0 && a.c == 0 { vec![f(&[])] } else { out })
@@ -87,6 +158,9 @@ fn reduce(a: &Arr, dim: usize, f: &dyn Fn(&[f64]) -> f64) -> Arr {
 
 /// Running operation down columns or along rows (cumsum …).
 fn running(a: &Arr, dim: usize, f: &dyn Fn(&[f64]) -> Vec<f64>) -> Arr {
+    if !a.nd.is_empty() || dim > 2 {
+        return running_nd(a, dim, f);
+    }
     let mut out = a.clone();
     out.logical = false;
     out.im = None;
@@ -751,6 +825,9 @@ fn mat_to_value(v: &crate::matfile::MatValue) -> Value {
             let mut a = Arr::new(r, c, re.clone());
             a.im = im.clone();
             a.logical = class == "logical";
+            if dims.len() > 2 {
+                a.set_dims(dims);
+            }
             Value::Num(a)
         }
         M::Char { rows, .. } => Value::Str(rows.join("\n")),
@@ -771,11 +848,11 @@ fn mat_to_value(v: &crate::matfile::MatValue) -> Value {
 pub fn value_to_mat(v: &Value) -> Option<crate::matfile::MatValue> {
     use crate::matfile::MatValue as M;
     Some(match v {
-        Value::Num(a) => M::Num { dims: vec![a.r, a.c], re: a.re.clone(), im: a.im.clone(), class: if a.logical { "logical".into() } else { "double".into() } },
+        Value::Num(a) => M::Num { dims: a.dims(), re: a.re.clone(), im: a.im.clone(), class: if a.logical { "logical".into() } else { "double".into() } },
         Value::Str(s) => M::Char { dims: vec![1, s.chars().count()], rows: vec![s.clone()] },
         Value::Cell { r, c, items } => M::Cell { dims: vec![*r, *c], items: items.iter().map(|x| value_to_mat(x).unwrap_or(M::Num { dims: vec![0, 0], re: Vec::new(), im: None, class: "double".into() })).collect() },
         Value::Struct { r, c, fields, items } => M::Struct { dims: vec![*r, *c], fields: fields.clone(), items: items.iter().map(|row| row.iter().map(|x| value_to_mat(x).unwrap_or(M::Num { dims: vec![0, 0], re: Vec::new(), im: None, class: "double".into() })).collect()).collect() },
-        Value::Func(_) => return None,
+        Value::Func(_) | Value::Obj(_) => return None,
     })
 }
 
@@ -790,10 +867,14 @@ fn figure<'b>(it: &'b mut Interp) -> &'b mut Figure {
 /// plot(y), plot(x, y), plot(x, Y), plot(x1, y1, 'r--', x2, y2, …).
 fn plot_series(it: &mut Interp, args: &[Value], kind: &str) -> R<()> {
     let nums: Vec<&Value> = args.iter().take_while(|a| !matches!(a, Value::Str(s) if ["linewidth", "markersize", "displayname", "color"].contains(&s.to_ascii_lowercase().as_str()))).collect();
-    let mut groups: Vec<(Option<Arr>, Arr)> = Vec::new();
+    let mut groups: Vec<(Option<Arr>, Arr, String)> = Vec::new();
     let mut k = 0;
     while k < nums.len() {
-        if matches!(nums[k], Value::Str(_)) {
+        if let Value::Str(spec) = nums[k] {
+            // A line spec belongs to the series before it.
+            if let Some(g) = groups.last_mut() {
+                g.2 = spec.clone();
+            }
             k += 1;
             continue;
         }
@@ -801,11 +882,11 @@ fn plot_series(it: &mut Interp, args: &[Value], kind: &str) -> R<()> {
         let next_num = nums.get(k + 1).filter(|v| !matches!(v, Value::Str(_)));
         match next_num {
             Some(b) => {
-                groups.push((Some(a), b.arr()?));
+                groups.push((Some(a), b.arr()?, String::new()));
                 k += 2;
             }
             None => {
-                groups.push((None, a));
+                groups.push((None, a, String::new()));
                 k += 1;
             }
         }
@@ -818,7 +899,7 @@ fn plot_series(it: &mut Interp, args: &[Value], kind: &str) -> R<()> {
         fig.legend.clear();
     }
     fig.kind = kind.to_string();
-    for (x, y) in groups {
+    for (x, y, style) in groups {
         let y = if y.r == 1 || y.c == 1 { Arr::col(y.re.clone()) } else { y };
         let n = y.r;
         let xs: Vec<f64> = match &x {
@@ -829,7 +910,7 @@ fn plot_series(it: &mut Interp, args: &[Value], kind: &str) -> R<()> {
         let y = if xs.len() != n && y.c == xs.len() { y.transpose(false) } else { y };
         for j in 0..y.c {
             let idx = fig.series.len() + 1;
-            fig.series.push(Series { name: display_name.clone().unwrap_or_else(|| format!("y{idx}")), x: xs.clone(), y: y.re[j * y.r..(j + 1) * y.r].to_vec() });
+            fig.series.push(Series { name: display_name.clone().unwrap_or_else(|| format!("y{idx}")), x: xs.clone(), y: y.re[j * y.r..(j + 1) * y.r].to_vec(), style: style.clone(), ..Default::default() });
         }
     }
     Ok(())
@@ -862,7 +943,7 @@ fn surface(it: &mut Interp, args: &[Value], kind: &str) -> R<()> {
     }
     fig.kind = kind.to_string();
     let n = fig.surfaces.len() + 1;
-    fig.surfaces.push(Surface { name: format!("{kind} {n}"), x, y, z: flat });
+    fig.surfaces.push(Surface { name: format!("{kind} {n}"), x, y, z: flat, ..Default::default() });
     Ok(())
 }
 
@@ -880,7 +961,8 @@ fn ode(it: &mut Interp, name: &str, args: &[Value], nargout: usize) -> Out {
         "ode45" => crate::ode::Method::Rk45,
         "ode23" => crate::ode::Method::Rk23,
         "ode23s" => crate::ode::Method::Rosenbrock,
-        "ode15s" | "ode23t" | "ode23tb" => crate::ode::Method::TrBdf2,
+        "ode15s" => crate::ode::Method::Ndf,
+        "ode23t" | "ode23tb" => crate::ode::Method::TrBdf2,
         "ode113" => crate::ode::Method::Rk45,
         _ => crate::ode::Method::Rk45,
     };
@@ -936,6 +1018,15 @@ fn ode(it: &mut Interp, name: &str, args: &[Value], nargout: usize) -> Out {
 
 pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _statement: bool) -> Option<Out> {
     let a = &args;
+    // Control System Toolbox models (tf, zpk, ss) and the functions that take them.
+    if let Some(r) = super::lti::call(it, name, a, nargout) {
+        return Some(r);
+    }
+    // Graphics handles, app controls and dialogs.
+    // A bare statement (no semicolon) does not ask for the handle: title('x') prints nothing.
+    if let Some(r) = super::graphics::call(it, name, a, if _statement { 0 } else { nargout }) {
+        return Some(r);
+    }
     let r: Out = (|| -> Out {
         match name {
             // Constants.
@@ -950,29 +1041,29 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
             "intmin" => return num(i32::MIN as f64),
             "flintmax" => return num(9007199254740992.0),
             "true" | "false" => {
-                let (r, c) = size_args(a, name)?;
-                return one(Value::Num(Arr::boolean(r, c, vec![name == "true"; r * c])));
+                let d = size_dims(a, name)?;
+                let mut out = Arr::with_dims(vec![if name == "true" { 1.0 } else { 0.0 }; d.iter().product()], &d);
+                out.logical = true;
+                return one(Value::Num(out));
             }
             "i" | "j" | "1i" => return one(Value::Num(Arr::complex(1, 1, vec![0.0], vec![1.0]))),
             // Construction.
             "zeros" | "ones" | "rand" | "randn" | "cell" => {
-                let (r, c) = size_args(a, name)?;
-                if r.saturating_mul(c) > 50_000_000 {
-                    return Err(format!("{name}: {r}×{c} is too large"));
-                }
+                let d = size_dims(a, name)?;
+                let n: usize = d.iter().product();
                 return one(match name {
-                    "zeros" => Value::Num(Arr::zeros(r, c)),
-                    "ones" => Value::Num(Arr::new(r, c, vec![1.0; r * c])),
-                    "rand" => Value::Num(Arr::new(r, c, (0..r * c).map(|_| it.rng.uniform()).collect())),
-                    "randn" => Value::Num(Arr::new(r, c, (0..r * c).map(|_| it.rng.normal()).collect())),
-                    _ => Value::Cell { r, c, items: vec![Value::empty(); r * c] },
+                    "zeros" => Value::Num(Arr::with_dims(vec![0.0; n], &d)),
+                    "ones" => Value::Num(Arr::with_dims(vec![1.0; n], &d)),
+                    "rand" => Value::Num(Arr::with_dims((0..n).map(|_| it.rng.uniform()).collect(), &d)),
+                    "randn" => Value::Num(Arr::with_dims((0..n).map(|_| it.rng.normal()).collect(), &d)),
+                    _ => Value::Cell { r: d[0], c: d[1..].iter().product(), items: vec![Value::empty(); n] },
                 });
             }
             "randi" => {
                 let lim = arr(a, 0, name)?.re;
                 let (lo, hi) = if lim.len() >= 2 { (lim[0], lim[1]) } else { (1.0, lim[0]) };
-                let (r, c) = size_args(&a[1..], name)?;
-                return one(Value::Num(Arr::new(r, c, (0..r * c).map(|_| (lo + (it.rng.uniform() * (hi - lo + 1.0)).floor()).min(hi)).collect())));
+                let d = size_dims(&a[1..], name)?;
+                return one(Value::Num(Arr::with_dims((0..d.iter().product::<usize>()).map(|_| (lo + (it.rng.uniform() * (hi - lo + 1.0)).floor()).min(hi)).collect(), &d)));
             }
             "randperm" => {
                 let n = scalar(a, 0, name)? as usize;
@@ -1040,7 +1131,23 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
             }
             "repmat" => {
                 let v = arg(a, 0, name)?;
-                let (m, n) = size_args(&a[1..], name)?;
+                let reps = size_dims(&a[1..], name)?;
+                if let Value::Num(x) = &v {
+                    if reps.len() > 2 || !x.nd.is_empty() {
+                        // Every output subscript maps back to the input modulo its size.
+                        let d = x.dims();
+                        let n = reps.len().max(d.len());
+                        let din: Vec<usize> = (0..n).map(|k| *d.get(k).unwrap_or(&1)).collect();
+                        let dout: Vec<usize> = (0..n).map(|k| din[k] * *reps.get(k).unwrap_or(&1)).collect();
+                        let subs: Vec<Vec<usize>> = dout.iter().zip(&din).map(|(&o, &i)| (0..o).map(|q| if i == 0 { 0 } else { q % i }).collect()).collect();
+                        let src = super::value::nd_positions(&din, &subs);
+                        let mut out = Arr::with_dims(src.iter().map(|&k| x.re[k]).collect(), &dout);
+                        out.im = x.im.as_ref().map(|im| src.iter().map(|&k| im[k]).collect());
+                        out.logical = x.logical;
+                        return one(Value::Num(out));
+                    }
+                }
+                let (m, n) = (reps[0], reps.get(1).copied().unwrap_or(reps[0]));
                 let row: Vec<Value> = vec![v; n];
                 let r = concat(&row, true)?;
                 return one(concat(&vec![r; m], false)?);
@@ -1071,7 +1178,92 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
             "vertcat" => return one(concat(a, false)?),
             "cat" => {
                 let d = scalar(a, 0, name)?;
+                if d >= 3.0 {
+                    return one(Value::Num(cat_nd(&a[1..], d as usize)?));
+                }
                 return one(concat(&a[1..], d == 2.0)?);
+            }
+            "pagemtimes" | "pagetranspose" | "pagectranspose" => {
+                // Matrix products (or transposes) page by page; a single page pairs with every page.
+                let x = arr(a, 0, name)?;
+                let page = |m: &Arr, p: usize| -> Arr {
+                    let d = m.dims();
+                    let n = d[0] * d[1];
+                    let mut out = Arr::new(d[0], d[1], m.re[p * n..(p + 1) * n].to_vec());
+                    out.im = m.im.as_ref().map(|im| im[p * n..(p + 1) * n].to_vec());
+                    out
+                };
+                let pages = |m: &Arr| -> usize { m.dims()[2..].iter().product() };
+                let rest = |m: &Arr| -> Vec<usize> { m.dims()[2..].to_vec() };
+                let (results, outer): (Vec<Arr>, Vec<usize>) = if name == "pagemtimes" {
+                    let y = arr(a, 1, name)?;
+                    let (px, py) = (pages(&x), pages(&y));
+                    if px != py && px != 1 && py != 1 {
+                        return Err("pagemtimes: the page dimensions must agree".into());
+                    }
+                    let n = px.max(py);
+                    let res = (0..n).map(|p| matmul(&page(&x, if px == 1 { 0 } else { p }), &page(&y, if py == 1 { 0 } else { p }))).collect::<R<Vec<_>>>()?;
+                    (res, if px >= py { rest(&x) } else { rest(&y) })
+                } else {
+                    ((0..pages(&x)).map(|p| page(&x, p).transpose(name == "pagectranspose")).collect(), rest(&x))
+                };
+                let (r, c) = results.first().map(|m| (m.r, m.c)).unwrap_or((0, 0));
+                let complex = results.iter().any(|m| m.im.is_some());
+                let mut out = Arr::new(0, 0, results.iter().flat_map(|m| m.re.iter().copied()).collect());
+                if complex {
+                    out.im = Some(results.iter().flat_map(|m| m.im.clone().unwrap_or_else(|| vec![0.0; m.len()])).collect());
+                }
+                let mut d = vec![r, c];
+                d.extend(outer);
+                out.set_dims(&d);
+                return one(Value::Num(out));
+            }
+            "squeeze" => {
+                let v = arg(a, 0, name)?;
+                if let Value::Num(mut x) = v {
+                    if !x.nd.is_empty() {
+                        let d: Vec<usize> = x.nd.iter().copied().filter(|&k| k != 1).collect();
+                        x.set_dims(&if d.len() == 1 { vec![d[0], 1] } else { d });
+                    }
+                    return one(Value::Num(x));
+                }
+                return one(v);
+            }
+            "permute" | "ipermute" => {
+                let x = arr(a, 0, name)?;
+                let order: Vec<usize> = arr(a, 1, name)?.re.iter().map(|v| *v as usize).collect();
+                let n = order.len();
+                let mut seen = vec![false; n];
+                for &o in &order {
+                    if o == 0 || o > n || seen[o - 1] {
+                        return Err(format!("{name}: the order must be a permutation of 1:{n}"));
+                    }
+                    seen[o - 1] = true;
+                }
+                let order: Vec<usize> = if name == "permute" {
+                    order.iter().map(|o| o - 1).collect()
+                } else {
+                    let mut inv = vec![0; n];
+                    for (k, o) in order.iter().enumerate() {
+                        inv[o - 1] = k;
+                    }
+                    inv
+                };
+                let d = x.dims();
+                if d.len() > n {
+                    return Err(format!("{name}: the order needs at least {} dimensions", d.len()));
+                }
+                let din: Vec<usize> = (0..n).map(|k| *d.get(k).unwrap_or(&1)).collect();
+                let dout: Vec<usize> = order.iter().map(|&k| din[k]).collect();
+                // Output subscript k of dimension q is input subscript k of dimension order[q].
+                let st = super::value::strides(&din);
+                let subs: Vec<Vec<usize>> = order.iter().map(|&k| (0..din[k]).map(|q| q * st[k]).collect()).collect();
+                let ones: Vec<usize> = vec![1; n];
+                let src = super::value::nd_positions(&ones, &subs);
+                let mut out = Arr::with_dims(src.iter().map(|&k| x.re[k]).collect(), &dout);
+                out.im = x.im.as_ref().map(|im| src.iter().map(|&k| im[k]).collect());
+                out.logical = x.logical;
+                return one(Value::Num(out));
             }
             "reshape" => {
                 let v = arg(a, 0, name)?;
@@ -1085,12 +1277,11 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 let dims: Vec<usize> = dims.iter().map(|d| d.unwrap_or(if known > 0 { n / known } else { 0 })).collect();
                 let (r, c) = (dims[0], dims.iter().skip(1).product::<usize>().max(if dims.len() == 1 { 1 } else { 0 }));
                 if r * c != n {
-                    return Err(format!("reshape: {n} elements cannot become {r}×{c}"));
+                    return Err(format!("reshape: {n} elements cannot become {}", dims.iter().map(|d| d.to_string()).collect::<Vec<_>>().join("×")));
                 }
                 return one(match v {
                     Value::Num(mut x) => {
-                        x.r = r;
-                        x.c = c;
+                        x.set_dims(&dims);
                         Value::Num(x)
                     }
                     Value::Cell { items, .. } => Value::Cell { r, c, items },
@@ -1100,35 +1291,33 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
             }
             // Shape and type.
             "size" => {
-                let (r, c) = arg(a, 0, name)?.dims();
-                if let Some(d) = a.get(1) {
-                    let d = d.usize()?;
-                    return num(match d { 1 => r, 2 => c, _ => 1 } as f64);
+                let d = arg(a, 0, name)?.full_dims();
+                if let Some(k) = a.get(1) {
+                    let ks = k.arr()?.re;
+                    return one(Value::row(ks.iter().map(|&k| *d.get((k as usize).max(1) - 1).unwrap_or(&1) as f64).collect()));
                 }
                 if nargout >= 2 {
-                    let mut out = vec![Value::num(r as f64), Value::num(c as f64)];
-                    for _ in 2..nargout {
-                        out.push(Value::num(1.0));
-                    }
-                    return Ok(out);
+                    // The last output takes the product of the remaining dimensions.
+                    return Ok(super::value::fold_dims(&d, nargout).into_iter().map(|v| Value::num(v as f64)).collect());
                 }
-                return one(Value::row(vec![r as f64, c as f64]));
+                return one(Value::row(d.iter().map(|&v| v as f64).collect()));
             }
             "numel" => return num(arg(a, 0, name)?.numel() as f64),
             "length" => {
-                let (r, c) = arg(a, 0, name)?.dims();
-                return num(if r == 0 || c == 0 { 0 } else { r.max(c) } as f64);
+                let d = arg(a, 0, name)?.full_dims();
+                return num(if d.contains(&0) { 0 } else { d.iter().copied().max().unwrap_or(0) } as f64);
             }
-            "ndims" => return num(2.0),
+            "ndims" => return num(arg(a, 0, name)?.full_dims().len() as f64),
             "isempty" => return one(Value::boolean(arg(a, 0, name)?.is_empty())),
             "isscalar" => return one(Value::boolean(arg(a, 0, name)?.numel() == 1)),
             "isvector" => {
-                let (r, c) = arg(a, 0, name)?.dims();
-                return one(Value::boolean((r == 1 || c == 1) && r * c >= 1));
+                let v = arg(a, 0, name)?;
+                let (r, c) = v.dims();
+                return one(Value::boolean(v.full_dims().len() == 2 && (r == 1 || c == 1) && r * c >= 1));
             }
             "isrow" => return one(Value::boolean(arg(a, 0, name)?.dims().0 == 1)),
             "iscolumn" => return one(Value::boolean(arg(a, 0, name)?.dims().1 == 1)),
-            "ismatrix" => return one(Value::boolean(true)),
+            "ismatrix" => return one(Value::boolean(arg(a, 0, name)?.full_dims().len() == 2)),
             "issquare" => {
                 let (r, c) = arg(a, 0, name)?.dims();
                 return one(Value::boolean(r == c));
@@ -1238,7 +1427,7 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 let s = elementwise(&re, &im, &|_, _| 0.0)?;
                 let rr = elementwise(&re, &s, &|x, _| x)?;
                 let ii = elementwise(&im, &s, &|x, _| x)?;
-                return one(Value::Num(Arr { r: rr.r, c: rr.c, re: rr.re, im: Some(ii.re), logical: false }));
+                return one(Value::Num(Arr { r: rr.r, c: rr.c, re: rr.re, im: Some(ii.re), logical: false, nd: rr.nd }));
             }
             "sqrt" | "exp" | "log" | "sin" | "cos" | "tan" | "sinh" | "cosh" | "tanh" | "asin" | "acos" | "atan" | "log10" | "log2" | "asinh" | "acosh" | "atanh" | "sec" | "csc" | "cot" | "log1p" | "expm1" => {
                 let x = arr(a, 0, name)?;
@@ -1396,9 +1585,14 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 let x = if all { Arr::col(x.re.clone()) } else { x };
                 let dim = dim_of(&x, a, dim_arg)?;
                 if x.is_complex() && matches!(name, "sum" | "mean") {
-                    let rr = reduce(&Arr::new(x.r, x.c, x.re.clone()), dim, &|v| v.iter().sum::<f64>() / if name == "mean" { v.len() as f64 } else { 1.0 });
-                    let ii = reduce(&Arr::new(x.r, x.c, x.im.clone().unwrap()), dim, &|v| v.iter().sum::<f64>() / if name == "mean" { v.len() as f64 } else { 1.0 });
-                    return one(Value::Num(Arr::complex(rr.r, rr.c, rr.re, ii.re)));
+                    let part = |v: Vec<f64>| {
+                        let mut p = Arr::new(x.r, x.c, v);
+                        p.nd = x.nd.clone();
+                        reduce(&p, dim, &|v| v.iter().sum::<f64>() / if name == "mean" { v.len() as f64 } else { 1.0 })
+                    };
+                    let mut rr = part(x.re.clone());
+                    rr.im = Some(part(x.im.clone().unwrap()).re);
+                    return one(Value::Num(rr));
                 }
                 let f: Box<dyn Fn(&[f64]) -> f64> = match name {
                     "sum" => Box::new(|v| v.iter().sum()),
@@ -1466,7 +1660,7 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
             "any" | "all" => {
                 let x = arr(a, 0, name)?;
                 let all_flag = matches!(a.get(1), Some(Value::Str(s)) if s == "all");
-                let x = if all_flag || x.r == 1 || x.c == 1 { Arr::col(x.re.clone()) } else { x };
+                let x = if all_flag || x.nd.is_empty() && (x.r == 1 || x.c == 1) { Arr::col(x.re.clone()) } else { x };
                 let dim = dim_of(&x, a, 1)?;
                 let mut out = reduce(&x, dim, &|v| if name == "any" { v.iter().any(|q| *q != 0.0 && !q.is_nan()) as i32 as f64 } else { v.iter().all(|q| *q != 0.0) as i32 as f64 });
                 out.logical = true;
@@ -2156,6 +2350,37 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 let f = as_func(&arg(a, 0, name)?, name)?;
                 return it.call_func(&f, a[1..].to_vec(), nargout.max(1));
             }
+            "eval" | "evalin" => {
+                // evalin('base' | 'caller', code) runs in the current workspace (callbacks run in the base one).
+                let k = if name == "evalin" { 1 } else { 0 };
+                let code = text(a, k, name)?;
+                let fallback = a.get(k + 1).map(|v| v.text()).transpose()?;
+                let run = |it: &mut Interp, code: &str| -> Out {
+                    if nargout > 0 {
+                        let prog = super::syntax::parse(&format!("__eval_result__ = {code};"))?;
+                        it.run(&prog)?;
+                        let v = it.scopes.last_mut().and_then(|s| s.remove("__eval_result__")).unwrap_or_else(Value::empty);
+                        return Ok(vec![v]);
+                    }
+                    it.run(&super::syntax::parse(code)?)?;
+                    Ok(Vec::new())
+                };
+                return match (run(it, &code), fallback) {
+                    (Err(e), Some(c)) => {
+                        it.last_error = e;
+                        run(it, &c)
+                    }
+                    (r, _) => r,
+                };
+            }
+            "assignin" => {
+                let ws = text(a, 0, name)?;
+                let var = text(a, 1, name)?;
+                let v = arg(a, 2, name)?;
+                let k = if ws == "base" { 0 } else { it.scopes.len().saturating_sub(2) };
+                it.scopes[k].insert(var, v);
+                return Ok(Vec::new());
+            }
             "func2str" => return one(Value::Str(func_text(&as_func(&arg(a, 0, name)?, name)?))),
             "str2func" => {
                 let s = text(a, 0, name)?;
@@ -2630,8 +2855,105 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 });
             }
             "regexprep" => {
-                // Literal replacement (no regular-expression engine).
-                return one(Value::Str(text(a, 0, name)?.replace(&text(a, 1, name)?, &text(a, 2, name)?)));
+                let opts: Vec<String> = a[3..].iter().filter_map(|v| v.text().ok()).map(|s| s.to_lowercase()).collect();
+                let once = opts.iter().any(|o| o == "once");
+                let ci = opts.iter().any(|o| o == "ignorecase");
+                let pats = cell_strings(&arg(a, 1, name)?)?;
+                let reps = cell_strings(&arg(a, 2, name)?)?;
+                let compiled: Vec<super::regex::Regex> = pats.iter().map(|p| super::regex::Regex::new(p, ci).map_err(|e| format!("regexprep: {e} in '{p}'"))).collect::<R<_>>()?;
+                let apply = |text: &str| -> String {
+                    let mut cur = text.to_string();
+                    for (k, re) in compiled.iter().enumerate() {
+                        let rep = reps.get(k).or(reps.last()).cloned().unwrap_or_default();
+                        let s: Vec<char> = cur.chars().collect();
+                        let mut out = String::new();
+                        let mut last = 0;
+                        for m in re.find_all(&s, once) {
+                            out.extend(&s[last..m.0]);
+                            out.push_str(&super::regex::expand(&rep, &s, &m, re));
+                            last = m.1;
+                        }
+                        out.extend(&s[last..]);
+                        cur = out;
+                    }
+                    cur
+                };
+                return one(match arg(a, 0, name)? {
+                    Value::Cell { r, c, items } => Value::Cell { r, c, items: items.iter().map(|x| x.text().map(|t| Value::Str(apply(&t)))).collect::<R<_>>()? },
+                    other => Value::Str(apply(&other.text()?)),
+                });
+            }
+            "regexp" | "regexpi" => {
+                let opts: Vec<String> = a[2..].iter().filter_map(|v| v.text().ok()).collect();
+                let low: Vec<String> = opts.iter().map(|o| o.to_lowercase()).collect();
+                let once = low.iter().any(|o| o == "once");
+                let ci = name == "regexpi" || low.iter().any(|o| o == "ignorecase");
+                let line = low.iter().any(|o| o == "lineanchors");
+                let dot_nl = !low.iter().any(|o| o == "dotexceptnewline");
+                let pat = text(a, 1, name)?;
+                let re = super::regex::Regex::new(&pat, ci).map_err(|e| format!("{name}: {e} in '{pat}'"))?.options(line, dot_nl);
+                let wanted: Vec<String> = opts.iter().filter(|o| ["match", "tokens", "names", "start", "end", "split", "tokenextents"].contains(&o.to_lowercase().as_str())).map(|o| o.to_lowercase()).collect();
+                let order: Vec<String> = if wanted.is_empty() { ["start", "end", "tokenextents", "match", "tokens", "names", "split"].iter().map(|s| s.to_string()).collect() } else { wanted };
+                let one_string = |text: &str| -> Vec<Value> {
+                    let s: Vec<char> = text.chars().collect();
+                    let ms = re.find_all(&s, once);
+                    let sub = |a: usize, b: usize| Value::Str(s[a..b].iter().collect());
+                    let row = |items: Vec<Value>| Value::Cell { r: 1, c: items.len(), items };
+                    let tokens_of = |m: &(usize, usize, Vec<Option<(usize, usize)>>)| -> Value {
+                        if re.groups == 0 {
+                            return row(vec![sub(m.0, m.1)]);
+                        }
+                        row((1..=re.groups).map(|g| match m.2.get(g).copied().flatten() { Some((x, y)) => sub(x, y), None => Value::Str(String::new()) }).collect())
+                    };
+                    let extents_of = |m: &(usize, usize, Vec<Option<(usize, usize)>>)| -> Value {
+                        if re.groups == 0 {
+                            return Value::row(vec![m.0 as f64 + 1.0, m.1 as f64]);
+                        }
+                        let mut v = Arr::zeros(re.groups, 2);
+                        for g in 1..=re.groups {
+                            let (x, y) = m.2.get(g).copied().flatten().map(|(x, y)| (x as f64 + 1.0, y as f64)).unwrap_or((f64::NAN, f64::NAN));
+                            v.re[g - 1] = x;
+                            v.re[re.groups + g - 1] = y;
+                        }
+                        Value::Num(v)
+                    };
+                    let names_of = |m: Option<&(usize, usize, Vec<Option<(usize, usize)>>)>| -> Vec<Value> {
+                        re.names.iter().map(|(_, idx)| match m.and_then(|m| m.2.get(*idx).copied().flatten()) { Some((x, y)) => sub(x, y), None => Value::Str(String::new()) }).collect()
+                    };
+                    order.iter().map(|o| match o.as_str() {
+                        "start" => if once { ms.first().map_or(Value::empty(), |m| Value::num(m.0 as f64 + 1.0)) } else { Value::Num(Arr::new(1, ms.len(), ms.iter().map(|m| m.0 as f64 + 1.0).collect())) },
+                        "end" => if once { ms.first().map_or(Value::empty(), |m| Value::num(m.1 as f64)) } else { Value::Num(Arr::new(1, ms.len(), ms.iter().map(|m| m.1 as f64).collect())) },
+                        "match" => if once { ms.first().map_or(Value::Str(String::new()), |m| sub(m.0, m.1)) } else { row(ms.iter().map(|m| sub(m.0, m.1)).collect()) },
+                        "tokens" => if once { ms.first().map_or(Value::Cell { r: 1, c: 0, items: Vec::new() }, tokens_of) } else { row(ms.iter().map(tokens_of).collect()) },
+                        "tokenextents" => if once { ms.first().map_or(Value::empty(), extents_of) } else { row(ms.iter().map(extents_of).collect()) },
+                        "names" => {
+                            let fields: Vec<String> = re.names.iter().map(|n| n.0.clone()).collect();
+                            if once || ms.is_empty() {
+                                Value::Struct { r: 1, c: 1, fields, items: vec![names_of(ms.first())] }
+                            } else {
+                                Value::Struct { r: 1, c: ms.len(), fields, items: ms.iter().map(|m| names_of(Some(m))).collect() }
+                            }
+                        }
+                        _ => {
+                            // split: the text between the matches.
+                            let mut pieces = Vec::new();
+                            let mut last = 0;
+                            for m in &ms {
+                                pieces.push(sub(last, m.0));
+                                last = m.1;
+                            }
+                            pieces.push(sub(last, s.len()));
+                            row(pieces)
+                        }
+                    }).collect()
+                };
+                return Ok(match arg(a, 0, name)? {
+                    Value::Cell { r, c, items } => {
+                        let per: Vec<Vec<Value>> = items.iter().map(|x| x.text().map(|t| one_string(&t))).collect::<R<_>>()?;
+                        (0..order.len()).map(|k| Value::Cell { r, c, items: per.iter().map(|o| o[k].clone()).collect() }).collect()
+                    }
+                    other => one_string(&other.text()?),
+                });
             }
             "blanks" => return one(Value::Str(" ".repeat(scalar(a, 0, name)? as usize))),
             "newline" => return one(Value::Str("\n".into())),
@@ -2783,7 +3105,7 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 return one(Value::col(out));
             }
             // Workspace and files.
-            "clc" | "close" | "format" | "more" | "drawnow" | "pause" | "beep" | "clearvars" | "echo" | "pkg" | "box" | "colorbar" | "colormap" | "shading" | "view" | "axis" | "set" | "rotate3d" | "zlabel" | "caxis" | "daspect" => return Ok(Vec::new()),
+            "format" | "more" | "drawnow" | "pause" | "beep" | "clearvars" | "echo" | "pkg" | "box" | "colorbar" | "colormap" | "shading" | "view" | "rotate3d" | "zlabel" | "caxis" | "daspect" => return Ok(Vec::new()),
             "clear" => {
                 if a.is_empty() || matches!(a.first(), Some(Value::Str(s)) if s == "all" || s == "variables") {
                     it.scopes.last_mut().unwrap().clear();
@@ -2851,13 +3173,9 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 return Ok(Vec::new());
             }
             // Plotting.
-            "figure" => {
-                it.figures.push(Figure::default());
-                it.current = it.figures.len() - 1;
-                it.hold = false;
-                if let Some(Value::Str(t)) = a.iter().skip_while(|v| !matches!(v, Value::Str(s) if s.eq_ignore_ascii_case("name"))).nth(1) {
-                    it.figures[it.current].title = t.clone();
-                }
+            "clc" => {
+                it.out.clear();
+                it.clc = true;
                 return Ok(Vec::new());
             }
             "subplot" => {
@@ -2946,7 +3264,7 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                 surface(it, a, name)?;
                 return Ok(Vec::new());
             }
-            "xlim" | "ylim" | "zlim" | "text" | "line" | "annotation" | "yline" | "xline" | "patch" | "fill" => return Ok(Vec::new()),
+            "annotation" | "patch" | "fill" => return Ok(Vec::new()),
             _ => Err("\u{0}".into()),
         }
     })();
@@ -2956,9 +3274,52 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
     }
 }
 
+/// cat(d, A, B, …) along the third or a later dimension.
+fn cat_nd(parts: &[Value], dim: usize) -> R<Arr> {
+    let arrs: Vec<Arr> = parts.iter().filter(|v| !v.is_empty()).map(|v| v.arr()).collect::<R<_>>()?;
+    if arrs.is_empty() {
+        return Ok(Arr::zeros(0, 0));
+    }
+    let pad = |a: &Arr| -> Vec<usize> {
+        let d = a.dims();
+        (0..dim.max(d.len())).map(|k| *d.get(k).unwrap_or(&1)).collect()
+    };
+    let d0 = pad(&arrs[0]);
+    for a in &arrs[1..] {
+        let d = pad(a);
+        if d.len() != d0.len() || (0..d.len()).any(|k| k != dim - 1 && d[k] != d0[k]) {
+            return Err(format!("cat: the sizes must agree except along dimension {dim}"));
+        }
+    }
+    let before: usize = d0[..dim - 1].iter().product();
+    let after: usize = d0[dim..].iter().product();
+    let complex = arrs.iter().any(|a| a.is_complex());
+    let (mut re, mut im) = (Vec::new(), Vec::new());
+    for l in 0..after {
+        for a in &arrs {
+            let chunk = before * pad(a)[dim - 1];
+            re.extend_from_slice(&a.re[l * chunk..(l + 1) * chunk]);
+            if complex {
+                match &a.im {
+                    Some(v) => im.extend_from_slice(&v[l * chunk..(l + 1) * chunk]),
+                    None => im.extend(std::iter::repeat(0.0).take(chunk)),
+                }
+            }
+        }
+    }
+    let mut d = d0.clone();
+    d[dim - 1] = arrs.iter().map(|a| pad(a)[dim - 1]).sum();
+    let mut out = Arr::with_dims(re, &d);
+    if complex {
+        out.im = Some(im);
+    }
+    out.logical = arrs.iter().all(|a| a.logical);
+    Ok(out)
+}
+
 fn fill_const(a: &[Value], v: f64) -> Out {
-    let (r, c) = size_args(a, "")?;
-    one(Value::Num(Arr::new(r, c, vec![v; r * c])))
+    let d = size_dims(a, "")?;
+    one(Value::Num(Arr::with_dims(vec![v; d.iter().product()], &d)))
 }
 
 fn complex_fn(name: &str, z: C64) -> C64 {
@@ -3278,6 +3639,15 @@ pub fn values_equal(a: &Value, b: &Value) -> bool {
         (Value::Cell { r, c, items }, Value::Cell { r: r2, c: c2, items: i2 }) => r == r2 && c == c2 && items.iter().zip(i2).all(|(p, q)| values_equal(p, q)),
         (Value::Struct { fields, items, .. }, Value::Struct { fields: f2, items: i2, .. }) => fields == f2 && items.len() == i2.len() && items.iter().zip(i2).all(|(p, q)| p.iter().zip(q).all(|(x, y)| values_equal(x, y))),
         (Value::Num(x), Value::Num(y)) => x.r == y.r && x.c == y.c && x.re == y.re && x.im.clone().unwrap_or_default() == y.im.clone().unwrap_or_default(),
+        (Value::Obj(p), Value::Obj(q)) => {
+            Rc::ptr_eq(p, q)
+                || match (&p.data, &q.data) {
+                    (ObjData::User(x), ObjData::User(y)) => Rc::ptr_eq(&x.info, &y.info) && !x.info.handle && x.props.borrow().iter().zip(y.props.borrow().iter()).all(|(a, b)| values_equal(a, b)),
+                    (ObjData::Lti(x), ObjData::Lti(y)) => x.num == y.num && x.den == y.den && x.ts == y.ts,
+                    (ObjData::Gfx(x), ObjData::Gfx(y)) => x == y,
+                    _ => false,
+                }
+        }
         (Value::Num(x), Value::Str(s)) | (Value::Str(s), Value::Num(x)) => {
             let codes: Vec<f64> = s.chars().map(|c| c as u32 as f64).collect();
             x.re == codes && x.r == 1

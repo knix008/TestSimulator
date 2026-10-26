@@ -5,7 +5,12 @@
 //! command window text.
 
 pub mod builtins;
+pub mod classes;
+pub mod graphics;
 pub mod interp;
+pub mod lti;
+pub mod regex;
+pub mod session;
 pub mod syntax;
 pub mod value;
 
@@ -334,12 +339,382 @@ end
     }
 
     #[test]
+    fn regular_expressions() {
+        let code = r#"
+s = 'pump P-101 at 4.5 bar, valve V-22 at 12 bar';
+nums = regexp(s, '\d+\.?\d*', 'match');
+[tok, idx] = regexp(s, '([A-Z])-(\d+)', 'tokens', 'start');
+first = regexp(s, '[A-Z]-\d+', 'match', 'once');
+n = regexp(s, '(?<tag>[A-Z]-\d+) at (?<p>[\d.]+)', 'names');
+parts = regexp('a1b22c', '\d+', 'split');
+up = regexprep(s, '(\w+) at', '<$1>');
+date = regexprep('2026-10-26', '(?<y>\d+)-(\d+)-(\d+)', '$3.$2.${y}');
+ci = regexpi('ABC abc', 'abc', 'start');
+none = regexp('xyz', '\d', 'match', 'once');
+"#;
+        let it = run(code);
+        let cell_texts = |name: &str| -> Vec<String> {
+            match &it.workspace()[name] {
+                Value::Cell { items, .. } => items.iter().map(|v| v.text().unwrap()).collect(),
+                other => panic!("{name} is {other:?}"),
+            }
+        };
+        assert_eq!(cell_texts("nums"), vec!["101", "4.5", "22", "12"]);
+        assert_eq!(vector(&it, "idx"), vec![6.0, 30.0]);
+        if let Value::Cell { items, .. } = &it.workspace()["tok"] {
+            assert_eq!(items.len(), 2);
+            if let Value::Cell { items: t, .. } = &items[1] {
+                assert_eq!((t[0].text().unwrap(), t[1].text().unwrap()), ("V".into(), "22".into()));
+            }
+        }
+        assert_eq!(it.workspace()["first"].text().unwrap(), "P-101");
+        if let Value::Struct { c, fields, items, .. } = &it.workspace()["n"] {
+            assert_eq!((*c, fields.clone()), (2, vec!["tag".to_string(), "p".to_string()]));
+            assert_eq!(items[1][1].text().unwrap(), "12");
+        } else {
+            panic!("names");
+        }
+        assert_eq!(cell_texts("parts"), vec!["a", "b", "c"]);
+        assert_eq!(it.workspace()["up"].text().unwrap(), "pump P-<101> 4.5 bar, valve V-<22> 12 bar");
+        assert_eq!(it.workspace()["date"].text().unwrap(), "26.10.2026");
+        assert_eq!(vector(&it, "ci"), vec![1.0, 5.0]);
+        assert_eq!(it.workspace()["none"].text().unwrap(), "");
+    }
+
+    #[test]
+    fn control_system_objects() {
+        let code = r#"
+s = tf('s');
+G = 1/(s^2 + 0.6*s + 1)
+H = zpk([], [-1 -2], 4);
+T = feedback(4*G, 1);
+dc = dcgain(T);
+p = pole(G);
+[y, t] = step(G, 30);
+info = stepinfo(G);
+[Gm, Pm, Wcg, Wcp] = margin(tf(1, [1 3 3 1]));
+Gd = c2d(tf(1, [1 1]), 0.1);
+[nd, dd] = tfdata(Gd, 'v');
+L = series(H, tf(1, [1 0]));
+step(G); bode(G);
+P = pade(0.5, 2);
+"#;
+        let it = run(code);
+        assert!(it.out.contains("s^2 + 0.6 s + 1") && it.out.contains("Continuous-time transfer function."), "{}", it.out);
+        assert!((num(&it, "dc") - 0.8).abs() < 1e-12);
+        let p = it.workspace()["p"].arr().unwrap();
+        assert!((p.re[0] + 0.3).abs() < 1e-9 && (p.im.unwrap()[0].abs() - 0.91f64.sqrt()).abs() < 1e-9);
+        let y = vector(&it, "y");
+        assert!((y.last().unwrap() - 1.0).abs() < 0.01, "{}", y.last().unwrap());
+        if let Value::Struct { fields, items, .. } = &it.workspace()["info"] {
+            let k = fields.iter().position(|f| f == "Overshoot").unwrap();
+            let over = items[0][k].scalar().unwrap();
+            let expected = (-std::f64::consts::PI * 0.3 / (1.0f64 - 0.09).sqrt()).exp() * 100.0;
+            assert!((over - expected).abs() < 0.2, "{over} vs {expected}");
+        } else {
+            panic!("stepinfo");
+        }
+        assert!((num(&it, "Gm") - 8.0).abs() < 1e-3 && (num(&it, "Wcg") - 3f64.sqrt()).abs() < 1e-3);
+        let e = (-0.1f64).exp();
+        let nd = vector(&it, "nd");
+        assert!((nd.last().unwrap() - (1.0 - e)).abs() < 1e-9 && (vector(&it, "dd")[1] + e).abs() < 1e-9, "{nd:?}");
+        assert_eq!(it.figures.len(), 2, "step and the two bode panels share/replace figures");
+        let ws = it.workspace();
+        assert!(matches!(ws["L"], Value::Obj(_)) && matches!(ws["P"], Value::Obj(_)));
+    }
+
+    #[test]
+    fn classdef_classes() {
+        let code = r#"
+p = Vec2(3, 4);
+q = Vec2(1, 2);
+r = p + q;
+n = r.norm();
+n2 = norm(p);
+p2 = p.scale(2);
+px = p.x;
+tot = Vec2.sum3();
+e = Vec2.UNIT;
+a = Account(100);
+b = a;
+b.deposit(50);
+bal = a.Balance;
+log = {};
+addlistener(a, 'Low', @(src, ev) disp(['low: ' ev.EventName]));
+try
+  a.Balance = -5;
+catch err
+  msg = err.message;
+end
+a.withdraw(140);
+s = Savings(200, 0.05);
+s.addInterest();
+sb = s.Balance;
+isAcc = isa(s, 'Account');
+isH = isa(s, 'handle');
+cls = class(s);
+c = Color.Red;
+cv = c.rgb;
+same = isequal(Vec2(1, 2), q);
+pv = Vec2(5, 6)
+classdef Vec2
+  properties
+    x = 0
+    y (1,1) double = 0
+  end
+  properties (Constant)
+    UNIT = Vec2(1, 0)
+  end
+  methods
+    function obj = Vec2(x, y)
+      if nargin > 0
+        obj.x = x;
+        obj.y = y;
+      end
+    end
+    function r = plus(a, b)
+      r = Vec2(a.x + b.x, a.y + b.y);
+    end
+    function n = norm(obj)
+      n = sqrt(obj.x^2 + obj.y^2);
+    end
+    function obj = scale(obj, k)
+      obj.x = obj.x * k;
+      obj.y = obj.y * k;
+    end
+    function disp(obj)
+      fprintf('Vec2(%g, %g)\n', obj.x, obj.y);
+    end
+  end
+  methods (Static)
+    function t = sum3()
+      t = 3;
+    end
+  end
+end
+classdef Account < handle
+  properties
+    Balance = 0
+  end
+  events
+    Low
+  end
+  methods
+    function obj = Account(b)
+      obj.Balance = b;
+    end
+    function deposit(obj, v)
+      obj.Balance = obj.Balance + v;
+    end
+    function withdraw(obj, v)
+      obj.Balance = obj.Balance - v;
+      if obj.Balance < 20
+        notify(obj, 'Low');
+      end
+    end
+    function set.Balance(obj, v)
+      if v < 0
+        error('Account:negative', 'the balance cannot be negative');
+      end
+      obj.Balance = v;
+    end
+  end
+end
+classdef Savings < Account
+  properties
+    Rate
+  end
+  methods
+    function obj = Savings(b, r)
+      obj = obj@Account(b);
+      obj.Rate = r;
+    end
+    function addInterest(obj)
+      obj.deposit(obj.Balance * obj.Rate);
+    end
+  end
+end
+classdef Color
+  properties
+    rgb
+  end
+  methods
+    function c = Color(r, g, b)
+      c.rgb = [r g b];
+    end
+  end
+  enumeration
+    Red (1, 0, 0)
+    Green (0, 1, 0)
+  end
+end
+"#;
+        let it = run(code);
+        assert_eq!(num(&it, "n"), (16.0f64 + 36.0).sqrt());
+        assert_eq!(num(&it, "n2"), 5.0);
+        assert_eq!(num(&it, "px"), 3.0);
+        assert_eq!(num(&it, "tot"), 3.0);
+        // Value semantics: scaling made a copy.
+        if let Some(i) = classes::instance(&it.workspace()["p2"]) {
+            assert_eq!(i.props.borrow()[0].scalar().unwrap(), 6.0);
+        }
+        assert_eq!(num(&it, "px"), 3.0);
+        // Handle semantics: b and a are one account.
+        assert_eq!(num(&it, "bal"), 150.0);
+        assert_eq!(it.workspace()["msg"].text().unwrap(), "the balance cannot be negative");
+        assert!(it.out.contains("low: Low"), "{}", it.out);
+        assert!((num(&it, "sb") - 210.0).abs() < 1e-12);
+        assert_eq!((num(&it, "isAcc"), num(&it, "isH")), (1.0, 1.0));
+        assert_eq!(it.workspace()["cls"].text().unwrap(), "Savings");
+        assert_eq!(vector(&it, "cv"), vec![1.0, 0.0, 0.0]);
+        assert_eq!(num(&it, "same"), 1.0);
+        assert!(it.out.contains("pv =\n\nVec2(5, 6)"), "{}", it.out);
+    }
+
+    #[test]
     fn calls_in_lists_give_one_value() {
         let it = run("s = [min([3 1 2]), max([3 1 2]), size([1 2 3])];\nn = numel(max([4 5]));\nc = {10, 20, 30};\nv = [c{:}];\nq = plus(c{2:3});\n");
         assert_eq!(vector(&it, "s"), vec![1.0, 3.0, 1.0, 3.0]);
         assert_eq!(num(&it, "n"), 1.0);
         assert_eq!(vector(&it, "v"), vec![10.0, 20.0, 30.0]);
         assert_eq!(num(&it, "q"), 50.0);
+    }
+
+    #[test]
+    fn n_dimensional_arrays() {
+        let code = r#"
+A = reshape(1:24, 2, 3, 4);
+d = size(A); n = ndims(A);
+[r, c] = size(A);
+p3 = size(A, 3);
+v = A(2, 3, 4);
+page = A(:, :, 2);
+fib = squeeze(A(1, 2, :));
+s3 = sum(A, 3);
+s1 = sum(A);
+B = zeros(2, 2, 2);
+B(:, :, 3) = [1 2; 3 4];
+nb = size(B);
+C = cat(3, [1 2], [3 4], [5 6]);
+P = permute(A, [3 1 2]);
+pv = P(4, 2, 3);
+Q = ipermute(P, [3 1 2]);
+same = isequal(Q, A);
+R = A .* reshape([1 10 100 1000], 1, 1, 4);
+rv = R(1, 1, 4);
+M = repmat([1; 2], 1, 2, 3);
+nm = size(M);
+A(:, :, 1) = [];
+na = size(A);
+e = A(end, end, end);
+mx = max(A, [], 3);
+A
+"#;
+        let it = run(code);
+        assert_eq!(vector(&it, "d"), vec![2.0, 3.0, 4.0]);
+        assert_eq!(num(&it, "n"), 3.0);
+        assert_eq!((num(&it, "r"), num(&it, "c")), (2.0, 12.0));
+        assert_eq!(num(&it, "p3"), 4.0);
+        assert_eq!(num(&it, "v"), 24.0);
+        assert_eq!(vector(&it, "page"), vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0]);
+        assert_eq!(vector(&it, "fib"), vec![3.0, 9.0, 15.0, 21.0]);
+        assert_eq!(vector(&it, "s3"), vec![40.0, 44.0, 48.0, 52.0, 56.0, 60.0]);
+        assert_eq!(it.workspace()["s1"].full_dims(), vec![1, 3, 4]);
+        assert_eq!(vector(&it, "nb"), vec![2.0, 2.0, 3.0]);
+        assert_eq!(vector(&it, "B")[8..], [1.0, 3.0, 2.0, 4.0]);
+        assert_eq!(it.workspace()["C"].full_dims(), vec![1, 2, 3]);
+        assert_eq!(vector(&it, "C"), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        // P(k, i, j) = A(i, j, k): P(4, 2, 3) = A(2, 3, 4).
+        assert_eq!(num(&it, "pv"), 24.0);
+        assert_eq!(num(&it, "same"), 1.0);
+        assert_eq!(num(&it, "rv"), 19000.0);
+        assert_eq!(vector(&it, "nm"), vec![2.0, 2.0, 3.0]);
+        assert_eq!(vector(&it, "na"), vec![2.0, 3.0, 3.0]);
+        assert_eq!(num(&it, "e"), 24.0);
+        assert_eq!(vector(&it, "mx"), vec![19.0, 20.0, 21.0, 22.0, 23.0, 24.0]);
+        assert!(it.out.contains("A(:,:,3) ="), "{}", it.out);
+        static NO: fn() -> bool = || false;
+        static HOST: crate::NoHost = crate::NoHost;
+        let e = run_with("A = ones(2, 2, 2);\nB = A';", Vec::new(), &NO, &HOST, 1).err().unwrap().0;
+        assert!(e.contains("permute"), "{e}");
+    }
+
+    #[test]
+    fn graphics_handles_and_app_controls() {
+        let code = r#"
+f = figure('Name', 'Demo');
+num = f.Number;
+h = plot(1:3, [4 5 6], 'r--', 'LineWidth', 2);
+c = h.Color; w = get(h, 'LineWidth'); ls = h.LineStyle;
+h.YData = [1 2 3];
+set(h, 'Color', [0 0.5 0], 'Marker', 'o');
+yd = h.YData(3);
+hold on
+h2 = plot(1:3, [3 2 1], 'DisplayName', 'down');
+both = [h h2];
+nb = numel(both);
+same = (both(2) == h2);
+legend([h h2], {'up', 'down'});
+ax = gca;
+ax.XLim = [0 4];
+ax.Title.String = 'Handles';
+xlabel(ax, 'x');
+xl = xlim;
+grid on
+t = text(1, 2, 'peak');
+xline(2, 'k:', 'mid');
+found = findobj(f, 'Type', 'line');
+nf = numel(found);
+red = findobj('DisplayName', 'down');
+isd = isequal(red, h2);
+delete(h2);
+alive = isvalid(h2);
+ok = isgraphics(h);
+cnt = 0;
+s = uicontrol('Style', 'slider', 'Min', 0, 'Max', 10, 'Value', 3, 'Callback', @(src, evt) assignin('base', 'cnt', src.Value));
+b = uibutton(f, 'Text', 'Go', 'ButtonPushedFcn', 'pushed = 1;');
+dd = uidropdown(f, 'Items', {'a', 'b'}, 'ValueChangedFcn', @(src, evt) disp(['chose ' evt.Value]));
+st = s.Style; sv = s.Value;
+msgbox('Done', 'Info');
+ans1 = questdlg('Go on?', 'Q', 'Yes', 'No', 'No');
+A = cat(3, [1 2; 3 4], eye(2));
+P = pagemtimes(A, [1; 1]);
+"#;
+        let mut it = run(code);
+        assert_eq!(num(&it, "num"), 1.0);
+        assert_eq!(vector(&it, "c"), vec![1.0, 0.0, 0.0]);
+        assert_eq!(num(&it, "w"), 2.0);
+        assert_eq!(it.workspace()["ls"].text().unwrap(), "--");
+        assert_eq!(num(&it, "yd"), 3.0);
+        assert_eq!(num(&it, "nb"), 2.0);
+        assert_eq!(num(&it, "same"), 1.0);
+        assert_eq!(vector(&it, "xl"), vec![0.0, 4.0]);
+        assert_eq!(num(&it, "nf"), 2.0);
+        assert_eq!(num(&it, "isd"), 1.0);
+        assert_eq!(num(&it, "alive"), 0.0);
+        assert_eq!(num(&it, "ok"), 1.0);
+        assert_eq!(it.workspace()["st"].text().unwrap(), "slider");
+        assert_eq!(num(&it, "sv"), 3.0);
+        assert_eq!(it.workspace()["ans1"].text().unwrap(), "No");
+        assert_eq!(vector(&it, "P"), vec![3.0, 7.0, 1.0, 1.0]);
+        let f = &it.figures[0];
+        assert_eq!(f.title, "Handles");
+        assert_eq!(f.xlabel, "x");
+        assert_eq!(f.series.len(), 1);
+        assert_eq!(f.series[0].name, "up");
+        assert_eq!(f.series[0].props["Color"], serde_json::json!({ "$row": [0.0, 0.5, 0.0], "col": false, "l": false }));
+        assert_eq!(f.axes["XGrid"], "on");
+        assert_eq!(f.annots.len(), 2);
+        assert_eq!(f.controls.len(), 3);
+        assert_eq!(it.dialogs.len(), 2);
+        // The desktop reports a change: the value is set and the callback runs.
+        let (fid, sid, bid, did) = (f.id, f.controls[0].id, f.controls[1].id, f.controls[2].id);
+        let prog = syntax::parse(&format!("__uievent({fid}, {sid}, 7.5); __uievent({fid}, {bid}); __uievent({fid}, {did}, 'b');")).unwrap();
+        it.run(&prog).unwrap();
+        assert_eq!(num(&it, "cnt"), 7.5);
+        assert_eq!(num(&it, "pushed"), 1.0);
+        assert!(it.out.contains("chose b"), "{}", it.out);
+        assert!(it.show("h", &it.workspace()["h"].clone()).unwrap().contains("Line with properties"));
     }
 
     #[test]

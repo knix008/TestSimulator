@@ -20,6 +20,11 @@ pub struct Series {
     pub name: String,
     pub x: Vec<f64>,
     pub y: Vec<f64>,
+    /// The MATLAB line spec ('r--', 'o', 'k:' …).
+    pub style: String,
+    /// The handle id within its figure, and properties set through the handle (Color, LineWidth …).
+    pub id: u32,
+    pub props: super::graphics::Props,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -29,6 +34,8 @@ pub struct Surface {
     pub y: Vec<f64>,
     /// z[j * nx + i]
     pub z: Vec<f64>,
+    pub id: u32,
+    pub props: super::graphics::Props,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -40,6 +47,16 @@ pub struct Figure {
     pub series: Vec<Series>,
     pub surfaces: Vec<Surface>,
     pub legend: Vec<String>,
+    /// The figure number (its handle), the last id given to an object in it, figure and axes properties.
+    pub id: u32,
+    pub next: u32,
+    pub props: super::graphics::Props,
+    pub axes: super::graphics::Props,
+    /// uicontrol / ui* components, text and constant lines.
+    pub controls: Vec<super::graphics::Control>,
+    pub annots: Vec<super::graphics::Annot>,
+    /// Made by uifigure.
+    pub uifig: bool,
 }
 
 pub struct Interp<'a> {
@@ -60,6 +77,21 @@ pub struct Interp<'a> {
     end_stack: Vec<usize>,
     pub warnings: Vec<String>,
     pub last_error: String,
+    /// Script files callable by name (they run in the caller's workspace).
+    pub scripts: HashMap<String, Rc<Vec<Stmt>>>,
+    /// clc was called: the command window is cleared.
+    pub clc: bool,
+    pub classdefs: HashMap<String, Rc<super::syntax::ClassDef>>,
+    pub class_cache: HashMap<String, Rc<super::classes::ClassInfo>>,
+    /// Constant properties and enumeration members, made once.
+    pub constants: HashMap<String, Value>,
+    pub enum_names: HashMap<usize, String>,
+    /// set.Prop accessors running (inside one, obj.Prop = … sets the property itself).
+    pub in_setter: Vec<String>,
+    /// Graphics functions are handing a call to the ordinary plotting function.
+    pub gfx_inner: bool,
+    /// msgbox, errordlg … shown by the desktop after the command.
+    pub dialogs: Vec<serde_json::Value>,
 }
 
 impl<'a> Interp<'a> {
@@ -81,6 +113,15 @@ impl<'a> Interp<'a> {
             end_stack: Vec::new(),
             warnings: Vec::new(),
             last_error: String::new(),
+            scripts: HashMap::new(),
+            clc: false,
+            classdefs: HashMap::new(),
+            class_cache: HashMap::new(),
+            constants: HashMap::new(),
+            enum_names: HashMap::new(),
+            in_setter: Vec::new(),
+            gfx_inner: false,
+            dialogs: Vec::new(),
         }
     }
 
@@ -112,6 +153,9 @@ impl<'a> Interp<'a> {
     pub fn run(&mut self, prog: &Program) -> R<()> {
         for f in &prog.functions {
             self.funcs.insert(f.name.clone(), f.clone());
+        }
+        for c in &prog.classes {
+            self.register_class(c.clone());
         }
         match self.block(&prog.body)? {
             Flow::Normal | Flow::Return => Ok(()),
@@ -145,7 +189,7 @@ impl<'a> Interp<'a> {
                     if let Expr::Ident(n) = e {
                         if let Some(v) = self.get_var(n).cloned() {
                             if *print {
-                                let t = display(n, &v);
+                                let t = self.show(n, &v)?;
                                 self.print(&t);
                             }
                             return Ok(());
@@ -154,7 +198,7 @@ impl<'a> Interp<'a> {
                     let vals = self.eval_multi(e, if *print { 1 } else { 0 }, true)?;
                     if let Some(v) = vals.into_iter().next() {
                         if *print {
-                            let t = display("ans", &v);
+                            let t = self.show("ans", &v)?;
                             self.print(&t);
                         }
                         self.set_var("ans", v);
@@ -179,7 +223,7 @@ impl<'a> Interp<'a> {
                             if *print {
                                 let name = root_name(t);
                                 if let Some(val) = self.get_var(&name).cloned() {
-                                    let txt = display(&name, &val);
+                                    let txt = self.show(&name, &val)?;
                                     self.print(&txt);
                                 }
                             }
@@ -214,7 +258,7 @@ impl<'a> Interp<'a> {
                         Value::Str(s) => Value::Str(s.chars().nth(j).map(|ch| ch.to_string()).unwrap_or_default()),
                         Value::Cell { r, items, .. } => Value::Cell { r: *r, c: 1, items: items[j * r..(j + 1) * r].to_vec() },
                         Value::Struct { r, fields, items, .. } => Value::Struct { r: *r, c: 1, fields: fields.clone(), items: items[j * r..(j + 1) * r].to_vec() },
-                        Value::Func(_) => rv.clone(),
+                        Value::Func(_) | Value::Obj(_) => rv.clone(),
                     };
                     self.assign(var, item)?;
                     match self.block(body)? {
@@ -326,14 +370,82 @@ impl<'a> Interp<'a> {
             Expr::Bin(op, a, b) => {
                 let l = self.eval(a)?;
                 let r = self.eval(b)?;
+                if let (Some(x), Some(y), Bin::Eq | Bin::Ne) = (super::graphics::refs(&l), super::graphics::refs(&r), op) {
+                    let same = x.len() == y.len() || x.len() == 1 || y.len() == 1;
+                    if !same {
+                        return Err("sizes do not match".into());
+                    }
+                    let n = x.len().max(y.len());
+                    let v: Vec<bool> = (0..n).map(|k| (x[if x.len() == 1 { 0 } else { k }] == y[if y.len() == 1 { 0 } else { k }]) == matches!(op, Bin::Eq)).collect();
+                    return Ok(vec![Value::Num(Arr::boolean(1, n, v))]);
+                }
+                if super::classes::instance(&l).is_some() || super::classes::instance(&r).is_some() {
+                    let method = match op {
+                        Bin::Add => "plus",
+                        Bin::Sub => "minus",
+                        Bin::Mul => "mtimes",
+                        Bin::EMul => "times",
+                        Bin::Div => "mrdivide",
+                        Bin::EDiv => "rdivide",
+                        Bin::LDiv => "mldivide",
+                        Bin::ELDiv => "ldivide",
+                        Bin::Pow => "mpower",
+                        Bin::EPow => "power",
+                        Bin::Eq => "eq",
+                        Bin::Ne => "ne",
+                        Bin::Lt => "lt",
+                        Bin::Le => "le",
+                        Bin::Gt => "gt",
+                        Bin::Ge => "ge",
+                        Bin::And => "and",
+                        Bin::Or => "or",
+                        Bin::AndAnd | Bin::OrOr => "",
+                    };
+                    if let Some(v) = self.operator(method, &l, &r) {
+                        return Ok(vec![v?]);
+                    }
+                    if matches!(op, Bin::Eq | Bin::Ne) {
+                        // Handles compare by identity.
+                        let same = super::classes::obj_key(&l) == super::classes::obj_key(&r) && super::classes::obj_key(&l) != 0;
+                        return Ok(vec![Value::boolean(if *op == Bin::Eq { same } else { !same })]);
+                    }
+                    return Err(format!("Operator '{}' is not supported for operands of type '{}' (define a {method} method).", super::session::bin_symbol(*op), match (&l, &r) { (Value::Obj(o), _) | (_, Value::Obj(o)) => o.class.clone(), _ => String::new() }));
+                }
                 vec![binop(*op, &l, &r)?]
             }
-            Expr::Neg(a) => vec![Value::Num(negate(&self.eval(a)?.arr()?))],
-            Expr::Not(a) => {
-                let v = self.eval(a)?.arr()?;
-                vec![Value::Num(Arr::boolean(v.r, v.c, v.re.iter().map(|x| *x == 0.0).collect()))]
+            Expr::Neg(a) => {
+                let v = self.eval(a)?;
+                if super::classes::instance(&v).is_some() {
+                    return Ok(vec![self.unary_operator("uminus", &v).ok_or("define a uminus method")??]);
+                }
+                if let Some(g) = super::lti::as_lti(&v) {
+                    return Ok(vec![super::lti::wrap(g.neg())]);
+                }
+                vec![Value::Num(negate(&v.arr()?))]
             }
-            Expr::Transpose(a, conj) => vec![transpose_value(&self.eval(a)?, *conj)?],
+            Expr::Not(a) => {
+                let v = self.eval(a)?;
+                if super::classes::instance(&v).is_some() {
+                    return Ok(vec![self.unary_operator("not", &v).ok_or("define a not method")??]);
+                }
+                let v = v.arr()?;
+                let mut out = Arr::boolean(v.r, v.c, v.re.iter().map(|x| *x == 0.0).collect());
+                out.nd = v.nd.clone();
+                vec![Value::Num(out)]
+            }
+            Expr::Transpose(a, conj) => {
+                let v = self.eval(a)?;
+                if super::classes::instance(&v).is_some() {
+                    if let Some(r) = self.unary_operator(if *conj { "ctranspose" } else { "transpose" }, &v) {
+                        return Ok(vec![r?]);
+                    }
+                }
+                vec![transpose_value(&v, *conj)?]
+            }
+            Expr::SuperCall(var, sup, args) => {
+                let a = self.args(args, None)?;
+                return self.super_call(var, sup, a, nargout);
+            }
             Expr::Anon(params, body) => {
                 // Capture the variables the body uses.
                 let mut captured = HashMap::new();
@@ -360,7 +472,34 @@ impl<'a> Interp<'a> {
                         return self.call_name(n, a, nargout, statement);
                     }
                 }
-                let bases = self.eval_multi(base, 1, false)?;
+                let bases = if let Expr::Field(inner, m) = base.as_ref() {
+                    // ClassName.staticMethod(args) / ClassName.CONSTANT(i)
+                    if let Expr::Ident(n) = inner.as_ref() {
+                        if self.get_var(n).is_none() && self.is_class(n) {
+                            let a = self.args(args, None)?;
+                            return self.static_access(n, m, Some(a), nargout);
+                        }
+                    }
+                    let obj = self.eval(inner)?;
+                    if let Some(inst) = super::classes::instance(&obj) {
+                        let is_prop = inst.info.prop_index(m).is_some() || inst.info.method(&format!("get.{m}")).is_some();
+                        if !is_prop {
+                            if let Some(method) = inst.info.method(m) {
+                                // obj.method(args) is method(obj, args).
+                                let mut a = vec![obj.clone()];
+                                a.extend(self.args(args, None)?);
+                                return self.call_user(&method, a, nargout);
+                            }
+                        }
+                        self.obj_field(&obj, m)?
+                    } else if let Some(rs) = super::graphics::refs(&obj) {
+                        vec![self.gfx_field(rs, m)?]
+                    } else {
+                        field_values(&obj, m)?
+                    }
+                } else {
+                    self.eval_multi(base, 1, false)?
+                };
                 let b = bases.into_iter().next().ok_or("indexing an empty list")?;
                 if let Value::Func(f) = &b {
                     let a = self.args(args, None)?;
@@ -384,7 +523,18 @@ impl<'a> Interp<'a> {
                 }
             }
             Expr::Field(base, f) => {
+                if let Expr::Ident(n) = base.as_ref() {
+                    if self.get_var(n).is_none() && self.is_class(n) {
+                        return self.static_access(n, f, None, nargout);
+                    }
+                }
                 let b = self.eval(base)?;
+                if super::classes::instance(&b).is_some() {
+                    return self.obj_field(&b, f);
+                }
+                if let Some(rs) = super::graphics::refs(&b) {
+                    return Ok(vec![self.gfx_field(rs, f)?]);
+                }
                 field_values(&b, f)?
             }
             Expr::DynField(base, f) => {
@@ -414,8 +564,8 @@ impl<'a> Interp<'a> {
         let n = args.len();
         for (k, a) in args.iter().enumerate() {
             if let Some(v) = of {
-                let (r, c) = v.dims();
-                let end = if n == 1 { r * c } else if k == 0 { r } else if k == 1 && n == 2 { c } else if k == 1 { c } else { 1 };
+                let d = v.full_dims();
+                let end = if n == 1 { d.iter().product() } else { super::value::fold_dims(&d, n)[k] };
                 self.end_stack.push(end);
             }
             let vals = self.eval_list(a);
@@ -474,13 +624,46 @@ impl<'a> Interp<'a> {
     // ───────────────────────── calls
 
     pub fn call_name(&mut self, name: &str, args: Vec<Value>, nargout: usize, statement: bool) -> R<Vec<Value>> {
+        // A method of an object argument comes first, then a class constructor (as in MATLAB).
+        if let Some(m) = self.object_method(name, &args) {
+            return self.call_user(&m, args, nargout);
+        }
+        if self.is_class(name) {
+            return Ok(vec![self.construct(name, args)?]);
+        }
+        if let Some(r) = self.class_builtin(name, &args, nargout) {
+            return r;
+        }
         if let Some(f) = self.funcs.get(name).cloned() {
             return self.call_user(&f, args, nargout);
         }
+        if let Some(body) = self.scripts.get(name).cloned() {
+            if !args.is_empty() {
+                return Err(format!("{name} is a script: it takes no arguments"));
+            }
+            self.depth += 1;
+            if self.depth > 64 {
+                self.depth -= 1;
+                return Err("scripts call each other too deep".into());
+            }
+            let r = self.block(&body);
+            self.depth -= 1;
+            r.map_err(|e| if e == "cancelled" { e } else { format!("in {name}: {e}") })?;
+            return Ok(Vec::new());
+        }
         match super::builtins::call(self, name, args, nargout, statement) {
             Some(r) => r,
-            None => Err(format!("undefined function or variable '{name}'")),
+            None => Err(format!("Unrecognized function or variable '{name}'.")),
         }
+    }
+
+    /// h.Prop on graphics handles (several handles give a cell of values).
+    fn gfx_field(&mut self, rs: &[super::graphics::GRef], name: &str) -> R<Value> {
+        if rs.len() == 1 {
+            return super::graphics::get_prop(self, &rs[0], name);
+        }
+        let items: Vec<Value> = rs.iter().map(|r| super::graphics::get_prop(self, r, name)).collect::<R<_>>()?;
+        Ok(Value::Cell { r: items.len(), c: 1, items })
     }
 
     pub fn call_func(&mut self, f: &Func, args: Vec<Value>, nargout: usize) -> R<Vec<Value>> {
@@ -520,6 +703,11 @@ impl<'a> Interp<'a> {
     }
 
     pub fn call_user(&mut self, f: &Rc<Function>, args: Vec<Value>, nargout: usize) -> R<Vec<Value>> {
+        self.call_user_preset(f, args, nargout, None)
+    }
+
+    /// A user function; `preset` gives an output variable its starting value (a constructor's object).
+    pub fn call_user_preset(&mut self, f: &Rc<Function>, args: Vec<Value>, nargout: usize, preset: Option<(String, Value)>) -> R<Vec<Value>> {
         let varargin = f.params.last().is_some_and(|p| p == "varargin");
         let fixed = if varargin { f.params.len() - 1 } else { f.params.len() };
         if args.len() > fixed && !varargin {
@@ -531,6 +719,9 @@ impl<'a> Interp<'a> {
             return Err("recursion is too deep (256 levels)".into());
         }
         let mut scope = HashMap::new();
+        if let Some((k, v)) = preset {
+            scope.insert(k, v);
+        }
         let nargin = args.len();
         let mut it = args.into_iter();
         for p in f.params.iter().take(fixed) {
@@ -652,6 +843,21 @@ impl<'a> Interp<'a> {
                 assign_index(base, &idx, Value::Cell { r: 1, c: 1, items: vec![inner] })
             }
             Access::Field(name) => {
+                if let Some(obj) = cur.as_ref().filter(|v| super::graphics::is_gfx(v)).cloned() {
+                    let rs = super::graphics::refs(&obj).unwrap().clone();
+                    let old = rs.first().and_then(|r| super::graphics::get_prop(self, r, name).ok());
+                    let new = self.assign_path(old, rest, rhs)?;
+                    for r in &rs {
+                        super::graphics::set_prop(self, r, name, new.clone())?;
+                    }
+                    return Ok(obj);
+                }
+                if let Some(obj) = cur.as_ref().filter(|v| super::classes::instance(v).is_some()).cloned() {
+                    let inst = super::classes::instance(&obj).unwrap();
+                    let old = inst.info.prop_index(name).map(|k| inst.props.borrow()[k].clone()).filter(|v| !(v.is_empty() && matches!(v, Value::Num(_))));
+                    let new = self.assign_path(old, rest, rhs)?;
+                    return self.set_obj_field(obj, name, new);
+                }
                 let (r, c, mut fields, mut items) = match cur {
                     Some(Value::Struct { r, c, fields, items }) => (r, c, fields, items),
                     Some(v) if v.is_empty() => (1, 1, Vec::new(), vec![Vec::new()]),
@@ -751,6 +957,10 @@ fn free_names(e: &Expr, out: &mut Vec<String>) {
             free_names(f, out);
         }
         Expr::Anon(_, body) => free_names(body, out),
+        Expr::SuperCall(v, _, a) => {
+            out.push(v.clone());
+            a.iter().for_each(|x| free_names(x, out));
+        }
         _ => {}
     }
 }
@@ -767,6 +977,9 @@ pub fn range(a: f64, s: f64, b: f64) -> R<Arr> {
 }
 
 pub fn binop(op: Bin, l: &Value, r: &Value) -> R<Value> {
+    if let Some(v) = super::lti::binop(op, l, r) {
+        return v;
+    }
     // String comparisons element-wise by character codes work through arr().
     let a = l.arr()?;
     let b = r.arr()?;
@@ -775,6 +988,7 @@ pub fn binop(op: Bin, l: &Value, r: &Value) -> R<Value> {
 
 pub fn transpose_value(v: &Value, conj: bool) -> R<Value> {
     Ok(match v {
+        Value::Num(a) if !a.nd.is_empty() => return Err("transpose is not defined for N-D arrays; use permute".into()),
         Value::Num(a) => Value::Num(a.transpose(conj)),
         Value::Str(s) => {
             // A column of characters: as numbers (char arrays with several rows are not kept).
@@ -798,7 +1012,7 @@ pub fn transpose_value(v: &Value, conj: bool) -> R<Value> {
             }
             Value::Struct { r: *c, c: *r, fields: fields.clone(), items: out }
         }
-        Value::Func(_) => v.clone(),
+        Value::Func(_) | Value::Obj(_) => v.clone(),
     })
 }
 
@@ -822,6 +1036,10 @@ pub fn concat(items: &[Value], row: bool) -> R<Value> {
     }
     if items.len() == 1 {
         return Ok(items[0].clone());
+    }
+    if items.iter().all(|v| super::graphics::is_gfx(v)) {
+        let class = match items[0] { Value::Obj(o) => o.class.clone(), _ => String::new() };
+        return Ok(super::graphics::make_handle(class, items.iter().flat_map(|v| super::graphics::refs(v).unwrap().clone()).collect()));
     }
     // Strings join as strings; cells join as cells; structures as struct arrays.
     if items.iter().all(|v| matches!(v, Value::Str(_))) && row {
@@ -991,7 +1209,120 @@ fn selection(r: usize, c: usize, idx: &[Value]) -> R<(Vec<usize>, usize, usize)>
     }
 }
 
+/// Positions and result dimensions of A(i, j, k, …) with three or more subscripts.
+fn nd_select(d: &[usize], idx: &[Value]) -> R<(Vec<usize>, Vec<usize>)> {
+    let e = super::value::fold_dims(d, idx.len());
+    let mut subs = Vec::with_capacity(idx.len());
+    for (k, v) in idx.iter().enumerate() {
+        let p = positions(v, e[k])?;
+        if let Some(&bad) = p.iter().find(|&&q| q >= e[k]) {
+            return Err(format!("index {} in position {} exceeds the dimension ({})", bad + 1, k + 1, e[k]));
+        }
+        subs.push(p);
+    }
+    let shape: Vec<usize> = subs.iter().map(|s| s.len()).collect();
+    Ok((super::value::nd_positions(&e, &subs), shape))
+}
+
+/// A(i, j, k, …) = rhs on numeric arrays, growing along any dimension.
+fn nd_assign(a: Arr, idx: &[Value], b: Arr) -> R<Value> {
+    let n = idx.len();
+    let full = a.dims();
+    let old = super::value::fold_dims(&full, n);
+    let bd = b.dims();
+    let mut subs = Vec::with_capacity(n);
+    for (k, v) in idx.iter().enumerate() {
+        subs.push(if is_colon(v) && old[k] == 0 { (0..*bd.get(k).unwrap_or(&1)).collect() } else { positions(v, old[k])? });
+    }
+    let new: Vec<usize> = (0..n).map(|k| old[k].max(subs[k].iter().copied().max().map_or(0, |m| m + 1))).collect();
+    let grows = new != old;
+    if grows && full.len() > n && a.len() > 0 {
+        return Err(format!("cannot grow a {}-D array with {n} subscripts", full.len()));
+    }
+    let complex = a.is_complex() || b.is_complex();
+    let total: usize = new.iter().product();
+    let (mut re, mut im) = (a.re.clone(), if complex { Some(a.im.clone().unwrap_or_else(|| vec![0.0; a.len()])) } else { None });
+    if grows {
+        // Every old element moves to the same subscripts in the larger array.
+        let all: Vec<Vec<usize>> = old.iter().map(|&m| (0..m).collect()).collect();
+        let dest = super::value::nd_positions(&new, &all);
+        let mut nre = vec![0.0; total];
+        let mut nim = im.as_ref().map(|_| vec![0.0; total]);
+        for (q, &p) in dest.iter().enumerate() {
+            nre[p] = re[q];
+            if let (Some(t), Some(s)) = (nim.as_mut(), im.as_ref()) {
+                t[p] = s[q];
+            }
+        }
+        re = nre;
+        im = nim;
+    }
+    let targets = super::value::nd_positions(&new, &subs);
+    let rn = b.len();
+    if rn != 1 && rn != targets.len() {
+        return Err(format!("cannot assign {rn} elements to {} positions", targets.len()));
+    }
+    for (k, &q) in targets.iter().enumerate() {
+        let s = if rn == 1 { 0 } else { k };
+        re[q] = b.re[s];
+        if let Some(t) = im.as_mut() {
+            t[q] = b.im.as_ref().map_or(0.0, |v| v[s]);
+        }
+    }
+    let mut out = Arr::with_dims(re, if grows { &new } else if full.len() > n { &full } else { &new });
+    out.im = im;
+    out.logical = a.logical && b.logical || (a.is_empty() && b.logical);
+    out.simplify();
+    Ok(Value::Num(out))
+}
+
+/// A(:, :, k) = [] with three or more subscripts: one subscript selects what goes.
+fn nd_delete(a: Arr, idx: &[Value]) -> R<Value> {
+    let e = super::value::fold_dims(&a.dims(), idx.len());
+    let mut subs: Vec<Vec<usize>> = Vec::with_capacity(idx.len());
+    let mut cut = None;
+    for (k, v) in idx.iter().enumerate() {
+        let p = positions(v, e[k])?;
+        let del: HashSet<usize> = p.into_iter().collect();
+        if is_colon(v) || (0..e[k]).all(|q| del.contains(&q)) {
+            subs.push((0..e[k]).collect());
+        } else {
+            if cut.is_some() {
+                return Err("deletion needs every subscript but one to be ':'".into());
+            }
+            cut = Some(k);
+            subs.push((0..e[k]).filter(|q| !del.contains(q)).collect());
+        }
+    }
+    if cut.is_none() {
+        return Ok(Value::Num(Arr::zeros(0, 0)));
+    }
+    let keep = super::value::nd_positions(&e, &subs);
+    let shape: Vec<usize> = subs.iter().map(|s| s.len()).collect();
+    let mut out = Arr::with_dims(keep.iter().map(|&k| a.re[k]).collect(), &shape);
+    out.im = a.im.as_ref().map(|im| keep.iter().map(|&k| im[k]).collect());
+    out.logical = a.logical;
+    Ok(Value::Num(out))
+}
+
 pub fn index_value(b: &Value, idx: &[Value]) -> R<Value> {
+    if let (Some(rs), Value::Obj(o)) = (super::graphics::refs(b), b) {
+        let (p, _, _) = selection(1, rs.len(), idx)?;
+        return Ok(super::graphics::make_handle(o.class.clone(), p.into_iter().map(|k| rs[k].clone()).collect()));
+    }
+    if let Value::Num(a) = b {
+        if idx.is_empty() {
+            return Ok(b.clone());
+        }
+        if idx.len() >= 3 {
+            let (p, shape) = nd_select(&a.dims(), idx)?;
+            let mut out = Arr::with_dims(p.iter().map(|&k| a.re[k]).collect(), &shape);
+            out.im = a.im.as_ref().map(|im| p.iter().map(|&k| im[k]).collect());
+            out.logical = a.logical;
+            out.simplify();
+            return Ok(Value::Num(out));
+        }
+    }
     let (r, c) = b.dims();
     let (p, rr, cc) = selection(r, c, idx)?;
     Ok(match b {
@@ -1009,6 +1340,7 @@ pub fn index_value(b: &Value, idx: &[Value]) -> R<Value> {
         Value::Cell { items, .. } => Value::Cell { r: rr, c: cc, items: p.iter().map(|&k| items[k].clone()).collect() },
         Value::Struct { fields, items, .. } => Value::Struct { r: rr, c: cc, fields: fields.clone(), items: p.iter().map(|&k| items[k].clone()).collect() },
         Value::Func(_) => return Err("a function handle cannot be indexed".into()),
+        Value::Obj(o) => return Err(format!("a {} object cannot be indexed with ( )", o.class)),
     })
 }
 
@@ -1016,6 +1348,16 @@ pub fn index_value(b: &Value, idx: &[Value]) -> R<Value> {
 pub fn assign_index(base: Value, idx: &[Value], rhs: Value) -> R<Value> {
     let deleting = matches!(&rhs, Value::Num(a) if a.r == 0 && a.c == 0) && !matches!(base, Value::Cell { .. } if false);
     let (r, c) = base.dims();
+    if idx.len() >= 3 {
+        if let Value::Num(a) = &base {
+            if deleting {
+                return nd_delete(a.clone(), idx);
+            }
+            if matches!(rhs, Value::Num(_) | Value::Str(_)) {
+                return nd_assign(a.clone(), idx, rhs.arr()?);
+            }
+        }
+    }
     if deleting && !matches!(base, Value::Struct { .. }) || (deleting && matches!(base, Value::Struct { .. })) {
         return delete(base, idx);
     }
@@ -1124,13 +1466,16 @@ pub fn assign_index(base: Value, idx: &[Value], rhs: Value) -> R<Value> {
             let complex = a.is_complex() || b.is_complex();
             let re = regrow(a.re.clone(), r, c, nr, nc, 0.0);
             let im = if complex { Some(regrow(a.im.clone().unwrap_or_else(|| vec![0.0; a.len()]), r, c, nr, nc, 0.0)) } else { None };
-            let mut out = Arr { r: nr, c: nc, re, im, logical: a.logical && b.logical || (a.is_empty() && b.logical) };
+            let mut out = Arr { r: nr, c: nc, re, im, logical: a.logical && b.logical || (a.is_empty() && b.logical), nd: Vec::new() };
             for (k, (i, j)) in targets.iter().enumerate() {
                 let q = j * nr + i;
                 out.re[q] = b.re[pick(k)];
                 if let Some(im) = out.im.as_mut() {
                     im[q] = b.im.as_ref().map_or(0.0, |v| v[pick(k)]);
                 }
+            }
+            if nr == r && nc == c {
+                out.nd = a.nd.clone();
             }
             out.simplify();
             Value::Num(out)
@@ -1182,5 +1527,6 @@ fn delete(base: Value, idx: &[Value]) -> R<Value> {
         Value::Cell { items, .. } => Value::Cell { r: nr, c: nc, items: keep.iter().map(|&k| items[k].clone()).collect() },
         Value::Struct { fields, items, .. } => Value::Struct { r: nr, c: nc, fields, items: keep.iter().map(|&k| items[k].clone()).collect() },
         Value::Func(_) => return Err("a function handle cannot be indexed".into()),
+        Value::Obj(o) => return Err(format!("a {} object cannot be indexed with ( )", o.class)),
     })
 }

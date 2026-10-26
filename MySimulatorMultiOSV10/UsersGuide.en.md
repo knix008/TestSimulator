@@ -177,7 +177,7 @@ The **report** gathers the pipeline (nodes and their inputs), every node's value
 
 | Node | Results |
 | --- | --- |
-| Differential equations (ODE) | state equations `x' = expression`; lines without `'` are helper values (output columns). Constants, initial values, ode45 (RK45) and ode23 (adaptive), ode15s (TR-BDF2) and ode23s (Rosenbrock) for stiff problems, RK4, Euler, input u. `delay(x, τ)` makes delay equations (dde23). Event lines `expression, falling, stop` (stop there) or `y, falling, v = -0.8*v` (reset states and go on: a bouncing ball), with an events table of times and states |
+| Differential equations (ODE) | state equations `x' = expression`; lines without `'` are helper values (output columns). Constants, initial values, ode45 (RK45) and ode23 (adaptive), ode15s (variable-order NDF, orders 1–5), ode23s (Rosenbrock) and ode23tb (TR-BDF2) for stiff problems, RK4, Euler, input u. `delay(x, τ)` makes delay equations (dde23). Event lines `expression, falling, stop` (stop there) or `y, falling, v = -0.8*v` (reset states and go on: a bouncing ball), with an events table of times and states |
 | Transfer function response | step, impulse or ramp response of num/den (highest power first), poles and zeros, rise time, overshoot, peak, settling time, DC gain |
 | Bode & Nyquist | magnitude (dB) and phase, the Nyquist curve, gain and phase margins with their crossovers, bandwidth, closed-loop poles and stability, ultimate gain and period with Ziegler–Nichols PID values; loop gain, time delay |
 | PID control loop | a digital PID (derivative filter, derivative on measurement), output saturation with anti-windup, input disturbance, measurement noise, reference input r; r, y, u, e and the performance figures (overshoot, settling, IAE, ISE, ITAE) |
@@ -269,6 +269,24 @@ Relative paths start at the folder of the saved pipeline file.
 
 ## 5. MATLAB scripts
 
+### The MATLAB desktop
+
+**Ⓜ MATLAB** in the view tabs (shortcut 5) is a workspace laid out like MATLAB's own. The node panels step aside and these panes appear:
+
+| Pane | What it does |
+| --- | --- |
+| Toolstrip (HOME · PLOTS · EDITOR) | New script and function, open (.m), save, run and stop, clear the workspace and the commands, close all figures, send to a pipeline node / plot the variables picked in the workspace: plot, scatter, bar, stairs, area, stem, histogram, surf, mesh, contour, imagesc / comment and uncomment (Ctrl+R, Ctrl+T), indent, run selection (F9) |
+| Current Folder | This document's .m files (scripts and function files) and the pipeline's MATLAB script nodes. Function files are called by name, script files run by name. The files are saved inside the pipeline document (.mysim) |
+| Editor | Line numbers, MATLAB colours (keywords, strings, comments), automatic indentation, tabs. F5 (or Ctrl+Enter) runs |
+| Figures | What plot, surf … draw, in Figure windows (white paper, MATLAB line colours, line specs like 'r--o', parula); save as PNG |
+| Command Window | Type at `>>` and press Enter. ↑ ↓ recall commands, Shift+Enter adds a line, Ctrl+C stops, `clc` clears. Errors in red |
+| Workspace | Each variable's name, value, size and class. Plot the picked variables from the PLOTS tab (Ctrl+click for x and y); a double-click opens the Variables editor (matrices, text, structures, cells) |
+| Command History | The commands so far; a double-click runs one again |
+
+Variables, figures and the random stream carry over from command to command, as in MATLAB. In the browser a separate worker (WebAssembly) runs the code, on the desktop the native engine, where `load`, `save` and `readmatrix` read and write files next to the document.
+
+### The script node
+
 The **MATLAB script** node runs the MATLAB/Octave language in a built-in interpreter: no MATLAB installation is needed, and the web and desktop apps give the same results.
 
 ```matlab
@@ -282,7 +300,12 @@ rmsNoise = std(y - yf)
 - The language: matrices and complex numbers, `:`, `end` and logical indexing, arrays that grow and shrink (`A(:, 2) = []`), strings, cells (`c{i}`, `c{:}`), structures and structure arrays (`s(2).f`), function handles and anonymous functions, `function` blocks in the script (varargin, nargin, several outputs), `if/elseif/else`, `for`, `while`, `switch`, `try/catch`, `break/continue/return` and command syntax (`hold on`).
 - About 400 built-in functions: array construction and shape, math (complex aware), sums, means, extremes, sorting and finding, linear algebra (`\`, `inv`, `det`, `eig`, `svd`, `qr`, `lu`, `chol`, `expm`, `null`, `pinv`), polynomials (`polyfit`, `roots`, `conv`), interpolation and integration (`interp1`, `spline`, `pchip`, `interp2`, `trapz`, `integral`), ODEs (`ode45`, `ode23`, `ode15s`, `ode23s`, `deval`), optimisation (`fzero`, `fminbnd`, `fminsearch`, `fsolve`), signals (`fft`, `ifft`, `filter`, `filtfilt`, `butter`, `cheby1`, `cheby2`, `ellip`, `freqz`, `xcorr`, windows), control (`lqr`, `dlqr`, `lqe`, `care`, `dare`, `place`, `ctrb`, `obsv`), statistics (`std`, `var`, `median`, `cov`, `corrcoef`, `histcounts`, `normcdf`, `tcdf`, `ttest`), strings (`sprintf`, `fprintf`, `num2str`, `strsplit`, `strjoin`, `strcmp` …), cells and structures (`cellfun`, `arrayfun`, `struct`, `fieldnames` …) and files (`load`/`save` .mat, `readmatrix`, `writematrix` — desktop).
 - Results: figures drawn with `plot`, `scatter`, `bar`, `stairs` … become tables (with their titles and legend names), `surf`, `mesh`, `contour` and `imagesc` become grids, ready for chart nodes. Workspace numbers become results, vectors and matrices tables, text, cells and structures the result text (variables left as they came in are skipped; "Variables to export" picks some). The command window (`disp`, `fprintf`, lines without a semicolon) is in the result text.
-- Not supported: arithmetic on arrays of three or more dimensions (N-d arrays read from files are split into pages), class definitions (classdef), regular expressions, graphics handle properties (set/get) and toolbox objects (tf objects and the like — use the control and signal nodes instead).
+- N-d arrays: `zeros(2,3,4)`, `reshape`, `cat(3, …)`, `repmat`; `A(i,j,k)` indexing, assignment (with growth) and `A(:,:,k) = []`; `size`, `ndims`, `squeeze`, `permute`, `ipermute`; implicit expansion across dimensions (`A .* reshape(w,1,1,[])`); `sum`, `mean`, `max`, `cumsum` … along any dimension. Display is page by page (`A(:,:,k) =`). N-d arrays in MAT files are read and written as they are.
+- Classes (classdef): properties (defaults, Constant, Dependent), methods and static methods, constructors and inheritance (`obj@Super(…)`), `handle` classes (shared references, `delete`, `isvalid`), value classes (copies), `get.X`/`set.X`, operator overloading (`plus`, `mtimes`, `eq`, `disp` …), enumerations and events (`addlistener`, `notify`). In the MATLAB desktop, keep them as `.m` files in the folder or type them straight into the Command Window.
+- Regular expressions: `regexp` and `regexpi` (match, tokens, names, start, end, split, once; named groups `(?<n>…)`, lookaround) and `regexprep` (`$1`, `${name}`).
+- Control toolbox objects: `tf`, `zpk` and `ss` objects with `+ * / feedback series parallel`; `pole`, `zero`, `dcgain`, `damp`, `c2d`, `d2c`, `pade`, `minreal`; `step`, `impulse`, `lsim`, `stepinfo`, `bode`, `nyquist`, `margin`, `pzmap` and `rlocus` (as figures).
+- Graphics handles: `figure`, `gcf`, `gca`, `plot`, `surf`, `text`, `xline`, `title` … return handles. `set`/`get`, `h.LineWidth = 2`, `ax.Title.String = '…'`, `findobj`, `delete`, `isvalid`, `[h1 h2]` arrays, `legend([h1 h2], …)`, `xlim`, `ylim`, `grid` and `axis` all work, and line colour, width, style and markers, axis limits, grid lines, log axes, text and constant lines are drawn in the figure.
+- Apps (GUI): `uicontrol` (pushbutton, slider, edit, text, popupmenu, checkbox, radiobutton, togglebutton, listbox) and the `uifigure` components (`uibutton`, `uislider`, `uilabel`, `uieditfield`, `uidropdown`, `uicheckbox`, `uispinner`, `uitextarea`, `uigauge`, `uiswitch`, `uiaxes`). They appear as real controls in the MATLAB desktop's figure window; changing or pressing one runs its `Callback`, `ValueChangedFcn` or `ButtonPushedFcn` (a function handle `@(src, event) …`, `{@f, args}` or code text) in the workspace. Controls without a `Position` are stacked down the left edge. `msgbox`, `errordlg`, `warndlg` and `uialert` show a dialog; `questdlg`, `inputdlg` and `uiconfirm` take the default answer with a warning, since a script cannot wait for a reply. `eval`, `evalin` and `assignin` work too.
 
 ## 6. Python and external programs
 

@@ -7,6 +7,7 @@ import { h, replace, numberField, unionJack, taegukgi, aboutMark, themeSwatch, d
 import { GraphEditor, NODE_W } from './graph.js';
 import { chartSpec, drawSpec, tableElement, scalarRows, tableTsv } from './views.js';
 import { chartValueAt } from './charts.js';
+import { MatlabDesktop } from './matlab.js';
 import * as dialogs from './dialogs.js';
 import { showPrint } from './printdialog.js';
 import { StartPage } from './startpage.js';
@@ -16,7 +17,7 @@ import { t, setLanguage, getLanguage } from '../core/i18n.js';
 import { MENUS, WORKBENCHES, TOOLBAR_GROUPS, CONTEXT_MENUS, SHORTCUTS, commandIcon, commandName, commandTip } from '../core/commands.js';
 import { THEMES, resolveTheme, themeVars, themesByMode, CUSTOM_THEME_ID, createCustomTheme, sanitizeTheme } from '../core/themes.js';
 import { saveSettings, addRecent, ANIMATIONS } from '../core/settings.js';
-import { nodeSpec, nodeName, nodeHelp, categoryOf, CATEGORIES, NODES } from '../core/catalog.js';
+import { nodeSpec, nodeName, nodeHelp, categoryOf, CATEGORIES, NODES, defaultParams } from '../core/catalog.js';
 import {
   emptyModel, normalizeModel, parseModel, serializeModel, newId, createNode, connect, upstream, executionOrder, checkModel, engineModel,
   externalNodes, autoLayout, EXTENSION,
@@ -33,7 +34,7 @@ const NETLIST_EXTENSIONS = ['cir', 'net', 'sp', 'spice', 'ckt', 'mycircuit', 'my
 const NETLIST_RE = /\.(cir|net|sp|spice|ckt|mycircuit)$/i;
 
 const START_KEEPS = new Set(['about', 'home', 'settings', 'shortcuts', 'usage', 'tutorialDoc', 'tutorial', 'batchHelp', 'newFromSample', 'open', 'quit', 'clearRecent', 'toolPanel', 'propertyPanel', 'chartPanel', 'fullscreen', 'expressionHelp', 'pythonInfo', 'nodeLibrary', 'textCut', 'textCopy', 'textPaste', 'textSelectAll']);
-const VIEWS = { viewGraph: 'graph', viewDashboard: 'dashboard', viewData: 'data', view3d: '3d' };
+const VIEWS = { viewGraph: 'graph', viewDashboard: 'dashboard', viewData: 'data', view3d: '3d', viewMatlab: 'matlab' };
 
 let docCounter = 0;
 
@@ -56,6 +57,7 @@ export function startApp(root, settings) {
     plot3d: { x: '', y: '', z: '', color: '', mode: 'line' },
   };
   let graph = null;
+  let matlab = null;
   let startPage = null;
   let tutorial = null;
   setInlinePredicate(() => Boolean(tutorial?.active));
@@ -261,7 +263,23 @@ export function startApp(root, settings) {
     els.drop = h('div', { className: 'drop-hint' }, t('dropHint'));
     els.tour = h('div', { className: 'tour-layer', dataset: { testid: 'tour-layer' } });
     appEl.append(els.menubar, els.toolbar, els.workspace, els.status, els.drop, els.tour);
-    els.viewport.append(els.dashboard, els.dataView, els.overlay);
+    matlab = new MatlabDesktop({
+      doc: () => doc(),
+      updateModel: (fn, commit = true) => { updateModel(fn, commit); if (commit) { renderTabs(); renderLeft(); } },
+      lang: () => getLanguage(),
+      baseDir: () => (doc()?.path ? doc().path.replace(/[\\/][^\\/]*$/, '') : null),
+      status: (text) => { state.status = text; renderStatus(); },
+      openTextFile: (filters) => native.openTextFile(filters).catch((e) => { dialogs.showError(String(e)); return null; }),
+      downloadText: (name, text) => native.saveTextFile(name, text, [{ name: 'MATLAB', extensions: ['m'] }]).catch((e) => dialogs.showError(String(e))),
+      downloadPng: (canvas, name) => canvas.toBlob((blob) => blob && native.saveBlobFile(name, blob, [{ name: 'PNG', extensions: ['png'] }]).catch((e) => dialogs.showError(String(e)))),
+      addScriptNode: (name, code) => {
+        const d = doc();
+        const id = `ml${Date.now().toString(36)}`;
+        const maxY = d.model.nodes.reduce((m, n) => Math.max(m, n.y), 0);
+        updateModel((m) => ({ ...m, nodes: [...m.nodes, { id, type: 'script.matlab', name, x: 60, y: maxY + 160, params: { ...defaultParams('script.matlab'), code }, disabled: false }] }));
+      },
+    });
+    els.viewport.append(els.dashboard, els.dataView, matlab.el, els.overlay);
     graph?.destroy();
     graph = new GraphEditor(els.viewport, graphCallbacks);
     plot3d?.destroy();
@@ -1106,6 +1124,8 @@ export function startApp(root, settings) {
     const view = state.view;
     graph.canvas.style.display = view === 'graph' ? '' : 'none';
     els.dashboard.hidden = view !== 'dashboard';
+    matlab.el.hidden = view !== 'matlab';
+    if (view === 'matlab') matlab.render();
     els.dataView.hidden = view !== 'data';
     if (plot3d) plot3d.el.style.display = view === '3d' ? '' : 'none';
     if (view === 'graph') {
@@ -1203,6 +1223,8 @@ export function startApp(root, settings) {
   /** True while an app's dashboard has the window to itself. */
   function appFocused() {
     const d = doc();
+    // The MATLAB desktop has its own folder, workspace and command panes.
+    if (state.view === 'matlab' && d && !state.startVisible) return true;
     return Boolean(d?.appFocus) && state.view === 'dashboard' && !state.startVisible;
   }
 
@@ -2144,6 +2166,13 @@ export function startApp(root, settings) {
       closeMenu();
       native.leaveFullscreen();
       if (doc()?.selection && !typing) select(null);
+      return;
+    }
+    // The MATLAB desktop handles its own keys (F5 run, Ctrl+R comment …); Ctrl+S still saves.
+    if (target?.closest?.('.ml-desktop') && typing && combo !== 'Ctrl+S') return;
+    if (state.view === 'matlab' && key === 'F5' && !state.startVisible) {
+      event.preventDefault();
+      matlab.runActive();
       return;
     }
     if (typing && !ctrl && !key.startsWith('F')) return;

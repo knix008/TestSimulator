@@ -24,6 +24,15 @@ impl Rng {
         Rng { s: [splitmix(&mut state), splitmix(&mut state), splitmix(&mut state), splitmix(&mut state)], spare: None }
     }
 
+    /// The generator state (to carry a session's random stream across commands).
+    pub fn state(&self) -> [u64; 4] {
+        self.s
+    }
+
+    pub fn from_state(s: [u64; 4]) -> Self {
+        Rng { s, spare: None }
+    }
+
     pub fn next_u64(&mut self) -> u64 {
         let result = self.s[1].wrapping_mul(5).rotate_left(7).wrapping_mul(9);
         let t = self.s[1] << 17;

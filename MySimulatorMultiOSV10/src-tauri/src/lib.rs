@@ -278,6 +278,33 @@ fn cancel_study(state: tauri::State<'_, StudyState>) {
     }
 }
 
+#[derive(Default)]
+struct MatlabState {
+    cancel: Mutex<Option<Arc<AtomicBool>>>,
+}
+
+/// Runs a MATLAB command-window / editor request (sim_core::mlang::session) natively.
+#[tauri::command]
+async fn matlab_eval(state: tauri::State<'_, MatlabState>, request: String, base_dir: Option<PathBuf>) -> Result<String, String> {
+    let cancel = Arc::new(AtomicBool::new(false));
+    *lock(&state.cancel) = Some(cancel.clone());
+    let reply = blocking(move || {
+        let cancelled = || cancel.load(Ordering::Relaxed);
+        let host = host::DesktopHost { base: base_dir };
+        Ok(sim_core::mlang::session::session(&request, &cancelled, &host))
+    })
+    .await?;
+    *lock(&state.cancel) = None;
+    Ok(reply)
+}
+
+#[tauri::command]
+fn cancel_matlab(state: tauri::State<'_, MatlabState>) {
+    if let Some(flag) = lock(&state.cancel).as_ref() {
+        flag.store(true, Ordering::Relaxed);
+    }
+}
+
 #[tauri::command]
 fn validate_model(model: String) -> Vec<String> {
     sim_core::validate(&model)
@@ -362,6 +389,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .manage(StudyState::default())
+        .manage(MatlabState::default())
         .setup(move |app| {
             install_panic_hook(app.handle());
             {
@@ -439,6 +467,8 @@ pub fn run() {
             open_external,
             run_study,
             cancel_study,
+            matlab_eval,
+            cancel_matlab,
             validate_model,
             python_info,
             window_ready,

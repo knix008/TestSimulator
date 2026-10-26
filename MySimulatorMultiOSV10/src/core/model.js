@@ -63,7 +63,14 @@ export function normalizeModel(raw) {
     settings: { seed: num(m.settings?.seed, 1) },
     view: m.view ?? null,
     app: normalizeApp(m.app),
+    matlab: normalizeMatlab(m.matlab),
   };
+}
+
+/** The MATLAB desktop's files (the Current Folder of this document). */
+export function normalizeMatlab(x) {
+  if (!x || typeof x !== 'object' || !Array.isArray(x.files)) return null;
+  return { files: x.files.filter((f) => f && typeof f.name === 'string' && f.name).map((f) => ({ name: String(f.name), code: typeof f.code === 'string' ? f.code : '' })) };
 }
 
 /** The app (dashboard) section: the controls the dashboard shows, each one a node parameter. */

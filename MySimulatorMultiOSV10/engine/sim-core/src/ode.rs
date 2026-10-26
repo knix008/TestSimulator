@@ -1,8 +1,9 @@
 //! Time integration of x' = f(t, x): explicit Euler, classic RK4 (fixed
 //! step), Dormand–Prince RK45 (ode45) and Bogacki–Shampine RK23 (ode23)
-//! (adaptive, error controlled), and two stiff solvers with a numerical
-//! Jacobian: the Rosenbrock method of ode23s and TR-BDF2 (ode23tb, also used
-//! for ode15s). The solution is returned on an even output grid.
+//! (adaptive, error controlled), and three stiff solvers with a numerical
+//! Jacobian: the variable-order (1–5) NDFs of ode15s, the Rosenbrock method
+//! of ode23s and TR-BDF2 (ode23tb). The solution is returned on an even
+//! output grid (ode15s interpolates its own polynomial there).
 //!
 //! Event functions g(t, x) are watched at every output step: a sign change
 //! (in the chosen direction) is located by bisection and recorded, and a
@@ -17,6 +18,8 @@ pub enum Method {
     Rk23,
     Rosenbrock,
     TrBdf2,
+    /// ode15s: variable-order (1–5) numerical differentiation formulas.
+    Ndf,
 }
 
 impl Method {
@@ -27,8 +30,9 @@ impl Method {
             "" | "rk45" | "ode45" | "dopri" | "dormandprince" | "adaptive" => Method::Rk45,
             "rk23" | "ode23" | "bogacki" => Method::Rk23,
             "ode23s" | "rosenbrock" => Method::Rosenbrock,
-            "ode23tb" | "trbdf2" | "ode15s" | "stiff" | "bdf" => Method::TrBdf2,
-            other => return Err(format!("unknown method \"{other}\" (euler, rk4, rk45/ode45, ode23, ode23s, ode23tb/ode15s)")),
+            "ode23tb" | "trbdf2" | "ode23t" => Method::TrBdf2,
+            "ode15s" | "ndf" | "bdf" | "stiff" => Method::Ndf,
+            other => return Err(format!("unknown method \"{other}\" (euler, rk4, rk45/ode45, ode23, ode15s, ode23s, ode23tb)")),
         })
     }
 
@@ -91,11 +95,12 @@ struct Stepper {
     fsal: bool,
     steps: usize,
     rejected: usize,
+    ndf: Option<Ndf>,
 }
 
 impl Stepper {
     fn new(n: usize, h: f64) -> Self {
-        Stepper { n, k: vec![vec![0.0; n]; 8], tmp: vec![0.0; n], h, fsal: false, steps: 0, rejected: 0 }
+        Stepper { n, k: vec![vec![0.0; n]; 8], tmp: vec![0.0; n], h, fsal: false, steps: 0, rejected: 0, ndf: None }
     }
 
     /// Advances x from t to target (adaptive methods choose their own steps).
@@ -113,6 +118,26 @@ impl Stepper {
                     *t += hs;
                     self.steps += 1;
                 }
+                *t = target;
+                Ok(())
+            }
+            Method::Ndf => {
+                if self.ndf.is_none() {
+                    let h0 = initial_step(f, *t, x, opt, 1);
+                    self.ndf = Some(Ndf::new(f, *t, x, h0, opt));
+                }
+                let ndf = self.ndf.as_mut().unwrap();
+                let mut guard = 0usize;
+                while ndf.t < target - 1e-12 * target.abs().max(1.0) {
+                    guard += 1;
+                    if guard > 5_000_000 {
+                        return Err("ode15s took too many steps".into());
+                    }
+                    ndf.step(f, opt.t_end, opt, &mut self.rejected)?;
+                    self.steps += 1;
+                }
+                let xs = if (ndf.t - target).abs() <= 1e-12 * target.abs().max(1.0) { ndf.d[0].clone() } else { ndf.dense(target) };
+                x.copy_from_slice(&xs);
                 *t = target;
                 Ok(())
             }
@@ -246,6 +271,25 @@ impl Stepper {
         }
         err
     }
+}
+
+/// A first step size from the solution's scale and the change of f (Hairer, Nørsett and Wanner).
+fn initial_step(f: &mut Rhs, t: f64, x: &[f64], opt: &Options, order: usize) -> f64 {
+    let n = x.len();
+    let mut f0 = vec![0.0; n];
+    f(t, x, &mut f0);
+    let scale: Vec<f64> = x.iter().map(|v| opt.atol + opt.rtol * v.abs()).collect();
+    let rms = |v: &[f64]| (v.iter().zip(&scale).map(|(a, s)| (a / s).powi(2)).sum::<f64>() / n.max(1) as f64).sqrt();
+    let (d0, d1) = (rms(x), rms(&f0));
+    let h0 = if d0 < 1e-5 || d1 < 1e-5 { 1e-6 } else { 0.01 * d0 / d1 };
+    let span = (opt.t_end - t).abs();
+    let h0 = h0.min(span);
+    let x1: Vec<f64> = (0..n).map(|i| x[i] + h0 * f0[i]).collect();
+    let mut f1 = vec![0.0; n];
+    f(t + h0, &x1, &mut f1);
+    let d2 = rms(&(0..n).map(|i| f1[i] - f0[i]).collect::<Vec<_>>()) / h0;
+    let h1 = if d1 <= 1e-15 && d2 <= 1e-15 { (h0 * 1e-3).max(1e-6) } else { (0.01 / d1.max(d2)).powf(1.0 / (order as f64 + 1.0)) };
+    (100.0 * h0).min(h1).min(span)
 }
 
 fn euler_step(f: &mut Rhs, t: f64, x: &mut [f64], h: f64, k1: &mut [f64]) {
@@ -440,6 +484,249 @@ fn tr_bdf2(f: &mut Rhs, t: f64, x: &[f64], h: f64, xn: &mut [f64], opt: &Options
     // Filter the estimate through the iteration matrix (Shampine) so stiff components are not over-counted.
     let e = lu.solve(&e);
     Ok(scaled_error(&e, x, xn, opt))
+}
+
+/// ───────────────────────── ode15s: variable-order NDF (Shampine & Reichelt 1997)
+
+const NDF_MAX_ORDER: usize = 5;
+const NEWTON_MAXITER: usize = 4;
+
+/// The R matrix that rescales the backward differences for a step change by `factor`.
+fn ndf_r(order: usize, factor: f64) -> Vec<Vec<f64>> {
+    let n = order + 1;
+    let mut m = vec![vec![0.0; n]; n];
+    for j in 0..n {
+        m[0][j] = 1.0;
+    }
+    for i in 1..n {
+        for j in 1..n {
+            m[i][j] = (i as f64 - 1.0 - factor * j as f64) / i as f64;
+        }
+    }
+    // Cumulative product down each column.
+    for i in 1..n {
+        for j in 0..n {
+            m[i][j] *= m[i - 1][j];
+        }
+    }
+    m
+}
+
+/// D[0..=order] ← (R U)ᵀ D[0..=order] for a step size change by `factor`.
+fn ndf_change(d: &mut [Vec<f64>], order: usize, factor: f64) {
+    let r = ndf_r(order, factor);
+    let u = ndf_r(order, 1.0);
+    let n = order + 1;
+    let mut ru = vec![vec![0.0; n]; n];
+    for i in 0..n {
+        for j in 0..n {
+            ru[i][j] = (0..n).map(|k| r[i][k] * u[k][j]).sum();
+        }
+    }
+    let cols = d[0].len();
+    let old: Vec<Vec<f64>> = d[..n].to_vec();
+    for j in 0..n {
+        for c in 0..cols {
+            d[j][c] = (0..n).map(|i| ru[i][j] * old[i][c]).sum();
+        }
+    }
+}
+
+fn rms(v: &[f64], scale: &[f64]) -> f64 {
+    (v.iter().zip(scale).map(|(a, s)| (a / s) * (a / s)).sum::<f64>() / v.len().max(1) as f64).sqrt()
+}
+
+/// The state of a running NDF integration (backward differences D, order, step, Jacobian).
+struct Ndf {
+    t: f64,
+    d: Vec<Vec<f64>>,
+    order: usize,
+    h_abs: f64,
+    h_last: f64,
+    n_equal: usize,
+    jac: Vec<Vec<f64>>,
+    lu: Option<Lu>,
+    jac_current: bool,
+    kappa: [f64; 6],
+    gamma: [f64; 6],
+    alpha: [f64; 6],
+    err_const: [f64; 7],
+    newton_tol: f64,
+}
+
+impl Ndf {
+    fn new(f: &mut Rhs, t: f64, x: &[f64], h0: f64, opt: &Options) -> Ndf {
+        let n = x.len();
+        let mut f0 = vec![0.0; n];
+        f(t, x, &mut f0);
+        let kappa = [0.0, -0.1850, -1.0 / 9.0, -0.0823, -0.0415, 0.0];
+        let mut gamma = [0.0; 6];
+        for k in 1..6 {
+            gamma[k] = gamma[k - 1] + 1.0 / k as f64;
+        }
+        let mut alpha = [0.0; 6];
+        for k in 0..6 {
+            alpha[k] = (1.0 - kappa[k]) * gamma[k];
+        }
+        let mut err_const = [0.0; 7];
+        for k in 0..7 {
+            err_const[k] = kappa.get(k).copied().unwrap_or(0.0) * gamma.get(k).copied().unwrap_or(0.0) + 1.0 / (k as f64 + 1.0);
+        }
+        let mut d = vec![vec![0.0; n]; NDF_MAX_ORDER + 3];
+        d[0] = x.to_vec();
+        d[1] = f0.iter().map(|v| v * h0).collect();
+        let jac = jacobian(f, t, x, &f0);
+        Ndf { t, d, order: 1, h_abs: h0, h_last: h0, n_equal: 0, jac, lu: None, jac_current: true, kappa, gamma, alpha, err_const, newton_tol: (10.0 * f64::EPSILON / opt.rtol).max(0.03f64.min(opt.rtol.sqrt())) }
+    }
+
+    /// One accepted step (never past `t_bound`); returns the Newton iterations for statistics.
+    fn step(&mut self, f: &mut Rhs, t_bound: f64, opt: &Options, rejected: &mut usize) -> Result<(), String> {
+        let n = self.d[0].len();
+        let _ = self.kappa;
+        let min_step = 10.0 * f64::EPSILON * self.t.abs().max(1e-300);
+        loop {
+            if self.h_abs < min_step {
+                return Err(format!("the step size became too small at t = {:.6} (ode15s)", self.t));
+            }
+            let mut t_new = self.t + self.h_abs;
+            if t_new > t_bound {
+                t_new = t_bound;
+                let factor = (t_new - self.t) / self.h_abs;
+                ndf_change(&mut self.d, self.order, factor);
+                self.n_equal = 0;
+                self.lu = None;
+            }
+            let h = t_new - self.t;
+            self.h_abs = h;
+            let order = self.order;
+            let y_pred: Vec<f64> = (0..n).map(|c| (0..=order).map(|j| self.d[j][c]).sum()).collect();
+            let scale: Vec<f64> = y_pred.iter().map(|v| opt.atol + opt.rtol * v.abs()).collect();
+            let psi: Vec<f64> = (0..n).map(|c| (1..=order).map(|j| self.d[j][c] * self.gamma[j]).sum::<f64>() / self.alpha[order]).collect();
+            let cst = h / self.alpha[order];
+            let mut result = None;
+            loop {
+                if self.lu.is_none() {
+                    match Lu::new(iteration_matrix(&self.jac, cst)) {
+                        Ok(lu) => self.lu = Some(lu),
+                        Err(_) => break,
+                    }
+                }
+                // Simplified Newton for y − c·f(t, y) = y_pred − psi·…  (scipy's solve_bdf_system).
+                let lu = self.lu.as_ref().unwrap();
+                let mut y = y_pred.clone();
+                let mut dsum = vec![0.0; n];
+                let mut fy = vec![0.0; n];
+                let mut old_norm: Option<f64> = None;
+                let mut converged = false;
+                let mut iters = 0;
+                for k in 0..NEWTON_MAXITER {
+                    iters = k + 1;
+                    f(t_new, &y, &mut fy);
+                    if fy.iter().any(|v| !v.is_finite()) {
+                        break;
+                    }
+                    let rhs: Vec<f64> = (0..n).map(|c| cst * fy[c] - psi[c] - dsum[c]).collect();
+                    let dy = lu.solve(&rhs);
+                    let dn = rms(&dy, &scale);
+                    let rate = old_norm.map(|o| dn / o);
+                    if let Some(r) = rate {
+                        if r >= 1.0 || r.powi((NEWTON_MAXITER - k) as i32) / (1.0 - r) * dn > self.newton_tol {
+                            break;
+                        }
+                    }
+                    for c in 0..n {
+                        y[c] += dy[c];
+                        dsum[c] += dy[c];
+                    }
+                    if dn == 0.0 || rate.is_some_and(|r| r / (1.0 - r) * dn < self.newton_tol) {
+                        converged = true;
+                        break;
+                    }
+                    old_norm = Some(dn);
+                }
+                if converged {
+                    result = Some((y, dsum, iters));
+                    break;
+                }
+                if self.jac_current {
+                    break;
+                }
+                // Refresh the Jacobian at the prediction and try again.
+                let mut f0 = vec![0.0; n];
+                f(t_new, &y_pred, &mut f0);
+                self.jac = jacobian(f, t_new, &y_pred, &f0);
+                self.jac_current = true;
+                self.lu = None;
+            }
+            let Some((y_new, dsum, iters)) = result else {
+                *rejected += 1;
+                self.h_abs *= 0.5;
+                ndf_change(&mut self.d, self.order, 0.5);
+                self.n_equal = 0;
+                self.lu = None;
+                continue;
+            };
+            let safety = 0.9 * (2.0 * NEWTON_MAXITER as f64 + 1.0) / (2.0 * NEWTON_MAXITER as f64 + iters as f64);
+            let scale: Vec<f64> = y_new.iter().map(|v| opt.atol + opt.rtol * v.abs()).collect();
+            let err: Vec<f64> = dsum.iter().map(|v| self.err_const[order] * v).collect();
+            let err_norm = rms(&err, &scale);
+            if err_norm > 1.0 {
+                *rejected += 1;
+                let factor = (safety * err_norm.powf(-1.0 / (order as f64 + 1.0))).max(0.2);
+                self.h_abs *= factor;
+                ndf_change(&mut self.d, self.order, factor);
+                self.n_equal = 0;
+                continue;
+            }
+            // Accepted: update the differences.
+            self.n_equal += 1;
+            self.t = t_new;
+            self.h_last = h;
+            self.jac_current = false;
+            for c in 0..n {
+                self.d[order + 2][c] = dsum[c] - self.d[order + 1][c];
+                self.d[order + 1][c] = dsum[c];
+            }
+            for i in (0..=order).rev() {
+                for c in 0..n {
+                    self.d[i][c] += self.d[i + 1][c];
+                }
+            }
+            if self.n_equal < order + 1 {
+                return Ok(());
+            }
+            // Choose the order (−1, 0, +1) and the next step.
+            let em = if order > 1 { rms(&self.d[order].iter().map(|v| self.err_const[order - 1] * v).collect::<Vec<_>>(), &scale) } else { f64::INFINITY };
+            let ep = if order < NDF_MAX_ORDER { rms(&self.d[order + 2].iter().map(|v| self.err_const[order + 1] * v).collect::<Vec<_>>(), &scale) } else { f64::INFINITY };
+            let norms = [em, err_norm, ep];
+            let factors: Vec<f64> = norms.iter().enumerate().map(|(k, e)| if e.is_finite() { if *e == 0.0 { f64::INFINITY } else { e.powf(-1.0 / (order as f64 + k as f64)) } } else { 0.0 }).collect();
+            let best = (0..3).max_by(|&a, &b| factors[a].partial_cmp(&factors[b]).unwrap_or(std::cmp::Ordering::Equal)).unwrap();
+            self.order = (order as i64 + best as i64 - 1) as usize;
+            let factor = (safety * factors[best]).min(10.0);
+            self.h_abs *= factor;
+            ndf_change(&mut self.d, self.order, factor);
+            self.n_equal = 0;
+            self.lu = None;
+            return Ok(());
+        }
+    }
+
+    /// The solution at `tq` within the last step (the NDF interpolating polynomial).
+    fn dense(&self, tq: f64) -> Vec<f64> {
+        let n = self.d[0].len();
+        let order = self.order;
+        let h = self.h_abs;
+        let mut out = self.d[0].clone();
+        let mut p = 1.0;
+        for j in 1..=order {
+            let shift = self.t - h * (j as f64 - 1.0);
+            p *= (tq - shift) / (h * j as f64);
+            for c in 0..n {
+                out[c] += self.d[j][c] * p;
+            }
+        }
+        out
+    }
 }
 
 // ───────────────────────── driver
@@ -664,7 +951,7 @@ mod tests {
     #[test]
     fn harmonic_oscillator() {
         // x'' = -x, x(0)=1 → x = cos t.
-        for (method, tol) in [(Method::Rk4, 1e-7), (Method::Rk45, 1e-7), (Method::Rk23, 1e-6), (Method::Rosenbrock, 1e-4), (Method::TrBdf2, 1e-4)] {
+        for (method, tol) in [(Method::Rk4, 1e-7), (Method::Rk45, 1e-7), (Method::Rk23, 1e-6), (Method::Rosenbrock, 1e-4), (Method::TrBdf2, 1e-4), (Method::Ndf, 1e-4)] {
             let opt = Options { rtol: if method.adaptive() && method != Method::Rk45 { 1e-7 } else { 1e-9 }, ..opts(method, 10.0, 0.01) };
             let mut f = |_t: f64, x: &[f64], dx: &mut [f64]| {
                 dx[0] = x[1];
@@ -693,7 +980,7 @@ mod tests {
             d[1] = 0.04 * y[0] - 1e4 * y[1] * y[2] - 3e7 * y[1] * y[1];
             d[2] = 3e7 * y[1] * y[1];
         };
-        for method in [Method::Rosenbrock, Method::TrBdf2] {
+        for method in [Method::Rosenbrock, Method::TrBdf2, Method::Ndf] {
             let opt = Options { rtol: 1e-4, atol: 1e-8, ..opts(method, 40.0, 1.0) };
             let sol = integrate(&mut f, &[1.0, 0.0, 0.0], &opt, &|| false, &mut |_| {}).unwrap();
             // Reference (Hairer–Wanner): y1(40) = 0.7158, y3(40) = 0.2842.
@@ -701,6 +988,36 @@ mod tests {
             assert!((sol.x[0][40] + sol.x[1][40] + sol.x[2][40] - 1.0).abs() < 1e-3);
             assert!(sol.steps < 2000, "{method:?} took {} steps", sol.steps);
         }
+    }
+
+    #[test]
+    fn ode15s_is_variable_order_and_efficient() {
+        // Robertson to t = 4e4 (reference y1 = 3.898e-2, Hairer–Wanner).
+        let mut f = |_t: f64, y: &[f64], d: &mut [f64]| {
+            d[0] = -0.04 * y[0] + 1e4 * y[1] * y[2];
+            d[1] = 0.04 * y[0] - 1e4 * y[1] * y[2] - 3e7 * y[1] * y[1];
+            d[2] = 3e7 * y[1] * y[1];
+        };
+        let opt = Options { rtol: 1e-6, atol: 1e-10, ..opts(Method::Ndf, 4e4, 4e3) };
+        let sol = integrate(&mut f, &[1.0, 0.0, 0.0], &opt, &|| false, &mut |_| {}).unwrap();
+        assert!((sol.x[0][10] - 0.03898).abs() < 1e-4, "{}", sol.x[0][10]);
+        assert!(sol.steps < 1500, "ode15s took {} steps", sol.steps);
+        // Stiff Van der Pol (μ = 1000): x(3000) ≈ −1.5 after about one relaxation period.
+        let mut g = |_t: f64, y: &[f64], d: &mut [f64]| {
+            d[0] = y[1];
+            d[1] = 1000.0 * (1.0 - y[0] * y[0]) * y[1] - y[0];
+        };
+        let opt = Options { rtol: 1e-5, atol: 1e-8, ..opts(Method::Ndf, 3000.0, 30.0) };
+        let sol = integrate(&mut g, &[2.0, 0.0], &opt, &|| false, &mut |_| {}).unwrap();
+        let x_end = sol.x[0][100];
+        assert!(x_end < -1.0 && x_end > -2.1, "{x_end}");
+        assert!(sol.steps < 5000, "ode15s took {} steps on stiff Van der Pol", sol.steps);
+        // Dense output agrees with the exact solution between steps (x' = −x).
+        let mut e = |_t: f64, y: &[f64], d: &mut [f64]| d[0] = -y[0];
+        let opt = Options { rtol: 1e-8, atol: 1e-12, ..opts(Method::Ndf, 5.0, 0.01) };
+        let sol = integrate(&mut e, &[1.0], &opt, &|| false, &mut |_| {}).unwrap();
+        let worst = sol.t.iter().zip(&sol.x[0]).fold(0.0f64, |m, (t, x)| m.max((x - (-t).exp()).abs()));
+        assert!(worst < 1e-6, "dense output error {worst}");
     }
 
     #[test]

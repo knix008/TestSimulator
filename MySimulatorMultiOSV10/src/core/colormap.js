@@ -3,6 +3,8 @@
 // per-cell painting.
 
 export const COLORMAPS = {
+  // MATLAB's default.
+  parula: [[53, 42, 135], [15, 92, 221], [18, 125, 216], [7, 156, 207], [21, 177, 180], [89, 189, 140], [165, 190, 107], [225, 185, 82], [252, 206, 46], [249, 251, 14]],
   // Google "turbo": perceptually smoother than jet, the usual thermal look.
   turbo: [[48, 18, 59], [70, 107, 227], [41, 187, 236], [49, 242, 153], [163, 253, 61], [237, 208, 58], [251, 128, 34], [208, 47, 5], [122, 4, 3]],
   inferno: [[0, 0, 4], [40, 11, 84], [101, 21, 110], [159, 42, 99], [212, 72, 66], [245, 125, 21], [250, 193, 39], [252, 255, 164]],
@@ -12,7 +14,7 @@ export const COLORMAPS = {
   grey: [[20, 20, 20], [235, 235, 235]],
 };
 
-export const COLORMAP_NAMES = { turbo: 'Turbo', inferno: 'Inferno', viridis: 'Viridis', coolwarm: 'Cool–warm', ironbow: 'Ironbow (IR)', grey: 'Grey' };
+export const COLORMAP_NAMES = { parula: 'Parula (MATLAB)', turbo: 'Turbo', inferno: 'Inferno', viridis: 'Viridis', coolwarm: 'Cool–warm', ironbow: 'Ironbow (IR)', grey: 'Grey' };
 
 export function colorAt(name, t) {
   const stops = COLORMAPS[name] ?? COLORMAPS.turbo;
