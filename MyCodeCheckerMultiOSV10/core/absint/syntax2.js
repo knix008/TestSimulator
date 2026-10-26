@@ -1,6 +1,6 @@
 'use strict';
 
-// More Coverity C/C++ checkers that work on the typed AST, the source layout
+// More Defect Analysis C/C++ checkers that work on the typed AST, the source layout
 // and the CFG (no abstract state). They run per function after syntax.js:
 //
 //   UNINTENDED_INTEGER_DIVISION  int / int converted to a floating type

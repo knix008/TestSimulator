@@ -427,7 +427,7 @@ test('fromHtml recovers headings, cards, verdicts and tables from real reports',
   const top = tables.find((t) => t.columns[0] === '규칙');
   assert.ok(top.rows.length > 0 && top.align[2] === 'right');
 
-  const sp = reports.build('sparrow', a, { lang: 'en', catalog, ruleSet: 'security' });
+  const sp = reports.build('weakness', a, { lang: 'en', catalog, ruleSet: 'security' });
   const ms = model.fromHtml(sp.html);
   assert.equal(ms.title, 'Rule-set compliance report');
   const big = ms.blocks.find((b) => b.type === 'table');

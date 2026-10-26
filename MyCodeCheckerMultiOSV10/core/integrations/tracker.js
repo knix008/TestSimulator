@@ -51,7 +51,7 @@ function summaryOf(issue, lang = 'en') {
 
 /** Labels without spaces (Jira rejects spaces). */
 function labelsOf(issue, config = {}) {
-  const raw = ['mycodechecker', ...(config.labels || []), issue.type && String(issue.type).toLowerCase(), `severity-${severityOf(issue).toLowerCase()}`, issue.checker && `coverity-${issue.checker}`];
+  const raw = ['mycodechecker', ...(config.labels || []), issue.type && String(issue.type).toLowerCase(), `severity-${severityOf(issue).toLowerCase()}`, issue.checker && `defectAnalysis-${issue.checker}`];
   return [...new Set(raw.filter(Boolean).map((l) => String(l).replace(/\s+/g, '-').replace(/[^\w.:-]/g, '-').slice(0, 255)))];
 }
 

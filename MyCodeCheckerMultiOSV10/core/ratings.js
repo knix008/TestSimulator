@@ -1,6 +1,6 @@
 'use strict';
 
-// Ratings follow the public SonarQube scales.
+// Ratings follow the public code quality scales.
 // Maintainability is the technical-debt ratio against 30 minutes per line.
 // Reliability follows the worst open bug. Security follows the worst open
 // vulnerability. Security review follows how many hotspots are reviewed.

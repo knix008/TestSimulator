@@ -44,7 +44,7 @@ R('empty-catch', 'S', 'MA', 5, ['error-handling'],
   /\bcatch\s*\([^)]*\)\s*\{\s*\}/i,
   ['Empty catch block', 'The exception is silently ignored.', 'Log or handle the exception.'],
   ['빈 catch 블록입니다', '예외를 아무 말 없이 무시합니다.', '예외를 기록하거나 처리하세요.'],
-  '} catch (DmlException e) {}', '} catch (DmlException e) { Logger.error(e); }', { sonar: 'S108' });
+  '} catch (DmlException e) {}', '} catch (DmlException e) { Logger.error(e); }', { ref: 'S108' });
 R('catch-exception', 'S', 'MI', 5, ['error-handling', 'cwe-396'],
   /\bcatch\s*\(\s*Exception\s+\w+\s*\)/i,
   ['Catching the generic Exception', 'A broad catch hides programming errors and limit exceptions.', 'Catch DmlException, QueryException or the type you expect.'],
@@ -67,7 +67,7 @@ R('soql-injection', 'V', 'BL', 30, ['sql', 'cwe-89', 'owasp-a03'],
   /\bDatabase\.(?:query|countQuery|getQueryLocator)\s*\([^)]*['"]\s*\+\s*(?!String\.escapeSingleQuotes)\w/i,
   ['SOQL built by concatenation', 'Concatenated values can change the dynamic query.', 'Use bind variables (:var) or Database.queryWithBinds; escape with String.escapeSingleQuotes as a last resort.'],
   ['문자열을 이어 SOQL을 만듭니다', '이어 붙인 값이 동적 질의를 바꿀 수 있습니다.', '바인드 변수(:var)나 Database.queryWithBinds를 쓰고 최후 수단으로 String.escapeSingleQuotes를 쓰세요.'],
-  "List<Account> rows = Database.query('SELECT Id FROM Account WHERE Name = \\'' + name + '\\'');", "List<Account> rows = Database.queryWithBinds('SELECT Id FROM Account WHERE Name = :name', binds, AccessLevel.USER_MODE);", { sonar: 'S2077' });
+  "List<Account> rows = Database.query('SELECT Id FROM Account WHERE Name = \\'' + name + '\\'');", "List<Account> rows = Database.queryWithBinds('SELECT Id FROM Account WHERE Name = :name', binds, AccessLevel.USER_MODE);", { ref: 'S2077' });
 R('without-sharing', 'V', 'CR', 15, ['cwe-284', 'owasp-a01', 'sharing'],
   /\bwithout\s+sharing\b/i,
   ['Class runs without sharing', 'The code ignores record-level sharing and can expose records the user may not see.', 'Use with sharing or inherited sharing; isolate system-mode work.'],
@@ -88,17 +88,17 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b\w*(?:password|passwd|pwd|secret|apiKey|token)\w*\s*=\s*'[^'\s]{4,}'/i,
   ['Hard-coded credential', 'Anyone who can view the class can read the secret.', 'Use Named Credentials or protected custom metadata.'],
   ['자격 증명을 코드에 적었습니다', '클래스를 볼 수 있는 누구나 비밀을 읽을 수 있습니다.', 'Named Credential이나 보호된 사용자 정의 메타데이터를 쓰세요.'],
-  "String apiKey = 'sk_live_abc123';", "req.setEndpoint('callout:Payments/charges');", { sonar: 'S2068' });
+  "String apiKey = 'sk_live_abc123';", "req.setEndpoint('callout:Payments/charges');", { ref: 'S2068' });
 R('http-endpoint', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /'http:\/\/(?!localhost)[\w.-]+/i,
   ['Clear-text HTTP endpoint', 'Callouts over http:// can be read and changed on the network.', 'Use https:// through a Named Credential.'],
   ['평문 HTTP 엔드포인트입니다', 'http:// 콜아웃은 네트워크에서 읽고 바꿀 수 있습니다.', 'Named Credential을 통해 https://를 쓰세요.'],
-  "req.setEndpoint('http://api.example.com/v1');", "req.setEndpoint('callout:Example/v1');", { sonar: 'S5332' });
+  "req.setEndpoint('http://api.example.com/v1');", "req.setEndpoint('callout:Example/v1');", { ref: 'S5332' });
 R('weak-crypto', 'V', 'CR', 15, ['crypto', 'cwe-328', 'owasp-a02'],
   /\bCrypto\.generateDigest\s*\(\s*'(?:MD5|SHA1)'/i,
   ['Weak hash algorithm', 'MD5 and SHA-1 collisions are practical.', 'Use SHA-256 or SHA-512.'],
   ['약한 해시 알고리즘입니다', 'MD5와 SHA-1은 충돌을 실제로 만들 수 있습니다.', 'SHA-256이나 SHA-512를 쓰세요.'],
-  "Blob h = Crypto.generateDigest('MD5', Blob.valueOf(s));", "Blob h = Crypto.generateDigest('SHA-256', Blob.valueOf(s));", { sonar: 'S4790' });
+  "Blob h = Crypto.generateDigest('MD5', Blob.valueOf(s));", "Blob h = Crypto.generateDigest('SHA-256', Blob.valueOf(s));", { ref: 'S4790' });
 R('open-redirect', 'V', 'MA', 15, ['cwe-601', 'owasp-a01'],
   /\bnew\s+PageReference\s*\(\s*(?:ApexPages\.currentPage\(\)\.getParameters\(\)\.get|\w+Param|url)\b/i,
   ['Redirect to a URL taken from the request', 'A URL from a parameter can send users to a phishing site.', 'Redirect only to known pages or validate the target.'],
@@ -115,12 +115,12 @@ R('system-debug', 'S', 'MI', 2, ['debug'],
   /\bSystem\.debug\s*\(/i,
   ['System.debug left in the code', 'Debug statements cost CPU time even when logs are off and may leak data.', 'Remove them or use a logging framework with levels.'],
   ['System.debug가 남아 있습니다', 'debug 문은 로그를 꺼도 CPU 시간을 쓰고 데이터를 흘릴 수 있습니다.', '지우거나 수준이 있는 로깅 프레임워크를 쓰세요.'],
-  "System.debug('acc=' + acc);", 'Logger.debug(acc.Id);', { sonar: 'S106' });
+  "System.debug('acc=' + acc);", 'Logger.debug(acc.Id);', { ref: 'S106' });
 R('todo', 'S', 'IN', 5, ['unfinished'],
   /\b(?:TODO|FIXME)\b/,
   ['TODO / FIXME comment', 'The comment marks unfinished work.', 'Finish the work or open a tracked issue.'],
   ['TODO / FIXME 주석입니다', '주석이 끝나지 않은 일을 표시합니다.', '작업을 끝내거나 추적하는 이슈를 여세요.'],
-  '// TODO: bulkify', '// Bulkified in AccountService.', { scope: 'any', sonar: 'S1135' });
+  '// TODO: bulkify', '// Bulkified in AccountService.', { scope: 'any', ref: 'S1135' });
 R('global-modifier', 'S', 'MI', 5, ['design'],
   /^\s*global\s+(?:with\s+sharing\s+|without\s+sharing\s+|inherited\s+sharing\s+)?class\b/i,
   ['global class', 'global exposes the class outside the package forever; it can never be removed.', 'Use public unless the class is a managed-package API.'],

@@ -1,6 +1,6 @@
 'use strict';
 
-// Kotlin idioms, null safety and coroutines (sonar-kotlin scope), plus a few
+// Kotlin idioms, null safety and coroutines (Kotlin reference analyzer scope), plus a few
 // general rules that apply to Java and Kotlin alike (S106, S112, S1135 ...).
 
 const { rule, jm, jc, km, kc } = require('./core');
@@ -81,7 +81,7 @@ rule({
 });
 
 rule({
-  id: 'useless-null-check', langs: KT, type: 'S', sev: 'MA', debt: 2, tags: ['null-safety', 'redundant'], sonar: 'S6619',
+  id: 'useless-null-check', langs: KT, type: 'S', sev: 'MA', debt: 2, tags: ['null-safety', 'redundant'], ref: 'S6619',
   en: ['Null checks should not be made on non-nullable values', 'Using ?., ?:, !! or a null comparison on a value whose type is not nullable has no effect and suggests a misunderstanding of the types.', 'Remove the null handling, or change the type to nullable if null is really possible.'],
   ko: ['널이 될 수 없는 값에 null 검사를 하면 안 됩니다', '널 불가 타입의 값에 ?., ?:, !!, null 비교를 쓰면 효과가 없고 타입을 잘못 이해한 것으로 보입니다.', 'null 처리를 지우거나 정말 null일 수 있다면 타입을 널 가능으로 바꾸세요.'],
   msg: ['"{0}" is not nullable; remove this useless "{1}".', '"{0}"은(는) 널이 될 수 없습니다. 쓸모없는 "{1}"을(를) 지우세요.'],
@@ -113,7 +113,7 @@ function enumConsts(cx, name) {
 }
 
 rule({
-  id: 'when-without-else', langs: KT, type: 'S', sev: 'MA', debt: 5, tags: ['cert'], sonar: 'S131',
+  id: 'when-without-else', langs: KT, type: 'S', sev: 'MA', debt: 5, tags: ['cert'], ref: 'S131',
   en: ['"when" statements should have an "else" branch', 'A "when" statement over values that are not covered exhaustively silently does nothing for the missing cases, which hides new or unexpected values.', 'Add an else branch, even if it only throws or logs.'],
   ko: ['when 문에는 else 분기가 있어야 합니다', '모든 값을 다루지 않는 when 문은 빠진 경우에 조용히 아무것도 하지 않아 새 값이나 예상 밖의 값을 감춥니다.', '예외를 던지거나 기록만 하더라도 else 분기를 추가하세요.'],
   on: {
@@ -187,7 +187,7 @@ rule({
 });
 
 rule({
-  id: 'data-class-array-property', langs: KT, type: 'B', sev: 'MA', debt: 10, tags: ['pitfall'], sonar: 'S6218',
+  id: 'data-class-array-property', langs: KT, type: 'B', sev: 'MA', debt: 10, tags: ['pitfall'], ref: 'S6218',
   en: ['Data classes with array properties should override equals, hashCode and toString', 'The generated methods of a data class compare and print arrays by identity, so two instances with equal contents are not equal.', 'Override equals/hashCode/toString using contentEquals/contentHashCode/contentToString, or use a List.'],
   ko: ['배열 속성이 있는 data class는 equals, hashCode, toString을 재정의해야 합니다', 'data class가 만드는 메서드는 배열을 식별자로 비교하고 출력해 내용이 같은 두 인스턴스가 같지 않다고 나옵니다.', 'contentEquals/contentHashCode/contentToString으로 equals/hashCode/toString을 재정의하거나 List를 쓰세요.'],
   msg: ['Override "equals", "hashCode" and "toString" to take the array property "{0}" into account.', '배열 속성 "{0}"을(를) 반영하도록 equals, hashCode, toString을 재정의하세요.'],
@@ -230,7 +230,7 @@ rule({
 
 // ── coroutines ──
 rule({
-  id: 'global-scope', langs: KT, type: 'S', sev: 'CR', debt: 10, tags: ['coroutines'], sonar: 'S6311',
+  id: 'global-scope', langs: KT, type: 'S', sev: 'CR', debt: 10, tags: ['coroutines'], ref: 'S6311',
   en: ['"GlobalScope" should not be used', 'Coroutines started in GlobalScope are not bound to any lifecycle; they are never cancelled with their caller and leak work and resources.', 'Launch in a scope tied to a lifecycle (viewModelScope, lifecycleScope, an injected CoroutineScope) or use coroutineScope { }.'],
   ko: ['GlobalScope를 쓰면 안 됩니다', 'GlobalScope에서 시작한 코루틴은 어떤 생명주기에도 묶이지 않아 호출자와 함께 취소되지 않고 작업과 자원이 샙니다.', '생명주기에 묶인 범위(viewModelScope, lifecycleScope, 주입한 CoroutineScope)에서 시작하거나 coroutineScope { }를 쓰세요.'],
   on: { Call(n, cx) { if (n.o && A.dotted(n.o) === 'GlobalScope') cx.report(n); } },
@@ -242,7 +242,7 @@ rule({
 });
 
 rule({
-  id: 'run-blocking-in-coroutine', langs: KT, type: 'B', sev: 'MA', debt: 5, tags: ['coroutines'], sonar: 'S6307',
+  id: 'run-blocking-in-coroutine', langs: KT, type: 'B', sev: 'MA', debt: 5, tags: ['coroutines'], ref: 'S6307',
   en: ['"runBlocking" should not be used inside coroutines', 'runBlocking blocks the current thread until its body completes; inside a suspend function or another coroutine it wastes a thread and can deadlock a single-threaded dispatcher.', 'Call the suspending code directly, or use coroutineScope / withContext.'],
   ko: ['코루틴 안에서 runBlocking을 쓰면 안 됩니다', 'runBlocking은 본문이 끝날 때까지 현재 스레드를 막아 suspend 함수나 다른 코루틴 안에서는 스레드를 낭비하고 단일 스레드 디스패처를 교착시킬 수 있습니다.', '중단 코드를 직접 호출하거나 coroutineScope / withContext를 쓰세요.'],
   msg: ['Remove "runBlocking" from this {0}.', '이 {0}에서 runBlocking을 없애세요.'],
@@ -267,7 +267,7 @@ fun main() {
 });
 
 rule({
-  id: 'hardcoded-dispatcher', langs: KT, type: 'S', sev: 'MI', debt: 10, tags: ['coroutines', 'tests'], sonar: 'S6310',
+  id: 'hardcoded-dispatcher', langs: KT, type: 'S', sev: 'MI', debt: 10, tags: ['coroutines', 'tests'], ref: 'S6310',
   en: ['Dispatchers should be injected', 'A dispatcher hard-coded in coroutine builders cannot be replaced by a test dispatcher, which makes the code slow and non-deterministic to test.', 'Inject the CoroutineDispatcher (with a default value if needed) and use the injected one.'],
   ko: ['디스패처는 주입해야 합니다', '코루틴 빌더에 디스패처를 하드코딩하면 테스트 디스패처로 바꿀 수 없어 테스트가 느리고 비결정적이 됩니다.', 'CoroutineDispatcher를 주입하고(필요하면 기본값과 함께) 주입한 것을 쓰세요.'],
   msg: ['Avoid hardcoded dispatcher "Dispatchers.{0}"; inject it instead.', '하드코딩한 디스패처 "Dispatchers.{0}" 대신 주입한 것을 쓰세요.'],
@@ -289,7 +289,7 @@ rule({
 });
 
 rule({
-  id: 'suspend-returning-flow', langs: KT, type: 'S', sev: 'MA', debt: 5, tags: ['coroutines'], sonar: 'S6309',
+  id: 'suspend-returning-flow', langs: KT, type: 'S', sev: 'MA', debt: 5, tags: ['coroutines'], ref: 'S6309',
   en: ['Functions returning "Flow" should not be suspending', 'A Flow is cold and only does work when collected; making its factory function suspend forces callers into a coroutine for nothing and hints at work done eagerly outside the flow.', 'Remove the suspend modifier and move the suspending work inside the flow builder.'],
   ko: ['Flow를 돌려주는 함수는 suspend이면 안 됩니다', 'Flow는 수집할 때만 동작하는 차가운 스트림이라 이를 만드는 함수를 suspend로 하면 호출자가 괜히 코루틴에 들어가야 하고 흐름 밖에서 미리 일하는 것처럼 보입니다.', 'suspend를 지우고 중단 작업은 flow 빌더 안으로 옮기세요.'],
   on: {
@@ -304,7 +304,7 @@ rule({
 });
 
 rule({
-  id: 'coroutine-scope-receiver-suspend', langs: KT, type: 'S', sev: 'MA', debt: 5, tags: ['coroutines'], sonar: 'S6312',
+  id: 'coroutine-scope-receiver-suspend', langs: KT, type: 'S', sev: 'MA', debt: 5, tags: ['coroutines'], ref: 'S6312',
   en: ['"CoroutineScope" extension functions should not be suspending', 'A CoroutineScope extension launches work in the scope and returns immediately; also declaring it suspend mixes two conventions and confuses callers about when the work completes.', 'Either make it a suspend function without the CoroutineScope receiver (using coroutineScope { }), or a non-suspending scope extension.'],
   ko: ['CoroutineScope 확장 함수는 suspend이면 안 됩니다', 'CoroutineScope 확장 함수는 범위에서 작업을 시작하고 바로 돌아오는데 suspend까지 붙이면 두 관례가 섞여 작업이 언제 끝나는지 헷갈립니다.', 'CoroutineScope 수신자 없는 suspend 함수(coroutineScope { } 사용)나 suspend 아닌 확장 함수 중 하나로 만드세요.'],
   on: {
@@ -439,7 +439,7 @@ function sizeExpr(cx, e) {
 }
 
 rule({
-  id: 'size-compared-to-zero', langs: JK, type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], sonar: 'S1155', ktSonar: 'S1155',
+  id: 'size-compared-to-zero', langs: JK, type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], ref: 'S1155', ktRef: 'S1155',
   en: ['"isEmpty()" should be used to test for emptiness', 'Comparing the size or length with 0 is less readable than isEmpty()/isNotEmpty(), and size() of some collections is not constant time.', 'Use isEmpty() (Kotlin: isEmpty() / isNotEmpty()).'],
   ko: ['비어 있는지는 isEmpty()로 검사해야 합니다', '크기나 길이를 0과 비교하면 isEmpty()/isNotEmpty()보다 읽기 어렵고 어떤 컬렉션은 size()가 상수 시간이 아닙니다.', 'isEmpty()(Kotlin은 isEmpty() / isNotEmpty())를 쓰세요.'],
   msg: ['Use "{0}" instead of comparing "{1}" with 0.', '"{1}"을(를) 0과 비교하지 말고 "{0}"을(를) 쓰세요.'],
@@ -534,7 +534,7 @@ rule({
 });
 
 rule({
-  id: 'indexed-access-operator', langs: KT, type: 'S', sev: 'MI', debt: 1, tags: ['convention'], sonar: 'S6518',
+  id: 'indexed-access-operator', langs: KT, type: 'S', sev: 'MI', debt: 1, tags: ['convention'], ref: 'S6518',
   en: ['Indexed access operators should be used instead of "get" and "set"', 'Kotlin maps x.get(i) and x.set(i, v) to the operators x[i] and x[i] = v; calling the methods directly is noisier.', 'Write x[i] and x[i] = v.'],
   ko: ['get과 set 대신 인덱스 접근 연산자를 써야 합니다', 'Kotlin은 x.get(i)와 x.set(i, v)를 x[i]와 x[i] = v 연산자로 쓰므로 메서드를 직접 부르면 장황합니다.', 'x[i]와 x[i] = v로 쓰세요.'],
   msg: ['Replace "{0}" with the indexed access operator.', '"{0}"을(를) 인덱스 접근 연산자로 바꾸세요.'],
@@ -802,7 +802,7 @@ function caseChanged(e) {
 }
 
 rule({
-  id: 'case-insensitive-comparison', langs: JK, type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], sonar: 'S1157', ktSonar: 'S1157',
+  id: 'case-insensitive-comparison', langs: JK, type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], ref: 'S1157', ktRef: 'S1157',
   en: ['Case insensitive string comparisons should be made without intermediate upper or lower casing', 'Converting both sides to upper or lower case allocates new strings and is locale-sensitive; equalsIgnoreCase does the comparison directly.', 'Use equalsIgnoreCase() (Kotlin: equals(other, ignoreCase = true)).'],
   ko: ['대소문자를 무시한 문자열 비교에 중간 대소문자 변환을 쓰면 안 됩니다', '양쪽을 대문자나 소문자로 바꾸면 새 문자열을 만들고 로캘에 따라 달라집니다. equalsIgnoreCase는 바로 비교합니다.', 'equalsIgnoreCase()(Kotlin은 equals(other, ignoreCase = true))를 쓰세요.'],
   on: {
@@ -829,7 +829,7 @@ rule({
 
 // ── general (Java and Kotlin) ──
 rule({
-  id: 'standard-output', langs: JK, type: 'S', sev: 'MA', debt: 10, tags: ['bad-practice'], sonar: 'S106', ktSonar: 'S106',
+  id: 'standard-output', langs: JK, type: 'S', sev: 'MA', debt: 10, tags: ['bad-practice'], ref: 'S106', ktRef: 'S106',
   en: ['Standard outputs should not be used directly to log anything', 'System.out / println bypass the logging configuration: messages cannot be filtered, routed or correlated and may leak to places nobody reads.', 'Use a logger (SLF4J, java.util.logging, kotlin-logging).'],
   ko: ['기록에 표준 출력을 직접 쓰면 안 됩니다', 'System.out / println은 로깅 설정을 우회해 메시지를 거르거나 보내거나 연결할 수 없고 아무도 보지 않는 곳으로 샐 수 있습니다.', '로거(SLF4J, java.util.logging, kotlin-logging)를 쓰세요.'],
   on: {
@@ -861,7 +861,7 @@ rule({
 const GENERIC_EX = ['Exception', 'RuntimeException', 'Throwable', 'Error'];
 
 rule({
-  id: 'generic-exception-thrown', langs: JK, type: 'S', sev: 'MA', debt: 20, tags: ['cwe-397', 'error-handling'], sonar: 'S112', ktSonar: 'S112',
+  id: 'generic-exception-thrown', langs: JK, type: 'S', sev: 'MA', debt: 20, tags: ['cwe-397', 'error-handling'], ref: 'S112', ktRef: 'S112',
   en: ['Generic exceptions should never be thrown', 'Throwing Exception, RuntimeException, Error or Throwable forces callers to catch everything to handle this one case and hides what actually went wrong.', 'Throw a specific standard exception (IllegalArgumentException, IllegalStateException ...) or a dedicated one.'],
   ko: ['일반 예외를 던지면 안 됩니다', 'Exception, RuntimeException, Error, Throwable을 던지면 호출자가 이 경우를 처리하려고 모든 것을 잡아야 하고 실제 문제가 무엇인지 감춰집니다.', '구체적인 표준 예외(IllegalArgumentException, IllegalStateException 등)나 전용 예외를 던지세요.'],
   msg: ['Define and throw a dedicated exception instead of using a generic one ("{0}").', '일반 예외("{0}") 대신 전용 예외를 정의해 던지세요.'],
@@ -882,7 +882,7 @@ rule({
 });
 
 rule({
-  id: 'catch-throwable-or-error', langs: JK, type: 'S', sev: 'MA', debt: 20, tags: ['cwe-396', 'error-handling'], sonar: 'S1181', ktSonar: 'S1181',
+  id: 'catch-throwable-or-error', langs: JK, type: 'S', sev: 'MA', debt: 20, tags: ['cwe-396', 'error-handling'], ref: 'S1181', ktRef: 'S1181',
   en: ['Throwable and Error should not be caught', 'Errors such as OutOfMemoryError or StackOverflowError signal problems an application cannot recover from; catching them hides the failure and leaves the JVM in a bad state.', 'Catch Exception or the specific exception types the code can handle.'],
   ko: ['Throwable과 Error를 잡으면 안 됩니다', 'OutOfMemoryError나 StackOverflowError 같은 Error는 애플리케이션이 회복할 수 없는 문제를 알리므로 잡으면 실패를 감추고 JVM을 나쁜 상태로 둡니다.', 'Exception이나 처리할 수 있는 구체적인 예외 타입을 잡으세요.'],
   msg: ['Catch Exception instead of {0}.', '{0} 대신 Exception을 잡으세요.'],
@@ -904,7 +904,7 @@ rule({
 });
 
 rule({
-  id: 'nested-ternary', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], sonar: 'S3358',
+  id: 'nested-ternary', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], ref: 'S3358',
   en: ['Ternary operators should not be nested', 'Nested conditional operators are hard to read and the grouping of the branches is easy to misjudge.', 'Use if/else statements, a switch expression or a helper method.'],
   ko: ['삼항 연산자를 중첩하면 안 됩니다', '중첩된 조건 연산자는 읽기 어렵고 분기의 묶음을 잘못 판단하기 쉽습니다.', 'if/else 문, switch 식, 보조 메서드를 쓰세요.'],
   on: {
@@ -923,10 +923,10 @@ rule({
     if (n > 100) { size = "big"; } else { size = n > 10 ? "medium" : "small"; }`) },
 });
 
-function commentRule(id, sonar, word, en, ko) {
+function commentRule(id, ref, word, en, ko) {
   const re = new RegExp('(^|[^A-Za-z0-9_])' + word + '([^A-Za-z0-9_]|$)');
   rule({
-    id, langs: JK, type: 'S', sev: id === 'fixme-comment' ? 'MA' : 'IN', debt: 0, tags: ['cwe-546'], sonar, ktSonar: sonar,
+    id, langs: JK, type: 'S', sev: id === 'fixme-comment' ? 'MA' : 'IN', debt: 0, tags: ['cwe-546'], ref, ktRef: ref,
     en, ko,
     on: {
       Unit(n, cx) {

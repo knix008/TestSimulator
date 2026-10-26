@@ -1,7 +1,7 @@
 'use strict';
 
 // Rule registry. A rule is declared with
-//   rule(id, { t: 'B'|'S'|'V'|'H', s: 'BL'|'CR'|'MA'|'MI'|'IN', debt, tags, sonar, cwe, owasp, ts, react,
+//   rule(id, { t: 'B'|'S'|'V'|'H', s: 'BL'|'CR'|'MA'|'MI'|'IN', debt, tags, ref, cwe, owasp, ts, react,
 //              name: [en, ko], why: [en, ko], fix: [en, ko] }, run(ctx))
 // and run() reports through ctx.report(node, message).
 
@@ -35,7 +35,7 @@ function rule(id, meta, run) {
     tags,
     langs: meta.ts ? ['ts'] : ['js', 'ts'],
     tsOnly: !!meta.ts,
-    sonar: meta.sonar || '',
+    ref: meta.ref || '',
     cwe: cwes[0] || '',
     cwes,
     owasp: [].concat(meta.owasp || []),
@@ -70,7 +70,7 @@ function meta(r) {
     category: CATEGORY[r.type],
   };
   if (Object.keys(standards).length) out.standards = standards;
-  if (r.sonar) out.sonarKey = r.sonar;
+  if (r.ref) out.refKey = r.ref;
   return out;
 }
 

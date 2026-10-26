@@ -121,7 +121,7 @@ test('incremental text changes apply to the right offsets', () => {
   assert.equal(applyRangeChange(t, { start: { line: 1, character: 1 }, end: { line: 2, character: 0 } }, 'X'), 'ab\ncXef');
 });
 
-test('built-in quick fixes and NOSONAR suppression edits', () => {
+test('built-in quick fixes and NOMCC suppression edits', () => {
   const lines = ['if (a == b && c != d) { s = "x == y"; }  ', 'var n = 1;', 'except:', '    x = 1  # note'];
   const eq = fixesFor({ rule: 'js:eqeq', line: 1 }, lines)[0];
   assert.deepEqual(eq.edits.map((e) => [e.column, e.text]), [[7, '==='], [17, '!==']]);
@@ -133,9 +133,9 @@ test('built-in quick fixes and NOSONAR suppression edits', () => {
   // Analyzer-provided fixes come first.
   const custom = { title: { en: 'X', ko: 'X' }, edits: [{ line: 1, column: 1, endLine: 1, endColumn: 2, text: 'y' }] };
   assert.equal(fixesFor({ rule: 'js:eqeq', line: 1, fix: custom }, lines)[0], custom);
-  assert.equal(suppressionEdit({ rule: 'js:var', line: 2, file: 'a.js' }, lines, 'a.js').text, ' // NOSONAR');
-  assert.equal(suppressionEdit({ rule: 'py:x', line: 4, file: 'a.py' }, lines, 'a.py').text, ' NOSONAR');
-  assert.equal(suppressionEdit({ rule: 'py:x', line: 3, file: 'a.py' }, lines, 'a.py').text, ' # NOSONAR');
+  assert.equal(suppressionEdit({ rule: 'js:var', line: 2, file: 'a.js' }, lines, 'a.js').text, ' // NOMCC');
+  assert.equal(suppressionEdit({ rule: 'py:x', line: 4, file: 'a.py' }, lines, 'a.py').text, ' NOMCC');
+  assert.equal(suppressionEdit({ rule: 'py:x', line: 3, file: 'a.py' }, lines, 'a.py').text, ' # NOMCC');
   assert.equal(suppressionEdit({ rule: 'json:x', line: 1, file: 'a.json' }, lines, 'a.json'), null);
 });
 
@@ -196,7 +196,7 @@ test('language server over stdio: diagnostics, hover, code actions, commands, sh
       assert.equal(none, null);
     });
 
-    await t.test('code actions offer a quick fix, NOSONAR and rule deactivation', async () => {
+    await t.test('code actions offer a quick fix, NOMCC and rule deactivation', async () => {
       const eq = srv.diagsOf(app).find((d) => d.code === 'js:eqeq');
       const actions = await srv.client.request('textDocument/codeAction', {
         textDocument: { uri: uriOf(app) }, range: eq.range, context: { diagnostics: [eq] },
@@ -205,8 +205,8 @@ test('language server over stdio: diagnostics, hover, code actions, commands, sh
       assert.match(fix.title, /strict equality/);
       const edits = Object.values(fix.edit.changes)[0];
       assert.deepEqual(edits, [{ range: { start: { line: 2, character: 18 }, end: { line: 2, character: 20 } }, newText: '===' }]);
-      const sup = actions.find((a) => /NOSONAR/.test(a.title));
-      assert.equal(Object.values(sup.edit.changes)[0][0].newText, ' // NOSONAR');
+      const sup = actions.find((a) => /NOMCC/.test(a.title));
+      assert.equal(Object.values(sup.edit.changes)[0][0].newText, ' // NOMCC');
       const deact = actions.find((a) => a.command && a.command.command === 'mycodechecker.deactivateRule');
       assert.deepEqual(deact.command.arguments, ['js:eqeq']);
       assert.ok(actions.some((a) => a.command && a.command.command === 'mycodechecker.showRuleDescription'));

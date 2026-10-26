@@ -96,7 +96,7 @@ function countBy(items, fn) {
 
 const SEV_ORDER = ['INFO', 'MINOR', 'MAJOR', 'CRITICAL', 'BLOCKER'];
 
-/** Rating letter from the worst open severity, Sonar style (no issue = A). */
+/** Rating letter from the worst open severity, code quality style (no issue = A). */
 function ratingFromWorst(issues) {
   let worst = -1;
   for (const i of issues) if (!isClosed(i)) worst = Math.max(worst, SEV_ORDER.indexOf(i.severity));

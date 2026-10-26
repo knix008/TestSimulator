@@ -1,0 +1,8 @@
+{
+  "format": "mycodechecker-project",
+  "version": 1,
+  "name": "Old project",
+  "key": "old",
+  "source": ".",
+  "settings": { "gateId": "sonar-way", "profiles": { "js": "all-checker-way" } }
+}

@@ -1,6 +1,6 @@
 'use strict';
 
-// Extra SonarQube measures the core engine does not compute yet: remediation
+// Extra code quality measures the core engine does not compute yet: remediation
 // efforts, effort to reach maintainability A, branch (condition) coverage from
 // lcov BRDA records, new-code coverage on changed lines, test metrics, the
 // file/directory component tree, language distribution and the "software
@@ -30,7 +30,7 @@ function remediationEfforts(issues) {
 
 /**
  * Minutes of debt to remove to reach maintainability A (debt ratio <= 5%).
- * Sonar's `effort_to_reach_maintainability_rating_a`.
+ * code quality's `effort_to_reach_maintainability_rating_a`.
  */
 function effortToReachMaintainabilityA(debtMin, ncloc, devMinPerLine = DEV_MIN_PER_LINE) {
   const allowed = 0.05 * (Number(ncloc) || 0) * devMinPerLine;
@@ -88,7 +88,7 @@ function coverageNumbers(fileRecs, include) {
     uncovered_conditions: uncoveredConditions,
     line_coverage: pct(linesToCover - uncoveredLines, linesToCover),
     branch_coverage: pct(conditions - uncoveredConditions, conditions),
-    // Sonar: coverage = (covered conditions + covered lines) / (conditions + lines to cover)
+    // code quality: coverage = (covered conditions + covered lines) / (conditions + lines to cover)
     coverage: pct(conditions - uncoveredConditions + linesToCover - uncoveredLines, conditions + linesToCover),
   };
 }
@@ -150,7 +150,7 @@ function testMetrics(report) {
 }
 
 /**
- * Sonar software-quality impacts for a legacy type/severity.
+ * code quality software-quality impacts for a legacy type/severity.
  * BUG -> RELIABILITY, VULNERABILITY -> SECURITY, CODE_SMELL -> MAINTAINABILITY.
  * BLOCKER -> BLOCKER, CRITICAL -> HIGH, MAJOR -> MEDIUM, MINOR -> LOW, INFO -> INFO.
  * Hotspots carry no impact.
@@ -297,7 +297,7 @@ function languageDistribution(analysis) {
   return Object.values(by).map((r) => ({ ...r, percent: total ? Math.round((r.ncloc / total) * 1000) / 10 : 0 })).sort((a, b) => b.ncloc - a.ncloc);
 }
 
-/** Sonar's `ncloc_language_distribution` string, e.g. 'c=120;js=40'. */
+/** code quality's `ncloc_language_distribution` string, e.g. 'c=120;js=40'. */
 function languageDistributionString(analysis) {
   return languageDistribution(analysis).map((r) => `${r.language}=${r.ncloc}`).join(';');
 }

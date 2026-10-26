@@ -93,7 +93,7 @@ function cognitive(method) {
 }
 
 rule({
-  id: 'cognitive-complexity', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], sonar: 'S3776', ktSonar: 'S3776',
+  id: 'cognitive-complexity', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], ref: 'S3776', ktRef: 'S3776',
   en: ['Cognitive Complexity of methods should not be too high', 'Deeply nested and branching code is hard to read, test and change.', 'Extract parts into well-named methods and flatten the nesting.'],
   ko: ['메서드의 인지 복잡도가 너무 높으면 안 됩니다', '깊게 중첩되고 갈래가 많은 코드는 읽기·테스트·수정이 어렵습니다.', '일부를 이름 있는 메서드로 빼고 중첩을 줄이세요.'],
   msg: ['Refactor this method to reduce its Cognitive Complexity from {0} to the 15 allowed.', '이 메서드의 인지 복잡도를 {0}에서 허용치 15 이하로 줄이세요.'],
@@ -139,7 +139,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-parameters', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], sonar: 'S107', ktSonar: 'S107',
+  id: 'too-many-parameters', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], ref: 'S107', ktRef: 'S107',
   en: ['Methods should not have too many parameters', 'A long parameter list is hard to call correctly and usually means the method does too much.', 'Group related parameters into an object or split the method.'],
   ko: ['메서드의 매개변수가 너무 많으면 안 됩니다', '매개변수 목록이 길면 올바르게 호출하기 어렵고 대개 메서드가 너무 많은 일을 합니다.', '관련 매개변수를 객체로 묶거나 메서드를 나누세요.'],
   msg: ['This method has {0} parameters, which is greater than the 7 authorized.', '이 메서드의 매개변수는 {0}개로 허용치 7개보다 많습니다.'],
@@ -156,7 +156,7 @@ rule({
 function lines(n) { return (n.el || n.line) - n.line + 1; }
 
 rule({
-  id: 'method-too-long', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], sonar: 'S138', ktSonar: 'S138',
+  id: 'method-too-long', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], ref: 'S138', ktRef: 'S138',
   en: ['Methods should not have too many lines', 'Very long methods are hard to understand and usually do several things.', 'Split the method into smaller ones.'],
   ko: ['메서드가 너무 길면 안 됩니다', '아주 긴 메서드는 이해하기 어렵고 대개 여러 일을 합니다.', '메서드를 작게 나누세요.'],
   msg: ['This method has {0} lines, which is greater than the {1} lines authorized. Split it into smaller methods.', '이 메서드는 {0}줄로 허용치 {1}줄보다 깁니다. 작은 메서드로 나누세요.'],
@@ -173,7 +173,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-methods', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], sonar: 'S1448', ktSonar: 'S1448',
+  id: 'too-many-methods', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], ref: 'S1448', ktRef: 'S1448',
   en: ['Classes should not have too many methods', 'A class with dozens of methods usually has more than one responsibility.', 'Split the class by responsibility.'],
   ko: ['클래스의 메서드가 너무 많으면 안 됩니다', '메서드가 수십 개인 클래스는 대개 책임이 둘 이상입니다.', '책임별로 클래스를 나누세요.'],
   msg: ['Class "{0}" has {1} methods, which is greater than the 35 authorized.', '"{0}" 클래스의 메서드는 {1}개로 허용치 35개보다 많습니다.'],
@@ -189,7 +189,7 @@ rule({
 });
 
 rule({
-  id: 'file-too-long', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], sonar: 'S104', ktSonar: 'S104',
+  id: 'file-too-long', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], ref: 'S104', ktRef: 'S104',
   en: ['Files should not have too many lines of code', 'Very large source files are hard to navigate and usually hold several responsibilities.', 'Split the file into smaller units.'],
   ko: ['파일의 코드 줄이 너무 많으면 안 됩니다', '아주 큰 소스 파일은 탐색하기 어렵고 대개 여러 책임을 담습니다.', '파일을 작은 단위로 나누세요.'],
   msg: ['This file has {0} lines, which is greater than 1000 authorized. Split it into smaller files.', '이 파일은 {0}줄로 허용치 1000줄보다 깁니다. 작은 파일로 나누세요.'],
@@ -205,7 +205,7 @@ rule({
 });
 
 rule({
-  id: 'nesting-too-deep', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], sonar: 'S134', ktSonar: 'S134',
+  id: 'nesting-too-deep', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], ref: 'S134', ktRef: 'S134',
   en: ['Control flow statements should not be nested too deeply', 'More than three levels of if/for/while/switch/try nesting make code hard to follow.', 'Extract inner blocks into methods or return early.'],
   ko: ['제어문을 너무 깊게 중첩하면 안 됩니다', 'if/for/while/switch/try를 3단계보다 깊게 중첩하면 따라가기 어렵습니다.', '안쪽 블록을 메서드로 빼거나 일찍 반환하세요.'],
   msg: ['Refactor this code to not nest more than 3 control flow statements.', '제어문이 3단계보다 깊게 중첩되지 않도록 코드를 고치세요.'],
@@ -260,7 +260,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-returns', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], sonar: 'S1142', ktSonar: 'S1142',
+  id: 'too-many-returns', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], ref: 'S1142', ktRef: 'S1142',
   en: ['Methods should not have too many return statements', 'Many exit points make the control flow of a method hard to follow.', 'Reduce the number of returns, e.g. by computing a result variable.'],
   ko: ['메서드에 return 문이 너무 많으면 안 됩니다', '나가는 지점이 많으면 메서드의 흐름을 따라가기 어렵습니다.', '결과 변수를 계산하는 식으로 return 수를 줄이세요.'],
   msg: ['This method has {0} returns, which is more than the 3 allowed.', '이 메서드의 return은 {0}개로 허용치 3개보다 많습니다.'],
@@ -293,7 +293,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-break-continue', type: 'S', sev: 'MI', debt: 20, tags: ['brain-overload'], sonar: 'S135',
+  id: 'too-many-break-continue', type: 'S', sev: 'MI', debt: 20, tags: ['brain-overload'], ref: 'S135',
   en: ['Loops should not contain more than a single "break" or "continue" statement', 'Several jumps out of one loop make its termination hard to reason about.', 'Restructure the loop condition or extract a method.'],
   ko: ['루프에 break나 continue가 둘 이상 있으면 안 됩니다', '한 루프에서 여러 번 빠져나가면 종료 조건을 판단하기 어렵습니다.', '루프 조건을 고치거나 메서드로 빼세요.'],
   msg: ['Reduce the total number of "break" and "continue" statements in this loop to use at most one.', '이 루프의 break와 continue를 합쳐 하나 이하로 줄이세요.'],
@@ -345,7 +345,7 @@ const KT_OPERATOR_NAMES = new Set(['getValue', 'setValue', 'provideDelegate', 'i
   'timesAssign', 'divAssign', 'remAssign', 'rangeTo', 'rangeUntil', 'equals', 'component1', 'component2', 'component3', 'component4', 'component5']);
 
 rule({
-  id: 'unused-import', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['unused'], sonar: 'S1128', ktSonar: 'S1128',
+  id: 'unused-import', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['unused'], ref: 'S1128', ktRef: 'S1128',
   en: ['Unnecessary imports should be removed', 'Unused, duplicate or redundant imports clutter the file and hide real dependencies.', 'Remove the import.'],
   ko: ['불필요한 임포트는 지워야 합니다', '쓰지 않거나 중복·불필요한 임포트는 파일을 어지럽히고 실제 의존성을 숨깁니다.', '임포트를 지우세요.'],
   msg: ['Remove this {0} import \'{1}\'.', '{0} 임포트 \'{1}\'을(를) 지우세요.'],
@@ -398,7 +398,7 @@ class T { val f = File("a"); var x: Int by nn() }
 });
 
 rule({
-  id: 'unused-private-field', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], sonar: 'S1068', ktSonar: 'S1068',
+  id: 'unused-private-field', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], ref: 'S1068', ktRef: 'S1068',
   en: ['Unused "private" fields should be removed', 'A private field that is never read is dead code or a sign of a bug.', 'Remove the field, or use it.'],
   ko: ['쓰지 않는 private 필드는 지워야 합니다', '읽히지 않는 private 필드는 죽은 코드이거나 버그의 신호입니다.', '필드를 지우거나 사용하세요.'],
   msg: ['Remove this unused "{0}" private field.', '쓰지 않는 private 필드 "{0}"을(를) 지우세요.'],
@@ -445,7 +445,7 @@ function topClass(cx, n) {
 }
 
 rule({
-  id: 'unused-private-method', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], sonar: 'S1144', ktSonar: 'S1144',
+  id: 'unused-private-method', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], ref: 'S1144', ktRef: 'S1144',
   en: ['Unused "private" methods should be removed', 'A private method that is never called is dead code.', 'Remove it, or call it where intended.'],
   ko: ['쓰지 않는 private 메서드는 지워야 합니다', '호출되지 않는 private 메서드는 죽은 코드입니다.', '지우거나 의도한 곳에서 호출하세요.'],
   msg: ['Remove this unused private "{0}" method.', '쓰지 않는 private 메서드 "{0}"을(를) 지우세요.'],
@@ -480,7 +480,7 @@ rule({
 });
 
 rule({
-  id: 'unused-local-variable', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['unused'], sonar: 'S1481', ktSonar: 'S1481',
+  id: 'unused-local-variable', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['unused'], ref: 'S1481', ktRef: 'S1481',
   en: ['Unused local variables should be removed', 'A local variable that is never read is dead code or a forgotten use.', 'Remove the variable (keep the call if it has side effects).'],
   ko: ['쓰지 않는 지역 변수는 지워야 합니다', '읽히지 않는 지역 변수는 죽은 코드이거나 사용을 잊은 것입니다.', '변수를 지우세요(부수 효과가 있는 호출은 남기세요).'],
   msg: ['Remove this unused "{0}" local variable.', '쓰지 않는 지역 변수 "{0}"을(를) 지우세요.'],
@@ -520,7 +520,7 @@ function checkLocals(m, cx) {
 }
 
 rule({
-  id: 'unused-parameter', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], sonar: 'S1172', ktSonar: 'S1172',
+  id: 'unused-parameter', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], ref: 'S1172', ktRef: 'S1172',
   en: ['Unused method parameters should be removed', 'A parameter that the (non-overridable) method never reads misleads callers.', 'Remove the parameter, or use it.'],
   ko: ['쓰지 않는 메서드 매개변수는 지워야 합니다', '(재정의할 수 없는) 메서드가 읽지 않는 매개변수는 호출자를 오도합니다.', '매개변수를 지우거나 사용하세요.'],
   msg: ['Remove this unused method parameter "{0}".', '쓰지 않는 메서드 매개변수 "{0}"을(를) 지우세요.'],
@@ -554,7 +554,7 @@ rule({
 });
 
 rule({
-  id: 'empty-block', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: 'S108', ktSonar: 'S108',
+  id: 'empty-block', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['suspicious'], ref: 'S108', ktRef: 'S108',
   en: ['Nested blocks of code should not be left empty', 'An empty block does nothing; it is either unfinished or hides an ignored condition or exception.', 'Add the missing code, or a comment explaining why nothing is done.'],
   ko: ['중첩 블록을 비워 두면 안 됩니다', '빈 블록은 아무 일도 하지 않으며 미완성이거나 무시한 조건·예외를 숨깁니다.', '빠진 코드를 넣거나 아무것도 하지 않는 이유를 주석으로 남기세요.'],
   msg: ['Either remove or fill this block of code.', '이 코드 블록을 지우거나 채우세요.'],
@@ -586,9 +586,9 @@ rule({
 });
 
 // ── naming ──
-function namingRule(id, langs, sonar, what, re, enDesc, koDesc, kinds) {
+function namingRule(id, langs, ref, what, re, enDesc, koDesc, kinds) {
   rule({
-    id, langs, type: 'S', sev: 'MI', debt: 2, tags: ['convention'], sonar, ktSonar: sonar,
+    id, langs, type: 'S', sev: 'MI', debt: 2, tags: ['convention'], ref, ktRef: ref,
     en: [`${enDesc[0]} should comply with a naming convention`, `Consistent ${enDesc[1]} names make the code easier to read.`, `Rename it to match ${re}.`],
     ko: [`${koDesc} 이름은 명명 규칙을 따라야 합니다`, `일관된 ${koDesc} 이름은 코드를 읽기 쉽게 합니다.`, `${re} 형식에 맞게 이름을 바꾸세요.`],
     msg: [`Rename this ${what} "{0}" to match the regular expression '${re}'.`, `${koDesc} "{0}"의 이름을 정규식 '${re}'에 맞게 바꾸세요.`],
@@ -606,7 +606,7 @@ function namingRule(id, langs, sonar, what, re, enDesc, koDesc, kinds) {
     },
   };
   rule({
-    id: 'method-naming', type: 'S', sev: 'MI', debt: 5, tags: ['convention'], sonar: 'S100',
+    id: 'method-naming', type: 'S', sev: 'MI', debt: 5, tags: ['convention'], ref: 'S100',
     en: ['Method names should comply with a naming convention', 'Consistent method names (camelCase) make code easier to read.', `Rename the method to match ${re}.`],
     ko: ['메서드 이름은 명명 규칙을 따라야 합니다', '일관된 메서드 이름(camelCase)은 코드를 읽기 쉽게 합니다.', `${re} 형식에 맞게 메서드 이름을 바꾸세요.`],
     msg: [`Rename this method name "{0}" to match the regular expression '${re}'.`, `메서드 이름 "{0}"을(를) 정규식 '${re}'에 맞게 바꾸세요.`],
@@ -618,7 +618,7 @@ function namingRule(id, langs, sonar, what, re, enDesc, koDesc, kinds) {
 }
 
 rule({
-  id: 'field-naming', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], sonar: 'S116',
+  id: 'field-naming', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], ref: 'S116',
   en: ['Field names should comply with a naming convention', 'Consistent field names (camelCase) make code easier to read.', 'Rename the field to match ^[a-z][a-zA-Z0-9]*$.'],
   ko: ['필드 이름은 명명 규칙을 따라야 합니다', '일관된 필드 이름(camelCase)은 코드를 읽기 쉽게 합니다.', '^[a-z][a-zA-Z0-9]*$ 형식에 맞게 필드 이름을 바꾸세요.'],
   msg: ["Rename this field \"{0}\" to match the regular expression '^[a-z][a-zA-Z0-9]*$'.", "필드 \"{0}\"의 이름을 정규식 '^[a-z][a-zA-Z0-9]*$'에 맞게 바꾸세요."],
@@ -634,7 +634,7 @@ rule({
 });
 
 rule({
-  id: 'static-mutable-field-naming', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], sonar: 'S3008',
+  id: 'static-mutable-field-naming', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], ref: 'S3008',
   en: ['Static non-final field names should comply with a naming convention', 'Static mutable fields are variables, not constants, and should look like variables.', 'Rename it to match ^[a-z][a-zA-Z0-9]*$.'],
   ko: ['static이면서 final이 아닌 필드 이름은 명명 규칙을 따라야 합니다', 'static 가변 필드는 상수가 아니라 변수이므로 변수처럼 보여야 합니다.', '^[a-z][a-zA-Z0-9]*$ 형식에 맞게 이름을 바꾸세요.'],
   msg: ["Rename this field \"{0}\" to match the regular expression '^[a-z][a-zA-Z0-9]*$'.", "필드 \"{0}\"의 이름을 정규식 '^[a-z][a-zA-Z0-9]*$'에 맞게 바꾸세요."],
@@ -649,7 +649,7 @@ rule({
 });
 
 rule({
-  id: 'local-variable-naming', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['convention'], sonar: 'S117', ktSonar: 'S117',
+  id: 'local-variable-naming', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['convention'], ref: 'S117', ktRef: 'S117',
   en: ['Local variable and method parameter names should comply with a naming convention', 'Consistent camelCase names for locals and parameters make code easier to read.', 'Rename it to match ^[a-z][a-zA-Z0-9]*$.'],
   ko: ['지역 변수와 매개변수 이름은 명명 규칙을 따라야 합니다', '지역 변수와 매개변수를 일관되게 camelCase로 지으면 코드를 읽기 쉽습니다.', '^[a-z][a-zA-Z0-9]*$ 형식에 맞게 이름을 바꾸세요.'],
   msg: ["Rename this local variable \"{0}\" to match the regular expression '^[a-z][a-zA-Z0-9]*$'.", "지역 변수 \"{0}\"의 이름을 정규식 '^[a-z][a-zA-Z0-9]*$'에 맞게 바꾸세요."],
@@ -674,7 +674,7 @@ rule({
 });
 
 rule({
-  id: 'type-parameter-naming', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 10, tags: ['convention'], sonar: 'S119', ktSonar: 'S119',
+  id: 'type-parameter-naming', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 10, tags: ['convention'], ref: 'S119', ktRef: 'S119',
   en: ['Type parameter names should comply with a naming convention', 'Single upper-case letters (optionally a digit) make type parameters stand out from types.', 'Rename it to match ^[A-Z][0-9]?$.'],
   ko: ['타입 매개변수 이름은 명명 규칙을 따라야 합니다', '대문자 한 글자(숫자 하나 허용)로 지으면 타입 매개변수가 일반 타입과 구별됩니다.', '^[A-Z][0-9]?$ 형식에 맞게 이름을 바꾸세요.'],
   msg: ["Rename this generic name \"{0}\" to match the regular expression '^[A-Z][0-9]?$'.", "제네릭 이름 \"{0}\"을(를) 정규식 '^[A-Z][0-9]?$'에 맞게 바꾸세요."],
@@ -695,7 +695,7 @@ rule({
 });
 
 rule({
-  id: 'package-naming', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 10, tags: ['convention'], sonar: 'S120', ktSonar: 'S120',
+  id: 'package-naming', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 10, tags: ['convention'], ref: 'S120', ktRef: 'S120',
   en: ['Package names should comply with a naming convention', 'Lower-case package names avoid clashes with class names and case-insensitive file systems.', 'Rename the package to match ^[a-z_]+(\\.[a-z_][a-z0-9_]*)*$.'],
   ko: ['패키지 이름은 명명 규칙을 따라야 합니다', '소문자 패키지 이름은 클래스 이름이나 대소문자를 구분하지 않는 파일 시스템과의 충돌을 막습니다.', '^[a-z_]+(\\.[a-z_][a-z0-9_]*)*$ 형식에 맞게 패키지 이름을 바꾸세요.'],
   msg: ["Rename this package name \"{0}\" to match the regular expression '^[a-z_]+(\\.[a-z_][a-z0-9_]*)*$'.", "패키지 이름 \"{0}\"을(를) 정규식 '^[a-z_]+(\\.[a-z_][a-z0-9_]*)*$'에 맞게 바꾸세요."],
@@ -706,7 +706,7 @@ rule({
 
 // ── magic numbers / literals ──
 rule({
-  id: 'magic-number', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['brain-overload'], sonar: 'S109', ktSonar: 'S109',
+  id: 'magic-number', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['brain-overload'], ref: 'S109', ktRef: 'S109',
   en: ['Magic numbers should not be used', 'An unexplained number hides its meaning and is easy to change inconsistently.', 'Replace it with a named constant.'],
   ko: ['매직 넘버를 쓰면 안 됩니다', '설명 없는 숫자는 의미를 숨기고 일관되지 않게 바뀌기 쉽습니다.', '이름 있는 상수로 바꾸세요.'],
   msg: ['Assign this magic number {0} to a well-named constant, and use the constant instead.', '매직 넘버 {0}을(를) 이름 있는 상수에 담아 그 상수를 쓰세요.'],
@@ -742,7 +742,7 @@ rule({
 });
 
 rule({
-  id: 'duplicated-string-literal', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 2, tags: ['design'], sonar: 'S1192', ktSonar: 'S1192',
+  id: 'duplicated-string-literal', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 2, tags: ['design'], ref: 'S1192', ktRef: 'S1192',
   en: ['String literals should not be duplicated', 'The same literal repeated in many places is easy to update inconsistently.', 'Extract the literal into a constant.'],
   ko: ['문자열 리터럴을 중복하면 안 됩니다', '같은 리터럴이 여러 곳에 반복되면 일관되지 않게 바뀌기 쉽습니다.', '리터럴을 상수로 빼세요.'],
   msg: ['Define a constant instead of duplicating this literal "{0}" {1} times.', '리터럴 "{0}"을(를) {1}번 반복하지 말고 상수를 정의하세요.'],
@@ -793,7 +793,7 @@ const JDK_DEPRECATED = [
   { recv: 'Character', id: /^(isJavaLetter|isJavaLetterOrDigit|isSpace)$/, argc: 1 },
 ];
 rule({
-  id: 'deprecated-api', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 15, tags: ['obsolete', 'cwe-477'], sonar: 'S1874', ktSonar: 'S1874',
+  id: 'deprecated-api', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 15, tags: ['obsolete', 'cwe-477'], ref: 'S1874', ktRef: 'S1874',
   en: ['Deprecated code should not be used', 'Deprecated APIs may be removed and often have known problems.', 'Use the documented replacement.'],
   ko: ['폐기된 코드를 쓰면 안 됩니다', '폐기된 API는 제거될 수 있고 알려진 문제가 있는 경우가 많습니다.', '문서에 나온 대체 API를 쓰세요.'],
   msg: ['Remove this use of "{0}"; it is deprecated.', '폐기된 "{0}"의 사용을 지우세요.'],
@@ -844,7 +844,7 @@ rule({
 });
 
 rule({
-  id: 'deprecated-code', langs: ['java', 'kt'], type: 'S', sev: 'IN', debt: 10, tags: ['obsolete'], sonar: 'S1133', ktSonar: 'S1133',
+  id: 'deprecated-code', langs: ['java', 'kt'], type: 'S', sev: 'IN', debt: 10, tags: ['obsolete'], ref: 'S1133', ktRef: 'S1133',
   en: ['Deprecated code should be removed', 'Deprecated declarations are meant to disappear; keeping them forever adds maintenance cost.', 'Plan the removal once callers have migrated.'],
   ko: ['폐기된 코드는 지워야 합니다', '폐기 표시한 선언은 사라질 예정이며 계속 두면 유지 비용이 듭니다.', '호출자가 옮겨 가면 제거를 계획하세요.'],
   msg: ['Do not forget to remove this deprecated code someday.', '이 폐기된 코드를 언젠가 지우는 것을 잊지 마세요.'],
@@ -860,7 +860,7 @@ rule({
 });
 
 rule({
-  id: 'deprecated-javadoc-mismatch', type: 'S', sev: 'MA', debt: 5, tags: ['obsolete'], sonar: 'S1123',
+  id: 'deprecated-javadoc-mismatch', type: 'S', sev: 'MA', debt: 5, tags: ['obsolete'], ref: 'S1123',
   en: ['Deprecated elements should have both the annotation and the Javadoc tag', 'Without the @deprecated Javadoc tag users do not learn what to use instead; without the annotation the compiler does not warn.', 'Add the missing @Deprecated annotation or @deprecated tag with the replacement.'],
   ko: ['폐기 요소에는 어노테이션과 Javadoc 태그가 모두 있어야 합니다', '@deprecated Javadoc 태그가 없으면 대체 수단을 알 수 없고 어노테이션이 없으면 컴파일러가 경고하지 않습니다.', '빠진 @Deprecated 어노테이션이나 대체 수단을 적은 @deprecated 태그를 넣으세요.'],
   msg: ['Add the missing {0}.', '빠진 {0}을(를) 넣으세요.'],
@@ -889,7 +889,7 @@ function depMismatch(n, cx, loc) {
 }
 
 rule({
-  id: 'commented-out-code', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], sonar: 'S125', ktSonar: 'S125',
+  id: 'commented-out-code', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['unused'], ref: 'S125', ktRef: 'S125',
   en: ['Sections of code should not be commented out', 'Commented-out code rots, confuses readers and is preserved by version control anyway.', 'Delete it.'],
   ko: ['코드를 주석으로 막아 두면 안 됩니다', '주석 처리한 코드는 낡고 읽는 사람을 헷갈리게 하며 어차피 버전 관리에 남습니다.', '지우세요.'],
   msg: ['This block of commented-out lines of code should be removed.', '주석으로 막은 코드 줄들을 지우세요.'],
@@ -924,7 +924,7 @@ rule({
 function looksLikeCode(l, kt) {
   const t = l.trim();
   if (!t || t.length < 6) return false;
-  if (/^(TODO|FIXME|NOTE|XXX|HACK|NOSONAR|@|e\.g\.|i\.e\.|http)/i.test(t)) return false;
+  if (/^(TODO|FIXME|NOTE|XXX|HACK|NOMCC|@|e\.g\.|i\.e\.|http)/i.test(t)) return false;
   if (/^[A-Z][a-z]+( [a-z]+){3,}/.test(t) && !/[;{}]$/.test(t)) return false;
   if (/;\s*(\/\/.*)?$/.test(t) && /[=(.]/.test(t) && !/^[A-Za-z ,']+;$/.test(t)) return true;
   if (/^(if|for|while|switch|return|throw|try|catch)\s*[({]/.test(t)) return true;
@@ -938,7 +938,7 @@ function looksLikeCode(l, kt) {
 
 // ── simplifications ──
 rule({
-  id: 'collapsible-if', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['clumsy'], sonar: 'S1066', ktSonar: 'S1066',
+  id: 'collapsible-if', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['clumsy'], ref: 'S1066', ktRef: 'S1066',
   en: ['Mergeable "if" statements should be combined', 'An if whose only content is another if without else can be one condition.', 'Merge the conditions with &&.'],
   ko: ['합칠 수 있는 if 문은 합쳐야 합니다', 'else 없는 if 하나만 담은 if는 조건 하나로 합칠 수 있습니다.', '조건을 &&로 합치세요.'],
   msg: ['Merge this if statement with the enclosing one.', '이 if 문을 바깥 if 문과 합치세요.'],
@@ -964,7 +964,7 @@ rule({
 });
 
 rule({
-  id: 'if-return-boolean', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], sonar: 'S1126', ktSonar: 'S1126',
+  id: 'if-return-boolean', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], ref: 'S1126', ktRef: 'S1126',
   en: ['Return of boolean expressions should not be wrapped into an "if-then-else" statement', '"if (c) return true; else return false;" is just "return c;".', 'Return the condition directly.'],
   ko: ['불리언 식의 반환을 if-then-else로 감싸면 안 됩니다', '"if (c) return true; else return false;"는 "return c;"와 같습니다.', '조건을 바로 반환하세요.'],
   msg: ['Replace this if-then-else statement by a single return statement.', '이 if-then-else 문을 return 문 하나로 바꾸세요.'],
@@ -1009,7 +1009,7 @@ function boolRet(s) {
 }
 
 rule({
-  id: 'redundant-cast', type: 'S', sev: 'MI', debt: 5, tags: ['redundant'], sonar: 'S1905',
+  id: 'redundant-cast', type: 'S', sev: 'MI', debt: 5, tags: ['redundant'], ref: 'S1905',
   en: ['Redundant casts should not be used', 'Casting an expression to the type it already has adds noise.', 'Remove the cast.'],
   ko: ['불필요한 캐스팅을 쓰면 안 됩니다', '이미 그 타입인 식을 캐스팅하면 잡음만 늘어납니다.', '캐스팅을 지우세요.'],
   msg: ['Remove this unnecessary cast to "{0}".', '"{0}"(으)로의 불필요한 캐스팅을 지우세요.'],
@@ -1028,7 +1028,7 @@ rule({
 });
 
 rule({
-  id: 'redundant-parentheses', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 1, tags: ['confusing'], sonar: 'S1110', ktSonar: 'S1110',
+  id: 'redundant-parentheses', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 1, tags: ['confusing'], ref: 'S1110', ktRef: 'S1110',
   en: ['Redundant pairs of parentheses should be removed', 'Doubled parentheses add nothing and make readers look for a hidden meaning.', 'Remove the extra pair.'],
   ko: ['불필요한 괄호 쌍은 지워야 합니다', '겹친 괄호는 의미가 없고 읽는 사람이 숨은 뜻을 찾게 만듭니다.', '여분의 괄호 쌍을 지우세요.'],
   msg: ['Remove these useless parentheses.', '이 쓸모없는 괄호를 지우세요.'],
@@ -1038,7 +1038,7 @@ rule({
 });
 
 rule({
-  id: 'string-concat-in-loop', type: 'S', sev: 'MI', debt: 10, tags: ['performance'], sonar: 'S1643',
+  id: 'string-concat-in-loop', type: 'S', sev: 'MI', debt: 10, tags: ['performance'], ref: 'S1643',
   en: ['Strings should not be concatenated using "+" in a loop', 'Each += copies the whole string, making the loop quadratic.', 'Use a StringBuilder (or String.join / Collectors.joining).'],
   ko: ['루프에서 +로 문자열을 이어 붙이면 안 됩니다', '+=마다 문자열 전체를 복사해 루프가 제곱 시간이 됩니다.', 'StringBuilder(또는 String.join / Collectors.joining)를 쓰세요.'],
   msg: ['Use a StringBuilder instead of concatenating "{0}" in a loop.', '루프에서 "{0}"을(를) 이어 붙이지 말고 StringBuilder를 쓰세요.'],
@@ -1068,7 +1068,7 @@ rule({
 });
 
 rule({
-  id: 'tostring-on-string', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], sonar: 'S1858', ktSonar: 'S1858',
+  id: 'tostring-on-string', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], ref: 'S1858', ktRef: 'S1858',
   en: ['"toString()" should never be called on a String object', 'Calling toString() on a String returns the same object and adds noise.', 'Remove the call.'],
   ko: ['String 객체에 toString()을 호출하면 안 됩니다', 'String에 toString()을 부르면 같은 객체가 나와 잡음만 늘어납니다.', '호출을 지우세요.'],
   msg: ['There\'s no need to call "toString()" on a string.', '문자열에는 toString()을 부를 필요가 없습니다.'],
@@ -1080,7 +1080,7 @@ rule({
 });
 
 rule({
-  id: 'collections-empty-constants', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], sonar: 'S1596',
+  id: 'collections-empty-constants', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], ref: 'S1596',
   en: ['"Collections.EMPTY_LIST", "EMPTY_MAP", and "EMPTY_SET" should not be used', 'These constants are raw types and lose type safety.', 'Use Collections.emptyList() / emptyMap() / emptySet() or List.of().'],
   ko: ['Collections.EMPTY_LIST, EMPTY_MAP, EMPTY_SET을 쓰면 안 됩니다', '이 상수들은 raw 타입이라 타입 안전성을 잃습니다.', 'Collections.emptyList() / emptyMap() / emptySet()이나 List.of()를 쓰세요.'],
   msg: ['Replace "Collections.{0}" by "Collections.{1}()".', '"Collections.{0}"을(를) "Collections.{1}()"(으)로 바꾸세요.'],
@@ -1095,7 +1095,7 @@ rule({
 });
 
 rule({
-  id: 'abstract-class-public-ctor', type: 'S', sev: 'MA', debt: 5, tags: ['design'], sonar: 'S5993',
+  id: 'abstract-class-public-ctor', type: 'S', sev: 'MA', debt: 5, tags: ['design'], ref: 'S5993',
   en: ['Constructors of an "abstract" class should not be declared "public"', 'An abstract class cannot be instantiated, so a public constructor misleads.', 'Make the constructor protected.'],
   ko: ['abstract 클래스의 생성자를 public으로 선언하면 안 됩니다', 'abstract 클래스는 인스턴스로 만들 수 없어 public 생성자는 오해를 부릅니다.', '생성자를 protected로 하세요.'],
   msg: ['Change the visibility of this constructor to "protected".', '이 생성자의 가시성을 protected로 바꾸세요.'],
@@ -1111,7 +1111,7 @@ rule({
 });
 
 rule({
-  id: 'utility-class-constructor', type: 'S', sev: 'MA', debt: 30, tags: ['design'], sonar: 'S1118',
+  id: 'utility-class-constructor', type: 'S', sev: 'MA', debt: 30, tags: ['design'], ref: 'S1118',
   en: ['Utility classes should not have public constructors', 'A class with only static members is not meant to be instantiated.', 'Add a private constructor (or make it an enum / final class with a private constructor).'],
   ko: ['유틸리티 클래스에 public 생성자가 있으면 안 됩니다', 'static 멤버만 있는 클래스는 인스턴스로 만들 의도가 아닙니다.', 'private 생성자를 넣으세요.'],
   msg: ['Add a private constructor to hide the implicit public one.', '숨겨진 public 생성자를 가리도록 private 생성자를 넣으세요.'],
@@ -1142,7 +1142,7 @@ rule({
 });
 
 rule({
-  id: 'constant-interface', type: 'S', sev: 'CR', debt: 30, tags: ['design'], sonar: 'S1214',
+  id: 'constant-interface', type: 'S', sev: 'CR', debt: 30, tags: ['design'], ref: 'S1214',
   en: ['Constants should not be defined in interfaces', 'Implementing an interface just to get constants leaks them into the public API of every implementer.', 'Move the constants to a final class or an enum.'],
   ko: ['인터페이스에 상수를 정의하면 안 됩니다', '상수만 얻으려고 인터페이스를 구현하면 모든 구현체의 공개 API로 상수가 새어 나갑니다.', '상수를 final 클래스나 enum으로 옮기세요.'],
   msg: ['Move constants defined in this interface to another class or enum.', '이 인터페이스의 상수를 다른 클래스나 enum으로 옮기세요.'],
@@ -1166,7 +1166,7 @@ rule({
 });
 
 rule({
-  id: 'field-hides-parent-field', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], sonar: 'S2387',
+  id: 'field-hides-parent-field', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], ref: 'S2387',
   en: ['Child class fields should not shadow parent class fields', 'A field with the same name as an inherited field hides it, and code in each class uses a different value.', 'Rename the field or use the inherited one.'],
   ko: ['하위 클래스 필드가 상위 클래스 필드를 가리면 안 됩니다', '상속받은 필드와 같은 이름의 필드는 그것을 가려 클래스마다 다른 값을 쓰게 됩니다.', '필드 이름을 바꾸거나 상속받은 필드를 쓰세요.'],
   msg: ['"{0}" is the name of a field in "{1}".', '"{0}"은(는) "{1}"의 필드 이름입니다.'],
@@ -1196,7 +1196,7 @@ class Child extends Base {
 });
 
 rule({
-  id: 'local-shadows-field', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], sonar: 'S1117', ktSonar: 'S1117',
+  id: 'local-shadows-field', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], ref: 'S1117', ktRef: 'S1117',
   en: ['Local variables should not shadow class fields', 'A local with the same name as a field makes it unclear which one later code uses.', 'Rename the local variable.'],
   ko: ['지역 변수가 클래스 필드를 가리면 안 됩니다', '필드와 같은 이름의 지역 변수는 뒤 코드가 어느 것을 쓰는지 헷갈리게 합니다.', '지역 변수 이름을 바꾸세요.'],
   msg: ['Rename "{0}" which hides the field declared at line {1}.', '{1}행에 선언한 필드를 가리는 "{0}"의 이름을 바꾸세요.'],
@@ -1233,7 +1233,7 @@ rule({
 });
 
 rule({
-  id: 'parameter-reassigned', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], sonar: 'S1226',
+  id: 'parameter-reassigned', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], ref: 'S1226',
   en: ['Method parameters, caught exceptions and foreach variables\' initial values should not be ignored', 'Overwriting a parameter before reading it discards what the caller passed.', 'Use a new local variable instead.'],
   ko: ['매개변수, 잡은 예외, foreach 변수의 초기값을 무시하면 안 됩니다', '매개변수를 읽기 전에 덮어쓰면 호출자가 넘긴 값을 버립니다.', '새 지역 변수를 쓰세요.'],
   msg: ['Introduce a new variable instead of reusing the parameter "{0}".', '매개변수 "{0}"을(를) 재사용하지 말고 새 변수를 만드세요.'],
@@ -1276,7 +1276,7 @@ rule({
 });
 
 rule({
-  id: 'array-designator-on-name', type: 'S', sev: 'MI', debt: 5, tags: ['convention'], sonar: 'S1197',
+  id: 'array-designator-on-name', type: 'S', sev: 'MI', debt: 5, tags: ['convention'], ref: 'S1197',
   en: ['Array designators "[]" should be on the type, not the variable', 'int x[] splits the type and confuses readers; int[] x keeps the type together.', 'Move the brackets to the type.'],
   ko: ['배열 표시 []는 변수가 아니라 타입에 붙여야 합니다', 'int x[]는 타입을 쪼개 헷갈리게 하며 int[] x가 타입을 한데 둡니다.', '대괄호를 타입 쪽으로 옮기세요.'],
   msg: ['Move the array designators "[]" to the type.', '배열 표시 []를 타입으로 옮기세요.'],
@@ -1290,7 +1290,7 @@ rule({
 
 const MOD_ORDER = ['public', 'protected', 'private', 'abstract', 'default', 'static', 'sealed', 'non-sealed', 'final', 'transient', 'volatile', 'synchronized', 'native', 'strictfp'];
 rule({
-  id: 'modifier-order', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], sonar: 'S1124',
+  id: 'modifier-order', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], ref: 'S1124',
   en: ['Modifiers should be declared in the correct order', 'The Java Language Specification recommends a fixed order; following it makes declarations easy to scan.', 'Reorder: public protected private abstract default static final transient volatile synchronized native strictfp.'],
   ko: ['한정자는 올바른 순서로 선언해야 합니다', 'Java 언어 명세가 권하는 순서를 따르면 선언을 훑어보기 쉽습니다.', '순서를 바꾸세요: public protected private abstract default static final transient volatile synchronized native strictfp.'],
   msg: ['Reorder the modifiers to comply with the Java Language Specification.', 'Java 언어 명세에 맞게 한정자 순서를 바꾸세요.'],
@@ -1309,7 +1309,7 @@ function modOrder(n, cx, loc) {
 }
 
 rule({
-  id: 'redundant-modifier', type: 'S', sev: 'MI', debt: 2, tags: ['redundant'], sonar: 'S2333',
+  id: 'redundant-modifier', type: 'S', sev: 'MI', debt: 2, tags: ['redundant'], ref: 'S2333',
   en: ['Redundant modifiers should not be used', 'Interface members are implicitly public (and fields static final); nested interfaces and enums are implicitly static.', 'Remove the redundant modifier.'],
   ko: ['불필요한 한정자를 쓰면 안 됩니다', '인터페이스 멤버는 암묵적으로 public(필드는 static final)이고 중첩 인터페이스와 enum은 암묵적으로 static입니다.', '불필요한 한정자를 지우세요.'],
   msg: ['"{0}" is redundant in this context.', '이 문맥에서 "{0}"은(는) 불필요합니다.'],
@@ -1341,7 +1341,7 @@ rule({
 });
 
 rule({
-  id: 'missing-override', type: 'S', sev: 'MA', debt: 5, tags: ['bad-practice'], sonar: 'S1161',
+  id: 'missing-override', type: 'S', sev: 'MA', debt: 5, tags: ['bad-practice'], ref: 'S1161',
   en: ['"@Override" should be used on overriding and implementing methods', 'Without @Override a typo in the name or signature silently creates a new method instead of overriding.', 'Add @Override.'],
   ko: ['재정의·구현 메서드에는 @Override를 써야 합니다', '@Override가 없으면 이름이나 시그니처 오타가 재정의 대신 새 메서드를 조용히 만듭니다.', '@Override를 붙이세요.'],
   msg: ['Add the "@Override" annotation above this method signature.', '이 메서드 시그니처 위에 @Override를 붙이세요.'],
@@ -1369,7 +1369,7 @@ rule({
 });
 
 rule({
-  id: 'octal-literal', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], sonar: 'S1314',
+  id: 'octal-literal', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], ref: 'S1314',
   en: ['Octal values should not be used', 'A leading zero makes the literal octal: 010 is 8, not 10.', 'Remove the leading zero (or write the value in decimal/hex).'],
   ko: ['8진수 값을 쓰면 안 됩니다', '앞에 0이 붙으면 8진수가 되어 010은 10이 아니라 8입니다.', '앞의 0을 지우세요(또는 10진수/16진수로 쓰세요).'],
   msg: ['Use decimal values instead of octal ones.', '8진수 대신 10진수 값을 쓰세요.'],
@@ -1380,7 +1380,7 @@ rule({
 });
 
 rule({
-  id: 'redundant-jump', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 1, tags: ['redundant'], sonar: 'S3626', ktSonar: 'S3626',
+  id: 'redundant-jump', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 1, tags: ['redundant'], ref: 'S3626', ktRef: 'S3626',
   en: ['Jump statements should not be redundant', 'A return at the end of a void method or a continue at the end of a loop body does nothing.', 'Remove the jump.'],
   ko: ['불필요한 점프 문을 쓰면 안 됩니다', 'void 메서드 끝의 return이나 루프 본문 끝의 continue는 아무 일도 하지 않습니다.', '점프 문을 지우세요.'],
   msg: ['Remove this redundant jump.', '이 불필요한 점프를 지우세요.'],
@@ -1417,7 +1417,7 @@ function loopEndContinue(n, cx) {
 }
 
 rule({
-  id: 'immediately-returned-variable', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], sonar: 'S1488', ktSonar: 'S1488',
+  id: 'immediately-returned-variable', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], ref: 'S1488', ktRef: 'S1488',
   en: ['Local variables should not be declared and then immediately returned or thrown', 'A variable that is only returned on the next line adds noise.', 'Return the expression directly.'],
   ko: ['지역 변수를 선언하자마자 반환하거나 던지면 안 됩니다', '다음 줄에서 반환만 하는 변수는 잡음만 늘립니다.', '식을 바로 반환하세요.'],
   msg: ['Immediately {0} this expression instead of assigning it to the temporary variable "{1}".', '임시 변수 "{1}"에 담지 말고 이 식을 바로 {0}하세요.'],
@@ -1449,7 +1449,7 @@ rule({
 });
 
 rule({
-  id: 'lambda-block-single-statement', type: 'S', sev: 'MI', debt: 2, tags: ['java8'], sonar: 'S1602',
+  id: 'lambda-block-single-statement', type: 'S', sev: 'MI', debt: 2, tags: ['java8'], ref: 'S1602',
   en: ['Lambdas containing only one statement should not nest this statement in a block', 'Braces and return around a single expression add noise.', 'Use an expression lambda.'],
   ko: ['문장 하나만 있는 람다는 블록으로 감싸면 안 됩니다', '식 하나를 중괄호와 return으로 감싸면 잡음만 늘어납니다.', '식 람다로 쓰세요.'],
   msg: ['Remove useless curly braces around statement.', '문장을 감싼 쓸모없는 중괄호를 지우세요.'],
@@ -1465,7 +1465,7 @@ rule({
 });
 
 rule({
-  id: 'lambda-to-method-reference', type: 'S', sev: 'MI', debt: 2, tags: ['java8'], sonar: 'S1612',
+  id: 'lambda-to-method-reference', type: 'S', sev: 'MI', debt: 2, tags: ['java8'], ref: 'S1612',
   en: ['Lambdas should be replaced with method references', 'A lambda that only forwards its parameters to one method reads better as a method reference.', 'Use the method reference (Type::method).'],
   ko: ['람다는 메서드 참조로 바꿔야 합니다', '매개변수를 메서드 하나로 넘기기만 하는 람다는 메서드 참조가 더 읽기 좋습니다.', '메서드 참조(Type::method)를 쓰세요.'],
   msg: ['Replace this lambda with method reference "{0}".', '이 람다를 메서드 참조 "{0}"(으)로 바꾸세요.'],
@@ -1505,7 +1505,7 @@ const FUNCTIONAL = new Set(['Runnable', 'Callable', 'Comparator', 'Supplier', 'C
   'BiPredicate', 'UnaryOperator', 'BinaryOperator', 'ActionListener', 'ThreadFactory', 'FileFilter', 'FilenameFilter', 'IntPredicate',
   'IntFunction', 'ToIntFunction', 'PrivilegedAction', 'ChangeListener', 'EventHandler']);
 rule({
-  id: 'anonymous-class-to-lambda', type: 'S', sev: 'MA', debt: 5, tags: ['java8'], sonar: 'S1604',
+  id: 'anonymous-class-to-lambda', type: 'S', sev: 'MA', debt: 5, tags: ['java8'], ref: 'S1604',
   en: ['Anonymous inner classes containing only one method should become lambdas', 'A lambda expresses a single-method implementation with far less boilerplate.', 'Replace the anonymous class with a lambda.'],
   ko: ['메서드 하나만 있는 익명 내부 클래스는 람다로 바꿔야 합니다', '메서드 하나짜리 구현은 람다가 훨씬 적은 상용구로 표현합니다.', '익명 클래스를 람다로 바꾸세요.'],
   msg: ['Make this anonymous inner class a lambda.', '이 익명 내부 클래스를 람다로 바꾸세요.'],
@@ -1526,7 +1526,7 @@ rule({
 });
 
 rule({
-  id: 'collect-to-list', type: 'S', sev: 'MI', debt: 2, tags: ['java16'], sonar: 'S6204',
+  id: 'collect-to-list', type: 'S', sev: 'MI', debt: 2, tags: ['java16'], ref: 'S6204',
   en: ['"Stream.toList()" should be used instead of "collectors" when unmodifiable list needed', 'Stream.toList() (Java 16+) is shorter and returns an unmodifiable list.', 'Use .toList() when the result is not modified.'],
   ko: ['수정하지 않을 리스트에는 collectors 대신 Stream.toList()를 써야 합니다', 'Stream.toList()(Java 16+)가 더 짧고 수정 불가 리스트를 반환합니다.', '결과를 수정하지 않는다면 .toList()를 쓰세요.'],
   msg: ['Replace this usage of "Stream.collect(Collectors.toList())" with "Stream.toList()".', '"Stream.collect(Collectors.toList())"를 "Stream.toList()"로 바꾸세요.'],
@@ -1551,7 +1551,7 @@ rule({
 });
 
 rule({
-  id: 'switch-too-few-cases', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['bad-practice'], sonar: 'S1301', ktSonar: 'S1301',
+  id: 'switch-too-few-cases', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['bad-practice'], ref: 'S1301', ktRef: 'S1301',
   en: ['"switch" statements should have at least 3 "case" clauses', 'A switch (or when) with one or two branches is an if/else in disguise.', 'Use if/else.'],
   ko: ['switch 문에는 case가 셋 이상 있어야 합니다', '분기가 한두 개인 switch(또는 when)는 if/else와 다를 바 없습니다.', 'if/else를 쓰세요.'],
   msg: ['Replace this "{0}" statement by "if" statements to increase readability.', '가독성을 위해 이 "{0}" 문을 if 문으로 바꾸세요.'],
@@ -1585,7 +1585,7 @@ rule({
 });
 
 rule({
-  id: 'instanceof-pattern', type: 'S', sev: 'MI', debt: 5, tags: ['java16'], sonar: 'S6201',
+  id: 'instanceof-pattern', type: 'S', sev: 'MI', debt: 5, tags: ['java16'], ref: 'S6201',
   en: ['Pattern Matching for "instanceof" operator should be used instead of simple "instanceof" + cast', 'Testing a type and then casting repeats the type and the variable.', 'Use "if (x instanceof Foo f)".'],
   ko: ['단순 instanceof + 캐스팅 대신 instanceof 패턴 매칭을 써야 합니다', '타입을 검사한 뒤 캐스팅하면 타입과 변수를 반복합니다.', '"if (x instanceof Foo f)"를 쓰세요.'],
   msg: ['Replace this instanceof check and cast with \'instanceof {0} {1}\'.', '이 instanceof 검사와 캐스팅을 \'instanceof {0} {1}\'(으)로 바꾸세요.'],
@@ -1609,7 +1609,7 @@ rule({
 });
 
 rule({
-  id: 'wildcard-return-type', type: 'S', sev: 'CR', debt: 20, tags: ['generics'], sonar: 'S1452',
+  id: 'wildcard-return-type', type: 'S', sev: 'CR', debt: 20, tags: ['generics'], ref: 'S1452',
   en: ['Generic wildcard types should not be used in return types', 'Wildcards in return types force every caller to deal with them.', 'Return a concrete type argument.'],
   ko: ['반환 타입에 제네릭 와일드카드를 쓰면 안 됩니다', '반환 타입의 와일드카드는 모든 호출자가 그것을 다루게 만듭니다.', '구체적인 타입 인자를 반환하세요.'],
   msg: ['Remove usage of generic wildcard type.', '제네릭 와일드카드 타입의 사용을 지우세요.'],
@@ -1631,7 +1631,7 @@ const GENERIC_JDK = new Set(['List', 'ArrayList', 'LinkedList', 'Map', 'HashMap'
   'LinkedHashSet', 'Collection', 'Iterator', 'Iterable', 'Optional', 'Comparator', 'Comparable', 'Queue', 'Deque', 'ArrayDeque', 'Stack',
   'Vector', 'Hashtable', 'Enumeration', 'Future', 'Callable', 'Supplier', 'Consumer', 'Function', 'Predicate', 'ThreadLocal', 'Class']);
 rule({
-  id: 'raw-type', type: 'S', sev: 'MA', debt: 5, tags: ['generics'], sonar: 'S3740',
+  id: 'raw-type', type: 'S', sev: 'MA', debt: 5, tags: ['generics'], ref: 'S3740',
   en: ['Raw types should not be used', 'Raw generic types bypass compile-time type checks and lead to ClassCastException later.', 'Add the type arguments (or <?>).'],
   ko: ['raw 타입을 쓰면 안 됩니다', 'raw 제네릭 타입은 컴파일 시 타입 검사를 건너뛰어 나중에 ClassCastException을 일으킵니다.', '타입 인자(또는 <?>)를 붙이세요.'],
   msg: ['Provide the parametrized type for this generic "{0}".', '제네릭 "{0}"에 타입 인자를 지정하세요.'],
@@ -1654,7 +1654,7 @@ function rawCheck(t, cx) {
 }
 
 rule({
-  id: 'diamond-operator', type: 'S', sev: 'MI', debt: 1, tags: ['clumsy'], sonar: 'S2293',
+  id: 'diamond-operator', type: 'S', sev: 'MI', debt: 1, tags: ['clumsy'], ref: 'S2293',
   en: ['The diamond operator ("<>") should be used', 'Repeating the type arguments on the right-hand side adds noise.', 'Use new ArrayList<>().'],
   ko: ['다이아몬드 연산자(<>)를 써야 합니다', '오른쪽에서 타입 인자를 반복하면 잡음만 늘어납니다.', 'new ArrayList<>()로 쓰세요.'],
   msg: ['Replace the type specification in this constructor call with the diamond operator ("<>").', '이 생성자 호출의 타입 지정을 다이아몬드 연산자(<>)로 바꾸세요.'],
@@ -1675,7 +1675,7 @@ function diamond(t, vars, cx) {
 
 const IMPL_TYPES = /^(ArrayList|LinkedList|HashMap|TreeMap|LinkedHashMap|HashSet|TreeSet|LinkedHashSet|Vector|Hashtable|ConcurrentHashMap)$/;
 rule({
-  id: 'implementation-type-in-signature', type: 'S', sev: 'MI', debt: 5, tags: ['design'], sonar: 'S1319',
+  id: 'implementation-type-in-signature', type: 'S', sev: 'MI', debt: 5, tags: ['design'], ref: 'S1319',
   en: ['Declarations should use Java collection interfaces such as "List" rather than specific implementation classes', 'Exposing ArrayList/HashMap in a public signature ties callers to one implementation.', 'Declare List, Map, Set or Collection instead.'],
   ko: ['선언에는 구체 구현 클래스 대신 List 같은 컬렉션 인터페이스를 써야 합니다', '공개 시그니처에 ArrayList/HashMap을 드러내면 호출자가 한 구현에 묶입니다.', '대신 List, Map, Set, Collection으로 선언하세요.'],
   msg: ['The type of "{0}" should be an interface such as "{1}" rather than the implementation "{2}".', '"{0}"의 타입은 구현 "{2}" 대신 "{1}" 같은 인터페이스여야 합니다.'],
@@ -1696,7 +1696,7 @@ rule({
 });
 
 rule({
-  id: 'nested-try', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 10, tags: ['confusing'], sonar: 'S1141', ktSonar: 'S1141',
+  id: 'nested-try', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 10, tags: ['confusing'], ref: 'S1141', ktRef: 'S1141',
   en: ['Try-catch blocks should not be nested', 'Nested try blocks make it hard to see which handler deals with which exception.', 'Extract the inner try into its own method.'],
   ko: ['try-catch 블록을 중첩하면 안 됩니다', '중첩된 try는 어느 처리기가 어떤 예외를 다루는지 알기 어렵게 합니다.', '안쪽 try를 별도 메서드로 빼세요.'],
   msg: ['Extract this nested try block into a separate method.', '이 중첩 try 블록을 별도 메서드로 빼세요.'],
@@ -1723,7 +1723,7 @@ rule({
 });
 
 rule({
-  id: 'catch-rethrow-only', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['clumsy', 'error-handling'], sonar: 'S2737', ktSonar: 'S2737',
+  id: 'catch-rethrow-only', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['clumsy', 'error-handling'], ref: 'S2737', ktRef: 'S2737',
   en: ['"catch" clauses should do more than rethrow', 'A catch that only rethrows the same exception adds nothing.', 'Remove the catch clause, or handle the exception.'],
   ko: ['catch 절은 다시 던지는 것 이상을 해야 합니다', '같은 예외를 다시 던지기만 하는 catch는 의미가 없습니다.', 'catch 절을 지우거나 예외를 처리하세요.'],
   msg: ['Add logic to this catch clause or eliminate it and rethrow the exception automatically.', '이 catch 절에 처리 로직을 넣거나 절을 지워 예외가 자동으로 전달되게 하세요.'],
@@ -1747,7 +1747,7 @@ rule({
 });
 
 rule({
-  id: 'log-and-rethrow', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 10, tags: ['error-handling', 'logging'], sonar: 'S2139', ktSonar: 'S2139',
+  id: 'log-and-rethrow', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 10, tags: ['error-handling', 'logging'], ref: 'S2139', ktRef: 'S2139',
   en: ['Exceptions should be either logged or rethrown but not both', 'Logging and rethrowing makes the same error appear several times in the logs.', 'Either log and handle, or rethrow (with context) and let the top level log.'],
   ko: ['예외는 기록하거나 다시 던지되 둘 다 하면 안 됩니다', '기록하고 다시 던지면 같은 오류가 로그에 여러 번 남습니다.', '기록하고 처리하거나, 맥락을 붙여 다시 던지고 최상위에서 기록하세요.'],
   msg: ['Either log this exception and handle it, or rethrow it with some contextual information.', '이 예외를 기록하고 처리하거나 맥락 정보를 붙여 다시 던지세요.'],
@@ -1790,7 +1790,7 @@ rule({
 });
 
 rule({
-  id: 'exception-cause-lost', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 10, tags: ['error-handling', 'cwe-778'], sonar: 'S1166', ktSonar: 'S1166',
+  id: 'exception-cause-lost', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 10, tags: ['error-handling', 'cwe-778'], ref: 'S1166', ktRef: 'S1166',
   en: ['Exception handlers should preserve the original exceptions', 'Throwing a new exception without the caught one as cause loses the stack trace that explains the failure.', 'Pass the caught exception as the cause: new X("context", e).'],
   ko: ['예외 처리기는 원래 예외를 보존해야 합니다', '잡은 예외를 원인으로 넘기지 않고 새 예외를 던지면 실패를 설명하는 스택 추적을 잃습니다.', '잡은 예외를 원인으로 넘기세요: new X("맥락", e).'],
   msg: ['Either log or rethrow this exception; pass "{0}" as the cause.', '이 예외를 기록하거나 다시 던지세요. "{0}"을(를) 원인으로 넘기세요.'],
@@ -1838,7 +1838,7 @@ function isMsgOnly(nameNode, root) {
 }
 
 rule({
-  id: 'exception-class-naming', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['convention', 'error-handling'], sonar: 'S2166', ktSonar: 'S2166',
+  id: 'exception-class-naming', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 5, tags: ['convention', 'error-handling'], ref: 'S2166', ktRef: 'S2166',
   en: ['Classes named like "Exception" should extend "Exception" or a subclass', 'A class named ...Exception that is not throwable misleads readers.', 'Extend an exception class or rename the class.'],
   ko: ['Exception처럼 이름 지은 클래스는 Exception이나 그 하위 클래스를 상속해야 합니다', '...Exception이라는 이름인데 던질 수 없는 클래스는 읽는 사람을 오도합니다.', '예외 클래스를 상속하거나 클래스 이름을 바꾸세요.'],
   msg: ['Rename this class to remove "Exception" or correct its inheritance.', '이 클래스 이름에서 Exception을 빼거나 상속 관계를 고치세요.'],
@@ -1854,7 +1854,7 @@ rule({
 });
 
 rule({
-  id: 'return-null-collection', type: 'S', sev: 'MA', debt: 30, tags: ['cwe-476'], sonar: 'S1168',
+  id: 'return-null-collection', type: 'S', sev: 'MA', debt: 30, tags: ['cwe-476'], ref: 'S1168',
   en: ['Empty arrays and collections should be returned instead of null', 'Returning null for "no elements" forces every caller to add a null check, and one will forget.', 'Return an empty array or collection.'],
   ko: ['null 대신 빈 배열과 컬렉션을 반환해야 합니다', '"요소 없음"에 null을 반환하면 모든 호출자가 null 검사를 해야 하고 누군가는 잊습니다.', '빈 배열이나 컬렉션을 반환하세요.'],
   msg: ['Return an empty {0} instead of null.', 'null 대신 빈 {0}을(를) 반환하세요.'],
@@ -1878,7 +1878,7 @@ rule({
 });
 
 rule({
-  id: 'boolean-method-returns-null', type: 'S', sev: 'CR', debt: 5, tags: ['pitfall'], sonar: 'S2447',
+  id: 'boolean-method-returns-null', type: 'S', sev: 'CR', debt: 5, tags: ['pitfall'], ref: 'S2447',
   en: ['Null should not be returned from a "Boolean" method', 'Callers use the result in conditions, where null unboxing throws NullPointerException.', 'Return true/false, or Optional<Boolean> if "unknown" is needed.'],
   ko: ['Boolean 메서드는 null을 반환하면 안 됩니다', '호출자가 결과를 조건에 쓰는데 null을 언박싱하면 NullPointerException이 납니다.', 'true/false를 반환하고 "알 수 없음"이 필요하면 Optional<Boolean>을 쓰세요.'],
   on: {
@@ -1899,7 +1899,7 @@ rule({
 });
 
 rule({
-  id: 'inner-class-could-be-static', type: 'S', sev: 'MI', debt: 15, tags: ['performance'], sonar: 'S2694',
+  id: 'inner-class-could-be-static', type: 'S', sev: 'MI', debt: 15, tags: ['performance'], ref: 'S2694',
   en: ['Inner classes which do not reference their owning classes should be "static"', 'A non-static inner class keeps a hidden reference to the outer instance, wasting memory and risking leaks.', 'Make the nested class static.'],
   ko: ['바깥 클래스를 참조하지 않는 내부 클래스는 static이어야 합니다', 'static이 아닌 내부 클래스는 바깥 인스턴스에 대한 숨은 참조를 쥐어 메모리를 낭비하고 누수 위험이 있습니다.', '중첩 클래스를 static으로 하세요.'],
   msg: ['Make this a "static" inner class.', '이것을 static 내부 클래스로 하세요.'],
@@ -1940,7 +1940,7 @@ rule({
 });
 
 rule({
-  id: 'field-could-be-local', type: 'S', sev: 'MI', debt: 5, tags: ['pitfall'], sonar: 'S1450',
+  id: 'field-could-be-local', type: 'S', sev: 'MI', debt: 5, tags: ['pitfall'], ref: 'S1450',
   en: ['Private fields only used as local variables in methods should become local variables', 'A field that one method always writes before reading is really a local variable, and it makes the class non-reentrant.', 'Turn it into a local variable.'],
   ko: ['메서드 안에서 지역 변수처럼만 쓰는 private 필드는 지역 변수로 바꿔야 합니다', '한 메서드가 항상 쓰고 나서 읽는 필드는 사실 지역 변수이며 클래스를 재진입 불가로 만듭니다.', '지역 변수로 바꾸세요.'],
   msg: ['Remove the "{0}" field and declare it as a local variable in the relevant methods.', '"{0}" 필드를 지우고 해당 메서드의 지역 변수로 선언하세요.'],
@@ -1977,7 +1977,7 @@ rule({
 });
 
 rule({
-  id: 'lambda-too-long', type: 'S', sev: 'MI', debt: 20, tags: ['brain-overload'], sonar: 'S5612',
+  id: 'lambda-too-long', type: 'S', sev: 'MI', debt: 20, tags: ['brain-overload'], ref: 'S5612',
   en: ['Lambdas should not have too many lines', 'Long lambdas hide logic inside an expression and cannot be reused or tested on their own.', 'Move the body into a named method and use a method reference.'],
   ko: ['람다가 너무 길면 안 됩니다', '긴 람다는 로직을 식 안에 숨기고 따로 재사용·테스트할 수 없습니다.', '본문을 이름 있는 메서드로 옮기고 메서드 참조를 쓰세요.'],
   msg: ['Reduce this lambda expression number of lines from {0} to at most 10.', '이 람다 식의 줄 수를 {0}에서 10 이하로 줄이세요.'],
@@ -1987,7 +1987,7 @@ rule({
 });
 
 rule({
-  id: 'anonymous-class-too-long', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], sonar: 'S1188',
+  id: 'anonymous-class-too-long', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], ref: 'S1188',
   en: ['Anonymous classes should not have too many lines', 'Long anonymous classes are hard to read in place and cannot be reused.', 'Turn it into a named (nested) class.'],
   ko: ['익명 클래스가 너무 길면 안 됩니다', '긴 익명 클래스는 그 자리에서 읽기 어렵고 재사용할 수 없습니다.', '이름 있는 (중첩) 클래스로 바꾸세요.'],
   msg: ['Reduce this anonymous class number of lines from {0} to at most 20, or make it a named class.', '이 익명 클래스의 줄 수를 {0}에서 20 이하로 줄이거나 이름 있는 클래스로 만드세요.'],
@@ -2001,7 +2001,7 @@ rule({
 });
 
 rule({
-  id: 'boolean-expression-too-complex', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 5, tags: ['brain-overload'], sonar: 'S1067', ktSonar: 'S1067',
+  id: 'boolean-expression-too-complex', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 5, tags: ['brain-overload'], ref: 'S1067', ktRef: 'S1067',
   en: ['Expressions should not be too complex', 'More than three && / || operators in one expression are hard to understand and test.', 'Extract parts into well-named variables or methods.'],
   ko: ['식이 너무 복잡하면 안 됩니다', '한 식에 && / ||가 셋보다 많으면 이해하고 테스트하기 어렵습니다.', '일부를 이름 있는 변수나 메서드로 빼세요.'],
   msg: ['Reduce the number of conditional operators ({0}) used in the expression (maximum allowed 3).', '식의 조건 연산자 수({0})를 줄이세요(최대 3).'],
@@ -2029,7 +2029,7 @@ rule({
 });
 
 rule({
-  id: 'multiple-variables-per-declaration', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], sonar: 'S1659',
+  id: 'multiple-variables-per-declaration', type: 'S', sev: 'MI', debt: 2, tags: ['convention'], ref: 'S1659',
   en: ['Multiple variables should not be declared on the same line', 'Declaring several variables at once hides their types and initial values.', 'Declare one variable per statement.'],
   ko: ['한 줄에 여러 변수를 선언하면 안 됩니다', '여러 변수를 한꺼번에 선언하면 타입과 초기값이 잘 보이지 않습니다.', '문장마다 변수 하나씩 선언하세요.'],
   msg: ['Declare "{0}" on a separate line.', '"{0}"을(를) 다른 줄에 선언하세요.'],
@@ -2046,7 +2046,7 @@ rule({
 });
 
 rule({
-  id: 'multiple-statements-per-line', type: 'S', sev: 'MA', debt: 1, tags: ['convention'], sonar: 'S122',
+  id: 'multiple-statements-per-line', type: 'S', sev: 'MA', debt: 1, tags: ['convention'], ref: 'S122',
   en: ['Statements should be on separate lines', 'Several statements on one line are easy to overlook when reading or debugging.', 'Put each statement on its own line.'],
   ko: ['문장은 줄을 나눠 써야 합니다', '한 줄에 여러 문장이 있으면 읽거나 디버깅할 때 놓치기 쉽습니다.', '문장마다 줄을 나누세요.'],
   msg: ['Reformat the code to have only one statement per line.', '한 줄에 문장 하나만 오도록 코드를 고치세요.'],
@@ -2069,7 +2069,7 @@ rule({
 });
 
 rule({
-  id: 'missing-braces', type: 'S', sev: 'CR', debt: 2, tags: ['pitfall'], sonar: 'S121',
+  id: 'missing-braces', type: 'S', sev: 'CR', debt: 2, tags: ['pitfall'], ref: 'S121',
   en: ['Control structures should use curly braces', 'Without braces, a statement added later looks like part of the branch but is not.', 'Always wrap bodies of if/else/for/while/do in braces.'],
   ko: ['제어 구조에는 중괄호를 써야 합니다', '중괄호가 없으면 나중에 추가한 문장이 분기의 일부처럼 보이지만 아닙니다.', 'if/else/for/while/do 본문을 항상 중괄호로 감싸세요.'],
   msg: ['Add curly braces around the nested statement(s) in this "{0}" block.', '이 "{0}" 블록의 중첩 문장을 중괄호로 감싸세요.'],
@@ -2094,7 +2094,7 @@ rule({
 });
 
 rule({
-  id: 'parse-or-unbox', type: 'S', sev: 'MI', debt: 5, tags: ['performance', 'clumsy'], sonar: 'S2130',
+  id: 'parse-or-unbox', type: 'S', sev: 'MI', debt: 5, tags: ['performance', 'clumsy'], ref: 'S2130',
   en: ['Parsing should be used to convert "Strings" to primitives', 'Integer.valueOf(s).intValue() boxes needlessly; Integer.parseInt(s) returns the primitive directly.', 'Use the parseXxx method.'],
   ko: ['String을 기본형으로 바꿀 때는 파싱 메서드를 써야 합니다', 'Integer.valueOf(s).intValue()는 불필요하게 박싱하며 Integer.parseInt(s)가 바로 기본형을 반환합니다.', 'parseXxx 메서드를 쓰세요.'],
   msg: ['Use "{0}.{1}" for this string-to-{2} conversion.', '이 문자열→{2} 변환에는 "{0}.{1}"을(를) 쓰세요.'],
@@ -2115,7 +2115,7 @@ rule({
 });
 
 rule({
-  id: 'valueof-in-concat', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], sonar: 'S1153',
+  id: 'valueof-in-concat', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], ref: 'S1153',
   en: ['String.valueOf() should not be appended to a String', 'String concatenation already converts its operands; String.valueOf/toString adds noise.', 'Concatenate the value directly.'],
   ko: ['String.valueOf()를 문자열에 이어 붙이면 안 됩니다', '문자열 연결은 이미 피연산자를 변환하므로 String.valueOf/toString은 잡음입니다.', '값을 바로 이어 붙이세요.'],
   msg: ['Directly append the argument of String.valueOf().', 'String.valueOf()의 인자를 바로 이어 붙이세요.'],
@@ -2138,7 +2138,7 @@ rule({
 });
 
 rule({
-  id: 'keyset-then-get', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['performance'], sonar: 'S2864', ktSonar: 'S2864',
+  id: 'keyset-then-get', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['performance'], ref: 'S2864', ktRef: 'S2864',
   en: ['"entrySet()" should be iterated when both the key and value are needed', 'Iterating keySet() and calling get(key) does a second lookup for every entry.', 'Iterate entrySet() (Kotlin: for ((k, v) in map)).'],
   ko: ['키와 값이 모두 필요하면 entrySet()을 순회해야 합니다', 'keySet()을 돌며 get(key)를 부르면 항목마다 조회를 한 번 더 합니다.', 'entrySet()을 순회하세요(Kotlin은 for ((k, v) in map)).'],
   msg: ['Iterate over the "entrySet" instead of the "keySet".', 'keySet 대신 entrySet을 순회하세요.'],
@@ -2171,7 +2171,7 @@ rule({
 });
 
 rule({
-  id: 'replaceall-literal', type: 'S', sev: 'CR', debt: 2, tags: ['performance', 'regex'], sonar: 'S5361',
+  id: 'replaceall-literal', type: 'S', sev: 'CR', debt: 2, tags: ['performance', 'regex'], ref: 'S5361',
   en: ['"String#replace" should be preferred to "String#replaceAll"', 'replaceAll compiles a regular expression; with a plain literal, replace() does the same faster.', 'Use replace().'],
   ko: ['String#replaceAll보다 String#replace를 써야 합니다', 'replaceAll은 정규식을 컴파일하며 평범한 리터럴이면 replace()가 같은 일을 더 빨리 합니다.', 'replace()를 쓰세요.'],
   msg: ['Replace this call to "replaceAll()" by a call to the "replace()" method.', '이 replaceAll() 호출을 replace() 호출로 바꾸세요.'],
@@ -2192,7 +2192,7 @@ rule({
 });
 
 rule({
-  id: 'stream-peek', type: 'S', sev: 'MA', debt: 5, tags: ['java8'], sonar: 'S3864',
+  id: 'stream-peek', type: 'S', sev: 'MA', debt: 5, tags: ['java8'], ref: 'S3864',
   en: ['"Stream.peek" should be used with caution', 'peek() exists for debugging; its action may run partially or not at all depending on the terminal operation.', 'Do side effects in forEach or map instead.'],
   ko: ['Stream.peek는 조심해서 써야 합니다', 'peek()은 디버깅용이며 종단 연산에 따라 동작이 일부만 실행되거나 전혀 실행되지 않을 수 있습니다.', '부수 효과는 forEach나 map에서 하세요.'],
   msg: ['Remove this use of "Stream.peek".', '이 Stream.peek 사용을 지우세요.'],
@@ -2202,7 +2202,7 @@ rule({
 });
 
 rule({
-  id: 'stream-anymatch', type: 'S', sev: 'MI', debt: 5, tags: ['java8', 'performance'], sonar: 'S4034',
+  id: 'stream-anymatch', type: 'S', sev: 'MI', debt: 5, tags: ['java8', 'performance'], ref: 'S4034',
   en: ['"Stream" call chains should be simplified when possible', 'filter(...).findFirst().isPresent() and count() > 0 can be expressed with anyMatch, which stops early.', 'Use anyMatch / noneMatch.'],
   ko: ['가능하면 Stream 호출 체인을 단순화해야 합니다', 'filter(...).findFirst().isPresent()와 count() > 0은 일찍 멈추는 anyMatch로 표현할 수 있습니다.', 'anyMatch / noneMatch를 쓰세요.'],
   msg: ['Use "anyMatch" instead of this chain.', '이 체인 대신 anyMatch를 쓰세요.'],
@@ -2224,7 +2224,7 @@ rule({
 });
 
 rule({
-  id: 'indexof-positive-check', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 2, tags: ['suspicious'], sonar: 'S2692', ktSonar: 'S2692',
+  id: 'indexof-positive-check', langs: ['java', 'kt'], type: 'S', sev: 'CR', debt: 2, tags: ['suspicious'], ref: 'S2692', ktRef: 'S2692',
   en: ['"indexOf" checks should not be for positive numbers', 'indexOf(x) > 0 misses a match at position 0.', 'Use >= 0, or contains().'],
   ko: ['indexOf 검사는 양수인지로 하면 안 됩니다', 'indexOf(x) > 0은 위치 0의 일치를 놓칩니다.', '>= 0이나 contains()를 쓰세요.'],
   msg: ['0 is a valid index, but this check ignores it.', '0도 유효한 인덱스인데 이 검사는 그것을 무시합니다.'],
@@ -2240,7 +2240,7 @@ rule({
 });
 
 rule({
-  id: 'method-named-like-object-method', type: 'S', sev: 'MA', debt: 10, tags: ['pitfall'], sonar: 'S1221',
+  id: 'method-named-like-object-method', type: 'S', sev: 'MA', debt: 10, tags: ['pitfall'], ref: 'S1221',
   en: ['Methods should not be named "tostring", "hashcode" or "equal"', 'These look like the Object methods but do not override them, so they are never called by collections or string conversion.', 'Rename the method or fix the case/signature to override.'],
   ko: ['메서드 이름을 tostring, hashcode, equal로 지으면 안 됩니다', 'Object 메서드처럼 보이지만 재정의하지 않아 컬렉션이나 문자열 변환에서 호출되지 않습니다.', '이름을 바꾸거나 대소문자/시그니처를 고쳐 재정의하세요.'],
   msg: ['Either override "{1}" or rename this method "{0}".', '"{1}"을(를) 재정의하거나 이 메서드 "{0}"의 이름을 바꾸세요.'],
@@ -2257,7 +2257,7 @@ rule({
 });
 
 rule({
-  id: 'method-named-like-class', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], sonar: 'S1223',
+  id: 'method-named-like-class', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], ref: 'S1223',
   en: ['Non-constructor methods should not have the same name as the enclosing class', 'A method named like its class looks like a constructor but is not.', 'Rename the method, or remove the return type if it should be a constructor.'],
   ko: ['생성자가 아닌 메서드가 클래스와 같은 이름이면 안 됩니다', '클래스와 같은 이름의 메서드는 생성자처럼 보이지만 아닙니다.', '메서드 이름을 바꾸거나 생성자라면 반환 타입을 지우세요.'],
   msg: ['Rename this method; it has the same name as its class.', '클래스와 이름이 같은 이 메서드의 이름을 바꾸세요.'],
@@ -2267,7 +2267,7 @@ rule({
 });
 
 rule({
-  id: 'override-only-calls-super', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['redundant'], sonar: 'S1185', ktSonar: 'S1185',
+  id: 'override-only-calls-super', langs: ['java', 'kt'], type: 'S', sev: 'MI', debt: 5, tags: ['redundant'], ref: 'S1185', ktRef: 'S1185',
   en: ['Overriding methods should do more than simply call the same method in the super class', 'An override that only delegates to super adds code and changes nothing.', 'Remove the override.'],
   ko: ['재정의 메서드는 상위 클래스의 같은 메서드를 호출하는 것 이상을 해야 합니다', 'super에 위임만 하는 재정의는 코드만 늘리고 아무것도 바꾸지 않습니다.', '재정의를 지우세요.'],
   msg: ['Remove this method to simply inherit it.', '이 메서드를 지워 그대로 상속받으세요.'],
@@ -2314,7 +2314,7 @@ class T : Base() {
 });
 
 rule({
-  id: 'notify-instead-of-notifyall', type: 'S', sev: 'MA', debt: 5, tags: ['multi-threading'], sonar: 'S2446',
+  id: 'notify-instead-of-notifyall', type: 'S', sev: 'MA', debt: 5, tags: ['multi-threading'], ref: 'S2446',
   en: ['"notifyAll()" should be used instead of "notify()"', 'notify() wakes one arbitrary thread, which may not be the one able to proceed, leading to stalls.', 'Use notifyAll().'],
   ko: ['notify() 대신 notifyAll()을 써야 합니다', 'notify()는 임의의 스레드 하나만 깨워 진행할 수 있는 스레드가 아니면 멈춤이 생깁니다.', 'notifyAll()을 쓰세요.'],
   msg: ['"notify" may not wake up the appropriate thread.', 'notify는 알맞은 스레드를 깨우지 못할 수 있습니다.'],
@@ -2328,7 +2328,7 @@ rule({
 });
 
 rule({
-  id: 'thread-start-in-constructor', type: 'S', sev: 'CR', debt: 5, tags: ['multi-threading'], sonar: 'S2693',
+  id: 'thread-start-in-constructor', type: 'S', sev: 'CR', debt: 5, tags: ['multi-threading'], ref: 'S2693',
   en: ['Threads should not be started in constructors', 'The new thread may see the object before construction finishes, including in subclasses.', 'Start the thread from a separate start() method or factory.'],
   ko: ['생성자에서 스레드를 시작하면 안 됩니다', '새 스레드가 생성이 끝나기 전의 객체(하위 클래스 포함)를 볼 수 있습니다.', '별도의 start() 메서드나 팩터리에서 스레드를 시작하세요.'],
   msg: ['Move this "start" call to another method.', '이 start 호출을 다른 메서드로 옮기세요.'],
@@ -2349,7 +2349,7 @@ rule({
 });
 
 rule({
-  id: 'overridable-call-in-constructor', type: 'S', sev: 'CR', debt: 10, tags: ['pitfall'], sonar: 'S1699',
+  id: 'overridable-call-in-constructor', type: 'S', sev: 'CR', debt: 10, tags: ['pitfall'], ref: 'S1699',
   en: ['Constructors should only call non-overridable methods', 'A subclass override runs before the subclass fields are initialized.', 'Make the method private, final or static, or move the call out of the constructor.'],
   ko: ['생성자는 재정의할 수 없는 메서드만 호출해야 합니다', '하위 클래스의 재정의가 하위 클래스 필드 초기화 전에 실행됩니다.', '메서드를 private, final, static으로 하거나 호출을 생성자 밖으로 옮기세요.'],
   msg: ['Remove this call from a constructor to the overridable "{0}" method.', '생성자에서 재정의 가능한 "{0}" 메서드 호출을 지우세요.'],
@@ -2375,7 +2375,7 @@ rule({
 });
 
 rule({
-  id: 'clone-without-super', type: 'S', sev: 'MI', debt: 5, tags: ['pitfall'], sonar: 'S1182',
+  id: 'clone-without-super', type: 'S', sev: 'MI', debt: 5, tags: ['pitfall'], ref: 'S1182',
   en: ['Classes that override "clone" should be "Cloneable" and call "super.clone()"', 'Without super.clone() the copy has the wrong runtime class for subclasses.', 'Call super.clone() and implement Cloneable (or prefer a copy constructor).'],
   ko: ['clone을 재정의하는 클래스는 Cloneable이어야 하고 super.clone()을 불러야 합니다', 'super.clone()을 부르지 않으면 하위 클래스에서 복사본의 런타임 클래스가 틀립니다.', 'super.clone()을 부르고 Cloneable을 구현하세요(복사 생성자를 권장합니다).'],
   msg: ['Use super.clone() to create and seed the cloned instance to be returned.', 'super.clone()으로 반환할 복제 인스턴스를 만드세요.'],
@@ -2401,7 +2401,7 @@ rule({
 });
 
 rule({
-  id: 'clone-override', type: 'S', sev: 'BL', debt: 30, tags: ['design'], sonar: 'S2975',
+  id: 'clone-override', type: 'S', sev: 'BL', debt: 30, tags: ['design'], ref: 'S2975',
   en: ['"clone" should not be overridden', 'Object.clone is a broken mechanism (shallow copies, no constructors, Cloneable marker).', 'Provide a copy constructor or a copy factory method instead.'],
   ko: ['clone을 재정의하면 안 됩니다', 'Object.clone은 얕은 복사, 생성자 우회, Cloneable 마커 등 문제가 많은 메커니즘입니다.', '대신 복사 생성자나 복사 팩터리 메서드를 제공하세요.'],
   msg: ['Remove this "clone" implementation; use a copy constructor or copy factory instead.', '이 clone 구현을 지우고 복사 생성자나 복사 팩터리를 쓰세요.'],
@@ -2420,7 +2420,7 @@ rule({
 });
 
 rule({
-  id: 'serializable-without-uid', type: 'S', sev: 'MA', debt: 5, tags: ['serialization'], sonar: 'S2057',
+  id: 'serializable-without-uid', type: 'S', sev: 'MA', debt: 5, tags: ['serialization'], ref: 'S2057',
   en: ['Every class implementing Serializable should declare a static final serialVersionUID', 'Without it the computed UID changes with compiler and code changes, breaking deserialization of stored objects.', 'Declare private static final long serialVersionUID = 1L;.'],
   ko: ['Serializable을 구현하는 클래스는 static final serialVersionUID를 선언해야 합니다', '없으면 계산된 UID가 컴파일러와 코드 변경에 따라 바뀌어 저장된 객체를 역직렬화할 수 없습니다.', 'private static final long serialVersionUID = 1L;을 선언하세요.'],
   msg: ['Add a "static final long serialVersionUID" field to this class.', '이 클래스에 "static final long serialVersionUID" 필드를 넣으세요.'],
@@ -2444,7 +2444,7 @@ rule({
 });
 
 rule({
-  id: 'instance-writes-static-field', type: 'S', sev: 'CR', debt: 20, tags: ['multi-threading'], sonar: 'S2696',
+  id: 'instance-writes-static-field', type: 'S', sev: 'CR', debt: 20, tags: ['multi-threading'], ref: 'S2696',
   en: ['Instance methods should not write to "static" fields', 'Every instance shares the static field, so concurrent instances race on it.', 'Make the method static, or the field an instance field.'],
   ko: ['인스턴스 메서드가 static 필드에 쓰면 안 됩니다', '모든 인스턴스가 static 필드를 공유해 동시에 쓰는 인스턴스끼리 경쟁합니다.', '메서드를 static으로 하거나 필드를 인스턴스 필드로 하세요.'],
   msg: ['Make the enclosing method "static" or remove this set of "{0}".', '감싼 메서드를 static으로 하거나 "{0}"에 대한 이 대입을 지우세요.'],
@@ -2474,7 +2474,7 @@ rule({
 });
 
 rule({
-  id: 'volatile-array', type: 'S', sev: 'MI', debt: 20, tags: ['multi-threading'], sonar: 'S3077',
+  id: 'volatile-array', type: 'S', sev: 'MI', debt: 20, tags: ['multi-threading'], ref: 'S3077',
   en: ['Non-primitive fields should not be "volatile"', 'volatile on an array only makes the reference volatile, not the elements.', 'Use AtomicIntegerArray / AtomicReferenceArray or proper locking.'],
   ko: ['기본형이 아닌 필드를 volatile로 하면 안 됩니다', '배열에 volatile을 붙이면 참조만 volatile이고 요소는 아닙니다.', 'AtomicIntegerArray / AtomicReferenceArray나 적절한 잠금을 쓰세요.'],
   msg: ['Use a thread-safe type; adding "volatile" is not enough to make this field thread-safe.', '스레드 안전 타입을 쓰세요. volatile만으로는 이 필드가 스레드 안전해지지 않습니다.'],
@@ -2484,7 +2484,7 @@ rule({
 });
 
 rule({
-  id: 'empty-statement', type: 'S', sev: 'MI', debt: 2, tags: ['unused'], sonar: 'S1116',
+  id: 'empty-statement', type: 'S', sev: 'MI', debt: 2, tags: ['unused'], ref: 'S1116',
   en: ['Empty statements should be removed', 'A stray semicolon is noise and can hide a mistake.', 'Remove it.'],
   ko: ['빈 문장은 지워야 합니다', '남는 세미콜론은 잡음이고 실수를 숨길 수 있습니다.', '지우세요.'],
   msg: ['Remove this empty statement.', '이 빈 문장을 지우세요.'],
@@ -2502,7 +2502,7 @@ rule({
 });
 
 rule({
-  id: 'switch-without-default', type: 'S', sev: 'CR', debt: 5, tags: ['cwe-478'], sonar: 'S131',
+  id: 'switch-without-default', type: 'S', sev: 'CR', debt: 5, tags: ['cwe-478'], ref: 'S131',
   en: ['"switch" statements should have "default" clauses', 'Without default, unexpected values are silently ignored.', 'Add a default clause (throw for impossible values).'],
   ko: ['switch 문에는 default 절이 있어야 합니다', 'default가 없으면 예상치 못한 값을 조용히 무시합니다.', 'default 절을 넣으세요(불가능한 값이면 예외를 던지세요).'],
   msg: ['Add a default case to this switch.', '이 switch에 default case를 넣으세요.'],
@@ -2529,7 +2529,7 @@ rule({
 });
 
 rule({
-  id: 'switch-default-not-last', type: 'S', sev: 'CR', debt: 5, tags: ['convention'], sonar: 'S4524',
+  id: 'switch-default-not-last', type: 'S', sev: 'CR', debt: 5, tags: ['convention'], ref: 'S4524',
   en: ['"default" clauses should be first or last', 'A default in the middle of the cases is easy to overlook.', 'Move default to the end.'],
   ko: ['default 절은 처음이나 마지막에 있어야 합니다', 'case 중간의 default는 놓치기 쉽습니다.', 'default를 끝으로 옮기세요.'],
   msg: ['Move this default to the end of the switch.', '이 default를 switch 끝으로 옮기세요.'],
@@ -2553,7 +2553,7 @@ rule({
 });
 
 rule({
-  id: 'single-iteration-loop', langs: ['java', 'kt'], type: 'B', sev: 'MA', debt: 10, tags: ['suspicious'], sonar: 'S1751', ktSonar: 'S1751',
+  id: 'single-iteration-loop', langs: ['java', 'kt'], type: 'B', sev: 'MA', debt: 10, tags: ['suspicious'], ref: 'S1751', ktRef: 'S1751',
   en: ['Loops with at most one iteration should be refactored', 'The loop body always ends with return/break/throw, so it runs at most once.', 'Use an if statement, or fix the misplaced jump.'],
   ko: ['최대 한 번만 도는 루프는 고쳐야 합니다', '루프 본문이 항상 return/break/throw로 끝나 많아야 한 번만 실행됩니다.', 'if 문을 쓰거나 잘못 놓인 점프를 고치세요.'],
   msg: ['Refactor this loop to do more than one iteration.', '두 번 이상 돌도록 이 루프를 고치세요.'],
@@ -2588,7 +2588,7 @@ function singleIter(n, cx) {
 }
 
 rule({
-  id: 'loop-counter-modified', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], sonar: 'S127',
+  id: 'loop-counter-modified', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], ref: 'S127',
   en: ['"for" loop stop conditions should be invariant', 'Changing the loop counter inside the body makes the number of iterations hard to predict.', 'Use a while loop, or leave the counter to the update clause.'],
   ko: ['for 루프의 종료 조건은 불변이어야 합니다', '본문에서 루프 카운터를 바꾸면 반복 횟수를 예측하기 어렵습니다.', 'while 루프를 쓰거나 카운터는 갱신절에만 맡기세요.'],
   msg: ['Refactor the code in order to not assign to this loop counter from within the loop body.', '루프 본문에서 이 루프 카운터에 대입하지 않도록 코드를 고치세요.'],
@@ -2613,7 +2613,7 @@ rule({
 });
 
 rule({
-  id: 'wrong-loop-variable', type: 'B', sev: 'CR', debt: 5, tags: ['suspicious'], sonar: 'S1994',
+  id: 'wrong-loop-variable', type: 'B', sev: 'CR', debt: 5, tags: ['suspicious'], ref: 'S1994',
   en: ['"for" loop increment clauses should modify the loops\' counters', 'The update clause changes a different variable than the one tested in the condition.', 'Update the tested counter.'],
   ko: ['for 루프의 증가절은 루프 카운터를 바꿔야 합니다', '갱신절이 조건에서 검사하는 변수와 다른 변수를 바꿉니다.', '검사하는 카운터를 갱신하세요.'],
   msg: ['This loop\'s stop condition tests "{0}" but the incrementer updates "{1}".', '이 루프의 종료 조건은 "{0}"을(를) 검사하는데 증가절은 "{1}"을(를) 바꿉니다.'],
@@ -2639,7 +2639,7 @@ rule({
 });
 
 rule({
-  id: 'boolean-literal-condition', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 2, tags: ['redundant'], sonar: 'S1145', ktSonar: 'S1145',
+  id: 'boolean-literal-condition', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 2, tags: ['redundant'], ref: 'S1145', ktRef: 'S1145',
   en: ['Useless "if(true) {...}" and "if(false){...}" blocks should be removed', 'A literal condition makes the if pointless: the branch always or never runs.', 'Remove the if (keep the code that runs).'],
   ko: ['쓸모없는 if(true)와 if(false) 블록은 지워야 합니다', '리터럴 조건이면 if가 의미 없어 분기가 항상 실행되거나 전혀 실행되지 않습니다.', 'if를 지우세요(실행되는 코드는 남기세요).'],
   msg: ['Remove this "if" statement whose condition is always {0}.', '조건이 항상 {0}인 이 if 문을 지우세요.'],
@@ -2649,7 +2649,7 @@ rule({
 });
 
 rule({
-  id: 'assignment-in-subexpression', type: 'S', sev: 'MA', debt: 5, tags: ['cwe-481', 'suspicious'], sonar: 'S1121',
+  id: 'assignment-in-subexpression', type: 'S', sev: 'MA', debt: 5, tags: ['cwe-481', 'suspicious'], ref: 'S1121',
   en: ['Assignments should not be made from within sub-expressions', 'An assignment buried in a larger expression is easy to miss and to confuse with ==.', 'Assign in a separate statement.'],
   ko: ['하위 식 안에서 대입하면 안 됩니다', '큰 식에 묻힌 대입은 놓치기 쉽고 ==와 헷갈리기 쉽습니다.', '별도 문장에서 대입하세요.'],
   msg: ['Extract the assignment out of this expression.', '이 식에서 대입을 빼내세요.'],
@@ -2683,7 +2683,7 @@ rule({
 });
 
 rule({
-  id: 'comparable-without-equals', type: 'S', sev: 'MI', debt: 15, tags: ['pitfall'], sonar: 'S1210',
+  id: 'comparable-without-equals', type: 'S', sev: 'MI', debt: 15, tags: ['pitfall'], ref: 'S1210',
   en: ['"equals(Object obj)" should be overridden along with the "compareTo(T obj)" method', 'Sorted collections use compareTo while others use equals; when they disagree, behaviour differs between collections.', 'Override equals (and hashCode) consistently with compareTo.'],
   ko: ['compareTo(T obj)와 함께 equals(Object obj)도 재정의해야 합니다', '정렬 컬렉션은 compareTo를, 나머지는 equals를 써서 둘이 다르면 컬렉션마다 동작이 달라집니다.', 'compareTo와 일관되게 equals(와 hashCode)를 재정의하세요.'],
   msg: ['Override "equals(Object obj)" to comply with the contract of the "compareTo(T o)" method.', 'compareTo(T o)의 계약에 맞게 equals(Object obj)를 재정의하세요.'],
@@ -2712,7 +2712,7 @@ rule({
 });
 
 rule({
-  id: 'labeled-statement', type: 'S', sev: 'MA', debt: 30, tags: ['confusing'], sonar: 'S1119',
+  id: 'labeled-statement', type: 'S', sev: 'MA', debt: 30, tags: ['confusing'], ref: 'S1119',
   en: ['Labels should not be used', 'Labeled break/continue act like goto and make loops hard to follow.', 'Extract the inner loop into a method and return from it.'],
   ko: ['레이블을 쓰면 안 됩니다', '레이블 있는 break/continue는 goto처럼 동작해 루프를 따라가기 어렵게 합니다.', '안쪽 루프를 메서드로 빼서 return하세요.'],
   msg: ['Refactor the code to remove this label and the need for it.', '이 레이블과 그것이 필요한 이유를 없애도록 코드를 고치세요.'],
@@ -2727,7 +2727,7 @@ rule({
 });
 
 rule({
-  id: 'unused-label', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 2, tags: ['unused'], sonar: 'S1065', ktSonar: 'S1065',
+  id: 'unused-label', langs: ['java', 'kt'], type: 'S', sev: 'MA', debt: 2, tags: ['unused'], ref: 'S1065', ktRef: 'S1065',
   en: ['Unused labels should be removed', 'A label that no break or continue refers to is noise.', 'Remove the label.'],
   ko: ['쓰지 않는 레이블은 지워야 합니다', 'break나 continue가 가리키지 않는 레이블은 잡음입니다.', '레이블을 지우세요.'],
   msg: ['Remove this unused label "{0}".', '쓰지 않는 레이블 "{0}"을(를) 지우세요.'],

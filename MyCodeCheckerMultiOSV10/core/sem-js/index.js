@@ -1,6 +1,6 @@
 'use strict';
 
-// sem-js: JavaScript / TypeScript semantic analyzer (SonarJS scope).
+// sem-js: JavaScript / TypeScript semantic analyzer (JS reference analyzer scope).
 // Pipeline per file: tolerant parse -> parent links + node index -> scopes ->
 // rules (AST, scope, CFG and symbolic-execution based). See
 // core/ENGINE_CONTRACT.md for the catalog() / analyze() contract.

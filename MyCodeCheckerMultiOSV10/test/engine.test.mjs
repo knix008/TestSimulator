@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { analyzeSources } from '../core/analyze.js';
 import { toSarif, toHtml, badge } from '../core/report.js';
-import { evaluateGate, SONAR_WAY } from '../core/qualitygate.js';
+import { evaluateGate, DEFAULT_GATE } from '../core/qualitygate.js';
 import { maintainability } from '../core/ratings.js';
 
 const require = createRequire(import.meta.url);
@@ -50,8 +50,8 @@ test('finds vulnerabilities from several analyzers and fails the gate', () => {
   assert.match(badge('ERROR'), /failed/);
 });
 
-test('NOSONAR suppresses the line and a clean file passes the gate', () => {
-  const noisy = analyzeSources([{ path: 'a.js', text: 'eval(input); // NOSONAR\n' }]);
+test('NOMCC suppresses the line and a clean file passes the gate', () => {
+  const noisy = analyzeSources([{ path: 'a.js', text: 'eval(input); // NOMCC\n' }]);
   assert.equal(noisy.issues.filter((i) => i.rule === 'js:eval').length, 0);
   const clean = analyzeSources([{ path: 'ok.js', text: 'function add(left, right) {\n  return left + right;\n}\n' }]);
   assert.equal(clean.qualityGate.status, 'OK');
@@ -80,6 +80,6 @@ test('coverage from lcov is a measure and a gate can read it', () => {
   const coverage = parseLcov('SF:src/ok.js\nDA:1,1\nDA:2,0\nend_of_record\n', '');
   const result = analyzeSources([{ path: 'src/ok.js', text: 'function add(left, right) {\n  return left + right;\n}\n' }], { coverage });
   assert.equal(result.measures.coverage, 50);
-  const gate = evaluateGate(SONAR_WAY, { ...result.measures, new_coverage: 50 });
+  const gate = evaluateGate(DEFAULT_GATE, { ...result.measures, new_coverage: 50 });
   assert.equal(gate.conditions.find((c) => c.metric === 'new_coverage').status, 'ERROR');
 });

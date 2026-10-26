@@ -56,7 +56,7 @@ const tags = (f) => f.events.map((e) => e.tag);
 
 // ---------------------------------------------------------------- catalog
 
-test('catalog lists every checker with Coverity metadata', () => {
+test('catalog lists every checker with Defect Analysis metadata', () => {
   const cat = absint.catalog();
   const keys = new Set(cat.map((m) => m.key));
   assert.equal(keys.size, cat.length);
@@ -1528,7 +1528,7 @@ int main(int argc, char **argv) {
 
 // ---------------------------------------------------------------- user models
 
-test('user models from the coverity.js format apply (allocator, sink)', () => {
+test('user models from the defects.js format apply (allocator, sink)', () => {
   const models = [
     { name: 'pool_get', kind: 'allocator', pattern: '\\bpool_get\\s*\\(' },
     { name: 'pool_put', kind: 'free', pattern: '\\bpool_put\\s*\\(' },
@@ -2085,7 +2085,7 @@ test('C++ checkers stay within the budget on a large generated translation unit'
   assert.equal(of(found, 'USE_AFTER_MOVE').length + of(found, 'INVALIDATE_ITERATOR').length + of(found, 'FORWARD_NULL').length, 0);
 });
 
-// ---------------------------------------------------------------- more Coverity checkers
+// ---------------------------------------------------------------- more defect checkers
 
 test('OVERFLOW_BEFORE_WIDEN TP: 32-bit product widened by initialization, return and argument', () => {
   const [f] = expectTP('OVERFLOW_BEFORE_WIDEN', `

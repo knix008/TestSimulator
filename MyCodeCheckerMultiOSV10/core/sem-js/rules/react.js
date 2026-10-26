@@ -43,7 +43,7 @@ function iteratorCallback(fn) {
 }
 
 rule('jsx-key', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6477', react: true, tags: ['jsx'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6477', react: true, tags: ['jsx'],
   name: ['JSX list components should have a key property', 'JSX 목록 컴포넌트에는 key 속성이 있어야 합니다'],
   why: ['Without a stable key React cannot match list items between renders, causing lost state and wrong updates.', '안정적인 key가 없으면 React가 렌더 사이에 목록 항목을 맞추지 못해 상태가 사라지거나 잘못 갱신됩니다.'],
   fix: ['Add a key prop with a stable, unique id.', '안정적이고 고유한 id로 key 속성을 넣으세요.'],
@@ -100,7 +100,7 @@ function conditionalAncestor(call, fn) {
 }
 
 rule('hooks-rules', {
-  t: 'B', s: 'CR', debt: 10, sonar: 'S6440', react: true, tags: ['hooks'],
+  t: 'B', s: 'CR', debt: 10, ref: 'S6440', react: true, tags: ['hooks'],
   name: ['React Hooks should be properly called', 'React Hook은 올바르게 호출해야 합니다'],
   why: ['React identifies hooks by call order; calling them conditionally, in loops, in callbacks or outside components breaks state.', 'React는 호출 순서로 Hook을 구별합니다. 조건부, 반복 안, 콜백, 컴포넌트 밖에서 부르면 상태가 깨집니다.'],
   fix: ['Call hooks unconditionally at the top level of a component or custom hook.', 'Hook은 컴포넌트나 사용자 Hook의 최상위에서 조건 없이 호출하세요.'],
@@ -143,7 +143,7 @@ function inMethod(node, kinds) {
 }
 
 rule('state-mutation', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6746', react: true,
+  t: 'B', s: 'MA', debt: 5, ref: 'S6746', react: true,
   name: ['React state should not be mutated directly', 'React 상태를 직접 바꾸면 안 됩니다'],
   why: ['Assigning to this.state does not re-render the component and is overwritten by the next setState.', 'this.state에 대입하면 다시 렌더되지 않고 다음 setState에 덮어써집니다.'],
   fix: ['Use this.setState().', 'this.setState()를 쓰세요.'],
@@ -160,7 +160,7 @@ rule('state-mutation', {
 });
 
 rule('jsx-duplicate-props', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6742', react: true, tags: ['jsx'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6742', react: true, tags: ['jsx'],
   name: ['JSX elements should not have duplicate props', 'JSX 요소에 같은 속성을 두 번 쓰면 안 됩니다'],
   why: ['Only the last occurrence of a repeated prop is used; the earlier one is silently ignored.', '반복된 속성은 마지막 것만 쓰이고 앞의 것은 조용히 무시됩니다.'],
   fix: ['Remove one of the duplicated props.', '중복된 속성 중 하나를 지우세요.'],
@@ -177,7 +177,7 @@ rule('jsx-duplicate-props', {
 });
 
 rule('access-state-in-setstate', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6756', react: true,
+  t: 'B', s: 'MA', debt: 5, ref: 'S6756', react: true,
   name: ['"setState" should use a callback when referencing the previous state', '이전 상태를 참조하는 "setState"는 콜백을 써야 합니다'],
   why: ['setState is batched and asynchronous; this.state may be stale when the update is applied.', 'setState는 묶여서 비동기로 처리되어 갱신이 적용될 때 this.state가 낡았을 수 있습니다.'],
   fix: ['Use the updater form: this.setState(prev => ({ count: prev.count + 1 })).', '갱신 함수 형태를 쓰세요: this.setState(prev => ({ count: prev.count + 1 })).'],
@@ -192,7 +192,7 @@ rule('access-state-in-setstate', {
 });
 
 rule('jsx-comment-textnode', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S6438', react: true, tags: ['jsx'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S6438', react: true, tags: ['jsx'],
   name: ['Comments inside JSX expressions should be enclosed in curly braces', 'JSX 안의 주석은 중괄호로 감싸야 합니다'],
   why: ['"// text" or "/* text */" written directly in JSX is rendered as visible text.', 'JSX에 바로 쓴 "// text"나 "/* text */"는 보이는 텍스트로 출력됩니다.'],
   fix: ['Wrap the comment: {/* comment */}.', '주석을 감싸세요: {/* comment */}.'],
@@ -208,7 +208,7 @@ rule('jsx-comment-textnode', {
 });
 
 rule('children-prop', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6748', react: true, tags: ['jsx'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6748', react: true, tags: ['jsx'],
   name: ['Children should not be passed as a prop', 'children을 속성으로 넘기면 안 됩니다'],
   why: ['children={...} competes with nested JSX children and is harder to read.', 'children={...}는 중첩된 JSX 자식과 겹치고 읽기 어렵습니다.'],
   fix: ['Nest the children between the opening and closing tags.', '자식을 여는 태그와 닫는 태그 사이에 넣으세요.'],
@@ -227,7 +227,7 @@ function realChildren(el) {
 const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr', 'menuitem']);
 
 rule('void-dom-children', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S6748', react: true, tags: ['jsx'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S6748', react: true, tags: ['jsx'],
   name: ['Void DOM elements should not have children', '빈 DOM 요소에는 자식이 있으면 안 됩니다'],
   why: ['Elements like <img>, <br> and <input> cannot contain children; React throws at runtime.', '<img>, <br>, <input> 같은 요소는 자식을 가질 수 없어 React가 실행 시 오류를 냅니다.'],
   fix: ['Remove the children / dangerouslySetInnerHTML.', '자식 / dangerouslySetInnerHTML을 지우세요.'],
@@ -241,7 +241,7 @@ rule('void-dom-children', {
 });
 
 rule('string-refs', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S6790', react: true, tags: ['obsolete'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S6790', react: true, tags: ['obsolete'],
   name: ['String references should not be used', '문자열 ref를 쓰면 안 됩니다'],
   why: ['String refs are legacy, slow and removed in React 19.', '문자열 ref는 낡고 느리며 React 19에서 제거되었습니다.'],
   fix: ['Use useRef() / createRef() or a callback ref.', 'useRef() / createRef()나 콜백 ref를 쓰세요.'],
@@ -254,7 +254,7 @@ rule('string-refs', {
 });
 
 rule('render-return-value', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6750', react: true,
+  t: 'B', s: 'MA', debt: 5, ref: 'S6750', react: true,
   name: ['The return value of "ReactDOM.render" should not be used', '"ReactDOM.render"의 반환값을 쓰면 안 됩니다'],
   why: ['ReactDOM.render may render asynchronously; its return value is unreliable and removed in modern React.', 'ReactDOM.render는 비동기로 렌더할 수 있어 반환값을 믿을 수 없고 최신 React에서 없어졌습니다.'],
   fix: ['Use a callback ref on the root element.', '루트 요소에 콜백 ref를 쓰세요.'],
@@ -267,7 +267,7 @@ rule('render-return-value', {
 });
 
 rule('find-dom-node', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S6788', react: true, tags: ['obsolete'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S6788', react: true, tags: ['obsolete'],
   name: ['"findDOMNode" should not be used', '"findDOMNode"를 쓰면 안 됩니다'],
   why: ['findDOMNode breaks component abstraction, does not work with function components and is removed in React 19.', 'findDOMNode는 컴포넌트 추상화를 깨고 함수 컴포넌트에서 동작하지 않으며 React 19에서 제거되었습니다.'],
   fix: ['Use a ref.', 'ref를 쓰세요.'],
@@ -286,7 +286,7 @@ function isFragment(el) {
 }
 
 rule('useless-fragment', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6749', react: true, tags: ['jsx'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6749', react: true, tags: ['jsx'],
   name: ['Redundant React fragments should be removed', '불필요한 React 프래그먼트는 지워야 합니다'],
   why: ['A fragment around a single element or around nothing adds markup noise.', '요소 하나나 아무것도 감싸지 않은 프래그먼트는 잡음만 더합니다.'],
   fix: ['Return the child directly.', '자식을 바로 돌려주세요.'],
@@ -301,7 +301,7 @@ rule('useless-fragment', {
 });
 
 rule('array-index-key', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S6479', react: true, tags: ['jsx'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S6479', react: true, tags: ['jsx'],
   name: ['JSX list components should not use array indexes as key', 'JSX 목록 컴포넌트의 key로 배열 인덱스를 쓰면 안 됩니다'],
   why: ['Index keys change when items are inserted, removed or reordered, so React reuses the wrong component state.', '인덱스 key는 항목을 넣거나 지우거나 순서를 바꿀 때 달라져 React가 잘못된 컴포넌트 상태를 재사용합니다.'],
   fix: ['Use a stable id from the data.', '데이터의 안정적인 id를 쓰세요.'],
@@ -377,7 +377,7 @@ rule('effect-without-deps-sets-state', {
 });
 
 rule('setstate-in-render', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S6442', react: true, tags: ['hooks'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S6442', react: true, tags: ['hooks'],
   name: ['React state setters should not be called in the render body', 'React 상태 setter를 렌더 본문에서 호출하면 안 됩니다'],
   why: ['Calling a state setter unconditionally while rendering schedules another render, which loops forever.', '렌더 중에 상태 setter를 무조건 호출하면 또 렌더가 예약되어 끝없이 반복됩니다.'],
   fix: ['Move the call into an event handler or useEffect.', '호출을 이벤트 처리기나 useEffect로 옮기세요.'],
@@ -397,7 +397,7 @@ rule('setstate-in-render', {
 });
 
 rule('setstate-same-value', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6443', react: true, tags: ['hooks'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6443', react: true, tags: ['hooks'],
   name: ['React state setters should not be called with their own state value', 'React 상태 setter에 자기 상태 값을 넘기면 안 됩니다'],
   why: ['setX(x) sets the state to the value it already has, so nothing changes; it is usually a typo.', 'setX(x)는 이미 가진 값으로 상태를 설정해 아무것도 바뀌지 않으며 보통 오타입니다.'],
   fix: ['Pass the new value, or remove the call.', '새 값을 넘기거나 호출을 지우세요.'],
@@ -411,7 +411,7 @@ rule('setstate-same-value', {
 });
 
 rule('usestate-naming', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6754', react: true, tags: ['hooks', 'convention'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6754', react: true, tags: ['hooks', 'convention'],
   name: ['useState call should be destructured into value + setter pairs with matching names', 'useState는 이름이 맞는 값 + setter 쌍으로 구조 분해해야 합니다'],
   why: ['[value, setValue] naming makes it obvious which setter updates which state.', '[value, setValue] 이름은 어떤 setter가 어떤 상태를 바꾸는지 분명히 합니다.'],
   fix: ['Rename to [thing, setThing].', '[thing, setThing]으로 이름을 바꾸세요.'],
@@ -427,7 +427,7 @@ rule('usestate-naming', {
 });
 
 rule('unstable-context-value', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S6481', react: true, tags: ['performance'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S6481', react: true, tags: ['performance'],
   name: ['React Context Provider values should have stable identities', 'React Context Provider의 value는 안정적인 정체성을 가져야 합니다'],
   why: ['An object or function created during render changes on every render, re-rendering every consumer of the context.', '렌더 중에 만든 객체나 함수는 매 렌더마다 바뀌어 컨텍스트의 모든 소비자를 다시 렌더합니다.'],
   fix: ['Wrap the value in useMemo / useCallback.', 'value를 useMemo / useCallback으로 감싸세요.'],
@@ -446,7 +446,7 @@ rule('unstable-context-value', {
 });
 
 rule('unstable-nested-component', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S6478', react: true, tags: ['performance'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S6478', react: true, tags: ['performance'],
   name: ['React components should not be nested', 'React 컴포넌트를 중첩해서 정의하면 안 됩니다'],
   why: ['A component defined inside another component is a new type on every render, so React unmounts and remounts it (losing its state).', '다른 컴포넌트 안에서 정의한 컴포넌트는 매 렌더마다 새 타입이라 React가 언마운트 후 다시 마운트합니다 (상태 손실).'],
   fix: ['Move the inner component to the module level and pass data through props.', '안쪽 컴포넌트를 모듈 수준으로 옮기고 데이터는 props로 넘기세요.'],
@@ -480,7 +480,7 @@ rule('button-type', {
 const LEGACY_LIFECYCLE = new Set(['componentWillMount', 'componentWillReceiveProps', 'componentWillUpdate']);
 
 rule('react-deprecated', {
-  t: 'S', s: 'MA', debt: 15, sonar: 'S6957', react: true, tags: ['obsolete'],
+  t: 'S', s: 'MA', debt: 15, ref: 'S6957', react: true, tags: ['obsolete'],
   name: ['Deprecated React APIs should not be used', '폐기 예정 React API를 쓰면 안 됩니다'],
   why: ['Legacy lifecycle methods and the old root APIs are removed or behave incorrectly with concurrent rendering.', '옛 생명주기 메서드와 옛 루트 API는 제거되었거나 동시 렌더링에서 잘못 동작합니다.'],
   fix: ['Use componentDidMount / getDerivedStateFromProps / createRoot as appropriate.', '알맞게 componentDidMount / getDerivedStateFromProps / createRoot를 쓰세요.'],
@@ -505,7 +505,7 @@ rule('react-deprecated', {
 });
 
 rule('unsafe-lifecycle', {
-  t: 'S', s: 'MA', debt: 15, sonar: 'S6791', react: true, tags: ['obsolete'],
+  t: 'S', s: 'MA', debt: 15, ref: 'S6791', react: true, tags: ['obsolete'],
   name: ['React legacy "UNSAFE_" lifecycle methods should not be used', 'React의 옛 "UNSAFE_" 생명주기 메서드를 쓰면 안 됩니다'],
   why: ['UNSAFE_ lifecycles are unsafe with async rendering and will be removed.', 'UNSAFE_ 생명주기는 비동기 렌더링에서 안전하지 않고 제거될 예정입니다.'],
   fix: ['Move the logic to componentDidMount / componentDidUpdate or getDerivedStateFromProps.', '로직을 componentDidMount / componentDidUpdate나 getDerivedStateFromProps로 옮기세요.'],
@@ -519,7 +519,7 @@ rule('unsafe-lifecycle', {
 });
 
 rule('danger-with-children', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6761', react: true, tags: ['jsx'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6761', react: true, tags: ['jsx'],
   name: ['DOM elements should not use both "children" and "dangerouslySetInnerHTML"', 'DOM 요소에 "children"과 "dangerouslySetInnerHTML"을 같이 쓰면 안 됩니다'],
   why: ['React throws when an element has both children and dangerouslySetInnerHTML.', '요소에 children과 dangerouslySetInnerHTML이 함께 있으면 React가 오류를 냅니다.'],
   fix: ['Keep only one of them.', '둘 중 하나만 남기세요.'],
@@ -532,7 +532,7 @@ rule('danger-with-children', {
 });
 
 rule('is-mounted', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S6789', react: true, tags: ['obsolete'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S6789', react: true, tags: ['obsolete'],
   name: ['React\'s "isMounted" should not be used', 'React의 "isMounted"를 쓰면 안 됩니다'],
   why: ['isMounted is an anti-pattern, unavailable in ES6 classes and removed from React.', 'isMounted는 안티 패턴이며 ES6 클래스에서 쓸 수 없고 React에서 제거되었습니다.'],
   fix: ['Cancel async work in componentWillUnmount instead.', '대신 componentWillUnmount에서 비동기 작업을 취소하세요.'],
@@ -545,7 +545,7 @@ rule('is-mounted', {
 });
 
 rule('this-in-function-component', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6757', react: true,
+  t: 'B', s: 'MA', debt: 5, ref: 'S6757', react: true,
   name: ['"this" should not be used in functional components', '함수 컴포넌트에서 "this"를 쓰면 안 됩니다'],
   why: ['Function components have no instance; this.props and this.state are undefined there.', '함수 컴포넌트에는 인스턴스가 없어 this.props와 this.state가 undefined입니다.'],
   fix: ['Use the props parameter and hooks.', 'props 매개변수와 Hook을 쓰세요.'],
@@ -566,7 +566,7 @@ rule('this-in-function-component', {
 const DOM_PROP_FIX = { class: 'className', for: 'htmlFor', tabindex: 'tabIndex', readonly: 'readOnly', maxlength: 'maxLength', minlength: 'minLength', colspan: 'colSpan', rowspan: 'rowSpan', cellpadding: 'cellPadding', cellspacing: 'cellSpacing', contenteditable: 'contentEditable', crossorigin: 'crossOrigin', accesskey: 'accessKey', autocomplete: 'autoComplete', autofocus: 'autoFocus', enctype: 'encType', frameborder: 'frameBorder', novalidate: 'noValidate', spellcheck: 'spellCheck', srcset: 'srcSet', usemap: 'useMap', allowfullscreen: 'allowFullScreen', 'stroke-width': 'strokeWidth', 'stroke-linecap': 'strokeLinecap', 'stroke-linejoin': 'strokeLinejoin', 'fill-rule': 'fillRule', 'clip-rule': 'clipRule', 'stroke-dasharray': 'strokeDasharray', 'stroke-opacity': 'strokeOpacity', 'fill-opacity': 'fillOpacity', 'stop-color': 'stopColor', 'font-size': 'fontSize', 'text-anchor': 'textAnchor', 'xlink:href': 'href', 'clip-path': 'clipPath' };
 
 rule('unknown-dom-property', {
-  t: 'B', s: 'MI', debt: 2, sonar: 'S6747', react: true, tags: ['jsx'],
+  t: 'B', s: 'MI', debt: 2, ref: 'S6747', react: true, tags: ['jsx'],
   name: ['JSX DOM elements should use React property names', 'JSX DOM 요소에는 React 속성 이름을 써야 합니다'],
   why: ['React expects camelCase DOM properties (className, htmlFor, onClick); HTML spellings are ignored or warned about.', 'React는 camelCase DOM 속성(className, htmlFor, onClick)을 기대합니다. HTML 철자는 무시되거나 경고가 납니다.'],
   fix: ['Use the React property name.', 'React 속성 이름을 쓰세요.'],
@@ -587,7 +587,7 @@ rule('unknown-dom-property', {
 });
 
 rule('conditional-render-zero', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6439', react: true, tags: ['jsx'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6439', react: true, tags: ['jsx'],
   name: ['React components should not render non-boolean condition values', 'React 컴포넌트가 불리언이 아닌 조건 값을 렌더하면 안 됩니다'],
   why: ['"{items.length && <List />}" renders the digit 0 when the list is empty.', '"{items.length && <List />}"는 목록이 비면 숫자 0을 렌더합니다.'],
   fix: ['Compare explicitly: {items.length > 0 && <List />}.', '명시적으로 비교하세요: {items.length > 0 && <List />}.'],
@@ -642,7 +642,7 @@ rule('jsx-undefined-component', {
 });
 
 rule('react-dangerous-html', {
-  t: 'H', s: 'MA', debt: 10, sonar: 'S6728', cwe: 'CWE-79', owasp: ['A03'], react: true, tags: ['xss'],
+  t: 'H', s: 'MA', debt: 10, ref: 'S6728', cwe: 'CWE-79', owasp: ['A03'], react: true, tags: ['xss'],
   name: ['Using "dangerouslySetInnerHTML" is security-sensitive', '"dangerouslySetInnerHTML" 사용은 보안에 민감합니다'],
   why: ['The HTML is inserted without escaping; any attacker-controlled part leads to XSS.', 'HTML이 이스케이프 없이 들어가 공격자가 만든 부분이 있으면 XSS가 됩니다.'],
   fix: ['Render text with JSX, or sanitize the HTML (e.g. DOMPurify) first.', 'JSX로 텍스트를 렌더하거나 먼저 HTML을 정화하세요 (예: DOMPurify).'],

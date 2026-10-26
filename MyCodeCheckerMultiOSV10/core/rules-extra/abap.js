@@ -1,7 +1,7 @@
 'use strict';
 
 // SAP ABAP. Open SQL hygiene, dynamic code, kernel calls, authority checks
-// and debugging leftovers, following the SonarQube ABAP pack.
+// and debugging leftovers, following the reference ABAP rule pack.
 
 const { maker } = require('./util');
 
@@ -12,7 +12,7 @@ R('break-point', 'B', 'CR', 5, ['debug'],
   /^\s*(?:BREAK-POINT|BREAK\s+[\w-]+)\s*\./i,
   ['BREAK-POINT left in the code', 'A hard break-point stops dialog users in the debugger and dumps background jobs.', 'Remove it, or use a checkpoint group with LOG-POINT.'],
   ['BREAK-POINT가 남아 있습니다', '고정 중단점은 대화 사용자를 디버거에 세우고 백그라운드 작업을 덤프시킵니다.', '지우거나 체크포인트 그룹과 LOG-POINT를 쓰세요.'],
-  'BREAK-POINT.', 'LOG-POINT ID zcheck.', { sonar: 'S4507' });
+  'BREAK-POINT.', 'LOG-POINT ID zcheck.', { ref: 'S4507' });
 R('call-function-no-exceptions', 'B', 'MA', 10, ['error-handling'],
   /^\s*CALL\s+FUNCTION\s+'[\w\/]+'\s*\.\s*$/i,
   ['CALL FUNCTION without EXCEPTIONS', 'Without an EXCEPTIONS clause any classic exception of the module causes a short dump, and SY-SUBRC is never set.', 'Add EXCEPTIONS with OTHERS and check SY-SUBRC afterwards.'],
@@ -27,7 +27,7 @@ R('empty-catch', 'S', 'MA', 5, ['error-handling'],
   /\bCATCH\s+[\w\s]+?(?:INTO\s+(?:DATA\s*\(\s*\w+\s*\)|\w+))?\s*\.\s*ENDTRY\s*\./i,
   ['Empty CATCH block', 'The exception is silently ignored.', 'Log or handle the exception.'],
   ['빈 CATCH 블록입니다', '예외를 아무 말 없이 무시합니다.', '예외를 기록하거나 처리하세요.'],
-  'CATCH cx_sy_zerodivide. ENDTRY.', 'CATCH cx_sy_zerodivide. lv_result = 0. ENDTRY.', { sonar: 'S108' });
+  'CATCH cx_sy_zerodivide. ENDTRY.', 'CATCH cx_sy_zerodivide. lv_result = 0. ENDTRY.', { ref: 'S108' });
 R('select-in-loop', 'B', 'MA', 15, ['performance', 'sql'],
   /^\s*LOOP\s+AT\b(?:(?!\bENDLOOP\b).)*\.\s*SELECT\b/i,
   ['SELECT inside a LOOP', 'One database round trip per row is very slow.', 'Read all rows once with FOR ALL ENTRIES or a JOIN.'],
@@ -65,7 +65,7 @@ R('dynamic-where', 'V', 'CR', 20, ['sql', 'cwe-89', 'owasp-a03'],
   /\bWHERE\s+\(\s*\w+\s*\)/i,
   ['Dynamic WHERE clause', 'A WHERE condition built from input can change the query.', 'Use static conditions with host variables, or escape with CL_ABAP_DYN_PRG.'],
   ['동적 WHERE 절입니다', '입력으로 만든 WHERE 조건은 질의를 바꿀 수 있습니다.', '호스트 변수를 쓰는 정적 조건을 쓰거나 CL_ABAP_DYN_PRG로 이스케이프하세요.'],
-  'SELECT * FROM zusers WHERE (lv_where) INTO TABLE @lt_users.', 'SELECT * FROM zusers WHERE uname = @lv_user INTO TABLE @lt_users.', { sonar: 'S2077' });
+  'SELECT * FROM zusers WHERE (lv_where) INTO TABLE @lt_users.', 'SELECT * FROM zusers WHERE uname = @lv_user INTO TABLE @lt_users.', { ref: 'S2077' });
 R('dynamic-table', 'H', 'MA', 15, ['sql', 'cwe-89'],
   /\b(?:FROM|UPDATE|INTO|MODIFY|DELETE\s+FROM)\s+\(\s*\w+\s*\)/i,
   ['Dynamic table name', 'A table name from input lets the caller read or change any table.', 'Check the name against an allow list or with CL_ABAP_DYN_PRG=>CHECK_TABLE_NAME_STR.'],
@@ -80,7 +80,7 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b\w*(?:password|passwd|pwd|secret)\w*\s*(?:TYPE\s+\w+\s+VALUE\s+|=\s*)['`][^'`\s]{4,}['`]/i,
   ['Hard-coded password', 'Anyone with access to the source can read the password.', 'Use the Secure Store (SSF / SECSTORE) or an RFC destination.'],
   ['비밀번호를 코드에 적었습니다', '소스에 접근할 수 있는 누구나 비밀번호를 읽을 수 있습니다.', 'Secure Store(SSF / SECSTORE)나 RFC 목적지를 쓰세요.'],
-  "DATA lv_password TYPE string VALUE 'Init1234'.", "DATA lv_password TYPE string.", { sonar: 'S2068' });
+  "DATA lv_password TYPE string VALUE 'Init1234'.", "DATA lv_password TYPE string.", { ref: 'S2068' });
 R('hardcoded-user', 'V', 'MA', 15, ['cwe-798', 'privileges'],
   /\bsy-uname\s*(?:=|EQ|<>|NE)\s*'[A-Z0-9_]+'/i,
   ['Logic tied to a hard-coded user name', 'Special handling for one user is a backdoor and breaks when people change.', 'Use authorisation objects with AUTHORITY-CHECK.'],
@@ -95,7 +95,7 @@ R('http-url', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /['`|]http:\/\/(?!localhost|127\.0\.0\.1)[\w.-]+/i,
   ['Clear-text HTTP URL', 'Traffic over http:// can be read and changed on the network.', 'Use https://.'],
   ['평문 HTTP URL입니다', 'http:// 트래픽은 네트워크에서 읽고 바꿀 수 있습니다.', 'https://를 쓰세요.'],
-  "cl_http_client=>create_by_url( EXPORTING url = 'http://api.example.com' IMPORTING client = lo_client ).", "cl_http_client=>create_by_url( EXPORTING url = 'https://api.example.com' IMPORTING client = lo_client ).", { sonar: 'S5332' });
+  "cl_http_client=>create_by_url( EXPORTING url = 'http://api.example.com' IMPORTING client = lo_client ).", "cl_http_client=>create_by_url( EXPORTING url = 'https://api.example.com' IMPORTING client = lo_client ).", { ref: 'S5332' });
 
 // ── Code smells ──────────────────────────────────────────────
 R('select-star', 'S', 'MA', 5, ['sql', 'performance'],
@@ -132,6 +132,6 @@ R('todo', 'S', 'IN', 5, ['unfinished'],
   /\b(?:TODO|FIXME)\b/,
   ['TODO / FIXME comment', 'The comment marks unfinished work.', 'Finish the work or open a tracked issue.'],
   ['TODO / FIXME 주석입니다', '주석이 끝나지 않은 일을 표시합니다.', '작업을 끝내거나 추적하는 이슈를 여세요.'],
-  '* TODO: add authority check', '* Authority is checked in the BAdI.', { scope: 'any', sonar: 'S1135' });
+  '* TODO: add authority check', '* Authority is checked in the BAdI.', { scope: 'any', ref: 'S1135' });
 
 module.exports = { RULES: R.rules };

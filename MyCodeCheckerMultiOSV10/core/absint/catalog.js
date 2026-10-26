@@ -1,7 +1,7 @@
 'use strict';
 
 // Checker catalog for the abstract interpreter. Keys are 'absint:<CHECKER>'
-// with Coverity checker names; texts are our own summaries.
+// with defect checker names; texts are our own summaries.
 
 const IMPACT = { BLOCKER: 'High', CRITICAL: 'High', MAJOR: 'Medium', MINOR: 'Low', INFO: 'Low' };
 
@@ -227,7 +227,7 @@ const CHECKERS = [
     { en: 'Unbounded stream extraction into a char array', ko: 'char 배열로 길이 제한 없이 스트림 추출' },
     { en: 'operator>> into a char array writes as many characters as the input holds.', ko: 'char 배열로 operator>>를 쓰면 입력에 있는 만큼 문자를 씁니다.' },
     { en: 'Read into std::string, or set the width with std::setw first.', ko: 'std::string으로 읽거나 먼저 std::setw로 폭을 정하세요.' }),
-  // ---- more Coverity C/C++ checkers (eval.js path checks, syntax2.js, index.js)
+  // ---- more Defect Analysis C/C++ checkers (eval.js path checks, syntax2.js, index.js)
   C('OVERFLOW_BEFORE_WIDEN', 'BUG', 'MAJOR', 'Integer handling issues', 'CWE-190', 'INT18-C', ['interval', 'types'],
     { en: 'Overflow before widening', ko: '넓히기 전에 오버플로' },
     { en: 'A multiplication or left shift is computed in 32-bit arithmetic and only then converted to a 64-bit type, so the result can overflow although the destination could hold it.', ko: '곱셈이나 왼쪽 시프트를 32비트로 계산한 뒤에야 64비트 타입으로 바꿔서, 대상은 담을 수 있는 값인데도 결과가 넘칠 수 있습니다.' },
@@ -318,7 +318,7 @@ function catalog() {
     type: c.type,
     severity: c.severity,
     debtMin: c.type === 'VULNERABILITY' ? 30 : c.severity === 'MINOR' ? 10 : 20,
-    tags: ['absint', 'coverity', c.cwe.toLowerCase(), c.cert ? `cert-${c.cert.toLowerCase()}` : '', c.type === 'VULNERABILITY' ? 'security' : ''].filter(Boolean),
+    tags: ['absint', 'defect-analysis', c.cwe.toLowerCase(), c.cert ? `cert-${c.cert.toLowerCase()}` : '', c.type === 'VULNERABILITY' ? 'security' : ''].filter(Boolean),
     name: c.name,
     why: c.why,
     fix: c.fix,

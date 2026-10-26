@@ -1,7 +1,7 @@
 'use strict';
 
 // Terraform / HCL. Single-line attribute checks for common AWS, Azure and GCP
-// misconfigurations, in the spirit of SonarQube's IaC rules.
+// misconfigurations, in the spirit of the reference IaC rules.
 
 const { maker } = require('./util');
 

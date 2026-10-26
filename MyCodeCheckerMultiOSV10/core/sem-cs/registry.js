@@ -15,15 +15,15 @@ const QUALITY = { BUG: 'RELIABILITY', VULNERABILITY: 'SECURITY', SECURITY_HOTSPO
 const RULES = [];
 const BY_KEY = new Map();
 
-// R(id, sonarKey, type, severity, debtMin, tags, [nameEn, whyEn, fixEn], [nameKo, whyKo, fixKo], impl, extra)
-function R(id, sonar, type, sev, debt, tags, en, ko, impl, extra = {}) {
+// R(id, refKey, type, severity, debtMin, tags, [nameEn, whyEn, fixEn], [nameKo, whyKo, fixKo], impl, extra)
+function R(id, ref, type, sev, debt, tags, en, ko, impl, extra = {}) {
   const key = `sem-cs:${id}`;
   if (BY_KEY.has(key)) throw new Error(`duplicate rule ${key}`);
   const t = TYPES[type] || type;
   const severity = SEVS[sev] || sev;
   const cwes = tags.filter((x) => /^cwe-\d+$/.test(x)).map((x) => `CWE-${x.slice(4)}`);
   const rule = {
-    key, id, sonar, type: t, severity, debtMin: debt,
+    key, id, ref, type: t, severity, debtMin: debt,
     tags: [...new Set(['csharp', ...tags])],
     name: { en: en[0], ko: ko[0] }, why: { en: en[1], ko: ko[1] }, fix: { en: en[2], ko: ko[2] },
     cwe: cwes[0] || '',
@@ -48,7 +48,7 @@ function meta(rule) {
     why: rule.why,
     fix: rule.fix,
     cwe: rule.cwe,
-    sonarKey: rule.sonar || '',
+    refKey: rule.ref || '',
     impacts: rule.qualities.map((q) => ({ softwareQuality: q, severity: IMPACT_SEV[rule.severity] })),
     engine: rule.impl.engine || 'syntax',
   };

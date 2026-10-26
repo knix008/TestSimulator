@@ -1,7 +1,7 @@
 'use strict';
 
 // Path-sensitive symbolic execution over the CFG of one method, in the
-// spirit of SonarJava's engine. Symbolic values (ids) carry constraints:
+// spirit of Java reference analyzer's engine. Symbolic values (ids) carry constraints:
 //   n   'NULL' | 'NN' (not null) | 'MAYBE' (possibly null, from @Nullable)
 //   b   true | false (boolean value)
 //   z   known integer value          nz  known non-zero

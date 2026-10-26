@@ -1,7 +1,7 @@
 'use strict';
 
 // COBOL (fixed or free format) with embedded SQL. Control-flow rules from
-// the SonarQube COBOL pack (ALTER, GO TO, PERFORM THRU, NEXT SENTENCE),
+// the reference COBOL rule pack (ALTER, GO TO, PERFORM THRU, NEXT SENTENCE),
 // embedded SQL hygiene and hard-coded credentials.
 
 const { maker } = require('./util');
@@ -45,22 +45,22 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /[\w-]*(?:PASSWORD|PASSWD|PWD|SECRET)[\w-]*\s+.*\bVALUE\s+(?:IS\s+)?(?:'[^'\s]{4,}'|"[^"\s]{4,}")/i,
   ['Hard-coded password', 'Anyone with the source or load module can read the password.', 'Read it from a protected data set or the security product (RACF, ACF2).'],
   ['비밀번호를 코드에 적었습니다', '소스나 로드 모듈을 가진 누구나 비밀번호를 읽을 수 있습니다.', '보호된 데이터 세트나 보안 제품(RACF, ACF2)에서 읽으세요.'],
-  "       01  WS-DB-PASSWORD    PIC X(8) VALUE 'SECRET01'.", '       01  WS-DB-PASSWORD    PIC X(8) VALUE SPACES.', { sonar: 'S2068' });
+  "       01  WS-DB-PASSWORD    PIC X(8) VALUE 'SECRET01'.", '       01  WS-DB-PASSWORD    PIC X(8) VALUE SPACES.', { ref: 'S2068' });
 R('dynamic-sql', 'H', 'MA', 15, ['sql', 'cwe-89', 'owasp-a03'],
   /\bEXECUTE\s+IMMEDIATE\s+:|\bPREPARE\s+[\w-]+\s+FROM\s+:/i,
   ['Dynamic SQL', 'SQL text assembled at run time can be changed by input it contains.', 'Use static SQL with host variables, or validate every piece of the text.'],
   ['동적 SQL입니다', '실행 중 조립한 SQL 문은 그 안에 든 입력으로 바뀔 수 있습니다.', '호스트 변수를 쓰는 정적 SQL을 쓰거나 문장의 모든 조각을 검증하세요.'],
-  '           EXEC SQL EXECUTE IMMEDIATE :WS-SQL-TEXT END-EXEC.', '           EXEC SQL SELECT NAME INTO :WS-NAME FROM CUSTOMER WHERE ID = :WS-ID END-EXEC.', { sonar: 'S2077' });
+  '           EXEC SQL EXECUTE IMMEDIATE :WS-SQL-TEXT END-EXEC.', '           EXEC SQL SELECT NAME INTO :WS-NAME FROM CUSTOMER WHERE ID = :WS-ID END-EXEC.', { ref: 'S2077' });
 R('hardcoded-ip', 'H', 'MI', 5, ['network'],
   /\bVALUE\s+(?:IS\s+)?['"](?:\d{1,3}\.){3}\d{1,3}['"]/i,
   ['Hard-coded IP address', 'A fixed address breaks when the network changes and exposes topology.', 'Read the address from configuration.'],
   ['IP 주소를 코드에 적었습니다', '고정 주소는 네트워크가 바뀌면 깨지고 구성 정보를 드러냅니다.', '설정에서 주소를 읽으세요.'],
-  "       01  WS-HOST           PIC X(15) VALUE '10.20.30.40'.", "       01  WS-HOST           PIC X(15) VALUE SPACES.", { sonar: 'S1313' });
+  "       01  WS-HOST           PIC X(15) VALUE '10.20.30.40'.", "       01  WS-HOST           PIC X(15) VALUE SPACES.", { ref: 'S1313' });
 R('http-url', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /['"]http:\/\/(?!localhost|127\.0\.0\.1)[\w.-]+/i,
   ['Clear-text HTTP URL', 'Traffic over http:// can be read and changed on the network.', 'Use https://.'],
   ['평문 HTTP URL입니다', 'http:// 트래픽은 네트워크에서 읽고 바꿀 수 있습니다.', 'https://를 쓰세요.'],
-  "       01  WS-URL  PIC X(40) VALUE 'http://api.example.com'.", "       01  WS-URL  PIC X(40) VALUE 'https://api.example.com'.", { sonar: 'S5332' });
+  "       01  WS-URL  PIC X(40) VALUE 'http://api.example.com'.", "       01  WS-URL  PIC X(40) VALUE 'https://api.example.com'.", { ref: 'S5332' });
 R('dynamic-call', 'H', 'MI', 10, ['cwe-470'],
   /^\s*CALL\s+(?!['"])[A-Z][\w-]*(?:\s+USING\b|\s*\.?\s*$)/i,
   ['CALL of a program named by a variable', 'A dynamic CALL runs whatever program name the data item holds.', 'Call a literal program name, or validate the name against a list.'],
@@ -72,7 +72,7 @@ R('go-to', 'S', 'MA', 10, ['brain-overload'],
   /\bGO\s+TO\s+[\w-]+/i,
   ['GO TO statement', 'GO TO makes control flow hard to follow.', 'Use PERFORM, EVALUATE and structured IF / END-IF.'],
   ['GO TO 문입니다', 'GO TO는 제어 흐름을 따라가기 어렵게 만듭니다.', 'PERFORM, EVALUATE와 구조적인 IF / END-IF를 쓰세요.'],
-  '           GO TO 2000-READ-NEXT.', '           PERFORM 2000-READ-NEXT.', { sonar: 'S907' });
+  '           GO TO 2000-READ-NEXT.', '           PERFORM 2000-READ-NEXT.', { ref: 'S907' });
 R('go-to-depending', 'S', 'MA', 15, ['brain-overload'],
   /\bGO\s+TO\s+(?:[\w-]+\s+)+DEPENDING\s+ON\b/i,
   ['GO TO ... DEPENDING ON', 'A computed GO TO hides which paragraph runs for each value.', 'Use EVALUATE with PERFORM.'],
@@ -107,12 +107,12 @@ R('debugging-mode', 'S', 'MA', 5, ['debug'],
   /\bWITH\s+DEBUGGING\s+MODE\b/i,
   ['WITH DEBUGGING MODE', 'Debugging lines (D in column 7) are compiled into the program.', 'Remove WITH DEBUGGING MODE for production builds.'],
   ['WITH DEBUGGING MODE를 씁니다', '디버깅 줄(7열의 D)이 프로그램에 컴파일됩니다.', '운영 빌드에서는 WITH DEBUGGING MODE를 지우세요.'],
-  '       SOURCE-COMPUTER. IBM-370 WITH DEBUGGING MODE.', '       SOURCE-COMPUTER. IBM-370.', { sonar: 'S4507' });
+  '       SOURCE-COMPUTER. IBM-370 WITH DEBUGGING MODE.', '       SOURCE-COMPUTER. IBM-370.', { ref: 'S4507' });
 R('display', 'S', 'MI', 2, ['debug'],
   /^\s*DISPLAY\s+(?!.*\bUPON\s+CONSOLE\b)/i,
   ['DISPLAY debug output', 'DISPLAY output goes to SYSOUT and is easy to leave behind with sensitive data.', 'Write to a proper log or report file.'],
   ['DISPLAY 디버그 출력입니다', 'DISPLAY 출력은 SYSOUT으로 가며 민감한 데이터와 함께 남기 쉽습니다.', '제대로 된 로그나 보고서 파일에 쓰세요.'],
-  "           DISPLAY 'WS-REC=' WS-REC.", '           WRITE LOG-REC FROM WS-REC.', { sonar: 'S106' });
+  "           DISPLAY 'WS-REC=' WS-REC.", '           WRITE LOG-REC FROM WS-REC.', { ref: 'S106' });
 R('obsolete-statement', 'S', 'MA', 10, ['obsolete'],
   /^\s*(?:EXAMINE|TRANSFORM|ENTER|NOTE|READY\s+TRACE|RESET\s+TRACE|EXHIBIT)\b/i,
   ['Obsolete statement', 'EXAMINE, TRANSFORM, ENTER, NOTE, EXHIBIT and TRACE were removed from standard COBOL.', 'Use INSPECT, comments and the debugger instead.'],
@@ -122,6 +122,6 @@ R('todo', 'S', 'IN', 5, ['unfinished'],
   /\b(?:TODO|FIXME)\b/,
   ['TODO / FIXME comment', 'The comment marks unfinished work.', 'Finish the work or open a tracked issue.'],
   ['TODO / FIXME 주석입니다', '주석이 끝나지 않은 일을 표시합니다.', '작업을 끝내거나 추적하는 이슈를 여세요.'],
-  '      * TODO: handle the overflow case', '      * Overflow is handled in 9100-OVERFLOW.', { scope: 'any', sonar: 'S1135' });
+  '      * TODO: handle the overflow case', '      * Overflow is handled in 9100-OVERFLOW.', { scope: 'any', ref: 'S1135' });
 
 module.exports = { RULES: R.rules };

@@ -61,7 +61,7 @@ options win over it. `MCC_LSP_SETTINGS=<file>` in the server's environment point
 - Issues in the editor and the *Problems* view as you type, with the rule key as code and data-flow steps
   (taint source → calls → sink) as related locations.
 - Hover: rule name, why, how to fix, standards (MISRA, CERT, CWE, OWASP).
-- Quick fixes (Alt+Enter): rule fixes, *Suppress with NOSONAR*, *Deactivate rule* (for the session; make
+- Quick fixes (Alt+Enter): rule fixes, *Suppress with NOMCC*, *Deactivate rule* (for the session; make
   it permanent in `inactiveRules`).
 - Connected mode: the server's quality profile, exclusions and custom rules, and issues resolved on the
   server (false positive, won't fix) hidden.

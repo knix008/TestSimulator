@@ -1,6 +1,6 @@
 'use strict';
 
-// Calls: library models, user models (core/coverity.js format), function
+// Calls: library models, user models (core/defects.js format), function
 // summaries and unknown functions. Mixed into FnAnalyzer.prototype.
 
 const { FnAnalyzer, skip, I, T, cf } = require('./interp');

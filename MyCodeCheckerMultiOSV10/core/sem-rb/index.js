@@ -1,6 +1,6 @@
 'use strict';
 
-// Ruby semantic analyzer (SonarRuby-like, plus Rails / Brakeman-style
+// Ruby semantic analyzer (Ruby reference analyzer-like, plus Rails / Brakeman-style
 // configuration and API checks that do not need taint tracking; taint flows
 // live in core/taint). Contract: core/ENGINE_CONTRACT.md. Keys 'sem-rb:<id>'.
 //

@@ -26,9 +26,9 @@ test('secrets are masked on read and kept when the mask comes back', () => {
 test('analysis events: gate change and new high-impact defects', () => {
   const project = { id: 'p', key: 'k', name: 'n' };
   const prev = { qualityGate: { status: 'OK' }, issues: [{ cid: 1 }] };
-  const now = { qualityGate: { status: 'ERROR', conditions: [{ metric: 'new_bugs', status: 'ERROR' }] }, coverity: { snapshot: 3 }, issues: [{ cid: 1, impact: 'High' }, { cid: 2, impact: 'High', checker: 'FORWARD_NULL' }, { cid: 3, impact: 'Low' }] };
+  const now = { qualityGate: { status: 'ERROR', conditions: [{ metric: 'new_bugs', status: 'ERROR' }] }, defectAnalysis: { snapshot: 3 }, issues: [{ cid: 1, impact: 'High' }, { cid: 2, impact: 'High', checker: 'FORWARD_NULL' }, { cid: 3, impact: 'Low' }] };
   const ev = integrate.analysisEvents(project, 'main', now, prev);
-  assert.deepEqual(ev.map((e) => e[0]), ['gate-changed', 'coverity-high-impact']);
+  assert.deepEqual(ev.map((e) => e[0]), ['gate-changed', 'defect-high-impact']);
   assert.equal(ev[0][1].failedConditions.length, 1);
   assert.deepEqual(ev[1][1].defects.map((d) => d.cid), [2]);
   assert.deepEqual(integrate.analysisEvents(project, 'main', now, null), [], 'no events on the first analysis');

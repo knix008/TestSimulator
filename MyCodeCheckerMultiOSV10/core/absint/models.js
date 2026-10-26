@@ -1,7 +1,7 @@
 'use strict';
 
 // Built-in models of libc / POSIX / Win32 / C++ runtime functions, plus the
-// user model format shared with core/coverity.js:
+// user model format shared with core/defects.js:
 //   { name, kind: 'allocator' | 'sink' | 'source' | 'free' | 'deallocator',
 //     pattern: '<regex tested against the call text>', langs?: ['c','cpp'|'*'],
 //     checker?: 'TAINTED_SCALAR' | 'OS_CMD_INJECTION' | ..., key?, message? }

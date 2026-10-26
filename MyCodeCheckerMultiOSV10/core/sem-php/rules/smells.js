@@ -14,7 +14,7 @@ const LOOPS = new Set(['While', 'DoWhile', 'For', 'Foreach']);
 
 // ── unused code
 rule({
-  id: 'unused-local-variable', sonar: 'S1481', type: 'S', sev: 'MI', debt: 5, tags: ['unused'], checker: 'UNUSED_VALUE',
+  id: 'unused-local-variable', ref: 'S1481', type: 'S', sev: 'MI', debt: 5, tags: ['unused'], checker: 'UNUSED_VALUE',
   en: ['Unused local variables should be removed', 'A local variable that is assigned but never read is dead code.', 'Remove the variable or use it.'],
   ko: ['쓰지 않는 지역 변수는 지워야 합니다', '대입만 되고 읽히지 않는 지역 변수는 죽은 코드입니다.', '변수를 지우거나 사용합니다.'],
   msg: ['Remove this unused "${0}" local variable.', '쓰지 않는 지역 변수 "${0}"를 지웁니다.'],
@@ -35,7 +35,7 @@ function unusedLocals(n, cx) {
 }
 
 rule({
-  id: 'unused-parameter', sonar: 'S1172', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], checker: 'UNUSED_PARAM',
+  id: 'unused-parameter', ref: 'S1172', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], checker: 'UNUSED_PARAM',
   en: ['Unused function parameters should be removed', 'A parameter that is never used makes the signature misleading for callers.', 'Remove the parameter or use it.'],
   ko: ['쓰지 않는 함수 매개변수는 지워야 합니다', '쓰지 않는 매개변수는 호출하는 쪽에 시그니처를 오해하게 만듭니다.', '매개변수를 지우거나 사용합니다.'],
   msg: ['Remove the unused function parameter "${0}".', '쓰지 않는 함수 매개변수 "${0}"를 지웁니다.'],
@@ -56,7 +56,7 @@ function unusedParams(n, cx) {
 }
 
 rule({
-  id: 'parameter-reassigned', sonar: 'S1226', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], checker: 'PARAM_OVERWRITE',
+  id: 'parameter-reassigned', ref: 'S1226', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], checker: 'PARAM_OVERWRITE',
   en: ['Function parameters initial values should not be ignored', 'Overwriting a parameter before reading it discards the value passed by the caller.', 'Use a new local variable, or read the parameter first.'],
   ko: ['함수 매개변수의 초깃값을 무시하면 안 됩니다', '매개변수를 읽기 전에 덮어쓰면 호출자가 넘긴 값이 버려집니다.', '새 지역 변수를 쓰거나 매개변수를 먼저 읽습니다.'],
   msg: ['Introduce a new variable instead of reusing the parameter "${0}".', '매개변수 "${0}"를 다시 쓰지 말고 새 변수를 도입합니다.'],
@@ -83,7 +83,7 @@ function paramReassigned(n, cx) {
 }
 
 rule({
-  id: 'unused-private-method', sonar: 'S1144', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], checker: 'UNUSED_CODE',
+  id: 'unused-private-method', ref: 'S1144', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], checker: 'UNUSED_CODE',
   en: ['Unused private methods should be removed', 'A private method that is never called is dead code.', 'Remove the method or call it.'],
   ko: ['쓰지 않는 private 메서드는 지워야 합니다', '한 번도 호출되지 않는 private 메서드는 죽은 코드입니다.', '메서드를 지우거나 호출합니다.'],
   msg: ['Remove this unused private "{0}" method.', '쓰지 않는 private 메서드 "{0}"를 지웁니다.'],
@@ -103,7 +103,7 @@ rule({
 });
 
 rule({
-  id: 'unused-private-field', sonar: 'S1068', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], checker: 'UNUSED_CODE',
+  id: 'unused-private-field', ref: 'S1068', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], checker: 'UNUSED_CODE',
   en: ['Unused private fields should be removed', 'A private property that is never read is dead code.', 'Remove the property or use it.'],
   ko: ['쓰지 않는 private 필드는 지워야 합니다', '한 번도 읽히지 않는 private 속성은 죽은 코드입니다.', '속성을 지우거나 사용합니다.'],
   msg: ['Remove this unused "${0}" private field.', '쓰지 않는 private 필드 "${0}"를 지웁니다.'],
@@ -126,7 +126,7 @@ rule({
 });
 
 rule({
-  id: 'unused-import', sonar: 'S1128', type: 'S', sev: 'MI', debt: 2, tags: ['unused'], checker: 'UNUSED_CODE',
+  id: 'unused-import', ref: 'S1128', type: 'S', sev: 'MI', debt: 2, tags: ['unused'], checker: 'UNUSED_CODE',
   en: ['Unnecessary imports should be removed', 'A "use" import that is never referenced is clutter and may hide a missing dependency.', 'Remove the unused import.'],
   ko: ['불필요한 import는 지워야 합니다', '참조되지 않는 use 가져오기는 잡동사니이며 빠진 의존성을 가릴 수 있습니다.', '쓰지 않는 import를 지웁니다.'],
   msg: ['Remove this unused "{0}" import.', '쓰지 않는 "{0}" import를 지웁니다.'],
@@ -207,7 +207,7 @@ function cognitive(fnNode) {
 }
 
 rule({
-  id: 'cognitive-complexity', sonar: 'S3776', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
+  id: 'cognitive-complexity', ref: 'S3776', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
   en: ['Cognitive Complexity of functions should not be too high', 'Deeply nested and branching code is hard to read, test and change.', 'Extract parts of the function into smaller well-named functions.'],
   ko: ['함수의 인지 복잡도가 너무 높으면 안 됩니다', '깊게 중첩되고 분기가 많은 코드는 읽고 시험하고 바꾸기 어렵습니다.', '함수의 일부를 이름이 분명한 작은 함수로 분리합니다.'],
   msg: ['Refactor this function to reduce its Cognitive Complexity from {0} to the {1} allowed.', '이 함수의 인지 복잡도를 {0}에서 허용치 {1} 이하로 줄이도록 고칩니다.'],
@@ -252,7 +252,7 @@ function cyclomatic(fnNode) {
   return c;
 }
 rule({
-  id: 'cyclomatic-complexity', sonar: 'S1541', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
+  id: 'cyclomatic-complexity', ref: 'S1541', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
   en: ['Functions should not be too complex', 'A high number of independent paths makes a function hard to test completely.', 'Split the function into smaller ones.'],
   ko: ['함수가 너무 복잡하면 안 됩니다', '독립 경로가 많으면 함수를 완전히 시험하기 어렵습니다.', '함수를 더 작은 함수로 나눕니다.'],
   msg: ['The Cyclomatic Complexity of this function is {0} which is greater than {1} authorized.', '이 함수의 순환 복잡도는 {0}로 허용치 {1}보다 큽니다.'],
@@ -270,7 +270,7 @@ function cyclo(n, cx) {
 }
 
 rule({
-  id: 'function-too-long', sonar: 'S138', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'function-too-long', ref: 'S138', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], checker: 'SIZE',
   en: ['Functions should not have too many lines of code', 'Very long functions do too many things and are hard to understand.', 'Split the function into smaller ones.'],
   ko: ['함수의 코드 줄 수가 너무 많으면 안 됩니다', '아주 긴 함수는 너무 많은 일을 하며 이해하기 어렵습니다.', '함수를 더 작은 함수로 나눕니다.'],
   msg: ['This function has {0} lines, which is greater than the {1} lines authorized. Split it into smaller functions.', '이 함수는 {0}줄로 허용치 {1}줄보다 깁니다. 더 작은 함수로 나눕니다.'],
@@ -288,7 +288,7 @@ function fnLen(n, cx) {
 }
 
 rule({
-  id: 'too-many-parameters', sonar: 'S107', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'too-many-parameters', ref: 'S107', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], checker: 'SIZE',
   en: ['Functions should not have too many parameters', 'A long parameter list is hard to use correctly and suggests the function does too much.', 'Group related parameters into an object or split the function.'],
   ko: ['함수의 매개변수가 너무 많으면 안 됩니다', '긴 매개변수 목록은 바르게 쓰기 어렵고 함수가 너무 많은 일을 한다는 신호입니다.', '관련 매개변수를 객체로 묶거나 함수를 나눕니다.'],
   msg: ['This function has {0} parameters, which is greater than the {1} authorized.', '이 함수의 매개변수는 {0}개로 허용치 {1}개보다 많습니다.'],
@@ -305,7 +305,7 @@ function tooManyParams(n, cx) {
 }
 
 rule({
-  id: 'too-many-returns', sonar: 'S1142', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'too-many-returns', ref: 'S1142', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], checker: 'SIZE',
   en: ['Functions should not contain too many return statements', 'Many exit points make the flow of a function hard to follow.', 'Restructure the function to have fewer returns.'],
   ko: ['함수에 return 문이 너무 많으면 안 됩니다', '종료 지점이 많으면 함수의 흐름을 따라가기 어렵습니다.', 'return이 적어지도록 함수를 재구성합니다.'],
   msg: ['This function has {0} returns, which is more than the {1} allowed.', '이 함수의 return은 {0}개로 허용치 {1}개보다 많습니다.'],
@@ -325,7 +325,7 @@ function returns(n, cx) {
 
 const NEST_KINDS = new Set(['If', 'While', 'DoWhile', 'For', 'Foreach', 'Switch', 'Try', 'Match']);
 rule({
-  id: 'nesting-too-deep', sonar: 'S134', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
+  id: 'nesting-too-deep', ref: 'S134', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
   en: ['Control flow statements should not be nested too deeply', 'Deeply nested if/for/while/switch/try code is hard to read.', 'Extract the inner part into a function or return early.'],
   ko: ['제어 흐름 문을 너무 깊게 중첩하면 안 됩니다', '깊게 중첩된 if/for/while/switch/try 코드는 읽기 어렵습니다.', '안쪽 부분을 함수로 분리하거나 일찍 반환합니다.'],
   msg: ['Refactor this code to not nest more than {0} control flow statements.', '제어 흐름 문이 {0}단계를 넘게 중첩되지 않도록 고칩니다.'],
@@ -350,7 +350,7 @@ function nest(n, cx) {
 }
 
 rule({
-  id: 'file-too-long', sonar: 'S104', type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'file-too-long', ref: 'S104', type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], checker: 'SIZE',
   en: ['Files should not have too many lines of code', 'A very long file usually holds several responsibilities.', 'Split the file into smaller, focused files.'],
   ko: ['파일의 코드 줄 수가 너무 많으면 안 됩니다', '아주 긴 파일은 보통 여러 책임을 함께 가집니다.', '파일을 작고 집중된 파일로 나눕니다.'],
   msg: ['This file has {0} lines, which is greater than {1} authorized. Split it into smaller files.', '이 파일은 {0}줄로 허용치 {1}줄보다 깁니다. 더 작은 파일로 나눕니다.'],
@@ -364,7 +364,7 @@ rule({
 });
 
 rule({
-  id: 'class-too-long', sonar: 'S2042', type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'class-too-long', ref: 'S2042', type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], checker: 'SIZE',
   en: ['Classes should not have too many lines of code', 'A very long class usually has several responsibilities.', 'Split the class into smaller classes.'],
   ko: ['클래스의 코드 줄 수가 너무 많으면 안 됩니다', '아주 긴 클래스는 보통 여러 책임을 함께 가집니다.', '클래스를 더 작은 클래스로 나눕니다.'],
   msg: ['This class has {0} lines, which is greater than the {1} authorized. Split it into smaller classes.', '이 클래스는 {0}줄로 허용치 {1}줄보다 깁니다. 더 작은 클래스로 나눕니다.'],
@@ -381,7 +381,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-methods', sonar: 'S1448', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'too-many-methods', ref: 'S1448', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], checker: 'SIZE',
   en: ['Classes should not have too many methods', 'A class with many methods tends to have too many responsibilities.', 'Split the class into smaller ones.'],
   ko: ['클래스의 메서드가 너무 많으면 안 됩니다', '메서드가 많은 클래스는 책임이 너무 많아지기 쉽습니다.', '클래스를 더 작은 클래스로 나눕니다.'],
   msg: ['Class "{0}" has {1} methods, which is greater than {2} authorized. Split it into smaller classes.', '클래스 "{0}"의 메서드는 {1}개로 허용치 {2}개보다 많습니다. 더 작은 클래스로 나눕니다.'],
@@ -397,7 +397,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-fields', sonar: 'S1820', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'too-many-fields', ref: 'S1820', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], checker: 'SIZE',
   en: ['Classes should not have too many fields', 'Many fields indicate a class that holds too much state.', 'Group related fields into separate classes.'],
   ko: ['클래스의 필드가 너무 많으면 안 됩니다', '필드가 많으면 클래스가 너무 많은 상태를 가진다는 뜻입니다.', '관련 필드를 별도 클래스로 묶습니다.'],
   msg: ['Refactor this class so it has no more than {0} fields, rather than the {1} it currently has.', '이 클래스의 필드가 현재 {1}개가 아닌 {0}개 이하가 되도록 고칩니다.'],
@@ -413,7 +413,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-cases', sonar: 'S1479', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], checker: 'SIZE',
+  id: 'too-many-cases', ref: 'S1479', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], checker: 'SIZE',
   en: ['"switch" statements should not have too many "case" clauses', 'A huge switch is hard to read; a lookup table or polymorphism is usually clearer.', 'Replace the switch with an array lookup or separate classes.'],
   ko: ['switch 문에 case 절이 너무 많으면 안 됩니다', '거대한 switch는 읽기 어렵고 보통 조회 표나 다형성이 더 분명합니다.', 'switch를 배열 조회나 별도 클래스로 바꿉니다.'],
   msg: ['Reduce the number of switch cases from {0} to at most {1}.', 'switch case 수를 {0}개에서 {1}개 이하로 줄입니다.'],
@@ -428,7 +428,7 @@ rule({
 });
 
 rule({
-  id: 'small-switch', sonar: 'S1301', type: 'S', sev: 'MI', debt: 5, tags: ['bad-practice'], checker: 'S1301',
+  id: 'small-switch', ref: 'S1301', type: 'S', sev: 'MI', debt: 5, tags: ['bad-practice'], checker: 'S1301',
   en: ['"switch" statements should have at least 3 "case" clauses', 'A switch with one or two cases is more readable as an if statement.', 'Replace the switch with an if / else.'],
   ko: ['switch 문에는 case 절이 3개 이상 있어야 합니다', 'case가 한두 개인 switch는 if 문이 더 읽기 쉽습니다.', 'switch를 if / else로 바꿉니다.'],
   msg: ['Replace this "switch" statement with "if" statements to increase readability.', '가독성을 위해 이 switch 문을 if 문으로 바꿉니다.'],
@@ -440,7 +440,7 @@ rule({
 });
 
 rule({
-  id: 'duplicate-string', sonar: 'S1192', type: 'S', sev: 'CR', debt: 2, tags: ['design'], checker: 'DUPLICATE_LITERAL',
+  id: 'duplicate-string', ref: 'S1192', type: 'S', sev: 'CR', debt: 2, tags: ['design'], checker: 'DUPLICATE_LITERAL',
   en: ['String literals should not be duplicated', 'Repeating the same literal makes changes error-prone.', 'Define a constant and use it everywhere.'],
   ko: ['문자열 리터럴을 중복하면 안 됩니다', '같은 리터럴을 반복하면 바꿀 때 실수하기 쉽습니다.', '상수를 정의해 모든 곳에서 씁니다.'],
   msg: ['Define a constant instead of duplicating this literal "{0}" {1} times.', '리터럴 "{0}"를 {1}번 반복하지 말고 상수를 정의합니다.'],
@@ -465,7 +465,7 @@ rule({
 // ── empty code
 function hasComment(pf, node) { return H.commentsIn(pf, node.pos, node.end).length > 0; }
 rule({
-  id: 'empty-function', sonar: 'S1186', type: 'S', sev: 'CR', debt: 5, tags: ['suspicious'], checker: 'EMPTY_FUNCTION',
+  id: 'empty-function', ref: 'S1186', type: 'S', sev: 'CR', debt: 5, tags: ['suspicious'], checker: 'EMPTY_FUNCTION',
   en: ['Functions should not be empty', 'An empty function body is either unfinished work or needs an explanation.', 'Implement the function, throw an exception, or add a comment explaining why it is empty.'],
   ko: ['함수가 비어 있으면 안 됩니다', '빈 함수 본문은 미완성이거나 설명이 필요합니다.', '함수를 구현하거나 예외를 던지거나, 비어 있는 이유를 주석으로 남깁니다.'],
   msg: ['Add a nested comment explaining why this function is empty, or complete the implementation.', '이 함수가 비어 있는 이유를 주석으로 남기거나 구현을 완성합니다.'],
@@ -483,7 +483,7 @@ function emptyFn(n, cx) {
 }
 
 rule({
-  id: 'empty-block', sonar: 'S108', type: 'S', sev: 'MA', debt: 5, tags: ['suspicious'], checker: 'EMPTY_BLOCK',
+  id: 'empty-block', ref: 'S108', type: 'S', sev: 'MA', debt: 5, tags: ['suspicious'], checker: 'EMPTY_BLOCK',
   en: ['Nested blocks of code should not be left empty', 'An empty block usually means missing code.', 'Add the missing code or remove the block.'],
   ko: ['중첩 블록을 비워 두면 안 됩니다', '빈 블록은 보통 코드가 빠졌다는 뜻입니다.', '빠진 코드를 넣거나 블록을 지웁니다.'],
   msg: ['Either remove or fill this block of code.', '이 코드 블록을 지우거나 채웁니다.'],
@@ -501,7 +501,7 @@ rule({
 });
 
 rule({
-  id: 'empty-statement', sonar: 'S1116', type: 'S', sev: 'MI', debt: 2, tags: ['unused'], checker: 'S1116',
+  id: 'empty-statement', ref: 'S1116', type: 'S', sev: 'MI', debt: 2, tags: ['unused'], checker: 'S1116',
   en: ['Empty statements should be removed', 'A stray semicolon is dead code and may hide a loop or if with no body.', 'Remove the extra semicolon.'],
   ko: ['빈 문장은 지워야 합니다', '불필요한 세미콜론은 죽은 코드이며 본문 없는 루프나 if를 숨길 수 있습니다.', '여분의 세미콜론을 지웁니다.'],
   msg: ['Remove this empty statement.', '이 빈 문장을 지웁니다.'],
@@ -515,7 +515,7 @@ rule({
 // ── simplifications
 const isBoolLit = (e) => { e = A.unparen(e); return e && e.k === 'Lit' && e.kind === 'bool'; };
 rule({
-  id: 'redundant-boolean', sonar: 'S1125', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], checker: 'S1125',
+  id: 'redundant-boolean', ref: 'S1125', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], checker: 'S1125',
   en: ['Boolean literals should not be redundant', 'Comparing with true/false or combining with a boolean literal adds noise.', 'Simplify the expression by removing the literal.'],
   ko: ['불리언 리터럴을 불필요하게 쓰면 안 됩니다', 'true/false와 비교하거나 불리언 리터럴과 결합하면 군더더기가 됩니다.', '리터럴을 지워 식을 단순하게 만듭니다.'],
   msg: ['Remove the unnecessary boolean literal.', '불필요한 불리언 리터럴을 지웁니다.'],
@@ -538,7 +538,7 @@ function boolReturn(s) {
   return e.k === 'Lit' && e.kind === 'bool' ? e.value : null;
 }
 rule({
-  id: 'return-boolean-directly', sonar: 'S1126', type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], checker: 'S1126',
+  id: 'return-boolean-directly', ref: 'S1126', type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], checker: 'S1126',
   en: ['Return of boolean expressions should not be wrapped into an "if-then-else" statement', 'Returning true in one branch and false in the other is just returning the condition.', 'Return the condition directly (cast with (bool) if needed).'],
   ko: ['불리언 식의 반환을 if-then-else로 감싸면 안 됩니다', '한 분기에서 true, 다른 분기에서 false를 반환하는 것은 조건을 그대로 반환하는 것과 같습니다.', '조건을 바로 반환합니다(필요하면 (bool)로 변환).'],
   msg: ['Replace this if-then-else statement by a single return statement.', '이 if-then-else 문을 return 문 하나로 바꿉니다.'],
@@ -565,7 +565,7 @@ rule({
 });
 
 rule({
-  id: 'collapsible-if', sonar: 'S1066', type: 'S', sev: 'MA', debt: 5, tags: ['clumsy'], checker: 'S1066',
+  id: 'collapsible-if', ref: 'S1066', type: 'S', sev: 'MA', debt: 5, tags: ['clumsy'], checker: 'S1066',
   en: ['Mergeable "if" statements should be combined', 'An if whose only statement is another if without else can use a single combined condition.', 'Merge the two conditions with &&.'],
   ko: ['합칠 수 있는 if 문은 합쳐야 합니다', 'else 없는 if 하나만 담은 if는 조건 하나로 합칠 수 있습니다.', '두 조건을 &&로 합칩니다.'],
   msg: ['Merge this if statement with the enclosing one.', '이 if 문을 바깥 if 문과 합칩니다.'],
@@ -582,7 +582,7 @@ rule({
 });
 
 rule({
-  id: 'expression-complexity', sonar: 'S1067', type: 'S', sev: 'CR', debt: 5, tags: ['brain-overload'], checker: 'COMPLEXITY',
+  id: 'expression-complexity', ref: 'S1067', type: 'S', sev: 'CR', debt: 5, tags: ['brain-overload'], checker: 'COMPLEXITY',
   en: ['Expressions should not be too complex', 'Many && / || / ?: operators in one expression make it hard to read.', 'Extract parts of the expression into well-named variables or functions.'],
   ko: ['식이 너무 복잡하면 안 됩니다', '한 식에 && / || / ?: 연산자가 많으면 읽기 어렵습니다.', '식의 일부를 이름 있는 변수나 함수로 분리합니다.'],
   msg: ['Reduce the number of conditional operators ({0}) used in the expression (maximum allowed {1}).', '식에 쓴 조건 연산자 수({0})를 줄입니다(최대 {1}).'],
@@ -611,7 +611,7 @@ function exprCx(n, cx) {
 }
 
 rule({
-  id: 'immediately-returned-variable', sonar: 'S1488', type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], checker: 'S1488',
+  id: 'immediately-returned-variable', ref: 'S1488', type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], checker: 'S1488',
   en: ['Local variables should not be declared and then immediately returned', 'Assigning a value to a variable only to return it on the next line adds noise.', 'Return the expression directly.'],
   ko: ['지역 변수를 선언하고 바로 반환하면 안 됩니다', '값을 변수에 대입하고 다음 줄에서 바로 반환하면 군더더기가 됩니다.', '식을 바로 반환합니다.'],
   msg: ['Immediately return this expression instead of assigning it to the temporary variable "${0}".', '임시 변수 "${0}"에 대입하지 말고 식을 바로 반환합니다.'],
@@ -637,7 +637,7 @@ rule({
 });
 
 rule({
-  id: 'nested-ternary', sonar: 'S3358', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], checker: 'S3358',
+  id: 'nested-ternary', ref: 'S3358', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], checker: 'S3358',
   en: ['Ternary operators should not be nested', 'Nested ternaries are hard to read and, without parentheses, are an error in PHP 8.', 'Use if / else or match instead.'],
   ko: ['삼항 연산자를 중첩하면 안 됩니다', '중첩 삼항식은 읽기 어렵고 괄호가 없으면 PHP 8에서는 오류입니다.', 'if / else나 match를 씁니다.'],
   msg: ['Extract this nested ternary operation into an independent statement.', '이 중첩 삼항 연산을 별도 문장으로 분리합니다.'],
@@ -653,7 +653,7 @@ rule({
 });
 
 rule({
-  id: 'redundant-parentheses', sonar: 'S1110', type: 'S', sev: 'MA', debt: 1, tags: ['confusing'], checker: 'S1110',
+  id: 'redundant-parentheses', ref: 'S1110', type: 'S', sev: 'MA', debt: 1, tags: ['confusing'], checker: 'S1110',
   en: ['Redundant pairs of parentheses should be removed', 'Doubled parentheses add nothing and suggest a misunderstanding of precedence.', 'Remove the extra pair.'],
   ko: ['불필요한 괄호 쌍은 지워야 합니다', '겹친 괄호는 아무 의미가 없으며 우선순위를 잘못 이해했다는 신호입니다.', '여분의 괄호 쌍을 지웁니다.'],
   msg: ['Remove these useless parentheses.', '이 쓸모없는 괄호를 지웁니다.'],
@@ -666,7 +666,7 @@ rule({
 
 const INVERT = { '==': '!=', '!=': '==', '===': '!==', '!==': '===', '<': '>=', '>': '<=', '<=': '>', '>=': '<' };
 rule({
-  id: 'boolean-inversion', sonar: 'S1940', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], checker: 'S1940',
+  id: 'boolean-inversion', ref: 'S1940', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], checker: 'S1940',
   en: ['Boolean checks should not be inverted', 'Negating a whole comparison is harder to read than using the opposite operator.', 'Use the opposite comparison operator.'],
   ko: ['불리언 검사를 뒤집어 쓰면 안 됩니다', '비교 전체를 부정하면 반대 연산자를 쓰는 것보다 읽기 어렵습니다.', '반대 비교 연산자를 씁니다.'],
   msg: ['Use the opposite operator ("{0}") instead.', '대신 반대 연산자("{0}")를 씁니다.'],
@@ -682,7 +682,7 @@ rule({
 });
 
 rule({
-  id: 'assignment-in-subexpression', sonar: 'S1121', type: 'S', sev: 'MA', debt: 5, tags: ['cwe-481', 'suspicious'], checker: 'S1121',
+  id: 'assignment-in-subexpression', ref: 'S1121', type: 'S', sev: 'MA', debt: 5, tags: ['cwe-481', 'suspicious'], checker: 'S1121',
   en: ['Assignments should not be made from within sub-expressions', 'An assignment hidden inside a condition or argument is easy to miss and is often a mistyped comparison.', 'Move the assignment to its own statement.'],
   ko: ['하위 식 안에서 대입하면 안 됩니다', '조건이나 인수 안에 숨은 대입은 놓치기 쉽고 비교를 잘못 쓴 경우가 많습니다.', '대입을 별도 문장으로 옮깁니다.'],
   msg: ['Extract the assignment of "{0}" from this expression.', '이 식에서 "{0}"의 대입을 분리합니다.'],
@@ -708,7 +708,7 @@ rule({
 });
 
 rule({
-  id: 'for-as-while', sonar: 'S1264', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], checker: 'S1264',
+  id: 'for-as-while', ref: 'S1264', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], checker: 'S1264',
   en: ['A "while" loop should be used instead of a "for" loop', 'A for loop with only a condition is a while loop in disguise.', 'Replace it with a while loop.'],
   ko: ['for 루프 대신 while 루프를 써야 합니다', '조건만 있는 for 루프는 사실상 while 루프입니다.', 'while 루프로 바꿉니다.'],
   msg: ['Replace this "for" loop with a "while" loop.', '이 for 루프를 while 루프로 바꿉니다.'],
@@ -720,7 +720,7 @@ rule({
 });
 
 rule({
-  id: 'elseif-without-else', sonar: 'S126', type: 'S', sev: 'CR', debt: 5, tags: ['cert'], checker: 'S126',
+  id: 'elseif-without-else', ref: 'S126', type: 'S', sev: 'CR', debt: 5, tags: ['cert'], checker: 'S126',
   en: ['"if ... elseif" constructs should end with "else" clauses', 'A final else documents that all remaining cases were considered.', 'Add a final else clause, even if it only throws or logs.'],
   ko: ['if ... elseif 구조는 else 절로 끝나야 합니다', '마지막 else는 나머지 경우를 모두 고려했다는 것을 보여 줍니다.', '예외를 던지거나 기록만 하더라도 마지막 else 절을 추가합니다.'],
   msg: ['Add the missing "else" clause.', '빠진 else 절을 추가합니다.'],
@@ -738,7 +738,7 @@ rule({
 });
 
 rule({
-  id: 'loop-counter-modified', sonar: 'S127', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], checker: 'S127',
+  id: 'loop-counter-modified', ref: 'S127', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], checker: 'S127',
   en: ['"for" loop stop conditions should be invariant', 'Changing the loop counter inside the body makes the number of iterations hard to predict.', 'Use a while loop, or do not change the counter in the body.'],
   ko: ['for 루프 종료 조건은 변하지 않아야 합니다', '본문에서 루프 카운터를 바꾸면 반복 횟수를 예측하기 어렵습니다.', 'while 루프를 쓰거나 본문에서 카운터를 바꾸지 않습니다.'],
   msg: ['Do not update the loop counter "${0}" within the loop body.', '루프 본문에서 루프 카운터 "${0}"를 바꾸지 않습니다.'],
@@ -764,7 +764,7 @@ rule({
 
 // ── exceptions
 rule({
-  id: 'useless-catch', sonar: 'S2737', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy', 'error-handling'], checker: 'S2737',
+  id: 'useless-catch', ref: 'S2737', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy', 'error-handling'], checker: 'S2737',
   en: ['"catch" clauses should do more than rethrow', 'A catch that only rethrows the same exception adds nothing.', 'Remove the try/catch, or handle the exception.'],
   ko: ['catch 절은 다시 던지는 것 이상을 해야 합니다', '같은 예외를 다시 던지기만 하는 catch는 아무 의미가 없습니다.', 'try/catch를 지우거나 예외를 처리합니다.'],
   msg: ['Add logic to this catch clause or eliminate it and rethrow the exception automatically.', '이 catch 절에 처리를 넣거나 catch를 지워 예외가 자동으로 전달되게 합니다.'],
@@ -786,7 +786,7 @@ rule({
 
 const GENERIC_EX = new Set(['exception', 'errorexception', 'runtimeexception']);
 rule({
-  id: 'generic-exception', sonar: 'S112', type: 'S', sev: 'MA', debt: 20, tags: ['cwe-397', 'error-handling'], checker: 'S112',
+  id: 'generic-exception', ref: 'S112', type: 'S', sev: 'MA', debt: 20, tags: ['cwe-397', 'error-handling'], checker: 'S112',
   en: ['Generic exceptions ErrorException, RuntimeException and Exception should not be thrown', 'Throwing a generic exception forces callers to catch everything to handle a specific failure.', 'Throw a dedicated, specific exception class.'],
   ko: ['일반 예외 ErrorException, RuntimeException, Exception을 던지면 안 됩니다', '일반 예외를 던지면 호출자는 특정 실패를 처리하려고 모든 예외를 잡아야 합니다.', '전용의 구체적인 예외 클래스를 던집니다.'],
   msg: ['Define and throw a dedicated exception instead of using a generic one.', '일반 예외 대신 전용 예외를 정의해 던집니다.'],
@@ -801,7 +801,7 @@ rule({
 });
 
 rule({
-  id: 'functions-nested-too-deeply', sonar: 'S2004', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
+  id: 'functions-nested-too-deeply', ref: 'S2004', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], checker: 'COMPLEXITY',
   en: ['Functions should not be nested too deeply', 'Closures nested in closures quickly become unreadable.', 'Extract inner functions into named functions or methods.'],
   ko: ['함수를 너무 깊게 중첩하면 안 됩니다', '클로저 안의 클로저는 금방 읽기 어려워집니다.', '안쪽 함수를 이름 있는 함수나 메서드로 분리합니다.'],
   msg: ['Refactor this code to not nest functions more than {0} levels deep.', '함수가 {0}단계를 넘게 중첩되지 않도록 고칩니다.'],
@@ -819,7 +819,7 @@ function deepFn(n, cx) {
 }
 
 rule({
-  id: 'useless-override', sonar: 'S1185', type: 'S', sev: 'MI', debt: 5, tags: ['redundant'], checker: 'S1185',
+  id: 'useless-override', ref: 'S1185', type: 'S', sev: 'MI', debt: 5, tags: ['redundant'], checker: 'S1185',
   en: ['Overriding methods should do more than simply call the same method in the parent class', 'A method that only forwards to parent:: with the same arguments is redundant.', 'Remove the method.'],
   ko: ['재정의 메서드는 부모의 같은 메서드를 호출하는 것 이상을 해야 합니다', '같은 인수로 parent::에 넘기기만 하는 메서드는 불필요합니다.', '메서드를 지웁니다.'],
   msg: ['Remove this method "{0}" to simply inherit it.', '메서드 "{0}"를 지워 그냥 상속받습니다.'],
@@ -840,7 +840,7 @@ rule({
 });
 
 rule({
-  id: 'inconsistent-return', sonar: 'S3801', type: 'S', sev: 'MA', debt: 10, tags: ['design'], checker: 'MISSING_RETURN',
+  id: 'inconsistent-return', ref: 'S3801', type: 'S', sev: 'MA', debt: 10, tags: ['design'], checker: 'MISSING_RETURN',
   en: ['Functions should use "return" consistently', 'Mixing "return value;" and bare "return;" makes callers guess what null means.', 'Return a value on every path, or never.'],
   ko: ['함수는 return을 일관되게 써야 합니다', '"return 값;"과 값 없는 "return;"을 섞으면 호출자가 null의 의미를 추측해야 합니다.', '모든 경로에서 값을 반환하거나 아예 반환하지 않습니다.'],
   msg: ['Refactor this function to use "return" consistently.', 'return을 일관되게 쓰도록 이 함수를 고칩니다.'],
@@ -859,7 +859,7 @@ function consistentReturn(n, cx) {
 }
 
 rule({
-  id: 'identical-methods', sonar: 'S4144', type: 'S', sev: 'MA', debt: 15, tags: ['confusing', 'duplicate'], checker: 'COPY_PASTE_ERROR',
+  id: 'identical-methods', ref: 'S4144', type: 'S', sev: 'MA', debt: 15, tags: ['confusing', 'duplicate'], checker: 'COPY_PASTE_ERROR',
   en: ['Methods should not have identical implementations', 'Two methods with the same body are duplicated code or a copy-paste error.', 'Make one method call the other, or fix the copy.'],
   ko: ['메서드의 구현이 같으면 안 됩니다', '본문이 같은 두 메서드는 중복 코드이거나 복사-붙여넣기 오류입니다.', '한 메서드가 다른 메서드를 호출하게 하거나 복사본을 고칩니다.'],
   msg: ['Update this method so that its implementation is not identical to "{0}" on line {1}.', '이 메서드가 {1}행의 "{0}"와 구현이 같지 않도록 고칩니다.'],
@@ -878,7 +878,7 @@ rule({
 });
 
 rule({
-  id: 'switch-without-default', sonar: 'S131', type: 'S', sev: 'CR', debt: 5, tags: ['cwe-478'], checker: 'MISSING_DEFAULT',
+  id: 'switch-without-default', ref: 'S131', type: 'S', sev: 'CR', debt: 5, tags: ['cwe-478'], checker: 'MISSING_DEFAULT',
   en: ['"switch" statements should have "default" clauses', 'A default clause makes the handling of unexpected values explicit.', 'Add a default clause, even if it only throws.'],
   ko: ['switch 문에는 default 절이 있어야 합니다', 'default 절은 예상하지 못한 값의 처리를 분명하게 합니다.', '예외만 던지더라도 default 절을 추가합니다.'],
   msg: ['Add a "default" clause to this "switch" statement.', '이 switch 문에 default 절을 추가합니다.'],
@@ -891,7 +891,7 @@ rule({
 
 // ── risky constructs
 rule({
-  id: 'global-variables', sonar: 'S2011', type: 'S', sev: 'MA', debt: 20, tags: ['design'], checker: 'S2011',
+  id: 'global-variables', ref: 'S2011', type: 'S', sev: 'MA', debt: 20, tags: ['design'], checker: 'S2011',
   en: ['Global variables should not be used', 'Functions that read and write globals are coupled to hidden state and hard to test.', 'Pass the value as a parameter or inject a service.'],
   ko: ['전역 변수를 쓰면 안 됩니다', '전역 변수를 읽고 쓰는 함수는 숨은 상태에 묶여 시험하기 어렵습니다.', '값을 매개변수로 넘기거나 서비스를 주입합니다.'],
   msg: ['Do not use global variables.', '전역 변수를 쓰지 않습니다.'],
@@ -904,7 +904,7 @@ rule({
 });
 
 rule({
-  id: 'sleep-call', sonar: 'S2964', type: 'S', sev: 'MA', debt: 5, tags: ['bad-practice'], checker: 'S2964',
+  id: 'sleep-call', ref: 'S2964', type: 'S', sev: 'MA', debt: 5, tags: ['bad-practice'], checker: 'S2964',
   en: ['"sleep" should not be called', 'Sleeping blocks a web worker and hides timing problems instead of fixing them.', 'Use a proper scheduling or retry mechanism.'],
   ko: ['sleep을 호출하면 안 됩니다', 'sleep은 웹 작업자를 막고 타이밍 문제를 고치지 않고 감춥니다.', '알맞은 예약이나 재시도 방식을 씁니다.'],
   msg: ['Remove this call to "{0}".', '"{0}" 호출을 지웁니다.'],
@@ -916,7 +916,7 @@ rule({
 });
 
 rule({
-  id: 'variable-variables', sonar: 'S1599', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], checker: 'S1599',
+  id: 'variable-variables', ref: 'S1599', type: 'S', sev: 'MA', debt: 5, tags: ['confusing'], checker: 'S1599',
   en: ['Variable variables should not be used', 'Variable names built at run time ($$name) are hard to follow and defeat static analysis.', 'Use an array with explicit keys instead.'],
   ko: ['가변 변수를 쓰면 안 됩니다', '실행 중에 만드는 변수 이름($$name)은 따라가기 어렵고 정적 분석을 무력하게 합니다.', '명시적 키를 가진 배열을 씁니다.'],
   msg: ['Remove the use of this variable variable.', '이 가변 변수 사용을 지웁니다.'],
@@ -928,7 +928,7 @@ rule({
 });
 
 rule({
-  id: 'php4-constructor', sonar: 'S1603', type: 'S', sev: 'MA', debt: 5, tags: ['obsolete'], checker: 'S1603',
+  id: 'php4-constructor', ref: 'S1603', type: 'S', sev: 'MA', debt: 5, tags: ['obsolete'], checker: 'S1603',
   en: ['PHP 4 constructor declarations should not be used', 'A method named like its class is no longer a constructor in PHP 8 and was deprecated before.', 'Rename the method to __construct.'],
   ko: ['PHP 4 방식 생성자 선언을 쓰면 안 됩니다', '클래스 이름과 같은 메서드는 PHP 8에서 더 이상 생성자가 아니며 그 전에도 폐기 예정이었습니다.', '메서드 이름을 __construct로 바꿉니다.'],
   msg: ['Replace this function name "{0}" with "__construct".', '함수 이름 "{0}"를 "__construct"로 바꿉니다.'],
@@ -946,7 +946,7 @@ rule({
 });
 
 rule({
-  id: 'exit-die', sonar: 'S1799', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], checker: 'S1799',
+  id: 'exit-die', ref: 'S1799', type: 'S', sev: 'MA', debt: 5, tags: ['pitfall'], checker: 'S1799',
   en: ['"exit(...)" and "die(...)" statements should not be used', 'Stopping the script inside a function bypasses callers, destructors and frameworks.', 'Throw an exception or return an error value instead.'],
   ko: ['exit(...)와 die(...) 문을 쓰면 안 됩니다', '함수 안에서 스크립트를 멈추면 호출자, 소멸자, 프레임워크를 건너뜁니다.', '대신 예외를 던지거나 오류 값을 반환합니다.'],
   msg: ['Remove this "{0}()" call or ensure it is really required.', '이 "{0}()" 호출을 지우거나 정말 필요한지 확인합니다.'],
@@ -960,7 +960,7 @@ rule({
 });
 
 rule({
-  id: 'non-strict-search', sonar: '', type: 'S', sev: 'MA', debt: 2, tags: ['pitfall'], checker: 'BAD_COMPARE',
+  id: 'non-strict-search', ref: '', type: 'S', sev: 'MA', debt: 2, tags: ['pitfall'], checker: 'BAD_COMPARE',
   en: ['in_array() and array_search() should be called in strict mode', 'Without the strict flag the needle is compared loosely, so "abc", 0 and null can match unexpected elements.', 'Pass true as the third argument.'],
   ko: ['in_array()와 array_search()는 엄격 모드로 호출해야 합니다', '엄격 플래그가 없으면 느슨하게 비교되어 "abc", 0, null이 뜻밖의 요소와 일치할 수 있습니다.', '세 번째 인수로 true를 넘깁니다.'],
   msg: ['Pass "true" as the third argument of "{0}".', '"{0}"의 세 번째 인수로 true를 넘깁니다.'],
@@ -977,7 +977,7 @@ rule({
 });
 
 rule({
-  id: 'loose-comparison', sonar: '', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], checker: 'BAD_COMPARE',
+  id: 'loose-comparison', ref: '', type: 'S', sev: 'MI', debt: 2, tags: ['pitfall'], checker: 'BAD_COMPARE',
   en: ['Strict comparison should be used with null, 0 and empty strings', 'With == these values match many others through type juggling ("" == null, "abc" == 0 before PHP 8).', 'Use === or !==.'],
   ko: ['null, 0, 빈 문자열과는 엄격 비교를 써야 합니다', '==를 쓰면 형 변환 때문에 이 값들이 많은 다른 값과 같아집니다("" == null, PHP 8 이전의 "abc" == 0).', '=== 또는 !==를 씁니다.'],
   msg: ['Use "{0}" to compare with {1}.', '{1}와 비교할 때 "{0}"를 씁니다.'],

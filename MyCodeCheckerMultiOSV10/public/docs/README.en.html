@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyCodeChecker scripts/build-docs.mjs" />
+<title>MyCodeChecker</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--link, var(--accent)); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { display: inline-flex; align-items: center; padding: 3px; border: 1px solid var(--border); border-radius: 4px; line-height: 0; }
+.topbar .lang:hover { border-color: var(--accent, #1478b8); }
+.topbar .lang svg { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--th-bg, var(--accent-soft)); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+<script>(function () {
+  var key = 'mycodechecker.docTheme';
+  function pick(v, names) { for (var i = 0; i < names.length; i++) { if (v[names[i]]) return v[names[i]]; } return ''; }
+  function derive(src) {
+    var v = {}; for (var k in src) v[k] = src[k];
+    var surface = v['--surface'] || pick(v, ['--bg-elev', '--raised', '--bg-panel', '--panel', '--bg']);
+    if (surface) v['--surface'] = surface;
+    if (!v['--text'] && v['--fg']) v['--text'] = v['--fg'];
+    if (!v['--muted']) { var m = pick(v, ['--fg-muted']); if (m) v['--muted'] = m; }
+    if (!v['--code-bg']) { var c = pick(v, ['--bg-panel', '--panel', '--bg']); if (c) v['--code-bg'] = c; }
+    if (!v['--row-alt']) { var r = pick(v, ['--bg-panel', '--panel']); if (r) v['--row-alt'] = r; }
+    if (!v['--accent-soft'] && v['--accent'] && surface) v['--accent-soft'] = 'color-mix(in srgb, ' + v['--accent'] + ' 16%, ' + surface + ')';
+    if (!v['--link'] && v['--accent']) v['--link'] = v['--accent'];
+    if (!v['--th-bg'] && v['--accent-soft']) v['--th-bg'] = v['--accent-soft'];
+    return v;
+  }
+  function apply(t) {
+    if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { return; } }
+    if (!t || !t.vars) return;
+    var v = derive(t.vars), root = document.documentElement;
+    for (var name in v) { if (name.indexOf('--') === 0 && typeof v[name] === 'string') root.style.setProperty(name, v[name]); }
+    root.style.colorScheme = t.dark === false ? 'light' : 'dark';
+  }
+  try { apply(localStorage.getItem(key)); } catch (e) { /* no storage */ }
+  addEventListener('storage', function (e) { if (e.key === key && e.newValue) apply(e.newValue); });
+  addEventListener('message', function (e) {
+    if (e.origin !== location.origin && e.source !== parent) return;
+    if (e.data && e.data.type === 'mcc-doc-theme' && e.data.theme) apply(e.data.theme);
+  });
+})();</script>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyCodeChecker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="README.html" hreflang="ko" title="한국어" aria-label="한국어"><svg width="27" height="18" viewBox="0 0 60 40" role="img" aria-hidden="true"><rect width="60" height="40" fill="#ffffff"/><g transform="rotate(-33.69 30 20) translate(60 0) scale(-1 1)"><circle cx="30" cy="20" r="10" fill="#CD2E3A"/><path d="M20,20 a5,5 0 0,1 10,0 a5,5 0 0,0 10,0 a10,10 0 0,1 -20,0" fill="#0047A0"/></g><g transform="rotate(-56.31 10.6 7.1)"><rect x="4.6" y="2.4999999999999996" width="12" height="2" fill="#000"/><rect x="4.6" y="6.1" width="12" height="2" fill="#000"/><rect x="4.6" y="9.7" width="12" height="2" fill="#000"/></g><g transform="rotate(56.31 49.4 7.1)"><rect x="43.4" y="2.4999999999999996" width="5" height="2" fill="#000"/><rect x="50.4" y="2.4999999999999996" width="5" height="2" fill="#000"/><rect x="43.4" y="6.1" width="12" height="2" fill="#000"/><rect x="43.4" y="9.7" width="5" height="2" fill="#000"/><rect x="50.4" y="9.7" width="5" height="2" fill="#000"/></g><g transform="rotate(-123.69 10.6 32.9)"><rect x="4.6" y="28.299999999999997" width="12" height="2" fill="#000"/><rect x="4.6" y="31.9" width="5" height="2" fill="#000"/><rect x="11.6" y="31.9" width="5" height="2" fill="#000"/><rect x="4.6" y="35.5" width="12" height="2" fill="#000"/></g><g transform="rotate(123.69 49.4 32.9)"><rect x="43.4" y="28.299999999999997" width="5" height="2" fill="#000"/><rect x="50.4" y="28.299999999999997" width="5" height="2" fill="#000"/><rect x="43.4" y="31.9" width="5" height="2" fill="#000"/><rect x="50.4" y="31.9" width="5" height="2" fill="#000"/><rect x="43.4" y="35.5" width="5" height="2" fill="#000"/><rect x="50.4" y="35.5" width="5" height="2" fill="#000"/></g></svg></a></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#features">Features</a></li><li class="h3"><a href="#code-quality">Code quality</a></li><li class="h3"><a href="#defect-analysis">Defect analysis</a></li><li class="h3"><a href="#security-weaknesses-and-compliance">Security weaknesses and compliance</a></li><li class="h3"><a href="#platform">Platform</a></li><li class="h3"><a href="#workspace">Workspace</a></li><li class="h2"><a href="#install-and-run">Install and run</a></li><li class="h2"><a href="#quick-start">Quick start</a></li><li class="h2"><a href="#in-ci">In CI</a></li><li class="h2"><a href="#tests-and-documents">Tests and documents</a></li></ul></nav>
+<main>
+<h1 id="mycodechecker">MyCodeChecker</h1>
+<p>A <strong>code quality and security workbench</strong> that runs on your own computer. It brings code-quality quality management, defect-analysis defect analysis and security-weakness security weakness checks and compliance together in one program. The web version and Windows · macOS · Linux show the same screens — a <strong>Tauri 2 + React</strong> UI over a <strong>Node.js analysis core</strong> (<code>core/</code>). The installers carry Node.js and the analyzers, so nothing else has to be installed. All analysis is local; source code leaves the machine only for features you turn on (AI CodeFix, online OSV check).</p>
+<ul><li><strong>4161 rules</strong>, <strong>38 languages</strong>, 7600+ tests · Korean / English · 40 themes (20 dark, 20 light) plus your own</li><li>How to use it: <a href="UsersGuide.en.html">User&#39;s guide</a> · <a href="UsersGuide.html">사용 설명서</a> · Design: <a href="ARCHITECTURE.html">ARCHITECTURE.md</a> · 한국어: <a href="README.html">README.md</a></li></ul>
+<h2 id="features">Features <a class="anchor" href="#features" aria-hidden="true">#</a></h2>
+<h3 id="code-quality">Code quality <a class="anchor" href="#code-quality" aria-hidden="true">#</a></h3>
+<ul><li><strong>Rules</strong> — bugs, vulnerabilities, code smells and security hotspots for JavaScript/TypeScript, Python, Java, Kotlin, C#, C/C++, Go, Rust, PHP, Ruby, Swift, Objective-C, Scala, Dart, VB.NET, VB6, COBOL, PL/SQL, ABAP, Apex, RPG, PL/I, JCL, Flex, Groovy, Shell, PowerShell, SQL, HTML, CSS, XML, JSON, YAML, Docker, Terraform, Bicep and more (38). Line rules + per-language semantic analyzers (<code>sem-js</code>, <code>sem-java</code>, <code>sem-cs</code>, <code>sem-py</code>, <code>sem-go</code>, <code>sem-php</code>, <code>sem-rb</code>) + taint analysis + IaC (CloudFormation, Kubernetes, Ansible, ARM, Bicep)</li><li><strong>Ratings</strong> A–E (reliability, security, maintainability, security review), technical debt, cognitive and cyclomatic complexity</li><li><strong>Quality gates</strong> — the default <code>Checker way</code> (no new bugs or vulnerabilities, 80 % coverage on new code, 3 % duplication …), editable conditions, per-project assignment, badge</li><li><strong>Quality profiles</strong> — per language, inheritance (parent profile), compare, back up / restore, changelog, custom regex rules</li><li><strong>New code</strong> — previous analysis, number of days, a specific analysis, previous version (git tag), SCM changed lines (git diff); line hashes compare with the baseline</li><li><strong>Coverage</strong> — lcov, Cobertura, JaCoCo, Clover, OpenCover, Go cover profiles, generic · test reports (JUnit, generic)</li><li><strong>Duplications</strong>, <strong>branches and pull requests</strong> (changed lines only; GitHub, GitLab, Azure DevOps, Bitbucket decoration), <strong>portfolios</strong> (groups of projects with a releasability verdict)</li><li><strong>External issue import</strong> — SARIF, generic issue JSON, defect JSON, cppcheck, clang-tidy, ESLint, Pylint, Checkstyle, SpotBugs, PMD, gosec, Bandit, Semgrep</li><li><strong>IDEs</strong> — VS Code, JetBrains and Visual Studio extensions (<code>ide/</code>, LSP server <code>core/lsp</code>) with connected mode</li></ul>
+<h3 id="defect-analysis">Defect analysis <a class="anchor" href="#defect-analysis" aria-hidden="true">#</a></h3>
+<ul><li><strong>Path-sensitive C/C++ checkers</strong> — an own C11/C17 · C++20 front end (<code>core/cfamily</code>) and an abstract-interpretation engine (<code>core/absint</code>): FORWARD_NULL, USE_AFTER_FREE, RESOURCE_LEAK, OVERRUN, DIVIDE_BY_ZERO, UNINIT, DEADCODE and 60+ more, each with its event path (alloc → free → use)</li><li><strong>CIDs, streams and snapshots</strong> — a snapshot per commit, CID comparison (newly detected, fixed, reintroduced), defect lifecycle, issue age, trends</li><li><strong>Triage</strong> — classification, action, severity, owner, external reference, legacy; <code>// mcc[CHECKER]</code> annotations</li><li><strong>Components</strong> (path pattern → owner), <strong>policies</strong> (fail when new high-impact defects appear after the baseline snapshot), <strong>function models</strong> (allocator, sink, source)</li><li><strong>Desktop analysis</strong> — check your own changes without touching the stream · <strong><code>cov</code> command line</strong> (the cov-build / cov-analyze / cov-commit-defects flow)</li></ul>
+<h3 id="security-weaknesses-and-compliance">Security weaknesses and compliance <a class="anchor" href="#security-weaknesses-and-compliance" aria-hidden="true">#</a></h3>
+<ul><li>The <strong>Korean Ministry of the Interior and Safety (행정안전부) 2021 software security weakness guide, 49 items</strong>, the <strong>critical information infrastructure (주요정보통신기반시설)</strong> web items, OWASP Top 10 2017/2021, OWASP ASVS 4.0, CWE Top 25 2023/2024, PCI DSS 3.2.1/4.0, DISA STIG and SANS Top 25 security reports</li><li><strong>Exception approval workflow</strong> — false positive / accept can be allowed only through &quot;request exception → approve / reject&quot; (reason required, optional self-approval)</li><li><strong>Coding standards</strong> — MISRA C:2012/2023, MISRA C++:2023, CERT C/C++, AUTOSAR C++14, MISRA C:2004 and MISRA C++:2008 (legacy). MISRA Compliance:2020 GCS, recategorization plan and deviation records</li><li><strong>HIS metrics</strong> (comment density, path count, v(G), call depth …), <strong>architecture</strong> (module dependency graph, instability, cycles, layer and forbidden-dependency rules)</li><li><strong>DAST</strong> — scans a running web application (passive, or active with safe probes; scope-limited; authentication; OpenAPI)</li><li><strong>SCA</strong> — manifests, lockfiles and SBOMs, offline OSV advisories, <strong>reachability</strong>, <strong>snippet matching</strong>, <strong>binaries</strong> (.jar, .whl, .nupkg, .dll …), license policy, dependency confusion, CycloneDX 1.5 and SPDX 2.3 export</li><li><strong>Reports</strong> — executive summary, security, MISRA, Defect Analysis integrity and security, rule set compliance (security weakness), SBOM — HTML, CSV, <strong>Word, Excel, PDF</strong>, and a regulatory ZIP</li></ul>
+<h3 id="platform">Platform <a class="anchor" href="#platform" aria-hidden="true">#</a></h3>
+<ul><li><strong>Users, groups and permissions</strong> (global and per project, with the usual permission names), <strong>tokens</strong> (user, project analysis, global analysis), <strong>LDAP</strong> sign-in</li><li><strong>SMTP notifications</strong> (gate changes, assignments, high-impact defects, exception requests / approvals / rejections, failed analyses), <strong>Jira, Redmine, GitHub and GitLab tickets</strong>, <strong>PR decoration</strong>, <strong>webhooks</strong> (HMAC-signed)</li><li><strong>Scheduled analyses</strong> (cron; code analysis or web scan), <strong>audit log</strong>, housekeeping</li><li><strong>compatible Web API</strong> (<code>/api/issues/search</code>, <code>/api/qualitygates/project_status</code> …) — dashboards and scripts written for the compatible API read it as is</li><li><strong>AI CodeFix</strong> — asks an LLM for a fix of one issue, shows it as a diff and applies it only when you accept. Anthropic Claude (official SDK, default model <code>claude-opus-5-5</code>), OpenAI-compatible servers or a local Ollama</li><li><strong>Database export</strong> — analysis results as tables in SQLite, PostgreSQL, MySQL/MariaDB or SQL Server (after every analysis or on demand)</li><li><strong>Required software</strong> — finds Git and a C/C++ compiler and, when missing, asks before installing them with the package manager (winget, scoop, Homebrew, apt, dnf, pacman, zypper)</li></ul>
+<h3 id="workspace">Workspace <a class="anchor" href="#workspace" aria-hidden="true">#</a></h3>
+<ul><li><strong>Project files <code>.mccp</code></strong> — JSON with the source folder (relative path) and the project settings (branch, exclusions, include paths, defines, coverage, architecture, new code, profiles, gate). File › New project, Open, Save, Recent projects; double-clicking one opens the app (own icon)</li><li><strong>Screens</strong> — a menu bar instead of the system title bar (theme, language with flags), an icon + label toolbar, <strong>tabs</strong> in the centre (Home pinned; close, drag to reorder, context menu, &lt; &gt; ⌄ on overflow), left <strong>navigation</strong>, right <strong>details</strong> and bottom <strong>Problems / Analysis log / Jobs / Output</strong> panels (turn on/off, fold to an icon + title strip, resize). On the desktop, dialogs, menus and dropdowns open as separate windows</li><li><strong>Settings window</strong> — fixed 920×600, ten vertical tabs (General, Theme, Custom themes, Start page, Analysis, New code, AI CodeFix, Database, Notifications &amp; links, Advanced), <strong>Reset / OK / Cancel</strong>; theme, language and background preview at once and revert on Cancel</li><li><strong>Start page</strong> — hero card (User&#39;s guide, Tutorial document, Start the tutorial), banner, New analysis tiles, the last 10 projects, background, help, samples. Move cards by ⠿ and resize them by the corner. 20 animated backgrounds (shuffle, speed, transparency)</li><li><strong>Tutorial and user&#39;s guide window</strong> — a tutorial that drives the real screens (with a first-start welcome), and a user&#39;s guide window that follows the app theme (Korean / English)</li><li><strong>Samples</strong> — <code>samples/demo</code> (19 files, 14 languages) and <code>samples/cpp-sensor</code> (a C++ sensor logger with <code>cpp-sensor.mccp</code> and <code>compile_commands.json</code>)</li></ul>
+<h2 id="install-and-run">Install and run <a class="anchor" href="#install-and-run" aria-hidden="true">#</a></h2>
+<p>One JavaScript core, four ways to start it.</p>
+<div class="table-wrap"><table><thead><tr><th>Target</th><th>Development</th><th>Installer / distribution</th></tr></thead><tbody><tr><td>Web</td><td><code>npm run dev</code> (first free port from 5210)</td><td><code>npm run web</code> — build, then <code>server/server.js</code> (http://127.0.0.1:5211)</td></tr><tr><td>Windows</td><td><code>npm start</code> (Tauri window)</td><td><code>npm run build:win</code> → NSIS installer</td></tr><tr><td>Linux</td><td><code>npm start</code></td><td><code>npm run build:linux</code> → .deb, .AppImage</td></tr><tr><td>macOS</td><td><code>npm start</code></td><td><code>npm run build:mac</code> → .app, .dmg</td></tr></tbody></table></div>
+<p>For development you need Node.js 22 or later, Rust (Tauri) and, on Windows, WebView2. <code>npm start</code> and <code>npm run dev</code> take the first port from 5210 that is free on both IPv4 and IPv6 and never stop other programs. Each installer is built on its own OS (the build stops and says so on another OS) and is copied to the project root. At the end of the Windows installer you are asked whether to install Git with winget when it is missing.</p>
+<pre><code class="language-bash">npm install
+npm run dev          # browser
+npm start            # desktop window</code></pre>
+<p>As a shared server:</p>
+<pre><code class="language-bash">npm run build
+node server/server.js --host 0.0.0.0 --port 5211 [--config &lt;data folder&gt;] [--no-scheduler]</code></pre>
+<p>The workspace is stored in <code>%APPDATA%/MyCodeChecker/workspace.json</code> (macOS <code>~/Library/Application Support/MyCodeChecker</code>, Linux <code>~/.config/MyCodeChecker</code>, or the <code>MCC_USER_DATA</code> environment variable).</p>
+<h2 id="quick-start">Quick start <a class="anchor" href="#quick-start" aria-hidden="true">#</a></h2>
+<ol><li>On the Start page press <strong>Sample project</strong> to analyze <code>samples/demo</code>; for C/C++ open <code>samples/cpp-sensor/cpp-sensor.mccp</code> with <strong>File › Open project…</strong>. For your own code use <strong>Open folder…</strong> (Ctrl+O) or <strong>New project…</strong> (Ctrl+N). New here? <strong>Start the tutorial</strong>.</li><li><strong>Overview</strong> shows the quality gate and ratings; press a card to go to the <strong>Issues</strong> list.</li><li>Pick an issue and read why it matters and how to fix it in the right <strong>Details</strong> panel; confirm, accept or mark it false positive, assign it, create a ticket or ask for an AI fix.</li><li><strong>Security reports</strong>, <strong>MISRA compliance</strong> and <strong>Reports</strong> show results per standard and save them as Word, Excel or PDF.</li></ol>
+<h2 id="in-ci">In CI <a class="anchor" href="#in-ci" aria-hidden="true">#</a></h2>
+<pre><code class="language-bash"># Local analysis; exit code 1 when the quality gate fails
+node scripts/scan.mjs --path . --format sarif --out report.sarif
+node scripts/scan.mjs --path src --standard misra-c --misra-gate --report misra --out misra.pdf
+node scripts/scan.mjs --path . --format cyclonedx --out bom.json
+
+# Upload to a server, which analyzes with its own profiles, gate and history (code-quality scanner flow)
+node scripts/scan.mjs --server https://checker.example.com --token mcu_… --project-key my-app --branch feature/x</code></pre>
+<p>Without <code>--server</code>, <code>mcc-project.properties</code> (or a compatible-format property file) is read: <code>mcc.host.url</code>, <code>mcc.token</code>, <code>mcc.projectKey</code>, <code>mcc.projectName</code>, <code>mcc.sources</code>, <code>mcc.exclusions</code>, <code>mcc.branch.name</code>, <code>mcc.modules</code>. The token comes from <code>--token</code>, then <code>MCC_TOKEN</code> (or the compatible-format variable). Formats: <code>json | sarif | html | csv | badge | cyclonedx | spdx | spdx-tv</code>; reports: <code>executive | security | misra | integrity | defect-security | weakness | sbom</code> (an <code>--out</code> ending in <code>.pdf</code>, <code>.docx</code> or <code>.xlsx</code> writes that format). Also <code>--coverage</code>, <code>--include</code>, <code>--define</code>, <code>--target lp64|ilp32|llp64</code>, <code>--osv</code>, <code>--misra-plan</code>, <code>--lang ko|en</code>.</p>
+<p>defect-analysis commands (<code>npm run defects -- &lt;command&gt;</code>):</p>
+<pre><code class="language-bash">node scripts/defect-cli.mjs build --path . -- make            # build capture (or capture: buildless)
+node scripts/defect-cli.mjs analyze --path . --coding-standard-config misra-c2012
+node scripts/defect-cli.mjs format-errors --dir .mcc --html-output out/
+node scripts/defect-cli.mjs commit-defects --path . --stream main   # exit code 1 when the policy fails
+node scripts/defect-cli.mjs run-desktop --path .                     # only defects new to the stream
+node scripts/defect-cli.mjs manage-im --mode defects --show --status Outstanding</code></pre>
+<p>Also <code>configure</code>, <code>make-library</code> (function models) and <code>import-results</code>. All options: <code>node scripts/defect-cli.mjs --help</code>.</p>
+<h2 id="tests-and-documents">Tests and documents <a class="anchor" href="#tests-and-documents" aria-hidden="true">#</a></h2>
+<pre><code class="language-bash">npm test             # node --test + test/reporter.mjs
+npm run build:docs   # docs/UsersGuide*.html, Tutorial*.html, README*.html, ARCHITECTURE.html → public/docs/</code></pre>
+<p><code>npm test</code> prints in English: a header per file, an aligned row per test (status, number, name, time coloured by duration), then a per-file summary table with a pass bar and the list of failures; it is also saved to <code>test/last-report.txt</code>. <strong>Help › User&#39;s guide</strong> in the app opens the pages made by <code>build:docs</code>.</p>
+<p>© SHKWON (knix008@naver.com) · MIT</p>
+</main>
+</div>
+<footer>MyCodeChecker v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

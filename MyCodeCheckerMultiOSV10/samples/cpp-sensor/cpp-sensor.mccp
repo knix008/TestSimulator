@@ -1,0 +1,18 @@
+{
+  "format": "mycodechecker-project",
+  "version": 1,
+  "name": "C++ 센서 로거",
+  "key": "cpp-sensor",
+  "source": ".",
+  "settings": {
+    "mainBranch": "main",
+    "includeDirs": [
+      "include"
+    ],
+    "defines": {
+      "SENSOR_VERSION": "2"
+    },
+    "description": "C++17 센서 로거 예제 (의도적인 결함 포함)"
+  },
+  "savedAt": "2026-10-26T05:48:33.501Z"
+}

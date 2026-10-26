@@ -4,9 +4,9 @@
 // and the Tauri sidecar.
 
 const { createApi, serializeError } = require('../core/api');
-const { createSonarApi } = require('../core/sonar-api');
+const { createCompatApi } = require('../core/compat-api');
 
-// The caller's user token: our header, or SonarQube style "Bearer <token>" /
+// The caller's user token: our header, or code quality style "Bearer <token>" /
 // Basic "<token>:" when it is not the transport token of the desktop sidecar.
 function userTokenOf(req, transportToken) {
   if (req.headers['x-mcc-user-token']) return String(req.headers['x-mcc-user-token']);
@@ -23,7 +23,7 @@ function userTokenOf(req, transportToken) {
 
 function createHandler(options = {}) {
   const api = options.api || createApi(options);
-  const sonar = createSonarApi(api, { version: options.version });
+  const ref = createCompatApi(api, { version: options.version });
   const token = options.token || '';
   // Origins allowed to call cross-origin (the Tauri page calls the sidecar on
   // another port). The bearer token is still required for every POST.
@@ -57,7 +57,7 @@ function createHandler(options = {}) {
       }
     }
     const name = decodeURIComponent(url.pathname.slice('/api/'.length));
-    // SonarQube-compatible routes: /api/<area>/<action>, GET or form POST, plain JSON replies.
+    // compatible routes: /api/<area>/<action>, GET or form POST, plain JSON replies.
     if (name.includes('/')) {
       try {
         const query = Object.fromEntries(url.searchParams);
@@ -67,7 +67,7 @@ function createHandler(options = {}) {
           if (raw && type.includes('json')) Object.assign(query, JSON.parse(raw));
           else if (raw) Object.assign(query, Object.fromEntries(new URLSearchParams(raw)));
         }
-        const data = await sonar.route(req.method, name, query, { token: userTokenOf(req, token) });
+        const data = await ref.route(req.method, name, query, { token: userTokenOf(req, token) });
         if (data === undefined) { send(res, 404, { errors: [{ msg: `Unknown url: /api/${name}` }] }); return true; }
         send(res, 200, data);
       } catch (err) {
@@ -86,8 +86,9 @@ function createHandler(options = {}) {
       const data = await api.call(name, args, { token: userTokenOf(req, token) });
       send(res, 200, { ok: true, data });
     } catch (err) {
-      const status = { NO_METHOD: 404, NOT_FOUND: 404, UNAUTHORIZED: 401, FORBIDDEN: 403, APPROVAL_REQUIRED: 409 }[err.code] || 500;
-      send(res, status, { ok: false, error: serializeError(err) });
+      const error = serializeError(err);
+      const status = { NO_METHOD: 404, NOT_FOUND: 404, UNAUTHORIZED: 401, FORBIDDEN: 403, BAD_REQUEST: 400, APPROVAL_REQUIRED: 409, CONFLICT: 409, LAST_ADMIN: 409, CANCELLED: 409, TOO_MANY: 429 }[error.code] || 500;
+      send(res, status, { ok: false, error });
     }
     return true;
   }

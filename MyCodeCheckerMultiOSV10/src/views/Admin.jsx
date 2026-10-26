@@ -3,32 +3,42 @@
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
-import { Icon, Dialog } from '../components/Chrome';
-import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stepper, ViewHeader, Empty, FilePickButton, copyText, fmtDate, linesToList, NoProject } from './common';
+import { ask, toast } from '../lib/ui';
+import { Icon, CloseButton, Dialog } from '../components/Chrome';
+import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stepper, ViewHeader, Empty, FilePickButton, copyText, fmtDate, linesToList, NoProject, errorText } from './common';
 import { ToolsManager } from './Tools';
+import { SchedulesPanel, AuditPanel } from './AdminExtras';
+import { IntegrationsPanel } from './Integrations';
 
 const EVENTS = ['analysis-done', 'gate-changed'];
 const GLOBAL_PERMS = ['admin', 'gateadmin', 'profileadmin', 'scan', 'provisioning'];
 const PROJECT_PERMS = ['user', 'codeviewer', 'issueadmin', 'securityhotspotadmin', 'admin', 'scan'];
 const TOKEN_TYPES = ['USER', 'PROJECT_ANALYSIS', 'GLOBAL_ANALYSIS'];
-const EXTERNAL_FORMATS = ['sarif', 'sonar', 'coverity', 'cppcheck', 'clang-tidy', 'eslint', 'pylint', 'checkstyle', 'spotbugs', 'pmd', 'gosec', 'bandit', 'semgrep'];
+const EXTERNAL_FORMATS = ['sarif', 'generic-issues', 'defect-json', 'cppcheck', 'clang-tidy', 'eslint', 'pylint', 'checkstyle', 'spotbugs', 'pmd', 'gosec', 'bandit', 'semgrep'];
 
-export function AdminView({ ws, project, branch, onSaveWorkspace, onWorkspaceChanged, initialTab }) {
+export function AdminView({ ws, project, branch, onSaveWorkspace, onWorkspaceChanged, initialTab, onDeleteProject }) {
   useLanguage();
-  const [tab, setTab] = useState(initialTab || 'webhooks');
+  const [tab, setTab] = useState(initialTab || 'security');
   useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
   return (
-    <div className="view">
+    <div className={`view ${tab === 'security' ? 'view-list' : ''}`}>
       <ViewHeader icon="users" title={t('nav_admin')} hint={t('ad_hint')}>
         <Tabs value={tab} onChange={setTab} tabs={[
-          { id: 'webhooks', label: t('ad_webhooks'), icon: 'webhook' },
           { id: 'security', label: t('ad_security'), icon: 'users' },
+          { id: 'webhooks', label: t('ad_webhooks'), icon: 'webhook' },
           { id: 'external', label: t('ad_external'), icon: 'upload' },
           { id: 'tests', label: t('ad_tests'), icon: 'check' },
           { id: 'settings', label: t('ad_settings'), icon: 'settings' },
+          { id: 'schedules', label: t('sc_tab'), icon: 'calendar' },
+          { id: 'integrations', label: t('in_tab'), icon: 'link' },
+          { id: 'audit', label: t('au_tab'), icon: 'list' },
           { id: 'tools', label: t('tl_tab'), icon: 'installBox' },
         ]} />
+        {project && onDeleteProject && <Btn icon="trash" label={t('pj_menu_delete')} danger title={t('pj_delete_body', { name: project.name || project.path })} onClick={() => onDeleteProject(project)} />}
       </ViewHeader>
+      {tab === 'schedules' && <SchedulesPanel projects={ws.projects || []} />}
+      {tab === 'integrations' && <IntegrationsPanel projects={ws.projects || []} />}
+      {tab === 'audit' && <AuditPanel />}
       {tab === 'tools' && <><p className="small view-hint">{t('tl_hint')}</p><ToolsManager onChanged={onWorkspaceChanged} /></>}
       {tab === 'webhooks' && <Webhooks projects={ws.projects || []} />}
       {tab === 'security' && <Security projects={ws.projects || []} />}
@@ -176,7 +186,7 @@ function Security({ projects }) {
       const res = await call('security.call', { fn, args });
       setSec(res.security);
       return res.result;
-    } catch (err) { setError(err.message); return undefined; }
+    } catch (err) { setError(errorText(err)); return undefined; }
   };
   if (!sec) return error ? <Empty text={error} icon="alert" /> : <Empty text={t('loading')} icon="clock" />;
   return (
@@ -186,7 +196,15 @@ function Security({ projects }) {
           <strong><Icon name={sec.enabled ? 'lock' : 'info'} size={16} /> {sec.enabled ? t('ad_sec_on') : t('ad_sec_off')}</strong>
           <div className="small">{t('ad_sec_hint')}</div>
         </div>
-        <Toggle checked={sec.enabled} label={t('ad_enable_security')} icon="lock" onChange={(on) => act('setEnabled', [on])} />
+        <Toggle checked={sec.enabled} label={t('ad_enable_security')} icon="lock" onChange={async (on) => {
+          if (on) {
+            const admins = (sec.users || []).filter((u) => u.active && (u.groups || []).includes('administrators'));
+            const who = admins.map((u) => `${u.login}${u.hasPassword ? '' : ` (${t('ad_not_set')})`}`).join(', ') || '—';
+            if (!(await ask({ title: t('ad_enable_security'), body: t('ad_sec_on_confirm', { who }), okLabel: t('ad_sec_on_ok') }))) return;
+            if (!admins.some((u) => u.hasPassword)) { setError(t('ad_sec_need_password')); return; }
+          }
+          act('setEnabled', [on]);
+        }} />
       </div>
       {error && <p className="small bad">{error}</p>}
       <Tabs value={sub} onChange={setSub} tabs={[
@@ -201,8 +219,8 @@ function Security({ projects }) {
       {sub === 'global' && <PermMatrix sec={sec} perms={GLOBAL_PERMS} entries={sec.global} onGrant={(perm, who) => act('grantGlobal', [perm, who])} onRevoke={(perm, who) => act('revokeGlobal', [perm, who])} />}
       {sub === 'project' && <ProjectPerms sec={sec} projects={projects} act={act} />}
       {sub === 'tokens' && <Tokens sec={sec} projects={projects} act={act} setDialog={setDialog} />}
-      {dialog && dialog.kind === 'password' && <PasswordDialog login={dialog.login} onClose={() => setDialog(null)} onSave={async (pw) => { await act('setPassword', [dialog.login, pw]); setDialog(null); }} />}
-      {dialog && dialog.kind === 'token' && <TokenDialog token={dialog.token} onClose={() => setDialog(null)} />}
+      {dialog && dialog.kind === 'password' && <PasswordDialog login={dialog.login} onClose={() => setDialog(null)} onSave={async (pw) => { try { const res = await call('security.call', { fn: 'setPassword', args: [dialog.login, pw] }); setSec(res.security); setDialog(null); toast(t('ad_pw_saved', { login: dialog.login }), 'ok'); return ''; } catch (err) { return errorText(err); } }} />}
+      {dialog && dialog.kind === 'token' && <TokenDialog token={dialog.token} projectKey={dialog.projectKey} projectPath={dialog.projectPath} onClose={() => setDialog(null)} />}
     </>
   );
 }
@@ -212,7 +230,7 @@ function Users({ sec, act, setDialog }) {
   const [draft, setDraft] = useState({ login: '', name: '', email: '', password: '' });
   return (
     <>
-      <div className="panel tpanel">
+      <div className="panel tpanel list-grow">
         <div className="table-wrap short">
           <table>
             <thead><tr><th>{t('ad_login')}</th><th>{t('name')}</th><th>{t('ad_email')}</th><th>{t('ad_groups')}</th><th>{t('ad_password')}</th><th>{t('status')}</th><th className="act" /></tr></thead>
@@ -229,7 +247,7 @@ function Users({ sec, act, setDialog }) {
                     <BtnGroup>
                       <Btn icon="key" label={t('ad_password')} onClick={() => setDialog({ kind: 'password', login: u.login })} />
                       {u.active
-                        ? <Btn icon="minus" label={t('ad_deactivate')} onClick={() => act('deactivateUser', [u.login])} />
+                        ? <Btn icon="minus" label={t('ad_deactivate')} onClick={async () => { if (await ask({ title: t('ad_deactivate'), body: t('cf_user_deactivate', { login: u.login }), okLabel: t('ad_deactivate'), danger: true })) act('deactivateUser', [u.login]); }} />
                         : <Btn icon="check" label={t('ad_activate')} onClick={() => act('updateUser', [u.login, { active: true }])} />}
                     </BtnGroup>
                   </td>
@@ -263,7 +281,7 @@ function Groups({ sec, act }) {
   const builtIn = ['administrators', 'users'];
   return (
     <>
-      <div className="panel tpanel">
+      <div className="panel tpanel list-grow">
         <div className="table-wrap short">
           <table>
             <thead><tr><th>{t('name')}</th><th>{t('hs_description')}</th><th>{t('ad_members')}</th><th className="act" /></tr></thead>
@@ -276,10 +294,10 @@ function Groups({ sec, act }) {
                     <td className="small wrap">{g.description}</td>
                     <td className="wrap">{members.map((u) => (
                       <span key={u.login} className="pill removable">{u.login}
-                        <button type="button" aria-label={t('remove')} title={t('remove')} onClick={() => act('removeMember', [g.name, u.login])}><Icon name="close" size={10} /></button>
+                        <CloseButton aria-label={t('remove')} title={t('remove')} onClick={() => act('removeMember', [g.name, u.login])} size={10} />
                       </span>
                     ))}</td>
-                    <td className="act"><Btn icon="trash" label={t('remove')} disabled={builtIn.includes(g.name)} onClick={() => act('deleteGroup', [g.name])} /></td>
+                    <td className="act"><Btn icon="trash" label={t('remove')} disabled={builtIn.includes(g.name)} onClick={async () => { if (await ask({ title: t('cf_delete_title'), body: t('cf_group_delete', { name: g.name }), okLabel: t('delete_ok'), danger: true })) act('deleteGroup', [g.name]); }} /></td>
                   </tr>
                 );
               })}
@@ -352,7 +370,7 @@ function PermMatrix({ sec, perms, entries, onGrant, onRevoke }) {
 function Chip({ icon, text, onRemove }) {
   return (
     <span className="pill removable"><Icon name={icon} size={11} />{text}
-      <button type="button" aria-label={t('remove')} title={t('remove')} onClick={onRemove}><Icon name="close" size={10} /></button>
+      <CloseButton aria-label={t('remove')} title={t('remove')} onClick={onRemove} size={10} />
     </span>
   );
 }
@@ -378,7 +396,7 @@ function Tokens({ sec, projects, act, setDialog }) {
   const [draft, setDraft] = useState({ login: (sec.users[0] && sec.users[0].login) || '', name: '', type: 'USER', projectId: (projects[0] && projects[0].id) || null });
   return (
     <>
-      <div className="panel tpanel">
+      <div className="panel tpanel list-grow">
         <div className="table-wrap short">
           <table>
             <thead><tr><th>{t('name')}</th><th>{t('ad_login')}</th><th>{t('type')}</th><th>{t('projects')}</th><th>{t('ad_created')}</th><th>{t('ad_last_used')}</th><th className="act" /></tr></thead>
@@ -391,7 +409,7 @@ function Tokens({ sec, projects, act, setDialog }) {
                   <td className="small">{tk.projectId ? ((projects.find((p) => p.id === tk.projectId) || {}).name || tk.projectId) : '—'}</td>
                   <td className="small nowrap">{fmtDate(tk.createdAt)}</td>
                   <td className="small nowrap">{fmtDate(tk.lastUsedAt)}</td>
-                  <td className="act"><Btn icon="trash" label={t('ad_revoke')} onClick={() => act('revokeToken', [tk.login, tk.name])} /></td>
+                  <td className="act"><Btn icon="trash" label={t('ad_revoke')} onClick={async () => { if (await ask({ title: t('ad_revoke'), body: t('cf_token_revoke', { name: tk.name, login: tk.login }), okLabel: t('ad_revoke'), danger: true })) act('revokeToken', [tk.login, tk.name]); }} /></td>
                 </tr>
               ))}
             </tbody>
@@ -407,7 +425,9 @@ function Tokens({ sec, projects, act, setDialog }) {
         {draft.type === 'PROJECT_ANALYSIS' && <label>{t('projects')}<IconSelect value={draft.projectId} options={projects.map((p) => ({ value: p.id, label: p.name, icon: 'folder' }))} onChange={(v) => setDraft({ ...draft, projectId: v })} /></label>}
         <div className="form-end"><Btn icon="key" label={t('ad_generate')} primary disabled={!draft.login || !draft.name.trim()} onClick={async () => {
           const r = await act('generateToken', { login: draft.login, name: draft.name.trim(), type: draft.type, projectId: draft.type === 'PROJECT_ANALYSIS' ? draft.projectId : null });
-          if (r && r.token) { setDialog({ kind: 'token', token: r.token }); setDraft({ ...draft, name: '' }); }
+          // A project analysis token: the command example names that project.
+          const scoped = draft.type === 'PROJECT_ANALYSIS' && projects.find((p) => p.id === draft.projectId);
+          if (r && r.token) { setDialog({ kind: 'token', token: r.token, projectKey: scoped ? scoped.key : undefined, projectPath: scoped ? scoped.path : undefined }); setDraft({ ...draft, name: '' }); }
         }} /></div>
       </div>
     </>
@@ -418,24 +438,44 @@ function PasswordDialog({ login, onClose, onSave }) {
   useLanguage();
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
+  const [fail, setFail] = useState('');
+  const [busy, setBusy] = useState(false);
   const ok = pw.length >= 8 && pw === pw2;
+  const submit = async () => { setBusy(true); setFail(''); try { const msg = await onSave(pw); if (msg) setFail(msg); } finally { setBusy(false); } };
   return (
     <Dialog title={`${t('ad_password')} · ${login}`} onClose={onClose}>
       <label className="form-row">{t('ad_password')}<input type="password" value={pw} autoFocus onChange={(e) => setPw(e.target.value)} /></label>
       <label className="form-row">{t('ad_password_again')}<input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} /></label>
       <p className="small">{t('ad_pw_min')}</p>
-      <div className="dialog-actions"><BtnGroup><Btn icon="save" label={t('save')} primary disabled={!ok} onClick={() => onSave(pw)} /><Btn icon="close" label={t('cancel')} onClick={onClose} /></BtnGroup></div>
+      {pw2 && pw !== pw2 && <p className="small bad">{t('ad_pw_mismatch')}</p>}
+      {fail && <p className="small bad" data-error="password"><Icon name="alert" size={12} /> {fail}</p>}
+      <div className="dialog-actions"><BtnGroup><Btn icon="save" label={t('save')} primary disabled={!ok || busy} onClick={submit} /><Btn icon="close" label={t('cancel')} onClick={onClose} /></BtnGroup></div>
     </Dialog>
   );
 }
 
-function TokenDialog({ token, onClose }) {
+function TokenDialog({ token, onClose, projectKey, projectPath }) {
   useLanguage();
   const [copied, setCopied] = useState(false);
+  const [copiedCmd, setCopiedCmd] = useState('');
+  const url = typeof window !== 'undefined' && /^https?:/.test(window.location.origin) && !window.__TAURI_INTERNALS__ ? window.location.origin : 'http://<server>:<port>';
+  const key = projectKey || '<project-key>';
+  // scan.mjs needs --path (without a mcc-project.properties next to it); run from the MyCodeChecker folder.
+  const src = projectPath ? (/\s/.test(projectPath) ? `"${projectPath}"` : projectPath) : '<source-folder>';
+  const cmd = `node scripts/scan.mjs --path ${src} --server ${url} --token ${token} --project-key ${key}`;
+  const props = ['mcc.host.url=' + url, 'mcc.token=' + token, 'mcc.projectKey=' + key, 'mcc.sources=.', 'mcc.exclusions=**/node_modules/**,**/dist/**'].join('\n');
+  const copy = async (what, text) => { if (await copyText(text)) setCopiedCmd(what); };
   return (
     <Dialog title={t('ad_new_token')} onClose={onClose}>
       <p className="small">{t('ad_token_once')}</p>
       <pre className="pre selectable token">{token}</pre>
+      <h4 className="sub-title"><Icon name="terminal" size={14} /> {t('ad_token_cmd')}</h4>
+      <pre className="pre selectable mono" data-sample="cmd">{cmd}</pre>
+      <Btn icon="copy" label={copiedCmd === 'cmd' ? t('pr_copied') : t('pr_copy')} onClick={() => copy('cmd', cmd)} />
+      <h4 className="sub-title"><Icon name="file" size={14} /> mcc-project.properties</h4>
+      <pre className="pre selectable mono" data-sample="props">{props}</pre>
+      <Btn icon="copy" label={copiedCmd === 'props' ? t('pr_copied') : t('pr_copy')} onClick={() => copy('props', props)} />
+      <p className="small"><Icon name="info" size={12} /> {t('ad_token_server_note')}</p>
       <div className="dialog-actions"><BtnGroup>
         <Btn icon="copy" label={copied ? t('pr_copied') : t('pr_copy')} primary onClick={async () => setCopied(await copyText(token))} />
         <Btn icon="close" label={t('win_close')} onClick={onClose} />
@@ -517,6 +557,9 @@ function AnalysisSettings({ ws, project, onSave }) {
     cTarget: s.cTarget || '',
     includeDirs: ((project && project.includeDirs) || []).join('\n'),
     defines: definesText(project && project.defines),
+    housekeeping: { branchDays: 0, closedIssueDays: 0, auditDays: 0, ...(s.housekeeping || {}) },
+    coverageReports: ((project && project.coverageReports) || []).join('\n'),
+    arch: { layers: [], forbidden: [], maxDependencies: 0, unstableDependency: false, ...((project && project.arch) || {}) },
   });
   const [d, setD] = useState(init);
   const [note, setNote] = useState('');
@@ -534,9 +577,15 @@ function AnalysisSettings({ ws, project, onSave }) {
     const settings = {
       ...s, ...(perProject ? {} : newCode),
       autoAssign: d.autoAssign, approval: { required: d.approvalRequired, selfApproval: d.selfApproval }, licensePolicy, internalPackages: linesToList(d.internal), cTarget: d.cTarget || undefined,
+      housekeeping: d.housekeeping,
+    };
+    const arch = {
+      ...d.arch,
+      layers: (d.arch.layers || []).filter((l) => l.name.trim() && l.pattern.trim()).map((l) => ({ name: l.name.trim(), pattern: l.pattern.trim() })),
+      forbidden: (d.arch.forbidden || []).filter((f) => f.from && f.to),
     };
     const projects = (ws.projects || []).map((p) => (project && p.id === project.id
-      ? { ...p, includeDirs: linesToList(d.includeDirs), defines, newCode: perProject ? newCode : undefined }
+      ? { ...p, includeDirs: linesToList(d.includeDirs), defines, newCode: perProject ? newCode : undefined, coverageReports: String(d.coverageReports).split(/\r?\n/).map((x) => x.trim()).filter(Boolean), arch }
       : p));
     try {
       await onSave({ ...ws, settings, projects });
@@ -569,6 +618,7 @@ function AnalysisSettings({ ws, project, onSave }) {
           {d.newCode === 'scm' && <p className="small">{t('ad_nc_scm_hint')}</p>}
           {d.newCode === 'version' && <label>{t('ad_nc_version_tag')}<input value={d.newCodeVersion} placeholder="v1.2.0" onChange={(e) => set({ newCodeVersion: e.target.value })} /></label>}
           {d.newCode === 'version' && <p className="small">{t('ad_nc_version_hint')}</p>}
+          {d.newCode === 'version' && !d.newCodeVersion.trim() && <p className="small bad" data-warn="nc-version"><Icon name="alert" size={12} /> {t('nc_version_missing')}</p>}
           {d.newCode === 'analysis' && <label>{t('ad_nc_analysis')}<IconSelect value={d.newCodeAnalysis} options={analysisOptions} onChange={(v) => set({ newCodeAnalysis: v })} /></label>}
           {project && <div className="form-field"><span>{t('ad_nc_scope')}</span><Toggle checked={d.projectNewCode} label={t('ad_nc_project_only')} icon="folder" onChange={(v) => set({ projectNewCode: v })} /></div>}
           <div className="form-field"><span>{t('ad_approval')}</span><Toggle checked={d.approvalRequired} label={t('ad_approval_required')} icon="check" onChange={(v) => set({ approvalRequired: v })} /></div>
@@ -594,6 +644,14 @@ function AnalysisSettings({ ws, project, onSave }) {
           <label>{t('ad_defines')}<textarea value={d.defines} disabled={!project} placeholder={'NDEBUG\nBOARD_REV=3'} onChange={(e) => set({ defines: e.target.value })} /></label>
         </div>
       </section>
+      <HousekeepingSection value={d.housekeeping} onChange={(housekeeping) => set({ housekeeping })} onSaveFirst={save} />
+      <section className="panel">
+        <h3 className="sub-title"><Icon name="checkCircle" size={15} /> {t('ad_coverage')}{project ? ` · ${project.name}` : ''}</h3>
+        <p className="small">{t('ad_coverage_hint')}</p>
+        <div className="chips">{['LCOV', 'Cobertura', 'JaCoCo', 'Clover', 'OpenCover', 'Go cover', 'Generic XML'].map((f) => <span key={f} className="chip"><Icon name="file" size={11} />{f}</span>)}</div>
+        <label className="form-row">{t('ad_coverage_paths')}<textarea className="mono" value={d.coverageReports} disabled={!project} placeholder={'coverage/lcov.info\ntarget/site/jacoco/jacoco.xml'} onChange={(e) => set({ coverageReports: e.target.value })} /></label>
+      </section>
+      <ArchSection value={d.arch} disabled={!project} projectName={project && project.name} onChange={(arch) => set({ arch })} />
       <div className="settings-actions">
         {note && <span className="small">{note}</span>}
         <BtnGroup>
@@ -602,5 +660,91 @@ function AnalysisSettings({ ws, project, onSave }) {
         </BtnGroup>
       </div>
     </div>
+  );
+}
+
+// Housekeeping: delete old branches, closed issue states and audit entries (0 = off).
+function HousekeepingSection({ value, onChange, onSaveFirst }) {
+  useLanguage();
+  const [res, setRes] = useState(null);
+  const [error, setError] = useState('');
+  const run = async () => {
+    setError('');
+    const n = (k) => Number(value[k]) || 0;
+    if (!n('branchDays') && !n('closedIssueDays') && !n('auditDays')) { setError(t('hk_all_off')); return; }
+    const parts = [
+      n('branchDays') ? t('hk_c_branches', { n: n('branchDays') }) : '',
+      n('closedIssueDays') ? t('hk_c_issues', { n: n('closedIssueDays') }) : '',
+      n('auditDays') ? t('hk_c_audit', { n: n('auditDays') }) : '',
+    ].filter(Boolean);
+    if (!(await ask({ title: t('hk_run_now'), body: t('hk_confirm', { what: parts.join(', ') }), okLabel: t('hk_run_now'), danger: true }))) return;
+    // The values on screen are saved first, so the run uses them.
+    if (onSaveFirst) await onSaveFirst();
+    try { setRes(await call('housekeeping.run')); } catch (err) { setError(errorText(err)); }
+  };
+  const step = (key, label, icon) => (
+    <div className="form-field"><span className="form-label"><Icon name={icon} size={13} />{label}</span>
+      <span className="hrow" style={{ margin: 0 }}><Stepper value={Number(value[key]) || 0} min={0} max={3650} ariaLabel={label} onChange={(v) => onChange({ ...value, [key]: v })} /><span className="small">{Number(value[key]) ? t('days') : t('hk_off')}</span></span>
+    </div>
+  );
+  const count = (x) => (Array.isArray(x) ? x.length : typeof x === 'number' ? x : x && typeof x === 'object' ? Object.keys(x).length : 0);
+  return (
+    <section className="panel">
+      <h3 className="sub-title"><Icon name="trash" size={15} /> {t('hk_title')}</h3>
+      <p className="small">{t('hk_hint')}</p>
+      <div className="form-grid single">
+        {step('branchDays', t('hk_branch_days'), 'branch')}
+        {step('closedIssueDays', t('hk_issue_days'), 'archive')}
+        {step('auditDays', t('hk_audit_days'), 'list')}
+      </div>
+      <div className="test-row">
+        <Btn icon="trash" label={t('hk_run_now')} onClick={run} title={t('hk_run_tip')} />
+        {res && <span className="status-pill tone-ok"><Icon name="checkCircle" size={12} />{t('hk_result', { branches: count(res.branches), issues: count(res.issueStates) })}</span>}
+        {error && <span className="small bad">{error}</span>}
+      </div>
+    </section>
+  );
+}
+
+// Architecture rules of the project: layers (glob patterns), forbidden layer
+// dependencies, a dependency limit and the unstable-dependency check.
+function ArchSection({ value, onChange, disabled, projectName }) {
+  useLanguage();
+  const layers = value.layers || [];
+  const forbidden = value.forbidden || [];
+  const setLayer = (i, patch) => onChange({ ...value, layers: layers.map((l, n) => (n === i ? { ...l, ...patch } : l)) });
+  const setRule = (i, patch) => onChange({ ...value, forbidden: forbidden.map((f, n) => (n === i ? { ...f, ...patch } : f)) });
+  const layerOptions = [{ value: '', label: '—', icon: 'close' }, ...layers.filter((l) => l.name.trim()).map((l) => ({ value: l.name.trim(), label: l.name.trim(), icon: 'layers' }))];
+  return (
+    <section className="panel arch-settings">
+      <h3 className="sub-title"><Icon name="flow" size={15} /> {t('ar_settings')}{projectName ? ` · ${projectName}` : ''}</h3>
+      <p className="small">{t('ar_settings_hint')}</p>
+      <h4 className="sub-title"><Icon name="layers" size={14} />{t('ar_layers')}</h4>
+      {layers.map((l, i) => (
+        <div key={i} className="input-row arch-row">
+          <input value={l.name} disabled={disabled} placeholder={t('ar_layer_name')} aria-label={t('ar_layer_name')} onChange={(e) => setLayer(i, { name: e.target.value })} />
+          <input className="mono" value={l.pattern} disabled={disabled} placeholder="src/ui/**" aria-label={t('pattern')} onChange={(e) => setLayer(i, { pattern: e.target.value })} />
+          <Btn icon="trash" label={t('remove')} disabled={disabled} onClick={() => onChange({ ...value, layers: layers.filter((_, n) => n !== i) })} />
+        </div>
+      ))}
+      <Btn icon="plus" label={t('ar_add_layer')} disabled={disabled} onClick={() => onChange({ ...value, layers: [...layers, { name: '', pattern: '' }] })} />
+      <h4 className="sub-title"><Icon name="ban" size={14} />{t('ar_forbidden')}</h4>
+      {forbidden.map((f, i) => (
+        <div key={i} className="input-row arch-row">
+          <IconSelect value={f.from || ''} options={layerOptions} width={160} ariaLabel={t('ar_from')} onChange={(v) => setRule(i, { from: v })} />
+          <Icon name="chevronRight" size={14} />
+          <IconSelect value={f.to || ''} options={layerOptions} width={160} ariaLabel={t('ar_to')} onChange={(v) => setRule(i, { to: v })} />
+          <input value={f.message || ''} disabled={disabled} placeholder={t('ar_message')} aria-label={t('ar_message')} onChange={(e) => setRule(i, { message: e.target.value })} />
+          <Btn icon="trash" label={t('remove')} disabled={disabled} onClick={() => onChange({ ...value, forbidden: forbidden.filter((_, n) => n !== i) })} />
+        </div>
+      ))}
+      <Btn icon="plus" label={t('ar_add_rule')} disabled={disabled || layers.length < 2} onClick={() => onChange({ ...value, forbidden: [...forbidden, { from: '', to: '', message: '' }] })} />
+      <div className="form-grid">
+        <div className="form-field"><span>{t('ar_max_deps')}</span>
+          <span className="hrow" style={{ margin: 0 }}><Stepper value={Number(value.maxDependencies) || 0} min={0} max={500} ariaLabel={t('ar_max_deps')} onChange={(v) => onChange({ ...value, maxDependencies: v })} /><span className="small">{Number(value.maxDependencies) ? '' : t('hk_off')}</span></span>
+        </div>
+        <div className="form-field"><span>{t('ar_unstable')}</span><Toggle checked={!!value.unstableDependency} icon="alert" label={t('ar_unstable_label')} onChange={(v) => onChange({ ...value, unstableDependency: v })} /></div>
+      </div>
+    </section>
   );
 }

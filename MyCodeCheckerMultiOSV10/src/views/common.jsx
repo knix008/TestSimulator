@@ -2,8 +2,12 @@
 // buttons, −/+ steppers, confirmation dialog, API hook, file save / open.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { call } from '../lib/backend';
+import { call, isDesktop, pickSavePath } from '../lib/backend';
+import { errorText, toast, showError } from '../lib/ui';
 import { Icon, Dialog, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
+import { usePopupWindows, openPopupWindow } from '../lib/popups';
+import { TWO_COLUMN_MIN, menuSize } from '../lib/menuColumns';
+import { getCustomThemesRaw } from '../themes';
 
 // ── API hook ──────────────────────────────────────────────
 export function useApi(method, args, deps, enabled = true) {
@@ -28,9 +32,10 @@ export function useApi(method, args, deps, enabled = true) {
 }
 
 // ── Save / open ───────────────────────────────────────────
-// The same mechanism as the File › Export menu: a Blob and a download link.
-export function saveText(fileName, body, type = 'text/plain') {
-  const blob = new Blob([body], { type: type || 'text/plain' });
+// Desktop: a save dialog (pickSavePath) and the sidecar writes the file
+// (file.save), then "저장됨: <path>". Web (or a sidecar without file.save):
+// a Blob and a download link.
+function download(fileName, blob) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = fileName;
@@ -39,6 +44,54 @@ export function saveText(fileName, body, type = 'text/plain') {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+
+// Resolves the saved path, false (cancelled / failed) or null (download instead).
+async function saveOnDesktop(fileName, content) {
+  if (!isDesktop) return null;
+  const ext = String(fileName || '').split('.').pop();
+  const path = await pickSavePath({ defaultPath: fileName, filters: ext && ext !== fileName ? [{ name: ext.toUpperCase(), extensions: [ext] }] : undefined });
+  if (!path) return false;
+  try {
+    const res = await call('file.save', { path, ...content });
+    const where = (res && res.path) || path;
+    toast(t('saved_to', { path: where }), 'ok', 5000);
+    return where;
+  } catch (err) {
+    if (err && err.code === 'NO_METHOD') return null;
+    showError(err);
+    return false;
+  }
+}
+
+export async function saveText(fileName, body, type = 'text/plain') {
+  const done = await saveOnDesktop(fileName, { text: String(body == null ? '' : body) });
+  if (done !== null) return done;
+  download(fileName, new Blob([body], { type: type || 'text/plain' }));
+  return fileName;
+}
+
+// Binary files from the API ({ base64, type, fileName }): decode and save.
+export async function saveBase64(fileName, base64, type = 'application/octet-stream') {
+  const done = await saveOnDesktop(fileName, { base64: String(base64 || '') });
+  if (done !== null) return done;
+  const bin = atob(String(base64 || ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  download(fileName, new Blob([bytes], { type }));
+  return fileName;
+}
+
+// API warnings may be strings or { message: { ko, en } } objects.
+export function warningText(w) {
+  if (!w) return '';
+  if (typeof w === 'string') return w;
+  const m = w.message || w;
+  if (typeof m === 'string') return m;
+  return m[getLanguage()] || m.en || m.ko || JSON.stringify(w);
+}
+
+// Error text with a plain explanation for the API error codes (lib/ui.js).
+export { errorText };
 
 export async function copyText(text) {
   try {
@@ -114,14 +167,75 @@ export function Toggle({ checked, onChange, label, icon }) {
   );
 }
 
-export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, label, width = 72, ariaLabel }) {
-  const clamp = (n) => Math.min(max, Math.max(min, Number.isFinite(n) ? n : min));
+/**
+ * Every numeric setting: [−] [value, centred] [+] with square buttons as tall
+ * as the field. The value can be typed (checked against min / max / step on
+ * Enter or leaving the field); hold a button to repeat; mouse wheel and ↑ / ↓
+ * change it too. − is disabled at min and + at max. `unit` goes after it.
+ */
+export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, label, width = 72, ariaLabel, unit, disabled }) {
+  const clamp = (n) => {
+    const v = Number.isFinite(n) ? n : min;
+    const snapped = step > 0 ? Math.round((v - min) / step) * step + min : v;
+    const digits = String(step).includes('.') ? String(step).split('.')[1].length : 0;
+    return Number(Math.min(max, Math.max(min, snapped)).toFixed(digits));
+  };
+  const [text, setText] = useState(null); // while typing
+  const cur = useRef(value);
+  cur.current = value;
+  const timer = useRef(null);
+  const stop = () => { clearTimeout(timer.current); clearInterval(timer.current); timer.current = null; };
+  useEffect(() => stop, []);
+  const bump = (dir) => {
+    const next = clamp((Number(cur.current) || 0) + dir * step);
+    if (next !== cur.current) { cur.current = next; onChange(next); }
+  };
+  // Hold to repeat: once now, then after 400 ms every 70 ms.
+  const press = (dir) => (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    bump(dir);
+    stop();
+    timer.current = setTimeout(() => { timer.current = setInterval(() => bump(dir), 70); }, 400);
+  };
+  const commit = () => {
+    if (text == null) return;
+    const n = Number(String(text).replace(',', '.'));
+    setText(null);
+    if (String(text).trim() !== '' && Number.isFinite(n)) onChange(clamp(n));
+  };
+  const invalid = text != null && (String(text).trim() === '' || !Number.isFinite(Number(String(text).replace(',', '.'))));
   return (
-    <span className="stepper">
+    <span className={`stepper ${disabled ? 'disabled' : ''}`}>
       {label && <span className="stepper-label">{label}</span>}
-      <button type="button" className="step-btn" aria-label="−" disabled={value <= min} onClick={() => onChange(clamp(value - step))}>−</button>
-      <input type="number" value={value} style={{ width }} aria-label={ariaLabel || label || undefined} onChange={(e) => onChange(clamp(Number(e.target.value)))} />
-      <button type="button" className="step-btn" aria-label="+" disabled={value >= max} onClick={() => onChange(clamp(value + step))}>+</button>
+      <button type="button" className="step-btn" aria-label={`${ariaLabel || label || ''} −`.trim()} tabIndex={-1} disabled={disabled || value <= min}
+        onPointerDown={press(-1)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(-1); } }}>−</button>
+      <input type="text" inputMode="decimal" className={`step-value ${invalid ? 'invalid' : ''}`} value={text != null ? text : String(value)} style={{ width }} disabled={disabled}
+        role="spinbutton" aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-label={ariaLabel || label || undefined}
+        onChange={(e) => setText(e.target.value)} onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commit(); }
+          else if (e.key === 'Escape' && text != null) { e.stopPropagation(); setText(null); }
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setText(null); bump(e.key === 'ArrowUp' ? 1 : -1); }
+          else if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault(); setText(null); bump((e.key === 'PageUp' ? 1 : -1) * 10); }
+        }}
+        onWheel={(e) => { if (disabled || document.activeElement !== e.currentTarget) return; e.preventDefault(); setText(null); bump(e.deltaY < 0 ? 1 : -1); }} />
+      <button type="button" className="step-btn" aria-label={`${ariaLabel || label || ''} +`.trim()} tabIndex={-1} disabled={disabled || value >= max}
+        onPointerDown={press(1)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(1); } }}>+</button>
+      {unit && <span className="stepper-unit">{unit}</span>}
+    </span>
+  );
+}
+
+// A slider with the −/+ stepper and the value next to it.
+export function RangeStepper({ value, onChange, min = 0, max = 100, step = 1, unit = '', ariaLabel, width = 52 }) {
+  return (
+    <span className="range-stepper">
+      <input type="range" min={min} max={max} step={step} value={value} aria-label={ariaLabel} onChange={(e) => onChange(Number(e.target.value))} />
+      <Stepper value={value} min={min} max={max} step={step} width={width} ariaLabel={ariaLabel} onChange={onChange} />
+      {unit && <span className="small">{unit}</span>}
     </span>
   );
 }
@@ -168,14 +282,16 @@ export function IconSelect({ value, options, onChange, title, width, icon, place
     const r = btn.current.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const want = Math.min(320, options.length * 30 + 10);
+    const two = options.length >= TWO_COLUMN_MIN;
+    const rows = two ? Math.ceil(options.length / 2) : options.length;
+    const want = Math.min(two ? 420 : 320, rows * 30 + 10);
     const below = vh - r.bottom - 6;
     const above = r.top - 6;
     const up = below < want && above > below;
     const h = Math.max(40, Math.min(want, up ? above : below));
     const top = up ? Math.max(4, r.top - h - 2) : Math.min(r.bottom + 2, vh - h - 4);
     const maxWidth = Math.max(120, vw - 12);
-    const w = Math.min(Math.max(r.width, 180), maxWidth);
+    const w = Math.min(two ? Math.max(r.width, 180) * 2 + 9 : Math.max(r.width, 180), maxWidth);
     const left = Math.max(6, Math.min(r.left, vw - w - 6));
     setPos({ top, left, minWidth: w, maxWidth: Math.min(maxWidth, vw - left - 6), maxHeight: h });
   }, [open, options.length]);
@@ -203,28 +319,43 @@ export function IconSelect({ value, options, onChange, title, width, icon, place
     if (!n) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(n - 1, i + 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
+    else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && n >= TWO_COLUMN_MIN) {
+      e.preventDefault();
+      const half = Math.ceil(n / 2);
+      setActive((i) => (e.key === 'ArrowRight' ? (i < half ? Math.min(n - 1, i + half) : i) : (i >= half ? i - half : i)));
+    }
     else if (e.key === 'Home' || e.key === 'PageUp') { e.preventDefault(); setActive(0); }
     else if (e.key === 'End' || e.key === 'PageDown') { e.preventDefault(); setActive(n - 1); }
     else if (e.key === 'Tab') { setOpen(false); }
   };
   const pick = (o) => { close(true); onChange(o.value); };
+  // Desktop: the list is a child window at the button (it can go past the main window).
+  const openDesktop = () => {
+    const r = btn.current.getBoundingClientRect();
+    const items = options.map((o) => ({ value: o.value, label: String(o.label), icon: o.icon || 'list', flag: o.flag || '' }));
+    const size = menuSize(items, Math.max(r.width, 180));
+    const look = { theme: document.documentElement.dataset.theme, language: getLanguage(), customThemes: getCustomThemesRaw() };
+    openPopupWindow({ kind: 'select', anchor: r, width: size.width, height: Math.min(size.columns > 1 ? 420 : 320, size.height), payload: { ...look, items, value },
+      onResult: (res) => { if (res && 'value' in res) onChange(res.value); if (btn.current) btn.current.focus(); } });
+  };
   return (
     <>
       <button ref={btn} type="button" className="vbtn iselect" title={title} style={width ? { width } : undefined}
         aria-label={ariaLabel || undefined} aria-haspopup="listbox" aria-expanded={open}
-        onKeyDown={onButtonKey} onClick={() => (open ? setOpen(false) : openAt(currentIndex >= 0 ? currentIndex : 0))}>
-        <Icon name={(current && current.icon) || icon || 'list'} size={15} />
+        onKeyDown={(e) => { if (usePopupWindows() && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDesktop(); return; } onButtonKey(e); }}
+        onClick={() => { if (usePopupWindows()) { openDesktop(); return; } if (open) setOpen(false); else openAt(currentIndex >= 0 ? currentIndex : 0); }}>
+        {(current && current.iconNode) || <Icon name={(current && current.icon) || icon || 'list'} size={15} />}
         <span className="iselect-text">{current ? current.label : (placeholder || title)}</span>
         <Icon name="chevronDown" size={13} />
       </button>
       {open && pos && (
-        <div ref={pop} className="iselect-pop" role="listbox" aria-label={ariaLabel || title || undefined} onKeyDown={onListKey}
-          style={{ top: pos.top, left: pos.left, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight }}>
+        <div ref={pop} className={`iselect-pop ${options.length >= TWO_COLUMN_MIN ? 'two-col' : ''}`} role="listbox" aria-label={ariaLabel || title || undefined} onKeyDown={onListKey}
+          style={{ top: pos.top, left: pos.left, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight, '--rows': Math.ceil(options.length / 2) }}>
           {options.map((o, i) => (
             <button key={String(o.value)} type="button" role="option" aria-selected={o.value === value} tabIndex={i === active ? 0 : -1}
               className={`iselect-item ${o.value === value ? 'on' : ''} ${i === active ? 'active' : ''}`}
               onMouseEnter={() => setActive(i)} onClick={() => pick(o)}>
-              <Icon name={o.icon || 'list'} size={15} />
+              {o.iconNode || <Icon name={o.icon || 'list'} size={15} />}
               <span className="iselect-text">{o.label}</span>
               {o.value === value && <Icon name="check" size={13} />}
             </button>
@@ -374,12 +505,17 @@ export function emitAction(id) {
 }
 
 // "No project / no analysis yet" with the two ways out.
+// App provides the open project (without an analysis the empty state offers to analyze it).
+export const ProjectCtx = React.createContext(null);
+
 export function NoProject({ text }) {
   useLanguage();
+  const project = React.useContext(ProjectCtx);
   return (
-    <Empty icon="folder" text={text || t('no_project')} hint={t('es_no_project_hint')}>
+    <Empty icon="folder" text={text || t('no_project')} hint={project ? t('es_no_analysis_hint', { name: project.name || project.path || '' }) : t('es_no_project_hint')}>
       <BtnGroup>
-        <Btn icon="folder" label={t('open_folder')} primary onClick={() => emitAction('openFolder')} />
+        {project && <Btn icon="play" label={t('es_analyze_this')} primary onClick={() => emitAction('analyze')} />}
+        <Btn icon="folder" label={t('open_folder')} primary={!project} onClick={() => emitAction('openFolder')} />
         <Btn icon="play" label={t('open_sample')} onClick={() => emitAction('openSample')} />
       </BtnGroup>
     </Empty>
@@ -434,7 +570,7 @@ export function StatusPill({ status, resolution }) {
   return <span className={`status-pill tone-${STATUS_TONE[key] || 'muted'}`} title={resolution ? `${statusLabel(status)} / ${statusLabel(resolution)}` : statusLabel(status)}><Icon name={STATUS_ICON[key] || 'circleDot'} size={12} />{statusLabel(key)}</span>;
 }
 
-// Coverity triage values (classification / action), coloured by meaning.
+// Defect Analysis triage values (classification / action), coloured by meaning.
 const COV_TONE = { Unclassified: 'muted', Pending: 'warn', Bug: 'bad', 'False Positive': 'muted', Intentional: 'muted', Undecided: 'muted', 'Fix Required': 'bad', 'Fix Submitted': 'ok', 'Modeling Required': 'info', Ignore: 'muted' };
 const COV_ICON = { Unclassified: 'circleDot', Pending: 'hourglass', Bug: 'bug', 'False Positive': 'xCircle', Intentional: 'thumbsUp', Undecided: 'circleDot', 'Fix Required': 'wrench', 'Fix Submitted': 'checkCircle', 'Modeling Required': 'flow', Ignore: 'eye' };
 export function CovPill({ value }) {
@@ -447,12 +583,12 @@ export function Rating({ letter }) {
   return <span className={`rating-chip ${letter}`}>{letter}</span>;
 }
 
-export function ViewHeader({ icon, title, hint, children }) {
+export function ViewHeader({ icon, title, hint, children, tour }) {
   return (
     <div className="view-head">
       <div className="view-title"><Icon name={icon} size={18} /><h2>{title}</h2></div>
-      {hint && <p className="small view-hint">{hint}</p>}
-      {children && <div className="view-toolbar">{children}</div>}
+      {hint && <p className="small view-hint" title={hint}>{hint}</p>}
+      {children && <div className="view-toolbar" data-tour={tour}>{children}</div>}
     </div>
   );
 }

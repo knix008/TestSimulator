@@ -1,12 +1,13 @@
 'use strict';
 
+const compat = require('./compat');
 const fs = require('fs');
 const path = require('path');
 
-// Coverage import. SonarQube reads a report; so does this checker.
+// Coverage import. code quality reads a report; so does this checker.
 // Supported: lcov.info, Cobertura XML, JaCoCo XML.
 
-// Also Clover XML, OpenCover XML, Go cover profiles and the SonarQube generic
+// Also Clover XML, OpenCover XML, Go cover profiles and the generic
 // coverage XML. `reports` (paths relative to root) replaces auto-detection, and
 // several reports are merged (a line is covered when any report covers it).
 function readCoverage(root, reports) {
@@ -27,7 +28,7 @@ function readCoverage(root, reports) {
     'coverage/clover.xml', 'clover.xml', 'build/logs/clover.xml',
     'coverage.opencover.xml', 'opencover.xml',
     'coverage.out', 'cover.out',
-    'coverage/sonar-coverage.xml', 'sonar-coverage.xml',
+    ...compat.COVERAGE_FILES,
   ];
   for (const rel of candidates) {
     const full = path.join(root, rel);
@@ -123,7 +124,7 @@ function parseGoCover(text, root) {
   return summarize(files, 'go');
 }
 
-/** SonarQube generic coverage XML: <file path><lineToCover lineNumber covered/>. */
+/** generic coverage XML: <file path><lineToCover lineNumber covered/>. */
 function parseGenericCoverage(text, root) {
   const files = {};
   const fileRe = /<file\b[^>]*\bpath="([^"]+)"[^>]*>([\s\S]*?)<\/file>/g;

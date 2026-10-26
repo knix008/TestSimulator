@@ -811,7 +811,7 @@ R('unnecessary-lambda', 'S', 'MI', 1, ['clumsy'], null,
     },
   });
 
-const NOT_CODE = /^\s*(?:type:|noqa|pragma|pylint:|mypy:|pyright:|fmt:|isort:|nosec|nosonar|-\*-|!|TODO|FIXME|XXX|NOTE|HACK|https?:|\$|>>>|\.\.\.|=+$|-+$|#)/i;
+const NOT_CODE = /^\s*(?:type:|noqa|pragma|pylint:|mypy:|pyright:|fmt:|isort:|nosec|nomcc|-\*-|!|TODO|FIXME|XXX|NOTE|HACK|https?:|\$|>>>|\.\.\.|=+$|-+$|#)/i;
 
 R('commented-out-code', 'S', 'MA', 5, ['unused'], 'S125',
   ['Commented-out code', '주석 처리된 코드'],

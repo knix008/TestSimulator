@@ -1,8 +1,8 @@
 # absint: abstract interpretation for C/C++
 
-The deep semantic analyzer for C and C++. It works like Sparrow (abstract
-interpretation) and Coverity (path-sensitive, with function summaries). Rule
-keys are `absint:<CHECKER>`, using the Coverity checker names. It follows
+The deep semantic analyzer for C and C++. It works like security-weakness checkers (abstract
+interpretation) and Defect Analysis (path-sensitive, with function summaries). Rule
+keys are `absint:<CHECKER>`, using the defect checker names. It follows
 `core/ENGINE_CONTRACT.md` and is listed in `core/engines.js`.
 
 ## Pipeline
@@ -128,7 +128,7 @@ from a type do not count.
 | `allocNull` | false | report NULL_RETURNS for unchecked malloc/calloc/realloc/strdup |
 | `stackLimit` | 65536 | STACK_USE: bytes of stack for one function's locals or one call chain |
 
-User models (`ctx.options.models`) use the `core/coverity.js` format:
+User models (`ctx.options.models`) use the `core/defects.js` format:
 `{ name, kind: 'allocator' | 'free' | 'deallocator' | 'source' | 'sink', pattern, langs?, checker? }`.
 The pattern is tested against the call text. An allocator result is a heap
 block released by `free` or by a `free` model. A source taints the result and

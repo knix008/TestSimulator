@@ -1,15 +1,16 @@
 'use strict';
 
-// External issue import (SonarQube "external issues") and generic test
+// External issue import (code quality "external issues") and generic test
 // execution reports. Each parser turns a tool report into contract Findings
 // plus { engine, externalRule }, with type/severity, so the lead can merge
 // them into an analysis. Rule keys are `external_<engine>:<rule>`.
 //
-// Formats: SARIF 2.1.0, Sonar generic issues JSON, Coverity JSON v7/v8,
+// Formats: SARIF 2.1.0, generic issues JSON, defect JSON v7/v8,
 // cppcheck XML v2, clang-tidy / clang / gcc text, ESLint JSON, Pylint JSON,
 // Checkstyle XML, SpotBugs XML, PMD XML, gosec JSON, Bandit JSON, Semgrep JSON.
-// Tests: JUnit XML, Sonar generic test execution XML.
+// Tests: JUnit XML, generic test execution XML.
 
+const compat = require('../compat');
 const { normPath, cweNumber } = require('./util');
 const { legacyFromImpact } = require('./measures');
 
@@ -169,10 +170,10 @@ function parseSarif(input, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// SonarQube generic issue format
+// generic issue format
 
-/** SonarQube generic issue JSON (both the 10.3+ `rules` + `impacts` form and the older `engineId/type/severity` form). */
-function parseSonarGeneric(input, opts = {}) {
+/** generic issue JSON (both the 10.3+ `rules` + `impacts` form and the older `engineId/type/severity` form). */
+function parseGenericIssues(input, opts = {}) {
   const doc = typeof input === 'string' ? JSON.parse(input) : input;
   const rules = new Map(((doc && doc.rules) || []).map((r) => [r.id, r]));
   const findings = [];
@@ -205,9 +206,9 @@ function parseSonarGeneric(input, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Coverity JSON v7 / v8 (cov-format-errors --json-output-v7/v8)
+// defect JSON v7 / v8 (cov-format-errors --json-output-v7/v8)
 
-function parseCoverityJson(input, opts = {}) {
+function parseDefectJson(input, opts = {}) {
   const doc = typeof input === 'string' ? JSON.parse(input) : input;
   const findings = [];
   for (const is of (doc && doc.issues) || []) {
@@ -220,7 +221,7 @@ function parseCoverityJson(input, opts = {}) {
       file: relPath(e.filePathname || e.strippedFilePathname, opts.root),
     }));
     const file = is.strippedMainEventFilePathname || is.mainEventFilePathname || main.filePathname || '';
-    const f = finding('coverity', is.checkerName || 'COVERITY', {
+    const f = finding(compat.DEFECT_ENGINE, is.checkerName || 'DEFECT', {
       file: relPath(file, opts.root), line: is.mainEventLineNumber || main.lineNumber,
       message: main.eventDescription || props.subcategoryLongDescription || props.subcategoryShortDescription || is.checkerName,
       type: /SECURITY/.test(kind) || props.category === 'Security best practices violations' ? 'VULNERABILITY' : 'BUG',
@@ -233,7 +234,7 @@ function parseCoverityJson(input, opts = {}) {
     if (props.category) f.category = props.category;
     findings.push(f);
   }
-  return result('coverity', findings);
+  return result(compat.DEFECT_ENGINE, findings);
 }
 
 // ---------------------------------------------------------------------------
@@ -443,14 +444,14 @@ function parseSemgrepJson(input, opts = {}) {
 // Detection and dispatch
 
 const PARSERS = {
-  sarif: parseSarif, sonar: parseSonarGeneric, coverity: parseCoverityJson, cppcheck: parseCppcheckXml, 'clang-tidy': parseClangTidy,
+  sarif: parseSarif, 'generic-issues': parseGenericIssues, 'defect-json': parseDefectJson, cppcheck: parseCppcheckXml, 'clang-tidy': parseClangTidy,
   eslint: parseEslintJson, pylint: parsePylintJson, checkstyle: parseCheckstyleXml, spotbugs: parseSpotbugsXml, pmd: parsePmdXml,
   gosec: parseGosecJson, bandit: parseBanditJson, semgrep: parseSemgrepJson,
 };
 
 /**
  * Guess the report format from its text (and optional file name).
- * @returns {string|null} a key of PARSERS, 'junit', 'sonar-tests', or null
+ * @returns {string|null} a key of PARSERS, 'junit', 'generic-tests', or null
  */
 function detectFormat(textIn, fileName = '') {
   const s = String(textIn || '').replace(/^﻿/, '').trimStart();
@@ -462,7 +463,7 @@ function detectFormat(textIn, fileName = '') {
     if (/<checkstyle\b/.test(head)) return 'checkstyle';
     if (/<BugCollection\b/.test(head)) return 'spotbugs';
     if (/<pmd\b/.test(head)) return 'pmd';
-    if (/<testExecutions\b/.test(head)) return 'sonar-tests';
+    if (/<testExecutions\b/.test(head)) return compat.FORMATS.GENERIC_TESTS;
     if (/<testsuites?\b/.test(head)) return 'junit';
     return null;
   }
@@ -471,8 +472,8 @@ function detectFormat(textIn, fileName = '') {
     try { doc = JSON.parse(s); } catch { return null; }
     if (doc && doc.runs && (doc.version === '2.1.0' || /sarif/i.test(doc.$schema || ''))) return 'sarif';
     if (doc && doc.runs) return 'sarif';
-    if (doc && Array.isArray(doc.issues) && (doc.type === 'Coverity issues' || doc.formatVersion || (doc.issues[0] && doc.issues[0].checkerName))) return 'coverity';
-    if (doc && Array.isArray(doc.issues) && (doc.issues.length === 0 || doc.issues[0].primaryLocation)) return 'sonar';
+    if (doc && Array.isArray(doc.issues) && (doc.type === compat.DEFECT_JSON_TYPE || doc.formatVersion || (doc.issues[0] && doc.issues[0].checkerName))) return compat.FORMATS.DEFECT_JSON;
+    if (doc && Array.isArray(doc.issues) && (doc.issues.length === 0 || doc.issues[0].primaryLocation)) return compat.FORMATS.GENERIC_ISSUES;
     if (doc && Array.isArray(doc.Issues)) return 'gosec';
     if (doc && Array.isArray(doc.results) && (doc.results[0] ? 'test_id' in doc.results[0] : 'metrics' in doc)) return 'bandit';
     if (doc && Array.isArray(doc.results) && (doc.results[0] ? 'check_id' in doc.results[0] : 'errors' in doc)) return 'semgrep';
@@ -493,7 +494,7 @@ function detectFormat(textIn, fileName = '') {
  */
 function importExternal(input, opts = {}) {
   const textIn = typeof input === 'string' ? input.replace(/^﻿/, '') : JSON.stringify(input);
-  const format = opts.format || detectFormat(textIn, opts.fileName);
+  const format = compat.normalizeFormat(opts.format) || detectFormat(textIn, opts.fileName);
   if (!format || !PARSERS[format]) throw new Error(`Unknown external report format${opts.fileName ? `: ${opts.fileName}` : ''}`);
   const out = PARSERS[format](typeof input === 'string' ? textIn : input, opts);
   return { format, ...out };
@@ -503,7 +504,7 @@ function importExternal(input, opts = {}) {
 function toIssues(findings, opts = {}) {
   const crypto = require('crypto');
   return findings.map((f) => ({
-    key: crypto.createHash('sha1').update(`${f.rule}|${f.file}|${f.line}|${f.message.en}`).digest('hex').slice(0, 16),
+    key: crypto.createHash('sha1').update(`${compat.hashRuleKey(f.rule)}|${f.file}|${f.line}|${f.message.en}`).digest('hex').slice(0, 16),
     rule: f.rule, type: f.type, severity: f.severity, language: opts.language || null, file: f.file, line: f.line,
     ...(f.column ? { column: f.column } : {}), ...(f.endLine ? { endLine: f.endLine } : {}),
     message: f.message, debtMin: f.debtMin || 5, tags: [...new Set(['external', f.engine, ...(f.tags || []), ...(f.cwe ? [f.cwe.toLowerCase()] : [])])],
@@ -561,8 +562,8 @@ function parseJUnit(xmlIn, opts = {}) {
   return { format: 'junit', tests, suites, totals: testTotals(tests) };
 }
 
-/** Sonar generic test execution XML (<testExecutions version="1">). Duration attribute is ms already. */
-function parseSonarTests(xmlIn, opts = {}) {
+/** generic test execution XML (<testExecutions version="1">). Duration attribute is ms already. */
+function parseGenericTests(xmlIn, opts = {}) {
   const xml = stripComments(xmlIn);
   const tests = [];
   const files = [];
@@ -582,20 +583,20 @@ function parseSonarTests(xmlIn, opts = {}) {
     }
     files.push({ path: relPath(f.attrs.path, opts.root), ...testTotals(fileTests) });
   }
-  return { format: 'sonar-tests', tests, files, totals: testTotals(tests) };
+  return { format: compat.FORMATS.GENERIC_TESTS, tests, files, totals: testTotals(tests) };
 }
 
 /** Detect and parse a test report. */
 function importTests(xmlIn, opts = {}) {
-  const format = opts.format || detectFormat(xmlIn, opts.fileName);
+  const format = compat.normalizeFormat(opts.format) || detectFormat(xmlIn, opts.fileName);
   if (format === 'junit') return parseJUnit(xmlIn, opts);
-  if (format === 'sonar-tests') return parseSonarTests(xmlIn, opts);
+  if (format === compat.FORMATS.GENERIC_TESTS) return parseGenericTests(xmlIn, opts);
   throw new Error('Unknown test report format');
 }
 
 module.exports = {
   PARSERS, decodeXml, elements, detectFormat, importExternal, toIssues,
-  parseSarif, parseSonarGeneric, parseCoverityJson, parseCppcheckXml, parseClangTidy, parseEslintJson, parsePylintJson,
+  parseSarif, parseGenericIssues, parseDefectJson, parseCppcheckXml, parseClangTidy, parseEslintJson, parsePylintJson,
   parseCheckstyleXml, parseSpotbugsXml, parsePmdXml, parseGosecJson, parseBanditJson, parseSemgrepJson,
-  parseJUnit, parseSonarTests, importTests,
+  parseJUnit, parseGenericTests, importTests,
 };

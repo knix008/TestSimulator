@@ -2,7 +2,7 @@
 
 // Oracle PL/SQL (packages, procedures, functions, triggers). Exception
 // handling, dynamic SQL injection, transaction control and smells from the
-// SonarQube PL/SQL pack.
+// reference PL/SQL rule pack.
 
 const { maker } = require('./util');
 
@@ -61,7 +61,7 @@ R('execute-immediate-concat', 'V', 'CR', 20, ['sql', 'cwe-89', 'owasp-a03'],
   /\bEXECUTE\s+IMMEDIATE\b.*\|\|/i,
   ['EXECUTE IMMEDIATE with concatenated text', 'Concatenated values can change the dynamic SQL statement.', 'Use bind variables with USING, and DBMS_ASSERT for identifiers.'],
   ['문자열을 이어 붙여 EXECUTE IMMEDIATE를 합니다', '이어 붙인 값이 동적 SQL 문을 바꿀 수 있습니다.', 'USING과 바인드 변수를 쓰고 식별자에는 DBMS_ASSERT를 쓰세요.'],
-  "EXECUTE IMMEDIATE 'DELETE FROM t WHERE id = ' || p_id;", "EXECUTE IMMEDIATE 'DELETE FROM t WHERE id = :1' USING p_id;", { sonar: 'S2077' });
+  "EXECUTE IMMEDIATE 'DELETE FROM t WHERE id = ' || p_id;", "EXECUTE IMMEDIATE 'DELETE FROM t WHERE id = :1' USING p_id;", { ref: 'S2077' });
 R('open-for-concat', 'V', 'CR', 20, ['sql', 'cwe-89', 'owasp-a03'],
   /\bOPEN\s+\w+\s+FOR\s+(?!SELECT\b)[^;]*\|\|/i,
   ['OPEN FOR with concatenated SQL text', 'Concatenated values can change the cursor query.', 'Use bind variables with USING.'],
@@ -76,7 +76,7 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b\w*(?:password|passwd|pwd|secret)\w*\s+(?:CONSTANT\s+)?(?:VARCHAR2|VARCHAR|CHAR)?\s*(?:\(\s*\d+\s*\))?\s*:=\s*'[^'\s]{4,}'|\bIDENTIFIED\s+BY\s+(?!VALUES\b)"?\w{4,}/i,
   ['Hard-coded password', 'Anyone with the source or the data dictionary can read the password.', 'Use an Oracle wallet or a secured external store.'],
   ['비밀번호를 코드에 적었습니다', '소스나 데이터 사전을 볼 수 있는 누구나 비밀번호를 읽을 수 있습니다.', 'Oracle wallet이나 보호된 외부 저장소를 쓰세요.'],
-  "v_password VARCHAR2(30) := 'Tiger123';", 'v_password VARCHAR2(30) := get_secret(\'db\');', { sonar: 'S2068' });
+  "v_password VARCHAR2(30) := 'Tiger123';", 'v_password VARCHAR2(30) := get_secret(\'db\');', { ref: 'S2068' });
 R('authid-definer', 'H', 'MA', 10, ['cwe-250', 'privileges'],
   /\bAUTHID\s+DEFINER\b/i,
   ['Program runs with definer rights', 'Callers act with the owner privileges, which turns SQL injection into privilege escalation.', 'Use AUTHID CURRENT_USER unless definer rights are required.'],
@@ -103,17 +103,17 @@ R('dbms-output', 'S', 'MI', 2, ['debug'],
   /\bDBMS_OUTPUT\.PUT(?:_LINE)?\s*\(/i,
   ['DBMS_OUTPUT left in the code', 'DBMS_OUTPUT is only seen by interactive clients and fills a buffer otherwise.', 'Log to a table or with a logging package.'],
   ['DBMS_OUTPUT이 남아 있습니다', 'DBMS_OUTPUT은 대화형 클라이언트만 보며 그 밖에서는 버퍼만 채웁니다.', '테이블이나 로깅 패키지로 기록하세요.'],
-  "DBMS_OUTPUT.PUT_LINE('debug ' || v_id);", "logger.log('processing ' || v_id);", { sonar: 'S106' });
+  "DBMS_OUTPUT.PUT_LINE('debug ' || v_id);", "logger.log('processing ' || v_id);", { ref: 'S106' });
 R('goto', 'S', 'MA', 10, ['brain-overload'],
   /^\s*GOTO\s+\w+\s*;/i,
   ['GOTO statement', 'GOTO makes control flow hard to follow.', 'Use loops, EXIT and CONTINUE.'],
   ['GOTO 문입니다', 'GOTO는 제어 흐름을 따라가기 어렵게 만듭니다.', '반복문, EXIT, CONTINUE를 쓰세요.'],
-  'GOTO retry;', 'CONTINUE;', { sonar: 'S907' });
+  'GOTO retry;', 'CONTINUE;', { ref: 'S907' });
 R('commented-out-code', 'S', 'MI', 5, ['unused'],
   /^\s*--\s*(?:SELECT|INSERT|UPDATE|DELETE|BEGIN|END|IF|LOOP)\b.*;\s*$/i,
   ['Commented-out code', 'Dead code in comments is noise and goes stale.', 'Delete it; version control keeps the history.'],
   ['주석 처리된 코드입니다', '주석 속 죽은 코드는 잡음이고 금방 낡습니다.', '지우세요. 이력은 버전 관리가 지킵니다.'],
-  '-- UPDATE emp SET sal = sal * 2;', '-- Salaries are raised by the yearly batch.', { scope: 'any', sonar: 'S125' });
+  '-- UPDATE emp SET sal = sal * 2;', '-- Salaries are raised by the yearly batch.', { scope: 'any', ref: 'S125' });
 R('implicit-cursor-loop', 'S', 'MI', 5, ['performance'],
   /^\s*FOR\s+\w+\s+IN\s+\(\s*SELECT\b.*\)\s*LOOP\s+(?:INSERT|UPDATE|DELETE)\b/i,
   ['Row-by-row DML in a cursor loop', 'One DML per row is much slower than a set-based statement or FORALL.', 'Use a single INSERT ... SELECT / MERGE, or BULK COLLECT with FORALL.'],
@@ -123,7 +123,7 @@ R('todo', 'S', 'IN', 5, ['unfinished'],
   /\b(?:TODO|FIXME)\b/,
   ['TODO / FIXME comment', 'The comment marks unfinished work.', 'Finish the work or open a tracked issue.'],
   ['TODO / FIXME 주석입니다', '주석이 끝나지 않은 일을 표시합니다.', '작업을 끝내거나 추적하는 이슈를 여세요.'],
-  '-- TODO: handle duplicates', '-- Duplicates are merged by MERGE above.', { scope: 'any', sonar: 'S1135' });
+  '-- TODO: handle duplicates', '-- Duplicates are merged by MERGE above.', { scope: 'any', ref: 'S1135' });
 R('number-without-precision', 'S', 'MI', 2, ['types'],
   /\b\w+\s+NUMBER\s*(?::=[^;]*)?;/i,
   ['NUMBER without precision', 'An unconstrained NUMBER accepts any size and hides intent.', 'Give precision and scale, or use PLS_INTEGER for counters.'],

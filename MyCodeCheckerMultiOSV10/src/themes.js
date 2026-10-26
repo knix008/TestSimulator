@@ -263,7 +263,11 @@ export const DEFAULT_THEME = 'midnight';
 // every lookup (picker, cycling, apply) sees built-in and custom alike.
 export const CUSTOM_COLOR_KEYS = ['bg', 'panel', 'raised', 'hover', 'active', 'border', 'borderStrong', 'text', 'textDim', 'accent', 'accentStrong', 'accentText', 'folder', 'file', 'danger'];
 let customThemes = [];
+let customRaw = [];
+/** The custom themes as saved ({ id, label, mode, colors }), for child windows. */
+export function getCustomThemesRaw() { return customRaw; }
 export function setCustomThemes(list) {
+  customRaw = (Array.isArray(list) ? list : []).filter((c) => c && c.id && c.colors);
   customThemes = (Array.isArray(list) ? list : []).filter((c) => c && c.id && c.colors).map((c) => ({ ...mk(c.id, c.label || 'Custom', c.label || 'Custom', c.mode === 'light' ? 'light' : 'dark', c.colors), custom: true }));
 }
 export function getCustomThemes() { return customThemes; }

@@ -1,0 +1,6 @@
+[
+  { "directory": ".", "command": "c++ -std=c++17 -Iinclude -DSENSOR_VERSION=2 -c src/main.cpp -o build/main.o", "file": "src/main.cpp" },
+  { "directory": ".", "command": "c++ -std=c++17 -Iinclude -DSENSOR_VERSION=2 -c src/device.cpp -o build/device.o", "file": "src/device.cpp" },
+  { "directory": ".", "command": "c++ -std=c++17 -Iinclude -DSENSOR_VERSION=2 -c src/reading.cpp -o build/reading.o", "file": "src/reading.cpp" },
+  { "directory": ".", "command": "c++ -std=c++17 -Iinclude -DSENSOR_VERSION=2 -c src/logger.cpp -o build/logger.o", "file": "src/logger.cpp" }
+]

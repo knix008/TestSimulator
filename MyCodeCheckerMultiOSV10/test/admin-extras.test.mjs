@@ -69,7 +69,7 @@ test('portfolio measures sum counts and take the worst rating', async () => {
   assert.equal(pf.releasability, ra.analysis.qualityGate.status === 'ERROR' || rb.analysis.qualityGate.status === 'ERROR' ? 'ERROR' : 'OK');
 });
 
-test('sonar.modules uploads each module of a monorepo as its own project', async () => {
+test('mcc.modules uploads each module of a monorepo as its own project', async () => {
   const configDir = tmp('mcc-mono-');
   const { handle, api } = createHandler({ configDir });
   const server = http.createServer((req, res) => { handle(req, res); });
@@ -80,7 +80,7 @@ test('sonar.modules uploads each module of a monorepo as its own project', async
     fs.mkdirSync(path.join(dir, 'api'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'web', 'src', 'a.js'), 'eval(x);\n');
     fs.writeFileSync(path.join(dir, 'api', 'b.py'), 'import os\nos.system(cmd)\n');
-    fs.writeFileSync(path.join(dir, 'sonar-project.properties'), 'sonar.projectKey=mono\nsonar.modules=web,api\nweb.sonar.sources=src\napi.sonar.projectKey=mono-api\n');
+    fs.writeFileSync(path.join(dir, 'mcc-project.properties'), 'mcc.projectKey=mono\nmcc.modules=web,api\nweb.mcc.sources=src\napi.mcc.projectKey=mono-api\n');
     const code = await new Promise((resolve) => {
       const child = spawn(process.execPath, [path.resolve('scripts/scan.mjs'), '--server', `http://127.0.0.1:${server.address().port}`], { cwd: dir, env: { ...process.env, MCC_TOKEN: '' } });
       child.on('close', resolve);
@@ -93,4 +93,23 @@ test('sonar.modules uploads each module of a monorepo as its own project', async
   } finally {
     server.close();
   }
+});
+
+test('the CLI can use the app workspace (issue states, exclusions) without changing it', async () => {
+  const dir = tmp('mcc-cliws-');
+  const api = createApi({ configDir: dir });
+  const sample = path.resolve('samples/demo');
+  const r = await api.call('project.scan', { path: sample });
+  await api.call('issue.update', { projectId: r.project.id, keys: [r.analysis.issues[0].key], patch: { status: 'RESOLVED', resolution: 'FALSE-POSITIVE' } });
+  const before = fs.readFileSync(path.join(dir, 'workspace.json'), 'utf8');
+  const out = path.join(tmp('mcc-cliout-'), 'r.json');
+  const code = await new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.resolve('scripts/scan.mjs'), '--path', sample, '--workspace', dir, '--exclude', '**/*.py', '--out', out]);
+    child.on('close', resolve);
+  });
+  assert.ok([0, 1].includes(code));
+  const report = JSON.parse(fs.readFileSync(out, 'utf8'));
+  assert.equal(report.issues.filter((i) => i.resolution === 'FALSE-POSITIVE').length, 1);
+  assert.equal(report.issues.filter((i) => i.file.endsWith('.py')).length, 0);
+  assert.equal(fs.readFileSync(path.join(dir, 'workspace.json'), 'utf8'), before);
 });

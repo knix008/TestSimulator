@@ -3,12 +3,12 @@
 // Self-contained, print-ready HTML reports (open in a browser, print to PDF)
 // and CSV variants. Korean / English through `lang`.
 //
-//   executiveReport   Sonar "project PDF report" style summary
+//   executiveReport   code quality "project PDF report" style summary
 //   securityReport    one security standard (from compliance.js)
 //   misraReport       MISRA Compliance:2020 GCS / GEP / deviations
-//   integrityReport   Coverity "Integrity report" (defect density, impact, component, checker, trend)
-//   coveritySecurityReport  Coverity "Security report" (CWE-weighted score)
-//   sparrowReport     Sparrow-style rule-set compliance
+//   integrityReport   Defect Analysis "Integrity report" (defect density, impact, component, checker, trend)
+//   defectSecurityReport  Defect Analysis "Security report" (CWE-weighted score)
+//   weaknessReport     security-weakness rule-set compliance
 //   sbomSection       SCA {dependencies, vulnerabilities, licenses} block, used by the others
 
 const { esc, text, toCsvRows, isClosed, ruleIndex, cwesOf, countBy } = require('./util');
@@ -33,7 +33,7 @@ const L = {
     ruleSet: 'Rule set', checkedRules: 'Rules checked', violatedRules: 'Rules violated', complianceRate: 'Compliance rate',
     sbom: 'Software bill of materials', dependencies: 'Dependencies', licenses: 'Licenses', name: 'Name', version: 'Version', license: 'License', id: 'ID', pkg: 'Package',
     issues: 'Issues', requirement: 'Requirement', component: 'Component', checker: 'Checker', executive: 'Executive summary', securityReport: 'Security report',
-    misra: 'MISRA compliance report', sparrow: 'Rule-set compliance report', covSecurity: 'Security report (CWE weighted)', rank: 'Rank',
+    misra: 'MISRA compliance report', weakness: 'Rule-set compliance report', covSecurity: 'Security report (CWE weighted)', rank: 'Rank',
   },
   ko: {
     generated: '생성', project: '프로젝트', branch: '브랜치', gate: '품질 게이트', passed: '통과', failed: '실패', none: '계산 안 됨',
@@ -52,7 +52,7 @@ const L = {
     ruleSet: '규칙 집합', checkedRules: '검사한 규칙', violatedRules: '위반한 규칙', complianceRate: '준수율',
     sbom: '소프트웨어 자재 명세서(SBOM)', dependencies: '의존성', licenses: '라이선스', name: '이름', version: '버전', license: '라이선스', id: 'ID', pkg: '패키지',
     issues: '이슈', requirement: '요구 사항', component: '구성 요소', checker: '검사기', executive: '요약 보고서', securityReport: '보안 보고서',
-    misra: 'MISRA 준수 보고서', sparrow: '규칙 집합 준수 보고서', covSecurity: '보안 보고서(CWE 가중)', rank: '순위',
+    misra: 'MISRA 준수 보고서', weakness: '규칙 집합 준수 보고서', covSecurity: '보안 보고서(CWE 가중)', rank: '순위',
   },
 };
 
@@ -80,7 +80,7 @@ function page(title, lang, body, opts = {}) {
   const tr = t(lang);
   const when = opts.generatedAt || new Date().toISOString();
   return `<!doctype html><html lang="${lang === 'ko' ? 'ko' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${CSS}</style></head><body>
-<h1>${esc(title)}</h1><div class="meta">${opts.project ? `${esc(tr.project)}: <strong>${esc(opts.project)}</strong> · ` : ''}${opts.branch ? `${esc(tr.branch)}: ${esc(opts.branch)} · ` : ''}${esc(tr.generated)}: ${esc(when.replace('T', ' ').slice(0, 19))}</div>
+<h1>${esc(title)}</h1><div class="meta">${opts.project ? `${esc(tr.project)}: <strong>${esc(typeof opts.project === 'object' ? (opts.project.name || opts.project.key || '') : opts.project)}</strong> · ` : ''}${opts.branch ? `${esc(tr.branch)}: ${esc(opts.branch)} · ` : ''}${esc(tr.generated)}: ${esc(when.replace('T', ' ').slice(0, 19))}</div>
 ${body}
 </body></html>`;
 }
@@ -150,7 +150,7 @@ function hhmm(min) {
 }
 
 /**
- * Executive summary (Sonar project PDF report style).
+ * Executive summary (code quality project PDF report style).
  * @param {object} analysis
  * @param {{lang?:string, project?:string, branch?:string, catalog?:object[], history?:object[], sca?:object, generatedAt?:string}} [opts]
  */
@@ -271,7 +271,7 @@ function misraCsv(analysis, catalog, plan = {}, opts = {}) {
 
 function integrityData(analysis, opts = {}) {
   const issues = (analysis.issues || []).filter((i) => i.cid || i.checker);
-  const live = issues.filter((i) => !(i.coverityStatus === 'Dismissed' || i.classification === 'False Positive' || i.classification === 'Intentional' || i.action === 'Ignore'));
+  const live = issues.filter((i) => !(i.defectStatus === 'Dismissed' || i.classification === 'False Positive' || i.classification === 'Intentional' || i.action === 'Ignore'));
   const ncloc = (analysis.measures && analysis.measures.ncloc) || 0;
   const kloc = ncloc / 1000;
   const impact = { High: 0, Medium: 0, Low: 0 };
@@ -283,17 +283,17 @@ function integrityData(analysis, opts = {}) {
   const target = opts.targetDensity == null ? 1.0 : opts.targetDensity;
   const density = kloc ? Math.round((live.length / kloc) * 100) / 100 : 0;
   const highDensity = kloc ? Math.round((impact.High / kloc) * 100) / 100 : 0;
-  const cov = analysis.coverity || {};
+  const cov = analysis.defectAnalysis || {};
   return {
     ncloc, kloc: Math.round(kloc * 100) / 100, outstanding: live.length, dismissed: issues.length - live.length, impact, density, highDensity,
     target, meetsTarget: density <= target, byComponent: group((i) => i.component || 'Other'), byChecker: group((i) => i.checker || i.rule),
     newlyDetected: cov.newlyDetected || 0, fixed: cov.fixed || 0, snapshot: cov.snapshot || null,
-    trend: (opts.history || []).map((h) => ({ at: h.at, snapshot: h.coverity && h.coverity.snapshot, outstanding: h.coverity ? h.coverity.outstanding : null, high: h.coverity ? h.coverity.outstandingHigh : null, density: h.coverity && h.measures && h.measures.ncloc ? Math.round((h.coverity.outstanding / (h.measures.ncloc / 1000)) * 100) / 100 : null })),
+    trend: (opts.history || []).map((h) => ({ at: h.at, snapshot: h.defectAnalysis && h.defectAnalysis.snapshot, outstanding: h.defectAnalysis ? h.defectAnalysis.outstanding : null, high: h.defectAnalysis ? h.defectAnalysis.outstandingHigh : null, density: h.defectAnalysis && h.measures && h.measures.ncloc ? Math.round((h.defectAnalysis.outstanding / (h.measures.ncloc / 1000)) * 100) / 100 : null })),
   };
 }
 
 /**
- * Coverity-style Integrity report.
+ * defect-analysis Integrity report.
  * @param {object} analysis
  * @param {{lang?:string, history?:object[], targetDensity?:number, project?:string, branch?:string}} [opts]
  */
@@ -350,8 +350,8 @@ function covSecurityData(analysis, catalog) {
   return { score: Math.round(score * 10) / 10, perKloc: Math.round(perKloc * 10) / 10, level, rows: [...rows.values()].sort((a, b) => b.score - a.score) };
 }
 
-/** Coverity-style Security report with CWE weighting. */
-function coveritySecurityReport(analysis, catalog, opts = {}) {
+/** defect-analysis Security report with CWE weighting. */
+function defectSecurityReport(analysis, catalog, opts = {}) {
   const lang = opts.lang || 'en';
   const tr = t(lang);
   const d = covSecurityData(analysis, catalog);
@@ -363,13 +363,13 @@ ${sbomSection(opts.sca, lang)}`;
 }
 
 /** CSV of the CWE-weighted security report. */
-function coveritySecurityCsv(analysis, catalog) {
+function defectSecurityCsv(analysis, catalog) {
   const d = covSecurityData(analysis, catalog);
   return toCsvRows([['cwe', 'name', 'weight', 'count', 'score'], ...d.rows.map((r) => [r.cwe, r.name, r.weight, r.count, Math.round(r.score * 10) / 10]), ['total', '', '', '', d.score]]);
 }
 
 /**
- * Rule sets for the Sparrow-style report: a predicate over catalog rules.
+ * Rule sets for the security-weakness report: a predicate over catalog rules.
  * Built in: 'cwe', 'owasp2021', 'cert', 'misraC2012', 'misraC2023', 'misraCpp2023', 'cweTop25', 'security', 'all'.
  * A custom set is { id, name, rules: [ruleKey] } or { id, name, tags: [tag] }.
  */
@@ -395,7 +395,7 @@ function ruleSetMembers(catalog, set) {
   return rules.filter(pick);
 }
 
-function sparrowData(analysis, catalog, set, opts = {}) {
+function weaknessData(analysis, catalog, set, opts = {}) {
   const members = ruleSetMembers(catalog, set);
   const inactive = new Set(opts.inactive || []);
   const counts = countBy((analysis.issues || []).filter((i) => !isClosed(i)), (i) => i.rule);
@@ -413,20 +413,20 @@ function sparrowData(analysis, catalog, set, opts = {}) {
   };
 }
 
-/** Sparrow-style rule-set compliance report. */
-function sparrowReport(analysis, catalog, set = 'all', opts = {}) {
+/** security-weakness rule-set compliance report. */
+function weaknessReport(analysis, catalog, set = 'all', opts = {}) {
   const lang = opts.lang || 'en';
   const tr = t(lang);
-  const d = sparrowData(analysis, catalog, set, opts);
+  const d = weaknessData(analysis, catalog, set, opts);
   const body = `<div class="grid">${card(tr.ruleSet, esc(d.set))}${card(tr.checkedRules, d.checked)}${card(tr.violatedRules, d.violated)}${card(tr.violations, d.violations)}${card(tr.complianceRate, `${d.complianceRate}%`)}</div>
 ${table([tr.rule, tr.name, tr.category, tr.severity, tr.violations, tr.status], d.rules.map((r) => [r.key, text(r.name, lang), r.ref, r.severity, r.violations, { html: !r.checked ? '<span class="small">—</span>' : r.violations ? `<span class="bad">${esc(tr.violations)}</span>` : `<span class="ok">${esc(tr.compliant)}</span>` }]), [4])}
 ${sbomSection(opts.sca, lang)}`;
-  return page(tr.sparrow, lang, body, opts);
+  return page(tr.weakness, lang, body, opts);
 }
 
-/** CSV of the Sparrow-style rule-set report. */
-function sparrowCsv(analysis, catalog, set = 'all', opts = {}) {
-  const d = sparrowData(analysis, catalog, set, opts);
+/** CSV of the security-weakness rule-set report. */
+function weaknessCsv(analysis, catalog, set = 'all', opts = {}) {
+  const d = weaknessData(analysis, catalog, set, opts);
   return toCsvRows([['rule', 'name', 'reference', 'severity', 'checked', 'violations'], ...d.rules.map((r) => [r.key, text(r.name, opts.lang || 'en'), r.ref, r.severity, r.checked, r.violations])]);
 }
 
@@ -438,7 +438,7 @@ function sbomCsv(sca) {
 }
 
 /**
- * One entry point: kind = executive | security | misra | integrity | coverity-security | sparrow | sbom.
+ * One entry point: kind = executive | security | misra | integrity | defect-security | weakness | sbom.
  * @returns {{html:string, csv:string, fileName:string}}
  */
 function build(kind, analysis, opts = {}) {
@@ -449,15 +449,15 @@ function build(kind, analysis, opts = {}) {
     case 'security': return { html: securityReport(analysis, catalog, opts.standard || 'owasp2021', opts), csv: securityCsv(analysis, catalog, opts.standard || 'owasp2021', opts), fileName: `security-${opts.standard || 'owasp2021'}-${stamp}`.replace(/:/g, '-') };
     case 'misra': return { html: misraReport(analysis, catalog, opts.plan || {}, opts), csv: misraCsv(analysis, catalog, opts.plan || {}, opts), fileName: `misra-${(opts.plan && opts.plan.standard) || 'misraC2012'}-${stamp}` };
     case 'integrity': return { html: integrityReport(analysis, opts), csv: integrityCsv(analysis, opts), fileName: `integrity-${stamp}` };
-    case 'coverity-security': return { html: coveritySecurityReport(analysis, catalog, opts), csv: coveritySecurityCsv(analysis, catalog), fileName: `cwe-security-${stamp}` };
-    case 'sparrow': return { html: sparrowReport(analysis, catalog, opts.ruleSet || 'all', opts), csv: sparrowCsv(analysis, catalog, opts.ruleSet || 'all', opts), fileName: `ruleset-${stamp}` };
+    case 'defect-security': return { html: defectSecurityReport(analysis, catalog, opts), csv: defectSecurityCsv(analysis, catalog), fileName: `cwe-security-${stamp}` };
+    case 'weakness': return { html: weaknessReport(analysis, catalog, opts.ruleSet || 'all', opts), csv: weaknessCsv(analysis, catalog, opts.ruleSet || 'all', opts), fileName: `ruleset-${stamp}` };
     case 'sbom': return { html: page(t(opts.lang).sbom, opts.lang || 'en', sbomSection(opts.sca || {}, opts.lang), opts), csv: sbomCsv(opts.sca || {}), fileName: `sbom-${stamp}` };
     default: throw new Error(`Unknown report kind: ${kind}`);
   }
 }
 
 module.exports = {
-  REPORT_KINDS: ['executive', 'security', 'misra', 'integrity', 'coverity-security', 'sparrow', 'sbom'],
+  REPORT_KINDS: ['executive', 'security', 'misra', 'integrity', 'defect-security', 'weakness', 'sbom'],
   executiveReport, executiveCsv, securityReport, securityCsv, misraReport, misraCsv, integrityReport, integrityCsv,
-  coveritySecurityReport, coveritySecurityCsv, cweWeight, sparrowReport, sparrowCsv, ruleSetMembers, sbomSection, sbomCsv, sparkline, build,
+  defectSecurityReport, defectSecurityCsv, cweWeight, weaknessReport, weaknessCsv, ruleSetMembers, sbomSection, sbomCsv, sparkline, build,
 };

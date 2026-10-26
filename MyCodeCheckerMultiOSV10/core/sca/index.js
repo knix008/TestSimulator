@@ -22,6 +22,10 @@ const { toCycloneDx, toSpdx, toSpdxTagValue, importSbom } = require('./sbom');
 const { catalog, RULES } = require('./rules');
 const { tryJson, basename, dirname, joinPath, normalizeName } = require('./util');
 const { parseToml } = require('./toml');
+const reach = require('./reachability');
+const snippets = require('./snippets');
+const binary = require('./binary');
+const { licenseObligations, compatibilityHints } = require('./license');
 
 const SKIP_DIRS = new Set([
   'node_modules', '.git', '.hg', '.svn', 'vendor', 'target', 'dist', 'build', 'out', '.venv', 'venv', 'env',
@@ -203,25 +207,65 @@ function vulnerabilityFindings(vulns, byId, options) {
     const viaKo = dep.direct ? '' : ` 간접 의존: ${pathText(dep, byId)}.`;
     const rangeEn = dep.version ? '' : ` (version not locked; checked the lowest version allowed by "${dep.versionSpec}")`;
     const rangeKo = dep.version ? '' : ` (버전이 잠기지 않아 "${dep.versionSpec}" 가 허용하는 최저 버전으로 확인)`;
+    const binEn = dep.source === 'binary' ? ` Identified in binary ${dep.file}${dep.binaryInner ? ` (${dep.binaryInner})` : ''} from ${dep.binaryEvidence}.` : '';
+    const binKo = dep.source === 'binary' ? ` 바이너리 ${dep.file}${dep.binaryInner ? ` (${dep.binaryInner})` : ''} 에서 ${dep.binaryEvidence} 로 식별했습니다.` : '';
+    const rt = reachabilityText(v);
     const message = {
-      en: `${label(dep)}${rangeEn} is affected by ${idText}, ${score}: ${v.summary}.${fixEn}${upEn}${viaEn}`,
-      ko: `${label(dep)}${rangeKo} 에 ${idText} 취약점이 있습니다(${score}): ${v.summary}.${fixKo}${upKo}${viaKo}`,
+      en: `${label(dep)}${rangeEn} is affected by ${idText}, ${score}: ${v.summary}.${fixEn}${upEn}${viaEn}${binEn}${rt.en}`,
+      ko: `${label(dep)}${rangeKo} 에 ${idText} 취약점이 있습니다(${score}): ${v.summary}.${fixKo}${upKo}${viaKo}${binKo}${rt.ko}`,
     };
-    out.push({
-      rule: 'sca:vulnerable-dependency', file: loc.file, line: loc.line, message,
-      severity: toIssueSeverity(v.severity === 'UNKNOWN' ? 'HIGH' : v.severity),
-      events: eventsFor(dep, byId, { en: `${label(dep)} is vulnerable (${v.id})`, ko: `${label(dep)} 취약 (${v.id})` }),
-      function: dep.name,
-      sca: { advisory: v.id, aliases: v.aliases, cve: v.cve, ghsa: v.ghsa, score: v.score, vector: v.vector, severity: v.severity, fixedIn: v.fixedIn, suggestedUpgrade: v.suggestedUpgrade, purl: dep.purl, direct: dep.direct, cwes: v.cwes },
-    });
+    const originalSeverity = toIssueSeverity(v.severity === 'UNKNOWN' ? 'HIGH' : v.severity);
+    const lowered = v.reachability === 'not-imported' && options.reachabilitySeverity !== false;
+    const severity = lowered ? lowerSeverity(originalSeverity) : originalSeverity;
+    const events = eventsFor(dep, byId, { en: `${label(dep)} is vulnerable (${v.id})`, ko: `${label(dep)} 취약 (${v.id})` });
+    for (const e of v.reachabilityEvidence || []) {
+      const tag = e.kind === 'use' ? 'call' : 'import';
+      events.push({ file: e.file, line: e.line, tag, text: tag === 'call' ? { en: `Affected code used: ${e.text}`, ko: `영향받는 코드 사용: ${e.text}` } : { en: `Package used: ${e.text}`, ko: `패키지 사용: ${e.text}` }, main: false });
+    }
+    const sca = { advisory: v.id, aliases: v.aliases, cve: v.cve, ghsa: v.ghsa, score: v.score, vector: v.vector, severity: v.severity, fixedIn: v.fixedIn, suggestedUpgrade: v.suggestedUpgrade, purl: dep.purl, direct: dep.direct, cwes: v.cwes };
+    if (v.reachability) {
+      Object.assign(sca, { reachability: v.reachability, reachabilityReason: v.reachabilityReason, reachabilityEvidence: v.reachabilityEvidence, reachabilitySymbols: v.reachabilitySymbols });
+      if (lowered) sca.originalSeverity = originalSeverity;
+    }
+    if (dep.source === 'binary') sca.source = 'binary';
+    const finding = { rule: 'sca:vulnerable-dependency', file: loc.file, line: loc.line, message, severity, events, function: dep.name, sca };
+    if (lowered) finding.originalSeverity = originalSeverity;
+    out.push(finding);
   }
   return out;
+}
+
+const SEVERITY_ORDER = ['INFO', 'MINOR', 'MAJOR', 'CRITICAL', 'BLOCKER'];
+function lowerSeverity(sev) {
+  const k = SEVERITY_ORDER.indexOf(sev);
+  return k > 0 ? SEVERITY_ORDER[k - 1] : sev;
+}
+
+function reachabilityText(v) {
+  const ev = (v.reachabilityEvidence || [])[0];
+  const at = ev ? ` (${ev.file}:${ev.line})` : '';
+  switch (v.reachability) {
+    case 'reachable': {
+      const call = (v.reachabilityEvidence || []).find((e) => e.kind === 'use') || ev;
+      const where = call ? ` (${call.file}:${call.line})` : '';
+      return { en: ` Reachable: the project code uses an affected symbol${where}.`, ko: ` 도달 가능: 프로젝트 코드가 영향받는 심볼을 씁니다${where}.` };
+    }
+    case 'imported':
+      return v.reachabilityReason === 'no-symbol-data'
+        ? { en: ` The project code imports the package${at}.`, ko: ` 프로젝트 코드가 이 패키지를 가져옵니다${at}.` }
+        : { en: ` The project code imports the package${at}, but no affected symbol is referenced.`, ko: ` 프로젝트 코드가 패키지를 가져오지만${at} 영향받는 심볼은 쓰지 않습니다.` };
+    case 'not-imported':
+      return { en: ' The project code does not import the package (lower priority).', ko: ' 프로젝트 코드가 이 패키지를 가져오지 않습니다(우선순위 낮음).' };
+    default: return { en: '', ko: '' };
+  }
 }
 
 function licenseReport(deps, policyIn, options) {
   const policy = mergePolicy(policyIn);
   const licenses = [];
   const findings = [];
+  const hints = [];
+  const projectLicenses = options.projectLicenses || new Map();
   for (const dep of deps) {
     const raw = (dep.licenses && dep.licenses.find(Boolean)) || dep.license || null;
     const ev = evaluateLicense(raw, policy);
@@ -231,7 +275,24 @@ function licenseReport(deps, policyIn, options) {
       dependency: dep.id, name: dep.name, version: dep.version, ecosystem: dep.ecosystem, declared: raw, expression: ev.expression,
       category: ev.category, verdict: ev.verdict, source: dep.licenseSource || (raw ? 'manifest' : null), scope: dep.scope,
     };
+    if (ev.expression) entry.obligations = licenseObligations(ev.expression).map((o) => o.id);
+    const projLic = options.projectLicense || projectLicenses.get(dep.project) || null;
+    const devOnly = dep.scope === 'dev' || dep.scope === 'test';
+    const compat = ev.expression && !devOnly && options.licenseCompatibility !== false ? compatibilityHints(projLic, ev.expression, { policy }) : [];
+    if (compat.length) {
+      entry.compatibility = compat;
+      for (const h of compat) hints.push({ dependency: dep.id, name: dep.name, version: dep.version, license: ev.expression, projectLicense: projLic, ...h });
+    }
     licenses.push(entry);
+    for (const h of compat) {
+      if (h.level !== 'conflict' || h.assumed) continue;
+      const l = location(dep, options.byId);
+      findings.push({
+        rule: 'sca:license-incompatible', file: l.file, line: l.line, function: dep.name,
+        message: { en: `${label(dep)}: ${h.message.en}`, ko: `${label(dep)}: ${h.message.ko}` },
+        events: eventsFor(dep, options.byId, null), sca: { license: ev.expression, projectLicense: projLic, code: h.code, purl: dep.purl },
+      });
+    }
     if (policy.ignoreDev && (dep.scope === 'dev' || dep.scope === 'test')) continue;
     if (options.includeDev === false && (dep.scope === 'dev' || dep.scope === 'test')) continue;
     const byId = options.byId;
@@ -261,7 +322,7 @@ function licenseReport(deps, policyIn, options) {
   }
   const summary = {};
   for (const l of licenses) summary[l.category] = (summary[l.category] || 0) + 1;
-  return { licenses, findings, summary };
+  return { licenses, findings, summary, hints };
 }
 
 function hygieneFindings(deps, byId, roots, options) {
@@ -435,12 +496,22 @@ function scanDependencies(input, options = {}) {
   // Directory.Packages.props has only versions; do not treat it as a project.
   const projects = parsed.filter((p) => !(p.centralVersions && !p.deps.length));
   const { dependencies, graph } = buildGraph(projects);
+  // Components identified inside binaries (jar, wheel, nupkg, PE, ELF, Mach-O).
+  const binaries = [];
+  if (options.binaries !== false && (root || options.binaryFiles)) {
+    try {
+      const scanned = binary.scanBinaries(options.binaryFiles || root, options);
+      binaries.push(...scanned.binaries);
+      addBinaryComponents(scanned.components, dependencies, graph, options);
+    } catch (err) { errors.push({ file: '(binaries)', error: err.message }); }
+  }
   const byId = new Map(dependencies.map((d) => [d.id, d]));
 
   // Installed license metadata (node_modules, vendor, third_party).
   if (options.detectLicenses !== false) {
     const cache = new Map();
     for (const dep of dependencies) {
+      if (dep.source === 'binary') continue;
       if (dep.license) { dep.licenseSource = dep.lockFile && dep.licenses.length && !dep.manifestFile ? 'lockfile' : 'manifest'; continue; }
       const found = detectInstalledLicense(dep, root, readFile, cache);
       if (found) { dep.licenses.push(found.license); dep.license = normalizeExpression(found.license); dep.licenseSource = found.source; }
@@ -449,8 +520,35 @@ function scanDependencies(input, options = {}) {
 
   const db = resolveDb(options);
   const vulnerabilities = matchDependencies(dependencies, db);
+
+  // Source files for reachability and snippet matching.
+  const wantReach = options.reachability !== false && vulnerabilities.length > 0;
+  const wantSnippets = options.snippets !== false;
+  let sourceList = [];
+  if (wantReach || wantSnippets) {
+    if (Array.isArray(options.sourceFiles)) sourceList = options.sourceFiles.filter((x) => x && x.path && x.text != null && reach.isSourceFile(x.path));
+    else if (root) sourceList = reach.collectSources(root, options);
+    else sourceList = files.filter((x) => x.text != null && reach.isSourceFile(x.path));
+  }
+  let reachSummary = null;
+  if (wantReach) {
+    const topLevel = reach.pythonTopLevelFromRoot(root);
+    for (const d of dependencies) if (d.binaryTopLevel && d.binaryTopLevel.length) topLevel.set(normalizeName('PyPI', d.name), d.binaryTopLevel);
+    reachSummary = reach.annotateReachability(vulnerabilities, { sources: reach.prepareSources(sourceList), byId, db, readFile, options, pythonTopLevel: topLevel });
+  }
   findings.push(...vulnerabilityFindings(vulnerabilities, byId, options));
-  const lic = licenseReport(dependencies, options.licensePolicy, { ...options, byId });
+  let snippetMatches = [];
+  if (wantSnippets && sourceList.length) {
+    const indexes = [];
+    if (options.bundledSnippets !== false) indexes.push(snippets.bundledSnippetIndex());
+    for (const src of [].concat(options.snippetIndex || [])) {
+      try { indexes.push(snippets.loadSnippetIndex(src)); } catch (err) { errors.push({ file: typeof src === 'string' ? src : '(snippet index)', error: err.message }); }
+    }
+    snippetMatches = snippets.matchSnippets(sourceList, indexes, { threshold: options.snippetThreshold, minMatches: options.snippetMinMatches });
+    findings.push(...snippetFindings(snippetMatches));
+  }
+  const projectLicenses = new Map(graph.roots.map((r) => [r.id, r.license || null]));
+  const lic = licenseReport(dependencies, options.licensePolicy, { ...options, byId, projectLicenses });
   findings.push(...lic.findings);
   findings.push(...hygieneFindings(dependencies, byId, graph.roots, options));
 
@@ -468,7 +566,73 @@ function scanDependencies(input, options = {}) {
     licenses: lic.summary,
     advisoryCount: db.size,
   };
-  return { dependencies, graph, vulnerabilities, licenses: lic.licenses, findings: kept, manifests, errors, summary };
+  if (reachSummary) summary.reachability = reachSummary;
+  summary.snippets = snippetMatches.length;
+  summary.binaries = binaries.length;
+  return { dependencies, graph, vulnerabilities, licenses: lic.licenses, findings: kept, manifests, errors, summary, snippets: snippetMatches, binaries, licenseHints: lic.hints };
+}
+
+const LIC_SEVERITY = { permissive: 'INFO', 'weak-copyleft': 'MINOR', 'strong-copyleft': 'MAJOR', 'network-copyleft': 'MAJOR', proprietary: 'MAJOR', unknown: 'MINOR' };
+
+function snippetFindings(matches) {
+  return matches.map((m) => {
+    const lic = m.license ? normalizeExpression(m.license) : null;
+    const cat = lic ? evaluateLicense(lic).category : 'unknown';
+    const ranges = m.ranges.map((r) => (r.start === r.end ? String(r.start) : `${r.start}-${r.end}`)).join(', ');
+    const comp = `${m.component}${m.version ? `@${m.version}` : ''}`;
+    const first = m.ranges[0] || { start: 1, end: 1 };
+    const last = m.ranges[m.ranges.length - 1] || first;
+    return {
+      rule: 'sca:snippet-match', file: m.file, line: first.start, endLine: last.end, function: m.component, severity: LIC_SEVERITY[cat] || 'MINOR',
+      message: {
+        en: `Lines ${ranges} match ${comp} (${m.componentFile}, license ${lic || 'unknown'}) with ${m.similarity}% similarity; declare the component and keep its license obligations.`,
+        ko: `${ranges} 행이 ${comp}(${m.componentFile}, 라이선스 ${lic || '알 수 없음'})와 ${m.similarity}% 일치합니다. 구성 요소를 선언하고 라이선스 의무를 지키세요.`,
+      },
+      events: m.ranges.map((r, k) => ({
+        file: m.file, line: r.start, tag: 'path', main: k === 0,
+        text: { en: `Lines ${r.start}-${r.end} match ${m.componentFile}`, ko: `${r.start}-${r.end} 행이 ${m.componentFile} 와 일치합니다` },
+      })),
+      sca: {
+        component: m.component, version: m.version, license: lic, category: cat, purl: m.purl, similarity: m.similarity, fileCoverage: m.fileCoverage,
+        ranges: m.ranges, componentFile: m.componentFile, componentRanges: m.componentRanges, origin: m.origin,
+        obligations: lic ? licenseObligations(lic).map((o) => o.id) : [],
+      },
+    };
+  });
+}
+
+// Binary components become dependency nodes (source: 'binary') unless the
+// same package version is already declared by a manifest.
+function addBinaryComponents(components, dependencies, graph, options) {
+  const declared = new Set(dependencies.map((d) => `${d.ecosystem}|${normalizeName(d.ecosystem, d.name)}|${d.version || ''}`));
+  const seen = new Set();
+  const ids = [];
+  const taken = new Set(dependencies.map((d) => d.id));
+  for (const c of components) {
+    const key = `${c.ecosystem}|${normalizeName(c.ecosystem, c.name)}|${c.version || ''}`;
+    if (declared.has(key) && options.binaryDuplicates !== true) continue;
+    const fileKey = `${key}|${c.file}`;
+    if (seen.has(fileKey)) continue;
+    seen.add(fileKey);
+    let id = c.purl;
+    if (taken.has(id)) id = `${c.purl}#${c.file}`;
+    let k = 2;
+    while (taken.has(id)) id = `${c.purl}#${c.file}#${k++}`;
+    taken.add(id);
+    const lic = c.license ? normalizeExpression(c.license) : null;
+    dependencies.push({
+      id, purl: c.purl, ecosystem: c.ecosystem, name: c.name, version: c.version, versionSpec: null, matchVersion: c.version,
+      direct: true, scope: 'prod', licenses: lic ? [lic] : [], license: lic,
+      file: c.file, line: 1, lockFile: null, lockLine: null, manifestFile: c.file, manifestLine: 1, resolved: true, source: 'binary',
+      dependencies: [], dependents: [], project: 'project:binaries', registry: null, integrity: null, deprecatedNote: null, rawScope: null, extraIndex: false,
+      path: [id], directAncestor: id, binaryFormat: c.format, binaryEvidence: c.evidence || c.format, binaryInner: c.inner || null, binaryTopLevel: c.topLevel || null,
+      ...(lic ? { licenseSource: `${c.file}${c.inner ? `!/${c.inner}` : ''}` } : {}),
+    });
+    ids.push(id);
+  }
+  if (!ids.length) return;
+  graph.roots.push({ id: 'project:binaries', name: 'binaries', version: null, license: null, ecosystem: 'binary', file: components[0].file, dir: '', dependencies: ids, lockFile: null, manifests: [...new Set(components.map((c) => c.file))], locks: [] });
+  for (const id of ids) { graph.nodes.push(id); graph.edges.push({ from: 'project:binaries', to: id, kind: 'direct' }); }
 }
 
 function safeRead(abs) {
@@ -487,8 +651,11 @@ function analyze(files, ctx = {}) {
       for (const p of discoverFiles(ctx.root, options)) if (!seen.has(p)) { list.push({ path: p, text: null }); seen.add(p); }
     } catch { /* root not readable: use the given files only */ }
   }
-  if (!list.length) return [];
-  const result = scanDependencies(list, { ...options, root: ctx.root || options.root || null, inactive });
+  const sourceFiles = (files || []).filter((f) => f && f.path && f.text != null && reach.isSourceFile(f.path)).map((f) => ({ path: f.path, text: f.text }));
+  if (!list.length && !sourceFiles.length && !ctx.root) return [];
+  const scanOptions = { ...options, root: ctx.root || options.root || null, inactive };
+  if (sourceFiles.length || !ctx.root) scanOptions.sourceFiles = sourceFiles;
+  const result = scanDependencies(list, scanOptions);
   return result.findings;
 }
 

@@ -91,7 +91,7 @@ With the classic VSSDK, implement `ILanguageClient` (exported with
 ## What works
 
 Diagnostics with the rule key and related locations (data-flow steps), hover with the rule description,
-quick fixes (rule fixes, *Suppress with NOSONAR*, *Deactivate rule* for the session) and connected mode.
+quick fixes (rule fixes, *Suppress with NOMCC*, *Deactivate rule* for the session) and connected mode.
 The custom requests (`mycodechecker/analyzeWorkspace`, `mycodechecker/securityFindings`,
 `mycodechecker/ruleDescription`) need commands of your own in the extension; they are documented at the top
 of `core/lsp/index.js`.

@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- File icon for MyCodeChecker project files (*.mccp): a 3D sheet with a
+       folded corner, the code-inspection emblem and an extension band. -->
+  <defs>
+    <linearGradient id="sheet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d3deee"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a7b8d0"/>
+      <stop offset="1" stop-color="#5f718d"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef3fa"/>
+      <stop offset="0.5" stop-color="#b9c8dd"/>
+      <stop offset="1" stop-color="#8ea2c0"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a7be0"/>
+      <stop offset="1" stop-color="#173e8c"/>
+    </linearGradient>
+    <linearGradient id="bandGloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7fbff"/>
+      <stop offset="0.4" stop-color="#b3c1d4"/>
+      <stop offset="0.65" stop-color="#66788f"/>
+      <stop offset="1" stop-color="#c9d4e3"/>
+    </linearGradient>
+    <radialGradient id="lens" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#e8f7ff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#3b8ee0" stop-opacity="0.35"/>
+    </radialGradient>
+    <radialGradient id="ok" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#9df5b8"/>
+      <stop offset="0.45" stop-color="#2fc46a"/>
+      <stop offset="1" stop-color="#127a3d"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="18"/>
+      <feOffset dx="8" dy="22"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.45"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="lensClip"><circle cx="520" cy="470" r="118"/></clipPath>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <!-- thickness and sheet -->
+    <path d="M222 92 H642 L846 296 V940 Q846 970 816 970 H252 Q222 970 222 940 Z" fill="url(#edge)" transform="translate(16 16)"/>
+    <path d="M222 92 H642 L846 296 V940 Q846 970 816 970 H252 Q222 970 222 940 Z" fill="url(#sheet)"/>
+    <!-- folded corner -->
+    <path d="M642 92 V250 Q642 296 688 296 H846 Z" fill="url(#fold)"/>
+    <path d="M642 92 V250 Q642 296 688 296 H846" fill="none" stroke="#8a9cb8" stroke-width="6"/>
+  </g>
+
+  <!-- code lines -->
+  <g stroke-linecap="round" stroke-width="26">
+    <path d="M300 220 H420" stroke="#3b82f6"/>
+    <path d="M300 280 H540" stroke="#94a3b8"/>
+    <path d="M340 340 H460" stroke="#a855f7"/>
+    <path d="M300 600 H400" stroke="#3b82f6"/>
+    <path d="M340 660 H520" stroke="#94a3b8"/>
+  </g>
+  <rect x="280" y="380" width="220" height="70" rx="16" fill="#ef4444" opacity="0.16"/>
+  <path d="M320 415 H470" stroke="#ef4444" stroke-width="26" stroke-linecap="round"/>
+
+  <!-- magnifier emblem -->
+  <g clip-path="url(#lensClip)">
+    <rect x="390" y="340" width="260" height="260" fill="#f4f8fd"/>
+    <rect x="390" y="420" width="260" height="90" fill="#ef4444" opacity="0.2"/>
+    <path d="M420 465 H600" stroke="#ef4444" stroke-width="34" stroke-linecap="round"/>
+    <path d="M420 390 H540" stroke="#22a06b" stroke-width="34" stroke-linecap="round"/>
+    <path d="M440 545 H600" stroke="#94a3b8" stroke-width="34" stroke-linecap="round"/>
+  </g>
+  <g transform="rotate(45 520 470)">
+    <rect x="492" y="620" width="56" height="34" rx="8" fill="url(#metal)"/>
+    <rect x="486" y="650" width="68" height="150" rx="32" fill="#1b2433"/>
+    <rect x="496" y="660" width="16" height="130" rx="8" fill="#ffffff" opacity="0.25"/>
+  </g>
+  <circle cx="520" cy="470" r="118" fill="url(#lens)"/>
+  <circle cx="520" cy="470" r="138" fill="none" stroke="url(#metal)" stroke-width="38"/>
+  <path d="M440 410 A95 95 0 0 1 520 372" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- check badge -->
+  <circle cx="700" cy="380" r="70" fill="url(#ok)"/>
+  <circle cx="700" cy="380" r="70" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="5"/>
+  <path d="M664 384 l24 24 l48 -54" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- extension band -->
+  <rect x="200" y="760" width="620" height="150" rx="30" fill="url(#band)"/>
+  <rect x="200" y="760" width="620" height="70" rx="30" fill="url(#bandGloss)"/>
+  <text x="510" y="868" text-anchor="middle" font-family="Segoe UI, Arial, Helvetica, sans-serif" font-size="104" font-weight="800" fill="#ffffff" letter-spacing="6">.MCCP</text>
+</svg>

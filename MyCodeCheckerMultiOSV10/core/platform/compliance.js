@@ -40,7 +40,7 @@ const CWE_NAMES = {
   369: 'Divide by zero', 457: 'Uninitialized variable', 908: 'Uninitialized resource', 772: 'Resource leak', 404: 'Improper resource shutdown',
 };
 
-// SANS Top 25 as Sonar reports it: the CWE/SANS 2011 list in its three groups.
+// SANS Top 25 as code quality reports it: the CWE/SANS 2011 list in its three groups.
 const SANS_TOP25 = {
   'insecure-interaction': { title: { en: 'Insecure interaction between components', ko: '구성 요소 간 안전하지 않은 상호작용' }, cwes: [89, 78, 79, 434, 352, 601] },
   'risky-resource': { title: { en: 'Risky resource management', ko: '위험한 자원 관리' }, cwes: [120, 22, 494, 829, 676, 131, 134, 190] },
@@ -209,7 +209,7 @@ function addTo(tally, issue, bucket) {
 }
 
 function finishTally(tally, bucket) {
-  // Security rating per category follows the worst vulnerability (bugs count when there is none, as Sonar CWE reports do).
+  // Security rating per category follows the worst vulnerability (bugs count when there is none, as code quality CWE reports do).
   const vulns = bucket.filter((i) => i.type === 'VULNERABILITY');
   tally.rating = ratingFromWorst(vulns.length ? vulns : bucket.filter((i) => i.type !== 'SECURITY_HOTSPOT' && i.type !== 'CODE_SMELL'));
   tally.issueKeys = tally.issueKeys.slice(0, 1000);

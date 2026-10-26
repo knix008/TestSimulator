@@ -3,7 +3,7 @@
 // Rule registry for sem-go. A definition:
 //   rule({
 //     id, type: 'B'|'V'|'S'|'H', sev: 'BL'|'CR'|'MA'|'MI'|'IN', debt, tags,
-//     sonar: 'S1066' | '', checker: 'FORWARD_NULL' | '' (Coverity-style id, defaults to the Sonar key),
+//     ref: 'S1066' | '', checker: 'FORWARD_NULL' | '' (defect-analysis id, defaults to the reference key),
 //     en: [name, why, fix], ko: [name, why, fix],
 //     on?: { Kind(node, cx) },         // AST handlers, Kind = node kind
 //     file?(pf, cx), project?(project, cx),
@@ -60,10 +60,10 @@ function catalogEntries() {
       why: { en: def.en[1], ko: def.ko[1] },
       fix: { en: def.en[2], ko: def.ko[2] },
       cwe: cwe[0] || '',
-      sonarKey: def.sonar || '',
+      refKey: def.ref || '',
       impacts: impactsOf(type, severity),
       category: categoryOf(def, type),
-      checker: def.checker || def.sonar || '',
+      checker: def.checker || def.ref || '',
       engine: def.engine || 'syntax',
     };
     if (cwe.length || owasp.length) {

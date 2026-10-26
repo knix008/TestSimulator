@@ -89,7 +89,7 @@ function cognitive(fn) {
 }
 
 rule({
-  id: 'cognitive-complexity', type: 'S', sev: 'CR', debt: 20, tags: ['brain-overload'], sonar: 'S3776',
+  id: 'cognitive-complexity', type: 'S', sev: 'CR', debt: 20, tags: ['brain-overload'], ref: 'S3776',
   en: ['Cognitive Complexity of functions should not be too high', 'Deeply nested and branching code is hard to read, test and change.', 'Split the function, return early and extract helpers.'],
   ko: ['함수의 인지 복잡도가 너무 높으면 안 됩니다', '깊이 중첩되고 분기가 많은 코드는 읽고 시험하고 바꾸기 어렵습니다.', '함수를 나누고 일찍 반환하며 도우미 함수로 뽑아내세요.'],
   on: {
@@ -140,7 +140,7 @@ func classify(a, b int) int {
 });
 
 rule({
-  id: 'expression-complexity', type: 'S', sev: 'CR', debt: 5, tags: ['brain-overload'], sonar: 'S1067',
+  id: 'expression-complexity', type: 'S', sev: 'CR', debt: 5, tags: ['brain-overload'], ref: 'S1067',
   en: ['Expressions should not be too complex', 'Long chains of && and || are hard to understand.', 'Extract parts of the condition into named variables or functions.'],
   ko: ['식이 너무 복잡하면 안 됩니다', '&&와 ||가 길게 이어지면 이해하기 어렵습니다.', '조건 일부를 이름 있는 변수나 함수로 뽑아내세요.'],
   on: {
@@ -168,7 +168,7 @@ func ok(a, b, c bool) bool {
 });
 
 rule({
-  id: 'nesting-depth', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], sonar: 'S134',
+  id: 'nesting-depth', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], ref: 'S134',
   en: ['Control flow statements should not be nested too deeply', 'Deep nesting makes code hard to follow.', 'Return early, merge conditions or extract functions.'],
   ko: ['제어문을 너무 깊이 중첩하면 안 됩니다', '깊은 중첩은 코드 흐름을 따라가기 어렵게 합니다.', '일찍 반환하거나 조건을 합치거나 함수로 뽑아내세요.'],
   on: {
@@ -227,7 +227,7 @@ function depthCheck(n, cx) {
 }
 
 rule({
-  id: 'too-many-params', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], sonar: 'S107',
+  id: 'too-many-params', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], ref: 'S107',
   en: ['Functions should not have too many parameters', 'Long parameter lists are hard to call correctly.', 'Group related parameters into a struct.'],
   ko: ['함수 매개변수가 너무 많으면 안 됩니다', '긴 매개변수 목록은 올바르게 호출하기 어렵습니다.', '관련된 매개변수를 구조체로 묶으세요.'],
   on: {
@@ -252,7 +252,7 @@ func build(o opts) int {
 });
 
 rule({
-  id: 'long-function', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], sonar: 'S138',
+  id: 'long-function', type: 'S', sev: 'MA', debt: 20, tags: ['brain-overload'], ref: 'S138',
   en: ['Functions should not have too many lines of code', 'Very long functions do too many things.', 'Split the function into smaller ones.'],
   ko: ['함수의 줄 수가 너무 많으면 안 됩니다', '아주 긴 함수는 너무 많은 일을 합니다.', '함수를 더 작은 함수로 나누세요.'],
   on: {
@@ -268,7 +268,7 @@ rule({
 });
 
 rule({
-  id: 'file-too-long', type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], sonar: 'S104',
+  id: 'file-too-long', type: 'S', sev: 'MA', debt: 60, tags: ['brain-overload'], ref: 'S104',
   en: ['Files should not have too many lines of code', 'Huge files are hard to navigate and usually mix responsibilities.', 'Split the file by responsibility.'],
   ko: ['파일의 줄 수가 너무 많으면 안 됩니다', '아주 큰 파일은 다루기 어렵고 여러 책임이 섞여 있기 쉽습니다.', '책임별로 파일을 나누세요.'],
   file(pf, cx) {
@@ -281,7 +281,7 @@ rule({
 });
 
 rule({
-  id: 'line-too-long', type: 'S', sev: 'MA', debt: 1, tags: ['convention'], sonar: 'S103',
+  id: 'line-too-long', type: 'S', sev: 'MA', debt: 1, tags: ['convention'], ref: 'S103',
   en: ['Lines should not be too long', 'Very long lines force horizontal scrolling and hurt readability.', 'Break the line or extract variables.'],
   ko: ['줄이 너무 길면 안 됩니다', '아주 긴 줄은 가로 스크롤이 필요하고 읽기 어렵습니다.', '줄을 나누거나 변수로 뽑아내세요.'],
   file(pf, cx) {
@@ -304,9 +304,9 @@ func f() int {
 });
 
 // ── comments ──
-function commentRule(id, sonar, word, en, ko) {
+function commentRule(id, ref, word, en, ko) {
   rule({
-    id, type: 'S', sev: id === 'fixme' ? 'MA' : 'IN', debt: 0, tags: ['cwe-546'], sonar,
+    id, type: 'S', sev: id === 'fixme' ? 'MA' : 'IN', debt: 0, tags: ['cwe-546'], ref,
     en, ko,
     file(pf, cx) {
       const re = new RegExp(`(^|[^A-Za-z])${word}([^A-Za-z]|$)`, 'i');
@@ -337,7 +337,7 @@ commentRule('todo', 'S1135', 'TODO',
   ['"TODO" 태그 사용을 추적합니다', 'TODO는 끝나지 않은 작업 표시입니다.', '작업을 마치거나 이슈 관리 도구로 옮기세요.']);
 
 rule({
-  id: 'commented-code', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], sonar: 'S125',
+  id: 'commented-code', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], ref: 'S125',
   en: ['Sections of code should not be commented out', 'Commented-out code is noise; version control keeps the history.', 'Delete the commented-out code.'],
   ko: ['코드를 주석으로 막아 두면 안 됩니다', '주석 처리한 코드는 잡음일 뿐이고 이력은 버전 관리가 보관합니다.', '주석 처리한 코드를 지우세요.'],
   file(pf, cx) {
@@ -350,7 +350,7 @@ rule({
     };
     for (const c of pf.comments) {
       if (c.block) { flush(); if (looksLikeCode(c.text)) cx.report({ line: c.line, col: c.col }, 'This block of commented-out lines of code should be removed.', '주석 처리한 이 코드 줄들을 지우세요.'); continue; }
-      if (/^\s*(go:|nolint|NOSONAR|export\s|line\s)/.test(c.text)) { flush(); continue; }
+      if (/^\s*(go:|nolint|NOMCC|export\s|line\s)/.test(c.text)) { flush(); continue; }
       if (group && c.line === group.last + 1 && c.col === group.col) { group.lines.push(c.text); group.last = c.line; continue; }
       flush();
       group = { line: c.line, col: c.col, last: c.line, lines: [c.text] };
@@ -387,7 +387,7 @@ function looksLikeCode(text) {
 
 // ── blocks ──
 rule({
-  id: 'empty-block', type: 'S', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: 'S108',
+  id: 'empty-block', type: 'S', sev: 'MA', debt: 5, tags: ['suspicious'], ref: 'S108',
   en: ['Nested blocks of code should not be left empty', 'An empty block is either dead code or missing logic.', 'Add the missing code, a comment explaining why it is empty, or remove the block.'],
   ko: ['중첩된 코드 블록을 비워 두면 안 됩니다', '빈 블록은 죽은 코드이거나 빠진 로직입니다.', '빠진 코드나 비워 둔 이유를 적은 주석을 넣거나 블록을 지우세요.'],
   on: {
@@ -418,7 +418,7 @@ func f(err error) {
 });
 
 rule({
-  id: 'empty-function', type: 'S', sev: 'CR', debt: 5, tags: ['suspicious'], sonar: 'S1186',
+  id: 'empty-function', type: 'S', sev: 'CR', debt: 5, tags: ['suspicious'], ref: 'S1186',
   en: ['Functions should not be empty', 'An empty function without explanation looks like unfinished code.', 'Implement it, panic for unsupported operations or explain with a comment why it is empty.'],
   ko: ['함수를 비워 두면 안 됩니다', '설명 없는 빈 함수는 미완성 코드처럼 보입니다.', '구현하거나 지원하지 않는 동작이면 panic하고, 아니면 비워 둔 이유를 주석으로 적으세요.'],
   on: {
@@ -443,7 +443,7 @@ func (nopLogger) Log(string) {
 
 // ── conditionals ──
 rule({
-  id: 'collapsible-if', type: 'S', sev: 'MA', debt: 5, tags: ['clumsy'], sonar: 'S1066',
+  id: 'collapsible-if', type: 'S', sev: 'MA', debt: 5, tags: ['clumsy'], ref: 'S1066',
   en: ['Mergeable "if" statements should be combined', 'Nested ifs without else read better as one condition.', 'Merge the conditions with &&.'],
   ko: ['합칠 수 있는 "if" 문은 합쳐야 합니다', 'else가 없는 중첩 if는 하나의 조건으로 쓰는 편이 읽기 좋습니다.', '조건을 &&로 합치세요.'],
   on: {
@@ -481,7 +481,7 @@ func f(a, b bool) {
 });
 
 rule({
-  id: 'if-constant', type: 'S', sev: 'MA', debt: 2, tags: ['cwe-571', 'cwe-570', 'suspicious'], sonar: 'S1145',
+  id: 'if-constant', type: 'S', sev: 'MA', debt: 2, tags: ['cwe-571', 'cwe-570', 'suspicious'], ref: 'S1145',
   en: ['"if" statements should not have constant boolean conditions', 'if true / if false is dead or debug code.', 'Remove the condition or the dead branch.'],
   ko: ['"if" 문의 조건이 상수 불리언이면 안 됩니다', 'if true / if false는 죽은 코드이거나 디버그용 코드입니다.', '조건이나 죽은 분기를 지우세요.'],
   on: {
@@ -509,7 +509,7 @@ func f(on bool) {
 });
 
 rule({
-  id: 'boolean-literal', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], sonar: 'S1125',
+  id: 'boolean-literal', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], ref: 'S1125',
   en: ['Boolean literals should not be redundant', 'Comparing with true/false or combining with literals adds noise.', 'Use the boolean expression directly.'],
   ko: ['불리언 리터럴을 쓸데없이 쓰면 안 됩니다', 'true/false와 비교하거나 리터럴과 결합하면 잡음만 늘어납니다.', '불리언 식을 그대로 쓰세요.'],
   on: {
@@ -540,7 +540,7 @@ func f(ok bool) bool {
 });
 
 rule({
-  id: 'return-boolean', type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], sonar: 'S1126',
+  id: 'return-boolean', type: 'S', sev: 'MI', debt: 2, tags: ['clumsy'], ref: 'S1126',
   en: ['Return of boolean expressions should not be wrapped in an "if-then-else" statement', 'if c { return true } else { return false } is just return c.', 'Return the condition directly.'],
   ko: ['불리언 식을 반환할 때 "if-then-else"로 감싸면 안 됩니다', 'if c { return true } else { return false }는 return c와 같습니다.', '조건을 바로 반환하세요.'],
   on: {
@@ -571,7 +571,7 @@ func positive(x int) bool {
 });
 
 rule({
-  id: 'identical-branches', type: 'S', sev: 'MA', debt: 10, tags: ['design', 'suspicious'], sonar: 'S1871',
+  id: 'identical-branches', type: 'S', sev: 'MA', debt: 10, tags: ['design', 'suspicious'], ref: 'S1871',
   en: ['Two branches in a conditional structure should not have exactly the same implementation', 'Duplicated branches are either a copy-paste error or should be merged.', 'Merge the conditions or fix the branch that is wrong.'],
   ko: ['조건 구조의 두 분기가 완전히 같은 구현이면 안 됩니다', '같은 분기는 복사-붙여넣기 실수이거나 하나로 합쳐야 합니다.', '조건을 합치거나 잘못된 분기를 고치세요.'],
   on: {
@@ -634,7 +634,7 @@ function reportDupBranches(list, cx) {
 }
 
 rule({
-  id: 'all-branches-same', type: 'B', sev: 'MA', debt: 15, tags: ['suspicious'], sonar: 'S3923',
+  id: 'all-branches-same', type: 'B', sev: 'MA', debt: 15, tags: ['suspicious'], ref: 'S3923',
   en: ['All branches in a conditional structure should not have exactly the same implementation', 'When every branch does the same thing the condition is pointless or a branch is wrong.', 'Remove the conditional or fix the branches.'],
   ko: ['조건 구조의 모든 분기가 완전히 같은 구현이면 안 됩니다', '모든 분기가 같은 일을 하면 조건이 쓸모없거나 어느 분기가 틀렸습니다.', '조건문을 없애거나 분기를 고치세요.'],
   on: {
@@ -676,7 +676,7 @@ func f(x int) int {
 });
 
 rule({
-  id: 'duplicated-condition', type: 'B', sev: 'MA', debt: 10, tags: ['suspicious', 'pitfall'], sonar: 'S1862',
+  id: 'duplicated-condition', type: 'B', sev: 'MA', debt: 10, tags: ['suspicious', 'pitfall'], ref: 'S1862',
   en: ['Related "if/else if" statements and "switch" cases should not have the same condition', 'A repeated condition makes the second branch dead code.', 'Fix the condition or remove the duplicated branch.'],
   ko: ['이어지는 "if/else if" 문과 "switch" case의 조건이 같으면 안 됩니다', '조건이 반복되면 두 번째 분기는 죽은 코드가 됩니다.', '조건을 고치거나 중복된 분기를 지우세요.'],
   on: {
@@ -730,7 +730,7 @@ function hasCall(e) {
 
 // ── switch ──
 rule({
-  id: 'nested-switch', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], sonar: 'S1821',
+  id: 'nested-switch', type: 'S', sev: 'CR', debt: 10, tags: ['brain-overload'], ref: 'S1821',
   en: ['"switch" statements should not be nested', 'Nested switches are hard to read.', 'Move the inner switch into its own function.'],
   ko: ['"switch" 문을 중첩하면 안 됩니다', '중첩된 switch는 읽기 어렵습니다.', '안쪽 switch를 별도 함수로 옮기세요.'],
   on: {
@@ -775,7 +775,7 @@ function nestedSwitch(n, cx) {
 }
 
 rule({
-  id: 'switch-without-default', type: 'S', sev: 'CR', debt: 5, tags: ['cwe-478', 'clumsy'], sonar: 'S131',
+  id: 'switch-without-default', type: 'S', sev: 'CR', debt: 5, tags: ['cwe-478', 'clumsy'], ref: 'S131',
   en: ['"switch" statements should have "default" clauses', 'Without a default clause unexpected values are silently ignored.', 'Add a default clause, even if it only documents that nothing is done.'],
   ko: ['"switch" 문에는 "default" 절이 있어야 합니다', 'default 절이 없으면 예상하지 못한 값을 조용히 무시합니다.', '아무것도 하지 않더라도 default 절을 넣으세요.'],
   on: {
@@ -810,7 +810,7 @@ func f(x int) int {
 });
 
 rule({
-  id: 'switch-too-few-cases', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], sonar: 'S1301',
+  id: 'switch-too-few-cases', type: 'S', sev: 'MI', debt: 5, tags: ['clumsy'], ref: 'S1301',
   en: ['"switch" statements should have at least 3 "case" clauses', 'A switch with one or two cases is an if statement in disguise.', 'Use an if statement.'],
   ko: ['"switch" 문에는 "case" 절이 3개 이상 있어야 합니다', 'case가 한두 개인 switch는 사실상 if 문입니다.', 'if 문을 쓰세요.'],
   on: {
@@ -844,7 +844,7 @@ func f(x int) int {
 });
 
 rule({
-  id: 'too-many-cases', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], sonar: 'S1479',
+  id: 'too-many-cases', type: 'S', sev: 'MA', debt: 30, tags: ['brain-overload'], ref: 'S1479',
   en: ['"switch" statements should not have too many "case" clauses', 'Very large switches are hard to maintain.', 'Use a map lookup or split the logic.'],
   ko: ['"switch" 문의 "case" 절이 너무 많으면 안 됩니다', '아주 큰 switch는 유지 보수가 어렵습니다.', '맵 조회를 쓰거나 로직을 나누세요.'],
   on: {
@@ -860,7 +860,7 @@ rule({
 
 // ── duplication ──
 rule({
-  id: 'duplicated-literal', type: 'S', sev: 'CR', debt: 2, tags: ['design'], sonar: 'S1192',
+  id: 'duplicated-literal', type: 'S', sev: 'CR', debt: 2, tags: ['design'], ref: 'S1192',
   en: ['String literals should not be duplicated', 'Repeated literals must be changed in many places at once.', 'Define a constant and use it.'],
   ko: ['문자열 리터럴을 중복하면 안 됩니다', '반복된 리터럴은 바꿀 때 여러 곳을 함께 고쳐야 합니다.', '상수를 정의해서 쓰세요.'],
   file(pf, cx) {
@@ -902,7 +902,7 @@ function bodySig(pf, fn) {
   return A.norm(pf.src, fn.body);
 }
 rule({
-  id: 'identical-functions', type: 'S', sev: 'MA', debt: 15, tags: ['confusing', 'duplicate'], sonar: 'S4144',
+  id: 'identical-functions', type: 'S', sev: 'MA', debt: 15, tags: ['confusing', 'duplicate'], ref: 'S4144',
   en: ['Functions should not have identical implementations', 'Two functions with the same body are duplicated code; one of them is often a copy-paste mistake.', 'Make one function call the other, or remove one.'],
   ko: ['함수 구현이 똑같으면 안 됩니다', '본문이 같은 두 함수는 중복 코드이고, 흔히 하나는 복사-붙여넣기 실수입니다.', '한 함수가 다른 함수를 호출하게 하거나 하나를 지우세요.'],
   project(project, cx) {
@@ -954,7 +954,7 @@ func sumB(xs []int) int {
 
 // ── unused code ──
 rule({
-  id: 'unused-param', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], sonar: 'S1172',
+  id: 'unused-param', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], ref: 'S1172',
   en: ['Unused function parameters should be removed', 'An unused parameter misleads callers and hides mistakes.', 'Remove the parameter, or rename it to _ when the signature is imposed.'],
   ko: ['사용하지 않는 함수 매개변수는 지워야 합니다', '사용하지 않는 매개변수는 호출하는 쪽을 헷갈리게 하고 실수를 숨깁니다.', '매개변수를 지우고, 시그니처가 정해져 있다면 이름을 _로 바꾸세요.'],
   on: {
@@ -1000,7 +1000,7 @@ func run(f func(string, int) int) { println(f("", 1)) }
 });
 
 rule({
-  id: 'unused-local', type: 'S', sev: 'MI', debt: 5, tags: ['unused'], sonar: 'S1481',
+  id: 'unused-local', type: 'S', sev: 'MI', debt: 5, tags: ['unused'], ref: 'S1481',
   en: ['Unused local variables should be removed', 'A variable that is only written, or only read by its own updates and blank assignments, does nothing useful.', 'Remove the variable and the code that only maintains it.'],
   ko: ['사용하지 않는 지역 변수는 지워야 합니다', '쓰기만 하거나 자기 자신의 갱신과 빈 식별자 대입에서만 읽는 변수는 하는 일이 없습니다.', '변수와 그 변수를 유지하기만 하는 코드를 지우세요.'],
   on: {
@@ -1060,7 +1060,7 @@ function isInside(n, root) {
 }
 
 rule({
-  id: 'unused-unexported', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], sonar: 'S1144',
+  id: 'unused-unexported', type: 'S', sev: 'MA', debt: 5, tags: ['unused'], ref: 'S1144',
   en: ['Unused unexported functions, types, variables and constants should be removed', 'Unexported declarations that nothing in the package uses are dead code.', 'Remove the declaration.'],
   ko: ['사용하지 않는 비공개 함수, 타입, 변수, 상수는 지워야 합니다', '패키지 안에서 아무도 쓰지 않는 비공개 선언은 죽은 코드입니다.', '선언을 지우세요.'],
   project(project, cx) {
@@ -1104,7 +1104,7 @@ function hasDirective(pf, line) {
 }
 
 rule({
-  id: 'redundant-paren', type: 'S', sev: 'MI', debt: 1, tags: ['confusing'], sonar: 'S1110',
+  id: 'redundant-paren', type: 'S', sev: 'MI', debt: 1, tags: ['confusing'], ref: 'S1110',
   en: ['Redundant pairs of parentheses should be removed', 'Doubled parentheses add nothing and suggest a mistake.', 'Remove the extra parentheses.'],
   ko: ['쓸데없는 괄호 쌍은 지워야 합니다', '겹친 괄호는 의미가 없고 실수처럼 보입니다.', '여분의 괄호를 지우세요.'],
   on: {
@@ -1125,7 +1125,7 @@ func f(a, b int) int {
 });
 
 rule({
-  id: 'goto-usage', type: 'S', sev: 'MA', debt: 10, tags: ['brain-overload'], sonar: 'S907',
+  id: 'goto-usage', type: 'S', sev: 'MA', debt: 10, tags: ['brain-overload'], ref: 'S907',
   en: ['"goto" statements should not be used', 'goto makes control flow hard to follow.', 'Use loops, labelled break/continue or functions.'],
   ko: ['"goto" 문을 쓰면 안 됩니다', 'goto는 제어 흐름을 따라가기 어렵게 합니다.', '반복문, 레이블 break/continue, 함수를 쓰세요.'],
   on: {

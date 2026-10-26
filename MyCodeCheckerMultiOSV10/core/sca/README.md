@@ -1,7 +1,7 @@
 # core/sca — Software Composition Analysis
 
-Offline dependency analysis for MyCodeChecker. It covers what SonarQube Advanced Security SCA,
-Sparrow SCA and Black Duck / Coverity-style composition analysis report:
+Offline dependency analysis for MyCodeChecker. It covers what advanced-security SCA products,
+software composition analysis report:
 
 - the dependency inventory and graph, from manifests, lockfiles and imported SBOMs
 - known vulnerabilities, matched against OSV advisories with each ecosystem's own version rules
@@ -144,6 +144,36 @@ known advisories affects.
 | `sca:outdated` | CODE_SMELL | MINOR |
 | `sca:duplicate` | CODE_SMELL | MINOR |
 | `sca:manifest-error` | CODE_SMELL | INFO |
+
+| `sca:snippet-match` | CODE_SMELL | MINOR (INFO permissive, MAJOR copyleft) |
+| `sca:license-incompatible` | CODE_SMELL | MAJOR |
+
+## Reachability, snippets, binaries, license depth
+
+- **Reachability** (`reachability.js`): each vulnerability gets `reachability`
+  (`reachable` | `imported` | `not-imported` | `unknown`), `reachabilityReason`,
+  `reachabilityEvidence` `[{ file, line, text, kind: 'import'|'use' }]` and `reachabilitySymbols`. Imports are
+  read per language: JS/TS, Python (`pythonModules` option, wheel / venv `top_level.txt`, name map), Java/Kotlin
+  (package prefixes from the groupId or a map), Go, C#/F#/VB, PHP (PSR-4 from `composer.lock`), Ruby (incl.
+  `Bundler.require`), Rust, C/C++ headers. Affected symbols come from OSV `ecosystem_specific` / `database_specific`
+  (`imports[].path/symbols`, `affects.functions`, `affected_functions`, `symbols`) or from `reachability-data.js`.
+  A `not-imported` finding is lowered one severity step (`originalSeverity` keeps the old one;
+  `reachabilitySeverity: false` keeps severities). A transitive dependency whose direct parent is imported stays
+  `unknown`. Options: `reachability: false`, `sourceFiles`, `maxSourceFiles`, `maxSourceSize`.
+- **Snippets** (`snippets/`): winnowing fingerprints (k = 10 normalised tokens, window w = 6, FNV-1a).
+  `buildSnippetIndex(dir, { name, version, license, purl }, { out })` writes an index;
+  `options.snippetIndex` (path, object or array) adds indexes to the bundled sample corpus (`snippets/corpus`,
+  our own code). Options: `snippets: false`, `bundledSnippets: false`, `snippetThreshold` (0.5),
+  `snippetMinMatches` (8). Results: `result.snippets` and `sca:snippet-match`.
+- **Binaries** (`binary.js`): `.jar/.war/.ear` (nested jars, `pom.properties`, MANIFEST), `.whl/.egg`, `.nupkg`,
+  PE `VS_VERSIONINFO`, ELF `DT_SONAME`/`DT_NEEDED`/verdef, Mach-O `LC_ID_DYLIB`, and version strings of OpenSSL,
+  zlib, libpng, curl, expat and others. Components become dependencies with `source: 'binary'` (unless the same
+  version is already declared) and are matched against advisories. `result.binaries` lists every file. Options:
+  `binaries: false`, `binaryFiles`, `maxBinaryFiles`, `maxBinarySize`, `binaryDuplicates`.
+- **License depth** (`license.js`): `identifyLicenseText` (key-phrase templates and source-file notices),
+  `licenseObligations(expr)`, `compatibilityHints(projectLicense, depLicense)`. License entries carry
+  `obligations` and `compatibility`; `result.licenseHints` lists the hints; declared conflicts become
+  `sca:license-incompatible`. SBOMs carry `mcc:license:obligations` (CycloneDX) and `comment` (SPDX).
 
 ## Bundled data
 

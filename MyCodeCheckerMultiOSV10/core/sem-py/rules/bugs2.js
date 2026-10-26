@@ -780,8 +780,8 @@ R('string-format-mismatch', 'B', 'BL', 10, ['pitfall'], 'S2275',
     },
   });
 
-function asyncRule(id, sonar, names, qnames, en, ko, why, fix) {
-  R(id, 'S', 'MA', 10, ['async', 'performance'], sonar, [en, ko], why, fix, {
+function asyncRule(id, ref, names, qnames, en, ko, why, fix) {
+  R(id, 'S', 'MA', 10, ['async', 'performance'], ref, [en, ko], why, fix, {
     on: {
       Call(n, c, r) {
         if (!U.inAsync(n)) return;

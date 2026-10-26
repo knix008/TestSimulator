@@ -2,19 +2,21 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "MyCodeChecker desktop window",
-  "windows": ["*"],
+  "windows": [
+    "*"
+  ],
   "remote": {
     "urls": [
-      "http://localhost:5210",
-      "http://localhost:5210/",
-      "http://localhost:5210/*",
-      "http://127.0.0.1:5210",
-      "http://127.0.0.1:5210/*"
+      "http://localhost:*",
+      "http://localhost:*/*",
+      "http://127.0.0.1:*",
+      "http://127.0.0.1:*/*"
     ]
   },
   "permissions": [
     "core:default",
     "core:window:allow-close",
+    "core:window:allow-destroy",
     "core:window:allow-minimize",
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",
@@ -22,9 +24,21 @@
     "core:window:allow-is-maximized",
     "core:window:allow-set-title",
     "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-always-on-top",
     "core:window:allow-set-focus",
     "core:window:allow-start-dragging",
     "core:window:allow-start-resize-dragging",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-inner-position",
+    "core:window:allow-outer-position",
+    "core:window:allow-inner-size",
+    "core:window:allow-scale-factor",
+    "core:window:allow-current-monitor",
+    "core:window:allow-available-monitors",
+    "core:event:default",
     "dialog:default",
     "opener:default",
     "allow-host-info",

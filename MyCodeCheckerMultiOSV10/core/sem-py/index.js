@@ -1,6 +1,6 @@
 'use strict';
 
-// Python semantic analyzer (SonarPython-like). Contract: core/ENGINE_CONTRACT.md.
+// Python semantic analyzer (Python reference analyzer-like). Contract: core/ENGINE_CONTRACT.md.
 // Rule keys 'sem-py:<id>'.
 //
 // Pipeline per analysis: parse every .py/.pyi (and .ipynb code cells) with

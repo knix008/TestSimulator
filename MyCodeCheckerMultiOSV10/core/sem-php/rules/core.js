@@ -2,7 +2,7 @@
 
 // Rule registry for sem-php. A definition:
 //   rule({
-//     id, type: 'B'|'V'|'S'|'H', sev: 'BL'|'CR'|'MA'|'MI'|'IN', debt, tags, sonar: 'S1656',
+//     id, type: 'B'|'V'|'S'|'H', sev: 'BL'|'CR'|'MA'|'MI'|'IN', debt, tags, ref: 'S1656',
 //     checker?: 'COPY_PASTE_ERROR', category?, owasp?: ['A02'],
 //     en: [name, why, fix], ko: [name, why, fix], msg?: [en, ko] with {0} {1},
 //     on?: { Kind(node, cx) },          // AST handlers
@@ -73,10 +73,10 @@ function catalogEntries() {
       why: { en: def.en[1], ko: def.ko[1] },
       fix: { en: def.en[2], ko: def.ko[2] },
       cwe: cwe[0] || '',
-      sonarKey: def.sonar || '',
+      refKey: def.ref || '',
       impacts: impactsOf(type, severity),
       category: categoryOf(def, type),
-      checker: def.checker || def.sonar || def.id.toUpperCase().replace(/-/g, '_'),
+      checker: def.checker || def.ref || def.id.toUpperCase().replace(/-/g, '_'),
       analysis: def.engine || 'syntax',
     };
     if (cwe.length || owasp.length) {

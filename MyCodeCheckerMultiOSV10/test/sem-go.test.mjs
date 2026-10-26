@@ -48,7 +48,7 @@ test('catalog: shape, unique keys and counts', () => {
   const checkers = new Set(catalog.map((r) => r.checker));
   for (const c of ['FORWARD_NULL', 'RESOURCE_LEAK', 'CHECKED_RETURN', 'LOCK', 'DEADCODE', 'UNUSED_VALUE']) assert.ok(checkers.has(c), c);
   for (const s of ['S1066', 'S3776', 'S1067', 'S1134', 'S1135', 'S108', 'S1186', 'S1192', 'S1871', 'S1764', 'S2757', 'S1145', 'S1172', 'S1481', 'S1125', 'S3923', 'S4144', 'S100', 'S117', 'S107', 'S138', 'S1821', 'S1862', 'S2068', 'S1313', 'S4790', 'S5547', 'S4423', 'S4830', 'S2245']) {
-    assert.ok(catalog.some((r) => r.sonarKey === s), `sonar ${s}`);
+    assert.ok(catalog.some((r) => r.refKey === s), `ref ${s}`);
   }
 });
 

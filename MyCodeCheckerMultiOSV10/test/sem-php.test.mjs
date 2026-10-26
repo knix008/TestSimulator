@@ -41,15 +41,15 @@ test('catalog: shape, unique keys and counts', () => {
       assert.match(r[f].ko, /[가-힣]/, `${r.key} ${f} Korean text`);
     }
     assert.ok(Array.isArray(r.impacts) && r.impacts.length === 1, r.key);
-    assert.match(r.sonarKey, /^(S\d+)?$/, r.key);
+    assert.match(r.refKey, /^(S\d+)?$/, r.key);
     assert.ok(r.checker, `${r.key} checker`);
     assert.ok(r.tags.includes('php'), r.key);
     if (r.cwe) assert.match(r.cwe, /^CWE-\d+$/);
     if (r.type === 'VULNERABILITY' || r.type === 'SECURITY_HOTSPOT') assert.ok(r.standards && (r.standards.cwe || r.standards.owasp2021), `${r.key} security mapping`);
   }
-  const sonar = catalog.filter((r) => r.sonarKey).length;
+  const ref = catalog.filter((r) => r.refKey).length;
   assert.ok(catalog.length >= 150, `rules ${catalog.length}`);
-  assert.ok(sonar >= 120, `rules with a Sonar key ${sonar}`);
+  assert.ok(ref >= 120, `rules with a reference key ${ref}`);
   for (const t of ['BUG', 'VULNERABILITY', 'CODE_SMELL', 'SECURITY_HOTSPOT']) assert.ok(catalog.some((r) => r.type === t), t);
 });
 

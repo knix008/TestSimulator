@@ -91,7 +91,7 @@ const longIfs = (n) => {
 };
 
 rule({
-  id: 'cognitive-complexity', type: 'S', sev: 'CR', debt: 20, sonar: 'S3776', tags: ['brain-overload'],
+  id: 'cognitive-complexity', type: 'S', sev: 'CR', debt: 20, ref: 'S3776', tags: ['brain-overload'],
   en: ['Cognitive Complexity of methods should not be too high', 'Methods with deeply nested and interleaved control flow are hard to read, test and change.', 'Split the method into smaller methods and flatten nested conditions with guard clauses.'],
   ko: ['메서드의 인지 복잡도가 너무 높지 않아야 합니다', '깊게 중첩되고 얽힌 제어 흐름은 읽고 테스트하고 고치기 어렵습니다.', '작은 메서드로 나누고 가드 절로 중첩 조건을 평평하게 합니다.'],
   msg: ['Refactor this method to reduce its Cognitive Complexity from {0} to the {1} allowed.', '이 메서드의 인지 복잡도를 {0}에서 허용치 {1} 이하로 줄입니다.'],
@@ -130,7 +130,7 @@ end
 });
 
 rule({
-  id: 'expression-complexity', type: 'S', sev: 'CR', debt: 5, sonar: 'S1067', tags: ['brain-overload'],
+  id: 'expression-complexity', type: 'S', sev: 'CR', debt: 5, ref: 'S1067', tags: ['brain-overload'],
   en: ['Expressions should not be too complex', 'Long chains of boolean operators are hard to read and easy to get wrong.', 'Extract parts of the condition into well-named methods or variables.'],
   ko: ['식이 너무 복잡하지 않아야 합니다', '불리언 연산자가 길게 이어지면 읽기 어렵고 틀리기 쉽습니다.', '조건 일부를 이름 있는 메서드나 변수로 추출합니다.'],
   msg: ['Reduce the number of conditional operators ({0}) used in the expression (maximum allowed {1}).', '이 식에 쓰인 조건 연산자 수({0})를 허용치 {1} 이하로 줄입니다.'],
@@ -164,7 +164,7 @@ end
 });
 
 rule({
-  id: 'method-too-long', type: 'S', sev: 'MA', debt: 20, sonar: 'S138', tags: ['brain-overload'],
+  id: 'method-too-long', type: 'S', sev: 'MA', debt: 20, ref: 'S138', tags: ['brain-overload'],
   en: ['Methods should not have too many lines of code', 'Very long methods do several things at once and are hard to understand.', 'Split the method into smaller, focused methods.'],
   ko: ['메서드의 코드 줄 수가 너무 많지 않아야 합니다', '아주 긴 메서드는 여러 일을 한꺼번에 하고 이해하기 어렵습니다.', '작고 한 가지 일만 하는 메서드로 나눕니다.'],
   msg: ['This method "{0}" has {1} lines of code, which is greater than the {2} authorized. Split it into smaller methods.', '메서드 "{0}"의 코드가 {1}줄로 허용치 {2}줄보다 깁니다. 작은 메서드로 나눕니다.'],
@@ -184,7 +184,7 @@ rule({
 });
 
 rule({
-  id: 'too-many-parameters', type: 'S', sev: 'MA', debt: 20, sonar: 'S107', tags: ['brain-overload'],
+  id: 'too-many-parameters', type: 'S', sev: 'MA', debt: 20, ref: 'S107', tags: ['brain-overload'],
   en: ['Methods should not have too many parameters', 'A long parameter list is hard to call correctly and usually means the method does too much.', 'Group related parameters into an object or a keyword hash.'],
   ko: ['메서드의 매개변수가 너무 많지 않아야 합니다', '매개변수 목록이 길면 올바르게 호출하기 어렵고 메서드가 너무 많은 일을 한다는 뜻입니다.', '관련 매개변수를 객체나 키워드 해시로 묶습니다.'],
   msg: ['Method "{0}" has {1} parameters, which is greater than the {2} authorized.', '메서드 "{0}"의 매개변수가 {1}개로 허용치 {2}개보다 많습니다.'],
@@ -206,7 +206,7 @@ end
 });
 
 rule({
-  id: 'file-too-long', type: 'S', sev: 'MA', debt: 60, sonar: 'S104', tags: ['brain-overload'],
+  id: 'file-too-long', type: 'S', sev: 'MA', debt: 60, ref: 'S104', tags: ['brain-overload'],
   en: ['Files should not have too many lines of code', 'Very large files usually hold several responsibilities and are hard to navigate.', 'Split the file into smaller classes or modules.'],
   ko: ['파일의 코드 줄 수가 너무 많지 않아야 합니다', '아주 큰 파일은 여러 책임을 담고 있어 살펴보기 어렵습니다.', '더 작은 클래스나 모듈로 나눕니다.'],
   msg: ['This file has {0} lines of code, which is greater than {1} authorized. Split it into smaller files.', '이 파일의 코드가 {0}줄로 허용치 {1}줄보다 깁니다. 더 작은 파일로 나눕니다.'],
@@ -221,7 +221,7 @@ rule({
 });
 
 rule({
-  id: 'line-too-long', type: 'S', sev: 'MI', debt: 1, sonar: 'S103', tags: ['convention'],
+  id: 'line-too-long', type: 'S', sev: 'MI', debt: 1, ref: 'S103', tags: ['convention'],
   en: ['Lines should not be too long', 'Long lines force horizontal scrolling and hide code in reviews.', 'Break the line, for example after a comma or before a method chain.'],
   ko: ['한 줄이 너무 길지 않아야 합니다', '긴 줄은 가로 스크롤을 만들고 리뷰에서 코드를 가립니다.', '쉼표 뒤나 메서드 체인 앞에서 줄을 나눕니다.'],
   msg: ['Split this {0} characters long line (which is greater than {1} authorized).', '{0}자인 이 줄을 나눕니다(허용치 {1}자).'],
@@ -236,7 +236,7 @@ rule({
 });
 
 rule({
-  id: 'nesting-depth', type: 'S', sev: 'CR', debt: 10, sonar: 'S134', tags: ['brain-overload'],
+  id: 'nesting-depth', type: 'S', sev: 'CR', debt: 10, ref: 'S134', tags: ['brain-overload'],
   en: ['Control flow statements should not be nested too deeply', 'Deeply nested if / while / case / begin blocks are hard to follow.', 'Use guard clauses or extract the inner logic into methods.'],
   ko: ['제어 흐름 문이 너무 깊게 중첩되지 않아야 합니다', '깊게 중첩된 if / while / case / begin 블록은 따라가기 어렵습니다.', '가드 절을 쓰거나 안쪽 로직을 메서드로 추출합니다.'],
   msg: ['Refactor this code to not nest more than {0} control flow statements.', '제어 흐름 문이 {0}단계를 넘지 않도록 이 코드를 고칩니다.'],
@@ -284,7 +284,7 @@ function counts(n) {
 
 // ── empty code ─────────────────────────────────────────────
 rule({
-  id: 'empty-block', type: 'S', sev: 'MA', debt: 5, sonar: 'S108', tags: ['suspicious'],
+  id: 'empty-block', type: 'S', sev: 'MA', debt: 5, ref: 'S108', tags: ['suspicious'],
   en: ['Nested blocks of code should not be left empty', 'An empty branch or block is usually unfinished code or a leftover.', 'Add the missing code, remove the block, or explain with a comment why it is empty.'],
   ko: ['중첩된 코드 블록을 비워 두지 않아야 합니다', '빈 분기나 블록은 대개 덜 끝난 코드이거나 남은 흔적입니다.', '빠진 코드를 넣거나 블록을 지우거나, 비어 있는 이유를 주석으로 남깁니다.'],
   msg: ['Either remove or fill this block of code.', '이 코드 블록을 지우거나 채웁니다.'],
@@ -342,7 +342,7 @@ function kw(n, word) {
 }
 
 rule({
-  id: 'empty-method', type: 'S', sev: 'CR', debt: 5, sonar: 'S1186', tags: ['suspicious'],
+  id: 'empty-method', type: 'S', sev: 'CR', debt: 5, ref: 'S1186', tags: ['suspicious'],
   en: ['Methods should not be empty', 'An empty method is surprising for callers: it may be unfinished or intentionally a no-op.', 'Implement the method, raise NotImplementedError, or add a comment explaining why it is empty.'],
   ko: ['메서드를 비워 두지 않아야 합니다', '빈 메서드는 호출하는 쪽을 놀라게 합니다. 미완성인지 의도한 빈 동작인지 알 수 없습니다.', '메서드를 구현하거나 NotImplementedError를 발생시키거나, 비어 있는 이유를 주석으로 남깁니다.'],
   msg: ['Add a nested comment explaining why method "{0}" is empty, or complete the implementation.', '메서드 "{0}"가 비어 있는 이유를 주석으로 남기거나 구현을 완성합니다.'],
@@ -372,7 +372,7 @@ end
 
 // ── duplication ────────────────────────────────────────────
 rule({
-  id: 'duplicated-string', type: 'S', sev: 'CR', debt: 2, sonar: 'S1192', tags: ['design'],
+  id: 'duplicated-string', type: 'S', sev: 'CR', debt: 2, ref: 'S1192', tags: ['design'],
   en: ['String literals should not be duplicated', 'The same literal repeated in several places must be changed everywhere at once.', 'Define a constant for the literal and use it everywhere.'],
   ko: ['문자열 리터럴을 중복하지 않아야 합니다', '같은 리터럴이 여러 곳에 있으면 바꿀 때 모두 함께 바꿔야 합니다.', '리터럴을 상수로 정의하고 그 상수를 씁니다.'],
   msg: ['Define a constant instead of duplicating this literal "{0}" {1} times.', '리터럴 "{0}"를 {1}번 중복하지 말고 상수를 정의합니다.'],
@@ -407,7 +407,7 @@ end
 });
 
 rule({
-  id: 'identical-branches', type: 'S', sev: 'MA', debt: 10, sonar: 'S1871', tags: ['design', 'suspicious'],
+  id: 'identical-branches', type: 'S', sev: 'MA', debt: 10, ref: 'S1871', tags: ['design', 'suspicious'],
   en: ['Two branches in a conditional structure should not have exactly the same implementation', 'Duplicated branches are either a copy-paste mistake or should be merged.', 'Merge the conditions or change one of the branches.'],
   ko: ['조건 구조의 두 분기가 완전히 같은 구현이면 안 됩니다', '같은 분기는 복사-붙여넣기 실수이거나 합쳐야 할 코드입니다.', '조건을 합치거나 한쪽 분기를 고칩니다.'],
   msg: ['This branch\'s code block is the same as the block for the branch on line {0}.', '이 분기의 코드가 {0}번 줄 분기와 같습니다.'],
@@ -469,7 +469,7 @@ function check(bodies, hasElse, cx) {
 }
 
 rule({
-  id: 'all-branches-same', type: 'B', sev: 'MA', debt: 15, sonar: 'S3923', tags: ['suspicious'],
+  id: 'all-branches-same', type: 'B', sev: 'MA', debt: 15, ref: 'S3923', tags: ['suspicious'],
   en: ['All branches in a conditional structure should not have exactly the same implementation', 'When every branch does the same thing the condition is useless, which is usually a mistake.', 'Remove the condition or fix the branch that should differ.'],
   ko: ['조건 구조의 모든 분기가 같은 구현이면 안 됩니다', '모든 분기가 같은 일을 하면 조건이 쓸모없으며 대개 실수입니다.', '조건을 없애거나 달라야 할 분기를 고칩니다.'],
   msg: ['Remove this conditional structure or edit its code blocks so that they are not all the same.', '이 조건 구조를 없애거나 분기 코드가 모두 같지 않도록 고칩니다.'],
@@ -507,7 +507,7 @@ end
 });
 
 rule({
-  id: 'duplicated-condition', type: 'B', sev: 'MA', debt: 10, sonar: 'S1862', tags: ['suspicious'],
+  id: 'duplicated-condition', type: 'B', sev: 'MA', debt: 10, ref: 'S1862', tags: ['suspicious'],
   en: ['Related "if/elsif" conditions and "when" values should not be the same', 'A repeated condition makes its second branch unreachable.', 'Fix the condition so that every branch can run, or remove the duplicate.'],
   ko: ['연관된 "if/elsif" 조건과 "when" 값이 같으면 안 됩니다', '같은 조건이 반복되면 두 번째 분기는 실행되지 않습니다.', '모든 분기가 실행될 수 있도록 조건을 고치거나 중복을 지웁니다.'],
   msg: ['This condition duplicates the one on line {0}.', '이 조건은 {0}번 줄의 조건과 같습니다.'],
@@ -557,7 +557,7 @@ end
 });
 
 rule({
-  id: 'identical-methods', type: 'S', sev: 'MA', debt: 15, sonar: 'S4144', tags: ['confusing', 'duplicate'],
+  id: 'identical-methods', type: 'S', sev: 'MA', debt: 15, ref: 'S4144', tags: ['confusing', 'duplicate'],
   en: ['Methods should not have identical implementations', 'Two methods with the same body are duplicated code; a change to one is easily forgotten in the other.', 'Make one method call the other, or use alias_method.'],
   ko: ['메서드의 구현이 서로 같으면 안 됩니다', '본문이 같은 두 메서드는 중복 코드라서 한쪽만 고치기 쉽습니다.', '한 메서드가 다른 메서드를 호출하게 하거나 alias_method를 씁니다.'],
   msg: ['Update this method so that its implementation is not identical to "{0}" on line {1}.', '이 메서드의 구현이 {1}번 줄의 "{0}"와 같지 않도록 고칩니다.'],
@@ -599,7 +599,7 @@ end
 
 // ── structure ──────────────────────────────────────────────
 rule({
-  id: 'collapsible-if', type: 'S', sev: 'MA', debt: 5, sonar: 'S1066', tags: ['clumsy'],
+  id: 'collapsible-if', type: 'S', sev: 'MA', debt: 5, ref: 'S1066', tags: ['clumsy'],
   en: ['Mergeable "if" statements should be combined', 'An "if" whose only content is another "if" without "else" adds nesting for nothing.', 'Merge both conditions with "&&".'],
   ko: ['합칠 수 있는 "if" 문은 합쳐야 합니다', '"else" 없는 다른 "if"만 담은 "if"는 쓸데없이 중첩을 늘립니다.', '두 조건을 "&&"로 합칩니다.'],
   msg: ['Merge this if statement with the enclosing one.', '이 if 문을 바깥 if 문과 합칩니다.'],
@@ -633,7 +633,7 @@ end
 });
 
 rule({
-  id: 'nested-case', type: 'S', sev: 'CR', debt: 10, sonar: 'S1821', tags: ['brain-overload'],
+  id: 'nested-case', type: 'S', sev: 'CR', debt: 10, ref: 'S1821', tags: ['brain-overload'],
   en: ['"case" statements should not be nested', 'A case inside another case is hard to read.', 'Move the inner case into its own method.'],
   ko: ['"case" 문을 중첩하지 않아야 합니다', 'case 안의 case는 읽기 어렵습니다.', '안쪽 case를 별도 메서드로 옮깁니다.'],
   msg: ['Refactor the code to eliminate this nested "case".', '중첩된 "case"가 없도록 코드를 고칩니다.'],
@@ -667,7 +667,7 @@ end
 });
 
 rule({
-  id: 'case-too-few-clauses', type: 'S', sev: 'MI', debt: 5, sonar: 'S1301', tags: ['bad-practice'],
+  id: 'case-too-few-clauses', type: 'S', sev: 'MI', debt: 5, ref: 'S1301', tags: ['bad-practice'],
   en: ['"case" statements should have at least 3 clauses', 'A case with one or two branches reads better as an if/else.', 'Replace the case with an if statement.'],
   ko: ['"case" 문은 절이 3개 이상이어야 합니다', '분기가 한두 개인 case는 if/else로 쓰는 편이 읽기 쉽습니다.', 'case를 if 문으로 바꿉니다.'],
   msg: ['Replace this "case" statement by "if" statements to increase readability.', '읽기 쉽도록 이 "case" 문을 "if" 문으로 바꿉니다.'],
@@ -695,7 +695,7 @@ end
 });
 
 rule({
-  id: 'nested-ternary', type: 'S', sev: 'MA', debt: 5, sonar: 'S3358', tags: ['confusing'],
+  id: 'nested-ternary', type: 'S', sev: 'MA', debt: 5, ref: 'S3358', tags: ['confusing'],
   en: ['Ternary operators should not be nested', 'Nested ternaries are hard to read and their grouping is easy to misjudge.', 'Use an if/elsif/else or a case expression instead.'],
   ko: ['삼항 연산자를 중첩하지 않아야 합니다', '중첩된 삼항 연산자는 읽기 어렵고 묶임을 잘못 보기 쉽습니다.', '대신 if/elsif/else나 case 식을 씁니다.'],
   msg: ['Extract this nested ternary operation into an independent statement.', '이 중첩 삼항 연산을 별도 문장으로 뽑아냅니다.'],
@@ -720,7 +720,7 @@ end
 });
 
 rule({
-  id: 'if-elsif-without-else', type: 'S', sev: 'CR', debt: 5, sonar: 'S126', tags: ['cert'],
+  id: 'if-elsif-without-else', type: 'S', sev: 'CR', debt: 5, ref: 'S126', tags: ['cert'],
   en: ['"if ... elsif" constructs should end with "else" clauses', 'Without a final else the case where no condition matches is silently ignored.', 'Add an else clause, even if it only raises or documents the default.'],
   ko: ['"if ... elsif" 구조는 "else" 절로 끝나야 합니다', '마지막 else가 없으면 어떤 조건에도 맞지 않는 경우를 조용히 넘깁니다.', '예외를 던지거나 기본 동작을 설명하더라도 else 절을 넣습니다.'],
   msg: ['Add the missing "else" clause.', '빠진 "else" 절을 넣습니다.'],
@@ -754,7 +754,7 @@ end
 });
 
 rule({
-  id: 'case-without-else', type: 'S', sev: 'CR', debt: 5, sonar: 'S131', tags: ['cert'],
+  id: 'case-without-else', type: 'S', sev: 'CR', debt: 5, ref: 'S131', tags: ['cert'],
   en: ['"case" statements should have "else" clauses', 'A case without else silently returns nil for unexpected values.', 'Add an else clause that handles or rejects unexpected values.'],
   ko: ['"case" 문에는 "else" 절이 있어야 합니다', 'else 없는 case는 예상하지 못한 값에 대해 조용히 nil을 돌려줍니다.', '예상하지 못한 값을 처리하거나 거부하는 else 절을 넣습니다.'],
   msg: ['Add an "else" clause to this "case" statement.', '이 "case" 문에 "else" 절을 넣습니다.'],
@@ -833,7 +833,7 @@ end
 });
 
 rule({
-  id: 'unreachable-code', type: 'B', sev: 'MA', debt: 5, sonar: 'S1763', tags: ['cert', 'unused'],
+  id: 'unreachable-code', type: 'B', sev: 'MA', debt: 5, ref: 'S1763', tags: ['cert', 'unused'],
   en: ['All code should be reachable', 'Statements after return, raise, break, next or redo never run.', 'Remove the dead statements or fix the control flow.'],
   ko: ['모든 코드에 도달할 수 있어야 합니다', 'return, raise, break, next, redo 뒤의 문장은 실행되지 않습니다.', '죽은 문장을 지우거나 제어 흐름을 고칩니다.'],
   msg: ['Remove this unreachable code.', '도달할 수 없는 이 코드를 지웁니다.'],
@@ -860,7 +860,7 @@ end
 
 // ── naming ─────────────────────────────────────────────────
 rule({
-  id: 'method-naming', type: 'S', sev: 'MI', debt: 5, sonar: 'S100', tags: ['convention'],
+  id: 'method-naming', type: 'S', sev: 'MI', debt: 5, ref: 'S100', tags: ['convention'],
   en: ['Method names should comply with a naming convention', 'Ruby methods are written in snake_case; other styles look like constants or foreign code.', 'Rename the method in snake_case.'],
   ko: ['메서드 이름은 명명 규칙을 따라야 합니다', 'Ruby 메서드는 snake_case로 쓰며 다른 형식은 상수나 낯선 코드처럼 보입니다.', '메서드 이름을 snake_case로 바꿉니다.'],
   msg: ['Rename method "{0}" to match the regular expression {1}.', '메서드 "{0}"의 이름을 정규식 {1}에 맞게 바꿉니다.'],
@@ -885,7 +885,7 @@ def <=>(other) = 0
 });
 
 rule({
-  id: 'class-naming', type: 'S', sev: 'MI', debt: 5, sonar: 'S101', tags: ['convention'],
+  id: 'class-naming', type: 'S', sev: 'MI', debt: 5, ref: 'S101', tags: ['convention'],
   en: ['Class and module names should comply with a naming convention', 'Ruby classes and modules use CamelCase.', 'Rename the class or module in CamelCase.'],
   ko: ['클래스와 모듈 이름은 명명 규칙을 따라야 합니다', 'Ruby 클래스와 모듈은 CamelCase를 씁니다.', '클래스나 모듈 이름을 CamelCase로 바꿉니다.'],
   msg: ['Rename "{0}" to match the regular expression {1}.', '"{0}"의 이름을 정규식 {1}에 맞게 바꿉니다.'],
@@ -909,7 +909,7 @@ end
 });
 
 rule({
-  id: 'variable-naming', type: 'S', sev: 'MI', debt: 2, sonar: 'S117', tags: ['convention'],
+  id: 'variable-naming', type: 'S', sev: 'MI', debt: 2, ref: 'S117', tags: ['convention'],
   en: ['Local variable and parameter names should comply with a naming convention', 'Ruby locals and parameters are written in snake_case.', 'Rename the variable in snake_case.'],
   ko: ['지역 변수와 매개변수 이름은 명명 규칙을 따라야 합니다', 'Ruby 지역 변수와 매개변수는 snake_case로 씁니다.', '변수 이름을 snake_case로 바꿉니다.'],
   msg: ['Rename this {0} "{1}" to match the regular expression {2}.', '이 {0} "{1}"의 이름을 정규식 {2}에 맞게 바꿉니다.'],
@@ -943,7 +943,7 @@ function dynamicScope(s) {
 }
 
 rule({
-  id: 'unused-local-variable', type: 'S', sev: 'MI', debt: 5, sonar: 'S1481', tags: ['unused'],
+  id: 'unused-local-variable', type: 'S', sev: 'MI', debt: 5, ref: 'S1481', tags: ['unused'],
   en: ['Unused local variables should be removed', 'A variable that is assigned but never read is dead code and may hide a mistake.', 'Remove the variable, or prefix it with "_" if it must stay.'],
   ko: ['쓰지 않는 지역 변수는 지워야 합니다', '값만 넣고 읽지 않는 변수는 죽은 코드이며 실수를 숨길 수 있습니다.', '변수를 지우거나, 남겨야 한다면 이름 앞에 "_"를 붙입니다.'],
   msg: ['Remove this unused "{0}" local variable.', '쓰지 않는 지역 변수 "{0}"를 지웁니다.'],
@@ -976,7 +976,7 @@ end
 });
 
 rule({
-  id: 'unused-parameter', type: 'S', sev: 'MA', debt: 5, sonar: 'S1172', tags: ['unused'],
+  id: 'unused-parameter', type: 'S', sev: 'MA', debt: 5, ref: 'S1172', tags: ['unused'],
   en: ['Unused method parameters should be removed', 'A parameter that is never used misleads callers about what the method needs.', 'Remove the parameter, or prefix it with "_" if the signature must stay.'],
   ko: ['쓰지 않는 메서드 매개변수는 지워야 합니다', '쓰지 않는 매개변수는 메서드에 무엇이 필요한지 호출자를 헷갈리게 합니다.', '매개변수를 지우거나, 시그니처를 유지해야 한다면 이름 앞에 "_"를 붙입니다.'],
   msg: ['Remove the unused method parameter "{0}".', '쓰지 않는 메서드 매개변수 "{0}"를 지웁니다.'],
@@ -1011,7 +1011,7 @@ end
 const PRIVATE_KEEP = new Set(['initialize', 'method_missing', 'respond_to_missing?', 'initialize_copy', 'to_s', 'inspect']);
 
 rule({
-  id: 'unused-private-method', type: 'S', sev: 'MA', debt: 5, sonar: 'S1144', tags: ['unused'],
+  id: 'unused-private-method', type: 'S', sev: 'MA', debt: 5, ref: 'S1144', tags: ['unused'],
   en: ['Unused private methods should be removed', 'A private method that is never called is dead code.', 'Remove the method, or call it where it was meant to be used.'],
   ko: ['쓰지 않는 private 메서드는 지워야 합니다', '호출되지 않는 private 메서드는 죽은 코드입니다.', '메서드를 지우거나, 쓰려던 곳에서 호출합니다.'],
   msg: ['Remove the unused private method "{0}".', '쓰지 않는 private 메서드 "{0}"를 지웁니다.'],
@@ -1079,10 +1079,10 @@ end
 });
 
 // ── comments ───────────────────────────────────────────────
-function tagRule(id, sonar, word, sev, en, ko) {
+function tagRule(id, ref, word, sev, en, ko) {
   const re = new RegExp(`(?:^|[^A-Za-z0-9_])${word}(?![A-Za-z0-9_])`, 'i');
   rule({
-    id, type: 'S', sev, debt: 0, sonar, tags: ['cwe-546'],
+    id, type: 'S', sev, debt: 0, ref, tags: ['cwe-546'],
     en, ko,
     msg: [`Take the required action to complete this "${word}" comment.`, `이 "${word}" 주석이 가리키는 작업을 마칩니다.`],
     file(cx) {

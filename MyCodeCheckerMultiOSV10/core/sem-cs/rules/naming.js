@@ -1,6 +1,6 @@
 'use strict';
 
-// Naming conventions (sonar-dotnet naming family plus the .NET design
+// Naming conventions (.NET reference analyzer naming family plus the .NET design
 // guidelines on suffixes, prefixes and casing).
 
 const { R } = require('../registry');

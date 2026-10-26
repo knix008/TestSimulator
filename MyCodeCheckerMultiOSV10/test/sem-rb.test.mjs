@@ -43,12 +43,12 @@ test('catalog: shape, unique keys and counts', () => {
     assert.ok(Array.isArray(r.impacts) && r.impacts.length === 1, r.key);
     assert.ok(r.tags.includes('ruby'), r.key);
     if (r.cwe) assert.match(r.cwe, /^CWE-\d+$/);
-    if (r.sonarKey) assert.match(r.sonarKey, /^S\d+$/);
+    if (r.refKey) assert.match(r.refKey, /^S\d+$/);
   }
   assert.ok(catalog.length >= 60, `rules ${catalog.length}`);
-  const sonar = new Set(catalog.map((r) => r.sonarKey).filter(Boolean));
+  const ref = new Set(catalog.map((r) => r.refKey).filter(Boolean));
   for (const k of ['S1066', 'S1067', 'S3776', 'S138', 'S107', 'S108', 'S1186', 'S1192', 'S1871', 'S1862', 'S1764', 'S1656', 'S1145', 'S3923', 'S4144', 'S1481', 'S1172', 'S1134', 'S1135', 'S100', 'S101', 'S117', 'S1821', 'S2068', 'S1313', 'S4790', 'S5547', 'S4423', 'S4830', 'S2245', 'S5332', 'S1125', 'S126', 'S131', 'S1144', 'S1854']) {
-    assert.ok(sonar.has(k), `missing Sonar rule ${k}`);
+    assert.ok(ref.has(k), `missing reference rule ${k}`);
   }
 });
 

@@ -17,6 +17,7 @@ const SNAPSHOTS_KEPT = 12;
 
 function createExtensions({ workspace, saveWorkspace, configDir }) {
   let osvCache = null; // { source, db }
+  const loginFailures = new Map(); // login -> recent failure times
 
   function projectOf(ws, projectId) {
     const project = (ws.projects || []).find((p) => p.id === (projectId || ws.activeProjectId));
@@ -76,7 +77,7 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     const state = project.branches[branch];
     analysis.issues = history.stampCreationDates(previous && previous.issues, analysis.issues);
     state.snapshots = [...(state.snapshots || []), {
-      snapshot: analysis.coverity && analysis.coverity.snapshot,
+      snapshot: analysis.defectAnalysis && analysis.defectAnalysis.snapshot,
       at: analysis.finishedAt,
       issues: analysis.issues.map(slim),
     }].slice(-SNAPSHOTS_KEPT);
@@ -161,13 +162,13 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
       }
       return { format: 'html', body: out.html, type: 'text/html', fileName: `${out.fileName}.html` };
     },
-    // Regulatory report (SonarQube Enterprise): one ZIP with the executive,
+    // Regulatory report (enterprise code-quality servers): one ZIP with the executive,
     // security, compliance and SBOM reports as PDF plus the issue list as XLSX.
     'report.regulatory': (args) => {
       const ex = require('./export');
       const { zip } = require('./export/zip');
       const lang = args.lang || (workspace().settings && workspace().settings.language) || 'ko';
-      const kinds = args.kinds || ['executive', 'security', 'integrity', 'sparrow', 'sbom'];
+      const kinds = args.kinds || ['executive', 'security', 'integrity', 'weakness', 'sbom'];
       const entries = [];
       const warnings = [];
       for (const kind of kinds) {
@@ -227,6 +228,7 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     },
 
     // ── DAST (only the target origins the user enters) ───
+    'dast.policies': () => (dast.policies ? (typeof dast.policies === 'function' ? dast.policies() : dast.policies) : []),
     'dast.rules': () => dast.catalog(),
     'dast.start': async (args) => {
       if (dastRun) throw Object.assign(new Error('A DAST scan is already running'), { code: 'BUSY' });
@@ -242,6 +244,14 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
         seeds: args.seeds,
         openapi: args.openapi,
         auth: args.auth,
+        // Browser crawl, scan policy and API scanning (all optional).
+        browser: args.browser,
+        policy: args.policy,
+        graphql: args.graphql,
+        soap: args.soap,
+        postman: args.postman,
+        ssrf: args.ssrf,
+        rateLimitLogin: args.rateLimitLogin,
       });
       dastRun = { id: `dast-${Date.now().toString(36)}`, scan, progress: null };
       scan.on('progress', (p) => { if (dastRun) dastRun.progress = p; });
@@ -273,13 +283,13 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     // ── IDE connected mode (core/lsp/connected.js) ───────
     // The slim part of the workspace an IDE needs: profiles, exclusions, custom
     // rules and each project's issue states, without the stored analyses.
-    'ide.config': () => {
+    'ide.config': (args, who) => {
       const ws = workspace();
       return {
         settings: { exclusions: (ws.settings && ws.settings.exclusions) || [] },
         profiles: ws.profiles || [],
         customRules: ws.customRules || [],
-        projects: (ws.projects || []).map((p) => ({ id: p.id, key: p.key, name: p.name, path: p.path, issueState: p.issueState || {} })),
+        projects: require('./access').filterWorkspace(ws, who).projects.map((p) => ({ id: p.id, key: p.key, name: p.name, path: p.path, issueState: p.issueState || {} })),
       };
     },
 
@@ -340,10 +350,23 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     'security.login': async (args) => {
       const ws = workspace();
       users.ensureSecurity(ws);
+      // After 5 failed attempts within 10 minutes a login is locked for 5 minutes.
+      const key = String(args.login || '').toLowerCase();
+      const now = Date.now();
+      const tries = (loginFailures.get(key) || []).filter((t) => now - t < 600000);
+      if (tries.length >= 5 && now - tries[tries.length - 1] < 300000) {
+        throw Object.assign(new Error('Too many failed sign-ins; try again in a few minutes'), {
+          code: 'TOO_MANY', text: { en: 'Too many failed sign-ins. Try again in a few minutes.', ko: '로그인에 여러 번 실패했습니다. 몇 분 뒤에 다시 시도하십시오.' },
+        });
+      }
       let user = users.authenticate(ws, args.login, args.password);
       // Directory accounts (LDAP / Active Directory) when the local check fails.
       if (!user) user = await require('./integrate').ldapLogin(ws, args.login, args.password);
-      if (!user) throw Object.assign(new Error('Invalid login'), { code: 'UNAUTHORIZED' });
+      if (!user) {
+        loginFailures.set(key, [...tries, now]);
+        throw Object.assign(new Error('Invalid login'), { code: 'UNAUTHORIZED' });
+      }
+      loginFailures.delete(key);
       const token = users.generateToken(ws, { login: args.login, name: `session-${Date.now()}` });
       saveWorkspace(ws);
       return { login: args.login, token: token.token || token };
@@ -357,7 +380,8 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
       const added = external.toIssues(imported.findings, {});
       const engine = imported.engine;
       analysis.issues = [...analysis.issues.filter((i) => i.externalEngine !== engine), ...added.map((i) => ({ ...i, externalEngine: engine }))];
-      project.external = { ...(project.external || {}), [engine]: { at: new Date().toISOString(), count: added.length, rules: imported.rules } };
+      // Kept with the project so the next analysis merges them in again.
+      project.external = { ...(project.external || {}), [engine]: { at: new Date().toISOString(), count: added.length, rules: imported.rules, issues: added } };
       state.latest = analysis;
       saveWorkspace(ws);
       return { format: imported.format, engine, count: added.length, warnings: imported.warnings };

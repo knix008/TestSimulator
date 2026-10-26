@@ -27,7 +27,7 @@ const literalSecret = (v) => {
 };
 
 rule({
-  id: 'hard-coded-credentials', type: 'H', sev: 'BL', debt: 30, sonar: 'S2068', tags: ['cwe-798', 'owasp-a07', 'cert'],
+  id: 'hard-coded-credentials', type: 'H', sev: 'BL', debt: 30, ref: 'S2068', tags: ['cwe-798', 'owasp-a07', 'cert'],
   en: ['Hard-coded passwords are security-sensitive', 'A password written in source code ends up in version control, builds and logs where anyone with access can read it.', 'Load the password from an environment variable, Rails credentials or a secrets manager.'],
   ko: ['하드코딩된 비밀번호는 보안에 민감합니다', '소스 코드에 쓴 비밀번호는 버전 관리, 빌드, 로그에 남아 접근 권한이 있는 누구나 읽을 수 있습니다.', '환경 변수, Rails credentials, 비밀 관리 도구에서 비밀번호를 불러옵니다.'],
   msg: ['"{0}" detected here, make sure this is not a hard-coded credential.', '여기서 "{0}"가 발견되었습니다. 하드코딩된 자격 증명이 아닌지 확인합니다.'],
@@ -54,7 +54,7 @@ URL = "postgres://db.local/app"
 });
 
 rule({
-  id: 'hard-coded-secret', type: 'H', sev: 'BL', debt: 30, sonar: 'S6418', tags: ['cwe-798', 'owasp-a07'],
+  id: 'hard-coded-secret', type: 'H', sev: 'BL', debt: 30, ref: 'S6418', tags: ['cwe-798', 'owasp-a07'],
   en: ['Hard-coded secrets are security-sensitive', 'API keys, tokens and private keys in source code leak through version control and builds.', 'Load the secret from the environment, Rails credentials or a secrets manager, and rotate the leaked value.'],
   ko: ['하드코딩된 비밀 값은 보안에 민감합니다', '소스 코드의 API 키, 토큰, 개인 키는 버전 관리와 빌드를 통해 새어 나갑니다.', '환경 변수, Rails credentials, 비밀 관리 도구에서 값을 불러오고 노출된 값은 교체합니다.'],
   msg: ['"{0}" detected here, make sure this is not a hard-coded secret.', '여기서 "{0}"가 발견되었습니다. 하드코딩된 비밀 값이 아닌지 확인합니다.'],
@@ -77,7 +77,7 @@ TOKEN_HEADER = "X-Auth-Token"
 const IPV4 = /^(?:(?:https?|ftp|tcp|udp):\/\/)?((?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3})(?::\d+)?(?:\/.*)?$/;
 
 rule({
-  id: 'hard-coded-ip', type: 'H', sev: 'MI', debt: 30, sonar: 'S1313', tags: ['cert'],
+  id: 'hard-coded-ip', type: 'H', sev: 'MI', debt: 30, ref: 'S1313', tags: ['cert'],
   en: ['Using hard-coded IP addresses is security-sensitive', 'A literal IP address ties the code to one network layout and may expose an internal host.', 'Read the address from configuration or use a DNS name.'],
   ko: ['IP 주소를 하드코딩하는 것은 보안에 민감합니다', '리터럴 IP 주소는 코드를 특정 네트워크 구성에 묶고 내부 호스트를 드러낼 수 있습니다.', '주소를 설정에서 읽거나 DNS 이름을 씁니다.'],
   msg: ['Make sure using this hardcoded IP address "{0}" is safe here.', '하드코딩된 IP 주소 "{0}"를 여기서 써도 안전한지 확인합니다.'],
@@ -102,7 +102,7 @@ const WEAK_DIGEST = /^(?:Digest::(?:MD5|SHA1|RMD160|MD4)|OpenSSL::Digest::(?:MD5
 const WEAK_DIGEST_NAME = /^(?:md5|md4|sha1|sha-1|ripemd160|rmd160)$/i;
 
 rule({
-  id: 'weak-hash', type: 'H', sev: 'CR', debt: 30, sonar: 'S4790', tags: ['cwe-328', 'owasp-a02'],
+  id: 'weak-hash', type: 'H', sev: 'CR', debt: 30, ref: 'S4790', tags: ['cwe-328', 'owasp-a02'],
   en: ['Using weak hashing algorithms is security-sensitive', 'MD5 and SHA-1 have practical collision attacks and must not protect integrity or passwords.', 'Use SHA-256 or stronger; for passwords use bcrypt, scrypt or Argon2.'],
   ko: ['약한 해시 알고리즘을 쓰는 것은 보안에 민감합니다', 'MD5와 SHA-1은 실제 충돌 공격이 가능해 무결성이나 비밀번호 보호에 쓰면 안 됩니다.', 'SHA-256 이상을 쓰고, 비밀번호에는 bcrypt, scrypt, Argon2를 씁니다.'],
   msg: ['Make sure this weak hash algorithm ({0}) is not used in a sensitive context here.', '약한 해시 알고리즘({0})을 민감한 곳에 쓰지 않는지 확인합니다.'],
@@ -130,7 +130,7 @@ end
 const WEAK_CIPHER = /^(?:des|des3|des-ede|rc2|rc4|bf|blowfish|cast|cast5|idea|seed)(?:$|-)/i;
 
 rule({
-  id: 'weak-cipher', type: 'V', sev: 'CR', debt: 15, sonar: 'S5547', tags: ['cwe-327', 'owasp-a02'],
+  id: 'weak-cipher', type: 'V', sev: 'CR', debt: 15, ref: 'S5547', tags: ['cwe-327', 'owasp-a02'],
   en: ['Cipher algorithms should be robust', 'DES, 3DES, RC2, RC4 and Blowfish are broken or have too small keys/blocks.', 'Use AES (preferably AES-GCM) or ChaCha20-Poly1305.'],
   ko: ['암호 알고리즘은 견고해야 합니다', 'DES, 3DES, RC2, RC4, Blowfish는 깨졌거나 키나 블록이 너무 작습니다.', 'AES(가능하면 AES-GCM)나 ChaCha20-Poly1305를 씁니다.'],
   msg: ['Use a strong cipher algorithm instead of "{0}".', '"{0}" 대신 강한 암호 알고리즘을 씁니다.'],
@@ -158,7 +158,7 @@ end
 });
 
 rule({
-  id: 'weak-cipher-mode', type: 'V', sev: 'CR', debt: 15, sonar: 'S5542', tags: ['cwe-327', 'owasp-a02'],
+  id: 'weak-cipher-mode', type: 'V', sev: 'CR', debt: 15, ref: 'S5542', tags: ['cwe-327', 'owasp-a02'],
   en: ['Encryption algorithms should be used with secure mode and padding scheme', 'ECB mode encrypts equal blocks to equal output and leaks patterns of the plaintext.', 'Use an authenticated mode such as GCM, or CBC with a random IV and a MAC.'],
   ko: ['암호 알고리즘은 안전한 모드와 패딩으로 써야 합니다', 'ECB 모드는 같은 블록을 같은 결과로 암호화해 평문의 패턴을 드러냅니다.', 'GCM 같은 인증 모드나, 무작위 IV와 MAC을 쓰는 CBC를 씁니다.'],
   msg: ['Use a secure mode instead of ECB ("{0}").', 'ECB("{0}") 대신 안전한 모드를 씁니다.'],
@@ -179,7 +179,7 @@ const WEAK_TLS_SYM = /^(?:SSLv2|SSLv3|SSLv23|TLSv1|TLSv1_1|TLS1|TLS1_1)$/;
 const WEAK_TLS_CONST = /(?:^|::)(?:SSL2_VERSION|SSL3_VERSION|TLS1_VERSION|TLS1_1_VERSION)$/;
 
 rule({
-  id: 'weak-tls', type: 'V', sev: 'CR', debt: 15, sonar: 'S4423', tags: ['cwe-327', 'owasp-a02'],
+  id: 'weak-tls', type: 'V', sev: 'CR', debt: 15, ref: 'S4423', tags: ['cwe-327', 'owasp-a02'],
   en: ['Weak SSL/TLS protocols should not be used', 'SSLv2, SSLv3, TLS 1.0 and TLS 1.1 have known attacks and are deprecated.', 'Require TLS 1.2 or newer (min_version = OpenSSL::SSL::TLS1_2_VERSION).'],
   ko: ['약한 SSL/TLS 프로토콜을 쓰지 않아야 합니다', 'SSLv2, SSLv3, TLS 1.0, TLS 1.1은 알려진 공격이 있어 더 이상 권장되지 않습니다.', 'TLS 1.2 이상을 요구합니다(min_version = OpenSSL::SSL::TLS1_2_VERSION).'],
   msg: ['Change this code to use a stronger protocol than "{0}".', '"{0}"보다 강한 프로토콜을 쓰도록 이 코드를 고칩니다.'],
@@ -216,7 +216,7 @@ ctx.min_version = OpenSSL::SSL::TLS1_2_VERSION
 const VERIFY_KEYS = /^(?:verify|ssl_verify|verify_ssl|ssl_verify_peer|verify_peer|ssl_verifypeer)$/;
 
 rule({
-  id: 'certificate-validation-disabled', type: 'V', sev: 'CR', debt: 5, sonar: 'S4830', tags: ['cwe-295', 'owasp-a07'],
+  id: 'certificate-validation-disabled', type: 'V', sev: 'CR', debt: 5, ref: 'S4830', tags: ['cwe-295', 'owasp-a07'],
   en: ['Server certificates should be verified during SSL/TLS connections', 'Turning off certificate verification lets any man-in-the-middle impersonate the server.', 'Keep VERIFY_PEER (the default) and install the right CA certificates instead.'],
   ko: ['SSL/TLS 연결에서는 서버 인증서를 검증해야 합니다', '인증서 검증을 끄면 중간자 누구나 서버를 사칭할 수 있습니다.', '기본값인 VERIFY_PEER를 유지하고 올바른 CA 인증서를 설치합니다.'],
   msg: ['Enable server certificate validation on this SSL/TLS connection.', '이 SSL/TLS 연결에서 서버 인증서 검증을 켭니다.'],
@@ -243,7 +243,7 @@ http.verify_mode = OpenSSL::SSL::VERIFY_PEER
 });
 
 rule({
-  id: 'weak-random', type: 'H', sev: 'CR', debt: 10, sonar: 'S2245', tags: ['cwe-338', 'owasp-a02'],
+  id: 'weak-random', type: 'H', sev: 'CR', debt: 10, ref: 'S2245', tags: ['cwe-338', 'owasp-a02'],
   en: ['Using pseudorandom number generators (PRNGs) is security-sensitive', 'rand and Random are predictable and must not generate tokens, passwords or keys.', 'Use SecureRandom for anything security related.'],
   ko: ['의사 난수 생성기(PRNG)를 쓰는 것은 보안에 민감합니다', 'rand와 Random은 예측 가능해서 토큰, 비밀번호, 키 생성에 쓰면 안 됩니다.', '보안과 관련된 값에는 SecureRandom을 씁니다.'],
   msg: ['Make sure that using this pseudorandom number generator is safe here.', '이 의사 난수 생성기를 여기서 써도 안전한지 확인합니다.'],
@@ -271,7 +271,7 @@ const CLEAR_SCHEME = /^(http|ftp|telnet):\/\/([^/:?#\s]*)/i;
 const CLEAR_OK_HOST = /^(?:localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[::1\]|[\w.-]*example\.(?:com|org|net)|[\w.-]+\.local|[\w.-]+\.test|www\.w3\.org|schemas\.xmlsoap\.org|purl\.org|xmlns\.com|json-schema\.org)$/i;
 
 rule({
-  id: 'clear-text-protocol', type: 'H', sev: 'CR', debt: 5, sonar: 'S5332', tags: ['cwe-319', 'owasp-a02'],
+  id: 'clear-text-protocol', type: 'H', sev: 'CR', debt: 5, ref: 'S5332', tags: ['cwe-319', 'owasp-a02'],
   en: ['Using clear-text protocols is security-sensitive', 'HTTP, FTP and Telnet send data unencrypted, so anyone on the network can read or change it.', 'Use https://, sftp:// or ssh instead.'],
   ko: ['평문 프로토콜을 쓰는 것은 보안에 민감합니다', 'HTTP, FTP, Telnet은 데이터를 암호화하지 않아 네트워크의 누구나 읽거나 바꿀 수 있습니다.', '대신 https://, sftp://, ssh를 씁니다.'],
   msg: ['Using {0} protocol is insecure. Use {1} instead.', '{0} 프로토콜은 안전하지 않습니다. 대신 {1}를 씁니다.'],
@@ -293,7 +293,7 @@ DEV = "http://localhost:3000"
 
 // ── dynamic code ───────────────────────────────────────────
 rule({
-  id: 'dynamic-code-execution', type: 'H', sev: 'CR', debt: 15, sonar: 'S1523', tags: ['cwe-95', 'owasp-a03'],
+  id: 'dynamic-code-execution', type: 'H', sev: 'CR', debt: 15, ref: 'S1523', tags: ['cwe-95', 'owasp-a03'],
   en: ['Dynamically executing code is security-sensitive', 'eval and the string forms of instance_eval / class_eval run arbitrary Ruby; with outside data this is code injection.', 'Avoid evaluating strings: use blocks, define_method, public_send with an allow-list, or a parser.'],
   ko: ['코드를 동적으로 실행하는 것은 보안에 민감합니다', 'eval과 문자열 형태의 instance_eval / class_eval은 임의의 Ruby를 실행하며, 외부 데이터가 섞이면 코드 주입이 됩니다.', '문자열 평가를 피하고 블록, define_method, 허용 목록을 둔 public_send, 파서를 씁니다.'],
   msg: ['Make sure that this dynamic injection or execution of code ("{0}") is safe.', '이 동적 코드 실행("{0}")이 안전한지 확인합니다.'],
@@ -317,7 +317,7 @@ end
 });
 
 rule({
-  id: 'dynamic-method-call', type: 'H', sev: 'MA', debt: 10, sonar: 'S6331', tags: ['cwe-470'],
+  id: 'dynamic-method-call', type: 'H', sev: 'MA', debt: 10, ref: 'S6331', tags: ['cwe-470'],
   en: ['Calling methods by a dynamic name is security-sensitive', 'send / public_send / __send__ with a computed name can call any method, including private and dangerous ones.', 'Check the name against an allow-list, or replace send with explicit calls.'],
   ko: ['동적 이름으로 메서드를 호출하는 것은 보안에 민감합니다', '계산된 이름을 쓴 send / public_send / __send__는 private이나 위험한 메서드까지 무엇이든 호출할 수 있습니다.', '이름을 허용 목록으로 검사하거나 send를 명시적인 호출로 바꿉니다.'],
   msg: ['Make sure the method name passed to "{0}" cannot be controlled by a user.', '"{0}"에 넘기는 메서드 이름을 사용자가 조종할 수 없는지 확인합니다.'],
@@ -414,7 +414,7 @@ const dynamicString = (a) => {
 };
 
 rule({
-  id: 'os-command', type: 'H', sev: 'CR', debt: 30, sonar: 'S4721', tags: ['cwe-78', 'owasp-a03'],
+  id: 'os-command', type: 'H', sev: 'CR', debt: 30, ref: 'S4721', tags: ['cwe-78', 'owasp-a03'],
   en: ['Building OS commands from dynamic strings is security-sensitive', 'A command string built with interpolation goes through the shell, so a value containing ; | or $() runs extra commands.', 'Pass the program and its arguments separately (system("git", "log", ref)) or escape with Shellwords.escape.'],
   ko: ['동적 문자열로 OS 명령을 만드는 것은 보안에 민감합니다', '보간으로 만든 명령 문자열은 셸을 거치므로 ; | $() 가 든 값이 다른 명령을 실행합니다.', '프로그램과 인자를 따로 넘기거나(system("git", "log", ref)) Shellwords.escape로 이스케이프합니다.'],
   msg: ['Make sure that executing this OS command built from "{0}" is safe here.', '"{0}"로 만든 OS 명령을 실행해도 안전한지 확인합니다.'],
@@ -475,7 +475,7 @@ end
 });
 
 rule({
-  id: 'publicly-writable-directory', type: 'H', sev: 'CR', debt: 10, sonar: 'S5443', tags: ['cwe-377', 'cwe-379', 'owasp-a01'],
+  id: 'publicly-writable-directory', type: 'H', sev: 'CR', debt: 10, ref: 'S5443', tags: ['cwe-377', 'cwe-379', 'owasp-a01'],
   en: ['Using publicly writable directories is security-sensitive', 'Files under /tmp can be pre-created or replaced by other users (symlink and race attacks).', 'Use Dir.mktmpdir / Tempfile, or a private application directory.'],
   ko: ['누구나 쓸 수 있는 디렉터리를 쓰는 것은 보안에 민감합니다', '/tmp 아래 파일은 다른 사용자가 미리 만들거나 바꿔치기할 수 있습니다(심볼릭 링크, 경쟁 공격).', 'Dir.mktmpdir / Tempfile이나 애플리케이션 전용 디렉터리를 씁니다.'],
   msg: ['Make sure publicly writable directories are used safely here.', '누구나 쓸 수 있는 디렉터리를 여기서 안전하게 쓰는지 확인합니다.'],
@@ -498,7 +498,7 @@ end
 });
 
 rule({
-  id: 'permissive-file-permissions', type: 'H', sev: 'MA', debt: 10, sonar: 'S2612', tags: ['cwe-732', 'owasp-a01'],
+  id: 'permissive-file-permissions', type: 'H', sev: 'MA', debt: 10, ref: 'S2612', tags: ['cwe-732', 'owasp-a01'],
   en: ['Setting loose POSIX file permissions is security-sensitive', 'Granting read, write or execute rights to "others" exposes the file to every local user.', 'Grant permissions to the owner (and group if needed) only, e.g. 0o640 or 0o750.'],
   ko: ['느슨한 POSIX 파일 권한을 주는 것은 보안에 민감합니다', '"others"에 읽기·쓰기·실행 권한을 주면 모든 로컬 사용자에게 파일이 노출됩니다.', '소유자(필요하면 그룹)에게만 권한을 줍니다. 예: 0o640, 0o750.'],
   msg: ['Make sure this permission "{0}" is safe here.', '이 권한 "{0}"가 여기서 안전한지 확인합니다.'],

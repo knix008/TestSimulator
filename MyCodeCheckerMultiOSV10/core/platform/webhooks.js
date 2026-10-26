@@ -1,12 +1,12 @@
 'use strict';
 
-// Webhooks in the SonarQube shape: definitions, the payload, an HMAC-SHA256
+// Webhooks in the compatible shapes: definitions, the payload, an HMAC-SHA256
 // signature header and a delivery that never throws and returns a log record.
 
 const crypto = require('crypto');
 
 const EVENTS = ['analysis-done', 'gate-changed'];
-const SIGNATURE_HEADER = 'X-Sonar-Webhook-HMAC-SHA256';
+const SIGNATURE_HEADER = 'X-MCC-Webhook-HMAC-SHA256';
 
 /**
  * Create / normalize a webhook definition. Throws only on an invalid URL or event (definition time).
@@ -39,7 +39,7 @@ function publicWebhook(hook) {
 const OPS = { GT: 'GREATER_THAN', LT: 'LESS_THAN', GTE: 'GREATER_THAN_OR_EQUALS', LTE: 'LESS_THAN_OR_EQUALS', EQ: 'EQUALS', NE: 'NOT_EQUALS' };
 
 /**
- * SonarQube webhook payload.
+ * code quality webhook payload.
  * @param {{project:object, analysis:object, branch?:string, isMain?:boolean, pullRequest?:object, serverUrl?:string, taskId?:string, revision?:string, properties?:object}} args
  */
 function buildPayload(args = {}) {
@@ -72,7 +72,7 @@ function buildPayload(args = {}) {
     },
     properties: { ...(args.properties || {}) },
   };
-  if (analysis.coverity && analysis.coverity.policy) payload.properties['coverity.policy'] = analysis.coverity.policy.status;
+  if (analysis.defectAnalysis && analysis.defectAnalysis.policy) payload.properties['defectAnalysis.policy'] = analysis.defectAnalysis.policy.status;
   return payload;
 }
 
@@ -146,7 +146,7 @@ async function deliver(webhook, payload, opts = {}) {
   return record;
 }
 
-/** Keep the last N delivery records per webhook (Sonar keeps recent deliveries). */
+/** Keep the last N delivery records per webhook (code quality keeps recent deliveries). */
 function appendDelivery(log, record, max = 30) {
   const list = [record, ...(log || [])];
   const per = {};

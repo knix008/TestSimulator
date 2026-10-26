@@ -4,7 +4,7 @@
 // breaks the operator (coverage LT 80 fails when coverage is under 80).
 // Missing coverage does not fail a coverage condition: there is nothing to judge.
 
-const SONAR_WAY = {
+const DEFAULT_GATE = {
   id: 'checker-way',
   name: 'Checker way',
   isDefault: true,
@@ -79,4 +79,4 @@ function evaluateGate(gate, measures) {
   return { id: gate && gate.id, name: gate && gate.name, status, conditions };
 }
 
-module.exports = { SONAR_WAY, METRICS, metricLabel, compare, evaluateGate };
+module.exports = { DEFAULT_GATE, METRICS, metricLabel, compare, evaluateGate };

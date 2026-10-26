@@ -45,7 +45,7 @@ function bodyText(ctx, n) {
 const IDENT_OPS = new Set(['==', '!=', '===', '!==', '<', '>', '<=', '>=', '&&', '||', '??', '-', '/', '%', '&', '|', '^', 'instanceof']);
 
 rule('identical-operands', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S1764', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S1764', tags: ['suspicious'],
   name: ['Identical expressions should not be used on both sides of a binary operator', '이항 연산자 양쪽에 같은 식을 쓰면 안 됩니다'],
   why: ['Using the same expression on both sides always gives the same result and is almost always a copy-paste mistake.', '양쪽에 같은 식을 쓰면 결과가 항상 같고 거의 항상 복사 실수입니다.'],
   fix: ['Fix the operand that was meant to be different; use Number.isNaN() to test for NaN.', '달라야 할 피연산자를 고치세요. NaN 검사는 Number.isNaN()을 쓰세요.'],
@@ -67,7 +67,7 @@ rule('identical-operands', {
 const RELOAD_PROPS = new Set(['src', 'href', 'value', 'scrollTop', 'scrollLeft', 'currentTime', 'innerHTML', 'outerHTML', 'textContent', 'className', 'hash', 'search', 'location', 'data', 'checked', 'selectedIndex']);
 
 rule('self-assignment', {
-  t: 'B', s: 'MA', debt: 3, sonar: 'S1656', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 3, ref: 'S1656', tags: ['suspicious'],
   name: ['Variables should not be self-assigned', '변수를 자기 자신에게 대입하면 안 됩니다'],
   why: ['Assigning a variable to itself has no effect and usually hides a typo in one of the names.', '자기 대입은 효과가 없고 보통 이름 중 하나의 오타를 숨깁니다.'],
   fix: ['Assign the intended value or remove the statement.', '의도한 값을 대입하거나 문장을 지우세요.'],
@@ -112,7 +112,7 @@ function isEmptyBranch(s) {
 }
 
 rule('all-branches-identical', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S3923', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S3923', tags: ['suspicious'],
   name: ['All branches in a conditional structure should not have exactly the same implementation', '조건 구조의 모든 분기 구현이 똑같으면 안 됩니다'],
   why: ['When every branch does the same thing the condition is pointless, which usually means one branch was not updated.', '모든 분기가 같은 일을 하면 조건이 무의미하며 보통 한 분기를 고치지 않은 것입니다.'],
   fix: ['Remove the condition or fix the branch that should differ.', '조건을 지우거나 달라야 할 분기를 고치세요.'],
@@ -137,7 +137,7 @@ rule('all-branches-identical', {
 });
 
 rule('duplicate-condition', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S1862', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S1862', tags: ['suspicious'],
   name: ['Related "if/else if" statements should not have the same condition', '연결된 "if/else if"에 같은 조건을 쓰면 안 됩니다'],
   why: ['A repeated condition in an else-if chain can never be true when reached, so its branch is dead code.', 'else-if 사슬에서 반복된 조건은 도달했을 때 절대 참이 아니어서 그 분기는 죽은 코드입니다.'],
   fix: ['Change the duplicated condition or merge the branches.', '중복된 조건을 바꾸거나 분기를 합치세요.'],
@@ -158,7 +158,7 @@ rule('duplicate-condition', {
 });
 
 rule('duplicate-case', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S1862', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S1862', tags: ['suspicious'],
   name: ['Switch statements should not have duplicate case values', 'switch 문에 같은 case 값을 쓰면 안 됩니다'],
   why: ['Only the first matching case runs, so a duplicated case label is dead code.', '처음 일치한 case만 실행되므로 중복된 case는 죽은 코드입니다.'],
   fix: ['Remove or correct the duplicated case.', '중복된 case를 지우거나 고치세요.'],
@@ -182,7 +182,7 @@ function isNaNNode(n) {
 }
 
 rule('nan-comparison', {
-  t: 'B', s: 'CR', debt: 5, sonar: 'S2688', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 5, ref: 'S2688', tags: ['suspicious'],
   name: ['"NaN" should not be used in comparisons', '"NaN"을 비교에 쓰면 안 됩니다'],
   why: ['NaN is not equal to anything, itself included, so the comparison always has the same result.', 'NaN은 자기 자신을 포함해 어떤 값과도 같지 않아 비교 결과가 항상 같습니다.'],
   fix: ['Use Number.isNaN(value).', 'Number.isNaN(value)를 쓰세요.'],
@@ -199,7 +199,7 @@ rule('nan-comparison', {
 const TYPEOF_VALUES = new Set(['undefined', 'object', 'boolean', 'number', 'string', 'function', 'symbol', 'bigint']);
 
 rule('typeof-invalid', {
-  t: 'B', s: 'CR', debt: 5, sonar: 'S4125', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 5, ref: 'S4125', tags: ['suspicious'],
   name: ['"typeof" expressions should only be compared to valid values', '"typeof" 식은 올바른 값과만 비교해야 합니다'],
   why: ['typeof only returns a fixed set of strings, so comparing it with anything else never matches.', 'typeof는 정해진 문자열만 돌려주므로 다른 값과 비교하면 절대 일치하지 않습니다.'],
   fix: ['Compare with "undefined", "object", "boolean", "number", "string", "function", "symbol" or "bigint".', '"undefined", "object", "boolean", "number", "string", "function", "symbol", "bigint" 중 하나와 비교하세요.'],
@@ -222,7 +222,7 @@ rule('typeof-invalid', {
 });
 
 rule('unsafe-finally', {
-  t: 'B', s: 'CR', debt: 30, sonar: 'S1143', cwe: 'CWE-584', tags: ['error-handling'],
+  t: 'B', s: 'CR', debt: 30, ref: 'S1143', cwe: 'CWE-584', tags: ['error-handling'],
   name: ['Jump statements should not occur in "finally" blocks', '"finally" 블록에서 제어 이동 문을 쓰면 안 됩니다'],
   why: ['A return, throw, break or continue in finally silently discards the exception or return value of the try block.', 'finally 안의 return, throw, break, continue는 try 블록의 예외나 반환값을 조용히 버립니다.'],
   fix: ['Move the jump out of the finally block.', '제어 이동을 finally 블록 밖으로 옮기세요.'],
@@ -255,7 +255,7 @@ rule('unsafe-finally', {
 });
 
 rule('duplicate-key', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1534', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1534', tags: ['suspicious'],
   name: ['Object literals should not have duplicate property names', '객체 리터럴에 같은 속성 이름을 두 번 쓰면 안 됩니다'],
   why: ['A duplicated key silently overwrites the earlier value, which is usually a copy-paste error.', '중복된 키는 앞의 값을 조용히 덮어쓰며 보통 복사 실수입니다.'],
   fix: ['Rename or remove one of the duplicated properties.', '중복된 속성 중 하나의 이름을 바꾸거나 지우세요.'],
@@ -278,7 +278,7 @@ rule('duplicate-key', {
 });
 
 rule('duplicate-class-member', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1534', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1534', tags: ['suspicious'],
   name: ['Class members should not be declared twice', '클래스 멤버를 두 번 선언하면 안 됩니다'],
   why: ['The second declaration silently replaces the first one.', '두 번째 선언이 첫 번째를 조용히 대체합니다.'],
   fix: ['Rename or remove one of the members.', '멤버 중 하나의 이름을 바꾸거나 지우세요.'],
@@ -304,7 +304,7 @@ rule('duplicate-class-member', {
 });
 
 rule('duplicate-parameter', {
-  t: 'B', s: 'CR', debt: 5, sonar: 'S1536', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 5, ref: 'S1536', tags: ['suspicious'],
   name: ['Function parameter names should be unique', '함수 매개변수 이름은 고유해야 합니다'],
   why: ['With duplicated names only the last parameter is visible, so the earlier argument is lost.', '이름이 중복되면 마지막 매개변수만 보여 앞의 인자가 사라집니다.'],
   fix: ['Rename the duplicated parameter.', '중복된 매개변수의 이름을 바꾸세요.'],
@@ -322,7 +322,7 @@ rule('duplicate-parameter', {
 });
 
 rule('unsafe-negation', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3812', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3812', tags: ['suspicious'],
   name: ['Negation should not be applied to the left operand of "in" or "instanceof"', '"in"이나 "instanceof"의 왼쪽 피연산자에 부정을 적용하면 안 됩니다'],
   why: ['"!a in b" negates a first and then tests the boolean, which is never what was meant.', '"!a in b"는 a를 먼저 부정한 뒤 불리언을 검사하므로 의도와 다릅니다.'],
   fix: ['Add parentheses: !(a in b) or !(a instanceof B).', '괄호를 쓰세요: !(a in b) 또는 !(a instanceof B).'],
@@ -342,7 +342,7 @@ function hasValueReturn(fn) {
 }
 
 rule('array-callback-return', {
-  t: 'B', s: 'CR', debt: 5, sonar: 'S3796', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 5, ref: 'S3796', tags: ['suspicious'],
   name: ['Callbacks of array methods should have return statements', '배열 메서드의 콜백에는 return 문이 있어야 합니다'],
   why: ['map, filter, find, reduce and similar methods use the callback return value; a callback that returns nothing yields undefined.', 'map, filter, find, reduce 같은 메서드는 콜백 반환값을 씁니다. 아무것도 돌려주지 않으면 undefined가 됩니다.'],
   fix: ['Return a value from the callback, or use forEach when no result is needed.', '콜백에서 값을 돌려주거나 결과가 필요 없으면 forEach를 쓰세요.'],
@@ -381,7 +381,7 @@ function accessorFns(ctx, kind) {
 }
 
 rule('getter-return', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3796', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3796', tags: ['suspicious'],
   name: ['Getters should return a value', 'getter는 값을 돌려줘야 합니다'],
   why: ['A getter that does not return yields undefined to every reader of the property.', '값을 돌려주지 않는 getter는 속성을 읽는 모든 곳에 undefined를 줍니다.'],
   fix: ['Return the value on every path of the getter.', 'getter의 모든 경로에서 값을 돌려주세요.'],
@@ -402,7 +402,7 @@ rule('getter-return', {
 });
 
 rule('setter-return', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2432', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2432', tags: ['suspicious'],
   name: ['Setters should not return values', 'setter는 값을 돌려주면 안 됩니다'],
   why: ['The value returned by a setter is ignored, so returning one suggests a misunderstanding.', 'setter가 돌려주는 값은 무시되므로 값을 돌려주는 것은 오해를 뜻합니다.'],
   fix: ['Remove the returned value.', '돌려주는 값을 지우세요.'],
@@ -414,7 +414,7 @@ rule('setter-return', {
 });
 
 rule('constructor-return', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6635', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6635', tags: ['suspicious'],
   name: ['Constructors should not return values', '생성자는 값을 돌려주면 안 됩니다'],
   why: ['Returning a value from a constructor replaces the new instance and confuses readers.', '생성자에서 값을 돌려주면 새 인스턴스가 대체되어 읽는 사람을 헷갈리게 합니다.'],
   fix: ['Remove the returned value, or use a factory function.', '반환값을 지우거나 팩토리 함수를 쓰세요.'],
@@ -434,7 +434,7 @@ function promiseExecutor(ctx, n) {
 }
 
 rule('promise-executor-return', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S7059', tags: ['promise'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S7059', tags: ['promise'],
   name: ['Promise executors should not return values', 'Promise 실행자는 값을 돌려주면 안 됩니다'],
   why: ['The value returned by the executor is ignored; returning one usually means resolve() was meant.', '실행자가 돌려주는 값은 무시됩니다. 값을 돌려준다면 보통 resolve()를 의도한 것입니다.'],
   fix: ['Call resolve(value) instead of returning it.', '값을 돌려주는 대신 resolve(value)를 호출하세요.'],
@@ -451,7 +451,7 @@ rule('promise-executor-return', {
 });
 
 rule('async-promise-executor', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S6544', tags: ['promise', 'async'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S6544', tags: ['promise', 'async'],
   name: ['Promise executors should not be async', 'Promise 실행자는 async이면 안 됩니다'],
   why: ['Errors thrown inside an async executor are lost and the outer promise never settles; wrapping await code in new Promise is also unnecessary.', 'async 실행자 안에서 난 오류는 사라지고 바깥 Promise가 끝나지 않습니다. await 코드를 new Promise로 감쌀 필요도 없습니다.'],
   fix: ['Make the executor synchronous, or write an async function instead of new Promise.', '실행자를 동기로 만들거나 new Promise 대신 async 함수를 쓰세요.'],
@@ -484,7 +484,7 @@ function precisionLost(raw) {
 }
 
 rule('loss-of-precision', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6534', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6534', tags: ['suspicious'],
   name: ['Numeric literals should not lose precision', '숫자 리터럴이 정밀도를 잃으면 안 됩니다'],
   why: ['The literal cannot be represented exactly as a double, so the runtime value differs from what is written.', '이 리터럴은 double로 정확히 나타낼 수 없어 실행 값이 적힌 값과 다릅니다.'],
   fix: ['Use a BigInt literal (123n) or a string for exact values.', '정확한 값이 필요하면 BigInt 리터럴(123n)이나 문자열을 쓰세요.'],
@@ -496,7 +496,7 @@ rule('loss-of-precision', {
 });
 
 rule('negative-zero-compare', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6679', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6679', tags: ['suspicious'],
   name: ['Comparisons with "-0" should use Object.is', '"-0"과의 비교에는 Object.is를 써야 합니다'],
   why: ['x === -0 is also true for +0, so the test cannot tell the two zeros apart.', 'x === -0은 +0에도 참이라 두 0을 구별하지 못합니다.'],
   fix: ['Use Object.is(x, -0).', 'Object.is(x, -0)를 쓰세요.'],
@@ -515,7 +515,7 @@ function testOf(n) {
 }
 
 rule('assignment-in-condition', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1121', cwe: 'CWE-481', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1121', cwe: 'CWE-481', tags: ['suspicious'],
   name: ['Assignments should not be used as conditions', '대입을 조건으로 쓰면 안 됩니다'],
   why: ['A single "=" in a condition assigns instead of comparing; it is usually a typo for "===".', '조건 안의 "=" 하나는 비교가 아니라 대입이며 보통 "==="의 오타입니다.'],
   fix: ['Use "===" to compare, or move the assignment before the condition.', '비교는 "==="를 쓰거나 대입을 조건 앞으로 옮기세요.'],
@@ -527,7 +527,7 @@ rule('assignment-in-condition', {
 });
 
 rule('sparse-array', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S4140', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S4140', tags: ['suspicious'],
   name: ['Sparse arrays should not be declared', '빈 칸이 있는 배열을 선언하면 안 됩니다'],
   why: ['Consecutive commas create holes that behave differently from undefined in iteration and are usually typos.', '연속 쉼표는 반복에서 undefined와 다르게 동작하는 빈 칸을 만들며 보통 오타입니다.'],
   fix: ['Remove the extra comma or put an explicit value (undefined) there.', '여분의 쉼표를 지우거나 명시적인 값(undefined)을 넣으세요.'],
@@ -538,7 +538,7 @@ rule('sparse-array', {
 });
 
 rule('unsafe-optional-chaining', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6275', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6275', tags: ['suspicious'],
   name: ['Optional chaining should not be used where undefined throws', 'undefined가 오류를 일으키는 곳에 옵셔널 체이닝을 쓰면 안 됩니다'],
   why: ['The optional chain short-circuits to undefined, and the surrounding call, member access, spread or destructuring then throws a TypeError.', '옵셔널 체인이 undefined로 끝나면 둘러싼 호출, 속성 접근, 전개, 구조 분해가 TypeError를 냅니다.'],
   fix: ['Extend the optional chain (a?.b?.()) or provide a default with "??".', '옵셔널 체인을 이어 쓰거나(a?.b?.()) "??"로 기본값을 주세요.'],
@@ -563,7 +563,7 @@ rule('unsafe-optional-chaining', {
 });
 
 rule('new-native-nonconstructor', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S3834', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S3834', tags: ['suspicious'],
   name: ['"Symbol" and "BigInt" should not be used with "new"', '"Symbol"과 "BigInt"에 "new"를 쓰면 안 됩니다'],
   why: ['Symbol and BigInt are not constructors; "new" throws a TypeError.', 'Symbol과 BigInt는 생성자가 아니라 "new"를 쓰면 TypeError가 납니다.'],
   fix: ['Call them as functions: Symbol("x"), BigInt(1).', '함수로 호출하세요: Symbol("x"), BigInt(1).'],
@@ -577,7 +577,7 @@ rule('new-native-nonconstructor', {
 const NON_CALLABLE = new Set(['Math', 'JSON', 'Reflect', 'Atomics', 'Intl']);
 
 rule('non-callable-global', {
-  t: 'B', s: 'BL', debt: 5, sonar: 'S2873', tags: ['suspicious'],
+  t: 'B', s: 'BL', debt: 5, ref: 'S2873', tags: ['suspicious'],
   name: ['Non-callable global objects should not be called', '호출할 수 없는 전역 객체를 호출하면 안 됩니다'],
   why: ['Math, JSON, Reflect, Atomics and Intl are namespaces; calling them or using "new" throws a TypeError.', 'Math, JSON, Reflect, Atomics, Intl은 네임스페이스라 호출하거나 "new"를 쓰면 TypeError가 납니다.'],
   fix: ['Call one of their methods instead.', '대신 그 메서드 중 하나를 호출하세요.'],
@@ -588,9 +588,9 @@ rule('non-callable-global', {
   }
 });
 
-function reassignRule(id, kinds, sonar, sev, nameEn, nameKo, whyEn, whyKo, msgEn, msgKo) {
+function reassignRule(id, kinds, ref, sev, nameEn, nameKo, whyEn, whyKo, msgEn, msgKo) {
   rule(id, {
-    t: 'B', s: sev, debt: 5, sonar, tags: ['suspicious'],
+    t: 'B', s: sev, debt: 5, ref, tags: ['suspicious'],
     name: [nameEn, nameKo], why: [whyEn, whyKo],
     fix: ['Use a new variable instead of reassigning.', '다시 대입하지 말고 새 변수를 쓰세요.'],
   }, (ctx) => {
@@ -620,7 +620,7 @@ reassignRule('import-reassign', ['import'], 'S6522', 'MA', 'Imported bindings sh
 const READONLY_GLOBALS = new Set(['undefined', 'NaN', 'Infinity', 'globalThis', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Math', 'JSON', 'Promise', 'Symbol', 'Map', 'Set', 'Date', 'RegExp', 'Error', 'eval', 'console', 'window', 'document', 'Reflect', 'Proxy', 'BigInt']);
 
 rule('global-reassign', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2424', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2424', tags: ['suspicious'],
   name: ['Built-in global objects should not be reassigned', '내장 전역 객체에 다시 대입하면 안 됩니다'],
   why: ['Overwriting undefined, NaN, window or a built-in constructor breaks every other script in the page or process.', 'undefined, NaN, window, 내장 생성자를 덮어쓰면 페이지나 프로세스의 다른 모든 코드가 깨집니다.'],
   fix: ['Use a local variable with another name.', '다른 이름의 지역 변수를 쓰세요.'],
@@ -634,7 +634,7 @@ rule('global-reassign', {
 const RESTRICTED = new Set(['undefined', 'NaN', 'Infinity', 'eval', 'arguments']);
 
 rule('restricted-name-shadow', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2137', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2137', tags: ['suspicious'],
   name: ['Special identifiers should not be bound or shadowed', '특수 식별자를 선언하거나 가리면 안 됩니다'],
   why: ['Declaring undefined, NaN, Infinity, eval or arguments changes their meaning for the whole scope.', 'undefined, NaN, Infinity, eval, arguments를 선언하면 범위 전체에서 의미가 바뀝니다.'],
   fix: ['Choose another name.', '다른 이름을 고르세요.'],
@@ -648,7 +648,7 @@ rule('restricted-name-shadow', {
 });
 
 rule('delete-variable', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3001', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3001', tags: ['suspicious'],
   name: ['"delete" should be used only with object properties', '"delete"는 객체 속성에만 써야 합니다'],
   why: ['delete on a variable has no effect (or is a syntax error in strict mode).', '변수에 delete를 쓰면 효과가 없습니다 (strict 모드에서는 문법 오류).'],
   fix: ['Assign undefined or null to the variable instead.', '대신 변수에 undefined나 null을 대입하세요.'],
@@ -685,7 +685,7 @@ function isArrayVar(ctx, id) {
 }
 
 rule('array-delete', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2870', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2870', tags: ['suspicious'],
   name: ['"delete" should not be used on arrays', '배열에 "delete"를 쓰면 안 됩니다'],
   why: ['delete leaves a hole: the length does not change and the slot reads as undefined.', 'delete는 빈 칸을 남깁니다. 길이가 바뀌지 않고 그 칸은 undefined로 읽힙니다.'],
   fix: ['Use splice(index, 1) to remove the element.', 'splice(index, 1)로 요소를 지우세요.'],
@@ -701,7 +701,7 @@ rule('array-delete', {
 });
 
 rule('in-on-primitive', {
-  t: 'B', s: 'CR', debt: 5, sonar: 'S3785', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 5, ref: 'S3785', tags: ['suspicious'],
   name: ['"in" should not be used with primitive types', '"in"을 원시 타입에 쓰면 안 됩니다'],
   why: ['The right operand of "in" must be an object; a string, number or boolean throws a TypeError.', '"in"의 오른쪽은 객체여야 합니다. 문자열, 숫자, 불리언이면 TypeError가 납니다.'],
   fix: ['Use includes() for strings, or test against an object.', '문자열은 includes()를 쓰거나 객체에 대해 검사하세요.'],
@@ -714,7 +714,7 @@ rule('in-on-primitive', {
 });
 
 rule('useless-increment', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S2123', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S2123', tags: ['suspicious'],
   name: ['Values should not be uselessly incremented', '값을 쓸모없이 증가시키면 안 됩니다'],
   why: ['"i = i++" assigns the old value back, so the increment is lost.', '"i = i++"는 이전 값을 다시 대입해 증가가 사라집니다.'],
   fix: ['Use "i++" or "i = i + 1".', '"i++"나 "i = i + 1"을 쓰세요.'],
@@ -726,7 +726,7 @@ rule('useless-increment', {
 });
 
 rule('inverted-assignment', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S2757', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S2757', tags: ['suspicious'],
   name: ['Non-existent operators like "=+" should not be used', '"=+" 같은 존재하지 않는 연산자를 쓰면 안 됩니다'],
   why: ['"x =+ y" is parsed as "x = +y", not "x += y", which is almost always a typo.', '"x =+ y"는 "x += y"가 아니라 "x = +y"로 해석되며 거의 항상 오타입니다.'],
   fix: ['Write "+=", "-=" or "!=" as intended, or put a space after "=".', '의도에 맞게 "+=", "-=", "!="를 쓰거나 "=" 뒤에 공백을 넣으세요.'],
@@ -744,7 +744,7 @@ rule('inverted-assignment', {
 });
 
 rule('new-non-constructor', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2999', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2999', tags: ['suspicious'],
   name: ['"new" should only be used with constructor functions', '"new"는 생성자 함수에만 써야 합니다'],
   why: ['Arrow functions, async functions and generators cannot be constructed; "new" throws a TypeError.', '화살표 함수, async 함수, 제너레이터는 생성할 수 없어 "new"를 쓰면 TypeError가 납니다.'],
   fix: ['Call the function without "new", or turn it into a class.', '"new" 없이 호출하거나 클래스로 바꾸세요.'],
@@ -771,7 +771,7 @@ function returnsNothing(fn) {
 }
 
 rule('void-result-used', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S3699', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S3699', tags: ['suspicious'],
   name: ['The output of functions that don\'t return anything should not be used', '아무것도 돌려주지 않는 함수의 결과를 쓰면 안 됩니다'],
   why: ['The function never returns a value, so the result is always undefined.', '함수가 값을 돌려주지 않아 결과는 항상 undefined입니다.'],
   fix: ['Return a value from the function, or stop using its result.', '함수에서 값을 돌려주거나 결과를 쓰지 마세요.'],
@@ -790,7 +790,7 @@ rule('void-result-used', {
 });
 
 rule('too-many-arguments', {
-  t: 'B', s: 'CR', debt: 10, sonar: 'S930', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 10, ref: 'S930', tags: ['suspicious'],
   name: ['Function calls should not pass extra arguments', '함수 호출에 여분의 인자를 넘기면 안 됩니다'],
   why: ['The function declares fewer parameters than it is called with and never reads "arguments", so the extra values are silently ignored.', '함수가 받는 매개변수보다 많은 인자를 넘기고 "arguments"도 읽지 않아 여분의 값이 조용히 무시됩니다.'],
   fix: ['Remove the extra arguments or add the missing parameters.', '여분의 인자를 지우거나 빠진 매개변수를 추가하세요.'],
@@ -823,7 +823,7 @@ function counterStep(update, name) {
 }
 
 rule('for-direction', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2251', cwe: 'CWE-835', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2251', cwe: 'CWE-835', tags: ['suspicious'],
   name: ['A "for" loop update clause should move the counter in the right direction', '"for" 반복의 증감식은 카운터를 올바른 방향으로 움직여야 합니다'],
   why: ['The counter moves away from the stop condition, so the loop either never runs or never ends.', '카운터가 종료 조건과 반대로 움직여 반복이 실행되지 않거나 끝나지 않습니다.'],
   fix: ['Flip the update (++ / --) or the comparison.', '증감(++ / --)이나 비교를 뒤집으세요.'],
@@ -875,7 +875,7 @@ function loopExits(loop) {
 }
 
 rule('infinite-loop', {
-  t: 'B', s: 'BL', debt: 10, sonar: 'S2189', cwe: 'CWE-835', tags: ['suspicious'],
+  t: 'B', s: 'BL', debt: 10, ref: 'S2189', cwe: 'CWE-835', tags: ['suspicious'],
   name: ['Loops should not be infinite', '반복문이 무한이면 안 됩니다'],
   why: ['Nothing inside the loop can make the condition false or leave the loop, so it never terminates.', '반복 안에서 조건을 거짓으로 만들거나 빠져나갈 방법이 없어 끝나지 않습니다.'],
   fix: ['Update the loop variable, or add a break / return.', '반복 변수를 바꾸거나 break / return을 넣으세요.'],
@@ -914,7 +914,7 @@ rule('infinite-loop', {
 });
 
 rule('reduce-initial-value', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6959', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6959', tags: ['suspicious'],
   name: ['"Array.reduce()" calls should include an initial value', '"Array.reduce()" 호출에는 초기값을 넣어야 합니다'],
   why: ['Without an initial value reduce() throws a TypeError on an empty array and treats the first element specially.', '초기값이 없으면 reduce()는 빈 배열에서 TypeError를 내고 첫 요소를 특별하게 다룹니다.'],
   fix: ['Pass the initial accumulator as the second argument.', '두 번째 인자로 초기 누적값을 넘기세요.'],
@@ -949,7 +949,7 @@ function numericArray(ctx, n) {
 }
 
 rule('sort-without-compare', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2871', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2871', tags: ['suspicious'],
   name: ['A compare function should be provided when sorting numbers', '숫자를 정렬할 때는 비교 함수를 넘겨야 합니다'],
   why: ['sort() without a compare function converts elements to strings, so [10, 9, 1] sorts as [1, 10, 9].', '비교 함수 없는 sort()는 요소를 문자열로 바꿔 [10, 9, 1]이 [1, 10, 9]로 정렬됩니다.'],
   fix: ['Pass a compare function such as (a, b) => a - b.', '(a, b) => a - b 같은 비교 함수를 넘기세요.'],
@@ -967,7 +967,7 @@ const PURE_METHODS = new Set(['trim', 'trimStart', 'trimEnd', 'toUpperCase', 'to
 const PURE_GLOBALS = new Set(['parseInt', 'parseFloat', 'isNaN', 'isFinite', 'String', 'Number', 'Boolean', 'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI']);
 
 rule('ignored-return', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2201', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2201', tags: ['suspicious'],
   name: ['Return values from functions without side effects should not be ignored', '부작용 없는 함수의 반환값을 버리면 안 됩니다'],
   why: ['These functions only compute a new value; calling them without using the result does nothing.', '이 함수들은 새 값을 계산할 뿐이라 결과를 쓰지 않으면 아무 일도 하지 않습니다.'],
   fix: ['Use the returned value, e.g. s = s.trim().', '반환값을 쓰세요. 예: s = s.trim()'],
@@ -1007,7 +1007,7 @@ function isErrorCtor(name) {
 }
 
 rule('error-not-thrown', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3984', tags: ['error-handling'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3984', tags: ['error-handling'],
   name: ['Errors should not be created without being thrown', '오류 객체를 만들고 던지지 않으면 안 됩니다'],
   why: ['The error object is created and immediately discarded; the "throw" keyword was probably forgotten.', '오류 객체를 만들고 바로 버립니다. "throw"를 빠뜨렸을 것입니다.'],
   fix: ['Add "throw" in front of "new".', '"new" 앞에 "throw"를 넣으세요.'],
@@ -1021,7 +1021,7 @@ rule('error-not-thrown', {
 const PURE_CTORS = new Set(['Object', 'Array', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Date', 'RegExp', 'String', 'Number', 'Boolean', 'URL', 'URLSearchParams', 'Blob', 'FormData', 'Headers', 'TextEncoder', 'TextDecoder', 'ArrayBuffer', 'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array', 'Float32Array', 'Float64Array', 'DataView', 'Intl.NumberFormat', 'Intl.DateTimeFormat', 'Intl.Collator', 'AbortController', 'Event', 'CustomEvent']);
 
 rule('discarded-new', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1848', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1848', tags: ['suspicious'],
   name: ['Objects should not be created to be dropped immediately without being used', '사용하지 않을 객체를 만들고 바로 버리면 안 됩니다'],
   why: ['The constructor has no useful side effect here, so creating and discarding the object does nothing.', '이 생성자는 쓸모 있는 부작용이 없어 객체를 만들고 버리는 것은 아무 일도 하지 않습니다.'],
   fix: ['Assign the new object, or remove the statement.', '새 객체를 대입하거나 문장을 지우세요.'],
@@ -1049,7 +1049,7 @@ rule('discarded-new', {
 });
 
 rule('template-placeholder-in-string', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3786', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3786', tags: ['suspicious'],
   name: ['Template literal placeholder syntax should not be used in regular strings', '일반 문자열에 템플릿 리터럴 자리표시자 문법을 쓰면 안 됩니다'],
   why: ['"${name}" inside quotes is printed literally; only backtick strings interpolate.', '따옴표 안의 "${name}"는 그대로 출력됩니다. 백틱 문자열만 값을 끼워 넣습니다.'],
   fix: ['Use a template literal (backticks).', '템플릿 리터럴(백틱)을 쓰세요.'],
@@ -1079,7 +1079,7 @@ rule('template-placeholder-in-string', {
 });
 
 rule('empty-destructuring', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3799', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3799', tags: ['suspicious'],
   name: ['Destructuring patterns should not be empty', '구조 분해 패턴이 비어 있으면 안 됩니다'],
   why: ['An empty pattern binds nothing; it is usually a mistyped default value ({a: {}} instead of {a = {}}).', '빈 패턴은 아무것도 바인딩하지 않으며 보통 기본값을 잘못 쓴 것입니다 ({a = {}} 대신 {a: {}}).'],
   fix: ['Add the bindings you need, or remove the pattern.', '필요한 바인딩을 넣거나 패턴을 지우세요.'],
@@ -1093,7 +1093,7 @@ rule('empty-destructuring', {
 });
 
 rule('case-declaration', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6836', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6836', tags: ['suspicious'],
   name: ['Lexical declarations should not appear directly in "case" clauses', 'case 절에 바로 블록 범위 선언을 쓰면 안 됩니다'],
   why: ['let, const, class and function declarations in a case are visible in the whole switch but only initialized when that case runs.', 'case 안의 let, const, class, function 선언은 switch 전체에서 보이지만 그 case가 실행될 때만 초기화됩니다.'],
   fix: ['Wrap the case body in braces.', 'case 본문을 중괄호로 감싸세요.'],
@@ -1108,7 +1108,7 @@ rule('case-declaration', {
 });
 
 rule('case-logical-or', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3616', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3616', tags: ['suspicious'],
   name: ['Comma and logical OR operators should not be used in switch cases', 'switch case에 쉼표나 논리 OR 연산자를 쓰면 안 됩니다'],
   why: ['"case a || b:" evaluates to a single value (a or b), it does not match either one.', '"case a || b:"는 a나 b 중 하나의 값으로 계산될 뿐 둘 다와 일치하지 않습니다.'],
   fix: ['Write one case per value: "case a: case b:".', '값마다 case를 쓰세요: "case a: case b:".'],
@@ -1124,7 +1124,7 @@ rule('case-logical-or', {
 });
 
 rule('switch-label', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1219', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1219', tags: ['suspicious'],
   name: ['"switch" statements should not contain non-case labels', 'switch 문에 case가 아닌 레이블을 쓰면 안 됩니다'],
   why: ['A label inside a switch looks like a case but is not one; it is usually a missing "case" keyword.', 'switch 안의 레이블은 case처럼 보이지만 아닙니다. 보통 "case"를 빠뜨린 것입니다.'],
   fix: ['Add the missing "case" keyword or move the label.', '빠진 "case"를 넣거나 레이블을 옮기세요.'],
@@ -1158,7 +1158,7 @@ function writeKey(st) {
 }
 
 rule('collection-overwrite', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S4143', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S4143', tags: ['suspicious'],
   name: ['Map values and array elements should not be overwritten immediately', 'Map 값과 배열 요소를 곧바로 덮어쓰면 안 됩니다'],
   why: ['The second write to the same key replaces the first one before it can be used.', '같은 키에 두 번째로 쓰면 첫 값이 쓰이기 전에 대체됩니다.'],
   fix: ['Fix the key of one of the writes, or remove the first one.', '한쪽 쓰기의 키를 고치거나 첫 번째 쓰기를 지우세요.'],
@@ -1177,7 +1177,7 @@ rule('collection-overwrite', {
 });
 
 rule('collection-size-compare', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S3981', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S3981', tags: ['suspicious'],
   name: ['Collection sizes and array length comparisons should make sense', '컬렉션 크기와 배열 길이 비교는 말이 되어야 합니다'],
   why: ['A length or size is never negative, so ">= 0" is always true and "< 0" always false.', '길이나 크기는 음수가 아니라 ">= 0"은 항상 참이고 "< 0"은 항상 거짓입니다.'],
   fix: ['Compare with "> 0" or "=== 0" as intended.', '의도에 맞게 "> 0"이나 "=== 0"과 비교하세요.'],
@@ -1193,7 +1193,7 @@ rule('collection-size-compare', {
 });
 
 rule('index-of-positive', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S2692', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S2692', tags: ['suspicious'],
   name: ['"indexOf" checks should not be for positive numbers', '"indexOf" 검사를 양수로 하면 안 됩니다'],
   why: ['indexOf returns 0 for a match at the first position, so "> 0" misses it.', 'indexOf는 첫 위치에서 일치하면 0을 돌려주므로 "> 0"은 그 경우를 놓칩니다.'],
   fix: ['Use ">= 0", "!== -1" or includes().', '">= 0", "!== -1" 또는 includes()를 쓰세요.'],
@@ -1206,7 +1206,7 @@ rule('index-of-positive', {
 });
 
 rule('misleading-array-mutation', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S4043', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S4043', tags: ['suspicious'],
   name: ['Array-mutating methods should not be used misleadingly', '배열을 바꾸는 메서드를 오해하게 쓰면 안 됩니다'],
   why: ['reverse() and sort() change the array in place and return the same array; assigning the result to another name suggests a copy that does not exist.', 'reverse()와 sort()는 배열 자체를 바꾸고 같은 배열을 돌려줍니다. 결과를 다른 이름에 대입하면 없는 복사본이 있는 것처럼 보입니다.'],
   fix: ['Copy first ([...a].reverse(), a.slice().sort()) or use toReversed() / toSorted().', '먼저 복사하거나([...a].reverse(), a.slice().sort()) toReversed() / toSorted()를 쓰세요.'],
@@ -1293,7 +1293,7 @@ function localCollections(ctx) {
 }
 
 rule('empty-collection-read', {
-  t: 'B', s: 'MI', debt: 5, sonar: 'S4158', tags: ['suspicious'],
+  t: 'B', s: 'MI', debt: 5, ref: 'S4158', tags: ['suspicious'],
   name: ['Empty collections should not be accessed or iterated', '빈 컬렉션에 접근하거나 반복하면 안 됩니다'],
   why: ['The collection is created empty and nothing ever adds to it, so every read finds nothing.', '컬렉션을 비어 있게 만들고 아무것도 추가하지 않아 모든 읽기가 아무것도 찾지 못합니다.'],
   fix: ['Fill the collection before reading it, or remove the dead code.', '읽기 전에 컬렉션을 채우거나 죽은 코드를 지우세요.'],
@@ -1305,7 +1305,7 @@ rule('empty-collection-read', {
 });
 
 rule('collection-never-read', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S4030', tags: ['unused'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S4030', tags: ['unused'],
   name: ['Collection contents should be used', '컬렉션의 내용은 쓰여야 합니다'],
   why: ['Elements are added but never read, so the collection and the work to fill it are useless.', '요소를 추가하지만 읽지 않아 컬렉션과 채우는 작업이 쓸모없습니다.'],
   fix: ['Use the collection, or remove it together with the code that fills it.', '컬렉션을 쓰거나 채우는 코드와 함께 지우세요.'],
@@ -1317,7 +1317,7 @@ rule('collection-never-read', {
 });
 
 rule('constructor-super', {
-  t: 'B', s: 'CR', debt: 5, sonar: 'S3854', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 5, ref: 'S3854', tags: ['suspicious'],
   name: ['"super()" should be invoked appropriately', '"super()"는 알맞게 호출해야 합니다'],
   why: ['A derived constructor must call super() before using "this", and a base class constructor cannot call super().', '파생 클래스 생성자는 "this"를 쓰기 전에 super()를 호출해야 하고, 기본 클래스 생성자는 super()를 호출할 수 없습니다.'],
   fix: ['Call super(...) first in derived constructors; remove it from base classes.', '파생 생성자에서는 super(...)를 먼저 호출하고 기본 클래스에서는 지우세요.'],
@@ -1352,7 +1352,7 @@ rule('constructor-super', {
 });
 
 rule('getter-setter-field', {
-  t: 'B', s: 'CR', debt: 5, sonar: 'S4275', tags: ['suspicious'],
+  t: 'B', s: 'CR', debt: 5, ref: 'S4275', tags: ['suspicious'],
   name: ['Getters and setters should access the expected fields', 'getter와 setter는 예상한 필드에 접근해야 합니다'],
   why: ['The accessor named after one field reads or writes a different one, usually after a copy-paste.', '한 필드 이름의 접근자가 다른 필드를 읽거나 써서 보통 복사 실수입니다.'],
   fix: ['Access the matching backing field.', '이름이 맞는 저장 필드에 접근하세요.'],
@@ -1396,7 +1396,7 @@ function bodyOf(n) {
 }
 
 rule('multiline-block-without-braces', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2681', cwe: 'CWE-483', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2681', cwe: 'CWE-483', tags: ['suspicious'],
   name: ['Multiline blocks should be enclosed in curly braces', '여러 줄 블록은 중괄호로 감싸야 합니다'],
   why: ['The indentation suggests the next statement belongs to the if / loop, but without braces only the first statement is conditional.', '들여쓰기는 다음 문장이 if나 반복에 속하는 것처럼 보이지만 중괄호가 없어 첫 문장만 조건부입니다.'],
   fix: ['Add braces around the statements, or fix the indentation.', '문장들을 중괄호로 감싸거나 들여쓰기를 고치세요.'],
@@ -1427,7 +1427,7 @@ function nlBetween(src, a, b) {
 }
 
 rule('unexpected-multiline', {
-  t: 'B', s: 'MA', debt: 2, sonar: 'S1472', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 2, ref: 'S1472', tags: ['suspicious'],
   name: ['Function call arguments should not start on new lines', '함수 호출 인자를 새 줄에서 시작하면 안 됩니다'],
   why: ['Without a semicolon, a line starting with "(", "[" or a template literal continues the previous expression as a call or index.', '세미콜론이 없으면 "(", "[", 템플릿 리터럴로 시작하는 줄은 앞 식에 이어져 호출이나 인덱스가 됩니다.'],
   fix: ['Add a semicolon at the end of the previous line, or move the "(" up.', '앞 줄 끝에 세미콜론을 넣거나 "("를 위로 옮기세요.'],
@@ -1468,7 +1468,7 @@ function continuesTo(loop) {
 }
 
 rule('loop-single-iteration', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1751', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1751', tags: ['suspicious'],
   name: ['Loops with at most one iteration should be refactored', '최대 한 번만 도는 반복은 고쳐야 합니다'],
   why: ['The loop body always ends with a return, throw or break, so it can run at most once.', '반복 본문이 항상 return, throw, break로 끝나 최대 한 번만 실행됩니다.'],
   fix: ['Replace the loop by an if statement, or make the jump conditional.', '반복을 if 문으로 바꾸거나 이동을 조건부로 만드세요.'],
@@ -1507,7 +1507,7 @@ function staticType(n) {
 }
 
 rule('strict-equality-mismatch', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3403', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3403', tags: ['suspicious'],
   name: ['Strict equality operators should not be used with dissimilar types', '서로 다른 타입에 엄격 비교 연산자를 쓰면 안 됩니다'],
   why: ['=== and !== never convert types, so comparing values of different types always gives the same result.', '===와 !==는 타입을 바꾸지 않아 다른 타입의 값을 비교하면 결과가 항상 같습니다.'],
   fix: ['Convert one side explicitly, or compare with a value of the same type.', '한쪽을 명시적으로 변환하거나 같은 타입의 값과 비교하세요.'],
@@ -1523,7 +1523,7 @@ rule('strict-equality-mismatch', {
 });
 
 rule('arithmetic-on-string', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S3760', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S3760', tags: ['suspicious'],
   name: ['Arithmetic operators should only have numbers as operands', '산술 연산자의 피연산자는 숫자여야 합니다'],
   why: ['Subtracting, multiplying or dividing a non-numeric string or an object literal yields NaN.', '숫자가 아닌 문자열이나 객체 리터럴을 빼거나 곱하거나 나누면 NaN이 됩니다.'],
   fix: ['Convert the operand to a number first, or fix the operand.', '먼저 피연산자를 숫자로 바꾸거나 피연산자를 고치세요.'],
@@ -1541,7 +1541,7 @@ rule('arithmetic-on-string', {
 });
 
 rule('in-array-value', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S4619', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S4619', tags: ['suspicious'],
   name: ['"in" should not be used on arrays to look up values', '배열에서 값을 찾을 때 "in"을 쓰면 안 됩니다'],
   why: ['"x in array" tests indexes (0, 1, 2...), not the values stored in the array.', '"x in array"는 배열에 든 값이 아니라 인덱스(0, 1, 2...)를 검사합니다.'],
   fix: ['Use array.includes(x).', 'array.includes(x)를 쓰세요.'],
@@ -1574,7 +1574,7 @@ function promiseCall(ctx, n) {
 }
 
 rule('promise-in-condition', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6544', tags: ['promise', 'async'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6544', tags: ['promise', 'async'],
   name: ['Promises should not be used as conditions', 'Promise를 조건으로 쓰면 안 됩니다'],
   why: ['A promise object is always truthy, so the test does not depend on the asynchronous result.', 'Promise 객체는 항상 참이라 검사가 비동기 결과에 따라 달라지지 않습니다.'],
   fix: ['Await the promise first: if (await check()).', '먼저 Promise를 기다리세요: if (await check())'],
@@ -1593,7 +1593,7 @@ rule('promise-in-condition', {
 const ASYNC_BAD_CB = new Set(['forEach', 'filter', 'some', 'every', 'find', 'findIndex', 'findLast', 'findLastIndex', 'sort', 'toSorted']);
 
 rule('async-callback-misuse', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S6544', tags: ['promise', 'async'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S6544', tags: ['promise', 'async'],
   name: ['Async functions should not be passed where a synchronous result is expected', '동기 결과를 기대하는 곳에 async 함수를 넘기면 안 됩니다'],
   why: ['forEach ignores the returned promises (nothing waits for them), and filter / some / every / find treat every promise as truthy.', 'forEach는 돌려받은 Promise를 무시하고(아무도 기다리지 않음) filter / some / every / find는 모든 Promise를 참으로 봅니다.'],
   fix: ['Use a for...of loop with await, or Promise.all(array.map(async ...)).', 'await와 함께 for...of를 쓰거나 Promise.all(array.map(async ...))을 쓰세요.'],
@@ -1613,7 +1613,7 @@ function enclosingFn(n) {
 }
 
 rule('floating-promise', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S4822', tags: ['promise', 'async'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S4822', tags: ['promise', 'async'],
   name: ['Promises returned by async functions should be awaited or handled', 'async 함수가 돌려주는 Promise는 기다리거나 처리해야 합니다'],
   why: ['Inside an async function, calling another async function without await lets it run unobserved: errors become unhandled rejections and ordering is lost.', 'async 함수 안에서 다른 async 함수를 await 없이 호출하면 결과를 보지 못합니다. 오류는 처리되지 않은 거부가 되고 순서가 사라집니다.'],
   fix: ['Add "await", return the promise, or handle it with .catch(); prefix with "void" if fire-and-forget is intended.', '"await"를 넣거나 Promise를 돌려주거나 .catch()로 처리하세요. 일부러 기다리지 않는다면 "void"를 붙이세요.'],
@@ -1639,7 +1639,7 @@ rule('floating-promise', {
 });
 
 rule('empty-body-after-control', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1116', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1116', tags: ['suspicious'],
   name: ['Control statements should not have an empty statement as their body', '제어 문의 본문이 빈 문장이면 안 됩니다'],
   why: ['A stray semicolon right after if / for / while becomes the whole body, so the following block runs unconditionally or once.', 'if / for / while 바로 뒤의 세미콜론이 본문 전체가 되어 뒤의 블록이 조건 없이 또는 한 번만 실행됩니다.'],
   fix: ['Remove the semicolon.', '세미콜론을 지우세요.'],
@@ -1667,7 +1667,7 @@ function pureExpr(n) {
 }
 
 rule('unused-expression', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S905', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S905', tags: ['suspicious'],
   name: ['Non-empty statements should change control flow or have at least one side effect', '빈 문장이 아니면 제어 흐름을 바꾸거나 부작용이 있어야 합니다'],
   why: ['An expression statement without a side effect does nothing; it is usually a forgotten call, assignment or return.', '부작용 없는 식 문장은 아무 일도 하지 않으며 보통 호출, 대입, return을 빠뜨린 것입니다.'],
   fix: ['Call the function, assign or return the value, or remove the statement.', '함수를 호출하거나 값을 대입 또는 반환하거나 문장을 지우세요.'],
@@ -1702,7 +1702,7 @@ function constantTruth(n) {
 }
 
 rule('constant-condition', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S2583', cwe: ['CWE-570', 'CWE-571'], tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S2583', cwe: ['CWE-570', 'CWE-571'], tags: ['suspicious'],
   name: ['Conditions should not be constant', '조건이 상수이면 안 됩니다'],
   why: ['A literal or always-truthy condition makes one branch dead code.', '리터럴이나 항상 참인 조건은 한쪽 분기를 죽은 코드로 만듭니다.'],
   fix: ['Test a real value, or remove the dead branch.', '실제 값을 검사하거나 죽은 분기를 지우세요.'],
@@ -1729,7 +1729,7 @@ rule('constant-condition', {
 });
 
 rule('constant-binary-expression', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S6638', tags: ['suspicious'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S6638', tags: ['suspicious'],
   name: ['Binary expressions should not have constant results', '이항 식의 결과가 상수이면 안 됩니다'],
   why: ['The left side of "??" can never be nullish here, or the comparison is against a freshly created object, so the result never changes.', '"??"의 왼쪽이 null일 수 없거나 새로 만든 객체와 비교해 결과가 변하지 않습니다.'],
   fix: ['Fix the operator precedence or the operand.', '연산자 우선순위나 피연산자를 고치세요.'],

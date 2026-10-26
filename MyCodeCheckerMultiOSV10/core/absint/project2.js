@@ -1,6 +1,6 @@
 'use strict';
 
-// Project-level Coverity checkers that need every function first:
+// Project-level defect checkers that need every function first:
 //
 //   DELETE_ARRAY    a member allocated with new[] in one method and released
 //                   with delete in another (or new / delete[])

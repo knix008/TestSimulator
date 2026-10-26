@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyCodeChecker scripts/build-docs.mjs" />
+<title>MyCodeChecker 사용 설명서</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
+  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+a { color: var(--link, var(--accent)); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { display: inline-flex; align-items: center; padding: 3px; border: 1px solid var(--border); border-radius: 4px; line-height: 0; }
+.topbar .lang:hover { border-color: var(--accent, #1478b8); }
+.topbar .lang svg { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--th-bg, var(--accent-soft)); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: 14px; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+<script>(function () {
+  var key = 'mycodechecker.docTheme';
+  function pick(v, names) { for (var i = 0; i < names.length; i++) { if (v[names[i]]) return v[names[i]]; } return ''; }
+  function derive(src) {
+    var v = {}; for (var k in src) v[k] = src[k];
+    var surface = v['--surface'] || pick(v, ['--bg-elev', '--raised', '--bg-panel', '--panel', '--bg']);
+    if (surface) v['--surface'] = surface;
+    if (!v['--text'] && v['--fg']) v['--text'] = v['--fg'];
+    if (!v['--muted']) { var m = pick(v, ['--fg-muted']); if (m) v['--muted'] = m; }
+    if (!v['--code-bg']) { var c = pick(v, ['--bg-panel', '--panel', '--bg']); if (c) v['--code-bg'] = c; }
+    if (!v['--row-alt']) { var r = pick(v, ['--bg-panel', '--panel']); if (r) v['--row-alt'] = r; }
+    if (!v['--accent-soft'] && v['--accent'] && surface) v['--accent-soft'] = 'color-mix(in srgb, ' + v['--accent'] + ' 16%, ' + surface + ')';
+    if (!v['--link'] && v['--accent']) v['--link'] = v['--accent'];
+    if (!v['--th-bg'] && v['--accent-soft']) v['--th-bg'] = v['--accent-soft'];
+    return v;
+  }
+  function apply(t) {
+    if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { return; } }
+    if (!t || !t.vars) return;
+    var v = derive(t.vars), root = document.documentElement;
+    for (var name in v) { if (name.indexOf('--') === 0 && typeof v[name] === 'string') root.style.setProperty(name, v[name]); }
+    root.style.colorScheme = t.dark === false ? 'light' : 'dark';
+  }
+  try { apply(localStorage.getItem(key)); } catch (e) { /* no storage */ }
+  addEventListener('storage', function (e) { if (e.key === key && e.newValue) apply(e.newValue); });
+  addEventListener('message', function (e) {
+    if (e.origin !== location.origin && e.source !== parent) return;
+    if (e.data && e.data.type === 'mcc-doc-theme' && e.data.theme) apply(e.data.theme);
+  });
+})();</script>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyCodeChecker <small>v1.0.0</small></span><span class="grow"></span><a class="lang" href="UsersGuide.en.html" hreflang="en" title="English" aria-label="English"><svg width="27" height="18" viewBox="0 0 60 40" role="img" aria-hidden="true"><rect width="60" height="40" fill="#012169"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#ffffff" stroke-width="8"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#C8102E" stroke-width="4"/><path d="M30,0 V40 M0,20 H60" stroke="#ffffff" stroke-width="13"/><path d="M30,0 V40 M0,20 H60" stroke="#C8102E" stroke-width="8"/></svg></a></header>
+<div class="layout">
+<nav class="toc" aria-label="목차"><p class="toc-title">목차</p><ul><li class="h2"><a href="#무엇을-할-수-있나요">무엇을 할 수 있나요</a></li><li class="h2"><a href="#설치">설치</a></li><li class="h3"><a href="#데스크톱-windows--macos--linux">데스크톱 (Windows · macOS · Linux)</a></li><li class="h3"><a href="#처음-시작할-때--필요한-소프트웨어">처음 시작할 때 — 필요한 소프트웨어</a></li><li class="h3"><a href="#웹판">웹판</a></li><li class="h2"><a href="#화면-구성">화면 구성</a></li><li class="h3"><a href="#메뉴-막대">메뉴 막대</a></li><li class="h3"><a href="#도구-모음">도구 모음</a></li><li class="h3"><a href="#탭">탭</a></li><li class="h3"><a href="#패널">패널</a></li><li class="h3"><a href="#상태-표시줄">상태 표시줄</a></li><li class="h2"><a href="#시작-화면">시작 화면</a></li><li class="h2"><a href="#프로젝트-파일과-샘플">프로젝트 파일과 샘플</a></li><li class="h3"><a href="#프로젝트-파일-mccp">프로젝트 파일 (.mccp)</a></li><li class="h3"><a href="#샘플">샘플</a></li><li class="h2"><a href="#튜토리얼과-사용-설명서">튜토리얼과 사용 설명서</a></li><li class="h2"><a href="#첫-분석">첫 분석</a></li><li class="h2"><a href="#보기">보기</a></li><li class="h3"><a href="#프로젝트">프로젝트</a></li><li class="h3"><a href="#이슈">이슈</a></li><li class="h3"><a href="#defect-analysis">Defect Analysis</a></li><li class="h3"><a href="#보안규정">보안·규정</a></li><li class="h3"><a href="#관리">관리</a></li><li class="h2"><a href="#설정">설정</a></li><li class="h3"><a href="#ai-코드-수정-설정">AI 코드 수정 설정</a></li><li class="h3"><a href="#데이터베이스">데이터베이스</a></li><li class="h2"><a href="#작업-흐름">작업 흐름</a></li><li class="h3"><a href="#이슈-분류-triage">이슈 분류 (triage)</a></li><li class="h3"><a href="#예외-신청과-승인">예외 신청과 승인</a></li><li class="h3"><a href="#ci-의-품질-게이트">CI 의 품질 게이트</a></li><li class="h3"><a href="#서버로-올리기">서버로 올리기</a></li><li class="h3"><a href="#정밀-결함-분석-명령줄">정밀 결함 분석 명령줄</a></li><li class="h3"><a href="#풀-리퀘스트-분석">풀 리퀘스트 분석</a></li><li class="h3"><a href="#보고서-만들기">보고서 만들기</a></li><li class="h3"><a href="#ai-코드-수정">AI 코드 수정</a></li><li class="h2"><a href="#단축키">단축키</a></li><li class="h2"><a href="#문제-해결">문제 해결</a></li><li class="h2"><a href="#용어">용어</a></li></ul></nav>
+<main>
+<h1 id="mycodechecker-사용-설명서">MyCodeChecker 사용 설명서</h1>
+<p>MyCodeChecker는 내 컴퓨터에서 돌아가는 <strong>코드 품질 · 보안 작업대</strong>입니다. 소스 폴더를 열고 분석하면 버그 · 취약점 · 코드 스멜 · 보안 핫스팟, 중복, 커버리지, 등급과 품질 게이트를 보여 주고(코드 품질), C/C++ 결함을 경로와 함께 추적하며(정밀 결함 분석), 행정안전부 보안약점 · MISRA · CERT 같은 기준의 준수 여부와 예외 승인을 관리합니다(보안 약점 점검).</p>
+<p>분석은 프로그램 안의 Node.js 엔진이 합니다. 데스크톱 프로그램(Windows · macOS · Linux)과 웹판은 같은 엔진과 같은 화면을 씁니다. 분석하는 동안 소스 코드는 컴퓨터 밖으로 나가지 않습니다. 밖으로 보내는 기능은 사용자가 직접 켜는 <strong>AI 코드 수정</strong>과 <strong>온라인 확인 (OSV.dev)</strong> 둘뿐입니다.</p>
+<h2 id="무엇을-할-수-있나요">무엇을 할 수 있나요 <a class="anchor" href="#무엇을-할-수-있나요" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>분야</th><th>기능</th><th>비슷한 기능이 있는 도구</th></tr></thead><tbody><tr><td>코드 품질</td><td>규칙 4161개(38개 언어), 버그 · 취약점 · 코드 스멜 · 보안 핫스팟, A–E 등급, 기술 부채</td><td>코드 품질</td></tr><tr><td>품질 관리</td><td>품질 게이트, 품질 프로파일(상속 · 비교 · 백업), 새 코드, 브랜치 · 풀 리퀘스트, 포트폴리오</td><td>코드 품질</td></tr><tr><td>측정</td><td>커버리지(lcov · Cobertura · JaCoCo · Clover · OpenCover · Go · 호환 일반), 중복, 복잡도, 테스트 결과</td><td>코드 품질</td></tr><tr><td>C/C++ 결함</td><td>경로 민감 체커(널 역참조 · 해제 후 사용 · 자원 누수 · 버퍼 넘침 …), CID, 스트림 · 스냅샷, 분류(triage), 컴포넌트, 정책, 함수 모델, <code>cov</code> 명령줄</td><td>정밀 결함 분석</td></tr><tr><td>보안 약점</td><td>행정안전부 2021 49개 항목, 주요정보통신기반시설, OWASP, CWE Top 25, PCI DSS, ASVS, STIG</td><td>보안 약점 점검, 코드 품질</td></tr><tr><td>코딩 표준</td><td>MISRA C:2012/2023 · C++:2023, CERT C/C++, AUTOSAR C++14, MISRA C:2004 · C++:2008, HIS 메트릭</td><td>보안 약점 점검, 정밀 결함 분석, Polyspace</td></tr><tr><td>예외 관리</td><td>오탐 · 수용을 신청 → 승인/반려로만 처리</td><td>보안 약점 점검</td></tr><tr><td>아키텍처</td><td>모듈 의존 그래프, 불안정도, 순환, 레이어 규칙</td><td>아키텍처 분석 도구, 코드 품질</td></tr><tr><td>의존성(SCA)</td><td>취약 패키지, 도달 가능성, 코드 조각 · 바이너리 식별, 라이선스, SBOM</td><td>Black Duck</td></tr><tr><td>웹 검사(DAST)</td><td>실행 중인 웹 앱의 수동 · 능동 검사</td><td>OWASP ZAP</td></tr><tr><td>보고서</td><td>HTML · CSV · Word · Excel · PDF, 규제 보고서 ZIP</td><td>모든 도구</td></tr><tr><td>협업</td><td>사용자 · 권한 · 토큰, LDAP, 메일 알림, Jira · Redmine · GitHub · GitLab 티켓, PR 게시, 웹훅, 예약 분석, 감사 로그</td><td>코드 품질, 정밀 결함 분석 서버</td></tr><tr><td>AI</td><td>이슈 하나의 수정안을 LLM 에 물어 차이(diff)로 보고 적용</td><td>AI CodeFix</td></tr><tr><td>데이터</td><td>결과를 SQLite · PostgreSQL · MySQL/MariaDB · SQL Server 로 내보내기</td><td>—</td></tr><tr><td>작업 환경</td><td>프로젝트 파일(.mccp), 탭, 접고 끄는 패널, 테마 40종 + 사용자 정의, 움직이는 시작 화면 배경 20종, 튜토리얼, 앱 안의 사용 설명서</td><td>MyHeatManager · MyCAD 와 같은 화면</td></tr></tbody></table></div>
+<h2 id="설치">설치 <a class="anchor" href="#설치" aria-hidden="true">#</a></h2>
+<h3 id="데스크톱-windows--macos--linux">데스크톱 (Windows · macOS · Linux) <a class="anchor" href="#데스크톱-windows--macos--linux" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>OS</th><th>설치 파일</th><th>메모</th></tr></thead><tbody><tr><td>Windows</td><td><code>MyCodeChecker_&lt;버전&gt;_x64-setup.exe</code> (NSIS)</td><td>WebView2 가 없으면 설치 프로그램이 받아 옵니다</td></tr><tr><td>macOS</td><td><code>.dmg</code> (안에 <code>.app</code>)</td><td>처음 열 때 &quot;확인되지 않은 개발자&quot; 경고가 나오면 Finder 에서 오른쪽 클릭 › 열기</td></tr><tr><td>Linux</td><td><code>.deb</code> 또는 <code>.AppImage</code></td><td>AppImage 는 실행 권한(<code>chmod +x</code>)을 주고 실행합니다</td></tr></tbody></table></div>
+<p>설치본에는 Node.js 와 분석 엔진이 들어 있습니다. 다른 프로그램을 설치하지 않아도 분석할 수 있습니다.</p>
+<p><strong>Windows 설치 끝의 Git 질문</strong> — 설치가 끝날 때 Git 이 없으면 &quot;Git이 설치되어 있지 않습니다 … 지금 winget으로 Git을 설치할까요?&quot; 를 묻습니다. <strong>예</strong>를 누르면 winget 으로 Git 을 설치하고, <strong>아니요</strong>를 누르면 그냥 끝납니다. winget 이 없는 컴퓨터에서는 내려받기 주소만 알려 줍니다. 조용한 설치(<code>/S</code>)는 아무것도 더 설치하지 않습니다. 나중에 <strong>도구 › 필요한 소프트웨어…</strong> 에서 언제든 설치할 수 있습니다.</p>
+<h3 id="처음-시작할-때--필요한-소프트웨어">처음 시작할 때 — 필요한 소프트웨어 <a class="anchor" href="#처음-시작할-때--필요한-소프트웨어" aria-hidden="true">#</a></h3>
+<p>프로그램이 처음 작업 공간을 읽으면, 일부 기능이 쓰는 외부 프로그램을 찾아보고 없는 것이 있으면 <strong>필요한 소프트웨어 설치</strong> 창을 띄웁니다. <strong>&quot;설치&quot;를 누르기 전에는 아무것도 설치하지 않습니다.</strong></p>
+<div class="table-wrap"><table><thead><tr><th>프로그램</th><th>구분</th><th>쓰는 곳</th><th>없으면</th></tr></thead><tbody><tr><td>Git</td><td>권장</td><td>새 코드(SCM 기준), 작성자 자동 할당, 풀 리퀘스트 분석, 데스크톱 분석</td><td>새 코드는 이전 분석과 비교해 정하고, 작성자 할당과 PR 분석은 꺼집니다</td></tr><tr><td>C/C++ 컴파일러 (LLVM / Clang)</td><td>선택</td><td>C/C++ 빌드 캡처(<code>cov build</code>)</td><td>빌드 없이(buildless) 분석할 수 있습니다</td></tr></tbody></table></div>
+<p>도구마다 <strong>설치</strong> · <strong>나중에</strong>(다음 시작 때 다시 물음) · <strong>다시 묻지 않음</strong> 을 고릅니다. <strong>실행할 명령</strong>과 <strong>명령 복사</strong>로 패키지 관리자 명령(winget · scoop · Homebrew · apt · dnf · pacman · zypper)을 직접 실행해도 됩니다. 쓸 수 있는 패키지 관리자가 없으면 <strong>내려받기 페이지</strong>를 엽니다. 같은 내용은 <strong>관리 › 필요한 소프트웨어</strong> 탭에도 있고, <strong>시작할 때 확인</strong>을 끄면 시작할 때 묻지 않습니다.</p>
+<h3 id="웹판">웹판 <a class="anchor" href="#웹판" aria-hidden="true">#</a></h3>
+<p>브라우저에서 쓰려면 개발 폴더에서 <code>npm run web</code> 을 실행하고 http://127.0.0.1:5211 을 엽니다. 팀 서버로 쓸 때는 <code>node server/server.js --host 0.0.0.0 --port 5211</code> 처럼 띄우고, <strong>관리 › 사용자 · 권한</strong>에서 권한 검사를 켭니다. 웹판에서는 폴더 선택 창 대신 서버에서 본 폴더 경로를 적습니다.</p>
+<h2 id="화면-구성">화면 구성 <a class="anchor" href="#화면-구성" aria-hidden="true">#</a></h2>
+<pre><code class="language-text">┌ 메뉴 막대: 시작 · 파일 · 이슈 · 품질 · 보기 · 도구 · 도움말 ──────── 테마 · 언어(국기) · 창 단추 ┐
+├ 도구 모음: 열기 · 분석 · 데스크톱 | 개요 · 이슈 · 핫스팟 · 코드 · 게이트 | 브랜치 ── 탐색 · 아래 · 세부 ┤
+│ 왼쪽 패널   │ 탭 줄: [홈] [개요 ×] [이슈 ×] …                    &lt; &gt; ⌄ │ 오른쪽 패널         │
+│ (탐색)      │ 가운데: 지금 탭의 보기 (목록 · 표 · 그래프)             │ (세부 정보)         │
+│             ├─────────────────────────────────────────────────────────┤                     │
+│             │ 아래 패널: 문제 · 분석 로그 · 작업 · 출력                │                     │
+└ 상태 표시줄: 프로젝트 · 경로 · 메시지 · 파일 수 · 코드 줄 · 품질 게이트 ──────────── 크기 조절 ┘</code></pre>
+<h3 id="메뉴-막대">메뉴 막대 <a class="anchor" href="#메뉴-막대" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>메뉴</th><th>항목</th></tr></thead><tbody><tr><td>시작</td><td>시작 화면(홈 탭)을 엽니다</td></tr><tr><td>파일</td><td>새 프로젝트… (Ctrl+N) · 프로젝트 열기… (Ctrl+Shift+O) · 프로젝트 저장 (Ctrl+S) · 다른 이름으로 저장… (Ctrl+Shift+S) · 최근 프로젝트 › 1.–10. · 목록 지우기 · 폴더 열기… (Ctrl+O) · 샘플 프로젝트 · 보고서… · JSON으로 내보내기 · SARIF로 내보내기 · HTML 보고서 · CSV로 내보내기 · 품질 게이트 배지 · 결함 CSV · 끝내기</td></tr><tr><td>이슈</td><td>전체 · 버그 · 취약점 · 코드 스멜 · 보안 핫스팟 · 예외 승인</td></tr><tr><td>품질</td><td>규칙 · 품질 프로파일 · 품질 게이트 · 포트폴리오 · 보안 보고서 · MISRA 준수</td></tr><tr><td>보기</td><td>개요 · 측정값 · 코드 · 중복 · 아키텍처 · HIS 메트릭 · 활동 · 결함 · 스트림 · 백그라운드 작업 · 의존성 · 스냅샷 · 풀 리퀘스트 분석 · 웹 스캔 (DAST) · 왼쪽 패널 (탐색) · 오른쪽 패널 (세부 정보) · 아래 패널 (문제·로그·작업·출력)</td></tr><tr><td>도구</td><td>설정 (Ctrl+,) · 사용자 규칙 · 필요한 소프트웨어… · 관리 · (로그인했을 때) 로그아웃</td></tr><tr><td>도움말</td><td>사용 설명서 · 튜토리얼 문서 · README · 아키텍처 문서 · 튜토리얼 시작 · 사용 설명 · 바로 가기 키 · 정보</td></tr></tbody></table></div>
+<p>메뉴 하나를 연 채로 옆 메뉴에 마우스를 올리면 그 메뉴로 바뀝니다. 오른쪽 끝에는 <strong>테마</strong> 단추(누르면 다음 테마, 옆 화살표는 테마 목록)와 <strong>언어</strong> 단추(국기 + KO/EN, 한국어 · English 목록)가 있습니다. 데스크톱에서는 시스템 제목 표시줄이 없고 메뉴 막대가 그 자리를 씁니다. 빈 곳을 끌면 창이 움직이고 최소화 · 최대화 · 닫기 단추가 오른쪽 끝에 있습니다(닫기 단추는 마우스를 올리면 빨갛게 바뀝니다). 데스크톱에서는 대화 상자 · 메뉴 · 펼침 목록이 <strong>각자의 창</strong>으로 열려 주 창 밖까지 펼쳐질 수 있습니다.</p>
+<h3 id="도구-모음">도구 모음 <a class="anchor" href="#도구-모음" aria-hidden="true">#</a></h3>
+<p>아이콘과 이름이 함께 있는 단추입니다(창이 좁으면 이름은 숨고 아이콘만 남습니다).</p>
+<div class="table-wrap"><table><thead><tr><th>무리</th><th>단추</th></tr></thead><tbody><tr><td>분석</td><td><strong>열기</strong>(폴더 열기, Ctrl+O) · <strong>분석</strong>(결함 커밋, Ctrl+Enter) · <strong>데스크톱</strong>(데스크톱 분석 — 스트림을 바꾸지 않음)</td></tr><tr><td>보기</td><td><strong>개요</strong> · <strong>이슈</strong> · <strong>핫스팟</strong> · <strong>코드</strong> · <strong>게이트</strong></td></tr><tr><td>브랜치</td><td><strong>브랜치</strong> 입력 칸 — 이름을 적거나 목록에서 고르면 그 브랜치 결과를 보고, 그 이름으로 분석합니다</td></tr><tr><td>패널</td><td><strong>탐색</strong> · <strong>아래</strong> · <strong>세부</strong> — 왼쪽 · 아래 · 오른쪽 패널 켜기/끄기(켜진 단추는 눌린 모양)</td></tr></tbody></table></div>
+<p>분석하는 동안에는 &quot;분석 중…&quot; 이 돕니다.</p>
+<h3 id="탭">탭 <a class="anchor" href="#탭" aria-hidden="true">#</a></h3>
+<p>가운데 영역은 탭으로 열립니다. <strong>홈</strong>(시작 화면)은 맨 앞에 고정되고, 탐색이나 메뉴로 연 보기는 아이콘 + 이름의 탭이 됩니다.</p>
+<ul><li>탭의 <strong>×</strong> 나 가운데 단추 클릭으로 닫고, 끌어서 순서를 바꿉니다.</li><li>탭에서 오른쪽 클릭: <strong>탭 닫기</strong> · <strong>다른 탭 닫기</strong> · <strong>오른쪽 탭 닫기</strong> · <strong>모두 닫기</strong>.</li><li>탭이 넘치면 <strong>&lt;</strong> <strong>&gt;</strong>(누르면 한 칸, 누르고 있으면 계속)와 <strong>⌄</strong>(열린 탭 모두 보기)가 나옵니다.</li><li>Ctrl+Tab / Ctrl+Shift+Tab 은 다음 · 이전 탭, Ctrl+W 는 지금 탭을 닫습니다.</li></ul>
+<h3 id="패널">패널 <a class="anchor" href="#패널" aria-hidden="true">#</a></h3>
+<ul><li><strong>왼쪽 패널 — 탐색.</strong> 다섯 무리(<strong>프로젝트</strong> · <strong>이슈</strong> · <strong>정밀 결함 분석</strong> · <strong>보안·규정</strong> · <strong>관리</strong>)로 보기를 나눕니다. 무리 이름을 누르면 접고 펼치며, 위의 <strong>모두 펼치기</strong> · <strong>모두 접기</strong>로 한꺼번에 바꿉니다. 이슈 · 보안 핫스팟 · 결함 · 예외 승인 옆의 숫자는 열린 이슈, 검토할 핫스팟, 남은 결함, 승인을 기다리는 예외 신청 수입니다.</li><li><strong>오른쪽 패널 — 세부 정보.</strong> 목록에서 고른 항목의 세부 정보가 <strong>여기에만</strong> 나옵니다: 이슈(코드 · 이유 · 고치는 법 · 처리 단추 · 티켓 · AI 코드 수정), 결함(이벤트 경로 · 분류), 보안 핫스팟, 규칙, 파일, 아키텍처 모듈. 고른 항목이 없으면 &quot;선택한 항목이 없습니다.&quot; 가 나옵니다.</li><li><strong>아래 패널</strong> — 탭 네 개입니다.
+<ul><li><strong>문제</strong> — 지금 보기에 맞는 이슈(코드 보기에서는 그 파일의 열린 이슈, 핫스팟 보기에서는 검토할 보안 핫스팟, 결함 보기에서는 남은 결함, 그 밖에는 열린 이슈). 줄을 누르면 그 위치로 갑니다.</li><li><strong>분석 로그</strong> — 마지막 작업의 상태 · 브랜치 · 시각, 걸린 시간, 파일 수 · 코드 줄 · 언어, 엔진별 결과 수, 커버리지, 품질 게이트, 엔진 경고.</li><li><strong>작업</strong> — 진행 중인 분석 · 웹 스캔 · 소프트웨어 설치, 예약 분석의 마지막 실행과 다음 실행.</li><li><strong>출력</strong> — 프로그램이 남긴 메시지(시각과 함께). 지우기 단추가 있습니다.</li></ul></li></ul>
+<p>패널마다 머리글의 <strong>접기</strong> 단추를 누르면 <strong>아이콘과 제목만 있는 띠</strong>로 접히고, 띠를 누르면 <strong>펼치기</strong> 됩니다. <strong>패널 닫기</strong>나 도구 모음의 토글로 아예 끕니다. 패널 사이 분할선을 끌면(또는 분할선에 초점을 두고 화살표 키) 폭과 높이가 바뀝니다. 켜짐 · 접힘 · 크기는 저장되며, <strong>설정 › 고급 › 패널 크기·배치 초기화</strong>로 처음 배치로 돌아갑니다.</p>
+<h3 id="상태-표시줄">상태 표시줄 <a class="anchor" href="#상태-표시줄" aria-hidden="true">#</a></h3>
+<p>열린 프로젝트 이름과 경로, 마지막 메시지(예: &quot;품질 게이트를 통과했습니다.&quot;), 파일 수, 코드 줄, 품질 게이트 통과/실패가 나옵니다. 오른쪽 아래 크기 조절 표시를 끌어 창 크기를 바꿉니다.</p>
+<h2 id="시작-화면">시작 화면 <a class="anchor" href="#시작-화면" aria-hidden="true">#</a></h2>
+<p>프로그램을 열면 나오는 <strong>홈</strong> 탭입니다(메뉴 막대의 <strong>시작</strong>으로 언제든 엽니다). 움직이는 배경 위에 카드가 놓입니다.</p>
+<ul><li><p><strong>머리 카드</strong> — 프로그램 아이콘 · 이름 · 버전, 한 줄 소개, <strong>사용 설명서</strong> · <strong>튜토리얼 문서</strong> · <strong>튜토리얼 시작</strong> 단추.</p></li><li><p><strong>안내 띠</strong> — &quot;처음이세요? 튜토리얼이 실제 화면을 움직이며 폴더 열기부터 분석 · 이슈 처리 · 보고서까지 차례로 보여 줍니다.&quot; 와 <strong>시작</strong> 단추. 닫으면 다시 나오지 않습니다(<strong>설정 › 고급 › 튜토리얼 안내 › 시작 화면에 다시 보이기</strong>로 되살림).</p></li><li><p><strong>새로 분석</strong> — 무리별 바로 가기 타일.</p>
+<div class="table-wrap"><table><thead><tr><th>무리</th><th>타일</th></tr></thead><tbody><tr><td>기본</td><td>새 프로젝트(프로젝트 파일 .mccp 를 만들고 분석) · 폴더 열기 · 샘플 프로젝트</td></tr><tr><td>코드 품질</td><td>Java · Kotlin · JavaScript · TypeScript · Python · C#</td></tr><tr><td>보안 약점·규정</td><td>행안부 49 점검 · MISRA C/C++ · CERT · AUTOSAR</td></tr><tr><td>정밀 결함 분석</td><td>C/C++ 빌드 캡처 (cov) · 데스크톱 분석</td></tr><tr><td>웹·공급망</td><td>DAST 웹 스캔 · SCA 의존성 · SBOM</td></tr><tr><td>서버·CI</td><td>서버 업로드 · 예약 분석</td></tr></tbody></table></div></li><li><p><strong>최근 프로젝트</strong> — 최근에 연 프로젝트(폴더와 .mccp 파일) 10개와 마지막 품질 게이트. 누르면 엽니다. 줄마다 <strong>×</strong>(목록에서 지우기), 아래에 <strong>모두 지우기</strong>(프로젝트와 분석 결과는 지우지 않음). 없어진 파일은 &quot;찾을 수 없음&quot; 으로 표시됩니다.</p></li><li><p><strong>배경</strong> — 배경 종류, 섞기, 속도, 투명도.</p></li><li><p><strong>도움말</strong> — 사용 설명서 · 튜토리얼 · 바로 가기 키.</p></li><li><p><strong>샘플·예제</strong> — 내장 예제(아래 <a href="#샘플">샘플</a>). <strong>열기</strong>로 바로 분석합니다.</p></li></ul>
+<p><strong>카드 옮기기와 크기 바꾸기</strong> — 카드 머리의 <strong>⠿</strong> 손잡이를 끌어 순서를 바꾸고, 오른쪽 아래 모서리를 끌어 너비(1–3칸)와 높이를 바꿉니다. 모서리를 두 번 누르면 자동 높이로 돌아갑니다. <strong>카드 배치 초기화</strong>(설정 › 시작 화면)로 처음 배치가 됩니다. 배치는 저장됩니다.</p>
+<p><strong>움직이는 배경</strong> — 코드 분석을 주제로 한 20종입니다: 은은한 입자, 코드 비, 이진 흐름, 스캔 라인, 버그 사냥, 의존성, 호출 펄스, AST 트리, 제어 흐름, 데이터 흐름, 레이더, 육각 격자, 회로 신호, 별자리, 게이트 신호등, 커밋 그래프, 터미널, 스펙트럼, 히트맵, 괄호. 색은 테마를 따르고, 창이 숨겨져 있으면 멈춥니다.</p>
+<p><strong>시작할 때 항상 시작 화면 보기</strong>를 끄면(설정 › 일반) 다음부터 마지막 프로젝트의 개요로 바로 시작합니다.</p>
+<h2 id="프로젝트-파일과-샘플">프로젝트 파일과 샘플 <a class="anchor" href="#프로젝트-파일과-샘플" aria-hidden="true">#</a></h2>
+<h3 id="프로젝트-파일-mccp">프로젝트 파일 (.mccp) <a class="anchor" href="#프로젝트-파일-mccp" aria-hidden="true">#</a></h3>
+<p>폴더를 그냥 열어도 분석할 수 있지만, <strong>프로젝트 파일</strong>(<code>*.mccp</code>)을 만들면 소스 폴더와 프로젝트 설정을 파일 하나에 담아 팀과 함께 쓸 수 있습니다(코드 옆에 커밋). 데스크톱에서는 <code>.mccp</code> 파일을 두 번 누르면 MyCodeChecker 가 그 프로젝트를 엽니다(전용 파일 아이콘).</p>
+<ul><li><strong>파일 › 새 프로젝트…</strong>(Ctrl+N) — 이름(예: 결제 서버) · <strong>소스 폴더</strong>(찾아보기…) · <strong>프로젝트 파일</strong>(기본 <code>&lt;소스 폴더&gt;\&lt;키&gt;.mccp</code>), <strong>더 많은 설정</strong>: 기본 브랜치 · 설명 · 제외 패턴. 포함 디렉터리 · 매크로 · 커버리지 같은 나머지 설정은 관리 › 분석 설정에서 바꾸고 <strong>프로젝트 저장</strong>으로 파일에 씁니다. <strong>만든 뒤 바로 분석</strong>을 켜고 <strong>만들기</strong>. 같은 이름의 파일이 있으면 <strong>덮어쓰기</strong>를 묻습니다.</li><li><strong>파일 › 프로젝트 열기…</strong>(Ctrl+Shift+O) — <code>.mccp</code> 경로를 적거나 <strong>최근 프로젝트 파일</strong>에서 고릅니다.</li><li><strong>파일 › 프로젝트 저장</strong>(Ctrl+S) · <strong>다른 이름으로 저장…</strong>(Ctrl+Shift+S) — 지금 프로젝트 설정을 파일에 씁니다.</li><li><strong>파일 › 최근 프로젝트</strong> — 1–10 번, <strong>목록 지우기</strong>.</li></ul>
+<p>파일은 JSON 입니다: <code>name</code>, <code>key</code>, <code>source</code>(프로젝트 파일 기준 상대 경로라서 폴더를 옮겨도 그대로 동작), <code>settings</code>(<code>mainBranch</code>, <code>exclusions</code>, <code>includeDirs</code>, <code>defines</code>, <code>coverageReports</code>, <code>arch</code>, <code>newCode</code>, <code>profiles</code>, <code>gateId</code>, <code>policyId</code>, <code>description</code> …). 분석 결과와 이슈 상태는 파일이 아니라 작업 공간에 저장됩니다.</p>
+<pre><code class="language-json">{
+  &quot;format&quot;: &quot;mycodechecker-project&quot;,
+  &quot;version&quot;: 1,
+  &quot;name&quot;: &quot;C++ 센서 로거&quot;,
+  &quot;key&quot;: &quot;cpp-sensor&quot;,
+  &quot;source&quot;: &quot;.&quot;,
+  &quot;settings&quot;: { &quot;mainBranch&quot;: &quot;main&quot;, &quot;includeDirs&quot;: [&quot;include&quot;], &quot;defines&quot;: { &quot;SENSOR_VERSION&quot;: &quot;2&quot; } }
+}</code></pre>
+<h3 id="샘플">샘플 <a class="anchor" href="#샘플" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>샘플</th><th>위치</th><th>내용</th></tr></thead><tbody><tr><td>Demo 전체</td><td><code>samples/demo</code></td><td>19개 파일, 14개 언어의 이슈 · 결함 · 핫스팟(Java 서블릿 SQL 인젝션, JavaScript eval · XSS, Python 명령 주입, C MISRA · 버퍼 오버런, Dockerfile, Kubernetes, Terraform, npm 취약 의존성, 중복 코드 …). <strong>샘플 프로젝트</strong>가 이것을 분석합니다</td></tr><tr><td>C++ 센서 로거</td><td><code>samples/cpp-sensor</code></td><td>센서를 읽어 CSV 로 기록하는 C++17 프로그램. 결함을 일부러 넣었습니다</td></tr></tbody></table></div>
+<p><strong>C++ 센서 로거</strong> 는 <strong>파일 › 프로젝트 열기…</strong>에서 <code>samples/cpp-sensor/cpp-sensor.mccp</code> 를 열거나 시작 화면 <strong>샘플·예제</strong>에서 고릅니다. 프로젝트 파일에 포함 경로(<code>include</code>)와 매크로(<code>SENSOR_VERSION=2</code>)가 들어 있습니다. 찾는 결함: 명령 주입(OS_CMD_INJECTION), 자원 누수(RESOURCE_LEAK), <code>new[]</code> / <code>delete</code> 불일치(DELETE_ARRAY), 해제 후 사용(USE_AFTER_FREE), 넓히기 전 넘침(OVERFLOW_BEFORE_WIDEN), 초기화 안 된 값(UNINIT), null 검사 뒤 역참조(FORWARD_NULL), 버퍼 넘침(OVERRUN), 헤더 순환 포함(arch:cycle), 그리고 MISRA C++:2023 · C++:2008, AUTOSAR C++14, CERT C++ 위반과 HIS 메트릭. 정밀 결함 분석 명령줄로도 분석할 수 있습니다(<code>compile_commands.json</code> 의 <code>directory</code> 는 그 폴더 기준).</p>
+<pre><code class="language-bash">node scripts/defect-cli.mjs build --path samples/cpp-sensor --compile-commands samples/cpp-sensor/compile_commands.json
+node scripts/defect-cli.mjs analyze --path samples/cpp-sensor --coding-standard-config misra-cpp2023,autosar,cert-cpp --aggressiveness-level high
+node scripts/defect-cli.mjs format-errors --dir samples/cpp-sensor/.mcc</code></pre>
+<p>자세한 결함 위치와 아직 찾지 못하는 결함은 <code>samples/cpp-sensor/README.md</code> 에 있습니다.</p>
+<h2 id="튜토리얼과-사용-설명서">튜토리얼과 사용 설명서 <a class="anchor" href="#튜토리얼과-사용-설명서" aria-hidden="true">#</a></h2>
+<ul><li><strong>튜토리얼</strong> — 실제 화면을 움직이며 기능을 차례로 보여 주는 가이드 투어입니다(시작 화면, 분석 실행, 이슈 처리, AI 코드 수정, 정밀 결함 분석, 보안·규정 보고서, 관리와 설정). <strong>도움말 › 튜토리얼 시작</strong>, 시작 화면의 <strong>튜토리얼 시작</strong> 이나 안내 띠의 <strong>시작</strong>으로 엽니다. 처음 시작할 때는 &quot;MyCodeChecker에 오신 것을 환영합니다&quot; 안내가 나오며 <strong>튜토리얼 시작</strong> · <strong>이어서 보기</strong>(지난번 단계부터) · <strong>나중에</strong>를 고릅니다. 안내의 <strong>시작할 때 튜토리얼 안내 보기</strong>를 끄면 다시 나오지 않습니다. 튜토리얼 문서(화면 그림 포함)는 <strong>도움말 › 튜토리얼 문서</strong>입니다.</li><li><strong>사용 설명서 창</strong> — <strong>도움말 › 사용 설명서</strong>(또는 튜토리얼 문서 · README · 아키텍처 문서)는 이 설명서를 앱 안의 창으로 엽니다. 도구 줄에서 문서를 고르고, 국기 단추로 한국어 · English 를 바꾸고, ◀ ▶ 로 앞뒤로 이동하고, <strong>새 창에서 열기</strong>로 브라우저에 엽니다. 창은 <strong>앱의 테마 색을 그대로 따르고</strong>, 테마를 바꾸면 열린 채로 바뀝니다. Esc 로 닫습니다. 아직 만들어지지 않은 문서는 &quot;준비 중&quot; 으로 표시됩니다(개발 폴더에서 <code>npm run build:docs</code>).</li></ul>
+<h2 id="첫-분석">첫 분석 <a class="anchor" href="#첫-분석" aria-hidden="true">#</a></h2>
+<ol><li><strong>폴더 열기…</strong>(Ctrl+O, 도구 모음 <strong>열기</strong>)로 분석할 소스 폴더를 고릅니다. 설정을 파일로 남기려면 <strong>새 프로젝트…</strong>(Ctrl+N)로 <a href="#프로젝트-파일-mccp">프로젝트 파일</a>을 만듭니다. 데스크톱은 폴더 선택 창, 웹판은 <strong>폴더 경로</strong> 입력 창(전체 경로를 적고 Enter)이 나옵니다. 연습은 <strong>샘플 프로젝트</strong>로 합니다.</li><li>바로 분석이 시작되고 아래 패널 <strong>작업</strong>에 진행이, <strong>분석 로그</strong>에 결과가 나옵니다. 끝나면 <strong>개요</strong>가 열리고 상태 표시줄에 게이트 결과가 나옵니다.</li><li>코드를 고친 뒤 다시 분석하려면 도구 모음의 <strong>분석</strong>(Ctrl+Enter)을 누릅니다. 스트림을 바꾸지 않고 새 결함만 보려면 <strong>데스크톱</strong>을 누릅니다. 두 번째 분석부터는 이전 분석과 비교한 <strong>새 코드</strong> 결과가 따로 나옵니다.</li></ol>
+<p>분석에서 빠지는 것: <code>node_modules</code>, <code>.git</code>, <code>dist</code>, <code>build</code>, <code>target</code>, <code>vendor</code>, <code>bin</code>, <code>obj</code>, <code>coverage</code>, <code>.mcc</code> 같은 폴더, 설정의 <strong>제외 패턴</strong>에 맞는 파일, 800 KB 보다 큰 파일, 바이너리 파일. 줄에 <code>NOMCC</code>, <code>noqa</code>, <code>nolint</code>, <code>mcc-ignore</code>, <code>cov-ignore</code>, <code>parasoft-suppress</code>, <code>mcc-ignore</code> 가 있으면 그 줄의 이슈는 내지 않습니다. C/C++ 에서는 <code>// mcc[CHECKER]</code> 주석이 그 체커만 그 줄(주석만 있는 줄이면 다음 코드 줄)에서 끕니다.</p>
+<h2 id="보기">보기 <a class="anchor" href="#보기" aria-hidden="true">#</a></h2>
+<h3 id="프로젝트">프로젝트 <a class="anchor" href="#프로젝트" aria-hidden="true">#</a></h3>
+<h4 id="개요">개요 <a class="anchor" href="#개요" aria-hidden="true">#</a></h4>
+<p>품질 게이트(<strong>통과</strong> / <strong>실패</strong>, 실패면 만족하지 못한 조건 수와 <strong>조건 보기</strong>), 등급 카드(<strong>신뢰성</strong> · <strong>보안</strong> · <strong>유지보수성</strong> · <strong>보안 검토</strong>, A 매우 좋음 – E 매우 나쁨), 버그 · 취약점 · 코드 스멜 · 핫스팟 수, 기술 부채와 <strong>부채 비율</strong>, 커버리지, 중복, 코드 줄, 언어가 나옵니다. 카드마다 위 숫자는 전체 코드, 아래 줄은 새 코드입니다. 카드를 누르면 그 종류로 걸러진 이슈 목록으로 갑니다.</p>
+<p>등급은 공개된 코드 품질 척도를 따릅니다. 신뢰성은 가장 심한 버그, 보안은 가장 심한 취약점, 보안 검토는 검토한 핫스팟 비율, 유지보수성은 기술 부채 비율(코드 한 줄 개발 비용 30분 기준)로 정합니다.</p>
+<h4 id="측정값">측정값 <a class="anchor" href="#측정값" aria-hidden="true">#</a></h4>
+<p>모든 측정값(<strong>측정 항목</strong> · <strong>키</strong> · <strong>값</strong>)의 표입니다: 파일, 코드 줄, 주석 밀도, 복잡도, 중복 블록 · 줄 · 밀도, 커버리지, 등급, 부채, 새 코드 측정값, 테스트 지표(테스트 보고서를 가져왔을 때).</p>
+<h4 id="코드">코드 <a class="anchor" href="#코드" aria-hidden="true">#</a></h4>
+<p>왼쪽에 파일 목록(<strong>파일 이름으로 거르기</strong>, 숫자는 이슈 수), 오른쪽에 소스가 나옵니다. 이슈가 있는 줄은 색으로 표시되고 &quot;이 줄에 이슈가 있습니다.&quot; 가 붙습니다. 이슈 · 결함 · 중복 · HIS 에서 위치를 누르면 이 보기로 와서 그 줄로 스크롤합니다.</p>
+<h4 id="중복">중복 <a class="anchor" href="#중복" aria-hidden="true">#</a></h4>
+<p>같은 코드 블록(정규화한 8줄 이상)이 두 곳 이상 있는 경우입니다. 블록마다 &quot;{n}곳&quot; 과 위치가 나오고 <strong>코드 보기</strong>로 엽니다.</p>
+<h4 id="아키텍처">아키텍처 <a class="anchor" href="#아키텍처" aria-hidden="true">#</a></h4>
+<p>모듈(폴더 · 패키지) 사이의 의존 그래프입니다. 색은 불안정도 I = Ce / (Ca + Ce)(안정 I = 0 ~ 불안정 I = 1), 빨간 선은 <strong>순환 의존</strong>입니다. 휠로 확대 · 축소, 끌어서 이동, <strong>맞춤</strong>으로 전체 보기. 모듈을 누르면 파일 수 · Ca · Ce · I, <strong>쓰는 모듈</strong>, <strong>이 모듈을 쓰는 곳</strong>이 나옵니다. 아래 표에 모듈 · 의존 · 순환 목록과 <strong>아키텍처 이슈</strong>가 있습니다. 레이어 규칙은 <a href="#분석-설정">관리 › 분석 설정</a>에서 정합니다.</p>
+<h4 id="활동">활동 <a class="anchor" href="#활동" aria-hidden="true">#</a></h4>
+<p>분석마다 쌓인 이슈 수 막대(빨간 막대는 게이트 실패)와 기록 표입니다.</p>
+<h4 id="스냅샷">스냅샷 <a class="anchor" href="#스냅샷" aria-hidden="true">#</a></h4>
+<p>커밋한 분석마다 스냅샷이 남습니다(최근 12개). 탭:</p>
+<ul><li><strong>비교</strong> — 두 스냅샷(부터 / 까지)의 CID 를 비교해 새로 발견 · 수정됨 · 미해결 · 분류됨 · 새로 기각 · 다시 열림을 셉니다.</li><li><strong>결함 수명</strong> — 결함마다 처음 발견 · 마지막 발견 · 수정된 스냅샷 · 재발.</li><li><strong>이슈 나이</strong> — 열린 이슈의 평균 나이 · 중앙값 · 가장 오래된 이슈(일)와 나이 구간.</li><li><strong>추세</strong> — 버그 · 취약점 · 코드 스멜 등의 선 그래프(마우스를 올리면 값). <strong>표로 보기</strong>도 됩니다.</li><li><strong>활동</strong> — 품질 게이트 · 버전 · 품질 프로파일 · 정밀 결함 분석 정책이 바뀐 일.</li></ul>
+<h4 id="보고서">보고서 <a class="anchor" href="#보고서" aria-hidden="true">#</a></h4>
+<p><a href="#보고서-만들기">보고서 만들기</a>를 보세요.</p>
+<h3 id="이슈">이슈 <a class="anchor" href="#이슈" aria-hidden="true">#</a></h3>
+<h4 id="이슈-1">이슈 <a class="anchor" href="#이슈-1" aria-hidden="true">#</a></h4>
+<p>버그 · 취약점 · 코드 스멜 목록입니다. 위에서 검색(<strong>규칙, 메시지, 파일로 검색</strong>)하고 <strong>심각도</strong>(차단 · 심각 · 주요 · 경미 · 정보), <strong>종류</strong>, <strong>상태</strong>, <strong>엔진</strong>, <strong>표준</strong>(OWASP · CWE · MISRA · 행정안전부 등), 언어, <strong>새 코드만</strong>으로 거릅니다. 보안 보고서 · MISRA 에서 범주를 눌러 오면 <strong>범주 필터</strong>가 걸리고 <strong>필터 해제</strong>로 풉니다.</p>
+<p>이슈를 누르면 오른쪽 <strong>세부 정보</strong> 패널에 다음이 나옵니다.</p>
+<ul><li>메시지 · 규칙 · 위치(누르면 코드 보기), 앞뒤 코드, <strong>이유</strong>, <strong>고치는 법</strong>, 표준 매핑, 엔진, MISRA 범주 · 결정 가능 여부</li><li><strong>데이터 흐름 (소스 → 싱크)</strong> 또는 이벤트 경로(소스 · 대입 · 호출 · 반환 · 전파 · 정화 · 분기 · 싱크) — 단계를 누르면 그 줄로 갑니다</li><li>처리 단추: <strong>확인됨</strong>(이슈가 맞음) · <strong>수용</strong>(알지만 지금은 고치지 않음) · <strong>오탐</strong>(잘못 찾음) · <strong>다시 열기</strong></li><li><strong>담당</strong>, <strong>의견 추가</strong>, <strong>태그</strong>(입력 후 Enter), <strong>변경 기록</strong></li><li><strong>예외 신청</strong> — <a href="#예외-신청과-승인">예외 신청과 승인</a></li><li><strong>티켓 만들기</strong> — 설정된 트래커(Jira · Redmine · GitHub · GitLab)를 골라 만들고, 만든 티켓이 <strong>외부 참조</strong>로 붙습니다</li><li><strong>AI로 수정 제안</strong> — <a href="#ai-코드-수정">AI 코드 수정</a></li></ul>
+<p>여러 이슈를 고르려면 <strong>선택</strong>을 눌러 체크한 뒤 <strong>선택 항목에 적용</strong>으로 상태 · 담당을 한 번에 바꿉니다.</p>
+<p>이슈 상태: 열림 · 확인됨 · 다시 열림 · 해결됨(고침 · 오탐 · 고치지 않음) · 수락함 · 닫힘. 다음 분석에서 같은 이슈(규칙 · 파일 · 줄 내용이 같음)가 다시 나오면 상태 · 의견 · 담당이 그대로 이어집니다.</p>
+<h4 id="보안-핫스팟">보안 핫스팟 <a class="anchor" href="#보안-핫스팟" aria-hidden="true">#</a></h4>
+<p>바로 결함으로 치지 않고 사람이 검토해야 하는 보안 민감 코드입니다(예: 암호화 설정, 쿠키, 정규식, 명령 실행). 하나씩 보고 <strong>검토 결과</strong>를 <strong>인지함</strong>(위험을 알고 고칠 예정) · <strong>고침</strong> · <strong>안전</strong>으로 정합니다. 검토 필요 → 검토 완료로 바뀌고 보안 검토 등급에 반영됩니다.</p>
+<h4 id="예외-승인">예외 승인 <a class="anchor" href="#예외-승인" aria-hidden="true">#</a></h4>
+<p><strong>관리 › 분석 설정</strong>에서 <strong>오탐·수용 처리에 승인 필요</strong>를 켜면, 오탐 · 수용은 예외 신청으로만 할 수 있습니다. 이 보기에 승인을 기다리는 신청(신청 · 신청자 · 사유)이 모입니다. 고른 뒤 <strong>처리 의견</strong>을 적고 <strong>승인</strong> 또는 <strong>반려</strong>합니다(반려할 때는 의견 필수). 이슈 관리 권한이 필요합니다.</p>
+<h4 id="풀-리퀘스트">풀 리퀘스트 <a class="anchor" href="#풀-리퀘스트" aria-hidden="true">#</a></h4>
+<p><a href="#풀-리퀘스트-분석">풀 리퀘스트 분석</a>을 보세요.</p>
+<h3 id="defect-analysis">Defect Analysis <a class="anchor" href="#defect-analysis" aria-hidden="true">#</a></h3>
+<h4 id="결함">결함 <a class="anchor" href="#결함" aria-hidden="true">#</a></h4>
+<p>정밀 결함 분석의 결함 목록입니다. 위의 보기 단추로 <strong>미해결</strong> · <strong>새로 발견</strong> · <strong>영향 높음</strong> · <strong>기각</strong> · <strong>수정됨</strong>을 고르고, <strong>CID, 체커, 파일, 함수로 검색</strong>합니다. 결함을 누르면 오른쪽에 체커 · 영향(높음 · 보통 · 낮음) · 컴포넌트 · 함수, <strong>이벤트</strong> 경로(예: 할당 → 해제 → 사용, 메인 이벤트 강조), 그리고 <strong>분류(triage)</strong> 입력이 나옵니다.</p>
+<div class="table-wrap"><table><thead><tr><th>항목</th><th>값</th></tr></thead><tbody><tr><td>분류</td><td>Unclassified · Pending · Bug · False Positive · Intentional</td></tr><tr><td>조치</td><td>Undecided · Fix Required · Fix Submitted · Modeling Required · Ignore</td></tr><tr><td>심각도(분류)</td><td>Major · Moderate · Minor · Unspecified</td></tr><tr><td>소유자 · 외부 참조 · 레거시</td><td>담당자, 버그 추적 번호, 레거시 결함으로 표시</td></tr></tbody></table></div>
+<p>False Positive · Intentional · Ignore 는 기각(Dismissed)이 됩니다. 분류는 CID 에 붙어 다음 스냅샷에도 이어집니다.</p>
+<h4 id="스트림">스트림 <a class="anchor" href="#스트림" aria-hidden="true">#</a></h4>
+<p><strong>결함 커밋</strong>을 할 때마다 브랜치 이름의 스트림에 스냅샷이 쌓입니다. 스냅샷별 미해결 · 새로 발견 · 영향 높음 · 기각 · 수정됨과 정책 결과, <strong>스냅숏 비교</strong>가 있습니다. 첫 스냅샷은 기준이고, 정책은 다음 커밋부터 새 결함을 셉니다.</p>
+<h4 id="컴포넌트">컴포넌트 <a class="anchor" href="#컴포넌트" aria-hidden="true">#</a></h4>
+<p>경로 패턴(glob)을 컴포넌트 이름과 소유자에 연결합니다(예: <code>src/net/**</code> → Network, 김철수). 맞지 않는 파일은 Other 입니다. 결함 목록과 보고서가 컴포넌트별로 묶입니다.</p>
+<h4 id="정책">정책 <a class="anchor" href="#정책" aria-hidden="true">#</a></h4>
+<p>기본 정책 &quot;정밀 결함 분석 기본&quot;은 기준 스냅샷 이후 <strong>새로 생긴 영향 높음 결함</strong>(보안 포함)이 하나라도 있으면 커밋을 실패로 둡니다. <strong>이 프로젝트에 지정</strong>으로 프로젝트에 붙입니다. 정책이 실패하면 상태 표시줄에 &quot;정밀 결함 분석 정책을 통과하지 못했습니다.&quot; 가 나오고 <code>cov commit-defects</code> 는 종료 코드 1 을 냅니다.</p>
+<h4 id="함수-모델">함수 모델 <a class="anchor" href="#함수-모델" aria-hidden="true">#</a></h4>
+<p>라이브러리 함수의 동작을 알려 주어 결함을 더 찾습니다. 함수 이름 패턴과 종류(<strong>allocator</strong> 할당, <strong>sink</strong> 위험한 사용, <strong>source</strong> 외부 입력)를 적어 더합니다. <code>cov make-library</code> 로 C 스텁에서 만들 수도 있습니다.</p>
+<h3 id="보안규정">보안·규정 <a class="anchor" href="#보안규정" aria-hidden="true">#</a></h3>
+<h4 id="보안-보고서">보안 보고서 <a class="anchor" href="#보안-보고서" aria-hidden="true">#</a></h4>
+<p><strong>표준</strong>을 고르면 범주마다 취약점 · 보안 핫스팟 수, 등급, <strong>검토할 핫스팟</strong>, 규칙 수가 나옵니다. 행을 누르면 그 범주의 규칙으로 걸러진 이슈 목록이 열립니다. <strong>빈 범주 숨기기</strong>, <strong>연결 안 된 이슈</strong>(어느 범주에도 속하지 않는 보안 이슈)도 있습니다.</p>
+<p>표준: OWASP Top 10 2017 · 2021, PCI DSS 3.2.1 · 4.0, DISA STIG ASD V5R3, SANS Top 25, CWE Top 25 2023 · 2024, OWASP ASVS 4.0(L1–L3), <strong>행정안전부 소프트웨어 보안약점 진단가이드(2021) 49개 항목</strong>(입력데이터 검증 및 표현 · 보안기능 · 시간 및 상태 · 에러처리 · 코드오류 · 캡슐화 · API 오용), <strong>주요정보통신기반시설 웹 항목</strong>, CERT C · C++, MISRA C:2012 · C:2023 · C++:2023. 규칙 집합 표준은 <strong>판정</strong>(준수 / 미준수)과 검사한 규칙 · 위반한 규칙을 함께 보여 줍니다.</p>
+<h4 id="misra-준수">MISRA 준수 <a class="anchor" href="#misra-준수" aria-hidden="true">#</a></h4>
+<p>MISRA Compliance:2020 방식입니다. 표준(MISRA C:2012 · C:2023 · C++:2023)을 고르면 탭 세 개가 나옵니다.</p>
+<ul><li><strong>지침 준수 요약</strong> — 지침마다 범주(필수 · 요구 · 권고), 상태(준수 · 편차 · 위반 · 적용 안 함 · 검사 안 함), 위반 수, 결정 불가 여부. 범주 · 상태로 거르고, 위반 수를 누르면 이슈 목록으로 갑니다.</li><li><strong>재분류 계획</strong> — 지침의 범주를 더 엄격하게만 바꿉니다(권고 → 요구 → 필수, 또는 권고 → 적용 안 함). 낮추는 재분류는 &quot;낮출 수 없음&quot; 으로 표시되고 적용되지 않습니다.</li><li><strong>편차</strong> — <strong>편차 추가</strong>로 지침 · 범위(경로 glob, 쉼표로 여러 개) · 근거 · 승인자 · 날짜 · 만료 · 허가를 적습니다. 필수 지침에는 쓸 수 없고, 만료일이 지난 편차는 무효입니다.</li></ul>
+<p><strong>계획 저장</strong>을 누르면 다음 판정부터 반영됩니다. 필수 · 요구 지침에 편차로 덮이지 않은 위반이 없고 검사 안 함이 없어야 <strong>준수</strong>입니다. 권고 지침 위반은 세지만 판정을 막지 않습니다. CI 에서는 <code>scan.mjs --misra-gate</code> 로 같은 판정을 씁니다.</p>
+<p>CERT C/C++, AUTOSAR C++14, MISRA C:2004 · C++:2008 규칙은 이슈 목록의 <strong>표준</strong> 필터와 보고서의 규칙 집합으로 봅니다.</p>
+<h4 id="his-메트릭">HIS 메트릭 <a class="anchor" href="#his-메트릭" aria-hidden="true">#</a></h4>
+<p>C/C++ 함수마다 HIS 메트릭을 계산합니다: 주석 밀도(COMF), 비순환 경로 수(PATH), goto 수, 순환 복잡도 v(G), 호출하는 함수 수, 호출되는 함수 수, 매개변수 수, 문장 수, 호출 깊이, return 수, 언어 범위(VOCF), 재귀 호출 순환. 기준을 넘은 값은 빨간색이고, 위에 지표별 평균 · 최대와 위반 함수 수가 나옵니다. <strong>위반만</strong>으로 거르고, 줄을 누르면 코드로 갑니다.</p>
+<h4 id="의존성">의존성 <a class="anchor" href="#의존성" aria-hidden="true">#</a></h4>
+<p>SCA 결과입니다. 매니페스트 · 잠금 파일(npm · Maven · Gradle · pip · Poetry · NuGet · Go · Cargo · Composer · Bundler …), SBOM, 바이너리(.jar · .war · .whl · .nupkg · .dll · .so …)에서 의존성을 읽습니다.</p>
+<ul><li>요약: 의존성 · 직접 · 전이 · 취약한 패키지 · 생태계 · 권고 수</li><li><strong>의존성</strong> 탭 — <strong>트리</strong> 또는 <strong>목록</strong>, 패키지 · 버전 · 종류 · 범위 · 라이선스 · 취약점. <strong>개발 의존성 포함</strong> 토글</li><li><strong>취약점</strong> 탭 — 설치 → 수정 버전, <strong>권장 업그레이드</strong>, <strong>의존 경로</strong>, 별칭(CVE · GHSA), 수정일, <strong>도달 가능성</strong>(reachable · imported · not-imported · unknown — 내 코드가 그 패키지나 취약한 함수를 실제로 부르는지와 근거 줄)</li><li><strong>라이선스</strong> 탭 — 범주(허용형 · 약한 카피레프트 · 강한 카피레프트 · 네트워크 카피레프트 · 독점 · 알 수 없음)와 정책 판정(허용 · 검토 · 금지 · 라이선스 없음)</li><li>코드 조각 일치(오픈 소스 코드를 복사해 온 곳), 의존성 혼동(내부 패키지 이름이 공개 저장소에 있음), 고정 안 된 버전 · 지원 끝난 패키지 같은 공급망 이슈</li></ul>
+<p>권고는 기본으로 내장 권고만 씁니다. <strong>OSV 데이터베이스</strong>에 OSV 덤프 폴더(<code>*.json</code>, <code>*.zip</code>)나 <code>all.zip</code> 경로를 적고 <strong>불러오기</strong>를 누르면 오프라인 권고 전체를 씁니다(경로는 분석 서버 쪽에서 읽음, <strong>내장만 쓰기</strong>로 되돌림). <strong>온라인 확인 (OSV.dev)</strong> 은 확인 창을 거쳐 <strong>패키지 이름과 버전만</strong> osv.dev 로 보냅니다(소스 코드는 보내지 않음). <strong>SBOM 형식</strong>(CycloneDX 1.5 JSON · SPDX 2.3 JSON · SPDX tag-value)을 고르고 <strong>SBOM 내보내기</strong>로 저장합니다.</p>
+<h4 id="웹-스캔-dast">웹 스캔 (DAST) <a class="anchor" href="#웹-스캔-dast" aria-hidden="true">#</a></h4>
+<p>실행 중인 웹 애플리케이션을 HTTP 로 검사합니다. <strong>직접 소유하거나 검사 권한을 받은 대상에만 쓰세요.</strong> 입력한 대상 출처 밖으로는 요청하지 않습니다.</p>
+<ol><li><strong>대상 URL</strong> 을 적고 <strong>모드</strong>를 고릅니다. <strong>수동 (관찰만)</strong> 은 페이지를 둘러보고 응답만 살핍니다. <strong>능동 (안전한 탐침)</strong> 은 XSS · SQL 주입 같은 파괴적이지 않은 GET/POST 탐침을 더하며, 시작 전에 &quot;권한이 있습니다&quot; 확인을 받습니다.</li><li>필요하면 <strong>초당 요청</strong>(기본 5) · <strong>최대 요청</strong>(기본 500) · <strong>최대 페이지</strong> · <strong>최대 깊이</strong>, <strong>인증 · 시드</strong>(쿠키, Bearer 토큰, 추가 헤더, 로그인 URL · 로그인 필드, 시드 URL, OpenAPI / Swagger)를 정합니다.</li><li><strong>검사 시작</strong> — 진행(단계 · 요청 · 페이지 · 발견)이 나오고 <strong>취소</strong>로 멈춥니다.</li><li><strong>검사 기록</strong>에서 결과를 고르면 발견 목록이 나오고, 발견을 누르면 매개변수 · 증거 · <strong>요청</strong> · <strong>응답</strong>이 나옵니다. <strong>SARIF 저장</strong>으로 내보냅니다.</li></ol>
+<h3 id="관리">관리 <a class="anchor" href="#관리" aria-hidden="true">#</a></h3>
+<h4 id="규칙">규칙 <a class="anchor" href="#규칙" aria-hidden="true">#</a></h4>
+<p>모든 규칙(4161개)입니다. <strong>규칙 이름, 키, 태그로 검색</strong>하고 언어 · 종류 · 심각도 · 엔진 · 표준으로 거릅니다. 규칙을 누르면 이유 · 고치는 법 · CWE · OWASP · CERT · MISRA · 행정안전부 항목 매핑이 나옵니다. <strong>끔</strong>을 누르면 기본 프로파일에서 그 규칙을 끕니다.</p>
+<h4 id="품질-프로파일">품질 프로파일 <a class="anchor" href="#품질-프로파일" aria-hidden="true">#</a></h4>
+<p>언어마다 어떤 규칙을 켤지 정합니다. 처음에는 언어마다 기본 프로파일 &quot;Checker way&quot; 가 있습니다.</p>
+<ul><li><strong>복사</strong> · <strong>상속해 만들기</strong>(부모 프로필의 설정을 물려받고 차이만 저장, &quot;부모에서 꺼짐&quot; 표시) · <strong>기본값으로</strong> · <strong>이 프로젝트에 사용</strong></li><li><strong>규칙</strong> 탭 — 규칙마다 켜기/끄기와 심각도 바꾸기, &quot;활성 {n} / {m}&quot;</li><li><strong>비교</strong> 탭 — <strong>비교할 프로필</strong>과 규칙 차이</li><li><strong>변경 기록</strong> 탭 — 만듦 · 켬 · 끔 · 심각도 · 부모 변경 · 복원, 변경한 사람과 시각</li><li><strong>백업</strong> · <strong>복원</strong> — 프로파일을 JSON 으로 저장하고 되살립니다</li></ul>
+<p>기본 프로필이나 하위 프로필이 있는 프로필은 지울 수 없습니다.</p>
+<p><strong>사용자 규칙</strong>(도구 › 사용자 규칙)은 정규식 규칙입니다: 정규식 · 이름 · 종류 · 심각도를 정하면 다음 분석부터 맞는 줄마다 이슈가 됩니다.</p>
+<h4 id="품질-게이트">품질 게이트 <a class="anchor" href="#품질-게이트" aria-hidden="true">#</a></h4>
+<p>분석이 통과인지 실패인지 가르는 조건 목록입니다. 기본 게이트 &quot;Checker way&quot; 의 조건(모두 새 코드 기준):</p>
+<div class="table-wrap"><table><thead><tr><th>측정값</th><th>연산자</th><th>임계값</th></tr></thead><tbody><tr><td>새 버그 · 새 취약점</td><td>&gt;</td><td>0</td></tr><tr><td>검토한 새 보안 핫스팟</td><td>&lt;</td><td>100 %</td></tr><tr><td>새 코드 커버리지</td><td>&lt;</td><td>80 %</td></tr><tr><td>새 코드 중복</td><td>&gt;</td><td>3 %</td></tr><tr><td>새 코드 유지보수성 · 신뢰성 · 보안 등급</td><td>나쁨</td><td>A</td></tr></tbody></table></div>
+<p><strong>복사본 추가</strong>로 새 게이트를 만들고 <strong>조건 추가</strong>로 측정값 · 연산자 · 임계값을 정한 뒤 <strong>{name} 프로젝트에 지정</strong>합니다. &quot;이 프로젝트에 사용 중&quot; 이 지금 쓰는 게이트입니다.</p>
+<h4 id="포트폴리오">포트폴리오 <a class="anchor" href="#포트폴리오" aria-hidden="true">#</a></h4>
+<p>여러 프로젝트를 묶어 함께 봅니다. 이름을 적고 <strong>포트폴리오 만들기</strong>, <strong>프로젝트 고르기</strong>로 구성원을 정합니다. 통과 · 실패 · 없음 수, 가장 나쁜 프로젝트 기준 등급, 합친 측정값, <strong>출시 가능</strong> 판정(실패한 프로젝트가 없으면 통과)이 나옵니다.</p>
+<h4 id="백그라운드-작업">백그라운드 작업 <a class="anchor" href="#백그라운드-작업" aria-hidden="true">#</a></h4>
+<p>모든 분석이 작업으로 남습니다(최근 100개): 시각, 프로젝트, 브랜치, 상태(SUCCESS · FAILED), 품질 게이트, 정밀 결함 분석 정책, 걸린 시간, 경고(예: <code>DB: …</code>). CI 스캐너나 API 로 보낸 분석도 여기 나옵니다.</p>
+<h4 id="관리-탭">관리 (탭) <a class="anchor" href="#관리-탭" aria-hidden="true">#</a></h4>
+<div class="table-wrap"><table><thead><tr><th>탭</th><th>내용</th></tr></thead><tbody><tr><td>웹훅</td><td>분석이 끝나거나 게이트가 바뀌면 URL 로 호환 형식 JSON 을 POST. <strong>웹훅 추가</strong> → 이름 · URL · 대상(모든 프로젝트 또는 하나) · 이벤트(분석 완료 · 게이트 변경) · 비밀 값 (HMAC) · 사용. <strong>전송 기록</strong>에 응답 코드와 내용</td></tr><tr><td>사용자 · 권한</td><td>권한 검사 켜기, 사용자 · 그룹 · 전역 권한 · 프로젝트 권한 · 토큰 (<a href="#사용자와-권한">아래</a>)</td></tr><tr><td>외부 이슈</td><td>다른 도구 결과를 현재 분석에 더함: SARIF, 호환 일반 이슈 형식, 결함 JSON, cppcheck, clang-tidy, ESLint, Pylint, Checkstyle, SpotBugs, PMD, gosec, Bandit, Semgrep. <strong>파일 열기…</strong> 또는 붙여 넣기 → <strong>형식</strong>(자동 감지) → <strong>가져오기</strong>. 같은 엔진의 이전 가져오기는 바뀝니다</td></tr><tr><td>테스트 보고서</td><td>JUnit XML 또는 호환 일반 테스트 실행 XML. 다음 분석부터 테스트 · 실패 · 오류 · 건너뜀 · 실행 시간 · 성공률이 측정값에 들어갑니다</td></tr><tr><td>분석 설정</td><td>새 코드 · 예외 승인 · 라이선스 · C/C++ · 커버리지 · 아키텍처 · 정리 (<a href="#분석-설정">아래</a>)</td></tr><tr><td>예약 분석</td><td>정해진 시각에 코드 분석이나 웹 스캔 (<a href="#예약-분석">아래</a>)</td></tr><tr><td>연동</td><td>기본 URL · SMTP · LDAP · 이슈 트래커 · PR 게시 (ALM) · 내 알림 (<a href="#연동">아래</a>)</td></tr><tr><td>감사 로그</td><td>권한이 켜져 있을 때 로그인, 설정 · 보안 · 분류 변경, 거부된 요청을 사용자 · API · 결과 · 내용과 함께 남김(최근 5000건). 검색과 최대 개수</td></tr><tr><td>필요한 소프트웨어</td><td>Git · C/C++ 컴파일러 상태, 플랫폼 · 패키지 관리자, 설치 · 다시 확인 · 다시 묻기</td></tr></tbody></table></div>
+<h5 id="분석-설정">분석 설정 <a class="anchor" href="#분석-설정" aria-hidden="true">#</a></h5>
+<ul><li><strong>새 코드 기준</strong> — 이전 분석 · 일수 · SCM 변경 줄 (git) · 이전 버전 이후(버전 태그) · 특정 분석 이후. <strong>기준 참조 (브랜치·태그·커밋)</strong>, <strong>적용 범위</strong>: <strong>이 프로젝트에만 적용</strong>을 켜면 이 프로젝트만 다른 기준을 씁니다.</li><li><strong>자동 담당자</strong> — git blame 작성자에게 이슈 배정.</li><li><strong>예외 승인</strong> — <strong>오탐·수용 처리에 승인 필요</strong>, <strong>신청자 본인 승인 허용</strong>.</li><li><strong>라이선스 정책</strong> — 허용 · 검토 · 금지할 SPDX ID(줄마다). 적지 않은 라이선스는 범주 기본값(허용형 허용, 카피레프트 검토, 네트워크 카피레프트 · 독점 금지). <strong>내부 패키지</strong>(의존성 혼동 검사, glob 또는 /정규식/).</li><li><strong>C/C++ 설정</strong> — 대상 데이터 모델(LP64 · ILP32 · LLP64), 포함 디렉터리, 매크로 정의(NAME 또는 NAME=값).</li><li><strong>커버리지 보고서</strong> — 보고서 경로(프로젝트 기준, 줄마다). 비우면 <code>coverage/lcov.info</code>, <code>cobertura.xml</code>, <code>jacoco.xml</code>, <code>clover.xml</code>, <code>opencover.xml</code> 같은 흔한 위치를 찾습니다.</li><li><strong>아키텍처 규칙</strong> — 레이어(이름 + 경로 패턴), 금지 의존(이 레이어가 → 이 레이어를 쓰면 안 됨, 설명), 모듈당 최대 의존 수, 불안정 의존 알림. 프로젝트 관리자만 바꿉니다.</li><li><strong>정리 (하우스키핑)</strong> — 쓰지 않은 브랜치 · 닫힌 이슈 상태 · 감사 로그 보관 일수(0 = 끔), <strong>지금 정리</strong>.</li></ul>
+<p><strong>저장</strong>하면 &quot;다음 분석부터 적용됩니다.&quot; <strong>되돌리기</strong>는 저장된 값으로 돌아갑니다.</p>
+<h5 id="예약-분석">예약 분석 <a class="anchor" href="#예약-분석" aria-hidden="true">#</a></h5>
+<p><strong>새 예약</strong> → 이름(예: 야간 전체 분석) · <strong>종류</strong>(코드 분석 / 웹 스캔 (DAST)) · 프로젝트(또는 <strong>프로젝트 대신 폴더 경로</strong>) · 브랜치, DAST 면 대상과 스캔 방식 · <strong>실행 시각</strong>(매일 02:00 · 평일 09:00 · 매주 일요일 03:00 · 매시간 정각 · 사용자 지정 (cron)) · <strong>예약 사용</strong>. cron 식은 &quot;분 시 일 월 요일&quot; 순서입니다(예: <code>*/30 8-18 * * 1-5</code> 는 평일 8시~18시 30분마다). <strong>다음 실행 5회</strong>로 미리 확인합니다. 목록에서 다음 실행 · 마지막 실행 · 결과를 보고 <strong>지금 실행</strong>, 편집, 삭제를 합니다. 예약은 프로그램(또는 웹 서버)이 켜져 있을 때 30초마다 확인해 실행합니다.</p>
+<h5 id="연동">연동 <a class="anchor" href="#연동" aria-hidden="true">#</a></h5>
+<ul><li><strong>기본 URL</strong> — 메일과 티켓에 넣을 이 서버의 주소.</li><li><strong>SMTP</strong> — 호스트 · 포트 · 보안 연결(암호화 안 함 · STARTTLS · TLS) · 사용자 · 비밀번호 · 보내는 주소, <strong>연결 확인</strong>, <strong>테스트 메일</strong>(받는 주소).</li><li><strong>LDAP</strong> — LDAP 주소 · 바인드 DN · 비밀번호 · 검색 기준 DN · 사용자 필터 · 기본 그룹 · 그룹 대응(JSON, LDAP 그룹 → 로컬 그룹), <strong>연결 확인</strong>. 켜면 회사 디렉터리 계정으로 로그인합니다.</li><li><strong>이슈 트래커</strong> — Jira(기본 URL · API 버전 · 프로젝트 키 · 이슈 유형 · 이메일 + API 토큰 또는 개인 액세스 토큰 (PAT)), Redmine(기본 URL · API 키 · 프로젝트 ID · 트래커 ID), GitHub(API 주소 · 소유자 · 저장소 · 토큰), GitLab(기본 URL · 프로젝트 ID · 토큰). 쓰지 않는 칸은 비워 둡니다.</li><li><strong>PR 게시 (ALM)</strong> — GitHub · GitLab · Azure DevOps(조직 · 프로젝트 · 저장소 ID · 토큰) · Bitbucket(종류 Cloud / Server, API 주소 또는 기본 URL, 워크스페이스 또는 프로젝트 키 · 저장소 · 토큰).</li><li><strong>내 알림</strong> — 받을 이메일, <strong>알릴 일</strong>(품질 게이트 상태가 바뀜 · 나에게 이슈가 할당됨 · 영향 높은 결함이 새로 나옴 · 승인할 예외 신청이 들어옴 · 내 예외 신청이 승인됨 · 반려됨 · 분석이 실패함), 프로젝트(아무것도 고르지 않으면 모두). <strong>알림 저장</strong> / <strong>알림 끄기</strong>.</li></ul>
+<p>비밀 값(비밀번호 · 토큰 · 키)은 저장 뒤 다시 보이지 않습니다(&quot;저장된 값이 있습니다. 바꾸려면 새 값을 적으세요.&quot;).</p>
+<h5 id="사용자와-권한">사용자와 권한 <a class="anchor" href="#사용자와-권한" aria-hidden="true">#</a></h5>
+<p>처음에는 <strong>권한 검사가 꺼져 있습니다 (로컬 단일 사용자)</strong>. 여러 사람이 쓰는 서버라면:</p>
+<ol><li><code>admin</code> 사용자의 비밀번호(8자 이상)를 먼저 정합니다.</li><li><strong>권한 검사</strong>를 켭니다. 이때부터 화면은 <strong>MyCodeChecker 로그인</strong> 창을 띄우고, API 는 로그인이나 토큰을 요구합니다.</li><li><strong>사용자 추가</strong>(로그인 · 이름 · 이메일 · 비밀번호), <strong>그룹 추가</strong>(기본 그룹 administrators · users), <strong>구성원 추가</strong>.</li><li><strong>전역 권한</strong>: 관리 · 품질 게이트 관리 · 품질 프로파일 관리 · 분석 실행 · 프로젝트 만들기. <strong>프로젝트 권한</strong>: 보기 · 소스 보기 · 이슈 관리 · 보안 핫스팟 관리 · 관리 · 분석 실행. <strong>권한 주기</strong>로 사용자나 그룹(받는 쪽)에 줍니다.</li><li><strong>토큰</strong> — <strong>토큰 만들기</strong>: 사용자 토큰(<code>mcu_…</code>, 그 사용자의 권한), 프로젝트 분석 토큰(<code>mcp_…</code>, 그 프로젝트 분석만), 전역 분석 토큰(<code>mca_…</code>, 모든 분석). <strong>이 토큰은 지금 한 번만 보입니다.</strong> 만든 날 · 마지막 사용을 보고 <strong>폐기</strong>합니다.</li></ol>
+<p>비활성화한 사용자는 로그인할 수 없습니다. 로그아웃은 <strong>도구 › 로그아웃</strong>.</p>
+<h2 id="설정">설정 <a class="anchor" href="#설정" aria-hidden="true">#</a></h2>
+<p><strong>도구 › 설정</strong>(Ctrl+,)은 크기가 정해진 창(920×600)이며, 왼쪽에 세로 탭이 있습니다. 바꾼 값은 <strong>초안</strong>이고 <strong>확인</strong>을 눌러야 저장됩니다(바뀐 탭에는 &quot;바뀜&quot; 표시). <strong>취소</strong>(Esc)는 저장하지 않고 닫고, <strong>확인</strong>(Enter, 여러 줄 입력 칸 밖에서)은 저장하고 닫습니다. <strong>초기화</strong>는 지금 탭만 기본값으로 되돌립니다(확인을 누르기 전에는 저장되지 않음). 테마 · 언어 · 시작 화면 배경은 <strong>바로 미리 보이고, 취소하면 되돌아갑니다.</strong></p>
+<div class="table-wrap"><table><thead><tr><th>탭</th><th>항목</th></tr></thead><tbody><tr><td>일반</td><td>언어(국기와 함께 한국어 · English), 시작할 때 항상 시작 화면 보기, 담당(새 이슈를 맡을 기본 담당자), 패널: 왼쪽 패널 (탐색) · 오른쪽 패널 (세부 정보) · 아래 패널 켜기</td></tr><tr><td>테마</td><td>현재 테마, 맨 위에 <strong>사용자 정의 테마</strong> 무리, 그 아래 <strong>다크</strong> 20종 · <strong>라이트</strong> 20종(각 2열). 누르면 바로 미리 보입니다</td></tr><tr><td>사용자 정의 테마</td><td>왼쪽 목록과 <strong>기본 테마</strong>, <strong>새로 만들기</strong>(고른 기본 테마에서) · <strong>복제</strong> · <strong>삭제</strong> · <strong>가져오기</strong> · <strong>내보내기</strong>(JSON) · <strong>이 테마 쓰기</strong>. 오른쪽에서 이름 · 종류(다크 / 라이트)와 색 토큰 15개(배경 · 패널 · 카드 · 가리킴 · 선택 · 테두리 · 진한 테두리 · 글자 · 흐린 글자 · 강조 · 진한 강조 · 강조 위 글자 · 폴더·경고 · 파일 · 위험)를 고르고, <strong>기본 테마 색으로</strong> 되돌리며, <strong>미리 보기</strong>에서 메뉴 · 단추 · 목록 모양을 확인합니다</td></tr><tr><td>시작 화면</td><td>시작할 때 이 화면 보기, <strong>배경</strong>(20종 단추 + <strong>무작위</strong>), <strong>속도</strong> 0–300 %, <strong>투명도</strong> 0–100 %(0 % 는 배경 그대로, 클수록 흐림), <strong>섞기 간격</strong>(초, 0은 끔 — 켜면 그 간격마다 다른 배경), <strong>시작마다 바꾸기</strong>(시작할 때마다 다른 배경), 카드: <strong>카드 배치 초기화</strong>. 작은 미리 보기가 바로 움직입니다</td></tr><tr><td>분석</td><td>제외 패턴(한 줄에 하나, 기본 <code>**/*.min.js</code>, <code>**/vendor/**</code>, <code>**/node_modules/**</code>, <code>**/dist/**</code>, <code>**/build/**</code>), 인지 복잡도 한계(15), 매개변수 한계(7), 최대 파일 수(8000), <strong>더 많은 설정</strong> › <strong>관리 › 분석 설정 열기</strong></td></tr><tr><td>새 코드</td><td>새 코드 기준(이전 분석 · 일수 · SCM 변경 줄 (git) · 이전 버전 이후 · 특정 분석 이후)과 일수. 프로젝트별 기준은 관리 › 분석 설정에서</td></tr><tr><td>AI 코드 수정</td><td><a href="#ai-코드-수정-설정">아래</a></td></tr><tr><td>데이터베이스</td><td><a href="#데이터베이스">아래</a></td></tr><tr><td>알림·연동</td><td>웹후크 URL(분석이 끝나면 결과를 보낼 주소 하나), <strong>관리 화면의 연동 설정</strong>(SMTP · LDAP · 트래커 · ALM · 웹훅 · 내 알림)</td></tr><tr><td>고급</td><td>패널 배치: <strong>패널 크기·배치 초기화</strong>, <strong>필요한 소프트웨어…</strong>, 튜토리얼 안내: <strong>시작 화면에 다시 보이기</strong>. 설정은 작업 공간에 저장되어 다음 실행에도 그대로 쓰입니다</td></tr></tbody></table></div>
+<h3 id="ai-코드-수정-설정">AI 코드 수정 설정 <a class="anchor" href="#ai-코드-수정-설정" aria-hidden="true">#</a></h3>
+<div class="table-wrap"><table><thead><tr><th>항목</th><th>설명</th></tr></thead><tbody><tr><td>AI 코드 수정 사용</td><td>기본 꺼짐. 켜야 세부 정보 패널에서 <strong>AI로 수정 제안</strong>을 쓸 수 있습니다</td></tr><tr><td>제공자</td><td><strong>Anthropic Claude</strong>(공식 SDK) · <strong>OpenAI 호환 서버</strong>(<code>/v1/chat/completions</code> — OpenAI, Azure OpenAI 전체 URL, LM Studio, vLLM …) · <strong>Ollama (로컬)</strong>(기본 <code>http://127.0.0.1:11434</code>, 기본 모델 <code>qwen2.5-coder</code>)</td></tr><tr><td>모델</td><td>Anthropic: <strong>claude-opus-5-5 (기본)</strong> · claude-sonnet-5-5 · claude-haiku-5-5 · <strong>직접 입력…</strong>(목록에서 고르기로 되돌림). 다른 제공자는 서버에서 쓰는 모델 이름을 적습니다(OpenAI 호환은 필수)</td></tr><tr><td>서버 주소</td><td>OpenAI 호환 · Ollama 의 주소. Anthropic 은 <strong>다른 서버 주소 사용</strong>을 켤 때만(프록시)</td></tr><tr><td>API 키</td><td>저장 뒤에는 &quot;저장된 값이 있습니다.&quot; 로만 보입니다. Anthropic 에서 비워 두면 <code>ANTHROPIC_API_KEY</code> 환경 변수나 <code>ant auth login</code> 프로필을 씁니다</td></tr><tr><td>추론 노력</td><td>낮음 (빠름) · 보통(기본) · 높음 · 매우 높음 · 최대 — 높을수록 신중하지만 느리고 비쌉니다(Anthropic)</td></tr><tr><td>설명 언어</td><td>수정 설명을 쓸 언어(한국어 · English)</td></tr><tr><td>최대 토큰</td><td>답의 길이 한도(1024 – 128000, 기본 16000). 답이 잘리면 올립니다</td></tr><tr><td>주변 코드 줄</td><td>이슈 위아래로 보낼 줄 수(5 – 400, 기본 40)</td></tr><tr><td>제한 시간</td><td>답을 기다릴 시간(초, 기본 120)</td></tr><tr><td>연결 시험</td><td><strong>연결 확인</strong> — 지금 설정(저장 전 초안 포함)으로 짧게 물어보고 성공 / 실패를 보여 줍니다</td></tr></tbody></table></div>
+<blockquote><p><strong>개인 정보</strong> — 원격 제공자(Anthropic · OpenAI 호환 서버)를 쓰면 <strong>이슈 주변 코드(주변 코드 줄만큼), 파일 경로, 규칙 설명, 데이터 흐름</strong>이 그 제공자에게 전송됩니다. <strong>Ollama 는 이 컴퓨터(또는 지정한 서버)에서 실행되어 코드가 밖으로 나가지 않습니다.</strong> 코드가 회사 밖으로 나가면 안 되는 프로젝트는 Ollama 를 쓰거나 기능을 끄세요. 기능을 켜기 전에는 아무것도 보내지 않습니다.</p></blockquote>
+<h3 id="데이터베이스">데이터베이스 <a class="anchor" href="#데이터베이스" aria-hidden="true">#</a></h3>
+<p>분석 결과를 다른 도구(BI 대시보드, 보고 시스템)에서 쓰도록 데이터베이스 표로 내보냅니다.</p>
+<div class="table-wrap"><table><thead><tr><th>항목</th><th>설명</th></tr></thead><tbody><tr><td>분석 결과를 DB에 저장</td><td>사용 여부(기본 꺼짐)</td></tr><tr><td>종류</td><td><strong>SQLite 파일</strong>(Node 내장) · <strong>PostgreSQL</strong>(5432) · <strong>MySQL / MariaDB</strong>(3306) · <strong>SQL Server</strong>(1433)</td></tr><tr><td>DB 파일</td><td>SQLite 파일 경로(<strong>폴더…</strong>로 고름). 비우면 앱 데이터 폴더에 만듭니다</td></tr><tr><td>호스트 · 포트 · 데이터베이스 · 사용자 · 비밀번호</td><td>서버 DB 연결(데이터베이스 기본 <code>mycodechecker</code>)</td></tr><tr><td>암호화 연결</td><td>SSL/TLS</td></tr><tr><td>스키마 / 접두어</td><td>표 이름 앞에 붙는 값(기본 <code>mcc</code>) — 표 <code>mcc_projects</code>, <code>mcc_analyses</code>, <code>mcc_issues</code>, <code>mcc_measures</code>(없으면 만듭니다). 영문자 · 숫자 · <code>_</code> 만</td></tr><tr><td>자동 내보내기</td><td><strong>분석을 커밋할 때마다</strong> 내보냅니다</td></tr><tr><td>이슈 포함</td><td><strong>이슈 목록도 저장</strong>. 끄면 프로젝트 · 분석 · 측정값만</td></tr><tr><td>연결 시험</td><td><strong>연결 확인</strong></td></tr></tbody></table></div>
+<p>자동 내보내기를 끄고 <strong>보고서</strong> 화면의 <strong>DB로 내보내기</strong>로 지금 결과를 바로 보내도 됩니다(&quot;분석 ID … · 이슈 …개 · 측정값 …개&quot;). 같은 분석을 다시 내보내면 그 분석의 행을 바꿔 써서 중복되지 않습니다. 내보내기가 실패해도 분석은 그대로 끝나고, 실패 이유는 작업의 경고(<code>DB: …</code>)와 아래 패널 <strong>분석 로그</strong>에 남습니다.</p>
+<h2 id="작업-흐름">작업 흐름 <a class="anchor" href="#작업-흐름" aria-hidden="true">#</a></h2>
+<h3 id="이슈-분류-triage">이슈 분류 (triage) <a class="anchor" href="#이슈-분류-triage" aria-hidden="true">#</a></h3>
+<ol><li><strong>개요</strong>에서 실패한 게이트 조건이나 등급 카드를 눌러 이슈 목록으로 갑니다. <strong>새 코드만</strong>을 켜면 이번 변경에서 생긴 것만 봅니다.</li><li>심각도 · 종류로 걸러 위에서부터 봅니다. 이슈마다 <strong>이유</strong> · <strong>고치는 법</strong>을 읽고:
+<ul><li>맞으면 <strong>확인됨</strong>, 담당을 정하고 필요하면 <strong>티켓 만들기</strong></li><li>잘못 찾았으면 <strong>오탐</strong>, 알지만 지금 안 고칠 것이면 <strong>수용</strong>(승인이 필요한 작업 공간이면 예외 신청)</li></ul></li><li>C/C++ 결함은 <strong>결함</strong> 보기에서 이벤트 경로를 따라가 분류 · 조치를 정합니다.</li><li>보안 핫스팟은 <strong>보안 핫스팟</strong> 보기에서 안전 · 고침 · 인지함으로 검토합니다.</li><li>고친 뒤 다시 분석하면 사라진 이슈는 닫힘(고침)이 됩니다.</li></ol>
+<h3 id="예외-신청과-승인">예외 신청과 승인 <a class="anchor" href="#예외-신청과-승인" aria-hidden="true">#</a></h3>
+<ol><li>관리자가 <strong>관리 › 분석 설정 › 예외 승인 › 오탐·수용 처리에 승인 필요</strong>를 켭니다(본인 승인을 막으려면 <strong>신청자 본인 승인 허용</strong>을 끔).</li><li>개발자는 이슈 패널의 <strong>예외 신청</strong>에서 <strong>예외 종류</strong>(오탐 / 수용)와 <strong>예외 사유(필수)</strong>를 적고 <strong>예외 신청</strong>을 누릅니다. 이슈에 &quot;승인 대기&quot; 가 붙고, 알림을 구독한 승인자에게 메일이 갑니다.</li><li>승인자(이슈 관리 권한)는 <strong>예외 승인</strong> 보기에서 신청을 고르고 <strong>처리 의견</strong>과 함께 <strong>승인</strong> 또는 <strong>반려</strong>(의견 필수)합니다. 승인하면 이슈가 오탐/수용으로 해결되고, 반려하면 열린 채로 남으며 신청자에게 알림이 갑니다.</li><li>신청자는 승인 전에 <strong>신청 취소</strong>할 수 있습니다. 모든 신청 · 결정은 이슈의 변경 기록과 감사 로그에 남습니다.</li></ol>
+<h3 id="ci-의-품질-게이트">CI 의 품질 게이트 <a class="anchor" href="#ci-의-품질-게이트" aria-hidden="true">#</a></h3>
+<p>빌드 서버에서 소스를 바로 분석하고 게이트가 실패하면 빌드를 멈춥니다.</p>
+<pre><code class="language-bash">node scripts/scan.mjs --path . --format sarif --out mcc.sarif
+# 종료 코드: 0 통과, 1 게이트 실패(또는 --misra-gate 미준수), 2 사용법 오류</code></pre>
+<p>GitHub Actions 예:</p>
+<pre><code class="language-yaml">- run: npm ci
+- run: node scripts/scan.mjs --path . --coverage coverage/lcov.info --format sarif --out mcc.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with: { sarif_file: mcc.sarif }</code></pre>
+<p><code>--standard misra-c|misra-cpp|cert|cwe-top25|owasp</code> 는 그 표준의 규칙만 켜고, <code>--report misra --out misra.pdf</code> 는 보고서 파일을 만듭니다. 결과를 서버에 쌓으려면 아래 &quot;서버로 올리기&quot; 를 씁니다.</p>
+<h3 id="서버로-올리기">서버로 올리기 <a class="anchor" href="#서버로-올리기" aria-hidden="true">#</a></h3>
+<p>팀 서버(웹판)에 분석을 쌓으면 서버의 프로파일 · 게이트 · 이슈 상태 · 기록이 적용됩니다(코드 품질 스캐너 방식).</p>
+<ol><li><p>서버에서 <strong>관리 › 사용자 · 권한 › 토큰</strong>으로 <strong>프로젝트 분석 토큰</strong>을 만듭니다(새 프로젝트면 <strong>프로젝트 만들기</strong> 권한이 있는 사용자 토큰).</p></li><li><p>프로젝트 루트에 <code>mcc-project.properties</code> 를 둡니다.</p>
+<pre><code class="language-properties">mcc.host.url=https://checker.example.com
+mcc.projectKey=my-app
+mcc.projectName=My App
+mcc.sources=src
+mcc.exclusions=**/generated/**</code></pre></li><li><p>CI 에서 <code>MCC_TOKEN</code>(또는 <code>MCC_TOKEN</code>)을 비밀 값으로 두고 <code>node scripts/scan.mjs --branch $BRANCH</code> 를 실행합니다. 파일을 올리고 서버의 게이트 결과를 기다려, 실패하면 종료 코드 1 과 실패한 조건을 출력합니다.</p></li></ol>
+<p><code>mcc.modules=a,b</code> 를 쓰면 모듈마다 따로 프로젝트로 올립니다(<code>a.mcc.projectKey</code> …). 서버는 <code>/api/qualitygates/project_status</code>, <code>/api/issues/search</code> 같은 호환 Web API 도 제공합니다.</p>
+<h3 id="정밀-결함-분석-명령줄">정밀 결함 분석 명령줄 <a class="anchor" href="#정밀-결함-분석-명령줄" aria-hidden="true">#</a></h3>
+<pre><code class="language-bash">npm run defects -- configure --path . --compiler gcc            # 가로챌 컴파일러 기록
+npm run defects -- build --path . -- make -j8                    # 빌드를 캡처 (.mcc/ 에 저장)
+npm run defects -- capture --path .                              # 또는 빌드 없이 모든 소스 캡처
+npm run defects -- analyze --path . --all --aggressiveness-level high --coding-standard-config misra-c2012
+npm run defects -- format-errors --dir .mcc --html-output cov-html --json-output-v8 defects.json
+npm run defects -- commit-defects --path . --stream main --token mcp_…
+npm run defects -- manage-im --mode defects --update --cid 12 --set classification:&quot;False Positive&quot;</code></pre>
+<p><code>build</code> 는 <code>--compile-commands compile_commands.json</code> 도 받습니다. <code>analyze</code> 의 <code>--enable</code> · <code>--disable</code> · <code>--disable-default</code> 로 체커를 고르고, <code>--coding-standard-config</code> 로 misra-c2012 · misra-cpp2023 · cert-c · autosar · misra-c2004 · misra-cpp2008 · mois(행정안전부)를 켭니다. <code>commit-defects</code> 는 스트림에 스냅샷을 남기고 정책이 실패하면 종료 코드 1 입니다. 개발자 PC 에서는 <code>run-desktop</code> 이 스트림을 바꾸지 않고 <strong>스트림에 없는 새 결함만</strong> 보여 줍니다(도구 모음의 <strong>데스크톱</strong>과 같음).</p>
+<h3 id="풀-리퀘스트-분석">풀 리퀘스트 분석 <a class="anchor" href="#풀-리퀘스트-분석" aria-hidden="true">#</a></h3>
+<p><strong>보기 › 풀 리퀘스트 분석</strong>(git 필요). <strong>대상 브랜치</strong>와 <strong>PR 번호</strong>를 정하고 <strong>PR 분석</strong>을 누르면 대상과 비교해 <strong>바뀐 줄의 이슈</strong>만 봅니다. 기준 커밋, 바뀐 파일 · 줄 수, PR 게이트(기본 게이트의 새 코드 조건), &quot;커밋 안 한 변경 있음&quot; 경고가 나옵니다. <strong>Markdown 요약</strong>과 코드 호스트별 <strong>장식 페이로드</strong>(GitHub Checks, GitLab Code Quality, Azure DevOps 스레드, Bitbucket Code Insights)를 <strong>복사</strong>할 수 있고, 관리 › 연동의 ALM 연결이 있으면 <strong>PR에 결과 게시</strong>(PR 번호 / MR IID / PR ID, 헤드 커밋 SHA)로 바로 올립니다.</p>
+<h3 id="보고서-만들기">보고서 만들기 <a class="anchor" href="#보고서-만들기" aria-hidden="true">#</a></h3>
+<p><strong>파일 › 보고서…</strong> 또는 <strong>보고서</strong> 보기. DB 를 설정했으면 여기의 <strong>DB로 내보내기</strong>로 지금 분석을 DB 에 저장합니다.</p>
+<ol><li><strong>보고서 종류</strong>: 경영진 요약 · 보안 보고서 · MISRA 준수 보고서 · 정밀 결함 분석 무결성 보고서 · 정밀 결함 분석 보안 보고서 · 규칙 집합 준수 (보안 약점 점검) · SBOM 보고서. 보안 보고서는 표준, 보안 약점 점검 보고서는 <strong>규칙 집합</strong>(모든 규칙 · 보안 규칙 · CWE 규칙 · CWE Top 25 · OWASP Top 10 2021 · CERT C/C++ · MISRA C:2012 · C:2023 · C++:2023)을 고릅니다.</li><li>미리 보기를 확인하고 <strong>HTML 저장</strong> · <strong>CSV 저장</strong> · <strong>파일로 내려받기</strong>(Word · Excel · PDF) · <strong>인쇄</strong>를 합니다. 보고서는 고른 언어(한국어 / English)로 만들어집니다.</li><li><strong>규제 보고서 (ZIP)</strong> 는 경영 · 보안 · 무결성 · 규칙 세트 · SBOM 보고서 PDF 와 이슈 목록 Excel 을 ZIP 하나로 묶습니다(감사 · 납품용).</li></ol>
+<p>빠른 내보내기는 <strong>파일</strong> 메뉴의 JSON · SARIF · HTML · CSV · 품질 게이트 배지(SVG) · 결함 CSV 입니다.</p>
+<h3 id="ai-코드-수정">AI 코드 수정 <a class="anchor" href="#ai-코드-수정" aria-hidden="true">#</a></h3>
+<ol><li><strong>설정 › AI 코드 수정</strong>에서 <strong>AI 코드 수정 사용</strong>을 켜고 제공자 · 모델을 정한 뒤 <strong>연결 확인</strong>을 하고 <strong>확인</strong>으로 저장합니다(관리 권한 필요).</li><li>이슈를 고르고 세부 정보 패널의 <strong>AI 코드 수정</strong>에서 <strong>AI로 수정 제안</strong>을 누릅니다(&quot;AI가 수정안을 만드는 중…&quot;). <strong>변경 내용</strong>(지울 줄 · 넣을 줄), 설명, <strong>확신</strong>(high · medium · low), <strong>사용한 토큰 (입력 / 출력)</strong>이 나옵니다. 모델이 오탐이라고 보거나 안전하게 고칠 수 없으면 &quot;자동 수정 없음 (설명만)&quot; 으로 이유만 보여 줍니다. 마음에 들지 않으면 <strong>다시 요청</strong>합니다. 기능이 꺼져 있으면 &quot;AI 코드 수정이 꺼져 있습니다.&quot; 와 <strong>설정 열기</strong>가 나옵니다.</li><li>수정안을 읽고 맞으면 <strong>적용</strong>을 누릅니다(이슈 관리 권한 필요). 제안을 만든 뒤 <strong>파일이 바뀌었으면 적용을 거절</strong>하고 &quot;파일이 바뀌었습니다. 다시 요청하세요.&quot; 를 보여 줍니다. 적용하면 &quot;{파일}: n줄 지우고 m줄 넣었습니다.&quot; 가 나오고, <strong>다시 분석</strong>으로 이슈가 사라졌는지 확인합니다.</li></ol>
+<p>적용은 소스 파일을 직접 고칩니다. 버전 관리(git)로 바뀐 내용을 검토하고 커밋하세요. AI 수정안은 틀릴 수 있습니다.</p>
+<h2 id="단축키">단축키 <a class="anchor" href="#단축키" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>키</th><th>동작</th></tr></thead><tbody><tr><td>Ctrl+N</td><td>새 프로젝트</td></tr><tr><td>Ctrl+Shift+O</td><td>프로젝트 열기</td></tr><tr><td>Ctrl+S · Ctrl+Shift+S</td><td>프로젝트 저장 · 다른 이름으로 저장</td></tr><tr><td>Ctrl+O</td><td>폴더 열기</td></tr><tr><td>Ctrl+Enter</td><td>분석(결함 커밋)</td></tr><tr><td>Ctrl+,</td><td>설정</td></tr><tr><td>Ctrl+Tab · Ctrl+Shift+Tab</td><td>다음 탭 · 이전 탭</td></tr><tr><td>Ctrl+W</td><td>지금 탭 닫기</td></tr><tr><td>Esc</td><td>대화 상자 · 사용 설명서 창 닫기, 설정 창은 취소</td></tr><tr><td>Enter</td><td>설정 창에서 확인</td></tr></tbody></table></div>
+<p>macOS 는 Ctrl 대신 ⌘ 를 씁니다.</p>
+<h2 id="문제-해결">문제 해결 <a class="anchor" href="#문제-해결" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>증상</th><th>확인할 것</th></tr></thead><tbody><tr><td>&quot;폴더를 찾지 못했습니다.&quot;</td><td>경로가 맞는지, 웹판이면 <strong>서버에서 본</strong> 경로인지</td></tr><tr><td>파일이 분석되지 않음</td><td>제외 패턴, 건너뛰는 폴더(<code>build</code>, <code>dist</code>, <code>vendor</code> …), 800 KB 넘는 파일, 최대 파일 수(8000), 지원 언어인지</td></tr><tr><td>새 코드가 전체 코드와 같음</td><td>첫 분석이면 정상입니다. 두 번째 분석부터 비교합니다. SCM 기준인데 git 이 없으면 이전 분석 기준으로 내려갑니다</td></tr><tr><td>커버리지가 &quot;데이터 없음&quot;</td><td>테스트를 커버리지와 함께 돌렸는지, <strong>관리 › 분석 설정 › 커버리지 보고서</strong> 경로</td></tr><tr><td>풀 리퀘스트 분석 · 작성자 할당이 안 됨</td><td>Git 설치(<strong>도구 › 필요한 소프트웨어…</strong>), 폴더가 git 저장소인지</td></tr><tr><td>C/C++ 결함이 적음</td><td><strong>C/C++ 설정</strong>의 포함 디렉터리 · 매크로, 또는 <code>cov build</code> 로 실제 빌드 옵션 캡처</td></tr><tr><td>&quot;권한이 없습니다.&quot; · 로그인 창</td><td>권한 검사가 켜져 있습니다. 관리자에게 권한을 받거나 다시 로그인</td></tr><tr><td>&quot;승인이 필요합니다.&quot;</td><td>오탐 · 수용은 예외 신청으로 해야 하는 작업 공간입니다</td></tr><tr><td>&quot;연동 설정이 없습니다.&quot;</td><td>관리 › 연동에서 트래커 · ALM · SMTP 를 먼저 설정</td></tr><tr><td>AI 수정: 설정 오류 · HTTP 401</td><td>API 키, 서버 URL, 모델 이름. Anthropic 은 <code>ANTHROPIC_API_KEY</code> 또는 <code>ant auth login</code></td></tr><tr><td>AI 수정: 답이 잘림</td><td>설정 › AI 코드 수정의 최대 토큰을 올립니다</td></tr><tr><td>AI 수정: &quot;파일이 바뀌었습니다.&quot;</td><td>제안 뒤 파일이 바뀌었습니다. <strong>다시 요청</strong>합니다</td></tr><tr><td>DB 내보내기 실패 · &quot;DB가 설정되지 않았습니다.&quot;</td><td>설정 › 데이터베이스의 사용 여부와 <strong>연결 확인</strong>, 작업 경고 <code>DB: …</code>, 방화벽 · 계정 권한(표 만들기), 스키마 / 접두어</td></tr><tr><td>DAST 가 페이지를 못 찾음</td><td>시드 URL · OpenAPI 추가, 로그인이 필요하면 쿠키 · Bearer · 로그인 필드</td></tr><tr><td>화면 숫자와 CI 결과가 다름</td><td>CI 의 <code>scan.mjs --path</code> 는 기본 게이트 · 모든 규칙을 씁니다. 서버의 프로파일을 쓰려면 <code>--server</code> 로 올립니다</td></tr></tbody></table></div>
+<p>작업 공간 파일은 Windows <code>%APPDATA%\MyCodeChecker\workspace.json</code>, macOS <code>~/Library/Application Support/MyCodeChecker/</code>, Linux <code>~/.config/MyCodeChecker/</code> 에 있습니다. 문제가 계속되면 이 폴더를 백업한 뒤 옮겨 두고 다시 시작하면 처음 상태로 시작합니다.</p>
+<h2 id="용어">용어 <a class="anchor" href="#용어" aria-hidden="true">#</a></h2>
+<div class="table-wrap"><table><thead><tr><th>용어</th><th>뜻</th></tr></thead><tbody><tr><td>이슈</td><td>규칙에 걸린 코드 한 곳. 종류는 버그 · 취약점 · 코드 스멜 · 보안 핫스팟</td></tr><tr><td>버그</td><td>잘못 동작할 수 있는 코드(신뢰성)</td></tr><tr><td>취약점</td><td>공격에 쓰일 수 있는 코드(보안)</td></tr><tr><td>코드 스멜</td><td>읽고 고치기 어렵게 만드는 코드(유지보수성)</td></tr><tr><td>보안 핫스팟</td><td>사람이 검토해야 위험 여부를 알 수 있는 보안 민감 코드</td></tr><tr><td>기술 부채</td><td>코드 스멜을 모두 고치는 데 드는 예상 시간</td></tr><tr><td>품질 게이트</td><td>분석이 통과인지 실패인지 정하는 조건 묶음</td></tr><tr><td>품질 프로파일</td><td>언어별로 켠 규칙과 심각도의 묶음</td></tr><tr><td>새 코드</td><td>기준(이전 분석 · 기간 · 버전 · git 참조) 이후 바뀐 코드</td></tr><tr><td>CID</td><td>정밀 결함 분석의 결함 번호. 코드가 조금 바뀌어도 같은 결함은 같은 CID</td></tr><tr><td>스트림 · 스냅샷</td><td>결함 커밋이 쌓이는 곳(브랜치)과 커밋 한 번의 결과</td></tr><tr><td>분류(triage)</td><td>결함에 분류 · 조치 · 담당을 정하는 일</td></tr><tr><td>정책</td><td>정밀 결함 분석의 커밋 통과 조건</td></tr><tr><td>함수 모델</td><td>라이브러리 함수가 할당 · 싱크 · 소스인지 알려 주는 정의</td></tr><tr><td>데스크톱 분석</td><td>스트림을 바꾸지 않고 내 변경의 새 결함만 보는 분석</td></tr><tr><td>오염(taint) 분석</td><td>외부 입력(소스)이 위험한 곳(싱크)까지 흐르는지 추적</td></tr><tr><td>편차 · 재분류</td><td>MISRA 에서 근거를 두고 지침 위반을 허용하는 기록 · 지침 범주를 더 엄격히 바꾸는 계획</td></tr><tr><td>예외 신청</td><td>오탐 · 수용 처리를 승인받기 위한 요청</td></tr><tr><td>SCA · SBOM</td><td>오픈 소스 구성 요소 분석 · 소프트웨어 구성 명세서</td></tr><tr><td>도달 가능성</td><td>취약한 패키지 · 함수를 내 코드가 실제로 쓰는지</td></tr><tr><td>DAST</td><td>실행 중인 앱을 밖에서 요청으로 검사하는 동적 분석</td></tr><tr><td>HIS 메트릭</td><td>자동차 업계(HIS) 소스 코드 지표 묶음</td></tr><tr><td>불안정도 (I)</td><td>Ce / (Ca + Ce). Ca 는 들어오는 의존, Ce 는 나가는 의존</td></tr><tr><td>SARIF</td><td>정적 분석 결과 교환 형식(JSON)</td></tr></tbody></table></div>
+</main>
+</div>
+<footer>MyCodeChecker v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

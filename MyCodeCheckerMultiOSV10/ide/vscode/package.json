@@ -8,7 +8,7 @@
   "license": "MIT",
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Linters", "Programming Languages"],
-  "keywords": ["static analysis", "sast", "misra", "cert", "security", "linter", "sonarlint", "coverity"],
+  "keywords": ["static analysis", "sast", "misra", "cert", "security", "linter", "IDE linters", "defectAnalysis"],
   "main": "./extension.js",
   "activationEvents": ["onStartupFinished"],
   "capabilities": {

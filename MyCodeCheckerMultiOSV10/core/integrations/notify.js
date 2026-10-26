@@ -1,8 +1,8 @@
 'use strict';
 
-// E-mail notifications like SonarQube ("My new issues", "Changes in quality
-// gate status", "Background tasks in failure"), Coverity Connect (new
-// high-impact defects for a stream or component owner) and Sparrow
+// E-mail notifications like code quality ("My new issues", "Changes in quality
+// gate status", "Background tasks in failure"), defect-analysis servers (new
+// high-impact defects for a stream or component owner) and Security Weakness
 // (exception / deviation request workflow). Pure composition plus a
 // dispatch() that sends through smtp.sendMail or an injected `send`.
 //
@@ -16,7 +16,7 @@ const smtp = require('./smtp');
 const EVENTS = [
   { id: 'gate-changed', personal: false, name: { en: 'Quality gate status changed', ko: '품질 게이트 상태 변경' } },
   { id: 'issues-assigned', personal: true, name: { en: 'New issues assigned to me', ko: '나에게 할당된 새 이슈' } },
-  { id: 'coverity-high-impact', personal: false, name: { en: 'New high-impact defects', ko: '새 높은 영향도 결함' } },
+  { id: 'defect-high-impact', personal: false, name: { en: 'New high-impact defects', ko: '새 높은 영향도 결함' } },
   { id: 'exception-pending', personal: true, name: { en: 'Exception request waiting for my approval', ko: '승인 대기 중인 예외 요청' } },
   { id: 'exception-approved', personal: true, name: { en: 'My exception request approved', ko: '내 예외 요청 승인' } },
   { id: 'exception-rejected', personal: true, name: { en: 'My exception request rejected', ko: '내 예외 요청 반려' } },
@@ -66,7 +66,7 @@ function targets(event, ctx) {
   if (event === 'issues-assigned') for (const i of ctx.issues || []) if (i.assignee) out.add(String(i.assignee));
   if (event === 'exception-pending') for (const a of (ctx.request && ctx.request.approvers) || []) out.add(String(a));
   if (event === 'exception-approved' || event === 'exception-rejected') if (ctx.request && ctx.request.requester) out.add(String(ctx.request.requester));
-  if (event === 'coverity-high-impact') {
+  if (event === 'defect-high-impact') {
     const owners = ctx.componentOwners || {};
     for (const d of ctx.defects || []) {
       const o = d.owner || (d.component && owners[d.component]);
@@ -79,8 +79,8 @@ function targets(event, ctx) {
 /**
  * Who receives this event. Broadcast events go to every subscriber of the
  * event and project; personal events to the targeted logins that subscribed.
- * Coverity component owners receive their defects even without a subscription
- * when `ctx.notifyOwners` is not false (Coverity Connect behaviour).
+ * Defect Analysis component owners receive their defects even without a subscription
+ * when `ctx.notifyOwners` is not false (defect-analysis servers behaviour).
  * @returns {{login:string, email:string, name:string, lang:string}[]}
  */
 function recipients(event, ctx = {}, { subscriptions = [], users = [], lang = 'en' } = {}) {
@@ -104,7 +104,7 @@ function recipients(event, ctx = {}, { subscriptions = [], users = [], lang = 'e
     if (def.personal && !tgt.has(sub.login)) continue;
     add(sub.login, sub);
   }
-  if (event === 'coverity-high-impact' && ctx.notifyOwners !== false) {
+  if (event === 'defect-high-impact' && ctx.notifyOwners !== false) {
     for (const login of tgt) if (!subs.some((s) => s.login === login && s.events.includes(event))) add(login, subs.find((s) => s.login === login) || null);
   }
   return [...chosen.values()];
@@ -177,7 +177,7 @@ function render(event, ctx = {}, lang = 'en', recipient = {}) {
       if (mine.length > max) para(ko ? `… 외 ${mine.length - max}개` : `… and ${mine.length - max} more`);
       break;
     }
-    case 'coverity-high-impact': {
+    case 'defect-high-impact': {
       const all = ctx.defects || [];
       const owners = ctx.componentOwners || {};
       const own = (d) => [].concat(d.owner || (d.component && owners[d.component]) || []).map(String);
@@ -250,7 +250,7 @@ function render(event, ctx = {}, lang = 'en', recipient = {}) {
  * @param {object} ctx
  *   gate-changed:         { project, branch, previousGate, gate, failedConditions?, url? }
  *   issues-assigned:      { project, branch, issues: [{assignee, rule, message, file, line, severity, type}], url? }
- *   coverity-high-impact: { project, stream, snapshot, defects: [{cid, checker, impact, file, line, message, component, owner?}], componentOwners?: {component: login|login[]}, notifyOwners?, url? }
+ *   defect-high-impact: { project, stream, snapshot, defects: [{cid, checker, impact, file, line, message, component, owner?}], componentOwners?: {component: login|login[]}, notifyOwners?, url? }
  *   exception-*:          { project, request: {id, rule, file, line, reason, requester, approvers, decidedBy, comment}, url? }
  *   scan-failed:          { project, branch, error, url? }
  * @param {{subscriptions?:object[], users?:object[], smtpConfig?:object, send?:(message)=>Promise<any>, lang?:string, from?:string}} opts
@@ -265,7 +265,7 @@ async function dispatch(event, ctx = {}, opts = {}) {
   const result = { event, sent: [], failed: [], recipients: list.length };
   for (const r of list) {
     const broad = subs.some((s) => s.login === r.login && s.events.includes(event));
-    const recipient = { login: r.login, ownerOnly: event === 'coverity-high-impact' && !broad };
+    const recipient = { login: r.login, ownerOnly: event === 'defect-high-impact' && !broad };
     let msg;
     try {
       msg = render(event, ctx, r.lang, recipient);

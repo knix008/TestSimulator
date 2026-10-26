@@ -1,6 +1,6 @@
 'use strict';
 
-// Security rules (sonar-dotnet vulnerability / hotspot family) that are found
+// Security rules (.NET reference analyzer vulnerability / hotspot family) that are found
 // from the syntax and the project model alone: weak cryptography, TLS and
 // certificate checks, cookies, XML parsers, deserializers, CORS, JWT
 // validation, hardcoded credentials, file permissions and similar. Tainted

@@ -1,7 +1,7 @@
 'use strict';
 
 // Rule definition helper. A rule is
-//   { id, type, severity, debt, tags, sonar, name, why, fix, on?, module?, flow? }
+//   { id, type, severity, debt, tags, ref, name, why, fix, on?, module?, flow? }
 // `on` maps AST node types to handlers (node, c, r); `module(c, r)` runs once
 // per file; flow rules are driven by rules/flow.js.
 
@@ -9,14 +9,14 @@ const TYPES = { B: 'BUG', V: 'VULNERABILITY', S: 'CODE_SMELL', H: 'SECURITY_HOTS
 const SEVS = { BL: 'BLOCKER', CR: 'CRITICAL', MA: 'MAJOR', MI: 'MINOR', IN: 'INFO' };
 
 function define(list) {
-  return (id, type, sev, debt, tags, sonar, name, why, fix, impl = {}) => {
+  return (id, type, sev, debt, tags, ref, name, why, fix, impl = {}) => {
     const rule = {
       id,
       type: TYPES[type] || type,
       severity: SEVS[sev] || sev,
       debt,
       tags,
-      sonar,
+      ref,
       name: { en: name[0], ko: name[1] },
       why: { en: why[0], ko: why[1] },
       fix: { en: fix[0], ko: fix[1] },
@@ -50,9 +50,9 @@ function toMeta(rule) {
     cwe: cwes[0] || '',
     standards,
     category: rule.category || categoryOf(rule),
-    checker: rule.sonar ? `python:${rule.sonar}` : '',
+    checker: rule.ref ? `python:${rule.ref}` : '',
   };
-  if (rule.sonar) meta.sonarKey = rule.sonar;
+  if (rule.ref) meta.refKey = rule.ref;
   if (QUALITY[rule.type]) {
     meta.impacts = [{ softwareQuality: QUALITY[rule.type], severity: IMPACT_SEV[rule.severity] }];
     if (rule.alsoImpacts) meta.impacts.push(...rule.alsoImpacts);

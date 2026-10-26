@@ -1,6 +1,6 @@
 'use strict';
 
-// Named scan policies, Sparrow/ZAP style. A policy picks which rules run in the
+// Named scan policies, Security Weakness/ZAP style. A policy picks which rules run in the
 // passive and active phases, how aggressive the active payloads are
 // (`strength`) and a severity `threshold` the caller may gate a build on.
 //

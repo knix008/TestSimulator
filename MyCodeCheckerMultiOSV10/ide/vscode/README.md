@@ -1,7 +1,7 @@
 # MyCodeChecker for VS Code
 
-The editor side of MyCodeChecker, in the spirit of SonarQube for IDE (SonarLint), Coverity Code Sight and
-Sparrow's IDE plugins. It runs the same analysis core as a MyCodeChecker server scan (line rules, taint,
+The editor side of MyCodeChecker, in the spirit of IDE linters, Defect Analysis Code Sight and
+the security-weakness tools' IDE plugins. It runs the same analysis core as a MyCodeChecker server scan (line rules, taint,
 MISRA C / C++, CERT, abstract interpretation, SCA and every other engine in `core/engines.js`), so what you
 see in the editor matches the server.
 
@@ -15,7 +15,7 @@ see in the editor matches the server.
 - **Hover** on an issue shows the rule name, why it matters, how to fix it and its standards mapping
   (MISRA, CERT, CWE, OWASP).
 - **Quick fixes**: a fix where the rule offers one (strict equality, `var` → `let`, trailing whitespace,
-  `debugger`, `console.log`, bare `except:`), *Suppress with NOSONAR*, *Deactivate rule*, *Show rule
+  `debugger`, `console.log`, bare `except:`), *Suppress with NOMCC*, *Deactivate rule*, *Show rule
   description* and, in connected mode, *Open issue in MyCodeChecker*.
 - **Rule description panel** with a Korean / English switch.
 - **Security view** (Explorer → *MyCodeChecker Security*): taint vulnerabilities with their flow steps,

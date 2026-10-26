@@ -1,6 +1,6 @@
 'use strict';
 
-// PHP semantic analyzer (SonarPHP scope). Contract: core/ENGINE_CONTRACT.md.
+// PHP semantic analyzer (PHP reference analyzer scope). Contract: core/ENGINE_CONTRACT.md.
 // Rule keys 'sem-php:<id>'.
 //
 // Pipeline: tolerant lexer (inline HTML, heredoc/nowdoc, interpolation,

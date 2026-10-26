@@ -6,7 +6,7 @@
 
 const { toPurl, parsePurl, uuidFrom, tryJson, lineOf, normalizeName } = require('./util');
 const { parseXml, walk, childText, child, children } = require('./xml');
-const { parseExpression, licenseIds, normalizeExpression } = require('./license');
+const { parseExpression, licenseIds, normalizeExpression, licenseObligations } = require('./license');
 
 const TOOL = { vendor: 'MyCodeChecker', name: 'MyCodeChecker SCA', version: '1.0.0' };
 
@@ -90,8 +90,15 @@ function toCycloneDx(result, options = {}) {
       { name: 'mcc:declaredIn', value: `${c.manifestFile || c.file}:${c.manifestLine || c.line}` },
     ];
     if (c.versionSpec && c.versionSpec !== c.version) comp.properties.push({ name: 'mcc:versionSpec', value: c.versionSpec });
+    const obligations = c.license ? licenseObligations(c.license).map((o) => o.id) : [];
+    if (obligations.length) comp.properties.push({ name: 'mcc:license:obligations', value: obligations.join(',') });
+    if (c.source === 'binary') {
+      comp.properties.push({ name: 'mcc:source', value: 'binary' }, { name: 'mcc:binaryFormat', value: String(c.binaryFormat || '') });
+      comp.evidence = { occurrences: [{ location: c.binaryInner ? `${c.file}!/${c.binaryInner}` : c.file }] };
+    }
     bom.components.push(comp);
   }
+  addSnippetComponents(bom, result);
   const directRefs = new Set();
   for (const r of roots) for (const id of r.dependencies) directRefs.add(purlOf.get(id) || id);
   bom.dependencies.push({ ref: appRef, dependsOn: [...directRefs] });
@@ -125,6 +132,28 @@ function toCycloneDx(result, options = {}) {
   }
   if (vulns.size) bom.vulnerabilities = [...vulns.values()];
   return bom;
+}
+
+// Snippet matches: one component per matched origin, with the files and line
+// ranges as CycloneDX evidence occurrences.
+function addSnippetComponents(bom, result) {
+  const by = new Map();
+  for (const m of result.snippets || []) {
+    const ref = m.purl || `snippet:${m.component}@${m.version || 'unknown'}`;
+    if (bom.components.some((c) => c['bom-ref'] === ref)) continue;
+    let comp = by.get(ref);
+    if (!comp) {
+      comp = { type: 'library', 'bom-ref': ref, name: m.component, ...(m.version ? { version: m.version } : {}), ...(m.purl ? { purl: m.purl } : {}), scope: 'required', evidence: { occurrences: [] }, properties: [{ name: 'mcc:source', value: 'snippet' }] };
+      const lic = cdxLicenses(m.license);
+      if (lic) comp.licenses = lic;
+      const obligations = m.license ? licenseObligations(m.license).map((o) => o.id) : [];
+      if (obligations.length) comp.properties.push({ name: 'mcc:license:obligations', value: obligations.join(',') });
+      by.set(ref, comp);
+    }
+    for (const r of m.ranges) comp.evidence.occurrences.push({ location: `${m.file}#L${r.start}-L${r.end}` });
+    comp.properties.push({ name: 'mcc:snippet:similarity', value: `${m.file}:${m.similarity}` });
+  }
+  bom.components.push(...by.values());
 }
 
 function sourceFor(id) {
@@ -193,6 +222,9 @@ function toSpdx(result, options = {}) {
       primaryPackagePurpose: 'LIBRARY',
       externalRefs: [{ referenceCategory: 'PACKAGE-MANAGER', referenceType: 'purl', referenceLocator: c.purl }],
     };
+    const obligations = c.license ? licenseObligations(c.license).map((o) => o.id) : [];
+    if (obligations.length) pkg.comment = `License obligations: ${obligations.join(', ')}`;
+    if (c.source === 'binary') pkg.sourceInfo = `Identified in binary ${c.file}${c.binaryInner ? `!/${c.binaryInner}` : ''} (${c.binaryEvidence})`;
     if (c.integrity && /^sha(256|512|384|1)-/.test(c.integrity)) {
       const [alg, b64] = c.integrity.split('-');
       pkg.checksums = [{ algorithm: alg.toUpperCase().replace('SHA', 'SHA'), checksumValue: Buffer.from(b64, 'base64').toString('hex') }];
@@ -253,6 +285,8 @@ function toSpdxTagValue(result, options = {}) {
     for (const c of p.checksums || []) out.push(`PackageChecksum: ${c.algorithm}: ${c.checksumValue}`);
     out.push(`PackageLicenseConcluded: ${p.licenseConcluded}`, `PackageLicenseDeclared: ${p.licenseDeclared}`, `PackageCopyrightText: ${p.copyrightText}`);
     for (const r of p.externalRefs || []) out.push(`ExternalRef: ${r.referenceCategory} ${r.referenceType} ${r.referenceLocator}`);
+    if (p.sourceInfo) out.push(`PackageSourceInfo: <text>${p.sourceInfo}</text>`);
+    if (p.comment) out.push(`PackageComment: <text>${p.comment}</text>`);
     out.push('');
   }
   for (const r of doc.relationships) out.push(`Relationship: ${r.spdxElementId} ${r.relationshipType} ${r.relatedSpdxElement}`);

@@ -3,7 +3,7 @@
 // Minimal LDAP v3 client (RFC 4511) on net / tls with its own BER codec:
 // simple bind, search (RFC 4515 filters: & | ! = =* substrings >= <= ~=),
 // unbind, StartTLS (extended operation 1.3.6.1.4.1.1466.20037) and LDAPS.
-// authenticate() does what SonarQube's LDAP plugin does: service-account bind,
+// authenticate() does what the reference LDAP plugin does: service-account bind,
 // search the user, bind as the found DN with the password, read groups.
 //
 // An empty password is never sent: a simple bind with an empty password is an

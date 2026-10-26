@@ -43,7 +43,7 @@ R('self-comparison', 'B', 'MA', 5, ['suspicious'],
   /\b(\w+(?:\.\w+)*)\s*(?:==|!=|&&|\|\|)\s*\1\b(?![.(\w])/,
   ['Identical expressions on both sides of an operator', 'a == a is always true and usually a copy-paste error.', 'Compare the intended expressions.'],
   ['연산자 양쪽 식이 같습니다', 'a == a는 항상 참이며 보통 복사-붙여넣기 실수입니다.', '의도한 식끼리 비교하세요.'],
-  'if (a.id == a.id) save(a)', 'if (a.id == b.id) save(a)', { ns: true, sonar: 'S1764' });
+  'if (a.id == a.id) save(a)', 'if (a.id == b.id) save(a)', { ns: true, ref: 'S1764' });
 R('catch-throwable', 'B', 'MA', 10, ['error-handling', 'cwe-396'],
   /\bcase\s+\w+\s*:\s*(?:Throwable|Exception)\s*=>/,
   ['Catching Throwable or Exception', 'This also catches fatal errors and control-flow throwables.', 'Use case NonFatal(e) => or catch the specific exception.'],
@@ -60,32 +60,32 @@ R('sql-interpolation', 'V', 'CR', 20, ['sql', 'cwe-89', 'owasp-a03'],
   /\bs"\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^"]*\$/i,
   ['SQL built with s-interpolation', 'Interpolated values can change the SQL statement.', 'Use prepared statements, or the sql"" interpolator of Doobie / Slick / Anorm.'],
   ['s 보간으로 SQL을 만듭니다', '보간한 값이 SQL 문을 바꿀 수 있습니다.', '준비된 문이나 Doobie / Slick / Anorm의 sql"" 보간을 쓰세요.'],
-  'stmt.executeQuery(s"SELECT * FROM users WHERE name = \'$name\'")', 'sql"SELECT * FROM users WHERE name = $name".query[User]', { sonar: 'S2077' });
+  'stmt.executeQuery(s"SELECT * FROM users WHERE name = \'$name\'")', 'sql"SELECT * FROM users WHERE name = $name".query[User]', { ref: 'S2077' });
 R('weak-hash', 'V', 'CR', 15, ['crypto', 'cwe-328', 'owasp-a02'],
   /MessageDigest\.getInstance\s*\(\s*"(?:MD2|MD4|MD5|SHA-?1)"/i,
   ['Weak hash algorithm', 'MD5 and SHA-1 collisions are practical.', 'Use SHA-256 or stronger.'],
   ['약한 해시 알고리즘입니다', 'MD5와 SHA-1은 충돌을 실제로 만들 수 있습니다.', 'SHA-256 이상을 쓰세요.'],
-  'val md = MessageDigest.getInstance("MD5")', 'val md = MessageDigest.getInstance("SHA-256")', { sonar: 'S4790' });
+  'val md = MessageDigest.getInstance("MD5")', 'val md = MessageDigest.getInstance("SHA-256")', { ref: 'S4790' });
 R('weak-cipher', 'V', 'CR', 15, ['crypto', 'cwe-327', 'owasp-a02'],
   /Cipher\.getInstance\s*\(\s*"(?:DES|DESede|RC2|RC4|Blowfish|AES)(?:\/ECB[^"]*)?"/i,
   ['Weak cipher or ECB mode', 'DES / RC4 are broken and "AES" alone defaults to ECB.', 'Use AES/GCM/NoPadding.'],
   ['약한 암호 또는 ECB 모드입니다', 'DES / RC4는 깨졌고 "AES"만 쓰면 ECB가 기본입니다.', 'AES/GCM/NoPadding을 쓰세요.'],
-  'val c = Cipher.getInstance("AES")', 'val c = Cipher.getInstance("AES/GCM/NoPadding")', { sonar: 'S5547' });
+  'val c = Cipher.getInstance("AES")', 'val c = Cipher.getInstance("AES/GCM/NoPadding")', { ref: 'S5547' });
 R('weak-random', 'H', 'MI', 10, ['cwe-338', 'crypto'],
   /\b(?:scala\.util\.Random|Random\.next\w*|new\s+(?:java\.util\.)?Random\s*\()/,
   ['Non-cryptographic random generator', 'scala.util.Random is predictable.', 'Use java.security.SecureRandom for tokens and keys.'],
   ['암호용이 아닌 난수 생성기입니다', 'scala.util.Random은 예측할 수 있습니다.', '토큰과 키에는 java.security.SecureRandom을 쓰세요.'],
-  'val token = Random.nextLong()', 'val token = new SecureRandom().nextLong()', { sonar: 'S2245' });
+  'val token = Random.nextLong()', 'val token = new SecureRandom().nextLong()', { ref: 'S2245' });
 R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b(?:val|var)\s+\w*(?:password|passwd|pwd|secret|apiKey|token)\w*\s*(?::\s*String\s*)?=\s*"[^"\s]{4,}"/i,
   ['Hard-coded credential', 'Anyone with the source or jar can read the secret.', 'Read it from configuration or a secret store.'],
   ['자격 증명을 코드에 적었습니다', '소스나 jar를 가진 누구나 비밀을 읽을 수 있습니다.', '설정이나 비밀 저장소에서 읽으세요.'],
-  'val password = "p4ssw0rd!"', 'val password = sys.env("DB_PASSWORD")', { sonar: 'S2068' });
+  'val password = "p4ssw0rd!"', 'val password = sys.env("DB_PASSWORD")', { ref: 'S2068' });
 R('http-url', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /"http:\/\/(?!localhost|127\.0\.0\.1)[\w.-]+/,
   ['Clear-text HTTP URL', 'Traffic over http:// can be read and changed on the network.', 'Use https://.'],
   ['평문 HTTP URL입니다', 'http:// 트래픽은 네트워크에서 읽고 바꿀 수 있습니다.', 'https://를 쓰세요.'],
-  'val api = "http://api.example.com"', 'val api = "https://api.example.com"', { sonar: 'S5332' });
+  'val api = "http://api.example.com"', 'val api = "https://api.example.com"', { ref: 'S5332' });
 R('process-exec', 'H', 'MA', 10, ['cwe-78', 'owasp-a03'],
   /\bs"[^"]*\$[^"]*"\s*\.\s*(?:!!?|run\b|lineStream\b)|Runtime\.getRuntime\.exec\s*\(/,
   ['OS command built from interpolation', 'Values put into a shell command can run other commands.', 'Pass the command as a Seq of arguments.'],
@@ -112,17 +112,17 @@ R('println', 'S', 'MI', 2, ['debug'],
   /^\s*(?:println|print|Console\.println)\s*\(/,
   ['println left in the code', 'Console output is not a log and cannot be filtered.', 'Use a logger.'],
   ['println이 남아 있습니다', '콘솔 출력은 로그가 아니라 거를 수 없습니다.', '로거를 쓰세요.'],
-  'println(s"user=$user")', 'logger.debug(s"user=$user")', { sonar: 'S106' });
+  'println(s"user=$user")', 'logger.debug(s"user=$user")', { ref: 'S106' });
 R('todo', 'S', 'IN', 5, ['unfinished'],
   /\b(?:TODO|FIXME)\b|(?<![\w.])\?\?\?(?![?\w])/,
   ['TODO, FIXME or ??? left', 'The comment or ??? marks unfinished work; ??? throws NotImplementedError.', 'Finish the work.'],
   ['TODO, FIXME 또는 ???가 남아 있습니다', '주석이나 ???가 끝나지 않은 일을 표시하며 ???는 NotImplementedError를 던집니다.', '작업을 끝내세요.'],
-  'def load(): Data = ???', 'def load(): Data = repo.load()', { sonar: 'S1135' });
+  'def load(): Data = ???', 'def load(): Data = repo.load()', { ref: 'S1135' });
 R('empty-method', 'S', 'MI', 5, ['suspicious'],
   /\bdef\s+\w+\s*(?:\[[^\]]*\])?\s*(?:\([^)]*\))*\s*(?::\s*Unit\s*)?=\s*\{\s*\}/,
   ['Empty method', 'An empty body is unfinished or should say why it does nothing.', 'Implement it or add a comment.'],
   ['빈 메서드입니다', '빈 본문은 미완성이거나 왜 아무 일도 안 하는지 설명해야 합니다.', '구현하거나 주석을 다세요.'],
-  'def close(): Unit = {}', 'def close(): Unit = conn.close()', { sonar: 'S1186' });
+  'def close(): Unit = {}', 'def close(): Unit = conn.close()', { ref: 'S1186' });
 R('mutable-collection-import', 'S', 'MI', 5, ['functional'],
   /^\s*import\s+scala\.collection\.mutable\b/,
   ['Mutable collections imported', 'Mutable collections are easy to share by accident.', 'Prefer immutable collections; keep mutation local.'],

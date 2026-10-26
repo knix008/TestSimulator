@@ -6,7 +6,7 @@ const { rule, m } = require('./define');
 const W = require('../walk');
 
 rule('null-dereference', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S2259', cwe: 'CWE-476', tags: ['symbolic-execution'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S2259', cwe: 'CWE-476', tags: ['symbolic-execution'],
   name: ['Properties of variables with "null" or "undefined" values should not be accessed', '"null"이나 "undefined" 값인 변수의 속성에 접근하면 안 됩니다'],
   why: ['On this path the variable is known to hold null or undefined, so reading a property or calling it throws a TypeError.', '이 경로에서 변수는 null이나 undefined로 알려져 있어 속성을 읽거나 호출하면 TypeError가 납니다.'],
   fix: ['Check the value before using it, or make sure it is assigned on every path.', '사용하기 전에 값을 검사하거나 모든 경로에서 대입되도록 하세요.'],
@@ -65,7 +65,7 @@ function conditionFindings(ctx) {
 }
 
 rule('unreachable-branch', {
-  t: 'B', s: 'MA', debt: 10, sonar: 'S2583', cwe: ['CWE-570', 'CWE-571'], tags: ['symbolic-execution'],
+  t: 'B', s: 'MA', debt: 10, ref: 'S2583', cwe: ['CWE-570', 'CWE-571'], tags: ['symbolic-execution'],
   name: ['Conditionally executed code should be reachable', '조건부로 실행되는 코드는 도달할 수 있어야 합니다'],
   why: ['The condition always evaluates to the same value on every path, so one branch can never run.', '모든 경로에서 조건 결과가 같아 한쪽 분기는 절대 실행되지 않습니다.'],
   fix: ['Fix the condition or remove the dead branch.', '조건을 고치거나 죽은 분기를 지우세요.'],
@@ -78,7 +78,7 @@ rule('unreachable-branch', {
 });
 
 rule('gratuitous-condition', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2589', cwe: ['CWE-570', 'CWE-571'], tags: ['symbolic-execution', 'redundant'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2589', cwe: ['CWE-570', 'CWE-571'], tags: ['symbolic-execution', 'redundant'],
   name: ['Boolean expressions should not be gratuitous', '불필요한 불리언 식을 쓰면 안 됩니다'],
   why: ['The expression always has the same value where it is evaluated, so it adds nothing but confusion.', '이 식은 평가되는 곳에서 항상 같은 값이라 혼란만 더합니다.'],
   fix: ['Remove the redundant test or fix the logic that should make it vary.', '불필요한 검사를 지우거나 값이 바뀌어야 할 로직을 고치세요.'],
@@ -105,7 +105,7 @@ const BASIC_INIT = (n) => {
 };
 
 rule('dead-store', {
-  t: 'S', s: 'MA', debt: 15, sonar: 'S1854', cwe: 'CWE-563', tags: ['unused'],
+  t: 'S', s: 'MA', debt: 15, ref: 'S1854', cwe: 'CWE-563', tags: ['unused'],
   name: ['Unused assignments should be removed', '사용하지 않는 대입은 지워야 합니다'],
   why: ['The assigned value is overwritten or the function ends before it is read, so the computation is wasted or a later read uses the wrong variable.', '대입한 값이 읽히기 전에 덮어써지거나 함수가 끝나 계산이 낭비되거나 다른 변수를 잘못 읽고 있습니다.'],
   fix: ['Remove the assignment, or use the value where it was meant to be used.', '대입을 지우거나 원래 쓰려던 곳에서 값을 쓰세요.'],
@@ -137,7 +137,7 @@ function isInsideFinallyOrLoopReset(n) {
 const HOISTED = new Set(['FunctionDeclaration', 'TSDeclareFunction', 'TSInterfaceDeclaration', 'TSTypeAliasDeclaration', 'EmptyStatement', 'TSModuleDeclaration', 'TSEnumDeclaration', 'ClassDeclaration']);
 
 rule('unreachable-code', {
-  t: 'B', s: 'MA', debt: 5, sonar: 'S1763', cwe: 'CWE-561', tags: ['unused'],
+  t: 'B', s: 'MA', debt: 5, ref: 'S1763', cwe: 'CWE-561', tags: ['unused'],
   name: ['All code should be reachable', '모든 코드는 도달할 수 있어야 합니다'],
   why: ['Statements after a return, throw, break or continue (or after a branch where every path jumps away) never run.', 'return, throw, break, continue 뒤나 모든 경로가 빠져나가는 분기 뒤의 문장은 절대 실행되지 않습니다.'],
   fix: ['Remove the dead statements or fix the jump that skips them.', '죽은 문장을 지우거나 그 문장을 건너뛰는 이동을 고치세요.'],

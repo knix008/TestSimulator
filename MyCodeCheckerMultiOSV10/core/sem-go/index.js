@@ -1,6 +1,6 @@
 'use strict';
 
-// Go semantic analyzer (SonarGo + Coverity Go checker scope).
+// Go semantic analyzer (Go reference analyzer + Defect Analysis Go checker scope).
 // Contract: core/ENGINE_CONTRACT.md. Rule keys 'sem-go:<id>'.
 //
 // Pipeline: tolerant lexer (automatic semicolons, raw strings, runes) ->

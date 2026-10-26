@@ -11,7 +11,7 @@ R('trace', 'S', 'MI', 2, ['debug'],
   /^\s*trace\s*\(/,
   ['trace() left in the code', 'trace output is visible with a debug player and may leak data.', 'Remove it or use mx.logging with levels.'],
   ['trace()가 남아 있습니다', 'trace 출력은 디버그 플레이어에서 보이며 데이터를 흘릴 수 있습니다.', '지우거나 수준이 있는 mx.logging을 쓰세요.'],
-  'trace("token=" + token);', 'log.debug("loaded {0} items", count);', { sonar: 'S106' });
+  'trace("token=" + token);', 'log.debug("loaded {0} items", count);', { ref: 'S106' });
 R('allow-domain-any', 'V', 'CR', 15, ['cwe-942', 'owasp-a05'],
   /\.allow(?:Insecure)?Domain\s*\(\s*["']\*["']\s*\)/,
   ['allowDomain("*")', 'Any SWF from any site can script this movie and read its data.', 'Allow only the exact domains that need access.'],
@@ -56,17 +56,17 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b(?:var|const)\s+\w*(?:password|passwd|pwd|secret|apiKey|token)\w*\s*(?::\s*String\s*)?=\s*["'][^"'\s]{4,}["']/i,
   ['Hard-coded credential', 'Anyone can decompile the SWF and read the secret.', 'Keep secrets on the server.'],
   ['자격 증명을 코드에 적었습니다', '누구나 SWF를 디컴파일해 비밀을 읽을 수 있습니다.', '비밀은 서버에 두세요.'],
-  'private const API_TOKEN:String = "a1b2c3d4e5";', 'private var apiToken:String = session.token;', { sonar: 'S2068' });
+  'private const API_TOKEN:String = "a1b2c3d4e5";', 'private var apiToken:String = session.token;', { ref: 'S2068' });
 R('http-url', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /["']http:\/\/(?!localhost|127\.0\.0\.1)[\w.-]+/,
   ['Clear-text HTTP URL', 'Traffic over http:// can be read and changed on the network.', 'Use https://.'],
   ['평문 HTTP URL입니다', 'http:// 트래픽은 네트워크에서 읽고 바꿀 수 있습니다.', 'https://를 쓰세요.'],
-  'var req:URLRequest = new URLRequest("http://api.example.com/data");', 'var req:URLRequest = new URLRequest("https://api.example.com/data");', { sonar: 'S5332' });
+  'var req:URLRequest = new URLRequest("http://api.example.com/data");', 'var req:URLRequest = new URLRequest("https://api.example.com/data");', { ref: 'S5332' });
 R('weak-random', 'H', 'MI', 10, ['cwe-338', 'crypto'],
   /\bMath\.random\s*\(\s*\)/,
   ['Math.random() used', 'Math.random is predictable and must not produce tokens or keys.', 'Generate secrets on the server, or use flash.crypto.generateRandomBytes.'],
   ['Math.random()을 씁니다', 'Math.random은 예측할 수 있어 토큰이나 키를 만들면 안 됩니다.', '비밀은 서버에서 만들거나 flash.crypto.generateRandomBytes를 쓰세요.'],
-  'var nonce:Number = Math.random();', 'var nonce:ByteArray = generateRandomBytes(16);', { sonar: 'S2245' });
+  'var nonce:Number = Math.random();', 'var nonce:ByteArray = generateRandomBytes(16);', { ref: 'S2245' });
 R('dynamic-class', 'S', 'MA', 10, ['types'],
   /^\s*(?:public\s+|internal\s+)?(?:final\s+)?dynamic\s+class\b/,
   ['dynamic class', 'Properties of a dynamic class can be added at run time, which hides typos and defeats type checks.', 'Declare the properties and drop dynamic.'],
@@ -86,6 +86,6 @@ R('empty-catch', 'S', 'MA', 5, ['error-handling'],
   /\bcatch\s*\([^)]*\)\s*\{\s*\}/,
   ['Empty catch block', 'The error is silently ignored.', 'Log or handle the error.'],
   ['빈 catch 블록입니다', '오류를 아무 말 없이 무시합니다.', '오류를 기록하거나 처리하세요.'],
-  '} catch (e:Error) {}', '} catch (e:Error) { log.error(e.message); }', { sonar: 'S108' });
+  '} catch (e:Error) {}', '} catch (e:Error) { log.error(e.message); }', { ref: 'S108' });
 
 module.exports = { RULES: R.rules };

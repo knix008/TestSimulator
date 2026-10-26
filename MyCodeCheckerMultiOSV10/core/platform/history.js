@@ -1,6 +1,6 @@
 'use strict';
 
-// History: Coverity snapshot comparison by CID, defect lifecycle, Sonar
+// History: Defect Analysis snapshot comparison by CID, defect lifecycle, code quality
 // activity events, metric trend series and issue age statistics.
 
 const { isClosed } = require('./util');
@@ -20,7 +20,7 @@ function byCid(issues) {
 }
 
 /**
- * Compare two snapshots by CID (Coverity "snapshot compare").
+ * Compare two snapshots by CID (Defect Analysis "snapshot compare").
  * @param {object[]} before issues of the older snapshot
  * @param {object[]} after issues of the newer snapshot
  * @returns {{newlyDetected:object[], fixed:object[], outstanding:object[], triaged:object[], newlyDismissed:object[], reopened:object[], counts:object}}
@@ -40,7 +40,7 @@ function compareSnapshots(before, after) {
     if (!dismissed(old) && dismissed(issue)) newlyDismissed.push(issue);
     if (dismissed(old) && !dismissed(issue)) reopened.push(issue);
   }
-  for (const [cid, issue] of a) if (!b.has(cid) && !dismissed(issue)) fixed.push({ ...issue, coverityStatus: 'Fixed' });
+  for (const [cid, issue] of a) if (!b.has(cid) && !dismissed(issue)) fixed.push({ ...issue, defectStatus: 'Fixed' });
   return {
     newlyDetected, fixed, outstanding, triaged, newlyDismissed, reopened,
     counts: { newlyDetected: newlyDetected.length, fixed: fixed.length, outstanding: outstanding.length, triaged: triaged.length, newlyDismissed: newlyDismissed.length, reopened: reopened.length },
@@ -83,9 +83,9 @@ function defectLifecycle(snapshots) {
 const GATE_NAMES = { OK: { en: 'Passed', ko: '통과' }, ERROR: { en: 'Failed', ko: '실패' }, WARN: { en: 'Warning', ko: '경고' }, NONE: { en: 'None', ko: '없음' } };
 
 /**
- * Sonar project activity events from the branch history summaries
+ * code quality project activity events from the branch history summaries
  * ({at, gate, measures, version?, profiles?: [{language,name,rulesHash?}] , policy?}).
- * @returns {{at:string, category:'QUALITY_GATE'|'VERSION'|'QUALITY_PROFILE'|'COVERITY_POLICY'|'OTHER', name:{en,ko}, description:{en,ko}}[]} newest first
+ * @returns {{at:string, category:'QUALITY_GATE'|'VERSION'|'QUALITY_PROFILE'|'DEFECT_POLICY'|'OTHER', name:{en,ko}, description:{en,ko}}[]} newest first
  */
 function activityEvents(history, opts = {}) {
   const events = [];
@@ -107,9 +107,9 @@ function activityEvents(history, opts = {}) {
         }
       }
     }
-    const pol = h.coverity && h.coverity.policy;
-    const prevPol = prev && prev.coverity && prev.coverity.policy;
-    if (pol && prevPol && pol !== prevPol) events.push({ at: h.at, category: 'COVERITY_POLICY', name: { en: `Policy ${pol === 'OK' ? 'passed' : 'violated'}`, ko: `정책 ${pol === 'OK' ? '통과' : '위반'}` }, description: { en: '', ko: '' } });
+    const pol = h.defectAnalysis && h.defectAnalysis.policy;
+    const prevPol = prev && prev.defectAnalysis && prev.defectAnalysis.policy;
+    if (pol && prevPol && pol !== prevPol) events.push({ at: h.at, category: 'DEFECT_POLICY', name: { en: `Policy ${pol === 'OK' ? 'passed' : 'violated'}`, ko: `정책 ${pol === 'OK' ? '통과' : '위반'}` }, description: { en: '', ko: '' } });
     for (const e of h.events || []) events.push({ at: h.at, category: 'OTHER', name: typeof e === 'string' ? { en: e, ko: e } : e, description: { en: '', ko: '' } });
     prev = h;
   }
@@ -119,8 +119,8 @@ function activityEvents(history, opts = {}) {
 
 /**
  * Trend series per metric from history summaries.
- * @param {object[]} history [{at, measures, coverity?}]
- * @param {string[]} metrics measure keys; 'coverity.outstanding' style paths reach nested values
+ * @param {object[]} history [{at, measures, defectAnalysis?}]
+ * @param {string[]} metrics measure keys; 'defectAnalysis.outstanding' style paths reach nested values
  * @returns {Record<string,{at:string, value:number|null}[]>}
  */
 function trendSeries(history, metrics) {

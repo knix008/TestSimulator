@@ -1,6 +1,6 @@
 'use strict';
 
-// Extra line rules toward SonarQube-style per-language coverage (bugs,
+// Extra line rules toward code-quality per-language coverage (bugs,
 // vulnerabilities, code smells, security hotspots). Same shape as
 // core/rules.js RULES, so the lead can concatenate the two arrays.
 // C and C++ are covered elsewhere (MISRA / CERT).
@@ -11,7 +11,7 @@ const FILES = [
   'js', 'py', 'java', 'kt', 'cs', 'go', 'rs', 'php', 'rb', 'sh', 'ps1', 'sql',
   'html', 'css', 'xml', 'yaml', 'docker', 'tf', 'json', 'secrets', 'common',
   'swift', 'objc', 'scala', 'dart', 'vbnet', 'vb6', 'cobol', 'plsql',
-  'abap', 'apex',
+  'abap', 'apex', 'rpg', 'pli', 'jcl', 'flex', 'bicep',
 ];
 
 const BY_FILE = {};

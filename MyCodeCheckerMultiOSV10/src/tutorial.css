@@ -1,0 +1,142 @@
+/* Tutorial tour card + outline, welcome card, tutorial settings and the
+   user's guide window. Colours come from the theme tokens (src/themes.js),
+   with fallbacks, so every built-in and custom theme applies. */
+
+.mcc-tour-layer { position: fixed; inset: 0; z-index: 9000; pointer-events: none; font-family: var(--font, system-ui, sans-serif); font-size: var(--fs, 13px); }
+.mcc-tour-outline {
+  position: fixed; border: 3px solid #f5b942; border-radius: 10px; pointer-events: none;
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.16), 0 0 18px #f5b942;
+  transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s;
+}
+.mcc-tour-card {
+  position: fixed; width: 460px; max-width: calc(100vw - 24px); pointer-events: auto;
+  background: var(--bg-elev, var(--panel, #1a2029)); color: var(--fg, #e4e9f0);
+  border: 1px solid var(--border-strong, var(--border, #3b4859)); border-radius: 12px;
+  box-shadow: var(--shadow, 0 18px 50px rgba(0, 0, 0, 0.4)), 0 18px 50px rgba(0, 0, 0, 0.25);
+  overflow: visible; user-select: none;
+}
+.mcc-tour-card.centred { width: 520px; }
+.mcc-tour-card.drag-origin { opacity: 0.35 !important; }
+.mcc-tour-drop { position: absolute; border: 2px dashed var(--accent, #4c8dff); border-radius: 12px; background: color-mix(in srgb, var(--accent, #4c8dff) 10%, transparent); pointer-events: none; box-sizing: border-box; }
+.mcc-tour-card.drag-ghost { font-family: var(--font, system-ui, sans-serif); font-size: var(--fs, 13px); }
+.mcc-tour-card.see-through { opacity: 0.38; transition: opacity 0.15s; }
+.mcc-tour-card.see-through:hover { opacity: 1; }
+.mcc-tour-head {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 12px; cursor: move;
+  background: var(--accent, #4cc9f0); color: var(--accent-text, #06202b); border-radius: 11px 11px 0 0;
+}
+.mcc-tour-head b { font-size: 1.02em; }
+.mcc-tour-chapter { font-size: 0.86em; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcc-tour-grow { flex: 1 1 auto; }
+.mcc-tour-x {
+  display: inline-grid; place-items: center; width: 26px; height: 24px; padding: 0; border: 0; border-radius: 5px;
+  background: transparent; color: inherit; cursor: pointer;
+}
+.mcc-tour-x:hover { background: var(--danger, #e81123); color: #fff; }
+.mcc-tour-progress { height: 4px; background: var(--bg-panel, var(--bg, #161b23)); }
+.mcc-tour-progress i { display: block; height: 100%; background: #f5b942; transition: width 0.3s; }
+.mcc-tour-body { padding: 4px 16px 6px; user-select: text; }
+.mcc-tour-body h3 { margin: 10px 0 6px; font-size: 1.15em; }
+.mcc-tour-body p { margin: 0 0 10px; line-height: 1.65; }
+.mcc-tour-missing {
+  display: flex; gap: 6px; align-items: flex-start; padding: 7px 9px; border-radius: 6px; font-size: 0.92em;
+  color: var(--fg-muted, #97a3b4); background: var(--bg-panel, rgba(127, 127, 127, 0.12)); border: 1px dashed var(--border, #3b4859);
+}
+.mcc-tour-missing svg { flex: 0 0 auto; margin-top: 3px; }
+.mcc-tour-foot {
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border, #2a3441);
+  background: var(--bg-panel, #161b23); border-radius: 0 0 11px 11px;
+}
+.mcc-tour-count { font-size: 0.88em; color: var(--fg-muted, #97a3b4); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mcc-tour-btn {
+  height: 28px; min-width: 30px; padding: 0 9px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--border-strong, var(--border, #3b4859)); background: var(--bg-elev, transparent); color: var(--fg, inherit);
+}
+.mcc-tour-btn:hover:not(:disabled) { background: var(--bg-hover, rgba(127, 127, 127, 0.15)); }
+.mcc-tour-btn.on { border-color: var(--accent, #4cc9f0); color: var(--accent, #4cc9f0); }
+.mcc-tour-btn.primary { background: var(--accent, #4cc9f0); color: var(--accent-text, #06202b); border-color: var(--accent, #4cc9f0); font-weight: 600; }
+.mcc-tour-btn.primary:hover:not(:disabled) { background: var(--accent-strong, var(--accent)); color: var(--accent-text, #fff); }
+.mcc-tour-btn:disabled { opacity: 0.45; cursor: default; }
+.mcc-tour-chapters { position: relative; min-width: 0; }
+.mcc-tour-select {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; max-width: 168px; padding: 0 8px; cursor: pointer;
+  border: 1px solid var(--border-strong, var(--border, #3b4859)); border-radius: 6px; background: var(--bg, transparent); color: var(--fg, inherit);
+}
+.mcc-tour-select span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcc-tour-list {
+  position: absolute; left: 0; bottom: 34px; z-index: 2; margin: 0; padding: 4px; list-style: none; width: 270px; max-height: 360px; overflow: auto;
+  background: var(--bg-elev, #1a2029); border: 1px solid var(--border-strong, #3b4859); border-radius: 8px; box-shadow: var(--shadow, 0 10px 30px rgba(0, 0, 0, 0.5));
+}
+.mcc-tour-list li { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 5px; cursor: pointer; }
+.mcc-tour-list li:hover { background: var(--bg-hover, rgba(127, 127, 127, 0.15)); }
+.mcc-tour-list li.on { background: var(--bg-sel, rgba(76, 201, 240, 0.2)); }
+.mcc-tour-list .n { width: 20px; text-align: right; color: var(--fg-muted, #97a3b4); font-variant-numeric: tabular-nums; }
+.mcc-tour-list .name { flex: 1; }
+.mcc-tour-list .c { font-size: 0.85em; color: var(--fg-muted, #97a3b4); }
+
+/* ── Welcome card (first launch) ───────────────────── */
+.mcc-welcome-back { position: fixed; inset: 0; z-index: 8500; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); }
+.mcc-welcome {
+  width: 560px; max-width: calc(100vw - 32px); background: var(--bg-elev, #1a2029); color: var(--fg, #e4e9f0);
+  border: 1px solid var(--border-strong, #3b4859); border-radius: 12px; box-shadow: var(--shadow, 0 18px 50px rgba(0, 0, 0, 0.45)); overflow: hidden;
+}
+.mcc-welcome-head { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; background: var(--accent, #4cc9f0); color: var(--accent-text, #06202b); }
+.mcc-welcome-head b { flex: 1; }
+.mcc-welcome-body { display: flex; gap: 14px; padding: 18px 18px 8px; }
+.mcc-welcome-icon { flex: 0 0 auto; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: var(--bg-panel, #161b23); color: var(--accent, #4cc9f0); border: 1px solid var(--border, #2a3441); }
+.mcc-welcome-body h3 { margin: 2px 0 6px; font-size: 1.15em; }
+.mcc-welcome-body p { margin: 0 0 8px; line-height: 1.6; color: var(--fg-muted, #97a3b4); }
+.mcc-welcome-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border, #2a3441); background: var(--bg-panel, #161b23); }
+.mcc-check { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 0.95em; }
+.mcc-check input { width: 15px; height: 15px; accent-color: var(--accent, #4cc9f0); margin: 0; }
+
+/* ── Tutorial section of the settings window ───────── */
+.mcc-tut-settings { display: grid; gap: 10px; }
+.mcc-tut-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcc-tut-row .label { display: inline-flex; align-items: center; gap: 6px; min-width: 150px; font-weight: 600; }
+.mcc-tut-status { color: var(--fg-muted, #97a3b4); font-size: 0.95em; }
+.mcc-tut-bar { width: 180px; height: 6px; border-radius: 3px; background: var(--bg-panel, #161b23); border: 1px solid var(--border, #2a3441); overflow: hidden; }
+.mcc-tut-bar i { display: block; height: 100%; background: var(--accent, #4cc9f0); }
+.mcc-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--border-strong, #3b4859); background: var(--bg-elev, transparent); color: var(--fg, inherit);
+}
+.mcc-btn:hover:not(:disabled) { background: var(--bg-hover, rgba(127, 127, 127, 0.15)); }
+.mcc-btn.primary { background: var(--accent, #4cc9f0); color: var(--accent-text, #06202b); border-color: var(--accent, #4cc9f0); font-weight: 600; }
+.mcc-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── User's guide window ───────────────────────────── */
+.mcc-guide-back { position: fixed; inset: 0; z-index: 8000; display: grid; place-items: center; background: rgba(0, 0, 0, 0.3); }
+.mcc-guide {
+  display: flex; flex-direction: column; width: min(1180px, calc(100vw - 40px)); height: calc(100vh - 56px);
+  background: var(--bg, #12161c); color: var(--fg, #e4e9f0); border: 1px solid var(--border-strong, #3b4859);
+  border-radius: 10px; box-shadow: var(--shadow, 0 18px 50px rgba(0, 0, 0, 0.45)); overflow: hidden;
+  font-family: var(--font, system-ui, sans-serif); font-size: var(--fs, 13px);
+}
+.mcc-guide-bar { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; background: var(--bg-panel, #161b23); border-bottom: 1px solid var(--border, #2a3441); user-select: none; }
+.mcc-guide-title { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; margin-right: 6px; white-space: nowrap; }
+.mcc-guide-sep { width: 1px; height: 20px; background: var(--border, #2a3441); margin: 0 2px; }
+.mcc-guide-grow { flex: 1 1 auto; }
+.mcc-guide-btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  border: 1px solid transparent; background: transparent; color: var(--fg, inherit);
+}
+.mcc-guide-btn:hover:not(:disabled) { background: var(--bg-hover, rgba(127, 127, 127, 0.15)); border-color: var(--border, #2a3441); }
+.mcc-guide-btn.on { background: var(--bg-sel, rgba(76, 201, 240, 0.2)); border-color: var(--accent, #4cc9f0); }
+.mcc-guide-btn:disabled { opacity: 0.4; cursor: default; }
+.mcc-guide-btn .flag { display: block; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2); }
+.mcc-guide-x { display: inline-grid; place-items: center; width: 32px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--fg, inherit); cursor: pointer; }
+.mcc-guide-x:hover { background: var(--danger, #e81123); color: #fff; }
+.mcc-guide-docs { position: relative; }
+.mcc-guide-menu {
+  position: absolute; left: 0; top: 32px; z-index: 3; margin: 0; padding: 4px; list-style: none; min-width: 210px;
+  background: var(--bg-elev, #1a2029); border: 1px solid var(--border-strong, #3b4859); border-radius: 8px; box-shadow: var(--shadow, 0 10px 30px rgba(0, 0, 0, 0.5));
+}
+.mcc-guide-menu li { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 5px; cursor: pointer; }
+.mcc-guide-menu li:hover { background: var(--bg-hover, rgba(127, 127, 127, 0.15)); }
+.mcc-guide-menu li.on { background: var(--bg-sel, rgba(76, 201, 240, 0.2)); }
+.mcc-guide-frame { flex: 1 1 auto; min-height: 0; position: relative; background: var(--bg, #12161c); }
+.mcc-guide-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg, #12161c); }
+.mcc-guide-empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--fg-muted, #97a3b4); padding: 24px; }
+.mcc-guide-empty code { font-family: var(--mono, monospace); background: var(--bg-panel, #161b23); padding: 2px 6px; border-radius: 4px; }
+.mcc-welcome-prefs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }

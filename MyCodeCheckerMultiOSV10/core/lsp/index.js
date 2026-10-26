@@ -1,6 +1,6 @@
 'use strict';
 
-// MyCodeChecker language server (SonarQube for IDE / Coverity Code Sight style).
+// MyCodeChecker language server (IDE linters / Defect Analysis Code Sight style).
 // Plain Node, JSON-RPC over any byte stream (stdio in server.js). Every
 // analysis goes through core/analyze.js analyzeSources(), so all engines in
 // core/engines.js run exactly as in a server scan.
@@ -715,7 +715,7 @@ function createLanguageServer(input, output, opts = {}) {
       const sup = suppressionEdit(issue, lines, abs);
       if (sup) {
         actions.push({
-          title: ko ? `NOSONAR로 '${issue.rule}' 숨기기` : `Suppress '${issue.rule}' with NOSONAR`,
+          title: ko ? `NOMCC로 '${issue.rule}' 숨기기` : `Suppress '${issue.rule}' with NOMCC`,
           kind: 'quickfix',
           diagnostics: [diagnostic],
           edit: { changes: { [uri]: [toTextEdit(sup)] } },

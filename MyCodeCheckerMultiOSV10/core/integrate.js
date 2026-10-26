@@ -17,6 +17,7 @@ const integrations = require('./integrations');
 const users = require('./platform/users');
 
 const MASK = '••••••••';
+// (AI settings keep their own mask in core/aifix.js.)
 const SECRET_KEYS = new Set(['pass', 'password', 'bindPassword', 'apiToken', 'apiKey', 'token', 'pat', 'appPassword', 'bearer']);
 
 function config(ws) {
@@ -93,8 +94,8 @@ function analysisEvents(project, branch, analysis, previous) {
   const known = new Set(((previous && previous.issues) || []).map((i) => i.cid).filter(Boolean));
   const fresh = (analysis.issues || []).filter((i) => i.cid && i.impact === 'High' && !known.has(i.cid));
   if (previous && fresh.length) {
-    events.push(['coverity-high-impact', {
-      project: { id: project.id, key: project.key, name: project.name }, stream: branch, snapshot: analysis.coverity && analysis.coverity.snapshot,
+    events.push(['defect-high-impact', {
+      project: { id: project.id, key: project.key, name: project.name }, stream: branch, snapshot: analysis.defectAnalysis && analysis.defectAnalysis.snapshot,
       defects: fresh.slice(0, 200).map((i) => ({ cid: i.cid, checker: i.checker, impact: i.impact, file: i.file, line: i.line, message: i.message, component: i.component, owner: i.componentOwner || undefined })),
     }]);
   }

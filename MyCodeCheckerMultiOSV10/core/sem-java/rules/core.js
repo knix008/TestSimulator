@@ -3,7 +3,7 @@
 // Rule registry for sem-java. A definition:
 //   rule({
 //     id, langs: ['java'] | ['kt'] | ['java','kt'], type: 'B'|'V'|'S'|'H', sev: 'BL'|'CR'|'MA'|'MI'|'IN',
-//     debt, tags, sonar: 'S2259', ktSonar?, en: [name, why, fix], ko: [...], msg?: [en, ko] with {0} {1},
+//     debt, tags, ref: 'S2259', ktRef?, en: [name, why, fix], ko: [...], msg?: [en, ko] with {0} {1},
 //     on?: { Kind(node, cx) {...}, 'Kind:exit'(node, cx) {...} },  // AST handlers
 //     engine?: 'se' | 'flow',                                       // reported by se.js / flow.js
 //     bad: { java?, kt? }, good: { java?, kt? },                   // test samples ('// Noncompliant' marks lines)
@@ -68,7 +68,7 @@ function catalogEntries() {
         cwe: cwe[0] || '',
         impacts: impactsOf(type, severity),
         category: def.category || categoryOf(def, type),
-        checker: (lang === 'kt' ? (def.ktSonar || def.sonar) : def.sonar) || '',
+        checker: (lang === 'kt' ? (def.ktRef || def.ref) : def.ref) || '',
       };
       if (cwe.length || def.owasp) {
         entry.standards = {};

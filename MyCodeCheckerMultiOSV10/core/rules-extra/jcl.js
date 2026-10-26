@@ -11,7 +11,7 @@ R('password-parameter', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /[,\s(]PASSWORD=\(?[^,\s)]{2,}/i,
   ['PASSWORD= in the job stream', 'The password is stored in the JCL and printed in job output.', 'Use surrogate job submission (SURROGAT) or a PassTicket instead.'],
   ['작업 흐름에 PASSWORD=를 씁니다', '비밀번호가 JCL에 저장되고 작업 출력에 찍힙니다.', '대리 제출(SURROGAT)이나 PassTicket을 쓰세요.'],
-  '//PAYJOB   JOB (ACCT),\'PAYROLL\',USER=PAYUSR,PASSWORD=SECRET1', '//PAYJOB   JOB (ACCT),\'PAYROLL\',USER=PAYUSR', { sonar: 'S2068' });
+  '//PAYJOB   JOB (ACCT),\'PAYROLL\',USER=PAYUSR,PASSWORD=SECRET1', '//PAYJOB   JOB (ACCT),\'PAYROLL\',USER=PAYUSR', { ref: 'S2068' });
 R('password-in-parm', 'V', 'CR', 30, ['cwe-798', 'secrets'],
   /\bPARM=.*\b(?:PASS(?:WORD)?|PWD)\s*[=:]\s*[^,\s')]{3,}/i,
   ['Password passed in PARM', 'PARM values appear in job logs and SMF records.', 'Read the secret from a protected data set or a key store.'],
@@ -21,7 +21,7 @@ R('ftp-cleartext', 'H', 'MA', 15, ['tls', 'cwe-319'],
   /\bEXEC\s+PGM=FTP\b/i,
   ['Clear-text FTP step', 'FTP sends the user id, password and data unencrypted.', 'Use FTPS (SECURE_FTP REQUIRED) or SFTP.'],
   ['평문 FTP 단계입니다', 'FTP는 사용자 ID, 비밀번호, 데이터를 암호화하지 않고 보냅니다.', 'FTPS(SECURE_FTP REQUIRED)나 SFTP를 쓰세요.'],
-  "//XFER     EXEC PGM=FTP,PARM='ftp.example.com (EXIT'", '//XFER     EXEC PGM=BPXBATCH', { sonar: 'S5332' });
+  "//XFER     EXEC PGM=FTP,PARM='ftp.example.com (EXIT'", '//XFER     EXEC PGM=BPXBATCH', { ref: 'S5332' });
 R('region-unlimited', 'S', 'MA', 10, ['resources'],
   /\bREGION=0[MK]?\b/i,
   ['REGION=0M', 'An unlimited region lets a looping step take all private storage and hurt other work.', 'Request the storage the step needs, such as REGION=256M.'],
@@ -73,6 +73,6 @@ R('todo', 'S', 'IN', 5, ['unfinished'],
   /\b(?:TODO|FIXME)\b/,
   ['TODO / FIXME comment', 'The comment marks unfinished work.', 'Finish the work or open a tracked issue.'],
   ['TODO / FIXME 주석입니다', '주석이 끝나지 않은 일을 표시합니다.', '작업을 끝내거나 추적하는 이슈를 여세요.'],
-  '//* TODO: move to the new scheduler', '//* Scheduled by TWS application PAYROLL.', { scope: 'any', sonar: 'S1135' });
+  '//* TODO: move to the new scheduler', '//* Scheduled by TWS application PAYROLL.', { scope: 'any', ref: 'S1135' });
 
 module.exports = { RULES: R.rules };

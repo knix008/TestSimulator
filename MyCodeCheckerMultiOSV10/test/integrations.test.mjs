@@ -394,7 +394,7 @@ const SUBS = [
   { login: 'kim', events: ['gate-changed', 'issues-assigned', 'exception-approved'], projects: [] },
   { login: 'lee', events: ['gate-changed', 'issues-assigned', 'exception-pending'], projects: ['other'] },
   { login: 'park', events: ['gate-changed'] },
-  { login: 'choi', events: ['scan-failed', 'coverity-high-impact', 'gate-changed', 'unknown-event'], projects: ['proj'], email: 'choi.alerts@ex.com' },
+  { login: 'choi', events: ['scan-failed', 'defect-high-impact', 'gate-changed', 'unknown-event'], projects: ['proj'], email: 'choi.alerts@ex.com' },
   { login: 'jung', events: ['exception-pending'] },
 ];
 const PROJECT = { key: 'proj', name: '<Proj & Co>' };
@@ -409,7 +409,7 @@ test('recipients follow subscriptions, projects, active users and personal targe
   const pending = notify.recipients('exception-pending', { project: PROJECT, request: { approvers: ['jung', 'kim'] } }, { subscriptions: SUBS, users: USERS });
   assert.deepEqual(pending.map((r) => r.login), ['jung']);
   assert.deepEqual(notify.recipients('nope', {}, { subscriptions: SUBS, users: USERS }), []);
-  assert.deepEqual(notify.normalizeSubscription(SUBS[3]).events, ['scan-failed', 'coverity-high-impact', 'gate-changed']);
+  assert.deepEqual(notify.normalizeSubscription(SUBS[3]).events, ['scan-failed', 'defect-high-impact', 'gate-changed']);
   assert.equal(notify.EVENTS.length, 7);
   for (const e of notify.EVENTS) assert.ok(e.name.en && e.name.ko);
 });
@@ -418,13 +418,13 @@ test('render produces Korean and English subject, text and escaped html for ever
   const ctxs = {
     'gate-changed': { project: PROJECT, branch: 'main', previousGate: 'OK', gate: 'ERROR', failedConditions: [{ metric: 'new_bugs', actual: 2, op: 'GT', threshold: 0 }], url: 'http://mcc.local/p?id=proj&b=main' },
     'issues-assigned': { project: PROJECT, issues: [{ assignee: 'kim', rule: 'js:S1', message: { en: 'Remove <script>', ko: '<script>를 제거합니다' }, file: 'a.js', line: 3, severity: 'MAJOR', type: 'BUG' }] },
-    'coverity-high-impact': { project: PROJECT, stream: 'proj-main', snapshot: 1012, defects: [{ cid: 501, checker: 'RESOURCE_LEAK', file: 'b.c', line: 9, message: { en: 'Leak of fd', ko: 'fd 누수' } }] },
+    'defect-high-impact': { project: PROJECT, stream: 'proj-main', snapshot: 1012, defects: [{ cid: 501, checker: 'RESOURCE_LEAK', file: 'b.c', line: 9, message: { en: 'Leak of fd', ko: 'fd 누수' } }] },
     'exception-pending': { project: PROJECT, request: { id: 'EX-1', rule: 'c:MISRA-15.5', requester: 'lee', reason: { en: 'legacy', ko: '레거시 코드' } } },
     'exception-approved': { project: PROJECT, request: { id: 'EX-1', rule: 'c:MISRA-15.5', decidedBy: 'kim' } },
     'exception-rejected': { project: PROJECT, request: { id: 'EX-1', rule: 'c:MISRA-15.5', decidedBy: 'kim', comment: 'fix it' } },
     'scan-failed': { project: PROJECT, branch: 'dev', error: { en: 'Out of memory', ko: '메모리가 부족합니다' } },
   };
-  const koExpect = { 'gate-changed': '품질 게이트', 'issues-assigned': '할당', 'coverity-high-impact': '높은 영향도', 'exception-pending': '승인을 기다립니다', 'exception-approved': '승인되었습니다', 'exception-rejected': '반려되었습니다', 'scan-failed': '분석에 실패했습니다' };
+  const koExpect = { 'gate-changed': '품질 게이트', 'issues-assigned': '할당', 'defect-high-impact': '높은 영향도', 'exception-pending': '승인을 기다립니다', 'exception-approved': '승인되었습니다', 'exception-rejected': '반려되었습니다', 'scan-failed': '분석에 실패했습니다' };
   for (const id of notify.EVENT_IDS) {
     const en = notify.render(id, ctxs[id], 'en', { login: 'kim' });
     const ko = notify.render(id, ctxs[id], 'ko', { login: 'kim' });
@@ -477,7 +477,7 @@ test('dispatch sends each assignee only their issues and each component owner on
     ],
     componentOwners: { net: 'lee' },
   };
-  const r2 = await notify.dispatch('coverity-high-impact', cov, { subscriptions: SUBS, users: USERS, send });
+  const r2 = await notify.dispatch('defect-high-impact', cov, { subscriptions: SUBS, users: USERS, send });
   assert.deepEqual(r2.sent.map((s) => s.login).sort(), ['choi', 'lee']);
   const choiMail = sent.find((m) => m.to.address === 'choi.alerts@ex.com');
   const ownerMail = sent.find((m) => m.to.address === 'lee@ex.com');
@@ -607,7 +607,7 @@ test('Jira v3 payload uses ADF, maps severity to priority and cleans labels', ()
   assert.equal(p.fields.issuetype.name, 'Bug');
   assert.equal(p.fields.priority.name, 'High');
   assert.equal(p.fields.summary, '[CRITICAL] Dereferencing null pointer "p" (src/main.c:42)');
-  assert.deepEqual(p.fields.labels, ['mycodechecker', 'team-a', 'static', 'bug', 'severity-critical', 'coverity-NULL_RETURNS']);
+  assert.deepEqual(p.fields.labels, ['mycodechecker', 'team-a', 'static', 'bug', 'severity-critical', 'defectAnalysis-NULL_RETURNS']);
   for (const l of p.fields.labels) assert.ok(!/\s/.test(l));
   const d = p.fields.description;
   assert.equal(d.type, 'doc');
@@ -679,7 +679,7 @@ test('GitHub and GitLab issues: paths, auth headers and labels', async () => {
   assert.deepEqual(gl, { kind: 'gitlab', key: '#3', id: 3, url: 'https://gitlab.local/g/p/-/issues/3' });
   assert.equal(f.reqs[1].url, '/api/v4/projects/grp%2Fproj/issues');
   assert.equal(f.reqs[1].headers['private-token'], 'glp');
-  assert.equal(f.reqs[1].body.labels, 'mycodechecker,bug,severity-critical,coverity-NULL_RETURNS');
+  assert.equal(f.reqs[1].body.labels, 'mycodechecker,bug,severity-critical,defectAnalysis-NULL_RETURNS');
   assert.match(f.reqs[1].body.description, /\*\*이벤트\*\*/);
   assert.throws(() => tracker.ticketPayload('trello', {}, ISSUE), (err) => err.code === 'ECONFIG');
 });

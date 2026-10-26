@@ -12,17 +12,17 @@ R('public-network-access', 'V', 'MA', 10, ['azure', 'network', 'cwe-284'],
   /\bpublicNetworkAccess\s*:\s*'Enabled'/i,
   ['Public network access enabled', 'The resource accepts connections from the whole internet.', "Set publicNetworkAccess: 'Disabled' and use private endpoints."],
   ['공용 네트워크 접근을 켭니다', '리소스가 인터넷 전체의 연결을 받습니다.', "publicNetworkAccess: 'Disabled'로 두고 프라이빗 엔드포인트를 쓰세요."],
-  "    publicNetworkAccess: 'Enabled'", "    publicNetworkAccess: 'Disabled'", { sonar: 'S6329' });
+  "    publicNetworkAccess: 'Enabled'", "    publicNetworkAccess: 'Disabled'", { ref: 'S6329' });
 R('min-tls-version', 'V', 'CR', 10, ['azure', 'tls', 'cwe-327', 'owasp-a02'],
   /\bminimumTlsVersion\s*:\s*'TLS1_[01]'|\bminTlsVersion\s*:\s*'1\.[01]'|\bminimalTlsVersion\s*:\s*'1\.[01]'/i,
   ['Old minimum TLS version', 'TLS 1.0 and 1.1 are deprecated and have known weaknesses.', "Use 'TLS1_2' (or '1.2') or later."],
   ['오래된 최소 TLS 버전입니다', 'TLS 1.0과 1.1은 지원이 끝났고 알려진 약점이 있습니다.', "'TLS1_2'(또는 '1.2') 이상을 쓰세요."],
-  "    minimumTlsVersion: 'TLS1_0'", "    minimumTlsVersion: 'TLS1_2'", { sonar: 'S4423' });
+  "    minimumTlsVersion: 'TLS1_0'", "    minimumTlsVersion: 'TLS1_2'", { ref: 'S4423' });
 R('https-only-false', 'V', 'CR', 5, ['azure', 'tls', 'cwe-319'],
   /\b(?:httpsOnly|supportsHttpsTrafficOnly)\s*:\s*false\b/,
   ['HTTPS not enforced', 'The service also accepts plain HTTP traffic.', 'Set httpsOnly / supportsHttpsTrafficOnly to true.'],
   ['HTTPS를 강제하지 않습니다', '서비스가 평문 HTTP 트래픽도 받습니다.', 'httpsOnly / supportsHttpsTrafficOnly를 true로 두세요.'],
-  '    httpsOnly: false', '    httpsOnly: true', { sonar: 'S5332' });
+  '    httpsOnly: false', '    httpsOnly: true', { ref: 'S5332' });
 R('blob-public-access', 'V', 'CR', 10, ['azure', 'storage', 'cwe-284', 'owasp-a01'],
   /\ballowBlobPublicAccess\s*:\s*true\b|\bpublicAccess\s*:\s*'(?:Blob|Container)'/,
   ['Anonymous public blob access allowed', 'Anyone on the internet can read blobs without credentials.', "Set allowBlobPublicAccess: false and publicAccess: 'None'."],
@@ -42,7 +42,7 @@ R('hardcoded-secret', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b\w*(?:password|secret|accountKey|sharedKey)\w*\s*(?::|string\s*=)\s*'[^'$\s]{4,}'/i,
   ['Hard-coded secret in the template', 'The secret is stored in source control and deployment history.', 'Pass it as a @secure() parameter or reference Key Vault with getSecret().'],
   ['템플릿에 비밀을 적었습니다', '비밀이 소스 관리와 배포 기록에 남습니다.', '@secure() 매개변수로 넘기거나 getSecret()으로 Key Vault를 참조하세요.'],
-  "    administratorLoginPassword: 'P@ssw0rd123'", '    administratorLoginPassword: adminPassword', { sonar: 'S6418' });
+  "    administratorLoginPassword: 'P@ssw0rd123'", '    administratorLoginPassword: adminPassword', { ref: 'S6418' });
 R('secret-output', 'V', 'CR', 15, ['cwe-532', 'secrets'],
   /^\s*output\s+\w*(?:password|secret|key|connectionString|token)\w*\s+\w+|^\s*output\s+\w+\s+\w+\s*=.*\blist(?:Keys|ConnectionStrings|AccountSas)\s*\(/i,
   ['Secret returned as a deployment output', 'Outputs are stored in plain text in the deployment history.', 'Do not output secrets; let consumers read them from Key Vault.'],
@@ -57,7 +57,7 @@ R('remote-debugging', 'H', 'MA', 5, ['azure', 'debug'],
   /\bremoteDebuggingEnabled\s*:\s*true\b/,
   ['Remote debugging enabled', 'Remote debugging opens extra ports into the running app.', 'Turn it off outside short debugging sessions.'],
   ['원격 디버깅을 켭니다', '원격 디버깅은 실행 중인 앱에 추가 포트를 엽니다.', '짧은 디버깅 때 말고는 끄세요.'],
-  '      remoteDebuggingEnabled: true', '      remoteDebuggingEnabled: false', { sonar: 'S4507' });
+  '      remoteDebuggingEnabled: true', '      remoteDebuggingEnabled: false', { ref: 'S4507' });
 R('acr-admin-user', 'H', 'MA', 5, ['azure', 'cwe-798'],
   /\badminUserEnabled\s*:\s*true\b/,
   ['Container registry admin user enabled', 'The shared admin account has full push and pull rights and a static password.', 'Disable it and use managed identities or tokens with scopes.'],
@@ -82,6 +82,6 @@ R('http-url', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /'http:\/\/(?!localhost|127\.0\.0\.1)[\w.-]+/,
   ['Clear-text HTTP URL', 'Traffic over http:// can be read and changed on the network.', 'Use https://.'],
   ['평문 HTTP URL입니다', 'http:// 트래픽은 네트워크에서 읽고 바꿀 수 있습니다.', 'https://를 쓰세요.'],
-  "    serviceUrl: 'http://backend.example.com'", "    serviceUrl: 'https://backend.example.com'", { sonar: 'S5332' });
+  "    serviceUrl: 'http://backend.example.com'", "    serviceUrl: 'https://backend.example.com'", { ref: 'S5332' });
 
 module.exports = { RULES: R.rules };

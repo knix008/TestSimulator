@@ -40,7 +40,7 @@ function containsLock(pkg, t, seen = new Set()) {
 }
 
 rule({
-  id: 'mutex-copy', type: 'B', sev: 'MA', debt: 10, tags: ['concurrency', 'cwe-667'], sonar: '', checker: 'LOCK',
+  id: 'mutex-copy', type: 'B', sev: 'MA', debt: 10, tags: ['concurrency', 'cwe-667'], ref: '', checker: 'LOCK',
   en: ['Values containing sync primitives should not be copied', 'Passing a struct with a sync.Mutex or WaitGroup by value copies the lock state, so the copy does not protect the original.', 'Use a pointer receiver or parameter.'],
   ko: ['sync 기본 요소를 담은 값을 복사하면 안 됩니다', 'sync.Mutex나 WaitGroup을 담은 구조체를 값으로 넘기면 잠금 상태가 복사되어 원본을 보호하지 못합니다.', '포인터 리시버나 포인터 매개변수를 쓰세요.'],
   on: {
@@ -105,7 +105,7 @@ func wait(wg *sync.WaitGroup) {
 });
 
 rule({
-  id: 'waitgroup-add-in-goroutine', type: 'B', sev: 'MA', debt: 5, tags: ['concurrency', 'cwe-362'], sonar: '',
+  id: 'waitgroup-add-in-goroutine', type: 'B', sev: 'MA', debt: 5, tags: ['concurrency', 'cwe-362'], ref: '',
   en: ['WaitGroup.Add should be called before starting the goroutine', 'Calling Add inside the goroutine races with Wait, which may return before Add runs.', 'Call wg.Add(1) before the go statement.'],
   ko: ['WaitGroup.Add는 고루틴을 시작하기 전에 호출해야 합니다', '고루틴 안에서 Add를 호출하면 Wait와 경쟁하여 Add보다 Wait가 먼저 끝날 수 있습니다.', 'go 문 앞에서 wg.Add(1)을 호출하세요.'],
   on: {
@@ -168,7 +168,7 @@ function lockCallOf(s, names) {
   return { recv: f.x, name: f.sel.name };
 }
 rule({
-  id: 'unlock-not-deferred', type: 'S', sev: 'MA', debt: 5, tags: ['concurrency'], sonar: '',
+  id: 'unlock-not-deferred', type: 'S', sev: 'MA', debt: 5, tags: ['concurrency'], ref: '',
   en: ['Mutex unlocks should be deferred when the critical section can return early', 'With an early return or a panic between Lock and Unlock the mutex stays locked.', 'Write defer mu.Unlock() right after mu.Lock().'],
   ko: ['임계 구역에서 일찍 반환할 수 있으면 뮤텍스 해제를 defer해야 합니다', 'Lock과 Unlock 사이에서 일찍 반환하거나 panic이 나면 뮤텍스가 잠긴 채 남습니다.', 'mu.Lock() 바로 뒤에 defer mu.Unlock()을 쓰세요.'],
   on: {
@@ -236,7 +236,7 @@ func (c *cache) set(k string, v int) {
 });
 
 rule({
-  id: 'defer-close-before-err-check', type: 'B', sev: 'CR', debt: 5, tags: ['error-handling', 'cwe-476'], sonar: '', checker: 'FORWARD_NULL',
+  id: 'defer-close-before-err-check', type: 'B', sev: 'CR', debt: 5, tags: ['error-handling', 'cwe-476'], ref: '', checker: 'FORWARD_NULL',
   en: ['Close should not be deferred before the error is checked', 'When the call fails the returned value is nil, so the deferred resp.Body.Close() / f.Close() panics or fails.', 'Check err first, then defer the Close.'],
   ko: ['오류를 확인하기 전에 Close를 defer하면 안 됩니다', '호출이 실패하면 반환값이 nil이므로 defer한 resp.Body.Close()나 f.Close()가 panic하거나 실패합니다.', '먼저 err를 확인한 뒤 Close를 defer하세요.'],
   on: {
@@ -307,7 +307,7 @@ func fetch(url string) ([]byte, error) {
 
 // ── path-sensitive (se.js) ──
 rule({
-  id: 'nil-deref-after-check', type: 'B', sev: 'CR', debt: 10, tags: ['cwe-476', 'symbolic-execution'], sonar: 'S2259', checker: 'FORWARD_NULL', engine: 'se',
+  id: 'nil-deref-after-check', type: 'B', sev: 'CR', debt: 10, tags: ['cwe-476', 'symbolic-execution'], ref: 'S2259', checker: 'FORWARD_NULL', engine: 'se',
   en: ['Values compared with nil should not be dereferenced on the nil path', 'Comparing with nil says the value can be nil; dereferencing it afterwards on a path where the check did not exit panics.', 'Return or assign a value in the nil branch, or move the dereference into the non-nil branch.'],
   ko: ['nil과 비교한 값을 nil 경로에서 역참조하면 안 됩니다', 'nil과 비교했다는 것은 nil일 수 있다는 뜻이므로, 검사가 빠져나가지 않은 경로에서 나중에 역참조하면 panic이 납니다.', 'nil 분기에서 반환하거나 값을 대입하거나, 역참조를 nil이 아닌 분기로 옮기세요.'],
   bad: gf(`
@@ -343,7 +343,7 @@ func last(n *node) int {
 });
 
 rule({
-  id: 'nil-dereference', type: 'B', sev: 'CR', debt: 10, tags: ['cwe-476', 'symbolic-execution'], sonar: 'S2259', checker: 'FORWARD_NULL', engine: 'se',
+  id: 'nil-dereference', type: 'B', sev: 'CR', debt: 10, tags: ['cwe-476', 'symbolic-execution'], ref: 'S2259', checker: 'FORWARD_NULL', engine: 'se',
   en: ['Nil pointers should not be dereferenced', 'Dereferencing a pointer that is nil on this path panics at run time.', 'Initialise the pointer before use or check it for nil.'],
   ko: ['nil 포인터를 역참조하면 안 됩니다', '이 경로에서 nil인 포인터를 역참조하면 실행 중 panic이 납니다.', '쓰기 전에 포인터를 초기화하거나 nil인지 확인하세요.'],
   bad: gf(`
@@ -371,7 +371,7 @@ func load(ok bool) string {
 });
 
 rule({
-  id: 'nil-map-write', type: 'B', sev: 'CR', debt: 5, tags: ['cwe-476', 'symbolic-execution'], sonar: '', checker: 'FORWARD_NULL', engine: 'se',
+  id: 'nil-map-write', type: 'B', sev: 'CR', debt: 5, tags: ['cwe-476', 'symbolic-execution'], ref: '', checker: 'FORWARD_NULL', engine: 'se',
   en: ['Nil maps should not be written to', 'Assigning to an entry of a nil map panics.', 'Create the map with make() or a composite literal first.'],
   ko: ['nil 맵에 쓰면 안 됩니다', 'nil 맵의 항목에 대입하면 panic이 납니다.', '먼저 make()나 복합 리터럴로 맵을 만드세요.'],
   bad: gf(`
@@ -400,7 +400,7 @@ func count(words []string) map[string]int {
 });
 
 rule({
-  id: 'nil-channel-op', type: 'B', sev: 'CR', debt: 5, tags: ['concurrency', 'cwe-833', 'symbolic-execution'], sonar: '', checker: 'LOCK', engine: 'se',
+  id: 'nil-channel-op', type: 'B', sev: 'CR', debt: 5, tags: ['concurrency', 'cwe-833', 'symbolic-execution'], ref: '', checker: 'LOCK', engine: 'se',
   en: ['Nil channels should not be used for sending or receiving', 'A send or receive on a nil channel blocks forever.', 'Create the channel with make() before using it.'],
   ko: ['nil 채널로 보내거나 받으면 안 됩니다', 'nil 채널에 보내거나 받으면 영원히 멈춥니다.', '쓰기 전에 make()로 채널을 만드세요.'],
   bad: gf(`
@@ -420,7 +420,7 @@ func produce() {
 });
 
 rule({
-  id: 'resource-leak', type: 'B', sev: 'MA', debt: 10, tags: ['cwe-772', 'cwe-404', 'symbolic-execution'], sonar: 'S2095', checker: 'RESOURCE_LEAK', engine: 'se',
+  id: 'resource-leak', type: 'B', sev: 'MA', debt: 10, tags: ['cwe-772', 'cwe-404', 'symbolic-execution'], ref: 'S2095', checker: 'RESOURCE_LEAK', engine: 'se',
   en: ['Files and connections should be closed', 'A file or connection that is not closed on every path leaks a descriptor.', 'defer x.Close() right after checking the error.'],
   ko: ['파일과 연결은 닫아야 합니다', '모든 경로에서 닫지 않은 파일이나 연결은 디스크립터를 누수합니다.', '오류를 확인한 바로 뒤에 defer x.Close()를 쓰세요.'],
   bad: gf(`
@@ -472,7 +472,7 @@ func open(p string) (*os.File, error) {
 });
 
 rule({
-  id: 'response-body-leak', type: 'B', sev: 'MA', debt: 10, tags: ['cwe-772', 'symbolic-execution'], sonar: '', checker: 'RESOURCE_LEAK', engine: 'se',
+  id: 'response-body-leak', type: 'B', sev: 'MA', debt: 10, tags: ['cwe-772', 'symbolic-execution'], ref: '', checker: 'RESOURCE_LEAK', engine: 'se',
   en: ['HTTP response bodies should be closed', 'An unclosed response body keeps the connection busy and leaks it.', 'defer resp.Body.Close() after checking the error.'],
   ko: ['HTTP 응답 Body는 닫아야 합니다', '닫지 않은 응답 Body는 연결을 붙잡아 누수합니다.', '오류를 확인한 뒤 defer resp.Body.Close()를 쓰세요.'],
   bad: gf(`
@@ -509,7 +509,7 @@ func fetch(c *http.Client, req *http.Request) (*http.Response, error) {
 });
 
 rule({
-  id: 'double-lock', type: 'B', sev: 'CR', debt: 10, tags: ['concurrency', 'cwe-667', 'cwe-833', 'symbolic-execution'], sonar: '', checker: 'LOCK', engine: 'se',
+  id: 'double-lock', type: 'B', sev: 'CR', debt: 10, tags: ['concurrency', 'cwe-667', 'cwe-833', 'symbolic-execution'], ref: '', checker: 'LOCK', engine: 'se',
   en: ['Mutexes should not be locked twice', 'sync.Mutex is not reentrant: locking it again in the same goroutine deadlocks.', 'Unlock before locking again, or restructure the code.'],
   ko: ['뮤텍스를 두 번 잠그면 안 됩니다', 'sync.Mutex는 재진입할 수 없으므로 같은 고루틴에서 다시 잠그면 교착 상태가 됩니다.', '다시 잠그기 전에 해제하거나 코드 구조를 바꾸세요.'],
   bad: gf(`
@@ -542,7 +542,7 @@ func update(n *int) {
 });
 
 rule({
-  id: 'missing-unlock', type: 'B', sev: 'CR', debt: 10, tags: ['concurrency', 'cwe-667', 'symbolic-execution'], sonar: '', checker: 'LOCK', engine: 'se',
+  id: 'missing-unlock', type: 'B', sev: 'CR', debt: 10, tags: ['concurrency', 'cwe-667', 'symbolic-execution'], ref: '', checker: 'LOCK', engine: 'se',
   en: ['Mutexes should be unlocked on every path', 'Returning on a path that skips Unlock leaves the mutex locked and deadlocks the next caller.', 'Use defer mu.Unlock() or unlock before each return.'],
   ko: ['뮤텍스는 모든 경로에서 해제해야 합니다', 'Unlock을 건너뛰는 경로로 반환하면 뮤텍스가 잠긴 채 남아 다음 호출자가 멈춥니다.', 'defer mu.Unlock()을 쓰거나 반환할 때마다 먼저 해제하세요.'],
   bad: gf(`
@@ -590,7 +590,7 @@ func (s *store) lock() {
 
 // ── data flow (flow.js) ──
 rule({
-  id: 'dead-store', type: 'S', sev: 'MA', debt: 15, tags: ['cwe-563', 'unused'], sonar: 'S1854', checker: 'UNUSED_VALUE', engine: 'flow',
+  id: 'dead-store', type: 'S', sev: 'MA', debt: 15, tags: ['cwe-563', 'unused'], ref: 'S1854', checker: 'UNUSED_VALUE', engine: 'flow',
   en: ['Unused assignments should be removed', 'A value that is overwritten or never read before the function ends is wasted work and often a logic error.', 'Remove the assignment or use the value.'],
   ko: ['쓰이지 않는 대입은 지워야 합니다', '덮어쓰거나 함수가 끝날 때까지 읽지 않는 값은 헛수고이고 흔히 로직 오류입니다.', '대입을 지우거나 값을 쓰세요.'],
   bad: gf(`
@@ -612,7 +612,7 @@ func f(a, b int) int {
 });
 
 rule({
-  id: 'err-unchecked', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-252', 'cwe-563', 'error-handling'], sonar: '', checker: 'UNUSED_VALUE', engine: 'flow',
+  id: 'err-unchecked', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-252', 'cwe-563', 'error-handling'], ref: '', checker: 'UNUSED_VALUE', engine: 'flow',
   en: ['Errors assigned to a variable should be checked', 'An error stored in err and then overwritten or never read is silently ignored.', 'Check err right after the call.'],
   ko: ['변수에 대입한 오류는 확인해야 합니다', 'err에 저장한 뒤 덮어쓰거나 읽지 않는 오류는 조용히 무시됩니다.', '호출 바로 뒤에서 err를 확인하세요.'],
   bad: gf(`
@@ -645,7 +645,7 @@ func parse(a, b string) (int, error) {
 });
 
 rule({
-  id: 'unreachable-code', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-561', 'unused'], sonar: 'S1763', checker: 'DEADCODE', engine: 'flow',
+  id: 'unreachable-code', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-561', 'unused'], ref: 'S1763', checker: 'DEADCODE', engine: 'flow',
   en: ['All code should be reachable', 'Statements after return, panic, an unconditional break or an endless loop can never run.', 'Remove the dead statements or fix the control flow.'],
   ko: ['모든 코드는 도달할 수 있어야 합니다', 'return, panic, 무조건 break, 끝없는 반복문 뒤의 문장은 절대 실행되지 않습니다.', '죽은 문장을 지우거나 제어 흐름을 고치세요.'],
   bad: gf(`

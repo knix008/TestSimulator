@@ -1,6 +1,6 @@
 'use strict';
 
-// Symbolic execution over the CFG, in the style of sonar-dotnet's engine.
+// Symbolic execution over the CFG, in the style of .NET reference analyzer's engine.
 // A program state maps variables (locals, parameters, this-class fields) to
 // symbolic values; constraints on values (null / not-null, true / false,
 // numeric interval, collection empty / not-empty, disposed) are learned from

@@ -234,7 +234,7 @@ async function blameFiles(dir, files, opts = {}) {
 }
 
 /**
- * Pure: suggest an author for every issue from blame data (Sonar's
+ * Pure: suggest an author for every issue from blame data (code quality's
  * auto-assignment). `emailToLogin` maps commit emails to user logins.
  * Returns a new array; issues that already have an assignee keep it unless opts.overwrite.
  * @param {object[]} issues

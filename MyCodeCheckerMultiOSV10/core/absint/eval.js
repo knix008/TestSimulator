@@ -530,7 +530,7 @@ P.derefCheck = function derefCheck(st, pv, node, mode, bytes, L) {
   if (!pv) return true;
   const name = this.ptrName(L, node);
   if (pv.nul === 'null' && !pv.pt && pv.nf) {
-    // the null came from `s->f = NULL` (Coverity's NULL_FIELD)
+    // the null came from `s->f = NULL` (the defect analysis NULL_FIELD)
     this.report('NULL_FIELD', node, {
       en: `Dereferencing ${name}, which was set to NULL (field ${pv.nf}).`, ko: `NULL로 설정한 ${name}(필드 ${pv.nf})을(를) 역참조합니다.`,
     }, [pv.nev, st.trail], { tag: 'var_deref_op' });
@@ -645,7 +645,7 @@ P.boundsCheck = function boundsCheck(st, o, t, bytes, node, mode, L, pv) {
   const usingKo = idxText ? ` 인덱스 ${idxText}${idxV && idxV.iv ? `(값 ${I.show(at !== null && esz ? I.konst(Math.floor(at / esz)) : idxV.iv)})` : ''}로` : '';
   const evs = [o.aev, st.trail];
   if (idxV && idxV.tev) evs.push(idxV.tev);
-  // A pointer to one variable (not an array) indexed past it: Coverity's ARRAY_VS_SINGLETON.
+  // A pointer to one variable (not an array) indexed past it: the defect analysis ARRAY_VS_SINGLETON.
   if (definite && o.single && o.vsym && !o.sub && (o.kind === 'stack' || o.kind === 'global') && at !== null && at >= 0) {
     const ptr = L && L.baseNode ? this.src(L.baseNode, 30) : this.src(node, 30);
     this.report('ARRAY_VS_SINGLETON', node, {

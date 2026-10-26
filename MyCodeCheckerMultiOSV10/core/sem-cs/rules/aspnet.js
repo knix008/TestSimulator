@@ -1,6 +1,6 @@
 'use strict';
 
-// ASP.NET Core / MVC / Web API rules (sonar-dotnet ASP.NET family plus a few
+// ASP.NET Core / MVC / Web API rules (.NET reference analyzer ASP.NET family plus a few
 // precise extras): routing, controller design, model binding and validation,
 // antiforgery, request limits, clear-text URLs and hard-coded secrets.
 

@@ -1,6 +1,6 @@
 'use strict';
 
-// Quality profiles (SonarQube style): one profile per language is used for a
+// Quality profiles (code quality): one profile per language is used for a
 // project — the project's own choice, else the language default. A profile may
 // inherit from a parent of the same language: it starts from the parent's rule
 // set, then deactivates `inactive` and re-activates `activated`. Severity
@@ -114,7 +114,7 @@ function compare(ws, aId, bId, rules) {
   return { a: a.id, b: b.id, onlyA, onlyB, severity };
 }
 
-/** Portable backup of one profile (SonarQube's backup/restore). */
+/** Portable backup of one profile (the reference backup/restore). */
 function backup(ws, id) {
   const p = byId(ws).get(id);
   if (!p) throw Object.assign(new Error('Profile not found'), { code: 'NOT_FOUND' });

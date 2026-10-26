@@ -104,7 +104,7 @@ function cognitive(fn) {
 }
 
 rule('cognitive-complexity', {
-  t: 'S', s: 'CR', debt: 10, sonar: 'S3776', tags: ['brain-overload'],
+  t: 'S', s: 'CR', debt: 10, ref: 'S3776', tags: ['brain-overload'],
   name: ['Cognitive Complexity of functions should not be too high', '함수의 인지 복잡도가 너무 높으면 안 됩니다'],
   why: ['Deeply nested and branching logic is hard to read, test and change safely.', '깊게 중첩되고 분기가 많은 로직은 읽고 시험하고 안전하게 고치기 어렵습니다.'],
   fix: ['Extract parts into smaller functions and flatten the nesting with early returns.', '일부를 작은 함수로 빼고 이른 반환으로 중첩을 줄이세요.'],
@@ -123,7 +123,7 @@ rule('cognitive-complexity', {
 });
 
 rule('too-many-params', {
-  t: 'S', s: 'MA', debt: 20, sonar: 'S107', tags: ['brain-overload'],
+  t: 'S', s: 'MA', debt: 20, ref: 'S107', tags: ['brain-overload'],
   name: ['Functions should not have too many parameters', '함수의 매개변수가 너무 많으면 안 됩니다'],
   why: ['Long parameter lists are hard to call correctly and usually mean the function does too much.', '매개변수 목록이 길면 올바르게 호출하기 어렵고 보통 함수가 너무 많은 일을 합니다.'],
   fix: ['Group related parameters into an object, or split the function.', '관련 매개변수를 객체로 묶거나 함수를 나누세요.'],
@@ -154,7 +154,7 @@ function codeLines(ctx, node) {
 }
 
 rule('function-too-long', {
-  t: 'S', s: 'MA', debt: 20, sonar: 'S138', tags: ['brain-overload'],
+  t: 'S', s: 'MA', debt: 20, ref: 'S138', tags: ['brain-overload'],
   name: ['Functions should not have too many lines of code', '함수의 코드 줄 수가 너무 많으면 안 됩니다'],
   why: ['Very long functions are hard to understand and usually mix several responsibilities.', '아주 긴 함수는 이해하기 어렵고 보통 여러 책임이 섞여 있습니다.'],
   fix: ['Split the function into smaller, named steps.', '함수를 이름 붙은 작은 단계로 나누세요.'],
@@ -172,7 +172,7 @@ rule('function-too-long', {
 const NESTING = new Set(['IfStatement', 'ForStatement', 'ForInStatement', 'ForOfStatement', 'WhileStatement', 'DoWhileStatement', 'SwitchStatement', 'TryStatement']);
 
 rule('nesting-depth', {
-  t: 'S', s: 'CR', debt: 10, sonar: 'S134', tags: ['brain-overload'],
+  t: 'S', s: 'CR', debt: 10, ref: 'S134', tags: ['brain-overload'],
   name: ['Control flow statements should not be nested too deeply', '제어 흐름 문을 너무 깊이 중첩하면 안 됩니다'],
   why: ['Deep nesting makes code hard to follow; each level adds context the reader must keep in mind.', '깊은 중첩은 코드를 따라가기 어렵게 합니다. 단계마다 기억할 맥락이 늘어납니다.'],
   fix: ['Use early returns or extract the inner logic into a function.', '이른 반환을 쓰거나 안쪽 로직을 함수로 빼세요.'],
@@ -193,7 +193,7 @@ rule('nesting-depth', {
 });
 
 rule('nested-functions', {
-  t: 'S', s: 'CR', debt: 10, sonar: 'S2004', tags: ['brain-overload'],
+  t: 'S', s: 'CR', debt: 10, ref: 'S2004', tags: ['brain-overload'],
   name: ['Functions should not be nested too deeply', '함수를 너무 깊이 중첩하면 안 됩니다'],
   why: ['Many levels of nested functions make the flow of data and control very hard to follow.', '여러 단계로 중첩된 함수는 데이터와 제어 흐름을 따라가기 매우 어렵게 합니다.'],
   fix: ['Move inner functions to the outer level, or use async/await instead of nested callbacks.', '안쪽 함수를 바깥으로 옮기거나 중첩 콜백 대신 async/await를 쓰세요.'],
@@ -208,7 +208,7 @@ rule('nested-functions', {
 });
 
 rule('nested-ternary', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S3358', tags: ['confusing'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S3358', tags: ['confusing'],
   name: ['Ternary operators should not be nested', '삼항 연산자를 중첩하면 안 됩니다'],
   why: ['Nested conditional expressions are hard to read and easy to get wrong.', '중첩된 조건식은 읽기 어렵고 틀리기 쉽습니다.'],
   fix: ['Use if / else statements or extract a function.', 'if / else 문을 쓰거나 함수로 빼세요.'],
@@ -231,7 +231,7 @@ function singleIf(s) {
 }
 
 rule('collapsible-if', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1066', tags: ['clumsy'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1066', tags: ['clumsy'],
   name: ['Mergeable "if" statements should be combined', '합칠 수 있는 "if" 문은 합쳐야 합니다'],
   why: ['An if whose only content is another if without else adds a level of nesting for nothing.', 'else 없는 if 하나만 담은 if는 쓸데없이 중첩을 늘립니다.'],
   fix: ['Merge the conditions with &&.', '조건을 &&로 합치세요.'],
@@ -254,7 +254,7 @@ function substantial(ctx, b) {
 }
 
 rule('duplicate-branch', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S1871', tags: ['design', 'suspicious'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S1871', tags: ['design', 'suspicious'],
   name: ['Two branches in a conditional structure should not have exactly the same implementation', '조건 구조의 두 분기 구현이 똑같으면 안 됩니다'],
   why: ['Identical branches are either a copy-paste mistake or should be merged into one condition.', '똑같은 분기는 복사 실수이거나 하나의 조건으로 합쳐야 합니다.'],
   fix: ['Merge the conditions, or fix the branch that should differ.', '조건을 합치거나 달라야 할 분기를 고치세요.'],
@@ -298,7 +298,7 @@ rule('duplicate-branch', {
 });
 
 rule('identical-functions', {
-  t: 'S', s: 'MA', debt: 15, sonar: 'S4144', tags: ['confusing', 'duplicate'],
+  t: 'S', s: 'MA', debt: 15, ref: 'S4144', tags: ['confusing', 'duplicate'],
   name: ['Functions should not have identical implementations', '함수 구현이 똑같으면 안 됩니다'],
   why: ['Two functions with the same body are duplicated code; a fix in one is easily forgotten in the other.', '본문이 같은 두 함수는 중복 코드라 한쪽의 수정을 다른 쪽에서 잊기 쉽습니다.'],
   fix: ['Make one function call the other, or extract the shared logic.', '한 함수가 다른 함수를 호출하게 하거나 공통 로직을 빼세요.'],
@@ -341,7 +341,7 @@ function readOutside(v, node) {
 }
 
 rule('unused-variable', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S1481', tags: ['unused'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S1481', tags: ['unused'],
   name: ['Unused local variables and functions should be removed', '사용하지 않는 지역 변수와 함수는 지워야 합니다'],
   why: ['A declared but never used variable or function is dead code that misleads readers.', '선언했지만 쓰지 않는 변수나 함수는 읽는 사람을 헷갈리게 하는 죽은 코드입니다.'],
   fix: ['Remove the declaration, or use it where it was meant to be used.', '선언을 지우거나 원래 쓰려던 곳에서 쓰세요.'],
@@ -381,7 +381,7 @@ function jsxPragmas(ctx) {
 }
 
 rule('unused-import', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1128', tags: ['unused'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1128', tags: ['unused'],
   name: ['Unnecessary imports should be removed', '불필요한 import는 지워야 합니다'],
   why: ['Unused imports clutter the file, slow down bundling and may load modules for nothing.', '쓰지 않는 import는 파일을 어지럽히고 번들을 느리게 하며 모듈을 쓸데없이 불러옵니다.'],
   fix: ['Remove the unused import.', '쓰지 않는 import를 지우세요.'],
@@ -401,7 +401,7 @@ rule('unused-import', {
 });
 
 rule('unused-parameter', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1172', tags: ['unused'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1172', tags: ['unused'],
   name: ['Unused function parameters should be removed', '사용하지 않는 함수 매개변수는 지워야 합니다'],
   why: ['A trailing parameter that is never used makes callers pass values for nothing.', '쓰지 않는 뒤쪽 매개변수는 호출하는 쪽이 쓸데없이 값을 넘기게 합니다.'],
   fix: ['Remove the unused trailing parameters.', '쓰지 않는 뒤쪽 매개변수를 지우세요.'],
@@ -429,7 +429,7 @@ rule('unused-parameter', {
 });
 
 rule('unused-private-member', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1068', tags: ['unused'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1068', tags: ['unused'],
   name: ['Unused private class members should be removed', '사용하지 않는 private 클래스 멤버는 지워야 합니다'],
   why: ['A private field or method that is never used is dead code.', '쓰지 않는 private 필드나 메서드는 죽은 코드입니다.'],
   fix: ['Remove the unused member.', '쓰지 않는 멤버를 지우세요.'],
@@ -467,7 +467,7 @@ rule('unused-private-member', {
 });
 
 rule('unused-label', {
-  t: 'S', s: 'MA', debt: 2, sonar: 'S1065', tags: ['unused'],
+  t: 'S', s: 'MA', debt: 2, ref: 'S1065', tags: ['unused'],
   name: ['Unused labels should be removed', '사용하지 않는 레이블은 지워야 합니다'],
   why: ['A label that no break or continue refers to is noise and may hide a mistake.', 'break나 continue가 가리키지 않는 레이블은 잡음이며 실수를 숨길 수 있습니다.'],
   fix: ['Remove the label.', '레이블을 지우세요.'],
@@ -479,7 +479,7 @@ rule('unused-label', {
 });
 
 rule('redundant-jump', {
-  t: 'S', s: 'MI', debt: 1, sonar: 'S3626', tags: ['redundant', 'clumsy'],
+  t: 'S', s: 'MI', debt: 1, ref: 'S3626', tags: ['redundant', 'clumsy'],
   name: ['Jump statements should not be redundant', '제어 이동 문이 중복되면 안 됩니다'],
   why: ['A "return;" at the end of a function or a "continue;" at the end of a loop changes nothing.', '함수 끝의 "return;"이나 반복 끝의 "continue;"는 아무것도 바꾸지 않습니다.'],
   fix: ['Remove the redundant jump.', '중복된 제어 이동을 지우세요.'],
@@ -509,7 +509,7 @@ function inTest(n) {
 const isBool = (n) => { n = unwrapTS(n); return n.type === 'Literal' && typeof n.value === 'boolean'; };
 
 rule('redundant-boolean', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1125', tags: ['clumsy'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1125', tags: ['clumsy'],
   name: ['Boolean literals should not be redundant', '불리언 리터럴이 중복되면 안 됩니다'],
   why: ['Comparing with true / false or combining with a boolean literal only makes the expression longer.', 'true / false와 비교하거나 불리언 리터럴과 묶으면 식만 길어집니다.'],
   fix: ['Simplify: use x instead of x == true, !x instead of x == false.', '간단히 하세요: x == true 대신 x, x == false 대신 !x.'],
@@ -527,7 +527,7 @@ rule('redundant-boolean', {
 });
 
 rule('unneeded-ternary', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6644', tags: ['clumsy'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6644', tags: ['clumsy'],
   name: ['Ternary operators should not be used for boolean values or defaults', '불리언 값이나 기본값에 삼항 연산자를 쓰면 안 됩니다'],
   why: ['"c ? true : false" is just a boolean conversion and "a ? a : b" is "a || b".', '"c ? true : false"는 불리언 변환일 뿐이고 "a ? a : b"는 "a || b"입니다.'],
   fix: ['Use !!c, !c, or a || b.', '!!c, !c 또는 a || b를 쓰세요.'],
@@ -539,7 +539,7 @@ rule('unneeded-ternary', {
 });
 
 rule('prefer-const', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S3353', tags: ['es2015'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S3353', tags: ['es2015'],
   name: ['Unchanged variables should be marked "const"', '바뀌지 않는 변수는 "const"로 선언해야 합니다'],
   why: ['"let" announces that the value will change; when it never does, "const" states the intent and prevents accidents.', '"let"은 값이 바뀐다는 뜻입니다. 바뀌지 않으면 "const"가 의도를 밝히고 실수를 막습니다.'],
   fix: ['Declare the variable with const.', '변수를 const로 선언하세요.'],
@@ -566,7 +566,7 @@ rule('prefer-const', {
 });
 
 rule('object-spread', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6661', tags: ['es2018'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6661', tags: ['es2018'],
   name: ['Object spread syntax should be used instead of "Object.assign"', '"Object.assign" 대신 객체 전개 문법을 써야 합니다'],
   why: ['Object.assign({}, a, b) is longer and easier to get wrong than { ...a, ...b }.', 'Object.assign({}, a, b)는 { ...a, ...b }보다 길고 틀리기 쉽습니다.'],
   fix: ['Use { ...a, ...b }.', '{ ...a, ...b }를 쓰세요.'],
@@ -593,7 +593,7 @@ function chainRootsOf(n) {
 }
 
 rule('prefer-optional-chain', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S6582', tags: ['es2020'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S6582', tags: ['es2020'],
   name: ['Optional chaining should be preferred', '옵셔널 체이닝을 우선해서 써야 합니다'],
   why: ['"a && a.b && a.b.c" repeats the same path; "a?.b?.c" is shorter and clearer.', '"a && a.b && a.b.c"는 같은 경로를 반복합니다. "a?.b?.c"가 더 짧고 명확합니다.'],
   fix: ['Use the optional chaining operator "?.".', '옵셔널 체이닝 연산자 "?."를 쓰세요.'],
@@ -615,7 +615,7 @@ rule('prefer-optional-chain', {
 });
 
 rule('useless-constructor', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6647', tags: ['redundant'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6647', tags: ['redundant'],
   name: ['Unnecessary constructors should be removed', '불필요한 생성자는 지워야 합니다'],
   why: ['An empty constructor, or one that only forwards its arguments to super(), is what JavaScript does by default.', '빈 생성자나 인자를 super()에 넘기기만 하는 생성자는 JavaScript의 기본 동작과 같습니다.'],
   fix: ['Remove the constructor.', '생성자를 지우세요.'],
@@ -651,7 +651,7 @@ rule('useless-constructor', {
 });
 
 rule('useless-catch', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S2737', tags: ['error-handling', 'clumsy'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S2737', tags: ['error-handling', 'clumsy'],
   name: ['"catch" clauses should do more than rethrow', '"catch" 절은 다시 던지는 것 이상을 해야 합니다'],
   why: ['A catch that only rethrows the same exception adds nesting without changing behaviour.', '같은 예외를 다시 던지기만 하는 catch는 동작은 그대로인 채 중첩만 늘립니다.'],
   fix: ['Remove the try/catch (keep finally if needed), or handle the error.', 'try/catch를 지우거나(필요하면 finally는 유지) 오류를 처리하세요.'],
@@ -664,7 +664,7 @@ rule('useless-catch', {
 });
 
 rule('useless-rename', {
-  t: 'S', s: 'MI', debt: 1, sonar: 'S6650', tags: ['redundant'],
+  t: 'S', s: 'MI', debt: 1, ref: 'S6650', tags: ['redundant'],
   name: ['Renaming import, export and destructuring assignments should not be to the same name', 'import, export, 구조 분해에서 같은 이름으로 바꾸면 안 됩니다'],
   why: ['"a as a" or "{ a: a }" does nothing but add noise.', '"a as a"나 "{ a: a }"는 잡음만 더합니다.'],
   fix: ['Remove the redundant rename.', '중복된 이름 바꾸기를 지우세요.'],
@@ -683,7 +683,7 @@ rule('useless-rename', {
 });
 
 rule('useless-computed-key', {
-  t: 'S', s: 'MI', debt: 1, sonar: 'S6654', tags: ['redundant'],
+  t: 'S', s: 'MI', debt: 1, ref: 'S6654', tags: ['redundant'],
   name: ['Computed keys should not be used with literals', '리터럴에 계산된 키를 쓰면 안 됩니다'],
   why: ['["name"]: value is the same as name: value with extra brackets.', '["name"]: value는 괄호만 더한 name: value와 같습니다.'],
   fix: ['Write the key directly.', '키를 직접 쓰세요.'],
@@ -699,7 +699,7 @@ rule('useless-computed-key', {
 });
 
 rule('useless-call', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6676', tags: ['redundant'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6676', tags: ['redundant'],
   name: ['Calls to ".call()", ".apply()" and ".bind()" should not be redundant', '".call()", ".apply()", ".bind()" 호출이 중복되면 안 됩니다'],
   why: ['foo.call(undefined, a) is just foo(a), and binding a function that never uses "this" does nothing.', 'foo.call(undefined, a)는 foo(a)일 뿐이고 "this"를 쓰지 않는 함수를 bind해도 아무 일도 없습니다.'],
   fix: ['Call the function directly / remove the bind.', '함수를 직접 호출하거나 bind를 지우세요.'],
@@ -724,7 +724,7 @@ rule('useless-call', {
 });
 
 rule('lonely-if', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6660', tags: ['clumsy'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6660', tags: ['clumsy'],
   name: ['"if" statements should not be the only statement in "else" blocks', '"else" 블록에 "if" 문 하나만 두면 안 됩니다'],
   why: ['"else { if (...) }" adds a nesting level that "else if" avoids.', '"else { if (...) }"는 "else if"로 피할 수 있는 중첩을 더합니다.'],
   fix: ['Use "else if".', '"else if"를 쓰세요.'],
@@ -741,7 +741,7 @@ function returnsBool(s) {
 }
 
 rule('return-boolean', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1126', tags: ['clumsy'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1126', tags: ['clumsy'],
   name: ['Return of boolean expressions should not be wrapped into an "if-then-else" statement', '불리언 식의 반환을 "if-else"로 감싸면 안 됩니다'],
   why: ['"if (c) return true; else return false;" is just "return c;".', '"if (c) return true; else return false;"는 "return c;"와 같습니다.'],
   fix: ['Return the condition directly (with !! if a boolean is required).', '조건을 바로 돌려주세요 (불리언이 필요하면 !!를 붙이세요).'],
@@ -761,7 +761,7 @@ rule('return-boolean', {
 });
 
 rule('immediately-returned', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1488', tags: ['clumsy'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1488', tags: ['clumsy'],
   name: ['Local variables should not be declared and then immediately returned or thrown', '지역 변수를 선언하고 바로 반환하거나 던지면 안 됩니다'],
   why: ['A variable used only to return or throw the value on the next line adds nothing.', '다음 줄에서 반환하거나 던지기 위해서만 쓰는 변수는 아무것도 더하지 않습니다.'],
   fix: ['Return or throw the expression directly.', '식을 바로 반환하거나 던지세요.'],
@@ -787,7 +787,7 @@ rule('immediately-returned', {
 });
 
 rule('lone-block', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S1199', tags: ['bad-practice'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S1199', tags: ['bad-practice'],
   name: ['Nested code blocks should not be used', '중첩된 코드 블록을 쓰면 안 됩니다'],
   why: ['A bare block does not create a function or condition; it usually means the code should be extracted.', '단독 블록은 함수나 조건을 만들지 않으며 보통 코드를 빼야 한다는 뜻입니다.'],
   fix: ['Remove the braces or extract a function.', '중괄호를 지우거나 함수로 빼세요.'],
@@ -801,7 +801,7 @@ rule('lone-block', {
 });
 
 rule('empty-statement', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1116', tags: ['unused'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1116', tags: ['unused'],
   name: ['Extra semicolons should be removed', '여분의 세미콜론은 지워야 합니다'],
   why: ['Stray semicolons are noise and can hide a misplaced statement.', '떠도는 세미콜론은 잡음이며 잘못 놓인 문장을 숨길 수 있습니다.'],
   fix: ['Remove the semicolon.', '세미콜론을 지우세요.'],
@@ -818,7 +818,7 @@ function hasCommentInside(ctx, node) {
 }
 
 rule('empty-block', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S108', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S108', tags: ['suspicious'],
   name: ['Nested blocks of code should not be left empty', '중첩된 코드 블록을 비워 두면 안 됩니다'],
   why: ['An empty if, loop or try block is either unfinished code or a condition that should be removed.', '빈 if, 반복, try 블록은 덜 쓴 코드이거나 지워야 할 조건입니다.'],
   fix: ['Add the missing code, a comment explaining why it is empty, or remove the block.', '빠진 코드나 비어 있는 이유를 적은 주석을 넣거나 블록을 지우세요.'],
@@ -841,7 +841,7 @@ rule('empty-block', {
 });
 
 rule('empty-function', {
-  t: 'S', s: 'CR', debt: 5, sonar: 'S1186', tags: ['suspicious'],
+  t: 'S', s: 'CR', debt: 5, ref: 'S1186', tags: ['suspicious'],
   name: ['Functions should not be empty', '함수를 비워 두면 안 됩니다'],
   why: ['An empty function is either unfinished or intentionally a no-op; without a comment readers cannot tell.', '빈 함수는 덜 썼거나 일부러 아무것도 안 하는 것인데 주석이 없으면 구별할 수 없습니다.'],
   fix: ['Implement the function, or add a comment explaining why it is empty.', '함수를 구현하거나 비어 있는 이유를 주석으로 적으세요.'],
@@ -859,7 +859,7 @@ rule('empty-function', {
 });
 
 rule('empty-catch', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S2486', cwe: 'CWE-390', tags: ['error-handling'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S2486', cwe: 'CWE-390', tags: ['error-handling'],
   name: ['Exceptions should not be ignored', '예외를 무시하면 안 됩니다'],
   why: ['An empty catch block silently swallows errors, which makes failures very hard to diagnose.', '빈 catch 블록은 오류를 조용히 삼켜 문제를 찾기 매우 어렵게 합니다.'],
   fix: ['Handle or log the exception, or add a comment explaining why it can be ignored.', '예외를 처리하거나 기록하거나 무시해도 되는 이유를 주석으로 적으세요.'],
@@ -872,7 +872,7 @@ rule('empty-catch', {
 
 // ---------------------------------------------------------------- naming
 rule('function-naming', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S100', tags: ['convention'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S100', tags: ['convention'],
   name: ['Function and method names should comply with a naming convention', '함수와 메서드 이름은 명명 규칙을 따라야 합니다'],
   why: ['Consistent camelCase names make code easier to read and search.', '일관된 camelCase 이름은 코드를 읽고 찾기 쉽게 합니다.'],
   fix: ['Rename to camelCase (or PascalCase for components and constructors).', 'camelCase(컴포넌트와 생성자는 PascalCase)로 이름을 바꾸세요.'],
@@ -888,7 +888,7 @@ rule('function-naming', {
 });
 
 rule('class-naming', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S101', tags: ['convention'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S101', tags: ['convention'],
   name: ['Class and interface names should comply with a naming convention', '클래스와 인터페이스 이름은 명명 규칙을 따라야 합니다'],
   why: ['PascalCase type names distinguish types from values at a glance.', 'PascalCase 타입 이름은 타입과 값을 한눈에 구별하게 합니다.'],
   fix: ['Rename to PascalCase.', 'PascalCase로 이름을 바꾸세요.'],
@@ -900,7 +900,7 @@ rule('class-naming', {
 });
 
 rule('variable-naming', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S117', tags: ['convention'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S117', tags: ['convention'],
   name: ['Variable, property and parameter names should comply with a naming convention', '변수, 속성, 매개변수 이름은 명명 규칙을 따라야 합니다'],
   why: ['Mixed naming styles (snake_case next to camelCase) make code harder to read.', '섞인 명명 방식(camelCase 옆의 snake_case)은 코드를 읽기 어렵게 합니다.'],
   fix: ['Use camelCase, or UPPER_SNAKE_CASE for constants.', 'camelCase를 쓰고 상수는 UPPER_SNAKE_CASE를 쓰세요.'],
@@ -923,7 +923,7 @@ rule('variable-naming', {
 });
 
 rule('redeclaration', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2814', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2814', tags: ['suspicious'],
   name: ['Variables and functions should not be redeclared', '변수와 함수를 다시 선언하면 안 됩니다'],
   why: ['Declaring the same name twice in a scope silently replaces the first binding.', '한 범위에서 같은 이름을 두 번 선언하면 첫 바인딩이 조용히 대체됩니다.'],
   fix: ['Rename one of them, or reuse the existing variable.', '한쪽 이름을 바꾸거나 기존 변수를 다시 쓰세요.'],
@@ -945,7 +945,7 @@ rule('redeclaration', {
 });
 
 rule('shadowed-variable', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1117', tags: ['suspicious', 'pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1117', tags: ['suspicious', 'pitfall'],
   name: ['Variables should not be shadowed', '변수가 다른 변수를 가리면 안 됩니다'],
   why: ['A local declaration with the same name as an outer variable hides it; reads meant for the outer one silently get the inner one.', '바깥 변수와 이름이 같은 지역 선언은 그것을 가립니다. 바깥 변수를 읽으려던 곳이 조용히 안쪽 변수를 읽습니다.'],
   fix: ['Rename the inner variable.', '안쪽 변수의 이름을 바꾸세요.'],
@@ -970,7 +970,7 @@ rule('shadowed-variable', {
 });
 
 rule('return-await', {
-  t: 'S', s: 'MI', debt: 1, sonar: 'S4326', tags: ['async', 'redundant'],
+  t: 'S', s: 'MI', debt: 1, ref: 'S4326', tags: ['async', 'redundant'],
   name: ['"await" should not be used redundantly', '"await"를 중복해서 쓰면 안 됩니다'],
   why: ['"return await x" outside a try block waits for no reason; returning the promise has the same effect.', 'try 블록 밖의 "return await x"는 이유 없이 기다립니다. Promise를 돌려줘도 효과는 같습니다.'],
   fix: ['Return the promise directly.', 'Promise를 바로 돌려주세요.'],
@@ -992,7 +992,7 @@ rule('return-await', {
 });
 
 rule('await-non-promise', {
-  t: 'S', s: 'CR', debt: 1, sonar: 'S4123', tags: ['async', 'confusing'],
+  t: 'S', s: 'CR', debt: 1, ref: 'S4123', tags: ['async', 'confusing'],
   name: ['"await" should only be used with promises', '"await"는 Promise에만 써야 합니다'],
   why: ['Awaiting a plain value just delays the code by a microtask and misleads readers.', '일반 값을 기다리면 마이크로태스크만큼 지연될 뿐이고 읽는 사람을 헷갈리게 합니다.'],
   fix: ['Remove the "await".', '"await"를 지우세요.'],
@@ -1004,7 +1004,7 @@ rule('await-non-promise', {
 });
 
 rule('var-scope', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2392', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2392', tags: ['pitfall'],
   name: ['Variables should be used in the blocks where they are declared', '변수는 선언한 블록 안에서 써야 합니다'],
   why: ['"var" is function-scoped, so using it outside the block that declares it works by accident and confuses readers.', '"var"는 함수 범위라 선언한 블록 밖에서 써도 우연히 동작해 읽는 사람을 헷갈리게 합니다.'],
   fix: ['Declare the variable with let / const in the outer block.', '바깥 블록에서 let / const로 선언하세요.'],
@@ -1033,7 +1033,7 @@ function looksLikeCode(text) {
   const t = text.trim();
   if (t.length < 4) return false;
   if (!CODE_HINT.test(t)) return false;
-  if (/^(eslint|@ts-|prettier|istanbul|c8|jshint|global|jslint|#region|#endregion|@flow|@jsx|@vite|webpack|tslint|noinspection|NOSONAR|TODO|FIXME|XXX|HACK|NOTE)/i.test(t)) return false;
+  if (/^(eslint|@ts-|prettier|istanbul|c8|jshint|global|jslint|#region|#endregion|@flow|@jsx|@vite|webpack|tslint|noinspection|NOMCC|TODO|FIXME|XXX|HACK|NOTE)/i.test(t)) return false;
   if (/^https?:\/\//.test(t)) return false;
   let ast;
   try { ast = parse(t, { ts: true, jsx: false }); } catch {
@@ -1066,7 +1066,7 @@ function looksLikeCode(text) {
 }
 
 rule('commented-code', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S125', tags: ['unused'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S125', tags: ['unused'],
   name: ['Sections of code should not be commented out', '코드를 주석으로 막아 두면 안 됩니다'],
   why: ['Commented-out code rots quickly, distracts readers and is kept in version control anyway.', '주석 처리한 코드는 금방 낡고 읽는 사람을 방해하며 어차피 버전 관리에 남아 있습니다.'],
   fix: ['Remove the commented-out code.', '주석 처리한 코드를 지우세요.'],
@@ -1098,7 +1098,7 @@ rule('commented-code', {
 });
 
 rule('consistent-return', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S3801', tags: ['confusing'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S3801', tags: ['confusing'],
   name: ['Functions should use "return" consistently', '함수는 "return"을 일관되게 써야 합니다'],
   why: ['Returning a value on some paths and nothing on others makes callers receive undefined unexpectedly.', '일부 경로에서만 값을 돌려주면 호출하는 쪽이 예상치 못하게 undefined를 받습니다.'],
   fix: ['Return a value on every path, or on none.', '모든 경로에서 값을 돌려주거나 어디에서도 돌려주지 마세요.'],
@@ -1125,7 +1125,7 @@ rule('consistent-return', {
 const INVERSE = { '==': '!=', '!=': '==', '===': '!==', '!==': '===', '<': '>=', '>': '<=', '<=': '>', '>=': '<' };
 
 rule('boolean-inversion', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1940', tags: ['pitfall'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1940', tags: ['pitfall'],
   name: ['Boolean checks should not be inverted', '불리언 검사를 뒤집어 쓰면 안 됩니다'],
   why: ['"!(a == b)" is harder to read than "a != b".', '"!(a == b)"는 "a != b"보다 읽기 어렵습니다.'],
   fix: ['Use the opposite operator.', '반대 연산자를 쓰세요.'],
@@ -1138,7 +1138,7 @@ rule('boolean-inversion', {
 });
 
 rule('param-order', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2234', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2234', tags: ['suspicious'],
   name: ['Parameters should be passed in the correct order', '인자는 올바른 순서로 넘겨야 합니다'],
   why: ['The arguments have the same names as the parameters but in a different order, which is very likely a mistake.', '인자 이름이 매개변수 이름과 같지만 순서가 달라 실수일 가능성이 큽니다.'],
   fix: ['Swap the arguments back to the declared order.', '인자를 선언한 순서로 되돌리세요.'],
@@ -1159,7 +1159,7 @@ rule('param-order', {
 });
 
 rule('too-many-cases', {
-  t: 'S', s: 'MA', debt: 30, sonar: 'S1479', tags: ['brain-overload'],
+  t: 'S', s: 'MA', debt: 30, ref: 'S1479', tags: ['brain-overload'],
   name: ['"switch" statements should not have too many "case" clauses', '"switch" 문에 "case"가 너무 많으면 안 됩니다'],
   why: ['A very long switch is hard to maintain; a lookup table or polymorphism is usually clearer.', '아주 긴 switch는 유지보수가 어렵습니다. 조회 표나 다형성이 보통 더 명확합니다.'],
   fix: ['Replace the switch with a map of handlers.', 'switch를 처리기 맵으로 바꾸세요.'],
@@ -1172,7 +1172,7 @@ rule('too-many-cases', {
 });
 
 rule('switch-few-cases', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S1301', tags: ['bad-practice'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S1301', tags: ['bad-practice'],
   name: ['"switch" statements should have at least 3 "case" clauses', '"switch" 문에는 "case"가 3개 이상 있어야 합니다'],
   why: ['A switch with one or two branches is more naturally written as an if statement.', '분기가 한두 개인 switch는 if 문이 더 자연스럽습니다.'],
   fix: ['Replace the switch with if / else.', 'switch를 if / else로 바꾸세요.'],
@@ -1186,7 +1186,7 @@ rule('switch-few-cases', {
 });
 
 rule('constructor-name-case', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2430', tags: ['convention'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2430', tags: ['convention'],
   name: ['Constructor names should start with an upper case letter', '생성자 이름은 대문자로 시작해야 합니다'],
   why: ['"new" with a lowercase name hides that a constructor is called, and lowercase functions are rarely meant to be constructed.', '소문자 이름에 "new"를 쓰면 생성자 호출이 드러나지 않고 소문자 함수는 거의 생성용이 아닙니다.'],
   fix: ['Rename the constructor with an upper case first letter.', '생성자 이름의 첫 글자를 대문자로 바꾸세요.'],
@@ -1198,7 +1198,7 @@ rule('constructor-name-case', {
 });
 
 rule('this-global', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2990', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2990', tags: ['pitfall'],
   name: ['The global "this" object should not be used', '전역 "this" 객체를 쓰면 안 됩니다'],
   why: ['At the top level of an ES module "this" is undefined; code relying on it breaks.', 'ES 모듈의 최상위에서 "this"는 undefined라 이에 기대는 코드는 깨집니다.'],
   fix: ['Use globalThis, window or an explicit object.', 'globalThis, window 또는 명시적인 객체를 쓰세요.'],
@@ -1219,7 +1219,7 @@ rule('this-global', {
 const WRITABLE_GLOBALS = new Set(['exports', 'module', 'location', 'name', 'status', 'onload', 'onerror', 'onmessage', 'onbeforeunload', 'onresize', 'onunload', 'onpopstate', 'onhashchange', 'onkeydown', 'onkeyup', 'onclick', 'onscroll', 'onfocus', 'onblur', 'opener', 'self', 'top', 'parent', 'defaultStatus', 'require', 'process', 'global']);
 
 rule('implicit-global', {
-  t: 'S', s: 'CR', debt: 5, sonar: 'S2703', tags: ['pitfall'],
+  t: 'S', s: 'CR', debt: 5, ref: 'S2703', tags: ['pitfall'],
   name: ['Variables should be declared explicitly', '변수는 명시적으로 선언해야 합니다'],
   why: ['Assigning to an undeclared name creates a global in sloppy mode and throws a ReferenceError in strict mode and modules.', '선언하지 않은 이름에 대입하면 느슨한 모드에서는 전역이 생기고 strict 모드와 모듈에서는 ReferenceError가 납니다.'],
   fix: ['Declare the variable with let / const.', 'let / const로 변수를 선언하세요.'],
@@ -1236,7 +1236,7 @@ rule('implicit-global', {
 });
 
 rule('use-before-declare', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1526', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1526', tags: ['pitfall'],
   name: ['Variables declared with "var" should be declared before they are used', '"var" 변수는 쓰기 전에 선언해야 합니다'],
   why: ['"var" declarations are hoisted, so earlier reads see undefined instead of failing, which hides ordering bugs.', '"var" 선언은 끌어올려져 앞선 읽기가 실패하지 않고 undefined를 보게 되어 순서 버그를 숨깁니다.'],
   fix: ['Move the declaration before the first use, or use let / const.', '선언을 처음 사용하는 곳 앞으로 옮기거나 let / const를 쓰세요.'],
@@ -1253,7 +1253,7 @@ rule('use-before-declare', {
 });
 
 rule('nested-template', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S4624', tags: ['confusing'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S4624', tags: ['confusing'],
   name: ['Template literals should not be nested', '템플릿 리터럴을 중첩하면 안 됩니다'],
   why: ['A template literal inside another one is hard to read.', '템플릿 리터럴 안의 템플릿 리터럴은 읽기 어렵습니다.'],
   fix: ['Extract the inner template into a variable.', '안쪽 템플릿을 변수로 빼세요.'],
@@ -1272,7 +1272,7 @@ rule('nested-template', {
 });
 
 rule('promise-resolve-shorthand', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S4634', tags: ['promise'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S4634', tags: ['promise'],
   name: ['Shorthand promises should be used', '단축 Promise를 써야 합니다'],
   why: ['new Promise(resolve => resolve(x)) is a long way to write Promise.resolve(x).', 'new Promise(resolve => resolve(x))는 Promise.resolve(x)를 길게 쓴 것입니다.'],
   fix: ['Use Promise.resolve(x) / Promise.reject(err).', 'Promise.resolve(x) / Promise.reject(err)를 쓰세요.'],
@@ -1294,7 +1294,7 @@ rule('promise-resolve-shorthand', {
 });
 
 rule('prefer-for-of', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S4138', tags: ['es2015'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S4138', tags: ['es2015'],
   name: ['"for of" should be used with iterables', '반복 가능한 값에는 "for of"를 써야 합니다'],
   why: ['An index loop whose index is only used to read the element is better written as for...of.', '인덱스를 요소를 읽는 데만 쓰는 인덱스 반복은 for...of가 더 낫습니다.'],
   fix: ['Use for (const item of array).', 'for (const item of array)를 쓰세요.'],
@@ -1331,7 +1331,7 @@ rule('prefer-for-of', {
 });
 
 rule('this-alias', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S4327', tags: ['es2015'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S4327', tags: ['es2015'],
   name: ['"this" should not be assigned to variables', '"this"를 변수에 대입하면 안 됩니다'],
   why: ['Aliasing "this" (self = this) is a workaround that arrow functions make unnecessary.', '"this"를 별칭으로 두는 것(self = this)은 화살표 함수로 필요 없어진 우회책입니다.'],
   fix: ['Use arrow functions, which keep "this".', '"this"를 유지하는 화살표 함수를 쓰세요.'],
@@ -1344,7 +1344,7 @@ rule('this-alias', {
 const BUILTINS = new Set(['Object', 'Array', 'String', 'Number', 'Boolean', 'Symbol', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Promise', 'JSON', 'Math', 'Date', 'RegExp', 'Error', 'Function', 'Proxy', 'Reflect', 'BigInt', 'Intl']);
 
 rule('builtin-shadow', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2424', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2424', tags: ['pitfall'],
   name: ['Built-in objects should not be shadowed', '내장 객체를 가리면 안 됩니다'],
   why: ['A local variable named like a built-in (Object, Map, JSON...) hides the real one in that scope.', '내장 객체 이름(Object, Map, JSON...)의 지역 변수는 그 범위에서 진짜를 가립니다.'],
   fix: ['Rename the local variable.', '지역 변수의 이름을 바꾸세요.'],
@@ -1360,7 +1360,7 @@ rule('builtin-shadow', {
 });
 
 rule('arguments-usage', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S3513', tags: ['es2015'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S3513', tags: ['es2015'],
   name: ['"arguments" should not be accessed directly', '"arguments"에 직접 접근하면 안 됩니다'],
   why: ['"arguments" is array-like but not an array and hides the function\'s real signature.', '"arguments"는 배열 같지만 배열이 아니며 함수의 실제 시그니처를 숨깁니다.'],
   fix: ['Use rest parameters (...args).', '나머지 매개변수(...args)를 쓰세요.'],
@@ -1376,7 +1376,7 @@ rule('arguments-usage', {
 });
 
 rule('generator-without-yield', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S3531', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S3531', tags: ['suspicious'],
   name: ['Generators should "yield" something', '제너레이터는 무언가를 "yield"해야 합니다'],
   why: ['A generator that never yields produces an empty sequence; it is usually a forgotten yield or an unnecessary *.', 'yield하지 않는 제너레이터는 빈 시퀀스를 만듭니다. 보통 yield를 빠뜨렸거나 *가 불필요합니다.'],
   fix: ['Add the yield, or make it a normal function.', 'yield를 넣거나 일반 함수로 만드세요.'],
@@ -1388,7 +1388,7 @@ rule('generator-without-yield', {
 });
 
 rule('array-named-props', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S3579', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S3579', tags: ['suspicious'],
   name: ['Array indexes should be numeric', '배열 인덱스는 숫자여야 합니다'],
   why: ['Named properties on an array are ignored by length, iteration and JSON serialization.', '배열의 이름 붙은 속성은 length, 반복, JSON 직렬화에서 무시됩니다.'],
   fix: ['Use an object or a Map for named keys.', '이름 키에는 객체나 Map을 쓰세요.'],
@@ -1411,7 +1411,7 @@ rule('array-named-props', {
 });
 
 rule('arguments-callee', {
-  t: 'S', s: 'CR', debt: 15, sonar: 'S2685', tags: ['obsolete'],
+  t: 'S', s: 'CR', debt: 15, ref: 'S2685', tags: ['obsolete'],
   name: ['"arguments.caller" and "arguments.callee" should not be used', '"arguments.caller"와 "arguments.callee"를 쓰면 안 됩니다'],
   why: ['They are forbidden in strict mode, prevent optimizations and are deprecated.', '이들은 strict 모드에서 금지되고 최적화를 막으며 폐기 예정입니다.'],
   fix: ['Name the function and refer to it by name.', '함수에 이름을 붙이고 그 이름으로 가리키세요.'],
@@ -1423,7 +1423,7 @@ rule('arguments-callee', {
 });
 
 rule('octal-literal', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1314', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1314', tags: ['pitfall'],
   name: ['Octal values should not be used', '8진수 값을 쓰면 안 됩니다'],
   why: ['A leading zero makes 010 equal 8, which surprises most readers and is forbidden in strict mode.', '앞의 0 때문에 010이 8이 되어 대부분을 놀라게 하며 strict 모드에서는 금지됩니다.'],
   fix: ['Use the 0o prefix for octal or remove the leading zero.', '8진수는 0o 접두사를 쓰거나 앞의 0을 지우세요.'],
@@ -1432,7 +1432,7 @@ rule('octal-literal', {
 });
 
 rule('octal-escape', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6657', tags: ['obsolete'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6657', tags: ['obsolete'],
   name: ['Octal escape sequences should not be used', '8진수 이스케이프를 쓰면 안 됩니다'],
   why: ['Octal escapes such as "\\251" are deprecated and forbidden in strict mode and templates.', '"\\251" 같은 8진수 이스케이프는 폐기 예정이며 strict 모드와 템플릿에서 금지됩니다.'],
   fix: ['Use \\x or \\u escapes.', '\\x나 \\u 이스케이프를 쓰세요.'],
@@ -1441,7 +1441,7 @@ rule('octal-escape', {
 });
 
 rule('primitive-wrapper', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1533', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1533', tags: ['pitfall'],
   name: ['Wrapper objects should not be used for primitive types', '원시 타입에 래퍼 객체를 쓰면 안 됩니다'],
   why: ['new Boolean(false) is truthy and new String("a") !== "a"; wrapper objects behave unlike primitives.', 'new Boolean(false)는 참이고 new String("a") !== "a"입니다. 래퍼 객체는 원시 값과 다르게 동작합니다.'],
   fix: ['Use the literal or call the function without "new" for conversion.', '리터럴을 쓰거나 변환할 때는 "new" 없이 함수를 호출하세요.'],
@@ -1453,7 +1453,7 @@ rule('primitive-wrapper', {
 });
 
 rule('array-constructor', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1528', tags: ['convention'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1528', tags: ['convention'],
   name: ['Array constructors should not be used', '배열 생성자를 쓰면 안 됩니다'],
   why: ['Array(a, b) creates [a, b] but Array(3) creates three holes; the literal syntax is unambiguous.', 'Array(a, b)는 [a, b]를 만들지만 Array(3)은 빈 칸 셋을 만듭니다. 리터럴 문법은 모호하지 않습니다.'],
   fix: ['Use an array literal [a, b].', '배열 리터럴 [a, b]를 쓰세요.'],
@@ -1472,7 +1472,7 @@ rule('array-constructor', {
 });
 
 rule('default-param-last', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1788', tags: ['convention'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1788', tags: ['convention'],
   name: ['Function parameters with default values should be last', '기본값이 있는 매개변수는 마지막에 와야 합니다'],
   why: ['A default before a required parameter can only be used by passing undefined explicitly.', '필수 매개변수 앞의 기본값은 undefined를 명시적으로 넘겨야만 쓸 수 있습니다.'],
   fix: ['Move the parameters with defaults to the end.', '기본값이 있는 매개변수를 끝으로 옮기세요.'],
@@ -1487,7 +1487,7 @@ rule('default-param-last', {
 });
 
 rule('nested-switch', {
-  t: 'S', s: 'CR', debt: 10, sonar: 'S1821', tags: ['brain-overload'],
+  t: 'S', s: 'CR', debt: 10, ref: 'S1821', tags: ['brain-overload'],
   name: ['"switch" statements should not be nested', '"switch" 문을 중첩하면 안 됩니다'],
   why: ['A switch inside a switch case is hard to follow.', 'switch case 안의 switch는 따라가기 어렵습니다.'],
   fix: ['Extract the inner switch into a function.', '안쪽 switch를 함수로 빼세요.'],
@@ -1502,7 +1502,7 @@ rule('nested-switch', {
 });
 
 rule('label-non-loop', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1439', tags: ['confusing'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1439', tags: ['confusing'],
   name: ['Only loops and switch statements should be labelled', '반복문과 switch 문에만 레이블을 붙여야 합니다'],
   why: ['Labels on other statements are rarely understood and usually unnecessary.', '다른 문장의 레이블은 거의 이해되지 않고 보통 필요 없습니다.'],
   fix: ['Remove the label or restructure the code.', '레이블을 지우거나 코드 구조를 바꾸세요.'],
@@ -1513,7 +1513,7 @@ rule('label-non-loop', {
 });
 
 rule('void-use', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S3735', tags: ['confusing'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S3735', tags: ['confusing'],
   name: ['"void" should not be used', '"void"를 쓰면 안 됩니다'],
   why: ['"void expr" evaluates and discards a value, which is obscure except for promises and void 0.', '"void expr"는 값을 계산하고 버리는데 Promise와 void 0 외에는 이해하기 어렵습니다.'],
   fix: ['Remove the void operator.', 'void 연산자를 지우세요.'],
@@ -1528,7 +1528,7 @@ rule('void-use', {
 });
 
 rule('object-shorthand', {
-  t: 'S', s: 'MI', debt: 1, sonar: 'S3498', tags: ['es2015'],
+  t: 'S', s: 'MI', debt: 1, ref: 'S3498', tags: ['es2015'],
   name: ['Object literal shorthand syntax should be used', '객체 리터럴 단축 문법을 써야 합니다'],
   why: ['{ a: a } and { f: function () {} } are longer than { a } and { f() {} }.', '{ a: a }와 { f: function () {} }는 { a }와 { f() {} }보다 깁니다.'],
   fix: ['Use the shorthand property or method syntax.', '단축 속성이나 메서드 문법을 쓰세요.'],
@@ -1542,7 +1542,7 @@ rule('object-shorthand', {
 });
 
 rule('prefer-spread', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6666', tags: ['es2015'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6666', tags: ['es2015'],
   name: ['Spread syntax should be used instead of ".apply()"', '".apply()" 대신 전개 문법을 써야 합니다'],
   why: ['fn.apply(null, args) is harder to read than fn(...args).', 'fn.apply(null, args)는 fn(...args)보다 읽기 어렵습니다.'],
   fix: ['Use fn(...args).', 'fn(...args)를 쓰세요.'],
@@ -1560,7 +1560,7 @@ rule('prefer-spread', {
 });
 
 rule('starts-with', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6557', tags: ['es2015'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6557', tags: ['es2015'],
   name: ['"startsWith()" and "endsWith()" should be preferred to index checks', '인덱스 검사보다 "startsWith()"와 "endsWith()"를 써야 합니다'],
   why: ['s.indexOf(x) === 0 scans the whole string and states the intent less clearly than s.startsWith(x).', 's.indexOf(x) === 0은 문자열 전체를 훑고 의도도 s.startsWith(x)보다 덜 명확합니다.'],
   fix: ['Use startsWith() / endsWith().', 'startsWith() / endsWith()를 쓰세요.'],
@@ -1583,7 +1583,7 @@ rule('starts-with', {
 });
 
 rule('string-literal-duplicate', {
-  t: 'S', s: 'CR', debt: 2, sonar: 'S1192', tags: ['design'],
+  t: 'S', s: 'CR', debt: 2, ref: 'S1192', tags: ['design'],
   name: ['String literals should not be duplicated', '문자열 리터럴을 중복하면 안 됩니다'],
   why: ['The same literal repeated in many places must be updated everywhere when it changes.', '여러 곳에 반복된 같은 리터럴은 바뀔 때 모든 곳을 고쳐야 합니다.'],
   fix: ['Define a constant and use it.', '상수를 정의해서 쓰세요.'],
@@ -1613,7 +1613,7 @@ rule('string-literal-duplicate', {
 });
 
 rule('for-to-while', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1264', tags: ['clumsy'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1264', tags: ['clumsy'],
   name: ['A "while" loop should be used instead of a "for" loop', '"for" 반복 대신 "while" 반복을 써야 합니다'],
   why: ['A for loop with only a condition is a while loop in disguise.', '조건만 있는 for 반복은 while 반복을 감춘 것입니다.'],
   fix: ['Use while (condition).', 'while (condition)을 쓰세요.'],
@@ -1622,7 +1622,7 @@ rule('for-to-while', {
 });
 
 rule('loop-counter-assign', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S2310', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S2310', tags: ['pitfall'],
   name: ['Loop counters should not be assigned within the loop body', '반복 카운터를 반복 본문 안에서 대입하면 안 됩니다'],
   why: ['Changing the counter inside the body makes the number of iterations hard to predict.', '본문 안에서 카운터를 바꾸면 반복 횟수를 예측하기 어렵습니다.'],
   fix: ['Use a separate variable, or a while loop.', '별도 변수나 while 반복을 쓰세요.'],
@@ -1646,7 +1646,7 @@ rule('loop-counter-assign', {
 });
 
 rule('conditional-same-line', {
-  t: 'S', s: 'MA', debt: 2, sonar: 'S3972', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 2, ref: 'S3972', tags: ['suspicious'],
   name: ['Conditionals should start on new lines', '조건문은 새 줄에서 시작해야 합니다'],
   why: ['"} if (" on one line looks like an "else if" but is a separate, unconditional if.', '한 줄의 "} if ("는 "else if"처럼 보이지만 별개의 조건 없는 if입니다.'],
   fix: ['Put the if on its own line, or add the missing "else".', 'if를 새 줄에 두거나 빠진 "else"를 넣으세요.'],
@@ -1663,7 +1663,7 @@ rule('conditional-same-line', {
 });
 
 rule('multiline-string', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S1516', tags: ['pitfall'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S1516', tags: ['pitfall'],
   name: ['Multiline string literals should not be used', '여러 줄 문자열 리터럴을 쓰면 안 됩니다'],
   why: ['A backslash at the end of a line continues the string, but trailing spaces after it silently break the code.', '줄 끝의 역슬래시는 문자열을 잇지만 그 뒤의 공백이 조용히 코드를 깨뜨립니다.'],
   fix: ['Use a template literal or string concatenation.', '템플릿 리터럴이나 문자열 연결을 쓰세요.'],
@@ -1674,7 +1674,7 @@ rule('multiline-string', {
 const FUTURE_RESERVED = new Set(['implements', 'interface', 'package', 'private', 'protected', 'public', 'static', 'await', 'yield', 'let']);
 
 rule('future-reserved-word', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1527', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1527', tags: ['pitfall'],
   name: ['Future reserved words should not be used as identifiers', '예약어 후보를 식별자로 쓰면 안 됩니다'],
   why: ['These words are reserved in strict mode and modules, so the code breaks there.', '이 단어들은 strict 모드와 모듈에서 예약어라 그곳에서 코드가 깨집니다.'],
   fix: ['Rename the identifier.', '식별자 이름을 바꾸세요.'],
@@ -1690,7 +1690,7 @@ rule('future-reserved-word', {
 });
 
 rule('extra-boolean-cast', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6509', tags: ['redundant'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6509', tags: ['redundant'],
   name: ['Extra boolean casts should be removed', '불필요한 불리언 변환은 지워야 합니다'],
   why: ['A condition already converts its value to a boolean, so !!x or Boolean(x) is noise there.', '조건은 이미 값을 불리언으로 바꾸므로 거기서 !!x나 Boolean(x)는 잡음입니다.'],
   fix: ['Remove the cast.', '변환을 지우세요.'],
@@ -1710,7 +1710,7 @@ rule('extra-boolean-cast', {
 });
 
 rule('undefined-assignment', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S2138', tags: ['pitfall'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S2138', tags: ['pitfall'],
   name: ['"undefined" should not be assigned', '"undefined"를 대입하면 안 됩니다'],
   why: ['undefined means "never set"; assigning it explicitly blurs that meaning. Use null for an intentional empty value.', 'undefined는 "설정한 적 없음"을 뜻합니다. 명시적으로 대입하면 의미가 흐려지니 의도한 빈 값은 null을 쓰세요.'],
   fix: ['Assign null instead, or leave the variable uninitialized.', '대신 null을 대입하거나 초기화하지 마세요.'],
@@ -1720,7 +1720,7 @@ rule('undefined-assignment', {
 });
 
 rule('invariant-return', {
-  t: 'S', s: 'BL', debt: 2, sonar: 'S3516', tags: ['design'],
+  t: 'S', s: 'BL', debt: 2, ref: 'S3516', tags: ['design'],
   name: ['Function returns should not be invariant', '함수 반환값이 항상 같으면 안 됩니다'],
   why: ['Every return statement gives the same value, so the logic choosing between them is pointless or broken.', '모든 return이 같은 값을 돌려주어 그 사이를 고르는 로직이 무의미하거나 잘못되었습니다.'],
   fix: ['Return the value that each path is meant to produce, or simplify the function.', '경로마다 의도한 값을 돌려주거나 함수를 간단히 하세요.'],
@@ -1739,7 +1739,7 @@ rule('invariant-return', {
 });
 
 rule('setter-without-getter', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S2376', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S2376', tags: ['pitfall'],
   name: ['Property setters should have matching getters', '속성 setter에는 짝이 되는 getter가 있어야 합니다'],
   why: ['A write-only property returns undefined when read, which surprises users.', '쓰기 전용 속성은 읽으면 undefined를 돌려줘 사용자를 놀라게 합니다.'],
   fix: ['Add the getter, or use a method instead of a setter.', 'getter를 추가하거나 setter 대신 메서드를 쓰세요.'],
@@ -1760,7 +1760,7 @@ rule('setter-without-getter', {
 });
 
 rule('exception-reassign', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1226', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1226', tags: ['pitfall'],
   name: ['Caught exceptions should not be reassigned', '잡은 예외에 다시 대입하면 안 됩니다'],
   why: ['Overwriting the catch parameter loses the original error.', 'catch 매개변수를 덮어쓰면 원래 오류가 사라집니다.'],
   fix: ['Use a new variable.', '새 변수를 쓰세요.'],
@@ -1772,7 +1772,7 @@ rule('exception-reassign', {
 });
 
 rule('param-reassign', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S1226', tags: ['pitfall'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S1226', tags: ['pitfall'],
   name: ['Function parameters should not be overwritten before being read', '함수 매개변수를 읽기 전에 덮어쓰면 안 됩니다'],
   why: ['Overwriting a parameter before reading it ignores the value the caller passed.', '매개변수를 읽기 전에 덮어쓰면 호출하는 쪽이 넘긴 값을 무시합니다.'],
   fix: ['Use a local variable, or read the parameter first.', '지역 변수를 쓰거나 매개변수를 먼저 읽으세요.'],
@@ -1811,7 +1811,7 @@ rule('useless-concat', {
 });
 
 rule('parseint-radix', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S2427', tags: ['pitfall'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S2427', tags: ['pitfall'],
   name: ['The radix parameter of "parseInt" should be specified', '"parseInt"의 기수 인자를 지정해야 합니다'],
   why: ['Without a radix, strings like "0x1f" are parsed as hexadecimal and the intent is unclear.', '기수가 없으면 "0x1f" 같은 문자열이 16진수로 해석되고 의도가 불분명합니다.'],
   fix: ['Pass the radix, usually 10.', '기수를 넘기세요. 보통 10입니다.'],
@@ -1847,7 +1847,7 @@ const DEPRECATED_MODULES = new Set(['domain', 'punycode', 'sys', 'constants', '_
 const DEPRECATED_METHODS = { substr: 'substring() or slice()', __defineGetter__: 'Object.defineProperty()', __defineSetter__: 'Object.defineProperty()', __lookupGetter__: 'Object.getOwnPropertyDescriptor()', __lookupSetter__: 'Object.getOwnPropertyDescriptor()', getYear: 'getFullYear()', setYear: 'setFullYear()', toGMTString: 'toUTCString()' };
 
 rule('deprecated-api', {
-  t: 'S', s: 'MI', debt: 15, sonar: 'S1874', tags: ['obsolete'],
+  t: 'S', s: 'MI', debt: 15, ref: 'S1874', tags: ['obsolete'],
   name: ['Deprecated APIs should not be used', '폐기 예정 API를 쓰면 안 됩니다'],
   why: ['Deprecated APIs may be removed or behave insecurely; their replacements are better maintained.', '폐기 예정 API는 없어지거나 안전하지 않게 동작할 수 있으며 대체 API가 더 잘 관리됩니다.'],
   fix: ['Switch to the documented replacement.', '문서에 나온 대체 API로 바꾸세요.'],
@@ -1900,7 +1900,7 @@ rule('deprecated-api', {
 });
 
 rule('has-own-property', {
-  t: 'S', s: 'MI', debt: 2, sonar: 'S6653', tags: ['es2022'],
+  t: 'S', s: 'MI', debt: 2, ref: 'S6653', tags: ['es2022'],
   name: ['"Object.hasOwn()" should be used instead of "hasOwnProperty"', '"hasOwnProperty" 대신 "Object.hasOwn()"을 써야 합니다'],
   why: ['obj.hasOwnProperty() breaks for objects without a prototype or that override the method; Object.hasOwn is safe and shorter.', 'obj.hasOwnProperty()는 프로토타입이 없거나 메서드를 덮어쓴 객체에서 깨집니다. Object.hasOwn이 안전하고 짧습니다.'],
   fix: ['Use Object.hasOwn(obj, key).', 'Object.hasOwn(obj, key)를 쓰세요.'],
@@ -1938,7 +1938,7 @@ rule('async-without-await', {
 const NATIVE = new Set(['Object', 'Array', 'String', 'Number', 'Boolean', 'Function', 'Date', 'RegExp', 'Error', 'Promise', 'Map', 'Set', 'Symbol', 'Element', 'HTMLElement', 'Node', 'Event', 'EventTarget', 'NodeList']);
 
 rule('extend-native', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S2424', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S2424', tags: ['pitfall'],
   name: ['Built-in prototypes should not be extended', '내장 프로토타입을 확장하면 안 됩니다'],
   why: ['Adding properties to Array.prototype or Object.prototype affects every script and can collide with future standards.', 'Array.prototype이나 Object.prototype에 속성을 더하면 모든 코드에 영향을 주고 미래 표준과 충돌할 수 있습니다.'],
   fix: ['Use a helper function or a subclass.', '도우미 함수나 하위 클래스를 쓰세요.'],
@@ -1958,7 +1958,7 @@ rule('extend-native', {
 });
 
 rule('function-in-block', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1530', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1530', tags: ['pitfall'],
   name: ['Function declarations should not be made within blocks', '블록 안에서 함수를 선언하면 안 됩니다'],
   why: ['Function declarations inside if / loop blocks behave differently between strict and sloppy mode and between engines.', 'if나 반복 블록 안의 함수 선언은 strict와 느슨한 모드, 엔진마다 다르게 동작합니다.'],
   fix: ['Use a function expression assigned to a let / const, or move it out of the block.', 'let / const에 대입한 함수 식을 쓰거나 블록 밖으로 옮기세요.'],
@@ -1970,7 +1970,7 @@ rule('function-in-block', {
 });
 
 rule('comma-operator', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S878', tags: ['confusing'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S878', tags: ['confusing'],
   name: ['Comma operator should not be used', '쉼표 연산자를 쓰면 안 됩니다'],
   why: ['The comma operator evaluates several expressions and keeps only the last; it is easily mistaken for an argument list.', '쉼표 연산자는 여러 식을 계산하고 마지막 값만 남기며 인자 목록으로 오해하기 쉽습니다.'],
   fix: ['Split it into separate statements.', '별도 문장으로 나누세요.'],
@@ -1984,7 +1984,7 @@ rule('comma-operator', {
 });
 
 rule('default-case-last', {
-  t: 'S', s: 'MI', debt: 5, sonar: 'S4524', tags: ['convention'],
+  t: 'S', s: 'MI', debt: 5, ref: 'S4524', tags: ['convention'],
   name: ['"default" clauses should be last', '"default" 절은 마지막에 와야 합니다'],
   why: ['Readers expect the default case at the end; putting it elsewhere hides the fall-through logic.', '읽는 사람은 default가 끝에 있을 것으로 기대합니다. 다른 곳에 두면 흐름이 가려집니다.'],
   fix: ['Move the default clause to the end.', 'default 절을 끝으로 옮기세요.'],
@@ -1996,7 +1996,7 @@ rule('default-case-last', {
 });
 
 rule('bitwise-in-boolean', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1529', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1529', tags: ['suspicious'],
   name: ['Bitwise operators should not be used in boolean contexts', '불리언 문맥에서 비트 연산자를 쓰면 안 됩니다'],
   why: ['"&" and "|" between comparisons evaluate both sides and are usually a typo for "&&" / "||".', '비교 사이의 "&"와 "|"는 양쪽을 다 계산하며 보통 "&&" / "||"의 오타입니다.'],
   fix: ['Use && or ||.', '&&나 ||를 쓰세요.'],
@@ -2010,7 +2010,7 @@ rule('bitwise-in-boolean', {
 });
 
 rule('loop-func', {
-  t: 'S', s: 'MA', debt: 10, sonar: 'S1515', tags: ['pitfall'],
+  t: 'S', s: 'MA', debt: 10, ref: 'S1515', tags: ['pitfall'],
   name: ['Functions should not be defined inside loops when they capture the loop variable', '반복 변수를 붙잡는 함수를 반복 안에서 정의하면 안 됩니다'],
   why: ['A closure created in a loop that reads a "var" loop variable sees its final value, not the value of its own iteration.', '반복 안에서 만든 클로저가 "var" 반복 변수를 읽으면 자기 반복의 값이 아니라 최종 값을 봅니다.'],
   fix: ['Declare the loop variable with let, or pass the value as a parameter.', '반복 변수를 let으로 선언하거나 값을 매개변수로 넘기세요.'],
@@ -2041,7 +2041,7 @@ rule('loop-func', {
 });
 
 rule('misleading-indentation', {
-  t: 'S', s: 'CR', debt: 5, sonar: 'S3973', tags: ['suspicious'],
+  t: 'S', s: 'CR', debt: 5, ref: 'S3973', tags: ['suspicious'],
   name: ['A conditionally executed single line should be denoted by indentation', '조건부로 실행되는 한 줄은 들여쓰기로 표시해야 합니다'],
   why: ['The body of the if / loop is on the next line but not indented, so it looks unconditional.', 'if나 반복의 본문이 다음 줄에 있지만 들여쓰지 않아 조건 없이 실행되는 것처럼 보입니다.'],
   fix: ['Indent the body, or add braces.', '본문을 들여쓰거나 중괄호를 넣으세요.'],
@@ -2065,7 +2065,7 @@ rule('misleading-indentation', {
 });
 
 rule('throw-literal', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S3696', tags: ['error-handling'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S3696', tags: ['error-handling'],
   name: ['Literals should not be thrown', '리터럴을 던지면 안 됩니다'],
   why: ['A thrown string or number has no stack trace and breaks "instanceof Error" checks.', '던진 문자열이나 숫자에는 스택 추적이 없고 "instanceof Error" 검사가 깨집니다.'],
   fix: ['Throw an Error object: throw new Error("...").', 'Error 객체를 던지세요: throw new Error("...")'],
@@ -2078,7 +2078,7 @@ rule('throw-literal', {
 });
 
 rule('promise-reject-non-error', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S6671', tags: ['promise', 'error-handling'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S6671', tags: ['promise', 'error-handling'],
   name: ['Promise rejections should use Error objects', 'Promise 거부에는 Error 객체를 써야 합니다'],
   why: ['Rejecting with a string or plain object loses the stack trace and confuses error handlers.', '문자열이나 일반 객체로 거부하면 스택 추적이 사라지고 오류 처리기가 헷갈립니다.'],
   fix: ['Reject with new Error("...").', 'new Error("...")로 거부하세요.'],
@@ -2100,7 +2100,7 @@ rule('promise-reject-non-error', {
 });
 
 rule('nested-assignment', {
-  t: 'S', s: 'MA', debt: 5, sonar: 'S1121', tags: ['suspicious'],
+  t: 'S', s: 'MA', debt: 5, ref: 'S1121', tags: ['suspicious'],
   name: ['Assignments should not be made from within sub-expressions', '하위 식 안에서 대입하면 안 됩니다'],
   why: ['An assignment buried in a larger expression is easy to overlook and to confuse with a comparison.', '큰 식에 묻힌 대입은 놓치기 쉽고 비교로 오해하기 쉽습니다.'],
   fix: ['Move the assignment into its own statement.', '대입을 별도 문장으로 빼세요.'],

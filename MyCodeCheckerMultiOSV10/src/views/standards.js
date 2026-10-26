@@ -1,10 +1,12 @@
 // Coding-standard helpers shared by the issue browser, the rules view and
 // the compliance pages.
 
+import { t } from '../lib/i18n';
+
 const arr = (v) => (v == null || v === false ? [] : Array.isArray(v) ? v : [v]);
 
 export const ISSUE_STANDARDS = [
-  { value: 'mois', label: '행정안전부 49', icon: 'shield' },
+  { value: 'mois', get label() { return t('std_mois49'); }, icon: 'shield' },
   { value: 'misraC', label: 'MISRA C', icon: 'shield' },
   { value: 'misraCpp', label: 'MISRA C++', icon: 'shield' },
   { value: 'cert', label: 'CERT', icon: 'shield' },
@@ -56,7 +58,7 @@ export function standardChips(std) {
   if (std.cweTop25 === true) chips.push({ kind: 'cwe', text: 'CWE Top 25' });
   add('owasp', 'OWASP 2021', std.owasp2021);
   add('owasp', 'OWASP 2017', std.owasp2017);
-  add('mois', '행안부', std.mois2021);
+  add('mois', t('std_mois_short'), std.mois2021);
   return chips;
 }
 
@@ -64,4 +66,4 @@ export function engineOf(x) {
   return (x && (x.engine || x.externalEngine)) || 'core';
 }
 
-export const ENGINE_ICON = { core: 'search', sca: 'package', taint: 'flow', misra: 'shield', 'misra-c': 'shield', 'misra-cpp': 'shield', cert: 'shield', cfamily: 'code', dast: 'globe', coverity: 'alert' };
+export const ENGINE_ICON = { core: 'search', sca: 'package', taint: 'flow', misra: 'shield', 'misra-c': 'shield', 'misra-cpp': 'shield', cert: 'shield', cfamily: 'code', dast: 'globe', defectAnalysis: 'alert' };

@@ -1,8 +1,8 @@
 # Taint engine (`core/taint`)
 
-Security taint analysis for MyCodeChecker, modelled on SonarQube's security
+Security taint analysis for MyCodeChecker, modelled on the reference security
 engine (source → sink injection tracking across functions and files) and the
-Sparrow / Coverity security checkers. It follows `core/ENGINE_CONTRACT.md`
+security-weakness / defect-analysis security checkers. It follows `core/ENGINE_CONTRACT.md`
 and is loaded by `core/engines.js`. CommonJS, Node built-ins only.
 
 Languages: JavaScript, TypeScript, Python, Java, Kotlin, C#, PHP, Go, Ruby.

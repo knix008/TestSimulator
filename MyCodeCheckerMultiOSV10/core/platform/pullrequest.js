@@ -8,18 +8,18 @@
 
 const crypto = require('crypto');
 const { rate } = require('../ratings');
-const { SONAR_WAY, evaluateGate, metricLabel } = require('../qualitygate');
+const { DEFAULT_GATE, evaluateGate, metricLabel } = require('../qualitygate');
 const { isClosed, normPath, text } = require('./util');
 const { newCodeCoverage } = require('./measures');
 
 /** Default PR gate: the new-code conditions of the default gate. */
-const PR_GATE = { id: 'pr-way', name: 'Pull request', conditions: SONAR_WAY.conditions.filter((c) => c.on === 'new').map((c) => ({ ...c })) };
+const PR_GATE = { id: 'pr-way', name: 'Pull request', conditions: DEFAULT_GATE.conditions.filter((c) => c.on === 'new').map((c) => ({ ...c })) };
 
 function changedFiles(changed) {
   return (changed && changed.files) || changed || {};
 }
 
-/** Whether an issue sits on a changed line (or in a new file). Issues with event lines on changed lines count too (Coverity style). */
+/** Whether an issue sits on a changed line (or in a new file). Issues with event lines on changed lines count too (defect analysis). */
 function onChangedLine(issue, files) {
   const e = files[normPath(issue.file)];
   if (!e || e.status === 'D') return false;

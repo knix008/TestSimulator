@@ -34,7 +34,7 @@ function credValue(e) {
   return true;
 }
 rule({
-  id: 'hardcoded-credentials', type: 'H', sev: 'BL', debt: 30, tags: ['cwe-798', 'cwe-259', 'owasp-a07'], sonar: 'S2068',
+  id: 'hardcoded-credentials', type: 'H', sev: 'BL', debt: 30, tags: ['cwe-798', 'cwe-259', 'owasp-a07'], ref: 'S2068',
   en: ['Credentials should not be hard-coded', 'Passwords and secrets in source code end up in version control and binaries where anyone can read them.', 'Load them from the environment, a secret store or a configuration file outside the repository.'],
   ko: ['자격 증명을 코드에 박아 두면 안 됩니다', '소스 코드의 비밀번호와 비밀 값은 버전 관리와 실행 파일에 남아 누구나 읽을 수 있습니다.', '환경 변수, 비밀 저장소, 저장소 밖 설정 파일에서 읽으세요.'],
   on: {
@@ -86,7 +86,7 @@ func connect() (string, dbConf) {
 });
 
 rule({
-  id: 'hardcoded-ip', type: 'H', sev: 'MI', debt: 30, tags: ['cwe-547'], sonar: 'S1313',
+  id: 'hardcoded-ip', type: 'H', sev: 'MI', debt: 30, tags: ['cwe-547'], ref: 'S1313',
   en: ['IP addresses should not be hard-coded', 'Hard-coded addresses need a rebuild to change and can expose infrastructure details.', 'Read the address from configuration.'],
   ko: ['IP 주소를 코드에 박아 두면 안 됩니다', '직접 적은 주소는 바꾸려면 다시 빌드해야 하고 인프라 정보를 드러낼 수 있습니다.', '주소를 설정에서 읽으세요.'],
   on: {
@@ -121,7 +121,7 @@ func addr() string {
 
 // ── crypto ──
 rule({
-  id: 'weak-hash', type: 'H', sev: 'CR', debt: 30, tags: ['cwe-328', 'cwe-327', 'owasp-a02'], sonar: 'S4790',
+  id: 'weak-hash', type: 'H', sev: 'CR', debt: 30, tags: ['cwe-328', 'cwe-327', 'owasp-a02'], ref: 'S4790',
   en: ['Weak hashing algorithms should not be used for security', 'MD5 and SHA-1 are broken for collision resistance.', 'Use SHA-256 or stronger; for passwords use bcrypt, scrypt or argon2.'],
   ko: ['보안 용도로 약한 해시 알고리즘을 쓰면 안 됩니다', 'MD5와 SHA-1은 충돌 저항성이 깨졌습니다.', 'SHA-256 이상을 쓰고, 비밀번호에는 bcrypt, scrypt, argon2를 쓰세요.'],
   on: {
@@ -147,7 +147,7 @@ func digest(b []byte) [32]byte {
 });
 
 rule({
-  id: 'weak-cipher', type: 'V', sev: 'CR', debt: 30, tags: ['cwe-327', 'owasp-a02'], sonar: 'S5547',
+  id: 'weak-cipher', type: 'V', sev: 'CR', debt: 30, tags: ['cwe-327', 'owasp-a02'], ref: 'S5547',
   en: ['Cipher algorithms should be robust', 'DES, 3DES, RC4 and Blowfish are weak and can be broken.', 'Use AES (GCM) or ChaCha20-Poly1305.'],
   ko: ['암호 알고리즘은 튼튼해야 합니다', 'DES, 3DES, RC4, Blowfish는 약해서 깨질 수 있습니다.', 'AES(GCM)나 ChaCha20-Poly1305를 쓰세요.'],
   on: {
@@ -175,7 +175,7 @@ func enc(key []byte) {
 });
 
 rule({
-  id: 'weak-rsa-key', type: 'V', sev: 'CR', debt: 5, tags: ['cwe-326', 'owasp-a02'], sonar: 'S4426',
+  id: 'weak-rsa-key', type: 'V', sev: 'CR', debt: 5, tags: ['cwe-326', 'owasp-a02'], ref: 'S4426',
   en: ['Cryptographic keys should be robust', 'RSA keys shorter than 2048 bits can be factored.', 'Generate keys of at least 2048 bits.'],
   ko: ['암호 키는 튼튼해야 합니다', '2048비트보다 짧은 RSA 키는 인수분해될 수 있습니다.', '2048비트 이상의 키를 만드세요.'],
   on: {
@@ -208,7 +208,7 @@ func key() (*rsa.PrivateKey, error) {
 });
 
 rule({
-  id: 'insecure-random', type: 'H', sev: 'CR', debt: 10, tags: ['cwe-338', 'cwe-330', 'owasp-a02'], sonar: 'S2245',
+  id: 'insecure-random', type: 'H', sev: 'CR', debt: 10, tags: ['cwe-338', 'cwe-330', 'owasp-a02'], ref: 'S2245',
   en: ['Pseudorandom number generators should not be used for security', 'math/rand is predictable; tokens, keys and nonces built from it can be guessed.', 'Use crypto/rand for anything security-sensitive.'],
   ko: ['보안 용도로 의사 난수 생성기를 쓰면 안 됩니다', 'math/rand는 예측할 수 있어 이것으로 만든 토큰, 키, nonce는 추측될 수 있습니다.', '보안에 민감한 값에는 crypto/rand를 쓰세요.'],
   on: {
@@ -238,7 +238,7 @@ func token() (*big.Int, error) {
 
 // ── TLS ──
 rule({
-  id: 'tls-min-version', type: 'V', sev: 'CR', debt: 5, tags: ['cwe-327', 'owasp-a02'], sonar: 'S4423',
+  id: 'tls-min-version', type: 'V', sev: 'CR', debt: 5, tags: ['cwe-327', 'owasp-a02'], ref: 'S4423',
   en: ['Weak SSL/TLS protocols should not be used', 'SSL 3.0, TLS 1.0 and TLS 1.1 have known weaknesses.', 'Set MinVersion to tls.VersionTLS12 or higher.'],
   ko: ['약한 SSL/TLS 프로토콜을 쓰면 안 됩니다', 'SSL 3.0, TLS 1.0, TLS 1.1에는 알려진 약점이 있습니다.', 'MinVersion을 tls.VersionTLS12 이상으로 정하세요.'],
   on: {
@@ -267,7 +267,7 @@ func conf() *tls.Config {
 });
 
 rule({
-  id: 'tls-skip-verify', type: 'V', sev: 'CR', debt: 5, tags: ['cwe-295', 'owasp-a07'], sonar: 'S4830',
+  id: 'tls-skip-verify', type: 'V', sev: 'CR', debt: 5, tags: ['cwe-295', 'owasp-a07'], ref: 'S4830',
   en: ['Server certificates should be verified during SSL/TLS connections', 'InsecureSkipVerify accepts any certificate and allows man-in-the-middle attacks.', 'Remove InsecureSkipVerify; configure RootCAs for private CAs.'],
   ko: ['SSL/TLS 연결에서 서버 인증서를 검증해야 합니다', 'InsecureSkipVerify는 아무 인증서나 받아들여 중간자 공격을 허용합니다.', 'InsecureSkipVerify를 지우고, 사설 CA라면 RootCAs를 설정하세요.'],
   on: {
@@ -301,7 +301,7 @@ func conf() *tls.Config {
 
 // ── HTTP ──
 rule({
-  id: 'http-server-timeouts', type: 'V', sev: 'MA', debt: 10, tags: ['cwe-400', 'owasp-a05'], sonar: '',
+  id: 'http-server-timeouts', type: 'V', sev: 'MA', debt: 10, tags: ['cwe-400', 'owasp-a05'], ref: '',
   en: ['HTTP servers should set read timeouts', 'A server without ReadHeaderTimeout/ReadTimeout can be exhausted by slow clients (Slowloris).', 'Use an http.Server with ReadHeaderTimeout (and ReadTimeout/WriteTimeout).'],
   ko: ['HTTP 서버는 읽기 시간 제한을 정해야 합니다', 'ReadHeaderTimeout/ReadTimeout이 없는 서버는 느린 클라이언트(Slowloris)에 자원이 고갈될 수 있습니다.', 'ReadHeaderTimeout(과 ReadTimeout/WriteTimeout)을 정한 http.Server를 쓰세요.'],
   on: {
@@ -337,7 +337,7 @@ func serve(h http.Handler) error {
 });
 
 rule({
-  id: 'http-client-timeout', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-400'], sonar: '',
+  id: 'http-client-timeout', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-400'], ref: '',
   en: ['HTTP clients should set a timeout', 'An http.Client without Timeout waits forever on a stalled server.', 'Set Timeout on the client (or use contexts with deadlines).'],
   ko: ['HTTP 클라이언트는 시간 제한을 정해야 합니다', 'Timeout이 없는 http.Client는 멈춘 서버를 영원히 기다립니다.', '클라이언트에 Timeout을 정하세요(또는 기한 있는 컨텍스트를 쓰세요).'],
   on: {
@@ -360,9 +360,9 @@ var client = &http.Client{Timeout: 10 * time.Second}
 `),
 });
 
-function cookieRule(id, sonar, fieldName, en, ko) {
+function cookieRule(id, ref, fieldName, en, ko) {
   rule({
-    id, type: 'H', sev: 'MI', debt: 5, tags: id === 'cookie-secure' ? ['cwe-614', 'cwe-311', 'owasp-a05'] : ['cwe-1004', 'owasp-a05'], sonar,
+    id, type: 'H', sev: 'MI', debt: 5, tags: id === 'cookie-secure' ? ['cwe-614', 'cwe-311', 'owasp-a05'] : ['cwe-1004', 'owasp-a05'], ref,
     en, ko,
     on: {
       CompositeLit(n, cx) {
@@ -395,7 +395,7 @@ cookieRule('cookie-httponly', 'S3330', 'HttpOnly',
   ['"HttpOnly" 플래그 없이 쿠키를 만드는 것은 보안에 민감합니다', 'HttpOnly가 없으면 스크립트가 쿠키를 읽을 수 있어 XSS로 세션을 훔치기 쉬워집니다.', 'HttpOnly: true를 정하세요.']);
 
 rule({
-  id: 'clear-text-url', type: 'H', sev: 'CR', debt: 5, tags: ['cwe-319', 'owasp-a02'], sonar: 'S5332',
+  id: 'clear-text-url', type: 'H', sev: 'CR', debt: 5, tags: ['cwe-319', 'owasp-a02'], ref: 'S5332',
   en: ['Using clear-text protocols is security-sensitive', 'http://, ftp:// and telnet:// transmit data without encryption.', 'Use https:// (or another encrypted protocol).'],
   ko: ['평문 프로토콜을 쓰는 것은 보안에 민감합니다', 'http://, ftp://, telnet://은 데이터를 암호화하지 않고 보냅니다.', 'https://(또는 다른 암호화 프로토콜)를 쓰세요.'],
   on: {
@@ -419,7 +419,7 @@ const local = "http://localhost:8080"
 });
 
 rule({
-  id: 'cors-wildcard', type: 'H', sev: 'MI', debt: 5, tags: ['cwe-346', 'cwe-942', 'owasp-a05'], sonar: 'S5122',
+  id: 'cors-wildcard', type: 'H', sev: 'MI', debt: 5, tags: ['cwe-346', 'cwe-942', 'owasp-a05'], ref: 'S5122',
   en: ['Having a permissive Cross-Origin Resource Sharing policy is security-sensitive', 'Access-Control-Allow-Origin: * lets any web site read the responses.', 'Allow only the origins that need access.'],
   ko: ['허용 범위가 넓은 CORS 정책은 보안에 민감합니다', 'Access-Control-Allow-Origin: *는 아무 웹 사이트나 응답을 읽게 합니다.', '접근이 필요한 출처만 허용하세요.'],
   on: {
@@ -453,7 +453,7 @@ func h(w http.ResponseWriter, r *http.Request) {
 });
 
 rule({
-  id: 'pprof-exposed', type: 'H', sev: 'MI', debt: 5, tags: ['cwe-489', 'cwe-215', 'owasp-a05'], sonar: 'S4507',
+  id: 'pprof-exposed', type: 'H', sev: 'MI', debt: 5, tags: ['cwe-489', 'cwe-215', 'owasp-a05'], ref: 'S4507',
   en: ['Debug endpoints should not be exposed in production', 'Importing net/http/pprof registers profiling handlers on the default mux, which reveal internals and can be abused.', 'Serve pprof on a separate, internal-only listener, or remove the import.'],
   ko: ['운영 환경에 디버그 엔드포인트를 드러내면 안 됩니다', 'net/http/pprof를 가져오면 기본 mux에 프로파일링 핸들러가 등록되어 내부 정보를 드러내고 악용될 수 있습니다.', 'pprof는 내부 전용 별도 리스너에서 제공하거나 import를 지우세요.'],
   file(pf, cx) {
@@ -475,7 +475,7 @@ var mux = http.NewServeMux()
 });
 
 rule({
-  id: 'unsafe-usage', type: 'H', sev: 'MI', debt: 10, tags: ['cwe-242'], sonar: '',
+  id: 'unsafe-usage', type: 'H', sev: 'MI', debt: 10, tags: ['cwe-242'], ref: '',
   en: ['Using the unsafe package is security-sensitive', 'unsafe bypasses the type and memory safety of Go.', 'Avoid unsafe, or isolate and review every use.'],
   ko: ['unsafe 패키지를 쓰는 것은 보안에 민감합니다', 'unsafe는 Go의 타입 안전성과 메모리 안전성을 우회합니다.', 'unsafe를 피하거나 모든 사용을 격리하고 검토하세요.'],
   file(pf, cx) {
@@ -499,7 +499,7 @@ const PERM_ARG = {
   'os.WriteFile': 2, 'io/ioutil.WriteFile': 2, 'os.OpenFile': 2, 'os.Mkdir': 1, 'os.MkdirAll': 1, 'os.Chmod': 1,
 };
 rule({
-  id: 'file-permissions', type: 'H', sev: 'MA', debt: 5, tags: ['cwe-732', 'cwe-266', 'owasp-a01'], sonar: 'S2612',
+  id: 'file-permissions', type: 'H', sev: 'MA', debt: 5, tags: ['cwe-732', 'cwe-266', 'owasp-a01'], ref: 'S2612',
   en: ['File permissions should not grant access to everyone', 'Permissions that let "others" read or write expose the file to every local user.', 'Use 0600/0640 for files and 0700/0750 for directories.'],
   ko: ['파일 권한을 모두에게 주면 안 됩니다', '"기타 사용자"에게 읽기나 쓰기를 허용하면 모든 로컬 사용자에게 파일이 노출됩니다.', '파일은 0600/0640, 디렉터리는 0700/0750을 쓰세요.'],
   on: {
@@ -528,7 +528,7 @@ func save(p string, b []byte) error {
 });
 
 rule({
-  id: 'predictable-temp-file', type: 'H', sev: 'CR', debt: 10, tags: ['cwe-377', 'cwe-379', 'owasp-a01'], sonar: 'S5443',
+  id: 'predictable-temp-file', type: 'H', sev: 'CR', debt: 10, tags: ['cwe-377', 'cwe-379', 'owasp-a01'], ref: 'S5443',
   en: ['Using publicly writable directories is security-sensitive', 'Fixed names under /tmp can be pre-created or linked by other users.', 'Use os.CreateTemp / os.MkdirTemp.'],
   ko: ['누구나 쓸 수 있는 디렉터리를 쓰는 것은 보안에 민감합니다', '/tmp 아래의 고정된 이름은 다른 사용자가 미리 만들거나 링크할 수 있습니다.', 'os.CreateTemp / os.MkdirTemp를 쓰세요.'],
   on: {

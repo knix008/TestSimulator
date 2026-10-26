@@ -102,7 +102,7 @@ function deriveStandards(tags) {
 //   opts: { skip, scope, langs, lang (sample language), ns (re must also match
 //           with strings blanked), code (a second, stricter regex tested on the
 //           blanked line), raw (see raw lines but not comment-only ones),
-//           sonar (the matching SonarQube rule key, e.g. 'S2068') }
+//           ref (the matching code quality rule key, e.g. 'S2068') }
 function maker(prefix, defaultLangs) {
   const rules = [];
   function R(id, type, sev, debtMin, tags, re, en, ko, bad, good, opts = {}) {
@@ -156,7 +156,7 @@ function maker(prefix, defaultLangs) {
       cwe,
       standards,
     };
-    if (opts.sonar) rule.sonar = opts.sonar;
+    if (opts.ref) rule.ref = opts.ref;
     if (skip) rule.skip = skip;
     rules.push(rule);
     EXAMPLES.set(key, { bad: arr(bad), good: arr(good), lang: opts.lang || (langs[0] === '*' ? 'js' : langs[0]) });

@@ -1,6 +1,6 @@
 'use strict';
 
-// Design rules (sonar-dotnet design family): visibility of fields and
+// Design rules (.NET reference analyzer design family): visibility of fields and
 // constructors, IDisposable / ISerializable / IEquatable patterns, operator
 // consistency, overload layout, generics in signatures, type size limits.
 

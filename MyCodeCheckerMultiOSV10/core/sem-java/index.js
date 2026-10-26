@@ -1,6 +1,6 @@
 'use strict';
 
-// Java / Kotlin semantic analyzer (SonarJava / sonar-kotlin scope).
+// Java / Kotlin semantic analyzer (Java reference analyzer / Kotlin reference analyzer scope).
 // Contract: core/ENGINE_CONTRACT.md. Keys 'sem-java:<id>' (Java) and
 // 'sem-java:kt-<id>' (Kotlin).
 //

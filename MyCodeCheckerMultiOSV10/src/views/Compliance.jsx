@@ -7,8 +7,8 @@ import { Icon } from '../components/Chrome';
 import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stat, Rating, ViewHeader, Empty, DateField, NoProject } from './common';
 
 export const SECURITY_STANDARDS = [
-  { value: 'mois2021', label: '행정안전부 SW 보안약점 49 (2021)', icon: 'shield' },
-  { value: 'kisaWeb', label: '주요정보통신기반시설 웹', icon: 'globe' },
+  { value: 'mois2021', get label() { return t('std_mois2021'); }, icon: 'shield' },
+  { value: 'kisaWeb', get label() { return t('std_kisaWeb'); }, icon: 'globe' },
   { value: 'owasp2021', label: 'OWASP Top 10 2021', icon: 'lock' },
   { value: 'owasp2017', label: 'OWASP Top 10 2017', icon: 'lock' },
   { value: 'asvs4:1', label: 'OWASP ASVS 4.0 L1', icon: 'check' },
@@ -35,9 +35,10 @@ function rowsOf(report) {
   return report.categories || report.requirements || report.rules || [];
 }
 
-export function ComplianceView({ project, branch, stamp, onDrill }) {
+export function ComplianceView({ project, branch, stamp, onDrill, pick }) {
   useLanguage();
-  const [standard, setStandard] = useState('owasp2021');
+  const [standard, setStandard] = useState((pick && pick.std) || 'owasp2021');
+  useEffect(() => { if (pick && pick.std) setStandard(pick.std); }, [pick && pick.at]); // eslint-disable-line react-hooks/exhaustive-deps
   const [newOnly, setNewOnly] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(false);
   const [std, level] = standard.split(':');
@@ -49,8 +50,8 @@ export function ComplianceView({ project, branch, stamp, onDrill }) {
   const isCert = std === 'certC' || std === 'certCpp';
   const totals = report && (report.totals || null);
   return (
-    <div className="view">
-      <ViewHeader icon="lock" title={t('nav_compliance')} hint={t('cp_hint')}>
+    <div className={`view ${report ? 'view-list' : ''}`}>
+      <ViewHeader icon="lock" tour="compliance-standard" title={t('nav_compliance')} hint={t('cp_hint')}>
         <IconSelect value={standard} options={SECURITY_STANDARDS} onChange={setStandard} title={t('cp_standard')} width={230} />
         <Toggle checked={newOnly} onChange={setNewOnly} label={t('new_only')} icon="clock" />
         <Toggle checked={hideEmpty} onChange={setHideEmpty} label={t('cp_hide_empty')} icon="filter" />
@@ -74,7 +75,7 @@ export function ComplianceView({ project, branch, stamp, onDrill }) {
             {isCert && <Stat icon="alert" label={t('cp_violated_rules')} value={report.violatedRules} tone={report.violatedRules ? 'bad' : 'ok'} />}
             {isCert && <Stat icon="bug" label={t('cp_issues')} value={report.issues} />}
           </div>
-          <div className="panel tpanel">
+          <div className="panel tpanel list-grow">
             <div className="table-wrap">
               <table>
                 <thead>
@@ -126,9 +127,10 @@ function statusLabel(s) { return t(`ms_st_${String(s || '').replace(/\s+/g, '_')
 
 const EMPTY_DEV = { id: '', rule: '', scope: '', justification: '', approver: '', date: '', expires: '', permit: '' };
 
-export function MisraView({ project, branch, stamp, onDrill }) {
+export function MisraView({ project, branch, stamp, onDrill, pick }) {
   useLanguage();
-  const [standard, setStandard] = useState('misraC2012');
+  const [standard, setStandard] = useState((pick && pick.std) || 'misraC2012');
+  useEffect(() => { if (pick && pick.std) setStandard(pick.std); }, [pick && pick.at]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState('gcs');
   const [catFilter, setCatFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -169,8 +171,8 @@ export function MisraView({ project, branch, stamp, onDrill }) {
   const statusOptions = [{ value: '', label: t('ms_all_statuses'), icon: 'list' }, ...STATUSES.map((s) => ({ value: s, label: statusLabel(s), icon: STATUS_ICON[s] }))];
 
   return (
-    <div className="view">
-      <ViewHeader icon="shield" title={t('nav_misra')} hint={t('ms_hint')}>
+    <div className={`view ${report && tab === 'gcs' ? 'view-list' : ''}`}>
+      <ViewHeader icon="shield" tour="misra-deviations" title={t('nav_misra')} hint={t('ms_hint')}>
         <IconSelect value={standard} options={MISRA_STANDARDS} onChange={setStandard} title={t('cp_standard')} width={190} />
         <span className="spacer" />
         <BtnGroup>
@@ -209,7 +211,7 @@ export function MisraView({ project, branch, stamp, onDrill }) {
                 <IconSelect value={catFilter} options={catOptions} onChange={setCatFilter} title={t('ms_category')} width={170} />
                 <IconSelect value={statusFilter} options={statusOptions} onChange={setStatusFilter} title={t('status')} width={170} />
               </div>
-              <div className="panel tpanel">
+              <div className="panel tpanel list-grow">
                 <div className="table-wrap">
                   <table>
                     <thead><tr>

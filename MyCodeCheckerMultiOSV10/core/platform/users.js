@@ -1,6 +1,6 @@
 'use strict';
 
-// Local users, groups and permissions like SonarQube / Coverity Connect.
+// Local users, groups and permissions like code quality / defect-analysis servers.
 // Everything lives in `ws.security` of the workspace object. Functions mutate
 // that plain object in place and return the changed record; the caller saves
 // the workspace. Passwords use crypto.scrypt, tokens are stored as SHA-256
@@ -428,10 +428,32 @@ function publicSecurity(ws) {
   return { ...sec, users: sec.users.map(publicUser), tokens: listTokens(ws) };
 }
 
+/**
+ * Wraps a security change so it cannot leave the workspace without an active
+ * administrator (removing the last admin from the administrators group,
+ * revoking the admin permission, deleting a group, deactivating via update).
+ * The change is rolled back and an error with code LAST_ADMIN is thrown.
+ */
+function keepAnAdmin(change) {
+  return (ws, ...args) => {
+    const admins = () => ensureSecurity(ws).users.filter((x) => x.active && hasGlobal(ws, x.login, 'admin')).length;
+    const before = admins();
+    const snapshot = JSON.stringify(ws.security);
+    const result = change(ws, ...args);
+    if (before > 0 && admins() === 0) {
+      ws.security = JSON.parse(snapshot);
+      throw Object.assign(new Error('At least one active administrator must remain'), { code: 'LAST_ADMIN' });
+    }
+    return result;
+  };
+}
+
 module.exports = {
   GLOBAL_PERMISSIONS, PROJECT_PERMISSIONS, ANYONE, USERS_GROUP, ADMINS_GROUP, TOKEN_PREFIX,
-  freshSecurity, ensureSecurity, hashPassword, verifyPassword, publicUser, findUser, createUser, updateUser, deactivateUser,
-  setPassword, authenticate, createGroup, deleteGroup, addMember, removeMember, grantGlobal, revokeGlobal, grantProject,
+  freshSecurity, ensureSecurity, hashPassword, verifyPassword, publicUser, findUser, createUser,
+  updateUser: keepAnAdmin(updateUser), deactivateUser, setPassword, authenticate, createGroup,
+  deleteGroup: keepAnAdmin(deleteGroup), addMember, removeMember: keepAnAdmin(removeMember), grantGlobal,
+  revokeGlobal: keepAnAdmin(revokeGlobal), grantProject,
   revokeProject, authorize, effectiveProjectPermissions, permissionsOf, createTemplate, setDefaultTemplate, templateFor,
   applyTemplate, generateToken, verifyToken, authorizeToken, listTokens, revokeToken, setEnabled, publicSecurity,
 };

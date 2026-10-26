@@ -1,7 +1,7 @@
 # Analyzer contract
 
 Every analyzer module under `core/<area>/` follows this shape so `core/analyze.js`
-can run it next to the line rules, metrics and Coverity-style path checks.
+can run it next to the line rules, metrics and defect-analysis path checks.
 
 Rules for all modules:
 
@@ -16,7 +16,7 @@ Rules for all modules:
   importing the CommonJS module via `createRequire`). No skipped tests, no
   warnings printed, test names in English.
 - Do not edit files outside your own area. `analyze.js`, `api.js`, `store.js`,
-  `rules.js`, `coverity.js`, `src/` and `server/` are integrated by the lead.
+  `rules.js`, `defects.js`, `src/` and `server/` are integrated by the lead.
 
 ## Module exports
 
@@ -40,8 +40,8 @@ RuleMeta = {
   tags: string[],                // lower-case, e.g. ['misra-c2012','cwe-476']
   name: { en, ko }, why: { en, ko }, fix: { en, ko },
   // Optional extras
-  category: string,              // Coverity-style category, e.g. 'Memory - corruptions'
-  checker: string,               // Coverity-style checker id, e.g. 'OVERRUN'
+  category: string,              // defect-analysis category, e.g. 'Memory - corruptions'
+  checker: string,               // defect-analysis checker id, e.g. 'OVERRUN'
   cwe: 'CWE-120' | '',
   cert: 'CERT ARR30-C' | '',
   standards: {                   // only keys that apply
@@ -69,5 +69,5 @@ Finding = {
 }
 ```
 
-Suppression comments (`NOSONAR`, `mcc-ignore`, `cov-ignore`, `parasoft-suppress`,
+Suppression comments (`NOMCC`, `mcc-ignore`, `cov-ignore`, `parasoft-suppress`,
 `// MISRA deviation <rule>` …) are handled by the lead, not by analyzers.

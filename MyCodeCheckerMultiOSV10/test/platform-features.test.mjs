@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const require = createRequire(import.meta.url);
+const compat = require('../core/compat/index.js');
 const compliance = require('../core/platform/compliance.js');
 const reports = require('../core/platform/reports.js');
 const scm = require('../core/platform/scm.js');
@@ -194,12 +195,12 @@ test('MISRA compliance: statuses, deviations, permits, GCS/GEP and verdict', () 
 
 test('reports render self-contained bilingual HTML and CSV for every kind', () => {
   const a = realAnalysis();
-  a.coverity.snapshot = 2;
+  a.defectAnalysis.snapshot = 2;
   const catalog = [...listRules(), ...MISRA_CATALOG];
   const sca = { dependencies: [{ name: 'lodash', version: '4.17.20', license: 'MIT' }], vulnerabilities: [{ id: 'CVE-2021-23337', package: 'lodash', severity: 'HIGH' }], licenses: [] };
   const hist = [
-    { at: '2026-01-01T00:00:00Z', measures: { bugs: 3, vulnerabilities: 4, code_smells: 1, ncloc: 100 }, coverity: { snapshot: 1, outstanding: 6, outstandingHigh: 2 } },
-    { at: '2026-02-01T00:00:00Z', measures: { bugs: 1, vulnerabilities: 4, code_smells: 0, ncloc: 100 }, coverity: { snapshot: 2, outstanding: 5, outstandingHigh: 1 } },
+    { at: '2026-01-01T00:00:00Z', measures: { bugs: 3, vulnerabilities: 4, code_smells: 1, ncloc: 100 }, defectAnalysis: { snapshot: 1, outstanding: 6, outstandingHigh: 2 } },
+    { at: '2026-02-01T00:00:00Z', measures: { bugs: 1, vulnerabilities: 4, code_smells: 0, ncloc: 100 }, defectAnalysis: { snapshot: 2, outstanding: 5, outstandingHigh: 1 } },
   ];
   for (const kind of reports.REPORT_KINDS) {
     for (const lang of ['en', 'ko']) {
@@ -234,11 +235,11 @@ test('security, integrity, CWE-weighted and rule-set reports carry the numbers',
   assert.equal(reports.cweWeight(79), 25);
   assert.equal(reports.cweWeight(306), 1);
   assert.equal(reports.cweWeight(99999), 0.5);
-  assert.ok(reports.coveritySecurityCsv(a, catalog).includes('CWE-78'));
+  assert.ok(reports.defectSecurityCsv(a, catalog).includes('CWE-78'));
   const members = reports.ruleSetMembers(MISRA_CATALOG, 'misraC2012');
   assert.equal(members.length, 5);
   assert.equal(reports.ruleSetMembers(MISRA_CATALOG, { rules: ['c:strcpy'] }).length, 1);
-  const sp = reports.sparrowCsv({ issues: [issue({ rule: 'misra-c:10.1' })] }, MISRA_CATALOG, 'misraC2012');
+  const sp = reports.weaknessCsv({ issues: [issue({ rule: 'misra-c:10.1' })] }, MISRA_CATALOG, 'misraC2012');
   assert.ok(sp.includes('"misra-c:10.1","Operand type","Rule 10.1","MAJOR","true","1"'));
   const misraHtml = reports.misraReport({ issues: [] }, MISRA_CATALOG, { standard: 'misraC2012' }, { lang: 'ko' });
   assert.ok(misraHtml.includes('지침 준수 요약'));
@@ -247,7 +248,7 @@ test('security, integrity, CWE-weighted and rule-set reports carry the numbers',
 });
 
 test('CSV cells are quoted and formula-safe', () => {
-  const out = reports.sparrowCsv({ issues: [] }, [{ key: '=cmd', name: { en: 'x"y' }, severity: 'MAJOR' }], 'all');
+  const out = reports.weaknessCsv({ issues: [] }, [{ key: '=cmd', name: { en: 'x"y' }, severity: 'MAJOR' }], 'all');
   assert.ok(out.includes(`"'=cmd"`));
   assert.ok(out.includes('"x""y"'));
 });
@@ -637,33 +638,33 @@ test('SARIF import maps security, CWE, flows, message strings and base URIs', ()
   assert.match(issues[0].key, /^[0-9a-f]{16}$/);
 });
 
-test('Sonar generic, Coverity v7/v8 and cppcheck reports import', () => {
-  const sonar = external.importExternal({
+test('generic, Defect Analysis v7/v8 and cppcheck reports import', () => {
+  const ref = external.importExternal({
     rules: [{ id: 'r1', name: 'Rule one', engineId: 'mylint', impacts: [{ softwareQuality: 'SECURITY', severity: 'HIGH' }] }],
     issues: [{ ruleId: 'r1', effortMinutes: 15, primaryLocation: { message: 'Bad', filePath: 'src/a.c', textRange: { startLine: 3, startColumn: 0, endColumn: 4 } }, secondaryLocations: [{ message: 'here', filePath: 'src/b.c', textRange: { startLine: 1 } }] }],
   });
-  assert.equal(sonar.format, 'sonar');
-  assert.equal(sonar.findings[0].rule, 'external_mylint:r1');
-  assert.equal(sonar.findings[0].type, 'VULNERABILITY');
-  assert.equal(sonar.findings[0].severity, 'CRITICAL');
-  assert.equal(sonar.findings[0].column, 1);
-  assert.equal(sonar.findings[0].debtMin, 15);
-  assert.equal(sonar.rules[0].name.en, 'Rule one');
-  const old = external.parseSonarGeneric({ issues: [{ engineId: 'e', ruleId: 'x', type: 'BUG', severity: 'MINOR', primaryLocation: { message: 'm', filePath: 'a.c' } }] });
+  assert.equal(ref.format, 'generic-issues');
+  assert.equal(ref.findings[0].rule, 'external_mylint:r1');
+  assert.equal(ref.findings[0].type, 'VULNERABILITY');
+  assert.equal(ref.findings[0].severity, 'CRITICAL');
+  assert.equal(ref.findings[0].column, 1);
+  assert.equal(ref.findings[0].debtMin, 15);
+  assert.equal(ref.rules[0].name.en, 'Rule one');
+  const old = external.parseGenericIssues({ issues: [{ engineId: 'e', ruleId: 'x', type: 'BUG', severity: 'MINOR', primaryLocation: { message: 'm', filePath: 'a.c' } }] });
   assert.equal(old.findings[0].severity, 'MINOR');
 
   for (const v of [7, 8]) {
     const cov = external.importExternal(JSON.stringify({
-      type: 'Coverity issues', formatVersion: v,
+      type: compat.DEFECT_JSON_TYPE, formatVersion: v,
       issues: [{
         mergeKey: 'mk1', checkerName: 'NULL_RETURNS', strippedMainEventFilePathname: 'src/a.c', mainEventLineNumber: 12, functionDisplayName: 'f',
         events: [{ eventDescription: 'returned null', eventTag: 'returned_null', filePathname: '/w/src/a.c', lineNumber: 10, main: false }, { eventDescription: 'Dereferencing p', eventTag: 'dereference', filePathname: '/w/src/a.c', lineNumber: 12, main: true }],
         checkerProperties: { category: 'Null pointer dereferences', impact: 'High', cweCategory: '476', issueKind: 'QUALITY' },
       }],
     }), { root: '/w' });
-    assert.equal(cov.format, 'coverity');
+    assert.equal(cov.format, 'defect-json');
     const f = cov.findings[0];
-    assert.equal(f.rule, 'external_coverity:NULL_RETURNS');
+    assert.equal(f.rule, 'external_defect:NULL_RETURNS');
     assert.equal(f.severity, 'CRITICAL');
     assert.equal(f.type, 'BUG');
     assert.equal(f.cwe, 'CWE-476');
@@ -758,7 +759,7 @@ test('gosec, Bandit and Semgrep reports import, unknown formats are rejected', (
   assert.equal(Object.keys(external.PARSERS).length, 13);
 });
 
-test('JUnit and Sonar generic test reports give test metrics', () => {
+test('JUnit and generic test reports give test metrics', () => {
   const junit = external.importTests(`<?xml version="1.0"?><testsuites><testsuite name="s1" tests="4">
 <testcase name="a" classname="A" time="0.5"/><testcase name="b" classname="A" time="0.25"><failure message="expected 1"/></testcase>
 <testcase name="c" classname="A" time="0"><skipped/></testcase><testcase name="d" classname="A" time="1"><error message="NPE">trace</error></testcase>
@@ -774,10 +775,10 @@ test('JUnit and Sonar generic test reports give test metrics', () => {
   assert.equal(m.skipped_tests, 1);
   assert.equal(m.test_execution_time, 2000);
   assert.equal(m.test_success_density, 50);
-  const sonar = external.importTests('<testExecutions version="1"><file path="test/a.js"><testCase name="t1" duration="5"/><testCase name="t2" duration="7"><failure message="no"/></testCase></file><file path="test/b.js"><testCase name="t3" duration="1"><skipped message="later"/></testCase></file></testExecutions>');
-  assert.equal(sonar.format, 'sonar-tests');
-  assert.deepEqual(sonar.totals, { tests: 3, failures: 1, errors: 0, skipped: 1, duration: 13 });
-  assert.equal(sonar.files[0].path, 'test/a.js');
+  const ref = external.importTests('<testExecutions version="1"><file path="test/a.js"><testCase name="t1" duration="5"/><testCase name="t2" duration="7"><failure message="no"/></testCase></file><file path="test/b.js"><testCase name="t3" duration="1"><skipped message="later"/></testCase></file></testExecutions>');
+  assert.equal(ref.format, 'generic-tests');
+  assert.deepEqual(ref.totals, { tests: 3, failures: 1, errors: 0, skipped: 1, duration: 13 });
+  assert.equal(ref.files[0].path, 'test/a.js');
   assert.equal(measures.testMetrics({ tests: 2, failures: 0, errors: 0, skipped: 2, duration: 1 }).test_success_density, null);
   assert.throws(() => external.importTests('<foo/>'));
 });
@@ -801,7 +802,7 @@ test('snapshot comparison finds new, fixed, outstanding, triaged and reopened CI
   const r = history.compareSnapshots(before, after);
   assert.deepEqual(r.newlyDetected.map((i) => i.cid), ['5']);
   assert.deepEqual(r.fixed.map((i) => i.cid), ['2']);
-  assert.equal(r.fixed[0].coverityStatus, 'Fixed');
+  assert.equal(r.fixed[0].defectStatus, 'Fixed');
   assert.deepEqual(r.outstanding.map((i) => i.cid), ['1', '3']);
   assert.deepEqual(r.triaged.map((i) => i.cid).sort(), ['1', '3', '4']);
   assert.deepEqual(r.triaged.find((i) => i.cid === '1').changes.classification, ['Unclassified', 'Bug']);
@@ -833,23 +834,23 @@ test('defect lifecycle tracks first detection, fixes, reintroduction and triage'
 
 test('activity events, trend series and issue age', () => {
   const hist = [
-    { at: '2026-01-01T00:00:00Z', gate: 'OK', version: '1.0', measures: { bugs: 2, coverage: 50 }, profiles: [{ language: 'c', name: 'Checker way' }], coverity: { policy: 'OK', outstanding: 3 } },
-    { at: '2026-01-02T00:00:00Z', gate: 'ERROR', version: '1.0', measures: { bugs: 5 }, failedConditions: [{ metric: 'new_bugs' }], profiles: [{ language: 'c', name: 'Strict' }, { language: 'js', name: 'Checker way' }], coverity: { policy: 'ERROR', outstanding: 4 } },
+    { at: '2026-01-01T00:00:00Z', gate: 'OK', version: '1.0', measures: { bugs: 2, coverage: 50 }, profiles: [{ language: 'c', name: 'Checker way' }], defectAnalysis: { policy: 'OK', outstanding: 3 } },
+    { at: '2026-01-02T00:00:00Z', gate: 'ERROR', version: '1.0', measures: { bugs: 5 }, failedConditions: [{ metric: 'new_bugs' }], profiles: [{ language: 'c', name: 'Strict' }, { language: 'js', name: 'Checker way' }], defectAnalysis: { policy: 'ERROR', outstanding: 4 } },
     { at: '2026-01-03T00:00:00Z', gate: 'ERROR', version: '1.1', measures: { bugs: 1, coverage: 70 }, profiles: [{ language: 'c', name: 'Strict', rulesHash: 'x' }, { language: 'js', name: 'Checker way' }], events: ['Manual note'] },
   ];
   const ev = history.activityEvents(hist);
   assert.equal(ev[0].at, '2026-01-03T00:00:00Z');
   const cats = ev.map((e) => e.category);
-  assert.ok(cats.includes('QUALITY_GATE') && cats.includes('VERSION') && cats.includes('QUALITY_PROFILE') && cats.includes('COVERITY_POLICY') && cats.includes('OTHER'));
+  assert.ok(cats.includes('QUALITY_GATE') && cats.includes('VERSION') && cats.includes('QUALITY_PROFILE') && cats.includes('DEFECT_POLICY') && cats.includes('OTHER'));
   const gate = ev.find((e) => e.category === 'QUALITY_GATE');
   assert.equal(gate.name.en, 'Failed (was Passed)');
   assert.equal(gate.description.en, 'new_bugs');
   assert.equal(history.activityEvents(hist, { category: 'VERSION' }).length, 2);
   assert.ok(ev.some((e) => e.name.en === "Use 'Strict' instead of 'Checker way' (c)"));
-  const series = history.trendSeries(hist, ['bugs', 'coverage', 'coverity.outstanding']);
+  const series = history.trendSeries(hist, ['bugs', 'coverage', 'defectAnalysis.outstanding']);
   assert.deepEqual(series.bugs.map((p) => p.value), [2, 5, 1]);
   assert.deepEqual(series.coverage.map((p) => p.value), [50, null, 70]);
-  assert.deepEqual(series['coverity.outstanding'].map((p) => p.value), [3, 4, null]);
+  assert.deepEqual(series['defectAnalysis.outstanding'].map((p) => p.value), [3, 4, null]);
   assert.equal(history.seriesDelta(series.coverage), 20);
   assert.equal(history.seriesDelta([]), null);
 

@@ -1,7 +1,7 @@
 'use strict';
 
 // Security hotspots and vulnerabilities found from the code shape alone
-// (SonarJava / sonar-kotlin scope). Data-flow injection rules (SQL, XSS, path,
+// (Java reference analyzer / Kotlin reference analyzer scope). Data-flow injection rules (SQL, XSS, path,
 // command injection ...) live in core/taint and are not repeated here.
 
 const { rule, jm, jc, km, kc } = require('./core');
@@ -138,7 +138,7 @@ const DIGEST_UTILS_WEAK = new Set(['md2', 'md2Hex', 'md5', 'md5Hex', 'sha', 'sha
 
 // ── cryptography ──
 rule({
-  id: 'weak-hash-algorithm', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-328', 'cwe-327', 'owasp-a2'], sonar: 'S4790', ktSonar: 'S4790', owasp: OWASP_CRYPTO,
+  id: 'weak-hash-algorithm', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-328', 'cwe-327', 'owasp-a2'], ref: 'S4790', ktRef: 'S4790', owasp: OWASP_CRYPTO,
   en: ['Weak hashing algorithms should not be used for security', 'MD2, MD4, MD5 and SHA-1 have practical collision attacks; signatures, integrity checks and password hashes built on them can be forged.', 'Use SHA-256 or stronger; for passwords use bcrypt, scrypt, Argon2 or PBKDF2.'],
   ko: ['보안 용도로 약한 해시 알고리즘을 쓰면 안 됩니다', 'MD2, MD4, MD5, SHA-1은 실용적인 충돌 공격이 있어 이를 쓴 서명·무결성 검사·비밀번호 해시를 위조할 수 있습니다.', 'SHA-256 이상을 쓰고 비밀번호에는 bcrypt, scrypt, Argon2, PBKDF2를 쓰세요.'],
   msg: ['Make sure "{0}" is safe here: it is a weak hashing algorithm.', '"{0}"은(는) 약한 해시 알고리즘입니다. 여기서 안전한지 확인하세요.'],
@@ -170,7 +170,7 @@ rule({
 const WEAK_CIPHER = /^(DES|DESEDE|3DES|TRIPLEDES|RC2|RC4|ARCFOUR|BLOWFISH)(\/|$)/i;
 
 rule({
-  id: 'weak-cipher-algorithm', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-327', 'owasp-a2'], sonar: 'S5547', ktSonar: 'S5547', owasp: OWASP_CRYPTO,
+  id: 'weak-cipher-algorithm', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-327', 'owasp-a2'], ref: 'S5547', ktRef: 'S5547', owasp: OWASP_CRYPTO,
   en: ['Cipher algorithms should be robust', 'DES, 3DES, RC2, RC4 and Blowfish have small keys or blocks and known attacks; data encrypted with them can be recovered.', 'Use AES (128 bits or more) in GCM mode, or ChaCha20-Poly1305.'],
   ko: ['암호 알고리즘은 견고해야 합니다', 'DES, 3DES, RC2, RC4, Blowfish는 키나 블록이 작고 알려진 공격이 있어 암호화한 데이터를 복구할 수 있습니다.', 'GCM 모드의 AES(128비트 이상)나 ChaCha20-Poly1305를 쓰세요.'],
   msg: ['Use a strong cipher algorithm instead of "{0}".', '"{0}" 대신 강한 암호 알고리즘을 쓰세요.'],
@@ -205,7 +205,7 @@ function weakMode(alg) {
 }
 
 rule({
-  id: 'weak-cipher-mode', langs: JK, type: 'V', sev: 'CR', debt: 20, tags: ['cwe-327', 'owasp-a2'], sonar: 'S5542', ktSonar: 'S5542', owasp: OWASP_CRYPTO,
+  id: 'weak-cipher-mode', langs: JK, type: 'V', sev: 'CR', debt: 20, tags: ['cwe-327', 'owasp-a2'], ref: 'S5542', ktRef: 'S5542', owasp: OWASP_CRYPTO,
   en: ['Encryption algorithms should be used with secure mode and padding scheme', 'ECB leaks patterns of the plaintext, CBC with PKCS#5 padding allows padding-oracle attacks and RSA without OAEP is malleable.', 'Use AES/GCM/NoPadding for symmetric encryption and RSA/ECB/OAEPWithSHA-256AndMGF1Padding for RSA.'],
   ko: ['암호화 알고리즘은 안전한 모드와 패딩으로 써야 합니다', 'ECB는 평문의 패턴이 드러나고, PKCS#5 패딩의 CBC는 패딩 오라클 공격이 가능하며, OAEP 없는 RSA는 변조가 가능합니다.', '대칭 암호에는 AES/GCM/NoPadding, RSA에는 RSA/ECB/OAEPWithSHA-256AndMGF1Padding을 쓰세요.'],
   msg: ['Use a secure mode and padding scheme; "{0}" uses {1}.', '안전한 모드와 패딩을 쓰세요. "{0}"은(는) {1}을(를) 씁니다.'],
@@ -235,7 +235,7 @@ const WEAK_TLS = new Set(['SSL', 'SSLV2', 'SSLV3', 'TLSV1', 'TLSV1.0', 'TLSV1.1'
 const WEAK_TLS_ENUM = new Set(['TLS_1_0', 'TLS_1_1', 'SSL_3_0']);
 
 rule({
-  id: 'weak-ssl-protocol', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-327', 'owasp-a2'], sonar: 'S4423', ktSonar: 'S4423', owasp: OWASP_CRYPTO,
+  id: 'weak-ssl-protocol', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-327', 'owasp-a2'], ref: 'S4423', ktRef: 'S4423', owasp: OWASP_CRYPTO,
   en: ['Weak SSL/TLS protocols should not be used', 'SSLv2, SSLv3, TLS 1.0 and TLS 1.1 have known weaknesses (POODLE, BEAST) and are deprecated.', 'Request TLSv1.2 or TLSv1.3.'],
   ko: ['약한 SSL/TLS 프로토콜을 쓰면 안 됩니다', 'SSLv2, SSLv3, TLS 1.0, TLS 1.1은 알려진 취약점(POODLE, BEAST)이 있고 폐기되었습니다.', 'TLSv1.2나 TLSv1.3을 쓰세요.'],
   msg: ['Change this code to use a stronger protocol than "{0}".', '"{0}"보다 강한 프로토콜을 쓰도록 바꾸세요.'],
@@ -271,7 +271,7 @@ rule({
 });
 
 rule({
-  id: 'trust-all-certificates', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-295', 'owasp-a7'], sonar: 'S4830', ktSonar: 'S4830', owasp: OWASP_AUTH,
+  id: 'trust-all-certificates', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-295', 'owasp-a7'], ref: 'S4830', ktRef: 'S4830', owasp: OWASP_AUTH,
   en: ['Server certificates should be verified during SSL/TLS connections', 'A trust manager whose check methods accept everything lets any man-in-the-middle impersonate the server.', 'Use the default trust manager or validate the chain and throw CertificateException on failure.'],
   ko: ['SSL/TLS 연결에서 서버 인증서를 검증해야 합니다', '검사 메서드가 모든 것을 받아들이는 TrustManager는 중간자가 서버를 사칭하도록 허용합니다.', '기본 TrustManager를 쓰거나 체인을 검증하고 실패 시 CertificateException을 던지세요.'],
   msg: ['Enable server certificate validation: "{0}" accepts every certificate.', '서버 인증서 검증을 켜세요. "{0}"은(는) 모든 인증서를 받아들입니다.'],
@@ -318,7 +318,7 @@ rule({
 const HV_SETTERS = ['setHostnameVerifier', 'setDefaultHostnameVerifier', 'hostnameVerifier', 'setSSLHostnameVerifier'];
 
 rule({
-  id: 'hostname-verification-disabled', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-297', 'owasp-a7'], sonar: 'S5527', ktSonar: 'S5527', owasp: OWASP_AUTH,
+  id: 'hostname-verification-disabled', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-297', 'owasp-a7'], ref: 'S5527', ktRef: 'S5527', owasp: OWASP_AUTH,
   en: ['Server hostnames should be verified during SSL/TLS connections', 'A hostname verifier that always returns true accepts a valid certificate issued for any other host.', 'Keep the default verifier, or compare the session peer host with the expected name.'],
   ko: ['SSL/TLS 연결에서 서버 호스트 이름을 검증해야 합니다', '항상 true를 돌려주는 HostnameVerifier는 다른 호스트용으로 발급된 유효한 인증서도 받아들입니다.', '기본 검증기를 유지하거나 세션의 상대 호스트를 기대하는 이름과 비교하세요.'],
   on: {
@@ -352,7 +352,7 @@ rule({
 });
 
 rule({
-  id: 'insecure-random', langs: JK, type: 'H', sev: 'CR', debt: 10, tags: ['cwe-338', 'cwe-330', 'owasp-a2'], sonar: 'S2245', ktSonar: 'S2245', owasp: OWASP_CRYPTO,
+  id: 'insecure-random', langs: JK, type: 'H', sev: 'CR', debt: 10, tags: ['cwe-338', 'cwe-330', 'owasp-a2'], ref: 'S2245', ktRef: 'S2245', owasp: OWASP_CRYPTO,
   en: ['Using pseudorandom number generators (PRNGs) is security-sensitive', 'java.util.Random, Math.random() and kotlin.random.Random are predictable; tokens, keys or session ids derived from them can be guessed.', 'Use java.security.SecureRandom for anything security related.'],
   ko: ['의사 난수 생성기(PRNG) 사용은 보안에 민감합니다', 'java.util.Random, Math.random(), kotlin.random.Random은 예측 가능해서 이를 쓴 토큰·키·세션 ID를 추측할 수 있습니다.', '보안과 관련된 곳에는 java.security.SecureRandom을 쓰세요.'],
   msg: ['Make sure that using "{0}" is safe here.', '여기서 "{0}"을(를) 써도 안전한지 확인하세요.'],
@@ -398,7 +398,7 @@ function keySpec(n, cx) {
 }
 
 rule({
-  id: 'weak-key-size', langs: JK, type: 'V', sev: 'CR', debt: 2, tags: ['cwe-326', 'owasp-a2'], sonar: 'S4426', ktSonar: 'S4426', owasp: OWASP_CRYPTO,
+  id: 'weak-key-size', langs: JK, type: 'V', sev: 'CR', debt: 2, tags: ['cwe-326', 'owasp-a2'], ref: 'S4426', ktRef: 'S4426', owasp: OWASP_CRYPTO,
   en: ['Cryptographic keys should be robust', 'RSA, DSA and DH keys below 2048 bits, EC keys below 224 bits and weak named curves can be broken with available computing power.', 'Use at least 2048-bit RSA/DSA/DH keys, 224-bit EC keys, and curves like secp256r1.'],
   ko: ['암호 키는 충분히 강해야 합니다', '2048비트 미만의 RSA·DSA·DH 키, 224비트 미만의 EC 키, 약한 곡선은 현재의 계산 능력으로 깨질 수 있습니다.', 'RSA/DSA/DH는 2048비트 이상, EC는 224비트 이상, secp256r1 같은 곡선을 쓰세요.'],
   msg: ['Use a key length of at least {0} bits for {1}.', '{1}에는 {0}비트 이상의 키 길이를 쓰세요.'],
@@ -445,7 +445,7 @@ function onCtor(names, fn) {
 }
 
 rule({
-  id: 'predictable-salt', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-759', 'cwe-760', 'owasp-a2'], sonar: 'S2053', ktSonar: 'S2053', owasp: OWASP_CRYPTO,
+  id: 'predictable-salt', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-759', 'cwe-760', 'owasp-a2'], ref: 'S2053', ktRef: 'S2053', owasp: OWASP_CRYPTO,
   en: ['Password hashing functions should use an unpredictable salt', 'Without a salt, or with a salt fixed in the code, identical passwords hash identically and precomputed tables crack them.', 'Generate a random salt of at least 16 bytes with SecureRandom for every password and store it with the hash.'],
   ko: ['비밀번호 해시 함수는 예측할 수 없는 솔트를 써야 합니다', '솔트가 없거나 코드에 고정되어 있으면 같은 비밀번호가 같은 해시가 되어 미리 계산한 표로 깨집니다.', '비밀번호마다 SecureRandom으로 16바이트 이상의 무작위 솔트를 만들어 해시와 함께 저장하세요.'],
   msg: ['Use an unpredictable salt for "{0}".', '"{0}"에 예측할 수 없는 솔트를 쓰세요.'],
@@ -474,7 +474,7 @@ rule({
 });
 
 rule({
-  id: 'predictable-iv', langs: JK, type: 'V', sev: 'CR', debt: 15, tags: ['cwe-329', 'owasp-a2'], sonar: 'S3329', ktSonar: 'S3329', owasp: OWASP_CRYPTO,
+  id: 'predictable-iv', langs: JK, type: 'V', sev: 'CR', debt: 15, tags: ['cwe-329', 'owasp-a2'], ref: 'S3329', ktRef: 'S3329', owasp: OWASP_CRYPTO,
   en: ['Cipher initialization vectors should be unpredictable', 'A constant or all-zero IV makes equal plaintexts encrypt to equal ciphertexts, and in GCM mode reusing an IV breaks authentication.', 'Generate a new IV with SecureRandom for each encryption and send it along with the ciphertext.'],
   ko: ['암호 초기화 벡터(IV)는 예측할 수 없어야 합니다', '고정되거나 0으로 채운 IV는 같은 평문을 같은 암호문으로 만들고, GCM에서 IV를 재사용하면 인증이 깨집니다.', '암호화할 때마다 SecureRandom으로 새 IV를 만들고 암호문과 함께 보내세요.'],
   msg: ['Use a random initialization vector for "{0}".', '"{0}"에 무작위 초기화 벡터를 쓰세요.'],
@@ -500,7 +500,7 @@ rule({
 });
 
 rule({
-  id: 'secure-random-seed', langs: JK, type: 'V', sev: 'CR', debt: 2, tags: ['cwe-330', 'cwe-332', 'owasp-a2'], sonar: 'S4347', ktSonar: 'S4347', owasp: OWASP_CRYPTO,
+  id: 'secure-random-seed', langs: JK, type: 'V', sev: 'CR', debt: 2, tags: ['cwe-330', 'cwe-332', 'owasp-a2'], ref: 'S4347', ktRef: 'S4347', owasp: OWASP_CRYPTO,
   en: ['"SecureRandom" seeds should not be predictable', 'Seeding SecureRandom with a constant or the current time makes its whole output sequence reproducible.', 'Let SecureRandom seed itself; do not call setSeed() with fixed or time-based values.'],
   ko: ['SecureRandom 시드는 예측할 수 없어야 합니다', 'SecureRandom에 상수나 현재 시각을 시드로 주면 전체 출력 순서를 재현할 수 있습니다.', 'SecureRandom이 스스로 시드를 정하게 하고 고정값이나 시각으로 setSeed()를 호출하지 마세요.'],
   on: {
@@ -534,7 +534,7 @@ rule({
 const CRYPTO_SPI = ['MessageDigest', 'MessageDigestSpi', 'CipherSpi', 'SignatureSpi', 'KeyGeneratorSpi', 'KeyPairGeneratorSpi', 'SecureRandomSpi', 'MacSpi', 'KeyAgreementSpi', 'Signature'];
 
 rule({
-  id: 'custom-cryptography', langs: JK, type: 'V', sev: 'CR', debt: 60, tags: ['cwe-327', 'owasp-a2'], sonar: 'S2257', ktSonar: 'S2257', owasp: OWASP_CRYPTO,
+  id: 'custom-cryptography', langs: JK, type: 'V', sev: 'CR', debt: 60, tags: ['cwe-327', 'owasp-a2'], ref: 'S2257', ktRef: 'S2257', owasp: OWASP_CRYPTO,
   en: ['Only standard cryptographic algorithms should be used', 'Home-made digest, cipher or signature implementations have not been reviewed by cryptographers and are almost always weaker than they look.', 'Use the algorithms of the JDK or a reviewed provider such as Bouncy Castle.'],
   ko: ['표준 암호 알고리즘만 써야 합니다', '직접 만든 다이제스트·암호·서명 구현은 암호학자의 검토를 거치지 않아 거의 항상 생각보다 약합니다.', 'JDK나 Bouncy Castle 같은 검증된 공급자의 알고리즘을 쓰세요.'],
   msg: ['Make sure "{0}" is a standard algorithm and not a custom implementation of "{1}".', '"{0}"이(가) "{1}"의 자체 구현이 아니라 표준 알고리즘인지 확인하세요.'],
@@ -569,7 +569,7 @@ rule({
 const WEAK_ENCODERS = ['StandardPasswordEncoder', 'Md5PasswordEncoder', 'ShaPasswordEncoder', 'LdapShaPasswordEncoder', 'Md4PasswordEncoder', 'MessageDigestPasswordEncoder', 'NoOpPasswordEncoder', 'PlaintextPasswordEncoder'];
 
 rule({
-  id: 'weak-password-encoder', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-256', 'cwe-916', 'owasp-a2'], sonar: 'S5344', ktSonar: 'S5344', owasp: OWASP_CRYPTO,
+  id: 'weak-password-encoder', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-256', 'cwe-916', 'owasp-a2'], ref: 'S5344', ktRef: 'S5344', owasp: OWASP_CRYPTO,
   en: ['Passwords should not be stored in plaintext or with a fast hashing algorithm', 'Plain, MD5, SHA-1 or single SHA-256 password encoders are fast to brute force once the database leaks.', 'Use BCryptPasswordEncoder, Argon2PasswordEncoder, SCryptPasswordEncoder or Pbkdf2PasswordEncoder.'],
   ko: ['비밀번호를 평문이나 빠른 해시로 저장하면 안 됩니다', '평문, MD5, SHA-1, 단일 SHA-256 인코더는 데이터베이스가 유출되면 빠르게 무차별 대입됩니다.', 'BCryptPasswordEncoder, Argon2PasswordEncoder, SCryptPasswordEncoder, Pbkdf2PasswordEncoder를 쓰세요.'],
   msg: ['Use a secure password encoder instead of "{0}".', '"{0}" 대신 안전한 비밀번호 인코더를 쓰세요.'],
@@ -607,7 +607,7 @@ function secretLiteral(v) {
 }
 
 rule({
-  id: 'hardcoded-password', langs: JK, type: 'H', sev: 'BL', debt: 30, tags: ['cwe-798', 'cwe-259', 'owasp-a7'], sonar: 'S2068', ktSonar: 'S2068', owasp: OWASP_AUTH,
+  id: 'hardcoded-password', langs: JK, type: 'H', sev: 'BL', debt: 30, tags: ['cwe-798', 'cwe-259', 'owasp-a7'], ref: 'S2068', ktRef: 'S2068', owasp: OWASP_AUTH,
   en: ['Credentials should not be hard-coded', 'Passwords written in source code end up in version control and binaries, where anyone with access can read them, and they cannot be rotated without a release.', 'Load passwords from a secret store, environment variable or protected configuration file.'],
   ko: ['자격 증명을 코드에 하드코딩하면 안 됩니다', '소스 코드의 비밀번호는 버전 관리와 바이너리에 남아 접근할 수 있는 누구나 읽을 수 있고 배포 없이는 바꿀 수 없습니다.', '비밀번호는 비밀 저장소, 환경 변수, 보호된 설정 파일에서 읽으세요.'],
   msg: ['"{0}" detected here, make sure this is not a hard-coded credential.', '여기서 "{0}"이(가) 발견되었습니다. 하드코딩된 자격 증명이 아닌지 확인하세요.'],
@@ -661,7 +661,7 @@ rule({
 const SECRET_NAME = /(secret|token|api_?key|apikey|private_?key|access_?key|auth_?key|client_?secret|credential|bearer)/i;
 
 rule({
-  id: 'hardcoded-secret', langs: JK, type: 'H', sev: 'BL', debt: 30, tags: ['cwe-798', 'owasp-a7'], sonar: 'S6418', ktSonar: 'S6418', owasp: OWASP_AUTH,
+  id: 'hardcoded-secret', langs: JK, type: 'H', sev: 'BL', debt: 30, tags: ['cwe-798', 'owasp-a7'], ref: 'S6418', ktRef: 'S6418', owasp: OWASP_AUTH,
   en: ['Secrets should not be hard-coded', 'API keys, tokens and client secrets in the code leak through repositories and builds and give direct access to the protected service.', 'Read secrets from a vault or the environment at run time and rotate the leaked one.'],
   ko: ['비밀 값을 코드에 하드코딩하면 안 됩니다', '코드의 API 키·토큰·클라이언트 시크릿은 저장소와 빌드를 통해 새어 나가 보호된 서비스에 바로 접근하게 해 줍니다.', '실행 시점에 볼트나 환경 변수에서 읽고 유출된 값은 교체하세요.'],
   msg: ['"{0}" looks like a hard-coded secret; make sure it is not sensitive.', '"{0}"은(는) 하드코딩된 비밀 값으로 보입니다. 민감한 값이 아닌지 확인하세요.'],
@@ -697,7 +697,7 @@ function ipv4Of(v) {
 }
 
 rule({
-  id: 'hardcoded-ip', langs: JK, type: 'H', sev: 'MI', debt: 30, tags: ['cwe-547'], sonar: 'S1313', ktSonar: 'S1313', owasp: OWASP_CONFIG,
+  id: 'hardcoded-ip', langs: JK, type: 'H', sev: 'MI', debt: 30, tags: ['cwe-547'], ref: 'S1313', ktRef: 'S1313', owasp: OWASP_CONFIG,
   en: ['Using hardcoded IP addresses is security-sensitive', 'Fixed addresses force a rebuild when the infrastructure changes, can point to the wrong environment and reveal internal topology.', 'Read hosts from configuration; prefer DNS names.'],
   ko: ['하드코딩된 IP 주소 사용은 보안에 민감합니다', '고정 주소는 인프라가 바뀌면 다시 빌드해야 하고 잘못된 환경을 가리킬 수 있으며 내부 구조를 드러냅니다.', '호스트는 설정에서 읽고 DNS 이름을 쓰세요.'],
   msg: ['Make sure using the hardcoded IP address "{0}" is safe here.', '하드코딩된 IP 주소 "{0}"을(를) 써도 안전한지 확인하세요.'],
@@ -724,7 +724,7 @@ rule({
 });
 
 rule({
-  id: 'db-empty-password', langs: JK, type: 'V', sev: 'BL', debt: 45, tags: ['cwe-521', 'owasp-a7'], sonar: 'S2115', ktSonar: 'S2115', owasp: OWASP_AUTH,
+  id: 'db-empty-password', langs: JK, type: 'V', sev: 'BL', debt: 45, tags: ['cwe-521', 'owasp-a7'], ref: 'S2115', ktRef: 'S2115', owasp: OWASP_AUTH,
   en: ['A secure password should be used when connecting to a database', 'Connecting with an empty password means the database account is not protected at all.', 'Protect the database account with a strong password loaded from configuration.'],
   ko: ['데이터베이스에 연결할 때 안전한 비밀번호를 써야 합니다', '빈 비밀번호로 연결한다는 것은 데이터베이스 계정이 전혀 보호되지 않는다는 뜻입니다.', '설정에서 읽은 강한 비밀번호로 데이터베이스 계정을 보호하세요.'],
   on: {
@@ -747,7 +747,7 @@ const CLEAR_SCHEMES = /^(http|ftp|telnet):\/\/([^/:?#]+)/i;
 const CLEAR_OK_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|www\.w3\.org|w3\.org|xmlns\.[\w.]+|schemas\.[\w.]+|java\.sun\.com|xml\.org|www\.example\.(com|org|net)|example\.(com|org|net)|ns\.adobe\.com|purl\.org|apache\.org|xml\.apache\.org)$/i;
 
 rule({
-  id: 'clear-text-protocol', langs: JK, type: 'H', sev: 'CR', debt: 15, tags: ['cwe-319', 'owasp-a2'], sonar: 'S5332', ktSonar: 'S5332', owasp: OWASP_CRYPTO,
+  id: 'clear-text-protocol', langs: JK, type: 'H', sev: 'CR', debt: 15, tags: ['cwe-319', 'owasp-a2'], ref: 'S5332', ktRef: 'S5332', owasp: OWASP_CRYPTO,
   en: ['Using clear-text protocols is security-sensitive', 'HTTP, FTP and Telnet send data, cookies and credentials unencrypted, so anyone on the network path can read or change them.', 'Use https://, sftp:// or ssh, or an FTPS/TLS-enabled client.'],
   ko: ['평문 프로토콜 사용은 보안에 민감합니다', 'HTTP, FTP, Telnet은 데이터·쿠키·자격 증명을 암호화 없이 보내 네트워크 경로의 누구나 읽거나 바꿀 수 있습니다.', 'https://, sftp://, ssh나 FTPS/TLS를 지원하는 클라이언트를 쓰세요.'],
   msg: ['Using "{0}" is insecure; use its encrypted counterpart.', '"{0}"은(는) 안전하지 않습니다. 암호화된 대체 프로토콜을 쓰세요.'],
@@ -773,9 +773,9 @@ rule({
 });
 
 // ── cookies ──
-function cookieRule(id, sonar, setters, props, label, en, ko) {
+function cookieRule(id, ref, setters, props, label, en, ko) {
   rule({
-    id, langs: JK, type: 'H', sev: 'MI', debt: 5, tags: id === 'cookie-without-secure' ? ['cwe-311', 'cwe-614', 'owasp-a5'] : ['cwe-1004', 'owasp-a5'], sonar, ktSonar: sonar, owasp: OWASP_CONFIG,
+    id, langs: JK, type: 'H', sev: 'MI', debt: 5, tags: id === 'cookie-without-secure' ? ['cwe-311', 'cwe-614', 'owasp-a5'] : ['cwe-1004', 'owasp-a5'], ref, ktRef: ref, owasp: OWASP_CONFIG,
     en, ko,
     msg: [`Make sure creating this cookie without the "${label}" flag is safe.`, `"${label}" 플래그 없이 이 쿠키를 만들어도 안전한지 확인하세요.`],
     on: {
@@ -850,7 +850,7 @@ function xxeCheck(n, cx, what) {
 }
 
 rule({
-  id: 'xxe-unsafe-parser', langs: JK, type: 'V', sev: 'BL', debt: 15, tags: ['cwe-611', 'cwe-827', 'owasp-a5'], sonar: 'S2755', ktSonar: 'S2755', owasp: OWASP_CONFIG,
+  id: 'xxe-unsafe-parser', langs: JK, type: 'V', sev: 'BL', debt: 15, tags: ['cwe-611', 'cwe-827', 'owasp-a5'], ref: 'S2755', ktRef: 'S2755', owasp: OWASP_CONFIG,
   en: ['XML parsers should not be vulnerable to XXE attacks', 'With default settings XML parsers resolve external entities and DTDs, which lets an attacker read local files, reach internal hosts or exhaust memory.', 'Disable DOCTYPE declarations (disallow-doctype-decl) or set ACCESS_EXTERNAL_DTD / ACCESS_EXTERNAL_SCHEMA to "" on the factory.'],
   ko: ['XML 파서가 XXE 공격에 취약하면 안 됩니다', '기본 설정의 XML 파서는 외부 엔터티와 DTD를 해석해 공격자가 로컬 파일을 읽거나 내부 호스트에 접근하거나 메모리를 고갈시킬 수 있습니다.', '팩토리에서 DOCTYPE 선언을 막거나(disallow-doctype-decl) ACCESS_EXTERNAL_DTD / ACCESS_EXTERNAL_SCHEMA를 ""로 설정하세요.'],
   msg: ['Disable access to external entities in this "{0}".', '이 "{0}"에서 외부 엔터티 접근을 막으세요.'],
@@ -890,7 +890,7 @@ function hasStar(cx, v) {
 }
 
 rule({
-  id: 'permissive-cors', langs: JK, type: 'H', sev: 'MI', debt: 5, tags: ['cwe-346', 'cwe-942', 'owasp-a5'], sonar: 'S5122', ktSonar: 'S5122', owasp: OWASP_CONFIG,
+  id: 'permissive-cors', langs: JK, type: 'H', sev: 'MI', debt: 5, tags: ['cwe-346', 'cwe-942', 'owasp-a5'], ref: 'S5122', ktRef: 'S5122', owasp: OWASP_CONFIG,
   en: ['Having a permissive Cross-Origin Resource Sharing policy is security-sensitive', 'Allowing every origin lets any web site read responses of this API with the visitor\'s browser and credentials.', 'List the trusted origins explicitly instead of "*".'],
   ko: ['너무 관대한 CORS 정책은 보안에 민감합니다', '모든 출처를 허용하면 어느 웹 사이트든 방문자의 브라우저와 자격 증명으로 이 API의 응답을 읽을 수 있습니다.', '"*" 대신 신뢰하는 출처를 명시하세요.'],
   on: {
@@ -993,7 +993,7 @@ function regexArg(n, cx) {
 }
 
 rule({
-  id: 'regex-redos', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-1333', 'cwe-400'], sonar: 'S5852', ktSonar: 'S5852', owasp: OWASP_CONFIG,
+  id: 'regex-redos', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-1333', 'cwe-400'], ref: 'S5852', ktRef: 'S5852', owasp: OWASP_CONFIG,
   en: ['Using slow regular expressions is security-sensitive', 'A repeated group that itself contains a repetition can match the same text in exponentially many ways; a crafted input then blocks the thread (ReDoS).', 'Rewrite the expression so that each part of the input can be matched in only one way, or use a possessive quantifier or atomic group.'],
   ko: ['느린 정규식 사용은 보안에 민감합니다', '반복을 포함한 그룹을 다시 반복하면 같은 텍스트를 지수적으로 많은 방법으로 매칭할 수 있어 조작된 입력이 스레드를 멈추게 합니다(ReDoS).', '입력의 각 부분이 한 가지 방법으로만 매칭되도록 식을 고치거나 소유 수량자나 원자 그룹을 쓰세요.'],
   msg: ['Make sure the regex "{0}" cannot backtrack catastrophically.', '정규식 "{0}"이(가) 파국적 역추적을 일으키지 않는지 확인하세요.'],
@@ -1025,7 +1025,7 @@ function othersPerms(p) {
 }
 
 rule({
-  id: 'permissive-file-permissions', langs: JK, type: 'H', sev: 'MA', debt: 5, tags: ['cwe-732', 'cwe-266', 'owasp-a1'], sonar: 'S2612', ktSonar: 'S2612', owasp: ['A01'],
+  id: 'permissive-file-permissions', langs: JK, type: 'H', sev: 'MA', debt: 5, tags: ['cwe-732', 'cwe-266', 'owasp-a1'], ref: 'S2612', ktRef: 'S2612', owasp: ['A01'],
   en: ['Setting loose POSIX file permissions is security-sensitive', 'Granting read, write or execute rights to all users ("others") lets any local account read secrets or tamper with the file.', 'Remove the permissions for others; grant access to the owner (and group) only.'],
   ko: ['느슨한 POSIX 파일 권한 설정은 보안에 민감합니다', '모든 사용자(others)에게 읽기·쓰기·실행 권한을 주면 어떤 로컬 계정이든 비밀을 읽거나 파일을 변조할 수 있습니다.', 'others 권한을 없애고 소유자(와 그룹)에게만 접근을 허용하세요.'],
   on: {
@@ -1054,7 +1054,7 @@ rule({
 const XSTREAM_SAFE = ['addPermission', 'allowTypes', 'allowTypesByWildcard', 'allowTypesByRegExp', 'allowTypeHierarchy', 'setupDefaultSecurity'];
 
 rule({
-  id: 'object-deserialization', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-502', 'owasp-a8'], sonar: 'S5135', ktSonar: 'S5135', owasp: ['A08'],
+  id: 'object-deserialization', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-502', 'owasp-a8'], ref: 'S5135', ktRef: 'S5135', owasp: ['A08'],
   en: ['Deserializing objects without a class filter is security-sensitive', 'ObjectInputStream, XMLDecoder and an unrestricted XStream instantiate whatever classes the stream names; gadget chains in the class path then run attacker code.', 'Set an ObjectInputFilter (or override resolveClass) that allows only expected classes; restrict XStream types; avoid XMLDecoder on untrusted data.'],
   ko: ['클래스 필터 없이 객체를 역직렬화하는 것은 보안에 민감합니다', 'ObjectInputStream, XMLDecoder, 제한 없는 XStream은 스트림이 지정한 어떤 클래스든 만들어 클래스 경로의 가젯 체인이 공격자 코드를 실행합니다.', '예상한 클래스만 허용하는 ObjectInputFilter를 설정(또는 resolveClass 재정의)하고 XStream 타입을 제한하며 신뢰할 수 없는 데이터에 XMLDecoder를 쓰지 마세요.'],
   msg: ['Make sure deserializing with "{0}" is restricted to expected classes.', '"{0}"의 역직렬화가 예상한 클래스로 제한되는지 확인하세요.'],
@@ -1087,7 +1087,7 @@ rule({
 });
 
 rule({
-  id: 'debug-feature-enabled', langs: JK, type: 'H', sev: 'MI', debt: 1, tags: ['cwe-489', 'cwe-215', 'owasp-a5'], sonar: 'S4507', ktSonar: 'S4507', owasp: OWASP_CONFIG,
+  id: 'debug-feature-enabled', langs: JK, type: 'H', sev: 'MI', debt: 1, tags: ['cwe-489', 'cwe-215', 'owasp-a5'], ref: 'S4507', ktRef: 'S4507', owasp: OWASP_CONFIG,
   en: ['Delivering code in production with debug features activated is security-sensitive', 'Stack traces printed to the console, Spring Security debug mode and WebView remote debugging expose internals that help attackers.', 'Log through a logger at an appropriate level and disable debug switches in production builds.'],
   ko: ['디버그 기능을 켠 채로 운영 코드를 배포하는 것은 보안에 민감합니다', '콘솔에 출력한 스택 트레이스, Spring Security 디버그 모드, WebView 원격 디버깅은 공격에 도움이 되는 내부 정보를 드러냅니다.', '적절한 수준의 로거로 기록하고 운영 빌드에서는 디버그 스위치를 끄세요.'],
   msg: ['Make sure "{0}" is not enabled in production.', '운영 환경에서 "{0}"이(가) 켜져 있지 않은지 확인하세요.'],
@@ -1138,7 +1138,7 @@ function dslSwitchedOff(n, outer, inner) {
 }
 
 rule({
-  id: 'csrf-protection-disabled', langs: JK, type: 'H', sev: 'CR', debt: 5, tags: ['cwe-352', 'owasp-a1'], sonar: 'S4502', ktSonar: 'S4502', owasp: ['A01'],
+  id: 'csrf-protection-disabled', langs: JK, type: 'H', sev: 'CR', debt: 5, tags: ['cwe-352', 'owasp-a1'], ref: 'S4502', ktRef: 'S4502', owasp: ['A01'],
   en: ['Disabling CSRF protections is security-sensitive', 'Without CSRF tokens a malicious page can make a logged-in user\'s browser send state-changing requests to this application.', 'Keep Spring Security CSRF protection enabled for browser-facing endpoints; only disable it for stateless token-based APIs after review.'],
   ko: ['CSRF 보호를 끄는 것은 보안에 민감합니다', 'CSRF 토큰이 없으면 악성 페이지가 로그인한 사용자의 브라우저로 상태를 바꾸는 요청을 보내게 할 수 있습니다.', '브라우저용 엔드포인트에서는 Spring Security CSRF 보호를 유지하고 상태 없는 토큰 API에서만 검토 후 끄세요.'],
   on: { Call(n, cx) { if (dslSwitchedOff(n, 'csrf', 'disable')) cx.report(n); } },
@@ -1168,7 +1168,7 @@ rule({
 });
 
 rule({
-  id: 'session-fixation-disabled', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-384', 'owasp-a7'], sonar: 'S5876', ktSonar: 'S5876', owasp: OWASP_AUTH,
+  id: 'session-fixation-disabled', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-384', 'owasp-a7'], ref: 'S5876', ktRef: 'S5876', owasp: OWASP_AUTH,
   en: ['A new session should be created during user authentication', 'With session fixation protection turned off the session id chosen before login stays valid after it, so an attacker who planted it hijacks the account.', 'Keep the default (changeSessionId or migrateSession).'],
   ko: ['사용자 인증 시 새 세션을 만들어야 합니다', '세션 고정 보호를 끄면 로그인 전에 정한 세션 ID가 로그인 후에도 유효해서 이를 심은 공격자가 계정을 가로챕니다.', '기본값(changeSessionId 또는 migrateSession)을 유지하세요.'],
   on: { Call(n, cx) { if (dslSwitchedOff(n, 'sessionFixation', 'none')) cx.report(n); } },
@@ -1193,7 +1193,7 @@ rule({
 const JWT_KEY_IDS = ['setSigningKey', 'setSigningKeyResolver', 'verifyWith', 'keyLocator', 'decryptWith', 'signWith'];
 
 rule({
-  id: 'jwt-signature-not-verified', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-347', 'owasp-a2'], sonar: 'S5659', ktSonar: 'S5659', owasp: OWASP_CRYPTO,
+  id: 'jwt-signature-not-verified', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-347', 'owasp-a2'], ref: 'S5659', ktRef: 'S5659', owasp: OWASP_CRYPTO,
   en: ['JWT should be signed and verified with strong cipher algorithms', 'Tokens that are not signed, signed with "none" or parsed without checking the signature can be forged by anyone.', 'Sign with a strong algorithm (HS256 with a long secret, RS256, ES256) and parse with parseClaimsJws / a verifier configured with the key.'],
   ko: ['JWT는 강한 알고리즘으로 서명하고 검증해야 합니다', '서명하지 않았거나 "none"으로 서명했거나 서명 확인 없이 해석한 토큰은 누구나 위조할 수 있습니다.', '강한 알고리즘(긴 비밀키의 HS256, RS256, ES256)으로 서명하고 키를 설정한 검증기나 parseClaimsJws로 해석하세요.'],
   msg: ['The JWT signature is not verified here ("{0}").', '여기서 JWT 서명을 검증하지 않습니다("{0}").'],
@@ -1232,7 +1232,7 @@ function isAuthKey(cx, e) {
 }
 
 rule({
-  id: 'ldap-anonymous-bind', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-521', 'owasp-a7'], sonar: 'S4433', ktSonar: 'S4433', owasp: OWASP_AUTH,
+  id: 'ldap-anonymous-bind', langs: JK, type: 'V', sev: 'CR', debt: 5, tags: ['cwe-521', 'owasp-a7'], ref: 'S4433', ktRef: 'S4433', owasp: OWASP_AUTH,
   en: ['LDAP connections should be authenticated', 'An anonymous ("none") LDAP bind lets anyone query or modify the directory without credentials.', 'Use "simple" over LDAPS or a stronger SASL mechanism with real credentials.'],
   ko: ['LDAP 연결은 인증되어야 합니다', '익명("none") LDAP 바인드는 자격 증명 없이 누구나 디렉터리를 조회하거나 수정하게 합니다.', 'LDAPS 위의 "simple"이나 더 강한 SASL 방식과 실제 자격 증명을 쓰세요.'],
   on: {
@@ -1259,7 +1259,7 @@ rule({
 });
 
 rule({
-  id: 'ldap-returning-objects', langs: JK, type: 'V', sev: 'MA', debt: 5, tags: ['cwe-502', 'owasp-a8'], sonar: 'S4434', ktSonar: 'S4434', owasp: ['A08'],
+  id: 'ldap-returning-objects', langs: JK, type: 'V', sev: 'MA', debt: 5, tags: ['cwe-502', 'owasp-a8'], ref: 'S4434', ktRef: 'S4434', owasp: ['A08'],
   en: ['LDAP deserialization should be disabled', 'Asking an LDAP search to return objects makes the client deserialize Java objects stored in the directory, a known remote-code-execution path.', 'Pass false as returningObjFlag and read plain attributes.'],
   ko: ['LDAP 역직렬화는 꺼야 합니다', 'LDAP 검색이 객체를 돌려주게 하면 클라이언트가 디렉터리에 저장된 자바 객체를 역직렬화해 원격 코드 실행 경로가 됩니다.', 'returningObjFlag에 false를 주고 일반 속성을 읽으세요.'],
   on: {
@@ -1296,7 +1296,7 @@ function isEntryName(cx, e, depth = 0) {
 }
 
 rule({
-  id: 'zip-slip', langs: JK, type: 'V', sev: 'BL', debt: 15, tags: ['cwe-22', 'owasp-a1'], sonar: 'S6096', ktSonar: 'S6096', owasp: ['A01'],
+  id: 'zip-slip', langs: JK, type: 'V', sev: 'BL', debt: 15, tags: ['cwe-22', 'owasp-a1'], ref: 'S6096', ktRef: 'S6096', owasp: ['A01'],
   en: ['Extracting archives should not lead to zip slip vulnerabilities', 'Entry names like "../../etc/cron.d/x" escape the target directory when joined to it without a check, letting an archive overwrite arbitrary files.', 'Normalize the resulting path and verify that it still starts with the canonical target directory before writing.'],
   ko: ['압축 해제가 zip slip 취약점으로 이어지면 안 됩니다', '"../../etc/cron.d/x" 같은 항목 이름을 검사 없이 대상 폴더에 붙이면 폴더를 벗어나 임의 파일을 덮어쓸 수 있습니다.', '결과 경로를 정규화하고 쓰기 전에 정규화한 대상 폴더로 시작하는지 확인하세요.'],
   on: {
@@ -1348,7 +1348,7 @@ rule({
 });
 
 rule({
-  id: 'archive-expansion-unbounded', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-409', 'owasp-a5'], sonar: 'S5042', ktSonar: 'S5042', owasp: OWASP_CONFIG,
+  id: 'archive-expansion-unbounded', langs: JK, type: 'H', sev: 'CR', debt: 30, tags: ['cwe-409', 'owasp-a5'], ref: 'S5042', ktRef: 'S5042', owasp: OWASP_CONFIG,
   en: ['Expanding archive files without controlling resource consumption is security-sensitive', 'A small "zip bomb" can expand to terabytes or millions of entries and exhaust disk, memory or inodes.', 'Limit the number of entries, the total uncompressed size and the compression ratio while extracting.'],
   ko: ['자원 사용을 통제하지 않고 압축 파일을 푸는 것은 보안에 민감합니다', '작은 "zip 폭탄"이 테라바이트나 수백만 개 항목으로 풀려 디스크·메모리·inode를 고갈시킬 수 있습니다.', '압축을 풀 때 항목 수, 전체 압축 해제 크기, 압축률을 제한하세요.'],
   on: {
@@ -1409,7 +1409,7 @@ function startsWithBasic(cx, e) {
 }
 
 rule({
-  id: 'basic-authentication', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-522', 'cwe-311', 'owasp-a7'], sonar: 'S2647', ktSonar: 'S2647', owasp: OWASP_AUTH,
+  id: 'basic-authentication', langs: JK, type: 'V', sev: 'CR', debt: 30, tags: ['cwe-522', 'cwe-311', 'owasp-a7'], ref: 'S2647', ktRef: 'S2647', owasp: OWASP_AUTH,
   en: ['Basic authentication should not be used', 'Basic authentication sends the user name and password, only Base64-encoded, with every request, so any leak of a single request reveals the credentials.', 'Use token-based authentication (OAuth 2, signed tokens) or at least digest authentication over TLS.'],
   ko: ['기본(Basic) 인증을 쓰면 안 됩니다', 'Basic 인증은 사용자 이름과 비밀번호를 Base64로만 인코딩해 매 요청마다 보내므로 요청 하나만 새어도 자격 증명이 드러납니다.', '토큰 기반 인증(OAuth 2, 서명된 토큰)이나 최소한 TLS 위의 다이제스트 인증을 쓰세요.'],
   on: {
@@ -1452,7 +1452,7 @@ function relativeCommand(cx, e) {
 }
 
 rule({
-  id: 'os-command-from-path', langs: JK, type: 'H', sev: 'MI', debt: 10, tags: ['cwe-426', 'cwe-427', 'owasp-a8'], sonar: 'S4036', ktSonar: 'S4036', owasp: ['A08'],
+  id: 'os-command-from-path', langs: JK, type: 'H', sev: 'MI', debt: 10, tags: ['cwe-426', 'cwe-427', 'owasp-a8'], ref: 'S4036', ktRef: 'S4036', owasp: ['A08'],
   en: ['Searching OS commands in PATH is security-sensitive', 'A command given without a path is looked up in the PATH directories; whoever can write to one of them earlier in the list decides what actually runs.', 'Run commands through an absolute path from trusted configuration.'],
   ko: ['PATH에서 OS 명령을 찾는 것은 보안에 민감합니다', '경로 없이 준 명령은 PATH 폴더에서 찾으므로 목록 앞쪽 폴더에 쓸 수 있는 사람이 실제로 실행될 프로그램을 정합니다.', '신뢰할 수 있는 설정의 절대 경로로 명령을 실행하세요.'],
   msg: ['Make sure the "PATH" lookup used to find "{0}" is safe here.', '"{0}"을(를) 찾는 PATH 검색이 안전한지 확인하세요.'],
@@ -1493,7 +1493,7 @@ function boolSetting(n, cx, setters, props) {
 }
 
 rule({
-  id: 'webview-javascript-enabled', langs: JK, type: 'H', sev: 'MI', debt: 5, tags: ['cwe-79', 'android'], sonar: 'S6362', ktSonar: 'S6362', owasp: ['A03'],
+  id: 'webview-javascript-enabled', langs: JK, type: 'H', sev: 'MI', debt: 5, tags: ['cwe-79', 'android'], ref: 'S6362', ktRef: 'S6362', owasp: ['A03'],
   en: ['Enabling JavaScript support for WebViews is security-sensitive', 'JavaScript in a WebView that shows untrusted or remote content opens the app to cross-site scripting and, with JavaScript interfaces, to code running with the app\'s rights.', 'Enable JavaScript only for WebViews that load trusted content, and never together with addJavascriptInterface on remote pages.'],
   ko: ['WebView의 자바스크립트를 켜는 것은 보안에 민감합니다', '신뢰할 수 없거나 원격 콘텐츠를 보여 주는 WebView에서 자바스크립트를 켜면 XSS에 노출되고 자바스크립트 인터페이스가 있으면 앱 권한으로 코드가 실행됩니다.', '신뢰할 수 있는 콘텐츠를 여는 WebView에서만 켜고 원격 페이지에 addJavascriptInterface와 함께 쓰지 마세요.'],
   on: {
@@ -1518,7 +1518,7 @@ const FILE_ACCESS = ['setAllowFileAccess', 'setAllowFileAccessFromFileURLs', 'se
 const FILE_ACCESS_PROPS = ['allowFileAccess', 'allowFileAccessFromFileURLs', 'allowUniversalAccessFromFileURLs', 'allowContentAccess'];
 
 rule({
-  id: 'webview-file-access', langs: JK, type: 'H', sev: 'MI', debt: 5, tags: ['cwe-73', 'android'], sonar: 'S6363', ktSonar: 'S6363', owasp: ['A01'],
+  id: 'webview-file-access', langs: JK, type: 'H', sev: 'MI', debt: 5, tags: ['cwe-73', 'android'], ref: 'S6363', ktRef: 'S6363', owasp: ['A01'],
   en: ['Enabling file access for WebViews is security-sensitive', 'File and content access lets pages loaded in the WebView read app-private files and, with file URL access, send them to other origins.', 'Leave file and content access disabled and serve local content through WebViewAssetLoader.'],
   ko: ['WebView의 파일 접근을 켜는 것은 보안에 민감합니다', '파일·콘텐츠 접근을 켜면 WebView에 열린 페이지가 앱 전용 파일을 읽고 파일 URL 접근이 있으면 다른 출처로 보낼 수 있습니다.', '파일·콘텐츠 접근은 끈 채로 두고 로컬 콘텐츠는 WebViewAssetLoader로 제공하세요.'],
   msg: ['Make sure that enabling "{0}" is safe here.', '여기서 "{0}"을(를) 켜도 안전한지 확인하세요.'],
@@ -1545,7 +1545,7 @@ const EXT_STORAGE = ['getExternalStorageDirectory', 'getExternalStoragePublicDir
 const EXT_STORAGE_PROPS = ['externalCacheDir', 'externalCacheDirs', 'externalMediaDirs', 'obbDir', 'obbDirs', 'externalStorageDirectory'];
 
 rule({
-  id: 'android-external-storage', langs: JK, type: 'H', sev: 'CR', debt: 15, tags: ['cwe-312', 'cwe-922', 'android'], sonar: 'S5324', ktSonar: 'S5324', owasp: ['A04'],
+  id: 'android-external-storage', langs: JK, type: 'H', sev: 'CR', debt: 15, tags: ['cwe-312', 'cwe-922', 'android'], ref: 'S5324', ktRef: 'S5324', owasp: ['A04'],
   en: ['Accessing Android external storage is security-sensitive', 'Files on external storage can be read and replaced by other apps and by the user, so they are neither confidential nor trustworthy.', 'Keep sensitive data in internal storage and validate anything read back from external storage.'],
   ko: ['안드로이드 외부 저장소 접근은 보안에 민감합니다', '외부 저장소의 파일은 다른 앱과 사용자가 읽고 바꿀 수 있어 기밀도 아니고 믿을 수도 없습니다.', '민감한 데이터는 내부 저장소에 두고 외부 저장소에서 읽은 값은 검증하세요.'],
   on: {
@@ -1572,7 +1572,7 @@ rule({
 });
 
 rule({
-  id: 'android-broadcast-without-permission', langs: JK, type: 'H', sev: 'CR', debt: 15, tags: ['cwe-927', 'android'], sonar: 'S5320', ktSonar: 'S5320', owasp: ['A01'],
+  id: 'android-broadcast-without-permission', langs: JK, type: 'H', sev: 'CR', debt: 15, tags: ['cwe-927', 'android'], ref: 'S5320', ktRef: 'S5320', owasp: ['A01'],
   en: ['Broadcasting intents is security-sensitive', 'An implicit broadcast without a receiver permission is delivered to every app that registers for it, including malicious ones.', 'Pass a receiver permission, target a specific package, or use a local/in-process mechanism.'],
   ko: ['인텐트 브로드캐스트는 보안에 민감합니다', '수신 권한 없는 브로드캐스트는 그것을 등록한 모든 앱(악성 앱 포함)에 전달됩니다.', '수신 권한을 주거나 특정 패키지를 지정하거나 로컬/프로세스 내부 방식을 쓰세요.'],
   on: {

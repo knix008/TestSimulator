@@ -16,7 +16,7 @@ R('goto', 'S', 'MA', 10, ['brain-overload'],
   /^\s*(?:GoTo|GoSub)\s+\w+/i,
   ['GoTo / GoSub statement', 'GoTo and GoSub make control flow hard to follow.', 'Use loops, Exit or separate procedures.'],
   ['GoTo / GoSub 문입니다', 'GoTo와 GoSub는 제어 흐름을 따라가기 어렵게 만듭니다.', '반복문, Exit 또는 별도 프로시저를 쓰세요.'],
-  'GoTo Retry', 'Call Retry', { sonar: 'S907' });
+  'GoTo Retry', 'Call Retry', { ref: 'S907' });
 R('variant', 'S', 'MI', 5, ['types'],
   /\b(?:Dim|Private|Public|Static)\s+\w+(?:\s*\(\s*\))?\s*(?:$|,|As\s+Variant\b)/i,
   ['Variable declared as Variant', 'An untyped or Variant variable hides type errors and is slower.', 'Declare an explicit type such as As Long or As String.'],
@@ -31,12 +31,12 @@ R('sql-concat', 'V', 'CR', 20, ['sql', 'cwe-89', 'owasp-a03'],
   /"\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^"]*"\s*&/i,
   ['SQL built by concatenation', 'Concatenated values can change the SQL statement.', 'Use an ADODB.Command with parameters.'],
   ['문자열을 이어 SQL을 만듭니다', '이어 붙인 값이 SQL 문을 바꿀 수 있습니다.', '매개변수가 있는 ADODB.Command를 쓰세요.'],
-  'rs.Open "SELECT * FROM Users WHERE Name = \'" & txtName.Text & "\'", cn', 'cmd.CommandText = "SELECT * FROM Users WHERE Name = ?"', { sonar: 'S2077' });
+  'rs.Open "SELECT * FROM Users WHERE Name = \'" & txtName.Text & "\'", cn', 'cmd.CommandText = "SELECT * FROM Users WHERE Name = ?"', { ref: 'S2077' });
 R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b\w*(?:password|passwd|pwd|secret)\w*\s*=\s*"[^"\s]{4,}"|"[^"]*\b(?:Password|Pwd)\s*=\s*[^;"\s]+/i,
   ['Hard-coded credential', 'Anyone with the source or executable can read the secret.', 'Use Windows authentication or read it from protected storage.'],
   ['자격 증명을 코드에 적었습니다', '소스나 실행 파일을 가진 누구나 비밀을 읽을 수 있습니다.', 'Windows 인증을 쓰거나 보호된 저장소에서 읽으세요.'],
-  'cn.Open "Provider=SQLOLEDB;Data Source=db;User ID=sa;Password=Secret1;"', 'cn.Open "Provider=SQLOLEDB;Data Source=db;Integrated Security=SSPI;"', { sonar: 'S2068' });
+  'cn.Open "Provider=SQLOLEDB;Data Source=db;User ID=sa;Password=Secret1;"', 'cn.Open "Provider=SQLOLEDB;Data Source=db;Integrated Security=SSPI;"', { ref: 'S2068' });
 R('shell-concat', 'V', 'CR', 20, ['cwe-78', 'owasp-a03'],
   /(?<![\w.])Shell\s*\(?[^)]*&/i,
   ['Shell command built by concatenation', 'Values joined into a command line can run other commands.', 'Validate the value strictly or avoid the shell.'],
@@ -46,7 +46,7 @@ R('weak-random', 'H', 'MI', 10, ['cwe-338', 'crypto'],
   /(?<![\w.])Rnd\s*(?:\(|$)/i,
   ['Rnd used for random values', 'Rnd is predictable and must not produce tokens or passwords.', 'Use CryptGenRandom through the Windows API.'],
   ['Rnd로 난수를 만듭니다', 'Rnd는 예측할 수 있어 토큰이나 비밀번호를 만들면 안 됩니다.', 'Windows API의 CryptGenRandom을 쓰세요.'],
-  'token = Int(Rnd() * 1000000)', 'token = SecureRandomToken()', { sonar: 'S2245' });
+  'token = Int(Rnd() * 1000000)', 'token = SecureRandomToken()', { ref: 'S2245' });
 R('end-statement', 'B', 'CR', 10, ['suspicious'],
   /^\s*End\s*$/i,
   ['End statement', 'End stops the program at once without unloading forms or releasing objects.', 'Unload the forms and let the program finish.'],
@@ -56,7 +56,7 @@ R('debug-print', 'S', 'MI', 2, ['debug'],
   /^\s*(?:Debug\.Print|MsgBox)\b/i,
   ['Debug.Print or MsgBox debug output', 'Debug output is noise in production and MsgBox blocks unattended runs.', 'Write to a log file.'],
   ['Debug.Print나 MsgBox 디버그 출력입니다', '디버그 출력은 운영에서 잡음이고 MsgBox는 무인 실행을 막습니다.', '로그 파일에 쓰세요.'],
-  'Debug.Print "value=" & value', 'LogWrite "value=" & value', { sonar: 'S106' });
+  'Debug.Print "value=" & value', 'LogWrite "value=" & value', { ref: 'S106' });
 R('implicit-type-suffix', 'S', 'MI', 2, ['types'],
   /\b(?:Dim|Private|Public)\s+\w+[$%&!#@]\s*(?:$|,)/i,
   ['Type declaration character', 'Suffixes such as $ and % are cryptic.', 'Use an As clause.'],

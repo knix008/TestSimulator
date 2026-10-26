@@ -1,6 +1,6 @@
 'use strict';
 
-// C# semantic analyzer (SonarC#-style). Contract: core/ENGINE_CONTRACT.md.
+// C# semantic analyzer (C reference analyzer#-style). Contract: core/ENGINE_CONTRACT.md.
 // Rule keys 'sem-cs:<id>'.
 //
 // Pipeline: tolerant lexer + parser (C# 12) -> project model (types merged

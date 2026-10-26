@@ -23,6 +23,7 @@ function useInstaller(onFinished) {
       try {
         const job = await call('tools.job', { id: jobId });
         setJobs((all) => ({ ...all, [toolId]: job }));
+        window.dispatchEvent(new CustomEvent('mcc-job', { detail: job }));
         if (job.status === 'running') poll(toolId, jobId);
         else if (finished.current) finished.current(toolId, job);
       } catch (err) {
@@ -35,6 +36,7 @@ function useInstaller(onFinished) {
     try {
       const job = await call('tools.install', { id: tool.id, manager: tool.manager || undefined });
       setJobs((all) => ({ ...all, [tool.id]: job }));
+      window.dispatchEvent(new CustomEvent('mcc-job', { detail: job }));
       if (job.status === 'running') poll(tool.id, job.id);
       else if (finished.current) finished.current(tool.id, job);
     } catch (err) {

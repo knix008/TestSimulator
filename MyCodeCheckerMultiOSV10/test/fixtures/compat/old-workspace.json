@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "settings": { "theme": "midnight", "language": "en" },
+  "gates": [
+    { "id": "sonar-way", "name": "Sonar way", "isDefault": true, "conditions": [{ "id": "c1", "metric": "new_bugs", "op": "GT", "threshold": 0, "on": "new" }] }
+  ],
+  "profiles": [
+    { "id": "all-checker-way", "name": "Checker way", "language": "*", "isDefault": true, "inactive": ["cov:UNREACHABLE"], "overrides": { "cov:UNINIT": "MINOR" } }
+  ],
+  "customRules": [{ "key": "custom:x", "sonar": "S100", "tags": ["coverity"] }],
+  "projects": [
+    {
+      "id": "p1", "key": "old", "name": "Old project", "gateId": "sonar-way", "mainBranch": "main",
+      "branches": {
+        "main": {
+          "latest": {
+            "issues": [
+              { "key": "0f2317de9be9b3cc", "rule": "cov:DEADCODE", "file": "src/a.c", "line": 3, "coverityStatus": "Triaged", "tags": ["coverity", "cwe-561"] },
+              { "key": "4957d1765a92e258", "rule": "js:eval", "file": "src/b.js", "line": 2, "coverityStatus": "New", "tags": ["cwe-95"] }
+            ],
+            "coverity": { "snapshot": 3, "stream": "main", "outstanding": 2 }
+          }
+        }
+      },
+      "history": [{ "at": "2026-01-01T00:00:00Z", "coverity": { "outstanding": 2, "policy": "OK" } }],
+      "issueState": {
+        "0f2317de9be9b3cc": { "status": "CONFIRMED", "classification": "Bug", "action": "Fix Required", "coverityStatus": "Triaged", "comments": [{ "text": "real defect" }] },
+        "4957d1765a92e258": { "status": "RESOLVED", "resolution": "WONTFIX" }
+      }
+    }
+  ],
+  "schedules": [{ "id": "s1", "kind": "sparrow", "kinds": ["executive", "coverity-security", "sparrow"] }],
+  "webhooks": [{ "id": "w1", "name": "CI", "url": "http://localhost/hook", "events": ["analysis", "coverity-high-impact"] }],
+  "notifications": { "subscriptions": [{ "login": "admin", "event": "coverity-high-impact" }] },
+  "coverity": {
+    "policies": [{ "id": "pol", "name": "Strict", "isDefault": true, "conditions": [] }],
+    "components": [{ "id": "c", "name": "Core", "patterns": ["src/**"] }],
+    "models": [{ "key": "cov:model:pool", "name": "pool_get", "kind": "allocator" }],
+    "views": [{ "id": "v1", "name": "All" }]
+  }
+}

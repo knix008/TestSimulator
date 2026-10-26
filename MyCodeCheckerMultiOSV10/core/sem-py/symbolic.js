@@ -1,7 +1,7 @@
 'use strict';
 
 // Path-sensitive symbolic execution over the CFG, in the spirit of
-// SonarPython's engine. Each local variable has an abstract value
+// Python reference analyzer's engine. Each local variable has an abstract value
 //   { n: 'N' (None) | 'S' (not None) | undefined,
 //     t: true | false | undefined   (truthiness),
 //     c: string | undefined          (known literal, JSON),

@@ -17,8 +17,9 @@
 // The LSP server turns these into WorkspaceEdits. Until core/analyze.js copies
 // `fix`/`fixes` from engine findings onto issues, the built-in providers below
 // cover the common line rules, and every issue gets the two generic actions:
-// suppress with NOSONAR, and deactivate the rule.
+// suppress with NOMCC, and deactivate the rule.
 
+const compat = require('../compat');
 const { commentKind, detectLanguage } = require('../languages');
 
 // Splits a line into code segments outside string literals and line comments,
@@ -135,14 +136,14 @@ function fixesFor(issue, lines) {
 
 const COMMENT = { slash: '//', hash: '#', dash: '--' };
 
-// Edit that appends a NOSONAR marker to the issue line, or null when the
+// Edit that appends a NOMCC marker to the issue line, or null when the
 // language has no line comment.
 function suppressionEdit(issue, lines, filePath) {
   const lang = issue.language || detectLanguage(filePath || issue.file) || '';
   const kind = commentKind(lang);
   const t = lines[issue.line - 1];
   if (t == null) return null;
-  if (/NOSONAR/.test(t)) return null;
+  if (compat.MARKER_RE.test(t)) return null;
   const trimmedLen = t.replace(/\s+$/, '').length;
   let marker;
   if (COMMENT[kind]) {
@@ -151,9 +152,9 @@ function suppressionEdit(issue, lines, filePath) {
     const segs = kind === 'slash' ? codeSegments(t) : kind === 'hash' ? codeSegments(t, { slash: false, hash: true, backtick: false }) : null;
     const codeEnd = segs && segs.length ? segs[segs.length - 1].end : trimmedLen;
     const hasComment = segs ? t.slice(codeEnd).trimStart().startsWith(prefix) : false;
-    marker = hasComment ? ' NOSONAR' : ` ${prefix} NOSONAR`;
+    marker = hasComment ? ' NOMCC' : ` ${prefix} NOMCC`;
   } else if (kind === 'xml') {
-    marker = ' <!-- NOSONAR -->';
+    marker = ' <!-- NOMCC -->';
   } else {
     return null;
   }

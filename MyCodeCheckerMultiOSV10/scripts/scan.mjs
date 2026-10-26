@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
+const compat = require('../core/compat/index.js');
 // CI scanner — the local stand-in for a quality-gate step.
 //   node scripts/scan.mjs --path samples/demo --format sarif --out report.sarif
 //   node scripts/scan.mjs --path src --standard misra-c --misra-gate --report misra --out misra.html
@@ -13,13 +14,13 @@ const fs = require('fs');
 const path = require('path');
 const { analyzePath, listRules } = require('../core/analyze');
 const { toJson, toSarif, toHtml, toCsv, badge } = require('../core/report');
-const { SONAR_WAY } = require('../core/qualitygate');
+const { DEFAULT_GATE } = require('../core/qualitygate');
 const { compliance, reports } = require('../core/platform');
 const sca = require('../core/sca');
 
 const USAGE = `Usage: node scripts/scan.mjs --path <folder> [options]
   --format json|sarif|html|csv|badge|cyclonedx|spdx|spdx-tv   output format (default json)
-  --report executive|security|misra|integrity|coverity-security|sparrow|sbom
+  --report executive|security|misra|integrity|defect-security|weakness|sbom
                                     write a report instead (--csv for the CSV variant)
   --standard <id>                   keep only rules of a standard: misra-c, misra-cpp, cert, cwe-top25, owasp
                                     (security reports: owasp2021, cweTop25, pciDss40, ...)
@@ -28,15 +29,18 @@ const USAGE = `Usage: node scripts/scan.mjs --path <folder> [options]
   --include <dir>  --define NAME=V  C/C++ include folder and macro (repeatable)
   --target lp64|ilp32|llp64         C/C++ data model
   --osv <folder|all.zip>            offline OSV advisory database
-  --coverage <file>                 coverage report (lcov, Cobertura, JaCoCo, Clover, OpenCover, Go, Sonar generic); repeatable
-  --out <file>  --lang ko|en
+  --coverage <file>                 coverage report (lcov, Cobertura, JaCoCo, Clover, OpenCover, Go, generic XML); repeatable
+  --exclude <glob>                  skip matching files (repeatable; also mcc.exclusions)
+  --workspace [config folder]       use the app's workspace: quality profiles, gate, exclusions and issue states
+                                    (default folder: the app's data folder; the workspace is not changed)
+  --out <file>  --lang ko|en        with --report, --out x.pdf / x.docx / x.xlsx writes that format
   --server <url> --token <user token> --project-key <key> [--branch <name>]
                                     upload to a MyCodeChecker server and wait for its quality gate
-                                    (also read from sonar-project.properties: sonar.host.url, sonar.token,
-                                    sonar.projectKey, sonar.projectName, sonar.sources, sonar.exclusions,
-                                    sonar.branch.name)`;
+                                    (also read from mcc-project.properties: mcc.host.url, mcc.token,
+                                    mcc.projectKey, mcc.projectName, mcc.sources, mcc.exclusions,
+                                    mcc.branch.name)`;
 
-const props = readProperties(arg('properties', 'sonar-project.properties'));
+const props = compat.normalizeProperties(readProperties(arg('properties', '') || compat.PROPERTY_FILES.find((f) => fs.existsSync(f)) || compat.PROPERTY_FILE));
 const folder = arg('path') || (process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : '') || (Object.keys(props).length ? '.' : '');
 if (!folder) {
   console.error(USAGE);
@@ -47,7 +51,7 @@ const lang = arg('lang', 'ko');
 const standard = arg('standard', '');
 const root = path.resolve(folder);
 
-const server = arg('server', props['sonar.host.url'] || '');
+const server = arg('server', props['mcc.host.url'] || '');
 if (server) {
   process.exit(await upload());
 }
@@ -62,13 +66,36 @@ if (arg('osv')) scaOptions.advisoryDb = sca.importOsvDatabase(path.resolve(arg('
 
 const catalog = listRules();
 const inactive = standard ? catalog.filter((r) => !inStandard(r, standard)).map((r) => r.key) : [];
-const analysis = analyzePath(root, {
-  gate: SONAR_WAY,
-  inactive,
-  coverageReports: args('coverage').length ? args('coverage') : (props['sonar.coverageReportPaths'] || props['sonar.javascript.lcov.reportPaths'] || '').split(',').map((s) => s.trim()).filter(Boolean),
-  sca: scaOptions,
-  cfamily: { includeDirs: args('include').map((d) => path.resolve(root, d)), defines, target: arg('target') },
-});
+const exclusions = [...args('exclude'), ...String(props['mcc.exclusions'] || '').split(',').map((s) => s.trim()).filter(Boolean)];
+const coverageReports = args('coverage').length ? args('coverage') : (props['mcc.coverageReportPaths'] || props['mcc.javascript.lcov.reportPaths'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+let analysis;
+if (process.argv.includes('--workspace')) {
+  // The desktop app's workspace: its quality profiles, gate, exclusions and
+  // issue states (false positives, accepted issues). It runs on a temporary
+  // copy, so the workspace itself is never changed.
+  const os = require('os');
+  const { createApi } = require('../core/api');
+  const { createStore } = require('../core/store');
+  const source = createStore(arg('workspace') ? path.resolve(arg('workspace')) : undefined);
+  if (!fs.existsSync(source.file)) {
+    console.error(`No workspace at ${source.file}`);
+    process.exit(2);
+  }
+  const copyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcc-cli-'));
+  fs.copyFileSync(source.file, path.join(copyDir, 'workspace.json'));
+  const api = createApi({ configDir: copyDir });
+  const res = await api.call('project.scan', { path: root, branch: arg('branch'), commit: false, exclusions, coverageReports: coverageReports.length ? coverageReports : undefined });
+  analysis = res.analysis;
+} else {
+  analysis = analyzePath(root, {
+    gate: DEFAULT_GATE,
+    inactive,
+    exclusions,
+    coverageReports,
+    sca: scaOptions,
+    cfamily: { includeDirs: args('include').map((d) => path.resolve(root, d)), defines, target: arg('target') },
+  });
+}
 
 let body;
 const reportKind = arg('report', '');
@@ -126,7 +153,7 @@ function inStandard(rule, id) {
   return true; // a security-report id: keep every rule, the report filters
 }
 
-// sonar-project.properties (key=value, # comments, \ line continuation).
+// mcc-project.properties (key=value, # comments, \ line continuation).
 function readProperties(file) {
   const out = {};
   let text;
@@ -142,20 +169,20 @@ function readProperties(file) {
 }
 
 // Upload the sources to a server, which analyzes them with its own profiles,
-// gate and history (SonarQube scanner flow). Exit 1 when the gate fails.
-// Monorepo: sonar.modules=a,b uploads each module as its own project
-// (a.sonar.projectKey, a.sonar.projectName, a.sonar.projectBaseDir, a.sonar.sources).
+// gate and history (code-quality scanner flow). Exit 1 when the gate fails.
+// Monorepo: mcc.modules=a,b uploads each module as its own project
+// (a.mcc.projectKey, a.mcc.projectName, a.mcc.projectBaseDir, a.mcc.sources).
 async function upload() {
-  const modules = String(props['sonar.modules'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const modules = String(props['mcc.modules'] || '').split(',').map((s) => s.trim()).filter(Boolean);
   if (!modules.length) return uploadOne(root, props);
   let worst = 0;
   for (const m of modules) {
     const sub = { ...props };
-    for (const [k, v] of Object.entries(props)) if (k.startsWith(`${m}.sonar.`)) sub[k.slice(m.length + 1)] = v;
-    sub['sonar.projectKey'] = props[`${m}.sonar.projectKey`] || `${props['sonar.projectKey'] || path.basename(root)}:${m}`;
-    sub['sonar.projectName'] = props[`${m}.sonar.projectName`] || m;
-    if (!props[`${m}.sonar.sources`]) sub['sonar.sources'] = '.';
-    const code = await uploadOne(path.resolve(root, props[`${m}.sonar.projectBaseDir`] || m), sub);
+    for (const [k, v] of Object.entries(props)) if (k.startsWith(`${m}.ref.`)) sub[k.slice(m.length + 1)] = v;
+    sub['mcc.projectKey'] = props[`${m}.mcc.projectKey`] || `${props['mcc.projectKey'] || path.basename(root)}:${m}`;
+    sub['mcc.projectName'] = props[`${m}.mcc.projectName`] || m;
+    if (!props[`${m}.mcc.sources`]) sub['mcc.sources'] = '.';
+    const code = await uploadOne(path.resolve(root, props[`${m}.mcc.projectBaseDir`] || m), sub);
     worst = Math.max(worst, code);
   }
   return worst;
@@ -181,18 +208,18 @@ function postJson(url, body, headers) {
 
 async function uploadOne(base, conf) {
   const { walk } = require('../core/analyze');
-  const key = conf === props ? arg('project-key', conf['sonar.projectKey'] || path.basename(base)) : conf['sonar.projectKey'];
-  const token = arg('token', process.env.MCC_TOKEN || process.env.SONAR_TOKEN || conf['sonar.token'] || conf['sonar.login'] || '');
-  const exclusions = [...args('exclude'), ...String(conf['sonar.exclusions'] || '').split(',').map((s) => s.trim()).filter(Boolean)];
-  const sources = String(conf['sonar.sources'] || '.').split(',').map((s) => path.resolve(base, s.trim() || '.'));
+  const key = conf === props ? arg('project-key', conf['mcc.projectKey'] || path.basename(base)) : conf['mcc.projectKey'];
+  const token = arg('token', compat.tokenFromEnv() || conf['mcc.token'] || conf['mcc.login'] || '');
+  const exclusions = [...args('exclude'), ...String(conf['mcc.exclusions'] || '').split(',').map((s) => s.trim()).filter(Boolean)];
+  const sources = String(conf['mcc.sources'] || '.').split(',').map((s) => path.resolve(base, s.trim() || '.'));
   const files = [];
-  // Exclusion patterns are relative to the project base directory, as in SonarQube.
+  // Exclusion patterns are relative to the project base directory, as in code quality.
   for (const full of walk(base, { exclusions })) {
     const rel = path.relative(base, full).replace(/\\/g, '/');
     if (!sources.some((dir) => full === dir || full.startsWith(dir + path.sep))) continue;
     files.push({ path: rel, text: fs.readFileSync(full, 'utf8') });
   }
-  const body = { key, name: conf['sonar.projectName'] || key, branch: arg('branch', conf['sonar.branch.name'] || undefined), files };
+  const body = { key, name: conf['mcc.projectName'] || key, branch: arg('branch', conf['mcc.branch.name'] || undefined), files };
   const url = `${server.replace(/\/+$/, '')}/api/project.submit`;
   console.error(`MyCodeChecker upload ${files.length} files of ${key} → ${server}`);
   let res;

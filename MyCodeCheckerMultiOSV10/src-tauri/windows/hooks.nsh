@@ -1,8 +1,11 @@
 ﻿; MyCodeChecker installer hooks (Tauri NSIS).
+; Project files (*.mccp) get their own icon instead of the program icon.
 ; After installing, offer to install Git through winget when it is missing.
 ; The user chooses; silent installs (/S) never install anything extra.
 
 !macro NSIS_HOOK_POSTINSTALL
+  WriteRegStr SHCTX "Software\Classes\MyCodeChecker.Project\DefaultIcon" "" "$INSTDIR\mccp.ico,0"
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
   IfSilent mcc_tools_done
   nsExec::ExecToStack 'cmd /c git --version'
   Pop $0

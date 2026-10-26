@@ -118,7 +118,7 @@ export function DastView() {
   const sevOptions = [{ value: '', label: t('ib_any_severity'), icon: 'list' }, ...SEV.map((s) => ({ value: s, label: s, icon: s === 'INFO' ? 'info' : 'alert' }))];
 
   return (
-    <div className="view">
+    <div className={`view ${result ? 'view-list' : ''}`}>
       <ViewHeader icon="globe" title={t('nav_dast')} hint={t('da_hint')}>
         <label className="field-inline grow"><span>{t('da_target')}</span>
           <input value={target} disabled={running} onChange={(e) => setTarget(e.target.value)} placeholder="https://app.example.test" />
@@ -162,7 +162,7 @@ export function DastView() {
       <div className="split-2">
         <div className="panel tpanel">
           <h3 className="sub-title pad">{t('da_results')}</h3>
-          <div className="table-wrap short">
+          <div className="table-wrap short dast-runs">
             <table>
               <thead><tr><th>{t('when')}</th><th>{t('da_target')}</th><th>{t('da_mode')}</th><th className="num">{t('da_findings')}</th></tr></thead>
               <tbody>
@@ -201,7 +201,7 @@ export function DastView() {
         </div>
       </div>
       {result && (
-        <div className="split">
+        <div className="split list-grow">
           <div className="panel tpanel">
             <div className="table-wrap">
               <table>

@@ -133,6 +133,49 @@ limit, request cap, cancel, passive-mode payload-freedom, the User-Agent,
 authenticated cookies, and TLS self-signed detection. Tests never touch the
 internet.
 
+## Extended options (all optional)
+
+```js
+dast.createScan({
+  target,
+  policy: 'Default',            // 'Light' | 'Default' | 'OWASP Top 10' | 'API' | 'Full' | custom object
+  browser: true,                // or { browserPath, search:false, maxPages, maxClicks, waitIdleMs, timeoutMs }
+  graphql: true,                // or an in-scope endpoint URL (true = <origin>/graphql)
+  soap: 'https://app/svc?wsdl', // WSDL URL or WSDL XML string
+  postman: collectionV21,       // Postman collection v2.1 object → extra seeds / POST points
+  ssrf: true,                   // in-process callback listener for SSRF (active mode); false disables
+  rateLimitLogin: { url, fields, attempts },
+  auth: {
+    sequence: [{ method, url, form | json, extract: { name: 'regex' | { json: 'a.b' } } }], // ${name} substitution
+    script: [{ action: 'goto'|'fill'|'click'|'submit'|'wait', selector, value, url }],      // browser login
+    loginUrl, loggedInPattern, loggedOutPattern, checkUrl,   // session loss → automatic re-login (max 3)
+    tokenEndpoint: { method, url, form | json, extract: { bearer: ... } },
+    bearerVar, vars,
+  },
+});
+dast.policies();      // built-in policy list
+dast.findBrowser();   // path of a local Chromium-family browser or null
+```
+
+The result also has `policy`, `thresholdBreached` and `warnings` (for example the
+fallback to the static crawler when no browser is found).
+
+| File | Role |
+|------|------|
+| `browser.js` | browser discovery, self-written CDP WebSocket client, headless crawl (always kills its own process and deletes its temp profile) |
+| `auth.js` | HTTP login sequences, browser login scripts, session checks, bearer refresh |
+| `policies.js` | built-in scan policies, strength → payload count, threshold |
+| `apiscan.js` | GraphQL (introspection, argument injection, batching, depth), SOAP/WSDL (injection, entity expansion), Postman import |
+| `extra.js` | SSRF callback listener + probe, JWT alg checks, write methods from `Allow`, login rate limit |
+
+The browser is used for discovery only; every probe still goes through the
+scope-gated, rate-limited client. Write methods are reported from the OPTIONS
+`Allow` header — PUT/DELETE/PATCH are never sent.
+
+Tests: `test/dast-browser.test.mjs` (fallback warning + real crawl when a browser
+is installed), `test/dast-auth.test.mjs` (login sequence, session loss, re-login,
+token refresh).
+
 ## Limitations
 
 - Boolean-based SQLi uses a response-length/status heuristic; very dynamic pages
@@ -146,5 +189,9 @@ internet.
 - Library version detection reads banners/filenames only; bundled/minified libs
   without a version string are not detected. The vulnerability table is a small
   offline subset, not a full SCA feed.
-- No headless browser: DOM-XSS and client-rendered SPA routes beyond what static
-  HTML/JS regex discovery finds are out of scope.
+- Browser crawling needs a locally installed Chrome/Edge/Chromium; without one the
+  scan falls back to the static crawler and records a warning. DOM-XSS detection
+  is not implemented.
+- The browser does not go through the client's rate limiter (discovery only, in-scope
+  navigation only, bounded by maxPages/maxClicks).
+- The SOAP entity check uses an internal entity marker; it does not read files.

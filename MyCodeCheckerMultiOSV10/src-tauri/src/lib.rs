@@ -159,7 +159,11 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     let config = default_config_dir();
     let _ = fs::create_dir_all(&config);
     let (child, port, token) = start_service(&root, &node, &config)?;
-    let script = format!("window.__MCC_HOST__={{port:{port},token:\"{token}\",platform:\"{}\"}};", platform_name());
+    let mut script = format!("window.__MCC_HOST__={{port:{port},token:\"{token}\",platform:\"{}\"}};", platform_name());
+    // Launched by double-clicking a project file: the page opens it after boot.
+    if let Some(file) = project_file_arg(std::env::args().skip(1)) {
+        script.push_str(&format!("window.__MCC_OPEN__={};", serde_json::to_string(&file).unwrap_or_else(|_| "null".into())));
+    }
     app.manage(Host { port, token, child: Mutex::new(Some(child)) });
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()));
     // `npm start` gets its own WebView2 profile: sharing the installed app's
@@ -191,6 +195,24 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     Ok(())
 }
 
+/// The first existing *.mccp path among the command-line arguments.
+fn project_file_arg<I: Iterator<Item = String>>(args: I) -> Option<String> {
+    args.map(|a| a.trim_matches('"').to_string())
+        .find(|a| a.to_lowercase().ends_with(".mccp") && Path::new(a).is_file())
+        .map(|a| normalize(&std::fs::canonicalize(&a).unwrap_or_else(|_| PathBuf::from(&a))).to_string_lossy().into_owned())
+}
+
+/// Hand a project file to the running page (macOS "open with", files opened later).
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn open_in_page(app: &tauri::AppHandle, file: &str) {
+    if let Some(win) = app.get_webview_window("main") {
+        let path = serde_json::to_string(file).unwrap_or_else(|_| "null".into());
+        let _ = win.eval(&format!("window.__MCC_OPEN__={path};window.dispatchEvent(new CustomEvent('mcc-open-project',{{detail:{path}}}));"));
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+}
+
 fn kill_host(app: &tauri::AppHandle) {
     let Some(host) = app.try_state::<Host>() else { return };
     if let Some(mut child) = host.child.lock().ok().and_then(|mut slot| slot.take()) {
@@ -214,6 +236,15 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building MyCodeChecker")
         .run(|app, event| {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            if let RunEvent::Opened { urls } = &event {
+                for url in urls {
+                    if let Ok(path) = url.to_file_path() {
+                        let text = path.to_string_lossy().into_owned();
+                        if text.to_lowercase().ends_with(".mccp") { open_in_page(app, &text); }
+                    }
+                }
+            }
             if matches!(event, RunEvent::Exit) { kill_host(app); }
         });
 }

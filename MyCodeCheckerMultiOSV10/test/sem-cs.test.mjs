@@ -36,7 +36,7 @@ const catalog = sem.catalog();
 
 test('catalog: shape, unique keys and counts', () => {
   const keys = new Set();
-  const sonar = new Map();
+  const ref = new Map();
   for (const r of catalog) {
     assert.ok(!keys.has(r.key), `duplicate ${r.key}`);
     keys.add(r.key);
@@ -56,10 +56,10 @@ test('catalog: shape, unique keys and counts', () => {
       assert.ok(['RELIABILITY', 'SECURITY', 'MAINTAINABILITY'].includes(im.softwareQuality), r.key);
       assert.ok(['BLOCKER', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].includes(im.severity), r.key);
     }
-    if (r.sonarKey) {
-      assert.match(r.sonarKey, /^S\d+(-[a-z]+)?$/, `${r.key} sonar key`);
-      assert.ok(!sonar.has(r.sonarKey), `${r.key} reuses ${r.sonarKey} of ${sonar.get(r.sonarKey)}`);
-      sonar.set(r.sonarKey, r.key);
+    if (r.refKey) {
+      assert.match(r.refKey, /^S\d+(-[a-z]+)?$/, `${r.key} ref key`);
+      assert.ok(!ref.has(r.refKey), `${r.key} reuses ${r.refKey} of ${ref.get(r.refKey)}`);
+      ref.set(r.refKey, r.key);
     }
     if (r.type === 'VULNERABILITY' || r.type === 'SECURITY_HOTSPOT') {
       assert.equal(r.impacts[0].softwareQuality, 'SECURITY', r.key);

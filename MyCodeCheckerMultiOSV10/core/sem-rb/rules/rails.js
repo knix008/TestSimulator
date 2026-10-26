@@ -104,7 +104,7 @@ end
 });
 
 rule({
-  id: 'csrf-protection-disabled', type: 'H', sev: 'CR', debt: 15, sonar: 'S4502', tags: ['rails', 'cwe-352', 'owasp-a01'],
+  id: 'csrf-protection-disabled', type: 'H', sev: 'CR', debt: 15, ref: 'S4502', tags: ['rails', 'cwe-352', 'owasp-a01'],
   en: ['Disabling CSRF protections is security-sensitive', 'Skipping verify_authenticity_token lets other sites submit forms on behalf of logged-in users.', 'Keep CSRF protection; for token-authenticated APIs use protect_from_forgery with: :null_session in an API base controller.'],
   ko: ['CSRF 보호를 끄는 것은 보안에 민감합니다', 'verify_authenticity_token을 건너뛰면 다른 사이트가 로그인한 사용자 대신 양식을 제출할 수 있습니다.', 'CSRF 보호를 유지하고, 토큰 인증 API라면 API 기본 컨트롤러에서 protect_from_forgery with: :null_session을 씁니다.'],
   msg: ['Make sure disabling CSRF protection is safe here.', '여기서 CSRF 보호를 꺼도 안전한지 확인합니다.'],
@@ -137,7 +137,7 @@ end
 });
 
 rule({
-  id: 'csrf-protection-missing', type: 'H', sev: 'MI', debt: 10, sonar: 'S4502', tags: ['rails', 'cwe-352', 'owasp-a01'],
+  id: 'csrf-protection-missing', type: 'H', sev: 'MI', debt: 10, ref: 'S4502', tags: ['rails', 'cwe-352', 'owasp-a01'],
   en: ['ApplicationController should enable CSRF protection', 'Apps upgraded from Rails < 5.2 or with default_protect_from_forgery turned off have no CSRF check unless protect_from_forgery is called.', 'Call protect_from_forgery with: :exception in ApplicationController.'],
   ko: ['ApplicationController에서 CSRF 보호를 켜야 합니다', 'Rails 5.2 미만에서 올렸거나 default_protect_from_forgery를 끈 앱은 protect_from_forgery를 호출하지 않으면 CSRF 검사를 하지 않습니다.', 'ApplicationController에서 protect_from_forgery with: :exception을 호출합니다.'],
   msg: ['Make sure CSRF protection is enabled for "{0}".', '"{0}"에서 CSRF 보호가 켜져 있는지 확인합니다.'],
@@ -164,7 +164,7 @@ end
 });
 
 rule({
-  id: 'html-safe', type: 'H', sev: 'MA', debt: 10, sonar: 'S5247', tags: ['rails', 'cwe-79', 'owasp-a03'],
+  id: 'html-safe', type: 'H', sev: 'MA', debt: 10, ref: 'S5247', tags: ['rails', 'cwe-79', 'owasp-a03'],
   en: ['Disabling HTML auto-escaping is security-sensitive', 'html_safe and raw() mark a string as trusted HTML; if it contains user data this is cross-site scripting.', 'Keep auto-escaping, use sanitize(...) or content_tag / safe_join to build HTML.'],
   ko: ['HTML 자동 이스케이프를 끄는 것은 보안에 민감합니다', 'html_safe와 raw()는 문자열을 믿을 수 있는 HTML로 표시하며, 사용자 데이터가 섞이면 크로스 사이트 스크립팅이 됩니다.', '자동 이스케이프를 유지하고 sanitize(...)나 content_tag / safe_join으로 HTML을 만듭니다.'],
   msg: ['Make sure disabling auto-escaping with "{0}" is safe here.', '"{0}"로 자동 이스케이프를 꺼도 안전한지 확인합니다.'],
@@ -198,7 +198,7 @@ end
 const SQL_METHODS = new Set(['find_by_sql', 'count_by_sql', 'where', 'not', 'rewhere', 'order', 'reorder', 'group', 'having', 'joins', 'select', 'pluck', 'from', 'exists?', 'delete_all', 'update_all', 'destroy_all', 'lock', 'execute', 'exec_query', 'exec_update', 'exec_delete', 'select_all', 'select_one', 'select_value', 'select_values', 'select_rows', 'find_by', 'calculate', 'sum', 'minimum', 'maximum', 'average']);
 
 rule({
-  id: 'sql-string-interpolation', type: 'H', sev: 'CR', debt: 20, sonar: 'S2077', tags: ['rails', 'cwe-89', 'owasp-a03'],
+  id: 'sql-string-interpolation', type: 'H', sev: 'CR', debt: 20, ref: 'S2077', tags: ['rails', 'cwe-89', 'owasp-a03'],
   en: ['Formatting SQL queries is security-sensitive', 'Interpolating values into SQL fragments passed to where, order, find_by_sql, execute... allows SQL injection.', 'Use placeholders (where("name = ?", name)), hash conditions (where(name: name)) or sanitize_sql_*.'],
   ko: ['SQL 쿼리를 문자열로 조립하는 것은 보안에 민감합니다', 'where, order, find_by_sql, execute 등에 넘기는 SQL 조각에 값을 보간하면 SQL 주입이 가능합니다.', '자리표시자(where("name = ?", name)), 해시 조건(where(name: name)), sanitize_sql_*을 씁니다.'],
   msg: ['Make sure that formatting this SQL query passed to "{0}" is safe here.', '"{0}"에 넘기는 SQL 쿼리를 이렇게 조립해도 안전한지 확인합니다.'],
@@ -234,7 +234,7 @@ const cookieContext = (n) => {
 };
 
 rule({
-  id: 'cookie-without-httponly', type: 'H', sev: 'MI', debt: 10, sonar: 'S3330', tags: ['rails', 'cwe-1004', 'owasp-a05'],
+  id: 'cookie-without-httponly', type: 'H', sev: 'MI', debt: 10, ref: 'S3330', tags: ['rails', 'cwe-1004', 'owasp-a05'],
   en: ['Creating cookies without the "HttpOnly" flag is security-sensitive', 'Without HttpOnly, any injected script can read the cookie (for example the session id).', 'Remove "httponly: false"; Rails sets HttpOnly by default.'],
   ko: ['"HttpOnly" 플래그 없이 쿠키를 만드는 것은 보안에 민감합니다', 'HttpOnly가 없으면 주입된 스크립트가 쿠키(예: 세션 ID)를 읽을 수 있습니다.', '"httponly: false"를 지웁니다. Rails는 기본으로 HttpOnly를 설정합니다.'],
   msg: ['Make sure creating this cookie without the "HttpOnly" flag is safe.', '"HttpOnly" 플래그 없이 이 쿠키를 만들어도 안전한지 확인합니다.'],
@@ -254,7 +254,7 @@ end
 });
 
 rule({
-  id: 'cookie-without-secure', type: 'H', sev: 'MI', debt: 10, sonar: 'S2092', tags: ['rails', 'cwe-311', 'cwe-315', 'cwe-614', 'owasp-a05'],
+  id: 'cookie-without-secure', type: 'H', sev: 'MI', debt: 10, ref: 'S2092', tags: ['rails', 'cwe-311', 'cwe-315', 'cwe-614', 'owasp-a05'],
   en: ['Creating cookies without the "secure" flag is security-sensitive', 'A cookie without the secure flag is also sent over plain HTTP, where it can be intercepted.', 'Set "secure: true" (or rely on config.force_ssl).'],
   ko: ['"secure" 플래그 없이 쿠키를 만드는 것은 보안에 민감합니다', 'secure 플래그가 없는 쿠키는 평문 HTTP로도 전송되어 가로챌 수 있습니다.', '"secure: true"를 설정하거나 config.force_ssl을 씁니다.'],
   msg: ['Make sure creating this cookie without the "secure" flag is safe.', '"secure" 플래그 없이 이 쿠키를 만들어도 안전한지 확인합니다.'],
@@ -295,7 +295,7 @@ end
 });
 
 rule({
-  id: 'debug-mode-production', type: 'H', sev: 'MA', debt: 5, sonar: 'S4507', tags: ['rails', 'cwe-489', 'cwe-215', 'owasp-a05'],
+  id: 'debug-mode-production', type: 'H', sev: 'MA', debt: 5, ref: 'S4507', tags: ['rails', 'cwe-489', 'cwe-215', 'owasp-a05'],
   en: ['Delivering code in production with debug features activated is security-sensitive', 'consider_all_requests_local = true shows full stack traces and internals to every visitor.', 'Set config.consider_all_requests_local = false in production.'],
   ko: ['디버그 기능을 켠 채로 운영에 배포하는 것은 보안에 민감합니다', 'consider_all_requests_local = true는 모든 방문자에게 전체 스택 추적과 내부 정보를 보여 줍니다.', '운영 환경에서 config.consider_all_requests_local = false로 설정합니다.'],
   msg: ['Make sure this debug feature is deactivated before delivering the code in production.', '운영에 배포하기 전에 이 디버그 기능을 끄는지 확인합니다.'],
@@ -317,7 +317,7 @@ end
 });
 
 rule({
-  id: 'permissive-cors', type: 'H', sev: 'MA', debt: 5, sonar: 'S5122', tags: ['rails', 'cwe-346', 'cwe-942', 'owasp-a05'],
+  id: 'permissive-cors', type: 'H', sev: 'MA', debt: 5, ref: 'S5122', tags: ['rails', 'cwe-346', 'cwe-942', 'owasp-a05'],
   en: ['Having a permissive Cross-Origin Resource Sharing policy is security-sensitive', 'Allowing every origin ("*") lets any website read responses from this API in the user\'s browser.', 'List the trusted origins explicitly.'],
   ko: ['허용 범위가 넓은 CORS 정책은 보안에 민감합니다', '모든 출처("*")를 허용하면 아무 웹사이트나 사용자 브라우저에서 이 API의 응답을 읽을 수 있습니다.', '믿을 수 있는 출처를 명시적으로 나열합니다.'],
   msg: ['Make sure this permissive CORS policy is safe here.', '이 넓은 CORS 정책이 여기서 안전한지 확인합니다.'],

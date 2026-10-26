@@ -2,7 +2,7 @@
 
 // Rule registry for sem-rb. A definition:
 //   rule({
-//     id, type: 'B'|'V'|'S'|'H', sev: 'BL'|'CR'|'MA'|'MI'|'IN', debt, tags, sonar?,
+//     id, type: 'B'|'V'|'S'|'H', sev: 'BL'|'CR'|'MA'|'MI'|'IN', debt, tags, ref?,
 //     en: [name, why, fix], ko: [name, why, fix], msg?: [en, ko] with {0} {1},
 //     on?: { 'Type|Type2'(node, cx) {...} },   // AST handlers
 //     file?(cx),                                // once per file
@@ -69,9 +69,9 @@ function catalogEntries() {
       cwe: cwe[0] || '',
       impacts: impactsOf(type, severity),
       category: def.category || categoryOf(def, type),
-      checker: def.sonar ? `ruby:${def.sonar}` : '',
+      checker: def.ref ? `ruby:${def.ref}` : '',
     };
-    if (def.sonar) entry.sonarKey = def.sonar;
+    if (def.ref) entry.refKey = def.ref;
     if (cwe.length || owasp.length) {
       entry.standards = {};
       if (cwe.length) entry.standards.cwe = cwe;

@@ -6,8 +6,9 @@ const os = require('os');
 const crypto = require('crypto');
 const { LANGS } = require('./languages');
 const { listRules } = require('./analyze');
-const { SONAR_WAY } = require('./qualitygate');
-const { DEFAULT_POLICY, VIEWS } = require('./coverity');
+const { DEFAULT_GATE } = require('./qualitygate');
+const { DEFAULT_POLICY, VIEWS } = require('./defects');
+const { migrateWorkspace } = require('./compat/migrate');
 
 function defaultConfigDir() {
   if (process.env.MCC_USER_DATA) return process.env.MCC_USER_DATA;
@@ -53,7 +54,7 @@ function freshWorkspace() {
       limits: {},
       showStartOnLaunch: true,
     },
-    gates: [{ ...SONAR_WAY, conditions: SONAR_WAY.conditions.map((c) => ({ ...c })) }],
+    gates: [{ ...DEFAULT_GATE, conditions: DEFAULT_GATE.conditions.map((c) => ({ ...c })) }],
     profiles,
     customRules: [],
     projects: [],
@@ -62,7 +63,7 @@ function freshWorkspace() {
     users: [],
     activeProjectId: null,
     ruleCount: rules.length,
-    coverity: {
+    defectAnalysis: {
       policies: [{ ...DEFAULT_POLICY, conditions: DEFAULT_POLICY.conditions.map((c) => ({ ...c })) }],
       components: [],
       models: [],
@@ -76,20 +77,20 @@ function createStore(configDir) {
   const file = path.join(dir, 'workspace.json');
   function load() {
     try {
-      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const data = migrateWorkspace(JSON.parse(fs.readFileSync(file, 'utf8')));
       const fresh = freshWorkspace();
-      const coverity = data.coverity || {};
+      const defectAnalysis = data.defectAnalysis || {};
       return {
         ...fresh,
         ...data,
         settings: { ...fresh.settings, ...(data.settings || {}) },
-        coverity: {
-          ...fresh.coverity,
-          ...coverity,
-          policies: coverity.policies && coverity.policies.length ? coverity.policies : fresh.coverity.policies,
-          views: coverity.views && coverity.views.length ? coverity.views : fresh.coverity.views,
-          components: coverity.components || [],
-          models: coverity.models || [],
+        defectAnalysis: {
+          ...fresh.defectAnalysis,
+          ...defectAnalysis,
+          policies: defectAnalysis.policies && defectAnalysis.policies.length ? defectAnalysis.policies : fresh.defectAnalysis.policies,
+          views: defectAnalysis.views && defectAnalysis.views.length ? defectAnalysis.views : fresh.defectAnalysis.views,
+          components: defectAnalysis.components || [],
+          models: defectAnalysis.models || [],
         },
       };
     } catch {

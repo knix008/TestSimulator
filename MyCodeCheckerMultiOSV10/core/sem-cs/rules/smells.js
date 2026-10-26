@@ -1,6 +1,6 @@
 'use strict';
 
-// Code smells (sonar-dotnet maintainability family): complexity, unused code,
+// Code smells (.NET reference analyzer maintainability family): complexity, unused code,
 // redundancy, exceptions, LINQ / string simplifications.
 
 const { R } = require('../registry');

@@ -63,6 +63,9 @@ test('external SARIF import adds issues to the latest analysis', async () => {
   });
   const out = await api.call('external.import', { projectId: project.id, text: sarif, fileName: 'x.sarif' });
   assert.equal(out.count, 1);
+  // The imported issues stay with the project across re-analysis.
+  const again = await api.call('project.scan', { path: project.path, projectId: project.id });
+  assert.equal(again.analysis.issues.filter((i) => i.externalEngine === out.engine).length, 1);
 });
 
 test('DAST scans only the given local target and keeps the result', async () => {

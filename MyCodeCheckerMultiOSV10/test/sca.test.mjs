@@ -996,7 +996,7 @@ test('outdated, requirePinned and includeDev options', () => {
 
 test('result shape: dependencies, graph, vulnerabilities, licenses, summary', () => {
   const r = scan('npm');
-  assert.deepEqual(Object.keys(r).sort(), ['dependencies', 'errors', 'findings', 'graph', 'licenses', 'manifests', 'summary', 'vulnerabilities']);
+  assert.deepEqual(Object.keys(r).sort(), ['binaries', 'dependencies', 'errors', 'findings', 'graph', 'licenseHints', 'licenses', 'manifests', 'snippets', 'summary', 'vulnerabilities']);
   assert.equal(r.graph.roots.length, 1);
   assert.equal(r.graph.roots[0].lockFile, 'package-lock.json');
   assert.equal(r.graph.nodes.length, r.dependencies.length);

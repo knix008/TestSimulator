@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
-import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge } from './common';
+import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge, TypeBadge, Stepper, errorText } from './common';
 import { msg } from './Panels';
 
 const PROVIDERS = [
@@ -104,7 +104,7 @@ export function PullRequestView({ project, branch, stamp }) {
                     {pr.issues.map((i) => (
                       <tr key={i.key}>
                         <td><SevBadge sev={i.severity} /></td>
-                        <td className="small">{i.type}</td>
+                        <td className="nowrap"><TypeBadge type={i.type} /></td>
                         <td className="wrap">{msg(i)}<div className="small">{i.rule}</div></td>
                         <td className="small wrap">{i.file}:{i.line}</td>
                       </tr>
@@ -155,10 +155,55 @@ export function PullRequestView({ project, branch, stamp }) {
                 </BtnGroup>
               </div>
               <p className="small">{t(`pr_hint_${provider}`)}</p>
+              <PublishBox project={project} branch={branch} target={target} provider={provider} head={repo && repo.head} prKey={prKey} />
               <pre className="pre selectable">{payload}</pre>
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+const PR_NUMBER_KEY = { github: 'prNumber', gitlab: 'mrIid', azure: 'pullRequestId', bitbucket: 'prNumber' };
+
+// Posts the PR result to the code host (pr.decorate) with the ALM connection
+// from Administration › Integrations; the PR number and head commit are asked here.
+function PublishBox({ project, branch, target, provider, head, prKey }) {
+  useLanguage();
+  const [num, setNum] = useState(Number(prKey) || 1);
+  const [sha, setSha] = useState(head || '');
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => { if (head && !sha) setSha(head); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [head]);
+  useEffect(() => { if (Number(prKey)) setNum(Number(prKey)); }, [prKey]);
+  const publish = async () => {
+    setBusy(true);
+    setError('');
+    setRes(null);
+    try {
+      setRes(await call('pr.decorate', {
+        projectId: project.id, branch, provider, target: target.trim() || undefined, headSha: sha.trim() || undefined,
+        config: { [PR_NUMBER_KEY[provider]]: num, headSha: sha.trim() || undefined },
+      }));
+    } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
+  };
+  return (
+    <div className="publish-box">
+      <h3 className="sub-title" style={{ marginTop: 0 }}><Icon name="upload" size={15} />{t('pr_publish_title')}</h3>
+      <p className="small">{t('pr_publish_hint')}</p>
+      <div className="view-toolbar">
+        <Stepper label={t(`pr_number_${provider}`)} value={num} min={1} max={9999999} width={90} onChange={setNum} />
+        <label className="field-inline grow"><span>{t('pr_head_sha')}</span><input className="mono" value={sha} placeholder="a1b2c3d…" onChange={(e) => setSha(e.target.value)} /></label>
+        <Btn icon={busy ? 'hourglass' : 'upload'} label={busy ? t('pr_publishing') : t('pr_publish')} primary disabled={busy || !project} onClick={publish} />
+      </div>
+      {error && <p className="small bad"><Icon name="xCircle" size={12} /> {error}</p>}
+      {res && (
+        <div className="note-box ok">
+          <Icon name="checkCircle" size={14} />
+          <div><strong>{t('pr_published')}</strong><pre className="pre small-pre selectable">{typeof res === 'string' ? res : JSON.stringify(res, null, 2)}</pre></div>
+        </div>
       )}
     </div>
   );

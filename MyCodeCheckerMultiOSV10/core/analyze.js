@@ -1,5 +1,6 @@
 'use strict';
 
+const compat = require('./compat');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -9,8 +10,8 @@ const { structuralIssues, structuralMeta, decisionCount, STRUCTURAL } = require(
 const { findDuplications } = require('./duplication');
 const { readCoverage, coverageFor, parseLcov } = require('./coverage');
 const { rate, countOpen, isClosed } = require('./ratings');
-const { evaluateGate, SONAR_WAY } = require('./qualitygate');
-const { checkerCatalog, decorateIssue, pathDefects, summarizeCoverity } = require('./coverity');
+const { evaluateGate, DEFAULT_GATE } = require('./qualitygate');
+const { checkerCatalog, decorateIssue, pathDefects, summarizeDefects } = require('./defects');
 const { engines, engineCatalog, extraLineRules } = require('./engines');
 
 const SKIP_DIRS = new Set([
@@ -20,8 +21,26 @@ const SKIP_DIRS = new Set([
 
 const STRUCT_BY_KEY = new Map(STRUCTURAL.map((r) => [r.key, r]));
 
+// options.onProgress({ phase, done, total, detail }) is called during the
+// analysis: 'collect' (reading files), 'rules' (per file), 'engines' (per
+// engine) and 'finish'. Calls are throttled except phase changes.
+function progressReporter(onProgress) {
+  if (typeof onProgress !== 'function') return () => {};
+  let last = 0;
+  let lastPhase = '';
+  return (phase, done, total, detail) => {
+    const now = Date.now();
+    if (phase === lastPhase && now - last < 100 && done < total) return;
+    last = now;
+    lastPhase = phase;
+    try { onProgress({ phase, done, total, detail: detail || '' }); } catch { /* progress is best effort */ }
+  };
+}
+
 function analyzePath(root, options = {}) {
   const abs = path.resolve(root);
+  const report = progressReporter(options.onProgress);
+  report('collect', 0, 1, abs);
   const files = walk(abs, options);
   const sources = [];
   const maxBytes = options.maxBytes || 800000;
@@ -33,6 +52,7 @@ function analyzePath(root, options = {}) {
       text = fs.readFileSync(file, 'utf8');
     } catch { continue; }
     sources.push({ path: file, text });
+    report('collect', sources.length, files.length, file);
   }
   let coverage = null;
   try { coverage = readCoverage(abs, options.coverageReports); } catch { coverage = null; }
@@ -79,8 +99,7 @@ function analyzeSources(files, options = {}) {
   const exclusions = options.exclusions || [];
   const onlyLangs = options.languages && options.languages.length ? new Set(options.languages) : null;
   const custom = (options.customRules || []).map(compileCustom).filter(Boolean);
-  const rules = [...RULES, ...extraLineRules()].filter((r) => !inactive.has(r.key));
-  const started = Date.now();
+  const rules = [...RULES, ...extraLineRules()].filter((r) => !inactive.has(r.key));  const started = Date.now();
   const warnings = [];
 
   const prepared = [];
@@ -105,12 +124,20 @@ function analyzeSources(files, options = {}) {
   const lineHashes = {};
   const newLines = new Map();
   const prevHashes = options.previousLineHashes || null;
+  if (typeof options.isNewLine !== 'function' && options.scmChanged && options.scmChanged.files) {
+    const { isChangedLine } = require('./platform/scm');
+    const changed = options.scmChanged;
+    options = { ...options, isNewLine: (file, line) => isChangedLine(changed, file, line) };
+  }
   const lineMode = typeof options.isNewLine === 'function' ? 'scm' : (prevHashes && options.hasBaseline !== false ? 'hash' : null);
   let newNclocLines = 0;
   let newToCover = 0;
   let newCovered = 0;
 
+  const report = progressReporter(options.onProgress);
+  let fileIndex = 0;
   for (const file of prepared) {
+    report('rules', fileIndex++, prepared.length, file.path);
     const kind = commentKind(file.lang);
     const structural = structuralIssues(file.text, kind, options.limits);
     const suppressed = suppressionLines(file.text);
@@ -224,7 +251,9 @@ function analyzeSources(files, options = {}) {
     dupInput.push({ path: file.path, lines: structural.code });
   }
 
-  runEngines(prepared, { inactive, root, options }, issues, overrides, warnings);
+  report('rules', prepared.length, prepared.length, '');
+  runEngines(prepared, { inactive, root, options }, issues, overrides, warnings, report);
+  report('finish', 1, 1, '');
 
   const dup = findDuplications(dupInput);
   const ncloc = fileRows.reduce((n, f) => n + f.ncloc, 0);
@@ -234,7 +263,7 @@ function analyzeSources(files, options = {}) {
   for (let n = 0; n < issues.length; n++) {
     issues[n] = decorateIssue(issues[n], lineMap.get(issues[n].file) || [], options.components);
   }
-  // The line-based Coverity pass (cov:*) yields to a path-sensitive engine
+  // The line-based Defect Analysis pass (defect:*) yields to a path-sensitive engine
   // finding of the same checker on the same line.
   const precise = new Set(issues.filter((i) => i.checker && !String(i.rule).startsWith('cov:')).map((i) => `${i.checker}|${i.file}|${i.line}`));
   for (let n = issues.length - 1; n >= 0; n--) {
@@ -242,7 +271,7 @@ function analyzeSources(files, options = {}) {
   }
   const annotations = new Map();
   for (const file of prepared) {
-    if (/coverity\[/i.test(file.text)) annotations.set(file.path, coverityAnnotations(file.text));
+    if (compat.ANNOTATION_TEST_RE.test(file.text)) annotations.set(file.path, defectAnnotations(file.text));
   }
   if (annotations.size) {
     for (let n = issues.length - 1; n >= 0; n--) {
@@ -273,7 +302,7 @@ function analyzeSources(files, options = {}) {
       if (saved.review) item.review = saved.review;
     }
   }
-  const coverity = summarizeCoverity(issues, {
+  const defectAnalysis = summarizeDefects(issues, {
     previousCids: options.previousCids,
     hasBaseline: (options.previousCids && options.previousCids.length > 0) || false,
     previousIssues: options.previousIssues,
@@ -353,7 +382,7 @@ function analyzeSources(files, options = {}) {
     new_security_rating: ratingsNew.securityValue,
   };
 
-  const gate = evaluateGate(options.gate || SONAR_WAY, measures);
+  const gate = evaluateGate(options.gate || DEFAULT_GATE, measures);
   for (const row of fileRows) {
     row.issues = issues.filter((i) => i.file === row.path && i.type !== 'SECURITY_HOTSPOT' && !isClosed(i)).length;
     row.hotspots = issues.filter((i) => i.file === row.path && i.type === 'SECURITY_HOTSPOT').length;
@@ -397,7 +426,7 @@ function analyzeSources(files, options = {}) {
     keys: issues.map((i) => i.key),
     lineHashes,
     newCodeMode: lineMode || (hasBaseline ? 'keys' : 'all'),
-    coverity,
+    defectAnalysis,
   };
 }
 
@@ -409,7 +438,7 @@ function lineHash(line) {
 
 // Contract analyzers (core/ENGINE_CONTRACT.md) run once over all files so
 // they can follow calls and includes across files.
-function runEngines(prepared, ctx, issues, overrides, warnings) {
+function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {}) {
   const byPath = new Map(prepared.map((file) => [file.path, file]));
   const split = new Map();
   const linesOf = (file) => {
@@ -417,8 +446,11 @@ function runEngines(prepared, ctx, issues, overrides, warnings) {
     return split.get(file);
   };
   const suppressed = new Map();
-  for (const engine of engines()) {
+  const list = engines();
+  for (const [index, engine] of list.entries()) {
+    report('engines', index, list.length, engine.id);
     const meta = new Map(engine.catalog().map((m) => [m.key, m]));
+    const seenKeys = new Set(issues.map((i) => i.key));
     let found = [];
     try {
       found = engine.analyze(prepared, ctx) || [];
@@ -441,7 +473,7 @@ function runEngines(prepared, ctx, issues, overrides, warnings) {
       const item = makeIssue({
         rule, severity, lang, file: f.file, line: f.line,
         message: f.message || m.name, rawLine: lines[f.line - 1] || '', lines,
-        salt: `${f.line}|${(f.message && (f.message.en || f.message.ko)) || ''}`,
+        salt: `${f.line}|${f.column || ''}|${(f.message && (f.message.en || f.message.ko)) || ''}`,
       });
       item.engine = engine.id;
       if (f.column) item.column = f.column;
@@ -454,6 +486,9 @@ function runEngines(prepared, ctx, issues, overrides, warnings) {
       for (const field of ['checker', 'standards', 'misraCategory', 'cwe', 'cert']) {
         if (m[field]) item[field] = m[field];
       }
+      // The same finding twice (e.g. a header seen from two translation units) is reported once.
+      if (seenKeys.has(item.key)) continue;
+      seenKeys.add(item.key);
       issues.push(item);
     }
   }
@@ -463,7 +498,7 @@ function makeIssue({ rule, severity, lang, file, line, message, rawLine, lines, 
   // Engine findings add the line and message: several can share a manifest line,
   // and files outside the language filter have no source lines to tell them apart.
   const extra = salt ? `|${salt}` : '';
-  const key = crypto.createHash('sha1').update(`${rule.key}|${file}|${String(rawLine).replace(/\s+/g, ' ').trim().slice(0, 240)}${extra}`).digest('hex').slice(0, 16);
+  const key = crypto.createHash('sha1').update(`${compat.hashRuleKey(rule.key)}|${file}|${String(rawLine).replace(/\s+/g, ' ').trim().slice(0, 240)}${extra}`).digest('hex').slice(0, 16);
   const hotspot = rule.type === 'SECURITY_HOTSPOT';
   return {
     key,
@@ -498,15 +533,15 @@ function suppressionLines(text) {
   const set = new Set();
   const lines = String(text).split(/\r?\n/);
   lines.forEach((line, i) => {
-    if (/NOSONAR|\bnoqa\b|\bnolint\b|checker\s*:\s*ignore|mcc-ignore|cov-ignore|parasoft-suppress|sparrow-ignore/i.test(line)) set.add(i + 1);
+    if (compat.SUPPRESSION_RE.test(line)) set.add(i + 1);
   });
   return set;
 }
 
-// Coverity code annotations: `// coverity[CHECKER]` or `/* coverity[event_tag : FALSE] */`
+// Defect Analysis code annotations: `// mcc[CHECKER]` or `/* mcc[event_tag : FALSE] */`
 // suppress only the named checkers (or event tags), on that line and on the
 // next line that has code. Returns Map<line, Set<lower-case name>>.
-function coverityAnnotations(text) {
+function defectAnnotations(text) {
   const out = new Map();
   const lines = String(text).split(/\r?\n/);
   const add = (line, names) => {
@@ -515,7 +550,7 @@ function coverityAnnotations(text) {
     out.set(line, set);
   };
   for (let i = 0; i < lines.length; i++) {
-    const re = /coverity\[([^\]]+)\]/gi;
+    const re = compat.annotationRe();
     let m;
     const names = [];
     while ((m = re.exec(lines[i]))) {
@@ -615,6 +650,6 @@ function withKoreanStandards(rules) {
 }
 
 module.exports = {
-  coverityAnnotations,
+  defectAnnotations,
   analyzePath, analyzeSources, walk, listRules, matchGlob, excluded, SKIP_DIRS,
 };

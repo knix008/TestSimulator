@@ -251,7 +251,7 @@ function pyImports(m, at) {
 function javaImports(m, at) {
   const out = [];
   let r;
-  const re = /^[ \t]*import[ \t]+(static[ \t]+)?([\w.]+)(\.\*|\.\{[^}\n]*\}|\._)?[ \t]*;?/gm;
+  const re = /^[ \t]*import[ \t]+(static[ \t]+)?(\w+(?:\.\w+)*)(\.\*|\.\{[^}\n]*\}|\._)?[ \t]*;?/gm;
   while ((r = re.exec(m))) {
     const name = r[2];
     const last = name.split('.').pop();
@@ -414,7 +414,7 @@ function pyModules(dep, ctx) {
   const n = normalizeName('PyPI', dep.name);
   const out = new Set();
   const user = (ctx.options.pythonModules || {})[dep.name] || (ctx.options.pythonModules || {})[n];
-  for (const m of [].concat(user || [])) out.add(m);
+  if (user) return [].concat(user);
   for (const m of (ctx.pythonTopLevel && ctx.pythonTopLevel.get(n)) || []) out.add(m);
   for (const m of DATA.PY_MODULES[n] || []) out.add(m);
   if (!out.size) {
@@ -645,7 +645,7 @@ function searchSymbols(groups, dep, imports, ctx) {
   const roots = lang === 'py' ? pyModules(dep, ctx) : null;
   const addFound = (entry, line) => {
     if (!line || found.some((f) => f.file === entry.path && f.line === line)) return;
-    found.push({ file: entry.path, line, text: rawLine(entry, line) });
+    found.push({ file: entry.path, line, text: rawLine(entry, line), kind: 'use' });
   };
   for (const g of groups) {
     let hits = imports.hits;
@@ -732,7 +732,7 @@ function importEvidence(hits, max = 5) {
   const out = [];
   for (const h of hits) {
     if (out.some((e) => e.file === h.entry.path && e.line === h.imp.line)) continue;
-    out.push({ file: h.entry.path, line: h.imp.line, text: rawLine(h.entry, h.imp.line) });
+    out.push({ file: h.entry.path, line: h.imp.line, text: rawLine(h.entry, h.imp.line), kind: 'import' });
     if (out.length >= max) break;
   }
   return out;

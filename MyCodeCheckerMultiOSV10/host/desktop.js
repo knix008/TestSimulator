@@ -13,11 +13,13 @@ const token = crypto.randomBytes(24).toString('hex');
 const config = arg('config');
 // Page origins of the Tauri window: the Vite dev server in `npm start`, and
 // the bundled app on Windows (http(s)://tauri.localhost) and macOS/Linux (tauri://localhost).
+// The dev port is 5210 or the next free one (scripts/start.mjs passes MCC_DEV_PORT).
+const devPort = Number(process.env.MCC_DEV_PORT) || 5210;
 const corsOrigins = [
-  'http://localhost:5210', 'http://127.0.0.1:5210',
+  `http://localhost:${devPort}`, `http://127.0.0.1:${devPort}`,
   'http://tauri.localhost', 'https://tauri.localhost', 'tauri://localhost',
 ];
-const { handle } = createHandler({ token, corsOrigins, configDir: config || undefined, version: readVersion(), scheduler: true });
+const { handle } = createHandler({ token, corsOrigins, configDir: config || undefined, version: readVersion(), scheduler: true, localFiles: true });
 
 const server = http.createServer((req, res) => {
   handle(req, res).then((done) => {

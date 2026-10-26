@@ -18,7 +18,7 @@ function hasCallOrRecv(e) {
 
 // ── expressions ──
 rule({
-  id: 'identical-operands', type: 'B', sev: 'MA', debt: 2, tags: ['suspicious'], sonar: 'S1764',
+  id: 'identical-operands', type: 'B', sev: 'MA', debt: 2, tags: ['suspicious'], ref: 'S1764',
   en: ['Identical expressions should not be used on both sides of a binary operator', 'x == x, a - a or b && b is always the same value and usually a typo.', 'Fix the operand that was meant to be different.'],
   ko: ['이항 연산자 양쪽에 같은 식을 쓰면 안 됩니다', 'x == x, a - a, b && b는 항상 같은 값이고 보통 오타입니다.', '달라야 했던 피연산자를 고치세요.'],
   on: {
@@ -44,7 +44,7 @@ func f(a, b int) bool {
 });
 
 rule({
-  id: 'self-assignment', type: 'B', sev: 'MA', debt: 3, tags: ['suspicious'], sonar: 'S1656',
+  id: 'self-assignment', type: 'B', sev: 'MA', debt: 3, tags: ['suspicious'], ref: 'S1656',
   en: ['Variables should not be self-assigned', 'x = x has no effect and usually hides a mistake.', 'Assign the intended value or remove the statement.'],
   ko: ['변수를 자기 자신에게 대입하면 안 됩니다', 'x = x는 효과가 없고 보통 실수를 숨깁니다.', '의도한 값을 대입하거나 문장을 지우세요.'],
   on: {
@@ -75,7 +75,7 @@ func (p *point) set(x, y int) {
 });
 
 rule({
-  id: 'misleading-assign-op', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: 'S2757',
+  id: 'misleading-assign-op', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], ref: 'S2757',
   en: ['"=+" should not be used instead of "+="', 'x =+ y assigns +y instead of adding y; the same holds for =- and =!.', 'Write the compound operator (+=, -=) or put a space after "=".'],
   ko: ['"+=" 대신 "=+"를 쓰면 안 됩니다', 'x =+ y는 y를 더하지 않고 +y를 대입합니다. =-, =!도 같습니다.', '복합 연산자(+=, -=)를 쓰거나 "=" 뒤에 공백을 두세요.'],
   on: {
@@ -148,7 +148,7 @@ function countVerbs(fmt) {
   return n;
 }
 rule({
-  id: 'printf-mismatch', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: '', checker: 'PRINTF_ARGS',
+  id: 'printf-mismatch', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], ref: '', checker: 'PRINTF_ARGS',
   en: ['Printf-style format strings should match their arguments', 'A different number of verbs and arguments prints %!d(MISSING) or %!(EXTRA ...) instead of the intended text.', 'Make the verbs and the arguments agree.'],
   ko: ['Printf 형식 문자열은 인수와 맞아야 합니다', '형식 지정자와 인수 개수가 다르면 의도한 글 대신 %!d(MISSING)이나 %!(EXTRA ...)가 출력됩니다.', '형식 지정자와 인수를 맞추세요.'],
   on: {
@@ -184,7 +184,7 @@ func f(name string, n int) string {
 
 const PRINTLN = new Set(['fmt.Println', 'fmt.Print', 'fmt.Sprintln', 'fmt.Sprint', 'log.Println', 'log.Print', 'log.Fatal', 'log.Fatalln', 'log.Panic', 'log.Panicln']);
 rule({
-  id: 'println-format', type: 'B', sev: 'MI', debt: 2, tags: ['suspicious'], sonar: '', checker: 'PRINTF_ARGS',
+  id: 'println-format', type: 'B', sev: 'MI', debt: 2, tags: ['suspicious'], ref: '', checker: 'PRINTF_ARGS',
   en: ['Print and Println should not be given formatting directives', 'Println does not interpret %d or %s; the verbs are printed literally.', 'Use the Printf variant.'],
   ko: ['Print와 Println에 형식 지정자를 넘기면 안 됩니다', 'Println은 %d나 %s를 해석하지 않고 그대로 출력합니다.', 'Printf 계열 함수를 쓰세요.'],
   on: {
@@ -213,7 +213,7 @@ func f(n int) {
 });
 
 rule({
-  id: 'int-division-to-float', type: 'B', sev: 'MI', debt: 5, tags: ['cwe-190', 'overflow'], sonar: 'S2184',
+  id: 'int-division-to-float', type: 'B', sev: 'MI', debt: 5, tags: ['cwe-190', 'overflow'], ref: 'S2184',
   en: ['Integer division should not be converted to floating point afterwards', 'float64(a / b) divides as integers first, so the fraction is lost.', 'Convert the operands before dividing: float64(a) / float64(b).'],
   ko: ['정수 나눗셈 결과를 나중에 실수로 바꾸면 안 됩니다', 'float64(a / b)는 먼저 정수로 나누므로 소수 부분을 잃습니다.', '나누기 전에 피연산자를 바꾸세요: float64(a) / float64(b).'],
   on: {
@@ -239,7 +239,7 @@ func ratio(done, total int) float64 {
 });
 
 rule({
-  id: 'index-gt-zero', type: 'B', sev: 'MI', debt: 2, tags: ['suspicious'], sonar: 'S2692',
+  id: 'index-gt-zero', type: 'B', sev: 'MI', debt: 2, tags: ['suspicious'], ref: 'S2692',
   en: ['"Index" checks should not be for positive numbers', 'strings.Index(s, x) > 0 misses a match at position 0.', 'Compare with >= 0, or use strings.Contains.'],
   ko: ['"Index" 결과를 양수인지로 검사하면 안 됩니다', 'strings.Index(s, x) > 0은 0번 위치에서 찾은 경우를 놓칩니다.', '>= 0과 비교하거나 strings.Contains를 쓰세요.'],
   on: {
@@ -265,7 +265,7 @@ func has(s string) bool {
 });
 
 rule({
-  id: 'len-nonnegative', type: 'B', sev: 'MA', debt: 2, tags: ['suspicious'], sonar: 'S3981',
+  id: 'len-nonnegative', type: 'B', sev: 'MA', debt: 2, tags: ['suspicious'], ref: 'S3981',
   en: ['Length and capacity comparisons should be meaningful', 'len() and cap() are never negative, so len(x) >= 0 is always true and len(x) < 0 always false.', 'Compare with > 0 or remove the check.'],
   ko: ['길이와 용량 비교는 의미가 있어야 합니다', 'len()과 cap()은 음수가 될 수 없으므로 len(x) >= 0은 항상 참, len(x) < 0은 항상 거짓입니다.', '> 0과 비교하거나 검사를 지우세요.'],
   on: {
@@ -291,7 +291,7 @@ func f(xs []int) bool {
 });
 
 rule({
-  id: 'string-from-int', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: '',
+  id: 'string-from-int', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], ref: '',
   en: ['Integers should not be converted to strings with string()', 'string(65) yields "A" (a rune), not "65".', 'Use strconv.Itoa / fmt.Sprint, or string(rune(x)) when a character is intended.'],
   ko: ['정수를 string()으로 문자열로 바꾸면 안 됩니다', 'string(65)는 "65"가 아니라 룬 "A"가 됩니다.', 'strconv.Itoa나 fmt.Sprint를 쓰고, 문자를 원하면 string(rune(x))로 쓰세요.'],
   on: {
@@ -317,7 +317,7 @@ func label(n int, r rune) string {
 });
 
 rule({
-  id: 'replace-zero-count', type: 'B', sev: 'MA', debt: 2, tags: ['suspicious'], sonar: '',
+  id: 'replace-zero-count', type: 'B', sev: 'MA', debt: 2, tags: ['suspicious'], ref: '',
   en: ['strings.Replace and SplitN should not be called with a count of 0', 'A count of 0 replaces nothing / returns nil.', 'Use -1 (or ReplaceAll) for all occurrences.'],
   ko: ['strings.Replace와 SplitN을 개수 0으로 호출하면 안 됩니다', '개수가 0이면 아무것도 바꾸지 않거나 nil을 돌려줍니다.', '모두 바꾸려면 -1(또는 ReplaceAll)을 쓰세요.'],
   on: {
@@ -346,7 +346,7 @@ func clean(s string) string {
 });
 
 rule({
-  id: 'pure-result-ignored', type: 'B', sev: 'MA', debt: 2, tags: [], sonar: 'S2201', checker: 'CHECKED_RETURN',
+  id: 'pure-result-ignored', type: 'B', sev: 'MA', debt: 2, tags: [], ref: 'S2201', checker: 'CHECKED_RETURN',
   en: ['Return values from functions without side effects should not be ignored', 'strings.ToUpper(s) alone does nothing: strings are immutable.', 'Use the result, e.g. s = strings.ToUpper(s).'],
   ko: ['부수 효과 없는 함수의 반환값을 무시하면 안 됩니다', 'strings.ToUpper(s)만 호출하면 아무 일도 일어나지 않습니다. 문자열은 바뀌지 않습니다.', '결과를 쓰세요. 예: s = strings.ToUpper(s).'],
   on: {
@@ -376,7 +376,7 @@ func norm(s string) string {
 });
 
 rule({
-  id: 'append-assign', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: '',
+  id: 'append-assign', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], ref: '',
   en: ['The result of append should be assigned to the slice that is appended to', 'a = append(b, x) usually meant b = append(b, x); it may also alias b\'s backing array.', 'Assign to the same slice, or copy explicitly.'],
   ko: ['append 결과는 덧붙인 슬라이스에 대입해야 합니다', 'a = append(b, x)는 보통 b = append(b, x)를 뜻했고, b의 배열을 공유할 수도 있습니다.', '같은 슬라이스에 대입하거나 명시적으로 복사하세요.'],
   on: {
@@ -408,7 +408,7 @@ func f(xs, ys []int) []int {
 
 // ── errors ──
 rule({
-  id: 'error-ignored', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-252', 'error-handling'], sonar: '', checker: 'CHECKED_RETURN',
+  id: 'error-ignored', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-252', 'error-handling'], ref: '', checker: 'CHECKED_RETURN',
   en: ['Returned errors should not be discarded with the blank identifier', 'Assigning an error to _ hides failures such as a write that did not happen.', 'Handle the error, return it, or log it.'],
   ko: ['반환된 오류를 빈 식별자로 버리면 안 됩니다', '오류를 _에 대입하면 쓰기가 실패한 것 같은 문제를 숨깁니다.', '오류를 처리하거나 반환하거나 기록하세요.'],
   on: {
@@ -453,7 +453,7 @@ func parse(s string) (int, error) { return len(s), nil }
 });
 
 rule({
-  id: 'unchecked-error-call', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-252', 'error-handling'], sonar: '', checker: 'CHECKED_RETURN',
+  id: 'unchecked-error-call', type: 'B', sev: 'MA', debt: 5, tags: ['cwe-252', 'error-handling'], ref: '', checker: 'CHECKED_RETURN',
   en: ['Errors returned by function calls should be checked', 'Calling a function that returns an error as a plain statement silently ignores failures.', 'Check the error, or assign it to _ explicitly with a comment explaining why.'],
   ko: ['함수 호출이 돌려준 오류는 확인해야 합니다', '오류를 돌려주는 함수를 단독 문장으로 호출하면 실패를 조용히 무시합니다.', '오류를 확인하거나, 이유를 주석으로 적고 명시적으로 _에 대입하세요.'],
   on: {
@@ -498,7 +498,7 @@ func store(s string) error { return nil }
 });
 
 rule({
-  id: 'err-shadow', type: 'B', sev: 'MA', debt: 5, tags: ['error-handling', 'pitfall'], sonar: '',
+  id: 'err-shadow', type: 'B', sev: 'MA', debt: 5, tags: ['error-handling', 'pitfall'], ref: '',
   en: ['Error variables should not be shadowed in nested scopes', 'err := inside a block creates a new variable, so the outer err (often the named result) is not updated.', 'Use = instead of := or rename the inner variable.'],
   ko: ['오류 변수를 안쪽 범위에서 가리면 안 됩니다', '블록 안의 err :=는 새 변수를 만들므로 바깥 err(주로 이름 있는 결과)가 바뀌지 않습니다.', ':= 대신 =를 쓰거나 안쪽 변수 이름을 바꾸세요.'],
   on: {
@@ -550,7 +550,7 @@ func open(p string) (int, error) { return 0, nil }
 });
 
 rule({
-  id: 'error-compare-eq', type: 'B', sev: 'MA', debt: 5, tags: ['error-handling'], sonar: '',
+  id: 'error-compare-eq', type: 'B', sev: 'MA', debt: 5, tags: ['error-handling'], ref: '',
   en: ['Errors should be compared with errors.Is', 'err == io.EOF fails when the error is wrapped with %w.', 'Use errors.Is(err, io.EOF).'],
   ko: ['오류는 errors.Is로 비교해야 합니다', 'err == io.EOF는 오류가 %w로 감싸이면 실패합니다.', 'errors.Is(err, io.EOF)를 쓰세요.'],
   on: {
@@ -597,7 +597,7 @@ func readAll(f *os.File) error {
 });
 
 rule({
-  id: 'error-type-assert', type: 'B', sev: 'MI', debt: 5, tags: ['error-handling'], sonar: '',
+  id: 'error-type-assert', type: 'B', sev: 'MI', debt: 5, tags: ['error-handling'], ref: '',
   en: ['Error types should be checked with errors.As', 'A type assertion on an error fails when the error is wrapped.', 'Use errors.As(err, &target).'],
   ko: ['오류 타입은 errors.As로 확인해야 합니다', '오류에 타입 단언을 쓰면 감싼 오류에서 실패합니다.', 'errors.As(err, &target)를 쓰세요.'],
   on: {
@@ -629,7 +629,7 @@ func missing(err error) bool {
 });
 
 rule({
-  id: 'nil-error-return', type: 'B', sev: 'MA', debt: 5, tags: ['error-handling', 'cwe-252'], sonar: '',
+  id: 'nil-error-return', type: 'B', sev: 'MA', debt: 5, tags: ['error-handling', 'cwe-252'], ref: '',
   en: ['A nil error should not be returned right after an error check', 'if err != nil { return nil } drops the failure and reports success.', 'Return err (wrapped if needed).'],
   ko: ['오류를 확인한 직후 nil 오류를 반환하면 안 됩니다', 'if err != nil { return nil }은 실패를 버리고 성공으로 알립니다.', 'err를 (필요하면 감싸서) 반환하세요.'],
   on: {
@@ -674,7 +674,7 @@ func read(p string) ([]byte, error) { return nil, nil }
 });
 
 rule({
-  id: 'recover-not-in-defer', type: 'B', sev: 'MA', debt: 5, tags: ['pitfall'], sonar: '',
+  id: 'recover-not-in-defer', type: 'B', sev: 'MA', debt: 5, tags: ['pitfall'], ref: '',
   en: ['recover() should be called directly by a deferred function', 'recover only stops a panic when called by a function that is itself deferred; elsewhere it always returns nil.', 'Call recover inside a function invoked with defer.'],
   ko: ['recover()는 defer로 실행되는 함수에서 직접 호출해야 합니다', 'recover는 defer된 함수가 직접 호출할 때만 panic을 멈추고, 그 밖에서는 항상 nil을 돌려줍니다.', 'defer로 호출되는 함수 안에서 recover를 호출하세요.'],
   on: {
@@ -717,7 +717,7 @@ func safe(f func()) {
 
 // ── context / time ──
 rule({
-  id: 'context-background-in-handler', type: 'B', sev: 'MA', debt: 5, tags: ['context'], sonar: '',
+  id: 'context-background-in-handler', type: 'B', sev: 'MA', debt: 5, tags: ['context'], ref: '',
   en: ['HTTP handlers should use the request context', 'context.Background() in a handler ignores client cancellation and deadlines.', 'Use r.Context().'],
   ko: ['HTTP 핸들러는 요청 컨텍스트를 써야 합니다', '핸들러에서 context.Background()를 쓰면 클라이언트 취소와 기한을 무시합니다.', 'r.Context()를 쓰세요.'],
   on: {
@@ -764,7 +764,7 @@ func work(ctx context.Context) {}
 });
 
 rule({
-  id: 'time-after-in-loop', type: 'B', sev: 'MA', debt: 10, tags: ['performance', 'cwe-401'], sonar: '',
+  id: 'time-after-in-loop', type: 'B', sev: 'MA', debt: 10, tags: ['performance', 'cwe-401'], ref: '',
   en: ['time.After should not be used inside loops', 'Each time.After call creates a timer that lives until it fires, so a busy loop accumulates timers.', 'Create one time.NewTimer / time.Ticker outside the loop and Reset it.'],
   ko: ['반복문 안에서 time.After를 쓰면 안 됩니다', 'time.After를 호출할 때마다 울릴 때까지 남는 타이머가 생기므로 바쁜 반복문에 타이머가 쌓입니다.', '반복문 밖에서 time.NewTimer나 time.Ticker를 하나 만들고 Reset하세요.'],
   on: {
@@ -807,7 +807,7 @@ func pump(in <-chan int) {
 
 // ── loops ──
 rule({
-  id: 'defer-in-loop', type: 'B', sev: 'MA', debt: 10, tags: ['cwe-404', 'performance'], sonar: '',
+  id: 'defer-in-loop', type: 'B', sev: 'MA', debt: 10, tags: ['cwe-404', 'performance'], ref: '',
   en: ['"defer" should not be used inside loops', 'Deferred calls run only when the function returns, so resources opened in the loop pile up.', 'Move the loop body into a function, or close explicitly.'],
   ko: ['반복문 안에서 "defer"를 쓰면 안 됩니다', 'defer한 호출은 함수가 끝날 때만 실행되므로 반복문에서 연 자원이 쌓입니다.', '반복문 본문을 함수로 옮기거나 명시적으로 닫으세요.'],
   on: {
@@ -848,7 +848,7 @@ func sizes(paths []string) {
 });
 
 rule({
-  id: 'goroutine-loop-var', type: 'B', sev: 'CR', debt: 10, tags: ['concurrency', 'cwe-362'], sonar: '',
+  id: 'goroutine-loop-var', type: 'B', sev: 'CR', debt: 10, tags: ['concurrency', 'cwe-362'], ref: '',
   en: ['Loop variables should not be captured by goroutines or deferred closures', 'Before Go 1.22 the loop variable is shared by all iterations, so the closure sees the last value.', 'Pass the variable as an argument, copy it (v := v), or build with Go 1.22+.'],
   ko: ['고루틴이나 defer 클로저가 반복 변수를 잡으면 안 됩니다', 'Go 1.22 이전에는 반복 변수를 모든 반복이 함께 쓰므로 클로저가 마지막 값을 봅니다.', '변수를 인수로 넘기거나 복사(v := v)하거나 Go 1.22 이상으로 빌드하세요.'],
   on: {
@@ -900,7 +900,7 @@ function loopCapture(n, cx) {
 }
 
 rule({
-  id: 'infinite-loop', type: 'B', sev: 'BL', debt: 10, tags: ['suspicious'], sonar: 'S2189', checker: 'INFINITE_LOOP',
+  id: 'infinite-loop', type: 'B', sev: 'BL', debt: 10, tags: ['suspicious'], ref: 'S2189', checker: 'INFINITE_LOOP',
   en: ['Loops should not be infinite', 'A loop that can neither end nor do anything observable hangs the program.', 'Fix the loop condition or add an exit.'],
   ko: ['반복문이 끝없이 돌면 안 됩니다', '끝날 수도 없고 눈에 보이는 일도 하지 않는 반복문은 프로그램을 멈추게 합니다.', '반복 조건을 고치거나 빠져나갈 길을 넣으세요.'],
   on: {
@@ -987,7 +987,7 @@ function hasEffect(body) {
 }
 
 rule({
-  id: 'single-iteration-loop', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: 'S1751',
+  id: 'single-iteration-loop', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], ref: 'S1751',
   en: ['Loops with at most one iteration should be refactored', 'A loop whose body always breaks or returns runs at most once, which is usually a bug.', 'Fix the exit statement or replace the loop with an if.'],
   ko: ['최대 한 번만 도는 반복문은 고쳐야 합니다', '본문이 항상 break나 return하는 반복문은 많아야 한 번 돌고, 보통 버그입니다.', '빠져나가는 문장을 고치거나 반복문을 if로 바꾸세요.'],
   on: {
@@ -1039,7 +1039,7 @@ function singleIter(n, cx, isRange) {
 }
 
 rule({
-  id: 'loop-wrong-direction', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], sonar: 'S2251',
+  id: 'loop-wrong-direction', type: 'B', sev: 'MA', debt: 5, tags: ['suspicious'], ref: 'S2251',
   en: ['A "for" loop update should move the counter in the right direction', 'for i := 0; i < n; i-- moves away from the end condition.', 'Fix the update or the condition.'],
   ko: ['"for" 반복의 갱신은 카운터를 올바른 방향으로 움직여야 합니다', 'for i := 0; i < n; i--는 종료 조건에서 멀어집니다.', '갱신식이나 조건을 고치세요.'],
   on: {

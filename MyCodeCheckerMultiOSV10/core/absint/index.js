@@ -255,7 +255,7 @@ class Engine {
     return out;
   }
 
-  // NULL_RETURNS for project functions is statistical (as in Coverity): the
+  // NULL_RETURNS for project functions is statistical (as in Defect Analysis): the
   // result must be null-checked at some call sites before an unchecked
   // dereference elsewhere is reported.
   nullRetOk(nret) {

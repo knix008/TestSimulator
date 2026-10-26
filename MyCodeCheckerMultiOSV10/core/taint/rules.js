@@ -4,7 +4,7 @@
 
 const LANGS = ['js', 'ts', 'py', 'java', 'kt', 'cs', 'php', 'go', 'rb'];
 
-// [vuln, key suffix, severity, cwe, owasp, cweTop25, Sonar rule, Coverity checker, name, why, fix]
+// [vuln, key suffix, severity, cwe, owasp, cweTop25, reference rule, defect checker, name, why, fix]
 const DEFS = [
   ['sqli', 'sqli', 'BLOCKER', 'CWE-89', 'A03', true, 'S3649', 'SQLI',
     { en: 'SQL queries should not be built from user-controlled data', ko: '사용자 입력으로 SQL 쿼리를 만들면 안 됩니다' },
@@ -81,7 +81,7 @@ const DEFS = [
 ];
 
 function catalog(langsByVuln) {
-  return DEFS.map(([vuln, id, severity, cwe, owasp, top25, sonar, checker, name, why, fix]) => {
+  return DEFS.map(([vuln, id, severity, cwe, owasp, top25, ref, checker, name, why, fix]) => {
     const langs = (langsByVuln && langsByVuln[vuln] && langsByVuln[vuln].length) ? langsByVuln[vuln] : LANGS;
     const tags = ['taint', 'injection', 'security', cwe.toLowerCase(), 'owasp-' + owasp.toLowerCase()];
     if (top25) tags.push('cwe-top25');
@@ -97,7 +97,7 @@ function catalog(langsByVuln) {
       checker,
       cwe,
       cert: '',
-      sonar: sonar,
+      ref: ref,
       standards: { cwe: [cwe], owasp2021: [owasp], cweTop25: top25 },
       vuln,
     };

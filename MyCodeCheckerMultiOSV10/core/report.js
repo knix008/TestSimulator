@@ -25,14 +25,14 @@ function toCsv(analysis) {
 
 function toDefects(analysis) {
   const rows = [['cid', 'checker', 'impact', 'kind', 'classification', 'action', 'owner', 'component', 'cwe', 'file', 'function', 'line', 'status', 'message']];
-  const issues = [...(analysis.issues || []), ...((analysis.coverity && analysis.coverity.fixedDefects) || [])];
+  const issues = [...(analysis.issues || []), ...((analysis.defectAnalysis && analysis.defectAnalysis.fixedDefects) || [])];
   for (const issue of issues) {
     const msg = text(issue.message, 'en');
     rows.push([
       issue.cid || '', issue.checker || '', issue.impact || '', issue.kind || '',
       issue.classification || '', issue.action || '', issue.owner || '', issue.component || '',
       issue.cwe || '', issue.file || '', issue.function || '', issue.line || '',
-      issue.coverityStatus || issue.status || '', msg,
+      issue.defectStatus || issue.status || '', msg,
     ]);
   }
   return rows.map((r) => r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(',')).join('\n');

@@ -38,7 +38,7 @@ test('Go cover profile blocks and suffix matching of module paths', () => {
   assert.ok(cov.coverageFor(c, 'pkg/a.go'));
 });
 
-test('SonarQube generic coverage XML', () => {
+test('generic coverage XML', () => {
   const c = cov.parseAny(GENERIC, '/r');
   assert.equal(c.format, 'generic');
   assert.equal(c.lineCoverage, 50);

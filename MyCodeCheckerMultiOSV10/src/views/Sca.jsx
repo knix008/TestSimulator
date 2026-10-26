@@ -69,8 +69,8 @@ export function ScaView({ project, stamp }) {
   ];
   const s = data && data.summary;
   return (
-    <div className="view">
-      <ViewHeader icon="package" title={t('nav_dependencies')} hint={t('sca_hint')}>
+    <div className={`view ${data ? 'view-list' : ''}`}>
+      <ViewHeader icon="package" tour="sbom-export" title={t('nav_dependencies')} hint={t('sca_hint')}>
         <Toggle checked={includeDev} onChange={setIncludeDev} label={t('sca_include_dev')} icon="code" />
         <span className="spacer" />
         <IconSelect value={sbom} options={sbomOptions} onChange={setSbom} title={t('sca_sbom_format')} width={200} />
@@ -162,7 +162,7 @@ function DepTable({ deps, byId, vulnCount, licenseOf, layout, q }) {
   }, [deps, byId, layout, q, open]);
   const toggle = (key) => { const n = new Set(open); if (n.has(key)) n.delete(key); else n.add(key); setOpen(n); };
   return (
-    <div className="panel tpanel">
+    <div className="panel tpanel list-grow">
       <div className="table-wrap">
         <table>
           <thead><tr>
@@ -209,7 +209,7 @@ function VulnTable({ vulns, byId }) {
   const sorted = [...vulns].sort((a, b) => (SEV_ORDER[String(a.severity).toUpperCase()] ?? 9) - (SEV_ORDER[String(b.severity).toUpperCase()] ?? 9) || (b.score || 0) - (a.score || 0));
   const sel = sorted.find((v) => `${v.id}|${v.dependency}` === cur);
   return (
-    <div className="split">
+    <div className="split list-grow">
       <div className="panel tpanel">
         <div className="table-wrap">
           <table>
@@ -275,7 +275,7 @@ function LicenseTable({ licenses }) {
           </div>
         ))}
       </div>
-      <div className="panel tpanel">
+      <div className="panel tpanel list-grow">
         <div className="table-wrap">
           <table>
             <thead><tr><th>{t('sca_package')}</th><th>{t('sca_version')}</th><th>{t('sca_license')}</th><th>{t('sca_category')}</th><th>{t('sca_policy')}</th><th>{t('sca_scope')}</th></tr></thead>
@@ -303,7 +303,7 @@ function OnlineResult({ online }) {
   useLanguage();
   const vulns = online.vulns || [];
   return (
-    <div className="panel tpanel">
+    <div className="panel tpanel list-grow">
       {!online.ok && <Empty text={online.error || t('failed')} icon="alert" />}
       <div className="table-wrap">
         <table>

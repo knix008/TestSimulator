@@ -1,6 +1,6 @@
 'use strict';
 
-// Bug rules (sonar-dotnet reliability family) that work on the AST plus the
+// Bug rules (.NET reference analyzer reliability family) that work on the AST plus the
 // light type model.
 
 const { R } = require('../registry');
