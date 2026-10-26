@@ -25,7 +25,7 @@ import {
 
 import {
   loadDocument, getOutline, destToLocation, getDocumentInfo, getPageText, extractPageImages,
-  searchDocument, getDocumentComments, getImageDataUrl, cropCanvas,
+  searchDocument, getDocumentComments, getImageDataUrl, cropCanvas, cropDataUrl, renderPageArea,
 } from './lib/pdf.js';
 import {
   isDesktop, api, openFileDialog, readPath, downloadUrl, copyText, copyImage,
@@ -950,17 +950,36 @@ export default function App() {
     });
   }, [addClip, copyCapture, settings.autoCopyRegion, settings.captureAction, t]);
 
-  // Reads the selected picture at its full embedded resolution, falling back to
-  // a crop of the rendered page when the original bitmap cannot be decoded.
+  // Reads the selected picture exactly as it appears on the page: the embedded
+  // bitmap at its full resolution (cut to the part a clip leaves visible), or —
+  // for vector figures, inline pictures and crops that are not upright — that
+  // area of the page rendered sharp. A crop of the on-screen canvas is the
+  // last resort.
   const resolveImage = useCallback(async (sel) => {
     if (!doc || !sel) throw new Error(t('error.noSelection'));
     let dataUrl = null;
     let width = Math.round(sel.rect?.width || 0);
     let height = Math.round(sel.rect?.height || 0);
-    try {
-      const pdfPage = await doc.getPage(sel.page);
-      dataUrl = await getImageDataUrl(pdfPage, sel.name || sel.id);
-    } catch { dataUrl = null; }
+    // Inline pictures and vector figures have no named bitmap to look up (the
+    // lookup would only wait out its timeout).
+    const useBitmap = sel.name && (!sel.clipped || sel.crop);
+    if (useBitmap) {
+      try {
+        const pdfPage = await doc.getPage(sel.page);
+        dataUrl = await getImageDataUrl(pdfPage, sel.name);
+        if (dataUrl && sel.crop) {
+          const cut = await cropDataUrl(dataUrl, sel.crop);
+          return { ...cut, page: sel.page };
+        }
+      } catch { dataUrl = null; }
+    }
+    if (!dataUrl && sel.frac) {
+      try {
+        const pdfPage = await doc.getPage(sel.page);
+        const shot = await renderPageArea(pdfPage, sel.frac, { rotation: settings.rotation || 0 });
+        return { dataUrl: shot.dataUrl, width: shot.width, height: shot.height, page: sel.page };
+      } catch { /* fall back to the on-screen canvas */ }
+    }
     if (!dataUrl) {
       const canvas = viewRef.current?.getPageCanvas(sel.page);
       if (!canvas || !sel.rect) throw new Error('The picture could not be read from this page.');
@@ -973,7 +992,7 @@ export default function App() {
       try { await probe.decode(); width = probe.naturalWidth; height = probe.naturalHeight; } catch { /* keep the rect size */ }
     }
     return { dataUrl, width, height, page: sel.page };
-  }, [doc, t]);
+  }, [doc, settings.rotation, t]);
 
   const copySelectedImage = useCallback(async (sel) => {
     try {

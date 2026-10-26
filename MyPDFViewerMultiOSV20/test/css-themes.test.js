@@ -64,7 +64,9 @@ describe('dialog windows do not scroll or clip their chrome', () => {
     expect(css).toMatch(/\.marquee,\s*\n\.marquee\.picked\s*\{[^}]*color-mix\(in srgb, var\(--accent\) 18%/s);
     expect(css).toMatch(/\.sel-layer\s*\{[^}]*mix-blend-mode:\s*difference/s);
     expect(css).toMatch(/\.sel-block\s*\{[^}]*background:\s*#fff/s);
-    expect(css).toMatch(/\.img-region\.hot,\s*\n\.img-region\.picked\s*\{[^}]*border:\s*2px dashed var\(--accent\)/s);
+    expect(css).toMatch(/\.img-region\.hot\s*\{[^}]*border:\s*2px dashed var\(--accent\)/s);
+    // A picked picture looks different from a hovered one, so a click shows.
+    expect(css).toMatch(/\.img-region\.picked\s*\{[^}]*border:\s*2px solid var\(--accent\)[^}]*box-shadow:\s*none/s);
     expect(css).toMatch(/\.textLayer ::selection[\s\S]*text-shadow:\s*none/);
     expect(css).toMatch(/\.textLayer :is\(span, br\)[\s\S]*-webkit-text-fill-color:\s*transparent/);
     expect(css).toMatch(/\.textLayer\s*\{[^}]*opacity:\s*0/s);

@@ -1537,6 +1537,13 @@ const PageView = React.memo(function PageView({
   const startDrag = (e) => {
     if (e.button !== 0) return;
     const p = localPoint(e, e.currentTarget);
+    if (imageTool) {
+      // Select on press so the picture is marked the moment it is clicked.
+      e.preventDefault();
+      const hit = regionAt(p);
+      onImagePick?.(hit ? { page: num, ...hit } : null);
+      return;
+    }
     if (regionTool) {
       e.preventDefault();
       onRegionMark?.(null);
@@ -1606,12 +1613,11 @@ const PageView = React.memo(function PageView({
     }
   };
 
-  // Image tool: a plain click selects whichever picture is under the pointer.
-  // Selecting does not copy — the context menu offers copy / save / keep.
+  // Image tool: the press already selected the picture under the pointer (see
+  // startDrag). Selecting does not copy — the context menu offers copy / save / keep.
   const pickImage = (e) => {
     if (!imageTool || e.button !== 0) return;
     const hit = regionAt(localPoint(e, e.currentTarget));
-    onImagePick?.(hit ? { page: num, id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } : null);
     if (!hit) return;
     // Picking a picture offers what can be done with it straight away, at the
     // point it was clicked — the same menu a right-click on it would give.
@@ -1619,7 +1625,7 @@ const PageView = React.memo(function PageView({
     setTimeout(() => {
       onContextMenuAt?.(
         { preventDefault() {}, stopPropagation() {}, clientX, clientY },
-        { page: num, imageHit: { id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect } }
+        { page: num, imageHit: hit }
       );
     }, 0);
   };
@@ -1631,7 +1637,7 @@ const PageView = React.memo(function PageView({
     e.stopPropagation();
     const selectionText = pickCopyText(window.getSelection()?.toString());
     onContextMenuAt?.(e, hit
-      ? { page: num, imageHit: { id: hit.id, name: hit.name, inline: hit.inline, rect: hit.rect }, selectionText }
+      ? { page: num, imageHit: hit, selectionText }
       : { selectionText });
   };
 

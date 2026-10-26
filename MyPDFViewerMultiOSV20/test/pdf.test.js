@@ -196,6 +196,36 @@ describe('getPageImageRegions', () => {
     expect(regions[0].rect.y).toBeCloseTo(20);
   });
 
+  it('cuts a cropped picture down to its clip path, form bbox and the page', async () => {
+    // A 952-unit bitmap seen through a 366×212 clip window, as slide decks crop
+    // pictures — the outline must cover the window, not the whole bitmap.
+    const page = {
+      getOperatorList: async () => ({
+        fnArray: [
+          OPS.save, OPS.transform, OPS.constructPath, OPS.clip,
+          OPS.save, OPS.transform, OPS.paintImageXObject, OPS.restore, OPS.restore,
+          OPS.paintFormXObjectBegin, OPS.paintImageXObject, OPS.paintFormXObjectEnd,
+          OPS.paintImageXObject,
+        ],
+        argsArray: [
+          null, [1, 0, 0, 1, 746, 830], [[], [], [0, 0, 366, 212]], null,
+          null, [952, 0, 0, 952, -309, -332], ['Crop'], null, null,
+          [[1, 0, 0, 1, 100, 0], [0, 0, 50, 40]], ['InForm'], [],
+          ['Bleed'],
+        ],
+      }),
+    };
+    const viewport = { transform: [1, 0, 0, 1, 0, 0], width: 1000, height: 1000 };
+    const regions = await getPageImageRegions(page, viewport, { minSize: 1 });
+    const byName = Object.fromEntries(regions.map((r) => [r.name, r.rect]));
+    expect(byName.Crop).toEqual({ x: 746, y: 830, width: 366 - 112, height: 170 });
+    // The form's matrix moves it and its bbox crops the unit image.
+    expect(byName.InForm.x).toBeCloseTo(100);
+    expect(byName.InForm.width).toBeCloseTo(1);
+    // After the restore the clip is gone again; only the page bounds apply.
+    expect(byName.Bleed).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+  });
+
   it('filters images smaller than minSize and names inline paints', async () => {
     const page = {
       getOperatorList: async () => ({

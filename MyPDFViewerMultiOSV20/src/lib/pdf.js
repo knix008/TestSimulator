@@ -208,55 +208,257 @@ function combine(a, b) {
   ];
 }
 
+// Axis-aligned bounds of the box [x0, y0, x1, y1] after the matrix m.
+function boxToViewport(m, [ax, ay, bx, by]) {
+  const pts = [[ax, ay], [bx, ay], [ax, by], [bx, by]]
+    .map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+}
+
+function intersectBox(a, b) {
+  return {
+    x0: Math.max(a.x0, b.x0), y0: Math.max(a.y0, b.y0),
+    x1: Math.min(a.x1, b.x1), y1: Math.min(a.y1, b.y1),
+  };
+}
+
+// Bounds of a constructPath in its own space, from the coordinates themselves.
+// pdf.js's precomputed min/max skips curve points, so a circle drawn with
+// curves came back as a single point. Control points bound the curve.
+function pathBounds(args) {
+  const [pathOps, coords, minMax] = args || [];
+  if (!pathOps || !coords) {
+    return minMax && minMax.length >= 4 && Number.isFinite(minMax[0]) ? Array.from(minMax).slice(0, 4) : null;
+  }
+  let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+  const add = (x, y) => {
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+  };
+  let j = 0;
+  for (const op of pathOps) {
+    if (op === OPS.rectangle) {
+      const [x, y, w, h] = [coords[j], coords[j + 1], coords[j + 2], coords[j + 3]];
+      add(x, y); add(x + w, y + h);
+      j += 4;
+      continue;
+    }
+    const n = op === OPS.moveTo || op === OPS.lineTo ? 2
+      : op === OPS.curveTo ? 6
+        : op === OPS.curveTo2 || op === OPS.curveTo3 ? 4 : 0;
+    for (let k = 0; k < n; k += 2) add(coords[j + k], coords[j + k + 1]);
+    j += n;
+  }
+  return x0 <= x1 && y0 <= y1 ? [x0, y0, x1, y1] : null;
+}
+
+// Joins boxes that overlap or sit within `gap` of each other, so the many
+// paths of one drawing become one figure.
+function clusterBoxes(boxes, gap) {
+  let list = boxes.map((b) => ({ ...b }));
+  for (let changed = true; changed;) {
+    changed = false;
+    const out = [];
+    for (const b of list) {
+      const hit = out.find((o) => b.x0 - gap <= o.x1 && o.x0 - gap <= b.x1 && b.y0 - gap <= o.y1 && o.y0 - gap <= b.y1);
+      if (hit) {
+        hit.x0 = Math.min(hit.x0, b.x0); hit.y0 = Math.min(hit.y0, b.y0);
+        hit.x1 = Math.max(hit.x1, b.x1); hit.y1 = Math.max(hit.y1, b.y1);
+        changed = true;
+      } else {
+        out.push(b);
+      }
+    }
+    list = out;
+  }
+  return list;
+}
+
 // Where each image sits on the rendered page, in viewport (CSS pixel)
 // coordinates — this is what makes "click the picture to select it" possible.
 //
 // pdf.js paints an image by transforming the unit square, so replaying the
 // operator list while tracking the current transformation matrix gives every
 // image's rectangle without rendering anything.
+//
+// Slides often crop a large bitmap through a clip path (or a form / group
+// bbox), so the clip is tracked too and each rectangle is cut down to what is
+// actually visible — otherwise the outline covers the uncropped bitmap, far
+// from the picture the user sees.
+//
+// Many books draw their figures as vector paths rather than embedding a
+// bitmap. The filled / stroked paths are gathered and joined into figures
+// (`vector: true`), so those pictures can be pointed at and picked as well.
 export async function getPageImageRegions(page, viewport, { minSize = 24 } = {}) {
   let ops;
   try { ops = await page.getOperatorList(); } catch { return []; }
 
-  const paintOps = new Set([OPS.paintImageXObject, OPS.paintJpegXObject, OPS.paintInlineImageXObject]);
+  const paintOps = new Set([OPS.paintImageXObject, OPS.paintJpegXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject]);
+  const clipOps = new Set([OPS.clip, OPS.eoClip]);
+  const drawOps = new Set([
+    OPS.fill, OPS.eoFill, OPS.stroke, OPS.closeStroke, OPS.fillStroke, OPS.eoFillStroke,
+    OPS.closeFillStroke, OPS.closeEOFillStroke,
+  ]);
   const regions = [];
+  const drawn = [];      // visible bounds of every painted path / shading
   const stack = [];
   let ctm = [1, 0, 0, 1, 0, 0];
+  // Visible area in viewport pixels; the page itself is the outermost clip.
+  let clip = viewport.width > 0 && viewport.height > 0
+    ? { x0: 0, y0: 0, x1: viewport.width, y1: viewport.height }
+    : null;
+  let pathBox = null;    // bounds of the last path, for a clip that follows it
+
+  const toView = (box) => boxToViewport(combine(viewport.transform, ctm), box);
+  const push = () => stack.push({ ctm: ctm.slice(), clip });
+  const pop = () => {
+    const s = stack.pop();
+    ctm = s ? s.ctm : [1, 0, 0, 1, 0, 0];
+    clip = s ? s.clip : clip;
+  };
+  const clipTo = (box) => { if (box) clip = clip ? intersectBox(clip, box) : box; };
 
   for (let i = 0; i < ops.fnArray.length; i++) {
     const fn = ops.fnArray[i];
-    if (fn === OPS.save) { stack.push(ctm.slice()); continue; }
-    if (fn === OPS.restore) { ctm = stack.pop() || [1, 0, 0, 1, 0, 0]; continue; }
-    if (fn === OPS.transform) { ctm = combine(ctm, ops.argsArray[i]); continue; }
+    const args = ops.argsArray[i];
+    if (fn === OPS.save) { push(); continue; }
+    if (fn === OPS.restore) { pop(); continue; }
+    if (fn === OPS.transform) { ctm = combine(ctm, args); continue; }
+    if (fn === OPS.constructPath) {
+      const b = pathBounds(args);
+      pathBox = b ? toView(b) : null;
+      continue;
+    }
+    if (clipOps.has(fn)) { clipTo(pathBox); continue; }
+    if (drawOps.has(fn) || fn === OPS.shadingFill) {
+      // A shading fills whatever the clip leaves open.
+      const b = fn === OPS.shadingFill ? clip : (pathBox && clip ? intersectBox(pathBox, clip) : pathBox);
+      if (b && b.x1 > b.x0 && b.y1 > b.y0) drawn.push(b);
+      continue;
+    }
+    // A form XObject or transparency group: its own matrix, clipped to its bbox.
+    if (fn === OPS.paintFormXObjectBegin || fn === OPS.beginGroup) {
+      push();
+      const matrix = fn === OPS.beginGroup ? args?.[0]?.matrix : args?.[0];
+      const bbox = fn === OPS.beginGroup ? args?.[0]?.bbox : args?.[1];
+      if (matrix && matrix.length === 6) ctm = combine(ctm, Array.from(matrix));
+      if (bbox && bbox.length === 4) clipTo(toView(bbox));
+      continue;
+    }
+    if (fn === OPS.paintFormXObjectEnd || fn === OPS.endGroup) { pop(); continue; }
     if (!paintOps.has(fn)) continue;
 
-    const m = combine(viewport.transform, ctm);
-    const corners = [[0, 0], [1, 0], [0, 1], [1, 1]]
-      .map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
-    const xs = corners.map((p) => p[0]);
-    const ys = corners.map((p) => p[1]);
+    let box = toView([0, 0, 1, 1]);
+    if (clip) box = intersectBox(box, clip);
     const rect = {
-      x: Math.min(...xs),
-      y: Math.min(...ys),
-      width: Math.max(...xs) - Math.min(...xs),
-      height: Math.max(...ys) - Math.min(...ys),
+      x: box.x0,
+      y: box.y0,
+      width: Math.max(0, box.x1 - box.x0),
+      height: Math.max(0, box.y1 - box.y0),
     };
     if (rect.width < minSize || rect.height < minSize) continue;
 
+    // When the clip hides part of the bitmap, `crop` says which part of the
+    // original is visible (fractions from its top-left), so copying gives
+    // exactly the picture on the page. Only an upright, unmirrored placement
+    // maps that simply; any other is cut from a fresh render instead (null).
+    const full = toView([0, 0, 1, 1]);
+    const clipped = box.x0 - full.x0 > 0.5 || box.y0 - full.y0 > 0.5 || full.x1 - box.x1 > 0.5 || full.y1 - box.y1 > 0.5;
+    let crop = null;
+    if (clipped) {
+      const m = combine(viewport.transform, ctm);
+      const upright = Math.abs(m[1]) < 1e-6 && Math.abs(m[2]) < 1e-6 && m[0] > 0 && m[3] < 0;
+      const fw = full.x1 - full.x0;
+      const fh = full.y1 - full.y0;
+      if (upright && fw > 0 && fh > 0) {
+        crop = { x: (box.x0 - full.x0) / fw, y: (box.y0 - full.y0) / fh, w: rect.width / fw, h: rect.height / fh };
+      }
+    }
+
     // One page can paint the same image object more than once, so the object
     // name identifies the *bitmap* while the id identifies this occurrence.
-    const arg = ops.argsArray[i][0];
+    const arg = args[0];
     const named = typeof arg === 'string';
     regions.push({
       id: named ? `${arg}#${i}` : `inline-${i}`,
       name: named ? arg : null,
       inline: !named,
       rect,
+      frac: toFrac(rect),
+      clipped,
+      crop,
     });
   }
 
   // Later paints sit on top, so search them first when hit-testing a click.
-  return regions.reverse();
+  regions.reverse();
+
+  // Vector figures. Page-sized fills are backgrounds and thin boxes are rules
+  // or underlines, so neither counts; a figure that sits inside a bitmap
+  // already listed, or is mostly that bitmap plus a frame, adds nothing — it
+  // would only draw a second box around the same picture.
+  const pageArea = viewport.width > 0 && viewport.height > 0 ? viewport.width * viewport.height : Infinity;
+  const gap = 6 * (viewport.scale || 1);
+  const figures = clusterBoxes(drawn.filter((b) => (b.x1 - b.x0) * (b.y1 - b.y0) < pageArea * 0.8), gap)
+    .filter((b) => b.x1 - b.x0 >= minSize && b.y1 - b.y0 >= minSize)
+    .filter((b) => !regions.some((r) => {
+      const o = intersectBox(b, { x0: r.rect.x, y0: r.rect.y, x1: r.rect.x + r.rect.width, y1: r.rect.y + r.rect.height });
+      const shared = Math.max(0, o.x1 - o.x0) * Math.max(0, o.y1 - o.y0);
+      return shared >= 0.7 * (b.x1 - b.x0) * (b.y1 - b.y0);
+    }));
+  figures.forEach((b, k) => {
+    const rect = { x: b.x0, y: b.y0, width: b.x1 - b.x0, height: b.y1 - b.y0 };
+    regions.push({
+      id: `figure-${k}`,
+      name: null,
+      inline: false,
+      vector: true,
+      rect,
+      frac: toFrac(rect),
+    });
+  });
+  return regions;
+
+  // The rectangle as fractions of the page, so it can be cut from a render at
+  // any zoom — the copy does not depend on how far the view is zoomed.
+  function toFrac(r) {
+    if (!(viewport.width > 0 && viewport.height > 0)) return null;
+    return { x: r.x / viewport.width, y: r.y / viewport.height, w: r.width / viewport.width, h: r.height / viewport.height };
+  }
+}
+
+// Renders the page off screen at a high resolution and cuts out `frac` (the
+// area as fractions of the page) — a picture exactly as it appears on the
+// page, sharp whatever the current zoom. `rotation` is the view's rotation,
+// since the fractions were measured on the rotated page.
+export async function renderPageArea(page, frac, { rotation = 0, scale = 3 } = {}) {
+  const unit = page.getViewport({ scale: 1, rotation: (page.rotate + rotation) % 360 });
+  // Stay well inside the browser's canvas size limit.
+  const s = Math.max(0.5, Math.min(scale, Math.sqrt(16e6 / (unit.width * unit.height))));
+  const canvas = document.createElement('canvas');
+  const { task, viewport } = await renderPage({ page, canvas, scale: s, rotation, dpr: 1 });
+  await task.promise;
+  const w = Math.floor(viewport.width);
+  const h = Math.floor(viewport.height);
+  return cropCanvas(canvas, { x: frac.x * w, y: frac.y * h, width: frac.w * w, height: frac.h * h });
+}
+
+// Cuts `crop` (fractions from the top-left) out of an image data URL.
+export async function cropDataUrl(dataUrl, crop) {
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const sx = Math.round(crop.x * img.naturalWidth);
+  const sy = Math.round(crop.y * img.naturalHeight);
+  const sw = Math.max(1, Math.min(Math.round(crop.w * img.naturalWidth), img.naturalWidth - sx));
+  const sh = Math.max(1, Math.min(Math.round(crop.h * img.naturalHeight), img.naturalHeight - sy));
+  const out = document.createElement('canvas');
+  out.width = sw;
+  out.height = sh;
+  out.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+  return { dataUrl: out.toDataURL('image/png'), width: sw, height: sh };
 }
 
 // One embedded image, as a PNG data URL, by the name used in the operator list.
