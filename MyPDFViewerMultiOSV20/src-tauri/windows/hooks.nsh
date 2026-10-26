@@ -259,7 +259,7 @@ FunctionEnd
   WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}" "" "PDF Document"
   WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}" "FriendlyTypeName" "PDF Document"
   WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}" "FriendlyAppName" "${MP_NAME}"
-  WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}\DefaultIcon" "" "$INSTDIR\${MAINBINARYNAME}.exe,0"
+  WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}\DefaultIcon" "" "$INSTDIR\file.ico,0"
   WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}\shell\open" "" "Open with ${MP_NAME}"
   WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
   WriteRegStr HKCU "Software\Classes\.pdf\OpenWithProgids" "${MP_PDF_PROGID}" ""
@@ -274,7 +274,7 @@ FunctionEnd
   ; so they are written whether or not the box was ticked.
   WriteRegStr HKCU "Software\${MP_NAME}\Capabilities" "ApplicationName" "${MP_NAME}"
   WriteRegStr HKCU "Software\${MP_NAME}\Capabilities" "ApplicationDescription" "PDF viewer"
-  WriteRegStr HKCU "Software\${MP_NAME}\Capabilities" "ApplicationIcon" "$INSTDIR\${MAINBINARYNAME}.exe,0"
+  WriteRegStr HKCU "Software\${MP_NAME}\Capabilities" "ApplicationIcon" "$INSTDIR\file.ico,0"
   WriteRegStr HKCU "Software\${MP_NAME}\Capabilities\FileAssociations" ".pdf" "${MP_PDF_PROGID}"
   WriteRegStr HKCU "Software\${MP_NAME}\Capabilities\FileAssociations" "${MP_WS_EXT}" "${MP_WS_PROGID}"
   WriteRegStr HKCU "Software\RegisteredApplications" "${MP_NAME}" "Software\${MP_NAME}\Capabilities"
