@@ -322,10 +322,12 @@ function hasOuterBinding(sym) {
 
 function checkRecursion(c, fn, cfg) {
   const info = fn.info;
-  if (!info || info.isGenerator || info.isAsync && false) return;
+  if (!info || info.isGenerator) return;
   const isProp = info.kind === 'property';
   const selfName = fn.args.args[0] && fn.args.args[0].arg;
   const recursive = (n) => {
+    // calling a coroutine function only creates a coroutine; it recurses when awaited
+    if (n.type === 'Call' && info.isAsync && !(n.parent && n.parent.type === 'Await')) return false;
     if (n.type === 'Call') {
       const f = n.func;
       if (!info.cls && f.type === 'Name' && f.id === fn.name && f.sym && f.sym.bindings.length === 1 && f.sym.bindings[0].node === fn) return true;

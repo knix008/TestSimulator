@@ -263,7 +263,8 @@ rule('hostname-not-verified', {
     if (!isFunction(f)) continue;
     let accepts = false;
     if (f.body.type !== 'BlockStatement') accepts = W.isNullish(f.body);
-    else accepts = !B.ownReturns(f).some((r) => r.argument && !W.isNullish(r.argument)) && !U.contains(f.body, (n) => n.type === 'ThrowStatement' || n.type === 'CallExpression', false);
+    // a throw or a call to something that looks like a check (verify / pin / assert ...) may reject the certificate
+    else accepts = !B.ownReturns(f).some((r) => r.argument && !W.isNullish(r.argument)) && !U.contains(f.body, (n) => n.type === 'ThrowStatement' || (n.type === 'CallExpression' && /check|verif|valid|assert|pin|match|compare|reject/i.test(W.calleeProp(n) || dottedName(n.callee) || '')), false);
     if (accepts) ctx.report(p, m('Enable server hostname verification; this callback accepts every certificate.', '서버 호스트 이름 검증을 켜세요. 이 콜백은 모든 인증서를 받아들입니다.'));
   }
 });
@@ -335,7 +336,7 @@ rule('cookie-write', {
   fix: ['Make sure the cookie contains no sensitive data, or set it from the server.', '쿠키에 민감한 데이터가 없는지 확인하거나 서버에서 설정하세요.'],
 }, (ctx) => {
   for (const a of ctx.nodes('AssignmentExpression')) {
-    if (dottedName(a.left) === 'document.cookie') ctx.report(a, m('Make sure that cookie is written safely here.', '여기서 쿠키를 안전하게 쓰는지 확인하세요.'));
+    if (/^((window|globalThis|self)\.)?document\.cookie$/.test(dottedName(a.left) || '')) ctx.report(a, m('Make sure that cookie is written safely here.', '여기서 쿠키를 안전하게 쓰는지 확인하세요.'));
   }
 });
 
@@ -587,7 +588,8 @@ rule('disabled-auto-escaping', {
   why: ['Without auto-escaping, any data rendered by the template can inject HTML and script (XSS).', '자동 이스케이프가 없으면 템플릿이 출력하는 어떤 데이터도 HTML과 스크립트를 주입할 수 있습니다 (XSS).'],
   fix: ['Keep auto-escaping enabled and mark only trusted values as raw.', '자동 이스케이프를 켜 두고 신뢰하는 값만 원본으로 표시하세요.'],
 }, (ctx) => {
-  for (const call of ctx.nodes('CallExpression')) {
+  // new MarkdownIt({...}) / new nunjucks.Environment(...) are constructor calls
+  for (const call of calls(ctx)) {
     const t = tgt(ctx, call);
     const p = W.calleeProp(call);
     if (!t) continue;
@@ -623,15 +625,19 @@ function helmetOpts(ctx) {
   return out;
 }
 
-function helmetRule(id, sonar, cwe, key, nameEn, nameKo, whyEn, whyKo, sub) {
+// keys: the helmet option name, followed by its helmet 7+ alias
+function helmetRule(id, sonar, cwe, keys, nameEn, nameKo, whyEn, whyKo, sub) {
+  keys = [].concat(keys);
   rule(id, {
     t: 'H', s: 'MA', debt: 10, sonar, cwe, owasp: ['A05'], tags: ['helmet', 'http-headers'],
     name: [nameEn, nameKo], why: [whyEn, whyKo],
-    fix: [`Keep the helmet "${key}" protection enabled.`, `helmet의 "${key}" 보호를 켜 두세요.`],
+    fix: [`Keep the helmet "${keys[0]}" protection enabled.`, `helmet의 "${keys[0]}" 보호를 켜 두세요.`],
   }, (ctx) => {
     for (const { opts } of helmetOpts(ctx)) {
-      const v = propValue(ctx, opts, key);
-      if (v && (staticValue(v) || {}).value === false) ctx.report(v, m(`Make sure disabling the "${key}" protection is safe here.`, `"${key}" 보호를 끄는 것이 안전한지 확인하세요.`));
+      for (const key of keys) {
+        const v = propValue(ctx, opts, key);
+        if (v && (staticValue(v) || {}).value === false) ctx.report(v, m(`Make sure disabling the "${key}" protection is safe here.`, `"${key}" 보호를 끄는 것이 안전한지 확인하세요.`));
+      }
     }
     if (sub) sub(ctx);
   });
@@ -655,9 +661,9 @@ helmetRule('csp-disabled', 'S5728', 'CWE-693', 'contentSecurityPolicy', 'Disabli
       }
     }
   });
-helmetRule('clickjacking-protection-disabled', 'S5732', 'CWE-1021', 'frameguard', 'Disabling clickjacking protection is security-sensitive', '클릭재킹 보호를 끄는 것은 보안에 민감합니다',
+helmetRule('clickjacking-protection-disabled', 'S5732', 'CWE-1021', ['frameguard', 'xFrameOptions'], 'Disabling clickjacking protection is security-sensitive', '클릭재킹 보호를 끄는 것은 보안에 민감합니다',
   'Without X-Frame-Options / frame-ancestors, other sites can frame the page and trick users into clicking.', 'X-Frame-Options / frame-ancestors가 없으면 다른 사이트가 페이지를 프레임에 넣어 사용자 클릭을 속일 수 있습니다.');
-helmetRule('content-sniffing-enabled', 'S5734', 'CWE-430', 'noSniff', 'Allowing browsers to sniff MIME types is security-sensitive', '브라우저의 MIME 추측을 허용하는 것은 보안에 민감합니다',
+helmetRule('content-sniffing-enabled', 'S5734', 'CWE-430', ['noSniff', 'xContentTypeOptions'], 'Allowing browsers to sniff MIME types is security-sensitive', '브라우저의 MIME 추측을 허용하는 것은 보안에 민감합니다',
   'Without X-Content-Type-Options: nosniff, a browser may execute an uploaded file as script.', 'X-Content-Type-Options: nosniff가 없으면 브라우저가 올린 파일을 스크립트로 실행할 수 있습니다.');
 helmetRule('referrer-policy-unsafe', 'S5736', 'CWE-200', 'referrerPolicy', 'Disabling strict HTTP referrer policy is security-sensitive', '엄격한 HTTP 리퍼러 정책을 끄는 것은 보안에 민감합니다',
   'Full URLs (with tokens or private paths) leak to third-party sites through the Referer header.', '토큰이나 비공개 경로가 담긴 전체 URL이 Referer 헤더로 외부 사이트에 새어 나갑니다.', (ctx) => {
@@ -669,11 +675,11 @@ helmetRule('referrer-policy-unsafe', 'S5736', 'CWE-200', 'referrerPolicy', 'Disa
       }
     }
   });
-helmetRule('hsts-disabled', 'S5739', 'CWE-523', 'hsts', 'Disabling Strict-Transport-Security policy is security-sensitive', 'Strict-Transport-Security 정책을 끄는 것은 보안에 민감합니다',
+helmetRule('hsts-disabled', 'S5739', 'CWE-523', ['hsts', 'strictTransportSecurity'], 'Disabling Strict-Transport-Security policy is security-sensitive', 'Strict-Transport-Security 정책을 끄는 것은 보안에 민감합니다',
   'Without HSTS the first request can be downgraded to HTTP and intercepted.', 'HSTS가 없으면 첫 요청이 HTTP로 낮춰져 가로채질 수 있습니다.', (ctx) => {
     for (const call of ctx.nodes('CallExpression')) {
       const t = tgt(ctx, call);
-      const isHsts = t && ((t.module === 'helmet' && t.path.join('.') === 'hsts') || (t.module === 'hsts' && !t.path.length));
+      const isHsts = t && ((t.module === 'helmet' && /^(hsts|strictTransportSecurity)$/.test(t.path.join('.'))) || (t.module === 'hsts' && !t.path.length));
       if (!isHsts) continue;
       const age = constOf(ctx, propValue(ctx, call.arguments[0], 'maxAge'));
       if (typeof age === 'number' && age < 15552000) ctx.report(call, m(`Make sure a short HSTS max-age (${age}s) is safe here; use at least 180 days.`, `짧은 HSTS max-age(${age}초)가 안전한지 확인하세요. 최소 180일을 쓰세요.`));
@@ -681,11 +687,11 @@ helmetRule('hsts-disabled', 'S5739', 'CWE-523', 'hsts', 'Disabling Strict-Transp
       if (sub && (staticValue(sub) || {}).value === false) ctx.report(sub, m('Make sure disabling HSTS for subdomains is safe here.', '하위 도메인의 HSTS를 끄는 것이 안전한지 확인하세요.'));
     }
   });
-helmetRule('dns-prefetch-allowed', 'S5743', 'CWE-200', 'dnsPrefetchControl', 'Allowing browsers to perform DNS prefetching is security-sensitive', '브라우저의 DNS 미리 가져오기를 허용하는 것은 보안에 민감합니다',
+helmetRule('dns-prefetch-allowed', 'S5743', 'CWE-200', ['dnsPrefetchControl', 'xDnsPrefetchControl'], 'Allowing browsers to perform DNS prefetching is security-sensitive', '브라우저의 DNS 미리 가져오기를 허용하는 것은 보안에 민감합니다',
   'DNS prefetching of links reveals to DNS servers which pages the user is looking at.', '링크의 DNS 미리 가져오기는 사용자가 보는 페이지를 DNS 서버에 드러냅니다.', (ctx) => {
     for (const call of ctx.nodes('CallExpression')) {
       const t = tgt(ctx, call);
-      if (t && t.module === 'helmet' && t.path.join('.') === 'dnsPrefetchControl') {
+      if (t && t.module === 'helmet' && /^(dnsPrefetchControl|xDnsPrefetchControl)$/.test(t.path.join('.'))) {
         const v = propValue(ctx, call.arguments[0], 'allow');
         if (v && (staticValue(v) || {}).value === true) ctx.report(v, m('Make sure allowing DNS prefetching is safe here.', 'DNS 미리 가져오기를 허용하는 것이 안전한지 확인하세요.'));
       }
@@ -776,10 +782,17 @@ rule('archive-expansion', {
     const t = tgt(ctx, call);
     const p = W.calleeProp(call);
     let hit = false;
-    if (t && t.module === 'tar' && /^(x|extract)$/.test(t.path.join('.'))) hit = true;
+    // tar.x({ filter / onentry }) can count entries and sizes; adm-zip extractEntryTo inside a
+    // getEntries() loop that checks entry sizes is the controlled form
+    if (t && t.module === 'tar' && /^(x|extract)$/.test(t.path.join('.'))) hit = !(['filter', 'onentry', 'onReadEntry'].some((k) => propValue(ctx, call.arguments[0], k)));
     else if (t && t.module === 'unzipper' && /^Extract$/.test(t.path.join('.'))) hit = true;
     else if (t && (t.module === 'extract-zip' || t.module === 'decompress') && !t.path.length) hit = true;
-    else if (imports.has('adm-zip') && (p === 'extractAllTo' || p === 'extractAllToAsync' || p === 'extractEntryTo')) hit = true;
+    else if (imports.has('adm-zip') && (p === 'extractAllTo' || p === 'extractAllToAsync')) hit = true;
+    else if (imports.has('adm-zip') && p === 'extractEntryTo') {
+      const fn = W.enclosingFunction(call);
+      const body = fn ? ctx.text(fn) : ctx.src;
+      hit = !(/getEntries\s*\(/.test(body) && /\.(header\.size|size|compressedSize)\b/.test(body));
+    }
     else if (imports.has('jszip') && p === 'loadAsync') hit = true;
     if (hit) ctx.report(call, m('Make sure that expanding this archive file is safe here.', '이 압축 파일을 푸는 것이 안전한지 확인하세요.'));
   }
@@ -821,12 +834,15 @@ rule('publicly-writable-dir', {
   why: ['Other local users can pre-create or replace files in /tmp-like folders (symlink attacks, race conditions).', '다른 로컬 사용자가 /tmp 같은 폴더에 파일을 미리 만들거나 바꿀 수 있습니다 (심볼릭 링크 공격, 경쟁 상태).'],
   fix: ['Use fs.mkdtemp() to create a private temporary directory.', 'fs.mkdtemp()로 비공개 임시 디렉터리를 만드세요.'],
 }, (ctx) => {
-  for (const n of ctx.nodes('Literal')) {
-    if (typeof n.value !== 'string') continue;
-    if (!/^(\/tmp|\/var\/tmp|\/usr\/tmp|\/dev\/shm|\/dev\/mqueue|\/run\/lock|\/var\/run\/screen|\/library\/caches|\/users\/shared|\/private\/tmp|\/private\/var\/tmp)(\/|$)/i.test(n.value)) continue;
+  for (const n of ctx.nodesOf('Literal', 'TemplateLiteral')) {
+    // `/tmp/${id}`: the leading text of a template literal is the path prefix
+    const value = n.type === 'Literal' ? n.value : n.quasis[0] && n.quasis[0].value && (n.quasis[0].value.cooked ?? n.quasis[0].value.raw);
+    if (typeof value !== 'string') continue;
+    if (n.type === 'TemplateLiteral' && n.parent && n.parent.type === 'TaggedTemplateExpression') continue;
+    if (!/^(\/tmp|\/var\/tmp|\/usr\/tmp|\/dev\/shm|\/dev\/mqueue|\/run\/lock|\/var\/run\/screen|\/library\/caches|\/users\/shared|\/private\/tmp|\/private\/var\/tmp)(\/|$)/i.test(value)) continue;
     if (n.parent && n.parent.type === 'Property' && n.parent.key === n) continue;
     if (U.isTestFile(ctx)) continue;
-    ctx.report(n, m(`Make sure publicly writable directories ("${n.value.slice(0, 30)}") are used safely here.`, `모두가 쓸 수 있는 디렉터리("${n.value.slice(0, 30)}")를 안전하게 쓰는지 확인하세요.`));
+    ctx.report(n, m(`Make sure publicly writable directories ("${value.slice(0, 30)}") are used safely here.`, `모두가 쓸 수 있는 디렉터리("${value.slice(0, 30)}")를 안전하게 쓰는지 확인하세요.`));
   }
 });
 
@@ -868,10 +884,20 @@ rule('debug-feature', {
   for (const call of ctx.nodes('CallExpression')) {
     const t = tgt(ctx, call);
     if (!t || t.module !== 'errorhandler' || t.path.length) continue;
+    // guarded: in the "development" branch of an environment test (if / ?: / &&)
+    let child = call;
     let p = call.parent;
     let guarded = false;
     while (p && !isFunction(p)) {
-      if (p.type === 'IfStatement' && /NODE_ENV|development|env/i.test(ctx.text(p.test))) { guarded = true; break; }
+      const test = p.type === 'IfStatement' || p.type === 'ConditionalExpression' ? p.test : p.type === 'LogicalExpression' && p.operator === '&&' && p.right === child ? p.left : null;
+      if (test && test !== child) {
+        const s = ctx.text(test);
+        const inElse = (p.type === 'IfStatement' || p.type === 'ConditionalExpression') && p.alternate === child;
+        const devTest = /development|\bdev\b|\btest\b|isDev|debug/i.test(s) || /!==?\s*['"]production['"]|['"]production['"]\s*!==?/.test(s);
+        const prodTest = /(?<![!=])===?\s*['"]production['"]|['"]production['"]\s*===?|isProd/i.test(s);
+        if ((!inElse && devTest && !prodTest) || (inElse && prodTest && !devTest)) { guarded = true; break; }
+      }
+      child = p;
       p = p.parent;
     }
     if (!guarded) ctx.report(call, m('Make sure this debug feature is deactivated before delivering the code in production.', '운영에 배포하기 전에 이 디버그 기능을 끄는지 확인하세요.'));

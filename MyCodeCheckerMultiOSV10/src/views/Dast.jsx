@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
-import { useApi, Btn, BtnGroup, IconSelect, Stepper, ViewHeader, Empty, Confirm, Stat, saveText, fmtDate, linesToList } from './common';
+import { useApi, Btn, BtnGroup, IconSelect, Stepper, ViewHeader, Empty, Confirm, Stat, saveText, fmtDate, linesToList, SevBadge } from './common';
 
 const SEV = ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'];
 
@@ -183,10 +183,10 @@ export function DastView() {
           {result && (
             <>
               <div className="card-grid compact">
-                <Stat label={t('da_findings')} value={(result.findings || []).length} tone={(result.findings || []).length ? 'bad' : 'ok'} />
-                <Stat label={t('da_requests')} value={result.requests} />
-                <Stat label={t('da_pages')} value={(result.pages || []).length} />
-                <Stat label={t('da_out_of_scope')} value={(result.outOfScopeSkipped || []).length} />
+                <Stat icon="alert" label={t('da_findings')} value={(result.findings || []).length} tone={(result.findings || []).length ? 'bad' : 'ok'} />
+                <Stat icon="globe" label={t('da_requests')} value={result.requests} />
+                <Stat icon="file" label={t('da_pages')} value={(result.pages || []).length} />
+                <Stat icon="ban" label={t('da_out_of_scope')} value={(result.outOfScopeSkipped || []).length} />
               </div>
               <div className="view-toolbar">
                 <IconSelect value={sevFilter} options={sevOptions} onChange={(v) => { setSevFilter(v); setSel(null); }} title={t('severity')} width={170} />
@@ -210,7 +210,7 @@ export function DastView() {
                   {findings.map((f, i) => (
                     <tr key={`${f.rule}-${f.url}-${f.param}-${i}`} className={`click ${sel === i ? 'sel' : ''}`} onClick={() => setSel(i)}>
                       <td className="wrap"><strong>{f.rule}</strong><div className="small">{textOf(f.message)}</div></td>
-                      <td><span className={`sev ${f.severity}`}>{f.severity}</span><div className="small">{f.type === 'SECURITY_HOTSPOT' ? t('hotspots') : t('vulns')}</div></td>
+                      <td><SevBadge sev={f.severity} /><div className="small">{f.type === 'SECURITY_HOTSPOT' ? t('hotspots') : t('vulns')}</div></td>
                       <td className="small wrap">{f.method} {f.url}</td>
                       <td className="small">{f.param || '—'}</td>
                       <td className="small wrap mono">{String(f.evidence || '').slice(0, 120)}</td>

@@ -198,7 +198,12 @@ rule('jsx-comment-textnode', {
   fix: ['Wrap the comment: {/* comment */}.', '주석을 감싸세요: {/* comment */}.'],
 }, (ctx) => {
   for (const t of ctx.nodes('JSXText')) {
-    if (/(^|\n)\s*\/\/|\/\*[\s\S]*?\*\//.test(t.value)) ctx.report(t, m('Wrap this comment in braces: {/* ... */}; it is rendered as text.', '이 주석을 {/* ... */}로 감싸세요. 텍스트로 출력됩니다.'));
+    const re = /(^|\n)([^\S\n]*)\/\/|\/\*[\s\S]*?\*\//g;
+    const raw = ctx.text(t);
+    for (let mt; (mt = re.exec(raw));) {
+      const at = t.start + mt.index + (mt[1] !== undefined ? mt[1].length + mt[2].length : 0);
+      ctx.report({ start: at, end: at + 2 }, m('Wrap this comment in braces: {/* ... */}; it is rendered as text.', '이 주석을 {/* ... */}로 감싸세요. 텍스트로 출력됩니다.'));
+    }
   }
 });
 
@@ -214,6 +219,11 @@ rule('children-prop', {
   }
 });
 
+// children that render something (not blank text, not {/* comments */})
+function realChildren(el) {
+  return el.children.filter((c) => !(c.type === 'JSXText' && !c.value.trim()) && !(c.type === 'JSXExpressionContainer' && c.expression.type === 'JSXEmptyExpression'));
+}
+
 const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr', 'menuitem']);
 
 rule('void-dom-children', {
@@ -225,7 +235,7 @@ rule('void-dom-children', {
   for (const el of ctx.nodes('JSXElement')) {
     const name = U.elementName(el);
     if (!VOID_ELEMENTS.has(name)) continue;
-    const kids = el.children.filter((c) => !(c.type === 'JSXText' && !c.value.trim()));
+    const kids = realChildren(el);
     if (kids.length || U.attr(el, 'children') || U.attr(el, 'dangerouslySetInnerHTML')) ctx.report(el.openingElement, m(`Void DOM element <${name}> cannot receive children.`, `빈 DOM 요소 <${name}>는 자식을 가질 수 없습니다.`));
   }
 });
@@ -283,7 +293,7 @@ rule('useless-fragment', {
 }, (ctx) => {
   for (const el of ctx.nodesOf('JSXFragment', 'JSXElement')) {
     if (!isFragment(el)) continue;
-    const kids = el.children.filter((c) => !(c.type === 'JSXText' && !c.value.trim()));
+    const kids = realChildren(el);
     const p = el.parent;
     if (p && p.type === 'JSXAttribute') continue;
     if (kids.length === 0 || (kids.length === 1 && kids[0].type === 'JSXElement')) ctx.report(el.type === 'JSXFragment' ? el.openingFragment : el.openingElement, m('Remove this redundant fragment.', '이 불필요한 프래그먼트를 지우세요.'));
@@ -305,10 +315,18 @@ rule('array-index-key', {
       if (!a || !a.value || a.value.type !== 'JSXExpressionContainer') continue;
       const e = unwrapTS(a.value.expression);
       const uses = (x) => x && x.type === 'Identifier' && x.name === idx.name && x._ref && x._ref.resolved === idx._var;
-      let bad = uses(e);
-      if (!bad && e.type === 'TemplateLiteral' && e.expressions.length === 1 && uses(unwrapTS(e.expressions[0])) && e.quasis.every((q) => !q.value.raw)) bad = true;
-      if (!bad && e.type === 'CallExpression' && e.callee.type === 'MemberExpression' && propName(e.callee) === 'toString' && uses(unwrapTS(e.callee.object))) bad = true;
-      if (!bad && e.type === 'CallExpression' && e.callee.type === 'Identifier' && e.callee.name === 'String' && uses(unwrapTS(e.arguments[0]))) bad = true;
+      // index itself, `${i}` / `row-${i}`, 'row-' + i, i.toString(), String(i)
+      const indexKey = (x) => {
+        x = unwrapTS(x);
+        if (!x) return false;
+        if (uses(x)) return true;
+        if (x.type === 'TemplateLiteral') return x.expressions.some(indexKey);
+        if (x.type === 'BinaryExpression' && x.operator === '+') return indexKey(x.left) || indexKey(x.right);
+        if (x.type === 'CallExpression' && x.callee.type === 'MemberExpression' && propName(x.callee) === 'toString') return indexKey(x.callee.object);
+        if (x.type === 'CallExpression' && x.callee.type === 'Identifier' && x.callee.name === 'String') return indexKey(x.arguments[0]);
+        return false;
+      };
+      const bad = indexKey(e);
       if (bad) ctx.report(a, m('Do not use the array index in keys.', 'key에 배열 인덱스를 쓰지 마세요.'));
     }
   }
@@ -508,7 +526,7 @@ rule('danger-with-children', {
 }, (ctx) => {
   for (const el of ctx.nodes('JSXElement')) {
     if (!U.attr(el, 'dangerouslySetInnerHTML')) continue;
-    const kids = el.children.filter((c) => !(c.type === 'JSXText' && !c.value.trim()));
+    const kids = realChildren(el);
     if (kids.length || U.attr(el, 'children')) ctx.report(el.openingElement, m('Only set one of "children" or "dangerouslySetInnerHTML".', '"children"과 "dangerouslySetInnerHTML" 중 하나만 설정하세요.'));
   }
 });
@@ -595,9 +613,13 @@ rule('props-mutation', {
   for (const fn of ctx.functions()) {
     const p0 = fn.params[0];
     if (!p0 || p0.type !== 'Identifier' || p0.name !== 'props' || !U.isFunctionComponent(fn)) continue;
-    for (const a of U.findAll(fn.body, (n) => n.type === 'AssignmentExpression' && n.left.type === 'MemberExpression', true)) {
-      const dn = dottedName(a.left) || '';
-      if (dn.startsWith('props.') && unwrapTS(a.left.object).type === 'Identifier' && a.left.object._ref && a.left.object._ref.resolved === p0._var) ctx.report(a, m(`Do not mutate "${dn}"; props are read-only.`, `"${dn}"를 바꾸지 마세요. props는 읽기 전용입니다.`));
+    const targetOf = (n) => unwrapTS(n.type === 'AssignmentExpression' ? n.left : n.type === 'UpdateExpression' ? n.argument : null);
+    for (const a of U.findAll(fn.body, (n) => { const t = targetOf(n); return !!t && t.type === 'MemberExpression'; }, true)) {
+      const left = targetOf(a);
+      const dn = dottedName(left) || '';
+      let base = unwrapTS(left.object);
+      while (base && base.type === 'MemberExpression') base = unwrapTS(base.object);
+      if (dn.startsWith('props.') && base && base.type === 'Identifier' && base._ref && base._ref.resolved === p0._var) ctx.report(a, m(`Do not mutate "${dn}"; props are read-only.`, `"${dn}"를 바꾸지 마세요. props는 읽기 전용입니다.`));
     }
   }
 });

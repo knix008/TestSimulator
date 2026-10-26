@@ -17,6 +17,8 @@ require('./eval');
 require('./calls');
 require('./checks');
 const { runSyntax } = require('./syntax');
+const { runSyntax2, classFacts } = require('./syntax2');
+const { classLevel, stackUse, fileLevel } = require('./project2');
 const { catalog, BY_CHECKER } = require('./catalog');
 const { compileUserModels, MUST_CHECK } = require('./models');
 const { ClassIndex, joinSummaries } = require('./classes');
@@ -32,6 +34,7 @@ const DEFAULTS = {
   widenAfter: 3, // loop header visits before widening
   maxFunctionNodes: 40000, // skip giant generated functions
   allocNull: false, // report NULL_RETURNS for unchecked malloc/calloc/realloc/strdup results
+  stackLimit: 65536, // STACK_USE: bytes of stack per function / call chain
 };
 
 // Return-value statistics: functions whose result is not interesting.
@@ -58,6 +61,7 @@ class Engine {
     this.aborted = [];
     this.debug = !!opts.debug;
     this.analyzers = [];
+    this.classFactsList = [];
     this.stats = { functions: 0, aborted: 0, ms: 0 };
   }
 
@@ -218,6 +222,7 @@ class Engine {
       if (res.aborted) { this.stats.aborted++; this.aborted.push(an.name); }
       else if (an.summary) this.summaries.set(key, an.summary);
       try { runSyntax(an); } catch (err) { if (this.debug) throw err; this.internalErrors++; }
+      try { runSyntax2(an); this.classFactsList.push(classFacts(an)); } catch (err) { if (this.debug) throw err; this.internalErrors++; }
       try { runDontCall(an); if (unit.lang === 'cpp') runCpp(an); } catch (err) { if (this.debug) throw err; this.internalErrors++; }
       an.IN = null;
       this.analyzers.push(an);
@@ -226,6 +231,9 @@ class Engine {
     try { classChecks(this, (node, checker, message) => this.directReport(node, checker, message)); } catch (err) { if (this.debug) throw err; this.internalErrors++; }
     this.missingLock();
     this.orderReversal();
+    try { classLevel(this); } catch (err) { if (this.debug) throw err; this.internalErrors++; }
+    try { stackUse(this); } catch (err) { if (this.debug) throw err; this.internalErrors++; }
+    try { fileLevel(this); } catch (err) { if (this.debug) throw err; this.internalErrors++; }
     for (const an of this.analyzers) {
       const list = an.aborted ? an.findings.filter((f) => SYNTAX_ONLY.has(f.checker) || f.projectLevel) : an.findings;
       for (const f of list) findings.push(f);
@@ -234,9 +242,12 @@ class Engine {
     this.stats.ms = Date.now() - start;
     const out = [];
     const seen = new Set();
+    // a newer, narrower checker gives way to the established one at the same line
+    const atLine = new Set(findings.map((f) => `${f.checker}|${f.file}|${f.line}`));
     for (const f of findings) {
       const k = `${f.rule}|${f.file}|${f.line}|${f.message.en}`;
       if (seen.has(k)) continue;
+      if (YIELDS[f.checker] && atLine.has(`${YIELDS[f.checker]}|${f.file}|${f.line}`)) continue;
       seen.add(k);
       out.push(f);
     }
@@ -462,7 +473,12 @@ class Engine {
 const SYNTAX_ONLY = new Set(['UNREACHABLE', 'IDENTICAL_BRANCHES', 'CONSTANT_EXPRESSION_RESULT', 'NO_EFFECT', 'MISSING_BREAK',
   'SIGN_EXTENSION', 'MIXED_ENUMS', 'COPY_PASTE_ERROR', 'SIZEOF_MISMATCH', 'UNINIT_CTOR',
   'USE_AFTER_MOVE', 'INVALIDATE_ITERATOR', 'MISMATCHED_ITERATOR', 'DELETE_VOID', 'VIRTUAL_DTOR', 'UNCAUGHT_EXCEPT', 'AUTO_CAUSES_COPY', 'PASS_BY_VALUE',
-  'DC.STRING_BUFFER', 'DC.WEAK_CRYPTO', 'DC.STREAM_BUFFER', 'COPY_WITHOUT_ASSIGN', 'ASSIGN_WITHOUT_COPY']);
+  'DC.STRING_BUFFER', 'DC.WEAK_CRYPTO', 'DC.STREAM_BUFFER', 'COPY_WITHOUT_ASSIGN', 'ASSIGN_WITHOUT_COPY',
+  'UNINTENDED_INTEGER_DIVISION', 'SWAPPED_ARGUMENTS', 'UNUSED_VALUE', 'EVALUATION_ORDER', 'BAD_COMPARE', 'NESTING_INDENT_MISMATCH',
+  'MISSING_COMMA', 'STRAY_SEMICOLON', 'SIZECHECK', 'BAD_SIZEOF', 'DELETE_ARRAY', 'COPY_INSTEAD_OF_MOVE', 'WRAPPER_ESCAPE']);
+
+// checker -> established checker that reports the same defect at the same line
+const YIELDS = { DELETE_ARRAY: 'ALLOC_FREE_MISMATCH', BAD_SIZEOF: 'SIZEOF_MISMATCH', ARRAY_VS_SINGLETON: 'OVERRUN' };
 
 function countNodes(root, cap) {
   let n = 0;

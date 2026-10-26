@@ -3,7 +3,7 @@
 // Code smells: complexity, size, redundancy, naming, idioms, error handling.
 
 const { define } = require('./def');
-const { FUNC_TYPES, dotted, same, sameList, isPure, walkLocal, short, children, isNone, isTrue, isFalse, isBoolConst, targetNames } = require('../ast');
+const { FUNC_TYPES, STMT_TYPES, dotted, same, sameList, isPure, walkLocal, short, children, isNone, isTrue, isFalse, isBoolConst, targetNames } = require('../ast');
 const { BUILTIN } = require('../scope');
 const U = require('./util');
 const { ifChain } = require('./bugs2');
@@ -193,8 +193,15 @@ R('function-too-long', 'S', 'MA', 20, ['brain-overload'], 'S138',
   {
     on: {
       'FunctionDef|AsyncFunctionDef'(n, c, r) {
+        // lines holding code tokens between the def line and the end of the body
         const lines = new Set();
-        walkLocal(n, (m) => { if (m.line) lines.add(m.line); return true; }, true);
+        const from = n.nameLine || n.line;
+        const to = n.endLine || n.line;
+        for (const t of c.tokens) {
+          if (t.line > to) break;
+          if (t.endLine < from || t.t === 'NEWLINE' || t.t === 'INDENT' || t.t === 'DEDENT' || t.t === 'ENDMARKER') continue;
+          for (let l = Math.max(t.line, from); l <= Math.min(t.endLine, to); l++) lines.add(l);
+        }
         const max = 100;
         if (lines.size > max) r.report(n, `'${n.name}' has ${lines.size} lines of code, more than the ${max} authorized.`, `'${n.name}'의 코드가 ${lines.size}줄로 허용치 ${max}줄을 넘습니다.`);
       },
@@ -248,7 +255,12 @@ R('expression-too-complex', 'S', 'CR', 10, ['brain-overload'], 'S1067',
     on: {
       BoolOp(n, c, r) {
         // only the outermost boolean expression
-        for (let p = n.parent; p; p = p.parent) { if (p.type === 'BoolOp' || (p.type === 'UnaryOp' && p.op === 'Not')) { if (p.type === 'BoolOp') return; } else break; }
+        // (the outer visit below descends through everything except calls,
+        // lambdas and comprehensions, so a BoolOp reached that way is counted there)
+        for (let p = n.parent; p && !STMT_TYPES.has(p.type) && p.type !== 'Module'; p = p.parent) {
+          if (p.type === 'Call' || p.type === 'Lambda' || /Comp$|GeneratorExp/.test(p.type)) break;
+          if (p.type === 'BoolOp') return;
+        }
         let ops = 0;
         const visit = (m) => {
           if (!m) return;
@@ -341,6 +353,38 @@ R('duplicated-string-literal', 'S', 'CR', 5, ['design'], 'S1192',
     },
   });
 
+// line of the ':' that ends the header of the block whose first statement is `first`
+function headerLine(c, first) {
+  let line = first.line;
+  for (const t of c.tokens) {
+    if (t.line > first.line || (t.line === first.line && t.col >= first.col)) break;
+    if (t.t === 'OP' && t.v === ':') line = t.line;
+  }
+  return line;
+}
+
+// a comment inside the block (own-line comments or trailing ones on its
+// statements); a trailing comment on the header line itself does not count
+function blockHasComment(c, body) {
+  if (!body.length) return false;
+  const hl = headerLine(c, body[0]);
+  const last = body[body.length - 1];
+  const end = last.endLine || last.line;
+  const oneLiner = body[0].line === hl;
+  for (const cm of c.comments) if ((cm.line > hl || (oneLiner && cm.line === hl)) && cm.line <= end) return true;
+  return false;
+}
+
+// keyword token ('else') that introduces `first`'s block
+function blockKeyword(c, first, kw) {
+  let tok = null;
+  for (const t of c.tokens) {
+    if (t.line > first.line || (t.line === first.line && t.col >= first.col)) break;
+    if (t.t === 'NAME' && t.v === kw) tok = t;
+  }
+  return tok;
+}
+
 function inProtocolOrAbc(c, fn) {
   const cls = fn.info && fn.info.cls;
   if (!cls) return false;
@@ -358,7 +402,7 @@ R('empty-function', 'S', 'CR', 5, ['suspicious'], 'S1186',
         if (!(n.body.length === 1 && n.body[0].type === 'Pass')) return;
         if (n.decorator_list.length || DUNDER.test(n.name) || (n.info && (n.info.conditional || (n.info.cls && n.info.cls.conditional)))) return;
         if (n.parent && (n.parent.type === 'If' || n.parent.type === 'Try' || n.parent.type === 'ExceptHandler')) return;
-        if (U.hasCommentIn(c, n)) return;
+        if (blockHasComment(c, n.body)) return;
         if (inProtocolOrAbc(c, n)) return;
         // an overriding no-op in a subclass of an imported class is usually intentional
         const cls = n.info && n.info.cls;
@@ -375,13 +419,17 @@ R('empty-block', 'S', 'MA', 5, ['suspicious'], 'S108',
   {
     on: {
       'If|For|AsyncFor|While|With|AsyncWith'(n, c, r) {
-        const check = (body) => {
-          if (body.length === 1 && body[0].type === 'Pass' && !U.hasCommentIn(c, { line: body[0].line - 1 < n.line ? n.line : body[0].line - 1, endLine: body[0].line })) {
-            r.report(body[0], 'Either remove or fill this block of code.', '이 코드 블록을 지우거나 채우세요.');
+        // reported on the keyword that opens the block (if / while / else ...)
+        const check = (body, at) => {
+          if (body.length === 1 && body[0].type === 'Pass' && !blockHasComment(c, body)) {
+            r.report(at, 'Either remove or fill this block of code.', '이 코드 블록을 지우거나 채우세요.');
           }
         };
-        check(n.body);
-        if (n.type === 'If' && n.orelse.length === 1 && n.orelse[0].type === 'Pass') check(n.orelse);
+        check(n.body, { line: n.line, col: n.col, endLine: n.line, endCol: n.col + 2 });
+        if ((n.type === 'If' || n.type === 'For' || n.type === 'AsyncFor' || n.type === 'While') && n.orelse.length === 1 && n.orelse[0].type === 'Pass') {
+          const kw = blockKeyword(c, n.orelse[0], 'else');
+          check(n.orelse, kw ? { line: kw.line, col: kw.col, endLine: kw.line, endCol: kw.endCol } : n.orelse[0]);
+        }
       },
     },
   });
@@ -497,7 +545,8 @@ R('inverted-boolean-check', 'S', 'MI', 2, ['clumsy'], 'S1940',
   {
     on: {
       UnaryOp(n, c, r) {
-        if (n.op !== 'Not' || n.operand.type !== 'Compare' || n.operand.ops.length !== 1 || n.operand.parenthesized) return;
+        // "not (a == b)" is the same inversion as "not a == b"; chained comparisons have no single opposite
+        if (n.op !== 'Not' || n.operand.type !== 'Compare' || n.operand.ops.length !== 1) return;
         const inv = { Eq: '!=', NotEq: '==', Lt: '>=', LtE: '>', Gt: '<=', GtE: '<', In: 'not in', NotIn: 'in', Is: 'is not', IsNot: 'is' }[n.operand.ops[0]];
         if (inv) r.report(n, `Use the opposite operator ('${inv}') instead of 'not'.`, `'not' 대신 반대 연산자('${inv}')를 쓰세요.`);
       },
@@ -654,9 +703,11 @@ R('redundant-collection-call', 'S', 'MI', 1, ['clumsy'], 'S7508',
     on: {
       Call(n, c, r) {
         const f = n.func;
-        if (f.type !== 'Name' || f.sym !== BUILTIN || n.args.length !== 1 || n.keywords.length) return;
+        // sorted() keeps its key= / reverse= options: sorted(list(x), key=f) is still redundant
+        if (f.type !== 'Name' || f.sym !== BUILTIN || n.args.length !== 1 || (n.keywords.length && f.id !== 'sorted')) return;
         const a = n.args[0];
         if (a.type !== 'Call' || a.func.type !== 'Name' || a.func.sym !== BUILTIN || a.args.length !== 1) return;
+        if (f.id === 'sorted' && n.keywords.length && a.func.id === 'sorted') return; // re-sorting with other options
         const outer = f.id;
         const inner = a.func.id;
         const redundant = (['sorted', 'set', 'list', 'tuple', 'frozenset', 'iter', 'reversed'].includes(outer) && ['list', 'tuple'].includes(inner) && !(outer === 'reversed' && inner === 'tuple') && !a.keywords.length)
@@ -1022,7 +1073,7 @@ R('redundant-cast', 'S', 'MI', 1, ['clumsy'], null,
         const f = n.func;
         if (f.type !== 'Name' || f.sym !== BUILTIN || n.args.length !== 1 || n.keywords.length) return;
         const a = n.args[0];
-        const k = { str: (x) => x.type === 'Constant' && x.kind === 'str', int: (x) => x.type === 'Constant' && x.kind === 'int', float: (x) => x.type === 'Constant' && x.kind === 'float', bool: (x) => isBoolConst(x), list: (x) => x.type === 'List' || x.type === 'ListComp', tuple: (x) => x.type === 'Tuple', dict: (x) => x.type === 'Dict' || x.type === 'DictComp', set: (x) => x.type === 'Set' || x.type === 'SetComp' }[f.id];
+        const k = { str: (x) => (x.type === 'Constant' && x.kind === 'str') || x.type === 'JoinedStr', int: (x) => x.type === 'Constant' && x.kind === 'int', float: (x) => x.type === 'Constant' && x.kind === 'float', bool: (x) => isBoolConst(x), list: (x) => x.type === 'List' || x.type === 'ListComp', tuple: (x) => x.type === 'Tuple', dict: (x) => x.type === 'Dict' || x.type === 'DictComp', set: (x) => x.type === 'Set' || x.type === 'SetComp' }[f.id];
         if (k && k(a)) r.report(n, `Remove the redundant '${f.id}()' conversion.`, `불필요한 '${f.id}()' 변환을 지우세요.`);
       },
     },
@@ -1044,8 +1095,10 @@ R('first-param-naming', 'S', 'CR', 5, ['convention', 'pep8'], 'S5720',
         if (fi.kind === 'staticmethod') return;
         if (n.sym && n.sym.uses.length) return; // helper used inside the class body (decorator factory)
         if (fi.decorators.some((d) => !/^(?:classmethod|property|abstractmethod|abc\.abstractmethod|override|typing\.override|functools\.cached_property|cached_property|\w+\.(?:setter|getter|deleter))$/.test(d))) return;
-        const isCls = fi.kind === 'classmethod' || n.name === '__new__' || n.name === '__init_subclass__' || n.name === '__class_getitem__' || meta;
-        const ok = isCls ? /^(?:cls|mcs|mcls|metacls|klass|_cls|cls_|self)$/.test(first.arg) : /^(?:self|_self|self_|_)$/.test(first.arg);
+        const classLevel = fi.kind === 'classmethod' || n.name === '__new__' || n.name === '__init_subclass__' || n.name === '__class_getitem__';
+        const isCls = classLevel || meta;
+        // methods of a metaclass receive a class; 'self' is still accepted there, never in a classmethod
+        const ok = isCls ? /^(?:cls|mcs|mcls|metacls|klass|_cls|cls_)$/.test(first.arg) || (!classLevel && first.arg === 'self') : /^(?:self|_self|self_|_)$/.test(first.arg);
         if (!ok) r.report(first, `Rename '${first.arg}' to '${isCls ? 'cls' : 'self'}'.`, `'${first.arg}'의 이름을 '${isCls ? 'cls' : 'self'}'로 바꾸세요.`);
       },
     },
@@ -1085,7 +1138,7 @@ R('exception-swallowed', 'S', 'MA', 5, ['error-handling', 'cwe-390'], 'S2486',
       ExceptHandler(n, c, r) {
         const body = U.bodyNoDoc(n.body);
         if (!body.every((s) => s.type === 'Pass' || s.type === 'Continue' || (s.type === 'Expr' && s.value.type === 'Constant'))) return;
-        if (U.hasCommentIn(c, { line: n.line, endLine: n.endLine })) return;
+        if (blockHasComment(c, n.body)) return;
         const names = n.etype ? (n.etype.type === 'Tuple' ? n.etype.elts : [n.etype]).map((t) => U.lastPart(dotted(t) || '')) : [];
         if (names.length && names.every((x) => /^(?:ImportError|ModuleNotFoundError|KeyboardInterrupt|StopIteration|StopAsyncIteration|GeneratorExit|FileNotFoundError|FileExistsError|ProcessLookupError|NotImplementedError|BrokenPipeError|CancelledError|TimeoutError|queue\.Empty|Empty|ChildProcessError)$/.test(x))) return;
         r.report(n, 'Handle this exception or explain in a comment why it can be ignored.', '이 예외를 처리하거나 무시해도 되는 이유를 주석으로 설명하세요.');

@@ -27,6 +27,21 @@ const LANGS = {
   docker: { exts: [], comments: 'hash', label: { ko: 'Docker', en: 'Docker' } },
   tf: { exts: ['.tf'], comments: 'hash', label: { ko: 'Terraform', en: 'Terraform' } },
   groovy: { exts: ['.groovy', '.gradle'], comments: 'slash', label: { ko: 'Groovy', en: 'Groovy' } },
+  swift: { exts: ['.swift'], comments: 'slash', label: { ko: 'Swift', en: 'Swift' } },
+  objc: { exts: ['.m', '.mm'], comments: 'slash', label: { ko: 'Objective-C', en: 'Objective-C' } },
+  scala: { exts: ['.scala', '.sc'], comments: 'slash', label: { ko: 'Scala', en: 'Scala' } },
+  dart: { exts: ['.dart'], comments: 'slash', label: { ko: 'Dart', en: 'Dart' } },
+  vbnet: { exts: ['.vb'], comments: 'quote', label: { ko: 'VB.NET', en: 'VB.NET' } },
+  vb6: { exts: ['.bas', '.frm', '.ctl'], comments: 'quote', label: { ko: 'VB6', en: 'VB6' } },
+  cobol: { exts: ['.cbl', '.cob', '.cpy'], comments: 'cobol', label: { ko: 'COBOL', en: 'COBOL' } },
+  plsql: { exts: ['.pls', '.pkb', '.pks', '.plb', '.prc', '.fnc', '.trg'], comments: 'dash', label: { ko: 'PL/SQL', en: 'PL/SQL' } },
+  abap: { exts: ['.abap'], comments: 'abap', label: { ko: 'ABAP', en: 'ABAP' } },
+  apex: { exts: ['.cls', '.trigger', '.apex'], comments: 'slash', label: { ko: 'Apex', en: 'Apex' } },
+  rpg: { exts: ['.rpgle', '.sqlrpgle', '.rpg'], comments: 'slash', label: { ko: 'RPG', en: 'RPG' } },
+  pli: { exts: ['.pli', '.pl1'], comments: 'slash', label: { ko: 'PL/I', en: 'PL/I' } },
+  jcl: { exts: ['.jcl'], comments: 'jcl', label: { ko: 'JCL', en: 'JCL' } },
+  flex: { exts: ['.as'], comments: 'slash', label: { ko: 'Flex (ActionScript)', en: 'Flex (ActionScript)' } },
+  bicep: { exts: ['.bicep'], comments: 'slash', label: { ko: 'Bicep', en: 'Bicep' } },
 };
 
 const EXT = new Map();

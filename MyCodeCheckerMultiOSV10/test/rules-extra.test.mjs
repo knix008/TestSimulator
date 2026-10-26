@@ -86,13 +86,16 @@ test('C and C++ are not covered by the extra rules', () => {
 });
 
 const MAJOR = { js: 40, py: 40, java: 40, cs: 40, go: 40, php: 40 };
+// Niche languages with a smaller target pack.
+const SMALL = new Set(['vb6', 'rpg', 'pli', 'jcl', 'flex', 'bicep']);
 test('major languages have at least 40 extra rules', () => {
   for (const [file, min] of Object.entries(MAJOR)) {
     assert.ok(extra.BY_FILE[file].length >= min, `${file}: ${extra.BY_FILE[file].length}`);
   }
   for (const [file, rules] of Object.entries(extra.BY_FILE)) {
     if (MAJOR[file] || file === 'common') continue;
-    assert.ok(rules.length >= 20, `${file}: ${rules.length}`);
+    const min = SMALL.has(file) ? 10 : 20;
+    assert.ok(rules.length >= min, `${file}: ${rules.length}`);
   }
 });
 
@@ -206,7 +209,7 @@ test('idiomatic clean code raises no bugs or vulnerabilities', () => {
 });
 
 test('comments do not trigger code-scope rules', () => {
-  const sample = { slash: '// ', hash: '# ', dash: '-- ', xml: null, none: null };
+  const sample = { slash: '// ', hash: '# ', dash: '-- ', quote: "' ", cobol: '*> ', abap: '" ', jcl: '//* ', xml: null, none: null };
   for (const rule of extra.RULES) {
     if (rule.scope !== 'code') continue;
     const ex = extra.examples(rule.key);

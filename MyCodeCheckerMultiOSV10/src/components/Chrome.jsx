@@ -59,10 +59,43 @@ const PATHS = {
   cpu: <><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
   scale: <path d="M12 3v18M5 21h14M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z" />,
+  star: <path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z" />,
+  wrench: <path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8M14.7 6.3L13 4.6a4 4 0 0 0-5.6 5.6l1.7 1.7M3 21l6-6" />,
+  installBox: <><path d="M4 9l8-5 8 5v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" /><path d="M12 9v7M9 13l3 3 3-3" /></>,
+  lightbulb: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z" /></>,
+  inbox: <><path d="M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" /><path d="M3 13h5l1 3h6l1-3h5" /></>,
+  thumbsUp: <><path d="M7 11v9H4v-9z" /><path d="M7 11l4-8a2 2 0 0 1 2 2v4h6a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7" /></>,
+  userCheck: <><circle cx="9" cy="8" r="4" /><path d="M2 21a7 7 0 0 1 14 0M16 11l2 2 4-4" /></>,
+  unlock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 7.7-1.5" /></>,
+  smell: <path d="M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7" />,
+  ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
+  chevronsUp: <path d="M7 13l5-5 5 5M7 18l5-5 5 5" />,
+  chevronUp: <path d="M6 15l6-6 6 6" />,
+  checkCircle: <><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" /></>,
+  xCircle: <><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></>,
+  circleDot: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.5" fill="currentColor" /></>,
+  shieldCheck: <><path d="M12 3l8 3v6c0 5-3.4 7.8-8 9-4.6-1.2-8-4-8-9V6z" /><path d="M8.5 12l2.5 2.5 4.5-5" /></>,
+  archive: <><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" /></>,
+  spinner: <path d="M12 3a9 9 0 1 0 9 9" />,
+  external: <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
+  sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />,
+  gauge: <><path d="M4 18a8 8 0 1 1 16 0" /><path d="M12 18l4-6" /></>,
+  grid: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
+  hourglass: <path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9" />,
+  hash: <path d="M5 9h15M4 15h15M10 3L8 21M16 3l-2 18" />,
 };
 
-export function Icon({ name, size = 16 }) {
-  return <svg {...base} width={size} height={size}>{PATHS[name] || PATHS.file}</svg>;
+// Issue type / severity / status → icon, shared by every view.
+export const TYPE_ICON = { BUG: 'bug', VULNERABILITY: 'unlock', CODE_SMELL: 'smell', SECURITY_HOTSPOT: 'shield' };
+export const SEV_ICON = { BLOCKER: 'ban', CRITICAL: 'chevronsUp', MAJOR: 'chevronUp', MINOR: 'chevronDown', INFO: 'info' };
+export const STATUS_ICON = {
+  OPEN: 'circleDot', CONFIRMED: 'userCheck', REOPENED: 'refresh', RESOLVED: 'checkCircle', CLOSED: 'archive',
+  ACCEPTED: 'thumbsUp', 'FALSE-POSITIVE': 'xCircle', WONTFIX: 'thumbsUp', FIXED: 'wrench', REMOVED: 'archive',
+  TO_REVIEW: 'eye', ACKNOWLEDGED: 'userCheck', SAFE: 'shieldCheck',
+};
+
+export function Icon({ name, size = 16, className }) {
+  return <svg {...base} width={size} height={size} className={className} aria-hidden="true">{PATHS[name] || PATHS.file}</svg>;
 }
 
 function Flag({ country }) {
@@ -126,6 +159,7 @@ export function MenuBar({ menus, onAction, theme, startActive }) {
   const themeItems = [
     ...builtIn.filter((th) => th.mode === 'dark').map((th) => ({ id: `theme:${th.id}`, label: th.label, labelEn: th.labelEn })),
     ...builtIn.filter((th) => th.mode === 'light').map((th) => ({ id: `theme:${th.id}`, label: th.label, labelEn: th.labelEn })),
+    ...allThemes().filter((th) => th.custom).map((th) => ({ id: `theme:${th.id}`, label: th.label, labelEn: th.labelEn || th.label })),
   ];
   return (
     <div className="toolbar menubar" onDoubleClick={() => { if (isDesktop) windowControl('maximize'); }}>
@@ -168,7 +202,9 @@ export function MenuBar({ menus, onAction, theme, startActive }) {
           {menus.find((m) => m.id === open.id).items().map((item, index) => (
             item.sep ? <div key={`sep-${index}`} className="menu-sep" /> : (
               <button key={item.id} type="button" className="menu-item" onClick={() => { setOpen(null); onAction(item.id); }}>
-                {item.label}
+                <Icon name={item.icon || 'chevronRight'} size={14} className={item.icon ? '' : 'menu-noicon'} />
+                <span className="menu-item-label">{item.label}</span>
+                {item.keys && <span className="menu-keys">{item.keys}</span>}
               </button>
             )
           ))}
@@ -177,8 +213,9 @@ export function MenuBar({ menus, onAction, theme, startActive }) {
       {open && open.id === 'themes' && (
         <div className="menu-pop theme-pop" style={{ right: 48, left: 'auto' }}>
           {themeItems.map((th) => (
-            <button key={th.id} type="button" className="menu-item" onClick={() => { setOpen(null); onAction(th.id); }}>
-              {lang === 'ko' ? th.label : th.labelEn}
+            <button key={th.id} type="button" className={`menu-item ${th.id === `theme:${theme}` ? 'on' : ''}`} onClick={() => { setOpen(null); onAction(th.id); }}>
+              <Icon name={th.id === `theme:${theme}` ? 'check' : 'palette'} size={14} />
+              <span className="menu-item-label">{lang === 'ko' ? th.label : th.labelEn}</span>
             </button>
           ))}
         </div>
@@ -187,26 +224,33 @@ export function MenuBar({ menus, onAction, theme, startActive }) {
   );
 }
 
-export function Toolbar({ onAction, busy, branch, branches, onBranch }) {
+// Icon + label toolbar. Labels hide when the window is narrow; icons stay.
+export function Toolbar({ onAction, busy, branch, branches, onBranch, view }) {
   useLanguage();
+  const tool = (id, icon, label, opts = {}) => (
+    <button type="button" className={`tool-btn ${opts.primary ? 'tool-primary' : ''} ${view && id === `view:${view}` ? 'on' : ''}`} title={opts.tip || label}
+      aria-label={label} disabled={opts.disabled} onClick={() => onAction(id)}>
+      <Icon name={icon} size={15} /><span className="tool-label">{label}</span>
+    </button>
+  );
   return (
-    <div className="icon-toolbar">
-      <button className="tool-btn" title={t('open_folder')} onClick={() => onAction('openFolder')}><Icon name="folder" /></button>
-      <button className="tool-btn" title={t('run_analysis')} disabled={busy} onClick={() => onAction('analyze')}><Icon name="play" /></button>
+    <div className="icon-toolbar" role="toolbar">
+      {tool('openFolder', 'folder', t('tb_open'), { tip: `${t('open_folder')} (Ctrl+O)` })}
+      {tool('analyze', 'play', t('tb_analyze'), { primary: true, disabled: busy, tip: `${t('run_analysis')} (Ctrl+Enter)` })}
       <span className="tb-sep" />
-      <button className="tool-btn" title={t('nav_overview')} onClick={() => onAction('view:overview')}><Icon name="chart" /></button>
-      <button className="tool-btn" title={t('nav_issues')} onClick={() => onAction('view:issues')}><Icon name="bug" /></button>
-      <button className="tool-btn" title={t('nav_hotspots')} onClick={() => onAction('view:hotspots')}><Icon name="shield" /></button>
-      <button className="tool-btn" title={t('nav_code')} onClick={() => onAction('view:code')}><Icon name="code" /></button>
-      <button className="tool-btn" title={t('nav_gates')} onClick={() => onAction('view:gates')}><Icon name="gate" /></button>
+      {tool('view:overview', 'chart', t('nav_overview'))}
+      {tool('view:issues', 'bug', t('nav_issues'))}
+      {tool('view:hotspots', 'shield', t('tb_hotspots'), { tip: t('nav_hotspots') })}
+      {tool('view:code', 'code', t('nav_code'))}
+      {tool('view:gates', 'gate', t('tb_gates'), { tip: t('nav_gates') })}
       <span className="tb-sep" />
-      <label className="tb-label">{t('branch')}</label>
-      <input className="tb-select" value={branch} onChange={(e) => onBranch(e.target.value)} list="branch-list" />
+      <label className="tb-label tb-branch" title={t('branch')}><Icon name="branch" size={14} /><span className="tool-label">{t('branch')}</span></label>
+      <input className="tb-select" aria-label={t('branch')} title={t('tip_branch')} value={branch} onChange={(e) => onBranch(e.target.value)} list="branch-list" />
       <datalist id="branch-list">
         {(branches.length ? branches : ['main']).map((b) => <option key={b} value={b} />)}
       </datalist>
       <span className="tb-spacer" />
-      {busy && <span className="tb-label">{t('analyzing')}</span>}
+      {busy && <span className="tb-busy"><Icon name="spinner" size={14} className="spin" /><span className="tool-label">{t('analyzing')}</span></span>}
     </div>
   );
 }
@@ -217,24 +261,27 @@ export function StatusBar({ project, analysis, message }) {
   const gate = analysis && analysis.qualityGate;
   return (
     <div className="statusbar">
-      <span className="ellipsis">{project ? project.name : t('no_project')}</span>
-      {project && <span className="muted ellipsis">{project.path}</span>}
+      <span className="sb-item ellipsis"><Icon name="folder" size={13} />{project ? project.name : t('no_project')}</span>
+      {project && <span className="muted ellipsis sb-path" title={project.path}>{project.path}</span>}
       <span className="spacer" />
-      {message && <span>{message}</span>}
-      {m && <span>{t('files')} {m.files}</span>}
-      {m && <span>{t('ncloc')} {m.ncloc}</span>}
-      {gate && <span className={gate.status === 'OK' ? 'ok' : 'bad'}>{t('gate')} {gate.status === 'OK' ? t('passed') : t('failed')}</span>}
+      {message && <span className="sb-item ellipsis"><Icon name="info" size={13} />{message}</span>}
+      {m && <span className="sb-item" title={t('files')}><Icon name="file" size={13} />{m.files}</span>}
+      {m && <span className="sb-item" title={t('ncloc')}><Icon name="code" size={13} />{m.ncloc}</span>}
+      {gate && <span className={`sb-item ${gate.status === 'OK' ? 'ok' : 'bad'}`}><Icon name={gate.status === 'OK' ? 'checkCircle' : 'xCircle'} size={13} />{t('gate')} {gate.status === 'OK' ? t('passed') : t('failed')}</span>}
+      <span className="sb-grip" aria-hidden="true" onMouseDown={(e) => { if (isDesktop && e.button === 0) { e.preventDefault(); windowControl('resize'); } }}>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><circle cx="10" cy="10" r="1.1" /><circle cx="6" cy="10" r="1.1" /><circle cx="10" cy="6" r="1.1" /><circle cx="2" cy="10" r="1.1" /><circle cx="6" cy="6" r="1.1" /><circle cx="10" cy="2" r="1.1" /></svg>
+      </span>
     </div>
   );
 }
 
-export function Dialog({ title, children, onClose, wide }) {
+export function Dialog({ title, children, onClose, wide, icon }) {
   useLanguage();
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div className={`dialog ${wide ? 'wide' : ''}`} onMouseDown={(e) => e.stopPropagation()} role="dialog">
         <div className="dialog-title">
-          <strong>{title}</strong>
+          <strong>{icon && <Icon name={icon} size={16} />}{title}</strong>
           <button type="button" className="icon-btn" onClick={onClose} aria-label={t('win_close')}><Icon name="close" size={14} /></button>
         </div>
         <div className="dialog-body selectable">{children}</div>
@@ -243,56 +290,80 @@ export function Dialog({ title, children, onClose, wide }) {
   );
 }
 
-export function SideNav({ view, onView, disabled }) {
+// Side navigation in five sections. counts: { [view]: number | { n, tone, tip } }.
+export const NAV_GROUPS = [
+  ['project', 'nav_sec_project', 'folder', [
+    ['overview', 'nav_overview', 'chart'],
+    ['measures', 'nav_measures', 'gauge'],
+    ['code', 'nav_code', 'code'],
+    ['duplications', 'nav_dup', 'copy'],
+    ['activity', 'nav_activity', 'clock'],
+    ['snapshots', 'nav_snapshots', 'history'],
+    ['reports', 'nav_reports', 'report'],
+  ]],
+  ['issues', 'nav_sec_issues', 'bug', [
+    ['issues', 'nav_issues', 'bug'],
+    ['hotspots', 'nav_hotspots', 'shield'],
+    ['pullrequest', 'nav_pullrequest', 'branch'],
+  ]],
+  ['coverity', 'menu_coverity', 'alert', [
+    ['defects', 'nav_defects', 'alert'],
+    ['streams', 'nav_streams', 'layers'],
+    ['components', 'nav_components', 'grid'],
+    ['policies', 'nav_policies', 'gate'],
+    ['models', 'nav_models', 'flow'],
+  ]],
+  ['security', 'nav_sec_security', 'lock', [
+    ['compliance', 'nav_compliance', 'lock'],
+    ['misra', 'nav_misra', 'shieldCheck'],
+    ['dependencies', 'nav_dependencies', 'package'],
+    ['dast', 'nav_dast', 'globe'],
+  ]],
+  ['admin', 'nav_sec_admin', 'settings', [
+    ['rules', 'nav_rules', 'search'],
+    ['profiles', 'nav_profiles', 'layers'],
+    ['gates', 'nav_gates', 'gate'],
+    ['portfolios', 'nav_portfolios', 'folder'],
+    ['tasks', 'nav_tasks', 'hourglass'],
+    ['admin', 'nav_admin', 'users'],
+  ]],
+];
+
+function readCollapsed() {
+  try { return JSON.parse(localStorage.getItem('mcc-nav-collapsed') || '[]'); } catch { return []; }
+}
+
+export function SideNav({ view, onView, disabled, counts = {} }) {
   useLanguage();
-  const groups = [
-    ['project', [
-      ['overview', 'nav_overview', 'chart'],
-      ['issues', 'nav_issues', 'bug'],
-      ['hotspots', 'nav_hotspots', 'shield'],
-      ['measures', 'nav_measures', 'list'],
-      ['code', 'nav_code', 'code'],
-      ['duplications', 'nav_dup', 'copy'],
-      ['activity', 'nav_activity', 'clock'],
-    ]],
-    ['quality', [
-      ['rules', 'nav_rules', 'search'],
-      ['profiles', 'nav_profiles', 'layers'],
-      ['gates', 'nav_gates', 'gate'],
-      ['portfolios', 'nav_portfolios', 'folder'],
-      ['tasks', 'nav_tasks', 'clock'],
-    ]],
-    ['coverity', [
-      ['defects', 'nav_defects', 'alert'],
-      ['streams', 'nav_streams', 'layers'],
-      ['components', 'nav_components', 'folder'],
-      ['policies', 'nav_policies', 'gate'],
-      ['models', 'nav_models', 'code'],
-    ]],
-    ['platform', [
-      ['compliance', 'nav_compliance', 'lock'],
-      ['misra', 'nav_misra', 'shield'],
-      ['reports', 'nav_reports', 'report'],
-      ['dependencies', 'nav_dependencies', 'package'],
-      ['snapshots', 'nav_snapshots', 'history'],
-      ['pullrequest', 'nav_pullrequest', 'branch'],
-      ['dast', 'nav_dast', 'globe'],
-      ['admin', 'nav_admin', 'users'],
-    ]],
-  ];
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggle = (id) => {
+    const next = collapsed.includes(id) ? collapsed.filter((x) => x !== id) : [...collapsed, id];
+    setCollapsed(next);
+    try { localStorage.setItem('mcc-nav-collapsed', JSON.stringify(next)); } catch { /* storage blocked */ }
+  };
   return (
-    <nav className="sidenav">
-      {groups.map(([id, items]) => (
-        <div key={id} className="nav-group">
-          <div className="nav-label">{id === 'project' ? t('projects') : id === 'coverity' ? t('menu_coverity') : id === 'platform' ? t('nav_platform') : t('menu_quality')}</div>
-          {items.map(([key, label, icon]) => (
-            <button key={key} type="button" className={`nav-item ${view === key ? 'on' : ''}`} disabled={disabled && id === 'project' && key !== 'rules'}
-              onClick={() => onView(key)}>
-              <Icon name={icon} size={15} />{t(label)}
+    <nav className="sidenav" aria-label={t('nav_aria')}>
+      {NAV_GROUPS.map(([id, labelKey, groupIcon, items]) => {
+        const shut = collapsed.includes(id) && !items.some(([key]) => key === view);
+        return (
+          <div key={id} className={`nav-group ${shut ? 'shut' : ''}`}>
+            <button type="button" className="nav-label" aria-expanded={!shut} title={shut ? t('nav_expand') : t('nav_collapse')} onClick={() => toggle(id)}>
+              <Icon name={groupIcon} size={13} /><span>{t(labelKey)}</span><Icon name="chevronDown" size={12} className="nav-caret" />
             </button>
-          ))}
-        </div>
-      ))}
+            {!shut && items.map(([key, label, icon]) => {
+              const c = counts[key];
+              const badges = (Array.isArray(c) ? c : [c]).filter((b) => b != null && (typeof b === 'number' ? b > 0 : b.n > 0)).map((b) => (typeof b === 'number' ? { n: b } : b));
+              return (
+                <button key={key} type="button" data-view={key} className={`nav-item ${view === key ? 'on' : ''}`} disabled={disabled && id === 'project' && key !== 'rules'}
+                  title={t(label)} aria-current={view === key ? 'page' : undefined} onClick={() => onView(key)}>
+                  <Icon name={icon} size={15} /><span className="nav-text">{t(label)}</span>
+                  {badges.map((b, i) => <span key={i} className={`nav-count ${b.tone || ''}`} title={b.tip}>{b.n > 999 ? '999+' : b.n}</span>)}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
     </nav>
   );
 }

@@ -8,6 +8,8 @@ const groups = [
   require('./bugs2'),
   require('./scoperules'),
   require('./smells'),
+  require('./security'),
+  require('./datasci'),
 ];
 
 const RULES = [];

@@ -1,0 +1,402 @@
+[
+  {
+    "file": "encoder.test.js",
+    "label": "인코더",
+    "about": "Rust qrcore(WebAssembly) 출력 → 독립 디코더 jsQR로 판독",
+    "tests": [
+      {
+        "group": null,
+        "name": "the WebAssembly module needs nothing from its host",
+        "status": "pass",
+        "ms": 1.3752
+      },
+      {
+        "group": null,
+        "name": "numeric, alphanumeric and byte data read back at every error correction level",
+        "status": "pass",
+        "ms": 40.5036
+      },
+      {
+        "group": null,
+        "name": "all eight masks read back",
+        "status": "pass",
+        "ms": 8.0853
+      },
+      {
+        "group": null,
+        "name": "every version 1–40 reads back",
+        "status": "pass",
+        "ms": 819.7692
+      },
+      {
+        "group": null,
+        "name": "data that does not fit reports how much was needed",
+        "status": "pass",
+        "ms": 5.0412
+      },
+      {
+        "group": null,
+        "name": "automatic boost raises error correction without growing the symbol",
+        "status": "pass",
+        "ms": 0.438
+      },
+      {
+        "group": null,
+        "name": "UTF-8 ECI is accepted by readers",
+        "status": "pass",
+        "ms": 1.3389
+      },
+      {
+        "group": null,
+        "name": "argument mapping matches the Rust ABI",
+        "status": "pass",
+        "ms": 0.2175
+      }
+    ],
+    "time": 876.7688999999999
+  },
+  {
+    "file": "payload.test.js",
+    "label": "내용 형식",
+    "about": "Wi-Fi · vCard · mailto · SMS · tel · geo 문자열과 이스케이프",
+    "tests": [
+      {
+        "group": null,
+        "name": "URLs get a scheme only when they have none",
+        "status": "pass",
+        "ms": 0.9209
+      },
+      {
+        "group": null,
+        "name": "Wi-Fi payload escapes its delimiters",
+        "status": "pass",
+        "ms": 0.1998
+      },
+      {
+        "group": null,
+        "name": "vCard holds only the filled fields, escaped",
+        "status": "pass",
+        "ms": 0.4844
+      },
+      {
+        "group": null,
+        "name": "email, SMS, phone and location use the common URI forms",
+        "status": "pass",
+        "ms": 0.1282
+      },
+      {
+        "group": null,
+        "name": "every content type and field has Korean and English labels",
+        "status": "pass",
+        "ms": 0.2149
+      }
+    ],
+    "time": 1.9482000000000002
+  },
+  {
+    "file": "render.test.js",
+    "label": "렌더러",
+    "about": "모듈·눈 모양 경로, SVG, 로고 판독성, 스캔 경고",
+    "tests": [
+      {
+        "group": null,
+        "name": "paths cover every style and keep the quiet zone",
+        "status": "pass",
+        "ms": 21.4015
+      },
+      {
+        "group": null,
+        "name": "square modules merge into one run per row segment",
+        "status": "pass",
+        "ms": 0.6605
+      },
+      {
+        "group": null,
+        "name": "SVG is a self-contained document",
+        "status": "pass",
+        "ms": 0.9236
+      },
+      {
+        "group": null,
+        "name": "a 22% logo with cleared modules still scans at H and Q",
+        "status": "pass",
+        "ms": 17.3719
+      },
+      {
+        "group": null,
+        "name": "warnings catch low contrast, inverted colours, thin margins and oversized logos",
+        "status": "pass",
+        "ms": 0.3464
+      },
+      {
+        "group": null,
+        "name": "alignment centres match the patterns the Rust encoder draws",
+        "status": "pass",
+        "ms": 83.2879
+      }
+    ],
+    "time": 123.9918
+  },
+  {
+    "file": "export.test.js",
+    "label": "내보내기",
+    "about": "PDF·EPS → Ghostscript 렌더링 후 판독, 래스터 형식 서명",
+    "tests": [
+      {
+        "group": null,
+        "name": "arcs become cubics that stay on the circle",
+        "status": "pass",
+        "ms": 1.1444
+      },
+      {
+        "group": null,
+        "name": "PDF and EPS render in Ghostscript and scan, for every style",
+        "status": "pass",
+        "ms": 829.2499
+      },
+      {
+        "group": null,
+        "name": "PDF page size follows the print size",
+        "status": "pass",
+        "ms": 2.6309
+      },
+      {
+        "group": null,
+        "name": "raster formats come out of qrimage.wasm with the right signature",
+        "status": "pass",
+        "ms": 30.7625
+      }
+    ],
+    "time": 863.7877000000001
+  },
+  {
+    "file": "history.test.js",
+    "label": "실행 취소",
+    "about": "Undo/Redo 기록과 합치기",
+    "tests": [
+      {
+        "group": null,
+        "name": "undo and redo walk through the recorded states",
+        "status": "pass",
+        "ms": 0.8713
+      },
+      {
+        "group": null,
+        "name": "quick changes from one source merge; other sources and pauses do not",
+        "status": "pass",
+        "ms": 0.1483
+      },
+      {
+        "group": null,
+        "name": "unchanged states are not recorded and the limit holds",
+        "status": "pass",
+        "ms": 0.1007
+      }
+    ],
+    "time": 1.1203
+  },
+  {
+    "file": "layout.test.js",
+    "label": "카드 배치",
+    "about": "저장된 배치 검증",
+    "tests": [
+      {
+        "group": null,
+        "name": "the default puts the groups on the left and the QR code on the right",
+        "status": "pass",
+        "ms": 0.7359
+      },
+      {
+        "group": null,
+        "name": "saved arrangements are kept only when every card is there exactly once",
+        "status": "pass",
+        "ms": 0.2184
+      }
+    ],
+    "time": 0.9543
+  },
+  {
+    "file": "web.test.js",
+    "label": "브라우저 판",
+    "about": "헤드리스 Edge에서 실제 페이지 조작 (WebAssembly 인코더)",
+    "tests": [
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "starts with the WebAssembly encoder",
+        "status": "pass",
+        "ms": 173.9689
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "8 content types scan from the preview",
+        "status": "pass",
+        "ms": 468.3721
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "16 style combinations scan",
+        "status": "pass",
+        "ms": 383.8407
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "gradient, eye colour and logo scan",
+        "status": "pass",
+        "ms": 62.773
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "too much data shows an error",
+        "status": "pass",
+        "ms": 72.5464
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "settings kept in localStorage",
+        "status": "pass",
+        "ms": 471.8583
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "10 export formats (WebAssembly raster, JS vector) decode and scan",
+        "status": "pass",
+        "ms": 504.1795
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "toolbar toggles and icon dropdowns",
+        "status": "pass",
+        "ms": 71.6044
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "toolbar fits from 1320 px to the minimum width (ko, en)",
+        "status": "pass",
+        "ms": 2670.5628
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "steppers, default size, undo and redo",
+        "status": "pass",
+        "ms": 4410.2526
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "cards move by dragging; layout resets",
+        "status": "pass",
+        "ms": 22.5815
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "English and dark theme",
+        "status": "pass",
+        "ms": 86.4099
+      },
+      {
+        "group": "browser build (headless Edge, WebAssembly)",
+        "name": "phone width: one column, no horizontal scroll",
+        "status": "pass",
+        "ms": 445.5673
+      }
+    ],
+    "time": 11824.7696
+  },
+  {
+    "file": "desktop.test.js",
+    "label": "데스크톱 앱",
+    "about": "실제 exe를 DevTools로 조작 (네이티브 Rust)",
+    "tests": [
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "builds the latest code (cargo, debug, own target folder)",
+        "status": "pass",
+        "ms": 8443.6991
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "starts with the native Rust encoder",
+        "status": "pass",
+        "ms": 175.52
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "reopens at the saved window position and size",
+        "status": "pass",
+        "ms": 0.758
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "frameless window: own window buttons and resize grip",
+        "status": "pass",
+        "ms": 1.613
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "8 content types scan from the preview",
+        "status": "pass",
+        "ms": 286.7157
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "16 style combinations scan",
+        "status": "pass",
+        "ms": 370.6737
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "gradient, eye colour and logo scan",
+        "status": "pass",
+        "ms": 60.6447
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "too much data shows an error",
+        "status": "pass",
+        "ms": 48.0447
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "10 export formats saved (native Rust raster) decode and scan",
+        "status": "pass",
+        "ms": 1148.5244
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "toolbar toggles; dropdowns open as popup windows",
+        "status": "pass",
+        "ms": 848.8305
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "steppers, default size, undo and redo",
+        "status": "pass",
+        "ms": 4410.7864
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "cards move by dragging; layout resets",
+        "status": "pass",
+        "ms": 14.0448
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "settings file saved (no Wi-Fi password)",
+        "status": "pass",
+        "ms": 0.7481
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "screenshot of the finished window",
+        "status": "pass",
+        "ms": 108.1846
+      },
+      {
+        "group": "desktop app (real exe, native Rust)",
+        "name": "close button saves the window placement and exits",
+        "status": "pass",
+        "ms": 164.4814
+      }
+    ],
+    "time": 16919.3754
+  }
+]

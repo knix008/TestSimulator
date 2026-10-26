@@ -1,0 +1,165 @@
+// Tests for the C# semantic analyzer (core/sem-cs).
+// Every catalog rule is exercised through the samples in test/sem-cs-cases*.mjs:
+// the non-compliant sample must report the rule on each line marked
+// "// Noncompliant" (and nowhere else), the compliant sample must not report
+// it. Engine-level tests follow.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import CASES from './sem-cs-cases.mjs';
+
+const require = createRequire(import.meta.url);
+const sem = require('../core/sem-cs');
+const { RULES } = require('../core/sem-cs/registry');
+
+const DEFAULT_PATH = 'src/Sample.cs';
+
+function toFiles(src, path) {
+  if (Array.isArray(src)) return src.map((f) => ({ path: f.path, text: f.text, lang: 'cs' }));
+  return [{ path: path || DEFAULT_PATH, text: src, lang: 'cs' }];
+}
+
+function run(files, options) {
+  return sem.analyze(files, { inactive: new Set(), root: null, options: { 'sem-cs': options || {} } });
+}
+
+// expected 'path:line' markers
+function markers(files) {
+  const out = [];
+  for (const f of files) {
+    f.text.split('\n').forEach((l, i) => { if (/\/\/ Noncompliant\b/.test(l)) out.push(`${f.path}:${i + 1}`); });
+  }
+  return out.sort();
+}
+
+const catalog = sem.catalog();
+
+test('catalog: shape, unique keys and counts', () => {
+  const keys = new Set();
+  const sonar = new Map();
+  for (const r of catalog) {
+    assert.ok(!keys.has(r.key), `duplicate ${r.key}`);
+    keys.add(r.key);
+    assert.match(r.key, /^sem-cs:[a-z0-9-]+$/);
+    assert.deepEqual(r.langs, ['cs']);
+    assert.ok(['BUG', 'VULNERABILITY', 'CODE_SMELL', 'SECURITY_HOTSPOT'].includes(r.type), r.key);
+    assert.ok(['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'].includes(r.severity), r.key);
+    assert.ok(typeof r.debtMin === 'number' && r.debtMin >= 0, `${r.key} debt`);
+    assert.ok(Array.isArray(r.tags) && r.tags.includes('csharp'), `${r.key} tags`);
+    for (const t of r.tags) assert.match(t, /^[a-z0-9.-]+$/, `${r.key} tag ${t}`);
+    for (const f of ['name', 'why', 'fix']) {
+      assert.ok(r[f] && r[f].en && r[f].ko, `${r.key} ${f}`);
+      assert.match(r[f].ko, /[가-힣]/, `${r.key} ${f}.ko is not Korean`);
+    }
+    assert.ok(Array.isArray(r.impacts) && r.impacts.length >= 1, r.key);
+    for (const im of r.impacts) {
+      assert.ok(['RELIABILITY', 'SECURITY', 'MAINTAINABILITY'].includes(im.softwareQuality), r.key);
+      assert.ok(['BLOCKER', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].includes(im.severity), r.key);
+    }
+    if (r.sonarKey) {
+      assert.match(r.sonarKey, /^S\d+(-[a-z]+)?$/, `${r.key} sonar key`);
+      assert.ok(!sonar.has(r.sonarKey), `${r.key} reuses ${r.sonarKey} of ${sonar.get(r.sonarKey)}`);
+      sonar.set(r.sonarKey, r.key);
+    }
+    if (r.type === 'VULNERABILITY' || r.type === 'SECURITY_HOTSPOT') {
+      assert.equal(r.impacts[0].softwareQuality, 'SECURITY', r.key);
+    }
+  }
+  assert.ok(catalog.length >= 255, `C# rules ${catalog.length}`);
+});
+
+test('every catalog rule has samples', () => {
+  const missing = RULES.map((r) => r.id).filter((id) => !CASES[id]);
+  assert.deepEqual(missing, []);
+  const unknown = Object.keys(CASES).filter((id) => !RULES.some((r) => r.id === id));
+  assert.deepEqual(unknown, []);
+});
+
+for (const rule of RULES) {
+  const c = CASES[rule.id];
+  if (!c) continue;
+  test(`${rule.key}: non-compliant sample`, () => {
+    const files = toFiles(c.bad, c.path);
+    const want = markers(files);
+    assert.ok(want.length, 'sample has no // Noncompliant marker');
+    const got = run(files, c.options).filter((f) => f.rule === rule.key);
+    const lines = [...new Set(got.map((f) => `${f.file}:${f.line}`))].sort();
+    assert.deepEqual(lines, want);
+    for (const f of got) {
+      assert.ok(f.message && f.message.en && f.message.ko, 'message');
+      assert.ok(!/\{\d\}|undefined/.test(f.message.en + f.message.ko), `bad message ${f.message.en}`);
+    }
+  });
+  test(`${rule.key}: compliant sample`, () => {
+    const files = toFiles(c.good, c.path);
+    assert.ok(!markers(files).length, 'compliant sample has a // Noncompliant marker');
+    const got = run(files, c.options).filter((f) => f.rule === rule.key);
+    assert.deepEqual(got.map((f) => `${f.file}:${f.line}`), []);
+  });
+}
+
+// ── engine behaviour ──
+test('inactive rules are not reported', () => {
+  const rule = RULES.find((r) => CASES[r.id] && typeof CASES[r.id].bad === 'string');
+  const files = toFiles(CASES[rule.id].bad, CASES[rule.id].path);
+  assert.ok(run(files, CASES[rule.id].options).some((f) => f.rule === rule.key));
+  const off = sem.analyze(files, { inactive: new Set([rule.key]), root: null, options: { 'sem-cs': CASES[rule.id].options || {} } });
+  assert.equal(off.filter((f) => f.rule === rule.key).length, 0);
+});
+
+test('generated files are not reported', () => {
+  const rule = RULES.find((r) => CASES[r.id] && typeof CASES[r.id].bad === 'string' && !CASES[r.id].path);
+  const text = `// <auto-generated>\n${CASES[rule.id].bad}`;
+  const got = run([{ path: 'src/Sample.cs', text, lang: 'cs' }], CASES[rule.id].options);
+  assert.deepEqual(got, []);
+});
+
+test('garbage input never throws', () => {
+  const junk = ['class {{{{', 'namespace', '"unterminated', '@@@', '', 'class A { void M() { if ( } }', '}}}}', '[Attr(', 'public class C : { int', '#if X\nclass'];
+  for (const j of junk) assert.doesNotThrow(() => run([{ path: 'src/J.cs', text: j, lang: 'cs' }]));
+});
+
+test('no internal errors on the samples', () => {
+  let errors = 0;
+  for (const c of Object.values(CASES)) {
+    for (const src of [c.bad, c.good]) {
+      const stats = {};
+      sem.analyze(toFiles(src, c.path), { inactive: new Set(), root: null, options: { 'sem-cs': c.options || {} }, stats });
+      if (stats.semCs) errors += stats.semCs.internalErrors;
+    }
+  }
+  assert.equal(errors, 0);
+});
+
+test('performance: 20k lines in well under 3 s', () => {
+  const method = (i) => `    public int M${i}(string s, List<string> xs)
+    {
+        int total = 0;
+        foreach (var x in xs)
+        {
+            if (string.IsNullOrEmpty(x)) { continue; }
+            total += x.Length;
+        }
+        var t = s == null ? "" : s.Trim();
+        if (t.Length == 0) { return total; }
+        using (var r = new StringReader(t))
+        {
+            total += r.ReadLine().Length;
+        }
+        return total;
+    }
+`;
+  const files = [];
+  let lines = 0;
+  for (let f = 0; lines < 20000; f++) {
+    let body = `using System;\nusing System.IO;\nusing System.Collections.Generic;\nnamespace P\n{\n  public class C${f}\n  {\n`;
+    for (let i = 0; i < 40; i++) body += method(i);
+    body += '  }\n}\n';
+    lines += body.split('\n').length;
+    files.push({ path: `src/C${f}.cs`, text: body, lang: 'cs' });
+  }
+  const t0 = Date.now();
+  run(files);
+  const ms = Date.now() - t0;
+  assert.ok(ms < 3000, `took ${ms} ms for ${lines} lines`);
+});

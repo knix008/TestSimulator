@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  License agreement that follows APPINSTALLLANGUAGE from LanguageDlg.
+  Replaces WixUI LicenseAgreementDlg so Korean/English RTF can both ship in one MSI.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <UI>
+      <Dialog Id="DeskSearchLicenseDlg"
+              Width="370"
+              Height="270"
+              Title="!(loc.LicenseDlg_Title)">
+        <Control Id="BannerBitmap"
+                 Type="Bitmap"
+                 X="0"
+                 Y="0"
+                 Width="370"
+                 Height="44"
+                 TabSkip="no"
+                 Text="!(loc.MaintenanceTypeDlgBannerBitmap)" />
+        <Control Id="BannerLine"
+                 Type="Line"
+                 X="0"
+                 Y="44"
+                 Width="373"
+                 Height="0" />
+        <Control Id="BottomLine"
+                 Type="Line"
+                 X="0"
+                 Y="234"
+                 Width="373"
+                 Height="0" />
+
+        <Control Id="TitleKo"
+                 Type="Text"
+                 X="15"
+                 Y="6"
+                 Width="340"
+                 Height="15"
+                 Transparent="yes"
+                 NoPrefix="yes"
+                 Text="!(loc.LicenseDlgTitle)"
+                 HideCondition="APPINSTALLLANGUAGE &lt;&gt; &quot;ko&quot;" />
+        <Control Id="TitleEn"
+                 Type="Text"
+                 X="15"
+                 Y="6"
+                 Width="340"
+                 Height="15"
+                 Transparent="yes"
+                 NoPrefix="yes"
+                 Text="End-User License Agreement"
+                 HideCondition="APPINSTALLLANGUAGE &lt;&gt; &quot;en&quot;" />
+
+        <Control Id="DescriptionKo"
+                 Type="Text"
+                 X="25"
+                 Y="44"
+                 Width="320"
+                 Height="15"
+                 Transparent="yes"
+                 NoPrefix="yes"
+                 Text="!(loc.LicenseDlgDescription)"
+                 HideCondition="APPINSTALLLANGUAGE &lt;&gt; &quot;ko&quot;" />
+        <Control Id="DescriptionEn"
+                 Type="Text"
+                 X="25"
+                 Y="44"
+                 Width="320"
+                 Height="15"
+                 Transparent="yes"
+                 NoPrefix="yes"
+                 Text="Please read the following license agreement carefully."
+                 HideCondition="APPINSTALLLANGUAGE &lt;&gt; &quot;en&quot;" />
+
+        <Control Id="LicenseTextKo"
+                 Type="ScrollableText"
+                 X="20"
+                 Y="60"
+                 Width="330"
+                 Height="120"
+                 Sunken="yes"
+                 TabSkip="no"
+                 HideCondition="APPINSTALLLANGUAGE &lt;&gt; &quot;ko&quot;">
+          <Text SourceFile="License.ko-KR.rtf" />
+        </Control>
+        <Control Id="LicenseTextEn"
+                 Type="ScrollableText"
+                 X="20"
+                 Y="60"
+                 Width="330"
+                 Height="120"
+                 Sunken="yes"
+                 TabSkip="no"
+                 HideCondition="APPINSTALLLANGUAGE &lt;&gt; &quot;en&quot;">
+          <Text SourceFile="License.en-US.rtf" />
+        </Control>
+
+        <Control Id="Accept"
+                 Type="CheckBox"
+                 X="20"
+                 Y="190"
+                 Width="330"
+                 Height="18"
+                 Property="LicenseAccepted"
+                 CheckBoxValue="1"
+                 Text="!(loc.LicenseDlgAccept)" />
+
+        <Control Id="Back"
+                 Type="PushButton"
+                 X="180"
+                 Y="243"
+                 Width="56"
+                 Height="17"
+                 Text="!(loc.WixUIBack)" />
+        <Control Id="Next"
+                 Type="PushButton"
+                 X="236"
+                 Y="243"
+                 Width="56"
+                 Height="17"
+                 Default="yes"
+                 Text="!(loc.WixUINext)"
+                 DisableCondition="LicenseAccepted &lt;&gt; &quot;1&quot;" />
+        <Control Id="Cancel"
+                 Type="PushButton"
+                 X="304"
+                 Y="243"
+                 Width="56"
+                 Height="17"
+                 Cancel="yes"
+                 Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+    </UI>
+  </Fragment>
+</Wix>

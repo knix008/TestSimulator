@@ -20,4 +20,8 @@
   <String Id="LanguageDlgDescription" Value="This sets the installer and the app's default UI language. You can change it later in Settings." Overridable="yes" />
   <String Id="LanguageDlg_Korean" Value="Korean" Overridable="yes" />
   <String Id="LanguageDlg_English" Value="English" Overridable="yes" />
+  <String Id="LicenseDlg_Title" Value="DeskSearch License Agreement" Overridable="yes" />
+  <String Id="LicenseDlgTitle" Value="End-User License Agreement" Overridable="yes" />
+  <String Id="LicenseDlgDescription" Value="Please read the following license agreement carefully." Overridable="yes" />
+  <String Id="LicenseDlgAccept" Value="I accept the terms in the License Agreement" Overridable="yes" />
 </WixLocalization>

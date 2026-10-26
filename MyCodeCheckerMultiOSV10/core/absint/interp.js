@@ -487,6 +487,7 @@ class FnAnalyzer {
       id, kind: sym.storage === 'automatic' ? 'stack' : 'global', name: sym.name,
       size: size != null ? I.konst(size) : null, esz: this.elemSizeOfArray(t),
       init: init || 'yes', fnKey: isLocal ? this.key : null, vsym: sym.id, scalar: !T.isArray(this.T(t)) && !T.isRecord(this.T(t)),
+      single: !T.isArray(this.T(t)) && this.T(t).kind !== 'unknown',
     };
     if (this.params.has(sym.id)) o.kind = 'stack';
     return st.addObj(o);

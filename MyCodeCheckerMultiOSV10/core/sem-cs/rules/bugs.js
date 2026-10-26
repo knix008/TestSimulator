@@ -538,7 +538,7 @@ R('format-string-invalid', 'S2275', 'B', 'BL', 10, ['pitfall'],
     const p = parseFormat(f.fmt);
     if (p.error) { cx.report(f.fmtNode, 'Invalid format string: braces are not balanced or a format item is malformed.', '서식 문자열이 잘못되었습니다. 중괄호가 맞지 않거나 서식 항목 형식이 틀렸습니다.'); return; }
     const max = p.idx.length ? Math.max(...p.idx) : -1;
-    if (max >= f.rest.length) cx.report(f.fmtNode, `Invalid format string: index {${max}} is out of range; only ${f.rest.length} argument(s) are passed.`, `서식 문자열 오류: 인덱스 {${max}}가 범위를 벗어납니다. 인수는 ${f.rest.length}개뿐입니다.`);
+    if (max >= f.rest.length) cx.report(f.fmtNode, `Invalid format string: format item index ${max} is out of range; only ${f.rest.length} argument(s) are passed.`, `서식 문자열 오류: 서식 항목 인덱스 ${max}가 범위를 벗어납니다. 인수는 ${f.rest.length}개뿐입니다.`);
   } } });
 R('format-args-unused', 'S3457', 'S', 'MA', 10, ['confusing'],
   ['Composite format strings should be used correctly', 'Arguments that no format item refers to are silently ignored.', 'Reference every argument, or remove the extra ones.'],
@@ -640,13 +640,13 @@ R('thread-static-instance', 'S3005', 'B', 'MA', 2, ['multi-threading'],
   ['"ThreadStatic" should not be used on non-static fields', '[ThreadStatic] is ignored on instance fields, so the field is silently shared per instance.', 'Make the field static, or remove the attribute.'],
   ['"ThreadStatic"은 static이 아닌 필드에 쓰면 안 됩니다', '[ThreadStatic]은 인스턴스 필드에서 무시되어 필드가 인스턴스마다 조용히 공유됩니다.', '필드를 static으로 만들거나 특성을 지우세요.'],
   { kinds: { Field(n, cx) {
-    if (attrNamed(n.attrs, ['ThreadStatic']) && !n.mods.has('static')) cx.report(n, `Remove the 'ThreadStatic' attribute from this instance field, or make it static.`, `이 인스턴스 필드에서 'ThreadStatic' 특성을 지우거나 static으로 만드세요.`);
+    if (attrNamed(n.attrs, ['ThreadStatic']) && !n.mods.has('static')) cx.report(n.vars[0] || n, `Remove the 'ThreadStatic' attribute from this instance field, or make it static.`, `이 인스턴스 필드에서 'ThreadStatic' 특성을 지우거나 static으로 만드세요.`);
   } } });
 R('thread-static-initialized', 'S2996', 'B', 'MA', 5, ['multi-threading'],
   ['"ThreadStatic" fields should not be initialized', 'The initializer runs once on the thread that runs the static constructor; every other thread sees the default value.', 'Initialize lazily on first use in each thread, or use ThreadLocal<T>.'],
   ['"ThreadStatic" 필드는 초기화하면 안 됩니다', '초기화식은 정적 생성자를 실행한 스레드에서 한 번만 실행되고 다른 스레드는 기본값을 봅니다.', '각 스레드에서 처음 쓸 때 지연 초기화하거나 ThreadLocal<T>을 쓰세요.'],
   { kinds: { Field(n, cx) {
-    if (attrNamed(n.attrs, ['ThreadStatic']) && n.mods.has('static') && n.vars.some((v) => v.init)) cx.report(n, `Remove this initialization of the [ThreadStatic] field '${n.vars[0].name}'.`, `[ThreadStatic] 필드 '${n.vars[0].name}'의 초기화를 지우세요.`);
+    if (attrNamed(n.attrs, ['ThreadStatic']) && n.mods.has('static') && n.vars.some((v) => v.init)) cx.report(n.vars.find((v) => v.init), `Remove this initialization of the [ThreadStatic] field '${n.vars[0].name}'.`, `[ThreadStatic] 필드 '${n.vars[0].name}'의 초기화를 지우세요.`);
   } } });
 R('anonymous-unsubscribe', 'S3244', 'B', 'MA', 10, ['pitfall'],
   ['Anonymous delegates should not be used to unsubscribe from Events', 'Each lambda is a new delegate instance, so `-= (s, e) => ...` removes nothing.', 'Store the handler in a variable or use a named method, and unsubscribe with it.'],

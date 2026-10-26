@@ -4,9 +4,26 @@
 // and the Tauri sidecar.
 
 const { createApi, serializeError } = require('../core/api');
+const { createSonarApi } = require('../core/sonar-api');
+
+// The caller's user token: our header, or SonarQube style "Bearer <token>" /
+// Basic "<token>:" when it is not the transport token of the desktop sidecar.
+function userTokenOf(req, transportToken) {
+  if (req.headers['x-mcc-user-token']) return String(req.headers['x-mcc-user-token']);
+  const auth = String(req.headers.authorization || '');
+  const bearer = /^Bearer\s+(.+)$/i.exec(auth);
+  if (bearer && bearer[1] !== transportToken) return bearer[1];
+  const basic = /^Basic\s+(.+)$/i.exec(auth);
+  if (basic) {
+    const [user, pass] = Buffer.from(basic[1], 'base64').toString('utf8').split(/:(.*)/s);
+    return pass && !user ? pass : user;
+  }
+  return '';
+}
 
 function createHandler(options = {}) {
   const api = options.api || createApi(options);
+  const sonar = createSonarApi(api, { version: options.version });
   const token = options.token || '';
   // Origins allowed to call cross-origin (the Tauri page calls the sidecar on
   // another port). The bearer token is still required for every POST.
@@ -24,7 +41,7 @@ function createHandler(options = {}) {
       if (req.method === 'OPTIONS') {
         res.writeHead(204, {
           'access-control-allow-methods': 'POST, OPTIONS',
-          'access-control-allow-headers': 'authorization, content-type',
+          'access-control-allow-headers': 'authorization, content-type, x-mcc-user-token',
           'access-control-max-age': '600',
         });
         res.end();
@@ -39,18 +56,37 @@ function createHandler(options = {}) {
         return true;
       }
     }
+    const name = decodeURIComponent(url.pathname.slice('/api/'.length));
+    // SonarQube-compatible routes: /api/<area>/<action>, GET or form POST, plain JSON replies.
+    if (name.includes('/')) {
+      try {
+        const query = Object.fromEntries(url.searchParams);
+        if (req.method === 'POST') {
+          const raw = await readBody(req);
+          const type = String(req.headers['content-type'] || '');
+          if (raw && type.includes('json')) Object.assign(query, JSON.parse(raw));
+          else if (raw) Object.assign(query, Object.fromEntries(new URLSearchParams(raw)));
+        }
+        const data = await sonar.route(req.method, name, query, { token: userTokenOf(req, token) });
+        if (data === undefined) { send(res, 404, { errors: [{ msg: `Unknown url: /api/${name}` }] }); return true; }
+        send(res, 200, data);
+      } catch (err) {
+        const status = { NOT_FOUND: 404, UNAUTHORIZED: 401, FORBIDDEN: 403, BAD_REQUEST: 400, APPROVAL_REQUIRED: 409 }[err.code] || 500;
+        send(res, status, { errors: [{ msg: err.message }] });
+      }
+      return true;
+    }
     if (req.method !== 'POST') {
       send(res, 405, { ok: false, error: { code: 'METHOD', message: 'POST only' } });
       return true;
     }
-    const name = decodeURIComponent(url.pathname.slice('/api/'.length));
     try {
       const raw = await readBody(req);
       const args = raw ? JSON.parse(raw) : {};
-      const data = await api.call(name, args);
+      const data = await api.call(name, args, { token: userTokenOf(req, token) });
       send(res, 200, { ok: true, data });
     } catch (err) {
-      const status = err.code === 'NO_METHOD' ? 404 : err.code === 'NOT_FOUND' ? 404 : 500;
+      const status = { NO_METHOD: 404, NOT_FOUND: 404, UNAUTHORIZED: 401, FORBIDDEN: 403, APPROVAL_REQUIRED: 409 }[err.code] || 500;
       send(res, status, { ok: false, error: serializeError(err) });
     }
     return true;

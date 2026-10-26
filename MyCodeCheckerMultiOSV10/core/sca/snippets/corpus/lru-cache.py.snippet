@@ -1,0 +1,50 @@
+# MyCodeChecker sample corpus: a small LRU cache (written for the snippet index, BSD-3-Clause).
+from collections import OrderedDict
+
+
+class LruCache:
+    def __init__(self, capacity=128):
+        if capacity <= 0:
+            raise ValueError("capacity must be positive")
+        self.capacity = capacity
+        self.items = OrderedDict()
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key, default=None):
+        if key in self.items:
+            self.items.move_to_end(key)
+            self.hits += 1
+            return self.items[key]
+        self.misses += 1
+        return default
+
+    def put(self, key, value):
+        if key in self.items:
+            self.items.move_to_end(key)
+        self.items[key] = value
+        while len(self.items) > self.capacity:
+            self.items.popitem(last=False)
+
+    def stats(self):
+        total = self.hits + self.misses
+        ratio = self.hits / total if total else 0.0
+        return {"hits": self.hits, "misses": self.misses, "ratio": ratio, "size": len(self.items)}
+
+
+def lru_memoize(capacity=128):
+    def decorate(fn):
+        cache = LruCache(capacity)
+
+        def wrapper(*args):
+            found = cache.get(args, wrapper)
+            if found is not wrapper:
+                return found
+            value = fn(*args)
+            cache.put(args, value)
+            return value
+
+        wrapper.cache = cache
+        return wrapper
+
+    return decorate

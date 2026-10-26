@@ -14,6 +14,7 @@
 // 6.5.1, Rule 10.1 ...) come from the standards.
 
 const { ruleIndex, cwesOf, isClosed, glob, ratingFromWorst, text } = require('./util');
+const { KR_STANDARDS } = require('./kr-standards');
 
 // ---------------------------------------------------------------------------
 // CWE Top 25 (MITRE). Ranked lists, rank 1 first.
@@ -179,6 +180,7 @@ const STANDARDS = {
   cweTop25_2023: { title: 'CWE Top 25 2023', list: CWE_TOP25_2023 },
   cweTop25_2024: { title: 'CWE Top 25 2024', list: CWE_TOP25_2024 },
   asvs4: { title: 'OWASP ASVS 4.0', requirements: ASVS_4 },
+  ...KR_STANDARDS,
 };
 
 /** Ids of every standard this module can report. */
@@ -378,7 +380,7 @@ function certReport(issues, catalog, which = 'certC', opts = {}) {
  */
 function securityReports(issues, catalog, opts = {}) {
   const out = {};
-  for (const id of ['owasp2017', 'owasp2021', 'pciDss321', 'pciDss40', 'stigAsdV5R3', 'sansTop25']) out[id] = categoryReport(issues, catalog, id, opts);
+  for (const id of ['owasp2017', 'owasp2021', 'pciDss321', 'pciDss40', 'stigAsdV5R3', 'sansTop25', 'mois2021', 'kisaWeb']) out[id] = categoryReport(issues, catalog, id, opts);
   out.cweTop25_2023 = cweTop25Report(issues, catalog, 2023, opts);
   out.cweTop25_2024 = cweTop25Report(issues, catalog, 2024, opts);
   out.asvs4 = asvsReport(issues, catalog, opts.asvsLevel || 1, opts);

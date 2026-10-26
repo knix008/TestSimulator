@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
-import { Icon } from '../components/Chrome';
-import { IconSelect, Btn, Stepper, Toggle } from './common';
+import { Icon, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
+import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction } from './common';
+import { call } from '../lib/backend';
 import { ISSUE_STANDARDS, standardsOf, matchesStandard, standardChips, engineOf, ENGINE_ICON } from './standards';
 
 const METRIC_NAME = {
@@ -40,6 +41,15 @@ export function msg(issue) {
   return textOf(issue.message);
 }
 
+const START_FEATURES = [
+  ['bug', 'BUG', 'start_f_bugs'],
+  ['unlock', 'VULNERABILITY', 'start_f_vulns'],
+  ['smell', 'CODE_SMELL', 'start_f_smells'],
+  ['shield', 'SECURITY_HOTSPOT', 'start_f_hotspots'],
+  ['gate', 'gate', 'start_f_gate'],
+  ['lock', 'lock', 'start_f_compliance'],
+];
+
 export function StartPage({ projects, onOpen, onSample, onRecent, showOnLaunch, onShowOnLaunch }) {
   useLanguage();
   return (
@@ -48,18 +58,29 @@ export function StartPage({ projects, onOpen, onSample, onRecent, showOnLaunch, 
       <h1>{t('start_title')}</h1>
       <p>{t('start_body')}</p>
       <div className="hero-actions">
-        <Btn icon="folder" label={t('open_folder')} primary onClick={onOpen} />
-        <Btn icon="play" label={t('open_sample')} onClick={onSample} />
+        <Btn icon="folder" label={t('open_folder')} primary onClick={onOpen} title={`${t('open_folder')} (Ctrl+O)`} />
+        <Btn icon="play" label={t('open_sample')} onClick={onSample} title={t('start_sample_tip')} />
+        <Btn icon="installBox" label={t('tl_menu')} onClick={() => emitAction('tools')} title={t('tl_hint')} />
+      </div>
+      <div className="feature-grid">
+        {START_FEATURES.map(([icon, kind, key]) => (
+          <div key={key} className={`feature kind-${kind}`}><Icon name={icon} size={18} /><span>{t(key)}</span></div>
+        ))}
       </div>
       {projects.length > 0 && (
-        <div className="panel" style={{ textAlign: 'left', marginTop: 28 }}>
-          <h2>{t('recent')}</h2>
-          {projects.map((p) => (
-            <button key={p.id} className="nav-item" onClick={() => onRecent(p)}>
-              <strong>{p.name}</strong>
-              <span className="muted ellipsis">{p.path}</span>
-            </button>
-          ))}
+        <div className="panel recent-panel">
+          <h2 className="sub-title"><Icon name="history" size={15} />{t('recent')}</h2>
+          {projects.map((p) => {
+            const gate = branchGate(p);
+            return (
+              <button key={p.id} type="button" className="recent-item" onClick={() => onRecent(p)} title={p.path}>
+                <Icon name="folder" size={18} />
+                <span className="recent-text"><strong>{p.name}</strong><span className="muted ellipsis">{p.path}</span></span>
+                {gate && <span className={`status-pill tone-${gate === 'OK' ? 'ok' : 'bad'}`}><Icon name={gate === 'OK' ? 'checkCircle' : 'xCircle'} size={12} />{gate === 'OK' ? t('passed') : t('failed')}</span>}
+                <Icon name="chevronRight" size={15} />
+              </button>
+            );
+          })}
         </div>
       )}
       <div className="hero-launch">
@@ -69,71 +90,167 @@ export function StartPage({ projects, onOpen, onSample, onRecent, showOnLaunch, 
   );
 }
 
-export function Overview({ analysis }) {
+const RATING_WORD = { A: 'rt_A', B: 'rt_B', C: 'rt_C', D: 'rt_D', E: 'rt_E' };
+
+export function Overview({ analysis, onGo }) {
   useLanguage();
   const lang = getLanguage();
-  if (!analysis) return <p className="muted">{t('no_project')}</p>;
+  if (!analysis) {
+    return (
+      <div className="view">
+        <ViewHeader icon="chart" title={t('nav_overview')} hint={t('vh_overview')} />
+        <NoProject text={t('es_no_analysis')} />
+      </div>
+    );
+  }
   const g = analysis.qualityGate;
   const r = analysis.ratings;
+  const rn = analysis.ratingsNew || {};
   const m = analysis.measures;
+  const ok = g.status === 'OK';
+  const failedConds = g.conditions.filter((c) => c.status === 'ERROR');
+  const go = (id) => onGo && onGo(id);
   return (
-    <div>
-      <div className={`banner ${g.status}`}>
-        <div>
+    <div className="view">
+      <ViewHeader icon="chart" title={t('nav_overview')} hint={t('vh_overview')} />
+      <div className={`banner gate-banner ${g.status}`}>
+        <span className="gate-icon"><Icon name={ok ? 'checkCircle' : 'xCircle'} size={34} /></span>
+        <div className="gate-text">
           <div className="k muted">{t('gate')}</div>
-          <strong style={{ fontSize: 22 }}>{g.status === 'OK' ? t('passed') : t('failed')}</strong>
+          <strong className="gate-status">{ok ? t('passed') : t('failed')}</strong>
+          <div className="small">{ok ? t('ov_gate_ok_hint') : t('ov_gate_bad_hint', { n: failedConds.length })}</div>
         </div>
-        <div className="small">{analysis.hasBaseline ? t('baseline_prev') : t('baseline_all')}</div>
+        <div className="banner-side small">
+          <div><Icon name="sparkle" size={12} /> {analysis.hasBaseline ? t('baseline_prev') : t('baseline_all')}</div>
+          {!ok && <Btn icon="gate" label={t('ov_see_conditions')} onClick={() => { const el = document.getElementById('ov-conditions'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} />}
+        </div>
       </div>
-      <div className="card-grid">
-        <RatingCard label={t('reliability')} letter={r.reliability} hint={`${t('new_code')} ${analysis.ratingsNew.reliability}`} />
-        <RatingCard label={t('security')} letter={r.security} hint={`${t('new_code')} ${analysis.ratingsNew.security}`} />
-        <RatingCard label={t('maintainability')} letter={r.maintainability} hint={`${r.debtRatio}%`} />
-        <RatingCard label={t('sec_review')} letter={r.securityReview} hint={`${r.hotspotsReviewed}%`} />
+      <div className="rating-grid">
+        <RatingCard icon="bug" label={t('reliability')} letter={r.reliability} newLetter={rn.reliability} hint={`${t('bugs')} ${m.bugs}`} onClick={() => go('issues:BUG')} />
+        <RatingCard icon="unlock" label={t('security')} letter={r.security} newLetter={rn.security} hint={`${t('vulns')} ${m.vulnerabilities}`} onClick={() => go('issues:VULNERABILITY')} />
+        <RatingCard icon="smell" label={t('maintainability')} letter={r.maintainability} newLetter={rn.maintainability} hint={`${t('ov_debt_ratio')} ${r.debtRatio}%`} onClick={() => go('issues:CODE_SMELL')} />
+        <RatingCard icon="shield" label={t('sec_review')} letter={r.securityReview} newLetter={rn.securityReview} hint={`${t('ov_reviewed')} ${r.hotspotsReviewed}%`} onClick={() => go('view:hotspots')} />
       </div>
-      <div className="card-grid">
-        <Num label={t('bugs')} value={m.bugs} sub={`${t('new_code')} ${m.new_bugs}`} />
-        <Num label={t('vulns')} value={m.vulnerabilities} sub={`${t('new_code')} ${m.new_vulnerabilities}`} />
-        <Num label={t('smells')} value={m.code_smells} sub={`${t('new_code')} ${m.new_code_smells}`} />
-        <Num label={t('hotspots')} value={m.security_hotspots} sub={t('sec_review')} />
-        <Num label={t('debt')} value={`${m.sqale_index}`} sub={t('minutes')} />
-        <Num label={t('coverage')} value={m.coverage == null ? '—' : `${m.coverage}%`} sub={m.coverage == null ? t('no_coverage') : ''} />
-        <Num label={t('dup_density')} value={`${m.duplicated_lines_density}%`} sub={`${m.duplicated_lines} ${t('lines')}`} />
-        <Num label={t('ncloc')} value={m.ncloc} sub={`${m.files} ${t('files')}`} />
+      <h3 className="sub-title"><Icon name="layers" size={15} />{t('ov_new_vs_overall')}</h3>
+      <div className="card-grid ov-grid">
+        <Stat icon="bug" kind="BUG" label={t('bugs')} value={m.bugs} sub={<NewSub n={m.new_bugs} />} onClick={() => go('issues:BUG')} title={t('ov_open_list')} />
+        <Stat icon="unlock" kind="VULNERABILITY" label={t('vulns')} value={m.vulnerabilities} sub={<NewSub n={m.new_vulnerabilities} />} onClick={() => go('issues:VULNERABILITY')} title={t('ov_open_list')} />
+        <Stat icon="smell" kind="CODE_SMELL" label={t('smells')} value={m.code_smells} sub={<NewSub n={m.new_code_smells} />} onClick={() => go('issues:CODE_SMELL')} title={t('ov_open_list')} />
+        <Stat icon="shield" kind="SECURITY_HOTSPOT" label={t('hotspots')} value={m.security_hotspots} sub={<NewSub n={m.new_security_hotspots} />} onClick={() => go('view:hotspots')} title={t('ov_open_list')} />
+        <Stat icon="clock" label={t('debt')} value={fmtDebt(m.sqale_index)} sub={`${m.sqale_index} ${t('minutes')}`} />
+        <Stat icon="checkCircle" label={t('coverage')} value={m.coverage == null ? '—' : `${m.coverage}%`} sub={m.coverage == null ? t('no_coverage') : (m.new_coverage != null ? `${t('new_code')} ${m.new_coverage}%` : '')} />
+        <Stat icon="copy" label={t('dup_density')} value={`${m.duplicated_lines_density}%`} sub={`${m.duplicated_lines} ${t('lines')}`} onClick={() => go('view:duplications')} title={t('nav_dup')} />
+        <Stat icon="code" label={t('ncloc')} value={m.ncloc} sub={`${m.files} ${t('files')}`} onClick={() => go('view:code')} title={t('nav_code')} />
       </div>
-      <div className="panel">
-        <h2>{t('conditions')}</h2>
+      <div className="panel" id="ov-conditions">
+        <h2 className="sub-title"><Icon name="gate" size={15} />{t('conditions')}</h2>
         <table>
           <tbody>
             {g.conditions.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} className={c.status === 'ERROR' ? 'row-bad' : ''}>
+                <td className="icon-col"><Icon name={c.status === 'ERROR' ? 'xCircle' : c.status === 'OK' ? 'checkCircle' : 'minus'} size={14} className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'} /></td>
                 <td>{metricLabel(c.metric, lang)}</td>
                 <td className="muted">{c.op} {c.threshold}</td>
                 <td>{c.actual == null ? '—' : c.actual}</td>
-                <td className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'}>{c.status === 'NO_DATA' ? t('no_data') : c.status}</td>
+                <td className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'}>{c.status === 'NO_DATA' ? t('no_data') : c.status === 'OK' ? t('passed') : c.status === 'ERROR' ? t('failed') : c.status}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div className="panel" style={{ marginTop: 12 }}>
-        <h2>{t('languages')}</h2>
+        <h2 className="sub-title"><Icon name="globe" size={15} />{t('languages')}</h2>
         <div className="hrow">
-          {Object.entries(analysis.languages).map(([k, n]) => <span key={k} className="pill">{k} {n}</span>)}
+          {Object.entries(analysis.languages).map(([k, n]) => <span key={k} className="pill"><Icon name="file" size={11} /> {k} {n}</span>)}
         </div>
       </div>
     </div>
   );
 }
 
-function RatingCard({ label, letter, hint }) {
-  return <div className="card"><div className="k">{label}</div><div className={`rating ${letter}`}>{letter}</div><div className="small">{hint}</div></div>;
-}
-function Num({ label, value, sub }) {
-  return <div className="card"><div className="k">{label}</div><div className="v">{value}</div><div className="small">{sub}</div></div>;
+function NewSub({ n }) {
+  return <span className={`new-sub ${n ? 'has' : ''}`}><Icon name="sparkle" size={11} />{t('new_code')} {n == null ? '—' : n}</span>;
 }
 
-export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSelect, checked, setChecked, onUpdate }) {
+function fmtDebt(min) {
+  const n = Number(min) || 0;
+  if (n < 60) return `${n}${t('u_min')}`;
+  if (n < 480 * 2) return `${Math.round(n / 6) / 10}${t('u_hour')}`;
+  return `${Math.round(n / 48) / 10}${t('u_day')}`;
+}
+
+function RatingCard({ icon, label, letter, newLetter, hint, onClick }) {
+  useLanguage();
+  return (
+    <button type="button" className={`card rating-card r-${letter}`} onClick={onClick} title={`${label}: ${letter} — ${t(RATING_WORD[letter] || 'rt_A')}`}>
+      <div className="k"><Icon name={icon} size={14} /><span>{label}</span></div>
+      <div className="rating-row">
+        <span className={`rating-big ${letter}`}>{letter}</span>
+        <span className="rating-desc">
+          <span>{t(RATING_WORD[letter] || 'rt_A')}</span>
+          <span className="small">{hint}</span>
+        </span>
+      </div>
+      {newLetter && <div className="small rating-new"><Icon name="sparkle" size={11} />{t('new_code')} <span className={`rating-chip ${newLetter}`}>{newLetter}</span></div>}
+    </button>
+  );
+}
+
+// Exception request (예외 신청) and its approval, Sparrow style.
+function ReviewBox({ issue, approval, onReview }) {
+  useLanguage();
+  const [reason, setReason] = useState('');
+  const [resolution, setResolution] = useState('FALSE-POSITIVE');
+  const r = issue.review;
+  const pending = r && r.state === 'REQUESTED';
+  const act = async (action) => {
+    if ((action === 'request' || action === 'reject') && !reason.trim()) return;
+    await onReview([issue.key], action, { reason, resolution });
+    setReason('');
+  };
+  return (
+    <div className="review-box">
+      <h3 className="sub-title"><Icon name="userCheck" size={15} />{t('rv_title')}</h3>
+      {r && (
+        <p className="small">
+          <span className={`pill rv-${r.state.toLowerCase()}`}><Icon name={r.state === 'REQUESTED' ? 'hourglass' : r.state === 'APPROVED' ? 'checkCircle' : r.state === 'REJECTED' ? 'xCircle' : 'circleDot'} size={11} /> {t(`rv_state_${r.state.toLowerCase()}`)}</span>{' '}
+          {r.resolution === 'WONTFIX' ? t('accept') : t('false_positive')} · {r.requestedBy}: {r.reason}
+          {r.decidedBy && <><br />{r.decidedBy}{r.comment ? `: ${r.comment}` : ''}</>}
+        </p>
+      )}
+      {!pending && (
+        <IconSelect value={resolution} onChange={setResolution} width={200} ariaLabel={t('rv_kind')}
+          options={[{ value: 'FALSE-POSITIVE', label: t('false_positive'), icon: 'close' }, { value: 'WONTFIX', label: t('accept'), icon: 'check' }]} />
+      )}
+      <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder={pending ? t('rv_decision_note') : t('rv_reason')} />
+      <div className="actions">
+        {!pending && <Btn icon="upload" label={t('rv_request')} disabled={!reason.trim()} onClick={() => act('request')} title={reason.trim() ? t('rv_request') : t('rv_need_reason')} />}
+        {pending && <Btn icon="thumbsUp" label={t('rv_approve')} primary onClick={() => act('approve')} />}
+        {pending && <Btn icon="xCircle" label={t('rv_reject')} disabled={!reason.trim()} onClick={() => act('reject')} title={reason.trim() ? t('rv_reject') : t('rv_need_reason')} />}
+        {pending && <Btn icon="close" label={t('rv_cancel')} onClick={() => act('cancel')} />}
+      </div>
+      {approval && approval.required && <p className="small">{t('rv_required_hint')}</p>}
+    </div>
+  );
+}
+
+function TagEditor({ issue, onUpdate }) {
+  useLanguage();
+  const [draft, setDraft] = useState('');
+  const tags = issue.tags || [];
+  const save = (next) => onUpdate([issue.key], { tags: next });
+  return (
+    <div className="chips">
+      {tags.map((tag) => (
+        <span key={tag} className="pill removable">{tag}<button type="button" aria-label={t('remove')} onClick={() => save(tags.filter((x) => x !== tag))}><Icon name="close" size={10} /></button></span>
+      ))}
+      <input className="tag-input" value={draft} placeholder={t('ib_add_tag')} onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && draft.trim()) { save([...new Set([...tags, draft.trim().toLowerCase()])]); setDraft(''); } }} />
+    </div>
+  );
+}
+
+export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSelect, checked, setChecked, onUpdate, onReview, approval, hasAnalysis }) {
   useLanguage();
   const [comment, setComment] = useState('');
   const [assignee, setAssignee] = useState('');
@@ -144,8 +261,27 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
   const toggle = (key) => setChecked(checked.includes(key) ? checked.filter((k) => k !== key) : [...checked, key]);
   const chips = selected ? standardChips(standardsOf(selected, rule)) : [];
   const misraCategory = selected && (selected.misraCategory || (rule && rule.misraCategory));
+  const noFix = approval && approval.required;
+  if (!issues.length && !hasAnalysis) {
+    return (
+      <div className="view">
+        <ViewHeader icon="bug" title={t('nav_issues')} hint={t('vh_issues')} />
+        <NoProject text={t('es_no_analysis')} />
+      </div>
+    );
+  }
+  const visible = issues.filter((i) => i.type !== 'SECURITY_HOTSPOT');
+  const typeCount = (type) => visible.filter((i) => i.type === type).length;
   return (
-    <div>
+    <div className="view">
+      <ViewHeader icon="bug" title={t('nav_issues')} hint={t('vh_issues')} />
+      <div className="type-tabs">
+        {[['', 'list', t('all'), visible.length], ...TYPES.map((ty) => [ty, TYPE_ICON[ty], { BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells') }[ty], typeCount(ty)])].map(([ty, icon, label, n]) => (
+          <button key={ty || 'all'} type="button" className={`type-tab ${ty ? `kind-${ty}` : ''} ${filter.type === ty ? 'on' : ''}`} onClick={() => setFilter({ ...filter, type: ty })} aria-pressed={filter.type === ty}>
+            <Icon name={icon} size={15} /><span>{label}</span><span className="vtab-count">{n}</span>
+          </button>
+        ))}
+      </div>
       <Filters filter={filter} setFilter={setFilter} types={TYPES} engines={engines} />
       {filter.drillLabel && (
         <div className="drill-bar">
@@ -161,24 +297,27 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
             <tbody>
               {list.map((issue) => (
                 <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}>
-                  <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={checked.includes(issue.key)} onChange={() => toggle(issue.key)} /></td>
-                  <td><span className={`sev ${issue.severity}`}>{issue.severity}</span>{issue.isNew && <div className="pill">{t('new_code')}</div>}</td>
-                  <td className="wrap"><div>{msg(issue)}</div><div className="small">{issue.rule} · {issue.type}{engineOf(issue) !== 'core' ? ` · ${engineOf(issue)}` : ''}</div></td>
-                  <td className="small wrap">{issue.file}:{issue.line}</td>
-                  <td className="small">{issue.status}{issue.resolution ? ` / ${issue.resolution}` : ''}</td>
+                  <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={t('ib_select')} checked={checked.includes(issue.key)} onChange={() => toggle(issue.key)} /></td>
+                  <td className="nowrap"><SevBadge sev={issue.severity} />{issue.isNew && <div><span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span></div>}</td>
+                  <td className="wrap"><div className="msg-line"><TypeBadge type={issue.type} short />{msg(issue)}</div><div className="small">{issue.rule}{engineOf(issue) !== 'core' ? ` · ${engineOf(issue)}` : ''}{issue.review && issue.review.state === 'REQUESTED' ? <> · <span className="warn-text"><Icon name="hourglass" size={11} /> {t('rv_state_requested')}</span></> : null}</div></td>
+                  <td className="small wrap loc">{issue.file}:{issue.line}</td>
+                  <td><StatusPill status={issue.status} resolution={issue.resolution} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {list.length === 0 && <p className="small" style={{ padding: 12 }}>{t('empty')}</p>}
+          {list.length === 0 && (visible.length
+            ? <Empty icon="filter" text={t('es_no_match')} hint={t('es_no_match_hint')}><Btn icon="close" label={t('es_clear_filters')} onClick={() => setFilter({ ...filter, q: '', severity: '', type: '', status: '', newOnly: false, engine: '', standard: '', rules: null, keys: null, drillLabel: '' })} /></Empty>
+            : <Empty icon="checkCircle" text={t('es_no_issues')} hint={t('es_no_issues_hint')} />)}
           </div>
         </div>
         <aside className="panel drawer">
-          {!selected && <p className="small">{t('empty')}</p>}
+          {!selected && <Empty icon="eye" text={t('es_pick_issue')} hint={t('es_pick_issue_hint')} />}
           {selected && (
             <>
+              <div className="chips"><TypeBadge type={selected.type} /><SevBadge sev={selected.severity} /><StatusPill status={selected.status} resolution={selected.resolution} /></div>
               <h3>{msg(selected)}</h3>
-              <div className="small wrap">{selected.file}:{selected.line}</div>
+              <div className="small wrap"><Icon name="file" size={12} /> {selected.file}:{selected.line}</div>
               <div className="chips">
                 <span className="chip engine"><Icon name={ENGINE_ICON[engineOf(selected)] || 'search'} size={11} />{t('ib_engine')} {engineOf(selected)}</span>
                 {misraCategory && <span className="chip misra">{t('ib_misra_category')} {misraCategory}</span>}
@@ -188,24 +327,43 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
               {(selected.snippet || []).length > 0 && <div className="snippet">{(selected.snippet || []).map((row) => (
                 <div key={row.line} className={row.hit ? 'hit' : ''}><span className="ln">{row.line}</span><span>{row.text}</span></div>
               ))}</div>}
-              {rule && <><h3>{t('why')}</h3><p className="small">{textOf(rule.why)}</p><h3>{t('how_to_fix')}</h3><p className="small">{textOf(rule.fix)}</p></>}
+              {rule && <><h3 className="sub-title"><Icon name="lightbulb" size={15} />{t('why')}</h3><p className="small">{textOf(rule.why)}</p><h3 className="sub-title"><Icon name="wrench" size={15} />{t('how_to_fix')}</h3><p className="small">{textOf(rule.fix)}</p></>}
               <div className="actions">
-                <button onClick={() => onUpdate([selected.key], { status: 'CONFIRMED' })}>{t('confirmed')}</button>
-                <button onClick={() => onUpdate([selected.key], { status: 'RESOLVED', resolution: 'FALSE-POSITIVE' })}>{t('false_positive')}</button>
-                <button onClick={() => onUpdate([selected.key], { status: 'RESOLVED', resolution: 'WONTFIX' })}>{t('wontfix')}</button>
-                <button onClick={() => onUpdate([selected.key], { status: 'REOPENED', resolution: null })}>{t('reopen')}</button>
+                <Btn icon="userCheck" label={t('confirmed')} onClick={() => onUpdate([selected.key], { status: 'CONFIRMED' })} title={t('tip_confirm')} />
+                {!noFix && <Btn icon="thumbsUp" label={t('accept')} onClick={() => onUpdate([selected.key], { status: 'ACCEPTED' })} title={t('tip_accept')} />}
+                {!noFix && <Btn icon="xCircle" label={t('false_positive')} onClick={() => onUpdate([selected.key], { status: 'RESOLVED', resolution: 'FALSE-POSITIVE' })} title={t('tip_false_positive')} />}
+                <Btn icon="refresh" label={t('reopen')} onClick={() => onUpdate([selected.key], { status: 'REOPENED', resolution: null })} />
               </div>
+              <h3 className="sub-title"><Icon name="hash" size={15} />{t('ib_tags')}</h3>
+              <TagEditor issue={selected} onUpdate={onUpdate} />
+              {onReview && <ReviewBox issue={selected} approval={approval} onReview={onReview} />}
+              {(selected.changelog || []).length > 0 && (
+                <details className="changelog">
+                  <summary>{t('ib_changelog')} ({selected.changelog.length})</summary>
+                  {[...selected.changelog].reverse().map((c, i) => (
+                    <div key={i} className="small">{new Date(c.at).toLocaleString()} · {c.by || '—'} · {Object.entries(c.patch || {}).filter(([k]) => k !== 'review' && k !== 'comment').map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : v}`).join(' ') || (c.patch && c.patch.review ? t(`rv_state_${String(c.patch.review.state).toLowerCase()}`) : t('comment'))}</div>
+                  ))}
+                </details>
+              )}
               {(selected.comments || []).map((c, i) => <p key={i} className="small"><strong>{c.author}</strong> {c.text}</p>)}
               <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t('comment')} />
-              <button className="ghost" onClick={() => { if (!comment.trim()) return; onUpdate([selected.key], { comment }); setComment(''); }}>{t('add_comment')}</button>
+              <Btn icon="plus" label={t('add_comment')} disabled={!comment.trim()} onClick={() => { if (!comment.trim()) return; onUpdate([selected.key], { comment }); setComment(''); }} />
             </>
           )}
           {checked.length > 0 && (
-            <div className="actions bulk">
-              <span className="small">{t('bulk')} ({checked.length})</span>
-              <input value={assignee} placeholder={t('assignee')} onChange={(e) => setAssignee(e.target.value)} />
-              <button onClick={() => onUpdate(checked, { assignee })}>{t('assignee')}</button>
-              <button onClick={() => onUpdate(checked, { status: 'RESOLVED', resolution: 'FALSE-POSITIVE' })}>{t('false_positive')}</button>
+            <div className="bulk-box">
+              <h3 className="sub-title"><Icon name="check" size={15} />{t('bulk')} ({checked.length})</h3>
+              <div className="input-row">
+                <input value={assignee} placeholder={t('assignee')} aria-label={t('assignee')} onChange={(e) => setAssignee(e.target.value)} />
+                <Btn icon="user" label={t('assignee')} onClick={() => onUpdate(checked, { assignee })} />
+              </div>
+              <div className="actions">
+                <Btn icon="userCheck" label={t('confirmed')} onClick={() => onUpdate(checked, { status: 'CONFIRMED' })} />
+                {!noFix && <Btn icon="thumbsUp" label={t('accept')} onClick={() => onUpdate(checked, { status: 'ACCEPTED' })} />}
+                {!noFix && <Btn icon="xCircle" label={t('false_positive')} onClick={() => onUpdate(checked, { status: 'RESOLVED', resolution: 'FALSE-POSITIVE' })} />}
+                <Btn icon="refresh" label={t('reopen')} onClick={() => onUpdate(checked, { status: 'REOPENED', resolution: null })} />
+                <Btn icon="close" label={t('ib_clear_selection')} onClick={() => setChecked([])} />
+              </div>
             </div>
           )}
         </aside>
@@ -214,46 +372,73 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
   );
 }
 
-export function Hotspots({ issues, rules, onUpdate }) {
+export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
   useLanguage();
   const [cur, setCur] = useState(null);
-  const list = issues.filter((i) => i.type === 'SECURITY_HOTSPOT');
+  const [only, setOnly] = useState('');
+  const all = issues.filter((i) => i.type === 'SECURITY_HOTSPOT');
+  const list = only ? all.filter((i) => (only === 'TO_REVIEW' ? i.status === 'TO_REVIEW' : i.status !== 'TO_REVIEW')) : all;
   const selected = list.find((i) => i.key === cur) || null;
   const rule = selected && rules.find((r) => r.key === selected.rule);
-  return (
-    <div className="split">
-      <div className="panel" style={{ padding: 0 }}>
-        <table>
-          <thead><tr><th>{t('severity')}</th><th>{t('message')}</th><th>{t('status')}</th></tr></thead>
-          <tbody>
-            {list.map((issue) => (
-              <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => setCur(issue.key)}>
-                <td className={`sev ${issue.severity}`}>{issue.severity}</td>
-                <td>{msg(issue)}<div className="small">{issue.file}:{issue.line}</div></td>
-                <td className="small">{labelStatus(issue.status)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {list.length === 0 && <p className="small" style={{ padding: 12 }}>{t('empty')}</p>}
+  const toReview = all.filter((i) => i.status === 'TO_REVIEW').length;
+  if (!hasAnalysis) {
+    return (
+      <div className="view">
+        <ViewHeader icon="shield" title={t('nav_hotspots')} hint={t('vh_hotspots')} />
+        <NoProject text={t('es_no_analysis')} />
       </div>
-      <aside className="panel drawer">
-        {selected && (
-          <>
-            <h3>{msg(selected)}</h3>
-            <div className="snippet">{(selected.snippet || []).map((row) => (
-              <div key={row.line} className={row.hit ? 'hit' : ''}><span className="ln">{row.line}</span><span>{row.text}</span></div>
-            ))}</div>
-            {rule && <p className="small">{textOf(rule.why)} {textOf(rule.fix)}</p>}
-            <div className="actions">
-              <button onClick={() => onUpdate([selected.key], { status: 'ACKNOWLEDGED' })}>{t('acknowledged')}</button>
-              <button onClick={() => onUpdate([selected.key], { status: 'FIXED', resolution: 'FIXED' })}>{t('fixed')}</button>
-              <button onClick={() => onUpdate([selected.key], { status: 'SAFE', resolution: 'SAFE' })}>{t('safe')}</button>
-              <button onClick={() => onUpdate([selected.key], { status: 'TO_REVIEW', resolution: null })}>{t('to_review')}</button>
-            </div>
-          </>
-        )}
-      </aside>
+    );
+  }
+  return (
+    <div className="view">
+      <ViewHeader icon="shield" title={t('nav_hotspots')} hint={t('vh_hotspots')} />
+      <div className="type-tabs">
+        {[['', 'list', t('all'), all.length], ['TO_REVIEW', 'eye', t('to_review'), toReview], ['REVIEWED', 'shieldCheck', t('hs_reviewed'), all.length - toReview]].map(([id, icon, label, n]) => (
+          <button key={id || 'all'} type="button" className={`type-tab ${only === id ? 'on' : ''}`} aria-pressed={only === id} onClick={() => setOnly(id)}>
+            <Icon name={icon} size={15} /><span>{label}</span><span className="vtab-count">{n}</span>
+          </button>
+        ))}
+      </div>
+      <div className="split">
+        <div className="panel tpanel">
+          <div className="table-wrap tall">
+            <table>
+              <thead><tr><th>{t('severity')}</th><th>{t('message')}</th><th>{t('status')}</th></tr></thead>
+              <tbody>
+                {list.map((issue) => (
+                  <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => setCur(issue.key)}>
+                    <td className="nowrap"><SevBadge sev={issue.severity} /></td>
+                    <td className="wrap">{msg(issue)}<div className="small">{issue.file}:{issue.line}</div></td>
+                    <td><StatusPill status={issue.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {list.length === 0 && <Empty icon="shieldCheck" text={t('es_no_hotspots')} hint={t('es_no_hotspots_hint')} />}
+          </div>
+        </div>
+        <aside className="panel drawer">
+          {!selected && <Empty icon="eye" text={t('es_pick_hotspot')} hint={t('es_pick_hotspot_hint')} />}
+          {selected && (
+            <>
+              <div className="chips"><TypeBadge type="SECURITY_HOTSPOT" /><SevBadge sev={selected.severity} /><StatusPill status={selected.status} /></div>
+              <h3>{msg(selected)}</h3>
+              <div className="small wrap"><Icon name="file" size={12} /> {selected.file}:{selected.line}</div>
+              <div className="snippet">{(selected.snippet || []).map((row) => (
+                <div key={row.line} className={row.hit ? 'hit' : ''}><span className="ln">{row.line}</span><span>{row.text}</span></div>
+              ))}</div>
+              {rule && <><h3 className="sub-title"><Icon name="lightbulb" size={15} />{t('why')}</h3><p className="small">{textOf(rule.why)} {textOf(rule.fix)}</p></>}
+              <h3 className="sub-title"><Icon name="userCheck" size={15} />{t('hs_review_as')}</h3>
+              <div className="actions">
+                <Btn icon="userCheck" label={t('acknowledged')} active={selected.status === 'ACKNOWLEDGED'} onClick={() => onUpdate([selected.key], { status: 'ACKNOWLEDGED' })} title={t('tip_acknowledged')} />
+                <Btn icon="wrench" label={t('fixed')} active={selected.status === 'FIXED'} onClick={() => onUpdate([selected.key], { status: 'FIXED', resolution: 'FIXED' })} title={t('tip_fixed')} />
+                <Btn icon="shieldCheck" label={t('safe')} active={selected.status === 'SAFE'} onClick={() => onUpdate([selected.key], { status: 'SAFE', resolution: 'SAFE' })} title={t('tip_safe')} />
+                <Btn icon="eye" label={t('to_review')} active={selected.status === 'TO_REVIEW'} onClick={() => onUpdate([selected.key], { status: 'TO_REVIEW', resolution: null })} />
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }
@@ -286,8 +471,7 @@ function EventPath({ events, file }) {
   );
 }
 
-export const TYPE_ICON = { BUG: 'bug', VULNERABILITY: 'lock', CODE_SMELL: 'code', SECURITY_HOTSPOT: 'shield' };
-export const SEV_ICON = { BLOCKER: 'alert', CRITICAL: 'alert', MAJOR: 'alert', MINOR: 'info', INFO: 'info' };
+export { TYPE_ICON, SEV_ICON };
 
 function Filters({ filter, setFilter, types, engines }) {
   useLanguage();
@@ -295,13 +479,13 @@ function Filters({ filter, setFilter, types, engines }) {
   const typeLabel = (s) => ({ BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells'), SECURITY_HOTSPOT: t('hotspots') }[s] || s);
   return (
     <div className="view-toolbar">
-      <input className="search" placeholder={t('search')} value={filter.q} onChange={(e) => set({ q: e.target.value })} />
+      <span className="search-box"><Icon name="search" size={14} /><input className="search" placeholder={t('ib_search_ph')} aria-label={t('search')} value={filter.q} onChange={(e) => set({ q: e.target.value })} /></span>
       <IconSelect value={filter.severity} onChange={(v) => set({ severity: v })} title={t('severity')} width={150}
-        options={[{ value: '', label: t('ib_any_severity'), icon: 'list' }, ...SEV.map((s) => ({ value: s, label: s, icon: SEV_ICON[s] }))]} />
+        options={[{ value: '', label: t('ib_any_severity'), icon: 'list' }, ...SEV.map((s) => ({ value: s, label: sevLabel(s), icon: SEV_ICON[s] }))]} />
       <IconSelect value={filter.type} onChange={(v) => set({ type: v })} title={t('type')} width={150}
         options={[{ value: '', label: t('ib_any_type'), icon: 'list' }, ...types.map((s) => ({ value: s, label: typeLabel(s), icon: TYPE_ICON[s] }))]} />
       <IconSelect value={filter.status} onChange={(v) => set({ status: v })} title={t('status')} width={150}
-        options={[{ value: '', label: t('ib_any_status'), icon: 'list' }, ...['OPEN', 'CONFIRMED', 'REOPENED', 'RESOLVED', 'CLOSED', 'TO_REVIEW'].map((s) => ({ value: s, label: s, icon: s === 'RESOLVED' || s === 'CLOSED' ? 'check' : 'clock' }))]} />
+        options={[{ value: '', label: t('ib_any_status'), icon: 'list' }, ...['OPEN', 'CONFIRMED', 'REOPENED', 'RESOLVED', 'CLOSED', 'TO_REVIEW'].map((s) => ({ value: s, label: statusLabel(s), icon: STATUS_ICON[s] || 'clock' }))]} />
       {engines && (
         <IconSelect value={filter.engine || ''} onChange={(v) => set({ engine: v })} title={t('ib_engine')} width={150}
           options={[{ value: '', label: t('ib_any_engine'), icon: 'cpu' }, ...engines.map((e) => ({ value: e, label: e, icon: ENGINE_ICON[e] || 'cpu' }))]} />
@@ -340,40 +524,69 @@ function filterIssues(issues, filter, hotspots, ruleMap) {
 export function Measures({ analysis }) {
   useLanguage();
   const lang = getLanguage();
-  if (!analysis) return <p className="muted">{t('empty')}</p>;
+  if (!analysis) return <div className="view"><ViewHeader icon="gauge" title={t('nav_measures')} hint={t('measures_hint')} /><NoProject text={t('es_no_analysis')} /></div>;
   const rows = Object.entries(analysis.measures);
+  const iconOf = (k) => {
+    const b = String(k).replace(/^new_/, '');
+    if (b.startsWith('bug') || b.startsWith('reliab')) return 'bug';
+    if (b.startsWith('vuln') || b === 'security_rating') return 'unlock';
+    if (b.startsWith('code_smell') || b.startsWith('sqale') || b.startsWith('maint')) return 'smell';
+    if (b.includes('hotspot') || b.includes('review')) return 'shield';
+    if (b.includes('dup')) return 'copy';
+    if (b.includes('cover')) return 'checkCircle';
+    if (b.includes('complex')) return 'flow';
+    if (b.includes('comment')) return 'edit';
+    if (b === 'files' || b === 'ncloc' || b.includes('line')) return 'code';
+    return 'gauge';
+  };
   return (
-    <div>
-      <p className="small">{t('measures_hint')}</p>
-      <table>
-        <tbody>
-          {rows.map(([k, v]) => (
-            <tr key={k}><td>{metricLabel(k, lang)}</td><td>{k}</td><td>{v == null ? '—' : String(v)}</td></tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="view">
+      <ViewHeader icon="gauge" title={t('nav_measures')} hint={t('measures_hint')} />
+      <div className="panel tpanel">
+        <div className="table-wrap tall">
+          <table>
+            <thead><tr><th>{t('ms_metric')}</th><th>{t('ms_key')}</th><th className="num">{t('ms_value')}</th></tr></thead>
+            <tbody>
+              {rows.map(([k, v]) => (
+                <tr key={k}>
+                  <td><span className="metric-name"><Icon name={iconOf(k)} size={14} />{metricLabel(k, lang)}{String(k).startsWith('new_') && <span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span>}</span></td>
+                  <td className="small mono">{k}</td>
+                  <td className="num">{v == null ? '—' : String(v)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
 
 export function CodeView({ analysis, file, text, onOpen }) {
   useLanguage();
-  if (!analysis) return <p className="muted">{t('empty')}</p>;
+  const [q, setQ] = useState('');
+  if (!analysis) return <div className="view"><ViewHeader icon="code" title={t('nav_code')} hint={t('vh_code')} /><NoProject text={t('es_no_analysis')} /></div>;
   const marks = new Set((analysis.issues || []).filter((i) => i.file === file).map((i) => i.line));
   const lines = text == null ? [] : String(text).split(/\r?\n/);
+  const files = q ? analysis.files.filter((f) => f.path.toLowerCase().includes(q.toLowerCase())) : analysis.files;
   return (
-    <div className="code-wrap" style={{ height: 'calc(100vh - 180px)' }}>
-      <div className="filetree">
-        {analysis.files.map((f) => (
-          <button key={f.path} className={f.path === file ? 'on' : ''} onClick={() => onOpen(f.path)} title={f.path}>
-            {f.path} <span className="muted">{f.issues || 0}</span>
-          </button>
-        ))}
-      </div>
-      <div className="codepane selectable">
-        {lines.map((line, i) => (
-          <div key={i} className={`row ${marks.has(i + 1) ? 'mark' : ''}`}><span className="ln">{i + 1}</span><span>{line || ' '}</span></div>
-        ))}
+    <div className="view view-fill">
+      <ViewHeader icon="code" title={t('nav_code')} hint={t('vh_code')} />
+      <div className="code-wrap">
+        <div className="filetree">
+          <div className="filetree-search"><Icon name="search" size={13} /><input placeholder={t('cv_filter')} aria-label={t('cv_filter')} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          {files.map((f) => (
+            <button key={f.path} className={f.path === file ? 'on' : ''} onClick={() => onOpen(f.path)} title={f.path}>
+              <Icon name="file" size={13} /><span className="ft-name">{f.path}</span>{f.issues ? <span className="nav-count warn">{f.issues}</span> : null}
+            </button>
+          ))}
+        </div>
+        <div className="codepane selectable">
+          {!file && <Empty icon="file" text={t('cv_pick')} hint={t('cv_pick_hint')} />}
+          {lines.map((line, i) => (
+            <div key={i} className={`row ${marks.has(i + 1) ? 'mark' : ''}`} title={marks.has(i + 1) ? t('cv_issue_here') : undefined}><span className="ln">{marks.has(i + 1) ? '● ' : ''}{i + 1}</span><span>{line || ' '}</span></div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -383,15 +596,16 @@ export function Duplications({ analysis, onOpen }) {
   useLanguage();
   const blocks = (analysis && analysis.duplications) || [];
   return (
-    <div>
-      <p className="small">{t('dup_hint')}</p>
-      {blocks.length === 0 && <p className="muted">{t('empty')}</p>}
+    <div className="view">
+      <ViewHeader icon="copy" title={t('nav_dup')} hint={t('dup_hint')} />
+      {!analysis && <NoProject text={t('es_no_analysis')} />}
+      {analysis && blocks.length === 0 && <Empty icon="checkCircle" text={t('es_no_dup')} hint={t('es_no_dup_hint')} />}
       {blocks.map((b) => (
-        <div key={b.hash + b.instances[0].path + b.instances[0].start} className="panel" style={{ marginBottom: 8 }}>
-          <strong>{b.lines} {t('lines')}</strong>
+        <div key={b.hash + b.instances[0].path + b.instances[0].start} className="panel dup-block">
+          <div className="sub-title"><Icon name="copy" size={15} /><strong>{b.lines} {t('lines')}</strong><span className="small">· {t('dup_places', { n: b.instances.length })}</span></div>
           {b.instances.map((inst) => (
-            <button key={inst.path + inst.start} className="nav-item" onClick={() => onOpen(inst.path)}>
-              {inst.path}:{inst.start}–{inst.end}
+            <button key={inst.path + inst.start} type="button" className="recent-item compact" onClick={() => onOpen(inst.path)} title={t('dup_open')}>
+              <Icon name="file" size={14} /><span className="recent-text"><span className="mono">{inst.path}:{inst.start}–{inst.end}</span></span><Icon name="chevronRight" size={14} />
             </button>
           ))}
         </div>
@@ -405,29 +619,41 @@ export function Activity({ history }) {
   const rows = history || [];
   const max = Math.max(1, ...rows.map((h) => (h.measures && h.measures.bugs + h.measures.vulnerabilities + h.measures.code_smells) || 0));
   return (
-    <div>
-      <p className="small">{t('activity_hint')}</p>
-      <div className="bars">
-        {rows.map((h) => {
-          const n = h.measures ? h.measures.bugs + h.measures.vulnerabilities + h.measures.code_smells : 0;
-          return <div key={h.at} className="bar" style={{ height: `${Math.max(6, (n / max) * 110)}px` }} title={`${h.at} ${n}`} />;
-        })}
-      </div>
-      <table>
-        <thead><tr><th>{t('when')}</th><th>{t('gate')}</th><th>{t('bugs')}</th><th>{t('vulns')}</th><th>{t('smells')}</th><th>{t('duration')}</th></tr></thead>
-        <tbody>
-          {[...rows].reverse().map((h) => (
-            <tr key={h.at}>
-              <td className="small">{h.at}</td>
-              <td className={h.gate === 'OK' ? 'ok' : 'bad'}>{h.gate}</td>
-              <td>{h.measures && h.measures.bugs}</td>
-              <td>{h.measures && h.measures.vulnerabilities}</td>
-              <td>{h.measures && h.measures.code_smells}</td>
-              <td className="small">{h.durationMs} ms</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="view">
+      <ViewHeader icon="clock" title={t('nav_activity')} hint={t('activity_hint')} />
+      {rows.length === 0 && <Empty icon="clock" text={t('es_no_activity')} hint={t('es_no_activity_hint')}><Btn icon="play" label={t('run_analysis')} primary onClick={() => emitAction('analyze')} /></Empty>}
+      {rows.length > 0 && (
+        <>
+          <div className="panel">
+            <h3 className="sub-title"><Icon name="chart" size={15} />{t('act_chart')}</h3>
+            <div className="bars">
+              {rows.map((h) => {
+                const n = h.measures ? h.measures.bugs + h.measures.vulnerabilities + h.measures.code_smells : 0;
+                return <div key={h.at} className={`bar ${h.gate === 'OK' ? '' : 'bar-bad'}`} style={{ height: `${Math.max(6, (n / max) * 110)}px` }} title={`${h.at} · ${t('nav_issues')} ${n} · ${t('gate')} ${h.gate === 'OK' ? t('passed') : t('failed')}`} />;
+              })}
+            </div>
+          </div>
+          <div className="panel tpanel" style={{ marginTop: 12 }}>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>{t('when')}</th><th>{t('gate')}</th><th className="num"><Icon name="bug" size={12} /> {t('bugs')}</th><th className="num"><Icon name="unlock" size={12} /> {t('vulns')}</th><th className="num"><Icon name="smell" size={12} /> {t('smells')}</th><th className="num">{t('duration')}</th></tr></thead>
+                <tbody>
+                  {[...rows].reverse().map((h) => (
+                    <tr key={h.at}>
+                      <td className="small nowrap">{h.at}</td>
+                      <td><span className={`status-pill tone-${h.gate === 'OK' ? 'ok' : 'bad'}`}><Icon name={h.gate === 'OK' ? 'checkCircle' : 'xCircle'} size={12} />{h.gate === 'OK' ? t('passed') : t('failed')}</span></td>
+                      <td className="num">{h.measures && h.measures.bugs}</td>
+                      <td className="num">{h.measures && h.measures.vulnerabilities}</td>
+                      <td className="num">{h.measures && h.measures.code_smells}</td>
+                      <td className="small num">{h.durationMs} ms</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -450,10 +676,10 @@ export function RulesView({ rules, onDeactivate }) {
     return blob.includes(q.toLowerCase());
   });
   return (
-    <div>
-      <p className="small">{t('rules_hint')} ({list.length} / {rules.length})</p>
+    <div className="view">
+      <ViewHeader icon="search" title={t('nav_rules')} hint={`${t('rules_hint')} (${list.length} / ${rules.length})`} />
       <div className="view-toolbar">
-        <input className="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="search-box"><Icon name="search" size={14} /><input className="search" placeholder={t('rl_search_ph')} aria-label={t('search')} value={q} onChange={(e) => setQ(e.target.value)} /></span>
         <IconSelect value={lang} onChange={setLang} title={t('languages')} width={150}
           options={[{ value: '', label: t('ib_any_language'), icon: 'code' }, ...langs.map((l) => ({ value: l, label: l === '*' ? t('all') : l, icon: 'file' }))]} />
         <IconSelect value={engine} onChange={setEngine} title={t('ib_engine')} width={150}
@@ -483,14 +709,15 @@ export function RulesView({ rules, onDeactivate }) {
                       )}
                       <div className="small">{textOf(r.why)}</div>
                     </td>
-                    <td className={`sev ${r.severity}`}>{r.severity}</td>
-                    <td className="small">{r.type}</td>
-                    <td className="act"><Btn icon="minus" label={t('inactive')} onClick={() => onDeactivate(r.key)} /></td>
+                    <td className="nowrap"><SevBadge sev={r.severity} /></td>
+                    <td className="nowrap"><TypeBadge type={r.type} /></td>
+                    <td className="act"><Btn icon="minus" label={t('inactive')} title={t('tip_deactivate')} onClick={() => onDeactivate(r.key)} /></td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          {list.length === 0 && <Empty icon="search" text={t('es_no_match')} hint={t('es_no_match_hint')} />}
           {list.length > limit && <div className="more-row"><Btn icon="plus" label={t('ib_show_more', { n: list.length - limit })} onClick={() => setLimit(limit + 300)} /></div>}
         </div>
       </div>
@@ -498,13 +725,32 @@ export function RulesView({ rules, onDeactivate }) {
   );
 }
 
-export function ProfilesView({ profiles, rules, onChange }) {
+// Quality profiles: per-language rule sets with inheritance, project
+// assignment, compare, backup / restore and a changelog (SonarQube style).
+export function ProfilesView({ profiles, rules, project, onChange, onAssign, onReload }) {
   useLanguage();
   const [id, setId] = useState((profiles[0] && profiles[0].id) || '');
   const [q, setQ] = useState('');
+  const [tab, setTab] = useState('rules');
+  const [other, setOther] = useState('');
+  const [diff, setDiff] = useState(null);
+  const [error, setError] = useState('');
   const profile = profiles.find((p) => p.id === id) || profiles[0];
   if (!profile) return null;
-  const inactive = new Set(profile.inactive || []);
+  const byId = new Map(profiles.map((p) => [p.id, p]));
+  // Effective set after inheritance (same order as core/profiles.js).
+  const lineage = [];
+  for (let p = profile, guard = 0; p && guard < 16 && !lineage.includes(p); p = byId.get(p.parentId), guard++) lineage.unshift(p);
+  const inactive = new Set();
+  const overridesEff = {};
+  for (const p of lineage) {
+    for (const k of p.inactive || []) inactive.add(k);
+    for (const k of p.activated || []) inactive.delete(k);
+    Object.assign(overridesEff, p.overrides || {});
+  }
+  const inheritedOff = new Set();
+  for (const p of lineage.slice(0, -1)) for (const k of p.inactive || []) inheritedOff.add(k);
+  const sameLang = profiles.filter((p) => p.language === profile.language);
   const list = rules.filter((r) => {
     const langs = r.langs || [];
     if (profile.language !== '*' && !langs.includes(profile.language) && !langs.includes('*')) return false;
@@ -512,42 +758,153 @@ export function ProfilesView({ profiles, rules, onChange }) {
     return `${r.key} ${textOf(r.name)}`.toLowerCase().includes(q.toLowerCase());
   });
   const update = (next) => onChange(profiles.map((p) => (p.id === profile.id ? next : p)));
-  const sevOptions = SEV.map((s) => ({ value: s, label: s, icon: SEV_ICON[s] }));
+  const setActive = (key, on) => {
+    const off = new Set(profile.inactive || []);
+    const act = new Set(profile.activated || []);
+    if (on) { off.delete(key); if (inheritedOff.has(key)) act.add(key); }
+    else { act.delete(key); off.add(key); }
+    update({ ...profile, inactive: [...off], activated: [...act] });
+  };
+  const create = (asChild) => {
+    const copy = {
+      id: `${profile.language === '*' ? 'all' : profile.language}-${Date.now().toString(36)}`,
+      name: `${profile.name} ${asChild ? t('qp_child') : t('qp_copy')}`,
+      language: profile.language,
+      isDefault: false,
+      parentId: asChild ? profile.id : (profile.parentId || null),
+      inactive: asChild ? [] : [...(profile.inactive || [])],
+      activated: asChild ? [] : [...(profile.activated || [])],
+      overrides: asChild ? {} : { ...(profile.overrides || {}) },
+    };
+    onChange([...profiles, copy]);
+    setId(copy.id);
+  };
+  const remove = () => {
+    if (profile.isDefault || profiles.some((p) => p.parentId === profile.id)) { setError(t('qp_cannot_delete')); return; }
+    onChange(profiles.filter((p) => p.id !== profile.id));
+    setId(sameLang.find((p) => p.id !== profile.id)?.id || '');
+  };
+  const setDefault = () => onChange(profiles.map((p) => (p.language === profile.language ? { ...p, isDefault: p.id === profile.id } : p)));
+  const runCompare = async (b) => {
+    setOther(b);
+    setDiff(null);
+    if (!b) return;
+    try { setDiff(await call('profile.compare', { a: profile.id, b })); } catch (err) { setError(err.message); }
+  };
+  const backup = async () => {
+    try {
+      const data = await call('profile.backup', { id: profile.id });
+      saveText(`${profile.language}-${profile.name.replace(/[^\w.-]+/g, '_')}.profile.json`, JSON.stringify(data, null, 2), 'application/json');
+    } catch (err) { setError(err.message); }
+  };
+  const restore = async (text) => {
+    try {
+      const restored = await call('profile.restore', { data: text });
+      await onReload();
+      setId(restored.id);
+    } catch (err) { setError(err.message); }
+  };
+  const used = project && project.profiles && project.profiles[profile.language];
+  const isUsed = used ? used === profile.id : !!profile.isDefault;
+  const sevOptions = SEV.map((s) => ({ value: s, label: sevLabel(s), icon: SEV_ICON[s] }));
+  const ruleName = (key) => { const r = rules.find((x) => x.key === key); return r ? textOf(r.name) : key; };
   return (
-    <div>
+    <div className="view">
+      <ViewHeader icon="layers" title={t('nav_profiles')} hint={t('vh_profiles')} />
       <div className="view-toolbar">
-        <IconSelect value={profile.id} onChange={setId} title={t('profile')} ariaLabel={t('profile')} width={240}
-          options={profiles.map((p) => ({ value: p.id, label: `${p.name} (${p.language})`, icon: 'layers' }))} />
-        <input className="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
+        <IconSelect value={profile.id} onChange={(v) => { setId(v); setDiff(null); setOther(''); setError(''); }} title={t('profile')} ariaLabel={t('profile')} width={260}
+          options={profiles.map((p) => ({ value: p.id, label: `${p.name} (${p.language})${p.isDefault ? ' ★' : ''}`, icon: p.isDefault ? 'star' : 'layers' }))} />
+        <input className="search" aria-label={t('qp_name')} value={profile.name} onChange={(e) => update({ ...profile, name: e.target.value })} />
+        <Btn icon="copy" label={t('qp_copy')} onClick={() => create(false)} />
+        <Btn icon="layers" label={t('qp_extend')} onClick={() => create(true)} />
+        <Btn icon="star" label={t('qp_set_default')} disabled={profile.isDefault} onClick={setDefault} />
+        {project && <Btn icon="check" label={t('qp_use_for_project')} active={isUsed} onClick={() => onAssign(profile.language, profile.isDefault ? null : profile.id)} />}
+        <Btn icon="download" label={t('qp_backup')} onClick={backup} />
+        <FilePickButton label={t('qp_restore')} accept=".json,application/json" onText={restore} />
+        <Btn icon="trash" label={t('remove')} danger disabled={profile.isDefault} onClick={remove} />
       </div>
-      <div className="panel tpanel">
-        <div className="table-wrap tall">
-          <table>
-            <thead><tr><th>{t('active')}</th><th>{t('rule')}</th><th>{t('severity')}</th></tr></thead>
-            <tbody>
-              {list.map((r) => (
-                <tr key={r.key}>
-                  <td><input type="checkbox" aria-label={t('active')} checked={!inactive.has(r.key)} onChange={(e) => {
-                    const set = new Set(profile.inactive || []);
-                    if (e.target.checked) set.delete(r.key); else set.add(r.key);
-                    update({ ...profile, inactive: [...set] });
-                  }} /></td>
-                  <td className="wrap">{textOf(r.name)}<div className="small">{r.key}</div></td>
-                  <td className="nowrap">
-                    <IconSelect value={(profile.overrides && profile.overrides[r.key]) || r.severity} options={sevOptions} width={150} ariaLabel={t('severity')}
-                      onChange={(v) => {
-                        const overrides = { ...(profile.overrides || {}) };
-                        if (v === r.severity) delete overrides[r.key];
-                        else overrides[r.key] = v;
-                        update({ ...profile, overrides });
-                      }} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="view-toolbar">
+        <span className="tb-label">{t('qp_parent')}</span>
+        <IconSelect value={profile.parentId || ''} width={240} ariaLabel={t('qp_parent')}
+          options={[{ value: '', label: t('qp_no_parent'), icon: 'close' }, ...sameLang.filter((p) => p.id !== profile.id && !lineage.includes(p)).map((p) => ({ value: p.id, label: p.name, icon: 'layers' }))]}
+          onChange={(v) => update({ ...profile, parentId: v || null })} />
+        <BtnGroup>
+          <Btn icon="list" label={t('qp_tab_rules')} active={tab === 'rules'} onClick={() => setTab('rules')} />
+          <Btn icon="scale" label={t('qp_tab_compare')} active={tab === 'compare'} onClick={() => setTab('compare')} />
+          <Btn icon="clock" label={t('qp_tab_changelog')} active={tab === 'changelog'} onClick={() => setTab('changelog')} />
+        </BtnGroup>
+        {tab === 'rules' && <input className="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />}
+        <span className="small">{t('qp_active_count').replace('{0}', String(list.filter((r) => !inactive.has(r.key)).length)).replace('{1}', String(list.length))}</span>
+      </div>
+      {error && <p className="small bad">{error}</p>}
+      {tab === 'rules' && (
+        <div className="panel tpanel">
+          <div className="table-wrap tall">
+            <table>
+              <thead><tr><th>{t('active')}</th><th>{t('rule')}</th><th>{t('severity')}</th></tr></thead>
+              <tbody>
+                {list.map((r) => (
+                  <tr key={r.key}>
+                    <td><input type="checkbox" aria-label={t('active')} checked={!inactive.has(r.key)} onChange={(e) => setActive(r.key, e.target.checked)} /></td>
+                    <td className="wrap">{textOf(r.name)}<div className="small">{r.key}{inheritedOff.has(r.key) && !(profile.activated || []).includes(r.key) ? ` · ${t('qp_inherited')}` : ''}</div></td>
+                    <td className="nowrap">
+                      <IconSelect value={overridesEff[r.key] || r.severity} options={sevOptions} width={150} ariaLabel={t('severity')}
+                        onChange={(v) => {
+                          const overrides = { ...(profile.overrides || {}) };
+                          if (v === r.severity) delete overrides[r.key];
+                          else overrides[r.key] = v;
+                          update({ ...profile, overrides });
+                        }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+      {tab === 'compare' && (
+        <div className="panel">
+          <div className="view-toolbar">
+            <span className="tb-label">{t('qp_compare_with')}</span>
+            <IconSelect value={other} width={260} ariaLabel={t('qp_compare_with')} onChange={runCompare}
+              options={[{ value: '', label: '—', icon: 'close' }, ...sameLang.filter((p) => p.id !== profile.id).map((p) => ({ value: p.id, label: p.name, icon: 'layers' }))]} />
+          </div>
+          {diff && (
+            <div className="table-wrap tall">
+              <table>
+                <thead><tr><th>{t('rule')}</th><th>{profile.name}</th><th>{(byId.get(diff.b) || {}).name}</th></tr></thead>
+                <tbody>
+                  {diff.onlyA.map((k) => <tr key={`a${k}`}><td className="wrap">{ruleName(k)}<div className="small">{k}</div></td><td>✓</td><td>—</td></tr>)}
+                  {diff.onlyB.map((k) => <tr key={`b${k}`}><td className="wrap">{ruleName(k)}<div className="small">{k}</div></td><td>—</td><td>✓</td></tr>)}
+                  {diff.severity.map((d) => <tr key={`s${d.key}`}><td className="wrap">{ruleName(d.key)}<div className="small">{d.key}</div></td><td>{d.a}</td><td>{d.b}</td></tr>)}
+                  {!diff.onlyA.length && !diff.onlyB.length && !diff.severity.length && <tr><td colSpan={3}>{t('qp_same')}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+      {tab === 'changelog' && (
+        <div className="panel tpanel">
+          <div className="table-wrap tall">
+            <table>
+              <thead><tr><th>{t('ms_date')}</th><th>{t('qp_by')}</th><th>{t('qp_action')}</th><th>{t('rule')}</th></tr></thead>
+              <tbody>
+                {[...(profile.changelog || [])].reverse().map((c, i) => (
+                  <tr key={i}>
+                    <td className="nowrap">{new Date(c.at).toLocaleString()}</td>
+                    <td>{c.by || '—'}</td>
+                    <td>{t(`qp_act_${c.action}`)}{c.action === 'severity' ? ` ${c.from || '·'} → ${c.to || '·'}` : ''}</td>
+                    <td className="wrap">{c.rule ? <>{ruleName(c.rule)}<div className="small">{c.rule}</div></> : ''}</td>
+                  </tr>
+                ))}
+                {!(profile.changelog || []).length && <tr><td colSpan={4}>{t('qp_no_changes')}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -566,10 +923,12 @@ export function GatesView({ gates, project, onChange, onAssign }) {
   const metricOptions = metrics.map((m) => ({ value: m, label: metricLabel(m, lang), icon: m.startsWith('new_') ? 'clock' : 'chart' }));
   const opOptions = Object.keys(GATE_OPS).map((op) => ({ value: op, label: `${op} (${GATE_OPS[op]})`, icon: 'filter' }));
   return (
-    <div>
+    <div className="view">
+      <ViewHeader icon="gate" title={t('nav_gates')} hint={t('vh_gates')} />
       <div className="view-toolbar">
         <IconSelect value={gate.id} onChange={setId} title={t('gate_pick')} ariaLabel={t('gate_pick')} width={240}
-          options={gates.map((g) => ({ value: g.id, label: g.name, icon: 'gate' }))} />
+          options={gates.map((g) => ({ value: g.id, label: `${g.name}${g.isDefault ? ' ★' : ''}`, icon: g.isDefault ? 'star' : 'gate' }))} />
+        {project && project.gateId === gate.id && <span className="status-pill tone-ok"><Icon name="link" size={12} />{t('gate_in_use')}</span>}
         <Btn icon="copy" label={t('gate_copy')} onClick={() => {
           const copy = { ...gate, id: `gate-${Date.now().toString(36)}`, name: `${gate.name} copy`, isDefault: false, conditions: gate.conditions.map((c) => ({ ...c, id: `c-${Math.random().toString(36).slice(2, 7)}` })) };
           onChange([...gates, copy]);
@@ -592,6 +951,7 @@ export function GatesView({ gates, project, onChange, onAssign }) {
               ))}
             </tbody>
           </table>
+          {gate.conditions.length === 0 && <Empty icon="gate" text={t('es_no_conditions')} hint={t('es_no_conditions_hint')} />}
         </div>
       </div>
       <div className="table-foot">
@@ -604,35 +964,42 @@ export function GatesView({ gates, project, onChange, onAssign }) {
 export function Portfolios({ portfolios, projects, onChange }) {
   useLanguage();
   const [name, setName] = useState('');
+  const create = () => { if (!name.trim()) return; onChange([...portfolios, { id: `pf-${Date.now().toString(36)}`, name: name.trim(), projectIds: [] }]); setName(''); };
   return (
-    <div>
-      <div className="hrow">
-        <input placeholder={t('name')} value={name} onChange={(e) => setName(e.target.value)} />
-        <button className="primary" onClick={() => { if (!name.trim()) return; onChange([...portfolios, { id: `pf-${Date.now().toString(36)}`, name: name.trim(), projectIds: [] }]); setName(''); }}>{t('create_portfolio')}</button>
+    <div className="view">
+      <ViewHeader icon="folder" title={t('nav_portfolios')} hint={t('vh_portfolios')} />
+      <div className="view-toolbar">
+        <input placeholder={t('pf_name_ph')} aria-label={t('name')} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') create(); }} />
+        <Btn icon="plus" label={t('create_portfolio')} primary disabled={!name.trim()} onClick={create} />
       </div>
       {portfolios.map((pf) => {
         const members = projects.filter((p) => pf.projectIds.includes(p.id));
         const failed = members.filter((p) => branchGate(p) === 'ERROR').length;
         return (
           <div key={pf.id} className="panel" style={{ marginTop: 10 }}>
-            <div className="hrow">
-              <strong>{pf.name}</strong>
-              <span className={failed ? 'bad' : 'ok'}>{failed ? t('failed') : t('passed')} ({members.length})</span>
-              <button className="ghost" onClick={() => onChange(portfolios.filter((x) => x.id !== pf.id))}>{t('remove')}</button>
+            <div className="section-head">
+              <span className="sub-title" style={{ margin: 0 }}><Icon name="folder" size={15} /><strong>{pf.name}</strong></span>
+              <span className={`status-pill tone-${failed ? 'bad' : 'ok'}`}><Icon name={failed ? 'xCircle' : 'checkCircle'} size={12} />{failed ? t('failed') : t('passed')} · {t('pf_members', { n: members.length })}</span>
+              <span className="spacer" />
+              <Btn icon="trash" label={t('remove')} danger onClick={() => onChange(portfolios.filter((x) => x.id !== pf.id))} />
             </div>
-            {projects.map((p) => (
-              <label key={p.id} className="check">
-                <input type="checkbox" checked={pf.projectIds.includes(p.id)} onChange={(e) => {
-                  const projectIds = e.target.checked ? [...pf.projectIds, p.id] : pf.projectIds.filter((id) => id !== p.id);
-                  onChange(portfolios.map((x) => x.id === pf.id ? { ...x, projectIds } : x));
-                }} />
-                {p.name} <span className="muted">{branchGate(p) || '—'}</span>
-              </label>
-            ))}
+            {projects.map((p) => {
+              const gate = branchGate(p);
+              return (
+                <label key={p.id} className="check pf-row">
+                  <input type="checkbox" checked={pf.projectIds.includes(p.id)} onChange={(e) => {
+                    const projectIds = e.target.checked ? [...pf.projectIds, p.id] : pf.projectIds.filter((id) => id !== p.id);
+                    onChange(portfolios.map((x) => x.id === pf.id ? { ...x, projectIds } : x));
+                  }} />
+                  <Icon name="folder" size={14} />{p.name}
+                  {gate ? <span className={`status-pill tone-${gate === 'OK' ? 'ok' : 'bad'}`}><Icon name={gate === 'OK' ? 'checkCircle' : 'xCircle'} size={12} />{gate === 'OK' ? t('passed') : t('failed')}</span> : <span className="muted">—</span>}
+                </label>
+              );
+            })}
           </div>
         );
       })}
-      {portfolios.length === 0 && <p className="muted">{t('empty')}</p>}
+      {portfolios.length === 0 && <Empty icon="folder" text={t('es_no_portfolios')} hint={t('es_no_portfolios_hint')} />}
     </div>
   );
 }
@@ -647,23 +1014,31 @@ function branchGate(project) {
 
 export function Tasks({ tasks }) {
   useLanguage();
+  const statusIcon = (s) => (s === 'SUCCESS' ? 'checkCircle' : s === 'FAILED' ? 'xCircle' : s === 'IN_PROGRESS' || s === 'PENDING' ? 'hourglass' : 'circleDot');
   return (
-    <div>
-      <p className="small">{t('tasks_hint')}</p>
-      <table>
-        <thead><tr><th>{t('when')}</th><th>{t('branch')}</th><th>{t('status')}</th><th>{t('gate')}</th><th>{t('duration')}</th></tr></thead>
-        <tbody>
-          {(tasks || []).map((task) => (
-            <tr key={task.id}>
-              <td className="small">{task.submittedAt}</td>
-              <td>{task.branch}</td>
-              <td>{task.status}</td>
-              <td className={task.gate === 'OK' ? 'ok' : 'bad'}>{task.gate || task.error || ''}</td>
-              <td className="small">{task.durationMs ? `${task.durationMs} ms` : ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="view">
+      <ViewHeader icon="hourglass" title={t('nav_tasks')} hint={t('tasks_hint')} />
+      {(tasks || []).length === 0 && <Empty icon="hourglass" text={t('es_no_tasks')} hint={t('es_no_tasks_hint')} />}
+      {(tasks || []).length > 0 && (
+        <div className="panel tpanel">
+          <div className="table-wrap tall">
+            <table>
+              <thead><tr><th>{t('when')}</th><th>{t('branch')}</th><th>{t('status')}</th><th>{t('gate')}</th><th className="num">{t('duration')}</th></tr></thead>
+              <tbody>
+                {(tasks || []).map((task) => (
+                  <tr key={task.id}>
+                    <td className="small nowrap">{task.submittedAt}</td>
+                    <td><Icon name="branch" size={12} /> {task.branch}</td>
+                    <td><span className={`status-pill tone-${task.status === 'SUCCESS' ? 'ok' : task.status === 'FAILED' ? 'bad' : 'info'}`}><Icon name={statusIcon(task.status)} size={12} />{task.status}</span></td>
+                    <td className={task.gate === 'OK' ? 'ok' : 'bad'}>{task.gate === 'OK' ? t('passed') : task.gate === 'ERROR' ? t('failed') : (task.gate || task.error || '')}</td>
+                    <td className="small num">{task.durationMs ? `${task.durationMs} ms` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

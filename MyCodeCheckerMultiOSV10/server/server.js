@@ -12,7 +12,7 @@ const root = path.join(__dirname, '..');
 const dist = path.join(root, 'dist');
 const port = Number(process.env.MCC_PORT || arg('port', 5211));
 const host = arg('host', '127.0.0.1');
-const { handle } = createHandler({ configDir: arg('config', '') || undefined, version: readVersion() });
+const { handle } = createHandler({ configDir: arg('config', '') || undefined, version: readVersion(), scheduler: !process.argv.includes('--no-scheduler') });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',

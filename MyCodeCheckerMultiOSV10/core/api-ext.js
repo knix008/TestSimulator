@@ -64,6 +64,8 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
       },
       absint: (ws.settings && ws.settings.absint) || {},
       taintModels: (ws.settings && ws.settings.taintModels) || undefined,
+      his: { ...((ws.settings && ws.settings.his) || {}), ...((project && project.his) || {}) },
+      arch: (project && project.arch) || (ws.settings && ws.settings.arch) || {},
     };
   }
 
@@ -81,12 +83,6 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     try {
       Object.assign(analysis.measures, measures.extraMeasures(analysis, { tests: project.tests }));
     } catch { /* extra measures are best effort */ }
-    if (ws.settings && ws.settings.newCode === 'scm') {
-      const changed = await scm.changedLines(project.path, ws.settings.newCodeRef || null, {});
-      if (changed && changed.files && Object.keys(changed.files).length) {
-        for (const issue of analysis.issues) issue.isNew = scm.isChangedLine(changed, issue.file, issue.line);
-      }
-    }
     if (ws.settings && ws.settings.autoAssign) {
       const files = [...new Set(analysis.issues.filter((i) => !i.assignee).map((i) => i.file))];
       const blame = await scm.blameFiles(project.path, files, {});
@@ -158,7 +154,35 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
       if (kind === 'sbom') opts.sca = sca.scanDependencies(project.path, engineOptions(ws, project).sca);
       const out = reports.build(kind, analysis, opts);
       if (args.format === 'csv') return { format: 'csv', body: out.csv, type: 'text/csv', fileName: `${out.fileName}.csv` };
+      // Native Word / Excel / PDF files: binary, sent as base64.
+      if (['docx', 'xlsx', 'pdf'].includes(args.format)) {
+        const exported = require('./export').exportWithInfo(require('./export').fromHtml(out.html), args.format, { lang: opts.lang, csv: out.csv, creator: 'MyCodeChecker' });
+        return { format: args.format, base64: exported.buffer.toString('base64'), type: exported.mimeType, fileName: `${out.fileName}.${String(exported.extension).replace(/^\./, '')}`, warnings: exported.warnings };
+      }
       return { format: 'html', body: out.html, type: 'text/html', fileName: `${out.fileName}.html` };
+    },
+    // Regulatory report (SonarQube Enterprise): one ZIP with the executive,
+    // security, compliance and SBOM reports as PDF plus the issue list as XLSX.
+    'report.regulatory': (args) => {
+      const ex = require('./export');
+      const { zip } = require('./export/zip');
+      const lang = args.lang || (workspace().settings && workspace().settings.language) || 'ko';
+      const kinds = args.kinds || ['executive', 'security', 'integrity', 'sparrow', 'sbom'];
+      const entries = [];
+      const warnings = [];
+      for (const kind of kinds) {
+        let rep;
+        try { rep = methods['report.export']({ ...args, kind, format: 'html', lang }); } catch (err) { warnings.push(`${kind}: ${err.message}`); continue; }
+        const pdf = ex.exportWithInfo(ex.fromHtml(rep.body), 'pdf', { lang });
+        entries.push({ name: rep.fileName.replace(/\.html$/, '.pdf'), data: pdf.buffer });
+        warnings.push(...pdf.warnings.map((w) => w.message.en));
+      }
+      const issues = methods['report.export']({ ...args, kind: 'executive', format: 'xlsx', lang });
+      entries.push({ name: issues.fileName, data: Buffer.from(issues.base64, 'base64') });
+      const { project, branch } = latestFor(args);
+      const stamp = new Date().toISOString().slice(0, 10);
+      entries.push({ name: 'manifest.json', data: Buffer.from(JSON.stringify({ project: project.key, branch, createdAt: new Date().toISOString(), files: entries.map((e) => e.name) }, null, 2)) });
+      return { format: 'zip', base64: zip(entries).toString('base64'), type: 'application/zip', fileName: `${project.key}-${branch}-regulatory-${stamp}.zip`, warnings: [...new Set(warnings)] };
     },
 
     // ── SCA ──────────────────────────────────────────────
@@ -313,10 +337,12 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
       saveWorkspace(ws);
       return { result, security: users.publicSecurity(ws) };
     },
-    'security.login': (args) => {
+    'security.login': async (args) => {
       const ws = workspace();
       users.ensureSecurity(ws);
-      const user = users.authenticate(ws, args.login, args.password);
+      let user = users.authenticate(ws, args.login, args.password);
+      // Directory accounts (LDAP / Active Directory) when the local check fails.
+      if (!user) user = await require('./integrate').ldapLogin(ws, args.login, args.password);
       if (!user) throw Object.assign(new Error('Invalid login'), { code: 'UNAUTHORIZED' });
       const token = users.generateToken(ws, { login: args.login, name: `session-${Date.now()}` });
       saveWorkspace(ws);

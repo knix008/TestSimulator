@@ -127,6 +127,72 @@ function checkerCatalog() {
   }));
 }
 
+// Coverity checker names for findings of the other engines, by rule id words
+// first, then by CWE. Category names follow Coverity Connect's groups.
+const BY_WORDS = [
+  [/null-?(pointer|deref|dereference)|npe|forward-null|nullable-deref|optional-get/, 'FORWARD_NULL', 'Null pointer dereferences'],
+  [/null-returns?|returns?-null/, 'NULL_RETURNS', 'Null pointer dereferences'],
+  [/reverse-inull|null-check-after|redundant-null/, 'REVERSE_INULL', 'Null pointer dereferences'],
+  [/resource-leak|not-closed|unclosed|disposable-not-disposed|close-resource|leak/, 'RESOURCE_LEAK', 'Resource leaks'],
+  [/guarded-by|synchroniz|lock-not-released|missing-lock|unlock/, 'GUARDED_BY_VIOLATION', 'Concurrent data access violations'],
+  [/double-checked|singleton-race|lazy-init/, 'SINGLETON_RACE', 'Concurrent data access violations'],
+  [/atomic|check-then-act|race/, 'ATOMICITY', 'Concurrent data access violations'],
+  [/wait-not-in-loop|wait-cond/, 'BAD_CHECK_OF_WAIT_COND', 'Concurrent data access violations'],
+  [/infinite-loop|loop-never-ends|endless/, 'INFINITE_LOOP', 'Control flow issues'],
+  [/identical-branch|same-branch|all-branches-same|duplicate-branch/, 'IDENTICAL_BRANCHES', 'Incorrect expression'],
+  [/copy-paste|duplicated-condition|duplicate-condition/, 'COPY_PASTE_ERROR', 'Incorrect expression'],
+  [/identical-operand|self-compar|self-assign|useless-assign|no-effect|ignored-result|result-unused|pure-call-ignored/, 'NO_EFFECT', 'Incorrect expression'],
+  [/dead-store|unused-value|overwritten|unused-assign/, 'UNUSED_VALUE', 'Code maintainability issues'],
+  [/unreachable|dead-code|after-return/, 'UNREACHABLE', 'Control flow issues'],
+  [/always-(true|false)|constant-condition|gratuitous|condition-always/, 'CONSTANT_EXPRESSION_RESULT', 'Incorrect expression'],
+  [/missing-break|fall-?through/, 'MISSING_BREAK', 'Control flow issues'],
+  [/equals|reference-equal|string-compar|bad-eq/, 'BAD_EQ', 'Incorrect expression'],
+  [/integer-division|int-division/, 'UNINTENDED_INTEGER_DIVISION', 'Integer handling issues'],
+  [/overflow-before-widen|widening/, 'OVERFLOW_BEFORE_WIDEN', 'Integer handling issues'],
+  [/divide-by-zero|division-by-zero/, 'DIVIDE_BY_ZERO', 'Integer handling issues'],
+  [/swapped-arg|argument-order/, 'SWAPPED_ARGUMENTS', 'API usage errors'],
+  [/super-call|call-super/, 'CALL_SUPER', 'API usage errors'],
+  [/ignored-return|unchecked-return|return-value-ignored|checked-return/, 'CHECKED_RETURN', 'Error handling issues'],
+  [/stray-semicolon|empty-statement/, 'STRAY_SEMICOLON', 'Control flow issues'],
+  [/indent|misleading/, 'NESTING_INDENT_MISMATCH', 'Control flow issues'],
+  [/uninit/, 'UNINIT', 'Uninitialized variables'],
+  [/use-after-free|disposed-object-used/, 'USE_AFTER_FREE', 'Memory - illegal accesses'],
+];
+
+const BY_CWE = {
+  476: 'FORWARD_NULL', 690: 'NULL_RETURNS', 404: 'RESOURCE_LEAK', 772: 'RESOURCE_LEAK', 775: 'RESOURCE_LEAK', 401: 'RESOURCE_LEAK',
+  362: 'ATOMICITY', 366: 'ATOMICITY', 567: 'GUARDED_BY_VIOLATION', 667: 'LOCK', 833: 'ORDER_REVERSAL', 835: 'INFINITE_LOOP',
+  561: 'UNREACHABLE', 563: 'UNUSED_VALUE', 570: 'CONSTANT_EXPRESSION_RESULT', 571: 'CONSTANT_EXPRESSION_RESULT', 484: 'MISSING_BREAK',
+  252: 'CHECKED_RETURN', 369: 'DIVIDE_BY_ZERO', 190: 'INTEGER_OVERFLOW', 457: 'UNINIT', 416: 'USE_AFTER_FREE', 597: 'BAD_EQ', 595: 'BAD_EQ',
+  89: 'SQLI', 79: 'XSS', 22: 'PATH_MANIPULATION', 23: 'PATH_MANIPULATION', 78: 'OS_CMD_INJECTION', 77: 'OS_CMD_INJECTION',
+  798: 'HARDCODED_CREDENTIALS', 259: 'HARDCODED_CREDENTIALS', 321: 'HARDCODED_CREDENTIALS', 327: 'RISKY_CRYPTO', 326: 'RISKY_CRYPTO',
+  328: 'WEAK_PASSWORD_HASH', 916: 'WEAK_PASSWORD_HASH', 759: 'WEAK_PASSWORD_HASH', 330: 'INSECURE_RANDOM', 338: 'INSECURE_RANDOM',
+  611: 'XML_EXTERNAL_ENTITY', 502: 'UNSAFE_DESERIALIZATION', 601: 'OPEN_REDIRECT', 352: 'CSRF', 384: 'SESSION_FIXATION',
+  614: 'INSECURE_COOKIE', 1004: 'INSECURE_COOKIE', 90: 'LDAP_INJECTION', 643: 'XPATH_INJECTION', 94: 'CODE_INJECTION', 95: 'CODE_INJECTION',
+  117: 'LOG_INJECTION', 113: 'HEADER_INJECTION', 918: 'SSRF', 295: 'BAD_CERT_VERIFICATION', 297: 'BAD_CERT_VERIFICATION',
+  319: 'CLEARTEXT_TRANSMISSION', 532: 'SENSITIVE_DATA_LEAK', 200: 'SENSITIVE_DATA_LEAK', 209: 'INFORMATION_EXPOSURE', 489: 'DEBUG_CODE',
+  434: 'UNRESTRICTED_UPLOAD', 807: 'UNTRUSTED_SECURITY_DECISION', 488: 'SERVLET_ATOMICITY', 495: 'EXPOSED_PRIVATE_ARRAY', 496: 'EXPOSED_PRIVATE_ARRAY',
+  350: 'DNS_TRUST', 676: 'DANGEROUS_API', 615: 'SENSITIVE_DATA_LEAK', 307: 'LOGIN_THROTTLING',
+};
+
+const SECURITY_CHECKERS = new Set(['SQLI', 'XSS', 'PATH_MANIPULATION', 'OS_CMD_INJECTION', 'HARDCODED_CREDENTIALS', 'RISKY_CRYPTO', 'WEAK_PASSWORD_HASH',
+  'INSECURE_RANDOM', 'XML_EXTERNAL_ENTITY', 'UNSAFE_DESERIALIZATION', 'OPEN_REDIRECT', 'CSRF', 'SESSION_FIXATION', 'INSECURE_COOKIE', 'LDAP_INJECTION',
+  'XPATH_INJECTION', 'CODE_INJECTION', 'LOG_INJECTION', 'HEADER_INJECTION', 'SSRF', 'BAD_CERT_VERIFICATION', 'CLEARTEXT_TRANSMISSION', 'SENSITIVE_DATA_LEAK',
+  'INFORMATION_EXPOSURE', 'DEBUG_CODE', 'UNRESTRICTED_UPLOAD', 'UNTRUSTED_SECURITY_DECISION', 'SERVLET_ATOMICITY', 'EXPOSED_PRIVATE_ARRAY', 'DNS_TRUST',
+  'DANGEROUS_API', 'LOGIN_THROTTLING']);
+
+function mappedChecker(issue, cweNum) {
+  const id = String(issue.rule || '').split(':').slice(1).join(':').toLowerCase();
+  if (/^(sem-|kr-secure|taint|absint)/.test(String(issue.rule || '')) || id) {
+    for (const [re, name, category] of BY_WORDS) if (re.test(id)) return { checker: name, category };
+  }
+  if (cweNum && BY_CWE[cweNum]) {
+    const name = BY_CWE[cweNum];
+    return { checker: name, category: SECURITY_CHECKERS.has(name) ? 'Security best practices violations' : 'Control flow issues' };
+  }
+  return null;
+}
+
 function checkerFor(issue) {
   const known = KNOWN[issue.rule];
   if (known) {
@@ -136,8 +202,12 @@ function checkerFor(issue) {
   if (path) return path;
   const tags = issue.tags || [];
   const cweTag = tags.find((t) => /^cwe-?\d+/i.test(t));
-  const cwe = cweTag ? cweTag.toUpperCase().replace('CWE', 'CWE-').replace('--', '-') : '';
+  const cwe = cweTag ? cweTag.toUpperCase().replace('CWE', 'CWE-').replace('--', '-') : (issue.cwe || '');
   const security = issue.type === 'VULNERABILITY' || issue.type === 'SECURITY_HOTSPOT';
+  const mapped = issue.type === 'CODE_SMELL' && !/^(sem-|kr-secure|taint)/.test(String(issue.rule || '')) ? null : mappedChecker(issue, Number(String(cwe).replace(/\D/g, '')) || 0);
+  if (mapped) {
+    return { checker: mapped.checker, kind: security || SECURITY_CHECKERS.has(mapped.checker) ? 'Security' : 'Quality', cwe, cert: '', category: mapped.category };
+  }
   return {
     checker: String(issue.rule || 'UNKNOWN').replace(/[:.]/g, '_').replace(/-/g, '_').toUpperCase(),
     kind: security ? 'Security' : 'Quality',
@@ -167,6 +237,8 @@ function functionAt(lines, index) {
   return { name: 'global', line: 1 };
 }
 
+const SONAR_KEY = /^([a-z]+:)?S\d+$/;
+
 function decorateIssue(issue, lines, components) {
   const meta = checkerFor(issue);
   const fn = functionAt(lines || [], Math.max(0, (issue.line || 1) - 1));
@@ -177,7 +249,9 @@ function decorateIssue(issue, lines, components) {
     ...issue,
     cid: cidFor(mergeKey),
     mergeKey,
-    checker: issue.checker || meta.checker,
+    // Engines may put a Sonar key (S2259, python:S2068) in checker; keep it aside.
+    checker: issue.checker && !SONAR_KEY.test(issue.checker) ? issue.checker : meta.checker,
+    ...(issue.checker && SONAR_KEY.test(issue.checker) ? { sonarKey: issue.checker } : {}),
     category: meta.category,
     kind: meta.kind,
     cwe: meta.cwe || '',

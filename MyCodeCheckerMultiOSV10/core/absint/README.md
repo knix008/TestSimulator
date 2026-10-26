@@ -28,9 +28,11 @@ keys are `absint:<CHECKER>`, using the Coverity checker names. It follows
    taken, the allocation, the free and so on.
 4. `checks.js` runs the whole-function checks (REVERSE_INULL, DEADCODE,
    INFINITE_LOOP, LOCK across exits) and builds the function **summary**.
-5. `syntax.js` runs the AST/CFG checkers. `index.js` then runs the
-   project-wide statistical checkers (CHECKED_RETURN, MISSING_LOCK,
-   ORDER_REVERSAL).
+5. `syntax.js` and `syntax2.js` run the AST/CFG checkers. `index.js` then runs
+   the project-wide statistical checkers (CHECKED_RETURN, MISSING_LOCK,
+   ORDER_REVERSAL) and `project2.js` the class-level and call-chain checkers
+   (DELETE_ARRAY on members, CTOR_DTOR_LEAK, STACK_USE) and MISSING_COMMA in
+   file-scope initializers.
 
 ## Domains
 
@@ -82,8 +84,30 @@ keys are `absint:<CHECKER>`, using the Coverity checker names. It follows
 | STRING_OVERFLOW | taint, string | strcpy/strcat/sprintf of untrusted strings into fixed buffers, gets, scanf `%s` without width |
 | FORMAT_STRING | taint, summary | non-literal untrusted format, also through a callee whose parameter reaches a format |
 | OS_CMD_INJECTION | taint, summary | system/popen/exec*, also through callees (events carry the callee file) |
+| OVERFLOW_BEFORE_WIDEN | interval, types | `*` / `<<` in 32-bit arithmetic whose interval overflows, converted to a wider integer (initializer, assignment, return, argument, cast, wider operand). Refined operand ranges suppress it |
+| ARRAY_VS_SINGLETON | pointer, interval, summary | a pointer to one variable (not an array) accessed past it; also `&x` passed to a callee that indexes the parameter beyond element 0 on every path (summary `indexes`). Reported instead of OVERRUN |
+| NULL_FIELD | nullness | `s->f = NULL` (a null literal stored into a pointer field) followed by a dereference of the field on the same path. Reported instead of FORWARD_NULL |
+| SWAPPED_ARGUMENTS | AST | two arguments named like the callee's parameters, in swapped positions |
+| UNUSED_VALUE | CFG liveness | an `=` store or initializer of a scalar local whose value is dead right after it (overwritten, or never read). Literal, NULL and constant values are not reported (defensive initialization); volatile, address-taken and `unused` variables are skipped |
+| EVALUATION_ORDER | AST | a variable modified and read/modified in unsequenced operands (`x = x++`, `f(i++, i)`, `a[i] = i++`). comma, logical and/or, `?:` and call arguments are sequence points; C++ `<<`/`>>` are treated as sequenced |
+| BAD_COMPARE | AST | a function name compared with 0 or used as a condition; a pointer compared with null using `<` `>` `<=` `>=`. Weak functions are skipped |
+| UNINTENDED_INTEGER_DIVISION | types | integer `/` whose quotient goes to a floating type; exact constant quotients and division by 1 are skipped |
+| NESTING_INDENT_MISMATCH | source layout | the statement after an unbraced if/for/while body is on the next line with the body's indentation |
+| MISSING_COMMA | AST | a concatenated literal among single string elements of an initializer list (not when the first part ends with a space or punctuation, or when the declared size equals the element count) |
+| STRAY_SEMICOLON | AST, source layout | `if (c);` / `for (...);` / `while (c);` on the same line, followed by a block or an indented statement |
+| SIZECHECK | types | a constant malloc/calloc/realloc size that is smaller than, or not a multiple of, the pointee size (records with a flexible array member are skipped) |
+| BAD_SIZEOF | types | sizeof of an array parameter, `sizeof(p) / sizeof(p[0])` with p a pointer, sizeof(buffer pointer) as the size of strncpy/snprintf/fgets/read/memcpy source ... (memset/memcpy destinations stay SIZEOF_MISMATCH) |
+| DELETE_ARRAY | AST, class | a member allocated with new[] in one method and released with delete in another (or new / delete[]). For locals ALLOC_FREE_MISMATCH reports it |
+| CTOR_DTOR_LEAK | class | a constructor allocates (new, new[], malloc, strdup) into a pointer member that no method releases or hands over; skipped when the destructor calls member functions or is defined outside the analysed files |
+| STACK_USE | types, call graph | locals of one function, or of the deepest chain of project calls, above `stackLimit`; reported where the chain first exceeds it; recursion is counted once |
+| COPY_INSTEAD_OF_MOVE | types | an expensive non-const local passed to push_back/insert/emplace..., to a by-value parameter of its own type, or copied into another variable, as its last use (not inside a loop that does not declare it) |
+| WRAPPER_ESCAPE | types | c_str()/data() of a local or by-value std::string/vector returned, or stored into a member, a static variable, `p->f` of a parameter or `*out` |
 
 ## Confidence
+
+When two checkers describe one defect at the same line, the narrower new one
+gives way: DELETE_ARRAY to ALLOC_FREE_MISMATCH, BAD_SIZEOF to SIZEOF_MISMATCH.
+WRAPPER_ESCAPE and RETURN_LOCAL both report a returned c_str() of a local.
 
 Each finding has `confidence: 'definite' | 'possible'`. *Possible* findings
 exist only for OVERRUN, INTEGER_OVERFLOW, DIVIDE_BY_ZERO and FORWARD_NULL.
@@ -102,6 +126,7 @@ from a type do not count.
 | `widenAfter` | 3 | loop header visits before widening |
 | `maxFunctionNodes` | 40000 | AST size above which a function is not interpreted |
 | `allocNull` | false | report NULL_RETURNS for unchecked malloc/calloc/realloc/strdup |
+| `stackLimit` | 65536 | STACK_USE: bytes of stack for one function's locals or one call chain |
 
 User models (`ctx.options.models`) use the `core/coverity.js` format:
 `{ name, kind: 'allocator' | 'free' | 'deallocator' | 'source' | 'sink', pattern, langs?, checker? }`.

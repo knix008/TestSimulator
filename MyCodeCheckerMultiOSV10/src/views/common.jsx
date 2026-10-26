@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
-import { Icon, Dialog } from '../components/Chrome';
+import { Icon, Dialog, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
 
 // ── API hook ──────────────────────────────────────────────
 export function useApi(method, args, deps, enabled = true) {
@@ -353,27 +353,93 @@ export function Confirm({ title, body, okLabel, onOk, onCancel, danger }) {
 }
 
 // ── Small pieces ──────────────────────────────────────────
-export function Empty({ text, icon = 'info' }) {
-  return <div className="empty"><Icon name={icon} size={18} /><span>{text}</span></div>;
+// One-line empty note, or (with hint / children) a centred empty state:
+// icon + what is missing + what to do, with the action buttons.
+export function Empty({ text, icon = 'inbox', hint, children }) {
+  if (!hint && !children) return <div className="empty"><Icon name={icon} size={18} /><span>{text}</span></div>;
+  return (
+    <div className="empty empty-big">
+      <span className="empty-icon"><Icon name={icon} size={26} /></span>
+      <strong>{text}</strong>
+      {hint && <span className="small">{hint}</span>}
+      {children && <div className="empty-actions">{children}</div>}
+    </div>
+  );
+}
+
+// Asks App to run a menu action (open folder, sample, view:…) without
+// threading callbacks through every view.
+export function emitAction(id) {
+  window.dispatchEvent(new CustomEvent('mcc-action', { detail: id }));
+}
+
+// "No project / no analysis yet" with the two ways out.
+export function NoProject({ text }) {
+  useLanguage();
+  return (
+    <Empty icon="folder" text={text || t('no_project')} hint={t('es_no_project_hint')}>
+      <BtnGroup>
+        <Btn icon="folder" label={t('open_folder')} primary onClick={() => emitAction('openFolder')} />
+        <Btn icon="play" label={t('open_sample')} onClick={() => emitAction('openSample')} />
+      </BtnGroup>
+    </Empty>
+  );
 }
 
 export function ApiState({ state, noData }) {
-  if (state.loading && !state.data) return <Empty text={t('loading')} icon="clock" />;
+  if (state.loading && !state.data) return <Empty text={t('loading')} icon="hourglass" />;
   if (state.error) {
-    if (state.code === 'NOT_FOUND') return <Empty text={noData || t('pf_no_analysis')} />;
+    if (state.code === 'NOT_FOUND') return <Empty text={noData || t('pf_no_analysis')} icon="inbox" hint={t('es_no_analysis_hint')}><Btn icon="play" label={t('run_analysis')} primary onClick={() => emitAction('analyze')} /></Empty>;
     return <Empty text={state.error} icon="alert" />;
   }
   return null;
 }
 
-export function Stat({ label, value, sub, tone }) {
-  return (
-    <div className="card">
-      <div className="k">{label}</div>
+export function Stat({ label, value, sub, tone, icon, kind, onClick, title }) {
+  const body = (
+    <>
+      <div className="k">{icon && <Icon name={icon} size={14} />}<span>{label}</span></div>
       <div className={`v ${tone || ''}`}>{value == null ? '—' : value}</div>
-      {sub != null && <div className="small">{sub}</div>}
-    </div>
+      {sub != null && sub !== '' && <div className="small">{sub}</div>}
+    </>
   );
+  if (onClick) return <button type="button" className={`card stat-card click-card ${kind ? `kind-${kind}` : ''}`} title={title || label} onClick={onClick}>{body}</button>;
+  return <div className={`card stat-card ${kind ? `kind-${kind}` : ''}`} title={title}>{body}</div>;
+}
+
+// ── Badges: severity, type, status ────────────────────────
+export function sevLabel(sev) { const k = `sev_${sev}`; const s = t(k); return s === k ? sev : s; }
+export function typeLabel(type) { const k = `type_${type}`; const s = t(k); return s === k ? type : s; }
+export function statusLabel(status) { const k = `st_${status}`; const s = t(k); return s === k ? status : s; }
+
+export function SevBadge({ sev }) {
+  useLanguage();
+  if (!sev) return null;
+  return <span className={`sev-badge sev-${sev}`} title={`${t('severity')}: ${sevLabel(sev)}`}><Icon name={SEV_ICON[sev] || 'info'} size={12} />{sevLabel(sev)}</span>;
+}
+
+export function TypeBadge({ type, short }) {
+  useLanguage();
+  if (!type) return null;
+  return <span className={`type-badge type-${type}`} title={typeLabel(type)}><Icon name={TYPE_ICON[type] || 'info'} size={12} />{!short && typeLabel(type)}</span>;
+}
+
+const STATUS_TONE = { OPEN: 'warn', REOPENED: 'warn', CONFIRMED: 'info', TO_REVIEW: 'warn', ACKNOWLEDGED: 'info', RESOLVED: 'ok', CLOSED: 'muted', FIXED: 'ok', SAFE: 'ok', ACCEPTED: 'muted', 'FALSE-POSITIVE': 'muted', WONTFIX: 'muted', REMOVED: 'muted' };
+
+export function StatusPill({ status, resolution }) {
+  useLanguage();
+  if (!status) return null;
+  // A resolved issue shows how it was resolved (false positive, accepted…).
+  const key = (status === 'RESOLVED' || status === 'CLOSED') && resolution && resolution !== 'FIXED' ? resolution : status;
+  return <span className={`status-pill tone-${STATUS_TONE[key] || 'muted'}`} title={resolution ? `${statusLabel(status)} / ${statusLabel(resolution)}` : statusLabel(status)}><Icon name={STATUS_ICON[key] || 'circleDot'} size={12} />{statusLabel(key)}</span>;
+}
+
+// Coverity triage values (classification / action), coloured by meaning.
+const COV_TONE = { Unclassified: 'muted', Pending: 'warn', Bug: 'bad', 'False Positive': 'muted', Intentional: 'muted', Undecided: 'muted', 'Fix Required': 'bad', 'Fix Submitted': 'ok', 'Modeling Required': 'info', Ignore: 'muted' };
+const COV_ICON = { Unclassified: 'circleDot', Pending: 'hourglass', Bug: 'bug', 'False Positive': 'xCircle', Intentional: 'thumbsUp', Undecided: 'circleDot', 'Fix Required': 'wrench', 'Fix Submitted': 'checkCircle', 'Modeling Required': 'flow', Ignore: 'eye' };
+export function CovPill({ value }) {
+  if (!value) return null;
+  return <span className={`status-pill tone-${COV_TONE[value] || 'muted'}`}><Icon name={COV_ICON[value] || 'info'} size={12} />{value}</span>;
 }
 
 export function Rating({ letter }) {

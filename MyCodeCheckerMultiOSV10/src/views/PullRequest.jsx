@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
-import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText } from './common';
+import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge } from './common';
 import { msg } from './Panels';
 
 const PROVIDERS = [
@@ -67,7 +67,7 @@ export function PullRequestView({ project, branch, stamp }) {
         <span className="spacer" />
         {repo && (repo.branch || repo.head) && <span className="small"><Icon name="branch" size={13} /> {repo.branch || ''} {repo.head ? repo.head.slice(0, 8) : ''}{repo.dirty ? ` · ${t('pr_dirty')}` : ''}</span>}
       </ViewHeader>
-      {!project && <Empty text={t('no_project')} />}
+      {!project && <NoProject />}
       {error && <Empty text={error} icon="alert" />}
       {note && <p className="small">{note}</p>}
       {!pr && !error && project && <Empty text={t('pr_start')} icon="branch" />}
@@ -81,13 +81,13 @@ export function PullRequestView({ project, branch, stamp }) {
             <div className="small banner-side">{t('pr_changed', { files: pr.changedFiles, lines: pr.changedLines })}</div>
           </div>
           <div className="card-grid compact">
-            <Stat label={t('pr_issues')} value={pr.issues.length} tone={pr.issues.length ? 'bad' : 'ok'} />
-            <Stat label={t('bugs')} value={pr.measures.new_bugs} sub={`${t('reliability')} ${pr.ratings.reliability}`} />
-            <Stat label={t('vulns')} value={pr.measures.new_vulnerabilities} sub={`${t('security')} ${pr.ratings.security}`} />
-            <Stat label={t('smells')} value={pr.measures.new_code_smells} sub={`${t('maintainability')} ${pr.ratings.maintainability}`} />
-            <Stat label={t('hotspots')} value={pr.measures.new_security_hotspots} sub={`${t('sec_review')} ${pr.ratings.securityReview}`} />
-            <Stat label={t('coverage')} value={pr.measures.new_coverage == null ? '—' : `${pr.measures.new_coverage}%`} />
-            <Stat label={t('dup_density')} value={`${pr.measures.new_duplicated_lines_density}%`} />
+            <Stat icon="bug" label={t('pr_issues')} value={pr.issues.length} tone={pr.issues.length ? 'bad' : 'ok'} />
+            <Stat icon="bug" label={t('bugs')} value={pr.measures.new_bugs} sub={`${t('reliability')} ${pr.ratings.reliability}`} />
+            <Stat icon="unlock" label={t('vulns')} value={pr.measures.new_vulnerabilities} sub={`${t('security')} ${pr.ratings.security}`} />
+            <Stat icon="smell" label={t('smells')} value={pr.measures.new_code_smells} sub={`${t('maintainability')} ${pr.ratings.maintainability}`} />
+            <Stat icon="shield" label={t('hotspots')} value={pr.measures.new_security_hotspots} sub={`${t('sec_review')} ${pr.ratings.securityReview}`} />
+            <Stat icon="checkCircle" label={t('coverage')} value={pr.measures.new_coverage == null ? '—' : `${pr.measures.new_coverage}%`} />
+            <Stat icon="copy" label={t('dup_density')} value={`${pr.measures.new_duplicated_lines_density}%`} />
           </div>
           <Tabs value={tab} onChange={setTab} tabs={[
             { id: 'issues', label: t('pr_issues'), icon: 'bug', count: pr.issues.length },
@@ -103,7 +103,7 @@ export function PullRequestView({ project, branch, stamp }) {
                   <tbody>
                     {pr.issues.map((i) => (
                       <tr key={i.key}>
-                        <td><span className={`sev ${i.severity}`}>{i.severity}</span></td>
+                        <td><SevBadge sev={i.severity} /></td>
                         <td className="small">{i.type}</td>
                         <td className="wrap">{msg(i)}<div className="small">{i.rule}</div></td>
                         <td className="small wrap">{i.file}:{i.line}</td>

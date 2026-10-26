@@ -572,7 +572,7 @@ R('empty-block', 'S108', 'S', 'MA', 5, ['suspicious'],
     const ok = (p.k === 'If' && (p.then === n || p.else === n)) || ((p.k === 'For' || p.k === 'Foreach' || p.k === 'While' || p.k === 'Do') && p.body === n) ||
       (p.k === 'Try' && (p.block === n || p.fin === n)) || (p.k === 'Catch' && !isCatchAll(p)) || p.k === 'Lock' || p.k === 'Using' || p.k === 'Block' || p.k === 'CheckedStmt' || p.k === 'UnsafeStmt';
     if (!ok) return;
-    if ((p.k === 'While' || p.k === 'For') && p.body === n && U.containsKind(p.cond || { k: 'Empty' }, ['Invocation', 'Assign', 'Unary'])) return;
+    if ((p.k === 'While' || p.k === 'For') && p.body === n && U.containsKind({ k: 'Wrap', cond: p.cond || null }, ['Invocation', 'Assign', 'Unary', 'Await'])) return;
     if (p.k === 'Catch' && p.when) return;
     if (U.hasCommentInside(cx.pf, n)) return;
     cx.report(n, 'Either remove or fill this block of code.', '이 코드 블록을 지우거나 채우세요.');
@@ -714,7 +714,7 @@ R('collapsible-if', 'S1066', 'S', 'MA', 5, ['clumsy'],
     const inner = n.then && n.then.k === 'Block' && n.then.stmts.length === 1 ? n.then.stmts[0] : n.then && n.then.k === 'If' ? n.then : null;
     if (!inner || inner.k !== 'If' || inner.else) return;
     if (U.containsKind(n.cond, ['DeclPattern', 'VarPattern', 'DeclExpr', 'RecursivePattern']) && U.containsKind(inner.cond, ['DeclPattern', 'VarPattern', 'DeclExpr'])) return;
-    if (U.hasCommentInside(cx.pf, { line: n.line, col: n.col, endLine: inner.line })) return;
+    if (U.hasCommentInside(cx.pf, { line: n.line, col: n.col, endLine: inner.line, endCol: inner.col })) return;
     cx.report(inner, 'Merge this if statement with the enclosing one.', '이 if 문을 바깥 if 문과 합치세요.');
   } } });
 R('switch-too-few-cases', 'S1301', 'S', 'MI', 5, ['clumsy'],

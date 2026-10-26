@@ -104,7 +104,8 @@ function commentsIn(pf, startLine, endLine) {
 }
 
 function hasCommentInside(pf, node) {
-  return commentsIn(pf, node.line, node.endLine).some((c) => c.line > node.line || c.col > node.col);
+  // a trailing comment after the node's last token on its last line is outside
+  return commentsIn(pf, node.line, node.endLine).some((c) => (c.line > node.line || c.col > node.col) && (c.line < node.endLine || node.endCol == null || c.col < node.endCol));
 }
 
 function identsIn(node) {

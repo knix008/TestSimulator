@@ -42,7 +42,7 @@ function rule(id, meta, run) {
     name: { en: meta.name[0], ko: meta.name[1] },
     why: { en: meta.why[0], ko: meta.why[1] },
     fix: { en: meta.fix[0], ko: meta.fix[1] },
-    impacts: meta.impacts || { [QUALITY[type]]: IMPACT[severity] },
+    impacts: meta.impacts || [{ softwareQuality: QUALITY[type], severity: IMPACT[severity] }],
     needs: meta.needs || null,
     run,
   };
@@ -66,7 +66,7 @@ function meta(r) {
     why: r.why,
     fix: r.fix,
     cwe: r.cwe,
-    impacts: { ...r.impacts },
+    impacts: r.impacts.map((x) => ({ ...x })),
     category: CATEGORY[r.type],
   };
   if (Object.keys(standards).length) out.standards = standards;

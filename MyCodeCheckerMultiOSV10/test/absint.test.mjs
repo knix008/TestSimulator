@@ -67,7 +67,10 @@ test('catalog lists every checker with Coverity metadata', () => {
     'SIGN_EXTENSION', 'MIXED_ENUMS', 'COPY_PASTE_ERROR', 'LOCK', 'MISSING_LOCK', 'ORDER_REVERSAL', 'SLEEP', 'TAINTED_SCALAR',
     'TAINTED_STRING', 'STRING_OVERFLOW', 'FORMAT_STRING', 'OS_CMD_INJECTION',
     'USE_AFTER_MOVE', 'INVALIDATE_ITERATOR', 'MISMATCHED_ITERATOR', 'DELETE_VOID', 'VIRTUAL_DTOR', 'UNCAUGHT_EXCEPT',
-    'COPY_WITHOUT_ASSIGN', 'ASSIGN_WITHOUT_COPY', 'AUTO_CAUSES_COPY', 'PASS_BY_VALUE', 'DC.STRING_BUFFER', 'DC.WEAK_CRYPTO', 'DC.STREAM_BUFFER'];
+    'COPY_WITHOUT_ASSIGN', 'ASSIGN_WITHOUT_COPY', 'AUTO_CAUSES_COPY', 'PASS_BY_VALUE', 'DC.STRING_BUFFER', 'DC.WEAK_CRYPTO', 'DC.STREAM_BUFFER',
+    'OVERFLOW_BEFORE_WIDEN', 'ARRAY_VS_SINGLETON', 'SWAPPED_ARGUMENTS', 'UNUSED_VALUE', 'DELETE_ARRAY', 'STACK_USE', 'COPY_INSTEAD_OF_MOVE',
+    'EVALUATION_ORDER', 'BAD_COMPARE', 'UNINTENDED_INTEGER_DIVISION', 'NESTING_INDENT_MISMATCH', 'MISSING_COMMA', 'STRAY_SEMICOLON',
+    'CTOR_DTOR_LEAK', 'WRAPPER_ESCAPE', 'NULL_FIELD', 'SIZECHECK', 'BAD_SIZEOF'];
   for (const c of expected) assert.ok(keys.has(`absint:${c}`), c);
   for (const m of cat) {
     assert.match(m.key, /^absint:[A-Z_]+(\.[A-Z_]+)?$/);
@@ -2080,4 +2083,538 @@ test('C++ checkers stay within the budget on a large generated translation unit'
   assert.ok(Date.now() - t0 < 4000, `took ${Date.now() - t0} ms`);
   assert.equal(found.stats.internalErrors, 0);
   assert.equal(of(found, 'USE_AFTER_MOVE').length + of(found, 'INVALIDATE_ITERATOR').length + of(found, 'FORWARD_NULL').length, 0);
+});
+
+// ---------------------------------------------------------------- more Coverity checkers
+
+test('OVERFLOW_BEFORE_WIDEN TP: 32-bit product widened by initialization, return and argument', () => {
+  const [f] = expectTP('OVERFLOW_BEFORE_WIDEN', `
+long long area(int w, int h) {
+  long long a = w * h; /*BUG*/
+  return a;
+}`);
+  assert.equal(f.events[f.events.length - 1].tag, 'overflow_before_widen');
+  assert.match(f.message.en, /32-bit arithmetic.*long long/);
+  expectTP('OVERFLOW_BEFORE_WIDEN', `
+#include <stdlib.h>
+void *grid(int rows, int cols) {
+  return malloc(rows * cols); /*BUG*/
+}`);
+  expectTP('OVERFLOW_BEFORE_WIDEN', `
+unsigned long long bits(unsigned int x) {
+  return x << 20; /*BUG*/
+}`);
+});
+
+test('OVERFLOW_BEFORE_WIDEN TN: widened operand, small operand types, refined ranges, 32-bit destination', () => {
+  expectTN('OVERFLOW_BEFORE_WIDEN', `
+long long a(int w, int h) { return (long long)w * h; }
+long long b(unsigned char w, unsigned char h) { long long r = w * h; return r; }
+long long c(int w, int h) {
+  if (w > 0 && w < 1000 && h > 0 && h < 1000) { long long r = w * h; return r; }
+  return 0;
+}
+int d(int w, int h) { int r = w * h; return r; }
+long long e(void) { int k = 1000; long long r = k * 3; return r; }`);
+});
+
+test('ARRAY_VS_SINGLETON TP: indexing a pointer to a scalar, and a callee that uses its parameter as an array', () => {
+  expectTP('ARRAY_VS_SINGLETON', `
+int f(void) {
+  int x = 1;
+  int *p = &x;
+  return p[1]; /*BUG*/
+}`);
+  const [g] = expectTP('ARRAY_VS_SINGLETON', `
+void fill(int *a) { a[0] = 0; a[1] = 0; a[2] = 0; }
+void g(void) {
+  int y;
+  fill(&y); /*BUG*/
+  (void)y;
+}`);
+  assert.ok(tags(g).includes('ptr_arith'));
+  expectTN('OVERRUN', `
+int f(void) { int x = 1; int *p = &x; return p[1]; }`);
+});
+
+test('ARRAY_VS_SINGLETON TN: element 0 of a singleton, real arrays, callee touching element 0 only', () => {
+  expectTN('ARRAY_VS_SINGLETON', `
+int f(void) { int x = 1; int *p = &x; return p[0]; }
+int g(void) { int a[4] = {0}; int *p = a; return p[3]; }
+void set0(int *a) { a[0] = 7; }
+int h(void) { int y; set0(&y); return y; }
+void fill(int *a) { a[0] = 0; a[1] = 0; }
+void k(void) { int arr[2]; fill(arr); (void)arr[0]; }`);
+});
+
+test('SWAPPED_ARGUMENTS TP: argument names match the parameters in another order', () => {
+  const [f] = expectTP('SWAPPED_ARGUMENTS', `
+void copy(char *dst, const char *src, int n);
+void use(char *dst, char *src, int n) {
+  copy(src, dst, n); /*BUG*/
+}`);
+  assert.ok(tags(f).includes('params'));
+});
+
+test('SWAPPED_ARGUMENTS TN: matching order, unrelated names, a single coincidence', () => {
+  expectTN('SWAPPED_ARGUMENTS', `
+void copy(char *dst, const char *src, int n);
+void use(char *dst, char *src, char *a, char *b, int n) {
+  copy(dst, src, n);
+  copy(a, b, n);
+  copy(src, a, n);
+}`);
+});
+
+test('UNUSED_VALUE TP: call result overwritten, and a value that is never read', () => {
+  const [f] = expectTP('UNUSED_VALUE', `
+int compute(int);
+int f(int a) {
+  int r = compute(a); /*BUG*/
+  r = compute(a + 1);
+  return r;
+}`);
+  assert.ok(tags(f).includes('overwrite'));
+  assert.equal(f.events[f.events.length - 1].tag, 'returned_value');
+  expectTP('UNUSED_VALUE', `
+int compute(int);
+void g(int a, int *out) {
+  int t = a * 2;
+  *out = t;
+  t = compute(a); /*BUG*/
+}`);
+});
+
+test('UNUSED_VALUE TN: defensive initializers, values read on some path, loops, address taken', () => {
+  expectTN('UNUSED_VALUE', `
+#include <stddef.h>
+int compute(int);
+int a(int x) { int r = 0; r = compute(x); return r; }
+int b(int x, int c) { int r = compute(x); if (c) r = 5; return r; }
+int c(int n) { int s = 0; for (int i = 0; i < n; i++) s = s + compute(i); return s; }
+void d(int *p) { char *q = NULL; q = (char *)p; (void)q; }
+int e(int x) { int r = compute(x); int *pr = &r; *pr = 1; return r; }
+int f(int x) { volatile int r = compute(x); r = 2; return 0; }`);
+});
+
+test('DELETE_ARRAY TP: member allocated with new[] deleted with delete, and new deleted with delete[]', () => {
+  const found = expectTP('DELETE_ARRAY', `
+class Buf {
+  char *data;
+  int *one;
+public:
+  Buf(int k) { data = new char[k]; one = new int; }
+  ~Buf() { delete data; /*BUG*/ delete[] one; }
+};`, cpp);
+  assert.equal(found.length, 2);
+  assert.ok(found.every((f) => tags(f).includes('alloc')));
+});
+
+test('DELETE_ARRAY TN: matching forms, and locals left to ALLOC_FREE_MISMATCH', () => {
+  expectTN('DELETE_ARRAY', `
+class Buf {
+  char *data;
+  int *one;
+public:
+  Buf(int k) { data = new char[k]; one = new int; }
+  ~Buf() { delete[] data; delete one; }
+};
+void f() { int *a = new int[4]; delete a; }`, cpp);
+});
+
+test('STACK_USE TP: large local frame and a call chain above the limit', () => {
+  const [f] = expectTP('STACK_USE', `
+#include <string.h>
+void big(void) { /*BUG*/
+  char buf[70000];
+  memset(buf, 0, sizeof buf);
+}`);
+  assert.ok(tags(f).includes('stack_use_local'));
+  const [g] = expectTP('STACK_USE', `
+#include <string.h>
+void leaf(void) { char b[3000]; memset(b, 1, sizeof b); }
+void mid(void) { /*BUG*/
+  char c[2000];
+  memset(c, 2, sizeof c);
+  leaf();
+}`, { absint: { stackLimit: 4096 } });
+  assert.match(g.message.en, /mid -> leaf uses 5000 bytes/);
+  assert.ok(tags(g).includes('stack_use_callee'));
+});
+
+test('STACK_USE TN: frames within the limit, static buffers, recursion counted once', () => {
+  expectTN('STACK_USE', `
+#include <string.h>
+void a(void) { char b[1000]; memset(b, 0, sizeof b); }
+void s(void) { static char big[200000]; memset(big, 0, sizeof big); }
+int r(int n) { char e[100]; memset(e, 0, sizeof e); return n ? r(n - 1) + e[0] : 0; }`, { absint: { stackLimit: 4096 } });
+});
+
+test('COPY_INSTEAD_OF_MOVE TP: local copied into push_back and into a by-value parameter as its last use', () => {
+  const [f] = expectTP('COPY_INSTEAD_OF_MOVE', `
+#include <string>
+#include <vector>
+void f(std::vector<std::string> &out) {
+  std::string name = "x";
+  name += "y";
+  out.push_back(name); /*BUG*/
+}`, cpp);
+  assert.match(f.message.en, /std::move\(name\)/);
+  expectTP('COPY_INSTEAD_OF_MOVE', `
+#include <string>
+void take(std::string s);
+void g() {
+  std::string v = "a";
+  take(v); /*BUG*/
+}`, cpp);
+});
+
+test('COPY_INSTEAD_OF_MOVE TN: used afterwards, copied in a loop, const local, reference parameter', () => {
+  expectTN('COPY_INSTEAD_OF_MOVE', `
+#include <string>
+#include <vector>
+void take(std::string s);
+void keep(const std::string &s);
+void f(std::vector<std::string> &out) {
+  std::string name = "x";
+  out.push_back(name);
+  keep(name);
+}
+void g(std::vector<std::string> &out) {
+  std::string name = "x";
+  for (int i = 0; i < 3; i++) out.push_back(name);
+}
+void h() { const std::string c = "c"; take(c); }
+void k() { std::string r = "r"; keep(r); }
+void m() { std::string t = "t"; take(std::move(t)); }`, cpp);
+});
+
+test('EVALUATION_ORDER TP: x = x++, f(i++, i) and a[i] = i++', () => {
+  expectTP('EVALUATION_ORDER', `
+int g(int i) {
+  i = i++; /*BUG*/
+  return i;
+}`);
+  expectTP('EVALUATION_ORDER', `
+int f(int, int);
+int h(int i) {
+  return f(i++, i); /*BUG*/
+}`);
+  const [k] = expectTP('EVALUATION_ORDER', `
+void k(int *a, int i) {
+  a[i] = i++; /*BUG*/
+}`);
+  assert.ok(tags(k).includes('read'));
+});
+
+test('EVALUATION_ORDER TN: sequence points, separate statements and C++ stream insertion', () => {
+  expectTN('EVALUATION_ORDER', `
+int f(int, int);
+int g(int i, int *p, int *q) {
+  int a[10];
+  a[i] = i + 1;
+  i++;
+  *p++ = *q++;
+  i = (i++, i);
+  int x = i && i++;
+  x = f(i, i);
+  i = f(i++, 0);
+  return x + a[0];
+}`);
+  expectTN('EVALUATION_ORDER', `
+#include <iostream>
+void h(int i) { std::cout << i++ << i; }`, cpp);
+});
+
+test('BAD_COMPARE TP: function name compared with 0, used as a condition, pointer < null', () => {
+  expectTP('BAD_COMPARE', `
+int ready(void);
+int f(void) {
+  if (ready == 0) /*BUG*/
+    return 1;
+  return 0;
+}`);
+  expectTP('BAD_COMPARE', `
+int ready(void);
+int g(void) {
+  if (ready) /*BUG*/
+    return 1;
+  return 0;
+}`);
+  expectTP('BAD_COMPARE', `
+int h(char *p) {
+  return p < 0; /*BUG*/
+}`);
+});
+
+test('BAD_COMPARE TN: called function, pointer equality with null, function pointer variables', () => {
+  expectTN('BAD_COMPARE', `
+int ready(void);
+int f(char *p, int (*cb)(void)) {
+  if (ready() == 0) return 1;
+  if (p == 0 || cb == 0) return 2;
+  if (cb) return cb();
+  return p > (char *)16;
+}`);
+});
+
+test('UNINTENDED_INTEGER_DIVISION TP: int / int assigned to and returned as double', () => {
+  expectTP('UNINTENDED_INTEGER_DIVISION', `
+double ratio(int a, int b) {
+  double r = a / b; /*BUG*/
+  return r;
+}`);
+  expectTP('UNINTENDED_INTEGER_DIVISION', `
+float avg(int sum, int n) {
+  return sum / n; /*BUG*/
+}`);
+});
+
+test('UNINTENDED_INTEGER_DIVISION TN: floating operand, exact constant quotient, integer destination', () => {
+  expectTN('UNINTENDED_INTEGER_DIVISION', `
+double a(int x, int y) { return (double)x / y; }
+double b(void) { return 10 / 2; }
+int c(int x, int y) { int q = x / y; return q; }
+double d(int x) { return x / 1; }
+double e(double x, int y) { return x / y; }`);
+});
+
+test('NESTING_INDENT_MISMATCH TP: second statement indented like the unbraced if body', () => {
+  const [f] = expectTP('NESTING_INDENT_MISMATCH', `
+void work(int);
+void f(int c) {
+  if (c)
+    work(1);
+    work(2); /*BUG*/
+  work(3);
+}`);
+  assert.ok(tags(f).includes('nesting_indent'));
+  expectTP('NESTING_INDENT_MISMATCH', `
+void work(int);
+void g(int n) {
+  for (int i = 0; i < n; i++)
+    work(i);
+    work(-1); /*BUG*/
+}`);
+});
+
+test('NESTING_INDENT_MISMATCH TN: braces, correct indentation, else branches', () => {
+  expectTN('NESTING_INDENT_MISMATCH', `
+void work(int);
+void f(int c) {
+  if (c)
+    work(1);
+  work(2);
+  if (c) {
+    work(3);
+    work(4);
+  }
+  if (c)
+    work(5);
+  else
+    work(6);
+  work(7);
+}`);
+});
+
+test('MISSING_COMMA TP: adjacent literals in a global and a local string array', () => {
+  const [f] = expectTP('MISSING_COMMA', `
+const char *names[] = {
+  "alpha",
+  "beta"  /*BUG*/
+  "gamma",
+  "delta",
+};`);
+  assert.ok(tags(f).includes('concatenation'));
+  expectTP('MISSING_COMMA', `
+int puts(const char *);
+void f(void) {
+  const char *opts[] = { "-a", "-b" "-c", "-d", "-e" }; /*BUG*/
+  puts(opts[0]);
+}`);
+});
+
+test('MISSING_COMMA TN: continued sentence, exact declared size, no other string elements', () => {
+  expectTN('MISSING_COMMA', `
+const char *msgs[] = {
+  "this is a long message "
+  "continued here",
+  "second",
+  "third",
+};
+const char *fixed[3] = { "ab" "cd", "ef", "gh" };
+const char *one[] = { "a" "b" };
+const char *plain[] = { "x", "y", "z" };`);
+});
+
+test('STRAY_SEMICOLON TP: if and for followed by a semicolon and a block', () => {
+  expectTP('STRAY_SEMICOLON', `
+void work(int);
+void f(int c) {
+  if (c); /*BUG*/
+  {
+    work(1);
+  }
+}`);
+  expectTP('STRAY_SEMICOLON', `
+void work(int);
+void g(int n) {
+  for (int i = 0; i < n; i++); { /*BUG*/
+    work(2);
+  }
+}`);
+});
+
+test('STRAY_SEMICOLON TN: empty loop body on purpose, semicolon on its own line, if with else', () => {
+  expectTN('STRAY_SEMICOLON', `
+void work(int);
+void f(char *p, const char *q, int c) {
+  while ((*p++ = *q++));
+  work(0);
+  while (c--)
+    ;
+  work(1);
+  if (c); else work(2);
+}`);
+});
+
+test('CTOR_DTOR_LEAK TP: destructor does not free, and no destructor at all', () => {
+  const [f] = expectTP('CTOR_DTOR_LEAK', `
+class Leak {
+  char *p;
+public:
+  Leak() { p = new char[16]; } /*BUG*/
+  ~Leak() {}
+};`, cpp);
+  assert.ok(tags(f).includes('dtor') && tags(f).includes('alloc'));
+  expectTP('CTOR_DTOR_LEAK', `
+#include <stdlib.h>
+class NoDtor {
+  int *q;
+public:
+  NoDtor() : q((int *)malloc(4)) {} /*BUG*/
+};`, cpp);
+});
+
+test('CTOR_DTOR_LEAK TN: freed in the destructor or another method, handed over, smart pointer, destructor elsewhere', () => {
+  expectTN('CTOR_DTOR_LEAK', `
+#include <memory>
+void adopt(char *);
+class A { char *p; public: A() { p = new char[4]; } ~A() { delete[] p; } };
+class B { char *p; public: B() { p = new char[4]; } void close() { delete[] p; p = nullptr; } ~B() { close(); } };
+class C { char *p; public: C() { p = new char[4]; adopt(p); } };
+class D { std::unique_ptr<int> u; public: D() { u = std::unique_ptr<int>(new int(1)); } };
+class E { int *p; public: E(); ~E(); };
+E::E() { p = new int(2); }`, cpp);
+});
+
+test('WRAPPER_ESCAPE TP: c_str() of a local returned, and data() stored in a global', () => {
+  expectTP('WRAPPER_ESCAPE', `
+#include <string>
+const char *name() {
+  std::string s = "abc";
+  return s.c_str(); /*BUG*/
+}`, cpp);
+  const [g] = expectTP('WRAPPER_ESCAPE', `
+#include <string>
+const char *g_name;
+void keep(int n) {
+  std::string s(n, 'x');
+  g_name = s.c_str(); /*BUG*/
+}`, cpp);
+  assert.ok(tags(g).includes('wrapper'));
+});
+
+test('WRAPPER_ESCAPE TN: string returned by value, static string, buffer used locally', () => {
+  expectTN('WRAPPER_ESCAPE', `
+#include <string>
+#include <cstring>
+std::string a() { std::string s = "a"; return s; }
+const char *b() { static std::string s = "b"; return s.c_str(); }
+size_t c() { std::string s = "c"; const char *p = s.c_str(); return strlen(p); }
+const char *d(const std::string &s) { return s.c_str(); }`, cpp);
+});
+
+test('NULL_FIELD TP: field set to NULL on a path and dereferenced', () => {
+  const [f] = expectTP('NULL_FIELD', `
+#include <stddef.h>
+struct S { int *f; int n; };
+int g(struct S *s, int c) {
+  if (c)
+    s->f = NULL;
+  return *s->f; /*BUG*/
+}`);
+  assert.ok(tags(f).includes('assign_zero'));
+  assert.ok(tags(f).includes('condition'));
+  expectTN('FORWARD_NULL', `
+#include <stddef.h>
+struct S { int *f; int n; };
+int g(struct S *s, int c) { if (c) s->f = NULL; return *s->f; }`);
+});
+
+test('NULL_FIELD TN: field reassigned or checked before the dereference', () => {
+  expectTN('NULL_FIELD', `
+#include <stddef.h>
+struct S { int *f; };
+int a(struct S *s, int *v) { s->f = NULL; s->f = v; return *s->f; }
+int b(struct S *s) { s->f = NULL; if (s->f) return *s->f; return 0; }
+int c(struct S *s, int *v) { s->f = v; return *s->f; }`);
+});
+
+test('SIZECHECK TP: constant allocation not a multiple of, or smaller than, the pointee', () => {
+  expectTP('SIZECHECK', `
+#include <stdlib.h>
+struct P { int x, y; };
+void f(void) {
+  struct P *p = malloc(10); /*BUG*/
+  free(p);
+}`);
+  expectTP('SIZECHECK', `
+#include <stdlib.h>
+void g(void) {
+  long *q;
+  q = (long *)malloc(4); /*BUG*/
+  free(q);
+}`);
+});
+
+test('SIZECHECK TN: sizeof-based sizes, char buffers, flexible array members, unknown sizes', () => {
+  expectTN('SIZECHECK', `
+#include <stdlib.h>
+struct P { int x, y; };
+struct V { int n; char data[]; };
+void f(int n) {
+  struct P *p = malloc(sizeof(struct P) * 2);
+  char *c = malloc(7);
+  struct V *v = malloc(sizeof(struct V) + 5);
+  int *k = malloc(n);
+  int *z = calloc(4, sizeof(int));
+  free(p); free(c); free(v); free(k); free(z);
+}`);
+});
+
+test('BAD_SIZEOF TP: array parameter, pointer element count and strncpy sized by the pointer', () => {
+  expectTP('BAD_SIZEOF', `
+int len(char buf[64]) {
+  return (int)sizeof(buf); /*BUG*/
+}`);
+  expectTP('BAD_SIZEOF', `
+int count(int *p) {
+  return (int)(sizeof(p) / sizeof(p[0])); /*BUG*/
+}`);
+  expectTP('BAD_SIZEOF', `
+#include <string.h>
+void cp(char *dst, const char *src) {
+  strncpy(dst, src, sizeof(dst)); /*BUG*/
+}`);
+});
+
+test('BAD_SIZEOF TN: real arrays, pointer-to-pointer elements and memset left to SIZEOF_MISMATCH', () => {
+  const found = expectTN('BAD_SIZEOF', `
+#include <string.h>
+void a(const char *src) { char dst[32]; strncpy(dst, src, sizeof(dst)); dst[31] = 0; (void)dst[0]; }
+int b(void) { int v[8]; return (int)(sizeof(v) / sizeof(v[0])); }
+void c(char **dst, char **src) { memcpy(dst, src, sizeof(src)); }
+void d(int *p) { memset(p, 0, sizeof(p)); }`);
+  assert.ok(of(found, 'SIZEOF_MISMATCH').length > 0);
 });

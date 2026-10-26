@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
-import { useApi, Btn, BtnGroup, IconSelect, ViewHeader, Empty, saveText } from './common';
+import { useApi, Btn, BtnGroup, IconSelect, ViewHeader, Empty, saveText, NoProject } from './common';
 import { SECURITY_STANDARDS, MISRA_STANDARDS } from './Compliance';
 
 const KIND_ICON = { executive: 'chart', security: 'lock', misra: 'shield', integrity: 'alert', 'coverity-security': 'alert', sparrow: 'list', sbom: 'package' };
@@ -86,7 +86,7 @@ export function ReportsView({ project, branch, stamp }) {
           <Btn icon="print" label={t('rp_print')} disabled={!out} onClick={print} />
         </BtnGroup>
       </ViewHeader>
-      {!project && <Empty text={t('no_project')} />}
+      {!project && <NoProject />}
       {error && <Empty text={error} icon="alert" />}
       {busy && !out && <Empty text={t('loading')} icon="clock" />}
       {out && (

@@ -5,6 +5,8 @@
 
 const { isRefType, FnAnalyzer, skip, hasSideEffects, isDep, CMP, NEGATE, SWAP, I, T, cf, vJoin, joinStates } = require('./interp');
 
+const { conversionContext, HOW } = require('./syntax2');
+
 const P = FnAnalyzer.prototype;
 
 P.boolV = function boolV(iv) {
@@ -215,7 +217,7 @@ P.lval = function lval(st, e) {
 // Pointer to a member: arrays get their own sub-object with the field size,
 // scalars point into the parent object.
 P.memberPtr = function memberPtr(st, pv, e) {
-  if (!pv || !pv.pt || pv.pt.length !== 1) return pv ? { nul: pv.nul, nev: pv.nev, nret: pv.nret, par: pv.par, dref: pv.dref } : null;
+  if (!pv || !pv.pt || pv.pt.length !== 1) return pv ? { nul: pv.nul, nev: pv.nev, nret: pv.nret, par: pv.par, dref: pv.dref, nf: pv.nf } : null;
   const t = pv.pt[0];
   const ft = this.T(e.ctype);
   const r = { nul: pv.nul, nev: pv.nev, nret: pv.nret, par: pv.par, dref: pv.dref };
@@ -241,7 +243,7 @@ P.memberPtr = function memberPtr(st, pv, e) {
 
 P.ptrAdd = function ptrAdd(base, idx, esz, idxType) {
   if (!base) return {};
-  const r = { nul: base.nul, nev: base.nev, nret: base.nret, par: base.par, dref: base.dref, nn: base.nn };
+  const r = { nul: base.nul, nev: base.nev, nret: base.nret, par: base.par, dref: base.dref, nn: base.nn, nf: base.nf };
   if (base.nul === 'null' && (!idx.iv || !I.isConst(idx.iv) || idx.iv.lo !== 0)) { r.nul = 'null'; }
   if (!base.pt) return r;
   let iv = idx.iv || this.rangeIv(idxType);
@@ -399,7 +401,13 @@ P.store = function store(st, L, v, node, rhsNode) {
   }
   if (L.k === 'mem') {
     if (!this.access(st, L, 'write', node)) return;
-    const nv = this.convert(v, L.type, rhsNode && rhsNode.ctype, node);
+    let nv = this.convert(v, L.type, rhsNode && rhsNode.ctype, node);
+    // `s->f = NULL`: remember that this field was nulled here (NULL_FIELD)
+    const fieldName = L.node && L.node.type === 'MemberExpr' ? L.node.member : (L.thisField && L.node ? L.node.name : null);
+    if (fieldName && nv.nul === 'null' && !nv.pt && rhsNode && this.isNullLiteral(rhsNode) && this.isPtrT(L.type)) {
+      const lhs = this.src(L.node, 40);
+      nv = { ...nv, nf: fieldName, nev: [this.ev(node, 'assign_zero', `Assigning: ${lhs} = NULL.`, `대입: ${lhs} = NULL.`)] };
+    }
     if (L.key) {
       st.set(L.key, nv);
       this.killDeps(st, L.key);
@@ -521,6 +529,14 @@ P.ptrName = function ptrName(L, node) {
 P.derefCheck = function derefCheck(st, pv, node, mode, bytes, L) {
   if (!pv) return true;
   const name = this.ptrName(L, node);
+  if (pv.nul === 'null' && !pv.pt && pv.nf) {
+    // the null came from `s->f = NULL` (Coverity's NULL_FIELD)
+    this.report('NULL_FIELD', node, {
+      en: `Dereferencing ${name}, which was set to NULL (field ${pv.nf}).`, ko: `NULL로 설정한 ${name}(필드 ${pv.nf})을(를) 역참조합니다.`,
+    }, [pv.nev, st.trail], { tag: 'var_deref_op' });
+    st.dead = 'soft';
+    return false;
+  }
   if (pv.nul === 'null' && !pv.pt) {
     this.report('FORWARD_NULL', node, {
       en: `Dereferencing null pointer ${name}.`, ko: `널 포인터 ${name}을(를) 역참조합니다.`,
@@ -574,6 +590,14 @@ P.boundsCheck = function boundsCheck(st, o, t, bytes, node, mode, L, pv) {
   const off = t.off;
   if (!off) return;
   const esz = (L && L.esz) || o.esz || 1;
+  // a parameter indexed at a constant offset beyond element 0 on every path: callers passing &scalar overrun it
+  if (o.kind === 'param' && o.pidx !== undefined && I.isConst(off) && off.lo > 0 && Number.isFinite(off.lo) && pv.pt.length === 1) {
+    const list = this.paramPre.get(o.pidx) || [];
+    if (!list.some((x) => x.kind === 'index' && x.need >= off.lo + bytes)) {
+      list.push({ kind: 'index', need: off.lo + bytes, uncond: this.uncond(), ev: this.ev(node, 'ptr_arith', `${this.fn.name} accesses ${this.src((L && L.node) || node, 30)}, byte offset ${off.lo} of ${o.name}.`, `${this.fn.name}이(가) ${o.name}의 바이트 오프셋 ${off.lo}인 ${this.src((L && L.node) || node, 30)}에 접근합니다.`) });
+      this.paramPre.set(o.pidx, list);
+    }
+  }
   const idxV = L && L.idx;
   const idxTaint = (idxV && idxV.tnt) || pv.itnt;
   const idxNeg = (idxV && idxV.neg) || pv.ineg;
@@ -621,6 +645,15 @@ P.boundsCheck = function boundsCheck(st, o, t, bytes, node, mode, L, pv) {
   const usingKo = idxText ? ` 인덱스 ${idxText}${idxV && idxV.iv ? `(값 ${I.show(at !== null && esz ? I.konst(Math.floor(at / esz)) : idxV.iv)})` : ''}로` : '';
   const evs = [o.aev, st.trail];
   if (idxV && idxV.tev) evs.push(idxV.tev);
+  // A pointer to one variable (not an array) indexed past it: Coverity's ARRAY_VS_SINGLETON.
+  if (definite && o.single && o.vsym && !o.sub && (o.kind === 'stack' || o.kind === 'global') && at !== null && at >= 0) {
+    const ptr = L && L.baseNode ? this.src(L.baseNode, 30) : this.src(node, 30);
+    this.report('ARRAY_VS_SINGLETON', node, {
+      en: `Using ${ptr}, which points to the single object ${o.name} (${sizeText}), as an array: ${what.en} at byte offset ${at} is outside ${o.name}.`,
+      ko: `단일 객체 ${o.name}(${sizeKo})을(를) 가리키는 ${ptr}을(를) 배열처럼 씁니다. 바이트 오프셋 ${at}에서 ${what.ko}는 ${o.name} 밖입니다.`,
+    }, [this.ev(node, 'ptr_arith', `${ptr} points to ${o.name}, which is not an array.`, `${ptr}은(는) 배열이 아닌 ${o.name}을(를) 가리킵니다.`), ...evs], { tag: 'callee_ptr_arith' });
+    return;
+  }
   this.report('OVERRUN', node, {
     en: `Overrunning ${o.name} of ${sizeText} by ${what.en}${atText}${using}.`,
     ko: `${sizeKo}인 ${o.name}을(를)${atKo}${usingKo} ${what.ko}하여 범위를 넘습니다.`,
@@ -745,6 +778,8 @@ P.arith = function arith(st, node, op, a, b, t, isNeg, isIncDec) {
   if (!range) { out.iv = m; return out; }
   const f = I.fit(m, range);
   out.iv = f.iv;
+  if (f.overflow !== 'none' && (op === '*' || op === '<<') && this.reporting && !this.quiet && node && node.type === 'BinaryExpr'
+    && range.bits && range.bits <= 32 && !(I.isConst(ai) && I.isConst(bi))) this.widenCheck(st, node, ct, range, m, a, b);
   if (f.overflow !== 'none') {
     delete out.sym; delete out.ub;
     const boundedSide = (x) => I.finite(x) && x.lo > range.min && x.hi < range.max && (I.isConst(x) || (!!x.tl && !!x.th));
@@ -771,6 +806,29 @@ P.arith = function arith(st, node, op, a, b, t, isNeg, isIncDec) {
   }
   if (a.wrap || b.wrap) out.wrap = out.wrap || a.wrap || b.wrap;
   return out;
+};
+
+// OVERFLOW_BEFORE_WIDEN: a 32-bit product/shift that may overflow is converted to a wider integer type.
+P.widenCheck = function widenCheck(st, node, ct, range, m, a, b) {
+  if (!this.widenCtx) this.widenCtx = new Map();
+  let ctx = this.widenCtx.get(node);
+  if (ctx === undefined) {
+    ctx = null;
+    const c = conversionContext(this, node);
+    const tt = c && this.T(c.type);
+    const tr = tt && T.isInteger(tt) && tt.kind !== 'enum' && !T.isBool(tt) ? this.range(tt) : null;
+    if (tr && tr.bits > range.bits) ctx = { ...c, tt, bits: tr.bits };
+    this.widenCtx.set(node, ctx);
+  }
+  if (!ctx) return;
+  const sgn = (r) => (r.unsigned ? 'unsigned' : 'signed');
+  const how = HOW[ctx.how] || HOW.assign;
+  const shown = I.finite(m) && Math.abs(m.lo) < 2 ** 40 && Math.abs(m.hi) < 2 ** 40;
+  const reach = shown ? { en: ` (it can reach ${I.show(m)})`, ko: `(값이 ${I.show(m)}까지 됨)` } : { en: '', ko: '' };
+  this.report('OVERFLOW_BEFORE_WIDEN', node, {
+    en: `Potentially overflowing expression ${this.src(node, 40)} with type ${T.typeToString(ct)} (${range.bits} bits, ${sgn(range)}) is evaluated using ${range.bits}-bit arithmetic${reach.en}, and then ${how.en} ${T.typeToString(ctx.tt)} (${ctx.bits} bits).`,
+    ko: `오버플로할 수 있는 식 ${this.src(node, 40)}(${T.typeToString(ct)}, ${range.bits}비트, ${sgn(range) === 'signed' ? '부호 있음' : '부호 없음'})을(를) ${range.bits}비트 연산으로 계산한 뒤${reach.ko} ${ctx.bits}비트 ${T.typeToString(ctx.tt)}(으)로 넓힙니다(${how.ko}).`,
+  }, [a.tev, b.tev, st.trail], { tag: 'overflow_before_widen' });
 };
 
 P.divCheck = function divCheck(st, node, b, bi) {

@@ -3,6 +3,7 @@
 const { URL } = require('url');
 const { truncate } = require('./client');
 const { matchDbError } = require('./passive');
+const { dangerousMethods, ssrfProbe } = require('./extra');
 
 let counter = 0;
 function marker(prefix) {
@@ -161,9 +162,9 @@ async function sqlInjection(send, point, baseline) {
 
 const TRAVERSAL_SIGNS = [/root:.*:0:0:/, /\[extensions\]/i, /\[fonts\]/i];
 
-async function pathTraversal(send, point) {
+async function pathTraversal(send, point, count) {
   const findings = [];
-  const payloads = ['../../../../../../etc/passwd', '..%2f..%2f..%2f..%2f..%2fetc%2fpasswd'];
+  const payloads = ['../../../../../../etc/passwd', '..%2f..%2f..%2f..%2f..%2fetc%2fpasswd', '....//....//....//etc/passwd'].slice(0, count || 99);
   for (const p of payloads) {
     const res = await send(p);
     const body = res.body || '';
@@ -202,13 +203,13 @@ async function openRedirect(send, point) {
   return findings;
 }
 
-async function ssti(send, point) {
+async function ssti(send, point, count) {
   const findings = [];
   const a = 100 + Math.floor(Math.random() * 800);
   const b = 7;
   const product = String(a * b);
   const expr = `${a}*${b}`;
-  for (const payload of [`{{${expr}}}`, `\${${expr}}`, `#{${expr}}`]) {
+  for (const payload of [`{{${expr}}}`, `\${${expr}}`, `#{${expr}}`].slice(0, count || 99)) {
     const res = await send(payload);
     const body = res.body || '';
     if (body.includes(product) && !body.includes(expr)) {
@@ -225,14 +226,14 @@ async function ssti(send, point) {
   return findings;
 }
 
-async function commandInjection(send, point) {
+async function commandInjection(send, point, count) {
   // Echo-marker only. No timing/sleep payloads. Two distinct markers so the
   // concatenated output cannot match mere reflection of the raw payload.
   const findings = [];
   const left = marker('cia');
   const right = marker('cib');
   const combined = left + right;
-  const payloads = [`${left}$(echo ${right})`, `${left}\`echo ${right}\``, `${left};echo ${right}`];
+  const payloads = [`${left}$(echo ${right})`, `${left}\`echo ${right}\``, `${left};echo ${right}`].slice(0, count || 99);
   for (const payload of payloads) {
     const res = await send(payload);
     const body = res.body || '';
@@ -250,10 +251,10 @@ async function commandInjection(send, point) {
   return findings;
 }
 
-async function crlfInjection(send, point) {
+async function crlfInjection(send, point, count) {
   const findings = [];
   const m = marker('crlf');
-  const payloads = [`x%0d%0aX-MCC-Injected: ${m}`, `x\r\nX-MCC-Injected: ${m}`];
+  const payloads = [`x%0d%0aX-MCC-Injected: ${m}`, `x\r\nX-MCC-Injected: ${m}`].slice(0, count || 99);
   for (const payload of payloads) {
     const res = await send(payload);
     const hv = res.headers['x-mcc-injected'];
@@ -286,6 +287,8 @@ async function methodChecks(client, url) {
         request: `OPTIONS ${url}`,
         response: truncate(`HTTP ${opt.status}\n${headerStr(opt.headers)}`, 600),
       });
+      // Flag advertised write methods without ever sending PUT/DELETE/PATCH.
+      for (const dm of dangerousMethods(opt.headers['allow'], url)) findings.push(dm);
     }
   } catch { /* ignore */ }
   try {
@@ -305,9 +308,14 @@ async function methodChecks(client, url) {
   return findings;
 }
 
-// Run all param probes for one injection point.
-async function probePoint(client, point, baseline) {
+// Run all param probes for one injection point. `opts` carries the policy:
+//   enabled(ruleKey) -> bool (default: all on)
+//   payloadCount     -> cap payloads per family (strength; default: all)
+//   ssrfCallback     -> SsrfCallback instance to enable the SSRF probe
+async function probePoint(client, point, baseline, opts = {}) {
   const send = makeSender(client, point);
+  const enabled = opts.enabled || (() => true);
+  const count = opts.payloadCount || 99;
   const findings = [];
   const run = async (fn, ...args) => {
     try {
@@ -317,13 +325,14 @@ async function probePoint(client, point, baseline) {
       // network/other errors on a single probe are non-fatal
     }
   };
-  await run(reflectedXss, send, point);
-  await run(sqlInjection, send, point, baseline);
-  await run(pathTraversal, send, point);
-  await run(openRedirect, send, point);
-  await run(ssti, send, point);
-  await run(commandInjection, send, point);
-  await run(crlfInjection, send, point);
+  if (enabled('dast:xss-reflected')) await run(reflectedXss, send, point);
+  if (enabled('dast:sqli-error') || enabled('dast:sqli-boolean')) await run(sqlInjection, send, point, baseline);
+  if (enabled('dast:path-traversal')) await run(pathTraversal, send, point, count);
+  if (enabled('dast:open-redirect')) await run(openRedirect, send, point);
+  if (enabled('dast:ssti')) await run(ssti, send, point, count);
+  if (enabled('dast:command-injection')) await run(commandInjection, send, point, count);
+  if (enabled('dast:crlf-injection')) await run(crlfInjection, send, point, count);
+  if (opts.ssrfCallback && enabled('dast:ssrf')) await run(ssrfProbe, send, point, opts.ssrfCallback);
   return findings;
 }
 

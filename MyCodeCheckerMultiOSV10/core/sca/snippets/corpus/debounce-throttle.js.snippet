@@ -1,0 +1,58 @@
+// MyCodeChecker sample corpus: timing helpers (written for the snippet index, MIT).
+function debounce(fn, wait, options) {
+  let timer = null;
+  let lastArgs = null;
+  let lastThis = null;
+  const leading = !!(options && options.leading);
+  function invoke() {
+    const args = lastArgs;
+    const self = lastThis;
+    lastArgs = null;
+    lastThis = null;
+    return fn.apply(self, args);
+  }
+  function debounced(...args) {
+    lastArgs = args;
+    lastThis = this;
+    const callNow = leading && timer === null;
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(function () {
+      timer = null;
+      if (!leading && lastArgs) invoke();
+    }, wait);
+    if (callNow) return invoke();
+    return undefined;
+  }
+  debounced.cancel = function () {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+    lastArgs = null;
+    lastThis = null;
+  };
+  return debounced;
+}
+
+function throttle(fn, interval) {
+  let last = 0;
+  let pending = null;
+  return function throttled(...args) {
+    const now = Date.now();
+    const remaining = interval - (now - last);
+    if (remaining <= 0) {
+      if (pending) { clearTimeout(pending); pending = null; }
+      last = now;
+      return fn.apply(this, args);
+    }
+    if (!pending) {
+      const self = this;
+      pending = setTimeout(function () {
+        last = Date.now();
+        pending = null;
+        fn.apply(self, args);
+      }, remaining);
+    }
+    return undefined;
+  };
+}
+
+module.exports = { debounce, throttle };

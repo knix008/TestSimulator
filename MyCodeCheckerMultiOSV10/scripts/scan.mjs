@@ -28,9 +28,16 @@ const USAGE = `Usage: node scripts/scan.mjs --path <folder> [options]
   --include <dir>  --define NAME=V  C/C++ include folder and macro (repeatable)
   --target lp64|ilp32|llp64         C/C++ data model
   --osv <folder|all.zip>            offline OSV advisory database
-  --out <file>  --lang ko|en`;
+  --coverage <file>                 coverage report (lcov, Cobertura, JaCoCo, Clover, OpenCover, Go, Sonar generic); repeatable
+  --out <file>  --lang ko|en
+  --server <url> --token <user token> --project-key <key> [--branch <name>]
+                                    upload to a MyCodeChecker server and wait for its quality gate
+                                    (also read from sonar-project.properties: sonar.host.url, sonar.token,
+                                    sonar.projectKey, sonar.projectName, sonar.sources, sonar.exclusions,
+                                    sonar.branch.name)`;
 
-const folder = arg('path') || (process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : '');
+const props = readProperties(arg('properties', 'sonar-project.properties'));
+const folder = arg('path') || (process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : '') || (Object.keys(props).length ? '.' : '');
 if (!folder) {
   console.error(USAGE);
   process.exit(2);
@@ -39,6 +46,11 @@ const format = arg('format', 'json');
 const lang = arg('lang', 'ko');
 const standard = arg('standard', '');
 const root = path.resolve(folder);
+
+const server = arg('server', props['sonar.host.url'] || '');
+if (server) {
+  process.exit(await upload());
+}
 
 const defines = {};
 for (const d of args('define')) {
@@ -53,6 +65,7 @@ const inactive = standard ? catalog.filter((r) => !inStandard(r, standard)).map(
 const analysis = analyzePath(root, {
   gate: SONAR_WAY,
   inactive,
+  coverageReports: args('coverage').length ? args('coverage') : (props['sonar.coverageReportPaths'] || props['sonar.javascript.lcov.reportPaths'] || '').split(',').map((s) => s.trim()).filter(Boolean),
   sca: scaOptions,
   cfamily: { includeDirs: args('include').map((d) => path.resolve(root, d)), defines, target: arg('target') },
 });
@@ -66,6 +79,12 @@ if (reportKind) {
   if (reportKind === 'sbom') opts.sca = sca.scanDependencies(root, scaOptions);
   const built = reports.build(reportKind, analysis, opts);
   body = process.argv.includes('--csv') ? built.csv : built.html;
+  // --out report.pdf / .docx / .xlsx writes a native file.
+  const ext = path.extname(arg('out', '')).slice(1).toLowerCase();
+  if (['pdf', 'docx', 'xlsx'].includes(ext)) {
+    const ex = require('../core/export');
+    body = ex.exportWithInfo(ex.fromHtml(built.html), ext, { lang, csv: built.csv, creator: 'MyCodeChecker' }).buffer;
+  }
 } else if (['cyclonedx', 'spdx', 'spdx-tv'].includes(format)) {
   const deps = sca.scanDependencies(root, scaOptions);
   const meta = { name: path.basename(root) };
@@ -105,6 +124,95 @@ function inStandard(rule, id) {
   if (id === 'cwe-top25') return !!s.cweTop25;
   if (id === 'owasp') return !!(s.owasp2021 && s.owasp2021.length);
   return true; // a security-report id: keep every rule, the report filters
+}
+
+// sonar-project.properties (key=value, # comments, \ line continuation).
+function readProperties(file) {
+  const out = {};
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); } catch { return out; }
+  const lines = text.replace(/\\\r?\n\s*/g, '').split(/\r?\n/);
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t || t.startsWith('#') || t.startsWith('!')) continue;
+    const m = /^([^=:\s]+)\s*[=:]\s*(.*)$/.exec(t);
+    if (m) out[m[1]] = m[2].trim();
+  }
+  return out;
+}
+
+// Upload the sources to a server, which analyzes them with its own profiles,
+// gate and history (SonarQube scanner flow). Exit 1 when the gate fails.
+// Monorepo: sonar.modules=a,b uploads each module as its own project
+// (a.sonar.projectKey, a.sonar.projectName, a.sonar.projectBaseDir, a.sonar.sources).
+async function upload() {
+  const modules = String(props['sonar.modules'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!modules.length) return uploadOne(root, props);
+  let worst = 0;
+  for (const m of modules) {
+    const sub = { ...props };
+    for (const [k, v] of Object.entries(props)) if (k.startsWith(`${m}.sonar.`)) sub[k.slice(m.length + 1)] = v;
+    sub['sonar.projectKey'] = props[`${m}.sonar.projectKey`] || `${props['sonar.projectKey'] || path.basename(root)}:${m}`;
+    sub['sonar.projectName'] = props[`${m}.sonar.projectName`] || m;
+    if (!props[`${m}.sonar.sources`]) sub['sonar.sources'] = '.';
+    const code = await uploadOne(path.resolve(root, props[`${m}.sonar.projectBaseDir`] || m), sub);
+    worst = Math.max(worst, code);
+  }
+  return worst;
+}
+
+// http(s).request without keep-alive: undici's fetch leaves sockets that make
+// process.exit abort on Windows (libuv UV_HANDLE_CLOSING assertion).
+function postJson(url, body, headers) {
+  const u = new URL(url);
+  const mod = require(u.protocol === 'https:' ? 'https' : 'http');
+  const data = Buffer.from(JSON.stringify(body));
+  return new Promise((resolve, reject) => {
+    const req = mod.request(u, { method: 'POST', agent: false, headers: { 'content-type': 'application/json', 'content-length': data.length, connection: 'close', ...headers } }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    req.setTimeout(600000, () => req.destroy(new Error('timeout')));
+    req.end(data);
+  });
+}
+
+async function uploadOne(base, conf) {
+  const { walk } = require('../core/analyze');
+  const key = conf === props ? arg('project-key', conf['sonar.projectKey'] || path.basename(base)) : conf['sonar.projectKey'];
+  const token = arg('token', process.env.MCC_TOKEN || process.env.SONAR_TOKEN || conf['sonar.token'] || conf['sonar.login'] || '');
+  const exclusions = [...args('exclude'), ...String(conf['sonar.exclusions'] || '').split(',').map((s) => s.trim()).filter(Boolean)];
+  const sources = String(conf['sonar.sources'] || '.').split(',').map((s) => path.resolve(base, s.trim() || '.'));
+  const files = [];
+  // Exclusion patterns are relative to the project base directory, as in SonarQube.
+  for (const full of walk(base, { exclusions })) {
+    const rel = path.relative(base, full).replace(/\\/g, '/');
+    if (!sources.some((dir) => full === dir || full.startsWith(dir + path.sep))) continue;
+    files.push({ path: rel, text: fs.readFileSync(full, 'utf8') });
+  }
+  const body = { key, name: conf['sonar.projectName'] || key, branch: arg('branch', conf['sonar.branch.name'] || undefined), files };
+  const url = `${server.replace(/\/+$/, '')}/api/project.submit`;
+  console.error(`MyCodeChecker upload ${files.length} files of ${key} → ${server}`);
+  let res;
+  try {
+    res = await postJson(url, body, token ? { 'x-mcc-user-token': token } : {});
+  } catch (err) {
+    console.error(`Cannot reach ${server}: ${err.message}`);
+    return 2;
+  }
+  let json = null;
+  try { json = JSON.parse(res.body); } catch { json = null; }
+  if (!json || !json.ok) {
+    console.error(`Upload failed (HTTP ${res.status}): ${json && json.error ? json.error.message : 'no response'}`);
+    return 2;
+  }
+  const r = json.data;
+  const m = r.measures || {};
+  console.error(`MyCodeChecker ${r.qualityGate.status}  project=${r.projectKey} branch=${r.branch} bugs=${m.bugs} vulnerabilities=${m.vulnerabilities} smells=${m.code_smells} new_coverage=${m.new_coverage ?? '-'}`);
+  for (const c of (r.qualityGate.conditions || []).filter((x) => x.status === 'ERROR')) console.error(`  failed: ${c.metric} ${c.op} ${c.threshold} (actual ${c.actual})`);
+  return r.qualityGate.status === 'OK' ? 0 : 1;
 }
 
 function arg(name, fallback) {

@@ -360,6 +360,21 @@ class SymExec {
           const neSt = canNe ? [st] : [];
           return op === 'Eq' ? { T: eqSt, F: neSt } : { T: neSt, F: eqSt };
         }
+        if (x && other && (op === 'Lt' || op === 'LtE' || op === 'Gt' || op === 'GtE') && other.type === 'Constant' && other.kind === 'int') {
+          // ordering against a known int literal value of the variable
+          const v = st.get(x.sym) || {};
+          let known = null;
+          if (v.c !== undefined) { try { const p = JSON.parse(v.c); if (p[0] === 'int' && typeof p[1] === 'number') known = p[1]; } catch { known = null; } }
+          if (known !== null && typeof other.value === 'number') {
+            const a = x === l ? known : other.value;
+            const b = x === l ? other.value : known;
+            const res = op === 'Lt' ? a < b : op === 'LtE' ? a <= b : op === 'Gt' ? a > b : a >= b;
+            if (rec) this.record(e, res, !res, x.sym, 'order');
+            return res ? { T: [st], F: [] } : { T: [], F: [st] };
+          }
+          // value unknown on this path: either outcome is possible
+          if (rec) this.record(e, true, true, x.sym, 'order');
+        }
         break;
       }
       case 'Call': {

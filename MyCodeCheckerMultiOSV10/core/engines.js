@@ -10,6 +10,10 @@ const ENGINE_MODULES = [
   { id: 'misra-cpp', path: './misra-cpp' },
   { id: 'cert', path: './cert' },
   { id: 'absint', path: './absint' },
+  { id: 'kr-secure', path: './kr-secure' },
+  { id: 'his', path: './his' },
+  { id: 'arch', path: './arch' },
+  { id: 'iac', path: './iac' },
   { id: 'autosar', path: './autosar' },
   { id: 'misra-legacy', path: './misra-legacy' },
   { id: 'sem-js', path: './sem-js' },
@@ -44,7 +48,8 @@ function engines() {
 function engineCatalog() {
   const out = [];
   for (const engine of engines()) {
-    for (const meta of engine.catalog()) out.push({ engine: engine.id, ...meta });
+    // An engine's own "engine" field (syntax / se / flow) moves to "analysis".
+    for (const meta of engine.catalog()) out.push({ ...meta, engine: engine.id, ...(meta.engine && meta.engine !== engine.id ? { analysis: meta.engine } : {}) });
   }
   return out;
 }

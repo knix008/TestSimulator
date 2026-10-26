@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon, Dialog } from '../components/Chrome';
-import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stepper, ViewHeader, Empty, FilePickButton, copyText, fmtDate, linesToList } from './common';
+import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stepper, ViewHeader, Empty, FilePickButton, copyText, fmtDate, linesToList, NoProject } from './common';
+import { ToolsManager } from './Tools';
 
 const EVENTS = ['analysis-done', 'gate-changed'];
 const GLOBAL_PERMS = ['admin', 'gateadmin', 'profileadmin', 'scan', 'provisioning'];
@@ -12,9 +13,10 @@ const PROJECT_PERMS = ['user', 'codeviewer', 'issueadmin', 'securityhotspotadmin
 const TOKEN_TYPES = ['USER', 'PROJECT_ANALYSIS', 'GLOBAL_ANALYSIS'];
 const EXTERNAL_FORMATS = ['sarif', 'sonar', 'coverity', 'cppcheck', 'clang-tidy', 'eslint', 'pylint', 'checkstyle', 'spotbugs', 'pmd', 'gosec', 'bandit', 'semgrep'];
 
-export function AdminView({ ws, project, branch, onSaveWorkspace, onWorkspaceChanged }) {
+export function AdminView({ ws, project, branch, onSaveWorkspace, onWorkspaceChanged, initialTab }) {
   useLanguage();
-  const [tab, setTab] = useState('webhooks');
+  const [tab, setTab] = useState(initialTab || 'webhooks');
+  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
   return (
     <div className="view">
       <ViewHeader icon="users" title={t('nav_admin')} hint={t('ad_hint')}>
@@ -24,8 +26,10 @@ export function AdminView({ ws, project, branch, onSaveWorkspace, onWorkspaceCha
           { id: 'external', label: t('ad_external'), icon: 'upload' },
           { id: 'tests', label: t('ad_tests'), icon: 'check' },
           { id: 'settings', label: t('ad_settings'), icon: 'settings' },
+          { id: 'tools', label: t('tl_tab'), icon: 'installBox' },
         ]} />
       </ViewHeader>
+      {tab === 'tools' && <><p className="small view-hint">{t('tl_hint')}</p><ToolsManager onChanged={onWorkspaceChanged} /></>}
       {tab === 'webhooks' && <Webhooks projects={ws.projects || []} />}
       {tab === 'security' && <Security projects={ws.projects || []} />}
       {tab === 'external' && <ExternalImport project={project} branch={branch} kind="external" onDone={onWorkspaceChanged} />}
@@ -356,7 +360,7 @@ function Chip({ icon, text, onRemove }) {
 function ProjectPerms({ sec, projects, act }) {
   useLanguage();
   const [pid, setPid] = useState((projects[0] && projects[0].id) || '');
-  if (!projects.length) return <Empty text={t('no_project')} />;
+  if (!projects.length) return <NoProject />;
   return (
     <>
       <div className="view-toolbar">
@@ -462,7 +466,7 @@ function ExternalImport({ project, branch, kind, onDone }) {
       if (onDone) onDone();
     } catch (err) { setResult(null); setError(err.code === 'NOT_FOUND' ? t('pf_no_analysis') : err.message); } finally { setBusy(false); }
   };
-  if (!project) return <Empty text={t('no_project')} />;
+  if (!project) return <NoProject />;
   const formatOptions = [{ value: '', label: t('ad_auto_detect'), icon: 'search' }, ...EXTERNAL_FORMATS.map((f) => ({ value: f, label: f, icon: 'file' }))];
   return (
     <>
@@ -500,9 +504,14 @@ function AnalysisSettings({ ws, project, onSave }) {
   const s = ws.settings || {};
   const pol = s.licensePolicy || {};
   const definesText = (d) => Object.entries(d || {}).map(([k, v]) => (v === '' || v == null || v === true ? k : `${k}=${v}`)).join('\n');
+  // A project can keep its own new code definition (project.newCode) over the workspace one.
+  const own = (project && project.newCode) || null;
+  const nc = own || s;
   const init = () => ({
-    newCode: s.newCode || 'previous', newCodeDays: s.newCodeDays || 30, newCodeRef: s.newCodeRef || '',
+    newCode: nc.newCode || 'previous', newCodeDays: nc.newCodeDays || 30, newCodeRef: nc.newCodeRef || '',
+    newCodeVersion: nc.newCodeVersion || '', newCodeAnalysis: nc.newCodeAnalysis || '', projectNewCode: !!own,
     autoAssign: !!s.autoAssign,
+    approvalRequired: !!(s.approval && s.approval.required), selfApproval: !(s.approval && s.approval.selfApproval === false),
     allowed: (pol.allowed || []).join('\n'), denied: (pol.denied || []).join('\n'), review: (pol.review || []).join('\n'),
     internal: (s.internalPackages || []).join('\n'),
     cTarget: s.cTarget || '',
@@ -520,11 +529,15 @@ function AnalysisSettings({ ws, project, onSave }) {
       if (i < 0) defines[line] = '1'; else defines[line.slice(0, i).trim()] = line.slice(i + 1).trim();
     }
     const licensePolicy = { ...pol, allowed: linesToList(d.allowed), denied: linesToList(d.denied), review: linesToList(d.review) };
+    const newCode = { newCode: d.newCode, newCodeDays: d.newCodeDays, newCodeRef: d.newCodeRef.trim(), newCodeVersion: d.newCodeVersion.trim(), newCodeAnalysis: d.newCodeAnalysis };
+    const perProject = !!(project && d.projectNewCode);
     const settings = {
-      ...s, newCode: d.newCode, newCodeDays: d.newCodeDays, newCodeRef: d.newCodeRef.trim(),
-      autoAssign: d.autoAssign, licensePolicy, internalPackages: linesToList(d.internal), cTarget: d.cTarget || undefined,
+      ...s, ...(perProject ? {} : newCode),
+      autoAssign: d.autoAssign, approval: { required: d.approvalRequired, selfApproval: d.selfApproval }, licensePolicy, internalPackages: linesToList(d.internal), cTarget: d.cTarget || undefined,
     };
-    const projects = (ws.projects || []).map((p) => (project && p.id === project.id ? { ...p, includeDirs: linesToList(d.includeDirs), defines } : p));
+    const projects = (ws.projects || []).map((p) => (project && p.id === project.id
+      ? { ...p, includeDirs: linesToList(d.includeDirs), defines, newCode: perProject ? newCode : undefined }
+      : p));
     try {
       await onSave({ ...ws, settings, projects });
       setNote(t('ad_settings_saved'));
@@ -534,7 +547,11 @@ function AnalysisSettings({ ws, project, onSave }) {
     { value: 'previous', label: t('previous_analysis'), icon: 'history' },
     { value: 'days', label: t('number_of_days'), icon: 'calendar' },
     { value: 'scm', label: t('ad_nc_scm'), icon: 'branch' },
+    { value: 'version', label: t('ad_nc_version'), icon: 'package' },
+    { value: 'analysis', label: t('ad_nc_analysis'), icon: 'calendar' },
   ];
+  const mainHistory = (project && project.branches && (project.branches[project.mainBranch || 'main'] || {}).history) || [];
+  const analysisOptions = [{ value: '', label: '—', icon: 'close' }, ...[...mainHistory].reverse().map((h) => ({ value: h.at, label: new Date(h.at).toLocaleString(), icon: 'clock' }))];
   const targetOptions = [
     { value: '', label: t('ad_target_default'), icon: 'cpu' },
     { value: 'ilp32', label: 'ILP32 (32-bit)', icon: 'cpu' },
@@ -550,6 +567,12 @@ function AnalysisSettings({ ws, project, onSave }) {
           {d.newCode === 'days' && <div className="form-field"><span>{t('number_of_days')}</span><Stepper value={d.newCodeDays} min={1} max={3650} onChange={(v) => set({ newCodeDays: v })} /></div>}
           {d.newCode === 'scm' && <label>{t('ad_nc_ref')}<input value={d.newCodeRef} placeholder="main / v1.2.0 / a1b2c3d" onChange={(e) => set({ newCodeRef: e.target.value })} /></label>}
           {d.newCode === 'scm' && <p className="small">{t('ad_nc_scm_hint')}</p>}
+          {d.newCode === 'version' && <label>{t('ad_nc_version_tag')}<input value={d.newCodeVersion} placeholder="v1.2.0" onChange={(e) => set({ newCodeVersion: e.target.value })} /></label>}
+          {d.newCode === 'version' && <p className="small">{t('ad_nc_version_hint')}</p>}
+          {d.newCode === 'analysis' && <label>{t('ad_nc_analysis')}<IconSelect value={d.newCodeAnalysis} options={analysisOptions} onChange={(v) => set({ newCodeAnalysis: v })} /></label>}
+          {project && <div className="form-field"><span>{t('ad_nc_scope')}</span><Toggle checked={d.projectNewCode} label={t('ad_nc_project_only')} icon="folder" onChange={(v) => set({ projectNewCode: v })} /></div>}
+          <div className="form-field"><span>{t('ad_approval')}</span><Toggle checked={d.approvalRequired} label={t('ad_approval_required')} icon="check" onChange={(v) => set({ approvalRequired: v })} /></div>
+          {d.approvalRequired && <div className="form-field"><span /><Toggle checked={d.selfApproval} label={t('ad_self_approval')} icon="user" onChange={(v) => set({ selfApproval: v })} /></div>}
           <div className="form-field"><span>{t('ad_auto_assign')}</span><Toggle checked={d.autoAssign} label={t('ad_auto_assign_label')} icon="user" onChange={(v) => set({ autoAssign: v })} /></div>
         </div>
       </section>

@@ -93,6 +93,28 @@ function classify(text, kind) {
     } else if (kind === 'xml') {
       s = s.replace(/<!--[\s\S]*?-->/g, '');
       only = s.trim() === '' && line.trim() !== '';
+    } else if (kind === 'quote') {
+      // VB: ' or REM to the end of the line (outside "strings").
+      let q = false;
+      for (let i = 0; i < s.length; i++) {
+        if (s[i] === '"') q = !q;
+        else if (!q && (s[i] === "'" || (/^rem\b/i.test(s.slice(i)) && (i === 0 || /\s/.test(s[i - 1]))))) { s = s.slice(0, i); break; }
+      }
+      only = s.trim() === '' && line.trim() !== '';
+    } else if (kind === 'cobol') {
+      // Fixed format: indicator column 7 is * or /; free format: *> to the end of the line.
+      if (/^.{6}[*/]/.test(s)) s = '';
+      const i = s.indexOf('*>');
+      if (i >= 0) s = s.slice(0, i);
+      only = s.trim() === '' && line.trim() !== '';
+    } else if (kind === 'abap') {
+      if (s.startsWith('*')) s = '';
+      const i = s.indexOf('"');
+      if (i >= 0) s = s.slice(0, i);
+      only = s.trim() === '' && line.trim() !== '';
+    } else if (kind === 'jcl') {
+      if (/^\/\/\*/.test(s)) s = '';
+      only = s.trim() === '' && line.trim() !== '';
     }
     code.push(s);
     commentOnly.push(!!only);

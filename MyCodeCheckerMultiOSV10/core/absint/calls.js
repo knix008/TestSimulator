@@ -582,6 +582,17 @@ P.applySummary = function applySummary(st, e, S, args, vals, fname) {
         ko: `0인 ${this.src(a, 30)}을(를) 그 값으로 나누는 ${fname}에 넘깁니다.`,
       }, [v.zev, st.trail, S.divs.get(i)], { tag: 'divide_by_zero' });
     }
+    if (S.indexes && S.indexes.has(i) && v.pt && v.pt.length === 1 && this.reporting && !this.quiet) {
+      const ix = S.indexes.get(i);
+      const t = v.pt[0];
+      const o = st.obj(t.o);
+      if (o && o.single && o.vsym && !o.sub && o.size && I.isConst(o.size) && I.isConst(t.off) && t.off.lo + ix.need > o.size.lo) {
+        this.report('ARRAY_VS_SINGLETON', a, {
+          en: `Passing ${this.src(a, 30)}, a pointer to the single object ${o.name} (${o.size.lo} bytes), to ${fname}, which uses it as an array (up to byte ${ix.need}).`,
+          ko: `단일 객체 ${o.name}(${o.size.lo}바이트)의 포인터 ${this.src(a, 30)}을(를) 배열처럼 쓰는 ${fname}(바이트 ${ix.need}까지)에 넘깁니다.`,
+        }, [st.trail, ix.ev], { tag: 'callee_ptr_arith' });
+      }
+    }
     if (S.writesMem && v.pt) this.pointeeWritten(st, v, a);
   }
   if (S.writesMem) { this.killMem(st); this.killAddrTaken(st); this.writesMem = true; }

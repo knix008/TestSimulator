@@ -33,6 +33,18 @@ R('self-assignment', 'B', 'MA', 3, ['pitfall'], 'S1656',
     },
   });
 
+// pure, or calls only side-effect-free builtins (len(x) < len(x)) on pure arguments
+const STABLE_CALLS = new Set(['len', 'abs', 'round', 'min', 'max', 'sum', 'str', 'int', 'float', 'bool', 'repr', 'hash', 'isinstance', 'issubclass', 'callable', 'chr', 'ord', 'hex', 'oct', 'bin', 'divmod', 'pow', 'ascii', 'type', 'id']);
+function stableExpr(e) {
+  if (!e) return true;
+  if (e.type === 'Call') {
+    if (!(e.func.type === 'Name' && e.func.sym === BUILTIN && STABLE_CALLS.has(e.func.id))) return false;
+    return e.args.every(stableExpr) && e.keywords.every((k) => stableExpr(k.value));
+  }
+  if (e.type === 'Await' || e.type === 'Yield' || e.type === 'YieldFrom' || e.type === 'NamedExpr') return false;
+  return children(e).every(stableExpr);
+}
+
 R('identical-operands', 'B', 'MA', 3, ['pitfall'], 'S1764',
   ['Identical expressions on both sides of an operator', '연산자 양쪽 식이 같습니다'],
   ['Using the same expression on both sides of a comparison, subtraction, division or boolean operator always gives the same result.', '비교, 뺄셈, 나눗셈, 불리언 연산의 양쪽에 같은 식을 쓰면 결과가 항상 같습니다.'],
@@ -41,7 +53,7 @@ R('identical-operands', 'B', 'MA', 3, ['pitfall'], 'S1764',
     on: {
       BinOp(n, c, r) {
         if (!['Sub', 'Div', 'FloorDiv', 'Mod', 'BitXor', 'BitAnd', 'BitOr'].includes(n.op)) return;
-        if (same(n.left, n.right) && isPure(n.left) && n.left.type !== 'Constant') r.report(n, `Both operands of this '${short(c.slice(n), 30)}' are identical.`, `'${short(c.slice(n), 30)}'의 두 피연산자가 같습니다.`);
+        if (same(n.left, n.right) && stableExpr(n.left) && n.left.type !== 'Constant') r.report(n, `Both operands of this '${short(c.slice(n), 30)}' are identical.`, `'${short(c.slice(n), 30)}'의 두 피연산자가 같습니다.`);
       },
       Compare(n, c, r) {
         if (n.ops.length !== 1 || n.ops[0] === 'NotEq' || n.ops[0] === 'Eq') {
@@ -50,7 +62,7 @@ R('identical-operands', 'B', 'MA', 3, ['pitfall'], 'S1764',
           }
           return;
         }
-        if (same(n.left, n.comparators[0]) && isPure(n.left) && n.left.type !== 'Constant') r.report(n, `Both sides of '${short(c.slice(n), 30)}' are identical.`, `'${short(c.slice(n), 30)}'의 양쪽이 같습니다.`);
+        if (same(n.left, n.comparators[0]) && stableExpr(n.left) && n.left.type !== 'Constant') r.report(n, `Both sides of '${short(c.slice(n), 30)}' are identical.`, `'${short(c.slice(n), 30)}'의 양쪽이 같습니다.`);
       },
       BoolOp(n, c, r) {
         for (let i = 1; i < n.values.length; i++) {
@@ -609,8 +621,11 @@ R('property-accessor-signature', 'B', 'BL', 5, ['pitfall'], 'S5724',
   {
     on: {
       FunctionDef(n, c, r) {
-        if (!n.info || !n.info.cls) return;
-        const d = n.info.decorators;
+        // a redefined name (the setter/deleter of a property) gets no FunctionInfo
+        let d;
+        if (n.info && n.info.cls) d = n.info.decorators;
+        else if (!n.info && n.parent && n.parent.type === 'ClassDef') d = n.decorator_list.map((x) => dotted(x.type === 'Call' ? x.func : x) || '?');
+        else return;
         let want = null;
         if (d.includes('property')) want = 1;
         else if (d.some((x) => x.endsWith('.setter'))) want = 2;
@@ -748,7 +763,7 @@ R('string-format-mismatch', 'B', 'BL', 10, ['pitfall'], 'S2275',
         if (f.type !== 'Attribute' || f.attr !== 'format' || !(f.value.type === 'Constant' && f.value.kind === 'str')) return;
         const d = formatFields(f.value.value);
         if (d.invalid) { r.report(f.value, 'Unbalanced braces in format string.', '포맷 문자열의 중괄호 짝이 맞지 않습니다.'); return; }
-        if (d.mixed) { r.report(f.value, 'Format string mixes automatic {} and manual {0} numbering.', '포맷 문자열에 자동 {}와 수동 {0} 번호가 섞여 있습니다.'); return; }
+        if (d.mixed) { r.report(f.value, 'Format string mixes automatic and manual field numbering.', '포맷 문자열에 자동 필드 번호와 수동 필드 번호가 섞여 있습니다.'); return; }
         const star = n.args.some((a) => a.type === 'Starred');
         const kwSplat = n.keywords.some((k) => k.arg === null);
         if (!star) {

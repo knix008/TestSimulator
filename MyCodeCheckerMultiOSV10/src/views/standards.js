@@ -4,6 +4,7 @@
 const arr = (v) => (v == null || v === false ? [] : Array.isArray(v) ? v : [v]);
 
 export const ISSUE_STANDARDS = [
+  { value: 'mois', label: '행정안전부 49', icon: 'shield' },
   { value: 'misraC', label: 'MISRA C', icon: 'shield' },
   { value: 'misraCpp', label: 'MISRA C++', icon: 'shield' },
   { value: 'cert', label: 'CERT', icon: 'shield' },
@@ -37,6 +38,7 @@ export function matchesStandard(std, id) {
   if (id === 'cert') return arr(std.certC).length + arr(std.certCpp).length + arr(std.cert).length > 0;
   if (id === 'cweTop25') return std.cweTop25 === true || arr(std.cweTop25).length > 0;
   if (id === 'owasp') return arr(std.owasp2021).length + arr(std.owasp2017).length > 0;
+  if (id === 'mois') return arr(std.mois2021).length > 0;
   return true;
 }
 
@@ -54,6 +56,7 @@ export function standardChips(std) {
   if (std.cweTop25 === true) chips.push({ kind: 'cwe', text: 'CWE Top 25' });
   add('owasp', 'OWASP 2021', std.owasp2021);
   add('owasp', 'OWASP 2017', std.owasp2017);
+  add('mois', '행안부', std.mois2021);
   return chips;
 }
 

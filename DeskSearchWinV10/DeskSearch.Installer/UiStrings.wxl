@@ -20,4 +20,8 @@
   <String Id="LanguageDlgDescription" Value="설치 마법사와 프로그램 기본 UI에 사용할 언어입니다. 나중에 설정에서 바꿀 수 있습니다." Overridable="yes" />
   <String Id="LanguageDlg_Korean" Value="한국어" Overridable="yes" />
   <String Id="LanguageDlg_English" Value="English" Overridable="yes" />
+  <String Id="LicenseDlg_Title" Value="DeskSearch 사용권 계약" Overridable="yes" />
+  <String Id="LicenseDlgTitle" Value="최종 사용자 사용권 계약" Overridable="yes" />
+  <String Id="LicenseDlgDescription" Value="다음 사용권 계약을 주의 깊게 읽어 주세요." Overridable="yes" />
+  <String Id="LicenseDlgAccept" Value="사용권 계약의 조건에 동의합니다 / I accept the terms" Overridable="yes" />
 </WixLocalization>

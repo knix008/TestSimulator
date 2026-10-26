@@ -1,0 +1,9 @@
+{
+  "note": "Sample corpus written for MyCodeChecker. No third-party code. Each entry is fingerprinted at load time.",
+  "components": [
+    { "name": "mcc-samples/debounce-throttle", "version": "1.0.0", "license": "MIT", "origin": "bundled sample", "files": ["debounce-throttle.js.snippet"] },
+    { "name": "mcc-samples/lru-cache", "version": "1.0.0", "license": "BSD-3-Clause", "origin": "bundled sample", "files": ["lru-cache.py.snippet"] },
+    { "name": "mcc-samples/crc32", "version": "1.0.0", "license": "Zlib", "origin": "bundled sample", "files": ["crc32.c.snippet"] },
+    { "name": "mcc-samples/string-pad", "version": "1.0.0", "license": "Apache-2.0", "origin": "bundled sample", "files": ["StringPad.java.snippet"] }
+  ]
+}

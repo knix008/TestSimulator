@@ -2,7 +2,7 @@
 // chart and activity events.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
-import { useApi, ApiState, Btn, IconSelect, Tabs, Stat, ViewHeader, Empty, fmtDate } from './common';
+import { useApi, ApiState, Btn, IconSelect, Tabs, Stat, ViewHeader, Empty, fmtDate, NoProject, SevBadge } from './common';
 import { msg } from './Panels';
 
 const METRICS = ['bugs', 'vulnerabilities', 'code_smells', 'security_hotspots', 'sqale_index', 'coverage', 'duplicated_lines_density', 'ncloc'];
@@ -48,7 +48,7 @@ export function HistoryView({ project, branch, stamp }) {
         <span className="spacer" />
         <Btn icon="refresh" label={t('pf_refresh')} onClick={refresh} />
       </ViewHeader>
-      {!project && <Empty text={t('no_project')} />}
+      {!project && <NoProject />}
       <ApiState state={list} />
       {section === 'compare' && list.data && (
         <>
@@ -77,7 +77,7 @@ export function HistoryView({ project, branch, stamp }) {
               </div>
               {c && (
                 <div className="card-grid compact">
-                  {cmpTabs.map((k) => <Stat key={k} label={t(`hs_${k}`)} value={c.counts[k]} tone={k === 'newlyDetected' && c.counts[k] ? 'bad' : k === 'fixed' && c.counts[k] ? 'ok' : ''} />)}
+                  {cmpTabs.map((k) => <Stat key={k} icon={({ newlyDetected: 'sparkle', fixed: 'checkCircle', outstanding: 'alert', triaged: 'userCheck', newlyDismissed: 'xCircle', reopened: 'refresh' })[k]} label={t(`hs_${k}`)} value={c.counts[k]} tone={k === 'newlyDetected' && c.counts[k] ? 'bad' : k === 'fixed' && c.counts[k] ? 'ok' : ''} />)}
                 </div>
               )}
             </div>
@@ -187,7 +187,7 @@ function IssueList({ issues }) {
             {issues.map((i) => (
               <tr key={`${i.cid}-${i.key}`}>
                 <td>{i.cid}</td>
-                <td><span className={`sev ${i.severity}`}>{i.severity}</span></td>
+                <td><SevBadge sev={i.severity} /></td>
                 <td className="wrap">{msg(i)}<div className="small">{i.rule}{i.checker ? ` · ${i.checker}` : ''}</div></td>
                 <td className="small wrap">{i.file}:{i.line}</td>
                 <td className="small">{i.classification && i.classification !== 'Unclassified' ? i.classification : i.status}</td>
@@ -207,10 +207,10 @@ function AgeView({ age }) {
   return (
     <>
       <div className="card-grid">
-        <Stat label={t('hs_open_issues')} value={age.count} />
-        <Stat label={t('hs_avg_days')} value={age.averageDays} sub={t('hs_days')} />
-        <Stat label={t('hs_median_days')} value={age.medianDays} sub={t('hs_days')} />
-        <Stat label={t('hs_oldest')} value={age.oldest ? `${age.oldest.days}` : '—'} sub={age.oldest ? `${age.oldest.file}:${age.oldest.line}` : ''} />
+        <Stat icon="bug" label={t('hs_open_issues')} value={age.count} />
+        <Stat icon="clock" label={t('hs_avg_days')} value={age.averageDays} sub={t('hs_days')} />
+        <Stat icon="clock" label={t('hs_median_days')} value={age.medianDays} sub={t('hs_days')} />
+        <Stat icon="hourglass" label={t('hs_oldest')} value={age.oldest ? `${age.oldest.days}` : '—'} sub={age.oldest ? `${age.oldest.file}:${age.oldest.line}` : ''} />
       </div>
       <div className="panel">
         <h3 className="sub-title">{t('hs_buckets')}</h3>

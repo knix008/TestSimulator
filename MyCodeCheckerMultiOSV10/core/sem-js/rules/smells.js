@@ -627,7 +627,9 @@ rule('useless-constructor', {
     if (fn.params.some((p) => p.type === 'TSParameterProperty' || (p.decorators && p.decorators.length))) continue;
     const cls = md.parent.parent;
     const body = fn.body.body;
-    if (ctx.comments.some((c) => c.start > fn.body.start && c.end < fn.body.end)) continue;
+    // an explanatory comment inside the body keeps it (a trailing comment on the header line does not)
+    const bodyLine = ctx.loc(fn.body.start).line;
+    if (ctx.comments.some((c) => c.start > fn.body.start && c.end < fn.body.end && ctx.loc(c.start).line > bodyLine)) continue;
     if (!cls.superClass) {
       if (body.length === 0) ctx.report(md.key, m('Remove this useless empty constructor.', '쓸모없는 빈 생성자를 지우세요.'));
       continue;
@@ -729,7 +731,7 @@ rule('lonely-if', {
 }, (ctx) => {
   for (const n of ctx.nodes('IfStatement')) {
     const a = n.alternate;
-    if (a && a.type === 'BlockStatement' && a.body.length === 1 && a.body[0].type === 'IfStatement' && !ctx.comments.some((c) => c.start > a.start && c.end < a.end)) ctx.report({ start: a.body[0].start, end: a.body[0].start + 2 }, m('"if" statement should not be the only statement in "else" block; use "else if".', '"else" 블록에 "if" 문만 있습니다. "else if"를 쓰세요.'));
+    if (a && a.type === 'BlockStatement' && a.body.length === 1 && a.body[0].type === 'IfStatement' && !ctx.comments.some((c) => c.start > a.start && c.end < a.end && (c.end <= a.body[0].start || c.start >= a.body[0].end))) ctx.report({ start: a.body[0].start, end: a.body[0].start + 2 }, m('"if" statement should not be the only statement in "else" block; use "else if".', '"else" 블록에 "if" 문만 있습니다. "else if"를 쓰세요.'));
   }
 });
 
@@ -777,7 +779,8 @@ rule('immediately-returned', {
       if (a.type !== 'Identifier' || a.name !== decl.id.name || r.argument !== a) continue;
       const v = decl.id._var;
       if (!v || v.refs.filter((x) => !x.init).length !== 1) continue;
-      if (ctx.comments.some((c) => c.start > d.start && c.end < r.end)) continue;
+      // a comment on its own line between the declaration and the return documents the variable
+      if (ctx.comments.some((c) => c.start >= d.end && c.end <= r.start && ctx.loc(c.start).line > ctx.loc(d.end).line)) continue;
       ctx.report(decl.init, m(`Immediately ${r.type === 'ReturnStatement' ? 'return' : 'throw'} this expression instead of assigning it to the temporary variable "${v.name}".`, `임시 변수 "${v.name}"에 대입하지 말고 이 식을 바로 ${r.type === 'ReturnStatement' ? '반환' : '던지기'}하세요.`));
     }
   }
@@ -1055,8 +1058,10 @@ function looksLikeCode(text) {
   }
   if (!codeish) return false;
   // single call expression made of words like "see(foo)" in prose
-  if (ast.body.length === 1 && ast.body[0].type === 'ExpressionStatement' && ast.body[0].expression.type === 'CallExpression' && !/[;]\s*$|\)\s*$/.test(t)) return false;
-  if (ast.body.length === 1 && ast.body[0].type === 'ExpressionStatement' && !/[;)\]}]\s*$/.test(t)) return false;
+  // judge the end of the code itself, not a trailing comment inside the commented-out text
+  const code = t.slice(0, ast.body[ast.body.length - 1].end);
+  if (ast.body.length === 1 && ast.body[0].type === 'ExpressionStatement' && ast.body[0].expression.type === 'CallExpression' && !/[;]\s*$|\)\s*$/.test(code)) return false;
+  if (ast.body.length === 1 && ast.body[0].type === 'ExpressionStatement' && !/[;)\]}]\s*$/.test(code)) return false;
   return true;
 }
 
@@ -1203,7 +1208,8 @@ rule('this-global', {
     let p = t.parent;
     let top = true;
     while (p) {
-      if (isFunction(p) || p.type === 'ClassBody' || p.type === 'PropertyDefinition') { top = false; break; }
+      // arrow functions inherit the module-level "this"
+      if ((isFunction(p) && p.type !== 'ArrowFunctionExpression') || p.type === 'ClassBody' || p.type === 'PropertyDefinition') { top = false; break; }
       p = p.parent;
     }
     if (top) ctx.report(t, m('Remove the use of "this"; it is undefined at the top level of a module.', '"this"를 지우세요. 모듈 최상위에서는 undefined입니다.'));
@@ -1454,7 +1460,8 @@ rule('array-constructor', {
 }, (ctx) => {
   for (const n of ctx.nodesOf('NewExpression', 'CallExpression')) {
     const c = unwrapTS(n.callee);
-    if (!(c.type === 'Identifier' && c.name === 'Array' && B.isUnresolved(ctx, c)) || n.typeArguments) continue;
+    // new Array<T>() parses with a TSInstantiationExpression callee
+    if (!(c.type === 'Identifier' && c.name === 'Array' && B.isUnresolved(ctx, c)) || n.typeArguments || n.callee.type === 'TSInstantiationExpression') continue;
     if (n.arguments.length === 1) continue;
     ctx.report(n, m('Use an array literal instead of the Array constructor.', 'Array 생성자 대신 배열 리터럴을 쓰세요.'));
   }
@@ -1778,6 +1785,10 @@ rule('param-reassign', {
       const first = refs[0];
       if (!first || !first.write || first.read || first.compound) continue;
       if (first.scope.fn !== v.scope.fn) continue;
+      // x = x || def / x = f(x): the right-hand side reads the parameter before the write
+      let asg = first.id.parent;
+      while (asg && asg.type !== 'AssignmentExpression' && !isFunction(asg)) asg = asg.parent;
+      if (asg && asg.type === 'AssignmentExpression' && refs.some((r) => r.read && r.id.start >= asg.right.start && r.id.end <= asg.right.end)) continue;
       // conditional overwrite (if (!x) x = ...) reads first in the test
       ctx.report(first.id, m(`Introduce a new variable instead of reusing the parameter "${p.name}".`, `매개변수 "${p.name}"를 다시 쓰지 말고 새 변수를 만드세요.`));
     }
@@ -1853,6 +1864,11 @@ rule('deprecated-api', {
         continue;
       }
     }
+    if (c.type === 'Identifier') {
+      // const { parse } = require('url'); parse(u)  /  import { exists } from 'fs'
+      const t = ctx.target(c);
+      if (t && t.module && t.path.length === 1 && DEPRECATED_MODULE_FNS[t.module.replace(/^node:/, '')] && DEPRECATED_MODULE_FNS[t.module.replace(/^node:/, '')][t.path[0]]) { say(c, `${t.module}.${t.path[0]}`, DEPRECATED_MODULE_FNS[t.module.replace(/^node:/, '')][t.path[0]]); continue; }
+    }
     if (c.type === 'MemberExpression' && !c.computed) {
       const p = propName(c);
       const t = ctx.target(c);
@@ -1893,7 +1909,8 @@ rule('has-own-property', {
     const c = unwrapTS(call.callee);
     if (c.type !== 'MemberExpression') continue;
     const dn = dottedName(c);
-    if (dn === 'Object.prototype.hasOwnProperty.call' || dn === '{}.hasOwnProperty.call') { ctx.report(call, m('Use "Object.hasOwn()" instead of "Object.prototype.hasOwnProperty.call()".', '"Object.prototype.hasOwnProperty.call()" 대신 "Object.hasOwn()"을 쓰세요.')); continue; }
+    const viaLiteral = !c.computed && propName(c) === 'call' && unwrapTS(c.object).type === 'MemberExpression' && propName(unwrapTS(c.object)) === 'hasOwnProperty' && unwrapTS(unwrapTS(c.object).object).type === 'ObjectExpression' && !unwrapTS(unwrapTS(c.object).object).properties.length;
+    if (dn === 'Object.prototype.hasOwnProperty.call' || viaLiteral) { ctx.report(call, m('Use "Object.hasOwn()" instead of "Object.prototype.hasOwnProperty.call()".', '"Object.prototype.hasOwnProperty.call()" 대신 "Object.hasOwn()"을 쓰세요.')); continue; }
     if (propName(c) === 'hasOwnProperty' && call.arguments.length === 1 && !c.computed) {
       const o = unwrapTS(c.object);
       if (o.type === 'ThisExpression' || o.type === 'Super') continue;

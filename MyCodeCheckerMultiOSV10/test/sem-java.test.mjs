@@ -41,8 +41,11 @@ test('catalog: shape, unique keys and counts', () => {
   }
   const java = catalog.filter((r) => r.langs[0] === 'java').length;
   const kt = catalog.filter((r) => r.langs[0] === 'kt').length;
-  assert.ok(java >= 200, `java rules ${java}`);
-  assert.ok(kt >= 60, `kotlin rules ${kt}`);
+  assert.ok(java >= 250, `java rules ${java}`);
+  assert.ok(kt >= 170, `kotlin rules ${kt}`);
+  for (const area of ['VULNERABILITY', 'SECURITY_HOTSPOT']) {
+    assert.ok(catalog.filter((r) => r.type === area && r.langs[0] === 'kt').length >= 15, `kotlin ${area}`);
+  }
 });
 
 for (const def of core.RULES) {
@@ -292,4 +295,83 @@ test('performance: 20k lines in well under 2 s', () => {
   sem.analyze(files, { inactive: new Set(), root: null, options: {} });
   const ms = Date.now() - t0;
   assert.ok(ms < 2000, `took ${ms} ms for ${lines} lines`);
+});
+
+// ── security / frameworks / kotlin rule details ──
+function rulesAt(code, lang, key, path) {
+  return run(code, lang, path).filter((f) => f.rule === key).map((f) => f.line);
+}
+
+test('regex-redos: nested quantifiers only when the inner part is fully repeatable', () => {
+  // Patterns as written inside a Java string literal (source escapes).
+  const vulnerable = [String.raw`(a+)+`, String.raw`(a*)*b`, String.raw`(\\w+\\s?)*$`, String.raw`((ab)*)+`, String.raw`(?:x+|y+)+z`, String.raw`(\\d+){2,}`];
+  const safe = [String.raw`a+b`, String.raw`(ab)+`, String.raw`(,\\s*\\w+)*`, String.raw`(a++)+`, String.raw`(?>a+)+`, String.raw`[a+]+`, String.raw`\\(a+\\)+`, String.raw`(a{1,3})+`];
+  for (const p of vulnerable) {
+    assert.deepEqual(rulesAt(core.jm(`    java.util.regex.Pattern.compile("${p}");`), 'java', 'sem-java:regex-redos'), [3], p);
+  }
+  for (const p of safe) {
+    assert.deepEqual(rulesAt(core.jm(`    java.util.regex.Pattern.compile("${p}");`), 'java', 'sem-java:regex-redos'), [], p);
+  }
+});
+
+test('kotlin useless-null-check: only provably non-null values are reported', () => {
+  const code = `fun f(a: String, b: String?, xs: List<String>) {
+    val c = b ?: "x"
+    var d: String? = a
+    d = null
+    val e = xs.firstOrNull()
+    println(c?.length)
+    println(d?.length)
+    println(e?.length)
+    println(b?.length)
+    println(xs.size)
+}`;
+  assert.deepEqual(rulesAt(code, 'kt', 'sem-java:kt-useless-null-check'), []);
+  const bad = `fun g(a: String) {
+    val t = "lit"
+    println(a?.length)
+    println(t ?: "y")
+}`;
+  assert.deepEqual(rulesAt(bad, 'kt', 'sem-java:kt-useless-null-check'), [3, 4]);
+});
+
+test('cookies: a flag set to true anywhere in the method is accepted', () => {
+  const code = core.jm(`    javax.servlet.http.Cookie c = new javax.servlet.http.Cookie("a", s);
+    if (n > 0) { c.setPath("/"); }
+    c.setSecure(true);
+    c.setHttpOnly(true);`);
+  assert.deepEqual(rulesAt(code, 'java', 'sem-java:cookie-without-secure'), []);
+  assert.deepEqual(rulesAt(code, 'java', 'sem-java:cookie-without-httponly'), []);
+});
+
+test('test-only rules stay quiet in production code and vice versa', () => {
+  const testCode = `import org.junit.jupiter.api.Test;
+class OrderTest {
+  @Test void t() { Thread.sleep(10); }
+}
+`;
+  assert.deepEqual(rulesAt(testCode, 'java', 'sem-java:thread-sleep-in-test', 'src/test/java/OrderTest.java'), [3]);
+  assert.deepEqual(rulesAt(testCode, 'java', 'sem-java:test-assertion-in-production', 'src/test/java/OrderTest.java'), []);
+  const prod = `class Worker { void run() throws Exception { Thread.sleep(10); } }
+`;
+  assert.deepEqual(rulesAt(prod, 'java', 'sem-java:thread-sleep-in-test', 'src/main/java/Worker.java'), []);
+  const harness = `public final class EngineTest { public static void main(String[] a) { } }
+`;
+  assert.deepEqual(rulesAt(harness, 'java', 'sem-java:test-class-without-tests', 'src/test/java/EngineTest.java'), []);
+});
+
+test('coroutines: dispatchers injected through defaults and awaited async are fine', () => {
+  const code = `class Repo(private val api: Api, private val io: CoroutineDispatcher = Dispatchers.IO) {
+  suspend fun load() = withContext(io) { api.fetch() }
+  suspend fun two() = coroutineScope {
+    val a = async { api.fetch() }
+    val b = async { api.fetch() }
+    a.await() + b.await()
+  }
+  fun fire(scope: CoroutineScope) { scope.launch { api.fetch() } }
+}
+`;
+  for (const id of ['hardcoded-dispatcher', 'async-result-unused', 'global-scope', 'run-blocking-in-coroutine', 'job-passed-to-builder']) {
+    assert.deepEqual(rulesAt(code, 'kt', 'sem-java:kt-' + id), [], id);
+  }
 });

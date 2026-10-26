@@ -831,11 +831,17 @@ rule('for-direction', {
   for (const f of ctx.nodes('ForStatement')) {
     const t = f.test && unwrapTS(f.test);
     if (!t || t.type !== 'BinaryExpression' || !f.update) continue;
+    if (!/^[<>]=?$/.test(t.operator)) continue;
+    // the counter is the side the update clause modifies (either operand may be an identifier)
     let name = null;
     let dir = 0;
-    if (t.left.type === 'Identifier' && /^[<>]=?$/.test(t.operator)) { name = t.left.name; dir = t.operator[0] === '<' ? 1 : -1; } else if (t.right.type === 'Identifier' && /^[<>]=?$/.test(t.operator)) { name = t.right.name; dir = t.operator[0] === '<' ? -1 : 1; }
+    let step = 0;
+    for (const [side, d] of [[t.left, t.operator[0] === '<' ? 1 : -1], [t.right, t.operator[0] === '<' ? -1 : 1]]) {
+      if (side.type !== 'Identifier') continue;
+      const s = counterStep(f.update, side.name);
+      if (s) { name = side.name; dir = d; step = s; break; }
+    }
     if (!name) continue;
-    const step = counterStep(f.update, name);
     if (step && step !== dir) ctx.report(f.update, m(`"${name}" is updated in the wrong direction for the condition "${ctx.text(t)}".`, `"${name}"가 조건 "${ctx.text(t)}"와 반대 방향으로 바뀝니다.`));
   }
 });
@@ -1383,7 +1389,7 @@ rule('getter-setter-field', {
 
 function bodyOf(n) {
   switch (n.type) {
-    case 'IfStatement': return n.alternate ? null : n.consequent;
+    case 'IfStatement': return n.alternate ? (n.alternate.type === 'IfStatement' ? null : n.alternate) : n.consequent;
     case 'ForStatement': case 'ForInStatement': case 'ForOfStatement': case 'WhileStatement': return n.body;
     default: return null;
   }
@@ -1398,11 +1404,14 @@ rule('multiline-block-without-braces', {
   for (const n of ctx.nodesOf('IfStatement', 'ForStatement', 'ForInStatement', 'ForOfStatement', 'WhileStatement')) {
     const body = bodyOf(n);
     if (!body || body.type === 'BlockStatement' || body.type === 'EmptyStatement') continue;
-    const list = n.parent && (n.parent.type === 'BlockStatement' || n.parent.type === 'Program') ? n.parent.body : n.parent && n.parent.type === 'SwitchCase' ? n.parent.consequent : null;
+    // an else body belongs to the whole if / else-if chain
+    let top = n;
+    while (top.parent && top.parent.type === 'IfStatement' && top.parent.alternate === top) top = top.parent;
+    const list = top.parent && (top.parent.type === 'BlockStatement' || top.parent.type === 'Program') ? top.parent.body : top.parent && top.parent.type === 'SwitchCase' ? top.parent.consequent : null;
     if (!list) continue;
-    const next = list[list.indexOf(n) + 1];
+    const next = list[list.indexOf(top) + 1];
     if (!next) continue;
-    const head = ctx.loc(n.start);
+    const head = ctx.loc(top.start);
     const b = ctx.loc(body.start);
     const nx = ctx.loc(next.start);
     if (b.line === head.line) continue;
@@ -1428,17 +1437,17 @@ rule('unexpected-multiline', {
     const calleeEnd = n.callee.parenthesized ? n.callee.parenEnd : n.callee.end;
     const open = ctx.src.indexOf('(', calleeEnd);
     if (open < 0 || open >= n.end) continue;
-    if (nlBetween(ctx.src, calleeEnd, open)) ctx.report(n, m('Make sure this expression is not interpreted as a function call; add a semicolon at the end of the previous line.', '이 식이 함수 호출로 해석되지 않도록 앞 줄 끝에 세미콜론을 넣으세요.'));
+    if (nlBetween(ctx.src, calleeEnd, open)) ctx.report({ start: open, end: open + 1 }, m('Make sure this expression is not interpreted as a function call; add a semicolon at the end of the previous line.', '이 식이 함수 호출로 해석되지 않도록 앞 줄 끝에 세미콜론을 넣으세요.'));
   }
   for (const n of ctx.nodes('TaggedTemplateExpression')) {
-    if (nlBetween(ctx.src, n.tag.parenthesized ? n.tag.parenEnd : n.tag.end, n.quasi.start)) ctx.report(n, m('This template literal is used as a tag argument of the previous line; add a semicolon.', '이 템플릿 리터럴이 앞 줄의 태그 인자로 쓰입니다. 세미콜론을 넣으세요.'));
+    if (nlBetween(ctx.src, n.tag.parenthesized ? n.tag.parenEnd : n.tag.end, n.quasi.start)) ctx.report(n.quasi, m('This template literal is used as a tag argument of the previous line; add a semicolon.', '이 템플릿 리터럴이 앞 줄의 태그 인자로 쓰입니다. 세미콜론을 넣으세요.'));
   }
   for (const n of ctx.nodes('MemberExpression')) {
     if (!n.computed || n.optional) continue;
     const objEnd = n.object.parenthesized ? n.object.parenEnd : n.object.end;
     const open = ctx.src.indexOf('[', objEnd);
     if (open < 0 || open > n.property.start) continue;
-    if (nlBetween(ctx.src, objEnd, open) && n.property.type === 'SequenceExpression') ctx.report(n, m('This "[" continues the previous line as an index access; add a semicolon.', '이 "["는 앞 줄에 이어져 인덱스 접근이 됩니다. 세미콜론을 넣으세요.'));
+    if (nlBetween(ctx.src, objEnd, open) && n.property.type === 'SequenceExpression') ctx.report({ start: open, end: open + 1 }, m('This "[" continues the previous line as an index access; add a semicolon.', '이 "["는 앞 줄에 이어져 인덱스 접근이 됩니다. 세미콜론을 넣으세요.'));
   }
 });
 
@@ -1464,7 +1473,7 @@ rule('loop-single-iteration', {
   why: ['The loop body always ends with a return, throw or break, so it can run at most once.', '반복 본문이 항상 return, throw, break로 끝나 최대 한 번만 실행됩니다.'],
   fix: ['Replace the loop by an if statement, or make the jump conditional.', '반복을 if 문으로 바꾸거나 이동을 조건부로 만드세요.'],
 }, (ctx) => {
-  for (const loop of ctx.nodesOf('ForStatement', 'WhileStatement', 'DoWhileStatement')) {
+  for (const loop of ctx.nodesOf('ForStatement', 'WhileStatement', 'DoWhileStatement', 'ForInStatement', 'ForOfStatement')) {
     const b = loop.body;
     if (!b || b.type !== 'BlockStatement' || !b.body.length) continue;
     const last = b.body[b.body.length - 1];

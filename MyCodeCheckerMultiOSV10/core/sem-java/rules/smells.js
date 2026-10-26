@@ -566,7 +566,8 @@ rule({
       if (p.k === 'Method' || p.k === 'Lambda' || p.k === 'LocalFun' || p.k === 'Init' && false) return;
       if (p.k === 'Catch' && /^(ignored|ignore|expected|_)$/i.test(p.name || '')) return;
       if (p.k === 'Case' || p.k === 'Switch') return;
-XX || p.k === 'Do' || p.k === 'For' || p.k === 'ForEach') {
+      if (cx.unit.comments.some((c) => c.pos > n.s && c.pos < n.en)) return;
+      if (p.k === 'While' || p.k === 'Do' || p.k === 'For' || p.k === 'ForEach') {
         // busy-wait loops with side effects in the header are a separate concern
         if (p.c && A.find(p.c, (x) => x.k === 'Call' || x.k === 'Assign' || x.k === 'Un' && (x.op === '++' || x.op === '--'))) return;
       }

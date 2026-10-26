@@ -56,7 +56,9 @@ function descendants(node, fn, opts = {}) {
   });
 }
 
-const POS_KEYS = new Set(['line', 'col', 'endLine', 'endCol', 'pos', 'end', 'nameLine', 'nameCol', 'parent', 'sym', 'owner', 'elseLine', 'intoLine', 'outer', 'typeInfo', 'info', 'raw']);
+const POS_KEYS = new Set(['line', 'col', 'endLine', 'endCol', 'pos', 'end', 'nameLine', 'nameCol', 'parent', 'sym', 'owner', 'elseLine', 'intoLine', 'outer', 'typeInfo', 'info', 'raw',
+  // binding flags differ between the read and the written side of `x = x`
+  'isWrite', 'isRead', 'anyWrite', 'anyRead']);
 
 function same(a, b) {
   if (a === b) return true;

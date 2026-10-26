@@ -223,7 +223,7 @@ P.lockExitChecks = function lockExitChecks() {
 P.buildSummary = function buildSummary() {
   const S = {
     key: this.key, name: this.name, file: this.file,
-    derefs: new Map(), frees: new Map(), escapes: new Set(), sinks: this.paramSinks, divs: new Map(),
+    derefs: new Map(), frees: new Map(), escapes: new Set(), sinks: this.paramSinks, divs: new Map(), indexes: new Map(),
     retNull: false, retNullEv: null, retNonNull: false, retAlloc: null, retIv: null, retNeg: null, retTaint: null, retPar: undefined,
     locks: new Map(), acquires: new Set(this.acquired.keys()), globalLocks: new Set(), blocks: this.blocksEv,
     writesMem: this.writesMem, writesGlobals: this.writesGlobals, noreturn: false,
@@ -252,6 +252,9 @@ P.buildSummary = function buildSummary() {
   for (const [i, list] of this.paramPre) {
     const d = list.find((x) => x.kind === 'div' && x.uncond);
     if (d) S.divs.set(i, d.ev);
+    let ix = null;
+    for (const x of list) if (x.kind === 'index' && x.uncond && (!ix || x.need > ix.need)) ix = x;
+    if (ix) S.indexes.set(i, { need: ix.need, ev: ix.ev });
   }
   const ft = this.fn.ctype && T.canonical(this.fn.ctype);
   const rt = ft && ft.kind === 'function' ? this.T(ft.ret) : null;

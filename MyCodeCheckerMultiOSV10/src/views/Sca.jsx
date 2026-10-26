@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call, pickFolder, isDesktop } from '../lib/backend';
 import { Icon, Dialog } from '../components/Chrome';
-import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stat, ViewHeader, Empty, Confirm, saveText } from './common';
+import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stat, ViewHeader, Empty, Confirm, saveText, NoProject } from './common';
 
 const SEV_ORDER = { CRITICAL: 0, HIGH: 1, MODERATE: 2, MEDIUM: 2, LOW: 3 };
 const VERDICT_ICON = { allowed: 'check', review: 'eye', denied: 'alert', unknown: 'info', missing: 'info' };
@@ -81,16 +81,16 @@ export function ScaView({ project, stamp }) {
         </BtnGroup>
       </ViewHeader>
       {note && <p className="small">{note}</p>}
-      {!project && <Empty text={t('no_project')} />}
+      {!project && <NoProject />}
       <ApiState state={state} />
       {data && (
         <>
           <div className="card-grid">
-            <Stat label={t('sca_dependencies')} value={s.dependencies} sub={`${t('sca_direct')} ${s.direct} · ${t('sca_transitive')} ${s.transitive}`} />
-            <Stat label={t('sca_vulnerable')} value={s.vulnerable} tone={s.vulnerable ? 'bad' : 'ok'} />
-            <Stat label={t('sca_vulnerabilities')} value={s.vulnerabilities} sub={Object.entries(s.bySeverity || {}).map(([k, n]) => `${k} ${n}`).join(' · ')} />
-            <Stat label={t('sca_ecosystems')} value={(s.ecosystems || []).length} sub={(s.ecosystems || []).join(', ')} />
-            <Stat label={t('sca_advisories')} value={s.advisoryCount} />
+            <Stat icon="package" label={t('sca_dependencies')} value={s.dependencies} sub={`${t('sca_direct')} ${s.direct} · ${t('sca_transitive')} ${s.transitive}`} />
+            <Stat icon="alert" label={t('sca_vulnerable')} value={s.vulnerable} tone={s.vulnerable ? 'bad' : 'ok'} />
+            <Stat icon="unlock" label={t('sca_vulnerabilities')} value={s.vulnerabilities} sub={Object.entries(s.bySeverity || {}).map(([k, n]) => `${k} ${n}`).join(' · ')} />
+            <Stat icon="globe" label={t('sca_ecosystems')} value={(s.ecosystems || []).length} sub={(s.ecosystems || []).join(', ')} />
+            <Stat icon="report" label={t('sca_advisories')} value={s.advisoryCount} />
           </div>
           {(data.errors || []).length > 0 && <p className="small bad">{data.errors.map((e) => (typeof e === 'string' ? e : `${e.file || ''} ${e.message || ''}`)).join(' · ')}</p>}
           <Tabs value={tab} onChange={setTab} tabs={[

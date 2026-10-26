@@ -29,7 +29,26 @@ function pandasValue(c, e, depth = 0) {
     if (b.kind === 'assign' && b.stmt && b.stmt.type === 'Assign' && b.stmt.targets.length === 1 && b.stmt.targets[0] === b.node) return pandasValue(c, b.stmt.value, depth + 1);
     if (b.kind === 'param' && b.node.annotation && /DataFrame|Series/.test(dotted(b.node.annotation) || '')) return true;
   }
+  if (e.type === 'Name' && e.sym && e.sym !== BUILTIN && e.sym.bindings.length > 1) {
+    // df = pd.DataFrame(); df = df.dropna(); ... : every rebinding is a pandas value or derived from the name itself
+    let any = false;
+    for (const b of e.sym.bindings) {
+      if (b.kind !== 'assign' || !b.stmt || b.stmt.type !== 'Assign' || b.stmt.targets.length !== 1 || b.stmt.targets[0] !== b.node) return false;
+      const v = b.stmt.value;
+      if (rootName(v) === e.id) continue;
+      if (!pandasValue(c, v, depth + 1)) return false;
+      any = true;
+    }
+    return any;
+  }
   return false;
+}
+
+// root variable of a call / attribute / subscript chain (df.a.b() -> 'df')
+function rootName(e) {
+  let x = e;
+  while (x && (x.type === 'Call' || x.type === 'Attribute' || x.type === 'Subscript')) x = x.type === 'Call' ? x.func : x.value;
+  return x && x.type === 'Name' ? x.id : null;
 }
 
 R('numpy-deprecated-alias', 'B', 'MA', 5, ['data-science', 'numpy'], null,
@@ -248,7 +267,7 @@ R('torch-forward-direct', 'S', 'MA', 5, ['data-science', 'pytorch'], null,
         if (!c.imported('torch') || n.func.type !== 'Attribute' || n.func.attr !== 'forward') return;
         const v = n.func.value;
         if (v.type === 'Call' && U.isBuiltinName(v.func, 'super')) return;
-        if (v.type === 'Name' && /^[A-Z]/.test(v.id)) return; // Base.forward(self, x)
+        if (/^[A-Z]/.test(U.lastPart(dotted(v) || ''))) return; // Base.forward(self, x) / nn.Linear.forward(self, x)
         r.report(n, `Call '${short(c.slice(v), 30)}(...)' instead of '.forward(...)' so hooks run.`, `훅이 실행되도록 '.forward(...)' 대신 '${short(c.slice(v), 30)}(...)'를 호출하세요.`);
       },
     },

@@ -15,7 +15,7 @@ const { engines, engineCatalog, extraLineRules } = require('./engines');
 
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'target', 'vendor', '__pycache__',
-  '.venv', 'venv', 'bin', 'obj', '.idea', '.vs', '.next', 'out', 'coverage',
+  '.venv', 'venv', 'bin', 'obj', '.idea', '.vs', '.next', 'out', 'coverage', '.mcc',
 ]);
 
 const STRUCT_BY_KEY = new Map(STRUCTURAL.map((r) => [r.key, r]));
@@ -35,7 +35,7 @@ function analyzePath(root, options = {}) {
     sources.push({ path: file, text });
   }
   let coverage = null;
-  try { coverage = readCoverage(abs); } catch { coverage = null; }
+  try { coverage = readCoverage(abs, options.coverageReports); } catch { coverage = null; }
   if (options.coverageText) {
     try { coverage = parseLcov(options.coverageText, abs); } catch { /* keep file coverage */ }
   }
@@ -100,6 +100,15 @@ function analyzeSources(files, options = {}) {
   const dupInput = [];
   let complexity = 0;
   const langCount = {};
+  // Line-based new code: SCM changed lines (options.isNewLine), else lines whose
+  // content is not in the baseline analysis (options.previousLineHashes).
+  const lineHashes = {};
+  const newLines = new Map();
+  const prevHashes = options.previousLineHashes || null;
+  const lineMode = typeof options.isNewLine === 'function' ? 'scm' : (prevHashes && options.hasBaseline !== false ? 'hash' : null);
+  let newNclocLines = 0;
+  let newToCover = 0;
+  let newCovered = 0;
 
   for (const file of prepared) {
     const kind = commentKind(file.lang);
@@ -109,6 +118,25 @@ function analyzeSources(files, options = {}) {
     let fileComplexity = 1;
     for (const line of structural.code) fileComplexity += decisionCount(line);
     complexity += fileComplexity;
+    const hashes = structural.lines.map(lineHash);
+    lineHashes[file.path] = hashes.join('');
+    if (lineMode) {
+      const set = new Set();
+      if (lineMode === 'scm') {
+        for (let i = 0; i < hashes.length; i++) if (options.isNewLine(file.path, i + 1)) set.add(i + 1);
+      } else {
+        const before = prevHashes[file.path];
+        const pool = new Map();
+        if (typeof before === 'string') for (let i = 0; i + HASH_LEN <= before.length; i += HASH_LEN) { const h = before.slice(i, i + HASH_LEN); pool.set(h, (pool.get(h) || 0) + 1); }
+        for (let i = 0; i < hashes.length; i++) {
+          const left = pool.get(hashes[i]) || 0;
+          if (left > 0) pool.set(hashes[i], left - 1);
+          else if (structural.lines[i].trim()) set.add(i + 1);
+        }
+      }
+      newLines.set(file.path, set);
+      for (const n of set) if (structural.code[n - 1] && structural.code[n - 1].trim()) newNclocLines++;
+    }
 
     const push = (found, rule, lang) => {
       if (!found || !found.line || suppressed.has(found.line)) return;
@@ -175,6 +203,14 @@ function analyzeSources(files, options = {}) {
     }
 
     const cov = coverageFor(options.coverage, file.path);
+    if (cov && cov.lines && newLines.has(file.path)) {
+      for (const n of newLines.get(file.path)) {
+        const hit = cov.lines[n];
+        if (hit == null) continue;
+        newToCover++;
+        if (hit) newCovered++;
+      }
+    }
     fileRows.push({
       path: file.path,
       language: file.lang,
@@ -198,9 +234,27 @@ function analyzeSources(files, options = {}) {
   for (let n = 0; n < issues.length; n++) {
     issues[n] = decorateIssue(issues[n], lineMap.get(issues[n].file) || [], options.components);
   }
+  // The line-based Coverity pass (cov:*) yields to a path-sensitive engine
+  // finding of the same checker on the same line.
+  const precise = new Set(issues.filter((i) => i.checker && !String(i.rule).startsWith('cov:')).map((i) => `${i.checker}|${i.file}|${i.line}`));
+  for (let n = issues.length - 1; n >= 0; n--) {
+    if (String(issues[n].rule).startsWith('cov:') && precise.has(`${issues[n].checker}|${issues[n].file}|${issues[n].line}`)) issues.splice(n, 1);
+  }
+  const annotations = new Map();
+  for (const file of prepared) {
+    if (/coverity\[/i.test(file.text)) annotations.set(file.path, coverityAnnotations(file.text));
+  }
+  if (annotations.size) {
+    for (let n = issues.length - 1; n >= 0; n--) {
+      const map = annotations.get(issues[n].file);
+      if (map && annotationSuppresses(issues[n], map.get(issues[n].line))) issues.splice(n, 1);
+    }
+  }
   const hasBaseline = previous.size > 0 || options.hasBaseline;
   for (const item of issues) {
-    item.isNew = !hasBaseline || !previous.has(item.key);
+    if (lineMode === 'scm') item.isNew = newLines.has(item.file) && newLines.get(item.file).has(item.line || 1);
+    else if (lineMode === 'hash') item.isNew = !previous.has(item.key) && newLines.has(item.file) && newLines.get(item.file).has(item.line || 1);
+    else item.isNew = !hasBaseline || !previous.has(item.key);
     const saved = states[item.key] || states[`cid:${item.cid}`];
     if (saved) {
       item.status = saved.status || item.status;
@@ -212,6 +266,11 @@ function analyzeSources(files, options = {}) {
       if (saved.classification) item.classification = saved.classification;
       if (saved.action) item.action = saved.action;
       if (saved.impact) item.impact = saved.impact;
+      if (saved.tags) item.tags = saved.tags;
+      if (saved.triageSeverity) item.triageSeverity = saved.triageSeverity;
+      if (saved.externalReference) item.externalReference = saved.externalReference;
+      if (saved.legacy) item.legacy = true;
+      if (saved.review) item.review = saved.review;
     }
   }
   const coverity = summarizeCoverity(issues, {
@@ -228,9 +287,11 @@ function analyzeSources(files, options = {}) {
   const newSmells = newIssues.filter((i) => i.type === 'CODE_SMELL' && !isClosed(i));
   const newDebt = newSmells.reduce((n, i) => n + i.debtMin, 0);
   const newFiles = new Set(newIssues.map((i) => i.file));
-  const newNcloc = hasBaseline
-    ? fileRows.filter((f) => newFiles.has(f.path)).reduce((n, f) => n + f.ncloc, 0) || (newIssues.length ? 1 : 0)
-    : ncloc;
+  const newNcloc = lineMode
+    ? newNclocLines
+    : hasBaseline
+      ? fileRows.filter((f) => newFiles.has(f.path)).reduce((n, f) => n + f.ncloc, 0) || (newIssues.length ? 1 : 0)
+      : ncloc;
 
   const ratingsAll = rate(openIssues, hotspots, smellDebt, ncloc);
   const ratingsNew = rate(newIssues.filter((i) => i.type !== 'SECURITY_HOTSPOT'), newIssues.filter((i) => i.type === 'SECURITY_HOTSPOT'), newDebt, newNcloc || 0);
@@ -238,7 +299,22 @@ function analyzeSources(files, options = {}) {
   const coverage = options.coverage;
   const lineCoverage = coverage && coverage.linesToCover ? coverage.lineCoverage : null;
   const dupDensity = ncloc ? Math.round((dup.duplicatedLines / Math.max(ncloc, 1)) * 1000) / 10 : 0;
-  const newDupDensity = hasBaseline ? (dup.duplicatedLines > (options.previousDuplicatedLines || 0) ? dupDensity : 0) : dupDensity;
+  let newDupDensity;
+  if (lineMode) {
+    const dupNew = new Set();
+    for (const b of dup.blocks) {
+      for (const inst of b.instances) {
+        const set = newLines.get(inst.path);
+        if (!set) continue;
+        for (let n = inst.start; n <= inst.end; n++) if (set.has(n)) dupNew.add(`${inst.path}:${n}`);
+      }
+    }
+    newDupDensity = newNclocLines ? Math.round((dupNew.size / newNclocLines) * 1000) / 10 : 0;
+  } else {
+    newDupDensity = hasBaseline ? (dup.duplicatedLines > (options.previousDuplicatedLines || 0) ? dupDensity : 0) : dupDensity;
+  }
+  // Coverage on new code: only new lines that the report lists.
+  const newCoverage = lineMode ? (newToCover ? Math.round((newCovered / newToCover) * 1000) / 10 : null) : lineCoverage;
 
   const measures = {
     files: fileRows.length,
@@ -266,7 +342,11 @@ function analyzeSources(files, options = {}) {
     new_vulnerabilities: countOpen(newIssues, 'VULNERABILITY'),
     new_code_smells: countOpen(newIssues, 'CODE_SMELL'),
     new_security_hotspots_reviewed: ratingsNew.hotspotsReviewed,
-    new_coverage: lineCoverage,
+    new_coverage: newCoverage,
+    new_lines: lineMode ? [...newLines.values()].reduce((n, s) => n + s.size, 0) : null,
+    new_ncloc: newNcloc,
+    new_lines_to_cover: lineMode ? newToCover : null,
+    new_uncovered_lines: lineMode ? newToCover - newCovered : null,
     new_duplicated_lines_density: newDupDensity,
     new_maintainability_rating: ratingsNew.maintainabilityValue,
     new_reliability_rating: ratingsNew.reliabilityValue,
@@ -315,8 +395,16 @@ function analyzeSources(files, options = {}) {
     } : null,
     warnings,
     keys: issues.map((i) => i.key),
+    lineHashes,
+    newCodeMode: lineMode || (hasBaseline ? 'keys' : 'all'),
     coverity,
   };
+}
+
+// 6 hex chars of a whitespace-normalized line (baseline comparison only).
+const HASH_LEN = 6;
+function lineHash(line) {
+  return crypto.createHash('md5').update(String(line).replace(/\s+/g, ' ').trim()).digest('hex').slice(0, HASH_LEN);
 }
 
 // Contract analyzers (core/ENGINE_CONTRACT.md) run once over all files so
@@ -341,6 +429,9 @@ function runEngines(prepared, ctx, issues, overrides, warnings) {
     for (const f of found) {
       if (!f || !f.rule || !f.line || ctx.inactive.has(f.rule)) continue;
       const m = meta.get(f.rule) || {};
+      // A rule only reports on its own languages (headers .h may be C or C++).
+      const fileLang = (byPath.get(f.file) || {}).lang;
+      if (fileLang && m.langs && !m.langs.includes('*') && !m.langs.includes(fileLang) && !/\.h$/i.test(f.file)) continue;
       const lines = linesOf(f.file);
       if (!suppressed.has(f.file)) suppressed.set(f.file, suppressionLines(lines.join('\n')));
       if (suppressed.get(f.file).has(f.line)) continue;
@@ -407,9 +498,51 @@ function suppressionLines(text) {
   const set = new Set();
   const lines = String(text).split(/\r?\n/);
   lines.forEach((line, i) => {
-    if (/NOSONAR|\bnoqa\b|\bnolint\b|checker\s*:\s*ignore|mcc-ignore|cov-ignore|coverity\[|parasoft-suppress|sparrow-ignore/i.test(line)) set.add(i + 1);
+    if (/NOSONAR|\bnoqa\b|\bnolint\b|checker\s*:\s*ignore|mcc-ignore|cov-ignore|parasoft-suppress|sparrow-ignore/i.test(line)) set.add(i + 1);
   });
   return set;
+}
+
+// Coverity code annotations: `// coverity[CHECKER]` or `/* coverity[event_tag : FALSE] */`
+// suppress only the named checkers (or event tags), on that line and on the
+// next line that has code. Returns Map<line, Set<lower-case name>>.
+function coverityAnnotations(text) {
+  const out = new Map();
+  const lines = String(text).split(/\r?\n/);
+  const add = (line, names) => {
+    const set = out.get(line) || new Set();
+    for (const n of names) set.add(n);
+    out.set(line, set);
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const re = /coverity\[([^\]]+)\]/gi;
+    let m;
+    const names = [];
+    while ((m = re.exec(lines[i]))) {
+      for (const part of m[1].split(',')) {
+        const name = part.split(':')[0].trim().toLowerCase();
+        if (name) names.push(name);
+      }
+    }
+    if (!names.length) continue;
+    add(i + 1, names);
+    const commentOnly = /^\s*(\/\/|\/\*|\*(\s|\/|$)|#)/.test(lines[i]);
+    if (commentOnly) {
+      let j = i + 1;
+      while (j < lines.length && (!lines[j].trim() || /^\s*(\/\/|\/\*|\*(\s|\/|$)|#)/.test(lines[j]))) j++;
+      if (j < lines.length) add(j + 1, names);
+    }
+  }
+  return out;
+}
+
+function annotationSuppresses(issue, names) {
+  if (!names) return false;
+  if (names.has('all') || names.has('*')) return true;
+  const checker = String(issue.checker || '').toLowerCase();
+  if (checker && names.has(checker)) return true;
+  if (names.has(String(issue.rule || '').toLowerCase())) return true;
+  return (issue.events || []).some((e) => e && e.tag && names.has(String(e.tag).toLowerCase()));
 }
 
 function ruleApplies(rule, langs) {
@@ -461,10 +594,27 @@ function escapeReg(s) {
   return s.replace(/[.+^${}()|[\]\\]/g, '\\$&');
 }
 
+let rulesCache = null;
 function listRules() {
-  return [...RULES.map(ruleMeta), ...extraLineRules().map(ruleMeta), ...structuralMeta(), ...checkerCatalog(), ...engineCatalog()];
+  if (!rulesCache) rulesCache = withKoreanStandards([...RULES.map(ruleMeta), ...extraLineRules().map(ruleMeta), ...structuralMeta(), ...checkerCatalog(), ...engineCatalog()]);
+  return rulesCache.map((r) => ({ ...r }));
+}
+
+// Add the 행정안전부 2021 item numbers a rule falls under (through its CWEs)
+// so the issue filter and rule chips can show them.
+function withKoreanStandards(rules) {
+  const { MOIS_2021 } = require('./platform/kr-standards');
+  const { cwesOf } = require('./platform/util');
+  const byCwe = new Map();
+  for (const [id, cat] of Object.entries(MOIS_2021)) for (const c of cat.cwes) byCwe.set(c, [...(byCwe.get(c) || []), id]);
+  return rules.map((r) => {
+    if (r.standards && r.standards.mois2021) return r;
+    const ids = [...new Set(cwesOf(null, r).flatMap((c) => byCwe.get(c) || []))];
+    return ids.length ? { ...r, standards: { ...(r.standards || {}), mois2021: ids } } : r;
+  });
 }
 
 module.exports = {
+  coverityAnnotations,
   analyzePath, analyzeSources, walk, listRules, matchGlob, excluded, SKIP_DIRS,
 };

@@ -512,7 +512,12 @@ class Visitor {
 function markExported(decl, scope) {
   const ids = [];
   if (decl.type === 'VariableDeclaration') for (const d of decl.declarations) ids.push(...patternIds(d.id));
-  else if (decl.id && decl.id.type === 'Identifier') ids.push(decl.id);
+  else if (decl.id && decl.id.type === 'Identifier') {
+    // a class id's _var points at the inner class-name binding; mark the outer one too
+    const outer = scope.vars.get(decl.id.name);
+    if (outer) outer.exported = true;
+    ids.push(decl.id);
+  }
   for (const id of ids) if (id._var) id._var.exported = true;
 }
 

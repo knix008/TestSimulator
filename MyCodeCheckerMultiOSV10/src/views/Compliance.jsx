@@ -4,9 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
-import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stat, Rating, ViewHeader, Empty, DateField } from './common';
+import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stat, Rating, ViewHeader, Empty, DateField, NoProject } from './common';
 
 export const SECURITY_STANDARDS = [
+  { value: 'mois2021', label: '행정안전부 SW 보안약점 49 (2021)', icon: 'shield' },
+  { value: 'kisaWeb', label: '주요정보통신기반시설 웹', icon: 'globe' },
   { value: 'owasp2021', label: 'OWASP Top 10 2021', icon: 'lock' },
   { value: 'owasp2017', label: 'OWASP Top 10 2017', icon: 'lock' },
   { value: 'asvs4:1', label: 'OWASP ASVS 4.0 L1', icon: 'check' },
@@ -55,22 +57,22 @@ export function ComplianceView({ project, branch, stamp, onDrill }) {
         <span className="spacer" />
         <Btn icon="refresh" label={t('pf_refresh')} onClick={state.reload} />
       </ViewHeader>
-      {!project && <Empty text={t('no_project')} />}
+      {!project && <NoProject />}
       <ApiState state={state} />
       {report && (
         <>
           <div className="card-grid">
             {totals && <div className="card"><div className="k">{t('cp_rating')}</div><div className={`rating ${totals.rating}`}>{totals.rating}</div><div className="small">{report.title}</div></div>}
-            {totals && <Stat label={t('vulns')} value={totals.vulnerabilities} />}
-            {totals && <Stat label={t('cp_hotspots_review')} value={`${totals.hotspotsToReview} / ${totals.hotspots}`} />}
-            {totals && <Stat label={t('cp_rules')} value={(totals.rules || []).length} />}
-            {report.unmapped != null && <Stat label={t('cp_unmapped')} value={report.unmapped} sub={t('cp_unmapped_hint')} />}
-            {isAsvs && <Stat label={t('cp_passed')} value={report.passed} />}
-            {isAsvs && <Stat label={t('cp_failed')} value={report.failed} tone={report.failed ? 'bad' : 'ok'} />}
-            {isAsvs && <Stat label={t('cp_verdict')} value={report.compliant ? t('cp_compliant') : t('cp_not_compliant')} tone={report.compliant ? 'ok' : 'bad'} />}
-            {isCert && <Stat label={t('cp_checked_rules')} value={(report.checkedRules || []).length} />}
-            {isCert && <Stat label={t('cp_violated_rules')} value={report.violatedRules} tone={report.violatedRules ? 'bad' : 'ok'} />}
-            {isCert && <Stat label={t('cp_issues')} value={report.issues} />}
+            {totals && <Stat icon="unlock" label={t('vulns')} value={totals.vulnerabilities} />}
+            {totals && <Stat icon="shield" label={t('cp_hotspots_review')} value={`${totals.hotspotsToReview} / ${totals.hotspots}`} />}
+            {totals && <Stat icon="list" label={t('cp_rules')} value={(totals.rules || []).length} />}
+            {report.unmapped != null && <Stat icon="info" label={t('cp_unmapped')} value={report.unmapped} sub={t('cp_unmapped_hint')} />}
+            {isAsvs && <Stat icon="checkCircle" label={t('cp_passed')} value={report.passed} />}
+            {isAsvs && <Stat icon="xCircle" label={t('cp_failed')} value={report.failed} tone={report.failed ? 'bad' : 'ok'} />}
+            {isAsvs && <Stat icon="gate" label={t('cp_verdict')} value={report.compliant ? t('cp_compliant') : t('cp_not_compliant')} tone={report.compliant ? 'ok' : 'bad'} />}
+            {isCert && <Stat icon="list" label={t('cp_checked_rules')} value={(report.checkedRules || []).length} />}
+            {isCert && <Stat icon="alert" label={t('cp_violated_rules')} value={report.violatedRules} tone={report.violatedRules ? 'bad' : 'ok'} />}
+            {isCert && <Stat icon="bug" label={t('cp_issues')} value={report.issues} />}
           </div>
           <div className="panel tpanel">
             <div className="table-wrap">
@@ -177,7 +179,7 @@ export function MisraView({ project, branch, stamp, onDrill }) {
         </BtnGroup>
       </ViewHeader>
       {note && <p className="small">{note}</p>}
-      {!project && <Empty text={t('no_project')} />}
+      {!project && <NoProject />}
       <ApiState state={comp} />
       {report && (
         <>
@@ -192,8 +194,8 @@ export function MisraView({ project, branch, stamp, onDrill }) {
             </div>
           </div>
           <div className="card-grid">
-            {STATUSES.map((s) => <Stat key={s} label={statusLabel(s)} value={report.summary[s] || 0} tone={s === 'Violations' && report.summary[s] ? 'bad' : ''} />)}
-            <Stat label={t('ms_invalid_devs')} value={(report.invalidDeviations || []).length} tone={(report.invalidDeviations || []).length ? 'bad' : ''} />
+            {STATUSES.map((s) => <Stat key={s} icon={STATUS_ICON[s]} label={statusLabel(s)} value={report.summary[s] || 0} tone={s === 'Violations' && report.summary[s] ? 'bad' : ''} />)}
+            <Stat icon="alert" label={t('ms_invalid_devs')} value={(report.invalidDeviations || []).length} tone={(report.invalidDeviations || []).length ? 'bad' : ''} />
           </div>
           <Tabs value={tab} onChange={setTab} tabs={[
             { id: 'gcs', label: t('ms_gcs'), icon: 'list', count: (report.gcs || []).length },

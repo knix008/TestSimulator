@@ -17,7 +17,7 @@ const corsOrigins = [
   'http://localhost:5210', 'http://127.0.0.1:5210',
   'http://tauri.localhost', 'https://tauri.localhost', 'tauri://localhost',
 ];
-const { handle } = createHandler({ token, corsOrigins, configDir: config || undefined, version: readVersion() });
+const { handle } = createHandler({ token, corsOrigins, configDir: config || undefined, version: readVersion(), scheduler: true });
 
 const server = http.createServer((req, res) => {
   handle(req, res).then((done) => {

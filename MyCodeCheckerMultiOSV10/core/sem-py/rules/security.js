@@ -351,7 +351,8 @@ R('hardcoded-credentials', 'H', 'BL', 30, ['cwe-798', 'cwe-259', 'owasp-a07', 's
         if (!v) return;
         for (const t of n.targets) {
           const nm = t.type === 'Name' ? t.id : t.type === 'Attribute' ? t.attr : t.type === 'Subscript' ? U.strValue(t.slice) : null;
-          if (!nm || !CRED_NAME.test(nm) || /^(?:SECRET_KEY|JWT_SECRET_KEY)$/.test(nm) || configSubscript(t, 'SECRET_KEY')) continue;
+          // framework signing keys are reported by hardcoded-secret-key
+          if (!nm || !CRED_NAME.test(nm) || /^(?:SECRET_KEY|JWT_SECRET_KEY)$/.test(nm) || (t.type === 'Attribute' && t.attr === 'secret_key') || configSubscript(t, 'SECRET_KEY')) continue;
           if (v.toLowerCase().replace(/[^a-z]/g, '') === nm.toLowerCase().replace(/[^a-z]/g, '')) continue;
           r.report(n.value, `Review this hard-coded credential assigned to '${nm}'.`, `'${nm}'에 대입한 하드코딩된 자격 증명을 검토하세요.`);
         }
@@ -388,6 +389,7 @@ R('hardcoded-credentials-call', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets
         const call = n.parent;
         const name = c.q(call.func) || dotted(call.func) || '';
         if (/^(?:print|log|logging\.\w+|\w+\.(?:debug|info|warning|error))$/.test(name)) return;
+        if (/^(?:SECRET_KEY|JWT_SECRET_KEY)$/.test(n.arg) && /(?:^|\.)config\.update$/.test(dotted(call.func) || '')) return; // hardcoded-secret-key
         r.report(n.value, `Do not pass a hard-coded '${n.arg}' to '${short(name || 'this call', 40)}'.`, `'${short(name || '이 호출', 40)}'에 하드코딩된 '${n.arg}'를 넘기지 마세요.`);
       },
     },
@@ -486,6 +488,8 @@ R('publicly-writable-directory', 'H', 'CR', 10, ['cwe-377', 'cwe-379', 'owasp-a0
         if (n.kind !== 'str' || c.isTest || !/^(?:\/tmp|\/var\/tmp|\/dev\/shm|\/usr\/tmp)(?:\/|$)/.test(n.value)) return;
         const p = n.parent;
         if (!p || !(p.type === 'Call' || p.type === 'keyword' || p.type === 'Assign' || p.type === 'BinOp' || p.type === 'JoinedStr')) return;
+        // a prefix test or string rewrite only mentions the directory, it does not create files there
+        if (p.type === 'Call' && p.func.type === 'Attribute' && /^(?:startswith|endswith|removeprefix|replace|relative_to|is_relative_to|find|index|count)$/.test(p.func.attr)) return;
         r.report(n, `Make sure using the publicly writable directory '${short(n.value, 30)}' is safe here.`, `누구나 쓸 수 있는 디렉터리 '${short(n.value, 30)}'를 써도 안전한지 확인하세요.`);
       },
     },
@@ -562,7 +566,9 @@ R('hardcoded-ip', 'H', 'MI', 5, ['cwe-547'], 'S1313',
         const o = m.slice(1, 5).map(Number);
         if (o.some((x) => x > 255)) return;
         if (o[0] === 127 || o[0] === 0 || (o[0] === 255 && o[1] === 255) || (o[0] === 192 && o[1] === 0 && o[2] === 2) || (o[0] === 198 && o[1] === 51 && o[2] === 100) || (o[0] === 203 && o[1] === 0 && o[2] === 113) || o[0] >= 224) return;
-        if (o.every((x) => x === o[0]) || /^\d+\.\d+\.\d+\.\d+$/.test(n.value) && o[0] < 10 && o[1] < 20 && o[3] < 20 && o[2] < 30 && !/(?:host|ip|addr|server|url|dns|gateway|bind)/i.test(c.lines[n.line - 1] || '')) return; // version numbers
+        // version numbers ('1.1.1.1', '2.0.3.4') unless the line talks about hosts (8.8.8.8 as a resolver)
+        const hostish = /(?:host|ip|addr|server|url|dns|resolver|gateway|bind|connect|socket|proxy|peer)/i.test(c.lines[n.line - 1] || '');
+        if (!hostish && /^\d+\.\d+\.\d+\.\d+$/.test(n.value) && (o.every((x) => x === o[0]) || (o[0] < 10 && o[1] < 20 && o[3] < 20 && o[2] < 30))) return;
         if (n.parent && n.parent.type === 'Expr') return;
         r.report(n, `Make sure using the hard-coded IP address '${n.value}' is safe here.`, `하드코딩된 IP 주소 '${n.value}'를 써도 안전한지 확인하세요.`);
       },
@@ -601,7 +607,8 @@ R('ldap-anonymous-bind', 'V', 'BL', 15, ['cwe-521', 'owasp-a07'], 'S4433',
         const f = n.func;
         if (f.type === 'Attribute' && /^simple_bind(?:_s)?$/.test(f.attr) && (c.imported('ldap') || c.imported('ldap3'))) {
           const pw = arg(n, 1, 'cred');
-          if (n.args.length < 2 || (pw && (U.strValue(pw) === '' || (pw.type === 'Constant' && pw.kind === 'None')))) r.report(n, 'Provide a password when binding to LDAP.', 'LDAP에 바인딩할 때 비밀번호를 넘기세요.');
+          if (n.args.some((a) => a.type === 'Starred') || n.keywords.some((k) => k.arg === null)) return;
+          if (!pw || U.strValue(pw) === '' || (pw.type === 'Constant' && pw.kind === 'None')) r.report(n, 'Provide a password when binding to LDAP.', 'LDAP에 바인딩할 때 비밀번호를 넘기세요.');
           return;
         }
         const name = q(c, f);

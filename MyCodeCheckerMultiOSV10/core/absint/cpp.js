@@ -1040,4 +1040,4 @@ function classChecks(engine, report) {
   }
 }
 
-module.exports = { runCpp, runDontCall, classChecks, escapingThrows, isNoexcept, declTypeText, contKind };
+module.exports = { runCpp, runDontCall, classChecks, escapingThrows, isNoexcept, declTypeText, contKind, expensive, methodCall, localSym, isStdMove, calleeType };

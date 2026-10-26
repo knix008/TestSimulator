@@ -371,12 +371,25 @@ function resolveCallee(c, call) {
       return { fn: m, bound: true, label: `'${m.cls.name}.${m.name}'` };
     }
     const t = c.type(f.value);
+    // module.function(...) for a project module
+    if (t && t.k === 'module') {
+      const ft = c.type(f);
+      if (ft && ft.k === 'func' && ft.fn && !ft.fn.cls && ok(ft.fn)) return { fn: ft.fn, bound: false, label: `'${ft.fn.name}'` };
+      return null;
+    }
     if (t && t.k === 'class' && t.cls && plainHierarchy(c, t.cls)) {
       const m = P.findMethod(t.cls, f.attr);
       if (!m || !ok(m)) return null;
       if (m.kind === 'staticmethod') return { fn: m, bound: false, label: `'${t.cls.name}.${m.name}'` };
       if (m.kind === 'classmethod') return { fn: m, bound: true, label: `'${t.cls.name}.${m.name}'` };
       return { fn: m, bound: false, label: `'${t.cls.name}.${m.name}'` };
+    }
+    // a method called on an instance of a plain project class: self is bound
+    if (t && t.k === 'inst' && t.cls && plainHierarchy(c, t.cls) && !t.cls.instanceAttrs.has(f.attr) && !overriddenBelow(c, t.cls, f.attr)) {
+      const m = P.findMethod(t.cls, f.attr);
+      if (!m || !ok(m) || m.isStub || m.isAbstract) return null;
+      if (m.kind === 'staticmethod') return { fn: m, bound: false, label: `'${t.cls.name}.${m.name}'` };
+      return { fn: m, bound: true, label: `'${t.cls.name}.${m.name}'` };
     }
   }
   return null;
@@ -480,6 +493,8 @@ R('not-callable', 'B', 'BL', 10, ['pitfall'], 'S5756',
         const t = c.type(f);
         if (!t) return;
         let bad = false;
+        // None in a function local is the symbolic engine's job (none-dereference)
+        if (t.k === 'none' && f.sym && f.sym !== BUILTIN && f.sym.scope && f.sym.scope.kind === 'function') return;
         if (t.k === 'none') bad = true;
         else if (t.k === 'inst' && !t.cls && NON_CALLABLE.has(t.name)) bad = true;
         else if (t.k === 'inst' && t.cls && c.project.hasMember(t.cls, '__call__') === false && c.project.hasMember(t.cls, '__getattr__') === false) bad = true;
@@ -661,7 +676,7 @@ R('none-return-used', 'B', 'MA', 10, ['pitfall'], 'S3699',
         const t = c.type(n);
         if (!t || t.k !== 'none') return;
         // callee never returns normally? then there is nothing to use either
-        let name = U.lastPart(dotted(n.func) || 'call');
+        let name = n.func.type === 'Attribute' ? n.func.attr : U.lastPart(dotted(n.func) || 'call');
         const callee = c.type(n.func);
         if (callee && callee.k === 'func' && callee.fn) {
           const fi = callee.fn;

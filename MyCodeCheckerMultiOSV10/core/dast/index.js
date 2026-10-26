@@ -7,6 +7,11 @@ const { passiveChecks } = require('./passive');
 const active = require('./active');
 const { catalog, rule } = require('./rules');
 const report = require('./report');
+const browser = require('./browser');
+const auth = require('./auth');
+const policiesMod = require('./policies');
+const apiscan = require('./apiscan');
+const extra = require('./extra');
 
 // Known safe paths checked with a single GET each (never brute force): if one
 // returns a recognizable signature it indicates an exposed VCS/config file.
@@ -15,6 +20,12 @@ const SENSITIVE_PATHS = [
   { path: '/.git/config', sig: /\[core\]/ },
   { path: '/.env', sig: /^[A-Z0-9_]+\s*=/m },
   { path: '/.svn/entries', sig: /^\d+\s*$|svn:/m },
+  { path: '/.DS_Store', sig: /Bud1|\x00\x00\x00\x01Bud1/ },
+  { path: '/backup.zip', sig: /^PK\x03\x04/ },
+  { path: '/backup.sql', sig: /(CREATE TABLE|INSERT INTO|-- MySQL dump)/i },
+  { path: '/.env.bak', sig: /^[A-Z0-9_]+\s*=/m },
+  { path: '/config.php.bak', sig: /<\?php/i },
+  { path: '/web.config.bak', sig: /<configuration/i },
 ];
 
 function createScan(config = {}) {
@@ -24,6 +35,8 @@ function createScan(config = {}) {
     throw new Error('DAST scope is empty: configure target/scope.origins (an allowlist of origins).');
   }
   const mode = config.mode === 'active' ? 'active' : 'passive';
+  const policy = policiesMod.resolvePolicy(config.policy);
+  const warnings = [];
   const client = new Client({
     scope,
     rateLimit: config.rateLimit != null ? config.rateLimit : 5,
@@ -31,6 +44,11 @@ function createScan(config = {}) {
     timeoutMs: config.timeoutMs,
     auth: config.auth || null,
   });
+
+  // Authentication variables carried between login steps / re-logins.
+  let authVars = { ...(config.auth && config.auth.vars ? config.auth.vars : {}) };
+  let reloginCount = 0;
+  const maxRelogins = 3;
 
   const emit = (event, payload) => {
     for (const fn of listeners[event] || []) {
@@ -44,40 +62,131 @@ function createScan(config = {}) {
     return api;
   }
 
-  async function loginIfConfigured() {
-    const login = config.auth && config.auth.login;
-    if (!login || !login.url) return;
-    if (!scope.inScope(login.url)) return;
-    try {
-      const body = new URLSearchParams(login.fields || {}).toString();
-      const res = await client.request(login.url, {
-        method: (login.method || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST',
-        body: (login.method || 'POST').toUpperCase() === 'GET' ? undefined : body,
-      });
-      for (const sc of res.setCookie || []) {
-        const first = sc.split(';')[0];
-        const eq = first.indexOf('=');
-        if (eq > 0) client._cookies.set(first.slice(0, eq).trim(), first.slice(eq + 1).trim());
+  function addWarning(message) {
+    warnings.push(message);
+    emit('progress', { phase: 'warning', requests: client.requests, pages: 0, findings: 0, warning: message });
+  }
+
+  // --- Authentication ------------------------------------------------------
+
+  async function performLogin() {
+    const a = config.auth;
+    if (!a) return;
+    if (Array.isArray(a.sequence) && a.sequence.length) {
+      const res = await auth.runHttpSequence(client, scope, a.sequence, { ...authVars, __bearerVar: a.bearerVar }, emit);
+      authVars = res.vars;
+      return;
+    }
+    // Simple single-step login form (legacy).
+    const login = a.login;
+    if (login && login.url && scope.inScope(login.url)) {
+      try {
+        const body = new URLSearchParams(login.fields || {}).toString();
+        const res = await client.request(login.url, {
+          method: (login.method || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST',
+          body: (login.method || 'POST').toUpperCase() === 'GET' ? undefined : body,
+        });
+        auth.captureCookies(client, res);
+      } catch (err) {
+        if (err.code === 'CANCELLED') throw err;
+        emit('error', { phase: 'login', message: String(err.message || err) });
       }
-    } catch (err) {
-      if (err.code === 'CANCELLED') throw err;
-      emit('error', { phase: 'login', message: String(err.message || err) });
     }
   }
 
-  async function discover(crawler) {
+  async function reloginIfNeeded(res) {
+    const a = config.auth;
+    if (!a) return;
+    if (!auth.sessionLost(res, a)) return;
+    if (reloginCount >= maxRelogins) return;
+    reloginCount += 1;
+    emit('progress', { phase: 'relogin', requests: client.requests, pages: 0, findings: 0 });
+    try {
+      if (a.tokenEndpoint) await auth.refreshBearer(client, scope, a.tokenEndpoint, authVars, emit);
+      await performLogin();
+    } catch (err) {
+      if (err.code === 'CANCELLED') throw err;
+      emit('error', { phase: 'relogin', message: String(err.message || err) });
+    }
+  }
+
+  // --- Browser discovery ---------------------------------------------------
+
+  function browserOptions() {
+    const b = config.browser;
+    if (!b) return null;
+    return b === true ? {} : b;
+  }
+
+  async function browserDiscover(crawler, extraInjectionPoints) {
+    const bo = browserOptions();
+    if (!bo) return;
+    const browserPath = browser.findBrowser(bo);
+    if (!browserPath) {
+      addWarning('No Chromium-family browser was found; falling back to the static crawler.');
+      return;
+    }
+    emit('progress', { phase: 'browser', requests: client.requests, pages: 0, findings: 0 });
+    const seeds = [];
+    for (const origin of scope.list()) seeds.push(origin + (scope.pathPrefix || '/'));
+    for (const s of [].concat(config.seeds || [])) seeds.push(s);
+
+    const a = config.auth;
+    const onReady = (a && Array.isArray(a.script) && a.script.length)
+      ? (session) => auth.runBrowserLogin(session, client, scope, a.script, emit)
+      : null;
+
+    let crawlResult;
+    try {
+      crawlResult = await browser.browserCrawl({
+        browserPath,
+        scope,
+        seeds,
+        maxPages: bo.maxPages != null ? bo.maxPages : Math.min(config.maxPages || 100, 20),
+        maxClicks: bo.maxClicks != null ? bo.maxClicks : 8,
+        waitIdleMs: bo.waitIdleMs != null ? bo.waitIdleMs : 5000,
+        timeoutMs: bo.timeoutMs != null ? bo.timeoutMs : 15000,
+        isCancelled: () => client.cancelled,
+        onReady,
+      });
+    } catch (err) {
+      addWarning(`Browser crawl failed (${String(err.message || err)}); using the static crawler.`);
+      return;
+    }
+    if (crawlResult.error) {
+      addWarning(`Browser crawl error (${crawlResult.error}); using the static crawler.`);
+    }
+    // Feed discovered URLs into the scope-gated crawler frontier.
+    for (const link of crawlResult.links) {
+      let abs;
+      try { abs = new URL(link, scope.list()[0]).href; } catch { continue; }
+      crawler.enqueue(abs);
+    }
+    for (const req of crawlResult.requests) crawler.enqueue(req.url);
+    // Derive injection points from browser-discovered forms (active mode).
+    for (const form of crawlResult.forms) {
+      let actionUrl;
+      try { actionUrl = new URL(form.action || scope.list()[0], scope.list()[0]).href; } catch { continue; }
+      if (!scope.inScope(actionUrl)) continue;
+      const synthetic = { url: actionUrl, forms: [form] };
+      for (const pt of active.deriveInjectionPoints(synthetic)) extraInjectionPoints.push(pt);
+    }
+    emit('progress', { phase: 'browser', requests: client.requests, pages: crawlResult.pagesVisited, findings: 0 });
+  }
+
+  // --- Static discovery (robots / sitemap / OpenAPI / Postman) -------------
+
+  async function discover(crawler, postmanPoints) {
     const seeds = [].concat(config.seeds || []);
-    // Roots of each in-scope origin + optional path prefix.
     for (const origin of scope.list()) {
       crawler.enqueue(origin + (scope.pathPrefix || '/'));
     }
     for (const s of seeds) crawler.enqueue(s);
 
-    // robots.txt + sitemap.xml for discovery (in scope only).
     for (const origin of scope.list()) {
       try {
         const rob = await client.request(origin + '/robots.txt', { method: 'GET' });
-        if (rob.status < 400 && /text\/plain|robots/i.test(rob.headers['content-type'] || '') || (rob.status < 400 && rob.body)) {
+        if ((rob.status < 400 && /text\/plain|robots/i.test(rob.headers['content-type'] || '')) || (rob.status < 400 && rob.body)) {
           const parsed = parseRobots(rob.body);
           for (const p of parsed.paths) crawler.enqueue(origin + p);
           for (const sm of parsed.sitemaps) {
@@ -111,9 +220,34 @@ function createScan(config = {}) {
           crawler.enqueue(u.href);
         }
       }
-      return endpoints;
     }
-    return [];
+
+    // Postman collection v2.1 import → seeds (and POST injection points).
+    if (config.postman) {
+      const seedsP = apiscan.parsePostman(config.postman, scope.list()[0]);
+      for (const s of seedsP) {
+        if (!scope.inScope(s.url)) continue;
+        crawler.enqueue(s.url);
+        if (s.method === 'POST' && s.body && /^[^={]+=.+/.test(s.body)) {
+          // urlencoded body → injection points per field.
+          try {
+            const params = {};
+            for (const [k, v] of new URLSearchParams(s.body)) params[k] = v;
+            const u = new URL(s.url);
+            for (const name of Object.keys(params)) {
+              postmanPoints.push({
+                method: 'POST',
+                url: `${u.protocol}//${u.host}${u.pathname}`,
+                params: { ...params },
+                param: name,
+                isBody: true,
+                baseValue: params[name] || '1',
+              });
+            }
+          } catch { /* ignore */ }
+        }
+      }
+    }
   }
 
   async function loadSitemap(url, crawler) {
@@ -181,7 +315,6 @@ function createScan(config = {}) {
           }
         }
       } else {
-        // HTTP origin: check whether it redirects to HTTPS.
         try {
           const res = await client.request(origin + '/', { method: 'GET' });
           const loc = res.location || '';
@@ -198,8 +331,6 @@ function createScan(config = {}) {
     }
   }
 
-  // CORS misconfiguration probe: send a crafted Origin (and a null Origin) and
-  // inspect the reflected Access-Control-Allow-* headers. Safe GETs only.
   async function checkCors(findings, urls) {
     const probeOrigin = 'https://dast-probe.example';
     const seen = new Set();
@@ -237,11 +368,24 @@ function createScan(config = {}) {
     return { rule: ruleKey, url: origin, method: 'TLS', param: null, evidence, request: `TLS handshake ${origin}`, response: evidence };
   }
 
+  // Analyze any bearer JWT we hold for algorithm weaknesses.
+  function checkJwt(findings) {
+    const tokens = new Set();
+    if (config.auth && config.auth.bearer) tokens.add(config.auth.bearer);
+    if (client.auth && client.auth.bearer) tokens.add(client.auth.bearer);
+    for (const t of tokens) {
+      for (const fnd of extra.analyzeJwt(t, 'Authorization bearer', scope.list()[0] + '/')) findings.push(fnd);
+    }
+  }
+
   function finalize(rawFindings, startedAt, pages) {
     const findings = [];
     const dedupe = new Set();
     for (const fnd of rawFindings) {
       const meta = rule(fnd.rule) || {};
+      // Policy filter: drop findings whose rule is disabled for its phase.
+      const isActive = policiesMod.ACTIVE_KEYS.includes(fnd.rule);
+      if (isActive ? !policy.activeEnabled(fnd.rule) : !policy.passiveEnabled(fnd.rule)) continue;
       const key = `${fnd.rule}|${fnd.url}|${fnd.param || ''}|${fnd.method || ''}`;
       if (dedupe.has(key)) continue;
       dedupe.add(key);
@@ -270,6 +414,9 @@ function createScan(config = {}) {
     return {
       target: scope.list(),
       mode,
+      policy: { id: policy.id, name: policy.name, strength: policy.strength, threshold: policy.threshold },
+      thresholdBreached: policiesMod.thresholdBreached(findings, policy.threshold),
+      warnings: warnings.slice(),
       startedAt,
       finishedAt: new Date().toISOString(),
       requests: client.requests,
@@ -284,34 +431,56 @@ function createScan(config = {}) {
   async function start() {
     const startedAt = new Date().toISOString();
     const rawFindings = [];
-    const authed = !!(config.auth && (config.auth.cookie || config.auth.bearer || config.auth.headers || config.auth.login));
+    const a = config.auth;
+    const authed = !!(a && (a.cookie || a.bearer || a.headers || a.login || (a.sequence && a.sequence.length) || (a.script && a.script.length)));
+    const extraInjectionPoints = [];
+    const postmanPoints = [];
     const crawler = new Crawler({
       client,
       scope,
       maxDepth: config.maxDepth != null ? config.maxDepth : 5,
       maxPages: config.maxPages != null ? config.maxPages : 100,
     });
+    // SSRF callback listener (active mode only, when SSRF rule is enabled).
+    let ssrfCallback = null;
+    const ssrfOn = mode === 'active' && config.ssrf !== false && policy.activeEnabled('dast:ssrf');
     try {
-      await loginIfConfigured();
+      await performLogin();
       emit('progress', { phase: 'discover', requests: client.requests, pages: 0, findings: 0 });
-      await discover(crawler);
+      await browserDiscover(crawler, extraInjectionPoints);
+      await discover(crawler, postmanPoints);
 
       const injectionPoints = [];
       await crawler.run(async (res, page) => {
         const { findings: pf } = passiveChecks(res, page, { authed });
         for (const fnd of pf) { rawFindings.push(fnd); emit('finding', fnd); }
         if (mode === 'active') injectionPoints.push(...active.deriveInjectionPoints(page));
+        await reloginIfNeeded(res);
         emit('progress', { phase: 'crawl', requests: client.requests, pages: crawler.pages.length, findings: rawFindings.length });
       });
+      injectionPoints.push(...extraInjectionPoints, ...postmanPoints);
 
       await scanSensitivePaths(rawFindings);
       await checkTlsAndRedirect(rawFindings);
+      checkJwt(rawFindings);
       const corsUrls = [...scope.list().map((o) => o + '/'), ...crawler.pages.filter((p) => !p.error).map((p) => p.url)].slice(0, 20);
       await checkCors(rawFindings, corsUrls);
 
-      if (mode === 'active') {
+      if (mode === 'active' && policy.activeOn) {
+        if (ssrfOn) {
+          ssrfCallback = new extra.SsrfCallback();
+          try { await ssrfCallback.start(); } catch { ssrfCallback = null; }
+        }
         emit('progress', { phase: 'active', requests: client.requests, pages: crawler.pages.length, findings: rawFindings.length });
-        // Method checks once per distinct origin+path.
+
+        // API scanning: GraphQL, SOAP.
+        await runApiScans(rawFindings);
+
+        const probeOpts = {
+          enabled: (k) => policy.activeEnabled(k),
+          payloadCount: policy.payloadCount,
+          ssrfCallback,
+        };
         const seenMethodUrls = new Set();
         const seenPoints = new Set();
         for (const point of injectionPoints) {
@@ -324,7 +493,7 @@ function createScan(config = {}) {
             baseline = await active.makeSender(client, point)(point.baseValue);
           } catch (err) { if (err.code === 'CANCELLED' || err.code === 'BUDGET') break; }
           try {
-            const pf = await active.probePoint(client, point, baseline);
+            const pf = await active.probePoint(client, point, baseline, probeOpts);
             for (const fnd of pf) { rawFindings.push(fnd); emit('finding', fnd); }
           } catch (err) { if (err.code === 'CANCELLED' || err.code === 'BUDGET') break; }
           if (!seenMethodUrls.has(point.url)) {
@@ -336,7 +505,6 @@ function createScan(config = {}) {
           }
           emit('progress', { phase: 'active', requests: client.requests, pages: crawler.pages.length, findings: rawFindings.length });
         }
-        // At least one method check on each origin root.
         for (const origin of scope.list()) {
           if (client.cancelled || client.requests >= client.maxRequests) break;
           if (seenMethodUrls.has(origin + '/')) continue;
@@ -345,11 +513,27 @@ function createScan(config = {}) {
             for (const fnd of mf) { rawFindings.push(fnd); emit('finding', fnd); }
           } catch (err) { if (err.code === 'CANCELLED' || err.code === 'BUDGET') break; }
         }
+
+        // Login rate-limit absence (uses deliberately wrong credentials).
+        if (policy.activeEnabled('dast:rate-limit-missing')) {
+          const loginUrl = a && a.login && a.login.url;
+          const rlCfg = config.rateLimitLogin;
+          const url = loginUrl || (rlCfg && rlCfg.url);
+          const fields = (a && a.login && a.login.fields) || (rlCfg && rlCfg.fields) || { username: 'mcc_probe', password: 'mcc_wrong' };
+          if (url && scope.inScope(url) && !client.cancelled && client.requests < client.maxRequests) {
+            try {
+              const rf = await extra.rateLimitLoginCheck(client, scope, url, fields, rlCfg && rlCfg.attempts);
+              for (const fnd of rf) { rawFindings.push(fnd); emit('finding', fnd); }
+            } catch (err) { if (err.code !== 'CANCELLED' && err.code !== 'BUDGET') { /* non-fatal */ } }
+          }
+        }
       }
     } catch (err) {
       if (!(err instanceof CancelError) && err.code !== 'CANCELLED') {
         emit('error', { phase: 'scan', message: String(err.message || err) });
       }
+    } finally {
+      if (ssrfCallback) { try { await ssrfCallback.stop(); } catch { /* ignore */ } }
     }
 
     const result = finalize(rawFindings, startedAt, crawler.pages);
@@ -357,6 +541,27 @@ function createScan(config = {}) {
     result.outOfScopeSkipped = crawler.outOfScopeSkipped.slice(0, 50);
     emit('progress', { phase: 'done', requests: client.requests, pages: result.pages.length, findings: result.findings.length });
     return result;
+  }
+
+  async function runApiScans(rawFindings) {
+    const enabled = (k) => policy.activeEnabled(k);
+    // GraphQL
+    if (config.graphql) {
+      let gurl = config.graphql === true ? scope.list()[0] + '/graphql' : config.graphql;
+      if (typeof gurl === 'string' && scope.inScope(gurl) && !client.cancelled && client.requests < client.maxRequests) {
+        try {
+          const gf = await apiscan.graphqlScan(client, gurl, { payloadCount: policy.payloadCount, enabled });
+          for (const fnd of gf) { rawFindings.push(fnd); emit('finding', fnd); }
+        } catch (err) { if (err.code !== 'CANCELLED' && err.code !== 'BUDGET') { /* non-fatal */ } }
+      }
+    }
+    // SOAP / WSDL
+    if (config.soap && !client.cancelled && client.requests < client.maxRequests) {
+      try {
+        const sf = await apiscan.soapScan(client, scope, config.soap, { payloadCount: policy.payloadCount, enabled });
+        for (const fnd of sf) { rawFindings.push(fnd); emit('finding', fnd); }
+      } catch (err) { if (err.code !== 'CANCELLED' && err.code !== 'BUDGET') { /* non-fatal */ } }
+    }
   }
 
   const api = {
@@ -370,5 +575,17 @@ function createScan(config = {}) {
 
 function toSarif(result) { return report.toSarif(result); }
 function toHtml(result, lang) { return report.toHtml(result, lang); }
+function policies() { return policiesMod.policies(); }
 
-module.exports = { createScan, catalog, toSarif, toHtml, USER_AGENT };
+module.exports = {
+  createScan,
+  catalog,
+  policies,
+  toSarif,
+  toHtml,
+  USER_AGENT,
+  findBrowser: browser.findBrowser,
+  parsePostman: apiscan.parsePostman,
+  parseWsdl: apiscan.parseWsdl,
+  parseIntrospection: apiscan.parseIntrospection,
+};
