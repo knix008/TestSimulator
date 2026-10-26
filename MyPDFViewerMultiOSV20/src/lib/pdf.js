@@ -229,9 +229,8 @@ function intersectBox(a, b) {
 // curves came back as a single point. Control points bound the curve.
 function pathBounds(args) {
   const [pathOps, coords, minMax] = args || [];
-  if (!pathOps || !coords) {
-    return minMax && minMax.length >= 4 && Number.isFinite(minMax[0]) ? Array.from(minMax).slice(0, 4) : null;
-  }
+  const fallback = minMax && minMax.length >= 4 && Number.isFinite(minMax[0]) ? Array.from(minMax).slice(0, 4) : null;
+  if (!pathOps?.length || !coords) return fallback;
   let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
   const add = (x, y) => {
     if (x < x0) x0 = x; if (x > x1) x1 = x;
@@ -251,7 +250,7 @@ function pathBounds(args) {
     for (let k = 0; k < n; k += 2) add(coords[j + k], coords[j + k + 1]);
     j += n;
   }
-  return x0 <= x1 && y0 <= y1 ? [x0, y0, x1, y1] : null;
+  return x0 <= x1 && y0 <= y1 ? [x0, y0, x1, y1] : fallback;
 }
 
 // Joins boxes that overlap or sit within `gap` of each other, so the many
@@ -272,6 +271,31 @@ function clusterBoxes(boxes, gap) {
       }
     }
     list = out;
+  }
+  return list;
+}
+
+// A diagram is often two drawings with an arrow and labels between them
+// ("before → after"); the gap splits it into parts. Parts that share most of
+// their height and sit within `reach` of each other are one figure.
+function joinSideBySide(boxes, reach) {
+  let list = boxes.map((b) => ({ ...b }));
+  for (let changed = true; changed;) {
+    changed = false;
+    outer: for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i];
+        const b = list[j];
+        const shared = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+        const gapX = Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1);
+        if (shared >= 0.5 * Math.min(a.y1 - a.y0, b.y1 - b.y0) && gapX <= reach) {
+          list[i] = { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
+          list.splice(j, 1);
+          changed = true;
+          break outer;
+        }
+      }
+    }
   }
   return list;
 }
@@ -310,13 +334,18 @@ export async function getPageImageRegions(page, viewport, { minSize = 24 } = {})
     ? { x0: 0, y0: 0, x1: viewport.width, y1: viewport.height }
     : null;
   let pathBox = null;    // bounds of the last path, for a clip that follows it
+  // A blend mode, transparency or soft mask in force (here or in an enclosing
+  // masked group): what the page shows is no longer the bitmap itself, so its
+  // copy must come from a render.
+  let gs = { blend: false, alpha: false, mask: false, group: false };
 
   const toView = (box) => boxToViewport(combine(viewport.transform, ctm), box);
-  const push = () => stack.push({ ctm: ctm.slice(), clip });
+  const push = () => stack.push({ ctm: ctm.slice(), clip, gs });
   const pop = () => {
     const s = stack.pop();
     ctm = s ? s.ctm : [1, 0, 0, 1, 0, 0];
     clip = s ? s.clip : clip;
+    gs = s ? s.gs : gs;
   };
   const clipTo = (box) => { if (box) clip = clip ? intersectBox(clip, box) : box; };
 
@@ -332,6 +361,14 @@ export async function getPageImageRegions(page, viewport, { minSize = 24 } = {})
       continue;
     }
     if (clipOps.has(fn)) { clipTo(pathBox); continue; }
+    if (fn === OPS.setGState) {
+      for (const [key, value] of args?.[0] || []) {
+        if (key === 'BM') gs = { ...gs, blend: !!value && value !== 'source-over' && value !== 'Normal' };
+        else if (key === 'ca') gs = { ...gs, alpha: value < 1 };
+        else if (key === 'SMask') gs = { ...gs, mask: !!value };
+      }
+      continue;
+    }
     if (drawOps.has(fn) || fn === OPS.shadingFill) {
       // A shading fills whatever the clip leaves open.
       const b = fn === OPS.shadingFill ? clip : (pathBox && clip ? intersectBox(pathBox, clip) : pathBox);
@@ -345,6 +382,7 @@ export async function getPageImageRegions(page, viewport, { minSize = 24 } = {})
       const bbox = fn === OPS.beginGroup ? args?.[0]?.bbox : args?.[1];
       if (matrix && matrix.length === 6) ctm = combine(ctm, Array.from(matrix));
       if (bbox && bbox.length === 4) clipTo(toView(bbox));
+      if (fn === OPS.beginGroup && args?.[0]?.smask) gs = { ...gs, group: true };
       continue;
     }
     if (fn === OPS.paintFormXObjectEnd || fn === OPS.endGroup) { pop(); continue; }
@@ -364,6 +402,8 @@ export async function getPageImageRegions(page, viewport, { minSize = 24 } = {})
     // original is visible (fractions from its top-left), so copying gives
     // exactly the picture on the page. Only an upright, unmirrored placement
     // maps that simply; any other is cut from a fresh render instead (null).
+    // `plain` says the page shows the bitmap as it is (no blending), so the
+    // original pixels are the picture the user sees.
     const full = toView([0, 0, 1, 1]);
     const clipped = box.x0 - full.x0 > 0.5 || box.y0 - full.y0 > 0.5 || full.x1 - box.x1 > 0.5 || full.y1 - box.y1 > 0.5;
     let crop = null;
@@ -389,6 +429,7 @@ export async function getPageImageRegions(page, viewport, { minSize = 24 } = {})
       frac: toFrac(rect),
       clipped,
       crop,
+      plain: !(gs.blend || gs.alpha || gs.mask || gs.group),
     });
   }
 
@@ -401,8 +442,9 @@ export async function getPageImageRegions(page, viewport, { minSize = 24 } = {})
   // would only draw a second box around the same picture.
   const pageArea = viewport.width > 0 && viewport.height > 0 ? viewport.width * viewport.height : Infinity;
   const gap = 6 * (viewport.scale || 1);
-  const figures = clusterBoxes(drawn.filter((b) => (b.x1 - b.x0) * (b.y1 - b.y0) < pageArea * 0.8), gap)
-    .filter((b) => b.x1 - b.x0 >= minSize && b.y1 - b.y0 >= minSize)
+  const parts = clusterBoxes(drawn.filter((b) => (b.x1 - b.x0) * (b.y1 - b.y0) < pageArea * 0.8), gap)
+    .filter((b) => b.x1 - b.x0 >= minSize && b.y1 - b.y0 >= minSize);
+  const figures = joinSideBySide(parts, 144 * (viewport.scale || 1))
     .filter((b) => !regions.some((r) => {
       const o = intersectBox(b, { x0: r.rect.x, y0: r.rect.y, x1: r.rect.x + r.rect.width, y1: r.rect.y + r.rect.height });
       const shared = Math.max(0, o.x1 - o.x0) * Math.max(0, o.y1 - o.y0);

@@ -226,6 +226,78 @@ describe('getPageImageRegions', () => {
     expect(byName.Bleed).toEqual({ x: 0, y: 0, width: 1, height: 1 });
   });
 
+  it('says where to cut a cropped bitmap, and when blending means it must be rendered', async () => {
+    const page = {
+      getOperatorList: async () => ({
+        fnArray: [
+          OPS.save, OPS.constructPath, OPS.clip, OPS.transform, OPS.paintImageXObject, OPS.restore,
+          OPS.save, OPS.setGState, OPS.transform, OPS.paintImageXObject, OPS.restore,
+          OPS.transform, OPS.paintImageXObject,
+        ],
+        argsArray: [
+          // Upright (y flipped by the viewport, as on a real page) and clipped to its left half.
+          null, [[OPS.rectangle], [0, 0, 50, 100], null], null, [100, 0, 0, 100, 0, 0], ['Half'], null,
+          null, [[['BM', 'color-burn']]], [100, 0, 0, 100, 0, 0], ['Burnt'], null,
+          [100, 0, 0, 100, 0, 0], ['Plain'],
+        ],
+      }),
+    };
+    const viewport = { transform: [1, 0, 0, -1, 0, 200], width: 300, height: 200 };
+    const regions = await getPageImageRegions(page, viewport, { minSize: 1 });
+    const byName = Object.fromEntries(regions.map((r) => [r.name, r]));
+    expect(byName.Half.clipped).toBe(true);
+    expect(byName.Half.crop).toEqual({ x: 0, y: 0, w: 0.5, h: 1 });
+    expect(byName.Half.plain).toBe(true);
+    expect(byName.Burnt.plain).toBe(false);
+    // The blend ended with its restore.
+    expect(byName.Plain.plain).toBe(true);
+    expect(byName.Plain.clipped).toBe(false);
+    expect(byName.Plain.frac).toEqual({ x: 0, y: 0.5, w: 1 / 3, h: 0.5 });
+  });
+
+  it('joins the paths of a vector drawing into one figure, ignoring rules and page fills', async () => {
+    const fill = (x, y, w, h) => [[OPS.rectangle], [x, y, w, h], null];
+    // A circle drawn with curves only — pdf.js's own min/max would be one point.
+    const circle = [[OPS.moveTo, OPS.curveTo, OPS.curveTo], [100, 50, 100, 80, 160, 80, 160, 50, 160, 20, 100, 20, 100, 50], [100, 50, 100, 50]];
+    const page = {
+      getOperatorList: async () => ({
+        fnArray: [
+          OPS.constructPath, OPS.fill,     // the whole page, white
+          OPS.constructPath, OPS.eoFill,   // circle
+          OPS.constructPath, OPS.fill,     // a box touching it
+          OPS.constructPath, OPS.stroke,   // a thin rule far away
+        ],
+        argsArray: [
+          fill(0, 0, 400, 400), null,
+          circle, null,
+          fill(158, 30, 40, 40), null,
+          [[OPS.moveTo, OPS.lineTo], [10, 300, 390, 300], null], null,
+        ],
+      }),
+    };
+    const viewport = { transform: [1, 0, 0, 1, 0, 0], width: 400, height: 400 };
+    const regions = await getPageImageRegions(page, viewport, { minSize: 24 });
+    expect(regions).toHaveLength(1);
+    expect(regions[0].vector).toBe(true);
+    expect(regions[0].name).toBeNull();
+    expect(regions[0].rect).toEqual({ x: 100, y: 20, width: 98, height: 60 });
+  });
+
+  it('treats two drawings side by side ("before → after") as one figure', async () => {
+    const fill = (x, y, w, h) => [[OPS.rectangle], [x, y, w, h], null];
+    const page = {
+      getOperatorList: async () => ({
+        fnArray: [OPS.constructPath, OPS.fill, OPS.constructPath, OPS.fill, OPS.constructPath, OPS.fill],
+        argsArray: [fill(0, 0, 100, 100), null, fill(190, 10, 100, 80), null, fill(0, 300, 100, 100), null],
+      }),
+    };
+    const viewport = { transform: [1, 0, 0, 1, 0, 0], width: 600, height: 800, scale: 1 };
+    const rects = (await getPageImageRegions(page, viewport)).map((r) => r.rect);
+    expect(rects).toContainEqual({ x: 0, y: 0, width: 290, height: 100 });
+    // The drawing further down the page stays on its own.
+    expect(rects).toContainEqual({ x: 0, y: 300, width: 100, height: 100 });
+  });
+
   it('filters images smaller than minSize and names inline paints', async () => {
     const page = {
       getOperatorList: async () => ({

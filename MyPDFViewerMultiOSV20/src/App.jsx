@@ -951,10 +951,10 @@ export default function App() {
   }, [addClip, copyCapture, settings.autoCopyRegion, settings.captureAction, t]);
 
   // Reads the selected picture exactly as it appears on the page: the embedded
-  // bitmap at its full resolution (cut to the part a clip leaves visible), or —
-  // for vector figures, inline pictures and crops that are not upright — that
-  // area of the page rendered sharp. A crop of the on-screen canvas is the
-  // last resort.
+  // bitmap at its full resolution (cut to the part a clip leaves visible) when
+  // the page shows it as it is, or — for vector figures, inline pictures,
+  // blended / masked bitmaps and crops that are not upright — that area of the
+  // page rendered sharp. A crop of the on-screen canvas is the last resort.
   const resolveImage = useCallback(async (sel) => {
     if (!doc || !sel) throw new Error(t('error.noSelection'));
     let dataUrl = null;
@@ -962,7 +962,7 @@ export default function App() {
     let height = Math.round(sel.rect?.height || 0);
     // Inline pictures and vector figures have no named bitmap to look up (the
     // lookup would only wait out its timeout).
-    const useBitmap = sel.name && (!sel.clipped || sel.crop);
+    const useBitmap = sel.name && sel.plain !== false && (!sel.clipped || sel.crop);
     if (useBitmap) {
       try {
         const pdfPage = await doc.getPage(sel.page);
