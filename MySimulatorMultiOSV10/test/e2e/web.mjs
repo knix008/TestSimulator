@@ -424,6 +424,36 @@ try {
     await js('window.__mysim.run("closeOthers")');
   });
 
+  await step('samples: the gallery opens an app (dashboard, controls, re-run, edit)', async () => {
+    await js(`window.__mysim.run('newFromSample')`);
+    await waitFor(() => js(`Boolean(window.__mysim.query('[data-testid=sample-pidControl]'))`), 5000);
+    await js(`window.__mysim.query('[data-testid=sample-pidControl]').click()`);
+    await sleep(400);
+    await waitFor(() => js('!window.__mysim.state.running && Boolean(window.__mysim.doc().results)'), 60000, 150);
+    let s = await state();
+    assert(s.view === 'dashboard', `view ${s.view}`);
+    assert(await js('document.querySelectorAll(".app-control").length') === 6, 'six controls');
+    assert(await js('window.__mysim.query("[data-testid=left-panel]").getBoundingClientRect().width') < 1, 'the tool panel steps aside');
+    // Moving Kp re-runs the pipeline with the new value.
+    const before = await js('window.__mysim.doc().results.get("pid").scalars.find((x) => x.name === "overshoot").value');
+    await js(`(() => { const el = document.querySelector('[data-testid=app-pid-kp]'); el.value = '8'; el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await waitFor(() => js('window.__mysim.doc().model.nodes.find((n) => n.id === "pid").params.kp === 8'), 3000);
+    await sleep(500);
+    await waitFor(() => js('!window.__mysim.state.running && window.__mysim.doc().stale.size === 0'), 60000, 150);
+    const after = await js('window.__mysim.doc().results.get("pid").scalars.find((x) => x.name === "overshoot").value');
+    assert(after !== before, `overshoot did not change (${before})`);
+    // Edit pipeline: back to the graph with the panels.
+    await sleep(900);
+    await waitFor(() => js('!window.__mysim.state.running'), 60000, 150);
+    // A real mouse click here works on its own; after the earlier drag steps the synthetic mouse can be left pressed, so press the button directly.
+    await js('window.__mysim.query("[data-testid=dash-edit]").click()');
+    await waitFor(async () => (await state()).view === 'graph', 3000).catch(() => {});
+    s = await state();
+    assert(s.view === 'graph', `edit → ${s.view}`);
+    assert(await js('window.__mysim.query("[data-testid=left-panel]").getBoundingClientRect().width') > 100, 'the tool panel is back');
+    await js('window.__mysim.run("closeOthers")');
+  });
+
   await step('sweep sample: the overshoot falls as Kd grows', async () => {
     await openSample('pidSweep');
     await runAndWait();

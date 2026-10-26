@@ -435,6 +435,31 @@ input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); bo
 .dash-empty button { height: 30px; padding: 0 14px; }
 @media (max-width: 1280px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* app (dashboard) mode */
+.workspace.app-focus > .panel { visibility: hidden; overflow: hidden; min-width: 0; border: 0; padding: 0; }
+.dash-head.app-mode { align-items: flex-start; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--panel)), var(--panel)); }
+.dash-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dash-head.app-mode h2 { font-size: 19px; }
+.dash-head.app-mode p { font-size: 12.5px; max-width: 900px; line-height: 1.45; }
+.dash-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.dash-head:not(.app-mode) .dash-actions { margin-left: auto; }
+.dash-actions button { height: 30px; padding: 0 12px; }
+.app-controls { margin: 0 0 12px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--panel) 94%, transparent); }
+.app-controls header { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 12.5px; font-weight: 600; }
+.app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; padding: 10px 12px 12px; }
+.app-control { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'label node' 'ctl ctl'; gap: 2px 8px; min-width: 0; font-size: 12px; }
+.app-label { grid-area: label; font-weight: 600; }
+.app-node { grid-area: node; font-size: 11px; }
+.app-control > :last-child { grid-area: ctl; }
+.app-slider { display: flex; align-items: center; gap: 8px; }
+.app-slider input[type=range] { flex: 1 1 auto; min-width: 0; accent-color: var(--accent); }
+.app-number { width: 84px; }
+.pin-wrap { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.pin-wrap > :first-child { flex: 1 1 auto; min-width: 0; }
+.pin { width: 24px; height: 22px; padding: 0; opacity: 0.35; filter: grayscale(1); background: transparent; border: 1px solid transparent; }
+.pin:hover { opacity: 0.8; border-color: var(--line); }
+.pin.on { opacity: 1; filter: none; border-color: var(--accent); }
+
 /* data view */
 .viewport .data-view { display: flex; flex-direction: column; gap: 8px; }
 .data-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }

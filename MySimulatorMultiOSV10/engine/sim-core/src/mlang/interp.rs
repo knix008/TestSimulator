@@ -395,6 +395,19 @@ impl<'a> Interp<'a> {
         })
     }
 
+    /// One item of an argument list or matrix row: c{:} and s.f expand to all their values,
+    /// a function call gives only its first output.
+    fn eval_list(&mut self, e: &Expr) -> R<Vec<Value>> {
+        match e {
+            Expr::CellIndex(..) | Expr::Field(..) | Expr::DynField(..) => self.eval_multi(e, 1, false),
+            _ => {
+                let mut v = self.eval_multi(e, 1, false)?;
+                v.truncate(1);
+                Ok(v)
+            }
+        }
+    }
+
     /// Evaluates call or index arguments, expanding comma-separated lists; `of` sets `end`.
     pub fn args(&mut self, args: &[Expr], of: Option<&Value>) -> R<Vec<Value>> {
         let mut out = Vec::with_capacity(args.len());
@@ -405,7 +418,7 @@ impl<'a> Interp<'a> {
                 let end = if n == 1 { r * c } else if k == 0 { r } else if k == 1 && n == 2 { c } else if k == 1 { c } else { 1 };
                 self.end_stack.push(end);
             }
-            let vals = self.eval_multi(a, 1, false);
+            let vals = self.eval_list(a);
             if of.is_some() {
                 self.end_stack.pop();
             }
@@ -419,7 +432,7 @@ impl<'a> Interp<'a> {
         for row in rows {
             let mut items = Vec::new();
             for e in row {
-                items.extend(self.eval_multi(e, 1, false)?);
+                items.extend(self.eval_list(e)?);
             }
             row_vals.push(concat(&items, true)?);
         }
@@ -434,7 +447,7 @@ impl<'a> Interp<'a> {
         for row in rows {
             let mut items = Vec::new();
             for e in row {
-                for v in self.eval_multi(e, 1, false)? {
+                for v in self.eval_list(e)? {
                     // A cell inside {} concatenates (as MATLAB) only when written [c1, c2]; here it nests.
                     items.push(v);
                 }

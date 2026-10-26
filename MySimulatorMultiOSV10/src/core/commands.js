@@ -129,7 +129,7 @@ export const MENUS = [
   { id: 'edit', icon: '✎', ko: '편집', en: 'Edit', items: ['undo', 'redo', '|', 'copy', 'paste', 'duplicate', 'delete', 'selectAll', '|', 'rename', 'toggleDisable', 'disconnect', 'autoLayout', '|', 'pipelineSettings'] },
   { id: 'view', icon: '👁', ko: '보기', en: 'View', items: ['viewGraph', 'viewDashboard', 'viewData', 'view3d', '|', 'fit', 'zoomReset', 'zoomIn', 'zoomOut', '|', 'showGrid', 'showRulers', 'snap', 'chartGrid', 'grid3d', 'axes3d', 'showPreviews', '|', 'toolPanel', 'propertyPanel', 'chartPanel', 'fullscreen'] },
   { id: 'node', icon: '⬡', ko: '노드', en: 'Node', items: ['nodeLibrary', '|', ...adds('source'), '|', ...adds('data'), '|', ...adds('output')] },
-  { id: 'analysis', icon: '∿', ko: '해석', en: 'Analysis', items: [...adds('signal'), '|', ...adds('dynamics'), '|', ...adds('physics'), '|', ...adds('robotics'), '|', ...adds('cad'), '|', ...adds('analysis'), '|', ...adds('montecarlo'), '|', ...adds('integration')] },
+  { id: 'analysis', icon: '∿', ko: '해석', en: 'Analysis', items: [...adds('signal'), '|', ...adds('dynamics'), '|', ...adds('physics'), '|', ...adds('robotics'), '|', ...adds('cad'), '|', ...adds('analysis'), '|', ...adds('montecarlo'), '|', ...adds('script'), '|', ...adds('integration')] },
   { id: 'run', icon: '▶', ko: '실행', en: 'Run', items: ['run', 'runSelected', 'stop', '|', 'validate', 'autoRun', 'clearResults', '|', 'pipelineSettings'] },
   { id: 'tools', icon: '🛠', ko: '도구', en: 'Tools', items: ['nodeLibrary', 'expressionHelp', 'pythonInfo', 'batchHelp', '|', 'settings'] },
   { id: 'help', icon: '❓', ko: '도움말', en: 'Help', items: ['home', 'tutorial', 'tutorialDoc', '|', 'usage', 'expressionHelp', 'shortcuts', '|', 'about'] },
@@ -149,6 +149,7 @@ export const WORKBENCHES = [
   { id: 'cad', icon: '📐', ko: 'CAD·구조', en: 'CAD & structures', groups: [group('cad'), group('physics', ['add:fem.field']), group('integration', ['add:io.readFile']), OUTPUT_GROUP, RUN_GROUP] },
   { id: 'analysis', icon: '∑', ko: '통계·ML', en: 'Statistics & ML', groups: [group('source', ['add:source.table', 'add:source.random', 'add:source.function']), group('analysis'), group('data', ['add:data.expression', 'add:data.filter', 'add:data.select', 'add:data.merge']), OUTPUT_GROUP, RUN_GROUP] },
   { id: 'montecarlo', icon: '🎲', ko: '몬테카를로·최적화', en: 'Monte Carlo & optimisation', groups: [group('montecarlo'), group('analysis', ['add:stat.histogram', 'add:stat.describe', 'add:stat.regression']), OUTPUT_GROUP, RUN_GROUP] },
+  { id: 'matlab', icon: 'Ⓜ', ko: 'MATLAB', en: 'MATLAB', groups: [group('script'), group('dynamics', ['add:dyn.blocks', 'add:dyn.ode', 'add:ctrl.design', 'add:ctrl.rlocus']), group('source', ['add:source.table', 'add:source.signal']), OUTPUT_GROUP, RUN_GROUP] },
   { id: 'integration', icon: '⇄', ko: '연동·자동화', en: 'Integration & automation', groups: [group('integration'), group('data'), { id: 'automation', icon: '⌨', ko: '자동화', en: 'Automation', tools: ['pythonInfo', 'batchHelp', 'exportAllCsv', 'exportReport'] }, OUTPUT_GROUP] },
   { id: 'all', icon: '⬡', ko: '모든 노드', en: 'All nodes', groups: Object.keys(CATEGORIES).map((cat) => group(cat)) },
 ];

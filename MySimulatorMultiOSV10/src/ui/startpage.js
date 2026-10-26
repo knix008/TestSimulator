@@ -103,7 +103,7 @@ export class StartPage {
             h('p', { className: 'template-group-title' }, t(`tplGroup_${group}`)),
             ...START_TEMPLATES.filter((tpl) => tpl.group === group).map((tpl) => h('button', {
               type: 'button', className: 'template-tile', dataset: { testid: `start-tpl-${tpl.id}` }, title: t(`tpl_${tpl.id}_desc`),
-              onClick: () => (tpl.sample ? app.openModel(sampleModel(tpl.sample, lang), null) : app.newModel()),
+              onClick: () => (tpl.sample ? app.openApp(sampleModel(tpl.sample, lang)) : app.newModel()),
             }, h('span', { className: 'icon' }, tpl.icon), h('b', null, t(`tpl_${tpl.id}`)), h('small', null, t(`tpl_${tpl.id}_desc`))))))),
           h('div', { className: 'start-actions' },
             button(commandName('open', lang), commandIcon('open'), () => app.run('open'), { testid: 'start-open' }),
@@ -143,7 +143,7 @@ export class StartPage {
           const model = sampleModel(id, lang);
           const canvas = h('canvas');
           drawPreview(canvas, model);
-          return h('button', { type: 'button', className: 'start-sample', title: model.description, dataset: { testid: `start-sample-${id}` }, onClick: () => app.openModel(model, null) },
+          return h('button', { type: 'button', className: 'start-sample', title: model.description, dataset: { testid: `start-sample-${id}` }, onClick: () => app.openApp(model) },
             canvas, h('b', null, model.name),
             h('span', { className: 'tags' }, ...(SAMPLE_TAGS[id] ?? []).map((tag) => h('span', { className: tag === 'desktop' ? 'tag warn' : 'tag' }, t(`tag_${tag}`))), h('span', { className: 'tag' }, `${model.nodes.length} ${t('nodesShort')}`)),
             h('small', null, model.description));

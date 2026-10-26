@@ -362,7 +362,7 @@ export function showSamples(app) {
     drawPreview(canvas, model);
     grid.append(h('button', {
       type: 'button', className: 'sample-card', dataset: { testid: `sample-${id}` },
-      onClick: () => { closeDialog('samples'); app.openModel(model, null); },
+      onClick: () => { closeDialog('samples'); app.openApp(model); },
     }, canvas, h('strong', null, model.name), h('div', { className: 'tags' }, ...(SAMPLE_TAGS[id] ?? []).map((tag) => h('span', { className: tag === 'desktop' ? 'tag warn' : 'tag' }, t(`tag_${tag}`))),
       h('span', { className: 'tag' }, `${model.nodes.length} ${t('nodesShort')}`)), h('p', null, model.description)));
   }

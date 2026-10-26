@@ -93,6 +93,7 @@ const ko = {
   dropHint: '파이프라인(.mysim) 또는 데이터(CSV, JSON)를 놓으십시오',
   // views
   dashEmpty: '대시보드에 보일 차트·KPI 노드가 없습니다.',
+  appEdit: '파이프라인 편집', appEditHint: '이 앱을 만드는 노드 그래프를 엽니다', appControls: '조작판', appControlsHint: '값을 바꾸면 바로 다시 계산합니다 · 속성 패널의 📌 로 매개변수를 더하거나 뺍니다', appPin: '앱 조작판에 추가 (대시보드에서 바로 바꾸기)', appUnpin: '앱 조작판에서 빼기',
   dashAddCharts: '끝 노드마다 차트 붙이기',
   dashNoData: '아직 결과가 없습니다 — ▶ 실행',
   kpiAlarm: '범위를 벗어남',
@@ -264,7 +265,7 @@ const ko = {
   tpl_optimize: '최적화', tpl_optimize_desc: '국소·전역 탐색',
   tpl_sweep: '매개변수 스윕', tpl_sweep_desc: '이득에 따른 성능',
   tpl_python: 'Python 연동', tpl_python_desc: '데스크톱',
-  tag_signal: '신호', tag_dynamics: '동역학', tag_control: '제어', tag_sweep: '스윕', tag_statistics: '통계', tag_ml: 'ML', tag_montecarlo: '몬테카를로', tag_optimization: '최적화', tag_integration: '연동', tag_desktop: '데스크톱', tag_process: '공정', tag_circuit: '회로', tag_physics: '물리·FEM', tag_robotics: '로봇', tag_cad: 'CAD',
+  tag_signal: '신호', tag_dynamics: '동역학', tag_control: '제어', tag_sweep: '스윕', tag_statistics: '통계', tag_ml: 'ML', tag_montecarlo: '몬테카를로', tag_optimization: '최적화', tag_integration: '연동', tag_desktop: '데스크톱', tag_process: '공정', tag_circuit: '회로', tag_physics: '물리·FEM', tag_robotics: '로봇', tag_cad: 'CAD', tag_matlab: 'MATLAB',
   anim_oscilloscope: '오실로스코프', anim_spectrum: '스펙트럼', anim_lorenz: '로렌츠', anim_network: '신경망', anim_montecarlo: '몬테카를로 π', anim_pipeline: '파이프라인', anim_histogram: '히스토그램', anim_phase: '위상 평면', anim_descent: '최적화', anim_spring: '스프링',
   anim_isotherms: '등고선', anim_convection: '대류', anim_heatmap: '열 지도', anim_streamlines: '유선', anim_waves: '물결', anim_aurora: '오로라', anim_particles: '입자', anim_circuit: '회로', anim_diffusion: '확산', anim_vortex: '소용돌이',
   // tutorial
@@ -368,6 +369,7 @@ const en = {
   graphEmpty2: 'Click or drag a node from the palette on the left; double-click empty space to open the node library',
   dropHint: 'Drop a pipeline (.mysim) or data (CSV, JSON)',
   dashEmpty: 'There are no chart or KPI nodes to show on the dashboard.',
+  appEdit: 'Edit pipeline', appEditHint: 'Opens the node graph behind this app', appControls: 'Controls', appControlsHint: 'changing a value recalculates at once · 📌 in the property panel adds or removes parameters', appPin: 'Add to the app controls (change it right on the dashboard)', appUnpin: 'Remove from the app controls',
   dashAddCharts: 'Attach a chart to every end node',
   dashNoData: 'No results yet — ▶ Run',
   kpiAlarm: 'out of range',
@@ -532,7 +534,7 @@ const en = {
   tpl_optimize: 'Optimisation', tpl_optimize_desc: 'Local and global search',
   tpl_sweep: 'Parameter sweep', tpl_sweep_desc: 'Performance vs gain',
   tpl_python: 'Python integration', tpl_python_desc: 'Desktop',
-  tag_signal: 'signal', tag_dynamics: 'dynamics', tag_control: 'control', tag_sweep: 'sweep', tag_statistics: 'statistics', tag_ml: 'ML', tag_montecarlo: 'Monte Carlo', tag_optimization: 'optimisation', tag_integration: 'integration', tag_desktop: 'desktop', tag_process: 'process', tag_circuit: 'circuit', tag_physics: 'physics, FEM', tag_robotics: 'robots', tag_cad: 'CAD',
+  tag_signal: 'signal', tag_dynamics: 'dynamics', tag_control: 'control', tag_sweep: 'sweep', tag_statistics: 'statistics', tag_ml: 'ML', tag_montecarlo: 'Monte Carlo', tag_optimization: 'optimisation', tag_integration: 'integration', tag_desktop: 'desktop', tag_process: 'process', tag_circuit: 'circuit', tag_physics: 'physics, FEM', tag_robotics: 'robots', tag_cad: 'CAD', tag_matlab: 'MATLAB',
   anim_oscilloscope: 'Oscilloscope', anim_spectrum: 'Spectrum', anim_lorenz: 'Lorenz', anim_network: 'Neural network', anim_montecarlo: 'Monte Carlo π', anim_pipeline: 'Pipeline', anim_histogram: 'Histogram', anim_phase: 'Phase portrait', anim_descent: 'Optimisation', anim_spring: 'Springs',
   anim_isotherms: 'Contours', anim_convection: 'Convection', anim_heatmap: 'Heat map', anim_streamlines: 'Streamlines', anim_waves: 'Waves', anim_aurora: 'Aurora', anim_particles: 'Particles', anim_circuit: 'Circuit', anim_diffusion: 'Diffusion', anim_vortex: 'Vortex',
   tutTitle: 'Tutorial',

@@ -62,7 +62,7 @@ for (const spec of NODES) {
   if (spec.desktopOnly || !spec.presets) continue;
   for (const preset of spec.presets) {
     const params = { ...defaultParams(spec.type), ...preset.params };
-    const needsInput = spec.inputs.some((p) => !p.optional) || JSON.stringify(params).includes('INPUT(');
+    const needsInput = spec.inputs.some((p) => !p.optional) || JSON.stringify(params).includes('INPUT(') || preset.input === 'signal';
     const nodes = [{ id: 'n', type: spec.type, name: preset.en, params }];
     const links = [];
     if (preset.input === 'triangles') {

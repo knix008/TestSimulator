@@ -2523,7 +2523,7 @@ pub fn call(it: &mut Interp, name: &str, args: Vec<Value>, nargout: usize, _stat
                     Value::Num(x) if x.len() == 1 => format!("{}\n", short(&v)),
                     other => {
                         let d = display("", other);
-                        d.trim_start_matches(" =\n\n").trim_start_matches(" = ").to_string()
+                        d.trim_start_matches(" =").trim_start_matches(" ").trim_start_matches('\n').to_string()
                     }
                 };
                 it.print(&s);

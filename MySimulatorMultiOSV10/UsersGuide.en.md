@@ -165,7 +165,9 @@ The **report** gathers the pipeline (nodes and their inputs), every node's value
 | --- | --- |
 | Spectrum (FFT) | amplitude, dB and phase spectrum; dominant frequency (interpolated), THD, RMS; window, mean removal, zero padding |
 | Power spectral density | Welch PSD, total power, peak frequency |
-| Filter | Butterworth IIR (low/high/band pass, band stop, order 1–12, zero phase), windowed FIR, moving average, median, exponential smoothing; the output, the removed part and the frequency response |
+| Wavelets (DWT, CWT) | discrete wavelets (haar, db2–db4, sym4, coif1): multiresolution bands D1 … DL and AL, energy per band, soft or hard threshold denoising (universal threshold), the coefficients; the continuous (Morlet) scalogram |
+| Sample-rate change | decimate (Chebyshev anti-alias filter, then keep), downsample, upsample, interp, resample p/q (Kaiser-window filter) |
+| Filter | IIR: Butterworth, Chebyshev I (pass-band ripple), Chebyshev II (stop-band attenuation; the cut-off is where the stop band starts), elliptic (Cauer) and Bessel (low/high/band pass, band stop, order 1–12, zero phase), windowed FIR, moving average, median, exponential smoothing; the output, the removed part and the frequency response |
 | Spectrogram | STFT time–frequency map (dB) |
 | Find peaks | height, prominence and spacing limits, valleys; mean spacing and, for a decaying oscillation, the damping ratio from the log decrement |
 | Correlation | normalised cross- or auto-correlation, the lag of the best match |
@@ -175,12 +177,15 @@ The **report** gathers the pipeline (nodes and their inputs), every node's value
 
 | Node | Results |
 | --- | --- |
-| Differential equations (ODE) | state equations `x' = expression`; lines without `'` are helper values (output columns). Constants, initial values, RK45 (adaptive), RK4, Euler, input u |
+| Differential equations (ODE) | state equations `x' = expression`; lines without `'` are helper values (output columns). Constants, initial values, ode45 (RK45) and ode23 (adaptive), ode15s (TR-BDF2) and ode23s (Rosenbrock) for stiff problems, RK4, Euler, input u. `delay(x, τ)` makes delay equations (dde23). Event lines `expression, falling, stop` (stop there) or `y, falling, v = -0.8*v` (reset states and go on: a bouncing ball), with an events table of times and states |
 | Transfer function response | step, impulse or ramp response of num/den (highest power first), poles and zeros, rise time, overshoot, peak, settling time, DC gain |
 | Bode & Nyquist | magnitude (dB) and phase, the Nyquist curve, gain and phase margins with their crossovers, bandwidth, closed-loop poles and stability, ultimate gain and period with Ziegler–Nichols PID values; loop gain, time delay |
 | PID control loop | a digital PID (derivative filter, derivative on measurement), output saturation with anti-windup, input disturbance, measurement noise, reference input r; r, y, u, e and the performance figures (overshoot, settling, IAE, ISE, ITAE) |
 | State-space model | A, B, C, D matrices; step, impulse, sine or free response; outputs and states, eigenvalues, controllability and observability ranks, DC gain |
-| Block diagram (Simulink-style) | feedback loops written as `name = expression` or `name = block(input, key=value)` lines, or drawn in the **graphical block editor** ("🧩 Graphical block editor" in the property panel: place blocks from the palette, drag an output port onto an input port, edit settings, click a wire to cut it): integrator, transfer function, PID (saturation), delay, unit delay, zero-order hold, derivative, rate limiter, relay (hysteresis), saturation, dead zone, lookup table, step, sine, square, pulse, ramp, noise, input column; algebraic loops are found and reported |
+| Block diagram (Simulink-style) | feedback loops written as `name = expression` or `name = block(input, key=value)` lines, or drawn in the **graphical block editor** ("🧩 Graphical block editor" in the property panel: place blocks from the palette, drag an output port onto an input port, edit settings, click a wire to cut it): integrator, transfer function, PID (saturation), delay, unit delay, zero-order hold, derivative, rate limiter, relay (hysteresis), saturation, dead zone, lookup table, step, sine, square, pulse, ramp, noise, input column, the discrete transfer function `dtf(u, num, den, ts)`, switch, multiportswitch, gain, sum, product, buses `b = mux(a, c)` and `[p, q] = demux(b)`, and the Stateflow-style state machine `chart(states = [off, on], off -> on: T < 19, on -> off: T > 21 && after(60), out = [0, 1])`. Subsystems `subsystem name(u, k = 1) -> y … end` (or `function y = name(u) … end`) are used any number of times, also inside formulas, with their inner signals hidden. Solvers ode1, ode2, ode4. Algebraic loops are found and reported |
+| Root locus | the closed-loop poles of num/den as K grows (rlocus), the critical gain and crossing frequency, breakaway points, asymptotes; continuous (s) or discrete (z) |
+| State feedback & estimator design | LQR (lqr, dlqr), Kalman filter (lqe), pole placement (place, acker; controller or observer): gains, the Riccati solution, closed-loop poles, the response from x0 or the estimation error |
+| Model conversion & discretisation | tf ↔ zpk ↔ ss, c2d (zoh, foh, Tustin, pole–zero matching), continuous and discrete step responses compared |
 
 ![PID dashboard](docs/images/guide/en/control.jpg)
 
@@ -219,6 +224,9 @@ The **report** gathers the pipeline (nodes and their inputs), every node's value
 | Correlation matrix | Pearson or Spearman, the strongest pair |
 | k-means clustering | k-means++ with restarts, standardisation; a cluster column, centroids, inertia, silhouette |
 | Principal components | scores, loadings, explained variance (scree) |
+| Hypothesis test | t-tests (one-sample, two-sample, Welch, paired), F test of variances, one- and two-way ANOVA, χ² independence and goodness of fit, Jarque–Bera, rank sum and signed rank: statistic, p, decision and confidence interval |
+| Support vector machine | SMO, linear, RBF and polynomial kernels, several classes (one against the rest), text class names, accuracy, confusion matrix, decision regions |
+| Decision tree | CART classification (Gini) and regression, max depth and min leaf size, the rules as text, feature importance |
 | Neural network (MLP) | regression or classification; hidden layers, tanh/ReLU/sigmoid, Adam, batches, L2, test fraction; loss curves, a prediction column, R² or accuracy and confusion matrix, a prediction curve for one feature or a prediction map for two |
 
 ![Neural network classification](docs/images/guide/en/ml.jpg)
@@ -229,7 +237,9 @@ The **report** gathers the pipeline (nodes and their inputs), every node's value
 | --- | --- |
 | Monte Carlo simulation | inputs `name ~ distribution(…)`, outputs `name = expression`; random or Latin hypercube sampling; samples, statistics (mean, std, p5, p50, p95), sensitivity of the first output (rank correlation and share of variance), convergence of the mean with its 95 % band, the probability of a condition (Wilson interval) |
 | Stochastic process | geometric Brownian motion, random walk, Ornstein–Uhlenbeck, jumps; paths and quantile bands, final values, maximum drawdown, VaR |
-| Optimisation | variables `x: low .. high = start`, constraints `g(x) <= 0`, `>=`, `=` (penalty), minimise or maximise; Nelder–Mead, differential evolution (global), BFGS; history, optimum, and for two variables the objective map with the search path |
+| Linear & integer programming | linear objective and constraints (linprog, two-phase simplex); `int` variables by branch and bound (intlinprog); slack and shadow prices |
+| Nonlinear equation solver | systems (fsolve) and single equations (fzero) by Levenberg–Marquardt; residuals and convergence history |
+| Optimisation | variables `x: low .. high = start`, constraints `g(x) <= 0`, `>=`, `=` (penalty), minimise or maximise; Nelder–Mead, differential evolution (global), BFGS, genetic algorithm (ga), particle swarm (particleswarm), simulated annealing (simulannealbnd), pattern search (patternsearch); history, optimum, and for two variables the objective map with the search path |
 | Curve fit | a model formula `a*exp(-b*x) + c` with start values; Levenberg–Marquardt; parameters, standard errors, 95 % intervals, R², fitted curve, formula |
 | Parameter sweep | re-runs the pipeline with another node's numeric parameter over a range (linear or log) or a list and collects a result value (or a column aggregate) of a metric node; two parameters give a map |
 | Discrete-event process (AnyLogic/FlexSim-style) | source → queue → station (n servers, capacity) → routes by probability → sink; utilisation, waiting time, queue length and losses per station, throughput, time in system, queues over time |
@@ -245,7 +255,7 @@ The **report** gathers the pipeline (nodes and their inputs), every node's value
 | Python script | runs code with the installed Python |
 | External program | runs a command-line tool, replacing `{in}`, `{out}`, `{dir}` |
 | Read file | reads CSV, TSV, JSON, Excel, WAV, STL, MAT or PNG at every run |
-| Write file | writes the input table as CSV or JSON and passes it on |
+| Write file | writes the input table as CSV, JSON or a MATLAB .mat (v5) file and passes it on |
 | MyHeatManager heat study (built-in engine) | MyHeatManager's solver is built in, so `.myheat` models (conduction, convective flow, phase change, thermal stress …) run with no other program (web and desktop). The model is kept in the node or read from a path; the field (temperature, stress, flow …) comes back as a table and a heat map with the temperature range, probes, energy balance and per-body and per-boundary values |
 
 Relative paths start at the folder of the saved pipeline file.
@@ -257,7 +267,24 @@ Relative paths start at the folder of the saved pipeline file.
 | Chart | a dashboard chart (the input passes through) |
 | KPI value | one value with alarm limits |
 
-## 5. Python and external programs
+## 5. MATLAB scripts
+
+The **MATLAB script** node runs the MATLAB/Octave language in a built-in interpreter: no MATLAB installation is needed, and the web and desktop apps give the same results.
+
+```matlab
+% The input table's columns t and y arrive as column vectors (the whole table as the structure data)
+[b, a] = butter(4, 0.2);
+yf = filtfilt(b, a, y);
+plot(t, y); hold on; plot(t, yf); title('filtered'); legend('raw', 'filtered');
+rmsNoise = std(y - yf)
+```
+
+- The language: matrices and complex numbers, `:`, `end` and logical indexing, arrays that grow and shrink (`A(:, 2) = []`), strings, cells (`c{i}`, `c{:}`), structures and structure arrays (`s(2).f`), function handles and anonymous functions, `function` blocks in the script (varargin, nargin, several outputs), `if/elseif/else`, `for`, `while`, `switch`, `try/catch`, `break/continue/return` and command syntax (`hold on`).
+- About 400 built-in functions: array construction and shape, math (complex aware), sums, means, extremes, sorting and finding, linear algebra (`\`, `inv`, `det`, `eig`, `svd`, `qr`, `lu`, `chol`, `expm`, `null`, `pinv`), polynomials (`polyfit`, `roots`, `conv`), interpolation and integration (`interp1`, `spline`, `pchip`, `interp2`, `trapz`, `integral`), ODEs (`ode45`, `ode23`, `ode15s`, `ode23s`, `deval`), optimisation (`fzero`, `fminbnd`, `fminsearch`, `fsolve`), signals (`fft`, `ifft`, `filter`, `filtfilt`, `butter`, `cheby1`, `cheby2`, `ellip`, `freqz`, `xcorr`, windows), control (`lqr`, `dlqr`, `lqe`, `care`, `dare`, `place`, `ctrb`, `obsv`), statistics (`std`, `var`, `median`, `cov`, `corrcoef`, `histcounts`, `normcdf`, `tcdf`, `ttest`), strings (`sprintf`, `fprintf`, `num2str`, `strsplit`, `strjoin`, `strcmp` …), cells and structures (`cellfun`, `arrayfun`, `struct`, `fieldnames` …) and files (`load`/`save` .mat, `readmatrix`, `writematrix` — desktop).
+- Results: figures drawn with `plot`, `scatter`, `bar`, `stairs` … become tables (with their titles and legend names), `surf`, `mesh`, `contour` and `imagesc` become grids, ready for chart nodes. Workspace numbers become results, vectors and matrices tables, text, cells and structures the result text (variables left as they came in are skipped; "Variables to export" picks some). The command window (`disp`, `fprintf`, lines without a semicolon) is in the result text.
+- Not supported: arithmetic on arrays of three or more dimensions (N-d arrays read from files are split into pages), class definitions (classdef), regular expressions, graphics handle properties (set/get) and toolbox objects (tf objects and the like — use the control and signal nodes instead).
+
+## 6. Python and external programs
 
 ![Python node](docs/images/guide/en/python.jpg)
 
@@ -296,7 +323,7 @@ Security: before a pipeline with Python or external program nodes runs for the f
 - **MyCircuit's "Export SPICE" (.cir)** and LTspice-style netlists (.cir, .net, .sp) open as they are, with subcircuits, `.model` cards, B sources, BJTs and MOSFETs. ICs without a model (a 555, microcontrollers) are left out, as MyCircuit does.
 - The **MyHeatManager heat study** node carries MyHeatManager's solver: `.myheat` models open without MyHeatManager installed, in the browser too (File › Open, or the node's file button).
 
-## 6. Batch runs (command line)
+## 7. Batch runs (command line)
 
 Runs pipelines without a window (Tools › Batch run).
 
@@ -312,7 +339,7 @@ Results: `<name>.summary.json` (every node: ok/error, warnings, result values, t
 
 `automation.mysim` in the samples folder is a complete example: it reads a measurement file from disk, removes the trend in Python, filters and finds peaks, and writes the cleaned CSV back.
 
-## 7. Files
+## 8. Files
 
 | Format | Use |
 | --- | --- |
@@ -326,10 +353,15 @@ Results: `<name>.summary.json` (every node: ok/error, warnings, result values, t
 
 Export: the selected node's results as CSV (a table, a grid or the values) or JSON, all results as one CSV (sections headed `# node / table`), the current view as PNG, the chart picture, the report as HTML.
 
-## 8. Samples
+## 9. Samples
 
 | Sample | Area |
 | --- | --- |
+| MATLAB scripts: ODE, filter, curve fit | ode45, butter, filtfilt, fft, polyfit, spline, integral, figures → charts |
+| Simulink and Stateflow | subsystems, buses, a state machine (after), discrete transfer function and switch |
+| Control design | root locus, LQR, Kalman filter, c2d |
+| Hypothesis tests, SVM, decision tree, wavelets | t-test, ANOVA, SVM decision regions, CART, db4 denoising |
+| Linear and integer programming, nonlinear equations | linprog (shadow prices), intlinprog, fsolve, genetic algorithm |
 | Signal cleanup and spectrum | Butterworth filter, FFT, KPIs |
 | Chirp spectrogram | STFT, PSD, instantaneous frequency |
 | Damped vibration and damping ratio | ODE, peaks (log decrement), FFT, phase portrait |
@@ -361,7 +393,7 @@ Export: the selected node's results as CSV (a table, a grid or the values) or JS
 | Sound file analysis | spectrum, spectrogram and filter of a WAV file |
 | Python integration | Python script (desktop) |
 
-## 9. Customizing and settings
+## 10. Customizing and settings
 
 - **Theme**: the theme button steps to the next theme of the same kind; ▾ opens the 20 dark and 20 light themes. Settings › Custom theme sets colours one by one.
 - **Language**: the flag button switches Korean ↔ English; menus, node names, help and samples follow.
@@ -369,7 +401,7 @@ Export: the selected node's results as CSV (a table, a grid or the values) or JS
 
 ![Settings](docs/images/guide/en/settings.jpg)
 
-## 10. Keyboard shortcuts
+## 11. Keyboard shortcuts
 
 | Keys | Command | Keys | Command |
 | --- | --- | --- | --- |
@@ -387,13 +419,13 @@ Export: the selected node's results as CSV (a table, a grid or the values) or JS
 | F11 | Full screen | F1 | User's guide |
 | Esc | Clear the selection, close menus | Space+drag | Pan |
 
-## 11. Installing
+## 12. Installing
 
 - **Windows**: `MySimulator-Setup-1.0.0.exe`, installed for the current user (no administrator rights). When an earlier installation exists you are asked whether to remove it completely and reinstall, and whether to delete the user data (settings, recent files, window place). Saved `.mysim` files are never deleted. `.mysim` files open with MySimulator.
 - **macOS**: `MySimulator-1.0.0-<arch>.dmg`; **Linux**: `.deb`, `.rpm`, `.AppImage`.
 - **Web**: put the `dist/` of `npm run build:web` on any static web server; it runs on the WebAssembly engine in the browser (without the Python, external program and file nodes).
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |

@@ -14,6 +14,7 @@ export const CATEGORIES = {
   cad: { icon: '📐', ko: 'CAD·형상', en: 'CAD & geometry', color: '#9ec5ff' },
   analysis: { icon: '∑', ko: '통계·ML', en: 'Statistics & ML', color: '#c58cff' },
   montecarlo: { icon: '🎲', ko: '몬테카를로·최적화', en: 'Monte Carlo & optimisation', color: '#4fd1c5' },
+  script: { icon: 'Ⓜ', ko: 'MATLAB 스크립트', en: 'MATLAB scripts', color: '#ff9f43' },
   integration: { icon: '⇄', ko: '연동', en: 'Integration', color: '#ff5fa2' },
   output: { icon: '▣', ko: '출력', en: 'Output', color: '#a0aec0' },
 };
@@ -23,7 +24,7 @@ const opt = (value, ko, en = ko) => [value, ko, en];
 const IN = [{ port: 'in', ko: '입력', en: 'Input' }];
 
 const WINDOWS = [opt('hann', 'Hann'), opt('hamming', 'Hamming'), opt('blackman', 'Blackman'), opt('flattop', 'Flat top'), opt('bartlett', 'Bartlett'), opt('rect', '사각(없음)', 'Rectangular (none)')];
-const METHODS = [opt('rk45', 'RK45 (적응형)', 'RK45 (adaptive)'), opt('rk4', 'RK4 (고정 간격)', 'RK4 (fixed step)'), opt('euler', '오일러', 'Euler')];
+const METHODS = [opt('rk45', 'ode45 · RK45 (적응형)', 'ode45 · RK45 (adaptive)'), opt('ode23', 'ode23 · RK23 (적응형)', 'ode23 · RK23 (adaptive)'), opt('ode15s', 'ode15s · TR-BDF2 (강성)', 'ode15s · TR-BDF2 (stiff)'), opt('ode23s', 'ode23s · 로젠브록 (강성)', 'ode23s · Rosenbrock (stiff)'), opt('rk4', 'RK4 (고정 간격)', 'RK4 (fixed step)'), opt('euler', '오일러', 'Euler')];
 const AGGREGATES = ['last', 'max', 'min', 'mean', 'rms', 'std', 'absmax', 'range', 'median', 'sum', 'first', 'count', 'p5', 'p95'].map((v) => opt(v, v));
 const TABLE = P('table', 'table', '', '입력 표', 'Input table', { help: ['비우면 첫 번째 표', 'Empty = the first table'] });
 
@@ -63,7 +64,7 @@ export const NODES = [
   },
   {
     type: 'source.file', cat: 'source', icon: '📎', ko: '파일 데이터 (Excel·WAV·STL·MAT·PNG)', en: 'File data (Excel, WAV, STL, MAT, PNG)',
-    help: ['파일을 파이프라인 안에 담아 읽습니다(웹·데스크톱). Excel(.xlsx, 시트 선택), WAV 소리(채널별 열, 표본율), STL 메시(삼각형 표 → CAD 노드), MATLAB .mat(v5, 압축 포함: 스칼라는 결과 값, 벡터는 열, 행렬은 표와 격자), PNG 그림(밝기·RGB 격자), CSV·TSV·JSON.', 'Keeps a file inside the pipeline and reads it (web and desktop): Excel (.xlsx, choose the sheet), WAV sound (a column per channel, the sample rate), STL meshes (a triangle table for the CAD node), MATLAB .mat (v5, compressed too: scalars become values, vectors columns, matrices tables and grids), PNG images (brightness and RGB grids), CSV, TSV and JSON.'],
+    help: ['파일을 파이프라인 안에 담아 읽습니다(웹·데스크톱). Excel(.xlsx, 시트 선택), WAV 소리(채널별 열, 표본율), STL 메시(삼각형 표 → CAD 노드), MATLAB .mat(v5·v7 압축, v7.3 HDF5: 스칼라는 결과 값, 벡터는 열, 행렬·N차원은 표와 격자, 문자·셀·구조체·희소·복소수까지), PNG 그림(밝기·RGB 격자), CSV·TSV·JSON.', 'Keeps a file inside the pipeline and reads it (web and desktop): Excel (.xlsx, choose the sheet), WAV sound (a column per channel, the sample rate), STL meshes (a triangle table for the CAD node), MATLAB .mat (v5 and v7 compressed, v7.3 HDF5: scalars become values, vectors columns, matrices and N-d arrays tables and grids, with char, cell, struct, sparse and complex variables), PNG images (brightness and RGB grids), CSV, TSV and JSON.'],
     inputs: [],
     params: [
       P('content', 'blob', '', '파일', 'File'),
@@ -152,17 +153,19 @@ export const NODES = [
   },
   {
     type: 'signal.filter', cat: 'signal', icon: '⫶', ko: '필터', en: 'Filter',
-    help: ['버터워스 IIR(영위상 가능), 창 FIR, 이동 평균, 중앙값, 지수 평활 필터. 주파수 응답 표도 냅니다.', 'Butterworth IIR (optionally zero-phase), windowed FIR, moving average, median and exponential smoothing; also the frequency response.'],
+    help: ['IIR 필터(버터워스, 체비셰프 I·II, 타원, 베셀 — MATLAB 의 butter·cheby1·cheby2·ellip, 영위상 filtfilt 가능), 창 FIR, 이동 평균, 중앙값, 지수 평활. 체비셰프 II 의 차단 주파수는 저지 대역이 시작하는 곳입니다. 주파수 응답 표도 냅니다.', 'IIR filters (Butterworth, Chebyshev I and II, elliptic and Bessel — MATLAB\'s butter, cheby1, cheby2 and ellip, optionally zero-phase like filtfilt), windowed FIR, moving average, median and exponential smoothing. For Chebyshev II the cut-off is where the stop band starts. Also the frequency response.'],
     inputs: IN,
     params: [
-      P('design', 'select', 'butterworth', '설계', 'Design', { options: [opt('butterworth', '버터워스 IIR', 'Butterworth IIR'), opt('fir', 'FIR (창 sinc)', 'FIR (windowed sinc)'), opt('movingAverage', '이동 평균', 'Moving average'), opt('median', '중앙값', 'Median'), opt('exponential', '지수 평활', 'Exponential smoothing')] }),
-      P('type', 'select', 'lowpass', '종류', 'Type', { options: [opt('lowpass', '저역 통과', 'Low pass'), opt('highpass', '고역 통과', 'High pass'), opt('bandpass', '대역 통과', 'Band pass'), opt('bandstop', '대역 저지', 'Band stop')], show: (p) => ['butterworth', 'fir'].includes(p.design ?? 'butterworth') }),
+      P('design', 'select', 'butterworth', '설계', 'Design', { options: [opt('butterworth', '버터워스 IIR', 'Butterworth IIR'), opt('cheby1', '체비셰프 I (통과 대역 리플)', 'Chebyshev I (pass-band ripple)'), opt('cheby2', '체비셰프 II (저지 대역 리플)', 'Chebyshev II (stop-band ripple)'), opt('ellip', '타원 (카우어)', 'Elliptic (Cauer)'), opt('bessel', '베셀 (선형 위상)', 'Bessel (linear phase)'), opt('fir', 'FIR (창 sinc)', 'FIR (windowed sinc)'), opt('movingAverage', '이동 평균', 'Moving average'), opt('median', '중앙값', 'Median'), opt('exponential', '지수 평활', 'Exponential smoothing')] }),
+      P('type', 'select', 'lowpass', '종류', 'Type', { options: [opt('lowpass', '저역 통과', 'Low pass'), opt('highpass', '고역 통과', 'High pass'), opt('bandpass', '대역 통과', 'Band pass'), opt('bandstop', '대역 저지', 'Band stop')], show: (p) => [...['butterworth', 'cheby1', 'cheby2', 'ellip', 'bessel'], 'fir'].includes(p.design ?? 'butterworth') }),
       P('cutoff', 'number', 10, '차단 주파수', 'Cut-off', { unit: 'Hz', min: 0, show: (p) => !['movingAverage', 'median'].includes(p.design) }),
-      P('cutoff2', 'number', 50, '위 차단 주파수', 'Upper cut-off', { unit: 'Hz', min: 0, show: (p) => ['bandpass', 'bandstop'].includes(p.type) && ['butterworth', 'fir', undefined].includes(p.design) }),
-      P('order', 'int', 4, '차수', 'Order', { min: 1, max: 12, show: (p) => (p.design ?? 'butterworth') === 'butterworth' }),
+      P('cutoff2', 'number', 50, '위 차단 주파수', 'Upper cut-off', { unit: 'Hz', min: 0, show: (p) => ['bandpass', 'bandstop'].includes(p.type) && [...['butterworth', 'cheby1', 'cheby2', 'ellip', 'bessel'], 'fir', undefined].includes(p.design) }),
+      P('order', 'int', 4, '차수', 'Order', { min: 1, max: 12, show: (p) => ['butterworth', 'cheby1', 'cheby2', 'ellip', 'bessel'].includes(p.design ?? 'butterworth') }),
+      P('ripple', 'number', 1, '통과 대역 리플', 'Pass-band ripple', { unit: 'dB', min: 0.001, step: 0.1, show: (p) => ['cheby1', 'ellip'].includes(p.design) }),
+      P('attenuation', 'number', 40, '저지 대역 감쇠', 'Stop-band attenuation', { unit: 'dB', min: 1, step: 5, show: (p) => ['cheby2', 'ellip'].includes(p.design) }),
       P('taps', 'int', 101, '탭 수', 'Taps', { min: 3, max: 4001, step: 10, show: (p) => p.design === 'fir' }),
       P('width', 'int', 9, '창 폭 (표본)', 'Window (samples)', { min: 1, show: (p) => ['movingAverage', 'median'].includes(p.design) }),
-      P('zeroPhase', 'bool', true, '영위상 (앞뒤로)', 'Zero phase (forward-backward)', { show: (p) => (p.design ?? 'butterworth') === 'butterworth' }),
+      P('zeroPhase', 'bool', true, '영위상 (앞뒤로)', 'Zero phase (forward-backward)', { show: (p) => ['butterworth', 'cheby1', 'cheby2', 'ellip', 'bessel'].includes(p.design ?? 'butterworth') }),
       P('column', 'column', '', '신호 열', 'Signal column'),
       P('fs', 'number', 0, '샘플링 주파수 (0 = x 열에서)', 'Sample rate (0 = from x)', { unit: 'Hz', min: 0 }),
       TABLE,
@@ -192,10 +195,47 @@ export const NODES = [
     inputs: IN,
     params: [P('column', 'column', '', '신호 열', 'Signal column'), P('fs', 'number', 0, '샘플링 주파수', 'Sample rate', { unit: 'Hz', min: 0 }), TABLE],
   },
+  {
+    type: 'signal.wavelet', cat: 'signal', icon: '≀', ko: '웨이블릿 (DWT·CWT)', en: 'Wavelets (DWT, CWT)',
+    help: ['이산 웨이블릿 변환(haar, db2–db4, sym4, coif1)으로 신호를 주파수 대역 D1 … DL 과 근사 AL 로 나누고(다해상도 분석), 임계값(소프트·하드, 유니버설)으로 잡음을 지웁니다. 연속 웨이블릿(모를레)을 고르면 시간-주파수 스케일로그램을 그립니다. MATLAB 의 wavedec·wdenoise·cwt 에 해당합니다.', 'The discrete wavelet transform (haar, db2–db4, sym4, coif1) splits the signal into bands D1 … DL and the approximation AL (multiresolution analysis) and removes noise by thresholding (soft or hard, universal threshold). The continuous (Morlet) transform draws a time–frequency scalogram. MATLAB\'s wavedec, wdenoise and cwt.'],
+    inputs: IN,
+    presets: [
+      { id: 'denoise', ko: '잡음 제거 (db4, 소프트)', en: 'Denoise (db4, soft)', params: { transform: 'dwt', wavelet: 'db4', levels: 5, threshold: 'soft' } },
+      { id: 'bands', ko: '대역 분해 (sym4, 6단)', en: 'Band split (sym4, 6 levels)', params: { transform: 'dwt', wavelet: 'sym4', levels: 6, threshold: 'none' } },
+      { id: 'scalogram', ko: '스케일로그램 (모를레)', en: 'Scalogram (Morlet)', params: { transform: 'cwt', scales: 64 } },
+    ],
+    params: [
+      P('transform', 'select', 'dwt', '변환', 'Transform', { options: [opt('dwt', '이산 (DWT)', 'Discrete (DWT)'), opt('cwt', '연속 (CWT, 모를레)', 'Continuous (CWT, Morlet)')] }),
+      P('wavelet', 'select', 'db4', '웨이블릿', 'Wavelet', { options: ['haar', 'db2', 'db3', 'db4', 'sym4', 'coif1'].map((v) => opt(v, v)), show: (p) => (p.transform ?? 'dwt') === 'dwt' }),
+      P('levels', 'int', 4, '분해 단계', 'Levels', { min: 1, max: 20, show: (p) => (p.transform ?? 'dwt') === 'dwt' }),
+      P('threshold', 'select', 'soft', '잡음 제거', 'Denoising', { options: [opt('soft', '소프트 임계값', 'Soft threshold'), opt('hard', '하드 임계값', 'Hard threshold'), opt('none', '없음', 'None')], show: (p) => (p.transform ?? 'dwt') === 'dwt' }),
+      P('thresholdValue', 'number', 0, '임계값 (0 = 자동)', 'Threshold (0 = automatic)', { min: 0, show: (p) => (p.transform ?? 'dwt') === 'dwt' && p.threshold !== 'none' }),
+      P('scales', 'int', 64, '주파수 수', 'Frequencies', { min: 4, max: 512, show: (p) => p.transform === 'cwt' }),
+      P('fmin', 'number', 0, '최저 주파수 (0 = 자동)', 'Lowest frequency (0 = auto)', { unit: 'Hz', min: 0, show: (p) => p.transform === 'cwt' }),
+      P('fmax', 'number', 0, '최고 주파수 (0 = 자동)', 'Highest frequency (0 = auto)', { unit: 'Hz', min: 0, show: (p) => p.transform === 'cwt' }),
+      P('column', 'column', '', '신호 열', 'Signal column'),
+      P('fs', 'number', 0, '샘플링 주파수 (0 = x 열에서)', 'Sample rate (0 = from x)', { unit: 'Hz', min: 0 }),
+      TABLE,
+    ],
+  },
+  {
+    type: 'signal.multirate', cat: 'signal', icon: '⇵', ko: '표본율 변환', en: 'Sample-rate change',
+    help: ['decimate(앨리어싱 방지 체비셰프 필터 후 솎기), downsample, upsample(0 삽입), interp(올린 뒤 저역 통과), resample p/q(카이저 창 필터)로 표본율을 바꿉니다. 선택한 열(비우면 모든 숫자 열)을 함께 바꿉니다.', 'Changes the sample rate: decimate (anti-alias Chebyshev filter, then keep every M-th), downsample, upsample (insert zeros), interp (up then low-pass) and resample p/q (Kaiser-window filter). The chosen columns (empty = every numeric column) change together.'],
+    inputs: IN,
+    params: [
+      P('operation', 'select', 'decimate', '작업', 'Operation', { options: [opt('decimate', 'decimate (필터 후 솎기)', 'decimate (filter, then keep)'), opt('downsample', 'downsample (솎기만)', 'downsample (keep only)'), opt('interp', 'interp (보간)', 'interp (interpolate)'), opt('upsample', 'upsample (0 삽입)', 'upsample (insert zeros)'), opt('resample', 'resample p/q', 'resample p/q')] }),
+      P('factor', 'int', 2, '배율', 'Factor', { min: 1, max: 1000, show: (p) => (p.operation ?? 'decimate') !== 'resample' }),
+      P('p', 'int', 3, 'p (올림)', 'p (up)', { min: 1, show: (p) => p.operation === 'resample' }),
+      P('q', 'int', 2, 'q (내림)', 'q (down)', { min: 1, show: (p) => p.operation === 'resample' }),
+      P('columns', 'columns', '', '열 (비우면 전부)', 'Columns (empty = all)'),
+      P('fs', 'number', 0, '샘플링 주파수 (0 = x 열에서)', 'Sample rate (0 = from x)', { unit: 'Hz', min: 0 }),
+      TABLE,
+    ],
+  },
   // ───────────────────────── dynamics and control
   {
     type: 'dyn.ode', cat: 'dynamics', icon: '⟳', ko: '미분방정식 (ODE)', en: 'Differential equations (ODE)',
-    help: ['"x\' = 식" 으로 상태 방정식을 씁니다. \' 가 없는 줄은 보조 값(출력 열)입니다. 입력 u 를 연결하면 식에서 u 로 씁니다.', 'Write the state equations as "x\' = expression". Lines without \' are helper values (also output). Connect u to use an input signal as u.'],
+    help: ['"x\' = 식" 으로 상태 방정식을 씁니다. \' 가 없는 줄은 보조 값(출력 열)입니다. 입력 u 를 연결하면 식에서 u 로 씁니다. 적분법: ode45·ode23(적응형), 강성 문제는 ode15s(TR-BDF2)·ode23s(로젠브록). delay(x, τ) 는 τ 초 전의 상태(지연 미분방정식, dde23). 이벤트 줄 "식, falling, stop" 은 식이 0 을 지날 때 멈추고, "y, falling, v = -0.8*v" 는 상태를 바꿔 이어 갑니다(튀는 공).', 'Write the state equations as "x\' = expression". Lines without \' are helper values (also output). Connect u to use an input signal as u. Methods: ode45 and ode23 (adaptive), ode15s (TR-BDF2) and ode23s (Rosenbrock) for stiff problems. delay(x, τ) is the state τ seconds earlier (delay equations, dde23). An event line "expression, falling, stop" stops where the expression crosses zero; "y, falling, v = -0.8*v" resets states and goes on (a bouncing ball).'],
     inputs: [{ port: 'u', ko: '입력 u (선택)', en: 'Input u (optional)', optional: true }],
     presets: [
       { id: 'msd', ko: '질량-스프링-댐퍼', en: 'Mass–spring–damper', params: { equations: "x' = v\nv' = (F*sin(w*t) - c*v - k*x)/m\nE = 0.5*m*v^2 + 0.5*k*x^2", constants: 'm = 1, c = 0.4, k = 4, F = 0, w = 2', initial: 'x = 1, v = 0', tEnd: 20, dt: 0.01 } },
@@ -207,6 +247,9 @@ export const NODES = [
       { id: 'duffing', ko: '더핑 진동자 (혼돈)', en: 'Duffing oscillator (chaos)', params: { equations: "x' = v\nv' = -d*v - a*x - b*x^3 + g*cos(w*t)", constants: 'd = 0.3, a = -1, b = 1, g = 0.5, w = 1.2', initial: 'x = 1, v = 0', tEnd: 200, dt: 0.02 } },
       { id: 'rlc', ko: 'RLC 회로 (입력 u)', en: 'RLC circuit (input u)', params: { equations: "q' = i\ni' = (u - R*i - q/C)/L\nvC = q/C", constants: 'R = 2, L = 0.5, C = 0.05', initial: 'q = 0, i = 0', tEnd: 5, dt: 0.001 } },
       { id: 'tank', ko: '물탱크 수위', en: 'Tank level', params: { equations: "h' = (qin - k*sqrt(max(h, 0)))/A\nqout = k*sqrt(max(h, 0))", constants: 'A = 2, k = 0.5, qin = 0.4', initial: 'h = 0', tEnd: 60, dt: 0.1 } },
+      { id: 'robertson', ko: '강성 화학 반응 (ode15s)', en: 'Stiff kinetics (ode15s)', params: { equations: "a' = -0.04*a + 1e4*b*c\nb' = 0.04*a - 1e4*b*c - 3e7*b^2\nc' = 3e7*b^2", constants: '', initial: 'a = 1, b = 0, c = 0', tEnd: 40, dt: 0.2, method: 'ode15s', tolerance: 1e-4, events: '' } },
+      { id: 'bounce', ko: '튀는 공 (이벤트)', en: 'Bouncing ball (events)', params: { equations: "y' = v\nv' = -g", constants: 'g = 9.81', initial: 'y = 10, v = 0', tEnd: 10, dt: 0.01, method: 'rk45', events: 'y, falling, v = -0.8*v' } },
+      { id: 'delay', ko: '지연 로지스틱 (dde23)', en: 'Delayed logistic (dde23)', params: { equations: "N' = r*N*(1 - delay(N, tau)/K)", constants: 'r = 1.8, K = 100, tau = 1', initial: 'N = 10', tEnd: 30, dt: 0.02, method: 'rk4', substeps: 10, events: '' } },
       { id: 'projectile', ko: '공기 저항 포물선', en: 'Projectile with drag', params: { equations: "x' = vx\ny' = vy\nvx' = -k*vx*sqrt(vx^2 + vy^2)\nvy' = -g - k*vy*sqrt(vx^2 + vy^2)", constants: 'g = 9.81, k = 0.02', initial: 'x = 0, y = 0, vx = 30, vy = 30', tEnd: 5, dt: 0.01 } },
     ],
     params: [
@@ -217,8 +260,9 @@ export const NODES = [
       P('tEnd', 'number', 20, '끝 시간', 'End time', { unit: 's', min: 0 }),
       P('dt', 'number', 0.01, '출력 간격', 'Output step', { unit: 's', min: 1e-9 }),
       P('method', 'select', 'rk45', '적분법', 'Method', { options: METHODS }),
-      P('tolerance', 'number', 1e-6, '허용 오차 (RK45)', 'Tolerance (RK45)', { min: 1e-14, show: (p) => (p.method ?? 'rk45') === 'rk45' }),
+      P('tolerance', 'number', 1e-6, '허용 오차 (적응형)', 'Tolerance (adaptive)', { min: 1e-14, show: (p) => !['rk4', 'euler'].includes(p.method) }),
       P('substeps', 'int', 10, '내부 단계 (고정 간격)', 'Sub-steps (fixed step)', { min: 1, show: (p) => ['rk4', 'euler'].includes(p.method) }),
+      P('events', 'code', '', '이벤트 (식, falling/rising, stop 또는 상태 = 식)', 'Events (expression, falling/rising, stop or state = expression)', { rows: 2, placeholder: 'y, falling, v = -0.8*v' }),
       P('uColumn', 'column', '', '입력 u 열', 'Input u column', { port: 'u' }),
     ],
   },
@@ -268,7 +312,7 @@ export const NODES = [
   },
   {
     type: 'dyn.blocks', cat: 'dynamics', icon: '⧈', ko: '블록 다이어그램 (Simulink 형)', en: 'Block diagram (Simulink-style)',
-    help: ['신호마다 한 줄: "이름 = 식"(이득·합·곱) 또는 "이름 = 블록(입력, 설정 = 값)". 피드백 루프를 그대로 쓰고 매 시간 단계에 함께 풉니다. 블록: integrator, tf, pid, delay, unitdelay, zoh, derivative, ratelimit, relay, saturation, deadzone, lookup, step, sine, square, pulse, ramp, noise, input. 적분기·전달함수·지연이 없는 루프(대수 루프)는 알려 줍니다.', 'One line per signal: "name = expression" (gains, sums, products) or "name = block(input, setting = value)". Feedback loops are written as they are and solved together at every time step. Blocks: integrator, tf, pid, delay, unitdelay, zoh, derivative, ratelimit, relay, saturation, deadzone, lookup, step, sine, square, pulse, ramp, noise, input. A loop without an integrator, transfer function or delay (an algebraic loop) is reported.'],
+    help: ['신호마다 한 줄: "이름 = 식"(이득·합·곱) 또는 "이름 = 블록(입력, 설정 = 값)". 피드백 루프를 그대로 쓰고 매 시간 단계에 함께 풉니다. 블록: integrator, tf, dtf(이산, ts), pid, delay, unitdelay, zoh, derivative, ratelimit, relay, saturation, deadzone, lookup, switch, multiportswitch, gain, sum, product, mux/demux(버스), chart(Stateflow 형 상태 기계: chart(states = [off, on], off -> on: T < 19, on -> off: T > 21 && after(60), out = [0, 1])), step, sine, square, pulse, ramp, noise, input. 서브시스템: "subsystem 이름(u, k = 1) -> y … end"(또는 MATLAB 식 "function y = 이름(u) … end")로 정의해 블록처럼, 식 안에서도 씁니다. 솔버: ode1(오일러), ode2(호인), ode4(RK4). 적분기·전달함수·지연이 없는 루프(대수 루프)는 알려 줍니다.', 'One line per signal: "name = expression" (gains, sums, products) or "name = block(input, setting = value)". Feedback loops are written as they are and solved together at every time step. Blocks: integrator, tf, dtf (discrete, ts), pid, delay, unitdelay, zoh, derivative, ratelimit, relay, saturation, deadzone, lookup, switch, multiportswitch, gain, sum, product, mux/demux (buses), chart (Stateflow-style state machine: chart(states = [off, on], off -> on: T < 19, on -> off: T > 21 && after(60), out = [0, 1])), step, sine, square, pulse, ramp, noise, input. Subsystems: "subsystem name(u, k = 1) -> y … end" (or MATLAB\'s "function y = name(u) … end") used like a block, also inside formulas. Solver: ode1 (Euler), ode2 (Heun), ode4 (RK4). A loop without an integrator, transfer function or delay (an algebraic loop) is reported.'],
     inputs: [{ port: 'u', ko: '입력 표 (선택)', en: 'Input table (optional)', optional: true }],
     presets: [
       { id: 'pidLoop', ko: 'PID 폐루프 (포화)', en: 'PID loop with saturation', params: { diagram: 'r = step(t0 = 1)\ne = r - y\nu = pid(e, kp = 4, ki = 2, kd = 0.8, umin = -3, umax = 3)\ny = tf(u, num = [1], den = [1, 3, 3, 1])', tEnd: 20, dt: 0.01, measure: 'y' } },
@@ -276,6 +320,9 @@ export const NODES = [
       { id: 'thermostat', ko: '온도 조절기 (릴레이)', en: 'Thermostat (relay)', params: { diagram: 'setp = 21\nheater = relay(setp - T, on = 0.5, off = -0.5, high = 2000, low = 0)\nT = integrator((heater - k*(T - T_out)) / C, x0 = 15)', constants: 'C = 2e5, k = 60, T_out = 5', tEnd: 7200, dt: 5, substeps: 5, measure: '' } },
       { id: 'motor', ko: 'DC 모터 속도 루프 (기울기 제한)', en: 'DC motor speed loop (rate limit)', params: { diagram: 'cmd = step(t0 = 0.2, a = 100)\nref = ratelimit(cmd, rise = 200)\nvolt = pid(ref - w, kp = 0.5, ki = 5, umin = -24, umax = 24)\ni = integrator((volt - R*i - K*w)/L)\nw = integrator((K*i - b*w - load)/J)\nload = step(t0 = 1.2, a = 0.05)', constants: 'R = 1, L = 0.5e-3, K = 0.05, J = 1e-4, b = 1e-5', tEnd: 2, dt: 0.0005, substeps: 4, measure: '' } },
       { id: 'digital', ko: '디지털 제어기 (샘플·홀드)', en: 'Digital controller (sample and hold)', params: { diagram: 'r = step(t0 = 0.5)\nym = zoh(y, ts = 0.1)\ne = r - ym\nacc = unitdelay(acc + 0.1*e, ts = 0.1)\nu = zoh(1.2*e + 0.8*acc, ts = 0.1)\ny = tf(u, num = [1], den = [1, 1])', tEnd: 10, dt: 0.01, measure: '' } },
+      { id: 'subsystem', ko: '서브시스템: 2단 탱크', en: 'Subsystems: two tanks in series', params: { diagram: 'subsystem tank(qin, A = 1, k = 0.5) -> h\n  h = integrator((qin - k*sqrt(max(h, 0)))/A)\nend\nq = step(t0 = 1, a = 0.6)\nh1 = tank(q, A = 2)\nh2 = tank(0.5*sqrt(max(h1, 0)), A = 1.5, k = 0.4)\nlevels = mux(h1, h2)', constants: '', tEnd: 120, dt: 0.1, measure: '' } },
+      { id: 'stateflow', ko: 'Stateflow: 신호등 제어', en: 'Stateflow: traffic light', params: { diagram: 'light = chart(states = [red, green, yellow], init = red, out = [0, 2, 1], red -> green: after(30), green -> yellow: after(25), yellow -> red: after(5))\ncars = integrator(if(light > 1.5, -0.5*cars, 0.4))', constants: '', tEnd: 300, dt: 0.5, measure: '' } },
+      { id: 'discrete', ko: '이산 전달함수·스위치', en: 'Discrete TF and switch', params: { diagram: 'r = square(f = 0.1)\ne = r - y\nu = dtf(e, num = [0.5, -0.4], den = [1, -1], ts = 0.1)\ny = tf(switch(u, t, 0, threshold = 2), num = [1], den = [1, 1])', constants: '', tEnd: 30, dt: 0.01, measure: '' } },
       { id: 'deadtime', ko: '시간 지연 공정', en: 'Process with dead time', params: { diagram: 'r = step(t0 = 1)\nu = pid(r - y, kp = 0.6, ki = 0.25)\nyd = delay(u, t = 2)\ny = tf(yd, num = [1], den = [5, 1])', tEnd: 60, dt: 0.05, measure: 'y' } },
     ],
     params: [
@@ -283,9 +330,65 @@ export const NODES = [
       P('constants', 'text', '', '상수', 'Constants', { placeholder: 'm = 1200, g = 9.81' }),
       P('tEnd', 'number', 20, '끝 시간', 'End time', { unit: 's', min: 0 }),
       P('dt', 'number', 0.01, '출력 간격', 'Output step', { unit: 's', min: 1e-9 }),
-      P('substeps', 'int', 10, '내부 단계 (RK4)', 'Sub-steps (RK4)', { min: 1 }),
+      P('substeps', 'int', 10, '내부 단계', 'Sub-steps', { min: 1 }),
+      P('solver', 'select', 'ode4', '솔버 (고정 간격)', 'Solver (fixed step)', { options: [opt('ode4', 'ode4 (RK4)', 'ode4 (RK4)'), opt('ode2', 'ode2 (호인)', 'ode2 (Heun)'), opt('ode1', 'ode1 (오일러)', 'ode1 (Euler)')] }),
       P('measure', 'column', '', '응답 지표를 낼 신호', 'Signal for step metrics', { own: true }),
       P('seed', 'int', 1, '난수 시드 (noise)', 'Random seed (noise)', { min: 0 }),
+    ],
+  },
+  {
+    type: 'ctrl.rlocus', cat: 'dynamics', icon: '✣', ko: '근궤적', en: 'Root locus',
+    help: ['1 + K·G(s) = 0 의 폐루프 극점이 K 에 따라 움직이는 자취(rlocus)입니다. 허수축을 넘는 임계 이득과 진동수, 이탈·합류점, 점근선 중심을 냅니다. 이산(z) 영역이면 단위원을 기준으로 봅니다.', 'The closed-loop poles of 1 + K·G(s) = 0 as K grows (rlocus): the critical gain and frequency where the locus crosses the imaginary axis, breakaway points and the asymptote centroid. In the discrete (z) domain the unit circle is the limit.'],
+    inputs: [],
+    presets: [
+      { id: 'type1', ko: '1/(s(s+1)(s+2))', en: '1/(s(s+1)(s+2))', params: { num: '1', den: '1, 3, 2, 0' } },
+      { id: 'zero', ko: '영점 있는 3차 (s+3)/(s(s+1)(s+5))', en: 'With a zero (s+3)/(s(s+1)(s+5))', params: { num: '1, 3', den: '1, 6, 5, 0' } },
+      { id: 'discrete', ko: '이산 0.1/((z−1)(z−0.6))', en: 'Discrete 0.1/((z−1)(z−0.6))', params: { num: '0.1', den: '1, -1.6, 0.6', domain: 'discrete' } },
+    ],
+    params: [P('num', 'text', '1', '분자 계수', 'Numerator'), P('den', 'text', '1, 3, 2, 0', '분모 계수', 'Denominator'), P('domain', 'select', 'continuous', '영역', 'Domain', { options: [opt('continuous', '연속 (s)', 'Continuous (s)'), opt('discrete', '이산 (z)', 'Discrete (z)')] }), P('kMax', 'number', 0, '최대 이득 (0 = 자동)', 'Max gain (0 = auto)', { min: 0 }), P('points', 'int', 400, '이득 점 수', 'Gain points', { min: 20 })],
+  },
+  {
+    type: 'ctrl.design', cat: 'dynamics', icon: '⊕', ko: '상태 피드백·추정기 설계', en: 'State feedback & estimator design',
+    help: ['LQR(lqr·dlqr: 리카티 방정식으로 K), 칼만 필터(lqe·kalman: 잡음 공분산 Q·R 로 L), 극 배치(place·acker: 원하는 극점 "-2±1i, -5")로 이득을 설계하고, 폐루프 극점과 x0 에서의 응답(또는 추정 오차)을 냅니다. Q·R 은 비우면 단위 행렬, 숫자 한 줄은 대각.', 'Designs gains by LQR (lqr, dlqr: K from the Riccati equation), the Kalman filter (lqe, kalman: L from the noise covariances Q and R) or pole placement (place, acker: poles like "-2±1i, -5"), with the closed-loop poles and the response from x0 (or the estimation error). Empty Q, R = identity; one row of numbers = the diagonal.'],
+    inputs: [],
+    presets: [
+      { id: 'lqrPendulum', ko: 'LQR: 도립 진자', en: 'LQR: inverted pendulum', params: { mode: 'lqr', A: '0 1 0 0; 0 -0.1 3 0; 0 0 0 1; 0 -0.5 30 0', B: '0; 2; 0; 5', C: '1 0 0 0; 0 0 1 0', Q: '10 1 100 1', R: '1', x0: '0, 0, 0.2, 0', tEnd: 6 } },
+      { id: 'kalman', ko: '칼만 필터: 위치·속도', en: 'Kalman filter: position, velocity', params: { mode: 'lqe', A: '0 1; 0 0', B: '0; 1', C: '1 0', Q: '0.01 1', R: '0.1', x0: '1, 0' } },
+      { id: 'place', ko: '극 배치: 2차 시스템', en: 'Pole placement: second order', params: { mode: 'place', A: '0 1; -2 -3', B: '0; 1', poles: '-4±3i' } },
+      { id: 'dlqr', ko: '이산 LQR (T = 0.1 s)', en: 'Discrete LQR (T = 0.1 s)', params: { mode: 'lqr', domain: 'discrete', A: '1 0.1; 0 1', B: '0.005; 0.1', C: '1 0', Q: '', R: '0.1', ts: 0.1, tEnd: 5 } },
+    ],
+    params: [
+      P('mode', 'select', 'lqr', '설계', 'Design', { options: [opt('lqr', 'LQR (최적 제어)', 'LQR (optimal control)'), opt('lqe', '칼만 필터 (LQE)', 'Kalman filter (LQE)'), opt('place', '극 배치', 'Pole placement')] }),
+      P('domain', 'select', 'continuous', '영역', 'Domain', { options: [opt('continuous', '연속', 'Continuous'), opt('discrete', '이산', 'Discrete')] }),
+      P('A', 'code', '0 1; 0 0', 'A', 'A', { rows: 3 }), P('B', 'code', '0; 1', 'B', 'B', { rows: 2 }), P('C', 'code', '', 'C (비우면 첫 상태)', 'C (empty = first state)', { rows: 2 }),
+      P('Q', 'text', '', 'Q (상태 가중 / 공정 잡음)', 'Q (state weight / process noise)', { show: (p) => (p.mode ?? 'lqr') !== 'place' }),
+      P('R', 'text', '', 'R (입력 가중 / 측정 잡음)', 'R (input weight / measurement noise)', { show: (p) => (p.mode ?? 'lqr') !== 'place' }),
+      P('poles', 'text', '-1±1i', '원하는 극점', 'Desired poles', { show: (p) => p.mode === 'place' }),
+      P('target', 'select', 'controller', '대상', 'Target', { options: [opt('controller', '제어기 K', 'Controller K'), opt('observer', '관측기 L', 'Observer L')], show: (p) => p.mode === 'place' }),
+      P('channel', 'int', 1, '입력 채널', 'Input channel', { min: 1, show: (p) => p.mode === 'place' }),
+      P('ts', 'number', 0.1, '샘플 시간 (이산)', 'Sample time (discrete)', { unit: 's', min: 1e-9, show: (p) => p.domain === 'discrete' }),
+      P('x0', 'text', '', '초기 상태 (비우면 1)', 'Initial state (empty = 1)'),
+      P('tEnd', 'number', 10, '끝 시간', 'End time', { unit: 's', min: 0 }),
+      P('dt', 'number', 0.01, '간격', 'Step', { unit: 's', min: 1e-9, show: (p) => p.domain !== 'discrete' }),
+    ],
+  },
+  {
+    type: 'ctrl.convert', cat: 'dynamics', icon: '⇄', ko: '모델 변환·이산화', en: 'Model conversion & discretisation',
+    help: ['전달함수(tf)·영점-극점-이득(zpk)·상태공간(ss) 사이를 바꾸고, c2d 로 이산화합니다(영차 유지 zoh, 일차 유지 foh, 터스틴(쌍선형), 극영점 대응). 연속·이산 계단 응답을 같은 시각에서 비교합니다.', 'Converts between transfer function (tf), zero-pole-gain (zpk) and state space (ss), and discretises with c2d (zero-order hold, first-order hold, Tustin (bilinear), pole–zero matching). The continuous and discrete step responses are compared at the same instants.'],
+    inputs: [],
+    presets: [
+      { id: 'motor', ko: 'DC 모터 → 이산 (zoh)', en: 'DC motor → discrete (zoh)', params: { form: 'tf', num: '0.01', den: '0.005, 0.06, 0.1001', c2d: 'zoh', ts: 0.05 } },
+      { id: 'zpk', ko: 'zpk 2(s+1)/((s+2)(s+3))', en: 'zpk 2(s+1)/((s+2)(s+3))', params: { form: 'zpk', zeros: '-1', poles: '-2, -3', gain: 2, c2d: 'tustin', ts: 0.1 } },
+      { id: 'ss', ko: '상태공간 → 전달함수', en: 'State space → transfer function', params: { form: 'ss', A: '0 1; -2 -3', B: '0; 1', C: '1 0', D: 0, c2d: 'none' } },
+    ],
+    params: [
+      P('form', 'select', 'tf', '입력 형식', 'Input form', { options: [opt('tf', '전달함수 (tf)', 'Transfer function (tf)'), opt('zpk', '영점·극점·이득 (zpk)', 'Zero-pole-gain (zpk)'), opt('ss', '상태공간 (ss)', 'State space (ss)')] }),
+      P('num', 'text', '1', '분자 계수', 'Numerator', { show: (p) => (p.form ?? 'tf') === 'tf' }), P('den', 'text', '1, 1', '분모 계수', 'Denominator', { show: (p) => (p.form ?? 'tf') === 'tf' }),
+      P('zeros', 'text', '', '영점', 'Zeros', { show: (p) => p.form === 'zpk', placeholder: '-1, -2±3i' }), P('poles', 'text', '-1', '극점', 'Poles', { show: (p) => p.form === 'zpk' }), P('gain', 'number', 1, '이득 k', 'Gain k', { show: (p) => p.form === 'zpk' }),
+      P('A', 'code', '-1', 'A', 'A', { rows: 2, show: (p) => p.form === 'ss' }), P('B', 'code', '1', 'B', 'B', { rows: 2, show: (p) => p.form === 'ss' }), P('C', 'code', '1', 'C', 'C', { rows: 1, show: (p) => p.form === 'ss' }), P('D', 'number', 0, 'D', 'D', { show: (p) => p.form === 'ss' }),
+      P('c2d', 'select', 'zoh', '이산화 (c2d)', 'Discretise (c2d)', { options: [opt('zoh', '영차 유지 (zoh)', 'Zero-order hold (zoh)'), opt('foh', '일차 유지 (foh)', 'First-order hold (foh)'), opt('tustin', '터스틴 (쌍선형)', 'Tustin (bilinear)'), opt('matched', '극영점 대응', 'Pole–zero matching'), opt('none', '하지 않음', 'None')] }),
+      P('ts', 'number', 0.1, '샘플 시간', 'Sample time', { unit: 's', min: 1e-9, show: (p) => p.c2d !== 'none' }),
+      P('tEnd', 'number', 10, '응답 끝 시간', 'Response end time', { unit: 's', min: 0, show: (p) => p.c2d !== 'none' }),
     ],
   },
   // ───────────────────────── statistics and ML
@@ -556,6 +659,49 @@ export const NODES = [
     inputs: IN,
     params: [P('features', 'columns', '', '특징 열', 'Feature columns'), P('target', 'column', '', '목표 열', 'Target column'), P('task', 'select', 'regression', '작업', 'Task', { options: [opt('regression', '회귀', 'Regression'), opt('classification', '분류', 'Classification')] }), P('hidden', 'text', '16, 16', '은닉층 크기', 'Hidden layers'), P('activation', 'select', 'tanh', '활성 함수', 'Activation', { options: [opt('tanh', 'tanh'), opt('relu', 'ReLU'), opt('sigmoid', 'sigmoid')] }), P('epochs', 'int', 300, '에포크', 'Epochs', { min: 1, step: 50 }), P('learningRate', 'number', 0.01, '학습률', 'Learning rate', { min: 1e-6, step: 0.001 }), P('batch', 'int', 32, '배치 크기', 'Batch size', { min: 1 }), P('l2', 'number', 0, 'L2 규제', 'L2 penalty', { min: 0 }), P('testFraction', 'number', 0.2, '검증 비율', 'Test fraction', { min: 0, max: 0.9, step: 0.05 }), P('seed', 'int', 1, '난수 시드', 'Random seed', { min: 0 }), TABLE],
   },
+  {
+    type: 'stat.test', cat: 'analysis', icon: '⊢', ko: '가설 검정', en: 'Hypothesis test',
+    help: ['t-검정(일표본·이표본(등분산/웰치)·대응), 분산비 F 검정, 일원·이원 분산분석(ANOVA), χ² 독립성·적합도, 자크-베라 정규성, 윌콕슨 순위합(만-휘트니)·부호 순위 검정. 통계량, 자유도, p 값, α 에서의 기각 여부와 신뢰 구간을 냅니다. MATLAB 의 ttest, ttest2, vartest2, anova1, anova2, chi2gof, jbtest, ranksum, signrank.', 'Student\'s t-tests (one-sample, two-sample with equal or unequal (Welch) variances, paired), the F test of variances, one- and two-way ANOVA, χ² independence and goodness of fit, the Jarque–Bera normality test and the Wilcoxon rank-sum (Mann–Whitney) and signed-rank tests: statistic, degrees of freedom, p-value, the decision at α and a confidence interval. MATLAB\'s ttest, ttest2, vartest2, anova1, anova2, chi2gof, jbtest, ranksum and signrank.'],
+    inputs: IN,
+    params: [
+      P('test', 'select', 'ttest', '검정', 'Test', { options: [opt('ttest', '일표본 t (평균 = μ)', 'One-sample t (mean = μ)'), opt('ttest2', '이표본 t', 'Two-sample t'), opt('paired', '대응 t', 'Paired t'), opt('vartest2', '분산비 F', 'F test of variances'), opt('anova1', '일원 분산분석', 'One-way ANOVA'), opt('anova2', '이원 분산분석', 'Two-way ANOVA'), opt('chi2', 'χ² 독립성 (분할표)', 'χ² independence (contingency)'), opt('chi2gof', 'χ² 적합도 (정규)', 'χ² goodness of fit (normal)'), opt('jbtest', '자크-베라 정규성', 'Jarque–Bera normality'), opt('ranksum', '순위합 (만-휘트니)', 'Rank sum (Mann–Whitney)'), opt('signrank', '부호 순위 (윌콕슨)', 'Signed rank (Wilcoxon)')] }),
+      P('a', 'column', '', '열 a', 'Column a', { show: (p) => !['anova1', 'anova2', 'chi2'].includes(p.test) }),
+      P('b', 'column', '', '열 b', 'Column b', { show: (p) => ['ttest2', 'paired', 'vartest2', 'ranksum', 'signrank'].includes(p.test) }),
+      P('mu', 'number', 0, '가설 평균 μ', 'Hypothesised mean μ', { show: (p) => ['ttest', 'signrank', undefined].includes(p.test) }),
+      P('variance', 'select', 'equal', '분산', 'Variances', { options: [opt('equal', '같다 (합동)', 'Equal (pooled)'), opt('unequal', '다르다 (웰치)', 'Unequal (Welch)')], show: (p) => p.test === 'ttest2' }),
+      P('columns', 'columns', '', '집단 열 (비우면 전부)', 'Group columns (empty = all)', { show: (p) => ['anova1', 'anova2', 'chi2'].includes(p.test) }),
+      P('value', 'column', '', '값 열 (집단 열과 함께)', 'Value column (with a group column)', { show: (p) => p.test === 'anova1' }),
+      P('group', 'column', '', '집단 열', 'Group column', { show: (p) => p.test === 'anova1' }),
+      P('tail', 'select', 'both', '대립 가설', 'Alternative', { options: [opt('both', '양측', 'Two-sided'), opt('right', '오른쪽 (크다)', 'Right (greater)'), opt('left', '왼쪽 (작다)', 'Left (less)')] }),
+      P('alpha', 'number', 0.05, '유의 수준 α', 'Significance α', { min: 0.0001, max: 0.5, step: 0.01 }),
+      P('bins', 'int', 10, '구간 수', 'Bins', { min: 3, show: (p) => p.test === 'chi2gof' }),
+      TABLE,
+    ],
+  },
+  {
+    type: 'ml.svm', cat: 'analysis', icon: '⫽', ko: '서포트 벡터 머신 (SVM)', en: 'Support vector machine (SVM)',
+    help: ['SMO 로 학습하는 SVM 분류기(fitcsvm·fitcecoc). 커널: 선형, RBF(가우스), 다항식. 셋 이상의 부류는 한 부류 대 나머지. 학습·시험 정확도, 혼동 행렬, 특징이 둘이면 결정 영역 지도를 냅니다. 목표 열은 글자(부류 이름)도 됩니다.', 'An SVM classifier trained by SMO (fitcsvm, fitcecoc). Kernels: linear, RBF (Gaussian) and polynomial; three or more classes go one against the rest. Train and test accuracy, the confusion matrix and, with two features, the decision regions. The target column may hold text (class names).'],
+    inputs: IN,
+    params: [
+      P('target', 'column', '', '목표 열 (부류)', 'Target column (class)'), P('features', 'columns', '', '특징 열 (비우면 나머지 숫자 열)', 'Feature columns (empty = the other numeric columns)'),
+      P('kernel', 'select', 'rbf', '커널', 'Kernel', { options: [opt('rbf', 'RBF (가우스)', 'RBF (Gaussian)'), opt('linear', '선형', 'Linear'), opt('poly', '다항식', 'Polynomial')] }),
+      P('C', 'number', 1, '상자 제약 C', 'Box constraint C', { min: 1e-6 }),
+      P('gamma', 'number', 0, 'γ (0 = 1/특징 수)', 'γ (0 = 1/features)', { min: 0, show: (p) => (p.kernel ?? 'rbf') === 'rbf' }),
+      P('degree', 'number', 3, '다항 차수', 'Degree', { min: 1, show: (p) => p.kernel === 'poly' }),
+      P('standardize', 'bool', true, '표준화', 'Standardise'), P('testFraction', 'number', 0.25, '시험 비율', 'Test fraction', { min: 0, max: 0.9, step: 0.05 }), P('seed', 'int', 1, '난수 시드', 'Random seed', { min: 0 }), TABLE,
+    ],
+  },
+  {
+    type: 'ml.tree', cat: 'analysis', icon: '🌳', ko: '결정 트리', en: 'Decision tree',
+    help: ['CART 결정 트리(fitctree·fitrtree): 분류는 지니 불순도, 회귀는 제곱 오차로 나눕니다. 최대 깊이와 잎의 최소 표본 수로 가지를 칩니다. 규칙(if … else), 특징 중요도, 정확도 또는 R² 를 냅니다.', 'A CART decision tree (fitctree, fitrtree): splits by Gini impurity (classification) or squared error (regression), pruned by the maximum depth and the minimum samples per leaf. The rules (if … else), feature importance and accuracy or R².'],
+    inputs: IN,
+    params: [
+      P('task', 'select', 'classification', '작업', 'Task', { options: [opt('classification', '분류', 'Classification'), opt('regression', '회귀', 'Regression')] }),
+      P('target', 'column', '', '목표 열', 'Target column'), P('features', 'columns', '', '특징 열 (비우면 나머지 숫자 열)', 'Feature columns (empty = the other numeric columns)'),
+      P('maxDepth', 'int', 5, '최대 깊이', 'Max depth', { min: 1, max: 30 }), P('minLeaf', 'int', 2, '잎 최소 표본', 'Min samples per leaf', { min: 1 }),
+      P('testFraction', 'number', 0.25, '시험 비율', 'Test fraction', { min: 0, max: 0.9, step: 0.05 }), P('seed', 'int', 1, '난수 시드', 'Random seed', { min: 0 }), TABLE,
+    ],
+  },
   // ───────────────────────── Monte Carlo and optimisation
   {
     type: 'mc.simulate', cat: 'montecarlo', icon: '🎲', ko: '몬테카를로 시뮬레이션', en: 'Monte Carlo simulation',
@@ -606,7 +752,7 @@ export const NODES = [
       { id: 'can', ko: '캔 설계 (부피 제약)', en: 'Can design (volume constraint)', params: { variables: 'r: 1 .. 10 = 3\nh: 1 .. 30 = 10', objective: '2*pi*r^2 + 2*pi*r*h', constraints: 'pi*r^2*h = 330', method: 'nelderMead', goal: 'minimize' } },
       { id: 'profit', ko: '이익 최대화', en: 'Profit maximisation', params: { variables: 'p: 1 .. 50 = 10\nq: 0 .. 1000 = 100', objective: '(p - 4)*q - 0.01*q^2', constraints: 'q <= 800 - 15*p', method: 'de', goal: 'maximize' } },
     ],
-    params: [P('objective', 'code', '(1 - x)^2 + 100*(y - x^2)^2', '목적 함수', 'Objective', { rows: 3 }), P('variables', 'code', 'x: -5 .. 5 = 1\ny: -5 .. 5 = 1', '변수 (하한 .. 상한 = 시작)', 'Variables (low .. high = start)', { rows: 3 }), P('constraints', 'code', '', '제약 조건', 'Constraints', { rows: 2, placeholder: 'x + y <= 1' }), P('goal', 'select', 'minimize', '목표', 'Goal', { options: [opt('minimize', '최소화', 'Minimise'), opt('maximize', '최대화', 'Maximise')] }), P('method', 'select', 'nelderMead', '방법', 'Method', { options: [opt('nelderMead', '넬더-미드', 'Nelder–Mead'), opt('de', '차분 진화 (전역)', 'Differential evolution (global)'), opt('bfgs', 'BFGS (기울기)', 'BFGS (gradient)')] }), P('maxIterations', 'int', 2000, '최대 반복', 'Max iterations', { min: 1 }), P('tolerance', 'number', 1e-10, '허용 오차', 'Tolerance', { min: 1e-16 }), P('constants', 'text', '', '상수', 'Constants'), P('logMap', 'bool', true, '목적 지도 로그 눈금', 'Log scale objective map'), P('seed', 'int', 1, '난수 시드', 'Random seed', { min: 0, show: (p) => p.method === 'de' })],
+    params: [P('objective', 'code', '(1 - x)^2 + 100*(y - x^2)^2', '목적 함수', 'Objective', { rows: 3 }), P('variables', 'code', 'x: -5 .. 5 = 1\ny: -5 .. 5 = 1', '변수 (하한 .. 상한 = 시작)', 'Variables (low .. high = start)', { rows: 3 }), P('constraints', 'code', '', '제약 조건', 'Constraints', { rows: 2, placeholder: 'x + y <= 1' }), P('goal', 'select', 'minimize', '목표', 'Goal', { options: [opt('minimize', '최소화', 'Minimise'), opt('maximize', '최대화', 'Maximise')] }), P('method', 'select', 'nelderMead', '방법', 'Method', { options: [opt('nelderMead', '넬더-미드', 'Nelder–Mead'), opt('de', '차분 진화 (전역)', 'Differential evolution (global)'), opt('bfgs', 'BFGS (기울기)', 'BFGS (gradient)'), opt('ga', '유전 알고리즘 (전역, ga)', 'Genetic algorithm (global, ga)'), opt('pso', '입자 군집 (전역, particleswarm)', 'Particle swarm (global, particleswarm)'), opt('sa', '담금질 (전역, simulannealbnd)', 'Simulated annealing (global, simulannealbnd)'), opt('patternsearch', '패턴 탐색 (patternsearch)', 'Pattern search (patternsearch)')] }), P('maxIterations', 'int', 2000, '최대 반복', 'Max iterations', { min: 1 }), P('tolerance', 'number', 1e-10, '허용 오차', 'Tolerance', { min: 1e-16 }), P('constants', 'text', '', '상수', 'Constants'), P('logMap', 'bool', true, '목적 지도 로그 눈금', 'Log scale objective map'), P('seed', 'int', 1, '난수 시드', 'Random seed', { min: 0, show: (p) => ['de', 'ga', 'pso', 'sa'].includes(p.method) })],
   },
   {
     type: 'opt.fit', cat: 'montecarlo', icon: '≈', ko: '곡선 맞춤 (비선형)', en: 'Curve fit (nonlinear)',
@@ -629,7 +775,62 @@ export const NODES = [
       P('node2', 'node', '', '두 번째 노드 (선택)', 'Second node (optional)'), P('param2', 'param', '', '두 번째 매개변수', 'Second parameter', { nodeKey: 'node2', show: (p) => Boolean(p.node2) }), P('2from', 'number', 0, '두 번째 시작', 'Second from', { show: (p) => Boolean(p.node2) }), P('2to', 'number', 1, '두 번째 끝', 'Second to', { show: (p) => Boolean(p.node2) }), P('2steps', 'int', 5, '두 번째 단계 수', 'Second steps', { min: 1, show: (p) => Boolean(p.node2) }), P('2values', 'text', '', '두 번째 값 목록', 'Second value list', { show: (p) => Boolean(p.node2) }),
       P('metricNode', 'node', '', '측정 노드', 'Metric node'), P('metric', 'metric', '', '측정 값 또는 열', 'Metric value or column', { nodeKey: 'metricNode' }), P('aggregate', 'select', 'max', '열 집계', 'Column aggregate', { options: AGGREGATES })],
   },
+  {
+    type: 'opt.linprog', cat: 'montecarlo', icon: '▱', ko: '선형·정수 계획', en: 'Linear & integer programming',
+    help: ['선형 목적 함수와 선형 제약(≤, ≥, =)의 최적해를 2단계 단체법으로 구합니다(linprog). 변수에 "int" 를 붙이면 분지 한정법으로 정수 해를 찾습니다(intlinprog). 변수 범위 "x: 0 .. 10", 상한 없음 "inf". 제약별 여유와 잠재 가격(쌍대 값)을 냅니다.', 'Solves a linear objective under linear constraints (≤, ≥, =) by the two-phase simplex method (linprog); variables marked "int" are solved as integers by branch and bound (intlinprog). Ranges "x: 0 .. 10", no upper bound "inf". The slack and shadow price (dual value) of each constraint.'],
+    inputs: [],
+    presets: [
+      { id: 'production', ko: '생산 계획 (최대 이익)', en: 'Production plan (max profit)', params: { variables: 'chairs: 0 .. inf\ntables: 0 .. inf', objective: '45*chairs + 80*tables', goal: 'maximize', constraints: '5*chairs + 20*tables <= 400\n10*chairs + 15*tables <= 450' } },
+      { id: 'knapsack', ko: '배낭 문제 (정수)', en: 'Knapsack (integer)', params: { variables: 'a: 0 .. 1 int\nb: 0 .. 1 int\nc: 0 .. 1 int\nd: 0 .. 1 int\ne: 0 .. 1 int', objective: '10*a + 13*b + 7*c + 8*d + 6*e', goal: 'maximize', constraints: '5*a + 7*b + 4*c + 3*d + 3*e <= 14' } },
+      { id: 'diet', ko: '식단 (최소 비용)', en: 'Diet (min cost)', params: { variables: 'rice: 0 .. 10\nbeans: 0 .. 10\nmilk: 0 .. 10', objective: '0.5*rice + 0.9*beans + 1.2*milk', goal: 'minimize', constraints: '3*rice + 9*beans + 8*milk >= 50\n70*rice + 120*beans + 150*milk >= 1800\n1*rice + 2*beans + 10*milk >= 20' } },
+    ],
+    params: [
+      P('objective', 'code', '-x - 2*y', '목적 함수 (선형)', 'Objective (linear)', { rows: 2 }),
+      P('variables', 'code', 'x: 0 .. inf\ny: 0 .. inf', '변수 (하한 .. 상한, int)', 'Variables (low .. high, int)', { rows: 3 }),
+      P('constraints', 'code', 'x + y <= 4\nx + 3*y <= 6', '제약 조건', 'Constraints', { rows: 4 }),
+      P('goal', 'select', 'minimize', '목표', 'Goal', { options: [opt('minimize', '최소화', 'Minimise'), opt('maximize', '최대화', 'Maximise')] }),
+      P('constants', 'text', '', '상수', 'Constants'),
+    ],
+  },
+  {
+    type: 'opt.fsolve', cat: 'montecarlo', icon: '⊜', ko: '비선형 방정식 풀이', en: 'Nonlinear equation solver',
+    help: ['연립 비선형 방정식(fsolve, 하나면 fzero)을 수치 야코비안의 레벤버그-마쿼트 방법으로 풉니다. 한 줄에 방정식 하나 "x^2 + y^2 = 4", 미지수는 시작값과 함께 "x = 1, y = 1". 잔차와 수렴 과정을 냅니다.', 'Solves systems of nonlinear equations (fsolve; fzero for one) by Levenberg–Marquardt with a numerical Jacobian. One equation per line ("x^2 + y^2 = 4"), the unknowns with starting values ("x = 1, y = 1"). The residuals and the convergence history.'],
+    inputs: [],
+    presets: [
+      { id: 'circle', ko: '원과 쌍곡선의 교점', en: 'Circle meets hyperbola', params: { equations: 'x^2 + y^2 = 4\nx*y = 1', variables: 'x = 2, y = 0.5' } },
+      { id: 'kepler', ko: '케플러 방정식', en: 'Kepler\'s equation', params: { equations: 'E - ecc*sin(E) = M', variables: 'E = 1', constants: 'ecc = 0.3, M = 1.2' } },
+      { id: 'flow', ko: '관로 마찰 (콜브룩)', en: 'Pipe friction (Colebrook)', params: { equations: '1/sqrt(f) = -2*log10(eps_d/3.7 + 2.51/(Re*sqrt(f)))', variables: 'f = 0.02', constants: 'Re = 1e5, eps_d = 1e-4' } },
+    ],
+    params: [
+      P('equations', 'code', 'x^2 + y^2 = 4\nx*y = 1', '방정식', 'Equations', { rows: 4 }),
+      P('variables', 'text', 'x = 1, y = 1', '미지수 = 시작값', 'Unknowns = start'),
+      P('constants', 'text', '', '상수', 'Constants'),
+      P('tolerance', 'number', 1e-12, '허용 오차', 'Tolerance', { min: 1e-16 }),
+      P('maxIterations', 'int', 200, '최대 반복', 'Max iterations', { min: 1 }),
+    ],
+  },
   // ───────────────────────── integration
+  // ───────────────────────── MATLAB scripts
+  {
+    type: 'script.matlab', cat: 'script', icon: 'Ⓜ', ko: 'MATLAB 스크립트', en: 'MATLAB script',
+    help: ['MATLAB/Octave 언어(M 파일)를 내장 인터프리터로 실행합니다(웹·데스크톱, MATLAB 없이). 행렬·복소수·논리 인덱싱·end·셀·구조체·함수 핸들·익명 함수·스크립트 안 함수, if/for/while/switch/try, 그리고 내장 함수 400여 개(선형대수, 다항식, interp1, integral, ode45·ode15s, fzero·fminsearch·fsolve, fft·filter·butter, lqr·place, 통계, 문자열, sprintf, load/save .mat …)를 씁니다. 입력 표의 열은 같은 이름의 열 벡터(그리고 data 구조체)로 들어오고, 작업 공간의 변수는 표·결과 값으로, plot·surf 로 그린 그림은 표와 격자로 나옵니다. 명령 창 출력은 결과 글에 있습니다.', 'Runs the MATLAB/Octave language (M files) in the built-in interpreter (web and desktop, no MATLAB needed): matrices, complex numbers, logical indexing, end, cells, structures, function handles, anonymous functions, functions inside the script, if/for/while/switch/try and about 400 built-in functions (linear algebra, polynomials, interp1, integral, ode45 and ode15s, fzero, fminsearch and fsolve, fft, filter and butter, lqr and place, statistics, strings, sprintf, load/save .mat …). The input table\'s columns arrive as column vectors of the same names (and the structure data); the workspace variables come back as tables and results, figures drawn with plot or surf as tables and grids, and the command window as the result text.'],
+    inputs: [{ port: 'in', ko: '입력 표 (선택)', en: 'Input table (optional)', optional: true }],
+    presets: [
+      { id: 'basics', ko: '행렬과 선형대수', en: 'Matrices and linear algebra', params: { code: "% Matrices, solving and eigenvalues\nA = [4 -2 1; -2 4 -2; 1 -2 4];\nb = [11; -16; 17];\nx = A \\ b            % solve A x = b\nlambda = eig(A)'     % eigenvalues\n[Q, R] = qr(A);\nresidual = norm(Q*R - A)\ncondition = cond(A)\nfprintf('det(A) = %.4f\\n', det(A));" } },
+      { id: 'ode', ko: 'ode45: 반데르폴 진동자', en: 'ode45: Van der Pol oscillator', params: { code: "% Van der Pol oscillator with ode45\nmu = 2;\nf = @(t, y) [y(2); mu*(1 - y(1)^2)*y(2) - y(1)];\n[t, y] = ode45(f, [0 20], [2; 0]);\nplot(t, y(:, 1)); hold on; plot(t, y(:, 2));\ntitle('Van der Pol'); xlabel('t'); legend('x', 'dx/dt');\nperiod_estimate = mean(diff(t(find(diff(sign(y(:, 1))) > 0))))" } },
+      { id: 'signal', ko: '필터 설계와 스펙트럼', en: 'Filter design and spectrum', params: { code: "% Noisy two-tone signal, Butterworth low-pass, FFT\nfs = 1000; t = (0:999)/fs;\nx = sin(2*pi*50*t) + 0.5*sin(2*pi*200*t) + 0.2*randn(size(t));\n[b, a] = butter(4, 100/(fs/2));\ny = filtfilt(b, a, x);\nN = numel(x); f = (0:N/2-1)*fs/N;\nX = abs(fft(x))/N*2; Y = abs(fft(y))/N*2;\nplot(f, X(1:N/2)); hold on; plot(f, Y(1:N/2));\ntitle('Spectrum'); xlabel('f (Hz)'); legend('raw', 'filtered');\n[~, k] = max(Y(1:N/2)); peak_Hz = f(k)" } },
+      { id: 'fit', ko: '곡선 맞춤과 보간', en: 'Curve fitting and interpolation', params: { code: "% Fit a cubic, interpolate with a spline\nx = 0:0.5:5;\ny = 2*x.^3 - 3*x.^2 + x + 1 + 0.5*sin(5*x);\np = polyfit(x, y, 3)\nxi = linspace(0, 5, 200);\nplot(xi, polyval(p, xi)); hold on;\nplot(xi, interp1(x, y, xi, 'spline'));\ntitle('Cubic fit and spline'); legend('polyfit', 'spline');\narea = integral(@(s) polyval(p, s), 0, 5)" } },
+      { id: 'control', ko: 'LQR 제어와 시뮬레이션', en: 'LQR control and simulation', params: { code: "% Mass–spring–damper with LQR state feedback\nm = 1; c = 0.2; k = 2;\nA = [0 1; -k/m -c/m]; B = [0; 1/m];\nK = lqr(A, B, diag([10 1]), 0.1)\nAcl = A - B*K;\npoles = eig(Acl)\n[t, x] = ode45(@(t, x) Acl*x, [0 10], [1; 0]);\nplot(t, x); title('Closed loop'); legend('position', 'velocity');" } },
+      { id: 'surface', ko: '3D 곡면 (meshgrid)', en: '3D surface (meshgrid)', params: { code: "% A surface over a grid\n[X, Y] = meshgrid(linspace(-3, 3, 41));\nZ = 3*(1 - X).^2 .* exp(-X.^2 - (Y + 1).^2) - 10*(X/5 - X.^3 - Y.^5) .* exp(-X.^2 - Y.^2) - 1/3*exp(-(X + 1).^2 - Y.^2);\nsurf(X, Y, Z); title('peaks');\n[zmax, k] = max(Z(:));\nfprintf('maximum %.3f at (%.2f, %.2f)\\n', zmax, X(k), Y(k));" } },
+      { id: 'table', ko: '입력 표 다루기', en: 'Working with the input table', input: 'signal', params: { code: "% The input table's columns are variables (connect a table)\nvars = fieldnames(data)';\ndisp(vars);\ncols = struct2cell(data);\nfirst = cols{1};\nsummary = [mean(first), std(first), min(first), max(first)]\nnormalised = (first - mean(first)) / std(first);" } },
+    ],
+    params: [
+      P('code', 'code', "% MATLAB / Octave\nx = linspace(0, 2*pi, 100);\ny = sin(x) .* exp(-x/4);\nplot(x, y); title('damped sine');\npeak = max(y)", '코드', 'Code', { rows: 14, language: 'matlab' }),
+      P('variables', 'text', '', '내보낼 변수 (비우면 전부)', 'Variables to export (empty = all)', { placeholder: 'x, y, result' }),
+      P('seed', 'int', 1, '난수 시드 (rand, randn)', 'Random seed (rand, randn)', { min: 0 }),
+      TABLE,
+    ],
+  },
   {
     type: 'io.python', cat: 'integration', icon: '🐍', ko: 'Python 스크립트', en: 'Python script',
     help: ['설치된 Python 으로 코드를 실행합니다 (데스크톱). 입력 표는 data (열 이름 → 목록), 결과는 out 에 넣고, 값 하나는 result("이름", 값). NumPy·SciPy·PyTorch·pandas 도 설치돼 있으면 쓸 수 있습니다.', 'Runs code with the installed Python (desktop). The input table is data (column → list); put the output in out and single values with result("name", value). NumPy, SciPy, PyTorch or pandas work when installed.'],
@@ -660,10 +861,10 @@ export const NODES = [
   },
   {
     type: 'io.writeFile', cat: 'integration', icon: '📤', ko: '파일 쓰기', en: 'Write file',
-    help: ['입력 표를 CSV 또는 JSON 으로 저장하고 그대로 전달합니다 (데스크톱).', 'Saves the input table as CSV or JSON and passes it on (desktop).'],
+    help: ['입력 표를 CSV, JSON 또는 MATLAB .mat(열마다 변수, 결과 값은 스칼라)으로 저장하고 그대로 전달합니다 (데스크톱).', 'Saves the input table as CSV, JSON or a MATLAB .mat file (a variable per column, results as scalars) and passes it on (desktop).'],
     inputs: IN,
     desktopOnly: true,
-    params: [P('path', 'file', 'output.csv', '파일', 'File', { save: true, filters: ['csv', 'json'] }), TABLE],
+    params: [P('path', 'file', 'output.csv', '파일', 'File', { save: true, filters: ['csv', 'json', 'mat'] }), TABLE],
   },
   {
     type: 'io.myheat', cat: 'integration', icon: '🔥', ko: 'MyHeatManager 열 해석 (내장 엔진)', en: 'MyHeatManager heat study (built-in engine)',

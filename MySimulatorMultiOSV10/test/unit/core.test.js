@@ -25,11 +25,24 @@ test('the catalogue lists exactly the engine\'s node types', () => {
   const engineKinds = [...rust.matchAll(/Spec \{ kind: "([^"]+)"/g)].map((m) => m[1]).sort();
   const ui = NODES.map((n) => n.type).sort();
   assert.deepEqual(ui, engineKinds);
-  assert.equal(ui.length, 54);
+  assert.equal(ui.length, 65);
   // The engine's input ports match the catalogue's.
   for (const m of rust.matchAll(/Spec \{ kind: "([^"]+)", inputs: ([A-Z]+|&\[[^\]]*\])/g)) {
     const ports = m[2] === 'IN' ? ['in'] : m[2] === 'NONE' ? [] : m[2] === 'AB' ? ['a', 'b'] : [...m[2].matchAll(/"([a-z]+)"/g)].map((x) => x[1]);
     assert.deepEqual(nodeSpec(m[1]).inputs.map((p) => p.port), ports, m[1]);
+  }
+});
+
+test('every sample opens as an app whose controls are real node parameters', async () => {
+  const { SAMPLE_IDS, sampleModel } = await import('../../src/core/samples.js');
+  for (const id of SAMPLE_IDS) {
+    const m = sampleModel(id, 'en');
+    assert.ok(m.app, `${id} has no app section`);
+    for (const c of m.app.controls) {
+      const node = m.nodes.find((n) => n.id === c.node);
+      assert.ok(node, `${id}: control on missing node ${c.node}`);
+      assert.ok(nodeSpec(node.type).params.some((p) => p.key === c.param), `${id}: ${node.type} has no parameter ${c.param}`);
+    }
   }
 });
 

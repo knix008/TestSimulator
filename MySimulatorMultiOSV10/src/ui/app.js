@@ -960,7 +960,13 @@ export function startApp(root, settings) {
           spec.desktopOnly ? h('p', { className: 'warn-text' }, native.isTauri ? t('desktopOnlyOk') : t('desktopOnlyWeb')) : null),
         presets,
         propRow(t('disabled'), h('label', { className: 'check' }, h('input', { type: 'checkbox', checked: node.disabled, dataset: { testid: 'prop-disabled' }, onChange: (event) => patchNode(node.id, { disabled: event.target.checked }) })))),
-      fieldGroup(`⚙ ${t('parameters')}`, ...visible.map((p) => propRow(lang === 'en' ? p.en : p.ko, paramControl(node, p, lang), `row-${p.key}`, p.help ? p.help[lang === 'en' ? 1 : 0] : null))),
+      fieldGroup(`⚙ ${t('parameters')}`, ...visible.map((p) => {
+        const control = paramControl(node, p, lang);
+        const pinnable = ['number', 'int', 'select', 'bool'].includes(p.type);
+        const pinned = (d.model.app?.controls ?? []).some((c) => c.node === node.id && c.param === p.key);
+        const body = pinnable ? h('div', { className: 'pin-wrap' }, control, h('button', { type: 'button', className: pinned ? 'pin on' : 'pin', title: pinned ? t('appUnpin') : t('appPin'), dataset: { testid: `pin-${p.key}` }, onClick: () => togglePin(node, p) }, '📌')) : control;
+        return propRow(lang === 'en' ? p.en : p.ko, body, `row-${p.key}`, p.help ? p.help[lang === 'en' ? 1 : 0] : null);
+      })),
       out ? fieldGroup(`${out.ok ? '📊' : '⚠'} ${t('results')}${d.stale.has(node.id) ? ` · ${t('staleShort')}` : ''}`,
         out.ok ? null : h('p', { className: 'error-text', dataset: { testid: 'prop-error' } }, out.error),
         ...out.warnings.map((w) => h('p', { className: 'warn-text' }, `⚠ ${w}`)),
@@ -1146,6 +1152,10 @@ export function startApp(root, settings) {
     const kpis = tiles.filter((n) => n.type === 'out.kpi');
     const charts = tiles.filter((n) => n.type === 'out.plot');
     if (!tiles.length) {
+      if (d.model.app?.controls?.length) {
+        replace(els.dashboard, dashHead(d), appControls(d), h('div', { className: 'dash-empty' }, h('p', null, t('dashEmpty')), h('button', { type: 'button', className: 'primary', onClick: () => addChartsForLeaves() }, `📈 ${t('dashAddCharts')}`)));
+        return;
+      }
       replace(els.dashboard, h('div', { className: 'dash-empty', dataset: { testid: 'dash-empty' } },
         h('p', null, t('dashEmpty')),
         h('button', { type: 'button', className: 'primary', dataset: { testid: 'dash-add-charts' }, onClick: () => addChartsForLeaves() }, `📈 ${t('dashAddCharts')}`)));
@@ -1180,7 +1190,7 @@ export function startApp(root, settings) {
           h('button', { type: 'button', className: 'ghost', title: commandName('viewGraph', lang), onClick: () => { select({ kind: 'node', ids: [n.id] }); run('viewGraph'); graph?.reveal(n.id); } }, '⛓')),
         body);
     }));
-    replace(els.dashboard, h('div', { className: 'dash-head' }, h('h2', null, d.model.name || t('untitled')), d.model.description ? h('p', { className: 'muted' }, d.model.description) : null), kpiRow, grid);
+    replace(els.dashboard, dashHead(d), appControls(d), kpiRow, grid);
     requestAnimationFrame(() => {
       for (const [canvas, n, out] of canvases) {
         if (!out) continue;
@@ -1188,6 +1198,76 @@ export function startApp(root, settings) {
         drawSpec(canvas, spec, state.settings);
       }
     });
+  }
+
+  /** True while an app's dashboard has the window to itself. */
+  function appFocused() {
+    const d = doc();
+    return Boolean(d?.appFocus) && state.view === 'dashboard' && !state.startVisible;
+  }
+
+  /** The dashboard heading: the title, the description and the way to the pipeline behind it. */
+  function dashHead(d) {
+    const lang = getLanguage();
+    return h('div', { className: d.model.app ? 'dash-head app-mode' : 'dash-head' },
+      h('div', { className: 'dash-title' }, h('h2', null, d.model.name || t('untitled')), d.model.description ? h('p', { className: 'muted' }, d.model.description) : null),
+      h('div', { className: 'dash-actions' },
+        h('button', { type: 'button', className: 'primary', dataset: { testid: 'dash-run' }, disabled: state.running, onClick: () => run('run') }, `${commandIcon('run')} ${commandName('run', lang)}`),
+        h('button', { type: 'button', dataset: { testid: 'dash-edit' }, title: t('appEditHint'), onClick: () => { d.appFocus = false; run('viewGraph'); } }, `⛓ ${t('appEdit')}`)));
+  }
+
+  let appRunTimer = null;
+  /** Re-runs shortly after a control moved (the last move wins). */
+  function appRerun() {
+    // One run per change: the app's own re-run replaces a pending auto-run.
+    clearTimeout(autoRunTimer);
+    clearTimeout(appRunTimer);
+    appRunTimer = setTimeout(() => { if (!state.running) runPipeline(); else appRerun(); }, 350);
+  }
+
+  /** The app's controls: a slider and a number per pinned node parameter (a list for choices). */
+  function appControls(d) {
+    const lang = getLanguage();
+    const controls = d.model.app?.controls ?? [];
+    const rows = [];
+    for (const c of controls) {
+      const node = d.model.nodes.find((n) => n.id === c.node);
+      const p = node && nodeSpec(node.type)?.params.find((q) => q.key === c.param);
+      if (!node || !p) continue;
+      const label = c.label || `${lang === 'en' ? p.en : p.ko}`;
+      const value = node.params[c.param] ?? p.def;
+      const set = (v) => { patchNode(node.id, { params: { [c.param]: v } }, { rerender: false }); appRerun(); };
+      let control;
+      if (p.type === 'select') {
+        control = h('select', { dataset: { testid: `app-${c.node}-${c.param}` }, onChange: (event) => set(event.target.value) }, ...p.options.map(([v, ko, en]) => h('option', { value: v, selected: String(v) === String(value) }, lang === 'en' ? en : ko)));
+      } else if (p.type === 'bool') {
+        control = h('label', { className: 'check' }, h('input', { type: 'checkbox', checked: Boolean(value), dataset: { testid: `app-${c.node}-${c.param}` }, onChange: (event) => set(event.target.checked) }));
+      } else {
+        const v = Number(value);
+        const min = c.min ?? p.min ?? (v > 0 ? 0 : v - Math.max(1, Math.abs(v)));
+        const max = c.max ?? p.max ?? (v > 0 ? v * 3 : v + Math.max(1, Math.abs(v)));
+        const step = c.step ?? p.step ?? (p.type === 'int' ? 1 : (max - min) / 200);
+        const out = h('input', { type: 'number', className: 'app-number', value: String(value), step: String(step), onChange: (event) => { const x = Number(event.target.value); if (Number.isFinite(x)) { slider.value = String(x); set(p.type === 'int' ? Math.round(x) : x); } } });
+        const slider = h('input', { type: 'range', min: String(min), max: String(max), step: String(step), value: String(v), dataset: { testid: `app-${c.node}-${c.param}` },
+          onInput: (event) => { out.value = event.target.value; }, onChange: (event) => { const x = Number(event.target.value); set(p.type === 'int' ? Math.round(x) : x); } });
+        control = h('div', { className: 'app-slider' }, slider, out, p.unit ? h('small', { className: 'muted' }, p.unit) : null);
+      }
+      rows.push(h('label', { className: 'app-control', title: `${node.name} · ${lang === 'en' ? p.en : p.ko}` }, h('span', { className: 'app-label ellipsis' }, label), h('span', { className: 'app-node ellipsis muted' }, node.name), control));
+    }
+    if (!rows.length) return null;
+    return h('section', { className: 'app-controls', dataset: { testid: 'app-controls' } }, h('header', null, `🎛 ${t('appControls')}`, h('small', { className: 'muted' }, ` ${t('appControlsHint')}`)), h('div', { className: 'app-grid' }, ...rows));
+  }
+
+  /** Pins a node parameter to the app's controls (or unpins it). */
+  function togglePin(node, p) {
+    updateModel((m) => {
+      const controls = m.app?.controls ?? [];
+      const has = controls.some((c) => c.node === node.id && c.param === p.key);
+      const next = has ? controls.filter((c) => !(c.node === node.id && c.param === p.key)) : [...controls, { node: node.id, param: p.key }];
+      return { ...m, app: { ...(m.app ?? {}), controls: next } };
+    });
+    renderRight(true);
+    if (state.view === 'dashboard') renderView();
   }
 
   /** A chart node shows its own (pass-through) output; before a run, nothing. */
@@ -1238,11 +1318,12 @@ export function startApp(root, settings) {
   function renderChart() {
     const lang = getLanguage();
     const folded = state.settings.bottomCollapsed;
-    els.chart.style.display = state.settings.showChartPanel ? '' : 'none';
-    els.chartSplitter.style.display = state.settings.showChartPanel && !folded ? '' : 'none';
+    const showStrip = state.settings.showChartPanel && !appFocused();
+    els.chart.style.display = showStrip ? '' : 'none';
+    els.chartSplitter.style.display = showStrip && !folded ? '' : 'none';
     els.chart.classList.toggle('collapsed', folded);
     els.chart.style.height = folded ? '' : `${state.settings.chartHeight}px`;
-    if (!state.settings.showChartPanel) return;
+    if (!showStrip) return;
     const panelButtons = [
       h('button', { type: 'button', className: 'panel-collapse', title: folded ? t('panelExpand') : t('panelCollapse'), dataset: { testid: 'collapse-bottom' }, onClick: (e) => { e.stopPropagation(); patchSettings({ bottomCollapsed: !folded }); } }, folded ? '▴' : '▾'),
       h('button', { type: 'button', className: 'panel-collapse', title: t('panelHide'), dataset: { testid: 'hide-bottom' }, onClick: (e) => { e.stopPropagation(); patchSettings({ showChartPanel: false }); } }, '✕'),
@@ -1516,9 +1597,9 @@ export function startApp(root, settings) {
       case 'snap': return state.settings.snap;
       case 'showPreviews': return state.settings.showPreviews;
       case 'autoRun': return state.settings.autoRun;
-      case 'toolPanel': return state.settings.showToolPanel;
-      case 'propertyPanel': return state.settings.showPropertyPanel;
-      case 'chartPanel': return state.settings.showChartPanel;
+      case 'toolPanel': return state.settings.showToolPanel && !appFocused();
+      case 'propertyPanel': return state.settings.showPropertyPanel && !appFocused();
+      case 'chartPanel': return state.settings.showChartPanel && !appFocused();
       case 'toggleDisable': return selectedNodes().length > 0 && selectedNodes().every((n) => n.disabled);
       default: return false;
     }
@@ -1596,9 +1677,9 @@ export function startApp(root, settings) {
       case 'axes3d': patchSettings({ axes3d: !state.settings.axes3d }); break;
       case 'snap': patchSettings({ snap: !state.settings.snap }); break;
       case 'showPreviews': patchSettings({ showPreviews: !state.settings.showPreviews }); break;
-      case 'toolPanel': patchSettings({ showToolPanel: !state.settings.showToolPanel }); break;
-      case 'propertyPanel': patchSettings({ showPropertyPanel: !state.settings.showPropertyPanel }); break;
-      case 'chartPanel': patchSettings({ showChartPanel: !state.settings.showChartPanel, bottomCollapsed: false }); break;
+      case 'toolPanel': if (appFocused()) { doc().appFocus = false; update(); break; } patchSettings({ showToolPanel: !state.settings.showToolPanel }); break;
+      case 'propertyPanel': if (appFocused()) { doc().appFocus = false; update(); break; } patchSettings({ showPropertyPanel: !state.settings.showPropertyPanel }); break;
+      case 'chartPanel': if (appFocused()) { doc().appFocus = false; update(); break; } patchSettings({ showChartPanel: !state.settings.showChartPanel, bottomCollapsed: false }); break;
       case 'fullscreen': native.toggleFullscreen(); break;
       case 'nodeLibrary': dialogs.showNodeLibrary(api); break;
       case 'run': await runPipeline(); break;
@@ -1742,16 +1823,31 @@ export function startApp(root, settings) {
   // ───────────────────────── files
   const modelFilters = () => [{ name: t('modelFiles'), extensions: [EXTENSION, 'json'] }];
 
-  function openModel(model, path, { keepPristine = false } = {}) {
+  function openModel(model, path, { keepPristine = false, app = false } = {}) {
     const d = doc();
     if (!keepPristine && d && !d.dirty && !d.path && !d.model.nodes.length && !d.results && state.docs.length === 1) state.docs = [];
     const added = addDoc(model, path);
     showStart(false);
     if (path) patchSettings(addRecent(state.settings, path));
-    state.view = 'graph';
+    // App mode: a pipeline that carries an app section opens as its dashboard and runs at once.
+    const appMode = app && Boolean(model.app);
+    state.view = appMode ? 'dashboard' : 'graph';
     update({ props: true });
     requestAnimationFrame(() => graph?.fit());
+    if (appMode) {
+      added.appFocus = true;
+      update();
+      setTimeout(() => {
+        const now = doc();
+        if (now && now.id === added?.id && !state.running && !now.results) runPipeline();
+      }, 150);
+    }
     return added;
+  }
+
+  /** Opens a model the way a person picked it (start page, sample gallery, a file): app mode when it has one. */
+  function openApp(model, path = null) {
+    return openModel(model, path, { app: true });
   }
 
   function showStart(visible) {
@@ -1795,7 +1891,7 @@ export function startApp(root, settings) {
         if (!Array.isArray(raw?.nodes)) return importTable(name, jsonToCsv(text));
       } catch { /* not JSON: parseModel reports it */ }
     }
-    openModel(parseModel(text), path);
+    openModel(parseModel(text), path, { app: true });
     return null;
   }
 
@@ -1993,9 +2089,15 @@ export function startApp(root, settings) {
     const d = doc();
     if (!els.toolbar) return;
     const width = (shown, collapsed) => (!shown ? 0 : collapsed ? 30 : state.settings.panelSize);
-    els.workspace.style.gridTemplateColumns = `${width(state.settings.showToolPanel, state.settings.leftCollapsed)}px minmax(0, 1fr) ${width(state.settings.showPropertyPanel, state.settings.rightCollapsed)}px`;
+    // An app's dashboard has the whole window; the editing panels come back with Edit pipeline.
+    const focus = appFocused();
+    const showLeft = state.settings.showToolPanel && !focus;
+    const showRight = state.settings.showPropertyPanel && !focus;
+    els.workspace.style.gridTemplateColumns = `${width(showLeft, state.settings.leftCollapsed)}px minmax(0, 1fr) ${width(showRight, state.settings.rightCollapsed)}px`;
+    // The panels stay in the grid (zero wide while focused) so the centre keeps its column.
     els.left.hidden = !state.settings.showToolPanel;
     els.right.hidden = !state.settings.showPropertyPanel;
+    els.workspace.classList.toggle('app-focus', focus);
     renderToolbar();
     renderLeft();
     renderTabs();
@@ -2096,6 +2198,7 @@ export function startApp(root, settings) {
     updateModel,
     patchNode,
     openModel,
+    openApp,
     saveText,
     saveBlob,
     saveReport,

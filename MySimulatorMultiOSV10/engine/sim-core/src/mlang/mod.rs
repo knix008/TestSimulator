@@ -238,6 +238,111 @@ mod tests {
     }
 
     #[test]
+    fn everyday_idioms() {
+        let code = r#"
+x = [5 3 8 1 9 2];
+col = x(:)';
+tailv = x(end-1:end);
+A = magic(3);
+A(2, :) = [];
+Z = zeros(size(A));
+s1 = sprintf('%5.2f|', [1 2]);
+parts = strsplit('a,b,c', ',');
+np = num2str(pi, 4);
+e1 = isempty([]);
+big = any(x > 8) & ~isempty(x);
+sq = arrayfun(@(k) k^2, 1:3);
+up = cellfun(@(s) upper(s), {'ab', 'c'}, 'UniformOutput', false);
+cs = cumsum(1:4);
+ds = sort(x, 'descend');
+first = find(x > 4, 1);
+m = mod(-1, 3);
+R = repmat([1 2], 2, 2);
+B = [2 0; 0 4];
+D = [1 2; 3 4] / B;
+cnt = 3:-1:1;
+greet = ['x = ' num2str(3)];
+z = abs(3 + 4i);
+w = exp(1i*pi);
+[q, r] = deconv([1 5 6], [1 2]);
+st = struct('a', {1, 2});
+nst = numel(st);
+has = isfield(st, 'a');
+total = addall(1, 2, 3);
+if numel(x) > 10
+    branch = 1;
+elseif numel(x) > 5
+    branch = 2;
+else
+    branch = 3;
+end
+k = 0;
+while k < numel(x) && x(k+1) ~= 1
+    k = k + 1;
+end
+names = {};
+names{end+1} = 'one';
+names{end+1} = 'two';
+joined = strjoin(names, '+');
+M = eye(3); M(2, 3) = 7;
+tr = M';
+fprintf('%s=%d\n', 'n', 4);
+function s = addall(varargin)
+    s = 0;
+    for i = 1:nargin
+        s = s + varargin{i};
+    end
+end
+"#;
+        let it = run(code);
+        assert_eq!(vector(&it, "col"), vec![5.0, 3.0, 8.0, 1.0, 9.0, 2.0]);
+        assert_eq!(vector(&it, "tailv"), vec![9.0, 2.0]);
+        assert_eq!(it.workspace()["A"].dims(), (2, 3));
+        assert_eq!(it.workspace()["Z"].dims(), (2, 3));
+        assert_eq!(it.workspace()["s1"].text().unwrap(), " 1.00| 2.00|");
+        assert_eq!(it.workspace()["parts"].numel(), 3);
+        assert_eq!(it.workspace()["np"].text().unwrap(), "3.142");
+        assert_eq!(num(&it, "e1"), 1.0);
+        assert_eq!(num(&it, "big"), 1.0);
+        assert_eq!(vector(&it, "sq"), vec![1.0, 4.0, 9.0]);
+        if let Value::Cell { items, .. } = &it.workspace()["up"] {
+            assert_eq!(items[0].text().unwrap(), "AB");
+        } else {
+            panic!("up");
+        }
+        assert_eq!(vector(&it, "cs"), vec![1.0, 3.0, 6.0, 10.0]);
+        assert_eq!(vector(&it, "ds"), vec![9.0, 8.0, 5.0, 3.0, 2.0, 1.0]);
+        assert_eq!(num(&it, "first"), 1.0);
+        assert_eq!(num(&it, "m"), 2.0);
+        assert_eq!(it.workspace()["R"].dims(), (2, 4));
+        assert_eq!(vector(&it, "D"), vec![0.5, 1.5, 0.5, 1.0]);
+        assert_eq!(vector(&it, "cnt"), vec![3.0, 2.0, 1.0]);
+        assert_eq!(it.workspace()["greet"].text().unwrap(), "x = 3");
+        assert_eq!(num(&it, "z"), 5.0);
+        let w = it.workspace()["w"].arr().unwrap();
+        assert!((w.re[0] + 1.0).abs() < 1e-12 && w.im.map_or(0.0, |v| v[0]).abs() < 1e-12);
+        assert_eq!(vector(&it, "q"), vec![1.0, 3.0]);
+        assert_eq!(vector(&it, "r"), vec![0.0, 0.0, 0.0]);
+        assert_eq!(num(&it, "nst"), 2.0);
+        assert_eq!(num(&it, "has"), 1.0);
+        assert_eq!(num(&it, "total"), 6.0);
+        assert_eq!(num(&it, "branch"), 2.0);
+        assert_eq!(num(&it, "k"), 3.0);
+        assert_eq!(it.workspace()["joined"].text().unwrap(), "one+two");
+        assert_eq!(it.workspace()["tr"].arr().unwrap().get(2, 1), 7.0);
+        assert!(it.out.contains("n=4\n"));
+    }
+
+    #[test]
+    fn calls_in_lists_give_one_value() {
+        let it = run("s = [min([3 1 2]), max([3 1 2]), size([1 2 3])];\nn = numel(max([4 5]));\nc = {10, 20, 30};\nv = [c{:}];\nq = plus(c{2:3});\n");
+        assert_eq!(vector(&it, "s"), vec![1.0, 3.0, 1.0, 3.0]);
+        assert_eq!(num(&it, "n"), 1.0);
+        assert_eq!(vector(&it, "v"), vec![10.0, 20.0, 30.0]);
+        assert_eq!(num(&it, "q"), 50.0);
+    }
+
+    #[test]
     fn errors_name_the_line() {
         static NO: fn() -> bool = || false;
         static HOST: crate::NoHost = crate::NoHost;

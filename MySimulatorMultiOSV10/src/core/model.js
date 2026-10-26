@@ -62,7 +62,21 @@ export function normalizeModel(raw) {
     links,
     settings: { seed: num(m.settings?.seed, 1) },
     view: m.view ?? null,
+    app: normalizeApp(m.app),
   };
+}
+
+/** The app (dashboard) section: the controls the dashboard shows, each one a node parameter. */
+export function normalizeApp(a) {
+  if (!a || typeof a !== 'object') return null;
+  const fin = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? undefined : Number(v));
+  const controls = (Array.isArray(a.controls) ? a.controls : []).filter((c) => c && c.node && c.param).map((c) => {
+    const out = { node: String(c.node), param: String(c.param) };
+    if (typeof c.label === 'string' && c.label) out.label = c.label;
+    for (const k of ['min', 'max', 'step']) if (fin(c[k]) !== undefined) out[k] = fin(c[k]);
+    return out;
+  });
+  return { controls };
 }
 
 export function parseModel(text) {

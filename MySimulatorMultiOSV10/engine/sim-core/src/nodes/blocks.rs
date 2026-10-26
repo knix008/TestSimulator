@@ -93,7 +93,7 @@ fn hoist(rhs: &str, subs: &HashMap<String, Subsystem>, counter: &mut usize) -> (
                 i += 1;
             }
             let word: String = chars[start..i].iter().collect();
-            let callable = subs.contains_key(&word) || BLOCKS.contains(&word.to_ascii_lowercase().as_str());
+            let callable = subs.contains_key(&word) || BLOCKS.contains(&word.to_ascii_lowercase().as_str()) || ["switch", "multiportswitch", "gain", "sum", "product"].contains(&word.as_str());
             if callable && chars.get(i) == Some(&'(') {
                 // Find the closing bracket.
                 let mut depth = 0;
