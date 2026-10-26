@@ -175,8 +175,10 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     }
     let win = builder
         .title("MyCodeChecker")
-        .inner_size(1280.0, 840.0)
-        .min_inner_size(960.0, 640.0)
+        // The toolbar needs ~1290 px with English labels while an analysis runs
+        // (the "Analyzing…" spinner); narrower, it clips the panel buttons.
+        .inner_size(1360.0, 840.0)
+        .min_inner_size(1320.0, 640.0)
         .decorations(false)
         .resizable(true)
         .visible(false)

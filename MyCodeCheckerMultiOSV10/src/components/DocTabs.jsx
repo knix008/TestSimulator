@@ -119,17 +119,28 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
     tabRects.current = now;
   }, [orderKey]);
 
+  // Tab edges in the strip's scroll coordinates (offsetLeft is relative to
+  // <body>, not the strip, so it is off by the left panel's width).
+  // While a smooth scroll runs, `goal` is where it is heading, so a held
+  // button keeps stepping instead of measuring from a half-way position.
+  const goal = useRef(null);
+  const settle = useRef(null);
   const step = (dir) => {
     const el = strip.current;
     if (!el) return;
-    const items = [...el.querySelectorAll('.doc-tab')];
-    const left = el.scrollLeft;
-    let target;
-    if (dir > 0) target = items.find((n) => n.offsetLeft + n.offsetWidth > left + el.clientWidth + 1);
-    else target = [...items].reverse().find((n) => n.offsetLeft < left - 1);
-    if (!target) return;
-    el.scrollTo({ left: dir > 0 ? target.offsetLeft + target.offsetWidth - el.clientWidth : target.offsetLeft, behavior: 'smooth' });
-    setTimeout(measure, 250);
+    const base = el.getBoundingClientRect().left - el.scrollLeft;
+    const items = [...el.querySelectorAll('.doc-tab')].map((n) => { const r = n.getBoundingClientRect(); return { left: r.left - base, right: r.right - base }; });
+    const max = el.scrollWidth - el.clientWidth;
+    const left = goal.current == null ? el.scrollLeft : goal.current;
+    let to;
+    if (dir > 0) { const hit = items.find((n) => n.right > left + el.clientWidth + 1); to = hit ? hit.right - el.clientWidth : max; }
+    else { const hit = [...items].reverse().find((n) => n.left < left - 1); to = hit ? hit.left : 0; }
+    to = Math.max(0, Math.min(max, Math.round(to)));
+    if (to === Math.round(el.scrollLeft) && goal.current == null) return;
+    goal.current = to;
+    el.scrollTo({ left: to, behavior: 'smooth' });
+    clearTimeout(settle.current);
+    settle.current = setTimeout(() => { goal.current = null; measure(); }, 300);
   };
   const hold = (dir) => {
     step(dir);

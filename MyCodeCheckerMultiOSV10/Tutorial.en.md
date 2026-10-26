@@ -138,13 +138,13 @@ When the view you are on is inside a folded group, a dot appears next to the gro
 
 ![Centre tabs](docs/images/tutorial/en/19-centreTabs.jpg)
 
-Each view you open becomes a tab above the centre area. Click a tab to go back to it, close it with its ✕ and drag it to reorder. When the tabs do not fit, the < > buttons on both sides scroll them and the list button picks any open tab. The start page tab stays pinned first.
+Each view you open becomes a tab above the centre area. Click a tab to go back to it, close it with its ✕ and drag it to reorder. When the tabs do not fit, the < > buttons at the right end of the tab row scroll them and the list button picks any open tab. The start page tab stays pinned first.
 
 ### 20. Tab scroll buttons
 
 ![Tab scroll buttons](docs/images/tutorial/en/20-tabNav.jpg)
 
-The < and > buttons at both ends of the tab row scroll it towards the hidden tabs. The mouse wheel scrolls the tab row sideways too.
+The < and > buttons at the right end of the tab row appear when the tabs overflow: click to move one tab, hold to keep scrolling. The mouse wheel scrolls the tab row sideways too.
 
 ### 21. Right details panel
 
