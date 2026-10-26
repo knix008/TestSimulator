@@ -9,6 +9,9 @@ build/
 *.msi
 *.dmg
 *.AppImage
+*.mp4
+*.webm
+docs/video/
 *.deb
 *.log
 .DS_Store
