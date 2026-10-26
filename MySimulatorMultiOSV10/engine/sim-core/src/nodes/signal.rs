@@ -1,5 +1,6 @@
 //! Signal processing: spectrum (FFT), power spectral density (Welch),
-//! filters (Butterworth IIR, windowed-sinc FIR, moving average, median),
+//! filters (Butterworth, Chebyshev I/II, elliptic and Bessel IIR, windowed-sinc
+//! FIR, moving average, median),
 //! spectrogram (STFT), peak finding, correlation and the Hilbert envelope.
 
 use super::input_table;
@@ -181,8 +182,186 @@ fn sos_response(sos: &[Sos], gain: f64, w: f64) -> C64 {
     h
 }
 
-/// Butterworth design: analog prototype → frequency transform → bilinear → SOS, gain normalised in the pass band.
+//// Butterworth design: analog prototype → frequency transform → bilinear → SOS, gain normalised in the pass band.
 pub fn butterworth(order: usize, kind: &str, f1: f64, f2: f64, fs: f64) -> Result<(Vec<Sos>, f64), String> {
+    iir_design("butterworth", order, kind, f1, f2, fs, 1.0, 40.0)
+}
+
+// Complex helpers for the elliptic functions.
+fn c_ln(z: C64) -> C64 {
+    C64::new(z.abs().ln(), z.arg())
+}
+fn c_sin(z: C64) -> C64 {
+    C64::new(z.re.sin() * z.im.cosh(), z.re.cos() * z.im.sinh())
+}
+fn c_cos(z: C64) -> C64 {
+    C64::new(z.re.cos() * z.im.cosh(), -z.re.sin() * z.im.sinh())
+}
+fn c_asin(z: C64) -> C64 {
+    // asin z = −i ln(iz + √(1 − z²))
+    let i = C64::new(0.0, 1.0);
+    let w = c_ln(i * z + (C64::ONE - z * z).sqrt());
+    C64::new(w.im, -w.re)
+}
+
+/// The Landen sequence of moduli (Orfanidis, "Lecture notes on elliptic filter design").
+fn landen(k: f64) -> Vec<f64> {
+    let mut v = Vec::new();
+    let mut k = k;
+    for _ in 0..12 {
+        if k <= 1e-15 {
+            break;
+        }
+        let kp = (1.0 - k * k).sqrt();
+        k = (k / (1.0 + kp)).powi(2);
+        v.push(k);
+    }
+    v
+}
+
+/// The complete elliptic integral K(k) by the arithmetic-geometric mean.
+fn ellipk(k: f64) -> f64 {
+    let (mut a, mut b) = (1.0f64, (1.0 - k * k).max(0.0).sqrt());
+    for _ in 0..60 {
+        let (an, bn) = ((a + b) / 2.0, (a * b).sqrt());
+        a = an;
+        b = bn;
+        if (a - b).abs() < 1e-16 * a {
+            break;
+        }
+    }
+    PI / (2.0 * a)
+}
+
+/// cd(uK, k) and sn(uK, k) for complex u (normalised argument) by descending Landen.
+fn cde(u: C64, k: f64) -> C64 {
+    let v = landen(k);
+    let mut w = c_cos(u.scale(PI / 2.0));
+    for vi in v.iter().rev() {
+        w = (w.scale(1.0 + vi)) / (C64::ONE + (w * w).scale(*vi));
+    }
+    w
+}
+fn sne(u: C64, k: f64) -> C64 {
+    let v = landen(k);
+    let mut w = c_sin(u.scale(PI / 2.0));
+    for vi in v.iter().rev() {
+        w = (w.scale(1.0 + vi)) / (C64::ONE + (w * w).scale(*vi));
+    }
+    w
+}
+/// The inverse of sne: u with sn(uK, k) = w.
+fn asne(w: C64, k: f64) -> C64 {
+    let v = landen(k);
+    let mut w = w;
+    let mut prev = k;
+    for vi in &v {
+        w = w / (C64::ONE + (C64::ONE - (w * w).scale(prev * prev)).sqrt());
+        w = w.scale(2.0 / (1.0 + vi));
+        prev = *vi;
+    }
+    c_asin(w).scale(2.0 / PI)
+}
+
+/// The elliptic degree equation: the modulus k for order n and k1 = εp/εs (by the nome).
+fn ellipdeg(n: usize, k1: f64) -> f64 {
+    let k1p = (1.0 - k1 * k1).sqrt();
+    let q1 = (-PI * ellipk(k1p) / ellipk(k1)).exp();
+    let q = q1.powf(1.0 / n as f64);
+    let (mut num, mut den) = (0.0, 0.0);
+    for m in 0..8 {
+        num += q.powi(m * (m + 1));
+    }
+    for m in 1..8 {
+        den += q.powi(m * m);
+    }
+    4.0 * q.sqrt() * (num / (1.0 + 2.0 * den)).powi(2)
+}
+
+/// The analog low-pass prototype (edge at 1 rad/s): zeros, poles and the pass-band gain
+/// the digital filter is scaled to (below 1 for even-order ripple filters).
+fn prototype(family: &str, n: usize, rp: f64, rs: f64) -> Result<(Vec<C64>, Vec<C64>, f64), String> {
+    let theta = |k: usize| PI * (2 * k + 1) as f64 / (2 * n) as f64;
+    Ok(match family {
+        "butterworth" => (Vec::new(), (0..n).map(|k| C64::polar(1.0, PI * (2 * k + n + 1) as f64 / (2 * n) as f64)).collect(), 1.0),
+        "cheby1" => {
+            if !(rp > 0.0) {
+                return Err("the pass-band ripple must be positive (dB)".into());
+            }
+            let eps = (10f64.powf(rp / 10.0) - 1.0).sqrt();
+            let mu = (1.0 / eps).asinh() / n as f64;
+            let poles = (0..n).map(|k| C64::new(-mu.sinh() * theta(k).sin(), mu.cosh() * theta(k).cos())).collect();
+            (Vec::new(), poles, if n % 2 == 0 { 1.0 / (1.0 + eps * eps).sqrt() } else { 1.0 })
+        }
+        "cheby2" => {
+            if !(rs > 0.0) {
+                return Err("the stop-band attenuation must be positive (dB)".into());
+            }
+            let eps = 1.0 / (10f64.powf(rs / 10.0) - 1.0).sqrt();
+            let mu = (1.0 / eps).asinh() / n as f64;
+            let poles = (0..n).map(|k| C64::ONE / C64::new(-mu.sinh() * theta(k).sin(), mu.cosh() * theta(k).cos())).collect();
+            let zeros = (0..n).filter(|&k| theta(k).cos().abs() > 1e-12).map(|k| C64::new(0.0, 1.0 / theta(k).cos())).collect();
+            (zeros, poles, 1.0)
+        }
+        "ellip" => {
+            if !(rp > 0.0 && rs > rp) {
+                return Err("the elliptic filter needs a pass-band ripple > 0 and a stop-band attenuation above it (dB)".into());
+            }
+            let ep = (10f64.powf(rp / 10.0) - 1.0).sqrt();
+            let es = (10f64.powf(rs / 10.0) - 1.0).sqrt();
+            let k1 = ep / es;
+            let k = ellipdeg(n, k1);
+            let l = n / 2;
+            let (mut zeros, mut poles) = (Vec::new(), Vec::new());
+            let i = C64::new(0.0, 1.0);
+            let v0 = (i * asne(i.scale(1.0 / ep), k1)).scale(-1.0 / n as f64);
+            for m in 1..=l {
+                let u = (2 * m - 1) as f64 / n as f64;
+                let zeta = cde(C64::new(u, 0.0), k);
+                let z = i / zeta.scale(k);
+                zeros.push(z);
+                zeros.push(z.conj());
+                let p = i * cde(C64::new(u, 0.0) - i * v0, k);
+                poles.push(p);
+                poles.push(p.conj());
+            }
+            if n % 2 == 1 {
+                let p0 = i * sne(i * v0, k);
+                poles.push(C64::new(p0.re, 0.0));
+            }
+            (zeros, poles, if n % 2 == 0 { 1.0 / (1.0 + ep * ep).sqrt() } else { 1.0 })
+        }
+        "bessel" => {
+            // Roots of the reverse Bessel polynomial, scaled so the gain is −3 dB at 1 rad/s.
+            let fact = |m: usize| (1..=m).fold(1.0f64, |a, b| a * b as f64);
+            let coeffs: Vec<f64> = (0..=n).rev().map(|k| fact(2 * n - k) / (2f64.powi((n - k) as i32) * fact(k) * fact(n - k))).collect();
+            let poles = crate::linalg::poly_roots(&coeffs);
+            let mag = |w: f64| {
+                let s = C64::new(0.0, w);
+                let d = poles.iter().fold(C64::ONE, |acc, p| acc * (s - *p));
+                let d0 = poles.iter().fold(C64::ONE, |acc, p| acc * (C64::ZERO - *p));
+                (d0 / d).abs()
+            };
+            let (mut lo, mut hi) = (1e-3f64, 100.0f64);
+            for _ in 0..100 {
+                let mid = (lo * hi).sqrt();
+                if mag(mid) > std::f64::consts::FRAC_1_SQRT_2 {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            let w3 = (lo * hi).sqrt();
+            (Vec::new(), poles.iter().map(|p| p.scale(1.0 / w3)).collect(), 1.0)
+        }
+        other => return Err(format!("unknown IIR family \"{other}\" (butterworth, cheby1, cheby2, ellip, bessel)")),
+    })
+}
+
+/// IIR design (MATLAB's butter, cheby1, cheby2, ellip; Bessel by the bilinear transform):
+/// analog prototype → frequency transform → bilinear → SOS, gain normalised in the pass band.
+/// rp = pass-band ripple (dB), rs = stop-band attenuation (dB); for cheby2 the cut-off is the stop-band edge.
+pub fn iir_design(family: &str, order: usize, kind: &str, f1: f64, f2: f64, fs: f64, rp: f64, rs: f64) -> Result<(Vec<Sos>, f64), String> {
     let nyq = fs / 2.0;
     let check = |f: f64| -> Result<(), String> {
         if f > 0.0 && f < nyq {
@@ -192,17 +371,20 @@ pub fn butterworth(order: usize, kind: &str, f1: f64, f2: f64, fs: f64) -> Resul
         }
     };
     let warp = |f: f64| 2.0 * fs * (PI * f / fs).tan();
-    let proto: Vec<C64> = (0..order).map(|k| C64::polar(1.0, PI * (2 * k + order + 1) as f64 / (2 * order) as f64)).collect();
+    let (pz, pp, target) = prototype(family, order, rp, rs)?;
+    let extra = pp.len() - pz.len();
     let (zeros, poles): (Vec<C64>, Vec<C64>) = match kind {
         "lowpass" => {
             check(f1)?;
             let wc = warp(f1);
-            (Vec::new(), proto.iter().map(|p| p.scale(wc)).collect())
+            (pz.iter().map(|z| z.scale(wc)).collect(), pp.iter().map(|p| p.scale(wc)).collect())
         }
         "highpass" => {
             check(f1)?;
             let wc = warp(f1);
-            (vec![C64::ZERO; order], proto.iter().map(|p| C64::new(wc, 0.0) / *p).collect())
+            let mut zeros: Vec<C64> = pz.iter().map(|z| C64::new(wc, 0.0) / *z).collect();
+            zeros.extend(std::iter::repeat(C64::ZERO).take(extra));
+            (zeros, pp.iter().map(|p| C64::new(wc, 0.0) / *p).collect())
         }
         "bandpass" | "bandstop" => {
             check(f1)?;
@@ -213,13 +395,14 @@ pub fn butterworth(order: usize, kind: &str, f1: f64, f2: f64, fs: f64) -> Resul
             let (w1, w2) = (warp(f1), warp(f2));
             let bw = w2 - w1;
             let w0 = (w1 * w2).sqrt();
-            let mut poles = Vec::new();
-            let mut zeros = Vec::new();
-            for p in &proto {
-                let base = if kind == "bandpass" { p.scale(bw / 2.0) } else { C64::new(bw / 2.0, 0.0) / *p };
+            let split = |r: &C64| -> [C64; 2] {
+                let base = if kind == "bandpass" { r.scale(bw / 2.0) } else { C64::new(bw / 2.0, 0.0) / *r };
                 let disc = (base * base - C64::new(w0 * w0, 0.0)).sqrt();
-                poles.push(base + disc);
-                poles.push(base - disc);
+                [base + disc, base - disc]
+            };
+            let poles: Vec<C64> = pp.iter().flat_map(split).collect();
+            let mut zeros: Vec<C64> = pz.iter().flat_map(split).collect();
+            for _ in 0..extra {
                 if kind == "bandpass" {
                     zeros.push(C64::ZERO);
                 } else {
@@ -245,11 +428,18 @@ pub fn butterworth(order: usize, kind: &str, f1: f64, f2: f64, fs: f64) -> Resul
     let w_ref = match kind {
         "lowpass" | "bandstop" => 0.0,
         "highpass" => PI,
-        _ => 2.0 * PI * (f1 * f2).sqrt() / fs,
+        // The analog centre √(w1·w2) maps to the prototype's DC.
+        _ => 2.0 * (w1w2(f1, f2, fs).sqrt() / (2.0 * fs)).atan(),
     };
     let h = sos_response(&sections, 1.0, w_ref).abs();
-    let gain = if h > 0.0 { 1.0 / h } else { 1.0 };
+    let gain = if h > 0.0 { target / h } else { 1.0 };
     Ok((sections, gain))
+}
+
+/// The product of the pre-warped band edges (the analog centre frequency squared).
+fn w1w2(f1: f64, f2: f64, fs: f64) -> f64 {
+    let warp = |f: f64| 2.0 * fs * (PI * f / fs).tan();
+    warp(f1) * warp(f2)
 }
 
 fn pair(zeros: &[C64], poles: &[C64]) -> Vec<Sos> {
@@ -395,9 +585,9 @@ pub fn filter(ctx: &mut Ctx) -> Result<Dataset, String> {
     let fs = s.fs;
     let mut response: Option<Box<dyn Fn(f64) -> C64>> = None;
     let filtered: Vec<f64> = match design.as_str() {
-        "butterworth" => {
+        "butterworth" | "cheby1" | "cheby2" | "ellip" | "bessel" => {
             let order = ctx.count("order", 4, 1, 12)?;
-            let (sos, gain) = butterworth(order, &kind, f1, f2, fs)?;
+            let (sos, gain) = iir_design(&design, order, &kind, f1, f2, fs, ctx.positive("ripple", 1.0)?, ctx.positive("attenuation", 40.0)?)?;
             let forward = sosfilt(&sos, gain, &s.y);
             let out = if zero_phase {
                 let mut rev: Vec<f64> = forward.into_iter().rev().collect();
@@ -453,7 +643,7 @@ pub fn filter(ctx: &mut Ctx) -> Result<Dataset, String> {
             response = Some(Box::new(move |w| C64::new(alpha, 0.0) / (C64::ONE - C64::polar(1.0 - alpha, -w))));
             out
         }
-        other => return Err(format!("unknown design \"{other}\" (butterworth, fir, movingAverage, median, exponential)")),
+        other => return Err(format!("unknown design \"{other}\" (butterworth, cheby1, cheby2, ellip, bessel, fir, movingAverage, median, exponential)")),
     };
     let noise: Vec<f64> = s.y.iter().zip(&filtered).map(|(a, b)| a - b).collect();
     let mut table = Table::new("filtered").with_x(Column::new(&s.x_name, &s.x_unit, s.x.clone()));
@@ -720,5 +910,44 @@ mod tests {
         assert!((lo - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-6, "{lo}");
         let (sos, g) = butterworth(3, "highpass", 100.0, 0.0, 1000.0).unwrap();
         assert!(sos_response(&sos, g, 2.0 * PI * 10.0 / 1000.0).abs() < 1e-2);
+    }
+}
+
+#[cfg(test)]
+mod iir_tests {
+    use super::*;
+
+    fn db(sos: &[Sos], gain: f64, f: f64, fs: f64) -> f64 {
+        20.0 * sos_response(sos, gain, 2.0 * PI * f / fs).abs().log10()
+    }
+
+    #[test]
+    fn families_meet_their_specs() {
+        let fs = 1000.0;
+        // Chebyshev I, 1 dB ripple: −1 dB at the edge, never above 0 dB in the pass band.
+        let (s, g) = iir_design("cheby1", 5, "lowpass", 100.0, 0.0, fs, 1.0, 40.0).unwrap();
+        assert!((db(&s, g, 100.0, fs) + 1.0).abs() < 1e-6, "{}", db(&s, g, 100.0, fs));
+        assert!((0..100).all(|f| db(&s, g, f as f64, fs) < 1e-9 && db(&s, g, f as f64, fs) > -1.0 - 1e-9));
+        // Even order: DC sits at the ripple bottom.
+        let (s, g) = iir_design("cheby1", 4, "lowpass", 100.0, 0.0, fs, 1.0, 40.0).unwrap();
+        assert!((db(&s, g, 0.0, fs) + 1.0).abs() < 1e-9);
+        // Chebyshev II: −40 dB at the stop-band edge and below it beyond.
+        let (s, g) = iir_design("cheby2", 5, "lowpass", 200.0, 0.0, fs, 1.0, 40.0).unwrap();
+        assert!((db(&s, g, 200.0, fs) + 40.0).abs() < 1e-6, "{}", db(&s, g, 200.0, fs));
+        assert!((200..500).all(|f| db(&s, g, f as f64, fs) < -40.0 + 1e-6));
+        // Elliptic 1 dB / 50 dB: ripple in the pass band, at least 50 dB down past the transition.
+        for n in [3, 4, 5] {
+            let (s, g) = iir_design("ellip", n, "lowpass", 100.0, 0.0, fs, 1.0, 50.0).unwrap();
+            assert!((db(&s, g, 100.0, fs) + 1.0).abs() < 1e-5, "n {n}: {}", db(&s, g, 100.0, fs));
+            assert!((0..100).all(|f| db(&s, g, f as f64, fs) > -1.0 - 1e-6 && db(&s, g, f as f64, fs) < 1e-6), "n {n}");
+            let stop: f64 = (300..500).map(|f| db(&s, g, f as f64, fs)).fold(f64::NEG_INFINITY, f64::max);
+            assert!(stop < -50.0 + 1e-3, "n {n}: stop band {stop}");
+        }
+        // Bessel: −3 dB at the cut-off (after pre-warping).
+        let (s, g) = iir_design("bessel", 4, "lowpass", 50.0, 0.0, fs, 1.0, 40.0).unwrap();
+        assert!((db(&s, g, 50.0, fs) + 3.0103).abs() < 0.01, "{}", db(&s, g, 50.0, fs));
+        // Band-pass elliptic: −1 dB at both edges.
+        let (s, g) = iir_design("ellip", 4, "bandpass", 100.0, 200.0, fs, 0.5, 40.0).unwrap();
+        assert!((db(&s, g, 100.0, fs) + 0.5).abs() < 1e-5 && (db(&s, g, 200.0, fs) + 0.5).abs() < 1e-5);
     }
 }

@@ -1,5 +1,5 @@
 //! Optimisation: minimise an objective (Nelder–Mead, differential evolution,
-//! BFGS) with bounds and constraints, fit a model formula to data
+//! BFGS, genetic algorithm, particle swarm, simulated annealing, pattern search) with bounds and constraints, fit a model formula to data
 //! (Levenberg–Marquardt) and sweep the parameters of other nodes.
 
 use super::input_table;
@@ -251,6 +251,202 @@ fn differential_evolution(p: &Problem, x0: &[f64], max_iter: usize, tol: f64, rn
     Ok((pop[best].clone(), fit[best], it, converged))
 }
 
+fn need_bounds(p: &Problem, what: &str) -> Result<(), String> {
+    if p.lo.iter().chain(&p.hi).any(|v| !v.is_finite()) {
+        return Err(format!("{what} needs finite bounds for every variable (x: low .. high)"));
+    }
+    Ok(())
+}
+
+fn best_of(fit: &[f64]) -> usize {
+    (0..fit.len()).min_by(|&a, &b| fit[a].partial_cmp(&fit[b]).unwrap_or(std::cmp::Ordering::Equal)).unwrap_or(0)
+}
+
+/// A real-coded genetic algorithm (MATLAB's ga): tournament selection, blend
+/// crossover, Gaussian mutation shrinking over the generations, two elites.
+fn genetic(p: &Problem, x0: &[f64], max_iter: usize, tol: f64, rng: &mut crate::rng::Rng, trace: &mut Trace, cancel: &dyn Fn() -> bool) -> Result<(Vec<f64>, f64, usize, bool), String> {
+    need_bounds(p, "the genetic algorithm")?;
+    let n = x0.len();
+    let np = (15 * n).clamp(30, 300);
+    let mut pop: Vec<Vec<f64>> = (0..np).map(|k| if k == 0 { x0.to_vec() } else { (0..n).map(|j| rng.range(p.lo[j], p.hi[j])).collect() }).collect();
+    let mut fit: Vec<f64> = pop.iter().map(|v| p.f(v)).collect();
+    let generations = max_iter.min(5000);
+    let mut stall = 0;
+    let mut last_best = f64::INFINITY;
+    let mut it = 0;
+    let mut converged = false;
+    while it < generations {
+        it += 1;
+        let mut order: Vec<usize> = (0..np).collect();
+        order.sort_by(|&a, &b| fit[a].partial_cmp(&fit[b]).unwrap_or(std::cmp::Ordering::Equal));
+        let mut next: Vec<Vec<f64>> = order.iter().take(2).map(|&i| pop[i].clone()).collect();
+        let tournament = |rng: &mut crate::rng::Rng| {
+            let (a, b, c) = (rng.below(np), rng.below(np), rng.below(np));
+            [a, b, c].into_iter().min_by(|&x, &y| fit[x].partial_cmp(&fit[y]).unwrap_or(std::cmp::Ordering::Equal)).unwrap()
+        };
+        let scale = 0.1 * (1.0 - it as f64 / generations as f64).max(0.05);
+        while next.len() < np {
+            let (pa, pb) = (tournament(rng), tournament(rng));
+            let child: Vec<f64> = (0..n)
+                .map(|j| {
+                    // BLX-0.5 crossover then mutation.
+                    let (a, b) = (pop[pa][j], pop[pb][j]);
+                    let (lo, hi) = (a.min(b), a.max(b));
+                    let d = hi - lo;
+                    let mut v = rng.range(lo - 0.5 * d, hi + 0.5 * d);
+                    if rng.uniform() < 0.2 {
+                        v += rng.normal() * scale * (p.hi[j] - p.lo[j]);
+                    }
+                    v.clamp(p.lo[j], p.hi[j])
+                })
+                .collect();
+            next.push(child);
+        }
+        pop = next;
+        fit = pop.iter().map(|v| p.f(v)).collect();
+        let b = best_of(&fit);
+        trace.push(it, fit[b], &pop[b]);
+        if last_best - fit[b] <= tol * (fit[b].abs() + tol) {
+            stall += 1;
+        } else {
+            stall = 0;
+        }
+        last_best = last_best.min(fit[b]);
+        if stall >= 50 {
+            converged = true;
+            break;
+        }
+        if it % 10 == 0 && cancel() {
+            return Err("cancelled".into());
+        }
+    }
+    let b = best_of(&fit);
+    Ok((pop[b].clone(), fit[b], it, converged))
+}
+
+/// Particle swarm optimisation (MATLAB's particleswarm): inertia 0.73, c1 = c2 = 1.5.
+fn particle_swarm(p: &Problem, x0: &[f64], max_iter: usize, tol: f64, rng: &mut crate::rng::Rng, trace: &mut Trace, cancel: &dyn Fn() -> bool) -> Result<(Vec<f64>, f64, usize, bool), String> {
+    need_bounds(p, "the particle swarm")?;
+    let n = x0.len();
+    let np = (10 * n).clamp(20, 200);
+    let mut x: Vec<Vec<f64>> = (0..np).map(|k| if k == 0 { x0.to_vec() } else { (0..n).map(|j| rng.range(p.lo[j], p.hi[j])).collect() }).collect();
+    let mut v: Vec<Vec<f64>> = (0..np).map(|_| (0..n).map(|j| rng.range(-1.0, 1.0) * 0.1 * (p.hi[j] - p.lo[j])).collect()).collect();
+    let mut pbest = x.clone();
+    let mut pfit: Vec<f64> = x.iter().map(|q| p.f(q)).collect();
+    let mut g = best_of(&pfit);
+    let (w, c1, c2) = (0.729, 1.49445, 1.49445);
+    let mut it = 0;
+    let mut stall = 0;
+    let mut converged = false;
+    while it < max_iter.min(10_000) {
+        it += 1;
+        let before = pfit[g];
+        for i in 0..np {
+            for j in 0..n {
+                v[i][j] = w * v[i][j] + c1 * rng.uniform() * (pbest[i][j] - x[i][j]) + c2 * rng.uniform() * (pbest[g][j] - x[i][j]);
+                x[i][j] = (x[i][j] + v[i][j]).clamp(p.lo[j], p.hi[j]);
+            }
+            let f = p.f(&x[i]);
+            if f < pfit[i] {
+                pfit[i] = f;
+                pbest[i] = x[i].clone();
+            }
+        }
+        g = best_of(&pfit);
+        trace.push(it, pfit[g], &pbest[g]);
+        if before - pfit[g] <= tol * (pfit[g].abs() + tol) {
+            stall += 1;
+        } else {
+            stall = 0;
+        }
+        if stall >= 40 {
+            converged = true;
+            break;
+        }
+        if it % 10 == 0 && cancel() {
+            return Err("cancelled".into());
+        }
+    }
+    Ok((pbest[g].clone(), pfit[g], it, converged))
+}
+
+/// Simulated annealing (MATLAB's simulannealbnd): Gaussian steps scaled by the temperature, exponential cooling.
+fn annealing(p: &Problem, x0: &[f64], max_iter: usize, _tol: f64, rng: &mut crate::rng::Rng, trace: &mut Trace, cancel: &dyn Fn() -> bool) -> Result<(Vec<f64>, f64, usize, bool), String> {
+    need_bounds(p, "simulated annealing")?;
+    let n = x0.len();
+    let mut x = x0.to_vec();
+    let mut fx = p.f(&x);
+    let (mut best, mut fbest) = (x.clone(), fx);
+    let iters = (max_iter * 20).clamp(1000, 200_000);
+    let mut temp = 1.0f64;
+    let cool = (1e-4f64).powf(1.0 / iters as f64);
+    for it in 1..=iters {
+        let cand: Vec<f64> = (0..n).map(|j| (x[j] + rng.normal() * temp.sqrt() * 0.2 * (p.hi[j] - p.lo[j])).clamp(p.lo[j], p.hi[j])).collect();
+        let fc = p.f(&cand);
+        let scale = fbest.abs().max(1e-12);
+        if fc <= fx || rng.uniform() < (-(fc - fx) / (temp * scale)).exp() {
+            x = cand;
+            fx = fc;
+            if fx < fbest {
+                fbest = fx;
+                best = x.clone();
+            }
+        }
+        temp *= cool;
+        if it % 100 == 0 {
+            trace.push(it / 100, fbest, &best);
+            if cancel() {
+                return Err("cancelled".into());
+            }
+        }
+        // Reanneal from the best point now and then.
+        if it % (iters / 10).max(1) == 0 {
+            x = best.clone();
+            fx = fbest;
+        }
+    }
+    Ok((best, fbest, iters, true))
+}
+
+/// Generalised pattern search (MATLAB's patternsearch): poll ±each coordinate, expand on success, contract on failure.
+fn pattern_search(p: &Problem, x0: &[f64], max_iter: usize, tol: f64, _rng: &mut crate::rng::Rng, trace: &mut Trace, cancel: &dyn Fn() -> bool) -> Result<(Vec<f64>, f64, usize, bool), String> {
+    let n = x0.len();
+    let mut x = x0.to_vec();
+    let mut fx = p.f(&x);
+    let mut mesh: Vec<f64> = (0..n).map(|j| if p.lo[j].is_finite() && p.hi[j].is_finite() { 0.25 * (p.hi[j] - p.lo[j]) } else { x[j].abs().max(1.0) }).collect();
+    let mut it = 0;
+    let mut converged = false;
+    while it < max_iter {
+        it += 1;
+        let mut improved = false;
+        'poll: for j in 0..n {
+            for s in [1.0, -1.0] {
+                let mut y = x.clone();
+                y[j] = (y[j] + s * mesh[j]).clamp(p.lo[j], p.hi[j]);
+                let fy = p.f(&y);
+                if fy < fx {
+                    x = y;
+                    fx = fy;
+                    improved = true;
+                    break 'poll;
+                }
+            }
+        }
+        for m in mesh.iter_mut() {
+            *m *= if improved { 2.0 } else { 0.5 };
+        }
+        trace.push(it, fx, &x);
+        if mesh.iter().zip(&x).all(|(m, v)| *m <= tol.sqrt() * v.abs().max(1.0)) {
+            converged = true;
+            break;
+        }
+        if it % 50 == 0 && cancel() {
+            return Err("cancelled".into());
+        }
+    }
+    Ok((x, fx, it, converged))
+}
+
 fn gradient(p: &Problem, x: &[f64]) -> Vec<f64> {
     (0..x.len()).map(|i| {
         let h = 1e-6 * x[i].abs().max(1e-3);
@@ -359,7 +555,11 @@ pub fn minimize(ctx: &mut Ctx) -> Result<Dataset, String> {
         "nelderMead" => nelder_mead(&problem, &x0, max_iter, tol, &mut trace, ctx.cancel)?,
         "de" => differential_evolution(&problem, &x0, max_iter, tol, &mut rng, &mut trace, ctx.cancel)?,
         "bfgs" => bfgs(&problem, &x0, max_iter, tol, &mut trace, ctx.cancel)?,
-        other => return Err(format!("unknown method \"{other}\" (nelderMead, de, bfgs)")),
+        "ga" => genetic(&problem, &x0, max_iter, tol, &mut rng, &mut trace, ctx.cancel)?,
+        "pso" => particle_swarm(&problem, &x0, max_iter, tol, &mut rng, &mut trace, ctx.cancel)?,
+        "sa" => annealing(&problem, &x0, max_iter, tol, &mut rng, &mut trace, ctx.cancel)?,
+        "patternsearch" => pattern_search(&problem, &x0, max_iter, tol, &mut rng, &mut trace, ctx.cancel)?,
+        other => return Err(format!("unknown method \"{other}\" (nelderMead, de, bfgs, ga, pso, sa, patternsearch)")),
     };
     let x: Vec<f64> = x.iter().enumerate().map(|(i, v)| v.clamp(problem.lo[i], problem.hi[i])).collect();
     let vals = problem.fill(&x);

@@ -303,6 +303,17 @@ pub fn write_file(ctx: &mut Ctx) -> Result<Dataset, String> {
         return Err("choose where to write the file".into());
     }
     let table = data.pick_table(&ctx.str("table", ""))?;
+    if path.to_ascii_lowercase().ends_with(".mat") {
+        // A MAT-file (level 5): each column a variable, the result values as scalars.
+        let mut vars = crate::matfile::from_table(table);
+        for s in &data.scalars {
+            vars.push((crate::expr::sanitize_name(&s.name), crate::matfile::MatValue::scalar(s.value)));
+        }
+        ctx.host.write_bytes(path.trim(), &crate::matfile::write_v5(&vars))?;
+        let mut d = data.clone();
+        d.text = format!("{} variables → {}", vars.len(), path.trim());
+        return Ok(d);
+    }
     let text = if path.to_ascii_lowercase().ends_with(".json") {
         let mut map = serde_json::Map::new();
         for c in &table.columns {

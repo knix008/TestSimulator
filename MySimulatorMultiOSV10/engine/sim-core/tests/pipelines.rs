@@ -456,7 +456,7 @@ fn encoded_bytes_round_trip_the_header() {
 fn every_catalogue_type_is_known() {
     // The frontend catalogue (src/core/catalog.js) must list exactly these.
     let kinds: Vec<&str> = sim_core::nodes::SPECS.iter().map(|s| s.kind).collect();
-    assert_eq!(kinds.len(), 54);
+    assert_eq!(kinds.len(), 65);
     let mut sorted = kinds.clone();
     sorted.sort();
     sorted.dedup();
@@ -843,7 +843,7 @@ fn data_files_of_many_formats_are_read() {
     assert!(close(scalar(&r, "fft", "dominant frequency"), 440.0, 4.0), "fft {:?}", data(&r, "fft").scalars);
     let f = &data(&r, "wavf").tables[0].column("y").unwrap().values;
     assert!(close(f[10], 0.5 * (2.0 * std::f64::consts::PI * 440.0 * 10.0 / 8000.0).sin(), 1e-6));
-    // MATLAB (compressed and plain): scalar, vectors, a matrix and an int16 vector; the cell is skipped.
+    // MATLAB (compressed and plain): scalar, vectors, a matrix, an int16 vector and a cell of text.
     for id in ["mat", "matraw"] {
         assert_eq!(scalar(&r, id, "gain"), 3.5);
         let v = &data(&r, id).tables[0];
@@ -853,7 +853,7 @@ fn data_files_of_many_formats_are_read() {
         assert_eq!(&v.column("counts").unwrap().values[..3], &[1.0, -2.0, 3.0]);
         let m = data(&r, id).grids.iter().find(|g| g.name == "M").unwrap();
         assert_eq!(m.z[4 + 2], 6.0, "M(2,3) = 6");
-        assert!(data(&r, id).text.contains("not read"), "{}", data(&r, id).text);
+        assert!(data(&r, id).text.contains("notes{2} = 'bc'"), "{}", data(&r, id).text);
     }
     // PNG: 40 × 30; red rises left to right, green top to bottom (row 0 of the grid is the bottom).
     assert_eq!(scalar(&r, "png", "width"), 40.0);

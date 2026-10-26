@@ -200,6 +200,11 @@ impl Host for DesktopHost {
         crate::files::write_with_progress(&p, text.as_bytes(), |_, _| {})
     }
 
+    fn write_bytes(&self, path: &str, bytes: &[u8]) -> Result<(), String> {
+        let p = self.resolve(path);
+        crate::files::write_with_progress(&p, bytes, |_, _| {})
+    }
+
     fn external(&self, call: &ExternalCall, cancel: &dyn Fn() -> bool) -> Result<ExternalOutput, String> {
         let scratch = Scratch::new()?;
         let input = scratch.0.join("in.csv");

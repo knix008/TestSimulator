@@ -8,11 +8,14 @@ use crate::Ctx;
 pub mod blocks;
 pub mod cad;
 pub mod cfd;
+pub mod control;
 pub mod des;
 pub mod dynamics;
 pub mod fem;
 pub mod fem3d;
 pub mod frame;
+pub mod hypothesis;
+pub mod learn;
 pub mod logic;
 pub mod mcu;
 pub mod io;
@@ -23,10 +26,12 @@ pub mod output;
 pub mod physics;
 pub mod robot;
 pub mod signal;
+pub mod solve;
 pub mod source;
 pub mod spice;
 pub mod stats;
 pub mod table;
+pub mod wavelet;
 
 pub type RunFn = fn(&mut Ctx) -> Result<Dataset, String>;
 
@@ -63,12 +68,17 @@ pub static SPECS: &[Spec] = &[
     Spec { kind: "signal.peaks", inputs: IN, required: IN, run: signal::peaks },
     Spec { kind: "signal.correlate", inputs: AB, required: &["a"], run: signal::correlate },
     Spec { kind: "signal.envelope", inputs: IN, required: IN, run: signal::envelope },
+    Spec { kind: "signal.wavelet", inputs: IN, required: IN, run: wavelet::wavelet },
+    Spec { kind: "signal.multirate", inputs: IN, required: IN, run: wavelet::multirate },
     // Dynamics and control
     Spec { kind: "dyn.ode", inputs: &["u"], required: NONE, run: dynamics::ode },
     Spec { kind: "ctrl.step", inputs: NONE, required: NONE, run: dynamics::step },
     Spec { kind: "ctrl.bode", inputs: NONE, required: NONE, run: dynamics::bode },
     Spec { kind: "ctrl.pid", inputs: &["r"], required: NONE, run: dynamics::pid },
     Spec { kind: "ctrl.statespace", inputs: &["u"], required: NONE, run: dynamics::state_space },
+    Spec { kind: "ctrl.rlocus", inputs: NONE, required: NONE, run: control::rlocus },
+    Spec { kind: "ctrl.design", inputs: NONE, required: NONE, run: control::design },
+    Spec { kind: "ctrl.convert", inputs: NONE, required: NONE, run: control::convert },
     Spec { kind: "dyn.blocks", inputs: &["u"], required: NONE, run: blocks::simulate },
     Spec { kind: "circuit.spice", inputs: IN, required: NONE, run: spice::simulate },
     Spec { kind: "circuit.logic", inputs: IN, required: NONE, run: logic::simulate },
@@ -88,6 +98,9 @@ pub static SPECS: &[Spec] = &[
     Spec { kind: "ml.kmeans", inputs: IN, required: IN, run: ml::kmeans },
     Spec { kind: "ml.pca", inputs: IN, required: IN, run: ml::pca },
     Spec { kind: "ml.mlp", inputs: IN, required: IN, run: ml::mlp },
+    Spec { kind: "stat.test", inputs: IN, required: IN, run: hypothesis::test },
+    Spec { kind: "ml.svm", inputs: IN, required: IN, run: learn::svm },
+    Spec { kind: "ml.tree", inputs: IN, required: IN, run: learn::tree },
     // Monte Carlo and optimisation
     Spec { kind: "mc.simulate", inputs: NONE, required: NONE, run: mc::simulate },
     Spec { kind: "mc.process", inputs: NONE, required: NONE, run: mc::process },
@@ -95,6 +108,10 @@ pub static SPECS: &[Spec] = &[
     Spec { kind: "opt.minimize", inputs: NONE, required: NONE, run: optimize::minimize },
     Spec { kind: "opt.fit", inputs: IN, required: IN, run: optimize::fit },
     Spec { kind: "opt.sweep", inputs: NONE, required: NONE, run: optimize::sweep },
+    Spec { kind: "opt.linprog", inputs: NONE, required: NONE, run: solve::linprog },
+    Spec { kind: "opt.fsolve", inputs: NONE, required: NONE, run: solve::fsolve },
+    // MATLAB / Octave scripts
+    Spec { kind: "script.matlab", inputs: IN, required: NONE, run: crate::mlang::script },
     // Integration (files, Python, command-line tools)
     Spec { kind: "io.python", inputs: IN, required: NONE, run: io::python },
     Spec { kind: "io.command", inputs: IN, required: NONE, run: io::command },

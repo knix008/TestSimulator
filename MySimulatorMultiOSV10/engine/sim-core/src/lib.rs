@@ -15,10 +15,13 @@ pub mod expr;
 pub mod fft;
 pub mod formats;
 pub mod linalg;
+pub mod matfile;
+pub mod mlang;
 pub mod nodes;
 pub mod ode;
 pub mod result;
 pub mod rng;
+pub mod special;
 
 use data::Dataset;
 use serde_json::{Map, Value};
@@ -70,6 +73,11 @@ pub trait Host {
     fn write_file(&self, path: &str, text: &str) -> Result<(), String> {
         let _ = (path, text);
         Err("writing files works in the desktop app only".into())
+    }
+    /// Binary files (.mat). Hosts that only write text refuse.
+    fn write_bytes(&self, path: &str, bytes: &[u8]) -> Result<(), String> {
+        let _ = (path, bytes);
+        Err("writing binary files works in the desktop app only".into())
     }
     fn external(&self, call: &ExternalCall, cancel: &dyn Fn() -> bool) -> Result<ExternalOutput, String> {
         let _ = (call, cancel);

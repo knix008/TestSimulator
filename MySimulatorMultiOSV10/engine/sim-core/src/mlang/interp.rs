@@ -1,0 +1,1173 @@
+//! The M language interpreter: workspaces, indexing and indexed assignment
+//! (with growth and deletion), cell and structure access, comma-separated
+//! lists, control flow, user and anonymous functions, and the figures that
+//! plot() and friends fill.
+
+use super::syntax::{Bin, Expr, Function, Program, Stmt};
+use super::value::*;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+
+pub enum Flow {
+    Normal,
+    Break,
+    Continue,
+    Return,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Series {
+    pub name: String,
+    pub x: Vec<f64>,
+    pub y: Vec<f64>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Surface {
+    pub name: String,
+    pub x: Vec<f64>,
+    pub y: Vec<f64>,
+    /// z[j * nx + i]
+    pub z: Vec<f64>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Figure {
+    pub title: String,
+    pub xlabel: String,
+    pub ylabel: String,
+    pub kind: String,
+    pub series: Vec<Series>,
+    pub surfaces: Vec<Surface>,
+    pub legend: Vec<String>,
+}
+
+pub struct Interp<'a> {
+    pub funcs: HashMap<String, Rc<Function>>,
+    pub scopes: Vec<HashMap<String, Value>>,
+    pub global_names: Vec<HashSet<String>>,
+    pub globals: HashMap<String, Value>,
+    pub out: String,
+    pub figures: Vec<Figure>,
+    pub current: usize,
+    pub hold: bool,
+    pub rng: crate::rng::Rng,
+    pub steps: usize,
+    pub cancel: &'a dyn Fn() -> bool,
+    pub host: &'a dyn crate::Host,
+    pub depth: usize,
+    /// Value of `end` inside index brackets.
+    end_stack: Vec<usize>,
+    pub warnings: Vec<String>,
+    pub last_error: String,
+}
+
+impl<'a> Interp<'a> {
+    pub fn new(cancel: &'a dyn Fn() -> bool, host: &'a dyn crate::Host, seed: u64) -> Self {
+        Interp {
+            funcs: HashMap::new(),
+            scopes: vec![HashMap::new()],
+            global_names: vec![HashSet::new()],
+            globals: HashMap::new(),
+            out: String::new(),
+            figures: Vec::new(),
+            current: 0,
+            hold: false,
+            rng: crate::rng::Rng::new(seed),
+            steps: 0,
+            cancel,
+            host,
+            depth: 0,
+            end_stack: Vec::new(),
+            warnings: Vec::new(),
+            last_error: String::new(),
+        }
+    }
+
+    pub fn print(&mut self, s: &str) {
+        if self.out.len() < 2_000_000 {
+            self.out.push_str(s);
+        }
+    }
+
+    pub fn get_var(&self, name: &str) -> Option<&Value> {
+        if self.global_names.last().is_some_and(|g| g.contains(name)) {
+            return self.globals.get(name);
+        }
+        self.scopes.last().and_then(|s| s.get(name))
+    }
+
+    pub fn set_var(&mut self, name: &str, v: Value) {
+        if self.global_names.last().is_some_and(|g| g.contains(name)) {
+            self.globals.insert(name.to_string(), v);
+            return;
+        }
+        self.scopes.last_mut().unwrap().insert(name.to_string(), v);
+    }
+
+    pub fn workspace(&self) -> &HashMap<String, Value> {
+        &self.scopes[0]
+    }
+
+    pub fn run(&mut self, prog: &Program) -> R<()> {
+        for f in &prog.functions {
+            self.funcs.insert(f.name.clone(), f.clone());
+        }
+        match self.block(&prog.body)? {
+            Flow::Normal | Flow::Return => Ok(()),
+            Flow::Break | Flow::Continue => Ok(()),
+        }
+    }
+
+    fn tick(&mut self) -> R<()> {
+        self.steps += 1;
+        if self.steps % 4096 == 0 && (self.cancel)() {
+            return Err("cancelled".into());
+        }
+        Ok(())
+    }
+
+    pub fn block(&mut self, stmts: &[Stmt]) -> R<Flow> {
+        for s in stmts {
+            match self.stmt(s)? {
+                Flow::Normal => {}
+                other => return Ok(other),
+            }
+        }
+        Ok(Flow::Normal)
+    }
+
+    fn stmt(&mut self, s: &Stmt) -> R<Flow> {
+        self.tick()?;
+        match s {
+            Stmt::Expr(e, print, line) => {
+                let r: R<()> = (|| {
+                    if let Expr::Ident(n) = e {
+                        if let Some(v) = self.get_var(n).cloned() {
+                            if *print {
+                                let t = display(n, &v);
+                                self.print(&t);
+                            }
+                            return Ok(());
+                        }
+                    }
+                    let vals = self.eval_multi(e, if *print { 1 } else { 0 }, true)?;
+                    if let Some(v) = vals.into_iter().next() {
+                        if *print {
+                            let t = display("ans", &v);
+                            self.print(&t);
+                        }
+                        self.set_var("ans", v);
+                    }
+                    Ok(())
+                })();
+                r.map_err(|e| with_line(e, *line))?;
+            }
+            Stmt::Assign(targets, rhs, print, line) => {
+                let r: R<()> = (|| {
+                    let vals = if targets.len() == 1 {
+                        vec![self.eval(rhs)?]
+                    } else {
+                        self.eval_multi(rhs, targets.len(), false)?
+                    };
+                    if vals.len() < targets.iter().filter(|t| t.is_some()).count().min(targets.len()) {
+                        return Err("too many output arguments".into());
+                    }
+                    for (t, v) in targets.iter().zip(vals) {
+                        if let Some(t) = t {
+                            self.assign(t, v)?;
+                            if *print {
+                                let name = root_name(t);
+                                if let Some(val) = self.get_var(&name).cloned() {
+                                    let txt = display(&name, &val);
+                                    self.print(&txt);
+                                }
+                            }
+                        }
+                    }
+                    Ok(())
+                })();
+                r.map_err(|e| with_line(e, *line))?;
+            }
+            Stmt::If(arms, otherwise) => {
+                for (cond, body) in arms {
+                    if self.eval(cond)?.truthy()? {
+                        return self.block(body);
+                    }
+                }
+                return self.block(otherwise);
+            }
+            Stmt::For(var, range, body, line) => {
+                let rv = self.eval(range).map_err(|e| with_line(e, *line))?;
+                let (r, c) = rv.dims();
+                let count = if r == 0 { 0 } else { c };
+                for j in 0..count {
+                    let item = match &rv {
+                        Value::Num(a) => {
+                            let col: Vec<usize> = (0..a.r).map(|i| j * a.r + i).collect();
+                            let mut x = Arr::new(a.r, 1, col.iter().map(|&k| a.re[k]).collect());
+                            x.im = a.im.as_ref().map(|im| col.iter().map(|&k| im[k]).collect());
+                            x.logical = a.logical;
+                            x.simplify();
+                            Value::Num(x)
+                        }
+                        Value::Str(s) => Value::Str(s.chars().nth(j).map(|ch| ch.to_string()).unwrap_or_default()),
+                        Value::Cell { r, items, .. } => Value::Cell { r: *r, c: 1, items: items[j * r..(j + 1) * r].to_vec() },
+                        Value::Struct { r, fields, items, .. } => Value::Struct { r: *r, c: 1, fields: fields.clone(), items: items[j * r..(j + 1) * r].to_vec() },
+                        Value::Func(_) => rv.clone(),
+                    };
+                    self.assign(var, item)?;
+                    match self.block(body)? {
+                        Flow::Break => break,
+                        Flow::Return => return Ok(Flow::Return),
+                        _ => {}
+                    }
+                }
+            }
+            Stmt::While(cond, body) => {
+                while self.eval(cond)?.truthy()? {
+                    self.tick()?;
+                    match self.block(body)? {
+                        Flow::Break => break,
+                        Flow::Return => return Ok(Flow::Return),
+                        _ => {}
+                    }
+                }
+            }
+            Stmt::Switch(subject, cases, otherwise) => {
+                let v = self.eval(subject)?;
+                for (case, body) in cases {
+                    let cv = self.eval(case)?;
+                    let options: Vec<Value> = match cv {
+                        Value::Cell { items, .. } => items,
+                        other => vec![other],
+                    };
+                    let hit = options.iter().any(|o| match (&v, o) {
+                        (Value::Str(a), Value::Str(b)) => a == b,
+                        (Value::Str(_), _) | (_, Value::Str(_)) => false,
+                        (a, b) => a.scalar().ok() == b.scalar().ok() && a.scalar().is_ok(),
+                    });
+                    if hit {
+                        return self.block(body);
+                    }
+                }
+                return self.block(otherwise);
+            }
+            Stmt::Try(body, var, handler) => match self.block(body) {
+                Ok(f) => return Ok(f),
+                Err(e) if e != "cancelled" => {
+                    self.last_error = e.clone();
+                    if let Some(v) = var {
+                        let (id, msg) = split_error(&e);
+                        let st = Value::Struct { r: 1, c: 1, fields: vec!["message".into(), "identifier".into(), "stack".into()], items: vec![vec![Value::Str(msg), Value::Str(id), Value::empty()]] };
+                        self.set_var(v, st);
+                    }
+                    return self.block(handler);
+                }
+                Err(e) => return Err(e),
+            },
+            Stmt::Break => return Ok(Flow::Break),
+            Stmt::Continue => return Ok(Flow::Continue),
+            Stmt::Return => return Ok(Flow::Return),
+            Stmt::Global(names) => {
+                for n in names {
+                    self.global_names.last_mut().unwrap().insert(n.clone());
+                    self.globals.entry(n.clone()).or_insert_with(Value::empty);
+                }
+            }
+        }
+        Ok(Flow::Normal)
+    }
+
+    // ───────────────────────── expressions
+
+    pub fn eval(&mut self, e: &Expr) -> R<Value> {
+        let mut v = self.eval_multi(e, 1, false)?;
+        if v.is_empty() {
+            return Err(match e {
+                Expr::Index(_, _) | Expr::Ident(_) => "the function returned no value".into(),
+                _ => "the expression gives no value (an empty comma-separated list)".into(),
+            });
+        }
+        Ok(v.swap_remove(0))
+    }
+
+    /// Evaluates to a list: calls may return several outputs, c{:} and s.f several values.
+    pub fn eval_multi(&mut self, e: &Expr, nargout: usize, statement: bool) -> R<Vec<Value>> {
+        Ok(match e {
+            Expr::Num(v) => vec![Value::num(*v)],
+            Expr::Imag(v) => vec![Value::Num(Arr::complex(1, 1, vec![0.0], vec![*v]))],
+            Expr::Str(s) => vec![Value::Str(s.clone())],
+            Expr::Colon => vec![Value::Str(":".into())],
+            Expr::End => vec![Value::num(*self.end_stack.last().ok_or("'end' outside an index")? as f64)],
+            Expr::Ident(n) => match self.get_var(n) {
+                Some(v) => vec![v.clone()],
+                None => self.call_name(n, Vec::new(), nargout, statement)?,
+            },
+            Expr::Matrix(rows) => vec![self.matrix(rows)?],
+            Expr::Cell(rows) => vec![self.cell_literal(rows)?],
+            Expr::Range(a, step, b) => {
+                let a = self.eval(a)?.scalar()?;
+                let s = match step {
+                    Some(s) => self.eval(s)?.scalar()?,
+                    None => 1.0,
+                };
+                let b = self.eval(b)?.scalar()?;
+                vec![Value::Num(range(a, s, b)?)]
+            }
+            Expr::Bin(Bin::AndAnd, a, b) => {
+                let l = self.eval(a)?.truthy()?;
+                vec![Value::boolean(l && self.eval(b)?.truthy()?)]
+            }
+            Expr::Bin(Bin::OrOr, a, b) => {
+                let l = self.eval(a)?.truthy()?;
+                vec![Value::boolean(l || self.eval(b)?.truthy()?)]
+            }
+            Expr::Bin(op, a, b) => {
+                let l = self.eval(a)?;
+                let r = self.eval(b)?;
+                vec![binop(*op, &l, &r)?]
+            }
+            Expr::Neg(a) => vec![Value::Num(negate(&self.eval(a)?.arr()?))],
+            Expr::Not(a) => {
+                let v = self.eval(a)?.arr()?;
+                vec![Value::Num(Arr::boolean(v.r, v.c, v.re.iter().map(|x| *x == 0.0).collect()))]
+            }
+            Expr::Transpose(a, conj) => vec![transpose_value(&self.eval(a)?, *conj)?],
+            Expr::Anon(params, body) => {
+                // Capture the variables the body uses.
+                let mut captured = HashMap::new();
+                let mut names = Vec::new();
+                free_names(body, &mut names);
+                for n in names {
+                    if !params.contains(&n) {
+                        if let Some(v) = self.get_var(&n) {
+                            captured.insert(n.clone(), v.clone());
+                        }
+                    }
+                }
+                vec![Value::Func(Func::Anon { params: params.clone(), body: body.clone(), captured: Rc::new(captured) })]
+            }
+            Expr::Handle(n) => vec![Value::Func(match self.funcs.get(n) {
+                Some(f) => Func::User(f.clone()),
+                None => Func::Named(n.clone()),
+            })],
+            Expr::Index(base, args) => {
+                // A function call when the base names no variable.
+                if let Expr::Ident(n) = base.as_ref() {
+                    if self.get_var(n).is_none() {
+                        let a = self.args(args, None)?;
+                        return self.call_name(n, a, nargout, statement);
+                    }
+                }
+                let bases = self.eval_multi(base, 1, false)?;
+                let b = bases.into_iter().next().ok_or("indexing an empty list")?;
+                if let Value::Func(f) = &b {
+                    let a = self.args(args, None)?;
+                    return self.call_func(&f.clone(), a, nargout);
+                }
+                let idx = self.args(args, Some(&b))?;
+                vec![index_value(&b, &idx)?]
+            }
+            Expr::CellIndex(base, args) => {
+                let b = self.eval(base)?;
+                let idx = self.args(args, Some(&b))?;
+                match b {
+                    Value::Cell { .. } => {
+                        let sub = index_value(&b, &idx)?;
+                        match sub {
+                            Value::Cell { items, .. } => items,
+                            other => vec![other],
+                        }
+                    }
+                    other => return Err(format!("brace indexing {{}} needs a cell array, not a {}", other.class())),
+                }
+            }
+            Expr::Field(base, f) => {
+                let b = self.eval(base)?;
+                field_values(&b, f)?
+            }
+            Expr::DynField(base, f) => {
+                let b = self.eval(base)?;
+                let name = self.eval(f)?.text()?;
+                field_values(&b, &name)?
+            }
+        })
+    }
+
+    /// Evaluates call or index arguments, expanding comma-separated lists; `of` sets `end`.
+    pub fn args(&mut self, args: &[Expr], of: Option<&Value>) -> R<Vec<Value>> {
+        let mut out = Vec::with_capacity(args.len());
+        let n = args.len();
+        for (k, a) in args.iter().enumerate() {
+            if let Some(v) = of {
+                let (r, c) = v.dims();
+                let end = if n == 1 { r * c } else if k == 0 { r } else if k == 1 && n == 2 { c } else if k == 1 { c } else { 1 };
+                self.end_stack.push(end);
+            }
+            let vals = self.eval_multi(a, 1, false);
+            if of.is_some() {
+                self.end_stack.pop();
+            }
+            out.extend(vals?);
+        }
+        Ok(out)
+    }
+
+    fn matrix(&mut self, rows: &[Vec<Expr>]) -> R<Value> {
+        let mut row_vals: Vec<Value> = Vec::new();
+        for row in rows {
+            let mut items = Vec::new();
+            for e in row {
+                items.extend(self.eval_multi(e, 1, false)?);
+            }
+            row_vals.push(concat(&items, true)?);
+        }
+        if row_vals.is_empty() {
+            return Ok(Value::empty());
+        }
+        concat(&row_vals, false)
+    }
+
+    fn cell_literal(&mut self, rows: &[Vec<Expr>]) -> R<Value> {
+        let mut grid: Vec<Vec<Value>> = Vec::new();
+        for row in rows {
+            let mut items = Vec::new();
+            for e in row {
+                for v in self.eval_multi(e, 1, false)? {
+                    // A cell inside {} concatenates (as MATLAB) only when written [c1, c2]; here it nests.
+                    items.push(v);
+                }
+            }
+            grid.push(items);
+        }
+        if grid.is_empty() {
+            return Ok(Value::Cell { r: 0, c: 0, items: Vec::new() });
+        }
+        let c = grid[0].len();
+        if grid.iter().any(|r| r.len() != c) {
+            return Err("the rows of a cell literal have different lengths".into());
+        }
+        let r = grid.len();
+        let mut items = Vec::with_capacity(r * c);
+        for j in 0..c {
+            for row in &grid {
+                items.push(row[j].clone());
+            }
+        }
+        Ok(Value::Cell { r, c, items })
+    }
+
+    // ───────────────────────── calls
+
+    pub fn call_name(&mut self, name: &str, args: Vec<Value>, nargout: usize, statement: bool) -> R<Vec<Value>> {
+        if let Some(f) = self.funcs.get(name).cloned() {
+            return self.call_user(&f, args, nargout);
+        }
+        match super::builtins::call(self, name, args, nargout, statement) {
+            Some(r) => r,
+            None => Err(format!("undefined function or variable '{name}'")),
+        }
+    }
+
+    pub fn call_func(&mut self, f: &Func, args: Vec<Value>, nargout: usize) -> R<Vec<Value>> {
+        match f {
+            Func::Named(n) => self.call_name(n, args, nargout, false),
+            Func::User(u) => self.call_user(u, args, nargout),
+            Func::Anon { params, body, captured } => {
+                if args.len() > params.len() && !params.iter().any(|p| p == "varargin") {
+                    return Err(format!("too many input arguments ({} for {})", args.len(), params.len()));
+                }
+                self.depth += 1;
+                if self.depth > 256 {
+                    self.depth -= 1;
+                    return Err("recursion is too deep (256 levels)".into());
+                }
+                let mut scope: HashMap<String, Value> = (**captured).clone();
+                let mut args = args.into_iter();
+                for p in params.iter() {
+                    if p == "varargin" {
+                        let rest: Vec<Value> = args.by_ref().collect();
+                        scope.insert(p.clone(), Value::Cell { r: 1, c: rest.len(), items: rest });
+                        break;
+                    }
+                    if let Some(a) = args.next() {
+                        scope.insert(p.clone(), a);
+                    }
+                }
+                self.scopes.push(scope);
+                self.global_names.push(HashSet::new());
+                let r = self.eval_multi(body, nargout.max(1), false);
+                self.scopes.pop();
+                self.global_names.pop();
+                self.depth -= 1;
+                r
+            }
+        }
+    }
+
+    pub fn call_user(&mut self, f: &Rc<Function>, args: Vec<Value>, nargout: usize) -> R<Vec<Value>> {
+        let varargin = f.params.last().is_some_and(|p| p == "varargin");
+        let fixed = if varargin { f.params.len() - 1 } else { f.params.len() };
+        if args.len() > fixed && !varargin {
+            return Err(format!("{}: too many input arguments ({} for {})", f.name, args.len(), fixed));
+        }
+        self.depth += 1;
+        if self.depth > 256 {
+            self.depth -= 1;
+            return Err("recursion is too deep (256 levels)".into());
+        }
+        let mut scope = HashMap::new();
+        let nargin = args.len();
+        let mut it = args.into_iter();
+        for p in f.params.iter().take(fixed) {
+            if let Some(a) = it.next() {
+                if p != "~" {
+                    scope.insert(p.clone(), a);
+                }
+            }
+        }
+        if varargin {
+            let rest: Vec<Value> = it.collect();
+            scope.insert("varargin".into(), Value::Cell { r: 1, c: rest.len(), items: rest });
+        }
+        scope.insert("nargin".into(), Value::num(nargin as f64));
+        scope.insert("nargout".into(), Value::num(nargout as f64));
+        self.scopes.push(scope);
+        self.global_names.push(HashSet::new());
+        let r = self.block(&f.body);
+        let scope = self.scopes.pop().unwrap();
+        self.global_names.pop();
+        self.depth -= 1;
+        r.map_err(|e| if e.starts_with("cancelled") { e } else { format!("in {}: {e}", f.name) })?;
+        let mut outs = Vec::new();
+        let varargout = f.outputs.last().is_some_and(|o| o == "varargout");
+        let fixed_out = if varargout { f.outputs.len() - 1 } else { f.outputs.len() };
+        for (k, o) in f.outputs.iter().take(fixed_out).enumerate() {
+            match scope.get(o) {
+                Some(v) => outs.push(v.clone()),
+                None => {
+                    if k < nargout.max(1) && (k > 0 || nargout > 0) {
+                        return Err(format!("{}: the output \"{o}\" was never assigned", f.name));
+                    }
+                    break;
+                }
+            }
+        }
+        if varargout {
+            if let Some(Value::Cell { items, .. }) = scope.get("varargout") {
+                outs.extend(items.iter().cloned());
+            }
+        }
+        Ok(outs)
+    }
+
+    // ───────────────────────── assignment
+
+    pub fn assign(&mut self, target: &Expr, rhs: Value) -> R<()> {
+        let mut path = Vec::new();
+        let mut e = target;
+        loop {
+            match e {
+                Expr::Ident(_) => break,
+                Expr::Index(b, a) => {
+                    path.push(Access::Paren(a.clone()));
+                    e = b;
+                }
+                Expr::CellIndex(b, a) => {
+                    path.push(Access::Brace(a.clone()));
+                    e = b;
+                }
+                Expr::Field(b, f) => {
+                    path.push(Access::Field(f.clone()));
+                    e = b;
+                }
+                Expr::DynField(b, f) => {
+                    let name = self.eval(f)?.text()?;
+                    path.push(Access::Field(name));
+                    e = b;
+                }
+                _ => return Err("this cannot be assigned".into()),
+            }
+        }
+        path.reverse();
+        let name = root_name(target);
+        let cur = self.get_var(&name).cloned();
+        let new = self.assign_path(cur, &path, rhs)?;
+        self.set_var(&name, new);
+        Ok(())
+    }
+
+    fn assign_path(&mut self, cur: Option<Value>, path: &[Access], rhs: Value) -> R<Value> {
+        let Some(first) = path.first() else { return Ok(rhs) };
+        let rest = &path[1..];
+        match first {
+            Access::Paren(args) => {
+                let base = cur.clone().unwrap_or_else(|| match (&rhs, rest.first()) {
+                    (_, Some(Access::Field(_))) => Value::Struct { r: 0, c: 0, fields: Vec::new(), items: Vec::new() },
+                    (Value::Cell { .. }, _) => Value::Cell { r: 0, c: 0, items: Vec::new() },
+                    (Value::Struct { fields, .. }, _) => Value::Struct { r: 0, c: 0, fields: fields.clone(), items: Vec::new() },
+                    (Value::Str(_), _) => Value::Str(String::new()),
+                    _ => Value::empty(),
+                });
+                let idx = self.args(args, Some(&base))?;
+                if rest.is_empty() {
+                    return assign_index(base, &idx, rhs);
+                }
+                // s(2).f = v: work on the selected element.
+                let elem = index_value(&base, &idx).ok().filter(|v| !v.is_empty());
+                let new_elem = self.assign_path(elem, rest, rhs)?;
+                assign_index(base, &idx, new_elem)
+            }
+            Access::Brace(args) => {
+                let base = match cur {
+                    Some(v @ Value::Cell { .. }) => v,
+                    Some(v) if v.is_empty() => Value::Cell { r: 0, c: 0, items: Vec::new() },
+                    None => Value::Cell { r: 0, c: 0, items: Vec::new() },
+                    Some(other) => return Err(format!("brace assignment {{}} needs a cell array, not a {}", other.class())),
+                };
+                let idx = self.args(args, Some(&base))?;
+                let inner = if rest.is_empty() {
+                    rhs
+                } else {
+                    let old = index_value(&base, &idx).ok().and_then(|v| match v {
+                        Value::Cell { items, .. } if items.len() == 1 => Some(items[0].clone()),
+                        _ => None,
+                    });
+                    self.assign_path(old, rest, rhs)?
+                };
+                assign_index(base, &idx, Value::Cell { r: 1, c: 1, items: vec![inner] })
+            }
+            Access::Field(name) => {
+                let (r, c, mut fields, mut items) = match cur {
+                    Some(Value::Struct { r, c, fields, items }) => (r, c, fields, items),
+                    Some(v) if v.is_empty() => (1, 1, Vec::new(), vec![Vec::new()]),
+                    None => (1, 1, Vec::new(), vec![Vec::new()]),
+                    Some(other) => return Err(format!("field assignment needs a structure, not a {}", other.class())),
+                };
+                let (r, c) = if items.is_empty() { (1, 1) } else { (r, c) };
+                if items.is_empty() {
+                    items.push(vec![Value::empty(); fields.len()]);
+                }
+                if items.len() != 1 {
+                    return Err(format!("s.{name} = … needs a single structure; index the element first: s(k).{name}"));
+                }
+                let k = match fields.iter().position(|f| f == name) {
+                    Some(k) => k,
+                    None => {
+                        fields.push(name.clone());
+                        for it in items.iter_mut() {
+                            it.push(Value::empty());
+                        }
+                        fields.len() - 1
+                    }
+                };
+                let old = items[0].get(k).cloned().filter(|v| !(v.is_empty() && matches!(v, Value::Num(_))));
+                let new = self.assign_path(old, rest, rhs)?;
+                items[0][k] = new;
+                Ok(Value::Struct { r, c, fields, items })
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum Access {
+    Paren(Vec<Expr>),
+    Brace(Vec<Expr>),
+    Field(String),
+}
+
+fn root_name(e: &Expr) -> String {
+    match e {
+        Expr::Ident(n) => n.clone(),
+        Expr::Index(b, _) | Expr::CellIndex(b, _) | Expr::Field(b, _) | Expr::DynField(b, _) => root_name(b),
+        _ => String::new(),
+    }
+}
+
+fn with_line(e: String, line: usize) -> String {
+    if e.starts_with("line ") || e == "cancelled" {
+        e
+    } else {
+        format!("line {line}: {e}")
+    }
+}
+
+/// "id:part: message" → (identifier, message).
+pub fn split_error(e: &str) -> (String, String) {
+    let body = e.trim_start_matches(|c: char| c != ':' && !c.is_whitespace()).to_string();
+    let _ = body;
+    // Strip "line N: " prefixes.
+    let mut msg = e.to_string();
+    while let Some(rest) = msg.strip_prefix("line ") {
+        match rest.split_once(": ") {
+            Some((_, m)) => msg = m.to_string(),
+            None => break,
+        }
+    }
+    if let Some((id, m)) = msg.split_once('\u{1}') {
+        return (id.to_string(), m.to_string());
+    }
+    (String::new(), msg)
+}
+
+fn free_names(e: &Expr, out: &mut Vec<String>) {
+    match e {
+        Expr::Ident(n) => out.push(n.clone()),
+        Expr::Matrix(rows) | Expr::Cell(rows) => rows.iter().flatten().for_each(|x| free_names(x, out)),
+        Expr::Range(a, s, b) => {
+            free_names(a, out);
+            if let Some(s) = s {
+                free_names(s, out);
+            }
+            free_names(b, out);
+        }
+        Expr::Bin(_, a, b) => {
+            free_names(a, out);
+            free_names(b, out);
+        }
+        Expr::Neg(a) | Expr::Not(a) | Expr::Transpose(a, _) => free_names(a, out),
+        Expr::Index(b, a) | Expr::CellIndex(b, a) => {
+            free_names(b, out);
+            a.iter().for_each(|x| free_names(x, out));
+        }
+        Expr::Field(b, _) => free_names(b, out),
+        Expr::DynField(b, f) => {
+            free_names(b, out);
+            free_names(f, out);
+        }
+        Expr::Anon(_, body) => free_names(body, out),
+        _ => {}
+    }
+}
+
+pub fn range(a: f64, s: f64, b: f64) -> R<Arr> {
+    if s == 0.0 || (s > 0.0 && a > b) || (s < 0.0 && a < b) || !a.is_finite() || !b.is_finite() {
+        return Ok(Arr::zeros(1, 0));
+    }
+    let n = ((b - a) / s + 1e-10).floor() as usize + 1;
+    if n > 50_000_000 {
+        return Err(format!("the range {a}:{s}:{b} has too many elements"));
+    }
+    Ok(Arr::row((0..n).map(|k| a + k as f64 * s).collect()))
+}
+
+pub fn binop(op: Bin, l: &Value, r: &Value) -> R<Value> {
+    // String comparisons element-wise by character codes work through arr().
+    let a = l.arr()?;
+    let b = r.arr()?;
+    Ok(Value::Num(binary(op, &a, &b)?))
+}
+
+pub fn transpose_value(v: &Value, conj: bool) -> R<Value> {
+    Ok(match v {
+        Value::Num(a) => Value::Num(a.transpose(conj)),
+        Value::Str(s) => {
+            // A column of characters: as numbers (char arrays with several rows are not kept).
+            Value::Num(Arr::col(s.chars().map(|c| c as u32 as f64).collect()))
+        }
+        Value::Cell { r, c, items } => {
+            let mut out = Vec::with_capacity(items.len());
+            for i in 0..*r {
+                for j in 0..*c {
+                    out.push(items[j * r + i].clone());
+                }
+            }
+            Value::Cell { r: *c, c: *r, items: out }
+        }
+        Value::Struct { r, c, fields, items } => {
+            let mut out = Vec::with_capacity(items.len());
+            for i in 0..*r {
+                for j in 0..*c {
+                    out.push(items[j * r + i].clone());
+                }
+            }
+            Value::Struct { r: *c, c: *r, fields: fields.clone(), items: out }
+        }
+        Value::Func(_) => v.clone(),
+    })
+}
+
+fn field_values(b: &Value, f: &str) -> R<Vec<Value>> {
+    match b {
+        Value::Struct { fields, items, .. } => {
+            let k = fields.iter().position(|x| x == f).ok_or_else(|| format!("reference to non-existent field '{f}'"))?;
+            Ok(items.iter().map(|it| it[k].clone()).collect())
+        }
+        other => Err(format!("dot indexing .{f} needs a structure, not a {}", other.class())),
+    }
+}
+
+// ───────────────────────── concatenation
+
+/// Horizontal (row = true) or vertical concatenation.
+pub fn concat(items: &[Value], row: bool) -> R<Value> {
+    let items: Vec<&Value> = items.iter().filter(|v| !(v.is_empty() && matches!(v, Value::Num(_)))).collect();
+    if items.is_empty() {
+        return Ok(Value::empty());
+    }
+    if items.len() == 1 {
+        return Ok(items[0].clone());
+    }
+    // Strings join as strings; cells join as cells; structures as struct arrays.
+    if items.iter().all(|v| matches!(v, Value::Str(_))) && row {
+        return Ok(Value::Str(items.iter().map(|v| if let Value::Str(s) = v { s.as_str() } else { "" }).collect()));
+    }
+    if items.iter().any(|v| matches!(v, Value::Cell { .. })) {
+        let cells: Vec<(usize, usize, Vec<Value>)> = items.iter().map(|v| match v {
+            Value::Cell { r, c, items } => (*r, *c, items.clone()),
+            other => (1, 1, vec![(*other).clone()]),
+        }).collect();
+        return join_generic(cells, row, |r, c, items| Value::Cell { r, c, items });
+    }
+    if items.iter().all(|v| matches!(v, Value::Struct { .. })) {
+        let fields = if let Value::Struct { fields, .. } = items[0] { fields.clone() } else { unreachable!() };
+        let parts: Vec<(usize, usize, Vec<Vec<Value>>)> = items.iter().map(|v| match v {
+            Value::Struct { r, c, fields: f2, items } => {
+                if *f2 == fields {
+                    Ok((*r, *c, items.clone()))
+                } else {
+                    // Reorder to the first's field order.
+                    let mut out = Vec::new();
+                    for it in items {
+                        let mut row = Vec::new();
+                        for f in &fields {
+                            let k = f2.iter().position(|x| x == f).ok_or("structures with different fields cannot be joined")?;
+                            row.push(it[k].clone());
+                        }
+                        out.push(row);
+                    }
+                    Ok((*r, *c, out))
+                }
+            }
+            _ => unreachable!(),
+        }).collect::<R<_>>()?;
+        return join_generic(parts, row, |r, c, items| Value::Struct { r, c, fields: fields.clone(), items });
+    }
+    let any_str = items.iter().any(|v| matches!(v, Value::Str(_)));
+    let arrs: Vec<Arr> = items.iter().map(|v| v.arr()).collect::<R<_>>()?;
+    let complex = arrs.iter().any(|a| a.is_complex());
+    let logical = arrs.iter().all(|a| a.logical);
+    let parts: Vec<(usize, usize, Vec<(f64, f64)>)> = arrs.iter().map(|a| (a.r, a.c, (0..a.len()).map(|k| (a.re[k], a.im.as_ref().map_or(0.0, |im| im[k]))).collect())).collect();
+    let joined = join_generic(parts, row, |r, c, items| {
+        let re = items.iter().map(|p| p.0).collect();
+        let mut a = Arr::new(r, c, re);
+        if complex {
+            a.im = Some(items.iter().map(|p| p.1).collect());
+        }
+        a.logical = logical;
+        Value::Num(a)
+    })?;
+    if any_str && row {
+        if let Value::Num(a) = &joined {
+            if a.r == 1 {
+                return Ok(Value::Str(a.re.iter().map(|v| char::from_u32(*v as u32).unwrap_or('?')).collect()));
+            }
+        }
+    }
+    Ok(joined)
+}
+
+fn join_generic<T: Clone>(parts: Vec<(usize, usize, Vec<T>)>, row: bool, make: impl Fn(usize, usize, Vec<T>) -> Value) -> R<Value> {
+    if row {
+        let r = parts[0].0;
+        if parts.iter().any(|p| p.0 != r) {
+            return Err(format!("horizontal concatenation needs the same number of rows ({})", parts.iter().map(|p| p.0.to_string()).collect::<Vec<_>>().join(", ")));
+        }
+        let c: usize = parts.iter().map(|p| p.1).sum();
+        let items: Vec<T> = parts.into_iter().flat_map(|p| p.2).collect();
+        Ok(make(r, c, items))
+    } else {
+        let c = parts[0].1;
+        if parts.iter().any(|p| p.1 != c) {
+            return Err(format!("vertical concatenation needs the same number of columns ({})", parts.iter().map(|p| p.1.to_string()).collect::<Vec<_>>().join(", ")));
+        }
+        let r: usize = parts.iter().map(|p| p.0).sum();
+        let mut items = Vec::with_capacity(r * c);
+        for j in 0..c {
+            for p in &parts {
+                for i in 0..p.0 {
+                    items.push(p.2[j * p.0 + i].clone());
+                }
+            }
+        }
+        Ok(make(r, c, items))
+    }
+}
+
+// ───────────────────────── indexing
+
+/// Resolved positions of one index argument for an extent.
+fn positions(v: &Value, extent: usize) -> R<Vec<usize>> {
+    if let Value::Str(s) = v {
+        if s == ":" {
+            return Ok((0..extent).collect());
+        }
+    }
+    let a = v.arr()?;
+    if a.logical {
+        if a.len() > extent && a.re[extent..].iter().any(|x| *x != 0.0) {
+            return Err(format!("the logical index has true values beyond the {extent} elements"));
+        }
+        return Ok(a.re.iter().enumerate().filter(|(_, x)| **x != 0.0).map(|(k, _)| k).collect());
+    }
+    a.re.iter()
+        .map(|x| {
+            if *x >= 1.0 && x.fract() == 0.0 && x.is_finite() {
+                Ok(*x as usize - 1)
+            } else {
+                Err(format!("array indices must be positive whole numbers (got {})", format_num(*x)))
+            }
+        })
+        .collect()
+}
+
+fn is_colon(v: &Value) -> bool {
+    matches!(v, Value::Str(s) if s == ":")
+}
+
+/// The element positions and the result shape of A(idx…).
+fn selection(r: usize, c: usize, idx: &[Value]) -> R<(Vec<usize>, usize, usize)> {
+    let n = r * c;
+    match idx.len() {
+        0 => Ok(((0..n).collect(), r, c)),
+        1 => {
+            let p = positions(&idx[0], n)?;
+            if let Some(&bad) = p.iter().find(|&&k| k >= n) {
+                return Err(format!("index {} exceeds the number of elements ({n})", bad + 1));
+            }
+            let k = p.len();
+            let (ir, ic) = idx[0].dims();
+            let shape = if is_colon(&idx[0]) {
+                (n, 1)
+            } else if matches!(&idx[0], Value::Num(a) if a.logical) {
+                if r == 1 { (1, k) } else { (k, 1) }
+            } else if r == 1 && (ir == 1 || ic == 1) {
+                (1, k)
+            } else if c == 1 && (ir == 1 || ic == 1) {
+                (k, 1)
+            } else {
+                (ir, ic)
+            };
+            Ok((p, shape.0, shape.1))
+        }
+        _ => {
+            for extra in &idx[2..] {
+                let p = positions(extra, 1)?;
+                if p.iter().any(|&k| k != 0) {
+                    return Err("only two dimensions are supported".into());
+                }
+            }
+            let rows = positions(&idx[0], r)?;
+            let cols = positions(&idx[1], c)?;
+            if let Some(&bad) = rows.iter().find(|&&k| k >= r) {
+                return Err(format!("row index {} exceeds the {r} rows", bad + 1));
+            }
+            if let Some(&bad) = cols.iter().find(|&&k| k >= c) {
+                return Err(format!("column index {} exceeds the {c} columns", bad + 1));
+            }
+            let mut p = Vec::with_capacity(rows.len() * cols.len());
+            for &j in &cols {
+                for &i in &rows {
+                    p.push(j * r + i);
+                }
+            }
+            Ok((p, rows.len(), cols.len()))
+        }
+    }
+}
+
+pub fn index_value(b: &Value, idx: &[Value]) -> R<Value> {
+    let (r, c) = b.dims();
+    let (p, rr, cc) = selection(r, c, idx)?;
+    Ok(match b {
+        Value::Num(a) => {
+            let mut out = Arr::new(rr, cc, p.iter().map(|&k| a.re[k]).collect());
+            out.im = a.im.as_ref().map(|im| p.iter().map(|&k| im[k]).collect());
+            out.logical = a.logical;
+            out.simplify();
+            Value::Num(out)
+        }
+        Value::Str(s) => {
+            let chars: Vec<char> = s.chars().collect();
+            Value::Str(p.iter().map(|&k| chars[k]).collect())
+        }
+        Value::Cell { items, .. } => Value::Cell { r: rr, c: cc, items: p.iter().map(|&k| items[k].clone()).collect() },
+        Value::Struct { fields, items, .. } => Value::Struct { r: rr, c: cc, fields: fields.clone(), items: p.iter().map(|&k| items[k].clone()).collect() },
+        Value::Func(_) => return Err("a function handle cannot be indexed".into()),
+    })
+}
+
+/// A(idx…) = rhs with growth (zero / empty fill) and deletion (rhs = []).
+pub fn assign_index(base: Value, idx: &[Value], rhs: Value) -> R<Value> {
+    let deleting = matches!(&rhs, Value::Num(a) if a.r == 0 && a.c == 0) && !matches!(base, Value::Cell { .. } if false);
+    let (r, c) = base.dims();
+    if deleting && !matches!(base, Value::Struct { .. }) || (deleting && matches!(base, Value::Struct { .. })) {
+        return delete(base, idx);
+    }
+    // Target positions, growing the array as needed.
+    let (mut nr, mut nc) = (r, c);
+    let targets: Vec<(usize, usize)>; // (row, col)
+    let out_shape: (usize, usize);
+    match idx.len() {
+        1 => {
+            let n = r * c;
+            let p = positions(&idx[0], n)?;
+            let max = p.iter().copied().max().map_or(0, |m| m + 1);
+            if max > n {
+                if r <= 1 {
+                    nr = 1;
+                    nc = max;
+                } else if c == 1 {
+                    nr = max;
+                } else {
+                    return Err(format!("cannot grow a {r}×{c} matrix with a linear index; use A(i, j)"));
+                }
+            }
+            let rr = nr.max(1);
+            targets = p.iter().map(|&k| (k % rr, k / rr)).collect();
+            out_shape = (p.len(), 1);
+        }
+        _ => {
+            let rows = if is_colon(&idx[0]) && r == 0 { (0..rhs.dims().0.max(1)).collect() } else { positions(&idx[0], r)? };
+            let cols = if is_colon(&idx[1]) && c == 0 { (0..rhs.dims().1.max(1)).collect() } else { positions(&idx[1], c)? };
+            nr = nr.max(rows.iter().copied().max().map_or(0, |m| m + 1));
+            nc = nc.max(cols.iter().copied().max().map_or(0, |m| m + 1));
+            let mut t = Vec::with_capacity(rows.len() * cols.len());
+            for &j in &cols {
+                for &i in &rows {
+                    t.push((i, j));
+                }
+            }
+            targets = t;
+            out_shape = (rows.len(), cols.len());
+        }
+    }
+    let count = targets.len();
+    let rn = rhs.numel();
+    if rn != 1 && rn != count {
+        return Err(format!("cannot assign {} elements to {count} positions ({}×{} vs {}×{})", rn, rhs.dims().0, rhs.dims().1, out_shape.0, out_shape.1));
+    }
+    let pick = |k: usize| if rn == 1 { 0 } else { k };
+    // Re-layout to the grown size.
+    fn regrow<T: Clone>(data: Vec<T>, r: usize, c: usize, nr: usize, nc: usize, fill: T) -> Vec<T> {
+        if r == nr && c == nc {
+            return data;
+        }
+        let mut out = vec![fill; nr * nc];
+        for j in 0..c {
+            for i in 0..r {
+                out[j * nr + i] = data[j * r + i].clone();
+            }
+        }
+        out
+    }
+    Ok(match (base, rhs) {
+        (Value::Cell { items, .. }, Value::Cell { items: src, .. }) => {
+            let mut items = regrow(items, r, c, nr, nc, Value::empty());
+            for (k, (i, j)) in targets.iter().enumerate() {
+                items[j * nr + i] = src[pick(k)].clone();
+            }
+            Value::Cell { r: nr, c: nc, items }
+        }
+        (Value::Cell { .. }, other) => return Err(format!("use braces to put a {} into a cell: c{{i}} = …", other.class())),
+        (Value::Struct { fields, items, .. }, Value::Struct { fields: f2, items: src, .. }) => {
+            // Merge field lists.
+            let mut fields = fields;
+            let mut items = items;
+            for f in &f2 {
+                if !fields.contains(f) {
+                    fields.push(f.clone());
+                    for it in items.iter_mut() {
+                        it.push(Value::empty());
+                    }
+                }
+            }
+            let mut items = regrow(items, r, c, nr, nc, vec![Value::empty(); fields.len()]);
+            for (k, (i, j)) in targets.iter().enumerate() {
+                let s = &src[pick(k)];
+                let mut row = vec![Value::empty(); fields.len()];
+                for (q, f) in f2.iter().enumerate() {
+                    let pos = fields.iter().position(|x| x == f).unwrap();
+                    row[pos] = s[q].clone();
+                }
+                items[j * nr + i] = row;
+            }
+            Value::Struct { r: nr, c: nc, fields, items }
+        }
+        (Value::Str(s), Value::Str(src)) if nr <= 1 => {
+            let chars: Vec<char> = s.chars().collect();
+            let mut chars = regrow(chars, r.max(if c > 0 { 1 } else { 0 }), c, 1, nc, ' ');
+            let src: Vec<char> = src.chars().collect();
+            for (k, (_, j)) in targets.iter().enumerate() {
+                chars[*j] = src[pick(k)];
+            }
+            Value::Str(chars.into_iter().collect())
+        }
+        (base, rhs) => {
+            let a = base.arr()?;
+            let b = rhs.arr()?;
+            let complex = a.is_complex() || b.is_complex();
+            let re = regrow(a.re.clone(), r, c, nr, nc, 0.0);
+            let im = if complex { Some(regrow(a.im.clone().unwrap_or_else(|| vec![0.0; a.len()]), r, c, nr, nc, 0.0)) } else { None };
+            let mut out = Arr { r: nr, c: nc, re, im, logical: a.logical && b.logical || (a.is_empty() && b.logical) };
+            for (k, (i, j)) in targets.iter().enumerate() {
+                let q = j * nr + i;
+                out.re[q] = b.re[pick(k)];
+                if let Some(im) = out.im.as_mut() {
+                    im[q] = b.im.as_ref().map_or(0.0, |v| v[pick(k)]);
+                }
+            }
+            out.simplify();
+            Value::Num(out)
+        }
+    })
+}
+
+fn delete(base: Value, idx: &[Value]) -> R<Value> {
+    let (r, c) = base.dims();
+    let keep: Vec<usize>;
+    let (nr, nc);
+    if idx.len() == 1 {
+        let del: HashSet<usize> = positions(&idx[0], r * c)?.into_iter().collect();
+        keep = (0..r * c).filter(|k| !del.contains(k)).collect();
+        if r == 1 || c != 1 && del.len() < r * c {
+            (nr, nc) = (if keep.is_empty() { 0 } else { 1 }, keep.len());
+        } else {
+            (nr, nc) = (keep.len(), if keep.is_empty() { 0 } else { 1 });
+        }
+    } else {
+        let rows_all = is_colon(&idx[0]) || positions(&idx[0], r)?.len() == r && r > 0;
+        let cols_all = is_colon(&idx[1]) || positions(&idx[1], c)?.len() == c && c > 0;
+        if rows_all {
+            let del: HashSet<usize> = positions(&idx[1], c)?.into_iter().collect();
+            let cols: Vec<usize> = (0..c).filter(|j| !del.contains(j)).collect();
+            keep = cols.iter().flat_map(|&j| (0..r).map(move |i| j * r + i)).collect();
+            (nr, nc) = (r, cols.len());
+        } else if cols_all {
+            let del: HashSet<usize> = positions(&idx[0], r)?.into_iter().collect();
+            let rows: Vec<usize> = (0..r).filter(|i| !del.contains(i)).collect();
+            keep = (0..c).flat_map(|j| rows.iter().map(move |&i| j * r + i)).collect();
+            (nr, nc) = (rows.len(), c);
+        } else {
+            return Err("deletion needs a whole row or column: A(i, :) = [] or A(:, j) = []".into());
+        }
+    }
+    Ok(match base {
+        Value::Num(a) => {
+            let mut out = Arr::new(nr, nc, keep.iter().map(|&k| a.re[k]).collect());
+            out.im = a.im.as_ref().map(|im| keep.iter().map(|&k| im[k]).collect());
+            out.logical = a.logical;
+            out.simplify();
+            Value::Num(out)
+        }
+        Value::Str(s) => {
+            let chars: Vec<char> = s.chars().collect();
+            Value::Str(keep.iter().map(|&k| chars[k]).collect())
+        }
+        Value::Cell { items, .. } => Value::Cell { r: nr, c: nc, items: keep.iter().map(|&k| items[k].clone()).collect() },
+        Value::Struct { fields, items, .. } => Value::Struct { r: nr, c: nc, fields, items: keep.iter().map(|&k| items[k].clone()).collect() },
+        Value::Func(_) => return Err("a function handle cannot be indexed".into()),
+    })
+}

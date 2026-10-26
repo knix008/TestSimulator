@@ -1,6 +1,6 @@
 //! Reading data files: CSV/TSV/TXT, JSON, STL meshes (text and binary), WAV
-//! sound, Excel workbooks (.xlsx), MATLAB files (.mat, level 5, compressed
-//! or not) and PNG images. Carries its own DEFLATE decoder (zip, zlib) and
+//! sound, Excel workbooks (.xlsx), MATLAB files (.mat: level 5 compressed
+//! or not, and v7.3 HDF5, see matfile.rs) and PNG images. Carries its own DEFLATE decoder (zip, zlib) and
 //! base64 so it works the same in the desktop engine and in WebAssembly.
 
 use crate::data::{parse_csv, Column, Dataset, Grid, Table};
@@ -562,131 +562,11 @@ fn xlsx(bytes: &[u8], sheet: &str, stem: &str) -> Result<Dataset, String> {
     Ok(d)
 }
 
-// ───────────────────────── MATLAB level 5
+// ───────────────────────── MATLAB
 
 fn mat(bytes: &[u8]) -> Result<Dataset, String> {
-    if bytes.len() < 128 {
-        return Err("not a MATLAB file".into());
-    }
-    if bytes[126..128] != *b"IM" {
-        if bytes.starts_with(b"\x89HDF") || bytes[..128].windows(3).any(|w| w == b"7.3") {
-            return Err("MATLAB v7.3 files (HDF5) are not supported; save with -v7".into());
-        }
-        return Err("not a little-endian MATLAB level 5 file".into());
-    }
-    let mut vars: Vec<(String, Vec<usize>, Vec<f64>)> = Vec::new();
-    let mut skipped: Vec<String> = Vec::new();
-    elements_mat(&bytes[128..], &mut vars, &mut skipped)?;
-    let mut d = Dataset::default();
-    let mut vectors = Table::new("variables");
-    let mut longest = 0;
-    for (name, dims, data) in &vars {
-        let (m, n) = (dims.first().copied().unwrap_or(0), dims.get(1).copied().unwrap_or(1));
-        if dims.len() > 2 {
-            skipped.push(format!("{name} ({} dimensions)", dims.len()));
-            continue;
-        }
-        if m * n == 1 {
-            d.scalar(name, data[0], "");
-        } else if m == 1 || n == 1 {
-            longest = longest.max(data.len());
-            vectors.push(Column::new(name, "", data.clone()));
-        } else {
-            // A matrix (column-major): a table of its columns and a grid.
-            let mut t = Table::new(name);
-            for c in 0..n.min(200) {
-                t.push(Column::new(&format!("{name}_{}", c + 1), "", data[c * m..(c + 1) * m].to_vec()));
-            }
-            d.tables.push(t);
-            let z: Vec<f64> = (0..m).flat_map(|r| (0..n).map(move |c| (r, c))).map(|(r, c)| data[c * m + r]).collect();
-            d.grids.push(Grid { name: name.clone(), x: (1..=n).map(|v| v as f64).collect(), y: (1..=m).map(|v| v as f64).collect(), z, x_label: "column".into(), y_label: "row".into(), z_label: name.clone(), x_names: None, y_names: None });
-        }
-    }
-    if !vectors.columns.is_empty() {
-        // Shorter vectors are padded so they share one table.
-        for c in vectors.columns.iter_mut() {
-            c.values.resize(longest, f64::NAN);
-        }
-        d.tables.insert(0, vectors);
-    }
-    if !skipped.is_empty() {
-        d.text = format!("not read: {}", skipped.join(", "));
-    }
-    d.scalar("variables", vars.len() as f64, "");
-    Ok(d)
-}
-
-fn elements_mat(mut b: &[u8], vars: &mut Vec<(String, Vec<usize>, Vec<f64>)>, skipped: &mut Vec<String>) -> Result<(), String> {
-    while b.len() >= 8 {
-        let (ty, size, body, rest) = tag(b)?;
-        match ty {
-            15 => elements_mat(&zlib(body)?, vars, skipped)?,
-            14 => match matrix(body) {
-                Ok(Some(v)) => vars.push(v),
-                Ok(None) => skipped.push("a cell, struct or text variable".into()),
-                Err(e) => return Err(e),
-            },
-            _ => {}
-        }
-        let _ = size;
-        b = rest;
-    }
-    Ok(())
-}
-
-/// A data element: (type, size, body, rest after padding to 8 bytes).
-fn tag(b: &[u8]) -> Result<(u32, usize, &[u8], &[u8]), String> {
-    if b.len() < 8 {
-        return Err("the MATLAB file is cut short".into());
-    }
-    let first = u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
-    if first >> 16 != 0 {
-        // Small element: type and size in one word, data in the next four bytes.
-        let ty = first & 0xffff;
-        let size = (first >> 16) as usize;
-        return Ok((ty, size, &b[4..4 + size.min(4)], &b[8..]));
-    }
-    let size = u32::from_le_bytes([b[4], b[5], b[6], b[7]]) as usize;
-    let body = b.get(8..8 + size).ok_or("the MATLAB file is cut short")?;
-    let padded = if first == 15 { size } else { size.div_ceil(8) * 8 };
-    Ok((first, size, body, b.get(8 + padded..).unwrap_or(&[])))
-}
-
-fn numbers(ty: u32, body: &[u8]) -> Vec<f64> {
-    let chunk = |w: usize| body.chunks_exact(w);
-    match ty {
-        1 => body.iter().map(|&v| v as i8 as f64).collect(),
-        2 => body.iter().map(|&v| v as f64).collect(),
-        3 => chunk(2).map(|c| i16::from_le_bytes([c[0], c[1]]) as f64).collect(),
-        4 => chunk(2).map(|c| u16::from_le_bytes([c[0], c[1]]) as f64).collect(),
-        5 => chunk(4).map(|c| i32::from_le_bytes([c[0], c[1], c[2], c[3]]) as f64).collect(),
-        6 => chunk(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]) as f64).collect(),
-        7 => chunk(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]) as f64).collect(),
-        9 => chunk(8).map(|c| f64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]])).collect(),
-        12 => chunk(8).map(|c| i64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]) as f64).collect(),
-        13 => chunk(8).map(|c| u64::from_le_bytes([c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]]) as f64).collect(),
-        _ => Vec::new(),
-    }
-}
-
-fn matrix(b: &[u8]) -> Result<Option<(String, Vec<usize>, Vec<f64>)>, String> {
-    let (_, _, flags, rest) = tag(b)?;
-    let class = flags.first().copied().unwrap_or(0);
-    let (_, _, dims_b, rest) = tag(rest)?;
-    let dims: Vec<usize> = numbers(5, dims_b).iter().map(|v| *v as usize).collect();
-    let (_, _, name_b, rest) = tag(rest)?;
-    let name = String::from_utf8_lossy(name_b).to_string();
-    // Numeric classes: double 6, single 7, int8 … uint64 8–15; logical arrays are uint8 with a flag.
-    if !(6..=15).contains(&class) {
-        return Ok(None);
-    }
-    let (ty, _, real, _) = tag(rest)?;
-    let data = numbers(ty, real);
-    let count: usize = dims.iter().product();
-    if data.len() < count {
-        return Err(format!("variable {name}: the data is shorter than its size"));
-    }
-    Ok(Some((name, dims, data[..count].to_vec())))
+    let vars = crate::matfile::read(bytes)?;
+    Ok(crate::matfile::to_dataset(&vars))
 }
 
 // ───────────────────────── PNG

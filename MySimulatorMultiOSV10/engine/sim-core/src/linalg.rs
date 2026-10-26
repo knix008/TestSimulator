@@ -350,6 +350,391 @@ pub fn poly_eval(coeffs: &[f64], x: C64) -> C64 {
     coeffs.iter().fold(C64::ZERO, |acc, c| acc * x + C64::new(*c, 0.0))
 }
 
+/// Determinant by LU with partial pivoting.
+pub fn det(a: &Mat) -> f64 {
+    let n = a.len();
+    let mut m = a.clone();
+    let mut d = 1.0;
+    for c in 0..n {
+        let p = (c..n).max_by(|&i, &j| m[i][c].abs().partial_cmp(&m[j][c].abs()).unwrap_or(std::cmp::Ordering::Equal)).unwrap_or(c);
+        if m[p][c] == 0.0 {
+            return 0.0;
+        }
+        if p != c {
+            m.swap(c, p);
+            d = -d;
+        }
+        d *= m[c][c];
+        for r in c + 1..n {
+            let f = m[r][c] / m[c][c];
+            for k in c..n {
+                m[r][k] -= f * m[c][k];
+            }
+        }
+    }
+    d
+}
+
+pub fn add(a: &Mat, b: &Mat, kb: f64) -> Mat {
+    a.iter().zip(b).map(|(ra, rb)| ra.iter().zip(rb).map(|(x, y)| x + kb * y).collect()).collect()
+}
+
+pub fn scale(a: &Mat, k: f64) -> Mat {
+    a.iter().map(|r| r.iter().map(|v| v * k).collect()).collect()
+}
+
+fn norm1(a: &Mat) -> f64 {
+    let cols = a.first().map_or(0, |r| r.len());
+    (0..cols).map(|j| a.iter().map(|r| r[j].abs()).sum::<f64>()).fold(0.0, f64::max)
+}
+
+/// The eigenvalues of a general real matrix: reduction to Hessenberg form
+/// and the shifted QR algorithm (Numerical Recipes' elmhes + hqr).
+pub fn eig_general(a: &Mat) -> Vec<C64> {
+    let n = a.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let mut h = a.clone();
+    // Balance (rows and columns to similar norms).
+    let radix = 2.0f64;
+    let mut done = false;
+    while !done {
+        done = true;
+        for i in 0..n {
+            let (mut r, mut c) = (0.0, 0.0);
+            for j in 0..n {
+                if j != i {
+                    c += h[j][i].abs();
+                    r += h[i][j].abs();
+                }
+            }
+            if c != 0.0 && r != 0.0 {
+                let (mut g, mut f, s) = (r / radix, 1.0, c + r);
+                let mut cc = c;
+                while cc < g {
+                    f *= radix;
+                    cc *= radix * radix;
+                }
+                g = r * radix;
+                while cc > g {
+                    f /= radix;
+                    cc /= radix * radix;
+                }
+                if (cc + r / f) / f < 0.95 * s {
+                    done = false;
+                    for j in 0..n {
+                        h[i][j] /= f;
+                    }
+                    for j in 0..n {
+                        h[j][i] *= f;
+                    }
+                }
+            }
+        }
+    }
+    // Hessenberg by elimination with pivoting.
+    for m in 1..n.saturating_sub(1) {
+        let mut x = 0.0f64;
+        let mut i = m;
+        for j in m..n {
+            if h[j][m - 1].abs() > x.abs() {
+                x = h[j][m - 1];
+                i = j;
+            }
+        }
+        if i != m {
+            h.swap(i, m);
+            for row in h.iter_mut() {
+                row.swap(i, m);
+            }
+        }
+        if x != 0.0 {
+            for i in m + 1..n {
+                let mut y = h[i][m - 1];
+                if y != 0.0 {
+                    y /= x;
+                    h[i][m - 1] = y;
+                    for j in m..n {
+                        h[i][j] -= y * h[m][j];
+                    }
+                    for row in h.iter_mut() {
+                        row[m] += y * row[i];
+                    }
+                }
+            }
+        }
+    }
+    for i in 2..n {
+        for j in 0..i - 1 {
+            h[i][j] = 0.0;
+        }
+    }
+    // hqr
+    let mut wr = vec![0.0; n];
+    let mut wi = vec![0.0; n];
+    let anorm: f64 = (0..n).map(|i| (i.saturating_sub(1)..n).map(|j| h[i][j].abs()).sum::<f64>()).sum();
+    let mut nn = n as isize - 1;
+    let mut t = 0.0;
+    let (mut p, mut q, mut r) = (0.0f64, 0.0f64, 0.0f64);
+    while nn >= 0 {
+        let mut its = 0;
+        loop {
+            let mut l = nn;
+            while l >= 1 {
+                let s = h[l as usize - 1][l as usize - 1].abs() + h[l as usize][l as usize].abs();
+                let s = if s == 0.0 { anorm } else { s };
+                if h[l as usize][l as usize - 1].abs() + s == s {
+                    h[l as usize][l as usize - 1] = 0.0;
+                    break;
+                }
+                l -= 1;
+            }
+            let nu = nn as usize;
+            let x = h[nu][nu];
+            if l == nn {
+                wr[nu] = x + t;
+                wi[nu] = 0.0;
+                nn -= 1;
+                break;
+            }
+            let y = h[nu - 1][nu - 1];
+            let w = h[nu][nu - 1] * h[nu - 1][nu];
+            if l == nn - 1 {
+                p = 0.5 * (y - x);
+                q = p * p + w;
+                let z = q.abs().sqrt();
+                let xx = x + t;
+                if q >= 0.0 {
+                    let z = p + if p >= 0.0 { z } else { -z };
+                    wr[nu - 1] = xx + z;
+                    wr[nu] = if z != 0.0 { xx - w / z } else { xx + z };
+                    wi[nu - 1] = 0.0;
+                    wi[nu] = 0.0;
+                } else {
+                    wr[nu - 1] = xx + p;
+                    wr[nu] = xx + p;
+                    wi[nu - 1] = -z;
+                    wi[nu] = z;
+                }
+                nn -= 2;
+                break;
+            }
+            if its == 60 {
+                // No convergence: fall back to the characteristic polynomial.
+                return poly_roots(&char_poly(a));
+            }
+            let (mut x, mut y, mut w) = (x, y, w);
+            if its == 10 || its == 20 {
+                t += x;
+                for i in 0..=nu {
+                    h[i][i] -= x;
+                }
+                let s = h[nu][nu - 1].abs() + h[nu - 1][nu - 2].abs();
+                x = 0.75 * s;
+                y = x;
+                w = -0.4375 * s * s;
+            }
+            its += 1;
+            let mut m = nn - 2;
+            while m >= l {
+                let mu = m as usize;
+                let z = h[mu][mu];
+                r = x - z;
+                let s = y - z;
+                p = (r * s - w) / h[mu + 1][mu] + h[mu][mu + 1];
+                q = h[mu + 1][mu + 1] - z - r - s;
+                r = h[mu + 2][mu + 1];
+                let s = p.abs() + q.abs() + r.abs();
+                p /= s;
+                q /= s;
+                r /= s;
+                if m == l {
+                    break;
+                }
+                let u = h[mu][mu - 1].abs() * (q.abs() + r.abs());
+                let v = p.abs() * (h[mu - 1][mu - 1].abs() + z.abs() + h[mu + 1][mu + 1].abs());
+                if u + v == v {
+                    break;
+                }
+                m -= 1;
+            }
+            let mu = m as usize;
+            for i in mu + 2..=nu {
+                h[i][i - 2] = 0.0;
+                if i != mu + 2 {
+                    h[i][i - 3] = 0.0;
+                }
+            }
+            let mut k = mu;
+            while k + 1 <= nu {
+                if k != mu {
+                    p = h[k][k - 1];
+                    q = h[k + 1][k - 1];
+                    r = if k + 1 != nu { h[k + 2][k - 1] } else { 0.0 };
+                    x = p.abs() + q.abs() + r.abs();
+                    if x != 0.0 {
+                        p /= x;
+                        q /= x;
+                        r /= x;
+                    }
+                }
+                let s = (p * p + q * q + r * r).sqrt() * if p >= 0.0 { 1.0 } else { -1.0 };
+                if s != 0.0 {
+                    if k == mu {
+                        if l != m {
+                            h[k][k - 1] = -h[k][k - 1];
+                        }
+                    } else {
+                        h[k][k - 1] = -s * x;
+                    }
+                    p += s;
+                    x = p / s;
+                    y = q / s;
+                    let z = r / s;
+                    q /= p;
+                    r /= p;
+                    for j in k..=nu {
+                        let mut pp = h[k][j] + q * h[k + 1][j];
+                        if k + 1 != nu {
+                            pp += r * h[k + 2][j];
+                            h[k + 2][j] -= pp * z;
+                        }
+                        h[k + 1][j] -= pp * y;
+                        h[k][j] -= pp * x;
+                    }
+                    let mmin = if nu < k + 3 { nu } else { k + 3 };
+                    for i in (l as usize)..=mmin {
+                        let mut pp = x * h[i][k] + y * h[i][k + 1];
+                        if k + 1 != nu {
+                            pp += z * h[i][k + 2];
+                            h[i][k + 2] -= pp * r;
+                        }
+                        h[i][k + 1] -= pp * q;
+                        h[i][k] -= pp;
+                    }
+                }
+                k += 1;
+            }
+            if l >= nn - 1 {
+                continue;
+            }
+        }
+    }
+    let mut out: Vec<C64> = wr.iter().zip(&wi).map(|(&re, &im)| C64::new(re, if im.abs() < 1e-12 * re.abs().max(1e-300) { 0.0 } else { im })).collect();
+    out.sort_by(|p, q| p.re.partial_cmp(&q.re).unwrap_or(std::cmp::Ordering::Equal).then(p.im.partial_cmp(&q.im).unwrap_or(std::cmp::Ordering::Equal)));
+    out
+}
+
+/// The matrix exponential e^A (scaling and squaring with a degree-6 Padé approximant).
+pub fn expm(a: &Mat) -> Mat {
+    let n = a.len();
+    let nrm = norm1(a);
+    let s = if nrm > 0.5 { (nrm / 0.5).log2().ceil() as i32 } else { 0 };
+    let a = scale(a, 0.5f64.powi(s));
+    let c = [1.0, 0.5, 5.0 / 44.0, 1.0 / 66.0, 1.0 / 792.0, 1.0 / 15840.0, 1.0 / 665280.0];
+    let mut x = identity(n);
+    let mut nmat = identity(n);
+    let mut dmat = identity(n);
+    for (k, ck) in c.iter().enumerate().skip(1) {
+        x = matmul(&a, &x);
+        nmat = add(&nmat, &x, *ck);
+        dmat = add(&dmat, &x, if k % 2 == 0 { *ck } else { -*ck });
+    }
+    let mut e = match inverse(&dmat) {
+        Ok(inv) => matmul(&inv, &nmat),
+        Err(_) => nmat,
+    };
+    for _ in 0..s {
+        e = matmul(&e, &e);
+    }
+    e
+}
+
+/// The stabilising solution X of the continuous algebraic Riccati equation
+/// AᵀX + XA − XBR⁻¹BᵀX + Q = 0, by the matrix sign function of the Hamiltonian.
+pub fn care(a: &Mat, b: &Mat, q: &Mat, r: &Mat) -> Result<Mat, String> {
+    let n = a.len();
+    let rinv = inverse(r).map_err(|_| "R must be invertible".to_string())?;
+    let g = matmul(&matmul(b, &rinv), &transpose(b));
+    // H = [A, −G; −Q, −Aᵀ]
+    let mut z = zeros(2 * n, 2 * n);
+    let at = transpose(a);
+    for i in 0..n {
+        for j in 0..n {
+            z[i][j] = a[i][j];
+            z[i][j + n] = -g[i][j];
+            z[i + n][j] = -q[i][j];
+            z[i + n][j + n] = -at[i][j];
+        }
+    }
+    for _ in 0..100 {
+        let zi = inverse(&z).map_err(|_| "the Riccati equation has no stabilising solution (the Hamiltonian has eigenvalues on the imaginary axis: check controllability and Q)".to_string())?;
+        let d = det(&z).abs().powf(1.0 / (2 * n) as f64);
+        let c = if d.is_finite() && d > 0.0 { d } else { 1.0 };
+        let next = add(&scale(&z, 0.5 / c), &zi, 0.5 * c);
+        let diff = norm1(&add(&next, &z, -1.0));
+        z = next;
+        if diff <= 1e-13 * norm1(&z) {
+            break;
+        }
+    }
+    // [W12; W22 + I] X = −[W11 + I; W21]  (W = sign(H))
+    let mut lhs = zeros(2 * n, n);
+    let mut rhs = zeros(2 * n, n);
+    for i in 0..n {
+        for j in 0..n {
+            lhs[i][j] = z[i][j + n];
+            lhs[i + n][j] = z[i + n][j + n] + if i == j { 1.0 } else { 0.0 };
+            rhs[i][j] = -(z[i][j] + if i == j { 1.0 } else { 0.0 });
+            rhs[i + n][j] = -z[i + n][j];
+        }
+    }
+    let mut x = zeros(n, n);
+    for j in 0..n {
+        let col: Vec<f64> = rhs.iter().map(|r| r[j]).collect();
+        let (sol, _) = lstsq(&lhs, &col)?;
+        for i in 0..n {
+            x[i][j] = sol[i];
+        }
+    }
+    // Symmetrise.
+    for i in 0..n {
+        for j in i + 1..n {
+            let m = 0.5 * (x[i][j] + x[j][i]);
+            x[i][j] = m;
+            x[j][i] = m;
+        }
+    }
+    Ok(x)
+}
+
+/// The stabilising solution of the discrete algebraic Riccati equation
+/// X = AᵀXA − AᵀXB(R + BᵀXB)⁻¹BᵀXA + Q, by the structure-preserving doubling algorithm.
+pub fn dare(a: &Mat, b: &Mat, q: &Mat, r: &Mat) -> Result<Mat, String> {
+    let n = a.len();
+    let rinv = inverse(r).map_err(|_| "R must be invertible".to_string())?;
+    let mut ak = a.clone();
+    let mut gk = matmul(&matmul(b, &rinv), &transpose(b));
+    let mut hk = q.clone();
+    let i = identity(n);
+    for _ in 0..200 {
+        let w = inverse(&add(&i, &matmul(&gk, &hk), 1.0)).map_err(|_| "the discrete Riccati equation has no stabilising solution".to_string())?;
+        let akw = matmul(&ak, &w);
+        let a_next = matmul(&akw, &ak);
+        let g_next = add(&gk, &matmul(&matmul(&akw, &gk), &transpose(&ak)), 1.0);
+        let h_next = add(&hk, &matmul(&matmul(&transpose(&ak), &hk), &matmul(&w, &ak)), 1.0);
+        let diff = norm1(&add(&h_next, &hk, -1.0));
+        ak = a_next;
+        gk = g_next;
+        hk = h_next;
+        if diff <= 1e-13 * norm1(&hk).max(1e-300) {
+            return Ok(hk);
+        }
+    }
+    Err("the discrete Riccati iteration did not converge".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -379,5 +764,25 @@ mod tests {
         assert!((ev[0].re + 2.0).abs() < 1e-9 && (ev[1].re + 1.0).abs() < 1e-9);
         let cplx = poly_roots(&[1.0, 0.0, 1.0]);
         assert!((cplx[0].im.abs() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn general_eigen_expm_riccati() {
+        let a = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0], vec![7.0, 8.0, 10.0]];
+        let ev = eig_general(&a);
+        let tr: f64 = ev.iter().map(|e| e.re).sum();
+        assert!((tr - 16.0).abs() < 1e-9, "{ev:?}");
+        let prod = ev.iter().fold(C64::ONE, |p, e| p * *e);
+        assert!((prod.re - det(&a)).abs() < 1e-8 && (det(&a) + 3.0).abs() < 1e-9);
+        let rot = eig_general(&vec![vec![0.0, -2.0], vec![2.0, 0.0]]);
+        assert!(rot[0].re.abs() < 1e-12 && (rot[0].im.abs() - 2.0).abs() < 1e-12);
+        let e = expm(&vec![vec![0.0, 1.0], vec![-1.0, 0.0]]);
+        assert!((e[0][0] - 1f64.cos()).abs() < 1e-12 && (e[0][1] - 1f64.sin()).abs() < 1e-12);
+        // Double integrator, Q = I, R = 1: K = [1, √3].
+        let x = care(&vec![vec![0.0, 1.0], vec![0.0, 0.0]], &vec![vec![0.0], vec![1.0]], &identity(2), &vec![vec![1.0]]).unwrap();
+        assert!((x[0][1] - 1.0).abs() < 1e-9 && (x[1][1] - 3f64.sqrt()).abs() < 1e-9, "{x:?}");
+        // Scalar DARE x = a²x − a²x²/(r + x) + q with a = 2, q = r = 1: x = 2 + √5... (x² − 4x − 1 = 0).
+        let xd = dare(&vec![vec![2.0]], &vec![vec![1.0]], &vec![vec![1.0]], &vec![vec![1.0]]).unwrap();
+        assert!((xd[0][0] - (2.0 + 5f64.sqrt())).abs() < 1e-9, "{xd:?}");
     }
 }

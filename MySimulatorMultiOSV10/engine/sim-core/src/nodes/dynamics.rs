@@ -37,10 +37,80 @@ fn options(ctx: &Ctx, default_end: f64, default_dt: f64) -> Result<Options, Stri
     })
 }
 
+/// Replaces every `delay(x, τ)` (or `lag(x, τ)`) in an equation by a slot name
+/// `__lagK`; `found` collects the (state name, τ expression) pairs.
+fn extract_delays(text: &str, found: &mut Vec<(String, String)>) -> Result<String, String> {
+    let mut out = String::new();
+    let mut rest = text;
+    loop {
+        let pos = ["delay(", "lag("]
+            .iter()
+            .filter_map(|k| {
+                let mut from = 0;
+                while let Some(p) = rest[from..].find(k) {
+                    let at = from + p;
+                    let before = rest[..at].chars().last();
+                    if before.is_none_or(|c| !(c.is_alphanumeric() || c == '_')) {
+                        return Some((at, k.len()));
+                    }
+                    from = at + 1;
+                }
+                None
+            })
+            .min();
+        let Some((at, klen)) = pos else {
+            out.push_str(rest);
+            return Ok(out);
+        };
+        out.push_str(&rest[..at]);
+        let body_start = at + klen;
+        let mut depth = 1;
+        let mut end = None;
+        for (i, c) in rest[body_start..].char_indices() {
+            match c {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = Some(body_start + i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let end = end.ok_or_else(|| "a delay( … ) is not closed".to_string())?;
+        let body = &rest[body_start..end];
+        let (state, tau) = body.split_once(',').ok_or_else(|| format!("delay({body}) needs a state and a delay: delay(x, 1)"))?;
+        let key = (state.trim().to_string(), tau.trim().to_string());
+        let k = match found.iter().position(|f| *f == key) {
+            Some(k) => k,
+            None => {
+                found.push(key);
+                found.len() - 1
+            }
+        };
+        out.push_str(&format!("__lag{k}"));
+        rest = &rest[end + 1..];
+    }
+}
+
+/// One event line: "expression[, falling|rising|both][, stop | x = …, v = …]".
+struct EventLine {
+    expr: Expr,
+    direction: i32,
+    terminal: bool,
+    resets: Vec<(usize, Expr)>,
+    text: String,
+}
+
 /// x' = f(t, x, u): "x' = v", "v' = -k/m*x - c/m*v + u/m"; lines without ' are helper values (also output).
+/// delay(x, τ) reads a state τ seconds earlier (delay equations, as dde23); event lines
+/// locate zero crossings and stop the run or reset states (a bouncing ball).
 pub fn ode(ctx: &mut Ctx) -> Result<Dataset, String> {
     let consts = constants(&ctx.str("constants", ""))?;
-    let text = ctx.str("equations", "");
+    let mut lags_found: Vec<(String, String)> = Vec::new();
+    let text = extract_delays(&ctx.str("equations", ""), &mut lags_found)?;
     let mut states: Vec<(String, String)> = Vec::new();
     let mut aux: Vec<(String, String)> = Vec::new();
     for stmt in statements(&text) {
@@ -76,63 +146,187 @@ pub fn ode(ctx: &mut Ctx) -> Result<Dataset, String> {
         }
     }
     let x0: Vec<f64> = states.iter().map(|(s, _)| init.iter().find(|(n, _)| n == s).map(|(_, v)| *v).unwrap_or(0.0)).collect();
-    // Slots: t, u, constants, states, helper values.
+    // The delays: which state and how long (an expression of the constants).
+    let cnames: Vec<String> = consts.iter().map(|(n, _)| n.clone()).collect();
+    let cvals: Vec<f64> = consts.iter().map(|(_, v)| *v).collect();
+    let mut lags = Vec::new();
+    for (state, tau) in &lags_found {
+        let s = states.iter().position(|(n, _)| n == state).ok_or_else(|| format!("delay({state}, …): \"{state}\" is not a state"))?;
+        let lag = Expr::with_names(tau, &cnames).map_err(|e| format!("delay({state}, {tau}): {e}"))?.value(&cvals);
+        lags.push(crate::ode::Lag { state: s, lag });
+    }
+    // Slots: t, u, constants, states, delayed values, helper values.
     let mut names = vec!["t".to_string(), "u".to_string()];
-    names.extend(consts.iter().map(|(n, _)| n.clone()));
+    names.extend(cnames.iter().cloned());
     let s0 = names.len();
     names.extend(states.iter().map(|(n, _)| n.clone()));
+    let l0 = names.len();
+    names.extend((0..lags.len()).map(|k| format!("__lag{k}")));
     let a0 = names.len();
     names.extend(aux.iter().map(|(n, _)| n.clone()));
     let aux_e: Vec<Expr> = aux.iter().map(|(_, src)| Expr::with_names(src, &names)).collect::<Result<_, _>>()?;
     let der_e: Vec<Expr> = states.iter().map(|(_, src)| Expr::with_names(src, &names)).collect::<Result<_, _>>()?;
+    let mut event_lines: Vec<EventLine> = Vec::new();
+    for line in ctx.str("events", "").lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
+        let parts: Vec<&str> = line.split(',').map(str::trim).collect();
+        let expr = Expr::with_names(parts[0], &names).map_err(|e| format!("event \"{line}\": {e}"))?;
+        let mut ev = EventLine { expr, direction: 0, terminal: false, resets: Vec::new(), text: parts[0].to_string() };
+        for part in &parts[1..] {
+            match part.to_ascii_lowercase().as_str() {
+                "falling" | "down" | "-1" => ev.direction = -1,
+                "rising" | "up" | "+1" | "1" => ev.direction = 1,
+                "both" | "0" => ev.direction = 0,
+                "stop" | "terminal" => ev.terminal = true,
+                _ => {
+                    let (lhs, rhs) = part.split_once('=').ok_or_else(|| format!("event \"{line}\": \"{part}\" is not falling, rising, stop or state = value"))?;
+                    let s = states.iter().position(|(n, _)| n == lhs.trim()).ok_or_else(|| format!("event \"{line}\": \"{}\" is not a state", lhs.trim()))?;
+                    ev.resets.push((s, Expr::with_names(rhs, &names).map_err(|e| format!("event \"{line}\": {e}"))?));
+                }
+            }
+        }
+        event_lines.push(ev);
+    }
+    if !lags.is_empty() && !event_lines.is_empty() {
+        return Err("events and delays cannot be used together".into());
+    }
     let u = input_signal(ctx, "u", "uColumn")?;
-    let opt = options(ctx, 10.0, 0.01)?;
+    let mut opt = options(ctx, 10.0, 0.01)?;
     let mut base = vec![0.0; names.len()];
     for (i, (_, v)) in consts.iter().enumerate() {
         base[2 + i] = *v;
     }
     let n = states.len();
-    let eval_into = |t: f64, x: &[f64], vals: &mut Vec<f64>, stack: &mut Vec<f64>| {
+    let nl = lags.len();
+    let eval_into = |t: f64, x: &[f64], z: &[f64], vals: &mut Vec<f64>, stack: &mut Vec<f64>| {
         vals[0] = t;
         vals[1] = match &u {
             Some((ut, uy)) => interp(ut, uy, t),
             None => 0.0,
         };
         vals[s0..s0 + n].copy_from_slice(x);
+        vals[l0..l0 + nl].copy_from_slice(&z[..nl]);
         for (k, e) in aux_e.iter().enumerate() {
             let v = e.eval(vals, stack);
             vals[a0 + k] = v;
         }
     };
-    let mut vals = base.clone();
-    let mut stack = Vec::with_capacity(32);
-    let mut f = |t: f64, x: &[f64], dx: &mut [f64]| {
-        eval_into(t, x, &mut vals, &mut stack);
-        for (k, e) in der_e.iter().enumerate() {
-            dx[k] = e.eval(&vals, &mut stack);
-        }
-    };
     let cancel = ctx.cancel;
-    let mut fraction = 0.0;
-    let sol = integrate(&mut f, &x0, &opt, &|| cancel(), &mut |p| fraction = p)?;
-    let _ = fraction;
-    if let Some(w) = &sol.warning {
+    let mut hits: Vec<(usize, f64, Vec<f64>)> = Vec::new();
+    let mut warning = None;
+    let (mut steps, mut rejected) = (0usize, 0usize);
+    let (mut ts, mut xs): (Vec<f64>, Vec<Vec<f64>>) = (Vec::new(), vec![Vec::new(); n]);
+    let mut zs: Vec<Vec<f64>> = Vec::new();
+    if !lags.is_empty() {
+        if opt.method.adaptive() {
+            ctx.warn("delay equations are integrated with RK4 over the stored history (the adaptive method is not used)");
+        }
+        let mut vals = base.clone();
+        let mut stack = Vec::with_capacity(32);
+        let mut f = |t: f64, x: &[f64], z: &[f64], dx: &mut [f64]| {
+            eval_into(t, x, z, &mut vals, &mut stack);
+            for (k, e) in der_e.iter().enumerate() {
+                dx[k] = e.eval(&vals, &mut stack);
+            }
+        };
+        let sol = crate::ode::integrate_dde(&mut f, &x0, &lags, &opt, &|| cancel())?;
+        // The delayed values on the output grid, for the helper columns.
+        for &t in &sol.t {
+            zs.push(lags.iter().map(|l| if t - l.lag <= sol.t[0] { x0[l.state] } else { interp(&sol.t, &sol.x[l.state], t - l.lag) }).collect());
+        }
+        warning = sol.warning;
+        steps = sol.steps;
+        ts = sol.t;
+        xs = sol.x;
+    } else {
+        // An event with resets restarts the integration there; a stop ends it.
+        let mut x = x0.clone();
+        let t_end = opt.t_end;
+        let mut restarts = 0;
+        loop {
+            let mut vals = base.clone();
+            let mut stack = Vec::with_capacity(32);
+            let mut f = |t: f64, x: &[f64], dx: &mut [f64]| {
+                eval_into(t, x, &[], &mut vals, &mut stack);
+                for (k, e) in der_e.iter().enumerate() {
+                    dx[k] = e.eval(&vals, &mut stack);
+                }
+            };
+            let vals_cell = std::cell::RefCell::new(base.clone());
+            let eval_ref = &eval_into;
+            let mut evs: Vec<crate::ode::Event> = event_lines
+                .iter()
+                .map(|ev| {
+                    let vals_cell = &vals_cell;
+                    crate::ode::Event {
+                        g: Box::new(move |t: f64, x: &[f64]| {
+                            let mut vals = vals_cell.borrow_mut();
+                            let mut stack = Vec::new();
+                            eval_ref(t, x, &[], &mut vals, &mut stack);
+                            ev.expr.eval(&vals, &mut stack)
+                        }),
+                        direction: ev.direction,
+                        terminal: ev.terminal || !ev.resets.is_empty(),
+                    }
+                })
+                .collect();
+            let sol = crate::ode::integrate_events(&mut f, &x, &opt, &mut evs, &|| cancel(), &mut |_| {})?;
+            drop(evs);
+            steps += sol.steps;
+            rejected += sol.rejected;
+            if sol.warning.is_some() {
+                warning = sol.warning.clone();
+            }
+            let skip = if ts.is_empty() { 0 } else { 1 };
+            ts.extend(&sol.t[skip..]);
+            for k in 0..n {
+                xs[k].extend(&sol.x[k][skip..]);
+            }
+            for h in &sol.events {
+                hits.push((h.index, h.t, h.x.clone()));
+            }
+            let Some(last) = sol.events.last() else { break };
+            let ev = &event_lines[last.index];
+            if ev.terminal || ev.resets.is_empty() || last.t >= t_end - 1e-9 * opt.dt {
+                break;
+            }
+            restarts += 1;
+            if restarts > 10_000 {
+                ctx.warn("more than 10 000 event resets: stopped (the events pile up)");
+                break;
+            }
+            x = last.x.clone();
+            let mut vals = base.clone();
+            let mut stack = Vec::new();
+            eval_into(last.t, &x, &[], &mut vals, &mut stack);
+            for (s, e) in &ev.resets {
+                x[*s] = e.eval(&vals, &mut stack);
+            }
+            // The recorded event point becomes the state after the reset.
+            for k in 0..n {
+                *xs[k].last_mut().unwrap() = x[k];
+            }
+            opt.t0 = last.t;
+            opt.dt = opt.dt.min(t_end - opt.t0);
+        }
+    }
+    if let Some(w) = &warning {
         ctx.warn(w.clone());
     }
-    let mut table = Table::new("solution").with_x(Column::new("t", &ctx.str("timeUnit", "s"), sol.t.clone()));
+    let mut table = Table::new("solution").with_x(Column::new("t", &ctx.str("timeUnit", "s"), ts.clone()));
     for (k, (name, _)) in states.iter().enumerate() {
-        table.push(Column::new(name, "", sol.x[k].clone()));
+        table.push(Column::new(name, "", xs[k].clone()));
     }
     if !aux.is_empty() {
         let mut vals = base.clone();
         let mut stack = Vec::new();
-        let mut cols: Vec<Vec<f64>> = vec![Vec::with_capacity(sol.t.len()); aux.len()];
+        let mut cols: Vec<Vec<f64>> = vec![Vec::with_capacity(ts.len()); aux.len()];
         let mut x = vec![0.0; n];
-        for (i, &t) in sol.t.iter().enumerate() {
+        let zero = vec![0.0; nl];
+        for (i, &t) in ts.iter().enumerate() {
             for k in 0..n {
-                x[k] = sol.x[k][i];
+                x[k] = xs[k][i];
             }
-            eval_into(t, &x, &mut vals, &mut stack);
+            eval_into(t, &x, zs.get(i).unwrap_or(&zero), &mut vals, &mut stack);
             for k in 0..aux.len() {
                 cols[k].push(vals[a0 + k]);
             }
@@ -142,10 +336,23 @@ pub fn ode(ctx: &mut Ctx) -> Result<Dataset, String> {
         }
     }
     let mut out = Dataset::table(table);
-    for (k, (name, _)) in states.iter().enumerate() {
-        out.scalar(&format!("{name} (end)"), *sol.x[k].last().unwrap_or(&f64::NAN), "");
+    if !event_lines.is_empty() {
+        let mut et = Table::new("events");
+        et.push(Column::text("event", hits.iter().map(|h| event_lines[h.0].text.clone()).collect()));
+        et.push(Column::new("t", "s", hits.iter().map(|h| h.1).collect()));
+        for (k, (name, _)) in states.iter().enumerate() {
+            et.push(Column::new(name, "", hits.iter().map(|h| h.2[k]).collect()));
+        }
+        out.tables.push(et);
+        out.scalar("events", hits.len() as f64, "");
+        if let Some(h) = hits.first() {
+            out.scalar("first event time", h.1, "s");
+        }
     }
-    out.scalar("steps", sol.steps as f64, "").scalar("rejected steps", sol.rejected as f64, "");
+    for (k, (name, _)) in states.iter().enumerate() {
+        out.scalar(&format!("{name} (end)"), *xs[k].last().unwrap_or(&f64::NAN), "");
+    }
+    out.scalar("steps", steps as f64, "").scalar("rejected steps", rejected as f64, "");
     Ok(out)
 }
 
@@ -291,7 +498,7 @@ fn add_step_scalars(out: &mut Dataset, info: &StepInfo) {
         .scalar("final value", info.final_value, "");
 }
 
-fn roots_table(name: &str, label: &str, roots: &[C64]) -> Table {
+pub fn roots_table(name: &str, label: &str, roots: &[C64]) -> Table {
     let mut t = Table::new(name);
     t.push(Column::text(label, (1..=roots.len()).map(|i| format!("{label} {i}")).collect()));
     t.push(Column::new("real", "", roots.iter().map(|r| r.re).collect()));
