@@ -171,7 +171,7 @@ MyCodeChecker는 내 컴퓨터에서 돌아가는 **코드 품질 · 보안 작�
   | 기본 | 새 프로젝트(프로젝트 파일 .mccp 를 만들고 분석) · 폴더 열기 · 샘플 프로젝트 |
   | 코드 품질 | Java · Kotlin · JavaScript · TypeScript · Python · C# |
   | 보안 약점·규정 | 행안부 49 점검 · MISRA C/C++ · CERT · AUTOSAR |
-  | 정밀 결함 분석 | C/C++ 빌드 캡처 (cov) · 데스크톱 분석 |
+  | 정밀 결함 분석 | C/C++ 빌드 캡처 · 데스크톱 분석 |
   | 웹·공급망 | DAST 웹 스캔 · SCA 의존성 · SBOM |
   | 서버·CI | 서버 업로드 · 예약 분석 |
 

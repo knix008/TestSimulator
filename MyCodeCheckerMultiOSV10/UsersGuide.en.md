@@ -171,7 +171,7 @@ The **Home** tab shown when the program opens (open it any time with **Start** i
   | Basic | New project (create a .mccp project file and analyze) · Open folder · Sample project |
   | Code quality | Java · Kotlin · JavaScript · TypeScript · Python · C# |
   | Security weakness & rules | MOIS 49 checks · MISRA C/C++ · CERT · AUTOSAR |
-  | Defect Analysis | C/C++ build capture (cov) · Desktop analysis |
+  | Defect Analysis | C/C++ build capture · Desktop analysis |
   | Web & supply chain | DAST web scan · SCA dependencies · SBOM |
   | Server & CI | Server upload · Scheduled analysis |
 
