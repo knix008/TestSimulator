@@ -1,6 +1,6 @@
 # MyCodeChecker User's Guide
 
-MyCodeChecker is a **code quality and security workbench** that runs on your own computer. Open a source folder and analyze it to see bugs, vulnerabilities, code smells and security hotspots, duplications, coverage, ratings and the quality gate (code quality); follow C/C++ defects along their paths (defect analysis); and manage compliance with the Korean MOIS security weakness guide, MISRA, CERT and other standards, with an exception approval workflow (security weakness).
+MyCodeChecker is a **code quality and security workbench** that runs on your own computer. Open a source folder and analyze it to see bugs, vulnerabilities, code smells and security hotspots, duplications, coverage, ratings and the quality gate (Code Quality); follow C/C++ defects along their paths (Defect Analysis); and manage compliance with the Korean MOIS security weakness guide, MISRA, CERT and other standards, with an exception approval workflow (Security Weakness).
 
 The analysis runs in the program's own Node.js engine. The desktop program (Windows, macOS, Linux) and the web version use the same engine and the same screens. Source code does not leave the computer during an analysis. Only two features send anything out, and only when you turn them on: **AI CodeFix** and **Check online (OSV.dev)**.
 
@@ -11,7 +11,7 @@ The analysis runs in the program's own Node.js engine. The desktop program (Wind
 | Code quality | 4161 rules in 38 languages; bugs, vulnerabilities, code smells, security hotspots; A–E ratings; technical debt | code quality |
 | Quality management | Quality gates, quality profiles (inheritance, compare, backup), new code, branches and pull requests, portfolios | code quality |
 | Measures | Coverage (lcov, Cobertura, JaCoCo, Clover, OpenCover, Go, generic XML), duplications, complexity, test results | code quality |
-| C/C++ defects | Path-sensitive checkers (null dereference, use after free, resource leak, overrun …), CIDs, streams and snapshots, triage, components, policies, function models, `cov` command line | Defect Analysis |
+| C/C++ defects | Path-sensitive checkers (null dereference, use after free, resource leak, overrun …), CIDs, streams and snapshots, triage, components, policies, function models, command line (`npm run defects`) | Defect Analysis |
 | Security weaknesses | MOIS 2021 (49 items), critical information infrastructure, OWASP, CWE Top 25, PCI DSS, ASVS, STIG | Security Weakness, code quality |
 | Coding standards | MISRA C:2012/2023 and C++:2023, CERT C/C++, AUTOSAR C++14, MISRA C:2004 and C++:2008, HIS metrics | Security Weakness, Defect Analysis, Polyspace |
 | Exceptions | False positive / accept only through request → approve / reject | Security Weakness |
@@ -19,10 +19,10 @@ The analysis runs in the program's own Node.js engine. The desktop program (Wind
 | Dependencies (SCA) | Vulnerable packages, reachability, snippet and binary identification, licenses, SBOM | Black Duck |
 | Web scanning (DAST) | Passive and active checks of a running web app | OWASP ZAP |
 | Reports | HTML, CSV, Word, Excel, PDF, regulatory ZIP | all |
-| Collaboration | Users, permissions, tokens, LDAP, mail notifications, Jira / Redmine / GitHub / GitLab tickets, PR decoration, webhooks, scheduled analyses, audit log | code quality, defect-analysis servers |
+| Collaboration | Users, permissions, tokens, LDAP, mail notifications, Jira / Redmine / GitHub / GitLab tickets, PR decoration, webhooks, scheduled analyses, audit log | Code Quality, Defect Analysis servers |
 | AI | Ask an LLM for a fix of one issue, review it as a diff, apply it | AI CodeFix |
 | Data | Export results to SQLite, PostgreSQL, MySQL/MariaDB or SQL Server | — |
-| Workspace | Project files (.mccp), tabs, panels that fold and turn off, 40 themes plus your own, 20 animated Start page backgrounds, a tutorial, the user's guide inside the app | the same screens as MyHeatManager and MyCAD |
+| Workspace | Project files (.mccp), undo / redo, save prompt on exit, analysis progress window, tabs, panels that fold and turn off, 40 themes plus your own, 20 animated Start page backgrounds, a tutorial, the user's guide inside the app | the same screens as MyHeatManager and MyCAD |
 
 ## Installation
 
@@ -45,7 +45,7 @@ When the program first loads its workspace it looks for the external programs so
 | Program | Kind | Used for | Without it |
 |---|---|---|---|
 | Git | Recommended | SCM new code, automatic author assignment, pull request analysis, desktop analysis | New code is decided against the previous analysis; author assignment and PR analysis are off |
-| C/C++ compiler (LLVM / Clang) | Optional | C/C++ build capture (`cov build`) | C/C++ can still be analyzed without a build (buildless) |
+| C/C++ compiler (LLVM / Clang) | Optional | C/C++ build capture (`npm run defects -- build`) | C/C++ can still be analyzed without a build (buildless) |
 
 For each tool choose **Install**, **Later** (asked again at the next start) or **Don't ask again**. **Command to run** and **Copy command** let you run the package manager command (winget, scoop, Homebrew, apt, dnf, pacman, zypper) yourself. Without a usable package manager, **Download page** opens the vendor's page. The same list is in **Administration › Required software**; turn off **Check at start** to stop the question at start.
 
@@ -56,8 +56,8 @@ To use it in a browser, run `npm run web` in the source folder and open http://1
 ## Screen layout
 
 ```text
-┌ Menu bar: Start · File · Issues · Quality · View · Tools · Help ──────── theme · language (flag) · window buttons ┐
-├ Toolbar: Open · Analyze · Desktop | Overview · Issues · Hotspots · Code · Gates | Branch ── Nav · Bottom · Details ┤
+┌ Menu bar: Start · File · Edit · Issues · Quality · View · Tools · Help ── theme · language (flag) · window buttons ┐
+├ Toolbar: Open · Analyze · Desktop | Undo · Redo | Overview · Issues · Hotspots · Code · Gates | Branch ── Nav · Bottom · Details ┤
 │ Left panel   │ Tab strip: [Home] [Overview ×] [Issues ×] …           < > ⌄ │ Right panel        │
 │ (navigation) │ Centre: the current tab's view (lists, tables, graphs)     │ (details)          │
 │              ├────────────────────────────────────────────────────────────┤                    │
@@ -70,7 +70,8 @@ To use it in a browser, run `npm run web` in the source folder and open http://1
 | Menu | Items |
 |---|---|
 | Start | Opens the Start page (the Home tab) |
-| File | New project… (Ctrl+N) · Open project… (Ctrl+Shift+O) · Save project (Ctrl+S) · Save project as… (Ctrl+Shift+S) · Recent projects › 1.–10. · Clear the list · Open folder… (Ctrl+O) · Sample project · Reports… · Export JSON · Export SARIF · HTML report · Export CSV · Quality gate badge · Defect CSV · Quit |
+| File | New project… (Ctrl+N) · Open project… (Ctrl+Shift+O) · Save project (Ctrl+S) · Save project as… (Ctrl+Shift+S) · Delete project · Recent projects › 1.–10. · Clear the list · Open folder… (Ctrl+O) · Sample project · Reports… · Export JSON · Export SARIF · HTML report · Export CSV · Quality gate badge · Defect CSV · Quit |
+| Edit | Undo (Ctrl+Z) · Redo (Ctrl+Y · Ctrl+Shift+Z) — the items carry the name of the action (for example "Undo: Project settings") |
 | Issues | All · Bugs · Vulnerabilities · Code smells · Security hotspots · Exception approval |
 | Quality | Rules · Quality profiles · Quality gates · Portfolios · Security reports · MISRA compliance |
 | View | Overview · Measures · Code · Duplications · Architecture · HIS metrics · Activity · Defects · Streams · Background tasks · Dependencies · Snapshots · Pull request analysis · Web scan (DAST) · Left panel (navigation) · Right panel (details) · Bottom panel (problems, log, jobs, output) |
@@ -86,11 +87,12 @@ Buttons with an icon and a label (when the window is narrow the labels hide and 
 | Group | Buttons |
 |---|---|
 | Analysis | **Open** (open folder, Ctrl+O) · **Analyze** (commit defects, Ctrl+Enter) · **Desktop** (desktop analysis — leaves the stream alone) |
+| Edit | **Undo** · **Redo** — hover to see the name of the action they undo (redo); greyed out when there is nothing to do ([Undo and redo](#undo-and-redo)) |
 | Views | **Overview** · **Issues** · **Hotspots** · **Code** · **Gates** |
 | Branch | the **Branch** field — type or pick a name to see that branch's results and to analyze under that name |
 | Panels | **Nav** · **Bottom** · **Details** — turn the left, bottom and right panels on or off (an active button looks pressed) |
 
-While an analysis runs, "Analyzing…" spins.
+While an analysis runs, "Analyzing…" spins. An analysis that takes more than about a second also opens the [analysis progress window](#analysis-progress-window).
 
 ### Tabs
 
@@ -100,6 +102,8 @@ The centre area works with tabs. **Home** (the Start page) is pinned first; ever
 - Right-click a tab: **Close tab** · **Close other tabs** · **Close tabs to the right** · **Close all tabs**.
 - When the tabs overflow, **<** **>** (click = one tab, hold = repeat) and **⌄** (list all open tabs) appear.
 - Ctrl+Tab / Ctrl+Shift+Tab go to the next / previous tab; Ctrl+W closes the current tab.
+
+List views (issues, rules, dependencies, web scan findings, scheduled analyses and more) keep the title, filters and column headings in place; **only the rows scroll**. In a very small window, where the headings alone would fill it, the whole view scrolls.
 
 ### Panels
 
@@ -117,13 +121,50 @@ Each panel's **Fold** button folds it to a **strip with only its icon and title*
 
 The open project's name and path, the last message (for example "Quality gate passed."), the number of files, lines of code and the quality gate result. Drag the grip at the bottom right to resize the window.
 
+### Undo and redo
+
+**Edit › Undo** (Ctrl+Z) takes back the last change and **Redo** (Ctrl+Y or Ctrl+Shift+Z) does it again. Hover the same buttons in the toolbar to see the action, for example "Undo: Quality gate change"; afterwards "Undone: …" shows briefly. What can be undone:
+
+- issue status, resolution, assignee and tag changes (one issue, or many at once with **Apply to selected**)
+- edits of quality gates, quality profiles, portfolios, Defect Analysis policies and custom rules
+- project settings (the values in Administration › Analysis settings, the project name …)
+- panels turned on/off or folded, and the Start page card layout (move, resize, auto arrange)
+- **AI CodeFix apply** — undo puts the file back as it was before the fix; if the file changed again after the fix, it is not touched and you are told why
+
+A new action clears the redo side; opening another project clears both (up to the last 100 actions are kept).
+
+### Analysis progress window
+
+An analysis that takes more than about a second opens the **Analysing** window.
+
+- **Phase** — Collecting files → Running rules → Running engine: {engine} → Finishing
+- the file being read or the engine running, a percentage bar, **Elapsed** and **Remaining** time
+- **Cancel** — asks "Stop the running analysis?" and then stops it. Nothing from a cancelled analysis is saved, and Background tasks records it as **Canceled** (CANCELED), not as a failure (FAILED).
+
+Starting another analysis of a project that is already being analyzed does not start a second one; it attaches to the running one ("This project is already being analyzed; attached to that analysis."). You can keep triaging issues (status, assignee, comments) and changing settings while it runs: those changes are kept when the analysis saves its result.
+
+### Error messages
+
+Errors are shown in the UI language (Korean / English), with a code where it helps.
+
+| Code | Meaning |
+|---|---|
+| NOT_FOUND | The project, issue, user … was not found; it may have been removed or changed |
+| BAD_REQUEST | An invalid value (path, cron expression, password length …) |
+| CONFLICT | The item already exists, or the change conflicts with another one |
+| APPROVAL_REQUIRED | False positive / accept needs an approved exception request |
+| LAST_ADMIN | The last active administrator cannot be removed or deactivated |
+| FORBIDDEN · UNAUTHORIZED | No permission · sign-in needed |
+| TOO_MANY | Too many failed sign-ins; the login is locked for a while |
+| CANCELLED | The analysis was cancelled |
+
 ## Start page
 
 The **Home** tab shown when the program opens (open it any time with **Start** in the menu bar). Cards sit on an animated background.
 
 - **Hero card** — program icon, name and version, a one-line introduction, and **User's guide**, **Tutorial document** and **Start the tutorial** buttons.
 - **Banner** — "New here? The tutorial drives the real screens and walks you from opening a folder through analysis, issue handling and reports." with a **Start** button. Once closed it stays hidden (bring it back with **Settings › Advanced › Tutorial banner › Show it on the start page again**).
-- **New analysis** — shortcut tiles by category.
+- **New analysis** — shortcut tiles by category. The action buttons (**New project…**, **Open project…**, **Open…**, **Start from the sample**, **Import results**) sit at the top of the card, the tiles below them.
 
   | Group | Tiles |
   |---|---|
@@ -134,12 +175,14 @@ The **Home** tab shown when the program opens (open it any time with **Start** i
   | Web & supply chain | DAST web scan · SCA dependencies · SBOM |
   | Server & CI | Server upload · Scheduled analysis |
 
+  The **Code quality** language tiles pick a folder, analyze it and then open **Issues** filtered by that language (for example only Java · Kotlin issues). The **Security weakness & rules** tiles open that standard: MOIS 49 checks → Security reports (MOIS 2021), MISRA C/C++ → MISRA compliance (MISRA C:2012), CERT → Security reports (CERT C), AUTOSAR → MISRA compliance (MISRA C++:2023).
+
 - **Recent projects** — the last 10 projects opened (folders and .mccp files) with their last quality gate. Click to open. Each row has **×** (Remove from the list) and the card has **Clear all** (projects and their analyses are kept). Missing files show "Not found".
 - **Background** — kind, shuffle, speed, transparency.
 - **Help** — user's guide, tutorial, keyboard shortcuts.
 - **Samples** — the bundled examples (see [Samples](#samples)); **Open** analyzes one right away.
 
-**Moving and resizing cards** — drag the **⠿** handle in a card's header to reorder, drag its bottom-right corner to change width (1–3 columns) and height; double-click the corner for automatic height. **Reset card layout** (Settings › Start page) restores the original arrangement. The layout is saved.
+**Moving and resizing cards** — drag the **⠿** handle in a card's header to reorder, drag its bottom-right corner to change width (1–3 columns) and height; double-click the corner for automatic height. When you move or resize a card, the cards below it move up to fill the gap. **Auto arrange** re-packs the cards evenly over three columns at their content height (and can be undone). **Reset card layout** (Settings › Start page) restores the original arrangement. The layout is saved.
 
 **Animated background** — 20 kinds on the theme of code analysis: particles, code rain, binary, scan line, bug hunt, dependencies, call pulse, AST tree, control flow, data flow, radar, hex grid, circuit, constellation, gate lights, commits, terminal, spectrum, heat map and brackets. Colours follow the theme; the animation pauses while the window is hidden.
 
@@ -151,10 +194,15 @@ Turn off **Always show the Start screen on launch** (Settings › General) to st
 
 You can analyze a folder as is, but a **project file** (`*.mccp`) keeps the source folder and the project settings in one file you can share with the team (commit it next to the code). On the desktop, double-clicking a `.mccp` file opens it in MyCodeChecker (it has its own file icon).
 
-- **File › New project…** (Ctrl+N) — name (e.g. Payment server), **Source folder** (Browse…), **Project file** (default `<source folder>\<key>.mccp`), and under **More settings**: main branch, description, exclusion patterns. Turn on **Analyze right after creating** and press **Create**. If a file of that name exists you are asked to **Overwrite**. Other settings (include directories, defines, coverage …) are changed in Administration › Analysis settings and written to the file with **Save project**.
+- **File › New project…** (Ctrl+N) — name (e.g. Payment server), **Source folder** (Browse…), **Project file** (default `<source folder>\<key>.mccp`), and under **More settings**: main branch, description, exclusion patterns. Turn on **Analyze right after creating** and press **Create**. If a file of that name exists you are asked to **Overwrite**. If the source folder is already registered as a project, you are told "This folder is already registered as the project '…'. Replace it?" and choose **Replace** (use the new settings), **Open existing project** or **Cancel**. Other settings (include directories, defines, coverage …) are changed in Administration › Analysis settings and written to the file with **Save project**.
 - **File › Open project…** (Ctrl+Shift+O) — type the path of a `.mccp` file or pick one from **Recent project files**.
-- **File › Save project** (Ctrl+S) / **Save project as…** (Ctrl+Shift+S) — write the current project settings to the file.
+- **File › Save project** (Ctrl+S) / **Save project as…** (Ctrl+Shift+S) — write the current project settings to the file. Saving over an existing `.mccp` that this project was not opened from asks first: **Replace**, **Save elsewhere…** or **Cancel**.
+- **File › Delete project** (or **Delete project** in **Administration**) — after a confirmation, removes the project and its analyses from the workspace. **The source folder and the .mccp file are not deleted**, so you can open it again later.
 - **File › Recent projects** — numbers 1–10 and **Clear the list**.
+
+**Unsaved changes** — when the project settings or an open editor (the settings window, rule / gate / profile editors, the new-project dialog) have unsaved changes, the title shows a **●** (hover: "There are unsaved changes"). Closing the window or **Quit** lists what changed and asks **Save**, **Don't Save** or **Cancel**.
+
+**Files from older versions** — workspaces (`workspace.json`) and project files written by older versions are converted to the current format automatically on first open. The triage of issues and defects (status, classification, assignee, comments) is kept.
 
 The file is JSON: `name`, `key`, `source` (relative to the project file, so it keeps working when the folder moves) and `settings` (`mainBranch`, `exclusions`, `includeDirs`, `defines`, `coverageReports`, `arch`, `newCode`, `profiles`, `gateId`, `policyId`, `description` …). Analysis results and issue states stay in the workspace, not in the file.
 
@@ -194,10 +242,10 @@ node scripts/defect-cli.mjs format-errors --dir samples/cpp-sensor/.mcc
 ## First analysis
 
 1. **Open folder…** (Ctrl+O, toolbar **Open**) and pick the source folder. To keep the settings in a file, create a [project file](#project-files-mccp) with **New project…** (Ctrl+N). The desktop shows a folder picker; the web version shows a **Folder path** box (type the full path and press Enter). To practise, use **Sample project**.
-2. The analysis starts at once; progress shows in **Jobs** and the result in **Analysis log** in the bottom panel. When it is done, **Overview** opens and the status bar shows the gate.
+2. The analysis starts at once; progress shows in the [analysis progress window](#analysis-progress-window) and in **Jobs** and the result in **Analysis log** in the bottom panel. When it is done, **Overview** opens and the status bar shows the gate.
 3. After changing code, press **Analyze** (Ctrl+Enter) in the toolbar again. To see only new defects without changing the stream, press **Desktop**. From the second analysis on, results for **new code** compared with the previous analysis show separately.
 
-Left out of the analysis: folders such as `node_modules`, `.git`, `dist`, `build`, `target`, `vendor`, `bin`, `obj`, `coverage` and `.mcc`; files that match the **Exclusion patterns** setting; files over 800 KB; binary files. A line containing `NOMCC`, `noqa`, `nolint`, `mcc-ignore`, `cov-ignore`, `parasoft-suppress` or `mcc-ignore` reports no issues. In C/C++, a `// mcc[CHECKER]` comment turns off only that checker on its line (or, on a comment-only line, the next code line).
+Left out of the analysis: folders such as `node_modules`, `.git`, `dist`, `build`, `target`, `vendor`, `bin`, `obj`, `coverage` and `.mcc`; files that match the **Exclusion patterns** setting; files over 800 KB; binary files. A line containing `NOMCC`, `noqa`, `nolint`, `mcc-ignore`, `cov-ignore` or `parasoft-suppress` reports no issues. In C/C++, a `// mcc[CHECKER]` comment turns off only that checker on its line (or, on a comment-only line, the next code line).
 
 ## Views
 
@@ -259,7 +307,7 @@ Click an issue and the right **Details** panel shows:
 - **Create ticket** — pick a configured tracker (Jira, Redmine, GitHub, GitLab); the ticket is attached as the **External reference**
 - **Suggest a fix with AI** — see [AI CodeFix](#ai-codefix)
 
-To work on several issues, press **Select**, tick them and use **Apply to selected** to change status or assignee at once.
+To work on several issues, press **Select**, tick them and use **Apply to selected** to change status or assignee at once. Marking several issues as **False positive** or **Accept** at once asks first ("Close the {n} selected issues as false positives?"). Status, assignee and tag changes, single or bulk, can be taken back with **Edit › Undo**.
 
 Issue statuses: Open, Confirmed, Reopened, Resolved (Fixed, False positive, Won't fix), Accepted, Closed. When the same issue (same rule, file and line content) shows up in the next analysis, its status, comments and assignee carry over.
 
@@ -300,11 +348,11 @@ Map path patterns (globs) to component names and owners (for example `src/net/**
 
 #### Policies
 
-The default policy "Defect Analysis default" fails a commit when any **new high-impact defect** (security included) appeared after the baseline snapshot. **Assign to this project** attaches it to the project. When the policy fails, the status bar says "Defect Analysis policy failed." and `cov commit-defects` exits with code 1.
+The default policy "Defect Analysis default" fails a commit when any **new high-impact defect** (security included) appeared after the baseline snapshot. **Assign to this project** attaches it to the project. When the policy fails, the status bar says "Defect Analysis policy failed." and `npm run defects -- commit-defects` exits with code 1.
 
 #### Function models
 
-Tell the analyzer how library functions behave to find more defects. Add a function name pattern and its kind (**allocator**, **sink** — dangerous use, **source** — external input). `cov make-library` builds them from C stubs.
+Tell the analyzer how library functions behave to find more defects. Add a function name pattern and its kind (**allocator**, **sink** — dangerous use, **source** — external input). `npm run defects -- make-library` builds them from C stubs.
 
 ### Security & compliance
 
@@ -351,6 +399,8 @@ Scans a running web application over HTTP. **Use it only on targets you own or a
 3. **Start scan** — progress (phase, requests, pages, findings) shows; **Cancel** stops it.
 4. Pick a result in **Scan history** to list its findings; click a finding for the parameter, evidence, **Request** and **Response**. **Save SARIF** exports it.
 
+With permission checks on, users with the **Execute analysis** permission can read the scan results too. Scheduling an active scan in [Scheduled analysis](#scheduled-analysis) asks the same "I am authorized" question.
+
 ### Administration
 
 #### Rules
@@ -391,7 +441,7 @@ Groups of projects seen together. Type a name, **Create portfolio**, and **Choos
 
 #### Background tasks
 
-Every analysis is a task (the last 100): time, project, branch, status (SUCCESS, FAILED), quality gate, Defect Analysis policy, duration and warnings (for example `DB: …`). Analyses sent by the CI scanner or the API show here too.
+Every analysis is a task (the last 100): time, project, branch, status (SUCCESS, FAILED, CANCELED — cancelled in the progress window), quality gate, Defect Analysis policy, duration and warnings (for example `DB: …`). Analyses sent by the CI scanner or the API show here too.
 
 #### Administration (tabs)
 
@@ -399,7 +449,7 @@ Every analysis is a task (the last 100): time, project, branch, status (SUCCESS,
 |---|---|
 | Webhooks | POSTs compatible JSON to a URL when an analysis finishes or the gate changes. **Add webhook** → name, URL, scope (all projects or one), events (Analysis done, Gate changed), secret (HMAC), enabled. **Deliveries** shows response codes and bodies |
 | Users & permissions | Permission checks, users, groups, global and project permissions, tokens ([below](#users-and-permissions)) |
-| External issues | Adds another tool's results to the current analysis: SARIF, generic issue JSON, defect JSON, cppcheck, clang-tidy, ESLint, Pylint, Checkstyle, SpotBugs, PMD, gosec, Bandit, Semgrep. **Open file…** or paste → **Format** (auto-detect) → **Import**. A new import replaces the previous one of the same engine |
+| External issues | Adds another tool's results to the current analysis: SARIF, generic issue JSON, defect JSON, cppcheck, clang-tidy, ESLint, Pylint, Checkstyle, SpotBugs, PMD, gosec, Bandit, Semgrep. **Open file…** or paste → **Format** (auto-detect) → **Import**. A new import replaces the previous one of the same engine. Imported issues survive re-analysis |
 | Test reports | JUnit XML or generic test execution XML. Tests, failures, errors, skipped, execution time and success % join the measures from the next analysis |
 | Analysis settings | New code, exception approval, licenses, C/C++, coverage, architecture, housekeeping ([below](#analysis-settings)) |
 | Scheduled analysis | Code analyses or web scans at set times ([below](#scheduled-analysis)) |
@@ -416,13 +466,13 @@ Every analysis is a task (the last 100): time, project, branch, status (SUCCESS,
 - **C/C++ settings** — target data model (LP64, ILP32, LLP64), include directories, defines (NAME or NAME=value).
 - **Coverage reports** — report paths (relative to the project, one per line). Empty means the usual places such as `coverage/lcov.info`, `cobertura.xml`, `jacoco.xml`, `clover.xml`, `opencover.xml`.
 - **Architecture rules** — layers (name + path pattern), forbidden dependencies (this layer → must not use this layer, message), max dependencies per module, unstable dependency warning. Only project administrators change them.
-- **Housekeeping** — days to keep inactive branches, closed issue states and the audit log (0 = keep), **Clean up now**.
+- **Housekeeping** — days to keep inactive branches, closed issue states and the audit log (0 = keep), **Clean up now**. Before deleting it shows what will go (for example "audit entries older than 30 days") and asks to confirm.
 
 **Save** says "They apply from the next analysis." **Reset** returns to the saved values.
 
 ##### Scheduled analysis
 
-**New schedule** → name (e.g. Nightly full analysis), **Kind** (Code analysis / Web scan (DAST)), project (or **A folder path instead of a project**), branch, for DAST the target and scan mode, **When** (Every day at 02:00, Weekdays at 09:00, Sundays at 03:00, Every hour, Custom (cron)), **Schedule on**. A cron expression is "minute hour day month weekday" (for example `*/30 8-18 * * 1-5` runs every 30 minutes from 8 to 18 on weekdays). **Next 5 runs** previews it. The list shows next run, last run and result, with **Run now**, edit and delete. Schedules run while the program (or the web server) is running; it checks every 30 seconds.
+**New schedule** → name (e.g. Nightly full analysis), **Kind** (Code analysis / Web scan (DAST)), project (or **A folder path instead of a project**), branch, for DAST the target and scan mode, **When** (Every day at 02:00, Weekdays at 09:00, Sundays at 03:00, Every hour, Custom (cron)), **Schedule on**. A cron expression is "minute hour day month weekday" (for example `*/30 8-18 * * 1-5` runs every 30 minutes from 8 to 18 on weekdays). **Next 5 runs** previews it. The list shows next run, last run and result, with **Run now**, edit and delete. Schedules run while the program (or the web server) is running; it checks every 30 seconds. Scheduling a web scan in **active** mode asks the same "I am authorized" question as the Web scan view.
 
 ##### Integrations
 
@@ -440,12 +490,24 @@ Secrets (passwords, tokens, keys) are never shown again after saving ("A value i
 At first **Permission checks are off (local single user)**. For a shared server:
 
 1. Set a password (8 characters or more) for the `admin` user first.
-2. Turn on **Permission checks**. From then on the screen shows the **MyCodeChecker sign-in** and the API requires a login or a token.
+2. Turn on **Permission checks**. Before it turns on, it names the administrator accounts to sign in with and asks you to confirm (it stays off while no active administrator has a password). From then on the screen shows the **MyCodeChecker sign-in** and the API requires a login or a token. The sign-in screen has its own language switch, and the language you pick stays after signing in.
 3. **Add user** (login, name, email, password), **Add group** (built-in groups administrators and users), **Add member**.
 4. **Global permissions**: Administer, Administer quality gates, Administer quality profiles, Execute analysis, Create projects. **Project permissions**: Browse, See source code, Administer issues, Administer security hotspots, Administer, Execute analysis. **Grant** gives them to a user or group (grantee).
-5. **Tokens** — **Generate token**: a user token (`mcu_…`, the user's permissions), a project analysis token (`mcp_…`, analysis of that project only) or a global analysis token (`mca_…`, any analysis). **The token is shown only once.** See created and last used, and **Revoke**.
+5. **Tokens** — **Generate token**: a user token (`mcu_…`, the user's permissions), a project analysis token (`mcp_…`, analysis of that project only) or a global analysis token (`mca_…`, any analysis). **The token is shown only once.** **Upload an analysis with this token** in the token dialog gives a command to copy and a `mcc-project.properties` sample.
+
+   ```bash
+   node scripts/scan.mjs --path <source> --server <url> --token <token> --project-key <key>
+   ```
+
+   The desktop app's built-in server uses a random port each time, so CI uploads need a shared server (`npm run web:serve` or the web version). See created and last used, and **Revoke**.
 
 Deactivated users cannot sign in. Sign out with **Tools › Sign out**.
+
+**Safety** — so that nobody is locked out or loses data by accident:
+
+- The **last active administrator** cannot be removed or deactivated (LAST_ADMIN).
+- Deleting users, groups, gates, profiles, portfolios, policies, components or models, deactivating a user, revoking a token, bulk false positive / accept and housekeeping all ask for confirmation first.
+- **5 failed sign-ins lock that login for 5 minutes** ("Too many failed sign-ins. Try again in a few minutes.").
 
 ## Settings
 
@@ -538,7 +600,15 @@ GitHub Actions example:
   with: { sarif_file: mcc.sarif }
 ```
 
-`--standard misra-c|misra-cpp|cert|cwe-top25|owasp` keeps only that standard's rules, and `--report misra --out misra.pdf` writes a report file. To keep results on a server, use "Uploading to a server" below.
+`--standard misra-c|misra-cpp|cert|cwe-top25|owasp` keeps only that standard's rules, and `--report misra --out misra.pdf` writes a report file (with `--report`, an `--out` ending in `.pdf`, `.docx` or `.xlsx` writes that format). `--exclude <glob>` leaves out matching files; it can be repeated and is added to `mcc.exclusions`.
+
+`--workspace [config folder]` analyzes with the app's workspace (by default the app's data folder): its quality profiles, quality gate, exclusion patterns and issue states (false positives, accepted issues …), so the result matches the screen. It runs on a temporary copy of the workspace, so the workspace itself is not changed.
+
+```bash
+node scripts/scan.mjs --path . --workspace --exclude "**/generated/**" --report executive --out summary.docx
+```
+
+To keep results on a server, use "Uploading to a server" below.
 
 ### Uploading to a server
 
@@ -555,7 +625,9 @@ Uploading to a team server (the web version) applies the server's profiles, gate
    mcc.exclusions=**/generated/**
    ```
 
-3. In CI, keep `MCC_TOKEN` (or `MCC_TOKEN`) as a secret and run `node scripts/scan.mjs --branch $BRANCH`. It uploads the files, waits for the server's gate and, when it fails, exits with 1 and prints the failed conditions.
+3. In CI, keep `MCC_TOKEN` (the compatible-format variable is read too) as a secret and run `node scripts/scan.mjs --branch $BRANCH`. It uploads the files, waits for the server's gate and, when it fails, exits with 1 and prints the failed conditions.
+
+The desktop app's built-in server uses a random port each time, so CI cannot upload to it. Start a shared server (`npm run web:serve`, or `node server/server.js --host 0.0.0.0 --port 5211`). The command shown when you create a token can be used as is.
 
 With `mcc.modules=a,b` every module is uploaded as its own project (`a.mcc.projectKey` …). The server also offers the compatible Web API, such as `/api/qualitygates/project_status` and `/api/issues/search`.
 
@@ -583,15 +655,16 @@ npm run defects -- manage-im --mode defects --update --cid 12 --set classificati
 
 1. **Report kind**: Executive summary, Security report, MISRA compliance report, Defect Analysis integrity report, Defect Analysis security report, Rule set compliance (security weakness), SBOM report. The security report takes a standard; the Security Weakness report a **Rule set** (All rules, Security rules, CWE rules, CWE Top 25, OWASP Top 10 2021, CERT C/C++, MISRA C:2012, C:2023, C++:2023).
 2. Check the preview, then **Save HTML**, **Save CSV**, **Download as** (Word, Excel, PDF) or **Print**. Reports are written in the chosen language (한국어 / English).
-3. **Regulatory report (ZIP)** bundles the executive, security, integrity, rule set and SBOM reports as PDF plus the issue list as Excel in one ZIP (for audits and deliveries).
+3. **Regulatory report (ZIP)** bundles the executive, security, integrity, rule set and SBOM reports as PDF plus the issue list as Excel in one ZIP (for audits and deliveries). Under **Regulatory bundle** pick the **Standard** (MOIS software weaknesses 49 (2021) or KISA critical infrastructure (web)) and the report kinds to include; with none picked it cannot be made.
 
-Quick exports are in the **File** menu: JSON, SARIF, HTML, CSV, quality gate badge (SVG) and defect CSV.
+Quick exports are in the **File** menu: JSON, SARIF, HTML, CSV, quality gate badge (SVG) and defect CSV. On the desktop every export opens a **save dialog** for the place and name, and then reports `Saved: <path>`. The web version saves through the browser's download.
 
 ### AI CodeFix
 
 1. In **Settings › AI CodeFix**, turn on **Use AI CodeFix**, choose provider and model, **Test connection** and save with **OK** (needs the Administer permission).
 2. Pick an issue and press **Suggest a fix with AI** under **AI CodeFix** in the details panel ("The AI is preparing a fix…"). You get the **Changes** (lines removed and added), an explanation, the **Confidence** (high, medium, low) and the **Tokens used (input / output)**. When the model judges the issue a false positive or cannot fix it safely, it shows "No automatic fix (explanation only)". Use **Ask again** for another try. With the feature off you see "AI CodeFix is off." and **Open settings**.
 3. Read the fix and press **Apply** if it is right (needs Administer issues). If **the file changed after the suggestion, Apply is refused** with "The file has changed. Ask again." After applying it says "{file}: removed n and added m lines."; **Analyze again** to confirm the issue is gone.
+4. If you do not like an applied fix, press **Undo fix** (or **Edit › Undo**). The original source is kept aside when the fix is applied and the file is put back exactly. If you edited the file again after the fix, it refuses with "The file changed after the fix was applied, so it cannot be undone automatically."
 
 Apply edits the source file directly. Review and commit the change with version control (git). AI suggestions can be wrong.
 
@@ -603,6 +676,8 @@ Apply edits the source file directly. Review and commit the change with version 
 | Ctrl+Shift+O | Open project |
 | Ctrl+S · Ctrl+Shift+S | Save project · Save project as |
 | Ctrl+O | Open folder |
+| Ctrl+Z | Undo |
+| Ctrl+Y · Ctrl+Shift+Z | Redo |
 | Ctrl+Enter | Analyze (commit defects) |
 | Ctrl+, | Settings |
 | Ctrl+Tab · Ctrl+Shift+Tab | Next tab · previous tab |
@@ -621,8 +696,13 @@ On macOS use ⌘ instead of Ctrl.
 | New code equals all code | Normal for the first analysis; comparison starts with the second. With SCM new code and no git, it falls back to the previous analysis |
 | Coverage shows "No data" | Whether tests ran with coverage, and the path in **Administration › Analysis settings › Coverage reports** |
 | Pull request analysis or auto-assign does nothing | Git installed (**Tools › Required software…**), and the folder is a git repository |
-| Few C/C++ defects | Include directories and defines in **C/C++ settings**, or capture the real build options with `cov build` |
+| Few C/C++ defects | Include directories and defines in **C/C++ settings**, or capture the real build options with `npm run defects -- build` |
 | "Permission denied." or a sign-in screen | Permission checks are on. Get permissions from an administrator or sign in again |
+| "Too many failed sign-ins." | 5 wrong passwords locked that login for 5 minutes. Wait, then sign in again |
+| "At least one active administrator must remain." | This is the last administrator. Make another user an administrator first |
+| "This folder is already registered as the project …" | **Open existing project** to continue with it, or **Replace** to use the new settings |
+| The analysis does not finish or takes too long | Check the phase and file in the progress window, **Cancel**, then tighten the exclusion patterns or the max files |
+| CI cannot upload to the desktop app | Its built-in server uses a random port. Start a shared server with `npm run web:serve` |
 | "Approval required." | This workspace needs exception requests for false positive / accept |
 | "Integration not configured." | Set up the tracker, ALM or SMTP in Administration › Integrations first |
 | AI fix: configuration error or HTTP 401 | API key, server URL, model name. For Anthropic, `ANTHROPIC_API_KEY` or `ant auth login` |
@@ -630,7 +710,7 @@ On macOS use ⌘ instead of Ctrl.
 | AI fix: "The file has changed." | The file changed after the suggestion. **Ask again** |
 | Database export failed, "No database is set up." | Settings › Database on/off and **Test connection**, the task warning `DB: …`, firewall and account rights (create table), schema / prefix |
 | DAST finds few pages | Add seed URLs or OpenAPI; for login, cookie, bearer or login fields |
-| Screen and CI results differ | `scan.mjs --path` in CI uses the default gate and all rules. Upload with `--server` to use the server's profiles |
+| Screen and CI results differ | `scan.mjs --path` in CI uses the default gate and all rules. Use `--workspace` for the app's settings, or upload with `--server` to use the server's profiles |
 
 The workspace file is in `%APPDATA%\MyCodeChecker\workspace.json` on Windows, `~/Library/Application Support/MyCodeChecker/` on macOS and `~/.config/MyCodeChecker/` on Linux. If a problem persists, back up this folder, move it away and restart to begin from a clean state.
 

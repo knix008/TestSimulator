@@ -35,7 +35,7 @@
 - **HIS 메트릭**(주석 밀도, 경로 수, v(G), 호출 깊이 …), **아키텍처**(모듈 의존 그래프, 불안정도, 순환, 레이어 · 금지 의존 규칙)
 - **DAST** — 실행 중인 웹 앱 검사(수동 · 능동 안전 탐침, 범위 제한, 인증, OpenAPI)
 - **SCA** — 매니페스트 · 잠금 파일 · SBOM, 오프라인 OSV 권고, **도달 가능성**, **코드 조각(snippet) 일치**, **바이너리**(.jar · .whl · .nupkg · .dll …), 라이선스 정책, 의존성 혼동, CycloneDX 1.5 · SPDX 2.3 내보내기
-- **보고서** — 경영진 요약, 보안, MISRA, 정밀 결함 분석 무결성 · 보안, 규칙 집합 준수(보안 약점 점검), SBOM — HTML · CSV · **Word · Excel · PDF**, 규제 보고서 ZIP(기준 행안부 2021 · 주요정보통신기반시설 웹과 넣을 보고서를 고름). 데스크톱은 저장 창으로 위치를 고르고 "저장됨: <경로>" 를 알려 줍니다
+- **보고서** — 경영진 요약, 보안, MISRA, 정밀 결함 분석 무결성 · 보안, 규칙 집합 준수(보안 약점 점검), SBOM — HTML · CSV · **Word · Excel · PDF**, 규제 보고서 ZIP(기준 행안부 2021 · 주요정보통신기반시설 웹과 넣을 보고서를 고름). 데스크톱은 저장 창으로 위치를 고르고 `저장됨: <경로>` 를 알려 줍니다
 
 ### 플랫폼
 
@@ -107,7 +107,7 @@ node scripts/scan.mjs --path . --workspace --exclude "**/generated/**"   # 앱�
 node scripts/scan.mjs --server https://checker.example.com --token mcu_… --project-key my-app --branch feature/x
 ```
 
-`--server` 를 주지 않아도 `mcc-project.properties`(없으면 호환 형식의 속성 파일) 의 `mcc.host.url`, `mcc.token`, `mcc.projectKey`, `mcc.projectName`, `mcc.sources`, `mcc.exclusions`, `mcc.branch.name`, `mcc.modules` 를 읽습니다. 토큰은 `--token`, `MCC_TOKEN`(호환 형식의 환경 변수도 읽음) 순으로 찾습니다. 형식: `json | sarif | html | csv | badge | cyclonedx | spdx | spdx-tv`, 보고서: `executive | security | misra | integrity | defect-security | weakness | sbom` (`--out` 확장자가 `.pdf` · `.docx` · `.xlsx` 면 그 형식). 그 밖에 `--coverage`, `--include`, `--define`, `--target lp64|ilp32|llp64`, `--osv`, `--misra-plan`, `--lang ko|en`.
+`--server` 를 주지 않아도 `mcc-project.properties`(없으면 호환 형식의 속성 파일) 의 `mcc.host.url`, `mcc.token`, `mcc.projectKey`, `mcc.projectName`, `mcc.sources`, `mcc.exclusions`, `mcc.branch.name`, `mcc.modules` 를 읽습니다. 토큰은 `--token`, `MCC_TOKEN`(호환 형식의 환경 변수도 읽음) 순으로 찾습니다. 형식: `json | sarif | html | csv | badge | cyclonedx | spdx | spdx-tv`, 보고서: `executive | security | misra | integrity | defect-security | weakness | sbom` (`--out` 확장자가 `.pdf` · `.docx` · `.xlsx` 면 그 형식). 그 밖에 `--coverage`, `--include`, `--define`, `--target lp64|ilp32|llp64`, `--osv`, `--misra-plan`, `--lang ko|en`, `--exclude <glob>`(여러 번, `mcc.exclusions` 와 합침), `--workspace [설정 폴더]`(앱의 품질 프로파일 · 게이트 · 제외 · 이슈 상태를 쓰되 임시 사본에서 돌려 작업 공간은 바꾸지 않음). 데스크톱 앱의 내장 서버는 임의 포트를 쓰므로 CI 에서 올리려면 공유 서버(`npm run web:serve`)가 필요합니다.
 
 정밀 결함 분석 명령(`npm run defects -- <명령>`):
 
