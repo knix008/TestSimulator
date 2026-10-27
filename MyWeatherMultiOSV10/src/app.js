@@ -1212,6 +1212,7 @@ class WeatherApp {
       markup: renderForecastHtml(shared),
       when: forecastWhen(shared),
       city: displayCity(tab?.place, this.settings.language),
+      cityNav: this.doc.tabs.length > 1,
     };
   }
 
@@ -1221,12 +1222,13 @@ class WeatherApp {
     const tab = this.currentTab();
     const hasWeather = Boolean(tab?.weather?.daily?.length);
     const t = (key, vars) => this.t(key, vars);
-    const { markup, when, city } = this.forecastView(range, anchor);
+    const { markup, when, city, cityNav } = this.forecastView(range, anchor);
     const spec = buildForecastSpec({
       range,
       markup,
       when,
       city,
+      cityNav,
       fitHeight: forecastFitHeight(range, hasWeather),
       refreshLabel: this.t("cmd.refresh"),
       transparency: this.themePreview?.transparency ?? this.settings.transparency,
@@ -1251,6 +1253,10 @@ class WeatherApp {
           void this.refreshForecast();
           return;
         }
+        if (msg?.type === "forecast-city") {
+          this.nextCity(Number(msg.step) < 0 ? -1 : 1);
+          return;
+        }
         if (msg?.type !== "select-date") return;
         this.selectDate(msg.date);
         if (msg.range === "monthly") this.followMonthSelection(msg.date);
@@ -1258,9 +1264,9 @@ class WeatherApp {
         this.openMenu("context", point, { atPointer: true });
       },
     };
-    if (this.replaceLocalForecast(range, markup, when, city)) return Promise.resolve({ action: "focused" });
+    if (this.replaceLocalForecast(range, markup, when, city, cityNav)) return Promise.resolve({ action: "focused" });
     if (!this.platform.refreshPopup) return this.openPopup(spec, handlers);
-    return this.openOrRefreshForecast(spec, handlers, markup, city);
+    return this.openOrRefreshForecast(spec, handlers, markup, city, cityNav);
   }
 
   /** Fetch the shown city again and repaint whatever forecast windows are open. */
@@ -1269,13 +1275,14 @@ class WeatherApp {
     this.refreshOpenForecasts();
   }
 
-  replaceLocalForecast(range, markup, when, city = "") {
+  replaceLocalForecast(range, markup, when, city = "", cityNav = false) {
     const popup = this.overlay.querySelector(`[data-popup-key="forecast:${range}"]`);
     if (!popup) return false;
     const fit = popup.querySelector(".forecast-fit");
     if (fit) fit.innerHTML = markup;
     const place = popup.querySelector(".popup-city");
     if (place) place.textContent = city || "";
+    for (const step of popup.querySelectorAll(".popup-city-step")) step.hidden = !cityNav;
     const label = popup.querySelector(".popup-when");
     if (label) label.textContent = when || "";
     this.popups.raise(popup);
@@ -1293,14 +1300,15 @@ class WeatherApp {
   paintOpenForecast(range) {
     const popup = this.overlay?.querySelector(`[data-popup-key="forecast:${range}"]`);
     if (!popup && !this.platform.refreshPopup) return;
-    const { markup, when, city } = this.forecastView(range);
+    const { markup, when, city, cityNav } = this.forecastView(range);
     const fit = popup?.querySelector(".forecast-fit");
     if (fit) fit.innerHTML = markup;
     const place = popup?.querySelector(".popup-city");
     if (place) place.textContent = city || "";
+    for (const step of popup?.querySelectorAll(".popup-city-step") || []) step.hidden = !cityNav;
     const label = popup?.querySelector(".popup-when");
     if (label) label.textContent = when || "";
-    if (this.platform.refreshPopup) void this.platform.refreshPopup(`forecast:${range}`, { markup, when: when || "", city: city || "" }, { focus: false });
+    if (this.platform.refreshPopup) void this.platform.refreshPopup(`forecast:${range}`, { markup, when: when || "", city: city || "", cityNav }, { focus: false });
   }
 
   refreshOpenForecasts() {
@@ -1308,8 +1316,8 @@ class WeatherApp {
     for (const range of ["daily", "weekly", "monthly"]) this.paintOpenForecast(range);
   }
 
-  async openOrRefreshForecast(spec, handlers, markup, city = "") {
-    const refreshed = await this.platform.refreshPopup(`forecast:${spec.range}`, { markup, when: spec.when || "", city });
+  async openOrRefreshForecast(spec, handlers, markup, city = "", cityNav = false) {
+    const refreshed = await this.platform.refreshPopup(`forecast:${spec.range}`, { markup, when: spec.when || "", city, cityNav });
     if (refreshed?.focused) return { action: "focused" };
     return this.openPopup(spec, handlers);
   }

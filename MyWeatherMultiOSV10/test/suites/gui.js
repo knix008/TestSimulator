@@ -548,6 +548,41 @@ export function registerGui(h) {
       }
     });
   });
+  h.test("the forecast windows step through the cities with the < and > beside the name", async () => {
+    await withApp(async ({ app }) => {
+      app.settings.cities = [findCity("KR", "Seoul")];
+      app.syncTabsToCities();
+      await app.refreshWeather({ all: true });
+      for (const range of ["daily", "weekly", "monthly"]) {
+        const forecast = await openForecast(app, range);
+        const prev = forecast.popup.querySelector('[data-gui="popup-city-prev"]');
+        const next = forecast.popup.querySelector('[data-gui="popup-city-next"]');
+        assert.ok(prev && next, `${range} has both buttons`);
+        assert.ok(prev.hidden && next.hidden, `${range}: one city has nothing to step to`);
+        const place = forecast.popup.querySelector(".popup-place");
+        assert.deepEqual([...place.children].map((child) => child.dataset.gui), ["popup-city-prev", "popup-city", "popup-city-next"], `${range}: the name sits between them`);
+        app.settings.cities = [findCity("KR", "Seoul"), findCity("FR", "Paris"), findCity("JP", "Tokyo")];
+        app.syncTabsToCities();
+        app.afterStructure();
+        assert.ok(!prev.hidden && !next.hidden, `${range}: a second city shows the buttons`);
+        next.click();
+        await settle();
+        assert.equal(app.doc.activeIndex, 1, range);
+        assert.equal(forecast.popup.querySelector(".popup-city").textContent, "파리", `${range}: > shows the next city`);
+        prev.click();
+        prev.click();
+        await settle();
+        assert.equal(app.doc.activeIndex, 2, `${range}: < wraps to the last city`);
+        assert.equal(forecast.popup.querySelector(".popup-city").textContent, "도쿄", range);
+        app.showCity(0);
+        app.settings.cities = [findCity("KR", "Seoul")];
+        app.syncTabsToCities();
+        app.afterStructure();
+        assert.ok(prev.hidden && next.hidden, `${range}: back to one city hides them`);
+        await forecast.close();
+      }
+    });
+  });
   h.test("the city changes on its own at the chosen interval", async () => {
     await withApp(async ({ app }) => {
       app.settings.cities = [findCity("KR", "Seoul"), findCity("JP", "Tokyo")];

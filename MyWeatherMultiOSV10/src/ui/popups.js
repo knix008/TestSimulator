@@ -355,7 +355,7 @@ export function buildPrintSpec(t, draft, model) {
 
 const FORECAST_WIDTH = { daily: 640, weekly: 720, monthly: 720 };
 
-export function buildForecastSpec({ range, markup, fitHeight, when = "", city = "", refreshLabel = "", transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
+export function buildForecastSpec({ range, markup, fitHeight, when = "", city = "", cityNav = false, refreshLabel = "", transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
   const body = Math.max(72, Number(fitHeight) || 72);
   return {
     type: "forecast",
@@ -363,6 +363,9 @@ export function buildForecastSpec({ range, markup, fitHeight, when = "", city = 
     icon: range,
     title: t(`forecast.${range}`),
     city: typeof city === "string" ? city : "",
+    cityNav: Boolean(cityNav),
+    prevCityLabel: t("tip.prevCity"),
+    nextCityLabel: t("tip.nextCity"),
     when: typeof when === "string" ? when : "",
     refresh: true,
     refreshLabel: refreshLabel || t("cmd.refresh"),
@@ -480,7 +483,11 @@ export function buildPopupElement(spec) {
     : "";
   const closeLabel = spec.closeLabel || "Close";
   const titleIcon = icon(spec.icon || "info", { colorful: ["about", "forecast", "search"].includes(spec.type) });
-  const place = spec.type === "forecast" ? `<span class="popup-city" data-gui="popup-city">${esc(spec.city || "")}</span>` : "";
+  const cityStep = (step, side, label, key) =>
+    `<button type="button" class="icon-btn popup-city-step" data-action="forecast-city" data-city-step="${step}" data-gui="popup-city-${side}" title="${esc(label || "")}" aria-label="${esc(label || "")}"${titleOnly(key)}${spec.cityNav ? "" : " hidden"}>${icon(side, { colorful: true })}</button>`;
+  const place = spec.type === "forecast"
+    ? `<span class="popup-place" data-gui="popup-place">${cityStep(-1, "prev", spec.prevCityLabel, "tip.prevCity")}<span class="popup-city" data-gui="popup-city">${esc(spec.city || "")}</span>${cityStep(1, "next", spec.nextCityLabel, "tip.nextCity")}</span>`
+    : "";
   const when = spec.type === "forecast" || spec.type === "search" ? `<span class="popup-when">${esc(spec.when || "")}</span>` : "";
   const refresher = spec.refresh
     ? `<button type="button" class="icon-btn popup-refresh" data-action="forecast-refresh" data-gui="popup-button" title="${esc(spec.refreshLabel || "")}" aria-label="${esc(spec.refreshLabel || "")}"${titleOnly(spec.refreshKey)}>${icon("refresh", { colorful: true })}</button>`
@@ -897,6 +904,10 @@ export function wirePopup(el, spec, handlers = {}) {
     }
     if (action === "forecast-refresh") {
       void handlers.immediate?.({ type: "forecast-refresh", range: spec.range, popupId: spec.popupId });
+      return;
+    }
+    if (action === "forecast-city") {
+      void handlers.immediate?.({ type: "forecast-city", step: Number(button.dataset.cityStep) || 1, range: spec.range, popupId: spec.popupId });
       return;
     }
     if (action === "open-search") {
@@ -2015,6 +2026,10 @@ function applyPatch(el, patch, spec) {
     const label = el.querySelector(".popup-city");
     if (label) label.textContent = patch.city || "";
     if (spec) spec.city = patch.city;
+  }
+  if (patch.cityNav != null) {
+    for (const step of el.querySelectorAll(".popup-city-step")) step.hidden = !patch.cityNav;
+    if (spec) spec.cityNav = Boolean(patch.cityNav);
   }
   if (patch.when != null) {
     const label = el.querySelector(".popup-when");

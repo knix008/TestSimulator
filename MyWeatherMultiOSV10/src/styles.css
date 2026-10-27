@@ -569,9 +569,14 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .popup-title { flex: 1 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 .popup[data-popup="forecast"] .popup-icon .ico { width: 22px; height: 22px; }
 .popup[data-popup="forecast"] .popup-title { flex: 0 0 auto; overflow: visible; text-overflow: clip; }
-.popup-city { flex: 0 1 auto; min-width: 0; margin-left: 10px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.popup-place { flex: 0 1 auto; min-width: 0; margin-left: 10px; display: flex; align-items: center; gap: 2px; overflow: hidden; }
+.popup-place::before { content: "·"; margin-right: 4px; color: var(--muted); font-weight: 600; }
+.popup-place:has(.popup-city:empty):has(.popup-city-step[hidden]) { display: none; }
+.popup-city { flex: 0 1 auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
 .popup-city:empty { display: none; }
-.popup-city::before { content: "· "; color: var(--muted); font-weight: 600; }
+.popup-city-step { width: 24px; height: 24px; border-radius: 7px; }
+.popup-city-step .ico { width: 18px; height: 18px; }
+.popup-city-step[hidden] { display: none; }
 .popup-when { flex: 1 1 auto; min-width: 0; margin-left: 10px; color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
 .popup-when:empty { display: none; }
 .popup-refresh { flex: 0 0 auto; width: 28px; height: 28px; margin-left: auto; }
