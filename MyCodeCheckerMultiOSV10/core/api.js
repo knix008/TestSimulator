@@ -608,9 +608,14 @@ function createApi(opts = {}) {
       const { code, text } = require('./errors').describe(err);
       if (job.status !== 'cancelled' || err.code !== 'CANCELLED') job.status = err.code === 'CANCELLED' ? 'cancelled' : 'failed';
       job.error = { code, message: err.message, text };
-    });
-    setTimeout(() => dbJobs.delete(id), 600000).unref();
+    }).finally(() => forgetLater(dbJobs, id));
     return { jobId: id };
+  }
+
+  // A finished job is kept 10 minutes for the window that polls it (a large
+  // analysis runs much longer than that, so the clock starts at the end).
+  function forgetLater(map, id) {
+    setTimeout(() => map.delete(id), 600000).unref();
   }
 
   function ownDbJob(args, who) {
@@ -621,14 +626,70 @@ function createApi(opts = {}) {
   }
   const WEIGHT = { collect: [0, 10], rules: [10, 45], engines: [55, 42], finish: [97, 3] };
 
+  // Indexes of an issue list, most severe first (stable); kept per list.
+  const severityOrders = new WeakMap();
+  const SEVERITY_RANK = { BLOCKER: 0, CRITICAL: 1, MAJOR: 2, MINOR: 3, INFO: 4 };
+  function severityOrder(list) {
+    let order = severityOrders.get(list);
+    if (!order) {
+      const rank = (i) => SEVERITY_RANK[i.severity] ?? 5;
+      order = Uint32Array.from({ length: list.length }, (_, n) => n).sort((x, y) => rank(list[x]) - rank(list[y]) || x - y);
+      severityOrders.set(list, order);
+    }
+    return order;
+  }
+
   // A worker gets V8's default heap (about 4 GB), which a large project can
   // outgrow; settings.memoryLimitGb sets it (core/memory.js).
   function workerHeapMb() {
     return require('./memory').workerHeapMb(workspace().settings);
   }
 
-  function analyzeFor(job, ws, abs, opts) {
+  // An analysis that runs out of memory is run again with less detail rather
+  // than failing (REDUCED steps); the result says what was left out.
+  const REDUCED = [
+    {
+      options: (o) => ({ ...o, issueBudget: Math.max(50000, Math.floor(issueBudgetFor(workerHeapMb()) / 4)), cfamilyBatch: { ...(o.cfamilyBatch || {}), tokens: 250000, maxSources: 50 }, cfamilyMaxBytes: 1000000 }),
+      text: {
+        en: 'The analysis ran out of memory and was run again with less detail: C/C++ files over 1 MB were left out of the deep C/C++ checks and repeated issues were folded sooner.',
+        ko: '분석 중 메모리가 부족해 범위를 줄여 다시 분석했습니다. 1 MB가 넘는 C/C++ 파일은 정밀 C/C++ 점검에서 뺐고 반복 이슈는 더 일찍 합쳤습니다.',
+      },
+    },
+    {
+      options: (o) => ({ ...o, issueBudget: Math.max(20000, Math.floor(issueBudgetFor(workerHeapMb()) / 8)), skipEngines: [...require('./cfront').ENGINE_IDS, 'taint'] }),
+      text: {
+        en: 'The analysis ran out of memory twice and was run again without the deep C/C++ and taint engines; the other checks ran.',
+        ko: '분석 중 메모리가 두 번 부족해 정밀 C/C++ 엔진과 테인트 엔진 없이 다시 분석했습니다. 나머지 점검은 모두 했습니다.',
+      },
+    },
+  ];
+  const issueBudgetFor = (heapMb) => Math.max(200000, Math.min(8000000, Math.floor((heapMb * 1048576 * 0.25) / 2048)));
+
+  async function analyzeFor(job, ws, abs, opts) {
     if (!job) return analyzePath(abs, opts);
+    for (let step = 0; ; step++) {
+      try {
+        const analysis = await analyzeOnce(job, ws, abs, step ? REDUCED[step - 1].options(opts) : opts);
+        if (step) {
+          analysis.warnings = [...(analysis.warnings || []), {
+            engine: 'limits',
+            reduced: step,
+            message: {
+              en: `${REDUCED[step - 1].text.en} Raise Settings › Analysis › Analysis memory limit (now ${Math.round(workerHeapMb() / 1024)} GB) for a full analysis.`,
+              ko: `${REDUCED[step - 1].text.ko} 전체를 분석하려면 설정 › 분석 › 분석 메모리 한도(지금 ${Math.round(workerHeapMb() / 1024)} GB)를 올리십시오.`,
+            },
+          }];
+        }
+        return analysis;
+      } catch (err) {
+        if (!err || err.code !== 'OUT_OF_MEMORY' || step >= REDUCED.length || job.status === 'cancelled') throw err;
+        job.retry = step + 1;
+        job.progress = { ...(job.progress || {}), phase: 'collect', percent: 0, detail: '', retry: job.retry };
+      }
+    }
+  }
+
+  function analyzeOnce(job, ws, abs, opts) {
     const { Worker } = require('worker_threads');
     const safe = { ...opts, sca: opts.sca ? { ...opts.sca, advisoryDb: undefined } : opts.sca };
     return new Promise((resolve, reject) => {
@@ -637,13 +698,16 @@ function createApi(opts = {}) {
         resourceLimits: { maxOldGenerationSizeMb: workerHeapMb() },
       });
       job.worker = worker;
+      const issues = [];
       worker.on('message', (m) => {
         if (m.type === 'progress') {
           const [base, span] = WEIGHT[m.phase] || [0, 0];
           const percent = Math.min(99, Math.round(base + (m.total ? (m.done / m.total) * span : 0)));
           const elapsedMs = Date.now() - job.startedAt;
-          job.progress = { phase: m.phase, done: m.done, total: m.total, detail: m.detail, percent, elapsedMs, etaMs: percent > 3 ? Math.round((elapsedMs / percent) * (100 - percent)) : null };
-        } else if (m.type === 'done') resolve(m.analysis);
+          job.progress = { phase: m.phase, done: m.done, total: m.total, detail: m.detail, percent, elapsedMs, etaMs: percent > 3 ? Math.round((elapsedMs / percent) * (100 - percent)) : null, retry: job.retry || 0 };
+        } else if (m.type === 'issues') {
+          for (const item of m.items) issues.push(item);
+        } else if (m.type === 'done') resolve({ ...m.analysis, issues });
         else if (m.type === 'error') reject(new Error(m.message));
       });
       worker.on('error', (err) => reject(err && err.code === 'ERR_WORKER_OUT_OF_MEMORY'
@@ -763,6 +827,14 @@ function createApi(opts = {}) {
       const all = (a && a.issues) || [];
       const offset = Math.max(0, Number(args.offset) || 0);
       const limit = Math.min(50000, Math.max(1, Number(args.limit) || 20000));
+      // order: 'severity' pages the most severe first (a window that cannot hold
+      // millions of issues takes the head of this order).
+      if (args.order === 'severity') {
+        const order = severityOrder(all);
+        const issues = [];
+        for (let n = offset; n < Math.min(order.length, offset + limit); n++) issues.push(all[order[n]]);
+        return { total: all.length, offset, issues };
+      }
       return { total: all.length, offset, issues: all.slice(offset, offset + limit) };
     },
     'settings.patch': (args, who) => {
@@ -825,6 +897,17 @@ function createApi(opts = {}) {
     // Sub-folders of a source folder for the exclusion picker: { path, sub } →
     // [{ name, rel, hasChildren, skipped }] (skipped: never analyzed anyway).
     'project.dirs': (args) => listDirs(args || {}),
+    // The analysis target as it is now (core/target.js), for the Overview.
+    'project.target': (args, who) => {
+      const ws = access.filterWorkspace(workspace(), who);
+      const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
+      if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
+      return require('./target').survey(project.path, {
+        exclusions: [...(ws.settings.exclusions || []), ...(project.exclusions || [])],
+        excludeDirs: project.excludeDirs || [],
+        maxFiles: ws.settings.maxFiles || 0,
+      });
+    },
     'scan.start': (args, who) => {
       args = args || {};
       // One running analysis per project: a second start joins the running one.
@@ -839,10 +922,8 @@ function createApi(opts = {}) {
         job.result = result;
         job.progress = { ...job.progress, phase: 'finish', percent: 100, etaMs: 0, elapsedMs: Date.now() - job.startedAt };
       }, (err) => {
-        if (job.status !== 'cancelled') { job.status = 'failed'; job.error = { code: err.code || 'ERROR', message: err.message }; }
-      });
-      // Finished jobs are forgotten after 10 minutes.
-      setTimeout(() => jobs.delete(id), 600000).unref();
+        if (job.status !== 'cancelled') { job.status = 'failed'; job.error = { code: err.code || 'ERROR', message: err.message, text: require('./errors').describe(err).text }; }
+      }).finally(() => forgetLater(jobs, id));
       return { jobId: id };
     },
     'scan.job': (args, who) => jobView(ownJob(args, who), !!(args && args.slim)),

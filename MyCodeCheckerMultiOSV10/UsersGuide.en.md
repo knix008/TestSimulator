@@ -271,6 +271,8 @@ A line containing `NOMCC`, `noqa`, `nolint`, `mcc-ignore`, `cov-ignore` or `para
 
 The quality gate (**Passed** / **Failed**; when failed, the number of unmet conditions and **See conditions**), rating cards (**Reliability**, **Security**, **Maintainability**, **Security review**; A Very good – E Very bad), counts of bugs, vulnerabilities, code smells and hotspots, technical debt and **Debt ratio**, coverage, duplication, lines of code and languages. On each card the big number is overall code and the line below it is new code. Click a card to go to the issue list filtered by that kind.
 
+The **Analysis target** panel below gives the basic facts of the analyzed folder: path, when it was analyzed and how long it took, source files and their size, folders, lines, lines of code and comment lines, complexity, issues, build files (CMake, Make, npm …), version control, what is excluded (patterns, excluded folders, skipped folders), **Languages** (files, size, lines, lines of code, share), **Largest files** and **Folders with the most code**. A project that was not analyzed yet shows this panel on its Overview too, so you can see what an analysis would read before running it.
+
 Ratings follow the published code quality scale: reliability by the worst bug, security by the worst vulnerability, security review by the share of reviewed hotspots, maintainability by the technical debt ratio (30 minutes of development per line of code).
 
 #### Measures
@@ -753,7 +755,7 @@ On macOS use ⌘ instead of Ctrl.
 |---|---|
 | "Folder not found." | Whether the path is right and, in the web version, whether it is the path **as the server sees it** |
 | Files are not analyzed | Exclusion patterns, skipped folders (`build`, `dist`, `vendor` …), the file limit (when set), whether the language is supported |
-| The analysis ran out of memory | A large project is analyzed in batches that fit in memory (C/C++ translation units, and the files of other languages). If it still runs out, raise **Settings › Analysis › Analysis memory limit** or exclude third-party and generated folders. In batches, project-wide rules (for example a definition that does not match a declaration in another file) look within one batch only |
+| The analysis ran out of memory · was run again with less detail | An analysis that runs short of memory does not fail: it runs again with less detail (C/C++ files over 1 MB left out of the deep checks, and if that is not enough, without the deep C/C++ and taint engines). When there are more issues than fit in memory, repeats are counted on the first issue of their rule in each file. Each case leaves a warning in the analysis log. A large project is analyzed in batches that fit in memory (C/C++ translation units, and the files of other languages). If it still runs out, raise **Settings › Analysis › Analysis memory limit** or exclude third-party and generated folders. In batches, project-wide rules (for example a definition that does not match a declaration in another file) look within one batch only |
 | New code equals all code | Normal for the first analysis; comparison starts with the second. With SCM new code and no git, it falls back to the previous analysis |
 | Coverage shows "No data" | Whether tests ran with coverage, and the path in **Administration › Analysis settings › Coverage reports** |
 | Pull request analysis or auto-assign does nothing | Git installed (**Tools › Required software…**), and the folder is a git repository |

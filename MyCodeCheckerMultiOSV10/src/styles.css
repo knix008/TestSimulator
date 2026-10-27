@@ -1263,3 +1263,23 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .start-tools { display: flex; justify-content: flex-end; margin: 0 0 8px; }
 .start-actions.start-actions-top { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .start-actions.start-actions-top .vbtn { flex: 0 1 auto; min-width: 0; }
+
+/* Overview › Analysis target (Panels.jsx TargetPanel) */
+.target-panel .tg-path { font-size: 12.5px; padding: 6px 8px; margin: 2px 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.target-panel .tg-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.target-panel .tg-fact { min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); }
+.target-panel .tg-fact .k { display: flex; align-items: center; gap: 5px; color: var(--fg-muted); font-size: 12px; }
+.target-panel .tg-fact .v { font-size: 15px; font-weight: 600; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.target-panel .tg-fact .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.target-panel .tg-langs { width: 100%; }
+.target-panel .tg-bar { display: inline-block; width: 90px; height: 7px; border-radius: 4px; background: var(--bg-hover); vertical-align: middle; overflow: hidden; }
+.target-panel .tg-bar > span { display: block; height: 100%; background: var(--accent); }
+.target-panel .tg-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.target-panel .tg-lists > div { min-width: 0; }
+.target-panel .tg-list { margin: 0; padding-left: 22px; font-size: 12.5px; }
+.target-panel .tg-list li { padding: 2px 0; }
+.target-panel .tg-list li > span:first-child { display: inline-block; max-width: calc(100% - 120px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.target-panel .tg-list li > span.muted { float: right; font-variant-numeric: tabular-nums; }
+.target-panel .tg-fact.wide { grid-column: span 2; }
+.target-panel .tg-fact.wide .v { font-size: 13.5px; white-space: normal; }
+.scan-progress .sp-retry { display: flex; align-items: center; gap: 5px; color: var(--folder); margin-top: 2px; }

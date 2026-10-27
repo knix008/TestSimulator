@@ -49,6 +49,7 @@ export function ScanProgress({ job, onCancel, title, icon = 'search' }) {
         <div className="sp-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /><span>{pct}%</span></div>
         <div className="sp-phase">{phaseLabel(p)}{p.total > 1 ? <span className="small"> · {(p.done || 0).toLocaleString()}/{p.total.toLocaleString()}</span> : null}</div>
         <div className="sp-detail small" title={p.detail || ''}>{p.phase === 'engines' ? '' : shorten(p.detail)}</div>
+        {p.retry ? <div className="sp-retry small"><Icon name="alert" size={12} /> {t('sj_retry', { n: p.retry })}</div> : null}
         <div className="sp-foot">
           <span className="small">{t('sj_elapsed')} <b>{mmss(p.elapsedMs)}</b></span>
           <span className="small">{t('sj_remaining')} <b>{mmss(p.etaMs)}</b></span>

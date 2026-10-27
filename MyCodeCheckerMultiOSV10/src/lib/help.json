@@ -3398,5 +3398,37 @@
  "xd_title": {
   "ko": "체크한 폴더와 그 아래 파일은 다음 분석부터 분석하지 않습니다.",
   "en": "Checked folders and every file below them are skipped from the next analysis."
+ },
+ "tg_title": {
+  "ko": "분석할 폴더의 기본 정보입니다. 분석 전에는 폴더를 훑어 읽을 파일을, 분석 후에는 결과의 줄 수·복잡도·언어 구성을 보여 줍니다.",
+  "en": "Basic facts about the analyzed folder: before an analysis, the files it would read; afterwards, lines, complexity and languages from the result."
+ },
+ "tg_source_files": {
+  "ko": "분석기가 읽는 소스 파일 수입니다. 제외 패턴과 제외 폴더, 건너뛰는 폴더(build, node_modules 등)는 빠집니다.",
+  "en": "Source files the analyzer reads; exclusion patterns, excluded folders and skipped folders (build, node_modules …) are left out."
+ },
+ "tg_excluded": {
+  "ko": "분석에서 빠지는 것: 제외 패턴 수, 제외 폴더 수, 건너뛴 폴더 수입니다.",
+  "en": "What the analysis leaves out: exclusion patterns, excluded folders and skipped folders."
+ },
+ "tg_languages": {
+  "ko": "언어별 파일 수·크기와, 분석 후에는 줄 수·코드 줄 수입니다.",
+  "en": "Files and size per language and, after an analysis, lines and lines of code."
+ },
+ "tg_largest": {
+  "ko": "가장 큰 파일입니다(분석 후에는 코드 줄 기준). 생성된 코드라면 제외를 고려하십시오.",
+  "en": "The largest files (by lines of code after an analysis). Consider excluding generated code."
+ },
+ "tg_top_folders": {
+  "ko": "코드 줄이 가장 많은 폴더입니다. 외부 라이브러리라면 제외 폴더로 빼면 분석이 빨라집니다.",
+  "en": "Folders with the most lines of code. Excluding third-party folders makes analyses faster."
+ },
+ "tg_build": {
+  "ko": "폴더 맨 위에서 찾은 빌드·패키지 파일입니다(CMake, Make, npm 등).",
+  "en": "Build and package files found at the top of the folder (CMake, Make, npm …)."
+ },
+ "tg_scm": {
+  "ko": "폴더의 버전 관리 시스템입니다.",
+  "en": "The version control system of the folder."
  }
 }

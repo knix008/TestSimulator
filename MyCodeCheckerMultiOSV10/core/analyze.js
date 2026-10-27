@@ -119,7 +119,7 @@ function analyzeSources(files, options = {}) {
     prepared.push({ path: rel, text, lang });
   }
 
-  const issues = [];
+  const issues = issueList(issueBudget(options));
   const fileRows = [];
   const dupInput = [];
   let complexity = 0;
@@ -179,7 +179,7 @@ function analyzeSources(files, options = {}) {
         rule, severity, lang: lang || file.lang, file: file.path, line: found.line,
         message: found.message || rule.name, rawLine, lines: structural.lines,
       });
-      issues.push(item);
+      issues.add(item);
     };
 
     for (const found of structural.issues) {
@@ -231,7 +231,7 @@ function analyzeSources(files, options = {}) {
       item.checker = found.checker;
       item.impact = found.impact;
       item.function = found.function;
-      issues.push(item);
+      issues.add(item);
     }
 
     const cov = coverageFor(options.coverage, file.path);
@@ -271,29 +271,24 @@ function analyzeSources(files, options = {}) {
   // The line-based Defect Analysis pass (defect:*) yields to a path-sensitive engine
   // finding of the same checker on the same line.
   const precise = new Set(issues.filter((i) => i.checker && !String(i.rule).startsWith('cov:')).map((i) => `${i.checker}|${i.file}|${i.line}`));
-  for (let n = issues.length - 1; n >= 0; n--) {
-    if (String(issues[n].rule).startsWith('cov:') && precise.has(`${issues[n].checker}|${issues[n].file}|${issues[n].line}`)) issues.splice(n, 1);
-  }
+  keepIf(issues, (i) => !(String(i.rule).startsWith('cov:') && precise.has(`${i.checker}|${i.file}|${i.line}`)));
   const annotations = new Map();
   for (const file of prepared) {
     if (compat.ANNOTATION_TEST_RE.test(file.text)) annotations.set(file.path, defectAnnotations(file.text));
   }
   if (annotations.size) {
-    for (let n = issues.length - 1; n >= 0; n--) {
-      const map = annotations.get(issues[n].file);
-      if (map && annotationSuppresses(issues[n], map.get(issues[n].line))) issues.splice(n, 1);
-    }
+    keepIf(issues, (i) => {
+      const map = annotations.get(i.file);
+      return !(map && annotationSuppresses(i, map.get(i.line)));
+    });
   }
   // Check groups turned off in Settings › Analysis (custom rules and imported
   // findings always stay).
   const offChecks = new Set(options.disabledChecks || []);
   if (offChecks.size) {
-    for (let n = issues.length - 1; n >= 0; n--) {
-      const i = issues[n];
-      if (i.externalEngine || String(i.rule).startsWith('custom:')) continue;
-      if (offChecks.has(checks.groupOf(i))) issues.splice(n, 1);
-    }
+    keepIf(issues, (i) => i.externalEngine || String(i.rule).startsWith('custom:') || !offChecks.has(checks.groupOf(i)));
   }
+  issues.finish(warnings);
   uniqueKeys(issues);
   const hasBaseline = previous.size > 0 || options.hasBaseline;
   for (const item of issues) {
@@ -399,9 +394,17 @@ function analyzeSources(files, options = {}) {
   };
 
   const gate = evaluateGate(options.gate || DEFAULT_GATE, measures);
+  const perFile = new Map();
+  for (const i of issues) {
+    let c = perFile.get(i.file);
+    if (!c) { c = { issues: 0, hotspots: 0 }; perFile.set(i.file, c); }
+    if (i.type === 'SECURITY_HOTSPOT') c.hotspots++;
+    else if (!isClosed(i)) c.issues++;
+  }
   for (const row of fileRows) {
-    row.issues = issues.filter((i) => i.file === row.path && i.type !== 'SECURITY_HOTSPOT' && !isClosed(i)).length;
-    row.hotspots = issues.filter((i) => i.file === row.path && i.type === 'SECURITY_HOTSPOT').length;
+    const c = perFile.get(row.path);
+    row.issues = c ? c.issues : 0;
+    row.hotspots = c ? c.hotspots : 0;
   }
 
   return {
@@ -496,7 +499,8 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
   const linesOf = lineCache(prepared);
   const suppressed = new Map();
   const off = new Set((ctx.options && ctx.options.disabledChecks) || []);
-  const list = engines().filter((engine) => !checks.engineOff(engine.id, off));
+  const skip = new Set((ctx.options && ctx.options.skipEngines) || []);
+  const list = engines().filter((engine) => !checks.engineOff(engine.id, off) && !skip.has(engine.id));
   // The C/C++ engines share one parse, which a large project gets in batches
   // (cfront.batches); each batch goes through all of them, then is dropped.
   // The other engines get a large project in batches of source text
@@ -514,13 +518,18 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
     });
   });
   if (shared.length) {
-    for (const files of cfront.batches(prepared, ctx.options && ctx.options.cfamilyBatch)) {
+    // options.cfamilyMaxBytes leaves larger C/C++ files out of the shared parse
+    // (a reduced analysis after running out of memory); their line rules ran.
+    const maxC = ctx.options && ctx.options.cfamilyMaxBytes;
+    const cInput = maxC ? prepared.filter((f) => !((f.lang === 'c' || f.lang === 'cpp') && String(f.text).length > maxC)) : prepared;
+    for (const files of cfront.batches(cInput, ctx.options && ctx.options.cfamilyBatch)) {
       const b = files.batch;
       shared.forEach((engine, k) => {
         if (!b) report('engines', plain.length + k, plain.length + shared.length, engine.id);
         else report('engines', plain.length + shared.length * (b.index - 1) + k, plain.length + shared.length * b.estimate, `${engine.id} (${b.index}/${b.estimate})`);
         runEngine(engine, files);
       });
+      if (b && ctx.options && typeof ctx.options.releaseMemory === 'function') ctx.options.releaseMemory();
     }
   }
 
@@ -565,7 +574,7 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
       // The same finding twice (e.g. a header seen from two translation units) is reported once.
       if (seenKeys.has(item.key)) continue;
       seenKeys.add(item.key);
-      issues.push(item);
+      issues.add(item);
     }
   }
 }
@@ -574,6 +583,90 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
 // (the same commented-out code twice) share a key. The first by line keeps it
 // (its triage stays); the next ones get key#2, key#3 ... hashed, so triage,
 // new-code marks and the database rows tell them apart.
+// Removes the items keep() rejects, in place and in one pass (splicing one
+// at a time is quadratic on millions of issues).
+function keepIf(list, keep) {
+  let w = 0;
+  for (let r = 0; r < list.length; r++) if (keep(list[r])) list[w++] = list[r];
+  list.length = w;
+}
+
+// The issue list of one analysis. Every issue is kept while the list fits its
+// budget (about a quarter of the heap, at most 8 million: V8 also caps the
+// entries of one Map or Set). Beyond it, further occurrences of a rule in a
+// file that already has FOLD_AFTER of them are counted on the first one
+// (item.folded) instead of being kept, and when even new rule/file pairs no
+// longer fit they are only counted. finish() writes the counts into the
+// messages and a warning, so a huge result never stops the analysis.
+const ISSUE_BYTES = 2048;
+const FOLD_AFTER = 20;
+
+function issueBudget(options) {
+  if (options.issueBudget > 0) return options.issueBudget;
+  const heap = require('v8').getHeapStatistics().heap_size_limit;
+  return Math.max(200000, Math.min(8000000, Math.floor((heap * 0.25) / ISSUE_BYTES)));
+}
+
+function issueList(budget) {
+  const issues = [];
+  const pairs = new Map();
+  let folded = 0;
+  let dropped = 0;
+  Object.defineProperties(issues, {
+    add: {
+      configurable: true,
+      value(item) {
+        if (issues.length < budget) {
+          if (item.file && item.rule) {
+            const id = `${item.rule}|${item.file}`;
+            const p = pairs.get(id);
+            if (p) p.count++; else pairs.set(id, { first: item, count: 1 });
+          }
+          issues.push(item);
+          return;
+        }
+        const id = `${item.rule}|${item.file}`;
+        const p = pairs.get(id);
+        if (p && p.count >= FOLD_AFTER) {
+          p.first.folded = (p.first.folded || 0) + 1;
+          folded++;
+        } else if (issues.length < budget * 1.25) {
+          if (p) p.count++; else pairs.set(id, { first: item, count: 1 });
+          issues.push(item);
+        } else dropped++;
+      },
+    },
+    finish: {
+      configurable: true,
+      value(warnings) {
+        // From here on the list is a plain array (it is posted and stored).
+        delete issues.add;
+        delete issues.finish;
+        pairs.clear();
+        if (!folded && !dropped) return;
+        for (const i of issues) {
+          if (!i.folded) continue;
+          const more = { en: ` (+${i.folded} more in this file)`, ko: ` (이 파일에 ${i.folded}건 더 있음)` };
+          i.message = typeof i.message === 'object' && i.message
+            ? { ...i.message, en: `${i.message.en || ''}${more.en}`, ko: `${i.message.ko || i.message.en || ''}${more.ko}` }
+            : `${i.message || ''}${more.en}`;
+        }
+        const n = (v) => v.toLocaleString('en');
+        warnings.push({
+          engine: 'limits',
+          message: {
+            en: `More issues than fit in memory (${n(budget)} kept): ${n(folded)} repeated issues were counted on the first issue of their rule in each file${dropped ? ` and ${n(dropped)} more were only counted` : ''}. Raise Settings › Analysis › Analysis memory limit to keep them all.`,
+            ko: `이슈가 메모리에 담을 수 있는 수(${n(budget)}개)보다 많습니다. 반복된 이슈 ${n(folded)}건은 파일마다 같은 규칙의 첫 이슈에 건수로 더했습니다${dropped ? `. ${n(dropped)}건은 건수만 셌습니다` : ''}. 모두 남기려면 설정 › 분석 › 분석 메모리 한도를 올리십시오.`,
+          },
+          folded,
+          dropped,
+        });
+      },
+    },
+  });
+  return issues;
+}
+
 function uniqueKeys(issues) {
   const byKey = new Map();
   for (const item of issues) {

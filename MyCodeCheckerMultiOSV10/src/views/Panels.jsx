@@ -2,7 +2,7 @@ import { ask } from '../lib/ui';
 import React, { useEffect, useMemo, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon, CloseButton, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
-import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText, useRowWindow } from './common';
+import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText, useRowWindow, fmtDate } from './common';
 import { call, openExternal } from '../lib/backend';
 import { Inspector } from '../components/Layout';
 import { AiFixBox } from './AiFix';
@@ -105,7 +105,7 @@ export function StartPage({ projects, onOpen, onSample, onRecent, showOnLaunch, 
 
 const RATING_WORD = { A: 'rt_A', B: 'rt_B', C: 'rt_C', D: 'rt_D', E: 'rt_E' };
 
-export function Overview({ analysis, onGo }) {
+export function Overview({ analysis, project, onGo }) {
   useLanguage();
   const lang = getLanguage();
   if (!analysis) {
@@ -113,6 +113,7 @@ export function Overview({ analysis, onGo }) {
       <div className="view">
         <ViewHeader icon="chart" title={t('nav_overview')} hint={t('vh_overview')} />
         <NoProject text={t('es_no_analysis')} />
+        <TargetPanel analysis={null} project={project} />
       </div>
     );
   }
@@ -171,11 +172,134 @@ export function Overview({ analysis, onGo }) {
           </tbody>
         </table>
       </div>
-      <div className="panel" style={{ marginTop: 12 }}>
-        <h2 className="sub-title"><Icon name="globe" size={15} />{t('languages')}</h2>
-        <div className="hrow">
-          {Object.entries(analysis.languages).map(([k, n]) => <span key={k} className="pill"><Icon name="file" size={11} /> {k} {n}</span>)}
-        </div>
+      <TargetPanel analysis={analysis} project={project} />
+    </div>
+  );
+}
+
+const fmtBytes = (n) => {
+  const v = Number(n) || 0;
+  if (v < 1024) return `${v} B`;
+  if (v < 1048576) return `${Math.round(v / 102.4) / 10} KB`;
+  if (v < 1073741824) return `${Math.round(v / 104857.6) / 10} MB`;
+  return `${Math.round(v / 107374182.4) / 10} GB`;
+};
+const fmtNum = (n) => (n == null ? '—' : Number(n).toLocaleString());
+const fmtMs = (ms) => {
+  const s = Math.round((Number(ms) || 0) / 1000);
+  if (s < 60) return `${s}${t('u_sec')}`;
+  const m = Math.floor(s / 60);
+  return m < 60 ? `${m}${t('u_min')} ${s % 60}${t('u_sec')}` : `${Math.floor(m / 60)}${t('u_hour')} ${m % 60}${t('u_min')}`;
+};
+
+// The analyzed folder: what is in it (project.target, also before the first
+// analysis) and, after an analysis, its lines, complexity and code by
+// language and folder (analysis.files).
+function TargetPanel({ analysis, project }) {
+  useLanguage();
+  const [target, setTarget] = useState(null);
+  const projectId = project && project.id;
+  const at = analysis && analysis.finishedAt;
+  useEffect(() => {
+    if (!projectId) return undefined;
+    let stop = false;
+    setTarget(null);
+    call('project.target', { projectId, quiet: true }).then((r) => { if (!stop) setTarget(r); }).catch(() => { if (!stop) setTarget({ exists: false }); });
+    return () => { stop = true; };
+  }, [projectId, at]);
+  const facts = useMemo(() => {
+    const files = (analysis && analysis.files) || [];
+    const langs = {};
+    const folders = {};
+    for (const f of files) {
+      const l = langs[f.language] || (langs[f.language] = { lines: 0, ncloc: 0, files: 0 });
+      l.lines += f.lines || 0; l.ncloc += f.ncloc || 0; l.files++;
+      const dir = String(f.path).split('/').slice(0, -1).slice(0, 2).join('/') || '.';
+      folders[dir] = (folders[dir] || 0) + (f.ncloc || 0);
+    }
+    const topFiles = [...files].sort((a, b) => (b.ncloc || 0) - (a.ncloc || 0)).slice(0, 8);
+    const topFolders = Object.entries(folders).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    return { langs, topFiles, topFolders };
+  }, [analysis]);
+  if (!project) return null;
+  const m = (analysis && analysis.measures) || null;
+  const tg = target && target.exists ? target : null;
+  const langNames = [...new Set([...Object.keys((tg && tg.languages) || {}), ...Object.keys(facts.langs)])];
+  const rows = langNames.map((k) => ({
+    lang: k,
+    files: facts.langs[k] ? facts.langs[k].files : (tg && tg.languages[k] ? tg.languages[k].files : 0),
+    bytes: tg && tg.languages[k] ? tg.languages[k].bytes : null,
+    lines: facts.langs[k] ? facts.langs[k].lines : null,
+    ncloc: facts.langs[k] ? facts.langs[k].ncloc : null,
+  }));
+  const shareOf = (r) => (m ? (m.ncloc ? (r.ncloc || 0) / m.ncloc : 0) : (tg && tg.bytes ? (r.bytes || 0) / tg.bytes : 0));
+  rows.sort((a, b) => shareOf(b) - shareOf(a) || b.files - a.files);
+  const issueCount = analysis ? (analysis.issuesLimited ? analysis.issuesLimited.total : analysis.issueCount ?? (analysis.issues || []).length) : null;
+  const fact = (icon, label, value, sub, term, wide) => (
+    <div className={`tg-fact${wide ? ' wide' : ''}`}>
+      <div className="k"><Icon name={icon} size={13} /><span data-term={term}>{label}</span></div>
+      <div className="v">{value == null || value === '' ? '—' : value}</div>
+      {sub && <div className="small muted">{sub}</div>}
+    </div>
+  );
+  return (
+    <div className="panel target-panel" style={{ marginTop: 12 }} data-tour="target">
+      <h2 className="sub-title"><Icon name="folder" size={15} />{t('tg_title')}</h2>
+      {!analysis && <p className="small muted">{t('tg_before')}</p>}
+      <div className="tg-path mono selectable" title={project.path}>{project.path}</div>
+      {target && !target.exists && <p className="small bad">{t('tg_missing')}</p>}
+      {!target && <p className="small muted">{t('tg_scanning')}</p>}
+      <div className="tg-facts">
+        {analysis && fact('clock', t('tg_analyzed'), fmtDate(analysis.finishedAt), `${t('tg_duration')} ${fmtMs(analysis.durationMs)}`)}
+        {fact('file', t('tg_source_files'), fmtNum(m ? m.files : tg && tg.files), tg ? `${t('tg_size')} ${fmtBytes(tg.bytes)}` : null)}
+        {fact('folder', t('tg_folders'), fmtNum(tg && tg.dirs))}
+        {m && fact('list', t('tg_lines'), fmtNum(m.lines), `${t('tg_code_lines')} ${fmtNum(m.ncloc)}`, 'ncloc')}
+        {m && fact('edit', t('tg_comment_lines'), fmtNum(m.comment_lines), `${m.comment_density}%`, 'comment_density')}
+        {m && fact('flow', t('tg_complexity'), fmtNum(m.complexity), null, 'complexity')}
+        {analysis && fact('bug', t('tg_issue_count'), fmtNum(issueCount))}
+        {fact('wrench', t('tg_build'), tg ? (tg.build.join(', ') || t('tg_none')) : null)}
+        {fact('branch', t('tg_scm'), tg ? (tg.scm.join(', ') || t('tg_none')) : null)}
+        {fact('filter', t('tg_excluded'), tg ? t('tg_excluded_value', { patterns: tg.exclusions, dirs: tg.excludeDirs.length, skipped: tg.skipped.length }) : null, tg && tg.skipped.length ? tg.skipped.slice(0, 6).map((s) => s.dir).join(', ') : null, null, true)}
+      </div>
+      {rows.length > 0 && (
+        <>
+          <h3 className="sub-title"><Icon name="globe" size={14} />{t('tg_languages')}</h3>
+          <table className="tg-langs">
+            <thead><tr><th>{t('tg_language')}</th><th className="num">{t('files')}</th><th className="num">{t('tg_size')}</th><th className="num">{t('tg_lines')}</th><th className="num">{t('tg_code_lines')}</th><th>{t('tg_share')}</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.lang}>
+                  <td><Icon name="file" size={12} /> {r.lang}</td>
+                  <td className="num">{fmtNum(r.files)}</td>
+                  <td className="num">{r.bytes == null ? '—' : fmtBytes(r.bytes)}</td>
+                  <td className="num">{fmtNum(r.lines)}</td>
+                  <td className="num">{fmtNum(r.ncloc)}</td>
+                  <td><span className="tg-bar"><span style={{ width: `${Math.round(shareOf(r) * 100)}%` }} /></span> <span className="small muted">{Math.round(shareOf(r) * 1000) / 10}%</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+      <div className="tg-lists">
+        {(facts.topFiles.length > 0 || (tg && tg.largest.length > 0)) && (
+          <div>
+            <h3 className="sub-title"><Icon name="file" size={14} />{t('tg_largest')}</h3>
+            <ol className="tg-list">
+              {facts.topFiles.length > 0
+                ? facts.topFiles.map((f) => <li key={f.path}><span className="mono" title={f.path}>{f.path}</span><span className="muted">{fmtNum(f.ncloc)} {t('tg_code_lines')}</span></li>)
+                : tg.largest.slice(0, 8).map((f) => <li key={f.path}><span className="mono" title={f.path}>{f.path}</span><span className="muted">{fmtBytes(f.bytes)}</span></li>)}
+            </ol>
+          </div>
+        )}
+        {facts.topFolders.length > 0 && (
+          <div>
+            <h3 className="sub-title"><Icon name="folder" size={14} />{t('tg_top_folders')}</h3>
+            <ol className="tg-list">
+              {facts.topFolders.map(([dir, n]) => <li key={dir}><span className="mono" title={dir}>{dir}</span><span className="muted">{fmtNum(n)} {t('tg_code_lines')}</span></li>)}
+            </ol>
+          </div>
+        )}
       </div>
     </div>
   );

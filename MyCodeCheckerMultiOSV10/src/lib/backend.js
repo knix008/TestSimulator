@@ -74,7 +74,10 @@ export function withIssuesFrom(slim, prev) {
  */
 export function withProjectIssues(ws, projectId, got) {
   if (!ws) return ws;
-  const drop = (a) => (a && Array.isArray(a.issues) ? { ...a, issueCount: a.issues.length, issues: undefined } : a);
+  const drop = (a) => (a && Array.isArray(a.issues) ? { ...a, issueCount: a.issuesLimited ? a.issuesLimited.total : a.issues.length, issues: undefined, issuesLimited: undefined } : a);
+  // A list cut to MAX_WINDOW_ISSUES keeps its full count in issuesLimited.
+  const take = (a, list, limited) => ({ ...a, issues: list, ...(limited ? { issuesLimited: limited } : {}) });
+  const lim = (got && got.limited) || {};
   return {
     ...ws,
     projects: (ws.projects || []).map((p) => {
@@ -82,9 +85,9 @@ export function withProjectIssues(ws, projectId, got) {
       const branches = {};
       for (const [name, b] of Object.entries(p.branches || {})) {
         if (!b || !b.latest) { branches[name] = b; continue; }
-        branches[name] = { ...b, latest: mine ? (got && got.branches && Array.isArray(got.branches[name]) ? { ...b.latest, issues: got.branches[name] } : b.latest) : drop(b.latest) };
+        branches[name] = { ...b, latest: mine ? (got && got.branches && Array.isArray(got.branches[name]) ? take(b.latest, got.branches[name], lim[name]) : b.latest) : drop(b.latest) };
       }
-      const desktop = p.desktop ? (mine ? (got && Array.isArray(got.desktop) ? { ...p.desktop, issues: got.desktop } : p.desktop) : drop(p.desktop)) : p.desktop;
+      const desktop = p.desktop ? (mine ? (got && Array.isArray(got.desktop) ? take(p.desktop, got.desktop, lim['']) : p.desktop) : drop(p.desktop)) : p.desktop;
       return { ...p, branches, ...(p.desktop ? { desktop } : {}) };
     }),
   };
@@ -94,22 +97,31 @@ export function withProjectIssues(ws, projectId, got) {
  * All issue lists of one project, fetched in pages of `page` issues:
  * { branches: { name: issues }, desktop: issues | null }. onProgress(done, total).
  */
-export async function loadProjectIssues(project, { page = 20000, onProgress } = {}) {
+// The most issues one analysis keeps in this window. A larger analysis shows
+// its most severe issues (project.issues order 'severity'); the service keeps
+// them all (reports, database export).
+export const MAX_WINDOW_ISSUES = 1000000;
+
+export async function loadProjectIssues(project, { page = 20000, onProgress, max = MAX_WINDOW_ISSUES } = {}) {
   const parts = [...Object.entries(project.branches || {}).filter(([, b]) => b && b.latest).map(([name]) => name), ...(project.desktop ? [''] : [])];
-  const total = parts.reduce((n, name) => n + (((name ? project.branches[name].latest : project.desktop) || {}).issueCount || 0), 0);
+  const countOf = (name) => (((name ? project.branches[name].latest : project.desktop) || {}).issueCount || 0);
+  const total = parts.reduce((n, name) => n + Math.min(max, countOf(name)), 0);
   let done = 0;
   const job = track(t('pp_issues', { name: project.name || '' }), { total });
-  const out = { branches: {}, desktop: null };
+  // limited: { [name or '']: { shown, total } } for the lists that were cut.
+  const out = { branches: {}, desktop: null, limited: {} };
   try {
   for (const name of parts) {
     const list = [];
+    const order = countOf(name) > max ? 'severity' : undefined;
     for (let offset = 0; ;) {
-      const r = await call('project.issues', { projectId: project.id, branch: name, offset, limit: page });
+      const r = await call('project.issues', { projectId: project.id, branch: name, offset, limit: Math.min(page, max - list.length), order });
       for (const i of r.issues) list.push(i);
       offset += r.issues.length;
       done += r.issues.length;
       if (onProgress) onProgress(done, Math.max(total, done));
       job.update(done, Math.max(total, done));
+      if (list.length >= max && r.total > list.length) { out.limited[name] = { shown: list.length, total: r.total }; break; }
       if (!r.issues.length || offset >= r.total) break;
     }
     if (name) out.branches[name] = list; else out.desktop = list;

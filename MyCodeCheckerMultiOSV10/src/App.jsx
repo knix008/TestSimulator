@@ -240,7 +240,11 @@ export default function App() {
     const id = project.id;
     setIssuesLoading({ done: 0, total: 0 });
     loadProjectIssues(project, { onProgress: (done, total) => { if (!stop) setIssuesLoading({ done, total }); } })
-      .then((got) => { if (!stop) setWs((cur) => (cur && cur.activeProjectId === id ? withProjectIssues(cur, id, got) : cur)); })
+      .then((got) => {
+        if (stop) return;
+        setWs((cur) => (cur && cur.activeProjectId === id ? withProjectIssues(cur, id, got) : cur));
+        for (const l of Object.values(got.limited || {})) toast(t('issues_limited', { shown: l.shown.toLocaleString(), total: l.total.toLocaleString() }), 'warn', 10000);
+      })
       .catch((err) => { if (!stop) showError(err); })
       .finally(() => { if (!stop) setIssuesLoading(false); });
     return () => { stop = true; };
@@ -627,7 +631,7 @@ export default function App() {
         }
         if (job.status === 'done') return job.result;
         if (['cancelled', 'canceled', 'CANCELED'].includes(job.status)) throw Object.assign(new Error(t('sj_cancelled')), { code: 'CANCELLED' });
-        throw Object.assign(new Error((job.error && job.error.message) || t('sj_failed')), { code: (job.error && job.error.code) || 'FAILED' });
+        throw Object.assign(new Error((job.error && job.error.message) || t('sj_failed')), { code: (job.error && job.error.code) || 'FAILED', ...(job.error && job.error.text ? { text: job.error.text } : {}) });
       }
     } finally {
       setScanJob((s) => (s && s.id === jobId ? null : s));
@@ -1209,7 +1213,7 @@ export default function App() {
             projects={ws.projects || []} recent={recent} onRecentOpen={openRecent} onRecentRemove={removeRecent} onRecentClear={clearRecent} onOpen={openFolder} onSample={() => scan('')}
             onBackground={(startBackground) => patchSettings({ startBackground })}
             onRecent={async (p) => { if (await save({ ...ws, activeProjectId: p.id })) setView('overview'); }} />}
-          {view === 'overview' && <Overview analysis={analysis} onGo={onAction} />}
+          {view === 'overview' && <Overview analysis={analysis} project={project} onGo={onAction} />}
           {view === 'issues' && <IssueBrowser issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} filter={filter} setFilter={setFilter} selected={selected} onSelect={(i) => { setSelected(i); if (i) revealRight(); }} checked={checked} setChecked={setChecked} onUpdate={onUpdate} onReview={onReview} approval={ws.settings.approval} onTicket={onTicket} project={project} branch={branch} />}
           {view === 'hotspots' && <Hotspots issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} onUpdate={onUpdate} />}
           {view === 'measures' && <Measures analysis={analysis} />}
