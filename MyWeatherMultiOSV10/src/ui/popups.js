@@ -353,7 +353,7 @@ export function buildPrintSpec(t, draft, model) {
   };
 }
 
-const FORECAST_WIDTH = { daily: 640, weekly: 720, monthly: 720 };
+const FORECAST_WIDTH = { daily: 640, weekly: 720, monthly: 600 };
 
 export function buildForecastSpec({ range, markup, fitHeight, when = "", city = "", cityNav = false, refreshLabel = "", transparency = 0, backgroundImage = "", backgroundOpacity = 40, t }) {
   const body = Math.max(72, Number(fitHeight) || 72);

@@ -86,6 +86,8 @@ class WeatherApp {
     this.statusMessage = "";
     this.titleText = "";
     this.forecastAnchor = { daily: "", weekly: "", monthly: "" };
+    // Each forecast window can be stepped to its own city; "" follows the main window's city.
+    this.forecastCity = { daily: "", weekly: "", monthly: "" };
     this.shellSize = clampWindowSize(this.settings.windowSize || WINDOW_DEFAULT);
   }
 
@@ -237,6 +239,23 @@ class WeatherApp {
 
   currentTab() {
     return this.doc.tabs[this.doc.activeIndex] || this.doc.tabs[0];
+  }
+
+  /** The city a forecast window shows: the one stepped to with its < >, else the main window's. */
+  forecastTab(range) {
+    const id = this.forecastCity[range];
+    return (id && this.doc.tabs.find((tab) => tab.id === id)) || this.currentTab();
+  }
+
+  /** The < > beside a forecast window's city name move only that window, never the main window. */
+  stepForecastCity(range, delta) {
+    const count = this.doc.tabs.length;
+    if (count < 2 || !(range in this.forecastCity)) return;
+    const at = this.doc.tabs.indexOf(this.forecastTab(range));
+    const tab = this.doc.tabs[(((at + delta) % count) + count) % count];
+    this.forecastCity[range] = tab.id;
+    this.paintOpenForecast(range);
+    if (!tab.weather && this.options.autoLoad !== false) void this.refreshWeather({ quiet: true, tab });
   }
 
   cityChoices() {
@@ -1193,7 +1212,7 @@ class WeatherApp {
   }
 
   forecastView(range, anchor = "") {
-    const tab = this.currentTab();
+    const tab = this.forecastTab(range);
     const basis = anchor || this.forecastAnchor[range] || isoDate(this.now());
     const t = (key, vars) => this.t(key, vars);
     const shared = {
@@ -1219,7 +1238,9 @@ class WeatherApp {
   async showForecast(range, options = {}) {
     const anchor = options.anchor || isoDate(this.now());
     this.forecastAnchor[range] = anchor;
-    const tab = this.currentTab();
+    // The main window's buttons open on its city; a day opened from another forecast keeps that window's city.
+    this.forecastCity[range] = options.cityId || "";
+    const tab = this.forecastTab(range);
     const hasWeather = Boolean(tab?.weather?.daily?.length);
     const t = (key, vars) => this.t(key, vars);
     const { markup, when, city, cityNav } = this.forecastView(range, anchor);
@@ -1229,7 +1250,7 @@ class WeatherApp {
       when,
       city,
       cityNav,
-      fitHeight: forecastFitHeight(range, hasWeather),
+      fitHeight: forecastFitHeight(range, hasWeather, this.now()),
       refreshLabel: this.t("cmd.refresh"),
       transparency: this.themePreview?.transparency ?? this.settings.transparency,
       backgroundImage: this.settings.backgroundImage,
@@ -1246,15 +1267,15 @@ class WeatherApp {
         if (msg?.type === "open-daily") {
           this.selectDate(msg.date);
           if (msg.range === "monthly") this.followMonthSelection(msg.date, { daily: false });
-          void this.showForecast("daily", { anchor: msg.date });
+          void this.showForecast("daily", { anchor: msg.date, cityId: this.forecastCity[msg.range] || "" });
           return;
         }
         if (msg?.type === "forecast-refresh") {
-          void this.refreshForecast();
+          void this.refreshForecast(range);
           return;
         }
         if (msg?.type === "forecast-city") {
-          this.nextCity(Number(msg.step) < 0 ? -1 : 1);
+          this.stepForecastCity(range, Number(msg.step) < 0 ? -1 : 1);
           return;
         }
         if (msg?.type !== "select-date") return;
@@ -1269,9 +1290,9 @@ class WeatherApp {
     return this.openOrRefreshForecast(spec, handlers, markup, city, cityNav);
   }
 
-  /** Fetch the shown city again and repaint whatever forecast windows are open. */
-  async refreshForecast() {
-    await this.refreshWeather({ quiet: true });
+  /** Fetch the city a forecast window shows again and repaint whatever forecast windows are open. */
+  async refreshForecast(range) {
+    await this.refreshWeather({ quiet: true, tab: range ? this.forecastTab(range) : null });
     this.refreshOpenForecasts();
   }
 
@@ -1590,7 +1611,7 @@ class WeatherApp {
     }, this.updateDelay);
   }
 
-  async refreshWeather({ quiet = false, progress = false, all = false } = {}) {
+  async refreshWeather({ quiet = false, progress = false, all = false, tab = null } = {}) {
     if (quiet && this.refreshJob) return;
     if (!(await this.connected())) {
       await this.noteOffline(quiet);
@@ -1607,7 +1628,7 @@ class WeatherApp {
       this.progressAborted = false;
       this.operationAbort = this.weatherAbort;
     }
-    const tabs = all ? [...this.doc.tabs] : [this.currentTab()].filter(Boolean);
+    const tabs = all ? [...this.doc.tabs] : [tab || this.currentTab()].filter(Boolean);
     const job = progress
       ? this.withProgress("progress.fetch", (report) => this.loadTabs(tabs, signal, false, report))
       : this.loadTabs(tabs, signal, quiet);
@@ -1672,6 +1693,8 @@ class WeatherApp {
         tab.weather = weather;
         if (tab.id === this.currentTab()?.id) {
           this.selectDate(tab.selectedDate || this.preferredDate(weather));
+          this.refreshOpenForecasts();
+        } else if (["daily", "weekly", "monthly"].some((range) => this.forecastTab(range) === tab)) {
           this.refreshOpenForecasts();
         }
       } catch (error) {

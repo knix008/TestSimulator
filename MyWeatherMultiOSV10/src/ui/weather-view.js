@@ -51,11 +51,20 @@ export function renderForecastHtml({ range, tab, language, units, today, t, prio
   return monthHtml(weather.daily, tab, language, units, today, t, dateFormat);
 }
 
-export function forecastFitHeight(range, hasWeather) {
+/** The month view's title and weekday row, then each week's row with the gap under it. */
+const MONTH_TOP = 45;
+const MONTH_WEEK = 102;
+
+export function forecastFitHeight(range, hasWeather, today = new Date()) {
   if (!hasWeather) return 72;
   if (range === "weekly") return 152;
-  if (range === "monthly") return 720;
+  if (range === "monthly") return MONTH_TOP + monthWeeks(today) * MONTH_WEEK;
   return 416;
+}
+
+/** The 30 days start on today's weekday, so they cover five calendar rows or six. */
+export function monthWeeks(today) {
+  return Math.ceil((monthSpan(today).first.getDay() + MONTH_SPAN) / 7);
 }
 
 export function forecastWhen({ range, tab, language, today, priority = "average", dateFormat = "long", t, anchor = "" }) {

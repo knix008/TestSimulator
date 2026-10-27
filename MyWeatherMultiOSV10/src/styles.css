@@ -343,7 +343,7 @@ button, input, select, textarea, a, .resize-grip, .menu-item {
 .forecast-fit .hour-band { flex: 0 0 auto; }
 .forecast-fit .range-title { flex: 0 0 auto; }
 .forecast-fit .week-row { flex: 0 0 auto; align-content: start; }
-.forecast-fit .month-cal { flex: 1 1 auto; min-height: 0; align-content: stretch; }
+.forecast-fit .month-cal { flex: 0 0 auto; min-height: 0; align-content: start; }
 .forecast-fit .week-row .day { min-height: 0; height: auto; }
 .forecast-fit .month-cal .day { height: auto; }
 .fold { margin-top: 8px; }
