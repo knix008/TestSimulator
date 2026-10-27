@@ -22,6 +22,7 @@
     "theme": "Themes",
     "themeCycle": "Switch to next theme",
     "themePick": "Choose theme",
+    "resize": "Drag to resize the window",
     "themeCustomGroup": "Custom themes",
     "themeNew": "New custom theme…",
     "themeSettings": "Theme settings…",

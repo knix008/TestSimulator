@@ -123,6 +123,8 @@
     getWindowBounds: () => call('window:getBounds'),
     setMinSize: (size) => call('window:setMinSize', size || {}),
     resizeWindowBy: (delta) => call('window:resizeBy', delta || {}),
+    // The bottom-right grip: the system's own resize loop from that corner.
+    startResize: (direction) => invoke('window:startResize', direction || 'southEast'),
     onMaximized: on('window:maximized'),
 
     getAppInfo: () => call('app:getInfo'),

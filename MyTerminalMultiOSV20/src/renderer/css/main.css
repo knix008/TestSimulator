@@ -701,6 +701,48 @@ body.statusbar-hidden .status-bar {
   display: none;
 }
 
+/* Status bar text keeps clear of the corner grip. */
+.status-bar {
+  padding-right: 24px;
+}
+
+/* Bottom-right resize grip: always visible in the theme's toolbar colours, drag = resize. */
+.resize-grip {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  cursor: nwse-resize;
+  color: var(--toolbar-fg);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.resize-grip svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+.resize-grip:hover svg {
+  opacity: 1;
+  color: var(--accent);
+}
+
+body.web .resize-grip,
+body.window-maximized .resize-grip {
+  display: none;
+}
+
 .status-item {
   white-space: nowrap;
   overflow: hidden;

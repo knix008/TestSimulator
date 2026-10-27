@@ -240,10 +240,15 @@ async function main() {
     const r = await evaluate(MAIN, `
       const api = window.myTerminal; const seen = [];
       const off = api.onMaximized((v) => seen.push(v));
+      const grip = () => getComputedStyle(document.getElementById('resize-grip')).display;
+      const before = grip();
       await api.maximize(); await new Promise((r) => setTimeout(r, 600));
+      const whileMax = grip();
       await api.maximize(); await new Promise((r) => setTimeout(r, 600));
-      off(); return seen;`);
-    expect(JSON.stringify(r) === '[true,false]', JSON.stringify(r));
+      off(); return { seen, grip: [before, whileMax, grip()] };`);
+    expect(JSON.stringify(r.seen) === '[true,false]', JSON.stringify(r));
+    // The bottom-right resize grip shows, except while maximised.
+    expect(JSON.stringify(r.grip) === '["flex","none","flex"]', `grip ${JSON.stringify(r.grip)}`);
   });
 
   await check('window opacity follows the slider', async () => {

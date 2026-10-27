@@ -1310,6 +1310,19 @@ async fn mt(app: AppHandle, window: WebviewWindow, ch: String, a: Value) -> Resu
             window.start_dragging().map_err(err)?;
             Ok(Value::Null)
         }
+        // The bottom-right resize grip.
+        "window:startResize" => {
+            use tauri_runtime::ResizeDirection;
+            let direction = match a.as_str().unwrap_or("southEast") {
+                "south" => ResizeDirection::South,
+                "east" => ResizeDirection::East,
+                _ => ResizeDirection::SouthEast,
+            };
+            if !window.is_maximized().unwrap_or(false) {
+                window.as_ref().window().start_resize_dragging(direction).map_err(err)?;
+            }
+            Ok(Value::Null)
+        }
         "window:close" => {
             close_popups_for_owner(&app, &label);
             close_dropdown_for_owner(&app, &label);

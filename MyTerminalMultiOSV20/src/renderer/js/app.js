@@ -1730,6 +1730,12 @@ function bindToolbar() {
       updateMaxButton(maximized);
     });
     on('btn-close', () => api.close());
+    // Bottom-right grip: dragging it resizes the window (native resize loop).
+    document.getElementById('resize-grip')?.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      api.startResize?.('southEast');
+    });
     api.onMaximized?.(updateMaxButton);
     api.isMaximized?.().then(updateMaxButton);
     api.onSshDisconnected?.((payload) => {
@@ -1753,6 +1759,8 @@ function updateMaxButton(maximized) {
   btn.removeAttribute('title');
   btn.setAttribute('aria-label', text);
   btn.dataset.tooltip = text;
+  // A maximised window cannot be resized: the corner grip goes away.
+  document.body.classList.toggle('window-maximized', !!maximized);
 }
 
 async function boot() {
