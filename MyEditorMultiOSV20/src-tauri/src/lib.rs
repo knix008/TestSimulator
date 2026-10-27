@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
@@ -78,6 +78,9 @@ fn normalize(path: &Path) -> PathBuf {
         }
     }
     let text = out.to_string_lossy();
+    if let Some(unc) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{unc}"));
+    }
     PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(&text))
 }
 
@@ -145,9 +148,11 @@ fn project_root(app: &tauri::App) -> Result<PathBuf, String> {
     if cfg!(debug_assertions) {
         return Ok(normalize(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..")));
     }
+    // On Windows resource_dir() is a verbatim path (\\?\C:\...). Node cannot start
+    // a script from one ("EISDIR: lstat 'C:'"), so hand it the plain form.
     app.path()
         .resource_dir()
-        .map(|dir| dir.join("app"))
+        .map(|dir| normalize(&dir.join("app")))
         .map_err(|err| err.to_string())
 }
 
@@ -171,15 +176,25 @@ fn start_service(root: &Path, node: &Path, config: &Path) -> Result<(Child, u16,
         cmd.creation_flags(0x08000000);
     }
     let mut child = cmd.spawn().map_err(|err| format!("Could not start Node.js: {err}"))?;
+    // The last stderr lines go into the error when the service dies during startup.
+    let errors = Arc::new(Mutex::new(Vec::<String>::new()));
+    let mut err_done = None;
     if let Some(stderr) = child.stderr.take() {
-        std::thread::spawn(move || {
+        let errors = Arc::clone(&errors);
+        err_done = Some(std::thread::spawn(move || {
             let mut reader = BufReader::new(stderr);
             let mut line = String::new();
             while reader.read_line(&mut line).unwrap_or(0) > 0 {
                 eprint!("[editor] {line}");
+                if let Ok(mut tail) = errors.lock() {
+                    tail.push(line.trim_end().to_string());
+                    if tail.len() > 12 {
+                        tail.remove(0);
+                    }
+                }
                 line.clear();
             }
-        });
+        }));
     }
     let stdout = child.stdout.take().ok_or("The editor service has no stdout")?;
     let (tx, rx) = mpsc::channel();
@@ -209,7 +224,15 @@ fn start_service(root: &Path, node: &Path, config: &Path) -> Result<(Child, u16,
     let ready = rx.recv_timeout(Duration::from_secs(30)).map_err(|_| {
         let _ = child.kill();
         "The editor service did not start in time".to_string()
-    })??;
+    })?;
+    let ready = ready.map_err(|msg| {
+        let _ = child.wait();
+        if let Some(done) = err_done {
+            let _ = done.join();
+        }
+        let tail = errors.lock().map(|t| t.join("\n")).unwrap_or_default();
+        if tail.is_empty() { msg } else { format!("{msg}\n\n{tail}") }
+    })?;
     let value: Value = serde_json::from_str(&ready).map_err(|err| format!("Bad ready message: {err}"))?;
     let port = value.get("port").and_then(|v| v.as_u64()).ok_or("The editor service did not report a port")? as u16;
     let token = value.get("token").and_then(|v| v.as_str()).unwrap_or("").to_string();
