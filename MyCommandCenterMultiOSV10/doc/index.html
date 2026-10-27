@@ -12,22 +12,23 @@
   body.ko .en, body.en .ko { display: none; }
   /* The header is always one row: the search box gives way first, and below the narrowest
      width that still fits (the app's window has that as its minimum) the page scrolls sideways. */
-  html { min-width: 860px; }
-  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: nowrap; gap: 20px; align-items: center; justify-content: space-between; padding: 12px 22px; background: var(--head); border-bottom: 1px solid var(--line); }
-  h1 { flex: none; margin: 0; font-size: 18px; font-weight: 650; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-  h1 svg { flex: none; color: var(--accent); }
+  html { min-width: 780px; }
+  /* The header's text is its own fixed size: the − / + control changes only the content. */
+  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: nowrap; gap: 20px; font-size: 13px; align-items: center; justify-content: space-between; padding: 12px 22px; background: var(--head); border-bottom: 1px solid var(--line); }
+  h1 { flex: none; margin: 0; font-size: 15px; font-weight: 650; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  h1 svg { flex: none; width: 18px; height: 18px; color: var(--accent); }
   .tools { flex: 1 1 auto; min-width: 0; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
   .tools > * { flex: none; }
-  #q { flex: 0 1 260px; min-width: 140px; width: 260px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: inherit; background: var(--field); }
-  .lang { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
+  #q { flex: 0 1 260px; min-width: 140px; width: 260px; height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: inherit; background: var(--field); }
+  .lang { height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
   .lang.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   .lang { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
   .lang .flag { flex: none; display: block; border-radius: 2px; }
-  .size { display: inline-flex; align-items: stretch; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); overflow: hidden; }
-  .size button { width: 32px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+  .size { display: inline-flex; align-items: stretch; height: 30px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); overflow: hidden; }
+  .size button { width: 30px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
   .size button:hover:not(:disabled) { background: var(--field); }
   .size button:disabled { opacity: 0.35; cursor: default; }
-  .size output { min-width: 54px; display: flex; align-items: center; justify-content: center; text-align: center; font-variant-numeric: tabular-nums; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .size output { min-width: 48px; display: flex; align-items: center; justify-content: center; text-align: center; font-variant-numeric: tabular-nums; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
   /* The content's text size: the − / + control in the header (10–24 px, 13 px at first). Sizes inside are in em. */
   main { min-width: 0; max-width: 920px; width: 100%; margin: 0 auto; padding: 22px 22px 64px; font-size: var(--doc-size, 13px); }
   /* The side panel: the guide's structure (sections and their sub-headings). A click jumps there. */

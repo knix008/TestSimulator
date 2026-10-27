@@ -443,8 +443,12 @@ function channel() {
 // tab) still fits the height; About is the icon, the lines of text and the close button.
 const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [960, 540], about: [480, 260], manual: [1000, 780] };
 // The narrowest a tool window may get. The guide's header row (title, search, text size,
-// languages) needs 844 px with the longer title; doc/index.html keeps 860 px plus the scrollbar.
-const TOOL_MIN = { manual: [880, 480] };
+// languages) needs 769 px; doc/index.html keeps 780 px, plus the page's scrollbar.
+const TOOL_MIN = { manual: [800, 480] };
+// This window's smallest inner size. The host holds a drag on the native frame to it; a size set
+// from code (the resize marker) is not held, so resizeWindow clamps to it. The main window's is
+// tauri.conf.json's, raised by setMinContentWidth.
+let tauriMin = windowKind ? (TOOL_MIN[windowKind] || [200, 150]) : [1149, 713];
 // These two are created hidden and shown once their page has drawn, so the blank window
 // never flashes past before the content is there.
 const REVEAL_KINDS = new Set(['settings', 'about']);
@@ -489,6 +493,7 @@ function tauriMinWidth(width) {
   const w = Math.max(1149, Math.round(Number(width) || 0));
   currentTauriWindow().then(async (win) => {
     const { LogicalSize } = await import('@tauri-apps/api/dpi');
+    tauriMin = [w, 713];
     await win.setMinSize(new LogicalSize(w, 713));
     const scale = await win.scaleFactor();
     const inner = await win.innerSize();
@@ -597,15 +602,19 @@ export async function windowSize() {
   if (isElectron) return unwrap(await electron.windowSize(), 'window error');
   if (isTauri) {
     const win = await currentTauriWindow();
-    const outer = await win.outerSize();
+    // The inner size: setSize (resizeWindow) sets that one, so a framed window does not jump by its frame.
+    const inner = await win.innerSize();
     const scale = await win.scaleFactor();
-    return { width: Math.round(outer.width / scale), height: Math.round(outer.height / scale) };
+    return { width: Math.round(inner.width / scale), height: Math.round(inner.height / scale) };
   }
   return { width: window.outerWidth, height: window.outerHeight };
 }
 export function resizeWindow(width, height) {
   if (isElectron) electron.resizeWindow(width, height);
-  else if (isTauri) currentTauriWindow().then(async (win) => { await win.setSize(await tauriSize(width, height)); }).catch(() => {});
+  else if (isTauri) {
+    const w = Math.max(tauriMin[0], Math.round(width)), h = Math.max(tauriMin[1], Math.round(height));
+    currentTauriWindow().then(async (win) => { await win.setSize(await tauriSize(w, h)); }).catch(() => {});
+  }
 }
 
 export function closeWindow() {
