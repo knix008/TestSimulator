@@ -109,18 +109,26 @@ function firstExisting(candidates) {
 // The console's code page on Windows (what cmd and PowerShell read / write
 // through a pipe), as an iconv-lite encoding name; utf8 elsewhere.
 let codePage = null;
+function codePageOf(out) {
+  const m = String(out).match(/(\d{3,5})/);
+  const cp = m ? Number(m[1]) : 0;
+  return cp && cp !== 65001 && iconv.encodingExists(`cp${cp}`) ? `cp${cp}` : 'utf8';
+}
 function consoleCodePage() {
   if (codePage) return codePage;
   codePage = 'utf8';
   if (process.platform === 'win32') {
-    try {
-      const out = execFileSync('cmd.exe', ['/c', 'chcp'], { windowsHide: true, timeout: 3000 }).toString('latin1');
-      const m = out.match(/(\d{3,5})/);
-      const cp = m ? Number(m[1]) : 0;
-      if (cp && cp !== 65001 && iconv.encodingExists(`cp${cp}`)) codePage = `cp${cp}`;
-    } catch { /* keep utf8 */ }
+    try { codePage = codePageOf(execFileSync('cmd.exe', ['/c', 'chcp'], { windowsHide: true, timeout: 3000 }).toString('latin1')); }
+    catch { /* keep utf8 */ }
   }
   return codePage;
+}
+// Asked for in the background as the core starts: chcp takes ~0.1 s, and done synchronously on the
+// first term.shells it held up every other request of the app's start (session.load among them).
+if (process.platform === 'win32') {
+  execFile('cmd.exe', ['/c', 'chcp'], { windowsHide: true, timeout: 3000, encoding: 'latin1' }, (err, out) => {
+    if (!err && !codePage) codePage = codePageOf(out);
+  });
 }
 
 // cmd and PowerShell write the console's code page (CP949 …), but programs they run may write UTF-8 — node,

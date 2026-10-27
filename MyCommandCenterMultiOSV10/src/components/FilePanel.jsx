@@ -24,6 +24,8 @@ import { Icon } from './Icons';
 import { FolderTree } from './FolderTree';
 import { ContextMenu } from './ContextMenu';
 
+// How long a single click waits before it previews: a second click within this is a double-click.
+const PREVIEW_CLICK_DELAY = 300;
 const ARCHIVE_EXT = ['.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz', '.tar', '.zip', '.gz', '.bz2'];
 
 function looksLikeArchive(name) {
@@ -202,13 +204,24 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
   };
 
   // ── Navigation ──
-  // A double-click (and Enter) shows or runs the entry. A single click only selects it.
-  // onPreview returns true when it showed the file (an image, video or audio); anything else is opened or run.
+  // A single click selects the entry and, when it can be shown (an image, video or audio file),
+  // shows it in the preview window. A double-click (and Enter) enters a folder or opens / runs a file.
   const activate = (e) => {
     if (!e) return;
+    clearTimeout(clickTimer.current);
     if (e.isDir) onNavigate(e.path);
-    else if (!(onPreview && onPreview(e))) onOpenEntry(e);
+    else onOpenEntry(e);
   };
+  // The preview waits out the double-click time, so a double-click opens the file without
+  // flashing it in the preview first. Ctrl / Shift clicks only change the selection.
+  const clickTimer = useRef(0);
+  const onRowClick = (ev, entry) => {
+    clearTimeout(clickTimer.current);
+    if (!onPreview || ev.button !== 0 || ev.detail > 1 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+    if (!entry || entry.isUp || entry.isDir) return;
+    clickTimer.current = setTimeout(() => onPreview(entry), PREVIEW_CLICK_DELAY);
+  };
+  useEffect(() => () => clearTimeout(clickTimer.current), []);
   const goUp = () => { const parent = dirName(path); if (parent && parent !== path) onNavigate(parent); };
 
   useImperativeHandle(ref, () => ({
@@ -617,6 +630,7 @@ export const FilePanel = forwardRef(function FilePanel(props, ref) {
                 draggable={!e.isUp}
                 onDragStart={(ev) => onRowDragStart(ev, i)} onDragEnd={endDrag}
                 onMouseDown={(ev) => onRowMouseDown(ev, i)}
+                onClick={(ev) => onRowClick(ev, e)}
                 onDoubleClick={() => activate(e)}>
                 <td className="c-name">
                   <Icon name={e.isUp ? 'up' : e.isDir ? 'folder' : e.isSymlink ? 'link' : 'file'} size={14} className={e.isDir ? 'ic-folder' : 'ic-file'} />

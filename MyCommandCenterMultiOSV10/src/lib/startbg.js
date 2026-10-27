@@ -19,6 +19,15 @@ function cssChannels(value) {
 }
 
 const mixColor = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+
+// A small picture of each scene, taken while it is on screen and shown at the next start
+// while the shaders compile, so the start page opens on the chosen scene, not a stand-in.
+const SNAP_KEY = (id) => `cc-start-snap:${id}`;
+const SNAP_WIDTH = 640;
+const SNAP_AFTER_MS = 700;    // a moving scene is captured once it has run this long
+function readSnap(id) {
+  try { return localStorage.getItem(SNAP_KEY(id)); } catch { return null; }
+}
 const luma = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
 /** Colours from the active theme, so a theme change shows in every scene. */
@@ -45,6 +54,8 @@ export class StartBackground {
     this.frame = 0;
     this.states = new Map();
     this.clock = { camera: 0, objects: 0, sky: 0, step: 0 };
+    this.captured = new Set();   // scenes already captured this time
+    this.shownAt = 0;            // when the current scene was first drawn
     this.roll();
   }
 
@@ -147,8 +158,9 @@ export class StartBackground {
       this.themeWatch = new MutationObserver(() => { this.tone = themeTone(); });
       this.themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-theme-id', 'style'] });
     }
-    this.ensureGl();
     this.kind = this.choice().scene;
+    this.showSnap(this.kind);
+    this.ensureGl();
     this.resize();
     this.applySize();
     this.start();
@@ -160,8 +172,8 @@ export class StartBackground {
     const { scene, still } = this.choice();
     if (scene !== this.kind) {
       this.kind = scene;
-      this.snap?.remove();
-      this.snapUntil = null;
+      this.dropSnap();
+      this.shownAt = 0;
     }
     if (still) {
       this.stop();
@@ -198,7 +210,44 @@ export class StartBackground {
     this.kit.aspect = this.canvas.width / this.canvas.height;
     this.kit.height = this.canvas.height;
     this.draw();
-    this.canvas.classList.remove('is-pending');
+    const now = performance.now();
+    if (!this.shownAt) this.shownAt = now;
+    // Read the frame now, in the task that drew it (the drawing buffer is not preserved).
+    if (!this.captured.has(this.kind) && (!this.running || now - this.shownAt > SNAP_AFTER_MS)) this.saveSnap(this.kind);
+    if (this.canvas.classList.contains('is-pending')) {
+      this.canvas.classList.remove('is-pending');
+      if (this.snap) setTimeout(() => this.dropSnap(), 450);   // after the canvas's fade-in
+    }
+  }
+
+  showSnap(id) {
+    this.dropSnap();
+    const data = readSnap(id);
+    if (!data || !this.host) return;
+    const img = document.createElement('img');
+    img.className = 'start-bg-snap';
+    img.alt = '';
+    img.src = data;
+    this.host.prepend(img);
+    this.snap = img;
+  }
+
+  dropSnap() {
+    this.snap?.remove();
+    this.snap = null;
+  }
+
+  saveSnap(id) {
+    this.captured.add(id);
+    try {
+      const w = Math.min(SNAP_WIDTH, this.canvas.width);
+      const h = Math.max(1, Math.round(w * this.canvas.height / this.canvas.width));
+      const small = document.createElement('canvas');
+      small.width = w;
+      small.height = h;
+      small.getContext('2d').drawImage(this.canvas, 0, 0, w, h);
+      localStorage.setItem(SNAP_KEY(id), small.toDataURL('image/jpeg', 0.72));
+    } catch { /* no storage: the next start uses the swatch colours */ }
   }
 
   draw() {
@@ -266,7 +315,7 @@ export class StartBackground {
     this.states.clear();
     try { this.gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* the context is already gone */ }
     this.canvas?.remove();
-    this.snap?.remove();
+    this.dropSnap();
     this.gl = null;
     this.kit = null;
     this.canvas = null;

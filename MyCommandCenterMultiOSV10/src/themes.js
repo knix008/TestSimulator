@@ -282,6 +282,8 @@ export function applyTheme(id) {
   // The window's title bar is part of the theme too: the page paints the bar, the host paints the
   // native window controls over it in these colours (src/lib/titlebar.js).
   applyTitlebarTheme(theme);
+  // The next start's splash (index.html) is drawn in these, before any script has loaded.
+  try { localStorage.setItem('cc-boot-colors', JSON.stringify({ bg: theme.tokens['--bg'], fg: theme.tokens['--fg-muted'] })); } catch { /* no storage */ }
   return theme;
 }
 

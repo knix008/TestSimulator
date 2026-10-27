@@ -23,6 +23,7 @@
         "center": true,
         "decorations": false,
         "shadow": true,
+        "backgroundColor": "#12161c",
         "dragDropEnabled": true
       }
     ],

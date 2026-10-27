@@ -22,7 +22,7 @@ export const SETTINGS_DEFAULTS = {
   compareToleranceSec: 2, // "newer" in compare directories
   showToolbar: true,
   fnBar: true,
-  imagePreview: true,   // a double-click on an image, video or audio file opens the preview window; other files open or run
+  imagePreview: true,   // a single click on an image, video or audio file shows it in the preview window; a double-click opens or runs any file
   // opening files
   textOpen: 'app',      // what Enter / double-click does with a text file: app | viewer | editor | custom
   textApp: '',          // program for textOpen = custom

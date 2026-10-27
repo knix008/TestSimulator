@@ -107,26 +107,28 @@ button:disabled { cursor: default; opacity: 0.45; }
 .start-bg-canvas, .start-bg-snap { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .start-bg-canvas { transition: opacity 0.35s ease-out; }
 .start-bg-canvas.is-pending { opacity: 0; transition: none; }
-.start-swatch[data-scene='valley'] { background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
-.start-swatch[data-scene='ocean'] { background: linear-gradient(180deg, #6eb6e0 0%, #d8eef8 42%, #0e4a68 100%); }
-.start-swatch[data-scene='dusk'] { background: linear-gradient(180deg, #2a2458 0%, #e07a4a 42%, #3d2a22 100%); }
-.start-swatch[data-scene='forest'] { background: linear-gradient(180deg, #8ec8e8 0%, #d7e7c4 40%, #143820 100%); }
-.start-swatch[data-scene='lake'] { background: linear-gradient(180deg, #7eb6d8 0%, #f3e2c4 40%, #1a4e72 100%); }
-.start-swatch[data-scene='sunrise'] { background: linear-gradient(180deg, #f08a6a 0%, #ffd29a 40%, #2a2438 100%); }
-.start-swatch[data-scene='mountains'] { background: linear-gradient(180deg, #7aa0c4 0%, #d7e4ef 36%, #243024 100%); }
-.start-swatch[data-scene='dunes'] { background: linear-gradient(180deg, #f0c27a 0%, #e8a060 40%, #c47a3a 100%); }
-.start-swatch[data-scene='rain'] { background: linear-gradient(180deg, #4d6270 0%, #8ea4b0 46%, #2c4a3c 100%); }
-.start-swatch[data-scene='snow'] { background: linear-gradient(180deg, #c5d4e0 0%, #f4f7fb 42%, #9aa8b4 100%); }
-.start-swatch[data-scene='aurora'] { background: linear-gradient(180deg, #06121c 0%, #1d6b4a 38%, #071018 100%); }
-.start-swatch[data-scene='stars'] { background: linear-gradient(180deg, #070b18 0%, #1a2744 100%); }
-.start-swatch[data-scene='nebula'] { background: linear-gradient(180deg, #1a1030 0%, #6a3088 50%, #101828 100%); }
-.start-swatch[data-scene='city'] { background: linear-gradient(180deg, #1c2438 0%, #f0b060 55%, #121820 100%); }
-.start-swatch[data-scene='fireflies'] { background: linear-gradient(180deg, #0c1810 0%, #1d4030 50%, #c8e060 100%); }
-.start-swatch[data-scene='petals'] { background: linear-gradient(180deg, #7eb6e0 0%, #f0c0d0 55%, #3a6a32 100%); }
-.start-swatch[data-scene='embers'] { background: linear-gradient(180deg, #1a100c 0%, #c04020 55%, #f0a040 100%); }
-.start-swatch[data-scene='bokeh'] { background: linear-gradient(180deg, #101820 0%, #3080a0 50%, #e0c080 100%); }
-.start-swatch[data-scene='ribbons'] { background: linear-gradient(135deg, #2040c0 0%, #e04080 50%, #40c0a0 100%); }
-.start-swatch[data-scene='geometry'] { background: linear-gradient(180deg, #10141c 0%, #4060c0 55%, #e0e8f0 100%); }
+/* Until the 3D picture is ready, the scene's last snapshot (or, the first time, its swatch colours) stands in. */
+.start-bg-snap { object-fit: cover; }
+.start-swatch[data-scene='valley'], .start-bg[data-scene='valley'] { background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
+.start-swatch[data-scene='ocean'], .start-bg[data-scene='ocean'] { background: linear-gradient(180deg, #6eb6e0 0%, #d8eef8 42%, #0e4a68 100%); }
+.start-swatch[data-scene='dusk'], .start-bg[data-scene='dusk'] { background: linear-gradient(180deg, #2a2458 0%, #e07a4a 42%, #3d2a22 100%); }
+.start-swatch[data-scene='forest'], .start-bg[data-scene='forest'] { background: linear-gradient(180deg, #8ec8e8 0%, #d7e7c4 40%, #143820 100%); }
+.start-swatch[data-scene='lake'], .start-bg[data-scene='lake'] { background: linear-gradient(180deg, #7eb6d8 0%, #f3e2c4 40%, #1a4e72 100%); }
+.start-swatch[data-scene='sunrise'], .start-bg[data-scene='sunrise'] { background: linear-gradient(180deg, #f08a6a 0%, #ffd29a 40%, #2a2438 100%); }
+.start-swatch[data-scene='mountains'], .start-bg[data-scene='mountains'] { background: linear-gradient(180deg, #7aa0c4 0%, #d7e4ef 36%, #243024 100%); }
+.start-swatch[data-scene='dunes'], .start-bg[data-scene='dunes'] { background: linear-gradient(180deg, #f0c27a 0%, #e8a060 40%, #c47a3a 100%); }
+.start-swatch[data-scene='rain'], .start-bg[data-scene='rain'] { background: linear-gradient(180deg, #4d6270 0%, #8ea4b0 46%, #2c4a3c 100%); }
+.start-swatch[data-scene='snow'], .start-bg[data-scene='snow'] { background: linear-gradient(180deg, #c5d4e0 0%, #f4f7fb 42%, #9aa8b4 100%); }
+.start-swatch[data-scene='aurora'], .start-bg[data-scene='aurora'] { background: linear-gradient(180deg, #06121c 0%, #1d6b4a 38%, #071018 100%); }
+.start-swatch[data-scene='stars'], .start-bg[data-scene='stars'] { background: linear-gradient(180deg, #070b18 0%, #1a2744 100%); }
+.start-swatch[data-scene='nebula'], .start-bg[data-scene='nebula'] { background: linear-gradient(180deg, #1a1030 0%, #6a3088 50%, #101828 100%); }
+.start-swatch[data-scene='city'], .start-bg[data-scene='city'] { background: linear-gradient(180deg, #1c2438 0%, #f0b060 55%, #121820 100%); }
+.start-swatch[data-scene='fireflies'], .start-bg[data-scene='fireflies'] { background: linear-gradient(180deg, #0c1810 0%, #1d4030 50%, #c8e060 100%); }
+.start-swatch[data-scene='petals'], .start-bg[data-scene='petals'] { background: linear-gradient(180deg, #7eb6e0 0%, #f0c0d0 55%, #3a6a32 100%); }
+.start-swatch[data-scene='embers'], .start-bg[data-scene='embers'] { background: linear-gradient(180deg, #1a100c 0%, #c04020 55%, #f0a040 100%); }
+.start-swatch[data-scene='bokeh'], .start-bg[data-scene='bokeh'] { background: linear-gradient(180deg, #101820 0%, #3080a0 50%, #e0c080 100%); }
+.start-swatch[data-scene='ribbons'], .start-bg[data-scene='ribbons'] { background: linear-gradient(135deg, #2040c0 0%, #e04080 50%, #40c0a0 100%); }
+.start-swatch[data-scene='geometry'], .start-bg[data-scene='geometry'] { background: linear-gradient(180deg, #10141c 0%, #4060c0 55%, #e0e8f0 100%); }
 .start-scroll { position: absolute; inset: 0; overflow: auto; }
 .start { max-width: 1100px; margin: 0 auto; padding: 10px 16px 12px; }
 .start-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }

@@ -173,11 +173,12 @@ export default function App() {
     if (booted.current) return;
     booted.current = true;
     (async () => {
-      const i = await call('app.info');
+      // Both at once: the first screen waits for the two of them.
+      const [i, saved] = await Promise.all([call('app.info'), call('session.load')]);
       call('term.shells').then(setShells).catch(() => {});
       setSeparator(i.sep);
       setInfo(i);
-      const s = { ...SETTINGS_DEFAULTS, ...(await call('session.load')) };
+      const s = { ...SETTINGS_DEFAULTS, ...saved };
       setLanguage(s.language || 'ko');
       applyFontSize(s.fontSize);
       if (s.restoreFolders === false) { s.left = i.home; s.right = i.home; s.leftTabs = [{ path: i.home }]; s.rightTabs = [{ path: i.home }]; s.leftTab = 0; s.rightTab = 0; }
@@ -812,7 +813,7 @@ export default function App() {
     const r = await dialogs.viewer({ path: e.path, data, prefs: prefsOf(), canOpen: !!(info && info.capabilities.open), onOpen: () => call('fs.open', { path: e.path }).catch((err) => dialogs.error(err)), onPrintError: (err) => dialogs.error(err, t('print_failed')), onStatus: setStatus, onSaved: () => { p && p.refresh(); } });
     if (r === 'edit') await editFile(side, e, data);
   };
-  // The preview window — one for the app, shown without taking the focus. A double-click opens it for an
+  // The preview window — one for the app, shown without taking the focus. A single click opens it for an
   // image, video or audio file (when that setting is on); the Preview command opens it for any file.
   // An image is decoded there (HEIC / DICOM / TIFF too), a video / audio plays, a text file gets the viewer
   // with its Edit button (the window turns into the editor), anything else the hex dump.
@@ -1234,8 +1235,8 @@ export default function App() {
       setTimeout(() => setExtractable((x) => ({ ...x, [side]: !!(p && p.isExtractable()) })), 60);
     },
     onOpenEntry: (entry) => openEntry(side, entry),
-    // Double-click / Enter: show an image, video or audio file here; every other file is opened or run.
-    // Returns true when the preview took the file, so the panel does not also launch it.
+    // A single click: show an image, video or audio file in the preview window (double-click / Enter opens it).
+    // Returns true when the preview took the file.
     onPreview: (entry) => {
       if (session.imagePreview === false || (!isImageName(entry.name) && !isMediaName(entry.name))) return false;
       previewImage(side, entry, false).catch(() => {});

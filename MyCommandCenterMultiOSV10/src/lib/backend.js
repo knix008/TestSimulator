@@ -516,6 +516,7 @@ async function openTauriWindow(kind, args, { title, width, height } = {}) {
       try { localStorage.setItem(`cc-win:${id}`, JSON.stringify(args || {})); } catch { /* ignore */ }
       await postToApp({ type: 'replaceArgs', id, kind });
     }
+    if (title) { try { await existing.setTitle(title); } catch { /* the page sets document.title as well */ } }
     if (!QUIET_KINDS.has(kind)) { try { await existing.setFocus(); } catch { /* ignore */ } }
     return id;
   }
@@ -573,19 +574,17 @@ export async function openWindow(kind, args, { title, width, height } = {}) {
   return id;
 }
 
-// Arguments for this tool window. Read once and kept, so a second read (the page renders
-// from them immediately, then the loader asks again) still returns the same object.
+// Arguments for this tool window. Kept once read, so a second read (the page renders from them
+// immediately, then the loader asks again) returns the same object. New arguments left for this
+// window (the same tool asked for again: replaceArgs) replace them.
 const argCache = new Map();
 function cachedWindowArgs() {
   if (!windowId) return null;
-  if (argCache.has(windowId)) return argCache.get(windowId);
-  let args = null;
   try {
     const raw = localStorage.getItem(`cc-win:${windowId}`);
-    if (raw) { localStorage.removeItem(`cc-win:${windowId}`); args = JSON.parse(raw); }
-  } catch { /* fall through */ }
-  argCache.set(windowId, args);
-  return args;
+    if (raw) { localStorage.removeItem(`cc-win:${windowId}`); argCache.set(windowId, JSON.parse(raw)); }
+  } catch { /* keep what was read before */ }
+  return argCache.has(windowId) ? argCache.get(windowId) : null;
 }
 export function seededWindowArgs() {
   if (isElectron) return null;

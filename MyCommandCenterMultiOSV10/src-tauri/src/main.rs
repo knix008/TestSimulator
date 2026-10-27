@@ -289,6 +289,19 @@ fn close_popups(window: &tauri::Window) {
     }
 }
 
+/// The saved theme's window colour (session.json `themeBg`, "#rrggbb"), so the window
+/// opens in it instead of the webview's white while the page loads.
+fn saved_theme_background() -> Option<tauri::window::Color> {
+    let text = std::fs::read_to_string(config_dir().join("session.json")).ok()?;
+    let json: serde_json::Value = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+    let hex = json.get("themeBg")?.as_str()?.trim().strip_prefix('#')?;
+    if hex.len() != 6 {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+    Some(tauri::window::Color(byte(0)?, byte(2)?, byte(4)?, 255))
+}
+
 // A second process cannot share the first process's WebView2 profile.
 // Each launch gets its own folder, named by process id, so several
 // Command Center windows can run at the same time.
@@ -358,7 +371,24 @@ fn process_alive(pid: u32) -> bool {
 fn main() {
     prepare_webview_data_dir();
     let core = Arc::new(CoreState { child: Mutex::new(None), config: Mutex::new(None), ready: Condvar::new() });
+    // The core starts first thing, on its own thread, so it is up by the time the webview asks.
+    // (Started from setup it waited for the window and the webview to be created: ~0.4 s.)
+    let mut context = tauri::generate_context!();
+    // The window opens at once, in the saved theme's colour: never the webview's white, and not
+    // hidden until the webview is up (that is the slowest part of the start, ~0.7 s).
+    if let Some(color) = saved_theme_background() {
+        if let Some(window) = context.config_mut().app.windows.get_mut(0) {
+            window.background_color = Some(color);
+        }
+    }
+    let resources = tauri::utils::platform::resource_dir(context.package_info(), &tauri::Env::default()).ok();
     let starter = core.clone();
+    std::thread::spawn(move || {
+        let (child, config) = start_core(resources);
+        *starter.child.lock().unwrap_or_else(|e| e.into_inner()) = child;
+        *starter.config.lock().unwrap_or_else(|e| e.into_inner()) = Some(config);
+        starter.ready.notify_all();
+    });
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(core)
@@ -371,14 +401,7 @@ fn main() {
             clipdrag::drag_move_down,
             clipdrag::start_file_drag,
         ])
-        .setup(move |app| {
-            let resources = app.path().resource_dir().ok();
-            std::thread::spawn(move || {
-                let (child, config) = start_core(resources);
-                *starter.child.lock().unwrap_or_else(|e| e.into_inner()) = child;
-                *starter.config.lock().unwrap_or_else(|e| e.into_inner()) = Some(config);
-                starter.ready.notify_all();
-            });
+        .setup(|app| {
             let shift = WINDOW_SHIFT.load(Ordering::Relaxed);
             if shift != 0 {
                 if let Some(window) = app.get_webview_window("main") {
@@ -394,7 +417,7 @@ fn main() {
                 close_popups(window);
             }
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building Command Center")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {

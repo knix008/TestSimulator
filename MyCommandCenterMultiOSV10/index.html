@@ -5,15 +5,23 @@
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Command Center</title>
-    <style>html,body,#root{margin:0;height:100%;background:#12161c}
+    <style>html,body,#root{margin:0;height:100%;background:var(--boot-bg,#12161c)}
       /* Drawn by the webview before any script runs; React replaces it on its first render. */
-      .boot-splash{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font:600 15px/1.2 "Segoe UI",system-ui,sans-serif;color:#9aa6b8;user-select:none}
+      .boot-splash{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font:600 15px/1.2 "Segoe UI",system-ui,sans-serif;color:var(--boot-fg,#9aa6b8);user-select:none}
       .boot-splash img{width:72px;height:72px}
       .boot-splash i{width:120px;height:3px;border-radius:2px;background:linear-gradient(90deg,transparent,#e8893a,transparent) 0 0/50% 100% no-repeat #232a35;animation:boot-bar 1s linear infinite}
       @keyframes boot-bar{from{background-position:-100% 0}to{background-position:200% 0}}
     </style>
   </head>
   <body>
+    <script>
+      // The theme on screen last time (App stores it): the splash is drawn in it, not always dark.
+      try {
+        const c = JSON.parse(localStorage.getItem('cc-boot-colors') || 'null');
+        if (c && /^#[0-9a-f]{6}$/i.test(c.bg)) document.documentElement.style.setProperty('--boot-bg', c.bg);
+        if (c && /^#[0-9a-f]{6}$/i.test(c.fg)) document.documentElement.style.setProperty('--boot-fg', c.fg);
+      } catch (e) { /* no storage */ }
+    </script>
     <div id="root"><div class="boot-splash"><img src="./icon.svg" alt="" /><span>Command Center</span><i></i></div></div>
     <script>if (/[?&]win=/.test(location.search)) document.getElementById('root').textContent = '';</script>
     <script type="module" src="/src/main.jsx"></script>

@@ -715,4 +715,58 @@ describe('GUI operations', { concurrency: false }, () => {
     await press(document, { key: 'Escape' });
     await waitFor(() => !document.querySelector('.ctx-menu'));
   });
+
+  // A single click shows an image in the preview window; a double-click opens it with its
+  // program and does not show it first. window.open and fs.open are caught here, so nothing
+  // is really opened on the machine running the tests.
+  async function withOpenSpies(run) {
+    const popups = [];
+    const launched = [];
+    const realOpen = win.open;
+    const realFetch = globalThis.fetch;
+    win.open = (url) => { popups.push(String(url)); return { closed: false, focus() {}, close() {} }; };
+    globalThis.fetch = (input, init) => {
+      if (String(input).includes('/api/fs.open')) {
+        launched.push(JSON.parse(init.body).path);
+        return Promise.resolve(new Response(JSON.stringify({ ok: true, data: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      return realFetch(input, init);
+    };
+    try { await run({ popups, launched }); }
+    finally { win.open = realOpen; globalThis.fetch = realFetch; }
+  }
+  const previews = (popups) => popups.filter((u) => /[?&]win=preview/.test(u));
+  // The preview waits out the double-click time on a timer; let it run inside act().
+  const pass = (ms) => act(async () => { await sleep(ms); });
+
+  test('a single click on an image shows it in the preview window; Ctrl+click only selects', async () => {
+    await boot({ 'pic.png': 'not really a png', 'other.png': 'x' });
+    await withOpenSpies(async ({ popups, launched }) => {
+      await mouse(row(leftPanel(), 'pic.png'), 'mousedown');
+      await mouse(row(leftPanel(), 'pic.png'), 'click', { detail: 1 });
+      assert.deepEqual(selectedNames(leftPanel()), ['pic.png']);
+      await pass(450);
+      assert.equal(previews(popups).length, 1);
+      await mouse(row(leftPanel(), 'other.png'), 'click', { detail: 1, ctrlKey: true });
+      await pass(450);
+      assert.equal(previews(popups).length, 1);
+      assert.deepEqual(launched, []);
+    });
+  });
+
+  test('a double-click opens the file with its program and does not preview it first', async () => {
+    const ui = await boot({ 'pic.png': 'not really a png' });
+    await withOpenSpies(async ({ popups, launched }) => {
+      const r = row(leftPanel(), 'pic.png');
+      await mouse(r, 'mousedown');
+      await mouse(r, 'click', { detail: 1 });
+      await mouse(r, 'click', { detail: 2 });
+      await mouse(r, 'dblclick', { detail: 2 });
+      await pass(450);
+      assert.equal(launched.length, 1);
+      assert.equal(launched[0], path.join(ui.dirs.L, 'pic.png'));
+      await pass(450);
+      assert.deepEqual(previews(popups), []);
+    });
+  });
 });

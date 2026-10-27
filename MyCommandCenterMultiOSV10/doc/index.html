@@ -186,7 +186,8 @@
     <div class="ko">
       <table>
         <tr><th>방법</th><th>동작</th></tr>
-        <tr><td>더블클릭, Enter</td><td>폴더로 들어갑니다. 이미지·동영상·오디오는 미리 보기(설정이 켜져 있을 때). 그 밖은 연결된 프로그램입니다.</td></tr>
+        <tr><td>한 번 클릭</td><td>선택합니다. 이미지·동영상·오디오는 미리 보기 창에 보입니다(설정이 켜져 있을 때).</td></tr>
+        <tr><td>더블클릭, Enter</td><td>폴더로 들어갑니다. 파일은 연결된 프로그램으로 열거나 실행합니다.</td></tr>
         <tr><td><code>..</code>, Backspace, Ctrl+PgUp</td><td>상위 폴더</td></tr>
         <tr><td>Ctrl+\</td><td>드라이브 루트</td></tr>
         <tr><td>드라이브 버튼, Alt+F1, Alt+F2</td><td>왼쪽 또는 오른쪽 패널의 드라이브 목록</td></tr>
@@ -205,7 +206,8 @@
     <div class="en">
       <table>
         <tr><th>How</th><th>What it does</th></tr>
-        <tr><td>Double-click, Enter</td><td>Enters a folder. Images, video and audio open in the preview when that setting is on. Everything else uses its program.</td></tr>
+        <tr><td>Single click</td><td>Selects. Images, video and audio show in the preview window when that setting is on.</td></tr>
+        <tr><td>Double-click, Enter</td><td>Enters a folder. A file opens or runs with its program.</td></tr>
         <tr><td><code>..</code>, Backspace, Ctrl+PgUp</td><td>Parent folder</td></tr>
         <tr><td>Ctrl+\</td><td>Drive root</td></tr>
         <tr><td>Drive button, Alt+F1, Alt+F2</td><td>Drive list for the left or the right panel</td></tr>
@@ -330,7 +332,7 @@
       <h3>편집기 (F4)</h3>
       <p>고정폭으로 고치고 Tab이 유지됩니다. 소스 색은 고치는 동안에도 남으며, 한글 입력도 그대로입니다. 색은 120KB까지이고 더 크면 색 없이 편집합니다. Ctrl+S는 UTF-8로 저장합니다. 원본 인코딩이 다르면 안내합니다. Ctrl+P는 저장하지 않은 내용까지 인쇄합니다. 닫을 때 변경이 있으면 묻습니다. 텍스트만, 8MB 이하입니다.</p>
       <h3>미리 보기</h3>
-      <p>이미지, 동영상, 오디오를 더블클릭하면 미리 보기 창이 열립니다. 한 번 클릭은 선택만입니다. 파일 메뉴와 우클릭의 미리 보기는 다른 파일도 엽니다. 텍스트는 뷰어와 편집 버튼, PDF는 쪽 이동·확대·회전·인쇄, 그 밖은 16진수입니다. 창은 목록의 포커스를 빼앗지 않고, 같은 종류를 다시 열면 그 창이 바뀝니다. 설정에서 미리 보기를 끄면 더블클릭은 항상 연결 프로그램입니다.</p>
+      <p>이미지, 동영상, 오디오를 한 번 클릭하면 미리 보기 창에 보입니다. 더블클릭은 연결 프로그램으로 엽니다. 파일 메뉴와 우클릭의 미리 보기는 다른 파일도 엽니다. 텍스트는 뷰어와 편집 버튼, PDF는 쪽 이동·확대·회전·인쇄, 그 밖은 16진수입니다. 창은 목록의 포커스를 빼앗지 않고, 같은 종류를 다시 열면 그 창이 바뀝니다. 설정에서 미리 보기를 끄면 한 번 클릭은 선택만 합니다.</p>
       <p>그림 형식은 png, jpg, gif, webp, bmp, svg, ico, avif, apng에 HEIC/HEIF, DICOM(.dcm), TIFF가 더해집니다. 24MB까지입니다. Ctrl+휠, +와 −, 0은 창에 맞춤, 1은 실제 크기, 더블클릭은 둘을 오갑니다. 4배 이상은 픽셀 그대로이고 드래그로 옮깁니다. R과 Shift+R은 90도 회전하며 인쇄, 저장, 복사에 반영됩니다. 다른 형식으로 저장은 PNG, JPEG, WebP, BMP입니다. 데스크톱은 저장 대화상자, 웹은 다운로드입니다. 클립보드에 그림으로 복사할 수 있습니다.</p>
       <p>회색조 DICOM에는 프레임, 윈도우 프리셋(파일 값, 자동, CT 프리셋), 중심과 폭, 반전(I), 초기화(W)가 있습니다. Ctrl+드래그는 좌우가 폭, 상하가 중심입니다. 여러 프레임은 캐시된 뒤 ◀ ▶, 슬라이더, 방향키, Home, End로 넘깁니다. Space는 파일에 적힌 속도로 반복 재생하고, 없으면 초당 10장입니다. G는 모든 프레임을 격자로 보여 주고, 칸을 누르면 그 프레임입니다.</p>
       <p>동영상은 mp4, m4v, webm, mkv, mov, ogv, avi, mpg, mpeg, 3gp, ts, wmv입니다. 오디오는 mp3, wav, flac, ogg, oga, opus, m4a, aac, weba, wma, aif, aiff, mid, midi입니다. 재생은 브라우저 컨트롤이고 Space, 좌우 5초, M이 있습니다. 파일은 통째로 읽지 않고 Range로 스트리밍합니다. 코덱이 없으면 창 안에 그렇게 표시됩니다. 아래 줄에 해상도, 길이, 크기, 형식이 나옵니다.</p>
@@ -346,7 +348,7 @@
       <h3>Editor (F4)</h3>
       <p>A fixed-width editor that keeps Tab characters. Source colour stays while you type, including Korean input. Colour runs to 120 KB. Larger files edit without it. Ctrl+S saves UTF-8 and says so when the original encoding was different. Ctrl+P prints the text as edited, including unsaved changes. Closing with changes asks. Text only, 8 MB or less.</p>
       <h3>Preview</h3>
-      <p>A double-click on an image, a video or audio opens the preview. A single click only selects. Preview on the File menu and the context menu opens any file: text in the viewer with an edit button, a PDF with pages, zoom, rotation and print, and anything else as hex. The window does not take focus from the list, and another file of the same kind updates it. Turning the preview off makes every double-click use the associated program.</p>
+      <p>A single click on an image, a video or audio shows it in the preview window. A double-click opens it with its program. Preview on the File menu and the context menu opens any file: text in the viewer with an edit button, a PDF with pages, zoom, rotation and print, and anything else as hex. The window does not take focus from the list, and another file of the same kind updates it. Turning the preview off makes a single click only select.</p>
       <p>Picture formats add HEIC/HEIF, DICOM (.dcm) and TIFF to png, jpg, gif, webp, bmp, svg, ico, avif and apng, up to 24 MB. Ctrl+wheel, + and −, 0 fits the window, 1 is actual size, and a double-click toggles those. Past 4× the pixels stay sharp, and a drag pans. R and Shift+R rotate 90 degrees, and print, save and copy use that rotation. Save as offers PNG, JPEG, WebP and BMP: a save dialog on the desktop, a download on the web. Copy places the picture on the clipboard.</p>
       <p>Greyscale DICOM adds frames, window presets (values stored in the file, automatic, CT presets), centre and width, invert (I) and reset (W). Ctrl+drag changes width sideways and centre up and down. Several frames are cached, then moved with the arrows, Home and End. Space plays them on a loop at the rate stored in the file, or 10 per second. G shows every frame in a grid, and a cell selects that frame.</p>
       <p>Video is mp4, m4v, webm, mkv, mov, ogv, avi, mpg, mpeg, 3gp, ts and wmv. Audio is mp3, wav, flac, ogg, oga, opus, m4a, aac, weba, wma, aif, aiff, mid and midi. Playback uses the browser controls, plus Space, five seconds with the arrows, and M. The file is streamed with Range requests rather than read in whole. A missing codec is said so inside the window. The line below shows resolution, duration, size and type.</p>
@@ -410,7 +412,7 @@
         <li><b>시작 화면.</b> 배경 20종, 투명도(숫자와 %), 속도, 시작 시 홈 보여주기, 최근 폴더 10개의 개별 삭제와 전체 삭제.</li>
         <li><b>패널.</b> 보일 열, 숨김 파일, 빠른 검색, Space 폴더 크기, 폴더 비교 허용 오차, 툴바, 펑션 키 줄, 도구를 별도 창으로.</li>
         <li><b>테마.</b> 어두운 것, 밝은 것, 사용자 정의. 카드는 한 번에 그 묶음이고 클릭하면 바로 적용됩니다. 사용자 정의는 현재 테마를 바탕으로 배경, 패널, 테두리, 글자, 강조, 아이콘, 경고 등 15가지 색과 밝기를 정합니다. 세션에 저장되고 툴바 목록과 순환에 들어가며 지울 수 있습니다.</li>
-        <li><b>파일 열기, 보기·편집.</b> 텍스트를 여는 방법, 지정 프로그램, 텍스트 확장자, 뷰어 글꼴과 줄 바꿈, 이미지·동영상·오디오 더블클릭 미리 보기, 편집기 글꼴·탭·줄 바꿈, 소스 색, 인쇄 글꼴 크기.</li>
+        <li><b>파일 열기, 보기·편집.</b> 텍스트를 여는 방법, 지정 프로그램, 텍스트 확장자, 뷰어 글꼴과 줄 바꿈, 이미지·동영상·오디오 한 번 클릭 미리 보기, 편집기 글꼴·탭·줄 바꿈, 소스 색, 인쇄 글꼴 크기.</li>
         <li><b>터미널.</b> 기본 셸, 시작 디렉터리.</li>
         <li><b>프롬프트.</b> 프리셋, 표시 항목, 모양, 경로 스타일, 세그먼트 편집, JSON 가져오기와 내보내기.</li>
       </ul>
@@ -424,7 +426,7 @@
         <li><b>Start screen.</b> The 20 pictures, transparency as a number and %, speed, Show Home at startup, and the ten recent folders with per-item and clear-all delete.</li>
         <li><b>Panels.</b> Visible columns, hidden files, quick search, Space folder sizes, compare tolerance, the toolbar, the function-key row, and whether tools open as separate windows.</li>
         <li><b>Theme.</b> Dark, light and custom, one group of cards at a time, applied on click. A custom theme starts from the current one and sets 15 colours plus light or dark: background, panel, border, text, accent, icons, warning and the rest. It is saved, included in the toolbar list and the cycle, and can be deleted.</li>
-        <li><b>Opening files, viewer and editor.</b> How text opens, a chosen program, text extensions, viewer font and wrapping, double-click preview for images, video and audio, editor font, tab size and wrapping, source colour, print type size.</li>
+        <li><b>Opening files, viewer and editor.</b> How text opens, a chosen program, text extensions, viewer font and wrapping, single-click preview for images, video and audio, editor font, tab size and wrapping, source colour, print type size.</li>
         <li><b>Terminal.</b> Default shell and start directory.</li>
         <li><b>Prompt.</b> Presets, which pieces show, style, path style, segment editing, JSON import and export.</li>
       </ul>
