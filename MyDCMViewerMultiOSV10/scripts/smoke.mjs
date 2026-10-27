@@ -158,6 +158,32 @@ try {
       assert(n === want && n >= 15, `${n} cards for ${want} samples`);
     });
     await check('start', 'no script errors at startup', async () => { const e = errorsOf(page); assert(!e.length, e.join(' | ')); });
+    await check('start', 'menu bar: Start lines up with the menus; theme, language, settings, about at the right end', async () => {
+      const r = await page.eval(`(() => { const b = (e) => e.getBoundingClientRect(); const right = document.querySelector('.menubar-right');
+        return { start: b(document.getElementById('startBtn')).top, file: b(document.querySelector('[data-menu=file] > .menu-title')).top,
+          order: [...right.children].map((e) => e.id || e.className.split(' ').find((c) => /theme-control|lang-btn|settings-btn|about-btn/.test(c)) || e.className),
+          gap: (document.getElementById('winControls').offsetWidth ? b(document.getElementById('winControls')).left : b(document.getElementById('menubar')).right - 6) - b(right).right }; })()`);
+      assert(Math.abs(r.start - r.file) < 1, `Start at y=${r.start}, File at y=${r.file}`);
+      assert(r.order.join(',') === 'theme-control,langBtn,settings-btn,about-btn', `right cluster ${r.order.join(',')}`);
+      assert(r.gap >= 0 && r.gap <= 12, `right cluster ends ${r.gap}px before the edge (window buttons on the desktop)`);
+    });
+    await check('start', 'toolbar: the panel buttons come after every other toolbar button and stay on screen', async () => {
+      const r = await page.eval(`(() => { const tb = document.getElementById('toolbar'), p = document.getElementById('panelToggles'); const pr = p.getBoundingClientRect();
+        return { last: tb.lastElementChild === p, right: pr.right, edge: tb.getBoundingClientRect().right }; })()`);
+      assert(r.last, 'panel buttons are not the last toolbar group');
+      assert(r.right <= r.edge + 1 && r.right > r.edge - 20, `panel buttons end at ${r.right}, toolbar at ${r.edge}`);
+    });
+    await check('start', 'settings › start screen: start page and tutorial at launch, background', async () => {
+      const d = await dialog('settings', 'settings');
+      await d.eval(`[...box.querySelectorAll('.settings-tabs .tab')][1].click(), 0`);
+      await sleep(300);
+      const labels = await d.eval(`[...box.querySelectorAll('.setting-row .label')].map((e) => e.textContent)`);
+      await d.close();
+      const want = ['settings.showStartOnLaunch', 'settings.showTourOnLaunch', 'settings.startScreen.scene'];
+      const names = await page.eval(`${JSON.stringify(want)}.map((k) => I18n.t(k))`);
+      for (const n of names) assert(labels.includes(n), `missing "${n}" in ${labels.join(' | ')}`);
+      return labels.join(' · ');
+    });
   }
 
   /* ── Every sample opens ── */
@@ -387,7 +413,26 @@ try {
     await actWait('demo-measure');
     for (const f of ['png', 'jpeg', 'webp', 'bmp', 'tiff', 'gif']) await check('export', `export ${f.toUpperCase()}`, () => exportVia(f, 'export', { format: f }));
     await check('export', 'export 16-bit TIFF', () => exportVia('tiff16', 'export-tiff16'));
-    await check('export', 'export PDF report', () => exportVia('pdf', 'export-pdf', {}, { ext: '.pdf' }));
+    await check('export', 'PDF report: document dialog (title, author, keywords, notes) → PDF with those properties', async () => {
+      const before = new Set(listOut());
+      const d = await dialog('print', 'export-pdf');
+      await d.waitFor(`box.querySelector('#prPage') && box.querySelector('#prPage').naturalWidth > 0`, 15000);
+      await d.eval(`(() => { const set = (id, v) => { const e = box.querySelector('#' + id); e.value = v; e.dispatchEvent(new Event('input')); }; set('prTitle', 'Smoke report'); set('prAuthor', 'MyDCMViewer smoke'); set('prKeywords', 'CT, smoke'); set('prNotes', 'Line one'); [...box.querySelectorAll('button')].find((b) => b.classList.contains('primary')).click(); return 0; })()`);
+      let found = null, lastSize = -1;
+      for (const t0 = Date.now(); !found && Date.now() - t0 < 60000; await sleep(250)) {
+        const f = listOut().find((x) => !before.has(x) && x.toLowerCase().endsWith('.pdf'));
+        if (!f) continue;
+        const size = fs.statSync(path.join(outDir, f)).size;
+        if (size > 0 && size === lastSize) found = path.join(outDir, f);
+        lastSize = size;
+      }
+      assert(found, 'no PDF was written');
+      const hex = (s) => 'FEFF' + [...s].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()).join('');
+      const text = fs.readFileSync(found).toString('latin1');
+      assert(text.includes(`/Title <${hex('Smoke report')}>`) && text.includes(`/Author <${hex('MyDCMViewer smoke')}>`) && text.includes(`/Keywords <${hex('CT, smoke')}>`), 'document properties missing');
+      exported.push({ name: 'pdf', file: found });
+      return `${path.basename(found)} (${(fs.statSync(found).size / 1024).toFixed(1)} KB)`;
+    });
     await check('export', 'export DICOM (uncompressed)', () => exportVia('dicom', 'export-dicom', {}, { ext: '.dcm' }));
     await check('export', 'export DICOM Secondary Capture', () => exportVia('dicom-sc', 'export-dicom-sc', {}, { ext: '.dcm' }));
     await check('export', 'anonymised copy: PHI replaced, new UIDs, pydicom reads it', async () => {

@@ -188,4 +188,5 @@ function mount(host, api) {
   };
 }
 
-window.StartPage = { mount, SAMPLES: START_SAMPLES, BEGIN, TIP_COUNT };
+// SCENES / SPEED_DEFAULTS: the background choices for Settings › Start screen (the popup has no modules)
+window.StartPage = { mount, SAMPLES: START_SAMPLES, BEGIN, TIP_COUNT, SPEED_DEFAULTS, SCENES: START_SCENE_IDS.map((id) => ({ id, ...SCENE_NAMES[id] })) };

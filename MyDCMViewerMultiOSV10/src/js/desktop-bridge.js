@@ -105,14 +105,14 @@
     clipboardWriteImageData: (imageData) => invoke('clipboard_write_image', toBytes(imageData.data), { headers: { 'x-width': String(imageData.width), 'x-height': String(imageData.height) } }),
     listPrinters: () => invoke('print_list_printers'),
     /** Pages as JPEG bytes → the printer (empty name = the default printer). */
-    printPages: ({ pages, printer = '', copies = 1, landscape = false, title = '' }) => {
+    printPages: ({ pages, printer = '', copies = 1, landscape = false, title = '', paper = '', duplex = '', color = true }) => {
       const list = pages.map(toBytes);
       const out = new Uint8Array(4 + list.length * 4 + list.reduce((n, b) => n + b.length, 0));
       const view = new DataView(out.buffer);
       view.setUint32(0, list.length, true);
       let at = 4 + list.length * 4;
       list.forEach((b, i) => { view.setUint32(4 + i * 4, b.length, true); out.set(b, at); at += b.length; });
-      return invoke('print_pages', out, { headers: { 'x-printer': enc(printer), 'x-copies': String(Math.max(1, Math.min(99, copies | 0 || 1))), 'x-landscape': landscape ? '1' : '0', 'x-title': enc(title) } });
+      return invoke('print_pages', out, { headers: { 'x-printer': enc(printer), 'x-copies': String(Math.max(1, Math.min(99, copies | 0 || 1))), 'x-landscape': landscape ? '1' : '0', 'x-title': enc(title), 'x-paper': enc(paper), 'x-duplex': enc(duplex), 'x-color': color ? '1' : '0' } });
     },
 
     watchDir: (dir) => invoke('watch_dir', { dir: String(dir) }),

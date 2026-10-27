@@ -12,7 +12,7 @@ window.Dialogs = (function () {
   const fmt = (v, d = 1) => (Number.isFinite(v) ? (+v.toFixed(d)).toString() : '');
   const P = () => window.Platform;
 
-  const SIZES = { tageditor: { width: 980, height: 720 }, about: { width: 640 }, shortcuts: { width: 720 }, error: { width: 600 }, prompt: { width: 440 }, settings: { width: 860 }, batch: { width: 600 }, mpr: { width: 1180 }, anonymize: { width: 560 }, progress: { width: 460 }, print: { width: 900 }, filters: { width: 560 }, exportas: { width: 720 } };
+  const SIZES = { tageditor: { width: 980, height: 720 }, about: { width: 640 }, shortcuts: { width: 720 }, error: { width: 600 }, prompt: { width: 440 }, settings: { width: 860 }, batch: { width: 600 }, mpr: { width: 1180 }, anonymize: { width: 560 }, progress: { width: 460 }, print: { width: 1040 }, filters: { width: 560 }, exportas: { width: 720 } };
 
   function actions(box, ...buttons) { const a = el('div', 'modal-actions'); buttons.forEach((b) => a.append(b)); box.append(a); return a; }
 
@@ -93,8 +93,11 @@ window.Dialogs = (function () {
     { section: 'appearance', key: 'lang', type: 'select', options: [['ko', '한국어'], ['en', 'English']] },
     { section: 'appearance', key: 'sidebar', type: 'bool' },
     { section: 'appearance', key: 'rightPanel', type: 'bool' },
-    { section: 'appearance', key: 'showStartOnLaunch', type: 'bool' },
-    { section: 'appearance', key: 'tutorialDone', type: 'bool' },
+    { section: 'start', key: 'showStartOnLaunch', type: 'bool' },
+    { section: 'start', key: 'showTourOnLaunch', type: 'bool' },
+    { section: 'start', key: 'startScreen.scene', type: 'scene' },
+    { section: 'start', key: 'startScreen.transparency', type: 'number', min: 0, max: 100 },
+    { section: 'start', key: 'startScreen.motion', type: 'number', min: 0, max: 100 },
     { section: 'viewer', key: 'interpolate', type: 'bool' },
     { section: 'viewer', key: 'cornerInfo', type: 'bool' },
     { section: 'viewer', key: 'markers', type: 'bool' },
@@ -120,12 +123,17 @@ window.Dialogs = (function () {
     let values = { ...(payload.defaults || {}), ...(payload.settings || {}) };
     const isDesktop = !!payload.isDesktop;
     let tab = payload.tab || 'appearance';
-    const opt = (k) => values[k];
+    // 'startScreen.x' is one field of the startScreen object (start page background); missing fields use the start page defaults
+    const opt = (k) => {
+      if (!k.startsWith('startScreen.')) return values[k];
+      const f = k.slice(12), v = (values.startScreen || {})[f];
+      return v == null ? (payload.startDefaults || {})[f] : v;
+    };
 
     function render() {
       box.innerHTML = '';
       box.append(el('h2', '', esc(t('settings.title'))));
-      const tabs = isDesktop ? ['appearance', 'viewer', 'files'] : ['appearance', 'viewer'];
+      const tabs = isDesktop ? ['appearance', 'start', 'viewer', 'files'] : ['appearance', 'start', 'viewer'];
       if (!tabs.includes(tab)) tab = 'appearance';
       const tabBar = el('div', 'settings-tabs');
       for (const id of tabs) {
@@ -146,6 +154,7 @@ window.Dialogs = (function () {
     }
 
     function change(key, value) {
+      if (key.startsWith('startScreen.')) { value = { ...(values.startScreen || {}), [key.slice(12)]: value }; key = 'startScreen'; }
       values[key] = value;
       ctx.send('setting', { key, value });
       if (key === 'theme') window.Themes.apply(value);
@@ -242,6 +251,13 @@ window.Dialogs = (function () {
         const inp = el('input'); inp.type = 'number'; inp.min = spec.min; inp.max = spec.max; inp.value = value;
         inp.addEventListener('change', () => change(spec.key, Math.max(spec.min, Math.min(spec.max, +inp.value || spec.min))));
         ctl.append(inp);
+      } else if (spec.type === 'scene') {
+        const sel = el('select');
+        const lang = window.I18n.lang === 'ko' ? 'ko' : 'en';
+        for (const sc of payload.startScenes || []) { const o = el('option', '', esc(sc[lang])); o.value = sc.id; sel.append(o); }
+        sel.value = value || (payload.startScenes && payload.startScenes[0] ? payload.startScenes[0].id : '');
+        sel.addEventListener('change', () => change(spec.key, sel.value));
+        ctl.append(sel);
       } else if (spec.type === 'color') {
         const inp = el('input'); inp.type = 'color'; inp.value = value;
         inp.addEventListener('input', () => change(spec.key, inp.value));
@@ -680,114 +696,236 @@ window.Dialogs = (function () {
     ctx.send('ready');
   }
 
-  /* ── Print: preview + print to the default printer (silent) or through the system dialog ── */
-  function printHtml(payload, o) {
-    const rows = (payload.info || []).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(payload.name || '')}</title>
-<style>@page{size:${o.paper} ${o.landscape ? 'landscape' : 'portrait'};margin:12mm}html,body{margin:0;padding:0;color:#000;background:#fff;font-family:Segoe UI,system-ui,sans-serif}
-.page{display:flex;flex-direction:column;height:100%;min-height:calc(100vh - 2px)}h1{font-size:15px;margin:0 0 6px}table{border-collapse:collapse;font-size:11px;margin-bottom:8px}th{text-align:left;padding:1px 12px 1px 0;color:#444;font-weight:600}td{padding:1px 0}
-.img{flex:1;display:flex;align-items:${o.center ? 'center' : 'flex-start'};justify-content:center;min-height:0}img{width:100%;max-height:${o.header ? '80vh' : '94vh'};object-fit:contain;display:block}
-.foot{font-size:10px;color:#666;margin-top:6px;text-align:right}</style></head>
-<body><div class="page">${o.header ? `<h1>${esc(payload.name || '')}</h1>${rows ? `<table>${rows}</table>` : ''}` : ''}<div class="img"><img src="${payload.dataUrl}"></div>${o.footer ? `<div class="foot">MyDCMViewer · ${esc(payload.name || '')} · ${esc(new Date().toLocaleString())}</div>` : ''}</div></body></html>`;
+  /* ── Print / PDF document: one page layout (title, details, notes, the image), a live preview and the
+   * output settings. mode 'print' prints it (desktop: straight to the chosen printer), mode 'pdf' saves it.
+   * payload: { dataUrl, name, mode, sections: [{ id, title, rows: [[label, value]] }], layout (last used settings) } ── */
+  const PAPER_MM = { A4: [210, 297], Letter: [215.9, 279.4], A3: [297, 420], A5: [148, 210], B5: [182, 257], Legal: [215.9, 355.6] };
+  const MARGIN_MM = { narrow: 6, normal: 12, wide: 20 };
+  const DOC_DEFAULTS = {
+    title: '', subtitle: '', author: '', notes: '', keywords: '',
+    include: { patient: true, study: true, image: true, measure: true }, showDate: true, footer: true,
+    landscape: false, paper: 'A4', margin: 'normal', columns: 2,
+    imageSize: 100, imageAlign: 'top', imageBorder: false, grayscale: false,
+    dpi: 200, copies: 1, printer: '', duplex: '',
+  };
+  /** The settings a document starts with: defaults ← last used (payload.layout) ← this call; the title is the file name. */
+  function docOptions(payload, o) {
+    const d = { ...DOC_DEFAULTS, ...(payload.layout || {}), ...(o || {}) };
+    d.include = { ...DOC_DEFAULTS.include, ...((payload.layout || {}).include || {}), ...((o || {}).include || {}) };
+    if (o == null || o.title == null) d.title = payload.name || '';
+    return d;
   }
-  function print(box, payload, ctx) {
-    box.classList.add('print');
-    box.innerHTML = `<h2>${esc(t('print.title'))}</h2>
-      <div class="print-layout">
-        <div class="print-preview"><iframe id="prFrame" title="preview"></iframe></div>
-        <div class="print-options">
-          <div class="form-row"><label>${esc(t('print.orientation'))}</label><div class="row radios"><label><input type="radio" name="prOri" value="portrait" checked>${esc(t('print.portrait'))}</label><label><input type="radio" name="prOri" value="landscape">${esc(t('print.landscape'))}</label></div></div>
-          <div class="form-row"><label>${esc(t('print.paper'))}</label><select id="prPaper"><option value="A4">A4</option><option value="Letter">Letter</option><option value="A3">A3</option><option value="Legal">Legal</option></select></div>
-          <div class="form-row"><label>${esc(t('print.options'))}</label><div class="row checks">
-            <label><input type="checkbox" id="prHeader" checked><span>${esc(t('print.header'))}</span></label>
-            <label><input type="checkbox" id="prFooter" checked><span>${esc(t('print.footer'))}</span></label>
-            <label><input type="checkbox" id="prCenter" checked><span>${esc(t('print.center'))}</span></label>
-            <label><input type="checkbox" id="prCopiesOne" disabled checked><span>${esc(t('print.fit'))}</span></label>
-          </div></div>
-          <div class="form-row"><label>${esc(t('print.copies'))}</label><input id="prCopies" type="number" min="1" max="99" value="1" style="width:70px"></div>
-          <div class="form-row desktop-row"><label>${esc(t('print.printer'))}</label><select id="prPrinter"><option value="">${esc(t('print.defaultPrinter'))}</option></select></div>
-          <p class="hint">${esc(t('print.hint'))}</p>
-        </div>
-      </div>`;
-    const q = (id) => box.querySelector('#' + id);
-    const opts = () => ({ landscape: box.querySelector('input[name=prOri]:checked').value === 'landscape', paper: q('prPaper').value, header: q('prHeader').checked, footer: q('prFooter').checked, center: q('prCenter').checked, copies: Math.max(1, Math.min(99, +q('prCopies').value || 1)) });
-    const frame = q('prFrame');
-    const refresh = () => {
-      const o = opts();
-      const pv = box.querySelector('.print-preview');
-      pv.classList.toggle('landscape', o.landscape);
-      frame.srcdoc = printHtml(payload, o).replace('</head>', '<style>html,body{height:100%}</style></head>');
-    };
-    box.querySelectorAll('input, select').forEach((el) => el.addEventListener('change', refresh));
-    refresh();
-    // Desktop: the page is drawn here as a picture and goes straight to the chosen printer.
-    // "System print dialog…" (and the browser) prints the same layout through the webview's own dialog.
-    const desktop = P().isDesktop;
-    box.querySelectorAll('.desktop-row').forEach((r) => { r.style.display = desktop ? '' : 'none'; });
-    if (desktop) {
-      P().listPrinters().then((list) => {
-        const sel = q('prPrinter');
-        for (const name of (list && list.printers) || []) { const o = el('option', '', esc(name + (name === list.default ? ` (${t('print.default')})` : ''))); o.value = name; sel.append(o); }
-      }).catch(() => {});
-    }
-    const now = btn(t('print.now'), 'primary', async () => {
-      const o = opts();
-      now.disabled = true;
-      try {
-        if (!desktop) { await P().print(printHtml(payload, o), { silent: false, ...o }); ctx.send('printed', { ok: true, system: true }); ctx.close(); return; }
-        const page = await printPageCanvas(payload, o);
-        const blob = await new Promise((r) => page.toBlob(r, 'image/jpeg', 0.92));
-        const bytes = new Uint8Array(await blob.arrayBuffer());
-        const printer = q('prPrinter').value;
-        const r = await P().print('', { silent: true, pages: [bytes], printer, copies: o.copies, landscape: o.landscape, title: payload.name || 'MyDCMViewer' });
-        ctx.send('printed', { ...r, printer });
-        if (r.ok || r.reason === 'cancelled') ctx.close();
-      } finally { now.disabled = false; }
-    });
-    actions(box,
-      btn(t('dlg.cancel'), '', ctx.close),
-      btn(t('print.system'), '', async () => { const o = opts(); await P().print(printHtml(payload, o), { silent: false, ...o }); ctx.send('printed', { ok: true, system: true }); }),
-      now);
-  }
+  /** Sections of the payload (older callers send one flat `info` list). */
+  const docSections = (payload) => payload.sections || (payload.info && payload.info.length ? [{ id: 'info', title: '', rows: payload.info }] : []);
 
-  /* The print layout of printHtml() drawn on a canvas at 200 dpi: what the desktop sends to the printer. */
-  const PAPER_MM = { A4: [210, 297], Letter: [215.9, 279.4], A3: [297, 420], Legal: [215.9, 355.6] };
-  async function printPageCanvas(payload, o) {
-    const DPI = 200, mm = (v) => Math.round(v / 25.4 * DPI), pt = (px) => px * DPI / 96;
+  /** The page drawn on a canvas at o.dpi: what goes to the printer, into the PDF and into the browser's print. */
+  async function printPageCanvas(payload, opts) {
+    const o = docOptions(payload, opts);
+    const DPI = +o.dpi || 200, mm = (v) => Math.round(v / 25.4 * DPI), pt = (v) => v * DPI / 72;
     let [w, h] = PAPER_MM[o.paper] || PAPER_MM.A4;
     if (o.landscape) [w, h] = [h, w];
     const c = document.createElement('canvas');
     c.width = mm(w); c.height = mm(h);
     const x = c.getContext('2d');
     x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-    const m = mm(12), right = c.width - m;
-    let y = m;
-    x.fillStyle = '#000'; x.textBaseline = 'top';
-    if (o.header) {
-      x.font = `600 ${pt(15)}px "Segoe UI", system-ui, sans-serif`;
-      x.fillText(payload.name || '', m, y); y += pt(15) * 1.5;
-      x.font = `${pt(11)}px "Segoe UI", system-ui, sans-serif`;
-      const kw = Math.max(0, ...(payload.info || []).map(([k]) => x.measureText(k).width)) + pt(12);
-      for (const [k, v] of payload.info || []) {
-        x.fillStyle = '#444'; x.font = `600 ${pt(11)}px "Segoe UI", system-ui, sans-serif`; x.fillText(k, m, y);
-        x.fillStyle = '#000'; x.font = `${pt(11)}px "Segoe UI", system-ui, sans-serif`; x.fillText(String(v), m + kw, y);
-        y += pt(11) * 1.35;
+    const m = mm(MARGIN_MM[o.margin] || MARGIN_MM.normal), left = m, right = c.width - m, width = right - left;
+    const FONT = '"Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif';
+    const font = (size, weight = 400) => { x.font = `${weight} ${pt(size)}px ${FONT}`; };
+    const fit = (s, max) => { s = String(s); if (x.measureText(s).width <= max) return s; while (s && x.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
+    const wrap = (text, max) => {
+      const lines = [];
+      for (const para of String(text).split(/\r?\n/)) {
+        let line = '';
+        for (const word of para.split(/(\s+)/)) {
+          if (x.measureText(line + word).width <= max || !line.trim()) { line += word; continue; }
+          lines.push(line.trimEnd()); line = word.trimStart();
+        }
+        // a single word wider than the line: cut it by characters
+        while (x.measureText(line).width > max) { let k = line.length; while (k > 1 && x.measureText(line.slice(0, k)).width > max) k--; lines.push(line.slice(0, k)); line = line.slice(k); }
+        lines.push(line);
       }
-      y += pt(8);
+      return lines;
+    };
+    x.textBaseline = 'top';
+    let y = m;
+    // title block: title and subtitle on the left, author and date on the right, a rule below
+    const date = new Date().toLocaleString();
+    const side = [o.author, o.showDate ? date : ''].filter(Boolean);
+    if (o.title || o.subtitle || side.length) {
+      font(9);
+      const sideW = side.length ? Math.max(...side.map((s) => x.measureText(s).width)) + pt(12) : 0;
+      const top = y;
+      x.textAlign = 'right'; x.fillStyle = '#555';
+      side.forEach((s, i) => x.fillText(fit(s, width / 2), right, top + i * pt(9) * 1.4));
+      x.textAlign = 'left';
+      if (o.title) { font(17, 700); x.fillStyle = '#000'; for (const line of wrap(o.title, width - sideW).slice(0, 2)) { x.fillText(line, left, y); y += pt(17) * 1.3; } }
+      if (o.subtitle) { font(11); x.fillStyle = '#444'; for (const line of wrap(o.subtitle, width - sideW).slice(0, 2)) { x.fillText(line, left, y); y += pt(11) * 1.4; } }
+      y = Math.max(y, top + side.length * pt(9) * 1.4) + pt(4);
+      x.fillStyle = '#000'; x.fillRect(left, y, width, Math.max(1, pt(0.8))); y += pt(8);
     }
-    const footH = o.footer ? pt(10) * 2 : 0;
+    // the details, section by section, in one or two columns of label / value
+    const cols = o.columns === 1 || o.columns === '1' ? 1 : 2, gap = pt(14), colW = (width - gap * (cols - 1)) / cols;
+    for (const sec of docSections(payload)) {
+      if (o.include[sec.id] === false || !sec.rows || !sec.rows.length) continue;
+      if (sec.title) { font(10, 700); x.fillStyle = '#1f4e79'; x.fillText(sec.title, left, y); y += pt(10) * 1.45; }
+      font(9, 600);
+      const kw = Math.min(colW * 0.45, Math.max(0, ...sec.rows.map(([k]) => x.measureText(k).width)) + pt(8));
+      const rows = Math.ceil(sec.rows.length / cols);
+      sec.rows.forEach(([k, v], i) => {
+        const col = Math.floor(i / rows), cx = left + col * (colW + gap), cy = y + (i % rows) * pt(9) * 1.4;
+        font(9, 600); x.fillStyle = '#555'; x.fillText(fit(k, kw - pt(6)), cx, cy);
+        font(9); x.fillStyle = '#000'; x.fillText(fit(v, colW - kw), cx + kw, cy);
+      });
+      y += rows * pt(9) * 1.4 + pt(6);
+    }
+    if (o.notes && o.notes.trim()) {
+      font(10, 700); x.fillStyle = '#1f4e79'; x.fillText(t('report.notes'), left, y); y += pt(10) * 1.45;
+      font(9.5); x.fillStyle = '#000';
+      for (const line of wrap(o.notes.trim(), width).slice(0, 14)) { x.fillText(line, left, y); y += pt(9.5) * 1.4; }
+      y += pt(6);
+    }
+    // the image in what is left above the footer
+    const footH = o.footer ? pt(9) * 2 : 0;
     const img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = payload.dataUrl; });
-    const aw = right - m, ah = c.height - m - footH - y;
-    const s = Math.min(aw / img.naturalWidth, ah / img.naturalHeight);
+    const aw = width, ah = Math.max(pt(40), c.height - m - footH - y);
+    const s = Math.min(aw / img.naturalWidth, ah / img.naturalHeight) * Math.max(10, Math.min(100, +o.imageSize || 100)) / 100;
     const iw = img.naturalWidth * s, ih = img.naturalHeight * s;
+    const ix = left + (aw - iw) / 2, iy = o.imageAlign === 'center' ? y + (ah - ih) / 2 : y;
     x.imageSmoothingQuality = 'high';
-    x.drawImage(img, m + (aw - iw) / 2, o.center ? y + (ah - ih) / 2 : y, iw, ih);
+    x.drawImage(img, ix, iy, iw, ih);
+    if (o.imageBorder) { x.strokeStyle = '#000'; x.lineWidth = Math.max(1, pt(0.6)); x.strokeRect(ix, iy, iw, ih); }
     if (o.footer) {
-      x.fillStyle = '#666'; x.font = `${pt(10)}px "Segoe UI", system-ui, sans-serif`; x.textAlign = 'right';
-      x.fillText(`MyDCMViewer · ${payload.name || ''} · ${new Date().toLocaleString()}`, right, c.height - m - pt(10));
+      font(8); x.fillStyle = '#666';
+      const fy = c.height - m - pt(8);
+      x.fillRect(left, fy - pt(5), width, Math.max(1, pt(0.4)));
+      x.textAlign = 'left'; x.fillText(fit(`MyDCMViewer · ${payload.name || ''}`, width * 0.65), left, fy);
+      x.textAlign = 'right'; x.fillText(date, right, fy);
+      x.textAlign = 'left';
+    }
+    if (o.grayscale) {
+      const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+      for (let i = 0; i < p.length; i += 4) { const g = Math.round(p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114); p[i] = p[i + 1] = p[i + 2] = g; }
+      x.putImageData(d, 0, 0);
     }
     return c;
+  }
+  /** The same page for the browser's / webview's print dialog: one picture filling one sheet. */
+  async function printHtml(payload, opts) {
+    const o = docOptions(payload, opts);
+    const page = await printPageCanvas(payload, o);
+    const css = { A4: 'A4', Letter: 'letter', A3: 'A3', A5: 'A5', B5: 'B5', Legal: 'legal' }[o.paper] || 'A4';
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(o.title || payload.name || '')}</title>
+<style>@page{size:${css} ${o.landscape ? 'landscape' : 'portrait'};margin:0}html,body{margin:0;padding:0;background:#fff}img{display:block;width:100vw;height:100vh;object-fit:contain}</style></head>
+<body><img src="${page.toDataURL('image/jpeg', 0.92)}"></body></html>`;
+  }
+
+  function print(box, payload, ctx) {
+    const pdf = payload.mode === 'pdf';
+    const o0 = docOptions(payload);
+    box.classList.add('print');
+    const sel = (id, list, value) => `<select id="${id}">${list.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(value) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+    const check = (id, label, on, extra = '') => `<label><input type="checkbox" id="${id}"${on ? ' checked' : ''}><span>${esc(label)}${extra}</span></label>`;
+    const row = (label, ctl, cls = '') => `<div class="form-row${cls ? ' ' + cls : ''}"><label>${esc(label)}</label>${ctl}</div>`;
+    const sections = docSections(payload);
+    box.innerHTML = `<h2>${esc(t(pdf ? 'report.pdfTitle' : 'print.title'))} <span class="mpr-sub">${esc(payload.name || '')}</span></h2>
+      <div class="print-layout">
+        <div class="print-preview"><img id="prPage" alt=""><span class="print-paper" id="prPaperLabel"></span></div>
+        <div class="print-options">
+          <fieldset><legend>${esc(t('report.document'))}</legend>
+            ${row(t('report.titleField'), `<input type="text" id="prTitle" value="${esc(o0.title)}">`)}
+            ${row(t('report.subtitle'), `<input type="text" id="prSubtitle" value="${esc(o0.subtitle)}" placeholder="${esc(t('report.subtitleHint'))}">`)}
+            ${row(t('report.author'), `<input type="text" id="prAuthor" value="${esc(o0.author)}">`)}
+            ${pdf ? row(t('report.keywords'), `<input type="text" id="prKeywords" value="${esc(o0.keywords)}" placeholder="${esc(t('report.keywordsHint'))}">`) : ''}
+            ${row(t('report.notes'), `<textarea id="prNotes" rows="3" placeholder="${esc(t('report.notesHint'))}">${esc(o0.notes)}</textarea>`)}
+          </fieldset>
+          <fieldset><legend>${esc(t('report.include'))}</legend><div class="row checks">
+            ${sections.map((s) => check(`prInc-${s.id}`, s.title || t('print.header'), o0.include[s.id] !== false, ` <small>(${s.rows.length})</small>`)).join('')}
+            ${check('prDate', t('report.showDate'), o0.showDate)}
+            ${check('prFooter', t('print.footer'), o0.footer)}
+          </div></fieldset>
+          <fieldset><legend>${esc(t('report.page'))}</legend>
+            ${row(t('print.orientation'), `<div class="row radios"><label><input type="radio" name="prOri" value="portrait"${o0.landscape ? '' : ' checked'}>${esc(t('print.portrait'))}</label><label><input type="radio" name="prOri" value="landscape"${o0.landscape ? ' checked' : ''}>${esc(t('print.landscape'))}</label></div>`)}
+            ${row(t('print.paper'), sel('prPaper', Object.keys(PAPER_MM).map((k) => [k, `${k} (${PAPER_MM[k][0]} × ${PAPER_MM[k][1]} mm)`]), o0.paper))}
+            ${row(t('report.margin'), sel('prMargin', Object.keys(MARGIN_MM).map((k) => [k, `${t('report.margin.' + k)} (${MARGIN_MM[k]} mm)`]), o0.margin))}
+            ${row(t('report.columns'), sel('prColumns', [[1, t('report.columns1')], [2, t('report.columns2')]], o0.columns))}
+          </fieldset>
+          <fieldset><legend>${esc(t('report.image'))}</legend>
+            ${row(t('report.imageSize'), sel('prImageSize', [100, 90, 75, 50].map((v) => [v, v === 100 ? t('print.fit') : `${v}%`]), o0.imageSize))}
+            ${row(t('report.imageAlign'), sel('prImageAlign', [['top', t('report.alignTop')], ['center', t('report.alignCenter')]], o0.imageAlign))}
+            <div class="row checks">${check('prBorder', t('report.imageBorder'), o0.imageBorder)}${check('prGray', t('report.grayscale'), o0.grayscale)}</div>
+          </fieldset>
+          <fieldset><legend>${esc(t('report.output'))}</legend>
+            ${row(t('report.dpi'), sel('prDpi', [[150, `150 dpi — ${t('report.dpiSmall')}`], [200, '200 dpi'], [300, `300 dpi — ${t('report.dpiFine')}`]], o0.dpi))}
+            ${pdf ? '' : `${row(t('print.printer'), `<select id="prPrinter"><option value="">${esc(t('print.defaultPrinter'))}</option></select>`, 'desktop-row')}
+            ${row(t('print.copies'), `<input id="prCopies" type="number" min="1" max="99" value="${+o0.copies || 1}">`)}
+            ${row(t('report.duplex'), sel('prDuplex', [['', t('report.duplexPrinter')], ['off', t('report.duplexOff')], ['long', t('report.duplexLong')], ['short', t('report.duplexShort')]], o0.duplex), 'desktop-row')}`}
+          </fieldset>
+          <p class="hint">${esc(t(pdf ? 'report.pdfHint' : 'print.hint'))}</p>
+        </div>
+      </div>`;
+    const q = (id) => box.querySelector('#' + id);
+    const val = (id, d = '') => (q(id) ? q(id).value : d);
+    const opts = () => {
+      const include = {};
+      for (const s of sections) include[s.id] = q(`prInc-${s.id}`).checked;
+      return {
+        title: val('prTitle').trim(), subtitle: val('prSubtitle').trim(), author: val('prAuthor').trim(), notes: val('prNotes'), keywords: val('prKeywords').trim(),
+        include, showDate: q('prDate').checked, footer: q('prFooter').checked,
+        landscape: box.querySelector('input[name=prOri]:checked').value === 'landscape', paper: val('prPaper'), margin: val('prMargin'), columns: +val('prColumns', 2),
+        imageSize: +val('prImageSize', 100), imageAlign: val('prImageAlign'), imageBorder: q('prBorder').checked, grayscale: q('prGray').checked,
+        dpi: +val('prDpi', 200), copies: Math.max(1, Math.min(99, +val('prCopies', 1) || 1)), printer: val('prPrinter'), duplex: val('prDuplex'),
+      };
+    };
+    // the preview is the real page drawn small; typing waits a moment before it is drawn again
+    let token = 0, timer = 0;
+    const refresh = async () => {
+      if (!q('prPage')) return;   // the dialog was closed while a redraw was waiting
+      const my = ++token, o = opts();
+      const page = await printPageCanvas(payload, { ...o, dpi: 72 });
+      if (my !== token || !q('prPage')) return;
+      q('prPage').src = page.toDataURL('image/png');
+      box.querySelector('.print-preview').classList.toggle('landscape', o.landscape);
+      q('prPaperLabel').textContent = `${o.paper} · ${t(o.landscape ? 'print.landscape' : 'print.portrait')}`;
+    };
+    box.querySelectorAll('input, select, textarea').forEach((e) => {
+      e.addEventListener('change', refresh);
+      if (e.type === 'text' || e.tagName === 'TEXTAREA') e.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refresh, 250); });
+    });
+    refresh();
+    // what is kept for the next document (not its words)
+    const layout = (o) => { const { title, subtitle, notes, keywords, ...rest } = o; void title; void subtitle; void notes; void keywords; return rest; };
+    const desktop = P().isDesktop;
+    box.querySelectorAll('.desktop-row').forEach((r) => { r.style.display = desktop ? '' : 'none'; });
+    if (pdf) {
+      const save = btn(t('report.savePdf'), 'primary', () => { const o = opts(); ctx.send('save', { options: o, layout: layout(o) }); ctx.close(); });
+      actions(box, btn(t('dlg.cancel'), '', ctx.close), save);
+      return;
+    }
+    if (desktop) {
+      P().listPrinters().then((list) => {
+        const s = q('prPrinter');
+        for (const name of (list && list.printers) || []) { const op = el('option', '', esc(name + (name === list.default ? ` (${t('print.default')})` : ''))); op.value = name; s.append(op); }
+        if (o0.printer && [...s.options].some((op) => op.value === o0.printer)) s.value = o0.printer;
+      }).catch(() => {});
+    }
+    const now = btn(t('print.now'), 'primary', async () => {
+      const o = opts();
+      now.disabled = true;
+      try {
+        if (!desktop) { await P().print(await printHtml(payload, o), { silent: false, ...o }); ctx.send('printed', { ok: true, system: true, layout: layout(o) }); ctx.close(); return; }
+        const page = await printPageCanvas(payload, o);
+        const blob = await new Promise((r) => page.toBlob(r, 'image/jpeg', 0.92));
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const r = await P().print('', { silent: true, pages: [bytes], printer: o.printer, copies: o.copies, landscape: o.landscape, paper: o.paper, duplex: o.duplex, color: !o.grayscale, title: o.title || payload.name || 'MyDCMViewer' });
+        ctx.send('printed', { ...r, printer: o.printer, layout: layout(o) });
+        if (r.ok || r.reason === 'cancelled') ctx.close();
+      } finally { now.disabled = false; }
+    });
+    actions(box,
+      btn(t('dlg.cancel'), '', ctx.close),
+      btn(t('print.system'), '', async () => { const o = opts(); await P().print(await printHtml(payload, o), { silent: false, ...o }); ctx.send('printed', { ok: true, system: true, layout: layout(o) }); }),
+      now);
   }
 
   /* ── Tag editor: change, add or remove elements and save a new DICOM file (dicomWriter.js) ── */
@@ -966,6 +1104,7 @@ window.Dialogs = (function () {
         let input;
         if (o.type === 'bool') { input = el('input'); input.type = 'checkbox'; input.checked = !!o.default; }
         else if (o.type === 'select') { input = el('select'); input.innerHTML = (o.choices || []).map((c) => `<option value="${esc(c)}"${String(c) === String(o.default) ? ' selected' : ''}>${esc(label('exp.val.' + c, c))}</option>`).join(''); }
+        else if (o.type === 'text') { input = el('input'); input.type = 'text'; input.value = o.default || ''; const hint = label('exp.hint.' + o.key, ''); if (hint) input.placeholder = hint; }
         else { input = el('input'); input.type = 'number'; input.value = o.default; if (o.type === 'quality') { input.min = 0; input.max = 100; } if (o.min != null) input.min = o.min; if (o.max != null) input.max = o.max; }
         input.dataset.key = o.key; input.dataset.type = o.type;
         row.append(input);
@@ -977,7 +1116,7 @@ window.Dialogs = (function () {
     draw();
     const go = () => {
       const options = {};
-      box.querySelectorAll('#exOpts [data-key]').forEach((i) => { options[i.dataset.key] = i.dataset.type === 'bool' ? i.checked : i.dataset.type === 'select' ? i.value : +i.value; });
+      box.querySelectorAll('#exOpts [data-key]').forEach((i) => { options[i.dataset.key] = i.dataset.type === 'bool' ? i.checked : i.dataset.type === 'select' || i.dataset.type === 'text' ? i.value.trim() : +i.value; });
       ctx.send('export', { id: sel.value, options, scope: q('exScopeRow').hidden ? 'frame' : q('exScope').value });
       ctx.close();
     };
@@ -996,6 +1135,6 @@ window.Dialogs = (function () {
     /** Dialogs that live in their own modules (volume3d.js, the PACS window): Dialogs.register('volume', fn, { width }). */
     register(kind, fn, size) { EXTRA[kind] = fn; if (size) EXTRA_SIZES[kind] = size; },
     PHI_TAGS,
-    printPageCanvas,
+    printPageCanvas, printHtml, docOptions,
   };
 })();

@@ -22,6 +22,25 @@ pub struct Job {
   pub copies: u32,
   pub landscape: bool,
   pub title: String,
+  /// Paper name from the print dialog (A4, Letter, A3, A5, Legal, B5); empty keeps the printer's paper
+  pub paper: String,
+  /// "" keeps the printer's setting, "off", "long" (flip on the long edge) or "short"
+  pub duplex: String,
+  /// false asks the printer for black and white
+  pub color: bool,
+}
+
+/// Windows DMPAPER_* and the CUPS (PWG) media name of a paper from the print dialog.
+pub fn paper_size(name: &str) -> Option<(i16, &'static str)> {
+  match name.to_ascii_lowercase().as_str() {
+    "letter" => Some((1, "na_letter_8.5x11in")),
+    "legal" => Some((5, "na_legal_8.5x14in")),
+    "a3" => Some((8, "iso_a3_297x420mm")),
+    "a4" => Some((9, "iso_a4_210x297mm")),
+    "a5" => Some((11, "iso_a5_148x210mm")),
+    "b5" => Some((13, "jis_b5_182x257mm")),
+    _ => None,
+  }
 }
 
 /// The frame the renderer sends: u32 LE page count, a u32 LE length per page,
@@ -70,12 +89,13 @@ pub fn clamp_copies(n: u32) -> u32 {
 // ── Windows ─────────────────────────────────────────────────
 #[cfg(windows)]
 mod platform {
-  use super::{fit_rect, Job, Printers, CANCELLED};
+  use super::{fit_rect, paper_size, Job, Printers, CANCELLED};
   use windows::core::{HSTRING, PCWSTR, PWSTR};
   use windows::Win32::Foundation::{GetLastError, ERROR_CANCELLED};
   use windows::Win32::Graphics::Gdi::{
     CreateDCW, DeleteDC, GetDeviceCaps, SetBrushOrgEx, SetStretchBltMode, StretchDIBits, BITMAPINFO,
-    BITMAPINFOHEADER, BI_RGB, DEVMODEW, DIB_RGB_COLORS, DM_ORIENTATION, HALFTONE, HORZRES, SRCCOPY, VERTRES,
+    BITMAPINFOHEADER, BI_RGB, DEVMODEW, DIB_RGB_COLORS, DMCOLOR_COLOR, DMCOLOR_MONOCHROME, DMDUP_HORIZONTAL, DMDUP_SIMPLEX,
+    DMDUP_VERTICAL, DM_COLOR, DM_DUPLEX, DM_ORIENTATION, DM_PAPERSIZE, HALFTONE, HORZRES, SRCCOPY, VERTRES,
   };
   use windows::Win32::Graphics::Printing::{
     ClosePrinter, DocumentPropertiesW, EnumPrintersW, GetDefaultPrinterW, OpenPrinterW, PRINTER_ENUM_CONNECTIONS,
@@ -118,8 +138,8 @@ mod platform {
     out
   }
 
-  /// The printer's own settings with our orientation laid over them.
-  unsafe fn devmode(name: &HSTRING, landscape: bool) -> Option<Vec<u8>> {
+  /// The printer's own settings with our orientation, paper, duplex and colour laid over them.
+  unsafe fn devmode(name: &HSTRING, job: &Job) -> Option<Vec<u8>> {
     let mut h = PRINTER_HANDLE::default();
     OpenPrinterW(name, &mut h, None).ok()?;
     let size = DocumentPropertiesW(None, h, name, None, None, 0);
@@ -127,8 +147,24 @@ mod platform {
       let mut buf = vec![0u8; size as usize];
       let dm = buf.as_mut_ptr() as *mut DEVMODEW;
       if DocumentPropertiesW(None, h, name, Some(dm), None, DM_OUT_BUFFER) >= 0 {
-        (*dm).Anonymous1.Anonymous1.dmOrientation = if landscape { 2 } else { 1 };
+        (*dm).Anonymous1.Anonymous1.dmOrientation = if job.landscape { 2 } else { 1 };
         (*dm).dmFields |= DM_ORIENTATION;
+        if let Some((code, _)) = paper_size(&job.paper) {
+          (*dm).Anonymous1.Anonymous1.dmPaperSize = code;
+          (*dm).dmFields |= DM_PAPERSIZE;
+        }
+        let duplex = match job.duplex.as_str() {
+          "off" => Some(DMDUP_SIMPLEX),
+          "long" => Some(if job.landscape { DMDUP_HORIZONTAL } else { DMDUP_VERTICAL }),
+          "short" => Some(if job.landscape { DMDUP_VERTICAL } else { DMDUP_HORIZONTAL }),
+          _ => None,
+        };
+        if let Some(d) = duplex {
+          (*dm).dmDuplex = d;
+          (*dm).dmFields |= DM_DUPLEX;
+        }
+        (*dm).dmColor = if job.color { DMCOLOR_COLOR } else { DMCOLOR_MONOCHROME };
+        (*dm).dmFields |= DM_COLOR;
         let _ = DocumentPropertiesW(None, h, name, Some(dm), Some(dm), DM_IN_BUFFER | DM_OUT_BUFFER);
         Some(buf)
       } else {
@@ -144,7 +180,7 @@ mod platform {
   pub fn print(job: &Job, pages: &[image::RgbImage]) -> Result<(), String> {
     unsafe {
       let name = HSTRING::from(job.printer.as_str());
-      let dm = devmode(&name, job.landscape);
+      let dm = devmode(&name, job);
       let dm_ptr = dm.as_ref().map(|b| b.as_ptr() as *const DEVMODEW);
       let hdc = CreateDCW(PCWSTR::null(), &name, PCWSTR::null(), dm_ptr);
       if hdc.is_invalid() {
@@ -222,7 +258,7 @@ mod platform {
 // ── macOS / Linux (CUPS) ────────────────────────────────────
 #[cfg(not(windows))]
 mod platform {
-  use super::{Job, Printers};
+  use super::{paper_size, Job, Printers};
   use std::process::Command;
 
   pub fn list() -> Printers {
@@ -252,6 +288,18 @@ mod platform {
       .arg("-o").arg("collate=true")
       .arg("-o").arg("fit-to-page")
       .arg("-o").arg(if job.landscape { "orientation-requested=4" } else { "orientation-requested=3" });
+    if let Some((_, media)) = paper_size(&job.paper) {
+      cmd.arg("-o").arg(format!("media={media}"));
+    }
+    match job.duplex.as_str() {
+      "off" => { cmd.arg("-o").arg("sides=one-sided"); }
+      "long" => { cmd.arg("-o").arg("sides=two-sided-long-edge"); }
+      "short" => { cmd.arg("-o").arg("sides=two-sided-short-edge"); }
+      _ => {}
+    }
+    if !job.color {
+      cmd.arg("-o").arg("print-color-mode=monochrome");
+    }
     if !job.title.is_empty() {
       cmd.arg("-t").arg(&job.title);
     }
@@ -329,6 +377,15 @@ mod tests {
     assert_eq!(fit_rect(100, 200, 1000, 1000), (250, 0, 500, 1000));
     assert_eq!(fit_rect(200, 100, 1000, 1000), (0, 250, 1000, 500));
     assert_eq!(fit_rect(0, 10, 50, 50), (0, 0, 50, 50));
+  }
+
+  #[test]
+  fn papers_map_to_printer_sizes() {
+    assert_eq!(paper_size("A4"), Some((9, "iso_a4_210x297mm")));
+    assert_eq!(paper_size("letter").map(|p| p.0), Some(1));
+    assert_eq!(paper_size("B5").map(|p| p.0), Some(13));
+    assert_eq!(paper_size(""), None);
+    assert_eq!(paper_size("tabloid"), None);
   }
 
   #[test]

@@ -37,7 +37,7 @@
     theme: 'midnight', lang: 'ko', sidebar: true, sidebarWidth: 300, treeHeight: 50, rightPanel: true, rightPanelWidth: 290,
     interpolate: false, cornerInfo: true, markers: true, overlays: true, measurements: true, burnAnnotations: true, loop: true, invert: false,
     ruler: false, scaleBar: true, scaleBarPos: null, grid: false, measureUnit: 'cm', wheelMode: 'zoom', defaultFps: 10, overlayColor: '#00ff80', annotationColor: '#ffd400', rememberLastDir: true, startupDir: '', confirmDelete: true,
-    showStartOnLaunch: true, tutorialDone: false, startScreen: {}, syncScroll: true, refLines: true,
+    showStartOnLaunch: true, showTourOnLaunch: true, tutorialDone: false, startScreen: {}, docLayout: {}, syncScroll: true, refLines: true,
     pacsNodes: [], pacsLocalAE: 'MYDCMVIEWER', pacsLocalPort: 11112, pacsInbox: '',
   };
   const UNIT_FROM_MM = { mm: 1, cm: 0.1, in: 1 / 25.4 };
@@ -52,6 +52,8 @@
     await P.init();
     S.settings = { ...(P.settings.cache || {}) };
     if (S.settings.measureUnit === 'px' || S.settings.measureUnit === 'mm') S.settings.measureUnit = 'cm';
+    // before the "show the tutorial at launch" option, the tutorial came up until it was finished once
+    if (S.settings.showTourOnLaunch === undefined && S.settings.tutorialDone) S.settings.showTourOnLaunch = false;
     document.body.classList.toggle('web', !P.isDesktop);
     document.body.classList.toggle('desktop', P.isDesktop);
     window.I18n.setLang(opt('lang'));
@@ -143,7 +145,7 @@
     if (opt('showStartOnLaunch') !== false) showStart();
     const handed = await P.ready();   // desktop: the window appears now, already drawn, and the files it was started with open
     if (handed && handed.length) hideStart();
-    if (!opt('tutorialDone')) setTimeout(() => runAction('tour'), 600);
+    if (opt('showTourOnLaunch')) setTimeout(() => runAction('tour'), 600);
   }
 
   /* ══════════════ Start page ══════════════ */
@@ -759,7 +761,7 @@
   /* ══════════════ Actions ══════════════ */
   const BUSY_ACTIONS = {
     'export': 'progress.exporting', 'export-tiff16': 'progress.exporting', 'export-frames': 'progress.exporting', 'export-gif-anim': 'progress.exporting',
-    'export-tags': 'progress.exporting', 'export-webm': 'progress.exporting', 'export-mp4': 'progress.exporting', 'export-pdf': 'progress.exporting',
+    'export-tags': 'progress.exporting', 'export-webm': 'progress.exporting', 'export-mp4': 'progress.exporting', 'export-pdf-save': 'progress.exporting',
     'export-dicom': 'progress.exporting', 'export-dicom-sc': 'progress.exporting', 'export-measurements': 'progress.exporting',
     'export-dicomdir': 'progress.exporting', 'export-as': 'progress.exporting', 'copy-image': 'progress.copying', 'copy-tags': 'progress.copying',
   };
@@ -885,6 +887,7 @@
         case 'document': openDocumentWindow(); break;
         case 'export-mp4': await exportVideo('mp4'); break;
         case 'export-pdf': await exportPdf(); break;
+        case 'export-pdf-save': await exportPdfSave(typeof ds.options === 'string' ? JSON.parse(ds.options) : ds.options || {}); break;
         case 'export-dicom': await exportDicom(); break;
         case 'export-dicom-sc': await exportDicomSc(); break;
         case 'export-measurements': await exportMeasurements(); break;
@@ -2135,18 +2138,16 @@
     toast(t('msg.copied'));
   }
 
-  /* Print: a preview popup; "Print" goes straight to the system default printer, "System dialog…" lets the user pick. */
+  /* Print: the document dialog (title, details, notes, page and printer settings, live preview); "Print" goes
+   * straight to the chosen printer on the desktop, "System dialog…" (and the browser) through the print dialog. */
   async function printImage() {
     const canvas = currentCanvas();
     if (!canvas) { toast(t('export.noImage')); return; }
-    const img = S.file.kind === 'dicom' ? S.file.image : null;
-    const m = img ? img.meta : {};
-    const info = img ? ['patientName', 'patientId', 'modality', 'studyDate', 'studyDescription', 'seriesDescription', 'institution'].filter((k) => m[k]).map((k) => [t(`meta.${k}`), m[k]]) : [[t('meta.dimensions'), `${canvas.width} × ${canvas.height}`]];
-    if (img && img.gray && !img.palette) info.push([t('meta.window'), `W ${fmt(img.state.ww)} / L ${fmt(img.state.wc)}`]);
     const dataUrl = canvas.toDataURL(canvas.width * canvas.height > 4e6 ? 'image/jpeg' : 'image/png', 0.92);
     // The dialog prints by itself (desktop: straight to the chosen printer); it reports back here.
-    Dlg.open('print', { dataUrl, name: S.file.name, info }, (event, r) => {
+    Dlg.open('print', { mode: 'print', dataUrl, name: S.file.name, sections: reportSections(canvas), layout: opt('docLayout') || {} }, (event, r) => {
       if (event !== 'printed' || !r) return;
+      if (r.layout) setOpt({ docLayout: r.layout });
       if (r.ok === false && r.reason && r.reason !== 'cancelled') toast(t('msg.printFailed', { reason: r.reason }), true);
       else if (r.ok && !r.system) toast(r.printer ? t('print.sentTo', { printer: r.printer }) : t('print.sent'));
     });
@@ -2430,7 +2431,8 @@
   function openShortcuts() { Dlg.open('shortcuts'); }
 
   function openSettings() {
-    Dlg.open('settings', { settings: S.settings, defaults: DEFAULTS, isDesktop: P.isDesktop }, async (event, data) => {
+    const SP = window.StartPage || {};
+    Dlg.open('settings', { settings: S.settings, defaults: DEFAULTS, isDesktop: P.isDesktop, startScenes: SP.SCENES || [], startDefaults: SP.SPEED_DEFAULTS || {} }, async (event, data) => {
       if (event === 'setting') await applySetting(data.key, data.value);
       else if (event === 'reset') { await resetSettings(); Dlg.send('settings', 'settings', S.settings); }
     });
@@ -2669,6 +2671,9 @@
       lang: window.I18n.lang, from,
       run: (action, data) => runAction(action, { dataset: data || {} }),
       onEnd: () => { setOpt({ tutorialDone: true }); },
+      // the card's "show the tutorial at launch" check box: the same setting as Settings › Start screen
+      startup: !!opt('showTourOnLaunch'),
+      onStartup: (on) => { setOpt({ showTourOnLaunch: on }); },
     });
   }
   /** Tutorial demos: one measurement of the given kind, drawn the way the mouse would. */
@@ -2741,22 +2746,50 @@
   }
 
   /* ══════════════ More exports: PDF report, DICOM, measurements ══════════════ */
-  function reportInfo(canvas) {
+  /** What a printed page / PDF report can show, in sections the document dialog turns on and off. */
+  function reportSections(canvas) {
     const img = S.file && S.file.kind === 'dicom' ? S.file.image : null;
     const m = img ? img.meta : {};
-    const info = img ? ['patientName', 'patientId', 'patientBirthDate', 'patientSex', 'modality', 'studyDate', 'studyDescription', 'seriesDescription', 'institution'].filter((k) => m[k]).map((k) => [t(`meta.${k}`), m[k]]) : [[t('meta.dimensions'), `${canvas.width} × ${canvas.height}`]];
-    if (img && img.gray && !img.palette) info.push([t('meta.window'), `W ${fmt(img.state.ww)} / L ${fmt(img.state.wc)}`]);
-    if (img && img.frames > 1) info.push([t('meta.frames'), `${S.frame + 1} / ${img.frames}`]);
-    viewer.annotations.forEach((a, i) => { if (a.label || a.text) info.push([`${t('export.measurement')} ${i + 1} (${t(`tools.short.${a.type}`)})`, String(a.label || a.text).replace(/\n/g, ' · ')]); });
-    return info;
+    const rows = (keys) => keys.filter((k) => m[k]).map((k) => [t(`meta.${k}`), String(m[k])]);
+    const image = [[t('meta.fileName'), S.file ? S.file.name : ''], [t('meta.dimensions'), img ? `${img.width} × ${img.height}` : `${canvas.width} × ${canvas.height}`]];
+    if (img) {
+      const sp = spacing();
+      if (sp) image.push([t('meta.pixelSpacing'), `${fmt(sp[0], 3)} × ${fmt(sp[1], 3)} mm`]);
+      const fi = img.frameInfo(S.frame);
+      if (fi.sliceThickness) image.push([t('meta.sliceThickness'), `${fmt(fi.sliceThickness, 2)} mm`]);
+      if (img.gray && !img.palette) image.push([t('meta.window'), `W ${fmt(img.state.ww)} / L ${fmt(img.state.wc)}`]);
+      if (img.frames > 1) image.push([t('meta.frames'), `${S.frame + 1} / ${img.frames}`]);
+    }
+    const measure = [];
+    viewer.annotations.forEach((a, i) => { if (a.label || a.text) measure.push([`${i + 1}. ${t(`tools.short.${a.type}`)}`, String(a.label || a.text).replace(/\n/g, ' · ')]); });
+    return [
+      { id: 'patient', title: t('report.secPatient'), rows: rows(['patientName', 'patientId', 'patientBirthDate', 'patientSex', 'patientAge']) },
+      { id: 'study', title: t('report.secStudy'), rows: rows(['modality', 'studyDate', 'studyTime', 'accessionNumber', 'studyDescription', 'seriesDescription', 'bodyPart', 'protocolName', 'institution', 'manufacturer']) },
+      { id: 'image', title: t('report.secImage'), rows: image },
+      { id: 'measure', title: t('report.secMeasure'), rows: measure },
+    ].filter((sec) => sec.rows.length);
   }
+  /* PDF report: the document dialog in PDF mode (title, subtitle, author, keywords, notes, which details, page);
+   * its "Save PDF" comes back as export-pdf-save, which draws the page and writes the file. */
   async function exportPdf() {
     const canvas = currentCanvas();
     if (!canvas) { toast(t('export.noImage')); return; }
-    const payload = { dataUrl: canvas.toDataURL('image/jpeg', 0.95), name: S.file.name, info: reportInfo(canvas) };
-    const page = await window.Dialogs.printPageCanvas(payload, { paper: 'A4', landscape: canvas.width > canvas.height * 1.2, header: true, footer: true, center: false });
+    const payload = { mode: 'pdf', dataUrl: canvas.toDataURL('image/jpeg', 0.95), name: S.file.name, sections: reportSections(canvas), layout: { landscape: canvas.width > canvas.height * 1.2, ...(opt('docLayout') || {}) } };
+    S.pdfPayload = payload;
+    Dlg.open('print', payload, (event, data) => {
+      if (event !== 'save' || !data) return;
+      if (data.layout) setOpt({ docLayout: data.layout });
+      runAction('export-pdf-save', { dataset: { options: data.options } });
+    });
+  }
+  async function exportPdfSave(options) {
+    const payload = S.pdfPayload;
+    if (!payload) return;
+    const o = window.Dialogs.docOptions(payload, options);
+    const page = await window.Dialogs.printPageCanvas(payload, o);
     const jpeg = new Uint8Array(await (await new Promise((r) => page.toBlob(r, 'image/jpeg', 0.92))).arrayBuffer());
-    const bytes = E.pdf({ pages: [{ jpeg, width: page.width, height: page.height, dpi: 200 }], title: S.file.name });
+    const subject = o.subtitle || String(o.notes || '').split(/\r?\n/)[0];
+    const bytes = E.pdf({ pages: [{ jpeg, width: page.width, height: page.height, dpi: o.dpi }], title: o.title || payload.name, author: o.author, subject, keywords: o.keywords });
     const saved = await P.saveFile({ name: `${stem()}${frameSuffix()}_report.pdf`, bytes, mime: 'application/pdf', filters: [{ name: 'PDF', extensions: ['pdf'] }] });
     if (saved) toast(t('export.done', { name: P.basename(saved) }));
   }
@@ -2930,6 +2963,7 @@
     if (key === 'annotationColor') viewer.colors = { line: value };
     if (key === 'defaultFps') { S.fps = value; $('fpsInput').value = value; if (S.cine) { stopCine(); startCine(); } }
     if (key === 'overlayColor' && img) await renderDicom({ overlayColor: hexToRgb(value) });
+    if ((key === 'startScreen' || key === 'showStartOnLaunch') && startPage) startPage.refresh();
   }
 
   async function resetSettings() {
@@ -2974,7 +3008,7 @@
     };
     const hide = () => { clearTimeout(timer); tip.classList.remove('show'); };
     document.addEventListener('mouseover', (e) => {
-      const el = e.target.closest('.toolbar [title], .toolbar [data-tip], .menubar-right [title], .menubar-right [data-tip], .side-header [title], .side-header [data-tip], .drive-bar [data-tip], .frame-bar [title], .frame-bar [data-tip], .series-bar [title], .series-bar [data-tip], .tags-toolbar [title], .tags-toolbar [data-tip]');
+      const el = e.target.closest('.toolbar [title], .toolbar [data-tip], .menubar-right [title], .menubar-right [data-tip], .wl-bar [title], .side-header [title], .side-header [data-tip], .drive-bar [data-tip], .frame-bar [title], .frame-bar [data-tip], .series-bar [title], .series-bar [data-tip], .tags-toolbar [title], .tags-toolbar [data-tip]');
       if (!el) { hide(); return; }
       clearTimeout(timer);
       timer = setTimeout(() => show(el), 350);

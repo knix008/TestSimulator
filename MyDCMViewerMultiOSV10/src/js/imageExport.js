@@ -1284,7 +1284,7 @@
   async function pdf(ctx, o) {
     const E = await encoders();
     const pages = ctx.frames.map((_, i) => ({ jpeg: JPEG.encode({ width: ctx.w, height: ctx.h, rgba: ctx.flat(i), quality: o.quality }), width: ctx.w, height: ctx.h, dpi: ctx.dpi || 72 }));
-    return E.pdf({ pages, title: ctx.name });
+    return E.pdf({ pages, title: o.title || ctx.name, author: o.author || '', subject: o.subject || '', keywords: o.keywords || '' });
   }
 
   /* ── Medical / research volumes: NIfTI-1, Analyze 7.5, MetaImage, NRRD ── */
@@ -1400,6 +1400,7 @@
   const SEL = (key, d, choices) => ({ key, type: 'select', default: d, choices });
   const BOOL = (key, d) => ({ key, type: 'bool', default: d });
   const NUM = (key, d, min, max) => ({ key, type: 'number', default: d, min, max });
+  const TEXT = (key, d = '') => ({ key, type: 'text', default: d });
   const RANGE = SEL('range', 'auto', ['auto', 'stretch']);
   const LINEAR = BOOL('linear', true);
   const VTYPE = SEL('type', 'auto', ['auto', 'uint8', 'int16', 'uint16', 'int32', 'float32', 'rgb']);
@@ -1451,7 +1452,7 @@
     F('ff', 'Farbfeld', 'ff', ['ff'], 'image/x-farbfeld', 'legacy', RG, [RANGE], farbfeld, '16-bit big-endian RGBA.'),
     F('svg', 'SVG (embedded PNG)', 'svg', ['svg'], 'image/svg+xml', 'vector', RGBA, [SEL('units', 'px', ['px', 'mm'])], svg, 'One <image> with a PNG data URL; mm uses the pixel spacing for true size.'),
     F('eps', 'EPS', 'eps', ['eps', 'epsf'], 'application/postscript', 'vector', RGBA, [SEL('encoding', 'ascii85', ['ascii85', 'hex']), BOOL('grayscale', false)], eps, 'PostScript level 2 image operator, ASCII85 or ASCIIHex; 1 px = 1 pt unless dpi.'),
-    F('pdf', 'PDF', 'pdf', ['pdf'], 'application/pdf', 'vector', RF, [Q(92)], pdf, 'Encoders.pdf: one JPEG page per frame.'),
+    F('pdf', 'PDF', 'pdf', ['pdf'], 'application/pdf', 'vector', RF, [Q(92), TEXT('title'), TEXT('author'), TEXT('subject'), TEXT('keywords')], pdf, 'Encoders.pdf: one JPEG page per frame; title (empty: the file name), author, subject and keywords go into the document properties.'),
     F('ico', 'Windows icon', 'ico', ['ico'], 'image/x-icon', 'icon', RGBA, [SEL('sizes', '16,32,48,256', ['16,32,48,256', '16,24,32,48,64,128,256', '16,32', '256']), SEL('entry', 'png', ['png', 'bmp'])], (c, o) => icoLike(c, o, 1),
       'Several sizes (image fitted into a square, transparent margins); PNG or 32-bit DIB entries.'),
     F('cur', 'Windows cursor', 'cur', ['cur'], 'image/x-win-bitmap', 'icon', RGBA, [SEL('size', '32', ['16', '32', '48', '64', '128', '256']), NUM('hotspotX', 0, 0, 255), NUM('hotspotY', 0, 0, 255), SEL('entry', 'bmp', ['bmp', 'png'])], (c, o) => icoLike(c, o, 2), 'One 32-bit DIB (or PNG) cursor image with a hot spot.'),
