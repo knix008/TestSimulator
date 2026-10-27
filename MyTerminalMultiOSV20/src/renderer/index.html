@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; font-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyTerminal</title>
+    <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="./css/main.css" />
+    <link rel="icon" href="../../assets/icons/icon.png" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="toolbar" class="toolbar" role="toolbar">
+        <div class="toolbar-brand" data-drag>
+          <img class="brand-icon" src="../../assets/icons/icon.png" alt="" />
+          <span class="brand-title" id="brand-title">MyTerminal V1.0.0</span>
+        </div>
+
+        <div class="toolbar-actions" id="toolbar-actions">
+          <button class="tb-btn" id="btn-remote" data-i18n-title="toolbar.remote" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="6" cy="12" r="2.5"/>
+              <circle cx="18" cy="12" r="2.5"/>
+              <path d="M8.5 12h7"/>
+              <path d="M12 5v2M12 17v2"/>
+            </svg>
+          </button>
+          <button class="tb-btn" id="btn-prompt" data-i18n-title="toolbar.prompt" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 8h10"/>
+              <path d="M4 12h16"/>
+              <path d="M4 16h8"/>
+              <path d="M17 15l3 3-3 3"/>
+            </svg>
+          </button>
+          <div class="tb-prompt-switch">
+            <button class="tb-btn" id="btn-prompt-cycle" data-i18n-title="toolbar.promptCycle" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4.8 8.2A7.2 7.2 0 0 1 17.4 6"/>
+                <path d="M16.2 3.2v4.2h-4.2"/>
+                <path d="M19.2 15.8A7.2 7.2 0 0 1 6.6 18"/>
+                <path d="M7.8 20.8v-4.2h4.2"/>
+              </svg>
+            </button>
+          </div>
+          <button
+            class="tb-btn"
+            id="btn-git-status"
+            data-i18n-title="toolbar.gitStatus"
+            type="button"
+            aria-pressed="true"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="6" cy="6" r="2.2"/>
+              <circle cx="6" cy="18" r="2.2"/>
+              <circle cx="18" cy="12" r="2.2"/>
+              <path d="M6 8.2v7.6"/>
+              <path d="M8.2 6h5.3a4 4 0 0 1 4 4v0"/>
+              <path d="M8.2 18h5.3a4 4 0 0 0 4-4v0"/>
+            </svg>
+          </button>
+          <span class="tb-sep" aria-hidden="true"></span>
+          <button class="tb-btn" id="btn-font-dec" data-i18n-title="toolbar.fontDecrease" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 18 L8 6 L12 18" />
+              <path d="M5.5 14 h5" />
+              <path d="M15 12 h6" />
+            </svg>
+          </button>
+          <span class="tb-font-size" id="font-size-label" aria-live="polite">13px</span>
+          <button class="tb-btn" id="btn-font-inc" data-i18n-title="toolbar.fontIncrease" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 18 L8 4 L13 18" />
+              <path d="M5 13 h6" />
+              <path d="M16 12 h6" />
+              <path d="M19 9 v6" />
+            </svg>
+          </button>
+          <div class="tb-menu-wrap">
+            <button class="tb-btn" id="btn-font" data-i18n-title="toolbar.fontFamily" type="button" aria-haspopup="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 18 L7 5 L11 18" />
+                <path d="M4.6 13 h4.8" />
+                <path d="M13 18 L16 9 L19 18" />
+                <path d="M14.1 15 h3.8" />
+              </svg>
+            </button>
+            <div class="tb-menu tb-menu-fonts" id="font-menu" hidden></div>
+          </div>
+          <button
+            class="tb-btn tb-btn-fg"
+            id="btn-fg-color"
+            data-i18n-title="toolbar.textColor"
+            type="button"
+            aria-label="Text color"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <!-- Color palette -->
+              <path d="M12 3.5c-4.7 0-8.5 3.4-8.5 7.6 0 4.2 3.8 7.6 8.5 7.6.9 0 1.4-.6 1.4-1.3 0-.4-.2-.8-.5-1.1-.4-.4-.6-.9-.6-1.5 0-1.1.9-2 2-2h1.5c2.6 0 4.7-1.9 4.7-4.3C20.5 5.8 16.8 3.5 12 3.5z" />
+              <circle cx="8" cy="10" r="1.1" />
+              <circle cx="11" cy="7.5" r="1.1" />
+              <circle cx="15" cy="7.8" r="1.1" />
+              <circle cx="16.8" cy="11.2" r="1.1" />
+            </svg>
+          </button>
+          <input id="fg-color" class="tb-color-input-hidden" type="color" value="#d4d4d4" tabindex="-1" aria-hidden="true" />
+          <span class="tb-sep" aria-hidden="true"></span>
+          <div
+            class="tb-opacity"
+            id="bg-transparency-wrap"
+            data-i18n-title="toolbar.transparency"
+            role="group"
+            aria-label="Transparency"
+          >
+            <svg class="tb-opacity-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" />
+            </svg>
+            <span class="tb-opacity-bound">0%</span>
+            <input
+              id="bg-transparency"
+              class="tb-opacity-slider"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="0"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            />
+            <span class="tb-opacity-bound">100%</span>
+            <span class="tb-opacity-value" id="bg-transparency-value">0%</span>
+          </div>
+          <div class="tb-menu-wrap">
+            <button class="tb-btn" id="btn-bg-fit" data-i18n-title="toolbar.bgFit" type="button" aria-haspopup="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3.5" y="5" width="17" height="14" rx="2"/>
+                <circle cx="9" cy="10" r="1.6"/>
+                <path d="M5.5 16.5l4.2-4.2 2.8 2.8 3.2-3.8 3.3 5.2"/>
+              </svg>
+            </button>
+            <div class="tb-menu" id="bg-fit-menu" hidden></div>
+          </div>
+        </div>
+
+        <div class="toolbar-spacer" aria-hidden="true"></div>
+
+        <div class="tb-theme-switch">
+          <button class="tb-btn" id="btn-theme" data-i18n-title="toolbar.themeCycle" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.6"/>
+              <rect x="13" y="3.5" width="7.5" height="7.5" rx="1.6"/>
+              <rect x="3.5" y="13" width="7.5" height="7.5" rx="1.6"/>
+              <rect x="13" y="13" width="7.5" height="7.5" rx="1.6"/>
+            </svg>
+          </button>
+          <div class="tb-menu-wrap">
+            <button class="tb-btn tb-btn-theme-pick" id="btn-theme-pick" data-i18n-title="toolbar.themePick" type="button" aria-haspopup="true">
+              <span class="tb-theme-pick-label" id="theme-pick-label"></span>
+              <svg class="tb-theme-pick-caret" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 10l5 5 5-5"/>
+              </svg>
+            </button>
+            <div class="tb-menu tb-menu-themes" id="theme-menu" hidden></div>
+          </div>
+        </div>
+        <button class="tb-btn tb-btn-lang" id="btn-lang" data-i18n-title="toolbar.language" type="button">
+          <span class="tb-lang-flag" id="lang-flag" aria-hidden="true"></span>
+        </button>
+        <button class="tb-btn" id="btn-settings" data-i18n-title="toolbar.settings" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        </button>
+        <button class="tb-btn tb-about" id="btn-about" data-i18n-title="toolbar.about" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg>
+        </button>
+
+        <div class="window-controls" id="window-controls">
+          <button class="win-btn" id="btn-min" data-i18n-title="toolbar.minimize" type="button">
+            <svg viewBox="0 0 12 12"><path d="M2 6h8"/></svg>
+          </button>
+          <button class="win-btn" id="btn-max" data-i18n-title="toolbar.maximize" type="button">
+            <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="0.5"/></svg>
+          </button>
+          <button class="win-btn win-close" id="btn-close" data-i18n-title="toolbar.close" type="button">
+            <svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3L3 9"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="tab-strip">
+        <div id="tab-bar" class="tab-bar" role="tablist" data-i18n-aria="tabs.session" aria-label="Sessions"></div>
+        <div class="tab-actions" id="tab-actions"></div>
+        <div class="tab-scroll" id="tab-scroll" hidden>
+          <button type="button" class="tab-scroll-btn" id="tab-scroll-left" data-i18n-aria="tabs.scrollLeft" aria-label="Scroll tabs left">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+          </button>
+          <button type="button" class="tab-scroll-btn" id="tab-scroll-right" data-i18n-aria="tabs.scrollRight" aria-label="Scroll tabs right">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="tb-menu-wrap tb-menu-wrap-shell"><div class="tb-menu" id="shell-menu" hidden></div></div>
+
+      <main id="terminal-panes" class="terminal-panes" aria-label="Terminal"></main>
+
+      <footer id="status-bar" class="status-bar" role="status" aria-live="polite">
+        <span class="status-item" id="status-mode"></span>
+        <span class="status-item" id="status-session"></span>
+        <span class="status-spacer" aria-hidden="true"></span>
+        <span class="status-item" id="status-font"></span>
+        <span class="status-item" id="status-size"></span>
+      </footer>
+    </div>
+
+    <div id="modal-root"></div>
+    <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+
+    <script src="./js/app.bundle.js"></script>
+  </body>
+</html>

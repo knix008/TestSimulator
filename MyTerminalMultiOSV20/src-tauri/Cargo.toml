@@ -1,0 +1,56 @@
+[package]
+name = "myterminal"
+version = "1.0.0"
+description = "MyTerminal — cross-platform terminal (Tauri shell around the Node host)"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "myterminal_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["sync", "time"] }
+base64 = "0.22"
+raw-window-handle = "0.6"
+# Wallpapers: downscale big pictures for the CSS data URL, TIFF pixels → PNG
+# (what Electron's nativeImage did).
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp", "ico"] }
+
+# Programs run in a pseudo terminal so they keep their colours: ConPTY on
+# Windows (src/pty.rs, with the exact command line cmd.exe needs), openpty elsewhere.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Console",
+  "Win32_System_IO",
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+] }
+
+[target.'cfg(unix)'.dependencies]
+portable-pty = "0.9"
+
+[profile.dev.package."*"]
+opt-level = 1
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

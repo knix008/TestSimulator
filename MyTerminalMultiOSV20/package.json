@@ -1,0 +1,49 @@
+{
+  "name": "my-terminal-multios",
+  "productName": "MyTerminal",
+  "version": "1.0.0",
+  "description": "Cross-platform modern terminal for Windows, Linux, macOS, and Web (Tauri)",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "tauri dev",
+    "tauri": "tauri",
+    "test": "node scripts/test.js",
+    "test:js": "node --test test/*.test.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "smoke": "node scripts/smoke.js",
+    "build:renderer": "node scripts/build-renderer.js",
+    "build:tauri-web": "node scripts/build-tauri-web.js",
+    "patch:xterm": "node scripts/patch-xterm-powerline-aa.js",
+    "icons": "tauri icon assets/icons/icon.png -o src-tauri/icons",
+    "web": "node scripts/patch-xterm-powerline-aa.js && node scripts/serve-web.js",
+    "build:web": "node scripts/patch-xterm-powerline-aa.js && node scripts/build-web.js",
+    "build:debug": "node scripts/build.js debug",
+    "build:win": "node scripts/build.js win",
+    "build:mac": "node scripts/build.js mac",
+    "build:linux": "node scripts/build.js linux",
+    "build:all": "node scripts/build.js all"
+  },
+  "dependencies": {
+    "@xterm/addon-canvas": "^0.7.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-serialize": "^0.13.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "^5.5.0",
+    "ssh2": "^1.17.0",
+    "utif": "^3.1.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "esbuild": "^0.24.2",
+    "fs-extra": "^11.2.0"
+  },
+  "allowScripts": {
+    "esbuild@0.24.2": true
+  }
+}
