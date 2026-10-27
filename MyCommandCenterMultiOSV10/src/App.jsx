@@ -1036,7 +1036,7 @@ export default function App() {
         break;
       }
       case 'manual':
-        if (useWindows() && await openTool('manual', {}, { title: t('start_manual') })) break;
+        if (useWindows() && await openTool('manual', {}, { title: t('manual_title') })) break;
         setManualOpen(true);
         break;
       case 'about': {

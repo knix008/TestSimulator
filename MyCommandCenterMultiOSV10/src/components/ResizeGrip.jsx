@@ -12,9 +12,11 @@ export function ResizeGrip() {
     e.preventDefault();
     const start = await windowSize();
     const x0 = e.screenX, y0 = e.screenY;
+    // A frame under the pointer (the guide) would take the moves; let them pass while dragging.
+    document.body.classList.add('window-resizing');
     let raf = 0, last = null;
     const move = (ev) => { last = ev; if (!raf) raf = requestAnimationFrame(() => { raf = 0; resizeWindow(start.width + (last.screenX - x0), start.height + (last.screenY - y0)); }); };
-    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    const up = () => { document.body.classList.remove('window-resizing'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
   };

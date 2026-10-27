@@ -3,35 +3,53 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Command Center 사용 설명</title>
+<title>MyCommandCenter 사용 설명서</title>
 <style>
   /* Opened from the app, the page takes the app's theme: these are replaced through a message (see the script). */
   :root { color-scheme: light; --ink: #1c1915; --muted: #5c564c; --line: #e4ddd2; --paper: #f7f4ee; --card: #fff; --head: #fff; --field: #f7f4ee; --accent: #0f6e8c; --on-accent: #fff; }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 "Segoe UI", "Malgun Gothic", sans-serif; }
   body.ko .en, body.en .ko { display: none; }
-  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; padding: 12px 22px; background: var(--head); border-bottom: 1px solid var(--line); }
-  h1 { margin: 0; font-size: 18px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+  /* The header is always one row: the search box gives way first, and below the narrowest
+     width that still fits (the app's window has that as its minimum) the page scrolls sideways. */
+  html { min-width: 860px; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: nowrap; gap: 20px; align-items: center; justify-content: space-between; padding: 12px 22px; background: var(--head); border-bottom: 1px solid var(--line); }
+  h1 { flex: none; margin: 0; font-size: 18px; font-weight: 650; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   h1 svg { flex: none; color: var(--accent); }
-  .tools { display: flex; gap: 8px; align-items: center; }
-  #q { width: min(360px, 70vw); height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: inherit; background: var(--field); }
+  .tools { flex: 1 1 auto; min-width: 0; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+  .tools > * { flex: none; }
+  #q { flex: 0 1 260px; min-width: 140px; width: 260px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: inherit; background: var(--field); }
   .lang { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
   .lang.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-  main { max-width: 920px; margin: 0 auto; padding: 22px 22px 64px; }
-  nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 22px; padding: 0; }
-  nav a { color: var(--accent); text-decoration: none; }
-  nav a:hover { text-decoration: underline; }
+  .lang { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .lang .flag { flex: none; display: block; border-radius: 2px; }
+  .size { display: inline-flex; align-items: stretch; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); overflow: hidden; }
+  .size button { width: 32px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+  .size button:hover:not(:disabled) { background: var(--field); }
+  .size button:disabled { opacity: 0.35; cursor: default; }
+  .size output { min-width: 54px; display: flex; align-items: center; justify-content: center; text-align: center; font-variant-numeric: tabular-nums; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  /* The content's text size: the − / + control in the header (10–24 px, 13 px at first). Sizes inside are in em. */
+  main { min-width: 0; max-width: 920px; width: 100%; margin: 0 auto; padding: 22px 22px 64px; font-size: var(--doc-size, 13px); }
+  /* The side panel: the guide's structure (sections and their sub-headings). A click jumps there. */
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); }
+  #side { position: sticky; top: var(--head-h, 59px); height: calc(100vh - var(--head-h, 59px)); overflow-y: auto; padding: 12px 8px 24px; border-right: 1px solid var(--line); background: var(--head); font-size: var(--doc-size, 13px); }
+  #side ol { list-style: none; margin: 0; padding: 0; }
+  #side ol ol { margin: 2px 0 4px; padding-left: 14px; border-left: 1px solid var(--line); margin-left: 12px; }
+  #side a { display: block; padding: 0.35em 10px; border-radius: 6px; color: inherit; text-decoration: none; line-height: 1.35; }
+  #side ol ol a { padding: 0.25em 8px; color: var(--muted); }
+  #side a:hover { background: var(--field); }
+  #side a.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); font-weight: 600; }
+  #side li[hidden] { display: none; }
   .lead { margin: 0 0 22px; color: var(--muted); }
   section { margin: 0 0 28px; padding: 18px 18px 8px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
-  section h2 { margin: 0 0 10px; font-size: 20px; }
-  section h3 { margin: 16px 0 6px; font-size: 16px; }
+  section h2 { margin: 0 0 10px; font-size: 1.25em; }
+  section h3 { margin: 16px 0 6px; font-size: 1em; }
   p { margin: 0 0 10px; }
   ul, ol { margin: 0 0 12px; padding-left: 1.2em; }
   figure { margin: 0 0 14px; }
   img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: #111; }
-  figcaption { margin-top: 6px; color: var(--muted); font-size: 13px; }
-  table { width: 100%; border-collapse: collapse; margin: 0 0 14px; font-size: 14px; }
+  figcaption { margin-top: 6px; color: var(--muted); font-size: 0.8125em; }
+  table { width: 100%; border-collapse: collapse; margin: 0 0 14px; font-size: 0.875em; }
   th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
   th { color: var(--muted); font-weight: 650; }
   code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
@@ -41,19 +59,22 @@
 </head>
 <body>
 <header>
-  <h1><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span class="ko">Command Center 사용 설명</span><span class="en">Command Center guide</span></h1>
+  <h1><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span class="ko">MyCommandCenter 사용 설명서</span><span class="en">MyCommandCenter User Guide</span></h1>
   <div class="tools">
     <input id="q" type="search" autocomplete="off">
-    <button type="button" class="lang" data-set="ko">한국어</button>
-    <button type="button" class="lang" data-set="en">English</button>
+    <div class="size" role="group"><button type="button" id="size-down">−</button><output id="size-now">13px</output><button type="button" id="size-up">+</button></div>
+    <!-- The same flags as the app's language button (src/components/Icons.jsx Flag). -->
+    <button type="button" class="lang" data-set="ko"><svg class="flag" width="21" height="14" viewBox="0 0 36 24" aria-hidden="true"><rect width="36" height="24" rx="3" fill="#ffffff" stroke="#c8ccd4" stroke-width="1"/><g transform="translate(18 12)"><path d="M-6 0a6 6 0 0 1 12 0a3 3 0 0 1 -6 0a3 3 0 0 0 -6 0z" fill="#cd2e3a" transform="rotate(-33)"/><path d="M6 0a6 6 0 0 1 -12 0a3 3 0 0 1 6 0a3 3 0 0 0 6 0z" fill="#0047a0" transform="rotate(-33)"/></g><g fill="#000000"><g transform="translate(6.5 5.5) rotate(-33)"><rect x="-3" y="-2.4" width="6" height="1.2"/><rect x="-3" y="-0.6" width="6" height="1.2"/><rect x="-3" y="1.2" width="6" height="1.2"/></g><g transform="translate(29.5 18.5) rotate(-33)"><rect x="-3" y="-2.4" width="2.6" height="1.2"/><rect x="0.4" y="-2.4" width="2.6" height="1.2"/><rect x="-3" y="-0.6" width="2.6" height="1.2"/><rect x="0.4" y="-0.6" width="2.6" height="1.2"/><rect x="-3" y="1.2" width="2.6" height="1.2"/><rect x="0.4" y="1.2" width="2.6" height="1.2"/></g><g transform="translate(29.5 5.5) rotate(33)"><rect x="-3" y="-2.4" width="2.6" height="1.2"/><rect x="0.4" y="-2.4" width="2.6" height="1.2"/><rect x="-3" y="-0.6" width="6" height="1.2"/><rect x="-3" y="1.2" width="2.6" height="1.2"/><rect x="0.4" y="1.2" width="2.6" height="1.2"/></g><g transform="translate(6.5 18.5) rotate(33)"><rect x="-3" y="-2.4" width="6" height="1.2"/><rect x="-3" y="-0.6" width="2.6" height="1.2"/><rect x="0.4" y="-0.6" width="2.6" height="1.2"/><rect x="-3" y="1.2" width="6" height="1.2"/></g></g></svg>한국어</button>
+    <button type="button" class="lang" data-set="en"><svg class="flag" width="21" height="14" viewBox="0 0 36 24" aria-hidden="true"><defs><clipPath id="flag-gb-clip"><rect width="36" height="24" rx="3"/></clipPath></defs><g clip-path="url(#flag-gb-clip)"><rect width="36" height="24" fill="#012169"/><path d="M0 0L36 24M36 0L0 24" stroke="#ffffff" stroke-width="4.8"/><path d="M0 0L36 24M36 0L0 24" stroke="#c8102e" stroke-width="1.8"/><path d="M18 0V24M0 12H36" stroke="#ffffff" stroke-width="7"/><path d="M18 0V24M0 12H36" stroke="#c8102e" stroke-width="4"/></g><rect width="36" height="24" rx="3" fill="none" stroke="#c8ccd4" stroke-width="1"/></svg>English</button>
   </div>
 </header>
+<div class="layout">
+<nav id="side"></nav>
 <main>
   <p class="lead">
     <span class="ko">두 폴더를 나란히 두고 복사, 이동, 압축, 검색을 하는 파일 관리자입니다. 찾기 칸에 단어 일부를 넣으면 그 말이 있는 절만 남습니다. 그림은 한국어 화면입니다.</span>
     <span class="en">A file manager with two folders side by side: copy, move, archive and search. Type part of a word to keep only the sections that mention it. The pictures show the Korean screen.</span>
   </p>
-  <nav id="toc"></nav>
   <p id="none" hidden>
     <span class="ko">맞는 절이 없습니다.</span>
     <span class="en">No section matches.</span>
@@ -485,15 +506,39 @@
     </div>
   </section>
 </main>
+</div>
 <script>
 (function () {
   const body = document.body;
   const q = document.getElementById('q');
   const none = document.getElementById('none');
   const topics = [...document.querySelectorAll('section.topic')];
-  const toc = document.getElementById('toc');
+  const side = document.getElementById('side');
+  const header = document.querySelector('header');
   const params = new URLSearchParams(location.search);
   let lang = params.get('lang') === 'en' || params.get('lang') === 'ko' ? params.get('lang') : (localStorage.getItem('cc-manual-lang') || 'ko');
+
+  // Text size of the content, kept in this browser (webview) between visits.
+  const SIZE_MIN = 10, SIZE_MAX = 24, SIZE_DEFAULT = 13;
+  const sizeDown = document.getElementById('size-down');
+  const sizeUp = document.getElementById('size-up');
+  const sizeNow = document.getElementById('size-now');
+  let size = SIZE_DEFAULT;
+  try { const saved = Number(localStorage.getItem('cc-manual-size')); if (saved >= SIZE_MIN && saved <= SIZE_MAX) size = saved; } catch { /* private mode */ }
+  function applySize() {
+    document.documentElement.style.setProperty('--doc-size', size + 'px');
+    sizeNow.textContent = size + 'px';
+    sizeDown.disabled = size <= SIZE_MIN;
+    sizeUp.disabled = size >= SIZE_MAX;
+  }
+  function setSize(next) {
+    size = Math.max(SIZE_MIN, Math.min(SIZE_MAX, next));
+    try { localStorage.setItem('cc-manual-size', String(size)); } catch { /* private mode */ }
+    applySize();
+  }
+  sizeDown.addEventListener('click', () => setSize(size - 1));
+  sizeUp.addEventListener('click', () => setSize(size + 1));
+  applySize();
 
   function applyLang() {
     body.classList.remove('ko', 'en');
@@ -501,17 +546,101 @@
     document.documentElement.lang = lang;
     q.placeholder = lang === 'en' ? 'Find a feature' : '기능 찾기';
     q.setAttribute('aria-label', q.placeholder);
+    sizeDown.title = lang === 'en' ? 'Smaller text' : '글자 작게';
+    sizeUp.title = lang === 'en' ? 'Larger text' : '글자 크게';
+    sizeNow.title = lang === 'en' ? 'Text size' : '글자 크기';
+    sizeDown.setAttribute('aria-label', sizeDown.title);
+    sizeUp.setAttribute('aria-label', sizeUp.title);
+    sizeNow.parentElement.setAttribute('aria-label', sizeNow.title);
     for (const b of document.querySelectorAll('.lang')) b.classList.toggle('on', b.dataset.set === lang);
-    toc.replaceChildren();
-    for (const sec of topics) {
-      const title = sec.querySelector('h2 .' + lang);
-      const a = document.createElement('a');
-      a.href = '#' + sec.id;
-      a.textContent = title ? title.textContent : sec.id;
-      toc.appendChild(a);
-    }
+    document.title = lang === 'en' ? 'MyCommandCenter User Guide' : 'MyCommandCenter 사용 설명서';
+    buildSide();
     filter();
   }
+
+  // ── side panel ──
+  // One entry per section, with the sub-headings (h3) of the language on screen under it.
+  let entries = [];   // [{ el, link }] in page order
+  function buildSide() {
+    entries = [];
+    const list = document.createElement('ol');
+    for (const sec of topics) {
+      const li = document.createElement('li');
+      li.dataset.id = sec.id;
+      const title = sec.querySelector('h2 .' + lang);
+      li.appendChild(sideLink(sec, title ? title.textContent : sec.id));
+      const subs = [...sec.querySelectorAll('div.' + lang + ' h3')];
+      if (subs.length) {
+        const sub = document.createElement('ol');
+        subs.forEach((h3, i) => {
+          if (!h3.id) h3.id = sec.id + '-' + lang + '-' + (i + 1);
+          const item = document.createElement('li');
+          item.appendChild(sideLink(h3, h3.textContent));
+          sub.appendChild(item);
+        });
+        li.appendChild(sub);
+      }
+      list.appendChild(li);
+    }
+    side.replaceChildren(list);
+  }
+
+  function sideLink(target, text) {
+    const a = document.createElement('a');
+    a.href = '#' + target.id;
+    a.textContent = text;
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      jumpTo(target);
+      history.replaceState(null, '', '#' + target.id);
+    });
+    entries.push({ el: target, link: a });
+    return a;
+  }
+
+  // Straight to the heading, just below the sticky header.
+  function jumpTo(el) {
+    const top = el.getBoundingClientRect().top + window.scrollY - header.offsetHeight - 10;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
+    markCurrent(el);
+  }
+
+  // The entry of the part being read: the last heading above the top of the content.
+  function markCurrent(forced) {
+    const line = header.offsetHeight + 24;
+    let current = forced || null;
+    if (!current) {
+      for (const { el } of entries) {
+        if (el.offsetParent === null) continue;   // a hidden section or the other language
+        if (el.getBoundingClientRect().top <= line) current = el; else break;
+      }
+      if (!current) current = entries.find(({ el }) => el.offsetParent !== null)?.el || null;
+    }
+    let on = null;
+    for (const { el, link } of entries) {
+      const hit = el === current;
+      link.classList.toggle('on', hit);
+      if (hit) { link.setAttribute('aria-current', 'location'); on = link; } else link.removeAttribute('aria-current');
+    }
+    // Keep that entry in view inside the panel without moving the page.
+    if (on) {
+      const box = side.getBoundingClientRect(), r = on.getBoundingClientRect();
+      if (r.top < box.top) side.scrollTop -= box.top - r.top + 8;
+      else if (r.bottom > box.bottom) side.scrollTop += r.bottom - box.bottom + 8;
+    }
+  }
+
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { ticking = false; markCurrent(); });
+  }, { passive: true });
+
+  // The panel sits under the header, whose height can change with the window.
+  function measureHeader() { document.documentElement.style.setProperty('--head-h', header.offsetHeight + 'px'); }
+  new ResizeObserver(measureHeader).observe(header);
+  measureHeader();
 
   function filter() {
     const needle = q.value.trim().toLowerCase();
@@ -523,11 +652,11 @@
       if (hit) shown += 1;
     }
     none.hidden = shown !== 0;
-    for (const a of toc.querySelectorAll('a')) {
-      const id = a.getAttribute('href').slice(1);
-      const sec = document.getElementById(id);
-      a.hidden = !sec || sec.hidden;
+    for (const li of side.querySelectorAll(':scope > ol > li')) {
+      const sec = document.getElementById(li.dataset.id);
+      li.hidden = !sec || sec.hidden;
     }
+    markCurrent();
   }
 
   q.addEventListener('input', filter);
@@ -552,6 +681,7 @@
     if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); }
   });
   applyLang();
+  if (location.hash) { const t = document.getElementById(decodeURIComponent(location.hash.slice(1))); if (t) jumpTo(t); }
   if (window.parent !== window) window.parent.postMessage({ type: 'cc-manual-ready' }, '*');
 })();
 </script>

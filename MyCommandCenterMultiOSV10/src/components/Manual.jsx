@@ -51,7 +51,7 @@ export function ManualFrame({ onClose }) {
   const src = useRef(`./doc/index.html?lang=${lang === 'en' ? 'en' : 'ko'}`).current;
   // A page that never says it is ready (an older copy of the manual) is shown anyway.
   const onLoad = () => { send(); setTimeout(() => setShown(true), 400); };
-  return <iframe ref={frame} className={`manual-frame${shown ? '' : ' is-pending'}`} title={t('start_manual')} src={src} onLoad={onLoad} />;
+  return <iframe ref={frame} className={`manual-frame${shown ? '' : ' is-pending'}`} title={t('manual_title')} src={src} onLoad={onLoad} />;
 }
 
 /** In-window fallback when tools do not open as separate windows. */
@@ -68,9 +68,9 @@ export function Manual({ onClose }) {
   }, [onClose]);
 
   return (
-    <div className="manual-layer" role="dialog" aria-label={t('start_manual')}>
+    <div className="manual-layer" role="dialog" aria-label={t('manual_title')}>
       <div className="manual-bar">
-        <b className="manual-title"><Icon name="book" size={16} />{t('start_manual')}</b>
+        <b className="manual-title"><Icon name="book" size={16} />{t('manual_title')}</b>
         <button type="button" className="btn" onClick={onClose}>{t('close')}</button>
       </div>
       <ManualFrame onClose={onClose} />

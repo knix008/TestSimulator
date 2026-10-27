@@ -660,6 +660,10 @@ html.wco .dlg.windowed > .dlg-caption { display: flex; align-items: center; gap:
 html.wco .search-window.windowed > .dlg-caption .icon,
 html.wco .dlg.windowed > .dlg-caption .icon { color: var(--fg-muted); }
 .tool-window > .resize-grip { z-index: 5; }
+body.window-resizing iframe { pointer-events: none; }
+/* The guide: a strip below the page carries the resize marker, drawn larger and in full text colour. */
+.tool-foot { flex: none; height: 20px; background: var(--bg-panel); border-top: 1px solid var(--border); }
+.tool-manual > .resize-grip { width: 18px; height: 18px; right: 1px; bottom: 1px; color: var(--fg); opacity: 0.85; }
 .dlg.windowed { width: 100%; height: 100%; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
 .dlg.windowed .dlg-body { flex: 1; min-height: 0; overflow: auto; }
 .dlg.windowed.viewer .dlg-body, .dlg.windowed.editor .dlg-body { height: auto; }

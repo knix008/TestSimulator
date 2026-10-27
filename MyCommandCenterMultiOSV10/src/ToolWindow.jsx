@@ -197,13 +197,14 @@ export default function ToolWindow() {
   } else if (mode === 'about') {
     body = <AboutDialog spec={{ info: args.info || {}, windowed: true }} done={() => closeWindow()} />;
   } else if (mode === 'manual') {
-    body = <ManualFrame onClose={() => closeWindow()} />;
+    // The strip under the page keeps the resize marker off the page and its scrollbar.
+    body = <><ManualFrame onClose={() => closeWindow()} /><div className="tool-foot" /></>;
   } else {
     body = <div className="boot">?</div>;
   }
 
   return (
-    <div className="tool-window">
+    <div className={`tool-window tool-${mode}`}>
       {body}
       {/* The resize marker at the bottom-right corner; the fixed-size windows (settings, about) have none. */}
       {mode !== 'settings' && mode !== 'about' && <ResizeGrip />}

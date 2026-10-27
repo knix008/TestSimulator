@@ -442,6 +442,9 @@ function channel() {
 // drawn large and then shrunk. Settings is the width at which its tallest page (the viewer
 // tab) still fits the height; About is the icon, the lines of text and the close button.
 const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [960, 540], about: [480, 260], manual: [1000, 780] };
+// The narrowest a tool window may get. The guide's header row (title, search, text size,
+// languages) needs 844 px with the longer title; doc/index.html keeps 860 px plus the scrollbar.
+const TOOL_MIN = { manual: [880, 480] };
 // These two are created hidden and shown once their page has drawn, so the blank window
 // never flashes past before the content is there.
 const REVEAL_KINDS = new Set(['settings', 'about']);
@@ -522,6 +525,7 @@ async function openTauriWindow(kind, args, { title, width, height } = {}) {
     height: height || dh,
     focus: !QUIET_KINDS.has(kind),
     resizable: kind !== 'settings' && kind !== 'about',
+    ...(TOOL_MIN[kind] ? { minWidth: TOOL_MIN[kind][0], minHeight: TOOL_MIN[kind][1] } : {}),
     alwaysOnTop: QUIET_KINDS.has(kind),
     center: true,
     visible: !reveal,

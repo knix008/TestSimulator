@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/engine-core",
+    "crates/engine-wasm",
+    "crates/installer",
+    "src-tauri",
+]
+resolver = "2"
