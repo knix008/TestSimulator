@@ -1206,7 +1206,8 @@ export default function App() {
     redoWhat: describeHistory(history.peekRedo()),
   }), [session, startOpen, selCount, selIsDir, selImage, extractable, active, info, dockTab, dockSearch, terms, history.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!session) return <div className="boot">{status || '…'}</div>;
+  // Same markup as the splash in index.html, so the window shows one screen until the panels are drawn.
+  if (!session) return <div className="boot-splash"><img src="./icon.svg" alt="" /><span>{status || 'Command Center'}</span><i /></div>;
 
   const panelProps = (side) => ({
     side,

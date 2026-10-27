@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const node = process.execPath;
-for (const script of ['sync-public-svgs.mjs', 'generate-build-info.mjs']) {
+for (const script of ['sync-public-svgs.mjs', 'generate-build-info.mjs', 'stage-runtime.mjs']) {
   const r = spawnSync(node, [path.join(root, 'scripts', script)], { cwd: root, stdio: 'inherit' });
   if (r.status) process.exit(r.status);
 }

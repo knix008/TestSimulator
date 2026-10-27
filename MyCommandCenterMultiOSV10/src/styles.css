@@ -105,7 +105,8 @@ button:disabled { cursor: default; opacity: 0.45; }
 .start-page { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); color: var(--fg); }
 .start-bg { position: absolute; inset: 0; opacity: var(--start-opacity, 1); background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
 .start-bg-canvas, .start-bg-snap { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.start-bg-canvas.is-pending { visibility: hidden; }
+.start-bg-canvas { transition: opacity 0.35s ease-out; }
+.start-bg-canvas.is-pending { opacity: 0; transition: none; }
 .start-swatch[data-scene='valley'] { background: linear-gradient(180deg, #3a6eae 0%, #f0b56a 46%, #2f6a3a 100%); }
 .start-swatch[data-scene='ocean'] { background: linear-gradient(180deg, #6eb6e0 0%, #d8eef8 42%, #0e4a68 100%); }
 .start-swatch[data-scene='dusk'] { background: linear-gradient(180deg, #2a2458 0%, #e07a4a 42%, #3d2a22 100%); }

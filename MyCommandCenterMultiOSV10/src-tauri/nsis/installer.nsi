@@ -425,7 +425,7 @@ FunctionEnd
 !insertmacro MUI_LANGUAGE "{{this}}"
 {{/each}}
 !insertmacro MUI_RESERVEFILE_LANGDLL
-!insertmacro MUI_RESERVEFILE_INSTALLOPTIONS
+ReserveFile /plugin InstallOptions.dll
 {{#each language_files}}
  !include "{{this}}"
 {{/each}}

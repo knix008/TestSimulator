@@ -90,6 +90,9 @@ export class StartBackground {
       this.kit = new Kit(gl);
       const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
       this.kit.maxPoint = Math.max(1, Math.min(256, range?.[1] ?? 64));
+      // The shaders take seconds to compile on some GPUs. Queue them all now and
+      // draw only once they are linked, so the start page itself paints at once.
+      this.kit.warm();
     } catch (error) {
       console.error(error);
       this.fail(canvas);
@@ -180,6 +183,13 @@ export class StartBackground {
   applySize() {
     const gl = this.gl;
     if (!gl || !this.wantW || !this.wantH) return;
+    if (!this.kit.ready()) {
+      // The canvas stays hidden; check again next frame (a running loop already does).
+      if (!this.running && !this.waitFrame) {
+        this.waitFrame = requestAnimationFrame(() => { this.waitFrame = 0; this.applySize(); });
+      }
+      return;
+    }
     if (this.canvas.width !== this.wantW || this.canvas.height !== this.wantH) {
       this.canvas.width = this.wantW;
       this.canvas.height = this.wantH;
@@ -242,6 +252,8 @@ export class StartBackground {
   stop() {
     this.running = false;
     cancelAnimationFrame(this.frame);
+    cancelAnimationFrame(this.waitFrame);
+    this.waitFrame = 0;
   }
 
   dispose() {

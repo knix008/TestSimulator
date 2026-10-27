@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const node = process.execPath;
-for (const script of ['free-port.mjs', 'sync-public-svgs.mjs', 'generate-build-info.mjs']) {
+for (const script of ['free-port.mjs', 'sync-public-svgs.mjs', 'generate-build-info.mjs', 'stage-runtime.mjs']) {
   const ports = script.startsWith('free-port') ? ['5185', '5186'] : [null];
   for (const port of ports) {
     const args = [path.join(root, 'scripts', script)];
