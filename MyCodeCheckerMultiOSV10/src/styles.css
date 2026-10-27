@@ -295,6 +295,16 @@ td.mono, .mono { font-family: var(--mono); font-size: 11.5px; }
 
 .issues-loading { position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 99px; background: var(--bg-elev); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12.5px; }
 
+/* Progress popup for slow work (components/ProgressHost.jsx) */
+.progress-pop { position: fixed; right: 18px; bottom: 36px; z-index: 8000; width: 340px; display: grid; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--bg-elev); border: 1px solid var(--border-strong, var(--border)); box-shadow: var(--shadow); }
+.pp-row { display: grid; gap: 6px; }
+.pp-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pp-head .spacer { flex: 1; }
+.pp-bar { position: relative; height: 6px; border-radius: 99px; background: var(--bg-hover, rgba(128,128,128,.18)); overflow: hidden; }
+.pp-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--accent, #3f7fd6); transition: width .2s; }
+.pp-bar.indeterminate i { width: 35%; animation: pp-move 1.1s ease-in-out infinite; }
+@keyframes pp-move { 0% { left: -35%; } 100% { left: 100%; } }
+
 /* Term tooltips (components/TermTip.jsx) */
 [data-term]:not([data-term='']), [data-tip-text] { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); text-underline-offset: 3px; cursor: help; }
 .term-tip { position: fixed; z-index: 9000; max-width: 340px; display: grid; gap: 4px; padding: 9px 12px; border-radius: 8px; background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong, var(--border)); box-shadow: var(--shadow); font-size: 12.5px; line-height: 1.45; pointer-events: none; }

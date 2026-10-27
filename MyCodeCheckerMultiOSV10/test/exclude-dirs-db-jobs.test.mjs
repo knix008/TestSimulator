@@ -107,7 +107,8 @@ test('db.exportStart runs as a job with progress; the time limit is a setting', 
   const r = await api.call('project.scan', { path: path.resolve('samples/demo') });
   const { jobId } = await api.call('db.exportStart', { projectId: r.project.id });
   let job;
-  for (let i = 0; i < 200; i++) {
+  // Up to 30 s: the suite runs files in parallel and a busy machine is slow.
+  for (const until = Date.now() + 30000; Date.now() < until;) {
     job = await api.call('db.exportJob', { jobId });
     if (job.status !== 'running') break;
     await new Promise((res) => setTimeout(res, 20));

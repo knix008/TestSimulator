@@ -43,11 +43,7 @@
         "uninstallerIcon": "icons/icon.ico",
         "installerHooks": "./windows/hooks.nsh",
         "displayLanguageSelector": true,
-        "languages": [
-          "Korean", "English", "Japanese", "SimpChinese", "TradChinese",
-          "Spanish", "French", "German", "Italian", "Portuguese", "PortugueseBR",
-          "Russian", "Dutch", "Swedish", "Turkish", "Ukrainian"
-        ]
+        "languages": ["Korean", "English"]
       }
     },
     "category": "DeveloperTool",

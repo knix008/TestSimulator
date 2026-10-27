@@ -19,6 +19,7 @@ const corsOrigins = [
   `http://localhost:${devPort}`, `http://127.0.0.1:${devPort}`,
   'http://tauri.localhost', 'https://tauri.localhost', 'tauri://localhost',
 ];
+applyInstallLanguage();
 const { handle } = createHandler({ token, corsOrigins, configDir: config || undefined, version: readVersion(), scheduler: true, localFiles: true });
 
 const server = http.createServer((req, res) => {
@@ -40,6 +41,30 @@ function arg(name) {
   if (i >= 0 && process.argv[i + 1]) return process.argv[i + 1];
   return '';
 }
+// The installer writes the language picked in its first page (ko / en) to
+// <install dir>/install-language. Each installation sets the app's language
+// once; changes made in the app afterwards stay until the next installation.
+function applyInstallLanguage() {
+  const file = process.env.MCC_INSTALL_LANGUAGE_FILE || path.join(root, '..', 'install-language');
+  let lang;
+  let stamp;
+  try {
+    lang = fs.readFileSync(file, 'utf8').trim();
+    stamp = `${lang}@${Math.round(fs.statSync(file).mtimeMs)}`;
+  } catch {
+    return;
+  }
+  if (lang !== 'ko' && lang !== 'en') return;
+  try {
+    const { createStore } = require('../core/store');
+    const store = createStore(config || undefined);
+    const ws = store.load();
+    if ((ws.settings || {}).installLanguage === stamp) return;
+    ws.settings = { ...(ws.settings || {}), language: lang, installLanguage: stamp };
+    store.save(ws);
+  } catch { /* the app starts in its saved language */ }
+}
+
 function readVersion() {
   try { return JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version; } catch { return '1.0.0'; }
 }

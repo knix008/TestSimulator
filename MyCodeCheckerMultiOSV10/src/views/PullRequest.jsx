@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
-import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge, TypeBadge, Stepper, errorText } from './common';
+import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge, TypeBadge, Stepper, errorText, Glossary } from './common';
+import { metricLabel } from './Panels';
 import { msg } from './Panels';
 
 const PROVIDERS = [
@@ -56,7 +57,7 @@ export function PullRequestView({ project, branch, stamp }) {
   return (
     <div className="view">
       <ViewHeader icon="branch" title={t('nav_pullrequest')} hint={t('pr_hint')}>
-        <label className="field-inline"><span>{t('pr_target')}</span>
+        <label className="field-inline"><span data-term="pr_target">{t('pr_target')}</span>
           <input value={target} onChange={(e) => setTarget(e.target.value)} list="pr-branches" style={{ width: 180 }} />
         </label>
         <label className="field-inline"><span>{t('pr_key')}</span>
@@ -65,29 +66,39 @@ export function PullRequestView({ project, branch, stamp }) {
         <datalist id="pr-branches">{branches.map((b) => <option key={b.name} value={b.name} />)}</datalist>
         <Btn icon="play" label={busy ? t('analyzing') : t('pr_run')} primary disabled={!project || busy || !target.trim()} onClick={run} />
         <span className="spacer" />
-        {repo && (repo.branch || repo.head) && <span className="small"><Icon name="branch" size={13} /> {repo.branch || ''} {repo.head ? repo.head.slice(0, 8) : ''}{repo.dirty ? ` · ${t('pr_dirty')}` : ''}</span>}
+        {repo && (repo.branch || repo.head) && <span className="small"><Icon name="branch" size={13} /> {repo.branch || ''} {repo.head ? repo.head.slice(0, 8) : ''}{repo.dirty ? <> · <span data-term="pr_dirty">{t('pr_dirty')}</span></> : ''}</span>}
       </ViewHeader>
       {!project && <NoProject />}
       {error && <Empty text={error} icon="alert" />}
       {note && <p className="small">{note}</p>}
+      {project && <Glossary id="pr" terms={[
+        ['PR', t('nav_pullrequest'), t('gl_pr')],
+        [t('pr_target'), '', t('gl_pr_target')],
+        [t('pr_base'), t('gl_pr_base_name'), t('gl_pr_base')],
+        [t('pr_issues'), '', t('gl_pr_issues')],
+        [t('gl_pr_gate_term'), '', t('gl_pr_gate')],
+        [t('pr_summary'), '', t('gl_pr_summary')],
+        [t('pr_decorations'), '', t('gl_pr_decor')],
+        [t('pr_publish_title'), '', t('gl_pr_publish')],
+      ]} />}
       {!pr && !error && project && <Empty text={t('pr_start')} icon="branch" />}
       {pr && (
         <>
           <div className={`banner ${gate.status === 'OK' ? 'OK' : 'ERROR'}`}>
             <div>
-              <div className="k muted">{gate.name} · {t('pr_base')} {pr.base ? pr.base.slice(0, 10) : '—'}</div>
+              <div className="k muted"><span data-term="pr_gate">{gate.name}</span> · <span data-term="pr_base">{t('pr_base')}</span> {pr.base ? pr.base.slice(0, 10) : '—'}</div>
               <strong style={{ fontSize: 20 }}><Icon name={gate.status === 'OK' ? 'check' : 'alert'} size={18} /> {gate.status === 'OK' ? t('passed') : t('failed')}</strong>
             </div>
-            <div className="small banner-side">{t('pr_changed', { files: pr.changedFiles, lines: pr.changedLines })}</div>
+            <div className="small banner-side"><span data-term="pr_changed">{t('pr_changed', { files: pr.changedFiles, lines: pr.changedLines })}</span></div>
           </div>
           <div className="card-grid compact">
             <Stat icon="bug" label={t('pr_issues')} value={pr.issues.length} tone={pr.issues.length ? 'bad' : 'ok'} />
-            <Stat icon="bug" label={t('bugs')} value={pr.measures.new_bugs} sub={`${t('reliability')} ${pr.ratings.reliability}`} />
-            <Stat icon="unlock" label={t('vulns')} value={pr.measures.new_vulnerabilities} sub={`${t('security')} ${pr.ratings.security}`} />
-            <Stat icon="smell" label={t('smells')} value={pr.measures.new_code_smells} sub={`${t('maintainability')} ${pr.ratings.maintainability}`} />
-            <Stat icon="shield" label={t('hotspots')} value={pr.measures.new_security_hotspots} sub={`${t('sec_review')} ${pr.ratings.securityReview}`} />
-            <Stat icon="checkCircle" label={t('coverage')} value={pr.measures.new_coverage == null ? '—' : `${pr.measures.new_coverage}%`} />
-            <Stat icon="copy" label={t('dup_density')} value={`${pr.measures.new_duplicated_lines_density}%`} />
+            <Stat icon="bug" term="new_bugs" label={t('bugs')} value={pr.measures.new_bugs} sub={`${t('reliability')} ${pr.ratings.reliability}`} />
+            <Stat icon="unlock" term="new_vulnerabilities" label={t('vulns')} value={pr.measures.new_vulnerabilities} sub={`${t('security')} ${pr.ratings.security}`} />
+            <Stat icon="smell" term="new_code_smells" label={t('smells')} value={pr.measures.new_code_smells} sub={`${t('maintainability')} ${pr.ratings.maintainability}`} />
+            <Stat icon="shield" term="new_security_hotspots" label={t('hotspots')} value={pr.measures.new_security_hotspots} sub={`${t('sec_review')} ${pr.ratings.securityReview}`} />
+            <Stat icon="checkCircle" term="new_coverage" label={t('coverage')} value={pr.measures.new_coverage == null ? '—' : `${pr.measures.new_coverage}%`} />
+            <Stat icon="copy" term="new_duplicated_lines_density" label={t('dup_density')} value={`${pr.measures.new_duplicated_lines_density}%`} />
           </div>
           <Tabs value={tab} onChange={setTab} tabs={[
             { id: 'issues', label: t('pr_issues'), icon: 'bug', count: pr.issues.length },
@@ -99,7 +110,7 @@ export function PullRequestView({ project, branch, stamp }) {
             <div className="panel tpanel">
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>{t('severity')}</th><th>{t('type')}</th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
+                  <thead><tr><th><span data-term="severity">{t('severity')}</span></th><th>{t('type')}</th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
                   <tbody>
                     {pr.issues.map((i) => (
                       <tr key={i.key}>
@@ -119,11 +130,11 @@ export function PullRequestView({ project, branch, stamp }) {
             <div className="panel tpanel">
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>{t('pr_metric')}</th><th>{t('pr_threshold')}</th><th className="num">{t('pr_actual')}</th><th>{t('status')}</th></tr></thead>
+                  <thead><tr><th>{t('pr_metric')}</th><th><span data-term="pr_threshold">{t('pr_threshold')}</span></th><th className="num"><span data-term="pr_actual">{t('pr_actual')}</span></th><th>{t('status')}</th></tr></thead>
                   <tbody>
                     {gate.conditions.map((c) => (
                       <tr key={c.id}>
-                        <td>{c.metric}</td>
+                        <td><span data-term={c.metric}>{metricLabel(c.metric, getLanguage())}</span></td>
                         <td className="small">{c.op} {c.threshold}</td>
                         <td className="num">{c.actual == null ? '—' : c.actual}</td>
                         <td className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'}>{c.status === 'NO_DATA' ? t('no_data') : c.status}</td>
@@ -154,7 +165,7 @@ export function PullRequestView({ project, branch, stamp }) {
                   <Btn icon="save" label={t('save')} onClick={() => saveText(PROVIDERS.find((p) => p.id === provider).file, payload, 'application/json')} />
                 </BtnGroup>
               </div>
-              <p className="small">{t(`pr_hint_${provider}`)}</p>
+              <p className="small"><span data-term="pr_decoration">{t('pr_decorations')}</span> · {t(`pr_hint_${provider}`)}</p>
               <PublishBox project={project} branch={branch} target={target} provider={provider} head={repo && repo.head} prKey={prKey} />
               <pre className="pre selectable">{payload}</pre>
             </div>
@@ -195,7 +206,7 @@ function PublishBox({ project, branch, target, provider, head, prKey }) {
       <p className="small">{t('pr_publish_hint')}</p>
       <div className="view-toolbar">
         <Stepper label={t(`pr_number_${provider}`)} value={num} min={1} max={9999999} width={90} onChange={setNum} />
-        <label className="field-inline grow"><span>{t('pr_head_sha')}</span><input className="mono" value={sha} placeholder="a1b2c3d…" onChange={(e) => setSha(e.target.value)} /></label>
+        <label className="field-inline grow"><span data-term="pr_head_sha">{t('pr_head_sha')}</span><input className="mono" value={sha} placeholder="a1b2c3d…" onChange={(e) => setSha(e.target.value)} /></label>
         <Btn icon={busy ? 'hourglass' : 'upload'} label={busy ? t('pr_publishing') : t('pr_publish')} primary disabled={busy || !project} onClick={publish} />
       </div>
       {error && <p className="small bad"><Icon name="xCircle" size={12} /> {error}</p>}

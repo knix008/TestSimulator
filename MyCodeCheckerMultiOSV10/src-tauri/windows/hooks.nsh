@@ -2,10 +2,23 @@
 ; Project files (*.mccp) get their own icon instead of the program icon.
 ; After installing, offer to install Git through winget when it is missing.
 ; The user chooses; silent installs (/S) never install anything extra.
+; The installer language (Korean / English) is written to install-language;
+; the app takes it as its language once per installation.
+
+; Ask for the language on every install (the last choice stays preselected).
+!define MUI_LANGDLL_ALWAYSSHOW
 
 !macro NSIS_HOOK_POSTINSTALL
   WriteRegStr SHCTX "Software\Classes\MyCodeChecker.Project\DefaultIcon" "" "$INSTDIR\mccp.ico,0"
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+  FileOpen $2 "$INSTDIR\install-language" w
+  StrCmp $LANGUAGE 1042 0 mcc_lang_en
+    FileWrite $2 "ko"
+    Goto mcc_lang_done
+mcc_lang_en:
+  FileWrite $2 "en"
+mcc_lang_done:
+  FileClose $2
   IfSilent mcc_tools_done
   nsExec::ExecToStack 'cmd /c git --version'
   Pop $0
@@ -36,4 +49,8 @@ mcc_install:
     Goto mcc_tools_done
   MessageBox MB_OK|MB_ICONEXCLAMATION "Git was not installed (code $0).$\r$\nYou can try again from Tools › Required software."
 mcc_tools_done:
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+  Delete "$INSTDIR\install-language"
 !macroend

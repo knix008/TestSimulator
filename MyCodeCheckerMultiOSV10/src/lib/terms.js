@@ -108,6 +108,36 @@ export const TERMS = {
   },
   outstanding: { ko: ['미해결', '고치지도 기각하지도 않은 결함입니다.'], en: ['Outstanding', 'Defects neither fixed nor dismissed.'] },
   dismissed: { ko: ['기각', '오탐(False Positive) 또는 의도됨(Intentional)으로 분류한 결함입니다.'], en: ['Dismissed', 'Defects classified as False Positive or Intentional.'] },
+  pr_target: {
+    ko: ['대상 브랜치', 'PR이 합쳐질 브랜치(예: main)입니다. 이 브랜치와 비교해 바뀐 파일과 줄을 git으로 구합니다.'],
+    en: ['Target branch', 'The branch the pull request merges into (e.g. main); changed files and lines come from git against it.'],
+  },
+  pr_base: {
+    ko: ['기준 커밋', '이 브랜치가 대상 브랜치에서 갈라진 커밋(merge-base)입니다. 이 커밋 이후 바뀐 줄만 봅니다.'],
+    en: ['Base commit', 'The commit where this branch split from the target (merge base); only lines changed since it are reviewed.'],
+  },
+  pr_changed: {
+    ko: ['바뀐 파일 · 줄', '대상 브랜치와 비교해 추가 · 수정된 파일과 줄의 수입니다(커밋 안 한 변경 포함). PR 분석은 이 줄의 이슈만 셉니다.'],
+    en: ['Changed files, lines', 'Files and lines added or modified against the target branch (uncommitted changes included); the PR counts issues on these lines only.'],
+  },
+  pr_gate: {
+    ko: ['PR 게이트', 'PR에 쓰는 품질 게이트입니다. 바뀐 줄(새 코드)의 버그 · 취약점 · 핫스팟 검토율 · 커버리지 · 중복률 · 등급으로 판정합니다.'],
+    en: ['PR gate', 'The quality gate for pull requests: judges the changed lines (new code) by bugs, vulnerabilities, hotspots reviewed, coverage, duplication and ratings.'],
+  },
+  pr_threshold: {
+    ko: ['기준', '조건의 연산자와 기준값입니다. GT 0이면 0보다 클 때, LT 80이면 80보다 작을 때 실패합니다.'],
+    en: ['Threshold', 'The condition’s operator and limit: GT 0 fails above 0, LT 80 fails below 80.'],
+  },
+  pr_actual: { ko: ['값', '이 PR의 바뀐 줄에서 잰 실제 값입니다.'], en: ['Actual', 'The value measured on this pull request’s changed lines.'] },
+  pr_decoration: {
+    ko: ['장식(데코레이션)', '코드 호스트가 PR 화면에 결과(상태 · 요약 · 줄별 주석)를 표시하도록 보내는 JSON 본문입니다. GitHub Checks, GitLab Code Quality, Azure DevOps 스레드, Bitbucket Code Insights 형식입니다.'],
+    en: ['Decoration', 'The JSON the code host uses to show results on a pull request (status, summary, line comments): GitHub Checks, GitLab Code Quality, Azure DevOps threads, Bitbucket Code Insights.'],
+  },
+  pr_head_sha: {
+    ko: ['헤드 커밋 SHA', 'PR의 마지막 커밋 해시입니다. 커밋에 결과를 붙이는 호스트(GitHub Checks)에 필요하며, 비우면 지금 커밋을 씁니다.'],
+    en: ['Head commit SHA', 'The hash of the pull request’s last commit, needed by hosts that attach results to a commit (GitHub Checks); empty uses the current commit.'],
+  },
+  pr_dirty: { ko: ['커밋 안 한 변경', '작업 폴더에 커밋하지 않은 변경이 있습니다. 바뀐 줄 계산에 함께 들어갑니다.'], en: ['Uncommitted changes', 'The working folder has uncommitted changes; they count as changed lines.'] },
   severity: {
     ko: ['심각도', '이슈가 미치는 영향의 크기입니다. 차단 > 심각 > 주요 > 경미 > 정보.'],
     en: ['Severity', 'How serious an issue is: Blocker > Critical > Major > Minor > Info.'],

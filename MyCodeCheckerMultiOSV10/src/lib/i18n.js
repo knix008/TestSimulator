@@ -891,6 +891,16 @@ const ko = {
   st_tab_gate: '품질 게이트',
   st_tab_reports: '보고서',
   gl_title: '용어 설명',
+  gl_pr: '풀 리퀘스트(GitLab에서는 머지 리퀘스트)는 한 브랜치의 변경을 다른 브랜치에 합치자는 요청입니다. 이 화면은 그 변경으로 생긴 문제만 골라 봅니다.',
+  gl_pr_target: 'PR이 합쳐질 브랜치(예: main)입니다. 이 브랜치와 비교해 바뀐 파일과 줄을 git으로 구합니다.',
+  gl_pr_base_name: '기준 커밋 (merge-base)',
+  gl_pr_base: '이 브랜치가 대상 브랜치에서 갈라진 커밋입니다. 이 커밋 이후 추가 · 수정된 줄(커밋 안 한 변경 포함)만 봅니다.',
+  gl_pr_issues: '최신 분석의 이슈 가운데 바뀐 줄에 있는 것입니다. 손대지 않은 줄의 이슈는 PR 판정에 들어가지 않습니다. PR 분석은 새로 분석하지 않으니 먼저 분석하세요.',
+  gl_pr_gate_term: 'PR 게이트',
+  gl_pr_gate: '바뀐 줄(새 코드)만으로 판정하는 품질 게이트입니다: 새 버그 · 새 취약점 0개, 핫스팟 검토 100%, 커버리지 80% 이상, 중복 3% 이하, 등급 A.',
+  gl_pr_summary: 'PR 댓글에 붙여 넣을 Markdown 요약(게이트 결과 · 지표 · 이슈 목록)입니다.',
+  gl_pr_decor: '코드 호스트가 PR 화면에 결과를 보여 주도록 보내는 JSON(GitHub Checks · GitLab Code Quality · Azure DevOps 스레드 · Bitbucket Code Insights)입니다. 저장해 CI에서 올리거나 아래에서 바로 게시합니다.',
+  gl_pr_publish: '관리 › 연동의 ALM 연결(주소 · 토큰)로 코드 호스트의 PR에 요약과 줄별 주석을 직접 올립니다. PR 번호와 헤드 커밋이 필요합니다.',
   gl_ca_name: '구심 결합 (Afferent coupling)',
   gl_ca: '이 모듈을 가져다 쓰는(이 모듈에 의존하는) 다른 모듈의 수입니다. 클수록 많은 곳이 이 모듈에 기대고 있어 바꾸기 조심스러운 모듈입니다.',
   gl_ce_name: '원심 결합 (Efferent coupling)',
@@ -910,6 +920,19 @@ const ko = {
   gl_snapshot_term: '스냅숏 · 스트림',
   gl_snapshot: '스냅숏은 커밋한 분석 한 번의 결함 목록이고, 스트림은 브랜치(제품 라인)별 스냅숏의 흐름입니다.',
   il_loading: '이슈 불러오는 중… {done} / {total}',
+  pp_elapsed: '{s}초',
+  pp_count: '{done} / {total} ({pct}%)',
+  pp_issues: "'{name}' 이슈 불러오는 중",
+  pp_workspace: '작업 공간 불러오는 중',
+  pp_report: '보고서 만드는 중',
+  pp_arch: '모듈 의존 관계 분석 중',
+  pp_his: 'HIS 메트릭 계산 중',
+  pp_sca: '의존성 분석 중',
+  pp_dirs: '폴더 읽는 중',
+  pp_saving: '저장하는 중',
+  pp_snapshots: '스냅숏 비교 중',
+  pp_working: '처리하는 중',
+  pp_more: '외 {n}건',
   rs_md_images: 'Markdown 그림',
   rs_md_images_hint: 'Markdown 보고서의 차트 그림을 파일 안에 넣을지 정합니다.',
   rs_md_embed: '그림을 Markdown 파일 안에 저장',
@@ -2594,6 +2617,16 @@ const en = {
   st_tab_gate: 'Quality gate',
   st_tab_reports: 'Reports',
   gl_title: 'Terms',
+  gl_pr: 'A pull request (merge request in GitLab) asks to merge one branch’s changes into another. This view picks out only the problems those changes bring.',
+  gl_pr_target: 'The branch the pull request merges into (e.g. main); changed files and lines come from git against it.',
+  gl_pr_base_name: 'Base commit (merge base)',
+  gl_pr_base: 'The commit where this branch split from the target; only lines added or changed since it (uncommitted changes included) are reviewed.',
+  gl_pr_issues: 'Issues of the latest analysis that sit on changed lines; issues on untouched lines do not count. PR analysis does not analyze again, so analyze first.',
+  gl_pr_gate_term: 'PR gate',
+  gl_pr_gate: 'A quality gate judged on changed lines (new code) only: no new bugs or vulnerabilities, all hotspots reviewed, coverage ≥ 80%, duplication ≤ 3%, ratings A.',
+  gl_pr_summary: 'A Markdown summary (gate verdict, metrics, issues) to paste into a pull request comment.',
+  gl_pr_decor: 'JSON the code host uses to show results on a pull request (GitHub Checks, GitLab Code Quality, Azure DevOps threads, Bitbucket Code Insights); save it for CI or post it below.',
+  gl_pr_publish: 'Posts the summary and line comments to the pull request on the code host with the ALM connection (URL, token) from Administration › Integrations; needs the PR number and head commit.',
   gl_ca_name: 'Afferent coupling',
   gl_ca: 'How many other modules use (depend on) this module. A high value means much relies on it, so change it with care.',
   gl_ce_name: 'Efferent coupling',
@@ -2613,6 +2646,19 @@ const en = {
   gl_snapshot_term: 'Snapshot, stream',
   gl_snapshot: 'A snapshot is the defect list of one committed analysis; a stream is the sequence of snapshots per branch (product line).',
   il_loading: 'Loading issues… {done} / {total}',
+  pp_elapsed: '{s} s',
+  pp_count: '{done} / {total} ({pct}%)',
+  pp_issues: "Loading the issues of '{name}'",
+  pp_workspace: 'Loading the workspace',
+  pp_report: 'Building the report',
+  pp_arch: 'Analyzing module dependencies',
+  pp_his: 'Computing HIS metrics',
+  pp_sca: 'Analyzing dependencies',
+  pp_dirs: 'Reading folders',
+  pp_saving: 'Saving',
+  pp_snapshots: 'Comparing snapshots',
+  pp_working: 'Working',
+  pp_more: '{n} more',
   rs_md_images: 'Markdown pictures',
   rs_md_images_hint: 'Whether Markdown reports keep their chart pictures inside the file.',
   rs_md_embed: 'Store pictures inside the Markdown file',
@@ -3420,6 +3466,27 @@ export function t(key, vars) {
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   return s;
 }
+// The key of a label as shown on screen (first key with that exact text);
+// the help tooltips find a button's explanation from its visible label.
+const reverse = {};
+export function keyOfText(text, lang = current) {
+  if (!reverse[lang]) {
+    reverse[lang] = new Map();
+    for (const [k, v] of Object.entries(STR[lang] || {})) {
+      if (typeof v !== 'string' || v.includes('{')) continue;
+      if (!reverse[lang].has(v)) reverse[lang].set(v, []);
+      reverse[lang].get(v).push(k);
+    }
+  }
+  return (reverse[lang].get(String(text || '').trim()) || [])[0] || null;
+}
+
+/** Every key whose label is this text (the same word can label several things). */
+export function keysOfText(text, lang = current) {
+  keyOfText('', lang);
+  return reverse[lang].get(String(text || '').trim()) || [];
+}
+
 export function useLanguage() {
   const [, setTick] = useState(0);
   useEffect(() => {

@@ -1,6 +1,8 @@
 // Web calls the Vite (or Node) /api. The Tauri shell injects window.__MCC_HOST__
 // and the page calls the sidecar with its bearer token.
 
+import { t } from './i18n';
+import { track } from './progress';
 export const isDesktop = typeof window !== 'undefined' && !!(window.__TAURI_INTERNALS__ || window.__TAURI__);
 
 function host() {
@@ -96,7 +98,9 @@ export async function loadProjectIssues(project, { page = 20000, onProgress } = 
   const parts = [...Object.entries(project.branches || {}).filter(([, b]) => b && b.latest).map(([name]) => name), ...(project.desktop ? [''] : [])];
   const total = parts.reduce((n, name) => n + (((name ? project.branches[name].latest : project.desktop) || {}).issueCount || 0), 0);
   let done = 0;
+  const job = track(t('pp_issues', { name: project.name || '' }), { total });
   const out = { branches: {}, desktop: null };
+  try {
   for (const name of parts) {
     const list = [];
     for (let offset = 0; ;) {
@@ -105,10 +109,12 @@ export async function loadProjectIssues(project, { page = 20000, onProgress } = 
       offset += r.issues.length;
       done += r.issues.length;
       if (onProgress) onProgress(done, Math.max(total, done));
+      job.update(done, Math.max(total, done));
       if (!r.issues.length || offset >= r.total) break;
     }
     if (name) out.branches[name] = list; else out.desktop = list;
   }
+  } finally { job.end(); }
   return out;
 }
 
@@ -118,7 +124,22 @@ export function missingIssues(project) {
   return Object.values(project.branches || {}).some((b) => b && b.latest && b.latest.issues === undefined) || !!(project.desktop && project.desktop.issues === undefined);
 }
 
+// Calls that run long show the progress popup with what is being done.
+// Analyses and database exports have their own popups; polling is not work.
+const UNTRACKED = /^(scan\.|db\.export|tools\.job|project\.issues$|workspace\.save$|settings\.patch$|dast\.status|lsp\.)/;
+const WORK_LABEL = {
+  'workspace.load': 'pp_workspace', 'report.export': 'pp_report', 'report.regulatory': 'pp_report', 'arch.graph': 'pp_arch', 'metrics.his': 'pp_his',
+  'sca.scan': 'pp_sca', 'project.dirs': 'pp_dirs', 'issue.update': 'pp_saving', 'project.resetAnalysis': 'pp_saving', 'snapshot.compare': 'pp_snapshots', 'defect.lifecycle': 'pp_snapshots',
+};
+
 export async function call(name, args = {}) {
+  // Only work worth naming (loading a project, a report …) shows; other calls stay quiet.
+  if (UNTRACKED.test(name) || !WORK_LABEL[name] || (args && args.quiet)) return rawCall(name, args);
+  const job = track(t(WORK_LABEL[name]));
+  try { return await rawCall(name, args); } finally { job.end(); }
+}
+
+async function rawCall(name, args = {}) {
   const info = await hostAsync();
   const url = info ? `http://127.0.0.1:${info.port}/api/${encodeURIComponent(name)}` : `./api/${encodeURIComponent(name)}`;
   const headers = { 'content-type': 'application/json' };

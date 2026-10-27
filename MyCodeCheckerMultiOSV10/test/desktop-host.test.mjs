@@ -9,9 +9,8 @@ import { fileURLToPath } from 'node:url';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Starts host/desktop.js the way the Tauri shell does and reads MCC_READY.
-function startHost() {
-  const config = fs.mkdtempSync(path.join(os.tmpdir(), 'mcc-host-'));
-  const child = spawn(process.execPath, [path.join(root, 'host', 'desktop.js'), '--config', config], { stdio: ['ignore', 'pipe', 'pipe'] });
+function startHost({ config = fs.mkdtempSync(path.join(os.tmpdir(), 'mcc-host-')), env = {} } = {}) {
+  const child = spawn(process.execPath, [path.join(root, 'host', 'desktop.js'), '--config', config], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
   return new Promise((resolve, reject) => {
     let out = '';
     child.stdout.on('data', (d) => {
@@ -55,4 +54,27 @@ test('the desktop sidecar answers the Tauri page across origins and still needs 
     host.child.kill();
     fs.rmSync(host.config, { recursive: true, force: true });
   }
+});
+
+test('the language picked in the installer becomes the app language once per installation', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcc-install-'));
+  const file = path.join(dir, 'install-language');
+  const config = fs.mkdtempSync(path.join(os.tmpdir(), 'mcc-host-lang-'));
+  const read = () => JSON.parse(fs.readFileSync(path.join(config, 'workspace.json'), 'utf8')).settings.language;
+  const run = async () => { const h = await startHost({ config, env: { MCC_INSTALL_LANGUAGE_FILE: file } }); h.child.kill(); await new Promise((r) => h.child.on('exit', r)); };
+  fs.writeFileSync(file, 'en');
+  await run();
+  assert.equal(read(), 'en');
+  // Changed in the app afterwards: kept while the installation is the same.
+  const ws = JSON.parse(fs.readFileSync(path.join(config, 'workspace.json'), 'utf8'));
+  ws.settings.language = 'ko';
+  fs.writeFileSync(path.join(config, 'workspace.json'), JSON.stringify(ws));
+  await run();
+  assert.equal(read(), 'ko');
+  // A new installation (file written again) applies its choice.
+  fs.writeFileSync(file, 'en');
+  const later = new Date(Date.now() + 5000);
+  fs.utimesSync(file, later, later);
+  await run();
+  assert.equal(read(), 'en');
 });

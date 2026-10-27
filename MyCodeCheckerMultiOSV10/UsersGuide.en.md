@@ -36,6 +36,8 @@ The analysis runs in the program's own Node.js engine. The desktop program (Wind
 
 The installers carry Node.js and the analyzers; you can analyze without installing anything else.
 
+**Windows installer language** — the installer first asks for its language, **한국어 / English** (on every install; the last choice is preselected). The setup pages use that language, and the program starts in it after installing. A language changed in the program afterwards stays until the next install.
+
 **The Git question at the end of the Windows installer** — when Git is missing, the installer asks "Git is not installed … Install Git now with winget?". **Yes** installs Git with winget, **No** just finishes. On a computer without winget it only shows the download address. Silent installs (`/S`) never install anything extra. You can install it later at any time from **Tools › Required software…**.
 
 ### First start — required software
@@ -121,9 +123,9 @@ Each panel's **Fold** button folds it to a **strip with only its icon and title*
 
 The open project's name and path, the last message (for example "Quality gate passed."), the number of files, lines of code and the quality gate result. Drag the grip at the bottom right to resize the window.
 
-### Term tooltips
+### Term and button tooltips
 
-Terms with a dotted underline (ratings, technical debt, duplicated lines %, coverage, lines of code, Ca, Ce, I, HIS metrics, CID, impact, checker, severity …) show their name and meaning in a tooltip when you hover them or move the keyboard focus onto them (Esc closes it). The architecture, HIS metrics and defects views also have a **Terms** box with the view's terms.
+Terms with a dotted underline (ratings, technical debt, duplicated lines %, coverage, lines of code, Ca, Ce, I, HIS metrics, CID, impact, checker, severity …) show their name and meaning in a tooltip when you hover them or move the keyboard focus onto them (Esc closes it). Hovering a button, menu item, tab, navigation item or settings label explains what it does too (the pull request view included). The architecture, HIS metrics, defects and pull request views also have a **Terms** box with the view's terms.
 
 ### Undo and redo
 
@@ -146,6 +148,10 @@ An analysis that takes more than about a second opens the **Analysing** window.
 - **Cancel** — asks "Stop the running analysis?" and then stops it. Nothing from a cancelled analysis is saved, and Background tasks records it as **Canceled** (CANCELED), not as a failure (FAILED).
 
 Starting another analysis of a project that is already being analyzed does not start a second one; it attaches to the running one ("This project is already being analyzed; attached to that analysis."). You can keep triaging issues (status, assignee, comments) and changing settings while it runs: those changes are kept when the analysis saves its result.
+
+### Progress popup
+
+Work that takes more than 0.6 s because there is a lot to show — loading a large project's issues, building a report, the architecture graph, HIS metrics, dependencies — shows a popup at the bottom right with the task, a progress bar (with counts and % when the total is known) and the time so far. With several at once, three show and the rest are summed up as "n more".
 
 ### Error messages
 

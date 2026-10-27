@@ -28,6 +28,7 @@ import { DocTabs, TabActiveCtx } from './components/DocTabs';
 import { NewProjectDialog, OpenProjectDialog, pickProjectFile, projectErrorText, PROJECT_FILTER } from './views/ProjectFiles';
 import { ExcludeDirsDialog } from './components/ExcludeDirs';
 import { TermTip } from './components/TermTip';
+import { ProgressHost } from './components/ProgressHost';
 import { pickSavePath } from './lib/backend';
 import { openDoc, docExists } from './lib/docs';
 import { Tutorial } from './components/Tutorial';
@@ -1321,7 +1322,6 @@ export default function App() {
       <Tutorial onProgress={(p) => patchSettings(progressPatch(ws.settings, p))} />
       <UserGuide />
       {scanJob && scanJob.shown && <ScanProgress job={scanJob.job} onCancel={cancelScanJob} />}
-      {issuesLoading && <div className="issues-loading" role="status" data-testid="issues-loading"><Icon name="spinner" size={14} /> {t('il_loading', { done: issuesLoading.done.toLocaleString(), total: (issuesLoading.total || 0).toLocaleString() })}</div>}
       <TutorialWelcome settings={ws.settings} onPatch={patchSettings} onClose={() => setWelcomeOpen(false)} />
       {dialog && dialog.kind === 'excludeDirs' && project && (
         <ExcludeDirsDialog root={project.path} value={project.excludeDirs} onClose={() => setDialog(null)}
@@ -1401,6 +1401,7 @@ export default function App() {
       )}
       <UiHost />
       <TermTip />
+      <ProgressHost />
     </div>
     </ProjectCtx.Provider>
     </PanelCtx.Provider>
