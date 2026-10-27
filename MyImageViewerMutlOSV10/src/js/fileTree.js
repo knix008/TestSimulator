@@ -273,7 +273,8 @@ window.FileTree = (() => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'tree-drive-btn' + (_pathsEqual(current?.path, d.path) ? ' active' : '');
-      btn.textContent = d.name;
+      btn.innerHTML = Icons.drive || '';
+      btn.appendChild(document.createTextNode(d.name));
       btn.title = d.path;
       btn.addEventListener('click', (e) => {
         e.preventDefault();

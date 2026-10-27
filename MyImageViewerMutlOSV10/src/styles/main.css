@@ -569,7 +569,10 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   max-height: calc(100vh - 28px);
   overflow: hidden;
 }
-.dialog-box.print-dialog-box .dialog-header { padding: 10px 14px 8px; flex-shrink: 0; }
+.dialog-box.print-dialog-box .dialog-header { flex-shrink: 0; }
+/* DICOM bar: the 1:1 physical-size button is a text glyph */
+.dcm-physical-label { font-size: 11px; font-weight: 700; letter-spacing: -0.2px; line-height: 1; }
+.media-ctrl-btn.dcm-physical:disabled { opacity: .4; cursor: default; }
 .dialog-box.print-dialog-box .dialog-footer { padding: 8px 14px; flex-shrink: 0; }
 .dialog-body.print-dialog-body {
   display: grid;
@@ -1298,6 +1301,154 @@ body.maximized #window-controls #win-max .win-restore-icon { display: block; }
   font-size: 12px;
 }
 #file-tree-empty .open-folder-link:hover { color: var(--accent-hover); }
+
+/* ── Explorer · Recent · Favorites tabs (Recent and Favorites draw #places-view) ── */
+.tree-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 2px;
+  padding: 3px 4px 0;
+  background: var(--panel-title-bg);
+  border-bottom: 1px solid var(--border);
+}
+.tree-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.tree-tab > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.tree-tab:hover { background: var(--btn-hover); color: var(--text-primary); }
+.tree-tab.active {
+  background: var(--bg-primary, var(--bg-secondary));
+  border-color: var(--border);
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: -1px;
+}
+.tree-tab-icon { display: inline-flex; flex: none; }
+.tree-tab-icon svg { width: 14px; height: 14px; fill: currentColor; }
+
+#file-tree-panel.places-mode > #tree-path-bar,
+#file-tree-panel.places-mode > #file-tree-scroll,
+#file-tree-panel.places-mode .tree-drive-bar { display: none !important; }
+#sidebar:not(.collapsed) #file-tree-panel .panel-header .panel-title { flex: 1 1 auto; }
+
+/* The drive buttons' own row, between the tabs and the path bar (Explorer tab only) */
+#file-tree-panel > .tree-drive-bar {
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-secondary, var(--panel-title-bg));
+  border-bottom: 1px solid var(--border);
+}
+#file-tree-panel > .tree-drive-bar:empty { display: none; }
+#file-tree-panel > .tree-drive-bar .tree-drive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-color: var(--border);
+  font-size: 12px;
+}
+.tree-drive-btn svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
+.tree-drive-btn.active svg { color: #fff !important; }
+
+.places-view {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 0 8px;
+  outline: none;
+}
+.places-view[hidden] { display: none; }
+.pv-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px 0 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+}
+.pv-head .pv-count { font-weight: 500; color: var(--text-muted); }
+.pv-head .pv-spacer { flex: 1 1 auto; }
+.pv-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.pv-clear svg { width: 14px; height: 14px; fill: currentColor; }
+.pv-clear:hover { background: var(--btn-hover); }
+.pv-empty { padding: 4px 12px 6px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.pv-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 2px 2px 2px 8px;
+  border-radius: 2px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: default;
+}
+.pv-item:hover { background: var(--bg-hover); }
+.pv-item.selected { background: var(--bg-selected); color: #fff; }
+.pv-item.selected .pv-path { color: rgba(255, 255, 255, .78); }
+.pv-item.current:not(.selected) { box-shadow: inset 2px 0 0 var(--accent); }
+.pv-item.missing { opacity: .55; }
+.pv-icon { display: inline-flex; flex: none; width: 16px; justify-content: center; }
+.pv-icon svg { width: 15px; height: 15px; fill: currentColor; }
+.pv-icon.dir-icon { color: var(--dir-icon-color); }
+.pv-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.pv-name, .pv-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-path { font-size: 11px; color: var(--text-muted); }
+.pv-remove {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+}
+.pv-remove svg { width: 13px; height: 13px; fill: currentColor; }
+.pv-item:hover .pv-remove, .pv-item.selected .pv-remove, .pv-remove:focus-visible { opacity: .8; }
+.pv-remove:hover { opacity: 1; background: rgba(248, 113, 113, .22); }
 
 .tree-item {
   display: flex;
@@ -3081,6 +3232,9 @@ html.dialog-window body {
 html.dialog-window .dialog-overlay {
   position: static !important;
   inset: auto !important;
+  /* #file-dialog-overlay pads itself for the in-page layout; in its own window that
+     padding pushed the title row down and the box past the right edge */
+  padding: 0 !important;
   width: max-content;
   height: max-content;
   background: none !important;
@@ -3267,25 +3421,34 @@ html.dialog-window .dialog-overlay .dialog-header select {
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* Every dialog's title row: one height, title and × centred on it, × at the top right */
 .dialog-header {
-  padding: 14px 16px 10px;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 6px 8px 6px 16px;
   font-size: 14px;
   font-weight: 600;
+  line-height: 20px;
   color: var(--text-primary);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
   cursor: grab;
   user-select: none;
 }
 .dialog-header:active { cursor: grabbing; }
 
 .dialog-title {
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .dialog-title-icon {
   display: inline-flex;
@@ -3299,8 +3462,11 @@ html.dialog-window .dialog-overlay .dialog-header select {
 .error-header .dialog-title-icon { color: var(--danger); }
 
 .dialog-close-btn {
-  width: 24px;
-  height: 24px;
+  flex: none;
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4755,6 +4921,10 @@ body.frameless #ew-win-gutter { display: block; }
   max-width: 150px;
   flex: 0 0 auto;
 }
+.dicom-cine-mode {
+  max-width: 110px;
+  flex: 0 0 auto;
+}
 .dicom-fps input {
   width: 52px;
 }
@@ -4765,6 +4935,64 @@ body.frameless #ew-win-gutter { display: block; }
 .dcm-tool.is-active {
   background: rgba(255, 196, 64, 0.35) !important;
 }
+
+/* The DICOM toolbar is docked above the image, a strip of its own (it used to float
+   over the bottom of the picture). Docked, it is just the buttons: every group sits on
+   one line, and when the window is too narrow whole groups wrap to the next line, left
+   aligned. Every control is 32 px tall, so the rows line up. */
+#dicom-controls.dicom-dock {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 3;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  background: #15171c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  column-gap: 6px;
+  row-gap: 5px;
+}
+#dicom-controls.dicom-dock .dicom-row { display: contents !important; }
+#dicom-controls.dicom-dock .dicom-row[hidden] { display: none !important; }
+#dicom-controls.dicom-dock .dicom-window,
+#dicom-controls.dicom-dock .dicom-frames,
+#dicom-controls.dicom-dock .dicom-tools {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+}
+#dicom-controls.dicom-dock .dicom-window[hidden],
+#dicom-controls.dicom-dock .dicom-frames[hidden],
+#dicom-controls.dicom-dock .dicom-tools[hidden] { display: none; }
+/* Groups are told apart by a divider rather than by rows */
+#dicom-controls.dicom-dock .dicom-window:not([hidden]),
+#dicom-controls.dicom-dock .dicom-frames:not([hidden]) {
+  padding-right: 8px;
+  margin-right: 2px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+#dicom-controls.dicom-dock #dcm-frames-sep { display: none; }
+#dicom-controls.dicom-dock .media-ctrl-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+}
+#dicom-controls.dicom-dock .media-ctrl-btn svg { width: 18px; height: 18px; }
+#dicom-controls.dicom-dock .media-ctrl-subtitle-select,
+#dicom-controls.dicom-dock .dicom-wl input { height: 32px; box-sizing: border-box; }
+#dicom-controls.dicom-dock .dicom-tools .dicom-sep { height: 22px; margin: 0 4px; }
 
 /* DICOM overlay layer (annotations, orientation markers, scale bar, measurements) */
 .dcm-overlay {
@@ -5051,6 +5279,31 @@ body.home-open #main-area { display: none !important; }
 .start-scene.on:hover { background: #6aa1ff; }
 .recent-item svg { width: 15px; height: 15px; fill: currentColor; flex: none; }
 .recent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Start screen: Recent folders · Recent files · Favorites */
+.home-places-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.home-places-tabs button {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 6px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 8px;
+  background: rgba(22, 26, 34, .45);
+  color: #f4f7fb;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.home-places-tabs button span { overflow: hidden; text-overflow: ellipsis; }
+.home-places-tabs button svg { width: 14px; height: 14px; fill: currentColor; flex: none; }
+.home-places-tabs button:hover { background: rgba(255, 255, 255, .12); }
+.home-places-tabs button.on { background: #3d7dff; border-color: #d7e6ff; color: #fff; }
+.home-places-tabs button.on svg { color: #fff !important; }
 .start-muted { margin: 0; color: #f4f7fb; }
 .start-tip {
   display: flex;

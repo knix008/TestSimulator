@@ -138,9 +138,55 @@ module.exports = {
 
     /* ── Chrome yields to the contact sheet ── */
 
-    test('DICOM bar and overlay hide behind the contact sheet', () => {
+    test('DICOM bar and overlay hide behind the full contact sheet only (not the filmstrip)', () => {
       const fn = app.slice(app.indexOf('function _dicomHasBar'), app.indexOf('function _dicomFmt'));
-      assertIncludes(fn, 'if (window.Browse?.isVisible?.()) return false;', 'gated on the sheet');
+      assertIncludes(fn, 'if (window.Browse?.isVisible?.() && !window.Browse?.isFilmstrip?.()) return false;', 'gated on the sheet');
+    });
+
+    test('DICOM toolbar is docked above the image, with grid / crosshair / 1:1', () => {
+      const dock = html.indexOf('id="dicom-controls"');
+      assert(dock > 0 && dock < html.indexOf('<div id="viewer-container">'), 'bar sits before the viewer, not over it');
+      for (const id of ['dcm-grid', 'dcm-cross', 'dcm-physical']) assertIncludes(html, `id="${id}"`, id);
+      assertIncludes(app, 'function _dicomDrawGrid(', 'grid drawn');
+      assertIncludes(app, "localStorage.getItem('dicomGrid') !== '0'", 'grid on by default');
+      assertIncludes(app, "localStorage.getItem('dicomRulerAxes') !== '0'", 'rulers on by default');
+      assertIncludes(app, 'sp[1] / DCM_SCREEN_MM_PER_PX', '1:1 physical size');
+    });
+
+    test('Docked DICOM toolbar is just the buttons: no label, groups wrap whole, one control height', () => {
+      const bar = html.slice(html.indexOf('id="dicom-controls"'), html.indexOf('<div id="viewer-container">'));
+      assert(!bar.includes('dicom-badge') && !/>DICOM</.test(bar), 'no DICOM label');
+      assertIncludes(css, '#dicom-controls.dicom-dock .dicom-row { display: contents !important; }', 'one flowing line');
+      assert(/#dicom-controls\.dicom-dock \.media-ctrl-btn \{\s*width: 32px;\s*height: 32px;/.test(css), '32 px buttons');
+    });
+
+    test('Cobb angle: two drawn lines, folded to 0–90°, on the bar, the C key and the menu', () => {
+      assertIncludes(html, 'id="dcm-tool-cobb" data-tool="cobb"', 'toolbar');
+      assertIncludes(app, "const tools = { r: 'ruler', a: 'angle', c: 'cobb', e: 'ellipse', t: 'rect' };", 'C key');
+      assertIncludes(app, 'Math.acos(Math.min(1, Math.abs(ax * bx + ay * by) / (la * lb)))', 'acute angle between the lines');
+      assertIncludes(app, "_dicomSetTool('cobb')", 'menu');
+      for (const k of ['dicom.tool.cobb', 'dicom.toolHint.cobb', 'dicom.cobbShort']) assert(ko[k] && en[k], k);
+    });
+
+    test('Cine repeats loop / back and forth / once, for frames and series, remembered', () => {
+      assertIncludes(html, 'id="dcm-cine-mode"', 'selector');
+      assertIncludes(app, "if (_dicomCineMode === 'once') return cur + 1 < n ? cur + 1 : -1;", 'once stops');
+      assertIncludes(app, "localStorage.setItem('dicomCineMode', mode)", 'remembered');
+      assertIncludes(app, 'const next = restart ? 0 : _dicomCineNext(cur, files.length);', 'series follows it');
+    });
+
+    test('Cine saves as WebM: frames decoded first, encoder drained before the stop', () => {
+      assertIncludes(html, 'id="dcm-save-video"', 'button');
+      assertIncludes(app, "['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']", 'WebM codecs');
+      assertIncludes(app, '// 1) Decode every frame first', 'no decode stalls in the video');
+      assertIncludes(app, 'if (size > 300 && size === last) break;', 'waits for the encoder');
+      assertIncludes(app, "saveTypes: [['png', t('fd.filterPng')], ['jpg', t('fd.filterJpeg')], ['webp', t('fd.filterWebp')]]", 'frames as PNG / JPEG / WebP');
+    });
+
+    test('A folder of single-frame DICOM files plays as a series', () => {
+      assertIncludes(app, 'function _dicomToggleSeriesCine()', 'series cine');
+      assertIncludes(app, "await _openFile(files[i], { seamless: true })", 'no flicker between slices');
+      assertIncludes(app, 'if (!seamless) _rememberRecentFile(filePath);', 'slices do not flood Recent');
     });
 
     test('Media transport hides behind the full contact sheet only (not the filmstrip); audio has it too', () => {

@@ -184,14 +184,24 @@
   let _dicomNext = null;
   let _dicomCineTimer = null;
   let _dicomCineFps = null;   // user override of the cine speed (null → the file's frame timing)
+  let _dicomSeriesTimer = null;   // playing the folder's single-frame DICOM files as one cine
+  let _dicomSeriesFps = null;     // its speed (a new slice is a new session, which forgets _dicomCineFps)
+  // Cine repeat: 'loop' (back to the first), 'bounce' (back and forth), 'once' (stop at the end)
+  let _dicomCineMode = (() => { try { const v = localStorage.getItem('dicomCineMode'); return ['loop', 'bounce', 'once'].includes(v) ? v : 'loop'; } catch { return 'loop'; } })();
+  let _dicomCineDir = 1;          // bounce: the way it is going
   let _dicomAnnotOn = localStorage.getItem('dicomAnnotations') !== '0';   // corner annotations / markers / scale bar
-  let _dicomRulerOn = localStorage.getItem('dicomRulerAxes') === '1';     // graduated rulers down both axes
+  let _dicomRulerOn = localStorage.getItem('dicomRulerAxes') !== '0';     // graduated rulers down both axes (on unless turned off)
+  let _dicomGridOn = localStorage.getItem('dicomGrid') !== '0';           // 5 × 5 grid over the image
+  let _dicomCrossOn = localStorage.getItem('dicomCrosshair') === '1';     // crosshair through the pointer
+  let _dicomCursor = null;    // pointer in viewer coordinates (ruler markers, crosshair); null → outside
+  const DCM_SCREEN_MM_PER_PX = 25.4 / 96;   // one CSS pixel in millimetres (the 1:1 physical-size zoom)
   let _dicomScaleOn = localStorage.getItem('dicomScaleBar') !== '0';      // the movable scale bar
   const DCM_SCALE_PAD = 14;   // default: top-left corner, this many px clear of the edges
   let _dicomScalePos = _loadDicomScalePos();     // where the user parked it; null → the default corner
   let _dicomScaleBox = null;  // last drawn scale-bar rect, for hit testing
+  let _dicomTlBottom = 0;     // lower edge of the top-left (patient) text, for the scale bar's default spot
   let _dicomScaleDrag = null; // { dx, dy } while dragging it
-  let _dicomTool = null;      // active measurement tool: null | 'ruler' | 'angle' | 'ellipse' | 'rect'
+  let _dicomTool = null;      // active measurement tool: null | 'ruler' | 'angle' | 'cobb' | 'ellipse' | 'rect'
   let _dicomMeas = [];        // measurements [{ type, frame, pts: [{ x, y }] }] in image pixels
   let _dicomDraft = null;     // the measurement being drawn
   let _dicomProbePt = null;   // image pixel under the cursor (pixel probe)
@@ -243,6 +253,19 @@
   })();
   const RECENT_DIRS_KEY = 'recentOpenedDirs';
   const RECENT_DIRS_MAX = 10;
+  const RECENT_FILES_KEY = 'recentOpenedFiles';
+  const RECENT_FILES_MAX = 10;
+  // Explorer › Recent / Favorites tabs (see "Places" below); declared up here because the
+  // start-up code reads them before that part of the file runs
+  const TREE_TAB_KEY = 'explorerTab';
+  const HOME_PLACES_TAB_KEY = 'homePlacesTab';
+  let _treeTab = 'explorer';
+  let _favorites = [];         // mirror of favorites.db: [{ path, kind: 'dir' | 'file', addedAt }]
+  let _placesGen = 0;
+  let _placesSections = new Map();
+  let _placesHold = false;     // opened from the list: keep its rows still until the pointer leaves
+  let _placesPending = false;
+  let _placesSelected = '';
   const START_SCENE_IDS = [
     'valley', 'ocean', 'aurora', 'stars', 'rain', 'snow', 'dusk', 'forest', 'dunes', 'city',
     'nebula', 'bokeh', 'grid', 'ribbons', 'embers', 'lake', 'sunrise', 'fireflies', 'geometry', 'ink',
@@ -292,7 +315,7 @@
     // Panel layout is a setting like any other: which panels are expanded, every
     // panel width, the explorer / file-info split, and the browse view.
     LAYOUT_KEY, EW_LAYOUT_KEY, BROWSE_KEY, 'browseViewV1', 'rightSidebarWidth',
-    'dicomRulerAxes', 'dicomScaleBar', 'dicomScalePos',
+    'dicomRulerAxes', 'dicomScaleBar', 'dicomScalePos', 'dicomGrid', 'dicomCrosshair', 'dicomCineMode',
     ...Object.keys(PREF_DEFAULTS),
   ];
   function _pref(key) {
@@ -431,6 +454,7 @@
   _initSidebarResize();
   _initVerticalResize();
   _initPanelLayout();
+  _initPlaces();
   _initBrowse();
   _initDesktopDragDrop();
   _initEditEffectsResize();
@@ -1080,8 +1104,9 @@
     const isWeb = _isWeb();
     return [
       { icon: Icons.openFile,   label: t('menu.openFile'),   shortcut: 'Ctrl+O',       action: () => _pickOpenFile() },
-      // Click = browse for a new folder; hover = the folders opened before (each removable)
-      { icon: Icons.openFolder, label: t('menu.openFolder'), shortcut: 'Ctrl+Shift+O', action: () => _pickOpenFolder(), submenu: () => _recentFolderItems() },
+      { icon: Icons.openFolder, label: t('menu.openFolder'), shortcut: 'Ctrl+Shift+O', action: () => _pickOpenFolder() },
+      // The last ${RECENT_DIRS_MAX} folders, each with its own ×, and "clear all" under them
+      { icon: Icons.recent,     label: t('menu.recentFolders'), submenu: () => _recentFolderItems() },
       { separator: true },
       { icon: Icons.saveAs,     label: t('menu.saveAs'),     shortcut: 'Ctrl+Shift+S', disabled: !hasImg, action: () => _saveAs() },
       { icon: Icons.export,     label: t('menu.export'),     disabled: !hasImg, submenu: () => _exportMenuItems() },
@@ -1107,11 +1132,10 @@
     }
     if (existing.length !== raw.length) localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(existing));
 
-    const items = [
-      { icon: Icons.folderOpen, label: t('toolbar.openFolderBrowse') || t('menu.openFolder'), action: () => _pickOpenFolder() },
-    ];
-    if (existing.length) {
-      items.push({ separator: true });
+    const items = [];
+    if (!existing.length) {
+      items.push({ icon: Icons.recent, label: t('places.noRecentFolders'), disabled: true });
+    } else {
       for (const p of existing) {
         items.push({
           icon: Icons.recent,
@@ -1505,6 +1529,117 @@
     }
   }
 
+  /**
+   * Start screen: recent folders · recent files · favorites, as tabs (the same lists as
+   * the explorer's Recent and Favorites tabs). A click opens the entry and leaves the screen.
+   */
+  function _homePlaces() {
+    const t = I18n.t.bind(I18n);
+    const host = document.createElement('div');
+    host.className = 'home-places';
+    let tab = 'dirs';
+    try { tab = localStorage.getItem(HOME_PLACES_TAB_KEY) || 'dirs'; } catch { /* ignore */ }
+    const lists = {
+      dirs: {
+        label: t('home.tab.recentFolders'), icon: 'folder',
+        entries: () => _getRecentDirs().map((p) => ({ path: p, kind: 'dir' })),
+        empty: t('home.noRecent'),
+        removeTitle: t('toolbar.removeRecentFolder'), remove: (p) => _removeRecentDir(p),
+        clearLabel: t('toolbar.clearRecentFolders'), clear: () => _clearRecentFolderHistory(),
+      },
+      files: {
+        label: t('home.tab.recentFiles'), icon: 'image',
+        entries: () => _getRecentFiles().map((p) => ({ path: p, kind: 'file' })),
+        empty: t('places.noRecentFiles'),
+        removeTitle: t('places.removeRecentFile'), remove: (p) => _removeRecentFile(p),
+        clearLabel: t('places.clearRecentFiles'), clear: () => _clearRecentFiles(),
+      },
+      favorites: {
+        label: t('tree.tab.favorites'), icon: 'star',
+        entries: () => _favorites.map((f) => ({ path: f.path, kind: f.kind })),
+        empty: t('places.noFavorites'),
+        removeTitle: t('context.removeFavorite'), remove: (p) => _removeFavorite(p),
+        clearLabel: t('places.clearFavorites'), clear: () => _clearFavorites(),
+      },
+    };
+    if (!lists[tab]) tab = 'dirs';
+
+    const bar = document.createElement('div');
+    bar.className = 'home-places-tabs';
+    bar.setAttribute('role', 'tablist');
+    const body = document.createElement('div');
+    const fill = () => {
+      const L = lists[tab];
+      bar.querySelectorAll('button').forEach((b) => {
+        const on = b.dataset.tab === tab;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      body.replaceChildren();
+      const entries = L.entries();
+      if (!entries.length) {
+        const p = document.createElement('p');
+        p.className = 'start-muted';
+        p.textContent = L.empty;
+        body.appendChild(p);
+        return;
+      }
+      const ul = document.createElement('ul');
+      ul.className = 'recent-list';
+      for (const e of entries) {
+        const li = document.createElement('li');
+        li.className = 'recent-item';
+        li.title = e.path;
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'recent-open';
+        const ic = _placeIconHtml(e.path, e.kind);
+        openBtn.innerHTML = (ic.html || '') + `<span class="recent-name">${_escHtml(_dirBaseName(e.path))}</span>`;
+        openBtn.addEventListener('click', () => {
+          _hideHome();
+          _openPlace(e.path, e.kind).catch((err) => console.error(err));
+        });
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'recent-remove';
+        removeBtn.title = L.removeTitle;
+        removeBtn.setAttribute('aria-label', L.removeTitle);
+        removeBtn.innerHTML = Icons.close || '×';
+        removeBtn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          L.remove(e.path);
+        });
+        li.append(openBtn, removeBtn);
+        ul.appendChild(li);
+      }
+      body.appendChild(ul);
+      const clearAll = document.createElement('button');
+      clearAll.type = 'button';
+      clearAll.className = 'recent-clear';
+      clearAll.textContent = L.clearLabel;
+      clearAll.addEventListener('click', () => { L.clear(); });
+      body.appendChild(clearAll);
+    };
+    for (const [id, L] of Object.entries(lists)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.dataset.tab = id;
+      b.innerHTML = `${Icons[L.icon] || ''}<span></span>`;
+      b.querySelector('span').textContent = L.label;
+      b.addEventListener('click', () => {
+        tab = id;
+        try { localStorage.setItem(HOME_PLACES_TAB_KEY, id); } catch { /* ignore */ }
+        fill();
+      });
+      bar.appendChild(b);
+    }
+    host.append(bar, body);
+    fill();
+    return host;
+  }
+
   function _renderHomeBody(scroll) {
     const begin = document.createElement('div');
     begin.className = 'start-actions';
@@ -1520,51 +1655,7 @@
     tasks.className = 'task-grid';
     for (const task of HOME_TASKS) tasks.appendChild(_homeCard(task));
 
-    const recent = document.createElement('ul');
-    recent.className = 'recent-list';
-    const dirs = _getRecentDirs();
-    const recentHost = document.createElement('div');
-    if (!dirs.length) {
-      const p = document.createElement('p');
-      p.className = 'start-muted';
-      p.textContent = I18n.t('home.noRecent');
-      recentHost.appendChild(p);
-    } else {
-      for (const dir of dirs.slice(0, RECENT_DIRS_MAX)) {
-        const li = document.createElement('li');
-        li.className = 'recent-item';
-        li.title = dir;
-        const openBtn = document.createElement('button');
-        openBtn.type = 'button';
-        openBtn.className = 'recent-open';
-        openBtn.innerHTML = (Icons.folder || '') + `<span class="recent-name">${_escHtml(_dirBaseName(dir))}</span>`;
-        openBtn.addEventListener('click', async () => {
-          _hideHome();
-          await _openFolder(dir);
-          await FileTree.refresh({ force: true });
-        });
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'recent-remove';
-        removeBtn.title = I18n.t('toolbar.removeRecentFolder') || 'Remove from history';
-        removeBtn.setAttribute('aria-label', removeBtn.title);
-        removeBtn.innerHTML = Icons.close || '×';
-        removeBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          _removeRecentDir(dir);
-        });
-        li.append(openBtn, removeBtn);
-        recent.appendChild(li);
-      }
-      recentHost.appendChild(recent);
-      const clearAll = document.createElement('button');
-      clearAll.type = 'button';
-      clearAll.className = 'recent-clear';
-      clearAll.textContent = I18n.t('toolbar.clearRecentFolders') || 'Clear recent folders';
-      clearAll.addEventListener('click', () => { _clearRecentFolderHistory(); });
-      recentHost.appendChild(clearAll);
-    }
+    const recentHost = _homePlaces();
 
     const tipIndex = Math.floor(Date.now() / 86400000) % 4;
     const more = document.createElement('p');
@@ -1648,7 +1739,7 @@
     board.append(
       group('begin', 'home', I18n.t('home.begin'), begin),
       group('tasks', 'viewGrid', I18n.t('home.tasks'), tasks),
-      group('recent', 'recent', I18n.t('home.recent'), recentHost),
+      group('recent', 'recent', I18n.t('home.places'), recentHost),
       group('scenes', 'image', I18n.t('home.background'), sceneBody),
     );
     recentHost.appendChild(tip);
@@ -2512,7 +2603,9 @@
     }
   }
 
-  async function _openFile(filePath, { center = false } = {}) {
+  // `seamless`: stepping through a DICOM series — the old slice stays up until the new one
+  // is ready and no progress is shown, so playback does not flicker.
+  async function _openFile(filePath, { center = false, seamless = false } = {}) {
     if (!filePath) return;
     _hideHome();
     // Opening a file: contact sheet becomes a bottom filmstrip so the image can show.
@@ -2542,13 +2635,13 @@
     const openGen = ++_openGen;
     _updateInfoPanel(filePath);
     // The previous image must not linger (and then get repainted) while this one decodes
-    _beginViewerSwitch();
+    if (!seamless) _beginViewerSwitch();
     const fileName = filePath.split(/[/\\]/).pop();
     let progressShown = false;
     let openSettled = false;
     const openTitle = I18n.t('progress.openTitle') || I18n.t('progress.title') || 'Opening file';
     const showOpenProgress = (percent, messageKey) => {
-      if (openSettled) return;
+      if (openSettled || seamless) return;
       const dlg = _pd();
       if (!dlg) return;
       if (!progressShown) {
@@ -2640,6 +2733,7 @@
       FileTree.setSelected(filePath, { center });
       const dir = await window.electronAPI.pathDirname(filePath);
       _rememberRecentDir(dir);
+      if (!seamless) _rememberRecentFile(filePath);   // a played series is not "opened" slice by slice
       _watchDir(dir);
       if (!_fileAlreadyInList(filePath)) {
         state.fileList = await FileTree.getImageFilesInDir(dir);
@@ -2648,6 +2742,8 @@
         ? FileTree.indexOfPath(state.fileList, filePath)
         : state.fileList.indexOf(filePath);
       _updateNavButtons();
+      // The folder's list decides whether a single-frame DICOM gets the series controls
+      if (state.dicom) _dicomSyncBar();
 
       _ignoreWatchUntil = Date.now() + 4000;
       _watchCurrentFile(filePath);
@@ -2825,7 +2921,8 @@
   function _dicomHasBar() {
     const d = state.dicom;
     // The contact sheet covers the viewer: its DICOM bar and overlay would sit on top.
-    if (window.Browse?.isVisible?.()) return false;
+    // The filmstrip under an open image does not — the image and its tools stay.
+    if (window.Browse?.isVisible?.() && !window.Browse?.isFilmstrip?.()) return false;
     return !!(d && Editor.isLoaded() && !state.isVideo && !state.isAudio && !state.editMode);
   }
 
@@ -2903,7 +3000,26 @@
     const st = d.state;
     // Frames
     const multi = d.frames > 1;
-    if (dcmFramesWrap) dcmFramesWrap.hidden = !multi;
+    const series = !multi && _dicomSeriesMode();
+    if (dcmFramesWrap) dcmFramesWrap.hidden = !(multi || series);
+    const cineMode = document.getElementById('dcm-cine-mode');
+    if (cineMode && cineMode.value !== _dicomCineMode) cineMode.value = _dicomCineMode;
+    if (series) {
+      const files = _dicomSeriesFiles();
+      const idx = _dicomSeriesIndex(files);
+      if (dcmFrameSeek) {
+        dcmFrameSeek.max = String(files.length - 1);
+        if (document.activeElement !== dcmFrameSeek) dcmFrameSeek.value = String(idx);
+      }
+      if (dcmFrameLabel) dcmFrameLabel.textContent = `${I18n.t('dicom.series')} ${idx + 1} / ${files.length}`;
+      document.getElementById('dcm-prev-frame')?.toggleAttribute('disabled', idx <= 0);
+      document.getElementById('dcm-next-frame')?.toggleAttribute('disabled', idx >= files.length - 1);
+      dcmPlayBtn?.classList.toggle('is-active', !!_dicomSeriesTimer);
+      dcmPlayBtn?.setAttribute('aria-pressed', _dicomSeriesTimer ? 'true' : 'false');
+      if (dcmFps && document.activeElement !== dcmFps) dcmFps.value = String(Math.round(_dicomSeriesRate()));
+      const sep = document.getElementById('dcm-frames-sep');
+      if (sep) sep.hidden = false;
+    }
     if (multi) {
       if (dcmFrameSeek) {
         dcmFrameSeek.max = String(d.frames - 1);
@@ -2966,6 +3082,14 @@
       dcmRulerBtn.classList.toggle('is-active', _dicomRulerOn);
       dcmRulerBtn.setAttribute('aria-pressed', _dicomRulerOn ? 'true' : 'false');
     }
+    for (const [id, on] of [['dcm-grid', _dicomGridOn], ['dcm-cross', _dicomCrossOn]]) {
+      const b = document.getElementById(id);
+      if (!b) continue;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    const physBtn = document.getElementById('dcm-physical');
+    if (physBtn) physBtn.disabled = !(_dicomSpacing()?.[1] > 0) || !_dicomGeomValid();
     if (dcmScaleBtn) {
       dcmScaleBtn.classList.toggle('is-active', _dicomScaleOn);
       dcmScaleBtn.setAttribute('aria-pressed', _dicomScaleOn ? 'true' : 'false');
@@ -3119,8 +3243,116 @@
 
   function _dicomSetCineFps(fps) {
     _dicomCineFps = Number.isFinite(fps) && fps > 0 ? Math.min(120, fps) : null;
+    if (_dicomSeriesTimer || _dicomSeriesMode()) _dicomSeriesFps = _dicomCineFps;
     if (_dicomCineTimer) { _dicomStopCine(); _dicomToggleCine(); }
     _dicomSyncBar();
+  }
+
+  /** The frame / slice after `cur` of `n` under the repeat mode; -1 → stop here. */
+  function _dicomCineNext(cur, n) {
+    if (n < 2) return -1;
+    if (_dicomCineMode === 'once') return cur + 1 < n ? cur + 1 : -1;
+    if (_dicomCineMode === 'bounce') {
+      if (cur + _dicomCineDir >= n || cur + _dicomCineDir < 0) _dicomCineDir = -_dicomCineDir;
+      return cur + _dicomCineDir;
+    }
+    return (cur + 1) % n;
+  }
+
+  function _dicomSetCineMode(mode) {
+    if (!['loop', 'bounce', 'once'].includes(mode)) return;
+    _dicomCineMode = mode;
+    _dicomCineDir = 1;
+    try { localStorage.setItem('dicomCineMode', mode); } catch { /* ignore */ }
+    _dicomSyncBar();
+  }
+
+  /* ── Series: a folder of single-frame DICOM files (one file per slice) steps and plays
+     like the frames of one file — the slider, ◀ ▶ and Play walk through the files. ── */
+
+  function _dicomSeriesFiles() {
+    const list = Array.isArray(state.fileList) ? state.fileList : [];
+    return list.filter((p) => /\.(dcm|dicom)$/i.test(p));
+  }
+
+  function _dicomSeriesIndex(files) {
+    const key = _normDirKey(state.currentFile || '');
+    return files.findIndex((p) => _normDirKey(p) === key);
+  }
+
+  function _dicomSeriesMode() {
+    const d = state.dicom;
+    if (!d || d.frames > 1) return false;
+    const files = _dicomSeriesFiles();
+    return files.length > 1 && _dicomSeriesIndex(files) >= 0;
+  }
+
+  function _dicomSeriesRate() {
+    return Number.isFinite(_dicomSeriesFps) && _dicomSeriesFps > 0 ? _dicomSeriesFps : _dicomCineRate();
+  }
+
+  /** Show slice `i` of the series; the window / colour the user set carries over. */
+  async function _dicomSeriesGo(i) {
+    const files = _dicomSeriesFiles();
+    if (files.length < 2 || i < 0 || i >= files.length) return;
+    const prev = state.dicom;
+    const keep = prev && prev.gray
+      ? { wc: prev.state.wc, ww: prev.state.ww, invert: prev.state.invert, colormap: prev.state.colormap }
+      : null;
+    await _openFile(files[i], { seamless: true });
+    const d = state.dicom;
+    if (keep && d && d !== prev && d.gray && Number.isFinite(keep.wc)
+      && (d.state.wc !== keep.wc || d.state.ww !== keep.ww || d.state.invert !== keep.invert || d.state.colormap !== keep.colormap)) {
+      _dicomApply(keep);
+    }
+    _dicomSyncBar();
+  }
+
+  function _dicomStopSeriesCine() {
+    if (!_dicomSeriesTimer) return;
+    clearTimeout(_dicomSeriesTimer);
+    _dicomSeriesTimer = null;
+    _dicomSyncBar();
+  }
+
+  function _dicomToggleSeriesCine() {
+    if (_dicomSeriesTimer) { _dicomStopSeriesCine(); return; }
+    if (!_dicomSeriesMode()) return;
+    const tick = async () => {
+      if (!_dicomSeriesTimer) return;
+      const files = _dicomSeriesFiles();
+      const cur = _dicomSeriesIndex(files);
+      if (files.length < 2 || cur < 0 || !state.dicom || !_dicomHasBar()) { _dicomStopSeriesCine(); return; }
+      // same repeat mode as frame cine; "once" from the last slice starts over first
+      const next = restart ? 0 : _dicomCineNext(cur, files.length);
+      restart = false;
+      if (next < 0) { _dicomStopSeriesCine(); return; }
+      const t0 = performance.now();
+      await _dicomSeriesGo(next);
+      if (!_dicomSeriesTimer) return;
+      _dicomSeriesTimer = setTimeout(tick, Math.max(0, 1000 / _dicomSeriesRate() - (performance.now() - t0)));
+    };
+    _dicomCineDir = 1;
+    const files0 = _dicomSeriesFiles();
+    let restart = _dicomCineMode === 'once' && _dicomSeriesIndex(files0) >= files0.length - 1;
+    _dicomSeriesTimer = setTimeout(tick, 1000 / _dicomSeriesRate());
+    _dicomSyncBar();
+  }
+
+  // The frame controls: frames of this file, or the files of its series
+  function _dicomStep(delta) {
+    if (_dicomSeriesMode()) {
+      _dicomStopSeriesCine();
+      const files = _dicomSeriesFiles();
+      _dicomSeriesGo(_dicomSeriesIndex(files) + delta);
+      return;
+    }
+    _dicomFrame((state.dicom?.state.frame ?? 0) + delta);
+  }
+
+  function _dicomTogglePlay() {
+    if (_dicomSeriesTimer || _dicomSeriesMode()) _dicomToggleSeriesCine();
+    else _dicomToggleCine();
   }
 
   function _dicomToggleCine() {
@@ -3136,10 +3368,15 @@
     const tick = () => {
       const cur = state.dicom;
       if (!cur || cur !== d || !_dicomHasBar()) { _dicomStopCine(); return; }
-      const next = (cur.state.frame + 1) % cur.frames;
+      // "Once" from the last frame starts over from the first
+      const next = restart ? 0 : _dicomCineNext(cur.state.frame, cur.frames);
+      restart = false;
+      if (next < 0) { _dicomStopCine(); _dicomSyncBar(); return; }
       if (!_dicomBusy) _dicomApply({ frame: next });
       _dicomCineTimer = setTimeout(tick, delayFor(next));
     };
+    let restart = _dicomCineMode === 'once' && d.state.frame >= d.frames - 1;
+    _dicomCineDir = 1;
     _dicomCineTimer = setTimeout(tick, delayFor((d.state.frame + 1) % d.frames));
     dcmPlayBtn?.classList.add('is-active');
     dcmPlayBtn?.setAttribute('aria-pressed', 'true');
@@ -3169,10 +3406,15 @@
 
   function _initDicomBar() {
     if (!dicomBar) return;
-    document.getElementById('dcm-prev-frame')?.addEventListener('click', () => _dicomFrame((state.dicom?.state.frame ?? 0) - 1));
-    document.getElementById('dcm-next-frame')?.addEventListener('click', () => _dicomFrame((state.dicom?.state.frame ?? 0) + 1));
-    dcmFrameSeek?.addEventListener('input', () => _dicomFrame(Number(dcmFrameSeek.value)));
-    dcmPlayBtn?.addEventListener('click', _dicomToggleCine);
+    document.getElementById('dcm-prev-frame')?.addEventListener('click', () => _dicomStep(-1));
+    document.getElementById('dcm-next-frame')?.addEventListener('click', () => _dicomStep(1));
+    dcmFrameSeek?.addEventListener('input', () => {
+      if (_dicomSeriesMode()) { _dicomStopSeriesCine(); _dicomSeriesGo(Number(dcmFrameSeek.value)); }
+      else _dicomFrame(Number(dcmFrameSeek.value));
+    });
+    dcmPlayBtn?.addEventListener('click', _dicomTogglePlay);
+    document.getElementById('dcm-cine-mode')?.addEventListener('change', (e) => _dicomSetCineMode(e.target.value));
+    document.getElementById('dcm-save-video')?.addEventListener('click', () => _dicomSaveVideo());
     dcmPreset?.addEventListener('change', () => _dicomPresetApply(dcmPreset.value));
     const commitWl = () => {
       const d = state.dicom;
@@ -3199,6 +3441,9 @@
     dcmAnnotBtn?.addEventListener('click', _dicomToggleAnnotations);
     dcmRulerBtn?.addEventListener('click', _dicomToggleRulerAxes);
     dcmScaleBtn?.addEventListener('click', _dicomToggleScaleBar);
+    document.getElementById('dcm-grid')?.addEventListener('click', _dicomToggleGrid);
+    document.getElementById('dcm-cross')?.addEventListener('click', _dicomToggleCrosshair);
+    document.getElementById('dcm-physical')?.addEventListener('click', _dicomPhysicalSize);
     dcmToolsWrap?.querySelectorAll('.dcm-tool').forEach((b) => {
       b.addEventListener('click', () => _dicomSetTool(_dicomTool === b.dataset.tool ? null : b.dataset.tool));
     });
@@ -3280,6 +3525,20 @@
     if (_dicomMeas.length) _dicomMeasDelete(_dicomMeas.length - 1);
   }
 
+  /**
+   * Cobb angle: the angle between two drawn lines (pts 0–1 and 2–3), in physical space,
+   * folded to 0…90° the way it is read on a spine film. null until both lines exist.
+   */
+  function _dicomCobbDeg(pts) {
+    if (!pts || pts.length < 4) return null;
+    const sp = _dicomSpacing() || [1, 1];
+    const ax = (pts[1].x - pts[0].x) * sp[1], ay = (pts[1].y - pts[0].y) * sp[0];
+    const bx = (pts[3].x - pts[2].x) * sp[1], by = (pts[3].y - pts[2].y) * sp[0];
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    if (!la || !lb) return null;
+    return Math.acos(Math.min(1, Math.abs(ax * bx + ay * by) / (la * lb))) * 180 / Math.PI;
+  }
+
   // Short description of a measurement for menus ("Ruler 32.0 mm", "Angle 43.4°" …)
   function _dicomMeasLabel(m) {
     const t = I18n.t.bind(I18n);
@@ -3292,6 +3551,10 @@
       const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
       const deg = la && lb ? Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)))) * 180 / Math.PI : 0;
       return `${name} ${deg.toFixed(1)}°`;
+    }
+    if (m.type === 'cobb') {
+      const deg = _dicomCobbDeg(m.pts);
+      return deg == null ? name : `${name} ${deg.toFixed(1)}°`;
     }
     const w = Math.abs(m.pts[1].x - m.pts[0].x), h = Math.abs(m.pts[1].y - m.pts[0].y);
     return `${name} ${_dicomFmtLen(_dicomDist({ x: 0, y: 0 }, { x: w, y: 0 }))} × ${_dicomFmtLen(_dicomDist({ x: 0, y: 0 }, { x: 0, y: h }))}`;
@@ -3317,6 +3580,9 @@
       let dist = Infinity;
       if (m.type === 'ruler' || m.type === 'angle') {
         for (let k = 0; k + 1 < S.length; k++) dist = Math.min(dist, segDist(S[k], S[k + 1]));
+      } else if (m.type === 'cobb') {
+        // two separate lines — not the gap between them
+        for (let k = 0; k + 1 < S.length; k += 2) dist = Math.min(dist, segDist(S[k], S[k + 1]));
       } else {
         const x0 = Math.min(m.pts[0].x, m.pts[1].x), y0 = Math.min(m.pts[0].y, m.pts[1].y);
         const w = Math.abs(m.pts[1].x - m.pts[0].x), h = Math.abs(m.pts[1].y - m.pts[0].y);
@@ -3442,6 +3708,38 @@
     _dicomOverlayRequest();
   }
 
+  function _dicomToggleGrid() {
+    _dicomGridOn = !_dicomGridOn;
+    localStorage.setItem('dicomGrid', _dicomGridOn ? '1' : '0');
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+  }
+
+  function _dicomToggleCrosshair() {
+    _dicomCrossOn = !_dicomCrossOn;
+    localStorage.setItem('dicomCrosshair', _dicomCrossOn ? '1' : '0');
+    _dicomSyncBar();
+    _dicomOverlayRequest();
+  }
+
+  /** Zoom so a millimetre of the patient is a millimetre on the screen (needs a pixel spacing). */
+  function _dicomPhysicalSize() {
+    const sp = _dicomSpacing();
+    if (!sp || !(sp[1] > 0)) { _updateStatus({ msg: I18n.t('dicom.noSpacingPhysical') }); return; }
+    _setZoom(sp[1] / DCM_SCREEN_MM_PER_PX);
+  }
+
+  /** "1 px = 0.14 mm · on screen 1:2.3" — what one image pixel is, and the on-screen ratio. */
+  function _dicomScaleText(map) {
+    const sp = _dicomSpacing();
+    if (!sp || !(sp[1] > 0) || !map) return '';
+    const ratio = sp[1] / (map.scale * DCM_SCREEN_MM_PER_PX);
+    const r = ratio >= 1
+      ? `1:${+ratio.toFixed(ratio >= 10 ? 0 : 1)}`
+      : `${+(1 / ratio).toFixed(1 / ratio >= 10 ? 0 : 1)}:1`;
+    return `1 px = ${_dicomFmtVal(sp[1])} mm · ${I18n.t('dicom.screenRatio')} ${r}`;
+  }
+
   /* ── Scale bar: parked wherever the user dropped it, remembered across sessions ── */
 
   function _loadDicomScalePos() {
@@ -3521,7 +3819,8 @@
     const d = state.dicom;
     const map = _dicomMapping();
     const on = !!(d && map && _dicomHasBar()
-      && (_dicomAnnotOn || _dicomRulerOn || _dicomScaleOn || _dicomMeas.length || _dicomDraft || _dicomTool));
+      && (_dicomAnnotOn || _dicomRulerOn || _dicomScaleOn || _dicomGridOn || _dicomCrossOn
+        || _dicomMeas.length || _dicomDraft || _dicomTool));
     dcmOverlay.classList.toggle('is-on', on);
     if (!on) return;
     const dpr = window.devicePixelRatio || 1;
@@ -3537,15 +3836,59 @@
     ctx.lineCap = 'round';
     // Keep clear of the DICOM bar at the bottom
     let bottom = H - 10;
-    if (dicomBar && !dicomBar.hidden) {
+    // (the DICOM toolbar is docked above the viewer now; this only matters if it sits inside)
+    if (dicomBar && !dicomBar.hidden && viewerContainer.contains(dicomBar)) {
       const br = dicomBar.getBoundingClientRect(), vr = viewerContainer.getBoundingClientRect();
       if (br.height) bottom = Math.min(bottom, br.top - vr.top - 8);
     }
+    if (_dicomGridOn) _dicomDrawGrid(ctx, d, map);
+    if (_dicomCrossOn) _dicomDrawCrosshair(ctx, d, map, W, bottom);
     if (_dicomRulerOn) _dicomDrawRulerAxes(ctx, map, W, H, bottom);
     if (_dicomAnnotOn) _dicomDrawAnnotations(ctx, d, map, W, H, bottom);
     if (_dicomScaleOn) _dicomDrawScaleBar(ctx, map, W, bottom);
     else _dicomScaleBox = null;
     _dicomDrawMeasurements(ctx, d, map, W, bottom);
+  }
+
+  /* 5 × 5 grid over the image, drawn in image space so it turns and flips with it. */
+  function _dicomDrawGrid(ctx, d, map) {
+    const nW = d.width, nH = d.height;
+    const seg = (x0, y0, x1, y1) => {
+      const a = map.toScreen(x0, y0), b = map.toScreen(x1, y1);
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    };
+    ctx.save();
+    for (const [width, colour] of [[3, 'rgba(0, 0, 0, 0.35)'], [1, 'rgba(255, 255, 255, 0.5)']]) {
+      ctx.lineWidth = width;
+      ctx.strokeStyle = colour;
+      ctx.beginPath();
+      for (let i = 1; i < 5; i++) {
+        seg((nW * i) / 5, 0, (nW * i) / 5, nH);
+        seg(0, (nH * i) / 5, nW, (nH * i) / 5);
+      }
+      seg(0, 0, nW, 0); seg(nW, 0, nW, nH); seg(nW, nH, 0, nH); seg(0, nH, 0, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /* Crosshair through the pointer while it is over the image. */
+  function _dicomDrawCrosshair(ctx, d, map, W, bottom) {
+    const c = _dicomCursor;
+    if (!c) return;
+    const p = map.toImage(c.x, c.y);
+    if (p.x < 0 || p.y < 0 || p.x > d.width || p.y > d.height) return;
+    const top = _dicomRulerOn ? DCM_RULER_BAND : 0;
+    const left = _dicomRulerOn ? DCM_RULER_BAND : 0;
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255, 80, 80, 0.85)';
+    ctx.beginPath();
+    ctx.moveTo(left, Math.round(c.y) + 0.5); ctx.lineTo(W, Math.round(c.y) + 0.5);
+    ctx.moveTo(Math.round(c.x) + 0.5, top); ctx.lineTo(Math.round(c.x) + 0.5, bottom);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /* Graduated rulers down the whole X and Y axes, zeroed on the image origin. */
@@ -3561,12 +3904,29 @@
     ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.fillRect(0, 0, W, band);
     ctx.fillRect(0, band, band, bottom - band);
+    // Where the image lies along each ruler
+    const corners = [map.toScreen(0, 0), map.toScreen(state.dicom.width, 0),
+      map.toScreen(0, state.dicom.height), map.toScreen(state.dicom.width, state.dicom.height)];
+    const xs = corners.map((p) => p.x), ys = corners.map((p) => p.y);
+    const ex0 = Math.max(band, Math.min(...xs)), ex1 = Math.min(W, Math.max(...xs));
+    const ey0 = Math.max(band, Math.min(...ys)), ey1 = Math.min(bottom, Math.max(...ys));
+    ctx.fillStyle = 'rgba(76, 141, 255, 0.30)';
+    if (ex1 > ex0) ctx.fillRect(ex0, 0, ex1 - ex0, band);
+    if (ey1 > ey0) ctx.fillRect(0, ey0, band, ey1 - ey0);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, band + 0.5); ctx.lineTo(W, band + 0.5);
     ctx.moveTo(band + 0.5, band); ctx.lineTo(band + 0.5, bottom);
     ctx.stroke();
+    // The corner where the rulers meet names their unit
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(0, 0, band, band);
+    ctx.font = 'bold 9px system-ui, "Segoe UI", sans-serif';
+    ctx.fillStyle = '#ffe08a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(u.mm ? 'mm' : 'px', band / 2, band / 2 + 0.5);
 
     ctx.font = '10px system-ui, "Segoe UI", sans-serif';
     ctx.strokeStyle = '#d7e9ff';
@@ -3611,6 +3971,16 @@
         ctx.fillText(_dicomUnitLabel(k * stepY, u.mm), 0, 0);
         ctx.restore();
       }
+    }
+    // The pointer's place on both rulers
+    const c = _dicomCursor;
+    if (c && c.x >= band && c.x <= W && c.y >= band && c.y <= bottom) {
+      ctx.strokeStyle = '#ff5050';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(c.x) + 0.5, 0); ctx.lineTo(Math.round(c.x) + 0.5, band);
+      ctx.moveTo(0, Math.round(c.y) + 0.5); ctx.lineTo(band, Math.round(c.y) + 0.5);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -3660,6 +4030,7 @@
       [m.patientSex, m.patientAge || m.patientBirthDate].filter(Boolean).join(' · '),
     ].filter(Boolean);
     tl.forEach((s, i) => _dcmText(ctx, s, inLeft, inTop + i * lh));
+    _dicomTlBottom = tl.length ? inTop + tl.length * lh : 0;
     // Top-right: study / series / equipment
     const tr = [
       m.institution,
@@ -3688,6 +4059,8 @@
       if (st.colormap && st.colormap !== 'gray') { const key = `dicom.cm.${st.colormap}`; const l = t(key); br.push(l && l !== key ? l : st.colormap); }
       if (st.invert !== (d.defaultInvert ? d.defaultInvert() : d.photometric === 'MONOCHROME1')) br.push(t('dicom.invert').replace(/\s*\(.*\)$/, ''));
     }
+    const scaleText = _dicomScaleText(map);
+    if (scaleText) br.push(scaleText);
     br.push(`${Math.round(state.zoom * 100)}%`);
     br.forEach((s, i) => _dcmText(ctx, s, W - margin, bottom - br.length * lh + i * lh, 'right'));
     // Orientation markers at the middle of each edge
@@ -3722,9 +4095,11 @@
     const leftLimit = _dicomRulerOn ? DCM_RULER_BAND + 4 : 6;
     if (len > W - leftLimit - 6) return;   // too wide to place anywhere sensible
 
-    // No stored spot → park it in the top-left corner, a little clear of the edges.
+    // No stored spot → park it in the top-left corner, a little clear of the edges —
+    // and below the patient lines there, so it never sits on top of them.
+    const tlClear = _dicomAnnotOn ? _dicomTlBottom : 0;
     let x = _dicomScalePos ? _dicomScalePos.x * W : leftLimit + DCM_SCALE_PAD;
-    let y = _dicomScalePos ? _dicomScalePos.y * bottom : topLimit + DCM_SCALE_PAD;
+    let y = _dicomScalePos ? _dicomScalePos.y * bottom : Math.max(topLimit + DCM_SCALE_PAD, tlClear + 8);
     x = Math.max(leftLimit, Math.min(W - len - 6, x));
     y = Math.max(topLimit, Math.min(bottom - h - 6, y));
     _dicomScaleBox = { x: x - 8, y: y - 6, w: len + 16, h: h + 10 };
@@ -3801,6 +4176,23 @@
             _dcmLabel(ctx, [`${deg.toFixed(1)}°`], v.x + 22, v.y + 6, W, H);
           }
         }
+      } else if (m.type === 'cobb') {
+        // Two lines, each with end ticks; the angle between them labelled at the second
+        for (let k = 0; k + 1 < S.length; k += 2) {
+          const a = S[k], b = S[k + 1];
+          const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+          const nx = -dy / L * 5, ny = dx / L * 5;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          ctx.moveTo(a.x - nx, a.y - ny); ctx.lineTo(a.x + nx, a.y + ny);
+          ctx.moveTo(b.x - nx, b.y - ny); ctx.lineTo(b.x + nx, b.y + ny);
+          ctx.stroke();
+        }
+        const deg = _dicomCobbDeg(m.pts);
+        if (deg != null) {
+          const a = S[2], b = S[3];
+          _dcmLabel(ctx, [`${I18n.t('dicom.cobbShort')} ${deg.toFixed(1)}°`], Math.max(a.x, b.x) + 10, (a.y + b.y) / 2 - 10, W, H);
+        }
       } else {
         const x0 = Math.min(m.pts[0].x, m.pts[1].x), y0 = Math.min(m.pts[0].y, m.pts[1].y);
         const w = Math.abs(m.pts[1].x - m.pts[0].x), h = Math.abs(m.pts[1].y - m.pts[0].y);
@@ -3845,7 +4237,7 @@
     const rows = [];
     _dicomMeas.forEach((m, i) => {
       if (m.frame !== d.state.frame) return;
-      const icon = m.type === 'ruler' ? Icons.ruler : m.type === 'angle' ? Icons.angle : m.type === 'ellipse' ? Icons.ellipse : Icons.rectRoi;
+      const icon = m.type === 'ruler' ? Icons.ruler : (m.type === 'angle' || m.type === 'cobb') ? Icons.angle : m.type === 'ellipse' ? Icons.ellipse : Icons.rectRoi;
       rows.push({
         icon, inline: true, label: `${rows.length + 1}. ${_dicomMeasLabel(m)}`, detail: '', title: t('dicom.deleteMeasurement'),
         action: () => _dicomMeasDelete(i),
@@ -3935,6 +4327,26 @@
     viewerContainer.addEventListener('mouseleave', () => {
       viewerContainer.classList.remove('dcm-scale-grab');
     });
+    // Double-click on the scale bar: back to its default corner
+    viewerContainer.addEventListener('dblclick', (e) => {
+      if (_dicomTool || !state.dicom || !_dicomHasBar() || !_dicomScaleHitTest(e.clientX, e.clientY)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _dicomResetScalePos();
+    }, true);
+
+    // The pointer, for the ruler markers and the crosshair
+    viewerContainer.addEventListener('mousemove', (e) => {
+      if (!state.dicom || !(_dicomRulerOn || _dicomCrossOn)) { _dicomCursor = null; return; }
+      const r = viewerContainer.getBoundingClientRect();
+      _dicomCursor = { x: e.clientX - r.left, y: e.clientY - r.top };
+      _dicomOverlayRequest();
+    });
+    viewerContainer.addEventListener('mouseleave', () => {
+      if (!_dicomCursor) return;
+      _dicomCursor = null;
+      _dicomOverlayRequest();
+    });
   }
 
   function _initDicomOverlay() {
@@ -3957,6 +4369,13 @@
         _dicomOverlayRequest();
         return;
       }
+      // Cobb: the first line is drawn, the second drag adds the other one
+      if (_dicomTool === 'cobb' && _dicomDraft && _dicomDraft.type === 'cobb' && _dicomDraft.pts.length === 2) {
+        _dicomDraft.pts.push(p, p);
+        _dicomDraft.dragging = true;
+        _dicomOverlayRequest();
+        return;
+      }
       _dicomDraft = { type: _dicomTool, frame, pts: [p, p], dragging: true };
       _dicomOverlayRequest();
     });
@@ -3966,18 +4385,27 @@
       if (!map) return;
       const p = _dicomEventPoint(e, map);
       if (_dicomDraft.type === 'angle') _dicomDraft.pts[_dicomDraft.pts.length - 1] = p;
-      else if (_dicomDraft.dragging) _dicomDraft.pts[1] = p;
+      else if (_dicomDraft.dragging) _dicomDraft.pts[_dicomDraft.pts.length - 1] = p;
       _dicomOverlayRequest();
     });
     window.addEventListener('mouseup', (e) => {
       if (!_dicomDraft || !_dicomDraft.dragging) return;
       const map = _dicomMapping();
-      if (map) _dicomDraft.pts[1] = _dicomEventPoint(e, map);
-      const a = map && map.toScreen(_dicomDraft.pts[0].x, _dicomDraft.pts[0].y);
-      const b = map && map.toScreen(_dicomDraft.pts[1].x, _dicomDraft.pts[1].y);
+      const n = _dicomDraft.pts.length;
+      if (map) _dicomDraft.pts[n - 1] = _dicomEventPoint(e, map);
+      const a = map && map.toScreen(_dicomDraft.pts[n - 2].x, _dicomDraft.pts[n - 2].y);
+      const b = map && map.toScreen(_dicomDraft.pts[n - 1].x, _dicomDraft.pts[n - 1].y);
+      const long = !!(a && b && Math.hypot(b.x - a.x, b.y - a.y) >= 3);
+      if (_dicomDraft.type === 'cobb' && n === 2) {
+        // First Cobb line done: wait for the second one (a click without a drag starts over)
+        if (long) _dicomDraft.dragging = false;
+        else _dicomDraft = null;
+        _dicomOverlayRequest();
+        return;
+      }
       const done = _dicomDraft;
       _dicomDraft = null;
-      if (a && b && Math.hypot(b.x - a.x, b.y - a.y) >= 3) {
+      if (long) {
         delete done.dragging;
         _dicomMeasAdd(done);
       }
@@ -4007,13 +4435,23 @@
     const d = state.dicom;
     if (!d || d.frames <= 1) return;
     _dicomStopCine();
-    let dir = null;
+    // Name and type once (PNG / JPEG / WebP); every frame lands next to it as <name>_f01.<ext>
+    let dir = null, ext = 'png', stem = _dicomStem();
     if (!_isWeb()) {
-      const r = await window.electronAPI.pickDirectory({ title: I18n.t('dicom.exportFrames') });
-      if (!r || r.canceled || !r.path) return;
-      dir = r.path;
+      const t = I18n.t.bind(I18n);
+      const r = await window.FileDialog.save({
+        defaultPath: `${stem}.png`,
+        title: t('dicom.exportFrames').replace(/…$/, ''),
+        saveTypes: [['png', t('fd.filterPng')], ['jpg', t('fd.filterJpeg')], ['webp', t('fd.filterWebp')]],
+      });
+      if (!r || r.canceled || !r.filePath) return;
+      dir = await window.electronAPI.pathDirname(r.filePath);
+      const base = r.filePath.split(/[/\\]/).pop();
+      const e = (base.split('.').pop() || '').toLowerCase();
+      ext = e === 'jpeg' ? 'jpg' : ['png', 'jpg', 'webp'].includes(e) ? e : 'png';
+      stem = base.replace(/\.[^.]+$/, '') || stem;
     }
-    const stem = _dicomStem();
+    const mime = ext === 'jpg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png';
     const pad = String(d.frames).length;
     const startFrame = d.state.frame;
     let written = 0;
@@ -4023,9 +4461,9 @@
       for (let i = 0; i < d.frames; i++) {
         if (state.dicom !== d) break;
         const { canvas } = await d.toCanvas({ frame: i });
-        const name = `${stem}_f${String(i + 1).padStart(pad, '0')}.png`;
+        const name = `${stem}_f${String(i + 1).padStart(pad, '0')}.${ext}`;
         const filePath = dir ? await window.electronAPI.pathJoin(dir, name) : name;
-        const wr = await window.electronAPI.writeFile({ filePath, dataUrl: canvas.toDataURL('image/png') });
+        const wr = await window.electronAPI.writeFile({ filePath, dataUrl: canvas.toDataURL(mime, 0.95) });
         if (!wr || !wr.success) { failure = (wr && wr.error) || name; break; }
         written++;
         dlg?.set(Math.round(2 + (i + 1) / d.frames * 95), `${i + 1} / ${d.frames}`);
@@ -4046,6 +4484,147 @@
       detail: dir || '',
       buttons: ['OK'],
     });
+  }
+
+  /**
+   * The cine as a WebM video: the frames of this file, or the slices of its series, at the
+   * cine speed and with the window / colour on screen. Recorded in real time from a canvas
+   * (captureStream + MediaRecorder), so a frame lasts exactly as long as it does on screen.
+   */
+  async function _dicomSaveVideo() {
+    const d = state.dicom;
+    if (!d || !_dicomHasBar()) return;
+    const t = I18n.t.bind(I18n);
+    const series = d.frames <= 1 && _dicomSeriesMode();
+    if (d.frames <= 1 && !series) return;
+    const mime = typeof MediaRecorder === 'undefined' ? null
+      : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m));
+    if (!mime) { await _showError(t('dicom.videoUnsupported')); return; }
+    _dicomStopCine();
+    _dicomStopSeriesCine();
+    const dlgSave = await window.FileDialog.save({
+      defaultPath: `${_dicomStem()}${series ? '_series' : '_cine'}.webm`,
+      title: t('dicom.saveVideo').replace(/…$/, ''),
+      saveTypes: [['webm', t('fd.filterWebm')]],
+    });
+    if (!dlgSave || dlgSave.canceled || !dlgSave.filePath) return;
+
+    const fps = series ? _dicomSeriesRate() : _dicomCineRate();
+    const st = d.state;
+    const look = d.gray ? { wc: st.wc, ww: st.ww, invert: st.invert, colormap: st.colormap } : {};
+    const files = series ? _dicomSeriesFiles() : null;
+    const count = series ? files.length : d.frames;
+    const startFrame = st.frame;
+    // A slice's canvas belongs to its decoder, and release() empties it: keep a copy
+    const copyOf = (src) => {
+      if (!src || !src.width || !src.height) return null;
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      c.getContext('2d').drawImage(src, 0, 0);
+      return c;
+    };
+    const frameAt = async (i) => {
+      if (!series) return (await d.toCanvas({ ...look, frame: i })).canvas;
+      const r = await FormatSupport.loadImageFile(files[i]);
+      if (!r || r.type === 'error') return null;
+      try {
+        if (r.dicom && r.dicom.gray && Number.isFinite(look.wc)) return copyOf((await r.dicom.toCanvas(look)).canvas);
+        return copyOf(r.canvas);
+      } finally {
+        try { r.dicom?.release?.(); } catch { /* ignore */ }
+      }
+    };
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+    let failure = null;
+    let blob = null;
+    await _runOpWithProgress(async (dlg) => {
+      dlg?.set(2, `0 / ${count}`);
+      const first = await frameAt(0);
+      if (!first) { failure = 'no frame'; return; }
+      // Even dimensions (what the encoders want), at most 1024 px on the long side so a long
+      // series fits in memory; every frame is fitted, letterboxed
+      const k = Math.min(1, 1024 / Math.max(first.width, first.height));
+      const even = (v) => Math.max(2, Math.round(v * k) - (Math.round(v * k) % 2));
+      const W = even(first.width), H = even(first.height);
+      const fit = (c) => {
+        const out = document.createElement('canvas');
+        out.width = W; out.height = H;
+        const g = out.getContext('2d');
+        g.fillStyle = '#000';
+        g.fillRect(0, 0, W, H);
+        const s = Math.min(W / c.width, H / c.height);
+        const w = c.width * s, h = c.height * s;
+        g.drawImage(c, (W - w) / 2, (H - h) / 2, w, h);
+        return out;
+      };
+      // 1) Decode every frame first: recording runs on the clock, and a slow slice (a
+      //    codec loading on first use) would otherwise freeze the video for seconds
+      const frames = [fit(first)];
+      for (let i = 1; i < count; i++) {
+        const c = await frameAt(i);
+        frames.push(c ? fit(c) : null);
+        dlg?.set(Math.round(2 + (i + 1) / count * 48), `${i + 1} / ${count}`);
+      }
+      // 2) Record them at the cine speed
+      const rec = document.createElement('canvas');
+      rec.width = W; rec.height = H;
+      const ctx = rec.getContext('2d');
+      const draw = (c) => ctx.drawImage(c, 0, 0);
+      draw(frames[0]);
+      const stream = rec.captureStream(0);
+      const track = stream.getVideoTracks()[0];
+      const chunks = [];
+      const mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+      mr.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise((res) => { mr.onstop = res; });
+      mr.start();
+      const start = performance.now();
+      for (let i = 0; i < count; i++) {
+        if (frames[i]) { draw(frames[i]); track.requestFrame?.(); }
+        dlg?.set(Math.round(50 + (i + 1) / count * 47), `${i + 1} / ${count}`);
+        // against the start, so small timer delays do not add up
+        await wait(Math.max(0, start + ((i + 1) * 1000) / fps - performance.now()));
+      }
+      track.requestFrame?.();
+      // Stop only once the encoder has caught up: frames wait in its queue, and a stop
+      // before it has written them loses them all. Ask for what it has until the output
+      // holds real frames and stops growing (or 8 s pass).
+      const total = () => chunks.reduce((s, b) => s + b.size, 0);
+      const deadline = performance.now() + 8000;
+      let last = -1;
+      while (performance.now() < deadline) {
+        await wait(150);
+        const got = new Promise((res) => mr.addEventListener('dataavailable', res, { once: true }));
+        mr.requestData();
+        await got;
+        const size = total();
+        if (size > 300 && size === last) break;
+        last = size;
+      }
+      mr.stop();
+      await stopped;
+      track.stop();
+      blob = new Blob(chunks, { type: 'video/webm' });
+    }, { messageKey: 'dicom.savingVideo', force: true });
+    // Back to the frame on screen (the session's state moved while frames were rendered)
+    if (!series && state.dicom === d) { try { await d.render({ frame: startFrame }); } catch { /* ignore */ } }
+    if (failure || !blob || !blob.size) {
+      await _showError(t('dialog.save.error') || 'Could not save the file.', failure || 'empty video');
+      return;
+    }
+    const dataUrl = await new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.onerror = () => rej(fr.error);
+      fr.readAsDataURL(blob);
+    });
+    const wr = await window.electronAPI.writeFile({ filePath: dlgSave.filePath, dataUrl });
+    if (wr && wr.success) {
+      try { await FileTree.refresh({ force: true }); } catch { /* ignore */ }
+      _updateStatus({ msg: `${t('dicom.videoSaved')}: ${dlgSave.filePath.split(/[/\\]/).pop()}` });
+    } else {
+      await _showError(t('dialog.save.error') || 'Could not save the file.', (wr && wr.error) || '');
+    }
   }
 
   function _dicomTagsText(format) {
@@ -4109,8 +4688,8 @@
     if (!d || !_dicomHasBar() || state.editMode) return false;
     const tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) return false;
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'PageUp' || e.key === 'PageDown') && d.frames > 1) {
-      _dicomFrame(e.key === 'PageUp' ? d.state.frame - 1 : d.state.frame + 1);
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'PageUp' || e.key === 'PageDown') && (d.frames > 1 || _dicomSeriesMode())) {
+      _dicomStep(e.key === 'PageUp' ? -1 : 1);
       return true;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return false;
@@ -4120,6 +4699,9 @@
       if (e.key === 'Home')     { _dicomFrame(0); return true; }
       if (e.key === 'End')      { _dicomFrame(d.frames - 1); return true; }
       if (e.key === ' ' || e.code === 'Space') { _dicomToggleCine(); return true; }
+    } else if (_dicomSeriesMode()) {
+      // A series plays like frames; ← → still step image by image as everywhere else
+      if (e.key === ' ' || e.code === 'Space') { _dicomToggleSeriesCine(); return true; }
     }
     if (d.gray) {
       if (e.key === 'i' || e.key === 'I') { _dicomToggleInvert(); return true; }
@@ -4129,9 +4711,11 @@
     if (e.key === 'o' || e.key === 'O') { _dicomToggleAnnotations(); return true; }
     if (e.key === 'g' || e.key === 'G') { _dicomToggleRulerAxes(); return true; }
     if (e.key === 'b' || e.key === 'B') { _dicomToggleScaleBar(); return true; }
+    if (e.key === 'd' || e.key === 'D') { _dicomToggleGrid(); return true; }
+    if (e.key === 'x' || e.key === 'X') { _dicomToggleCrosshair(); return true; }
     if ((e.key === 'v' || e.key === 'V') && d.overlays && d.overlays.length) { _dicomToggleOverlays(); return true; }
     if (_dicomGeomValid()) {
-      const tools = { r: 'ruler', a: 'angle', e: 'ellipse', t: 'rect' };
+      const tools = { r: 'ruler', a: 'angle', c: 'cobb', e: 'ellipse', t: 'rect' };
       const tool = tools[e.key.toLowerCase()];
       if (tool && e.key.length === 1) { _dicomSetTool(_dicomTool === tool ? null : tool); return true; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && (_dicomMeas.length || _dicomDraft)) {
@@ -4158,6 +4742,9 @@
         { separator: true },
         { icon: _dicomCineTimer ? Icons.mediaPause : Icons.mediaPlay, label: t(_dicomCineTimer ? 'dicom.cineStop' : 'dicom.cine'), shortcut: 'Space', action: _dicomToggleCine },
       ] });
+    } else if (_dicomSeriesMode()) {
+      items.push({ icon: _dicomSeriesTimer ? Icons.mediaPause : Icons.mediaPlay, label: t(_dicomSeriesTimer ? 'dicom.seriesStop' : 'dicom.seriesPlay'),
+        shortcut: 'Space', action: _dicomToggleSeriesCine });
     }
     if (d.gray) {
       items.push({ icon: Icons.sliders, label: t('dicom.window'), submenu: () => {
@@ -4189,6 +4776,10 @@
     items.push({ icon: Icons.ruler, label: t('dicom.rulerAxes'), shortcut: 'G', checked: _dicomRulerOn, action: _dicomToggleRulerAxes });
     items.push({ icon: Icons.resize, label: t('dicom.scaleBar'), shortcut: 'B', checked: _dicomScaleOn, action: _dicomToggleScaleBar });
     items.push({ icon: Icons.reset, label: t('dicom.scaleReset'), action: _dicomResetScalePos });
+    items.push({ icon: Icons.guideGrid, label: t('dicom.grid'), shortcut: 'D', checked: _dicomGridOn, action: _dicomToggleGrid });
+    items.push({ icon: Icons.pointer, label: t('dicom.crosshair'), shortcut: 'X', checked: _dicomCrossOn, action: _dicomToggleCrosshair });
+    items.push({ icon: Icons.actualSize, label: t('dicom.physicalSize'),
+      disabled: !(_dicomSpacing()?.[1] > 0) || !_dicomGeomValid(), action: _dicomPhysicalSize });
     if (d.overlays && d.overlays.length) {
       items.push({ icon: Icons.layers, label: t('dicom.overlays'), shortcut: 'V', checked: !!d.state.overlays, action: _dicomToggleOverlays });
     }
@@ -4197,6 +4788,7 @@
         { icon: Icons.pointer, label: t('dicom.tool.off'),     shortcut: 'Esc', checked: !_dicomTool,            action: () => _dicomSetTool(null) },
         { icon: Icons.ruler,   label: t('dicom.tool.ruler'),   shortcut: 'R',   checked: _dicomTool === 'ruler',   action: () => _dicomSetTool('ruler') },
         { icon: Icons.angle,   label: t('dicom.tool.angle'),   shortcut: 'A',   checked: _dicomTool === 'angle',   action: () => _dicomSetTool('angle') },
+        { icon: Icons.angle,   label: t('dicom.tool.cobb'),    shortcut: 'C',   checked: _dicomTool === 'cobb',    action: () => _dicomSetTool('cobb') },
         { icon: Icons.ellipse, label: t('dicom.tool.ellipse'), shortcut: 'E',   checked: _dicomTool === 'ellipse', action: () => _dicomSetTool('ellipse') },
         { icon: Icons.rectRoi, label: t('dicom.tool.rect'),    shortcut: 'T',   checked: _dicomTool === 'rect',    action: () => _dicomSetTool('rect') },
         { separator: true },
@@ -4209,6 +4801,7 @@
     }
     items.push({ icon: Icons.export, label: t('dicom.export'), submenu: () => [
       d.frames > 1 && { icon: Icons.fmtPng, label: t('dicom.exportFrames'), action: () => _dicomExportFrames() },
+      (d.frames > 1 || _dicomSeriesMode()) && { icon: Icons.fmtVideo, label: t('dicom.saveVideo'), action: () => _dicomSaveVideo() },
       { icon: Icons.saveAs, label: t('dicom.exportTags'), action: () => _dicomExportTags() },
       { icon: Icons.copy,   label: t('dicom.copyTags'),   action: () => _dicomCopyTags() },
     ].filter(Boolean) });
@@ -5192,6 +5785,7 @@
     localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(next));
     localStorage.setItem('lastOpenedDir', dirPath);
     window.electronAPI.setLastOpenDir?.(dirPath);
+    _renderPlaces();
   }
 
   /**
@@ -5252,7 +5846,7 @@
   }
 
   function _refreshRecentFolderUi() {
-    if (document.body.classList.contains('home-open')) _renderHome();
+    _placesChanged();
     const recentCount = document.getElementById('settings-recent-count');
     if (recentCount) {
       const n = _getRecentDirs().length;
@@ -5260,6 +5854,440 @@
       recentCount.textContent = tmpl.replace('{n}', String(n));
     }
     document.getElementById('settings-clear-recent')?.toggleAttribute('disabled', !_getRecentDirs().length);
+  }
+
+  /* ════════════════════════════════════════════
+     Places: recent folders, recent files and favorites.
+     The explorer's Recent and Favorites tabs, the start screen and the File menu's
+     Recent Folders all read from here. One click (or ↑ / ↓) opens an entry at once:
+     a file in the viewer, a folder as a contact sheet in the centre.
+     Recent lists live in localStorage (10 each); favorites in favorites.db (SQLite,
+     host side) — IndexedDB in web mode — and are mirrored in _favorites.
+  ════════════════════════════════════════════ */
+
+  function _getRecentFiles() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(RECENT_FILES_KEY) || '[]');
+      return Array.isArray(raw) ? raw.filter(Boolean).slice(0, RECENT_FILES_MAX) : [];
+    } catch { return []; }
+  }
+
+  function _setRecentFiles(list) {
+    try { localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(list.slice(0, RECENT_FILES_MAX))); } catch { /* ignore */ }
+  }
+
+  function _rememberRecentFile(filePath) {
+    if (!filePath) return;
+    const key = _normDirKey(filePath);
+    const list = _getRecentFiles();
+    if (!list.length || _normDirKey(list[0]) !== key) {
+      _setRecentFiles([filePath, ...list.filter((p) => _normDirKey(p) !== key)]);
+    }
+    _placesChanged();
+  }
+
+  function _removeRecentFile(filePath) {
+    const key = _normDirKey(filePath);
+    _setRecentFiles(_getRecentFiles().filter((p) => _normDirKey(p) !== key));
+    _placesChanged();
+  }
+
+  function _clearRecentFiles() {
+    _setRecentFiles([]);
+    _placesChanged();
+  }
+
+  /* ── favorites ── */
+
+  async function _loadFavorites() {
+    _applyFavorites(await window.electronAPI.favoritesList?.());
+  }
+
+  /** Every favorites call answers the whole list (or { error }). */
+  function _applyFavorites(res) {
+    if (Array.isArray(res)) {
+      _favorites = res;
+      _placesChanged();
+    } else if (res && res.error) {
+      console.warn('favorites:', res.error);
+      _updateStatus({ msg: `${I18n.t('places.favoriteError')}: ${res.error}` });
+    }
+  }
+
+  function _isFavorite(p) {
+    const key = _normDirKey(p);
+    return !!key && _favorites.some((f) => _normDirKey(f.path) === key);
+  }
+
+  async function _addFavorites(entries) {
+    let res = null;
+    for (const { path, kind } of entries) {
+      if (path && !_isFavorite(path)) res = await window.electronAPI.favoritesAdd?.(path, kind);
+    }
+    if (res) _applyFavorites(res);
+  }
+
+  async function _removeFavorite(p) {
+    _applyFavorites(await window.electronAPI.favoritesRemove?.(p));
+  }
+
+  async function _clearFavorites() {
+    if (!_favorites.length) return;
+    const t = I18n.t.bind(I18n);
+    const r = await window.electronAPI.showMessageBox({
+      type: 'warning',
+      title: t('tree.tab.favorites'),
+      message: t('places.clearFavoritesConfirm'),
+      buttons: [t('places.clearFavoritesYes'), t('dialog.delete.no')],
+      defaultId: 1, cancelId: 1,
+    });
+    if (r?.response !== 0) return;
+    _applyFavorites(await window.electronAPI.favoritesClear?.());
+  }
+
+  /** "Add to Favorites" / "Remove from Favorites" for one folder or file. */
+  function _favoriteMenuItem(p, isDir) {
+    if (!p) return null;
+    const t = I18n.t.bind(I18n);
+    return _isFavorite(p)
+      ? { icon: Icons.starOutline, label: t('context.removeFavorite'), action: () => _removeFavorite(p) }
+      : { icon: Icons.star, label: t('context.addFavorite'), action: () => _addFavorites([{ path: p, kind: isDir ? 'dir' : 'file' }]) };
+  }
+
+  /** The same for a multi-selection: adds the ones not starred yet. */
+  function _favoriteMenuItemMulti(paths) {
+    const todo = (paths || []).filter((p) => !_isFavorite(p));
+    if (!todo.length) return null;
+    return {
+      icon: Icons.star,
+      label: `${I18n.t('context.addFavorite')} (${todo.length})`,
+      action: async () => {
+        const entries = [];
+        for (const p of todo) {
+          let kind = '';
+          try { kind = (await window.electronAPI.getFileStats(p))?.isDirectory ? 'dir' : 'file'; } catch { /* host decides */ }
+          entries.push({ path: p, kind });
+        }
+        await _addFavorites(entries);
+      },
+    };
+  }
+
+  /* ── shared ── */
+
+  function _placesChanged() {
+    if (document.body.classList.contains('home-open')) _renderHome();
+    _renderPlaces();
+  }
+
+  /** Paths still on disk; the ones gone are dropped from that recent list too. */
+  async function _existingPaths(list, wantDir) {
+    const ok = [];
+    const gone = new Set();
+    await Promise.all(list.map(async (p) => {
+      try {
+        const st = await window.electronAPI.getFileStats(p);
+        if (st && !st.error && !!st.isDirectory === wantDir) return;
+      } catch { /* gone */ }
+      gone.add(p);
+    }));
+    for (const p of list) if (!gone.has(p)) ok.push(p);
+    return { ok, gone };
+  }
+
+  async function _prunedRecent(key, list, wantDir) {
+    const { ok, gone } = await _existingPaths(list, wantDir);
+    if (gone.size) {
+      // Re-read: the list may have changed while the disk was asked
+      const fresh = key === RECENT_DIRS_KEY ? _getRecentDirs() : _getRecentFiles();
+      try { localStorage.setItem(key, JSON.stringify(fresh.filter((p) => !gone.has(p)))); } catch { /* ignore */ }
+    }
+    return ok;
+  }
+
+  /** Open a recent / favorite entry: a file in the viewer, a folder as the centre contact sheet. */
+  async function _openPlace(path, kind) {
+    if (!path) return;
+    if (kind === 'dir') {
+      _showFolderInCenter(path);
+      _rememberRecentDir(path);
+      _watchDir(path);
+      Thumbs.prefetchDir(path);
+      try { await FileTree.revealPath(path); } catch { /* the sheet is what counts */ }
+      return;
+    }
+    await _openFileRevealed(path);
+  }
+
+  function _parentLabel(p) {
+    const cleaned = String(p || '').replace(/[\\/]+$/, '');
+    const cut = Math.max(cleaned.lastIndexOf('/'), cleaned.lastIndexOf('\\'));
+    return cut > 0 ? cleaned.slice(0, cut) : cleaned;
+  }
+
+  function _placeIconHtml(path, kind) {
+    if (kind === 'dir') return { html: Icons.folder || '', className: 'dir-icon' };
+    const ext = FormatSupport.getExtension(String(path).split(/[/\\]/).pop() || '');
+    return Icons.forExtension ? Icons.forExtension(ext) : { html: Icons.file || '', className: 'file-icon' };
+  }
+
+  /* ── Explorer tabs ── */
+
+  function _initPlaces() {
+    const tabs = document.getElementById('tree-tabs');
+    const view = document.getElementById('places-view');
+    if (!tabs || !view) return;
+    tabs.querySelectorAll('.tree-tab-icon[data-icon]').forEach((el) => { el.innerHTML = Icons[el.dataset.icon] || ''; });
+    tabs.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tree-tab');
+      if (btn) _setTreeTab(btn.dataset.treeTab);
+    });
+
+    view.addEventListener('click', (e) => {
+      const clear = e.target.closest('.pv-clear');
+      if (clear) { _placesSections.get(clear.dataset.section)?.clear(); return; }
+      const row = e.target.closest('.pv-item');
+      if (!row) return;
+      if (e.target.closest('.pv-remove')) {
+        _placesSections.get(row.dataset.section)?.remove(row.dataset.path);
+        return;
+      }
+      _selectPlaceRow(row, { open: true });
+    });
+    view.addEventListener('contextmenu', (e) => {
+      const row = e.target.closest('.pv-item');
+      if (!row) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _selectPlaceRow(row, { open: false });
+      _showPlaceMenu(row, e.clientX, e.clientY);
+    });
+    view.addEventListener('keydown', (e) => {
+      const rows = [...view.querySelectorAll('.pv-item')];
+      if (!rows.length) return;
+      const cur = rows.findIndex((r) => r.classList.contains('selected'));
+      let next = -1;
+      if (e.key === 'ArrowDown') next = Math.min(rows.length - 1, cur + 1);
+      else if (e.key === 'ArrowUp') next = Math.max(0, cur < 0 ? 0 : cur - 1);
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = rows.length - 1;
+      else if (e.key === 'Enter' && cur >= 0) next = cur;
+      else if (e.key === 'Delete' && cur >= 0) {
+        // Takes the entry off this list — never deletes the file itself
+        e.preventDefault();
+        e.stopPropagation();
+        const row = rows[cur];
+        _placesSections.get(row.dataset.section)?.remove(row.dataset.path);
+        return;
+      } else if (e.key === 'ContextMenu' && cur >= 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        const r = rows[cur].getBoundingClientRect();
+        _showPlaceMenu(rows[cur], r.left + 24, r.bottom);
+        return;
+      } else return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (next >= 0 && (next !== cur || e.key === 'Enter')) _selectPlaceRow(rows[next], { open: true });
+    });
+    // Rows keep still while the user steps through them; reorder once they move away
+    const release = () => {
+      if (!_placesHold) return;
+      _placesHold = false;
+      if (_placesPending) _renderPlaces();
+    };
+    view.addEventListener('pointerleave', release);
+    view.addEventListener('focusout', (e) => { if (!view.contains(e.relatedTarget)) release(); });
+
+    let saved = '';
+    try { saved = localStorage.getItem(TREE_TAB_KEY) || ''; } catch { /* ignore */ }
+    _setTreeTab(['explorer', 'recent', 'favorites'].includes(saved) ? saved : 'explorer');
+    _loadFavorites();
+  }
+
+  function _setTreeTab(tab) {
+    if (!['explorer', 'recent', 'favorites'].includes(tab)) return;
+    const changed = tab !== _treeTab;
+    _treeTab = tab;
+    try { localStorage.setItem(TREE_TAB_KEY, tab); } catch { /* ignore */ }
+    document.querySelectorAll('#tree-tabs .tree-tab').forEach((b) => {
+      const on = b.dataset.treeTab === tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const places = tab !== 'explorer';
+    document.getElementById('file-tree-panel')?.classList.toggle('places-mode', places);
+    const view = document.getElementById('places-view');
+    if (view) view.hidden = !places;
+    _placesHold = false;
+    if (places) {
+      if (changed) { _placesSelected = ''; if (view) view.scrollTop = 0; }
+      _renderPlaces();
+      // Another window may have changed favorites.db meanwhile
+      if (tab === 'favorites') _loadFavorites();
+    } else if (changed && state.currentFile) {
+      FileTree.setSelected(state.currentFile, { center: true });
+    }
+  }
+
+  function _selectPlaceRow(row, { open }) {
+    const view = document.getElementById('places-view');
+    view?.querySelectorAll('.pv-item.selected').forEach((r) => r.classList.remove('selected'));
+    row.classList.add('selected');
+    row.scrollIntoView({ block: 'nearest' });
+    view?.focus({ preventScroll: true });
+    _placesSelected = `${row.dataset.section}|${row.dataset.path}`;
+    if (!open) return;
+    if (row.classList.contains('missing')) {
+      _updateStatus({ msg: `${I18n.t('places.missing')}: ${row.dataset.path}` });
+      return;
+    }
+    _placesHold = true;
+    _openPlace(row.dataset.path, row.dataset.kind).catch((err) => console.error(err));
+  }
+
+  function _showPlaceMenu(row, x, y) {
+    const t = I18n.t.bind(I18n);
+    const { path, kind } = row.dataset;
+    const sec = _placesSections.get(row.dataset.section);
+    const isWeb = _isWeb();
+    const missing = row.classList.contains('missing');
+    ContextMenu.show(x, y, [
+      { icon: kind === 'dir' ? Icons.openFolder : Icons.openFile, label: t('places.open'), disabled: missing,
+        action: () => _selectPlaceRow(row, { open: true }) },
+      { separator: true },
+      _favoriteMenuItem(path, kind === 'dir'),
+      sec && sec.listKind === 'recent' && { icon: Icons.close, label: sec.removeTitle, action: () => sec.remove(path) },
+      { separator: true },
+      { icon: Icons.copy, label: t('tree.copyPath'), action: () => navigator.clipboard.writeText(path).catch(() => {}) },
+      !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: missing,
+        action: () => window.electronAPI.showItemInFolder(path) },
+    ].filter(Boolean));
+  }
+
+  /** Mark the row of the file on screen (keeps the rows where they are). */
+  function _markPlacesCurrent() {
+    const view = document.getElementById('places-view');
+    if (!view) return;
+    const cur = _normDirKey(state.currentFile || '');
+    view.querySelectorAll('.pv-item').forEach((r) => {
+      r.classList.toggle('current', r.dataset.kind === 'file' && !!cur && _normDirKey(r.dataset.path) === cur);
+    });
+  }
+
+  async function _renderPlaces() {
+    const view = document.getElementById('places-view');
+    if (!view || _treeTab === 'explorer') return;
+    if (_placesHold) { _placesPending = true; _markPlacesCurrent(); return; }
+    _placesPending = false;
+    const gen = ++_placesGen;
+    const t = I18n.t.bind(I18n);
+    let sections;
+    if (_treeTab === 'recent') {
+      const [dirs, files] = await Promise.all([
+        _prunedRecent(RECENT_DIRS_KEY, _getRecentDirs(), true),
+        _prunedRecent(RECENT_FILES_KEY, _getRecentFiles(), false),
+      ]);
+      sections = [
+        { id: 'recent-dirs', listKind: 'recent', icon: 'folder', title: t('places.folders'),
+          entries: dirs.map((p) => ({ path: p, kind: 'dir' })), empty: t('places.noRecentFolders'),
+          clearTitle: t('toolbar.clearRecentFolders'), clear: () => _clearRecentFolderHistory(),
+          removeTitle: t('toolbar.removeRecentFolder'), remove: (p) => _removeRecentDir(p) },
+        { id: 'recent-files', listKind: 'recent', icon: 'image', title: t('places.files'),
+          entries: files.map((p) => ({ path: p, kind: 'file' })), empty: t('places.noRecentFiles'),
+          clearTitle: t('places.clearRecentFiles'), clear: () => _clearRecentFiles(),
+          removeTitle: t('places.removeRecentFile'), remove: (p) => _removeRecentFile(p) },
+      ];
+    } else {
+      // Favorites are never dropped silently: a missing one stays, dimmed
+      const favs = _favorites.slice();
+      const missing = new Set();
+      await Promise.all(favs.map(async (f) => {
+        try {
+          const st = await window.electronAPI.getFileStats(f.path);
+          if (st && !st.error) return;
+        } catch { /* missing */ }
+        missing.add(f.path);
+      }));
+      const fav = (kind) => favs.filter((f) => f.kind === kind).map((f) => ({ path: f.path, kind, missing: missing.has(f.path) }));
+      const common = { listKind: 'favorites', clearTitle: t('places.clearFavorites'), clear: () => _clearFavorites(),
+        removeTitle: t('context.removeFavorite'), remove: (p) => _removeFavorite(p) };
+      sections = [
+        { id: 'fav-dirs', icon: 'folder', title: t('places.folders'), entries: fav('dir'), empty: t('places.noFavorites'), ...common },
+        { id: 'fav-files', icon: 'image', title: t('places.files'), entries: fav('file'), empty: t('places.noFavoriteFiles'), ...common },
+      ];
+    }
+    if (gen !== _placesGen || _treeTab === 'explorer') return;
+
+    const scrollTop = view.scrollTop;
+    const hadFocus = view.contains(document.activeElement);
+    _placesSections = new Map(sections.map((s) => [s.id, s]));
+    const frag = document.createDocumentFragment();
+    for (const s of sections) {
+      const sec = document.createElement('section');
+      sec.className = 'pv-section';
+      sec.dataset.section = s.id;
+      const head = document.createElement('div');
+      head.className = 'pv-head';
+      head.innerHTML = `<span class="pv-icon">${Icons[s.icon] || ''}</span><span class="pv-title"></span>`
+        + `<span class="pv-count"></span><span class="pv-spacer"></span>`;
+      head.querySelector('.pv-title').textContent = s.title;
+      head.querySelector('.pv-count').textContent = s.entries.length ? String(s.entries.length) : '';
+      if (s.entries.length) {
+        const clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'pv-clear';
+        clear.dataset.section = s.id;
+        clear.title = s.clearTitle;
+        clear.setAttribute('aria-label', s.clearTitle);
+        clear.innerHTML = Icons.delete || '';
+        head.appendChild(clear);
+      }
+      sec.appendChild(head);
+      if (!s.entries.length) {
+        const empty = document.createElement('div');
+        empty.className = 'pv-empty';
+        empty.textContent = s.empty;
+        sec.appendChild(empty);
+      }
+      for (const e of s.entries) {
+        const row = document.createElement('div');
+        row.className = `pv-item${e.missing ? ' missing' : ''}`;
+        row.setAttribute('role', 'option');
+        row.dataset.section = s.id;
+        row.dataset.path = e.path;
+        row.dataset.kind = e.kind;
+        row.title = e.missing ? `${e.path}\n${t('places.missing')}` : e.path;
+        if (_placesSelected === `${s.id}|${e.path}`) row.classList.add('selected');
+        const ic = _placeIconHtml(e.path, e.kind);
+        const icon = document.createElement('span');
+        icon.className = `pv-icon ${ic.className || ''}`;
+        icon.innerHTML = ic.html || '';
+        const text = document.createElement('span');
+        text.className = 'pv-text';
+        const name = document.createElement('span');
+        name.className = 'pv-name';
+        name.textContent = _dirBaseName(e.path);
+        const where = document.createElement('span');
+        where.className = 'pv-path';
+        where.textContent = _parentLabel(e.path);
+        text.append(name, where);
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'pv-remove';
+        rm.tabIndex = -1;
+        rm.title = s.removeTitle;
+        rm.setAttribute('aria-label', s.removeTitle);
+        rm.innerHTML = Icons.close || '×';
+        row.append(icon, text, rm);
+        sec.appendChild(row);
+      }
+      frag.appendChild(sec);
+    }
+    view.replaceChildren(frag);
+    view.scrollTop = scrollTop;
+    _markPlacesCurrent();
+    if (hadFocus) view.focus({ preventScroll: true });
   }
 
   function _isFileDialogOpen() {
@@ -5271,7 +6299,11 @@
     if (!window.FileDialog) return;
     const r = await window.FileDialog.openFile();
     if (!r || r.canceled || !r.filePath) return;
-    const p = r.filePath;
+    await _openFileRevealed(r.filePath);
+  }
+
+  /** Open a file from anywhere (dialog, Recent, Favorites) and show it in the explorer. */
+  async function _openFileRevealed(p) {
     try {
       const dir = await window.electronAPI.pathDirname(p);
       await _openFile(p, { center: true });
@@ -9649,6 +10681,7 @@
       ContextMenu.show(x, y, [
         multiFiles.length && { icon: Icons.image, label: `${t('context.openFile')} (${multiFiles.length})`,
           action: async () => { for (const p of multiFiles) await _openFile(p); } },
+        _favoriteMenuItemMulti(multiPaths),
         { separator: true },
         { icon: Icons.copy, label: t('tree.copyPath'),
           action: () => navigator.clipboard.writeText(multiPaths.join('\n')).catch(() => {}) },
@@ -9696,6 +10729,7 @@
     ContextMenu.show(x, y, [
       isFile && isSup && { icon: Icons.openFile,   label: t('context.openFile'),      action: () => _openFile(entry.path) },
       isDir  &&          { icon: Icons.openFolder, label: t('context.openFolder'),    action: () => _openFolder(entry.path) },
+      _favoriteMenuItem(entry.path, isDir),
       { separator: true },
       isFile && isSup && { icon: Icons.save,       label: t('context.saveAs'),        action: async () => { await _openFile(entry.path); _saveAs(); } },
       isFile && FormatSupport.isImage?.(entry.path) && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
@@ -9833,6 +10867,8 @@
     }
     const recents = _getRecentDirs().map((p) => _rewriteChildPath(p, filePath, dest));
     try { localStorage.setItem(RECENT_DIRS_KEY, JSON.stringify(recents)); } catch {}
+    _setRecentFiles(_getRecentFiles().map((p) => _rewriteChildPath(p, filePath, dest)));
+    _applyFavorites(await window.electronAPI.favoritesRemap?.(filePath, dest));
     const last = localStorage.getItem('lastOpenedDir');
     if (last) {
       const nextLast = _rewriteChildPath(last, filePath, dest);
@@ -9990,6 +11026,7 @@
     const t = I18n.t.bind(I18n);
     const hasFile = !!state.currentFile;
     return [
+      hasFile && _favoriteMenuItem(state.currentFile, false),
       { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !hasFile,
         action: () => hasFile && _showInExplorer() },
       { icon: Icons.delete, label: t('context.deleteFile'), danger: true, disabled: !hasFile, shortcut: 'Del',
@@ -10899,6 +11936,7 @@
     _buildMenubar();
     _helpDocKey = '';
     if (document.body.classList.contains('home-open')) _renderHome();
+    _renderPlaces();
     if (document.getElementById('help-overlay')?.classList.contains('visible')) _fillHelpDoc();
     if (state.currentFile) await _updateInfoPanel(state.currentFile);
     // DICOM bar option labels are built per language
