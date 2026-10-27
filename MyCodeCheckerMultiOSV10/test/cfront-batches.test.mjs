@@ -113,3 +113,21 @@ test('the analysis memory limit comes from Settings, else three quarters of the 
     if (saved === undefined) delete process.env.MCC_WORKER_HEAP_MB; else process.env.MCC_WORKER_HEAP_MB = saved;
   }
 });
+
+test('the C/C++ pool gives the same issues, in the same order, as one thread', async () => {
+  const { runCfamilyPool } = require('../core/cfamily-pool.js');
+  const options = { cfamilyBatch: TINY };
+  const serial = analyzeSources(project(6), options);
+  const pre = await runCfamilyPool(project(6), options, { workers: 2, heapMb: 20000 });
+  assert.ok(Array.isArray(pre) && pre.length > 1, 'the project ran in several batches on the pool');
+  const pooled = analyzeSources(project(6), { ...options, cfamilyFindings: pre });
+  assert.deepEqual(pooled.issues.map((i) => i.key), serial.issues.map((i) => i.key));
+});
+
+test('the pool is not used for a project that is one batch', async () => {
+  const { runCfamilyPool, poolSize } = require('../core/cfamily-pool.js');
+  assert.equal(await runCfamilyPool(project(3), {}, { workers: 2, heapMb: 20000 }), null);
+  assert.equal(poolSize(4096, 28).workers, 0, 'a 4 GB analysis keeps one thread');
+  assert.ok(poolSize(48000, 28).workers >= 8);
+  assert.equal(poolSize(48000, 4).workers, 2, 'two cores are left free');
+});

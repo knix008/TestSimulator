@@ -32,6 +32,7 @@ function projectFor(files, options = {}) {
       defines: options.defines || {},
       target: options.target,
       unitFiles: files.unitFiles,
+      lexCache: files.lexCache,
     });
   }
   parsed.set(files, project);
@@ -54,56 +55,95 @@ const BATCH = {
   tokens: 1000000, // about 0.8 GB of parse data
 };
 
-function batchOf(headers, units, extra) {
+function batchOf(headers, units, extra, lexCache) {
   const files = [...headers, ...extra];
   Object.defineProperty(files, 'unitFiles', { value: units.map((f) => f.path) });
+  // One header token cache for all batches: the headers are lexed once.
+  if (lexCache) Object.defineProperty(files, 'lexCache', { value: lexCache });
   return files;
+}
+
+// What a parsed batch tells the planner: its size in tokens and the headers
+// its units include.
+function statsOf(project) {
+  let tokens = 0;
+  const included = [];
+  for (const u of (project && project.units) || []) {
+    tokens += u.tokens ? u.tokens.length : 0;
+    for (const inc of u.includes || []) if (inc.resolved) included.push(inc.resolved);
+  }
+  return { tokens, units: ((project && project.units) || []).length, included };
+}
+
+// Plans the batches of a project. next() gives the next list, null while the
+// headers no unit includes cannot be told yet (batches are still out), or
+// undefined at the end; done(list, stats) reports a parsed batch. Batches can
+// be parsed here (batches()) or elsewhere (core/cfamily-pool.js).
+function planner(files, limits = {}) {
+  const lim = { ...BATCH, ...limits };
+  const cfiles = cFiles(files);
+  const headers = cfiles.filter((f) => cf.isHeader(f.path));
+  const sources = cfiles.filter((f) => !cf.isHeader(f.path));
+  const single = sources.length <= lim.smallSources && headers.length <= lim.smallSources;
+  const lexCache = limits.lexCache === false ? null : new Map();
+  const included = new Set();
+  let size = lim.firstSources;
+  let pending = sources;
+  let at = 0;
+  let stage = single ? 'single' : 'sources';
+  let out = 0;
+  let index = 0;
+  // The batch size is learned from the first batch only, so the batches are the
+  // same however many threads parse them (and so are cross-unit findings).
+  let learned = false;
+  return {
+    single,
+    headers,
+    sources,
+    next() {
+      if (stage === 'single') { stage = 'end'; return files; }
+      if (stage === 'end') return undefined;
+      if (index >= 1 && !learned) return null;
+      if (at >= pending.length) {
+        if (out > 0) return null;
+        if (stage === 'alone') { stage = 'end'; return undefined; }
+        // Headers that no unit includes are analyzed on their own.
+        pending = headers.filter((f) => !included.has(normPath(f.path)));
+        at = 0;
+        stage = 'alone';
+        if (!pending.length) { stage = 'end'; return undefined; }
+      }
+      const part = pending.slice(at, at + size);
+      at += part.length;
+      const list = batchOf(headers, part, stage === 'sources' ? part : [], lexCache);
+      index++;
+      out++;
+      // list.batch = { index, estimate } (1-based; the estimate of the batch
+      // count follows the measured size of the units).
+      const left = pending.length - at + (stage === 'sources' ? headers.length : 0);
+      Object.defineProperty(list, 'batch', { value: { index, estimate: index + Math.ceil(left / size) } });
+      return list;
+    },
+    done(list, stats) {
+      if (list === files) return;
+      out--;
+      if (stats) for (const p of stats.included || []) included.add(p);
+      if (learned) return;
+      learned = true;
+      const per = stats ? stats.tokens / Math.max(1, stats.units || (list.unitFiles || []).length) : 0;
+      if (per > 0) size = Math.max(1, Math.min(lim.maxSources, Math.floor(lim.tokens / per)));
+    },
+  };
 }
 
 // Yields file lists for the C/C++ engines. A list is handed to every engine
 // (they share its parse through projectFor) before the next one is made.
 function* batches(files, limits = {}) {
-  const lim = { ...BATCH, ...limits };
-  const cfiles = cFiles(files);
-  const headers = cfiles.filter((f) => cf.isHeader(f.path));
-  const sources = cfiles.filter((f) => !cf.isHeader(f.path));
-  if (sources.length <= lim.smallSources && headers.length <= lim.smallSources) {
-    yield files;
-    return;
+  const plan = planner(files, limits);
+  for (let list = plan.next(); list; list = plan.next()) {
+    yield list;
+    plan.done(list, parsed.has(list) ? statsOf(parsed.get(list)) : null);
   }
-  const included = new Set();
-  let size = lim.firstSources;
-  const learn = (list, count) => {
-    const project = parsed.get(list);
-    if (!project) return;
-    let tokens = 0;
-    for (const u of project.units) {
-      tokens += u.tokens ? u.tokens.length : 0;
-      for (const inc of u.includes || []) if (inc.resolved) included.add(inc.resolved);
-    }
-    const per = tokens / Math.max(1, project.units.length || count);
-    size = Math.max(1, Math.min(lim.maxSources, Math.floor(lim.tokens / Math.max(1, per))));
-  };
-  // list.batch = { index, estimate } (1-based; the estimate of the batch count
-  // follows the measured size of the units).
-  let index = 0;
-  let after = headers.length;
-  const run = function* (pending, extra) {
-    for (let at = 0; at < pending.length;) {
-      const part = pending.slice(at, at + size);
-      at += part.length;
-      const list = batchOf(headers, part, extra(part));
-      index++;
-      Object.defineProperty(list, 'batch', { value: { index, estimate: index + Math.ceil((pending.length - at + after) / size) } });
-      yield list;
-      learn(list, part.length);
-    }
-  };
-  yield* run(sources, (part) => part);
-  // Headers that no unit includes are analyzed on their own.
-  const alone = headers.filter((f) => !included.has(normPath(f.path)));
-  after = 0;
-  yield* run(alone, () => []);
 }
 
 // Engines that read the shared parse and so run once per batch.
@@ -193,4 +233,4 @@ function createEngine(dirs, opts = {}) {
   return { catalog, analyze, rules: all };
 }
 
-module.exports = { cf, projectFor, createEngine, loadPack, batches, ENGINE_IDS, BATCH };
+module.exports = { cf, projectFor, parsedProject: (files) => parsed.get(files) || null, batchOf, createEngine, loadPack, batches, planner, statsOf, ENGINE_IDS, BATCH };

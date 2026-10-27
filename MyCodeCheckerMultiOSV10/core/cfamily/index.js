@@ -104,7 +104,7 @@ function parseUnit(text, opts = {}) {
 function parseProject(files, opts = {}) {
   const list = (files || []).filter((f) => f && f.path != null).map((f) => ({ ...f, path: pp.normPath(f.path) }));
   const fileMap = new Map(list.map((f) => [f.path, { text: f.text || '', lang: f.lang }]));
-  const lexCache = new Map();
+  const lexCache = opts.lexCache || new Map(); // shared by the batches of a large project
   const units = [];
   const included = new Set();
   const parseOne = (f, standalone) => {

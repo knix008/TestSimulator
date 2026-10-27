@@ -625,6 +625,8 @@ function createApi(opts = {}) {
     return job;
   }
   const WEIGHT = { collect: [0, 10], rules: [10, 45], engines: [55, 42], finish: [97, 3] };
+  // With the C/C++ pool (phase 'cfamily') that phase comes first and is most of the time.
+  const WEIGHT_POOL = { collect: [0, 5], cfamily: [5, 65], rules: [70, 15], engines: [85, 12], finish: [97, 3] };
 
   // Indexes of an issue list, most severe first (stable); kept per list.
   const severityOrders = new WeakMap();
@@ -684,6 +686,7 @@ function createApi(opts = {}) {
       } catch (err) {
         if (!err || err.code !== 'OUT_OF_MEMORY' || step >= REDUCED.length || job.status === 'cancelled') throw err;
         job.retry = step + 1;
+        job.pool = false;
         job.progress = { ...(job.progress || {}), phase: 'collect', percent: 0, detail: '', retry: job.retry };
       }
     }
@@ -701,7 +704,8 @@ function createApi(opts = {}) {
       const issues = [];
       worker.on('message', (m) => {
         if (m.type === 'progress') {
-          const [base, span] = WEIGHT[m.phase] || [0, 0];
+          if (m.phase === 'cfamily') job.pool = true;
+          const [base, span] = (job.pool ? WEIGHT_POOL : WEIGHT)[m.phase] || [0, 0];
           const percent = Math.min(99, Math.round(base + (m.total ? (m.done / m.total) * span : 0)));
           const elapsedMs = Date.now() - job.startedAt;
           job.progress = { phase: m.phase, done: m.done, total: m.total, detail: m.detail, percent, elapsedMs, etaMs: percent > 3 ? Math.round((elapsedMs / percent) * (100 - percent)) : null, retry: job.retry || 0 };

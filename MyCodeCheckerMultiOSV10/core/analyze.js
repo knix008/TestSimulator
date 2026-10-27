@@ -40,6 +40,13 @@ function progressReporter(onProgress) {
 }
 
 function analyzePath(root, options = {}) {
+  const { sources, options: opts } = collectSources(root, options);
+  return analyzeSources(sources, opts);
+}
+
+// The files of a folder and its coverage, as analyzeSources takes them
+// ({ sources, options } with root and coverage set).
+function collectSources(root, options = {}) {
   const abs = path.resolve(root);
   const report = progressReporter(options.onProgress);
   report('collect', 0, 1, abs);
@@ -61,7 +68,41 @@ function analyzePath(root, options = {}) {
   if (options.coverageText) {
     try { coverage = parseLcov(options.coverageText, abs); } catch { /* keep file coverage */ }
   }
-  return analyzeSources(sources, { ...options, root: abs, coverage });
+  return { sources, options: { ...options, root: abs, coverage } };
+}
+
+// The analyzed files: relative paths, a known language, not excluded, text only.
+function prepareFiles(files, options = {}) {
+  const root = options.root || '';
+  const exclusions = options.exclusions || [];
+  const excludeDirs = normDirs(options.excludeDirs);
+  const onlyLangs = options.languages && options.languages.length ? new Set(options.languages) : null;
+  const prepared = [];
+  for (const file of files || []) {
+    const rel = toRel(root, file.path);
+    if (excluded(rel, exclusions) || inDirs(rel, excludeDirs)) continue;
+    const lang = detectLanguage(file.path);
+    if (!lang) continue;
+    if (onlyLangs && !onlyLangs.has(lang)) continue;
+    const text = String(file.text == null ? '' : file.text);
+    if (text.includes('\0')) continue;
+    prepared.push({ path: rel, text, lang });
+  }
+  return prepared;
+}
+
+// The engines that share the C/C++ parse and run for these options.
+function sharedEngines(options = {}) {
+  const off = new Set(options.disabledChecks || []);
+  const skip = new Set(options.skipEngines || []);
+  return engines().filter((e) => cfront.ENGINE_IDS.has(e.id) && !checks.engineOff(e.id, off) && !skip.has(e.id));
+}
+
+// The files the shared C/C++ parse reads: options.cfamilyMaxBytes leaves larger
+// C/C++ files out (a reduced analysis after running out of memory).
+function cfamilyInput(prepared, options = {}) {
+  const maxC = options.cfamilyMaxBytes;
+  return maxC ? prepared.filter((f) => !((f.lang === 'c' || f.lang === 'cpp') && String(f.text).length > maxC)) : prepared;
 }
 
 function walk(root, options) {
@@ -100,24 +141,11 @@ function analyzeSources(files, options = {}) {
   const overrides = options.overrides || {};
   const previous = new Set(options.previousKeys || []);
   const states = options.issueState || {};
-  const exclusions = options.exclusions || [];
-  const excludeDirs = normDirs(options.excludeDirs);
-  const onlyLangs = options.languages && options.languages.length ? new Set(options.languages) : null;
-  const custom = (options.customRules || []).map(compileCustom).filter(Boolean);
+  const custom =(options.customRules || []).map(compileCustom).filter(Boolean);
   const rules = [...RULES, ...extraLineRules()].filter((r) => !inactive.has(r.key));  const started = Date.now();
   const warnings = [];
 
-  const prepared = [];
-  for (const file of files || []) {
-    const rel = toRel(root, file.path);
-    if (excluded(rel, exclusions) || inDirs(rel, excludeDirs)) continue;
-    const lang = detectLanguage(file.path);
-    if (!lang) continue;
-    if (onlyLangs && !onlyLangs.has(lang)) continue;
-    const text = String(file.text == null ? '' : file.text);
-    if (text.includes('\0')) continue;
-    prepared.push({ path: rel, text, lang });
-  }
+  const prepared = prepareFiles(files, options);
 
   const issues = issueList(issueBudget(options));
   const fileRows = [];
@@ -517,12 +545,19 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
       runEngine(engine, files);
     });
   });
-  if (shared.length) {
-    // options.cfamilyMaxBytes leaves larger C/C++ files out of the shared parse
-    // (a reduced analysis after running out of memory); their line rules ran.
-    const maxC = ctx.options && ctx.options.cfamilyMaxBytes;
-    const cInput = maxC ? prepared.filter((f) => !((f.lang === 'c' || f.lang === 'cpp') && String(f.text).length > maxC)) : prepared;
-    for (const files of cfront.batches(cInput, ctx.options && ctx.options.cfamilyBatch)) {
+  // options.cfamilyFindings: the shared engines already ran (in parallel, see
+  // core/cfamily-pool.js); [{ byEngine: { id: findings }, warnings }] in batch order.
+  const pre = ctx.options && ctx.options.cfamilyFindings;
+  if (shared.length && Array.isArray(pre)) {
+    pre.forEach((b, n) => {
+      for (const w of b.warnings || []) warnings.push(w);
+      shared.forEach((engine, k) => {
+        report('engines', plain.length + shared.length * n + k, plain.length + shared.length * pre.length, `${engine.id} (${n + 1}/${pre.length})`);
+        addFindings(engine, (b.byEngine || {})[engine.id] || []);
+      });
+    });
+  } else if (shared.length) {
+    for (const files of cfront.batches(cfamilyInput(prepared, ctx.options || {}), ctx.options && ctx.options.cfamilyBatch)) {
       const b = files.batch;
       shared.forEach((engine, k) => {
         if (!b) report('engines', plain.length + k, plain.length + shared.length, engine.id);
@@ -534,8 +569,6 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
   }
 
   function runEngine(engine, files) {
-    if (!metas.has(engine.id)) metas.set(engine.id, new Map(engine.catalog().map((m) => [m.key, m])));
-    const meta = metas.get(engine.id);
     let found = [];
     try {
       found = engine.analyze(files, ctx) || [];
@@ -543,6 +576,12 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
       warnings.push({ engine: engine.id, message: String((err && err.message) || err) });
       return;
     }
+    addFindings(engine, found);
+  }
+
+  function addFindings(engine, found) {
+    if (!metas.has(engine.id)) metas.set(engine.id, new Map(engine.catalog().map((m) => [m.key, m])));
+    const meta = metas.get(engine.id);
     for (const f of found) {
       if (!f || !f.rule || !f.line || ctx.inactive.has(f.rule)) continue;
       const m = meta.get(f.rule) || {};
@@ -579,10 +618,6 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
   }
 }
 
-// Keys come from the rule, file and line text, so identical lines in one file
-// (the same commented-out code twice) share a key. The first by line keeps it
-// (its triage stays); the next ones get key#2, key#3 ... hashed, so triage,
-// new-code marks and the database rows tell them apart.
 // Removes the items keep() rejects, in place and in one pass (splicing one
 // at a time is quadratic on millions of issues).
 function keepIf(list, keep) {
@@ -667,6 +702,10 @@ function issueList(budget) {
   return issues;
 }
 
+// Keys come from the rule, file and line text, so identical lines in one file
+// (the same commented-out code twice) share a key. The first by line keeps it
+// (its triage stays); the next ones get key#2, key#3 ... hashed, so triage,
+// new-code marks and the database rows tell them apart.
 function uniqueKeys(issues) {
   const byKey = new Map();
   for (const item of issues) {
@@ -852,4 +891,5 @@ function withKoreanStandards(rules) {
 module.exports = {
   defectAnnotations,
   analyzePath, analyzeSources, walk, listRules, matchGlob, excluded, SKIP_DIRS,
+  collectSources, prepareFiles, sharedEngines, cfamilyInput,
 };
