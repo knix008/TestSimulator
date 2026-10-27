@@ -889,6 +889,9 @@ async fn print_pages(request: Request<'_>) -> Result<usize, String> {
     copies: print::clamp_copies(header(&request, "x-copies").and_then(|v| v.parse().ok()).unwrap_or(1)),
     landscape: header(&request, "x-landscape").as_deref() == Some("1"),
     title: header(&request, "x-title").unwrap_or_default(),
+    paper: header(&request, "x-paper").unwrap_or_default(),
+    duplex: header(&request, "x-duplex").unwrap_or_default(),
+    color: header(&request, "x-color").as_deref() != Some("0"),
   };
   print::print_pages(&job, &pages)
 }

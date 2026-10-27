@@ -3,12 +3,14 @@
  * a click runs). The card has a chapter list to jump to any part and a button to run the demo again.
  *
  *   Tour.STEPS / Tour.CHAPTERS          the steps (tests check every command exists) and their chapters
- *   Tour.start({ run, lang, onEnd, from })   run(action, dataset) = App.runAction; from = step id or chapter id
+ *   Tour.start({ run, lang, onEnd, from, startup, onStartup })   run(action, dataset) = App.runAction; from = step id or chapter id;
+ *                                       startup / onStartup(on): the card's "show at launch" check box (settings.showTourOnLaunch)
  *   Tour.stop() · Tour.go(index) · Tour.active · Tour.index · Tour.playing (the step's demo is still running)
  *
  * Step: { id, chapter, target (CSS selector, optional), ko: [title, text], en: [title, text],
  *         play: [ [action, dataset?] | { wait: ms } | { spot: selector } ] }
- * Opens automatically after installation (settings.tutorialDone is false) and from Help › Tutorial.
+ * Opens at launch while settings.showTourOnLaunch is on (the first run after installation, or until it is turned
+ * off on the card or in Settings › Start screen) and from Help › Tutorial.
  * doc/tutorial.md describes the same steps with pictures; the tutorial video records them.
  */
 window.Tour = (function () {
@@ -57,8 +59,8 @@ window.Tour = (function () {
     { id: 'panels', chapter: 'screen', target: '#infoSection', ko: ['정보 · 태그 · 히스토그램 · 시리즈', '환자 · 검사 정보, 모든 DICOM 태그(검색), 히스토그램, 시리즈 목록을 봅니다.'],
       en: ['Info · tags · histogram · series', 'Patient and study information, every DICOM tag (searchable), the histogram and the series list.'],
       play: [['sidebar-tab', { tab: 'tags' }], W(1100), ['sidebar-tab', { tab: 'histogram' }], W(1100), ['sidebar-tab', { tab: 'info' }]] },
-    { id: 'fold', chapter: 'screen', target: '#sidebar', ko: ['패널 접기 · 펼치기', '폴더 머리글 끝의 « 단추(또는 도구 모음 맨 앞의 패널 단추, F9)로 왼쪽 패널을 접습니다. 접으면 좁은 띠에 폴더 · 정보 · 태그 · 히스토그램 · 시리즈 아이콘과 세로 제목이 남고, 하나를 누르면 그 부분으로 다시 펼쳐집니다.'],
-      en: ['Fold and unfold the panels', 'The « button at the end of the folder header (or the panel button at the start of the toolbar, F9) folds the left panel. A narrow rail keeps the folder, info, tags, histogram and series icons with their titles; clicking one unfolds the panel there.'],
+    { id: 'fold', chapter: 'screen', target: '#sidebar', ko: ['패널 접기 · 펼치기', '폴더 머리글 끝의 « 단추(또는 도구 모음 오른쪽 끝의 패널 단추, F9)로 왼쪽 패널을 접습니다. 접으면 좁은 띠에 폴더 · 정보 · 태그 · 히스토그램 · 시리즈 아이콘과 세로 제목이 남고, 하나를 누르면 그 부분으로 다시 펼쳐집니다.'],
+      en: ['Fold and unfold the panels', 'The « button at the end of the folder header (or the panel button at the right end of the toolbar, F9) folds the left panel. A narrow rail keeps the folder, info, tags, histogram and series icons with their titles; clicking one unfolds the panel there.'],
       play: [['toggle', { key: 'sidebar' }], { spot: '#sidebarRail' }, W(1800), ['toggle', { key: 'sidebar' }], { spot: '#sidebar' }] },
     { id: 'props', chapter: 'screen', target: '#rightPanel', ko: ['속성 패널', '오른쪽 패널은 지금 보는 영상의 정보와 속성입니다: 파일 정보, 보기(배율 · 회전 · 반전), 윈도우 / 레벨, 시네, 표시(눈금자 · 축척 막대 · 격자 …), 측정 목록. 바꿀 수 있는 값은 그 자리에서 바꾸고, 숫자 칸은 양옆의 − / + 단추로 한 단계씩 바꿉니다. 이 패널도 접으면 띠에 구역 아이콘과 제목이 남습니다(F8).'],
       en: ['Properties panel', 'The right panel shows what you are looking at: file, view (zoom, rotation, flips), window / level, cine, display (rulers, scale bar, grid …) and the measurements. Values that can change are changed right there; number fields step with the − / + buttons on either side. Folded, it also keeps a rail of section icons and titles (F8).'],
@@ -157,8 +159,8 @@ window.Tour = (function () {
     { id: 'exportas', chapter: 'export', target: '#viewport', ko: ['다른 형식으로 내보내기', '45가지 형식(AVIF · JPEG XL · JPEG 2000 · JPEG-LS · OpenEXR · NIfTI · NRRD · MetaImage · FITS 등)을 고르고 품질 · 비트 깊이 · 압축을 정합니다. 16비트 · 의료 형식은 원래 화소 값을 담습니다.'],
       en: ['Export as any format', 'Pick one of 45 formats (AVIF, JPEG XL, JPEG 2000, JPEG-LS, OpenEXR, NIfTI, NRRD, MetaImage, FITS…) and set quality, bit depth and compression. 16-bit and medical formats keep the raw pixel values.'],
       play: [['export-as-dialog'], W(2500), ['close-dialog', { kind: 'exportas' }]] },
-    { id: 'print', chapter: 'export', target: '#viewport', ko: ['인쇄', '인쇄 미리보기에서 용지 · 방향 · 머리글 · 매수를 정하고 프린터로 바로 인쇄합니다(Ctrl+P).'],
-      en: ['Print', 'The print preview sets paper, orientation, header and copies, then prints straight to the printer (Ctrl+P).'],
+    { id: 'print', chapter: 'export', target: '#viewport', ko: ['인쇄', '인쇄 창에서 제목 · 부제목 · 작성자 · 메모, 넣을 정보(환자 · 검사 · 영상 · 측정값), 용지 · 방향 · 여백 · 영상 크기, 프린터 · 매수 · 양면 · 흑백 · 해상도를 정하고 미리보기 그대로 바로 인쇄합니다(Ctrl+P). PDF 보고서도 같은 창에서 만듭니다.'],
+      en: ['Print', 'The print window sets the title, subtitle, author and notes, which details to include (patient, study, image, measurements), paper, orientation, margins and image size, and printer, copies, two-sided, black and white and resolution, then prints the preview as shown (Ctrl+P). The PDF report is made in the same window.'],
       play: [['print'], W(2200), ['close-dialog', { kind: 'print' }]] },
     { id: 'batch', chapter: 'export', target: '#viewport', ko: ['폴더 일괄 변환', '폴더(하위 폴더 포함)의 DICOM 을 한 번에 그림 파일로 바꿔 converted_<형식> 폴더에 저장합니다.'],
       en: ['Batch conversion', 'Converts every DICOM file of a folder (and its subfolders) to pictures in a converted_<format> folder.'],
@@ -168,8 +170,8 @@ window.Tour = (function () {
       en: ['PACS', 'Tools › PACS: register a PACS or modality, verify it (C-ECHO), search studies (C-FIND), retrieve (C-GET / C-MOVE) and send (C-STORE). Start receiving to accept images other devices push (desktop).'],
       play: [['pacs'], W(2600), ['close-dialog', { kind: 'pacs' }]] },
     // ── 설정 · 도움말 ──
-    { id: 'look', chapter: 'settings', target: '.menubar-right', ko: ['테마 · 언어 · 설정', '테마 20종, 한국어 / 영어, 프로그램 설정(측정 단위, 휠 동작, 시작 화면 등)이 메뉴 막대 오른쪽에 있습니다. 테마를 하나 바꿔 봅니다.'],
-      en: ['Theme · language · settings', 'Twenty themes, Korean / English and the program settings (units, wheel, start page…) sit at the right of the menu bar. Trying another theme.'],
+    { id: 'look', chapter: 'settings', target: '.menubar-right', ko: ['테마 · 언어 · 설정', '테마 20종, 한국어 / 영어, 프로그램 설정(측정 단위, 휠 동작, 시작 화면 등), 프로그램 정보가 메뉴 막대 오른쪽 끝에 있습니다. 테마를 하나 바꿔 봅니다.'],
+      en: ['Theme · language · settings', 'Twenty themes, Korean / English, the program settings (units, wheel, start page…) and About sit at the right end of the menu bar. Trying another theme.'],
       play: [['theme-toggle'], W(1100), ['theme-toggle'], W(400), ['settings'], W(1800), ['close-dialog', { kind: 'settings' }]] },
     { id: 'help', chapter: 'settings', target: '#menus', ko: ['도움말 · 단축키', '도움말 › 도움말 창에서 모든 기능의 설명을 그림과 함께 봅니다. F1 은 단축키 목록입니다.'],
       en: ['Help · shortcuts', 'Help › Help window explains every feature with pictures. F1 lists the keyboard shortcuts.'],
@@ -202,18 +204,24 @@ window.Tour = (function () {
     return j >= 0 ? j : 0;
   }
 
-  function start({ run, lang = 'ko', onEnd, from } = {}) {
+  function start({ run, lang = 'ko', onEnd, from, startup, onStartup } = {}) {
     stop(false);
     const root = document.createElement('div');
     root.className = 'tour';
     root.innerHTML = `<div class="tour-shade" data-side="top"></div><div class="tour-shade" data-side="bottom"></div><div class="tour-shade" data-side="left"></div><div class="tour-shade" data-side="right"></div><div class="tour-ring"></div>
       <div class="tour-card" role="dialog" aria-live="polite"><div class="tour-top"><select class="tour-chapter"></select><span class="tour-step"></span></div><h3></h3><p></p><div class="tour-say"></div>
-      <div class="tour-actions"><button type="button" class="btn tour-skip"></button><button type="button" class="btn tour-replay"></button><span class="spacer"></span><button type="button" class="btn tour-prev"></button><button type="button" class="btn primary tour-next"></button></div></div>`;
+      <div class="tour-actions"><button type="button" class="btn tour-skip"></button><button type="button" class="btn tour-replay"></button><span class="spacer"></span><button type="button" class="btn tour-prev"></button><button type="button" class="btn primary tour-next"></button></div>
+      <label class="tour-startup"><input type="checkbox" class="tour-startup-check"><span></span></label></div>`;
     document.body.append(root);
     const L = (ko, en) => (lang === 'ko' ? ko : en);
     root.querySelector('.tour-skip').textContent = L('안내 닫기', 'Close tour');
     root.querySelector('.tour-replay').textContent = L('▶ 다시 실행', '▶ Run again');
     root.querySelector('.tour-prev').textContent = L('이전', 'Back');
+    const startupBox = root.querySelector('.tour-startup');
+    startupBox.querySelector('span').textContent = L('프로그램을 실행할 때 이 튜토리얼 보기', 'Show this tutorial when the program starts');
+    startupBox.querySelector('input').checked = !!startup;
+    startupBox.querySelector('input').addEventListener('change', (e) => { if (onStartup) onStartup(e.target.checked); });
+    if (!onStartup) startupBox.hidden = true;
     const sel = root.querySelector('.tour-chapter');
     sel.innerHTML = CHAPTERS.map((ch, i) => `<option value="${ch.id}">${i + 1}. ${lang === 'ko' ? ch.ko : ch.en}</option>`).join('');
     cur = { root, index: 0, run, lang, onEnd, token: 0, spot: null };

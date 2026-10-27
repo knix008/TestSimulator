@@ -139,3 +139,15 @@ test('quantize keeps ≤256 colours exact', () => {
   assert.equal(q.count, 256);
   for (let i = 0; i < 256; i++) assert.equal(q.palette[q.indices[i] * 3], i);
 });
+
+test('pdf document properties: title, author, subject, keywords (UTF-16), creation date; empty ones left out', () => {
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+  const hex = (str) => 'FEFF' + [...str].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()).join('');
+  const text = Buffer.from(E.pdf({ pages: [{ jpeg, width: 10, height: 10, dpi: 72 }], title: '흉부 CT', author: 'Dr. Kim', subject: '', keywords: 'CT, chest', date: new Date(2026, 9, 27, 8, 5, 3) })).toString('latin1');
+  assert.ok(text.includes(`/Title <${hex('흉부 CT')}>`));
+  assert.ok(text.includes(`/Author <${hex('Dr. Kim')}>`));
+  assert.ok(text.includes(`/Keywords <${hex('CT, chest')}>`));
+  assert.ok(!text.includes('/Subject'));
+  assert.match(text, /\/CreationDate \(D:20261027080503(Z|[+-]\d\d'\d\d')\)/);
+  assert.ok(text.trimEnd().endsWith('%%EOF'));
+});

@@ -378,7 +378,7 @@ window.Platform = (function () {
      *  Otherwise the system print dialog of the page (WebView2 / browser) for the HTML. */
     async print(html, opts = {}) {
       if (isDesktop && opts.silent && opts.pages && opts.pages.length) {
-        try { await api.printPages({ pages: opts.pages, printer: opts.printer || '', copies: opts.copies, landscape: opts.landscape, title: opts.title }); return { ok: true }; }
+        try { await api.printPages({ pages: opts.pages, printer: opts.printer || '', copies: opts.copies, landscape: opts.landscape, title: opts.title, paper: opts.paper || '', duplex: opts.duplex || '', color: opts.color !== false }); return { ok: true }; }
         catch (err) { const reason = String(err && err.message || err); return { ok: false, reason: reason === 'PRINT_CANCELLED' ? 'cancelled' : reason }; }
       }
       // Browser: print through a hidden iframe (the browser's own dialog; silent printing is not possible here).

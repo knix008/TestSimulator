@@ -6,7 +6,7 @@
  *   Encoders.gifAnimated({ width, height, frames: [rgba…], delayMs, loop })
  *   Encoders.zip([{ name, data }])                                → Uint8Array (stored, no compression)
  *   Encoders.quantize(rgba, maxColors)                            → { palette: Uint8Array(n*3), indices: Uint8Array }
- *   Encoders.pdf({ pages: [{ jpeg, width, height, dpi }], title })  → Uint8Array (PDF 1.4, one JPEG picture per page)
+ *   Encoders.pdf({ pages: [{ jpeg, width, height, dpi }], title, author, subject, keywords })  → Uint8Array (PDF 1.4, one JPEG picture per page)
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -288,7 +288,7 @@
 
   /* ── PDF: every page is one JPEG (DCTDecode) filling a page of its own size at `dpi`.
    * The page picture is drawn by the page (text included), so any script — Korean too — prints. ── */
-  function pdf({ pages, title = '' }) {
+  function pdf({ pages, title = '', author = '', subject = '', keywords = '', date = new Date() }) {
     const enc = new TextEncoder();
     const parts = [];
     let length = 0;
@@ -317,7 +317,13 @@
       object(id + 2, `<< /Type /XObject /Subtype /Image /Width ${pg.width} /Height ${pg.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.jpeg.length} >>`, pg.jpeg);
     });
     const info = 3 + n * 3;
-    object(info, `<< /Title ${text(title)} /Producer (MyDCMViewer) /Creator (MyDCMViewer) >>`);
+    // document properties (what a PDF reader shows under File › Properties); empty ones are left out
+    const two = (v) => String(v).padStart(2, '0');
+    const tz = -date.getTimezoneOffset();
+    const when = `D:${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}${two(date.getHours())}${two(date.getMinutes())}${two(date.getSeconds())}` +
+      (tz ? `${tz > 0 ? '+' : '-'}${two(Math.floor(Math.abs(tz) / 60))}'${two(Math.abs(tz) % 60)}'` : 'Z');
+    const extra = [['Author', author], ['Subject', subject], ['Keywords', keywords]].filter(([, v]) => v).map(([k, v]) => ` /${k} ${text(v)}`).join('');
+    object(info, `<< /Title ${text(title)}${extra} /CreationDate (${when}) /Producer (MyDCMViewer) /Creator (MyDCMViewer) >>`);
     const xref = length;
     let table = `xref\n0 ${info + 1}\n0000000000 65535 f \n`;
     for (let k = 1; k <= info; k++) table += `${String(offsets[k]).padStart(10, '0')} 00000 n \n`;

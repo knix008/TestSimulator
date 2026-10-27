@@ -61,8 +61,9 @@ test('FORMATS entries are complete', () => {
     assert.equal(typeof f.available, 'boolean');
     assert.equal(typeof f.isAvailable, 'function');
     for (const o of f.options) {
-      assert.ok(['quality', 'select', 'bool', 'number'].includes(o.type), `${f.id}.${o.key}`);
+      assert.ok(['quality', 'select', 'bool', 'number', 'text'].includes(o.type), `${f.id}.${o.key}`);
       if (o.type === 'select') assert.ok(o.choices.includes(o.default), `${f.id}.${o.key} default`);
+      if (o.type === 'text') assert.equal(typeof o.default, 'string', `${f.id}.${o.key} default`);
     }
   }
   assert.equal(X.byExt('nii.gz').id, 'nifti-gz');
