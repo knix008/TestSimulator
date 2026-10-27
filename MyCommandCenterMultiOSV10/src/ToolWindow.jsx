@@ -23,6 +23,7 @@ import { SETTINGS_DEFAULTS } from './lib/settings';
 import { DialogHost, useDialogs, AboutDialog } from './dialogs/Dialogs';
 import { InfoDialog } from './dialogs/InfoDialog';
 import { ResizeGrip } from './components/ResizeGrip';
+import { ManualFrame } from './components/Manual';
 import { ViewerDialog, EditorDialog, MultiRenameDialog } from './dialogs/ToolDialogs';
 import { SearchDialog } from './dialogs/SearchDialog';
 import { SettingsDialog } from './dialogs/SettingsDialog';
@@ -195,6 +196,8 @@ export default function ToolWindow() {
     body = <InfoDialog key={path} spec={{ info: data, windowed: true }} done={() => closeWindow()} />;
   } else if (mode === 'about') {
     body = <AboutDialog spec={{ info: args.info || {}, windowed: true }} done={() => closeWindow()} />;
+  } else if (mode === 'manual') {
+    body = <ManualFrame onClose={() => closeWindow()} />;
   } else {
     body = <div className="boot">?</div>;
   }

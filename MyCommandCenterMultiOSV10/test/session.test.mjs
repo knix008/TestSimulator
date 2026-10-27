@@ -96,3 +96,25 @@ test('the default config folder is under the platform\'s app-data folder', () =>
   assert.equal(path.basename(d), 'CCTest');
   assert.ok(path.isAbsolute(d));
 });
+
+test('the language chosen in the installer is applied once, then later changes stay', () => {
+  const dir = tmpdir();
+  new Session(dir).save({ language: 'ko', theme: 'daylight' });
+  fs.writeFileSync(path.join(dir, 'install-language'), 'en');
+  const d = new Session(dir).load();
+  assert.equal(d.language, 'en');
+  assert.equal(d.theme, 'daylight');
+  assert.equal(fs.existsSync(path.join(dir, 'install-language')), false);
+  new Session(dir).save({ language: 'ko' });
+  assert.equal(new Session(dir).load().language, 'ko');
+});
+
+test('a fresh install starts in the installer language; an unknown value is ignored', () => {
+  const dir = tmpdir();
+  fs.writeFileSync(path.join(dir, 'install-language'), 'en\r\n');
+  assert.equal(new Session(dir).load().language, 'en');
+  const other = tmpdir();
+  fs.writeFileSync(path.join(other, 'install-language'), 'fr');
+  assert.equal(new Session(other).load().language, 'ko');
+  assert.equal(fs.existsSync(path.join(other, 'install-language')), false);
+});

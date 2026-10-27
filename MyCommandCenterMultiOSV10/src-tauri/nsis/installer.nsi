@@ -425,7 +425,6 @@ FunctionEnd
 !insertmacro MUI_LANGUAGE "{{this}}"
 {{/each}}
 !insertmacro MUI_RESERVEFILE_LANGDLL
-ReserveFile /plugin InstallOptions.dll
 {{#each language_files}}
  !include "{{this}}"
 {{/each}}
@@ -438,40 +437,25 @@ LangString reinstallBody ${LANG_ENGLISH} "${PRODUCTNAME} is already installed. T
 LangString deleteUserData ${LANG_KOREAN} "사용자 데이터 삭제 (설정, 테마, 최근 폴더)"
 LangString deleteUserData ${LANG_ENGLISH} "Delete user data (settings, themes, recent folders)"
 
-; Shown before the wizard. Korean is the initial choice. Silent and passive
-; installs do not ask and stay in Korean. The choice is stored so the
-; uninstaller uses the same language.
+; Shown before the wizard: NSIS's own language dialog (LangDLL), which runs
+; in .onInit before the installer window exists. It is shown every time, with
+; the last choice (or Korean, the first time) selected. Silent and passive
+; installs do not ask. The choice is stored so the uninstaller uses it too,
+; and the app starts in it (see Section Install).
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_WINDOWTITLE "Command Center"
+!define MUI_LANGDLL_INFO "설치와 프로그램 언어를 선택하세요.$\r$\nSelect the language to use."
 Function SelectInstallLanguage
  StrCpy $LANGUAGE ${LANG_KOREAN}
- !if "${DISPLAYLANGUAGESELECTOR}" == "true"
  ${If} ${Silent}
  ${OrIf} $PassiveMode = 1
-  WriteRegStr HKCU "${MANUPRODUCTKEY}" "Installer Language" "$LANGUAGE"
-  Return
- ${EndIf}
- InitPluginsDir
- StrCpy $R9 "$PLUGINSDIR\lang.ini"
- FileOpen $R8 $R9 w
- FileWriteByte $R8 255
- FileWriteByte $R8 254
- FileWrite $R8 "[Settings]$\r$\nNumFields=2$\r$\nTitle=Command Center$\r$\nCancelEnabled=1$\r$\n$\r$\n"
- FileWrite $R8 "[Field 1]$\r$\nType=Label$\r$\nText=설치에 사용할 언어를 선택하세요. / Choose the setup language.$\r$\nLeft=0$\r$\nRight=300$\r$\nTop=4$\r$\nBottom=24$\r$\n$\r$\n"
- FileWrite $R8 "[Field 2]$\r$\nType=DropList$\r$\nState=한국어$\r$\nListItems=한국어|English$\r$\nLeft=0$\r$\nRight=160$\r$\nTop=32$\r$\nBottom=44$\r$\n$\r$\n"
- FileClose $R8
- ClearErrors
- InstallOptions::dialog "$R9"
- Pop $R0
- ${If} $R0 == "cancel"
-  Abort
- ${EndIf}
- ${IfNot} ${Errors}
-  ReadINIStr $R8 "$PLUGINSDIR\lang.ini" "Field 2" "State"
-  ${If} $R8 == "English"
+  ReadRegStr $R0 HKCU "${MANUPRODUCTKEY}" "Installer Language"
+  ${If} $R0 == ${LANG_ENGLISH}
    StrCpy $LANGUAGE ${LANG_ENGLISH}
   ${EndIf}
+  Return
  ${EndIf}
- WriteRegStr HKCU "${MANUPRODUCTKEY}" "Installer Language" "$LANGUAGE"
- !endif
+ !insertmacro MUI_LANGDLL_DISPLAY
 FunctionEnd
 
 Function .onInit
@@ -680,6 +664,24 @@ Section Install
 
  ; Create uninstaller
  WriteUninstaller "$INSTDIR\uninstall.exe"
+
+ ; The language chosen for setup. The uninstaller reads it from the registry;
+ ; the app takes it on its next start from install-language in its config
+ ; folder (core/session.js applies it once and removes the file).
+ WriteRegStr HKCU "${MANUPRODUCTKEY}" "Installer Language" "$LANGUAGE"
+ ${IfNot} ${Silent}
+ ${AndIf} $PassiveMode <> 1
+  SetShellVarContext current
+  CreateDirectory "$APPDATA\${PRODUCTNAME}"
+  FileOpen $R0 "$APPDATA\${PRODUCTNAME}\install-language" w
+  ${If} $LANGUAGE == ${LANG_ENGLISH}
+   FileWrite $R0 "en"
+  ${Else}
+   FileWrite $R0 "ko"
+  ${EndIf}
+  FileClose $R0
+  !insertmacro SetContext
+ ${EndIf}
 
  ; Save $INSTDIR in registry for future installations
  WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR

@@ -430,7 +430,7 @@ if (typeof window !== 'undefined' && !windowKind) {
     }
   });
 }
-const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about']);   // one popup per tool
+const SINGLETON_KINDS = new Set(['viewer', 'editor', 'preview', 'info', 'multiRename', 'search', 'settings', 'about', 'manual']);   // one popup per tool
 const QUIET_KINDS = new Set(['preview']);   // re-used without taking the focus (it follows double-clicks in the file list)
 let bus = null;
 function channel() {
@@ -441,7 +441,7 @@ function channel() {
 // Settings and About open at the size their content actually takes, so the window is not
 // drawn large and then shrunk. Settings is the width at which its tallest page (the viewer
 // tab) still fits the height; About is the icon, the lines of text and the close button.
-const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [960, 540], about: [480, 260] };
+const TOOL_SIZES = { viewer: [960, 720], editor: [960, 720], preview: [720, 560], info: [660, 720], multiRename: [920, 680], search: [760, 600], settings: [960, 540], about: [480, 260], manual: [1000, 780] };
 // These two are created hidden and shown once their page has drawn, so the blank window
 // never flashes past before the content is there.
 const REVEAL_KINDS = new Set(['settings', 'about']);

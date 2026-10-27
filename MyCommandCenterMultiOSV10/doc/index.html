@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Command Center 사용 설명</title>
 <style>
-  :root { color-scheme: light; --ink: #1c1915; --muted: #5c564c; --line: #e4ddd2; --paper: #f7f4ee; --card: #fff; --accent: #0f6e8c; }
+  /* Opened from the app, the page takes the app's theme: these are replaced through a message (see the script). */
+  :root { color-scheme: light; --ink: #1c1915; --muted: #5c564c; --line: #e4ddd2; --paper: #f7f4ee; --card: #fff; --head: #fff; --field: #f7f4ee; --accent: #0f6e8c; --on-accent: #fff; }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 "Segoe UI", "Malgun Gothic", sans-serif; }
   body.ko .en, body.en .ko { display: none; }
-  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; padding: 12px 22px; background: #fff; border-bottom: 1px solid var(--line); }
+  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; padding: 12px 22px; background: var(--head); border-bottom: 1px solid var(--line); }
   h1 { margin: 0; font-size: 18px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
   h1 svg { flex: none; color: var(--accent); }
   .tools { display: flex; gap: 8px; align-items: center; }
-  #q { width: min(360px, 70vw); height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; background: var(--paper); }
-  .lang { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font: inherit; cursor: pointer; }
-  .lang.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #q { width: min(360px, 70vw); height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: inherit; background: var(--field); }
+  .lang { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
+  .lang.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   main { max-width: 920px; margin: 0 auto; padding: 22px 22px 64px; }
   nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 22px; padding: 0; }
   nav a { color: var(--accent); text-decoration: none; }
@@ -35,7 +36,7 @@
   th { color: var(--muted); font-weight: 650; }
   code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
   #none { margin: 12px 0 24px; color: var(--muted); }
-  kbd { font-family: Consolas, monospace; font-size: 0.9em; padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: #fff; }
+  kbd { font-family: Consolas, monospace; font-size: 0.9em; padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--card); }
 </style>
 </head>
 <body>
@@ -108,7 +109,7 @@
     <h2><span class="ko">메뉴</span><span class="en">Menus</span></h2>
     <figure>
       <img src="img/menu.png" alt="">
-      <figcaption><span class="ko">정보 메뉴에는 프로그램 정보와 설정이 있습니다.</span><span class="en">Info holds About and Settings.</span></figcaption>
+      <figcaption><span class="ko">정보 메뉴에는 사용 설명(F1), 프로그램 정보, 설정이 있습니다.</span><span class="en">Info holds the Guide (F1), About and Settings.</span></figcaption>
     </figure>
     <div class="ko">
       <p>메뉴는 파일, 편집, 선택, 보기, 압축, 정보입니다. 제목과 항목에 아이콘이 있고, 쓸 수 없는 항목은 흐립니다.</p>
@@ -118,7 +119,7 @@
         <li><b>선택.</b> 패턴으로 선택과 해제, 모두 선택과 해제, 반전, 같은 확장자, 폴더 비교(Shift+F2).</li>
         <li><b>보기.</b> 새로고침, 검색, 탭, 좌우·상하 분할과 초기화, 패널 바꾸기, 대상 폴더를 왼쪽·오른쪽에 열기, 폴더 기록, 즐겨찾기, 양쪽 폴더 트리, 숨김 파일, 툴바, 펑션 키 줄, 다음 테마, 아래 패널(로그, 빠른 검색, 터미널, 새 터미널).</li>
         <li><b>압축.</b> 압축(Alt+F5), 압축 해제(Alt+F9).</li>
-        <li><b>정보.</b> 프로그램 정보, 설정. 툴바의 같은 버튼과 같습니다.</li>
+        <li><b>정보.</b> 사용 설명(F1), 프로그램 정보, 설정. 사용 설명은 이 문서를 별도 창으로 열고, 앱의 테마와 언어를 따라갑니다. 나머지 둘은 툴바의 같은 버튼과 같습니다.</li>
       </ul>
       <p>목록에서 우클릭하면 그 항목에 맞는 같은 명령이 나옵니다. 폴더에서는 이 폴더에서 검색도 있습니다.</p>
     </div>
@@ -130,7 +131,7 @@
         <li><b>Select.</b> Select and unselect by pattern, select all, unselect all, invert, same extension, compare folders (Shift+F2).</li>
         <li><b>View.</b> Refresh, search, tabs, side-by-side and stacked split plus reset, swap panels, open the target on the left or the right, folder history, favourites, either folder tree, hidden files, the toolbar, the function-key row, next theme, and the bottom panel (log, quick search, terminal, new terminal).</li>
         <li><b>Archive.</b> Compress (Alt+F5), extract (Alt+F9).</li>
-        <li><b>Info.</b> About and Settings, the same actions as those toolbar buttons.</li>
+        <li><b>Info.</b> Guide (F1), About and Settings. Guide opens this document in its own window, in the app's theme and language. The other two are the same as those toolbar buttons.</li>
       </ul>
       <p>A right-click on the list offers the commands that fit that item. On a folder it also offers Search in this folder.</p>
     </div>
@@ -167,6 +168,7 @@
         <tr><td><code>..</code>, Backspace, Ctrl+PgUp</td><td>상위 폴더</td></tr>
         <tr><td>Ctrl+\</td><td>드라이브 루트</td></tr>
         <tr><td>드라이브 버튼, Alt+F1, Alt+F2</td><td>왼쪽 또는 오른쪽 패널의 드라이브 목록</td></tr>
+        <tr><td>F1</td><td>사용 설명 창</td></tr>
         <tr><td>홈</td><td>홈 폴더</td></tr>
         <tr><td>빵부스러기</td><td>그 위치로 바로 이동</td></tr>
         <tr><td>폴더 트리</td><td>보기 메뉴 또는 경로 줄의 트리 버튼. 패널마다 따로 열리고 폭을 조절합니다. 홈, 드라이브, /, /tmp, 마운트가 뿌리이고 현재 폴더까지 펼쳐집니다. 클릭은 이동, ▸ 또는 더블클릭은 펼침과 접기입니다.</td></tr>
@@ -185,6 +187,7 @@
         <tr><td><code>..</code>, Backspace, Ctrl+PgUp</td><td>Parent folder</td></tr>
         <tr><td>Ctrl+\</td><td>Drive root</td></tr>
         <tr><td>Drive button, Alt+F1, Alt+F2</td><td>Drive list for the left or the right panel</td></tr>
+        <tr><td>F1</td><td>Guide window</td></tr>
         <tr><td>Home</td><td>Home folder</td></tr>
         <tr><td>Breadcrumb</td><td>Jump to that place</td></tr>
         <tr><td>Folder tree</td><td>View menu or the tree button on the path row. Each panel has its own, and the width can be dragged. Roots are home, drives, /, /tmp and mounts, opened down to the current folder. A click moves. ▸ or a double-click expands and collapses.</td></tr>
@@ -315,7 +318,7 @@
       <p>이름, 위치, 종류와 MIME, 크기와 디스크 사용, 폴더는 하위 개수(2만 개까지), 만든 시각, 수정, 접근, 권한과 속성, 링크 대상이 있습니다. 이미지는 픽셀, 형식, HEIC 장수, TIFF, JPEG EXIF, DICOM 정보입니다. 텍스트는 인코딩, 줄, 단어, 글자, 줄 끝입니다. 압축은 분할 여부, 그 밖은 앞 16바이트입니다. 해시 계산은 MD5, SHA-1, SHA-256입니다. 전체를 텍스트로 복사할 수 있습니다. 창 높이는 내용에 맞추므로 스크롤 바가 없고, 해시를 계산하면 그만큼 커집니다.</p>
     </div>
     <div class="en">
-      <p>View (F3), edit (F4), preview, file info (Alt+Enter), multi-rename, search (F9) and settings are separate windows. Each kind has one window. Pressing again brings it forward and hands it the new file. An editor with unsaved changes asks first. Position and size are remembered per kind, and the windows close with the program. A window that can be resized has the bottom-right marker. Settings and About open already fitted and are not resizable. Turning separate windows off under Settings › Panels opens them as dialogs inside the app. On the web they are browser popups, so popups must be allowed.</p>
+      <p>View (F3), edit (F4), preview, file info (Alt+Enter), multi-rename, search (F9), settings and this guide (F1) are separate windows. Each kind has one window. Pressing again brings it forward and hands it the new file. An editor with unsaved changes asks first. Position and size are remembered per kind, and the windows close with the program. A window that can be resized has the bottom-right marker. Settings and About open already fitted and are not resizable. Turning separate windows off under Settings › Panels opens them as dialogs inside the app. On the web they are browser popups, so popups must be allowed.</p>
       <h3>Viewer (F3)</h3>
       <p>Text detects UTF-8, a BOM, UTF-16 and Latin-1, and shows the line count and size. Ctrl+W wraps, Ctrl+H is hex, Ctrl+P prints what you see, and F4 opens the editor. Above 8 MB only the start is shown. Twenty-three source languages colour keywords, strings, comments, numbers, types and calls. .txt, .log and hex stay plain. Colour runs to 400 KB and can be turned off. Images are png, jpg, gif, webp, bmp, svg, ico and avif, fit or actual size, up to 24 MB. A binary file is a hex dump, up to 256 KB.</p>
       <h3>Editor (F4)</h3>
@@ -535,11 +538,21 @@
       applyLang();
     });
   }
+  // The app sends its theme colours and language: { type: 'cc-manual-theme', mode, vars, lang }.
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.type !== 'cc-manual-theme' || e.source !== window.parent) return;
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries(d.vars || {})) if (/^--[a-z-]+$/.test(k) && v) root.style.setProperty(k, v);
+    if (d.mode === 'dark' || d.mode === 'light') root.style.colorScheme = d.mode;
+    if ((d.lang === 'ko' || d.lang === 'en') && d.lang !== lang) { lang = d.lang; applyLang(); }
+  });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && window.parent !== window) window.parent.postMessage({ type: 'cc-manual-close' }, '*');
     if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); }
   });
   applyLang();
+  if (window.parent !== window) window.parent.postMessage({ type: 'cc-manual-ready' }, '*');
 })();
 </script>
 </body>

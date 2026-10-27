@@ -325,7 +325,7 @@ describe('GUI operations', { concurrency: false }, () => {
     const ui = await boot({ 'readme.txt': 'hello', pics: null });
     assert.deepEqual(menuTitles(), ['파일(F)', '편집(E)', '선택(M)', '보기(V)', '압축(C)', '정보(I)']);
     const info = await openMenu('정보');
-    assert.deepEqual([...info.querySelectorAll('.ctx-item')].map((b) => b.textContent.replace(/\s+/g, '')), ['프로그램정보', '설정']);
+    assert.deepEqual([...info.querySelectorAll('.ctx-item')].map((b) => b.textContent.replace(/\s+/g, '')), ['사용설명F1', '프로그램정보', '설정']);
     assert.equal(document.querySelectorAll('.toolbar button').length > 10, true);
     assert.deepEqual([...document.querySelectorAll('.fn-key')].map((e) => e.textContent), ['F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'Alt+F4']);
     assert.equal(document.querySelector('.fn-btn').disabled, true);

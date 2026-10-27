@@ -155,6 +155,7 @@ export function MenuBar({ onAction, state }) {
       { id: 'extract', label: t('extract'), icon: 'extract', shortcut: 'Alt+F9', disabled: !state.canExtract },
     ],
     info: [
+      { id: 'manual', label: t('start_manual'), icon: 'book', shortcut: 'F1' },
       { id: 'about', label: t('about'), icon: 'info' },
       { id: 'settings', label: t('settings'), icon: 'settings' },
     ],

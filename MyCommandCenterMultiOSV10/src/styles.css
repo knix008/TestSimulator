@@ -198,7 +198,9 @@ button:disabled { cursor: default; opacity: 0.45; }
 .manual-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--border); flex: none; background: var(--bg-panel); }
 .manual-title { display: inline-flex; align-items: center; gap: 8px; }
 .manual-title svg { color: var(--accent); flex: none; }
-.manual-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #f4f1ea; }
+.manual-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: var(--bg); }
+/* Hidden until the page has taken the theme, so a light page never flashes in a dark theme. */
+.manual-frame.is-pending { visibility: hidden; }
 .tutorial-spot { position: fixed; z-index: 4000; pointer-events: none; border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; }
 .tutorial-card { position: fixed; right: 16px; bottom: 48px; z-index: 4010; width: 380px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-panel); color: var(--fg); box-shadow: var(--shadow); }
 .tutorial-card.top { bottom: auto; top: 64px; }

@@ -58,7 +58,18 @@ class Session {
     } catch {
       this.data = { ...DEFAULTS };
     }
+    this.takeInstallLanguage();
     return this.get();
+  }
+
+  // The Windows installer asks for a language and leaves it in install-language.
+  // It is the starting language after that install; later changes in the app stay.
+  takeInstallLanguage() {
+    const file = path.join(this.configDir, 'install-language');
+    let lang;
+    try { lang = fs.readFileSync(file, 'utf-8').replace(/^﻿/, '').trim(); } catch { return; }
+    try { fs.unlinkSync(file); } catch { /* read-only: applied again next time, which is harmless */ }
+    if (lang === 'ko' || lang === 'en') this.save({ language: lang });
   }
 
   get() {

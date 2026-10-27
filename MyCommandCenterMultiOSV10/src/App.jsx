@@ -1035,6 +1035,10 @@ export default function App() {
         setDockSearch({ root: pathOf(side) }); showTab('search');
         break;
       }
+      case 'manual':
+        if (useWindows() && await openTool('manual', {}, { title: t('start_manual') })) break;
+        setManualOpen(true);
+        break;
       case 'about': {
         if (openAlready('about')) break;
         const about = { ...(info || {}), host: hostName, theme: session.theme, language: getLanguage(), fontSize: session.fontSize, customThemes: session.customThemes };
@@ -1148,7 +1152,7 @@ export default function App() {
       } else if (!ctrl && !e.altKey) {
         id = e.shiftKey
           ? { F2: 'compareDirs', F4: 'newFile', F6: 'rename' }[e.key] || null
-          : { F2: 'rename', F3: 'view', F4: 'edit', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'delete', F9: 'search' }[e.key] || null;
+          : { F1: 'manual', F2: 'rename', F3: 'view', F4: 'edit', F5: 'copyOther', F6: 'moveOther', F7: 'newFolder', F8: 'delete', F9: 'search' }[e.key] || null;
       }
       if (id) {
         e.preventDefault();
@@ -1276,7 +1280,7 @@ export default function App() {
           onRecentClear={() => { saveSession({ recentDirs: [] }); setStatus(t('recent_cleared')); }}
           onRun={(id) => {
             if (id === 'tutorial') { tutSnap.current = { dock: !!session.dockVisible }; setTutorial(true); return; }
-            if (id === 'manual') { setManualOpen(true); return; }
+            if (id === 'manual') { onAction('manual'); return; }
             setStartOpen(false); if (id !== 'files') onAction(id);
           }}
         />
@@ -1308,7 +1312,7 @@ export default function App() {
         }} />
       {session.fnBar !== false && <FnBar onAction={(id) => onAction(id)} state={menuState} />}
       </div>
-      {manualOpen && <Manual lang={getLanguage()} onClose={() => setManualOpen(false)} />}
+      {manualOpen && <Manual onClose={() => setManualOpen(false)} />}
       </div>
       <div className="statusbar ellipsis" title={status}>
         {status}

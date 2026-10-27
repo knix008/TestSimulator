@@ -62,11 +62,17 @@ node server/server.js --host 0.0.0.0 --token 비밀값 --allow-open      # + 더
 
 ## 빌드 / 설치 파일
 
-현재 OS 용 설치 파일을 만듭니다. Rust 와 Node 가 필요합니다.
+현재 OS 용 설치 파일을 만듭니다. Rust 와 Node 는 **빌드하는 컴퓨터에만** 필요합니다. 설치 파일에는 앱 전용 Node 런타임과
+하나로 묶은 서버(`src-tauri/runtime/`, `scripts/stage-runtime.mjs`)가 들어 있어, 설치한 컴퓨터에는 Node·Rust 가 없어도 됩니다.
 
 ```bash
+npm run build:win     # Windows NSIS 설치 파일 → 프로젝트 루트에 복사
 npm run tauri:build   # src-tauri/target/release/bundle/ 아래 (Windows: NSIS·MSI, macOS: .app/.dmg, Linux: deb·AppImage 등)
 ```
+
+Windows 설치 파일은 시작할 때 **한국어 / English** 를 고르게 합니다(처음엔 한국어, 다시 설치하면 지난번 선택).
+고른 언어로 설치 화면이 나오고 제거 프로그램도 그 언어를 씁니다. 앱도 설치 후 첫 실행부터 그 언어로 시작하며
+(설정 폴더의 `install-language` 를 한 번 읽고 지움), 그 뒤 앱에서 바꾼 언어는 그대로 유지됩니다. 자동(`/S`)·패시브(`/P`) 설치는 묻지 않습니다.
 
 아이콘(입체 슬랩 위의 명령 프롬프트 글리프 `>_` — 사방의 노드가 가운데로 모여 "모든 명령이 한곳에" — 파란 계열, 위에서 비추는 조명·그림자·바닥 그림자로 3D)은 `assets/icon.svg` 입니다. `npm run generate:icons` 가 그 SVG 에서 `src-tauri/icons/`(앱이 쓰는 32·128·256 PNG 와 `icon.ico`)를 다시 만듭니다. 웹 파비콘도 같은 SVG 입니다.
 도구 창(뷰어·편집기·미리 보기·파일 정보·다중 이름 바꾸기·검색·설정)의 제목줄 아이콘은 `node scripts/generate-tool-icons.mjs` 가 UI 아이콘에서 만들어 `assets/tool-icons/` 에 커밋해 둡니다.
