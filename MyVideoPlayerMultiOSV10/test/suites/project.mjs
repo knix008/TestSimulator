@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { assert, assertEqual } from "../lib/harness.mjs";
-import { FFMPEG, ROOT, TAURI, YT_DLP, run } from "../lib/env.mjs";
+import { DENO, FFMPEG, ROOT, TAURI, YT_DLP, run } from "../lib/env.mjs";
 
 const read = (...p) => fs.readFileSync(path.join(ROOT, ...p), "utf8");
 
@@ -51,8 +51,15 @@ export default async function project(r) {
     assert(v.status === 0 && v.stdout.startsWith("ffmpeg version"), "ffmpeg -version failed");
   });
 
+  await r.test(C, "Bundled Deno (yt-dlp JS runtime, no Node.js needed) runs", () => {
+    assert(fs.existsSync(DENO), `missing ${DENO} — run npm run ensure:tools`);
+    const v = run(DENO, ["--version"]);
+    assert(v.status === 0 && /^deno \d+\.\d+/.test(v.stdout.trim()), `deno --version: ${v.stderr || v.stdout}`);
+  });
+
   await r.test(C, "Bundle resources point at the vendored tools", () => {
     const res = conf.bundle.resources;
+    assertEqual(res["../vendor/deno/"], "deno/");
     assertEqual(res["../vendor/yt-dlp/"], "yt-dlp/");
     assertEqual(res["../vendor/ffmpeg/"], "ffmpeg/");
   });

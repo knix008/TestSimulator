@@ -13,6 +13,7 @@ export const TAURI = path.join(ROOT, "src-tauri");
 export const IS_WIN = process.platform === "win32";
 export const EXE = path.join(TAURI, "target", "debug", IS_WIN ? "MyVideoPlayer.exe" : "MyVideoPlayer");
 export const FFMPEG = path.join(ROOT, "vendor", "ffmpeg", IS_WIN ? "ffmpeg.exe" : "ffmpeg");
+export const DENO = path.join(ROOT, "vendor", "deno", IS_WIN ? "deno.exe" : "deno");
 export const YT_DLP = path.join(ROOT, "vendor", "yt-dlp", IS_WIN ? "yt-dlp.exe" : "yt-dlp");
 
 /** Forward slashes: safe to embed in page code on every OS. */
@@ -125,6 +126,8 @@ export async function launchApp(dir) {
       ...process.env,
       MYVIDEOPLAYER_CONFIG_DIR: configDir,
       MYVIDEOPLAYER_TEST_SAVE_DIR: saveDir,
+      // Only the bundled Deno: proves YouTube works on a PC without Node.js.
+      MYVIDEOPLAYER_JS_RUNTIME: "deno",
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
     },
   });

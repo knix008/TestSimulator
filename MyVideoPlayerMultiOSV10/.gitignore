@@ -74,6 +74,8 @@ vendor/yt-dlp/yt-dlp.exe
 vendor/yt-dlp/*.download
 vendor/yt-dlp/*.tmp
 vendor/ffmpeg/
+vendor/deno/deno
+vendor/deno/deno.exe
 
 # Tauri: Rust build output and generated schemas; Cargo.lock is committed
 src-tauri/target/

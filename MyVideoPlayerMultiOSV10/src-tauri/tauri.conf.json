@@ -18,7 +18,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "targets": [
+      "nsis",
+      "dmg",
+      "appimage",
+      "deb"
+    ],
     "publisher": "SHKWON",
     "copyright": "Copyright © 2026 SHKWON",
     "license": "MIT",
@@ -34,18 +39,38 @@
     ],
     "resources": {
       "../vendor/yt-dlp/": "yt-dlp/",
-      "../vendor/ffmpeg/": "ffmpeg/"
+      "../vendor/ffmpeg/": "ffmpeg/",
+      "../vendor/deno/": "deno/"
     },
     "fileAssociations": [
       {
-        "ext": ["mp4", "m4v", "webm", "mkv", "mov", "avi", "ogv", "hevc", "h265"],
+        "ext": [
+          "mp4",
+          "m4v",
+          "webm",
+          "mkv",
+          "mov",
+          "avi",
+          "ogv",
+          "hevc",
+          "h265"
+        ],
         "name": "MyVideoPlayer Video",
         "description": "Video file",
         "mimeType": "video/mp4",
         "role": "Viewer"
       },
       {
-        "ext": ["mp3", "aac", "m4a", "wav", "flac", "opus", "ogg", "wma"],
+        "ext": [
+          "mp3",
+          "aac",
+          "m4a",
+          "wav",
+          "flac",
+          "opus",
+          "ogg",
+          "wma"
+        ],
         "name": "MyVideoPlayer Audio",
         "description": "Audio file",
         "mimeType": "audio/mpeg",
@@ -58,7 +83,10 @@
       },
       "nsis": {
         "displayLanguageSelector": true,
-        "languages": ["Korean", "English"],
+        "languages": [
+          "Korean",
+          "English"
+        ],
         "installMode": "currentUser",
         "installerIcon": "../asset/icon.ico",
         "uninstallerIcon": "../asset/icon.ico",

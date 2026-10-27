@@ -52,7 +52,7 @@ On **web** (`npm run web`), there is no Rust side. The same `src/` UI runs in th
 | `compat.rs` | FFmpeg soft remux / full H.264 convert with cache under `<data>/compat-cache` |
 | `persist.rs` | Key/value store in `<data>/persist.json`; copies the Electron build's file in once |
 | `native.rs` | Whole-window opacity and the taskbar's big icon (no Tauri API for either) |
-| `tools.rs` | Locating yt-dlp / ffmpeg / Node, running them without console windows, file helpers |
+| `tools.rs` | Locating yt-dlp / ffmpeg / the JS runtime (bundled Deno, Node.js fall-back), running them without console windows, file helpers |
 
 **Why a local HTTP server?**
 Windows load `http://127.0.0.1:{port}/index.html` (not `tauri://`) so the YouTube IFrame API accepts the page origin, and so media stays same-origin for the Web Audio spectrum analyser. To Tauri this is a *remote* origin, so `capabilities/default.json` lists `http://127.0.0.1:*` and `build.rs` registers the `vp` command as an app permission (`allow-vp`). The pages' CSP allows `ipc:` / `http://ipc.localhost`.
@@ -64,7 +64,7 @@ Desktop media paths are encoded into same-origin HTTP URLs served with `Accept-R
 `settings.js` / `recent.js` read settings synchronously while modules load. `bridge.js` fetches the snapshot with one synchronous XHR (`/__vp/<key>/persist`) before the page's scripts run; writes go to Rust asynchronously and `persist:changed` keeps the other windows' copies current.
 
 **Bundled tools**
-`scripts/ensure-tools.js` (Tauri's `beforeDevCommand` / `beforeBuildCommand`, also `postinstall`) fetches `vendor/yt-dlp/` and copies FFmpeg from `ffmpeg-static` into `vendor/ffmpeg/`. Both ship as bundle resources. yt-dlp uses a system Node.js (`--js-runtimes node`) for YouTube's signature challenge.
+`scripts/ensure-tools.js` (Tauri's `beforeDevCommand` / `beforeBuildCommand`, also `postinstall`) fetches `vendor/yt-dlp/`, copies FFmpeg from `ffmpeg-static` into `vendor/ffmpeg/`, and downloads Deno into `vendor/deno/`. All three ship as bundle resources. yt-dlp gets `--js-runtimes deno:<resources/deno>` for YouTube's signature challenge, so users need no Node.js; an installed Node.js is used only when the bundled Deno is missing (`MYVIDEOPLAYER_JS_RUNTIME=deno|node` forces one; the tests force `deno`).
 
 **Window drag**
 The toolbar calls `beginWindowDrag` / `updateWindowDrag` / `endWindowDrag`; Rust moves the window after the real cursor in physical pixels (so DPI and the invisible resize border never enter the sums). The spectrum / history title bars use CSS `app-region: drag`, which WebView2 honours.

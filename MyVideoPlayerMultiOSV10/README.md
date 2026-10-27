@@ -39,7 +39,7 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 
 ## Quick start
 
-Needs Node.js 22+ (also used by yt-dlp to solve YouTube's signature challenge) and Rust (stable).
+Building needs Node.js 22+ and Rust (stable). **The installed app needs neither**: yt-dlp solves YouTube's signature challenge with the Deno runtime shipped in the installer (`vendor/deno` → `resources/deno`); an installed Node.js is only a fall-back if that copy is missing.
 
 ```bash
 npm install        # also fetches vendor/yt-dlp and copies FFmpeg into vendor/ffmpeg

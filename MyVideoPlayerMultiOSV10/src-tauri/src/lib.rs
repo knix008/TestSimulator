@@ -690,7 +690,21 @@ async fn remote_open(app: AppHandle, payload: Value) -> Result<Value, String> {
   let progress = progress_to(&app, "remote:downloadProgress");
   progress(json!({ "percent": 0, "message": "Starting download…" }));
   let u = url.clone();
-  let result = blocking(move || download::download_remote(&u, &target, progress)).await?;
+  let sub_lang = payload.get("subtitleLang").and_then(|v| v.as_str()).unwrap_or("").to_string();
+  let result = blocking(move || {
+    let r = download::download_remote(&u, &target, progress.clone());
+    // A YouTube video played from a file keeps its subtitles next to it.
+    if let Ok(done) = &r {
+      if download::extract_video_id(&u).is_some() {
+        if let Some(p) = done.get("path").and_then(|v| v.as_str()) {
+          progress(json!({ "percent": null, "message": "Downloading subtitles…" }));
+          subs::fetch_youtube(&u, Path::new(p), &sub_lang, None);
+        }
+      }
+    }
+    r
+  })
+  .await?;
   Ok(match result {
     Ok(r) => {
       let path = r.get("path").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -899,6 +913,8 @@ async fn vp(app: AppHandle, window: WebviewWindow, channel: String, args: Option
       "platform": platform(),
       "arch": arch(),
       "tauri": tauri::VERSION,
+      // What yt-dlp uses for YouTube signature challenges ("deno:<path>" when bundled).
+      "jsRuntime": tools::js_runtime(),
       "isElectron": false,
       "isTauri": true,
     })),
@@ -1160,7 +1176,12 @@ async fn vp(app: AppHandle, window: WebviewWindow, channel: String, args: Option
     "remote:download" => remote_download(app.clone(), window.clone(), arg(&args, 0).clone()).await,
     "remote:cancelDownload" => {
       let discard = arg(&args, 0).get("discard").and_then(|v| v.as_bool()).unwrap_or(true);
-      Ok(download::stop_remote(discard))
+      let stopped = download::stop_remote(discard);
+      // A YouTube link opened as a file runs through the YouTube downloader.
+      if stopped.get("ok").and_then(|v| v.as_bool()) == Some(true) {
+        return Ok(stopped);
+      }
+      Ok(download::stop_youtube(discard))
     }
     other => Err(format!("unknown channel: {other}")),
   }

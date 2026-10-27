@@ -152,8 +152,11 @@ export class YouTubePlayerController {
               101: 'Embedding disabled by owner',
               150: 'Embedding disabled by owner'
             };
-            this.handlers.onError?.(messages[e.data] || `YouTube error ${e.data}`);
-            reject(new Error(messages[e.data] || `YouTube error ${e.data}`));
+            const message = messages[e.data] || `YouTube error ${e.data}`;
+            this.handlers.onError?.(message, e.data);
+            const err = new Error(message);
+            err.code = e.data;
+            reject(err);
           }
         }
       });

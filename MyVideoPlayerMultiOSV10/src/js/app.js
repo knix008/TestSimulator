@@ -715,8 +715,13 @@ const ytPlayer = new YouTubePlayerController(els.youtubeContainer, {
       }
     }
   },
-  onError: (message) => {
+  onError: (message, code) => {
     ytErrorDialogShown = true;
+    // The owner disabled embedding: play a downloaded copy instead (desktop).
+    if (isEmbedBlocked(code) && currentYouTube?.url) {
+      playEmbedBlockedYouTube(currentYouTube.url);
+      return;
+    }
     showAppError({
       title: t("errorYoutubeTitle"),
       message,
@@ -738,6 +743,35 @@ const ytPlayer = new YouTubePlayerController(els.youtubeContainer, {
     }
   },
 });
+
+/** YouTube iframe errors 101 / 150: "embedding disabled by the owner". */
+function isEmbedBlocked(code) {
+  return isElectron && (code === 101 || code === 150);
+}
+
+let embedFallbackUrl = null;
+
+/** Opens an embed-blocked YouTube video through yt-dlp as a local file. */
+async function playEmbedBlockedYouTube(url) {
+  if (embedFallbackUrl === url) return;
+  embedFallbackUrl = url;
+  try {
+    // The YouTube open in progress has to finish (and release the lock) first.
+    for (let i = 0; i < 100 && openStreamInFlight; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    try {
+      ytPlayer?.stop?.();
+    } catch {
+      /* ignore */
+    }
+    exitYouTubeMode();
+    setStatus({ state: statusKey("statusYtEmbedFallback") });
+    await playRemoteVideoFromInput(url, { youtube: true });
+  } finally {
+    embedFallbackUrl = null;
+  }
+}
 
 function updateSaveButton() {
   const canSave = Boolean(
@@ -3969,9 +4003,9 @@ async function playNetworkFromInput(rawInput) {
   return false;
 }
 
-async function playRemoteVideoFromInput(rawInput) {
+async function playRemoteVideoFromInput(rawInput, { youtube = false } = {}) {
   const url = String(rawInput || "").trim();
-  if (!isSupportedRemoteUrl(url)) {
+  if (!youtube && !isSupportedRemoteUrl(url)) {
     showYoutubeError(t("youtubeInvalid"));
     return false;
   }
@@ -4054,6 +4088,7 @@ async function playRemoteVideoFromInput(rawInput) {
     const result = await window.desktopAPI.openRemoteVideo({
       url,
       title: info?.title || "",
+      subtitleLang: preferredSubtitleLang(),
     });
     if (openStreamCancelled) {
       closeSaveProgress();
@@ -4194,6 +4229,11 @@ async function playYouTubeFromInput(rawInput) {
       });
     } catch (err) {
       if (openStreamCancelled) {
+        closeSaveProgress();
+        return false;
+      }
+      // Embedding disabled: onError already switched to the downloaded-copy path.
+      if (isEmbedBlocked(err?.code)) {
         closeSaveProgress();
         return false;
       }
@@ -5050,8 +5090,6 @@ function bindToolbar() {
   els.rateSelect.addEventListener("change", () => {
     setPlaybackRate(els.rateSelect.value);
   });
-  $("btnRateDown").addEventListener("click", () => stepPlaybackRate(-1));
-  $("btnRateUp").addEventListener("click", () => stepPlaybackRate(1));
   $("btnSpectrum").addEventListener("click", (e) => {
     if (e.shiftKey) {
       cycleSpectrumStyle(1);
@@ -5444,11 +5482,22 @@ function bindKeyboard() {
           if (Number.isFinite(d) && d > 0) seekToPosition(d);
           break;
         }
+        // ← / → move the position; ↑ / ↓ change the playback speed.
         case "ArrowUp":
+          e.preventDefault();
+          stepPlaybackRate(1);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          stepPlaybackRate(-1);
+          break;
+        case "+":
+        case "=":
           e.preventDefault();
           adjustVolume(5);
           break;
-        case "ArrowDown":
+        case "-":
+        case "_":
           e.preventDefault();
           adjustVolume(-5);
           break;

@@ -116,7 +116,12 @@ pub fn find_yt_dlp() -> Option<PathBuf> {
   found
 }
 
-/// A real Node install for yt-dlp's YouTube signature challenges.
+/// The Deno the app ships (resources/deno), so YouTube works without installing Node.js.
+pub fn bundled_deno_path() -> Option<PathBuf> {
+  bundled_candidates("deno", &exe_name("deno")).into_iter().find(|p| p.is_file())
+}
+
+/// A Node.js the user installed — only a fall-back when the bundled Deno is missing.
 pub fn node_runtime_path() -> Option<String> {
   let mut list: Vec<PathBuf> = Vec::new();
   if let Ok(v) = std::env::var("MYVIDEOPLAYER_NODE") {
@@ -152,10 +157,23 @@ pub fn node_runtime_path() -> Option<String> {
   on_path.then(|| "node".to_string())
 }
 
+/// The JavaScript runtime yt-dlp gets for YouTube's nsig / signature challenges, as its
+/// `--js-runtimes` value: the bundled Deno, else an installed Node.js.
+/// MYVIDEOPLAYER_JS_RUNTIME=deno|node forces one (tests).
+pub fn js_runtime() -> Option<String> {
+  let forced = std::env::var("MYVIDEOPLAYER_JS_RUNTIME").unwrap_or_default();
+  let deno = || bundled_deno_path().map(|p| format!("deno:{}", p.display()));
+  let node = || node_runtime_path().map(|n| if n == "node" { n } else { format!("node:{n}") });
+  match forced.as_str() {
+    "deno" => deno(),
+    "node" => node(),
+    _ => deno().or_else(node),
+  }
+}
+
 /// Args yt-dlp needs for current YouTube nsig / signature challenges.
 pub fn yt_dlp_js_runtime_args() -> Vec<String> {
-  let Some(node) = node_runtime_path() else { return Vec::new() };
-  let runtime = if node == "node" { node } else { format!("node:{node}") };
+  let Some(runtime) = js_runtime() else { return Vec::new() };
   vec!["--js-runtimes".into(), runtime, "--remote-components".into(), "ejs:github".into()]
 }
 

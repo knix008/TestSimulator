@@ -295,9 +295,9 @@ fn download_with_yt_dlp(
     Some(p) => vec!["--cookies".into(), p.to_string_lossy().into_owned()],
     None => Vec::new(),
   };
-  let has_node = tools::node_runtime_path().is_some();
-  if !has_node {
-    emit(progress, None, "Node.js not found — YouTube downloads may fail. Install Node 22+ and retry.");
+  let has_runtime = tools::js_runtime().is_some();
+  if !has_runtime {
+    emit(progress, None, "JavaScript runtime (bundled Deno) not found — YouTube downloads may fail. Reinstall MyVideoPlayer.");
   }
   // android_vr often hands out CDN URLs that 403 without PO tokens: web_embedded first,
   // then other clients, then the progressive 360p fall-back.
@@ -366,7 +366,11 @@ fn download_with_yt_dlp(
       }
     }
   }
-  let hint = if has_node { "" } else { "\nTip: install Node.js 22+ so yt-dlp can solve YouTube signature challenges." };
+  let hint = if has_runtime {
+    ""
+  } else {
+    "\nTip: the bundled Deno (resources/deno) is missing; reinstall MyVideoPlayer so yt-dlp can solve YouTube signature challenges."
+  };
   Err(DlError::Failed(format!("YouTube download failed for this link.\n{last_error}{hint}")))
 }
 
@@ -454,7 +458,9 @@ pub fn is_http_url(input: &str) -> bool {
 
 pub fn detect_service(input: &str) -> &'static str {
   let s = input.to_ascii_lowercase();
-  if s.contains("instagram.com") {
+  if extract_video_id(input).is_some() {
+    "youtube"
+  } else if s.contains("instagram.com") {
     "instagram"
   } else if s.contains("tiktok.com") {
     "tiktok"
@@ -465,6 +471,7 @@ pub fn detect_service(input: &str) -> &'static str {
 
 pub fn service_label(service: &str) -> &'static str {
   match service {
+    "youtube" => "YouTube",
     "instagram" => "Instagram",
     "tiktok" => "TikTok",
     _ => "Remote",
@@ -552,6 +559,13 @@ pub fn remote_info(input: &str) -> Result<Value, String> {
   if !is_http_url(url) {
     return Err("유효한 HTTP(S) 링크가 아닙니다.".into());
   }
+  // A YouTube video played through a local file (its owner disabled embedding).
+  if extract_video_id(url).is_some() {
+    let mut info = youtube_info(url)?;
+    info["service"] = json!("youtube");
+    info["serviceLabel"] = json!("YouTube");
+    return Ok(info);
+  }
   let bin = tools::find_yt_dlp().ok_or("yt-dlp is not available")?;
   let info = dump_json(&bin, url, &[])?;
   let service = detect_service(url);
@@ -587,6 +601,20 @@ pub fn download_remote(input: &str, output: &Path, progress: Progress) -> Result
   let url = input.trim().to_string();
   if !is_http_url(&url) {
     return Err(DlError::Failed("유효한 HTTP(S) 링크가 아닙니다.".into()));
+  }
+  // YouTube needs its own client strategies and the JS runtime (download_youtube).
+  if extract_video_id(&url).is_some() {
+    let r = download_youtube(&url, output, progress, None)?;
+    let path = r.get("path").and_then(|v| v.as_str()).map(PathBuf::from).unwrap_or(output.to_path_buf());
+    set_cached_remote(&url, &path, "", "youtube");
+    return Ok(json!({
+      "ok": true,
+      "path": path,
+      "name": path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+      "size": file_size(&path),
+      "service": "youtube",
+      "partial": r.get("partial").cloned().unwrap_or(json!(false)),
+    }));
   }
   let bin = tools::find_yt_dlp().ok_or_else(|| DlError::Failed("yt-dlp is not available".into()))?;
   let active = Active::new(output);

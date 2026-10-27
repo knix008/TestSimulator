@@ -100,6 +100,12 @@ export default async function desktop(r, ctx) {
     assert(["win32", "darwin", "linux"].includes(info.platform), info.platform);
   });
 
+  await r.test(C, "YouTube JS runtime is the bundled Deno (not Node.js)", async () => {
+    const info = await api("getAppInfo");
+    assert(typeof info.jsRuntime === "string" && info.jsRuntime.startsWith("deno:"), String(info.jsRuntime));
+    assert(/[\\/]deno[\\/]deno(\.exe)?$/.test(info.jsRuntime), info.jsRuntime);
+  });
+
   await r.test(C, "Status bar shows the platform after start-up", async () => {
     assert((await status("statusPlatform")).includes("/"), await status("statusPlatform"));
   });
@@ -209,6 +215,39 @@ export default async function desktop(r, ctx) {
       s.value = "1";
       s.dispatchEvent(new Event("change", { bubbles: true }));
     });
+  });
+
+  await r.test(C, "Speed box has no -/+ buttons", async () => {
+    const ids = await main.run(() => ["btnRateDown", "btnRateUp"].filter((id) => document.getElementById(id)));
+    assertEqual(ids, []);
+  });
+
+  const key = (k) =>
+    main.run((k) => {
+      document.activeElement?.blur?.();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+    }, k);
+
+  await r.test(C, "Arrow up / down change the playback speed", async () => {
+    await key("ArrowUp");
+    await waitFor(async () => (await video()).rate === 1.25, { what: "rate 1.25" });
+    await key("ArrowDown");
+    await key("ArrowDown");
+    await waitFor(async () => (await video()).rate === 0.75, { what: "rate 0.75" });
+    await key("ArrowUp");
+    await waitFor(async () => (await video()).rate === 1, { what: "rate back to 1" });
+  });
+
+  await r.test(C, "Arrow left / right move the position", async () => {
+    await seek(3);
+    await main.run(() => document.querySelector("video").pause());
+    await sleep(200);
+    const start = (await video()).t;
+    await key("ArrowLeft");
+    await waitFor(async () => (await video()).t < start - 1, { what: "moved back" });
+    const back = (await video()).t;
+    await key("ArrowRight");
+    await waitFor(async () => (await video()).t > back + 1, { what: "moved forward" });
   });
 
   await r.test(C, "Audio-only file plays", async () => {
@@ -606,7 +645,7 @@ export default async function desktop(r, ctx) {
   const buttonColors = () =>
     main.run(() =>
       Object.fromEntries(
-        ["btnPrev", "btnPlay", "btnStop", "btnNext", "btnMute", "btnRateDown", "rateSelect", "btnRateUp"].map((id) => {
+        ["btnPrev", "btnPlay", "btnStop", "btnNext", "btnMute", "rateSelect"].map((id) => {
           const s = getComputedStyle(document.getElementById(id));
           return [id, { bg: s.backgroundColor, border: s.borderTopColor, fg: s.color }];
         }),

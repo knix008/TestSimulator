@@ -137,7 +137,7 @@ const dictionaries = {
     faster: "Faster",
     fasterTip: "Faster (])",
     speed: "Playback speed",
-    speedTip: "Playback speed ([ / ])",
+    speedTip: "Playback speed (↑ / ↓)",
     speedTipValue: "Playback speed: {n}×",
     dropTitle: "Open a media file or video link",
     dropSub:
@@ -260,6 +260,8 @@ const dictionaries = {
     showSubtitles: "Show subtitles (auto-load SMI/SRT)",
     subSize: "Subtitle font size",
     subtitleLang: "Default subtitle language",
+    statusYtEmbedFallback:
+      "Embedding is disabled for this video — playing a downloaded copy",
     subtitleLangAuto: "Same as app language",
     subtitleLangHint:
       "Shown first when a video has several subtitle languages, and saved as the video's own .srt when downloading from YouTube.",
@@ -277,7 +279,7 @@ const dictionaries = {
     hotkeySeekStart: "Jump to start",
     hotkeySeekEnd: "Jump to end",
     hotkeySeekPercent: "Jump to 0%–90%",
-    hotkeyVolume: "Volume up / down",
+    hotkeyVolume: "Volume up / down (+ / -)",
     hotkeyMute: "Mute / Unmute",
     hotkeySpeed: "Playback speed down / up",
     hotkeyFullscreen: "Toggle fullscreen",
@@ -532,7 +534,7 @@ const dictionaries = {
     faster: "빠르게",
     fasterTip: "배속 증가 (])",
     speed: "재생 배속",
-    speedTip: "재생 배속 ([ / ])",
+    speedTip: "재생 배속 (↑ / ↓)",
     speedTipValue: "재생 배속: {n}×",
     dropTitle: "미디어 파일 또는 동영상 링크를 열어 주세요",
     dropSub:
@@ -654,6 +656,8 @@ const dictionaries = {
     showSubtitles: "자막 표시 (SMI/SRT 자동 로드)",
     subSize: "자막 글자 크기",
     subtitleLang: "기본 자막 언어",
+    statusYtEmbedFallback:
+      "이 동영상은 퍼가기가 막혀 있어 내려받은 사본으로 재생합니다",
     subtitleLangAuto: "앱 언어와 같게",
     subtitleLangHint:
       "자막 언어가 여러 개인 동영상에서 먼저 보여 주고, YouTube 에서 받을 때 동영상과 같은 이름의 .srt 로 저장합니다.",
@@ -671,7 +675,7 @@ const dictionaries = {
     hotkeySeekStart: "처음으로 이동",
     hotkeySeekEnd: "끝으로 이동",
     hotkeySeekPercent: "0%–90% 위치로 이동",
-    hotkeyVolume: "볼륨 올리기 / 내리기",
+    hotkeyVolume: "볼륨 올리기 / 내리기 (+ / -)",
     hotkeyMute: "음소거 / 해제",
     hotkeySpeed: "배속 감소 / 증가",
     hotkeyFullscreen: "전체 화면 전환",

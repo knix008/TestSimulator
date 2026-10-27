@@ -7,6 +7,7 @@ import { sleep, slash, waitFor } from "../lib/env.mjs";
 
 const SHORT = "https://www.youtube.com/watch?v=jNQXAC9IVRw"; // "Me at the zoo", 19 s, de + en subtitles
 const LONG = "https://www.youtube.com/watch?v=aqz-KE-bpKQ"; // Big Buck Bunny (Blender), 10 min
+const EMBED_BLOCKED = "https://youtu.be/_1rs8M3QTao?si=cAEMC6EYWtDF6Xdk"; // embedding disabled by its owner
 
 export const NAMES = [
   "Link parsing accepts every YouTube URL shape",
@@ -17,6 +18,7 @@ export const NAMES = [
   "Stop (keep partial) saves a playable part of the video",
   "Cancel deletes the partial download",
   "In-app streaming uses the subtitle settings",
+  "Embedding-disabled video plays from a downloaded copy",
 ];
 
 async function online() {
@@ -126,4 +128,24 @@ export default async function youtube(r, ctx) {
     });
     assert(src.includes("cc_load_policy=1") && src.includes("cc_lang_pref="), src);
   }, { timeout: 45_000 });
+
+  // The owner of this video disabled embedding (iframe error 150); reported by the user.
+  await r.test(C, NAMES[8], async () => {
+    await main.run((url) => {
+      const ev = new ClipboardEvent("paste", { clipboardData: new DataTransfer(), bubbles: true });
+      ev.clipboardData.setData("text", url);
+      document.body.dispatchEvent(ev);
+    }, EMBED_BLOCKED);
+    const v = await waitFor(
+      () =>
+        main.run(() => {
+          if (document.querySelector("#errorModal[open], dialog.error-dialog[open]")) throw new Error("error dialog shown");
+          const v = document.querySelector("video");
+          return v.currentSrc.includes("/__media/") && v.readyState >= 3 && v.currentTime > 0.3 ? { d: v.duration } : null;
+        }),
+      { timeout: 150_000, interval: 500, what: "downloaded copy playing" },
+    );
+    assert(v.d > 60, `duration ${v.d}`);
+    assertEqual(await main.run(() => document.getElementById("statusFormat").textContent), "YouTube");
+  }, { timeout: 180_000 });
 }
