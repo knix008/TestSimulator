@@ -531,10 +531,11 @@ export function ApiState({ state, noData }) {
   return null;
 }
 
-export function Stat({ label, value, sub, tone, icon, kind, onClick, title }) {
+// term: a key of lib/terms.js; the label then shows the term's tooltip.
+export function Stat({ label, value, sub, tone, icon, kind, onClick, title, term }) {
   const body = (
     <>
-      <div className="k">{icon && <Icon name={icon} size={14} />}<span>{label}</span></div>
+      <div className="k">{icon && <Icon name={icon} size={14} />}<span data-term={term}>{label}</span></div>
       <div className={`v ${tone || ''}`}>{value == null ? '—' : value}</div>
       {sub != null && sub !== '' && <div className="small">{sub}</div>}
     </>
@@ -603,6 +604,30 @@ export function fmtDate(iso) {
 
 export function linesToList(text) {
   return String(text || '').split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean);
+}
+
+// ── Terms ───────────────────────────────────────────────────
+// Explanations of the abbreviations a view shows (Ca, Ce, v(G), CID …):
+// terms = [[term, name, explanation]]. Open by default the first time; the
+// choice per view is remembered.
+export function Glossary({ id, terms, title }) {
+  useLanguage();
+  const key = `mcc-glossary-${id}`;
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) !== '0'; } catch { return true; } });
+  const toggle = (e) => { const v = e.currentTarget.open; setOpen(v); try { localStorage.setItem(key, v ? '1' : '0'); } catch { /* private window */ } };
+  return (
+    <details className="glossary panel" open={open} onToggle={toggle} data-tour={`glossary-${id}`}>
+      <summary><Icon name="info" size={14} /> {title || t('gl_title')} <span className="small">{terms.map(([term]) => term).join(' · ')}</span></summary>
+      <dl>
+        {terms.map(([term, name, text]) => (
+          <div key={term} className="gl-row">
+            <dt><span className="mono gl-term">{term}</span>{name && <span className="gl-name">{name}</span>}</dt>
+            <dd>{text}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
 }
 
 // ── Long lists ──────────────────────────────────────────────

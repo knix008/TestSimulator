@@ -293,6 +293,25 @@ td.mono, .mono { font-family: var(--mono); font-size: 11.5px; }
 .st-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border: 1px solid var(--border); border-radius: 99px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
 .st-pill.on { border-color: var(--accent, #3f7fd6); }
 
+.issues-loading { position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 99px; background: var(--bg-elev); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12.5px; }
+
+/* Term tooltips (components/TermTip.jsx) */
+[data-term]:not([data-term='']), [data-tip-text] { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); text-underline-offset: 3px; cursor: help; }
+.term-tip { position: fixed; z-index: 9000; max-width: 340px; display: grid; gap: 4px; padding: 9px 12px; border-radius: 8px; background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong, var(--border)); box-shadow: var(--shadow); font-size: 12.5px; line-height: 1.45; pointer-events: none; }
+.term-tip strong { font-size: 13px; }
+
+/* Glossary of a view's terms */
+.glossary { margin: 8px 0 12px; padding: 0; }
+.glossary > summary { cursor: pointer; padding: 8px 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; list-style: none; }
+.glossary > summary::-webkit-details-marker { display: none; }
+.glossary > summary .small { color: var(--fg-muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.glossary dl { margin: 0; padding: 0 12px 10px; display: grid; gap: 6px; }
+.glossary .gl-row { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: 12px; font-size: 12.5px; }
+.glossary dt { display: flex; flex-direction: column; gap: 2px; }
+.glossary .gl-term { font-weight: 700; }
+.glossary .gl-name { color: var(--fg-muted); font-size: 12px; }
+.glossary dd { margin: 0; line-height: 1.45; }
+
 /* Excluded-folder picker */
 .xd-dialog { width: min(620px, 94vw); }
 .xd-root { display: flex; align-items: center; gap: 6px; margin: 6px 0; color: var(--fg-muted); overflow-wrap: anywhere; }

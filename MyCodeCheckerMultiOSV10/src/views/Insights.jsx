@@ -1,11 +1,11 @@
 // HIS metrics (C/C++), architecture dependency graph and the exception
 // approval queue.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { t, textOf, useLanguage } from '../lib/i18n';
+import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, BtnGroup, Toggle, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, fmtDate, errorText, emitAction } from './common';
+import { Btn, BtnGroup, Toggle, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, fmtDate, errorText, emitAction, Glossary } from './common';
 
 function useLoad(method, args, deps, enabled) {
   const [state, setState] = useState({ data: null, error: '', loading: false });
@@ -53,9 +53,11 @@ export function HisView({ project, stamp, onOpenAt }) {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, sort, onlyBad]);
-  const head = (key, label, tip) => (
-    <th key={key} className={`num sortable ${sort.key === key ? 'sorted' : ''}`} title={tip || label} onClick={() => setSort({ key, dir: sort.key === key ? -sort.dir : -1 })}>
-      {label}{sort.key === key && <Icon name={sort.dir > 0 ? 'chevronUp' : 'chevronDown'} size={11} />}
+  // The analyzer's own name and explanation of each metric (core/his) as the tooltip.
+  const tipOf = (id) => { const m = metrics[id] || {}; const lang = getLanguage(); return { 'data-tip-title': `${id} · ${(m.label && (m.label[lang] || m.label.en)) || t(`his_${id}`)}`, 'data-tip-text': `${(m.why && (m.why[lang] || m.why.en)) || t(`his_${id}`)} ${t('gl_his_limit', { limit: limitText(m) })}`.trim() }; };
+  const head = (key, label) => (
+    <th key={key} className={`num sortable ${sort.key === key ? 'sorted' : ''}`} onClick={() => setSort({ key, dir: sort.key === key ? -sort.dir : -1 })}>
+      <span {...tipOf(key)}>{label}</span>{sort.key === key && <Icon name={sort.dir > 0 ? 'chevronUp' : 'chevronDown'} size={11} />}
     </th>
   );
   const limitText = (m) => (m.limit == null ? '' : m.kind === 'min' ? `> ${m.limit}` : `≤ ${m.limit}`);
@@ -76,12 +78,13 @@ export function HisView({ project, stamp, onOpenAt }) {
             <Stat icon="alert" label={t('his_violating')} value={data.summary.violatingFunctions} tone={data.summary.violatingFunctions ? 'bad' : 'ok'}
               sub={data.summary.functions ? `${Math.round((data.summary.violatingFunctions / data.summary.functions) * 100)}%` : ''} onClick={() => setOnlyBad(true)} />
           </div>
+          <Glossary id="his" terms={cols.map((id) => { const m = metrics[id] || {}; const lang = getLanguage(); return [id, (m.label && (m.label[lang] || m.label.en)) || t(`his_${id}`), `${(m.why && (m.why[lang] || m.why.en)) || ''} ${t('gl_his_limit', { limit: limitText(m) })}`.trim()]; })} />
           <div className="his-grid">
             {cols.map((id) => {
               const m = metrics[id] || {};
               return (
-                <button key={id} type="button" className={`card his-card ${m.violations ? 'bad' : ''} ${sort.key === id ? 'on' : ''}`} title={t(`his_${id}`)} onClick={() => setSort({ key: id, dir: m.kind === 'min' ? 1 : -1 })}>
-                  <div className="k"><span className="mono">{id}</span><span className="his-limit">{limitText(m)}</span></div>
+                <button key={id} type="button" className={`card his-card ${m.violations ? 'bad' : ''} ${sort.key === id ? 'on' : ''}`} onClick={() => setSort({ key: id, dir: m.kind === 'min' ? 1 : -1 })}>
+                  <div className="k"><span className="mono" {...tipOf(id)}>{id}</span><span className="his-limit">{limitText(m)}</span></div>
                   <div className={`v ${m.violations ? 'bad' : 'ok'}`}>{m.violations || 0}</div>
                   <div className="small">{t('his_avg_max', { avg: fmtNum(m.avg), max: fmtNum(m.max) })}</div>
                 </button>
@@ -94,7 +97,7 @@ export function HisView({ project, stamp, onOpenAt }) {
                 <thead>
                   <tr>
                     <th className={`sortable ${sort.key === 'function' ? 'sorted' : ''}`} onClick={() => setSort({ key: 'function', dir: sort.key === 'function' ? -sort.dir : 1 })}>{t('his_function')}</th>
-                    {cols.map((id) => head(id, id, `${t(`his_${id}`)} ${limitText(metrics[id] || {})}`))}
+                    {cols.map((id) => head(id, id))}
                   </tr>
                 </thead>
                 <tbody>
@@ -301,7 +304,7 @@ export function ArchView({ project, stamp, issues, onOpenAt }) {
       return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * sort.dir;
     });
   }, [data, sort]);
-  const th = (key, label) => <th className={`${key === 'id' ? '' : 'num'} sortable ${sort.key === key ? 'sorted' : ''}`} onClick={() => setSort({ key, dir: sort.key === key ? -sort.dir : -1 })}>{label}{sort.key === key && <Icon name={sort.dir > 0 ? 'chevronUp' : 'chevronDown'} size={11} />}</th>;
+  const th = (key, label, term) => <th className={`${key === 'id' ? '' : 'num'} sortable ${sort.key === key ? 'sorted' : ''}`} onClick={() => setSort({ key, dir: sort.key === key ? -sort.dir : -1 })}><span data-term={term}>{label}</span>{sort.key === key && <Icon name={sort.dir > 0 ? 'chevronUp' : 'chevronDown'} size={11} />}</th>;
   const sel = selected && data ? data.nodes.find((n) => n.id === selected) : null;
   return (
     <div className="view">
@@ -318,18 +321,25 @@ export function ArchView({ project, stamp, issues, onOpenAt }) {
           <div className="card-grid compact">
             <Stat icon="grid" label={t('ag_modules')} value={data.nodes.length} />
             <Stat icon="link" label={t('ag_dependencies')} value={data.edges.length} />
-            <Stat icon="refresh" label={t('ag_cycles')} value={lay.cycles.length} tone={lay.cycles.length ? 'bad' : 'ok'} />
+            <Stat icon="refresh" term="cycle" label={t('ag_cycles')} value={lay.cycles.length} tone={lay.cycles.length ? 'bad' : 'ok'} />
             <Stat icon="alert" label={t('ag_arch_issues')} value={archIssues.length} tone={archIssues.length ? 'bad' : 'ok'} />
           </div>
+          <Glossary id="arch" terms={[
+            ['Ca', t('gl_ca_name'), t('gl_ca')],
+            ['Ce', t('gl_ce_name'), t('gl_ce')],
+            ['I', t('gl_i_name'), t('gl_i')],
+            [t('ag_cycles'), t('gl_cycle_name'), t('gl_cycle')],
+            [t('ag_module'), '', t('gl_module')],
+          ]} />
           <Graph nodes={data.nodes} edges={data.edges} lay={lay} selected={selected} onSelect={setSelected} />
           {sel && (
             <Inspector revealKey={sel.id}>
               <div className="chips"><span className="chip"><Icon name="grid" size={11} />{t('ag_module')}</span><span className="chip">{sel.lang}</span><span className="chip">{sel.kind}</span></div>
               <h3 className="mono wrap">{sel.id}</h3>
               <div className="card-grid compact">
-                <Stat icon="link" label="Ca" value={sel.ca} />
-                <Stat icon="flow" label="Ce" value={sel.ce} />
-                <Stat icon="gauge" label="I" value={fmtNum(sel.instability)} />
+                <Stat icon="link" term="ca" label="Ca" value={sel.ca} sub={t('gl_ca_name')} />
+                <Stat icon="flow" term="ce" label="Ce" value={sel.ce} sub={t('gl_ce_name')} />
+                <Stat icon="gauge" term="instability" label="I" value={fmtNum(sel.instability)} sub={t('gl_i_name')} />
               </div>
               <h3 className="sub-title"><Icon name="chevronRight" size={15} />{t('ag_uses')}</h3>
               <p className="small mono wrap">{data.edges.filter((e) => e.from === sel.id).map((e) => e.to).join(', ') || '—'}</p>
@@ -344,7 +354,7 @@ export function ArchView({ project, stamp, issues, onOpenAt }) {
               <h3 className="sub-title pad"><Icon name="grid" size={15} />{t('ag_modules')}</h3>
               <div className="table-wrap short">
                 <table>
-                  <thead><tr>{th('id', t('ag_module'))}{th('ca', 'Ca')}{th('ce', 'Ce')}{th('instability', 'I')}</tr></thead>
+                  <thead><tr>{th('id', t('ag_module'))}{th('ca', 'Ca', 'ca')}{th('ce', 'Ce', 'ce')}{th('instability', 'I', 'instability')}</tr></thead>
                   <tbody>
                     {modules.map((n) => (
                       <tr key={n.id} className={`click ${selected === n.id ? 'sel' : ''}`} onClick={() => setSelected(n.id)}>

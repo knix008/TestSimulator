@@ -139,21 +139,21 @@ export function Overview({ analysis, onGo }) {
         </div>
       </div>
       <div className="rating-grid" data-tour="ratings">
-        <RatingCard icon="bug" label={t('reliability')} letter={r.reliability} newLetter={rn.reliability} hint={`${t('bugs')} ${m.bugs}`} onClick={() => go('issues:BUG')} />
-        <RatingCard icon="unlock" label={t('security')} letter={r.security} newLetter={rn.security} hint={`${t('vulns')} ${m.vulnerabilities}`} onClick={() => go('issues:VULNERABILITY')} />
-        <RatingCard icon="smell" label={t('maintainability')} letter={r.maintainability} newLetter={rn.maintainability} hint={`${t('ov_debt_ratio')} ${r.debtRatio}%`} onClick={() => go('issues:CODE_SMELL')} />
-        <RatingCard icon="shield" label={t('sec_review')} letter={r.securityReview} newLetter={rn.securityReview} hint={`${t('ov_reviewed')} ${r.hotspotsReviewed}%`} onClick={() => go('view:hotspots')} />
+        <RatingCard icon="bug" term="reliability_rating" label={t('reliability')} letter={r.reliability} newLetter={rn.reliability} hint={`${t('bugs')} ${m.bugs}`} onClick={() => go('issues:BUG')} />
+        <RatingCard icon="unlock" term="security_rating" label={t('security')} letter={r.security} newLetter={rn.security} hint={`${t('vulns')} ${m.vulnerabilities}`} onClick={() => go('issues:VULNERABILITY')} />
+        <RatingCard icon="smell" term="maintainability_rating" label={t('maintainability')} letter={r.maintainability} newLetter={rn.maintainability} hint={`${t('ov_debt_ratio')} ${r.debtRatio}%`} onClick={() => go('issues:CODE_SMELL')} />
+        <RatingCard icon="shield" term="security_review_rating" label={t('sec_review')} letter={r.securityReview} newLetter={rn.securityReview} hint={`${t('ov_reviewed')} ${r.hotspotsReviewed}%`} onClick={() => go('view:hotspots')} />
       </div>
       <h3 className="sub-title"><Icon name="layers" size={15} />{t('ov_new_vs_overall')}</h3>
       <div className="card-grid ov-grid" data-tour="new-code">
-        <Stat icon="bug" kind="BUG" label={t('bugs')} value={m.bugs} sub={<NewSub n={m.new_bugs} />} onClick={() => go('issues:BUG')} title={t('ov_open_list')} />
-        <Stat icon="unlock" kind="VULNERABILITY" label={t('vulns')} value={m.vulnerabilities} sub={<NewSub n={m.new_vulnerabilities} />} onClick={() => go('issues:VULNERABILITY')} title={t('ov_open_list')} />
-        <Stat icon="smell" kind="CODE_SMELL" label={t('smells')} value={m.code_smells} sub={<NewSub n={m.new_code_smells} />} onClick={() => go('issues:CODE_SMELL')} title={t('ov_open_list')} />
-        <Stat icon="shield" kind="SECURITY_HOTSPOT" label={t('hotspots')} value={m.security_hotspots} sub={<NewSub n={m.new_security_hotspots} />} onClick={() => go('view:hotspots')} title={t('ov_open_list')} />
-        <Stat icon="clock" label={t('debt')} value={fmtDebt(m.sqale_index)} sub={`${m.sqale_index} ${t('minutes')}`} />
-        <Stat icon="checkCircle" label={t('coverage')} value={m.coverage == null ? '—' : `${m.coverage}%`} sub={m.coverage == null ? t('no_coverage') : (m.new_coverage != null ? `${t('new_code')} ${m.new_coverage}%` : '')} />
-        <Stat icon="copy" label={t('dup_density')} value={`${m.duplicated_lines_density}%`} sub={`${m.duplicated_lines} ${t('lines')}`} onClick={() => go('view:duplications')} title={t('nav_dup')} />
-        <Stat icon="code" label={t('ncloc')} value={m.ncloc} sub={`${m.files} ${t('files')}`} onClick={() => go('view:code')} title={t('nav_code')} />
+        <Stat icon="bug" kind="BUG" term="bugs" label={t('bugs')} value={m.bugs} sub={<NewSub n={m.new_bugs} />} onClick={() => go('issues:BUG')} title={t('ov_open_list')} />
+        <Stat icon="unlock" kind="VULNERABILITY" term="vulnerabilities" label={t('vulns')} value={m.vulnerabilities} sub={<NewSub n={m.new_vulnerabilities} />} onClick={() => go('issues:VULNERABILITY')} title={t('ov_open_list')} />
+        <Stat icon="smell" kind="CODE_SMELL" term="code_smells" label={t('smells')} value={m.code_smells} sub={<NewSub n={m.new_code_smells} />} onClick={() => go('issues:CODE_SMELL')} title={t('ov_open_list')} />
+        <Stat icon="shield" kind="SECURITY_HOTSPOT" term="security_hotspots" label={t('hotspots')} value={m.security_hotspots} sub={<NewSub n={m.new_security_hotspots} />} onClick={() => go('view:hotspots')} title={t('ov_open_list')} />
+        <Stat icon="clock" term="sqale_index" label={t('debt')} value={fmtDebt(m.sqale_index)} sub={`${m.sqale_index} ${t('minutes')}`} />
+        <Stat icon="checkCircle" term="coverage" label={t('coverage')} value={m.coverage == null ? '—' : `${m.coverage}%`} sub={m.coverage == null ? t('no_coverage') : (m.new_coverage != null ? `${t('new_code')} ${m.new_coverage}%` : '')} />
+        <Stat icon="copy" term="duplicated_lines_density" label={t('dup_density')} value={`${m.duplicated_lines_density}%`} sub={`${m.duplicated_lines} ${t('lines')}`} onClick={() => go('view:duplications')} title={t('nav_dup')} />
+        <Stat icon="code" term="ncloc" label={t('ncloc')} value={m.ncloc} sub={`${m.files} ${t('files')}`} onClick={() => go('view:code')} title={t('nav_code')} />
       </div>
       <div className="panel" id="ov-conditions">
         <h2 className="sub-title"><Icon name="gate" size={15} />{t('conditions')}</h2>
@@ -162,7 +162,7 @@ export function Overview({ analysis, onGo }) {
             {g.conditions.map((c) => (
               <tr key={c.id} className={c.status === 'ERROR' ? 'row-bad' : ''}>
                 <td className="icon-col"><Icon name={c.status === 'ERROR' ? 'xCircle' : c.status === 'OK' ? 'checkCircle' : 'minus'} size={14} className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'} /></td>
-                <td>{metricLabel(c.metric, lang)}</td>
+                <td><span data-term={c.metric}>{metricLabel(c.metric, lang)}</span></td>
                 <td className="muted">{c.op} {c.threshold}</td>
                 <td>{c.actual == null ? '—' : c.actual}</td>
                 <td className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'}>{c.status === 'NO_DATA' ? t('no_data') : c.status === 'OFF' ? t('gate_off') : c.status === 'OK' ? t('passed') : c.status === 'ERROR' ? t('failed') : c.status}</td>
@@ -192,11 +192,11 @@ function fmtDebt(min) {
   return `${Math.round(n / 48) / 10}${t('u_day')}`;
 }
 
-function RatingCard({ icon, label, letter, newLetter, hint, onClick }) {
+function RatingCard({ icon, label, letter, newLetter, hint, onClick, term }) {
   useLanguage();
   return (
     <button type="button" className={`card rating-card r-${letter}`} onClick={onClick} title={`${label}: ${letter} — ${t(RATING_WORD[letter] || 'rt_A')}`}>
-      <div className="k"><Icon name={icon} size={14} /><span>{label}</span></div>
+      <div className="k"><Icon name={icon} size={14} /><span data-term={term}>{label}</span></div>
       <div className="rating-row">
         <span className={`rating-big ${letter}`}>{letter}</span>
         <span className="rating-desc">
@@ -378,7 +378,7 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
         <div className="panel tpanel">
           <div className="table-wrap tall">
           <table>
-            <thead><tr><th /><th>{t('severity')}</th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
+            <thead><tr><th /><th><span data-term="severity">{t('severity')}</span></th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
             <tbody>
               {shown.map((issue, idx) => (
                 <tr key={`${issue.key}-${idx}`} data-tour="issue-row" className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}>
@@ -646,7 +646,7 @@ export function Measures({ analysis }) {
             <tbody>
               {rows.map(([k, v]) => (
                 <tr key={k}>
-                  <td><span className="metric-name"><Icon name={iconOf(k)} size={14} />{metricLabel(k, lang)}{String(k).startsWith('new_') && <span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span>}</span></td>
+                  <td><span className="metric-name"><Icon name={iconOf(k)} size={14} /><span data-term={k}>{metricLabel(k, lang)}</span>{String(k).startsWith('new_') && <span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span>}</span></td>
                   <td className="small mono">{k}</td>
                   <td className="num">{v == null ? '—' : String(v)}</td>
                 </tr>
@@ -703,7 +703,7 @@ export function CodeView({ analysis, file, text, onOpen, line, error }) {
           <div className="chips"><span className="chip"><Icon name="file" size={11} />{t('cv_file')}</span>{fileRow && fileRow.lang && <span className="chip">{fileRow.lang}</span>}</div>
           <h3 className="mono wrap">{file}</h3>
           <div className="card-grid compact">
-            <Stat icon="code" label={t('ncloc')} value={fileRow ? (fileRow.ncloc ?? fileRow.lines ?? '—') : '—'} />
+            <Stat icon="code" term="ncloc" label={t('ncloc')} value={fileRow ? (fileRow.ncloc ?? fileRow.lines ?? '—') : '—'} />
             <Stat icon="bug" label={t('nav_issues')} value={fileIssues.length} tone={fileIssues.length ? 'bad' : 'ok'} />
           </div>
           <h3 className="sub-title"><Icon name="list" size={15} />{t('cv_file_issues')}</h3>
@@ -1223,12 +1223,12 @@ export function Portfolios({ portfolios, projects, onChange }) {
                   })}
                 </div>
                 <div className="card-grid compact">
-                  <Stat icon="bug" kind="BUG" label={t('bugs')} value={m.bugs ?? 0} sub={<NewSub n={m.new_bugs} />} />
-                  <Stat icon="unlock" kind="VULNERABILITY" label={t('vulns')} value={m.vulnerabilities ?? 0} sub={<NewSub n={m.new_vulnerabilities} />} />
-                  <Stat icon="smell" kind="CODE_SMELL" label={t('smells')} value={m.code_smells ?? 0} sub={<NewSub n={m.new_code_smells} />} />
-                  <Stat icon="shield" kind="SECURITY_HOTSPOT" label={t('hotspots')} value={m.security_hotspots ?? 0} />
-                  <Stat icon="clock" label={t('debt')} value={fmtDebt(m.sqale_index)} />
-                  <Stat icon="code" label={t('ncloc')} value={m.ncloc ?? 0} sub={`${t('dup_density')} ${m.duplicated_lines_density ?? 0}%`} />
+                  <Stat icon="bug" kind="BUG" term="bugs" label={t('bugs')} value={m.bugs ?? 0} sub={<NewSub n={m.new_bugs} />} />
+                  <Stat icon="unlock" kind="VULNERABILITY" term="vulnerabilities" label={t('vulns')} value={m.vulnerabilities ?? 0} sub={<NewSub n={m.new_vulnerabilities} />} />
+                  <Stat icon="smell" kind="CODE_SMELL" term="code_smells" label={t('smells')} value={m.code_smells ?? 0} sub={<NewSub n={m.new_code_smells} />} />
+                  <Stat icon="shield" kind="SECURITY_HOTSPOT" term="security_hotspots" label={t('hotspots')} value={m.security_hotspots ?? 0} />
+                  <Stat icon="clock" term="sqale_index" label={t('debt')} value={fmtDebt(m.sqale_index)} />
+                  <Stat icon="code" term="ncloc" label={t('ncloc')} value={m.ncloc ?? 0} sub={`${t('dup_density')} ${m.duplicated_lines_density ?? 0}%`} />
                 </div>
               </>
             )}

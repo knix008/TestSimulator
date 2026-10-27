@@ -31,6 +31,7 @@ const ACCESS = {
   'workspace.load': 'auth',
   'workspace.save': 'auth',
   'settings.patch': 'auth',
+  'project.issues': 'auth',
   'security.me': 'auth',
   'security.logout': 'auth',
   'ide.config': 'auth',

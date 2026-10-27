@@ -121,6 +121,10 @@ Each panel's **Fold** button folds it to a **strip with only its icon and title*
 
 The open project's name and path, the last message (for example "Quality gate passed."), the number of files, lines of code and the quality gate result. Drag the grip at the bottom right to resize the window.
 
+### Term tooltips
+
+Terms with a dotted underline (ratings, technical debt, duplicated lines %, coverage, lines of code, Ca, Ce, I, HIS metrics, CID, impact, checker, severity …) show their name and meaning in a tooltip when you hover them or move the keyboard focus onto them (Esc closes it). The architecture, HIS metrics and defects views also have a **Terms** box with the view's terms.
+
 ### Undo and redo
 
 **Edit › Undo** (Ctrl+Z) takes back the last change and **Redo** (Ctrl+Y or Ctrl+Shift+Z) does it again. Hover the same buttons in the toolbar to see the action, for example "Undo: Quality gate change"; afterwards "Undone: …" shows briefly. What can be undone:
@@ -277,6 +281,17 @@ Code blocks (8 or more normalized lines) that appear in two or more places. Each
 
 #### Architecture
 
+The **Terms** box at the top of the view (it folds) explains the metrics; hovering a column header shows them too.
+
+| Term | Meaning |
+|---|---|
+| **Ca** (afferent coupling) | How many other modules use (depend on) this module. High means much relies on it, so change it with care |
+| **Ce** (efferent coupling) | How many other modules this module uses. High means changes elsewhere affect it |
+| **I** (instability) | I = Ce / (Ca + Ce), 0 to 1. Near 0 is stable, near 1 unstable. Dependencies should point towards lower I |
+| **Cycles** (dependency cycle) | Modules depending on each other in a loop (red edges in the graph); best broken |
+| **Module** | The unit dependencies are grouped by (source folder or package, from imports / includes). The box outline colour is I |
+
+
 The dependency graph between modules (folders, packages). The colour is the instability I = Ce / (Ca + Ce) (stable I = 0 to unstable I = 1); red lines are **cyclic dependencies**. Zoom with the wheel, drag to pan, **Fit** to see everything. Click a module to see its files, Ca, Ce and I, **Uses** and **Used by**. The tables below list modules, dependencies, cycles and **Architecture issues**. Layer rules are set in [Administration › Analysis settings](#analysis-settings).
 
 #### Activity
@@ -303,6 +318,9 @@ See [Generating reports](#generating-reports).
 ### Issues
 
 #### Issues
+
+To handle large projects (hundreds of thousands of issues), the window holds the **open project's issues only**. Opening a project or finishing an analysis fetches them in pages, with **Loading issues… n / total** at the bottom meanwhile. Switching projects fetches the new one's issues and lets the previous one's go. Lists show the first 300 rows; scroll to the end or press **Show more** for more.
+
 
 The list of bugs, vulnerabilities and code smells. Search at the top (**Search rules, messages, files**) and filter by **Severity** (Blocker, Critical, Major, Minor, Info), **Type**, **Status**, **Engine**, **Standard** (OWASP, CWE, MISRA, MOIS …), language and **New code only**. Arriving from a category in Security reports or MISRA sets a **Category filter**; **Clear filter** removes it.
 
@@ -335,6 +353,9 @@ See [Pull request analysis](#pull-request-analysis).
 ### Defect Analysis
 
 #### Defects
+
+The **Terms** box at the top: **CID** (defect identifier — the same defect keeps its number across analyses; snapshots are compared by it), **Impact** (how much harm the defect can do: High, Medium, Low), **Checker** (the name of the check that found it, e.g. NULL_RETURNS), **Outstanding** (neither fixed nor dismissed), **Dismissed** (classified as false positive or intentional), **Snapshot, stream** (the defect list of one committed analysis; the sequence of snapshots per branch).
+
 
 The defect-analysis defect list. Choose a view at the top — **Outstanding**, **Newly detected**, **High impact**, **Dismissed**, **Fixed** — and **search by CID, checker, file or function**. Click a defect and the right panel shows the checker, impact (High, Medium, Low), component and function, the **Events** path (for example alloc → free → use, with the main event highlighted) and the **Triage** fields.
 
@@ -384,6 +405,24 @@ In the MISRA Compliance:2020 manner. Pick a standard (MISRA C:2012, C:2023, C++:
 CERT C/C++, AUTOSAR C++14 and MISRA C:2004 / C++:2008 rules are seen through the **Standard** filter of the issue list and the rule sets of reports.
 
 #### HIS metrics
+
+The **Terms** box at the top lists every metric with its name, meaning and HIS limit.
+
+| Metric | Meaning (HIS limit) |
+|---|---|
+| **COMF** | Comment density = comments / statements (above 0.2) |
+| **PATH** | Non-cyclic execution paths — the test cases full path coverage needs (≤ 80) |
+| **GOTO** | goto statements (0) |
+| **VG** | Cyclomatic complexity v(G) — independent paths, decisions + 1 (≤ 10) |
+| **CALLING** | Different functions calling this one (fan-in) (≤ 5) |
+| **CALLS** | Different functions this one calls (fan-out) (≤ 7) |
+| **PARAM** | Parameters (≤ 5) |
+| **STMT** | Statements (≤ 50) |
+| **LEVEL** | Nesting depth of control structures (≤ 4) |
+| **RETURN** | Exit points (1) |
+| **VOCF** | Vocabulary frequency = (N1 + N2) / (n1 + n2) (Halstead); high means repeated code (≤ 4) |
+| **ap_cg_cycle** | Recursion cycles in the call graph (0) |
+
 
 HIS metrics for every C/C++ function: comment density (COMF), acyclic path count (PATH), goto count, cyclomatic complexity v(G), calling and called functions, parameters, statements, call depth, return count, language scope (VOCF) and recursion cycles. Values over the limit are red; the top shows average and maximum per metric and the number of violating functions. **Violations only** filters; click a row to open the code.
 

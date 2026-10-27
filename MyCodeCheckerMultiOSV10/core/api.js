@@ -727,18 +727,33 @@ function createApi(opts = {}) {
     'app.info': () => ({ name: 'MyCodeChecker', version: opts.version || '1.0.0', rules: listRules().length }),
     // { slim: true } leaves the issue lists out (the GUI keeps its own); a large
     // project's issues are hundreds of MB.
-    'workspace.load': (args, who) => slimmed(access.filterWorkspace(refreshGates(workspace()), who), args && args.slim),
+    // { issuesFor: '<project id>' | 'active' } keeps that one project's issues.
+    'workspace.load': (args, who) => slimmed(access.filterWorkspace(refreshGates(workspace()), who), args && (args.slim || args.issuesFor), args && args.issuesFor),
     'workspace.save': (args, who) => {
       const stored = workspace();
       const merged = access.mergeWorkspace(stored, args.workspace || args, who);
       merged.profiles = profiles.stampChanges(stored.profiles, merged.profiles, who ? who.login : null);
       // A changed gate (or gate assignment) is judged at once.
       const saved = saveWorkspace(refreshGates(merged));
-      return slimmed(access.filterWorkspace(saved, who), args.slim);
+      return slimmed(access.filterWorkspace(saved, who), args.slim || args.issuesFor, args.issuesFor);
     },
     // Settings (and the quality gates) from the settings window: the patch is
     // merged into the stored settings here, so the window never loads or sends
     // the whole workspace. Same permission checks as workspace.save.
+    // A project's issues, one page at a time: { projectId, branch (or '' for the
+    // desktop analysis), offset, limit } -> { total, issues }. The GUI holds the
+    // open project's issues only and fetches them in pages, so no answer comes
+    // near the size one JavaScript string can hold, however large the project.
+    'project.issues': (args, who) => {
+      const ws = access.filterWorkspace(workspace(), who);
+      const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
+      if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
+      const a = args.branch ? ((project.branches || {})[args.branch] || {}).latest : project.desktop;
+      const all = (a && a.issues) || [];
+      const offset = Math.max(0, Number(args.offset) || 0);
+      const limit = Math.min(50000, Math.max(1, Number(args.limit) || 20000));
+      return { total: all.length, offset, issues: all.slice(offset, offset + limit) };
+    },
     'settings.patch': (args, who) => {
       const stored = workspace();
       const incoming = { settings: { ...(stored.settings || {}), ...((args && args.patch) || {}) } };
@@ -1292,18 +1307,20 @@ function cloneSharingAnalyses(ws) {
 }
 
 // A workspace without the issue lists (each analysis keeps issueCount).
-function slimmed(ws, slim) {
+function slimmed(ws, slim, issuesFor) {
   if (!slim || !ws) return ws;
+  const keep = issuesFor === 'active' ? ws.activeProjectId : issuesFor || null;
   // Also the new-code baselines (issue keys, line hashes): the GUI never reads them.
-  const strip = (a) => (a && Array.isArray(a.issues) ? { ...a, issues: undefined, keys: undefined, issueCount: a.issues.length, ...(a.defectAnalysis ? { defectAnalysis: { ...a.defectAnalysis, cids: undefined } } : {}) } : a);
-  const branch = (b) => ({ ...b, keys: undefined, cids: undefined, lineHashes: undefined, latest: strip(b.latest), history: (b.history || []).map(({ keys, ...h }) => h) });
+  const strip = (a, keepIssues) => (a && Array.isArray(a.issues) ? { ...a, issues: keepIssues ? a.issues : undefined, keys: undefined, issueCount: a.issues.length, ...(a.defectAnalysis ? { defectAnalysis: { ...a.defectAnalysis, cids: undefined } } : {}) } : a);
+  const branch = (b, keepIssues) => ({ ...b, keys: undefined, cids: undefined, lineHashes: undefined, latest: strip(b.latest, keepIssues), history: (b.history || []).map(({ keys, ...h }) => h) });
   return {
     ...ws,
     slim: true,
     projects: (ws.projects || []).map((p) => {
       const branches = {};
-      for (const [name, b] of Object.entries(p.branches || {})) branches[name] = b && b.latest ? branch(b) : b;
-      return { ...p, branches, ...(p.desktop ? { desktop: strip(p.desktop) } : {}) };
+      const mine = keep != null && p.id === keep;
+      for (const [name, b] of Object.entries(p.branches || {})) branches[name] = b && b.latest ? branch(b, mine) : b;
+      return { ...p, branches, ...(p.desktop ? { desktop: strip(p.desktop, mine) } : {}) };
     }),
   };
 }

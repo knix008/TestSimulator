@@ -51,7 +51,8 @@ function withoutAnalyses(args) {
 export function withIssuesFrom(slim, prev) {
   if (!slim || !slim.slim) return slim;
   const old = new Map(((prev && prev.projects) || []).map((p) => [p.id, p]));
-  const fill = (a, b) => (a && a.issues === undefined ? { ...a, issues: (b && Array.isArray(b.issues) && b.issues) || [] } : a);
+  // Not loaded in this window either: stays undefined (useProjectIssues fetches the open project's).
+  const fill = (a, b) => (a && a.issues === undefined && b && Array.isArray(b.issues) ? { ...a, issues: b.issues } : a);
   const { slim: _, ...ws } = slim;
   return {
     ...ws,
@@ -64,15 +65,75 @@ export function withIssuesFrom(slim, prev) {
   };
 }
 
+/**
+ * The window keeps the issues of the open project only: `ws` with project
+ * `projectId` filled from project.issues ({ branches, desktop }) and every
+ * other project's issue lists dropped (their memory goes).
+ */
+export function withProjectIssues(ws, projectId, got) {
+  if (!ws) return ws;
+  const drop = (a) => (a && Array.isArray(a.issues) ? { ...a, issueCount: a.issues.length, issues: undefined } : a);
+  return {
+    ...ws,
+    projects: (ws.projects || []).map((p) => {
+      const mine = p.id === projectId;
+      const branches = {};
+      for (const [name, b] of Object.entries(p.branches || {})) {
+        if (!b || !b.latest) { branches[name] = b; continue; }
+        branches[name] = { ...b, latest: mine ? (got && got.branches && Array.isArray(got.branches[name]) ? { ...b.latest, issues: got.branches[name] } : b.latest) : drop(b.latest) };
+      }
+      const desktop = p.desktop ? (mine ? (got && Array.isArray(got.desktop) ? { ...p.desktop, issues: got.desktop } : p.desktop) : drop(p.desktop)) : p.desktop;
+      return { ...p, branches, ...(p.desktop ? { desktop } : {}) };
+    }),
+  };
+}
+
+/**
+ * All issue lists of one project, fetched in pages of `page` issues:
+ * { branches: { name: issues }, desktop: issues | null }. onProgress(done, total).
+ */
+export async function loadProjectIssues(project, { page = 20000, onProgress } = {}) {
+  const parts = [...Object.entries(project.branches || {}).filter(([, b]) => b && b.latest).map(([name]) => name), ...(project.desktop ? [''] : [])];
+  const total = parts.reduce((n, name) => n + (((name ? project.branches[name].latest : project.desktop) || {}).issueCount || 0), 0);
+  let done = 0;
+  const out = { branches: {}, desktop: null };
+  for (const name of parts) {
+    const list = [];
+    for (let offset = 0; ;) {
+      const r = await call('project.issues', { projectId: project.id, branch: name, offset, limit: page });
+      for (const i of r.issues) list.push(i);
+      offset += r.issues.length;
+      done += r.issues.length;
+      if (onProgress) onProgress(done, Math.max(total, done));
+      if (!r.issues.length || offset >= r.total) break;
+    }
+    if (name) out.branches[name] = list; else out.desktop = list;
+  }
+  return out;
+}
+
+/** True when the project has an analysis whose issues this window has not loaded. */
+export function missingIssues(project) {
+  if (!project) return false;
+  return Object.values(project.branches || {}).some((b) => b && b.latest && b.latest.issues === undefined) || !!(project.desktop && project.desktop.issues === undefined);
+}
+
 export async function call(name, args = {}) {
   const info = await hostAsync();
   const url = info ? `http://127.0.0.1:${info.port}/api/${encodeURIComponent(name)}` : `./api/${encodeURIComponent(name)}`;
   const headers = { 'content-type': 'application/json' };
   if (info && info.token) headers.authorization = `Bearer ${info.token}`;
   if (userToken) headers['x-mcc-user-token'] = userToken;
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(name === 'workspace.save' ? withoutAnalyses(args) : (args || {})) });
+  let sent = name === 'workspace.save' ? withoutAnalyses(args) : (args || {});
+  // Workspace answers never carry issue lists (the open project's come in pages,
+  // loadProjectIssues): large projects are more JSON than one string can hold.
+  if ((name === 'workspace.load' || name === 'workspace.save') && sent.slim === undefined && sent.issuesFor === undefined) sent = { ...sent, slim: true };
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(sent) });
   let body;
-  try { body = await res.json(); } catch { throw new Error(`HTTP ${res.status}`); }
+  try { body = await res.json(); } catch (e) {
+    // The answer could not be read (for example more JSON than the page can parse).
+    throw Object.assign(new Error(`${name}: HTTP ${res.status} — ${(e && e.message) || 'unreadable answer'}`), { code: 'BAD_RESPONSE' });
+  }
   if (!body || !body.ok) {
     const err = new Error(body && body.error ? body.error.message : `HTTP ${res.status}`);
     if (body && body.error) {

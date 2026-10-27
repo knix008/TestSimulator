@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, setLanguage, getLanguage } from './lib/i18n';
 import { applyTheme, setCustomThemes, nextThemeId, themeById } from './themes';
-import { call, pickFolder, setUserToken, hasUserToken, isDesktop, withIssuesFrom } from './lib/backend';
+import { call, pickFolder, setUserToken, hasUserToken, isDesktop, withIssuesFrom, withProjectIssues, missingIssues, loadProjectIssues } from './lib/backend';
 import { MenuBar, Toolbar, StatusBar, Dialog, SideNav } from './components/Chrome';
 import {
   Overview, IssueBrowser, Hotspots, Measures, CodeView, Duplications,
@@ -27,6 +27,7 @@ import { BottomPanel } from './views/BottomPanel';
 import { DocTabs, TabActiveCtx } from './components/DocTabs';
 import { NewProjectDialog, OpenProjectDialog, pickProjectFile, projectErrorText, PROJECT_FILTER } from './views/ProjectFiles';
 import { ExcludeDirsDialog } from './components/ExcludeDirs';
+import { TermTip } from './components/TermTip';
 import { pickSavePath } from './lib/backend';
 import { openDoc, docExists } from './lib/docs';
 import { Tutorial } from './components/Tutorial';
@@ -228,6 +229,21 @@ export default function App() {
     if (!ws) return null;
     return (ws.projects || []).find((p) => p.id === ws.activeProjectId) || null;
   }, [ws]);
+
+  // Only the open project's issues are in this window; switching projects
+  // fetches the new one's (project.issues) and lets the others go.
+  const [issuesLoading, setIssuesLoading] = useState(false);
+  useEffect(() => {
+    if (!project || !missingIssues(project)) return undefined;
+    let stop = false;
+    const id = project.id;
+    setIssuesLoading({ done: 0, total: 0 });
+    loadProjectIssues(project, { onProgress: (done, total) => { if (!stop) setIssuesLoading({ done, total }); } })
+      .then((got) => { if (!stop) setWs((cur) => (cur && cur.activeProjectId === id ? withProjectIssues(cur, id, got) : cur)); })
+      .catch((err) => { if (!stop) showError(err); })
+      .finally(() => { if (!stop) setIssuesLoading(false); });
+    return () => { stop = true; };
+  }, [project]);
 
   const storedAnalysis = useMemo(() => {
     if (!project || !project.branches) return null;
@@ -768,7 +784,7 @@ export default function App() {
     }
     const current = (data.projects || []).find((p) => p.id === project.id);
     const b = current && current.branches && current.branches[branch];
-    const next = b && b.latest && b.latest.issues.find((i) => i.key === (selectedRef.current && selectedRef.current.key));
+    const next = b && b.latest && (b.latest.issues || []).find((i) => i.key === (selectedRef.current && selectedRef.current.key));
     if (next) setSelected(next);
     void pid;
   };
@@ -1305,6 +1321,7 @@ export default function App() {
       <Tutorial onProgress={(p) => patchSettings(progressPatch(ws.settings, p))} />
       <UserGuide />
       {scanJob && scanJob.shown && <ScanProgress job={scanJob.job} onCancel={cancelScanJob} />}
+      {issuesLoading && <div className="issues-loading" role="status" data-testid="issues-loading"><Icon name="spinner" size={14} /> {t('il_loading', { done: issuesLoading.done.toLocaleString(), total: (issuesLoading.total || 0).toLocaleString() })}</div>}
       <TutorialWelcome settings={ws.settings} onPatch={patchSettings} onClose={() => setWelcomeOpen(false)} />
       {dialog && dialog.kind === 'excludeDirs' && project && (
         <ExcludeDirsDialog root={project.path} value={project.excludeDirs} onClose={() => setDialog(null)}
@@ -1383,6 +1400,7 @@ export default function App() {
         }} />
       )}
       <UiHost />
+      <TermTip />
     </div>
     </ProjectCtx.Provider>
     </PanelCtx.Provider>

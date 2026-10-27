@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow } from './common';
+import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow, Glossary } from './common';
 import { ask } from '../lib/ui';
 
 const PRESETS = ['outstanding', 'new', 'high', 'dismissed', 'fixed'];
@@ -92,12 +92,20 @@ export function DefectsView({ analysis, onUpdate }) {
         </span>
       </div>
       <div className="card-grid compact">
-        <Stat icon="alert" value={outstanding} label={t('cov_outstanding')} onClick={() => setPreset('outstanding')} />
+        <Stat icon="alert" term="outstanding" value={outstanding} label={t('cov_outstanding')} onClick={() => setPreset('outstanding')} />
         <Stat icon="chevronsUp" value={outstandingHigh} label={t('cov_high')} tone={outstandingHigh ? 'bad' : ''} onClick={() => setPreset('high')} />
         <Stat icon="sparkle" value={newlyDetected} label={t('cov_new')} tone={newlyDetected ? 'bad' : ''} onClick={() => setPreset('new')} />
-        <Stat icon="xCircle" value={dismissedCount} label={t('cov_dismissed')} onClick={() => setPreset('dismissed')} />
+        <Stat icon="xCircle" term="dismissed" value={dismissedCount} label={t('cov_dismissed')} onClick={() => setPreset('dismissed')} />
         <Stat icon="checkCircle" value={fixed.length} label={t('cov_fixed')} tone={fixed.length ? 'ok' : ''} onClick={() => setPreset('fixed')} />
       </div>
+      <Glossary id="defects" terms={[
+        ['CID', t('gl_cid_name'), t('gl_cid')],
+        [t('cov_impact'), '', t('gl_impact')],
+        [t('cov_checker'), '', t('gl_checker')],
+        [t('cov_outstanding'), '', t('gl_outstanding')],
+        [t('cov_dismissed'), '', t('gl_dismissed')],
+        [t('gl_snapshot_term'), '', t('gl_snapshot')],
+      ]} />
       <div className="view-toolbar">
         <span className="search-box"><Icon name="search" size={14} /><input className="search" value={q} placeholder={t('cov_search_ph')} aria-label={t('search')} onChange={(e) => setQ(e.target.value)} /></span>
         <IconSelect value={checker} onChange={setChecker} title={t('cov_checker')} ariaLabel={t('cov_checker')} width={220}
@@ -107,7 +115,7 @@ export function DefectsView({ analysis, onUpdate }) {
         <div className="panel tpanel">
           <div className="table-wrap tall">
             <table>
-              <thead><tr><th>CID</th><th>{t('cov_impact')}</th><th>{t('cov_checker')}</th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
+              <thead><tr><th><span data-term="cid">CID</span></th><th><span data-term="impact">{t('cov_impact')}</span></th><th><span data-term="checker">{t('cov_checker')}</span></th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
               <tbody>
                 {shown.map((issue, idx) => (
                   <tr key={`${issue.cid}-${issue.line}-${idx}`} data-tour="defect-row" className={`click ${selected && selected.cid === issue.cid ? 'sel' : ''}`} onClick={() => setCid(issue.cid)}>

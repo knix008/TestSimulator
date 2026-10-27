@@ -187,7 +187,7 @@ function summary(rows, options = {}) {
     const vals = list.map((r) => r && r[id]).filter((v) => typeof v === 'number' && Number.isFinite(v));
     if (!vals.length) {
       if (id === 'NOMV' || id === 'NOMVPR') continue;
-      metrics[id] = { count: 0, min: null, max: null, avg: null, violations: 0, limit: limits[id], kind: meta.kind };
+      metrics[id] = { count: 0, min: null, max: null, avg: null, violations: 0, limit: limits[id], kind: meta.kind, label: meta.label, why: meta.why };
       continue;
     }
     let sum = 0; let min = Infinity; let max = -Infinity; let bad = 0;
@@ -197,7 +197,7 @@ function summary(rows, options = {}) {
       if (v > max) max = v;
       if (violates(meta, v, limits[id])) bad++;
     }
-    metrics[id] = { count: vals.length, min, max, avg: round(sum / vals.length), violations: bad, limit: limits[id], kind: meta.kind };
+    metrics[id] = { count: vals.length, min, max, avg: round(sum / vals.length), violations: bad, limit: limits[id], kind: meta.kind, label: meta.label, why: meta.why };
   }
   const violatingFunctions = list.filter((r) => r && ROW_METRICS.some((id) => violates(BY_ID.get(id), r[id], limits[id]))).length;
   return { functions: list.length, violatingFunctions, metrics };
