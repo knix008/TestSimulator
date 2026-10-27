@@ -604,3 +604,32 @@ export function fmtDate(iso) {
 export function linesToList(text) {
   return String(text || '').split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean);
 }
+
+// ── Long lists ──────────────────────────────────────────────
+// A large project has 100 000+ issues; one <tr> each blocks the window for
+// minutes. Lists render the first rows and add more when the end scrolls
+// into view (or on "Show more"). Returns the rows to render and the footer.
+const ROWS_STEP = 300;
+export function useRowWindow(list, step = ROWS_STEP) {
+  const [count, setCount] = useState(step);
+  const footRef = useRef(null);
+  useEffect(() => { setCount(step); }, [list, step]);
+  const more = list.length > count;
+  useEffect(() => {
+    const el = footRef.current;
+    if (!more || !el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setCount((c) => c + step);
+    }, { rootMargin: '400px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [more, count, step]);
+  const rows = more ? list.slice(0, count) : list;
+  const footer = more ? (
+    <div className="row-window-more" ref={footRef}>
+      <span className="small">{t('rw_shown', { n: count.toLocaleString(), total: list.length.toLocaleString() })}</span>
+      <Btn icon="chevronDown" label={t('rw_more')} onClick={() => setCount((c) => c + step * 10)} />
+    </div>
+  ) : null;
+  return { rows, footer };
+}

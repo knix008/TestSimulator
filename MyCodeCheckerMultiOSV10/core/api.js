@@ -2,10 +2,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { analyzePath, listRules, walk } = require('./analyze');
+const { analyzePath, listRules, walk, SKIP_DIRS } = require('./analyze');
 const { toJson, toCsv, toSarif, toHtml, badge, toDefects } = require('./report');
 const { createStore, projectIdFor, freshWorkspace } = require('./store');
-const { DEFAULT_GATE } = require('./qualitygate');
+const { DEFAULT_GATE, evaluateGate, currentMeasures } = require('./qualitygate');
 const { DEFAULT_POLICY, slimIssue, isDismissed } = require('./defects');
 const { createExtensions } = require('./api-ext');
 const access = require('./access');
@@ -37,12 +37,32 @@ function createApi(opts = {}) {
     return ws.gates.find((g) => g.id === id) || ws.gates[0] || DEFAULT_GATE;
   }
 
+  // The quality gate as of now: issue-based measures recomputed from the issues'
+  // current states and judged by the project's gate as configured now.
+  function refreshGates(ws, projectId) {
+    for (const project of ws.projects || []) {
+      if (projectId && project.id !== projectId) continue;
+      const gate = gateFor(ws, project);
+      const analyses = [...Object.values(project.branches || {}).map((b) => b && b.latest), project.desktop];
+      for (const a of analyses) {
+        if (!a || !a.measures) continue;
+        a.measures = currentMeasures(a);
+        a.qualityGate = evaluateGate(gate, a.measures);
+      }
+      for (const b of Object.values(project.branches || {})) {
+        if (b && b.latest) b.measures = b.latest.measures;
+      }
+    }
+    return ws;
+  }
+
   // The project's profile per language (else the language default), with inheritance.
   function inactiveFor(ws, project) {
     return profiles.resolveForProject(ws, project, listRules());
   }
 
-  const ext = createExtensions({ workspace, saveWorkspace, configDir: opts.configDir });
+  // Reports, history and the other extensions see the gate as of now.
+  const ext = createExtensions({ workspace: () => refreshGates(workspace()), saveWorkspace, configDir: opts.configDir || store.dir, issuesOf: store.issuesOf });
 
   // New code definition (code quality): 'previous' analysis, 'days', a specific
   // 'analysis', a 'version' tag or an 'scm' reference branch. SCM and version
@@ -81,7 +101,7 @@ function createApi(opts = {}) {
         for (const k of Object.keys(ws)) delete ws[k];
         Object.assign(ws, merged);
       }
-      base = JSON.parse(JSON.stringify(merged));
+      base = cloneSharingAnalyses(merged);
     };
     const folder = args.path || sampleRoot;
     const abs = path.resolve(folder);
@@ -142,6 +162,8 @@ function createApi(opts = {}) {
     try {
       analysis = await analyzeFor(args.__job, ws, abs, {
         exclusions: [...(ws.settings.exclusions || []), ...((project && project.exclusions) || []), ...(Array.isArray(args.exclusions) ? args.exclusions : [])],
+        excludeDirs: [...((project && project.excludeDirs) || []), ...(Array.isArray(args.excludeDirs) ? args.excludeDirs : [])],
+        disabledChecks: require('./checks').disabledChecks(ws.settings),
         coverageReports: (Array.isArray(args.coverageReports) && args.coverageReports.length ? args.coverageReports : null) || (project && project.coverageReports && project.coverageReports.length ? project.coverageReports : ws.settings.coverageReports) || undefined,
         inactive: profile.inactive,
         overrides: profile.overrides,
@@ -250,14 +272,38 @@ function createApi(opts = {}) {
     // Results to the configured database (Settings › Database › automatic export).
     const dbs = dbsink.settingsOf(ws, store.dir);
     if (dbs.enabled && dbs.autoExport) {
+      const job = args.__job;
       try {
-        const out = await dbsink.exportAnalysis(dbs, { project, branch, analysis });
+        const out = await dbsink.exportAnalysis(dbs, { project, branch, analysis, settings: ws.settings }, {
+          isCancelled: () => !!(job && job.status === 'cancelled'),
+          onProgress: job ? (pr) => { job.progress = { ...job.progress, ...dbProgress(pr, job.startedAt, job.progress && job.progress.percent) }; } : undefined,
+        });
         task.db = { analysisId: out.analysisId, issues: out.issues };
       } catch (err) {
         task.warnings.push(`DB: ${err.message}`);
+        // The GUI shows this in a popup after the analysis.
+        const { code, text } = require('./errors').describe(err);
+        task.dbError = { code, message: err.message, text };
       }
       ws.tasks = [{ ...task }, ...(ws.tasks || []).filter((t) => t.id !== task.id)].slice(0, 100);
       commitScan();
+    }
+    // Reports written automatically after the analysis (Settings › Reports).
+    try {
+      const fresh = refreshGates(workspace());
+      const stored = (fresh.projects || []).find((p) => p.id === project.id);
+      if (stored && ((fresh.settings && fresh.settings.reports) || {}).auto && fresh.settings.reports.auto.enabled) {
+        if (args.__job) args.__job.progress = { ...args.__job.progress, phase: 'report', detail: '' };
+        const rep = ext.autoReports(fresh, stored, branch);
+        if (rep) {
+          task.reports = { folder: rep.folder, files: rep.files.map((f) => path.basename(f)) };
+          for (const e of rep.errors) task.warnings.push(`Report: ${e}`);
+          ws.tasks = [{ ...task }, ...(ws.tasks || []).filter((t) => t.id !== task.id)].slice(0, 100);
+          commitScan();
+        }
+      }
+    } catch (err) {
+      task.warnings.push(`Report: ${err.message}`);
     }
     const publicHistory = (project.branches[branch].history || []).map(({ keys, cids, ...rest }) => rest);
     return { project: { ...publicProject(project), history: publicHistory }, analysis, task, committed: true };
@@ -353,6 +399,9 @@ function createApi(opts = {}) {
       }
       if (cid) project.issueState[`cid:${cid}`] = next;
     }
+    // Issues were changed in place: their files are written on this save.
+    store.touch(...Object.values(project.branches || {}).map((b) => b && b.latest && b.latest.issues), project.desktop && project.desktop.issues);
+    refreshGates(ws, project.id);
     saveWorkspace(ws);
     if (patch.assignee || patch.owner) {
       const latest = (((project.branches || {})[project.mainBranch || 'main'] || {}).latest || { issues: [] }).issues.filter((i) => keys.includes(i.key));
@@ -530,6 +579,46 @@ function createApi(opts = {}) {
   // progress record the UI polls; plain project.scan stays in-process.
   const jobs = new Map();
   let jobSeq = 0;
+  const dbJobs = new Map();
+
+  // Database export as a job (db.exportStart / db.exportJob / db.exportCancel), so
+  // the GUI can show progress and a timeout or failure while it runs.
+  function startDbExport(args, who) {
+    const ws = workspace();
+    const project = (ws.projects || []).find((p) => p.id === args.projectId);
+    if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
+    const branch = args.branch || project.mainBranch || 'main';
+    const b = (project.branches || {})[branch];
+    if (!b || !b.latest) throw Object.assign(new Error('No analysis'), { code: 'NOT_FOUND' });
+    const s = dbsink.settingsOf(ws, store.dir);
+    if (!s.enabled && !args.force) return dbsink.exportAnalysis(s, { project, branch, analysis: b.latest, settings: ws.settings }, { force: false });
+    const id = `dbjob-${Date.now().toString(36)}-${++jobSeq}`;
+    const job = { id, status: 'running', by: (who && who.login) || null, startedAt: Date.now(), path: `${s.kind} · ${s.kind === 'sqlite' ? s.file : `${s.host}:${s.port}/${s.database}`}`, timeoutSec: s.timeoutSec, progress: { phase: 'connect', done: 0, total: 0, percent: 0, elapsedMs: 0, etaMs: null } };
+    dbJobs.set(id, job);
+    dbsink.exportAnalysis(s, { project, branch, analysis: b.latest, settings: ws.settings }, {
+      force: !!args.force,
+      isCancelled: () => job.status === 'cancelled',
+      onProgress: (pr) => { job.progress = dbProgress(pr, job.startedAt); },
+    }).then((result) => {
+      if (job.status === 'cancelled') return;
+      job.status = 'done';
+      job.result = result;
+      job.progress = { ...job.progress, percent: 100, etaMs: 0, elapsedMs: Date.now() - job.startedAt };
+    }, (err) => {
+      const { code, text } = require('./errors').describe(err);
+      if (job.status !== 'cancelled' || err.code !== 'CANCELLED') job.status = err.code === 'CANCELLED' ? 'cancelled' : 'failed';
+      job.error = { code, message: err.message, text };
+    });
+    setTimeout(() => dbJobs.delete(id), 600000).unref();
+    return { jobId: id };
+  }
+
+  function ownDbJob(args, who) {
+    const job = dbJobs.get(args && args.jobId);
+    if (!job) throw Object.assign(new Error('Unknown database job'), { code: 'NOT_FOUND' });
+    if (who && job.by && who.login !== job.by && !users.authorize(workspace(), who.login, 'admin')) throw Object.assign(new Error('This export was started by another user'), { code: 'FORBIDDEN' });
+    return job;
+  }
   const WEIGHT = { collect: [0, 10], rules: [10, 45], engines: [55, 42], finish: [97, 3] };
 
   function analyzeFor(job, ws, abs, opts) {
@@ -557,9 +646,14 @@ function createApi(opts = {}) {
     });
   }
 
-  function jobView(job) {
+  // { slim: true } leaves the issue lists out of the result (the GUI reloads the
+  // workspace anyway; a large analysis is hundreds of MB).
+  function jobView(job, slim) {
     const { worker, result, ...rest } = job;
-    return { ...rest, ...(job.status === 'done' ? { result } : {}) };
+    if (job.status !== 'done') return rest;
+    if (!slim || !result || !result.analysis) return { ...rest, result };
+    const { issues, keys, lineHashes, ...analysis } = result.analysis;
+    return { ...rest, result: { ...result, analysis: { ...analysis, issueCount: (issues || []).length } } };
   }
 
   // A job is visible to the user who started it and to administrators.
@@ -572,12 +666,27 @@ function createApi(opts = {}) {
     return job;
   }
 
+  function listDirs(args) {
+    const root = path.resolve(String(args.path || ''));
+    if (!args.path || !fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw Object.assign(new Error(`Folder not found: ${root}`), { code: 'NOT_FOUND' });
+    const sub = String(args.sub || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    const dir = path.resolve(root, sub);
+    if (dir !== root && !dir.startsWith(root + path.sep)) throw Object.assign(new Error('Outside the project folder'), { code: 'BAD_REQUEST' });
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+    const hasDirs = (full) => {
+      try { return fs.readdirSync(full, { withFileTypes: true }).some((e) => e.isDirectory()); } catch { return false; }
+    };
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name).sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ name, rel: sub ? `${sub}/${name}` : name, hasChildren: hasDirs(path.join(dir, name)), skipped: SKIP_DIRS.has(name) }));
+  }
+
   // Prepared source files of a project folder, as engines receive them.
   function sourceFiles(project, keep = () => true) {
     const { detectLanguage } = require('./languages');
     const ws = workspace();
     const out = [];
-    for (const full of walk(project.path, { exclusions: ws.settings.exclusions || [] })) {
+    for (const full of walk(project.path, { exclusions: [...(ws.settings.exclusions || []), ...(project.exclusions || [])], excludeDirs: project.excludeDirs || [] })) {
       const lang = detectLanguage(full);
       const rel = path.relative(project.path, full).replace(/\\/g, '/');
       const f = { path: rel, lang };
@@ -616,13 +725,27 @@ function createApi(opts = {}) {
 
   const methods = {
     'app.info': () => ({ name: 'MyCodeChecker', version: opts.version || '1.0.0', rules: listRules().length }),
-    'workspace.load': (args, who) => access.filterWorkspace(workspace(), who),
+    // { slim: true } leaves the issue lists out (the GUI keeps its own); a large
+    // project's issues are hundreds of MB.
+    'workspace.load': (args, who) => slimmed(access.filterWorkspace(refreshGates(workspace()), who), args && args.slim),
     'workspace.save': (args, who) => {
       const stored = workspace();
       const merged = access.mergeWorkspace(stored, args.workspace || args, who);
       merged.profiles = profiles.stampChanges(stored.profiles, merged.profiles, who ? who.login : null);
-      const saved = saveWorkspace(merged);
-      return access.filterWorkspace(saved, who);
+      // A changed gate (or gate assignment) is judged at once.
+      const saved = saveWorkspace(refreshGates(merged));
+      return slimmed(access.filterWorkspace(saved, who), args.slim);
+    },
+    // Settings (and the quality gates) from the settings window: the patch is
+    // merged into the stored settings here, so the window never loads or sends
+    // the whole workspace. Same permission checks as workspace.save.
+    'settings.patch': (args, who) => {
+      const stored = workspace();
+      const incoming = { settings: { ...(stored.settings || {}), ...((args && args.patch) || {}) } };
+      if (args && Array.isArray(args.gates)) incoming.gates = args.gates;
+      const merged = access.mergeWorkspace(stored, incoming, who);
+      const saved = saveWorkspace(incoming.gates ? refreshGates(merged) : merged);
+      return { settings: access.filterWorkspace(saved, who).settings, gates: saved.gates };
     },
     'security.me': (args, who) => {
       const ws = workspace();
@@ -638,6 +761,7 @@ function createApi(opts = {}) {
       return { ok: true };
     },
     'rules.list': () => listRules(),
+    'checks.list': () => require('./checks').listChecks(),
     // External software: status, start-up offers, installation with consent.
     'tools.status': () => tools.status(workspace().settings || {}),
     'tools.offers': () => tools.offers(workspace().settings || {}),
@@ -672,6 +796,9 @@ function createApi(opts = {}) {
       return inactiveFor(ws, project);
     },
     'project.scan': (args) => scan(args || {}),
+    // Sub-folders of a source folder for the exclusion picker: { path, sub } →
+    // [{ name, rel, hasChildren, skipped }] (skipped: never analyzed anyway).
+    'project.dirs': (args) => listDirs(args || {}),
     'scan.start': (args, who) => {
       args = args || {};
       // One running analysis per project: a second start joins the running one.
@@ -692,7 +819,7 @@ function createApi(opts = {}) {
       setTimeout(() => jobs.delete(id), 600000).unref();
       return { jobId: id };
     },
-    'scan.job': (args, who) => jobView(ownJob(args, who)),
+    'scan.job': (args, who) => jobView(ownJob(args, who), !!(args && args.slim)),
     'scan.cancel': (args, who) => {
       const job = ownJob(args, who);
       if (job.status === 'running') {
@@ -758,6 +885,22 @@ function createApi(opts = {}) {
       if (!args.path || !fs.existsSync(path.dirname(target))) throw Object.assign(new Error('Invalid path'), { code: 'BAD_REQUEST' });
       fs.writeFileSync(target, args.base64 != null ? Buffer.from(String(args.base64), 'base64') : String(args.text == null ? '' : args.text));
       return { path: target };
+    },
+    // Files next to a saved file (a Markdown report's pictures): { base, files: [{ path, base64 }] },
+    // paths relative to the folder of `base`, never outside it.
+    'file.saveBeside': (args) => {
+      if (!opts.localFiles) throw Object.assign(new Error('Saving to a local path is only available in the desktop app'), { code: 'NO_METHOD' });
+      const dir = path.dirname(path.resolve(String(args.base || '')));
+      if (!args.base || !fs.existsSync(dir)) throw Object.assign(new Error('Invalid path'), { code: 'BAD_REQUEST' });
+      const written = [];
+      for (const f of args.files || []) {
+        const target = path.resolve(dir, String(f.path || ''));
+        if (!target.startsWith(dir + path.sep)) throw Object.assign(new Error('Invalid path'), { code: 'BAD_REQUEST' });
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, Buffer.from(String(f.base64 || ''), 'base64'));
+        written.push(target);
+      }
+      return { files: written };
     },
     'project.recentFiles': () => recentList(workspace()).filter((e) => e.kind === 'file').map((e) => ({ file: e.path, exists: e.exists })),
     'recent.list': () => recentList(workspace()),
@@ -857,6 +1000,13 @@ function createApi(opts = {}) {
       if (s.password === dbsink.MASK) s.password = dbsink.settingsOf(workspace(), store.dir).password;
       return dbsink.testConnection(s);
     },
+    'db.exportStart': (args, who) => startDbExport(args || {}, who),
+    'db.exportJob': (args, who) => ownDbJob(args, who),
+    'db.exportCancel': (args, who) => {
+      const job = ownDbJob(args, who);
+      if (job.status === 'running') job.status = 'cancelled';
+      return job;
+    },
     'db.export': async (args) => {
       const ws = workspace();
       const project = (ws.projects || []).find((p) => p.id === args.projectId);
@@ -864,7 +1014,7 @@ function createApi(opts = {}) {
       const branch = args.branch || project.mainBranch || 'main';
       const b = (project.branches || {})[branch];
       if (!b || !b.latest) throw Object.assign(new Error('No analysis'), { code: 'NOT_FOUND' });
-      return dbsink.exportAnalysis(dbsink.settingsOf(ws, store.dir), { project, branch, analysis: b.latest }, { force: !!args.force });
+      return dbsink.exportAnalysis(dbsink.settingsOf(ws, store.dir), { project, branch, analysis: b.latest, settings: ws.settings }, { force: !!args.force });
     },
     // AI CodeFix
     'ai.get': () => aifix.publicSettings(workspace()),
@@ -964,6 +1114,24 @@ function createApi(opts = {}) {
     'issue.review': (args, who) => reviewIssues({ ...(args || {}), who, by: who ? who.login : args.by }),
     'issue.reviews': (args) => reviewList(args || {}),
     'report.build': (args) => report(args || {}),
+    // Deletes a project's stored analyses (every branch: latest, history,
+    // snapshots, new-code baseline; and the desktop analysis), so the next
+    // analysis starts over and treats all code as new. { clearTriage: true }
+    // also drops issue states (status, comments, assignees).
+    'project.resetAnalysis': (args, who) => {
+      const ws = workspace();
+      const project = (ws.projects || []).find((p) => p.id === args.projectId);
+      if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
+      if ([...jobs.values()].some((j) => j.status === 'running' && j.projectId === project.id)) {
+        throw Object.assign(new Error('An analysis of this project is running'), { code: 'CONFLICT' });
+      }
+      const branches = Object.keys(project.branches || {}).length;
+      project.branches = {};
+      delete project.desktop;
+      if (args.clearTriage) project.issueState = {};
+      project.updatedAt = new Date().toISOString();
+      return { ...access.filterWorkspace(saveWorkspace(ws), who), reset: { projectId: project.id, branches, clearTriage: !!args.clearTriage } };
+    },
     'project.remove': (args, who) => {
       const ws = workspace();
       if (!(ws.projects || []).some((p) => p.id === args.projectId)) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
@@ -1094,6 +1262,52 @@ function createApi(opts = {}) {
   return { call, store, freshWorkspace, scheduler: runner };
 }
 
+// A copy for merge3's base that shares the analyses (issue lists): a large
+// project's analysis fills close to a gigabyte, and stored analyses are only
+// replaced by the next scan, never edited by it.
+function cloneSharingAnalyses(ws) {
+  const held = [];
+  (ws.projects || []).forEach((p, i) => {
+    for (const [name, state] of Object.entries(p.branches || {})) {
+      if (!state) continue;
+      held.push({ i, name, latest: state.latest, snapshots: state.snapshots });
+      state.latest = null;
+      state.snapshots = null;
+    }
+    if (p.desktop) { held.push({ i, desktop: p.desktop }); p.desktop = null; }
+  });
+  let copy;
+  try {
+    copy = structuredClone(ws);
+  } finally {
+    for (const h of held) {
+      for (const target of copy ? [ws, copy] : [ws]) {
+        const p = target.projects[h.i];
+        if (h.desktop) p.desktop = h.desktop;
+        else Object.assign(p.branches[h.name], { latest: h.latest, snapshots: h.snapshots });
+      }
+    }
+  }
+  return copy;
+}
+
+// A workspace without the issue lists (each analysis keeps issueCount).
+function slimmed(ws, slim) {
+  if (!slim || !ws) return ws;
+  // Also the new-code baselines (issue keys, line hashes): the GUI never reads them.
+  const strip = (a) => (a && Array.isArray(a.issues) ? { ...a, issues: undefined, keys: undefined, issueCount: a.issues.length, ...(a.defectAnalysis ? { defectAnalysis: { ...a.defectAnalysis, cids: undefined } } : {}) } : a);
+  const branch = (b) => ({ ...b, keys: undefined, cids: undefined, lineHashes: undefined, latest: strip(b.latest), history: (b.history || []).map(({ keys, ...h }) => h) });
+  return {
+    ...ws,
+    slim: true,
+    projects: (ws.projects || []).map((p) => {
+      const branches = {};
+      for (const [name, b] of Object.entries(p.branches || {})) branches[name] = b && b.latest ? branch(b) : b;
+      return { ...p, branches, ...(p.desktop ? { desktop: strip(p.desktop) } : {}) };
+    }),
+  };
+}
+
 function publicProject(project) {
   const { branches, desktop, ...rest } = project;
   const brief = {};
@@ -1104,6 +1318,16 @@ function publicProject(project) {
 }
 
 // { code, message, text: { en, ko } } — see core/errors.js.
+// Percent / ETA of a database export from dbsink's { phase, done, total }.
+// Inside an analysis (`from`, e.g. 99) the bar stays where the scan left it.
+function dbProgress(pr, startedAt, from) {
+  const elapsedMs = Date.now() - startedAt;
+  const write = pr.total ? pr.done / pr.total : 0;
+  const percent = from != null ? from : Math.min(99, Math.round({ connect: 1, schema: 4, write: 5 + 90 * write, commit: 96 }[pr.phase] || 0));
+  const etaMs = pr.phase === 'write' && write > 0.02 && from == null ? Math.round(elapsedMs / write * (1 - write)) : null;
+  return { phase: 'db', dbPhase: pr.phase, done: pr.done || 0, total: pr.total || 0, percent, elapsedMs, etaMs, detail: '' };
+}
+
 function serializeError(err) {
   const { code, text } = require('./errors').describe(err);
   // Extra details the GUI uses (e.g. which project a CONFLICT is about).

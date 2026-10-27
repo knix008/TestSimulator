@@ -513,6 +513,19 @@ class Layout {
     this.y -= 10;
   }
 
+  // A picture at 96 dpi (0.75 pt per pixel), shrunk to the text width.
+  image(b) {
+    const scale = Math.min(0.75, CONTENT_W / b.width);
+    const w = b.width * scale;
+    const h = b.height * scale;
+    this.ensure(Math.min(h, this.top - MARGIN.bottom) + 8);
+    if (!this.images) this.images = [];
+    const index = this.images.push(b) - 1;
+    this.page.images = [...(this.page.images || []), index];
+    this.page.ops.push(`q ${num(w)} 0 0 ${num(h)} ${num(MARGIN.left)} ${num(this.y - h)} cm /Im${index} Do Q`);
+    this.y -= h + 10;
+  }
+
   block(b) {
     switch (b.type) {
       case 'h1': case 'h2': case 'h3': this.heading(b); break;
@@ -522,6 +535,7 @@ class Layout {
       case 'kv': if (b.rows.length) this.table(b, { kv: true }); break;
       case 'table': this.table(b); break;
       case 'pagebreak': if (this.y < this.top - 0.5) this.newPage(); break;
+      case 'image': this.image(b); break;
       default: break;
     }
   }
@@ -579,6 +593,39 @@ class Writer {
     parts.push(Buffer.from(xref, 'latin1'));
     return Buffer.concat(parts);
   }
+}
+
+// RGB pixels of an 8-bit RGB, non-interlaced PNG (what chart.js writes).
+function pngPixels(png) {
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  const parts = [];
+  for (let p = 8; p < png.length;) {
+    const len = png.readUInt32BE(p);
+    const type = png.toString('latin1', p + 4, p + 8);
+    if (type === 'IDAT') parts.push(png.subarray(p + 8, p + 8 + len));
+    p += 12 + len;
+  }
+  const raw = zlib.inflateSync(Buffer.concat(parts));
+  const out = Buffer.alloc(width * height * 3);
+  const stride = width * 3;
+  let prev = Buffer.alloc(stride);
+  for (let y = 0; y < height; y++) {
+    const f = raw[y * (stride + 1)];
+    const line = Buffer.from(raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1)));
+    for (let i = 0; i < stride; i++) {
+      const a = i >= 3 ? line[i - 3] : 0;
+      const b = prev[i];
+      const c = i >= 3 ? prev[i - 3] : 0;
+      let add = 0;
+      if (f === 1) add = a; else if (f === 2) add = b; else if (f === 3) add = (a + b) >> 1;
+      else if (f === 4) { const pa = Math.abs(b - c); const pb = Math.abs(a - c); const pc = Math.abs(a + b - 2 * c); add = pa <= pb && pa <= pc ? a : pb <= pc ? b : c; }
+      line[i] = (line[i] + add) & 255;
+    }
+    line.copy(out, y * stride);
+    prev = line;
+  }
+  return out;
 }
 
 function stream(content, compress) {
@@ -680,11 +727,17 @@ function renderPdf(model, opts = {}) {
     return `/${f.res} ${w.add(`<< /Type /Font /Subtype /Type1 /BaseFont /${f.base} /Encoding /WinAnsiEncoding >>`)} 0 R`;
   });
   if (fonts.kind === 'std' && (fonts.regular.replaced || fonts.bold.replaced)) warnings.push(warning('replaced'));
+  // Pictures: raw RGB, deflated (the chart module keeps the pixels next to the PNG).
+  const imageIds = (L.images || []).map((img) => {
+    const rgb = img.rgb || pngPixels(img.png);
+    return w.add(`/Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode`, zlib.deflateSync(rgb));
+  });
   const pageIds = [];
   for (const p of L.pages) {
     const s = stream(`${p.ops.join('\n')}\n`, compress);
     const contentId = w.add(s.dict, s.data);
-    const pid = w.add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${num(PAGE.w)} ${num(PAGE.h)}] /Resources << /Font << ${fontRefs.join(' ')} >> /ProcSet [/PDF /Text] >> /Contents ${contentId} 0 R >>`);
+    const xobj = (p.images || []).length ? ` /XObject << ${p.images.map((i) => `/Im${i} ${imageIds[i]} 0 R`).join(' ')} >>` : '';
+    const pid = w.add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${num(PAGE.w)} ${num(PAGE.h)}] /Resources << /Font << ${fontRefs.join(' ')} >>${xobj} /ProcSet [/PDF /Text${xobj ? ' /ImageC' : ''}] >> /Contents ${contentId} 0 R >>`);
     pageIds.push(pid);
   }
   w.set(pagesId, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`);

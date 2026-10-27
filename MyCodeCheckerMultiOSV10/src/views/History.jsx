@@ -2,7 +2,7 @@
 // chart and activity events.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
-import { useApi, ApiState, Btn, IconSelect, Tabs, Stat, ViewHeader, Empty, fmtDate, NoProject, SevBadge } from './common';
+import { useApi, ApiState, Btn, IconSelect, Tabs, Stat, ViewHeader, Empty, fmtDate, NoProject, SevBadge, useRowWindow } from './common';
 import { msg } from './Panels';
 
 const METRICS = ['bugs', 'vulnerabilities', 'code_smells', 'security_hotspots', 'sqale_index', 'coverage', 'duplicated_lines_density', 'ncloc'];
@@ -178,13 +178,14 @@ export function HistoryView({ project, branch, stamp }) {
 
 function IssueList({ issues }) {
   useLanguage();
+  const { rows, footer } = useRowWindow(issues);
   return (
     <div className="panel tpanel">
       <div className="table-wrap">
         <table>
           <thead><tr><th>CID</th><th>{t('severity')}</th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
           <tbody>
-            {issues.map((i) => (
+            {rows.map((i) => (
               <tr key={`${i.cid}-${i.key}`}>
                 <td>{i.cid}</td>
                 <td><SevBadge sev={i.severity} /></td>
@@ -195,6 +196,7 @@ function IssueList({ issues }) {
             ))}
           </tbody>
         </table>
+        {footer}
         {issues.length === 0 && <Empty text={t('empty')} />}
       </div>
     </div>

@@ -21,8 +21,8 @@ const CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml';
 const MAX_CELL = 32767;
 
 const STR = {
-  en: { summary: 'Summary', table: 'Table', sheet: 'Sheet' },
-  ko: { summary: '요약', table: '표', sheet: '시트' }, // 요약, 표, 시트
+  en: { summary: 'Summary', table: 'Table', sheet: 'Sheet', charts: 'Charts' },
+  ko: { summary: '요약', table: '표', sheet: '시트', charts: '차트' }, // 요약, 표, 시트
 };
 
 function colName(i) {
@@ -203,6 +203,26 @@ function summarySheet(m, name, styles) {
   return sh;
 }
 
+// A sheet of pictures (the report charts), stacked down column B with a drawing part.
+function chartSheet(images, name) {
+  const XDR = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing';
+  const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  let row = 1;
+  const anchors = images.map((b, i) => {
+    const cx = b.width * 9525;
+    const cy = b.height * 9525;
+    const at = row;
+    row += Math.ceil(b.height / 20) + 2; // default rows are 20 px high
+    return `<xdr:oneCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${at}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="${cx}" cy="${cy}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${i + 2}" name="Picture ${i + 1}" descr="${x(b.alt)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:r="${REL}" r:embed="rId${i + 1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
+  });
+  return {
+    name,
+    images,
+    toXml: () => `${DECL}<worksheet xmlns="${MAIN}" xmlns:r="${REL}"><sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="2.7" customWidth="1"/></cols><sheetData/><pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><drawing r:id="rId1"/></worksheet>`,
+    drawingXml: () => `${DECL}<xdr:wsDr xmlns:xdr="${XDR}" xmlns:a="${A}">${anchors.join('')}</xdr:wsDr>`,
+  };
+}
+
 function hasSummaryContent(m) {
   return m.meta.length > 0 || m.blocks.some((b) => b.type === 'kv' || b.type === 'badge' || b.type === 'p' || b.type === 'list');
 }
@@ -221,7 +241,8 @@ function toXlsx(model, opts = {}) {
   const used = new Set();
   const sheets = [];
   const tables = m.blocks.filter((b) => b.type === 'table');
-  if (opts.summarySheet !== false && (hasSummaryContent(m) || !tables.length)) sheets.push(summarySheet(m, sheetName(tr.summary, used, tr.summary), styles));
+  const withSummary = opts.summarySheet !== false && (hasSummaryContent(m) || !tables.length);
+  if (withSummary) sheets.push(summarySheet(m, sheetName(tr.summary, used, tr.summary), styles));
   // Sheet name: table caption, else the heading (or verdict badge) since the previous table,
   // else the document title for the first table, else 'Table N'.
   let heading = '';
@@ -229,10 +250,17 @@ function toXlsx(model, opts = {}) {
   for (const b of m.blocks) {
     if (/^h[123]$/.test(b.type)) { heading = b.text; continue; }
     if (b.type === 'badge' && !heading) { heading = b.text; continue; }
+    if (b.type === 'image') { heading = ''; continue; }
     if (b.type !== 'table') continue;
     k++;
     sheets.push(tableSheet(b, sheetName(b.caption || heading || (k === 1 ? m.title : ''), used, `${tr.table} ${k}`), styles));
     heading = '';
+  }
+  const pictures = m.blocks.filter((b) => b.type === 'image');
+  if (pictures.length) {
+    // Right after the summary sheet (or first).
+    const at = withSummary ? 1 : 0;
+    sheets.splice(at, 0, chartSheet(pictures, sheetName(tr.charts, used, tr.charts)));
   }
   const defined = [];
   sheets.forEach((sh, i) => {
@@ -244,16 +272,31 @@ function toXlsx(model, opts = {}) {
     if (sh.printTitles) defined.push(`<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${x(`${quoteSheet(sh.name)}!$1:$1`)}</definedName>`);
   });
   const sheetXml = sheets.map((sh, i) => sh.toXml(sst, i === 0));
+  // Drawing parts of chart sheets: sheet rels -> drawingK.xml -> media.
+  const extra = [];
+  let drawingNo = 0;
+  let mediaNo = 0;
+  const drawingTypes = [];
+  sheets.forEach((sh, i) => {
+    if (!sh.images) return;
+    drawingNo++;
+    drawingTypes.push(`<Override PartName="/xl/drawings/drawing${drawingNo}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
+    extra.push({ name: `xl/worksheets/_rels/sheet${i + 1}.xml.rels`, data: `${DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/drawing" Target="../drawings/drawing${drawingNo}.xml"/></Relationships>` });
+    extra.push({ name: `xl/drawings/drawing${drawingNo}.xml`, data: sh.drawingXml() });
+    const rels = sh.images.map((b, k) => { mediaNo++; extra.push({ name: `xl/media/image${mediaNo}.png`, data: b.png }); return `<Relationship Id="rId${k + 1}" Type="${REL}/image" Target="../media/image${mediaNo}.png"/>`; });
+    extra.push({ name: `xl/drawings/_rels/drawing${drawingNo}.xml.rels`, data: `${DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join('')}</Relationships>` });
+  });
   const workbook = `${DECL}<workbook xmlns="${MAIN}" xmlns:r="${REL}"><bookViews><workbookView activeTab="0"/></bookViews><sheets>${sheets.map((sh, i) => `<sheet name="${x(sh.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>${defined.length ? `<definedNames>${defined.join('')}</definedNames>` : ''}<calcPr calcId="191029"/></workbook>`;
   const n = sheets.length;
   const when = w3cdtf(opts.date);
   const creator = opts.creator || 'MyCodeChecker';
   const files = [
-    { name: '[Content_Types].xml', data: `${DECL}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${CT}.sheet.main+xml"/>${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="${CT}.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="${CT}.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="${CT}.sharedStrings+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>` },
+    { name: '[Content_Types].xml', data: `${DECL}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="${CT}.sheet.main+xml"/>${drawingTypes.join('')}${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="${CT}.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="${CT}.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="${CT}.sharedStrings+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>` },
     { name: '_rels/.rels', data: `${DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="${REL}/extended-properties" Target="docProps/app.xml"/></Relationships>` },
     { name: 'xl/workbook.xml', data: workbook },
     { name: 'xl/_rels/workbook.xml.rels', data: `${DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="${REL}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${n + 1}" Type="${REL}/styles" Target="styles.xml"/><Relationship Id="rId${n + 2}" Type="${REL}/sharedStrings" Target="sharedStrings.xml"/></Relationships>` },
     ...sheetXml.map((data, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data })),
+    ...extra,
     { name: 'xl/styles.xml', data: styles.toXml() },
     { name: 'xl/sharedStrings.xml', data: sst.toXml() },
     { name: 'docProps/core.xml', data: `${DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${x(m.title)}</dc:title><dc:creator>${x(creator)}</dc:creator><cp:lastModifiedBy>${x(creator)}</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${when}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${when}</dcterms:modified></cp:coreProperties>` },

@@ -358,9 +358,9 @@ const ROWS = [
   ['themeMenu', 'settings', T('theme-picker', ...MENU), ['project', 'menu:theme', 'wait:300'],
     ['테마 단추', '메뉴 표시줄 오른쪽의 테마 단추를 누르면 어두운 테마와 밝은 테마가 견본으로 나뉘어 나옵니다. 하나를 고르면 곧바로 바뀌고 저장됩니다.'],
     ['Theme button', 'The theme button at the right of the menu bar lists dark and light themes as swatches. Pick one and it applies and is saved at once.']],
-  ['language', 'settings', T('lang-picker', ...MENU), ['project', 'menu:lang', 'wait:300'],
-    ['언어', '언어 단추에는 태극기와 영국 국기가 있는 한국어 / English 목록이 나옵니다. 언어를 바꾸면 메뉴, 화면, 규칙 설명, 보고서, 사용 설명서와 이 튜토리얼까지 모두 그 언어로 바뀝니다.'],
-    ['Language', 'The language button lists 한국어 / English with the Korean and British flags. Switching changes the menus, views, rule descriptions, reports, the user\'s guide and this tutorial.']],
+  ['language', 'settings', T('lang-toggle', '.tb-lang'), ['project', 'wait:300'],
+    ['언어', '언어 단추는 지금 언어의 국기와 코드(KO / EN)를 보여 줍니다. 누를 때마다 한국어와 English가 번갈아 바뀌고 곧바로 저장됩니다. 언어를 바꾸면 메뉴, 화면, 규칙 설명, 보고서, 사용 설명서와 이 튜토리얼까지 모두 그 언어로 바뀝니다.'],
+    ['Language', 'The language button shows the current language\'s flag and code (KO / EN). Each click switches between 한국어 and English and saves the choice. Switching changes the menus, views, rule descriptions, reports, the user\'s guide and this tutorial.']],
 
   // ── 15. 도움말과 CI ──────────────────────────────────
   ['helpMenu', 'help', MENU, ['project', 'menu:help', 'wait:300'],

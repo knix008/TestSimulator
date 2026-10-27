@@ -245,7 +245,13 @@ node scripts/defect-cli.mjs format-errors --dir samples/cpp-sensor/.mcc
 2. The analysis starts at once; progress shows in the [analysis progress window](#analysis-progress-window) and in **Jobs** and the result in **Analysis log** in the bottom panel. When it is done, **Overview** opens and the status bar shows the gate.
 3. After changing code, press **Analyze** (Ctrl+Enter) in the toolbar again. To see only new defects without changing the stream, press **Desktop**. From the second analysis on, results for **new code** compared with the previous analysis show separately.
 
-Left out of the analysis: folders such as `node_modules`, `.git`, `dist`, `build`, `target`, `vendor`, `bin`, `obj`, `coverage` and `.mcc`; files that match the **Exclusion patterns** setting; files over 800 KB; binary files. A line containing `NOMCC`, `noqa`, `nolint`, `mcc-ignore`, `cov-ignore` or `parasoft-suppress` reports no issues. In C/C++, a `// mcc[CHECKER]` comment turns off only that checker on its line (or, on a comment-only line, the next code line).
+Left out of the analysis: folders such as `node_modules`, `.git`, `dist`, `build`, `target`, `vendor`, `bin`, `obj`, `coverage` and `.mcc`; files that match the **Exclusion patterns** setting; the project's **Excluded folders**; files over 800 KB; binary files. 
+
+**Excluded folders**: in **File › Excluded folders…** (or **Excluded folders** in Administration › Analysis settings, and under **More** in the New project dialog) expand the source folder's tree and check the folders to leave out. A checked folder and every file below it are not analyzed. A folder with the same name elsewhere stays in (excluding `apis` still analyzes `src/apis`). Folders that are always skipped are marked **always skipped**. It applies from the next analysis and is saved in the project file (`.mccp`) as `excludeDirs`.
+
+**Delete results and analyze again**: **File › Delete results and analyze again…** deletes the project's stored analyses (every branch's latest result, activity history, snapshots and new-code baseline) and analyzes again at once. With no baseline, all code is new code, so a quality gate that checks new code judges every problem. **Delete results only** keeps issue states (confirmed, false positive, assignee, comments); **Delete issue states too** removes them as well. This cannot be undone.
+
+A line containing `NOMCC`, `noqa`, `nolint`, `mcc-ignore`, `cov-ignore` or `parasoft-suppress` reports no issues. In C/C++, a `// mcc[CHECKER]` comment turns off only that checker on its line (or, on a comment-only line, the next code line).
 
 ## Views
 
@@ -288,6 +294,9 @@ Every committed analysis leaves a snapshot (the last 12). Tabs:
 - **Activity** — changes of the quality gate, version, quality profile and Defect Analysis policy.
 
 #### Reports
+
+Reports save as **Word, Excel, PDF, PowerPoint, Markdown, HTML and CSV**. Every format carries the summary chart pictures (ratings, issues by type and severity, the ten most frequent rules): Excel on a **Charts** sheet, PowerPoint on slides. Markdown keeps the pictures inside the file (data: URIs) or in a `<report name>_images` folder next to it, as chosen in **Settings › Reports** (the browser gets one ZIP in that case). With **Settings › Reports › Save reports after each analysis**, every analysis writes the chosen reports in the chosen formats to the folder.
+
 
 See [Generating reports](#generating-reports).
 
@@ -423,6 +432,9 @@ A **Custom rule** (Tools › Custom rule) is a regex rule: give a pattern, name,
 
 #### Quality gates
 
+The quality gate always tells the **current state**. The default gate judges the whole code — bug and vulnerability counts, hotspots reviewed, coverage, duplication, reliability, security and maintainability ratings (not only the code changed since the last analysis) — and judges again at once, without a new analysis, when you mark issues as false positives or accepted or change the conditions. To judge new code only, pick the `New code · …` metrics. Turn conditions on and off or change thresholds in **Settings › Quality gate**; a condition that is off shows "Off" and is not judged.
+
+
 The conditions that decide whether an analysis passes. The default gate "Checker way" (all on new code):
 
 | Metric | Operator | Threshold |
@@ -519,7 +531,9 @@ Deactivated users cannot sign in. Sign out with **Tools › Sign out**.
 | Theme | The current theme, the **Custom themes** group on top, then **Dark** 20 and **Light** 20 (two columns each). A click previews at once |
 | Custom themes | The list on the left and a **Base theme**; **New** (from the chosen base theme), **Duplicate**, **Remove**, **Import**, **Export** (JSON), **Use this theme**. On the right: name, kind (dark / light) and 15 colour tokens (background, panel, card, hover, selection, border, strong border, text, dim text, accent, strong accent, text on accent, folder / warning, file, danger), **From base theme** to start over, and a **Preview** of menus, buttons and lists |
 | Start page | Show this page at start, **Background** (20 kinds as buttons + **Random**), **Speed** 0–300 %, **Transparency** 0–100 % (0 % shows the background fully, higher fades it), **Shuffle every** (seconds, 0 = off — a different background at that interval), **Change at start** (a different background at every start), Cards: **Reset card layout**. A small preview moves at once |
-| Analysis | Exclusion patterns (one per line; defaults `**/*.min.js`, `**/vendor/**`, `**/node_modules/**`, `**/dist/**`, `**/build/**`), cognitive complexity limit (15), parameter limit (7), max files (8000), **More settings** › **Open Administration › Analysis settings** |
+| Analysis | Exclusion patterns (one per line; defaults `**/*.min.js`, `**/vendor/**`, `**/node_modules/**`, `**/dist/**`, `**/build/**`), cognitive complexity limit (15), parameter limit (7), max files (8000), **More settings** › **Open Administration › Analysis settings**, **Checks** (core code quality rules, Defect Analysis, semantic analysis per language, taint, Security Weakness, MISRA C:2012/2023, MISRA C:2004, MISRA C++:2023, MISRA C++:2008, CERT, AUTOSAR, runtime errors, HIS, architecture, SCA, IaC, each on or off; a check that is off is not run and does not report, from the next analysis) |
+| Quality gate | The default quality gate's conditions: **Use** per condition, metric, operator and threshold, **Add condition**, **Remove**, **Default conditions**. Saving changes the verdict at once, without a new analysis |
+| Reports | **Store pictures inside the Markdown file** (off saves them as PNG files in `<report name>_images`), **Save reports after each analysis** (reports, formats PDF/Word/Excel/PowerPoint/HTML/Markdown/CSV, folder; empty means `reports/<project key>` in the data folder) |
 | New code | New code (previous analysis, number of days, changed lines (git), since previous version, since a specific analysis) and days. Per-project definitions are in Administration › Analysis settings |
 | AI CodeFix | [below](#ai-codefix-settings) |
 | Database | [below](#database) |
@@ -546,7 +560,7 @@ Deactivated users cannot sign in. Sign out with **Tools › Sign out**.
 
 ### Database
 
-Exports analysis results as database tables for other tools (BI dashboards, reporting systems).
+Exports analysis results as database tables for other tools (BI dashboards, reporting systems). Only **project information** and **analysis results** are saved, never the program's own settings (theme, language, AI, database connection ...). The tables are `mcc_projects` (name, key, path, description, main branch, project file, tags, the last analysis and its gate verdict), `mcc_project_details` (per analysis, the analysis setup at the time: exclusion patterns, excluded folders, include paths, defines, new-code baseline, checks turned off, the quality gate with each condition's verdict, files per language), `mcc_analyses`, `mcc_measures` and `mcc_issues`. Tables made by an older version get the new columns automatically.
 
 | Item | Meaning |
 |---|---|
@@ -558,9 +572,10 @@ Exports analysis results as database tables for other tools (BI dashboards, repo
 | Schema / prefix | Put in front of the table names (default `mcc`) — tables `mcc_projects`, `mcc_analyses`, `mcc_issues`, `mcc_measures` (created when missing). Letters, digits and `_` only |
 | Auto export | **After every committed analysis** |
 | Include issues | **Save the issue list too**; off exports only projects, analyses and measures |
+| Time limit (s) | When the connection or one SQL statement takes longer (default 60 s, 5–3600), saving stops, is rolled back and the error is shown |
 | Connection test | **Test connection** |
 
-With auto export off, use **Export to DB** in the **Reports** view to send the current result now ("Analysis … · … issues · … measures"). Exporting the same analysis again replaces its rows, so nothing is duplicated. A failed export never stops the analysis; the reason is left as a task warning (`DB: …`) and in the bottom panel's **Analysis log**.
+With auto export off, use **Export to DB** in the **Reports** view to send the current result now ("Analysis … · … issues · … measures"). Exporting the same analysis again replaces its rows, so nothing is duplicated. When saving takes more than half a second a progress window shows the step (connecting, checking tables, writing rows, committing), rows written, elapsed and remaining time and the per-statement time limit, with **Cancel**. Auto export appears in the analysis progress window as **Saving to the database**. Errors such as a timeout or a failed connection are shown in a popup. A failed export never stops the analysis; the reason is also left as a task warning (`DB: …`) and in the bottom panel's **Analysis log**.
 
 ## Workflows
 

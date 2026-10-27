@@ -8,12 +8,12 @@
 
 const crypto = require('crypto');
 const { rate } = require('../ratings');
-const { DEFAULT_GATE, evaluateGate, metricLabel } = require('../qualitygate');
+const { NEW_CODE_CONDITIONS, evaluateGate, metricLabel } = require('../qualitygate');
 const { isClosed, normPath, text } = require('./util');
 const { newCodeCoverage } = require('./measures');
 
-/** Default PR gate: the new-code conditions of the default gate. */
-const PR_GATE = { id: 'pr-way', name: 'Pull request', conditions: DEFAULT_GATE.conditions.filter((c) => c.on === 'new').map((c) => ({ ...c })) };
+/** Default PR gate: the new-code conditions. */
+const PR_GATE = { id: 'pr-way', name: 'Pull request', conditions: NEW_CODE_CONDITIONS.map((c) => ({ ...c })) };
 
 function changedFiles(changed) {
   return (changed && changed.files) || changed || {};

@@ -15,7 +15,7 @@ const { compliance, reports, scm, pullrequest, webhooks, users, external, histor
 
 const SNAPSHOTS_KEPT = 12;
 
-function createExtensions({ workspace, saveWorkspace, configDir }) {
+function createExtensions({ workspace, saveWorkspace, configDir, issuesOf = (issues) => issues }) {
   let osvCache = null; // { source, db }
   const loginFailures = new Map(); // login -> recent failure times
 
@@ -142,25 +142,20 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     'report.kinds': () => reports.REPORT_KINDS,
     'report.export': (args) => {
       const { ws, project, branch, state, analysis } = latestFor(args);
-      const kind = args.kind || 'executive';
-      const opts = {
-        catalog: catalog(),
-        history: state.history || [],
-        lang: args.lang || (ws.settings && ws.settings.language) || 'ko',
-        project, branch,
-        standard: args.standard,
-        ruleSet: args.ruleSet,
-      };
-      if (kind === 'misra') opts.plan = methods['misra.plan']({ projectId: project.id, standard: args.standard || 'misraC2012' });
-      if (kind === 'sbom') opts.sca = sca.scanDependencies(project.path, engineOptions(ws, project).sca);
-      const out = reports.build(kind, analysis, opts);
-      if (args.format === 'csv') return { format: 'csv', body: out.csv, type: 'text/csv', fileName: `${out.fileName}.csv` };
-      // Native Word / Excel / PDF files: binary, sent as base64.
-      if (['docx', 'xlsx', 'pdf'].includes(args.format)) {
-        const exported = require('./export').exportWithInfo(require('./export').fromHtml(out.html), args.format, { lang: opts.lang, csv: out.csv, creator: 'MyCodeChecker' });
-        return { format: args.format, base64: exported.buffer.toString('base64'), type: exported.mimeType, fileName: `${out.fileName}.${String(exported.extension).replace(/^\./, '')}`, warnings: exported.warnings };
+      const file = reportFile(ws, project, branch, state, analysis, args);
+      const { data, extra, ...rest } = file;
+      // Text formats travel as text, the rest as base64.
+      if (['csv', 'html', 'md'].includes(file.format)) {
+        const out = { ...rest, body: data.toString('utf8') };
+        if (extra.length) out.images = extra.map((f) => ({ path: f.path, base64: f.data.toString('base64') }));
+        // A Markdown file with its pictures apart, as one ZIP (browsers save one file).
+        if (extra.length && args.zip) {
+          const { zip } = require('./export/zip');
+          return { ...rest, format: 'zip', type: 'application/zip', fileName: rest.fileName.replace(/\.md$/, '.zip'), base64: zip([{ name: rest.fileName, data }, ...extra.map((f) => ({ name: f.path, data: f.data }))]).toString('base64') };
+        }
+        return out;
       }
-      return { format: 'html', body: out.html, type: 'text/html', fileName: `${out.fileName}.html` };
+      return { ...rest, base64: data.toString('base64') };
     },
     // Regulatory report (enterprise code-quality servers): one ZIP with the executive,
     // security, compliance and SBOM reports as PDF plus the issue list as XLSX.
@@ -399,7 +394,7 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     // ── History, measures ────────────────────────────────
     'snapshot.list': (args) => {
       const { state } = latestFor(args);
-      return (state.snapshots || []).map((s) => ({ snapshot: s.snapshot, at: s.at, count: s.issues.length }));
+      return (state.snapshots || []).map((s) => ({ snapshot: s.snapshot, at: s.at, count: Array.isArray(s.issues) ? s.issues.length : (s.issues && s.issues.count) || 0 }));
     },
     'snapshot.compare': (args) => {
       const { state } = latestFor(args);
@@ -407,11 +402,12 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
       const find = (n) => snaps.find((s) => s.snapshot === Number(n));
       const before = find(args.from) || snaps[snaps.length - 2] || { issues: [] };
       const after = find(args.to) || snaps[snaps.length - 1] || { issues: [] };
-      return history.compareSnapshots(before.issues, after.issues);
+      return history.compareSnapshots(issuesOf(before.issues) || [], issuesOf(after.issues) || []);
     },
     'defect.lifecycle': (args) => {
       const { state } = latestFor(args);
-      const out = history.defectLifecycle(state.snapshots || []);
+      // Snapshot issue lists are stored apart and read only here.
+      const out = history.defectLifecycle((state.snapshots || []).map((s) => ({ ...s, issues: issuesOf(s.issues) || [] })));
       return out instanceof Map ? Object.fromEntries(out) : out;
     },
     'activity.events': (args) => history.activityEvents(latestFor(args).state.history || [], { category: args.category }),
@@ -423,7 +419,67 @@ function createExtensions({ workspace, saveWorkspace, configDir }) {
     },
   };
 
-  return { methods, afterScan, engineOptions, configDir };
+  /**
+   * One report file: { format, fileName, type, data: Buffer, extra: [{ path, data }], warnings }.
+   * Every format carries the report charts (Word, Excel, PDF, PowerPoint, Markdown, HTML);
+   * Markdown keeps them inside (data: URIs) or lists them in `extra` (<name>_images/*.png).
+   */
+  function reportFile(ws, project, branch, state, analysis, args) {
+    const ex = require('./export');
+    const { reportCharts } = require('./export/chart');
+    const kind = args.kind || 'executive';
+    const format = args.format || 'html';
+    const lang = args.lang || (ws.settings && ws.settings.language) || 'ko';
+    const rs = (ws.settings && ws.settings.reports) || {};
+    const opts = { catalog: catalog(), history: state.history || [], lang, project, branch, standard: args.standard, ruleSet: args.ruleSet };
+    if (kind === 'misra') opts.plan = methods['misra.plan']({ projectId: project.id, standard: args.standard || 'misraC2012' });
+    if (kind === 'sbom') opts.sca = sca.scanDependencies(project.path, engineOptions(ws, project).sca);
+    const out = reports.build(kind, analysis, opts);
+    if (format === 'csv') return { format, fileName: `${out.fileName}.csv`, type: 'text/csv', data: Buffer.from(out.csv, 'utf8'), extra: [], warnings: [] };
+    const charts = args.charts === false ? [] : reportCharts(analysis, { lang });
+    if (format === 'html') return { format, fileName: `${out.fileName}.html`, type: 'text/html', data: Buffer.from(ex.addChartsHtml(out.html, charts, lang), 'utf8'), extra: [], warnings: [] };
+    const doc = ex.addCharts(ex.fromHtml(out.html), charts, lang);
+    if (format === 'md') {
+      const embedImages = args.embedImages != null ? !!args.embedImages : rs.mdEmbedImages !== false;
+      const md = ex.markdownFiles(doc, { embedImages, imageDir: `${out.fileName}_images` });
+      return { format, fileName: `${out.fileName}.md`, type: 'text/markdown', data: Buffer.from(md.text, 'utf8'), extra: md.images.map((i) => ({ path: i.path, data: i.png })), warnings: [] };
+    }
+    if (!['docx', 'xlsx', 'pdf', 'pptx'].includes(format)) throw Object.assign(new Error(`Unknown export format: ${format}`), { code: 'BAD_REQUEST' });
+    const exported = ex.exportWithInfo(doc, format, { lang, csv: out.csv, creator: 'MyCodeChecker' });
+    return { format, fileName: `${out.fileName}.${String(exported.extension).replace(/^\./, '')}`, type: exported.mimeType, data: exported.buffer, extra: [], warnings: exported.warnings };
+  }
+
+  /**
+   * Reports written after an analysis (Settings › Reports › automatic): every
+   * chosen kind in every chosen format, into the chosen folder (default: the
+   * data folder's reports/<project key>). Returns { folder, files, errors }.
+   */
+  function autoReports(ws, project, branch) {
+    const auto = ((ws.settings && ws.settings.reports) || {}).auto || {};
+    if (!auto.enabled) return null;
+    const state = (project.branches || {})[branch];
+    if (!state || !state.latest) return null;
+    const folder = path.resolve(auto.folder || path.join(configDir || '.', 'reports', String(project.key || project.id).replace(/[^\w.-]+/g, '_')));
+    fs.mkdirSync(folder, { recursive: true });
+    const files = [];
+    const errors = [];
+    for (const kind of auto.kinds && auto.kinds.length ? auto.kinds : ['executive']) {
+      for (const format of auto.formats && auto.formats.length ? auto.formats : ['pdf']) {
+        try {
+          const f = reportFile(ws, project, branch, state, state.latest, { kind, format });
+          const target = path.join(folder, f.fileName);
+          fs.writeFileSync(target, f.data);
+          for (const e of f.extra) { const p = path.join(folder, e.path); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, e.data); }
+          files.push(target);
+        } catch (err) {
+          errors.push(`${kind}.${format}: ${err.message}`);
+        }
+      }
+    }
+    return { folder, files, errors };
+  }
+
+  return { methods, afterScan, engineOptions, configDir, autoReports };
 }
 
 function slim(issue) {

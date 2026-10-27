@@ -82,7 +82,7 @@ if (process.argv.includes('--workspace')) {
     process.exit(2);
   }
   const copyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcc-cli-'));
-  fs.copyFileSync(source.file, path.join(copyDir, 'workspace.json'));
+  source.copyTo(copyDir);
   const api = createApi({ configDir: copyDir });
   const res = await api.call('project.scan', { path: root, branch: arg('branch'), commit: false, exclusions, coverageReports: coverageReports.length ? coverageReports : undefined });
   analysis = res.analysis;

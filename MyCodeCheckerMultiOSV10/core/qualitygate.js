@@ -3,22 +3,58 @@
 // A quality gate is a list of conditions. A condition fails when the measure
 // breaks the operator (coverage LT 80 fails when coverage is under 80).
 // Missing coverage does not fail a coverage condition: there is nothing to judge.
+// A condition with enabled: false is shown but not judged.
+
+// The new-code conditions (the pull-request gate, and the default gate of
+// older versions).
+const NEW_CODE_CONDITIONS = [
+  { id: 'c1', metric: 'new_bugs', op: 'GT', threshold: 0, on: 'new' },
+  { id: 'c2', metric: 'new_vulnerabilities', op: 'GT', threshold: 0, on: 'new' },
+  { id: 'c3', metric: 'new_security_hotspots_reviewed', op: 'LT', threshold: 100, on: 'new' },
+  { id: 'c4', metric: 'new_coverage', op: 'LT', threshold: 80, on: 'new' },
+  { id: 'c5', metric: 'new_duplicated_lines_density', op: 'GT', threshold: 3, on: 'new' },
+  { id: 'c6', metric: 'new_maintainability_rating', op: 'GT', threshold: 1, on: 'new' },
+  { id: 'c7', metric: 'new_reliability_rating', op: 'GT', threshold: 1, on: 'new' },
+  { id: 'c8', metric: 'new_security_rating', op: 'GT', threshold: 1, on: 'new' },
+];
+
+// The default gate judges the whole code as it is now (not only what changed
+// since the last analysis), so it always tells the current state.
+const DEFAULT_CONDITIONS = [
+  { id: 'c1', metric: 'bugs', op: 'GT', threshold: 0, on: 'overall', enabled: true },
+  { id: 'c2', metric: 'vulnerabilities', op: 'GT', threshold: 0, on: 'overall', enabled: true },
+  { id: 'c3', metric: 'security_hotspots_reviewed', op: 'LT', threshold: 100, on: 'overall', enabled: true },
+  { id: 'c4', metric: 'coverage', op: 'LT', threshold: 80, on: 'overall', enabled: true },
+  { id: 'c5', metric: 'duplicated_lines_density', op: 'GT', threshold: 3, on: 'overall', enabled: true },
+  { id: 'c6', metric: 'maintainability_rating', op: 'GT', threshold: 1, on: 'overall', enabled: true },
+  { id: 'c7', metric: 'reliability_rating', op: 'GT', threshold: 1, on: 'overall', enabled: true },
+  { id: 'c8', metric: 'security_rating', op: 'GT', threshold: 1, on: 'overall', enabled: true },
+];
 
 const DEFAULT_GATE = {
   id: 'checker-way',
   name: 'Checker way',
   isDefault: true,
-  conditions: [
-    { id: 'c1', metric: 'new_bugs', op: 'GT', threshold: 0, on: 'new' },
-    { id: 'c2', metric: 'new_vulnerabilities', op: 'GT', threshold: 0, on: 'new' },
-    { id: 'c3', metric: 'new_security_hotspots_reviewed', op: 'LT', threshold: 100, on: 'new' },
-    { id: 'c4', metric: 'new_coverage', op: 'LT', threshold: 80, on: 'new' },
-    { id: 'c5', metric: 'new_duplicated_lines_density', op: 'GT', threshold: 3, on: 'new' },
-    { id: 'c6', metric: 'new_maintainability_rating', op: 'GT', threshold: 1, on: 'new' },
-    { id: 'c7', metric: 'new_reliability_rating', op: 'GT', threshold: 1, on: 'new' },
-    { id: 'c8', metric: 'new_security_rating', op: 'GT', threshold: 1, on: 'new' },
-  ],
+  conditions: DEFAULT_CONDITIONS,
 };
+
+const sameConditions = (a, b) => Array.isArray(a) && a.length === b.length
+  && a.every((c, i) => c.metric === b[i].metric && c.op === b[i].op && Number(c.threshold) === Number(b[i].threshold));
+
+/**
+ * The built-in gate saved by an older version (new-code conditions only, never
+ * edited) becomes the current default. A gate the user changed is kept.
+ */
+function upgradeGates(gates) {
+  if (!Array.isArray(gates)) return gates;
+  let changed = false;
+  const out = gates.map((g) => {
+    if (!g || g.id !== DEFAULT_GATE.id || !sameConditions(g.conditions, NEW_CODE_CONDITIONS)) return g;
+    changed = true;
+    return { ...g, conditions: DEFAULT_CONDITIONS.map((c) => ({ ...c })) };
+  });
+  return changed ? out : gates;
+}
 
 const METRICS = {
   bugs: { ko: '버그', en: 'Bugs', kind: 'count' },
@@ -62,6 +98,7 @@ function compare(actual, op, threshold) {
 
 function evaluateGate(gate, measures) {
   const conditions = (gate && gate.conditions ? gate.conditions : []).map((c) => {
+    if (c.enabled === false) return { ...c, actual: measures[c.metric] ?? null, status: 'OFF' };
     const actual = measures[c.metric];
     const missing = actual == null || Number.isNaN(actual);
     const coverageLike = /coverage/.test(c.metric);
@@ -79,4 +116,33 @@ function evaluateGate(gate, measures) {
   return { id: gate && gate.id, name: gate && gate.name, status, conditions };
 }
 
-module.exports = { DEFAULT_GATE, METRICS, metricLabel, compare, evaluateGate };
+// Issue-based measures recomputed from the issues as they are now (after
+// false positives, accepted issues, reviewed hotspots), so the gate shows the
+// current state without a new analysis. File-based measures (lines,
+// duplication, coverage) stay as analyzed.
+function currentMeasures(analysis) {
+  const { rate, countOpen, isClosed } = require('./ratings');
+  const m = { ...((analysis && analysis.measures) || {}) };
+  const issues = (analysis && analysis.issues) || [];
+  const plain = issues.filter((i) => i.type !== 'SECURITY_HOTSPOT');
+  const hotspots = issues.filter((i) => i.type === 'SECURITY_HOTSPOT');
+  const debt = (list) => list.filter((i) => i.type === 'CODE_SMELL' && !isClosed(i)).reduce((n, i) => n + (i.debtMin || 0), 0);
+  const all = rate(plain, hotspots, debt(plain), m.ncloc || 0);
+  Object.assign(m, {
+    bugs: countOpen(plain, 'BUG'), vulnerabilities: countOpen(plain, 'VULNERABILITY'), code_smells: countOpen(plain, 'CODE_SMELL'),
+    security_hotspots: hotspots.filter((h) => !h.resolution).length, security_hotspots_reviewed: all.hotspotsReviewed,
+    sqale_index: debt(plain), sqale_debt_ratio: all.debtRatio,
+    reliability_rating: all.reliabilityValue, security_rating: all.securityValue, maintainability_rating: all.maintainabilityValue, security_review_rating: all.securityReviewValue,
+  });
+  const fresh = issues.filter((i) => i.isNew);
+  const freshPlain = fresh.filter((i) => i.type !== 'SECURITY_HOTSPOT');
+  const next = rate(freshPlain, fresh.filter((i) => i.type === 'SECURITY_HOTSPOT'), debt(freshPlain), m.new_ncloc || 0);
+  Object.assign(m, {
+    new_bugs: countOpen(freshPlain, 'BUG'), new_vulnerabilities: countOpen(freshPlain, 'VULNERABILITY'), new_code_smells: countOpen(freshPlain, 'CODE_SMELL'),
+    new_security_hotspots_reviewed: next.hotspotsReviewed,
+    new_reliability_rating: next.reliabilityValue, new_security_rating: next.securityValue, new_maintainability_rating: next.maintainabilityValue,
+  });
+  return m;
+}
+
+module.exports = { DEFAULT_GATE, DEFAULT_CONDITIONS, NEW_CODE_CONDITIONS, METRICS, metricLabel, compare, evaluateGate, upgradeGates, currentMeasures };

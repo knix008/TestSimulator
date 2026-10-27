@@ -211,7 +211,7 @@ class Engine {
   async ensureProject() {
     if (!this.projectReady) {
       const hasResult = async () => {
-        const ws = await call('workspace.load');
+        const ws = await call('workspace.load', { slim: true });
         const p = (ws.projects || []).find((x) => x.id === ws.activeProjectId);
         return !!(p && p.branches && Object.values(p.branches).some((b) => b && b.latest));
       };

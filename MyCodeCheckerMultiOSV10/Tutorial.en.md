@@ -604,7 +604,7 @@ The theme button at the right of the menu bar lists dark and light themes as swa
 
 ![Language](docs/images/tutorial/en/93-language.jpg)
 
-The language button lists 한국어 / English with the Korean and British flags. Switching changes the menus, views, rule descriptions, reports, the user's guide and this tutorial.
+The language button shows the current language's flag and code (KO / EN). Each click switches between 한국어 and English and saves the choice. Switching changes the menus, views, rule descriptions, reports, the user's guide and this tutorial.
 
 ## 15. Help and CI
 

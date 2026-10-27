@@ -35,13 +35,42 @@ export function hasUserToken() {
   return !!userToken;
 }
 
+// The server keeps analyses as scans wrote them; sending them back would only
+// make the request huge (a large project's issues exceed the body limit).
+function withoutAnalyses(args) {
+  const ws = args && args.workspace;
+  if (!ws || !Array.isArray(ws.projects)) return args || {};
+  return { ...args, workspace: { ...ws, projects: ws.projects.map(({ branches, desktop, ...p }) => p) } };
+}
+
+/**
+ * A slim workspace (workspace.load / workspace.save with slim: true) with the
+ * issue lists taken from `prev` (the workspace this window has). Saves never
+ * change issues, so the window keeps its own instead of receiving them again.
+ */
+export function withIssuesFrom(slim, prev) {
+  if (!slim || !slim.slim) return slim;
+  const old = new Map(((prev && prev.projects) || []).map((p) => [p.id, p]));
+  const fill = (a, b) => (a && a.issues === undefined ? { ...a, issues: (b && Array.isArray(b.issues) && b.issues) || [] } : a);
+  const { slim: _, ...ws } = slim;
+  return {
+    ...ws,
+    projects: (ws.projects || []).map((p) => {
+      const o = old.get(p.id) || {};
+      const branches = {};
+      for (const [name, b] of Object.entries(p.branches || {})) branches[name] = b && b.latest ? { ...b, latest: fill(b.latest, o.branches && o.branches[name] && o.branches[name].latest) } : b;
+      return { ...p, branches, ...(p.desktop ? { desktop: fill(p.desktop, o.desktop) } : {}) };
+    }),
+  };
+}
+
 export async function call(name, args = {}) {
   const info = await hostAsync();
   const url = info ? `http://127.0.0.1:${info.port}/api/${encodeURIComponent(name)}` : `./api/${encodeURIComponent(name)}`;
   const headers = { 'content-type': 'application/json' };
   if (info && info.token) headers.authorization = `Bearer ${info.token}`;
   if (userToken) headers['x-mcc-user-token'] = userToken;
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(args || {}) });
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(name === 'workspace.save' ? withoutAnalyses(args) : (args || {})) });
   let body;
   try { body = await res.json(); } catch { throw new Error(`HTTP ${res.status}`); }
   if (!body || !body.ok) {

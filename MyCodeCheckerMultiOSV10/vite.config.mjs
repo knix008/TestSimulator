@@ -31,6 +31,7 @@ export default defineConfig({
   base: './',
   plugins: [react(), apiPlugin()],
   server: {
+    host: '127.0.0.1', // not 'localhost' (Node binds that to ::1 only; tauri dev waits on IPv4)
     port: 5210,
     strictPort: true,
     watch: { ignored: ['**/dist/**', '**/src-tauri/**', '**/samples/**'] },

@@ -5,7 +5,7 @@
   "identifier": "com.shkwon.mycodechecker",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:5210",
+    "devUrl": "http://127.0.0.1:5210",
     "beforeDevCommand": "node scripts/generate-icons.mjs --if-needed && node scripts/stage-sidecar.mjs && npm run dev",
     "beforeBuildCommand": "node scripts/generate-icons.mjs --if-needed && node scripts/stage-sidecar.mjs --with-deps && npm run build"
   },

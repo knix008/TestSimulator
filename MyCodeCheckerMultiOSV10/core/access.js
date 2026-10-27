@@ -6,6 +6,7 @@
 // permission listed below. Project permissions are checked on args.projectId.
 
 const users = require('./platform/users');
+const { sameJson: same } = require('./json');
 
 // method -> 'public' | 'auth' | [permission, 'global' | 'project']
 const ACCESS = {
@@ -29,12 +30,15 @@ const ACCESS = {
 
   'workspace.load': 'auth',
   'workspace.save': 'auth',
+  'settings.patch': 'auth',
   'security.me': 'auth',
   'security.logout': 'auth',
   'ide.config': 'auth',
 
   'project.scan': ['scan', 'project'],
   'scan.start': ['scan', 'project'],
+  'checks.list': 'auth',
+  'project.dirs': ['scan', 'global'],
   'scan.job': 'auth',
   'scan.cancel': 'auth',
   'project.submit': ['scan', 'global'],
@@ -42,6 +46,7 @@ const ACCESS = {
   'project.open': ['scan', 'global'],
   'project.saveFile': ['admin', 'project'],
   'file.save': 'auth',
+  'file.saveBeside': 'auth',
   'project.recentFiles': 'auth',
   'recent.list': 'auth',
   'recent.remove': 'auth',
@@ -54,6 +59,9 @@ const ACCESS = {
   'db.save': ['admin', 'global'],
   'db.test': ['admin', 'global'],
   'db.export': ['admin', 'project'],
+  'db.exportStart': ['admin', 'project'],
+  'db.exportJob': 'auth',
+  'db.exportCancel': 'auth',
   'ai.save': ['admin', 'global'],
   'ai.test': ['admin', 'global'],
   'issue.aiFix': ['codeviewer', 'project'],
@@ -78,6 +86,7 @@ const ACCESS = {
   'project.sample': ['scan', 'global'],
   'project.file': ['codeviewer', 'project'],
   'project.remove': ['admin', 'project'],
+  'project.resetAnalysis': ['admin', 'project'],
   'issue.update': ['user', 'project'],
   'issue.review': ['user', 'project'],
   'issue.reviews': ['user', 'project'],
@@ -245,7 +254,10 @@ function mergeWorkspace(stored, incoming, who) {
   const next = { ...stored, ...incoming };
   next.security = stored.security;
   next.auditLog = stored.auditLog;
-  if (!enabled(stored)) return next;
+  if (!enabled(stored)) {
+    if (incoming.projects) next.projects = keepAnalyses(stored, incoming.projects);
+    return next;
+  }
   const admin = allowed(stored, who, 'admin', null);
   if (!admin) next.webhooks = stored.webhooks;
   for (const key of Object.keys(incoming)) {
@@ -280,6 +292,19 @@ function mergeProjects(stored, incoming, who) {
   return out;
 }
 
+// Analyses are written by scans only; the client sends projects without them
+// (a large analysis is more than a request may carry).
+function keepAnalyses(stored, incoming) {
+  const byId = new Map((stored.projects || []).map((p) => [p.id, p]));
+  return incoming.map((p) => {
+    const old = byId.get(p.id);
+    if (!old) return p;
+    const out = { ...p, branches: old.branches };
+    if (old.desktop) out.desktop = old.desktop; else delete out.desktop;
+    return out;
+  });
+}
+
 // Display preferences anyone may change.
 const PERSONAL_SETTINGS = ['theme', 'language', 'customThemes', 'showStartOnLaunch'];
 
@@ -289,8 +314,5 @@ function omit(obj, keys) {
   return out;
 }
 
-function same(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
 
 module.exports = { ACCESS, check, filterWorkspace, mergeWorkspace, enabled };

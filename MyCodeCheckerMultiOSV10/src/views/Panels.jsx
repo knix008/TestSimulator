@@ -2,7 +2,7 @@ import { ask } from '../lib/ui';
 import React, { useEffect, useMemo, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon, CloseButton, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
-import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText } from './common';
+import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText, useRowWindow } from './common';
 import { call, openExternal } from '../lib/backend';
 import { Inspector } from '../components/Layout';
 import { AiFixBox } from './AiFix';
@@ -29,7 +29,7 @@ const METRIC_NAME = {
   files: ['파일', 'Files'],
 };
 
-function metricLabel(key, lang) {
+export function metricLabel(key, lang) {
   const base = String(key).replace(/^new_/, '');
   const pair = METRIC_NAME[base];
   const name = pair ? (lang === 'ko' ? pair[0] : pair[1]) : base;
@@ -165,7 +165,7 @@ export function Overview({ analysis, onGo }) {
                 <td>{metricLabel(c.metric, lang)}</td>
                 <td className="muted">{c.op} {c.threshold}</td>
                 <td>{c.actual == null ? '—' : c.actual}</td>
-                <td className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'}>{c.status === 'NO_DATA' ? t('no_data') : c.status === 'OK' ? t('passed') : c.status === 'ERROR' ? t('failed') : c.status}</td>
+                <td className={c.status === 'ERROR' ? 'bad' : c.status === 'OK' ? 'ok' : 'muted'}>{c.status === 'NO_DATA' ? t('no_data') : c.status === 'OFF' ? t('gate_off') : c.status === 'OK' ? t('passed') : c.status === 'ERROR' ? t('failed') : c.status}</td>
               </tr>
             ))}
           </tbody>
@@ -333,9 +333,11 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
   const [assignee, setAssignee] = useState('');
   const ruleMap = useMemo(() => new Map(rules.map((r) => [r.key, r])), [rules]);
   const list = useMemo(() => filterIssues(issues, filter, false, ruleMap), [issues, filter, ruleMap]);
+  const { rows: shown, footer } = useRowWindow(list);
+  const checkedSet = useMemo(() => new Set(checked), [checked]);
   const engines = useMemo(() => [...new Set(issues.map(engineOf))].sort(), [issues]);
   const rule = selected && ruleMap.get(selected.rule);
-  const toggle = (key) => setChecked(checked.includes(key) ? checked.filter((k) => k !== key) : [...checked, key]);
+  const toggle = (key) => setChecked(checkedSet.has(key) ? checked.filter((k) => k !== key) : [...checked, key]);
   const chips = selected ? standardChips(standardsOf(selected, rule)) : [];
   const misraCategory = selected && (selected.misraCategory || (rule && rule.misraCategory));
   const noFix = approval && approval.required;
@@ -378,9 +380,9 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
           <table>
             <thead><tr><th /><th>{t('severity')}</th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
             <tbody>
-              {list.map((issue, idx) => (
+              {shown.map((issue, idx) => (
                 <tr key={`${issue.key}-${idx}`} data-tour="issue-row" className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}>
-                  <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={t('ib_select')} checked={checked.includes(issue.key)} onChange={() => toggle(issue.key)} /></td>
+                  <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={t('ib_select')} checked={checkedSet.has(issue.key)} onChange={() => toggle(issue.key)} /></td>
                   <td className="nowrap"><SevBadge sev={issue.severity} />{issue.isNew && <div><span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span></div>}</td>
                   <td className="wrap"><div className="msg-line"><TypeBadge type={issue.type} short />{msg(issue)}</div><div className="small">{issue.rule}{engineOf(issue) !== 'core' ? ` · ${engineOf(issue)}` : ''}{issue.review && issue.review.state === 'REQUESTED' ? <> · <span className="warn-text"><Icon name="hourglass" size={11} /> {t('rv_state_requested')}</span></> : null}</div></td>
                   <td className="small wrap loc">{issue.file}:{issue.line}</td>
@@ -389,6 +391,7 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
               ))}
             </tbody>
           </table>
+          {footer}
           {list.length === 0 && (visible.length
             ? <Empty icon="filter" text={t('es_no_match')} hint={t('es_no_match_hint')}><Btn icon="close" label={t('es_clear_filters')} onClick={() => setFilter({ ...filter, q: '', severity: '', type: '', status: '', newOnly: false, engine: '', standard: '', rules: null, keys: null, drillLabel: '' })} /></Empty>
             : <Empty icon="checkCircle" text={t('es_no_issues')} hint={t('es_no_issues_hint')} />)}
@@ -463,8 +466,9 @@ export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
   useLanguage();
   const [cur, setCur] = useState(null);
   const [only, setOnly] = useState('');
-  const all = issues.filter((i) => i.type === 'SECURITY_HOTSPOT');
-  const list = only ? all.filter((i) => (only === 'TO_REVIEW' ? i.status === 'TO_REVIEW' : i.status !== 'TO_REVIEW')) : all;
+  const all = useMemo(() => issues.filter((i) => i.type === 'SECURITY_HOTSPOT'), [issues]);
+  const list = useMemo(() => (only ? all.filter((i) => (only === 'TO_REVIEW' ? i.status === 'TO_REVIEW' : i.status !== 'TO_REVIEW')) : all), [all, only]);
+  const { rows: shown, footer } = useRowWindow(list);
   const selected = list.find((i) => i.key === cur) || null;
   const rule = selected && rules.find((r) => r.key === selected.rule);
   const toReview = all.filter((i) => i.status === 'TO_REVIEW').length;
@@ -492,7 +496,7 @@ export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
             <table>
               <thead><tr><th>{t('severity')}</th><th>{t('message')}</th><th>{t('status')}</th></tr></thead>
               <tbody>
-                {list.map((issue) => (
+                {shown.map((issue) => (
                   <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => setCur(issue.key)}>
                     <td className="nowrap"><SevBadge sev={issue.severity} /></td>
                     <td className="wrap">{msg(issue)}<div className="small">{issue.file}:{issue.line}</div></td>
@@ -501,6 +505,7 @@ export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
                 ))}
               </tbody>
             </table>
+            {footer}
             {list.length === 0 && <Empty icon="shieldCheck" text={t('es_no_hotspots')} hint={t('es_no_hotspots_hint')} />}
           </div>
         </div>
@@ -1112,7 +1117,10 @@ export function GatesView({ gates, project, onChange, onAssign }) {
       {builtIn && (
         <div className="banner">
           <div><strong><Icon name="lock" size={15} /> {t('gate_builtin_ro')}</strong><div className="small">{t('gate_builtin_hint')}</div></div>
-          <Btn icon="copy" label={t('gate_copy')} primary onClick={copyGate} />
+          <BtnGroup>
+            <Btn icon="settings" label={t('gate_in_settings')} primary onClick={() => emitAction('settings:gate')} />
+            <Btn icon="copy" label={t('gate_copy')} onClick={copyGate} />
+          </BtnGroup>
         </div>
       )}
       <div className="panel tpanel">

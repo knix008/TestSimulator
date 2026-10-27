@@ -5,6 +5,7 @@
 
 const { createApi, serializeError } = require('../core/api');
 const { createCompatApi } = require('../core/compat-api');
+const { jsonChunks } = require('../core/json');
 
 // The caller's user token: our header, or code quality style "Bearer <token>" /
 // Basic "<token>:" when it is not the transport token of the desktop sidecar.
@@ -96,14 +97,24 @@ function createHandler(options = {}) {
   return { handle, api };
 }
 
+// A large analysis is more JSON than one string can hold: past the first
+// piece the body is streamed (chunked) as it is serialized.
 function send(res, status, body) {
-  const data = JSON.stringify(body);
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store',
-    'content-length': Buffer.byteLength(data),
-  });
-  res.end(data);
+  const pieces = jsonChunks(body);
+  const first = pieces.next();
+  const head = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
+  const second = first.done ? first : pieces.next();
+  if (second.done) {
+    const data = first.done ? '' : first.value;
+    res.writeHead(status, { ...head, 'content-length': Buffer.byteLength(data) });
+    res.end(data);
+    return;
+  }
+  res.writeHead(status, head);
+  res.write(first.value);
+  res.write(second.value);
+  for (const piece of pieces) res.write(piece);
+  res.end();
 }
 
 function readBody(req) {

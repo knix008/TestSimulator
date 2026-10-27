@@ -7,6 +7,7 @@ import { ask, toast } from '../lib/ui';
 import { Icon, CloseButton, Dialog } from '../components/Chrome';
 import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stepper, ViewHeader, Empty, FilePickButton, copyText, fmtDate, linesToList, NoProject, errorText } from './common';
 import { ToolsManager } from './Tools';
+import { ExcludeDirsDialog } from '../components/ExcludeDirs';
 import { SchedulesPanel, AuditPanel } from './AdminExtras';
 import { IntegrationsPanel } from './Integrations';
 
@@ -556,6 +557,7 @@ function AnalysisSettings({ ws, project, onSave }) {
     internal: (s.internalPackages || []).join('\n'),
     cTarget: s.cTarget || '',
     includeDirs: ((project && project.includeDirs) || []).join('\n'),
+    excludeDirs: (project && project.excludeDirs) || [],
     defines: definesText(project && project.defines),
     housekeeping: { branchDays: 0, closedIssueDays: 0, auditDays: 0, ...(s.housekeeping || {}) },
     coverageReports: ((project && project.coverageReports) || []).join('\n'),
@@ -563,6 +565,7 @@ function AnalysisSettings({ ws, project, onSave }) {
   });
   const [d, setD] = useState(init);
   const [note, setNote] = useState('');
+  const [pickDirs, setPickDirs] = useState(false);
   useEffect(() => { setD(init()); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ws, project && project.id]);
   const set = (patch) => setD({ ...d, ...patch });
   const save = async () => {
@@ -585,7 +588,7 @@ function AnalysisSettings({ ws, project, onSave }) {
       forbidden: (d.arch.forbidden || []).filter((f) => f.from && f.to),
     };
     const projects = (ws.projects || []).map((p) => (project && p.id === project.id
-      ? { ...p, includeDirs: linesToList(d.includeDirs), defines, newCode: perProject ? newCode : undefined, coverageReports: String(d.coverageReports).split(/\r?\n/).map((x) => x.trim()).filter(Boolean), arch }
+      ? { ...p, excludeDirs: d.excludeDirs, includeDirs: linesToList(d.includeDirs), defines, newCode: perProject ? newCode : undefined, coverageReports: String(d.coverageReports).split(/\r?\n/).map((x) => x.trim()).filter(Boolean), arch }
       : p));
     try {
       await onSave({ ...ws, settings, projects });
@@ -643,6 +646,19 @@ function AnalysisSettings({ ws, project, onSave }) {
           <label>{t('ad_include_dirs')}<textarea value={d.includeDirs} disabled={!project} placeholder={'include\nthird_party/lib/include'} onChange={(e) => set({ includeDirs: e.target.value })} /></label>
           <label>{t('ad_defines')}<textarea value={d.defines} disabled={!project} placeholder={'NDEBUG\nBOARD_REV=3'} onChange={(e) => set({ defines: e.target.value })} /></label>
         </div>
+      </section>
+      <section className="panel" data-tour="exclude-dirs-section">
+        <h3 className="sub-title"><Icon name="filter" size={15} /> {t('ad_exclude_dirs')}{project ? ` · ${project.name}` : ''}</h3>
+        <p className="small">{t('xd_hint')}</p>
+        <div className="chips">
+          {d.excludeDirs.length ? d.excludeDirs.map((dir) => (
+            <span key={dir} className="chip"><Icon name="folder" size={11} />{dir}
+              <button type="button" className="chip-x" aria-label={t('remove')} title={t('remove')} onClick={() => set({ excludeDirs: d.excludeDirs.filter((x) => x !== dir) })}><Icon name="close" size={10} /></button>
+            </span>
+          )) : <span className="small">{t('xd_none')}</span>}
+        </div>
+        <Btn icon="folder" label={t('xd_pick')} disabled={!project} onClick={() => setPickDirs(true)} />
+        {pickDirs && project && <ExcludeDirsDialog root={project.path} value={d.excludeDirs} onClose={() => setPickDirs(false)} onSave={(dirs) => { set({ excludeDirs: dirs }); setPickDirs(false); }} />}
       </section>
       <HousekeepingSection value={d.housekeeping} onChange={(housekeeping) => set({ housekeeping })} onSaveFirst={save} />
       <section className="panel">

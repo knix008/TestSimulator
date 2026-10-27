@@ -91,12 +91,12 @@ function SettingsWindow({ id, payload }) {
   // The main window sends its settings with the request: no API call before the first paint.
   const [ws, setWs] = useState(payload.ws || null);
   const [error, setError] = useState('');
-  useEffect(() => { if (!payload.ws) call('workspace.load').then(setWs).catch((err) => setError(err.message)); }, [payload.ws]);
+  useEffect(() => { if (!payload.ws) call('workspace.load', { slim: true }).then(setWs).catch((err) => setError(err.message)); }, [payload.ws]);
   if (error) return <div className="boot">{error}</div>;
   if (!ws) return <div className="boot">{t('loading')}</div>;
-  const onSave = async (patch) => {
-    const fresh = await call('workspace.load');
-    await call('workspace.save', { workspace: { ...fresh, settings: { ...fresh.settings, ...patch } } });
+  // The server merges the patch into the stored settings (settings.patch).
+  const onSave = async (patch, extra) => {
+    await call('settings.patch', { patch, ...(extra && extra.gates ? { gates: extra.gates } : {}) });
     await broadcast('mcc-settings-saved', patch);
   };
   return (

@@ -10,7 +10,7 @@
 // item (order of `mine`, then items only `theirs` added); other arrays and
 // values are leaves. `tasks` stays newest first.
 
-const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
+const { sameJson: same } = require('./json');
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const byId = (list) => Array.isArray(list) && list.length > 0 && list.every((x) => isObj(x) && x.id != null);
 

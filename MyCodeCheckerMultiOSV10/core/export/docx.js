@@ -87,7 +87,20 @@ function kvXml(block) {
   return out + '</w:tbl><w:p><w:pPr><w:pStyle w:val="Spacer"/></w:pPr></w:p>';
 }
 
-function bodyXml(m) {
+const EMU_PER_PX = 9525; // 96 dpi
+const CONTENT_EMU = CONTENT_W * 635;
+
+// An inline picture; the image goes to word/media and gets relationship rid.
+function pictureXml(b, n, rid) {
+  const scale = Math.min(1, CONTENT_EMU / (b.width * EMU_PER_PX));
+  const cx = Math.round(b.width * EMU_PER_PX * scale);
+  const cy = Math.round(b.height * EMU_PER_PX * scale);
+  const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const PIC = 'http://schemas.openxmlformats.org/drawingml/2006/picture';
+  return `<w:p><w:pPr><w:spacing w:before="80" w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="Picture ${n}" descr="${x(b.alt)}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="${A}" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="${A}"><a:graphicData uri="${PIC}"><pic:pic xmlns:pic="${PIC}"><pic:nvPicPr><pic:cNvPr id="${n}" name="image${n}.png" descr="${x(b.alt)}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+}
+
+function bodyXml(m, media = []) {
   const out = [];
   if (m.title) out.push(para(m.title, { style: 'Title' }));
   if (m.subtitle) out.push(para(m.subtitle, { style: 'Subtitle' }));
@@ -103,6 +116,12 @@ function bodyXml(m) {
       case 'list': for (const it of b.items) out.push(`<w:p><w:pPr><w:pStyle w:val="ListBullet"/></w:pPr>${runs(`•\t${it}`)}</w:p>`); break;
       case 'badge': out.push(`<w:p><w:pPr><w:pStyle w:val="Badge"/></w:pPr>${runs(` ${b.text} `, `<w:b/><w:bCs/><w:color w:val="FFFFFF"/><w:shd w:val="clear" w:color="auto" w:fill="${hex(b.color, '#546e7a')}"/>`)}</w:p>`); break;
       case 'pagebreak': out.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>'); break;
+      case 'image': {
+        const n = media.push(b.png);
+        out.push(pictureXml(b, n, `rIdImg${n}`));
+        if (b.caption) out.push(para(b.caption, { style: 'Caption' }));
+        break;
+      }
       case 'kv': if (b.rows.length) out.push(kvXml(b)); break;
       case 'table':
         if (b.caption) out.push(para(b.caption, { style: 'Caption', keepNext: true }));
@@ -189,12 +208,15 @@ function toDocx(model, opts = {}) {
   const m = M.normalize(model);
   const lang = M.detectLang(m, opts);
   const o = { ...opts, langTag: lang === 'ko' ? 'ko-KR' : 'en-US' };
-  const document = `${DECL}<w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}"><w:body>${bodyXml(m)}${sectPr()}</w:body></w:document>`;
+  const media = [];
+  const body = bodyXml(m, media);
+  const document = `${DECL}<w:document xmlns:w="${W_NS}" xmlns:r="${R_NS}" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${body}${sectPr()}</w:body></w:document>`;
+  const mediaRels = media.map((_, i) => `<Relationship Id="rIdImg${i + 1}" Type="${R_NS}/image" Target="media/image${i + 1}.png"/>`).join('');
   const files = [
-    { name: '[Content_Types].xml', data: `${DECL}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="${CT}.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="${CT}.styles+xml"/><Override PartName="/word/settings.xml" ContentType="${CT}.settings+xml"/><Override PartName="/word/fontTable.xml" ContentType="${CT}.fontTable+xml"/><Override PartName="/word/header1.xml" ContentType="${CT}.header+xml"/><Override PartName="/word/footer1.xml" ContentType="${CT}.footer+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>` },
+    { name: '[Content_Types].xml', data: `${DECL}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="${CT}.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="${CT}.styles+xml"/><Override PartName="/word/settings.xml" ContentType="${CT}.settings+xml"/><Override PartName="/word/fontTable.xml" ContentType="${CT}.fontTable+xml"/><Override PartName="/word/header1.xml" ContentType="${CT}.header+xml"/><Override PartName="/word/footer1.xml" ContentType="${CT}.footer+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>` },
     { name: '_rels/.rels', data: `${DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>` },
     { name: 'word/document.xml', data: document },
-    { name: 'word/_rels/document.xml.rels', data: `${DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R_NS}/styles" Target="styles.xml"/><Relationship Id="rId2" Type="${R_NS}/settings" Target="settings.xml"/><Relationship Id="rId3" Type="${R_NS}/fontTable" Target="fontTable.xml"/><Relationship Id="rId4" Type="${R_NS}/header" Target="header1.xml"/><Relationship Id="rId5" Type="${R_NS}/footer" Target="footer1.xml"/></Relationships>` },
+    { name: 'word/_rels/document.xml.rels', data: `${DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R_NS}/styles" Target="styles.xml"/><Relationship Id="rId2" Type="${R_NS}/settings" Target="settings.xml"/><Relationship Id="rId3" Type="${R_NS}/fontTable" Target="fontTable.xml"/><Relationship Id="rId4" Type="${R_NS}/header" Target="header1.xml"/><Relationship Id="rId5" Type="${R_NS}/footer" Target="footer1.xml"/>${mediaRels}</Relationships>` },
     { name: 'word/styles.xml', data: stylesXml(lang) },
     { name: 'word/settings.xml', data: settingsXml(lang) },
     { name: 'word/fontTable.xml', data: fontTableXml() },
@@ -202,6 +224,7 @@ function toDocx(model, opts = {}) {
     { name: 'word/footer1.xml', data: footerXml(lang) },
     { name: 'docProps/core.xml', data: coreXml(m, o) },
     { name: 'docProps/app.xml', data: appXml(o) },
+    ...media.map((png, i) => ({ name: `word/media/image${i + 1}.png`, data: png })),
   ];
   return zip(files, { date: opts.date });
 }

@@ -80,6 +80,7 @@ test('coverage from lcov is a measure and a gate can read it', () => {
   const coverage = parseLcov('SF:src/ok.js\nDA:1,1\nDA:2,0\nend_of_record\n', '');
   const result = analyzeSources([{ path: 'src/ok.js', text: 'function add(left, right) {\n  return left + right;\n}\n' }], { coverage });
   assert.equal(result.measures.coverage, 50);
-  const gate = evaluateGate(DEFAULT_GATE, { ...result.measures, new_coverage: 50 });
-  assert.equal(gate.conditions.find((c) => c.metric === 'new_coverage').status, 'ERROR');
+  // The default gate judges the whole code: coverage 50 < 80 fails.
+  const gate = evaluateGate(DEFAULT_GATE, result.measures);
+  assert.equal(gate.conditions.find((c) => c.metric === 'coverage').status, 'ERROR');
 });

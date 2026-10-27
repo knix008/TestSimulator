@@ -12,6 +12,7 @@ const { readCoverage, coverageFor, parseLcov } = require('./coverage');
 const { rate, countOpen, isClosed } = require('./ratings');
 const { evaluateGate, DEFAULT_GATE } = require('./qualitygate');
 const { checkerCatalog, decorateIssue, pathDefects, summarizeDefects } = require('./defects');
+const checks = require('./checks');
 const { engines, engineCatalog, extraLineRules } = require('./engines');
 
 const SKIP_DIRS = new Set([
@@ -66,6 +67,7 @@ function walk(root, options) {
   const out = [];
   const maxFiles = options.maxFiles || 8000;
   const exclusions = options.exclusions || [];
+  const excludeDirs = normDirs(options.excludeDirs);
   const visit = (dir) => {
     if (out.length >= maxFiles) return;
     let entries = [];
@@ -77,6 +79,7 @@ function walk(root, options) {
       if (ent.isDirectory()) {
         if (SKIP_DIRS.has(ent.name)) continue;
         if (excluded(path.relative(root, full), exclusions)) continue;
+        if (inDirs(path.relative(root, full), excludeDirs)) continue;
         visit(full);
       } else if (ent.isFile()) {
         const rel = path.relative(root, full);
@@ -97,6 +100,7 @@ function analyzeSources(files, options = {}) {
   const previous = new Set(options.previousKeys || []);
   const states = options.issueState || {};
   const exclusions = options.exclusions || [];
+  const excludeDirs = normDirs(options.excludeDirs);
   const onlyLangs = options.languages && options.languages.length ? new Set(options.languages) : null;
   const custom = (options.customRules || []).map(compileCustom).filter(Boolean);
   const rules = [...RULES, ...extraLineRules()].filter((r) => !inactive.has(r.key));  const started = Date.now();
@@ -105,7 +109,7 @@ function analyzeSources(files, options = {}) {
   const prepared = [];
   for (const file of files || []) {
     const rel = toRel(root, file.path);
-    if (excluded(rel, exclusions)) continue;
+    if (excluded(rel, exclusions) || inDirs(rel, excludeDirs)) continue;
     const lang = detectLanguage(file.path);
     if (!lang) continue;
     if (onlyLangs && !onlyLangs.has(lang)) continue;
@@ -279,6 +283,17 @@ function analyzeSources(files, options = {}) {
       if (map && annotationSuppresses(issues[n], map.get(issues[n].line))) issues.splice(n, 1);
     }
   }
+  // Check groups turned off in Settings › Analysis (custom rules and imported
+  // findings always stay).
+  const offChecks = new Set(options.disabledChecks || []);
+  if (offChecks.size) {
+    for (let n = issues.length - 1; n >= 0; n--) {
+      const i = issues[n];
+      if (i.externalEngine || String(i.rule).startsWith('custom:')) continue;
+      if (offChecks.has(checks.groupOf(i))) issues.splice(n, 1);
+    }
+  }
+  uniqueKeys(issues);
   const hasBaseline = previous.size > 0 || options.hasBaseline;
   for (const item of issues) {
     if (lineMode === 'scm') item.isNew = newLines.has(item.file) && newLines.get(item.file).has(item.line || 1);
@@ -446,7 +461,8 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
     return split.get(file);
   };
   const suppressed = new Map();
-  const list = engines();
+  const off = new Set((ctx.options && ctx.options.disabledChecks) || []);
+  const list = engines().filter((engine) => !checks.engineOff(engine.id, off));
   for (const [index, engine] of list.entries()) {
     report('engines', index, list.length, engine.id);
     const meta = new Map(engine.catalog().map((m) => [m.key, m]));
@@ -491,6 +507,25 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
       seenKeys.add(item.key);
       issues.push(item);
     }
+  }
+}
+
+// Keys come from the rule, file and line text, so identical lines in one file
+// (the same commented-out code twice) share a key. The first by line keeps it
+// (its triage stays); the next ones get key#2, key#3 ... hashed, so triage,
+// new-code marks and the database rows tell them apart.
+function uniqueKeys(issues) {
+  const byKey = new Map();
+  for (const item of issues) {
+    const list = byKey.get(item.key);
+    if (list) list.push(item); else byKey.set(item.key, [item]);
+  }
+  for (const [key, list] of byKey) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => (a.line || 0) - (b.line || 0));
+    list.forEach((item, n) => {
+      if (n) item.key = crypto.createHash('sha1').update(`${key}#${n + 1}`).digest('hex').slice(0, 16);
+    });
   }
 }
 
@@ -610,6 +645,18 @@ function toRel(root, file) {
   const rel = path.relative(root, file);
   if (rel.startsWith('..')) return String(file).replace(/\\/g, '/');
   return rel.replace(/\\/g, '/');
+}
+
+// Folders excluded by the user (root-relative, e.g. "apis" or "src/gen"): the
+// folder and everything below it, only at that place in the tree.
+function normDirs(dirs) {
+  return (dirs || []).map((d) => String(d || '').replace(/\\/g, '/').replace(/^\.?\/+|\/+$/g, '').toLowerCase()).filter(Boolean);
+}
+
+function inDirs(rel, dirs) {
+  if (!dirs.length) return false;
+  const n = String(rel || '').replace(/\\/g, '/').toLowerCase();
+  return dirs.some((d) => n === d || n.startsWith(`${d}/`));
 }
 
 function excluded(rel, patterns) {

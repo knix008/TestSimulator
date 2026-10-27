@@ -182,7 +182,8 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
     return () => window.removeEventListener('click', close);
   }, [open]);
   const lang = getLanguage();
-  // Desktop: menus, the language menu and the theme picker are child windows,
+  const otherLang = LANGUAGES.find((l) => l.value !== lang) || LANGUAGES[0];
+  // Desktop: menus and the theme picker are child windows,
   // so they can extend past the main window.
   const openDesktopMenu = async (id, el, sub) => {
     const r = el.getBoundingClientRect();
@@ -192,10 +193,8 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
       await openPopupWindow({ kind: 'themes', anchor: r, width: 580, height: 400, payload: { ...look, value: theme }, onResult: (res) => res && res.id && onAction(res.id) });
       return;
     }
-    const items = id === 'lang'
-      ? LANGUAGES.map((l) => ({ id: `lang:${l.value}`, label: l.label, flag: l.value, on: l.value === lang }))
-      : (sub || menus.find((m) => m.id === id).items()).map((it) => (it.sep ? { sep: true } : { id: it.children ? `sub:${it.id}` : it.id, label: it.label, icon: it.icon, keys: it.children ? '▸' : (it.keys || ''), disabled: !!it.disabled }));
-    const size = menuSize(items, id === 'lang' ? 190 : 290);
+    const items = (sub || menus.find((m) => m.id === id).items()).map((it) => (it.sep ? { sep: true } : { id: it.children ? `sub:${it.id}` : it.id, label: it.label, icon: it.icon, keys: it.children ? '▸' : (it.keys || ''), disabled: !!it.disabled }));
+    const size = menuSize(items, 290);
     await openPopupWindow({ kind: 'menu', anchor: r, width: size.width, height: size.height, payload: { ...look, items }, onResult: (res) => {
       if (!res || !res.id) return;
       if (res.id.startsWith('sub:')) {
@@ -206,7 +205,7 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
       onAction(res.id);
     } });
   };
-  // Smoke / tutorial hook: window.__mcc.openMenu('theme' | 'lang' | <menu id>).
+  // Smoke / tutorial hook: window.__mcc.openMenu('theme' | <menu id>).
   useEffect(() => {
     const on = (e) => {
       const id = e.detail === 'theme' ? 'themes' : e.detail;
@@ -262,14 +261,15 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
             <Icon name="chevronDown" size={14} />
           </button>
         </span>
-        <button className="tb-btn tb-lang" data-menu="lang" title={t('tip_language')} aria-haspopup="menu" aria-expanded={!!(open && open.id === 'lang')} onClick={(e) => openMenu('lang', e.currentTarget, e)}>
-          <LangFlag lang={lang} width={22} height={15} /><span className="tb-lang-code">{lang.toUpperCase()}</span><Icon name="chevronDown" size={12} />
+        {/* A toggle: each click switches to the other language. */}
+        <button className="tb-btn tb-lang" data-tour="lang-toggle" title={t('tip_language_toggle', { lang: otherLang.label })} aria-label={t('tip_language_toggle', { lang: otherLang.label })} onClick={() => { setOpen(null); onAction(`lang:${otherLang.value}`); }}>
+          <LangFlag lang={lang} width={22} height={15} /><span className="tb-lang-code">{lang.toUpperCase()}</span>
         </button>
         <button className="tb-btn tb-icon-only" title={t('tip_settings')} onClick={() => onAction('settings')}><Icon name="settings" size={15} /></button>
         <button className="tb-btn tb-icon-only" title={t('tip_about')} onClick={() => onAction('about')}><Icon name="info" size={15} /></button>
       </span>
       {isDesktop && <WindowButtons />}
-      {open && open.id !== 'themes' && open.id !== 'lang' && (
+      {open && open.id !== 'themes' && (
         <div className="menu-pop" data-tour="menu-popup" style={{ left: open.left }}>
           {open.sub && <button type="button" className="menu-item menu-back" onClick={(e) => { e.stopPropagation(); setOpen({ ...open, sub: null }); }}><Icon name="chevronLeft" size={14} /><span className="menu-item-label">{open.sub.label}</span></button>}
           {open.sub && <div className="menu-sep" />}
@@ -290,15 +290,6 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
         <div className="menu-pop theme-pop" data-tour="theme-picker" style={{ right: 8, left: 'auto' }} onClick={(e) => e.stopPropagation()}>
           <ThemePicker value={theme} onPick={(id) => { setOpen(null); onAction(`theme:${id}`); }}
             onNewCustom={() => { setOpen(null); onAction('settings:custom'); }} onEditCustom={() => { setOpen(null); onAction('settings:custom'); }} />
-        </div>
-      )}
-      {open && open.id === 'lang' && (
-        <div className="menu-pop lang-pop" data-tour="lang-picker" style={{ left: Math.max(8, open.left - 60) }}>
-          {LANGUAGES.map((l) => (
-            <button key={l.value} type="button" className={`menu-item ${l.value === lang ? 'on' : ''}`} onClick={() => { setOpen(null); onAction(`lang:${l.value}`); }}>
-              <l.Flag width={22} height={15} /><span className="menu-item-label">{l.label}</span>{l.value === lang && <Icon name="check" size={13} />}
-            </button>
-          ))}
         </div>
       )}
     </div>

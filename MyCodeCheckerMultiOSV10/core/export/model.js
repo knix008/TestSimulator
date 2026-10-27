@@ -13,6 +13,7 @@
 //       { type: 'pagebreak' },
 //       { type: 'list', items: [..] },
 //       { type: 'badge', text, color },
+//       { type: 'image', png: Buffer, width, height, alt?, caption?, name? },   (pixels; PNG)
 //     ],
 //   }
 //
@@ -21,7 +22,7 @@
 // unclosed cells / rows / items are closed implicitly, scripts, styles and SVG
 // charts are dropped.
 
-const BLOCK_TYPES = new Set(['h1', 'h2', 'h3', 'p', 'table', 'kv', 'pagebreak', 'list', 'badge']);
+const BLOCK_TYPES = new Set(['h1', 'h2', 'h3', 'p', 'table', 'kv', 'pagebreak', 'list', 'badge', 'image']);
 
 // ---------------------------------------------------------------------------
 // Text helpers
@@ -154,6 +155,11 @@ function normalize(model) {
       case 'kv': out.blocks.push({ type: 'kv', rows: (b.rows || []).filter(Array.isArray).map((r) => [cellText(r[0]), cellText(r[1])]) }); break;
       case 'list': out.blocks.push({ type: 'list', items: (b.items || []).map((i) => cellText(i)) }); break;
       case 'badge': out.blocks.push({ type: 'badge', text: str(b.text), color: normColor(b.color) || '#546e7a' }); break;
+      case 'image':
+        if (Buffer.isBuffer(b.png) && b.width > 0 && b.height > 0) {
+          out.blocks.push({ type: 'image', png: b.png, width: Number(b.width), height: Number(b.height), alt: str(b.alt || b.caption), caption: str(b.caption), name: str(b.name), ...(b.rgb ? { rgb: b.rgb } : {}) });
+        }
+        break;
       default: out.blocks.push({ type: 'pagebreak' });
     }
   }
@@ -480,6 +486,7 @@ function toHtml(model) {
     else if (b.type === 'list') parts.push(`<ul>${b.items.map((i) => `<li>${nl(i)}</li>`).join('')}</ul>`);
     else if (b.type === 'badge') parts.push(`<div class="verdict" style="background:${b.color}">${nl(b.text)}</div>`);
     else if (b.type === 'pagebreak') parts.push('<div class="pagebreak"></div>');
+    else if (b.type === 'image') parts.push(`<figure><img src="data:image/png;base64,${b.png.toString('base64')}" width="${b.width}" height="${b.height}" alt="${escHtml(b.alt)}" style="max-width:100%;height:auto">${b.caption ? `<figcaption>${nl(b.caption)}</figcaption>` : ''}</figure>`);
     else if (b.type === 'kv') parts.push(`<table class="kv"><tbody>${b.rows.map((r) => `<tr><th>${nl(r[0])}</th><td>${nl(r[1])}</td></tr>`).join('')}</tbody></table>`);
     else if (b.type === 'table') {
       const al = columnAlign(b);

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, setLanguage, getLanguage } from './lib/i18n';
 import { applyTheme, setCustomThemes, nextThemeId, themeById } from './themes';
-import { call, pickFolder, setUserToken, hasUserToken, isDesktop } from './lib/backend';
+import { call, pickFolder, setUserToken, hasUserToken, isDesktop, withIssuesFrom } from './lib/backend';
 import { MenuBar, Toolbar, StatusBar, Dialog, SideNav } from './components/Chrome';
 import {
   Overview, IssueBrowser, Hotspots, Measures, CodeView, Duplications,
@@ -26,6 +26,7 @@ import { PanelCtx, DockPanel, Splitter, panelsOf, PANEL_LIMITS } from './compone
 import { BottomPanel } from './views/BottomPanel';
 import { DocTabs, TabActiveCtx } from './components/DocTabs';
 import { NewProjectDialog, OpenProjectDialog, pickProjectFile, projectErrorText, PROJECT_FILTER } from './views/ProjectFiles';
+import { ExcludeDirsDialog } from './components/ExcludeDirs';
 import { pickSavePath } from './lib/backend';
 import { openDoc, docExists } from './lib/docs';
 import { Tutorial } from './components/Tutorial';
@@ -49,7 +50,7 @@ const EMPTY_FILTER = { q: '', severity: '', type: '', status: '', newOnly: false
 // before and after; undo / redo write them back onto the current workspace.
 const HIST_TOP = ['gates', 'profiles', 'portfolios', 'defectAnalysis', 'customRules'];
 const HIST_SETTINGS_SKIP = new Set(['tabs', 'theme', 'language', 'customThemes', 'tutorial', 'tutorialDone', 'showStartOnLaunch']);
-const HIST_PROJECT = ['name', 'key', 'mainBranch', 'exclusions', 'includeDirs', 'defines', 'coverageReports', 'arch', 'newCode', 'profiles', 'gateId', 'policyId', 'his', 'tags', 'description'];
+const HIST_PROJECT = ['name', 'key', 'mainBranch', 'exclusions', 'excludeDirs', 'includeDirs', 'defines', 'coverageReports', 'arch', 'newCode', 'profiles', 'gateId', 'policyId', 'his', 'tags', 'description'];
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const panelsOn = (p) => ['left', 'right', 'bottom'].map((k) => !!(p && p[k] && p[k].on)).join();
 function sliceDiff(prev, next) {
@@ -95,7 +96,7 @@ function sliceLabel(d) {
   if (b.projects) {
     const fields = Object.values(b.projects).flatMap((x) => Object.keys(x));
     if (fields.includes('name')) return t('hist_project_name');
-    if (fields.includes('exclusions')) return t('hist_exclusions');
+    if (fields.includes('exclusions') || fields.includes('excludeDirs')) return t('hist_exclusions');
     return t('hist_project_settings');
   }
   if (b.settings) {
@@ -354,6 +355,29 @@ export default function App() {
     if (r.ok) toast(t(kind === 'undo' ? 'hist_undone' : 'hist_redone', { action: r.label }), 'ok');
     else if (r.error) showError(r.error, t('hist_failed', { action: r.label }));
   };
+  // File › Delete results and analyze again: the stored analyses go (optionally
+  // the issue states too) and a fresh analysis treats all code as new.
+  const resetAnalysis = async () => {
+    const p = projectRef.current;
+    if (!p) return;
+    const choice = await ask({
+      title: t('ra_title'), icon: 'refresh', body: t('ra_body', { name: p.name || p.path }),
+      buttons: [
+        { id: 'keep', label: t('ra_keep_triage'), icon: 'refresh', primary: true },
+        { id: 'all', label: t('ra_clear_all'), icon: 'trash', danger: true },
+        { id: 'cancel', label: t('cancel'), icon: 'close' },
+      ],
+    });
+    if (choice !== 'keep' && choice !== 'all') return;
+    const r = await attempt(() => call('project.resetAnalysis', { projectId: p.id, clearTriage: choice === 'all' }));
+    if (!r.ok) return;
+    setDesktop(null);
+    setSelected(null);
+    setChecked([]);
+    setWs(r.value);
+    toast(t('ra_done'), 'ok');
+    await scan(p.path);
+  };
   const deleteProject = async (target) => {
     const p = target && target.id ? target : projectRef.current;
     if (!p) return false;
@@ -481,7 +505,7 @@ export default function App() {
     }).then((off) => offs.push(off));
     onBroadcast('mcc-settings-saved', async () => {
       window.dispatchEvent(new CustomEvent('mcc-start-bg-preview', { detail: null }));
-      try { applyWorkspace(await call('workspace.load')); } catch { /* keep the current one */ }
+      try { applyWorkspace(withIssuesFrom(await call('workspace.load', { slim: true }), wsRef.current)); } catch { /* keep the current one */ }
     }).then((off) => offs.push(off));
     return () => offs.forEach((off) => off && off());
   }, [applyWorkspace]);
@@ -532,7 +556,8 @@ export default function App() {
 
   const persist = async (next, opts = {}) => {
     const prev = wsRef.current;
-    const saved = await call('workspace.save', { workspace: next });
+    // The answer comes without issue lists (slim); this window keeps its own.
+    const saved = withIssuesFrom(await call('workspace.save', { workspace: next, slim: true }), prev);
     setWs(saved);
     if (opts.history !== false) {
       const d = sliceDiff(prev, next);
@@ -578,7 +603,7 @@ export default function App() {
     try {
       for (;;) {
         await new Promise((r) => setTimeout(r, 250));
-        const job = await call('scan.job', { jobId });
+        const job = await call('scan.job', { jobId, slim: true });
         if (job.status === 'running') {
           setScanJob((s) => (s && s.id === jobId ? { ...s, job: s.job && s.job.status === 'cancelling' ? { ...job, status: 'cancelling' } : job, shown: s.shown || performance.now() - started > 1000 } : s));
           continue;
@@ -634,6 +659,11 @@ export default function App() {
         setDesktop(null);
         if (langAfterScan.current) { setFilter({ ...EMPTY_FILTER, lang: langAfterScan.current }); setView('issues'); }
         else setView('overview');
+        if (res.task && res.task.reports && res.task.reports.files.length) toast(t('rs_written', { n: res.task.reports.files.length, folder: res.task.reports.folder }), 'ok', 9000);
+        if (res.task && res.task.dbError) {
+          const e = res.task.dbError;
+          showError(Object.assign(new Error(e.message), { code: e.code, text: e.text }), t('dbj_auto_failed'));
+        }
         const policy = res.analysis.defectAnalysis && res.analysis.defectAnalysis.policy;
         const gateBad = res.analysis.qualityGate.status !== 'OK';
         const policyBad = policy && policy.status === 'ERROR';
@@ -767,12 +797,14 @@ export default function App() {
     }
     else if (id === 'openFolder') openFolder();
     else if (id === 'openSample') scan('');
+    else if (id === 'excludeDirs') { if (project) setDialog({ kind: 'excludeDirs' }); }
+    else if (id === 'resetAnalysis') resetAnalysis();
     else if (id === 'analyze') { if (project) scan(project.path); else openFolder(); }
     else if (id === 'desktop') { if (project) scan(project.path, { commit: false }); else openFolder(); }
     else if (id === 'settings' || id.startsWith('settings:')) {
       const tab = id.startsWith('settings:') ? id.slice(9) : null;
       // The settings window's shortcut buttons come back as { action } and run here.
-      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: 600, onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
+      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: 600, onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings, gates: ws.gates }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
       else { setSettingsTab(tab); setDialog({ kind: 'settings' }); }
     }
     else if (id.startsWith('adminTab:')) { setAdminTab(id.slice(9)); setView('admin'); }
@@ -1010,9 +1042,9 @@ export default function App() {
     if (!panels.right.on || panels.right.folded) setPanel('right', { on: true, folded: false });
   };
 
-  const patchSettings = async (patch) => {
+  const patchSettings = async (patch, extra) => {
     if (!ws) return;
-    const next = { ...ws, settings: { ...ws.settings, ...patch } };
+    const next = { ...ws, ...(extra || {}), settings: { ...ws.settings, ...patch } };
     if (patch.theme) applyTheme(patch.theme);
     if (patch.language) { setLanguage(patch.language); setMessage(''); }
     if (patch.customThemes) { setCustomThemes(patch.customThemes); applyTheme(next.settings.theme || 'midnight'); }
@@ -1035,6 +1067,8 @@ export default function App() {
       { sep: true },
       { id: 'openFolder', label: t('open_folder'), icon: 'folder', keys: 'Ctrl+O' },
       { id: 'openSample', label: t('open_sample'), icon: 'play' },
+      { id: 'excludeDirs', label: t('xd_menu'), icon: 'filter', disabled: !project },
+      { id: 'resetAnalysis', label: t('ra_menu'), icon: 'refresh', disabled: !project || busy },
       { sep: true },
       { id: 'view:reports', label: t('menu_reports'), icon: 'report' },
       { sep: true },
@@ -1272,6 +1306,16 @@ export default function App() {
       <UserGuide />
       {scanJob && scanJob.shown && <ScanProgress job={scanJob.job} onCancel={cancelScanJob} />}
       <TutorialWelcome settings={ws.settings} onPatch={patchSettings} onClose={() => setWelcomeOpen(false)} />
+      {dialog && dialog.kind === 'excludeDirs' && project && (
+        <ExcludeDirsDialog root={project.path} value={project.excludeDirs} onClose={() => setDialog(null)}
+          onSave={async (dirs) => {
+            setDialog(null);
+            try {
+              await persist({ ...ws, projects: (ws.projects || []).map((p) => (p.id === project.id ? { ...p, excludeDirs: dirs } : p)) });
+              toast(t('xd_saved'), 'ok', 9000, { label: t('reanalyze_now'), icon: 'play', run: () => actionRef.current && actionRef.current('analyze') });
+            } catch (err) { showError(err); }
+          }} />
+      )}
       {dialog && dialog.kind === 'path' && (
         <Dialog title={t('open_folder')} icon="folder" onClose={() => setDialog(null)}>
           <label className="form-row">{t('path_label')}

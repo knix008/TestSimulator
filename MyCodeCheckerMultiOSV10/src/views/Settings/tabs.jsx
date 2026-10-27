@@ -1,6 +1,6 @@
 // The tabs of the settings window. Each tab is a function of the shared
 // draft (d / set) and fits the fixed-size window without scrolling.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { t, getLanguage } from '../../lib/i18n';
 import { allThemes, THEMES, CUSTOM_COLOR_KEYS, baseColorsOf, themeById } from '../../themes';
 import { call, isDesktop, pickFolder } from '../../lib/backend';
@@ -10,6 +10,8 @@ import { ThemePicker } from '../../components/ThemePicker';
 import { Btn, BtnGroup, IconSelect, Stepper, RangeStepper, Toggle, FilePickButton, saveText, emitAction, errorText } from '../common';
 import { AnimatedBackground } from '../../lib/startBackground';
 import { BgKindGrid } from '../StartPage';
+import { metricLabel } from '../Panels';
+import { DEFAULT_GATE_CONDITIONS, GATE_METRICS } from '../../lib/gateDefaults';
 
 export const MASK = '••••••••';
 const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'];
@@ -211,7 +213,122 @@ export function AnalysisTab({ d, set, close }) {
       </div>
       <Row icon="file" label={t('st_max_files')} title={t('st_max_files_hint')}><Stepper value={d.maxFiles} min={100} max={200000} step={500} width={90} ariaLabel={t('st_max_files')} onChange={(v) => set({ maxFiles: v })} /></Row>
       <Row icon="settings" label={t('st_more_analysis')}><Btn icon="users" label={t('st_open_admin_settings')} onClick={() => close('adminSettings')} /></Row>
+      <ChecksBox checks={d.checks} onChange={(checks) => set({ checks })} />
     </>
+  );
+}
+
+// Check groups (core/checks.js): a group that is off is not run / not reported.
+function ChecksBox({ checks, onChange }) {
+  const [list, setList] = useState(null);
+  const lang = getLanguage();
+  useEffect(() => { call('checks.list').then(setList).catch(() => setList([])); }, []);
+  const on = (id) => checks[id] !== false;
+  const setAll = (value) => onChange(Object.fromEntries((list || []).map((g) => [g.id, value])));
+  return (
+    <div className="st-checks" data-tour="check-groups">
+      <div className="st-checks-head">
+        <strong><Icon name="list" size={14} /> {t('ck_title')}</strong>
+        <span className="small">{t('ck_count', { on: (list || []).filter((g) => on(g.id)).length, total: (list || []).length })}</span>
+        <span className="spacer" />
+        <Btn icon="check" label={t('ck_all_on')} onClick={() => setAll(true)} />
+        <Btn icon="close" label={t('ck_all_off')} onClick={() => setAll(false)} />
+      </div>
+      <p className="small">{t('ck_hint')}</p>
+      <div className="st-checks-grid">
+        {(list || []).map((g) => (
+          <label key={g.id} className={`st-check ${on(g.id) ? 'on' : ''}`} data-check={g.id} title={g.hint ? g.hint[lang] || g.hint.en : undefined}>
+            <input type="checkbox" checked={on(g.id)} onChange={(e) => onChange({ ...checks, [g.id]: e.target.checked })} />
+            <span><b>{g.label[lang] || g.label.en}</b>{g.hint && <span className="small">{g.hint[lang] || g.hint.en}</span>}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 보고서 ─────────────────────────────────────────────────
+const REPORT_KINDS = ['executive', 'security', 'misra', 'integrity', 'defect-security', 'weakness', 'sbom'];
+const REPORT_FORMATS = [['pdf', 'PDF'], ['docx', 'Word'], ['xlsx', 'Excel'], ['pptx', 'PowerPoint'], ['html', 'HTML'], ['md', 'Markdown'], ['csv', 'CSV']];
+
+export function ReportsTab({ d, set }) {
+  const r = d.reports;
+  const auto = r.auto;
+  const setAuto = (patch) => set({ reports: { ...r, auto: { ...auto, ...patch } } });
+  const toggleIn = (list, v) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+  const pick = async () => { const dir = await pickFolder(); if (dir) setAuto({ folder: dir }); };
+  return (
+    <div data-tour="report-settings">
+      <Row icon="code" label={t('rs_md_images')} title={t('rs_md_images_hint')}>
+        <Toggle icon="chart" label={t('rs_md_embed')} checked={r.mdEmbedImages !== false} onChange={(v) => set({ reports: { ...r, mdEmbedImages: v } })} />
+      </Row>
+      <p className="small st-note">{r.mdEmbedImages !== false ? t('rs_md_embed_on') : t('rs_md_embed_off')}</p>
+      <Row icon="play" label={t('rs_auto')} title={t('rs_auto_hint')}>
+        <Toggle icon="report" label={t('rs_auto_on')} checked={!!auto.enabled} onChange={(v) => setAuto({ enabled: v })} />
+      </Row>
+      <Row icon="report" label={t('rs_kinds')} wide>
+        <div className="st-pills">{REPORT_KINDS.map((k) => (
+          <label key={k} className={`st-pill ${auto.kinds.includes(k) ? 'on' : ''}`}><input type="checkbox" disabled={!auto.enabled} checked={auto.kinds.includes(k)} onChange={() => setAuto({ kinds: toggleIn(auto.kinds, k) })} />{t(`rp_kind_${k.replace(/-/g, '_')}`)}</label>
+        ))}</div>
+      </Row>
+      <Row icon="download" label={t('rs_formats')} wide>
+        <div className="st-pills">{REPORT_FORMATS.map(([f, label]) => (
+          <label key={f} className={`st-pill ${auto.formats.includes(f) ? 'on' : ''}`}><input type="checkbox" disabled={!auto.enabled} checked={auto.formats.includes(f)} onChange={() => setAuto({ formats: toggleIn(auto.formats, f) })} />{label}</label>
+        ))}</div>
+      </Row>
+      <Row icon="folder" label={t('rs_folder')} title={t('rs_folder_hint')} wide>
+        <span className="input-row">
+          <input className="mono" value={auto.folder || ''} placeholder={t('rs_folder_ph')} disabled={!auto.enabled} onChange={(e) => setAuto({ folder: e.target.value })} />
+          {isDesktop && <Btn icon="folder" label={t('pj_browse')} disabled={!auto.enabled} onClick={pick} />}
+        </span>
+      </Row>
+    </div>
+  );
+}
+
+// ── 품질 게이트 ─────────────────────────────────────────────
+const GATE_OPS = [['GT', '>'], ['LT', '<'], ['GTE', '≥'], ['LTE', '≤'], ['EQ', '=']];
+const RATINGS = ['A', 'B', 'C', 'D', 'E'];
+
+export function GateTab({ gate, setGate }) {
+  const lang = getLanguage();
+  const conds = gate.conditions || [];
+  const setCond = (id, patch) => setGate({ ...gate, conditions: conds.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+  const used = new Set(conds.map((c) => c.metric));
+  const free = GATE_METRICS.filter((m) => !used.has(m));
+  const add = () => {
+    const metric = free[0];
+    if (!metric) return;
+    const rating = /_rating$/.test(metric);
+    setGate({ ...gate, conditions: [...conds, { id: `c-${Date.now().toString(36)}`, metric, op: rating ? 'GT' : 'GT', threshold: rating ? 1 : 0, on: metric.startsWith('new_') ? 'new' : 'overall', enabled: true }] });
+  };
+  const metricOptions = (cur) => GATE_METRICS.filter((m) => m === cur || !used.has(m)).map((m) => ({ value: m, label: metricLabel(m, lang), icon: m.startsWith('new_') ? 'sparkle' : 'chart' }));
+  return (
+    <div data-tour="gate-settings">
+      <p className="small st-note"><Icon name="gate" size={13} /> {t('gs_hint', { name: gate.name })}</p>
+      <div className="st-gate">
+        <div className="st-gate-row head"><span>{t('gs_use')}</span><span>{t('gate_metric')}</span><span>{t('gate_op')}</span><span>{t('gate_threshold')}</span><span /></div>
+        {conds.map((c) => {
+          const rating = /_rating$/.test(c.metric);
+          return (
+            <div key={c.id} className={`st-gate-row ${c.enabled === false ? 'off' : ''}`} data-metric={c.metric}>
+              <span><input type="checkbox" aria-label={t('gs_use')} checked={c.enabled !== false} onChange={(e) => setCond(c.id, { enabled: e.target.checked })} /></span>
+              <IconSelect value={c.metric} width={250} ariaLabel={t('gate_metric')} options={metricOptions(c.metric)}
+                onChange={(v) => setCond(c.id, { metric: v, on: v.startsWith('new_') ? 'new' : 'overall', ...(/_rating$/.test(v) !== rating ? { threshold: /_rating$/.test(v) ? 1 : 0 } : {}) })} />
+              <IconSelect value={c.op} width={88} ariaLabel={t('gate_op')} options={GATE_OPS.map(([v, s]) => ({ value: v, label: s, icon: 'filter' }))} onChange={(v) => setCond(c.id, { op: v })} />
+              {rating
+                ? <IconSelect value={String(Math.max(1, Math.min(5, Number(c.threshold) || 1)))} width={80} ariaLabel={t('gate_threshold')} options={RATINGS.map((l, i) => ({ value: String(i + 1), label: l, icon: 'star' }))} onChange={(v) => setCond(c.id, { threshold: Number(v) })} />
+                : <Stepper value={Number(c.threshold) || 0} min={0} max={1000000} width={80} ariaLabel={t('gate_threshold')} onChange={(v) => setCond(c.id, { threshold: v })} />}
+              <Btn icon="trash" label={t('remove')} onClick={() => setGate({ ...gate, conditions: conds.filter((x) => x.id !== c.id) })} />
+            </div>
+          );
+        })}
+      </div>
+      <BtnGroup>
+        <Btn icon="plus" label={t('gs_add')} disabled={!free.length} onClick={add} />
+        <Btn icon="refresh" label={t('gs_reset')} onClick={() => setGate({ ...gate, conditions: DEFAULT_GATE_CONDITIONS.map((c) => ({ ...c })) })} />
+      </BtnGroup>
+    </div>
   );
 }
 
@@ -319,6 +436,7 @@ export function DbTab({ db, setB, dbErr }) {
     <>
       {dbErr && <p className="small bad st-note"><Icon name="alert" size={12} /> {dbErr}</p>}
       <div className="st-grid2">
+        <p className="small st-note"><Icon name="info" size={12} /> {t('db_what')}</p>
         <Row icon="check" label={t('in_enabled')}><Toggle icon="database" label={t('db_enable')} checked={!!db.enabled} onChange={(v) => setB({ enabled: v })} /></Row>
         <Row icon="database" label={t('db_kind')}>
           <IconSelect value={db.kind} width={200} ariaLabel={t('db_kind')} onChange={(v) => setB({ kind: v, port: DB_PORT[v] || db.port })} options={[
@@ -345,6 +463,7 @@ export function DbTab({ db, setB, dbErr }) {
         {!sqlite && <Row icon="key" label={t('in_password')}><input type="password" autoComplete="new-password" value={db.password || ''} placeholder={t('in_secret_ph')} title={db.password === MASK ? t('in_secret_kept') : undefined} onChange={(e) => setB({ password: e.target.value })} /></Row>}
         {!sqlite && <Row icon="lock" label="SSL / TLS"><Toggle icon="lock" label={t('db_ssl')} checked={!!db.ssl} onChange={(v) => setB({ ssl: v })} /></Row>}
         <Row icon="layers" label={t('db_schema')} title={t('db_schema_hint')}><input value={db.schema || ''} placeholder="mcc" onChange={(e) => setB({ schema: e.target.value })} /></Row>
+        <Row icon="clock" label={t('db_timeout')} title={t('db_timeout_hint')}><Stepper value={Number(db.timeoutSec) || 60} min={5} max={3600} step={5} width={70} ariaLabel={t('db_timeout')} onChange={(v) => setB({ timeoutSec: v })} /></Row>
         <Row icon="upload" label={t('db_auto')}><Toggle icon="upload" label={t('db_auto_label')} checked={!!db.autoExport} onChange={(v) => setB({ autoExport: v })} /></Row>
         <Row icon="bug" label={t('db_issues')}><Toggle icon="list" label={t('db_issues_label')} checked={!!db.includeIssues} onChange={(v) => setB({ includeIssues: v })} /></Row>
         <Row icon="refresh" label={t('ai_test')}>

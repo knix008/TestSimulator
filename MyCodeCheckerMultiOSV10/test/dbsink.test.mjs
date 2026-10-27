@@ -80,7 +80,7 @@ test('server kinds run the same statements through their driver (fake)', async (
     const analysis = { finishedAt: '2026-10-26T00:00:00Z', qualityGate: { status: 'OK' }, measures: { bugs: 2, ncloc: 10 }, issues: [{ key: 'k', rule: 'r', type: 'BUG', severity: 'MAJOR', file: 'a.js', line: 3, message: { en: 'm', ko: '메' }, tags: ['t'] }] };
     const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind }, { project: { id: 'p', key: 'k', name: 'n', path: '/p' }, branch: 'main', analysis }, { driver });
     assert.equal(out.issues, 1);
-    assert.equal(seen.filter((q) => /CREATE TABLE/.test(q.sql)).length, 4, kind);
+    assert.equal(seen.filter((q) => /CREATE TABLE/.test(q.sql)).length, 5, kind);
     assert.ok(seen.some((q) => /^(BEGIN|START TRANSACTION|BEGIN TRANSACTION)$/.test(q.sql)), kind);
     assert.ok(seen.some((q) => /^COMMIT/.test(q.sql)), kind);
     const ins = seen.find((q) => q.sql.includes('_issues') && q.sql.startsWith('INSERT'));
@@ -94,4 +94,41 @@ test('a failed write rolls back', async () => {
   await assert.rejects(db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'postgres' }, { project: { id: 'p' }, branch: 'main', analysis: { finishedAt: 'x', measures: {}, issues: [] } }, { driver }), /boom/);
   assert.ok(seen.includes('ROLLBACK'));
   await assert.rejects(db.exportAnalysis({ ...db.DEFAULTS }, { project: { id: 'p' }, branch: 'main', analysis: {} }, { driver }), (e) => e.code === 'DB_NOT_CONFIGURED');
+});
+
+test('project information goes with the analysis; tables from older versions get the new columns', async () => {
+  const file = path.join(tmp('mcc-dbproj-'), 'p.db');
+  // A table as the previous version made it.
+  const old = new DatabaseSync(file);
+  old.exec('CREATE TABLE mcc_projects (id TEXT NOT NULL, project_key TEXT, name TEXT, path TEXT, updated_at TEXT, PRIMARY KEY (id))');
+  old.exec("INSERT INTO mcc_projects VALUES ('old', 'k', 'n', '/p', 'x')");
+  old.close();
+  const project = { id: 'p1', key: 'pm', name: 'PM', path: '/src', description: 'Power board', mainBranch: 'main', tags: ['fw'], createdAt: '2026-10-01T00:00:00Z', excludeDirs: ['apis'], includeDirs: ['include'], defines: { A: '1' }, gateId: 'checker-way' };
+  const analysis = {
+    finishedAt: '2026-10-27T00:00:00Z', languages: { c: 3 }, measures: { files: 3, ncloc: 120, bugs: 1 },
+    qualityGate: { name: 'Checker way', status: 'ERROR', conditions: [{ metric: 'bugs', op: 'GT', threshold: 0, actual: 1, status: 'ERROR' }, { metric: 'coverage', op: 'LT', threshold: 80, actual: null, status: 'OFF', enabled: false }] },
+    issues: [{ key: 'k', rule: 'r', type: 'BUG', severity: 'MAJOR', file: 'a.c', line: 1, message: 'm' }],
+  };
+  const settings = { exclusions: ['**/gen/**'], checks: { misraC2004: false, cert: true }, theme: 'nord', ai: { apiKey: 'secret' } };
+  const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file }, { project, branch: 'main', analysis, settings });
+  const d = new DatabaseSync(file);
+  const p = d.prepare("select * from mcc_projects where id = 'p1'").get();
+  assert.equal(p.description, 'Power board');
+  assert.equal(p.main_branch, 'main');
+  assert.equal(p.last_gate, 'ERROR');
+  assert.equal(p.last_analysis_id, out.analysisId);
+  assert.deepEqual(JSON.parse(p.tags), ['fw']);
+  const det = d.prepare('select * from mcc_project_details').get();
+  assert.equal(det.project_id, 'p1');
+  assert.equal(det.quality_gate, 'Checker way');
+  const cfg = JSON.parse(det.config_json);
+  assert.deepEqual(cfg.excludeDirs, ['apis']);
+  assert.deepEqual(cfg.exclusions, ['**/gen/**']);
+  assert.deepEqual(JSON.parse(det.checks_off), ['misraC2004']);
+  assert.equal(JSON.parse(det.gate_json)[1].enabled, false);
+  assert.equal(det.ncloc, 120);
+  // Program settings never reach the database.
+  const all = JSON.stringify(d.prepare('select * from mcc_project_details').all()) + JSON.stringify(d.prepare('select * from mcc_projects').all());
+  assert.ok(!all.includes('secret') && !all.includes('nord'));
+  d.close();
 });

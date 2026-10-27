@@ -6,6 +6,7 @@ import { Icon, Dialog } from '../components/Chrome';
 import { Btn, BtnGroup, Toggle, Empty, errorText, linesToList } from './common';
 import { ask } from '../lib/ui';
 import { useEditorDirty } from '../lib/dirty';
+import { ExcludeDirsDialog } from '../components/ExcludeDirs';
 
 export const PROJECT_FILTER = { get name() { return t('pj_filter_name'); }, extensions: ['mccp'] };
 
@@ -40,6 +41,8 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
   const [mainBranch, setMainBranch] = useState('main');
   const [description, setDescription] = useState('');
   const [exclusions, setExclusions] = useState('');
+  const [excludeDirs, setExcludeDirs] = useState([]);
+  const [pickDirs, setPickDirs] = useState(false);
   const [scan, setScan] = useState(true);
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -66,7 +69,7 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
     try {
       const res = await call('project.create', {
         name: name.trim() || baseName(source), source: source.trim(), file: file.trim() || undefined, scan: false, overwrite, replace: replace || undefined,
-        settings: { mainBranch: mainBranch.trim() || 'main', description: description.trim() || undefined, exclusions: linesToList(exclusions) },
+        settings: { mainBranch: mainBranch.trim() || 'main', description: description.trim() || undefined, exclusions: linesToList(exclusions), excludeDirs },
       });
       onDone(res, { analyze: scan });
     } catch (err) {
@@ -110,8 +113,16 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
           <label>{t('pj_main_branch')}<input value={mainBranch} onChange={(e) => setMainBranch(e.target.value)} /></label>
           <label className="span2">{t('pj_description')}<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
           <label className="span4">{t('exclusions')}<textarea className="mono" value={exclusions} placeholder={'**/generated/**\n**/*.test.js'} onChange={(e) => setExclusions(e.target.value)} /></label>
+          <div className="span4">
+            <span>{t('ad_exclude_dirs')}</span>
+            <div className="chips">
+              {excludeDirs.length ? excludeDirs.map((dir) => <span key={dir} className="chip"><Icon name="folder" size={11} />{dir}</span>) : <span className="small">{t('xd_none')}</span>}
+            </div>
+            <Btn icon="folder" label={t('xd_pick')} disabled={!source.trim()} title={source.trim() ? undefined : t('xd_need_source')} onClick={() => setPickDirs(true)} />
+          </div>
         </div>
       )}
+      {pickDirs && <ExcludeDirsDialog root={source.trim()} value={excludeDirs} onClose={() => setPickDirs(false)} onSave={(dirs) => { setExcludeDirs(dirs); setPickDirs(false); }} />}
       <Toggle icon="play" label={t('pj_scan_after')} checked={scan} onChange={setScan} />
       {error && <p className="small bad"><Icon name="alert" size={12} /> {error}</p>}
       <div className="dialog-actions">

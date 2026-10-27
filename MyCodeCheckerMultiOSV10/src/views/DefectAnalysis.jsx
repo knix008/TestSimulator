@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction } from './common';
+import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow } from './common';
 import { ask } from '../lib/ui';
 
 const PRESETS = ['outstanding', 'new', 'high', 'dismissed', 'fixed'];
@@ -13,6 +13,8 @@ const CLASSIFICATION_ICON = { Unclassified: 'info', Pending: 'clock', Bug: 'bug'
 const ACTION_ICON = { Undecided: 'info', 'Fix Required': 'alert', 'Fix Submitted': 'check', 'Modeling Required': 'code', Ignore: 'eye' };
 const MODEL_KIND_ICON = { sink: 'download', allocator: 'package', source: 'upload' };
 const kindLabel = (kind) => (t(`cov_kind_${kind}`) === `cov_kind_${kind}` ? kind : t(`cov_kind_${kind}`));
+
+const NONE = [];
 
 function dismissed(issue) {
   if (!issue) return false;
@@ -33,7 +35,7 @@ export function DefectsView({ analysis, onUpdate }) {
   const [checker, setChecker] = useState('');
   const [cid, setCid] = useState(null);
   const issues = (analysis && analysis.issues) || [];
-  const fixed = (analysis && analysis.defectAnalysis && analysis.defectAnalysis.fixedDefects) || [];
+  const fixed = (analysis && analysis.defectAnalysis && analysis.defectAnalysis.fixedDefects) || NONE;
   const checkers = [...new Set(issues.map((i) => i.checker).filter(Boolean))].sort();
   const list = useMemo(() => {
     const base = preset === 'fixed' ? fixed : issues.filter((issue) => {
@@ -50,6 +52,7 @@ export function DefectsView({ analysis, onUpdate }) {
       return blob.includes(q.toLowerCase());
     });
   }, [issues, fixed, preset, q, checker]);
+  const { rows: shown, footer } = useRowWindow(list);
   const selected = list.find((issue) => issue.cid === cid) || null;
   const outstanding = issues.filter((issue) => !dismissed(issue)).length;
   const outstandingHigh = issues.filter((issue) => !dismissed(issue) && issue.impact === 'High').length;
@@ -106,7 +109,7 @@ export function DefectsView({ analysis, onUpdate }) {
             <table>
               <thead><tr><th>CID</th><th>{t('cov_impact')}</th><th>{t('cov_checker')}</th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
               <tbody>
-                {list.map((issue, idx) => (
+                {shown.map((issue, idx) => (
                   <tr key={`${issue.cid}-${issue.line}-${idx}`} data-tour="defect-row" className={`click ${selected && selected.cid === issue.cid ? 'sel' : ''}`} onClick={() => setCid(issue.cid)}>
                     <td className="mono">{issue.cid}</td>
                     <td className="nowrap"><span className={`impact-badge impact-${issue.impact}`}><Icon name={impactIcon(issue.impact)} size={12} />{impactLabel(issue.impact)}</span></td>
@@ -121,6 +124,7 @@ export function DefectsView({ analysis, onUpdate }) {
                 ))}
               </tbody>
             </table>
+            {footer}
             {list.length === 0 && <Empty icon={preset === 'fixed' ? 'wrench' : 'checkCircle'} text={t('es_no_defects')} hint={q || checker ? t('es_no_match_hint') : t('es_no_defects_hint')} />}
           </div>
         </div>

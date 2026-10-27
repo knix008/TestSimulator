@@ -26,10 +26,12 @@ export function shorten(text, max = 58) {
 export function phaseLabel(p) {
   if (!p) return t('sj_phase_collect');
   if (p.phase === 'engines') return t('sj_phase_engines', { engine: p.detail || '' });
+  if (p.phase === 'db') return `${t('sj_phase_db')} · ${t(`db_phase_${p.dbPhase || 'connect'}`)}`;
   return t(`sj_phase_${p.phase || 'collect'}`);
 }
 
-export function ScanProgress({ job, onCancel }) {
+// title / icon: the same popup serves database exports (DbExport.jsx).
+export function ScanProgress({ job, onCancel, title, icon = 'search' }) {
   useLanguage();
   const [ask, setAsk] = useState(false);
   const p = (job && job.progress) || {};
@@ -37,15 +39,15 @@ export function ScanProgress({ job, onCancel }) {
   const cancelling = job && job.status === 'cancelling';
   return (
     <div className="scan-progress-back">
-      <div className="scan-progress" role="dialog" aria-modal="false" aria-label={t('sj_title')} data-tour="scan-progress" data-testid="scan-progress">
+      <div className="scan-progress" role="dialog" aria-modal="false" aria-label={title || t('sj_title')} data-tour="scan-progress" data-testid="scan-progress">
         <div className="sp-head">
-          <span className="sp-icon"><Icon name="search" size={16} /></span>
-          <b>{t('sj_title')}</b>
+          <span className="sp-icon"><Icon name={icon} size={16} /></span>
+          <b>{title || t('sj_title')}</b>
           <span className="sp-path" title={job && job.path}>{shorten(job && job.path, 36)}</span>
           <CloseButton title={t('sj_cancel')} aria-label={t('sj_cancel')} onClick={() => setAsk(true)} size={13} />
         </div>
         <div className="sp-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /><span>{pct}%</span></div>
-        <div className="sp-phase">{phaseLabel(p)}{p.total > 1 ? <span className="small"> · {p.done || 0}/{p.total}</span> : null}</div>
+        <div className="sp-phase">{phaseLabel(p)}{p.total > 1 ? <span className="small"> · {(p.done || 0).toLocaleString()}/{p.total.toLocaleString()}</span> : null}</div>
         <div className="sp-detail small" title={p.detail || ''}>{p.phase === 'engines' ? '' : shorten(p.detail)}</div>
         <div className="sp-foot">
           <span className="small">{t('sj_elapsed')} <b>{mmss(p.elapsedMs)}</b></span>

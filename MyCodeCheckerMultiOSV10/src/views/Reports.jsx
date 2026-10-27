@@ -2,10 +2,12 @@
 // Security Weakness rule set and SBOM reports, previewed in a sandboxed frame.
 import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { call } from '../lib/backend';
+import { call, isDesktop } from '../lib/backend';
 import { Icon, CloseButton } from '../components/Chrome';
 import { useApi, Btn, BtnGroup, IconSelect, Toggle, ViewHeader, Empty, saveText, saveBase64, warningText, errorText, NoProject } from './common';
 import { SECURITY_STANDARDS, MISRA_STANDARDS } from './Compliance';
+import { useDbExport } from './DbExport';
+import { showError } from '../lib/ui';
 
 const KIND_ICON = { executive: 'chart', security: 'lock', misra: 'shield', integrity: 'alert', 'defect-security': 'alert', weakness: 'list', sbom: 'package' };
 
@@ -68,6 +70,18 @@ export function ReportsView({ project, branch, stamp }) {
   };
   const [warnings, setWarnings] = useState([]);
   const [exporting, setExporting] = useState('');
+  // Markdown: pictures inside (Settings › Reports) or next to the file in
+  // <name>_images/ (desktop), as one ZIP in the browser.
+  const saveMarkdown = async () => {
+    setExporting('md');
+    setError('');
+    try {
+      const res = await call('report.export', { ...argsFor('md'), zip: !isDesktop });
+      if (res.format === 'zip') { await saveBase64(res.fileName, res.base64, res.type); return; }
+      const where = await saveText(res.fileName, res.body, 'text/markdown');
+      if (res.images && res.images.length && isDesktop && typeof where === 'string') await call('file.saveBeside', { base: where, files: res.images });
+    } catch (err) { setError(errorText(err)); } finally { setExporting(''); }
+  };
   const saveBinary = async (format) => {
     setExporting(format);
     setError('');
@@ -80,11 +94,15 @@ export function ReportsView({ project, branch, stamp }) {
     } catch (err) { setError(errorText(err)); } finally { setExporting(''); }
   };
   const [dbResult, setDbResult] = useState(null);
+  const dbExport = useDbExport();
   const exportDb = async () => {
     setExporting('db');
     setError('');
     setDbResult(null);
-    try { setDbResult(await call('db.export', { projectId: project.id, branch })); } catch (err) { setError(err.code === 'DB_NOT_CONFIGURED' ? t('rp_db_not_configured') : errorText(err)); } finally { setExporting(''); }
+    try { setDbResult(await dbExport.run({ projectId: project.id, branch })); } catch (err) {
+      if (err.code === 'DB_NOT_CONFIGURED') setError(t('rp_db_not_configured'));
+      else { setError(errorText(err)); showError(err, t('dbj_failed')); }
+    } finally { setExporting(''); }
   };
   const print = () => {
     const win = frame.current && frame.current.contentWindow;
@@ -120,6 +138,8 @@ export function ReportsView({ project, branch, stamp }) {
             <Btn icon="file" label={exporting === 'docx' ? t('rp_exporting') : 'Word'} disabled={!out || !!exporting} onClick={() => saveBinary('docx')} title={t('rp_docx_tip')} />
             <Btn icon="grid" label={exporting === 'xlsx' ? t('rp_exporting') : 'Excel'} disabled={!out || !!exporting} onClick={() => saveBinary('xlsx')} title={t('rp_xlsx_tip')} />
             <Btn icon="report" label={exporting === 'pdf' ? t('rp_exporting') : 'PDF'} disabled={!out || !!exporting} onClick={() => saveBinary('pdf')} title={t('rp_pdf_tip')} />
+            <Btn icon="chart" label={exporting === 'pptx' ? t('rp_exporting') : 'PowerPoint'} disabled={!out || !!exporting} onClick={() => saveBinary('pptx')} title={t('rp_pptx_tip')} />
+            <Btn icon="code" label={exporting === 'md' ? t('rp_exporting') : 'Markdown'} disabled={!out || !!exporting} onClick={saveMarkdown} title={t('rp_md_tip')} />
           </BtnGroup>
           <Btn icon="archive" label={exporting === 'zip' ? t('rp_exporting') : t('rp_regulatory')} primary disabled={!out || !!exporting || regKinds.length === 0} onClick={() => saveBinary('zip')} title={t('rp_regulatory_tip')} />
           <Btn icon="database" label={exporting === 'db' ? t('rp_exporting') : t('rp_db_export')} disabled={!!exporting} onClick={exportDb} title={t('rp_db_export_tip')} />
@@ -137,6 +157,7 @@ export function ReportsView({ project, branch, stamp }) {
           {regKinds.length === 0 && <span className="small bad">{t('rp_reg_none')}</span>}
         </div>
       )}
+      {dbExport.popup}
       {dbResult && (
         <div className="note-box ok">
           <Icon name="database" size={14} />

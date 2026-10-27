@@ -15,7 +15,8 @@ import { DEFAULT_PANELS, panelsOf } from '../../components/Layout';
 import { refreshAiSettings } from '../AiFix';
 import { TutorialSettings } from '../../components/TutorialSettings';
 import { tutorialOf, TUTORIAL_DEFAULTS } from '../../lib/tutorialSettings';
-import { GeneralTab, ThemeTab, CustomThemeTab, StartTab, AnalysisTab, NewCodeTab, AiTab, DbTab, IntegrationsTab, AdvancedTab, MASK } from './tabs';
+import { GeneralTab, ThemeTab, CustomThemeTab, StartTab, AnalysisTab, GateTab, ReportsTab, NewCodeTab, AiTab, DbTab, IntegrationsTab, AdvancedTab, MASK } from './tabs';
+import { defaultGateOf, DEFAULT_GATE_CONDITIONS } from '../../lib/gateDefaults';
 
 const DEFAULT_EXCLUSIONS = ['**/*.min.js', '**/vendor/**', '**/node_modules/**', '**/dist/**', '**/build/**'];
 const AI_DEFAULTS = { enabled: false, provider: 'anthropic', model: '', baseUrl: '', apiKey: '', effort: 'medium', maxTokens: 16000, contextLines: 40, timeoutMs: 120000, language: 'ko' };
@@ -29,6 +30,8 @@ export const SETTINGS_TABS = [
   ['start', 'home', 'st_tab_start'],
   ['tutorial', 'graduation', 'st_tab_tutorial'],
   ['analysis', 'search', 'st_tab_analysis'],
+  ['gate', 'gate', 'st_tab_gate'],
+  ['reports', 'report', 'st_tab_reports'],
   ['newcode', 'sparkle', 'st_tab_newcode'],
   ['ai', 'ai', 'st_tab_ai'],
   ['db', 'database', 'st_tab_db'],
@@ -36,8 +39,20 @@ export const SETTINGS_TABS = [
   ['advanced', 'wrench', 'st_tab_advanced'],
 ];
 
-function draftOf(s) {
+// Settings › Reports: Markdown pictures inside, and reports written after each analysis.
+function reportsOf(r) {
+  const v = r || {};
+  const a = v.auto || {};
+  return { mdEmbedImages: v.mdEmbedImages !== false, auto: { enabled: !!a.enabled, kinds: a.kinds && a.kinds.length ? [...a.kinds] : ['executive'], formats: a.formats && a.formats.length ? [...a.formats] : ['pdf'], folder: a.folder || '' } };
+}
+
+// gates: the workspace's gates; the tab edits the default one.
+function draftOf(s, gates) {
+  const gate = defaultGateOf(gates);
   return {
+    checks: { ...(s.checks || {}) },
+    reports: reportsOf(s.reports),
+    gate: { ...gate, conditions: (gate.conditions || []).map((c) => ({ ...c })) },
     language: s.language || 'ko',
     theme: s.theme || 'midnight',
     showStartOnLaunch: s.showStartOnLaunch !== false,
@@ -62,9 +77,9 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
   const s = ws.settings || {};
   const original = useRef({ theme: s.theme || 'midnight', language: getLanguage(), custom: getCustomThemes().map((c) => ({ id: c.id })), customRaw: s.customThemes || [] });
   const [tab, setTab] = useState(initialTab || 'general');
-  const [d, setD] = useState(() => draftOf(s));
+  const [d, setD] = useState(() => draftOf(s, ws.gates));
   const firstDraft = useRef(null);
-  if (firstDraft.current === null) firstDraft.current = JSON.stringify(draftOf(s));
+  if (firstDraft.current === null) firstDraft.current = JSON.stringify(draftOf(s, ws.gates));
   const [ai, setAi] = useState(null);
   const [aiErr, setAiErr] = useState('');
   const [aiDirty, setAiDirty] = useState(false);
@@ -159,7 +174,14 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
       if (dbDirty && db) {
         try { setDb({ ...DB_DEFAULTS, ...(await call('db.save', { db })) }); } catch (err) { setTab('db'); setDbErr(errorText(err)); throw err; }
       }
+      // The gate is a workspace section of its own (gates), saved with the settings.
+      const gateBefore = JSON.stringify(defaultGateOf(ws.gates));
+      const extra = JSON.stringify(d.gate) !== gateBefore
+        ? { gates: (ws.gates && ws.gates.length ? ws.gates : [d.gate]).map((g) => (g.id === d.gate.id ? d.gate : g)) }
+        : undefined;
       await onSave({
+        checks: d.checks,
+        reports: { ...d.reports, auto: { ...d.reports.auto, folder: String(d.reports.auto.folder || '').trim() } },
         language: d.language,
         theme: d.customThemes.some((c) => c.id === d.theme) || !d.theme.startsWith('custom-') ? d.theme : 'midnight',
         showStartOnLaunch: d.showStartOnLaunch,
@@ -176,7 +198,7 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
         panels: d.panels,
         customThemes: d.customThemes,
         tutorial: d.tutorial,
-      });
+      }, extra);
       window.dispatchEvent(new CustomEvent('mcc-start-bg-preview', { detail: null }));
       firstDraft.current = JSON.stringify(d);
       setAiDirty(false);
@@ -208,13 +230,15 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
   }, []);
 
   const resetTab = () => {
-    const def = draftOf({});
+    const def = draftOf({}, ws.gates);
     if (tab === 'general') { previewLanguage('ko'); set({ showStartOnLaunch: true, assignee: '', panels: { ...DEFAULT_PANELS } }); }
     if (tab === 'theme') previewTheme('midnight');
     if (tab === 'custom') { set({ customThemes: [] }); applyCustom([]); if (d.theme.startsWith('custom-')) previewTheme('midnight'); }
     if (tab === 'start') { set({ showStartOnLaunch: true }); setBg({ ...DEFAULT_START_BACKGROUND }); }
     if (tab === 'tutorial') set({ tutorial: { ...TUTORIAL_DEFAULTS } });
-    if (tab === 'analysis') set({ exclusionsText: def.exclusionsText, limits: def.limits, maxFiles: 8000 });
+    if (tab === 'analysis') set({ exclusionsText: def.exclusionsText, limits: def.limits, maxFiles: 8000, checks: {} });
+    if (tab === 'reports') set({ reports: reportsOf(null) });
+    if (tab === 'gate') set({ gate: { ...d.gate, conditions: DEFAULT_GATE_CONDITIONS.map((c) => ({ ...c })) } });
     if (tab === 'newcode') set({ newCode: 'previous', newCodeDays: 30, newCodeRef: '', newCodeVersion: '' });
     if (tab === 'ai') { setAi((x) => ({ ...AI_DEFAULTS, apiKey: x && x.apiKey === MASK ? MASK : '' })); setAiDirty(true); setAiUi({ customModel: false, customUrl: false }); }
     if (tab === 'db') { setDb((x) => ({ ...DB_DEFAULTS, password: x && x.password === MASK ? MASK : '' })); setDbDirty(true); }
@@ -245,6 +269,8 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
           {tab === 'start' && <StartTab d={d} set={set} setBg={setBg} />}
           {tab === 'tutorial' && <TutorialSettings settings={d} onPatch={(p) => set(p)} onStarted={cancel} />}
           {tab === 'analysis' && <AnalysisTab d={d} set={set} close={goAction} />}
+          {tab === 'gate' && <GateTab gate={d.gate} setGate={(gate) => set({ gate })} />}
+          {tab === 'reports' && <ReportsTab d={d} set={set} />}
           {tab === 'newcode' && <NewCodeTab d={d} set={set} />}
           {tab === 'ai' && <AiTab ai={ai} setA={setA} aiErr={aiErr} ui={aiUi} setUi={setAiUi} />}
           {tab === 'db' && <DbTab db={db} setB={setB} dbErr={dbErr} />}
