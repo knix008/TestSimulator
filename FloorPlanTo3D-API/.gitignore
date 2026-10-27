@@ -1,0 +1,7 @@
+weights/maskrcnn_15_epochs.h5
+# Model weights (hundreds of MB; download as described in readme.md)
+weights/*.h5
+# Python caches and run logs
+__pycache__/
+*.pyc
+*.log
