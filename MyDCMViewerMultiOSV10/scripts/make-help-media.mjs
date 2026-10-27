@@ -5,15 +5,19 @@
 //   npm run help:media                    all pictures
 //   node scripts/make-help-media.mjs mpr volume     only these (names without help- / .jpg)
 //   --no-desktop                          skip the desktop pictures
+//   --lang en                             the app in English, pictures into doc/images/en/ (the English manual's)
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { launch, sleep, root } from './cdp.mjs';
 
 const args = process.argv.slice(2);
+const langAt = args.indexOf('--lang');
+const lang = langAt >= 0 ? args.splice(langAt, 2)[1] : 'ko';
 const only = new Set(args.filter((a) => !a.startsWith('--')));
 const noDesktop = args.includes('--no-desktop');
-const OUT = path.join(root, 'doc', 'images');
+const ko = lang === 'ko';
+const OUT = ko ? path.join(root, 'doc', 'images') : path.join(root, 'doc', 'images', lang);
 fs.mkdirSync(OUT, { recursive: true });
 let sharp = null;
 try { sharp = (await import('sharp')).default; } catch { /* PNG kept */ }
@@ -83,7 +87,7 @@ const SHOTS = {
     await act(p, 'sample', { sample: 'ct' }); await fire(p, 'export-as-dialog'); await p.waitFor(`!!document.querySelector('#modalBox #exFmt')`, 30000); await sleep(400);
     await p.eval(`(() => { const s = document.querySelector('#modalBox #exFmt'); s.value = 'jp2'; s.dispatchEvent(new Event('change', { bubbles: true })); return 0; })()`); await sleep(500);
   },
-  progress: async (p) => { await act(p, 'sample', { sample: 'echo' }); await p.eval(`App.Progress.start('color3d_jpeg_baseline.dcm 내보내는 중…', { cancellable: true }); 0`); await sleep(500); await p.eval(`App.Progress.update(48, 120, '프레임 48 / 120'); 0`); await sleep(500); },
+  progress: async (p) => { await act(p, 'sample', { sample: 'echo' }); await p.eval(`App.Progress.start('color3d_jpeg_baseline.dcm ${ko ? '내보내는 중…' : 'exporting…'}', { cancellable: true }); 0`); await sleep(500); await p.eval(`App.Progress.update(48, 120, '${ko ? '프레임' : 'Frame'} 48 / 120'); 0`); await sleep(500); },
   print: async (p) => { await act(p, 'sample', { sample: 'ct' }); await fire(p, 'print'); await sleep(1800); },
   batch: async (p) => { await fire(p, 'batch'); await sleep(900); },
   settings: async (p) => { await fire(p, 'settings'); await sleep(900); },
@@ -97,7 +101,7 @@ async function webShots() {
   console.log('Web pictures');
   for (const name of names) {
     // a fresh page for every picture: no state carried over from the one before
-    const page = await launch({ lang: 'ko', width: 1440, height: 900, settings: { showStartOnLaunch: name === 'start' || name === 'background', startScreen: { transparency: 25 } } });
+    const page = await launch({ lang, width: 1440, height: 900, settings: { showStartOnLaunch: name === 'start' || name === 'background', startScreen: { transparency: 25 } } });
     try {
       await sleep(1200);
       const clip = await SHOTS[name](page);
@@ -115,7 +119,7 @@ async function desktopShots() {
   const port = 11600 + Math.floor(Math.random() * 300);
   const pacs = spawn(process.execPath, [path.join(root, 'scripts', 'mini-pacs.cjs'), '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise((r) => pacs.stdout.on('data', (d) => { if (/READY/.test(d)) r(); }));
-  const page = await launch({ desktop: true, lang: 'ko', width: 1440, height: 900, settings: { pacsNodes: [{ name: '병원 PACS (시험용)', ae: 'MINIPACS', host: '127.0.0.1', port }] } });
+  const page = await launch({ desktop: true, lang, width: 1440, height: 900, settings: { pacsNodes: [{ name: ko ? '병원 PACS (시험용)' : 'Hospital PACS (test)', ae: 'MINIPACS', host: '127.0.0.1', port }] } });
   const popup = async (kind) => {
     let t = null;
     for (let i = 0; i < 60 && !t; i++) { t = (await page.targets()).find((x) => new RegExp(`kind=${kind}\\b`).test(x.url)); if (!t) await sleep(250); }

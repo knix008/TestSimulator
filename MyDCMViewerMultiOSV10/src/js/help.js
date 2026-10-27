@@ -63,7 +63,9 @@
     box.classList.add('help');
     // a window that can be made smaller, but never so small that the list and the article stop fitting side by side
     if (ctx.isPopup && typeof window !== 'undefined' && window.desktopAPI && window.desktopAPI.setMinSize) window.desktopAPI.setMinSize(MIN_SIZE.width, MIN_SIZE.height);
-    const pages = window.HELP_PAGES || [];
+    // the pages in the main window's language (Korean pages for 'ko', English ones otherwise)
+    const pagesFor = (lang) => { const L = window.HELP_LANGS; return (L && (L[lang] || L.en)) || window.HELP_PAGES || []; };
+    let pages = pagesFor(I && I.lang);
     box.innerHTML = `<h2>${esc(t('helpwin.title', 'Help'))}</h2>
       <div class="help-body"><div class="help-nav"><input class="help-search" type="search" placeholder="${esc(t('helpwin.search', 'Search'))}"><div class="help-list"></div></div><article class="help-article"></article></div>`;
     const list = box.querySelector('.help-list'), art = box.querySelector('.help-article'), search = box.querySelector('.help-search');
@@ -120,6 +122,17 @@
     close.innerHTML = `<button type="button" class="btn primary">${esc(t('dlg.close', 'Close'))}</button>`;
     close.querySelector('button').addEventListener('click', () => ctx.close && ctx.close());
     box.append(close);
+    // the language changed while the window is open: the same page (and words) in the new language
+    const onLang = () => {
+      if (!box.isConnected || !box.classList.contains('help')) { document.removeEventListener('langchange', onLang); return; }
+      const id = current && current.id;
+      pages = pagesFor(I && I.lang);
+      box.querySelector('h2').textContent = t('helpwin.title', 'Help');
+      search.placeholder = t('helpwin.search', 'Search');
+      close.querySelector('button').textContent = t('dlg.close', 'Close');
+      show(pages.find((p) => p.id === id) || pages[0]);
+    };
+    document.addEventListener('langchange', onLang);
   }
 
   return { dialog, SIZE, MIN_SIZE };
