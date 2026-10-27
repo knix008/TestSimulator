@@ -1,0 +1,4 @@
+{"name": "probe", "valid id": 3, "1st": true, "values": [1, 2, null, 4],
+ "matrix": [[1, 2, 3], [4, 5, 6]],
+ "items": [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}],
+ "mixed": [1, "two", {"c": 3}], "empty": [], "nothing": null, "if": 5}

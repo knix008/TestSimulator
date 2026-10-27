@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MusicalEnsemble [ <!ELEMENT MusicalEnsemble ANY> ]>
+<!-- sample ensemble -->
+<MusicalEnsemble>
+    <Ensemble>
+        <Music>Jazz</Music>
+        <BandName>Kool &amp; the Gang</BandName>
+        <Instrumentation>
+            <Instrument type="wind">Trumpet</Instrument>
+            <Instrument type="percussion">Piano
+                <pianotype>concert grand</pianotype>
+            </Instrument>
+            <Instrument type="string">Bass</Instrument>
+        </Instrumentation>
+        <Founded>1964</Founded>
+        <Note><![CDATA[a < b]]></Note>
+    </Ensemble>
+    <Musicians>
+        <Name role="trumpeter">Phil</Name>
+        <Name role="pianist">Ronald</Name>
+    </Musicians>
+</MusicalEnsemble>

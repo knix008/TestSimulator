@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-m-association"
+description = "Enables the set_m_association command without any pre-configured scope."
+commands.allow = ["set_m_association"]
+
+[[permission]]
+identifier = "deny-set-m-association"
+description = "Denies the set_m_association command without any pre-configured scope."
+commands.deny = ["set_m_association"]
