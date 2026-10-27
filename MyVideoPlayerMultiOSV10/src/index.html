@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; media-src 'self' blob: file: https: localmedia:; img-src 'self' data: blob: https://i.ytimg.com https://*.googleusercontent.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' blob: https://www.youtube.com https://*.googlevideo.com https://*.google.com localmedia:; font-src 'self' data:;"
+      content="default-src 'self'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com; style-src 'self' 'unsafe-inline'; media-src 'self' blob: file: https: localmedia:; img-src 'self' data: blob: https://i.ytimg.com https://*.googleusercontent.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' ipc: http://ipc.localhost blob: https://www.youtube.com https://*.googlevideo.com https://*.google.com localmedia:; font-src 'self' data:;"
     />
     <title>MyVideoPlayer</title>
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -727,6 +727,25 @@
                       <path d="M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4V7Z" />
                     </svg>
                   </button>
+                </div>
+
+                <div
+                  class="toolbar-sep"
+                  id="subtitleTrackSep"
+                  style="display: none"
+                ></div>
+
+                <div
+                  class="toolbar-group subtitle-track-group"
+                  id="subtitleTrackGroup"
+                  style="display: none"
+                >
+                  <select
+                    id="subtitleTrackSelect"
+                    class="rate-select subtitle-track-select"
+                    data-i18n-tooltip="subtitleTrackTip"
+                    data-i18n-aria="subtitleTrack"
+                  ></select>
                 </div>
               </div>
             </section>
@@ -1454,6 +1473,42 @@
                     >
                   </div>
                 </div>
+                <label class="field">
+                  <span class="field-label">
+                    <svg
+                      class="field-icon"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm2 4v2h4V9H6Zm6 0v2h6V9h-6Zm-6 4v2h8v-2H6Zm10 0v2h2v-2h-2Z"
+                      />
+                    </svg>
+                    <span data-i18n="subtitleLang">Default subtitle language</span>
+                  </span>
+                  <select id="settingSubtitleLang" name="subtitleLang">
+                    <option value="auto" data-i18n="subtitleLangAuto">
+                      Same as app language
+                    </option>
+                    <option value="ko">한국어</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="zh-Hans">中文 (简体)</option>
+                    <option value="zh-Hant">中文 (繁體)</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="pt">Português</option>
+                    <option value="ru">Русский</option>
+                    <option value="vi">Tiếng Việt</option>
+                    <option value="th">ไทย</option>
+                    <option value="id">Bahasa Indonesia</option>
+                  </select>
+                </label>
+                <p class="field-hint" data-i18n="subtitleLangHint">
+                  Shown first when a video has several subtitle languages, and
+                  saved as the video's own .srt when downloading from YouTube.
+                </p>
                 <label class="field">
                   <span class="field-label">
                     <svg

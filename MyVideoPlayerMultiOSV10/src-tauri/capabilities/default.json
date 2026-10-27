@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The player, spectrum and play-list windows. Pages are served by the app's own localhost server (so the YouTube iframe API accepts the origin); all work goes through the single `vp` command in src-tauri/src/lib.rs, only event listening is opened here.",
+  "windows": ["main", "spectrum", "history"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": ["core:event:default", "allow-vp"]
+}

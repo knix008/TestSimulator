@@ -73,7 +73,7 @@ export class YouTubePlayerController {
     return Boolean(this.player && this.videoId);
   }
 
-  async load(videoId, { autoplay = true, startVolume = 80 } = {}) {
+  async load(videoId, { autoplay = true, startVolume = 80, captions = false, captionLang = '' } = {}) {
     this.videoId = videoId;
     this._volume = startVolume;
     this.container.classList.remove('hidden');
@@ -101,6 +101,8 @@ export class YouTubePlayerController {
           fs: 0,
           iv_load_policy: 3,
           playsinline: 1,
+          ...(captions ? { cc_load_policy: 1 } : {}),
+          ...(captionLang ? { cc_lang_pref: captionLang } : {}),
           ...(origin ? { origin } : {})
         },
         events: {

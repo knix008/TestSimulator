@@ -14,6 +14,8 @@ export const DEFAULT_SETTINGS = {
   autoHideChrome: true,
   spectrumStyle: "rainbow",
   showSubtitles: true,
+  /** Preferred subtitle language ("auto" = the app language), e.g. "ko", "en". */
+  subtitleLang: "auto",
   subSize: 28,
   startVolume: 80,
   windowOpacity: 100,

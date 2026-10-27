@@ -1,6 +1,7 @@
 # MyVideoPlayer — Architecture
 
-This document describes how MyVideoPlayer is structured across desktop (Electron) and web.
+This document describes how MyVideoPlayer is structured across desktop (Tauri 2) and web.
+The desktop build moved from Electron to Tauri on 2026-10-27; the renderer (`src/`) did not change.
 
 ---
 
@@ -8,19 +9,18 @@ This document describes how MyVideoPlayer is structured across desktop (Electron
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Electron Main Process                     │
-│  electron/main.js · youtube.js · youtube-auth.js              │
-│  · rtsp-stream.js · media-compat.js · persist-store.js        │
-│  • BrowserWindow (frameless) + spectrum / history windows     │
-│  • Esc / caption minimize → group-minimize all app windows    │
-│  • Local HTTP UI server (127.0.0.1) → serves src/              │
-│  • /__media/<token> → Range streaming for local files         │
-│  • FFmpeg compat convert (soft remux → H.264)                 │
-│  • Bundled yt-dlp (vendor/ → extraResources)                  │
-│  • IPC: dialogs, window drag/opacity/bounds, persist, YT, RTSP │
-│  • Quiet Chromium logs by default (MYVIDEOPLAYER_VERBOSE)     │
+│                  Tauri app (Rust, src-tauri/)                │
+│  lib.rs · server.rs · download.rs · subs.rs · rtsp.rs        │
+│  · compat.rs · auth.rs · persist.rs · native.rs · tools.rs   │
+│  • Frameless main window + spectrum / history windows        │
+│  • Esc / caption minimize → group-minimize all app windows   │
+│  • Local HTTP server (127.0.0.1) → serves the embedded src/  │
+│  • /__media/<key>/<token> → Range streaming for local files  │
+│  • FFmpeg compat convert (soft remux → H.264)                │
+│  • Bundled yt-dlp + FFmpeg (vendor/ → bundle resources)      │
+│  • One command `vp(channel, args)` with the old IPC names    │
 └───────────────────────────┬─────────────────────────────────┘
-                            │ preload (contextBridge)
+                            │ bridge.js (initialization script)
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Renderer / Web UI (src/)                         │
@@ -32,57 +32,64 @@ This document describes how MyVideoPlayer is structured across desktop (Electron
 └─────────────────────────────────────────────────────────────┘
 ```
 
-On **web** (`npm run web`), there is no main process. The same `src/` UI runs in the browser with a reduced feature set (no native dialogs, no YouTube/RTSP save, no FFmpeg compat, no window opacity/chrome).
+On **web** (`npm run web`), there is no Rust side. The same `src/` UI runs in the browser with a reduced feature set (no native dialogs, no downloads, no FFmpeg compat, no window opacity/chrome).
 
 ---
 
 ## 2. Processes and boundaries
 
-### 2.1 Main process (`electron/`)
+### 2.1 Rust side (`src-tauri/src/`)
 
 | File | Responsibility |
 |------|----------------|
-| `main.js` | App lifecycle, windows, UI HTTP server, `/__media` Range handler, IPC, subtitle discovery, window drag/opacity/bounds, spectrum/history child windows, **group minimize/restore** (`Esc`), Chromium log quieting |
-| `preload.js` | Exposes a safe `window.desktopAPI` to the renderer |
-| `youtube.js` | YouTube URL parse, metadata, download (bundled/system `yt-dlp` preferred, `youtubei.js` fallback) |
-| `youtube-auth.js` | Optional Electron sign-in session → cookies file for restricted downloads |
-| `rtsp-stream.js` | RTSP/RTSPS open via FFmpeg → local HTTP media; MP4 record / stop / finalize |
-| `media-compat.js` | FFmpeg-based soft remux / full H.264 convert with cache under `userData/compat-cache` |
-| `persist-store.js` | Synchronous key/value store in `userData/persist.json` (settings, recent, dialog dirs) |
+| `lib.rs` | App start-up, windows, dialogs, single instance + file arguments, drag-drop of files, window drag/opacity/bounds, spectrum/history child windows, **group minimize/restore** (`Esc`), the `vp` command dispatcher |
+| `bridge.js` | Injected into every app page; rebuilds Electron's `window.desktopAPI` (`invoke("vp", { channel, args })`, events keep the old IPC names) |
+| `server.rs` | Localhost server: pages from the embedded `src/`, `/__media` Range handler, `/__rtsp` live stream, settings snapshot |
+| `download.rs` | YouTube URL parse, metadata, download strategies through `yt-dlp`; Instagram/TikTok/other links; stop-and-keep |
+| `subs.rs` | Subtitle files beside a video (`clip.srt`, `clip.<lang>.srt`), YouTube subtitle download |
+| `auth.rs` | YouTube sign-in window → Netscape `cookies.txt` for restricted downloads |
+| `rtsp.rs` | RTSP/RTSPS via FFmpeg → fMP4 over HTTP; MP4 record / stop / finalize |
+| `compat.rs` | FFmpeg soft remux / full H.264 convert with cache under `<data>/compat-cache` |
+| `persist.rs` | Key/value store in `<data>/persist.json`; copies the Electron build's file in once |
+| `native.rs` | Whole-window opacity and the taskbar's big icon (no Tauri API for either) |
+| `tools.rs` | Locating yt-dlp / ffmpeg / Node, running them without console windows, file helpers |
 
-**Why a local HTTP server?**  
-The window loads `http://127.0.0.1:{port}/index.html` instead of `file://` so the YouTube IFrame API accepts the page origin, and so media can be served with proper HTTP Range semantics.
+**Why a local HTTP server?**
+Windows load `http://127.0.0.1:{port}/index.html` (not `tauri://`) so the YouTube IFrame API accepts the page origin, and so media stays same-origin for the Web Audio spectrum analyser. To Tauri this is a *remote* origin, so `capabilities/default.json` lists `http://127.0.0.1:*` and `build.rs` registers the `vp` command as an app permission (`allow-vp`). The pages' CSP allows `ipc:` / `http://ipc.localhost`.
 
-**Why `/__media/<base64url-path>`?**  
-Desktop media paths are encoded into same-origin HTTP URLs. The UI server streams bytes with `Accept-Ranges` / `Content-Range`, which is more reliable for `<video>` seeking than a custom protocol alone. (`localmedia://` may still exist as a fallback path.)
+**Why `/__media/<key>/<base64url-path>`?**
+Desktop media paths are encoded into same-origin HTTP URLs served with `Accept-Ranges` / `Content-Range`. `<key>` is a per-run secret so other local programs cannot read files through the server.
 
-**Bundled yt-dlp**  
-`scripts/ensure-yt-dlp.js` downloads a platform binary into `vendor/yt-dlp/` on `postinstall` / `npm start`. Installers copy it via `extraResources` (`resources/yt-dlp`). Binaries are gitignored.
+**Settings at start-up**
+`settings.js` / `recent.js` read settings synchronously while modules load. `bridge.js` fetches the snapshot with one synchronous XHR (`/__vp/<key>/persist`) before the page's scripts run; writes go to Rust asynchronously and `persist:changed` keeps the other windows' copies current.
 
-**Window drag**  
-Frameless chrome does **not** use `-webkit-app-region: drag` on the toolbar (it breaks button clicks on Windows). Drag is implemented via IPC (`beginWindowDrag` / move / end) on the brand + spacer regions.
+**Bundled tools**
+`scripts/ensure-tools.js` (Tauri's `beforeDevCommand` / `beforeBuildCommand`, also `postinstall`) fetches `vendor/yt-dlp/` and copies FFmpeg from `ffmpeg-static` into `vendor/ffmpeg/`. Both ship as bundle resources. yt-dlp uses a system Node.js (`--js-runtimes node`) for YouTube's signature challenge.
 
-**Logging**  
-Unless `MYVIDEOPLAYER_VERBOSE=1`, main process sets Chromium `disable-logging` / `log-level=3` and filters known benign stderr noise (e.g. `Unsupported pixel format: -1`).
+**Window drag**
+The toolbar calls `beginWindowDrag` / `updateWindowDrag` / `endWindowDrag`; Rust moves the window after the real cursor in physical pixels (so DPI and the invisible resize border never enter the sums). The spectrum / history title bars use CSS `app-region: drag`, which WebView2 honours.
 
-### 2.2 Preload API (`window.desktopAPI`) — selected surface
+**Full screen**
+WebView2 alone only fills the window on `requestFullscreen`; `bridge.js` turns `fullscreenchange` into `window:setFullscreen`.
+
+### 2.2 `window.desktopAPI` — selected surface
 
 | API | Purpose |
 |-----|---------|
-| `isElectron` | Feature detection in renderer |
+| `isElectron` / `isTauri` | Feature detection in renderer (`isElectron` stays `true` = "desktop") |
 | `getAppInfo` | Name, version, platform |
 | `minimize` / `maximizeToggle` / `close` / `isMaximized` / `onWindowState` | Window chrome (`minimize` group-minimizes main + spectrum + history) |
 | `setMinimumSize` / `getBounds` / `setBounds` | Min size + bounds (compact mode shrink/restore; sender window) |
 | `beginWindowDrag` / `updateWindowDrag` / `endWindowDrag` | Frameless move |
-| `setWindowOpacity` / `getWindowOpacity` | Per-window opacity (sender BrowserWindow) |
-| `openMedia` / `openMediaPath` / `openSubtitle` / `findSubtitle` | File dialogs & path helpers (remember last dirs) |
+| `setWindowOpacity` / `getWindowOpacity` | Per-window opacity (sender window) |
+| `openMedia` / `openMediaPath` / `openSubtitle` / `findSubtitle` / `listSubtitles` | File dialogs & path helpers (remember last dirs) |
 | `makeMediaCompatible` / `onMediaCompatProgress` | FFmpeg compat pipeline |
-| `getPathForFile` | Resolve dropped `File` → filesystem path |
+| `onOpenMediaPaths` | Files from the command line, a second launch, or dropped on the window |
 | `persistGetItem` / `persistSetItem` / `persistRemoveItem` | Sync persist bridge |
-| `parseYouTube` / `getYouTubeInfo` / `downloadYouTube` / `stopYouTubeDownload` / `onYouTubeDownloadProgress` | YouTube desktop pipeline |
+| `parseYouTube` / `getYouTubeInfo` / `downloadYouTube` / `stopYouTubeDownload` / `onYouTubeDownloadProgress` | YouTube desktop pipeline (`downloadYouTube({ url, title, subtitleLang })`) |
 | `openRtsp` / `stopRtsp` / `startRtspRecord` / `stopRtspRecord` / `onRtspRecordProgress` / … | RTSP view + record |
-| `openSpectrumWindow` / `sendSpectrumMessage` / … | Optional separate spectrum window |
-| `openHistoryWindow` / `sendHistoryMessage` / … | Optional separate play-history window |
+| `openSpectrumWindow` / `sendSpectrumMessage` / … | Separate spectrum window |
+| `openHistoryWindow` / `sendHistoryMessage` / … | Separate play-history window |
 
 ### 2.3 Renderer (`src/`)
 
@@ -92,14 +99,14 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 |--------|------|
 | `js/app.js` | Application controller: modes, fit/history/compact UI, hotkeys, DnD, status snapshot + locale refresh |
 | `js/settings.js` | Settings defaults + load/save via persist layer (`videoFit`, `videoRotation`, `showHistoryPanel`, `compactMode`, …) |
-| `js/persist.js` | `localStorage` (web) or `desktopAPI.persist*` (Electron) |
+| `js/persist.js` | `localStorage` (web) or `desktopAPI.persist*` (desktop) |
 | `js/themes.js` | Builtin + custom themes, CSS variables, overlay sync; toolbar menus use scheme-locked contrast |
 | `js/i18n.js` | English / Korean dictionaries + `applyI18n` |
 | `js/hotkeys.js` | Editable-target / modal helpers for shortcut gating |
 | `js/recent.js` | Recent / history list (max 30; file / youtube / rtsp) |
 | `js/spectrum.js` | `SpectrumAnalyzer` (Web Audio) + `SpectrumPainter` (styles) |
-| `js/spectrum-bridge.js` / `spectrum-window-app.js` / `spectrum.html` | Separate spectrum BrowserWindow (or web popup) |
-| `js/history-bridge.js` / `history-window-app.js` / `history.html` | Separate play-history BrowserWindow (or web popup) |
+| `js/spectrum-bridge.js` / `spectrum-window-app.js` / `spectrum.html` | Separate spectrum window (or web popup) |
+| `js/history-bridge.js` / `history-window-app.js` / `history.html` | Separate play-history window (or web popup) |
 | `js/subtitles.js` | SMI/SRT/VTT parse + overlay renderer |
 | `js/youtube-player.js` | YouTube ID helpers + IFrame player controller |
 | `js/error-dialog.js` | Detailed error modal with copy |
@@ -112,9 +119,9 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 
 | Script | Role |
 |--------|------|
-| `ensure-yt-dlp.js` | Fetch/skip bundled yt-dlp into `vendor/yt-dlp/` |
-| `build-win.js` / `prepare-win-build.js` / `after-pack-win.js` / … | Windows packaging helpers |
-| `copy-installer-to-root.js` | Copy built installer to repo root |
+| `ensure-tools.js` | yt-dlp (via `ensure-yt-dlp.js`, `--latest` before builds) + FFmpeg copy into `vendor/` |
+| `copy-installer-to-root.js` | Copy built installers from `src-tauri/target/release/bundle` to the repo root |
+| `gen-themes-css.js` | Regenerate `styles/themes.css` from `themes.js` |
 
 ---
 
@@ -144,9 +151,10 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 - Play history is a **separate window** (`history.html`) driven by IPC / BroadcastChannel item sync from the player. Open state persisted as `showHistoryPanel`; title-bar opacity as `historyOpacity`.
 - **Video fit** (`settings.videoFit`): `cover` | `contain` | `actual` — CSS classes on `#videoWrap` (`fit-*`); control-bar `#btnFit` menu.
 - **Stage rotation**: `0` | `90` | `180` | `270` — `.is-rotated` + `.rot-*` on `#videoWrap`. Two levels: `settings.videoRotation` is the **persisted default** applied on every `loadMedia` of a new source (Settings ▸ Display); the module-level `videoRotation` is the **live** angle for the file playing now, moved by `#btnRotateLeft` / `#btnRotateRight` (and `#btnRotateReset`, which doubles as the angle readout), the stage context menu, and `R` / `Shift+R` — none of which persist. A quarter turn swaps `#media`'s layout box to `--stage-h x --stage-w` (published by a `ResizeObserver` on the stage) so `object-fit` still resolves against the axes the viewer sees. Overlays (subtitles, drop hint, progress) are siblings and stay upright. Disabled in YouTube mode — the iframe is not ours to transform. Compact chrome keeps both turn buttons and hides only the readout.
-- **Group minimize / restore**: `desktopAPI.minimize` (toolbar ─ and `Esc` when no overlay) minimizes main + spectrum + history together. Restoring any one window (taskbar / second-instance) restores the whole group via `restore` listeners in `main.js`.
+- **Group minimize / restore**: `desktopAPI.minimize` (toolbar ─ and `Esc` when no overlay) minimizes main + spectrum + history together. Restoring any one window (taskbar / second-instance) restores the whole group (resize-after-minimize check in `lib.rs`).
 - **Chrome auto-hide** (`settings.autoHideChrome`): overlay toolbar + bottom chrome hide while playing; edge hover reveals them.
 - **Compact mode** (`settings.compactMode`): `#app.is-compact` hides non-essential chrome; keeps **Open**, transport, volume, compact-restore, and window controls. Distinct enter (PIP) / exit (full layout) icons on `#btnCompact`. Desktop saves/restores window bounds via `getBounds` / `setBounds` and lowers `setMinimumSize` while compact. The separate spectrum and history windows stay open across compact toggle.
+- **Subtitles**: on `loadMedia` the desktop build lists `clip.srt` / `clip.<lang>.srt` / `.smi` / `.vtt` (`listSubtitles`). With any of them the control bar shows `#subtitleTrackSelect`; the first shown is `settings.subtitleLang` ("auto" = UI language), then the same base language, the plain file, English. A YouTube download saves every uploaded language (or, if none, automatic captions in the preferred language / English / the original) and copies the preferred one to `clip.srt`. YouTube streaming passes `cc_load_policy` / `cc_lang_pref` from the same settings.
 - Floating save/open progress (`#progressModal`) is non-modal so the stage stays visible. Opening YouTube/RTSP closes the URL modal first, shows staged progress, and blocks duplicate Play/Connect while in flight.
 - Settings / About / theme editor use `dialog.show()` (non-blocking) so Chromium does not mark the page inert and pause media. URL/error dialogs may still use `showModal()`.
 
@@ -156,13 +164,14 @@ Pure static UI: no bundler. Modules are loaded as native ES modules.
 
 | Store | Content |
 |-------|---------|
-| Electron `userData/persist.json` | Settings, custom themes, recent list, `dialog.lastOpenDir` / `dialog.lastSaveDir` |
+| `<data>/persist.json` | Settings, custom themes, recent list, `dialog.lastOpenDir` / `dialog.lastSaveDir` |
+| `<data>/youtube-cookies.txt` | Cookies after a YouTube sign-in (never commit) |
 | Web `localStorage` | Same logical keys via `persist.js` |
 | Keys (examples) | `myvideoplayer.settings.v1`, custom themes, recent entries |
-| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, autoHideChrome, spectrumStyle, showSubtitles, subSize, startVolume, windowOpacity, spectrumOpacity, historyOpacity, showHistoryPanel, videoFit, videoRotation, compactMode |
-| Compat cache | `userData/compat-cache/` (converted media; not in git) |
+| Settings fields | locale, theme, rate, seekStep, autoplay, loop, showSpectrum, autoHideChrome, spectrumStyle, showSubtitles, subtitleLang, subSize, startVolume, windowOpacity, spectrumOpacity, historyOpacity, showHistoryPanel, videoFit, videoRotation, compactMode |
+| Compat cache | `<data>/compat-cache/` (converted media) |
 
-Settings live per-profile (browser / Electron userData), not inside the install directory.
+`<data>` is `%APPDATA%\com.shkwon.myvideoplayer` on Windows (the platform app-data folder elsewhere), or `MYVIDEOPLAYER_CONFIG_DIR` (data + WebView2 profile, for tests). On first start the Electron build's `persist.json` (`%APPDATA%\MyVideoPlayer` or `my-video-player-multios`) is copied in.
 
 ---
 
@@ -173,7 +182,8 @@ Settings live per-profile (browser / Electron userData), not inside the install 
 3. `applyThemeToDocument` sets `data-theme`, `data-color-scheme`, and mirrors variables onto `:root`.
 4. Stage / video letterbox uses `--bg-stage` so the canvas background follows the theme.
 5. `syncThemeToOverlays` copies variables onto dialogs/tooltips. Toolbar **popup/recent/fit menus** intentionally use scheme-locked `--menu-*` colors so labels stay readable over the stage.
-6. Electron `nativeTheme.themeSource` follows the scheme for native dialogs (approximate light/dark only).
+6. The window theme (`set_theme`) follows the scheme for native chrome and dialogs (approximate light/dark only).
+7. `applyTheme` also sets `data-scheme` on `<html>`. Control-bar buttons are white outlines with no fill (`--ctrl-outline`; the theme's `--text` under `data-scheme="light"`); only Stop is filled with the fixed `--ctrl-stop` red.
 
 ---
 
@@ -196,51 +206,37 @@ Settings live per-profile (browser / Electron userData), not inside the install 
 
 ## 8. Packaging
 
-### electron-builder (`package.json` → `build`)
+### Tauri bundler (`src-tauri/tauri.conf.json`)
 
 | Command | Target | Artifact |
 |---------|--------|----------|
-| `npm run build:win` | Windows | NSIS x64 → `dist/MyVideoPlayer-Setup-{version}.exe` (+ copy to repo root) |
-| `npm run build:mac` | macOS | DMG + zip |
+| `npm run build:win` | Windows | NSIS x64 → `src-tauri/target/release/bundle/nsis/` (+ `MyVideoPlayer-Setup-{version}.exe` in repo root) |
+| `npm run build:mac` | macOS | DMG |
 | `npm run build:linux` | Linux | AppImage + deb |
-| `npm run build` | Host defaults | Per `package.json` `build` targets |
+| `npm run build` | Host defaults | All configured targets |
 
-(`dist:*` scripts alias the same `build:*` commands.)
-
-`ffmpeg-static` is unpacked from asar (`asarUnpack`) so the main process can spawn FFmpeg for compat conversion and RTSP.
-
-Bundled `yt-dlp` is included via `extraResources` from `vendor/yt-dlp/`.
+(`dist:*` scripts alias the same `build:*` commands.) `bundle.resources` ships `vendor/yt-dlp/` → `yt-dlp/` and `vendor/ffmpeg/` → `ffmpeg/`. `bundle.fileAssociations` registers the video and audio extensions.
 
 ### Icons (`asset/`)
 
 | File | Use |
 |------|-----|
 | `icon.ico` | Windows app + NSIS installer/uninstaller |
-| `icon-1024.png` | macOS |
-| `icons/*.png` | Linux |
+| `icons/*.png` | Bundle icons |
 | `icon.png` / `icon-256.png` | Runtime / favicon / toolbar brand |
 
-### NSIS custom script (`build/installer.nsh`)
+### NSIS hooks (`src-tauri/windows/hooks.nsh`)
 
-On a normal Setup run (not an in-app `--updated` upgrade):
-
-1. Close a running instance  
-2. Uninstall previous per-user and per-machine installs  
-3. Remove leftovers (folder, shortcuts, registry)  
-4. Wipe app data under `%APPDATA%` / `%LOCALAPPDATA%`  
-5. Install the new version  
-
-This keeps reinstalls clean while preserving auto-update behavior when `--updated` is passed.
+Before installing (not for `/UPDATE`): removes the Electron build's files, uninstall entry, "Open with" ProgIDs and Chromium caches. Its own uninstaller is not run, because it would delete `persist.json`, which this build migrates. Uninstall with "delete app data" also deletes the Electron data folders.
 
 ---
 
 ## 9. Security notes
 
-- `contextIsolation: true`, `nodeIntegration: false`
-- Preload exposes a fixed IPC surface only
-- UI server rejects path traversal outside `src/` and validates `/__media` tokens to real files
-- CSP in `index.html` restricts scripts, frames, and media origins (YouTube hosts allowlisted)
-- Cookie / auth material for YouTube stays under Electron userData; cookie dumps must not be committed (see `.gitignore`)
+- Pages get one app command (`vp`) plus event listening (`capabilities/default.json`); no Node or file APIs in the page
+- The server rejects `..` paths, serves only embedded assets, and requires the per-run key for `/__media`, `/__rtsp`, `/__vp`
+- CSP in the HTML pages restricts scripts, frames, and media origins (YouTube hosts allowlisted)
+- YouTube cookies stay in the data folder; cookie dumps must not be committed (see `.gitignore`)
 
 ---
 
@@ -255,6 +251,6 @@ This keeps reinstalls clean while preserving auto-update behavior when `--update
 | New fit mode | `normalizeVideoFit` + CSS `.fit-*` + control-bar menu in `index.html` |
 | Rotation step | `normalizeVideoRotation` in `settings.js` + `applyVideoRotation` in `app.js` + CSS `.rot-*` in `main.css` |
 | Compact chrome | `setCompactMode` in `app.js` + `.app.is-compact` rules in `main.css` |
-| Group minimize | `minimizeAllAppWindows` / `restoreAllAppWindows` in `main.js` |
-| New IPC | `main.js` handler + `preload.js` + renderer call site |
-| Installer UX | `build/installer.nsh` + `package.json` `build.nsis` |
+| Group minimize | `minimize_all` / `restore_all` in `src-tauri/src/lib.rs` |
+| New desktop call | `vp` channel in `lib.rs` + `bridge.js` method + renderer call site |
+| Installer UX | `src-tauri/windows/hooks.nsh` + `tauri.conf.json` `bundle.windows.nsis` |

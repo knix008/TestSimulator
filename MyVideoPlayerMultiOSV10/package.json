@@ -1,157 +1,34 @@
 {
   "name": "my-video-player-multios",
+  "productName": "MyVideoPlayer",
   "version": "1.0.0",
   "description": "Cross-platform video/audio player (Web, Windows, macOS, Linux)",
-  "main": "electron/main.js",
   "author": "SHKWON <knix008@naver.com>",
   "license": "MIT",
+  "private": true,
   "scripts": {
-    "postinstall": "node scripts/ensure-yt-dlp.js",
-    "ensure:yt-dlp": "node scripts/ensure-yt-dlp.js",
-    "ensure:yt-dlp:latest": "node scripts/ensure-yt-dlp.js --latest",
-    "start": "node scripts/ensure-yt-dlp.js && electron .",
+    "postinstall": "node scripts/ensure-tools.js",
+    "ensure:tools": "node scripts/ensure-tools.js",
+    "ensure:tools:latest": "node scripts/ensure-tools.js --latest",
+    "start": "tauri dev",
     "web": "npx --yes serve src -p 5173",
-    "pack": "node scripts/ensure-yt-dlp.js --latest && electron-builder --dir",
-    "build": "node scripts/ensure-yt-dlp.js --latest && electron-builder && node scripts/copy-installer-to-root.js",
-    "build:win": "node scripts/build-win.js",
-    "build:mac": "node scripts/ensure-yt-dlp.js --latest && electron-builder --mac && node scripts/copy-installer-to-root.js",
-    "build:linux": "node scripts/ensure-yt-dlp.js --latest && electron-builder --linux && node scripts/copy-installer-to-root.js",
+    "test": "node test/run.mjs",
+    "test:offline": "node test/run.mjs --offline",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "build:debug": "node scripts/ensure-tools.js && cargo build --manifest-path src-tauri/Cargo.toml",
+    "tauri": "tauri",
+    "pack": "tauri build --no-bundle",
+    "build": "tauri build && node scripts/copy-installer-to-root.js",
+    "build:win": "tauri build --bundles nsis && node scripts/copy-installer-to-root.js",
+    "build:mac": "tauri build --bundles dmg && node scripts/copy-installer-to-root.js",
+    "build:linux": "tauri build --bundles appimage,deb && node scripts/copy-installer-to-root.js",
     "dist": "npm run build",
     "dist:win": "npm run build:win",
     "dist:mac": "npm run build:mac",
     "dist:linux": "npm run build:linux"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
-  },
-  "build": {
-    "appId": "com.shkwon.myvideoplayer",
-    "productName": "MyVideoPlayer",
-    "copyright": "Copyright © 2026 SHKWON",
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "afterPack": "scripts/after-pack-win.js",
-    "files": [
-      "electron/**/*",
-      "src/**/*",
-      "asset/icon.png",
-      "asset/icon.ico",
-      "asset/icon-256.png",
-      "package.json"
-    ],
-    "asarUnpack": [
-      "**/node_modules/ffmpeg-static/**"
-    ],
-    "extraResources": [
-      {
-        "from": "vendor/yt-dlp",
-        "to": "yt-dlp",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "fileAssociations": [
-      {
-        "ext": ["mp4", "m4v", "webm", "mkv", "mov", "avi", "ogv", "hevc", "h265"],
-        "name": "MyVideoPlayer Video",
-        "description": "Video file",
-        "mimeType": "video/mp4",
-        "role": "Viewer",
-        "icon": "asset/icon.ico"
-      },
-      {
-        "ext": ["mp3", "aac", "m4a", "wav", "flac", "opus", "ogg", "wma"],
-        "name": "MyVideoPlayer Audio",
-        "description": "Audio file",
-        "mimeType": "audio/mpeg",
-        "role": "Viewer",
-        "icon": "asset/icon.ico"
-      }
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "asset/icon.ico",
-      "signAndEditExecutable": false,
-      "verifyUpdateCodeSignature": false,
-      "signtoolOptions": {
-        "sign": "./scripts/skip-win-sign.js"
-      }
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "allowElevation": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "MyVideoPlayer",
-      "include": "build/installer.nsh",
-      "installerIcon": "asset/icon.ico",
-      "uninstallerIcon": "asset/icon.ico",
-      "installerHeaderIcon": "asset/icon.ico",
-      "installerLanguages": [
-        "en_US",
-        "ko_KR"
-      ],
-      "language": "1042",
-      "runAfterFinish": true,
-      "deleteAppDataOnUninstall": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
-    },
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "category": "public.app-category.entertainment",
-      "icon": "asset/icon-1024.png",
-      "darkModeSupport": true
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "AudioVideo",
-      "icon": "asset/icons",
-      "desktop": {
-        "Name": "MyVideoPlayer",
-        "Comment": "Multi-format video and audio player",
-        "Categories": "AudioVideo;Player;"
-      }
-    },
-    "dmg": {
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
-    }
-  },
-  "allowScripts": {
-    "electron@33.4.11": true,
-    "ffmpeg-static@5.3.0": true
-  },
-  "dependencies": {
-    "ffmpeg-static": "^5.3.0",
-    "youtubei.js": "^17.2.0"
+    "@tauri-apps/cli": "^2.8.0",
+    "ffmpeg-static": "^5.3.0"
   }
 }

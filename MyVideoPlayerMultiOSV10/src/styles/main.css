@@ -998,96 +998,58 @@ body.is-electron .toolbar-opacity {
   flex: 0 0 14px;
 }
 
-/* Transport controls: distinct accent per function */
+/* Transport controls: no fill, white outline and icon; only Stop is filled (fixed red).
+   Light themes use their text colour instead — white would vanish on a light control bar. */
+.control-bar {
+  --ctrl-outline: #fff;
+}
+
+:root[data-scheme="light"] .control-bar {
+  --ctrl-outline: var(--text);
+}
+
 .control-bar .tool-btn {
-  border-color: transparent;
-  color: #fff;
+  border: 1px solid var(--ctrl-outline);
+  background: transparent;
+  color: var(--ctrl-outline);
+}
+
+.control-bar .tool-btn:hover {
+  background: color-mix(in srgb, var(--ctrl-outline) 14%, transparent);
+  border-color: var(--ctrl-outline);
+  color: var(--ctrl-outline);
 }
 
 .control-bar .tool-btn:active {
   filter: brightness(0.92);
 }
 
-/* Seek prev/next — violet */
-.control-bar #btnPrev,
-.control-bar #btnNext {
-  background: var(--ctrl-seek);
-}
-
-.control-bar #btnPrev:hover,
-.control-bar #btnNext:hover {
-  background: var(--ctrl-seek-hover);
-  border-color: transparent;
-  color: #fff;
-}
-
-/* Play/pause — fixed blue in every theme */
-.control-bar .tool-btn-primary,
-.control-bar #btnPlay {
-  background: var(--ctrl-play);
-  border-color: transparent;
-  color: #fff;
-}
-
-.control-bar .tool-btn-primary:hover,
-.control-bar #btnPlay:hover {
-  background: var(--ctrl-play-hover);
-  border-color: transparent;
-  color: #fff;
-}
-
 /* Stop — fixed red in every theme */
 .control-bar .tool-btn-stop {
   background: var(--ctrl-stop);
-  border-color: transparent;
+  border-color: var(--ctrl-stop);
   color: #fff;
 }
 
 .control-bar .tool-btn-stop:hover {
   background: var(--ctrl-stop-hover);
-  border-color: transparent;
-  color: #fff;
-}
-
-/* Volume / mute — teal */
-.control-bar #btnMute,
-.control-bar .volume-group .tool-btn {
-  background: var(--ctrl-volume);
-}
-
-.control-bar #btnMute:hover,
-.control-bar .volume-group .tool-btn:hover {
-  background: var(--ctrl-volume-hover);
-  border-color: transparent;
+  border-color: var(--ctrl-stop-hover);
   color: #fff;
 }
 
 .control-bar .volume-bar {
-  --seek-fill: var(--ctrl-volume);
+  --seek-fill: var(--bg-primary);
 }
 
-.control-bar .volume-scale {
-  color: var(--ctrl-volume);
-}
-
+.control-bar .volume-scale,
 .control-bar .volume-value {
-  color: var(--ctrl-volume);
-}
-
-/* Rate — amber */
-.control-bar .rate-group .tool-btn {
-  background: var(--ctrl-rate);
-}
-
-.control-bar .rate-group .tool-btn:hover {
-  background: var(--ctrl-rate-hover);
-  border-color: transparent;
-  color: #fff;
+  color: var(--bg-primary);
 }
 
 .control-bar .tool-btn[aria-pressed="true"],
 .control-bar .tool-btn.is-active {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 55%, transparent);
+  box-shadow: inset 0 0 0 1px var(--ctrl-outline);
+  background: color-mix(in srgb, var(--ctrl-outline) 18%, transparent);
   filter: brightness(1.06);
 }
 
@@ -1101,11 +1063,10 @@ body.is-electron .toolbar-opacity {
   padding: 0 8px;
   gap: 5px;
   flex: 0 0 auto;
-  color: #fff;
 }
 
 .control-bar .tool-btn.tool-btn-labeled .tool-btn-label {
-  color: #fff;
+  color: inherit;
 }
 
 .control-bar .tool-btn.tool-btn-labeled svg {
@@ -1142,7 +1103,7 @@ body.is-electron .toolbar-opacity {
   font-variant-numeric: tabular-nums;
   font-size: 12px;
   font-weight: 600;
-  color: var(--ctrl-seek);
+  color: var(--bg-primary);
   min-width: 36px;
   text-align: center;
 }
@@ -1285,10 +1246,10 @@ body.is-electron .toolbar-opacity {
   min-width: 56px;
   max-width: 64px;
   padding: 0 4px;
-  border: 1px solid transparent;
+  border: 1px solid var(--ctrl-outline, var(--text));
   border-radius: 4px;
-  background: var(--ctrl-rate);
-  color: #fff;
+  background: transparent;
+  color: var(--ctrl-outline, var(--text));
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1301,9 +1262,16 @@ body.is-electron .toolbar-opacity {
 
 .rate-select:hover,
 .rate-select:focus {
-  border-color: transparent;
-  background: var(--ctrl-rate-hover);
-  color: #fff;
+  border-color: var(--ctrl-outline, var(--text));
+  background: color-mix(in srgb, var(--ctrl-outline, var(--text)) 14%, transparent);
+  color: var(--ctrl-outline, var(--text));
+}
+
+.rate-select.subtitle-track-select {
+  min-width: 84px;
+  max-width: 180px;
+  padding: 0 6px;
+  font-weight: 500;
 }
 
 .rate-select option {

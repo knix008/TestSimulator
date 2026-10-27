@@ -60,7 +60,13 @@ import {
   cloneVarsFromTheme,
   ensureDerivedVars,
 } from "./themes.js";
-import { t, setLocale, applyI18n, resolveInitialLocale } from "./i18n.js";
+import {
+  t,
+  setLocale,
+  getLocale,
+  applyI18n,
+  resolveInitialLocale,
+} from "./i18n.js";
 import {
   createErrorDialogController,
   mediaErrorDetail,
@@ -2369,6 +2375,8 @@ function updateThemeActionButtons() {
 
 async function applyTheme(themeSetting) {
   const def = applyThemeToDocument(themeSetting);
+  document.documentElement.dataset.scheme =
+    def.scheme === "light" ? "light" : "dark";
   syncThemeToOverlays();
   setStatus({ themeSetting: themeSetting });
   if (isElectron && window.desktopAPI.setThemeSource) {
@@ -2996,6 +3004,9 @@ function fillSettingsForm({ tab = "general" } = {}) {
     $("settingAutoHideChrome").checked = settings.autoHideChrome !== false;
   }
   $("settingShowSubtitles").checked = settings.showSubtitles;
+  if ($("settingSubtitleLang")) {
+    $("settingSubtitleLang").value = settings.subtitleLang || "auto";
+  }
   $("settingSubSize").value = String(settings.subSize);
   if ($("settingVideoRotation")) {
     $("settingVideoRotation").value = String(
@@ -3107,6 +3118,7 @@ function readSettingsForm() {
       $("settingSpectrumStyle")?.value || settings.spectrumStyle,
     ),
     showSubtitles: $("settingShowSubtitles").checked,
+    subtitleLang: $("settingSubtitleLang")?.value || "auto",
     subSize: Number($("settingSubSize").value) || 28,
     videoRotation: normalizeVideoRotation(
       $("settingVideoRotation")?.value ?? settings.videoRotation,
@@ -3205,8 +3217,13 @@ async function loadMedia({
   });
 
   subtitles.setCues([]);
+  setSubtitleTracks([]);
 
-  if (subtitle?.content) {
+  // clip.<lang>.srt files (YouTube downloads) → language picker; else clip.srt / .smi.
+  const fromTracks = await loadSubtitleTracksFor(path);
+  if (fromTracks) {
+    /* applied */
+  } else if (subtitle?.content) {
     applySubtitle(subtitle);
   } else if (isElectron && path) {
     const found = await window.desktopAPI.findSubtitle(path);
@@ -3363,6 +3380,92 @@ async function handleMediaElementError() {
       readyState: els.media.readyState,
     },
     statusMessage: msg,
+  });
+}
+
+/** @type {Array<{lang: string, path: string, name: string, ext: string, content: string}>} */
+let subtitleTracks = [];
+
+/** "ko", "en", … — the Settings choice, or the app language for "auto". */
+function preferredSubtitleLang() {
+  const lang = settings.subtitleLang;
+  return lang && lang !== "auto" ? lang : getLocale() || "en";
+}
+
+function subtitleTrackLabel(track) {
+  if (!track.lang) {
+    const ext = String(track.ext || "").replace(".", "").toUpperCase();
+    return ext ? `${t("subtitleTrackDefault")} (${ext})` : t("subtitleTrackDefault");
+  }
+  const generated = /-orig$/i.test(track.lang);
+  const code = track.lang.replace(/-orig$/i, "");
+  let name = code;
+  try {
+    name =
+      new Intl.DisplayNames([getLocale() || "en"], { type: "language" }).of(
+        code,
+      ) || code;
+  } catch {
+    /* unknown tag: show the code */
+  }
+  return generated ? `${name} · ${t("subtitleTrackAuto")}` : name;
+}
+
+/** Exact language, same language (ko-KR), the plain clip.srt, English, then the first. */
+function pickSubtitleTrack(tracks, preferred) {
+  if (!tracks?.length) return null;
+  const pref = String(preferred || "").toLowerCase();
+  const base = (l) => String(l || "").split("-")[0].toLowerCase();
+  return (
+    tracks.find((tr) => tr.lang.toLowerCase() === pref) ||
+    tracks.find((tr) => tr.lang && base(tr.lang) === base(pref)) ||
+    tracks.find((tr) => !tr.lang) ||
+    tracks.find((tr) => base(tr.lang) === "en") ||
+    tracks[0]
+  );
+}
+
+function setSubtitleTracks(tracks, selected = null) {
+  subtitleTracks = Array.isArray(tracks) ? tracks : [];
+  const select = $("subtitleTrackSelect");
+  if (!select) return;
+  select.innerHTML = "";
+  subtitleTracks.forEach((track, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = subtitleTrackLabel(track);
+    select.appendChild(option);
+  });
+  if (selected) {
+    const i = subtitleTracks.indexOf(selected);
+    if (i >= 0) select.value = String(i);
+  }
+  const display = subtitleTracks.length ? "" : "none";
+  $("subtitleTrackGroup").style.display = display;
+  $("subtitleTrackSep").style.display = display;
+}
+
+/** Lists the subtitle files of a local video and shows the preferred one. */
+async function loadSubtitleTracksFor(path) {
+  if (!isElectron || !path || !window.desktopAPI?.listSubtitles) return null;
+  let tracks = [];
+  try {
+    tracks = await window.desktopAPI.listSubtitles(path);
+  } catch {
+    tracks = [];
+  }
+  if (path !== currentMediaPath) return null;
+  const chosen = pickSubtitleTrack(tracks, preferredSubtitleLang());
+  setSubtitleTracks(tracks, chosen);
+  if (chosen) applySubtitle(chosen);
+  return chosen;
+}
+
+function bindSubtitleTrackSelect() {
+  $("subtitleTrackSelect")?.addEventListener("change", (e) => {
+    const track = subtitleTracks[Number(e.target.value)];
+    if (track) applySubtitle(track);
+    e.target.blur();
   });
 }
 
@@ -3783,6 +3886,7 @@ async function playRtspFromInput(rawInput) {
   currentMediaPath = null;
   currentMediaName = null;
   subtitles.setCues([]);
+  setSubtitleTracks([]);
   stopRequested = false;
   hidePlaybackOverlay(true);
   els.dropHint.classList.add("hidden");
@@ -3902,6 +4006,7 @@ async function playRemoteVideoFromInput(rawInput) {
   currentMediaName = null;
   currentRemote = null;
   subtitles.setCues([]);
+  setSubtitleTracks([]);
   stopRequested = false;
   hidePlaybackOverlay(true);
   els.dropHint.classList.add("hidden");
@@ -4035,6 +4140,7 @@ async function playYouTubeFromInput(rawInput) {
   currentMediaPath = null;
   currentMediaName = null;
   subtitles.setCues([]);
+  setSubtitleTracks([]);
 
   currentYouTube = { id, url, title: id };
   enterYouTubeMode();
@@ -4083,6 +4189,8 @@ async function playYouTubeFromInput(rawInput) {
       await ytPlayer.load(id, {
         autoplay: Boolean(settings.autoplay),
         startVolume: Number(settings.startVolume) || 80,
+        captions: Boolean(settings.showSubtitles),
+        captionLang: preferredSubtitleLang(),
       });
     } catch (err) {
       if (openStreamCancelled) {
@@ -4469,6 +4577,7 @@ async function saveCurrentYouTube() {
     const result = await window.desktopAPI.downloadYouTube({
       url: currentYouTube.url,
       title: currentYouTube.title,
+      subtitleLang: preferredSubtitleLang(),
     });
     if (result?.cancelled) {
       finishSaveProgress({ cancelled: true });
@@ -4680,6 +4789,7 @@ function bindWindowControls() {
     });
 
   bindToolbarWindowDrag();
+  bindSubtitleTrackSelect();
 
   $("toolbarOpacityBar")?.addEventListener("input", (e) => {
     void applyWindowOpacity(e.target.value, { persist: true });
@@ -5114,6 +5224,12 @@ function bindToolbar() {
     applyLocale(settings.locale, { persist: false });
     await applyTheme(settings.theme);
     applySettingsToPlayer({ applyVolume: true, applyRotation: true });
+    // A new default language switches the playing file's subtitles too.
+    if (subtitleTracks.length) {
+      const chosen = pickSubtitleTrack(subtitleTracks, preferredSubtitleLang());
+      setSubtitleTracks(subtitleTracks, chosen);
+      if (chosen) applySubtitle(chosen);
+    }
     els.settingsModal.close();
     setStatus({ state: statusKey("statusSettingsSaved") });
   });
