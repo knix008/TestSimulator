@@ -3,6 +3,7 @@ import { icon } from "./icons.js";
 import { presentWeather } from "../weather/aggregate.js";
 import { dustAt, dustBrief, dustText, worseGrade } from "../weather/air.js";
 import { formatTemp, isoDate } from "../weather/format.js";
+import { humidityArt, humidityAt, humidityBrief, humidityGrade, humidityText } from "../weather/humidity.js";
 import { MONTH_SPAN } from "../weather/providers.js";
 import { conditionIcon, conditionText } from "../weather/wmo.js";
 
@@ -15,15 +16,18 @@ export function renderWeatherHtml({ tab, language, units, today, t, priority = "
   const dust = dustAt(shown?.weather?.air, reading?.day?.date, reading?.hour?.time);
   const advance = cityCount > 1 ? ` data-scene-advance="1" title="${esc(t("tip.nextCity"))}"` : "";
   const dustLine = dust ? `<div class="scene-dust" data-gui="scene-dust">${esc(dustText(dust, t))}</div>` : "";
+  const humidity = reading ? humidityAt(reading.day, reading.hour) : null;
+  const humidityLine = humidity != null ? `<div class="scene-humidity" data-gui="scene-humidity">${esc(humidityText(humidity, t))}</div>` : "";
   const nav = cityCount > 1 ? cityNav(t) : "";
   const scene = `<section class="weather-scene" data-gui="scene"${advance}>
-      <span class="scene-art-wrap">${sceneArt(art)}${dust ? dustArt(worseGrade(dust.pm10, dust.pm25)) : ""}</span>
+      <span class="scene-art-wrap">${sceneArt(art)}${humidity != null ? humidityArt(humidity) : ""}${dust ? dustArt(worseGrade(dust.pm10, dust.pm25)) : ""}</span>
       <div class="scene-copy">
         <div class="scene-city">${esc(city)}</div>
         <div class="scene-date" data-gui="scene-date">${esc(formatDay(isoDate(today), language, dateFormat, t) || "\u00a0")}</div>
         <div class="scene-temp">${esc(reading ? formatTemp(reading.temp, units) : "—")}</div>
         <div class="scene-cond">${esc(reading ? conditionText(code, language) : t("weather.empty"))}</div>
         <div class="scene-range">${esc(reading ? `${formatTemp(reading.day.tempMin, units)} – ${formatTemp(reading.day.tempMax, units)}` : "\u00a0")}</div>
+        ${humidityLine}
         ${dustLine}
       </div>
     </section>`;
@@ -49,9 +53,9 @@ export function renderForecastHtml({ range, tab, language, units, today, t, prio
 
 export function forecastFitHeight(range, hasWeather) {
   if (!hasWeather) return 72;
-  if (range === "weekly") return 136;
-  if (range === "monthly") return 640;
-  return 352;
+  if (range === "weekly") return 152;
+  if (range === "monthly") return 720;
+  return 416;
 }
 
 export function forecastWhen({ range, tab, language, today, priority = "average", dateFormat = "long", t, anchor = "" }) {
@@ -128,13 +132,14 @@ function hoursHtml(day, tab, language, units, t) {
       const hour = byHour.get(hourIndex);
       const label = hourLabel(hourIndex, language);
       if (!hour) {
-        cells.push(`<div class="hour is-empty"><span class="hour-icon"></span><span class="hour-time">${esc(label)}</span><span class="hour-temp">—</span><span class="hour-dust"></span></div>`);
+        cells.push(`<div class="hour is-empty"><span class="hour-icon"></span><span class="hour-time">${esc(label)}</span><span class="hour-temp">—</span><span class="hour-humidity"></span><span class="hour-dust"></span></div>`);
         continue;
       }
       const dust = dustAt(tab.weather?.air, day?.date, hour.time);
-      const title = `${label} ${conditionText(hour.code, language)} ${formatTemp(hour.temp, units)}${dust ? ` ${dustText(dust, t)}` : ""}`;
+      const humidity = humidityAt(null, hour);
+      const title = `${label} ${conditionText(hour.code, language)} ${formatTemp(hour.temp, units)}${humidity != null ? ` ${humidityText(humidity, t)}` : ""}${dust ? ` ${dustText(dust, t)}` : ""}`;
       cells.push(
-        `<button type="button" class="hour" data-gui="hour" data-hour="${esc(hour.time)}" title="${esc(title)}">${sceneArt(conditionIcon(hour.code), 22)}<span class="hour-time">${esc(label)}</span><span class="hour-temp">${esc(formatTemp(hour.temp, units))}</span>${dustCell(dust, t, "hour-dust")}</button>`,
+        `<button type="button" class="hour" data-gui="hour" data-hour="${esc(hour.time)}" title="${esc(title)}">${sceneArt(conditionIcon(hour.code), 22)}<span class="hour-time">${esc(label)}</span><span class="hour-temp">${esc(formatTemp(hour.temp, units))}</span>${humidityCell(humidity, t, "hour-humidity")}${dustCell(dust, t, "hour-dust")}</button>`,
       );
     }
     return `<div class="hour-band" data-band="${id}"><span class="band-name">${esc(t(`period.${id}`))}</span>${cells.join("")}</div>`;
@@ -179,7 +184,7 @@ function monthHtml(days, tab, language, units, today, t, dateFormat) {
   while (cursor <= end) {
     const key = isoDate(cursor);
     if (cursor < first || cursor > last) {
-      cells.push(`<div class="day is-outside"><span class="day-num">${cursor.getDate()}</span><span class="day-slot"></span><span class="temps"></span><span class="dust-line"></span></div>`);
+      cells.push(`<div class="day is-outside"><span class="day-num">${cursor.getDate()}</span><span class="day-slot"></span><span class="temps"></span><span class="humidity-line"></span><span class="dust-line"></span></div>`);
     }
     else {
       // The span crosses a month, so the first day and each 1st also say which month.
@@ -216,9 +221,10 @@ function dayCell({ dateKey, day, tab, language, units, today, t, name, iconSize,
   const dust = dustAt(tab.weather?.air, dateKey);
   const condition = day ? `${conditionText(day.code, language)} ` : "";
   const range = day ? `${formatTemp(day.tempMin, units)} – ${formatTemp(day.tempMax, units)}` : "";
-  const title = `${name ? `${name} ` : ""}${dateKey} ${condition}${range}${dust ? ` ${dustText(dust, t)}` : ""}`.trim();
+  const humidity = humidityAt(day);
+  const title = `${name ? `${name} ` : ""}${dateKey} ${condition}${range}${humidity != null ? ` ${humidityText(humidity, t)}` : ""}${dust ? ` ${dustText(dust, t)}` : ""}`.trim();
   const head = name ? `<span class="weekday">${esc(name)}</span>` : "";
-  return `<button type="button" class="day${selected}${alert}${todayMark}" data-gui="day" data-date="${esc(dateKey)}" title="${esc(title)}">${head}<span class="day-num">${esc(label)}</span>${art}${temps}${dustCell(dust, t, "dust-line")}</button>`;
+  return `<button type="button" class="day${selected}${alert}${todayMark}" data-gui="day" data-date="${esc(dateKey)}" title="${esc(title)}">${head}<span class="day-num">${esc(label)}</span>${art}${temps}${humidityCell(humidity, t, "humidity-line")}${dustCell(dust, t, "dust-line")}</button>`;
 }
 
 function missingTemp(units) {
@@ -287,6 +293,11 @@ function dustCell(dust, t, klass) {
   if (!dust) return `<span class="${klass}"></span>`;
   const grade = worseGrade(dust.pm10, dust.pm25);
   return `<span class="${klass}" data-dust="${esc(grade)}" title="${esc(dustText(dust, t))}">${dustArt(grade, 12)}<span>${esc(dustBrief(dust))}</span></span>`;
+}
+
+function humidityCell(humidity, t, klass) {
+  if (humidity == null) return `<span class="${klass}"></span>`;
+  return `<span class="${klass}" data-humidity="${esc(humidityGrade(humidity))}" title="${esc(humidityText(humidity, t))}">${humidityArt(humidity, 12)}<span>${esc(humidityBrief(humidity))}</span></span>`;
 }
 
 /** Particle picture. The color is the worse of PM10 and PM2.5. */

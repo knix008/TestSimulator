@@ -1663,7 +1663,7 @@ export function registerGui(h) {
         assert.equal(row.querySelectorAll("br").length, 0);
       }
       const part = popup.querySelector('[data-field="fontPart"]');
-      assert.deepEqual([...part.options].map((option) => option.value), ["city", "date", "temp", "cond", "range", "dust"]);
+      assert.deepEqual([...part.options].map((option) => option.value), ["city", "date", "temp", "cond", "range", "humidity", "dust"]);
       assert.equal(popup.querySelector('[data-field="fontPick"]').options.length, 51);
       assert.equal(popup.querySelector('[data-field="itemSize"]').value, "44");
       const shown = popup.querySelector("[data-size-label]");
@@ -1720,6 +1720,10 @@ export function registerGui(h) {
       part.dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();
       assert.equal(sample.textContent, "12° – 24°");
+      part.value = "humidity";
+      part.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await settle();
+      assert.equal(sample.textContent, "습도 65% 다소 습함");
       part.value = "dust";
       part.dispatchEvent(new window.Event("change", { bubbles: true }));
       await settle();

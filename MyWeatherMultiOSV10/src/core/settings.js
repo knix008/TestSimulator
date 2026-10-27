@@ -23,8 +23,8 @@ export const DEFAULT_LOCATION = {
 };
 
 /** Weather lines that can each carry their own font and base size. The window chrome stays on the default face. */
-export const FONT_PARTS = ["city", "date", "temp", "cond", "range", "dust"];
-export const FONT_BASE = { city: 44, date: 16, temp: 68, cond: 16, range: 16, dust: 16 };
+export const FONT_PARTS = ["city", "date", "temp", "cond", "range", "humidity", "dust"];
+export const FONT_BASE = { city: 44, date: 16, temp: 68, cond: 16, range: 16, humidity: 16, dust: 16 };
 export const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64, 68, 72, 80, 96, 112, 128];
 
 export function sanitizeFontSize(value, part) {

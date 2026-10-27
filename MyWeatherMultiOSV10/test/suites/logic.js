@@ -28,6 +28,7 @@ import { CONTENT_PADDING, SCENE_ART, SCENE_BREATH, SCENE_MIN_SCALE, SCENE_NATURA
 import { CUSTOM_THEME_ID, DARK_THEMES, LIGHT_THEMES, MIN_ALPHA, THEMES, backgroundAlpha, isHexColor, isTheme, themeColors, themeVars } from "../../src/core/themes.js";
 import { applyAirQuality, dustAt, dustGrade, parseAirQuality, worseGrade } from "../../src/weather/air.js";
 import { aggregate, presentWeather } from "../../src/weather/aggregate.js";
+import { humidityArt, humidityGrade, humidityText } from "../../src/weather/humidity.js";
 import { formatTemp } from "../../src/weather/format.js";
 import { MONTH_SPAN, extendedUrl, geocodeUrl, mergeGeocoding, metNoUrl, openMeteoUrl, parseExtended, parseGeocoding, parseMetNo, parseOpenMeteo, parseWttr, sourcePageUrl, wttrUrl } from "../../src/weather/providers.js";
 import { loadWeather } from "../../src/weather/service.js";
@@ -528,6 +529,44 @@ export function registerLogic(h) {
     const plainWeek = renderForecastHtml({ range: "weekly", tab: quiet, language: "ko", units: "C", today: new Date(2026, 9, 7, 9), t: (key) => ko.t(key), anchor: "2026-10-07" });
     assert.equal((plainWeek.match(/class="dust-line"/g) || []).length, 7);
     assert.doesNotMatch(plainWeek, /dust-art/);
+  });
+  h.test("humidity is graded and drawn as a drop filled to its level", async () => {
+    assert.equal(humidityGrade(29), "dry");
+    assert.equal(humidityGrade(30), "comfortable");
+    assert.equal(humidityGrade(60), "humid");
+    assert.equal(humidityGrade(80), "veryHumid");
+    assert.equal(humidityGrade(null), "");
+    const ko = createI18n("ko");
+    const en = createI18n("en");
+    assert.equal(humidityText(64.6, (key) => ko.t(key)), "습도 65% 다소 습함");
+    assert.equal(humidityText(20, (key) => en.t(key)), "Humidity 20% Dry");
+    const level = (html) => Math.min(...[...html.matchAll(/,(\d+(?:\.\d)?)/g)].map((m) => Number(m[1])));
+    const water = (value) => humidityArt(value).match(/<polygon points="([^"]+)" fill="#[0-9a-f]+"\/>/)?.[1] || "";
+    assert.ok(level(water(90)) < level(water(40)), "more humidity fills the drop higher");
+    assert.equal(water(0), "", "an empty drop has no water");
+    assert.match(humidityArt(85), /data-humidity="veryHumid"/);
+    const tab = {
+      place: { cityKo: "서울", cityEn: "Seoul" },
+      weather: {
+        daily: [{ date: "2026-10-07", tempMin: 10, tempMax: 20, code: 1, humidity: 50 }],
+        hourly: [{ time: "2026-10-07T09:00", temp: 18, code: 1, humidity: 72 }],
+      },
+    };
+    const t = (key) => ko.t(key);
+    const today = new Date(2026, 9, 7, 9);
+    const scene = renderWeatherHtml({ tab, language: "ko", units: "C", today, t, cityCount: 1 });
+    assert.match(scene, /class="scene-humidity"[^>]*>습도 72% 다소 습함</, "the scene reads the current hour");
+    assert.match(scene, /class="humidity-art" data-humidity="humid"/);
+    const daily = renderForecastHtml({ range: "daily", tab, language: "ko", units: "C", today, t, anchor: "2026-10-07" });
+    assert.equal((daily.match(/class="hour-humidity"/g) || []).length, 24);
+    assert.match(daily, /data-humidity="humid"[^>]*>.*?72%/);
+    const weekly = renderForecastHtml({ range: "weekly", tab, language: "ko", units: "C", today, t, anchor: "2026-10-07" });
+    assert.equal((weekly.match(/class="humidity-line"/g) || []).length, 7);
+    assert.match(weekly, /data-humidity="comfortable"[^>]*>.*?50%/);
+    const monthly = renderForecastHtml({ range: "monthly", tab, language: "ko", units: "C", today, t });
+    assert.match(monthly, /data-date="2026-10-07"[^>]*title="[^"]*습도 50%/);
+    const dry = { ...tab, weather: { daily: [{ date: "2026-10-07", tempMin: 10, tempMax: 20, code: 1 }], hourly: [{ time: "2026-10-07T09:00", temp: 18, code: 1 }] } };
+    assert.doesNotMatch(renderWeatherHtml({ tab: dry, language: "ko", units: "C", today, t, cityCount: 1 }), /scene-humidity|humidity-art/);
   });
   h.test("loadWeather reports a dead connection without treating it as a source error", async () => {
     const error = await loadWeather(
