@@ -321,3 +321,14 @@ function openBrowser(u) {
 const stop = () => { api.jobs.cancelAll(); api.shutdown(); server.close(); process.exit(0); };
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);
+
+// --parent-pid: the desktop shell that started this core. When it is gone (a crash, or
+// ended from the task manager, so it never sent app.shutdown) the core ends too, and
+// does not stay behind holding the installed runtime's files.
+const PARENT_PID = Number(arg('parent-pid', 0));
+if (PARENT_PID > 0) {
+  setInterval(() => {
+    try { process.kill(PARENT_PID, 0); }
+    catch (err) { if (err.code === 'ESRCH') stop(); }
+  }, 2000).unref();
+}

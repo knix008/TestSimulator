@@ -250,6 +250,8 @@ fn start_core_inner(resources: Option<PathBuf>) -> Result<(Child, HostConfig), S
         .arg("--token")
         .arg(&token)
         .arg("--no-open")
+        .arg("--parent-pid")
+        .arg(std::process::id().to_string())
         .current_dir(&core.cwd)
         .env("CC_HOST_NAME", "tauri")
         .env("CC_CONFIG_DIR", &config)
