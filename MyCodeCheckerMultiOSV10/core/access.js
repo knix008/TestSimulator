@@ -53,6 +53,7 @@ const ACCESS = {
   'recent.remove': 'auth',
   'recent.clear': 'auth',
   'samples.list': 'auth',
+  'system.memory': 'auth',
   'samples.open': ['scan', 'global'],
   'audit.list': ['admin', 'global'],
   'ai.get': 'auth',

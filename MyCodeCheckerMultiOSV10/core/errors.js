@@ -19,6 +19,7 @@ const TABLE = [
   [/^A reason is required/, 'BAD_REQUEST', '사유를 입력하십시오.'],
   [/^This change needs an approved exception request/, 'APPROVAL_REQUIRED', '이 변경은 승인된 예외 신청이 필요합니다.'],
   [/^Analysis cancelled/, 'CANCELLED', '분석을 취소했습니다.'],
+  [/^The analysis ran out of memory \((.*)\)/, 'OUT_OF_MEMORY', '분석 중 메모리가 부족합니다($1). 제외 폴더로 외부 라이브러리·생성 코드를 빼고 다시 분석하십시오.'],
   [/^This analysis was started by another user/, 'FORBIDDEN', '다른 사용자가 시작한 분석입니다.'],
   [/^At least one active administrator must remain/, 'LAST_ADMIN', '활성 관리자가 한 명 이상 남아 있어야 합니다.'],
   [/^Cannot deactivate the last administrator/, 'LAST_ADMIN', '마지막 관리자는 비활성화할 수 없습니다.'],

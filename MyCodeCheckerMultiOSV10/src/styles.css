@@ -855,7 +855,7 @@ svg.arch-graph:active { cursor: grabbing; }
 .start-sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; align-items: stretch; }
 .start-sample { display: grid; grid-template-rows: 64px auto auto 2.6em; gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); color: var(--fg); cursor: pointer; text-align: left; min-width: 0; height: 100%; font-size: 12px; overflow: hidden; }
 .start-sample:hover { border-color: var(--accent); background: var(--bg-hover); }
-.sample-preview { width: 100%; height: 64px; border-radius: 6px; display: block; }
+.sample-preview { width: 100%; height: 64px; border-radius: 6px; display: block; background: var(--bg); }
 .start-sample b { font-size: 12px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .start-sample .tags { display: flex; gap: 3px; flex-wrap: nowrap; overflow: hidden; height: 16px; }
 .start-sample .tag { flex: 0 0 auto; font-size: 9.5px; padding: 0 5px; line-height: 14px; border: 1px solid var(--border-strong); border-radius: 99px; color: var(--fg-muted); }
@@ -1143,11 +1143,9 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .start-board > .start-card.bare { padding-left: 30px; }
 /* sample language mix */
 .start-sample.project { grid-template-rows: 64px auto auto 2.6em; }
-.lang-mix { display: flex; flex-direction: column; gap: 6px; justify-content: center; height: 64px; padding: 8px; border-radius: 6px; background: var(--bg); position: relative; }
-.lang-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; }
+.lang-mix { display: block; height: 64px; border-radius: 6px; background: var(--bg); position: relative; overflow: hidden; }
+.lang-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; height: 4px; overflow: hidden; }
 .lang-bar i { display: block; height: 100%; }
-.lang-legend { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 10px; color: var(--fg-muted); max-height: 28px; overflow: hidden; }
-.lang-legend i { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 3px; }
 .lang-file { position: absolute; right: 6px; top: 6px; }
 .start-row .close-x { flex: none; }
 .start-help { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 2px 8px; }

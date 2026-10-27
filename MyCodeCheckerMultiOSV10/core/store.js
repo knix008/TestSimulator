@@ -22,6 +22,12 @@ function defaultConfigDir() {
   return path.join(base, 'MyCodeChecker');
 }
 
+// 8000 files was the default cap of older versions; analyses have no cap now.
+function upgradeSettings(settings) {
+  if (settings.maxFiles === 8000) settings.maxFiles = 0;
+  return settings;
+}
+
 function freshWorkspace() {
   const rules = listRules();
   const profiles = Object.keys(LANGS).map((lang) => ({
@@ -49,7 +55,8 @@ function freshWorkspace() {
       exclusions: ['**/*.min.js', '**/vendor/**', '**/node_modules/**', '**/dist/**', '**/build/**'],
       newCode: 'previous',
       newCodeDays: 30,
-      maxFiles: 8000,
+      maxFiles: 0, // 0 = no limit
+      memoryLimitGb: require('./memory').defaultLimitGb(),
       webhookUrl: '',
       assignee: '',
       limits: {},
@@ -97,7 +104,7 @@ function createStore(configDir) {
         ...fresh,
         ...data,
         gates: upgradeGates(data.gates || fresh.gates),
-        settings: { ...fresh.settings, ...(data.settings || {}) },
+        settings: upgradeSettings({ ...fresh.settings, ...(data.settings || {}) }),
         defectAnalysis: {
           ...fresh.defectAnalysis,
           ...defectAnalysis,

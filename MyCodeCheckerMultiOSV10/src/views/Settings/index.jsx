@@ -47,6 +47,10 @@ function reportsOf(r) {
 }
 
 // gates: the workspace's gates; the tab edits the default one.
+// Default analysis memory limit (GB); the dialog asks the service (system.memory).
+let memoryDefault = 8;
+const memoryDefaultGb = () => memoryDefault;
+
 function draftOf(s, gates) {
   const gate = defaultGateOf(gates);
   return {
@@ -64,7 +68,8 @@ function draftOf(s, gates) {
     newCodeDays: s.newCodeDays ?? 30,
     newCodeRef: s.newCodeRef || '',
     newCodeVersion: s.newCodeVersion || '',
-    maxFiles: s.maxFiles || 8000,
+    maxFiles: s.maxFiles || 0,
+    memoryLimitGb: s.memoryLimitGb || memoryDefaultGb(),
     startBackground: { ...DEFAULT_START_BACKGROUND, ...(s.startBackground || {}) },
     panels: panelsOf(s),
     customThemes: (s.customThemes || []).map((c) => ({ ...c, colors: { ...c.colors } })),
@@ -92,6 +97,7 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
   const [error, setError] = useState('');
 
   useEffect(() => {
+    call('system.memory').then((m) => { if (m && m.defaultGb > 0) memoryDefault = m.defaultGb; }).catch(() => {});
     call('ai.get').then((a) => {
       setAi({ ...AI_DEFAULTS, ...a });
       setAiUiState({ customModel: !!a.model && a.provider === 'anthropic' && !CLAUDE_MODELS.includes(a.model), customUrl: !!a.baseUrl && a.provider === 'anthropic' });
@@ -194,6 +200,7 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
         newCodeRef: String(d.newCodeRef || '').trim(),
         newCodeVersion: String(d.newCodeVersion || '').trim(),
         maxFiles: d.maxFiles,
+        memoryLimitGb: d.memoryLimitGb,
         startBackground: d.startBackground,
         panels: d.panels,
         customThemes: d.customThemes,
@@ -236,7 +243,7 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
     if (tab === 'custom') { set({ customThemes: [] }); applyCustom([]); if (d.theme.startsWith('custom-')) previewTheme('midnight'); }
     if (tab === 'start') { set({ showStartOnLaunch: true }); setBg({ ...DEFAULT_START_BACKGROUND }); }
     if (tab === 'tutorial') set({ tutorial: { ...TUTORIAL_DEFAULTS } });
-    if (tab === 'analysis') set({ exclusionsText: def.exclusionsText, limits: def.limits, maxFiles: 8000, checks: {} });
+    if (tab === 'analysis') set({ exclusionsText: def.exclusionsText, limits: def.limits, maxFiles: 0, memoryLimitGb: memoryDefaultGb(), checks: {} });
     if (tab === 'reports') set({ reports: reportsOf(null) });
     if (tab === 'gate') set({ gate: { ...d.gate, conditions: DEFAULT_GATE_CONDITIONS.map((c) => ({ ...c })) } });
     if (tab === 'newcode') set({ newCode: 'previous', newCodeDays: 30, newCodeRef: '', newCodeVersion: '' });

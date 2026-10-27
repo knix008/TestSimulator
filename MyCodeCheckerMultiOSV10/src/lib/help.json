@@ -3056,12 +3056,24 @@
   "en": "Changes are previewed at once. Press Cancel to revert them."
  },
  "st_max_files": {
-  "ko": "한 번의 분석에서 읽을 파일 수의 상한입니다. 큰 저장소에서 시간을 줄일 때 낮춥니다.",
-  "en": "The upper limit of files read in one analysis. Lower it to shorten runs on large repositories."
+  "ko": "한 번의 분석에서 읽을 파일 수의 상한입니다. 기본값 0 은 제한이 없습니다. 큰 저장소에서 시간을 줄일 때 낮춥니다.",
+  "en": "The upper limit of files read in one analysis. The default 0 means no limit. Lower it to shorten runs on large repositories."
  },
  "st_max_files_hint": {
-  "ko": "이 수를 넘는 파일은 분석하지 않습니다.",
-  "en": "Files beyond this number are not analyzed."
+  "ko": "이 수를 넘는 파일은 분석하지 않습니다. 0 이면 제한 없이 모든 파일을 분석합니다.",
+  "en": "Files beyond this number are not analyzed. 0 analyzes every file, with no limit."
+ },
+ "st_no_limit": {
+  "ko": "파일 수 제한 없이 모든 파일을 분석합니다.",
+  "en": "Every file is analyzed, with no limit on their number."
+ },
+ "st_memory_limit": {
+  "ko": "분석 작업이 쓸 수 있는 최대 메모리입니다. 큰 프로젝트에서 메모리가 부족하다고 나오면 늘립니다. C/C++ 등은 이 한도에 맞춰 나누어 분석합니다.",
+  "en": "The most memory an analysis may use. Raise it if a large project runs out of memory. C/C++ and other code is analyzed in batches that fit this limit."
+ },
+ "st_memory_limit_hint": {
+  "ko": "기본값은 실제 메모리의 3/4(최소 8 GB)입니다. Reset 을 누르면 기본값으로 돌아갑니다.",
+  "en": "The default is three quarters of the physical memory (at least 8 GB). Reset returns to it."
  },
  "st_more_analysis": {
   "ko": "여기 없는 세부 분석 설정은 관리 화면에서 바꿀 수 있습니다.",

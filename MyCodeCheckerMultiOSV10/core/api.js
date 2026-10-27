@@ -169,7 +169,7 @@ function createApi(opts = {}) {
         overrides: profile.overrides,
         customRules: ws.customRules || [],
         limits: ws.settings.limits || {},
-        maxFiles: ws.settings.maxFiles || 8000,
+        maxFiles: ws.settings.maxFiles || 0,
         previousKeys: keys,
         hasBaseline: keys.length > 0,
         ...newCode,
@@ -621,12 +621,21 @@ function createApi(opts = {}) {
   }
   const WEIGHT = { collect: [0, 10], rules: [10, 45], engines: [55, 42], finish: [97, 3] };
 
+  // A worker gets V8's default heap (about 4 GB), which a large project can
+  // outgrow; settings.memoryLimitGb sets it (core/memory.js).
+  function workerHeapMb() {
+    return require('./memory').workerHeapMb(workspace().settings);
+  }
+
   function analyzeFor(job, ws, abs, opts) {
     if (!job) return analyzePath(abs, opts);
     const { Worker } = require('worker_threads');
     const safe = { ...opts, sca: opts.sca ? { ...opts.sca, advisoryDb: undefined } : opts.sca };
     return new Promise((resolve, reject) => {
-      const worker = new Worker(path.join(__dirname, 'analyze-worker.js'), { workerData: { root: abs, options: safe, osvSource: ws.settings && ws.settings.osvSource } });
+      const worker = new Worker(path.join(__dirname, 'analyze-worker.js'), {
+        workerData: { root: abs, options: safe, osvSource: ws.settings && ws.settings.osvSource },
+        resourceLimits: { maxOldGenerationSizeMb: workerHeapMb() },
+      });
       job.worker = worker;
       worker.on('message', (m) => {
         if (m.type === 'progress') {
@@ -637,7 +646,9 @@ function createApi(opts = {}) {
         } else if (m.type === 'done') resolve(m.analysis);
         else if (m.type === 'error') reject(new Error(m.message));
       });
-      worker.on('error', reject);
+      worker.on('error', (err) => reject(err && err.code === 'ERR_WORKER_OUT_OF_MEMORY'
+        ? Object.assign(new Error(`The analysis ran out of memory (${workerHeapMb()} MB). Exclude third-party or generated folders and analyze again.`), { code: 'OUT_OF_MEMORY' })
+        : err));
       worker.on('exit', (code) => {
         job.worker = null;
         if (job.status === 'cancelled') reject(Object.assign(new Error('Analysis cancelled'), { code: 'CANCELLED' }));
@@ -933,6 +944,8 @@ function createApi(opts = {}) {
       return [];
     },
     'samples.list': () => sampleList(),
+    // Physical memory and the default analysis memory limit, in GB.
+    'system.memory': () => ({ totalGb: require('./memory').totalGb(), defaultGb: require('./memory').defaultLimitGb() }),
     'samples.open': async (args) => {
       const s = sampleList().find((x) => x.id === args.id);
       if (!s) throw Object.assign(new Error(`Sample not found: ${args.id}`), { code: 'NOT_FOUND' });

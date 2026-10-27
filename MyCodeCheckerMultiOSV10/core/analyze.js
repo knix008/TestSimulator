@@ -14,6 +14,7 @@ const { evaluateGate, DEFAULT_GATE } = require('./qualitygate');
 const { checkerCatalog, decorateIssue, pathDefects, summarizeDefects } = require('./defects');
 const checks = require('./checks');
 const { engines, engineCatalog, extraLineRules } = require('./engines');
+const cfront = require('./cfront');
 
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'target', 'vendor', '__pycache__',
@@ -44,7 +45,7 @@ function analyzePath(root, options = {}) {
   report('collect', 0, 1, abs);
   const files = walk(abs, options);
   const sources = [];
-  const maxBytes = options.maxBytes || 800000;
+  const maxBytes = options.maxBytes || Infinity;
   for (const file of files) {
     let text;
     try {
@@ -65,7 +66,7 @@ function analyzePath(root, options = {}) {
 
 function walk(root, options) {
   const out = [];
-  const maxFiles = options.maxFiles || 8000;
+  const maxFiles = options.maxFiles || Infinity;
   const exclusions = options.exclusions || [];
   const excludeDirs = normDirs(options.excludeDirs);
   const visit = (dir) => {
@@ -263,9 +264,9 @@ function analyzeSources(files, options = {}) {
   const ncloc = fileRows.reduce((n, f) => n + f.ncloc, 0);
   const commentLines = fileRows.reduce((n, f) => n + f.commentLines, 0);
 
-  const lineMap = new Map(prepared.map((file) => [file.path, String(file.text).split(/\r?\n/)]));
+  const linesOf = lineCache(prepared, { missing: [] });
   for (let n = 0; n < issues.length; n++) {
-    issues[n] = decorateIssue(issues[n], lineMap.get(issues[n].file) || [], options.components);
+    issues[n] = decorateIssue(issues[n], linesOf(issues[n].file), options.components);
   }
   // The line-based Defect Analysis pass (defect:*) yields to a path-sensitive engine
   // finding of the same checker on the same line.
@@ -453,26 +454,85 @@ function lineHash(line) {
 
 // Contract analyzers (core/ENGINE_CONTRACT.md) run once over all files so
 // they can follow calls and includes across files.
+// Engines that read the whole tree at once (manifests, the module graph).
+const WHOLE_TREE_ENGINES = new Set(['sca', 'arch']);
+// Source text per engine batch; a project up to this size is one batch.
+const ENGINE_BATCH_BYTES = 16 * 1024 * 1024;
+
+// Consecutive files (walk order keeps a folder together) up to maxBytes of text.
+function fileBatches(files, maxBytes) {
+  const out = [];
+  let cur = [];
+  let size = 0;
+  for (const f of files) {
+    const n = String(f.text || '').length;
+    if (cur.length && size + n > maxBytes) { out.push(cur); cur = []; size = 0; }
+    cur.push(f);
+    size += n;
+  }
+  if (cur.length || !out.length) out.push(cur);
+  return out.length === 1 ? [files] : out;
+}
+
+// Lines of a file, split on demand. Only the last few files are kept, so a
+// large project does not hold every file twice (text and lines).
+function lineCache(files, { keep = 256, missing } = {}) {
+  const byPath = new Map(files.map((f) => [f.path, f]));
+  const cache = new Map();
+  return (file) => {
+    if (missing && !byPath.has(file)) return missing;
+    let lines = cache.get(file);
+    if (!lines) {
+      if (cache.size >= keep) cache.delete(cache.keys().next().value);
+      lines = String((byPath.get(file) || {}).text || '').split(/\r?\n/);
+      cache.set(file, lines);
+    }
+    return lines;
+  };
+}
+
 function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {}) {
   const byPath = new Map(prepared.map((file) => [file.path, file]));
-  const split = new Map();
-  const linesOf = (file) => {
-    if (!split.has(file)) split.set(file, String((byPath.get(file) || {}).text || '').split(/\r?\n/));
-    return split.get(file);
-  };
+  const linesOf = lineCache(prepared);
   const suppressed = new Map();
   const off = new Set((ctx.options && ctx.options.disabledChecks) || []);
   const list = engines().filter((engine) => !checks.engineOff(engine.id, off));
-  for (const [index, engine] of list.entries()) {
-    report('engines', index, list.length, engine.id);
-    const meta = new Map(engine.catalog().map((m) => [m.key, m]));
-    const seenKeys = new Set(issues.map((i) => i.key));
+  // The C/C++ engines share one parse, which a large project gets in batches
+  // (cfront.batches); each batch goes through all of them, then is dropped.
+  // The other engines get a large project in batches of source text
+  // (fileBatches), except the ones that need the whole tree.
+  const plain = list.filter((engine) => !cfront.ENGINE_IDS.has(engine.id));
+  const shared = list.filter((engine) => cfront.ENGINE_IDS.has(engine.id));
+  const metas = new Map();
+  const seenKeys = new Set(issues.map((i) => i.key));
+  const parts = fileBatches(prepared, (ctx.options && ctx.options.engineBatchBytes) || ENGINE_BATCH_BYTES);
+  plain.forEach((engine, index) => {
+    const whole = WHOLE_TREE_ENGINES.has(engine.id) || parts.length === 1;
+    (whole ? [prepared] : parts).forEach((files, k) => {
+      report('engines', index, plain.length + shared.length, whole ? engine.id : `${engine.id} (${k + 1}/${parts.length})`);
+      runEngine(engine, files);
+    });
+  });
+  if (shared.length) {
+    for (const files of cfront.batches(prepared, ctx.options && ctx.options.cfamilyBatch)) {
+      const b = files.batch;
+      shared.forEach((engine, k) => {
+        if (!b) report('engines', plain.length + k, plain.length + shared.length, engine.id);
+        else report('engines', plain.length + shared.length * (b.index - 1) + k, plain.length + shared.length * b.estimate, `${engine.id} (${b.index}/${b.estimate})`);
+        runEngine(engine, files);
+      });
+    }
+  }
+
+  function runEngine(engine, files) {
+    if (!metas.has(engine.id)) metas.set(engine.id, new Map(engine.catalog().map((m) => [m.key, m])));
+    const meta = metas.get(engine.id);
     let found = [];
     try {
-      found = engine.analyze(prepared, ctx) || [];
+      found = engine.analyze(files, ctx) || [];
     } catch (err) {
       warnings.push({ engine: engine.id, message: String((err && err.message) || err) });
-      continue;
+      return;
     }
     for (const f of found) {
       if (!f || !f.rule || !f.line || ctx.inactive.has(f.rule)) continue;

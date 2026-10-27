@@ -118,7 +118,7 @@
 | `misra-legacy` | MISRA C:2004 · C++:2008 | |
 | `sem-js` … `sem-rb` | 언어별 의미 분석(JS/TS, Java, C#, Python, Go, PHP, Ruby) | |
 
-줄 규칙 `core/rules.js` · `core/rules-extra/`, 구조 규칙 `core/metrics.js`, 줄 기반 정밀 결함 분석 체커 `core/defects.js`(`defect:*`)는 엔진 표 밖에서 직접 돕니다. C/C++ 공용 파스는 `core/cfront.js` → `core/cfamily`([AST.md](core/cfamily/AST.md)).
+줄 규칙 `core/rules.js` · `core/rules-extra/`, 구조 규칙 `core/metrics.js`, 줄 기반 정밀 결함 분석 체커 `core/defects.js`(`defect:*`)는 엔진 표 밖에서 직접 돕니다. C/C++ 공용 파스는 `core/cfront.js` → `core/cfamily`([AST.md](core/cfamily/AST.md)). 단위마다 포함 헤더 전체의 AST·토큰을 들고 있으므로, 소스·헤더가 150개를 넘는 프로젝트는 `cfront.batches()` 가 토큰 예산(약 100만)에 맞춘 묶음으로 나눠 파스하고, C/C++ 엔진 7개가 묶음마다 돈 뒤 그 묶음을 버립니다(어떤 단위도 포함하지 않는 헤더는 마지막에 단독으로). 프로젝트 전체 규칙은 이때 한 묶음씩만 봅니다. 분석 Worker 힙은 실제 메모리의 절반(최소 4 GB, `MCC_WORKER_HEAP_MB`)입니다.
 
 ### 새 엔진 더하기
 

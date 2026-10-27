@@ -113,8 +113,14 @@ function parseProject(files, opts = {}) {
     for (const inc of u.includes) if (inc.resolved) included.add(inc.resolved);
     units.push(u);
   };
-  for (const f of list) if (!isHeader(f.path) || opts.headersAsUnits) parseOne(f, false);
-  if (!opts.headersAsUnits) {
+  // opts.unitFiles (paths) parses only those files, as one batch of a larger
+  // project; the other files are only #include sources and listed headers are
+  // standalone. The caller decides which headers no unit includes.
+  const only = opts.unitFiles ? new Set([...opts.unitFiles].map(pp.normPath)) : null;
+  if (only) {
+    for (const f of list) if (only.has(f.path)) parseOne(f, isHeader(f.path) && !opts.headersAsUnits);
+  } else for (const f of list) if (!isHeader(f.path) || opts.headersAsUnits) parseOne(f, false);
+  if (!only && !opts.headersAsUnits) {
     for (const f of list) if (isHeader(f.path) && !included.has(f.path)) parseOne(f, true);
   }
   const globalSymbols = buildGlobalSymbols(units);

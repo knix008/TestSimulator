@@ -38,7 +38,7 @@ On the right of the top card are [User's guide], [Tutorial document] and [Start 
 
 ![New analysis](docs/images/tutorial/en/03-startNew.jpg)
 
-The [New analysis] card groups starting points by what you want to do: basic (new project, open folder, sample project), quality (Java, JavaScript, Python and C# rules), security and compliance (MOIS 49, MISRA, CERT, AUTOSAR), Defect Analysis (build capture, desktop analysis), web and supply chain (DAST, SCA) and server / CI (server upload, scheduled analysis). Pressing a tile opens the screen for that job.
+The [New analysis] card groups starting points by what you want to do: basic (new project, open folder, sample project), quality (Java, JavaScript, Python and C# rules), security and compliance (Korea MOIS 49, MISRA, CERT, AUTOSAR), Defect Analysis (build capture, desktop analysis), web and supply chain (DAST, SCA) and server / CI (server upload, scheduled analysis). Pressing a tile opens the screen for that job.
 
 ### 4. Recent projects
 
@@ -374,11 +374,11 @@ For C/C++ projects, node scripts/defect-cli.mjs captures the build for defect an
 
 The [Security reports] view regroups issues by the items of a security standard: OWASP Top 10 (2017 and 2021), CWE Top 25, PCI DSS, the Korean MOIS 49 software security weaknesses and the Korean critical information infrastructure checklist. Each item shows its count and rating; click it to drill into the issues.
 
-### 57. MOIS 49 and critical infrastructure
+### 57. Korea MOIS 49 and critical infrastructure
 
-![MOIS 49 and critical infrastructure](docs/images/tutorial/en/57-mois.jpg)
+![Korea MOIS 49 and critical infrastructure](docs/images/tutorial/en/57-mois.jpg)
 
-The MOIS 49 checklist is split into seven groups: input validation, security features, time and state, error handling, code errors, encapsulation and API misuse. Results here serve as evidence in Korean public-sector security weakness assessments and can be exported as documents from the Reports view.
+The Korea MOIS 49 checklist is split into seven groups: input validation, security features, time and state, error handling, code errors, encapsulation and API misuse. Results here serve as evidence in Korean public-sector security weakness assessments and can be exported as documents from the Reports view.
 
 ### 58. MISRA, CERT and AUTOSAR compliance
 

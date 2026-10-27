@@ -7,7 +7,7 @@ import { call, isDesktop } from '../lib/backend';
 import { Dialog } from '../components/Chrome';
 import { Btn } from './common';
 
-const STANDARDS = ['OWASP Top 10', 'CWE Top 25', 'PCI DSS', 'MISRA C/C++', 'CERT C/C++/Java', 'AUTOSAR C++14', 'HIS', { ko: '행정안전부 49', en: 'MOIS 49 (Korea)' }];
+const STANDARDS = ['OWASP Top 10', 'CWE Top 25', 'PCI DSS', 'MISRA C/C++', 'CERT C/C++/Java', 'AUTOSAR C++14', 'HIS', { ko: '한국 행정안전부 49', en: 'Korea MOIS 49' }];
 
 /** What the About window shows about the rule catalogue (computed in the main window). */
 export function aboutSummary(rules) {

@@ -180,12 +180,12 @@ The **Home** tab shown when the program opens (open it any time with **Start** i
   |---|---|
   | Basic | New project (create a .mccp project file and analyze) · Open folder · Sample project |
   | Code quality | Java · Kotlin · JavaScript · TypeScript · Python · C# |
-  | Security weakness & rules | MOIS 49 checks · MISRA C/C++ · CERT · AUTOSAR |
+  | Security weakness & rules | Korea MOIS 49 checks · MISRA C/C++ · CERT · AUTOSAR |
   | Defect Analysis | C/C++ build capture · Desktop analysis |
   | Web & supply chain | DAST web scan · SCA dependencies · SBOM |
   | Server & CI | Server upload · Scheduled analysis |
 
-  The **Code quality** language tiles pick a folder, analyze it and then open **Issues** filtered by that language (for example only Java · Kotlin issues). The **Security weakness & rules** tiles open that standard: MOIS 49 checks → Security reports (MOIS 2021), MISRA C/C++ → MISRA compliance (MISRA C:2012), CERT → Security reports (CERT C), AUTOSAR → MISRA compliance (MISRA C++:2023).
+  The **Code quality** language tiles pick a folder, analyze it and then open **Issues** filtered by that language (for example only Java · Kotlin issues). The **Security weakness & rules** tiles open that standard: Korea MOIS 49 checks → Security reports (Korea MOIS 2021), MISRA C/C++ → MISRA compliance (MISRA C:2012), CERT → Security reports (CERT C), AUTOSAR → MISRA compliance (MISRA C++:2023).
 
 - **Recent projects** — the last 10 projects opened (folders and .mccp files) with their last quality gate. Click to open. Each row has **×** (Remove from the list) and the card has **Clear all** (projects and their analyses are kept). Missing files show "Not found".
 - **Background** — kind, shuffle, speed, transparency.
@@ -576,7 +576,7 @@ Deactivated users cannot sign in. Sign out with **Tools › Sign out**.
 | Theme | The current theme, the **Custom themes** group on top, then **Dark** 20 and **Light** 20 (two columns each). A click previews at once |
 | Custom themes | The list on the left and a **Base theme**; **New** (from the chosen base theme), **Duplicate**, **Remove**, **Import**, **Export** (JSON), **Use this theme**. On the right: name, kind (dark / light) and 15 colour tokens (background, panel, card, hover, selection, border, strong border, text, dim text, accent, strong accent, text on accent, folder / warning, file, danger), **From base theme** to start over, and a **Preview** of menus, buttons and lists |
 | Start page | Show this page at start, **Background** (20 kinds as buttons + **Random**), **Speed** 0–300 %, **Transparency** 0–100 % (0 % shows the background fully, higher fades it), **Shuffle every** (seconds, 0 = off — a different background at that interval), **Change at start** (a different background at every start), Cards: **Reset card layout**. A small preview moves at once |
-| Analysis | Exclusion patterns (one per line; defaults `**/*.min.js`, `**/vendor/**`, `**/node_modules/**`, `**/dist/**`, `**/build/**`), cognitive complexity limit (15), parameter limit (7), max files (8000), **More settings** › **Open Administration › Analysis settings**, **Checks** (core code quality rules, Defect Analysis, semantic analysis per language, taint, Security Weakness, MISRA C:2012/2023, MISRA C:2004, MISRA C++:2023, MISRA C++:2008, CERT, AUTOSAR, runtime errors, HIS, architecture, SCA, IaC, each on or off; a check that is off is not run and does not report, from the next analysis) |
+| Analysis | Exclusion patterns (one per line; defaults `**/*.min.js`, `**/vendor/**`, `**/node_modules/**`, `**/dist/**`, `**/build/**`), cognitive complexity limit (15), parameter limit (7), max files (default 0 = no limit), **Analysis memory limit** (GB, default three quarters of the physical memory, at least 8 GB, from the next analysis), **More settings** › **Open Administration › Analysis settings**, **Checks** (core code quality rules, Defect Analysis, semantic analysis per language, taint, Security Weakness, MISRA C:2012/2023, MISRA C:2004, MISRA C++:2023, MISRA C++:2008, CERT, AUTOSAR, runtime errors, HIS, architecture, SCA, IaC, each on or off; a check that is off is not run and does not report, from the next analysis) |
 | Quality gate | The default quality gate's conditions: **Use** per condition, metric, operator and threshold, **Add condition**, **Remove**, **Default conditions**. Saving changes the verdict at once, without a new analysis |
 | Reports | **Store pictures inside the Markdown file** (off saves them as PNG files in `<report name>_images`), **Save reports after each analysis** (reports, formats PDF/Word/Excel/PowerPoint/HTML/Markdown/CSV, folder; empty means `reports/<project key>` in the data folder) |
 | New code | New code (previous analysis, number of days, changed lines (git), since previous version, since a specific analysis) and days. Per-project definitions are in Administration › Analysis settings |
@@ -715,7 +715,7 @@ npm run defects -- manage-im --mode defects --update --cid 12 --set classificati
 
 1. **Report kind**: Executive summary, Security report, MISRA compliance report, Defect Analysis integrity report, Defect Analysis security report, Rule set compliance (security weakness), SBOM report. The security report takes a standard; the Security Weakness report a **Rule set** (All rules, Security rules, CWE rules, CWE Top 25, OWASP Top 10 2021, CERT C/C++, MISRA C:2012, C:2023, C++:2023).
 2. Check the preview, then **Save HTML**, **Save CSV**, **Download as** (Word, Excel, PDF) or **Print**. Reports are written in the chosen language (한국어 / English).
-3. **Regulatory report (ZIP)** bundles the executive, security, integrity, rule set and SBOM reports as PDF plus the issue list as Excel in one ZIP (for audits and deliveries). Under **Regulatory bundle** pick the **Standard** (MOIS software weaknesses 49 (2021) or KISA critical infrastructure (web)) and the report kinds to include; with none picked it cannot be made.
+3. **Regulatory report (ZIP)** bundles the executive, security, integrity, rule set and SBOM reports as PDF plus the issue list as Excel in one ZIP (for audits and deliveries). Under **Regulatory bundle** pick the **Standard** (Korea MOIS software weaknesses 49 (2021) or KISA critical infrastructure (web)) and the report kinds to include; with none picked it cannot be made.
 
 Quick exports are in the **File** menu: JSON, SARIF, HTML, CSV, quality gate badge (SVG) and defect CSV. On the desktop every export opens a **save dialog** for the place and name, and then reports `Saved: <path>`. The web version saves through the browser's download.
 
@@ -752,7 +752,8 @@ On macOS use ⌘ instead of Ctrl.
 | Symptom | What to check |
 |---|---|
 | "Folder not found." | Whether the path is right and, in the web version, whether it is the path **as the server sees it** |
-| Files are not analyzed | Exclusion patterns, skipped folders (`build`, `dist`, `vendor` …), files over 800 KB, the file limit (8000), whether the language is supported |
+| Files are not analyzed | Exclusion patterns, skipped folders (`build`, `dist`, `vendor` …), the file limit (when set), whether the language is supported |
+| The analysis ran out of memory | A large project is analyzed in batches that fit in memory (C/C++ translation units, and the files of other languages). If it still runs out, raise **Settings › Analysis › Analysis memory limit** or exclude third-party and generated folders. In batches, project-wide rules (for example a definition that does not match a declaration in another file) look within one batch only |
 | New code equals all code | Normal for the first analysis; comparison starts with the second. With SCM new code and no git, it falls back to the previous analysis |
 | Coverage shows "No data" | Whether tests ran with coverage, and the path in **Administration › Analysis settings › Coverage reports** |
 | Pull request analysis or auto-assign does nothing | Git installed (**Tools › Required software…**), and the folder is a git repository |

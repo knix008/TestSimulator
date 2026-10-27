@@ -15,6 +15,7 @@ import { Icon, CloseButton } from '../components/Chrome';
 import { useTabActive } from '../components/DocTabs';
 import { Btn, IconSelect, Stepper, RangeStepper, Confirm, emitAction } from './common';
 import { openDoc, docExists } from '../lib/docs';
+import { SampleArt, projectScene } from '../components/SampleArt';
 import { AnimatedBackground, ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND, themeColors } from '../lib/startBackground';
 
 export function startBackgroundOf(settings) {
@@ -92,26 +93,6 @@ const SAMPLES = [
   { id: 'npm', file: 'package.json', lang: 'npm', color: '#cb3837', tags: ['SCA', 'SBOM'] },
   { id: 'dup', file: 'dup/a.js', lang: 'JavaScript', color: '#f7df1e', tags: ['JS', 'Duplication'] },
 ];
-
-// A small generated preview: "code" lines in the language colour, issue lines in red.
-function SamplePreview({ color, seed, issues }) {
-  const lines = [];
-  let s = seed * 9301 + 49297;
-  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-  for (let i = 0; i < 7; i++) {
-    const indent = Math.floor(rnd() * 3) * 10;
-    const width = 40 + rnd() * 120;
-    const bad = issues > 0 && i === 1 + (seed % 5);
-    lines.push(<rect key={i} x={10 + indent} y={8 + i * 8} width={width} height={4} rx={2} fill={bad ? 'var(--danger)' : color} opacity={bad ? 0.95 : 0.55 + rnd() * 0.3} />);
-  }
-  return (
-    <svg className="sample-preview" viewBox="0 0 200 64" preserveAspectRatio="none" aria-hidden="true">
-      <rect x="0" y="0" width="200" height="64" fill="var(--bg)" />
-      {lines}
-      {issues > 0 && <g><rect x="160" y="44" width="34" height="14" rx="7" fill="var(--danger)" /><text x="177" y="54.5" textAnchor="middle" fontSize="9" fill="#fff" fontWeight="700">{issues}</text></g>}
-    </svg>
-  );
-}
 
 /**
  * All background kinds as equal toggle buttons (icon + short name, the full
@@ -472,8 +453,8 @@ export function StartPage({ settings, projects, recent = [], onRecentOpen, onRec
           return (
             <button key={`api-${sm.id}`} type="button" className="start-sample project" title={sm.description || sm.title} onClick={() => emitAction(`sampleOpen:${sm.id}`)}>
               <span className="lang-mix" aria-hidden="true">
-                <span className="lang-bar">{langs.map(([l, c]) => <i key={l} style={{ width: `${(c / total) * 100}%`, background: LANG_COLORS[l] || 'var(--accent)' }} title={`${l} ${c}`} />)}</span>
-                <span className="lang-legend">{langs.slice(0, 4).map(([l, c]) => <span key={l}><i style={{ background: LANG_COLORS[l] || 'var(--accent)' }} />{l} {c}</span>)}</span>
+                <SampleArt scene={projectScene(sm)} color={LANG_COLORS[(langs[0] || [])[0]] || 'var(--accent)'} />
+                <span className="lang-bar" title={langs.map(([l, c]) => `${l} ${c}`).join(' · ')}>{langs.map(([l, c]) => <i key={l} style={{ width: `${(c / total) * 100}%`, background: LANG_COLORS[l] || 'var(--accent)' }} />)}</span>
                 {sm.projectFile && <img src="./project-file.svg" alt="" width={18} height={18} className="lang-file" />}
               </span>
               <b>{sm.title || sm.id}</b>
@@ -482,9 +463,9 @@ export function StartPage({ settings, projects, recent = [], onRecentOpen, onRec
             </button>
           );
         })}
-        {SAMPLES.map((s, i) => (
+        {SAMPLES.map((s) => (
           <button key={s.id} type="button" className="start-sample" title={t(`sp_s_${s.id}_d`)} onClick={() => (s.file ? emitAction(`sampleFile:${s.file}`) : onSample())}>
-            <SamplePreview color={s.color} seed={i + 3} issues={sampleIssues(s.file)} />
+            <SampleArt scene={s.id} color={s.color} issues={sampleIssues(s.file)} />
             <b>{t(`sp_s_${s.id}`)}</b>
             <span className="tags">{[s.lang, ...s.tags.filter((x) => x !== s.lang)].slice(0, 3).map((tag) => <span key={tag} className="tag">{tag}</span>)}</span>
             <small>{t(`sp_s_${s.id}_d`)}</small>

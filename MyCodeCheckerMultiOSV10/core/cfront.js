@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const cf = require('./cfamily');
+const { normPath } = require('./cfamily/preprocess');
 
 const parsed = new WeakMap();
 
@@ -30,11 +31,83 @@ function projectFor(files, options = {}) {
       includeDirs: options.includeDirs || [],
       defines: options.defines || {},
       target: options.target,
+      unitFiles: files.unitFiles,
     });
   }
   parsed.set(files, project);
   return project;
 }
+
+// ---------------------------------------------------------------- batches
+
+// A parsed unit keeps the AST and tokens of everything it includes, so a large
+// project (thousands of units that each pull in a big library header) does not
+// fit in memory at once: the heap runs out, and so does V8's limit on entries
+// per Map (the AST parent table). Such a project is parsed in batches of units
+// that fit a token budget; the engines run on each batch, and the batch is
+// dropped before the next one is parsed. Cross-unit rules then see one batch
+// at a time.
+const BATCH = {
+  smallSources: 150, // up to this many sources and headers: one parse, as before
+  firstSources: 40,
+  maxSources: 200,
+  tokens: 1000000, // about 0.8 GB of parse data
+};
+
+function batchOf(headers, units, extra) {
+  const files = [...headers, ...extra];
+  Object.defineProperty(files, 'unitFiles', { value: units.map((f) => f.path) });
+  return files;
+}
+
+// Yields file lists for the C/C++ engines. A list is handed to every engine
+// (they share its parse through projectFor) before the next one is made.
+function* batches(files, limits = {}) {
+  const lim = { ...BATCH, ...limits };
+  const cfiles = cFiles(files);
+  const headers = cfiles.filter((f) => cf.isHeader(f.path));
+  const sources = cfiles.filter((f) => !cf.isHeader(f.path));
+  if (sources.length <= lim.smallSources && headers.length <= lim.smallSources) {
+    yield files;
+    return;
+  }
+  const included = new Set();
+  let size = lim.firstSources;
+  const learn = (list, count) => {
+    const project = parsed.get(list);
+    if (!project) return;
+    let tokens = 0;
+    for (const u of project.units) {
+      tokens += u.tokens ? u.tokens.length : 0;
+      for (const inc of u.includes || []) if (inc.resolved) included.add(inc.resolved);
+    }
+    const per = tokens / Math.max(1, project.units.length || count);
+    size = Math.max(1, Math.min(lim.maxSources, Math.floor(lim.tokens / Math.max(1, per))));
+  };
+  // list.batch = { index, estimate } (1-based; the estimate of the batch count
+  // follows the measured size of the units).
+  let index = 0;
+  let after = headers.length;
+  const run = function* (pending, extra) {
+    for (let at = 0; at < pending.length;) {
+      const part = pending.slice(at, at + size);
+      at += part.length;
+      const list = batchOf(headers, part, extra(part));
+      index++;
+      Object.defineProperty(list, 'batch', { value: { index, estimate: index + Math.ceil((pending.length - at + after) / size) } });
+      yield list;
+      learn(list, part.length);
+    }
+  };
+  yield* run(sources, (part) => part);
+  // Headers that no unit includes are analyzed on their own.
+  const alone = headers.filter((f) => !included.has(normPath(f.path)));
+  after = 0;
+  yield* run(alone, () => []);
+}
+
+// Engines that read the shared parse and so run once per batch.
+const ENGINE_IDS = new Set(['misra-c', 'misra-cpp', 'cert', 'absint', 'his', 'autosar', 'misra-legacy']);
 
 function loadPack(dir) {
   const rules = [];
@@ -120,4 +193,4 @@ function createEngine(dirs, opts = {}) {
   return { catalog, analyze, rules: all };
 }
 
-module.exports = { cf, projectFor, createEngine, loadPack };
+module.exports = { cf, projectFor, createEngine, loadPack, batches, ENGINE_IDS, BATCH };

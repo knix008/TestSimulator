@@ -79,12 +79,31 @@ fn project_root(app: &tauri::App) -> Result<PathBuf, String> {
     app.path().resource_dir().map(|dir| normalize(&dir.join("app"))).map_err(|err| err.to_string())
 }
 
+// The service holds whole analyses, which outgrow V8's default heap (about
+// 4 GB) on large projects. Allow three quarters of the physical memory (as
+// core/memory.js does for the analysis worker); Node reports the amount.
+fn heap_limit_mb(node: &Path) -> Option<u64> {
+    let mut cmd = Command::new(node);
+    cmd.arg("-p").arg("Math.max(8192, Math.floor(require('os').totalmem() / 1048576 * 0.75))")
+        .stdin(Stdio::null()).stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    let out = cmd.output().ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse::<u64>().ok()
+}
+
 fn start_service(root: &Path, node: &Path, config: &Path) -> Result<(Child, u16, String), String> {
     let script = root.join("host").join("desktop.js");
     if !script.is_file() {
         return Err(format!("CodeChecker service is missing ({})", script.display()));
     }
     let mut cmd = Command::new(node);
+    if let Some(mb) = heap_limit_mb(node) {
+        cmd.arg(format!("--max-old-space-size={mb}"));
+    }
     cmd.arg(&script).arg("--config").arg(config).current_dir(root).env("MCC_HOST", "tauri")
         .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]

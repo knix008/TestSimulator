@@ -121,7 +121,7 @@ const KISA_WEB = {};
 for (const [id, title, cwes] of KISA_WEB_ITEMS) KISA_WEB[id] = { title, cwes };
 
 const KR_STANDARDS = {
-  mois2021: { title: '행정안전부 SW 보안약점 진단가이드 2021 (49)', categories: MOIS_2021, stdKey: 'mois2021' },
+  mois2021: { title: '한국 행정안전부 SW 보안약점 진단가이드 2021 (49)', categories: MOIS_2021, stdKey: 'mois2021' },
   kisaWeb: { title: '주요정보통신기반시설 웹 취약점', categories: KISA_WEB, stdKey: 'kisaWeb' },
 };
 

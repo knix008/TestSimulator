@@ -211,7 +211,10 @@ export function AnalysisTab({ d, set, close }) {
         <Row icon="flow" label={t('limit_cognitive')}><Stepper value={d.limits.cognitive} min={1} max={1000} ariaLabel={t('limit_cognitive')} onChange={(v) => set({ limits: { ...d.limits, cognitive: v } })} /></Row>
         <Row icon="list" label={t('limit_params')}><Stepper value={d.limits.parameters} min={1} max={100} ariaLabel={t('limit_params')} onChange={(v) => set({ limits: { ...d.limits, parameters: v } })} /></Row>
       </div>
-      <Row icon="file" label={t('st_max_files')} title={t('st_max_files_hint')}><Stepper value={d.maxFiles} min={100} max={200000} step={500} width={90} ariaLabel={t('st_max_files')} onChange={(v) => set({ maxFiles: v })} /></Row>
+      <div className="st-grid2">
+        <Row icon="file" label={t('st_max_files')} title={t('st_max_files_hint')}><Stepper value={d.maxFiles} min={0} max={10000000} step={500} width={90} ariaLabel={t('st_max_files')} unit={d.maxFiles ? '' : t('st_no_limit')} onChange={(v) => set({ maxFiles: v })} /></Row>
+        <Row icon="gauge" label={t('st_memory_limit')} title={t('st_memory_limit_hint')}><Stepper value={d.memoryLimitGb} min={1} max={4096} step={1} width={70} ariaLabel={t('st_memory_limit')} unit="GB" onChange={(v) => set({ memoryLimitGb: v })} /></Row>
+      </div>
       <Row icon="settings" label={t('st_more_analysis')}><Btn icon="users" label={t('st_open_admin_settings')} onClick={() => close('adminSettings')} /></Row>
       <ChecksBox checks={d.checks} onChange={(checks) => set({ checks })} />
     </>
