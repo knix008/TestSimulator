@@ -111,6 +111,18 @@ export function makeFixtures(dir) {
   return { dir, media, m };
 }
 
+/**
+ * Ends debug-build copies of this project left running (they lock the exe for cargo build).
+ * Matched by full path, so an installed MyVideoPlayer is never touched.
+ */
+export function stopStrayDebugApps() {
+  if (!IS_WIN) return 0;
+  const target = EXE.replace(/'/g, "''");
+  const ps = `Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq '${target}' } | ForEach-Object { Stop-Process -Id $_.Id -Force; $_.Id }`;
+  const out = run("powershell", ["-NoProfile", "-Command", ps]).stdout.trim();
+  return out ? out.split(/\s+/).length : 0;
+}
+
 /** Starts the debug build with its own data folder, DevTools port and save folder. */
 export async function launchApp(dir) {
   const port = await freePort();

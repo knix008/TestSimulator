@@ -11,7 +11,7 @@
 
 import fs from "node:fs";
 import { Runner, c, assert } from "./lib/harness.mjs";
-import { EXE, TAURI, launchApp, makeFixtures, makeTempDir, run, stopApp } from "./lib/env.mjs";
+import { EXE, TAURI, launchApp, makeFixtures, makeTempDir, run, stopApp, stopStrayDebugApps } from "./lib/env.mjs";
 import project from "./suites/project.mjs";
 import rust from "./suites/rust.mjs";
 import renderer from "./suites/renderer.mjs";
@@ -51,6 +51,7 @@ try {
     r.header("Desktop app");
     let fx = null;
     await r.test("Setup", "Debug app builds (cargo build)", () => {
+      stopStrayDebugApps();
       const out = run("cargo", ["build"], { cwd: TAURI });
       assert(out.status === 0, out.stderr.split("\n").filter((l) => /^error/.test(l)).join("\n") || "cargo build failed");
       assert(fs.existsSync(EXE), `missing ${EXE}`);

@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::webview::PageLoadEvent;
+use tauri::webview::{NewWindowFeatures, NewWindowResponse, PageLoadEvent};
 use tauri::{
   AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, PhysicalPosition, Theme, WebviewUrl, WebviewWindow,
   WebviewWindowBuilder, WindowEvent,
@@ -148,7 +148,11 @@ fn ext_of(p: &Path) -> String {
 fn bridge_script() -> String {
   format!(
     "window.__VP__ = {};\n{}",
-    json!({ "persistPath": server::persist_path() }),
+    json!({
+      "persistPath": server::persist_path(),
+      // Dialogs stay inside the page instead of their own windows (debugging aid).
+      "inlineDialogs": std::env::var_os("MYVIDEOPLAYER_INLINE_DIALOGS").is_some_and(|v| !v.is_empty()),
+    }),
     include_str!("bridge.js")
   )
 }
@@ -169,10 +173,134 @@ fn base_builder<'a>(app: &'a AppHandle, label: &'a str, page: &str) -> Result<We
         let _ = w.set_focus();
       }
     });
+  let popups = app.clone();
+  b = b.on_new_window(move |url, features| {
+    // window.open("about:blank#dialog-…"): a dialog window (js/dialog-window.js).
+    if url.scheme() == "about" {
+      return dialog_window(&popups, url.fragment(), features);
+    }
+    // Anything else (links from the YouTube player, …) opens in the browser.
+    if url.scheme() == "https" || url.scheme() == "http" {
+      use tauri_plugin_opener::OpenerExt;
+      let _ = popups.opener().open_url(url.as_str(), None::<&str>);
+    }
+    NewWindowResponse::Deny
+  });
   if let Some(dir) = &state(app).webview_dir {
     b = b.data_directory(dir.clone());
   }
   Ok(b)
+}
+
+// ── Dialog windows ──────────────────────────────────────────────
+// The page writes the dialog into the about:blank popup itself (same origin), so the window
+// only has to exist, owned by the player. It starts hidden; the page measures the dialog
+// and calls dialog:fit, which sizes, centres and shows it. Owned windows stay above the
+// player and can be larger than it or moved anywhere on screen.
+
+const DIALOG_MIN: (f64, f64) = (280.0, 160.0);
+
+fn dialog_window(app: &AppHandle, fragment: Option<&str>, features: NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
+  let label = match fragment {
+    Some(f) if f.starts_with("dialog-") && f.len() < 64 && f.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') => f.to_string(),
+    _ => return NewWindowResponse::Deny,
+  };
+  if app.get_webview_window(&label).is_some() {
+    return NewWindowResponse::Deny;
+  }
+  let mut b = WebviewWindowBuilder::new(app, &label, WebviewUrl::External("about:blank".parse().expect("about:blank")))
+    .window_features(features)
+    .title(APP_NAME)
+    .decorations(false)
+    .resizable(true)
+    .maximizable(false)
+    .minimizable(false)
+    .skip_taskbar(true)
+    .visible(false)
+    .min_inner_size(DIALOG_MIN.0, DIALOG_MIN.1)
+    .background_color(tauri::window::Color(0x1c, 0x21, 0x2b, 0xff));
+  if let Some(main) = app.get_webview_window("main") {
+    b = match b.parent(&main) {
+      Ok(next) => next,
+      Err(_) => return NewWindowResponse::Deny,
+    };
+  }
+  match b.build() {
+    Ok(window) => {
+      native::apply_window_icon(&window);
+      // A page that never reports its size must not leave an invisible window behind.
+      let late = window.clone();
+      std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        if !late.is_visible().unwrap_or(true) {
+          let _ = late.show();
+        }
+      });
+      NewWindowResponse::Create { window }
+    }
+    Err(_) => NewWindowResponse::Deny,
+  }
+}
+
+/// Logical work area (x, y, w, h) of the monitor the window is on.
+fn work_area(win: &WebviewWindow) -> Option<(f64, f64, f64, f64)> {
+  let monitor = win.current_monitor().ok().flatten().or_else(|| win.primary_monitor().ok().flatten())?;
+  let scale = monitor.scale_factor();
+  let area = monitor.work_area();
+  let pos = area.position.to_logical::<f64>(scale);
+  let size = area.size.to_logical::<f64>(scale);
+  Some((pos.x, pos.y, size.width, size.height))
+}
+
+/// Top-left of a w × h box centred over (mx, my, mw, mh), at least 24 px below its top,
+/// kept inside the work area.
+fn centre_in(mx: f64, my: f64, mw: f64, mh: f64, w: f64, h: f64, area: (f64, f64, f64, f64)) -> (f64, f64) {
+  let (ax, ay, aw, ah) = area;
+  let x = (mx + (mw - w) / 2.0).round();
+  let y = (my + ((mh - h) / 2.0).max(24.0)).round();
+  (x.clamp(ax, (ax + aw - w).max(ax)), y.clamp(ay, (ay + ah - h).max(ay)))
+}
+
+/// Where a w × h dialog goes so the video stays in view: beside the player (right, else
+/// left) when the screen has room, top-aligned with it; otherwise centred over it.
+fn place_dialog(mx: f64, my: f64, mw: f64, mh: f64, w: f64, h: f64, area: (f64, f64, f64, f64)) -> (f64, f64) {
+  const GAP: f64 = 8.0;
+  let (ax, ay, aw, ah) = area;
+  let y = my.clamp(ay, (ay + ah - h).max(ay));
+  if mx + mw + GAP + w <= ax + aw {
+    return ((mx + mw + GAP).round(), y.round());
+  }
+  if mx - GAP - w >= ax {
+    return ((mx - GAP - w).round(), y.round());
+  }
+  centre_in(mx, my, mw, mh, w, h, area)
+}
+
+fn fit_dialog(app: &AppHandle, label: &str, width: f64, height: f64) -> bool {
+  if !label.starts_with("dialog-") {
+    return false;
+  }
+  let Some(dialog) = app.get_webview_window(label) else { return false };
+  let main = app.get_webview_window("main");
+  let anchor = main.as_ref().unwrap_or(&dialog);
+  let area = work_area(anchor).unwrap_or((0.0, 0.0, 1920.0, 1080.0));
+  let w = width.round().max(DIALOG_MIN.0).min(area.2);
+  let h = height.round().max(DIALOG_MIN.1).min(area.3);
+  let scale = anchor.scale_factor().unwrap_or(1.0);
+  let (mx, my, mw, mh) = match (anchor.outer_position(), anchor.inner_size()) {
+    (Ok(p), Ok(s)) => {
+      let p = p.to_logical::<f64>(scale);
+      let s = s.to_logical::<f64>(scale);
+      (p.x, p.y, s.width, s.height)
+    }
+    _ => area,
+  };
+  let (x, y) = place_dialog(mx, my, mw, mh, w, h, area);
+  let _ = dialog.set_size(LogicalSize::new(w, h));
+  let _ = dialog.set_position(LogicalPosition::new(x, y));
+  let _ = dialog.show();
+  let _ = dialog.set_focus();
+  true
 }
 
 fn attach_events(app: &AppHandle, win: &WebviewWindow) {
@@ -208,6 +336,11 @@ fn attach_events(app: &AppHandle, win: &WebviewWindow) {
         for other in ["spectrum", "history", auth::WINDOW] {
           if let Some(o) = handle.get_webview_window(other) {
             let _ = o.destroy();
+          }
+        }
+        for (name, w) in handle.webview_windows() {
+          if name.starts_with("dialog-") {
+            let _ = w.destroy();
           }
         }
       }
@@ -691,20 +824,23 @@ async fn remote_open(app: AppHandle, payload: Value) -> Result<Value, String> {
   progress(json!({ "percent": 0, "message": "Starting download…" }));
   let u = url.clone();
   let sub_lang = payload.get("subtitleLang").and_then(|v| v.as_str()).unwrap_or("").to_string();
-  let result = blocking(move || {
-    let r = download::download_remote(&u, &target, progress.clone());
-    // A YouTube video played from a file keeps its subtitles next to it.
-    if let Ok(done) = &r {
-      if download::extract_video_id(&u).is_some() {
-        if let Some(p) = done.get("path").and_then(|v| v.as_str()) {
-          progress(json!({ "percent": null, "message": "Downloading subtitles…" }));
-          subs::fetch_youtube(&u, Path::new(p), &sub_lang, None);
-        }
+  let result = blocking(move || download::download_remote(&u, &target, progress)).await?;
+  // A YouTube video played from a file gets its subtitles next to it — in the background,
+  // so playback starts right away; the page picks them up from media:subtitlesReady.
+  if let Ok(done) = &result {
+    if download::extract_video_id(&url).is_some() {
+      if let Some(p) = done.get("path").and_then(|v| v.as_str()).map(PathBuf::from) {
+        let (a, u) = (app.clone(), url.clone());
+        std::thread::spawn(move || {
+          let tracks = subs::fetch_youtube(&u, &p, &sub_lang, None);
+          if !tracks.is_empty() {
+            let path = std::path::absolute(&p).unwrap_or(p);
+            let _ = a.emit_to("main", "media:subtitlesReady", json!({ "path": path, "count": tracks.len() }));
+          }
+        });
       }
     }
-    r
-  })
-  .await?;
+  }
   Ok(match result {
     Ok(r) => {
       let path = r.get("path").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -961,6 +1097,58 @@ async fn vp(app: AppHandle, window: WebviewWindow, channel: String, args: Option
     "window:closeSelf" => {
       let _ = window.close();
       Ok(Value::Null)
+    }
+    "dialog:fit" => ok(fit_dialog(
+      &app,
+      &arg_str(&args, 0),
+      arg(&args, 1).as_f64().unwrap_or(480.0),
+      arg(&args, 2).as_f64().unwrap_or(320.0),
+    )),
+    "dialog:close" => {
+      let label = arg_str(&args, 0);
+      match app.get_webview_window(&label).filter(|_| label.starts_with("dialog-")) {
+        Some(w) => {
+          let _ = w.close();
+          ok(true)
+        }
+        None => ok(false),
+      }
+    }
+    // A reused, hidden dialog window grows back to its measuring size.
+    "dialog:prepare" => {
+      let label = arg_str(&args, 0);
+      match app.get_webview_window(&label).filter(|_| label.starts_with("dialog-")) {
+        Some(w) => {
+          let _ = w.set_size(LogicalSize::new(1200.0, 900.0));
+          ok(true)
+        }
+        None => ok(false),
+      }
+    }
+    "dialog:hide" => {
+      let label = arg_str(&args, 0);
+      match app.get_webview_window(&label).filter(|_| label.starts_with("dialog-")) {
+        Some(w) => {
+          let _ = w.hide();
+          // Back to the player, which the dialog window was covering focus for.
+          if let Some(m) = app.get_webview_window("main") {
+            let _ = m.set_focus();
+          }
+          ok(true)
+        }
+        None => ok(false),
+      }
+    }
+    "dialog:focus" => {
+      let label = arg_str(&args, 0);
+      match app.get_webview_window(&label).filter(|_| label.starts_with("dialog-")) {
+        Some(w) => {
+          let _ = w.show();
+          let _ = w.set_focus();
+          ok(true)
+        }
+        None => ok(false),
+      }
     }
     "window:isMinimized" => ok(window.is_minimized().unwrap_or(false)),
     "window:isMaximized" => ok(main().and_then(|m| m.is_maximized().ok()).unwrap_or(false)),
@@ -1296,6 +1484,29 @@ mod tests {
     let got = media_paths(["--flag".into(), "a.MP4".into(), "b.txt".into(), "c.mp3".into()], dir.path());
     assert_eq!(got.len(), 1);
     assert!(got[0].ends_with("a.MP4"));
+  }
+
+  #[test]
+  fn dialogs_go_beside_the_player_when_there_is_room() {
+    let area = (0.0, 0.0, 1920.0, 1040.0);
+    // Room on the right.
+    assert_eq!(place_dialog(100.0, 100.0, 800.0, 600.0, 720.0, 800.0, area), (908.0, 100.0));
+    // No room on the right, room on the left.
+    assert_eq!(place_dialog(1000.0, 200.0, 900.0, 600.0, 720.0, 800.0, area), (272.0, 200.0));
+    // Big player: no room on either side, centred over it.
+    assert_eq!(place_dialog(320.0, 120.0, 1280.0, 800.0, 720.0, 600.0, area), (600.0, 220.0));
+    // Kept inside the screen vertically.
+    assert_eq!(place_dialog(100.0, 700.0, 400.0, 300.0, 600.0, 800.0, area), (508.0, 240.0));
+  }
+
+  #[test]
+  fn dialogs_centre_over_the_player_inside_the_screen() {
+    let area = (0.0, 0.0, 1920.0, 1040.0);
+    assert_eq!(centre_in(100.0, 100.0, 800.0, 600.0, 400.0, 300.0, area), (300.0, 250.0));
+    // Wider than a small player: centred on it, overhanging both sides.
+    assert_eq!(centre_in(500.0, 300.0, 320.0, 200.0, 720.0, 600.0, area), (300.0, 324.0));
+    // Kept on screen near an edge.
+    assert_eq!(centre_in(1700.0, 900.0, 200.0, 100.0, 720.0, 600.0, area), (1200.0, 440.0));
   }
 
   #[test]

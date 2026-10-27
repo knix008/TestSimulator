@@ -241,6 +241,39 @@ export class YouTubePlayerController {
     }
   }
 
+  /** Caption tracks YouTube offers ([{ languageCode, displayName }]); empty until loaded. */
+  getCaptionTracks() {
+    try {
+      const list = this.player?.getOption?.('captions', 'tracklist');
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Language code of the caption track shown now ('' when none). */
+  getCaptionLanguage() {
+    try {
+      return this.player?.getOption?.('captions', 'track')?.languageCode || '';
+    } catch {
+      return '';
+    }
+  }
+
+  setCaptionsEnabled(on) {
+    try {
+      if (on) this.player?.loadModule?.('captions');
+      else this.player?.unloadModule?.('captions');
+    } catch { /* ignore */ }
+  }
+
+  setCaptionLanguage(code) {
+    try {
+      this.player?.loadModule?.('captions');
+      this.player?.setOption?.('captions', 'track', { languageCode: code });
+    } catch { /* ignore */ }
+  }
+
   setPlaybackRate(rate) {
     try {
       const wanted = Number(rate) || 1;

@@ -49,18 +49,27 @@ function helpers(main) {
   };
   const settingsSave = (changes) =>
     main.run(async (changes) => {
+      const find = (id) => window.__vpDialogs.find(id);
       document.getElementById("btnSettings").click();
-      await new Promise((r) => setTimeout(r, 250));
+      for (let i = 0; i < 100 && !window.__vpDialogs.windows().some((d) => d.id === "settingsModal"); i++) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
       for (const [id, value] of Object.entries(changes)) {
-        const el = document.getElementById(id);
+        const el = find(id);
         if (el.type === "checkbox") el.checked = Boolean(value);
         else el.value = String(value);
         el.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      document.getElementById("btnSaveSettings").click();
-      await new Promise((r) => setTimeout(r, 350));
-      return JSON.parse(window.desktopAPI.persistGetItem("myvideoplayer.settings.v1") || "{}");
-    }, changes);
+      // Saving closes the dialog window; a CDP call that closes a window may never answer,
+      // so the click runs after this call returns.
+      const save = find("btnSaveSettings");
+      setTimeout(() => save.click(), 0);
+      return true;
+    }, changes).then(async () => {
+      await waitFor(() => main.run(() => window.__vpDialogs.windows().length === 0), { what: "settings window closed" });
+      await sleep(150);
+      return main.run(() => JSON.parse(window.desktopAPI.persistGetItem("myvideoplayer.settings.v1") || "{}"));
+    });
   return { api, vp, openPath, video, status, overlay, seek, play, settingsSave };
 }
 
@@ -299,7 +308,7 @@ export default async function desktop(r, ctx) {
     const ui = await main.run(() => {
       const s = document.getElementById("subtitleTrackSelect");
       return {
-        shown: getComputedStyle(document.getElementById("subtitleTrackGroup")).display !== "none",
+        shown: getComputedStyle(document.getElementById("subtitleTrackGroup")).display !== "none" && !s.disabled,
         count: s.options.length,
         selected: s.selectedOptions[0]?.textContent,
         lang: document.documentElement.lang,
@@ -341,10 +350,30 @@ export default async function desktop(r, ctx) {
     await waitFor(async () => (await overlay()) !== "", { what: "overlay back" });
   });
 
-  await r.test(C, "Picker is hidden for files without subtitles", async () => {
+  await r.test(C, "Without subtitles the dropdown says so and is disabled", async () => {
     await play(fx.m("clip.mp4"));
-    const display = await main.run(() => getComputedStyle(document.getElementById("subtitleTrackGroup")).display);
-    assertEqual(display, "none");
+    const ui = await main.run(() => {
+      const s = document.getElementById("subtitleTrackSelect");
+      return {
+        shown: getComputedStyle(document.getElementById("subtitleTrackGroup")).display !== "none",
+        disabled: s.disabled,
+        text: s.options[0]?.textContent,
+      };
+    });
+    assert(ui.shown && ui.disabled && /No subtitles|자막 없음/.test(ui.text), JSON.stringify(ui));
+  });
+
+  await r.test(C, "CC button turns subtitles off and on", async () => {
+    await play(fx.m("tracks.mp4"));
+    await seek(1);
+    await waitFor(async () => (await overlay()) !== "", { what: "subtitle shown" });
+    await main.run(() => document.getElementById("btnSubtitles").click());
+    await waitFor(async () => (await overlay()) === "", { what: "subtitle hidden" });
+    assertEqual(await main.run(() => document.getElementById("btnSubtitles").getAttribute("aria-pressed")), "false");
+    await main.run(() => document.getElementById("btnSubtitles").click());
+    await seek(1.1);
+    await waitFor(async () => (await overlay()) !== "", { what: "subtitle shown again" });
+    assertEqual(await main.run(() => document.getElementById("btnSubtitles").getAttribute("aria-pressed")), "true");
   });
 
   // ── Windows (spectrum / play list) ────────────────────────────
@@ -645,7 +674,7 @@ export default async function desktop(r, ctx) {
   const buttonColors = () =>
     main.run(() =>
       Object.fromEntries(
-        ["btnPrev", "btnPlay", "btnStop", "btnNext", "btnMute", "rateSelect"].map((id) => {
+        ["btnPrev", "btnPlay", "btnStop", "btnNext", "btnMute", "rateSelect", "btnSubtitles", "subtitleTrackSelect"].map((id) => {
           const s = getComputedStyle(document.getElementById(id));
           return [id, { bg: s.backgroundColor, border: s.borderTopColor, fg: s.color }];
         }),
@@ -653,21 +682,80 @@ export default async function desktop(r, ctx) {
     );
   const clear = "rgba(0, 0, 0, 0)";
 
-  await r.test(C, "Dark theme: white outline buttons, Stop filled red", async () => {
+  const isSelect = (id) => /Select$/.test(id);
+  const luminance = (rgb) => {
+    const [r, g, b] = (rgb.match(/\d+(\.\d+)?/g) || []).map(Number);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  };
+
+  await r.test(C, "Dark theme: borderless white icon buttons, Stop filled red", async () => {
     await settingsSave({ settingTheme: "dark" });
     const b = await buttonColors();
     for (const [id, s] of Object.entries(b)) {
-      if (id === "btnStop") continue;
-      assertEqual([s.bg, s.border, s.fg], [clear, "rgb(255, 255, 255)", "rgb(255, 255, 255)"], id);
+      if (id === "btnStop" || isSelect(id)) continue;
+      assertEqual([s.bg, s.border, s.fg], [clear, clear, "rgb(255, 255, 255)"], id);
     }
     assertEqual(b.btnStop.bg, "rgb(232, 93, 93)", "stop");
   });
 
-  await r.test(C, "Light theme: outlines use the theme text colour", async () => {
+  await r.test(C, "Light theme: borderless dark icon buttons, Stop filled red", async () => {
     await settingsSave({ settingTheme: "light" });
-    const [b, text] = await Promise.all([buttonColors(), main.run(() => getComputedStyle(document.body).color)]);
-    assertEqual([b.btnPlay.bg, b.btnPlay.border], [clear, text]);
+    const b = await buttonColors();
+    for (const [id, s] of Object.entries(b)) {
+      if (id === "btnStop" || isSelect(id)) continue;
+      assertEqual([s.bg, s.border], [clear, clear], id);
+      assert(luminance(s.fg) < 0.35, `${id} icon ${s.fg} is not dark`);
+    }
     assertEqual(b.btnStop.bg, "rgb(232, 93, 93)", "stop");
+    await settingsSave({ settingTheme: "dark" });
+  });
+
+  const dropdowns = () =>
+    main.run(() => {
+      const root = getComputedStyle(document.documentElement);
+      return {
+        toolbar: getComputedStyle(document.body).getPropertyValue("--bg-toolbar").trim() || root.getPropertyValue("--bg-toolbar").trim(),
+        accent: getComputedStyle(document.body).getPropertyValue("--bg-primary").trim() || root.getPropertyValue("--bg-primary").trim(),
+        selects: ["rateSelect", "subtitleTrackSelect"].map((id) => {
+          const el = document.getElementById(id);
+          const s = getComputedStyle(el);
+          // An unselected entry shows the list colour; the selected one the accent.
+          const plain = [...el.options].find((o) => !o.selected);
+          const picked = el.options[el.selectedIndex];
+          return {
+            id,
+            border: s.borderTopColor,
+            fg: s.color,
+            scheme: s.colorScheme,
+            optionBg: plain ? getComputedStyle(plain).backgroundColor : null,
+            pickedBg: picked ? getComputedStyle(picked).backgroundColor : null,
+          };
+        }),
+      };
+    });
+  const toRgb = (hex) => {
+    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+    return m ? `rgb(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)})` : hex;
+  };
+
+  await r.test(C, "Dropdowns: no border, white text, theme-coloured list (dark)", async () => {
+    const d = await dropdowns();
+    for (const s of d.selects) {
+      assertEqual([s.border, s.fg, s.scheme], [clear, "rgb(255, 255, 255)", "dark"], s.id);
+      if (s.optionBg) assertEqual(s.optionBg, toRgb(d.toolbar), `${s.id} list background`);
+      assertEqual(s.pickedBg, toRgb(d.accent), `${s.id} selected entry`);
+    }
+  });
+
+  await r.test(C, "Dropdowns: no border, dark text, theme-coloured list (light)", async () => {
+    await settingsSave({ settingTheme: "light" });
+    const d = await dropdowns();
+    for (const s of d.selects) {
+      assertEqual([s.border, s.scheme], [clear, "light"], s.id);
+      assert(luminance(s.fg) < 0.35, `${s.id} text ${s.fg} is not dark`);
+      if (s.optionBg) assertEqual(s.optionBg, toRgb(d.toolbar), `${s.id} list background`);
+      assertEqual(s.pickedBg, toRgb(d.accent), `${s.id} selected entry`);
+    }
     await settingsSave({ settingTheme: "dark" });
   });
 
@@ -682,7 +770,7 @@ export default async function desktop(r, ctx) {
   });
 
   await r.test(C, "Settings list the default subtitle languages", async () => {
-    const opts = await main.run(() => [...document.getElementById("settingSubtitleLang").options].map((o) => o.value));
+    const opts = await main.run(() => [...window.__vpDialogs.find("settingSubtitleLang").options].map((o) => o.value));
     assertEqual(opts.slice(0, 3), ["auto", "ko", "en"]);
     assert(opts.length >= 10, String(opts.length));
   });
@@ -701,11 +789,185 @@ export default async function desktop(r, ctx) {
   await r.test(C, "About dialog shows the app version", async () => {
     const text = await main.run(async () => {
       document.getElementById("btnAbout").click();
-      await new Promise((r) => setTimeout(r, 300));
-      const t = document.getElementById("aboutVersion").textContent;
-      document.getElementById("aboutModal").close();
+      for (let i = 0; i < 100 && !window.__vpDialogs.windows().some((d) => d.id === "aboutModal"); i++) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      const t = window.__vpDialogs.find("aboutVersion").textContent;
+      const dlg = window.__vpDialogs.find("aboutModal");
+      setTimeout(() => dlg.close(), 0);
       return t;
     });
+    await waitFor(() => main.run(() => window.__vpDialogs.windows().length === 0), { what: "about window closed" });
     assert(text.includes(PKG_VERSION), text);
+  });
+
+  // ── Dialog windows ──────────────────────────────────────────
+  C = "Dialogs";
+  const dialogWindows = () => main.run(() => window.__vpDialogs.windows());
+  const waitDialog = (id) =>
+    waitFor(async () => (await dialogWindows()).find((d) => d.id === id && d.shown), { what: `${id} window` });
+  const noDialogs = () => waitFor(async () => (await dialogWindows()).length === 0, { what: "dialog windows closed" });
+
+  await r.test(C, "Settings opens in its own window, not over the video", async () => {
+    await play(fx.m("clip.mp4"));
+    await main.run(() => document.getElementById("btnSettings").click());
+    await waitDialog("settingsModal");
+    const pages = (await listTargets(app.port)).map((t) => t.url);
+    assert(pages.some((u) => u.startsWith("about:blank#dialog-settingsModal")), pages.join(", "));
+    const inPage = await main.run(() => ({
+      left: Boolean(document.getElementById("settingsModal")),
+      scrim: Boolean(document.querySelector("dialog.modal[open]")),
+    }));
+    assertEqual(inPage, { left: false, scrim: false });
+  });
+
+  await r.test(C, "Video keeps playing while Settings is open", async () => {
+    await main.run(() => document.querySelector("video").play());
+    const t0 = (await video()).t;
+    await sleep(1200);
+    const v = await video();
+    assert(!v.paused && v.t > t0 + 0.6, `${t0} → ${v.t} (paused ${v.paused})`);
+  });
+
+  await r.test(C, "Closing Settings returns it to the page", async () => {
+    await main.run(() => {
+      const btn = window.__vpDialogs.find("btnCloseSettings");
+      setTimeout(() => btn.click(), 0);
+    });
+    await noDialogs();
+    assert(await main.run(() => Boolean(document.getElementById("settingsModal"))), "settingsModal not back in the page");
+  });
+
+  await r.test(C, "Dialog window can be larger than the player and outside it", async () => {
+    const before = await api("getBounds");
+    try {
+      await api("setMinimumSize", 320, 200);
+      await api("setBounds", { x: 200, y: 150, width: 480, height: 320 });
+      await sleep(400);
+      const player = await api("getBounds");
+      await main.run(() => document.getElementById("btnSettings").click());
+      const d = await waitDialog("settingsModal");
+      assert(d.width > player.width && d.height > player.height, `dialog ${d.width}×${d.height}, player ${player.width}×${player.height}`);
+      const outside = d.x >= player.x + player.width || d.x + d.width <= player.x;
+      assert(outside, `dialog x ${d.x}..${d.x + d.width} overlaps player ${player.x}..${player.x + player.width}`);
+    } finally {
+      await main.run(() => {
+        const dlg = window.__vpDialogs.find("settingsModal");
+        setTimeout(() => dlg?.close(), 0);
+      });
+      await noDialogs();
+      await api("setMinimumSize", 800, 420);
+      await api("setBounds", { ...before, width: Math.max(before.width, 1280), height: Math.max(before.height, 800) });
+    }
+  });
+
+  const openSettings = async () => {
+    await main.run(() => document.getElementById("btnSettings").click());
+    await waitDialog("settingsModal");
+  };
+  const clickInSettings = (id) =>
+    main.run((id) => {
+      const btn = window.__vpDialogs.find(id);
+      setTimeout(() => btn.click(), 0);
+      return Boolean(btn);
+    }, id);
+  const saved = async () => JSON.parse((await api("persistGetItem", "myvideoplayer.settings.v1")) || "{}");
+
+  await r.test(C, "Settings has Reset, Cancel and OK buttons", async () => {
+    await openSettings();
+    const labels = await main.run(() =>
+      ["btnResetSettings", "btnCancelSettings", "btnSaveSettings"].map((id) => window.__vpDialogs.find(id)?.textContent.trim()),
+    );
+    const lang = await main.run(() => document.documentElement.lang);
+    assertEqual(labels, lang === "ko" ? ["초기화", "취소", "확인"] : ["Reset", "Cancel", "OK"]);
+    await clickInSettings("btnCancelSettings");
+    await noDialogs();
+  });
+
+  await r.test(C, "Cancel discards changes made in Settings", async () => {
+    const before = (await saved()).subSize;
+    await openSettings();
+    await main.run(() => {
+      const el = window.__vpDialogs.find("settingSubSize");
+      el.value = String(Number(el.value) === 40 ? 36 : 40);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await clickInSettings("btnCancelSettings");
+    await noDialogs();
+    assertEqual((await saved()).subSize, before);
+    await openSettings();
+    assertEqual(Number(await main.run(() => window.__vpDialogs.find("settingSubSize").value)), before, "form refilled from saved settings");
+    await clickInSettings("btnCancelSettings");
+    await noDialogs();
+  });
+
+  await r.test(C, "Cancel undoes a theme picked in Settings", async () => {
+    const before = await main.run(() => document.documentElement.dataset.theme);
+    await openSettings();
+    await main.run((before) => {
+      const pick = [...window.__vpDialogs.find("settingThemePicker").querySelectorAll(".theme-picker-btn")].find(
+        (b) => b.dataset.theme && b.dataset.theme !== before,
+      );
+      pick.click();
+    }, before);
+    await waitFor(async () => (await main.run(() => document.documentElement.dataset.theme)) !== before, { what: "theme previewed" });
+    await clickInSettings("btnCancelSettings");
+    await noDialogs();
+    await waitFor(async () => (await main.run(() => document.documentElement.dataset.theme)) === before, { what: "theme restored" });
+    assertEqual((await saved()).theme, before);
+  });
+
+  await r.test(C, "Reset fills in defaults; only OK saves them", async () => {
+    await settingsSave({ settingSubtitleLang: "de", settingSubSize: 40 });
+    await openSettings();
+    await clickInSettings("btnResetSettings");
+    await waitFor(() => main.run(() => window.__vpDialogs.find("settingSubtitleLang").value === "auto"), { what: "defaults in the form" });
+    assertEqual((await saved()).subtitleLang, "de", "not saved before OK");
+    await clickInSettings("btnCancelSettings");
+    await noDialogs();
+    assertEqual([(await saved()).subtitleLang, (await saved()).subSize], ["de", 40], "Cancel kept the old settings");
+    await openSettings();
+    await clickInSettings("btnResetSettings");
+    await waitFor(() => main.run(() => window.__vpDialogs.find("settingSubtitleLang").value === "auto"), { what: "defaults in the form" });
+    await clickInSettings("btnSaveSettings");
+    await noDialogs();
+    const s = await saved();
+    assertEqual([s.subtitleLang, s.subSize], ["auto", 28], "OK saved the defaults");
+  });
+
+  await r.test(C, "About opens and its close button closes it", async () => {
+    await main.run(() => document.getElementById("btnAbout").click());
+    await waitDialog("aboutModal");
+    await main.run(() => {
+      const btn = window.__vpDialogs.find("aboutModal").querySelector(".modal-close");
+      setTimeout(() => btn.click(), 0);
+    });
+    await noDialogs();
+    assert(await main.run(() => Boolean(document.getElementById("aboutModal"))), "aboutModal not back in the page");
+  });
+
+  await r.test(C, "Escape closes a dialog window", async () => {
+    await main.run(() => document.getElementById("btnAbout").click());
+    await waitDialog("aboutModal");
+    await main.run(() => {
+      const doc = window.__vpDialogs.find("aboutModal").ownerDocument;
+      setTimeout(() => doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })), 0);
+    });
+    await noDialogs();
+  });
+
+  await r.test(C, "Dialog window follows the theme", async () => {
+    await main.run(() => document.getElementById("btnAbout").click());
+    await waitDialog("aboutModal");
+    const t = await main.run(() => {
+      const doc = window.__vpDialogs.find("aboutModal").ownerDocument;
+      return { page: document.documentElement.dataset.theme, dialog: doc.documentElement.dataset.theme };
+    });
+    assertEqual(t.dialog, t.page);
+    await main.run(() => {
+      const dlg = window.__vpDialogs.find("aboutModal");
+      setTimeout(() => dlg.close(), 0);
+    });
+    await noDialogs();
   });
 }

@@ -145,6 +145,8 @@
     onHistoryWindowEvent: (callback) => listen("history:hostEvent", callback),
     onYouTubeDownloadProgress: (callback) => listen("youtube:downloadProgress", callback),
     onRemoteDownloadProgress: (callback) => listen("remote:downloadProgress", callback),
+    /** Subtitles arrived for a file that is already playing ({ path, count }). */
+    onSubtitlesReady: (callback) => listen("media:subtitlesReady", callback),
     onWindowState: (callback) => listen("window:state", callback),
     /** Files from the command line, a second launch, or dropped on the window. */
     onOpenMediaPaths: (callback) =>

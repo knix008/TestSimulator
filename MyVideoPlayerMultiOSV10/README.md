@@ -57,7 +57,7 @@ npm test           # full test suite (see Testing)
 | Project | versions, bundled yt-dlp/FFmpeg, bundle resources, file associations, capability + CSP for the localhost pages, NSIS hooks, bridge ↔ renderer API, i18n key parity, no Electron leftovers |
 | Rust | every `cargo test` unit test, run one by one |
 | Renderer | subtitle parsers, YouTube ids, settings, recent list, themes, i18n (Node, no browser) |
-| Setup → UI | the debug app in an isolated profile, driven over CDP: App, Server (Range, 403/404/416), Playback, Subtitles (auto-load, picker, default language), Windows (spectrum / play list), Window (bounds, opacity, maximize, full screen, group minimize), Compat (FFmpeg conversion), Remote (link via a local HTTP server), RTSP (preview + recording from `test/lib/rtsp-server.mjs`), UI (button colours, language, compact mode, about) |
+| Setup → UI | the debug app in an isolated profile, driven over CDP: App, Server (Range, 403/404/416), Playback, Subtitles (auto-load, picker, default language), Windows (spectrum / play list), Window (bounds, opacity, maximize, full screen, group minimize), Compat (FFmpeg conversion), Remote (link via a local HTTP server), RTSP (preview + recording from `test/lib/rtsp-server.mjs`), UI (button and dropdown colours, language, compact mode, about), Dialogs (Settings / About in their own windows, video keeps playing, Reset / Cancel / OK) |
 | YouTube | real network: info, download with subtitles, stop-and-keep, cancel, in-app captions — skipped when offline |
 
 ```bash

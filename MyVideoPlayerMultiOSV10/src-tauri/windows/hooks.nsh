@@ -1,12 +1,23 @@
-; MyVideoPlayer installer additions (read by Tauri's NSIS template).
+﻿; MyVideoPlayer installer additions (read by Tauri's NSIS template).
 ;
 ;  - The Electron build is removed before installing: its files, uninstall entry, shortcuts,
 ;    "Open with" registrations and Chromium caches. Its own uninstaller is NOT run, because it
 ;    deletes %APPDATA%\MyVideoPlayer (persist.json) and this build migrates settings from there.
 ;  - Uninstall with "delete app data" also deletes the Electron build's data folders.
 ;
+;  - The installer always asks for its language (Korean / English) first. Without
+;    MUI_LANGDLL_ALWAYSSHOW, NSIS remembers the first answer in the registry and never asks
+;    again. The languages come from bundle.windows.nsis.languages; this file is included
+;    before the template's MUI_LANGDLL_DISPLAY, so the defines below take effect.
+;
+; Keep this file UTF-8 with BOM, or NSIS reads the Korean text as ANSI.
+;
 ; Functions here must not use the template's variables ($UpdateMode, ...): they are declared
 ; after this file is included. The hook macros at the bottom may, they expand inside Sections.
+
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_WINDOWTITLE "MyVideoPlayer Setup / 설치"
+!define MUI_LANGDLL_INFO "Please select the installer language.$\r$\n설치 언어를 선택하세요."
 
 !define MVP_EXE "MyVideoPlayer.exe"
 ; electron-builder's per-user keys for appId com.shkwon.myvideoplayer

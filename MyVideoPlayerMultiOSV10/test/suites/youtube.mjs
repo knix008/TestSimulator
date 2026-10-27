@@ -87,16 +87,20 @@ export default async function youtube(r, ctx) {
   });
 
   await r.test(C, NAMES[5], async () => {
-    const job = main.run(
-      (url) => {
-        window.__ytPct = 0;
-        window.desktopAPI.onYouTubeDownloadProgress((p) => {
-          if (typeof p?.percent === "number") window.__ytPct = Math.max(window.__ytPct, p.percent);
-        });
-        return window.desktopAPI.downloadYouTube({ url, title: "bbb-partial", subtitleLang: "en" });
-      },
-      LONG,
-    );
+    // The download runs in the page; the test polls (a CDP call must not wait minutes).
+    await main.run((url) => {
+      window.__ytPct = 0;
+      window.__ytJob = null;
+      window.desktopAPI.onYouTubeDownloadProgress((p) => {
+        if (typeof p?.percent === "number") window.__ytPct = Math.max(window.__ytPct, p.percent);
+      });
+      window.desktopAPI.downloadYouTube({ url, title: "bbb-partial", subtitleLang: "en" }).then(
+        (r) => (window.__ytJob = r),
+        (e) => (window.__ytJob = { ok: false, error: String(e) }),
+      );
+      return true;
+    }, LONG);
+    const job = waitFor(() => main.run(() => window.__ytJob), { timeout: 120_000, interval: 500, what: "download result" });
     await waitFor(() => main.run(() => window.__ytPct >= 3), { timeout: 90_000, interval: 300, what: "3 % downloaded" });
     const stop = await api("stopYouTubeDownload", { discard: false });
     assert(stop.ok && stop.keepPartial, JSON.stringify(stop));
@@ -108,7 +112,12 @@ export default async function youtube(r, ctx) {
   }, { timeout: 180_000 });
 
   await r.test(C, NAMES[6], async () => {
-    const job = api("downloadYouTube", { url: LONG, title: "bbb-cancel" });
+    await main.run((url) => {
+      window.__ytCancel = null;
+      window.desktopAPI.downloadYouTube({ url, title: "bbb-cancel" }).then((r) => (window.__ytCancel = r));
+      return true;
+    }, LONG);
+    const job = waitFor(() => main.run(() => window.__ytCancel), { timeout: 60_000, interval: 300, what: "cancel result" });
     await sleep(6000);
     await api("cancelYouTubeDownload", { discard: true });
     const res = await job;
@@ -131,6 +140,14 @@ export default async function youtube(r, ctx) {
 
   // The owner of this video disabled embedding (iframe error 150); reported by the user.
   await r.test(C, NAMES[8], async () => {
+    // A link pasted while another is still opening is ignored ("already connecting"):
+    // let the previous YouTube video finish opening, then stop it.
+    await waitFor(() => main.run(() => !/…|\.\.\./.test(document.getElementById("statusState").textContent)), {
+      timeout: 30_000,
+      what: "previous video opened",
+    });
+    await main.run(() => document.getElementById("btnStop").click());
+    await sleep(500);
     await main.run((url) => {
       const ev = new ClipboardEvent("paste", { clipboardData: new DataTransfer(), bubbles: true });
       ev.clipboardData.setData("text", url);
@@ -139,7 +156,9 @@ export default async function youtube(r, ctx) {
     const v = await waitFor(
       () =>
         main.run(() => {
-          if (document.querySelector("#errorModal[open], dialog.error-dialog[open]")) throw new Error("error dialog shown");
+          if (window.__vpDialogs.windows().some((d) => d.id === "errorModal") || document.querySelector("#errorModal[open]")) {
+            throw new Error("error dialog shown");
+          }
           const v = document.querySelector("video");
           return v.currentSrc.includes("/__media/") && v.readyState >= 3 && v.currentTime > 0.3 ? { d: v.duration } : null;
         }),

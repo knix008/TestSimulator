@@ -2,7 +2,7 @@ import { writeFileSync } from 'fs';
 import { BUILTIN_THEMES } from '../src/js/themes.js';
 
 const fixed = `:root {
-  /* Stop stays identical (filled red) in every theme; the other transport buttons are white outlines */
+  /* Stop stays identical (filled red) in every theme; the other transport buttons are borderless icons */
   --ctrl-play: #3d8bfd;
   --ctrl-play-hover: #5a9dff;
   --ctrl-stop: #e85d5d;

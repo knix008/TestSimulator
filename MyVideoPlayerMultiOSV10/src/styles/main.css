@@ -998,8 +998,8 @@ body.is-electron .toolbar-opacity {
   flex: 0 0 14px;
 }
 
-/* Transport controls: no fill, white outline and icon; only Stop is filled (fixed red).
-   Light themes use their text colour instead — white would vanish on a light control bar. */
+/* Transport controls: icon only — no fill, no border; white on dark themes, the theme's
+   dark text colour on light themes. Only Stop is filled (fixed red). */
 .control-bar {
   --ctrl-outline: #fff;
 }
@@ -1009,14 +1009,14 @@ body.is-electron .toolbar-opacity {
 }
 
 .control-bar .tool-btn {
-  border: 1px solid var(--ctrl-outline);
+  border: 1px solid transparent;
   background: transparent;
   color: var(--ctrl-outline);
 }
 
 .control-bar .tool-btn:hover {
   background: color-mix(in srgb, var(--ctrl-outline) 14%, transparent);
-  border-color: var(--ctrl-outline);
+  border-color: transparent;
   color: var(--ctrl-outline);
 }
 
@@ -1046,11 +1046,12 @@ body.is-electron .toolbar-opacity {
   color: var(--bg-primary);
 }
 
+/* Pressed / active: same borderless icon (an off toggle is dimmed instead, e.g. CC). */
 .control-bar .tool-btn[aria-pressed="true"],
 .control-bar .tool-btn.is-active {
-  box-shadow: inset 0 0 0 1px var(--ctrl-outline);
-  background: color-mix(in srgb, var(--ctrl-outline) 18%, transparent);
-  filter: brightness(1.06);
+  box-shadow: none;
+  background: transparent;
+  color: var(--ctrl-outline);
 }
 
 .control-bar .tool-btn.tool-btn-labeled {
@@ -1246,10 +1247,11 @@ body.is-electron .toolbar-opacity {
   min-width: 56px;
   max-width: 64px;
   padding: 0 4px;
-  border: 1px solid var(--ctrl-outline, var(--text));
+  border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   color: var(--ctrl-outline, var(--text));
+  color-scheme: dark;
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1262,9 +1264,27 @@ body.is-electron .toolbar-opacity {
 
 .rate-select:hover,
 .rate-select:focus {
-  border-color: var(--ctrl-outline, var(--text));
+  border-color: transparent;
   background: color-mix(in srgb, var(--ctrl-outline, var(--text)) 14%, transparent);
   color: var(--ctrl-outline, var(--text));
+}
+
+/* The open list follows the theme: its control-bar colour and text (light themes: light list). */
+:root[data-scheme="light"] .rate-select {
+  color-scheme: light;
+}
+
+.control-bar #btnSubtitles.is-off {
+  opacity: 0.55;
+}
+
+.control-bar #btnSubtitles.is-off svg {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.rate-select.subtitle-track-select:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .rate-select.subtitle-track-select {
@@ -1275,9 +1295,14 @@ body.is-electron .toolbar-opacity {
 }
 
 .rate-select option {
-  background: var(--bg-modal);
+  background: var(--bg-toolbar);
   color: var(--text);
   font-weight: 500;
+}
+
+.rate-select option:checked {
+  background: var(--bg-primary);
+  color: var(--text-inverse, #fff);
 }
 
 /* Stage */
@@ -2302,6 +2327,60 @@ html[data-color-scheme="light"] .stage-context-menu,
   background: color-mix(in srgb, var(--bg-app) 55%, #000 45%);
 }
 
+/*
+ * Desktop dialog windows (js/dialog-window.js): the dialog is the whole window — no scrim,
+ * no margins. Measured at its natural size first, then (.is-fitted) it fills the window.
+ */
+.dialog-window-body {
+  margin: 0;
+  background: var(--bg-modal);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.dialog-window-body .modal[open],
+.dialog-window-body .modal[open][data-blocking="false"] {
+  position: static;
+  inset: auto;
+  display: block;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  z-index: auto;
+}
+
+.dialog-window-body.is-fitted .modal[open] {
+  width: 100vw;
+  height: 100vh;
+}
+
+.dialog-window-body.is-fitted .modal-card {
+  width: 100vw !important;
+  max-width: none;
+  height: 100vh;
+  max-height: 100vh;
+  box-sizing: border-box;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: auto !important;
+}
+
+/* Frameless window: the dialog header moves it. */
+.dialog-window-body .modal-header {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.dialog-window-body .modal-header button,
+.dialog-window-body .modal-header input,
+.dialog-window-body .modal-header select,
+.dialog-window-body .modal-header a {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .modal-card {
   width: min(440px, calc(100vw - 32px));
   background: var(--bg-modal);
@@ -2341,6 +2420,11 @@ html[data-color-scheme="light"] .stage-context-menu,
 #settingsModal .modal-card {
   overflow: hidden;
   resize: none;
+}
+
+/* Reset at the left; Cancel and OK together at the right. */
+#settingsModal .modal-footer {
+  gap: 8px;
 }
 
 /* Floating save progress — non-modal so playback stays visible */

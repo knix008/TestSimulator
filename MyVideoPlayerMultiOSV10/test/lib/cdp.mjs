@@ -71,12 +71,18 @@ export class Page {
    */
   async run(fn, ...args) {
     const expression = `(${fn})(...${JSON.stringify(args)})`;
-    const res = await this.send("Runtime.evaluate", {
-      expression,
-      awaitPromise: true,
-      returnByValue: true,
-      userGesture: true,
-    });
+    let res;
+    try {
+      res = await this.send(
+        "Runtime.evaluate",
+        { expression, awaitPromise: true, returnByValue: true, userGesture: true },
+        15_000,
+      );
+    } catch (err) {
+      // Name the code that hung so the report says where.
+      const head = String(fn).replace(/\s+/g, " ").slice(0, 90);
+      throw new Error(`${err.message}: ${head}`);
+    }
     if (res.exceptionDetails) {
       const d = res.exceptionDetails;
       // A thrown string (Tauri rejects invoke() with one) arrives as `value`.
