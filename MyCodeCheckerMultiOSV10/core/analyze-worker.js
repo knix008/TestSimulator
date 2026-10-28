@@ -42,6 +42,7 @@ opts.releaseMemory = (() => {
   const analysis = analyzeSources(sources, { ...collected, cfamilyFindings });
   // Millions of issues do not fit one message: they go in chunks first.
   const { issues, ...rest } = analysis;
+  onProgress({ phase: 'finish', done: 6, total: 7, detail: 'send' });
   for (let i = 0; i < issues.length; i += ISSUE_CHUNK) parentPort.postMessage({ type: 'issues', items: issues.slice(i, i + ISSUE_CHUNK) });
   parentPort.postMessage({ type: 'done', analysis: rest });
 })().catch((err) => {

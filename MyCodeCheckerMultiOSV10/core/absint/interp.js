@@ -140,9 +140,12 @@ class FnAnalyzer {
   }
 
   budget() {
-    const now = Date.now();
-    if (now >= this.deadline || now >= this.E.deadline) { this.aborted = true; return false; }
     if (++this.steps > this.E.opts.maxSteps) { this.aborted = true; return false; }
+    if (++this.E.steps > this.E.opts.totalSteps) { this.aborted = true; return false; }
+    if (this.deadline !== Infinity || this.E.deadline !== Infinity) {
+      const now = Date.now();
+      if (now >= this.deadline || now >= this.E.deadline) { this.aborted = true; return false; }
+    }
     return true;
   }
 
@@ -150,7 +153,7 @@ class FnAnalyzer {
 
   run() {
     const g = this.cfg;
-    this.deadline = Date.now() + this.E.opts.functionMs;
+    this.deadline = this.E.opts.functionMs == null ? Infinity : Date.now() + this.E.opts.functionMs;
     this.steps = 0;
     const order = g.rpo();
     const idx = new Map();

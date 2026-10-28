@@ -26,6 +26,7 @@ export function shorten(text, max = 58) {
 export function phaseLabel(p) {
   if (!p) return t('sj_phase_collect');
   if (p.phase === 'engines') return t('sj_phase_engines', { engine: p.detail || '' });
+  if (p.phase === 'finish' && p.detail) return `${t('sj_phase_finish')} · ${t(`sj_finish_${p.detail}`)}`;
   if (p.phase === 'db') return `${t('sj_phase_db')} · ${t(`db_phase_${p.dbPhase || 'connect'}`)}`;
   return t(`sj_phase_${p.phase || 'collect'}`);
 }
@@ -48,7 +49,7 @@ export function ScanProgress({ job, onCancel, title, icon = 'search' }) {
         </div>
         <div className="sp-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /><span>{pct}%</span></div>
         <div className="sp-phase">{phaseLabel(p)}{p.total > 1 ? <span className="small"> · {(p.done || 0).toLocaleString()}/{p.total.toLocaleString()}</span> : null}</div>
-        <div className="sp-detail small" title={p.detail || ''}>{p.phase === 'engines' ? '' : shorten(p.detail)}</div>
+        <div className="sp-detail small" title={p.detail || ''}>{p.phase === 'engines' || p.phase === 'finish' ? '' : shorten(p.detail)}</div>
         {p.retry ? <div className="sp-retry small"><Icon name="alert" size={12} /> {t('sj_retry', { n: p.retry })}</div> : null}
         <div className="sp-foot">
           <span className="small">{t('sj_elapsed')} <b>{mmss(p.elapsedMs)}</b></span>

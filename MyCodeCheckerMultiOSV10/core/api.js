@@ -626,7 +626,7 @@ function createApi(opts = {}) {
   }
   const WEIGHT = { collect: [0, 10], rules: [10, 45], engines: [55, 42], finish: [97, 3] };
   // With the C/C++ pool (phase 'cfamily') that phase comes first and is most of the time.
-  const WEIGHT_POOL = { collect: [0, 5], cfamily: [5, 65], rules: [70, 15], engines: [85, 12], finish: [97, 3] };
+  const WEIGHT_POOL = { collect: [0, 5], cfamily: [5, 65], rules: [70, 12], engines: [82, 12], finish: [94, 6] };
 
   // Indexes of an issue list, most severe first (stable); kept per list.
   const severityOrders = new WeakMap();

@@ -286,16 +286,30 @@ function analyzeSources(files, options = {}) {
 
   report('rules', prepared.length, prepared.length, '');
   runEngines(prepared, { inactive, root, options }, issues, overrides, warnings, report);
-  report('finish', 1, 1, '');
+  // The finish steps are reported one by one: on millions of issues they take
+  // minutes. The last one is the analysis worker sending the issues.
+  const FINISH_STEPS = 7;
+  report('finish', 0, FINISH_STEPS, 'duplications');
 
   const dup = findDuplications(dupInput);
+  report('finish', 1, FINISH_STEPS, 'details');
   const ncloc = fileRows.reduce((n, f) => n + f.ncloc, 0);
   const commentLines = fileRows.reduce((n, f) => n + f.commentLines, 0);
 
+  // File by file, so each file is split into lines once (the issues of one
+  // file are spread over the engines).
   const linesOf = lineCache(prepared, { missing: [] });
+  const byFile = new Map();
   for (let n = 0; n < issues.length; n++) {
-    issues[n] = decorateIssue(issues[n], linesOf(issues[n].file), options.components);
+    const list = byFile.get(issues[n].file);
+    if (list) list.push(n); else byFile.set(issues[n].file, [n]);
   }
+  for (const [file, list] of byFile) {
+    const lines = linesOf(file);
+    for (const n of list) issues[n] = decorateIssue(issues[n], lines, options.components);
+  }
+  byFile.clear();
+  report('finish', 2, FINISH_STEPS, 'filters');
   // The line-based Defect Analysis pass (defect:*) yields to a path-sensitive engine
   // finding of the same checker on the same line.
   const precise = new Set(issues.filter((i) => i.checker && !String(i.rule).startsWith('cov:')).map((i) => `${i.checker}|${i.file}|${i.line}`));
@@ -316,8 +330,10 @@ function analyzeSources(files, options = {}) {
   if (offChecks.size) {
     keepIf(issues, (i) => i.externalEngine || String(i.rule).startsWith('custom:') || !offChecks.has(checks.groupOf(i)));
   }
+  report('finish', 3, FINISH_STEPS, 'keys');
   issues.finish(warnings);
   uniqueKeys(issues);
+  report('finish', 4, FINISH_STEPS, 'states');
   const hasBaseline = previous.size > 0 || options.hasBaseline;
   for (const item of issues) {
     if (lineMode === 'scm') item.isNew = newLines.has(item.file) && newLines.get(item.file).has(item.line || 1);
@@ -341,6 +357,7 @@ function analyzeSources(files, options = {}) {
       if (saved.review) item.review = saved.review;
     }
   }
+  report('finish', 5, FINISH_STEPS, 'measures');
   const defectAnalysis = summarizeDefects(issues, {
     previousCids: options.previousCids,
     hasBaseline: (options.previousCids && options.previousCids.length > 0) || false,

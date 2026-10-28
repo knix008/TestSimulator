@@ -40,8 +40,10 @@ function findDuplications(files) {
   const blocks = [];
   for (const [hash, places] of hits) {
     const unique = [];
+    const seen = new Set();
     for (const p of places) {
-      if (!unique.some((u) => u.path === p.path && u.start === p.start)) unique.push(p);
+      const id = `${p.path}:${p.start}`;
+      if (!seen.has(id)) { seen.add(id); unique.push(p); }
     }
     if (unique.length < 2) continue;
     // skip a window that is only inside one file and fully overlapped — already collapsed
@@ -57,10 +59,12 @@ function findDuplications(files) {
   // Prefer larger blocks and drop a block that is contained in a larger one with the same pair.
   blocks.sort((a, b) => b.lines - a.lines);
   const kept = [];
+  const sigs = new Set();
   for (const b of blocks) {
     const sig = b.instances.map((i) => `${i.path}:${i.start}`).sort().join('|');
-    if (kept.some((k) => k.sig === sig)) continue;
-    kept.push({ ...b, sig });
+    if (sigs.has(sig)) continue;
+    sigs.add(sig);
+    kept.push(b);
   }
   const duplicatedLines = new Map();
   for (const b of kept) {
@@ -77,7 +81,7 @@ function findDuplications(files) {
     total += set.size;
   }
   return {
-    blocks: kept.slice(0, 200).map(({ sig, ...rest }) => rest),
+    blocks: kept.slice(0, 200),
     duplicatedLines: total,
     perFile,
   };

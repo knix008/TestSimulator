@@ -226,15 +226,46 @@ function normMessage(message) {
   return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 180);
 }
 
-function functionAt(lines, index) {
-  for (let i = index; i >= 0 && i >= index - 80; i--) {
-    const line = lines[i] || '';
-    const named = line.match(/\b(?:function|func|fn|def)\s+([A-Za-z_]\w*)/);
-    if (named) return { name: named[1], line: i + 1 };
-    const sig = line.match(/\b([A-Za-z_]\w*)\s*\([^;]*\)\s*\{?\s*$/);
-    if (sig && !/^(if|for|while|switch|catch|else|return|sizeof)$/.test(sig[1])) return { name: sig[1], line: i + 1 };
+// What each line of a file says, worked out once per line: millions of issues
+// look back over the same lines, and the signature pattern is slow on long lines.
+const lineFacts = new WeakMap();
+function factsOf(lines) {
+  let facts = lineFacts.get(lines);
+  if (!facts) {
+    facts = { fn: new Array(lines.length), branch: new Uint8Array(lines.length) };
+    lineFacts.set(lines, facts);
   }
-  return { name: 'global', line: 1 };
+  return facts;
+}
+
+const GLOBAL_FN = { name: 'global', line: 1 };
+
+function functionOnLine(line) {
+  const named = line.match(/\b(?:function|func|fn|def)\s+([A-Za-z_]\w*)/);
+  if (named) return named[1];
+  const sig = line.match(/\b([A-Za-z_]\w*)\s*\([^;]*\)\s*\{?\s*$/);
+  if (sig && !/^(if|for|while|switch|catch|else|return|sizeof)$/.test(sig[1])) return sig[1];
+  return null;
+}
+
+function functionAt(lines, index) {
+  const memo = lines.length ? factsOf(lines).fn : [];
+  for (let i = index; i >= 0 && i >= index - 80; i--) {
+    let name = memo[i];
+    if (name === undefined) {
+      name = functionOnLine(lines[i] || '');
+      if (i < memo.length) memo[i] = name;
+    }
+    if (name) return { name, line: i + 1 };
+  }
+  return GLOBAL_FN;
+}
+
+function isBranchLine(lines, i) {
+  const memo = factsOf(lines).branch;
+  if (i >= memo.length) return false;
+  if (!memo[i]) memo[i] = /^\s*(if|else if|while|for)\b/.test(lines[i] || '') ? 2 : 1;
+  return memo[i] === 2;
 }
 
 const REF_KEY = /^([a-z]+:)?S\d+$/;
@@ -274,7 +305,7 @@ function defaultEvents(issue, lines, fn) {
   }
   const from = Math.max(0, (issue.line || 1) - 35);
   for (let i = (issue.line || 1) - 2; i >= from; i--) {
-    if (/^\s*(if|else if|while|for)\b/.test(lines[i] || '')) {
+    if (isBranchLine(lines, i)) {
       events.push({ line: i + 1, tag: 'branch', text: { en: 'Following this condition', ko: '이 조건을 따라갑니다' }, main: false });
       break;
     }

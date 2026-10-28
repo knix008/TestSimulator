@@ -145,11 +145,10 @@ function stackUse(engine) {
   };
   const memo = new Map();
   const onStack = new Set();
-  const deadline = engine.deadline;
   const total = (an, depth) => {
     if (memo.has(an)) return memo.get(an);
     const fr = frameOf(an).size;
-    if (onStack.has(an) || depth > 200 || Date.now() > deadline) return { size: fr, chain: [], rec: onStack.has(an) };
+    if (onStack.has(an) || depth > 200 || engine.spent()) return { size: fr, chain: [], rec: onStack.has(an) };
     onStack.add(an);
     let best = null, rec = false;
     for (const c of calleesOf(an)) {

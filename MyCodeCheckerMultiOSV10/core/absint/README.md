@@ -120,9 +120,12 @@ from a type do not count.
 | option | default | meaning |
 | --- | --- | --- |
 | `k` | 8 | states per program point |
-| `functionMs` | 200 | time budget per function; when it is exceeded, the function reports nothing from the interpreter (AST checkers still run) |
-| `totalMs` | 15000 | time budget for the whole analysis; later functions are skipped |
-| `maxSteps` | 40000 | worklist and replay steps per function |
+| `maxSteps` | 40000 | worklist and replay steps per function; when it is exceeded, the function reports nothing from the interpreter (AST checkers still run) |
+| `totalSteps` | 250000 | the same steps over the whole analysis (one C/C++ batch); later functions are skipped. About 15 s of work on a desktop processor |
+| `functionMs` | none | optional time limit per function, on top of `maxSteps` |
+| `totalMs` | none | optional time limit for the whole analysis, on top of `totalSteps` |
+
+The budgets count work, not time, so the findings do not depend on how busy the machine is (the parallel C/C++ pool runs many batches at once). A time limit makes them depend on it again.
 | `widenAfter` | 3 | loop header visits before widening |
 | `maxFunctionNodes` | 40000 | AST size above which a function is not interpreted |
 | `allocNull` | false | report NULL_RETURNS for unchecked malloc/calloc/realloc/strdup |

@@ -1616,6 +1616,26 @@ test('the total budget skips remaining functions', () => {
   assert.equal(found.filter((f) => f.rule === 'absint:FORWARD_NULL').length, 0);
 });
 
+test('the total step budget skips remaining functions, without a clock', () => {
+  const code = 'int f(void) { int *p = 0; return *p; }\nint g(void) { int *q = 0; return *q; }\n';
+  const one = analyze(code, { absint: { totalSteps: 3 } });
+  assert.equal(one.filter((f) => f.rule === 'absint:FORWARD_NULL').length, 0);
+  assert.ok(one.stats.aborted >= 1);
+  const all = analyze(code);
+  assert.equal(all.filter((f) => f.rule === 'absint:FORWARD_NULL').length, 2);
+  assert.ok(all.stats.steps > 0);
+  // No time limit by default: a slow clock changes nothing.
+  const now = Date.now;
+  let t = 0;
+  Date.now = () => (t += 60000);
+  try {
+    const lines = (list) => list.map((f) => `${f.rule}:${f.line}`);
+    assert.deepEqual(lines(analyze(code)), lines(all));
+  } finally {
+    Date.now = now;
+  }
+});
+
 test('functions with parse errors are skipped', () => {
   const found = analyze('int f(int x) {\n  int y = (unknown_t)x x;\n  if (x) return 1;\n}\n');
   assert.equal(of(found, 'MISSING_RETURN').length, 0);

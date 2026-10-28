@@ -821,7 +821,7 @@ function unusedValue(an) {
       const old = liveIn.get(b);
       if (nin.size !== old.size || [...nin].some((x) => !old.has(x))) { liveIn.set(b, nin); changed = true; }
     }
-    if (Date.now() > an.E.deadline) return;
+    if (an.E.spent()) return;
   }
   if (changed) return;
   let reach = null;

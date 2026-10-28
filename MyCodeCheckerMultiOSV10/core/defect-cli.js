@@ -160,9 +160,9 @@ const STANDARD_PREFIX = {
 const STANDARD_ENGINES = ['misra-c:', 'misra-cpp:', 'cert:', 'autosar:', 'misra-c2004:', 'misra-cpp2008:'];
 
 const AGGRESSIVENESS = {
-  low: { k: 4, functionMs: 100, totalMs: 10000, allocNull: false },
-  medium: { k: 8, functionMs: 200, totalMs: 15000, allocNull: false },
-  high: { k: 16, functionMs: 600, totalMs: 60000, maxSteps: 120000, allocNull: true },
+  low: { k: 4, maxSteps: 20000, totalSteps: 170000, allocNull: false },
+  medium: { k: 8, totalSteps: 250000, allocNull: false },
+  high: { k: 16, maxSteps: 120000, totalSteps: 1000000, allocNull: true },
 };
 
 /**

@@ -28,9 +28,11 @@ const T = cf.types;
 
 const DEFAULTS = {
   k: 8, // states per program point before joining
-  functionMs: 200, // time budget per function
-  totalMs: 15000, // time budget per analysis
+  // The budgets count work, not time, so a busy machine (or the parallel
+  // C/C++ pool) gives the same findings. functionMs / totalMs still add a
+  // time limit when they are set.
   maxSteps: 40000, // worklist steps + replayed states per function
+  totalSteps: 250000, // the same steps over the whole analysis; later functions are skipped
   widenAfter: 3, // loop header visits before widening
   maxFunctionNodes: 40000, // skip giant generated functions
   allocNull: false, // report NULL_RETURNS for unchecked malloc/calloc/realloc/strdup results
@@ -63,6 +65,11 @@ class Engine {
     this.analyzers = [];
     this.classFactsList = [];
     this.stats = { functions: 0, aborted: 0, ms: 0 };
+  }
+
+  // The whole-analysis budget is used up.
+  spent() {
+    return this.steps >= this.opts.totalSteps || (this.deadline !== Infinity && Date.now() > this.deadline);
   }
 
   symById(unit, id) {
@@ -151,7 +158,8 @@ class Engine {
 
   run() {
     const start = Date.now();
-    this.deadline = start + this.opts.totalMs;
+    this.deadline = this.opts.totalMs == null ? Infinity : start + this.opts.totalMs;
+    this.steps = 0;
     const unitsByFile = new Map(this.project.units.map((u) => [u.file, u]));
     const cg = this.project.callGraph;
     const order = [];
@@ -195,7 +203,7 @@ class Engine {
       const lk = `${file}:${fn.loc.start}`;
       if (doneLoc.has(lk) || fn.loc.macro) continue;
       doneLoc.add(lk);
-      if (Date.now() > this.deadline) { this.stats.aborted++; continue; }
+      if (this.spent()) { this.stats.aborted++; continue; }
       // A function the parser had to recover in has a truncated body: skip it.
       if (this.hasParseError(unit, fn)) { this.stats.skipped = (this.stats.skipped || 0) + 1; continue; }
       let an;
@@ -240,6 +248,7 @@ class Engine {
     }
     for (const f of this.extraFindings) findings.push(f);
     this.stats.ms = Date.now() - start;
+    this.stats.steps = this.steps;
     const out = [];
     const seen = new Set();
     // a newer, narrower checker gives way to the established one at the same line
