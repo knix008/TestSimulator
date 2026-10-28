@@ -68,11 +68,16 @@ button:disabled { opacity: 0.45; cursor: default; }
 .menu-item:hover { background: var(--bg-sel); }
 .menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
 .ctx-menu { z-index: 9500; min-width: 200px; }
+/* A toolbar button with something waiting (unsaved project changes). */
+.tool-btn.has-dot { position: relative; }
+.tool-btn.has-dot::after { content: ""; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn-fg, #f59e0b); }
 /* Project settings: sections in two columns that scroll, the actions below them. */
 .project-settings { display: flex; flex-direction: column; min-height: 0; }
 .ps-scroll { flex: 1; min-height: 0; overflow: auto; }
-.ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; align-items: start; padding-bottom: 8px; }
-.ps-section { display: grid; gap: 8px; }
+/* Panels of one width; the panels of a row are as high as its highest one, so the rows line up. */
+.ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; align-items: stretch; padding-bottom: 8px; }
+.ps-section { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.ps-body { flex: 1; display: grid; gap: 8px; align-content: start; }
 .ps-section .sub-title { margin: 0; }
 .ps-field { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 10px; }
 .ps-field .ps-label { color: var(--fg-muted); font-size: 12px; }
@@ -80,6 +85,13 @@ button:disabled { opacity: 0.45; cursor: default; }
 .ps-field .ps-control > input, .ps-field .ps-control > textarea { flex: 1; min-width: 0; }
 .ps-field:has(textarea) { align-items: start; }
 .ps-sub { font-size: 12px; font-weight: 700; color: var(--fg-muted); margin-top: 4px; }
+.ps-skipped { display: grid; gap: 6px; }
+.ps-skipped-list { display: grid; gap: 2px; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+.ps-skipped-row { display: flex; align-items: center; gap: 6px; padding: 2px 4px; min-width: 0; }
+.ps-skipped-row > svg { flex: none; color: var(--fg-muted); }
+.ps-skipped-dir { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.ps-reason { flex: none; font-size: 11px; }
+.ps-reason-excludeDir { border-color: var(--accent); color: var(--accent); }
 .ps-actions { display: flex; align-items: center; gap: 10px; padding: 8px 2px 2px; border-top: 1px solid var(--border); }
 .ps-actions .spacer { flex: 1; }
 .ctx-menu .menu-item:disabled { opacity: .45; cursor: default; }
@@ -141,6 +153,10 @@ tr.sel { background: var(--bg-sel); }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .actions button, .row-actions button { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; }
 .filetree { width: 260px; flex: none; overflow: auto; border-right: 1px solid var(--border); }
+/* The divider between the file list and the code: a wider grip, a line on hover or drag. */
+.code-wrap > .splitter-x { width: 7px; margin: 0 -4px 0 -3px; z-index: 4; }
+.code-wrap > .splitter-x::after { content: ""; position: absolute; top: 50%; left: 2px; width: 3px; height: 28px; margin-top: -14px; border-radius: 2px; background: var(--border-strong, var(--border)); }
+body.resizing-x .code-wrap > .splitter-x { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 .filetree button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 4px 8px; border-radius: 4px; }
 .filetree button.on { background: var(--bg-sel); }
 .codepane { flex: 1; overflow: auto; font-family: var(--mono); font-size: 12px; }
@@ -150,8 +166,20 @@ tr.sel { background: var(--bg-sel); }
 .codepane .row .src { flex: 1; min-width: 0; white-space: pre; tab-size: 4; -moz-tab-size: 4; }
 .codepane.wrap .row .src { white-space: pre-wrap; overflow-wrap: anywhere; }
 .codepane:not(.wrap) .row { width: max-content; min-width: 100%; }
-.code-toolbar { position: sticky; top: 0; left: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg-elev); font-family: var(--font, inherit); }
+.code-toolbar { position: sticky; top: 0; left: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 14px; border-bottom: 1px solid var(--border); background: var(--bg-elev); font-family: var(--font, inherit); }
 .code-toolbar .spacer { flex: 1; }
+/* Hex view of a binary file: offset | 16 bytes | ASCII, marked bytes of lines with issues. */
+.hexview { font-family: var(--mono); font-size: 12px; padding: 4px 0; }
+.hx-head, .hx-row { display: flex; gap: 14px; padding: 0 10px; white-space: pre; line-height: 1.6; }
+.hx-head { position: sticky; top: 33px; z-index: 1; background: var(--bg-elev); color: var(--fg-muted); border-bottom: 1px solid var(--border); }
+.hx-off { width: 9ch; flex: none; color: var(--fg-muted); }
+.hx-hex { display: inline-flex; gap: 0.6ch; flex: none; }
+.hx-b { width: 2ch; text-align: center; }
+.hx-b.gap { margin-left: 0.8ch; }
+.hx-ascii { flex: none; letter-spacing: 0.5px; }
+.hx-row.mark { background: color-mix(in srgb, var(--folder) 22%, transparent); cursor: pointer; }
+.hx-row.picked { background: color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.hx-row .hit { color: var(--warn-fg, #f59e0b); font-weight: 700; }
 .code-toolbar-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .codepane .row.mark { background: color-mix(in srgb, var(--folder) 22%, transparent); }
 .codepane .ln { width: 48px; color: var(--fg-muted); text-align: right; padding-right: 10px; flex: none; user-select: none; }

@@ -1,0 +1,12 @@
+{
+  "format": "mycodechecker-project",
+  "version": 1,
+  "name": "Demo",
+  "key": "demo",
+  "source": ".",
+  "settings": {
+    "mainBranch": "main",
+    "gateId": "checker-way"
+  },
+  "savedAt": "2026-10-28T08:06:47.016Z"
+}

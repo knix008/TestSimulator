@@ -120,7 +120,7 @@ The menu bar at the top holds File, Edit, Issues, Quality, View, Tools and Help.
 
 ![Toolbar](docs/images/tutorial/en/16-toolbar.jpg)
 
-The toolbar gathers frequent jobs with an icon and a label: the start page, open, analyze, undo and redo (the tooltip names the action), shortcuts to views such as overview, issues, hotspots and gates, and the branch box. On the right are the buttons that show or hide the left, right and bottom panels. The button of the current view is shown pressed.
+The toolbar gathers frequent jobs with an icon and a label: the start page, open, save (this project’s changes to its project file, with a dot while some are unsaved), analyze, undo and redo (the tooltip names the action), shortcuts to views such as overview, issues, hotspots and gates, and the branch box. On the right are the buttons that show or hide the left, right and bottom panels. The button of the current view is shown pressed.
 
 ### 17. Left navigation panel
 

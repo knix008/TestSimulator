@@ -303,10 +303,10 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
 }
 
 // Icon + label toolbar. Labels hide when the window is narrow; icons stay.
-export function Toolbar({ onAction, busy, branch, branches, onBranch, view, panels, history }) {
+export function Toolbar({ onAction, busy, branch, branches, onBranch, view, panels, history, canSave, unsaved }) {
   useLanguage();
   const tool = (id, icon, label, opts = {}) => (
-    <button type="button" className={`tool-btn ${opts.primary ? 'tool-primary' : ''} ${view && id === `view:${view}` ? 'on' : ''}`} title={opts.tip || label}
+    <button type="button" className={`tool-btn ${opts.primary ? 'tool-primary' : ''} ${view && id === `view:${view}` ? 'on' : ''} ${opts.dot ? 'has-dot' : ''}`} title={opts.tip || label}
       aria-label={label} disabled={opts.disabled} data-tour={opts.tour} onClick={() => onAction(id)}>
       <Icon name={icon} size={15} /><span className="tool-label">{label}</span>
     </button>
@@ -314,6 +314,8 @@ export function Toolbar({ onAction, busy, branch, branches, onBranch, view, pane
   return (
     <div className="icon-toolbar" role="toolbar" data-tour="toolbar">
       {tool('openFolder', 'folder', t('tb_open'), { tip: `${t('open_folder')} (Ctrl+O)` })}
+      {/* The open project's changes (settings, triage …) to its project file; a dot while some are unsaved. */}
+      {tool('saveProject', 'save', t('tb_save'), { disabled: !canSave || busy, dot: !!unsaved, tour: 'tb-save', tip: `${unsaved ? t('tb_save_tip_unsaved') : t('tb_save_tip')} (Ctrl+S)` })}
       {tool('analyze', 'play', t('tb_analyze'), { primary: true, disabled: busy, tip: `${t('run_analysis')} (Ctrl+Enter)`, tour: 'tb-analyze' })}
       <span className="tb-sep" />
       {history && tool('undo', 'undo', t('tb_undo'), { disabled: !history.canUndo, tour: 'tb-undo', tip: history.canUndo ? `${t('hist_undo_named', { action: history.undoLabel })} (Ctrl+Z)` : t('hist_nothing_undo') })}

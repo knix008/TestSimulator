@@ -820,7 +820,67 @@ function createApi(opts = {}) {
     const rel = String(args.file || '').replace(/\\/g, '/');
     if (rel.includes('..')) throw new Error('Invalid path');
     const full = path.join(project.path, rel);
-    return { path: rel, text: fs.readFileSync(full, 'utf8') };
+    // A binary file (an image, an object file …) is not text: the window shows
+    // its bytes as hex, one range at a time ({ offset, limit }), instead of
+    // decoding all of it into one huge line.
+    const size = fs.statSync(full).size;
+    const fd = fs.openSync(full, 'r');
+    try {
+      const head = Buffer.alloc(Math.min(size, 8192));
+      fs.readSync(fd, head, 0, head.length, 0);
+      if (isBinary(head)) {
+        const offset = Math.max(0, Math.min(size, Number(args.offset) || 0));
+        const limit = Math.max(0, Math.min(1048576, Number(args.limit) || 65536, size - offset));
+        const bytes = Buffer.alloc(limit);
+        fs.readSync(fd, bytes, 0, limit, offset);
+        // lines: the issue lines of the file, as byte ranges { line: [start, end) }
+        // (a line is what lies between two newline bytes), to mark them in the hex view.
+        let ranges;
+        if (Array.isArray(args.lines) && args.lines.length) {
+          const want = new Set(args.lines.map(Number).filter((n) => n > 0));
+          const last = Math.max(...want);
+          ranges = {};
+          const chunk = Buffer.alloc(1048576);
+          let line = 1;
+          let start = 0;
+          for (let pos = 0; pos < size && line <= last;) {
+            const n = fs.readSync(fd, chunk, 0, chunk.length, pos);
+            if (!n) break;
+            for (let i = 0; i < n && line <= last; i++) {
+              if (chunk[i] !== 10) continue;
+              if (want.has(line)) ranges[line] = [start, pos + i + 1];
+              line++;
+              start = pos + i + 1;
+            }
+            pos += n;
+          }
+          if (line <= last && want.has(line)) ranges[line] = [start, size];
+        }
+        return { path: rel, binary: true, size, offset, base64: bytes.toString('base64'), ranges };
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+    return { path: rel, text: readText(full) };
+  }
+
+  // NUL bytes, or many control characters, in the first bytes (a UTF-16 text
+  // file starts with its byte order mark and is text).
+  function isBinary(head) {
+    if (head.length >= 2 && ((head[0] === 0xff && head[1] === 0xfe) || (head[0] === 0xfe && head[1] === 0xff))) return false;
+    let control = 0;
+    for (const b of head) {
+      if (b === 0) return true;
+      if (b < 7 || (b > 13 && b < 32 && b !== 27)) control++;
+    }
+    return head.length > 0 && control / head.length > 0.1;
+  }
+
+  function readText(full) {
+    const buf = fs.readFileSync(full);
+    if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return buf.subarray(2).toString('utf16le');
+    if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return Buffer.from(buf.subarray(2)).swap16().toString('utf16le');
+    return buf.toString('utf8');
   }
 
   function report(args) {
@@ -966,11 +1026,17 @@ function createApi(opts = {}) {
       const ws = access.filterWorkspace(workspace(), who);
       const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
       if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
-      return require('./target').survey(project.path, {
-        exclusions: [...(ws.settings.exclusions || []), ...(project.exclusions || [])],
-        excludeDirs: project.excludeDirs || [],
+      // exclusions / excludeDirs: the project's own ones being edited (Project settings), else the saved ones.
+      const own = Array.isArray(args.exclusions) ? args.exclusions : (project.exclusions || []);
+      const out = require('./target').survey(project.path, {
+        exclusions: [...(ws.settings.exclusions || []), ...own],
+        excludeDirs: Array.isArray(args.excludeDirs) ? args.excludeDirs : (project.excludeDirs || []),
         maxFiles: ws.settings.maxFiles || 0,
       });
+      // Which pattern list left a folder out: the workspace's or the project's.
+      const { excluded } = require('./analyze');
+      for (const s of out.skipped || []) if (s.reason === 'exclusion') s.from = excluded(s.dir, ws.settings.exclusions || []) ? 'workspace' : 'project';
+      return out;
     },
     'scan.start': (args, who) => {
       args = args || {};

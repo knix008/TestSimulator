@@ -140,6 +140,7 @@ export default function App() {
   const [checked, setChecked] = useState([]);
   const [codeFile, setCodeFile] = useState('');
   const [codeText, setCodeText] = useState('');
+  const [codeBinary, setCodeBinary] = useState(null); // { size } of a binary file in the code view
   const [codeLine, setCodeLine] = useState(0);
   const [codeError, setCodeError] = useState('');
   // Start-page tiles: the standard a compliance / MISRA view opens on, and a language to filter by after the next analysis.
@@ -824,8 +825,10 @@ export default function App() {
     setCodeLine(Number(line) || 0);
     setCodeError('');
     try {
-      const res = await call('project.file', { projectId: project.id, file });
-      setCodeText(res.text);
+      // A binary file comes back as its first bytes and size: the code view shows it as hex.
+      const res = await call('project.file', { projectId: project.id, file, limit: 0 });
+      setCodeBinary(res.binary ? { size: res.size } : null);
+      setCodeText(res.binary ? '' : res.text);
     } catch (err) {
       setCodeText(null);
       setCodeError(errorTextOf(err));
@@ -1245,7 +1248,7 @@ export default function App() {
           {view === 'issues' && <IssueBrowser issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} filter={filter} setFilter={setFilter} selected={selected} onSelect={(i) => { setSelected(i); if (i) revealRight(); }} checked={checked} setChecked={setChecked} onUpdate={onUpdate} onReview={onReview} approval={ws.settings.approval} onTicket={onTicket} project={project} branch={branch} serverSearch={!desktop} onOpenCode={openCode} />}
           {view === 'hotspots' && <Hotspots issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} onUpdate={onUpdate} onOpenCode={openCode} />}
           {view === 'measures' && <Measures analysis={analysis} />}
-          {view === 'code' && <CodeView analysis={analysis} file={codeFile} text={codeText} error={codeError} line={codeLine} onOpen={openCode} rules={allRules} onPickIssue={(i) => { setSelected(i); setView('issues'); revealRight(); }} />}
+          {view === 'code' && <CodeView analysis={analysis} file={codeFile} text={codeText} binary={codeBinary} projectId={project && project.id} error={codeError} line={codeLine} onOpen={openCode} rules={allRules} onPickIssue={(i) => { setSelected(i); setView('issues'); revealRight(); }} />}
           {view === 'his' && <HisView project={project} stamp={stamp} onOpenAt={openCode} />}
           {view === 'arch' && <ArchView project={project} stamp={stamp} issues={(analysis && analysis.issues) || []} onOpenAt={openCode} />}
           {view === 'approvals' && <ApprovalsView project={project} stamp={stamp} onChanged={reload} />}
@@ -1308,7 +1311,7 @@ export default function App() {
     <ProjectCtx.Provider value={project && !analysis ? project : null}>
     <div className="app" onClick={() => {}}>
       <MenuBar menus={menus} onAction={onAction} theme={(ws.settings && ws.settings.theme) || 'midnight'} startActive={onStart} dirty={dirty} />
-      <Toolbar onAction={onAction} busy={busy} view={view} branch={branch} branches={branches} panels={panels} history={hist} onBranch={(name) => { setDesktop(null); setBranch(name); }} />
+      <Toolbar onAction={onAction} busy={busy} view={view} branch={branch} branches={branches} panels={panels} history={hist} canSave={!!project} unsaved={projectDirty} onBranch={(name) => { setDesktop(null); setBranch(name); }} />
       <div className="body-row">
         {showLeft && (
           <>
