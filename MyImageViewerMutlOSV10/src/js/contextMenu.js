@@ -43,7 +43,7 @@ window.ContextMenu = (() => {
       // Escape closes an open menu and nothing else (the app's own Escape handling runs after us)
       if (e.key === 'Escape' && _active) { hide(); e.preventDefault(); e.stopImmediatePropagation(); }
     });
-    window.addEventListener('blur', hide);
+    window.addEventListener('blur', _onBlur);
     // (the popup page is resized to the work area right before a menu is shown)
     if (!document.documentElement.classList.contains('popup-host')) window.addEventListener('resize', hide);
 
@@ -75,6 +75,18 @@ window.ContextMenu = (() => {
         }
       });
     }
+  }
+
+  // A real press in the menu overlay moves the focus there for a moment (the main window
+  // blurs, then gets it back ~20 ms later) — closing on that blur took the menu down
+  // between mousedown and click, so no row ever ran. The overlay page never closes on
+  // blur (the main page owns its menus); the main page closes only if the focus stays away.
+  function _onBlur() {
+    if (document.documentElement.classList.contains('popup-host')) return;
+    if (!_remote()) { hide(); return; }
+    if (!_active) return;
+    const seq = _seq;
+    setTimeout(() => { if (_active && seq === _seq && !document.hasFocus()) hide(); }, 250);
   }
 
   function _remote() {

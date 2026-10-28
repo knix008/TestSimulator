@@ -1042,7 +1042,8 @@
   function _ewFileMenuItems() {
     const t = I18n.t.bind(I18n);
     return [
-      { icon: Icons.saveAs,  label: t('editWindow.saveNew'), shortcut: 'Ctrl+S', action: () => _saveAsNewFile() },
+      { icon: Icons.save,    label: t('menu.save'),          shortcut: 'Ctrl+S', action: () => _save() },
+      { icon: Icons.saveAs,  label: t('menu.saveAs'),        shortcut: 'Ctrl+Shift+S', action: () => _saveAsNewFile() },
       { icon: Icons.print,   label: t('menu.print'),         shortcut: 'Ctrl+P', action: () => _openPrintPreview() },
       { icon: Icons.copy,    label: t('menu.copyToClipboard'), shortcut: 'Ctrl+C', action: () => _ewCopy() },
       { separator: true },
@@ -1108,6 +1109,7 @@
       // The last ${RECENT_DIRS_MAX} folders, each with its own ×, and "clear all" under them
       { icon: Icons.recent,     label: t('menu.recentFolders'), submenu: () => _recentFolderItems() },
       { separator: true },
+      { icon: Icons.save,       label: t('menu.save'),       shortcut: 'Ctrl+S',       disabled: !hasImg, action: () => _save() },
       { icon: Icons.saveAs,     label: t('menu.saveAs'),     shortcut: 'Ctrl+Shift+S', disabled: !hasImg, action: () => _saveAs() },
       { icon: Icons.export,     label: t('menu.export'),     disabled: !hasImg, submenu: () => _exportMenuItems() },
       { icon: Icons.print,      label: t('menu.print'),      shortcut: 'Ctrl+P',       disabled: !_canPrint(), action: () => _openPrintPreview() },
@@ -9200,7 +9202,8 @@
     const hasSel = Editor.hasSelection();
     const t = I18n.t.bind(I18n);
     ContextMenu.show(x, y, [
-      { icon: Icons.saveAs || Icons.save, label: t('editWindow.saveNew'), action: () => { _saveAsNewFile(); } },
+      { icon: Icons.save, label: t('context.save'), shortcut: 'Ctrl+S', action: () => { _save(); } },
+      { icon: Icons.saveAs, label: t('context.saveAs'), shortcut: 'Ctrl+Shift+S', action: () => { _saveAsNewFile(); } },
       { separator: true },
       { icon: Icons.cut,      label: t('context.cut'),      disabled: !hasSel, action: _ewCut },
       { icon: Icons.copy,     label: t('context.copy'),     disabled: !hasSel, action: _ewCopy },
@@ -9317,6 +9320,44 @@
       } catch (_) { /* fall through */ }
     }
     return fileName;
+  }
+
+  // Formats Editor.exportAsDataUrl can write back in place
+  const SAVE_IN_PLACE = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' };
+
+  /** Save (Ctrl+S): overwrite the open file in its own format; anything else goes to Save As. */
+  async function _save() {
+    if (!_isEditableImage()) return false;
+    const filePath = state.currentFile || '';
+    const ext = filePath.includes('.') ? filePath.split('.').pop().toLowerCase() : '';
+    const format = SAVE_IN_PLACE[ext];
+    if (!filePath || !format || state.isAnimated || _isWeb()) return state.editMode ? _saveAsNewFile() : _saveAs();
+
+    const writeResult = await _runOpWithProgress(async (dlg) => {
+      const dataUrl = (format === 'image/jpeg' || format === 'image/webp')
+        ? Editor.exportAsDataUrl(format, 0.92)
+        : Editor.exportAsDataUrl(format);
+      if (!dataUrl) return { success: false, error: 'export' };
+      dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
+      // Our own write must not reload the file (that would drop the edit history)
+      _ignoreWatchUntil = Date.now() + 2000;
+      const wr = await window.electronAPI.writeFile({ filePath, dataUrl });
+      _ignoreWatchUntil = Date.now() + 1000;
+      return wr;
+    }, {
+      messageKey: 'progress.saving',
+      kind: 'encode',
+      force: _editWindowOpen(),
+    });
+
+    if (!writeResult || writeResult.error === 'export') return false;
+    if (writeResult.success) {
+      _clearDirty();
+      _updateStatus({ msg: `${I18n.t('status.saved') || 'Saved'}: ${filePath.split(/[/\\]/).pop()}` });
+      return true;
+    }
+    await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', writeResult.error || '');
+    return false;
   }
 
   async function _saveAs(andClose = false, opts = {}) {
@@ -10992,7 +11033,8 @@
       { separator: true },
       // Everyday actions stay top-level; transforms, zoom and the rest are grouped in flyouts
       _canStartEdit() && { icon: Icons.edit, label: t('toolbar.edit'), shortcut: 'Ctrl+E', action: _openEditWindow },
-      hasImg && { icon: Icons.save,   label: t('context.saveAs'), action: _saveAs },
+      hasImg && { icon: Icons.save,   label: t('context.save'),   shortcut: 'Ctrl+S',       action: () => _save() },
+      hasImg && { icon: Icons.saveAs, label: t('context.saveAs'), shortcut: 'Ctrl+Shift+S', action: () => _saveAs() },
       { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P', disabled: !_canPrint(), action: () => _openPrintPreview() },
       hasImg && { icon: Icons.copy,   label: t('context.copy'),   shortcut: 'Ctrl+C', action: _copyToClipboard },
       hasImg && { icon: Icons.rotateRight, label: t('context.transform'), submenu: () => [
@@ -11751,12 +11793,13 @@
       if (ctrl && e.key === ']') { e.preventDefault(); _rotate(90); return; }
       if (ctrl && e.shiftKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); if (_isEditableImage()) _openResizeDialog(); return; }
       if (ctrl && e.key === 'e') { e.preventDefault(); _openEditWindow(); return; }
-      if (ctrl && e.key === 's') {
+      // Ctrl+S save, Ctrl+Shift+S save as (by e.code so Caps Lock does not turn one into the other)
+      if (ctrl && !e.altKey && (e.code === 'KeyS' || e.key === 's' || e.key === 'S')) {
         e.preventDefault();
-        if (state.editMode) _saveAsNewFile();
+        if (e.shiftKey) { if (state.editMode) _saveAsNewFile(); else _saveAs(); }
+        else _save();
         return;
       }
-      if (ctrl && e.shiftKey && e.key === 'S') { e.preventDefault(); _saveAs(); return; }
       if (ctrl && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); _pasteShortcut(); return; }
       if (ctrl && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
@@ -11894,7 +11937,8 @@
       'flip-h':        () => _flip('h'),
       'flip-v':        () => _flip('v'),
       'reset-all':     _resetAll,
-      'save-as':            _saveAs,
+      'save':               _save,
+      'save-as':            () => _saveAs(),
       'save-before-close':  () => _saveAs(true),
       'copy-clipboard':_copyToClipboard,
       'prev-image':    _prevImage,
