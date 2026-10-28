@@ -493,6 +493,12 @@ ${band('ftr', footerMm, footer)}
     thumbMake: (filePath) => call('thumb-make', filePath),
     thumbCacheBuild: (dirs, opts) => call('thumb-cache-build', dirs, opts || {}),
     thumbCacheClear: () => call('thumb-cache-clear'),
+    // Explorer › Favorites: favorites.db (SQLite) in the user data folder; each answers the list
+    favoritesList: () => call('favorites-list'),
+    favoritesAdd: (p, kind) => call('favorites-add', p, kind || ''),
+    favoritesRemove: (p) => call('favorites-remove', p),
+    favoritesClear: () => call('favorites-clear'),
+    favoritesRemap: (from, to) => call('favorites-remap', from, to),
     // TIFF → PNG in the host; HEIC / HEIF → JPEG here (libheif worker)
     convertToPng: async (filePath) => {
       if (!isHeicPath(filePath)) return call('convert-to-png', filePath);

@@ -63,18 +63,24 @@ cookies.sqlite
 .cache/
 .turbo/
 
-# Throwaway harness scripts run with `electron ./<name>-tmp.js`. They have to sit
-# inside the project for `require('electron')` to resolve, so they land here.
+# Throwaway harness scripts
 *-tmp.js
 *.local.js
 scratch/
 
-# Bundled tool binaries (fetched by scripts/ensure-yt-dlp.js / postinstall)
+# Bundled tool binaries (fetched by scripts/ensure-tools.js / postinstall)
 vendor/yt-dlp/yt-dlp
 vendor/yt-dlp/yt-dlp.exe
 vendor/yt-dlp/*.download
 vendor/yt-dlp/*.tmp
+vendor/ffmpeg/
+vendor/deno/deno
+vendor/deno/deno.exe
 
-# Electron / local crash dumps
+# Tauri: Rust build output and generated schemas; Cargo.lock is committed
+src-tauri/target/
+src-tauri/gen/
+
+# Local crash dumps
 *.dmp
 crashpad/

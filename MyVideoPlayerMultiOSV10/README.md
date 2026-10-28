@@ -7,90 +7,85 @@ Cross-platform video/audio player for **Web**, **Windows**, **macOS**, and **Lin
 | **Version** | 1.0.0 |
 | **Author** | SHKWON \<knix008@naver.com\> |
 | **License** | MIT |
-| **Stack** | Electron 33 · HTML/CSS/ES modules · youtubei.js · ffmpeg-static · bundled yt-dlp |
+| **Stack** | Tauri 2 (Rust) · HTML/CSS/ES modules · bundled yt-dlp · bundled FFmpeg |
 
-멀티 OS 미디어 플레이어입니다. 로컬 파일은 HTTP Range(`/__media/…`)로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube·RTSP 재생, YouTube/RTSP 저장(녹화), 자막(SMI/SRT/VTT), 테마, 한글·영어 UI, 화면 맞춤, **화면 회전**(90° 단위), **축소 모드**, 재생 목록·스펙트럼 **별도 창**, 창별 투명도, `Esc` 일괄 최소화, 단축키를 지원합니다.
+멀티 OS 미디어 플레이어입니다. 로컬 파일은 앱 내장 HTTP 서버의 Range 요청(`/__media/…`)으로 스트리밍하고, 재생 실패 시 FFmpeg로 호환 변환(소프트 리먹스 → H.264)을 시도합니다. YouTube·RTSP 재생, YouTube/Instagram/TikTok 저장, RTSP 녹화, 자막(SMI/SRT/VTT, **YouTube 자막 다운로드**·언어 선택), 테마, 한글·영어 UI, 화면 맞춤, **화면 회전**(90° 단위), **축소 모드**, 재생 목록·스펙트럼 **별도 창**, 창별 투명도, `Esc` 일괄 최소화, 단축키를 지원합니다.
 
-자세한 구조·IPC·모듈 설명은 [Architecture.md](Architecture.md)를 참고하세요.
+2026-10-27 Electron 에서 Tauri 2 로 옮겼습니다. 화면(`src/`)은 그대로이고, `src-tauri/src/bridge.js` 가 예전 `window.desktopAPI` 를 다시 만들어 모든 호출을 Rust 의 `vp` 명령 하나로 보냅니다. 자세한 구조는 [Architecture.md](Architecture.md)를 참고하세요.
 
 ---
 
 ## Features
 
-- Local media playback with same-origin HTTP Range streaming (`/__media/<token>`)
-- Automatic compatibility conversion via FFmpeg (`media-compat.js`, cache under `userData/compat-cache`)
-- YouTube playback (IFrame API) and desktop download/save (bundled `yt-dlp` preferred, `youtubei.js` fallback; optional sign-in cookies)
+- Local media playback with same-origin HTTP Range streaming (`/__media/<key>/<token>`)
+- Automatic compatibility conversion via FFmpeg (cache under `<data>/compat-cache`)
+- YouTube playback (IFrame API) and desktop download/save through the bundled `yt-dlp` (sign-in window for age-gated videos; "멈춤" keeps what was downloaded so far)
+- **YouTube subtitles**: every uploaded subtitle language is saved next to the video as `name.<lang>.srt`, and the default language also as `name.srt` (falls back to YouTube's automatic captions when none were uploaded)
+- **Subtitle language picker** in the control bar when a file has several subtitle files; **default subtitle language** in Settings ▸ Playback (also used for YouTube's in-player captions)
+- Instagram / TikTok / other links through yt-dlp
 - RTSP / RTSPS live view and MP4 recording (desktop; stop keeps the file and can play it back)
-- Auto subtitle load (SMI / SRT / VTT beside the media file)
+- Auto subtitle load (SMI / SRT / VTT beside the media file; toggle in Settings)
 - Recent plays (up to 30) + separate **play history** window (`Ctrl+L`); last open/save folders remembered (desktop)
-- Display fit modes: fill screen / keep aspect ratio / original size (control-bar menu; persisted)
-- Stage rotation in 90° steps for files stored sideways: separate left / right toolbar buttons (kept in compact mode), stage context menu, `R` / `Shift+R`. Persisted default in Settings ▸ Display; toolbar turns apply to the current video only
-- **Compact mode**: shrink the window to essential controls (open, transport, volume, restore); distinct enter/exit icons; spectrum & history windows stay open; persisted
-- Built-in themes (Dark, Light, Ocean, Forest) + custom theme editor; stage uses `--bg-stage`
-- UI language toggle: toolbar shows **ENG** / **한글** (target language); status bar re-translates on switch
-- Separate **spectrum** and **play history** windows (each with its own title-bar opacity; desktop)
+- Display fit modes, stage rotation in 90° steps, **compact mode**
+- Built-in themes + custom theme editor; control-bar buttons are white outlines (theme text colour in light themes), Stop stays red
+- UI language toggle: **ENG** / **한글**
+- Separate **spectrum** and **play history** windows (each with its own opacity; desktop)
 - `Esc` on desktop minimizes **all** app windows together; restoring any one restores the group
-- Optional auto-hide for toolbar / control bar / status bar while playing (edge hover to show)
-- Staged open progress when connecting YouTube / RTSP (URL dialog closes so the floating progress is visible; duplicate clicks blocked)
-- Settings / About / theme editor open as non-blocking dialogs so playback continues
-- Frameless desktop window: brand bar, IPC drag (not `-webkit-app-region`), opacity, caption buttons
-- Minimum window width keeps toolbar controls visible (lower floor in compact mode)
-- Settings / recent / dialog dirs in Electron `userData/persist.json` (web: `localStorage`)
-- Quiet Chromium console by default (`MYVIDEOPLAYER_VERBOSE=1` to enable debug logs)
+- Frameless desktop window: brand bar, toolbar drag, opacity, caption buttons
+- File associations, "Open with", drag-and-drop of files onto the window, single instance
 - Keyboard shortcuts (Space = play/pause, `Ctrl+L` = history window, and more)
-- Per-OS installers via `npm run build:*` (NSIS / DMG / AppImage+deb)
 
 ---
 
 ## Quick start
 
+Building needs Node.js 22+ and Rust (stable). **The installed app needs neither**: yt-dlp solves YouTube's signature challenge with the Deno runtime shipped in the installer (`vendor/deno` → `resources/deno`); an installed Node.js is only a fall-back if that copy is missing.
+
 ```bash
-npm install
-npm start          # Electron desktop app (also ensures vendor/yt-dlp)
+npm install        # also fetches vendor/yt-dlp and copies FFmpeg into vendor/ffmpeg
+npm start          # tauri dev
 npm run web        # Browser UI at http://localhost:5173
+npm test           # full test suite (see Testing)
 ```
 
-Run **one** Electron instance at a time (multiple instances can lock the Chromium disk cache).
+### Testing
 
-Optional verbose Chromium logs:
+`npm test` runs `test/run.mjs`: one aligned, coloured line per test with its run time, grouped by category, then a summary table per category.
+
+| Category | What it checks |
+|----------|----------------|
+| Project | versions, bundled yt-dlp/FFmpeg, bundle resources, file associations, capability + CSP for the localhost pages, NSIS hooks, bridge ↔ renderer API, i18n key parity, no Electron leftovers |
+| Rust | every `cargo test` unit test, run one by one |
+| Renderer | subtitle parsers, YouTube ids, settings, recent list, themes, i18n (Node, no browser) |
+| Setup → UI | the debug app in an isolated profile, driven over CDP: App, Server (Range, 403/404/416), Playback, Subtitles (auto-load, picker, default language), Windows (spectrum / play list), Window (bounds, opacity, maximize, full screen, group minimize), Compat (FFmpeg conversion), Remote (link via a local HTTP server), RTSP (preview + recording from `test/lib/rtsp-server.mjs`), UI (button and dropdown colours, language, compact mode, about), Dialogs (Settings / About in their own windows, video keeps playing, Reset / Cancel / OK) |
+| YouTube | real network: info, download with subtitles, stop-and-keep, cancel, in-app captions — skipped when offline |
 
 ```bash
-# Windows PowerShell
-$env:MYVIDEOPLAYER_VERBOSE=1; npm start
+npm test                          # everything (~90 s with network)
+npm run test:offline              # without the YouTube network tests
+node test/run.mjs --only rust,ui  # groups: project, rust, renderer, desktop, youtube
+node test/run.mjs --keep          # keep the temp folder (fixtures, app data, downloads)
+npm run test:rust                 # cargo test only
 ```
+
+The desktop tests start only their own app process (own data folder, DevTools port and save folder under `%TEMP%`), so they never touch your settings or another running MyVideoPlayer.
 
 ### Build installers
 
 ```bash
-npm run build:win      # Windows NSIS → dist/ + copy to project root
-npm run build:mac      # macOS DMG + zip  (build on macOS)
-npm run build:linux    # AppImage + deb   (build on Linux)
-npm run build          # Current host targets from package.json
-npm run pack           # Unpackaged app directory only
-npm run ensure:yt-dlp  # Re-fetch bundled yt-dlp only
+npm run build:win      # Windows NSIS → src-tauri/target/release/bundle/nsis + copy to project root
+npm run build:mac      # macOS DMG       (build on macOS)
+npm run build:linux    # AppImage + deb  (build on Linux)
+npm run build          # Current host targets
+npm run pack           # Release binary only, no installer
+npm run ensure:tools   # Re-fetch yt-dlp / re-copy FFmpeg only (ensure:tools:latest updates yt-dlp)
 ```
 
-| Command | Target | Output |
-|---------|--------|--------|
-| `npm run build:win` | Windows x64 | `dist/MyVideoPlayer-Setup-{version}.exe` (also copied to repo root) |
-| `npm run build:mac` | macOS | DMG + zip under `dist/` |
-| `npm run build:linux` | Linux | AppImage + deb under `dist/` |
+The build updates `vendor/yt-dlp` to the latest release first (`beforeBuildCommand`). Both helpers ship as bundle resources (`resources/yt-dlp`, `resources/ffmpeg`).
 
-> macOS/Linux packages should be built on that OS (or CI). `dist:*` scripts are aliases of `build:*`.  
-> `ffmpeg-static` is unpacked from asar so the main process can spawn FFmpeg.  
-> Bundled `yt-dlp` is fetched into `vendor/yt-dlp/` (`postinstall` / `npm start`) and shipped as `extraResources`.
+> **YouTube downloads failing?** Check that `vendor/yt-dlp/yt-dlp.exe` exists (`npm run ensure:tools:latest`). A missing binary was the cause of "YouTube link download does not work" in the Electron build.
 
-Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`).
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Architecture.md](Architecture.md) | Processes, `/__media`, RTSP, YouTube, child windows, compact mode, Esc minimize-all, persist, themes, IPC, packaging |
-| [UsersGuide.md](UsersGuide.md) | End-user manual (Korean) |
-| [.gitignore](.gitignore) | Ignored paths (see below) |
+Icons: [`asset/`](asset/) (`icon.ico`, `icons/`).
 
 ---
 
@@ -98,40 +93,29 @@ Icons: [`asset/`](asset/) (`icon.ico`, `icon-1024.png`, `icons/`, `icon-256.png`
 
 ```
 MyVideoPlayerMultiOSV10/
-├── electron/          # main, preload, youtube(+auth), rtsp-stream, media-compat, persist-store
-├── src/               # Renderer / web UI (no bundler; ES modules)
-├── scripts/           # ensure-yt-dlp, Windows build helpers, installer copy
+├── src/               # Renderer / web UI (no bundler; ES modules) — unchanged from the Electron build
+├── src-tauri/         # Tauri app
+│   ├── src/lib.rs        # windows, dialogs, the `vp` command (old IPC channel names)
+│   ├── src/bridge.js     # window.desktopAPI on Tauri (injected into every page)
+│   ├── src/server.rs     # localhost server: pages, /__media, /__rtsp, settings snapshot
+│   ├── src/download.rs   # YouTube / remote downloads (yt-dlp)
+│   ├── src/subs.rs       # subtitle files beside a video, YouTube subtitle download
+│   ├── src/rtsp.rs       # RTSP preview + recording (ffmpeg)
+│   ├── src/compat.rs     # FFmpeg compatibility conversion
+│   ├── src/auth.rs       # YouTube sign-in → cookies.txt
+│   ├── src/persist.rs    # persist.json (migrated from the Electron build once)
+│   └── windows/hooks.nsh # removes the Electron install before installing
+├── scripts/           # ensure-tools / ensure-yt-dlp, installer copy, theme CSS generator
 ├── asset/             # App & installer icons
-├── build/             # electron-builder resources (installer.nsh, …)
-├── vendor/yt-dlp/     # Bundled yt-dlp binary (gitignored; fetched locally)
-├── video/             # Local sample media (gitignored)
-├── dist/              # Build output (gitignored)
+├── vendor/            # yt-dlp, ffmpeg (gitignored; fetched locally)
 ├── Architecture.md
 ├── UsersGuide.md
-├── .gitignore
 └── package.json
 ```
 
-### What Git ignores (summary)
+### Data
 
-From [`.gitignore`](.gitignore):
-
-| Pattern | Why |
-|---------|-----|
-| `node_modules/`, `dist/`, `out/`, `*.asar` | Dependencies & build artifacts |
-| `MyVideoPlayer-Setup-*.exe` (and other installers at repo root) | Copied build products |
-| `video/`, `*.mp4`, `*.mkv`, …, `*.smi`/`*.srt`/`*.vtt` | Large local/sample media & sidecars |
-| `*.part`, `*.ytdl`, `*.download` | Incomplete downloads |
-| `vendor/yt-dlp/yt-dlp(.exe)` | Fetched binary (not committed) |
-| `*cookies*.txt`, `.env*` | Secrets / session data |
-| `.vscode/`, `.idea/`, `.cursor/`, `.DS_Store` | Editor / OS junk |
-| `*.tmp`, `.cache/` | Temp files |
-| `*-tmp.js`, `*.local.js`, `scratch/` | Throwaway harness scripts (`electron ./x-tmp.js` needs them inside the project) |
-| `*.dmp`, `crashpad/` | Local crash dumps |
-
-Put test videos under `video/` locally; new ones are not committed. The few
-sample clips already in `video/` predate that rule and stay tracked until
-someone runs `git rm --cached` on them.
+Settings, recent list and dialog folders live in `%APPDATA%\com.shkwon.myvideoplayer\persist.json` (macOS/Linux: the platform app-data folder; web: `localStorage`). On first start the Electron build's `persist.json` is copied in. `MYVIDEOPLAYER_CONFIG_DIR` points data and the WebView2 profile elsewhere (tests).
 
 ---
 
@@ -139,12 +123,10 @@ someone runs `git rm --cached` on them.
 
 | Platform | How to run / ship | Notes |
 |----------|-------------------|--------|
-| Web | `npm run web` | No native dialogs, YouTube/RTSP save, FFmpeg compat, or window opacity/chrome |
-| Windows | `npm run build:win` → NSIS | Clean reinstall via `build/installer.nsh`; ships bundled yt-dlp |
-| macOS | `npm run build:mac` | DMG + zip |
+| Web | `npm run web` | No native dialogs, downloads, FFmpeg compat, or window opacity/chrome |
+| Windows | `npm run build:win` → NSIS | Per-user install; removes the Electron build first (keeps settings) |
+| macOS | `npm run build:mac` | DMG |
 | Linux | `npm run build:linux` | AppImage + deb |
-
-System `yt-dlp` on `PATH` is optional; the app prefers the bundled binary under `vendor/yt-dlp/` (or installer `resources/yt-dlp`).
 
 ---
 

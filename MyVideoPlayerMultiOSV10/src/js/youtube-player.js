@@ -73,7 +73,7 @@ export class YouTubePlayerController {
     return Boolean(this.player && this.videoId);
   }
 
-  async load(videoId, { autoplay = true, startVolume = 80 } = {}) {
+  async load(videoId, { autoplay = true, startVolume = 80, captions = false, captionLang = '' } = {}) {
     this.videoId = videoId;
     this._volume = startVolume;
     this.container.classList.remove('hidden');
@@ -101,6 +101,8 @@ export class YouTubePlayerController {
           fs: 0,
           iv_load_policy: 3,
           playsinline: 1,
+          ...(captions ? { cc_load_policy: 1 } : {}),
+          ...(captionLang ? { cc_lang_pref: captionLang } : {}),
           ...(origin ? { origin } : {})
         },
         events: {
@@ -150,8 +152,11 @@ export class YouTubePlayerController {
               101: 'Embedding disabled by owner',
               150: 'Embedding disabled by owner'
             };
-            this.handlers.onError?.(messages[e.data] || `YouTube error ${e.data}`);
-            reject(new Error(messages[e.data] || `YouTube error ${e.data}`));
+            const message = messages[e.data] || `YouTube error ${e.data}`;
+            this.handlers.onError?.(message, e.data);
+            const err = new Error(message);
+            err.code = e.data;
+            reject(err);
           }
         }
       });
@@ -234,6 +239,39 @@ export class YouTubePlayerController {
     } catch {
       return false;
     }
+  }
+
+  /** Caption tracks YouTube offers ([{ languageCode, displayName }]); empty until loaded. */
+  getCaptionTracks() {
+    try {
+      const list = this.player?.getOption?.('captions', 'tracklist');
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Language code of the caption track shown now ('' when none). */
+  getCaptionLanguage() {
+    try {
+      return this.player?.getOption?.('captions', 'track')?.languageCode || '';
+    } catch {
+      return '';
+    }
+  }
+
+  setCaptionsEnabled(on) {
+    try {
+      if (on) this.player?.loadModule?.('captions');
+      else this.player?.unloadModule?.('captions');
+    } catch { /* ignore */ }
+  }
+
+  setCaptionLanguage(code) {
+    try {
+      this.player?.loadModule?.('captions');
+      this.player?.setOption?.('captions', 'track', { languageCode: code });
+    } catch { /* ignore */ }
   }
 
   setPlaybackRate(rate) {

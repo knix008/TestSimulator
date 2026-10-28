@@ -34,6 +34,8 @@ md-5 = "0.10"
 sha2 = "0.10"
 # rembg: Python installer and model downloads
 ureq = "2"
+# Explorer › Favorites: favorites.db (SQLite compiled in, nothing to install)
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 # Default image viewer: per-user file associations

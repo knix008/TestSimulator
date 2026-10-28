@@ -102,14 +102,32 @@ select {
   grid-template-areas: "stage";
 }
 
+/* The header is a tab strip: the title is the (only) tab and carries its own close button */
 .history-panel-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 10px 8px;
+  padding: 6px 10px 0 8px;
+  background: color-mix(in srgb, var(--bg-chrome) 60%, transparent);
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
+}
+
+.history-panel-tab {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: -1px;
+  padding: 0 4px 0 12px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-bottom-color: transparent;
+  border-radius: 6px 6px 0 0;
+  box-shadow: inset 0 2px 0 var(--bg-primary);
+  background: var(--bg-toolbar);
 }
 
 .history-panel-title {
@@ -117,12 +135,36 @@ select {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.history-panel-actions {
+.history-panel-tab .history-panel-close {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.history-panel-footer {
   display: flex;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.history-panel-clear {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.history-panel-clear svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 .history-panel-clear,
@@ -207,6 +249,7 @@ select {
 
 .history-panel.is-empty .history-panel-empty {
   display: block;
+  flex: 1 1 auto;
 }
 
 /* Auto-hide overlays: toolbar (top) + bottom chrome (controls + status) */
@@ -998,97 +1041,60 @@ body.is-electron .toolbar-opacity {
   flex: 0 0 14px;
 }
 
-/* Transport controls: distinct accent per function */
+/* Transport controls: icon only — no fill, no border; white on dark themes, the theme's
+   dark text colour on light themes. Only Stop is filled (fixed red). */
+.control-bar {
+  --ctrl-outline: #fff;
+}
+
+:root[data-scheme="light"] .control-bar {
+  --ctrl-outline: var(--text);
+}
+
 .control-bar .tool-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ctrl-outline);
+}
+
+.control-bar .tool-btn:hover {
+  background: color-mix(in srgb, var(--ctrl-outline) 14%, transparent);
   border-color: transparent;
-  color: #fff;
+  color: var(--ctrl-outline);
 }
 
 .control-bar .tool-btn:active {
   filter: brightness(0.92);
 }
 
-/* Seek prev/next — violet */
-.control-bar #btnPrev,
-.control-bar #btnNext {
-  background: var(--ctrl-seek);
-}
-
-.control-bar #btnPrev:hover,
-.control-bar #btnNext:hover {
-  background: var(--ctrl-seek-hover);
-  border-color: transparent;
-  color: #fff;
-}
-
-/* Play/pause — fixed blue in every theme */
-.control-bar .tool-btn-primary,
-.control-bar #btnPlay {
-  background: var(--ctrl-play);
-  border-color: transparent;
-  color: #fff;
-}
-
-.control-bar .tool-btn-primary:hover,
-.control-bar #btnPlay:hover {
-  background: var(--ctrl-play-hover);
-  border-color: transparent;
-  color: #fff;
-}
-
 /* Stop — fixed red in every theme */
 .control-bar .tool-btn-stop {
   background: var(--ctrl-stop);
-  border-color: transparent;
+  border-color: var(--ctrl-stop);
   color: #fff;
 }
 
 .control-bar .tool-btn-stop:hover {
   background: var(--ctrl-stop-hover);
-  border-color: transparent;
-  color: #fff;
-}
-
-/* Volume / mute — teal */
-.control-bar #btnMute,
-.control-bar .volume-group .tool-btn {
-  background: var(--ctrl-volume);
-}
-
-.control-bar #btnMute:hover,
-.control-bar .volume-group .tool-btn:hover {
-  background: var(--ctrl-volume-hover);
-  border-color: transparent;
+  border-color: var(--ctrl-stop-hover);
   color: #fff;
 }
 
 .control-bar .volume-bar {
-  --seek-fill: var(--ctrl-volume);
+  --seek-fill: var(--bg-primary);
 }
 
-.control-bar .volume-scale {
-  color: var(--ctrl-volume);
-}
-
+.control-bar .volume-scale,
 .control-bar .volume-value {
-  color: var(--ctrl-volume);
+  color: var(--bg-primary);
 }
 
-/* Rate — amber */
-.control-bar .rate-group .tool-btn {
-  background: var(--ctrl-rate);
-}
-
-.control-bar .rate-group .tool-btn:hover {
-  background: var(--ctrl-rate-hover);
-  border-color: transparent;
-  color: #fff;
-}
-
+/* Pressed / active: same borderless icon (an off toggle is dimmed instead, e.g. CC). */
 .control-bar .tool-btn[aria-pressed="true"],
 .control-bar .tool-btn.is-active {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 55%, transparent);
-  filter: brightness(1.06);
+  box-shadow: none;
+  background: transparent;
+  color: var(--ctrl-outline);
 }
 
 .control-bar .tool-btn.tool-btn-labeled {
@@ -1101,11 +1107,10 @@ body.is-electron .toolbar-opacity {
   padding: 0 8px;
   gap: 5px;
   flex: 0 0 auto;
-  color: #fff;
 }
 
 .control-bar .tool-btn.tool-btn-labeled .tool-btn-label {
-  color: #fff;
+  color: inherit;
 }
 
 .control-bar .tool-btn.tool-btn-labeled svg {
@@ -1142,7 +1147,7 @@ body.is-electron .toolbar-opacity {
   font-variant-numeric: tabular-nums;
   font-size: 12px;
   font-weight: 600;
-  color: var(--ctrl-seek);
+  color: var(--bg-primary);
   min-width: 36px;
   text-align: center;
 }
@@ -1287,8 +1292,9 @@ body.is-electron .toolbar-opacity {
   padding: 0 4px;
   border: 1px solid transparent;
   border-radius: 4px;
-  background: var(--ctrl-rate);
-  color: #fff;
+  background: transparent;
+  color: var(--ctrl-outline, var(--text));
+  color-scheme: dark;
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1302,14 +1308,44 @@ body.is-electron .toolbar-opacity {
 .rate-select:hover,
 .rate-select:focus {
   border-color: transparent;
-  background: var(--ctrl-rate-hover);
-  color: #fff;
+  background: color-mix(in srgb, var(--ctrl-outline, var(--text)) 14%, transparent);
+  color: var(--ctrl-outline, var(--text));
+}
+
+/* The open list follows the theme: its control-bar colour and text (light themes: light list). */
+:root[data-scheme="light"] .rate-select {
+  color-scheme: light;
+}
+
+.control-bar #btnSubtitles.is-off {
+  opacity: 0.55;
+}
+
+.control-bar #btnSubtitles.is-off svg {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.rate-select.subtitle-track-select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.rate-select.subtitle-track-select {
+  min-width: 84px;
+  max-width: 180px;
+  padding: 0 6px;
+  font-weight: 500;
 }
 
 .rate-select option {
-  background: var(--bg-modal);
+  background: var(--bg-toolbar);
   color: var(--text);
   font-weight: 500;
+}
+
+.rate-select option:checked {
+  background: var(--bg-primary);
+  color: var(--text-inverse, #fff);
 }
 
 /* Stage */
@@ -2334,6 +2370,60 @@ html[data-color-scheme="light"] .stage-context-menu,
   background: color-mix(in srgb, var(--bg-app) 55%, #000 45%);
 }
 
+/*
+ * Desktop dialog windows (js/dialog-window.js): the dialog is the whole window — no scrim,
+ * no margins. Measured at its natural size first, then (.is-fitted) it fills the window.
+ */
+.dialog-window-body {
+  margin: 0;
+  background: var(--bg-modal);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.dialog-window-body .modal[open],
+.dialog-window-body .modal[open][data-blocking="false"] {
+  position: static;
+  inset: auto;
+  display: block;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  z-index: auto;
+}
+
+.dialog-window-body.is-fitted .modal[open] {
+  width: 100vw;
+  height: 100vh;
+}
+
+.dialog-window-body.is-fitted .modal-card {
+  width: 100vw !important;
+  max-width: none;
+  height: 100vh;
+  max-height: 100vh;
+  box-sizing: border-box;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: auto !important;
+}
+
+/* Frameless window: the dialog header moves it. */
+.dialog-window-body .modal-header {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.dialog-window-body .modal-header button,
+.dialog-window-body .modal-header input,
+.dialog-window-body .modal-header select,
+.dialog-window-body .modal-header a {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .modal-card {
   width: min(440px, calc(100vw - 32px));
   background: var(--bg-modal);
@@ -2373,6 +2463,11 @@ html[data-color-scheme="light"] .stage-context-menu,
 #settingsModal .modal-card {
   overflow: hidden;
   resize: none;
+}
+
+/* Reset at the left; Cancel and OK together at the right. */
+#settingsModal .modal-footer {
+  gap: 8px;
 }
 
 /* Floating save progress — non-modal so playback stays visible */

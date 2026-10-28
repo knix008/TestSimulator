@@ -9,6 +9,7 @@
 // answered, errors included ({ error: "…" } rather than a rejected call).
 
 mod config;
+mod favorites;
 mod files;
 mod imaging;
 mod media;
@@ -128,6 +129,12 @@ fn dispatch(channel: &str, args: &[Value]) -> Value {
         "rembg-remove" => rembg::remove(a0),
         // Decoded in the page (DicomDecoder); this was only the Node fallback
         "decode-dicom" => error("DICOM is decoded in the page"),
+        // ── Explorer › Favorites (favorites.db) ──
+        "favorites-list" => favorites::list(),
+        "favorites-add" => favorites::add(s0, a1.as_str().unwrap_or("")),
+        "favorites-remove" => favorites::remove(s0),
+        "favorites-clear" => favorites::clear(),
+        "favorites-remap" => favorites::remap(s0, a1.as_str().unwrap_or("")),
         // ── dialogs, settings, system ──
         "open-subtitle-dialog" => system::open_subtitle_dialog(s0),
         "save-file" => system::save_file(a0),

@@ -134,6 +134,39 @@
     return { filePath: fileName || 'image.png', success: true };
   }
 
+  // Explorer › Favorites: the browser's own database (IndexedDB) stands in for the
+  // desktop's favorites.db. Same answers: the whole list, in the order added.
+  const FAV_DB = 'myimageviewer-favorites';
+  const FAV_STORE = 'favorites';
+  const favKey = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() || '/';
+  let favDbPromise = null;
+  function favDb() {
+    if (!favDbPromise) {
+      favDbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(FAV_DB, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(FAV_STORE, { keyPath: 'key' });
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    return favDbPromise;
+  }
+  async function favRun(mode, work) {
+    try {
+      const db = await favDb();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(FAV_STORE, mode);
+        const store = tx.objectStore(FAV_STORE);
+        if (work) work(store);
+        const all = store.getAll();
+        tx.oncomplete = () => resolve((all.result || [])
+          .sort((a, b) => a.addedAt - b.addedAt)
+          .map(({ path, kind, addedAt }) => ({ path, kind, addedAt })));
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) { return { error: (e && e.message) || String(e) }; }
+  }
+
   window.addEventListener('beforeunload', (e) => {
     if (!unsaved) return;
     e.preventDefault();
@@ -161,6 +194,30 @@
     pathAncestors: async (targetPath) => R().ancestors(targetPath),
 
     getFileStats: async (filePath) => R().getStats(filePath),
+    favoritesList: () => favRun('readonly'),
+    favoritesAdd: (p, kind) => favRun('readwrite', (s) => {
+      const key = favKey(p);
+      const req = s.get(key);
+      req.onsuccess = () => { if (!req.result) s.put({ key, path: p, kind: kind === 'dir' ? 'dir' : 'file', addedAt: Date.now() }); };
+    }),
+    favoritesRemove: (p) => favRun('readwrite', (s) => s.delete(favKey(p))),
+    favoritesClear: () => favRun('readwrite', (s) => s.clear()),
+    favoritesRemap: (from, to) => favRun('readwrite', (s) => {
+      const fromKey = favKey(from);
+      const base = String(to || '').replace(/[\\/]+$/, '');
+      const cur = s.openCursor();
+      cur.onsuccess = () => {
+        const c = cur.result;
+        if (!c) return;
+        const v = c.value;
+        if (v.key === fromKey || v.key.startsWith(`${fromKey}/`)) {
+          const path = base + v.path.slice(String(from).replace(/[\\/]+$/, '').length);
+          c.delete();
+          s.put({ ...v, key: favKey(path), path });
+        }
+        c.continue();
+      };
+    }),
     readImageMeta: async () => null,
     readMediaMeta: async () => null,
     getAppInfo: async () => {

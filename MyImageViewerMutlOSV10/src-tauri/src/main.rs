@@ -291,6 +291,10 @@ fn fit_dialog(app: AppHandle, label: String, width: f64, height: f64, place: boo
     if !dialog.is_visible().unwrap_or(false) {
         let _ = dialog.show();
         let _ = dialog.set_focus();
+        // Sized while still hidden, an undecorated window comes out a caption's height
+        // taller (a blank band under the dialog's buttons); once shown, it takes the size
+        // exactly — so give it again.
+        let _ = dialog.set_size(tauri::LogicalSize::new(w, h));
     }
     true
 }
