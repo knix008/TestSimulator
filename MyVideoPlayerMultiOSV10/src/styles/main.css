@@ -102,14 +102,32 @@ select {
   grid-template-areas: "stage";
 }
 
+/* The header is a tab strip: the title is the (only) tab and carries its own close button */
 .history-panel-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 10px 8px;
+  padding: 6px 10px 0 8px;
+  background: color-mix(in srgb, var(--bg-chrome) 60%, transparent);
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
+}
+
+.history-panel-tab {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: -1px;
+  padding: 0 4px 0 12px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-bottom-color: transparent;
+  border-radius: 6px 6px 0 0;
+  box-shadow: inset 0 2px 0 var(--bg-primary);
+  background: var(--bg-toolbar);
 }
 
 .history-panel-title {
@@ -117,12 +135,36 @@ select {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.history-panel-actions {
+.history-panel-tab .history-panel-close {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 5px 7px;
+  font-size: 11px;
+}
+
+.history-panel-footer {
   display: flex;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.history-panel-clear {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.history-panel-clear svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 .history-panel-clear,
@@ -207,6 +249,7 @@ select {
 
 .history-panel.is-empty .history-panel-empty {
   display: block;
+  flex: 1 1 auto;
 }
 
 /* Auto-hide overlays: toolbar (top) + bottom chrome (controls + status) */

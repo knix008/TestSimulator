@@ -3525,13 +3525,19 @@ function setSubtitleTracks(tracks, selected = null) {
   updateSubtitleToggle();
 }
 
-/** CC button shows whether subtitles are on. */
+/** A track to pick (files, YouTube captions) or cues from an opened subtitle file. */
+function hasSubtitles() {
+  return subtitleTracks.length > 0 || subtitles.cues.length > 0;
+}
+
+/** CC button shows whether subtitles are on; nothing to show → disabled. */
 function updateSubtitleToggle() {
   const btn = $("btnSubtitles");
   if (!btn) return;
   const on = Boolean(settings.showSubtitles);
   btn.setAttribute("aria-pressed", on ? "true" : "false");
   btn.classList.toggle("is-off", !on);
+  btn.disabled = !hasSubtitles();
 }
 
 /**
@@ -3593,6 +3599,7 @@ function applySubtitle(subtitle) {
   const cues = parseSubtitle(subtitle.content, subtitle.ext || "");
   subtitles.setCues(cues);
   subtitles.setEnabled(Boolean(settings.showSubtitles));
+  updateSubtitleToggle();
   setStatus({
     subtitle: cues.length
       ? statusKey("statusSubtitle", { name: subtitle.name, n: cues.length })
@@ -5634,7 +5641,7 @@ function bindKeyboard() {
         case "c":
         case "C":
           e.preventDefault();
-          toggleSubtitlesVisible();
+          if (hasSubtitles()) toggleSubtitlesVisible();
           break;
         case "r":
         case "R":
