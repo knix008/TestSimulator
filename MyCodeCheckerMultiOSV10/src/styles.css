@@ -297,6 +297,10 @@ td.mono, .mono { font-family: var(--mono); font-size: 11.5px; }
 
 /* Progress popup for slow work (components/ProgressHost.jsx) */
 .progress-pop { position: fixed; right: 18px; bottom: 36px; z-index: 8000; width: 340px; display: grid; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--bg-elev); border: 1px solid var(--border-strong, var(--border)); box-shadow: var(--shadow); }
+.pp-rows { display: grid; gap: 10px; }
+.pp-rows.open { max-height: min(60vh, 520px); overflow-y: auto; padding-right: 4px; }
+.pp-more { justify-self: start; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; margin: -4px 0 -4px -6px; border: 0; border-radius: 6px; background: none; color: var(--fg-muted); font: inherit; font-size: 12px; cursor: pointer; }
+.pp-more:hover { background: var(--bg-hover, rgba(128,128,128,.18)); color: var(--fg); }
 .pp-row { display: grid; gap: 6px; }
 .pp-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .pp-head .spacer { flex: 1; }
@@ -914,7 +918,7 @@ svg.arch-graph:active { cursor: grabbing; }
 .tp-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; }
 
 /* ── Settings window: fixed size, no scrollbars ──────────────────────── */
-.dialog.settings-window { width: 920px; height: 600px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; }
+.dialog.settings-window { width: 920px; height: 720px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; }
 .settings-window > .dialog-body { flex: 1; min-height: 0; padding: 0; gap: 0; overflow: hidden; display: flex; flex-direction: column; }
 .st-wrap { flex: 1; min-height: 0; display: flex; overflow: hidden; }
 .st-tabs { flex: none; width: 186px; display: flex; flex-direction: column; gap: 1px; padding: 8px 6px; border-right: 1px solid var(--border); background: var(--bg-panel); overflow: hidden; }
@@ -1283,3 +1287,15 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .target-panel .tg-fact.wide { grid-column: span 2; }
 .target-panel .tg-fact.wide .v { font-size: 13.5px; white-space: normal; }
 .scan-progress .sp-retry { display: flex; align-items: center; gap: 5px; color: var(--folder); margin-top: 2px; }
+
+/* Settings › Analysis › Analysis mode: two buttons, each with its requirements */
+.st-mode-label { display: flex; flex-direction: column; gap: 2px; }
+.st-mode-label .small { white-space: pre-line; }
+.st-modes { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.st-mode { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.st-mode .vbtn { margin-bottom: 2px; }
+.st-mode .vbtn { justify-content: center; }
+/* Settings › Analysis: the rows keep their height; the check groups take the rest and scroll */
+.st-pane:has(> .st-checks) > .st-row, .st-pane:has(> .st-checks) > .st-grid2 { flex-shrink: 0; }
+.st-pane > .st-checks { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; }
+.st-pane > .st-checks > .st-checks-grid { flex: 1; min-height: 0; overflow-y: auto; align-content: start; }

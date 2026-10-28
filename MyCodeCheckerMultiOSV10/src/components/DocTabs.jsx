@@ -1,7 +1,8 @@
-// Document tabs for the centre area: Home is pinned first; every view opened
-// from the navigation or a menu gets a tab (icon + title, close ×). Middle
-// click closes, drag reorders, the context menu closes this / others / to the
-// right / all. When the tabs overflow, the strip scrolls without a scrollbar
+// Document tabs for the centre area: every view opened from the navigation or
+// a menu gets a tab. The start page ('start', always first in the list) has no
+// tab: the Start menu opens it, and closing the last tab returns to it. A tab
+// shows an icon, a title and a close ×. Middle click closes, drag reorders,
+// the context menu closes this / others / to the right / all. When the tabs overflow, the strip scrolls without a scrollbar
 // and "<" ">" (click = one tab, hold = repeat) and "⌄" (list) appear.
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dragGhost } from '../lib/dragGhost';
@@ -80,7 +81,7 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
       const list = others();
       let k = list.findIndex((n) => { const r = n.getBoundingClientRect(); return centre < r.left + r.width / 2; });
       if (k < 0) k = list.length;
-      k = Math.max(1, k); // Home stays first
+      k += 1; // the start page (no tab) stays first in the list
       if (k !== at) { at = k; setDrag({ id, at, w: el.offsetWidth }); }
       const s = strip.current;
       if (s) { const r = s.getBoundingClientRect(); if (ev.clientX > r.right - 24) s.scrollLeft += 10; else if (ev.clientX < r.left + 24) s.scrollLeft -= 10; }
@@ -178,7 +179,7 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
     }
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
-  const listItems = () => tabs.map((tb) => { const info = tabInfo(tb.view); return { id: `go:${tb.id}`, label: `${info.label}${suffix && tb.view !== 'start' ? ` · ${suffix}` : ''}`, icon: info.icon, on: tb.id === active }; });
+  const listItems = () => tabs.filter((tb) => tb.id !== 'start').map((tb) => { const info = tabInfo(tb.view); return { id: `go:${tb.id}`, label: `${info.label}${suffix && tb.view !== 'start' ? ` · ${suffix}` : ''}`, icon: info.icon, on: tb.id === active }; });
 
   return (
     <div className="doc-tabs" data-tour="doc-tabs" role="tablist" aria-label={t('tab_strip')}>
@@ -190,7 +191,7 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
           const slot = () => <span key="drop-slot" className="doc-tab-slot" aria-hidden="true" style={{ width: drag.w }} />;
           for (const tb of tabs) {
             if (drag && tb.id !== drag.id) { if (k === drag.at) out.push(slot()); k += 1; }
-            out.push(tb);
+            if (tb.id !== 'start') out.push(tb);
           }
           if (drag && k <= drag.at) out.push(slot());
           return out;

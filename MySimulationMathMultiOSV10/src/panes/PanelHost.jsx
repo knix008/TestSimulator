@@ -29,6 +29,7 @@ import { FigureProps } from './FigureProps';
 import { OutlinePane, DebugPane, DocPropsPane } from './EditorPanes';
 import { VarPropsPane } from './VarProps';
 import { GuideTocPane, FuncHelpPane } from './HelpPanes';
+import { SimPaneGuard } from './Guarded';
 import '../panels.css';
 
 const DEFAULT_ID = '__default';
@@ -88,6 +89,12 @@ function renderPane(id, c) {
       return <VarPropsPane engine={c.engine} name={c.varPropsName} refreshKey={c.varKey} onOpen={c.openVariable} />;
     case 'guidetoc':
       return <GuideTocPane />;
+    case 'simlib':
+      return <SimPaneGuard which="SimLibraryPane" docId={c.simDocId} lang={c.lang} />;
+    case 'simtree':
+      return <SimPaneGuard which="SimTreePane" docId={c.simDocId} lang={c.lang} noModelText={t('px_no_model')} />;
+    case 'blockprops':
+      return <SimPaneGuard which="BlockPropsPane" docId={c.simDocId} lang={c.lang} noModelText={t('px_no_model')} />;
     case 'funchelp':
       return <FuncHelpPane engine={c.engine} engineReady={c.engineReady} onInsert={c.insertToPrompt} />;
     default:

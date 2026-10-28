@@ -131,3 +131,42 @@ test('the pool is not used for a project that is one batch', async () => {
   assert.ok(poolSize(48000, 28).workers >= 8);
   assert.equal(poolSize(48000, 4).workers, 2, 'two cores are left free');
 });
+
+// The analysis worker as the service starts it: Settings › Analysis mode
+// decides whether the C/C++ pool runs (phase 'cfamily'); the issues are the same.
+test('the analysis mode setting chooses sequential (default) or the parallel pool', async () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { Worker } = require('worker_threads');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcc-mode-'));
+  try {
+    for (const f of project(6)) {
+      fs.mkdirSync(path.join(dir, path.dirname(f.path)), { recursive: true });
+      fs.writeFileSync(path.join(dir, f.path), f.text);
+    }
+    const run = (parallel) => new Promise((resolve, reject) => {
+      const worker = new Worker(require.resolve('../core/analyze-worker.js'), {
+        workerData: { root: dir, options: { cfamilyBatch: TINY }, parallel },
+        resourceLimits: { maxOldGenerationSizeMb: 20000 },
+      });
+      const phases = new Set();
+      const keys = [];
+      worker.on('message', (m) => {
+        if (m.type === 'progress') phases.add(m.phase);
+        else if (m.type === 'issues') for (const i of m.items) keys.push(i.key);
+        else if (m.type === 'done') resolve({ phases, keys });
+        else if (m.type === 'error') reject(new Error(m.message));
+      });
+      worker.on('error', reject);
+    });
+    const sequential = await run(undefined);
+    assert.ok(!sequential.phases.has('cfamily'), 'no pool without the setting');
+    const parallel = await run(true);
+    if (os.cpus().length >= 4) assert.ok(parallel.phases.has('cfamily'), 'the pool ran');
+    assert.deepEqual(parallel.keys, sequential.keys);
+    assert.ok(sequential.keys.length > 0);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

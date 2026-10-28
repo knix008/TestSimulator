@@ -122,6 +122,7 @@ const ACCESS = {
   'snapshot.list': ['user', 'project'],
   'snapshot.compare': ['user', 'project'],
   'defect.lifecycle': ['user', 'project'],
+  'defect.streamDiff': ['user', 'project'],
   'activity.events': ['user', 'project'],
   'activity.trend': ['user', 'project'],
   'issue.age': ['user', 'project'],

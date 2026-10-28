@@ -92,8 +92,8 @@ export function ParamField({ p, value, onChange, lang }) {
   return <input type="text" className="sim-text" spellCheck={false} value={v} onChange={(e) => onChange(e.target.value)} aria-label={lbl(lang, p.label)} />;
 }
 
-/** Parameters of a masked block, as ParamField descriptors. */
-function maskParamDefs(mask) {
+/** Parameters of a masked block, as ParamField descriptors (also used by the side panel 블록 속성). */
+export function maskParamDefs(mask) {
   return (mask.params || []).map((mp) => ({
     name: mp.name, type: mp.type === 'checkbox' ? 'bool' : mp.type === 'popup' ? 'enum' : 'expr', def: mp.value ?? '',
     label: { en: mp.prompt || mp.name, ko: mp.prompt || mp.name },
@@ -153,7 +153,7 @@ export function BlockDialog({ block, lang, onApply, onClose, running, onTune }) 
   );
 }
 
-const SOLVERS = ['auto', 'ode45', 'ode23', 'ode113', 'ode15s', 'ode23s', 'ode23t', 'ode23tb', 'ode1', 'ode2', 'ode3', 'ode4', 'ode5', 'ode8', 'ode14x', 'discrete'];
+export const SOLVERS = ['auto', 'ode45', 'ode23', 'ode113', 'ode15s', 'ode23s', 'ode23t', 'ode23tb', 'ode1', 'ode2', 'ode3', 'ode4', 'ode5', 'ode8', 'ode14x', 'discrete'];
 
 export function SettingsDialog({ model, lang, onApply, onClose }) {
   const [s, setS] = useState({ ...model.settings });

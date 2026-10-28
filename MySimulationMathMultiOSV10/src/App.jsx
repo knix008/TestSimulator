@@ -92,6 +92,7 @@ function Desktop() {
   // The side panels follow the screen: the last ribbon tab picked, or the document tab activated (panes/panels.js).
   const [screenFromDoc, setScreenFromDoc] = useState(false);
   const lastFileRef = useRef(null);
+  const lastModelRef = useRef(null);
   const [history, setHistory] = useState(loadHistory);
   const [docs, setDocs] = useState([]);
   const [startOn, setStartOn] = useState(false);
@@ -276,6 +277,7 @@ function Desktop() {
     const cur = docsRef.current.find((d) => d.id === activeRef.current && d.kind === 'model') || docsRef.current.find((d) => d.kind === 'model');
     if (!cur) { newModel(); return; }
     setActive(cur.id);
+    ensurePane('simulation', 'simlib', 'left');
     setTimeout(() => { window.dispatchEvent(new CustomEvent('msm-sim-library')); engine.post({ type: 'sim.library' }); }, 50);
   }
   function startAction(id) {
@@ -589,6 +591,12 @@ function Desktop() {
     }
     patchSettings(sidePatch(settings, setKey, homeSideOf(id), (st) => addPane(st, id)));
   }
+  /** Shows a pane on a screen's side (where it already is, else on `side`): side on, expanded, unfolded. */
+  function ensurePane(key, id, side) {
+    const cur = getSettings();
+    const sd = sideOfPane(cur, key, id) || side;
+    patchSettings(sidePatch(cur, key, sd, (st) => addPane(st, id)));
+  }
   /** The guided tour asks for a pane: on this screen when it has it, else on the home screen. */
   function showPane(id) {
     if (!PANES[id]) return;
@@ -855,6 +863,10 @@ function Desktop() {
   const leftOn = sideShown(sideState(settings, setKey, 'left'));
   const rightOn = sideShown(sideState(settings, setKey, 'right'));
   if (activeDoc && activeDoc.kind === 'file') lastFileRef.current = activeDoc.id;
+  if (activeDoc && activeDoc.kind === 'model') lastModelRef.current = activeDoc.id;
+  const simDoc = docs.find((d) => d.id === lastModelRef.current && d.kind === 'model') || docs.find((d) => d.kind === 'model') || null;
+  // The simulation screen shows the block library in its side panel: the editor's own column is hidden then.
+  const simLibOutside = (() => { const sd = sideOfPane(settings, setKey, 'simlib'); return !!sd && sideState(settings, setKey, sd).on; })();
   const activeFileDoc = docs.find((d) => d.id === lastFileRef.current && d.kind === 'file') || null;
   const varDoc = activeDoc && activeDoc.kind === 'var' ? activeDoc : null;
   const pickedVars = selectedVars.length ? selectedVars : (selectedVar ? [selectedVar] : []);
@@ -888,6 +900,7 @@ function Desktop() {
     removeBreakpoint: (file, line) => setBreakpointLines(file, (breakpoints[file] || []).filter((l) => l !== line)),
     removeFileBreakpoints: (file) => setBreakpointLines(file, []),
     varPropsName: varDoc ? varDoc.name : selectedVar,
+    simDocId: simDoc ? simDoc.id : null, lang: getLanguage(),
     insertToPrompt: (text) => {
       if (!layout.cmd.on) setLayout({ cmd: { ...layout.cmd, on: true } });
       setTimeout(() => { const ta = document.querySelector('.cw-input'); if (ta) { ta.focus(); document.execCommand('insertText', false, text); } }, 30);
@@ -963,7 +976,8 @@ function Desktop() {
                           if (p && docsRef.current.some((x) => x.id !== d.id && x.kind === 'model' && same(x.path, p))) { showError(t('mdl_path_open', { name: baseName(p) })); return null; }
                           return p; }}
                         onPath={(p) => setDocs((list) => list.map((x) => (x.id === d.id ? { ...x, path: p, title: baseName(p) } : x)))}
-                        onNew={newModel} onOpen={openModelDialog} />
+                        onNew={newModel} onOpen={openModelDialog}
+                        externalLibrary={simLibOutside} onLibrary={() => ensurePane(setKey, 'simlib', 'left')} />
                     )}
                   </TabActiveCtx.Provider>
                 </div>

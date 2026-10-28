@@ -9,14 +9,14 @@ import { Btn, BtnGroup, Toggle, ViewHeader, Empty, NoProject, Stat, SevBadge, Ty
 
 function useLoad(method, args, deps, enabled) {
   const [state, setState] = useState({ data: null, error: '', loading: false });
-  const load = async () => {
+  const load = async (fresh) => {
     if (!enabled) return;
     setState((s) => ({ ...s, loading: true, error: '' }));
-    try { setState({ data: await call(method, args), error: '', loading: false }); } catch (err) { setState({ data: null, error: errorText(err), loading: false, code: err.code }); }
+    try { setState({ data: await call(method, fresh === true ? { ...args, fresh: true } : args), error: '', loading: false }); } catch (err) { setState({ data: null, error: errorText(err), loading: false, code: err.code }); }
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, deps);
-  return { ...state, reload: load };
+  return { ...state, reload: () => load(true) };
 }
 
 // ── HIS metrics ───────────────────────────────────────────

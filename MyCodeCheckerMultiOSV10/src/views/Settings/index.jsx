@@ -70,6 +70,7 @@ function draftOf(s, gates) {
     newCodeVersion: s.newCodeVersion || '',
     maxFiles: s.maxFiles || 0,
     memoryLimitGb: s.memoryLimitGb || memoryDefaultGb(),
+    analysisMode: s.analysisMode === 'parallel' ? 'parallel' : 'sequential',
     startBackground: { ...DEFAULT_START_BACKGROUND, ...(s.startBackground || {}) },
     panels: panelsOf(s),
     customThemes: (s.customThemes || []).map((c) => ({ ...c, colors: { ...c.colors } })),
@@ -201,6 +202,7 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
         newCodeVersion: String(d.newCodeVersion || '').trim(),
         maxFiles: d.maxFiles,
         memoryLimitGb: d.memoryLimitGb,
+        analysisMode: d.analysisMode,
         startBackground: d.startBackground,
         panels: d.panels,
         customThemes: d.customThemes,
@@ -243,7 +245,7 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
     if (tab === 'custom') { set({ customThemes: [] }); applyCustom([]); if (d.theme.startsWith('custom-')) previewTheme('midnight'); }
     if (tab === 'start') { set({ showStartOnLaunch: true }); setBg({ ...DEFAULT_START_BACKGROUND }); }
     if (tab === 'tutorial') set({ tutorial: { ...TUTORIAL_DEFAULTS } });
-    if (tab === 'analysis') set({ exclusionsText: def.exclusionsText, limits: def.limits, maxFiles: 0, memoryLimitGb: memoryDefaultGb(), checks: {} });
+    if (tab === 'analysis') set({ exclusionsText: def.exclusionsText, limits: def.limits, maxFiles: 0, memoryLimitGb: memoryDefaultGb(), analysisMode: 'sequential', checks: {} });
     if (tab === 'reports') set({ reports: reportsOf(null) });
     if (tab === 'gate') set({ gate: { ...d.gate, conditions: DEFAULT_GATE_CONDITIONS.map((c) => ({ ...c })) } });
     if (tab === 'newcode') set({ newCode: 'previous', newCodeDays: 30, newCodeRef: '', newCodeVersion: '' });

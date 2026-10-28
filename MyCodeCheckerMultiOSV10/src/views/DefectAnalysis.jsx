@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow, Glossary } from './common';
+import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow, Glossary, useApi } from './common';
 import { ask } from '../lib/ui';
 
 const PRESETS = ['outstanding', 'new', 'high', 'dismissed', 'fixed'];
@@ -213,21 +213,17 @@ function Owner({ issue, onUpdate }) {
   );
 }
 
-export function StreamsView({ history, analysis }) {
+export function StreamsView({ history, analysis, project, branch }) {
   useLanguage();
   const rows = history || [];
   const [left, setLeft] = useState(Math.max(0, rows.length - 2));
   const [right, setRight] = useState(Math.max(0, rows.length - 1));
   const older = rows[left];
   const newer = rows[right];
-  let added = 0;
-  let removed = 0;
-  if (older && newer && older.cids && newer.cids) {
-    const a = new Set(older.cids);
-    const b = new Set(newer.cids);
-    added = [...b].filter((cid) => !a.has(cid)).length;
-    removed = [...a].filter((cid) => !b.has(cid)).length;
-  }
+  // The service compares the two analyses' defect IDs (millions on a large project) and keeps the answer.
+  const diff = useApi('defect.streamDiff', { projectId: project && project.id, branch, left, right }, [project && project.id, branch, left, right, rows.length], !!project && !!older && !!newer && left !== right);
+  const added = (diff.data && diff.data.added) || 0;
+  const removed = (diff.data && diff.data.removed) || 0;
   const cov = (analysis && analysis.defectAnalysis) || {};
   const snapOptions = rows.map((row, i) => ({ value: i, label: String(i + 1), icon: 'history' }));
   return (

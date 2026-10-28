@@ -3075,6 +3075,22 @@
   "ko": "기본값은 실제 메모리의 3/4(최소 8 GB)입니다. Reset 을 누르면 기본값으로 돌아갑니다.",
   "en": "The default is three quarters of the physical memory (at least 8 GB). Reset returns to it."
  },
+ "st_analysis_mode": {
+  "ko": "C/C++ 정밀 분석을 어떻게 진행할지 고릅니다. 순차는 메모리를 적게 쓰고 PC를 덜 바쁘게 합니다. 병렬은 큰 프로젝트에서 2~3배 빠르지만 메모리를 몇 배 더 씁니다.",
+  "en": "How the deep C/C++ analysis runs. Sequential uses little memory and keeps the computer responsive. Parallel is two to three times faster on a large project but uses several times the memory."
+ },
+ "st_analysis_mode_hint": {
+  "ko": "두 방식의 분석 결과는 같습니다. 기본값은 순차입니다.",
+  "en": "Both modes give the same results. The default is sequential."
+ },
+ "st_mode_sequential": {
+  "ko": "한 작업자가 C/C++ 묶음을 차례대로 분석합니다. 메모리를 가장 적게 씁니다. CPU 1코어, 분석 메모리 4 GB 이상이 필요합니다.",
+  "en": "One worker analyzes the C/C++ batches one after the other. Uses the least memory. Needs 1 CPU core and an analysis memory limit of 4 GB or more."
+ },
+ "st_mode_parallel": {
+  "ko": "여러 작업자가 C/C++ 묶음을 동시에 분석합니다. CPU 4코어 이상, 분석 메모리 9 GB 이상이 필요하며, 모자라면 순차로 진행합니다.",
+  "en": "Several workers analyze the C/C++ batches at the same time. Needs 4 CPU cores or more and an analysis memory limit of 9 GB or more; below that the analysis runs sequentially."
+ },
  "st_more_analysis": {
   "ko": "여기 없는 세부 분석 설정은 관리 화면에서 바꿀 수 있습니다.",
   "en": "More detailed analysis settings are in the Administration page."
@@ -3180,8 +3196,8 @@
   "en": "The current state of each item. Use it to filter the list."
  },
  "tab_close": {
-  "ko": "이 탭을 닫습니다. 홈 탭은 닫을 수 없습니다.",
-  "en": "Closes this tab. The Home tab cannot be closed."
+  "ko": "이 탭을 닫습니다. 마지막 탭을 닫으면 시작 화면으로 돌아갑니다.",
+  "en": "Closes this tab. Closing the last tab returns to the start page."
  },
  "tab_close_all": {
   "ko": "홈을 뺀 열린 탭을 모두 닫습니다.",

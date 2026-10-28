@@ -72,6 +72,16 @@ export function FigureAreaGuard(props) {
   return <Boundary what={t('fig_title')}><Comp {...props} /></Boundary>;
 }
 
+/** A side pane of the simulation screen (src/sim/SidePanes.jsx), loaded with the editor. which: its export name. */
+export function SimPaneGuard({ which, ...props }) {
+  useLanguage();
+  const { Comp, missing, error } = useModule(loadSim, which);
+  if (error) return <Missing icon="alert" text={t('mdl_failed', { error })} />;
+  if (missing) return <Missing icon="model" text={t('mdl_missing')} />;
+  if (!Comp) return <Missing icon="hourglass" text={t('loading')} />;
+  return <Boundary what={t('mdl_title')}><Comp {...props} /></Boundary>;
+}
+
 export function ModelEditorGuard(props) {
   useLanguage();
   const { Comp, missing, error } = useModule(loadSim, 'ModelEditor');

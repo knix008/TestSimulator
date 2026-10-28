@@ -95,3 +95,24 @@
 .gt-h2 { padding-left: 34px; font-size: 12px; }
 .gt-h3 { padding-left: 48px; font-size: 11.5px; color: var(--fg-muted); }
 .vp-table td { font-size: 12px; }
+
+/* Simulation screen: block library, model tree, block properties (src/sim/SidePanes.jsx) */
+.sim-side-lib { overflow: hidden; }
+.sim-side-lib .sim-lib { flex: 1 1 auto; width: auto !important; min-height: 0; border-right: 0; background: transparent; }
+.sim-side-lib .sim-lib-head { display: none; }
+.sim-tree .pane-scroll { padding: 2px 0; }
+.sim-tree-row { display: flex; align-items: center; min-width: 0; }
+.sim-tree-row.on { background: var(--bg-sel); }
+.sim-tree-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 2px; border: 0; background: none; color: var(--fg); text-align: left; font-size: 12.5px; cursor: pointer; }
+.sim-tree-link:hover { background: var(--bg-hover); }
+.sim-tree-link svg { flex: none; color: var(--accent); }
+.sim-tree-link .ellipsis { flex: 1; min-width: 0; }
+.sim-props .pane-scroll { padding: 4px 10px 8px; display: flex; flex-direction: column; gap: 6px; }
+.sim-props .sim-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.sim-props .sim-field > span:first-child { color: var(--fg-muted); }
+.sim-props .sim-text { width: 100%; box-sizing: border-box; height: 26px; }
+.sim-props .iselect { width: 100%; }
+.sim-props-type { min-width: 0; }
+.sim-props-desc { margin: 0; line-height: 1.4; }
+.sim-props-foot { border-top: 1px solid var(--border); border-bottom: 0; gap: 4px; flex-wrap: wrap; }
+.sim-props .sim-field, .sim-props .sim-field > span:first-child { text-align: left; align-items: stretch; }

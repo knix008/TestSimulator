@@ -46,7 +46,9 @@ function createApi(opts = {}) {
       const analyses = [...Object.values(project.branches || {}).map((b) => b && b.latest), project.desktop];
       for (const a of analyses) {
         if (!a || !a.measures) continue;
-        a.measures = currentMeasures(a);
+        // A list not read since the load still has the measures it was saved
+        // with (every change to it is saved, which refreshes them first).
+        if (!store.pendingIssues(a)) a.measures = measuresOf(a);
         a.qualityGate = evaluateGate(gate, a.measures);
       }
       for (const b of Object.values(project.branches || {})) {
@@ -54,6 +56,22 @@ function createApi(opts = {}) {
       }
     }
     return ws;
+  }
+
+  // Measures from an issue list, worked out again only when the list changed
+  // (each API call refreshes the gates, and millions of issues take seconds).
+  // A list is parsed once per file version and changed in place only with
+  // store.touch, so the list and its change count identify the result.
+  const measureCache = new WeakMap();
+  function measuresOf(a) {
+    const list = a.issues;
+    if (!Array.isArray(list)) return currentMeasures(a);
+    const changes = store.changesOf(list);
+    const hit = measureCache.get(list);
+    if (hit && hit.changes === changes) return hit.measures;
+    const measures = currentMeasures(a);
+    measureCache.set(list, { changes, measures });
+    return measures;
   }
 
   // The project's profile per language (else the language default), with inheritance.
@@ -628,19 +646,6 @@ function createApi(opts = {}) {
   // With the C/C++ pool (phase 'cfamily') that phase comes first and is most of the time.
   const WEIGHT_POOL = { collect: [0, 5], cfamily: [5, 65], rules: [70, 12], engines: [82, 12], finish: [94, 6] };
 
-  // Indexes of an issue list, most severe first (stable); kept per list.
-  const severityOrders = new WeakMap();
-  const SEVERITY_RANK = { BLOCKER: 0, CRITICAL: 1, MAJOR: 2, MINOR: 3, INFO: 4 };
-  function severityOrder(list) {
-    let order = severityOrders.get(list);
-    if (!order) {
-      const rank = (i) => SEVERITY_RANK[i.severity] ?? 5;
-      order = Uint32Array.from({ length: list.length }, (_, n) => n).sort((x, y) => rank(list[x]) - rank(list[y]) || x - y);
-      severityOrders.set(list, order);
-    }
-    return order;
-  }
-
   // A worker gets V8's default heap (about 4 GB), which a large project can
   // outgrow; settings.memoryLimitGb sets it (core/memory.js).
   function workerHeapMb() {
@@ -697,7 +702,7 @@ function createApi(opts = {}) {
     const safe = { ...opts, sca: opts.sca ? { ...opts.sca, advisoryDb: undefined } : opts.sca };
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'analyze-worker.js'), {
-        workerData: { root: abs, options: safe, osvSource: ws.settings && ws.settings.osvSource },
+        workerData: { root: abs, options: safe, osvSource: ws.settings && ws.settings.osvSource, parallel: !!(ws.settings && ws.settings.analysisMode === 'parallel') },
         resourceLimits: { maxOldGenerationSizeMb: workerHeapMb() },
       });
       job.worker = worker;
@@ -807,14 +812,14 @@ function createApi(opts = {}) {
     // { slim: true } leaves the issue lists out (the GUI keeps its own); a large
     // project's issues are hundreds of MB.
     // { issuesFor: '<project id>' | 'active' } keeps that one project's issues.
-    'workspace.load': (args, who) => slimmed(access.filterWorkspace(refreshGates(workspace()), who), args && (args.slim || args.issuesFor), args && args.issuesFor),
+    'workspace.load': (args, who) => slimmed(access.filterWorkspace(refreshGates(workspace()), who), args && (args.slim || args.issuesFor), args && args.issuesFor, store.issueCount),
     'workspace.save': (args, who) => {
       const stored = workspace();
       const merged = access.mergeWorkspace(stored, args.workspace || args, who);
       merged.profiles = profiles.stampChanges(stored.profiles, merged.profiles, who ? who.login : null);
       // A changed gate (or gate assignment) is judged at once.
       const saved = saveWorkspace(refreshGates(merged));
-      return slimmed(access.filterWorkspace(saved, who), args.slim || args.issuesFor, args.issuesFor);
+      return slimmed(access.filterWorkspace(saved, who), args.slim || args.issuesFor, args.issuesFor, store.issueCount);
     },
     // Settings (and the quality gates) from the settings window: the patch is
     // merged into the stored settings here, so the window never loads or sends
@@ -828,17 +833,21 @@ function createApi(opts = {}) {
       const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
       if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
       const a = args.branch ? ((project.branches || {})[args.branch] || {}).latest : project.desktop;
-      const all = (a && a.issues) || [];
+      if (!a) return { total: 0, offset: 0, issues: [] };
       const offset = Math.max(0, Number(args.offset) || 0);
       const limit = Math.min(50000, Math.max(1, Number(args.limit) || 20000));
       // order: 'severity' pages the most severe first (a window that cannot hold
-      // millions of issues takes the head of this order).
+      // millions of issues takes the head of this order, kept in a file of its own).
       if (args.order === 'severity') {
-        const order = severityOrder(all);
+        const page = store.severityPage(a, offset, limit);
+        if (page) return { total: page.total, offset, issues: page.issues };
+        const all = a.issues || [];
+        const order = store.severityOrder(all);
         const issues = [];
         for (let n = offset; n < Math.min(order.length, offset + limit); n++) issues.push(all[order[n]]);
         return { total: all.length, offset, issues };
       }
+      const all = a.issues || [];
       return { total: all.length, offset, issues: all.slice(offset, offset + limit) };
     },
     'settings.patch': (args, who) => {
@@ -1030,7 +1039,7 @@ function createApi(opts = {}) {
     },
     'samples.list': () => sampleList(),
     // Physical memory and the default analysis memory limit, in GB.
-    'system.memory': () => ({ totalGb: require('./memory').totalGb(), defaultGb: require('./memory').defaultLimitGb() }),
+    'system.memory': () => ({ totalGb: require('./memory').totalGb(), defaultGb: require('./memory').defaultLimitGb(), cpus: require('os').cpus().length }),
     'samples.open': async (args) => {
       const s = sampleList().find((x) => x.id === args.id);
       if (!s) throw Object.assign(new Error(`Sample not found: ${args.id}`), { code: 'NOT_FOUND' });
@@ -1280,6 +1289,38 @@ function createApi(opts = {}) {
   });
   if (opts.scheduler) runner.start();
 
+  // Results of heavy read-only calls (reports, graphs, compliance, history),
+  // reused while what they are computed from is unchanged: a window that
+  // opens many views asks for them all at once, and each takes seconds on a
+  // large project. The key holds the project (without its issue lists), each
+  // branch's analysis (time, issue count, in-place changes, history and
+  // snapshots) and the workspace sections analyses depend on, but not the
+  // window's own settings (open tabs, panels, theme …), which change all the
+  // time. { fresh: true } (a view's Refresh) computes again.
+  const CACHED = /^(arch\.graph|metrics\.his|sca\.scan|compliance\.report|misra\.(plan|compliance)|activity\.(trend|events)|issue\.age|defect\.(lifecycle|streamDiff)|snapshot\.(list|compare)|report\.(kinds|export))$/;
+  const READ_CACHE_SIZE = 64;
+  const WINDOW_SETTINGS = new Set(['theme', 'language', 'customThemes', 'startBackground', 'panels', 'tabs', 'tutorial', 'installLanguage', 'showStartOnLaunch']);
+  const readCache = new Map();
+  function readKey(ws, name, args, who) {
+    const { fresh, ...rest } = args || {};
+    const settings = {};
+    for (const [k, v] of Object.entries(ws.settings || {})) if (!WINDOW_SETTINGS.has(k)) settings[k] = v;
+    const project = rest.projectId ? (ws.projects || []).find((p) => p.id === rest.projectId) : null;
+    let projectPart = null;
+    if (project) {
+      const { branches, desktop, issueState, ...own } = project;
+      const analysis = (a) => a && { at: a.finishedAt, count: store.issueCount(a), changes: store.pendingIssues(a) ? 0 : store.changesOf(a.issues) };
+      projectPart = {
+        own,
+        states: issueState ? Object.keys(issueState).length : 0,
+        desktop: analysis(desktop),
+        branches: Object.entries(branches || {}).map(([b, s]) => [b, s && analysis(s.latest), s && (s.history || []).length, s && (s.snapshots || []).length]),
+      };
+    }
+    const shared = { settings, gates: ws.gates, profiles: ws.profiles, customRules: ws.customRules, defectAnalysis: ws.defectAnalysis };
+    return `${who ? who.login : ''}|${name}|${JSON.stringify(rest)}|${JSON.stringify(projectPart)}|${JSON.stringify(shared)}`;
+  }
+
   // ctx.token is the caller's user token; it matters only when permissions are on.
   async function call(name, args, ctx = {}) {
     const fn = methods[name];
@@ -1289,15 +1330,29 @@ function createApi(opts = {}) {
       throw err;
     }
     let who;
+    const ws = workspace();
     try {
-      who = access.check(workspace(), name, args || {}, ctx.token || '');
+      who = access.check(ws, name, args || {}, ctx.token || '');
     } catch (err) {
       if (err.code === 'FORBIDDEN' || (err.code === 'UNAUTHORIZED' && name === 'security.login')) audit(name, args, null, err.code);
       throw err;
     }
+    const key = CACHED.test(name) ? readKey(ws, name, args, who) : null;
+    if (key && !(args && args.fresh)) {
+      const hit = readCache.get(key);
+      if (hit) {
+        readCache.delete(key);
+        readCache.set(key, hit); // most recently used last
+        return hit;
+      }
+    }
     let result;
     try {
       result = await fn(args || {}, who);
+      if (key) {
+        readCache.set(key, result);
+        while (readCache.size > READ_CACHE_SIZE) readCache.delete(readCache.keys().next().value);
+      }
     } catch (err) {
       if (AUDITED.test(name)) audit(name, args, who, err.code || 'FAILED');
       throw err;
@@ -1405,12 +1460,20 @@ function cloneSharingAnalyses(ws) {
 }
 
 // A workspace without the issue lists (each analysis keeps issueCount).
-function slimmed(ws, slim, issuesFor) {
+// countOf(analysis): its issue count without reading a list that is still a file.
+function slimmed(ws, slim, issuesFor, countOf = (a) => a.issues.length) {
   if (!slim || !ws) return ws;
   const keep = issuesFor === 'active' ? ws.activeProjectId : issuesFor || null;
-  // Also the new-code baselines (issue keys, line hashes): the GUI never reads them.
-  const strip = (a, keepIssues) => (a && Array.isArray(a.issues) ? { ...a, issues: keepIssues ? a.issues : undefined, keys: undefined, issueCount: a.issues.length, ...(a.defectAnalysis ? { defectAnalysis: { ...a.defectAnalysis, cids: undefined } } : {}) } : a);
-  const branch = (b, keepIssues) => ({ ...b, keys: undefined, cids: undefined, lineHashes: undefined, latest: strip(b.latest, keepIssues), history: (b.history || []).map(({ keys, ...h }) => h) });
+  // Also the new-code baselines (issue keys, line hashes, defect IDs): the GUI
+  // never reads them, and a large analysis has millions. The issues are left
+  // out by name, so a list not read yet is not read for this.
+  const strip = (a, keepIssues) => {
+    if (!a || !Object.prototype.hasOwnProperty.call(a, 'issues')) return a;
+    const rest = {};
+    for (const k of Object.keys(a)) if (k !== 'issues') rest[k] = a[k];
+    return { ...rest, issues: keepIssues ? a.issues : undefined, keys: undefined, issueCount: countOf(a), ...(a.defectAnalysis ? { defectAnalysis: { ...a.defectAnalysis, cids: undefined } } : {}) };
+  };
+  const branch = (b, keepIssues) => ({ ...b, keys: undefined, cids: undefined, lineHashes: undefined, latest: strip(b.latest, keepIssues), history: (b.history || []).map(({ keys, cids, ...h }) => ({ ...h, cidCount: Array.isArray(cids) ? cids.length : undefined })) });
   return {
     ...ws,
     slim: true,

@@ -205,3 +205,86 @@ test('issue.update reaches the disk (the list is marked and written)', async () 
   const fresh = createStore(dir).load();
   assert.equal(fresh.projects[0].branches.main.latest.issues.find((i) => i.key === key).status, 'CONFIRMED');
 });
+
+test('an issue list is read only when used; the slim workspace and saves leave it a file', async () => {
+  const dir = tmp('lazy');
+  const first = createStore(dir);
+  const ws = first.load();
+  const issues = Array.from({ length: 300 }, (_, i) => issue(i));
+  ws.projects.push({ id: 'p1', name: 'p', branches: { main: { latest: { issues, measures: { ncloc: 10 } }, history: [{ at: 't', cids: [1, 2, 3] }] } } });
+  first.save(ws);
+
+  // A fresh process: nothing read yet.
+  const store = createStore(dir);
+  const opened = [];
+  const open = fs.openSync;
+  fs.openSync = function (p, ...rest) { if (String(p).endsWith('.ndjson')) opened.push(path.basename(String(p))); return open.call(this, p, ...rest); };
+  try {
+    const back = store.load();
+    const latest = back.projects[0].branches.main.latest;
+    assert.ok(store.pendingIssues(latest));
+    assert.equal(store.issueCount(latest), 300);
+    store.save(back); // keeps the file, does not read it
+    assert.deepEqual(opened, []);
+    const api = createApi({ configDir: dir });
+    const slim = await api.call('workspace.load', { slim: true });
+    assert.equal(slim.projects[0].branches.main.latest.issueCount, 300);
+    assert.equal(slim.projects[0].branches.main.history[0].cids, undefined, 'history CIDs stay in the service');
+    assert.equal(slim.projects[0].branches.main.history[0].cidCount, 3);
+    assert.deepEqual(opened, []);
+    // Reading it gives the list.
+    assert.deepEqual(store.load().projects[0].branches.main.latest.issues, issues);
+    assert.equal(opened.length, 1);
+  } finally {
+    fs.openSync = open;
+  }
+  assert.equal(fs.readdirSync(path.join(dir, 'issues')).filter((n) => n.endsWith('.ndjson')).length, 1);
+});
+
+test('the window gets the most severe issues of a huge list from its head file, without reading the list', async () => {
+  const dir = tmp('head');
+  const sev = ['INFO', 'MINOR', 'MAJOR', 'CRITICAL', 'BLOCKER'];
+  const issues = Array.from({ length: 200500 }, (_, i) => ({ key: `k${i}`, rule: 'r', severity: sev[i % 5], line: i }));
+  const store = createStore(dir);
+  const ws = store.load();
+  ws.projects.push({ id: 'p1', name: 'p', branches: { main: { latest: { issues } } } });
+  store.save(ws);
+  const names = fs.readdirSync(path.join(dir, 'issues'));
+  assert.ok(names.some((n) => n.endsWith('.head.ndjson')), 'the head is written with the list');
+
+  const api = createApi({ configDir: dir });
+  const opened = [];
+  const open = fs.openSync;
+  fs.openSync = function (p, ...rest) { if (String(p).endsWith('.ndjson')) opened.push(path.basename(String(p))); return open.call(this, p, ...rest); };
+  let page;
+  try {
+    page = await api.call('project.issues', { projectId: 'p1', branch: 'main', offset: 0, limit: 5, order: 'severity' });
+  } finally {
+    fs.openSync = open;
+  }
+  assert.ok(opened.length > 0 && opened.every((n) => n.endsWith('.head.ndjson')), opened.join(','));
+  assert.equal(page.total, 200500);
+  assert.deepEqual(page.issues.map((i) => i.key), ['k4', 'k9', 'k14', 'k19', 'k24']); // BLOCKER first, in list order
+  // Past the head the whole list is used, in the same order.
+  const late = await api.call('project.issues', { projectId: 'p1', branch: 'main', offset: 199999, limit: 3, order: 'severity' });
+  assert.equal(late.issues.length, 3);
+  // Saving again (nothing changed) keeps the head.
+  store.save(store.load());
+  assert.ok(fs.readdirSync(path.join(dir, 'issues')).some((n) => n.endsWith('.head.ndjson')));
+});
+
+test('heavy read results are reused until the project changes, not when only window settings do', async () => {
+  const dir = tmp('readcache');
+  const src = sampleProject(path.join(dir, 'src'));
+  const api = createApi({ configDir: dir });
+  const scanned = await api.call('project.scan', { path: src });
+  const projectId = scanned.project ? scanned.project.id : (await api.call('workspace.load', { slim: true })).projects[0].id;
+  const a = await api.call('arch.graph', { projectId });
+  assert.equal(await api.call('arch.graph', { projectId }), a, 'the same result again');
+  await api.call('settings.patch', { patch: { tabs: ['issues', 'arch'], theme: 'midnight' } });
+  assert.equal(await api.call('arch.graph', { projectId }), a, 'window settings do not matter');
+  assert.notEqual(await api.call('arch.graph', { projectId, fresh: true }), a, 'Refresh computes again');
+  const b = await api.call('arch.graph', { projectId });
+  await api.call('settings.patch', { patch: { exclusions: ['**/x/**'] } });
+  assert.notEqual(await api.call('arch.graph', { projectId }), b, 'analysis settings do');
+});

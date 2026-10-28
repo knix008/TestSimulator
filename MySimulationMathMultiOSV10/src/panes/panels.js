@@ -30,13 +30,16 @@ export const PANES = {
   varprops: { icon: 'variable', title: 'px_varprops' },
   guidetoc: { icon: 'book', title: 'px_guidetoc' },
   funchelp: { icon: 'search', title: 'px_funchelp' },
+  simlib: { icon: 'library', title: 'px_simlib' },
+  simtree: { icon: 'subsystem', title: 'px_simtree' },
+  blockprops: { icon: 'settings', title: 'px_blockprops' },
 };
 export const PANE_IDS = Object.keys(PANES);
 
 /** What the pane chooser offers on each side (tools left, properties / state right). */
 export const SIDE_CHOICES = {
-  left: ['folder', 'outline', 'gallery', 'guidetoc', 'workspace', 'history'],
-  right: ['workspace', 'history', 'figprops', 'debug', 'docprops', 'varprops', 'funchelp', 'folder'],
+  left: ['folder', 'outline', 'gallery', 'guidetoc', 'simlib', 'workspace', 'history'],
+  right: ['workspace', 'history', 'figprops', 'debug', 'docprops', 'varprops', 'simtree', 'blockprops', 'funchelp', 'folder'],
 };
 
 const L_W = 250;
@@ -49,13 +52,10 @@ export const PANEL_SETS = {
   editor: { icon: 'script', title: 'rb_editor', left: ['folder', 'outline'], right: ['debug', 'docprops', 'workspace'], ratio: { left: { folder: 0.45, outline: 0.55 }, right: { debug: 0.34, docprops: 0.3, workspace: 0.36 } } },
   variable: { icon: 'variable', title: 've_title', left: ['workspace'], right: ['varprops'] },
   help: { icon: 'book', title: 'rb_help', left: ['guidetoc'], right: ['funchelp'] },
-  // ── EXTENSION POINT: 시뮬레이션 ─────────────────────────────
-  // For now the simulation screen keeps the home panes (src/sim is being
-  // worked on elsewhere). Later: left = the block library (tool), right =
-  // the model tree + the selected block's properties. Add those panes to
-  // PANES / SIDE_CHOICES, render them in PanelHost.jsx renderPane(), and
-  // change the two lists below.
-  simulation: { icon: 'model', title: 'rb_simulation', left: ['folder'], right: ['workspace', 'history'], ratio: { right: { workspace: 0.58, history: 0.42 } } },
+  // 시뮬레이션: the block library (a tool) | the model tree + the selected block's
+  // properties. The panes are src/sim/SidePanes.jsx (loaded with the editor) and
+  // act on the active model through src/sim/editorApi.js.
+  simulation: { icon: 'model', title: 'rb_simulation', left: ['simlib'], right: ['simtree', 'blockprops'], ratio: { right: { simtree: 0.32, blockprops: 0.68 } } },
 };
 export const PANEL_SET_IDS = Object.keys(PANEL_SETS);
 

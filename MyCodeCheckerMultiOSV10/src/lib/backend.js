@@ -98,9 +98,11 @@ export function withProjectIssues(ws, projectId, got) {
  * { branches: { name: issues }, desktop: issues | null }. onProgress(done, total).
  */
 // The most issues one analysis keeps in this window. A larger analysis shows
-// its most severe issues (project.issues order 'severity'); the service keeps
-// them all (reports, database export).
-export const MAX_WINDOW_ISSUES = 1000000;
+// its most severe issues (project.issues order 'severity'), which the service
+// keeps in a file of their own (core/store.js HEAD_SIZE, the same number), so
+// opening it does not read millions of issues. The service keeps them all
+// (reports, database export).
+export const MAX_WINDOW_ISSUES = 200000;
 
 export async function loadProjectIssues(project, { page = 20000, onProgress, max = MAX_WINDOW_ISSUES } = {}) {
   const parts = [...Object.entries(project.branches || {}).filter(([, b]) => b && b.latest).map(([name]) => name), ...(project.desktop ? [''] : [])];

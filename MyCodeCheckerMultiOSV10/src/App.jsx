@@ -168,6 +168,7 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState(null);
   // Centre tabs: Home pinned first, one tab per opened view (kept in settings.tabs).
   const [tabs, setTabs] = useState([{ id: 'start', view: 'start' }]);
+  const shownTabs = useRef(new Set()); // the tabs whose view was built (see renderView)
   const mainRef = useRef(null);
   const scrollOf = useRef({});
   const prevView = useRef('start');
@@ -825,7 +826,7 @@ export default function App() {
     else if (id === 'settings' || id.startsWith('settings:')) {
       const tab = id.startsWith('settings:') ? id.slice(9) : null;
       // The settings window's shortcut buttons come back as { action } and run here.
-      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: 600, onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings, gates: ws.gates }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
+      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: 720, onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings, gates: ws.gates }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
       else { setSettingsTab(tab); setDialog({ kind: 'settings' }); }
     }
     else if (id.startsWith('adminTab:')) { setAdminTab(id.slice(9)); setView('admin'); }
@@ -1206,6 +1207,10 @@ export default function App() {
     revealRight();
   };
   const lastTask = (ws.tasks || []).filter((x) => !project || x.projectId === project.id).slice(-1)[0] || null;
+  // Tabs whose view has been shown. A restored tab is built the first time it
+  // is shown: twenty restored tabs would otherwise all load their data (reports,
+  // graphs …) at once when the window opens. Once built, a tab stays mounted.
+  shownTabs.current.add(view);
   // One open tab's view (inactive tabs stay mounted, hidden, with their own state).
   const renderView = (view) => (
     <>
@@ -1245,7 +1250,7 @@ export default function App() {
           {view === 'portfolios' && <Portfolios portfolios={ws.portfolios || []} projects={ws.projects || []} onChange={(portfolios) => save({ ...ws, portfolios })} />}
           {view === 'tasks' && <Tasks tasks={ws.tasks || []} />}
           {view === 'defects' && <DefectsView analysis={analysis} onUpdate={onUpdate} />}
-          {view === 'streams' && <StreamsView history={history} analysis={storedAnalysis} />}
+          {view === 'streams' && <StreamsView history={history} analysis={storedAnalysis} project={project} branch={branch} />}
           {view === 'components' && <ComponentsEditor components={(ws.defectAnalysis && ws.defectAnalysis.components) || []} onChange={(components) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, components } })} />}
           {view === 'policies' && <PoliciesEditor policies={(ws.defectAnalysis && ws.defectAnalysis.policies) || []} project={project} onChange={(policies) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, policies } }, { reanalyze: true })} onAssign={(policyId) => {
             if (!project) return;
@@ -1292,12 +1297,15 @@ export default function App() {
           </>
         )}
         <div className="center-col">
-          <DocTabs tabs={tabs} active={view} onActivate={(id) => { const tb = tabs.find((x) => x.id === id); if (tb) setView(tb.view); }} onClose={closeTabs} onReorder={reorderTabs} onMoveTo={moveTabTo}
-            suffix={(ws.projects || []).length > 1 && project ? project.name : ''} />
+          {/* The start page shows no tabs; the Start menu goes back to the last view. */}
+          {!onStart && (
+            <DocTabs tabs={tabs} active={view} onActivate={(id) => { const tb = tabs.find((x) => x.id === id); if (tb) setView(tb.view); }} onClose={closeTabs} onReorder={reorderTabs} onMoveTo={moveTabTo}
+              suffix={(ws.projects || []).length > 1 && project ? project.name : ''} />
+          )}
           <main ref={mainRef} className={`main ${onStart ? 'start-mode' : ''}`} onScroll={(e) => { scrollOf.current.__last = e.currentTarget.scrollTop; }}>
           {tabs.map((tb) => (
             <div key={tb.id} className="tab-pane" hidden={tb.id !== view} data-pane={tb.id} data-tour={`view-${tb.view}`}>
-              <TabActiveCtx.Provider value={tb.id === view}>{renderView(tb.view)}</TabActiveCtx.Provider>
+              <TabActiveCtx.Provider value={tb.id === view}>{shownTabs.current.has(tb.id) ? renderView(tb.view) : null}</TabActiveCtx.Provider>
             </div>
           ))}
           </main>

@@ -22,6 +22,7 @@ import { Stepper } from '../views/common';
 import { stepZoom, removeSeg } from './logic.js';
 import { openMenu } from '../lib/menu';
 import { usePopupWindows } from '../lib/popups';
+import { publishSimEditor, withdrawSimEditor } from './editorApi';
 import './sim.css';
 
 const SCOPE_TYPES = new Set(['Scope', 'FloatingScope', 'XYGraph']);
@@ -42,7 +43,9 @@ function fmtTime(t) {
   return Math.abs(t) >= 1e4 ? t.toExponential(3) : t.toFixed(Math.abs(t) < 10 ? 3 : 2);
 }
 
-export function ModelEditor({ engine, path, modelName, docId, defaults, lang = 'ko', active = true, onDirty, onTitle, onSaveAs, onPath, onNew, onOpen }) {
+// externalLibrary: the app shows the block library in its left side panel (the column here is hidden);
+// onLibrary: the toolbar's 라이브러리 button then asks the app to show that panel.
+export function ModelEditor({ engine, path, modelName, docId, defaults, lang = 'ko', active = true, onDirty, onTitle, onSaveAs, onPath, onNew, onOpen, externalLibrary = false, onLibrary }) {
   const L = (k, v) => tr(lang, k, v);
   const rootRef = useRef(null);
   const wrapRef = useRef(null);
@@ -292,7 +295,27 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     draw();
     // read-only hook for automated GUI checks (screen ↔ model coordinates, current system)
     if (rootRef.current) rootRef.current.__sim = { view: view.current, model: modelRef.current, system: sys(), crumbs, scopes: scopeStore.current, values: values.current, status, sel: [...sel], undo: undoStack.current.length, redo: redoStack.current.length, dirty, geom: portGeometry };
+    // the app's side panels (editorApi.js): read the model, act through change()
+    publishSimEditor(docId, {
+      docId, name: nameRef.current, model: modelRef.current, crumbs, selected: [...sel], status, running: status.state === 'running' || status.state === 'paused',
+      addItem: (item) => addItem(item),
+      openPath: (ids) => { if (systemAt(modelRef.current, ids)) { setCrumbs(ids); setSel(new Set()); } },
+      select: (ids) => setSel(new Set(ids)),
+      setBlock: (id, { params, name }) => change((mm, s) => {
+        const b = s.blocks.find((x) => x.id === id); if (!b) return false;
+        const want = name == null ? b.name : String(name).trim() || b.name;
+        const nm = want !== b.name && s.blocks.some((x) => x !== b && x.name === want) ? uniqueName(s, want) : want;
+        const ps = params || b.params;
+        if (nm === b.name && JSON.stringify(ps) === JSON.stringify(b.params)) return false;
+        b.params = ps; b.name = nm;
+      }),
+      tune: (id, params) => post({ type: 'sim.tune', name: nameRef.current, block: id, params }),
+      setSettings: (patch) => change((mm) => { const next = { ...mm.settings, ...patch }; if (JSON.stringify(next) === JSON.stringify(mm.settings)) return false; mm.settings = next; }),
+      openSettings: () => setDialog({ kind: 'settings' }),
+      openBlock: (id) => { const b = sys().blocks.find((x) => x.id === id); if (b) setDialog({ kind: 'block', id }); },
+    });
   });
+  useEffect(() => () => withdrawSimEditor(docId), [docId]);
 
   // canvas size
   useEffect(() => {
@@ -1001,12 +1024,12 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         <TB icon="snap" label={L('snap')} title={L('snap_tip')} on={toggles.snap} onClick={() => toggle('snap')} />
         <TB icon="rulers" label={L('rulers')} title={L('rulers_tip')} on={toggles.rulers} onClick={() => toggle('rulers')} />
         <TB icon="colors" label={L('stColors')} title={L('st_tip')} on={toggles.rates} onClick={() => { toggle('rates'); if (!toggles.rates) compile(); }} />
-        <TB icon="library" label={L('library')} title={L('lib_tip')} on={toggles.library} onClick={() => toggle('library')} />
+        <TB icon="library" label={L('library')} title={L('lib_tip')} on={externalLibrary || toggles.library} onClick={() => (externalLibrary && onLibrary ? onLibrary() : toggle('library'))} />
         <span className="sim-sep" />
         <TB icon="settings" label={L('settings')} title={L('settings_tip')} onClick={() => setDialog({ kind: 'settings' })} />
       </div>
       <div className="sim-body">
-        {toggles.library && <MemoLibrary lang={lang} onAdd={(it) => addItem(it)} width={232} />}
+        {toggles.library && !externalLibrary && <MemoLibrary lang={lang} onAdd={(it) => addItem(it)} width={232} />}
         <div className="sim-main">
           <div className="sim-crumbs">
             <button type="button" className={`sim-crumb ${crumbs.length ? '' : 'on'}`} onClick={() => setCrumbs([])}><SimIcon name="home" size={13} /><span>{nameRef.current}{dirty ? ' *' : ''}</span></button>

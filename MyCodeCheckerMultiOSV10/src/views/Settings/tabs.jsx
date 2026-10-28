@@ -201,11 +201,46 @@ export function StartTab({ d, set, setBg }) {
 }
 
 // ── 분석 ──────────────────────────────────────────────────
+// Parallel needs two pool workers: four cores (two are left free) and 2.5 GB
+// of pool heap each, the pool getting 60% of the analysis memory limit
+// (core/cfamily-pool.js poolSize). Below that the analysis runs sequentially.
+const PARALLEL_MIN_CPUS = 4;
+const PARALLEL_MIN_GB = 9;
+
+function AnalysisModeRow({ d, set }) {
+  const [sys, setSys] = useState(null);
+  useEffect(() => { call('system.memory').then(setSys).catch(() => {}); }, []);
+  const parallelOk = !sys || (sys.cpus >= PARALLEL_MIN_CPUS && d.memoryLimitGb >= PARALLEL_MIN_GB);
+  // Each mode: its button, what it needs, and what a large project should have
+  // (or, for parallel on a computer below its needs, that it runs sequentially).
+  const mode = (id, icon) => {
+    const unmet = id === 'parallel' && !parallelOk;
+    return (
+      <div className="st-mode" data-mode={id}>
+        <Btn icon={icon} label={t(`st_mode_${id}`)} title={t(`st_mode_${id}_tip`)} active={d.analysisMode === id} onClick={() => set({ analysisMode: id })} />
+        <span className={`small ${unmet ? 'bad' : ''}`}>{t(`st_mode_${id}_req`)}</span>
+        <span className={`small ${unmet ? 'bad' : ''}`}>{unmet ? t('st_mode_parallel_unmet') : t(`st_mode_${id}_rec`)}</span>
+      </div>
+    );
+  };
+  const label = (
+    <span className="st-mode-label">
+      {t('st_analysis_mode')}
+      {sys && <span className="small">{t('st_mode_this_pc', { cpus: sys.cpus, gb: sys.totalGb })}</span>}
+    </span>
+  );
+  return (
+    <Row icon="cpu" label={label} title={t('st_analysis_mode_hint')} wide>
+      <div className="st-modes">{mode('sequential', 'list')}{mode('parallel', 'layers')}</div>
+    </Row>
+  );
+}
+
 export function AnalysisTab({ d, set, close }) {
   return (
     <>
       <Row icon="filter" label={t('exclusions')} title={t('st_exclusions_hint')} wide>
-        <textarea className="mono st-textarea" rows={7} value={d.exclusionsText} onChange={(e) => set({ exclusionsText: e.target.value })} />
+        <textarea className="mono st-textarea" rows={4} value={d.exclusionsText} onChange={(e) => set({ exclusionsText: e.target.value })} />
       </Row>
       <div className="st-grid2">
         <Row icon="flow" label={t('limit_cognitive')}><Stepper value={d.limits.cognitive} min={1} max={1000} ariaLabel={t('limit_cognitive')} onChange={(v) => set({ limits: { ...d.limits, cognitive: v } })} /></Row>
@@ -215,6 +250,7 @@ export function AnalysisTab({ d, set, close }) {
         <Row icon="file" label={t('st_max_files')} title={t('st_max_files_hint')}><Stepper value={d.maxFiles} min={0} max={10000000} step={500} width={90} ariaLabel={t('st_max_files')} unit={d.maxFiles ? '' : t('st_no_limit')} onChange={(v) => set({ maxFiles: v })} /></Row>
         <Row icon="gauge" label={t('st_memory_limit')} title={t('st_memory_limit_hint')}><Stepper value={d.memoryLimitGb} min={1} max={4096} step={1} width={70} ariaLabel={t('st_memory_limit')} unit="GB" onChange={(v) => set({ memoryLimitGb: v })} /></Row>
       </div>
+      <AnalysisModeRow d={d} set={set} />
       <Row icon="settings" label={t('st_more_analysis')}><Btn icon="users" label={t('st_open_admin_settings')} onClick={() => close('adminSettings')} /></Row>
       <ChecksBox checks={d.checks} onChange={(checks) => set({ checks })} />
     </>

@@ -29,7 +29,8 @@ test('every panel set names known panes; every pane has an icon and a title', ()
   assert.ok(PANEL_SETS.editor.right.includes('debug') && PANEL_SETS.editor.right.includes('docprops'));
   assert.deepEqual(PANEL_SETS.help, { ...PANEL_SETS.help, left: ['guidetoc'], right: ['funchelp'] });
   assert.deepEqual(PANEL_SETS.variable.right, ['varprops']);
-  assert.deepEqual(PANEL_SETS.simulation.left, PANEL_SETS.home.left, 'simulation keeps the home panes for now');
+  assert.deepEqual(PANEL_SETS.simulation.left, ['simlib']);
+  assert.deepEqual(PANEL_SETS.simulation.right, ['simtree', 'blockprops']);
 });
 
 test('the screen: ribbon tab, active document and who chose last', () => {

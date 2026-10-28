@@ -13,12 +13,13 @@ import { getCustomThemesRaw } from '../themes';
 export function useApi(method, args, deps, enabled = true) {
   const [state, setState] = useState({ data: null, error: '', loading: false });
   const seq = useRef(0);
-  const run = useCallback(async () => {
+  // reload() asks the service to compute again ({ fresh }) instead of reusing its cached result.
+  const run = useCallback(async (fresh) => {
     if (!enabled) { setState({ data: null, error: '', loading: false }); return null; }
     const id = ++seq.current;
     setState((s) => ({ ...s, loading: true, error: '' }));
     try {
-      const data = await call(method, args);
+      const data = await call(method, fresh === true ? { ...args, fresh: true } : args);
       if (id === seq.current) setState({ data, error: '', loading: false });
       return data;
     } catch (err) {
@@ -28,7 +29,7 @@ export function useApi(method, args, deps, enabled = true) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, enabled, ...deps]);
   useEffect(() => { run(); }, [run]);
-  return { ...state, reload: run };
+  return { ...state, reload: () => run(true) };
 }
 
 // ── Save / open ───────────────────────────────────────────
