@@ -811,8 +811,9 @@
     // File / folder / save / export / print live in the menu bar's File menu (see _buildMenubar)
     const buttons = [
       { id:'btn-open-file',   icon:'openFile',   tip:'toolbar.openFile',   action: () => _pickOpenFile() },
+      { id:'btn-save',        icon:'save',       tip:'toolbar.save',       action: () => _save(), disabled: true },
       { id:'btn-open-folder', icon:'openFolder', tip:'toolbar.openFolder', action: () => _pickOpenFolder() },
-      { id:'btn-print',       icon:'print',      tip:'toolbar.print',      action: _openPrintPreview, disabled: true },
+      { id:'btn-print',      icon:'print',      tip:'toolbar.print',      action: _openPrintPreview, disabled: true },
       { separator: true },
       { id:'btn-undo',        icon:'undo',       tip:'toolbar.undo',       action: () => { _undoEdit(); }, disabled: true },
       { id:'btn-redo',        icon:'redo',       tip:'toolbar.redo',       action: () => { _redoEdit(); }, disabled: true },

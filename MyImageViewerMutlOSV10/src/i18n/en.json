@@ -135,7 +135,7 @@
   "toolbar.clearRecentFoldersConfirm": "Delete all recent folder history?",
   "toolbar.clearRecentFoldersYes": "Clear",
   "toolbar.removeRecentFolder": "Remove this folder from history",
-  "toolbar.save": "Save As (Ctrl+Shift+S)",
+  "toolbar.save": "Save (Ctrl+S)",
   "toolbar.zoomIn": "Zoom In (Ctrl++)",
   "toolbar.zoomOut": "Zoom Out (Ctrl+-)",
   "toolbar.fitWindow": "Fit to Window (Ctrl+0)",

@@ -25,6 +25,7 @@ module.exports = {
 
     const toolbar = [
       ['btn-open-file', 'Open File'],
+      ['btn-save', 'Save'],
       ['btn-open-folder', 'Open Folder'],
       ['btn-print', 'Print'],
       ['btn-undo', 'Undo'],
@@ -56,11 +57,12 @@ module.exports = {
       assert(iSettings > 0 && iInfo > iSettings, 'info should follow settings');
     });
 
-    test('Toolbar order is Open File → Open Folder → Print', () => {
+    test('Toolbar order is Open File → Save → Open Folder → Print', () => {
       const iFile = app.indexOf("id:'btn-open-file'");
+      const iSave = app.indexOf("id:'btn-save'");
       const iFolder = app.indexOf("id:'btn-open-folder'");
       const iPrint = app.indexOf("id:'btn-print'");
-      assert(iFile > 0 && iFolder > iFile && iPrint > iFolder, 'toolbar order should be file, folder, print');
+      assert(iFile > 0 && iSave > iFile && iFolder > iSave && iPrint > iFolder, 'toolbar order should be file, save, folder, print');
     });
 
     test('In-app file dialog overlay exists', () => {

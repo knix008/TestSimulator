@@ -135,7 +135,7 @@
   "toolbar.clearRecentFoldersConfirm": "최근에 연 폴더 기록을 모두 삭제할까요?",
   "toolbar.clearRecentFoldersYes": "삭제",
   "toolbar.removeRecentFolder": "이 폴더만 기록에서 삭제",
-  "toolbar.save": "다른 이름으로 저장 (Ctrl+Shift+S)",
+  "toolbar.save": "저장 (Ctrl+S)",
   "toolbar.zoomIn": "확대 (Ctrl++)",
   "toolbar.zoomOut": "축소 (Ctrl+-)",
   "toolbar.fitWindow": "창에 맞추기 (Ctrl+0)",
