@@ -45,7 +45,7 @@
 - **예약 분석**(cron, 코드 분석 · 웹 스캔), **감사 로그**, 정리(하우스키핑)
 - **호환 Web API**(`/api/issues/search`, `/api/qualitygates/project_status` …) — 호환 API 용 대시보드 · 스크립트가 그대로 읽습니다
 - **AI 코드 수정** — 이슈 하나의 수정안을 LLM 에 물어 차이(diff)로 보여 주고, 승인할 때만 적용(적용한 수정은 **되돌리기** 가능). Anthropic Claude(공식 SDK, 기본 모델 `claude-opus-5-5`) · OpenAI 호환 서버 · 로컬 Ollama
-- **데이터베이스 내보내기** — 분석 결과를 SQLite · PostgreSQL · MySQL/MariaDB · SQL Server 표로(분석마다 자동 또는 직접)
+- **데이터베이스 내보내기** — 분석 결과를 MySQL · SQLite3 · MariaDB · PostgreSQL · MSSQL 표로(분석마다 백그라운드 또는 직접)
 - **필요한 소프트웨어** — Git · C/C++ 컴파일러를 찾고, 없으면 묻고 패키지 관리자(winget · scoop · Homebrew · apt · dnf · pacman · zypper)로 설치
 
 ### 작업 환경

@@ -5,7 +5,7 @@ import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, BtnGroup, Toggle, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, fmtDate, errorText, emitAction, Glossary } from './common';
+import { Btn, BtnGroup, Toggle, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, fmtDate, errorText, emitAction, Glossary, openCodeRow } from './common';
 
 function useLoad(method, args, deps, enabled) {
   const [state, setState] = useState({ data: null, error: '', loading: false });
@@ -460,7 +460,7 @@ export function ApprovalsView({ project, stamp, onChanged }) {
                   {list.map((i) => {
                     const r = i.review || {};
                     return (
-                      <tr key={i.key}>
+                      <tr key={i.key} className={i.file ? 'click' : ''} {...openCodeRow(i.file, i.line)}>
                         <td><input type="checkbox" aria-label={t('ib_select')} checked={checked.includes(i.key)} onChange={() => setChecked(checked.includes(i.key) ? checked.filter((k) => k !== i.key) : [...checked, i.key])} /></td>
                         <td className="nowrap"><SevBadge sev={i.severity} /></td>
                         <td className="wrap"><div className="msg-line"><TypeBadge type={i.type} short />{textOf(i.message)}</div><div className="small">{i.rule} · {i.file}:{i.line}</div></td>

@@ -21,7 +21,7 @@ The analysis runs in the program's own Node.js engine. The desktop program (Wind
 | Reports | HTML, CSV, Word, Excel, PDF, regulatory ZIP | all |
 | Collaboration | Users, permissions, tokens, LDAP, mail notifications, Jira / Redmine / GitHub / GitLab tickets, PR decoration, webhooks, scheduled analyses, audit log | Code Quality, Defect Analysis servers |
 | AI | Ask an LLM for a fix of one issue, review it as a diff, apply it | AI CodeFix |
-| Data | Export results to SQLite, PostgreSQL, MySQL/MariaDB or SQL Server | — |
+| Data | Save results to MySQL, SQLite3, MariaDB, PostgreSQL or MSSQL (in the background after each analysis) | — |
 | Workspace | Project files (.mccp), undo / redo, save prompt on exit, analysis progress window, tabs, panels that fold and turn off, 40 themes plus your own, 20 animated Start page backgrounds, a tutorial, the user's guide inside the app | the same screens as MyHeatManager and MyCAD |
 
 ## Installation
@@ -327,7 +327,7 @@ See [Generating reports](#generating-reports).
 
 #### Issues
 
-To handle large projects (hundreds of thousands of issues), the window holds the **open project's issues only**. Opening a project or finishing an analysis fetches them in pages, with **Loading issues… n / total** at the bottom meanwhile. Switching projects fetches the new one's issues and lets the previous one's go. Lists show the first 300 rows; scroll to the end or press **Show more** for more.
+To handle large projects (hundreds of thousands of issues), the window holds the **open project's issues only**. Opening a project or finishing an analysis fetches them in pages, with **Loading issues… n / total** at the bottom meanwhile. Switching projects fetches the new one's issues and lets the previous one's go. Long lists are **paged** (first, previous, page number, next and last under the list; 100, 200, 500 or 1000 rows a page). An analysis with many issues brings its 200,000 most severe into the window, but **the search of the Issues view runs over the whole analysis**: words (any part of the rule, the message in Korean or English, or the path; every word must appear), severity, type, status, engine, standard, new code only and the sort order (severity, file, rule, new code first, analysis order) are handled by the service, and the type tab counts and pages follow the result. Issues are kept in a local database in the data folder, `issues.db` (SQLite), so even millions give a page and their counts at once, and changing an issue saves that issue only. Issue files of earlier versions (`issues/*.ndjson`) move into the database the first time they are opened.
 
 
 The list of bugs, vulnerabilities and code smells. Search at the top (**Search rules, messages, files**) and filter by **Severity** (Blocker, Critical, Major, Minor, Info), **Type**, **Status**, **Engine**, **Standard** (OWASP, CWE, MISRA, MOIS …), language and **New code only**. Arriving from a category in Security reports or MISRA sets a **Category filter**; **Clear filter** removes it.
@@ -611,18 +611,17 @@ Exports analysis results as database tables for other tools (BI dashboards, repo
 
 | Item | Meaning |
 |---|---|
-| Save results to a database | On / off (off by default) |
-| Kind | **SQLite file** (built into Node), **PostgreSQL** (5432), **MySQL / MariaDB** (3306), **SQL Server** (1433) |
+| Save results to a database | On / off (off by default). When on, each finished analysis is saved on this computer and then **also to the database, in the background** (the analysis does not wait for it; progress shows in the progress popup, a failure in an error popup and the analysis log). When off, results stay on this computer. This connection setup is kept on this computer only |
+| Kind | **MySQL** (3306), **SQLite3 file** (built into Node), **MariaDB** (3306), **PostgreSQL** (5432), **MSSQL** (SQL Server, 1433) |
 | Database file | The SQLite file path (pick with **Folder…**). Empty creates it in the app data folder |
 | Host, port, database, user, password | The server connection (database default `mycodechecker`) |
 | Encrypted connection | SSL/TLS |
 | Schema / prefix | Put in front of the table names (default `mcc`) — tables `mcc_projects`, `mcc_analyses`, `mcc_issues`, `mcc_measures` (created when missing). Letters, digits and `_` only |
-| Auto export | **After every committed analysis** |
 | Include issues | **Save the issue list too**; off exports only projects, analyses and measures |
 | Time limit (s) | When the connection or one SQL statement takes longer (default 60 s, 5–3600), saving stops, is rolled back and the error is shown |
 | Connection test | **Test connection** |
 
-With auto export off, use **Export to DB** in the **Reports** view to send the current result now ("Analysis … · … issues · … measures"). Exporting the same analysis again replaces its rows, so nothing is duplicated. When saving takes more than half a second a progress window shows the step (connecting, checking tables, writing rows, committing), rows written, elapsed and remaining time and the per-statement time limit, with **Cancel**. Auto export appears in the analysis progress window as **Saving to the database**. Errors such as a timeout or a failed connection are shown in a popup. A failed export never stops the analysis; the reason is also left as a task warning (`DB: …`) and in the bottom panel's **Analysis log**.
+**Export to DB** in the **Reports** view sends the current result now (it joins an export of the same branch that is already running) ("Analysis … · … issues · … measures"). Exporting the same analysis again replaces its rows, so nothing is duplicated. When saving takes more than half a second a progress window shows the step (connecting, checking tables, writing rows, committing), rows written, elapsed and remaining time and the per-statement time limit, with **Cancel**. Auto export appears in the analysis progress window as **Saving to the database**. Errors such as a timeout or a failed connection are shown in a popup. A failed export never stops the analysis; the reason is also left as a task warning (`DB: …`) and in the bottom panel's **Analysis log**.
 
 ## Workflows
 
@@ -775,7 +774,7 @@ On macOS use ⌘ instead of Ctrl.
 | DAST finds few pages | Add seed URLs or OpenAPI; for login, cookie, bearer or login fields |
 | Screen and CI results differ | `scan.mjs --path` in CI uses the default gate and all rules. Use `--workspace` for the app's settings, or upload with `--server` to use the server's profiles |
 
-The workspace file is in `%APPDATA%\MyCodeChecker\workspace.json` on Windows, `~/Library/Application Support/MyCodeChecker/` on macOS and `~/.config/MyCodeChecker/` on Linux. If a problem persists, back up this folder, move it away and restart to begin from a clean state.
+The workspace file is in `%APPDATA%\MyCodeChecker\workspace.json` on Windows (issues in `issues.db` beside it), `~/Library/Application Support/MyCodeChecker/` on macOS and `~/.config/MyCodeChecker/` on Linux. If a problem persists, back up this folder, move it away and restart to begin from a clean state.
 
 ## Glossary
 

@@ -1,8 +1,8 @@
 import { ask } from '../lib/ui';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon, CloseButton, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
-import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText, useRowWindow, fmtDate } from './common';
+import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText, useRowWindow, fmtDate, useApi, Pager, usePageSize } from './common';
 import { call, openExternal } from '../lib/backend';
 import { Inspector } from '../components/Layout';
 import { AiFixBox } from './AiFix';
@@ -451,15 +451,59 @@ function TicketBox({ keys, onTicket }) {
   );
 }
 
-export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSelect, checked, setChecked, onUpdate, onReview, approval, hasAnalysis, onTicket, project, branch }) {
+// The issue search of a saved analysis runs in the service over the whole
+// analysis (its local database, issue.search): the window holds only the
+// most severe issues of a large one. Words wait until typing pauses.
+const SORTS = ['severity', 'file', 'rule', 'new', 'list'];
+function useIssueSearch(enabled, project, branch, filter, issues) {
+  const [q, setQ] = useState(filter.q || '');
+  useEffect(() => { const id = setTimeout(() => setQ(filter.q || ''), 300); return () => clearTimeout(id); }, [filter.q]);
+  const [sort, setSort] = useState('severity');
+  const [size, setSize] = usePageSize(500);
+  const [page, setPage] = useState(0);
+  const query = {
+    q,
+    severity: filter.severity || '',
+    type: filter.type || '',
+    status: filter.status || '',
+    newOnly: !!filter.newOnly,
+    engine: filter.engine || '',
+    standard: filter.standard || '',
+    lang: filter.lang ? LANG_EXT[filter.lang] || [] : [],
+    rules: filter.rules && filter.rules.length ? filter.rules : null,
+    keys: filter.keys && filter.keys.length ? filter.keys : null,
+  };
+  const queryKey = JSON.stringify(query);
+  useEffect(() => { setPage(0); }, [queryKey, sort, size, project && project.id, branch]);
+  // A changed analysis (a new one, or a triage change reloading the issues) asks again.
+  const res = useApi('issue.search', { projectId: project && project.id, branch, filter: query, sort, offset: page * size, limit: size, facets: true },
+    [project && project.id, branch, queryKey, sort, page, size, issues], enabled);
+  return { res, sort, setSort, size, setSize, page, setPage, searching: q !== (filter.q || '') || res.loading };
+}
+
+export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSelect, checked, setChecked, onUpdate, onReview, approval, hasAnalysis, onTicket, project, branch, serverSearch, onOpenCode }) {
   useLanguage();
   const [comment, setComment] = useState('');
   const [assignee, setAssignee] = useState('');
   const ruleMap = useMemo(() => new Map(rules.map((r) => [r.key, r])), [rules]);
-  const list = useMemo(() => filterIssues(issues, filter, false, ruleMap), [issues, filter, ruleMap]);
-  const { rows: shown, footer } = useRowWindow(list);
+  const searchBranch = project && project.branches ? (project.branches[branch] ? branch : (project.mainBranch || 'main')) : '';
+  const server = useIssueSearch(!!(serverSearch && project && searchBranch && hasAnalysis), project, searchBranch, filter, issues);
+  // Without the service's answer (a desktop analysis, or an error) the window's issues are filtered here.
+  const useServer = !!(serverSearch && project && searchBranch && hasAnalysis) && !server.res.error && !!server.res.data;
+  const list = useMemo(() => (useServer ? [] : filterIssues(issues, filter, false, ruleMap)), [useServer, issues, filter, ruleMap]);
+  const local = useRowWindow(list);
+  const found = useServer ? server.res.data : null;
+  const shown = useServer ? found.issues : local.rows;
+  const total = useServer ? found.total : list.length;
+  const footer = useServer
+    ? <Pager total={found.total} page={server.page} size={server.size} onPage={server.setPage} onSize={server.setSize}
+      note={server.searching ? t('ib_searching') : t('ib_search_scope')} />
+    : local.footer;
   const checkedSet = useMemo(() => new Set(checked), [checked]);
-  const engines = useMemo(() => [...new Set(issues.map(engineOf))].sort(), [issues]);
+  const engines = useMemo(() => {
+    const fromServer = found && found.facets && found.facets.engine ? Object.keys(found.facets.engine) : [];
+    return [...new Set([...issues.map(engineOf), ...fromServer, ...(filter.engine ? [filter.engine] : [])])].sort();
+  }, [issues, found, filter.engine]);
   const rule = selected && ruleMap.get(selected.rule);
   const toggle = (key) => setChecked(checkedSet.has(key) ? checked.filter((k) => k !== key) : [...checked, key]);
   const chips = selected ? standardChips(standardsOf(selected, rule)) : [];
@@ -473,28 +517,30 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
       </div>
     );
   }
-  const visible = issues.filter((i) => i.type !== 'SECURITY_HOTSPOT');
-  const typeCount = (type) => visible.filter((i) => i.type === type).length;
+  const visible = useServer ? null : issues.filter((i) => i.type !== 'SECURITY_HOTSPOT');
+  const typeFacet = (found && found.facets && found.facets.type) || {};
+  const typeCount = (type) => (useServer ? (type ? typeFacet[type] || 0 : Object.entries(typeFacet).filter(([k]) => k !== 'SECURITY_HOTSPOT').reduce((n, [, c]) => n + c, 0)) : visible.filter((i) => !type || i.type === type).length);
   return (
     <div className="view view-list">
       <ViewHeader icon="bug" title={t('nav_issues')} hint={t('vh_issues')} />
       <div className="type-tabs">
-        {[['', 'list', t('all'), visible.length], ...TYPES.map((ty) => [ty, TYPE_ICON[ty], { BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells') }[ty], typeCount(ty)])].map(([ty, icon, label, n]) => (
+        {[['', 'list', t('all'), typeCount('')], ...TYPES.map((ty) => [ty, TYPE_ICON[ty], { BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells') }[ty], typeCount(ty)])].map(([ty, icon, label, n]) => (
           <button key={ty || 'all'} type="button" className={`type-tab ${ty ? `kind-${ty}` : ''} ${filter.type === ty ? 'on' : ''}`} onClick={() => setFilter({ ...filter, type: ty })} aria-pressed={filter.type === ty}>
             <Icon name={icon} size={15} /><span>{label}</span><span className="vtab-count">{n}</span>
           </button>
         ))}
       </div>
-      <Filters filter={filter} setFilter={setFilter} types={TYPES} engines={engines} />
+      <Filters filter={filter} setFilter={setFilter} types={TYPES} engines={engines}
+        sort={useServer ? server.sort : null} setSort={server.setSort} />
       {filter.drillLabel && (
         <div className="drill-bar">
-          <Icon name="filter" size={14} /><span>{t('ib_drill')}: <strong>{filter.drillLabel}</strong> ({list.length})</span>
+          <Icon name="filter" size={14} /><span>{t('ib_drill')}: <strong>{filter.drillLabel}</strong> ({total.toLocaleString()})</span>
           <Btn icon="close" label={t('ib_clear_drill')} onClick={() => setFilter({ ...filter, rules: null, keys: null, drillLabel: '' })} />
         </div>
       )}
       {filter.lang && (
         <div className="drill-bar" data-filter="lang">
-          <Icon name="code" size={14} /><span>{t('ib_lang_filter')}: <strong>{LANG_NAME[filter.lang] || filter.lang}</strong> ({list.length})</span>
+          <Icon name="code" size={14} /><span>{t('ib_lang_filter')}: <strong>{LANG_NAME[filter.lang] || filter.lang}</strong> ({total.toLocaleString()})</span>
           <Btn icon="close" label={t('ib_clear_drill')} onClick={() => setFilter({ ...filter, lang: '' })} />
         </div>
       )}
@@ -505,7 +551,8 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
             <thead><tr><th /><th><span data-term="severity">{t('severity')}</span></th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
             <tbody>
               {shown.map((issue, idx) => (
-                <tr key={`${issue.key}-${idx}`} data-tour="issue-row" className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}>
+                <tr key={`${issue.key}-${idx}`} data-tour="issue-row" className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}
+                  title={t('ib_dblclick_code')} data-open-file={issue.file || undefined} data-open-line={issue.line || 0} onDoubleClick={() => { if (onOpenCode && issue.file) onOpenCode(issue.file, issue.line); }}>
                   <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={t('ib_select')} checked={checkedSet.has(issue.key)} onChange={() => toggle(issue.key)} /></td>
                   <td className="nowrap"><SevBadge sev={issue.severity} />{issue.isNew && <div><span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span></div>}</td>
                   <td className="wrap"><div className="msg-line"><TypeBadge type={issue.type} short />{msg(issue)}</div><div className="small">{issue.rule}{engineOf(issue) !== 'core' ? ` · ${engineOf(issue)}` : ''}{issue.review && issue.review.state === 'REQUESTED' ? <> · <span className="warn-text"><Icon name="hourglass" size={11} /> {t('rv_state_requested')}</span></> : null}</div></td>
@@ -516,7 +563,7 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
             </tbody>
           </table>
           {footer}
-          {list.length === 0 && (visible.length
+          {total === 0 && !(useServer && server.searching) && ((useServer ? typeCount('') : visible.length)
             ? <Empty icon="filter" text={t('es_no_match')} hint={t('es_no_match_hint')}><Btn icon="close" label={t('es_clear_filters')} onClick={() => setFilter({ ...filter, q: '', severity: '', type: '', status: '', newOnly: false, engine: '', standard: '', rules: null, keys: null, drillLabel: '' })} /></Empty>
             : <Empty icon="checkCircle" text={t('es_no_issues')} hint={t('es_no_issues_hint')} />)}
           </div>
@@ -586,7 +633,7 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
   );
 }
 
-export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
+export function Hotspots({ issues, rules, onUpdate, hasAnalysis, onOpenCode }) {
   useLanguage();
   const [cur, setCur] = useState(null);
   const [only, setOnly] = useState('');
@@ -621,7 +668,8 @@ export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
               <thead><tr><th>{t('severity')}</th><th>{t('message')}</th><th>{t('status')}</th></tr></thead>
               <tbody>
                 {shown.map((issue) => (
-                  <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => setCur(issue.key)}>
+                  <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => setCur(issue.key)}
+                    title={t('ib_dblclick_code')} data-open-file={issue.file || undefined} data-open-line={issue.line || 0} onDoubleClick={() => { if (onOpenCode && issue.file) onOpenCode(issue.file, issue.line); }}>
                     <td className="nowrap"><SevBadge sev={issue.severity} /></td>
                     <td className="wrap">{msg(issue)}<div className="small">{issue.file}:{issue.line}</div></td>
                     <td><StatusPill status={issue.status} /></td>
@@ -689,7 +737,7 @@ function EventPath({ events, file }) {
 
 export { TYPE_ICON, SEV_ICON };
 
-function Filters({ filter, setFilter, types, engines }) {
+function Filters({ filter, setFilter, types, engines, sort, setSort }) {
   useLanguage();
   const set = (patch) => setFilter({ ...filter, ...patch });
   const typeLabel = (s) => ({ BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells'), SECURITY_HOTSPOT: t('hotspots') }[s] || s);
@@ -711,6 +759,10 @@ function Filters({ filter, setFilter, types, engines }) {
       <button type="button" role="switch" aria-checked={!!filter.newOnly} className={`vbtn toggle ${filter.newOnly ? 'on' : ''}`} onClick={() => set({ newOnly: !filter.newOnly })}>
         <span className="switch" aria-hidden="true"><span /></span><Icon name="clock" size={15} /><span>{t('new_only')}</span>
       </button>
+      {sort && (
+        <IconSelect value={sort} onChange={setSort} title={t('ib_sort')} ariaLabel={t('ib_sort')} width={170}
+          options={SORTS.map((s) => ({ value: s, label: t(`ib_sort_${s}`), icon: { severity: 'alert', file: 'file', rule: 'list', new: 'sparkle', list: 'layers' }[s] }))} />
+      )}
     </div>
   );
 }
@@ -783,9 +835,51 @@ export function Measures({ analysis }) {
   );
 }
 
-export function CodeView({ analysis, file, text, onOpen, line, error }) {
+// Word wrap of the code view: an option kept on this computer.
+const CODE_WRAP_KEY = 'mcc.codeWrap';
+function storedCodeWrap() {
+  try { return localStorage.getItem(CODE_WRAP_KEY) === '1'; } catch { return false; }
+}
+
+// The issues of the line picked in the code view, with what is wrong and how
+// to fix it (the rule's why / fix), so they read there without leaving the code.
+function LineIssues({ line, issues, picked, ruleMap, onPickIssue }) {
+  useLanguage();
+  const ref = useRef(null);
+  // Brought into view in the panel when another line is picked.
+  useEffect(() => { if (ref.current && ref.current.scrollIntoView) ref.current.scrollIntoView({ block: 'nearest' }); }, [line, picked]);
+  return (
+    <div className="line-issues" data-testid="line-issues" ref={ref}>
+      <h3 className="sub-title"><Icon name="alert" size={15} />{t('cv_line_issues', { n: line })}</h3>
+      {issues.length === 0 && <p className="small muted">{t('cv_line_none')}</p>}
+      {issues.map((i) => {
+        const rule = ruleMap.get(i.rule);
+        return (
+          <div key={i.key} className={`line-issue ${picked === i.key ? 'on' : ''}`}>
+            <div className="chips"><TypeBadge type={i.type} /><SevBadge sev={i.severity} /><StatusPill status={i.status} resolution={i.resolution} /></div>
+            <div className="line-issue-msg">{msg(i)}</div>
+            <div className="small muted mono">{i.rule}{rule && rule.name ? ` · ${textOf(rule.name)}` : ''}</div>
+            {rule && rule.why && <><h4 className="line-issue-h"><Icon name="lightbulb" size={13} />{t('why')}</h4><p className="small">{textOf(rule.why)}</p></>}
+            {rule && rule.fix && <><h4 className="line-issue-h"><Icon name="wrench" size={13} />{t('how_to_fix')}</h4><p className="small">{textOf(rule.fix)}</p></>}
+            {!rule && <p className="small muted">{t('cv_no_rule_text')}</p>}
+            {onPickIssue && <Btn icon="bug" label={t('cv_open_in_issues')} onClick={() => onPickIssue(i)} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function CodeView({ analysis, file, text, onOpen, line, error, rules, onPickIssue }) {
   useLanguage();
   const [q, setQ] = useState('');
+  // The picked line (a click on the code, an issue of the list, or the line a link opened).
+  const [pick, setPick] = useState({ line: 0, key: '' });
+  // (An issue picked in the list moves to its line too: its pick is kept.)
+  useEffect(() => { const n = Number(line) || 0; setPick((p) => (p.line === n ? p : { line: n, key: '' })); }, [file, line]);
+  const ruleMap = useMemo(() => new Map((rules || []).map((r) => [r.key, r])), [rules]);
+  const [wrap, setWrapState] = useState(storedCodeWrap);
+  const setWrap = (v) => { setWrapState(v); try { localStorage.setItem(CODE_WRAP_KEY, v ? '1' : '0'); } catch { /* per-viewer only */ } };
   // Jump to a line (HIS / architecture links open code at file:line).
   useEffect(() => {
     if (!line) return;
@@ -806,11 +900,18 @@ export function CodeView({ analysis, file, text, onOpen, line, error }) {
           <div className="filetree-search"><Icon name="search" size={13} /><input placeholder={t('cv_filter')} aria-label={t('cv_filter')} value={q} onChange={(e) => setQ(e.target.value)} /></div>
           {files.map((f) => (
             <button key={f.path} className={f.path === file ? 'on' : ''} onClick={() => onOpen(f.path)} title={f.path}>
-              <Icon name="file" size={13} /><span className="ft-name">{f.path}</span>{f.issues ? <span className="nav-count warn">{f.issues}</span> : null}
+              <Icon name="file" size={13} /><span className="ft-name">{f.path}</span>{f.issues ? <span className="nav-count warn" data-tip-title={t('cv_count_title')} data-tip-text={t(f.hotspots ? 'cv_count_text_hs' : 'cv_count_text', { n: f.issues, h: f.hotspots || 0 })}>{f.issues}</span> : null}
             </button>
           ))}
         </div>
-        <div className="codepane selectable">
+        <div className={`codepane selectable ${wrap ? 'wrap' : ''}`}>
+          {file && (
+            <div className="code-toolbar">
+              <Icon name="file" size={13} /><span className="mono small code-toolbar-file" title={file}>{file}</span>
+              <span className="spacer" />
+              <span title={t('cv_wrap_tip')}><Toggle icon="wrapText" label={t('cv_wrap')} checked={wrap} onChange={setWrap} /></span>
+            </div>
+          )}
           {!file && <Empty icon="file" text={t('cv_pick')} hint={t('cv_pick_hint')} />}
           {file && error && (
             <Empty icon="alert" text={t('cv_load_failed', { file })} hint={error}>
@@ -818,7 +919,8 @@ export function CodeView({ analysis, file, text, onOpen, line, error }) {
             </Empty>
           )}
           {lines.map((src, i) => (
-            <div key={i} data-ln={i + 1} className={`row ${marks.has(i + 1) ? 'mark' : ''} ${line === i + 1 ? 'goto' : ''}`} title={marks.has(i + 1) ? t('cv_issue_here') : undefined}><span className="ln">{marks.has(i + 1) ? '● ' : ''}{i + 1}</span><span>{src || ' '}</span></div>
+            <div key={i} data-ln={i + 1} className={`row ${marks.has(i + 1) ? 'mark' : ''} ${line === i + 1 ? 'goto' : ''} ${pick.line === i + 1 ? 'picked' : ''}`} title={marks.has(i + 1) ? t('cv_issue_here') : undefined}
+              data-open-file={file} data-open-line={i + 1} onClick={() => { if (!(window.getSelection && String(window.getSelection()))) setPick({ line: i + 1, key: '' }); }}><span className="ln">{marks.has(i + 1) ? '● ' : ''}{i + 1}</span><span className="src">{src || ' '}</span></div>
           ))}
         </div>
       </div>
@@ -833,10 +935,15 @@ export function CodeView({ analysis, file, text, onOpen, line, error }) {
           <h3 className="sub-title"><Icon name="list" size={15} />{t('cv_file_issues')}</h3>
           {fileIssues.length === 0 && <Empty icon="checkCircle" text={t('es_no_issues')} />}
           {fileIssues.map((i) => (
-            <button key={i.key} type="button" className="insp-row" onClick={() => onOpen(file, i.line)} title={t('bp_jump')}>
+            <button key={i.key} type="button" className={`insp-row ${pick.key === i.key ? 'on' : ''}`} onClick={() => { onOpen(file, i.line); setPick({ line: i.line, key: i.key }); }} title={t('cv_pick_issue_tip')}>
               <SevBadge sev={i.severity} /><span className="insp-row-text">{msg(i)}</span><span className="small mono">:{i.line}</span>
             </button>
           ))}
+          {pick.line > 0 && (
+            <LineIssues line={pick.line} picked={pick.key} ruleMap={ruleMap} onPickIssue={onPickIssue}
+              issues={[...fileIssues.filter((i) => i.line === pick.line)].sort((a, b) => (a.key === pick.key ? -1 : b.key === pick.key ? 1 : 0))} />
+          )}
+          {pick.line === 0 && fileIssues.length > 0 && <p className="small muted line-issues-hint"><Icon name="info" size={12} /> {t('cv_pick_line_hint')}</p>}
         </Inspector>
       )}
     </div>
@@ -855,7 +962,7 @@ export function Duplications({ analysis, onOpen }) {
         <div key={b.hash + b.instances[0].path + b.instances[0].start} className="panel dup-block">
           <div className="sub-title"><Icon name="copy" size={15} /><strong>{b.lines} {t('lines')}</strong><span className="small">· {t('dup_places', { n: b.instances.length })}</span></div>
           {b.instances.map((inst) => (
-            <button key={inst.path + inst.start} type="button" className="recent-item compact" onClick={() => onOpen(inst.path)} title={t('dup_open')}>
+            <button key={inst.path + inst.start} type="button" className="recent-item compact" onClick={() => onOpen(inst.path, inst.start)} title={t('dup_open')}>
               <Icon name="file" size={14} /><span className="recent-text"><span className="mono">{inst.path}:{inst.start}–{inst.end}</span></span><Icon name="chevronRight" size={14} />
             </button>
           ))}

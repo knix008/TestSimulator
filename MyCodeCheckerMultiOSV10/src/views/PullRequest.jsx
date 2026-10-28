@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
-import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge, TypeBadge, Stepper, errorText, Glossary } from './common';
+import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge, TypeBadge, Stepper, errorText, Glossary, openCodeRow } from './common';
 import { metricLabel } from './Panels';
 import { msg } from './Panels';
 
@@ -113,7 +113,7 @@ export function PullRequestView({ project, branch, stamp }) {
                   <thead><tr><th><span data-term="severity">{t('severity')}</span></th><th>{t('type')}</th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
                   <tbody>
                     {pr.issues.map((i) => (
-                      <tr key={i.key}>
+                      <tr key={i.key} className={i.file ? 'click' : ''} {...openCodeRow(i.file, i.line)}>
                         <td><SevBadge sev={i.severity} /></td>
                         <td className="nowrap"><TypeBadge type={i.type} /></td>
                         <td className="wrap">{msg(i)}<div className="small">{i.rule}</div></td>

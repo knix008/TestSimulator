@@ -15,7 +15,7 @@ import { DEFAULT_GATE_CONDITIONS, GATE_METRICS } from '../../lib/gateDefaults';
 
 export const MASK = '••••••••';
 const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'];
-const DB_PORT = { postgres: 5432, mysql: 3306, mssql: 1433 };
+const DB_PORT = { postgres: 5432, mysql: 3306, mariadb: 3306, mssql: 1433 };
 
 export function Row({ icon, label, title, children, wide }) {
   return (
@@ -479,10 +479,11 @@ export function DbTab({ db, setB, dbErr }) {
         <Row icon="check" label={t('in_enabled')}><Toggle icon="database" label={t('db_enable')} checked={!!db.enabled} onChange={(v) => setB({ enabled: v })} /></Row>
         <Row icon="database" label={t('db_kind')}>
           <IconSelect value={db.kind} width={200} ariaLabel={t('db_kind')} onChange={(v) => setB({ kind: v, port: DB_PORT[v] || db.port })} options={[
+            { value: 'mysql', label: 'MySQL', icon: 'database' },
             { value: 'sqlite', label: t('db_sqlite'), icon: 'file' },
+            { value: 'mariadb', label: 'MariaDB', icon: 'database' },
             { value: 'postgres', label: 'PostgreSQL', icon: 'database' },
-            { value: 'mysql', label: 'MySQL · MariaDB', icon: 'database' },
-            { value: 'mssql', label: 'SQL Server', icon: 'database' },
+            { value: 'mssql', label: 'MSSQL (SQL Server)', icon: 'database' },
           ]} />
         </Row>
       </div>
@@ -503,7 +504,6 @@ export function DbTab({ db, setB, dbErr }) {
         {!sqlite && <Row icon="lock" label="SSL / TLS"><Toggle icon="lock" label={t('db_ssl')} checked={!!db.ssl} onChange={(v) => setB({ ssl: v })} /></Row>}
         <Row icon="layers" label={t('db_schema')} title={t('db_schema_hint')}><input value={db.schema || ''} placeholder="mcc" onChange={(e) => setB({ schema: e.target.value })} /></Row>
         <Row icon="clock" label={t('db_timeout')} title={t('db_timeout_hint')}><Stepper value={Number(db.timeoutSec) || 60} min={5} max={3600} step={5} width={70} ariaLabel={t('db_timeout')} onChange={(v) => setB({ timeoutSec: v })} /></Row>
-        <Row icon="upload" label={t('db_auto')}><Toggle icon="upload" label={t('db_auto_label')} checked={!!db.autoExport} onChange={(v) => setB({ autoExport: v })} /></Row>
         <Row icon="bug" label={t('db_issues')}><Toggle icon="list" label={t('db_issues_label')} checked={!!db.includeIssues} onChange={(v) => setB({ includeIssues: v })} /></Row>
         <Row icon="refresh" label={t('ai_test')}>
           <span className="hrow0">

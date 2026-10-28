@@ -19,7 +19,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 const MASK = '••••••••';
-const DEFAULT_PORT = { postgres: 5432, mysql: 3306, mssql: 1433 };
+// MariaDB speaks the MySQL protocol and SQL: it uses the mysql2 driver and the mysql dialect.
+const DEFAULT_PORT = { postgres: 5432, mysql: 3306, mariadb: 3306, mssql: 1433 };
 // timeoutSec: the longest one statement (or the connection) may take.
 const DEFAULTS = { enabled: false, kind: 'sqlite', file: '', host: '127.0.0.1', port: 0, database: 'mycodechecker', user: '', password: '', ssl: false, schema: 'mcc', autoExport: true, includeIssues: true, timeoutSec: 60 };
 
@@ -70,7 +71,7 @@ function saveSettings(ws, next, configDir) {
   const prev = settingsOf(ws, configDir);
   const merged = { ...prev, ...(next || {}) };
   if (merged.password === MASK) merged.password = prev.password;
-  if (!['sqlite', 'postgres', 'mysql', 'mssql'].includes(merged.kind)) throw fail('BAD_REQUEST', `Unknown database kind: ${merged.kind}`);
+  if (!['sqlite', 'postgres', 'mysql', 'mariadb', 'mssql'].includes(merged.kind)) throw fail('BAD_REQUEST', `Unknown database kind: ${merged.kind}`);
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,30}$/.test(merged.schema || '')) throw fail('BAD_REQUEST', 'The table prefix may use letters, digits and _ only');
   merged.port = Number(merged.port) || DEFAULT_PORT[merged.kind] || 0;
   merged.timeoutSec = Math.min(3600, Math.max(5, Math.round(Number(merged.timeoutSec) || DEFAULTS.timeoutSec)));
@@ -172,13 +173,13 @@ async function connect(s, opts = {}) {
         async close() { await client.end(); },
       };
     }
-    if (s.kind === 'mysql') {
+    if (s.kind === 'mysql' || s.kind === 'mariadb') {
       const mysql = req('mysql2/promise');
       const conn = await mysql.createConnection({ host: s.host, port: s.port, database: s.database, user: s.user, password: s.password, ssl: s.ssl ? {} : undefined, connectTimeout: 15000, charset: 'utf8mb4' });
       return {
         kind: 'mysql',
         async query(sql, params = []) { const [rows] = await conn.query(sql, params); return Array.isArray(rows) ? rows : []; },
-        async version() { const [rows] = await conn.query('select version() as v'); return `MySQL ${rows[0].v}`; },
+        async version() { const [rows] = await conn.query('select version() as v'); return `${/mariadb/i.test(rows[0].v) || s.kind === 'mariadb' ? 'MariaDB' : 'MySQL'} ${rows[0].v}`; },
         async close() { await conn.end(); },
       };
     }

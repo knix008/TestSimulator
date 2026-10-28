@@ -39,6 +39,7 @@ import { TutorialWelcome } from './components/TutorialWelcome';
 import { progressPatch, shouldShowWelcome } from './lib/tutorialSettings';
 import { usePopupWindows, openPopupWindow, onBroadcast, warmPopups, popupRoute } from './lib/popups';
 import { ask, toast, attempt, showError, errorText as errorTextOf } from './lib/ui';
+import { track } from './lib/progress';
 import { record, clearHistory, undo as historyUndo, redo as historyRedo, subscribeHistory, onHistoryApplied, typingTarget, historyState } from './lib/history';
 import { projectSignature, subscribeDirty, dirtyEditors, listenChildEditors, saveEditors, useEditorDirty } from './lib/dirty';
 import { UiHost } from './components/UiHost';
@@ -638,6 +639,27 @@ export default function App() {
       setScanJob((s) => (s && s.id === jobId ? null : s));
     }
   };
+  // The results' export to the database (Settings › Database) after an
+  // analysis: in the background, shown in the progress popup; a failure opens
+  // an error popup. The analysis is already saved on this computer.
+  const watchDbExport = async (jobId) => {
+    const job = track(t('pp_db_save'));
+    try {
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 1000));
+        let j;
+        try { j = await call('db.exportJob', { jobId }); } catch { return; }
+        const pr = j.progress || {};
+        if (pr.total) job.update(pr.done || 0, pr.total);
+        if (j.status === 'running') continue;
+        if (j.status === 'done') toast(t('dbj_saved'), 'ok');
+        else if (j.status === 'failed' && j.error) showError(Object.assign(new Error(j.error.message), { code: j.error.code, text: j.error.text }), t('dbj_auto_failed'));
+        return;
+      }
+    } finally {
+      job.end();
+    }
+  };
   const cancelScanJob = async () => {
     const cur = scanJobRef.current;
     if (!cur) return;
@@ -682,10 +704,7 @@ export default function App() {
         if (langAfterScan.current) { setFilter({ ...EMPTY_FILTER, lang: langAfterScan.current }); setView('issues'); }
         else setView('overview');
         if (res.task && res.task.reports && res.task.reports.files.length) toast(t('rs_written', { n: res.task.reports.files.length, folder: res.task.reports.folder }), 'ok', 9000);
-        if (res.task && res.task.dbError) {
-          const e = res.task.dbError;
-          showError(Object.assign(new Error(e.message), { code: e.code, text: e.text }), t('dbj_auto_failed'));
-        }
+        if (res.task && res.task.dbJobId) watchDbExport(res.task.dbJobId);
         const policy = res.analysis.defectAnalysis && res.analysis.defectAnalysis.policy;
         const gateBad = res.analysis.qualityGate.status !== 'OK';
         const policyBad = policy && policy.status === 'ERROR';
@@ -842,6 +861,8 @@ export default function App() {
     else if (id === 'undo' || id === 'redo') runHistory(id);
     else if (id === 'deleteProject') deleteProject();
     else if (id.startsWith('sampleFile:')) openSampleFile(id.slice(11));
+    else if (id === 'refresh') { const data = await reload(); if (data) toast(t('cm_refreshed'), 'ok'); }
+    else if (id.startsWith('openCode:')) { const rest = id.slice(9); const at = rest.indexOf(':'); openCode(rest.slice(at + 1), Number(rest.slice(0, at)) || 0); }
     else if (id.startsWith('sampleOpen:')) {
       setBusy(true);
       setMessage(t('analyzing'));
@@ -1219,10 +1240,10 @@ export default function App() {
             onBackground={(startBackground) => patchSettings({ startBackground })}
             onRecent={async (p) => { if (await save({ ...ws, activeProjectId: p.id })) setView('overview'); }} />}
           {view === 'overview' && <Overview analysis={analysis} project={project} onGo={onAction} />}
-          {view === 'issues' && <IssueBrowser issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} filter={filter} setFilter={setFilter} selected={selected} onSelect={(i) => { setSelected(i); if (i) revealRight(); }} checked={checked} setChecked={setChecked} onUpdate={onUpdate} onReview={onReview} approval={ws.settings.approval} onTicket={onTicket} project={project} branch={branch} />}
-          {view === 'hotspots' && <Hotspots issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} onUpdate={onUpdate} />}
+          {view === 'issues' && <IssueBrowser issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} filter={filter} setFilter={setFilter} selected={selected} onSelect={(i) => { setSelected(i); if (i) revealRight(); }} checked={checked} setChecked={setChecked} onUpdate={onUpdate} onReview={onReview} approval={ws.settings.approval} onTicket={onTicket} project={project} branch={branch} serverSearch={!desktop} onOpenCode={openCode} />}
+          {view === 'hotspots' && <Hotspots issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} onUpdate={onUpdate} onOpenCode={openCode} />}
           {view === 'measures' && <Measures analysis={analysis} />}
-          {view === 'code' && <CodeView analysis={analysis} file={codeFile} text={codeText} error={codeError} line={codeLine} onOpen={openCode} onPickIssue={jumpTo} />}
+          {view === 'code' && <CodeView analysis={analysis} file={codeFile} text={codeText} error={codeError} line={codeLine} onOpen={openCode} rules={allRules} onPickIssue={(i) => { setSelected(i); setView('issues'); revealRight(); }} />}
           {view === 'his' && <HisView project={project} stamp={stamp} onOpenAt={openCode} />}
           {view === 'arch' && <ArchView project={project} stamp={stamp} issues={(analysis && analysis.issues) || []} onOpenAt={openCode} />}
           {view === 'approvals' && <ApprovalsView project={project} stamp={stamp} onChanged={reload} />}
@@ -1249,7 +1270,7 @@ export default function App() {
           }} />}
           {view === 'portfolios' && <Portfolios portfolios={ws.portfolios || []} projects={ws.projects || []} onChange={(portfolios) => save({ ...ws, portfolios })} />}
           {view === 'tasks' && <Tasks tasks={ws.tasks || []} />}
-          {view === 'defects' && <DefectsView analysis={analysis} onUpdate={onUpdate} />}
+          {view === 'defects' && <DefectsView analysis={analysis} onUpdate={onUpdate} onOpenCode={openCode} />}
           {view === 'streams' && <StreamsView history={history} analysis={storedAnalysis} project={project} branch={branch} />}
           {view === 'components' && <ComponentsEditor components={(ws.defectAnalysis && ws.defectAnalysis.components) || []} onChange={(components) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, components } })} />}
           {view === 'policies' && <PoliciesEditor policies={(ws.defectAnalysis && ws.defectAnalysis.policies) || []} project={project} onChange={(policies) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, policies } }, { reanalyze: true })} onAssign={(policyId) => {
@@ -1315,7 +1336,7 @@ export default function App() {
                 onChange={(h) => setPanelsState((p) => ({ ...p, bottom: { ...p.bottom, h } }))} onCommit={(h) => setPanel('bottom', { h })} />}
               <BottomPanel tab={panels.bottom.tab} onTab={(tab) => setPanel('bottom', { tab })} folded={panels.bottom.folded} onFold={(v) => setPanel('bottom', { folded: v })}
                 onClose={() => setPanel('bottom', { on: false })} height={panels.bottom.h} analysis={analysis} task={lastTask} view={view} codeFile={codeFile}
-                busy={busy} message={message} jobs={jobs} messages={messages} onClearMessages={() => setMessages([])} onJump={jumpTo} />
+                busy={busy} message={message} jobs={jobs} messages={messages} onClearMessages={() => setMessages([])} onJump={jumpTo} onOpenCode={openCode} />
             </>
           )}
         </div>

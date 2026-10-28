@@ -28,7 +28,7 @@ function text(value) {
   return textOf(value);
 }
 
-export function DefectsView({ analysis, onUpdate }) {
+export function DefectsView({ analysis, onUpdate, onOpenCode }) {
   useLanguage();
   const [preset, setPreset] = useState('outstanding');
   const [q, setQ] = useState('');
@@ -118,7 +118,8 @@ export function DefectsView({ analysis, onUpdate }) {
               <thead><tr><th><span data-term="cid">CID</span></th><th><span data-term="impact">{t('cov_impact')}</span></th><th><span data-term="checker">{t('cov_checker')}</span></th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
               <tbody>
                 {shown.map((issue, idx) => (
-                  <tr key={`${issue.cid}-${issue.line}-${idx}`} data-tour="defect-row" className={`click ${selected && selected.cid === issue.cid ? 'sel' : ''}`} onClick={() => setCid(issue.cid)}>
+                  <tr key={`${issue.cid}-${issue.line}-${idx}`} data-tour="defect-row" className={`click ${selected && selected.cid === issue.cid ? 'sel' : ''}`} onClick={() => setCid(issue.cid)}
+                    title={t('ib_dblclick_code')} data-open-file={issue.file || undefined} data-open-line={issue.line || 0} onDoubleClick={() => { if (onOpenCode && issue.file) onOpenCode(issue.file, issue.line); }}>
                     <td className="mono">{issue.cid}</td>
                     <td className="nowrap"><span className={`impact-badge impact-${issue.impact}`}><Icon name={impactIcon(issue.impact)} size={12} />{impactLabel(issue.impact)}</span></td>
                     <td className="small">{issue.checker}<div>{issue.kind}</div></td>

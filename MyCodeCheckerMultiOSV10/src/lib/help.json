@@ -1068,8 +1068,8 @@
   "en": "Whether to save the issue list as well. Many issues make saving take longer."
  },
  "db_kind": {
-  "ko": "저장할 데이터베이스 종류(SQLite, PostgreSQL, MySQL·MariaDB, SQL Server)를 고릅니다.",
-  "en": "Chooses the database type: SQLite, PostgreSQL, MySQL/MariaDB or SQL Server."
+  "ko": "저장할 데이터베이스 종류(MySQL, SQLite3, MariaDB, PostgreSQL, MSSQL)를 고릅니다.",
+  "en": "Chooses the database type: MySQL, SQLite3, MariaDB, PostgreSQL or MSSQL."
  },
  "db_pick": {
   "ko": "폴더를 고르면 그 폴더의 mycodechecker.db 를 DB 파일 경로로 넣습니다.",
@@ -3140,8 +3140,8 @@
   "en": "Create and edit your own themes by picking the colors."
  },
  "st_tab_db": {
-  "ko": "분석 결과를 내보낼 데이터베이스(SQLite 등) 연결과 자동 내보내기를 설정합니다.",
-  "en": "Set the database (SQLite and others) connection and automatic export of analysis results."
+  "ko": "분석 결과를 저장할 데이터베이스(MySQL · SQLite3 · MariaDB · PostgreSQL · MSSQL) 연결을 설정하고 시험합니다. 켜 두면 분석마다 백그라운드로 저장합니다.",
+  "en": "Set up and test the database connection (MySQL, SQLite3, MariaDB, PostgreSQL, MSSQL). When on, each analysis is saved there in the background."
  },
  "st_tab_gate": {
   "ko": "분석이 통과·실패하는 기준인 품질 게이트 조건을 정합니다.",

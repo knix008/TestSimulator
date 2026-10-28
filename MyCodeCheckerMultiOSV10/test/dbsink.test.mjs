@@ -58,16 +58,31 @@ test('SQLite export creates tables and is idempotent', async () => {
   }
 });
 
-test('automatic export after a committed scan, and failures become task warnings', async () => {
+// The export runs after the analysis, in the background (db.exportJob).
+async function dbJobEnd(api, jobId) {
+  const t0 = Date.now();
+  for (;;) {
+    const j = await api.call('db.exportJob', { jobId });
+    if (j.status !== 'running') return j;
+    if (Date.now() - t0 > 30000) throw new Error('DB job still running');
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+test('with a database set up, results go there in the background after each analysis; failures become task warnings', async () => {
   const api = createApi({ configDir: tmp('mcc-dba-') });
   const file = path.join(tmp('mcc-dbf-'), 'auto.db');
-  await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file, autoExport: true } });
+  await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file } });
   const r = await api.call('project.scan', { path: path.resolve('samples/demo') });
+  assert.ok(r.task.dbJobId, 'the analysis does not wait for the database');
+  assert.equal((await dbJobEnd(api, r.task.dbJobId)).status, 'done');
+  assert.ok(api.store.load().tasks[0].db.analysisId, 'the outcome is added to the task');
   const d = new DatabaseSync(file);
   assert.equal(d.prepare('select count(*) c from mcc_analyses').get().c, 1);
   d.close();
   await api.call('db.save', { db: { kind: 'postgres', host: '127.0.0.1', port: 1, user: 'x', password: 'y' } });
-  await api.call('project.scan', { path: path.resolve('samples/demo') });
+  const r2 = await api.call('project.scan', { path: path.resolve('samples/demo') });
+  assert.equal((await dbJobEnd(api, r2.task.dbJobId)).status, 'failed');
   const task = api.store.load().tasks[0];
   assert.ok(task.warnings.some((w) => /^DB: /.test(w)), 'connection failure reported, scan still succeeds');
   assert.equal(task.status, 'SUCCESS');

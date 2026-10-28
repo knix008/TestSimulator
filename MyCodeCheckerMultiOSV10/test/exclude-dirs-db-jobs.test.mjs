@@ -125,10 +125,13 @@ test('db.exportStart runs as a job with progress; the time limit is a setting', 
 
 test('an automatic export failure after a scan is reported with a coded error', async () => {
   const api = createApi({ configDir: tmp('mcc-dbe-') });
-  await api.call('db.save', { db: { enabled: true, kind: 'postgres', host: '127.0.0.1', port: 1, user: 'x', password: 'y', autoExport: true } });
+  await api.call('db.save', { db: { enabled: true, kind: 'postgres', host: '127.0.0.1', port: 1, user: 'x', password: 'y' } });
   const r = await api.call('project.scan', { path: path.resolve('samples/demo') });
-  assert.equal(r.task.dbError.code, 'DB_CONNECT');
-  assert.ok(r.task.dbError.text.ko.includes('연결할 수 없습니다'));
+  for (let t0 = Date.now(); (await api.call('db.exportJob', { jobId: r.task.dbJobId })).status === 'running' && Date.now() - t0 < 30000;) await new Promise((res) => setTimeout(res, 50));
+  const job = await api.call('db.exportJob', { jobId: r.task.dbJobId });
+  assert.equal(job.error.code, 'DB_CONNECT');
+  assert.ok(job.error.text.ko.includes('연결할 수 없습니다'));
+  assert.equal(api.store.load().tasks[0].dbError.code, 'DB_CONNECT', 'kept on the task');
 });
 
 test('identical lines in one file get distinct issue keys; the first keeps its key', () => {

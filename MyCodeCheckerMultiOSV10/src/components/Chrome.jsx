@@ -29,6 +29,10 @@ const PATHS = {
   bug: <><path d="M8 9h8v4a4 4 0 0 1-8 0z" /><path d="M9 9V7a3 3 0 0 1 6 0v2M4 11h4M16 11h4M5 16l3-1M19 16l-3-1M12 17v4" /></>,
   chart: <path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-3" />,
   copy: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M4 16V4h12" /></>,
+  wrapText: <><path d="M4 6h16M4 12h13a3 3 0 0 1 0 6h-4" /><path d="M15 16l-2 2 2 2M4 18h5" /></>,
+  cut: <><circle cx="6" cy="18" r="3" /><circle cx="18" cy="18" r="3" /><path d="M8.1 15.9L20 4M15.9 15.9L4 4" /></>,
+  paste: <><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3" /></>,
+  selectAll: <><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3" /><path d="M8 9h8M8 12h8M8 15h5" /></>,
   check: <path d="M5 12l5 5L20 7" />,
   alert: <><path d="M12 3l10 18H2z" /><path d="M12 10v4M12 17h.01" /></>,
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
@@ -82,6 +86,8 @@ const PATHS = {
   smell: <path d="M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7" />,
   ban: <><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>,
   chevronsUp: <path d="M7 13l5-5 5 5M7 18l5-5 5 5" />,
+  chevronsLeft: <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" />,
+  chevronsRight: <path d="M13 17l5-5-5-5M6 17l5-5-5-5" />,
   chevronUp: <path d="M6 15l6-6 6 6" />,
   checkCircle: <><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" /></>,
   xCircle: <><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></>,
@@ -309,7 +315,6 @@ export function Toolbar({ onAction, busy, branch, branches, onBranch, view, pane
     <div className="icon-toolbar" role="toolbar" data-tour="toolbar">
       {tool('openFolder', 'folder', t('tb_open'), { tip: `${t('open_folder')} (Ctrl+O)` })}
       {tool('analyze', 'play', t('tb_analyze'), { primary: true, disabled: busy, tip: `${t('run_analysis')} (Ctrl+Enter)`, tour: 'tb-analyze' })}
-      {tool('desktop', 'eye', t('tb_desktop'), { disabled: busy, tip: t('cov_desktop') })}
       <span className="tb-sep" />
       {history && tool('undo', 'undo', t('tb_undo'), { disabled: !history.canUndo, tour: 'tb-undo', tip: history.canUndo ? `${t('hist_undo_named', { action: history.undoLabel })} (Ctrl+Z)` : t('hist_nothing_undo') })}
       {history && tool('redo', 'redo', t('tb_redo'), { disabled: !history.canRedo, tour: 'tb-redo', tip: history.canRedo ? `${t('hist_redo_named', { action: history.redoLabel })} (Ctrl+Y)` : t('hist_nothing_redo') })}

@@ -84,6 +84,21 @@ function freshWorkspace() {
 function createStore(configDir) {
   const dir = configDir || defaultConfigDir();
   const file = path.join(dir, 'workspace.json');
+  // Issue lists live in the local SQLite database issues.db (core/issuedb.js),
+  // opened on first use. Lists of older versions (issues/*.ndjson) are still
+  // read, and move into the database the next time they are saved.
+  let issueDb = null;
+  function idb() {
+    if (!issueDb) issueDb = require('./issuedb').open(path.join(dir, ISSUE_DB));
+    return issueDb;
+  }
+  // Lists this store read from or wrote to the database: name -> list, list -> name.
+  const dbLists = new Map();
+  const dbNameOf = new WeakMap();
+  function rememberDb(name, list) {
+    dbLists.set(name, list);
+    dbNameOf.set(list, name);
+  }
   function load() {
     let raw;
     try {
@@ -123,8 +138,13 @@ function createStore(configDir) {
     fs.mkdirSync(dir, { recursive: true });
     const next = data && data.version ? data : { ...load(), ...data };
     const kept = new Set();
-    const out = { ...next, projects: (next.projects || []).map((p) => splitIssues(p, kept)) };
+    const keptDb = new Set();
+    const out = { ...next, projects: (next.projects || []).map((p) => splitIssues(p, kept, keptDb)) };
     writeAtomic(file, jsonChunks(out));
+    if (issueDb || keptDb.size || fs.existsSync(path.join(dir, ISSUE_DB))) {
+      idb().keepOnly(keptDb);
+      for (const name of [...dbLists.keys()]) if (!keptDb.has(name)) dbLists.delete(name);
+    }
     // Issue files of removed projects and branches go.
     for (const name of safeList(path.join(dir, ISSUES))) {
       if (kept.has(`${ISSUES}/${name}`) || kept.has(`${ISSUES}/${name.replace(HEAD_SUFFIX, '.ndjson')}`)) continue;
@@ -135,28 +155,64 @@ function createStore(configDir) {
     return next;
   }
 
-  // The issue lists of analyses live in issues/*.ndjson, one issue per line,
-  // so a workspace never needs a string larger than one issue: a large
-  // project's analysis is more JSON than one JavaScript string can hold.
-  function splitIssues(project, kept) {
+  // The issue lists of analyses live in the database (issues.db), one list
+  // per analysis (and per snapshot), so a workspace never needs a string
+  // larger than one issue. listsOf names them; workspace.json keeps
+  // { $db: name, count } in their place.
+  const short = (text) => crypto.createHash('sha1').update(text).digest('hex').slice(0, 12);
+  function listsOf(project) {
     const stem = String(project.id).replace(/[^\w.-]/g, '_');
-    // A list already on disk (the same array this store read or wrote) is not
-    // written again: snapshots never change, and an analysis's issues only when
-    // touch() marked them (issue.update changes issues in place).
-    const ref = (issues, name, frozen) => {
-      const rel = `${ISSUES}/${stem}-${name}.ndjson`;
-      const full = path.join(dir, rel);
-      if (!(cached(full) === issues && (frozen || !touched.has(issues)))) {
-        touched.delete(issues);
-        fs.mkdirSync(path.join(dir, ISSUES), { recursive: true });
-        writeAtomic(full, issueLines(issues));
-        remember(full, issues);
-        writeHead(full, issues);
+    const out = [];
+    for (const [name, state] of Object.entries(project.branches || {})) {
+      if (!state) continue;
+      const bh = short(name);
+      if (state.latest) out.push({ owner: state.latest, name: `${stem}-${bh}`, frozen: false });
+      for (const s of state.snapshots || []) if (s) out.push({ owner: s, name: `${stem}-snap-${short(`${name}|${s.snapshot}|${s.at}`)}`, frozen: true });
+    }
+    if (project.desktop) out.push({ owner: project.desktop, name: `${stem}-desktop`, frozen: false });
+    return out;
+  }
+  // Whether a list must be (re)written under name: not stored there yet, or
+  // changed as a whole (touch). Single changed issues (changed) are rows.
+  function needsWrite(issues, name, frozen) {
+    if (dbNameOf.get(issues) !== name || !idb().has(name)) return true;
+    return !frozen && touched.has(issues);
+  }
+  function stored(issues, name) {
+    touched.delete(issues);
+    changedItems.delete(issues);
+    rememberDb(name, issues);
+  }
+  /**
+   * Writes the lists of a workspace that its next save would write, a piece at
+   * a time (an analysis of millions of issues takes minutes), so the service
+   * keeps answering; save() then only writes workspace.json.
+   */
+  async function prepareLists(ws, onProgress) {
+    for (const project of (ws && ws.projects) || []) {
+      for (const { owner, name, frozen } of listsOf(project)) {
+        if (pendingIssues(owner) || !Array.isArray(owner.issues) || !needsWrite(owner.issues, name, frozen)) continue;
+        await idb().writeAsync(name, owner.issues, onProgress);
+        stored(owner.issues, name);
       }
-      kept.add(rel);
-      return { $file: rel, count: issues.length };
+    }
+  }
+
+  function splitIssues(project, kept, keptDb) {
+    const stem = String(project.id).replace(/[^\w.-]/g, '_');
+    const names = new Map(listsOf(project).map((l) => [l.owner, l]));
+    const ref = (owner, issues) => {
+      const { name, frozen } = names.get(owner);
+      if (needsWrite(issues, name, frozen)) {
+        idb().write(name, issues);
+        stored(issues, name);
+      } else if (changedItems.has(issues)) {
+        idb().update(name, [...changedItems.get(issues)]);
+        changedItems.delete(issues);
+      }
+      keptDb.add(name);
+      return { $db: name, count: issues.length };
     };
-    const short = (text) => crypto.createHash('sha1').update(text).digest('hex').slice(0, 12);
     // New-code baselines (issue keys, CIDs, line hashes) of every analysis in
     // the history: megabytes each, never changed once made, so they live in
     // issues/*.json and are written once. An array already on disk (even under
@@ -196,12 +252,13 @@ function createStore(configDir) {
         if (Array.isArray(state.history)) next.history = state.history.map((h) => baselines(h, `${bh}-h${short(String(h && h.at))}`));
         const pendingLatest = state.latest && pendingIssues(state.latest);
         if (pendingLatest) next.latest = keepPending(next.latest, pendingLatest);
-        else if (state.latest && Array.isArray(state.latest.issues)) next.latest = { ...next.latest, issues: ref(state.latest.issues, bh) };
-        // Snapshots stay files until snapshot.compare / defect.lifecycle read them (issuesOf).
+        else if (state.latest && Array.isArray(state.latest.issues)) next.latest = { ...next.latest, issues: ref(state.latest, state.latest.issues) };
+        // Snapshots stay references until snapshot.compare / defect.lifecycle read them (issuesOf).
         if (Array.isArray(state.snapshots)) {
           next.snapshots = state.snapshots.map((s) => {
-            if (s && Array.isArray(s.issues)) return { ...s, issues: ref(s.issues, `snap-${short(`${name}|${s.snapshot}|${s.at}`)}`, true) };
+            if (s && Array.isArray(s.issues)) return { ...s, issues: ref(s, s.issues) };
             if (s && s.issues && typeof s.issues.$file === 'string') kept.add(`${ISSUES}/${path.basename(s.issues.$file)}`);
+            if (s && s.issues && typeof s.issues.$db === 'string') keptDb.add(s.issues.$db);
             return s;
           });
         }
@@ -213,12 +270,14 @@ function createStore(configDir) {
     const pendingDesktop = project.desktop && pendingIssues(project.desktop);
     if (pendingDesktop) out = { ...out, desktop: keepPending(out.desktop, pendingDesktop) };
     else if (project.desktop && Array.isArray(project.desktop.issues)) {
-      out = { ...out, desktop: { ...out.desktop, issues: ref(project.desktop.issues, 'desktop') } };
+      out = { ...out, desktop: { ...out.desktop, issues: ref(project.desktop, project.desktop.issues) } };
     }
+    void stem;
     return out;
-    // A list nobody read since the load is still its file: the reference is written as is.
+    // A list nobody read since the load is still where it was: the reference is written as is.
     function keepPending(a, pending) {
-      kept.add(`${ISSUES}/${path.basename(pending.$file)}`);
+      if (pending.$db) keptDb.add(pending.$db);
+      else kept.add(`${ISSUES}/${path.basename(pending.$file)}`);
       return Object.defineProperty(a, 'issues', { value: pending, writable: true, enumerable: true, configurable: true });
     }
   }
@@ -247,15 +306,18 @@ function createStore(configDir) {
   // A list already parsed (and unchanged on disk) is used at once.
   const LAZY = Symbol('pendingIssues');
   function lazyIssues(a, ref) {
-    if (!ref || Array.isArray(ref) || typeof ref.$file !== 'string') { a.issues = ref; return; }
-    const hit = cached(path.join(dir, ISSUES, path.basename(ref.$file)));
+    if (!isRef(ref)) { a.issues = ref; return; }
+    const hit = ref.$db ? dbLists.get(ref.$db) : cached(path.join(dir, ISSUES, path.basename(ref.$file)));
     if (hit) { a.issues = hit; return; }
     const settle = (obj, value) => Object.defineProperty(obj, 'issues', { value, writable: true, enumerable: true, configurable: true });
     const get = function get() { return settle(this, readIssues(ref)).issues; };
     get[LAZY] = ref;
     Object.defineProperty(a, 'issues', { get, set(value) { settle(this, value); }, enumerable: true, configurable: true });
   }
-  /** The { $file, count } of an analysis whose issue list was not read yet, else null. */
+  function isRef(ref) {
+    return !!ref && !Array.isArray(ref) && (typeof ref.$db === 'string' || typeof ref.$file === 'string');
+  }
+  /** The { $db | $file, count } of an analysis whose issue list was not read yet, else null. */
   function pendingIssues(a) {
     const d = a && typeof a === 'object' ? Object.getOwnPropertyDescriptor(a, 'issues') : null;
     return (d && d.get && d.get[LAZY]) || null;
@@ -292,13 +354,65 @@ function createStore(configDir) {
     heads.set(target, { meta, issues: head });
   }
   /**
+   * The database list of an analysis, written there first when it is not
+   * (an older version's file, read a piece at a time): its name, or null.
+   */
+  async function dbListOf(project, a, onProgress) {
+    const pending = pendingIssues(a);
+    if (pending && pending.$db) return idb().has(pending.$db) ? pending.$db : null;
+    const list = pending ? await loadIssues(a, onProgress) : a && a.issues;
+    if (!Array.isArray(list)) return null;
+    const known = dbNameOf.get(list);
+    if (known && idb().has(known)) return known;
+    const entry = listsOf(project).find((l) => l.owner === a);
+    if (!entry) return null;
+    await idb().writeAsync(entry.name, list);
+    stored(list, entry.name);
+    return entry.name;
+  }
+  /** A page of an analysis's issues from the database: { total, issues }. See issuedb.search. */
+  async function searchIssues(project, a, filter, page) {
+    const name = await dbListOf(project, a);
+    return name ? idb().search(name, filter, page) : { total: 0, issues: [] };
+  }
+  async function issueFacets(project, a, filter) {
+    const name = await dbListOf(project, a);
+    return name ? idb().facets(name, filter) : {};
+  }
+
+  /** Whether a pending list's head file is current (severityPage then reads only it). */
+  function headReady(a) {
+    const pending = pendingIssues(a);
+    if (pending && pending.$db) return idb().has(pending.$db) !== null;
+    if (!pending || (pending.count || 0) <= HEAD_SIZE) return false;
+    const full = path.join(dir, ISSUES, path.basename(pending.$file));
+    try {
+      const st = fs.statSync(full);
+      const known = heads.get(headFileOf(full));
+      if (known) return known.meta.mtimeMs === st.mtimeMs && known.meta.size === st.size;
+      const fd = fs.openSync(headFileOf(full), 'r');
+      const buf = Buffer.alloc(4096);
+      const n = fs.readSync(fd, buf, 0, buf.length, 0);
+      fs.closeSync(fd);
+      const meta = JSON.parse(buf.toString('utf8', 0, n).split('\n')[0]);
+      return meta.mtimeMs === st.mtimeMs && meta.size === st.size;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * The first `limit` issues (from `offset`) of an analysis in severity order,
    * with the list's total, when they are in its head: { total, issues } or null.
    * A list still pending is not read when its head file is current.
    */
   function severityPage(a, offset, limit) {
-    if (offset + limit > HEAD_SIZE) return null;
     const pending = pendingIssues(a);
+    if (pending && pending.$db && idb().has(pending.$db)) {
+      const page = idb().search(pending.$db, { hotspots: 'any' }, { offset, limit, sort: 'severity' });
+      return { total: pending.count || page.total, issues: page.issues };
+    }
+    if (offset + limit > HEAD_SIZE) return null;
     if (!pending) {
       const list = Array.isArray(a && a.issues) ? a.issues : [];
       const order = severityOrder(list);
@@ -380,6 +494,17 @@ function createStore(configDir) {
       changes.set(l, (changes.get(l) || 0) + 1);
     }
   }
+  // Issues changed in place one by one (issue.update): only their rows are
+  // written on the next save. A list touched as a whole is written again.
+  const changedItems = new WeakMap();
+  function changed(list, items) {
+    if (!Array.isArray(list)) return;
+    let set = changedItems.get(list);
+    if (!set) { set = new Set(); changedItems.set(list, set); }
+    for (const item of items || []) set.add(item);
+    changes.set(list, (changes.get(list) || 0) + 1);
+  }
+
   // How often a list was changed in place (touch): results computed from a
   // list (its measures) are reused while this stays the same.
   const changes = new WeakMap();
@@ -408,7 +533,14 @@ function createStore(configDir) {
 
   // An analysis's issue list from its { $file } reference (a list is returned as is).
   function readIssues(ref) {
-    if (Array.isArray(ref) || !ref || typeof ref.$file !== 'string') return ref;
+    if (!isRef(ref)) return ref;
+    if (ref.$db) {
+      const hit = dbLists.get(ref.$db);
+      if (hit) return hit;
+      const list = idb().read(ref.$db);
+      rememberDb(ref.$db, list);
+      return list;
+    }
     const full = path.join(dir, ISSUES, path.basename(ref.$file));
     const hit = cached(full);
     if (hit) return hit;
@@ -422,6 +554,70 @@ function createStore(configDir) {
     eachLine(full, (line) => out.push(JSON.parse(line)));
     cache.set(full, { mtimeMs: st.mtimeMs, size: st.size, issues: out });
     return out;
+  }
+
+  // readIssues without holding up the service: the file is parsed 8 MB at a
+  // time and other calls (progress polls, closing a tab) run in between; a
+  // list of millions of issues takes minutes. target: an analysis (its list,
+  // if still a file) or a { $file } reference. Two calls for one file share
+  // the work. onProgress(bytesDone, bytesTotal).
+  const loading = new Map();
+  async function loadIssues(target, onProgress) {
+    const ref = isRef(target) ? target : pendingIssues(target);
+    if (!ref) return target && Array.isArray(target.issues) ? target.issues : Array.isArray(target) ? target : [];
+    if (ref.$db) {
+      const settleDb = (list) => { if (target !== ref && pendingIssues(target)) target.issues = list; return list; };
+      const hit = dbLists.get(ref.$db);
+      if (hit) return settleDb(hit);
+      const key = `db:${ref.$db}`;
+      if (!loading.has(key)) {
+        loading.set(key, idb().readAsync(ref.$db, onProgress).then((list) => { rememberDb(ref.$db, list); return list; }).finally(() => loading.delete(key)));
+      }
+      return settleDb(await loading.get(key));
+    }
+    const full = path.join(dir, ISSUES, path.basename(ref.$file));
+    const settleOn = (list) => { if (target !== ref && pendingIssues(target)) target.issues = list; return list; };
+    const hit = cached(full);
+    if (hit) return settleOn(hit);
+    if (!loading.has(full)) {
+      loading.set(full, (async () => {
+        try {
+          const st = fs.statSync(full);
+          const out = [];
+          const fd = fs.openSync(full, 'r');
+          try {
+            const CHUNK = 8 * 1048576;
+            let rest = Buffer.alloc(0);
+            let done = 0;
+            for (;;) {
+              const chunk = Buffer.allocUnsafe(CHUNK);
+              const n = fs.readSync(fd, chunk, 0, CHUNK, null);
+              const buf = rest.length ? Buffer.concat([rest, chunk.subarray(0, n)]) : chunk.subarray(0, n);
+              let start = 0;
+              for (let end = buf.indexOf(10, start); end >= 0; end = buf.indexOf(10, start)) {
+                if (end > start) out.push(JSON.parse(buf.toString('utf8', start, end)));
+                start = end + 1;
+              }
+              rest = Buffer.from(buf.subarray(start));
+              done += n;
+              if (onProgress) { try { onProgress(done, st.size); } catch { /* progress is best effort */ } }
+              if (n === 0) break;
+              await new Promise((resolve) => setImmediate(resolve));
+            }
+            if (rest.length) out.push(JSON.parse(rest.toString('utf8')));
+          } finally {
+            fs.closeSync(fd);
+          }
+          cache.set(full, { mtimeMs: st.mtimeMs, size: st.size, issues: out });
+          return out;
+        } catch {
+          return [];
+        } finally {
+          loading.delete(full);
+        }
+      })());
+    }
+    return settleOn(await loading.get(full));
   }
 
   // The lines of a file, read 64 MB at a time: one read cannot pass 2 GB, and
@@ -449,16 +645,21 @@ function createStore(configDir) {
     }
   }
 
-  /** Copies the workspace (with its issue files) to another folder. */
+  /** Copies the workspace (with its issue lists) to another folder. */
   function copyTo(target) {
     fs.mkdirSync(path.join(target, ISSUES), { recursive: true });
     fs.copyFileSync(file, path.join(target, 'workspace.json'));
+    if (fs.existsSync(path.join(dir, ISSUE_DB))) {
+      idb().checkpoint();
+      fs.copyFileSync(path.join(dir, ISSUE_DB), path.join(target, ISSUE_DB));
+    }
     for (const name of safeList(path.join(dir, ISSUES))) fs.copyFileSync(path.join(dir, ISSUES, name), path.join(target, ISSUES, name));
   }
-  return { dir, file, load, save, copyTo, touch, issuesOf: readIssues, pendingIssues, issueCount, copyAnalysis, changesOf, severityPage, severityOrder };
+  return { dir, file, load, save, copyTo, touch, changed, prepareLists, searchIssues, issueFacets, issuesOf: readIssues, loadIssues, pendingIssues, issueCount, copyAnalysis, changesOf, severityPage, severityOrder, headReady };
 }
 
 const ISSUES = 'issues';
+const ISSUE_DB = 'issues.db';
 // Issues in the head file of a large list (see severityPage): what the window
 // shows of one analysis (src/lib/backend.js MAX_WINDOW_ISSUES).
 const HEAD_SIZE = 200000;

@@ -51,7 +51,7 @@ test('sameJson answers like comparing JSON.stringify texts', () => {
   assert.deepEqual(merge3({ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 1, y: 3 }), { x: 2, y: 3 });
 });
 
-test('issue lists and snapshots are stored apart and come back intact', () => {
+test('issue lists and snapshots are stored in the local database and come back intact', () => {
   const dir = tmp('store');
   const store = createStore(dir);
   const ws = store.load();
@@ -64,9 +64,10 @@ test('issue lists and snapshots are stored apart and come back intact', () => {
   const saved = JSON.parse(fs.readFileSync(store.file, 'utf8'));
   const main = saved.projects[0].branches.main;
   assert.equal(main.latest.issues.count, 500);
-  assert.match(main.latest.issues.$file, /^issues\/p1-\w+\.ndjson$/);
+  assert.match(main.latest.issues.$db, /^p1-\w+$/);
   assert.equal(main.snapshots[0].issues.count, 10);
-  assert.equal(fs.readdirSync(path.join(dir, 'issues')).length, 3);
+  assert.ok(fs.existsSync(path.join(dir, 'issues.db')));
+  assert.ok(!fs.existsSync(path.join(dir, 'issues')) || !fs.readdirSync(path.join(dir, 'issues')).some((n) => n.endsWith('.ndjson')), 'no list files');
 
   const back = createStore(dir).load();
   assert.deepEqual(back.projects[0].branches.main.latest.issues, issues);
@@ -76,27 +77,64 @@ test('issue lists and snapshots are stored apart and come back intact', () => {
   assert.equal(Array.isArray(snap.issues), false);
   assert.deepEqual(store.issuesOf(snap.issues), issues.slice(0, 10));
 
-  // Removing the project removes its files.
+  // Removing the project removes its lists.
   back.projects = [];
   store.save(back);
-  assert.deepEqual(fs.readdirSync(path.join(dir, 'issues')), []);
+  const { DatabaseSync } = require('node:sqlite');
+  const d = new DatabaseSync(path.join(dir, 'issues.db'));
+  assert.equal(d.prepare('select count(*) c from issue').get().c, 0);
+  assert.equal(d.prepare('select count(*) c from lists').get().c, 0);
+  d.close();
 });
 
-test('an issue changed in place is written on the next save once touched; untouched lists are not rewritten', () => {
-  const dir = tmp('inplace');
+test('lists of older versions (issues/*.ndjson) are read and move into the database on the next save', () => {
+  const dir = tmp('legacy');
+  fs.mkdirSync(path.join(dir, 'issues'), { recursive: true });
+  const issues = Array.from({ length: 30 }, (_, i) => issue(i));
+  fs.writeFileSync(path.join(dir, 'issues', 'p1-old.ndjson'), issues.map((i) => JSON.stringify(i)).join('\n') + '\n');
+  fs.writeFileSync(path.join(dir, 'workspace.json'), JSON.stringify({ version: 1, projects: [{ id: 'p1', name: 'p', branches: { main: { latest: { issues: { $file: 'issues/p1-old.ndjson', count: 30 } } } } }] }));
   const store = createStore(dir);
   const ws = store.load();
-  ws.projects.push({ id: 'p1', branches: { main: { latest: { issues: [issue(1), issue(2)] } } } });
+  assert.deepEqual(ws.projects[0].branches.main.latest.issues, issues);
   store.save(ws);
-  const a = store.load();
-  const file = path.join(dir, 'issues', fs.readdirSync(path.join(dir, 'issues'))[0]);
-  const before = fs.statSync(file).mtimeMs;
-  store.save(a);
-  assert.equal(fs.statSync(file).mtimeMs, before, 'unchanged list not written again');
-  a.projects[0].branches.main.latest.issues[1].status = 'RESOLVED';
-  store.touch(a.projects[0].branches.main.latest.issues);
-  store.save(a);
-  assert.equal(createStore(dir).load().projects[0].branches.main.latest.issues[1].status, 'RESOLVED');
+  const saved = JSON.parse(fs.readFileSync(store.file, 'utf8'));
+  assert.ok(saved.projects[0].branches.main.latest.issues.$db);
+  assert.ok(!fs.existsSync(path.join(dir, 'issues', 'p1-old.ndjson')), 'the old file goes');
+  assert.deepEqual(createStore(dir).load().projects[0].branches.main.latest.issues, issues);
+});
+test('an issue changed in place is written as one row; a list touched as a whole is written again', () => {
+  const dir = tmp('inplace');
+  // Count whole-list writes and row updates of the database.
+  const issuedb = require('../core/issuedb.js');
+  const open = issuedb.open;
+  const calls = { write: 0, update: 0 };
+  issuedb.open = (f) => {
+    const db = open(f);
+    return { ...db, write: (...x) => { calls.write++; return db.write(...x); }, update: (...x) => { calls.update++; return db.update(...x); } };
+  };
+  try {
+    const store = createStore(dir);
+    const ws = store.load();
+    ws.projects.push({ id: 'p1', branches: { main: { latest: { issues: [issue(1), issue(2)] } } } });
+    store.save(ws);
+    assert.deepEqual(calls, { write: 1, update: 0 });
+    const a = store.load();
+    store.save(a);
+    assert.deepEqual(calls, { write: 1, update: 0 }, 'unchanged list not written again');
+    const list = a.projects[0].branches.main.latest.issues;
+    list[1].status = 'RESOLVED';
+    store.changed(list, [list[1]]);
+    store.save(a);
+    assert.deepEqual(calls, { write: 1, update: 1 }, 'one row updated in place');
+    assert.equal(createStore(dir).load().projects[0].branches.main.latest.issues[1].status, 'RESOLVED');
+    list[0].status = 'CONFIRMED';
+    store.touch(list);
+    store.save(a);
+    assert.equal(calls.write, 2, 'written again');
+    assert.equal(createStore(dir).load().projects[0].branches.main.latest.issues[0].status, 'CONFIRMED');
+  } finally {
+    issuedb.open = open;
+  }
 });
 
 test('an unreadable workspace is moved aside, not overwritten', () => {
@@ -206,7 +244,7 @@ test('issue.update reaches the disk (the list is marked and written)', async () 
   assert.equal(fresh.projects[0].branches.main.latest.issues.find((i) => i.key === key).status, 'CONFIRMED');
 });
 
-test('an issue list is read only when used; the slim workspace and saves leave it a file', async () => {
+test('an issue list is read only when used; the slim workspace and saves leave it in the database', async () => {
   const dir = tmp('lazy');
   const first = createStore(dir);
   const ws = first.load();
@@ -216,63 +254,81 @@ test('an issue list is read only when used; the slim workspace and saves leave i
 
   // A fresh process: nothing read yet.
   const store = createStore(dir);
-  const opened = [];
-  const open = fs.openSync;
-  fs.openSync = function (p, ...rest) { if (String(p).endsWith('.ndjson')) opened.push(path.basename(String(p))); return open.call(this, p, ...rest); };
-  try {
-    const back = store.load();
-    const latest = back.projects[0].branches.main.latest;
-    assert.ok(store.pendingIssues(latest));
-    assert.equal(store.issueCount(latest), 300);
-    store.save(back); // keeps the file, does not read it
-    assert.deepEqual(opened, []);
-    const api = createApi({ configDir: dir });
-    const slim = await api.call('workspace.load', { slim: true });
-    assert.equal(slim.projects[0].branches.main.latest.issueCount, 300);
-    assert.equal(slim.projects[0].branches.main.history[0].cids, undefined, 'history CIDs stay in the service');
-    assert.equal(slim.projects[0].branches.main.history[0].cidCount, 3);
-    assert.deepEqual(opened, []);
-    // Reading it gives the list.
-    assert.deepEqual(store.load().projects[0].branches.main.latest.issues, issues);
-    assert.equal(opened.length, 1);
-  } finally {
-    fs.openSync = open;
-  }
-  assert.equal(fs.readdirSync(path.join(dir, 'issues')).filter((n) => n.endsWith('.ndjson')).length, 1);
+  const back = store.load();
+  const latest = back.projects[0].branches.main.latest;
+  assert.ok(store.pendingIssues(latest));
+  assert.equal(store.issueCount(latest), 300);
+  store.save(back); // keeps the list, does not read it
+  assert.ok(store.pendingIssues(latest));
+  const api = createApi({ configDir: dir });
+  const slim = await api.call('workspace.load', { slim: true });
+  assert.equal(slim.projects[0].branches.main.latest.issueCount, 300);
+  assert.equal(slim.projects[0].branches.main.history[0].cids, undefined, 'history CIDs stay in the service');
+  assert.equal(slim.projects[0].branches.main.history[0].cidCount, 3);
+  assert.equal(createStore(dir).load().projects[0].branches.main.latest.issues.length, 300);
+  // Reading it gives the list.
+  assert.deepEqual(store.load().projects[0].branches.main.latest.issues, issues);
 });
-
-test('the window gets the most severe issues of a huge list from its head file, without reading the list', async () => {
+test('the window pages a list by severity from the database, without reading the whole list', async () => {
   const dir = tmp('head');
   const sev = ['INFO', 'MINOR', 'MAJOR', 'CRITICAL', 'BLOCKER'];
-  const issues = Array.from({ length: 200500 }, (_, i) => ({ key: `k${i}`, rule: 'r', severity: sev[i % 5], line: i }));
+  const issues = Array.from({ length: 5000 }, (_, i) => ({ key: `k${i}`, rule: 'r', severity: sev[i % 5], line: i }));
   const store = createStore(dir);
   const ws = store.load();
   ws.projects.push({ id: 'p1', name: 'p', branches: { main: { latest: { issues } } } });
   store.save(ws);
-  const names = fs.readdirSync(path.join(dir, 'issues'));
-  assert.ok(names.some((n) => n.endsWith('.head.ndjson')), 'the head is written with the list');
 
   const api = createApi({ configDir: dir });
-  const opened = [];
-  const open = fs.openSync;
-  fs.openSync = function (p, ...rest) { if (String(p).endsWith('.ndjson')) opened.push(path.basename(String(p))); return open.call(this, p, ...rest); };
-  let page;
-  try {
-    page = await api.call('project.issues', { projectId: 'p1', branch: 'main', offset: 0, limit: 5, order: 'severity' });
-  } finally {
-    fs.openSync = open;
-  }
-  assert.ok(opened.length > 0 && opened.every((n) => n.endsWith('.head.ndjson')), opened.join(','));
-  assert.equal(page.total, 200500);
+  const page = await api.call('project.issues', { projectId: 'p1', branch: 'main', offset: 0, limit: 5, order: 'severity' });
+  assert.equal(page.total, 5000);
   assert.deepEqual(page.issues.map((i) => i.key), ['k4', 'k9', 'k14', 'k19', 'k24']); // BLOCKER first, in list order
-  // Past the head the whole list is used, in the same order.
-  const late = await api.call('project.issues', { projectId: 'p1', branch: 'main', offset: 199999, limit: 3, order: 'severity' });
-  assert.equal(late.issues.length, 3);
-  // Saving again (nothing changed) keeps the head.
-  store.save(store.load());
-  assert.ok(fs.readdirSync(path.join(dir, 'issues')).some((n) => n.endsWith('.head.ndjson')));
+  assert.ok(api.store.pendingIssues(api.store.load().projects[0].branches.main.latest), 'the list was not read');
+  const late = await api.call('project.issues', { projectId: 'p1', branch: 'main', offset: 4998, limit: 5, order: 'severity' });
+  assert.deepEqual(late.issues.map((i) => i.key), ['k4990', 'k4995'], 'the end of the order: the last INFO issues');
 });
 
+test('issue.search finds issues in the whole analysis: words, filters, sort, pages and counts', async () => {
+  const dir = tmp('search');
+  const store = createStore(dir);
+  const ws = store.load();
+  const sev = ['INFO', 'MINOR', 'MAJOR', 'CRITICAL', 'BLOCKER'];
+  const issues = Array.from({ length: 3000 }, (_, i) => ({
+    key: `k${i}`, rule: `c:R${i % 7}`, type: i % 10 === 0 ? 'SECURITY_HOTSPOT' : i % 3 ? 'CODE_SMELL' : 'BUG', severity: sev[i % 5], status: i % 11 ? 'OPEN' : 'CONFIRMED',
+    file: `src/m${i % 4}/f${i % 9}.${i % 2 ? 'c' : 'java'}`, line: i, isNew: i % 6 === 0, engine: i % 5 ? undefined : 'taint',
+    message: { en: `Buffer buf${i % 13} overflows`, ko: `버퍼 buf${i % 13} 넘침` }, standards: i % 8 ? undefined : { misraC2012: ['17.3'] },
+  }));
+  ws.projects.push({ id: 'p1', name: 'p', branches: { main: { latest: { issues } } } });
+  store.save(ws);
+  const api = createApi({ configDir: dir });
+  const want = (pred) => issues.filter((i) => i.type !== 'SECURITY_HOTSPOT' && pred(i));
+  const run = (filter, extra = {}) => api.call('issue.search', { projectId: 'p1', branch: 'main', filter, ...extra });
+
+  const words = await run({ q: 'BUF7 overflows' }, { limit: 10, facets: true });
+  assert.equal(words.total, want((i) => /buf7 /i.test(i.message.en)).length, 'words in any case, hotspots left out');
+  assert.equal(words.issues.length, 10);
+  assert.ok(words.issues.every((i) => i.message.en.includes('buf7 ')));
+  assert.equal(Object.values(words.facets.severity).reduce((a, b) => a + b, 0), words.total);
+  assert.equal((await run({ q: '넘침 buf12' })).total, want((i) => i.message.ko.includes('buf12 ')).length, 'Korean text');
+  assert.equal((await run({ q: 'm2/' })).total, want((i) => i.file.includes('m2/')).length, 'part of a path');
+  assert.equal((await run({ severity: 'BLOCKER', status: 'CONFIRMED' })).total, want((i) => i.severity === 'BLOCKER' && i.status === 'CONFIRMED').length);
+  assert.equal((await run({ newOnly: true, engine: 'taint' })).total, want((i) => i.isNew && i.engine === 'taint').length);
+  assert.equal((await run({ lang: ['.java'] })).total, want((i) => i.file.endsWith('.java')).length);
+  assert.equal((await run({ standard: 'misraC' })).total, want((i) => !!i.standards).length);
+  assert.equal((await run({ hotspots: true })).total, issues.filter((i) => i.type === 'SECURITY_HOTSPOT').length);
+  assert.equal((await run({ rules: ['c:R3'] })).total, issues.filter((i) => i.rule === 'c:R3').length, 'a drill-down includes hotspots');
+  // Sort and pages: the pages together are the whole result in order.
+  const all = [];
+  for (let offset = 0; ; offset += 700) {
+    const r = await run({ type: 'BUG' }, { offset, limit: 700, sort: 'file' });
+    all.push(...r.issues);
+    if (offset + 700 >= r.total) break;
+  }
+  const bugs = want((i) => i.type === 'BUG').sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  assert.deepEqual(all.map((i) => i.key), bugs.map((i) => i.key));
+  // A triage change is found by the next search.
+  await api.call('issue.update', { projectId: 'p1', keys: ['k1'], patch: { status: 'CONFIRMED' } });
+  assert.ok((await run({ status: 'CONFIRMED' })).issues.some((i) => i.key === 'k1'));
+});
 test('heavy read results are reused until the project changes, not when only window settings do', async () => {
   const dir = tmp('readcache');
   const src = sampleProject(path.join(dir, 'src'));
@@ -287,4 +343,30 @@ test('heavy read results are reused until the project changes, not when only win
   const b = await api.call('arch.graph', { projectId });
   await api.call('settings.patch', { patch: { exclusions: ['**/x/**'] } });
   assert.notEqual(await api.call('arch.graph', { projectId }), b, 'analysis settings do');
+});
+
+test('a large issue list is read a piece at a time, so other work runs meanwhile', async () => {
+  const dir = tmp('async');
+  const first = createStore(dir);
+  const ws = first.load();
+  const pad = 'x'.repeat(400);
+  const issues = Array.from({ length: 60000 }, (_, i) => ({ key: `k${i}`, rule: 'r', severity: 'MAJOR', line: i, message: { en: pad, ko: pad } }));
+  ws.projects.push({ id: 'p1', name: 'p', branches: { main: { latest: { issues } } } });
+  first.save(ws);
+
+  const store = createStore(dir);
+  const latest = store.load().projects[0].branches.main.latest;
+  assert.ok(store.pendingIssues(latest));
+  let ticks = 0;
+  const timer = setInterval(() => { ticks++; }, 0);
+  const progress = [];
+  const [a, b] = await Promise.all([store.loadIssues(latest, (done, total) => progress.push([done, total])), store.loadIssues(latest)]);
+  clearInterval(timer);
+  assert.equal(a, b, 'two readers share one parse');
+  assert.equal(a.length, 60000);
+  assert.deepEqual(a[59999], issues[59999]);
+  assert.ok(progress.length > 2 && progress.at(-1)[0] === progress.at(-1)[1], 'progress up to the whole file');
+  assert.ok(ticks > 0, 'timers ran while the file was read');
+  assert.equal(store.pendingIssues(latest), null);
+  assert.equal(store.load().projects[0].branches.main.latest.issues, a, 'later loads use the parsed list');
 });

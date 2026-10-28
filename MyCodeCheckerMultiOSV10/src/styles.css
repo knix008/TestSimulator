@@ -67,6 +67,9 @@ button:disabled { opacity: 0.45; cursor: default; }
 .menu-item { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 10px; border-radius: 4px; }
 .menu-item:hover { background: var(--bg-sel); }
 .menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+.ctx-menu { z-index: 9500; min-width: 200px; }
+.ctx-menu .menu-item:disabled { opacity: .45; cursor: default; }
+.ctx-menu .menu-keys { margin-left: auto; padding-left: 18px; color: var(--fg-muted); font-size: 11px; }
 
 .icon-toolbar { display: flex; align-items: center; gap: 2px; padding: 3px 8px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
 .tool-btn { background: none; border: 1px solid transparent; padding: 4px; border-radius: 4px; color: var(--fg); display: inline-flex; }
@@ -128,6 +131,14 @@ tr.sel { background: var(--bg-sel); }
 .filetree button.on { background: var(--bg-sel); }
 .codepane { flex: 1; overflow: auto; font-family: var(--mono); font-size: 12px; }
 .codepane .row { display: flex; }
+/* The source as written: its spaces and tabs keep the indentation (a tab is 4
+   columns); long lines scroll sideways unless word wrap is on. */
+.codepane .row .src { flex: 1; min-width: 0; white-space: pre; tab-size: 4; -moz-tab-size: 4; }
+.codepane.wrap .row .src { white-space: pre-wrap; overflow-wrap: anywhere; }
+.codepane:not(.wrap) .row { width: max-content; min-width: 100%; }
+.code-toolbar { position: sticky; top: 0; left: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--bg-elev); font-family: var(--font, inherit); }
+.code-toolbar .spacer { flex: 1; }
+.code-toolbar-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .codepane .row.mark { background: color-mix(in srgb, var(--folder) 22%, transparent); }
 .codepane .ln { width: 48px; color: var(--fg-muted); text-align: right; padding-right: 10px; flex: none; user-select: none; }
 .code-wrap { display: flex; min-height: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg-elev); }
@@ -313,6 +324,7 @@ td.mono, .mono { font-family: var(--mono); font-size: 11.5px; }
 [data-term]:not([data-term='']), [data-tip-text] { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); text-underline-offset: 3px; cursor: help; }
 .term-tip { position: fixed; z-index: 9000; max-width: 340px; display: grid; gap: 4px; padding: 9px 12px; border-radius: 8px; background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong, var(--border)); box-shadow: var(--shadow); font-size: 12.5px; line-height: 1.45; pointer-events: none; }
 .term-tip strong { font-size: 13px; }
+.term-tip > span { white-space: pre-line; }
 
 /* Glossary of a view's terms */
 .glossary { margin: 8px 0 12px; padding: 0; }
@@ -343,6 +355,19 @@ td.mono, .mono { font-family: var(--mono); font-size: 11.5px; }
 .xd-chosen .chips { max-height: 84px; overflow: auto; }
 .chip-x { display: inline-flex; background: none; border: 0; padding: 0 0 0 2px; color: inherit; cursor: pointer; }
 .row-window-more { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px 12px; color: var(--fg-muted); }
+/* Pager: every part (range, note, buttons, page number, "/ n", page size) is
+   one control high and centred on the same line. */
+.row-pager { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; min-height: calc(var(--ctl-h) + 12px); padding: 6px 10px; box-sizing: border-box; border-top: 1px solid var(--border); background: var(--bg-elev); color: var(--fg-muted); }
+.row-pager > *, .row-pager-nav > * { flex: none; align-self: center; }
+.row-pager .spacer { flex: 1; }
+.row-pager > .small, .row-pager-nav > .small { display: inline-flex; align-items: center; height: var(--ctl-h); line-height: 1; white-space: nowrap; }
+.row-pager-note { opacity: .8; }
+.row-pager-nav { display: inline-flex; align-items: center; gap: 4px; height: var(--ctl-h); }
+.row-pager-nav .icon-btn { box-sizing: border-box; width: var(--ctl-h); height: var(--ctl-h); margin: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.row-pager .iselect { box-sizing: border-box; height: var(--ctl-h); margin: 0; }
+/* The page number sits centred in its box: no spin buttons taking room on the right. */
+.row-pager-page { box-sizing: border-box; width: 64px; height: var(--ctl-h); margin: 0; padding: 0 6px; line-height: calc(var(--ctl-h) - 2px); text-align: center; vertical-align: middle; font-variant-numeric: tabular-nums; appearance: textfield; -moz-appearance: textfield; }
+.row-pager-page::-webkit-inner-spin-button, .row-pager-page::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .card .v.bad { color: var(--danger); }
 .card .v.ok { color: var(--ok); }
 .card .v { overflow-wrap: anywhere; }
@@ -806,6 +831,16 @@ svg.arch-graph:active { cursor: grabbing; }
 .arch-row { align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .arch-row > input { flex: 1 1 140px; }
 .codepane .row.goto { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.codepane .row { cursor: pointer; }
+.codepane .row.picked { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.line-issues { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
+.line-issue { display: grid; gap: 5px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.line-issue.on { border-color: var(--accent); }
+.line-issue-msg { font-weight: 600; }
+.line-issue-h { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12px; }
+.line-issue-h svg { color: var(--accent); }
+.line-issue p { margin: 0; }
+.line-issues-hint { margin-top: 10px; }
 
 /* ── Start page: MyHeatManager's start.css on our tokens ─────────────── */
 .main.start-mode { padding: 0; overflow: hidden; position: relative; }
@@ -908,6 +943,7 @@ svg.arch-graph:active { cursor: grabbing; }
 .tp-builtins { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .tp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 4px; }
 .tp-custom-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tp-cols.tp-down { grid-auto-flow: column; }
 .tp-none { padding: 2px 4px; }
 .tp-entry { display: flex; align-items: center; gap: 6px; height: 21px; padding: 0 5px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--fg); font-size: 11.5px; text-align: left; min-width: 0; cursor: pointer; }
 .tp-entry:hover { background: var(--bg-hover); }

@@ -192,7 +192,7 @@
 
 ## 4. 작업 공간 저장 (`core/store.js`)
 
-모든 상태는 JSON 파일 하나 `workspace.json` 입니다. 위치는 `--config`, `MCC_USER_DATA`, 그다음 OS 기본값(Windows `%APPDATA%\MyCodeChecker`, macOS `~/Library/Application Support/MyCodeChecker`, Linux `$XDG_CONFIG_HOME/MyCodeChecker`). `load()` 는 파일이 없거나 깨졌으면 `freshWorkspace()` 를 주고, 읽은 데이터를 먼저 `migrateWorkspace`(`core/compat/migrate.js`)로 지금 형식으로 올린 뒤 저장된 값 위에 새 기본값을 합칩니다(설정 · 정밀 결함 분석 구역). 오래 걸리는 분석의 저장은 `core/merge.js` 의 3방향 병합을 거칩니다(2절). AI 수정의 되돌리기 자료는 같은 폴더의 `aifix-undo/` 에 따로 둡니다.
+모든 상태는 JSON 파일 하나 `workspace.json` 이고, 분석의 이슈 목록만 같은 폴더의 SQLite 데이터베이스 `issues.db`(`core/issuedb.js`: 검색 · 정렬 · 집계용 좁은 행 `issue` 와 이슈 JSON `body` 를 따로)에 둡니다. `workspace.json` 에는 그 자리에 `{ $db, count }` 가 남고, 목록은 실제로 읽을 때까지 읽지 않습니다(`store.pendingIssues`). 이슈 하나를 바꾸면 그 행만(`store.changed`), 새 분석은 저장 전에 조금씩 나눠(`store.prepareLists`) 씁니다. 이슈 화면의 검색은 `issue.search`(필터 · 낱말 · 정렬 · 페이지 · 건수)로 데이터베이스에서 합니다. 위치는 `--config`, `MCC_USER_DATA`, 그다음 OS 기본값(Windows `%APPDATA%\MyCodeChecker`, macOS `~/Library/Application Support/MyCodeChecker`, Linux `$XDG_CONFIG_HOME/MyCodeChecker`). `load()` 는 파일이 없거나 깨졌으면 `freshWorkspace()` 를 주고, 읽은 데이터를 먼저 `migrateWorkspace`(`core/compat/migrate.js`)로 지금 형식으로 올린 뒤 저장된 값 위에 새 기본값을 합칩니다(설정 · 정밀 결함 분석 구역). 오래 걸리는 분석의 저장은 `core/merge.js` 의 3방향 병합을 거칩니다(2절). AI 수정의 되돌리기 자료는 같은 폴더의 `aifix-undo/` 에 따로 둡니다.
 
 | 구역 | 내용 |
 |---|---|
