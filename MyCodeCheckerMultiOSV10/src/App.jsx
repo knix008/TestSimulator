@@ -9,6 +9,7 @@ import {
   SEV, TYPE_ICON, SEV_ICON,
 } from './views/Panels';
 import { DefectsView, StreamsView, ComponentsEditor, PoliciesEditor, ModelsEditor } from './views/DefectAnalysis';
+import { ProjectSettings } from './views/ProjectSettings';
 import { ComplianceView, MisraView } from './views/Compliance';
 import { ReportsView } from './views/Reports';
 import { ScaView } from './views/Sca';
@@ -1110,6 +1111,7 @@ export default function App() {
       { sep: true },
       { id: 'openFolder', label: t('open_folder'), icon: 'folder', keys: 'Ctrl+O' },
       { id: 'openSample', label: t('open_sample'), icon: 'play' },
+      { id: 'view:projectSettings', label: t('ps_menu'), icon: 'settings', disabled: !project },
       { id: 'excludeDirs', label: t('xd_menu'), icon: 'filter', disabled: !project },
       { id: 'resetAnalysis', label: t('ra_menu'), icon: 'refresh', disabled: !project || busy },
       { sep: true },
@@ -1285,6 +1287,7 @@ export default function App() {
           {view === 'snapshots' && <HistoryView project={project} branch={branch} stamp={stamp} />}
           {view === 'pullrequest' && <PullRequestView project={project} branch={branch} stamp={stamp} />}
           {view === 'dast' && <DastView />}
+          {view === 'projectSettings' && <ProjectSettings ws={ws} project={project} analysis={storedAnalysis} busy={busy} onSave={persist} />}
           {view === 'admin' && <AdminView ws={ws} project={project} branch={branch} onSaveWorkspace={persist} onWorkspaceChanged={reload} initialTab={adminTab} onDeleteProject={deleteProject} />}
           {view === 'models' && <ModelsEditor models={(ws.defectAnalysis && ws.defectAnalysis.models) || []} onChange={(models) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, models } })} />}
     </>

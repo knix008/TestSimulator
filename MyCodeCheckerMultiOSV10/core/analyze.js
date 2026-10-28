@@ -874,15 +874,7 @@ function excluded(rel, patterns) {
 }
 
 function matchGlob(rel, pattern) {
-  let p = String(pattern || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!p) return false;
-  const body = p.split('**').map((part) => part.split('*').map(escapeReg).join('[^/]*')).join('.*');
-  const re = new RegExp(`(?:^|/)${body}$`, 'i');
-  return re.test(rel);
-}
-
-function escapeReg(s) {
-  return s.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  return require('./platform/util').glob(rel, pattern);
 }
 
 let rulesCache = null;

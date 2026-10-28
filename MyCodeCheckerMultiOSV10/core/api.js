@@ -897,7 +897,9 @@ function createApi(opts = {}) {
       const offset = Math.max(0, Number(args.offset) || 0);
       const limit = Math.min(5000, Math.max(1, Number(args.limit) || 500));
       const page = await store.searchIssues(project, a, filter, { offset, limit, sort: args.sort || 'severity' });
-      return { total: page.total, offset, issues: page.issues, facets: args.facets ? await store.issueFacets(project, a, filter) : undefined };
+      // facets: true (all) or the names wanted, e.g. ['type', 'engine'].
+      const which = Array.isArray(args.facets) ? args.facets : undefined;
+      return { total: page.total, offset, issues: page.issues, facets: args.facets ? await store.issueFacets(project, a, filter, which) : undefined };
     },
     'settings.patch': (args, who) => {
       const stored = workspace();
@@ -1360,7 +1362,7 @@ function createApi(opts = {}) {
   // snapshots) and the workspace sections analyses depend on, but not the
   // window's own settings (open tabs, panels, theme …), which change all the
   // time. { fresh: true } (a view's Refresh) computes again.
-  const CACHED = /^(arch\.graph|metrics\.his|sca\.scan|compliance\.report|misra\.(plan|compliance)|activity\.(trend|events)|issue\.age|defect\.(lifecycle|streamDiff)|snapshot\.(list|compare)|report\.(kinds|export))$/;
+  const CACHED = /^(arch\.graph|metrics\.his|sca\.scan|compliance\.report|misra\.(plan|compliance)|activity\.(trend|events)|issue\.(age|search)|defect\.(lifecycle|streamDiff)|snapshot\.(list|compare)|report\.(kinds|export))$/;
   const READ_CACHE_SIZE = 64;
   const WINDOW_SETTINGS = new Set(['theme', 'language', 'customThemes', 'startBackground', 'panels', 'tabs', 'tutorial', 'installLanguage', 'showStartOnLaunch']);
   const readCache = new Map();

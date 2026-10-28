@@ -40,13 +40,38 @@ function normPath(p) {
   return String(p || '').replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '');
 }
 
-/** Glob match with `*` (one segment) and `**` (any depth). Case-insensitive, matches a suffix of the path. */
+// The regular expression of a glob pattern: `*` is any text within one folder
+// name, `?` one character, `**` any depth. `**/` also matches no folder at
+// all and a final `/**` everything inside, so **/dup/** matches dup/a.js at
+// the root as well. Case-insensitive; the pattern matches a whole path or its
+// end after a /.
+const globCache = new Map();
+function globRegExp(pattern) {
+  const p = normPath(pattern);
+  let re = globCache.get(p);
+  if (!re) {
+    let body = '';
+    for (let i = 0; i < p.length;) {
+      if (p.startsWith('**/', i)) { body += '(?:.*/)?'; i += 3; }
+      else if (p.startsWith('/**', i) && i + 3 === p.length) { body += '(?:/.*)?'; i += 3; }
+      else if (p.startsWith('**', i)) { body += '.*'; i += 2; }
+      else if (p[i] === '*') { body += '[^/]*'; i += 1; }
+      else if (p[i] === '?') { body += '[^/]'; i += 1; }
+      else { body += p[i].replace(/[.+^${}()|[\]\\]/g, '\\$&'); i += 1; }
+    }
+    re = new RegExp(`(?:^|/)${body}$`, 'i');
+    if (globCache.size > 2000) globCache.clear();
+    globCache.set(p, re);
+  }
+  return re;
+}
+
+/** Glob match with `*` (one segment), `?` and `**` (any depth, including none). Case-insensitive, matches a suffix of the path. */
 function glob(rel, pattern) {
   const p = normPath(pattern);
   if (!p) return false;
   if (p === '**' || p === '*') return true;
-  const body = p.split('**').map((part) => part.split('*').map((s) => s.replace(/[.+^${}()|[\]\\?]/g, '\\$&')).join('[^/]*')).join('.*');
-  return new RegExp(`(?:^|/)${body}$`, 'i').test(normPath(rel));
+  return globRegExp(p).test(normPath(rel));
 }
 
 /** Map catalog rules by key. Accepts an array or a Map. */
@@ -104,5 +129,6 @@ function ratingFromWorst(issues) {
 }
 
 module.exports = {
+  globRegExp,
   text, esc, csvCell, toCsvRows, isClosed, normPath, glob, ruleIndex, cweNumber, cwesOf, countBy, SEV_ORDER, ratingFromWorst,
 };

@@ -75,6 +75,7 @@ CREATE INDEX IF NOT EXISTS issue_seq ON issue(list, seq);
 CREATE INDEX IF NOT EXISTS issue_sev ON issue(list, sev, seq);
 CREATE INDEX IF NOT EXISTS issue_key ON issue(list, key);
 CREATE INDEX IF NOT EXISTS issue_rule ON issue(list, rule, sev, seq);
+CREATE INDEX IF NOT EXISTS issue_type ON issue(list, type, sev, seq);
 CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
 
   const st = {
@@ -266,8 +267,11 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
     return { total, issues: rows.map((r) => JSON.parse(r.data)) };
   }
 
-  /** Counts per severity, type, status, engine and the top rules and folders of a filter. */
-  function facets(name, filter = {}) {
+  /**
+   * Counts of a filter's result per severity, type, status, engine and the
+   * top rules. which: the ones wanted (each is one pass over the result).
+   */
+  function facets(name, filter = {}, which = ['severity', 'type', 'status', 'engine', 'rules']) {
     const l = listOf(name);
     if (!l) return {};
     const out = {};
@@ -277,12 +281,13 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
       const w = where(l.id, f);
       return db.prepare(`SELECT ${col} AS v, count(*) AS c FROM issue i WHERE ${w.sql} GROUP BY v ORDER BY c DESC${limit ? ` LIMIT ${limit}` : ''}`).all(...w.args);
     };
+    const want = new Set(which);
     const sevName = Object.fromEntries(Object.entries(SEV_RANK).map(([k, v]) => [v, k]));
-    out.severity = Object.fromEntries(by('i.sev', 'severity').map((r) => [sevName[r.v] || 'UNKNOWN', r.c]));
-    out.type = Object.fromEntries(by('i.type', 'type').map((r) => [r.v, r.c]));
-    out.status = Object.fromEntries(by('i.status', 'status').map((r) => [r.v, r.c]));
-    out.engine = Object.fromEntries(by('i.engine', 'engine').map((r) => [r.v, r.c]));
-    out.rules = by('i.rule', 'rule', 15).map((r) => ({ rule: r.v, count: r.c }));
+    if (want.has('severity')) out.severity = Object.fromEntries(by('i.sev', 'severity').map((r) => [sevName[r.v] || 'UNKNOWN', r.c]));
+    if (want.has('type')) out.type = Object.fromEntries(by('i.type', 'type').map((r) => [r.v, r.c]));
+    if (want.has('status')) out.status = Object.fromEntries(by('i.status', 'status').map((r) => [r.v, r.c]));
+    if (want.has('engine')) out.engine = Object.fromEntries(by('i.engine', 'engine').map((r) => [r.v, r.c]));
+    if (want.has('rules')) out.rules = by('i.rule', 'rule', 15).map((r) => ({ rule: r.v, count: r.c }));
     return out;
   }
 

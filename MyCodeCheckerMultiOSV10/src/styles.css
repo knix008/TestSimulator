@@ -68,6 +68,20 @@ button:disabled { opacity: 0.45; cursor: default; }
 .menu-item:hover { background: var(--bg-sel); }
 .menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
 .ctx-menu { z-index: 9500; min-width: 200px; }
+/* Project settings: sections in two columns that scroll, the actions below them. */
+.project-settings { display: flex; flex-direction: column; min-height: 0; }
+.ps-scroll { flex: 1; min-height: 0; overflow: auto; }
+.ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; align-items: start; padding-bottom: 8px; }
+.ps-section { display: grid; gap: 8px; }
+.ps-section .sub-title { margin: 0; }
+.ps-field { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 10px; }
+.ps-field .ps-label { color: var(--fg-muted); font-size: 12px; }
+.ps-field .ps-control { min-width: 0; display: flex; }
+.ps-field .ps-control > input, .ps-field .ps-control > textarea { flex: 1; min-width: 0; }
+.ps-field:has(textarea) { align-items: start; }
+.ps-sub { font-size: 12px; font-weight: 700; color: var(--fg-muted); margin-top: 4px; }
+.ps-actions { display: flex; align-items: center; gap: 10px; padding: 8px 2px 2px; border-top: 1px solid var(--border); }
+.ps-actions .spacer { flex: 1; }
 .ctx-menu .menu-item:disabled { opacity: .45; cursor: default; }
 .ctx-menu .menu-keys { margin-left: auto; padding-left: 18px; color: var(--fg-muted); font-size: 11px; }
 

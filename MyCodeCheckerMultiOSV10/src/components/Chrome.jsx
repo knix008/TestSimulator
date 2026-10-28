@@ -403,6 +403,7 @@ export const NAV_GROUPS = [
     ['activity', 'nav_activity', 'clock'],
     ['snapshots', 'nav_snapshots', 'history'],
     ['reports', 'nav_reports', 'report'],
+    ['projectSettings', 'nav_project_settings', 'settings'],
   ]],
   ['issues', 'nav_sec_issues', 'bug', [
     ['issues', 'nav_issues', 'bug'],

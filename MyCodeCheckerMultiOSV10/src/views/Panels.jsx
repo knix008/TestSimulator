@@ -475,10 +475,17 @@ function useIssueSearch(enabled, project, branch, filter, issues) {
   };
   const queryKey = JSON.stringify(query);
   useEffect(() => { setPage(0); }, [queryKey, sort, size, project && project.id, branch]);
+  // The counts (type tabs, engine list) belong to the filter: asked for on its
+  // first page only, and kept while paging or sorting.
+  const facetsFor = useRef({ key: '', facets: null });
+  const countKey = `${project && project.id}|${branch}|${queryKey}`;
+  const wantFacets = facetsFor.current.key !== countKey || page === 0;
   // A changed analysis (a new one, or a triage change reloading the issues) asks again.
-  const res = useApi('issue.search', { projectId: project && project.id, branch, filter: query, sort, offset: page * size, limit: size, facets: true },
+  const res = useApi('issue.search', { projectId: project && project.id, branch, filter: query, sort, offset: page * size, limit: size, facets: wantFacets ? ['type', 'engine'] : false },
     [project && project.id, branch, queryKey, sort, page, size, issues], enabled);
-  return { res, sort, setSort, size, setSize, page, setPage, searching: q !== (filter.q || '') || res.loading };
+  if (res.data && res.data.facets && !res.loading) facetsFor.current = { key: countKey, facets: res.data.facets };
+  const data = res.data && !res.data.facets && facetsFor.current.key === countKey ? { ...res.data, facets: facetsFor.current.facets } : res.data;
+  return { res: { ...res, data }, sort, setSort, size, setSize, page, setPage, searching: q !== (filter.q || '') || res.loading };
 }
 
 export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSelect, checked, setChecked, onUpdate, onReview, approval, hasAnalysis, onTicket, project, branch, serverSearch, onOpenCode }) {

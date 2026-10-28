@@ -375,9 +375,9 @@ function createStore(configDir) {
     const name = await dbListOf(project, a);
     return name ? idb().search(name, filter, page) : { total: 0, issues: [] };
   }
-  async function issueFacets(project, a, filter) {
+  async function issueFacets(project, a, filter, which) {
     const name = await dbListOf(project, a);
-    return name ? idb().facets(name, filter) : {};
+    return name ? idb().facets(name, filter, which) : {};
   }
 
   /** Whether a pending list's head file is current (severityPage then reads only it). */

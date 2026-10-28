@@ -143,7 +143,7 @@ export function missingIssues(project) {
 const UNTRACKED = /^(scan\.|db\.export|tools\.job|project\.issues$|workspace\.save$|settings\.patch$|dast\.status|lsp\.)/;
 const WORK_LABEL = {
   'workspace.load': 'pp_workspace', 'report.export': 'pp_report', 'report.regulatory': 'pp_report', 'arch.graph': 'pp_arch', 'metrics.his': 'pp_his',
-  'sca.scan': 'pp_sca', 'project.dirs': 'pp_dirs', 'issue.update': 'pp_saving', 'project.resetAnalysis': 'pp_saving', 'snapshot.compare': 'pp_snapshots', 'defect.lifecycle': 'pp_snapshots',
+  'sca.scan': 'pp_sca', 'project.dirs': 'pp_dirs', 'issue.update': 'pp_saving', 'project.resetAnalysis': 'pp_saving', 'snapshot.compare': 'pp_snapshots', 'defect.lifecycle': 'pp_snapshots', 'issue.search': 'pp_issue_search',
 };
 
 export async function call(name, args = {}) {

@@ -154,3 +154,24 @@ test('a repeated issue key still exports (rows get #2)', async () => {
   assert.deepEqual(d.prepare('select issue_key k from mcc_issues order by issue_key').all().map((r) => r.k), ['same', 'same#2']);
   d.close();
 });
+
+test('exclusion globs: **/ also matches no folder, ? is one character', () => {
+  const { glob } = require('../core/platform/util.js');
+  const cases = [
+    ['dup/a.js', '**/dup/**', true], ['src/dup/a.js', '**/dup/**', true], ['dupx/a.js', '**/dup/**', false],
+    ['a.min.js', '**/*.min.js', true], ['x/a.min.js', '**/*.min.js', true], ['vendor/x.js', '**/vendor/**', true],
+    ['src/a.js', 'src/*.js', true], ['src/x/a.js', 'src/*.js', false], ['a1.c', 'a?.c', true], ['a12.c', 'a?.c', false],
+  ];
+  for (const [rel, pattern, want] of cases) assert.equal(glob(rel, pattern), want, `${pattern} on ${rel}`);
+});
+
+test('a project exclusion pattern leaves a root folder out of the next analysis', async () => {
+  const api = createApi({ configDir: tmp('mcc-pex-') });
+  const first = await api.call('project.scan', { path: path.resolve('samples/demo') });
+  assert.ok(first.analysis.files.some((f) => f.path.startsWith('dup/')));
+  const ws = await api.call('workspace.load', { slim: true });
+  ws.projects[0].exclusions = ['**/dup/**'];
+  await api.call('workspace.save', { workspace: ws, slim: true });
+  const next = await api.call('project.scan', { path: path.resolve('samples/demo') });
+  assert.ok(!next.analysis.files.some((f) => f.path.startsWith('dup/')), 'dup/ left out');
+});
