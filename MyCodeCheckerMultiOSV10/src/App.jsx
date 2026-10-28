@@ -1014,13 +1014,13 @@ export default function App() {
   const codeLineRef = useRef(0);
   codeLineRef.current = codeLine;
   const openCodeRef = useRef(null);
-  openCodeRef.current = async (f) => { try { setCodeText((await call('project.file', { projectId: projectRef.current.id, file: f })).text); setCodeError(''); } catch (err) { setCodeError(errorTextOf(err)); } };
+  openCodeRef.current = async (f) => { try { const r = await call('project.file', { projectId: projectRef.current.id, file: f, limit: 0 }); setCodeBinary(r.binary ? { size: r.size } : null); setCodeText(r.binary ? '' : r.text); setCodeError(''); } catch (err) { setCodeError(errorTextOf(err)); } };
   const openCodeIn = async (projectId, file) => {
     setView('code');
     setCodeFile(file);
     setCodeLine(0);
     setCodeError('');
-    try { setCodeText((await call('project.file', { projectId, file })).text); } catch (err) { setCodeText(null); setCodeError(errorTextOf(err)); }
+    try { const r = await call('project.file', { projectId, file, limit: 0 }); setCodeBinary(r.binary ? { size: r.size } : null); setCodeText(r.binary ? '' : r.text); } catch (err) { setCodeText(null); setCodeError(errorTextOf(err)); }
   };
 
   // ── Tabs ───────────────────────────────────────────────

@@ -196,7 +196,7 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
     const look = { theme, language: lang, customThemes: getCustomThemesRaw() };
     await closePopups();
     if (id === 'themes') {
-      await openPopupWindow({ kind: 'themes', anchor: r, width: 580, height: 400, payload: { ...look, value: theme }, onResult: (res) => res && res.id && onAction(res.id) });
+      await openPopupWindow({ kind: 'themes', anchor: r, width: 400, height: 570, payload: { ...look, value: theme }, onResult: (res) => res && res.id && onAction(res.id) });
       return;
     }
     const items = (sub || menus.find((m) => m.id === id).items()).map((it) => (it.sep ? { sep: true } : { id: it.children ? `sub:${it.id}` : it.id, label: it.label, icon: it.icon, keys: it.children ? '▸' : (it.keys || ''), disabled: !!it.disabled }));

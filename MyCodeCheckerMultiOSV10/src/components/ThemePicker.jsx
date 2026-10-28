@@ -1,5 +1,5 @@
 // Theme picker: custom themes (with 새로 만들기 / 편집) on top, then the
-// built-in themes as two groups side by side — Dark | Light — each 20
+// built-in themes as two groups, Dark above Light, each 20
 // themes in 2 columns of compact rows (swatch + name), read top to bottom. Used by the settings
 // 테마 tab and the toolbar theme popup.
 import React from 'react';

@@ -175,3 +175,25 @@ test('a project exclusion pattern leaves a root folder out of the next analysis'
   const next = await api.call('project.scan', { path: path.resolve('samples/demo') });
   assert.ok(!next.analysis.files.some((f) => f.path.startsWith('dup/')), 'dup/ left out');
 });
+
+test('a binary file is read as bytes, a range at a time, with the byte ranges of issue lines', async () => {
+  const dir = tmp('mcc-bin-');
+  const src = path.join(dir, 'src');
+  fs.mkdirSync(src, { recursive: true });
+  const bytes = Buffer.concat([Buffer.from('line one\nsecret = "x"\n'), Buffer.from([0, 1, 2, 255, 10]), Buffer.from('tail')]);
+  fs.writeFileSync(path.join(src, 'blob.bin'), bytes);
+  fs.writeFileSync(path.join(src, 'a.js'), 'var a = 1;\n');
+  const api = createApi({ configDir: path.join(dir, 'data') });
+  const r = await api.call('project.scan', { path: src });
+  const id = r.project.id;
+  const head = await api.call('project.file', { projectId: id, file: 'blob.bin', limit: 0 });
+  assert.equal(head.binary, true);
+  assert.equal(head.size, bytes.length);
+  assert.equal(head.base64, '');
+  const page = await api.call('project.file', { projectId: id, file: 'blob.bin', offset: 9, limit: 4, lines: [2, 3] });
+  assert.deepEqual([...Buffer.from(page.base64, 'base64')], [...bytes.subarray(9, 13)]);
+  assert.deepEqual(page.ranges, { 2: [9, 22], 3: [22, 27] });
+  const text = await api.call('project.file', { projectId: id, file: 'a.js' });
+  assert.equal(text.text, 'var a = 1;\n');
+  assert.equal(text.binary, undefined);
+});

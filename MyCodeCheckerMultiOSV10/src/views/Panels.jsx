@@ -831,7 +831,8 @@ export function Measures({ analysis }) {
                 <tr key={k}>
                   <td><span className="metric-name"><Icon name={iconOf(k)} size={14} /><span data-term={k}>{metricLabel(k, lang)}</span>{String(k).startsWith('new_') && <span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span>}</span></td>
                   <td className="small mono">{k}</td>
-                  <td className="num">{v == null ? '—' : String(v)}</td>
+                  {/* A list value (js=56;py=15;…) wraps after each ; instead of widening the table. */}
+                  <td className="num ms-value">{v == null ? '—' : String(v).split(';').join('; ')}</td>
                 </tr>
               ))}
             </tbody>
@@ -884,80 +885,222 @@ function LineIssues({ line, issues, picked, ruleMap, onPickIssue, follow }) {
   );
 }
 
-// A binary file in the code view: offset | 16 bytes in hex | the same bytes as
-// ASCII (. for what is not printable), a page at a time from the service. The
-// lines that have issues are marked (their bytes, from one newline to the next);
-// clicking a marked row picks that line, and picking a line goes to its page.
+// A binary file in the code view, laid out like a hex editor: offset | 16
+// bytes in hex | the same bytes as text (. for what is not printable), a page
+// at a time from the service. A byte is picked with a click (in either column)
+// or the arrow keys; it is outlined in both columns and its values show in the
+// inspector below. The bytes an issue is about are marked: the string it names
+// as its evidence (a library's version string …) when the file holds it, else
+// the start of its line (the bytes from one newline to the next).
 const HEX_ROW = 16;
+// More than this many bytes in one "line" says nothing about where the issue
+// is: only the line's first row is marked.
+const HEX_LINE_MAX = 4096;
+// Quoted strings of an issue's message ("inflate 1.2.11 Copyright 1995"), the evidence to look for.
+const evidenceOf = (i) => {
+  const m = i.message;
+  const text = [m && typeof m === 'object' ? m.en : m, msg(i)].filter(Boolean).join('\n');
+  return [...new Set([...text.matchAll(/"([^"\n]{3,120})"/g)].map((x) => x[1]))];
+};
+const hexOf = (n, w) => n.toString(16).toUpperCase().padStart(w, '0');
+const printable = (b) => b >= 32 && b < 127;
+
 function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
   useLanguage();
   const [pageSize, setPageSize] = usePageSize(500);
   const [page, setPage] = useState(0);
   const [bytes, setBytes] = useState(null);
-  const [ranges, setRanges] = useState({});
+  const [found, setFound] = useState({ ranges: {}, found: {} });
   const [error, setError] = useState('');
+  const [sel, setSel] = useState(null);
+  const [goto, setGoto] = useState('');
+  const [font, setFont] = useState(12);
+  const box = useRef(null);
   const rows = Math.max(1, Math.ceil(size / HEX_ROW));
+  const pageBytes = pageSize * HEX_ROW;
   const issueLines = useMemo(() => [...new Set(issues.map((i) => i.line).filter((n) => n > 0))].sort((a, b) => a - b), [issues]);
-  useEffect(() => { setPage(0); setRanges({}); }, [file]);
+  const evidence = useMemo(() => [...new Set(issues.flatMap(evidenceOf))], [issues]);
+  useEffect(() => { setPage(0); setSel(null); }, [file]);
+  // Where the issues are: their lines and evidence strings as byte ranges (again when the file's issues change).
+  const issuesKey = issueLines.join(',') + '|' + evidence.join('\u0001');
+  useEffect(() => {
+    let live = true;
+    if (!issueLines.length && !evidence.length) { setFound({ ranges: {}, found: {} }); return undefined; }
+    call('project.file', { projectId, file, limit: 0, lines: issueLines, find: evidence })
+      .then((r) => { if (live) setFound({ ranges: r.ranges || {}, found: r.found || {} }); }).catch(() => {});
+    return () => { live = false; };
+  }, [projectId, file, issuesKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let live = true;
     setError('');
-    const first = !Object.keys(ranges).length && issueLines.length;
-    call('project.file', { projectId, file, offset: page * pageSize * HEX_ROW, limit: pageSize * HEX_ROW, lines: first ? issueLines : undefined })
+    call('project.file', { projectId, file, offset: page * pageBytes, limit: pageBytes })
       .then((r) => {
         if (!live) return;
         const bin = atob(r.base64 || '');
         const out = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
         setBytes({ offset: r.offset, data: out });
-        if (r.ranges) setRanges(r.ranges);
       })
       .catch((err) => { if (live) setError(err.message || String(err)); });
     return () => { live = false; };
-  }, [projectId, file, page, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
-  // The marked byte ranges, and which issue lines each covers.
-  const marks = useMemo(() => Object.entries(ranges).map(([ln, [a, b]]) => ({ line: Number(ln), a, b, issues: issues.filter((i) => i.line === Number(ln)) })), [ranges, issues]);
-  // Picking a line (the issue list, a link) goes to the page where its bytes are.
+  }, [projectId, file, page, pageBytes]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The rows as wide as the pane: the font shrinks (to 10px) before the text
+  // column is cut off (the header row's width, measured, scales with the font).
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const fit = () => {
+      const head = el.querySelector('.hx-head');
+      if (!head) return;
+      const now = parseFloat(getComputedStyle(el).fontSize) || 12;
+      const used = [...head.children].reduce((w, c) => w + c.getBoundingClientRect().width, 0);
+      if (!used) return;
+      const next = Math.max(10, Math.min(13, Math.floor(((el.clientWidth - 16) / used) * now * 2) / 2));
+      setFont((f) => (f === next ? f : next));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // The marked byte ranges, one per issue (issues on the same bytes share it).
+  const marks = useMemo(() => {
+    const out = [];
+    for (const i of issues) {
+      const ev = evidenceOf(i).map((s) => found.found[s]).find(Boolean);
+      const ln = found.ranges[i.line];
+      let r = ev ? { a: ev[0], b: ev[1], evidence: true } : null;
+      if (!r && ln) r = { a: ln[0], b: ln[1] - ln[0] > HEX_LINE_MAX ? Math.min(ln[1], ln[0] + HEX_ROW) : ln[1], evidence: false };
+      if (!r) continue;
+      const same = out.find((m) => m.a === r.a && m.b === r.b);
+      if (same) same.issues.push(i);
+      else out.push({ ...r, line: i.line, issues: [i] });
+    }
+    return out.sort((x, y) => x.a - y.a);
+  }, [issues, found]);
+  const markAt = (pos) => marks.find((m) => pos >= m.a && pos < m.b);
+  // Shows a byte: its page, picked (and scrolled to once the page is there).
+  const scrollTo = useRef(null);
+  const show = (pos) => {
+    const at = Math.max(0, Math.min(size - 1, pos));
+    setSel(at);
+    const want = Math.floor(at / pageBytes);
+    if (want !== page) setPage(want);
+    scrollTo.current = at;
+  };
+  useEffect(() => {
+    if (scrollTo.current == null || !bytes || !box.current) return;
+    const row = box.current.querySelector(`[data-row="${Math.floor(scrollTo.current / HEX_ROW) * HEX_ROW}"]`);
+    if (row) { if (row.scrollIntoView) row.scrollIntoView({ block: 'center' }); scrollTo.current = null; }
+  });
+  // Picking a line (the issue list, a link) goes to its marked bytes.
   useEffect(() => {
     const m = marks.find((x) => x.line === pickLine);
-    if (m) { const want = Math.floor(m.a / HEX_ROW / pageSize); if (want !== page) setPage(want); }
+    if (m) show(m.a);
   }, [pickLine, marks]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hex = (n, w) => n.toString(16).toUpperCase().padStart(w, '0');
-  const markAt = (pos) => marks.find((m) => pos >= m.a && pos < m.b);
+  const onKey = (e) => {
+    if (sel == null) return;
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -HEX_ROW, ArrowDown: HEX_ROW, PageUp: -HEX_ROW * 16, PageDown: HEX_ROW * 16 }[e.key];
+    if (e.key === 'Home') { e.preventDefault(); show(e.ctrlKey ? 0 : sel - (sel % HEX_ROW)); return; }
+    if (e.key === 'End') { e.preventDefault(); show(e.ctrlKey ? size - 1 : sel - (sel % HEX_ROW) + HEX_ROW - 1); return; }
+    if (!step) return;
+    e.preventDefault();
+    show(sel + step);
+  };
+  const onPick = (e) => {
+    const cell = e.target.closest && e.target.closest('[data-o]');
+    if (!cell) return;
+    const pos = Number(cell.dataset.o);
+    setSel(pos);
+    const m = markAt(pos);
+    if (m) onPickLine(m.line);
+    if (box.current) box.current.focus({ preventScroll: true });
+  };
+  const goTo = (e) => {
+    e.preventDefault();
+    const s = goto.trim().replace(/^0x/i, '');
+    // A hex offset, as the offset column shows them (0x optional).
+    if (/^[0-9a-f]+$/i.test(s)) show(parseInt(s, 16));
+  };
   const lines = [];
   if (bytes) {
     for (let r = 0; r * HEX_ROW < bytes.data.length; r++) {
       const at = bytes.offset + r * HEX_ROW;
       const cells = [];
-      const ascii = [];
+      const text = [];
       let rowMark = null;
       for (let k = 0; k < HEX_ROW; k++) {
         const i = r * HEX_ROW + k;
-        if (i >= bytes.data.length) { cells.push(<span key={k} className="hx-b">{'  '}</span>); ascii.push(<span key={k}> </span>); continue; }
+        const pos = at + k;
+        if (i >= bytes.data.length) { cells.push(<span key={k} className={`hx-b ${k === 8 ? 'gap' : ''}`} />); text.push(<span key={k} className="hx-c" />); continue; }
         const b = bytes.data[i];
-        const m = markAt(at + k);
+        const m = markAt(pos);
         if (m && !rowMark) rowMark = m;
-        cells.push(<span key={k} className={`hx-b ${m ? 'hit' : ''} ${k === 8 ? 'gap' : ''}`}>{hex(b, 2)}</span>);
-        ascii.push(<span key={k} className={m ? 'hit' : ''}>{b >= 32 && b < 127 ? String.fromCharCode(b) : '.'}</span>);
+        const cls = `${m ? 'hit' : ''} ${pos === sel ? 'sel' : ''} ${b === 0 ? 'zero' : ''}`;
+        cells.push(<span key={k} data-o={pos} className={`hx-b ${k === 8 ? 'gap' : ''} ${cls}`}>{hexOf(b, 2)}</span>);
+        text.push(<span key={k} data-o={pos} className={`hx-c ${cls} ${printable(b) ? '' : 'np'}`}>{printable(b) ? String.fromCharCode(b) : '.'}</span>);
       }
       const picked = rowMark && rowMark.line === pickLine;
+      const selRow = sel != null && sel >= at && sel < at + HEX_ROW;
       lines.push(
-        <div key={at} className={`hx-row ${rowMark ? 'mark' : ''} ${picked ? 'picked' : ''}`}
-          title={rowMark ? rowMark.issues.map((i) => `${i.rule}: ${msg(i)}`).join('\n') || t('cv_issue_here') : undefined}
-          onClick={() => { if (rowMark) onPickLine(rowMark.line); }}>
-          <span className="hx-off">{hex(at, 8)}</span><span className="hx-hex">{cells}</span><span className="hx-ascii">{ascii}</span>
+        <div key={at} data-row={at} className={`hx-row ${rowMark ? 'mark' : ''} ${picked ? 'picked' : ''} ${selRow ? 'cur' : ''}`}
+          title={rowMark ? rowMark.issues.map((i) => `${i.rule}: ${msg(i)}`).join('\n') || t('cv_issue_here') : undefined}>
+          <span className="hx-off">{hexOf(at, 8)}</span><span className="hx-hex">{cells}</span><span className="hx-text">{text}</span>
         </div>,
       );
     }
   }
+  // The picked byte's values (little-endian, as most targets store them), from the page in memory.
+  const view = bytes && sel != null && sel >= bytes.offset && sel < bytes.offset + bytes.data.length
+    ? new DataView(bytes.data.buffer, bytes.data.byteOffset + (sel - bytes.offset)) : null;
+  const val = (fn, n) => (view && view.byteLength >= n ? String(fn(view)) : '—');
+  const selMark = sel != null ? markAt(sel) : null;
   return (
-    <div className="hexview" data-testid="hexview">
-      <div className="hx-head"><span className="hx-off">{t('cv_hex_offset')}</span><span className="hx-hex">{Array.from({ length: HEX_ROW }, (_, k) => <span key={k} className={`hx-b ${k === 8 ? 'gap' : ''}`}>{hex(k, 2)}</span>)}</span><span className="hx-ascii">ASCII</span></div>
+    <>
+    <div className="hx-bar">
+      <form className="hx-goto" onSubmit={goTo}>
+        <Icon name="search" size={12} />
+        <input className="mono" value={goto} placeholder={t('cv_hex_goto_ph')} aria-label={t('cv_hex_goto')} title={t('cv_hex_goto_tip')} onChange={(e) => setGoto(e.target.value)} />
+        <button type="submit" className="vbtn"><Icon name="chevronRight" size={15} /><span>{t('cv_hex_goto')}</span></button>
+      </form>
+      {marks.length > 0 && (
+        <span className="hx-marks">
+          <span className="small muted">{t('cv_hex_marks', { n: marks.length })}</span>
+          {marks.slice(0, 8).map((m) => (
+            <button key={m.a} type="button" className="hx-markbtn mono" title={m.issues.map((i) => msg(i)).join('\n')} onClick={() => { show(m.a); onPickLine(m.line); }}>
+              {hexOf(m.a, 8)}{m.evidence ? ' ★' : ''}
+            </button>
+          ))}
+        </span>
+      )}
+    </div>
+    <div className="hexview" data-testid="hexview" ref={box} tabIndex={0} style={{ fontSize: font }} onClick={onPick} onKeyDown={onKey}>
+      <div className="hx-head">
+        <span className="hx-off">{t('cv_hex_offset')}</span>
+        <span className="hx-hex">{Array.from({ length: HEX_ROW }, (_, k) => <span key={k} className={`hx-b ${k === 8 ? 'gap' : ''} ${sel != null && sel % HEX_ROW === k ? 'on' : ''}`}>{hexOf(k, 2)}</span>)}</span>
+        <span className="hx-text">{t('cv_hex_text')}</span>
+      </div>
       {error && <p className="small bad">{error}</p>}
       {!bytes && !error && <p className="small muted">{t('loading')}</p>}
       {lines}
-      {rows > 100 && <Pager total={rows} page={page} size={pageSize} onPage={setPage} onSize={(n) => { setPageSize(n); setPage(0); }} note={t('cv_hex_note', { n: size.toLocaleString() })} />}
     </div>
+    <div className="hx-inspect" data-testid="hex-inspector">
+      {sel == null ? <span className="small muted">{t('cv_hex_pick')}</span> : (
+        <>
+          <span><b>{t('cv_hex_at')}</b> <span className="mono">0x{hexOf(sel, 8)} ({sel.toLocaleString()})</span></span>
+          <span title={t('cv_hex_le_tip')}><b>int8</b> <span className="mono">{val((d) => d.getInt8(0), 1)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>uint8</b> <span className="mono">{val((d) => d.getUint8(0), 1)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>int16</b> <span className="mono">{val((d) => d.getInt16(0, true), 2)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>uint16</b> <span className="mono">{val((d) => d.getUint16(0, true), 2)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>int32</b> <span className="mono">{val((d) => d.getInt32(0, true), 4)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>uint32</b> <span className="mono">{val((d) => d.getUint32(0, true), 4)}</span></span>
+          <span><b>{t('cv_hex_bits')}</b> <span className="mono">{val((d) => d.getUint8(0).toString(2).padStart(8, '0'), 1)}</span></span>
+          {selMark && <span className="hx-inspect-issue"><Icon name="alert" size={12} />{selMark.issues.map((i) => msg(i)).join(' · ')}</span>}
+        </>
+      )}
+    </div>
+    {rows > 100 && <Pager total={rows} page={page} size={pageSize} onPage={(p) => { setPage(p); }} onSize={(n) => { setPageSize(n); setPage(0); }} note={t('cv_hex_note', { n: size.toLocaleString() })} />}
+    </>
   );
 }
 
@@ -998,7 +1141,7 @@ export function CodeView({ analysis, file, text, onOpen, line, error, rules, onP
           ))}
         </div>
         <Splitter axis="x" value={treeW} min={CODE_TREE_MIN} max={CODE_TREE_MAX} label={t('cv_resize_tree')} onChange={setTreeW} onCommit={keepTreeW} />
-        <div className={`codepane selectable ${wrap ? 'wrap' : ''}`}>
+        <div className={`codepane selectable ${wrap ? 'wrap' : ''} ${binary ? 'binary' : ''}`}>
           {file && (
             <div className="code-toolbar">
               <Icon name="file" size={13} /><span className="mono small code-toolbar-file" title={file}>{file}</span>

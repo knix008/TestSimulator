@@ -136,8 +136,11 @@ h2 { font-size: 16px; margin: 0 0 8px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { color: var(--fg-muted); font-weight: 600; font-size: 12px; position: sticky; top: 0; background: var(--bg); }
+/* Every data table row shows the pointer over it; clickable rows also get the hand cursor, the selected row keeps its colour. */
+.table-wrap tbody tr:hover, .tpanel tbody tr:hover, .bp-table tbody tr:hover { background: var(--bg-hover); }
 tr.click:hover { background: var(--bg-hover); cursor: pointer; }
-tr.sel { background: var(--bg-sel); }
+.ms-value { overflow-wrap: anywhere; }
+tr.sel, tr.sel:hover, .table-wrap tbody tr.sel:hover, .tpanel tbody tr.sel:hover, .bp-table tbody tr.sel:hover { background: var(--bg-sel); }
 .sev { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; }
 .sev.BLOCKER, .sev.CRITICAL { color: #ff6b6b; }
 .sev.MAJOR { color: #ffb347; }
@@ -169,17 +172,44 @@ body.resizing-x .code-wrap > .splitter-x { background: color-mix(in srgb, var(--
 .code-toolbar { position: sticky; top: 0; left: 0; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 14px; border-bottom: 1px solid var(--border); background: var(--bg-elev); font-family: var(--font, inherit); }
 .code-toolbar .spacer { flex: 1; }
 /* Hex view of a binary file: offset | 16 bytes | ASCII, marked bytes of lines with issues. */
-.hexview { font-family: var(--mono); font-size: 12px; padding: 4px 0; }
-.hx-head, .hx-row { display: flex; gap: 14px; padding: 0 10px; white-space: pre; line-height: 1.6; }
-.hx-head { position: sticky; top: 33px; z-index: 1; background: var(--bg-elev); color: var(--fg-muted); border-bottom: 1px solid var(--border); }
-.hx-off { width: 9ch; flex: none; color: var(--fg-muted); }
-.hx-hex { display: inline-flex; gap: 0.6ch; flex: none; }
-.hx-b { width: 2ch; text-align: center; }
+/* A binary file: toolbar, go-to bar, the hex rows (their own scroll area, the
+   column header kept on top), the inspector and the pager. */
+.codepane.binary { display: flex; flex-direction: column; overflow: hidden; }
+.codepane.binary > * { flex: none; }
+.codepane.binary .code-toolbar .small { white-space: nowrap; }
+.hexview { flex: 1 1 auto !important; min-height: 0; overflow: auto; font-family: var(--mono); font-size: 12px; padding: 0 0 4px; outline: none; cursor: default; }
+.hexview:focus-visible { box-shadow: inset 0 0 0 1px var(--accent); }
+.hexview > * { width: max-content; min-width: 100%; box-sizing: border-box; }
+.codepane > .row-pager { position: sticky; left: 0; bottom: 0; flex-wrap: wrap; row-gap: 4px; width: 100%; box-sizing: border-box; }
+/* Hex editor layout: offset | hex | text, a rule between the columns, a byte
+   picked in one column outlined in both. */
+.hx-head, .hx-row { display: flex; padding: 0 10px 0 0; white-space: pre; line-height: 1.65; }
+.hx-head { position: sticky; top: 0; z-index: 1; background: var(--bg-elev); color: var(--fg-muted); border-bottom: 1px solid var(--border); font-weight: 600; }
+.hx-off { width: 10ch; flex: none; padding: 0 1ch; color: var(--accent); background: var(--bg); border-right: 1px solid var(--border); user-select: none; }
+.hx-head .hx-off { color: var(--fg-muted); background: var(--bg-elev); }
+.hx-hex { display: inline-flex; flex: none; padding: 0 1ch; border-right: 1px solid var(--border); }
+.hx-b { width: 2.6ch; text-align: center; border-radius: 2px; }
 .hx-b.gap { margin-left: 0.8ch; }
-.hx-ascii { flex: none; letter-spacing: 0.5px; }
-.hx-row.mark { background: color-mix(in srgb, var(--folder) 22%, transparent); cursor: pointer; }
-.hx-row.picked { background: color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
-.hx-row .hit { color: var(--warn-fg, #f59e0b); font-weight: 700; }
+.hx-b.zero { color: var(--fg-muted); }
+.hx-head .hx-b.on { color: var(--accent); }
+.hx-text { display: inline-flex; flex: none; padding: 0 1ch; }
+.hx-head .hx-text { min-width: 16ch; }
+.hx-c { width: 1ch; text-align: center; }
+.hx-c.np { color: var(--fg-muted); }
+.hx-row.cur { background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.hx-row.cur .hx-off { color: var(--fg); font-weight: 700; }
+.hx-row.mark .hx-off { box-shadow: inset 3px 0 0 var(--warn, #f59e0b); }
+.hx-row.picked .hx-off { box-shadow: inset 3px 0 0 var(--accent); }
+.hx-row .hit { background: color-mix(in srgb, var(--warn, #f59e0b) 30%, transparent); color: var(--fg); font-weight: 700; cursor: pointer; }
+.hx-row .sel { outline: 1.5px solid var(--accent); outline-offset: -1px; background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--fg); }
+.hx-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 10px; border-bottom: 1px solid var(--border); font-family: var(--font, inherit); }
+.hx-goto { display: flex; align-items: center; gap: 6px; }
+.hx-goto input { width: 16ch; height: var(--ctl-h, 26px); box-sizing: border-box; }
+.hx-marks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.hx-markbtn { font-size: 11px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; background: color-mix(in srgb, var(--warn, #f59e0b) 18%, transparent); color: var(--fg); cursor: pointer; }
+.hx-inspect { display: flex; max-height: 5.5em; overflow: auto; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 5px 10px; border-top: 1px solid var(--border); background: var(--bg-elev); font-family: var(--font, inherit); font-size: 12px; }
+.hx-inspect b { color: var(--fg-muted); font-weight: 600; }
+.hx-inspect-issue { display: inline-flex; align-items: center; gap: 4px; color: var(--warn-fg, #f59e0b); }
 .code-toolbar-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .codepane .row.mark { background: color-mix(in srgb, var(--folder) 22%, transparent); }
 .codepane .ln { width: 48px; color: var(--fg-muted); text-align: right; padding-right: 10px; flex: none; user-select: none; }
@@ -975,14 +1005,17 @@ svg.arch-graph:active { cursor: grabbing; }
 .menu-item:disabled:hover { background: none; }
 
 /* ── Theme picker (settings 테마 tab and the toolbar theme popup) ─────── */
-.theme-pop { width: 560px; max-width: calc(100vw - 16px); max-height: none; padding: 8px; }
+.theme-pop { width: 380px; max-width: calc(100vw - 16px); max-height: calc(100vh - 80px); overflow: auto; padding: 8px; }
 .theme-picker { display: flex; flex-direction: column; gap: 8px; }
 .tp-head { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--fg-muted); padding: 0 2px 3px; border-bottom: 1px solid var(--border); margin-bottom: 3px; }
 .tp-head svg { color: var(--accent); }
 .tp-count { font-weight: 600; font-size: 10.5px; padding: 0 5px; border-radius: 99px; background: var(--bg-hover); }
 .tp-mini { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 4px; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--fg); font-size: 11px; cursor: pointer; }
 .tp-mini:hover { background: var(--bg-hover); }
-.tp-builtins { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* The theme popup window: the picker with a small margin, no more. */
+.popup-root.popup-themes { padding: 8px; box-sizing: border-box; }
+/* Dark above Light, each in two columns read top to bottom. */
+.tp-builtins { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .tp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 4px; }
 .tp-custom-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .tp-cols.tp-down { grid-auto-flow: column; }

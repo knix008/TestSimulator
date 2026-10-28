@@ -35,6 +35,19 @@ function tauri() {
   return tauriApi;
 }
 
+/**
+ * A popup window as high as its content (CSS pixels, at most maxHeight), so it
+ * hides nothing and leaves no empty band at the bottom. The width stays.
+ */
+export async function fitPopupHeight(height, maxHeight = 900) {
+  if (!popupRoute()) return;
+  try {
+    const api = await tauri();
+    const w = api.getCurrentWindow();
+    await w.setSize(new api.LogicalSize(Math.round(window.innerWidth), Math.round(Math.min(maxHeight, Math.max(120, height)))));
+  } catch { /* the window keeps its size */ }
+}
+
 /** Creates the hidden pool windows (main window, once, when idle). */
 export async function warmPopups() {
   if (!usePopupWindows()) return;

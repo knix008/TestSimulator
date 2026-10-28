@@ -830,7 +830,8 @@ function createApi(opts = {}) {
       fs.readSync(fd, head, 0, head.length, 0);
       if (isBinary(head)) {
         const offset = Math.max(0, Math.min(size, Number(args.offset) || 0));
-        const limit = Math.max(0, Math.min(1048576, Number(args.limit) || 65536, size - offset));
+        const asked = args.limit === undefined || args.limit === null ? 65536 : Number(args.limit) || 0;
+        const limit = Math.max(0, Math.min(1048576, asked, size - offset));
         const bytes = Buffer.alloc(limit);
         fs.readSync(fd, bytes, 0, limit, offset);
         // lines: the issue lines of the file, as byte ranges { line: [start, end) }
@@ -856,7 +857,29 @@ function createApi(opts = {}) {
           }
           if (line <= last && want.has(line)) ranges[line] = [start, size];
         }
-        return { path: rel, binary: true, size, offset, base64: bytes.toString('base64'), ranges };
+        // find: strings an issue names as its evidence (a version string in a
+        // library …), as byte ranges of their first occurrence { text: [start, end) }.
+        let found;
+        const wanted = Array.isArray(args.find) ? [...new Set(args.find.map(String).filter((s) => s.length >= 3))].slice(0, 50) : [];
+        if (wanted.length) {
+          found = {};
+          const needles = wanted.map((s) => ({ s, b: Buffer.from(s, 'latin1') }));
+          const longest = Math.max(...needles.map((n) => n.b.length));
+          const chunk = Buffer.alloc(1048576 + longest);
+          for (let pos = 0; pos < size && needles.some((n) => !found[n.s]);) {
+            const n = fs.readSync(fd, chunk, 0, chunk.length, pos);
+            if (!n) break;
+            const view = chunk.subarray(0, n);
+            for (const nd of needles) {
+              if (found[nd.s]) continue;
+              const at = view.indexOf(nd.b);
+              if (at >= 0) found[nd.s] = [pos + at, pos + at + nd.b.length];
+            }
+            if (pos + n >= size) break;
+            pos += n - longest;
+          }
+        }
+        return { path: rel, binary: true, size, offset, base64: bytes.toString('base64'), ranges, found };
       }
     } finally {
       fs.closeSync(fd);
