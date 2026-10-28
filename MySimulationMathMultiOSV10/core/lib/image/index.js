@@ -4,8 +4,9 @@ import * as imio from './imio.js';
 import * as proc from './proc.js';
 import * as filt from './filt.js';
 import * as morph from './morph.js';
+import * as extra from './extra.js';
 
-const MODULES = [imio, proc, filt, morph];
+const MODULES = [imio, proc, filt, morph, extra];
 
 export const builtins = {};
 export const help = {};

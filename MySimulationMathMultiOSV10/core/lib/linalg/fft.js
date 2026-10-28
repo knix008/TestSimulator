@@ -309,7 +309,7 @@ function residueInverse(r, p, k) {
 function shapeArg(v, fn) {
   const o = optText(v);
   if (o == null) return null;
-  if (!['full', 'same', 'valid'].includes(o)) fail(, "Shape must be 'full', 'same' or 'valid'.");
+  if (!['full', 'same', 'valid'].includes(o)) fail(`${fn}:badShape`, "Shape must be 'full', 'same' or 'valid'.");
   return o;
 }
 

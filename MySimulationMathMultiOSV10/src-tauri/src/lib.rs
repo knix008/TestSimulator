@@ -2,6 +2,7 @@
 // uses (host.rs, 127.0.0.1 + token), the window position / size kept
 // between runs, and the optional per-user .m file association (Windows).
 mod host;
+mod print;
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -71,6 +72,57 @@ fn renderer_ready(app: tauri::AppHandle) {
         let _ = win.show();
         let _ = win.set_focus();
     }
+}
+
+/// A child window (menus, dropdown lists, dialogs: src/lib/popups.js). Made here rather than
+/// with `new WebviewWindow()` in JS so it gets the main window's WebView2 profile
+/// (webview_data_dir): from JS it would get the default profile, i.e. a second browser
+/// process with other storage, and in `npm start` the installed app's profile, which fails
+/// while that app is open.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChildWindow {
+    label: String,
+    url: String,
+    width: f64,
+    height: f64,
+    x: Option<f64>,
+    y: Option<f64>,
+    #[serde(default)]
+    resizable: bool,
+    #[serde(default = "yes")]
+    visible: bool,
+    #[serde(default = "yes")]
+    focus: bool,
+}
+fn yes() -> bool { true }
+
+#[tauri::command]
+async fn child_window(app: tauri::AppHandle, opts: ChildWindow) -> Result<(), String> {
+    if app.get_webview_window(&opts.label).is_some() {
+        return Ok(());
+    }
+    let mut b = WebviewWindowBuilder::new(&app, &opts.label, WebviewUrl::App(opts.url.into()))
+        .title("MySimulationMath")
+        .decorations(false)
+        .resizable(opts.resizable)
+        .inner_size(opts.width, opts.height)
+        .visible(opts.visible)
+        .focused(opts.focus)
+        .skip_taskbar(true)
+        .shadow(true)
+        // HTML5 drag and drop inside the window (Tauri's handler would swallow it)
+        .disable_drag_drop_handler();
+    if let (Some(x), Some(y)) = (opts.x, opts.y) {
+        b = b.position(x, y);
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        b = b.parent(&main).map_err(|e| e.to_string())?;
+    }
+    if let Some(dir) = webview_data_dir(&app) {
+        b = b.data_directory(dir);
+    }
+    b.build().map(|_| ()).map_err(|e| e.to_string())
 }
 
 // ── .m association (Windows, current user) ─────────────────
@@ -188,6 +240,19 @@ fn on_some_monitor(win: &tauri::WebviewWindow, s: &WinState) -> bool {
     })
 }
 
+/// The WebView2 profile of every window (main, print host): `npm start` gets
+/// its own (sharing the installed app's profile fails with 0x800700AA while
+/// that app is open), and MSM_USER_DATA (tests) one under that folder.
+pub(crate) fn webview_data_dir(app: &tauri::AppHandle) -> Option<PathBuf> {
+    if let Some(over) = std::env::var_os("MSM_USER_DATA") {
+        return Some(PathBuf::from(over).join("EBWebView"));
+    }
+    if cfg!(debug_assertions) {
+        return app.path().app_local_data_dir().ok().map(|dir| dir.join("EBWebView-dev"));
+    }
+    None
+}
+
 fn boot(app: &mut tauri::App) -> Result<(), String> {
     let config = config_dir();
     let _ = fs::create_dir_all(&config);
@@ -210,12 +275,8 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     app.manage(WinMemory { file: state_file, state: Mutex::new(saved) });
 
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()));
-    // `npm start` gets its own WebView2 profile: sharing the installed app's
-    // profile fails with 0x800700AA (resource in use) while that app is open.
-    if cfg!(debug_assertions) {
-        if let Ok(dir) = app.path().app_local_data_dir() {
-            builder = builder.data_directory(dir.join("EBWebView-dev"));
-        }
+    if let Some(dir) = webview_data_dir(app.handle()) {
+        builder = builder.data_directory(dir);
     }
     let win = builder
         .title("MySimulationMath")
@@ -225,6 +286,9 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
         .resizable(true)
         .visible(false)
         .center()
+        // Tauri's own drag-and-drop handler swallows the page's HTML5 drag events on Windows
+        // (library blocks could not be dropped on the model canvas): the page handles drops itself.
+        .disable_drag_drop_handler()
         .initialization_script(&script)
         .build()
         .map_err(|err| err.to_string())?;
@@ -242,7 +306,7 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     win.on_window_event(move |event| match event {
         WindowEvent::Moved(_) | WindowEvent::Resized(_) => remember_win_state(&handle),
         WindowEvent::CloseRequested { .. } => { remember_win_state(&handle); save_win_state(&handle); }
-        WindowEvent::Destroyed => save_win_state(&handle),
+        WindowEvent::Destroyed => { save_win_state(&handle); print::close_host(&handle); }
         _ => {}
     });
     // Shown by renderer_ready after the first paint; this is the safety net.
@@ -260,7 +324,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![host_info, renderer_ready, m_association, set_m_association])
+        .invoke_handler(tauri::generate_handler![host_info, renderer_ready, child_window, m_association, set_m_association, print::print_info, print::print_pdf, print::print_html])
         .setup(|app| {
             if let Err(err) = boot(app) {
                 eprintln!("{err}");

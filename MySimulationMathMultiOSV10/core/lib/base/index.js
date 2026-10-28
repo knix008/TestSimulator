@@ -22,12 +22,17 @@ import * as datetime from './datetime.js';
 import * as categorical from './categorical.js';
 import * as map from './map.js';
 import * as table from './table.js';
+import * as analysis from './analysis.js';
+import * as extras from './extras.js';
+import * as more from './more.js';
+import * as tablefun from './tablefun.js';
 import { classDef, setOwnClasses } from './util.js';
 
 const MODULES = [
   ['ops', ops], ['elmat', elmat], ['elfun', elfun], ['datafun', datafun], ['types', types], ['display', display],
   ['strings', strings], ['regexp', regexp], ['cellstruct', cellstruct], ['sets', sets], ['validate', validate],
   ['time', time], ['datetime', datetime], ['categorical', categorical], ['map', map], ['table', table],
+  ['analysis', analysis], ['extras', extras], ['more', more], ['tablefun', tablefun],
 ];
 
 export const builtins = Object.create(null);

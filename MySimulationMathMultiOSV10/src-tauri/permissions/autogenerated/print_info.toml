@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-print-info"
+description = "Enables the print_info command without any pre-configured scope."
+commands.allow = ["print_info"]
+
+[[permission]]
+identifier = "deny-print-info"
+description = "Denies the print_info command without any pre-configured scope."
+commands.deny = ["print_info"]

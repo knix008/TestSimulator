@@ -2,7 +2,8 @@
 // buttons, −/+ steppers, confirmation dialog, API hook, file save / open.
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { isDesktop, pickSavePath, fsApi } from '../lib/backend';
+import { isDesktop, fsApi } from '../lib/backend';
+import { chooseFile } from '../lib/prompt';
 import { errorText, toast, showError } from '../lib/ui';
 import { Icon, Dialog } from '../components/Chrome';
 import { usePopupWindows, openPopupWindow } from '../lib/popups';
@@ -10,7 +11,7 @@ import { TWO_COLUMN_MIN, menuSize } from '../lib/menuColumns';
 import { getCustomThemesRaw } from '../themes';
 
 // ── Save / open ───────────────────────────────────────────
-// Desktop: a save dialog (pickSavePath) and the sidecar writes the file
+// Desktop: the app save dialog (chooseFile) and the sidecar writes the file
 // (file.save), then "저장됨: <path>". Web (or a sidecar without file.save):
 // a Blob and a download link.
 function download(fileName, blob) {
@@ -27,7 +28,7 @@ function download(fileName, blob) {
 async function saveOnDesktop(fileName, content) {
   if (!isDesktop) return null;
   const ext = String(fileName || '').split('.').pop();
-  const path = await pickSavePath({ defaultPath: fileName, filters: ext && ext !== fileName ? [{ name: ext.toUpperCase(), extensions: [ext] }] : undefined });
+  const path = await chooseFile({ mode: 'save', name: fileName, exts: ext && ext !== fileName ? ['.' + ext] : [] });
   if (!path) return false;
   try {
     if (content.base64 != null) { const bin = atob(content.base64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); await fsApi.writeBytes(path, u8); } else await fsApi.writeText(path, content.text);
@@ -150,7 +151,8 @@ export function Toggle({ checked, onChange, label, icon }) {
  * Enter or leaving the field); hold a button to repeat; mouse wheel and ↑ / ↓
  * change it too. − is disabled at min and + at max. `unit` goes after it.
  */
-export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, label, width = 72, ariaLabel, unit, disabled }) {
+// decIcon / incIcon: icons in place of − / + (e.g. zoomOut / zoomIn for a zoom ratio); decTitle / incTitle their tooltips.
+export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, label, width = 72, ariaLabel, unit, disabled, decIcon, incIcon, decTitle, incTitle }) {
   const clamp = (n) => {
     const v = Number.isFinite(n) ? n : min;
     const snapped = step > 0 ? Math.round((v - min) / step) * step + min : v;
@@ -175,20 +177,23 @@ export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, labe
     stop();
     timer.current = setTimeout(() => { timer.current = setInterval(() => bump(dir), 70); }, 400);
   };
+  // A ratio shows its % in the value itself ("110%"); typed values may carry it or not.
+  const inUnit = unit === '%';
+  const num = (v) => Number(String(v).replace(',', '.').replace(/%/g, '').trim());
   const commit = () => {
     if (text == null) return;
-    const n = Number(String(text).replace(',', '.'));
+    const n = num(text);
     setText(null);
     if (String(text).trim() !== '' && Number.isFinite(n)) onChange(clamp(n));
   };
-  const invalid = text != null && (String(text).trim() === '' || !Number.isFinite(Number(String(text).replace(',', '.'))));
+  const invalid = text != null && (String(text).trim() === '' || !Number.isFinite(num(text)));
   return (
     <span className={`stepper ${disabled ? 'disabled' : ''}`}>
       {label && <span className="stepper-label">{label}</span>}
-      <button type="button" className="step-btn" aria-label={`${ariaLabel || label || ''} −`.trim()} tabIndex={-1} disabled={disabled || value <= min}
+      <button type="button" className="step-btn" aria-label={decTitle || `${ariaLabel || label || ''} −`.trim()} title={decTitle} tabIndex={-1} disabled={disabled || value <= min}
         onPointerDown={press(-1)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(-1); } }}>−</button>
-      <input type="text" inputMode="decimal" className={`step-value ${invalid ? 'invalid' : ''}`} value={text != null ? text : String(value)} style={{ width }} disabled={disabled}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(-1); } }}>{decIcon ? <Icon name={decIcon} size={14} /> : '−'}</button>
+      <input type="text" inputMode="decimal" className={`step-value ${invalid ? 'invalid' : ''}`} value={text != null ? text : (inUnit ? `${value}%` : String(value))} style={{ width: inUnit ? Math.max(width, 54) : width }} disabled={disabled}
         role="spinbutton" aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-label={ariaLabel || label || undefined}
         onChange={(e) => setText(e.target.value)} onBlur={commit}
         onKeyDown={(e) => {
@@ -198,10 +203,10 @@ export function Stepper({ value, onChange, min = 0, max = 100000, step = 1, labe
           else if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault(); setText(null); bump((e.key === 'PageUp' ? 1 : -1) * 10); }
         }}
         onWheel={(e) => { if (disabled || document.activeElement !== e.currentTarget) return; e.preventDefault(); setText(null); bump(e.deltaY < 0 ? 1 : -1); }} />
-      <button type="button" className="step-btn" aria-label={`${ariaLabel || label || ''} +`.trim()} tabIndex={-1} disabled={disabled || value >= max}
+      <button type="button" className="step-btn" aria-label={incTitle || `${ariaLabel || label || ''} +`.trim()} title={incTitle} tabIndex={-1} disabled={disabled || value >= max}
         onPointerDown={press(1)} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(1); } }}>+</button>
-      {unit && <span className="stepper-unit">{unit}</span>}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bump(1); } }}>{incIcon ? <Icon name={incIcon} size={14} /> : '+'}</button>
+      {unit && !inUnit && <span className="stepper-unit">{unit}</span>}
     </span>
   );
 }
@@ -211,8 +216,8 @@ export function RangeStepper({ value, onChange, min = 0, max = 100, step = 1, un
   return (
     <span className="range-stepper">
       <input type="range" min={min} max={max} step={step} value={value} aria-label={ariaLabel} onChange={(e) => onChange(Number(e.target.value))} />
-      <Stepper value={value} min={min} max={max} step={step} width={width} ariaLabel={ariaLabel} onChange={onChange} />
-      {unit && <span className="small">{unit}</span>}
+      <Stepper value={value} min={min} max={max} step={step} width={width} ariaLabel={ariaLabel} onChange={onChange} unit={unit === '%' ? unit : undefined} />
+      {unit && unit !== '%' && <span className="small">{unit}</span>}
     </span>
   );
 }

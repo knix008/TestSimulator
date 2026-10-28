@@ -26,7 +26,7 @@ function growFor(o, subs, fill) {
   if (subs.length === 1) {
     const s = subs[0];
     const n = nel(o);
-    if (isChar(s) && s.re.length === 1 && s.re[0] === 58) return { o, idx: Int32Array.from({ length: n }, (_, i) => i) };
+    if ((s && s.colon === true) || (isChar(s) && s.re.length === 1 && s.re[0] === 58)) return { o, idx: Int32Array.from({ length: n }, (_, i) => i) };
     const t = toTensor(s);
     let idx;
     if (t.cls === 'logical') { const a = []; for (let i = 0; i < t.re.length; i++) if (t.re[i]) a.push(i); idx = Int32Array.from(a); } else idx = Int32Array.from(t.re, (x) => { if (!(x >= 1) || !Number.isInteger(x)) throw E('base:index:badSubscript', 'Array indices must be positive integers or logical values.'); return x - 1; });
@@ -42,7 +42,7 @@ function growFor(o, subs, fill) {
   while (d.length < k) d.push(1);
   const need = d.slice(0, k);
   const lists = subs.map((s, i) => {
-    if (isChar(s) && s.re.length === 1 && s.re[0] === 58) return null;
+    if ((s && s.colon === true) || (isChar(s) && s.re.length === 1 && s.re[0] === 58)) return null;
     const t = toTensor(s);
     if (t.cls === 'logical') { const a = []; for (let q = 0; q < t.re.length; q++) if (t.re[q]) a.push(q); return a; }
     return Array.from(t.re, (x) => { if (!(x >= 1) || !Number.isInteger(x)) throw E('base:index:badSubscript', 'Array indices must be positive integers or logical values.'); return x - 1; });

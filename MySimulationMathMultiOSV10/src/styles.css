@@ -1260,7 +1260,7 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .tb-dirty { color: var(--accent); }
 .gate-rename { width: 240px; height: var(--ctl-h); }
 .login-lang { display: flex; justify-content: flex-end; gap: 4px; margin-bottom: 4px; }
-.start-tools { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+.start-tools { display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 8px; }
 .start-actions.start-actions-top { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .start-actions.start-actions-top .vbtn { flex: 0 1 auto; min-width: 0; }
 
@@ -1280,3 +1280,66 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .target-panel .tg-list li { padding: 2px 0; }
 .target-panel .tg-list li > span:first-child { display: inline-block; max-width: calc(100% - 120px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .target-panel .tg-list li > span.muted { float: right; font-variant-numeric: tabular-nums; }
+
+/* ── Start page: sample run button and the start document tab ───────── */
+.start-sample { position: relative; }
+.start-sample b { display: flex; align-items: center; gap: 4px; }
+.start-sample .tags { align-items: center; }
+.sample-run { margin-left: auto; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 16px; padding: 0; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--bg-elev); color: var(--ok, var(--accent)); cursor: pointer; }
+.sample-run:hover { border-color: var(--accent); background: var(--bg-hover); }
+/* Start page: it covers the whole body; the panes and the Command Window are hidden, not unmounted. */
+.body-row.start-mode > :not(.start-host) { display: none !important; }
+.start-host { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.sample-cats { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 9px; }
+.sample-cats .sample-cat { width: auto; height: 26px; }
+.sample-cats .sample-cat small { color: var(--fg-muted); font-size: 10px; margin-left: 2px; }
+
+/* ── Child windows (settings, about, …): the dialog fills the window exactly,
+   nothing scrolls on the window or the dialog chrome (content panes may). ── */
+html.popup-window, html.popup-window body { overflow: hidden; }
+html.popup-window #root { height: 100%; }
+.dialog.windowed { width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; margin: 0; box-sizing: border-box; border-radius: 0; box-shadow: none; overflow: hidden; display: flex; flex-direction: column; }
+.dialog.windowed > .dialog-title { flex: none; }
+.dialog.windowed > .dialog-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+/* Theme dropdown (list mode): Dark | Light as two vertical columns, one theme per row. */
+.theme-picker.list .tp-builtins { grid-template-columns: 1fr 1fr; }
+.theme-picker.list .tp-group .tp-cols { grid-template-columns: 1fr; }
+.theme-picker.list .tp-custom-list { grid-template-columns: 1fr 1fr; }
+.theme-picker.list .tp-entry { height: 22px; }
+.theme-pop:has(.theme-picker.list) { width: 400px; max-height: none; }
+.popup-themes { padding: 8px; box-sizing: border-box; height: 100%; overflow: hidden; }
+
+/* ── Colourful icons (components/Chrome.jsx Icon: --ic per meaning) ───── */
+svg.ic { color: color-mix(in srgb, var(--ic, currentColor) 82%, var(--fg)); }
+/* Neutral where colour would fight the state: disabled, accent-filled, close hover, the active spinner. */
+:disabled svg.ic, [aria-disabled="true"] svg.ic,
+.primary svg.ic, .vbtn.primary svg.ic, .btn-primary svg.ic,
+.close-x:hover svg.ic, .win-btn svg.ic, .menu-item:disabled svg.ic { color: inherit; }
+:disabled svg.ic { opacity: .55; }
+
+/* ── Panels: collapsed rails, status-bar panel toggles, empty centre ──── */
+.pane-rail { flex: none; width: 30px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; background: var(--bg-panel); border-right: 1px solid var(--border); }
+.pane-rail.right { border-right: 0; border-left: 1px solid var(--border); }
+.pane-rail-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; width: 26px; border: 1px solid transparent; border-radius: 5px; background: none; color: var(--fg); cursor: pointer; font-size: 12px; }
+.pane-rail-item span { writing-mode: vertical-rl; white-space: nowrap; }
+.pane-rail-item:hover { background: var(--bg-hover); border-color: var(--border); }
+.sb-panels { display: inline-flex; gap: 2px; margin: 0 4px; }
+.sb-panel { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 18px; padding: 0; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--fg-muted); cursor: pointer; }
+.sb-panel:hover { background: var(--bg-hover); }
+.sb-panel.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.center-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--fg-muted); }
+.center-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+/* The title bar clips (overflow: hidden): its in-page theme dropdown is fixed so it is not cut off. */
+.titlebar .menu-pop.theme-pop { position: fixed; top: 32px; z-index: 60; }
+/* Sample cards: real result thumbnails (public/samples/*.webp, 2.5:1) need room to be readable. */
+.start-sample-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.start-sample { grid-template-rows: 96px auto auto 2.6em; }
+.start-sample .sample-preview { height: 96px !important; }
+
+/* Start page flicker (WebView2, dark themes): a backdrop blur over the 30 fps background canvas is
+   re-composited every frame and flashes. No blur; slightly more opaque cards; the canvas on its own layer. */
+.start-page .start-card, .start-page .start-hero, .start-page .bg-preview-card { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.start-page .start-card { background: color-mix(in srgb, var(--bg-panel) 84%, transparent); }
+.start-page .start-hero { background: color-mix(in srgb, var(--bg-panel) 86%, transparent); }
+.start-bg { will-change: transform; transform: translateZ(0); }
+.start-scroll { isolation: isolate; }

@@ -22,6 +22,11 @@ tauri-plugin-opener = "2"
 tiny_http = "0.12"
 base64 = "0.22"
 
+# Printing (src/print.rs): WebView2 PrintToPdf / Print and the printer list.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
+
 [profile.release]
 panic = "abort"
 codegen-units = 16

@@ -10,6 +10,7 @@ import { ThemePicker } from '../../components/ThemePicker';
 import { Btn, BtnGroup, IconSelect, Stepper, Toggle, FilePickButton, saveText } from '../common';
 import { MONO_FONTS } from '../../lib/settings';
 import { chooseFile } from '../../lib/prompt';
+import { ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND } from '../../lib/startBackground';
 
 export function Row({ icon, label, title, children, wide }) {
   return (
@@ -263,3 +264,29 @@ export function CustomThemeTab({ d, set, previewTheme, applyCustom, initialSel }
   );
 }
 
+
+// ── 시작 화면 ──────────────────────────────────────────────
+export function StartTab({ d, set }) {
+  const bg = { ...DEFAULT_START_BACKGROUND, ...(d.startBackground || {}) };
+  const setBg = (p) => set({ startBackground: { ...bg, ...p } });
+  const tut = { askOnLaunch: true, ...(d.tutorial || {}) };
+  return (
+    <>
+      <Row icon="home" label={t('st_start_show')} title={t('sp_show')}>
+        <Toggle icon="home" label={t('sp_show')} checked={d.showStartOnLaunch !== false} onChange={(v) => set({ showStartOnLaunch: v })} />
+      </Row>
+      <Row icon="graduation" label={t('st_tutorial_ask')} title={t('st_tutorial_ask_hint')}>
+        <Toggle icon="graduation" label={t('st_tutorial_ask_toggle')} checked={tut.askOnLaunch !== false} onChange={(v) => set({ tutorial: { ...tut, askOnLaunch: v } })} />
+      </Row>
+      <Row icon="sparkle" label={t('sp_background')}>
+        <IconSelect value={bg.kind} width={220} ariaLabel={t('sp_background')} onChange={(v) => setBg({ kind: v })}
+          options={ANIMATION_KINDS.map((k) => ({ value: k, label: t(`anim_${k}`), icon: ANIMATION_ICONS[k] }))} />
+      </Row>
+      <Row icon="gauge" label={t('sp_speed')}><Stepper value={bg.speed} min={0} max={300} step={10} unit="%" ariaLabel={t('sp_speed')} onChange={(v) => setBg({ speed: v })} /></Row>
+      <Row icon="eye" label={t('sp_transparency')}><Stepper value={bg.transparency} min={0} max={100} step={5} unit="%" ariaLabel={t('sp_transparency')} onChange={(v) => setBg({ transparency: v })} /></Row>
+      <Row icon="dice" label={t('sp_shuffle_every')}><Stepper value={bg.shuffleSec || 0} min={0} max={600} step={5} unit={t('sp_seconds')} ariaLabel={t('sp_shuffle_every')} onChange={(v) => setBg({ shuffleSec: v })} /></Row>
+      <Row icon="dice" label={t('sp_random')}><Toggle icon="dice" label={t('sp_random')} checked={!!bg.random} onChange={(v) => setBg({ random: v })} /></Row>
+      <p className="small muted">{t('st_start_note')}</p>
+    </>
+  );
+}

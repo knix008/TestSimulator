@@ -68,6 +68,11 @@ pub fn home_dir() -> PathBuf {
 
 /// Documents/MySimulationMath (created on first use), or the home folder.
 pub fn default_start_dir() -> PathBuf {
+    // MSM_ROOT (tests, like the web server's): the start folder instead of the user's own.
+    if let Some(root) = std::env::var_os("MSM_ROOT") {
+        let dir = PathBuf::from(root);
+        if fs::create_dir_all(&dir).is_ok() { return dir; }
+    }
     let home = home_dir();
     let docs = home.join("Documents");
     let base = if docs.is_dir() { docs } else { home.clone() };

@@ -9,10 +9,11 @@ import { Icon, Dialog } from '../../components/Chrome';
 import { Btn, BtnGroup, Confirm, errorText } from '../common';
 import { useEditorDirty } from '../../lib/dirty';
 import { DEFAULTS } from '../../lib/settings';
-import { GeneralTab, ThemeTab, CustomThemeTab, CommandTab, EditorTab, FiguresTab, SimulationTab, KeyboardTab } from './tabs';
+import { GeneralTab, ThemeTab, CustomThemeTab, CommandTab, EditorTab, FiguresTab, SimulationTab, KeyboardTab, StartTab } from './tabs';
 
 export const SETTINGS_TABS = [
   ['general', 'settings', 'st_tab_general'],
+  ['start', 'home', 'st_tab_start'],
   ['theme', 'palette', 'st_tab_theme'],
   ['custom', 'edit', 'st_tab_custom'],
   ['cmd', 'terminal', 'st_tab_cmd'],
@@ -22,7 +23,7 @@ export const SETTINGS_TABS = [
   ['keyboard', 'key', 'st_tab_keyboard'],
 ];
 
-const KEYS = ['language', 'theme', 'customThemes', 'startFolder', 'restoreFiles', 'confirmExit', 'mAssociation', 'cmd', 'editor', 'figures', 'sim', 'keyboard'];
+const KEYS = ['language', 'theme', 'customThemes', 'startFolder', 'restoreFiles', 'confirmExit', 'mAssociation', 'cmd', 'editor', 'figures', 'sim', 'keyboard', 'showStartOnLaunch', 'startBackground', 'tutorial'];
 
 function draftOf(s) {
   const out = {};
@@ -33,6 +34,9 @@ function draftOf(s) {
   out.sim = { ...DEFAULTS.sim, ...(s.sim || {}) };
   out.keyboard = { ...DEFAULTS.keyboard, ...(s.keyboard || {}) };
   out.customThemes = (s.customThemes || []).map((c) => ({ ...c, colors: { ...c.colors } }));
+  out.showStartOnLaunch = s.showStartOnLaunch !== false;
+  out.startBackground = { ...(s.startBackground || {}) };
+  out.tutorial = { askOnLaunch: true, ...(s.tutorial || {}) };
   out.mAssociation = s.mAssociation === undefined ? null : s.mAssociation;
   return out;
 }
@@ -119,6 +123,7 @@ export function SettingsDialog({ settings, onClose, onSave, initialTab, windowed
   const resetTab = () => {
     const def = draftOf({});
     if (tab === 'general') { previewLanguage('ko'); previewTheme('midnight'); set({ startFolder: '', restoreFiles: true, confirmExit: true }); }
+    if (tab === 'start') set({ showStartOnLaunch: true, startBackground: { layout: (d.startBackground || {}).layout || null }, tutorial: { ...d.tutorial, askOnLaunch: true } });
     if (tab === 'theme') previewTheme('midnight');
     if (tab === 'custom') { set({ customThemes: [] }); applyCustom([]); if (d.theme.startsWith('custom-')) previewTheme('midnight'); }
     if (tab === 'cmd') set({ cmd: def.cmd });
@@ -143,6 +148,7 @@ export function SettingsDialog({ settings, onClose, onSave, initialTab, windowed
         <div className="st-pane" role="tabpanel" data-tab={tab}>
           <h3 className="st-pane-title"><Icon name={current[1]} size={16} />{t(current[2])}</h3>
           {tab === 'general' && <GeneralTab d={d} set={set} previewLanguage={previewLanguage} previewTheme={previewTheme} />}
+          {tab === 'start' && <StartTab d={d} set={set} />}
           {tab === 'theme' && <ThemeTab d={d} previewTheme={previewTheme} goCustom={goCustom} />}
           {tab === 'custom' && <CustomThemeTab key={customSel} d={d} set={set} previewTheme={previewTheme} applyCustom={applyCustom} initialSel={customSel} />}
           {tab === 'cmd' && <CommandTab d={d} set={set} />}

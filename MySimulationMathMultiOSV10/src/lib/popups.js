@@ -29,8 +29,8 @@ const pool = new Map(); // slot -> { win, ready, current: { id, cleanup } | null
 let tauriApi = null;
 function tauri() {
   if (!tauriApi) {
-    tauriApi = Promise.all([import('@tauri-apps/api/webviewWindow'), import('@tauri-apps/api/event'), import('@tauri-apps/api/window'), import('@tauri-apps/api/dpi')])
-      .then(([ww, ev, win, dpi]) => ({ WebviewWindow: ww.WebviewWindow, emit: ev.emit, listen: ev.listen, getCurrentWindow: win.getCurrentWindow, currentMonitor: win.currentMonitor, LogicalSize: dpi.LogicalSize, LogicalPosition: dpi.LogicalPosition }));
+    tauriApi = Promise.all([import('@tauri-apps/api/webviewWindow'), import('@tauri-apps/api/event'), import('@tauri-apps/api/window'), import('@tauri-apps/api/dpi'), import('@tauri-apps/api/core')])
+      .then(([ww, ev, win, dpi, core]) => ({ WebviewWindow: ww.WebviewWindow, invoke: core.invoke, emit: ev.emit, listen: ev.listen, getCurrentWindow: win.getCurrentWindow, currentMonitor: win.currentMonitor, LogicalSize: dpi.LogicalSize, LogicalPosition: dpi.LogicalPosition }));
   }
   return tauriApi;
 }
@@ -53,23 +53,20 @@ export async function warmPopups() {
       await api.emit(`pool-ping:${slot}`);
       continue;
     }
-    win = new api.WebviewWindow(label, {
-      url: `index.html${POPUP_HASH}pool?slot=${slot}`,
-      parent: 'main',
-      decorations: false,
-      resizable: slot === 'dialog',
-      width: 300,
-      height: 200,
-      visible: false,
-      focus: false,
-      skipTaskbar: true,
-      shadow: true,
-      title: 'MySimulationMath',
-    });
+    try {
+      win = await makeWindow(api, label, { url: `index.html${POPUP_HASH}pool?slot=${slot}`, resizable: slot === 'dialog', width: 300, height: 200, visible: false, focus: false });
+    } catch (e) { console.error('pool window', e); win = null; }
+    if (!win) { pool.delete(slot); continue; }
     entry.win = win;
-    win.once('tauri://error', () => pool.delete(slot));
     win.once('tauri://destroyed', () => pool.delete(slot));
   }
+}
+
+// The window is made by the Rust side (src-tauri lib.rs child_window) so it shares the main
+// window's WebView2 profile; parent 'main', no decorations, no taskbar entry, own drag and drop.
+async function makeWindow(api, label, opts) {
+  await api.invoke('child_window', { opts: { label, ...opts } });
+  return api.WebviewWindow.getByLabel(label);
 }
 
 let seq = 0;
@@ -162,24 +159,14 @@ export async function openPopupWindow({ kind, payload, anchor, width, height, ce
   unlisten.push(await api.listen(`popup-ready:${id}`, () => { api.emit(`popup-data:${id}`, payload); }));
   unlisten.push(await api.listen(`popup-result:${id}`, (e) => { if (onResult) onResult(e.payload); }));
   unlisten.push(await api.listen(`popup-shown:${id}`, () => record(kind, performance.now() - t0, 'new')));
-  const w = new api.WebviewWindow(label, {
-    url: `index.html${POPUP_HASH}${kind}?id=${id}`,
-    parent: 'main',
-    decorations: false,
-    resizable,
-    width: Math.round(width),
-    height: Math.round(height),
-    x: pos.x,
-    y: pos.y,
-    skipTaskbar: true,
-    focus: true,
-    shadow: true,
-    title: 'MySimulationMath',
-  });
-  open.set(label, w);
   const done = () => { unlisten.forEach((u) => u()); open.delete(label); if (onClose) onClose(); };
+  let w = null;
+  try {
+    w = await makeWindow(api, label, { url: `index.html${POPUP_HASH}${kind}?id=${id}`, resizable, width: Math.round(width), height: Math.round(height), x: pos.x, y: pos.y, visible: true, focus: true });
+  } catch (e) { console.error('popup window', e); }
+  if (!w) { done(); return null; }
+  open.set(label, w);
   w.once('tauri://destroyed', done);
-  w.once('tauri://error', (e) => { done(); console.error('popup window', e); });
   return w;
 }
 

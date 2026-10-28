@@ -28,6 +28,7 @@ class EngineClient {
     this.started = null;
     this.requestOpen = null; // id of the request the worker waits on
     this.quiet = new Set();
+    this.early = []; // post() before the session is up (tabs restored at launch open their models)
   }
 
   _emit(type, data) {
@@ -80,6 +81,8 @@ class EngineClient {
         this.error = msg.error || '';
         this.cwd = msg.cwd || this.cwd;
         this._setState(msg.ok ? 'ready' : 'error');
+        if (msg.ok && this.worker) for (const m of this.early) this.worker.postMessage(m);
+        this.early = [];
         this._emit('ready', msg);
         if (this._ready) { this._ready(); this._ready = null; }
         return;
@@ -166,11 +169,16 @@ class EngineClient {
   setVariable(name, value) { return this._call('variable.set', { name, value }); }
   clear(names) { return this._call('clear', { names: names || [] }); }
   help(name) { return this._call('help', { name }).catch(() => null); }
+  helpSearch(query, limit = 80) { return this._call('help.search', { query, limit }).catch(() => []); }
   chdir(path) { return this._call('cwd', { path }); }
   setBreakpoints(file, lines) { this.post({ type: 'breakpoints', file, lines }); }
 
   /** Fire-and-forget message to the engine (graphics.*, sim.* …). */
-  post(msg) { if (this.worker) this.worker.postMessage(msg); }
+  // Until the engine is ready the worker would drop it (no session yet): kept and sent on 'ready'.
+  post(msg) {
+    if (this.worker && (this.state === 'ready' || this.state === 'busy')) this.worker.postMessage(msg);
+    else if (this.state !== 'error') this.early.push(msg);
+  }
 
   on(type, fn) {
     if (!this.listeners.has(type)) this.listeners.set(type, new Set());

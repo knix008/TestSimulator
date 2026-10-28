@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { PopupWindow } from './views/PopupWindow';
 import { popupRoute } from './lib/popups';
+import { MenuHost } from './components/MenuHost';
+import { installContextMenus } from './lib/contextMenus';
 import './styles.css';
 import './app.css';
 
@@ -17,8 +19,11 @@ class Boundary extends React.Component {
   }
 }
 
+// Our icon context menu everywhere instead of the built-in one (child windows draw it in-page).
+installContextMenus();
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Boundary>{popupRoute() ? <PopupWindow /> : <App />}</Boundary>
+    <Boundary>{popupRoute() ? <><PopupWindow /><MenuHost /></> : <App />}</Boundary>
   </React.StrictMode>,
 );

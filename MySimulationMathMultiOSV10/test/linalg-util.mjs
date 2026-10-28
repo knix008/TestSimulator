@@ -4,6 +4,7 @@
 // depend on other areas being complete.
 import assert from 'node:assert/strict';
 import * as linalg from '../core/lib/linalg/index.js';
+import { buildRegistry } from '../core/registry.js';
 import { matrix, tensor, num, str, toTensor, isSparse, MError, isFuncHandle } from '../core/value.js';
 
 export { matrix, tensor, num, str };
@@ -62,8 +63,11 @@ export function makeCtx() {
 }
 
 /** Calls a linalg builtin; returns an array of outputs. */
+// A few general-purpose names (cross, conv2, trapz, nnz, ...) are owned by
+// other areas after de-duplication; fall back to the full registry for them.
+let fullBuiltins = null;
 export function call(name, args, nargout = 1, ctx = makeCtx()) {
-  const fn = linalg.builtins[name];
+  const fn = linalg.builtins[name] || (fullBuiltins ||= buildRegistry().builtins)[name];
   assert.ok(fn, `builtin ${name} exists`);
   const r = fn(args.map(V), nargout, ctx);
   return Array.isArray(r) ? r : [r];

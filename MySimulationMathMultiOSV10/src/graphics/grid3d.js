@@ -24,6 +24,7 @@ uniform float uBase;           // base minor step (data units)
 uniform float uMinPx;          // minimum minor spacing (px)
 uniform vec3 uColor;
 uniform vec3 uAxisColor;
+uniform float uAxisOn;         // 0: the coordinate axes are drawn as 3D lines instead
 uniform float uMinorAlpha;
 uniform float uMajorAlpha;
 uniform vec3 uTarget;          // world centre the fade is measured from
@@ -68,7 +69,7 @@ void main() {
   vec2 ag = abs(p) / max(fw, vec2(1e-30));
   float ax = 1.0 - min(ag.y / 1.2, 1.0);      // x axis: y == 0
   float ay = 1.0 - min(ag.x / 1.2, 1.0);      // y axis: x == 0
-  float axisA = max(ax, ay) * min(1.0, uMajorAlpha * 2.2);
+  float axisA = max(ax, ay) * min(1.0, uMajorAlpha * 2.2) * uAxisOn;
   vec3 col = uColor;
   if (axisA > alpha) { col = uAxisColor; alpha = axisA; }
 
@@ -100,6 +101,7 @@ export function createGroundGrid() {
       uMinPx: { value: 10 },
       uColor: { value: new THREE.Color(0.5, 0.5, 0.5) },
       uAxisColor: { value: new THREE.Color(0.3, 0.8, 0.95) },
+      uAxisOn: { value: 1 },
       uMinorAlpha: { value: 0.12 },
       uMajorAlpha: { value: 0.28 },
       uTarget: { value: new THREE.Vector3() },

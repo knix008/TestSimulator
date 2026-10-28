@@ -52,7 +52,8 @@
 
 /* ── Command Window ──────────────────────────────────────── */
 .cw { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); font-family: var(--cw-font); font-size: var(--cw-size); position: relative; }
-.cw-out { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 6px 10px 0; white-space: pre-wrap; word-break: break-word; line-height: 1.4; outline: none; cursor: text; }
+.cw-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; cursor: text; }
+.cw-out { flex: none; padding: 6px 10px 0; white-space: pre-wrap; word-break: break-word; line-height: 1.4; outline: none; cursor: text; }
 .cw-out.compact { line-height: 1.25; }
 .cw-out > span { white-space: pre-wrap; }
 .cw-echo { color: var(--fg); }
@@ -68,6 +69,7 @@
 .cw-prompt { flex: none; color: var(--accent); font-weight: 700; line-height: 1.4; padding-top: 3px; min-width: 18px; display: inline-flex; align-items: center; }
 .cw-input-row.busy .cw-prompt { color: var(--fg-muted); }
 .cw-input { flex: 1; min-width: 0; resize: none; border: 0; background: transparent; color: var(--fg); font: inherit; line-height: 1.4; padding: 3px 0; outline: none; overflow: hidden; }
+.cw-comp.below { bottom: auto; top: 100%; }
 .cw-comp { position: absolute; left: 34px; bottom: 100%; z-index: 30; min-width: 220px; max-width: 420px; max-height: 240px; overflow: auto; background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: 6px; box-shadow: var(--shadow); padding: 3px; font-family: var(--font); font-size: 12.5px; }
 .cw-comp-item { display: flex; align-items: center; gap: 7px; width: 100%; padding: 3px 8px; border: 0; border-radius: 4px; background: none; color: var(--fg); text-align: left; }
 .cw-comp-item span:first-of-type { flex: 1; font-family: var(--cw-font); }
@@ -197,3 +199,22 @@
 .ribbon .rb-node > svg { display: none; }
 .ribbon .rb-node > .tool-label { color: var(--fg-muted); }
 .ribbon.compact .tool-btn { min-width: 34px; }
+/* Run / Stop on the prompt line, and the getting-started block of an empty Command Window. */
+.cw-run { flex: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; height: 22px; margin-top: 1px; padding: 0 9px; border-radius: 4px; border: 1px solid color-mix(in srgb, var(--ok, #16a34a) 60%, transparent); background: color-mix(in srgb, var(--ok, #16a34a) 14%, transparent); color: var(--fg); font: 12px var(--font); cursor: pointer; }
+.cw-run:hover:not(:disabled) { background: color-mix(in srgb, var(--ok, #16a34a) 26%, transparent); }
+.cw-run:disabled { opacity: .45; cursor: default; }
+.cw-run.stop { border-color: color-mix(in srgb, var(--danger) 60%, transparent); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.cw-start { display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px; font-family: var(--font); white-space: normal; }
+.cw-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.cw-examples > .small { color: var(--fg-muted); margin-right: 2px; }
+.cw-example { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 99px; background: var(--bg-elev); color: var(--fg); cursor: pointer; }
+.cw-example:hover { border-color: var(--accent); background: var(--bg-hover); }
+.cw-example code { font-family: var(--cw-font); font-size: 12px; }
+/* File chooser: places on the left, the folder list on the right; buttons right under them. */
+.pd-main { display: flex; gap: 8px; min-height: 0; }
+.pd-places { flex: none; width: 150px; display: flex; flex-direction: column; gap: 2px; height: 300px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 3px; background: var(--bg-panel); }
+.pd-place { display: flex; align-items: center; gap: 7px; height: 26px; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--fg); text-align: left; cursor: pointer; min-width: 0; }
+.pd-place:hover { background: var(--bg-hover); }
+.pd-place.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pd-main .pd-list { flex: 1; min-width: 0; }
+.path-dialog .dialog-actions { margin-top: 0; }

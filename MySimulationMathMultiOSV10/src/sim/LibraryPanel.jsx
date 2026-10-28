@@ -38,6 +38,13 @@ export function LibraryPanel({ lang, onAdd, width }) {
   const colorsRef = useRef(null);
   if (!colorsRef.current && typeof document !== 'undefined') colorsRef.current = themeColors(document.documentElement);
   useEffect(() => { if (root.current) colorsRef.current = themeColors(root.current); });
+  // theme switch: new colours for the previews (the panel is memoised, so it re-renders itself)
+  const [, setThemeTick] = useState(0);
+  useEffect(() => {
+    const mo = new MutationObserver(() => { if (root.current) colorsRef.current = themeColors(root.current); setThemeTick((n) => n + 1); });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style', 'class'] });
+    return () => mo.disconnect();
+  }, []);
   useEffect(() => { try { localStorage.setItem('sim.lib.open', JSON.stringify(open)); } catch { /* storage blocked */ } }, [open]);
   const found = useMemo(() => (q.trim() ? searchLibrary(q) : null), [q]);
   const groups = GROUPS.map((g) => ({ ...g, items: (found || LIBRARY).filter((i) => i.group === g.id) })).filter((g) => g.items.length);
@@ -63,7 +70,7 @@ export function LibraryPanel({ lang, onAdd, width }) {
           const isOpen = !!found || !!open[g.id];
           return (
             <div key={g.id} className="sim-lib-group">
-              <button type="button" className="sim-lib-ghead" onClick={() => setOpen({ ...open, [g.id]: !open[g.id] })}>
+              <button type="button" className="sim-lib-ghead" onClick={() => setOpen((o) => ({ ...o, [g.id]: !o[g.id] }))}>
                 <SimIcon name={isOpen ? 'chevronDown' : 'chevronRight'} size={13} />
                 <SimIcon name={g.icon} size={15} />
                 <span className="ellipsis">{lbl(lang, g.label)}</span>

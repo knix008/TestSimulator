@@ -19,7 +19,8 @@ const emptyD = () => tensor('double', [0, 0]);
 const isTable = (v) => v && v.isObject && (v.cls === 'table' || v.cls === 'timetable');
 const isTT = (v) => v && v.isObject && v.cls === 'timetable';
 const COLON = { cls: 'char', dims: [1, 1], re: Float64Array.of(58), im: null };
-const isColon = (s) => isChar(s) && s.re.length === 1 && s.re[0] === 58;
+// The interpreter passes a bare `:` subscript as { colon: true } (core/lang/indexing.js COLON).
+const isColon = (s) => !!s && (s.colon === true || (isChar(s) && s.re.length === 1 && s.re[0] === 58) || (isString(s) && s.data.length === 1 && s.data[0] === ':'));
 
 // ------------------------------------------------------------- construction
 
@@ -46,7 +47,7 @@ export function makeTableObj(vars, names, opts = {}) {
     },
   };
 }
-function withVars(T, vars, names, extra = {}) {
+export function withVars(T, vars, names, extra = {}) {
   const P = T.props;
   const keep = (arr) => names.map((n) => { const i = P.names.indexOf(n); return i >= 0 && arr[i] !== undefined ? arr[i] : ''; });
   return makeTableObj(vars, names, { rowNames: extra.rowNames !== undefined ? extra.rowNames : P.rowNames, rowTimes: extra.rowTimes !== undefined ? extra.rowTimes : P.rowTimes, description: P.description, units: keep(P.units), vdesc: keep(P.vdesc), dimNames: P.dimNames, userData: P.userData, height: extra.height ?? T.dims[0] });
@@ -137,7 +138,7 @@ function rowIndex(T, s) {
   }
   return Array.from(subIndex(s, h).idx);
 }
-function varIndex(T, s, allowNew = false) {
+export function varIndex(T, s, allowNew = false) {
   const P = T.props;
   if (isColon(s)) return P.names.map((_, i) => i);
   if (isChar(s) || isString(s) || isCell(s)) {
@@ -734,7 +735,7 @@ function keyComparator(T, vars) {
   };
 }
 /** Groups rows: returns {groups: [{key, rows}], sorted by key values}. */
-function groupRows(T, vars) {
+export function groupRows(T, vars) {
   const keys = rowKeys(T, vars);
   const map = new Map();
   keys.forEach((k, i) => { if (!map.has(k)) map.set(k, []); map.get(k).push(i); });
@@ -1165,7 +1166,6 @@ export const builtins = {
   removevars: removevarsFn,
   movevars: movevarsFn,
   renamevars: renamevarsFn,
-  join: joinFn,
   innerjoin: innerjoinFn,
   outerjoin: outerjoinFn,
   groupsummary: groupsummaryFn,

@@ -11,6 +11,8 @@ import {
   lyapC, lyapD, sylvester, sylvesterD, careSolve, dareSolve, symmetrize, rootsOf, poles as polesOf, tzeros, freqResp, evalAt, hasDelay,
 } from './lti.js';
 import * as ops from './ops.js';
+import { builtins as linalgBuiltins } from '../../linalg/index.js';
+const matrixBandwidth = (args, nargout, ctx) => linalgBuiltins.bandwidth(args, nargout, ctx);
 import {
   isLTI, makeObj, getModel, ltiArg, outObj, applyNV, rowsV, matV, colV, rowV, ccol, cvec, PROPS, ltiSubsref, ltiSubsasgn, displayText, pidModel, pidTF, propName,
 } from './cls.js';
@@ -641,7 +643,11 @@ export const builtins = {
   evalfr: evalfrB,
   margin: marginB,
   allmargin: allmarginB,
-  bandwidth(args) { const m = needModel(args, 'bandwidth'); return num(bandwidthM(m, args[1] ? toNum(args[1]) : -3)); },
+  // bandwidth(A) of a matrix belongs to linalg; this override takes models only.
+  bandwidth: Object.assign(function bandwidth(args, nargout, ctx) {
+    if (!args.length || !isModelArg(args[0])) return matrixBandwidth(args, nargout, ctx);
+    const m = needModel(args, 'bandwidth'); return num(bandwidthM(m, args[1] ? toNum(args[1]) : -3));
+  }, { override: true }),
   dcgain(args) { const m = needModel(args, 'dcgain'); const G = dcgainM(m); return matV(G, m.ny, m.nu); },
   pole: poleB,
   zero: zeroB,
@@ -748,7 +754,8 @@ function classDef(cls, ctor) {
     methods,
     subsref(obj, subs) { return [ltiSubsref(obj, subs)]; },
     subsasgn(obj, subs, rhs) { return ltiSubsasgn(obj, subs, rhs); },
-    display(obj, name) { return displayText(obj, name || 'ans'); },
+    // No name (disp, or the interpreter adding its own "x =" line): the body only.
+    display(obj, name) { return name ? displayText(obj, name) : displayText(obj, '@').replace(/^@ =\n \n?/, ''); },
     size(obj) { const m = getModel(obj); return [m.ny, m.nu]; },
     numel() { return 1; },
   };

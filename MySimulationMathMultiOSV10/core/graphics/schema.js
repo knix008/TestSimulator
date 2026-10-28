@@ -199,6 +199,9 @@ export const THEMED = {
   uibutton: ['BackgroundColor', 'FontColor'], uislider: ['FontColor'], uieditfield: ['FontColor', 'BackgroundColor'], uilabel: ['FontColor'],
   uidropdown: ['FontColor', 'BackgroundColor'], uicheckbox: ['FontColor'], rectangle: [], line: [], errorbar: [], stem: [], stair: [],
 };
+// polar and UI axes are axes: their colours follow the theme too (they were drawn with the stored black on dark themes)
+THEMED.polaraxes = THEMED.axes;
+THEMED.uiaxes = THEMED.axes;
 
 /** Display names of types (class names: 'graphics.<Name>'). */
 export const TYPE_CLASS = {

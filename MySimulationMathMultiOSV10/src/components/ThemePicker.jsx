@@ -1,7 +1,8 @@
 // Theme picker: custom themes (with 새로 만들기 / 편집) on top, then the
 // built-in themes as two groups side by side — Dark | Light — each 20
-// themes in 2 columns of compact rows (swatch + name). Used by the settings
-// 테마 tab and the toolbar theme popup.
+// themes in 2 columns of compact rows (swatch + name) — the settings 테마 tab.
+// list: the toolbar dropdown — Dark and Light as two vertical columns, one
+// theme per row (tall; on the desktop the popup window may leave the main window).
 import React from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, allThemes } from '../themes';
@@ -22,13 +23,13 @@ function Entry({ th, on, onPick }) {
   );
 }
 
-export function ThemePicker({ value, onPick, onNewCustom, onEditCustom }) {
+export function ThemePicker({ value, onPick, onNewCustom, onEditCustom, list = false }) {
   useLanguage();
   const custom = allThemes().filter((th) => th.custom);
   const dark = THEMES.filter((th) => th.mode === 'dark');
   const light = THEMES.filter((th) => th.mode === 'light');
   return (
-    <div className="theme-picker">
+    <div className={`theme-picker ${list ? 'list' : ''}`}>
       <div className="tp-custom">
         <div className="tp-head"><Icon name="edit" size={13} /><span>{t('st_tab_custom')}</span><span className="tp-count">{custom.length}</span>
           <span className="spacer" />
@@ -50,4 +51,11 @@ export function ThemePicker({ value, onPick, onNewCustom, onEditCustom }) {
       </div>
     </div>
   );
+}
+
+/** Window size of the list-mode dropdown (rows of 22 px; custom themes 2 per row). */
+export function themeListSize() {
+  const rows = Math.max(THEMES.filter((th) => th.mode === 'dark').length, THEMES.filter((th) => th.mode === 'light').length);
+  const customRows = Math.max(1, Math.ceil(allThemes().filter((th) => th.custom).length / 2));
+  return { width: 400, height: 26 + 26 + customRows * 22 + 8 + 26 + rows * 22 + 8 };
 }
