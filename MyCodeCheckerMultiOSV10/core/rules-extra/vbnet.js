@@ -4,9 +4,37 @@
 // plus the .NET security rules (SQL, crypto, TLS, secrets). Keywords are
 // case-insensitive in VB, so most patterns use the i flag.
 
-const { maker } = require('./util');
+const { maker, blankStrings } = require('./util');
 
 const R = maker('vbnet', ['vbnet']);
+
+// VB constants that only add line breaks or tabs to a string.
+const VB_CONST = String.raw`(?:vbCrLf|vbCr|vbLf|vbNewLine|vbTab|vbNullString|Environment\.NewLine|ControlChars\.\w+)`;
+const LIT = String.raw`(?:"[^"]*"|${VB_CONST})`;
+// True when every & operand on the line is a string literal, a VB text constant
+// or the _ line continuation: SQL text split over several lines, no data in it.
+function constantConcat(line) {
+  const parts = blankStrings(line).split('&');
+  if (parts.length < 2) return false;
+  if (!new RegExp(`${LIT}\\s*$`).test(parts[0])) return false;
+  for (let i = 1; i < parts.length - 1; i++) if (!new RegExp(`^\\s*${LIT}\\s*$`).test(parts[i])) return false;
+  return new RegExp(`^\\s*(?:${LIT}|_\\s*$)`).test(parts[parts.length - 1]);
+}
+
+// Same exemptions as the C# hard-coded credential check: names of labels and
+// fields, and values that are the name itself, a placeholder or a field name.
+const CRED_SKIP = /(Field|Label|Prompt|Hint|Text|Message|Msg|Regex|Pattern|Policy|Format|Url|Uri|Path|Name|Length|Header|Column|Param|Placeholder|Title|Caption|Error|Expiry|Changed|Required|Reset|Hash|Salt|Type)$/i;
+function notACredential(line) {
+  const m = /\b(\w*(?:password|passwd|pwd|secret|apikey|token)\w*)\s*(?:As\s+String\s*)?=\s*"([^"]*)"/i.exec(line);
+  if (!m) return true;
+  const [, name, value] = m;
+  if (CRED_SKIP.test(name)) return true;
+  if (value.toLowerCase() === name.toLowerCase()) return true;
+  if (/^[{$%[<]|^\*+$/.test(value)) return true;
+  // the value names the field rather than holding a secret ("Password:", "txtPassword")
+  if (/^[A-Za-z_]*(?:password|passwd|pwd|secret|token)[:\s]*$/i.test(value)) return true;
+  return false;
+}
 
 // ── Bugs ─────────────────────────────────────────────────────
 R('on-error-resume-next', 'B', 'CR', 15, ['error-handling'],
@@ -65,17 +93,20 @@ R('sql-concat', 'V', 'CR', 20, ['sql', 'cwe-89', 'owasp-a03'],
   /"\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^"]*"\s*&/i,
   ['SQL built by concatenation', 'Concatenated values can change the SQL statement.', 'Use parameters such as cmd.Parameters.AddWithValue("@id", id).'],
   ['문자열을 이어 SQL을 만듭니다', '이어 붙인 값이 SQL 문을 바꿀 수 있습니다.', 'cmd.Parameters.AddWithValue("@id", id) 같은 매개변수를 쓰세요.'],
-  'Dim sql = "SELECT * FROM Users WHERE Name = \'" & name & "\'"', 'Dim sql = "SELECT * FROM Users WHERE Name = @name"', { ref: 'S2077' });
-R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
+  'Dim sql = "SELECT * FROM Users WHERE Name = \'" & name & "\'"', ['Dim sql = "SELECT * FROM Users WHERE Name = @name"', 'Dim sql = "SELECT Id, Name " & _', 'sql = "SELECT * FROM T " & vbCrLf & "WHERE Id = @id"'],
+  { ref: 'S2077', skip: (raw, line) => constantConcat(line) });
+R('hardcoded-password', 'H', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b\w*(?:password|passwd|pwd|secret|apikey|token)\w*\s*(?:As\s+String\s*)?=\s*"[^"\s]{4,}"/i,
   ['Hard-coded credential', 'Anyone with the source or assembly can read the secret.', 'Read it from protected configuration or a secret store.'],
   ['자격 증명을 코드에 적었습니다', '소스나 어셈블리를 가진 누구나 비밀을 읽을 수 있습니다.', '보호된 설정이나 비밀 저장소에서 읽으세요.'],
-  'Dim password As String = "Admin123!"', 'Dim password As String = config("DbPassword")', { ref: 'S2068' });
-R('connection-string-password', 'V', 'BL', 30, ['cwe-798', 'secrets'],
+  'Dim password As String = "Admin123!"', ['Dim password As String = config("DbPassword")', 'Const PasswordLabel As String = "Password:"', 'Dim tokenType = "Bearer"', 'passwordBox.Name = "txtPassword"'],
+  { ref: 'S2068', skip: (raw, line) => notACredential(line) });
+R('connection-string-password', 'H', 'BL', 30, ['cwe-798', 'secrets'],
   /"[^"]*\b(?:Password|Pwd)\s*=\s*[^;"\s]+/i,
   ['Password inside a connection string', 'The database password is stored in the code.', 'Use integrated security or read the string from protected configuration.'],
   ['연결 문자열에 비밀번호가 있습니다', '데이터베이스 비밀번호가 코드에 저장됩니다.', '통합 인증을 쓰거나 보호된 설정에서 문자열을 읽으세요.'],
-  'Dim cs = "Server=db;User Id=sa;Password=Secret1;"', 'Dim cs = ConfigurationManager.ConnectionStrings("Main").ConnectionString');
+  'Dim cs = "Server=db;User Id=sa;Password=Secret1;"', ['Dim cs = ConfigurationManager.ConnectionStrings("Main").ConnectionString', 'Dim cs = String.Format("Server=db;User Id={0};Password={1};", user, pwd)'],
+  { skip: (raw) => !/"[^"]*\b(?:Password|Pwd)\s*=\s*(?![{$%*])[^;"\s]+/i.test(raw) });
 R('weak-hash', 'V', 'CR', 15, ['crypto', 'cwe-328', 'owasp-a02'],
   /\b(?:MD5|SHA1)(?:CryptoServiceProvider|Managed|Cng)?\.Create\s*\(|\bNew\s+(?:MD5|SHA1)(?:CryptoServiceProvider|Managed|Cng)\b/i,
   ['Weak hash algorithm', 'MD5 and SHA-1 collisions are practical.', 'Use SHA256 or stronger.'],
@@ -101,7 +132,7 @@ R('weak-random', 'H', 'MI', 10, ['cwe-338', 'crypto'],
   ['Non-cryptographic random generator', 'Random and Rnd are predictable.', 'Use RandomNumberGenerator for tokens and keys.'],
   ['암호용이 아닌 난수 생성기입니다', 'Random과 Rnd는 예측할 수 있습니다.', '토큰과 키에는 RandomNumberGenerator를 쓰세요.'],
   'Dim token = New Random().Next()', 'Dim token = RandomNumberGenerator.GetInt32(Integer.MaxValue)', { ref: 'S2245' });
-R('process-start-concat', 'V', 'CR', 20, ['cwe-78', 'owasp-a03'],
+R('process-start-concat', 'H', 'MA', 20, ['cwe-78', 'owasp-a03'],
   /\b(?:Process\.Start|Shell)\s*\([^)]*&/i,
   ['OS command built by concatenation', 'Values joined into a command line can run other commands.', 'Pass arguments through ProcessStartInfo.ArgumentList.'],
   ['문자열을 이어 OS 명령을 만듭니다', '명령줄에 이어 붙인 값이 다른 명령을 실행할 수 있습니다.', 'ProcessStartInfo.ArgumentList로 인자를 넘기세요.'],
@@ -110,7 +141,8 @@ R('http-url', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /"http:\/\/(?!localhost|127\.0\.0\.1)[\w.-]+/i,
   ['Clear-text HTTP URL', 'Traffic over http:// can be read and changed on the network.', 'Use https://.'],
   ['평문 HTTP URL입니다', 'http:// 트래픽은 네트워크에서 읽고 바꿀 수 있습니다.', 'https://를 쓰세요.'],
-  'Dim url = "http://api.example.com/v1"', 'Dim url = "https://api.example.com/v1"', { ref: 'S5332' });
+  'Dim url = "http://api.example.com/v1"', ['Dim url = "https://api.example.com/v1"', 'Dim ns As XNamespace = "http://schemas.microsoft.com/office/word/2003/wordml"', 'Const XsdNs = "http://www.w3.org/2001/XMLSchema"'],
+  { ref: 'S5332', skip: (raw) => /"http:\/\/(?:www\.w3\.org|schemas\.(?:microsoft|xmlsoap|openxmlformats|android)\.com|schemas\.xmlsoap\.org|purl\.org|xmlns\.)/i.test(raw) });
 R('binary-formatter', 'V', 'CR', 30, ['cwe-502', 'owasp-a08'],
   /\bNew\s+(?:BinaryFormatter|SoapFormatter|NetDataContractSerializer|LosFormatter)\b/i,
   ['Insecure deserializer', 'BinaryFormatter and similar can run code from untrusted data.', 'Use System.Text.Json or a data-only serializer.'],
@@ -124,15 +156,15 @@ R('object-type', 'S', 'MI', 5, ['types'],
   ['타입이 없거나 Object인 변수입니다', '늦은 바인딩 Object 변수는 타입 오류를 실행 시점까지 숨깁니다.', '구체적인 타입을 선언하세요.'],
   'Dim item As Object', 'Dim item As Customer');
 R('console-writeline', 'S', 'MI', 2, ['debug'],
-  /^\s*(?:Console\.Write(?:Line)?|Debug\.Print|MsgBox)\s*\(/i,
-  ['Console or MsgBox debug output', 'Debug output is not a log and cannot be filtered.', 'Use a logger.'],
-  ['Console이나 MsgBox 디버그 출력입니다', '디버그 출력은 로그가 아니라 거를 수 없습니다.', '로거를 쓰세요.'],
-  'Console.WriteLine("value=" & value)', 'logger.LogDebug("value={Value}", value)', { ref: 'S106' });
+  /^\s*(?:Console\.Write(?:Line)?|Debug\.Print)\s*\(/i,
+  ['Console or Debug.Print debug output', 'Debug output is not a log and cannot be filtered.', 'Use a logger.'],
+  ['Console이나 Debug.Print 디버그 출력입니다', '디버그 출력은 로그가 아니라 거를 수 없습니다.', '로거를 쓰세요.'],
+  'Console.WriteLine("value=" & value)', ['logger.LogDebug("value={Value}", value)', 'MsgBox("Saved.", MsgBoxStyle.Information)'], { ref: 'S106' });
 R('legacy-vb-functions', 'S', 'MI', 5, ['legacy'],
-  /(?<![\w.])(?:Left|Right|Mid|Len|InStr|UCase|LCase|CStr|CInt)\s*\(/,
+  /(?<![\w.])(?:Left|Right|Mid|Len|InStr|UCase|LCase)\s*\(/,
   ['Legacy VB runtime function', 'Microsoft.VisualBasic helpers duplicate String methods and behave differently with Nothing.', 'Use String methods such as Substring, Length and ToUpper.'],
   ['예전 VB 런타임 함수입니다', 'Microsoft.VisualBasic 도우미는 String 메서드와 겹치고 Nothing에서 다르게 동작합니다.', 'Substring, Length, ToUpper 같은 String 메서드를 쓰세요.'],
-  'Dim prefix = Left(name, 3)', 'Dim prefix = name.Substring(0, 3)');
+  'Dim prefix = Left(name, 3)', ['Dim prefix = name.Substring(0, 3)', 'Dim n = CInt(text)', 'label.Text = CStr(total)']);
 R('exit-sub', 'S', 'MI', 5, ['brain-overload'],
   /^\s*Exit\s+(?:Sub|Function|Property)\b/i,
   ['Exit Sub / Exit Function', 'Early exits through Exit make the flow harder to follow than Return.', 'Use Return, or restructure the condition.'],
@@ -144,9 +176,10 @@ R('todo', 'S', 'IN', 5, ['unfinished'],
   ['TODO / FIXME 주석입니다', '주석이 끝나지 않은 일을 표시합니다.', '작업을 끝내거나 추적하는 이슈를 여세요.'],
   '\' TODO: validate input', '\' Input is validated by the binder.', { scope: 'any', ref: 'S1135' });
 R('empty-sub', 'S', 'MI', 5, ['suspicious'],
-  /^\s*(?:(?:Public|Private|Protected|Friend|Shared|Overrides)\s+)*Sub\s+\w+\s*\([^)]*\)\s*:\s*End\s+Sub\b/i,
+  /^\s*(?:(?:Public|Private|Protected|Friend|Shared|Overrides|Overridable|Partial)\s+)*Sub\s+\w+\s*\([^)]*\)\s*:\s*End\s+Sub\b/i,
   ['Empty Sub', 'An empty body is unfinished or should say why it does nothing.', 'Implement it or add a comment.'],
   ['빈 Sub입니다', '빈 본문은 미완성이거나 왜 아무 일도 안 하는지 설명해야 합니다.', '구현하거나 주석을 다세요.'],
-  'Private Sub Reload() : End Sub', 'Private Sub Reload() : grid.Refresh() : End Sub', { ref: 'S1186' });
+  'Private Sub Reload() : End Sub', ['Private Sub Reload() : grid.Refresh() : End Sub', 'Protected Overrides Sub OnPaintBackground(e As PaintEventArgs) : End Sub', 'Partial Private Sub OnLoaded() : End Sub'],
+  { ref: 'S1186', skip: (raw) => /\b(?:Overrides|Overridable|Partial)\b/i.test(raw) });
 
 module.exports = { RULES: R.rules };

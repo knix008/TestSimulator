@@ -9,6 +9,7 @@
 // checker itself would flag it).
 
 const { maker, entropy } = require('./util');
+const { fixturePath } = require('./secret-values');
 const base = require('../rules');
 
 const R = maker('secrets', ['*']);
@@ -217,12 +218,14 @@ R('generic-high-entropy', 'V', 'CR', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   ['const cacheKey = "d41d8cd98f00b204e9800998ecf8427ed41d8cd9";', 'const tokenName = "ACCESS_TOKEN_FOR_THE_PUBLIC_DOCUMENTATION";', j('api_key = "', gen(40, B64), '"')],
   {
     scope: 'any',
-    skip: (raw) => {
-      if (notPlaceholder(raw)) return true;
+    skip: (raw, line, file) => {
+      if (notPlaceholder(raw) || fixturePath(file)) return true;
+      // A public key or a key id is not a secret.
+      if (/(?:public|pub)[_-]?key|publishable|key[_-]?id\b|\bkid\b/i.test(raw)) return true;
       for (const r of [baseToken, basePassword]) {
         if (!r) continue;
         r.re.lastIndex = 0;
-        if (r.re.test(raw) && !(r.skip && r.skip(raw, raw))) return true;
+        if (r.re.test(raw) && !(r.skip && r.skip(raw, raw, file))) return true;
       }
       const m = GENERIC.exec(raw);
       if (!m) return true;

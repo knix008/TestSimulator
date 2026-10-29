@@ -1034,7 +1034,8 @@ rule({
         for (const lab of c.labels) {
           if (!pure(lab)) continue;
           const prev = seen.find((x) => A.eq(x, lab) || (x.k === 'IsPat' && lab.k === 'IsPat' && A.typeName(x.type) === A.typeName(lab.type) && x.neg === lab.neg));
-          if (prev) cx.report(lab, [prev.line]); else seen.push(lab);
+          // A branch with a guard ("is X if ok ->", Kotlin 2.1) does not hide a later one.
+          if (prev) cx.report(lab, [prev.line]); else if (!c.guard) seen.push(lab);
         }
       }
     },

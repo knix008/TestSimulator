@@ -826,6 +826,9 @@ R('field-default-init', 'S3052', 'S', 'MI', 2, ['convention', 'redundant'],
     if (td && (td.kind === 'struct' || td.kind === 'record struct')) return;
     for (const v of n.vars) {
       if (!v.init) continue;
+      // `= null!` / `= default!` silences the nullable warning for a field set later (WinForms
+      // controls, DI); removing it brings the warning back, so it is not redundant.
+      if (hasSuppressNull(v.init)) continue;
       const e = unparen(v.init);
       const tn = T.normName(n.type.name);
       let def = false;
@@ -837,6 +840,10 @@ R('field-default-init', 'S3052', 'S', 'MI', 2, ['convention', 'redundant'],
       if (def) cx.report(v, `Remove the member initializer, all members are assigned their default value automatically.`, `멤버 초기화식을 지우세요. 모든 멤버는 자동으로 기본값을 받습니다.`, { atName: true });
     }
   } } });
+function hasSuppressNull(e) {
+  while (e && e.k === 'Paren') e = e.expr;
+  return !!e && e.k === 'SuppressNull';
+}
 R('redundant-anonymous-property-name', 'S3441', 'S', 'MI', 1, ['clumsy'],
   ['Redundant property names should be omitted in anonymous classes', '`new { Name = x.Name }` can be written `new { x.Name }`.', 'Omit the property name.'],
   ['익명 클래스에서 불필요한 속성 이름은 생략해야 합니다', '`new { Name = x.Name }`은 `new { x.Name }`으로 쓸 수 있습니다.', '속성 이름을 생략하세요.'],

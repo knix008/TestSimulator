@@ -36,6 +36,16 @@ class Parser {
   get prev() { return this.toks[this.i > 0 ? this.i - 1 : 0]; }
   next() { const t = this.toks[this.i]; if (this.i < this.toks.length - 1) this.i++; return t; }
   isOp(v, t = this.tok) { return t.t === 'op' && t.v === v; }
+  // PHP 8.4 asymmetric visibility "private(set)": recorded as its own
+  // modifier so the property still has its (public) read visibility.
+  eatSetVisibility(mods, modToks) {
+    const v = this.kw();
+    if (!['public', 'protected', 'private'].includes(v) || !this.isOp('(', this.peek()) || this.kw(this.peek(2)) !== 'set' || !this.isOp(')', this.peek(3))) return false;
+    if (modToks) modToks.push(this.tok);
+    this.next(); this.next(); this.next(); this.next();
+    mods.add(`${v}(set)`);
+    return true;
+  }
   isKw(w, t = this.tok) { return t.t === 'id' && t.v.length === w.length && t.v.toLowerCase() === w; }
   kw(t = this.tok) { return t.t === 'id' ? t.v.toLowerCase() : ''; }
   eat(v) { if (this.isOp(v)) { this.next(); return true; } return false; }
@@ -512,7 +522,10 @@ class Parser {
       let attrs = null;
       if (this.isOp('#[')) attrs = this.attributes();
       const mods = new Set();
-      while (this.tok.t === 'id' && ['public', 'protected', 'private', 'readonly'].includes(this.kw())) mods.add(this.next().v.toLowerCase());
+      while (this.tok.t === 'id' && ['public', 'protected', 'private', 'readonly'].includes(this.kw())) {
+        if (this.eatSetVisibility(mods)) continue;
+        mods.add(this.next().v.toLowerCase());
+      }
       let type = null;
       if (this.tok.t === 'id' || this.isOp('?') || (this.isOp('(') && this.peek().t === 'id')) type = this.type();
       const byRef = this.eat('&');
@@ -621,7 +634,11 @@ class Parser {
     }
     const mods = new Set();
     const modToks = [];
-    while (this.tok.t === 'id' && MODS.has(this.kw()) && !(this.isOp('(', this.peek()))) {
+    while (this.tok.t === 'id' && MODS.has(this.kw())) {
+      if (this.isOp('(', this.peek())) {
+        if (this.eatSetVisibility(mods, modToks)) continue;
+        break;
+      }
       modToks.push(this.tok);
       mods.add(this.next().v.toLowerCase());
     }

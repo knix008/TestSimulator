@@ -512,7 +512,14 @@ rule({
       const scopeEnd = scopeNode ? scopeNode.endLine : 0;
       let nakedInside = false;
       if (o.kind === 'result' && scopeNode) A.walk(scopeNode, (x) => { if (x.k === 'FuncLit') return false; if (x.k === 'Return' && !x.results.length && x.line >= n.line) nakedInside = true; return !nakedInside; });
-      const laterRead = o.kind !== 'result' && o.refs.some((r) => !r.lhs && r.line > scopeEnd);
+      // The outer err must be read with the value it had: when its next use
+      // after the block assigns it (data, err := json.Marshal(...)), the inner
+      // err := hid nothing. Inside a loop the next use can come earlier in the text.
+      const after = o.refs.filter((r) => r.line > scopeEnd).sort((a, b) => a.line - b.line || a.col - b.col);
+      const readsO = (e) => { let hit = false; A.walk(e, (x) => { if (x.k === 'Ident' && x.sym === o) hit = true; return !hit; }); return hit; };
+      const isWrite = (r) => r.parent && r.parent.k === 'Assign' && (r.parent.op === '=' || r.parent.op === ':=') && r.parent.lhs.includes(r) && !r.parent.rhs.some(readsO);
+      const reassigned = after.length && isWrite(after[0]) && !H.loopOf(n);
+      const laterRead = o.kind !== 'result' && !reassigned && o.refs.some((r) => !r.lhs && r.line > scopeEnd);
       if (nakedInside || laterRead) cx.report(n, `This '${s.name}' shadows the '${o.name}' declared at line ${o.node.line}, which is ${o.kind === 'result' ? 'returned by the bare return below' : 'read later'}.`, `이 '${s.name}'은(는) ${o.node.line}행에서 선언한 '${o.name}'을(를) 가립니다. 바깥 변수는 ${o.kind === 'result' ? '아래의 값 없는 return이 반환합니다' : '나중에 읽습니다'}.`);
     },
   },
@@ -549,15 +556,41 @@ func open(p string) (int, error) { return 0, nil }
 `),
 });
 
+// io.EOF is returned unwrapped by io.Reader.Read and the other reader-style
+// calls ("Read must return EOF itself, not an error wrapping EOF, because
+// callers will test for EOF using =="), so err == io.EOF is the documented
+// idiom when every assignment of err comes from such a call.
+const EOF_CALLS = /^(?:Read|ReadAt|ReadByte|ReadBytes|ReadRune|ReadString|ReadLine|ReadSlice|ReadFull|ReadAtLeast|ReadDir|Readdir|Readdirnames|ReadFrom|ReadMsg|ReadRecord|ReadPart|Next|NextPart|NextRawPart|NextReader|NextToken|Token|RawToken|Decode|Recv|ReadMessage|ReadJSON|Peek|Discard)$/;
+function eofFromReader(sentinel, errExpr) {
+  const s = A.strip(sentinel);
+  if (!s || s.k !== 'Selector' || s.sel.name !== 'EOF') return false;
+  const x = A.strip(s.x);
+  if (!x || x.k !== 'Ident' || x.name !== 'io') return false;
+  const e = A.strip(errExpr);
+  if (!e || e.k !== 'Ident' || !e.sym) return false;
+  let seen = 0;
+  for (const id of [e.sym.node, ...e.sym.refs]) {
+    const as = id && id.parent;
+    if (!as || as.k !== 'Assign' || !as.lhs.includes(id)) continue;
+    if (as.rhs.length !== 1) return false;
+    const call = A.strip(as.rhs[0]);
+    const c = call && call.k === 'Call' ? A.callee(call) : null;
+    if (!c || !c.name || !EOF_CALLS.test(c.name)) return false;
+    seen++;
+  }
+  return seen > 0;
+}
+
 rule({
   id: 'error-compare-eq', type: 'B', sev: 'MA', debt: 5, tags: ['error-handling'], ref: '',
-  en: ['Errors should be compared with errors.Is', 'err == io.EOF fails when the error is wrapped with %w.', 'Use errors.Is(err, io.EOF).'],
-  ko: ['오류는 errors.Is로 비교해야 합니다', 'err == io.EOF는 오류가 %w로 감싸이면 실패합니다.', 'errors.Is(err, io.EOF)를 쓰세요.'],
+  en: ['Errors should be compared with errors.Is', 'err == ErrNotFound fails when the error is wrapped with %w. io.EOF straight from a Read-style call is not reported: the io.Reader contract returns it unwrapped.', 'Use errors.Is(err, ErrNotFound).'],
+  ko: ['오류는 errors.Is로 비교해야 합니다', 'err == ErrNotFound는 오류가 %w로 감싸이면 실패합니다. Read 계열 호출이 바로 돌려준 io.EOF는 io.Reader 계약상 감싸지 않으므로 보고하지 않습니다.', 'errors.Is(err, ErrNotFound)를 쓰세요.'],
   on: {
     Binary(n, cx) {
       if (n.op !== '==' && n.op !== '!=') return;
       const pair = (H.isErrExpr(n.x) && H.isSentinel(n.y)) ? n.y : (H.isErrExpr(n.y) && H.isSentinel(n.x)) ? n.x : null;
       if (!pair) return;
+      if (eofFromReader(pair, pair === n.y ? n.x : n.y)) return;
       const fn = H.fnOf(n);
       if (fn && fn.k === 'FuncDecl' && fn.recv && fn.name.name === 'Is') return;
       cx.report(n, `Use errors.Is to compare with '${cx.norm(pair)}' so that wrapped errors match.`, `감싼 오류도 일치하도록 '${cx.norm(pair)}'과(와)의 비교에 errors.Is를 쓰세요.`);
@@ -570,13 +603,14 @@ import (
 )
 
 func readAll(f *os.File) error {
-	buf := make([]byte, 8)
-	_, err := f.Read(buf)
+	err := load(f)
 	if err == io.EOF { // Noncompliant
 		return nil
 	}
 	return err
 }
+
+func load(f *os.File) error { return nil }
 `),
   good: gf(`
 import (
@@ -586,13 +620,18 @@ import (
 )
 
 func readAll(f *os.File) error {
+	if errors.Is(load(f), io.EOF) {
+		return nil
+	}
 	buf := make([]byte, 8)
 	_, err := f.Read(buf)
-	if errors.Is(err, io.EOF) || err == nil {
+	if err == io.EOF || err == nil {
 		return nil
 	}
 	return err
 }
+
+func load(f *os.File) error { return nil }
 `),
 });
 

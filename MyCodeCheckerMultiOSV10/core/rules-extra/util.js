@@ -112,10 +112,10 @@ function maker(prefix, defaultLangs) {
     let scope = opts.scope || 'code';
     if (opts.ns) {
       const base = skip;
-      skip = (rawLine, line) => {
+      skip = (rawLine, line, ...rest) => {
         re.lastIndex = 0;
         if (!re.test(blankStrings(line))) return true;
-        return base ? base(rawLine, line) : false;
+        return base ? base(rawLine, line, ...rest) : false;
       };
     }
     if (opts.code) {
@@ -123,10 +123,10 @@ function maker(prefix, defaultLangs) {
       // the line with string contents blanked.
       const strict = opts.code;
       const base = skip;
-      skip = (rawLine, line) => {
+      skip = (rawLine, line, ...rest) => {
         strict.lastIndex = 0;
         if (!strict.test(blankStrings(line))) return true;
-        return base ? base(rawLine, line) : false;
+        return base ? base(rawLine, line, ...rest) : false;
       };
     }
     if (opts.raw) {
@@ -134,9 +134,9 @@ function maker(prefix, defaultLangs) {
       // interpolation. Look at the raw line but ignore pure comment lines.
       scope = 'any';
       const base = skip;
-      skip = (rawLine, line) => {
+      skip = (rawLine, line, ...rest) => {
         if (/^\s*#(?!\{)/.test(String(rawLine))) return true;
-        return base ? base(rawLine, line) : false;
+        return base ? base(rawLine, line, ...rest) : false;
       };
     }
     const allTags = tags.map((t) => String(t).toLowerCase());

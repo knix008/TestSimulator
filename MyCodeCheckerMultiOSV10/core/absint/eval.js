@@ -105,7 +105,10 @@ P.stringLit = function stringLit(st, e) {
   if (!st.obj(id)) {
     const csize = this.sizeOf(T.pointee(this.T(e.ctype)) || T.T.char) || 1;
     const len = e.length || ((e.value || '').length + 1);
-    st.addObj({ id, kind: 'string', name: `"${(e.value || '').slice(0, 20)}"`, size: I.konst(len * csize), esz: csize, init: 'yes', term: 'yes', slen: I.konst(len - 1), lit: e.value || '' });
+    if (e.incomplete) {
+      // a string-literal macro we cannot expand is part of it: at least this long
+      st.addObj({ id, kind: 'string', name: `"${(e.value || '').slice(0, 20)}"`, size: I.make(len * csize, I.INF), esz: csize, init: 'yes', term: 'yes', slen: I.make(len - 1, I.INF) });
+    } else st.addObj({ id, kind: 'string', name: `"${(e.value || '').slice(0, 20)}"`, size: I.konst(len * csize), esz: csize, init: 'yes', term: 'yes', slen: I.konst(len - 1), lit: e.value || '' });
   }
   return { pt: [{ o: id, off: I.konst(0) }], nul: 'non', nn: 'addr' };
 };

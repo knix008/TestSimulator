@@ -4,7 +4,7 @@
 // languages.ruleLangsFor), so the patterns stay inside syntax that is either
 // Java-only or means the same thing in those languages.
 
-const { maker, nestedTernary } = require('./util');
+const { maker, nestedTernary, blankStrings } = require('./util');
 
 const R = maker('java', ['java']);
 
@@ -98,10 +98,12 @@ R('wildcard-import', 'S', 'MI', 2, ['convention'],
   ['와일드카드 import입니다', 'import x.*는 이름의 출처를 숨기고 패키지에 클래스가 늘면 깨질 수 있습니다.', '쓰는 클래스를 import하세요.'],
   'import java.util.*;', 'import java.util.List;');
 R('empty-method', 'S', 'MI', 5, ['suspicious'],
-  /\b(?:public|private|protected)\s+(?:static\s+|final\s+|synchronized\s+)*[\w<>\[\],? ]+\s+\w+\s*\([^)]*\)\s*(?:throws\s+[\w.,\s]+)?\{\s*\}/,
+  /\b(?:public|private|protected)\s+(?:static\s+|final\s+|synchronized\s+)*(?!(?:record|class|interface|enum)\b)[\w<>\[\],? ]+\s+\w+\s*\([^)]*\)\s*(?:throws\s+[\w.,\s]+)?\{\s*\}/,
   ['Empty method', 'An empty method is unfinished, or should explain why it does nothing.', 'Implement it, throw UnsupportedOperationException, or add a comment.'],
   ['빈 메서드입니다', '빈 메서드는 미완성이거나 왜 아무 일도 안 하는지 설명해야 합니다.', '구현하거나 UnsupportedOperationException을 던지거나 주석을 다세요.'],
-  'public void onStop() {}', ['public void onStop() { save(); }', 'public Foo() {}']);
+  'public void onStop() {}', ['public void onStop() { save(); }', 'public Foo() {}', 'public record Point(int x, int y) { }', 'public void onStop() { /* nothing to release */ }'],
+  // A comment between the braces is the explanation the rule asks for.
+  { skip: (raw) => /\{\s*(?:\/\*|\/\/)/.test(raw) });
 R('class-naming', 'S', 'MI', 2, ['convention'],
   /\b(?:class|interface|enum|record)\s+[a-z]\w*\s*[{<(]|\b(?:class|interface|enum|record)\s+[a-z]\w*\s+(?:extends|implements)\b/,
   ['Type name not in PascalCase', 'Java types start with an upper-case letter.', 'Rename the type to PascalCase.'],
@@ -117,7 +119,9 @@ R('redundant-boolean', 'S', 'MI', 2, ['clumsy'],
   /[=!]=\s*(?:true|false)\b|\b(?:true|false)\s*[=!]=/,
   ['Comparison with a boolean literal', 'x == true is just x.', 'Use the expression directly, or negate it.'],
   ['불리언 리터럴과 비교합니다', 'x == true는 그냥 x입니다.', '식을 그대로 쓰거나 부정하세요.'],
-  'if (valid == true) {', 'if (valid) {', { ns: true });
+  'if (valid == true) {', 'if (valid) {',
+  // Kotlin files run this rule too, where flag == true is the idiom for a Boolean? (null counts as false).
+  { skip: (raw, line, file) => (file && file.lang === 'kt') || !/[=!]=\s*(?:true|false)\b|\b(?:true|false)\s*[=!]=/.test(blankStrings(line)) });
 R('boolean-ternary', 'S', 'MI', 2, ['clumsy'],
   /\?\s*true\s*:\s*false\b|\?\s*false\s*:\s*true\b/,
   ['Ternary returning true / false', 'cond ? true : false is just cond.', 'Use the condition or its negation.'],
@@ -195,7 +199,10 @@ R('hostname-verifier', 'V', 'CR', 20, ['cwe-297', 'owasp-a07', 'tls'],
   /\bverify\s*\(\s*String\s+\w+\s*,\s*SSLSession\s+\w+\s*\)\s*\{\s*return\s+true|\bALLOW_ALL_HOSTNAME_VERIFIER\b|\bNoopHostnameVerifier\b|\(\s*\w+\s*,\s*\w+\s*\)\s*->\s*true/,
   ['Host name verification disabled', 'Accepting any host name lets a valid certificate for another site impersonate yours.', 'Use the default HostnameVerifier.'],
   ['호스트 이름 검증을 끕니다', '아무 호스트 이름이나 받으면 다른 사이트의 유효한 인증서로 사칭할 수 있습니다.', '기본 HostnameVerifier를 쓰세요.'],
-  'conn.setHostnameVerifier(NoopHostnameVerifier.INSTANCE);', 'conn.setHostnameVerifier(HttpsURLConnection.getDefaultHostnameVerifier());');
+  ['conn.setHostnameVerifier(NoopHostnameVerifier.INSTANCE);', 'conn.setHostnameVerifier((host, session) -> true);'],
+  ['conn.setHostnameVerifier(HttpsURLConnection.getDefaultHostnameVerifier());', 'map.merge(key, value, (a, b) -> true);', 'BiPredicate<String, String> any = (a, b) -> true;'],
+  // An (a, b) -> true lambda counts only where a host name verifier is set or declared.
+  { skip: (raw, line) => !/\bverify\s*\(\s*String|\bALLOW_ALL_HOSTNAME_VERIFIER\b|\bNoopHostnameVerifier\b/.test(line) && !/HostnameVerifier/.test(line) });
 R('cookie-not-secure', 'H', 'MA', 5, ['cwe-614', 'owasp-a05', 'cookie'],
   /\.setSecure\s*\(\s*false\s*\)/,
   ['Cookie without the Secure flag', 'The cookie is also sent over plain HTTP.', 'Call setSecure(true).'],
@@ -246,7 +253,8 @@ R('reflected-xss', 'V', 'CR', 20, ['cwe-79', 'owasp-a03', 'xss'],
   ['Request parameter written to the response', 'Echoing input unescaped is reflected XSS.', 'Escape with an encoder such as OWASP Java Encoder.'],
   ['요청 매개변수를 응답에 씁니다', '이스케이프 없이 입력을 되돌리면 반사형 XSS입니다.', 'OWASP Java Encoder 같은 인코더로 이스케이프하세요.'],
   'response.getWriter().println(request.getParameter("q"));', 'response.getWriter().println(Encode.forHtml(q));');
-R('unsafe-deserialization', 'V', 'CR', 30, ['cwe-502', 'owasp-a08'],
+// Every ObjectInputStream is reported whatever the stream's origin: a place to review (hotspot).
+R('unsafe-deserialization', 'H', 'CR', 30, ['cwe-502', 'owasp-a08'],
   /\bnew\s+(?:ObjectInputStream|XMLDecoder)\s*\(|\bxstream\.fromXML\s*\(/i,
   ['Java deserialization of a stream', 'Deserializing untrusted bytes can run gadget-chain code.', 'Use a data format such as JSON, or an ObjectInputFilter allow list.'],
   ['스트림을 Java 역직렬화합니다', '신뢰할 수 없는 바이트를 역직렬화하면 가젯 체인 코드가 실행될 수 있습니다.', 'JSON 같은 데이터 형식이나 ObjectInputFilter 허용 목록을 쓰세요.'],

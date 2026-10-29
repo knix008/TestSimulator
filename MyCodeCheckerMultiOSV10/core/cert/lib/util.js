@@ -112,7 +112,8 @@ function arg(call, i) {
 
 function strLit(e) {
   e = strip(e);
-  return e && e.type === 'StringLiteral' ? e.value : null;
+  // a literal with an unknown string macro in it has no known value
+  return e && e.type === 'StringLiteral' && !e.incomplete ? e.value : null;
 }
 
 function isNullConst(e) {

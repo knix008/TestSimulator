@@ -37,6 +37,10 @@ const QUAL_NORM = { __restrict: 'restrict', __restrict__: 'restrict', __const: '
 const STD_TEMPLATE_SET = new Set(STD_TEMPLATES);
 const STD_TYPE_SET = new Set(STD_TYPES);
 const CAST_KW = set('static_cast dynamic_cast reinterpret_cast const_cast');
+// Names that look like macros (upper case, or the <inttypes.h> format macros):
+// string-literal macros next to a literal, attribute macros after a declarator.
+const STRING_MACRO = /^(?:_*[A-Z][A-Z0-9_]*|(?:PRI|SCN)[diouxXbB]\w*)$/;
+const ATTRIBUTE_MACRO = /^(?:_*[A-Z][A-Z0-9_]*|__\w+)$/;
 // Windows calling-convention macros, seen as plain identifiers when <windows.h> is missing
 const WIN_CC = set('WINAPI CALLBACK APIENTRY PASCAL WINAPIV NTAPI STDMETHODCALLTYPE STDAPICALLTYPE CDECL __CRTDECL DAPI DAPIV');
 
@@ -586,7 +590,11 @@ class Parser {
       const k = this.kindOf(n.name);
       if (typename || k === 'type' || k === 'template' || this.allTypeNames.has(n.name) || (n.qualifier.includes('std') && (STD_TYPE_SET.has(n.name) || STD_TEMPLATE_SET.has(n.name)))) {
         this.declare(n.name, STD_TEMPLATE_SET.has(n.name) || this.allTemplateNames.has(n.name) ? 'template' : 'type');
-      } else if (!k) this.declare(n.name, 'var');
+      } else if (!k) {
+        // `using vips::VImage;` from a header we do not have: a CamelCase
+        // name is taken as a type, other names as functions or variables
+        this.declare(n.name, n.qualifier && /^[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*$/.test(n.name) ? 'type' : 'var');
+      }
     } while (this.accept(','));
     this.expect(';');
     const first = names[0];
@@ -899,8 +907,9 @@ class Parser {
       }
       if (t.kind === 'identifier') {
         // `C10_NOINLINE static void f()`, `TORCH_API void g();`: an unknown attribute-like
-        // macro (its header was not found) in front of the specifiers
-        if (!sawType && this.cpp && !this.kindOf(t.value) && /^_*[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(t.value)) {
+        // macro (its header was not found) in front of the specifiers; in C too
+        // (`LV_ATTRIBUTE_FAST_MEM void f(void);`)
+        if (!sawType && !this.kindOf(t.value) && /^_*[A-Z][A-Z0-9]*_[A-Z0-9_]+$/.test(t.value)) {
           const n = this.peek();
           if (n.kind === 'keyword' && n.line === t.line && (STORAGE_KW.has(n.value) || FUNC_KW.has(n.value) || (TYPE_KW.has(n.value) && !QUAL_KW.has(n.value)))) {
             this.p++;
@@ -1461,6 +1470,8 @@ class Parser {
       if (forParam && !this.kindOf(info.last)) {
         const a = this.at(info.end);
         if (a.kind === 'identifier' && (this.isP(',', this.at(info.end + 1)) || this.isP(')', this.at(info.end + 1)) || this.isP('=', this.at(info.end + 1)))) return true;
+        // `Enum const x`: a qualifier never follows a name in an expression
+        if (a.kind === 'keyword' && (a.value === 'const' || a.value === 'volatile')) return true;
         if ((this.isP('*', a) || this.isP('&', a)) && this.isId(this.at(info.end + 1)) && (this.isP(',', this.at(info.end + 2)) || this.isP(')', this.at(info.end + 2)))) return true;
         // unnamed parameter `T*,` / `T&)` / `T* const)` — never an expression
         let k = info.end;
@@ -1570,6 +1581,27 @@ class Parser {
     return this.fin(node, s);
   }
 
+  // An attribute macro whose definition is in a header we do not have, after
+  // a declarator: `int log(const char *f, ...) G_GNUC_PRINTF(1, 2);`. An
+  // undeclared macro-like name (with an optional argument list) that ends the
+  // declarator. Returns the attribute and moves past it, or null.
+  attributeMacro(ends) {
+    const t = this.t;
+    if (t.kind !== 'identifier' || this.kindOf(t.value) !== undefined || !ATTRIBUTE_MACRO.test(t.value)) return null;
+    let after = this.p + 1;
+    if (this.isP('(', this.at(after))) {
+      const close = this.skipBalanced(after);
+      if (close < 0) return null;
+      after = close + 1;
+    }
+    const n = this.at(after);
+    const ok = (n.kind === 'punct' && ends.includes(n.value)) || (n.kind === 'keyword' && (n.value === '__attribute__' || n.value === '__asm__' || n.value === 'asm'));
+    if (!ok) return null;
+    this.p++;
+    const args = this.isP('(') ? this.balancedText() : null;
+    return { name: t.value, namespace: null, args, syntax: 'macro' };
+  }
+
   parseInitDeclarator(specs, ctx, preDecl) {
     const s = this.t;
     const declCtx = ctx === 'class' ? 'member' : ctx;
@@ -1622,6 +1654,8 @@ class Parser {
         if (this.isCtx('final')) { this.p++; node.isFinal = true; continue; }
         if (this.isK('__attribute__') || (this.isP('[') && this.isP('[', this.peek()))) { for (const a of this.parseAttributes()) node.attributes.push(a); continue; }
         if (this.cpp && this.isK('requires')) { this.p++; node.requires = this.parseConstraint(); continue; }
+        const am = this.attributeMacro([';', ',', '{', '=']);
+        if (am) { node.attributes.push(am); continue; }
         break;
       }
       if (!this.cpp && fd.krIdentifiers && !this.isP(';') && !this.isP(',') && !this.isP('{')) {
@@ -1651,6 +1685,7 @@ class Parser {
       this.p++;
       node.bitWidth = this.parseConditional();
     }
+    for (let am = this.attributeMacro([';', ',', '=']); am; am = this.attributeMacro([';', ',', '='])) node.attributes.push(am);
     if (this.isP('=')) {
       this.p++;
       node.init = this.parseInitializer();
@@ -1667,6 +1702,8 @@ class Parser {
     for (;;) {
       if (this.isK('__attribute__') || this.isK('__attribute')) { for (const a of this.parseAttributes()) node.attributes.push(a); continue; }
       if (this.isK('asm') || this.isK('__asm__') || this.isK('__asm')) { node.asmLabel = this.skipAsm(); continue; }
+      const am = node.init ? null : this.attributeMacro([';', ',']);
+      if (am) { node.attributes.push(am); continue; }
       break;
     }
     return this.fin(node, s);
@@ -2714,6 +2751,7 @@ class Parser {
       }
       case 'string': return this.parseStringLiteral();
       case 'identifier': {
+        if (this.isStringMacro(this.p)) return this.parseStringLiteral();
         if (this.cpp) {
           const info = this.scanName(this.p);
           if (info && this.nameIsType(info) && !this.isCtorLikeCall(info)) {
@@ -2749,16 +2787,38 @@ class Parser {
 
   isCtorLikeCall() { return false; }
 
+  // A string-literal macro whose definition is in a header we do not have:
+  // an undeclared, macro-like name next to a string literal ("%" PRIx32,
+  // LOG_TAG ": ready"). A name and a string literal never follow each other
+  // in valid code, so it is taken as a piece of the literal.
+  isStringMacro(i) {
+    const t = this.at(i);
+    if (t.kind !== 'identifier' || this.kindOf(t.value) !== undefined || !STRING_MACRO.test(t.value)) return false;
+    const before = i > 0 ? this.toks[i - 1] : null;
+    const after = this.at(i + 1);
+    if (this.isP('(', after)) return false;
+    return after.kind === 'string' || (!!before && before.kind === 'string');
+  }
+
   parseStringLiteral() {
     const s = this.t;
     const parts = [];
     let prefix = '';
     const codes = [];
     const escapes = [];
+    const macroParts = [];
+    const pieces = [];
     let udSuffix = null, raw = false;
-    while (this.t.kind === 'string') {
+    while (this.t.kind === 'string' || (this.t.kind === 'identifier' && this.isStringMacro(this.p))) {
+      if (this.t.kind === 'identifier') {
+        const m = this.next();
+        pieces.push(m.value);
+        macroParts.push(m.value);
+        continue;
+      }
       const t = this.next();
       parts.push(t.value);
+      pieces.push(t.value);
       const lp = literalParts(t);
       if (lp.prefix && lp.prefix !== prefix) {
         if (prefix && prefix !== lp.prefix) this.error('concatenation of string literals with different encoding prefixes', t);
@@ -2777,7 +2837,10 @@ class Parser {
     }
     let value = '';
     for (const c of codes) value += c <= 0x10ffff ? String.fromCodePoint(c) : '�';
-    return this.fin({ type: 'StringLiteral', raw: parts.join(' '), parts, prefix, value, codes, length: codes.length + 1, escapes, rawString: raw, udSuffix }, s);
+    const node = { type: 'StringLiteral', raw: pieces.join(' '), parts, prefix, value, codes, length: codes.length + 1, escapes, rawString: raw, udSuffix };
+    // value / length then miss the unknown pieces
+    if (macroParts.length) { node.macroParts = macroParts; node.incomplete = true; }
+    return this.fin(node, s);
   }
 
   parseIdExpression() {

@@ -10,7 +10,7 @@
 // (syntax.js) -> project-wide statistical checkers (CHECKED_RETURN,
 // MISSING_LOCK, ORDER_REVERSAL).
 
-const { projectFor } = require('../cfront');
+const { projectFor, inLanguage } = require('../cfront');
 const cf = require('../cfamily');
 const { FnAnalyzer } = require('./interp');
 require('./eval');
@@ -507,7 +507,9 @@ function analyze(files, ctx = {}) {
   const engine = new Engine(project, cfiles, opts, options.models);
   const found = engine.run();
   if (ctx.stats) Object.assign(ctx.stats, engine.stats, { internalErrors: engine.internalErrors });
-  return found.filter((f) => !inactive.has(f.rule) && BY_CHECKER.has(f.checker));
+  // A C++-only checker says nothing about a C header.
+  const langs = new Map(cat.map((m) => [m.key, m.langs]));
+  return found.filter((f) => !inactive.has(f.rule) && BY_CHECKER.has(f.checker) && inLanguage(project.fileLangs, f.file, langs.get(f.rule), null));
 }
 
 module.exports = { catalog, analyze, Engine, DEFAULTS };

@@ -1118,6 +1118,8 @@ rule({
   on: {
     Class(n, cx) {
       if (n.lang === 'kt' || n.kind !== 'class' || n.anon || n.mods.has('abstract') || n.ext) return;
+      // The implicit constructor of a private class is private already.
+      if (n.mods.has('private')) return;
       const members = n.members.filter((m) => m.k === 'Method' || m.k === 'Field');
       if (!members.length) return;
       if (!members.every((m) => H.isStatic(m) || m.ctor)) return;
@@ -1906,6 +1908,8 @@ rule({
   on: {
     Class(n, cx) {
       if (cx.kt || n.kind !== 'class' || n.anon || n.mods.has('static')) return;
+      // JUnit 5 @Nested test classes must be inner (non-static) classes.
+      if (A.hasAnno(n, 'Nested')) return;
       const outer = cx.parent();
       if (!outer || outer.k !== 'Class' || outer.kind === 'interface') return;
       if (n.ext && cx.proj.info(A.typeName(n.ext)) && !cx.proj.info(A.typeName(n.ext)).decl.mods.has('static') && cx.proj.info(A.typeName(n.ext)).outer) return;
@@ -1947,13 +1951,17 @@ rule({
   on: {
     Class(n, cx) {
       if (cx.kt || n.anon) return;
+      // Persistent / serialized state: the field is read by the framework, not by methods.
+      if (A.hasAnno(n, ['Entity', 'Embeddable', 'MappedSuperclass', 'Document', 'Table'])) return;
       for (const m of n.members) {
         if (m.k !== 'Field' || !H.isPrivate(m) || H.isStatic(m) || m.annos.length || m.vars.length !== 1 || m.vars[0].init) continue;
+        if (m.mods.has('transient') || m.mods.has('volatile')) continue;
         const name = m.vars[0].name;
         const users = n.members.filter((x) => (x.k === 'Method' || x.k === 'Init') && x.body && A.find(x.body, (y) => (y.k === 'Name' && y.id === name) || (y.k === 'Sel' && y.id === name && A.strip(y.o).k === 'This')));
         if (users.length !== 1) continue;
         const meth = users[0];
-        if (meth.k !== 'Method') continue;
+        // A constructor that stores a value keeps object state (never read: unused-private-field's case).
+        if (meth.k !== 'Method' || meth.ctor) continue;
         if (A.find(meth.body, (y) => (y.k === 'Lambda' || (y.k === 'New' && y.body)) && A.find(y, (z) => z.k === 'Name' && z.id === name))) continue;
         if (n.members.some((x) => x.k === 'Class' && A.find(x, (y) => y.k === 'Name' && y.id === name))) continue;
         // first statement-level reference must be a plain assignment
@@ -2247,13 +2255,16 @@ rule({
   on: {
     Method(n, cx) {
       if (cx.kt) return;
-      const m = { tostring: 'toString', hashcode: 'hashCode' }[n.name] || (n.name === 'equal' && n.params.length === 1 ? 'equals' : null);
-      if (m && n.name !== m) cx.report(nameLoc(n), [n.name, m]);
+      // tostring / hashcode / equal(x) only (an own-property lookup: "toString" itself is fine).
+      const m = n.name === 'tostring' ? 'toString' : n.name === 'hashcode' ? 'hashCode' : (n.name === 'equal' && n.params.length === 1 ? 'equals' : null);
+      if (m) cx.report(nameLoc(n), [n.name, m]);
     },
   },
   bad: { java: jc(`  public int hashcode() { return 1; } // Noncompliant`) },
   good: { java: jc(`  @Override public int hashCode() { return 1; }
-  @Override public boolean equals(Object o) { return o == this; }`) },
+  @Override public boolean equals(Object o) { return o == this; }
+  @Override public String toString() { return "T"; }
+  public String valueOf() { return "v"; }`) },
 });
 
 rule({
@@ -2626,6 +2637,13 @@ rule({
       const u = A.strip(n.upd[0]);
       const upd = u.k === 'Un' ? A.nameOf(u.e) : u.k === 'Assign' ? A.nameOf(u.t) : null;
       if (!upd || tested.has(upd)) return;
+      // c = next(p.charAt(i++)) also moves the tested i.
+      let movesTested = false;
+      A.forEach(u, (x) => {
+        if ((x.k === 'Un' && (x.op === '++' || x.op === '--') && tested.has(A.nameOf(x.e))) || (x.k === 'Assign' && tested.has(A.nameOf(x.t)))) movesTested = true;
+        return !movesTested;
+      });
+      if (movesTested) return;
       const cond = A.nameOf(c.l);
       if (cond) cx.report(n, [cond, upd]);
     },

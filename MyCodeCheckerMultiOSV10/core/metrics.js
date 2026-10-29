@@ -82,7 +82,7 @@ function classify(text, kind) {
       }
     } else if (kind === 'hash' || kind === 'dash') {
       const mark = kind === 'hash' ? '#' : '--';
-      const i = s.indexOf(mark);
+      const i = markOutside(s, mark);
       if (i >= 0) s = s.slice(0, i);
       if (kind === 'hash') {
         const t = line.trim();
@@ -122,12 +122,49 @@ function classify(text, kind) {
   return { lines, code, commentOnly };
 }
 
+// Index of the quote that closes the one at `at` on this line, or -1.
+function closingQuote(s, at) {
+  const q = s[at];
+  for (let i = at + 1; i < s.length; i++) {
+    if (s[i] === '\\') { i++; continue; }
+    if (s[i] === q) return i;
+  }
+  return -1;
+}
+
+// Start of a # (or --) comment outside "..." / '...' literals closed on the
+// same line, or -1. A # comment starts a word (shell $#, ${#a}, a URL's
+// /#frag are not comments); Ruby "#{...}" sits inside its string.
+function markOutside(s, mark) {
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"' || c === "'") {
+      // Only a quote that opens a literal: Python r'', f"", b'' prefixes or a
+      // non-word character before it (don't, it's are not quotes).
+      const before = s.slice(0, i);
+      const opens = !/\w$/.test(before) || /(?:^|[^\w])[rRbBuUfF]{1,2}$/.test(before);
+      const end = opens ? closingQuote(s, i) : -1;
+      if (end > 0) { i = end; continue; }
+      continue;
+    }
+    if (mark === '#') {
+      if (c === '#' && (i === 0 || /[\s;,)\]}"']/.test(s[i - 1]))) return i;
+    } else if (s.startsWith(mark, i)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 function indexOutside(s) {
   // Best-effort: ignore markers that sit inside a simple quote.
   let q = null;
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (q) { if (c === q && s[i - 1] !== '\\') q = null; continue; }
+    // A ' that is not closed on the line is not a quote: Rust lifetimes
+    // (&'a str), C++ digit separators, apostrophes.
+    if (c === "'" && closingQuote(s, i) < 0) continue;
     if (c === '"' || c === "'" || c === '`') { q = c; continue; }
     if (c === '/' && s[i + 1] === '/') return { line: i, block: -1 };
     if (c === '/' && s[i + 1] === '*') return { line: -1, block: i };
@@ -212,7 +249,9 @@ function structuralIssues(text, kind, limits) {
   for (let i = 0; i < lines.length; i++) {
     if (!commentOnly[i]) continue;
     const raw = lines[i].replace(/^\s*(\/\/|\/\*|\*|#|--)\s?/, '').trim();
-    if (codeLike.test(raw) && raw.length > 8) {
+    // A keyword alone is prose ("cases for the parser: ..."); code also has
+    // code punctuation, or a block colon at the end (Python "if x:").
+    if (codeLike.test(raw) && raw.length > 8 && /[;{}()=[\]]|:\s*$/.test(raw)) {
       issues.push(issue('common:commented-code', i + 1, { en: 'This comment looks like code that was turned off.', ko: '이 주석은 꺼 둔 코드로 보입니다.' }));
     }
   }

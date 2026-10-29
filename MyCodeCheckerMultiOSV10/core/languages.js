@@ -5,8 +5,8 @@
 
 const LANGS = {
   js: { exts: ['.js', '.jsx', '.mjs', '.cjs'], comments: 'slash', label: { ko: 'JavaScript', en: 'JavaScript' } },
-  ts: { exts: ['.ts', '.tsx'], comments: 'slash', label: { ko: 'TypeScript', en: 'TypeScript' } },
-  py: { exts: ['.py'], comments: 'hash', label: { ko: 'Python', en: 'Python' } },
+  ts: { exts: ['.ts', '.tsx', '.mts', '.cts'], comments: 'slash', label: { ko: 'TypeScript', en: 'TypeScript' } },
+  py: { exts: ['.py', '.pyi', '.pyw'], comments: 'hash', label: { ko: 'Python', en: 'Python' } },
   java: { exts: ['.java'], comments: 'slash', label: { ko: 'Java', en: 'Java' } },
   kt: { exts: ['.kt', '.kts'], comments: 'slash', label: { ko: 'Kotlin', en: 'Kotlin' } },
   cs: { exts: ['.cs'], comments: 'slash', label: { ko: 'C#', en: 'C#' } },
@@ -15,7 +15,7 @@ const LANGS = {
   go: { exts: ['.go'], comments: 'slash', label: { ko: 'Go', en: 'Go' } },
   rs: { exts: ['.rs'], comments: 'slash', label: { ko: 'Rust', en: 'Rust' } },
   php: { exts: ['.php', '.phtml'], comments: 'slash', label: { ko: 'PHP', en: 'PHP' } },
-  rb: { exts: ['.rb'], comments: 'hash', label: { ko: 'Ruby', en: 'Ruby' } },
+  rb: { exts: ['.rb', '.rake', '.gemspec', '.ru'], comments: 'hash', label: { ko: 'Ruby', en: 'Ruby' } },
   sh: { exts: ['.sh', '.bash', '.zsh'], comments: 'hash', label: { ko: 'Shell', en: 'Shell' } },
   ps1: { exts: ['.ps1', '.psm1'], comments: 'hash', label: { ko: 'PowerShell', en: 'PowerShell' } },
   sql: { exts: ['.sql'], comments: 'dash', label: { ko: 'SQL', en: 'SQL' } },
@@ -49,13 +49,42 @@ for (const [id, lang] of Object.entries(LANGS)) {
   for (const ext of lang.exts) EXT.set(ext, id);
 }
 
-function detectLanguage(filePath) {
+// Ruby DSL files without an extension.
+const RUBY_FILES = new Set(['Rakefile', 'Gemfile', 'Guardfile', 'Capfile', 'Vagrantfile', 'Podfile', 'Fastfile', 'Brewfile']);
+
+// detectLanguage(path[, text]): with the text, an extension that several
+// formats share is checked against the content, so a file of another kind is
+// not analyzed with the wrong language's rules (null = not analyzed).
+function detectLanguage(filePath, text) {
   const base = String(filePath).split(/[/\\]/).pop() || '';
   if (/^dockerfile/i.test(base) || base === 'Containerfile') return 'docker';
   if (base === 'Jenkinsfile') return 'groovy';
+  if (RUBY_FILES.has(base)) return 'rb';
   const dot = base.lastIndexOf('.');
   if (dot < 0) return null;
-  return EXT.get(base.slice(dot).toLowerCase()) || null;
+  const ext = base.slice(dot).toLowerCase();
+  const lang = EXT.get(ext) || null;
+  return lang && typeof text === 'string' ? refineLanguage(lang, ext, text) : lang;
+}
+
+// The language of a file whose extension is shared with other formats.
+function refineLanguage(lang, ext, text) {
+  const head = text.slice(0, 4096).replace(/^﻿/, '');
+  // Qt Linguist translation files are XML with the TypeScript extension.
+  if (ext === '.ts' && /^\s*<(?:\?xml|!DOCTYPE\s+TS\b|TS\b)/i.test(head)) return 'xml';
+  if (ext === '.cls') {
+    // Visual Basic class modules (VB6 / VBA export).
+    if (/^\s*VERSION\s+1\.0\s+CLASS\b|^\s*Attribute\s+VB_Name\s*=/im.test(head)) return 'vb6';
+    // LaTeX document classes.
+    if (/^\s*\\(?:NeedsTeXFormat|ProvidesClass|LoadClass|documentclass)\b/m.test(head)) return null;
+  }
+  // MATLAB / Octave scripts share .m with Objective-C.
+  if (ext === '.m' && !/^\s*(?:#\s*(?:import|include)\b|@(?:interface|implementation|protocol|class)\b)/m.test(head)
+    && /^\s*(?:function\b[^\n(]*(?:=|\()|%|end\s*$|classdef\b)/m.test(head)) return null;
+  // Audio playlists (.pls) and SQL*Loader control files (.ctl).
+  if (ext === '.pls' && /^\s*\[playlist\]/i.test(head)) return null;
+  if (ext === '.ctl' && /^\s*(?:OPTIONS\s*\(|LOAD\s+DATA\b)/im.test(head)) return null;
+  return lang;
 }
 
 // Which rule languages apply to a file language.
@@ -73,4 +102,4 @@ function commentKind(lang) {
   return (LANGS[lang] && LANGS[lang].comments) || 'none';
 }
 
-module.exports = { LANGS, detectLanguage, ruleLangsFor, commentKind };
+module.exports = { LANGS, detectLanguage, refineLanguage, ruleLangsFor, commentKind };

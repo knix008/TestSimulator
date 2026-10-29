@@ -7,7 +7,8 @@ const { maker } = require('./util');
 const R = maker('css', ['css']);
 
 R('import', 'S', 'MI', 5, ['performance'],
-  /^\s*@import\b(?!\s+['"][^'"]*\.(?:scss|sass|less)['"])/i,
+  // A CSS file, url() or remote import loads at run time; Sass / Less @import 'partial' is a build-time include.
+  /^\s*@import\s+(?:url\s*\(|['"](?:[^'"]*\.css|(?:https?:)?\/\/[^'"]*)['"])/i,
   ['@import in CSS', 'CSS @import loads files one after another and delays rendering.', 'Bundle the files or use <link> tags; in Sass prefer @use.'],
   ['CSS에서 @import를 씁니다', 'CSS @import는 파일을 차례로 불러와 렌더링을 늦춥니다.', '파일을 묶거나 <link>를 쓰고 Sass에서는 @use를 쓰세요.'],
   "@import url('theme.css');", "@use 'theme';");
@@ -30,7 +31,8 @@ R('zero-with-unit', 'S', 'IN', 1, ['clumsy'],
   /(?<![\w.#-])0(?:px|em|rem|pt|cm|mm|in|pc|ex|ch|vh|vw|vmin|vmax)\b/,
   ['Unit on a zero length', '0px is the same as 0.', 'Write 0.'],
   ['0 길이에 단위를 붙입니다', '0px는 0과 같습니다.', '0으로 쓰세요.'],
-  'margin: 0px;', ['margin: 0;', 'width: 10px;', 'flex: 1 1 0%;']);
+  'margin: 0px;', ['margin: 0;', 'width: 10px;', 'flex: 1 1 0%;', 'width: calc(0px + 2em);', '--gap: 0px;'],
+  { skip: (raw) => /\bcalc\s*\(|^\s*--[\w-]+\s*:/.test(raw) });
 R('duplicate-property', 'B', 'MA', 5, ['pitfall'],
   /(?:^|[{;])\s*([a-z-]+)\s*:[^;{}]*;\s*(?:[a-z-]+\s*:[^;{}]*;\s*)*\1\s*:/i,
   ['Property repeated in one rule', 'The later value silently wins, which is usually a mistake.', 'Keep one declaration (fallbacks belong on separate lines with a comment).'],
@@ -53,7 +55,7 @@ R('obsolete-vendor-prefix', 'S', 'IN', 1, ['deprecated'],
   ['더 이상 필요 없는 공급자 접두사입니다', '현재 브라우저는 모두 표준 속성을 지원합니다.', '접두사 줄을 지우거나 Autoprefixer에 맡기세요.'],
   '-webkit-border-radius: 4px;', 'border-radius: 4px;');
 R('font-family-no-generic', 'S', 'MI', 2, ['robustness'],
-  /\bfont-family\s*:(?![^;}]*\b(?:serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|emoji|math|inherit|initial|unset|revert)\b)(?![^;}]*(?:var\(|\$|@|#\{))[^;}]+[;}]/i,
+  /\bfont-family\s*:(?=[^;}]*,)(?![^;}]*\b(?:serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|emoji|math|inherit|initial|unset|revert)\b)(?![^;}]*(?:var\(|\$|@|#\{))[^;}]+[;}]/i,
   ['font-family without a generic fallback', 'If the named fonts are missing, the browser picks an arbitrary default.', 'End the list with a generic family such as sans-serif.'],
   ['일반 대체 글꼴 없는 font-family입니다', '지정한 글꼴이 없으면 브라우저가 아무 기본값이나 고릅니다.', 'sans-serif 같은 일반 계열로 목록을 끝내세요.'],
   'font-family: "Helvetica Neue", Arial;', 'font-family: "Helvetica Neue", Arial, sans-serif;');

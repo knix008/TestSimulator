@@ -14,6 +14,8 @@ const { files, engineIds, inactive, root, options } = workerData;
 const byPath = new Map(files.map((f) => [f.path, f]));
 const headers = files.filter((f) => cfront.cf.isHeader(f.path));
 const lexCache = new Map();
+// Header languages over the whole project, as the planner decides them.
+const headerInfo = cfront.headerInfo(files, (options && options.cfamilyBatch) || {});
 const list = engines().filter((e) => engineIds.includes(e.id));
 const ctx = { inactive: new Set(inactive || []), root, options };
 
@@ -29,7 +31,7 @@ const gc = (() => {
 
 parentPort.on('message', ({ index, units }) => {
   const unitFiles = units.map((p) => byPath.get(p)).filter(Boolean);
-  const batch = cfront.batchOf(headers, unitFiles, unitFiles.filter((f) => !cfront.cf.isHeader(f.path)), lexCache);
+  const batch = cfront.batchOf(headers, unitFiles, unitFiles.filter((f) => !cfront.cf.isHeader(f.path)), lexCache, headerInfo);
   const byEngine = {};
   const warnings = [];
   for (const engine of list) {

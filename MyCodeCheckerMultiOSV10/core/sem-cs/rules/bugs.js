@@ -787,7 +787,7 @@ R('blocking-async-call', 'S4462', 'B', 'BL', 10, ['async', 'multi-threading'],
   { kinds: {
     Member(n, cx) {
       if (n.name !== 'Result' || isInvocationCallee(n)) return;
-      if (!isTaskExpr(n.expr, cx) || inMain(n)) return;
+      if (!isTaskExpr(n.expr, cx) || inMain(n) || completedTask(n)) return;
       cx.report(n, `Replace this use of 'Task.Result' with 'await'.`, `'Task.Result' 사용을 'await'로 바꾸세요.`);
     },
     Invocation(n, cx) {
@@ -802,6 +802,40 @@ R('blocking-async-call', 'S4462', 'B', 'BL', 10, ['async', 'multi-threading'],
     },
   } });
 function isInvocationCallee(m) { return m.parent && m.parent.k === 'Invocation' && m.parent.expr === m; }
+// `t.Result` cannot block once the task is known to be finished: it was awaited
+// earlier in the method (`await t`, `await Task.WhenAll(a, b)`), or an enclosing
+// condition tests t.IsCompleted / IsCompletedSuccessfully / Status.
+function completedTask(m) {
+  const recv = unparen(m.expr);
+  if (!recv || recv.k !== 'Name' || !recv.sym) return false;
+  const sym = recv.sym;
+  const mentions = (x) => {
+    let hit = false;
+    const visit = (y) => { if (hit || !y || typeof y !== 'object') return; if (y.k === 'Name' && y.sym === sym) { hit = true; return; } forEachChild(y, visit); };
+    visit(x);
+    return hit;
+  };
+  for (let p = m.parent; p; p = p.parent) {
+    if (p.k === 'If' && p.cond && p.then && m.pos >= p.then.pos && m.pos < p.then.end) {
+      let tested = false;
+      const visit = (y) => { if (tested || !y || typeof y !== 'object') return; if (y.k === 'Member' && /^(IsCompleted|IsCompletedSuccessfully|Status)$/.test(y.name) && unparen(y.expr).k === 'Name' && unparen(y.expr).sym === sym) { tested = true; return; } forEachChild(y, visit); };
+      visit(p.cond);
+      if (tested) return true;
+    }
+    if (['Method', 'Ctor', 'LocalFunc', 'Lambda', 'Accessor', 'Operator'].includes(p.k)) {
+      let awaited = false;
+      const visit = (y) => {
+        if (awaited || !y || typeof y !== 'object') return;
+        if (y.k === 'Await' && y.end <= m.pos && mentions(y.expr)) { awaited = true; return; }
+        if (y !== p && (y.k === 'Lambda' || y.k === 'LocalFunc')) return;
+        forEachChild(y, visit);
+      };
+      visit(p.body || p.exprBody || p);
+      return awaited;
+    }
+  }
+  return false;
+}
 function inMain(n) { const m = enclosing(n, ['Method']); return !!m && m.name === 'Main'; }
 function isTaskExpr(e, cx) {
   e = unparen(e);

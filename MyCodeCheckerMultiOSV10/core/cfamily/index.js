@@ -40,6 +40,7 @@ function sortDiagnostics(list) {
 
 // Parse one translation unit.
 // opts: { file, lang:'c'|'cpp', std, target:'lp64'|'ilp32'|'llp64'|{...}, includeDirs, defines, undefs,
+//         platform ('linux' | 'windows' | 'none': predefined system / compiler / processor macros),
 //         files (other project files for #include), builtinHeaders (default true), booleanTypedefs,
 //         knownTypes (extra typedef names for the parser), lexCache }
 function parseUnit(text, opts = {}) {
@@ -50,7 +51,7 @@ function parseUnit(text, opts = {}) {
   const t0 = Date.now();
   const pre = pp.preprocess(text, {
     file, lang, std, target, files: opts.files, fileMap: opts.fileMap, includeDirs: opts.includeDirs,
-    defines: opts.defines, undefs: opts.undefs, builtinHeaders: opts.builtinHeaders, lexCache: opts.lexCache,
+    defines: opts.defines, undefs: opts.undefs, platform: opts.platform, builtinHeaders: opts.builtinHeaders, lexCache: opts.lexCache,
     trigraphs: opts.trigraphs, maxIncludeDepth: opts.maxIncludeDepth,
   });
   const t1 = Date.now();

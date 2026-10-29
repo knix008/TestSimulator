@@ -1033,7 +1033,7 @@ P.formatCheck = function formatCheck(st, v, argNode, e, fname) {
 
 P.strArgFmt = function strArgFmt(st, v, argNode, fname, fmtNode, idx) {
   const f = skip(fmtNode);
-  if (!f || f.type !== 'StringLiteral') return;
+  if (!f || f.type !== 'StringLiteral' || f.incomplete) return;
   const convs = fmtConversions(f.value || '');
   const c = convs[idx];
   if (c && c.conv === 's' && !c.prec) this.strArg(st, v, argNode, fname);
@@ -1097,7 +1097,7 @@ P.modelSprintf = function modelSprintf(st, e, args, vals, fname, m) {
     if (!this.sizeArgCheck(st, vals[1], args[1], e, fname)) this.copySizeCheck(st, vals[0], vals[1], args[0], args[1], fname, 'write');
   }
   let slen = null, tnt = null;
-  if (fmtNode && fmtNode.type === 'StringLiteral') {
+  if (fmtNode && fmtNode.type === 'StringLiteral' && !fmtNode.incomplete) {
     const fl = this.fmtMinLen(st, fmtNode.value || '', args, vals, fi + 1);
     tnt = fl.tnt;
     for (let i = fi + 1; i < args.length; i++) {
@@ -1266,7 +1266,7 @@ P.modelScanf = function modelScanf(st, e, args, vals, fname, m) {
   if (args[m.fmt]) this.formatCheck(st, vals[m.fmt], args[m.fmt], e, fname);
   const tn = m.from !== undefined ? this.strTaint(st, vals[m.from]) : null;
   const taint = tn || [this.ev(e, 'tainted_source', `${fname} reads untrusted input.`, `${fname}은(는) 신뢰할 수 없는 입력을 읽습니다.`)];
-  const convs = fmtNode && fmtNode.type === 'StringLiteral' ? scanConversions(fmtNode.value || '') : null;
+  const convs = fmtNode && fmtNode.type === 'StringLiteral' && !fmtNode.incomplete ? scanConversions(fmtNode.value || '') : null;
   let k = 0;
   for (let i = m.fmt + 1; i < args.length; i++, k++) {
     const v = vals[i];

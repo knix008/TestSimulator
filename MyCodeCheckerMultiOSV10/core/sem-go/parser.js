@@ -651,7 +651,10 @@ class Parser {
         continue;
       }
       if (k.v === '{') {
-        if (isLiteralType(x) && (this.exprLev >= 0 || !isTypeName(x))) {
+        // In an if/for/switch header a '{' after a name or an index
+        // (if seen[k] {) opens the block, as in go/parser; only array, map
+        // and struct types start a literal there.
+        if (isLiteralType(x) && (this.exprLev >= 0 || !(isTypeName(x) || x.k === 'Index'))) {
           x = this.parseCompositeLit(x, s);
           continue;
         }

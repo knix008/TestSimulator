@@ -83,15 +83,17 @@ function prepareFiles(files, options = {}) {
   for (const file of files || []) {
     const rel = toRel(root, file.path);
     if (excluded(rel, exclusions) || inDirs(rel, excludeDirs)) continue;
-    const lang = detectLanguage(file.path);
-    if (!lang) continue;
-    if (onlyLangs && !onlyLangs.has(lang)) continue;
-    if (skipLangs.has(lang)) continue;
     const text = String(file.text == null ? '' : file.text);
+    // The content settles extensions shared by two formats (Qt .ts, VB .cls …).
+    const lang = detectLanguage(file.path, text);
+    if (!lang) continue;
     if (text.includes('\0')) continue;
     prepared.push({ path: rel, text, lang });
   }
-  return prepared;
+  // A '.h' header is C++ when only C++ units include it or it has C++ syntax
+  // (core/cfamily/hlang.js); the language filters apply to what it is decided to be.
+  cfront.assignHeaderLanguages(prepared, options.cfamily || {});
+  return prepared.filter((f) => (!onlyLangs || onlyLangs.has(f.lang)) && !skipLangs.has(f.lang));
 }
 
 // The engines that share the C/C++ parse and run for these options.

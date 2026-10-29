@@ -268,7 +268,7 @@ test('language server over stdio: diagnostics, hover, code actions, commands, sh
 
 test('workspace analysis finds cross-file taint, reads the settings file, and re-analyzes linked files incrementally', async () => {
   const dir = workspace({
-    'util.js': "const cp = require('child_process');\nfunction run(cmd) {\n  cp.exec(cmd);\n}\nmodule.exports = { run };\n",
+    'util.js': "const cp = require('child_process');\nfunction run(cmd) {\n  cp.exec('ls ' + cmd);\n}\nmodule.exports = { run };\n",
     'app.js': "const util = require('./util');\nfunction handler(req, res) {\n  util.run(req.query.cmd);\n}\nmodule.exports = handler;\n",
   });
   const util = path.join(dir, 'util.js');
