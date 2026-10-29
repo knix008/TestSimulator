@@ -6,6 +6,7 @@ import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, V
 import { call, openExternal } from '../lib/backend';
 import { Inspector, Splitter } from '../components/Layout';
 import { AiFixBox } from './AiFix';
+import { FocusStat, FocusAll, useFocus } from '../components/FocusStats';
 import { ISSUE_STANDARDS, standardsOf, matchesStandard, standardChips, engineOf, ENGINE_ICON } from './standards';
 
 const METRIC_NAME = {
@@ -1758,6 +1759,8 @@ export function Portfolios({ portfolios, projects, onChange }) {
   const [agg, setAgg] = useState({});
   const [editing, setEditing] = useState('');
   const [error, setError] = useState('');
+  // A measure tile shows the member projects with that measure alone ('<portfolio id>|bugs').
+  const [pfFocus, togglePfFocus, clearPfFocus] = useFocus('portfolio', '');
   const create = () => { if (!name.trim()) return; onChange([...portfolios, { id: `pf-${Date.now().toString(36)}`, name: name.trim(), projectIds: [], projects: [] }]); setName(''); };
   // Aggregated measures per portfolio (portfolio.measures), refreshed when membership changes.
   const sig = portfolios.map((pf) => `${pf.id}:${(pf.projectIds || pf.projects || []).join(',')}`).join('|');
@@ -1782,7 +1785,10 @@ export function Portfolios({ portfolios, projects, onChange }) {
         const a = agg[pf.id];
         const rel = a ? a.releasability : (ids.length ? 'NONE' : 'NONE');
         const m = (a && a.measures) || {};
-        const rows = (a && a.projects) || projects.filter((p) => ids.includes(p.id)).map((p) => ({ id: p.id, name: p.name, gate: branchGate(p) || 'NONE', measures: null }));
+        const allRows = (a && a.projects) || projects.filter((p) => ids.includes(p.id)).map((p) => ({ id: p.id, name: p.name, gate: branchGate(p) || 'NONE', measures: null }));
+        const metric = pfFocus && pfFocus.startsWith(`${pf.id}|`) ? pfFocus.slice(pf.id.length + 1) : '';
+        const rows = metric ? allRows.filter((r) => r.measures && Number(r.measures[metric]) > 0).sort((x, y) => Number(y.measures[metric]) - Number(x.measures[metric])) : allRows;
+        const fs = { focus: metric ? pfFocus : null, onToggle: togglePfFocus };
         return (
           <div key={pf.id} className="panel pf-card">
             <div className="section-head">
@@ -1792,6 +1798,7 @@ export function Portfolios({ portfolios, projects, onChange }) {
               </span>
               {a && <span className="small">{t('pf_gates', { ok: a.gates.OK || 0, bad: a.gates.ERROR || 0, none: a.gates.NONE || 0 })}</span>}
               <span className="spacer" />
+              <FocusAll focus={metric ? pfFocus : null} onClear={clearPfFocus} />
               <Btn icon="edit" label={t('pf_edit_members')} active={editing === pf.id} onClick={() => setEditing(editing === pf.id ? '' : pf.id)} />
               <Btn icon="trash" label={t('remove')} danger onClick={async () => { if (await ask({ title: t('cf_delete_title'), body: t('cf_portfolio_delete', { name: pf.name }), okLabel: t('delete_ok'), danger: true })) onChange(portfolios.filter((x) => x.id !== pf.id)); }} />
             </div>
@@ -1813,11 +1820,11 @@ export function Portfolios({ portfolios, projects, onChange }) {
                   })}
                 </div>
                 <div className="card-grid compact">
-                  <Stat icon="bug" kind="BUG" term="bugs" label={t('bugs')} value={m.bugs ?? 0} sub={<NewSub n={m.new_bugs} />} />
-                  <Stat icon="unlock" kind="VULNERABILITY" term="vulnerabilities" label={t('vulns')} value={m.vulnerabilities ?? 0} sub={<NewSub n={m.new_vulnerabilities} />} />
-                  <Stat icon="smell" kind="CODE_SMELL" term="code_smells" label={t('smells')} value={m.code_smells ?? 0} sub={<NewSub n={m.new_code_smells} />} />
-                  <Stat icon="shield" kind="SECURITY_HOTSPOT" term="security_hotspots" label={t('hotspots')} value={m.security_hotspots ?? 0} />
-                  <Stat icon="clock" term="sqale_index" label={t('debt')} value={fmtDebt(m.sqale_index)} />
+                  <FocusStat id={`${pf.id}|bugs`} {...fs} icon="bug" kind="BUG" term="bugs" label={t('bugs')} value={m.bugs ?? 0} sub={<NewSub n={m.new_bugs} />} />
+                  <FocusStat id={`${pf.id}|vulnerabilities`} {...fs} icon="unlock" kind="VULNERABILITY" term="vulnerabilities" label={t('vulns')} value={m.vulnerabilities ?? 0} sub={<NewSub n={m.new_vulnerabilities} />} />
+                  <FocusStat id={`${pf.id}|code_smells`} {...fs} icon="smell" kind="CODE_SMELL" term="code_smells" label={t('smells')} value={m.code_smells ?? 0} sub={<NewSub n={m.new_code_smells} />} />
+                  <FocusStat id={`${pf.id}|security_hotspots`} {...fs} icon="shield" kind="SECURITY_HOTSPOT" term="security_hotspots" label={t('hotspots')} value={m.security_hotspots ?? 0} />
+                  <FocusStat id={`${pf.id}|sqale_index`} {...fs} icon="clock" term="sqale_index" label={t('debt')} value={fmtDebt(m.sqale_index)} />
                   <Stat icon="code" term="ncloc" label={t('ncloc')} value={m.ncloc ?? 0} sub={`${t('dup_density')} ${m.duplicated_lines_density ?? 0}%`} />
                 </div>
               </>
@@ -1841,6 +1848,7 @@ export function Portfolios({ portfolios, projects, onChange }) {
                       ))}
                     </tbody>
                   </table>
+                  {metric && rows.length === 0 && <Empty icon="checkCircle" text={t('fs_no_match')} />}
                 </div>
               </div>
             )}

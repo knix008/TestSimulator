@@ -5,6 +5,17 @@ import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
 import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stat, Rating, ViewHeader, Empty, DateField, NoProject } from './common';
+import { useFocus, FocusStat, FocusAll } from '../components/FocusStats';
+
+// The rows a summary tile of a security report shows alone.
+const REPORT_FOCUS = {
+  vulns: (r) => r.vulnerabilities > 0,
+  hotspots: (r) => r.hotspots > 0,
+  rules: (r) => (r.rules || []).length > 0,
+  passed: (r) => r.status !== 'FAILED',
+  failed: (r) => r.status === 'FAILED',
+  violated: (r) => r.total > 0,
+};
 
 export const SECURITY_STANDARDS = [
   { value: 'mois2021', get label() { return t('std_mois2021'); }, icon: 'shield' },
@@ -45,7 +56,9 @@ export function ComplianceView({ project, branch, stamp, onDrill, pick }) {
   const state = useApi('compliance.report', { projectId: project && project.id, branch, standard: std, level: level ? Number(level) : undefined, newCodeOnly: newOnly, lang: getLanguage() },
     [project && project.id, branch, standard, newOnly, stamp, getLanguage()], !!project);
   const report = state.data;
-  const rows = rowsOf(report).filter((r) => !hideEmpty || r.total > 0);
+  const [focus, toggleFocus, clearFocus] = useFocus('compliance', `${(project && project.id) || ''}|${standard}`, Object.keys(REPORT_FOCUS));
+  const rows = rowsOf(report).filter((r) => (!hideEmpty || r.total > 0) && (!focus || REPORT_FOCUS[focus](r)));
+  const fs = { focus, onToggle: toggleFocus };
   const isAsvs = std === 'asvs4';
   const isCert = std === 'certC' || std === 'certCpp';
   const totals = report && (report.totals || null);
@@ -56,6 +69,7 @@ export function ComplianceView({ project, branch, stamp, onDrill, pick }) {
         <Toggle checked={newOnly} onChange={setNewOnly} label={t('new_only')} icon="clock" />
         <Toggle checked={hideEmpty} onChange={setHideEmpty} label={t('cp_hide_empty')} icon="filter" />
         <span className="spacer" />
+        <FocusAll focus={report ? focus : null} onClear={clearFocus} />
         <Btn icon="refresh" label={t('pf_refresh')} onClick={state.reload} />
       </ViewHeader>
       {!project && <NoProject />}
@@ -64,15 +78,15 @@ export function ComplianceView({ project, branch, stamp, onDrill, pick }) {
         <>
           <div className="card-grid">
             {totals && <div className="card"><div className="k">{t('cp_rating')}</div><div className={`rating ${totals.rating}`}>{totals.rating}</div><div className="small">{report.title}</div></div>}
-            {totals && <Stat icon="unlock" label={t('vulns')} value={totals.vulnerabilities} />}
-            {totals && <Stat icon="shield" label={t('cp_hotspots_review')} value={`${totals.hotspotsToReview} / ${totals.hotspots}`} />}
-            {totals && <Stat icon="list" label={t('cp_rules')} value={(totals.rules || []).length} />}
+            {totals && <FocusStat id="vulns" {...fs} icon="unlock" label={t('vulns')} value={totals.vulnerabilities} />}
+            {totals && <FocusStat id="hotspots" {...fs} icon="shield" label={t('cp_hotspots_review')} value={`${totals.hotspotsToReview} / ${totals.hotspots}`} />}
+            {totals && <FocusStat id="rules" {...fs} icon="list" label={t('cp_rules')} value={(totals.rules || []).length} />}
             {report.unmapped != null && <Stat icon="info" label={t('cp_unmapped')} value={report.unmapped} sub={t('cp_unmapped_hint')} />}
-            {isAsvs && <Stat icon="checkCircle" label={t('cp_passed')} value={report.passed} />}
-            {isAsvs && <Stat icon="xCircle" label={t('cp_failed')} value={report.failed} tone={report.failed ? 'bad' : 'ok'} />}
+            {isAsvs && <FocusStat id="passed" {...fs} icon="checkCircle" label={t('cp_passed')} value={report.passed} />}
+            {isAsvs && <FocusStat id="failed" {...fs} icon="xCircle" label={t('cp_failed')} value={report.failed} tone={report.failed ? 'bad' : 'ok'} />}
             {isAsvs && <Stat icon="gate" label={t('cp_verdict')} value={report.compliant ? t('cp_compliant') : t('cp_not_compliant')} tone={report.compliant ? 'ok' : 'bad'} />}
             {isCert && <Stat icon="list" label={t('cp_checked_rules')} value={(report.checkedRules || []).length} />}
-            {isCert && <Stat icon="alert" label={t('cp_violated_rules')} value={report.violatedRules} tone={report.violatedRules ? 'bad' : 'ok'} />}
+            {isCert && <FocusStat id="violated" {...fs} icon="alert" label={t('cp_violated_rules')} value={report.violatedRules} tone={report.violatedRules ? 'bad' : 'ok'} />}
             {isCert && <Stat icon="bug" label={t('cp_issues')} value={report.issues} />}
           </div>
           <div className="panel tpanel list-grow">
@@ -106,7 +120,7 @@ export function ComplianceView({ project, branch, stamp, onDrill, pick }) {
                   ))}
                 </tbody>
               </table>
-              {rows.length === 0 && <Empty text={t('empty')} />}
+              {rows.length === 0 && <Empty text={focus ? t('fs_no_match') : t('empty')} />}
             </div>
           </div>
         </>
@@ -133,7 +147,9 @@ export function MisraView({ project, branch, stamp, onDrill, pick }) {
   useEffect(() => { if (pick && pick.std) setStandard(pick.std); }, [pick && pick.at]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState('gcs');
   const [catFilter, setCatFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [msFocus, toggleMsFocus, clearMsFocus] = useFocus('misra', `${(project && project.id) || ''}|${standard}`, [...STATUSES, 'invalid']);
+  const statusFilter = msFocus && msFocus !== 'invalid' ? msFocus : '';
+  const setStatusFilter = (v) => (v ? (v !== msFocus && toggleMsFocus(v)) : clearMsFocus());
   const [q, setQ] = useState('');
   const [plan, setPlan] = useState(null);
   const [dirty, setDirty] = useState(false);
@@ -175,6 +191,7 @@ export function MisraView({ project, branch, stamp, onDrill, pick }) {
       <ViewHeader icon="shield" tour="misra-deviations" title={t('nav_misra')} hint={t('ms_hint')}>
         <IconSelect value={standard} options={MISRA_STANDARDS} onChange={setStandard} title={t('cp_standard')} width={190} />
         <span className="spacer" />
+        <FocusAll focus={report ? msFocus : null} onClear={clearMsFocus} />
         <BtnGroup>
           <Btn icon="save" label={t('ms_save_plan')} primary={dirty} disabled={!plan || !dirty} onClick={save} />
           <Btn icon="refresh" label={t('pf_refresh')} onClick={comp.reload} />
@@ -196,15 +213,16 @@ export function MisraView({ project, branch, stamp, onDrill, pick }) {
             </div>
           </div>
           <div className="card-grid">
-            {STATUSES.map((s) => <Stat key={s} icon={STATUS_ICON[s]} label={statusLabel(s)} value={report.summary[s] || 0} tone={s === 'Violations' && report.summary[s] ? 'bad' : ''} />)}
-            <Stat icon="alert" label={t('ms_invalid_devs')} value={(report.invalidDeviations || []).length} tone={(report.invalidDeviations || []).length ? 'bad' : ''} />
+            {STATUSES.map((s) => <FocusStat key={s} id={s} focus={msFocus} onToggle={(id) => { toggleMsFocus(id); setTab('gcs'); }} icon={STATUS_ICON[s]} label={statusLabel(s)} value={report.summary[s] || 0} tone={s === 'Violations' && report.summary[s] ? 'bad' : ''} />)}
+            <FocusStat id="invalid" focus={msFocus} onToggle={(id) => { toggleMsFocus(id); setTab('gcs'); }} icon="alert" label={t('ms_invalid_devs')} value={(report.invalidDeviations || []).length} tone={(report.invalidDeviations || []).length ? 'bad' : ''} />
           </div>
           <Tabs value={tab} onChange={setTab} tabs={[
             { id: 'gcs', label: t('ms_gcs'), icon: 'list', count: (report.gcs || []).length },
             { id: 'recat', label: t('ms_grp'), icon: 'layers', count: Object.keys((plan && plan.recategorization) || {}).length },
             { id: 'devs', label: t('ms_deviations'), icon: 'edit', count: ((plan && plan.deviations) || []).length },
           ]} />
-          {tab === 'gcs' && (
+          {tab === 'gcs' && msFocus === 'invalid' && <InvalidDeviations list={report.invalidDeviations || []} />}
+          {tab === 'gcs' && msFocus !== 'invalid' && (
             <>
               <div className="view-toolbar">
                 <input className="search" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -244,6 +262,32 @@ export function MisraView({ project, branch, stamp, onDrill, pick }) {
           {tab === 'devs' && plan && <DeviationEditor plan={plan} checked={report.deviations || []} guidelines={guidelineRows} onChange={editPlan} />}
         </>
       )}
+    </div>
+  );
+}
+
+// The deviation records that do not count (missing approval, expired…), alone.
+function InvalidDeviations({ list }) {
+  useLanguage();
+  return (
+    <div className="panel tpanel list-grow">
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>{t('ms_guideline')}</th><th>{t('ms_scope')}</th><th>{t('ms_approver')}</th><th>{t('status')}</th></tr></thead>
+          <tbody>
+            {list.map((d, i) => (
+              <tr key={`${d.id || ''}-${i}`}>
+                <td className="mono">{d.id || '—'}</td>
+                <td className="nowrap"><strong>{d.rule || '—'}</strong></td>
+                <td className="small wrap">{(Array.isArray(d.scope) ? d.scope.join(', ') : d.scope) || '—'}</td>
+                <td>{d.approver || '—'}</td>
+                <td className="small wrap bad">{(d.problems || []).join(', ') || t('ms_invalid_devs')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {list.length === 0 && <Empty icon="checkCircle" text={t('ms_no_invalid_devs')} />}
+      </div>
     </div>
   );
 }

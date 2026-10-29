@@ -4,6 +4,9 @@ import React, { useMemo, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call, pickFolder, isDesktop } from '../lib/backend';
 import { Icon, Dialog } from '../components/Chrome';
+import { usePopupWindows } from '../lib/popups';
+import { InWindow } from '../components/InWindow';
+import { FocusStat, FocusAll, useFocus } from '../components/FocusStats';
 import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stat, ViewHeader, Empty, Confirm, saveText, NoProject } from './common';
 
 const SEV_ORDER = { CRITICAL: 0, HIGH: 1, MODERATE: 2, MEDIUM: 2, LOW: 3 };
@@ -35,6 +38,12 @@ export function ScaView({ project, stamp }) {
     return m;
   }, [data]);
   const licenseOf = useMemo(() => new Map(((data && data.licenses) || []).map((l) => [l.dependency, l])), [data]);
+  // A tile clicked shows only its items: the vulnerable dependencies, or the vulnerabilities.
+  const [focus, toggleFocus, clearFocus] = useFocus('sca', pid || '', ['vulnerable', 'vulnerabilities']);
+  const shownDeps = useMemo(() => {
+    const all = (data && data.dependencies) || [];
+    return focus === 'vulnerable' ? all.filter((d) => vulnCount.get(d.id)) : all;
+  }, [data, focus, vulnCount]);
 
   const exportSbom = async () => {
     try {
@@ -72,6 +81,7 @@ export function ScaView({ project, stamp }) {
     <div className={`view ${data ? 'view-list' : ''}`}>
       <ViewHeader icon="package" tour="sbom-export" title={t('nav_dependencies')} hint={t('sca_hint')}>
         <Toggle checked={includeDev} onChange={setIncludeDev} label={t('sca_include_dev')} icon="code" />
+        <FocusAll focus={focus} onClear={clearFocus} />
         <span className="spacer" />
         <IconSelect value={sbom} options={sbomOptions} onChange={setSbom} title={t('sca_sbom_format')} width={200} />
         <BtnGroup>
@@ -87,14 +97,17 @@ export function ScaView({ project, stamp }) {
         <>
           <div className="card-grid">
             <Stat icon="package" label={t('sca_dependencies')} value={s.dependencies} sub={`${t('sca_direct')} ${s.direct} · ${t('sca_transitive')} ${s.transitive}`} />
-            <Stat icon="alert" label={t('sca_vulnerable')} value={s.vulnerable} tone={s.vulnerable ? 'bad' : 'ok'} />
-            <Stat icon="unlock" label={t('sca_vulnerabilities')} value={s.vulnerabilities} sub={Object.entries(s.bySeverity || {}).map(([k, n]) => `${k} ${n}`).join(' · ')} />
+            <FocusStat id="vulnerable" focus={focus} icon="alert" label={t('sca_vulnerable')} value={s.vulnerable} tone={s.vulnerable ? 'bad' : 'ok'} disabled={!s.vulnerable}
+              onToggle={(id) => { toggleFocus(id); setTab('deps'); }} />
+            <FocusStat id="vulnerabilities" focus={focus} icon="unlock" label={t('sca_vulnerabilities')} value={s.vulnerabilities} disabled={!s.vulnerabilities}
+              sub={Object.entries(s.bySeverity || {}).map(([k, n]) => `${k} ${n}`).join(' · ')}
+              onToggle={(id) => { toggleFocus(id); setTab(focus === id ? 'deps' : 'vulns'); }} />
             <Stat icon="globe" label={t('sca_ecosystems')} value={(s.ecosystems || []).length} sub={(s.ecosystems || []).join(', ')} />
             <Stat icon="report" label={t('sca_advisories')} value={s.advisoryCount} />
           </div>
           {(data.errors || []).length > 0 && <p className="small bad">{data.errors.map((e) => (typeof e === 'string' ? e : `${e.file || ''} ${e.message || ''}`)).join(' · ')}</p>}
           <Tabs value={tab} onChange={setTab} tabs={[
-            { id: 'deps', label: t('sca_dependencies'), icon: 'tree', count: data.dependencies.length },
+            { id: 'deps', label: t('sca_dependencies'), icon: 'tree', count: shownDeps.length },
             { id: 'vulns', label: t('sca_vulnerabilities'), icon: 'alert', count: data.vulnerabilities.length },
             { id: 'licenses', label: t('sca_licenses'), icon: 'scale', count: data.licenses.length },
             ...(online ? [{ id: 'online', label: t('sca_online'), icon: 'globe', count: (online.ids || []).length }] : []),
@@ -108,7 +121,7 @@ export function ScaView({ project, stamp }) {
                   { value: 'flat', label: t('sca_flat'), icon: 'list' },
                 ]} />
               </div>
-              <DepTable deps={data.dependencies} byId={byId} vulnCount={vulnCount} licenseOf={licenseOf} layout={q ? 'flat' : layout} q={q} />
+              <DepTable deps={shownDeps} byId={byId} vulnCount={vulnCount} licenseOf={licenseOf} layout={q || focus === 'vulnerable' ? 'flat' : layout} q={q} />
             </>
           )}
           {tab === 'vulns' && <VulnTable vulns={data.vulnerabilities} byId={byId} />}
@@ -122,7 +135,11 @@ export function ScaView({ project, stamp }) {
       {dialog === 'online' && (
         <Confirm title={t('sca_check_online')} body={t('sca_online_confirm')} okLabel={t('sca_send')} onOk={queryOnline} onCancel={() => setDialog(null)} />
       )}
-      {dialog === 'osv' && (
+      {dialog === 'osv' && usePopupWindows() && (
+        <InWindow kind="osvSource" width={560} height={240} onClose={() => setDialog(null)}
+          onResult={(res) => { setNote(res && res.source ? t('sca_osv_loaded', { n: res.advisories == null ? '?' : res.advisories, source: res.source }) : t('sca_osv_cleared')); setDialog(null); state.reload(); }} />
+      )}
+      {dialog === 'osv' && !usePopupWindows() && (
         <Dialog title={t('sca_load_osv')} onClose={() => setDialog(null)}>
           <p className="small">{t('sca_osv_hint')}</p>
           <div className="input-row">

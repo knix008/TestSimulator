@@ -9,7 +9,8 @@
 //
 // opts (all optional): lang 'en'|'ko', creator, date, and for PDF fontPath, boldFontPath,
 // fontFace, searchSystemFonts (false = only fontPath), compress (false = readable streams);
-// for XLSX summarySheet (false = tables only); for exportReportHtml csv (use this CSV text as is).
+// for XLSX summarySheet (false = tables only); for exportReportHtml csv (use this CSV text as is);
+// for exportReport glossary (true = a glossary of the report's terms at the end, core/report-glossary.js).
 
 const model = require('./model');
 const { toDocx, MIME: DOCX_MIME } = require('./docx');
@@ -78,6 +79,12 @@ function exportReport(kind, analysis, format, opts = {}) {
   const f = formatOf(format);
   const reports = require('../platform/reports');
   const built = reports.build(kind, analysis, opts);
+  if (opts.glossary) {
+    const glossary = require('../report-glossary');
+    const entries = glossary.glossaryOfHtml(built.html, opts.lang);
+    built.html = glossary.addGlossaryHtml(built.html, opts.lang, entries);
+    built.csv = glossary.addGlossaryCsv(built.csv, entries, opts.lang);
+  }
   let r;
   if (f === 'html') r = { buffer: Buffer.from(built.html, 'utf8'), warnings: [] };
   else if (f === 'csv') r = { buffer: Buffer.from(built.csv, 'utf8'), warnings: [] };

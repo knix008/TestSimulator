@@ -8,6 +8,8 @@ import { useApi, Btn, BtnGroup, IconSelect, Toggle, ViewHeader, Empty, saveText,
 import { SECURITY_STANDARDS, MISRA_STANDARDS } from './Compliance';
 import { useDbExport } from './DbExport';
 import { showError } from '../lib/ui';
+import { usePopupWindows, openPopupWindow } from '../lib/popups';
+import { popupLook, PRINT_SIZE_KEY } from '../components/InWindow';
 
 const KIND_ICON = { executive: 'chart', security: 'lock', misra: 'shield', integrity: 'alert', 'defect-security': 'alert', weakness: 'list', sbom: 'package' };
 
@@ -26,7 +28,7 @@ const RULE_SETS = [
 const REG_KINDS = ['executive', 'security', 'integrity', 'weakness', 'sbom'];
 const kindName = (k) => (t(`rp_kind_${k}`) === `rp_kind_${k}` ? k : t(`rp_kind_${k}`));
 
-export function ReportsView({ project, branch, stamp }) {
+export function ReportsView({ project, branch, stamp, settings, onSaveSettings }) {
   useLanguage();
   const kinds = useApi('report.kinds', {}, [], true);
   const [kind, setKind] = useState('executive');
@@ -34,6 +36,14 @@ export function ReportsView({ project, branch, stamp }) {
   const [misra, setMisra] = useState('misraC2012');
   const [ruleSet, setRuleSet] = useState('all');
   const [lang, setLang] = useState(getLanguage());
+  // Glossary of the report's terms at the end: kept in Settings › Reports (settings.reports.glossary, off by default).
+  const savedGlossary = !!(settings && settings.reports && settings.reports.glossary === true);
+  const [glossary, setGlossaryState] = useState(savedGlossary);
+  useEffect(() => { setGlossaryState(savedGlossary); }, [savedGlossary]);
+  const setGlossary = (on) => {
+    setGlossaryState(on);
+    if (onSaveSettings && settings) onSaveSettings({ ...settings, reports: { ...(settings.reports || {}), glossary: on } });
+  };
   // Regulatory ZIP: the standard and the reports it holds (report.regulatory standard / kinds).
   const [regStd, setRegStd] = useState('mois2021');
   const [regKinds, setRegKinds] = useState(REG_KINDS);
@@ -43,7 +53,7 @@ export function ReportsView({ project, branch, stamp }) {
   const frame = useRef(null);
 
   const argsFor = (format) => ({
-    projectId: project && project.id, branch, kind, format, lang,
+    projectId: project && project.id, branch, kind, format, lang, glossary,
     standard: kind === 'security' ? standard.split(':')[0] : kind === 'misra' ? misra : undefined,
     ruleSet: kind === 'weakness' ? ruleSet : undefined,
   });
@@ -60,7 +70,7 @@ export function ReportsView({ project, branch, stamp }) {
     } finally { setBusy(false); }
   };
 
-  useEffect(() => { build(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [project && project.id, branch, kind, standard, misra, ruleSet, lang, stamp]);
+  useEffect(() => { build(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [project && project.id, branch, kind, standard, misra, ruleSet, lang, glossary, stamp]);
 
   const saveCsv = async () => {
     try {
@@ -87,7 +97,7 @@ export function ReportsView({ project, branch, stamp }) {
     setError('');
     try {
       const res = format === 'zip'
-        ? await call('report.regulatory', { projectId: project.id, branch, lang, standard: regStd, kinds: regKinds })
+        ? await call('report.regulatory', { projectId: project.id, branch, lang, glossary, standard: regStd, kinds: regKinds })
         : await call('report.export', argsFor(format));
       saveBase64(res.fileName, res.base64, res.type);
       setWarnings((res.warnings || []).map(warningText).filter(Boolean));
@@ -104,7 +114,21 @@ export function ReportsView({ project, branch, stamp }) {
       else { setError(errorText(err)); showError(err, t('dbj_failed')); }
     } finally { setExporting(''); }
   };
-  const print = () => {
+  // On the desktop the report goes to a print window of its own (the system
+  // print preview then fills that window, which can be moved and resized; its
+  // size is kept); on the web build the preview frame prints.
+  const print = async () => {
+    if (usePopupWindows() && out) {
+      let size = null;
+      try { size = JSON.parse(localStorage.getItem(PRINT_SIZE_KEY) || 'null'); } catch { size = null; }
+      const width = Math.min(window.screen.availWidth - 40, Math.max(720, (size && size.width) || 1100));
+      const height = Math.min(window.screen.availHeight - 40, Math.max(560, (size && size.height) || Math.round(window.screen.availHeight * 0.88)));
+      try {
+        await openPopupWindow({ kind: 'print', center: true, frame: true, resizable: true, width, height,
+          payload: { ...popupLook(), html: out.body, fileName: out.fileName, windowTitle: `${t('rp_print')} · ${out.fileName}` } });
+      } catch (err) { setError(err.message); }
+      return;
+    }
     const win = frame.current && frame.current.contentWindow;
     if (!win) return;
     try { win.focus(); win.print(); } catch (err) { setError(err.message); }
@@ -123,6 +147,7 @@ export function ReportsView({ project, branch, stamp }) {
         {kind === 'misra' && <IconSelect value={misra} options={MISRA_STANDARDS} onChange={setMisra} title={t('cp_standard')} width={180} />}
         {kind === 'weakness' && <IconSelect value={ruleSet} options={ruleSetOptions} onChange={setRuleSet} title={t('rp_rule_set')} width={200} />}
         <IconSelect value={lang} options={langOptions} onChange={setLang} title={t('language')} width={130} />
+        <Toggle icon="book" label={t('rp_glossary')} checked={glossary} onChange={setGlossary} />
         <span className="spacer" />
         <BtnGroup>
           <Btn icon="refresh" label={t('pf_refresh')} disabled={!project || busy} onClick={build} />

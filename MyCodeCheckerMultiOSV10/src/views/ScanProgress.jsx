@@ -41,7 +41,7 @@ export function ScanProgress({ job, onCancel, title, icon = 'search' }) {
   return (
     <div className="scan-progress-back">
       <div className="scan-progress" role="dialog" aria-modal="false" aria-label={title || t('sj_title')} data-tour="scan-progress" data-testid="scan-progress">
-        <div className="sp-head">
+        <div className="sp-head" data-tauri-drag-region>
           <span className="sp-icon"><Icon name={icon} size={16} /></span>
           <b>{title || t('sj_title')}</b>
           <span className="sp-path" title={job && job.path}>{shorten(job && job.path, 36)}</span>

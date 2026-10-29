@@ -6,6 +6,7 @@ import { call, isDesktop, pickSavePath } from '../lib/backend';
 import { errorText, toast, showError } from '../lib/ui';
 import { Icon, Dialog, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
 import { usePopupWindows, openPopupWindow } from '../lib/popups';
+import { InWindow } from '../components/InWindow';
 import { TWO_COLUMN_MIN, menuSize } from '../lib/menuColumns';
 import { getCustomThemesRaw } from '../themes';
 
@@ -469,18 +470,22 @@ export function DateField({ value, onChange, placeholder = 'YYYY-MM-DD' }) {
 }
 
 // ── Confirmation dialog ───────────────────────────────────
-export function Confirm({ title, body, okLabel, onOk, onCancel, danger }) {
+// A window of its own on the desktop (InWindow), in the page on the web.
+export function Confirm({ title, body, okLabel, okIcon, onOk, onCancel, danger }) {
   useLanguage();
   return (
-    <Dialog title={title} onClose={onCancel}>
-      <p style={{ margin: '4px 0 8px', lineHeight: 1.5 }}>{body}</p>
-      <div className="dialog-actions">
-        <BtnGroup>
-          <Btn icon={danger ? 'alert' : 'check'} label={okLabel || t('ok')} primary onClick={onOk} />
-          <Btn icon="close" label={t('cancel')} onClick={onCancel} />
-        </BtnGroup>
-      </div>
-    </Dialog>
+    <InWindow kind="confirm" width={460} height={200} payload={{ title, body, okLabel, okIcon, danger }}
+      onResult={(ok) => (ok ? onOk() : onCancel())} onClose={onCancel}>
+      <Dialog title={title} onClose={onCancel}>
+        <p style={{ margin: '4px 0 8px', lineHeight: 1.5 }}>{body}</p>
+        <div className="dialog-actions">
+          <BtnGroup>
+            <Btn icon={okIcon || (danger ? 'alert' : 'check')} label={okLabel || t('ok')} primary onClick={onOk} />
+            <Btn icon="close" label={t('cancel')} onClick={onCancel} />
+          </BtnGroup>
+        </div>
+      </Dialog>
+    </InWindow>
   );
 }
 

@@ -5,7 +5,8 @@ import { t, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { ask, toast } from '../lib/ui';
 import { Icon, CloseButton, Dialog } from '../components/Chrome';
-import { useApi, ApiState, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stepper, ViewHeader, Empty, FilePickButton, copyText, fmtDate, linesToList, NoProject, errorText } from './common';
+import { InWindow } from '../components/InWindow';
+import { useApi, ApiState, Confirm, Btn, BtnGroup, IconSelect, Toggle, Tabs, Stepper, ViewHeader, Empty, FilePickButton, copyText, fmtDate, linesToList, NoProject, errorText } from './common';
 import { ToolsManager } from './Tools';
 import { ExcludeDirsDialog } from '../components/ExcludeDirs';
 import { SchedulesPanel, AuditPanel } from './AdminExtras';
@@ -164,12 +165,7 @@ function Webhooks({ projects }) {
 }
 
 function ConfirmBox({ title, body, onOk, onCancel }) {
-  return (
-    <Dialog title={title} onClose={onCancel}>
-      <p style={{ margin: '4px 0 8px' }}>{body}</p>
-      <div className="dialog-actions"><BtnGroup><Btn icon="trash" label={t('remove')} primary onClick={onOk} /><Btn icon="close" label={t('cancel')} onClick={onCancel} /></BtnGroup></div>
-    </Dialog>
-  );
+  return <Confirm title={title} body={body} okLabel={t('remove')} okIcon="trash" onOk={onOk} onCancel={onCancel} />;
 }
 
 // ── Users, groups, permissions, tokens ────────────────────
@@ -220,8 +216,17 @@ function Security({ projects }) {
       {sub === 'global' && <PermMatrix sec={sec} perms={GLOBAL_PERMS} entries={sec.global} onGrant={(perm, who) => act('grantGlobal', [perm, who])} onRevoke={(perm, who) => act('revokeGlobal', [perm, who])} />}
       {sub === 'project' && <ProjectPerms sec={sec} projects={projects} act={act} />}
       {sub === 'tokens' && <Tokens sec={sec} projects={projects} act={act} setDialog={setDialog} />}
-      {dialog && dialog.kind === 'password' && <PasswordDialog login={dialog.login} onClose={() => setDialog(null)} onSave={async (pw) => { try { const res = await call('security.call', { fn: 'setPassword', args: [dialog.login, pw] }); setSec(res.security); setDialog(null); toast(t('ad_pw_saved', { login: dialog.login }), 'ok'); return ''; } catch (err) { return errorText(err); } }} />}
-      {dialog && dialog.kind === 'token' && <TokenDialog token={dialog.token} projectKey={dialog.projectKey} projectPath={dialog.projectPath} onClose={() => setDialog(null)} />}
+      {dialog && dialog.kind === 'password' && (
+        <InWindow kind="password" width={460} height={300} payload={{ login: dialog.login }} onClose={() => setDialog(null)}
+          onResult={async () => { const login = dialog.login; setDialog(null); try { setSec(await call('security.get')); } catch { /* shown on the next load */ } toast(t('ad_pw_saved', { login }), 'ok'); }}>
+          <PasswordDialog login={dialog.login} onClose={() => setDialog(null)} onSave={async (pw) => { try { const res = await call('security.call', { fn: 'setPassword', args: [dialog.login, pw] }); setSec(res.security); setDialog(null); toast(t('ad_pw_saved', { login: dialog.login }), 'ok'); return ''; } catch (err) { return errorText(err); } }} />
+        </InWindow>
+      )}
+      {dialog && dialog.kind === 'token' && (
+        <InWindow kind="token" width={680} height={520} payload={{ token: dialog.token, projectKey: dialog.projectKey, projectPath: dialog.projectPath }} onClose={() => setDialog(null)} onResult={() => setDialog(null)}>
+          <TokenDialog token={dialog.token} projectKey={dialog.projectKey} projectPath={dialog.projectPath} onClose={() => setDialog(null)} />
+        </InWindow>
+      )}
     </>
   );
 }
@@ -435,7 +440,7 @@ function Tokens({ sec, projects, act, setDialog }) {
   );
 }
 
-function PasswordDialog({ login, onClose, onSave }) {
+export function PasswordDialog({ login, onClose, onSave }) {
   useLanguage();
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
@@ -455,7 +460,7 @@ function PasswordDialog({ login, onClose, onSave }) {
   );
 }
 
-function TokenDialog({ token, onClose, projectKey, projectPath }) {
+export function TokenDialog({ token, onClose, projectKey, projectPath }) {
   useLanguage();
   const [copied, setCopied] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState('');

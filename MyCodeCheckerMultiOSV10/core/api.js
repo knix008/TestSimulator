@@ -1005,6 +1005,8 @@ function createApi(opts = {}) {
     },
     'rules.list': () => listRules(),
     'checks.list': () => require('./checks').listChecks(),
+    // The languages the analyzer knows: [{ id, label: { ko, en }, exts }].
+    'languages.list': () => Object.entries(require('./languages').LANGS).map(([id, l]) => ({ id, label: l.label, exts: l.exts })),
     // External software: status, start-up offers, installation with consent.
     'tools.status': () => tools.status(workspace().settings || {}),
     'tools.offers': () => tools.offers(workspace().settings || {}),

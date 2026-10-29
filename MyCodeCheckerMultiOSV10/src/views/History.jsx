@@ -3,11 +3,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { useApi, ApiState, Btn, IconSelect, Tabs, Stat, ViewHeader, Empty, fmtDate, NoProject, SevBadge, useRowWindow, openCodeRow } from './common';
+import { FocusStat, useFocus } from '../components/FocusStats';
 import { msg } from './Panels';
 
 const METRICS = ['bugs', 'vulnerabilities', 'code_smells', 'security_hotspots', 'sqale_index', 'coverage', 'duplicated_lines_density', 'ncloc'];
 const METRIC_KEY = { bugs: 'bugs', vulnerabilities: 'vulns', code_smells: 'smells', security_hotspots: 'hotspots', sqale_index: 'debt', coverage: 'coverage', duplicated_lines_density: 'dup_density', ncloc: 'ncloc' };
 const SERIES_VAR = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5', '--series-6', '--series-7', '--series-8'];
+
+const CMP_TABS = ['newlyDetected', 'fixed', 'outstanding', 'triaged', 'newlyDismissed', 'reopened'];
 
 export function HistoryView({ project, branch, stamp }) {
   useLanguage();
@@ -25,12 +28,15 @@ export function HistoryView({ project, branch, stamp }) {
   const events = useApi('activity.events', { projectId: pid, branch }, deps, !!project);
   const [metrics, setMetrics] = useState(['bugs', 'vulnerabilities', 'code_smells']);
   const trend = useApi('activity.trend', { projectId: pid, branch, metrics: METRICS }, deps, !!project);
-  const [tab, setTab] = useState('newlyDetected');
+  // The compared kind shown below: a summary tile or its tab picks it (newly detected is the default).
+  const [cmpFocus, , , setCmpFocus] = useFocus('snapCompare', pid || '', CMP_TABS);
+  const tab = cmpFocus || 'newlyDetected';
+  const setTab = (k) => setCmpFocus(k === 'newlyDetected' ? null : k);
   const [section, setSection] = useState('compare');
 
   const snapOptions = snaps.map((s) => ({ value: s.snapshot, label: `#${s.snapshot} · ${fmtDate(s.at)} (${s.count})`, icon: 'history' }));
   const c = cmp.data;
-  const cmpTabs = ['newlyDetected', 'fixed', 'outstanding', 'triaged', 'newlyDismissed', 'reopened'];
+  const cmpTabs = CMP_TABS;
   const lifeRows = life.data ? Object.values(life.data) : [];
 
   const refresh = () => { list.reload(); cmp.reload(); life.reload(); age.reload(); events.reload(); trend.reload(); };
@@ -77,7 +83,7 @@ export function HistoryView({ project, branch, stamp }) {
               </div>
               {c && (
                 <div className="card-grid compact">
-                  {cmpTabs.map((k) => <Stat key={k} icon={({ newlyDetected: 'sparkle', fixed: 'checkCircle', outstanding: 'alert', triaged: 'userCheck', newlyDismissed: 'xCircle', reopened: 'refresh' })[k]} label={t(`hs_${k}`)} value={c.counts[k]} tone={k === 'newlyDetected' && c.counts[k] ? 'bad' : k === 'fixed' && c.counts[k] ? 'ok' : ''} />)}
+                  {cmpTabs.map((k) => <FocusStat key={k} id={k} focus={tab} onToggle={(id) => setTab(id === tab ? 'newlyDetected' : id)} icon={({ newlyDetected: 'sparkle', fixed: 'checkCircle', outstanding: 'alert', triaged: 'userCheck', newlyDismissed: 'xCircle', reopened: 'refresh' })[k]} label={t(`hs_${k}`)} value={c.counts[k]} tone={k === 'newlyDetected' && c.counts[k] ? 'bad' : k === 'fixed' && c.counts[k] ? 'ok' : ''} />)}
                 </div>
               )}
             </div>

@@ -6,6 +6,7 @@ import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
 import { useApi, Btn, BtnGroup, IconSelect, Tabs, Stat, ViewHeader, Empty, copyText, saveText, NoProject, SevBadge, TypeBadge, Stepper, errorText, Glossary, openCodeRow } from './common';
 import { metricLabel } from './Panels';
+import { FocusStat, FocusAll, useFocus } from '../components/FocusStats';
 import { msg } from './Panels';
 
 const PROVIDERS = [
@@ -14,6 +15,8 @@ const PROVIDERS = [
   { id: 'azure', label: 'Azure DevOps', icon: 'branch', file: 'azure-devops-threads.json' },
   { id: 'bitbucket', label: 'Bitbucket', icon: 'branch', file: 'bitbucket-code-insights.json' },
 ];
+
+const PR_TYPES = ['BUG', 'VULNERABILITY', 'CODE_SMELL', 'SECURITY_HOTSPOT'];
 
 export function PullRequestView({ project, branch, stamp }) {
   useLanguage();
@@ -25,6 +28,9 @@ export function PullRequestView({ project, branch, stamp }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('issues');
+  // A type tile shows the PR issues of that type alone.
+  const [focus, toggleFocus, clearFocus] = useFocus('pr', pid || '', PR_TYPES);
+  const focusType = (id) => { toggleFocus(id); setTab('issues'); };
   const [provider, setProvider] = useState('github');
   const [note, setNote] = useState('');
 
@@ -49,6 +55,7 @@ export function PullRequestView({ project, branch, stamp }) {
   useEffect(() => { setRes(null); }, [pid, branch, stamp]);
 
   const pr = res && res.pr;
+  const prIssues = pr ? (focus ? pr.issues.filter((i) => i.type === focus) : pr.issues) : [];
   const gate = pr && pr.qualityGate;
   const payload = res && res.decorations ? JSON.stringify(res.decorations[provider], null, 2) : '';
   const copy = async (text) => setNote((await copyText(text)) ? t('pr_copied') : t('failed'));
@@ -93,26 +100,27 @@ export function PullRequestView({ project, branch, stamp }) {
           </div>
           <div className="card-grid compact">
             <Stat icon="bug" label={t('pr_issues')} value={pr.issues.length} tone={pr.issues.length ? 'bad' : 'ok'} />
-            <Stat icon="bug" term="new_bugs" label={t('bugs')} value={pr.measures.new_bugs} sub={`${t('reliability')} ${pr.ratings.reliability}`} />
-            <Stat icon="unlock" term="new_vulnerabilities" label={t('vulns')} value={pr.measures.new_vulnerabilities} sub={`${t('security')} ${pr.ratings.security}`} />
-            <Stat icon="smell" term="new_code_smells" label={t('smells')} value={pr.measures.new_code_smells} sub={`${t('maintainability')} ${pr.ratings.maintainability}`} />
-            <Stat icon="shield" term="new_security_hotspots" label={t('hotspots')} value={pr.measures.new_security_hotspots} sub={`${t('sec_review')} ${pr.ratings.securityReview}`} />
+            <FocusStat id="BUG" focus={focus} onToggle={focusType} kind="BUG" icon="bug" term="new_bugs" label={t('bugs')} value={pr.measures.new_bugs} sub={`${t('reliability')} ${pr.ratings.reliability}`} />
+            <FocusStat id="VULNERABILITY" focus={focus} onToggle={focusType} kind="VULNERABILITY" icon="unlock" term="new_vulnerabilities" label={t('vulns')} value={pr.measures.new_vulnerabilities} sub={`${t('security')} ${pr.ratings.security}`} />
+            <FocusStat id="CODE_SMELL" focus={focus} onToggle={focusType} kind="CODE_SMELL" icon="smell" term="new_code_smells" label={t('smells')} value={pr.measures.new_code_smells} sub={`${t('maintainability')} ${pr.ratings.maintainability}`} />
+            <FocusStat id="SECURITY_HOTSPOT" focus={focus} onToggle={focusType} kind="SECURITY_HOTSPOT" icon="shield" term="new_security_hotspots" label={t('hotspots')} value={pr.measures.new_security_hotspots} sub={`${t('sec_review')} ${pr.ratings.securityReview}`} />
             <Stat icon="checkCircle" term="new_coverage" label={t('coverage')} value={pr.measures.new_coverage == null ? '—' : `${pr.measures.new_coverage}%`} />
             <Stat icon="copy" term="new_duplicated_lines_density" label={t('dup_density')} value={`${pr.measures.new_duplicated_lines_density}%`} />
           </div>
           <Tabs value={tab} onChange={setTab} tabs={[
-            { id: 'issues', label: t('pr_issues'), icon: 'bug', count: pr.issues.length },
+            { id: 'issues', label: t('pr_issues'), icon: 'bug', count: prIssues.length },
             { id: 'gate', label: t('conditions'), icon: 'gate', count: gate.conditions.length },
             { id: 'markdown', label: t('pr_summary'), icon: 'file' },
             { id: 'decor', label: t('pr_decorations'), icon: 'code' },
           ]} />
+          {tab === 'issues' && focus && <div className="view-toolbar"><FocusAll focus={focus} onClear={clearFocus} /></div>}
           {tab === 'issues' && (
             <div className="panel tpanel">
               <div className="table-wrap">
                 <table>
                   <thead><tr><th><span data-term="severity">{t('severity')}</span></th><th>{t('type')}</th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
                   <tbody>
-                    {pr.issues.map((i) => (
+                    {prIssues.map((i) => (
                       <tr key={i.key} className={i.file ? 'click' : ''} {...openCodeRow(i.file, i.line)}>
                         <td><SevBadge sev={i.severity} /></td>
                         <td className="nowrap"><TypeBadge type={i.type} /></td>
@@ -122,7 +130,7 @@ export function PullRequestView({ project, branch, stamp }) {
                     ))}
                   </tbody>
                 </table>
-                {pr.issues.length === 0 && <Empty text={t('pr_no_issues')} icon="check" />}
+                {prIssues.length === 0 && <Empty text={focus ? t('fs_no_match') : t('pr_no_issues')} icon="check" />}
               </div>
             </div>
           )}

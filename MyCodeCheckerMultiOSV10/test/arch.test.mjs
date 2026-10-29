@@ -155,7 +155,8 @@ test('graph nodes carry Ca, Ce and instability; edges are unique with a count', 
     ['a.js', 'c.js', 'a.js', 2, 1],
     ['b.js', 'c.js', 'b.js', 1, 1],
   ]);
-  for (const k of ['id', 'file', 'lang', 'ca', 'ce', 'instability']) assert.ok(k in g.nodes[0]);
+  for (const k of ['id', 'file', 'lang', 'ca', 'ce', 'instability', 'lines']) assert.ok(k in g.nodes[0]);
+  assert.deepEqual(g.nodes.map((n) => n.lines), [3, 1, 0]);
   assert.deepEqual(only(run(files), 'arch:cycle'), []);
 });
 

@@ -37,6 +37,7 @@
 - `themes.js` — 테마 토큰 40종(다크 20 · 라이트 20) + 사용자 정의(색 토큰 15개).
 - `lib/ui.js` + `components/UiHost.jsx` — 앱 전체의 확인 창 · 알림(toast) · 오류 창. `ask({ title, body, okLabel, danger, buttons })` 는 확인/취소(또는 고른 단추 id), `attempt(fn, { ok })` 는 API 호출을 감싸 실패하면 서버가 준 `error.text[언어]` 로 오류 창을 띄웁니다. 삭제 · 비활성화 · 토큰 폐기 · 일괄 오탐/수용 · 정리 확인과 "바꾸기 / 기존 프로젝트 열기", "바꾸기 / 다른 위치에 저장" 같은 세 단추 질문이 이것을 씁니다.
 - `lib/history.js` — 실행 취소 / 다시 실행 스택. `record({ label, undo, redo })` 는 이미 한 작업을 쌓고(`undo` · `redo` 는 원래 작업과 같은 API 를 부르는 async 함수), 최대 100개, 새 작업은 다시 실행 쪽을 비우고 다른 프로젝트를 열면 둘 다 비웁니다. 이슈 처리(하나 · 일괄), 게이트 · 프로파일 · 포트폴리오 · 정책 · 사용자 규칙, 프로젝트 설정, 패널, 시작 화면 배치, AI 수정 적용(되돌리기 = `issue.aiFixRevert`)이 기록합니다.
+- `components/InWindow.jsx` · `views/DialogWindows.jsx` — 데스크톱에서는 대화 상자가 자기 창입니다(메인 창 밖으로 옮기고 보일 수 있음). `InWindow` 가 메인 창에서 `openPopupWindow` 로 창을 열고(웹에서는 그 자리의 대화 상자), 자식 창은 `DialogWindows` 의 같은 대화 상자 컴포넌트를 payload 로 그려 `done(value)`(답, 창 닫힘) · `notify(value)`(창 유지)로 돌려줍니다. 맨 바깥 `Dialog` 가 창 자체가 되고(`DialogWindowCtx`), 창 높이는 대화 상자에 맞춥니다(화면의 90% 까지). 확인 · 오류 · 질문(`lib/ui.js`), 폴더 열기, 새/열기 프로젝트, 분석 제외 폴더, 도구, 사용자 규칙, 관리(비밀번호 · 토큰 · 삭제 확인), SCA 권고 DB, 분석 · DB 진행 창(`live` 로 진행을 계속 보냄)이 이렇게 열립니다. 인쇄는 시스템 제목 표시줄이 있는 크기 조절 창(`frame`)에서 하고(시스템 인쇄 미리보기가 그 창을 채움) 마지막 크기를 기억합니다(`mcc.printWindow`). 개발 빌드는 WebView2 프로필을 프로세스 전체(`WEBVIEW2_USER_DATA_FOLDER`)로 주어야 자식 창이 열립니다(창마다 다르면 0x8007139F). `MCC_CDP_PORT` 는 개발 빌드의 CDP 포트(모든 창이 같은 인자)입니다.
 - `lib/dirty.js` — 종료 전 저장 확인용 변경 추적. 열린 프로젝트는 `.mccp` 에 들어가는 값의 서명(`projectSignature`, `core/projectfile.js` 의 설정 키와 맞춤)을 `project.open` · `project.saveFile` · `project.create` 때 찍어 두고 비교하며, 실행 취소 · 다시 실행도 다음 저장까지 바뀜으로 칩니다. 열린 편집기(설정 창, 규칙 · 게이트 · 프로파일 편집, 새 프로젝트 창)는 `useEditorDirty(key, dirty, { label, save })` 로 알리고, 자식 창의 편집기는 broadcast 로 알립니다. 닫을 때 저장 / 저장 안 함 / 취소를 묻습니다.
 - 내보내기 저장 — 데스크톱은 저장 창으로 경로를 고른 뒤 `file.save` 로 쓰고 `저장됨: <경로>` 를 띄웁니다. 웹판은 브라우저 내려받기입니다.
 
@@ -136,6 +137,7 @@
 | `platform/kr-standards.js` | 행정안전부 49 항목(7장), 주요정보통신기반시설 웹 26 항목과 CWE |
 | `platform/reports.js` | 인쇄용 HTML 보고서 7종 + CSV |
 | `export/` | 의존성 없는 Word(.docx) · Excel(.xlsx) · PDF(TTF 글꼴 내장) · ZIP. `report.export`, `report.regulatory`(기준 `mois2021` · `kisaWeb` 과 넣을 보고서 종류를 받음), `scan.mjs --report … --out *.pdf / *.docx / *.xlsx` |
+| `report-glossary.js` | 보고서 끝의 용어 설명(`Glossary` / `용어 설명`). 보고서 HTML 의 보이는 글에 나온 용어만 골라(등급 · 품질 게이트 · 이슈 종류 · 심각도 · MISRA · 정밀 결함 분석 용어 · CWE/OWASP/SBOM 등 약어 · HIS 지표) 용어 · 전체 이름 · 설명 표를 `</body>` 앞에 넣고 CSV 끝에도 붙입니다. 모든 형식이 그 HTML 에서 만들어지므로 Word · PDF · PowerPoint(마지막 슬라이드) · Markdown 에 들어가고 Excel 은 `Glossary` 시트가 됩니다. `report.export` 의 `glossary`, 없으면 `settings.reports.glossary`(기본 꺼짐; 규정 ZIP · 자동 보고서도 따름), `scan.mjs --glossary`. 설명은 `src/lib/terms.js` · `abbrev.js` 와 같은 글을 복사해 두고 `test/report-glossary.test.mjs` 가 같은지 봅니다 |
 | `platform/scm.js` | `git` 호출(변경 줄, blame, 태그, 브랜치). 실패하면 빈 값 |
 | `platform/pullrequest.js` | 바뀐 줄 분석, PR 게이트, GitHub · GitLab · Azure DevOps · Bitbucket 장식 본문 |
 | `platform/webhooks.js` | 호환 형식 페이로드, `X-MCC-Webhook-HMAC-SHA256` 서명, 전송 기록 |
@@ -143,6 +145,7 @@
 | `platform/external.js` | 외부 도구 결과 · 테스트 보고서 가져오기 |
 | `platform/history.js` | 스냅샷 비교(CID), 결함 수명, 활동 이벤트, 추세, 이슈 나이 |
 | `platform/measures.js` | 조건 · 분기 커버리지, 테스트 지표, 컴포넌트 트리, 고칠 노력 |
+| `checks.js` | (언어) 검사 항목마다 검사하는 언어(`langs`)가 있고, `checksForLanguages(langs)` 가 프로젝트 언어에 맞는 기본 선택을 줍니다(프로젝트 설정에서 "이 프로젝트만 따로 정하기"를 켤 때). 프로젝트 언어 = 코드에서 찾은 언어(마지막 분석, 없으면 `project.target`) + 사용자가 추가한 `project.languages`(`.mccp` 에도 저장). `languages.list` 는 언어 목록입니다 |
 | `checks.js` | 검사 항목(엔진 · 규칙 묶음, `CHECK_GROUPS`)의 켜고 끄기. `disabledChecks(settings, project)` 는 프로젝트가 따로 정한 `project.checks`(정하지 않은 항목은 켜짐)를, 없으면 작업 공간의 `settings.checks` 를 씁니다. 꺼진 항목만 보고하는 엔진은 돌지 않고(`engineOff`), 나머지는 결과에서 뺍니다. 언어별 품질 프로필을 `'none'`(적용 안 함)으로 둔 언어는 `skippedLanguages` → `options.skipLanguages` 로 파일을 읽지도 않습니다 |
 | `binfile.js` | 바이너리 파일의 이슈 위치(`project.file` 의 `lines` · `find`): 4 MB 까지는 바로, 그보다 크면 백그라운드에서 1 MB 씩 읽어 줄바꿈 위치와 찾는 문자열을 모으고(`rangesPending: true` 동안 화면은 0.8초마다 다시 물음), 경로 · 크기 · 수정 시각으로 4 개 파일을 기억합니다. 화면의 16진수 보기(`Panels.jsx` `HexView`)는 보이는 줄만 그립니다 |
 | `projectfile.js` | 프로젝트 파일 `*.mccp`(JSON `format: "mycodechecker-project"`, `version`, `name`, `key`, `source` — 파일 기준 상대 경로, `settings`: `mainBranch` · `exclusions` · `includeDirs` · `defines` · `coverageReports` · `arch` · `newCode` · `profiles` · `gateId` · `policyId` · `his` · `tags` · `description` · `checks`) 읽기 · 쓰기. 분석 결과는 작업 공간에 남습니다. 데스크톱은 `tauri.conf.json` 의 `fileAssociations` 로 `.mccp` 를 앱에 연결합니다 |

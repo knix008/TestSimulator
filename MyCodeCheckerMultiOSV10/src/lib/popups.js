@@ -29,8 +29,11 @@ const pool = new Map(); // slot -> { win, ready, current: { id, cleanup } | null
 let tauriApi = null;
 function tauri() {
   if (!tauriApi) {
-    tauriApi = Promise.all([import('@tauri-apps/api/webviewWindow'), import('@tauri-apps/api/event'), import('@tauri-apps/api/window'), import('@tauri-apps/api/dpi')])
-      .then(([ww, ev, win, dpi]) => ({ WebviewWindow: ww.WebviewWindow, emit: ev.emit, listen: ev.listen, getCurrentWindow: win.getCurrentWindow, currentMonitor: win.currentMonitor, LogicalSize: dpi.LogicalSize, LogicalPosition: dpi.LogicalPosition }));
+    // api.webview: the main window's extra WebView2 arguments (a debug build's
+    // CDP port); a child window with other ones fails to open.
+    const hostInfo = import('@tauri-apps/api/core').then((m) => m.invoke('host_info')).catch(() => null);
+    tauriApi = Promise.all([import('@tauri-apps/api/webviewWindow'), import('@tauri-apps/api/event'), import('@tauri-apps/api/window'), import('@tauri-apps/api/dpi'), hostInfo])
+      .then(([ww, ev, win, dpi, h]) => ({ WebviewWindow: ww.WebviewWindow, emit: ev.emit, listen: ev.listen, getCurrentWindow: win.getCurrentWindow, currentMonitor: win.currentMonitor, LogicalSize: dpi.LogicalSize, LogicalPosition: dpi.LogicalPosition, webview: h && h.browserArgs ? { additionalBrowserArgs: h.browserArgs } : {} }));
   }
   return tauriApi;
 }
@@ -78,6 +81,7 @@ export async function warmPopups() {
       skipTaskbar: true,
       shadow: true,
       title: 'MyCodeChecker',
+      ...api.webview,
     });
     entry.win = win;
     win.once('tauri://error', () => pool.delete(slot));
@@ -133,8 +137,11 @@ function record(kind, ms, how) {
  * Opens a popup. anchor: a DOMRect in the main window (CSS px) — the popup
  * goes below it (or above when there is no room) and is clamped to the
  * monitor's work area; center: centre it on the main window instead.
+ * frame: an ordinary window with the system title bar and a taskbar button
+ * (the print window: the system print preview covers the page, so the page's
+ * own title bar could not move or resize it meanwhile).
  */
-export async function openPopupWindow({ kind, payload, anchor, width, height, center = false, resizable = false, onResult, onClose }) {
+export async function openPopupWindow({ kind, payload, anchor, width, height, center = false, resizable = false, frame = false, onResult, onClose }) {
   const t0 = performance.now();
   const api = await tauri();
   const slot = SLOT_OF[kind];
@@ -178,16 +185,19 @@ export async function openPopupWindow({ kind, payload, anchor, width, height, ce
   const w = new api.WebviewWindow(label, {
     url: `index.html${POPUP_HASH}${kind}?id=${id}`,
     parent: 'main',
-    decorations: false,
-    resizable,
+    decorations: frame,
+    resizable: resizable || frame,
     width: Math.round(width),
     height: Math.round(height),
+    minWidth: frame ? 480 : undefined,
+    minHeight: frame ? 360 : undefined,
     x: pos.x,
     y: pos.y,
-    skipTaskbar: true,
+    skipTaskbar: !frame,
     focus: true,
     shadow: true,
-    title: 'MyCodeChecker',
+    title: (payload && payload.windowTitle) || 'MyCodeChecker',
+    ...api.webview,
   });
   open.set(label, w);
   const done = () => { unlisten.forEach((u) => u()); open.delete(label); if (onClose) onClose(); };

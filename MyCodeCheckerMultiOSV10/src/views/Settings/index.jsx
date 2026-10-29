@@ -39,11 +39,11 @@ export const SETTINGS_TABS = [
   ['advanced', 'wrench', 'st_tab_advanced'],
 ];
 
-// Settings › Reports: Markdown pictures inside, and reports written after each analysis.
+// Settings › Reports: Markdown pictures inside, the glossary of terms, and reports written after each analysis.
 function reportsOf(r) {
   const v = r || {};
   const a = v.auto || {};
-  return { mdEmbedImages: v.mdEmbedImages !== false, auto: { enabled: !!a.enabled, kinds: a.kinds && a.kinds.length ? [...a.kinds] : ['executive'], formats: a.formats && a.formats.length ? [...a.formats] : ['pdf'], folder: a.folder || '' } };
+  return { mdEmbedImages: v.mdEmbedImages !== false, glossary: v.glossary === true, auto: { enabled: !!a.enabled, kinds: a.kinds && a.kinds.length ? [...a.kinds] : ['executive'], formats: a.formats && a.formats.length ? [...a.formats] : ['pdf'], folder: a.folder || '' } };
 }
 
 // gates: the workspace's gates; the tab edits the default one.

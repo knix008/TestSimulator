@@ -14,6 +14,9 @@ struct Host {
     port: u16,
     token: String,
     child: Mutex<Option<Child>>,
+    // The main window's extra WebView2 arguments (a debug build's CDP port),
+    // which child windows must repeat.
+    browser_args: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -21,6 +24,8 @@ struct HostInfo {
     port: u16,
     token: String,
     platform: String,
+    #[serde(rename = "browserArgs", skip_serializing_if = "Option::is_none")]
+    browser_args: Option<String>,
 }
 
 fn platform_name() -> &'static str {
@@ -161,7 +166,7 @@ fn start_service(root: &Path, node: &Path, config: &Path) -> Result<(Child, u16,
 
 #[tauri::command]
 fn host_info(host: tauri::State<'_, Host>) -> HostInfo {
-    HostInfo { port: host.port, token: host.token.clone(), platform: platform_name().to_string() }
+    HostInfo { port: host.port, token: host.token.clone(), platform: platform_name().to_string(), browser_args: host.browser_args.clone() }
 }
 
 #[tauri::command]
@@ -183,15 +188,29 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     if let Some(file) = project_file_arg(std::env::args().skip(1)) {
         script.push_str(&format!("window.__MCC_OPEN__={};", serde_json::to_string(&file).unwrap_or_else(|_| "null".into())));
     }
-    app.manage(Host { port, token, child: Mutex::new(Some(child)) });
     let mut builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()));
     // `npm start` gets its own WebView2 profile: sharing the installed app's
     // profile fails with 0x800700AA (resource in use) while that app is open.
-    if cfg!(debug_assertions) {
+    // It is set for the whole process (WEBVIEW2_USER_DATA_FOLDER), not as the
+    // main window's data_directory: popups and dialogs are windows of their
+    // own, and WebView2 refuses (0x8007139F) a window whose profile differs
+    // from the main window's. An end-to-end check may set its own folder.
+    if cfg!(debug_assertions) && std::env::var_os("WEBVIEW2_USER_DATA_FOLDER").is_none() {
         if let Ok(dir) = app.path().app_local_data_dir() {
-            builder = builder.data_directory(dir.join("EBWebView-dev"));
+            std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", dir.join("EBWebView-dev"));
         }
     }
+    // MCC_CDP_PORT (debug builds): a CDP port for end-to-end checks, with
+    // WebView2's default arguments kept.
+    let mut browser_args = None;
+    if cfg!(debug_assertions) {
+        if let Some(cdp) = std::env::var("MCC_CDP_PORT").ok().filter(|p| p.chars().all(|c| c.is_ascii_digit()) && !p.is_empty()) {
+            let args = format!("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={cdp}");
+            builder = builder.additional_browser_args(&args);
+            browser_args = Some(args);
+        }
+    }
+    app.manage(Host { port, token, child: Mutex::new(Some(child)), browser_args });
     let win = builder
         .title("MyCodeChecker")
         // The toolbar needs ~1290 px with English labels while an analysis runs

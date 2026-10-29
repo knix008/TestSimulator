@@ -450,6 +450,13 @@ function createExtensions({ workspace, saveWorkspace, configDir, issuesOf = (iss
     if (kind === 'misra') opts.plan = methods['misra.plan']({ projectId: project.id, standard: args.standard || 'misraC2012' });
     if (kind === 'sbom') opts.sca = sca.scanDependencies(project.path, engineOptions(ws, project).sca);
     const out = reports.build(kind, analysis, opts);
+    // Glossary of the report's own terms at the end (args.glossary, else Settings › Reports; off by default).
+    if (args.glossary != null ? !!args.glossary : rs.glossary === true) {
+      const glossary = require('./report-glossary');
+      const entries = glossary.glossaryOfHtml(out.html, lang);
+      out.html = glossary.addGlossaryHtml(out.html, lang, entries);
+      out.csv = glossary.addGlossaryCsv(out.csv, entries, lang);
+    }
     if (format === 'csv') return { format, fileName: `${out.fileName}.csv`, type: 'text/csv', data: Buffer.from(out.csv, 'utf8'), extra: [], warnings: [] };
     const charts = args.charts === false ? [] : reportCharts(analysis, { lang });
     if (format === 'html') return { format, fileName: `${out.fileName}.html`, type: 'text/html', data: Buffer.from(ex.addChartsHtml(out.html, charts, lang), 'utf8'), extra: [], warnings: [] };

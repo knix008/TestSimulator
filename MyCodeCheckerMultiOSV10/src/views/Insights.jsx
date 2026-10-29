@@ -5,7 +5,8 @@ import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, BtnGroup, Toggle, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, fmtDate, errorText, emitAction, Glossary, openCodeRow } from './common';
+import { Btn, BtnGroup, Toggle, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, fmtDate, errorText, emitAction, Glossary, openCodeRow, useRowWindow } from './common';
+import { useFocus, FocusStat, FocusAll } from '../components/FocusStats';
 
 function useLoad(method, args, deps, enabled) {
   const [state, setState] = useState({ data: null, error: '', loading: false });
@@ -37,14 +38,17 @@ export function HisView({ project, stamp, onOpenAt }) {
   const pid = project && project.id;
   const res = useLoad('metrics.his', { projectId: pid }, [pid, stamp], !!project);
   const [sort, setSort] = useState({ key: 'VG', dir: -1 });
-  const [onlyBad, setOnlyBad] = useState(false);
+  // A summary tile shows its functions alone: 'violating' or one metric ('m:VG').
+  const [focus, toggleFocus, clearFocus] = useFocus('his', pid || '');
+  const onlyBad = focus === 'violating';
+  const metricFocus = focus && focus.startsWith('m:') ? focus.slice(2) : null;
   const data = res.data;
   const metrics = (data && data.summary && data.summary.metrics) || {};
   const cols = HIS.filter((m) => metrics[m] || (data && data.rows.some((r) => r[m] != null)));
   const rows = useMemo(() => {
     if (!data) return [];
     const bad = (r) => cols.some((m) => violates(metrics[m], r[m]));
-    const list = onlyBad ? data.rows.filter(bad) : [...data.rows];
+    const list = metricFocus ? data.rows.filter((r) => violates(metrics[metricFocus], r[metricFocus])) : onlyBad ? data.rows.filter(bad) : [...data.rows];
     const val = (r) => (sort.key === 'function' ? `${r.file}:${r.function}` : r[sort.key]);
     return list.sort((a, b) => {
       const x = val(a); const y = val(b);
@@ -52,7 +56,8 @@ export function HisView({ project, stamp, onOpenAt }) {
       return String(x ?? '').localeCompare(String(y ?? '')) * sort.dir;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, sort, onlyBad]);
+  }, [data, sort, onlyBad, metricFocus]);
+  const { rows: shown, footer } = useRowWindow(rows);
   // The analyzer's own name and explanation of each metric (core/his) as the tooltip.
   const tipOf = (id) => { const m = metrics[id] || {}; const lang = getLanguage(); return { 'data-tip-title': `${id} · ${(m.label && (m.label[lang] || m.label.en)) || t(`his_${id}`)}`, 'data-tip-text': `${(m.why && (m.why[lang] || m.why.en)) || t(`his_${id}`)} ${t('gl_his_limit', { limit: limitText(m) })}`.trim() }; };
   const head = (key, label) => (
@@ -64,7 +69,8 @@ export function HisView({ project, stamp, onOpenAt }) {
   return (
     <div className={`view ${data && data.rows.length > 0 ? 'view-list' : ''}`}>
       <ViewHeader icon="cpu" title={t('nav_his')} hint={t('vh_his')}>
-        <Toggle checked={onlyBad} icon="alert" label={t('his_only_bad')} onChange={setOnlyBad} />
+        <Toggle checked={onlyBad} icon="alert" label={t('his_only_bad')} onChange={(v) => (v ? toggleFocus('violating') : clearFocus())} />
+        <FocusAll focus={metricFocus ? focus : null} onClear={clearFocus} />
         <Btn icon="refresh" label={t('pf_refresh')} disabled={!project || res.loading} onClick={res.reload} />
       </ViewHeader>
       {!project && <NoProject />}
@@ -75,15 +81,17 @@ export function HisView({ project, stamp, onOpenAt }) {
         <>
           <div className="card-grid compact">
             <Stat icon="code" label={t('his_functions')} value={data.summary.functions} />
-            <Stat icon="alert" label={t('his_violating')} value={data.summary.violatingFunctions} tone={data.summary.violatingFunctions ? 'bad' : 'ok'}
-              sub={data.summary.functions ? `${Math.round((data.summary.violatingFunctions / data.summary.functions) * 100)}%` : ''} onClick={() => setOnlyBad(true)} />
+            <FocusStat id="violating" focus={focus} onToggle={toggleFocus} icon="alert" label={t('his_violating')} value={data.summary.violatingFunctions} tone={data.summary.violatingFunctions ? 'bad' : 'ok'}
+              sub={data.summary.functions ? `${Math.round((data.summary.violatingFunctions / data.summary.functions) * 100)}%` : ''} />
           </div>
           <Glossary id="his" terms={cols.map((id) => { const m = metrics[id] || {}; const lang = getLanguage(); return [id, (m.label && (m.label[lang] || m.label.en)) || t(`his_${id}`), `${(m.why && (m.why[lang] || m.why.en)) || ''} ${t('gl_his_limit', { limit: limitText(m) })}`.trim()]; })} />
           <div className="his-grid">
             {cols.map((id) => {
               const m = metrics[id] || {};
               return (
-                <button key={id} type="button" className={`card his-card ${m.violations ? 'bad' : ''} ${sort.key === id ? 'on' : ''}`} onClick={() => setSort({ key: id, dir: m.kind === 'min' ? 1 : -1 })}>
+                <button key={id} type="button" className={`card his-card focus-stat ${m.violations ? 'bad' : ''} ${focus === `m:${id}` ? 'on' : ''}`} aria-pressed={focus === `m:${id}`} data-focus={`m:${id}`}
+                  title={focus === `m:${id}` ? t('fs_show_all_tip') : t('his_focus_tip', { id })}
+                  onClick={() => { if (focus !== `m:${id}`) setSort({ key: id, dir: m.kind === 'min' ? 1 : -1 }); toggleFocus(`m:${id}`); }}>
                   <div className="k"><span className="mono" {...tipOf(id)}>{id}</span><span className="his-limit">{limitText(m)}</span></div>
                   <div className={`v ${m.violations ? 'bad' : 'ok'}`}>{m.violations || 0}</div>
                   <div className="small">{t('his_avg_max', { avg: fmtNum(m.avg), max: fmtNum(m.max) })}</div>
@@ -101,7 +109,7 @@ export function HisView({ project, stamp, onOpenAt }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {shown.map((r) => (
                     <tr key={`${r.file}:${r.line}:${r.function}`} className="click" title={t('his_open')} onClick={() => onOpenAt(r.file, r.line)}>
                       <td className="wrap"><span className="mono">{r.function}</span><div className="small">{r.file}:{r.line}</div></td>
                       {cols.map((id) => <td key={id} className={`num ${violates(metrics[id], r[id]) ? 'cell-bad' : ''}`}>{fmtNum(r[id])}</td>)}
@@ -109,6 +117,7 @@ export function HisView({ project, stamp, onOpenAt }) {
                   ))}
                 </tbody>
               </table>
+              {footer}
               {rows.length === 0 && <Empty icon="checkCircle" text={t('his_no_violations')} />}
             </div>
           </div>
@@ -288,15 +297,101 @@ function Graph({ nodes, edges, lay, selected, onSelect }) {
   );
 }
 
+// The four summary tiles of the architecture view; each shows its kind alone.
+const ARCH_FOCUS = ['modules', 'deps', 'cycles', 'issues'];
+
+// The modules an architecture finding names, from its English message:
+// "'a' depends on 'b'", "'a' depends on 12 modules", "Dependency cycle: a -> b -> a".
+function issueEnds(issue) {
+  const m = issue && issue.message;
+  const en = String(m && typeof m === 'object' ? m.en || '' : m || '');
+  const dep = /'([^']+)'(?: \(instability [^)]*\))? depends on (?:the less stable )?'([^']+)'/.exec(en);
+  if (dep) return { from: dep[1], to: dep[2] };
+  const many = /^'([^']+)' depends on \d+ modules/.exec(en);
+  if (many) return { from: many[1], to: '' };
+  const cyc = /^Dependency cycle: (.+?)(?: \(\d+ modules.*)?\.$/.exec(en);
+  if (cyc) { const p = cyc[1].split(' -> '); return { from: p[0] || '', to: p[1] || '' }; }
+  return { from: '', to: '' };
+}
+
+// One loop through a cycle group, in order: the shortest way from its first
+// module back to itself (a self loop is [a, a]).
+function cyclePath(members, out) {
+  const set = new Set(members);
+  const start = [...members].sort()[0];
+  if (members.length === 1) return [start, start];
+  const prev = new Map();
+  const queue = [start];
+  for (let k = 0; k < queue.length; k++) {
+    const v = queue[k];
+    for (const w of out.get(v) || []) {
+      if (!set.has(w)) continue;
+      if (w === start) {
+        const back = [];
+        for (let x = v; x !== start; x = prev.get(x)) back.push(x);
+        return [start, ...back.reverse(), start];
+      }
+      if (!prev.has(w)) { prev.set(w, v); queue.push(w); }
+    }
+  }
+  return [...members, start];
+}
+
+function sortRows(list, sort) {
+  const { key, dir } = sort;
+  return [...list].sort((a, b) => {
+    const x = a[key]; const y = b[key];
+    if (typeof x === 'number' && typeof y === 'number') return (x - y) * dir || String(a.id).localeCompare(String(b.id));
+    return String(x ?? '').localeCompare(String(y ?? '')) * dir;
+  });
+}
+
+// A sortable table of one focused kind, one page of rows at a time.
+function FocusTable({ list, cols, sort, onSort, rowKey, onRow, selected, empty }) {
+  useLanguage();
+  const { rows, footer } = useRowWindow(list);
+  return (
+    <div className="panel tpanel list-grow">
+      <div className="table-wrap tall">
+        <table className="arch-focus-table" data-testid="arch-focus-table" data-rows={list.length}>
+          <thead>
+            <tr>
+              {cols.map((c) => (
+                <th key={c.key} className={`${c.num ? 'num' : ''} ${c.nosort ? '' : 'sortable'} ${sort.key === c.key ? 'sorted' : ''}`}
+                  onClick={c.nosort ? undefined : () => onSort({ key: c.key, dir: sort.key === c.key ? -sort.dir : c.num ? -1 : 1 })}>
+                  <span data-term={c.term}>{c.label}</span>{sort.key === c.key && <Icon name={sort.dir > 0 ? 'chevronUp' : 'chevronDown'} size={11} />}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={rowKey(r)} className={`click ${selected != null && selected === rowKey(r) ? 'sel' : ''}`} onClick={() => onRow(r)}>
+                {cols.map((c) => <td key={c.key} className={c.num ? 'num' : c.cls || 'wrap'}>{c.render ? c.render(r) : r[c.key]}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {footer}
+        {list.length === 0 && empty}
+      </div>
+    </div>
+  );
+}
+
 export function ArchView({ project, stamp, issues, onOpenAt }) {
   useLanguage();
   const pid = project && project.id;
   const res = useLoad('arch.graph', { projectId: pid }, [pid, stamp], !!project);
   const [selected, setSelected] = useState(null);
   const [sort, setSort] = useState({ key: 'instability', dir: -1 });
+  const [focus, toggleFocus, clearFocus] = useFocus('arch', pid || '', ARCH_FOCUS);
+  const [q, setQ] = useState('');
+  const [fSort, setFSort] = useState({});
+  const [pickCycle, setPickCycle] = useState(0);
   const data = res.data;
   const lay = useMemo(() => (data ? layout(data.nodes, data.edges) : null), [data]);
-  const archIssues = (issues || []).filter((i) => String(i.rule || '').startsWith('arch:'));
+  const archIssues = useMemo(() => (issues || []).filter((i) => String(i.rule || '').startsWith('arch:')), [issues]);
   const modules = useMemo(() => {
     if (!data) return [];
     return [...data.nodes].sort((a, b) => {
@@ -304,11 +399,80 @@ export function ArchView({ project, stamp, issues, onOpenAt }) {
       return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * sort.dir;
     });
   }, [data, sort]);
+
+  // ── Focused lists (computed once per graph, filtered and sorted per view) ──
+  const base = useMemo(() => {
+    if (!data || !lay) return null;
+    const out = new Map();
+    const edgeOf = new Map();
+    for (const e of data.edges) {
+      if (!out.has(e.from)) out.set(e.from, []);
+      out.get(e.from).push(e.to);
+      edgeOf.set(`${e.from}\u0000${e.to}`, e);
+    }
+    const perFile = new Map();
+    for (const i of issues || []) if (i.file) perFile.set(i.file, (perFile.get(i.file) || 0) + 1);
+    const violated = new Map();
+    const ends = archIssues.map((i) => ({ issue: i, ...issueEnds(i) }));
+    for (const x of ends) {
+      if (!x.from || !x.to || x.issue.rule === 'arch:cycle') continue;
+      const k = `${x.from}\u0000${x.to}`;
+      if (!violated.has(k)) violated.set(k, new Set());
+      violated.get(k).add(x.issue.rule);
+    }
+    const mods = data.nodes.map((n) => {
+      const files = Array.isArray(n.files) ? n.files : [n.file];
+      return { id: n.id, files: files.length, lines: Number(n.lines) || 0, ca: n.ca, ce: n.ce, instability: n.instability,
+        issues: files.reduce((s, f) => s + (perFile.get(f) || 0), 0), file: n.file };
+    });
+    const deps = data.edges.map((e) => {
+      const rules = new Set(violated.get(`${e.from}\u0000${e.to}`) || []);
+      if (lay.inCycle(e)) rules.add('arch:cycle');
+      return { id: `${e.from}\u0000${e.to}`, from: e.from, to: e.to, count: e.count || 1, file: e.file, line: e.line, rules: [...rules].sort(), violation: rules.size };
+    });
+    const cycles = lay.cycles.map((members) => {
+      const set = new Set(members);
+      const path = cyclePath(members, out);
+      const steps = [];
+      for (let i = 0; i + 1 < path.length; i++) steps.push(edgeOf.get(`${path[i]}\u0000${path[i + 1]}`) || { from: path[i], to: path[i + 1] });
+      const inner = data.edges.filter((e) => set.has(e.from) && set.has(e.to));
+      return { id: path[0], members, size: members.length, path, steps, inner };
+    }).sort((a, b) => b.size - a.size || a.id.localeCompare(b.id));
+    const findings = ends.map((x) => ({ id: x.issue.key, rule: x.issue.rule, from: x.from, to: x.to, message: textOf(x.issue.message), severity: x.issue.severity,
+      file: x.issue.file, line: x.issue.line, where: `${x.issue.file || ''}:${x.issue.line || ''}` }));
+    return { mods, deps, cycles, findings };
+  }, [data, lay, issues, archIssues]);
+
+  const needle = q.trim().toLowerCase();
+  const has = (s) => String(s || '').toLowerCase().includes(needle);
+  const sortOf = (kind, fallback) => fSort[kind] || fallback;
+  const setSortOf = (kind) => (s) => setFSort((m) => ({ ...m, [kind]: s }));
+  const focusList = useMemo(() => {
+    if (!base || !focus) return [];
+    if (focus === 'modules') return sortRows(needle ? base.mods.filter((m) => has(m.id)) : base.mods, sortOf('modules', { key: 'issues', dir: -1 }));
+    if (focus === 'deps') return sortRows(needle ? base.deps.filter((e) => has(e.from) || has(e.to)) : base.deps, sortOf('deps', { key: 'count', dir: -1 }));
+    if (focus === 'cycles') return needle ? base.cycles.filter((c) => c.members.some(has)) : base.cycles;
+    return sortRows(needle ? base.findings.filter((f) => has(f.from) || has(f.to) || has(f.where) || has(f.message)) : base.findings, sortOf('issues', { key: 'rule', dir: 1 }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, focus, needle, fSort]);
+  useEffect(() => { setPickCycle(0); }, [focus, needle, base]);
+  const cycle = focus === 'cycles' ? focusList[Math.min(pickCycle, focusList.length - 1)] : null;
+  const cycleGraph = useMemo(() => {
+    if (!cycle) return null;
+    const members = new Set(cycle.members);
+    const nodes = data.nodes.filter((n) => members.has(n.id));
+    return { nodes, edges: cycle.inner, lay: layout(nodes, cycle.inner) };
+  }, [cycle, data]);
+
   const th = (key, label, term) => <th className={`${key === 'id' ? '' : 'num'} sortable ${sort.key === key ? 'sorted' : ''}`} onClick={() => setSort({ key, dir: sort.key === key ? -sort.dir : -1 })}><span data-term={term}>{label}</span>{sort.key === key && <Icon name={sort.dir > 0 ? 'chevronUp' : 'chevronDown'} size={11} />}</th>;
   const sel = selected && data ? data.nodes.find((n) => n.id === selected) : null;
+  const noMatch = <Empty icon="search" text={t('fs_no_match')} />;
+  const ruleChips = (rules) => (rules.length ? <span className="chips">{rules.map((r) => <span key={r} className="status-pill tone-bad">{r}</span>)}</span> : <span className="muted">—</span>);
+  const openAt = (file, line) => { if (file) onOpenAt(file, line || 1); };
   return (
-    <div className="view">
+    <div className={`view ${focus && data && data.nodes.length > 0 ? 'view-list' : ''}`}>
       <ViewHeader icon="flow" title={t('nav_arch')} hint={t('vh_arch')}>
+        <FocusAll focus={data && data.nodes.length > 0 ? focus : null} onClear={clearFocus} />
         <Btn icon="settings" label={t('ar_settings')} onClick={() => emitAction('adminSettings')} title={t('ar_settings_tip')} />
         <Btn icon="refresh" label={t('pf_refresh')} disabled={!project || res.loading} onClick={res.reload} />
       </ViewHeader>
@@ -318,84 +482,161 @@ export function ArchView({ project, stamp, issues, onOpenAt }) {
       {data && data.nodes.length === 0 && <Empty icon="flow" text={t('ag_empty')} hint={t('ag_empty_hint')} />}
       {data && data.nodes.length > 0 && (
         <>
-          <div className="card-grid compact">
-            <Stat icon="grid" label={t('ag_modules')} value={data.nodes.length} />
-            <Stat icon="link" label={t('ag_dependencies')} value={data.edges.length} />
-            <Stat icon="refresh" term="cycle" label={t('ag_cycles')} value={lay.cycles.length} tone={lay.cycles.length ? 'bad' : 'ok'} />
-            <Stat icon="alert" label={t('ag_arch_issues')} value={archIssues.length} tone={archIssues.length ? 'bad' : 'ok'} />
+          <div className="card-grid compact" role="group" aria-label={t('fs_group')}>
+            <FocusStat id="modules" focus={focus} onToggle={toggleFocus} icon="grid" label={t('ag_modules')} value={data.nodes.length} />
+            <FocusStat id="deps" focus={focus} onToggle={toggleFocus} icon="link" label={t('ag_dependencies')} value={data.edges.length} />
+            <FocusStat id="cycles" focus={focus} onToggle={toggleFocus} icon="refresh" term="cycle" label={t('ag_cycles')} value={lay.cycles.length} tone={lay.cycles.length ? 'bad' : 'ok'} />
+            <FocusStat id="issues" focus={focus} onToggle={toggleFocus} icon="alert" label={t('ag_arch_issues')} value={archIssues.length} tone={archIssues.length ? 'bad' : 'ok'} />
           </div>
-          <Glossary id="arch" terms={[
-            ['Ca', t('gl_ca_name'), t('gl_ca')],
-            ['Ce', t('gl_ce_name'), t('gl_ce')],
-            ['I', t('gl_i_name'), t('gl_i')],
-            [t('ag_cycles'), t('gl_cycle_name'), t('gl_cycle')],
-            [t('ag_module'), '', t('gl_module')],
-          ]} />
-          <Graph nodes={data.nodes} edges={data.edges} lay={lay} selected={selected} onSelect={setSelected} />
-          {sel && (
-            <Inspector revealKey={sel.id}>
-              <div className="chips"><span className="chip"><Icon name="grid" size={11} />{t('ag_module')}</span><span className="chip">{sel.lang}</span><span className="chip">{sel.kind}</span></div>
-              <h3 className="mono wrap">{sel.id}</h3>
-              <div className="card-grid compact">
-                <Stat icon="link" term="ca" label="Ca" value={sel.ca} sub={t('gl_ca_name')} />
-                <Stat icon="flow" term="ce" label="Ce" value={sel.ce} sub={t('gl_ce_name')} />
-                <Stat icon="gauge" term="instability" label="I" value={fmtNum(sel.instability)} sub={t('gl_i_name')} />
-              </div>
-              <h3 className="sub-title"><Icon name="chevronRight" size={15} />{t('ag_uses')}</h3>
-              <p className="small mono wrap">{data.edges.filter((e) => e.from === sel.id).map((e) => e.to).join(', ') || '—'}</p>
-              <h3 className="sub-title"><Icon name="chevronLeft" size={15} />{t('ag_used_by')}</h3>
-              <p className="small mono wrap">{data.edges.filter((e) => e.to === sel.id).map((e) => e.from).join(', ') || '—'}</p>
-              {(Array.isArray(sel.files) ? sel.files : []).length > 0 && <><h3 className="sub-title"><Icon name="file" size={15} />{t('files')}</h3>
-                {sel.files.slice(0, 40).map((f) => <button key={f} type="button" className="insp-row" onClick={() => onOpenAt(f, 1)}><Icon name="file" size={12} /><span className="insp-row-text mono">{f}</span></button>)}</>}
-            </Inspector>
+          {focus && (
+            <div className="view-toolbar">
+              <span className="search-box"><Icon name="search" size={14} /><input className="search" value={q} placeholder={t('ag_filter_ph')} aria-label={t('ag_filter_ph')} onChange={(e) => setQ(e.target.value)} /></span>
+              <span className="small muted" data-testid="arch-focus-count">{t('fs_count', { n: focusList.length.toLocaleString() })}</span>
+            </div>
           )}
-          <div className="split-2" style={{ marginTop: 12 }}>
-            <div className="panel tpanel">
-              <h3 className="sub-title pad"><Icon name="grid" size={15} />{t('ag_modules')}</h3>
-              <div className="table-wrap short">
-                <table>
-                  <thead><tr>{th('id', t('ag_module'))}{th('ca', 'Ca', 'ca')}{th('ce', 'Ce', 'ce')}{th('instability', 'I', 'instability')}</tr></thead>
-                  <tbody>
-                    {modules.map((n) => (
-                      <tr key={n.id} className={`click ${selected === n.id ? 'sel' : ''}`} onClick={() => setSelected(n.id)}>
-                        <td className="wrap mono">{n.id}</td>
-                        <td className="num">{n.ca}</td>
-                        <td className="num">{n.ce}</td>
-                        <td className="num"><span className="i-bar"><span style={{ width: `${Math.round((Number(n.instability) || 0) * 100)}%`, background: instabilityColor(n.instability) }} /></span>{fmtNum(n.instability)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {focus === 'modules' && (
+            <FocusTable list={focusList} sort={sortOf('modules', { key: 'issues', dir: -1 })} onSort={setSortOf('modules')} rowKey={(r) => r.id}
+              onRow={(r) => openAt(r.file, 1)} empty={needle ? noMatch : <Empty icon="grid" text={t('ag_empty')} />}
+              cols={[
+                { key: 'id', label: t('ag_module'), cls: 'wrap mono' },
+                { key: 'files', label: t('files'), num: true },
+                { key: 'lines', label: t('ag_lines'), num: true },
+                { key: 'ca', label: t('ag_incoming'), num: true, term: 'ca' },
+                { key: 'ce', label: t('ag_outgoing'), num: true, term: 'ce' },
+                { key: 'instability', label: 'I', num: true, term: 'instability', render: (r) => fmtNum(r.instability) },
+                { key: 'issues', label: t('nav_issues'), num: true },
+              ]} />
+          )}
+          {focus === 'deps' && (
+            <FocusTable list={focusList} sort={sortOf('deps', { key: 'count', dir: -1 })} onSort={setSortOf('deps')} rowKey={(r) => r.id}
+              onRow={(r) => openAt(r.file, r.line)} empty={needle ? noMatch : <Empty icon="link" text={t('ag_no_deps')} />}
+              cols={[
+                { key: 'from', label: t('ag_from'), cls: 'wrap mono' },
+                { key: 'to', label: t('ag_to'), cls: 'wrap mono' },
+                { key: 'count', label: t('ag_count'), num: true },
+                { key: 'violation', label: t('ag_violation'), num: true, render: (r) => ruleChips(r.rules) },
+                { key: 'file', label: t('location'), cls: 'small wrap loc', render: (r) => (r.file ? `${r.file}:${r.line}` : '—') },
+              ]} />
+          )}
+          {focus === 'issues' && (
+            <FocusTable list={focusList} sort={sortOf('issues', { key: 'rule', dir: 1 })} onSort={setSortOf('issues')} rowKey={(r) => r.id}
+              onRow={(r) => openAt(r.file, r.line)} empty={needle ? noMatch : <Empty icon="checkCircle" text={t('ag_no_arch_issues')} />}
+              cols={[
+                { key: 'rule', label: t('rule'), cls: 'nowrap', render: (r) => <><SevBadge sev={r.severity} /> <span className="mono small">{r.rule}</span></> },
+                { key: 'from', label: t('ag_from'), cls: 'wrap mono' },
+                { key: 'to', label: t('ag_to'), cls: 'wrap mono', render: (r) => r.to || '—' },
+                { key: 'message', label: t('message') },
+                { key: 'where', label: t('location'), cls: 'small wrap loc' },
+              ]} />
+          )}
+          {focus === 'cycles' && (
+            <div className="split-2 list-grow arch-cycles">
+              <FocusTable list={focusList} sort={{ key: 'size', dir: -1 }} onSort={() => {}} rowKey={(r) => r.id}
+                selected={cycle ? cycle.id : null} onRow={(r) => setPickCycle(focusList.indexOf(r))}
+                empty={needle ? noMatch : <Empty icon="checkCircle" text={t('ag_no_cycles')} />}
+                cols={[
+                  { key: 'size', label: t('ag_modules'), num: true, nosort: true, render: (r) => <span className="status-pill tone-bad"><Icon name="refresh" size={12} />{r.size}</span> },
+                  { key: 'path', label: t('ag_cycle_path'), nosort: true, render: (r) => <span className="mono small">{r.path.map(shortName).join(' → ')}</span> },
+                  { key: 'inner', label: t('ag_cycle_inner'), num: true, nosort: true, render: (r) => r.inner.length },
+                ]} />
+              <div className="panel tpanel arch-cycle-detail">
+                {cycle ? (
+                  <>
+                    <h3 className="sub-title pad"><Icon name="refresh" size={15} />{t('ag_cycle_steps', { n: cycle.size })}</h3>
+                    {cycleGraph && <Graph nodes={cycleGraph.nodes} edges={cycleGraph.edges} lay={cycleGraph.lay} selected={null} onSelect={() => {}} />}
+                    <div className="table-wrap">
+                      <table>
+                        <tbody>
+                          {cycle.steps.map((e, i) => (
+                            <tr key={i} className="click" onClick={() => openAt(e.file, e.line)}>
+                              <td className="wrap mono small">{e.from} → {e.to}{i === cycle.steps.length - 1 && <span className="status-pill tone-bad">{t('ag_closes')}</span>}</td>
+                              <td className="small wrap loc">{e.file ? `${e.file}:${e.line}` : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : <Empty icon="refresh" text={t('ag_cycle_pick')} />}
               </div>
             </div>
-            <div className="panel tpanel">
-              <h3 className="sub-title pad"><Icon name="refresh" size={15} />{t('ag_cycles')}</h3>
-              <div className="table-wrap short">
-                {lay.cycles.length === 0 && <Empty icon="checkCircle" text={t('ag_no_cycles')} />}
-                {lay.cycles.length > 0 && (
-                  <table>
-                    <tbody>
-                      {lay.cycles.map((c, i) => (
-                        <tr key={i}><td className="wrap"><span className="status-pill tone-bad"><Icon name="refresh" size={12} />{c.length}</span> <span className="mono small">{c.map(shortName).join(' → ')}{c.length > 1 ? ` → ${shortName(c[0])}` : ''}</span></td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                {archIssues.length > 0 && (
-                  <table>
-                    <thead><tr><th>{t('ag_arch_issues')}</th></tr></thead>
-                    <tbody>
-                      {archIssues.map((i) => (
-                        <tr key={i.key} className="click" onClick={() => onOpenAt(i.file, i.line)}>
-                          <td className="wrap"><SevBadge sev={i.severity} /> {textOf(i.message)}<div className="small">{i.rule} · {i.file}:{i.line}</div></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+          )}
+          {!focus && (
+            <>
+              <Glossary id="arch" terms={[
+                ['Ca', t('gl_ca_name'), t('gl_ca')],
+                ['Ce', t('gl_ce_name'), t('gl_ce')],
+                ['I', t('gl_i_name'), t('gl_i')],
+                [t('ag_cycles'), t('gl_cycle_name'), t('gl_cycle')],
+                [t('ag_module'), '', t('gl_module')],
+              ]} />
+              <Graph nodes={data.nodes} edges={data.edges} lay={lay} selected={selected} onSelect={setSelected} />
+              {sel && (
+                <Inspector revealKey={sel.id}>
+                  <div className="chips"><span className="chip"><Icon name="grid" size={11} />{t('ag_module')}</span><span className="chip">{sel.lang}</span><span className="chip">{sel.kind}</span></div>
+                  <h3 className="mono wrap">{sel.id}</h3>
+                  <div className="card-grid compact">
+                    <Stat icon="link" term="ca" label="Ca" value={sel.ca} sub={t('gl_ca_name')} />
+                    <Stat icon="flow" term="ce" label="Ce" value={sel.ce} sub={t('gl_ce_name')} />
+                    <Stat icon="gauge" term="instability" label="I" value={fmtNum(sel.instability)} sub={t('gl_i_name')} />
+                  </div>
+                  <h3 className="sub-title"><Icon name="chevronRight" size={15} />{t('ag_uses')}</h3>
+                  <p className="small mono wrap">{data.edges.filter((e) => e.from === sel.id).map((e) => e.to).join(', ') || '—'}</p>
+                  <h3 className="sub-title"><Icon name="chevronLeft" size={15} />{t('ag_used_by')}</h3>
+                  <p className="small mono wrap">{data.edges.filter((e) => e.to === sel.id).map((e) => e.from).join(', ') || '—'}</p>
+                  {(Array.isArray(sel.files) ? sel.files : []).length > 0 && <><h3 className="sub-title"><Icon name="file" size={15} />{t('files')}</h3>
+                    {sel.files.slice(0, 40).map((f) => <button key={f} type="button" className="insp-row" onClick={() => onOpenAt(f, 1)}><Icon name="file" size={12} /><span className="insp-row-text mono">{f}</span></button>)}</>}
+                </Inspector>
+              )}
+              <div className="split-2" style={{ marginTop: 12 }}>
+                <div className="panel tpanel">
+                  <h3 className="sub-title pad"><Icon name="grid" size={15} />{t('ag_modules')}</h3>
+                  <div className="table-wrap short">
+                    <table>
+                      <thead><tr>{th('id', t('ag_module'))}{th('ca', 'Ca', 'ca')}{th('ce', 'Ce', 'ce')}{th('instability', 'I', 'instability')}</tr></thead>
+                      <tbody>
+                        {modules.map((n) => (
+                          <tr key={n.id} className={`click ${selected === n.id ? 'sel' : ''}`} onClick={() => setSelected(n.id)}>
+                            <td className="wrap mono">{n.id}</td>
+                            <td className="num">{n.ca}</td>
+                            <td className="num">{n.ce}</td>
+                            <td className="num"><span className="i-bar"><span style={{ width: `${Math.round((Number(n.instability) || 0) * 100)}%`, background: instabilityColor(n.instability) }} /></span>{fmtNum(n.instability)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="panel tpanel">
+                  <h3 className="sub-title pad"><Icon name="refresh" size={15} />{t('ag_cycles')}</h3>
+                  <div className="table-wrap short">
+                    {lay.cycles.length === 0 && <Empty icon="checkCircle" text={t('ag_no_cycles')} />}
+                    {lay.cycles.length > 0 && (
+                      <table>
+                        <tbody>
+                          {lay.cycles.map((c, i) => (
+                            <tr key={i}><td className="wrap"><span className="status-pill tone-bad"><Icon name="refresh" size={12} />{c.length}</span> <span className="mono small">{c.map(shortName).join(' → ')}{c.length > 1 ? ` → ${shortName(c[0])}` : ''}</span></td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                    {archIssues.length > 0 && (
+                      <table>
+                        <thead><tr><th>{t('ag_arch_issues')}</th></tr></thead>
+                        <tbody>
+                          {archIssues.map((i) => (
+                            <tr key={i.key} className="click" onClick={() => onOpenAt(i.file, i.line)}>
+                              <td className="wrap"><SevBadge sev={i.severity} /> {textOf(i.message)}<div className="small">{i.rule} · {i.file}:{i.line}</div></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </>
       )}
     </div>

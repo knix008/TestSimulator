@@ -368,17 +368,24 @@ export function StatusBar({ project, analysis, message }) {
   );
 }
 
+// In a dialog window (views/DialogWindows.jsx) the outermost Dialog is the
+// window itself; dialogs it opens inside stay ordinary in-window dialogs.
+export const DialogWindowCtx = React.createContext(false);
+
 export function Dialog({ title, children, onClose, wide, icon, className, windowed, dataTour }) {
   useLanguage();
-  if (windowed) {
+  const inWindow = React.useContext(DialogWindowCtx);
+  if (windowed || inWindow) {
     return (
-      <div className={`dialog windowed ${className || ''}`} data-tour={dataTour} role="dialog" aria-label={typeof title === 'string' ? title : undefined}>
-        <div className="dialog-title" data-tauri-drag-region>
-          <strong data-tauri-drag-region>{icon && <Icon name={icon} size={16} />}{title}</strong>
-          <CloseButton onClick={onClose} aria-label={t('win_close')} title={t('win_close')} size={14} />
+      <DialogWindowCtx.Provider value={false}>
+        <div className={`dialog windowed ${wide ? 'wide' : ''} ${className || ''}`} data-tour={dataTour} role="dialog" aria-label={typeof title === 'string' ? title : undefined}>
+          <div className="dialog-title" data-tauri-drag-region>
+            <strong data-tauri-drag-region>{icon && <Icon name={icon} size={16} />}{title}</strong>
+            <CloseButton onClick={onClose} aria-label={t('win_close')} title={t('win_close')} size={14} />
+          </div>
+          <div className="dialog-body selectable">{children}</div>
         </div>
-        <div className="dialog-body selectable">{children}</div>
-      </div>
+      </DialogWindowCtx.Provider>
     );
   }
   return (

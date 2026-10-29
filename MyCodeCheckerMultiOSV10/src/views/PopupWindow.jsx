@@ -1,6 +1,7 @@
 // What a desktop child window shows: menu, select (IconSelect list), themes
-// (theme picker), settings (the whole settings window) and info (about /
-// help / shortcuts). The payload comes from the main window; the result goes
+// (theme picker), settings (the whole settings window), info (about /
+// help / shortcuts) and the dialogs of DialogWindows.jsx (print, questions,
+// project files, tools, …). The payload comes from the main window; the result goes
 // back as an event (lib/popups.js).
 //
 // index.html#/window/pool?slot=list|dialog — a hidden window kept for reuse:
@@ -20,6 +21,7 @@ import { SettingsDialog } from './Settings';
 import { UiHost } from '../components/UiHost';
 import { columnsOf } from '../lib/menuColumns';
 import { AboutDialog } from './About';
+import { DialogWindow, isDialogWindow } from './DialogWindows';
 
 function useCloseOnBlur(enabled) {
   useEffect(() => {
@@ -127,6 +129,7 @@ function PopupContent({ kind, id, payload }) {
   if (kind === 'themes') return <ThemesPopup id={id} payload={payload} />;
   if (kind === 'settings') return <SettingsWindow id={id} payload={payload} />;
   if (kind === 'about') return <AboutDialog windowed summary={payload.summary} onClose={() => closeSelf()} />;
+  if (isDialogWindow(kind)) return <><DialogWindow kind={kind} id={id} payload={payload} /><UiHost /></>;
   if (kind === 'info') {
     return (
       <Dialog windowed title={payload.title} icon={payload.icon || 'info'} onClose={() => closeSelf()}>

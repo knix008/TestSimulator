@@ -129,3 +129,23 @@ test('a project can choose its own engines (all on to start) and leave a languag
   assert.equal(none.analysis.issues.filter((i) => /\.(cpp|hpp|h)$/.test(i.file)).length, 0);
   assert.equal((none.analysis.languages || {}).cpp, undefined);
 });
+
+test('a project\'s languages choose its default engines; added languages count too and are kept in the project file', async () => {
+  const { checksForLanguages, listChecks, appliesTo, CHECK_GROUPS } = require('../core/checks.js');
+  const off = (langs) => Object.keys(checksForLanguages(langs)).sort();
+  // C only: no C++ standards, no semantic engines of other languages, no IaC.
+  assert.deepEqual(off(['c']), ['autosar', 'iac', 'misraCpp2008', 'misraCpp2023', 'semantic', 'taint']);
+  // C++ and JavaScript: the MISRA C sets go, the C++ ones and the JS engines stay.
+  assert.deepEqual(off(['cpp', 'js']), ['iac', 'misraC2004', 'misraC2012']);
+  // Groups without languages (core rules, dependencies) are always on.
+  for (const g of CHECK_GROUPS.filter((x) => !x.langs)) assert.ok(appliesTo(g, []), g.id);
+  assert.ok(listChecks().every((g) => g.langs === null || Array.isArray(g.langs)));
+  const api = createApi({ configDir: tmp('mcc-langs-') });
+  const langs = await api.call('languages.list');
+  assert.ok(langs.length > 30 && langs.some((l) => l.id === 'rs' && l.label.en === 'Rust'));
+  const { toDocument, settingsOfProject } = require('../core/projectfile.js');
+  const doc = toDocument({ name: 'p', key: 'p', source: '/src', settings: settingsOfProject({ languages: ['cpp', 'py'], checks: { autosar: false } }) }, '/src');
+  assert.deepEqual(doc.settings.languages, ['cpp', 'py']);
+  assert.deepEqual(doc.settings.checks, { autosar: false });
+  assert.deepEqual(settingsOfProject({ languages: ['cpp'] }).languages, ['cpp']);
+});

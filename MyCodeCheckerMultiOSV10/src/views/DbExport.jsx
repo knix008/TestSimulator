@@ -7,6 +7,7 @@ import React, { useRef, useState } from 'react';
 import { t } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { ScanProgress } from './ScanProgress';
+import { InWindow } from '../components/InWindow';
 
 export function useDbExport() {
   const [state, setState] = useState(null); // { id, job, shown }
@@ -40,9 +41,15 @@ export function useDbExport() {
     setState((s) => (s && s.id === cur.id ? { ...s, job: { ...s.job, status: 'cancelling' } } : s));
     try { await call('db.exportCancel', { jobId: cur.id }); } catch { /* finished */ }
   };
-  const popup = state && state.shown ? (
-    <ScanProgress title={t('dbj_title')} icon="database" onCancel={cancel}
-      job={{ ...state.job, progress: { ...(state.job.progress || {}), detail: state.job.timeoutSec ? t('dbj_limit', { s: state.job.timeoutSec }) : '' } }} />
+  const shownJob = state && state.shown
+    ? { status: state.job.status, path: state.job.path, progress: { ...(state.job.progress || {}), detail: state.job.timeoutSec ? t('dbj_limit', { s: state.job.timeoutSec }) : '' } }
+    : null;
+  // A window of its own on the desktop; the job's progress is sent to it as it changes.
+  const popup = shownJob ? (
+    <InWindow key={state.id} kind="progress" width={480} height={196} resizable={false} payload={{ title: t('dbj_title'), icon: 'database' }}
+      live={shownJob} onEvent={(e) => { if (e === 'cancel') cancel(); }}>
+      <ScanProgress title={t('dbj_title')} icon="database" onCancel={cancel} job={shownJob} />
+    </InWindow>
   ) : null;
   return { run, popup, busy: !!state };
 }

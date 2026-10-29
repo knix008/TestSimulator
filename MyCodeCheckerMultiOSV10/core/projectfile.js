@@ -16,7 +16,7 @@ const FORMAT = 'mycodechecker-project';
 const VERSION = 1;
 
 // Project fields that live in the file (everything else stays in the workspace).
-const SETTING_KEYS = ['mainBranch', 'exclusions', 'excludeDirs', 'includeDirs', 'defines', 'coverageReports', 'arch', 'newCode', 'profiles', 'gateId', 'policyId', 'his', 'tags', 'description', 'checks'];
+const SETTING_KEYS = ['mainBranch', 'exclusions', 'excludeDirs', 'includeDirs', 'defines', 'coverageReports', 'arch', 'newCode', 'profiles', 'gateId', 'policyId', 'his', 'tags', 'description', 'checks', 'languages'];
 
 function fail(code, message) {
   return Object.assign(new Error(message), { code });

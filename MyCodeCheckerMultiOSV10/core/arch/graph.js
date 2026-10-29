@@ -201,6 +201,14 @@ function extract(file) {
 
 // ---------------------------------------------------------------- the graph
 
+// Lines of a source text (a final newline does not start another line).
+function lineCount(text) {
+  if (!text) return 0;
+  let n = 1;
+  for (let i = text.indexOf('\n'); i >= 0; i = text.indexOf('\n', i + 1)) n++;
+  return text.endsWith('\n') ? n - 1 : n;
+}
+
 function buildGraph(files, options = {}) {
   const opts = options || {};
   const includeDirs = (opts.includeDirs || []).map(norm);
@@ -480,6 +488,7 @@ function buildGraph(files, options = {}) {
       : fam === 'php' && !byPath.has(id) ? 'namespace' : fam === 'go' ? 'directory' : fam === 'c' ? 'module' : 'file';
     return {
       id, file: fl[0].path, lang: fl[0].lang, kind, files: fl.map((f) => f.path),
+      lines: fl.reduce((n, f) => n + lineCount(f.text), 0),
       ca, ce, instability: ca + ce ? Math.round((ce / (ca + ce)) * 1000) / 1000 : 0,
     };
   }).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

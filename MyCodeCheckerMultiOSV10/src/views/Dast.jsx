@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon } from '../components/Chrome';
-import { useApi, Btn, BtnGroup, IconSelect, Stepper, ViewHeader, Empty, Confirm, Stat, saveText, fmtDate, linesToList, SevBadge } from './common';
+import { useApi, Btn, BtnGroup, IconSelect, Stepper, ViewHeader, Empty, Confirm, Stat, saveText, fmtDate, linesToList, SevBadge, useRowWindow } from './common';
+import { FocusStat, FocusAll, useFocus } from '../components/FocusStats';
 
 const SEV = ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO'];
 
@@ -28,6 +29,8 @@ export function DastView() {
   const [result, setResult] = useState(null);
   const [sel, setSel] = useState(null);
   const [sevFilter, setSevFilter] = useState('');
+  // Crawled pages or skipped out-of-scope URLs alone, in place of the findings.
+  const [focus, toggleFocus, clearFocus] = useFocus('dast', '', ['pages', 'outOfScope']);
   const results = useApi('dast.results', {}, [], true);
   const timer = useRef(null);
 
@@ -185,10 +188,11 @@ export function DastView() {
               <div className="card-grid compact">
                 <Stat icon="alert" label={t('da_findings')} value={(result.findings || []).length} tone={(result.findings || []).length ? 'bad' : 'ok'} />
                 <Stat icon="globe" label={t('da_requests')} value={result.requests} />
-                <Stat icon="file" label={t('da_pages')} value={(result.pages || []).length} />
-                <Stat icon="ban" label={t('da_out_of_scope')} value={(result.outOfScopeSkipped || []).length} />
+                <FocusStat id="pages" focus={focus} onToggle={toggleFocus} icon="file" label={t('da_pages')} value={(result.pages || []).length} />
+                <FocusStat id="outOfScope" focus={focus} onToggle={toggleFocus} icon="ban" label={t('da_out_of_scope')} value={(result.outOfScopeSkipped || []).length} />
               </div>
               <div className="view-toolbar">
+                <FocusAll focus={focus} onClear={clearFocus} />
                 <IconSelect value={sevFilter} options={sevOptions} onChange={(v) => { setSevFilter(v); setSel(null); }} title={t('severity')} width={170} />
                 <span className="spacer" />
                 <BtnGroup>
@@ -200,7 +204,9 @@ export function DastView() {
           )}
         </div>
       </div>
-      {result && (
+      {result && focus === 'pages' && <DastList kind="pages" list={result.pages || []} />}
+      {result && focus === 'outOfScope' && <DastList kind="outOfScope" list={result.outOfScopeSkipped || []} />}
+      {result && !focus && (
         <div className="split list-grow">
           <div className="panel tpanel">
             <div className="table-wrap">
@@ -240,6 +246,35 @@ export function DastView() {
         <Confirm title={t('da_active')} body={t('da_active_confirm')} okLabel={t('da_i_am_authorized')} danger
           onOk={() => { setMode('active'); setConfirmActive(false); }} onCancel={() => setConfirmActive(false)} />
       )}
+    </div>
+  );
+}
+
+// The crawled pages or the skipped out-of-scope URLs of a scan, one page of rows at a time.
+function DastList({ kind, list }) {
+  useLanguage();
+  const { rows, footer } = useRowWindow(list);
+  const pages = kind === 'pages';
+  return (
+    <div className="panel tpanel list-grow">
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>URL</th>{pages && <><th className="num">{t('status')}</th><th>{t('da_content_type')}</th><th className="num">{t('da_depth')}</th><th className="num">{t('da_forms')}</th></>}</tr></thead>
+          <tbody>
+            {rows.map((r, i) => (pages ? (
+              <tr key={`${r.url}-${i}`}>
+                <td className="small wrap mono">{r.url}</td>
+                <td className="num">{r.status ?? '—'}</td>
+                <td className="small">{r.contentType || '—'}</td>
+                <td className="num">{r.depth ?? '—'}</td>
+                <td className="num">{r.forms ?? 0}</td>
+              </tr>
+            ) : <tr key={`${r}-${i}`}><td className="small wrap mono">{String(r)}</td></tr>))}
+          </tbody>
+        </table>
+        {footer}
+        {list.length === 0 && <Empty icon="checkCircle" text={t('fs_no_match')} />}
+      </div>
     </div>
   );
 }

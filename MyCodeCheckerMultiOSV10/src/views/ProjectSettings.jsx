@@ -2,10 +2,11 @@
 // page — name and key, the main branch, the quality gate, the profile per
 // language and the defect policy, what is left out (patterns and folders),
 // the C/C++ include folders and macros, coverage reports, the project's own
-// new code definition and its own choice of analysis engines (check groups). Saving goes through the workspace (undo, history);
+// new code definition, its languages (found in the code, plus the ones the
+// user adds) and its own choice of analysis engines (check groups) for them. Saving goes through the workspace (undo, history);
 // "Save and analyze" runs the analysis with the new settings at once.
 import React, { useEffect, useMemo, useState } from 'react';
-import { t, textOf, useLanguage } from '../lib/i18n';
+import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { ExcludeDirsDialog } from '../components/ExcludeDirs';
 import { ChecksBox } from '../components/ChecksBox';
@@ -46,6 +47,8 @@ function draftOf(project) {
     // The project's own engines (project.checks); a new choice starts with all on.
     ownChecks: !!(project.checks && typeof project.checks === 'object'),
     checks: { ...(project.checks || {}) },
+    // Languages the user added to the ones found in the code.
+    languages: [...(project.languages || [])],
   };
 }
 
@@ -100,6 +103,32 @@ function Section({ icon, title, hint, children }) {
   );
 }
 
+// The project's languages: the ones found in the code (automatic) and the
+// ones the user added (removable), plus a picker to add another.
+function ProjectLanguages({ detected, added, all, loading, onChange }) {
+  const lang = getLanguage();
+  const name = (id) => { const l = all.find((x) => x.id === id); return l ? (l.label[lang] || l.label.en) : id; };
+  const extra = added.filter((id) => !detected.includes(id));
+  const options = [{ value: '', label: t('ps_langs_add'), icon: 'plus' },
+    ...all.filter((l) => !detected.includes(l.id) && !added.includes(l.id)).map((l) => ({ value: l.id, label: `${l.label[lang] || l.label.en} (${(l.exts || []).join(' ') || l.id})`, icon: 'code' }))];
+  return (
+    <div className="ps-langs">
+      <div className="ps-lang-chips">
+        {loading && <span className="small muted">{t('ps_langs_finding')}</span>}
+        {!loading && detected.length === 0 && extra.length === 0 && <span className="small muted">{t('ps_langs_none')}</span>}
+        {detected.map((id) => <span key={id} className="chip ps-lang auto" title={t('ps_langs_detected')}><Icon name="search" size={11} /> {name(id)}</span>)}
+        {extra.map((id) => (
+          <span key={id} className="chip ps-lang added" title={t('ps_langs_added')}>
+            <Icon name="plus" size={11} /> {name(id)}
+            <button type="button" className="chip-x" aria-label={t('remove')} title={t('remove')} onClick={() => onChange(added.filter((x) => x !== id))}><Icon name="close" size={10} /></button>
+          </span>
+        ))}
+      </div>
+      <IconSelect value="" width={260} ariaLabel={t('ps_langs_add')} options={options} onChange={(v) => { if (v) onChange([...added, v]); }} />
+    </div>
+  );
+}
+
 function Field({ label, hint, children }) {
   return (
     <label className="ps-field">
@@ -120,10 +149,15 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
   const savedKey = project ? `${project.id}|${JSON.stringify(draftOf(project))}` : '';
   useEffect(() => { if (project) setD(draftOf(project)); }, [savedKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setNote(''); }, [project && project.id]);
-  const languages = useMemo(() => {
-    const fromAnalysis = Object.keys((analysis && analysis.languages) || {});
-    return [...new Set([...fromAnalysis, ...Object.keys((project && project.profiles) || {})])].sort();
-  }, [analysis, project]);
+  // The languages found in the code: the last analysis's, else a survey of
+  // the source folder (a project not analyzed yet).
+  const fromAnalysis = Object.keys((analysis && analysis.languages) || {});
+  const survey = useApi('project.target', { projectId: project && project.id, quiet: true }, [project && project.id], !!(project && project.path) && fromAnalysis.length === 0);
+  const detected = useMemo(() => (fromAnalysis.length ? fromAnalysis : Object.keys((survey.data && survey.data.languages) || {})).sort(), [fromAnalysis.join(','), survey.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const allLangs = useApi('languages.list', {}, []);
+  const [autoChecks, setAutoChecks] = useState(false);
+  const projectLangs = useMemo(() => [...new Set([...detected, ...((d && d.languages) || [])])], [detected, d && d.languages]); // eslint-disable-line react-hooks/exhaustive-deps
+  const languages = useMemo(() => [...new Set([...projectLangs, ...Object.keys((project && project.profiles) || {})])].sort(), [projectLangs, project]);
   if (!project || !d) return <div className="view"><ViewHeader icon="settings" title={t('ps_title')} hint={t('ps_hint')} /><NoProject text={t('ps_no_project')} /></div>;
 
   const set = (patch) => setD((cur) => ({ ...cur, ...patch }));
@@ -168,6 +202,7 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
       coverageReports: lines(d.coverageReports),
       newCode: d.ownNewCode ? { newCode: d.newCode, newCodeDays: d.newCodeDays, newCodeRef: d.newCodeRef.trim(), newCodeVersion: d.newCodeVersion.trim() } : undefined,
       checks: d.ownChecks ? d.checks : undefined,
+      languages: d.languages.length ? d.languages : undefined,
     };
     try {
       await onSave({ ...ws, projects: (ws.projects || []).map((p) => (p.id === project.id ? next : p)) });
@@ -220,10 +255,18 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
             <Field label={t('ad_coverage_paths')}><textarea className="mono" rows={3} value={d.coverageReports} placeholder={'coverage/lcov.info\ntarget/site/jacoco/jacoco.xml'} onChange={(e) => set({ coverageReports: e.target.value })} /></Field>
           </Section>
 
+          <Section icon="code" title={t('ps_langs')} hint={t('ps_langs_hint')}>
+            <ProjectLanguages detected={detected} added={d.languages} loading={!fromAnalysis.length && survey.loading} all={allLangs.data || []}
+              onChange={(next) => set({ languages: next })} />
+          </Section>
+
           <Section icon="cpu" title={t('ps_engines')} hint={t('ps_engines_hint')}>
-            <Field label={t('ad_nc_scope')}><Toggle checked={d.ownChecks} label={t('ps_engines_own')} icon="folder" onChange={(v) => set({ ownChecks: v })} /></Field>
+            <Field label={t('ad_nc_scope')}><Toggle checked={d.ownChecks} label={t('ps_engines_own')} icon="folder"
+              onChange={(v) => { set({ ownChecks: v }); if (v && !Object.keys(d.checks).length) setAutoChecks(true); }} /></Field>
             {!d.ownChecks && <p className="small muted">{t('ps_engines_following')}</p>}
-            <ChecksBox checks={d.ownChecks ? d.checks : ((ws.settings || {}).checks || {})} readOnly={!d.ownChecks} onChange={(checks) => set({ checks })} />
+            {d.ownChecks && <p className="small muted">{t('ps_engines_auto', { langs: projectLangs.join(', ') || '—' })}</p>}
+            <ChecksBox checks={d.ownChecks ? d.checks : ((ws.settings || {}).checks || {})} readOnly={!d.ownChecks} languages={projectLangs}
+              autoInit={autoChecks} onAutoDone={() => setAutoChecks(false)} onChange={(checks) => set({ checks })} />
           </Section>
 
           <Section icon="gate" title={t('ps_rules')} hint={t('ps_rules_hint')}>

@@ -274,6 +274,9 @@ export function ReportsTab({ d, set }) {
         <Toggle icon="chart" label={t('rs_md_embed')} checked={r.mdEmbedImages !== false} onChange={(v) => set({ reports: { ...r, mdEmbedImages: v } })} />
       </Row>
       <p className="small st-note">{r.mdEmbedImages !== false ? t('rs_md_embed_on') : t('rs_md_embed_off')}</p>
+      <Row icon="book" label={t('rs_glossary')} title={t('rs_glossary_hint')}>
+        <Toggle icon="book" label={t('rp_glossary')} checked={r.glossary === true} onChange={(v) => set({ reports: { ...r, glossary: v } })} />
+      </Row>
       <Row icon="play" label={t('rs_auto')} title={t('rs_auto_hint')}>
         <Toggle icon="report" label={t('rs_auto_on')} checked={!!auto.enabled} onChange={(v) => setAuto({ enabled: v })} />
       </Row>

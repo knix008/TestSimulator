@@ -41,6 +41,7 @@ const ACCESS = {
   'project.scan': ['scan', 'project'],
   'scan.start': ['scan', 'project'],
   'checks.list': 'auth',
+  'languages.list': 'auth',
   'project.dirs': ['scan', 'global'],
   'scan.job': 'auth',
   'scan.cancel': 'auth',

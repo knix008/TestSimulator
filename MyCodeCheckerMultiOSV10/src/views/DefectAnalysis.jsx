@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow, Glossary, useApi } from './common';
+import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, CovPill, emitAction, useRowWindow, Glossary, useApi } from './common';
+import { FocusStat, useFocus } from '../components/FocusStats';
 import { ask } from '../lib/ui';
 
 const PRESETS = ['outstanding', 'new', 'high', 'dismissed', 'fixed'];
@@ -30,7 +31,11 @@ function text(value) {
 
 export function DefectsView({ analysis, onUpdate, onOpenCode }) {
   useLanguage();
-  const [preset, setPreset] = useState('outstanding');
+  // The preset is the focused summary tile; outstanding (the default) is the full view.
+  const [focused, , , setFocused] = useFocus('defects', '', PRESETS);
+  const preset = focused || 'outstanding';
+  const setPreset = (id) => setFocused(id === 'outstanding' ? null : id);
+  const togglePreset = (id) => setPreset(id === preset ? 'outstanding' : id);
   const [q, setQ] = useState('');
   const [checker, setChecker] = useState('');
   const [cid, setCid] = useState(null);
@@ -92,11 +97,11 @@ export function DefectsView({ analysis, onUpdate, onOpenCode }) {
         </span>
       </div>
       <div className="card-grid compact">
-        <Stat icon="alert" term="outstanding" value={outstanding} label={t('cov_outstanding')} onClick={() => setPreset('outstanding')} />
-        <Stat icon="chevronsUp" value={outstandingHigh} label={t('cov_high')} tone={outstandingHigh ? 'bad' : ''} onClick={() => setPreset('high')} />
-        <Stat icon="sparkle" value={newlyDetected} label={t('cov_new')} tone={newlyDetected ? 'bad' : ''} onClick={() => setPreset('new')} />
-        <Stat icon="xCircle" term="dismissed" value={dismissedCount} label={t('cov_dismissed')} onClick={() => setPreset('dismissed')} />
-        <Stat icon="checkCircle" value={fixed.length} label={t('cov_fixed')} tone={fixed.length ? 'ok' : ''} onClick={() => setPreset('fixed')} />
+        <FocusStat id="outstanding" focus={preset} onToggle={togglePreset} icon="alert" term="outstanding" value={outstanding} label={t('cov_outstanding')} />
+        <FocusStat id="high" focus={preset} onToggle={togglePreset} icon="chevronsUp" value={outstandingHigh} label={t('cov_high')} tone={outstandingHigh ? 'bad' : ''} />
+        <FocusStat id="new" focus={preset} onToggle={togglePreset} icon="sparkle" value={newlyDetected} label={t('cov_new')} tone={newlyDetected ? 'bad' : ''} />
+        <FocusStat id="dismissed" focus={preset} onToggle={togglePreset} icon="xCircle" term="dismissed" value={dismissedCount} label={t('cov_dismissed')} />
+        <FocusStat id="fixed" focus={preset} onToggle={togglePreset} icon="checkCircle" value={fixed.length} label={t('cov_fixed')} tone={fixed.length ? 'ok' : ''} />
       </div>
       <Glossary id="defects" terms={[
         ['CID', t('gl_cid_name'), t('gl_cid')],

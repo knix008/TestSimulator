@@ -12,7 +12,7 @@ import { useEffect, useRef } from 'react';
 import { broadcast, onBroadcast, popupRoute } from './popups';
 
 // Keep in step with core/projectfile.js SETTING_KEYS.
-const PROJECT_KEYS = ['name', 'key', 'path', 'mainBranch', 'exclusions', 'excludeDirs', 'includeDirs', 'defines', 'coverageReports', 'arch', 'newCode', 'profiles', 'gateId', 'policyId', 'his', 'tags', 'description', 'checks'];
+const PROJECT_KEYS = ['name', 'key', 'path', 'mainBranch', 'exclusions', 'excludeDirs', 'includeDirs', 'defines', 'coverageReports', 'arch', 'newCode', 'profiles', 'gateId', 'policyId', 'his', 'tags', 'description', 'checks', 'languages'];
 
 export function projectSignature(project) {
   if (!project) return '';

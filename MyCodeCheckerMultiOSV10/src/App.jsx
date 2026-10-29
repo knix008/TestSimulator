@@ -28,6 +28,9 @@ import { BottomPanel } from './views/BottomPanel';
 import { DocTabs, TabActiveCtx } from './components/DocTabs';
 import { NewProjectDialog, OpenProjectDialog, pickProjectFile, projectErrorText, PROJECT_FILTER } from './views/ProjectFiles';
 import { ExcludeDirsDialog } from './components/ExcludeDirs';
+import { CustomRuleDialog } from './views/CustomRuleDialog';
+import { InWindow } from './components/InWindow';
+import { PathDialog, ErrorBox } from './views/DialogWindows';
 import { TermTip } from './components/TermTip';
 import { ProgressHost } from './components/ProgressHost';
 import { pickSavePath } from './lib/backend';
@@ -1285,7 +1288,7 @@ export default function App() {
           }} />}
           {view === 'compliance' && <ComplianceView project={project} branch={branch} stamp={stamp} onDrill={drill} pick={stdPick && stdPick.view === 'compliance' ? stdPick : null} />}
           {view === 'misra' && <MisraView project={project} branch={branch} stamp={stamp} onDrill={drill} pick={stdPick && stdPick.view === 'misra' ? stdPick : null} />}
-          {view === 'reports' && <ReportsView project={project} branch={branch} stamp={stamp} />}
+          {view === 'reports' && <ReportsView project={project} branch={branch} stamp={stamp} settings={ws.settings} onSaveSettings={(settings) => persist({ ...ws, settings })} />}
           {view === 'dependencies' && <ScaView project={project} stamp={stamp} />}
           {view === 'snapshots' && <HistoryView project={project} branch={branch} stamp={stamp} />}
           {view === 'pullrequest' && <PullRequestView project={project} branch={branch} stamp={stamp} />}
@@ -1360,38 +1363,39 @@ export default function App() {
       <StatusBar project={project} analysis={analysis} message={message} />
       <Tutorial onProgress={(p) => patchSettings(progressPatch(ws.settings, p))} />
       <UserGuide />
-      {scanJob && scanJob.shown && <ScanProgress job={scanJob.job} onCancel={cancelScanJob} />}
+      {scanJob && scanJob.shown && (
+        <InWindow kind="progress" width={480} height={196} resizable={false}
+          live={{ status: scanJob.job && scanJob.job.status, path: scanJob.job && scanJob.job.path, progress: scanJob.job && scanJob.job.progress }}
+          onEvent={(e) => { if (e === 'cancel') cancelScanJob(); }}>
+          <ScanProgress job={scanJob.job} onCancel={cancelScanJob} />
+        </InWindow>
+      )}
       <TutorialWelcome settings={ws.settings} onPatch={patchSettings} onClose={() => setWelcomeOpen(false)} />
-      {dialog && dialog.kind === 'excludeDirs' && project && (
-        <ExcludeDirsDialog root={project.path} value={project.excludeDirs} onClose={() => setDialog(null)}
-          onSave={async (dirs) => {
+      {dialog && dialog.kind === 'excludeDirs' && project && (() => {
+        const onSave = async (dirs) => {
             setDialog(null);
             try {
               await persist({ ...ws, projects: (ws.projects || []).map((p) => (p.id === project.id ? { ...p, excludeDirs: dirs } : p)) });
               toast(t('xd_saved'), 'ok', 9000, { label: t('reanalyze_now'), icon: 'play', run: () => actionRef.current && actionRef.current('analyze') });
             } catch (err) { showError(err); }
-          }} />
-      )}
+        };
+        return (
+          <InWindow kind="excludeDirs" width={720} height={560} payload={{ root: project.path, value: project.excludeDirs || [] }}
+            onResult={(r) => { if (r) onSave(r.dirs); }} onClose={() => setDialog(null)}>
+            <ExcludeDirsDialog root={project.path} value={project.excludeDirs} onClose={() => setDialog(null)} onSave={onSave} />
+          </InWindow>
+        );
+      })()}
       {dialog && dialog.kind === 'path' && (
-        <Dialog title={t('open_folder')} icon="folder" onClose={() => setDialog(null)}>
-          <label className="form-row">{t('path_label')}
-            <input value={pathDraft} onChange={(e) => setPathDraft(e.target.value)} autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter' && pathDraft.trim()) { setDialog(null); scan(pathDraft); } }} />
-          </label>
-          <p className="small">{t('path_hint')}</p>
-          <div className="dialog-actions">
-            <BtnGroup>
-              <Btn icon="play" label={t('run_analysis')} primary disabled={!pathDraft.trim()} onClick={() => { setDialog(null); scan(pathDraft); }} />
-              <Btn icon="close" label={t('cancel')} onClick={() => setDialog(null)} />
-            </BtnGroup>
-          </div>
-        </Dialog>
+        <InWindow kind="path" width={520} height={220} payload={{ initial: pathDraft }}
+          onResult={(r) => { setDialog(null); if (r && r.path) scan(r.path); }} onClose={() => setDialog(null)}>
+          <PathDialog initial={pathDraft} onRun={(p) => { setDialog(null); scan(p); }} onClose={() => setDialog(null)} />
+        </InWindow>
       )}
       {dialog && dialog.kind === 'error' && (
-        <Dialog title={t('error_title')} icon="alert" onClose={() => setDialog(null)}>
-          <p className="error-line"><Icon name="xCircle" size={18} /><span>{dialog.message}</span></p>
-          <div className="dialog-actions"><Btn icon="check" label={t('ok')} primary onClick={() => setDialog(null)} /></div>
-        </Dialog>
+        <InWindow kind="error" width={480} height={180} payload={{ title: t('error_title'), body: String(dialog.message || '') }} onResult={() => setDialog(null)} onClose={() => setDialog(null)}>
+          <ErrorBox title={t('error_title')} body={dialog.message} onClose={() => setDialog(null)} />
+        </InWindow>
       )}
       {dialog && dialog.kind === 'about' && <AboutDialog summary={aboutSummary(rules)} onClose={() => setDialog(null)} />}
       {dialog && dialog.kind === 'help' && (
@@ -1404,19 +1408,28 @@ export default function App() {
           {t('shortcut_body').split('\n').map((line, i) => <p key={i}>{line}</p>)}
         </Dialog>
       )}
-      {dialog && dialog.kind === 'tools' && <ToolsDialog onClose={() => setDialog(null)} onChanged={reload} />}
-      {toolOffers && !dialog && !(welcomeOpen === null ? shouldShowWelcome(ws.settings) : welcomeOpen) && <ToolOfferDialog offers={toolOffers} onClose={() => setToolOffers(null)} onChanged={reload} />}
+      {dialog && dialog.kind === 'tools' && (
+        <InWindow kind="tools" width={900} height={620} onEvent={() => reload()} onClose={() => { setDialog(null); reload(); }}>
+          <ToolsDialog onClose={() => setDialog(null)} onChanged={reload} />
+        </InWindow>
+      )}
+      {toolOffers && !dialog && !(welcomeOpen === null ? shouldShowWelcome(ws.settings) : welcomeOpen) && (
+        <InWindow kind="toolOffers" width={820} height={520} payload={{ offers: toolOffers }} onEvent={() => reload()} onClose={() => { setToolOffers(null); reload(); }}>
+          <ToolOfferDialog offers={toolOffers} onClose={() => setToolOffers(null)} onChanged={reload} />
+        </InWindow>
+      )}
       {dialog && dialog.kind === 'settings' && (
         <SettingsDialog ws={ws} initialTab={settingsTab} onClose={() => setDialog(null)} onSave={patchSettings} />
       )}
-      {dialog && dialog.kind === 'newProject' && (
-        <NewProjectDialog onClose={() => setDialog(null)} onOpenExisting={async (pid) => {
+      {dialog && dialog.kind === 'newProject' && (() => {
+        const onOpenExisting = async (pid) => {
           setDialog(null);
           const data = await reload();
           const p = (data.projects || []).find((x) => x.id === pid);
           if (!p) return;
           if (await save({ ...data, activeProjectId: p.id }, { history: false })) { if (p.branches && Object.keys(p.branches).length) setView('overview'); else scan(p.path); }
-        }} onDone={async (res, { analyze } = {}) => {
+        };
+        const onDone = async (res, { analyze } = {}) => {
           setDialog(null);
           let data = await reload();
           if (data.activeProjectId !== res.project.id) data = await persist({ ...data, activeProjectId: res.project.id }, { history: false });
@@ -1427,68 +1440,38 @@ export default function App() {
           setBranch(made.mainBranch || 'main');
           if (analyze) scan(made.path, { projectId: made.id, name: made.name, branch: made.mainBranch || 'main' });
           else setView('overview');
-        }} />
+        };
+        return (
+          <InWindow kind="newProject" width={780} height={600} onClose={() => setDialog(null)}
+            onResult={(r) => { if (!r) return; if (r.openExisting) onOpenExisting(r.openExisting); else if (r.done) onDone(r.done, { analyze: r.analyze }); }}>
+            <NewProjectDialog onClose={() => setDialog(null)} onOpenExisting={onOpenExisting} onDone={onDone} />
+          </InWindow>
+        );
+      })()}
+      {dialog && dialog.kind === 'openProject' && (
+        <InWindow kind="openProject" width={720} height={520} onResult={(r) => { if (r) openProjectFile(r.file); }} onClose={() => setDialog(null)}>
+          <OpenProjectDialog onClose={() => setDialog(null)} onOpen={openProjectFile} />
+        </InWindow>
       )}
-      {dialog && dialog.kind === 'openProject' && <OpenProjectDialog onClose={() => setDialog(null)} onOpen={openProjectFile} />}
-      {dialog && dialog.kind === 'custom' && (
-        <CustomRuleDialog onClose={() => setDialog(null)} onSave={async (rule) => {
+      {dialog && dialog.kind === 'custom' && (() => {
+        const onSave = async (rule) => {
           if (!(await save({ ...ws, customRules: [...(ws.customRules || []), rule] }, { label: t('hist_custom_rules'), ok: t('custom_saved'), reanalyze: true }))) return false;
           setDialog(null);
           setMessage(t('custom_saved'));
           return true;
-        }} />
-      )}
+        };
+        return (
+          <InWindow kind="customRule" width={560} height={420} onResult={(r) => { if (r && r.rule) onSave(r.rule); }} onClose={() => setDialog(null)}>
+            <CustomRuleDialog onClose={() => setDialog(null)} onSave={onSave} />
+          </InWindow>
+        );
+      })()}
       <UiHost />
       <TermTip />
       <ProgressHost />
     </div>
     </ProjectCtx.Provider>
     </PanelCtx.Provider>
-  );
-}
-
-function CustomRuleDialog({ onClose, onSave }) {
-  useLanguage();
-  const [draft, setDraft] = useState({ pattern: '', langs: ['*'], type: 'CODE_SMELL', severity: 'MAJOR', name: { ko: '', en: '' } });
-  const [tried, setTried] = useState(false);
-  let patternError = '';
-  if (!draft.pattern.trim()) patternError = t('cr_pattern_empty');
-  else {
-    try {
-      const re = new RegExp(draft.pattern);
-      if (re.test('')) patternError = t('cr_pattern_matches_empty');
-    } catch (err) { patternError = t('cr_pattern_invalid', { error: err.message }); }
-  }
-  const nameError = draft.name.ko.trim() ? '' : t('cr_name_empty');
-  useEditorDirty('custom-rule', !!(draft.pattern || draft.name.ko), { label: t('custom_rule') });
-  const submit = () => {
-    setTried(true);
-    if (patternError || nameError) return;
-    onSave({ ...draft, key: `custom:${Date.now().toString(36)}` });
-  };
-  return (
-    <Dialog title={t('custom_rule')} icon="plus" onClose={onClose}>
-      <label className="form-row">{t('pattern')}<input className="mono" value={draft.pattern} aria-invalid={!!(patternError && (tried || draft.pattern))} onChange={(e) => setDraft({ ...draft, pattern: e.target.value })} /></label>
-      {patternError && (tried || draft.pattern) && <p className="small bad" data-error="pattern">{patternError}</p>}
-      <label className="form-row">{t('name')}<input value={draft.name.ko} onChange={(e) => setDraft({ ...draft, name: { ko: e.target.value, en: e.target.value } })} /></label>
-      {nameError && tried && <p className="small bad" data-error="name">{nameError}</p>}
-      <div className="form-row inline">
-        <span className="form-label"><Icon name="layers" size={14} />{t('type')}</span>
-        <IconSelect value={draft.type} onChange={(v) => setDraft({ ...draft, type: v })} width={220} ariaLabel={t('type')}
-          options={['BUG', 'VULNERABILITY', 'CODE_SMELL', 'SECURITY_HOTSPOT'].map((type) => ({ value: type, label: typeLabel(type), icon: TYPE_ICON[type] }))} />
-      </div>
-      <div className="form-row inline">
-        <span className="form-label"><Icon name="alert" size={14} />{t('severity')}</span>
-        <IconSelect value={draft.severity} onChange={(v) => setDraft({ ...draft, severity: v })} width={220} ariaLabel={t('severity')}
-          options={SEV.map((s) => ({ value: s, label: sevLabel(s), icon: SEV_ICON[s] }))} />
-      </div>
-      <div className="dialog-actions">
-        <BtnGroup>
-          <Btn icon="save" label={t('save')} primary onClick={submit} />
-          <Btn icon="close" label={t('cancel')} onClick={onClose} />
-        </BtnGroup>
-      </div>
-    </Dialog>
   );
 }
 

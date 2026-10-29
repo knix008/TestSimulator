@@ -21,7 +21,8 @@ const sca = require('../core/sca');
 const USAGE = `Usage: node scripts/scan.mjs --path <folder> [options]
   --format json|sarif|html|csv|badge|cyclonedx|spdx|spdx-tv   output format (default json)
   --report executive|security|misra|integrity|defect-security|weakness|sbom
-                                    write a report instead (--csv for the CSV variant)
+                                    write a report instead (--csv for the CSV variant,
+                                    --glossary adds a glossary of the terms it uses)
   --standard <id>                   keep only rules of a standard: misra-c, misra-cpp, cert, cwe-top25, owasp
                                     (security reports: owasp2021, cweTop25, pciDss40, ...)
   --misra-plan <file.json>          MISRA Compliance:2020 plan (recategorization, deviations)
@@ -105,6 +106,12 @@ if (reportKind) {
   const opts = { catalog, lang, standard: standard || undefined, plan: plan || compliance.defaultMisraPlan(misraStandard) };
   if (reportKind === 'sbom') opts.sca = sca.scanDependencies(root, scaOptions);
   const built = reports.build(reportKind, analysis, opts);
+  if (process.argv.includes('--glossary')) {
+    const glossary = require('../core/report-glossary');
+    const entries = glossary.glossaryOfHtml(built.html, lang);
+    built.html = glossary.addGlossaryHtml(built.html, lang, entries);
+    built.csv = glossary.addGlossaryCsv(built.csv, entries, lang);
+  }
   body = process.argv.includes('--csv') ? built.csv : built.html;
   // --out report.pdf / .docx / .xlsx writes a native file.
   const ext = path.extname(arg('out', '')).slice(1).toLowerCase();

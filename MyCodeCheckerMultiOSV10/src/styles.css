@@ -874,6 +874,16 @@ span.link-chip { cursor: default; }
 .his-card .v { font-size: 20px; }
 .his-card.bad { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 .his-card.on { box-shadow: inset 0 -2px 0 var(--accent); }
+/* Summary tiles that show their kind alone (components/FocusStats.jsx) */
+.focus-stat.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev)); box-shadow: inset 0 -2px 0 var(--accent); }
+.focus-stat.on .k svg { color: var(--accent); }
+.focus-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.focus-stat:disabled { cursor: default; opacity: .6; }
+.arch-cycles, .view-list > .split-2.arch-cycles.list-grow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; align-items: stretch; margin-bottom: 0; }
+.arch-cycles > .tpanel, .view-list .arch-cycles > .tpanel.list-grow { min-height: 0; display: flex; flex-direction: column; }
+.arch-cycle-detail { overflow: auto; }
+.arch-cycle-detail .graph-wrap { flex: 0 0 auto; }
+.arch-cycle-detail .arch-graph { height: 300px; }
 .his-limit { font-size: 11px; color: var(--fg-muted); }
 th.sortable { cursor: pointer; white-space: nowrap; user-select: none; }
 th.sortable:hover { color: var(--fg); }
@@ -1411,3 +1421,30 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .st-pane:has(> .st-checks) > .st-row, .st-pane:has(> .st-checks) > .st-grid2 { flex-shrink: 0; }
 .st-pane > .st-checks { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; }
 .st-pane > .st-checks > .st-checks-grid { flex: 1; min-height: 0; overflow-y: auto; align-content: start; }
+
+/* ── Dialogs as windows of their own (views/DialogWindows.jsx) ───────── */
+/* The dialog is the window: no frame of its own, the body scrolls when the
+   window (at most 90% of the screen high) is smaller than the dialog. */
+.dialog-window { width: 100vw; height: 100vh; }
+.dialog-window > .dialog.windowed { width: 100vw; max-width: none; height: 100vh; max-height: 100vh; box-sizing: border-box; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; overflow: hidden; }
+.dialog-window > .dialog.windowed > .dialog-title { flex: none; cursor: default; }
+.dialog-window > .dialog.windowed > .dialog-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.progress-window .scan-progress-back { position: static; inset: auto; display: block; background: none; }
+.progress-window .scan-progress { width: 100vw; height: 100vh; border-radius: 0; box-shadow: none; }
+.progress-window .sp-head { cursor: default; }
+/* The print window: a bar, then the report; the system print preview covers it. */
+.print-window { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
+.print-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-elev); }
+.print-bar strong { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.print-bar .spacer { flex: 1; }
+.print-window iframe { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: #fff; }
+
+/* ── Project settings › Project languages (views/ProjectSettings.jsx) ── */
+.ps-langs { display: flex; flex-direction: column; gap: 8px; }
+.ps-lang-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 22px; }
+.chip.ps-lang { font-size: 12px; padding: 2px 8px; color: var(--fg); }
+.chip.ps-lang.auto { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.chip.ps-lang.added { border-style: dashed; border-color: color-mix(in srgb, var(--ok, var(--accent)) 60%, var(--border)); }
+/* A check group for none of the project's languages. */
+.st-check.na { opacity: .62; }
+.st-check.na.on { opacity: 1; }
