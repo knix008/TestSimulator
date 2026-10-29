@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   IconOpen, IconUrl, IconGallery, IconLibrary, IconGuide, IconRecent, IconClose, IconSparkles, IconInfo,
-  IconPdf,
+  IconPdf, IconTrash,
 } from './Icons.jsx';
 import StartBackground from './StartBackground.jsx';
 import BackgroundPicker from './BackgroundPicker.jsx';
@@ -19,7 +19,7 @@ const START_BOOKS = 18;
 // library on a shelf, and the moving 3D background with its controls.
 export default function StartScreen({
   settings, onSettings, entries = [], currentPath = '',
-  onOpenFile, onOpenUrl, onOpenEntry, onForgetRecent, onShowLibrary, onShowGallery, onOpenGuide, onNeedThumb,
+  onOpenFile, onOpenUrl, onOpenEntry, onForgetRecent, onUnfavorite, onClearLibrary, onShowLibrary, onShowGallery, onOpenGuide, onNeedThumb,
 }) {
   const { t } = useTranslation();
   const books = useMemo(() => favoritesOf(entries), [entries]);
@@ -100,6 +100,18 @@ export default function StartScreen({
                 <IconLibrary size={16} /><span>{t('start.myLibrary')}</span>
                 <span className="muted small">{t('library.count', { n: books.length })}</span>
                 <span className="grow" />
+                {onClearLibrary ? (
+                  <button
+                    type="button"
+                    className="btn small"
+                    onClick={() => onClearLibrary(books)}
+                    disabled={!books.length}
+                    title={t('library.removeAllTip')}
+                    data-start-clear-library
+                  >
+                    <IconTrash size={13} /> {t('library.removeAll')}
+                  </button>
+                ) : null}
                 <button type="button" className="btn small" onClick={onShowLibrary}>{t('start.seeAll')}</button>
               </h2>
               {books.length ? (
@@ -116,6 +128,18 @@ export default function StartScreen({
                           onKeyDown={(ev) => { if (ev.key === 'Enter') onOpenEntry?.(e); }}
                         >
                           <GalleryThumb entry={e} onNeedThumb={onNeedThumb} className="gal-thumb book-cover" />
+                          {onUnfavorite ? (
+                            <button
+                              type="button"
+                              className="gal-remove book-remove"
+                              title={t('library.removeOne')}
+                              aria-label={t('library.removeOne')}
+                              onClick={(ev) => { ev.stopPropagation(); onUnfavorite(e); }}
+                              onKeyDown={(ev) => ev.stopPropagation()}
+                            >
+                              <IconClose size={13} />
+                            </button>
+                          ) : null}
                         </div>
                         <span className="book-title">{e.name.replace(/\.pdf$/i, '')}</span>
                       </li>

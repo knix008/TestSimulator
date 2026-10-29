@@ -1655,16 +1655,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fail, settings.defaultOpenDir, settings.lastDir, t, toast]);
 
+  // A file that has gone (moved, deleted, its drive unplugged) is not an
+  // error: a warning says so and the card stays, for the user to take off
+  // with its ✕. Returns whether the file is being opened.
   const openGalleryEntry = useCallback(async (entry) => {
-    if (!entry?.path) return;
+    if (!entry?.path) return false;
     if (isDesktop && !(await pathExists(entry.path))) {
-      fail(new Error(`${t('recent.missing')}:\n${entry.path}`), 'read', { file: entry.path });
-      return;
+      toast(t('recent.missingEntry', { name: entry.name || entry.path }), 'warn');
+      return false;
     }
     setShowGallery(false);
     setShowLibrary(false);
     openByPath(entry.path);
-  }, [fail, openByPath, setShowGallery, setShowLibrary, t]);
+    return true;
+  }, [openByPath, setShowGallery, setShowLibrary, t, toast]);
 
   const currentEntry = file?.path
     ? { path: file.path, name: file.name, dir: dirName(file.path), size: file.size }
@@ -2280,8 +2284,10 @@ export default function App() {
             currentPath={file?.path || ''}
             onOpenFile={openViaDialog}
             onOpenUrl={() => setPrompt({ open: true, kind: 'url', error: '' })}
-            onOpenEntry={(e) => { setHomeOpen(false); openGalleryEntry(e); }}
+            onOpenEntry={async (e) => { if (await openGalleryEntry(e)) setHomeOpen(false); }}
             onForgetRecent={forgetRecent}
+            onUnfavorite={(e) => toggleFavorite(e, false)}
+            onClearLibrary={clearLibrary}
             onShowLibrary={() => setShowLibrary(true)}
             onShowGallery={() => setShowGallery(true)}
             onOpenGuide={openGuide}

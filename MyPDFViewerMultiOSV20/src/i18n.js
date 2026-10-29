@@ -439,6 +439,7 @@ const ko = {
     remove: '목록에서 제거',
     clear: '전체 지우기',
     missing: '파일을 찾을 수 없음',
+    missingEntry: '{{name}} 을(를) 찾을 수 없습니다 — 옮겼거나 지운 파일이면 ✕ 로 목록에서 빼세요.',
     dirs: '최근 폴더',
   },
   settings: {
@@ -1084,6 +1085,7 @@ const en = {
     remove: 'Remove from list',
     clear: 'Clear all',
     missing: 'File not found',
+    missingEntry: '{{name}} is not there any more — if it was moved or deleted, take it off the list with ✕.',
     dirs: 'Recent folders',
   },
   settings: {
