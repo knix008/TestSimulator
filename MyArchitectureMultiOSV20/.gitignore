@@ -1,0 +1,48 @@
+# dependencies
+node_modules/
+
+# build output (npm run build:web / build:*; cargo writes src-tauri/target)
+dist/
+release/
+src-tauri/target/
+src-tauri/gen/schemas/
+*-setup.exe
+# installers copied to the project root by scripts/build.mjs
+/MyArchitecture_*.exe
+/MyArchitecture_*.dmg
+/MyArchitecture_*.AppImage
+/MyArchitecture_*.deb
+
+# the tutorial video is kept (MyArchitecture-Tutorial.mp4, npm run record:tutorial);
+# other recordings and their partial files are not
+/*.mp4
+!/MyArchitecture-Tutorial.mp4
+*.mp4.part
+
+# generated at build time by scripts/build-info.mjs (version, commit, date)
+src/buildinfo.js
+
+# generated manuals (node scripts/build-manual.mjs)
+docs/USERSGUIDE.en.html
+docs/USERSGUIDE.ko.html
+docs/UsersGuide.en.md
+
+# test and benchmark output (npm test --json, npm run smoke -- --shots <dir>,
+# npm run smoke:windows -- --shots <dir>, npm run bench:3d -- --json <file>)
+test-results/
+smoke-shots/
+windows-shots/
+bench-results/
+bench-*.json
+coverage/
+*.log
+npm-debug.log*
+
+# editors and operating systems (.claude/settings.json is the project's shared Claude Code setup)
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+.claude/settings.local.json

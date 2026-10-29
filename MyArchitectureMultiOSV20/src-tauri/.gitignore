@@ -1,0 +1,3 @@
+# cargo build output and the schemas tauri-build generates
+/target/
+/gen/schemas

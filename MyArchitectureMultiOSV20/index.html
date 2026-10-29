@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' blob: data: ipc: http://ipc.localhost">
+  <title>MyArchitecture 10.0</title>
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="style/app.css">
+  <link rel="stylesheet" href="style/printwin.css">
+  <link rel="stylesheet" href="style/views.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="titlebar" id="titlebar">
+      <div class="brand"><img src="assets/icon.png" alt="" width="20" height="20"><span>MyArchitecture</span></div>
+      <nav class="menubar" id="menubar" role="menubar"></nav>
+      <div class="tabbar" id="tabbar" role="tablist"></div>
+      <div class="title-drag" id="doc-title"></div>
+      <div class="tool-right" id="tool-right"><div class="title-search" id="title-search"></div><div class="title-right" id="title-right"></div></div>
+    </header>
+    <div class="toolbar" id="toolbar" role="toolbar"></div>
+    <main class="workspace" id="workspace">
+      <aside class="side left" id="left-panel"></aside>
+      <div class="splitter" data-side="left"></div>
+      <section class="center" id="center">
+        <div class="doctabs" id="doctabs"></div>
+        <div class="view" id="view-start"></div>
+        <div class="view" id="view-plan"></div>
+        <div class="view" id="view-3d"></div>
+        <div class="view" id="view-views"></div>
+        <div class="floating-hint" id="hint"></div>
+        <section class="bottom-panel" id="bottom-panel"></section>
+      </section>
+      <div class="splitter" data-side="right"></div>
+      <aside class="side right" id="right-panel"></aside>
+    </main>
+    <footer class="statusbar" id="statusbar">
+      <div class="status-cells" id="status-cells"></div>
+      <div class="size-grip" id="size-grip" aria-hidden="true"></div>
+    </footer>
+  </div>
+  <div class="print-area" id="print-area"></div>
+  <script src="src/ui/desktop-bridge.js"></script>
+  <script type="module" src="src/ui/app.js"></script>
+</body>
+</html>

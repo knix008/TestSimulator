@@ -1,0 +1,738 @@
+// Builds the 3D building from the project with three.js.
+//
+// World frame: metres. X = plan x, Z = plan y (so the top view looks like the
+// plan with −Z up the screen), Y = up. Plan values are millimetres, hence the
+// 0.001 factor (M) everywhere below.
+//
+// Walls are solid prisms of their mitred outline, cut into pieces around
+// openings (below the sill, above the head), so the walls really have holes.
+// Every mesh carries userData {id, kind, level} for picking and selection.
+
+import { wallOutlines, slicePoly, openingSpans, wallFrame } from "../core/walls.js";
+import { wallLength, wallHeight, levelById, levelAbove } from "../core/project.js";
+import { triangulate, polygonArea, rotPt, pointInPolygon } from "../core/geom.js";
+import { roofModel, roofBase } from "../core/roof.js";
+import { furnitureParts, lightOf } from "../lib/furniture.js";
+import { materialById, materialColor, paintPattern, DEFAULT_MATERIAL } from "../lib/materials.js";
+import { phaseVisible } from "../plan/render.js";
+import { buildSolid, buildComponent, buildOpeningComponent, skVisible } from "./skbuild.js";
+import { setProjectMaterials } from "../lib/materials.js";
+import { buildLevelElements, specialWallBody, roofFacesCut } from "./elements.js";
+import { syncOptions, optionHidden } from "../core/elements/model.js";
+import { roomOnSlab } from "../core/elements/geometry.js";
+import { memberGroup } from "./members.js";
+import { memberPoints } from "../core/members.js";
+
+export const M = 0.001;
+
+// ---------------------------------------------------------------- geometry accumulator
+// Collects triangles with normals and world-planar UVs (metres), then makes
+// one BufferGeometry. UVs: horizontal faces use (x, z); vertical faces use
+// (along the face, y), so patterns keep their real size on every surface.
+class Geo {
+  constructor() { this.pos = []; this.nor = []; this.uv = []; }
+  tri(a, b, c) {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz);
+    if (l < 1e-12) return;
+    nx /= l; ny /= l; nz /= l;
+    for (const p of [a, b, c]) {
+      this.pos.push(p[0], p[1], p[2]);
+      this.nor.push(nx, ny, nz);
+      if (Math.abs(ny) > 0.7) this.uv.push(p[0], p[2]);
+      else {
+        // Along the face: project on the horizontal tangent.
+        const tx = -nz, tz = nx;
+        const tl = Math.hypot(tx, tz) || 1;
+        this.uv.push((p[0] * tx + p[2] * tz) / tl, p[1]);
+      }
+    }
+  }
+  quad(a, b, c, d) { this.tri(a, b, c); this.tri(a, c, d); }
+  get empty() { return this.pos.length === 0; }
+  // The triangles sorted into one Geo per key: classify(centre [x, y, z],
+  // normal [x, y, z]) → key (world metres).
+  split(classify) {
+    const out = new Map();
+    for (let i = 0; i < this.pos.length; i += 9) {
+      const p = this.pos;
+      const c = [(p[i] + p[i + 3] + p[i + 6]) / 3, (p[i + 1] + p[i + 4] + p[i + 7]) / 3, (p[i + 2] + p[i + 5] + p[i + 8]) / 3];
+      const key = classify(c, [this.nor[i], this.nor[i + 1], this.nor[i + 2]]);
+      let g = out.get(key);
+      if (!g) out.set(key, (g = new Geo()));
+      for (let k = 0; k < 9; k++) { g.pos.push(p[i + k]); g.nor.push(this.nor[i + k]); }
+      const j = (i / 3) * 2;
+      for (let k = 0; k < 6; k++) g.uv.push(this.uv[j + k]);
+    }
+    return out;
+  }
+  build(THREE) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(this.pos, 3));
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(this.nor, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(this.uv, 2));
+    g.computeBoundingSphere();
+    return g;
+  }
+}
+
+// Plan point (mm) + height (mm) → world [x, y, z] (m).
+const W = (x, y, z) => [x * M, z * M, y * M];
+
+// ---------------------------------------------------------------- shared unit primitives
+// Every box, cylinder and ball part (furniture, frames, door leaves, round
+// columns) is one of these unit shapes scaled by its mesh, so a model with
+// thousands of parts holds a handful of geometries and the viewer can draw
+// the repeats as instances (batch.js). userData.sharedGeometry: never dispose.
+const UNITS = new WeakMap();
+export function unitGeometry(THREE, kind) {
+  let u = UNITS.get(THREE);
+  if (!u) {
+    u = {
+      box: new THREE.BoxGeometry(1, 1, 1),
+      cyl: new THREE.CylinderGeometry(1, 1, 1, 28),
+      cyl32: new THREE.CylinderGeometry(1, 1, 1, 32),
+      ball: new THREE.IcosahedronGeometry(1, 2),
+    };
+    UNITS.set(THREE, u);
+  }
+  return u[kind];
+}
+export function unitMesh(THREE, kind, mat) {
+  const mesh = new THREE.Mesh(unitGeometry(THREE, kind), mat);
+  mesh.userData.sharedGeometry = true;
+  return mesh;
+}
+// A unit box scaled to sx × sy × sz metres (never quite flat: 0.1 mm).
+export function boxMesh(THREE, sx, sy, sz, mat) {
+  const mesh = unitMesh(THREE, "box", mat);
+  mesh.scale.set(Math.max(1e-4, sx), Math.max(1e-4, sy), Math.max(1e-4, sz));
+  return mesh;
+}
+
+// Vertical prism of a plan polygon between heights z0 and z1 (mm).
+function prism(geo, pts, z0, z1) {
+  if (pts.length < 3 || z1 - z0 < 0.01) return;
+  let ring = pts;
+  // Counter-clockwise in plan maths axes (x, y) ↔ outward side normals below.
+  if (polygonArea(ring) < 0) ring = ring.slice().reverse();
+  const tris = triangulate(ring);
+  for (const [i, j, k] of tris) {
+    // Top faces up (+Y): plan (x, y) ↦ world (x, z) flips the handedness.
+    geo.tri(W(...ring[i], z1), W(...ring[k], z1), W(...ring[j], z1));
+    geo.tri(W(...ring[i], z0), W(...ring[j], z0), W(...ring[k], z0));
+  }
+  // Sides wound so their normals point out of the counter-clockwise ring.
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    geo.quad(W(...b, z0), W(...a, z0), W(...a, z1), W(...b, z1));
+  }
+}
+
+// A prism whose top is the base scaled about its centroid by `taper`
+// (1 = straight, 0 = a pyramid / cone).
+function taperedPrism(geo, pts, z0, z1, taper) {
+  if (taper >= 0.999) { prism(geo, pts, z0, z1); return; }
+  let ring = pts;
+  if (polygonArea(ring) < 0) ring = ring.slice().reverse();
+  const n = ring.length;
+  const cx = ring.reduce((s, q) => s + q[0], 0) / n, cy = ring.reduce((s, q) => s + q[1], 0) / n;
+  const top = ring.map(([x, y]) => [cx + (x - cx) * taper, cy + (y - cy) * taper]);
+  for (const [i, j, k] of triangulate(ring)) {
+    geo.tri(W(...ring[i], z0), W(...ring[j], z0), W(...ring[k], z0));
+    if (taper > 0.001) geo.tri(W(...top[i], z1), W(...top[k], z1), W(...top[j], z1));
+  }
+  for (let i = 0; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n], ta = top[i], tb = top[(i + 1) % n];
+    if (taper > 0.001) geo.quad(W(...b, z0), W(...a, z0), W(...ta, z1), W(...tb, z1));
+    else geo.tri(W(...b, z0), W(...a, z0), W(cx, cy, z1));
+  }
+}
+
+// A slab under a sloped / arbitrary planar polygon of 3D points (mm): the top
+// is the polygon itself, the bottom the same shifted down by `th`.
+function slab3d(geo, pts, th) {
+  if (pts.length < 3) return;
+  // Triangulate in plan, keep the given z values.
+  const plan = pts.map((p) => [p[0], p[1]]);
+  let order = pts;
+  if (polygonArea(plan) < 0) order = pts.slice().reverse();
+  const tris = triangulate(order.map((p) => [p[0], p[1]]));
+  const top = (p) => W(p[0], p[1], p[2]);
+  const bot = (p) => W(p[0], p[1], p[2] - th);
+  for (const [i, j, k] of tris) {
+    geo.tri(top(order[i]), top(order[k]), top(order[j]));
+    geo.tri(bot(order[i]), bot(order[j]), bot(order[k]));
+  }
+  for (let i = 0; i < order.length; i++) {
+    const a = order[i], b = order[(i + 1) % order.length];
+    geo.quad(bot(b), bot(a), top(a), top(b));
+  }
+}
+
+// A vertical planar polygon (gable end) extruded across `th` along its normal.
+function planarWall(geo, pts, th) {
+  const a = pts[0], b = pts[1];
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const L = Math.hypot(dx, dy) || 1;
+  const nx = (-dy / L) * th / 2, ny = (dx / L) * th / 2;
+  const f = pts.map((p) => [p[0] + nx, p[1] + ny, p[2]]);
+  const k = pts.map((p) => [p[0] - nx, p[1] - ny, p[2]]);
+  const n = pts.length;
+  for (let i = 1; i + 1 < n; i++) {
+    geo.tri(W(...f[0]), W(...f[i]), W(...f[i + 1]));
+    geo.tri(W(...k[0]), W(...k[i + 1]), W(...k[i]));
+  }
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    geo.quad(W(...f[i]), W(...k[i]), W(...k[j]), W(...f[j]));
+  }
+}
+
+// ---------------------------------------------------------------- materials
+export function makeMaterials(THREE, { textures = true } = {}) {
+  const cache = new Map();
+  const texCache = new Map();
+  const texture = (m) => {
+    if (!textures || !m || (!m.pattern && !m.src) || typeof document === "undefined") return null;
+    // Keyed by everything that changes the picture (an edited material repaints).
+    const key = `${m.id}:${m.color}:${m.tile || ""}:${m.src ? `${m.src.length}:${m.src.slice(-32)}` : ""}`;
+    if (texCache.has(key)) return texCache.get(key);
+    let tx;
+    if (m.src) {
+      // The project's own texture image (src/core/skmodel.js) loads
+      // asynchronously; the viewer redraws when it is there.
+      tx = new THREE.TextureLoader().load(m.src, () => { if (typeof window !== "undefined") window.dispatchEvent(new Event("myarch-texture")); });
+    } else {
+      const c = document.createElement("canvas");
+      c.width = c.height = 256;
+      paintPattern(c.getContext("2d"), m, 256);
+      tx = new THREE.CanvasTexture(c);
+    }
+    tx.colorSpace = THREE.SRGBColorSpace;
+    tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+    // UVs are in metres; one tile covers m.tile millimetres.
+    tx.repeat.set(1000 / (m.tile || 1000), 1000 / (m.tile || 1000));
+    tx.anisotropy = 4;
+    texCache.set(key, tx);
+    return tx;
+  };
+  const get = (key, make) => {
+    if (!cache.has(key)) cache.set(key, make());
+    return cache.get(key);
+  };
+  return {
+    surface(id, fallback) {
+      const m = materialById(id);
+      const color = materialColor(id, fallback);
+      const op = m && Number.isFinite(+m.opacity) ? Math.max(0.05, Math.min(1, +m.opacity)) : 1;
+      return get(`s:${id}:${color}:${m ? `${m.tile || ""}:${op}:${m.src ? m.src.length : ""}` : ""}`, () => {
+        if (id === "glass") return new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.1, transparent: true, opacity: op < 1 ? op : 0.35, side: THREE.DoubleSide, name: "glass" });
+        // Surface physics from the library (rough, metal); the pattern doubles as a
+        // bump map so joints, planks and pebbles catch the light.
+        const tex = texture(m);
+        const rough = m && Number.isFinite(m.rough) ? m.rough : m && m.pattern === "seams" ? 0.45 : 0.85;
+        const metal = m && Number.isFinite(m.metal) ? m.metal : m && m.pattern === "seams" ? 0.4 : 0;
+        const mat = new THREE.MeshStandardMaterial({ color: tex ? 0xffffff : color, map: tex, roughness: rough, metalness: metal, side: THREE.DoubleSide, name: id || color });
+        if (tex && m.bump > 0) { mat.bumpMap = tex; mat.bumpScale = m.bump; }
+        // Opacity of an own / edited material (SketchUp's material opacity).
+        if (op < 1) { mat.transparent = true; mat.opacity = op; mat.depthWrite = false; }
+        return mat;
+      });
+    },
+    color(hex, opts = {}) {
+      return get(`c:${hex}:${opts.rough ?? ""}:${opts.metal ?? ""}:${opts.opacity ?? ""}`, () => new THREE.MeshStandardMaterial({
+        color: hex, roughness: opts.rough ?? 0.7, metalness: opts.metal ?? 0, transparent: (opts.opacity ?? 1) < 1, opacity: opts.opacity ?? 1, side: (opts.opacity ?? 1) < 1 ? THREE.DoubleSide : THREE.FrontSide, name: hex,
+      }));
+    },
+    // A lit lamp part: its own colour glowing in the light's colour.
+    glow(hex, light, strength = 1) {
+      return get(`g:${hex}:${light}:${strength}`, () => new THREE.MeshStandardMaterial({ color: hex, emissive: light, emissiveIntensity: GLOW * strength, roughness: 0.4, name: `glow ${light}` }));
+    },
+    glass() { return get("glass", () => new THREE.MeshStandardMaterial({ color: 0xa9d4e8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false, name: "glass" })); },
+    frame() { return get("frame", () => new THREE.MeshStandardMaterial({ color: 0xf4f4f2, roughness: 0.5, name: "frame" })); },
+    door() { return get("door", () => new THREE.MeshStandardMaterial({ color: 0xb0835a, roughness: 0.6, name: "door" })); },
+    dispose() { for (const m of cache.values()) m.dispose(); for (const t of texCache.values()) t.dispose(); cache.clear(); texCache.clear(); },
+  };
+}
+
+// A model furniture item's colour overrides (imported Sweet Home 3D pieces):
+// {"": "#rrggbb"} paints the whole model, {materialName: "#rrggbb"} one of
+// its materials; the shared model asset keeps its own colours.
+export function recolorModel(root, colors) {
+  const all = colors[""];
+  const done = new Map();
+  root.traverse((c) => {
+    if (!c.isMesh) return;
+    const one = (m) => {
+      const hex = all || (m && colors[m.name]);
+      if (!hex || !m) return m;
+      if (!done.has(m)) { const n = m.clone(); n.color.set(hex); n.map = null; n.needsUpdate = true; done.set(m, n); }
+      return done.get(m);
+    };
+    c.material = Array.isArray(c.material) ? c.material.map(one) : one(c.material);
+  });
+}
+
+// ---------------------------------------------------------------- pieces
+function boxInWall(THREE, w, mat, u, v, z, su, sv, sz) {
+  const mesh = boxMesh(THREE, su * M, sz * M, sv * M, mat);
+  const f = wallFrame(w);
+  const x = w.x1 + f.d[0] * u + f.n[0] * v;
+  const y = w.y1 + f.d[1] * u + f.n[1] * v;
+  mesh.position.set(x * M, (z + sz / 2) * M, y * M);
+  mesh.rotation.y = -Math.atan2(f.d[1], f.d[0]);
+  return mesh;
+}
+
+function openingMeshes(THREE, mats, w, s, base, opts) {
+  const o = s.o;
+  const g = new THREE.Group();
+  const t = w.thickness;
+  const fw = o.frameWidth || 60; // frame member width (a type parameter)
+  const z0 = base + o.sill;
+  const z1 = z0 + o.height;
+  const uc = (s.u1 + s.u2) / 2;
+  const width = s.u2 - s.u1;
+  const frame = mats.frame();
+  if (o.kind === "opening") return g;
+  // Frame: jambs and head (and a sill for windows).
+  const depth = Math.min(t, o.frameDepth || (o.kind === "window" ? 90 : t));
+  g.add(boxInWall(THREE, w, frame, s.u1 + fw / 2, 0, z0, fw, depth, o.height));
+  g.add(boxInWall(THREE, w, frame, s.u2 - fw / 2, 0, z0, fw, depth, o.height));
+  g.add(boxInWall(THREE, w, frame, uc, 0, z1 - fw, width, depth, fw));
+  if (o.kind === "window") {
+    g.add(boxInWall(THREE, w, frame, uc, 0, z0, width, depth, fw));
+    // Outside sill on the face opposite to the opening side.
+    g.add(boxInWall(THREE, w, mats.color("#d9d6cf", { rough: 0.8 }), uc, -(o.side || 1) * (t / 2 + 10), z0 - 30, width + 80, 60, 30));
+    const glass = boxInWall(THREE, w, mats.glass(), uc, 0, z0 + fw, width - 2 * fw, 12, o.height - 2 * fw);
+    glass.userData.glass = true;
+    g.add(glass);
+    if (o.type !== "fixed" && width > 900) g.add(boxInWall(THREE, w, frame, uc, 0, z0 + fw, 50, depth * 0.8, o.height - 2 * fw));
+    if (o.type === "sliding") g.add(boxInWall(THREE, w, frame, uc, 25, z0 + fw, 40, depth * 0.6, o.height - 2 * fw));
+    return g;
+  }
+  // Doors.
+  const leafT = 40;
+  const leafH = o.height - fw;
+  const leafMat = o.type === "garage" ? mats.color("#c7ccd2", { rough: 0.5, metal: 0.3 }) : mats.door();
+  if (o.type === "garage") {
+    for (let k = 0; k < 4; k++) g.add(boxInWall(THREE, w, leafMat, uc, 0, z0 + (k * leafH) / 4 + 5, width - 2 * fw, leafT, leafH / 4 - 10));
+    return g;
+  }
+  if (o.type === "sliding") {
+    const half = (width - 2 * fw) / 2;
+    const glassLeaf = (u, v) => {
+      g.add(boxInWall(THREE, w, frame, u, v, z0, half + 40, 50, leafH));
+      const gl = boxInWall(THREE, w, mats.glass(), u, v, z0 + 60, half - 80, 14, leafH - 120);
+      g.add(gl);
+    };
+    glassLeaf(s.u1 + fw + half / 2, 25);
+    glassLeaf(s.u2 - fw - half / 2, -25);
+    return g;
+  }
+  const open = opts.openDoors ? (75 * Math.PI) / 180 : 0;
+  const leaf = (hingeU, len, dir) => {
+    // Pivot at the hinge on the swing-side face, leaf closed along ±u.
+    const f = wallFrame(w);
+    const side = o.side || 1;
+    const v = side * (t / 2 - leafT / 2);
+    const hx = w.x1 + f.d[0] * hingeU + f.n[0] * v;
+    const hy = w.y1 + f.d[1] * hingeU + f.n[1] * v;
+    const pivot = new THREE.Group();
+    pivot.position.set(hx * M, z0 * M, hy * M);
+    pivot.rotation.y = -Math.atan2(f.d[1], f.d[0]);
+    const m = boxMesh(THREE, len * M, leafH * M, leafT * M, leafMat);
+    m.position.set((dir * len * M) / 2, (leafH * M) / 2, 0);
+    // Door handle.
+    const hdl = boxMesh(THREE, 0.12, 0.02, 0.07, mats.color("#9aa0a6", { rough: 0.3, metal: 0.8 }));
+    hdl.position.set(dir * (len - 70) * M, 1.0, 0); // 1 m above the threshold
+    pivot.add(m, hdl);
+    // Local +z is the wall's left normal; a positive turn about y swings +x
+    // towards −z, so the sign makes the leaf open towards `side`.
+    pivot.rotateY(-open * dir * side);
+    g.add(pivot);
+  };
+  const inner = width - 2 * fw;
+  if (o.type === "double") { leaf(s.u1 + fw, inner / 2, 1); leaf(s.u2 - fw, inner / 2, -1); }
+  else if (o.hinge === "end") leaf(s.u2 - fw, inner, -1);
+  else leaf(s.u1 + fw, inner, 1);
+  return g;
+}
+
+// Material of a lamp part that glows when the lamp is on (shared with the
+// viewer, which swaps it on a switch without rebuilding the model).
+export const GLOW = 2.2;
+export function glowMaterial(mats, part, light) {
+  if (light && light.on) return mats.glow(part.color, light.color, part.g);
+  return mats.color(part.c === "bulb" ? "#9a968c" : part.color, { rough: 0.6 });
+}
+
+// A lamp's light source is not a three.js light here: an empty "lamp" anchor
+// at the bulb carries what the viewer needs ({id, type, lumens, colour, on,
+// beam, dir}), and the viewer lights only the nearest few (see lamps.js).
+function furnitureGroup(THREE, mats, f) {
+  const g = new THREE.Group();
+  const light = lightOf(f);
+  for (const part of furnitureParts(f)) {
+    const glassy = part.c === "glass";
+    const metal = part.c === "metal";
+    let mat = glassy ? mats.color(part.color, { opacity: 0.35, rough: 0.1 }) : mats.color(part.color, { rough: metal ? 0.35 : 0.75, metal: metal ? 0.7 : 0 });
+    if (light && part.g) mat = glowMaterial(mats, part, light);
+    let mesh;
+    if (part.t === "box") {
+      mesh = boxMesh(THREE, part.w * M, part.h * M, part.d * M, mat);
+      mesh.position.set(part.x * M, (part.z + part.h / 2) * M, part.y * M);
+    } else if (part.t === "cyl") {
+      mesh = unitMesh(THREE, "cyl", mat);
+      mesh.scale.set(Math.max(1e-4, part.rx * M), Math.max(1e-4, part.h * M), Math.max(1e-4, part.ry * M));
+      mesh.position.set(part.x * M, (part.z + part.h / 2) * M, part.y * M);
+    } else {
+      mesh = unitMesh(THREE, "ball", mat);
+      mesh.scale.setScalar(Math.max(1e-4, part.r * M));
+      mesh.position.set(part.x * M, part.z * M, part.y * M);
+    }
+    mesh.castShadow = !glassy && !part.g;
+    mesh.receiveShadow = true;
+    if (light && part.g) mesh.userData.glow = { color: part.color, c: part.c, g: part.g };
+    g.add(mesh);
+  }
+  if (light) {
+    const a = new THREE.Object3D();
+    a.name = "lamp";
+    const [x, y, z] = light.at;
+    a.position.set(x * M, z * M, y * M);
+    const [dx, dy, dz] = light.dir;
+    a.userData.lamp = { id: f.id, type: light.type, on: light.on, lumens: light.lumens, color: light.color, beam: light.beam, dir: [dx, dz, dy] };
+    g.add(a);
+  }
+  return g;
+}
+
+// ---------------------------------------------------------------- whole model
+// opts: {openDoors, furniture, roofs, levels: Set|null (visible), phase:
+// "all"|"new"|"existing", loadModel(asset) → Promise<Object3D>}
+export function buildBuilding(THREE, p, mats, opts = {}) {
+  syncOptions(p); // design options: only the active option of each set is built
+  setProjectMaterials(p.materials); // the project's own / edited materials (src/core/skmodel.js)
+  // Hidden items and switched-off tags (SketchUp) are left out too: opts.hiddenTags.
+  const vis = (it) => phaseVisible(it, opts.phase || "all") && !optionHidden(it) && skVisible(it, opts);
+  // Demolished elements in the "all" view: translucent red.
+  const demolish = mats.color("#e0524a", { opacity: 0.35, rough: 0.8 });
+  const phaseMat = (it, m) => (it.phase === "demolish" && (opts.phase || "all") === "all" ? demolish : m);
+  const root = new THREE.Group();
+  root.name = "building";
+  const tag = (obj, id, kind, level) => { obj.userData = { ...obj.userData, id, kind, level }; obj.traverse((c) => { if (c.isMesh) { c.userData.id = id; c.userData.kind = kind; c.userData.level = level; } }); return obj; };
+  const shadow = (mesh) => { mesh.castShadow = true; mesh.receiveShadow = true; return mesh; };
+  // opts.reuse (levelId → {key, group}, the previous build's root.userData.levels):
+  // a level whose inputs did not change keeps its group, so an edit rebuilds
+  // only the level it touched.
+  const keys = opts.reuse ? levelKeys(p, opts) : null;
+  const built = new Map();
+  root.userData.levels = built;
+  for (const lv of p.levels) {
+    const key = keys ? keys.get(lv.id) : null;
+    const old = key && opts.reuse.get(lv.id);
+    if (old && old.key && old.key[0] === key[0] && old.key[1] === key[1]) {
+      old.group.visible = !(opts.levels && !opts.levels.has(lv.id));
+      root.add(old.group);
+      built.set(lv.id, old);
+      continue;
+    }
+    const lg = new THREE.Group();
+    built.set(lv.id, { key, group: lg });
+    lg.name = `level:${lv.name}`;
+    lg.userData = { level: lv.id };
+    root.add(lg);
+    const base = lv.elevation;
+    const walls = p.walls.filter((w) => w.level === lv.id && vis(w));
+    const outlines = wallOutlines(walls);
+    const finishRooms = p.rooms.filter((r) => r.level === lv.id && r.wallFinish && vis(r));
+    // ---- walls (with openings cut out)
+    for (const w of walls) {
+      const ol = outlines.get(w.id);
+      if (!ol) continue;
+      const H = wallHeight(p, w);
+      const geo = new Geo();
+      const spans = openingSpans(p, w);
+      // Curtain walls and walls with a sloped / attached top (elements.js).
+      const special = specialWallBody(THREE, p, w, ol.poly, spans, base, H, mats, (m) => phaseMat(w, m));
+      if (special) { special.name = `wall ${w.id}`; lg.add(tag(special, w.id, "walls", lv.id)); }
+      let from = -1e9;
+      for (const s of special ? [] : spans) {
+        prism(geo, slicePoly(w, ol.poly, from, s.u1), base, base + H);
+        const piece = slicePoly(w, ol.poly, s.u1, s.u2);
+        if (s.o.sill > 0) prism(geo, piece, base, base + Math.min(H, s.o.sill));
+        const head = s.o.sill + s.o.height;
+        if (head < H) prism(geo, piece, base + head, base + H);
+        from = s.u2;
+      }
+      if (!special) prism(geo, slicePoly(w, ol.poly, from, 1e9), base, base + H);
+      if (geo.empty && !special) continue;
+      // A typed wall shows its outside finish (the first layer) unless painted over.
+      const wt = w.type ? (p.wallTypes || []).find((x) => x.id === w.type) : null;
+      const mat = w.material || (wt ? wt.layers[0].material : DEFAULT_MATERIAL.wall);
+      if (!special) {
+        // Faces with their own finish (the wall's side, or the room it faces):
+        // one mesh per finish, the rest of the wall in its material.
+        const finish = wallFinishes(w, finishRooms);
+        const parts = finish ? geo.split(finish) : new Map([[null, geo]]);
+        for (const [fin, g] of parts) {
+          const mesh = shadow(new THREE.Mesh(g.build(THREE), phaseMat(w, mats.surface(fin || mat, "#ece8e1"))));
+          mesh.name = `wall ${w.id}`;
+          if (fin) mesh.userData.finish = fin;
+          lg.add(tag(mesh, w.id, "walls", lv.id));
+        }
+      }
+      for (const s of spans) {
+        if (!vis(s.o)) continue;
+        const og = openingMeshes(THREE, mats, w, s, base, opts);
+        if (s.o.comp) og.add(buildOpeningComponent(THREE, mats, p, w, s, base)); // a component glued into the wall
+        og.name = `${s.o.kind} ${s.o.id}`;
+        og.traverse((c) => { if (c.isMesh && !c.userData.glass) { c.castShadow = true; c.receiveShadow = true; } });
+        lg.add(tag(og, s.o.id, "openings", lv.id));
+      }
+    }
+    // ---- floors under rooms
+    for (const r of p.rooms.filter((x) => x.level === lv.id && vis(x))) {
+      const geo = new Geo();
+      // On a floor slab the room keeps only its finish (the slab is the structure).
+      if (roomOnSlab(p, r)) prism(geo, r.pts, base - 20, base + 1); else prism(geo, r.pts, base - Math.max(20, lv.slab || 0), base);
+      const mesh = new THREE.Mesh(geo.build(THREE), mats.surface(r.floor || DEFAULT_MATERIAL.floor, "#c49a6c"));
+      mesh.receiveShadow = true;
+      mesh.name = `floor ${r.name || r.id}`;
+      lg.add(tag(mesh, r.id, "rooms", lv.id));
+      const sk = r.skirting > 0 ? skirtingGeo(p, r, walls, base) : null;
+      if (sk && !sk.empty) {
+        const sm = shadow(new THREE.Mesh(sk.build(THREE), mats.surface(r.skirtingMaterial || "paint-white", "#f6f6f4")));
+        sm.name = `skirting ${r.name || r.id}`;
+        lg.add(tag(sm, r.id, "rooms", lv.id));
+      }
+    }
+    // ---- columns
+    for (const c of p.columns.filter((x) => x.level === lv.id && vis(x))) {
+      const H = c.height || lv.height;
+      let mesh;
+      if (c.shape === "round") {
+        mesh = unitMesh(THREE, "cyl32", mats.surface(c.material || "concrete", "#a7a7a2"));
+        mesh.scale.set((c.w / 2) * M, H * M, (c.d / 2) * M);
+        mesh.position.set(c.x * M, (base + H / 2) * M, c.y * M);
+      } else {
+        const geo = new Geo();
+        const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => { const [x, y] = rotPt((a * c.w) / 2, (b * c.d) / 2, c.rot || 0); return [c.x + x, c.y + y]; });
+        prism(geo, pts, base, base + H);
+        mesh = new THREE.Mesh(geo.build(THREE), mats.surface(c.material || "concrete", "#a7a7a2"));
+      }
+      lg.add(tag(shadow(mesh), c.id, "columns", lv.id));
+    }
+    // ---- stairs
+    for (const s of p.stairs.filter((x) => x.level === lv.id && vis(x) && !x.shape)) { // L, U and spiral stairs: elements.js
+      const above = levelAbove(p, lv.id);
+      const rise = above ? above.elevation - lv.elevation : lv.height;
+      const geo = new Geo();
+      const run = s.length / s.steps;
+      for (let i = 0; i < s.steps; i++) {
+        const u0 = -s.length / 2 + i * run;
+        const pts = [[u0, -s.width / 2], [u0 + run, -s.width / 2], [u0 + run, s.width / 2], [u0, s.width / 2]].map(([u, v]) => { const [x, y] = rotPt(u, v, s.rot || 0); return [s.x + x, s.y + y]; });
+        const top = ((i + 1) * rise) / s.steps;
+        prism(geo, pts, base + Math.max(0, top - Math.max(180, rise / s.steps) - 120), base + top);
+      }
+      const mesh = shadow(new THREE.Mesh(geo.build(THREE), mats.surface(s.material || "oak", "#c49a6c")));
+      lg.add(tag(mesh, s.id, "stairs", lv.id));
+    }
+    // ---- furniture
+    {
+      // Component instances are model, not furniture: they stay when furniture is hidden.
+      const compCache = new Map();
+      for (const f of p.furniture.filter((x) => x.level === lv.id && vis(x) && (opts.furniture !== false || x.kind === "component"))) {
+        let g;
+        if (f.kind === "model") {
+          g = new THREE.Group();
+          const asset = p.models.find((m) => m.id === f.model);
+          const ph = boxMesh(THREE, f.w * M, f.h * M, f.d * M, mats.color("#8a9bb0", { opacity: 0.4 }));
+          ph.position.y = (f.h * M) / 2;
+          g.add(ph);
+          if (asset && opts.loadModel) {
+            opts.loadModel(asset).then((obj) => {
+              if (!obj) return;
+              const inst = obj.clone();
+              if (f.modelColors) recolorModel(inst, f.modelColors);
+              const sz = asset.size || [1000, 1000, 1000];
+              inst.scale.set((f.mirrored ? -1 : 1) * (f.w / sz[0]), f.h / sz[2], f.d / sz[1]);
+              g.remove(ph); // its unit box is shared: nothing to dispose
+              g.add(inst);
+              tag(g, f.id, "furniture", lv.id);
+              inst.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+              if (opts.onAsync) opts.onAsync();
+            }).catch(() => {});
+          }
+        } else if (f.kind === "component") g = buildComponent(THREE, mats, p, f, compCache); // a component instance (skbuild.js)
+        else g = furnitureGroup(THREE, mats, f);
+        const lamp = g.getObjectByName("lamp");
+        if (lamp) lamp.userData.lamp.floor = base * M; // the section cut keeps lamps whose floor is below it
+        g.position.set(f.x * M, (base + (f.elevation || 0)) * M, f.y * M);
+        g.rotation.y = (-(f.rot || 0) * Math.PI) / 180;
+        g.name = `${f.kind} ${f.id}`;
+        lg.add(tag(g, f.id, "furniture", lv.id));
+      }
+    }
+    // ---- slabs, ceilings, beams, railings, ramps, stairs by type (elements.js)
+    buildLevelElements(THREE, p, mats, lg, lv, { vis, phaseMat, tag, shadow, opts });
+    // ---- structural members (one shared geometry per section: batched by the viewer)
+    for (const m of (p.members || []).filter((x) => x.level === lv.id && vis(x))) {
+      const mat = phaseMat(m, mats.surface(m.material || "steel", "#7e858c"));
+      lg.add(tag(memberGroup(THREE, mats, p, m, mat), m.id, "members", lv.id));
+    }
+    // ---- mass models (solids)
+    if (opts.solids !== false) {
+      for (const s of (p.solids || []).filter((x) => x.level === lv.id && vis(x))) {
+        // Prisms and meshes, with a face map for the SketchUp-style tools (skbuild.js).
+        if (!(Array.isArray(s.faces) && s.faces.length)) { lg.add(tag(buildSolid(THREE, mats, s, base, phaseMat), s.id, "solids", lv.id)); continue; }
+        const geo = new Geo();
+        // A roof read as loose sloped faces (gbXML): each face a slab of the roof's thickness.
+        if (Array.isArray(s.faces) && s.faces.length) for (const f of s.faces) slab3d(geo, f.map(([x, y, z]) => [x, y, base + z]), s.thickness || 200);
+        else taperedPrism(geo, s.pts, base + (s.z0 || 0), base + (s.z0 || 0) + s.height, s.taper ?? 1);
+        const mesh = shadow(new THREE.Mesh(geo.build(THREE), phaseMat(s, mats.surface(s.material || "concrete", "#a7a7a2"))));
+        mesh.name = `mass ${s.name || s.id}`;
+        lg.add(tag(mesh, s.id, "solids", lv.id));
+      }
+    }
+    // ---- roofs
+    if (opts.roofs !== false) {
+      for (const r of p.roofs.filter((x) => x.level === lv.id && vis(x))) {
+        const m = roofModel(r, roofBase(p, r));
+        const geo = new Geo();
+        if (!roofFacesCut(THREE, p, r, m, geo, r.thickness || 200)) for (const f of m.faces) slab3d(geo, f.pts, r.thickness || 200);
+        const mesh = shadow(new THREE.Mesh(geo.build(THREE), mats.surface(r.material || DEFAULT_MATERIAL.roof, "#9b4a3a")));
+        mesh.name = `roof ${r.id}`;
+        lg.add(tag(mesh, r.id, "roofs", lv.id));
+        if (m.gables.length) {
+          const gg = new Geo();
+          const wallT = Math.max(150, ...p.walls.filter((w) => w.level === lv.id).map((w) => w.thickness), 0);
+          // The gable stops under the roof slab instead of cutting through it.
+          const base = roofBase(p, r);
+          for (const gb of m.gables) planarWall(gg, gb.pts.map(([x, y, z]) => [x, y, z > base + 1 ? z - (r.thickness || 200) : z]), wallT);
+          const gm = shadow(new THREE.Mesh(gg.build(THREE), mats.surface(r.gableMaterial || DEFAULT_MATERIAL.wall, "#ece8e1")));
+          lg.add(tag(gm, r.id, "roofs", lv.id));
+        }
+      }
+    }
+    if (opts.levels && !opts.levels.has(lv.id)) lg.visible = false;
+  }
+  return root;
+}
+
+// What a level's 3D depends on, as [global, local] strings: `global` is every
+// project part that can reach across levels (levels, types, materials,
+// components, roofs, slabs, shafts …) and the build options; `local` is the
+// level's own items and the openings in its walls. Parts that never make 3D
+// (sheets, views, annotations, 2D drafting …) are left out.
+const NOT_3D = new Set(["meta", "costs", "scenes", "view", "views", "sheets", "annotations", "revisions", "publishSets", "viewTemplates", "lineStyles",
+  "dimensions", "texts", "drawings", "underlays", "style3d", "guides", "sections", "dims3d", "texts3d", "grids", "layers"]);
+const PER_LEVEL = ["walls", "rooms", "columns", "stairs", "furniture", "solids", "ceilings", "beams", "railings", "ramps", "members"];
+const keyJson = (v) => JSON.stringify(v, (k, x) => (typeof x === "string" && x.length > 256 ? `${x.length}:${x.slice(0, 16)}${x.slice(-48)}` : x));
+export function levelKeys(p, opts = {}) {
+  const global = {};
+  for (const [k, v] of Object.entries(p)) if (!NOT_3D.has(k) && !PER_LEVEL.includes(k) && k !== "openings") global[k] = v;
+  const o = { openDoors: !!opts.openDoors, furniture: opts.furniture, roofs: opts.roofs, phase: opts.phase || "all", solids: opts.solids, hiddenTags: opts.hiddenTags ? [...opts.hiddenTags] : null };
+  const g = keyJson([global, o]);
+  const local = new Map(p.levels.map((lv) => [lv.id, {}]));
+  for (const k of PER_LEVEL) for (const it of p[k] || []) { const l = local.get(it.level); if (l) (l[k] || (l[k] = [])).push(it); }
+  const wallLevel = new Map(p.walls.map((w) => [w.id, w.level]));
+  for (const op of p.openings || []) { const l = local.get(wallLevel.get(op.wall)); if (l) (l.openings || (l.openings = [])).push(op); }
+  return new Map([...local].map(([id, l]) => [id, [g, keyJson(l)]]));
+}
+
+// ---------------------------------------------------------------- interior finishes
+// Which finish a wall face shows: the wall's own for that side (finishR on the
+// side of wallFrame's n — the right hand walking from the start to the end on
+// the plan — finishL on the other), else the wallFinish of the room the face
+// looks into. Returns a classify() for Geo.split, or null when nothing applies.
+export function wallFinishes(w, rooms = []) {
+  if (!w.finishL && !w.finishR && !rooms.length) return null;
+  const f = wallFrame(w);
+  return (c, n) => {
+    // Faces along the wall (world (x, z) = plan (x, y)); ends, top and reveals keep the wall's material.
+    if (Math.abs(n[0] * f.n[0] + n[2] * f.n[1]) < 0.98) return null; // a mitred end at 45° is 0.71
+    // Which side: where the face lies, not its normal (the plan → world map mirrors).
+    const cx = c[0] / M, cy = c[2] / M;
+    const side = Math.sign((cx - w.x1) * f.n[0] + (cy - w.y1) * f.n[1]) || 1;
+    const own = side > 0 ? w.finishR : w.finishL;
+    if (own) return own;
+    const x = cx + f.n[0] * side * 60, y = cy + f.n[1] * side * 60; // just in front of the face
+    const r = rooms.find((q) => pointInPolygon(x, y, q.pts));
+    return r ? r.wallFinish : null;
+  };
+}
+
+// A skirting board round a room: a strip r.skirting high and 15 mm thick
+// along every stretch of room edge that runs along a wall, stopping at doors
+// and openings that reach the floor.
+export function skirtingGeo(p, r, walls, base, thick = 15) {
+  const geo = new Geo();
+  const H = r.skirting;
+  let ring = r.pts;
+  if (polygonArea(ring) < 0) ring = ring.slice().reverse(); // counter-clockwise: the inside is on the left
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (L < 50) continue;
+    const d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+    const inward = [-d[1], d[0]];
+    // Stretches covered by a wall lying along this edge.
+    let cover = [];
+    const holes = [];
+    for (const w of walls) {
+      const f = wallFrame(w);
+      if (Math.abs(f.d[0] * d[1] - f.d[1] * d[0]) > 0.02) continue; // not parallel
+      const off = Math.abs((w.x1 - a[0]) * inward[0] + (w.y1 - a[1]) * inward[1]);
+      if (off > w.thickness / 2 + 30) continue; // not along this edge
+      const s1 = (w.x1 - a[0]) * d[0] + (w.y1 - a[1]) * d[1], s2 = (w.x2 - a[0]) * d[0] + (w.y2 - a[1]) * d[1];
+      const lo = Math.max(0, Math.min(s1, s2)), hi = Math.min(L, Math.max(s1, s2));
+      if (hi - lo > 1) cover.push([lo, hi]);
+      const dir = Math.sign(s2 - s1) || 1;
+      for (const s of openingSpans(p, w)) {
+        if (s.o.sill >= H) continue; // a window above the board: it runs on
+        const u1 = s1 + dir * s.u1, u2 = s1 + dir * s.u2;
+        holes.push([Math.min(u1, u2), Math.max(u1, u2)]);
+      }
+    }
+    for (const [h1, h2] of holes) cover = cover.flatMap(([c1, c2]) => (h2 <= c1 || h1 >= c2 ? [[c1, c2]] : [[c1, h1], [h2, c2]].filter(([x, y]) => y - x > 1)));
+    for (const [c1, c2] of cover) {
+      const p0 = [a[0] + d[0] * c1, a[1] + d[1] * c1], p1 = [a[0] + d[0] * c2, a[1] + d[1] * c2];
+      prism(geo, [p0, p1, [p1[0] + inward[0] * thick, p1[1] + inward[1] * thick], [p0[0] + inward[0] * thick, p0[1] + inward[1] * thick]], base, base + H);
+    }
+  }
+  return geo;
+}
+
+// Size of the whole model in metres (for framing, ground plane, sun).
+export function modelExtent(p) {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity, top = 0;
+  const add = (x, y) => { x1 = Math.min(x1, x); y1 = Math.min(y1, y); x2 = Math.max(x2, x); y2 = Math.max(y2, y); };
+  for (const w of p.walls) { add(w.x1, w.y1); add(w.x2, w.y2); const lv = levelById(p, w.level); top = Math.max(top, (lv ? lv.elevation : 0) + wallHeight(p, w)); }
+  for (const r of [...p.rooms, ...p.roofs]) for (const [x, y] of r.pts) add(x, y);
+  for (const f of [...p.furniture, ...p.columns, ...p.stairs]) {
+    add(f.x, f.y);
+    const lv = levelById(p, f.level);
+    const z = (lv ? lv.elevation : 0) + (f.elevation || 0) + (f.h || f.height || (lv ? lv.height : 0));
+    top = Math.max(top, z);
+  }
+  for (const r of p.roofs) top = Math.max(top, roofModel(r, roofBase(p, r)).peak);
+  for (const s of p.solids || []) {
+    for (const [x, y] of s.pts) add(x, y);
+    const lv = levelById(p, s.level);
+    top = Math.max(top, (lv ? lv.elevation : 0) + (s.z0 || 0) + s.height);
+  }
+  // Railings, beams and ramps (they may stand on a roof terrace).
+  for (const r of p.railings || []) { const lv = levelById(p, r.level); for (const [x, y] of r.pts) add(x, y); top = Math.max(top, (lv ? lv.elevation : 0) + (r.z || 0) + r.height); }
+  for (const b of p.beams || []) { const lv = levelById(p, b.level); add(b.x1, b.y1); add(b.x2, b.y2); top = Math.max(top, (lv ? lv.elevation : 0) + Math.max(b.z1 ?? (lv ? lv.height : 0), b.z2 ?? b.z1 ?? (lv ? lv.height : 0))); }
+  for (const r of p.ramps || []) for (const [x, y] of r.pts) add(x, y);
+  for (const m of p.members || []) for (const [x, y, z] of memberPoints(p, m)) { add(x, y); top = Math.max(top, z + m.h / 2); }
+  if (!Number.isFinite(x1)) return { x1: -5000, y1: -5000, x2: 5000, y2: 5000, top: 3000 };
+  return { x1, y1, x2, y2, top };
+}
+
+export { wallLength };

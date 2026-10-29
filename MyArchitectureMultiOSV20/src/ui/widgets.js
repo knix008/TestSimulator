@@ -1,0 +1,574 @@
+// Small DOM widgets: modal dialogs, prompts, toasts, context menus, a
+// searchable quick-pick list (command palette / part picker) and form helpers.
+
+import { t } from "./i18n.js";
+import { icon } from "./icons.js";
+
+export function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+    else if (k.startsWith("on") && typeof v === "function") el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === "html") el.innerHTML = v;
+    else if (v === true) el.setAttribute(k, "");
+    else el.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+
+const stack = [];
+
+// ---------------------------------------------------------------- dialogs in their own windows
+// In the desktop app every dialog is a window of its own (a child of the main
+// window, or of the dialog that opened it): it can be moved anywhere on the
+// screen, also outside the main window. Its title bar is the dialog's head —
+// the program icon and the window name — and it is the drag handle.
+// The dialog is built and measured in the main document first, then moved
+// into the new window (same renderer: its event handlers keep working).
+// setDialogWindows(fn): fn() → true when dialogs should open as windows (the
+// app turns it off for the web version, the tutorial and the GUI tests).
+let dialogWindows = () => false;
+// The icon of the command being run (app.run): a dialog it opens shows it
+// unless the dialog names its own.
+let iconHint = null;
+export function dialogIconHint(name) { iconHint = name ? { name, at: Date.now() } : null; }
+let dialogZoom = () => 1; // the interface size: window pixels per page pixel
+export function setDialogWindows(fn, zoom = () => 1) { dialogWindows = fn; dialogZoom = zoom; }
+
+const WINDOW_CSS = `html, body { margin: 0; height: 100%; overflow: hidden; background: var(--panel); }
+body > .modal.in-window { width: 100% !important; height: 100%; max-width: none; max-height: none; border-radius: 0; box-shadow: none; animation: none; box-sizing: border-box; }
+.in-window .modal-head { -webkit-app-region: drag; user-select: none; cursor: default; }
+.in-window .modal-head button, .in-window .modal-head input { -webkit-app-region: no-drag; }`;
+
+// The document of the dialog window on top (menus and pickers opened from a
+// dialog belong in it), else the main document.
+export function popupDoc() {
+  for (let i = stack.length - 1; i >= 0; i--) if (stack[i].win && !stack[i].win.closed) return stack[i].win.document;
+  return document;
+}
+export const openDialogWindows = () => stack.filter((e) => e.win && !e.win.closed).map((e) => e.win);
+
+function openDialogWindow(title, w, h0) {
+  const z = +dialogZoom() || 1;
+  const depth = stack.filter((e) => e.win).length;
+  const W = Math.round(w * z), H = Math.round(h0 * z);
+  const avail = { w: (screen.availWidth || 1920) - 20, h: (screen.availHeight || 1080) - 20 };
+  const ww = Math.min(W, avail.w), hh = Math.min(H, avail.h);
+  // Centred over the window that opens it.
+  const owner = depth ? stack.filter((e) => e.win).pop().win : window;
+  const left = Math.round(owner.screenX + (owner.outerWidth - ww) / 2), top = Math.round(owner.screenY + Math.max(0, (owner.outerHeight - hh) / 2));
+  // The #dialog-<depth>-… fragment names the window for the desktop shell,
+  // which makes it a child of the window one level down (src-tauri/src/lib.rs).
+  const label = `dialog-${depth + 1}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  let win = null;
+  try { win = window.open(`about:blank#${label}`, label, `width=${ww},height=${hh},left=${left},top=${top}`); } catch { win = null; }
+  if (!win || !win.document) return null;
+  win.myarchDialogLabel = label;
+  const doc = win.document;
+  doc.title = title;
+  for (const n of document.querySelectorAll('link[rel="stylesheet"], style')) {
+    const c = n.cloneNode(true);
+    if (n.tagName === "LINK") c.href = n.href;
+    doc.head.append(c);
+  }
+  doc.head.append(Object.assign(doc.createElement("style"), { textContent: WINDOW_CSS }));
+  const root = document.documentElement;
+  for (const a of root.attributes) doc.documentElement.setAttribute(a.name, a.value);
+  // No browser menu in the dialog window either (desktop-bridge.js).
+  if (window.myarchBlockBrowserMenu) window.myarchBlockBrowserMenu(doc);
+  // Only Windows' webview moves a window by `app-region: drag`; elsewhere the
+  // head asks the shell to start the move.
+  const desk = window.myarch;
+  if (desk && desk.startDragging && !desk.nativeDragRegions) {
+    doc.addEventListener("mousedown", (e) => {
+      if (e.button === 0 && e.target.closest(".modal-head") && !e.target.closest("button, input")) desk.startDragging(label);
+    });
+  }
+  return win;
+}
+
+// The desktop shell closes a dialog window by its label; a browser by close().
+function closeDialogWindow(win) {
+  if (!win) return;
+  const desk = window.myarch;
+  const label = (() => { try { return win.myarchDialogLabel; } catch { return null; } })();
+  if (label && desk && desk.closeDialog) { desk.closeDialog(label).catch(() => {}); return; }
+  try { if (!win.closed) win.close(); } catch { /* ignore */ }
+}
+
+// modal({title, icon, body: Node, buttons:[{label, value, primary, danger}], width, onOpen, className})
+// → Promise<value> (Escape / ✕ / closing the window resolve null). `icon`: the
+// icons.js name shown in the title bar — every window its own; without one,
+// the icon of the command that opened it (dialogIconHint), else the program's.
+export function modal({ title, icon: iconName = null, body, buttons = [{ label: t("Close"), value: null }], width = 520, onOpen, className = "", closeOnBackdrop = true, validate }) {
+  return new Promise((resolve) => {
+    const backdrop = h("div", { class: "modal-backdrop" });
+    const box = h("div", { class: `modal ${className}`, role: "dialog", "aria-modal": "true", style: { width: typeof width === "number" ? `${width}px` : width } });
+    let win = null;
+    let done = false;
+    let closedPoll = 0;
+    const close = (value) => {
+      if (done) return;
+      if (value !== null && validate) {
+        const err = validate(value);
+        if (err) { toast(err, "error"); return; }
+      }
+      done = true;
+      backdrop.remove();
+      stack.splice(stack.indexOf(entry), 1);
+      (win ? win.document : document).removeEventListener("keydown", onKey, true);
+      clearInterval(closedPoll);
+      if (win && !win.closed) { win.removeEventListener("pagehide", onGone); closeDialogWindow(win); }
+      if (win) window.focus();
+      resolve(value);
+    };
+    const onGone = () => close(null); // the window was closed (Alt+F4, the OS)
+    // Every popup title bar shows its icon and the window name.
+    const hinted = !stack.length && iconHint && Date.now() - iconHint.at < 5000 ? iconHint.name : null;
+    iconHint = null;
+    const ic = iconName || hinted;
+    const head = h("div", { class: "modal-head" },
+      h("div", { class: "modal-title" }, ic ? h("span", { class: "modal-icon", "data-icon": ic, html: icon(ic, 18) }) : h("img", { class: "modal-appicon", src: "assets/icon.png", alt: "", width: 18, height: 18 }), h("span", {}, title)),
+      h("button", { class: "icon-btn", title: t("Close"), onclick: () => close(null), html: icon("close", 16) }));
+    const foot = h("div", { class: "modal-foot" });
+    // Buttons marked `left` sit together on the left, the rest on the right.
+    const lastLeft = buttons.map((b) => !!b.left).lastIndexOf(true);
+    buttons.forEach((b, i) => {
+      const btn = h("button", { class: `btn ${b.primary ? "primary" : ""} ${b.danger ? "danger" : ""}`, onclick: () => close(typeof b.value === "function" ? b.value() : b.value) }, b.label);
+      if (b.left) btn.classList.add("left");
+      foot.append(btn);
+      if (i === lastLeft) foot.append(h("span", { class: "foot-gap" }));
+    });
+    box.append(head, h("div", { class: "modal-body" }, body), foot);
+    backdrop.append(box);
+    backdrop.addEventListener("pointerdown", (e) => { if (e.target === backdrop && closeOnBackdrop) close(null); });
+    const onKey = (e) => {
+      if (stack[stack.length - 1] !== entry) return;
+      if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); close(null); }
+      if (e.key === "Enter" && !e.shiftKey && e.target.tagName !== "TEXTAREA" && e.target.tagName !== "BUTTON") {
+        const primary = buttons.find((b) => b.primary);
+        if (primary) { e.preventDefault(); e.stopPropagation(); close(typeof primary.value === "function" ? primary.value() : primary.value); }
+      }
+    };
+    const entry = { close, el: backdrop, win: null };
+    let windowed = false;
+    try { windowed = dialogWindows(); } catch { windowed = false; }
+    if (windowed) {
+      // Measure the dialog laid out in the main window, then give it a window that size.
+      backdrop.style.visibility = "hidden";
+      document.body.append(backdrop);
+      const r = box.getBoundingClientRect();
+      win = openDialogWindow(title, Math.ceil(r.width), Math.ceil(r.height));
+      if (win) {
+        box.classList.add("in-window");
+        win.document.body.append(box);
+        backdrop.remove();
+        entry.win = win;
+        entry.el = box;
+        win.addEventListener("pagehide", onGone);
+        // Closed by the system (Alt+F4) rather than by the dialog itself: a
+        // destroyed window does not always get to send pagehide.
+        closedPoll = setInterval(() => { if (win.closed) close(null); }, 250);
+      } else backdrop.style.visibility = "";
+    }
+    stack.push(entry);
+    (win ? win.document : document).addEventListener("keydown", onKey, true);
+    if (!win) document.body.append(backdrop);
+    const first = box.querySelector("input, select, textarea");
+    if (win) win.focus();
+    if (first) setTimeout(() => { first.focus(); if (first.select) first.select(); }, 30);
+    if (onOpen) onOpen(box, close);
+  });
+}
+
+export function anyModalOpen() {
+  // Ask the DOM, not the stack: a dialog removed some other way must never
+  // leave the keyboard dead.
+  for (let i = stack.length - 1; i >= 0; i--) if (!stack[i].el || !stack[i].el.isConnected || (stack[i].win && stack[i].win.closed)) stack.splice(i, 1);
+  return stack.some((e) => e.win) || !!document.querySelector(".modal-backdrop, .quickpick, .popup-input");
+}
+
+export async function confirmDialog(message, { title = t("Confirm"), ok = t("OK"), cancel = t("Cancel"), danger = false, icon: ic = null } = {}) {
+  const r = await modal({ title, icon: ic || (danger ? "warning" : "help"), body: h("p", { class: "confirm-text" }, message), width: 440, buttons: [{ label: cancel, value: false }, { label: ok, value: true, primary: true, danger }] });
+  return !!r;
+}
+
+export async function promptDialog(message, value = "", { title = t("Input"), placeholder = "", icon: ic = "text" } = {}) {
+  const input = h("input", { type: "text", class: "input wide", value, placeholder });
+  const r = await modal({ title, icon: ic, body: h("label", { class: "field" }, h("span", {}, message), input), width: 420, buttons: [{ label: t("Cancel"), value: null }, { label: t("OK"), value: () => input.value, primary: true }] });
+  return r;
+}
+
+// A tiny inline text box floating at screen coords (label names, values).
+// selectAll: false keeps the caret after `value` — used when the first typed
+// character opened the box, so the following keys continue it.
+export function popupInput({ x, y, value = "", placeholder = "", onDone, selectAll = true }) {
+  const input = h("input", { class: "popup-input", value, placeholder, style: { left: `${x}px`, top: `${y}px` } });
+  let done = false;
+  const finish = (ok) => {
+    if (done) return;
+    done = true;
+    const v = input.value;
+    input.remove();
+    onDone(ok ? v : null);
+  };
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") finish(true);
+    if (e.key === "Escape") finish(false);
+  });
+  // Focus at once, so keys typed right after the one that opened the box land in it.
+  const place = () => { input.focus(); if (selectAll) input.select(); else input.setSelectionRange(input.value.length, input.value.length); };
+  const born = performance.now();
+  input.addEventListener("blur", () => {
+    // A box opened by a mouse click loses focus to the canvas when the click's
+    // default action runs; take it back instead of closing.
+    if (!done && performance.now() - born < 400) { setTimeout(() => { if (!done) place(); }, 0); return; }
+    finish(input.value.trim() !== "" && input.value !== value ? true : false);
+  });
+  document.body.append(input);
+  place();
+}
+
+let toastHost = null;
+// Told about every notice (the bottom panel's log keeps them).
+export const toastListeners = new Set();
+
+export function toast(message, kind = "info", ms = 3200) {
+  for (const fn of toastListeners) { try { fn(message, kind); } catch { /* a listener must not stop the notice */ } }
+  if (!toastHost) {
+    toastHost = h("div", { class: "toast-host", "aria-live": "polite" });
+    document.body.append(toastHost);
+  }
+  const ic = kind === "error" ? "error" : kind === "warn" ? "warning" : kind === "ok" ? "check" : "info";
+  const el = h("div", { class: `toast ${kind}` }, h("span", { html: icon(ic, 16) }), h("span", {}, message));
+  toastHost.append(el);
+  setTimeout(() => el.classList.add("out"), ms);
+  setTimeout(() => el.remove(), ms + 400);
+  return el;
+}
+
+// Menu items that arrived without an icon (label list). Every menu item has
+// one; the GUI smoke test fails when this is not empty.
+export const menuItemsWithoutIcon = [];
+
+// contextMenu([{label, icon, shortcut, action, disabled, danger, checked} | "-"], x, y)
+// Every item shows its icon; a checked item shows it framed (Office style).
+export function contextMenu(items, x, y) {
+  closeMenus();
+  const doc = popupDoc(); // a menu opened from a dialog window shows in that window
+  const view = doc.defaultView || window;
+  const menu = h("div", { class: "ctx-menu", role: "menu" });
+  for (const it of items) {
+    if (it === "-") { menu.append(h("div", { class: "menu-sep" })); continue; }
+    if (!it) continue;
+    if (!it.icon && !menuItemsWithoutIcon.includes(it.label)) menuItemsWithoutIcon.push(it.label);
+    const row = h("button", { class: `menu-item ${it.danger ? "danger" : ""} ${it.checked ? "checked" : ""}`, disabled: it.disabled, role: "menuitem" },
+      h("span", { class: "mi-icon", html: icon(it.icon || (it.checked ? "check" : "dots"), 16) }),
+      h("span", { class: "mi-label" }, it.label),
+      h("span", { class: "mi-key" }, it.shortcut || ""));
+    row.addEventListener("click", () => { closeMenus(); if (it.action) it.action(); });
+    menu.append(row);
+  }
+  doc.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(0, Math.min(x, view.innerWidth - r.width - 6))}px`;
+  menu.style.top = `${Math.max(0, Math.min(y, view.innerHeight - r.height - 6))}px`;
+  setTimeout(() => doc.addEventListener("pointerdown", outside, true), 0);
+  function outside(e) {
+    // A menu removed some other way must not close the next one.
+    if (!menu.isConnected) { doc.removeEventListener("pointerdown", outside, true); return; }
+    if (!menu.contains(e.target)) closeMenus();
+  }
+  menu._outside = outside;
+  menu._doc = doc;
+  return menu;
+}
+
+export function closeMenus() {
+  for (const d of [document, ...openDialogWindows().map((w) => w.document)]) {
+    for (const m of d.querySelectorAll(".ctx-menu")) {
+      (m._doc || d).removeEventListener("pointerdown", m._outside, true);
+      m.remove();
+    }
+  }
+}
+
+// quickPick({items:[{label, detail, hint, icon, value, preview?}], placeholder, onPick, onHover})
+// Fuzzy-ish filter as you type, arrows + Enter, Escape closes.
+const QP_ROWS = 10;
+
+export function quickPick({ items, placeholder = t("Type to search…"), onPick, render, filter, initial = "", title = t("Search") }) {
+  document.querySelector(".quickpick")?.remove();
+  const input = h("input", { class: "qp-input", placeholder, value: initial });
+  const list = h("div", { class: "qp-list" });
+  // Like every popup, the picker has a title bar with the program icon and its name.
+  const head = h("div", { class: "qp-head" }, h("img", { src: "assets/icon.png", width: 16, height: 16, alt: "" }), h("span", {}, title));
+  const box = h("div", { class: "quickpick" }, head, h("div", { class: "qp-search" }, h("span", { html: icon("search", 16) }), input), list);
+  const back = h("div", { class: "qp-backdrop" }, box);
+  let shown = [];
+  let hidden = 0;
+  let index = 0;
+  const close = () => back.remove();
+  const score = (it, q) => {
+    if (!q) return 1;
+    const hay = `${it.label} ${it.detail || ""} ${it.keywords || ""}`.toLowerCase();
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.every((w) => hay.includes(w))) return 0;
+    const l = it.label.toLowerCase();
+    return 1 + (l.startsWith(words[0]) ? 5 : 0) + (l.includes(q.toLowerCase()) ? 2 : 0);
+  };
+  const update = () => {
+    const q = input.value.trim();
+    const all = filter ? filter(items, q) : items.map((it) => [it, score(it, q)]).filter(([, s]) => s > 0).sort((a, b) => b[1] - a[1]).map(([it]) => it);
+    // No scrollbar: show the best matches and say how many more there are.
+    shown = all.slice(0, QP_ROWS);
+    hidden = all.length - shown.length;
+    index = Math.min(index, Math.max(0, shown.length - 1));
+    list.innerHTML = "";
+    shown.forEach((it, i) => {
+      const row = h("div", { class: `qp-item ${i === index ? "on" : ""}` },
+        it.icon ? h("span", { class: "qp-icon", html: icon(it.icon, 16) }) : null,
+        h("div", { class: "qp-text" }, h("div", { class: "qp-label" }, it.label), it.detail ? h("div", { class: "qp-detail" }, it.detail) : null),
+        it.hint ? h("kbd", { class: "qp-hint" }, it.hint) : null);
+      if (render) render(row, it);
+      row.addEventListener("pointerenter", () => { index = i; mark(); });
+      row.addEventListener("click", () => { close(); onPick(it); });
+      list.append(row);
+    });
+    if (!shown.length) list.append(h("div", { class: "qp-empty" }, t("No matches")));
+    if (hidden > 0) list.append(h("div", { class: "qp-more" }, t("{n} more — keep typing to narrow the list", { n: hidden })));
+  };
+  const mark = () => {
+    [...list.children].forEach((c, i) => c.classList.toggle("on", i === index));
+    const el = list.children[index];
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+  };
+  input.addEventListener("input", () => { index = 0; update(); });
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "ArrowDown") { index = Math.min(shown.length - 1, index + 1); mark(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { index = Math.max(0, index - 1); mark(); e.preventDefault(); }
+    else if (e.key === "Enter") { const it = shown[index]; close(); if (it) onPick(it); }
+    else if (e.key === "Escape") close();
+  });
+  back.addEventListener("pointerdown", (e) => { if (e.target === back) close(); });
+  document.body.append(back);
+  update();
+  setTimeout(() => input.focus(), 10);
+  return { close };
+}
+
+// ---------------------------------------------------------------- paging
+// Popups never scroll: long lists are split into pages with numbered tabs.
+// pager(items, perPage, render(slice, offset) → Node) → Node
+export function pager(items, perPage, render) {
+  const wrap = h("div", { class: "pager" });
+  const body = h("div", { class: "pager-body" });
+  const tabsEl = h("div", { class: "pager-tabs" });
+  const pages = Math.max(1, Math.ceil(items.length / perPage));
+  let page = 0;
+  const show = () => {
+    body.innerHTML = "";
+    body.append(render(items.slice(page * perPage, (page + 1) * perPage), page * perPage));
+    tabsEl.innerHTML = "";
+    if (pages < 2) return;
+    tabsEl.append(h("span", { class: "pager-info" }, `${page * perPage + 1}–${Math.min(items.length, (page + 1) * perPage)} / ${items.length}`));
+    for (let i = 0; i < pages; i++) {
+      tabsEl.append(h("button", { class: `pager-tab ${i === page ? "on" : ""}`, onclick: () => { page = i; show(); } }, String(i + 1)));
+    }
+  };
+  wrap.append(body, tabsEl);
+  wrap.showPage = (i) => { page = Math.max(0, Math.min(pages - 1, i)); show(); };
+  show();
+  return wrap;
+}
+
+// ---------------------------------------------------------------- forms
+// field(label, control, hint?) → <label class="field">
+export function field(label, control, hint) {
+  // A <label> would forward clicks on its text to the stepper's "−" button.
+  const tag = control && control.classList && control.classList.contains("stepper") ? "div" : "label";
+  return h(tag, { class: "field" }, h("span", { class: "field-label" }, label), control, hint ? h("small", { class: "field-hint" }, hint) : null);
+}
+
+export function input(value, { type = "text", step, min, max, placeholder, onInput, onChange, list, cls = "" } = {}) {
+  const el = h("input", { class: `input ${cls}`, type, value: value ?? "", step, min, max, placeholder, list });
+  if (onInput) el.addEventListener("input", () => onInput(el.value, el));
+  if (onChange) el.addEventListener("change", () => onChange(el.value, el));
+  return el;
+}
+
+export function select(value, options, { onChange, cls = "" } = {}) {
+  const el = h("select", { class: `input ${cls}` });
+  for (const o of options) {
+    const [v, label] = Array.isArray(o) ? o : [o, o];
+    const opt = h("option", { value: v }, label);
+    if (String(v) === String(value)) opt.selected = true;
+    el.append(opt);
+  }
+  if (onChange) el.addEventListener("change", () => onChange(el.value, el));
+  return el;
+}
+
+// Numeric setting: [−] value [+], value centred. Either a range (min/max/step)
+// or a list of allowed values. Arrow keys step too; holding a button repeats.
+// editable: the value is a centred text box that also accepts typing.
+export function stepper(value, { min = -Infinity, max = Infinity, step = 1, values = null, format = (v) => String(v), onChange, editable = false } = {}) {
+  let v = Number(value);
+  const out = editable ? h("input", { class: "stepper-val", type: "text", inputmode: "decimal", spellcheck: "false" }) : h("span", { class: "stepper-val" });
+  const dec = h("button", { class: "stepper-btn", type: "button", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1" }, "−");
+  const inc = h("button", { class: "stepper-btn", type: "button", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1" }, "+");
+  const nearest = () => {
+    let best = 0;
+    for (let i = 1; i < values.length; i++) if (Math.abs(values[i] - v) < Math.abs(values[best] - v)) best = i;
+    return best;
+  };
+  const render = () => {
+    if (editable) out.value = format(v); else out.textContent = format(v);
+    if (values) { const i = nearest(); dec.disabled = i <= 0; inc.disabled = i >= values.length - 1; }
+    else { dec.disabled = v <= min + 1e-9; inc.disabled = v >= max - 1e-9; }
+  };
+  const move = (dir) => {
+    let nv;
+    if (values) nv = values[Math.min(values.length - 1, Math.max(0, nearest() + dir))];
+    else nv = +Math.min(max, Math.max(min, v + dir * step)).toFixed(6);
+    if (nv === v) return;
+    v = nv;
+    render();
+    if (onChange) onChange(v);
+  };
+  for (const [b, dir] of [[dec, -1], [inc, 1]]) {
+    let timer = null;
+    const stop = () => { clearTimeout(timer); clearInterval(timer); timer = null; };
+    b.addEventListener("click", (e) => { if (e.detail === 0 || !b.dataset.held) move(dir); delete b.dataset.held; });
+    b.addEventListener("pointerdown", () => { stop(); timer = setTimeout(() => { b.dataset.held = "1"; timer = setInterval(() => move(dir), 90); }, 450); });
+    for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
+  }
+  const el = h("div", { class: `stepper${editable ? " editable" : ""}`, tabindex: editable ? "-1" : "0", role: "spinbutton" }, dec, out, inc);
+  el.addEventListener("keydown", (e) => {
+    e.stopPropagation(); // editor shortcuts must not fire while stepping a value
+    if (editable && e.target === out && (e.key === "ArrowLeft" || e.key === "ArrowRight")) return; // move the caret
+    if (editable && e.key === "Enter") { out.blur(); return; }
+    const d = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[e.key];
+    if (d) { e.preventDefault(); move(d); }
+  });
+  if (editable) {
+    out.addEventListener("change", () => {
+      const n = parseFloat(String(out.value).replace(",", "."));
+      if (!Number.isFinite(n)) { render(); return; }
+      const nv = Math.min(max, Math.max(min, n));
+      if (nv === v) { render(); return; }
+      v = nv;
+      render();
+      if (onChange) onChange(v);
+    });
+  }
+  el.getValue = () => v;
+  el.setValue = (nv) => { v = Number(nv); render(); };
+  render();
+  return el;
+}
+
+// A bar (filled like a progress bar) between − and + buttons. Drag or click
+// the bar, hold a button, or use the arrow keys. onInput fires while it moves,
+// onChange once it settles (pointer let go, a click, a key).
+export function slider(value, { min = 0, max = 100, step = 1, format = (v) => String(v), onInput, onChange } = {}) {
+  let v = Math.min(max, Math.max(min, Number(value) || 0));
+  const fill = h("span", { class: "slider-fill" });
+  const thumb = h("span", { class: "slider-thumb" });
+  const track = h("span", { class: "slider-track" }, fill, thumb);
+  const out = h("span", { class: "slider-val" });
+  const dec = h("button", { class: "slider-btn", type: "button", title: t("Decrease"), "aria-label": t("Decrease"), "data-step": "-1" }, "−");
+  const inc = h("button", { class: "slider-btn", type: "button", title: t("Increase"), "aria-label": t("Increase"), "data-step": "1" }, "+");
+  const el = h("div", { class: "slider", tabindex: "0", role: "slider", "aria-valuemin": String(min), "aria-valuemax": String(max) }, dec, track, inc, out);
+  const render = () => {
+    const pct = max > min ? ((v - min) / (max - min)) * 100 : 0;
+    fill.style.width = `${pct}%`;
+    thumb.style.left = `${pct}%`;
+    out.textContent = format(v);
+    el.setAttribute("aria-valuenow", String(v));
+    dec.disabled = v <= min + 1e-9;
+    inc.disabled = v >= max - 1e-9;
+  };
+  const set = (nv, done) => {
+    nv = +Math.min(max, Math.max(min, Math.round((nv - min) / step) * step + min)).toFixed(6);
+    const changed = nv !== v;
+    v = nv;
+    if (changed) { render(); if (onInput) onInput(v); }
+    if (done && (changed || set.moved) && onChange) onChange(v);
+    set.moved = done ? false : set.moved || changed;
+  };
+  const fromX = (x) => { const r = track.getBoundingClientRect(); return min + (r.width > 0 ? Math.min(1, Math.max(0, (x - r.left) / r.width)) : 0) * (max - min); };
+  track.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    el.focus({ preventScroll: true });
+    track.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+    set(fromX(e.clientX), false);
+    const moveTo = (ev) => set(fromX(ev.clientX), false);
+    const end = () => { track.removeEventListener("pointermove", moveTo); el.classList.remove("dragging"); set(v, true); };
+    track.addEventListener("pointermove", moveTo);
+    track.addEventListener("pointerup", end, { once: true });
+    track.addEventListener("pointercancel", end, { once: true });
+  });
+  for (const [b, dir] of [[dec, -1], [inc, 1]]) {
+    let timer = null;
+    const stop = () => { const held = !!timer && b.dataset.held; clearTimeout(timer); clearInterval(timer); timer = null; if (held) set(v, true); };
+    b.addEventListener("click", (e) => { if (e.detail === 0 || !b.dataset.held) set(v + dir * step, true); delete b.dataset.held; });
+    b.addEventListener("pointerdown", () => { stop(); timer = setTimeout(() => { b.dataset.held = "1"; timer = setInterval(() => set(v + dir * step, false), 90); }, 450); });
+    for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
+  }
+  el.addEventListener("keydown", (e) => {
+    e.stopPropagation(); // editor shortcuts must not fire while moving a value
+    const d = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 }[e.key];
+    if (d) { e.preventDefault(); set(v + d * step, true); }
+    else if (e.key === "Home") { e.preventDefault(); set(min, true); }
+    else if (e.key === "End") { e.preventDefault(); set(max, true); }
+  });
+  el.getValue = () => v;
+  el.setValue = (nv) => { v = Math.min(max, Math.max(min, Number(nv) || 0)); render(); };
+  render();
+  return el;
+}
+
+export function checkbox(checked, label, { onChange } = {}) {
+  const box = h("input", { type: "checkbox" });
+  box.checked = !!checked;
+  if (onChange) box.addEventListener("change", () => onChange(box.checked, box));
+  return h("label", { class: "check" }, box, h("span", {}, label));
+}
+
+export function tabs(defs) {
+  // defs: [{id, label, body: Node}]
+  const bar = h("div", { class: "tabs" });
+  const host = h("div", { class: "tab-bodies" });
+  const show = (id) => {
+    for (const b of bar.children) b.classList.toggle("on", b.dataset.id === id);
+    // All pages share one grid cell, so the dialog keeps the size of the
+    // largest page on every tab; inactive pages are only made invisible.
+    for (const d of defs) {
+      const off = d.id !== id;
+      d.body.classList.toggle("tab-hidden", off);
+      if (off) d.body.setAttribute("aria-hidden", "true"); else d.body.removeAttribute("aria-hidden");
+    }
+  };
+  for (const d of defs) {
+    bar.append(h("button", { class: "tab", "data-id": d.id, onclick: () => show(d.id) }, d.label));
+    host.append(d.body);
+  }
+  show(defs[0].id);
+  return h("div", { class: "tabbed" }, bar, host);
+}
+
+// Side-panel header: icon, title and optional extra controls.
+export function panelHead(ic, title, ...extra) {
+  return h("div", { class: "panel-head", "data-key": ic }, h("span", { class: "ph-ico", html: icon(ic, 14) }), h("span", { class: "ph-title" }, title), ...extra);
+}

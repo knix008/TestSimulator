@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window. Files, dialogs, printing and window control go through MyArchitecture's own commands (src-tauri/src/lib.rs); only event listening is opened here. Dialog windows (about:blank) and the manual never call the host.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://localhost:5236", "http://localhost:5236/*", "http://127.0.0.1:5236/*"]
+  },
+  "permissions": ["core:event:default"]
+}

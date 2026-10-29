@@ -1,0 +1,507 @@
+[
+  {
+    "file": "01-studio.myarch",
+    "title": "Studio apartment",
+    "titleKo": "원룸",
+    "description": "One room with a kitchen line and a shower room, fully furnished.",
+    "descriptionKo": "주방 라인과 샤워실이 있는 원룸, 가구 배치 포함.",
+    "tags": [
+      "1 level",
+      "furniture",
+      "flat roof"
+    ]
+  },
+  {
+    "file": "02-two-bedroom.myarch",
+    "title": "Two-bedroom apartment",
+    "titleKo": "방 두 개 아파트",
+    "description": "Two bedrooms, living/dining/kitchen, bathroom and hall.",
+    "descriptionKo": "침실 2, 거실·식당·주방, 욕실, 현관.",
+    "tags": [
+      "1 level",
+      "apartment",
+      "schedules"
+    ]
+  },
+  {
+    "file": "03-two-storey-house.myarch",
+    "title": "Two-storey house",
+    "titleKo": "2층 주택",
+    "description": "Two levels joined by a stair, gable roof, garden with trees and a car.",
+    "descriptionKo": "계단으로 연결된 2개 층, 박공지붕, 나무와 자동차가 있는 마당.",
+    "tags": [
+      "2 levels",
+      "stairs",
+      "gable roof"
+    ],
+    "hero": true
+  },
+  {
+    "file": "04-small-office.myarch",
+    "title": "Small office",
+    "titleKo": "소규모 사무실",
+    "description": "Open office, glass meeting room, columns and a reception.",
+    "descriptionKo": "오픈 오피스, 유리 회의실, 기둥, 로비.",
+    "tags": [
+      "office",
+      "columns",
+      "glass walls"
+    ]
+  },
+  {
+    "file": "05-wooden-cabin.myarch",
+    "title": "Wooden cabin",
+    "titleKo": "목조 오두막",
+    "description": "A small cabin with wood cladding and a shed roof.",
+    "descriptionKo": "목재 외장과 외쪽지붕의 작은 오두막.",
+    "tags": [
+      "shed roof",
+      "materials"
+    ]
+  },
+  {
+    "file": "06-renovation-bim.myarch",
+    "title": "Renovation (BIM phases)",
+    "titleKo": "리모델링 (BIM 단계)",
+    "description": "Existing, demolished and new work with layered wall types, grids, room numbers, properties and a cost estimate.",
+    "descriptionKo": "기존·철거·신축 단계, 다층 벽 타입, 그리드, 실 번호, 속성과 공사비.",
+    "tags": [
+      "BIM",
+      "phases",
+      "wall types",
+      "grid"
+    ]
+  },
+  {
+    "file": "07-massing-study.myarch",
+    "title": "Massing study",
+    "titleKo": "매스 스터디",
+    "description": "SketchUp-style mass models: podium, towers, a rotunda and a tapered crown, with scenes to play.",
+    "descriptionKo": "스케치업식 매스 모델: 포디움, 타워, 원형 건물, 테이퍼 지붕과 장면 애니메이션.",
+    "tags": [
+      "mass",
+      "scenes",
+      "push/pull",
+      "groups"
+    ]
+  },
+  {
+    "file": "08-apartment-block.myarch",
+    "title": "Apartment block",
+    "titleKo": "3층 공동주택",
+    "description": "Three storeys of two units around a stair core, with columns on a structural grid and numbered rooms.",
+    "descriptionKo": "계단실을 중심으로 한 2세대 × 3개 층, 구조 그리드 위 기둥, 실 번호.",
+    "tags": [
+      "3 levels",
+      "grid",
+      "columns",
+      "BIM"
+    ]
+  },
+  {
+    "file": "09-cad-tracing.myarch",
+    "title": "Tracing a DXF drawing",
+    "titleKo": "DXF 도면 따라 그리기",
+    "description": "An imported AutoCAD drawing on its own CAD layers, partly traced into walls.",
+    "descriptionKo": "CAD 레이어로 가져온 AutoCAD 도면을 벽으로 일부 따라 그린 예제.",
+    "tags": [
+      "DXF",
+      "CAD layers",
+      "tracing"
+    ]
+  },
+  {
+    "file": "10-office-tower.myarch",
+    "title": "Office tower (8 storeys)",
+    "titleKo": "업무용 빌딩 (8개 층)",
+    "description": "A building-scale model: lobby and café, seven office floors with a concrete core (stairs, two lifts, toilets), curtain walls, a 9 × 8 m column grid, meeting rooms, 600+ furniture items and parking.",
+    "descriptionKo": "빌딩 규모 예제: 로비·카페, 코어(계단·엘리베이터 2대·화장실)가 있는 7개 사무 층, 커튼월, 9 × 8 m 기둥 그리드, 회의실, 가구 600여 개, 주차장.",
+    "tags": [
+      "8 levels",
+      "building",
+      "core",
+      "curtain wall",
+      "column grid"
+    ]
+  },
+  {
+    "file": "11-mixed-use.myarch",
+    "title": "Mixed-use building (5 storeys)",
+    "titleKo": "주상복합 (5개 층)",
+    "description": "Shops on the ground floor (supermarket aisles, a café with booths, a clothing store) and four floors of flats on a corridor with a stair and two lifts.",
+    "descriptionKo": "1층 상가(슈퍼마켓 진열대, 부스석 카페, 옷가게)와 복도식 아파트 4개 층, 계단과 엘리베이터 2대.",
+    "tags": [
+      "5 levels",
+      "building",
+      "retail",
+      "housing"
+    ]
+  },
+  {
+    "file": "12-hospital.myarch",
+    "title": "Community hospital",
+    "titleKo": "지역 병원",
+    "description": "Two floors on a double-loaded corridor: reception, waiting area, exam rooms, imaging and pharmacy below, wards with hospital beds and a nurse station above.",
+    "descriptionKo": "중복도형 2개 층: 1층 접수·대기실·진료실·영상실·약국, 2층 병상이 있는 병실과 간호사실.",
+    "tags": [
+      "2 levels",
+      "healthcare",
+      "corridor",
+      "hip roof"
+    ]
+  },
+  {
+    "file": "13-school.myarch",
+    "title": "Primary school",
+    "titleKo": "초등학교",
+    "description": "Two floors of classrooms with student desks, a library, canteen and school kitchen, staff office, and a tall sports hall with its own gable roof.",
+    "descriptionKo": "학생 책상이 놓인 교실 2개 층, 도서관, 급식실과 조리실, 교무실, 박공지붕의 높은 체육관.",
+    "tags": [
+      "2 levels",
+      "education",
+      "corridor",
+      "furniture"
+    ]
+  },
+  {
+    "file": "14-courtyard-house.myarch",
+    "title": "Courtyard house",
+    "titleKo": "중정형 주택",
+    "description": "A U-shaped single-storey house around a courtyard with a pool and pergola: three bedrooms, dressing room, open living, kitchen island, utility and a two-car garage under a hip roof.",
+    "descriptionKo": "수영장과 퍼걸러가 있는 중정을 둘러싼 ㄷ자형 단층 주택: 침실 3, 드레스룸, 거실, 아일랜드 주방, 다용도실, 2대 차고, 모임지붕.",
+    "tags": [
+      "1 level",
+      "house",
+      "courtyard",
+      "furniture",
+      "hip roof"
+    ]
+  },
+  {
+    "file": "15-sketchup-complex.myarch",
+    "title": "Cultural complex (SketchUp style)",
+    "titleKo": "문화 단지 (스케치업 스타일)",
+    "description": "A large SketchUp-style model: push/pull masses in groups and tags (museum, concert hall, 24-floor twisting tower, canopy, terraced housing), kiosk and bollard components, textured materials, guides, 3D dimensions and text, two section planes, a sandbox terrain and thirteen scenes in every style.",
+    "descriptionKo": "대형 스케치업 스타일 모델: 그룹과 태그로 나눈 밀기/끌기 매스(미술관, 공연장, 24층 비틀린 타워, 캐노피, 계단식 주거), 키오스크·볼라드 컴포넌트, 질감 재료, 보조선, 3D 치수와 문자, 단면 2개, 샌드박스 지형, 모든 스타일의 장면 13개.",
+    "tags": [
+      "SketchUp",
+      "components",
+      "tags",
+      "sections",
+      "terrain",
+      "scenes"
+    ]
+  },
+  {
+    "file": "16-modern-villa.myarch",
+    "title": "Modern villa",
+    "titleKo": "모던 빌라",
+    "description": "A two-storey modern house: an open living, kitchen and dining space behind a glass curtain wall, an upper floor cantilevered over the carport, master suite, flat roofs, a pool and garden.",
+    "descriptionKo": "유리 커튼월 뒤의 거실·주방·식당, 차고 위로 내민 2층, 안방 욕실이 딸린 마스터 침실, 평지붕, 수영장과 정원이 있는 2층 모던 주택.",
+    "tags": [
+      "2 levels",
+      "modern",
+      "curtain wall",
+      "pool"
+    ]
+  },
+  {
+    "file": "17-townhouse.myarch",
+    "title": "Townhouse",
+    "titleKo": "타운하우스",
+    "description": "A narrow three-storey row house between concrete party walls: kitchen to the garden, living room to the street, bedrooms, a study and a roof terrace with a stair pavilion.",
+    "descriptionKo": "콘크리트 경계벽 사이의 좁은 3층 연립주택: 정원 쪽 주방, 거리 쪽 거실, 침실과 서재, 계단실이 있는 옥상 테라스.",
+    "tags": [
+      "4 levels",
+      "modern",
+      "row house",
+      "roof terrace"
+    ]
+  },
+  {
+    "file": "18-modern-farmhouse.myarch",
+    "title": "Modern farmhouse",
+    "titleKo": "모던 팜하우스",
+    "description": "A long gabled house clad in dark timber: an open living hall with a kitchen island, a guest bedroom and mudroom, two bedrooms and a bathroom under the roof, a pergola in the garden.",
+    "descriptionKo": "어두운 목재로 감싼 긴 박공 주택: 아일랜드 주방이 있는 거실 홀, 손님방과 현관 수납실, 지붕 아래 침실 2개와 욕실, 정원의 퍼걸러.",
+    "tags": [
+      "2 levels",
+      "modern",
+      "gable roof",
+      "timber"
+    ]
+  },
+  {
+    "file": "19-duplex.myarch",
+    "title": "Duplex",
+    "titleKo": "듀플렉스 주택",
+    "description": "Two mirror-image two-storey homes sharing a concrete party wall, each with a kitchen to the garden, living room, three bedrooms and a hip roof over both.",
+    "descriptionKo": "콘크리트 경계벽을 공유하는 좌우 대칭 2층 주택 두 채: 정원 쪽 주방, 거실, 침실 3개, 두 집을 덮는 모임지붕.",
+    "tags": [
+      "2 levels",
+      "modern",
+      "semi-detached",
+      "mirror"
+    ]
+  },
+  {
+    "file": "20-compact-house.myarch",
+    "title": "Compact house",
+    "titleKo": "콤팩트 하우스",
+    "description": "A 45 m² single-storey home under one shed roof: living room and kitchen, a bedroom and a shower room, timber cladding and a big sliding window to the garden.",
+    "descriptionKo": "외쪽지붕 하나 아래 45 m² 단층 주택: 거실·주방, 침실, 샤워실, 목재 외장과 정원 쪽 큰 미닫이 창.",
+    "tags": [
+      "1 level",
+      "modern",
+      "small",
+      "shed roof"
+    ]
+  },
+  {
+    "file": "21-interior-design.myarch",
+    "title": "Interior design apartment",
+    "titleKo": "인테리어 디자인 아파트",
+    "description": "A furnished apartment that shows off the interior tools: a wall finish per room, feature walls on one face, skirting boards, curtains, wall art, a chandelier and eye-level scenes in every room.",
+    "descriptionKo": "인테리어 도구를 보여 주는 가구 완비 아파트: 방마다 다른 벽 마감, 한쪽 면만 바꾼 포인트 벽, 걸레받이, 커튼, 벽 그림, 샹들리에, 방마다 눈높이 장면.",
+    "tags": [
+      "1 level",
+      "interior",
+      "finishes",
+      "furniture"
+    ]
+  },
+  {
+    "file": "22-lattice-towers.myarch",
+    "title": "Lattice towers",
+    "titleKo": "격자 철탑",
+    "description": "A 72 m four-legged lattice tower with X bracing and walkways, a red 36 m triangular relay tower with K bracing, and an equipment shelter: parametric towers made of steel members.",
+    "descriptionKo": "X형 가새와 통로가 있는 72 m 4각 격자 철탑, K형 가새의 붉은 36 m 삼각 중계탑, 장비실: 강재 부재로 된 매개변수 철탑.",
+    "tags": [
+      "tower",
+      "members",
+      "parametric",
+      "steel"
+    ]
+  },
+  {
+    "file": "23-bridges.myarch",
+    "title": "Bridges across a river",
+    "titleKo": "강 위의 교량들",
+    "description": "One of each parametric bridge across a 200 m river — girder, truss, tied-arch, cable-stayed and suspension — and a curved viaduct with a crest, next to a visitor pavilion. Select one and choose Edit bridge… to change it.",
+    "descriptionKo": "200 m 강을 건너는 매개변수 교량 — 거더교, 트러스교, 타이드 아치교, 사장교, 현수교 — 와 볼록 종단의 곡선 고가교, 방문자 파빌리온. 하나를 골라 '교량 편집…'으로 바꿀 수 있습니다.",
+    "tags": [
+      "bridge",
+      "members",
+      "parametric",
+      "infrastructure"
+    ]
+  },
+  {
+    "file": "24-deck-arch-bridge.myarch",
+    "title": "Deck arch bridge",
+    "titleKo": "상로 아치교",
+    "description": "A concrete open-spandrel arch across a 180 m gorge: two ribs spring from the valley floor and carry the deck 45 m up on slender columns.",
+    "descriptionKo": "180 m 협곡을 건너는 콘크리트 개복식 아치: 두 개의 리브가 계곡 바닥에서 솟아 45 m 높이의 상판을 가는 기둥으로 받칩니다.",
+    "tags": [
+      "bridge",
+      "arch",
+      "gorge",
+      "concrete"
+    ]
+  },
+  {
+    "file": "25-haunched-girder-bridge.myarch",
+    "title": "Haunched girder bridge",
+    "titleKo": "변단면 거더교",
+    "description": "A continuous concrete box girder of three spans over a river, 2.4 times deeper over the two piers than at mid-span.",
+    "descriptionKo": "강 위 3경간 연속 콘크리트 박스 거더: 두 교각 위에서 경간 중앙보다 2.4배 깊어지는 변단면.",
+    "tags": [
+      "bridge",
+      "girder",
+      "haunched",
+      "concrete"
+    ]
+  },
+  {
+    "file": "26-harp-cable-stayed-bridge.myarch",
+    "title": "Single-pylon harp bridge",
+    "titleKo": "단주탑 하프형 사장교",
+    "description": "A cable-stayed bridge with one tall pylon on the axis and parallel (harp) stays on both sides, across a harbour mouth.",
+    "descriptionKo": "항구 입구를 건너는 사장교: 중앙에 높은 주탑 하나, 양쪽으로 평행한 하프형 케이블.",
+    "tags": [
+      "bridge",
+      "cable-stayed",
+      "harp",
+      "pylon"
+    ]
+  },
+  {
+    "file": "27-extradosed-bridge.myarch",
+    "title": "Extradosed bridge",
+    "titleKo": "엑스트라도즈드교",
+    "description": "Three spans with short masts over the piers and stays in one plane on the deck's axis — between a girder and a cable-stayed bridge.",
+    "descriptionKo": "교각 위 낮은 마스트와 상판 중심 한 면의 케이블을 가진 3경간 교량 — 거더교와 사장교의 중간 형식.",
+    "tags": [
+      "bridge",
+      "extradosed",
+      "masts",
+      "concrete"
+    ]
+  },
+  {
+    "file": "28-stress-ribbon-footbridge.myarch",
+    "title": "Stress-ribbon footbridge",
+    "titleKo": "스트레스 리본 보도교",
+    "description": "A 4 m wide pedestrian bridge of three spans whose thin concrete ribbon hangs between two saddle piers and the anchor blocks.",
+    "descriptionKo": "폭 4 m, 3경간 보행교: 얇은 콘크리트 리본이 두 개의 새들 교각과 앵커 블록 사이에 처져 걸립니다.",
+    "tags": [
+      "bridge",
+      "footbridge",
+      "stress ribbon",
+      "park"
+    ]
+  },
+  {
+    "file": "29-hotel.myarch",
+    "title": "City hotel (9 storeys)",
+    "titleKo": "도심 호텔 (9개 층)",
+    "description": "A business hotel: lobby, restaurant, ballroom, lounge bar and kitchen in the glazed podium, meeting rooms and a conference hall above, seven floors of 133 guest rooms with bathroom pods on a double-loaded corridor, a stair and lift core with a lift shaft, and a roof terrace with a pool behind a glass balustrade.",
+    "descriptionKo": "비즈니스 호텔: 유리 포디움의 로비·레스토랑·연회장·라운지 바·주방, 그 위의 회의실과 컨퍼런스 홀, 중복도에 욕실이 딸린 객실 133개가 있는 7개 객실 층, 계단·엘리베이터 코어와 승강로, 유리 난간 뒤 수영장이 있는 옥상 테라스.",
+    "tags": [
+      "9 levels",
+      "building",
+      "hotel",
+      "corridor",
+      "roof terrace"
+    ]
+  },
+  {
+    "file": "30-university-library.myarch",
+    "title": "University library",
+    "titleKo": "대학 도서관",
+    "description": "Four floors around a full-height atrium behind a curtain-wall façade: lending desk, café, children's library and exhibition below, reading rooms, book stacks, group study and seminar rooms above, a gallery overlooking the void, a stair and lift core, slabs cut open over the atrium.",
+    "descriptionKo": "커튼월 뒤 4개 층을 관통하는 아트리움: 1층 대출 데스크·카페·어린이 도서관·전시실, 위층 열람실·서가·그룹 스터디·세미나실, 보이드를 내려다보는 갤러리, 계단·엘리베이터 코어, 아트리움 위가 뚫린 슬래브.",
+    "tags": [
+      "4 levels",
+      "building",
+      "education",
+      "atrium",
+      "curtain wall"
+    ]
+  },
+  {
+    "file": "31-sports-centre.myarch",
+    "title": "Community sports centre",
+    "titleKo": "생활 체육관",
+    "description": "A double-height sports hall (40 × 30 m) with a basketball court, bleachers and long-span steel beams, changing rooms, toilets and an equipment store behind it, a lobby and café on the ground floor, and a gym, dance studio, office and viewing gallery with internal windows above.",
+    "descriptionKo": "농구 코트·관람석·장스팬 철골 보가 있는 2개 층 높이의 체육관(40 × 30 m), 그 뒤의 탈의실·화장실·장비 창고, 1층 로비와 카페, 2층 헬스장·댄스 스튜디오·사무실과 실내 창으로 체육관을 내려다보는 관람 갤러리.",
+    "tags": [
+      "2 levels",
+      "building",
+      "sports",
+      "long span",
+      "beams"
+    ]
+  },
+  {
+    "file": "32-residential-complex.myarch",
+    "title": "Residential complex (12 + 8 storeys)",
+    "titleKo": "주거 단지 (12층 + 8층)",
+    "description": "Two apartment towers of 12 and 8 storeys on a two-storey podium: a bakery, supermarket, café and pharmacy on the street, a parking deck above with a planted roof terrace, residents' lobbies and a stair and lift core under each tower, 64 flats with living room, kitchen, bedroom and bathroom.",
+    "descriptionKo": "2층 포디움 위의 12층·8층 아파트 타워 두 동: 거리 쪽 빵집·슈퍼마켓·카페·약국, 그 위 주차층과 조경 옥상 테라스, 동마다 주민 로비와 계단·엘리베이터 코어, 거실·주방·침실·욕실이 있는 64세대.",
+    "tags": [
+      "12 levels",
+      "building",
+      "housing",
+      "towers",
+      "podium",
+      "parking"
+    ]
+  },
+  {
+    "file": "33-atrium-office.myarch",
+    "title": "Atrium office (6 storeys)",
+    "titleKo": "아트리움 업무 시설 (6개 층)",
+    "description": "Six storeys of offices on both sides of a full-length atrium behind a curtain-wall façade: a café, exhibition, shop and conference rooms on the ground floor, open-plan offices, meeting rooms and toilets above, corridors along glass balustrades, two bridges across the void on every floor, two stair and lift cores at opposite corners.",
+    "descriptionKo": "커튼월 뒤 건물 길이만큼 뚫린 아트리움 양쪽의 6개 층 업무 시설: 1층 카페·전시실·상점·컨퍼런스룸, 위층 오픈 오피스·회의실·화장실, 유리 난간을 따라가는 복도, 층마다 보이드를 건너는 브리지 두 개, 서로 반대쪽 모서리의 계단·엘리베이터 코어 두 곳.",
+    "tags": [
+      "6 levels",
+      "building",
+      "office",
+      "atrium",
+      "bridges",
+      "curtain wall"
+    ]
+  },
+  {
+    "file": "34-general-hospital.myarch",
+    "title": "General hospital (6 storeys)",
+    "titleKo": "종합 병원 (6개 층)",
+    "description": "A two-storey podium with the entrance hall, emergency, imaging, pharmacy, laboratories, consultation rooms and operating theatres, and two six-storey ward wings at right angles to it around a garden: wards with two beds, nurse stations, a stair and lift core at the end of each wing, link lobbies from the podium corridor into the wings, hip roofs.",
+    "descriptionKo": "입구 홀·응급실·영상의학·약국·검사실·진료실·수술실이 있는 2층 포디움과, 정원을 사이에 두고 직각으로 뻗은 6층 병동 두 동: 2인 병실과 간호사실, 동 끝의 계단·엘리베이터 코어, 포디움 복도에서 병동으로 이어지는 연결 로비, 모임지붕.",
+    "tags": [
+      "6 levels",
+      "building",
+      "healthcare",
+      "wings",
+      "corridor",
+      "hip roof"
+    ]
+  },
+  {
+    "file": "35-courtyard-school.myarch",
+    "title": "Courtyard school (3 storeys)",
+    "titleKo": "중정형 학교 (3개 층)",
+    "description": "Four three-storey wings around a planted courtyard: classrooms on double-loaded corridors, an entrance hall, offices, library, canteen and kitchen on the ground floor, science labs, music, art and computer rooms in the side wings, link lobbies where the corridors meet, two stairs and a lift, slabs open over the courtyard and a sports pitch.",
+    "descriptionKo": "나무를 심은 중정을 둘러싼 3층 건물 네 동: 중복도를 따라 늘어선 교실, 1층 입구 홀·교무실·도서관·급식실·조리실, 양쪽 동의 과학실·음악실·미술실·컴퓨터실, 복도가 만나는 연결 로비, 계단 두 곳과 엘리베이터, 중정 위가 뚫린 슬래브와 운동장.",
+    "tags": [
+      "3 levels",
+      "building",
+      "education",
+      "courtyard",
+      "wings"
+    ]
+  },
+  {
+    "file": "36-terraced-office.myarch",
+    "title": "Terraced office (5 storeys)",
+    "titleKo": "계단식 테라스 사무소 (5개 층)",
+    "description": "An office building that steps back 4 m on every floor: open-plan offices facing south, each floor opening onto a planted roof terrace with a glass balustrade on the floor below, a service strip with stairs, lifts, toilets, meeting rooms and a pantry along the north side, a lobby and café on the ground floor and a lounge with meeting rooms on top.",
+    "descriptionKo": "층마다 4 m 씩 뒤로 물러나는 사무소: 남향 오픈 오피스, 층마다 아래층 지붕의 유리 난간·화단이 있는 옥상 테라스로 나가는 문, 북쪽의 계단·엘리베이터·화장실·회의실·탕비실 띠, 1층 로비와 카페, 맨 위층 라운지와 회의실.",
+    "tags": [
+      "5 levels",
+      "building",
+      "office",
+      "terraces",
+      "stepped"
+    ]
+  },
+  {
+    "file": "37-u-shaped-apartments.myarch",
+    "title": "U-shaped apartment block (7 storeys)",
+    "titleKo": "ㄷ자형 아파트 (7개 층)",
+    "description": "A seven-storey U around a garden court: a north bar and two wings on double-loaded corridors with 94 flats (living room with kitchen, bedroom, bathroom), an entrance lobby, management office, community room and gym on the ground floor, link lobbies where the wings meet the bar and a stair and lift core at each of the three ends.",
+    "descriptionKo": "정원을 둘러싼 7층 ㄷ자 아파트: 중복도의 북쪽 동과 양 날개에 94세대(주방 딸린 거실, 침실, 욕실), 1층 입구 로비·관리사무소·커뮤니티실·헬스장, 날개와 본동이 만나는 연결 로비, 세 끝마다 계단·엘리베이터 코어.",
+    "tags": [
+      "7 levels",
+      "building",
+      "housing",
+      "wings",
+      "courtyard"
+    ]
+  },
+  {
+    "file": "38-museum.myarch",
+    "title": "Museum with an angled wing",
+    "titleKo": "사선 전시동이 있는 박물관",
+    "description": "A two-storey museum: a foyer with a grand stair behind a curved entrance canopy on round columns, eight galleries on two floors linked by wide openings, a museum shop, café, education room and offices, and a single-storey gallery wing set at an angle of about 37° to the main block, split by a partition between its slanted walls.",
+    "descriptionKo": "2층 박물관: 둥근 기둥이 받치는 곡선 캐노피 뒤 큰 계단이 있는 로비, 넓은 개구부로 이어진 두 층의 전시실 여덟 곳, 뮤지엄숍·카페·교육실·사무실, 본관과 약 37° 로 꺾여 붙은 단층 전시동(사선 벽 사이를 칸막이로 나눔).",
+    "tags": [
+      "2 levels",
+      "building",
+      "culture",
+      "angled walls",
+      "canopy"
+    ]
+  }
+]

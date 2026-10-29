@@ -1,0 +1,40 @@
+{
+  "name": "myarchitecture",
+  "productName": "MyArchitecture",
+  "version": "10.0.0",
+  "private": true,
+  "description": "MyArchitecture 10.0 — architectural floor plans, 3D, BIM and CAD exchange for Web, Windows, macOS and Linux (Tauri)",
+  "author": "SHKWON <knix008@naver.com>",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "node scripts/start.mjs",
+    "serve": "node scripts/serve.mjs",
+    "tauri": "tauri",
+    "test": "node scripts/test.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "vendor": "node scripts/vendor-three.mjs",
+    "build:web": "node scripts/build-info.mjs && node scripts/build-web.mjs",
+    "build:debug": "node scripts/build.mjs debug",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "build:samples": "node scripts/create-samples.mjs",
+    "build:docs": "node scripts/docs-shots.mjs",
+    "build:icons": "node scripts/render-art.mjs",
+    "build:art": "node scripts/render-art.mjs",
+    "smoke": "node test/smoke/gui-smoke.mjs",
+    "smoke:windows": "node test/smoke/windows-smoke.mjs",
+    "bench:3d": "node scripts/bench-3d.mjs",
+    "bench:3d:gui": "node scripts/bench-3d-gui.mjs",
+    "record:tutorial": "node scripts/record-tutorial.mjs",
+    "i18n:check": "node scripts/i18n-keys.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "@xmldom/xmldom": "^0.8.15",
+    "png-to-ico": "^2.1.8",
+    "pngjs": "^7.0.0",
+    "three": "0.186.1"
+  }
+}
