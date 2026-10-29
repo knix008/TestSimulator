@@ -40,14 +40,19 @@ function tauri() {
 
 /**
  * A popup window as high as its content (CSS pixels, at most maxHeight), so it
- * hides nothing and leaves no empty band at the bottom. The width stays.
+ * hides nothing and leaves no empty band at the bottom. The width stays:
+ * a pool window takes the width of the request (setPopupWidth), not
+ * window.innerWidth — that can still be the previous popup's while the main
+ * window resizes it, and this resize may land after that one.
  */
-export async function fitPopupHeight(height, maxHeight = 900) {
+let popupWidth = 0;
+export function setPopupWidth(width) { popupWidth = width || 0; }
+export async function fitPopupHeight(height, maxHeight = 900, minHeight = 120) {
   if (!popupRoute()) return;
   try {
     const api = await tauri();
     const w = api.getCurrentWindow();
-    await w.setSize(new api.LogicalSize(Math.round(window.innerWidth), Math.round(Math.min(maxHeight, Math.max(120, height)))));
+    await w.setSize(new api.LogicalSize(Math.round(popupWidth || window.innerWidth), Math.round(Math.min(maxHeight, Math.max(minHeight, height)))));
   } catch { /* the window keeps its size */ }
 }
 
@@ -73,7 +78,7 @@ export async function warmPopups() {
       url: `index.html${POPUP_HASH}pool?slot=${slot}`,
       parent: 'main',
       decorations: false,
-      resizable: slot === 'dialog',
+      resizable: false,
       width: 300,
       height: 200,
       visible: false,
@@ -140,8 +145,11 @@ function record(kind, ms, how) {
  * frame: an ordinary window with the system title bar and a taskbar button
  * (the print window: the system print preview covers the page, so the page's
  * own title bar could not move or resize it meanwhile).
+ * owned: false makes a top-level window instead of a child of the main window
+ * (the user's guide: it can go behind the main window, has its own taskbar
+ * button; closePopups() closes it with the main window).
  */
-export async function openPopupWindow({ kind, payload, anchor, width, height, center = false, resizable = false, frame = false, onResult, onClose }) {
+export async function openPopupWindow({ kind, payload, anchor, width, height, center = false, resizable = false, frame = false, owned = true, onResult, onClose }) {
   const t0 = performance.now();
   const api = await tauri();
   const slot = SLOT_OF[kind];
@@ -169,7 +177,7 @@ export async function openPopupWindow({ kind, payload, anchor, width, height, ce
     entry.current = { id, cleanup };
     const w = entry.win;
     // The content renders while the window is still hidden; then it is placed and shown.
-    await api.emit(`pool-open:${slot}`, { id, kind, payload });
+    await api.emit(`pool-open:${slot}`, { id, kind, payload, width: Math.round(width) });
     await Promise.all([w.setSize(new api.LogicalSize(Math.round(width), Math.round(height))), w.setPosition(new api.LogicalPosition(pos.x, pos.y))]);
     await w.show();
     await w.setFocus();
@@ -184,13 +192,14 @@ export async function openPopupWindow({ kind, payload, anchor, width, height, ce
   unlisten.push(await api.listen(`popup-shown:${id}`, () => record(kind, performance.now() - t0, 'new')));
   const w = new api.WebviewWindow(label, {
     url: `index.html${POPUP_HASH}${kind}?id=${id}`,
-    parent: 'main',
+    ...(owned ? { parent: 'main' } : {}),
     decorations: frame,
-    resizable: resizable || frame,
+    resizable,
+    maximizable: resizable,
     width: Math.round(width),
     height: Math.round(height),
-    minWidth: frame ? 480 : undefined,
-    minHeight: frame ? 360 : undefined,
+    minWidth: frame && resizable ? 480 : undefined,
+    minHeight: frame && resizable ? 360 : undefined,
     x: pos.x,
     y: pos.y,
     skipTaskbar: !frame,

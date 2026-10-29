@@ -1301,8 +1301,7 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 .about-name p { margin: 0; }
 .about-rows { display: grid; grid-template-columns: 110px minmax(0, 1fr); column-gap: 14px; row-gap: 5px; margin: 0 0 10px; font-size: 12.5px; }
 .about-rows dt { color: var(--fg-muted); font-weight: 600; }
-.about-rows dd { margin: 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.about-rows dd:first-of-type { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.about-rows dd { margin: 0; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .about-rows a { color: var(--accent); }
 .about-links { display: inline-flex; gap: 12px; }
 .link-btn { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; font: inherit; }
@@ -1426,9 +1425,17 @@ body.resizing-y { cursor: row-resize; user-select: none; }
 /* The dialog is the window: no frame of its own, the body scrolls when the
    window (at most 90% of the screen high) is smaller than the dialog. */
 .dialog-window { width: 100vw; height: 100vh; }
+/* Any dialog that is a window of its own (pool windows: settings, about,
+   shortcuts) fills it exactly — no band left at the right or bottom; the
+   window is sized to the dialog, so nothing scrolls. */
+html.popup-window .dialog.windowed { position: fixed; inset: 0; width: auto; max-width: none; height: auto; max-height: none; box-sizing: border-box; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; overflow: hidden; }
+html.popup-window .dialog.windowed > .dialog-title { flex: none; }
+html.popup-window .dialog.windowed > .dialog-body { flex: 1 1 auto; min-height: 0; }
 .dialog-window > .dialog.windowed { width: 100vw; max-width: none; height: 100vh; max-height: 100vh; box-sizing: border-box; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; overflow: hidden; }
 .dialog-window > .dialog.windowed > .dialog-title { flex: none; cursor: default; }
 .dialog-window > .dialog.windowed > .dialog-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+/* Content keeps its natural height, so the window is fitted to all of it (no inner scrollbars). */
+.dialog-window > .dialog.windowed > .dialog-body > * { flex-shrink: 0; }
 .progress-window .scan-progress-back { position: static; inset: auto; display: block; background: none; }
 .progress-window .scan-progress { width: 100vw; height: 100vh; border-radius: 0; box-shadow: none; }
 .progress-window .sp-head { cursor: default; }

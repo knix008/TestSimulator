@@ -113,6 +113,8 @@
   border-radius: 10px; box-shadow: var(--shadow, 0 18px 50px rgba(0, 0, 0, 0.45)); overflow: hidden;
   font-family: var(--font, system-ui, sans-serif); font-size: var(--fs, 13px);
 }
+/* Desktop: the guide's own window (UserGuide windowed) — it is the whole window. */
+.mcc-guide.mcc-guide-windowed { position: fixed; inset: 0; width: auto; height: auto; border: 0; border-radius: 0; box-shadow: none; }
 .mcc-guide-bar { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; background: var(--bg-panel, #161b23); border-bottom: 1px solid var(--border, #2a3441); user-select: none; }
 .mcc-guide-title { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; margin-right: 6px; white-space: nowrap; }
 .mcc-guide-sep { width: 1px; height: 20px; background: var(--border, #2a3441); margin: 0 2px; }

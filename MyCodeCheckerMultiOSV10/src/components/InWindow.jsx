@@ -20,7 +20,7 @@ export const PRINT_SIZE_KEY = 'mcc.printWindow';
 
 let channels = 0;
 
-export function InWindow({ kind, payload, width = 560, height = 360, resizable = true, frame = false, live, onResult, onEvent, onClose, children }) {
+export function InWindow({ kind, payload, width = 560, height = 360, resizable = false, frame = false, live, onResult, onEvent, onClose, children }) {
   const windowed = usePopupWindows();
   const handlers = useRef({ onResult, onEvent, onClose });
   handlers.current = { onResult, onEvent, onClose };

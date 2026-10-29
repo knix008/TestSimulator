@@ -364,11 +364,12 @@ const ROWS = [
 
   // ── 15. 도움말과 CI ──────────────────────────────────
   ['helpMenu', 'help', MENU, ['project', 'menu:help', 'wait:300'],
-    ['도움말 메뉴', '도움말 메뉴에는 [사용 설명서], [튜토리얼 시작], [튜토리얼 문서], 단축키, README, 정보가 있습니다. 튜토리얼은 언제든 이 메뉴에서 다시 시작할 수 있고, 마지막으로 본 단계를 기억해 이어서 볼 수도 있습니다.'],
-    ['Help menu', 'The Help menu has [User\'s guide], [Start tutorial], [Tutorial document], shortcuts, the README and About. Start the tutorial again from here at any time; it remembers the last step so you can continue.']],
-  ['guideWindow', 'help', T('guide-window', '.mcc-guide'), ['project', 'guide'],
-    ['사용 설명서 창', '[사용 설명서] 창은 설명서를 앱 안에서 읽는 창입니다. 위쪽에서 문서(사용 설명서·튜토리얼 문서·README)와 언어(한국어·English)를 고르고, ◀ ▶ 로 앞뒤로 이동하며, [새 창에서 열기] 로 브라우저에서 엽니다. 설명서는 메인 창과 같은 테마로 보입니다.'],
-    ['User\'s guide window', 'The [User\'s guide] window reads the manual inside the app. At the top choose the document (user\'s guide, tutorial document, README) and the language (한국어 / English), go back and forward with ◀ ▶, and [Open in new window] shows it in the browser. The guide uses the same theme as the main window.']],
+    ['도움말 메뉴', '도움말 메뉴는 한 줄로 [튜토리얼 시작], [튜토리얼 처음부터 시작], [사용 설명서], [튜토리얼 문서], README, 아키텍처 문서, 바로 가기 키, 정보를 보여 줍니다. 튜토리얼은 언제든 이 메뉴에서 다시 시작할 수 있고, 마지막으로 본 단계를 기억해 이어서 볼 수도 있습니다.'],
+    ['Help menu', 'The Help menu lists, in one column, [Start the tutorial], [Restart the tutorial from the beginning], [User\'s guide], [Tutorial document], the README, the architecture document, keyboard shortcuts and About. Start the tutorial again from here at any time; it remembers the last step so you can continue.']],
+  // Desktop: the guide is a window of its own, so the outline falls back to the menu bar.
+  ['guideWindow', 'help', T('guide-window', '.mcc-guide', '.menubar'), ['project', 'guide'],
+    ['사용 설명서 창', '[사용 설명서] 창은 설명서를 읽는 창입니다. 데스크톱 앱에서는 메인 창과 따로 떨어진 창으로 열려, 어디로든 옮겨 두고 보면서 작업할 수 있습니다. 위쪽에서 문서(사용 설명서·튜토리얼 문서·README)와 언어(한국어·English)를 고르고, ◀ ▶ 로 앞뒤로 이동하며, [새 창에서 열기] 로 브라우저에서 엽니다. 설명서는 메인 창과 같은 테마로 보입니다.'],
+    ['User\'s guide window', 'The [User\'s guide] window reads the manual. In the desktop app it opens as a window of its own, apart from the main window, so you can move it anywhere and keep it open while you work. At the top choose the document (user\'s guide, tutorial document, README) and the language (한국어 / English), go back and forward with ◀ ▶, and [Open in new window] shows it in the browser. The guide uses the same theme as the main window.']],
   ['ciScan', 'help', T('menubar', '.menubar', '.menu-bar'), ['project', 'close-guide'],
     ['CI 에서 분석하기', 'CI 에서는 node scripts/scan.mjs 로 같은 엔진을 실행합니다. 저장소 루트의 mcc-project.properties(프로젝트 키, 소스 경로, 제외 경로)를 그대로 읽고, --server 주소와 토큰을 주면 결과를 이 서버로 올려 개요·활동·작업 화면에 나타나게 합니다. 품질 게이트가 실패하면 종료 코드 1 로 빌드를 멈춥니다.'],
     ['Analysing in CI', 'In CI, node scripts/scan.mjs runs the same engines. It reads mcc-project.properties at the repository root (project key, sources, exclusions) as is; with --server and a token it uploads the result to this server so it shows in the overview, activity and tasks views. A failed quality gate exits with code 1 to stop the build.']],

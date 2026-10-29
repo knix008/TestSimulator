@@ -16,12 +16,13 @@ import { call } from '../lib/backend';
 import { Icon, Dialog, menuIcon } from '../components/Chrome';
 import { LangFlag } from '../components/Flags';
 import { ThemePicker } from '../components/ThemePicker';
-import { popupRoute, receivePayload, sendResult, closeSelf, broadcast, setPoolCloser, announceShown, fitPopupHeight } from '../lib/popups';
+import { popupRoute, receivePayload, sendResult, closeSelf, broadcast, setPoolCloser, setPopupWidth, announceShown, fitPopupHeight } from '../lib/popups';
 import { SettingsDialog } from './Settings';
 import { UiHost } from '../components/UiHost';
 import { columnsOf } from '../lib/menuColumns';
 import { AboutDialog } from './About';
-import { DialogWindow, isDialogWindow } from './DialogWindows';
+import { UserGuide } from '../components/UserGuide';
+import { DialogWindow, FitDialogWindow, isDialogWindow } from './DialogWindows';
 
 function useCloseOnBlur(enabled) {
   useEffect(() => {
@@ -63,6 +64,12 @@ function ListPopup({ id, items, value, kind }) {
     const el = box.current && box.current.querySelectorAll('[data-item]')[active];
     if (el) el.scrollIntoView({ block: 'nearest' });
   }, [active]);
+  // A menu window as high as its items (menuSize only estimates): no band below the last item.
+  useEffect(() => {
+    if (kind !== 'menu' || !box.current) return;
+    const r = box.current.getBoundingClientRect();
+    if (Math.abs(Math.ceil(r.bottom) - window.innerHeight) > 1) fitPopupHeight(Math.ceil(r.bottom), 900, 30);
+  }, [kind, items.length]);
   let n = -1;
   const row = (item, i) => {
     if (item.sep) return <div key={`s${i}`} className="menu-sep" />;
@@ -128,14 +135,17 @@ function PopupContent({ kind, id, payload }) {
   if (kind === 'menu' || kind === 'select') return <ListPopup id={id} kind={kind} items={payload.items || []} value={payload.value} />;
   if (kind === 'themes') return <ThemesPopup id={id} payload={payload} />;
   if (kind === 'settings') return <SettingsWindow id={id} payload={payload} />;
-  if (kind === 'about') return <AboutDialog windowed summary={payload.summary} onClose={() => closeSelf()} />;
+  if (kind === 'about') return <FitDialogWindow><AboutDialog windowed summary={payload.summary} onClose={() => closeSelf()} /></FitDialogWindow>;
+  if (kind === 'guide') return <UserGuide windowed initial={payload} />;
   if (isDialogWindow(kind)) return <><DialogWindow kind={kind} id={id} payload={payload} /><UiHost /></>;
   if (kind === 'info') {
     return (
-      <Dialog windowed title={payload.title} icon={payload.icon || 'info'} onClose={() => closeSelf()}>
-        {String(payload.body || '').split('\n').map((line, i) => <p key={i}>{line}</p>)}
-        {payload.small && <p className="small">{payload.small}</p>}
-      </Dialog>
+      <FitDialogWindow>
+        <Dialog windowed title={payload.title} icon={payload.icon || 'info'} onClose={() => closeSelf()}>
+          {String(payload.body || '').split('\n').map((line, i) => <p key={i}>{line}</p>)}
+          {payload.small && <p className="small">{payload.small}</p>}
+        </Dialog>
+      </FitDialogWindow>
     );
   }
   return <div className="popup-root">{kind}</div>;
@@ -168,6 +178,7 @@ function PoolWindow({ slot }) {
       unsub.push(await listen(`pool-open:${slot}`, (e) => {
         const req = e.payload || {};
         const prev = curRef.current;
+        setPopupWidth(req.width);
         applyLook(req.payload);
         flushSync(() => setCur(req));
         curRef.current = req;

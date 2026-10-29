@@ -5,17 +5,22 @@
 //   const cols = columnsOf(items);       // [[{ item, index }], …] (1 or 2 columns)
 //   cols.jump(active, +1 | -1)            // ←/→: same row in the other column
 //   menuSize(items, colWidth)             // { width, height } for a popup window
+//
+// A list with an item marked oneColumn: true (or columnsOf(items, true))
+// always stays in one column — the Help menu.
 export const TWO_COLUMN_MIN = 7;
 export const ROW_H = 30;
 export const SEP_H = 9;
 
 const rowsOf = (list) => list.reduce((h, x) => h + (x.item.sep ? SEP_H : ROW_H), 0);
 
-export function columnsOf(items) {
+export const isOneColumn = (items) => !!(items && items.some((x) => x && x.oneColumn));
+
+export function columnsOf(items, single = isOneColumn(items)) {
   const all = (items || []).map((item, index) => ({ item, index }));
   const count = all.filter((x) => !x.item.sep).length;
   let cols;
-  if (count < TWO_COLUMN_MIN) cols = [all];
+  if (single || count < TWO_COLUMN_MIN) cols = [all];
   else {
     // Groups between separators.
     const groups = [[]];

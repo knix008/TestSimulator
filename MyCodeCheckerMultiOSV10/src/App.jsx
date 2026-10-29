@@ -41,7 +41,7 @@ import { ScanProgress } from './views/ScanProgress';
 import { UserGuide } from './components/UserGuide';
 import { TutorialWelcome } from './components/TutorialWelcome';
 import { progressPatch, shouldShowWelcome } from './lib/tutorialSettings';
-import { usePopupWindows, openPopupWindow, onBroadcast, warmPopups, popupRoute } from './lib/popups';
+import { usePopupWindows, openPopupWindow, closePopups, onBroadcast, warmPopups, popupRoute } from './lib/popups';
 import { ask, toast, attempt, showError, errorText as errorTextOf } from './lib/ui';
 import { track } from './lib/progress';
 import { record, clearHistory, undo as historyUndo, redo as historyRedo, subscribeHistory, onHistoryApplied, typingTarget, historyState } from './lib/history';
@@ -319,6 +319,8 @@ export default function App() {
     closingRef.current = true;
     window.__mcc = { ...(window.__mcc || {}), closed: true };
     if (!isDesktop) { window.close(); return; }
+    // Top-level popups (the user's guide) are not children of this window.
+    await closePopups().catch(() => {});
     try {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       const w = getCurrentWindow();
@@ -852,7 +854,7 @@ export default function App() {
     else if (id === 'settings' || id.startsWith('settings:')) {
       const tab = id.startsWith('settings:') ? id.slice(9) : null;
       // The settings window's shortcut buttons come back as { action } and run here.
-      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: 720, onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings, gates: ws.gates }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
+      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: Math.min(930, window.screen.availHeight - 40), onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings, gates: ws.gates }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
       else { setSettingsTab(tab); setDialog({ kind: 'settings' }); }
     }
     else if (id.startsWith('adminTab:')) { setAdminTab(id.slice(9)); setView('admin'); }
@@ -904,12 +906,11 @@ export default function App() {
     else if (id === 'about' && usePopupWindows()) {
       openPopupWindow({ kind: 'about', center: true, width: 660, height: 640, payload: { summary: aboutSummary(rules), theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
     }
-    else if ((id === 'about' || id === 'help' || id === 'shortcuts') && usePopupWindows()) {
-      const info = { about: ['MyCodeChecker', 'info', t('about_body'), `SHKWON · ${rules.length} rules · ${themeById(ws.settings.theme).label}`], help: [t('help'), 'lightbulb', t('help_body'), ''], shortcuts: [t('shortcuts'), 'key', t('shortcut_body'), ''] }[id];
-      openPopupWindow({ kind: 'info', center: true, width: id === 'help' ? 720 : 520, height: id === 'help' ? 600 : 320, payload: { title: info[0], icon: info[1], body: info[2], small: info[3], theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
+    else if ((id === 'about' || id === 'shortcuts') && usePopupWindows()) {
+      const info = { about: ['MyCodeChecker', 'info', t('about_body'), `SHKWON · ${rules.length} rules · ${themeById(ws.settings.theme).label}`], shortcuts: [t('shortcuts'), 'key', t('shortcut_body'), ''] }[id];
+      openPopupWindow({ kind: 'info', center: true, width: 520, height: 320, payload: { title: info[0], icon: info[1], body: info[2], small: info[3], theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
     }
     else if (id === 'about') setDialog({ kind: 'about' });
-    else if (id === 'help') setDialog({ kind: 'help' });
     else if (id === 'shortcuts') setDialog({ kind: 'shortcuts' });
     else if (id === 'customRule') setDialog({ kind: 'custom' });
     else if (id === 'tools') setDialog({ kind: 'tools' });
@@ -1183,7 +1184,7 @@ export default function App() {
       ...(hasUserToken() ? [{ sep: true }, { id: 'signOut', label: t('sign_out'), icon: 'user' }] : []),
     ] },
     { id: 'help', labelKey: 'menu_help', icon: 'info', items: () => [
-      { id: 'tutorial', label: t('sp_tutorial_start'), icon: 'graduation' },
+      { id: 'tutorial', label: t('sp_tutorial_start'), icon: 'graduation', oneColumn: true },
       { id: 'tutorialRestart', label: t('tut_restart'), icon: 'refresh' },
       { sep: true },
       { id: 'doc:guide', label: t('sp_users_guide'), icon: 'book' },
@@ -1191,7 +1192,6 @@ export default function App() {
       { id: 'doc:readme', label: 'README', icon: 'file' },
       { id: 'doc:architecture', label: t('doc_architecture'), icon: 'flow' },
       { sep: true },
-      { id: 'help', label: t('help'), icon: 'lightbulb' },
       { id: 'shortcuts', label: t('shortcuts'), icon: 'key' },
       { id: 'about', label: t('about'), icon: 'info' },
     ] },
@@ -1398,11 +1398,6 @@ export default function App() {
         </InWindow>
       )}
       {dialog && dialog.kind === 'about' && <AboutDialog summary={aboutSummary(rules)} onClose={() => setDialog(null)} />}
-      {dialog && dialog.kind === 'help' && (
-        <Dialog title={t('help')} icon="lightbulb" onClose={() => setDialog(null)} wide>
-          {t('help_body').split('\n').map((line, i) => <p key={i}>{line}</p>)}
-        </Dialog>
-      )}
       {dialog && dialog.kind === 'shortcuts' && (
         <Dialog title={t('shortcuts')} icon="key" onClose={() => setDialog(null)}>
           {t('shortcut_body').split('\n').map((line, i) => <p key={i}>{line}</p>)}

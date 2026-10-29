@@ -612,13 +612,13 @@ The language button shows the current language's flag and code (KO / EN). Each c
 
 ![Help menu](docs/images/tutorial/en/94-helpMenu.jpg)
 
-The Help menu has [User's guide], [Start tutorial], [Tutorial document], shortcuts, the README and About. Start the tutorial again from here at any time; it remembers the last step so you can continue.
+The Help menu lists, in one column, [Start the tutorial], [Restart the tutorial from the beginning], [User's guide], [Tutorial document], the README, the architecture document, keyboard shortcuts and About. Start the tutorial again from here at any time; it remembers the last step so you can continue.
 
 ### 95. User's guide window
 
 ![User's guide window](docs/images/tutorial/en/95-guideWindow.jpg)
 
-The [User's guide] window reads the manual inside the app. At the top choose the document (user's guide, tutorial document, README) and the language (한국어 / English), go back and forward with ◀ ▶, and [Open in new window] shows it in the browser. The guide uses the same theme as the main window.
+The [User's guide] window reads the manual. In the desktop app it opens as a window of its own, apart from the main window, so you can move it anywhere and keep it open while you work. At the top choose the document (user's guide, tutorial document, README) and the language (한국어 / English), go back and forward with ◀ ▶, and [Open in new window] shows it in the browser. The guide uses the same theme as the main window.
 
 ### 96. Analysing in CI
 

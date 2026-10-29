@@ -199,7 +199,7 @@ export function MenuBar({ menus, onAction, theme, startActive, dirty }) {
       await openPopupWindow({ kind: 'themes', anchor: r, width: 400, height: 570, payload: { ...look, value: theme }, onResult: (res) => res && res.id && onAction(res.id) });
       return;
     }
-    const items = (sub || menus.find((m) => m.id === id).items()).map((it) => (it.sep ? { sep: true } : { id: it.children ? `sub:${it.id}` : it.id, label: it.label, icon: it.icon, keys: it.children ? '▸' : (it.keys || ''), disabled: !!it.disabled }));
+    const items = (sub || menus.find((m) => m.id === id).items()).map((it) => (it.sep ? { sep: true } : { id: it.children ? `sub:${it.id}` : it.id, label: it.label, icon: it.icon, keys: it.children ? '▸' : (it.keys || ''), disabled: !!it.disabled, ...(it.oneColumn ? { oneColumn: true } : {}) }));
     const size = menuSize(items, 290);
     await openPopupWindow({ kind: 'menu', anchor: r, width: size.width, height: size.height, payload: { ...look, items }, onResult: (res) => {
       if (!res || !res.id) return;

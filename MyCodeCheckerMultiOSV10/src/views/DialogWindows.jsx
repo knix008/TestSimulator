@@ -172,14 +172,10 @@ const DIALOG_WINDOWS = {
 
 export const isDialogWindow = (kind) => kind === 'print' || kind === 'progress' || Object.prototype.hasOwnProperty.call(DIALOG_WINDOWS, kind);
 
-/** A dialog as a window of its own, as high as the dialog (at most 90% of the screen). */
-export function DialogWindow({ kind, id, payload }) {
-  useLanguage();
-  const box = useRef(null);
-  const done = (value) => sendResult(id, { value });
-  const notify = (event) => sendResult(id, { event }, { close: false });
+/** The window as high as the .dialog inside box (at most 90% of the screen); enabled: false skips it. */
+export function useFitDialogWindow(box, enabled = true) {
   useEffect(() => {
-    if (kind === 'print' || kind === 'progress') return undefined;
+    if (!enabled) return undefined;
     const el = box.current;
     if (!el) return undefined;
     const fit = () => {
@@ -190,7 +186,7 @@ export function DialogWindow({ kind, id, payload }) {
       // The body stretches to the window: its content ends at its last child.
       const last = body && body.lastElementChild;
       const content = last
-        ? last.getBoundingClientRect().bottom - body.getBoundingClientRect().top + body.scrollTop + parseFloat(getComputedStyle(body).paddingBottom || '0')
+        ? last.getBoundingClientRect().bottom - body.getBoundingClientRect().top + body.scrollTop + parseFloat(getComputedStyle(last).marginBottom || '0') + parseFloat(getComputedStyle(body).paddingBottom || '0')
         : d.scrollHeight;
       const h = (title ? title.offsetHeight : 0) + content + 2;
       fitPopupHeight(Math.ceil(h), Math.round(window.screen.availHeight * 0.9));
@@ -205,7 +201,23 @@ export function DialogWindow({ kind, id, payload }) {
     const mo = typeof MutationObserver !== 'undefined' ? new MutationObserver(later) : null;
     if (mo) mo.observe(el, { childList: true, subtree: true, characterData: true });
     return () => { cancelAnimationFrame(frame); if (ro) ro.disconnect(); if (mo) mo.disconnect(); };
-  }, [kind]);
+  }, [box, enabled]);
+}
+
+/** A pool window's dialog (about, shortcuts), with its window fitted to it. */
+export function FitDialogWindow({ children }) {
+  const box = useRef(null);
+  useFitDialogWindow(box);
+  return <div className="dialog-window" ref={box}>{children}</div>;
+}
+
+/** A dialog as a window of its own, as high as the dialog (at most 90% of the screen). */
+export function DialogWindow({ kind, id, payload }) {
+  useLanguage();
+  const box = useRef(null);
+  const done = (value) => sendResult(id, { value });
+  const notify = (event) => sendResult(id, { event }, { close: false });
+  useFitDialogWindow(box, kind !== 'print' && kind !== 'progress');
   if (kind === 'print') return <PrintWindow payload={payload} />;
   if (kind === 'progress') return <div className="dialog-window progress-window"><ProgressWindow payload={payload} notify={notify} /></div>;
   const render = DIALOG_WINDOWS[kind];

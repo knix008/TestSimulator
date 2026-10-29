@@ -11,13 +11,20 @@
 //
 // Mounted once in App: <UserGuide />. window.__mcc.openGuide(doc?, lang?)
 // opens it ('guide' | 'tutorial' | 'readme'), window.__mcc.closeGuide() closes it.
+//
+// Desktop: the guide is a window of its own (popup kind 'guide', the system
+// title bar, top level — not owned by the main window, so it can be moved
+// anywhere and go behind it; fixed size). It renders <UserGuide windowed />;
+// opening it again sends 'mcc-guide-show' to the window that is already open,
+// and the main window sends 'mcc-guide-look' when its theme or language changes.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { getLanguage, useLanguage } from '../lib/i18n';
+import { getLanguage, setLanguage, useLanguage } from '../lib/i18n';
 import { Icon, CloseButton } from './Chrome';
 import { FlagKR, FlagGB } from './Flags';
-import { onBroadcast } from '../lib/popups';
+import { onBroadcast, broadcast, usePopupWindows, openPopupWindow, closeSelf } from '../lib/popups';
+import { applyTheme, setCustomThemes, getCustomThemesRaw } from '../themes';
 import '../tutorial.css';
 
 export const GUIDE_DOCS = [
@@ -90,11 +97,51 @@ const mcc = () => {
   return window.__mcc;
 };
 
-export function UserGuide() {
+// ── desktop: the guide window ──────────────────────────
+let guideWin = null;
+const look = () => ({ theme: document.documentElement.dataset.theme, language: getLanguage(), customThemes: getCustomThemesRaw() });
+
+/** Size of the guide window (CSS px): fixed, fitted to the screen. */
+export function guideWindowSize() {
+  const sw = window.screen.availWidth || 1280;
+  const sh = window.screen.availHeight || 800;
+  return { width: Math.min(1180, sw - 40), height: Math.min(860, sh - 40) };
+}
+
+async function openGuideWindow(id, language) {
+  const req = { doc: docOf(id).id, lang: language || getLanguage() };
+  if (guideWin) {
+    await broadcast('mcc-guide-show', { ...req, ...look() });
+    try { await guideWin.unminimize(); } catch { /* not minimized */ }
+    try { await guideWin.show(); await guideWin.setFocus(); } catch { /* gone */ }
+    return;
+  }
+  const size = guideWindowSize();
+  const s = L[getLanguage() === 'en' ? 'en' : 'ko'];
+  guideWin = await openPopupWindow({
+    kind: 'guide', center: true, frame: true, owned: false, width: size.width, height: size.height,
+    payload: { ...look(), ...req, windowTitle: `${s.title} · MyCodeChecker` },
+    onClose: () => { guideWin = null; },
+  });
+  // The main window's theme / language changes follow into the guide window.
+  const mo = new MutationObserver(() => { if (guideWin) broadcast('mcc-guide-look', look()).catch(() => {}); else mo.disconnect(); });
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'data-theme', 'data-mode', 'class', 'lang'] });
+}
+
+const applyLook = (p) => {
+  if (!p) return;
+  if (p.customThemes) setCustomThemes(p.customThemes);
+  if (p.theme) applyTheme(p.theme);
+  if (p.language && p.language !== getLanguage()) setLanguage(p.language);
+};
+
+/** windowed: the content of the guide window (always open; closing closes the window). */
+export function UserGuide({ windowed = false, initial = null }) {
   const appLang = useLanguage();
-  const [open, setOpen] = useState(false);
-  const [lang, setLang] = useState(getLanguage());
-  const [doc, setDoc] = useState('guide');
+  const [open, setOpenState] = useState(windowed);
+  const setOpen = useCallback((v) => { if (windowed) { if (!v) closeSelf(); } else setOpenState(v); }, [windowed]);
+  const [lang, setLang] = useState((initial && initial.lang) || getLanguage());
+  const [doc, setDoc] = useState((initial && initial.doc) || 'guide');
   const [menu, setMenu] = useState(false);
   const [missing, setMissing] = useState(false);
   // History of visited pages (path + hash), with the position in it.
@@ -116,9 +163,22 @@ export function UserGuide() {
     const l = language || getLanguage();
     setDoc(docOf(id).id);
     setLang(l);
-    setOpen(true);
+    setOpenState(true);
     navigate(guidePath(id, l));
   }, [navigate]);
+
+  // The guide window: show the first document, then whatever the main window asks for.
+  useEffect(() => {
+    if (!windowed) return undefined;
+    show((initial && initial.doc) || 'guide', initial && initial.lang);
+    const offs = [];
+    let gone = false;
+    const keep = (p) => p.then((fn) => { if (gone) fn(); else offs.push(fn); }).catch(() => {});
+    keep(onBroadcast('mcc-guide-show', (p) => { applyLook(p); show((p && p.doc) || 'guide', p && p.lang); }));
+    keep(onBroadcast('mcc-guide-look', (p) => applyLook(p)));
+    return () => { gone = true; offs.forEach((fn) => fn()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowed]);
 
   // The app language changed: follow it.
   useEffect(() => {
@@ -128,19 +188,21 @@ export function UserGuide() {
   }, [appLang]);
 
   useEffect(() => {
+    if (windowed) return undefined;
     const api = mcc();
-    api.openGuide = (id, language) => show(id, language);
-    api.closeGuide = () => setOpen(false);
+    const separate = usePopupWindows();
+    api.openGuide = (id, language) => (separate ? openGuideWindow(id, language) : show(id, language));
+    api.closeGuide = () => { if (separate && guideWin) { guideWin.close().catch(() => {}); guideWin = null; } setOpenState(false); };
     let off = null;
     let gone = false;
-    onBroadcast('mcc-open-guide', (id) => show(id || 'guide')).then((fn) => { if (gone) fn(); else off = fn; }).catch(() => {});
+    onBroadcast('mcc-open-guide', (id) => api.openGuide(id || 'guide')).then((fn) => { if (gone) fn(); else off = fn; }).catch(() => {});
     return () => {
       gone = true;
       if (off) off();
       if (api.openGuide) delete api.openGuide;
       if (api.closeGuide) delete api.closeGuide;
     };
-  }, [show]);
+  }, [show, windowed]);
 
   // Send the theme to the page now and whenever the app's theme changes.
   const post = useCallback(() => {
@@ -165,7 +227,7 @@ export function UserGuide() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open, menu]);
+  }, [open, menu, setOpen]);
 
   // A link clicked inside the page: keep it in the history, and pick up its document / language.
   const onLoad = () => {
@@ -195,12 +257,11 @@ export function UserGuide() {
   const openExternal = () => { writeDocTheme(); window.open(absolute(current), '_blank', 'noopener'); };
   const d = docOf(doc);
 
-  return createPortal(
-    <div className="mcc-guide-back" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-      <div className="mcc-guide" role="dialog" aria-label={s.title} data-tour="guide-window" data-testid="guide-window">
+  const body = (
+      <div className={`mcc-guide ${windowed ? 'mcc-guide-windowed' : ''}`} role="dialog" aria-label={s.title} data-tour="guide-window" data-testid="guide-window">
         <div className="mcc-guide-bar">
-          <span className="mcc-guide-title"><Icon name="book" size={16} />{s.title}</span>
-          <span className="mcc-guide-sep" />
+          {!windowed && <span className="mcc-guide-title"><Icon name="book" size={16} />{s.title}</span>}
+          {!windowed && <span className="mcc-guide-sep" />}
           <div className="mcc-guide-docs">
             <button type="button" className="mcc-guide-btn" title={s.doc} aria-haspopup="listbox" aria-expanded={menu} data-testid="guide-doc" onClick={() => setMenu((v) => !v)}>
               <Icon name={d.icon} size={14} /><span>{lang === 'en' ? d.en : d.ko}</span><Icon name="chevronDown" size={12} />
@@ -223,7 +284,7 @@ export function UserGuide() {
           <button type="button" className="mcc-guide-btn" title={s.forward} aria-label={s.forward} disabled={hist.at >= hist.list.length - 1} onClick={() => go(1)}><span>{s.forward}</span><Icon name="chevronRight" size={14} /></button>
           <span className="mcc-guide-grow" />
           <button type="button" className="mcc-guide-btn" title={s.external} aria-label={s.external} data-testid="guide-external" onClick={openExternal}><Icon name="external" size={14} /><span>{s.external}</span></button>
-          <CloseButton className="mcc-guide-x" title={s.close} aria-label={s.close} data-testid="guide-close" onClick={() => setOpen(false)} size={15} />
+          {!windowed && <CloseButton className="mcc-guide-x" title={s.close} aria-label={s.close} data-testid="guide-close" onClick={() => setOpen(false)} size={15} />}
         </div>
         <div className="mcc-guide-frame">
           {missing
@@ -231,7 +292,10 @@ export function UserGuide() {
             : <iframe key={nav.n} ref={frame} title={s.title} src={absolute(nav.src || current)} onLoad={onLoad} />}
         </div>
       </div>
-    </div>,
+  );
+  if (windowed) return body;
+  return createPortal(
+    <div className="mcc-guide-back" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>{body}</div>,
     document.body,
   );
 }
