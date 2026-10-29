@@ -192,6 +192,17 @@ describe('Tauri configuration', () => {
     expect(conf.bundle.resources['icons/file.ico']).toBe('file.ico');
   });
 
+  it('lets the installer run in Korean or English, asking every time', () => {
+    const nsis = conf.bundle.windows.nsis;
+    expect(nsis.displayLanguageSelector).toBe(true);
+    expect(nsis.languages).toEqual(['Korean', 'English']);
+    const text = hooks.toString('utf8');
+    expect(text).toMatch(/^!define MUI_LANGDLL_ALWAYSSHOW$/m);
+    expect(text).toMatch(/^!define MUI_LANGDLL_ALLLANGUAGES$/m);
+    // Every Korean string on the custom page and in the data question has an English twin.
+    expect((text.match(/\$\{If\} \$LANGUAGE == 1042/g) || []).length).toBe(2);
+  });
+
   it('removes the Electron build by its electron-builder uninstall key', async () => {
     const crypto = await import('node:crypto');
     const ns = Buffer.from('50e065bc313411e69bab38c9862bdaf3', 'hex');

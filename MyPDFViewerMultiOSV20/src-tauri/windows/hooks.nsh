@@ -29,6 +29,17 @@
 
 !include nsDialogs.nsh
 
+; ── Installer language (Korean / English) ─────────────────────
+; tauri.conf.json turns on the language selector, but MUI only shows it when
+; no "Installer Language" was saved by an earlier install — so after the first
+; install every reinstall silently reused that language. Always ask; the saved
+; one is still preselected. ALLLANGUAGES keeps LangDLL from hiding a language
+; whose codepage differs from the system's (English on Korean Windows).
+!define MUI_LANGDLL_ALWAYSSHOW
+!define MUI_LANGDLL_ALLLANGUAGES
+!define MUI_LANGDLL_WINDOWTITLE "설치 언어 / Installer Language"
+!define MUI_LANGDLL_INFO "설치에 사용할 언어를 고르세요.$\r$\nPlease select the installer language."
+
 !define MP_NAME "MyPDFViewer"
 !define MP_IDENTIFIER "com.shkwon.mypdfviewer"
 !define MP_DATA_DIR "MyPDFViewer"
