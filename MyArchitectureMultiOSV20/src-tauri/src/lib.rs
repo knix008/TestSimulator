@@ -57,6 +57,9 @@ struct AppState {
   /// The main window's minimum inner size (logical px) the page asked for:
   /// set_size does not honour the window's minimum, so resize_window clamps.
   min_size: Mutex<(f64, f64)>,
+  /// The program's theme (dark?, page background) for the manual window's
+  /// title bar and background; the page itself reads the colours from storage.
+  manual_theme: Mutex<(bool, Color)>,
 }
 
 fn state<R: Runtime>(app: &AppHandle<R>) -> tauri::State<'_, AppState> {
@@ -532,6 +535,13 @@ fn win_is_maximized(window: WebviewWindow) -> bool {
   window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false)
 }
 
+/// The manual's own close button (its toolbar is its title bar). The main
+/// window closes through the page (request_close: unsaved changes).
+#[tauri::command]
+fn win_close(window: WebviewWindow) -> bool {
+  window.label() == MANUAL && window.close().is_ok()
+}
+
 /// Moving by the title bar where the webview has no `app-region: drag`
 /// (macOS and Linux); Windows handles the CSS region natively. A dialog window
 /// asks through the main page and names itself.
@@ -635,17 +645,37 @@ pub fn parse_hex_color(text: &str) -> Option<Color> {
 struct TitleBarColors {
   color: Option<String>,
   symbol_color: Option<String>,
+  /// "dark" / "light" and the page background: the manual window follows them.
+  mode: Option<String>,
+  background: Option<String>,
 }
 
 /// Theme colours: the page draws its own title bar, so only the window
-/// background follows the theme (what shows while the window resizes).
+/// background follows the theme (what shows while the window resizes). The
+/// main window's theme also goes to the manual window (its title bar and
+/// background), open or opened later.
 #[tauri::command]
-fn set_title_bar(window: WebviewWindow, colors: TitleBarColors) -> bool {
+fn set_title_bar(app: AppHandle, window: WebviewWindow, colors: TitleBarColors) -> bool {
   let _ = colors.symbol_color;
+  if window.label() == MAIN {
+    if let Some(mode) = colors.mode.as_deref() {
+      let dark = mode != "light";
+      let bg = colors.background.as_deref().and_then(parse_hex_color).unwrap_or(if dark { DARK_BACKGROUND } else { Color(0xff, 0xff, 0xff, 0xff) });
+      *state(&app).manual_theme.lock().unwrap() = (dark, bg);
+      if let Some(m) = app.get_webview_window(MANUAL) {
+        theme_manual(&m, dark, bg);
+      }
+    }
+  }
   match colors.color.as_deref().and_then(parse_hex_color) {
     Some(c) => window.set_background_color(Some(c)).is_ok(),
     None => false,
   }
+}
+
+fn theme_manual(window: &WebviewWindow, dark: bool, bg: Color) {
+  let _ = window.set_theme(Some(if dark { tauri::Theme::Dark } else { tauri::Theme::Light }));
+  let _ = window.set_background_color(Some(bg));
 }
 
 #[tauri::command]
@@ -656,13 +686,18 @@ fn open_external(app: AppHandle, url: String) -> bool {
   app.opener().open_url(url, None::<&str>).is_ok()
 }
 
-/// The user manual opens in its own window (a document, with the program icon
-/// and a fixed title) instead of a popup inside the editor.
+/// The user manual opens in its own window (a document, with the program icon)
+/// instead of a popup inside the editor. It wears the program's theme. On
+/// Windows and Linux it has no native title bar: the page's toolbar carries the
+/// icon, the title, the language and text size and the window buttons (macOS
+/// keeps its own). The window title (taskbar) follows the page.
 #[tauri::command]
 async fn open_manual(app: AppHandle, lang: String) -> Result<bool, String> {
   let en = lang == "en";
   let page = if en { "docs/USERSGUIDE.en.html" } else { "docs/USERSGUIDE.ko.html" };
-  let title = if en { "User manual — MyArchitecture 10.0" } else { "사용자 매뉴얼 — MyArchitecture 10.0" };
+  // The pages' own <title> (scripts/build-manual.mjs).
+  let title = if en { "User manual — MyArchitecture 10.0" } else { "사용 설명서 — MyArchitecture 10.0" };
+  let (dark, bg) = *state(&app).manual_theme.lock().unwrap();
   if let Some(w) = app.get_webview_window(MANUAL) {
     let _ = w.eval(format!("location.replace({})", json!(format!("/{page}"))));
     let _ = w.set_title(title);
@@ -676,7 +711,13 @@ async fn open_manual(app: AppHandle, lang: String) -> Result<bool, String> {
     .title(title)
     .inner_size(1180.0, 860.0)
     .min_inner_size(720.0, 520.0)
-    .background_color(Color(0xff, 0xff, 0xff, 0xff))
+    .background_color(bg)
+    .theme(Some(if dark { tauri::Theme::Dark } else { tauri::Theme::Light }))
+    .on_document_title_changed(|window, title| {
+      if !title.is_empty() {
+        let _ = window.set_title(&title);
+      }
+    })
     .on_navigation(move |url| {
       if is_app_url(url) {
         return true;
@@ -688,11 +729,16 @@ async fn open_manual(app: AppHandle, lang: String) -> Result<bool, String> {
       open_outside(&pop, url.as_str());
       NewWindowResponse::Deny
     });
+  #[cfg(not(target_os = "macos"))]
+  {
+    b = b.decorations(false);
+  }
   if let Some(dir) = webview_data_dir() {
     b = b.data_directory(dir);
   }
   let w = b.build().map_err(err)?;
   window_icon::apply(&w);
+  theme_manual(&w, dark, bg);
   Ok(true)
 }
 
@@ -963,6 +1009,7 @@ pub fn run() {
       zoom_milli: AtomicU32::new(1000),
       dialogs: Mutex::new(BTreeMap::new()),
       min_size: Mutex::new((MIN_WIDTH, MIN_HEIGHT)),
+      manual_theme: Mutex::new((true, DARK_BACKGROUND)),
     })
     .setup(|app| {
       let cwd = std::env::current_dir().unwrap_or_default();
@@ -992,6 +1039,7 @@ pub fn run() {
       win_minimize,
       win_toggle_maximize,
       win_is_maximized,
+      win_close,
       win_start_dragging,
       set_zoom,
       set_min_size,

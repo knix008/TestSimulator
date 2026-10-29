@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The main window. Files, dialogs, printing and window control go through MyArchitecture's own commands (src-tauri/src/lib.rs); only event listening is opened here. Dialog windows (about:blank) and the manual never call the host.",
+  "description": "The main window. Files, dialogs, printing and window control go through MyArchitecture's own commands (src-tauri/src/lib.rs); only event listening is opened here. Dialog windows (about:blank) never call the host; the manual window calls only its window buttons (win_minimize, win_toggle_maximize, win_is_maximized, win_close, win_start_dragging).",
   "windows": ["main"],
   "remote": {
     "urls": ["http://localhost:5236", "http://localhost:5236/*", "http://127.0.0.1:5236/*"]

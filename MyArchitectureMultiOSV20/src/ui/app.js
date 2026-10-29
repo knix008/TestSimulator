@@ -158,8 +158,12 @@ class App {
     const root = document.documentElement;
     root.dataset.theme = th.mode;
     root.dataset.themeId = th.id;
-    for (const [k, v] of Object.entries(uiTokens(th))) root.style.setProperty(k, v);
-    platform.setTitleBarTheme({ color: th.panel, symbolColor: th.text });
+    const tokens = uiTokens(th);
+    for (const [k, v] of Object.entries(tokens)) root.style.setProperty(k, v);
+    // The user manual (its own window, same origin) reads the theme from here
+    // and follows a change while it is open (scripts/build-manual.mjs).
+    try { localStorage.setItem("myarch.manualTheme", JSON.stringify({ mode: th.mode, tokens })); } catch { /* storage off: the manual keeps its own colours */ }
+    platform.setTitleBarTheme({ color: th.panel, symbolColor: th.text, mode: th.mode, background: th.bg });
     if (this.plan) { this.plan.request(); this.v3d.applyTheme(); this.buildTitleRight(); }
   }
 
