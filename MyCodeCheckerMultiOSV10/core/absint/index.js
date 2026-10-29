@@ -174,6 +174,10 @@ class Engine {
         for (const d of n.definitions || []) this.declKey.set(d.node, n.key);
         if (n.defined) this.defined.add(n.key);
         if (new Set((n.definitions || []).map((d) => `${d.node && d.node.loc ? d.node.loc.file : ''}:${d.node && d.node.loc && d.node.loc.start}`)).size > 1) this.multiDef.add(n.key);
+        // A weak definition is a default another file may replace at link time.
+        const weakAttr = (list) => (list || []).some((a) => a && /weak/.test(a.name || ''));
+        const weak = (x) => !!x && (weakAttr(x.attributes) || weakAttr(x.specs && x.specs.attributes) || weakAttr(cf.parentOf(x) && cf.parentOf(x).specs && cf.parentOf(x).specs.attributes));
+        if ((n.definitions || []).some((d) => d.node && (weak(d.node) || (d.node.symbol && (d.node.symbol.decls || []).some(weak))))) this.multiDef.add(n.key);
       }
       let sccs = [];
       try { sccs = cg.sccs(); } catch { sccs = [...cg.nodes.keys()].map((k) => [k]); }

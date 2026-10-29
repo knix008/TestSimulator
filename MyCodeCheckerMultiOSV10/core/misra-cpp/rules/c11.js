@@ -38,7 +38,9 @@ module.exports = [
       const x = U.ix(unit);
       const chk = (n, t, what, ko) => {
         const d = t ? U.ptrDepth(t) : 0;
-        if (d > 2) api.report(n, M(`${what} '${n.name || '?'}' has ${d} levels of pointer indirection.`, `${ko} '${n.name || '?'}' 의 포인터 간접 단계가 ${d}입니다.`));
+        if (d > 2) api.report(n, n.name
+          ? M(`${what} '${n.name}' has ${d} levels of pointer indirection.`, `${ko} '${n.name}' 의 포인터 간접 단계가 ${d}입니다.`)
+          : M(`An unnamed ${what.toLowerCase()} has ${d} levels of pointer indirection.`, `이름 없는 ${ko} 의 포인터 간접 단계가 ${d}입니다.`));
       };
       for (const v of x.get('VarDecl', 'FieldDecl')) chk(v, v.ctype, 'Object', '객체');
       for (const p of x.get('ParamDecl')) chk(p, p.declaredType || p.ctype, 'Parameter', '매개변수');

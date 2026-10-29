@@ -208,6 +208,54 @@ struct Nfc : public INfc {
 int f() { return STVAL(3, 0) + STVAL(3, 5); }` },
 ];
 
+CASES.push(
+  { keys: ['autosar:M0-1-9'], title: 'declaration of an unknown template type',
+    bad: `void f(int a) {
+  a == 1; //!
+}`,
+    good: `#include "hidl.h"
+void f(unsigned char* p, unsigned short n) {
+  hidl_vec<uint8_t> data;
+  data.setToExternal(p, n);
+}` },
+  { keys: ['autosar:A3-3-2'], title: 'reference bound to a static object',
+    bad: `#include <string>
+std::string base = ".";
+std::string dir = base + "/m"; //!`,
+    good: `struct Logger { int level; };
+Logger logger = { 0 };
+Logger& instance = logger;` },
+  { keys: ['misra-cpp:0.2.2', 'autosar:A0-1-4'], title: 'GNU unused attribute',
+    bad: `int f(int a,
+       int b) { //!
+  return a;
+}`,
+    good: `int f(__attribute__((unused)) int a) { return 0; }` },
+  { keys: ['autosar:M4-10-1'], title: 'NULL compared with a pointer',
+    bad: `#include <cstddef>
+int f() {
+  int n = NULL; //!
+  return n;
+}`,
+    good: `#include <cstddef>
+int f(const char* data, unsigned len) {
+  if (NULL != data && 0U != len) { return 1; }
+  return 0;
+}` },
+  { keys: ['misra-cpp:7.11.3', 'misra-cpp:8.2.4'], title: 'function passed to a constructor',
+    bad: `void work();
+void* g() { return (void*)work; } //!`,
+    good: `#include <thread>
+void work();
+void g() { std::thread t(work); std::thread u = std::thread(work); t.join(); u.join(); }` },
+);
+
+test('an unnamed parameter is not called ?', () => {
+  const hits = run('misra-cpp:11.3.2', 'extern "C" int init(int*, char***);\n');
+  assert.ok(hits.length > 0);
+  for (const h of hits) assert.doesNotMatch(h.message.en, /'\?'/, h.message.en);
+});
+
 // C++-only remedies in a header that C units include as well
 const SHARED_H = `#ifndef SHARED_H
 #define SHARED_H

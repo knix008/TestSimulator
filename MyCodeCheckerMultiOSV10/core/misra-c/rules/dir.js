@@ -252,18 +252,101 @@ function d48(project, api) {
 // ------------------------------------------------------------------ Dir 4.9 (function-like macros)
 
 const FN_OK_KEYWORDS = new Set(['sizeof', 'do', 'while', 'if', 'else', 'for', 'switch']);
+// Names that make a replacement list something other than an expression or a statement.
+const NOT_CODE = new Set(['__attribute__', '__attribute', '__declspec', '_Pragma', '__pragma', '__asm__', '__asm', 'asm',
+  '__typeof__', '__typeof', 'typeof', '__extension__', '__restrict', '__inline', '__inline__']);
+const ASSIGN_OPS = new Set(['=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '++', '--']);
+
+// Macros expanded where a constant expression is required (case labels, array
+// sizes, bit-field widths, enumerators, static initializers): a function call
+// cannot stand there.
+function constantContextMacros(unit) {
+  const ranges = [];
+  const add = (e) => { if (e && e.loc && e.loc.end != null) ranges.push(e.loc); };
+  cf.walk(unit.ast, (n) => {
+    if (n.type === 'CaseStmt') { add(n.value); add(n.high); } else if (n.type === 'ArrayDeclarator') add(n.size);
+    else if (n.type === 'EnumConstant') add(n.value);
+    else if (n.type === 'FieldDecl') add(n.bitWidth);
+    else if (n.type === 'VarDecl' && n.init && n.symbol && n.symbol.storage === 'static') add(n.init);
+    else if (n.type === 'StaticAssert' || n.type === 'StaticAssertDecl') add(n.cond || n.expr);
+    return undefined;
+  });
+  const names = new Set();
+  for (const x of unit.expansions || []) {
+    for (const r of ranges) {
+      if (x.file !== r.file) continue;
+      const after = x.line > r.line || (x.line === r.line && x.col >= r.col);
+      const before = x.line < (r.endLine || r.line) || (x.line === (r.endLine || r.line) && x.col < (r.endCol || Infinity));
+      if (after && before) { names.add(x.name); break; }
+    }
+  }
+  return names;
+}
+
+// The macro changes an argument (`#define SET(x, v) ((x) = (v))`) or names a type
+// with one: a function taking the same arguments cannot do the same.
+function changesArgument(m) {
+  const params = new Set(m.params || []);
+  const b = m.body;
+  const isParamAt = (i) => {
+    let k = i;
+    while (k >= 0 && b[k].value === ')') k--;
+    return k >= 0 && b[k].kind === 'identifier' && params.has(b[k].value);
+  };
+  for (let i = 0; i < b.length; i++) {
+    const t = b[i];
+    if (!ASSIGN_OPS.has(t.value)) continue;
+    if (i > 0 && isParamAt(i - 1)) return true;
+    if ((t.value === '++' || t.value === '--') && i + 1 < b.length) {
+      let k = i + 1;
+      while (k < b.length && b[k].value === '(') k++;
+      if (k < b.length && b[k].kind === 'identifier' && params.has(b[k].value)) return true;
+    }
+  }
+  return false;
+}
+
+// Replacement lists that are no expression or statement: `ATTR(x) EXPORT`, a
+// declaration `T name`.
+function notAnExpression(m) {
+  const b = m.body;
+  if (b.some((t) => t.kind === 'identifier' && NOT_CODE.has(t.value))) return true;
+  if (b[0] && b[0].value === '{') return false;
+  let depth = 0;
+  for (let i = 0; i < b.length; i++) {
+    const t = b[i];
+    if (t.value === '(' || t.value === '[') depth++;
+    else if (t.value === ')' || t.value === ']') depth--;
+    if (depth !== 0 || i + 1 >= b.length) continue;
+    const n = b[i + 1];
+    // a call or group followed by a name, or two names in a row
+    if (t.value === ')' && n.kind === 'identifier') {
+      // (type)x is a cast; NAME(args) x is not an expression
+      let k = i, d = 0;
+      for (; k >= 0; k--) { if (b[k].value === ')') d++; else if (b[k].value === '(') { d--; if (d === 0) break; } }
+      if (k > 0 && b[k - 1].kind === 'identifier' && !FN_OK_KEYWORDS.has(b[k - 1].value)) return true;
+    }
+    if (t.kind === 'identifier' && n.kind === 'identifier') return true;
+  }
+  return false;
+}
+
 function d49(unit, api) {
   const inIf = new Set();
   for (const d of unit.directives || []) {
     if (d.kind !== 'if' && d.kind !== 'elif') continue;
     for (const t of d.tokens || []) if (t.kind === 'identifier') inIf.add(t.value);
   }
+  let constant = null;
   for (const m of unit.macros || []) {
     if (m.kind !== 'function' || U.isBuiltin(m.file) || m.predefined || m.commandLine) continue;
     if (!U.firstScan(api, `dir-4.9@${m.line}`, m.file)) continue;
     if (m.usesStringify || m.usesPaste || m.variadic || m.usesVaOpt || !m.body || !m.body.length || inIf.has(m.name)) continue;
     if (m.body.some((t) => t.kind === 'keyword' && !FN_OK_KEYWORDS.has(t.value))) continue;
     if (m.body.some((t) => t.kind === 'punct' && (t.value === '#' || t.value === '##'))) continue;
+    if (changesArgument(m) || notAnExpression(m)) continue;
+    if (!constant) constant = constantContextMacros(unit);
+    if (constant.has(m.name)) continue;
     api.report({ file: m.file, line: m.line, col: m.col }, msg(
       `Function-like macro '${m.name}' could be written as a function.`,
       `함수형 매크로 '${m.name}'는 함수로 작성할 수 있습니다.`));

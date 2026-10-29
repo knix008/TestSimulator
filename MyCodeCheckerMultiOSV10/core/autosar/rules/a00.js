@@ -13,6 +13,9 @@ function noEffect(e) {
   e = U.strip(e);
   if (!e) return false;
   if (U.hasSideEffects(e)) return false;
+  // `hidl_vec<uint8_t> data;` with hidl_vec unknown (header not found) parses as
+  // comparisons: names that resolved to nothing may be types or macros
+  if (U.hasUnresolved(e)) return false;
   if (e.type === 'CastExpr' && e.kind !== 'functional' && U.canon(e.ctype || U.T.T.unknown).kind === 'void') return false; // (void)x
   if (e.type === 'Identifier' || e.type === 'BinaryExpr' || e.type === 'UnaryExpr' || e.type === 'IntegerLiteral' || e.type === 'FloatingLiteral'
     || e.type === 'MemberExpr' || e.type === 'IndexExpr' || e.type === 'ConditionalExpr' || e.type === 'BoolLiteral') {

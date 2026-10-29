@@ -278,6 +278,8 @@ module.exports = [
         const to = castTo(c);
         const from = castFrom(c);
         if (!from || U.canon(to).kind === 'void') continue;
+        // `std::thread(fn)`, `std::function<void()>(fn)`: constructing an object, not a cast
+        if (c.kind === 'functional' && (U.unknownT(to) || U.canon(to).kind === 'record')) continue;
         const a = U.isFnPtr(to);
         const b = U.isFnPtr(from);
         if (!a && !b) continue;

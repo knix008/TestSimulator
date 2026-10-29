@@ -474,6 +474,8 @@ P.isNullLiteral = function isNullLiteral(e) {
   if (e.type === 'NullptrLiteral') return true;
   if (e.type === 'IntegerLiteral' && Number(e.value) === 0) return true;
   if (e.type === 'CastExpr' && e.arg) return this.isNullLiteral(e.arg);
+  // NULL without its header (missing include path): still the null pointer.
+  if (e.type === 'Identifier' && !e.symbol && e.name === 'NULL') return true;
   return false;
 };
 
@@ -1260,12 +1262,12 @@ P.assumeCmp = function assumeCmp(st, op, l, r, cond) {
   if (nl && (op === '>' || op === '>=') && I.isConst(ri) && li.lo < nl.lo) nl = { ...nl, tl: true };
   if (nr && (op === '>' || op === '>=') && I.isConst(li) && ri.hi > nr.hi) nr = { ...nr, th: true };
   if (nr && (op === '<' || op === '<=') && I.isConst(li) && ri.lo < nr.lo) nr = { ...nr, tl: true };
-  if (!nl || !nr) return this.pruneKind(cond);
+  if (!nl || !nr) return lv.xf || rv.xf ? 'soft' : this.pruneKind(cond);
   // symbolic relations
   if (lv.sym && rv.sym && lv.sym.s === rv.sym.s) {
     const d = lv.sym.d - rv.sym.d;
     const res = this.compare(op, { iv: I.konst(d) }, { iv: I.konst(0) });
-    if (res === false) return this.pruneKind(cond);
+    if (res === false) return lv.xf || rv.xf ? 'soft' : this.pruneKind(cond);
   }
   let extraL = null;
   if (rv.sym && (op === '<' || op === '<=')) extraL = { ub: { s: rv.sym.s, d: rv.sym.d - (op === '<' ? 1 : 0) } };

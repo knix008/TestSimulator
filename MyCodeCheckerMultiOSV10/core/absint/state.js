@@ -148,6 +148,7 @@ function oJoin(a, b, widenTh) {
   r.multi = a.multi || b.multi;
   r.init = a.init === b.init ? a.init : 'yes';
   r.term = a.term === b.term ? a.term : undefined;
+  r.tailZero = Math.min(a.tailZero || 0, b.tailZero || 0);
   r.slen = a.slen && b.slen ? (widenTh ? I.widen(a.slen, b.slen, widenTh) : I.join(a.slen, b.slen)) : undefined;
   r.tnt = a.tnt || b.tnt;
   return r;

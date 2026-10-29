@@ -6,13 +6,23 @@ const U = require('../lib/a-util');
 const F = require('../lib/a-flow');
 const { cf, meta, msg } = U;
 
+function inDoCondition(n) {
+  if (n.type === 'DoStmt') return true; // the block of the loop test
+  for (let x = n, p = cf.parentOf(n); p; x = p, p = cf.parentOf(p)) {
+    if (p.type === 'DoStmt') return cf.parentKey(x) === 'cond';
+    if (/Stmt$/.test(p.type) || p.type === 'FunctionDecl') return false;
+  }
+  return false;
+}
+
 function r21(unit, api) {
   for (const fn of cf.functionsOf(unit)) {
     if (!U.userLoc(fn)) continue;
     let g;
     try { g = cf.getCFG(fn); } catch (_) { continue; }
     for (const { nodes } of g.unreachable()) {
-      const n = (nodes || []).find((x) => x && U.userLoc(x) && x.type !== 'NullStmt');
+      // the `while (0)` of `do { ...; abort(); } while (0)` is no code of its own
+      const n = (nodes || []).find((x) => x && U.userLoc(x) && x.type !== 'NullStmt' && !inDoCondition(x));
       if (!n) continue;
       api.report(n, msg(`Code in function '${fn.name}' can never be reached.`, `함수 '${fn.name}'의 코드에 절대 도달할 수 없습니다.`));
     }

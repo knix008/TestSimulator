@@ -257,7 +257,11 @@ P.copySizeCheck = function copySizeCheck(st, v, n, argNode, sizeNode, fname, mod
     const av = tg.avail;
     if (len.lo > av.hi) definite = true;
     else if (len.th && len.hi > av.hi && I.finite(len)) definite = true;
-    else if (this.isTightBounded(len) && len.hi > av.lo && Number.isFinite(av.lo) && o.size && (I.isConst(o.size) || o.size.tl)) possible = true;
+    // Possible only from a known start: with both the offset and the length
+    // ranges, the bad end needs the largest of each together, a combination
+    // the intervals cannot tell is feasible (`url + 7`, a length taken from
+    // the same string).
+    else if (this.isTightBounded(len) && len.hi > av.lo && Number.isFinite(av.lo) && o.size && (I.isConst(o.size) || o.size.tl) && tg.t.off && I.isConst(tg.t.off)) possible = true;
   }
   if (!definite && o.ssym && n.sym && tg.t.off && I.isConst(tg.t.off) && n.sym.s === o.ssym.s && n.sym.d + tg.t.off.lo > o.ssym.d) { definite = true; possible = false; }
   if (!definite && !possible) return;
@@ -654,7 +658,13 @@ P.applySummary = function applySummary(st, e, S, args, vals, fname) {
     r = { nul: 'maybe', nret: { fn: fname, key: S.key, ev: [S.retNullEv, this.ev(e, 'returned_null', `${fname} can return null.`, `${fname}은(는) 널을 반환할 수 있습니다.`)] } };
   } else if (S.retNonNull) r = { nul: 'non' };
   if (S.retOom && !S.retNull && r.nul !== 'null') { r.nul = 'maybe'; r.oom = true; }
-  if (S.retIv) r.iv = S.retIv;
+  if (S.retIv) {
+    r.iv = S.retIv;
+    // A result range learned from a body in another file may belong to one
+    // build configuration (a stub, a weak default): a condition it decides is
+    // not reported as dead code (eval.js assumeCmp).
+    if (S.file && S.file !== this.file) r.xf = true;
+  }
   if (S.retNeg) r.neg = { fn: fname, ev: [S.retNeg, this.ev(e, 'negative_return_fn', `${fname} can return a negative value.`, `${fname}은(는) 음수를 반환할 수 있습니다.`)] };
   if (S.retTaint) r.tnt = [S.retTaint, this.ev(e, 'tainted_return', `${fname} returns untrusted data.`, `${fname}은(는) 신뢰할 수 없는 데이터를 반환합니다.`)];
   if (!r.iv && this.isIntT(e.ctype)) r.iv = this.rangeIv(e.ctype);
@@ -900,7 +910,7 @@ P.applyModel = function applyModel(st, e, m, args, vals, fname) {
       const buf = vals[m.buf], len = vals[m.len];
       if (buf) this.argDeref(st, buf, args[m.buf], fname, null);
       if (len && !this.sizeArgCheck(st, len, args[m.len], e, fname)) this.copySizeCheck(st, buf, len, args[m.buf], args[m.len], fname, 'write');
-      this.taintBuffer(st, buf, e, fname, 'no');
+      this.taintBuffer(st, buf, e, fname, 'no', len);
       const hi = len && len.iv && Number.isFinite(len.iv.hi) ? len.iv.hi : 2147483647;
       const res = { iv: I.make(-1, hi), neg: { fn: fname, ev: this.ev(e, 'negative_return_fn', `${fname} returns -1 on failure.`, `${fname}은(는) 실패하면 -1을 반환합니다.`) } };
       // recv(fd, buf + used, N - used): `used += result` stays <= N.
@@ -910,7 +920,7 @@ P.applyModel = function applyModel(st, e, m, args, vals, fname) {
     }
     case 'fread': {
       if (v1 && v2 && v1.iv && v2.iv) this.copySizeCheck(st, v0, { iv: I.mul(v1.iv, v2.iv) }, args[0], args[2], fname, 'write');
-      this.taintBuffer(st, v0, e, fname, 'no');
+      this.taintBuffer(st, v0, e, fname, 'no', v1 && v2 && v1.iv && v2.iv ? { iv: I.mul(v1.iv, v2.iv) } : null);
       return intRes();
     }
     case 'getc': {
@@ -1034,7 +1044,10 @@ P.inLoop = function inLoop() {
   return !!(this.curBlock && this.loopBlocks && this.loopBlocks.has(this.curBlock));
 };
 
-P.taintBuffer = function taintBuffer(st, v, e, fname, term) {
+// n: the bytes written (interval), when known. A read that stops before the
+// zero-filled tail of the buffer (`char b[256] = {0}; fread(b, 1, 255, f)`)
+// leaves it NUL-terminated.
+P.taintBuffer = function taintBuffer(st, v, e, fname, term, n) {
   if (!v || !v.pt) return;
   this.markWrite(st, v);
   const tn = [this.ev(e, 'tainted_source', `${fname} fills the buffer with untrusted input.`, `${fname}이(가) 신뢰할 수 없는 입력으로 버퍼를 채웁니다.`)];
@@ -1044,9 +1057,14 @@ P.taintBuffer = function taintBuffer(st, v, e, fname, term) {
     const m = st.mut(t.o);
     m.tnt = tn;
     m.init = 'yes';
-    m.term = term === 'yes' ? 'yes' : 'no';
+    const end = n && n.iv && Number.isFinite(n.iv.hi) && t.off && I.isConst(t.off) ? t.off.lo + Math.max(0, n.iv.hi) * (o.esz || 1) : null;
+    const esz = o.esz || 1;
+    // the last element is 0 (tailZero >= 1) and the write stops before it
+    const keeps = term === 'no' && end !== null && o.term === 'yes' && o.tailZero > 0 && o.size && I.isConst(o.size) && end <= o.size.lo - esz;
+    m.term = term === 'yes' || keeps ? 'yes' : 'no';
+    m.tailZero = keeps ? Math.min(o.tailZero, Math.floor((o.size.lo - end) / esz)) : 0;
     m.slen = undefined;
-    if (term === 'no') m.tev = this.ev(e, 'string_null_source', `${fname} does not NUL-terminate the buffer.`, `${fname}은(는) 버퍼 끝에 NUL을 넣지 않습니다.`);
+    if (m.term === 'no') m.tev = this.ev(e, 'string_null_source', `${fname} does not NUL-terminate the buffer.`, `${fname}은(는) 버퍼 끝에 NUL을 넣지 않습니다.`);
     if (o.vsym) { st.del(`v${o.vsym}`); this.killDeps(st, `v${o.vsym}`); }
   }
   this.killMem(st);

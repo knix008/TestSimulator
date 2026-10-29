@@ -15,7 +15,10 @@ const COMPOUND = new Set(['+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=',
 const isEnum = (e) => !!(e && e.ctype && U.nonRef(e.ctype).kind === 'enum');
 const isPlainChar = (e) => { const c = e && e.ctype ? U.nonRef(e.ctype) : null; return !!(c && c.kind === 'int' && (c.name === 'char' || c.name === 'wchar_t')); };
 const isZeroLit = (e) => { e = U.strip(e); return !!(e && e.type === 'IntegerLiteral' && e.value === 0n); };
-const fromNull = (e) => { e = U.strip(e); return !!(e && e.loc && e.loc.macro === 'NULL'); };
+// The node is the expansion of NULL itself (`0`, `((void*)0)`, `__null`), not an
+// expression that merely starts with it (`NULL != p` has the same macro location).
+const NULL_NODES = new Set(['IntegerLiteral', 'NullptrLiteral', 'CastExpr', 'Identifier']);
+const fromNull = (e) => { e = U.strip(e); return !!(e && e.loc && e.loc.macro === 'NULL' && NULL_NODES.has(e.type)); };
 const isPtrType = (t) => { const c = t ? U.nonRef(t) : null; return !!(c && (c.kind === 'pointer' || c.kind === 'memberPointer')); };
 
 // Operands used with operators: [{ node, operand, op }]
@@ -68,7 +71,8 @@ module.exports = [
     fix: ['Write the integer constant 0 instead.', '대신 정수 상수 0 을 쓰세요.'],
     check(unit, api) {
       for (const c of conv.conversions(unit)) {
-        if (fromNull(c.src) && !isPtrType(c.dst) && U.nonRef(c.dst).kind !== 'nullptr') api.report(c.src, M(`NULL is used as an integer value for ${c.name || 'an object'}.`, `NULL 을 ${c.name || '객체'} 의 정수 값으로 씁니다.`));
+        // a target of unknown type (std::shared_ptr, a struct of a missing header) may be a pointer
+        if (fromNull(c.src) && !U.unknownT(c.dst) && !isPtrType(c.dst) && U.nonRef(c.dst).kind !== 'nullptr') api.report(c.src, M(`NULL is used as an integer value for ${c.name || 'an object'}.`, `NULL 을 ${c.name || '객체'} 의 정수 값으로 씁니다.`));
       }
       for (const b of U.ix(unit).get('BinaryExpr')) {
         for (const [a, o] of [[b.left, b.right], [b.right, b.left]]) {

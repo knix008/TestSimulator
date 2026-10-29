@@ -754,7 +754,7 @@ class FnAnalyzer {
       const n = (init.value || '').length;
       if (t.size != null) {
         if (n >= t.size) { m.term = n > t.size ? undefined : 'no'; m.slen = undefined; }
-        else { m.term = 'yes'; m.slen = I.konst(n); }
+        else { m.term = 'yes'; m.slen = I.konst(n); m.tailZero = t.size - n; }
       }
       return;
     }
@@ -762,7 +762,9 @@ class FnAnalyzer {
       const items = init.items || [];
       for (const x of items) this.eval(st, x);
       if (t.kind === 'array' && T.isCharType(this.T(t.of)) && t.size != null) {
-        if (items.length < t.size) m.term = 'yes';
+        // tailZero: trailing elements known to be 0 (`char b[256] = {0}`):
+        // a later read of fewer bytes leaves the buffer terminated.
+        if (items.length < t.size) { m.term = 'yes'; m.tailZero = t.size - items.length; }
         else {
           const last = items[items.length - 1];
           const c = last ? this.constOf(last) : null;

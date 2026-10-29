@@ -252,6 +252,9 @@ module.exports = [
         if (p.type === 'VarDecl' || p.type === 'FieldDecl' || p.type === 'ReturnStmt' || p.type === 'InitList' || p.type === 'ParenListInit' || p.type === 'LambdaCapture') continue;
         if (p.type === 'AssignExpr' && key === 'right') continue;
         if (p.type === 'CastExpr' && U.isFnPtr(p.ctype)) continue;
+        // an argument of a constructor (`std::thread(fn)`), like a call argument
+        if (p.type === 'CastExpr' && p.kind === 'functional' && (U.unknownT(p.ctype) || U.canon(p.ctype).kind === 'record')) continue;
+        if (p.type === 'NewExpr') continue;
         if (p.type === 'TemplateDecl' || p.type === 'NamedType' || p.type === 'DecltypeType' || p.type === 'SizeofExpr' || p.type === 'NoexceptExpr' || p.type === 'UsingDecl') continue;
         if (p.type === 'MemberExpr' || p.type === 'TypeName') continue;
         api.report(id, M(`The function '${id.name}' is converted to a pointer here; call it or use '&${id.name}'.`, `함수 '${id.name}' 가 여기서 포인터로 변환됩니다. 호출하거나 '&${id.name}' 를 쓰세요.`));

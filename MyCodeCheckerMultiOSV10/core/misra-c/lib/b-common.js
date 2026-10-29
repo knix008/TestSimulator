@@ -5,6 +5,7 @@
 // purity analysis, small expression utilities.
 
 const cf = require('../../cfamily');
+const STDLIB = require('./b-stdlib');
 
 const T = cf.types;
 
@@ -483,10 +484,15 @@ function includesHeader(unit, names) {
 }
 
 // An implicitly declared function (C) whose declaration may sit in a header
-// the unit includes but that was not found: the call is then not known to
-// be undeclared. Functions defined in the project, and units that found all
-// their headers, are judged as they are.
+// the unit includes but that was not found, or in the real version of a
+// header the front end has built in with fewer declarations (POSIX
+// clock_gettime in <time.h>): the call is then not known to be undeclared.
+// Functions defined in the project, and units that found all their headers,
+// are judged as they are.
 function maybeDeclaredInMissingHeader(unit, project, sym) {
+  // a library function the built-in header of the front end lacks
+  const h = STDLIB.HEADER_OF.get(sym.name) || STDLIB.POSIX_HEADER_OF.get(sym.name);
+  if (h && (unit.includes || []).some((i) => i.name === h)) return true;
   if (!(unit.includes || []).some((i) => i.kind === 'missing')) return false;
   const g = project && project.globalSymbols && project.globalSymbols.get(sym.qname || sym.name);
   if (g && (g.definitions || []).some((d) => d.file && !String(d.file).startsWith('<'))) return false;

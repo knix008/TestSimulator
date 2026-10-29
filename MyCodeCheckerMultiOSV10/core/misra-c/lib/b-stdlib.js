@@ -85,6 +85,26 @@ for (const [h, list] of Object.entries(FUNCS)) for (const f of list) if (!HEADER
 // a few macros that are also used like functions
 for (const f of ['setjmp']) HEADER_OF.set(f, 'setjmp.h');
 
+// POSIX functions declared by headers the front end has built in (with less
+// than the real system headers): a call after including the header is declared.
+const POSIX_HEADERS = {
+  'unistd.h': ['isatty', 'access', 'close', 'read', 'write', 'lseek', 'unlink', 'rmdir', 'chdir', 'getcwd', 'getpid', 'getppid',
+    'sleep', 'usleep', 'fork', 'execv', 'execvp', 'execve', 'execl', 'execlp', 'pipe', 'dup', 'dup2', 'fsync', 'fdatasync',
+    'ftruncate', 'truncate', 'sysconf', 'gethostname', 'readlink', 'symlink', 'link', 'chown', 'alarm', 'pause', 'setsid',
+    'getuid', 'geteuid', 'getgid', 'getopt', 'sync', 'pread', 'pwrite', 'ttyname'],
+  'time.h': ['clock_gettime', 'clock_settime', 'clock_getres', 'nanosleep', 'localtime_r', 'gmtime_r', 'ctime_r', 'asctime_r',
+    'strptime', 'timegm', 'tzset'],
+  'string.h': ['strdup', 'strndup', 'strtok_r', 'stpcpy', 'stpncpy', 'strnlen', 'memccpy', 'strsignal', 'strerror_r', 'strcasestr', 'memmem'],
+  'stdio.h': ['fileno', 'fdopen', 'popen', 'pclose', 'getline', 'getdelim', 'dprintf', 'fmemopen', 'open_memstream', 'flockfile',
+    'funlockfile', 'getc_unlocked', 'putc_unlocked'],
+  'stdlib.h': ['setenv', 'unsetenv', 'putenv', 'realpath', 'mkstemp', 'mkdtemp', 'posix_memalign', 'random', 'srandom', 'rand_r'],
+  'signal.h': ['kill', 'sigaction', 'sigemptyset', 'sigfillset', 'sigaddset', 'sigdelset', 'sigprocmask', 'sigismember'],
+  'fcntl.h': ['open', 'openat', 'creat', 'fcntl', 'posix_fallocate'],
+  'wchar.h': ['wcsdup', 'wcsnlen', 'wcscasecmp'],
+};
+const POSIX_HEADER_OF = new Map();
+for (const [h, list] of Object.entries(POSIX_HEADERS)) for (const f of list) if (!POSIX_HEADER_OF.has(f)) POSIX_HEADER_OF.set(f, h);
+
 const FUNC_NAMES = new Set(HEADER_OF.keys());
 const MACRO_NAMES = new Set(MACROS);
 const TYPE_NAMES = new Set(TYPES);
@@ -95,4 +115,4 @@ function reservedPrefix(name) {
   return /^__/.test(name) || /^_[A-Z]/.test(name);
 }
 
-module.exports = { FUNCS, HEADER_OF, FUNC_NAMES, MACRO_NAMES, TYPE_NAMES, OBJECT_NAMES, reservedPrefix };
+module.exports = { FUNCS, HEADER_OF, POSIX_HEADER_OF, FUNC_NAMES, MACRO_NAMES, TYPE_NAMES, OBJECT_NAMES, reservedPrefix };

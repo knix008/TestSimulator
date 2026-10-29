@@ -96,7 +96,7 @@ function unusedVarCandidates(unit, headerScope) {
     const local = s.storage === 'automatic' || (s.scope && (s.scope.kind === 'function' || s.scope.kind === 'block'));
     if (!local && s.linkage !== 'internal') continue;
     if ((!local && U.isHeaderFile(v.loc.file)) !== headerScope) continue;
-    if (U.attrNames(v).includes('maybe_unused')) continue;
+    if (U.attrNames(v).some((a) => UNUSED_ATTRS.has(a))) continue;
     const t = U.canon(v.ctype);
     if (t.kind === 'record') {
       const hasCtorDtor = U.methods(t).some((m) => m.node.isConstructor || m.node.isDestructor);
@@ -108,6 +108,9 @@ function unusedVarCandidates(unit, headerScope) {
   return out;
 }
 const reportUnusedVar = (api, v) => api.report(v.nameLoc ? { ...v.nameLoc, file: v.loc.file } : v, M(`Variable '${v.name}' is never used.`, `변수 '${v.name}' 이(가) 한 번도 사용되지 않습니다.`));
+
+// [[maybe_unused]] and the GNU spelling __attribute__((unused)) mark an intentional non-use
+const UNUSED_ATTRS = new Set(['maybe_unused', 'unused', '__unused__']);
 
 const isNullLit = (e, unit) => {
   e = U.strip(e);
@@ -235,7 +238,7 @@ module.exports = [
         if (fn.type === 'FunctionDecl' && (fn.isDefault || fn.isDeleted)) continue;
         for (const p of fn.params || []) {
           if (!p.name || !p.symbol || used.has(p.symbol) || p.symbol.uses.length) continue;
-          if (U.attrNames(p).includes('maybe_unused') || (p.specs && (p.specs.attributes || []).some((a) => a.name === 'maybe_unused'))) continue;
+          if (U.attrNames(p).some((a) => UNUSED_ATTRS.has(a)) || (p.specs && (p.specs.attributes || []).some((a) => UNUSED_ATTRS.has(a.name)))) continue;
           const fname = fn.type === 'FunctionDecl' ? fn.name : 'lambda';
           api.report(p.nameLoc ? { ...p.nameLoc, file: p.loc.file } : p, M(`Parameter '${p.name}' of '${fname}' is never used.`, `'${fname}' 의 매개변수 '${p.name}' 이(가) 사용되지 않습니다.`));
         }
@@ -298,7 +301,7 @@ module.exports = [
         // definitions out of class may carry another symbol; check by owner name
         const owner = U.ownerRecord(unit, d);
         if (owner && qnames.has(`${owner.name}::${d.name}`)) continue;
-        if (U.attrNames(d).includes('maybe_unused')) continue;
+        if (U.attrNames(d).some((a) => UNUSED_ATTRS.has(a))) continue;
         api.report(d.nameLoc ? { ...d.nameLoc, file: d.loc.file } : d, M(`Function '${d.name}' has limited visibility and is never used.`, `가시 범위가 제한된 함수 '${d.name}' 이(가) 사용되지 않습니다.`));
       }
     },

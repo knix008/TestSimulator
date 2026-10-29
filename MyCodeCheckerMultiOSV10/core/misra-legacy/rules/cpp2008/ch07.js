@@ -36,6 +36,11 @@ function shouldBeConst(unit, api) {
     if (p && (p.condition || (cf.parentOf(p) && cf.parentOf(p).type === 'ForStmt' && cf.parentKey(p) === 'init'))) continue;
     if (cf.enclosing(v, 'RangeForStmt') && cf.parentKey(p) === 'decl') continue;
     if ((s.uses || []).some(modifies)) continue;
+    if (t.kind === 'pointer') {
+      // `const char *p` points to const data, but the pointer itself is still not const
+      api.report(v.nameLoc || v, M(`Pointer variable '${v.name}' is never modified and should itself be const ('* const').`, `포인터 변수 '${v.name}'는 변경되지 않으므로 포인터 자체가 const('* const')여야 합니다.`));
+      continue;
+    }
     api.report(v.nameLoc || v, M(`Variable '${v.name}' is never modified and should be const.`, `변수 '${v.name}'는 변경되지 않으므로 const여야 합니다.`));
   }
 }

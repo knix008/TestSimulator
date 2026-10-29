@@ -82,6 +82,10 @@ module.exports = [
       for (const v of U.ix(unit).get('VarDecl')) {
         if (!v.init || !v.symbol || (v.symbol.storage !== 'static' && v.symbol.storage !== 'thread')) continue;
         if (cf.enclosing(v, ['FunctionDecl', 'LambdaExpr'])) continue; // function-local statics are initialised on first use
+        // `T& r = g;` binds a reference to an object of static storage: a constant expression
+        const ref = v.ctype && U.canon(v.ctype).kind === 'reference';
+        const target = U.strip(v.init);
+        if (ref && target && target.type === 'Identifier' && target.symbol && target.symbol.kind === 'variable' && target.symbol.storage === 'static') continue;
         const bad = nonConstantInit(v.init);
         if (bad) api.report(U.at(v), M(`The static object '${v.name}' is not constant-initialized.`, `정적 객체 '${v.name}' 이(가) 상수 초기화되지 않습니다.`));
       }

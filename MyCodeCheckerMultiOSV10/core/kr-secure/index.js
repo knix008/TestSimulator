@@ -114,7 +114,13 @@ const UPLOAD = {
   rb: [/\bFile\.(write|open)\s*\(.*\.original_filename\b/],
   go: [/\bFormFile\s*\(/],
 };
-const UPLOAD_GUARD = /\b(getExtension|extension|ext|allowed|whitelist|allowlist|mimetype|mime_type|content_?type|ContentType|endsWith|EndsWith|fileFilter|splitext|pathinfo|PATHINFO_EXTENSION|isAllowed|validate)\b/i;
+// Path.Combine(dir, x.FileName) or a stream copy is an upload only in code
+// that receives uploaded files; elsewhere it writes the program's own data.
+const UPLOAD_SOURCE = {
+  cs: /\b(IFormFile|IFormFileCollection|HttpPostedFile(Base)?|PostedFile|Request\.Files|Form\.Files|MultipartReader|IBrowserFile)\b/,
+  js: /\breq(uest)?\.files?\b|\bmulter\b|express-fileupload|\bformidable\b|\bbusboy\b/i,
+};
+const UPLOAD_GUARD =/\b(getExtension|extension|ext|allowed|whitelist|allowlist|mimetype|mime_type|content_?type|ContentType|endsWith|EndsWith|fileFilter|splitext|pathinfo|PATHINFO_EXTENSION|isAllowed|validate)\b/i;
 
 R({
   key: 'kr-secure:unrestricted-upload', mois: '1.6', langs: ['java', 'kt', 'cs', 'js', 'ts', 'py', 'php', 'rb', 'go'],
@@ -123,8 +129,11 @@ R({
   why: { en: 'Storing an uploaded file without checking its type, size and name lets an attacker place a script or an executable on the server.', ko: '형식·크기·이름을 확인하지 않고 업로드 파일을 저장하면 공격자가 서버에 스크립트나 실행 파일을 올릴 수 있습니다.' },
   fix: { en: 'Allow only known extensions and content types, limit the size, generate the stored name and keep uploads outside the web root.', ko: '허용한 확장자와 콘텐츠 형식만 받고, 크기를 제한하고, 저장 이름을 새로 만들고, 웹 루트 밖에 저장하세요.' },
   check(f, s, report) {
-    const pats = UPLOAD[f.lang === 'ts' ? 'js' : f.lang] || [];
-    const guarded = UPLOAD_GUARD.test(s.code.join('\n'));
+    const lang = f.lang === 'ts' ? 'js' : f.lang;
+    const pats = UPLOAD[lang] || [];
+    const all = s.code.join('\n');
+    if (UPLOAD_SOURCE[lang] && !UPLOAD_SOURCE[lang].test(all)) return;
+    const guarded = UPLOAD_GUARD.test(all);
     if (guarded) return;
     for (let i = 0; i < s.code.length; i++) {
       if (pats.some((re) => re.test(s.code[i]))) {
@@ -170,7 +179,22 @@ R({
 // ---------------------------------------------------------------------------
 // 2.13 Sensitive data in comments
 
-const COMMENT_SECRET = new RegExp(`${SECRET_WORDS.source}\\s*(=|:|는|은|->)\\s*['"]?([^\\s'"<>]{3,})`, 'i');
+// Bare "pass" is prose in comments ("First pass: load the files"), so the
+// comment rule wants password / passwd / pwd.
+const COMMENT_WORDS = new RegExp(SECRET_WORDS.source.replace('pass(word|wd)?', 'pass(word|wd)'), 'i');
+const COMMENT_SECRET = new RegExp(`${COMMENT_WORDS.source}\\s*(=|:|는|은|->)\\s*['"]?([^\\s'"<>]{3,})`, 'i');
+// The text after `password:` is a value only when it looks like one: not a
+// format directive ("token=%s"), not an expression ("MD5(a || b)"), not a
+// short number in a list of codes, and not the first word of a sentence
+// ("token = lowercase-hex of ...").
+function looksLikeSecret(value, rest) {
+  const v = value.replace(/[.,;]+$/, '');
+  // "password= privilege=0": an empty field followed by the next key
+  if (/%[-+ #0-9.]*[a-zA-Z]/.test(v) || /[()=]/.test(v)) return false;
+  if (/^\d+$/.test(v) && v.length < 4) return false;
+  if (/^[a-z][a-z-]*$/.test(v) && /^\s*[,;]?\s*[A-Za-z가-힣]+\s+[A-Za-z가-힣]/.test(rest)) return false;
+  return v.length >= 3;
+}
 const COMMENT_ACCOUNT = /\b(id|user(name)?|account|login|계정|아이디)\s*[:=/]\s*\w{2,}\s*[/,]\s*(pw|pass(word)?|pwd|비번|비밀번호)\s*[:=]?\s*\S{3,}/i;
 const PLACEHOLDER = /^(\*+|x+|\.{3}|<[^>]*>|\$\{[^}]*\}|\{\{[^}]*\}\}|null|none|changeme|example|your[_-]?\w*|todo|xxx+|redacted|secret|password)$/i;
 
@@ -184,7 +208,7 @@ R({
     for (const c of s.comments) {
       const m = COMMENT_SECRET.exec(c.text);
       const acct = COMMENT_ACCOUNT.test(c.text);
-      if (!acct && (!m || PLACEHOLDER.test(m[m.length - 1]))) continue;
+      if (!acct && (!m || PLACEHOLDER.test(m[m.length - 1]) || !looksLikeSecret(m[m.length - 1], c.text.slice(m.index + m[0].length)))) continue;
       report(c.line, { en: 'This comment contains what looks like a password or key.', ko: '이 주석에 비밀번호나 키로 보이는 값이 있습니다.' });
     }
   },

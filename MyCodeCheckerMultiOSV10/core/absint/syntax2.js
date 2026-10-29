@@ -863,6 +863,9 @@ function unusedValue(an) {
     // NULL / TRUE macros (also unresolved without their headers) and other constants are defensive values
     if (rhs.loc && rhs.loc.macro && /^(NULL|nullptr|TRUE|FALSE|true|false|EOF)$/.test(rhs.loc.macro)) continue;
     if (rhs.type === 'Identifier' && !rhs.symbol && /^(NULL|TRUE|FALSE)$/.test(rhs.name || '')) continue;
+    // An unresolved upper-case name (its header is missing) is a constant
+    // macro or enumerator such as MPG123_OK: a defensive initial value too.
+    if (rhs.type === 'Identifier' && !rhs.symbol && /^[A-Z][A-Z0-9_]*$/.test(rhs.name || '')) continue;
     if (constInt(an, rhs) !== null) continue;
     reported.add(x.node);
     const s = x.def;

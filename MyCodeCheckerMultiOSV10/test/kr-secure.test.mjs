@@ -63,6 +63,31 @@ x = 1
 `, good: `# Read the API key from settings.
 x = 1
 ` },
+  // Prose and protocol notes: "First pass:", a format directive, an expression,
+  // an empty field followed by the next key.
+  { rule: 'secret-in-comment', lang: 'c', bad: `/* token = 9f8e7d6c5b4a */ //!
+int x;
+`, good: `// First pass: load all image filenames
+// Second pass: copy the sorted names
+/* token = lowercase-hex of MD5(RegistryCode || SerialNumber)
+ * Token = MD5(RC || SN || SID).
+ *   snprintf(cookie, sizeof(cookie), "token=%s, timestamp=%s", token_hex, ts);
+ * mobile NFC credential = 100, a vendor extension
+ * user uid=<id> cardno= pin=<id> password= privilege=0 disable=0 */
+int x;
+` },
+  // Writing the program's own files is not an upload.
+  { rule: 'unrestricted-upload', lang: 'cs', bad: `class U {
+  public async Task<IActionResult> Up(IFormFile file) {
+    using var s = new FileStream(Path.Combine(dir, file.FileName), FileMode.Create); //!
+    await file.CopyToAsync(s);
+    return Ok();
+  }
+}`, good: `class R {
+  void Write(string dir, IEnumerable<Chart> charts) {
+    foreach (var chart in charts) File.WriteAllBytes(Path.Combine(dir, chart.FileName), chart.PngBytes);
+  }
+}` },
   { rule: 'no-login-attempt-limit', lang: 'java', bad: `class Auth {
   public boolean login(String id, String password) { //!
     return encoder.matches(password, repo.hash(id));

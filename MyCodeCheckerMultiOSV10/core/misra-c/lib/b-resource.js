@@ -201,6 +201,24 @@ const ERRNO_SETTING = new Set([
   'wcsrtombs', 'mbrtowc', 'mbsrtowcs', 'mbrtoc16', 'c16rtomb', 'mbrtoc32', 'c32rtomb',
 ]);
 
+// Functions that POSIX (not ISO C) documents as setting errno when they fail:
+// reading errno right after one of them is what their documentation asks for
+// (22.10), but they are not the errno-setting functions of 22.8 / 22.9.
+const POSIX_ERRNO = new Set([
+  'open', 'openat', 'creat', 'close', 'read', 'write', 'pread', 'pwrite', 'readv', 'writev', 'lseek', 'fsync', 'fdatasync',
+  'ioctl', 'fcntl', 'dup', 'dup2', 'pipe', 'mkfifo', 'select', 'pselect', 'poll', 'epoll_create', 'epoll_ctl', 'epoll_wait',
+  'socket', 'socketpair', 'bind', 'listen', 'accept', 'accept4', 'connect', 'send', 'sendto', 'sendmsg', 'recv', 'recvfrom',
+  'recvmsg', 'shutdown', 'setsockopt', 'getsockopt', 'getsockname', 'getpeername', 'inet_pton',
+  'tcgetattr', 'tcsetattr', 'tcflush', 'tcdrain', 'cfsetispeed', 'cfsetospeed',
+  'stat', 'fstat', 'lstat', 'access', 'mkdir', 'rmdir', 'unlink', 'link', 'symlink', 'readlink', 'chdir', 'chmod', 'chown',
+  'truncate', 'ftruncate', 'opendir', 'readdir', 'closedir', 'realpath', 'getcwd',
+  'fork', 'execv', 'execvp', 'execve', 'execl', 'execlp', 'waitpid', 'wait', 'kill', 'sigaction', 'nanosleep', 'usleep',
+  'mmap', 'munmap', 'mprotect', 'shm_open', 'sem_open', 'sem_wait', 'sem_post', 'clock_gettime', 'clock_settime', 'gettimeofday',
+  'settimeofday', 'setenv', 'mount', 'umount', 'umount2', 'statvfs', 'fstatvfs', 'sysinfo', 'reboot', 'chroot', 'inotify_init',
+  'fopen', 'fdopen', 'freopen', 'fclose', 'fflush', 'fseek', 'fread', 'fwrite', 'fgets', 'fputs', 'remove', 'rename',
+  'tmpfile', 'popen', 'pclose', 'malloc', 'calloc', 'realloc', 'strdup', 'system',
+]);
+
 function isErrno(n) {
   if (!n) return false;
   if (n.type === 'Identifier' && n.name === 'errno') return true;
@@ -246,7 +264,7 @@ function errnoEvents(fd, unit) {
         if (B.callIsPure(n, unit)) return;
         for (const [k, v] of [...st]) if (k.startsWith('p') && v.has('P')) { emit('22.9', pendingCalls.get(k), pendMsg(pendingCalls.get(k))); st.delete(k); }
         st.set('zero', new Set(['N']));
-        st.set('last', new Set(['O']));
+        st.set('last', new Set([nm && POSIX_ERRNO.has(nm) && B.isLibCall(n, POSIX_ERRNO) ? 'E' : 'O']));
       }
     },
     exit(st, emit) {

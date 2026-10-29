@@ -9,6 +9,9 @@ const P = require('../../lib/ptr');
 const { T } = U;
 
 function incompleteRecords(unit, api) {
+  // with headers that were not found (<termios.h>, <netdb.h> ...) the type is
+  // most likely completed in one of them
+  if (U.A.hasMissingHeaders(unit)) return;
   const done = new Set();
   for (const r of U.get(unit, 'RecordDecl')) {
     if (r.isDefinition || !r.name || r.loc.file !== unit.file) continue;
