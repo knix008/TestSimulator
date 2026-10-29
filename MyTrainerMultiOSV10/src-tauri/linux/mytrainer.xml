@@ -3,6 +3,7 @@
   <mime-type type="application/x-mytrainer">
     <comment>MyTrainer Project</comment>
     <comment xml:lang="ko">MyTrainer 프로젝트</comment>
+    <icon name="application-x-mytrainer"/>
     <glob pattern="*.mytrain"/>
   </mime-type>
 </mime-info>

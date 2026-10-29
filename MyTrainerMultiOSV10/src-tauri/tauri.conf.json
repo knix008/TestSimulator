@@ -32,7 +32,9 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../docs/": "docs/"
+      "../docs/": "docs/",
+      "icons/project.ico": "project.ico",
+      "icons/project.icns": "project.icns"
     },
     "fileAssociations": [
       {
@@ -61,7 +63,8 @@
       "deb": {
         "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
         "files": {
-          "/usr/share/mime/packages/mytrainer.xml": "linux/mytrainer.xml"
+          "/usr/share/mime/packages/mytrainer.xml": "linux/mytrainer.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mytrainer.png": "icons/project.png"
         },
         "postInstallScript": "linux/postinst.sh",
         "postRemoveScript": "linux/postrm.sh"
@@ -69,7 +72,8 @@
       "rpm": {
         "depends": ["webkit2gtk4.1", "gtk3"],
         "files": {
-          "/usr/share/mime/packages/mytrainer.xml": "linux/mytrainer.xml"
+          "/usr/share/mime/packages/mytrainer.xml": "linux/mytrainer.xml",
+          "/usr/share/icons/hicolor/256x256/mimetypes/application-x-mytrainer.png": "icons/project.png"
         },
         "postInstallScript": "linux/postinst.sh",
         "postRemoveScript": "linux/postrm.sh"

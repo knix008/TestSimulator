@@ -32,6 +32,28 @@ const data = (id, params = {}, steps = [], split = {}) => ({ source: { kind: 'ge
 const table = (name, text, target, steps = []) => ({ source: { kind: 'table', name, text, target, features: null, task: 'auto' }, steps, split: defaultSplit() });
 const step = (type, params = {}) => ({ ...newStep(type), params: { ...newStep(type).params, ...params } });
 
+/**
+ * A stage of BC-ResNet: `blocks` broadcasted residual blocks of `filters` channels named `<p>1_…`, `<p>2_…`
+ * after the layer `from`. With `widen` a 1×1 convolution first brings the channels to `filters` (the
+ * paper's transition block). Ends in `<p><blocks>_relu`.
+ */
+function bcStage(p, filters, from, blocks, widen = false) {
+  const out = [];
+  if (widen) {
+    out.push([`${p}_widen`, 'conv2d', { filters, kernelSize: 1, activation: 'linear' }, [from]], [`${p}_widen_bn`, 'batchNorm', { momentum: 0.9 }], [`${p}_widen_relu`, 'activation', { activation: 'relu' }]);
+    from = `${p}_widen_relu`;
+  }
+  for (let i = 1; i <= blocks; i++) {
+    const b = `${p}${i}`;
+    out.push([`${b}_freq`, 'depthwiseConv2d', { kernelH: 3, kernelW: 1 }, [from]], [`${b}_freq_bn`, 'batchNorm', { momentum: 0.9 }], [`${b}_avg`, 'freqAvgPool'],
+      [`${b}_time`, 'depthwiseConv2d', { kernelH: 1, kernelW: 3 }], [`${b}_time_bn`, 'batchNorm', { momentum: 0.9 }], [`${b}_swish`, 'activation', { activation: 'swish' }],
+      [`${b}_point`, 'conv2d', { filters, kernelSize: 1, activation: 'linear' }], [`${b}_drop`, 'dropout', { rate: 0.1 }],
+      [`${b}_add`, 'add', {}, [`${b}_drop`, `${b}_freq_bn`, from]], [`${b}_relu`, 'activation', { activation: 'relu' }]);
+    from = `${b}_relu`;
+  }
+  return out;
+}
+
 /** id → { group, icon, ko, en, descKo, descEn, dataset, layers, train } */
 export const SAMPLES = {
   xor: {
@@ -365,6 +387,20 @@ export const SAMPLES = {
         ['b3_time', 'depthwiseConv2d', { kernelH: 1, kernelW: 3 }], ['b3_time_bn', 'batchNorm', { momentum: 0.9 }], ['b3_swish', 'activation', { activation: 'swish' }], ['b3_point', 'conv2d', { filters: 24, kernelSize: 1, activation: 'linear' }], ['b3_drop', 'dropout', { rate: 0.1 }],
         ['b3_add', 'add', {}, ['b3_drop', 'b3_freq_bn', 'b2_relu']], ['b3_relu', 'activation', { activation: 'relu' }],
           ['head', 'conv2d', { filters: 32, kernelSize: 1, activation: 'relu' }], ['gap', 'globalAvgPool2d'], ['output', 'dense', { units: 6, activation: 'softmax' }]],
+      },
+      bcResNetPlus: {
+        ko: 'BC-ResNet+', en: 'BC-ResNet+', descKo: 'TODO', descEn: 'TODO',
+        layers: [['input', 'input', { shape: '32,32,1' }], ['conv_1', 'conv2d', { filters: 16, kernelSize: 5, strides: 2, activation: 'linear' }], ['bn_1', 'batchNorm', { momentum: 0.9 }], ['relu_1', 'activation', { activation: 'relu' }],
+          ...bcStage('s1_', 16, 'relu_1', 2), ...bcStage('s2_', 24, 's1_2_relu', 2, true), ['pool', 'maxPool2d', { poolSize: 2, strides: 2 }],
+          ...bcStage('s3_', 32, 'pool', 3, true), ...bcStage('s4_', 40, 's3_3_relu', 3, true),
+          ['head', 'conv2d', { filters: 64, kernelSize: 1, activation: 'relu' }], ['gap', 'globalAvgPool2d'], ['dropout', 'dropout', { rate: 0.2 }], ['output', 'dense', { units: 6, activation: 'softmax' }]],
+      },
+      bcLite: {
+        ko: 'lite', en: 'lite', descKo: 'TODO', descEn: 'TODO',
+        layers: [['input', 'input', { shape: '32,32,1' }], ['conv_1', 'conv2d', { filters: 16, kernelSize: 5, strides: 2, activation: 'linear' }], ['bn_1', 'batchNorm', { momentum: 0.9 }], ['relu_1', 'activation', { activation: 'relu' }],
+          ...bcStage('s1_', 16, 'relu_1', 2), ['pool', 'maxPool2d', { poolSize: 2, strides: 2 }],
+          ...bcStage('s2_', 24, 'pool', 3, true), ...bcStage('s3_', 32, 's2_3_relu', 3, true),
+          ['head', 'conv2d', { filters: 48, kernelSize: 1, activation: 'relu' }], ['gap', 'globalAvgPool2d'], ['dropout', 'dropout', { rate: 0.2 }], ['output', 'dense', { units: 6, activation: 'softmax' }]],
       },
     },
     train: { learningRate: 0.003, epochs: 20, batchSize: 32, schedule: 'cosine', labelSmoothing: 0.1, mixup: 0.3 },

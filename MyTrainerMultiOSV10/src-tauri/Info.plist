@@ -1,8 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Merged into the macOS app bundle by Tauri: the Test tab can listen to the microphone and watch the webcam. -->
+<!-- Merged into the macOS app bundle by Tauri: the Test tab can listen to the microphone and watch the webcam.
+     CFBundleDocumentTypes replaces the one Tauri writes from bundle.fileAssociations, which has no
+     document icon; project.icns is a bundle resource (Contents/Resources). Keep both in step. -->
 <plist version="1.0">
 <dict>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array><string>mytrain</string></array>
+      <key>CFBundleTypeMIMETypes</key>
+      <array><string>application/x-mytrainer</string></array>
+      <key>CFBundleTypeName</key>
+      <string>MyTrainer.Project</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>CFBundleTypeIconFile</key>
+      <string>project.icns</string>
+    </dict>
+  </array>
   <key>NSMicrophoneUsageDescription</key>
   <string>MyTrainer tests speech models with your voice (Test tab → microphone).</string>
   <key>NSCameraUsageDescription</key>

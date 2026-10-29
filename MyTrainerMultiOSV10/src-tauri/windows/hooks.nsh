@@ -1,11 +1,14 @@
 ﻿; MyTrainer installer hooks (bundle.windows.nsis.installerHooks).
-; After the files are installed, Python and PyTorch are installed when this computer has none:
+; After the files are installed, the .mytrain icon is set and Python and PyTorch are installed when this computer has none:
 ; `MyTrainer.exe --setup-python` finds every Python, keeps one that already has PyTorch, and
 ; otherwise installs Python (winget, or a portable one) and PyTorch (CUDA when there is an NVIDIA GPU).
 ; Its progress appears in the installer's details list; a failure does not fail the installation —
 ; the app offers the same setup again on its Python / PyTorch screen.
 
 !macro NSIS_HOOK_POSTINSTALL
+  ; Tauri registers .mytrain with the program's own icon (MyTrainer.exe,0); .mytrain files get the
+  ; project icon instead (bundled as a resource). The uninstaller removes the whole class key.
+  WriteRegStr SHCTX "Software\Classes\MyTrainer.Project\DefaultIcon" "" "$INSTDIR\project.ico"
   SetDetailsView show
   StrCmp $LANGUAGE 1042 mt_ko mt_en
   mt_ko:
