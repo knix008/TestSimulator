@@ -568,7 +568,8 @@ fn set_min_size(app: AppHandle, window: WebviewWindow, width: f64, height: f64) 
   let (ax, ay, aw, ah) = work_area(&window).unwrap_or((0.0, 0.0, 2400.0, 1600.0));
   let w = (aw - 16.0).min(width.round().clamp(MIN_WIDTH, 2400.0));
   let h = (ah - 16.0).min(height.round().clamp(MIN_HEIGHT, 1600.0));
-  let _ = window.set_min_size(Some(LogicalSize::new(w, h)));
+  let (fw, fh) = frame_extra(&window);
+  let _ = window.set_min_size(Some(LogicalSize::new(w + fw, h + fh)));
   if window.label() == MAIN {
     *state(&app).min_size.lock().unwrap() = (w, h);
   }
@@ -797,6 +798,25 @@ fn dialog_closed(app: &AppHandle, label: &str) {
   if let Some(w) = app.get_webview_window(&owner) {
     let _ = w.set_enabled(true);
     let _ = w.set_focus();
+  }
+}
+
+/// How much wider and taller the outer rectangle is than the client area. On
+/// Windows a frameless window keeps an invisible resize border (8 px a side),
+/// and the minimum size given to set_min_size binds the OUTER rectangle there:
+/// without this the user's edge drag stopped 16 px short of the client minimum,
+/// the Resized clamp below pushed it back, and the window shook between the two.
+fn frame_extra(window: &WebviewWindow) -> (f64, f64) {
+  if cfg!(not(target_os = "windows")) {
+    return (0.0, 0.0);
+  }
+  let scale = window.scale_factor().unwrap_or(1.0);
+  match (window.outer_size(), window.inner_size()) {
+    (Ok(o), Ok(i)) => (
+      f64::from(o.width.saturating_sub(i.width)) / scale,
+      f64::from(o.height.saturating_sub(i.height)) / scale,
+    ),
+    _ => (0.0, 0.0),
   }
 }
 
