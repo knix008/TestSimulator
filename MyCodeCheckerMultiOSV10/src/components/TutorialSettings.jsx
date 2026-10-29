@@ -18,12 +18,12 @@ import '../tutorial.css';
 
 const L = {
   ko: {
-    section: '튜토리얼', show: '시작할 때 튜토리얼 안내 보기', showHint: '프로그램을 시작하면 튜토리얼을 시작할지 묻는 안내 창을 보여 줍니다. 튜토리얼을 끝까지 보면 더 이상 나오지 않습니다.',
+    section: '튜토리얼', show: '시작할 때마다 시작 안내 창 보기', showHint: '프로그램을 시작하면 프로그램 소개와 함께 튜토리얼·사용 설명서·예제 중 무엇부터 할지 고르는 안내 창을 보여 줍니다. 설정 › 일반의 같은 항목과 연결되어 있습니다.',
     progress: '진행', done: '끝까지 보았습니다', notYet: '아직 시작하지 않았습니다', at: '{n} / {total} 단계', start: '튜토리얼 시작', resume: '이어서 보기', restart: '처음부터 다시', doc: '튜토리얼 문서',
     about: '{chapters}개 장, {steps}단계로 모든 기능을 실제 화면에서 차례로 설명합니다. → / Space 다음, ← 이전, Esc 닫기.',
   },
   en: {
-    section: 'Tutorial', show: 'Show the tutorial welcome at start', showHint: 'When the program starts, a small window offers to start the tutorial. It stops appearing once the tutorial has been played to the end.',
+    section: 'Tutorial', show: 'Show the getting-started guide every time the program starts', showHint: "When the program starts, a window introduces it and lets you pick the tutorial, the user's guide or a sample. Same switch as in Settings › General.",
     progress: 'Progress', done: 'Played to the end', notYet: 'Not started yet', at: 'step {n} / {total}', start: 'Start tutorial', resume: 'Continue', restart: 'Start over', doc: 'Tutorial document',
     about: '{chapters} chapters and {steps} steps explain every feature on the real screen. → / Space next, ← previous, Esc closes.',
   },

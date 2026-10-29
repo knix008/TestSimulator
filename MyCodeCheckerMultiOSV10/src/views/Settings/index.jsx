@@ -240,7 +240,7 @@ export function SettingsDialog({ ws, onClose, onSave, initialTab, windowed, onPr
 
   const resetTab = () => {
     const def = draftOf({}, ws.gates);
-    if (tab === 'general') { previewLanguage('ko'); set({ showStartOnLaunch: true, assignee: '', panels: { ...DEFAULT_PANELS } }); }
+    if (tab === 'general') { previewLanguage('ko'); set({ showStartOnLaunch: true, tutorial: { ...d.tutorial, showAtStart: true }, assignee: '', panels: { ...DEFAULT_PANELS } }); }
     if (tab === 'theme') previewTheme('midnight');
     if (tab === 'custom') { set({ customThemes: [] }); applyCustom([]); if (d.theme.startsWith('custom-')) previewTheme('midnight'); }
     if (tab === 'start') { set({ showStartOnLaunch: true }); setBg({ ...DEFAULT_START_BACKGROUND }); }

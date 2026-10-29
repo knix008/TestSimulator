@@ -74,19 +74,34 @@
 .mcc-tour-list .name { flex: 1; }
 .mcc-tour-list .c { font-size: 0.85em; color: var(--fg-muted, #97a3b4); }
 
-/* ── Welcome card (first launch) ───────────────────── */
+/* ── Start guide (every launch, settings.tutorial.showAtStart) ── */
 .mcc-welcome-back { position: fixed; inset: 0; z-index: 8500; display: grid; place-items: center; background: rgba(0, 0, 0, 0.35); }
 .mcc-welcome {
-  width: 560px; max-width: calc(100vw - 32px); background: var(--bg-elev, #1a2029); color: var(--fg, #e4e9f0);
+  width: 640px; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: var(--bg-elev, #1a2029); color: var(--fg, #e4e9f0);
   border: 1px solid var(--border-strong, #3b4859); border-radius: 12px; box-shadow: var(--shadow, 0 18px 50px rgba(0, 0, 0, 0.45)); overflow: hidden;
 }
 .mcc-welcome-head { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; background: var(--accent, #4cc9f0); color: var(--accent-text, #06202b); }
 .mcc-welcome-head b { flex: 1; }
-.mcc-welcome-body { display: flex; gap: 14px; padding: 18px 18px 8px; }
+.mcc-welcome-body { display: flex; gap: 14px; padding: 18px 18px 12px; min-height: 0; overflow: auto; }
+.mcc-welcome-main { flex: 1 1 auto; min-width: 0; }
+.mcc-welcome-features { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 5px; }
+.mcc-welcome-features li { display: flex; align-items: center; gap: 8px; line-height: 1.45; }
+.mcc-welcome-features li svg { flex: 0 0 auto; color: var(--accent, #4cc9f0); }
+.mcc-welcome-choose { font-weight: 600; margin: 4px 0 8px; }
+.mcc-welcome-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mcc-welcome-choice {
+  display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  background: var(--bg-panel, #161b23); color: var(--fg, #e4e9f0); border: 1px solid var(--border, #2a3441); font: inherit;
+}
+.mcc-welcome-choice:hover, .mcc-welcome-choice:focus-visible { border-color: var(--accent, #4cc9f0); outline: none; }
+.mcc-welcome-choice > svg { flex: 0 0 auto; color: var(--accent, #4cc9f0); }
+.mcc-welcome-choice.lead { border-color: var(--accent, #4cc9f0); box-shadow: inset 3px 0 0 var(--accent, #4cc9f0); }
+.mcc-welcome-choice span { display: grid; gap: 2px; min-width: 0; }
+.mcc-welcome-choice small { color: var(--fg-muted, #97a3b4); font-size: 0.86em; line-height: 1.35; }
 .mcc-welcome-icon { flex: 0 0 auto; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: var(--bg-panel, #161b23); color: var(--accent, #4cc9f0); border: 1px solid var(--border, #2a3441); }
 .mcc-welcome-body h3 { margin: 2px 0 6px; font-size: 1.15em; }
 .mcc-welcome-body p { margin: 0 0 8px; line-height: 1.6; color: var(--fg-muted, #97a3b4); }
-.mcc-welcome-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border, #2a3441); background: var(--bg-panel, #161b23); }
+.mcc-welcome-foot { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border, #2a3441); background: var(--bg-panel, #161b23); }
 .mcc-check { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 0.95em; }
 .mcc-check input { width: 15px; height: 15px; accent-color: var(--accent, #4cc9f0); margin: 0; }
 

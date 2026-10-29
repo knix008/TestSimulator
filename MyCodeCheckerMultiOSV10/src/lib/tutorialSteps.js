@@ -326,8 +326,8 @@ const ROWS = [
 
   // ── 14. 설정 ─────────────────────────────────────────
   ['settingsGeneral', 'settings', SETTINGS('general'), ['project', 'act:settings:general', 'wait:400'],
-    ['설정 창 — 일반', '도구 › 설정(Ctrl+,)은 탭으로 나뉜 설정 창을 엽니다. [일반] 탭에서 언어, 기본 담당자, 시작할 때 시작 화면 보기, 튜토리얼 안내 보기 같은 기본 동작을 정합니다. 바꾼 내용은 [저장] 을 눌러야 적용되고, [취소] 하면 원래대로 돌아갑니다.'],
-    ['Settings — General', 'Tools › Settings (Ctrl+,) opens the settings window with tabs. The [General] tab sets the language, default assignee, whether the start page and the tutorial welcome appear at launch, and similar basics. Changes apply when you press [Save]; [Cancel] restores the previous values.']],
+    ['설정 창 — 일반', '도구 › 설정(Ctrl+,)은 탭으로 나뉜 설정 창을 엽니다. [일반] 탭에서 언어, 기본 담당자, 시작할 때 시작 화면 보기, 시작할 때마다 시작 안내 창 보기 같은 기본 동작을 정합니다. 바꾼 내용은 [저장] 을 눌러야 적용되고, [취소] 하면 원래대로 돌아갑니다.'],
+    ['Settings — General', 'Tools › Settings (Ctrl+,) opens the settings window with tabs. The [General] tab sets the language, default assignee, whether the start page and the getting-started guide appear at launch, and similar basics. Changes apply when you press [Save]; [Cancel] restores the previous values.']],
   ['settingsTheme', 'settings', SETTINGS('theme'), ['project', 'act:settings:theme', 'wait:400'],
     ['테마', '[테마] 탭에는 어두운 테마 20개와 밝은 테마 20개가 견본과 함께 있습니다. 견본을 누르면 저장하기 전에 메인 창에 바로 미리 보입니다. 메뉴 표시줄의 테마 단추로도 언제든 바꿀 수 있고, 사용 설명서 창도 같은 테마를 따릅니다.'],
     ['Themes', 'The [Theme] tab has 20 dark and 20 light themes with swatches. Clicking a swatch previews it in the main window before you save. The theme button on the menu bar switches it any time, and the user\'s guide window follows the same theme.']],

@@ -13,6 +13,7 @@ import { ChecksBox } from '../../components/ChecksBox';
 import { BgKindGrid } from '../StartPage';
 import { metricLabel } from '../Panels';
 import { DEFAULT_GATE_CONDITIONS, GATE_METRICS } from '../../lib/gateDefaults';
+import { tutorialOf, showAtStartPatch } from '../../lib/tutorialSettings';
 
 export const MASK = '••••••••';
 const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'];
@@ -38,7 +39,10 @@ export function GeneralTab({ d, set, previewLanguage }) {
       <Row icon="globe" label={t('language')} title={t('st_live_hint')}>
         <IconSelect value={d.language} width={220} ariaLabel={t('language')} onChange={previewLanguage} options={languageOptions()} />
       </Row>
+      <div className="st-eq">
       <Row icon="home" label={t('start_nav')}><Toggle icon="home" label={t('show_start_on_launch')} checked={d.showStartOnLaunch} onChange={(v) => set({ showStartOnLaunch: v })} /></Row>
+      <Row icon="info" label={t('welcome_menu')} title={t('st_welcome_hint')}><Toggle icon="info" label={t('show_welcome_on_launch')} checked={tutorialOf(d).showAtStart} onChange={(v) => set(showAtStartPatch(d, v))} /></Row>
+      </div>
       <Row icon="user" label={t('assignee')} title={t('st_assignee_hint')}><input value={d.assignee} placeholder={t('st_assignee_ph')} onChange={(e) => set({ assignee: e.target.value })} /></Row>
       <div className="st-sep">{t('st_panels')}</div>
       <div className="st-grid3">

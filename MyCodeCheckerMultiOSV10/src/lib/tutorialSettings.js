@@ -1,7 +1,7 @@
 // Tutorial settings, kept in the workspace as settings.tutorial:
 //   { showAtStart: true, done: false, lastIndex: 0 }
-// showAtStart — show the welcome card (TutorialWelcome) when the app starts;
-// done        — the tour was played to the end (the welcome then stays away);
+// showAtStart — show the start guide (TutorialWelcome) every time the app starts;
+// done        — the tour was played to the end;
 // lastIndex   — the step the tour was left on, to continue from there.
 // The helpers return patches for App's patchSettings({ tutorial: … }).
 
@@ -16,10 +16,9 @@ export function tutorialOf(settings) {
   };
 }
 
-/** Whether to show the welcome card at launch. */
+/** Whether to show the start guide at launch: only the user's switch decides. */
 export function shouldShowWelcome(settings) {
-  const s = tutorialOf(settings);
-  return s.showAtStart && !s.done;
+  return tutorialOf(settings).showAtStart;
 }
 
 const patch = (settings, change) => ({ tutorial: { ...tutorialOf(settings), ...change } });
@@ -33,5 +32,5 @@ export const neverPatch = (settings) => patch(settings, { showAtStart: false });
 export const showAtStartPatch = (settings, on) => patch(settings, { showAtStart: !!on });
 /** When the tour stops: where it was left, and whether it reached the end. */
 export const progressPatch = (settings, { index, done }) => patch(settings, { lastIndex: index || 0, ...(done ? { done: true } : {}) });
-/** 처음부터 다시: forget the progress (the welcome card shows again if enabled). */
+/** 처음부터 다시: forget the progress. */
 export const resetPatch = (settings) => patch(settings, { done: false, lastIndex: 0 });

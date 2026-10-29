@@ -893,6 +893,7 @@ export default function App() {
     }
     else if (id.startsWith('panel:')) togglePanel(id.slice(6));
     else if (id.startsWith('lang:')) patchSettings({ language: id.slice(5) });
+    else if (id === 'welcome') setDialog({ kind: 'welcome' });
     else if (id === 'tutorial' || id === 'tutorialRestart') {
       const tour = window.__mcc && window.__mcc.tutorial;
       if (tour && tour.start) tour.start(id === 'tutorialRestart' ? { index: 0 } : {});
@@ -1184,7 +1185,8 @@ export default function App() {
       ...(hasUserToken() ? [{ sep: true }, { id: 'signOut', label: t('sign_out'), icon: 'user' }] : []),
     ] },
     { id: 'help', labelKey: 'menu_help', icon: 'info', items: () => [
-      { id: 'tutorial', label: t('sp_tutorial_start'), icon: 'graduation', oneColumn: true },
+      { id: 'welcome', label: t('welcome_menu'), icon: 'info', oneColumn: true },
+      { id: 'tutorial', label: t('sp_tutorial_start'), icon: 'graduation' },
       { id: 'tutorialRestart', label: t('tut_restart'), icon: 'refresh' },
       { sep: true },
       { id: 'doc:guide', label: t('sp_users_guide'), icon: 'book' },
@@ -1371,6 +1373,7 @@ export default function App() {
         </InWindow>
       )}
       <TutorialWelcome settings={ws.settings} onPatch={patchSettings} onClose={() => setWelcomeOpen(false)} />
+      {dialog && dialog.kind === 'welcome' && <TutorialWelcome force settings={ws.settings} onPatch={patchSettings} onClose={() => setDialog(null)} />}
       {dialog && dialog.kind === 'excludeDirs' && project && (() => {
         const onSave = async (dirs) => {
             setDialog(null);
