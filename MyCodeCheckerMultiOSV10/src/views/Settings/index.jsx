@@ -20,7 +20,7 @@ import { defaultGateOf, DEFAULT_GATE_CONDITIONS } from '../../lib/gateDefaults';
 
 const DEFAULT_EXCLUSIONS = ['**/*.min.js', '**/vendor/**', '**/node_modules/**', '**/dist/**', '**/build/**'];
 const AI_DEFAULTS = { enabled: false, provider: 'anthropic', model: '', baseUrl: '', apiKey: '', effort: 'medium', maxTokens: 16000, contextLines: 40, timeoutMs: 120000, language: 'ko' };
-const DB_DEFAULTS = { enabled: false, kind: 'sqlite', file: '', host: 'localhost', port: 5432, database: 'mycodechecker', user: '', password: '', ssl: false, schema: 'mcc', autoExport: false, includeIssues: true };
+const DB_DEFAULTS = { enabled: false, kind: 'sqlite', file: '', host: 'localhost', port: 5432, database: 'mycodechecker', user: '', password: '', ssl: false, schema: 'mcc', autoExport: false, includeIssues: true, perProject: true };
 const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'];
 
 export const SETTINGS_TABS = [

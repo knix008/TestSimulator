@@ -66,10 +66,17 @@ test('issue lists and snapshots are stored in the local database and come back i
   assert.equal(main.latest.issues.count, 500);
   assert.match(main.latest.issues.$db, /^p1-\w+$/);
   assert.equal(main.snapshots[0].issues.count, 10);
-  assert.ok(fs.existsSync(path.join(dir, 'issues.db')));
+  // One file per list, in the project's folder.
+  const files = fs.readdirSync(path.join(dir, 'projects', 'p1')).filter((n) => n.endsWith('.db')).sort();
+  assert.equal(files.length, 3);
+  assert.ok(files.includes('desktop.db'));
+  assert.ok(files.some((n) => /^branch-[0-9a-f]{12}\.db$/.test(n)));
+  assert.ok(files.some((n) => /^snap-[0-9a-f]{12}\.db$/.test(n)));
+  assert.ok(!fs.existsSync(path.join(dir, 'issues.db')));
   assert.ok(!fs.existsSync(path.join(dir, 'issues')) || !fs.readdirSync(path.join(dir, 'issues')).some((n) => n.endsWith('.ndjson')), 'no list files');
 
-  const back = createStore(dir).load();
+  const backStore = createStore(dir);
+  const back = backStore.load();
   assert.deepEqual(back.projects[0].branches.main.latest.issues, issues);
   assert.deepEqual(back.projects[0].desktop.issues, issues.slice(0, 3));
   // Snapshots stay references until asked for.
@@ -77,14 +84,61 @@ test('issue lists and snapshots are stored in the local database and come back i
   assert.equal(Array.isArray(snap.issues), false);
   assert.deepEqual(store.issuesOf(snap.issues), issues.slice(0, 10));
 
-  // Removing the project removes its lists.
-  back.projects = [];
-  store.save(back);
-  const { DatabaseSync } = require('node:sqlite');
-  const d = new DatabaseSync(path.join(dir, 'issues.db'));
-  assert.equal(d.prepare('select count(*) c from issue').get().c, 0);
-  assert.equal(d.prepare('select count(*) c from lists').get().c, 0);
-  d.close();
+  // A search runs on the list's own file.
+  const page = backStore.searchIssues(back.projects[0], back.projects[0].branches.main.latest, { q: 'break 499' }, { limit: 5 });
+  return page.then((p) => {
+    assert.equal(p.total, 1);
+    assert.equal(p.issues[0].key, 'k499');
+    // Removing the project removes its folder.
+    back.projects = [];
+    backStore.save(back);
+    assert.ok(!fs.existsSync(path.join(dir, 'projects', 'p1')));
+  });
+});
+
+test('a rewritten list replaces its file; a snapshot dropped from the workspace loses its file', () => {
+  const dir = tmp('replace');
+  const store = createStore(dir);
+  const ws = store.load();
+  ws.projects.push({ id: 'p1', branches: { main: { latest: { issues: [issue(1)] }, snapshots: [{ snapshot: 1, at: 't1', issues: [issue(1)] }] } } });
+  store.save(ws);
+  const folder = path.join(dir, 'projects', 'p1');
+  assert.equal(fs.readdirSync(folder).filter((n) => n.endsWith('.db')).length, 2);
+  const next = [issue(5), issue(6)];
+  ws.projects[0].branches.main.latest = { issues: next };
+  ws.projects[0].branches.main.snapshots = [];
+  store.save(ws);
+  const left = fs.readdirSync(folder);
+  assert.deepEqual(left.filter((n) => n.endsWith('.db')).map((n) => n.replace(/[0-9a-f]{12}/, 'H')), ['branch-H.db']);
+  assert.ok(!left.some((n) => n.includes('.new')), 'no temporary files left');
+  assert.deepEqual(createStore(dir).load().projects[0].branches.main.latest.issues, next);
+});
+
+test('the lists of an older issues.db move to their own files and issues.db goes', () => {
+  const dir = tmp('legacydb');
+  const issuedb = require('../core/issuedb.js');
+  const issues = Array.from({ length: 40 }, (_, i) => issue(i));
+  const old = issuedb.open(path.join(dir, 'issues.db'));
+  old.write('p1-0123456789ab', issues);
+  old.write('p1-desktop', issues.slice(0, 4));
+  old.write('gone-0123456789ab', issues.slice(0, 2));
+  old.close();
+  fs.writeFileSync(path.join(dir, 'workspace.json'), JSON.stringify({
+    version: 1,
+    projects: [{ id: 'p1', name: 'p', branches: { main: { latest: { issues: { $db: 'p1-0123456789ab', count: 40 } } } }, desktop: { issues: { $db: 'p1-desktop', count: 4 } } }],
+  }));
+  const store = createStore(dir);
+  const ws = store.load();
+  // Read before any save: moved on first use.
+  assert.deepEqual(ws.projects[0].desktop.issues, issues.slice(0, 4));
+  assert.ok(fs.existsSync(path.join(dir, 'projects', 'p1', 'desktop.db')));
+  store.save(ws);
+  assert.ok(!fs.existsSync(path.join(dir, 'issues.db')), 'issues.db goes on the save');
+  assert.ok(fs.existsSync(path.join(dir, 'projects', 'p1', 'branch-0123456789ab.db')));
+  assert.ok(!fs.existsSync(path.join(dir, 'projects', 'gone')), 'a list nobody refers to is not moved');
+  const back = createStore(dir).load();
+  assert.deepEqual(back.projects[0].branches.main.latest.issues, issues);
+  assert.deepEqual(back.projects[0].desktop.issues, issues.slice(0, 4));
 });
 
 test('lists of older versions (issues/*.ndjson) are read and move into the database on the next save', () => {

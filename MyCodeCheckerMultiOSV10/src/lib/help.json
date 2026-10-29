@@ -1055,6 +1055,14 @@
   "ko": "결과를 저장할 SQLite 데이터베이스 파일의 경로입니다.",
   "en": "Path of the SQLite database file that stores the results."
  },
+ "db_per_project": {
+  "ko": "SQLite 로 저장할 때 프로젝트마다 파일을 따로 쓸지 정합니다.",
+  "en": "Whether SQLite saves each project in a file of its own."
+ },
+ "db_per_project_label": {
+  "ko": "켜면 위 파일과 같은 폴더에 <파일 이름>-<프로젝트 키>.db 를 프로젝트마다 만들고, 끄면 위 파일 하나에 모든 프로젝트를 저장합니다.",
+  "en": "On: each project is saved to <file name>-<project key>.db in the folder of the file above. Off: every project goes into that one file."
+ },
  "db_file_hint": {
   "ko": "결과를 저장할 SQLite 파일의 위치입니다.",
   "en": "Location of the SQLite file for the results."

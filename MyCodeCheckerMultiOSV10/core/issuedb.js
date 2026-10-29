@@ -1,7 +1,7 @@
 'use strict';
 
-// The issue lists of analyses in a local SQLite database (<configDir>/issues.db,
-// node:sqlite). A list is stored as narrow rows that searches, filters, sorts
+// The issue lists of analyses in local SQLite databases (node:sqlite), one
+// file per list (openStore below). A list is stored as narrow rows that searches, filters, sorts
 // and counts run on (issue) and the issue itself as JSON apart (body), so a
 // page of a list of millions is read in milliseconds and a changed issue is
 // one row, not a rewrite of the whole list.
@@ -296,7 +296,255 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
     db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
   }
 
-  return { file, checkpoint, has, write, writeAsync, read, readAsync, update, keepOnly, search, facets, close: () => db.close() };
+  /** Copies list name of another database file (rows and ids as they are) into this empty one. */
+  function importList(other, name) {
+    db.prepare('ATTACH DATABASE ? AS src').run(other);
+    try {
+      const l = db.prepare('SELECT id, count, complete FROM src.lists WHERE name = ?').get(name);
+      if (!l || !l.complete) return false;
+      db.exec('BEGIN');
+      try {
+        const id = Number(st.newList.run(name).lastInsertRowid);
+        db.prepare('INSERT INTO issue (id, list, seq, key, rule, type, sev, status, file, line, lang, engine, isnew, istd, text) SELECT id, ?, seq, key, rule, type, sev, status, file, line, lang, engine, isnew, istd, text FROM src.issue WHERE list = ?').run(id, l.id);
+        db.prepare('INSERT INTO body (id, data) SELECT b.id, b.data FROM src.body b JOIN src.issue i ON i.id = b.id WHERE i.list = ?').run(l.id);
+        st.setCount.run(l.count, 1, id);
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+      return true;
+    } finally {
+      db.exec('DETACH DATABASE src');
+    }
+  }
+
+  return { file, checkpoint, has, write, writeAsync, read, readAsync, update, keepOnly, importList, search, facets, close: () => db.close() };
 }
 
-module.exports = { open, standardIds, standardsOf, matchesStandard, STANDARD_IDS, SEV_RANK };
+// ── one file per list ─────────────────────────────────────
+// The lists of a workspace, each in a database file of its own under its
+// project's folder:
+//
+//   <configDir>/projects/<project>/branch-<hash>.db   latest analysis of a branch
+//                                  snap-<hash>.db     a snapshot
+//                                  desktop.db         the desktop analysis
+//
+// A search runs on one small file, a new analysis is written to a new file
+// that then takes the old one's place (a crash leaves the old list), and a
+// removed project or snapshot is a file deleted, not millions of rows.
+// Lists of the single issues.db of older versions move to their files when
+// first used, and that file goes on the next save (keepOnly).
+const PROJECTS = 'projects';
+const LEGACY_DB = 'issues.db';
+const MAX_OPEN = 48;
+
+// Open files, shared by every store of this process (a file being replaced
+// must be closed by all of them): file -> { db, pins }.
+const handles = new Map();
+function retire(file) {
+  const h = handles.get(file);
+  if (!h) return true;
+  if (h.pins) return false;
+  handles.delete(file);
+  try { h.db.close(); } catch { /* already closed */ }
+  return true;
+}
+function rmDb(file) {
+  fs.rmSync(file, { force: true });
+  for (const s of ['-wal', '-shm', '-journal']) fs.rmSync(file + s, { force: true });
+}
+
+function openStore(dir) {
+  const root = path.join(dir, PROJECTS);
+  const legacyFile = path.join(dir, LEGACY_DB);
+  const writing = new Set();
+  let seq = 0;
+
+  /** The file of list name (see listsOf in store.js). */
+  function fileOf(name) {
+    const m = /^(.*?)-(desktop|snap-[0-9a-f]{12}|[0-9a-f]{12})$/.exec(String(name));
+    const safe = (s) => String(s).replace(/[^\w.-]/g, '_');
+    if (m && m[1] && m[1] !== '.' && m[1] !== '..') {
+      return path.join(root, safe(m[1]), `${/^[0-9a-f]{12}$/.test(m[2]) ? `branch-${m[2]}` : m[2]}.db`);
+    }
+    return path.join(root, '_lists', `${safe(name)}.db`);
+  }
+
+  function handle(file, create) {
+    let h = handles.get(file);
+    if (h) {
+      handles.delete(file);
+      handles.set(file, h);
+      return h;
+    }
+    if (!create && !fs.existsSync(file)) return null;
+    h = { db: module.exports.open(file), pins: 0 };
+    handles.set(file, h);
+    for (const [f, old] of handles) {
+      if (handles.size <= MAX_OPEN) break;
+      if (old !== h && !old.pins) retire(f);
+    }
+    return h;
+  }
+
+  let legacy;
+  function legacyDb() {
+    if (legacy === undefined) legacy = fs.existsSync(legacyFile) ? open(legacyFile) : null;
+    return legacy;
+  }
+  function dropLegacy() {
+    if (legacy) { try { legacy.close(); } catch { /* closed */ } }
+    legacy = null;
+    rmDb(legacyFile);
+  }
+
+  // A new file for list name, filled by the caller and then put in place.
+  function fresh(name) {
+    const file = fileOf(name);
+    const tmp = `${file}.${process.pid}-${++seq}.new`;
+    rmDb(tmp);
+    const db = module.exports.open(tmp);
+    writing.add(tmp);
+    const close = () => { try { db.close(); } catch { /* closed */ } writing.delete(tmp); };
+    return {
+      file,
+      db,
+      abort() { close(); rmDb(tmp); },
+      // false: the old file is still open (a read in progress here, or another
+      // process); the caller then writes it in place.
+      commit() {
+        try { db.checkpoint(); } catch { /* best effort */ }
+        close();
+        try {
+          if (!retire(file)) throw new Error('busy');
+          for (const s of ['-wal', '-shm', '-journal']) fs.rmSync(file + s, { force: true });
+          fs.renameSync(tmp, file);
+          return true;
+        } catch {
+          rmDb(tmp);
+          return false;
+        }
+      },
+    };
+  }
+
+  // The open file of list name, moved from issues.db first when it is still there.
+  function existing(name) {
+    const file = fileOf(name);
+    const h = handle(file, false);
+    if (h || !migrate(name)) return h;
+    return handle(file, false);
+  }
+  function migrate(name) {
+    const old = legacyDb();
+    if (!old || !old.has(name)) return false;
+    const t = fresh(name);
+    try {
+      if (!t.db.importList(legacyFile, name)) { t.abort(); return false; }
+    } catch (err) {
+      t.abort();
+      throw err;
+    }
+    if (t.commit()) return true;
+    const h = handle(t.file, true);
+    return h.db.has(name) ? true : h.db.importList(legacyFile, name);
+  }
+
+  async function pinned(name, fn, empty) {
+    const h = existing(name);
+    if (!h) return empty;
+    h.pins++;
+    try { return await fn(h.db); } finally { h.pins--; }
+  }
+
+  function has(name) {
+    const h = existing(name);
+    return h ? h.db.has(name) : null;
+  }
+  function write(name, issues) {
+    const t = fresh(name);
+    try { t.db.write(name, issues); } catch (err) { t.abort(); throw err; }
+    if (!t.commit()) handle(t.file, true).db.write(name, issues);
+  }
+  async function writeAsync(name, issues, onProgress) {
+    const t = fresh(name);
+    try { await t.db.writeAsync(name, issues, onProgress); } catch (err) { t.abort(); throw err; }
+    if (!t.commit()) await handle(t.file, true).db.writeAsync(name, issues, onProgress);
+  }
+  function read(name) {
+    const h = existing(name);
+    return h ? h.db.read(name) : [];
+  }
+  function readAsync(name, onProgress) {
+    return pinned(name, (db) => db.readAsync(name, onProgress), []);
+  }
+  function update(name, issues) {
+    const h = existing(name);
+    return h ? h.db.update(name, issues) : 0;
+  }
+  function search(name, filter, page) {
+    const h = existing(name);
+    return h ? h.db.search(name, filter, page) : { total: 0, issues: [] };
+  }
+  function facets(name, filter, which) {
+    const h = existing(name);
+    return h ? h.db.facets(name, filter, which) : {};
+  }
+
+  /** Deletes the files of lists not in keep (a Set of names); issues.db goes once its kept lists moved out. */
+  function keepOnly(keep) {
+    const files = new Set();
+    for (const name of keep) {
+      files.add(fileOf(name));
+      if (legacyDb() && !fs.existsSync(fileOf(name))) migrate(name);
+    }
+    if (legacyDb()) dropLegacy();
+    let folders = [];
+    try { folders = fs.readdirSync(root); } catch { return; }
+    for (const folder of folders) {
+      const full = path.join(root, folder);
+      let names;
+      try { names = fs.readdirSync(full); } catch { continue; }
+      for (const n of names) {
+        const f = path.join(full, n);
+        if (n.endsWith('.db')) {
+          if (files.has(f) || !retire(f)) continue;
+        } else {
+          // Left over from a write that never finished (not one going on now).
+          const tmp = /^(.*\.new)(-wal|-shm|-journal)?$/.exec(n);
+          if (!tmp || writing.has(path.join(full, tmp[1]))) continue;
+        }
+        try { rmDb(f); } catch { /* open elsewhere: next save */ }
+      }
+      try { if (!fs.readdirSync(full).length) fs.rmdirSync(full); } catch { /* not empty */ }
+    }
+  }
+
+  function checkpoint() {
+    for (const h of handles.values()) if (h.db.file.startsWith(root)) { try { h.db.checkpoint(); } catch { /* best effort */ } }
+    if (legacy) legacy.checkpoint();
+  }
+  /** Copies every list file (and an issues.db not moved yet) into another config folder. */
+  function copyTo(target) {
+    checkpoint();
+    if (fs.existsSync(legacyFile)) fs.copyFileSync(legacyFile, path.join(target, LEGACY_DB));
+    let folders = [];
+    try { folders = fs.readdirSync(root); } catch { return; }
+    for (const folder of folders) {
+      const from = path.join(root, folder);
+      let names;
+      try { names = fs.readdirSync(from).filter((n) => n.endsWith('.db')); } catch { continue; }
+      fs.mkdirSync(path.join(target, PROJECTS, folder), { recursive: true });
+      for (const n of names) fs.copyFileSync(path.join(from, n), path.join(target, PROJECTS, folder, n));
+    }
+  }
+  function close() {
+    for (const f of [...handles.keys()]) if (f.startsWith(root)) retire(f);
+    if (legacy) { try { legacy.close(); } catch { /* closed */ } legacy = undefined; }
+  }
+
+  return { dir: root, fileOf, checkpoint, copyTo, has, write, writeAsync, read, readAsync, update, keepOnly, search, facets, close };
+}
+
+module.exports = { open, openStore, standardIds, standardsOf, matchesStandard, STANDARD_IDS, SEV_RANK };

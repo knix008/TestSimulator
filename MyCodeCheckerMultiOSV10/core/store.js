@@ -84,12 +84,13 @@ function freshWorkspace() {
 function createStore(configDir) {
   const dir = configDir || defaultConfigDir();
   const file = path.join(dir, 'workspace.json');
-  // Issue lists live in the local SQLite database issues.db (core/issuedb.js),
-  // opened on first use. Lists of older versions (issues/*.ndjson) are still
-  // read, and move into the database the next time they are saved.
+  // Issue lists live in local SQLite files, one per list under
+  // projects/<project>/ (core/issuedb.js openStore), opened on first use.
+  // Lists of older versions (issues.db, issues/*.ndjson) are still read, and
+  // move to their files the next time they are used or saved.
   let issueDb = null;
   function idb() {
-    if (!issueDb) issueDb = require('./issuedb').open(path.join(dir, ISSUE_DB));
+    if (!issueDb) issueDb = require('./issuedb').openStore(dir);
     return issueDb;
   }
   // Lists this store read from or wrote to the database: name -> list, list -> name.
@@ -141,10 +142,8 @@ function createStore(configDir) {
     const keptDb = new Set();
     const out = { ...next, projects: (next.projects || []).map((p) => splitIssues(p, kept, keptDb)) };
     writeAtomic(file, jsonChunks(out));
-    if (issueDb || keptDb.size || fs.existsSync(path.join(dir, ISSUE_DB))) {
-      idb().keepOnly(keptDb);
-      for (const name of [...dbLists.keys()]) if (!keptDb.has(name)) dbLists.delete(name);
-    }
+    idb().keepOnly(keptDb);
+    for (const name of [...dbLists.keys()]) if (!keptDb.has(name)) dbLists.delete(name);
     // Issue files of removed projects and branches go.
     for (const name of safeList(path.join(dir, ISSUES))) {
       if (kept.has(`${ISSUES}/${name}`) || kept.has(`${ISSUES}/${name.replace(HEAD_SUFFIX, '.ndjson')}`)) continue;
@@ -155,7 +154,7 @@ function createStore(configDir) {
     return next;
   }
 
-  // The issue lists of analyses live in the database (issues.db), one list
+  // The issue lists of analyses live in the database, one list (and file)
   // per analysis (and per snapshot), so a workspace never needs a string
   // larger than one issue. listsOf names them; workspace.json keeps
   // { $db: name, count } in their place.
@@ -649,17 +648,13 @@ function createStore(configDir) {
   function copyTo(target) {
     fs.mkdirSync(path.join(target, ISSUES), { recursive: true });
     fs.copyFileSync(file, path.join(target, 'workspace.json'));
-    if (fs.existsSync(path.join(dir, ISSUE_DB))) {
-      idb().checkpoint();
-      fs.copyFileSync(path.join(dir, ISSUE_DB), path.join(target, ISSUE_DB));
-    }
+    idb().copyTo(target);
     for (const name of safeList(path.join(dir, ISSUES))) fs.copyFileSync(path.join(dir, ISSUES, name), path.join(target, ISSUES, name));
   }
   return { dir, file, load, save, copyTo, touch, changed, prepareLists, searchIssues, issueFacets, issuesOf: readIssues, loadIssues, pendingIssues, issueCount, copyAnalysis, changesOf, severityPage, severityOrder, headReady };
 }
 
 const ISSUES = 'issues';
-const ISSUE_DB = 'issues.db';
 // Issues in the head file of a large list (see severityPage): what the window
 // shows of one analysis (src/lib/backend.js MAX_WINDOW_ISSUES).
 const HEAD_SIZE = 200000;

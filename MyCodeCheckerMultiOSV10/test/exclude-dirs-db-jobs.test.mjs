@@ -102,7 +102,7 @@ test('a cancelled export stops between statements and rolls back', async () => {
 test('db.exportStart runs as a job with progress; the time limit is a setting', async () => {
   const api = createApi({ configDir: tmp('mcc-dbj-') });
   const file = path.join(tmp('mcc-dbjf-'), 'j.db');
-  const saved = await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file, autoExport: false, timeoutSec: 2 } });
+  const saved = await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file, perProject: false, autoExport: false, timeoutSec: 2 } });
   assert.equal(saved.timeoutSec, 5, 'clamped to at least 5 s');
   const r = await api.call('project.scan', { path: path.resolve('samples/demo') });
   const { jobId } = await api.call('db.exportStart', { projectId: r.project.id });
@@ -148,7 +148,7 @@ test('identical lines in one file get distinct issue keys; the first keeps its k
 test('a repeated issue key still exports (rows get #2)', async () => {
   const file = path.join(tmp('mcc-dbdup-'), 'd.db');
   const issues = [{ key: 'same', rule: 'r', line: 1, message: 'a' }, { key: 'same', rule: 'r', line: 2, message: 'b' }];
-  const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file }, { project: PROJECT, branch: 'main', analysis: { ...ANALYSIS, issues } });
+  const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file, perProject: false }, { project: PROJECT, branch: 'main', analysis: { ...ANALYSIS, issues } });
   assert.equal(out.issues, 2);
   const d = new DatabaseSync(file);
   assert.deepEqual(d.prepare('select issue_key k from mcc_issues order by issue_key').all().map((r) => r.k), ['same', 'same#2']);

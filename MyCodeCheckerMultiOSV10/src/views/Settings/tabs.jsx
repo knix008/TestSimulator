@@ -467,7 +467,7 @@ export function DbTab({ db, setB, dbErr }) {
     setTest({ busy: true });
     try {
       const r = await call('db.test', { db });
-      setTest({ ok: r.ok !== false, text: `${r.kind || ''} ${r.version || ''}${r.tables ? ` · ${t('db_tables')}: ${(r.tables || []).join(', ') || '—'}` : ''}` });
+      setTest({ ok: r.ok !== false, text: `${r.kind || ''} ${r.version || ''}${r.tables ? ` · ${t('db_tables')}: ${(r.tables || []).join(', ') || '—'}` : ''}${r.file ? ` · ${r.file}` : ''}` });
     } catch (err) { setTest({ ok: false, text: errorText(err) }); }
   };
   const sqlite = db.kind === 'sqlite';
@@ -493,6 +493,11 @@ export function DbTab({ db, setB, dbErr }) {
             <input className="mono" value={db.file || ''} placeholder={t('db_file_ph')} onChange={(e) => setB({ file: e.target.value })} />
             {isDesktop && <Btn icon="folder" label={t('db_pick')} onClick={async () => { const dir = await pickFolder(); if (dir) setB({ file: `${dir}${dir.includes('\\') ? '\\' : '/'}mycodechecker.db` }); }} />}
           </span>
+        </Row>
+      )}
+      {sqlite && (
+        <Row icon="folder" label={t('db_per_project')} title={t('db_per_project_hint')} wide>
+          <Toggle icon="layers" label={t('db_per_project_label')} checked={db.perProject !== false} onChange={(v) => setB({ perProject: v })} />
         </Row>
       )}
       <div className="st-grid2">
