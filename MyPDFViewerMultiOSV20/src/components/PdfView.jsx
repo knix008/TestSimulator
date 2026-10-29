@@ -24,6 +24,9 @@ import { collectLayerSearchHits, scrollOffsetForHit } from '../lib/search.js';
 import {
   MIN_TEXT_DRAG, rangeAtPoint, caretAtPoint, applyStreamSelection,
 } from '../lib/text-select.js';
+import {
+  canPanView, panScrollTo, panMoved, textAtPoint, isBackgroundPanTarget, onScrollbar,
+} from '../lib/pan.js';
 
 // The page area: renders pages to canvases, lays a real (selectable) text layer
 // over each one, paints highlights and the current text selection, and hosts
@@ -54,7 +57,7 @@ const PdfView = forwardRef(function PdfView({
   pageEffect = 'none',
   invert,
   annotations,
-  tool,                 // 'text' | 'image' | 'region'
+  tool,                 // 'text' | 'image' | 'region' | 'read'
   onRegionCapture,      // rectangle dragged out of the page → PNG
   onImagePick,          // an embedded image clicked → { page, id } (selects it)
   selectedImage,        // { page, id } currently selected, drawn highlighted
@@ -1139,6 +1142,79 @@ const PdfView = forwardRef(function PdfView({
     setSelection(next);
   }, [onSelectionChange]);
 
+  // ── Hand panning ─────────────────────────────────────────
+  // A left press on a spot that is neither text nor a picture drags a zoomed
+  // page around. `data-pan` on the pane says panning is on offer (the hover
+  // cursor turns into a hand), `data-panning` that a drag is under way. Both
+  // are data attributes so React's className never overwrites them.
+  const pan = useRef(null);           // { id, x, y, scrollLeft, scrollTop, moved, onClick }
+  const panEnded = useRef(false);     // swallow the mouseup of a pan's release
+
+  const measurePan = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return false;
+    const heights = [];
+    for (const [, entry] of pageRefs.current) {
+      if (entry?.wrapper) heights.push(entry.wrapper.offsetHeight);
+    }
+    const ok = canPanView(el, heights);
+    if (ok) el.dataset.pan = '1';
+    else delete el.dataset.pan;
+    return ok;
+  }, []);
+
+  const startPan = useCallback((e, onClick) => {
+    const el = scrollRef.current;
+    if (!el || e.button !== 0 || !measurePan()) return false;
+    e.preventDefault();
+    pan.current = {
+      id: e.pointerId, x: e.clientX, y: e.clientY,
+      scrollLeft: el.scrollLeft, scrollTop: el.scrollTop,
+      moved: false, onClick,
+    };
+    try { el.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+    el.dataset.panning = '1';
+    return true;
+  }, [measurePan]);
+
+  const movePan = (e) => {
+    const p = pan.current;
+    const el = scrollRef.current;
+    if (!p || !el || e.pointerId !== p.id) return false;
+    if (!p.moved && !panMoved(p, e.clientX, e.clientY)) return true;
+    p.moved = true;
+    const to = panScrollTo(p, e.clientX, e.clientY);
+    el.scrollLeft = to.left;
+    el.scrollTop = to.top;
+    return true;
+  };
+
+  const endPan = (e) => {
+    const p = pan.current;
+    if (!p || (e && e.pointerId !== p.id)) return;
+    pan.current = null;
+    panEnded.current = true;
+    const el = scrollRef.current;
+    if (el) delete el.dataset.panning;
+    // A press that never moved is a click on empty space.
+    if (!p.moved) p.onClick?.();
+  };
+
+  const clearTextSelection = useCallback(() => {
+    window.getSelection()?.removeAllRanges();
+  }, []);
+
+  // Zoom, rotation, layout and the pane's own size all change whether the
+  // content still fits.
+  useEffect(() => {
+    measurePan();
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => measurePan());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measurePan, doc, scale, rotation, layout, pageNumber]);
+
   if (!doc) {
     return <div className="pageview empty" ref={scrollRef}>{emptyState}</div>;
   }
@@ -1255,7 +1331,19 @@ const PdfView = forwardRef(function PdfView({
         onContextMenu={(e) => onContextMenu?.(e, {
           selectionText: pickCopyText(lastText.current, window.getSelection()?.toString()),
         })}
+        onPointerEnter={measurePan}
+        onPointerDown={(e) => {
+          panEnded.current = false;
+          // Presses inside a page are routed by the page (see startDrag).
+          if (e.target === e.currentTarget && onScrollbar(e.currentTarget, e.clientX, e.clientY)) return;
+          if (isBackgroundPanTarget(e.target)) startPan(e, clearTextSelection);
+        }}
+        onPointerMove={movePan}
+        onPointerUp={endPan}
+        onPointerCancel={endPan}
+        onLostPointerCapture={endPan}
         onMouseDown={(e) => {
+          if (pan.current) { e.preventDefault(); return; }
           const layer = e.target.closest?.('.textLayer');
           if (!layer) return;
           // A new drag knows nothing about the last one. Left behind, the old
@@ -1278,6 +1366,7 @@ const PdfView = forwardRef(function PdfView({
           // A finished text drag offers its actions straight away. The menu is
           // opened from the release position, and only for a drag that actually
           // selected something — a plain click still just moves the caret.
+          if (panEnded.current) { panEnded.current = false; return; }
           if (tool !== 'text' || e.button !== 0 || autoCopyText) return;
           if (!e.target.closest?.('.textLayer')) return;
           const { clientX, clientY } = e;
@@ -1340,6 +1429,8 @@ const PdfView = forwardRef(function PdfView({
                 activeBookmarkId={activeBookmarkId}
                 activeCommentId={activeCommentId}
                 eagerPaint={paintsEagerly(layout)}
+                onPanStart={startPan}
+                onEmptyClick={clearTextSelection}
               />
             ))}
             {spreadLonePage(layout, pages) ? (
@@ -1374,6 +1465,7 @@ const PageView = React.memo(function PageView({
   onContextMenuAt, onError, register,
   outline, onFollowLink, onGoToPage, searchQuery, searchActive, onSearchHit,
   bookmarks, activeBookmarkId, activeCommentId, eagerPaint = false,
+  onPanStart, onEmptyClick,
 }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
@@ -1395,6 +1487,8 @@ const PageView = React.memo(function PageView({
   const regionTool = tool === 'region';   // drag a rectangle out of the page
   const imageTool = tool === 'image';     // click a picture to select it
   const textTool = tool === 'text';
+  const readTool = tool === 'read';       // just read: select nothing, drag to pan
+  const readPress = useRef(null);
 
   // Prefer the rendered viewport size so the wrapper, canvas and text layer
   // stay pixel-identical. `inset: 0` on a differently-sized wrapper stretched
@@ -1542,6 +1636,17 @@ const PageView = React.memo(function PageView({
       e.preventDefault();
       const hit = regionAt(p);
       onImagePick?.(hit ? { page: num, ...hit } : null);
+      // Off every picture, a zoomed page is grabbed and dragged instead.
+      if (!hit) onPanStart?.(e);
+      return;
+    }
+    if (readTool) {
+      // Read mode selects nothing: a zoomed page is grabbed from anywhere, and
+      // a plain click still follows a table-of-contents line.
+      e.preventDefault();
+      const { clientX, clientY } = e;
+      readPress.current = { x: clientX, y: clientY };
+      onPanStart?.(e, () => jumpToOutlineAt(clientX, clientY));
       return;
     }
     if (regionTool) {
@@ -1552,6 +1657,9 @@ const PageView = React.memo(function PageView({
       return;
     }
     if (textTool) {
+      // Empty page space on a zoomed page grabs the page; a click there that
+      // does not move still clears the selection, as it always did.
+      if (!textAtPoint(textRef.current, e.clientX, e.clientY) && onPanStart?.(e, onEmptyClick)) return;
       e.preventDefault();
       const start = caretAtPoint(textRef.current, e.clientX, e.clientY);
       if (start) applyStreamSelection(start, start);
@@ -1603,14 +1711,27 @@ const PageView = React.memo(function PageView({
       }
     }
 
-    // TOC pages that are just text (no Link annotations): a click on a line
-    // that matches an outline title jumps to that section.
-    if (e && outline?.length) {
-      const line = lineTextNearPoint(layer, e.clientX, e.clientY);
-      const hit = matchOutlineTitle(line, outline);
-      if (hit?.page) onGoToPage?.(hit.page, hit.loc);
-      else if (hit?.dest && onFollowLink) onFollowLink({ dest: hit.dest });
-    }
+    if (e) jumpToOutlineAt(e.clientX, e.clientY);
+  };
+
+  // TOC pages that are just text (no Link annotations): a click on a line
+  // that matches an outline title jumps to that section.
+  const jumpToOutlineAt = (clientX, clientY) => {
+    const layer = textRef.current;
+    if (!layer || !outline?.length) return;
+    const line = lineTextNearPoint(layer, clientX, clientY);
+    const hit = matchOutlineTitle(line, outline);
+    if (hit?.page) onGoToPage?.(hit.page, hit.loc);
+    else if (hit?.dest && onFollowLink) onFollowLink({ dest: hit.dest });
+  };
+
+  // Read mode on a page that fits the pane: nothing pans, so the release of a
+  // press that stayed put is the click.
+  const finishReadClick = (e) => {
+    const press = readPress.current;
+    readPress.current = null;
+    if (!readTool || !press || !e || panMoved(press, e.clientX, e.clientY)) return;
+    jumpToOutlineAt(e.clientX, e.clientY);
   };
 
   // Image tool: the press already selected the picture under the pointer (see
@@ -1690,7 +1811,7 @@ const PageView = React.memo(function PageView({
       style={{ width: placeholder.width, height: placeholder.height }}
       onPointerDown={startDrag}
       onPointerMove={moveDrag}
-      onPointerUp={(e) => { finishTextDrag(e); endDrag(e); pickImage(e); }}
+      onPointerUp={(e) => { finishTextDrag(e); endDrag(e); pickImage(e); finishReadClick(e); }}
       onPointerCancel={(e) => { finishTextDrag(e); endDrag(e); setHover(null); }}
       onPointerLeave={() => { setHover(null); }}
       onContextMenu={onContextMenu}

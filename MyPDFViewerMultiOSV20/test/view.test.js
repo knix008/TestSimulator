@@ -76,13 +76,14 @@ describe('pages / rotation / tools', () => {
     expect(normalizeRotation(undefined)).toBe(0);
   });
 
-  it('cycles text → image → region → text', () => {
-    expect(TOOLS).toEqual(['text', 'image', 'region']);
+  it('cycles text → image → region → read → text', () => {
+    expect(TOOLS).toEqual(['text', 'image', 'region', 'read']);
     expect(cycleTool('text')).toBe('image');
     expect(cycleTool('image')).toBe('region');
-    expect(cycleTool('region')).toBe('text');
+    expect(cycleTool('region')).toBe('read');
+    expect(cycleTool('read')).toBe('text');
     expect(cycleTool('unknown')).toBe('text');
-    expect(cycleTool(cycleTool(cycleTool('text')))).toBe('text');
+    expect(cycleTool(cycleTool(cycleTool(cycleTool('text'))))).toBe('text');
   });
 
   it('toggles the sidebar with F9 semantics', () => {

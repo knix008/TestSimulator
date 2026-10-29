@@ -1051,12 +1051,25 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* The mouse tool decides both what a drag does and how the pointer looks. */
 .pageview.tool-text .page { cursor: text; }
 .pageview.tool-image .page { cursor: default; }
-.pageview.tool-image .page.over-image { cursor: pointer; }
 .pageview.tool-region .page { cursor: crosshair; }
-/* Image / region tools must not start a native text selection. The text tool
+.pageview.tool-read .page { cursor: default; }
+/* Zoomed past the pane: whatever is neither text nor a picture can be grabbed
+   and dragged (see lib/pan.js). The text tool's spans keep their I-beam, the
+   region tool keeps its crosshair on the page itself, and read mode grabs the
+   whole page. */
+.pageview[data-pan],
+.pageview[data-pan].tool-text .page,
+.pageview[data-pan].tool-image .page,
+.pageview[data-pan].tool-read .page { cursor: grab; }
+.pageview.tool-image .page.over-image { cursor: pointer; }
+.pageview[data-panning],
+.pageview[data-panning] * { cursor: grabbing !important; }
+.pageview[data-panning] { -webkit-user-select: none; user-select: none; }
+/* Image / region / read tools must not start a native text selection. The text tool
    keeps the layer live so a drag can start and end on a column. */
 .pageview.tool-image .textLayer,
-.pageview.tool-region .textLayer {
+.pageview.tool-region .textLayer,
+.pageview.tool-read .textLayer {
   pointer-events: none; -webkit-user-select: none; user-select: none;
 }
 .pageview.tool-text .textLayer {
