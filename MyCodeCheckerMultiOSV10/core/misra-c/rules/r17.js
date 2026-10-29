@@ -155,7 +155,7 @@ module.exports = [
           let n = null;
           if (arg.type === 'Identifier' && arg.symbol && arg.symbol.kind !== 'parameter' && B.isArrayType(arg.symbol.type)) n = B.canon(arg.symbol.type).size;
           else if (arg.type === 'MemberExpr' && B.isArrayType(arg.ctype)) n = B.canon(arg.ctype).size;
-          else if (arg.type === 'StringLiteral') n = arg.length;
+          else if (arg.type === 'StringLiteral' && !arg.incomplete) n = arg.length;
           if (n != null && n < at.size) api.report(c.args[i], msg(`'${text(unit, c.args[i])}' has ${n} elements but parameter '${p.name || i + 1}' of '${s.name}' is declared with ${at.size}.`, `'${text(unit, c.args[i])}'의 요소는 ${n}개인데 '${s.name}'의 매개변수 '${p.name || i + 1}'은(는) ${at.size}개로 선언되었습니다.`));
         });
       }

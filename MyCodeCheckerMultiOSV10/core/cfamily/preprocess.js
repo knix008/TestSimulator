@@ -55,6 +55,48 @@ function cVersion(std) {
   return '201710L';
 }
 
+// Operating system, compiler and processor macros of a typical target, so that
+// `#if defined(__unix__) || defined(_WIN32)` picks a branch instead of reaching
+// an #error: GCC on Linux (x86-64, or i386 for 32-bit pointers), MinGW on
+// Windows for the llp64 target. opts.platform (or target.platform) 'linux',
+// 'windows' or 'none' chooses. A group is left out when the project defines a
+// macro of that group itself (defines: { __ICCARM__: 1 } drops the compiler,
+// and a compiler other than GCC / Clang / MSVC drops the system and processor).
+const OS_MACROS = /^(?:_WIN32|_WIN64|__WIN32__|WIN32|_WINDOWS|__APPLE__|__MACH__|__linux__|__linux|linux|__gnu_linux__|__unix__|__unix|unix|__FreeBSD__|__NetBSD__|__OpenBSD__|__DragonFly__|__ANDROID__|__CYGWIN__|__MINGW32__|__MINGW64__|__QNX__|__QNXNTO__|__VXWORKS__|__vxworks|__ZEPHYR__|__rtems__|__sun|__HAIKU__|__EMSCRIPTEN__|__NuttX__|ESP_PLATFORM|__FREERTOS__|FREERTOS|__ELF__)$/;
+const COMPILER_MACROS = /^(?:__GNUC__|__clang__|_MSC_VER|__ICCARM__|__IAR_SYSTEMS_ICC__|__CC_ARM|__ARMCC_VERSION|__TASKING__|__ghs__|__GHS_VERSION_NUMBER__|__TI_COMPILER_VERSION__|__TI_ARM__|__CWCC__|__MWERKS__|__DCC__|__HIGHTEC__|__CSMC__|__RENESAS__|__CCRX__|__CCRL__|__XC8|__XC16|__XC32|__SDCC|__COSMIC__|__INTEL_COMPILER|__TINYC__|__WATCOMC__|__BORLANDC__|__ICCAVR__|__ICCRX__|__ICC430__|__ICCRL78__|__ICCRISCV__|__C51__|__C251__|__CX51__|__KEIL__|__CC_NORCROFT)$/;
+const NATIVE_COMPILERS = /^(?:__GNUC__|__clang__|_MSC_VER|__MINGW32__|__MINGW64__)$/;
+const ARCH_MACROS = /^(?:__x86_64__|__x86_64|__amd64__|__amd64|__i386__|__i386|_M_X64|_M_IX86|_M_AMD64|_M_ARM|_M_ARM64|__arm__|__aarch64__|__thumb__|__thumb2__|__ARM_ARCH(?:_\w+)?|__riscv|__mips__|__mips|__powerpc__|__powerpc64__|__PPC__|__ppc__|__xtensa__|__XTENSA__|__AVR__|__AVR_ARCH__|__MSP430__|__sparc__|__s390__|__m68k__|__sh__|__tricore__|__TRICORE__|__v850__|__RX__|__rx__|__ARC__|__nios2__|__microblaze__|__hexagon__|__loongarch__|__ia64__|__alpha__|__hppa__|__or1k__|__CORTEX_M)$/;
+
+function definedNames(defs) {
+  const out = [];
+  if (Array.isArray(defs)) for (const d of defs) out.push(String(d).split('=')[0].trim());
+  else if (defs && typeof defs === 'object') out.push(...Object.keys(defs));
+  return out;
+}
+
+function platformMacros(target, platform, defines) {
+  const t = target || {};
+  const os = String(platform || t.platform || (t.name === 'llp64' ? 'windows' : 'linux')).toLowerCase();
+  if (os === 'none') return [];
+  const names = definedNames(defines);
+  const has = (re) => names.some((n) => re.test(n));
+  const cross = names.some((n) => COMPILER_MACROS.test(n) && !NATIVE_COMPILERS.test(n));
+  const out = [];
+  const ptr8 = (t.pointer != null ? t.pointer : 8) === 8;
+  if (!has(COMPILER_MACROS)) out.push(['__GNUC__', '12'], ['__GNUC_MINOR__', '2'], ['__GNUC_PATCHLEVEL__', '0']);
+  if (!cross && !has(OS_MACROS)) {
+    if (os === 'windows') {
+      out.push(['_WIN32', '1'], ['__MINGW32__', '1']);
+      if (ptr8) out.push(['_WIN64', '1'], ['__MINGW64__', '1']);
+    } else out.push(['__linux__', '1'], ['__linux', '1'], ['__gnu_linux__', '1'], ['__unix__', '1'], ['__unix', '1'], ['__ELF__', '1']);
+  }
+  if (!cross && !has(ARCH_MACROS)) {
+    if (ptr8) out.push(['__x86_64__', '1'], ['__x86_64', '1'], ['__amd64__', '1'], ['__amd64', '1']);
+    else out.push(['__i386__', '1'], ['__i386', '1']);
+  }
+  return out;
+}
+
 const PLACEMARKER = { kind: 'placemarker', value: '' };
 
 class Preprocessor {
@@ -159,6 +201,7 @@ class Preprocessor {
     for (const name of ['__FILE__', '__LINE__', '__COUNTER__', '__DATE__', '__TIME__', '__INCLUDE_LEVEL__', '__BASE_FILE__', '__FILE_NAME__', '__TIMESTAMP__']) {
       lines.push(`#define ${name} ${name}`);
     }
+    for (const [name, value] of platformMacros(t, this.opts.platform, this.opts.defines)) lines.push(`#define ${name} ${value}`);
     return lines.join('\n');
   }
 
@@ -748,7 +791,8 @@ class Preprocessor {
     const step2 = this.replaceDefined(expanded, rec, defs, true);
     rec.defined = defs;
     const vals = [];
-    for (const t of step2) {
+    for (let k = 0; k < step2.length; k++) {
+      const t = step2[k];
       if (t.kind === 'identifier' || t.kind === 'keyword') {
         if (this.cpp && (t.value === 'true' || t.value === 'false')) {
           vals.push({ ...t, kind: 'number', value: t.value === 'true' ? '1' : '0' });
@@ -757,6 +801,26 @@ class Preprocessor {
         const u = { name: t.value, file: rec.file, line: t.line, col: t.col, directive: rec };
         this.undefInIf.push(u);
         (rec.undefinedIdentifiers || (rec.undefinedIdentifiers = [])).push(t.value);
+        // A function-like macro whose definition is in a header we do not
+        // have (`#if GTK_CHECK_VERSION(4, 0, 0)`): the call is unknown and,
+        // as an undefined identifier, counts as 0.
+        const open = step2[k + 1];
+        if (open && open.kind === 'punct' && open.value === '(') {
+          let depth = 0;
+          let q = k + 1;
+          for (; q < step2.length; q++) {
+            const x = step2[q];
+            if (x.kind !== 'punct') continue;
+            if (x.value === '(') depth++;
+            else if (x.value === ')' && --depth === 0) break;
+          }
+          if (q < step2.length) {
+            u.call = true;
+            vals.push({ ...t, kind: 'number', value: '0', wasIdentifier: t.value, unknownCall: true });
+            k = q;
+            continue;
+          }
+        }
         vals.push({ ...t, kind: 'number', value: '0', wasIdentifier: t.value });
         continue;
       }

@@ -141,7 +141,7 @@ class FnSE {
         }
         return;
       case 'Return':
-        for (const r of s.results) { this.checkUses(r, st); this.escapes(r, st, 'return'); }
+        for (const r of s.results) { this.checkUses(r, st); this.closeCall(r, st); this.escapes(r, st, 'return'); }
         return;
       case 'Defer': this.deferStmt(s, st); return;
       case 'Go': this.checkUses(s.call, st, true); this.escapes(s.call, st, 'go'); return;
@@ -169,6 +169,8 @@ class FnSE {
   }
   assign(s, st) {
     for (const r of s.rhs) this.checkUses(r, st);
+    // closeErr := f.Close() closes f as well
+    for (const r of s.rhs) this.closeCall(r, st);
     for (const l of s.lhs) { const x = A.strip(l); if (x && x.k !== 'Ident') this.checkUses(x, st); }
     for (const l of s.lhs) { const x = A.strip(l); if (x && x.k === 'Index') this.mapWrite(x, st, s); }
     for (const r of s.rhs) this.escapes(r, st, 'assign');

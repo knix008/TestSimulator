@@ -138,7 +138,9 @@ R('lambda-assignment', 'S', 'MI', 2, ['convention'],
   /^\s*\w+\s+=\s+lambda\b/,
   ['Lambda assigned to a name', 'A named lambda loses its name in tracebacks.', 'Use def.'],
   ['람다를 이름에 대입합니다', '이름 붙인 람다는 traceback에서 이름을 잃습니다.', 'def를 쓰세요.'],
-  'square = lambda x: x * x', ['def square(x): return x * x', '    key=lambda tp: tp.name)):']);
+  'square = lambda x: x * x', ['def square(x): return x * x', '    key=lambda tp: tp.name)):', '        true_fn = lambda: tf.argmax(x, axis=1),'],
+  // a trailing comma is a keyword argument of a call spread over lines
+  { skip: (raw) => /,\s*(?:#.*)?$/.test(raw) });
 R('empty-function', 'S', 'MI', 5, ['suspicious'],
   /^\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*(?:->\s*[^:]+)?:\s*pass\s*$/,
   ['Function body is only pass', 'An empty function is unfinished or should explain why it does nothing.', 'Implement it, add a docstring, or use ... for an abstract stub.'],

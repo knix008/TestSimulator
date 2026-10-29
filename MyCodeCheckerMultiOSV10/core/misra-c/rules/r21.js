@@ -63,7 +63,7 @@ function objectBytes(e, unit) {
   const x = origArg(e);
   if (!x) return null;
   const size = (t) => { try { return T.sizeOf(t, unit.target); } catch (err) { return null; } };
-  if (x.type === 'StringLiteral') return x.length != null ? x.length * (size(canon(x.ctype).of) || 1) : null;
+  if (x.type === 'StringLiteral') return x.length != null && !x.incomplete ? x.length * (size(canon(x.ctype).of) || 1) : null;
   if (x.type === 'Identifier' && x.symbol && x.symbol.kind !== 'parameter' && B.isArrayType(x.symbol.type)) return size(canon(x.symbol.type));
   if (x.type === 'MemberExpr' && B.isArrayType(x.ctype)) return size(canon(x.ctype));
   if (x.type === 'UnaryExpr' && x.op === '&') {
@@ -85,7 +85,7 @@ function objectBytes(e, unit) {
 function stringInfo(e) {
   const x = origArg(e);
   if (!x) return null;
-  if (x.type === 'StringLiteral') return { need: x.length, unterminated: false, name: 'string literal' };
+  if (x.type === 'StringLiteral') return x.incomplete ? null : { need: x.length, unterminated: false, name: 'string literal' };
   if (x.type === 'Identifier' && x.symbol && x.symbol.kind !== 'parameter' && B.isArrayType(x.symbol.type)) {
     const at = canon(x.symbol.type);
     const d = (x.symbol.decls || []).find((dd) => dd.type === 'VarDecl' && dd.init);

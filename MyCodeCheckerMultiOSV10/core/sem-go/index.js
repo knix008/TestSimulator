@@ -61,6 +61,20 @@ function goVersionOf(ctx, options) {
   }
 }
 
+// Without a go.mod, the oldest Go release that compiles features the code
+// uses: range over an integer (1.22), the iter package / range over a
+// function iterator (1.23). '' when nothing tells.
+const RANGE_INT = /\bfor\s+(?:[\w\s,]*:?=\s*)?range\s+(?:\d|len\s*\()/;
+const ITER_IMPORT = /^\s*(?:import\s+)?"iter"\s*$|^\s*import\s+"iter"/m;
+function inferGoVersion(files) {
+  let v = '';
+  for (const f of files) {
+    if (ITER_IMPORT.test(f.text)) return '1.23';
+    if (!v && RANGE_INT.test(f.text)) v = '1.22';
+  }
+  return v;
+}
+
 function versionAtLeast(v, want) {
   if (!v) return false;
   const [a, b] = v.split('.').map(Number);
@@ -139,7 +153,7 @@ function analyze(files, ctx = {}) {
     if (process.env.SEMGO_DEBUG) throw e;
     return [];
   }
-  options.goVersion = goVersionOf(ctx, options);
+  options.goVersion = goVersionOf(ctx, options) || inferGoVersion(goFiles);
   options.loopVarPerIteration = versionAtLeast(options.goVersion, '1.22');
   const engine = new Engine(project, active, options);
   for (const pf of project.files) pf.skip = pf.generated;

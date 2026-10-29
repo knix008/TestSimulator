@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const cf = require('./cfamily');
+const hlang = require('./cfamily/hlang');
 const { normPath } = require('./cfamily/preprocess');
 
 const parsed = new WeakMap();
@@ -22,19 +23,77 @@ function cFiles(files) {
   return (files || []).filter((f) => f.lang === 'c' || f.lang === 'cpp');
 }
 
+// ---------------------------------------------------------------- header languages
+
+// A '.h' header is C, C++ or both, by the units that include it and by its
+// own syntax (core/cfamily/hlang.js). A C++ header is parsed as C++ when it
+// is analyzed on its own, the C rules do not report on it and the C++ rules
+// do not report on a C header. A batch of a large project carries the
+// decision made over the whole project (list.headerInfo).
+function headerInfoOf(files, options = {}) {
+  if (files && files.headerInfo) return files.headerInfo;
+  return hlang.headerInfo(cFiles(files), { includeDirs: options.includeDirs });
+}
+
+// files: [{ path, lang, text }] -> Map(header path -> 'c' | 'cpp' | 'both')
+function headerLanguages(files, options = {}) {
+  const out = new Map();
+  for (const [p, h] of headerInfoOf(files, options)) out.set(p, h.lang);
+  return out;
+}
+
+// Sets lang 'cpp' on the '.h' files of the list that are C++ headers (for the
+// language of their issues and the language breakdown). Returns the list.
+function assignHeaderLanguages(files, options = {}) {
+  const langs = headerLanguages(files, options);
+  for (const f of files || []) {
+    if (f.lang === 'c' && cf.isHeader(f.path) && langs.get(normPath(f.path)) === 'cpp') f.lang = 'cpp';
+  }
+  return files;
+}
+
+// Whether a finding of a rule for `langs` in `file`, seen through a unit of
+// `unitLang` (null for project rules), is in the language of that file.
+// fileLangs: project.fileLangs (headers and translation units).
+function inLanguage(fileLangs, file, langs, unitLang) {
+  const hl = fileLangs && fileLangs.get(file);
+  if (!hl || hl === 'both') return true;
+  if (langs && !langs.includes('*') && !langs.includes(hl)) return false;
+  return !unitLang || unitLang === hl;
+}
+
+function copyInfo(info) {
+  const out = new Map();
+  for (const [p, h] of info) out.set(p, { ...h, from: new Set(h.from) });
+  return out;
+}
+
 function projectFor(files, options = {}) {
   if (parsed.has(files)) return parsed.get(files);
-  const sources = cFiles(files).map((f) => ({ path: f.path, text: f.text, lang: f.lang }));
+  const info = copyInfo(headerInfoOf(files, options));
+  const langOf = (f) => (f.lang === 'c' && info.has(normPath(f.path)) && info.get(normPath(f.path)).lang === 'cpp' ? 'cpp' : f.lang);
+  const sources = cFiles(files).map((f) => ({ path: f.path, text: f.text, lang: langOf(f) }));
   let project = { units: [], globalSymbols: new Map(), callGraph: null, diagnostics: [] };
   if (sources.length) {
     project = cf.parseProject(sources, {
       includeDirs: options.includeDirs || [],
       defines: options.defines || {},
+      undefs: options.undefs,
+      platform: options.platform,
       target: options.target,
       unitFiles: files.unitFiles,
       lexCache: files.lexCache,
     });
   }
+  // What the units really included (an #include through a macro, say).
+  hlang.refine(info, project.units);
+  const langs = new Map();
+  for (const [p, h] of info) langs.set(p, h.lang);
+  project.headerLangs = langs;
+  // ... and the language of every file the engines report on
+  const fileLangs = new Map(langs);
+  for (const u of project.units) if (!fileLangs.has(u.file)) fileLangs.set(u.file, u.lang);
+  project.fileLangs = fileLangs;
   parsed.set(files, project);
   return project;
 }
@@ -55,11 +114,13 @@ const BATCH = {
   tokens: 1000000, // about 0.8 GB of parse data
 };
 
-function batchOf(headers, units, extra, lexCache) {
+function batchOf(headers, units, extra, lexCache, headerInfo) {
   const files = [...headers, ...extra];
   Object.defineProperty(files, 'unitFiles', { value: units.map((f) => f.path) });
   // One header token cache for all batches: the headers are lexed once.
   if (lexCache) Object.defineProperty(files, 'lexCache', { value: lexCache });
+  // The header languages of the whole project (a batch has some units only).
+  if (headerInfo) Object.defineProperty(files, 'headerInfo', { value: headerInfo });
   return files;
 }
 
@@ -86,6 +147,7 @@ function planner(files, limits = {}) {
   const sources = cfiles.filter((f) => !cf.isHeader(f.path));
   const single = sources.length <= lim.smallSources && headers.length <= lim.smallSources;
   const lexCache = limits.lexCache === false ? null : new Map();
+  let info = null; // header languages, made with the first batch
   const included = new Set();
   let size = lim.firstSources;
   let pending = sources;
@@ -115,7 +177,8 @@ function planner(files, limits = {}) {
       }
       const part = pending.slice(at, at + size);
       at += part.length;
-      const list = batchOf(headers, part, stage === 'sources' ? part : [], lexCache);
+      if (!info) info = hlang.headerInfo(cfiles, { includeDirs: lim.includeDirs });
+      const list = batchOf(headers, part, stage === 'sources' ? part : [], lexCache, info);
       index++;
       out++;
       // list.batch = { index, estimate } (1-based; the estimate of the batch
@@ -198,6 +261,9 @@ function createEngine(dirs, opts = {}) {
         if (!loc || !loc.line) return;
         const file = loc.file || (unit && unit.file);
         if (!file || file.startsWith('<')) return; // built-in header stand-ins
+        // A C rule says nothing about a C++ header (nor a C++ rule about a C
+        // header), also when a unit of the other language includes it.
+        if (!inLanguage(project.fileLangs, file, rule.meta.langs, unit && unit.lang)) return;
         const dedupe = `${rule.meta.key}|${file}|${loc.line}|${loc.col || loc.column || 0}|${message && message.en}`;
         if (seen.has(dedupe)) return;
         seen.add(dedupe);
@@ -233,4 +299,7 @@ function createEngine(dirs, opts = {}) {
   return { catalog, analyze, rules: all };
 }
 
-module.exports = { cf, projectFor, parsedProject: (files) => parsed.get(files) || null, batchOf, createEngine, loadPack, batches, planner, statsOf, ENGINE_IDS, BATCH };
+module.exports = {
+  cf, projectFor, parsedProject: (files) => parsed.get(files) || null, batchOf, createEngine, loadPack, batches, planner, statsOf, ENGINE_IDS, BATCH,
+  headerInfo: headerInfoOf, headerLanguages, assignHeaderLanguages, inLanguage,
+};

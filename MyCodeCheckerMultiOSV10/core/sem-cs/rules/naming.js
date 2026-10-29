@@ -136,6 +136,9 @@ R('method-naming', 'S100', 'S', 'MI', 5, ['convention'],
 function checkMemberCase(n, cx) {
   if (!n.name || /^[A-Z]/.test(n.name) || allUnderscore(n.name)) return;
   if (dictated(n) || isTestish(n, cx.pf)) return;
+  // `control_Event(object sender, EventArgs e)`: the name the WinForms / WPF designer
+  // generates for an event handler (control name, underscore, event name).
+  if (n.k === 'Method' && /^[a-z]\w*_[A-Z]\w*$/.test(n.name) && U.isEventHandler(n)) return;
   const owner = ownerOf(n);
   if (owner && interopType(owner)) return;
   const l = memberLabel(n);

@@ -987,7 +987,8 @@ rule({
       const body = A.stmtsOf(n.body);
       if (!body.length) return;
       if (body.length === 1 && H.isRaise(body[0])) return;
-      if (/^(method_missing|respond_to_missing\?|initialize_copy|coerce)$/.test(n.name)) return;
+      // Hook methods whose signature Ruby fixes (deconstruct_keys(keys) is the pattern-matching protocol).
+      if (/^(method_missing|respond_to_missing\?|initialize_copy|coerce|deconstruct_keys)$/.test(n.name)) return;
       for (const p of n.params) {
         if (!p.name || p.kind === 'block' || p.name.startsWith('_') || p.kind === 'local') continue;
         const v = p._var;

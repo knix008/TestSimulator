@@ -125,4 +125,53 @@ R('sudo-tee-redirect', 'B', 'MI', 5, ['pitfall'],
   ['sudo 뒤의 리다이렉트는 사용자 권한입니다', 'sudo echo x > /etc/file에서 리다이렉트는 root가 아니라 내 셸이 합니다.', 'echo x | sudo tee /etc/file을 쓰세요.'],
   'sudo echo "vm.swappiness=10" >> /etc/sysctl.conf', 'echo "vm.swappiness=10" | sudo tee -a /etc/sysctl.conf');
 
-module.exports = { RULES: R.rules };
+// True when the line has a $var / ${...} expansion that the shell splits
+// into words and globs: outside "..." and '...', not in [[ ]], (( )) or
+// $(( )), not the value of an assignment (a=$b, local a=$b, export a=$b),
+// not the word of case $x in, not the list of for x in $list (splitting is
+// the point there). "$(cmd "$x")" opens a new quoting level. A line that
+// starts with markup (<key>$v</key>) is here-document text.
+function unquotedExpansion(line) {
+  const s = String(line);
+  if (/^\s*<[A-Za-z/!?]/.test(s)) return false;
+  const stack = [{ k: 'N' }];
+  let wordStart = 0;
+  const skipBrace = (i) => { const e = s.indexOf('}', i); return e < 0 ? s.length : e; };
+  for (let i = 0; i < s.length; i++) {
+    const top = stack[stack.length - 1];
+    const c = s[i];
+    if (c === '\\') { i++; continue; }
+    if (top.k === 'D') {
+      if (c === '"') stack.pop();
+      else if (c === '$' && s[i + 1] === '(' && s[i + 2] === '(') { stack.push({ k: 'A', depth: 0 }); i += 2; }
+      else if (c === '$' && s[i + 1] === '(') { stack.push({ k: 'N', close: true }); i += 1; wordStart = i + 1; }
+      else if (c === '$' && s[i + 1] === '{') i = skipBrace(i);
+      else if (c === '`') { const e = s.indexOf('`', i + 1); i = e < 0 ? s.length : e; }
+      continue;
+    }
+    if (c === "'") { const e = s.indexOf("'", i + 1); i = e < 0 ? s.length : e; continue; }
+    if (c === '"') { stack.push({ k: 'D' }); continue; }
+    if (top.k === 'A') {
+      if (c === '(') top.depth++;
+      else if (c === ')') { if (top.depth > 0) top.depth--; else { stack.pop(); i++; } }
+      continue;
+    }
+    if (c === '$' && s[i + 1] === '(' && s[i + 2] === '(') { stack.push({ k: 'A', depth: 0 }); i += 2; continue; }
+    if (c === '$' && s[i + 1] === '(') { stack.push({ k: 'N', close: true }); i += 1; wordStart = i + 1; continue; }
+    if (c === ')' && top.close) { stack.pop(); continue; }
+    if (c === '(' && s[i + 1] === '(' && /(?:^|[;&|(]\s*|\b(?:then|do|else|if|while|until)\s+)$/.test(s.slice(0, i))) { stack.push({ k: 'A', depth: 0 }); i += 1; continue; }
+    if (c === '[' && s[i + 1] === '[' && /(?:^|\s)$/.test(s.slice(0, i))) { stack.push({ k: 'B' }); i += 1; continue; }
+    if (top.k === 'B' && c === ']' && s[i + 1] === ']') { stack.pop(); i += 1; continue; }
+    if (/[\s;&|(<>]/.test(c)) { wordStart = i + 1; continue; }
+    if (c !== '$' || top.k === 'B') continue;
+    if (!/[A-Za-z_{]/.test(s[i + 1] || '')) continue;
+    const word = s.slice(wordStart, i);
+    if (/^[A-Za-z_]\w*(?:\[[^\]]*\])?\+?=/.test(word)) { if (s[i + 1] === '{') i = skipBrace(i); continue; }
+    const before = s.slice(0, wordStart);
+    if (/\bcase\s+$/.test(before) || /\bfor\s+\w+\s+in\s+(?:\S+\s+)*$/.test(before)) continue;
+    return true;
+  }
+  return false;
+}
+
+module.exports = { RULES: R.rules, unquotedExpansion };

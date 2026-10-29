@@ -590,7 +590,9 @@ rule({
       const cs = n.cases.map((c) => ({ node: c, stmts: c.body.filter((s) => !(s.k === 'Branch' && s.tok === 'break' && !s.label)) }));
       const complete = n.cases.some((c) => !c.list);
       if (complete && cs.length > 1 && cs.every((c) => A.same(c.stmts, cs[0].stmts))) return;
-      reportDupBranches(cs, cx);
+      // A case of one single-line statement (case X: return p.Muted) is a
+      // lookup-table entry; merging it into another case list hurts reading.
+      reportDupBranches(cs.filter((c) => !(c.stmts.length === 1 && c.stmts[0].line === c.stmts[0].endLine)), cx);
     },
   },
   bad: gf(`
@@ -901,6 +903,30 @@ func f() []string {
 function bodySig(pf, fn) {
   return A.norm(pf.src, fn.body);
 }
+
+// Build constraint of a file: a GOOS/GOARCH file-name suffix or a //go:build line.
+const GOOS_ARCH = 'aix|android|darwin|dragonfly|freebsd|hurd|illumos|ios|js|linux|nacl|netbsd|openbsd|plan9|solaris|wasip1|windows|zos|unix|386|amd64|arm|arm64|loong64|mips|mipsle|mips64|mips64le|ppc64|ppc64le|riscv64|s390x|wasm';
+const GOOS_SUFFIX = new RegExp(`_(?:${GOOS_ARCH})(?:_(?:${GOOS_ARCH}))?(?:_test)?\\.go$`);
+function buildTag(pf) {
+  const m = GOOS_SUFFIX.exec(pf.path);
+  const b = /^\s*\/\/go:build\s+(.+)$/m.exec(pf.src.slice(0, 4000));
+  return `${m ? m[0] : ''}|${b ? b[1].trim() : ''}`;
+}
+
+// Same body but not one function in two places: methods of the same name on
+// different types (each type satisfies an interface), functions of the
+// in-package and the external _test package, or files built for different
+// platforms.
+function separateCopies(a, b) {
+  if (a.fn.recv && b.fn.recv && a.fn.name.name === b.fn.name.name
+    && A.typeStr(a.fn.recv[0].type).replace(/^\*/, '') !== A.typeStr(b.fn.recv[0].type).replace(/^\*/, '')) return true;
+  const pa = a.pf.ast.pkg ? a.pf.ast.pkg.name : '';
+  const pb = b.pf.ast.pkg ? b.pf.ast.pkg.name : '';
+  if (pa !== pb) return true;
+  const ta = buildTag(a.pf);
+  const tb = buildTag(b.pf);
+  return ta !== tb && (ta !== '|' || tb !== '|');
+}
 rule({
   id: 'identical-functions', type: 'S', sev: 'MA', debt: 15, tags: ['confusing', 'duplicate'], ref: 'S4144',
   en: ['Functions should not have identical implementations', 'Two functions with the same body are duplicated code; one of them is often a copy-paste mistake.', 'Make one function call the other, or remove one.'],
@@ -913,9 +939,15 @@ rule({
         for (const fn of H.funcDecls(pf)) {
           if (!fn.body || fn.body.stmts.length < 2 || A.lineCount(fn.body) < 4) continue;
           const sig = `${fn.params.map((p) => A.typeStr(p.type)).join(',')}|${fn.results.map((r) => A.typeStr(r.type)).join(',')}|${bodySig(pf, fn)}`;
-          const prev = seen.get(sig);
-          if (prev) cx.reportIn(pf, fn.name, `Update '${fn.name.name}' to not be identical to '${prev.fn.name.name}' (line ${prev.fn.name.line}).`, `'${fn.name.name}'이(가) '${prev.fn.name.name}'(${prev.fn.name.line}행)과 똑같지 않도록 고치세요.`);
-          else seen.set(sig, { fn, pf });
+          const cur = { fn, pf };
+          if (!seen.has(sig)) seen.set(sig, []);
+          const prev = seen.get(sig).find((p) => !separateCopies(p, cur));
+          if (prev) {
+            // name the other file when the twin lives elsewhere in the package
+            const where = prev.pf === pf ? `line ${prev.fn.name.line}` : `${prev.pf.path.split('/').pop()}:${prev.fn.name.line}`;
+            const whereKo = prev.pf === pf ? `${prev.fn.name.line}행` : `${prev.pf.path.split('/').pop()} ${prev.fn.name.line}행`;
+            cx.reportIn(pf, fn.name, `Update '${fn.name.name}' to not be identical to '${prev.fn.name.name}' (${where}).`, `'${fn.name.name}'이(가) '${prev.fn.name.name}'(${whereKo})과 똑같지 않도록 고치세요.`);
+          } else seen.get(sig).push(cur);
         }
       }
     }
@@ -1043,9 +1075,12 @@ function unusedLocals(fn, cx) {
   }
 }
 function selfOrBlank(ref, sym) {
+  // _ = os.Remove(link) passes link to a call: that is a real use.
+  let argOfCall = false;
   for (let p = ref.parent; p; p = p.parent) {
+    if (p.k === 'Call' && !(A.callee(p) && ['append', 'len', 'cap'].includes(A.callee(p).q))) argOfCall = true;
     if (p.k === 'Assign') {
-      if (p.lhs.every((l) => A.isIdent(l, '_'))) return true;
+      if (p.lhs.every((l) => A.isIdent(l, '_'))) return !argOfCall;
       if (p.lhs.some((l) => { const x = A.strip(l); return x && x.k === 'Ident' && x.sym === sym; })) return p.rhs.some((r) => isInside(ref, r));
       return false;
     }
@@ -1074,6 +1109,11 @@ rule({
         if (s.kind === 'func' && s.decl && hasDirective(pf, s.decl.line)) continue;
         if (s.kind === 'type' && pkg.methods.has(s.name)) continue;
         if (s.kind === 'var' && s.decl && s.decl.values.some((v) => A.strip(v).k === 'Call')) continue;
+        // the same name declared in another file: build-constrained variants
+        // (install_unix.go / install_windows.go); references bind to only one
+        if (pkg.syms.some((o) => o !== s && o.name === s.name && o.file !== pf)) continue;
+        // an iota enumeration is one unit: a member keeps its place even if unused
+        if (s.kind === 'const' && iotaGroupUsed(pkg, s)) continue;
         const what = { func: 'function', type: 'type', var: 'variable', const: 'constant' }[s.kind] || 'declaration';
         const whatKo = { func: '함수', type: '타입', var: '변수', const: '상수' }[s.kind] || '선언';
         cx.reportIn(pf, s.node, `Remove the unused unexported ${what} '${s.name}'.`, `사용하지 않는 비공개 ${whatKo} '${s.name}'을(를) 지우세요.`);
@@ -1099,6 +1139,14 @@ func main() {
 }
 `),
 });
+function iotaGroupUsed(pkg, s) {
+  const g = s.decl && s.decl.parent;
+  if (!g || g.k !== 'GenDecl' || g.kw !== 'const') return false;
+  let iota = false;
+  for (const sp of g.specs) A.walk(sp, (x) => { if (x.k === 'Ident' && x.name === 'iota') iota = true; return !iota; });
+  if (!iota) return false;
+  return pkg.syms.some((o) => o !== s && o.kind === 'const' && o.decl && o.decl.parent === g && o.refs.length);
+}
 function hasDirective(pf, line) {
   return pf.comments.some((c) => c.line === line - 1 && /^(export |go:linkname|go:noinline)/.test(c.text));
 }

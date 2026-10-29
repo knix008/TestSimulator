@@ -2,12 +2,33 @@
 
 // C#.
 
-const { maker, nestedTernary } = require('./util');
+const { maker, nestedTernary, blankStrings } = require('./util');
 
-const R = maker('cs', ['cs']);
+const make = maker('cs', ['cs']);
+// The patterns describe code, so a match must survive blanking the string
+// literals ("async void" in a message is not async void). A rule that reads
+// string contents itself passes { strings: true }.
+function R(id, type, sev, debtMin, tags, re, en, ko, bad, good, opts = {}) {
+  return make(id, type, sev, debtMin, tags, re, en, ko, bad, good, opts.strings ? opts : { ns: true, ...opts });
+}
+R.rules = make.rules;
 
 const IF_PAREN = String.raw`\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)`;
 const MODS = String.raw`(?:(?:static|virtual|override|async|sealed|new|unsafe|extern|readonly)\s+)*`;
+
+// `while (cond);` / `for (init; cond; step);` whose condition itself does the
+// work (++, --, an assignment or a call) is a deliberate empty loop.
+function loopDoesWork(line) {
+  const m = /^\s*(while|for)\s*\((.*)\)\s*;\s*$/.exec(blankStrings(line));
+  if (!m) return false;
+  let cond = m[2];
+  if (m[1] === 'for') {
+    const parts = cond.split(';');
+    if (parts.length !== 3) return false;
+    cond = parts[1];
+  }
+  return /\+\+|--|[^=!<>]=(?!=)|[\w\])]\s*\(/.test(cond);
+}
 
 // ── Bugs ─────────────────────────────────────────────────────
 R('self-assignment', 'B', 'MA', 5, ['pitfall'],
@@ -34,7 +55,8 @@ R('empty-statement-after-control', 'B', 'MA', 5, ['pitfall'],
   new RegExp(String.raw`^\s*(?:if|for|foreach|while)\s*${IF_PAREN}\s*;\s*$`),
   ['Semicolon right after if / for / while', 'The semicolon is the whole body, so the next block always runs.', 'Remove the semicolon.'],
   ['if / for / while 바로 뒤에 세미콜론이 있습니다', '세미콜론이 본문 전체가 되어 다음 블록이 항상 실행됩니다.', '세미콜론을 지우세요.'],
-  'if (count > 0);', ['if (count > 0) Run();', '} while (running);']);
+  'if (count > 0);', ['if (count > 0) Run();', '} while (running);', 'while (--k >= 0 && ++iv[k] == 0) ;', 'for (i = 0; i < n && Step(i); i++);'],
+  { skip: (raw, line) => loopDoesWork(line) });
 R('assignment-in-condition', 'B', 'MA', 5, ['pitfall', 'cwe-481'],
   /\bif\s*\(\s*[\w.]+\s*=(?![=>])\s*(?:true|false)\s*\)/,
   ['Boolean assigned inside if', 'if (done = true) assigns and is always true.', 'Use == or test the variable directly.'],
@@ -46,10 +68,12 @@ R('lock-on-public', 'B', 'MA', 10, ['concurrency'],
   ['this, 타입, 문자열에 lock을 겁니다', '다른 코드가 같은 잠금을 잡아 교착 상태가 될 수 있습니다.', 'private readonly 객체에 lock을 거세요.'],
   'lock (this) {', 'lock (_sync) {');
 R('sync-over-async', 'B', 'MA', 10, ['async'],
-  /\.GetAwaiter\s*\(\s*\)\s*\.GetResult\s*\(\s*\)|\.Wait\s*\(\s*\)\s*;/,
+  // .Wait() only on a call result or a task-named variable: SemaphoreSlim,
+  // ManualResetEventSlim, CountdownEvent and Barrier have a Wait() of their own.
+  /\.GetAwaiter\s*\(\s*\)\s*\.GetResult\s*\(\s*\)|(?:\)|\b\w*[Tt]ask\w*)\s*\.Wait\s*\(\s*\)\s*;/,
   ['Blocking on a task', 'Waiting synchronously on async work can deadlock on a synchronization context and wastes threads.', 'await the task.'],
   ['작업을 동기적으로 기다립니다', '비동기 작업을 동기적으로 기다리면 동기화 컨텍스트에서 교착되고 스레드를 낭비합니다.', '작업을 await하세요.'],
-  'var data = LoadAsync().GetAwaiter().GetResult();', 'var data = await LoadAsync();');
+  ['var data = LoadAsync().GetAwaiter().GetResult();', 'SaveAsync().Wait();', 'uploadTask.Wait();'], ['var data = await LoadAsync();', '_semaphore.Wait();', '_ready.Wait();']);
 R('rethrow-loses-stack', 'B', 'MA', 5, ['error-handling'],
   /\bthrow\s+(?:ex|e|exc|exception|err|error)\s*;/,
   ['throw ex resets the stack trace', 'Rethrowing the caught variable loses where the error came from.', 'Use throw; to rethrow.'],
@@ -107,7 +131,9 @@ R('method-naming', 'S', 'MI', 2, ['convention'],
   new RegExp(String.raw`\b(?:public|protected|internal)\s+${MODS}[\w<>\[\],?]+\s+[a-z]\w*\s*\(`),
   ['Public method not in PascalCase', '.NET public members are PascalCase.', 'Rename the method.'],
   ['public 메서드가 PascalCase가 아닙니다', '.NET 공개 멤버 이름은 PascalCase입니다.', '메서드 이름을 바꾸세요.'],
-  'public void loadData()', ['public void LoadData()', 'public static implicit operator Money(decimal d)']);
+  'public void loadData()', ['public void LoadData()', 'public static implicit operator Money(decimal d)', 'public static extern int memcpy(IntPtr dst, IntPtr src, int n);'],
+  // extern (P/Invoke) and override names are dictated by native code or the base type
+  { skip: (raw) => /\b(?:extern|override)\b/.test(raw) });
 R('console-output', 'S', 'IN', 2, ['debug'],
   /\bConsole\.Write(?:Line)?\s*\(/,
   ['Console output in code', 'Console writes are not structured logs and are lost in services.', 'Use ILogger.'],
@@ -234,7 +260,7 @@ R('cors-any-origin', 'H', 'MA', 10, ['cwe-942', 'owasp-a05'],
   /\.AllowAnyOrigin\s*\(\s*\)|"Access-Control-Allow-Origin"\s*,\s*"\*"|\[\s*EnableCors\s*\(\s*(?:origins\s*:\s*)?"\*"/,
   ['CORS allows any origin', 'Any site can read responses meant for your front end.', 'Use WithOrigins with the real origins.'],
   ['CORS가 모든 origin을 허용합니다', '아무 사이트나 프런트엔드용 응답을 읽을 수 있습니다.', '실제 origin으로 WithOrigins를 쓰세요.'],
-  'policy.AllowAnyOrigin().AllowAnyHeader();', 'policy.WithOrigins("https://app.example.com");');
+  'policy.AllowAnyOrigin().AllowAnyHeader();', 'policy.WithOrigins("https://app.example.com");', { strings: true });
 R('cookie-not-secure', 'H', 'MA', 5, ['cwe-614', 'owasp-a05', 'cookie'],
   /\bSecure\s*=\s*false\b|\bSecurePolicy\s*=\s*CookieSecurePolicy\.(?:None|SameAsRequest)\b/,
   ['Cookie without the Secure flag', 'The cookie is also sent over plain HTTP.', 'Set Secure = true or CookieSecurePolicy.Always.'],

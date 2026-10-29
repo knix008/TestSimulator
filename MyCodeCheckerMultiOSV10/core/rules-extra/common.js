@@ -34,7 +34,8 @@ R('cleartext-protocol', 'H', 'MA', 10, ['cwe-319', 'owasp-a02'],
   ['평문 프로토콜 URL입니다', 'FTP, Telnet, LDAP, SMTP 같은 URL은 데이터와 자격 증명을 암호화하지 않고 보냅니다.', 'TLS 판을 쓰세요: ftps, ldaps, smtps, imaps, mqtts, SSH.'],
   'url = "ftp://files.example.com/drop"', ['url = "sftp://files.example.com/drop"', 'url = "ldaps://dc.example.com"']);
 R('cleartext-http', 'H', 'MI', 5, ['cwe-319', 'owasp-a02'],
-  /['"`]http:\/\/(?!localhost\b|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|(?:[\w-]+\.)*(?:example\.(?:com|org|net)|w3\.org|xmlsoap\.org|apache\.org|json-schema\.org|purl\.org|xml\.org|openxmlformats\.org|springframework\.org|java\.sun\.com|jcp\.org|android\.com)\b|schemas\.|xmlns\.|javax\.xml\.)/,
+  // A host must follow: "http://" alone is a scheme prefix (starts_with("http://")).
+  /['"`]http:\/\/(?=[^'"`\s])(?!localhost\b|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|\*|(?:[\w-]+\.)+localhost\b|www\.apple\.com\/DTDs\/|(?:[\w-]+\.)*(?:example\.(?:com|org|net)|w3\.org|xmlsoap\.org|apache\.org|json-schema\.org|purl\.org|xml\.org|openxmlformats\.org|springframework\.org|java\.sun\.com|jcp\.org|android\.com)\b|schemas\.|xmlns\.|javax\.xml\.)/,
   ['URL over plain HTTP', 'Requests to this URL can be read and changed on the network.', 'Use https.'],
   ['평문 HTTP URL입니다', '이 URL로 가는 요청은 네트워크에서 읽히고 바뀔 수 있습니다.', 'https를 쓰세요.'],
   'API = "http://api.payments.io/v1"', ['API = "https://api.payments.io/v1"', 'NS = "http://www.w3.org/2001/XMLSchema"', 'f.setFeature("http://xml.org/sax/features/external-general-entities", false);'],
@@ -74,4 +75,13 @@ R('invisible-character', 'B', 'MA', 5, ['cwe-1007'],
   'const user\u200BName = 1;', ['const userName = 1;', '\uFEFFconst first = 1;', "const s = text.replace(/^\uFEFF/, '');"],
   { langs: [...CODE, 'sh', 'ps1', 'sql', 'yaml', 'json', 'tf', 'docker'] });
 
-module.exports = { RULES: R.rules };
+// common:todo sees whole lines (comments included). The marker counts only in
+// a comment: after closed string literals are removed, a comment marker must
+// come before it. 'TODO' in a string, Status.TODO or context.TODO() is code.
+const COMMENT_BEFORE_MARKER = /(?:\/\/|\/\*|^\s*\*|#|--|<!--|^\s*;|'|\bREM\b|^\s*!|%|\(\*|\{-|^.{6}[*\/]|\*>|^\s*")[^\n]*?\b(?:TODO|FIXME|XXX|HACK)\b/i;
+function todoInComment(raw) {
+  const s = String(raw).replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\\n]|\\.)*`/g, '""');
+  return COMMENT_BEFORE_MARKER.test(s);
+}
+
+module.exports = { RULES: R.rules, todoInComment };

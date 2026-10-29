@@ -54,6 +54,9 @@ const STREAM_RET = { findFirst: 'Optional', findAny: 'Optional', min: 'Optional'
   sorted: 'Stream', distinct: 'Stream', peek: 'Stream', limit: 'Stream', skip: 'Stream', flatMap: 'Stream', boxed: 'Stream',
   mapToObj: 'Stream', count: 'long', toList: 'List', reduce: 'Optional', takeWhile: 'Stream', dropWhile: 'Stream' };
 const OPTIONAL_RET = { map: 'Optional', filter: 'Optional', flatMap: 'Optional', or: 'Optional', isPresent: 'boolean', isEmpty: 'boolean', stream: 'Stream' };
+// The tables are looked up with source identifiers: without a prototype a
+// name such as "constructor" or "valueOf" finds nothing.
+for (const t of [KT_PRIM, BOXED, STRING_METHODS, STATIC_RET, KT_FUN_RET, ANY_RET, STREAM_RET, OPTIONAL_RET]) Object.setPrototypeOf(t, null);
 
 function normType(name) {
   const s = A.simpleName(name || '');

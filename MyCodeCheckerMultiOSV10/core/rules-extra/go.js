@@ -38,10 +38,11 @@ R('defer-in-loop', 'B', 'MA', 10, ['resource'],
   ['반복문 안의 defer입니다', 'defer 호출은 함수가 끝날 때만 실행되어 반복마다 리소스가 쌓입니다.', '반복 본문을 함수로 빼거나 명시적으로 닫으세요.'],
   'for _, p := range paths { defer os.Remove(p) }', 'defer cleanup(paths)');
 R('error-string-capitalized', 'S', 'MI', 2, ['convention'],
-  /\b(?:errors\.New|fmt\.Errorf)\s*\(\s*"[A-Z][a-z]/,
+  // A first word that is an identifier (ReverseProxy, Request.URL) keeps its case.
+  /\b(?:errors\.New|fmt\.Errorf)\s*\(\s*"[A-Z][a-z]+(?![A-Za-z0-9_.])/,
   ['Error string starts with a capital letter', 'Error strings are wrapped into longer messages, so they start lower-case.', 'Start the message lower-case.'],
   ['오류 문자열이 대문자로 시작합니다', '오류 문자열은 더 긴 메시지에 감싸이므로 소문자로 시작합니다.', '메시지를 소문자로 시작하세요.'],
-  'return errors.New("Not found")', ['return errors.New("not found")', 'return errors.New("HTTP failed")']);
+  'return errors.New("Not found")', ['return errors.New("not found")', 'return errors.New("HTTP failed")', 'return errors.New("ReverseProxy must have a Director")', 'return errors.New("Request.URL is nil")']);
 R('error-string-punctuation', 'S', 'MI', 2, ['convention'],
   /\b(?:errors\.New|fmt\.Errorf)\s*\(\s*"[^"]*[.!:\n]"\s*[,)]/,
   ['Error string ends with punctuation', 'Wrapped errors read badly with a period in the middle.', 'Drop the trailing punctuation.'],

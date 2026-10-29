@@ -11,11 +11,29 @@ const R = maker('json', ['json']);
 const META_KEY = /^\s*"(?:resolved|integrity|url|homepage|tarball|version|introduced|fixed|last_affected|contentHash|from|repository|bugs|funding|license|main|module|types|description|name|engines?)"\s*:/;
 const notDependency = (raw) => META_KEY.test(raw);
 
+// Package manifests whose values are dependency specs and whose scripts run
+// on install. Other JSON (data files, schemas, editor settings) only looks alike.
+const MANIFEST = /(?:^|\/)(?:package|composer|bower)\.json$/i;
+// Keys that commonly hold "*" without being a dependency (globs, CORS, data).
+const NOT_DEP_KEY = /^\s*"(?:versions?|include|exclude|files|origins?|target|pattern|glob|scope|allow|deny|resources?|actions?|paths?|match(?:es)?|hosts?|domains?|methods|headers|types|lib|extends|tag|channel|[A-Z][\w-]*)"\s*:/;
+// skip(raw, line, file) of json:star-version: outside a manifest (when the
+// path is known) or on a key that is not a package name.
+function starVersionSkip(raw, file) {
+  if (file && !MANIFEST.test(String(file).replace(/\\/g, '/'))) return true;
+  return NOT_DEP_KEY.test(raw) || !/^\s*"(?:@[\w.-]+\/)?[\w.-]+"\s*:/.test(raw);
+}
+// skip(raw, line, file) of json:postinstall: only package.json runs install scripts.
+function installScriptSkip(raw, file) {
+  return !!file && !/(?:^|\/)package\.json$/i.test(String(file).replace(/\\/g, '/'));
+}
+
 R('http-url', 'H', 'MI', 5, ['cwe-319', 'owasp-a02'],
-  /:\s*"http:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|json-schema\.org|schemas?\.|www\.w3\.org|[\w-]+(?::\d+)?\/?")/,
+  // Not loopback, *.localhost, schema / namespace ids, single-label hosts, or
+  // an allow-list pattern such as "http://*" or "http://*.example.com/*".
+  /:\s*"http:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|(?:[\w-]+\.)+localhost\b|\*|json-schema\.org|schemas?\.|www\.w3\.org|[\w-]+(?::\d+)?\/?")/,
   ['URL over plain HTTP', 'Traffic to this URL can be read and changed on the network.', 'Use https.'],
   ['평문 HTTP URL입니다', '이 URL로 가는 통신은 네트워크에서 읽히고 바뀔 수 있습니다.', 'https를 쓰세요.'],
-  '  "registry": "http://registry.example.com/"', ['  "registry": "https://registry.example.com/"', '  "$schema": "http://json-schema.org/draft-07/schema#"']);
+  '  "registry": "http://registry.example.com/"', ['  "registry": "https://registry.example.com/"', '  "$schema": "http://json-schema.org/draft-07/schema#"', '  "url": "http://*"', '  "devUrl": "http://tauri.localhost/"']);
 R('url-dependency', 'S', 'MA', 10, ['supply-chain'],
   /^\s*"[@\w.\/-]+"\s*:\s*"(?:https?:\/\/[^"]+\.(?:tgz|tar\.gz|zip)|git\+(?:ssh|https):\/\/[^"#]+|github:[^"#]+|[\w-]+\/[\w.-]+#(?:master|main|develop|HEAD))"/,
   ['Dependency from a URL or branch', 'Tarball URLs and branch references bypass the registry and change without a version bump.', 'Depend on a published version, or pin a commit.'],
@@ -119,4 +137,4 @@ R('private-flag-false', 'H', 'MI', 2, ['supply-chain'],
   ['package.json private가 false입니다', '실수로 npm publish하면 프로젝트 전체가 올라갑니다.', '애플리케이션에는 "private": true를 두세요.'],
   '  "private": false,', '  "private": true,');
 
-module.exports = { RULES: R.rules };
+module.exports = { RULES: R.rules, starVersionSkip, installScriptSkip };

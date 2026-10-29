@@ -1383,7 +1383,8 @@ class Sema {
           n = 1;
           for (const c of e.codes) n += c > 0xffff ? 2 : 1;
         }
-        return Ty.arrayOf(this.cpp ? Ty.withQuals(ch, { const: true }) : ch, n);
+        // a string-literal macro we cannot expand is part of it: size unknown
+        return Ty.arrayOf(this.cpp ? Ty.withQuals(ch, { const: true }) : ch, e.incomplete ? null : n);
       }
       case 'BoolLiteral': return T.bool;
       case 'NullptrLiteral': return T.nullptr;

@@ -97,6 +97,14 @@ unit. Headers are analysed through `#include`; a header that no unit includes
 is parsed on its own (`unit.standaloneHeader = true`). `opts` are the
 `parseUnit` options plus `headersAsUnits: true` to parse every header alone too.
 
+Through `core/cfront.js` (`projectFor`), a `.h` header is C, C++ or both
+(`core/cfamily/hlang.js`): C++ when it has C++-only syntax outside
+`#ifdef __cplusplus` or only C++ units include it, C when only C units (or
+none) include it, both otherwise. A C++ header parsed on its own is parsed as
+C++, and `project.headerLangs` (Map path -> 'c' | 'cpp' | 'both') keeps the
+decision; the engines drop findings of C rules in C++ headers and of C++
+rules in C headers.
+
 ```js
 {
   units: Unit[],
@@ -242,6 +250,14 @@ Directive = {
 Directives inside skipped regions are recorded with `active: false` and are
 not executed. Pseudo files `<predefined>` and `<command-line>` are not
 recorded.
+
+`<predefined>` also holds the macros of a typical target (`opts.platform`,
+default by target: 'linux' = GCC on Linux x86-64 or i386, 'windows' = MinGW
+for llp64, 'none' = nothing): `__GNUC__`, `__linux__`, `__unix__`,
+`__x86_64__` ... A group (system, compiler, processor) is left out when
+`opts.defines` defines a macro of that group. In `#if`, an unknown
+function-like macro call (`GTK_CHECK_VERSION(4, 0, 0)`) counts as 0, like an
+unknown identifier (`undefInIf` entry with `call: true`).
 
 ### MacroDef
 
@@ -528,7 +544,7 @@ Every expression gets `ctype` *(sema)*.
 | **IntegerLiteral** | `raw`, `value: BigInt`, `base`, `suffix` (as written, e.g. `'UL'`), `octal`, `udSuffix?`, `invalid` |
 | **FloatingLiteral** | `raw`, `value: number`, `suffix`, `base`, `udSuffix?` |
 | **CharLiteral** | `raw`, `prefix`, `value: number`, `codes: number[]`, `multi`, `escapes`, `udSuffix?` |
-| **StringLiteral** | `raw` (all parts joined by a space), `parts: string[]` (adjacent literals), `prefix`, `value: string` (decoded), `codes`, `length` (code units incl. terminator), `escapes: [{kind,text,offset,part}]`, `rawString`, `udSuffix?` |
+| **StringLiteral** | `raw` (all parts joined by a space), `parts: string[]` (adjacent literals), `prefix`, `value: string` (decoded), `codes`, `length` (code units incl. terminator), `escapes: [{kind,text,offset,part}]`, `rawString`, `udSuffix?`, `incomplete?` + `macroParts?: string[]` (undeclared macro-like names next to a literal, `"%" PRIx32`, taken as unknown pieces: `value` / `length` miss them and the type has no size) |
 | **BoolLiteral** | `value` (`true`/`false` keywords; in C17 `true` from `<stdbool.h>` is an IntegerLiteral with `loc.macro === 'true'`) |
 | **NullptrLiteral**, **ThisExpr** | — |
 | **ParenExpr** | `expr` (parentheses are kept for MISRA C 12.1) |

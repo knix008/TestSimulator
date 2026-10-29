@@ -91,6 +91,8 @@ R('public-field', 'S1104', 'S', 'MI', 10, ['cwe-493', 'pitfall'],
     const td = n.owner;
     if (!td || !isClass(td) || n.isConst || hasMod(n, 'static') || hasMod(n, 'readonly') || hasMod(n, 'const')) return;
     if (memberAccess(n, td) !== 'public' || isUnity(td)) return;
+    // a public field of a private nested type is only reachable from the enclosing type
+    for (let d = td; d && d.outer; d = d.outer) if (['private', 'private protected'].includes(typeAccess(d))) return;
     for (const v of n.vars) cx.report(v, `Make '${v.name}' private and expose it through a property.`, `'${v.name}'를 private으로 만들고 속성으로 노출하세요.`);
   } } });
 

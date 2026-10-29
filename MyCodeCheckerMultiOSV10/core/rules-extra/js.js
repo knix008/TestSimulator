@@ -6,6 +6,158 @@ const { maker, nestedTernary } = require('./util');
 
 const R = maker('js', ['js']);
 
+// ── Literal-aware matching ───────────────────────────────────
+// A '/' starts a regular-expression literal (not a division) after these.
+// Not after '<' (a JSX closing tag </div>).
+const REGEX_BEFORE = /(?:^|[(,=:[!&|?{};+\-*%~^]|=>|\b(?:return|typeof|case|do|else|in|of|new|delete|void|throw|yield|await|instanceof))\s*$/;
+
+// Lexer state carried from line to line: a stack of open templates (each
+// with the ${ } depth of the code inside it) and an open block comment.
+function freshState() {
+  return { tpl: [], block: false };
+}
+
+function copyState(st) {
+  return { tpl: st.tpl.map((t) => ({ ...t })), block: st.block };
+}
+
+// Scans one line from state st (updated in place). Returns a per-character
+// map: 0 code, 1 inside a string / template / regex literal (the opening
+// delimiter counts as code), 2 comment. ${ } inside a template is code. A
+// quote that is not closed on the line is an apostrophe (JSX text), not a
+// string.
+function scanLine(line, st) {
+  const s = String(line);
+  const kind = new Uint8Array(s.length);
+  let q = null;
+  let inClass = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (st.block) {
+      kind[i] = 2;
+      if (c === '*' && s[i + 1] === '/') { kind[i + 1] = 2; i++; st.block = false; }
+      continue;
+    }
+    const top = st.tpl[st.tpl.length - 1];
+    if (!q && top && top.depth < 0) {
+      // template text
+      kind[i] = 1;
+      if (c === '\\') { if (i + 1 < s.length) kind[i + 1] = 1; i++; continue; }
+      if (c === '`') { st.tpl.pop(); continue; }
+      if (c === '$' && s[i + 1] === '{') { kind[i + 1] = 1; i++; top.depth = 0; }
+      continue;
+    }
+    if (q) {
+      kind[i] = 1;
+      if (c === '\\') { if (i + 1 < s.length) kind[i + 1] = 1; i++; continue; }
+      if (q === '/') {
+        if (c === '[') inClass = true;
+        else if (c === ']') inClass = false;
+        else if (c === '/' && !inClass) q = null;
+        continue;
+      }
+      if (c === q) q = null;
+      continue;
+    }
+    if (c === '/' && s[i + 1] === '/') { for (let j = i; j < s.length; j++) kind[j] = 2; break; }
+    if (c === '/' && s[i + 1] === '*') { kind[i] = 2; kind[i + 1] = 2; i++; st.block = true; continue; }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < s.length && s[j] !== c) j += s[j] === '\\' ? 2 : 1;
+      if (j < s.length) q = c;
+      continue;
+    }
+    if (c === '`') { st.tpl.push({ depth: -1 }); continue; }
+    if (top && c === '{') { top.depth++; continue; }
+    if (top && c === '}') { if (top.depth === 0) { top.depth = -1; kind[i] = 1; } else top.depth--; continue; }
+    if (c === '/' && REGEX_BEFORE.test(s.slice(0, i))) { q = '/'; inClass = false; }
+  }
+  return kind;
+}
+
+// Lexer state at the start of every line of a file, cached per lines array.
+const FILE_STATES = new WeakMap();
+function lineStates(lines) {
+  let out = FILE_STATES.get(lines);
+  if (out) return out;
+  out = [];
+  const st = freshState();
+  for (const l of lines) {
+    out.push(copyState(st));
+    scanLine(l, st);
+  }
+  FILE_STATES.set(lines, out);
+  return out;
+}
+
+// Literal map of one line: true inside a string, template or regex literal.
+// ctx ({ index, lines }, when the caller passes it) gives the state at the
+// line start, so a line inside a template that started above is literal.
+function literalMask(line, ctx) {
+  let st = freshState();
+  if (ctx && Array.isArray(ctx.lines) && Number.isInteger(ctx.index)) {
+    const states = lineStates(ctx.lines);
+    if (states[ctx.index]) st = copyState(states[ctx.index]);
+  }
+  st.block = false; // the code line has its comments removed already
+  const kind = scanLine(line, st);
+  return Array.from(kind, (k) => k === 1);
+}
+
+// True when some match of re on the line touches code, i.e. does not lie
+// wholly inside one string, template or regex literal.
+function codeHit(re, line, ctx) {
+  const s = String(line);
+  const g = new RegExp(re.source, re.flags.replace(/[gy]/g, '') + 'g');
+  let lit = null;
+  let m;
+  while ((m = g.exec(s))) {
+    lit = lit || literalMask(s, ctx);
+    const end = Math.max(m.index + 1, m.index + m[0].length);
+    for (let i = m.index; i < end && i < s.length; i++) if (!lit[i]) return true;
+    if (m[0].length === 0) g.lastIndex++;
+  }
+  return false;
+}
+
+// The line with the inside of every literal replaced by spaces.
+function blankJs(line, ctx) {
+  const s = String(line);
+  const lit = literalMask(s, ctx);
+  let out = '';
+  for (let i = 0; i < s.length; i++) out += lit[i] ? ' ' : s[i];
+  return out;
+}
+
+// js:eqeq: true when every == / != of the line (outside literals) is the
+// idiom that compares like ===: against null / undefined (both nullish), or
+// typeof against a string.
+function looseEqualityIsIdiom(line, ctx) {
+  const s = String(line);
+  const lit = literalMask(s, ctx);
+  const re = /(?<![=!<>])[=!]=(?!=)/g;
+  let m;
+  while ((m = re.exec(s))) {
+    if (lit[m.index]) continue;
+    const before = s.slice(0, m.index);
+    const after = s.slice(m.index + 2);
+    if (/^\s*(?:null|undefined)\b/.test(after) || /\b(?:null|undefined)\s*$/.test(before)) continue;
+    if (/\btypeof\s+[\w$.]+\s*$/.test(before) || /^\s*typeof\b/.test(after)) continue;
+    return false;
+  }
+  return true;
+}
+
+// Line rules of a JS/TS file only see code: a pattern that appears only
+// inside a string, template or regex literal (a rule catalog, a message, a
+// sample) is not reported. The optional fourth argument { index, lines }
+// lets a line inside a multi-line template be recognized.
+function codeOnly(rule) {
+  const base = rule.skip;
+  rule.skip = (rawLine, line, file, ctx) => !codeHit(rule.re, line, ctx) || (base ? base(rawLine, line, file, ctx) : false);
+  return rule;
+}
+
 // ── Bugs ─────────────────────────────────────────────────────
 R('self-assignment', 'B', 'MA', 5, ['pitfall'],
   /^\s*([A-Za-z_$][\w$.]*)\s*=(?!=)\s*\1\s*;?\s*$/,
@@ -43,10 +195,10 @@ R('typeof-invalid', 'B', 'CR', 5, ['pitfall'],
   ['typeof를 불가능한 문자열과 비교합니다', 'typeof는 정해진 이름만 돌려주므로 철자가 틀리면 절대 일치하지 않습니다.', 'undefined, object, boolean, number, string, function, symbol, bigint 중 하나를 쓰세요.'],
   "if (typeof cb === 'fucntion') {", "if (typeof cb === 'function') {");
 R('array-delete', 'B', 'MA', 5, ['pitfall'],
-  /\bdelete\s+[\w$.]+\[\s*(?:\d+|i|j|k|idx|index)\s*\]/,
+  /\bdelete\s+[\w$.]+\[\s*(?:\d+|i|j|idx|index)\s*\](?!\s*[.[])/,
   ['delete on an array element', 'delete leaves a hole and does not change the length.', 'Use splice to remove the element.'],
   ['배열 요소에 delete를 씁니다', 'delete는 빈 칸을 남기고 길이를 바꾸지 않습니다.', 'splice로 요소를 지우세요.'],
-  'delete items[i];', 'items.splice(i, 1);');
+  'delete items[i];', ['items.splice(i, 1);', 'delete rec[k];', 'delete doc.packages[0].versionInfo;']);
 R('parseint-radix', 'B', 'MI', 2, ['pitfall'],
   /\bparseInt\s*\(\s*[^,()]+\)/,
   ['parseInt without a radix', 'Without a radix, strings with a leading 0x are read as hexadecimal.', 'Pass the radix, usually 10, or use Number().'],
@@ -61,7 +213,7 @@ R('unreachable-same-line', 'B', 'MA', 5, ['unused', 'cwe-561'],
   /^\s*(?:return\b[^;{}]*|throw\b[^;{}]*|break|continue)\s*;\s*[A-Za-z_$][\w$]*\s*[(=.]/,
   ['Code after return on the same line', 'Statements after return, throw, break or continue never run.', 'Delete the dead statement or move it before the jump.'],
   ['같은 줄의 return 뒤에 코드가 있습니다', 'return, throw, break, continue 뒤의 문장은 실행되지 않습니다.', '죽은 문장을 지우거나 점프 앞으로 옮기세요.'],
-  'return result; cleanup();', 'cleanup(); return result;');
+  'return result; cleanup();', ['cleanup(); return result;', "return win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));"], { ns: true });
 R('negative-zero-compare', 'B', 'MI', 5, ['pitfall'],
   /[=!]==\s*-0(?![\w.])/,
   ['Comparison with -0', '-0 === 0 is true, so the test cannot tell negative zero apart.', 'Use Object.is(value, -0).'],
@@ -103,10 +255,10 @@ R('arguments-callee', 'B', 'MA', 10, ['deprecated'],
   ['arguments.callee 또는 caller를 씁니다', 'strict 모드에서 예외를 던지고 최적화를 막습니다.', '함수에 이름을 붙이고 직접 참조하세요.'],
   'return arguments.callee(n - 1);', 'return factorial(n - 1);');
 R('discarded-new', 'S', 'MA', 5, ['pitfall'],
-  /^\s*new\s+[A-Z][\w$.]*\s*\([^;]*\)\s*;?\s*$/,
+  /^\s*new\s+[A-Z][\w$.]*\s*\((?:[^;()]|\((?:[^;()]|\([^;()]*\))*\))*\)\s*;?\s*$/,
   ['Object created and dropped', 'Creating an object only for its constructor side effects hides what the code does.', 'Keep the instance, or call a named function for the side effect.'],
   ['객체를 만들고 버립니다', '생성자 부작용만을 위해 객체를 만들면 하는 일이 숨겨집니다.', '인스턴스를 보관하거나 부작용용 이름 있는 함수를 호출하세요.'],
-  'new Logger(config);', 'const logger = new Logger(config);');
+  'new Logger(config);', ['const logger = new Logger(config);', 'new Flow(an).run();']);
 
 // ── Vulnerabilities and hotspots ─────────────────────────────
 R('weak-hash', 'H', 'CR', 15, ['cwe-328', 'owasp-a02', 'crypto'],
@@ -175,10 +327,10 @@ R('insecure-websocket', 'H', 'MI', 5, ['cwe-319', 'owasp-a02'],
   ['암호화되지 않은 WebSocket입니다', 'ws:// 통신은 네트워크에서 읽고 바꿀 수 있습니다.', 'wss://를 쓰세요.'],
   "new WebSocket('ws://api.example.com/feed')", "new WebSocket('wss://api.example.com/feed')");
 R('regexp-from-variable', 'H', 'MA', 10, ['cwe-1333', 'owasp-a03', 'redos'],
-  /\bnew\s+RegExp\s*\(\s*(?!['"`\/])[\w$]/,
+  /\bnew\s+RegExp\s*\(\s*(?!['"`\/]|String\.raw\b|[A-Z][A-Z0-9_]*\b(?!\s*[.[(])|[\w$.]+\.source\b)[\w$]/,
   ['Regular expression built from a variable', 'A pattern from input can be crafted to backtrack for a very long time (ReDoS).', 'Escape the input or match it with indexOf / includes.'],
   ['변수로 정규식을 만듭니다', '입력으로 만든 패턴은 오래 역추적하도록 조작될 수 있습니다(ReDoS).', '입력을 이스케이프하거나 indexOf / includes로 찾으세요.'],
-  'const re = new RegExp(req.query.q);', "const re = new RegExp('^[a-z]+$');");
+  'const re = new RegExp(req.query.q);', ["const re = new RegExp('^[a-z]+$');", "const g = new RegExp(re.source, 'g');", 'const re = new RegExp(PATTERN);']);
 R('open-redirect', 'V', 'CR', 20, ['cwe-601', 'owasp-a01'],
   /\b(?:res|response)\.redirect\s*\(\s*(?:\d{3}\s*,\s*)?req\.(?:query|params|body)/,
   ['Redirect to a request parameter', 'Redirecting to a user-supplied URL sends victims to phishing sites.', 'Redirect only to known paths or check the host against an allow list.'],
@@ -235,7 +387,7 @@ R('file-permissions-777', 'V', 'MA', 10, ['cwe-732', 'owasp-a01'],
   ['모두 쓸 수 있는 파일 권한입니다', '777 권한은 모든 로컬 사용자가 파일을 바꾸거나 교체하게 합니다.', '필요한 만큼만 주세요. 예: 0o644, 0o600.'],
   "fs.chmodSync(file, 0o777);", "fs.chmodSync(file, 0o600);");
 R('dynamic-require', 'H', 'MA', 10, ['cwe-829', 'owasp-a08'],
-  /\brequire\s*\(\s*(?!['"`])[A-Za-z_$][\w$.]*(?:\s*\+|\s*\)|\[)/,
+  /(?<![\w$.])require\s*\(\s*(?!['"`])[A-Za-z_$][\w$.]*(?:\s*\+|\s*\)|\[)/,
   ['require() with a computed path', 'Loading a module chosen at run time can load attacker-controlled code.', 'Map allowed names to static require calls.'],
   ['계산된 경로로 require()를 합니다', '실행 중 고른 모듈을 불러오면 공격자 코드가 로드될 수 있습니다.', '허용 이름을 정적 require 호출에 대응시키세요.'],
   'const plugin = require(pluginName);', "const plugin = require('./plugins/csv');");
@@ -245,7 +397,7 @@ R('vm-run', 'H', 'CR', 20, ['cwe-94', 'owasp-a03'],
   ['vm 모듈로 코드를 실행합니다', 'vm 모듈은 샌드박스가 아니라 코드가 호스트로 빠져나갈 수 있습니다.', '신뢰할 수 없는 코드는 실행하지 말거나 별도 프로세스로 격리하세요.'],
   'vm.runInNewContext(userCode, sandbox);', 'worker.postMessage({ task });');
 R('jsx-target-blank', 'H', 'MI', 5, ['cwe-1022', 'react'],
-  /\btarget\s*=\s*\{?\s*['"]_blank['"]/,
+  /<[A-Za-z][\w.]*\b[^<>]*\btarget\s*=\s*\{?\s*['"]_blank['"][^<>]*>/,
   ['target="_blank" without rel="noopener"', 'The opened page gets window.opener and can redirect your tab.', 'Add rel="noopener noreferrer".'],
   ['rel="noopener" 없는 target="_blank"', '열린 페이지가 window.opener로 원래 탭을 바꿀 수 있습니다.', 'rel="noopener noreferrer"를 추가하세요.'],
   '<a href={url} target="_blank">Docs</a>', '<a href={url} target="_blank" rel="noopener noreferrer">Docs</a>',
@@ -369,4 +521,6 @@ R('ts-object-type', 'S', 'MI', 5, ['typescript'],
   ['Object를 타입으로 씁니다', 'Object는 문자열과 숫자까지 거의 모든 값을 받습니다.', 'object, Record<string, unknown>, 또는 실제 인터페이스를 쓰세요.'],
   'function save(data: Object) {', 'function save(data: Record<string, unknown>) {', { ns: true, langs: ['ts'] });
 
-module.exports = { RULES: R.rules };
+for (const rule of R.rules) codeOnly(rule);
+
+module.exports = { RULES: R.rules, literalMask, blankJs, codeHit, codeOnly, looseEqualityIsIdiom };

@@ -112,7 +112,8 @@ rule({
       const s = A.strip(n.args[0]);
       if (!A.isStr(s)) return;
       const v = s.s || '';
-      const capital = /^[A-Z][a-z]/.test(v) && !/^[A-Z][a-z]+[A-Z]/.test(v);
+      // an identifier first (ReverseProxy, Request.URL, Read2) keeps its case
+      const capital = /^[A-Z][a-z]/.test(v) && !/^[A-Z][a-z]+[A-Z0-9_.]/.test(v);
       const punct = /[.!:\n]$/.test(v);
       if (capital || punct) cx.report(s, `Error strings should not ${capital ? 'be capitalised' : 'end with punctuation or a newline'}.`, `오류 문자열은 ${capital ? '대문자로 시작하면' : '문장 부호나 줄바꿈으로 끝나면'} 안 됩니다.`);
     },

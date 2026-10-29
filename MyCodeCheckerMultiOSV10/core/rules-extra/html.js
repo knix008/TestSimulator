@@ -62,7 +62,7 @@ R('deprecated-element', 'S', 'MI', 5, ['deprecated'],
   ['사라진 HTML 요소입니다', '이 요소들은 HTML에서 제거됐고 동작이 일관되지 않습니다.', 'CSS나 최신 요소를 쓰세요.'],
   '<center>Welcome</center>', '<div class="center">Welcome</div>');
 R('anchor-without-href', 'S', 'MI', 2, ['accessibility'],
-  /<a\b(?![^>]*\b(?:href|name|id|:href|v-bind:href|\[href\]|routerLink)\s*=)[^>]*>/i,
+  /<a(?![\w:-])(?![^>]*\b(?:href|name|id|routerLink|xlink:href)\]?\s*=)[^>]*>/i,
   ['<a> without href', 'Links without href cannot be reached with the keyboard.', 'Add href, or use a <button>.'],
   ['href 없는 <a>입니다', 'href 없는 링크는 키보드로 닿을 수 없습니다.', 'href를 넣거나 <button>을 쓰세요.'],
   '<a class="btn">Open</a>', '<a class="btn" href="/open">Open</a>');
@@ -102,7 +102,7 @@ R('angular-innerhtml', 'H', 'MA', 10, ['cwe-79', 'owasp-a03', 'xss'],
   ['innerHTML 바인딩입니다', '데이터로 HTML을 묶으면 우회 호출이 끄는 정화에 의존하게 됩니다.', '대신 텍스트를 바인딩하세요.'],
   '<div [innerHTML]="post.body"></div>', '<div>{{ post.body }}</div>');
 R('autocomplete-sensitive', 'H', 'MI', 5, ['cwe-522'],
-  /<input\b(?=[^>]*\bname\s*=\s*['"][^'"]*(?:card|cc-?num|cvv|cvc|ssn|otp)[^'"]*['"])(?![^>]*\bautocomplete\s*=)[^>]*>/i,
+  /<input\b(?=[^>]*\bname\s*=\s*['"][^'"]*(?:card|cc-?num|cvv|cvc|(?<![a-z])(?:ssn|otp))[^'"]*['"])(?![^>]*\bautocomplete\s*=)[^>]*>/i,
   ['Sensitive field without autocomplete hint', 'Browsers may store card numbers or one-time codes in form history.', 'Set autocomplete="cc-number", "one-time-code" or "off" as fits.'],
   ['autocomplete 힌트 없는 민감 필드입니다', '브라우저가 카드 번호나 일회용 코드를 폼 기록에 저장할 수 있습니다.', '알맞게 autocomplete="cc-number", "one-time-code", "off"를 지정하세요.'],
   '<input name="card_number" type="text">', '<input name="card_number" type="text" autocomplete="cc-number">');

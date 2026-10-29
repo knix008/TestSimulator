@@ -38,9 +38,14 @@ function typeMentions(c) {
   return s;
 }
 
-function noqa(c, line) {
-  const t = c.lines[line - 1] || '';
-  return /#\s*noqa(?![:\w])|#\s*noqa:\s*[^#]*\bF401\b|#\s*pylint:\s*disable=[\w,-]*unused-import/i.test(t);
+// A suppression comment on the alias line, or anywhere from the statement's
+// first line down to it (from x import (  # noqa: F401 / a, / b)).
+function noqa(c, line, from = line) {
+  for (let n = Math.min(from, line); n <= line; n++) {
+    const t = c.lines[n - 1] || '';
+    if (/#\s*noqa(?![:\w])|#\s*noqa:\s*[^#]*\bF401\b|#\s*pylint:\s*disable=[\w,-]*unused-import/i.test(t)) return true;
+  }
+  return false;
 }
 
 function inAvailabilityTry(stmt) {
@@ -76,7 +81,7 @@ R('unused-import', 'S', 'MI', 2, ['unused'], 'S1128',
             if (st.type === 'ImportFrom' && st.module === '__future__') continue;
             if (a.asname && a.asname === a.name) continue; // explicit re-export
             if (all.has(sym.name) || mentions.has(sym.name)) continue;
-            if (noqa(c, a.line) || inAvailabilityTry(st)) continue;
+            if (noqa(c, a.line, st.line || a.line) || inAvailabilityTry(st)) continue;
             if (sym.bindings.length > 1 && sym.bindings.some((x) => x.kind !== 'import')) continue;
             if (sc.kind === 'module' && sym.globalAssigned) continue;
             const label = st.type === 'Import' ? a.name : `${st.module || '.'.repeat(st.level)}.${a.name}`;

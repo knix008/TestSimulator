@@ -327,11 +327,14 @@ class Engine {
     }
     // exceptional successors get the pre-state
     if (node.esucc) {
+      // x.close() that throws still releases x: the handler sees it closed.
+      const closed = this.closeTarget(st0, node);
       for (const s of node.esucc) {
         if (s.k === 'exc') continue;
         const pre = st0.clone();
         pre.flag = 0;
         pre.excp = true;
+        if (closed != null) this.setRes(pre, closed, 'CLOSED');
         this.push(work, s, pre);
       }
     }
@@ -431,6 +434,16 @@ class Engine {
       default:
         for (const s of node.succ) this.push(work, s, st);
     }
+  }
+
+  // Symbolic value of the open resource closed by a statement "x.close();".
+  closeTarget(st, node) {
+    if (node.k !== 'eval' || !node.e) return null;
+    const e = A.strip(node.e);
+    if (!e || e.k !== 'Call' || e.id !== 'close' || !e.o || (e.args && e.args.length)) return null;
+    const k = A.varKey(e.o);
+    const sv = k != null ? st.env.get(k) : null;
+    return sv != null && this.getC(st, sv).res === 'OPEN' ? sv : null;
   }
 
   // A call on an open resource may throw and leave the method with it open.

@@ -200,6 +200,19 @@ R('weak-cipher-mode', 'S5542', 'V', 'CR', 20, [SEC, 'owasp-a2'],
     },
   } });
 
+const KEY_IMPORT = /^(ImportParameters|ImportCspBlob|FromXmlString|Import\w*Key|ImportFromPem|ImportFromEncryptedPem|ImportSubjectPublicKeyInfo|ImportPkcs8PrivateKey)$/;
+// `var rsa = new RSACryptoServiceProvider(); rsa.ImportCspBlob(blob);` (or KeySize set afterwards)
+function keyImported(n) {
+  const v = n.parent && n.parent.k === 'VarDecl' && n.parent.init === n ? n.parent : null;
+  const sym = v && v.sym;
+  if (!sym || !sym.refs) return false;
+  return sym.refs.some((r) => {
+    const m = r.parent;
+    if (!m || m.k !== 'Member' || m.expr !== r) return false;
+    if (m.name === 'KeySize' && m.parent && m.parent.k === 'Assign' && m.parent.left === m) return true;
+    return KEY_IMPORT.test(m.name) && m.parent && m.parent.k === 'Invocation' && m.parent.expr === m;
+  });
+}
 R('weak-key-size', 'S4426', 'V', 'CR', 5, ['cwe-326', 'owasp-a2'],
   ['Cryptographic keys should be robust', 'RSA and DSA keys shorter than 2048 bits can be factored or forged with today\'s computing power.', 'Use keys of at least 2048 bits.'],
   ['암호 키는 견고해야 합니다', '2048비트보다 짧은 RSA, DSA 키는 현재의 계산 능력으로 깨거나 위조할 수 있습니다.', '2048비트 이상의 키를 쓰세요.'],
@@ -208,7 +221,8 @@ R('weak-key-size', 'S4426', 'V', 'CR', 5, ['cwe-326', 'owasp-a2'],
       const t = newTypeName(n);
       if (!/^(RSACryptoServiceProvider|DSACryptoServiceProvider|RSACng|DSACng|RSAOpenSsl|DSAOpenSsl)$/.test(t || '')) return;
       if (!n.args.length) {
-        if (/CryptoServiceProvider$/.test(t)) cx.report(n, `'${t}' defaults to a 1024-bit key; pass a key size of at least 2048.`, `'${t}'의 기본 키는 1024비트입니다. 2048 이상의 키 크기를 넘기세요.`);
+        // the default key is only generated when no key is loaded: an imported key keeps its own size
+        if (/CryptoServiceProvider$/.test(t) && !keyImported(n)) cx.report(n, `'${t}' defaults to a 1024-bit key; pass a key size of at least 2048.`, `'${t}'의 기본 키는 1024비트입니다. 2048 이상의 키 크기를 넘기세요.`);
         return;
       }
       const v = U.numVal(n.args[0].expr);
@@ -360,6 +374,19 @@ R('hardcoded-credentials', 'S2068', 'H', 'BL', 30, ['cwe-798', 'cwe-259', 'owasp
     },
   } });
 
+// name of the variable, field, property, method or named argument a literal is the value of
+function holderName(n) {
+  for (let p = n.parent, c = n; p; c = p, p = p.parent) {
+    if (p.k === 'Paren' || p.k === 'Conditional' || p.k === 'Binary' && p.op === '??') continue;
+    if (p.k === 'Arg') { if (p.name) return p.name; return null; }
+    if (p.k === 'VarDecl' || p.k === 'Property' || p.k === 'Method' || p.k === 'AnonMember') return p.name || null;
+    if (p.k === 'Return') continue;
+    if (p.k === 'Block' || p.k === 'ExprStmt') continue;
+    if (p.k === 'Assign' && p.right === c) { const l = unparen(p.left); return l && (l.k === 'Name' || l.k === 'Member') ? l.name : null; }
+    return null;
+  }
+  return null;
+}
 const IP_RE = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?::\d{1,5})?(?:[/?#].*)?$/i;
 R('hardcoded-ip', 'S1313', 'H', 'MI', 30, ['cwe-547'],
   ['Using hardcoded IP addresses is security-sensitive', 'A fixed address forces a rebuild when the network changes and exposes infrastructure details in the source.', 'Read the address from configuration or resolve a host name.'],
@@ -376,6 +403,8 @@ R('hardcoded-ip', 'S1313', 'H', 'MI', 30, ['cwe-547'],
     if (enclosing(n, ['Attribute'])) return;
     const p = n.parent && n.parent.k === 'Arg' ? n.parent.parent : n.parent;
     if (p && ((p.k === 'New' && newTypeName(p) === 'Version') || (p.k === 'Invocation' && targetName(p) === 'Version'))) return;
+    // a four-part version number ("1.2.3.4") held by something named *Version*
+    if (/version/i.test(holderName(n) || '')) return;
     cx.report(n, `Make sure using the hardcoded IP address '${ip}' is safe here.`, `여기서 하드코딩한 IP 주소 '${ip}'를 쓰는 것이 안전한지 확인하세요.`);
   } } });
 

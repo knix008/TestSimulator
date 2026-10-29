@@ -346,6 +346,17 @@ R('duplicated-string-literal', 'S', 'CR', 5, ['design'], 'S1192',
       }
       for (const [v, list] of map) {
         if (list.length < 3) continue;
+        // NAME = "literal" already defines the constant: point at a repeated
+        // use and name the constant instead of asking for a new one.
+        const def = list.find((x) => x.parent.type === 'Assign' && x.parent.value === x && x.parent.targets.length === 1
+          && x.parent.targets[0].type === 'Name' && /^_*[A-Z][A-Z0-9_]*$/.test(x.parent.targets[0].id));
+        if (def) {
+          const name = def.parent.targets[0].id;
+          const uses = list.filter((x) => x !== def);
+          r.report(uses[0], `Use the constant '${name}' instead of repeating the literal "${short(v, 40)}" ${uses.length} more times.`, `리터럴 "${short(v, 40)}"를 ${uses.length}번 더 반복하지 말고 상수 '${name}'를 쓰세요.`,
+            { events: uses.slice(1, 10).map((x) => ({ line: x.line, tag: 'path', text: { en: 'duplicate', ko: '중복' }, main: false })) });
+          continue;
+        }
         const first = list[0];
         r.report(first, `Define a constant instead of duplicating the literal "${short(v, 40)}" ${list.length} times.`, `리터럴 "${short(v, 40)}"를 ${list.length}번 중복하지 말고 상수를 정의하세요.`,
           { events: list.slice(1, 10).map((x) => ({ line: x.line, tag: 'path', text: { en: 'duplicate', ko: '중복' }, main: false })) });
@@ -861,8 +872,12 @@ function dedent(lines) {
 const SNAKE = /^_{0,2}[a-z][a-z0-9_]*_{0,2}$|^_+$/;
 const DUNDER = /^__\w+__$/;
 
-function classHasForeignBase(c, cls) {
-  return cls && cls.bases(c.project).some((b) => b.unknown || (b.builtin && b.builtin !== 'object'));
+// A base anywhere up the project's own hierarchy is foreign (class ToolButton(
+// PaintedButton) where PaintedButton(QWidget): paintEvent overrides Qt).
+function classHasForeignBase(c, cls, seen = new Set()) {
+  if (!cls || seen.has(cls)) return false;
+  seen.add(cls);
+  return cls.bases(c.project).some((b) => b.unknown || (b.builtin && b.builtin !== 'object') || (b.cls && classHasForeignBase(c, b.cls, seen)));
 }
 
 R('function-naming', 'S', 'MI', 5, ['convention', 'pep8'], 'S1542',

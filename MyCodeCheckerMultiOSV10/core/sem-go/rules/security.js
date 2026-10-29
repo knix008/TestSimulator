@@ -400,7 +400,8 @@ rule({
   ko: ['평문 프로토콜을 쓰는 것은 보안에 민감합니다', 'http://, ftp://, telnet://은 데이터를 암호화하지 않고 보냅니다.', 'https://(또는 다른 암호화 프로토콜)를 쓰세요.'],
   on: {
     BasicLit(n, cx) {
-      if (n.kind !== 'string') return;
+      // test fixtures (httptest URLs, parser inputs) send nothing over a network
+      if (n.kind !== 'string' || cx.pf.isTest) return;
       const m = /^(http|ftp|telnet):\/\/([^/:?#\s]*)/i.exec(n.s || '');
       if (!m) return;
       const host = m[2].toLowerCase();
