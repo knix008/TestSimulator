@@ -97,8 +97,47 @@ function createStore(configDir) {
   const dbLists = new Map();
   const dbNameOf = new WeakMap();
   function rememberDb(name, list) {
-    dbLists.set(name, list);
+    dbLists.set(name, overlay(name, list));
     dbNameOf.set(list, name);
+  }
+
+  // Issues changed in the database while their list was not read
+  // (updatePending): name -> Map key -> issue. A list read later, or being
+  // read meanwhile, gets them in place of what it read.
+  const patched = new Map();
+  function overlay(name, list) {
+    const m = patched.get(name);
+    if (!m) return list;
+    patched.delete(name);
+    const seen = new Set();
+    for (let n = 0; n < list.length; n++) {
+      const key = list[n] && list[n].key;
+      if (m.has(key) && !seen.has(key)) { list[n] = m.get(key); seen.add(key); }
+    }
+    return list;
+  }
+  /**
+   * The issues with these keys of an analysis whose list was not read yet,
+   * from the database without reading the list: Map key -> issue, or null
+   * when the list is not in the database (older files are read whole).
+   */
+  function pendingByKeys(a, keys) {
+    const pending = pendingIssues(a);
+    if (!pending || !pending.$db || !idb().has(pending.$db)) return null;
+    const out = idb().byKeys(pending.$db, keys);
+    const m = patched.get(pending.$db);
+    if (m) for (const k of keys) if (m.has(k)) out.set(k, m.get(k));
+    return out;
+  }
+  /** Writes changed issues of a list not read yet to their rows (see pendingByKeys); the list stays unread. */
+  function updatePending(a, issues) {
+    const pending = pendingIssues(a);
+    if (!pending || !pending.$db) throw new Error('The issue list is not pending');
+    idb().update(pending.$db, issues);
+    revision++;
+    const m = patched.get(pending.$db) || new Map();
+    for (const i of issues) m.set(i.key, i);
+    patched.set(pending.$db, m);
   }
   function load() {
     let raw;
@@ -487,6 +526,7 @@ function createStore(configDir) {
   const touched = new WeakSet();
   /** Mark issue lists changed in place, so the next save writes them. */
   function touch(...lists) {
+    revision++;
     for (const l of lists) {
       if (!Array.isArray(l)) continue;
       touched.add(l);
@@ -498,6 +538,7 @@ function createStore(configDir) {
   const changedItems = new WeakMap();
   function changed(list, items) {
     if (!Array.isArray(list)) return;
+    revision++;
     let set = changedItems.get(list);
     if (!set) { set = new Set(); changedItems.set(list, set); }
     for (const item of items || []) set.add(item);
@@ -510,6 +551,10 @@ function createStore(configDir) {
   function changesOf(list) {
     return changes.get(list) || 0;
   }
+  // Every change to an issue in place (touch, changed, updatePending) counts:
+  // results read from issues are reused while this stays the same.
+  let revision = 0;
+  const issueRevision = () => revision;
   function remember(full, issues) {
     try {
       const st = fs.statSync(full);
@@ -538,7 +583,7 @@ function createStore(configDir) {
       if (hit) return hit;
       const list = idb().read(ref.$db);
       rememberDb(ref.$db, list);
-      return list;
+      return dbLists.get(ref.$db);
     }
     const full = path.join(dir, ISSUES, path.basename(ref.$file));
     const hit = cached(full);
@@ -651,7 +696,9 @@ function createStore(configDir) {
     idb().copyTo(target);
     for (const name of safeList(path.join(dir, ISSUES))) fs.copyFileSync(path.join(dir, ISSUES, name), path.join(target, ISSUES, name));
   }
-  return { dir, file, load, save, copyTo, touch, changed, prepareLists, searchIssues, issueFacets, issuesOf: readIssues, loadIssues, pendingIssues, issueCount, copyAnalysis, changesOf, severityPage, severityOrder, headReady };
+  /** Resolves when the lists of an older issues.db have moved to their files (they move in the background). */
+  const storageIdle = () => idb().whenIdle();
+  return { dir, file, load, save, copyTo, touch, changed, prepareLists, storageIdle, pendingByKeys, updatePending, issueRevision, searchIssues, issueFacets, issuesOf: readIssues, loadIssues, pendingIssues, issueCount, copyAnalysis, changesOf, severityPage, severityOrder, headReady };
 }
 
 const ISSUES = 'issues';

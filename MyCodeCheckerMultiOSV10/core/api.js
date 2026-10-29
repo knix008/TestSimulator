@@ -195,7 +195,8 @@ function createApi(opts = {}) {
       analysis = await analyzeFor(args.__job, ws, abs, {
         exclusions: [...(ws.settings.exclusions || []), ...((project && project.exclusions) || []), ...(Array.isArray(args.exclusions) ? args.exclusions : [])],
         excludeDirs: [...((project && project.excludeDirs) || []), ...(Array.isArray(args.excludeDirs) ? args.excludeDirs : [])],
-        disabledChecks: require('./checks').disabledChecks(ws.settings),
+        disabledChecks: require('./checks').disabledChecks(ws.settings, project),
+        skipLanguages: require('./checks').skippedLanguages(project),
         coverageReports: (Array.isArray(args.coverageReports) && args.coverageReports.length ? args.coverageReports : null) || (project && project.coverageReports && project.coverageReports.length ? project.coverageReports : ws.settings.coverageReports) || undefined,
         inactive: profile.inactive,
         overrides: profile.overrides,
@@ -363,9 +364,19 @@ function createApi(opts = {}) {
     const patch = args.patch || {};
     project.issueState = project.issueState || {};
     checkIssuePatch(patch);
+    // A list not read yet is not read for this (millions of issues take
+    // seconds): its issues are taken from and written to the database.
+    const analyses = [...Object.values(project.branches || {}).map((b) => b && b.latest), project.desktop].filter(Boolean);
+    const fromDb = new Map();
+    for (const a of analyses) {
+      const hit = store.pendingByKeys(a, keys);
+      if (hit) fromDb.set(a, hit);
+    }
     const known = new Set(Object.keys(project.issueState));
-    for (const b of Object.values(project.branches || {})) for (const i of (b.latest && b.latest.issues) || []) known.add(i.key);
-    for (const i of (project.desktop && project.desktop.issues) || []) known.add(i.key);
+    for (const a of analyses) {
+      if (fromDb.has(a)) for (const k of fromDb.get(a).keys()) known.add(k);
+      else for (const k of keyMap(a.issues || []).keys()) known.add(k);
+    }
     const unknown = keys.filter((k) => !known.has(k));
     if (unknown.length) throw Object.assign(new Error(`Unknown issue: ${unknown.slice(0, 3).join(', ')}`), { code: 'NOT_FOUND', keys: unknown });
     const now = new Date().toISOString();
@@ -378,8 +389,9 @@ function createApi(opts = {}) {
       throw Object.assign(new Error('This change needs an approved exception request'), { code: 'APPROVAL_REQUIRED' });
     }
     // The analyses' lists, each with a key index (a list can hold millions).
-    const lists = [...Object.values(project.branches || {}).map((b) => b && b.latest && b.latest.issues), project.desktop && project.desktop.issues].filter(Array.isArray);
+    const lists = analyses.filter((a) => !fromDb.has(a)).map((a) => a.issues).filter(Array.isArray);
     const changedIn = new Map(lists.map((l) => [l, []]));
+    const dbChanged = new Map([...fromDb.keys()].map((a) => [a, []]));
     for (const key of keys) {
       const prev = project.issueState[key] || {};
       const next = { ...prev };
@@ -409,6 +421,10 @@ function createApi(opts = {}) {
         const issue = keyMap(list).get(key);
         if (issue) { targets.push(issue); changedIn.get(list).push(issue); }
       }
+      for (const [a, byKey] of fromDb) {
+        const issue = byKey.get(key);
+        if (issue) { targets.push(issue); dbChanged.get(a).push(issue); }
+      }
       let cid = (args.cids && args.cids[key]) || (keys.length === 1 ? patch.cid : null);
       for (const issue of targets) {
         if (next.status) issue.status = next.status;
@@ -432,10 +448,19 @@ function createApi(opts = {}) {
     }
     // Issues were changed in place: their rows are written on this save.
     for (const [list, items] of changedIn) if (items.length) store.changed(list, items);
+    // Rows of lists not read yet are written now; the list is read in the
+    // background, and the gates count the change once it is in.
+    for (const [a, items] of dbChanged) {
+      if (!items.length) continue;
+      store.updatePending(a, items);
+      store.loadIssues(a).catch(() => { /* read again on the next use */ });
+    }
     refreshGates(ws, project.id);
     saveWorkspace(ws);
     if (patch.assignee || patch.owner) {
-      const latest = (((project.branches || {})[project.mainBranch || 'main'] || {}).latest || { issues: [] }).issues.filter((i) => keys.includes(i.key));
+      const main = ((project.branches || {})[project.mainBranch || 'main'] || {}).latest;
+      const mainIssues = main && fromDb.has(main) ? [...fromDb.get(main).values()] : (main && main.issues) || [];
+      const latest = mainIssues.filter((i) => keys.includes(i.key));
       integrate.notify(ws, 'issues-assigned', { project: { id: project.id, key: project.key, name: project.name }, issues: latest.map((i) => ({ assignee: patch.assignee || patch.owner, rule: i.rule, message: i.message, file: i.file, line: i.line, severity: i.severity, type: i.type })) });
     }
     return { ok: true, count: keys.length };
@@ -823,7 +848,8 @@ function createApi(opts = {}) {
     // A binary file (an image, an object file …) is not text: the window shows
     // its bytes as hex, one range at a time ({ offset, limit }), instead of
     // decoding all of it into one huge line.
-    const size = fs.statSync(full).size;
+    const stat = fs.statSync(full);
+    const size = stat.size;
     const fd = fs.openSync(full, 'r');
     try {
       const head = Buffer.alloc(Math.min(size, 8192));
@@ -836,50 +862,22 @@ function createApi(opts = {}) {
         fs.readSync(fd, bytes, 0, limit, offset);
         // lines: the issue lines of the file, as byte ranges { line: [start, end) }
         // (a line is what lies between two newline bytes), to mark them in the hex view.
-        let ranges;
-        if (Array.isArray(args.lines) && args.lines.length) {
-          const want = new Set(args.lines.map(Number).filter((n) => n > 0));
-          const last = Math.max(...want);
-          ranges = {};
-          const chunk = Buffer.alloc(1048576);
-          let line = 1;
-          let start = 0;
-          for (let pos = 0; pos < size && line <= last;) {
-            const n = fs.readSync(fd, chunk, 0, chunk.length, pos);
-            if (!n) break;
-            for (let i = 0; i < n && line <= last; i++) {
-              if (chunk[i] !== 10) continue;
-              if (want.has(line)) ranges[line] = [start, pos + i + 1];
-              line++;
-              start = pos + i + 1;
-            }
-            pos += n;
-          }
-          if (line <= last && want.has(line)) ranges[line] = [start, size];
-        }
         // find: strings an issue names as its evidence (a version string in a
         // library …), as byte ranges of their first occurrence { text: [start, end) }.
+        // Both need the whole file read: a large one is read in the background
+        // (core/binfile.js) and the answer says rangesPending until it is done.
+        const lines = Array.isArray(args.lines) ? args.lines : [];
+        const find = Array.isArray(args.find) ? args.find : [];
+        let ranges;
         let found;
-        const wanted = Array.isArray(args.find) ? [...new Set(args.find.map(String).filter((s) => s.length >= 3))].slice(0, 50) : [];
-        if (wanted.length) {
-          found = {};
-          const needles = wanted.map((s) => ({ s, b: Buffer.from(s, 'latin1') }));
-          const longest = Math.max(...needles.map((n) => n.b.length));
-          const chunk = Buffer.alloc(1048576 + longest);
-          for (let pos = 0; pos < size && needles.some((n) => !found[n.s]);) {
-            const n = fs.readSync(fd, chunk, 0, chunk.length, pos);
-            if (!n) break;
-            const view = chunk.subarray(0, n);
-            for (const nd of needles) {
-              if (found[nd.s]) continue;
-              const at = view.indexOf(nd.b);
-              if (at >= 0) found[nd.s] = [pos + at, pos + at + nd.b.length];
-            }
-            if (pos + n >= size) break;
-            pos += n - longest;
-          }
+        let rangesPending;
+        if (lines.length || find.length) {
+          const at = require('./binfile').lookup(full, stat, lines, find);
+          if (lines.length) ranges = at.ranges;
+          if (find.length) found = at.found;
+          if (at.pending) rangesPending = true;
         }
-        return { path: rel, binary: true, size, offset, base64: bytes.toString('base64'), ranges, found };
+        return { path: rel, binary: true, size, offset, base64: bytes.toString('base64'), ranges, found, rangesPending };
       }
     } finally {
       fs.closeSync(fd);
@@ -1472,7 +1470,7 @@ function createApi(opts = {}) {
       };
     }
     const shared = { settings, gates: ws.gates, profiles: ws.profiles, customRules: ws.customRules, defectAnalysis: ws.defectAnalysis };
-    return `${who ? who.login : ''}|${name}|${JSON.stringify(rest)}|${JSON.stringify(projectPart)}|${JSON.stringify(shared)}`;
+    return `${who ? who.login : ''}|${name}|${JSON.stringify(rest)}|${JSON.stringify(projectPart)}|${JSON.stringify(shared)}|${store.issueRevision()}`;
   }
 
   // A key -> issue index per list, rebuilt when the list changes length.
@@ -1501,7 +1499,8 @@ function createApi(opts = {}) {
   // Calls that go through a branch's whole issue list (or its snapshots'):
   // those lists are read first a piece at a time (store.loadIssues), so a
   // large project does not stop the service while they are parsed.
-  const LIST_READERS = /^(compliance\.report|misra\.compliance|issue\.(age|update|review|aiFix\w*)|report\.(export|regulatory)|snapshot\.compare|defect\.lifecycle|db\.exportStart)$/;
+  // (issue.update does not read lists: it changes the rows of one not read yet.)
+  const LIST_READERS = /^(compliance\.report|misra\.compliance|issue\.(age|review|aiFix\w*)|report\.(export|regulatory)|snapshot\.compare|defect\.lifecycle|db\.exportStart)$/;
   async function prefetchLists(ws, name, args) {
     const project = (ws.projects || []).find((p) => p.id === args.projectId);
     if (!project) return;

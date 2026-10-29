@@ -907,6 +907,10 @@
   "ko": "● 표시된 줄에 이슈가 있습니다. 오른쪽 목록에서 내용을 확인하세요.",
   "en": "Lines marked ● have an issue. See the list on the right for details."
  },
+ "cv_hex_pending": {
+  "ko": "큰 바이너리 파일에서 이슈가 가리키는 바이트 위치를 백그라운드에서 찾는 중입니다. 찾는 동안에도 화면은 멈추지 않고, 끝나면 해당 바이트가 강조됩니다.",
+  "en": "The byte positions the issues point to are being found in the background in a large binary file. The view stays usable meanwhile; the bytes are highlighted when it is done."
+ },
  "cv_retry": {
   "ko": "읽지 못한 파일을 같은 위치로 다시 불러옵니다.",
   "en": "Loads the file that failed to open again, at the same line."

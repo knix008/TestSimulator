@@ -197,3 +197,57 @@ test('a binary file is read as bytes, a range at a time, with the byte ranges of
   assert.equal(text.text, 'var a = 1;\n');
   assert.equal(text.binary, undefined);
 });
+
+test('a large binary: pages answer at once while the issue positions are found in the background, then kept', async () => {
+  const binfile = require('../core/binfile.js');
+  const dir = tmp('mcc-bigbin-');
+  const src = path.join(dir, 'src');
+  fs.mkdirSync(src, { recursive: true });
+  // Larger than what is read during the call; newlines here and there, the evidence near the end.
+  const size = binfile.SYNC_MAX * 3 + 12345;
+  const bytes = Buffer.alloc(size, 0x41);
+  const newlines = [];
+  for (let p = 100; p < size - 4096; p += 70001) { bytes[p] = 10; newlines.push(p); }
+  bytes[0] = 0;
+  const evidence = 'inflate 1.2.11 Copyright 1995';
+  const at = size - 2000;
+  Buffer.from(evidence, 'latin1').copy(bytes, at);
+  const file = path.join(src, 'libbig.so');
+  fs.writeFileSync(file, bytes);
+  fs.writeFileSync(path.join(src, 'a.js'), 'var a = 1;\n');
+  const api = createApi({ configDir: path.join(dir, 'data') });
+  const id = (await api.call('project.scan', { path: src })).project.id;
+  const lines = [1, 2, 50, newlines.length + 1, newlines.length + 5];
+  const ask = { projectId: id, file: 'libbig.so', limit: 0, lines, find: [evidence, 'not in this file'] };
+  const first = await api.call('project.file', ask);
+  assert.equal(first.binary, true);
+  assert.equal(first.rangesPending, true, 'a large file is read in the background');
+  // A page is answered while the file is being read, with its bytes.
+  const page = await api.call('project.file', { projectId: id, file: 'libbig.so', offset: 4096, limit: 32 });
+  assert.equal(page.rangesPending, undefined);
+  assert.deepEqual([...Buffer.from(page.base64, 'base64')], [...bytes.subarray(4096, 4128)]);
+  let done = first;
+  for (let n = 0; done.rangesPending && n < 400; n++) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    done = await api.call('project.file', ask);
+  }
+  assert.equal(done.rangesPending, undefined, 'the background read ends');
+  const ends = newlines.map((p) => p + 1);
+  const range = (line) => [line === 1 ? 0 : ends[line - 2], line - 1 < ends.length ? ends[line - 1] : size];
+  assert.deepEqual(done.ranges, { 1: range(1), 2: range(2), 50: range(50), [newlines.length + 1]: range(newlines.length + 1) });
+  assert.deepEqual(done.found, { [evidence]: [at, at + evidence.length] });
+  // Kept: asked again (and for other lines), answered from what was found, at once.
+  const again = await api.call('project.file', { ...ask, lines: [3] });
+  assert.equal(again.rangesPending, undefined);
+  assert.deepEqual(again.ranges, { 3: range(3) });
+  assert.deepEqual(again.found, done.found);
+  // A changed file is read again.
+  bytes[200] = 10;
+  fs.writeFileSync(file, bytes);
+  fs.utimesSync(file, new Date(), new Date(Date.now() + 5000));
+  const changed = await api.call('project.file', { ...ask, lines: [2] });
+  assert.equal(changed.rangesPending, true);
+  await binfile.settle(file);
+  const after = await api.call('project.file', { ...ask, lines: [2] });
+  assert.deepEqual(after.ranges, { 2: [101, 201] });
+});

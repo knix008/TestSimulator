@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { Worker, isMainThread } = require('worker_threads');
 
 const SEV_RANK = { BLOCKER: 0, CRITICAL: 1, MAJOR: 2, MINOR: 3, INFO: 4 };
 const WRITE_CHUNK = 20000;
@@ -63,20 +64,59 @@ function row(issue) {
   ];
 }
 
-function open(file) {
+// The indexes a list's reads use, one per filter or sort (engine, status and
+// new code too). Each ends with type: the default filter (no security
+// hotspots) and the counts are then answered from the index alone, without
+// reading the rows. A new file gets them when it is made (after a bulk
+// write); a file of an earlier version the first time it is searched, when
+// its older indexes (OLD_INDEXES) go.
+const INDEXES = `CREATE INDEX IF NOT EXISTS issue_key ON issue(list, key);
+CREATE INDEX IF NOT EXISTS issue_seq2 ON issue(list, seq, type);
+CREATE INDEX IF NOT EXISTS issue_sev2 ON issue(list, sev, seq, type);
+CREATE INDEX IF NOT EXISTS issue_rule2 ON issue(list, rule, sev, seq, type);
+CREATE INDEX IF NOT EXISTS issue_type ON issue(list, type, sev, seq);
+CREATE INDEX IF NOT EXISTS issue_file2 ON issue(list, file, line, seq, type);
+CREATE INDEX IF NOT EXISTS issue_engine2 ON issue(list, engine, sev, seq, type);
+CREATE INDEX IF NOT EXISTS issue_status2 ON issue(list, status, sev, seq, type);
+CREATE INDEX IF NOT EXISTS issue_new2 ON issue(list, isnew, sev, seq, type);`;
+const OLD_INDEXES = ['issue_seq', 'issue_sev', 'issue_rule', 'issue_file', 'issue_engine', 'issue_status', 'issue_new'];
+// Words this long or longer are looked up in the trigram text index.
+const FTS_MIN = 3;
+const FTS_CHUNK = 20000;
+// Rows copied from an older issues.db per step (see openStore migrate).
+const IMPORT_CHUNK = 5000;
+
+/**
+ * opts.bulk: a new file that is filled once and then put in place (openStore
+ * fresh): no journal, no indexes while rows go in (three times faster), then
+ * finishBulk() makes the indexes.
+ * opts.asIs: leave the indexes as they are (the issues.db of an earlier
+ * version, read only until its lists have moved: indexing it takes minutes).
+ */
+function open(file, opts = {}) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const { DatabaseSync } = require('node:sqlite');
   const db = new DatabaseSync(file);
-  db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-131072; PRAGMA busy_timeout=30000;');
+  db.exec(opts.bulk
+    ? 'PRAGMA journal_mode=OFF; PRAGMA synchronous=OFF; PRAGMA locking_mode=EXCLUSIVE; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-262144;'
+    : 'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-131072; PRAGMA busy_timeout=30000;');
   db.exec(`CREATE TABLE IF NOT EXISTS lists (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, count INTEGER NOT NULL DEFAULT 0, complete INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS issue (id INTEGER PRIMARY KEY, list INTEGER NOT NULL, seq INTEGER NOT NULL, key TEXT, rule TEXT, type TEXT, sev INTEGER, status TEXT, file TEXT, line INTEGER, lang TEXT, engine TEXT, isnew INTEGER, istd TEXT, text TEXT);
 CREATE TABLE IF NOT EXISTS body (id INTEGER PRIMARY KEY, data TEXT);
-CREATE INDEX IF NOT EXISTS issue_seq ON issue(list, seq);
-CREATE INDEX IF NOT EXISTS issue_sev ON issue(list, sev, seq);
-CREATE INDEX IF NOT EXISTS issue_key ON issue(list, key);
-CREATE INDEX IF NOT EXISTS issue_rule ON issue(list, rule, sev, seq);
-CREATE INDEX IF NOT EXISTS issue_type ON issue(list, type, sev, seq);
-CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);`);
+  let searchReady = !!opts.asIs;
+  /** Makes every index (once per open file) and drops those of earlier versions. */
+  function ensureIndexes() {
+    if (searchReady) return;
+    db.exec(INDEXES);
+    for (const name of OLD_INDEXES) db.exec(`DROP INDEX IF EXISTS ${name}`);
+    searchReady = true;
+  }
+  // A new file (not a bulk one) has its indexes from the start, while it is empty.
+  if (!opts.bulk && !opts.asIs && !db.prepare('SELECT 1 FROM lists LIMIT 1').get()) ensureIndexes();
+  const metaGet = db.prepare('SELECT value FROM meta WHERE key = ?');
+  const metaSet = db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)');
+  const meta = (k) => { const r = metaGet.get(k); return r ? r.value : null; };
 
   const st = {
     listId: db.prepare('SELECT id, count, complete FROM lists WHERE name = ?'),
@@ -87,7 +127,7 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
     delBody: db.prepare('DELETE FROM body WHERE id IN (SELECT id FROM issue WHERE list = ?)'),
     delIssue: db.prepare('DELETE FROM issue WHERE list = ?'),
     delList: db.prepare('DELETE FROM lists WHERE id = ?'),
-    byKey: db.prepare('SELECT id FROM issue WHERE list = ? AND key = ?'),
+    byKey: db.prepare('SELECT id, text FROM issue WHERE list = ? AND key = ?'),
     updIssue: db.prepare('UPDATE issue SET status = ?, isnew = ?, istd = ?, text = ? WHERE id = ?'),
     updBody: db.prepare('UPDATE body SET data = ? WHERE id = ?'),
     names: db.prepare('SELECT id, name FROM lists'),
@@ -173,12 +213,30 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
     return out;
   }
 
+  /** The issues of a stored list with these keys (the first of each key), as a Map key -> issue. */
+  function byKeys(name, keys) {
+    const l = listOf(name);
+    const out = new Map();
+    if (!l || !keys.length) return out;
+    // Looked up by key (issue_key); the first of a key is the lowest seq.
+    const first = new Map();
+    for (const r of db.prepare('SELECT i.key, i.seq, b.data FROM issue i INDEXED BY issue_key JOIN body b ON b.id = i.id WHERE i.list = ? AND i.key IN (SELECT value FROM json_each(?))').iterate(l.id, JSON.stringify(keys))) {
+      const had = first.get(r.key);
+      if (!had || r.seq < had.seq) first.set(r.key, r);
+    }
+    for (const [k, r] of first) out.set(k, JSON.parse(r.data));
+    return out;
+  }
+
   /** Writes changed issues of a stored list (by key). */
   function update(name, issues) {
     const l = listOf(name);
     if (!l) return 0;
     let n = 0;
-    db.exec('BEGIN');
+    // Holding the write lock before asking how far the text index got: the
+    // job making it (another connection) cannot take in rows meanwhile.
+    db.exec('BEGIN IMMEDIATE');
+    const upto = textIndexed();
     try {
       for (const issue of issues) {
         const r = st.byKey.get(l.id, issue.key);
@@ -186,6 +244,11 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
         const [, , , , status, , , , , isnew, istd, text] = row(issue);
         st.updIssue.run(status, isnew, istd, text, r.id);
         st.updBody.run(JSON.stringify(issue), r.id);
+        // The text index keeps the words of the rows it has taken in.
+        if (text !== r.text && r.id <= upto) {
+          db.prepare("INSERT INTO fts (fts, rowid, text) VALUES ('delete', ?, ?)").run(r.id, r.text);
+          db.prepare('INSERT INTO fts (rowid, text) VALUES (?, ?)').run(r.id, text);
+        }
         n++;
       }
       db.exec('COMMIT');
@@ -228,7 +291,8 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
     if (f.newOnly) sql.push('i.isnew = 1');
     if (f.engine) { sql.push('i.engine = ?'); args.push(f.engine); }
     if (f.rule) { sql.push('i.rule = ?'); args.push(f.rule); }
-    if (f.file) { sql.push('(i.file = ? OR substr(i.file, 1, ?) = ?)'); const p = String(f.file).replace(/\/+$/, ''); args.push(p, p.length + 1, `${p}/`); }
+    // A folder: the paths from "<p>/" up to "<p>0" ('0' follows '/'), a range of the file index.
+    if (f.file) { sql.push('(i.file = ? OR (i.file >= ? AND i.file < ?))'); const p = String(f.file).replace(/\/+$/, ''); args.push(p, `${p}/`, `${p}0`); }
     if (Array.isArray(f.lang) && f.lang.length) {
       sql.push(`(${f.lang.map(() => 'lower(i.file) LIKE ?').join(' OR ')})`);
       for (const ext of f.lang) args.push(`%${String(ext).toLowerCase()}`);
@@ -239,12 +303,67 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
       if (Array.isArray(f.standardRules) && f.standardRules.length) { or.push('i.rule IN (SELECT value FROM json_each(?))'); args.push(JSON.stringify(f.standardRules)); }
       sql.push(`(${or.join(' OR ')})`);
     }
-    // Every word must appear (anywhere in the rule, message or path).
-    for (const word of String(f.q || '').toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8)) {
+    // Every word must appear (anywhere in the rule, message or path): through
+    // the text index once it is made (words of FTS_MIN letters or more),
+    // else by reading each row's text. The first word search makes the index.
+    const words = String(f.q || '').toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8);
+    const indexed = words.length && textReady() ? words.filter((w) => [...w].length >= FTS_MIN) : [];
+    if (indexed.length) {
+      sql.push('i.id IN (SELECT rowid FROM fts WHERE fts MATCH ?)');
+      args.push(indexed.map((w) => `"${w.replace(/"/g, '""')}"`).join(' AND '));
+    } else if (words.length) buildText();
+    for (const word of words) {
+      if (indexed.includes(word)) continue;
       sql.push('instr(i.text, ?) > 0');
       args.push(word);
     }
     return { sql: sql.join(' AND '), args };
+  }
+
+  // ── text index ──────────────────────────────────────────
+  // A trigram index (FTS5) of issue.text, which finds any part of a word as
+  // instr does, without reading every row. It is made the first time a list
+  // is searched for words, on a thread of its own (runJob 'text') a piece at
+  // a time, and goes on where it stopped if it was stopped meanwhile.
+  let closed = false;
+  let building = null;
+  const textReady = () => meta('fts') === 'done';
+  /** The last row id the text index has taken in (0: none). */
+  function textIndexed() {
+    if (textReady()) return Infinity;
+    return Number(meta('fts_upto') || 0);
+  }
+  /** Makes the text index; o.stop() ends it between two pieces. Resolves when done or stopped. */
+  function buildText(o = {}) {
+    if (building || closed || opts.asIs || opts.bulk || textReady()) return building;
+    if (isMainThread) {
+      building = runJob('text', { file }).promise.catch(() => { /* words are still found row by row */ }).finally(() => { building = null; });
+      return building;
+    }
+    building = (async () => {
+      db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(text, content='issue', content_rowid='id', tokenize='trigram')");
+      const last = db.prepare('SELECT max(id) AS m FROM (SELECT id FROM issue WHERE id > ? ORDER BY id LIMIT ?)');
+      const take = db.prepare('INSERT INTO fts (rowid, text) SELECT id, text FROM issue WHERE id > ? AND id <= ?');
+      let upto = textIndexed();
+      for (;;) {
+        await new Promise((resolve) => setImmediate(resolve));
+        if (closed || (o.stop && o.stop())) return;
+        const m = last.get(upto, FTS_CHUNK).m;
+        if (m == null) break;
+        db.exec('BEGIN IMMEDIATE');
+        try {
+          take.run(upto, m);
+          metaSet.run('fts_upto', String(m));
+          db.exec('COMMIT');
+        } catch (err) {
+          db.exec('ROLLBACK');
+          throw err;
+        }
+        upto = m;
+      }
+      metaSet.run('fts', 'done');
+    })().catch(() => { /* words are still found row by row */ }).finally(() => { building = null; });
+    return building;
   }
 
   const ORDER = {
@@ -259,6 +378,7 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
   function search(name, filter = {}, { offset = 0, limit = 500, sort = 'severity' } = {}) {
     const l = listOf(name);
     if (!l) return { total: 0, issues: [] };
+    ensureIndexes();
     const w = where(l.id, filter);
     const total = db.prepare(`SELECT count(*) AS c FROM issue i WHERE ${w.sql}`).get(...w.args).c;
     const order = ORDER[sort] || ORDER.severity;
@@ -274,6 +394,7 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
   function facets(name, filter = {}, which = ['severity', 'type', 'status', 'engine', 'rules']) {
     const l = listOf(name);
     if (!l) return {};
+    ensureIndexes();
     const out = {};
     const by = (col, without, limit) => {
       const f = { ...filter };
@@ -296,30 +417,54 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
     db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
   }
 
-  /** Copies list name of another database file (rows and ids as they are) into this empty one. */
-  function importList(other, name) {
+  /**
+   * Copies list name of another database file (rows and ids as they are) into
+   * this empty one, IMPORT_CHUNK rows at a time so other calls run in between.
+   * stop(): true to give up (the caller throws this file away). Returns
+   * whether the list was copied whole.
+   */
+  async function importListAsync(other, name, stop = () => false) {
+    // An attached file takes the connection's locking mode: the other file is
+    // open elsewhere (it is still being read), so not exclusive.
+    db.exec('PRAGMA locking_mode=NORMAL; PRAGMA busy_timeout=30000;');
     db.prepare('ATTACH DATABASE ? AS src').run(other);
     try {
       const l = db.prepare('SELECT id, count, complete FROM src.lists WHERE name = ?').get(name);
       if (!l || !l.complete) return false;
-      db.exec('BEGIN');
-      try {
-        const id = Number(st.newList.run(name).lastInsertRowid);
-        db.prepare('INSERT INTO issue (id, list, seq, key, rule, type, sev, status, file, line, lang, engine, isnew, istd, text) SELECT id, ?, seq, key, rule, type, sev, status, file, line, lang, engine, isnew, istd, text FROM src.issue WHERE list = ?').run(id, l.id);
-        db.prepare('INSERT INTO body (id, data) SELECT b.id, b.data FROM src.body b JOIN src.issue i ON i.id = b.id WHERE i.list = ?').run(l.id);
-        st.setCount.run(l.count, 1, id);
-        db.exec('COMMIT');
-      } catch (err) {
-        db.exec('ROLLBACK');
-        throw err;
+      const id = Number(st.newList.run(name).lastInsertRowid);
+      const last = db.prepare('SELECT max(id) AS m FROM (SELECT id FROM src.issue WHERE list = ? AND id > ? ORDER BY id LIMIT ?)');
+      const rows = db.prepare('INSERT INTO issue (id, list, seq, key, rule, type, sev, status, file, line, lang, engine, isnew, istd, text) SELECT id, ?, seq, key, rule, type, sev, status, file, line, lang, engine, isnew, istd, text FROM src.issue WHERE list = ? AND id > ? AND id <= ?');
+      const bodies = db.prepare('INSERT INTO body (id, data) SELECT b.id, b.data FROM src.body b WHERE b.id > ? AND b.id <= ? AND b.id IN (SELECT id FROM src.issue WHERE list = ? AND id > ? AND id <= ?)');
+      for (let upto = 0; ;) {
+        if (stop()) return false;
+        const m = last.get(l.id, upto, IMPORT_CHUNK).m;
+        if (m == null) break;
+        db.exec('BEGIN');
+        try {
+          rows.run(id, l.id, upto, m);
+          bodies.run(upto, m, l.id, upto, m);
+          db.exec('COMMIT');
+        } catch (err) {
+          db.exec('ROLLBACK');
+          throw err;
+        }
+        upto = m;
+        await new Promise((resolve) => setImmediate(resolve));
       }
+      if (stop()) return false;
+      st.setCount.run(l.count, 1, id);
       return true;
     } finally {
       db.exec('DETACH DATABASE src');
     }
   }
 
-  return { file, checkpoint, has, write, writeAsync, read, readAsync, update, keepOnly, importList, search, facets, close: () => db.close() };
+  function close() {
+    closed = true;
+    db.close();
+  }
+
+  return { file, checkpoint, has, write, writeAsync, read, readAsync, byKeys, update, keepOnly, importListAsync, search, facets, buildText, finishBulk: ensureIndexes, close };
 }
 
 // ── one file per list ─────────────────────────────────────
@@ -333,8 +478,9 @@ CREATE INDEX IF NOT EXISTS issue_file ON issue(list, file, line);`);
 // A search runs on one small file, a new analysis is written to a new file
 // that then takes the old one's place (a crash leaves the old list), and a
 // removed project or snapshot is a file deleted, not millions of rows.
-// Lists of the single issues.db of older versions move to their files when
-// first used, and that file goes on the next save (keepOnly).
+// Lists of the single issues.db of older versions move to their files in the
+// background (served from issues.db meanwhile), and that file goes once every
+// list in use has moved. New files are written in bulk (open opts.bulk).
 const PROJECTS = 'projects';
 const LEGACY_DB = 'issues.db';
 const MAX_OPEN = 48;
@@ -342,8 +488,42 @@ const MAX_OPEN = 48;
 // Open files, shared by every store of this process (a file being replaced
 // must be closed by all of them): file -> { db, pins }.
 const handles = new Map();
+
+// Long SQLite jobs on threads of their own (core/issuedb-worker.js): kind
+// 'indexes' | 'import' | 'text' on args.file. Returns { promise, stop() };
+// jobs on one file are kept until done, so a file about to be replaced or
+// deleted can stop them first (stopJobs).
+const jobs = new Map(); // file -> Set of { promise, stop }
+function runJob(kind, args) {
+  const stop = new Int32Array(new SharedArrayBuffer(4));
+  const promise = new Promise((resolve, reject) => {
+    const w = new Worker(path.join(__dirname, 'issuedb-worker.js'), { workerData: { ...args, kind, stop } });
+    // The text index goes on where it stopped: it does not keep the process alive.
+    if (kind === 'text') w.unref();
+    w.once('message', (m) => (m.ok ? resolve(m.out) : reject(new Error(m.error))));
+    w.once('error', reject);
+    w.once('exit', (code) => reject(new Error(`issue database job ${kind} ended (${code})`)));
+  });
+  const job = { promise, stop: () => Atomics.store(stop, 0, 1) };
+  if (!jobs.has(args.file)) jobs.set(args.file, new Set());
+  jobs.get(args.file).add(job);
+  promise.catch(() => {}).finally(() => {
+    const set = jobs.get(args.file);
+    if (set) { set.delete(job); if (!set.size) jobs.delete(args.file); }
+  });
+  return job;
+}
+/** Asks the jobs on a file to stop; resolves when they have. */
+function stopJobs(file) {
+  const set = jobs.get(file);
+  if (!set) return Promise.resolve();
+  for (const j of set) j.stop();
+  return Promise.all([...set].map((j) => j.promise.catch(() => {})));
+}
+
 function retire(file) {
   const h = handles.get(file);
+  if (jobs.has(file)) for (const j of jobs.get(file)) j.stop();
   if (!h) return true;
   if (h.pins) return false;
   handles.delete(file);
@@ -388,74 +568,138 @@ function openStore(dir) {
     return h;
   }
 
+  // An older issues.db: its lists are served from it until they have moved to
+  // their own files. They move in the background, a piece at a time
+  // (migrate), so opening a workspace of millions of issues does not wait
+  // minutes; issues.db goes once every list in use has moved.
   let legacy;
+  let legacyHandle = null;
   function legacyDb() {
-    if (legacy === undefined) legacy = fs.existsSync(legacyFile) ? open(legacyFile) : null;
+    if (legacy === undefined) {
+      legacy = fs.existsSync(legacyFile) ? open(legacyFile, { asIs: true }) : null;
+      legacyHandle = legacy ? { db: legacy, pins: 0 } : null;
+    }
     return legacy;
   }
   function dropLegacy() {
     if (legacy) { try { legacy.close(); } catch { /* closed */ } }
     legacy = null;
+    legacyHandle = null;
     rmDb(legacyFile);
   }
 
-  // A new file for list name, filled by the caller and then put in place.
-  function fresh(name) {
+  // A new file for list name, filled by the caller (o.open false: by a job,
+  // through t.tmp) and then put in place.
+  function fresh(name, o = {}) {
     const file = fileOf(name);
     const tmp = `${file}.${process.pid}-${++seq}.new`;
     rmDb(tmp);
-    const db = module.exports.open(tmp);
+    const db = o.open === false ? null : module.exports.open(tmp, { bulk: true });
     writing.add(tmp);
-    const close = () => { try { db.close(); } catch { /* closed */ } writing.delete(tmp); };
+    const close = () => { if (db) { try { db.close(); } catch { /* closed */ } } };
+    // false: the old file is still open (a read in progress here, or another
+    // process); the caller then writes it in place.
+    const swap = () => {
+      writing.delete(tmp);
+      try {
+        if (!retire(file)) throw new Error('busy');
+        for (const s of ['-wal', '-shm', '-journal']) fs.rmSync(file + s, { force: true });
+        fs.renameSync(tmp, file);
+        return true;
+      } catch {
+        rmDb(tmp);
+        return false;
+      }
+    };
     return {
       file,
+      tmp,
       db,
-      abort() { close(); rmDb(tmp); },
-      // false: the old file is still open (a read in progress here, or another
-      // process); the caller then writes it in place.
+      abort() { close(); writing.delete(tmp); rmDb(tmp); },
+      /** Indexes made here, then put in place. */
       commit() {
-        try { db.checkpoint(); } catch { /* best effort */ }
+        try { if (db && db.finishBulk) db.finishBulk(); } catch { /* indexes are made on the first search */ }
         close();
-        try {
-          if (!retire(file)) throw new Error('busy');
-          for (const s of ['-wal', '-shm', '-journal']) fs.rmSync(file + s, { force: true });
-          fs.renameSync(tmp, file);
-          return true;
-        } catch {
-          rmDb(tmp);
-          return false;
+        return swap();
+      },
+      /** Indexes made on a thread of their own (seconds for millions of rows), then put in place. */
+      async commitAsync() {
+        close();
+        if (o.open !== false) {
+          try { await runJob('indexes', { file: tmp }).promise; } catch { /* indexes are made on the first search */ }
         }
+        await stopJobs(file);
+        return swap();
       },
     };
   }
 
-  // The open file of list name, moved from issues.db first when it is still there.
+  // The open file of list name, or issues.db while the list has not moved yet.
   function existing(name) {
-    const file = fileOf(name);
-    const h = handle(file, false);
-    if (h || !migrate(name)) return h;
-    return handle(file, false);
-  }
-  function migrate(name) {
+    const h = handle(fileOf(name), false);
+    if (h) return h;
     const old = legacyDb();
-    if (!old || !old.has(name)) return false;
-    const t = fresh(name);
-    try {
-      if (!t.db.importList(legacyFile, name)) { t.abort(); return false; }
-    } catch (err) {
-      t.abort();
-      throw err;
+    if (!old || !old.has(name)) return null;
+    migrate(name);
+    return legacyHandle;
+  }
+
+  const toMove = new Set();
+  const dirty = new Set(); // changed in issues.db while being copied: copied again
+  const importing = new Map(); // name -> the job copying it
+  let moving = null;
+  let keepNames = null; // the lists in use, from the last keepOnly
+  let stopped = false;
+  function migrate(name) {
+    toMove.add(name);
+    if (!moving) moving = moveAll().finally(() => { moving = null; legacyDone(); });
+  }
+  async function moveAll() {
+    while (toMove.size && !stopped) {
+      const name = toMove.values().next().value;
+      toMove.delete(name);
+      if (keepNames && !keepNames.has(name)) continue;
+      try { await moveOne(name); } catch { /* stays in issues.db, which keeps serving it */ }
     }
-    if (t.commit()) return true;
-    const h = handle(t.file, true);
-    return h.db.has(name) ? true : h.db.importList(legacyFile, name);
+  }
+  // A list copied out of issues.db by a job (rows, then indexes), then put in place.
+  async function moveOne(name) {
+    const file = fileOf(name);
+    for (let tries = 0; tries < 3; tries++) {
+      if (fs.existsSync(file) || !legacy || !legacy.has(name)) return;
+      dirty.delete(name);
+      const t = fresh(name, { open: false });
+      const job = runJob('import', { file: t.tmp, from: legacyFile, name });
+      importing.set(name, job);
+      let whole = false;
+      try {
+        whole = await job.promise;
+      } catch (err) {
+        t.abort();
+        throw err;
+      } finally {
+        importing.delete(name);
+      }
+      if (!whole || stopped || dirty.has(name) || fs.existsSync(file)) { t.abort(); continue; }
+      if (await t.commitAsync()) return;
+    }
+  }
+  /** issues.db goes when nothing reads it and every list in use has its file. */
+  function legacyDone() {
+    if (!legacy || !keepNames || moving || toMove.size || legacyHandle.pins) return;
+    for (const name of keepNames) if (!fs.existsSync(fileOf(name)) && legacy.has(name)) return;
+    dropLegacy();
+  }
+  /** Resolves when no list is moving out of issues.db. */
+  async function whenIdle() {
+    while (moving) await moving;
   }
 
   async function pinned(name, fn, empty) {
     const h = existing(name);
     if (!h) return empty;
     h.pins++;
-    try { return await fn(h.db); } finally { h.pins--; }
+    try { return await fn(h.db); } finally { h.pins--; if (h === legacyHandle) legacyDone(); }
   }
 
   function has(name) {
@@ -470,7 +714,7 @@ function openStore(dir) {
   async function writeAsync(name, issues, onProgress) {
     const t = fresh(name);
     try { await t.db.writeAsync(name, issues, onProgress); } catch (err) { t.abort(); throw err; }
-    if (!t.commit()) await handle(t.file, true).db.writeAsync(name, issues, onProgress);
+    if (!(await t.commitAsync())) await handle(t.file, true).db.writeAsync(name, issues, onProgress);
   }
   function read(name) {
     const h = existing(name);
@@ -479,8 +723,16 @@ function openStore(dir) {
   function readAsync(name, onProgress) {
     return pinned(name, (db) => db.readAsync(name, onProgress), []);
   }
+  function byKeys(name, keys) {
+    const h = existing(name);
+    return h ? h.db.byKeys(name, keys) : new Map();
+  }
   function update(name, issues) {
     const h = existing(name);
+    if (h && h === legacyHandle) {
+      dirty.add(name);
+      if (importing.has(name)) importing.get(name).stop();
+    }
     return h ? h.db.update(name, issues) : 0;
   }
   function search(name, filter, page) {
@@ -495,11 +747,12 @@ function openStore(dir) {
   /** Deletes the files of lists not in keep (a Set of names); issues.db goes once its kept lists moved out. */
   function keepOnly(keep) {
     const files = new Set();
+    keepNames = new Set(keep);
     for (const name of keep) {
       files.add(fileOf(name));
-      if (legacyDb() && !fs.existsSync(fileOf(name))) migrate(name);
+      if (legacyDb() && !fs.existsSync(fileOf(name)) && legacy.has(name)) migrate(name);
     }
-    if (legacyDb()) dropLegacy();
+    legacyDone();
     let folders = [];
     try { folders = fs.readdirSync(root); } catch { return; }
     for (const folder of folders) {
@@ -540,11 +793,13 @@ function openStore(dir) {
     }
   }
   function close() {
+    stopped = true;
+    for (const job of importing.values()) job.stop();
     for (const f of [...handles.keys()]) if (f.startsWith(root)) retire(f);
     if (legacy) { try { legacy.close(); } catch { /* closed */ } legacy = undefined; }
   }
 
-  return { dir: root, fileOf, checkpoint, copyTo, has, write, writeAsync, read, readAsync, update, keepOnly, search, facets, close };
+  return { dir: root, fileOf, checkpoint, copyTo, has, write, writeAsync, read, readAsync, byKeys, update, keepOnly, search, facets, whenIdle, close };
 }
 
 module.exports = { open, openStore, standardIds, standardsOf, matchesStandard, STANDARD_IDS, SEV_RANK };

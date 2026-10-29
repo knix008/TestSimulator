@@ -855,11 +855,17 @@ function storedCodeWrap() {
   try { return localStorage.getItem(CODE_WRAP_KEY) === '1'; } catch { return false; }
 }
 
+// Issues listed beside the code, and of the picked line, a step at a time.
+const CODE_ISSUE_ROWS = 200;
+const LINE_ISSUE_ROWS = 50;
+
 // The issues of the line picked in the code view, with what is wrong and how
 // to fix it (the rule's why / fix), so they read there without leaving the code.
 function LineIssues({ line, issues, picked, ruleMap, onPickIssue, follow }) {
   useLanguage();
   const ref = useRef(null);
+  const [shown, setShown] = useState(LINE_ISSUE_ROWS);
+  useEffect(() => { setShown(LINE_ISSUE_ROWS); }, [line]);
   // Brought into view in the panel when a line of the code is picked (not when
   // an issue of the list above is: the list stays where it is).
   useEffect(() => { if (follow && ref.current && ref.current.scrollIntoView) ref.current.scrollIntoView({ block: 'nearest' }); }, [line, picked, follow]);
@@ -867,7 +873,7 @@ function LineIssues({ line, issues, picked, ruleMap, onPickIssue, follow }) {
     <div className="line-issues" data-testid="line-issues" ref={ref}>
       <h3 className="sub-title"><Icon name="alert" size={15} />{t('cv_line_issues', { n: line })}</h3>
       {issues.length === 0 && <p className="small muted">{t('cv_line_none')}</p>}
-      {issues.map((i) => {
+      {issues.slice(0, shown).map((i) => {
         const rule = ruleMap.get(i.rule);
         return (
           <div key={i.key} className={`line-issue ${picked === i.key ? 'on' : ''}`}>
@@ -881,6 +887,7 @@ function LineIssues({ line, issues, picked, ruleMap, onPickIssue, follow }) {
           </div>
         );
       })}
+      {issues.length > shown && <div className="more-row"><Btn icon="plus" label={t('ib_show_more', { n: Math.min(LINE_ISSUE_ROWS, issues.length - shown) })} onClick={() => setShown(shown + LINE_ISSUE_ROWS)} /></div>}
     </div>
   );
 }
@@ -891,11 +898,20 @@ function LineIssues({ line, issues, picked, ruleMap, onPickIssue, follow }) {
 // or the arrow keys; it is outlined in both columns and its values show in the
 // inspector below. The bytes an issue is about are marked: the string it names
 // as its evidence (a library's version string …) when the file holds it, else
-// the start of its line (the bytes from one newline to the next).
+// the start of its line (the bytes from one newline to the next). Only the
+// rows in sight are built, and where the issues are is found by the service
+// in the background for a large file (a note shows while it reads).
 const HEX_ROW = 16;
 // More than this many bytes in one "line" says nothing about where the issue
 // is: only the line's first row is marked.
 const HEX_LINE_MAX = 4096;
+// A page holds up to 1000 rows; only the rows in sight (and this many more
+// above and below) are built, so scrolling and the arrow keys stay quick.
+const HEX_OVERSCAN = 24;
+// While the service still reads a large file for the issue positions, it is asked again this often.
+const HEX_POLL_MS = 800;
+// Issues named in one tooltip (a library can have thousands on its line 1).
+const HEX_TIP_MAX = 20;
 // Quoted strings of an issue's message ("inflate 1.2.11 Copyright 1995"), the evidence to look for.
 const evidenceOf = (i) => {
   const m = i.message;
@@ -904,6 +920,39 @@ const evidenceOf = (i) => {
 };
 const hexOf = (n, w) => n.toString(16).toUpperCase().padStart(w, '0');
 const printable = (b) => b >= 32 && b < 127;
+const issuesTip = (list, line) => {
+  const head = list.slice(0, HEX_TIP_MAX).map(line).join('\n');
+  return list.length > HEX_TIP_MAX ? `${head}\n${t('pp_more', { n: list.length - HEX_TIP_MAX })}` : head;
+};
+
+// One row of the hex view: offset | 16 bytes | text. hitAt holds, per byte of
+// the page, the index of its mark in marks (-1: none); selK is the picked
+// byte's place in this row (-1: not in it). A row is built again only when one
+// of these changes, so moving the picked byte rebuilds two rows.
+const HexRow = React.memo(function HexRow({ data, base, r, hitAt, marks, selK, pickLine }) {
+  const at = base + r * HEX_ROW;
+  const cells = [];
+  const text = [];
+  let rowMark = null;
+  for (let k = 0; k < HEX_ROW; k++) {
+    const i = r * HEX_ROW + k;
+    const pos = at + k;
+    if (i >= data.length) { cells.push(<span key={k} className={`hx-b ${k === 8 ? 'gap' : ''}`} />); text.push(<span key={k} className="hx-c" />); continue; }
+    const b = data[i];
+    const m = hitAt[i] >= 0 ? marks[hitAt[i]] : null;
+    if (m && !rowMark) rowMark = m;
+    const cls = `${m ? 'hit' : ''} ${k === selK ? 'sel' : ''} ${b === 0 ? 'zero' : ''}`;
+    cells.push(<span key={k} data-o={pos} className={`hx-b ${k === 8 ? 'gap' : ''} ${cls}`}>{hexOf(b, 2)}</span>);
+    text.push(<span key={k} data-o={pos} className={`hx-c ${cls} ${printable(b) ? '' : 'np'}`}>{printable(b) ? String.fromCharCode(b) : '.'}</span>);
+  }
+  const picked = rowMark && rowMark.line === pickLine;
+  return (
+    <div data-row={at} className={`hx-row ${rowMark ? 'mark' : ''} ${picked ? 'picked' : ''} ${selK >= 0 ? 'cur' : ''}`}
+      title={rowMark ? issuesTip(rowMark.issues, (i) => `${i.rule}: ${msg(i)}`) || t('cv_issue_here') : undefined}>
+      <span className="hx-off">{hexOf(at, 8)}</span><span className="hx-hex">{cells}</span><span className="hx-text">{text}</span>
+    </div>
+  );
+});
 
 function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
   useLanguage();
@@ -911,24 +960,44 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
   const [page, setPage] = useState(0);
   const [bytes, setBytes] = useState(null);
   const [found, setFound] = useState({ ranges: {}, found: {} });
+  // The service is still reading the file for where the issues are.
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [sel, setSel] = useState(null);
   const [goto, setGoto] = useState('');
   const [font, setFont] = useState(12);
+  // The part of the page in sight: scrollTop and height of the box, the height of one row.
+  const [port, setPort] = useState({ top: 0, height: 800 });
+  const [rowH, setRowH] = useState(0);
   const box = useRef(null);
   const rows = Math.max(1, Math.ceil(size / HEX_ROW));
   const pageBytes = pageSize * HEX_ROW;
   const issueLines = useMemo(() => [...new Set(issues.map((i) => i.line).filter((n) => n > 0))].sort((a, b) => a - b), [issues]);
-  const evidence = useMemo(() => [...new Set(issues.flatMap(evidenceOf))], [issues]);
+  // Each issue's evidence strings, found once per list.
+  const evidenceBy = useMemo(() => issues.map(evidenceOf), [issues]);
+  const evidence = useMemo(() => [...new Set(evidenceBy.flat())], [evidenceBy]);
   useEffect(() => { setPage(0); setSel(null); }, [file]);
-  // Where the issues are: their lines and evidence strings as byte ranges (again when the file's issues change).
+  // Where the issues are: their lines and evidence strings as byte ranges (again
+  // when the file's issues change). A large file is read for them in the
+  // background: asked again until the service has them all.
   const issuesKey = issueLines.join(',') + '|' + evidence.join('\u0001');
   useEffect(() => {
     let live = true;
-    if (!issueLines.length && !evidence.length) { setFound({ ranges: {}, found: {} }); return undefined; }
-    call('project.file', { projectId, file, limit: 0, lines: issueLines, find: evidence })
-      .then((r) => { if (live) setFound({ ranges: r.ranges || {}, found: r.found || {} }); }).catch(() => {});
-    return () => { live = false; };
+    let timer = null;
+    let last = '';
+    if (!issueLines.length && !evidence.length) { setFound({ ranges: {}, found: {} }); setPending(false); return undefined; }
+    const ask = () => call('project.file', { projectId, file, limit: 0, lines: issueLines, find: evidence })
+      .then((r) => {
+        if (!live) return;
+        const next = { ranges: r.ranges || {}, found: r.found || {} };
+        const sig = JSON.stringify(next);
+        if (sig !== last) { last = sig; setFound(next); }
+        setPending(!!r.rangesPending);
+        if (r.rangesPending) timer = setTimeout(ask, HEX_POLL_MS);
+      })
+      .catch(() => { if (live) setPending(false); });
+    ask();
+    return () => { live = false; clearTimeout(timer); };
   }, [projectId, file, issuesKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let live = true;
@@ -950,6 +1019,7 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
     const el = box.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const fit = () => {
+      setPort((p) => (p.height === el.clientHeight ? p : { top: el.scrollTop, height: el.clientHeight }));
       const head = el.querySelector('.hx-head');
       if (!head) return;
       const now = parseFloat(getComputedStyle(el).fontSize) || 12;
@@ -963,22 +1033,58 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // Scrolling moves the rows in sight (once per frame).
+  const frame = useRef(0);
+  const onScroll = () => {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const el = box.current;
+      if (el) setPort((p) => (p.top === el.scrollTop && p.height === el.clientHeight ? p : { top: el.scrollTop, height: el.clientHeight }));
+    });
+  };
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  // The height of a row, measured (it follows the font).
+  React.useLayoutEffect(() => {
+    const row = box.current && box.current.querySelector('.hx-row');
+    const h = row ? row.getBoundingClientRect().height : 0;
+    if (h && Math.abs(h - rowH) > 0.01) setRowH(h);
+  });
   // The marked byte ranges, one per issue (issues on the same bytes share it).
   const marks = useMemo(() => {
-    const out = [];
-    for (const i of issues) {
-      const ev = evidenceOf(i).map((s) => found.found[s]).find(Boolean);
+    const out = new Map();
+    issues.forEach((i, n) => {
+      const ev = evidenceBy[n].map((s) => found.found[s]).find(Boolean);
       const ln = found.ranges[i.line];
       let r = ev ? { a: ev[0], b: ev[1], evidence: true } : null;
       if (!r && ln) r = { a: ln[0], b: ln[1] - ln[0] > HEX_LINE_MAX ? Math.min(ln[1], ln[0] + HEX_ROW) : ln[1], evidence: false };
-      if (!r) continue;
-      const same = out.find((m) => m.a === r.a && m.b === r.b);
+      if (!r) return;
+      const key = `${r.a}:${r.b}`;
+      const same = out.get(key);
       if (same) same.issues.push(i);
-      else out.push({ ...r, line: i.line, issues: [i] });
+      else out.set(key, { ...r, line: i.line, issues: [i] });
+    });
+    return [...out.values()].sort((x, y) => x.a - y.a);
+  }, [issues, evidenceBy, found]);
+  // The marks of the page in memory, and per byte of it the one it is in (the first, by start).
+  const pageMarks = useMemo(() => {
+    if (!bytes) return { list: [], hitAt: new Int32Array(0) };
+    const base = bytes.offset;
+    const end = base + bytes.data.length;
+    const list = marks.filter((m) => m.a < end && m.b > base);
+    const hitAt = new Int32Array(bytes.data.length).fill(-1);
+    list.forEach((m, j) => {
+      for (let p = Math.max(m.a, base); p < Math.min(m.b, end); p++) if (hitAt[p - base] < 0) hitAt[p - base] = j;
+    });
+    return { list, hitAt };
+  }, [bytes, marks]);
+  const markAt = (pos) => {
+    if (bytes && pos >= bytes.offset && pos < bytes.offset + bytes.data.length) {
+      const j = pageMarks.hitAt[pos - bytes.offset];
+      return j >= 0 ? pageMarks.list[j] : null;
     }
-    return out.sort((x, y) => x.a - y.a);
-  }, [issues, found]);
-  const markAt = (pos) => marks.find((m) => pos >= m.a && pos < m.b);
+    return marks.find((m) => pos >= m.a && pos < m.b) || null;
+  };
   // Shows a byte: its page, picked (and scrolled to once the page is there).
   const scrollTo = useRef(null);
   const show = (pos) => {
@@ -988,15 +1094,31 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
     if (want !== page) setPage(want);
     scrollTo.current = at;
   };
+  // A new page starts at its top; a byte to show is brought into sight (to the
+  // middle, when it is not in sight already).
+  const shownBytes = useRef(null);
   useEffect(() => {
-    if (scrollTo.current == null || !bytes || !box.current) return;
-    const row = box.current.querySelector(`[data-row="${Math.floor(scrollTo.current / HEX_ROW) * HEX_ROW}"]`);
-    if (row) { if (row.scrollIntoView) row.scrollIntoView({ block: 'center' }); scrollTo.current = null; }
+    const el = box.current;
+    if (!el || !bytes) return;
+    if (shownBytes.current !== bytes) {
+      shownBytes.current = bytes;
+      if (scrollTo.current == null) el.scrollTop = 0;
+    }
+    const pos = scrollTo.current;
+    if (pos == null || !rowH || pos < bytes.offset || pos >= bytes.offset + bytes.data.length) return;
+    scrollTo.current = null;
+    const head = el.querySelector('.hx-head');
+    const headH = head ? head.offsetHeight : 0;
+    const y = headH + Math.floor((pos - bytes.offset) / HEX_ROW) * rowH;
+    if (y < el.scrollTop + headH || y + rowH > el.scrollTop + el.clientHeight) el.scrollTop = Math.max(0, y - el.clientHeight / 2);
   });
-  // Picking a line (the issue list, a link) goes to its marked bytes.
+  // Picking a line (the issue list, a link) goes to its marked bytes: once per
+  // pick (not again each time the marks grow while the file is still read).
+  const shownPick = useRef('');
   useEffect(() => {
     const m = marks.find((x) => x.line === pickLine);
-    if (m) show(m.a);
+    const key = m ? `${file}|${pickLine}|${m.a}` : '';
+    if (m && key !== shownPick.current) { shownPick.current = key; show(m.a); }
   }, [pickLine, marks]); // eslint-disable-line react-hooks/exhaustive-deps
   const onKey = (e) => {
     if (sel == null) return;
@@ -1022,32 +1144,21 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
     // A hex offset, as the offset column shows them (0x optional).
     if (/^[0-9a-f]+$/i.test(s)) show(parseInt(s, 16));
   };
+  // The rows in sight (plus a margin), between two spacers as tall as the rows left out.
   const lines = [];
+  let padTop = 0;
+  let padBottom = 0;
   if (bytes) {
-    for (let r = 0; r * HEX_ROW < bytes.data.length; r++) {
+    const count = Math.ceil(bytes.data.length / HEX_ROW);
+    const h = rowH || font * 1.65;
+    const first = Math.max(0, Math.floor(port.top / h) - HEX_OVERSCAN);
+    const last = Math.min(count, Math.ceil((port.top + port.height) / h) + HEX_OVERSCAN);
+    padTop = first * h;
+    padBottom = (count - last) * h;
+    for (let r = first; r < last; r++) {
       const at = bytes.offset + r * HEX_ROW;
-      const cells = [];
-      const text = [];
-      let rowMark = null;
-      for (let k = 0; k < HEX_ROW; k++) {
-        const i = r * HEX_ROW + k;
-        const pos = at + k;
-        if (i >= bytes.data.length) { cells.push(<span key={k} className={`hx-b ${k === 8 ? 'gap' : ''}`} />); text.push(<span key={k} className="hx-c" />); continue; }
-        const b = bytes.data[i];
-        const m = markAt(pos);
-        if (m && !rowMark) rowMark = m;
-        const cls = `${m ? 'hit' : ''} ${pos === sel ? 'sel' : ''} ${b === 0 ? 'zero' : ''}`;
-        cells.push(<span key={k} data-o={pos} className={`hx-b ${k === 8 ? 'gap' : ''} ${cls}`}>{hexOf(b, 2)}</span>);
-        text.push(<span key={k} data-o={pos} className={`hx-c ${cls} ${printable(b) ? '' : 'np'}`}>{printable(b) ? String.fromCharCode(b) : '.'}</span>);
-      }
-      const picked = rowMark && rowMark.line === pickLine;
-      const selRow = sel != null && sel >= at && sel < at + HEX_ROW;
-      lines.push(
-        <div key={at} data-row={at} className={`hx-row ${rowMark ? 'mark' : ''} ${picked ? 'picked' : ''} ${selRow ? 'cur' : ''}`}
-          title={rowMark ? rowMark.issues.map((i) => `${i.rule}: ${msg(i)}`).join('\n') || t('cv_issue_here') : undefined}>
-          <span className="hx-off">{hexOf(at, 8)}</span><span className="hx-hex">{cells}</span><span className="hx-text">{text}</span>
-        </div>,
-      );
+      const selK = sel != null && sel >= at && sel < at + HEX_ROW ? sel - at : -1;
+      lines.push(<HexRow key={at} data={bytes.data} base={bytes.offset} r={r} hitAt={pageMarks.hitAt} marks={pageMarks.list} selK={selK} pickLine={pickLine} />);
     }
   }
   // The picked byte's values (little-endian, as most targets store them), from the page in memory.
@@ -1067,14 +1178,15 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
         <span className="hx-marks">
           <span className="small muted">{t('cv_hex_marks', { n: marks.length })}</span>
           {marks.slice(0, 8).map((m) => (
-            <button key={m.a} type="button" className="hx-markbtn mono" title={m.issues.map((i) => msg(i)).join('\n')} onClick={() => { show(m.a); onPickLine(m.line); }}>
+            <button key={m.a} type="button" className="hx-markbtn mono" title={issuesTip(m.issues, msg)} onClick={() => { show(m.a); onPickLine(m.line); }}>
               {hexOf(m.a, 8)}{m.evidence ? ' ★' : ''}
             </button>
           ))}
         </span>
       )}
+      {pending && <span className="small muted hx-pending" data-testid="hex-pending" title={t('cv_hex_pending_tip')}><Icon name="clock" size={12} />{t('cv_hex_pending')}</span>}
     </div>
-    <div className="hexview" data-testid="hexview" ref={box} tabIndex={0} style={{ fontSize: font }} onClick={onPick} onKeyDown={onKey}>
+    <div className="hexview" data-testid="hexview" ref={box} tabIndex={0} style={{ fontSize: font }} onClick={onPick} onKeyDown={onKey} onScroll={onScroll}>
       <div className="hx-head">
         <span className="hx-off">{t('cv_hex_offset')}</span>
         <span className="hx-hex">{Array.from({ length: HEX_ROW }, (_, k) => <span key={k} className={`hx-b ${k === 8 ? 'gap' : ''} ${sel != null && sel % HEX_ROW === k ? 'on' : ''}`}>{hexOf(k, 2)}</span>)}</span>
@@ -1082,7 +1194,9 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
       </div>
       {error && <p className="small bad">{error}</p>}
       {!bytes && !error && <p className="small muted">{t('loading')}</p>}
+      {padTop > 0 && <div className="hx-pad" style={{ height: padTop }} />}
       {lines}
+      {padBottom > 0 && <div className="hx-pad" style={{ height: padBottom }} />}
     </div>
     <div className="hx-inspect" data-testid="hex-inspector">
       {sel == null ? <span className="small muted">{t('cv_hex_pick')}</span> : (
@@ -1095,7 +1209,7 @@ function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
           <span title={t('cv_hex_le_tip')}><b>int32</b> <span className="mono">{val((d) => d.getInt32(0, true), 4)}</span></span>
           <span title={t('cv_hex_le_tip')}><b>uint32</b> <span className="mono">{val((d) => d.getUint32(0, true), 4)}</span></span>
           <span><b>{t('cv_hex_bits')}</b> <span className="mono">{val((d) => d.getUint8(0).toString(2).padStart(8, '0'), 1)}</span></span>
-          {selMark && <span className="hx-inspect-issue"><Icon name="alert" size={12} />{selMark.issues.map((i) => msg(i)).join(' · ')}</span>}
+          {selMark && <span className="hx-inspect-issue" title={issuesTip(selMark.issues, msg)}><Icon name="alert" size={12} />{selMark.issues.slice(0, 3).map((i) => msg(i)).join(' · ')}{selMark.issues.length > 3 ? ` · ${t('pp_more', { n: selMark.issues.length - 3 })}` : ''}</span>}
         </>
       )}
     </div>
@@ -1122,9 +1236,13 @@ export function CodeView({ analysis, file, text, onOpen, line, error, rules, onP
     const el = document.querySelector(`.codepane .row[data-ln="${line}"]`);
     if (el) el.scrollIntoView({ block: 'center' });
   }, [line, text]);
+  // The open file's issues (a library can have thousands), sorted once per analysis and file.
+  const fileIssues = useMemo(() => (analysis ? (analysis.issues || []).filter((i) => i.file === file).sort((a, b) => a.line - b.line) : []), [analysis, file]);
+  const marks = useMemo(() => new Set(fileIssues.map((i) => i.line)), [fileIssues]);
+  const pickIssues = useMemo(() => fileIssues.filter((i) => i.line === pick.line).sort((a, b) => (a.key === pick.key ? -1 : b.key === pick.key ? 1 : 0)), [fileIssues, pick.line, pick.key]);
+  const [issueRows, setIssueRows] = useState(CODE_ISSUE_ROWS);
+  useEffect(() => { setIssueRows(CODE_ISSUE_ROWS); }, [file]);
   if (!analysis) return <div className="view"><ViewHeader icon="code" title={t('nav_code')} hint={t('vh_code')} /><NoProject text={t('es_no_analysis')} /></div>;
-  const fileIssues = (analysis.issues || []).filter((i) => i.file === file).sort((a, b) => a.line - b.line);
-  const marks = new Set(fileIssues.map((i) => i.line));
   const fileRow = (analysis.files || []).find((f) => f.path === file);
   const lines = text == null ? [] : String(text).split(/\r?\n/);
   const files = q ? analysis.files.filter((f) => f.path.toLowerCase().includes(q.toLowerCase())) : analysis.files;
@@ -1174,14 +1292,15 @@ export function CodeView({ analysis, file, text, onOpen, line, error, rules, onP
           </div>
           <h3 className="sub-title"><Icon name="list" size={15} />{t('cv_file_issues')}</h3>
           {fileIssues.length === 0 && <Empty icon="checkCircle" text={t('es_no_issues')} />}
-          {fileIssues.map((i) => (
+          {fileIssues.slice(0, issueRows).map((i) => (
             <button key={i.key} type="button" className={`insp-row ${pick.key === i.key ? 'on' : ''}`} onClick={() => { onOpen(file, i.line); setPick({ line: i.line, key: i.key, from: 'list' }); }} title={t('cv_pick_issue_tip')}>
               <SevBadge sev={i.severity} /><span className="insp-row-text">{msg(i)}</span><span className="small mono">:{i.line}</span>
             </button>
           ))}
+          {fileIssues.length > issueRows && <div className="more-row"><Btn icon="plus" label={t('ib_show_more', { n: Math.min(CODE_ISSUE_ROWS, fileIssues.length - issueRows) })} onClick={() => setIssueRows(issueRows + CODE_ISSUE_ROWS)} /></div>}
           {pick.line > 0 && (
             <LineIssues line={pick.line} picked={pick.key} ruleMap={ruleMap} onPickIssue={onPickIssue} follow={pick.from !== 'list'}
-              issues={[...fileIssues.filter((i) => i.line === pick.line)].sort((a, b) => (a.key === pick.key ? -1 : b.key === pick.key ? 1 : 0))} />
+              issues={pickIssues} />
           )}
           {pick.line === 0 && fileIssues.length > 0 && <p className="small muted line-issues-hint"><Icon name="info" size={12} /> {t('cv_pick_line_hint')}</p>}
         </Inspector>

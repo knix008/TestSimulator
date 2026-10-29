@@ -315,7 +315,7 @@ async function exportAnalysis(s, { project, branch, analysis, settings }, opts =
         defines: project.defines || {}, coverageReports: project.coverageReports || [], newCode: project.newCode || { newCode: (settings || {}).newCode || 'previous' },
         gateId: project.gateId || null, policyId: project.policyId || null, profiles: project.profiles || {},
       };
-      const checksOff = Object.entries(((settings || {}).checks) || {}).filter(([, on]) => on === false).map(([id]) => id);
+      const checksOff = require('./checks').disabledChecks(settings, project);
       await insertRows(conn, `${p}_project_details`, ['analysis_id', 'project_id', 'branch', 'analyzed_at', 'quality_gate', 'gate_status', 'gate_json', 'config_json', 'checks_off', 'languages_json', 'files', 'ncloc'],
         [[analysisId, project.id, str(branch, 190), str(analysis.finishedAt, 40), str(gate.name), str(gate.status, 20),
           JSON.stringify((gate.conditions || []).map((c) => ({ metric: c.metric, op: c.op, threshold: c.threshold, actual: c.actual, status: c.status, enabled: c.enabled !== false }))),
