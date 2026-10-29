@@ -1,13 +1,14 @@
 // Project settings: everything the next analysis of this project uses, in one
 // page — name and key, the main branch, the quality gate, the profile per
 // language and the defect policy, what is left out (patterns and folders),
-// the C/C++ include folders and macros, coverage reports and the project's own
-// new code definition. Saving goes through the workspace (undo, history);
+// the C/C++ include folders and macros, coverage reports, the project's own
+// new code definition and its own choice of analysis engines (check groups). Saving goes through the workspace (undo, history);
 // "Save and analyze" runs the analysis with the new settings at once.
 import React, { useEffect, useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { ExcludeDirsDialog } from '../components/ExcludeDirs';
+import { ChecksBox } from '../components/ChecksBox';
 import { Btn, BtnGroup, IconSelect, Stepper, Toggle, ViewHeader, NoProject, emitAction, useApi } from './common';
 
 const lines = (text) => String(text || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
@@ -42,6 +43,9 @@ function draftOf(project) {
     newCodeDays: (nc && nc.newCodeDays) || 30,
     newCodeRef: (nc && nc.newCodeRef) || '',
     newCodeVersion: (nc && nc.newCodeVersion) || '',
+    // The project's own engines (project.checks); a new choice starts with all on.
+    ownChecks: !!(project.checks && typeof project.checks === 'object'),
+    checks: { ...(project.checks || {}) },
   };
 }
 
@@ -132,6 +136,7 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
   const policyOptions = [{ value: '', label: t('ps_default'), icon: 'shield' }, ...policies.map((p) => ({ value: p.id, label: `${textOf(p.name)}${p.isDefault ? ` (${t('ps_default_mark')})` : ''}`, icon: 'shield' }))];
   const profileOptions = (lang) => [
     { value: '', label: t('ps_default'), icon: 'list' },
+    { value: 'none', label: t('ps_profile_none'), icon: 'close' },
     ...(ws.profiles || []).filter((p) => p.language === lang || p.language === '*').map((p) => ({ value: p.id, label: `${textOf(p.name)}${p.language === '*' ? ` · ${t('ps_all_languages')}` : ''}`, icon: 'list' })),
   ];
   const modeOptions = [
@@ -162,6 +167,7 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
       defines: definesOf(d.defines),
       coverageReports: lines(d.coverageReports),
       newCode: d.ownNewCode ? { newCode: d.newCode, newCodeDays: d.newCodeDays, newCodeRef: d.newCodeRef.trim(), newCodeVersion: d.newCodeVersion.trim() } : undefined,
+      checks: d.ownChecks ? d.checks : undefined,
     };
     try {
       await onSave({ ...ws, projects: (ws.projects || []).map((p) => (p.id === project.id ? next : p)) });
@@ -212,6 +218,12 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
 
           <Section icon="checkCircle" title={t('ad_coverage')} hint={t('ad_coverage_hint')}>
             <Field label={t('ad_coverage_paths')}><textarea className="mono" rows={3} value={d.coverageReports} placeholder={'coverage/lcov.info\ntarget/site/jacoco/jacoco.xml'} onChange={(e) => set({ coverageReports: e.target.value })} /></Field>
+          </Section>
+
+          <Section icon="cpu" title={t('ps_engines')} hint={t('ps_engines_hint')}>
+            <Field label={t('ad_nc_scope')}><Toggle checked={d.ownChecks} label={t('ps_engines_own')} icon="folder" onChange={(v) => set({ ownChecks: v })} /></Field>
+            {!d.ownChecks && <p className="small muted">{t('ps_engines_following')}</p>}
+            <ChecksBox checks={d.ownChecks ? d.checks : ((ws.settings || {}).checks || {})} readOnly={!d.ownChecks} onChange={(checks) => set({ checks })} />
           </Section>
 
           <Section icon="gate" title={t('ps_rules')} hint={t('ps_rules_hint')}>

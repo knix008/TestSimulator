@@ -143,8 +143,9 @@
 | `platform/external.js` | 외부 도구 결과 · 테스트 보고서 가져오기 |
 | `platform/history.js` | 스냅샷 비교(CID), 결함 수명, 활동 이벤트, 추세, 이슈 나이 |
 | `platform/measures.js` | 조건 · 분기 커버리지, 테스트 지표, 컴포넌트 트리, 고칠 노력 |
+| `checks.js` | 검사 항목(엔진 · 규칙 묶음, `CHECK_GROUPS`)의 켜고 끄기. `disabledChecks(settings, project)` 는 프로젝트가 따로 정한 `project.checks`(정하지 않은 항목은 켜짐)를, 없으면 작업 공간의 `settings.checks` 를 씁니다. 꺼진 항목만 보고하는 엔진은 돌지 않고(`engineOff`), 나머지는 결과에서 뺍니다. 언어별 품질 프로필을 `'none'`(적용 안 함)으로 둔 언어는 `skippedLanguages` → `options.skipLanguages` 로 파일을 읽지도 않습니다 |
 | `binfile.js` | 바이너리 파일의 이슈 위치(`project.file` 의 `lines` · `find`): 4 MB 까지는 바로, 그보다 크면 백그라운드에서 1 MB 씩 읽어 줄바꿈 위치와 찾는 문자열을 모으고(`rangesPending: true` 동안 화면은 0.8초마다 다시 물음), 경로 · 크기 · 수정 시각으로 4 개 파일을 기억합니다. 화면의 16진수 보기(`Panels.jsx` `HexView`)는 보이는 줄만 그립니다 |
-| `projectfile.js` | 프로젝트 파일 `*.mccp`(JSON `format: "mycodechecker-project"`, `version`, `name`, `key`, `source` — 파일 기준 상대 경로, `settings`: `mainBranch` · `exclusions` · `includeDirs` · `defines` · `coverageReports` · `arch` · `newCode` · `profiles` · `gateId` · `policyId` · `his` · `tags` · `description`) 읽기 · 쓰기. 분석 결과는 작업 공간에 남습니다. 데스크톱은 `tauri.conf.json` 의 `fileAssociations` 로 `.mccp` 를 앱에 연결합니다 |
+| `projectfile.js` | 프로젝트 파일 `*.mccp`(JSON `format: "mycodechecker-project"`, `version`, `name`, `key`, `source` — 파일 기준 상대 경로, `settings`: `mainBranch` · `exclusions` · `includeDirs` · `defines` · `coverageReports` · `arch` · `newCode` · `profiles` · `gateId` · `policyId` · `his` · `tags` · `description` · `checks`) 읽기 · 쓰기. 분석 결과는 작업 공간에 남습니다. 데스크톱은 `tauri.conf.json` 의 `fileAssociations` 로 `.mccp` 를 앱에 연결합니다 |
 | `platform/tools.js` | 필요한 소프트웨어(Git, C/C++ 컴파일러) 찾기와 패키지 관리자 설치(`tools.install` 을 부를 때만) |
 
 ### 연동 (`core/integrate.js` + `core/integrations/`)

@@ -1902,16 +1902,19 @@ class Parser {
         const ps = this.tok.start;
         const name = this.ident(true);
         let constraint = null;
-        if (this.isName('extends') && !this.inCondExtends === false) {
+        // TS 4.7 "infer U extends C": always a constraint inside the extends
+        // clause of a conditional type; elsewhere (in parentheses, tuples,
+        // ...) only when no "?" follows, otherwise it starts a conditional.
+        if (this.isName('extends')) {
+          const outer = this.inCondExtends;
           const c = this.tryParse(null, () => {
             this.next();
-            const sc = this.inCondExtends;
             this.inCondExtends = true;
             try {
               const ty = this.parseType();
-              if (this.is('?')) this.raise('conditional');
+              if (!outer && this.is('?')) this.raise('conditional');
               return ty;
-            } finally { this.inCondExtends = sc; }
+            } finally { this.inCondExtends = outer; }
           });
           if (c) constraint = c;
         }
