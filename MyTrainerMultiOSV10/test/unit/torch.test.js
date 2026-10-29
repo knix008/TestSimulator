@@ -16,14 +16,15 @@ import { cleanTrain, effectiveTask } from '../../src/domain/project.js';
 import { SAMPLE_IDS, sampleProject } from '../../src/domain/samples.js';
 import { explainUnit, unitsOf } from '../../src/engine/internals.js';
 import { torchPython } from './python-env.mjs';
+import { modelProject, SAMPLE_MODELS } from './models.mjs';
 
 const python = torchPython();
 const skip = python ? false : 'no Python with PyTorch on this computer (set MYTRAINER_PYTHON)';
 const f32 = (values) => Buffer.from(Float32Array.from(values).buffer);
 
 /** Runs a sample's generated script like the app does; returns the bridge messages (by name → id). */
-async function runSample(id, { epochs = 2, edit = null } = {}) {
-  const project = sampleProject(id, 'en');
+async function runSample(id, { epochs = 2, edit = null, variant = null } = {}) {
+  const project = modelProject({ id, variant });
   if (edit) edit(project);
   project.train = cleanTrain({ ...project.train, epochs });
   const data = fromSource(project.dataset.source, { sounds: soundsFor(project.dataset.source), overrides: { copies: 1, n: Math.min((project.dataset.source.params?.n ?? 400), 400) } });
@@ -100,9 +101,9 @@ function checkExplanations(project, snapshot, tolerance = 2e-3) {
   return checked;
 }
 
-for (const id of SAMPLE_IDS) {
-  test(`PyTorch trains the generated code — ${id}`, { skip, timeout: 240000 }, async () => {
-    const { project, messages } = await runSample(id);
+for (const { id, variant, label } of SAMPLE_MODELS) {
+  test(`PyTorch trains the generated code — ${label}`, { skip, timeout: 240000 }, async () => {
+    const { project, messages } = await runSample(id, { variant });
     assert.equal(messages.filter((m) => m.type === 'epoch').length, 2);
     const done = messages.find((m) => m.type === 'done');
     assert.ok(done.evaluation && Number.isFinite(done.evaluation.loss), 'test loss reported');

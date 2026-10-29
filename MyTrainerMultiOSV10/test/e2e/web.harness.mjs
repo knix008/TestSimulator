@@ -49,9 +49,9 @@ export async function startWeb({ width = 1600, height = 1000, storage = null, he
   const target = await waitTarget(debugPort, (t) => t.type === 'page');
   const page = await new Page(target).open();
   await page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
-  // Tests drive the app themselves: no "training finished" popup in the way (unless a test asks for it).
+  // Tests drive the app themselves: no "training finished" or welcome popup in the way (unless a test asks for it).
   const settingsKey = 'mytrainer.settings.v1';
-  if (storage?.[settingsKey] && typeof storage[settingsKey] === 'object') storage = { ...storage, [settingsKey]: { notifyTrainDone: false, ...storage[settingsKey] } };
+  if (storage?.[settingsKey] && typeof storage[settingsKey] === 'object') storage = { ...storage, [settingsKey]: { notifyTrainDone: false, showWelcome: false, ...storage[settingsKey] } };
   if (storage) {
     await page.send('Page.navigate', { url });
     await sleep(500);

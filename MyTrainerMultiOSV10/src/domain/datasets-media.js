@@ -546,7 +546,7 @@ MEDIA_GENERATORS.charLmKo = { fn: (p) => languageModel(p, 'ko'), group: 'text', 
 // ───────────────────────── recorded sounds (a folder of clips, or a built-in bank)
 
 /** Built-in banks of recorded clips (public/datasets/<id>.bin, made by scripts/make-kws-ko.py). */
-export const SOUND_BANKS = { 'kws-ko': { file: 'datasets/kws-ko.bin', seconds: 1 } };
+export const SOUND_BANKS = { 'kws-ko': { file: 'datasets/kws-ko.bin', seconds: 1 }, 'kws-ko-attend': { file: 'datasets/kws-ko-attend.bin', seconds: 1 } };
 
 /** The network input of one wave: a mel spectrogram over media.seconds, laid out like the speech data. */
 export function soundFeatures(wave, media) {

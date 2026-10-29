@@ -15,8 +15,9 @@ import { emitTo, invoke, isDesktop, listen } from './native.js';
 /** Logical size of each popup, measured to fit its content (Korean and English, full lists) without scrolling
  * or empty space. Fixed (the windows cannot be resized); settings keeps one size for all its tabs. */
 export const POPUPS = {
-  settings: { width: 780, height: 580 },
+  settings: { width: 780, height: 612 },
   about: { width: 700, height: 372 },
+  welcome: { width: 680, height: 448 },
   confirm: { width: 540, height: 190 },
   error: { width: 720, height: 500 },
   progress: { width: 520, height: 140 },

@@ -187,6 +187,48 @@ function digits({ n = 1500, size: px = 16, noise = 0.04, seed = 10, reconstruct 
   return make({ name: reconstruct ? 'Digits (autoencoder)' : 'Digits', kind: 'image', inputShape: [px, px, 1], xs, ys, task, labels: reconstruct ? null : Array.from({ length: 10 }, (_, d) => String(d)) });
 }
 
+/** Denoising: the input is a digit picture under grey noise with a few blocks wiped out, the target the clean picture. */
+function digitsNoisy({ n = 1200, size: px = 16, noise = 0.03, corrupt = 0.35, seed = 18 }) {
+  const r = rng(seed);
+  const xs = []; const ys = [];
+  for (let i = 0; i < n; i++) {
+    const image = rasterize(DIGIT_STROKES[i % 10], px, r, { noise });
+    const dirty = image.map((v) => Math.min(1, Math.max(0, v + r.normal() * corrupt)));
+    for (let k = r.int(3); k > 0; k--) {
+      const w = 2 + r.int(px / 4); const x0 = r.int(px - w); const y0 = r.int(px - w);
+      for (let y = y0; y < y0 + w; y++) for (let x = x0; x < x0 + w; x++) dirty[y * px + x] = r() < 0.5 ? 0 : 1;
+    }
+    xs.push(...dirty); ys.push(...image);
+  }
+  return make({ name: 'Noisy digits (denoising)', kind: 'image', inputShape: [px, px, 1], xs, ys, task: { kind: 'reconstruction', outputShape: [px * px] }, labels: null });
+}
+
+/**
+ * Anomaly detection: digit pictures, and a share of `anomalies` that are no digit at all (an inverted digit,
+ * a smudge, a grid). The target is the picture itself; `anomaly` flags the odd ones (the model never sees it).
+ */
+function digitsAnomaly({ n = 1500, size: px = 16, anomalies = 0.06, noise = 0.03, seed = 19 }) {
+  const r = rng(seed);
+  const xs = []; const flags = [];
+  for (let i = 0; i < n; i++) {
+    const odd = r() < anomalies;
+    let image;
+    if (!odd) image = rasterize(DIGIT_STROKES[i % 10], px, r, { noise });
+    else if (i % 3 === 0) image = Array.from(rasterize(DIGIT_STROKES[i % 10], px, r, { noise }), (v) => 1 - v);
+    else if (i % 3 === 1) {
+      const cx = r() * px; const cy = r() * px; const radius = px * (0.2 + r() * 0.25);
+      image = Array.from({ length: px * px }, (_, k) => Math.min(1, Math.max(0, Math.exp(-(((k % px) - cx) ** 2 + (Math.floor(k / px) - cy) ** 2) / (2 * radius * radius)) + r.normal() * noise)));
+    } else {
+      const step = 3 + r.int(3);
+      image = Array.from({ length: px * px }, (_, k) => ((k % px) % step === 0 || Math.floor(k / px) % step === 0 ? 0.9 : 0) + r() * noise);
+    }
+    xs.push(...image); flags.push(odd ? 1 : 0);
+  }
+  const data = make({ name: 'Digits with anomalies', kind: 'image', inputShape: [px, px, 1], xs, ys: xs, task: { kind: 'reconstruction', outputShape: [px * px] }, labels: null });
+  data.anomaly = Uint8Array.from(flags);
+  return data;
+}
+
 function shapes({ n = 1200, size: px = 24, noise = 0.05, seed = 11 }) {
   const r = rng(seed);
   const xs = []; const ys = [];
@@ -327,6 +369,8 @@ export const GENERATORS = {
   friedman: { fn: friedman, group: 'functions', params: [['n', 500, 50, 5000, 50], ['noise', 0.2, 0, 2, 0.05], ['seed', 9, 1, 9999, 1]] },
   digits: { fn: digits, group: 'images', params: [['n', 1500, 100, 6000, 100], ['size', 16, 8, 32, 4], ['noise', 0.04, 0, 0.3, 0.01], ['seed', 10, 1, 9999, 1]] },
   digitsAuto: { fn: (p) => digits({ ...p, reconstruct: true }), group: 'images', params: [['n', 1200, 100, 6000, 100], ['size', 16, 8, 32, 4], ['noise', 0.03, 0, 0.3, 0.01], ['seed', 10, 1, 9999, 1]] },
+  digitsNoisy: { fn: digitsNoisy, group: 'images', params: [['n', 1200, 100, 6000, 100], ['size', 16, 8, 32, 4], ['corrupt', 0.35, 0, 1, 0.05], ['seed', 18, 1, 9999, 1]] },
+  digitsAnomaly: { fn: digitsAnomaly, group: 'images', params: [['n', 1500, 100, 6000, 100], ['size', 16, 8, 32, 4], ['anomalies', 0.06, 0, 0.3, 0.01], ['seed', 19, 1, 9999, 1]] },
   shapes: { fn: shapes, group: 'images', params: [['n', 1200, 100, 6000, 100], ['size', 24, 12, 40, 4], ['noise', 0.05, 0, 0.3, 0.01], ['seed', 11, 1, 9999, 1]] },
   colorShapes: { fn: colorShapes, group: 'images', params: [['n', 1200, 120, 6000, 60], ['size', 20, 12, 40, 4], ['seed', 12, 1, 9999, 1]] },
   sineForecast: { fn: sineForecast, group: 'sequences', params: [['n', 800, 100, 6000, 100], ['steps', 24, 8, 100, 4], ['noise', 0.05, 0, 0.5, 0.01], ['seed', 13, 1, 9999, 1]] },

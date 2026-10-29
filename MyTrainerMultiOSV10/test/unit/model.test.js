@@ -1,6 +1,7 @@
 // The layer catalogue and the model graph: shape inference, parameter counts (checked against
 // TensorFlow.js itself), editing operations, validation and repair of files.
 import { soundsFor } from './sounds.mjs';
+import { modelProject, SAMPLE_MODELS } from './models.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as tf from '@tensorflow/tfjs';
@@ -35,9 +36,9 @@ test('convolution output lengths follow Keras', () => {
   assert.equal(parseShape('a, 2'), null);
 });
 
-for (const id of SAMPLE_IDS) {
-  test(`sample ${id}: valid, and its parameter count equals TensorFlow.js's`, () => {
-    const project = sampleProject(id, 'en');
+for (const entry of SAMPLE_MODELS) {
+  test(`sample ${entry.label}: valid, and its parameter count equals TensorFlow.js's`, () => {
+    const project = modelProject(entry);
     const data = fromSource(project.dataset.source, { sounds: soundsFor(project.dataset.source), overrides: { copies: 1, n: 120 } });
     const prepared = prepare(data, project.dataset.steps, project.dataset.split);
     const task = effectiveTask(prepared.task, project.model, prepared.inputShape);

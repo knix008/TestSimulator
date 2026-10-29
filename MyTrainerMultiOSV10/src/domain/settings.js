@@ -39,6 +39,8 @@ export function defaultSettings(language = 'ko') {
     rightWidth: 340,
     bottomHeight: 170,
     showStartPage: true,
+    // The welcome popup at start (tutorial, guide, samples); its own check box turns it off.
+    showWelcome: true,
     animation: 'neural',
     animationSpeed: 100,
     animationRandom: false,
@@ -97,6 +99,7 @@ export function normalizeSettings(raw = {}, language = 'ko') {
     rightWidth: clamp(s.rightWidth, PANEL_LIMITS.right, base.rightWidth),
     bottomHeight: clamp(s.bottomHeight, PANEL_LIMITS.bottom, base.bottomHeight),
     showStartPage: s.showStartPage !== false,
+    showWelcome: s.showWelcome !== false,
     animation: ANIMATIONS.includes(s.animation) ? s.animation : base.animation,
     animationSpeed: clamp(s.animationSpeed, [0, 300], base.animationSpeed),
     animationRandom: s.animationRandom === true,

@@ -21,8 +21,8 @@ export function inputKindFor(data) {
 
 /** The example inputs (data/predict, served as examples/…) that suit a data source: a test on inputs the model never saw. */
 const EXAMPLES = {
-  digits: /^images\/digit_/, digitsAuto: /^images\/digit_/, letters: /^images\/letter_/, hangul: /^images\/hangul_/, objects: /^images\/object_/,
-  speech: /^audio\//, speechSeq: /^audio\//, 'bank:kws-ko': /^kws-ko\//,
+  digits: /^images\/digit_/, digitsAuto: /^images\/digit_/, digitsNoisy: /^images\/digit_/, digitsAnomaly: /^images\/digit_/, letters: /^images\/letter_/, hangul: /^images\/hangul_/, objects: /^images\/object_/,
+  speech: /^audio\//, speechSeq: /^audio\//, 'bank:kws-ko': /^kws-ko\//, 'bank:kws-ko-attend': /^kws-ko-attend\//,
   sentiment: /^sentences\.txt$/, charLm: /^sentences\.txt$/, charLmKo: /^sentences\.txt$/,
   'student-pass.csv': /^new-students\.csv$/, 'house-prices.csv': /^new-houses\.csv$/,
 };

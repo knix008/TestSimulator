@@ -1,6 +1,7 @@
 """Korean keyword-spotting data made with Supertonic TTS (Supertone, on-device ONNX TTS).
 
-    npm run data:kws      (= node scripts/venv-tts.mjs --run scripts/make-kws-ko.py)
+    npm run data:kws         (= node scripts/venv-tts.mjs --run scripts/make-kws-ko.py)
+    npm run data:kws-attend  (… make-kws-ko.py --set kws-ko-attend: 출근 / 퇴근 / 외출 / 복귀, see SETS)
 
 runs it with .venv-tts, the tools' Python environment, which is made on that first run when it is missing
 (a Python 3.10-3.13 of this computer, or a downloaded portable one, plus supertonic and numpy).
@@ -50,6 +51,17 @@ UNKNOWN = [
     '잠깐', '도와줘', '괜찮아', '좋아요', '비밀번호', '보안', '경고', '알람', '잠금', '문 열어', '주차', '엘리베이터',
     '배고파', '고마워', '미안해', '어디야', '뭐 해', '잘 자', '어서 와', '수고했어', '점검', '청소', '조명', '온도',
 ]
+# Word sets (--set <bank>): the keywords, the unknown words and the few other words of "Run on files".
+# kws-ko is the original set; its lists and order stay as they are, so it is made again clip for clip.
+SETS = {
+    'kws-ko': (KEYWORDS, UNKNOWN, ('출발', '경찰', '해변', '안녕하세요')),
+    # Attendance: 출근 / 퇴근 / 외출 (going out) / 복귀 (coming back). 경비 and 해제 are other words here,
+    # and look-alikes of 외출 and 복귀 join the unknown words.
+    'kws-ko-attend': (['출근', '퇴근', '외출', '복귀'], UNKNOWN + [
+        '경비', '해제', '외식', '외부', '외국', '외투', '외침', '외곽', '외모', '외삼촌', '왜', '웨딩', '회식', '우체국',
+        '출금', '추출', '복구', '복권', '복지', '복도', '복사', '복습', '복잡', '복숭아', '보기', '목걸이', '귀가', '귀국',
+        '보고', '복구해', '북쪽', '독서', '귀신', '국수'], ('출발', '외식', '복구', '안녕하세요')),
+}
 MANNERS = ['{}', '{}.', '{}!', '{}?']
 SPEEDS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5]
 STEPS = [4, 6, 8, 12]
@@ -185,6 +197,13 @@ def synthesize(tts, voices, jobs):
 
 
 def main():
+    bank = sys.argv[sys.argv.index('--set') + 1] if '--set' in sys.argv else 'kws-ko'
+    if bank not in SETS:
+        raise SystemExit(f'unknown --set {bank} (one of {", ".join(SETS)})')
+    keywords, unknown, others = SETS[bank]
+    clash = [word for word in unknown if any(keyword in word for keyword in keywords)]
+    if clash:
+        raise SystemExit(f'unknown words that contain a keyword: {clash}')
     rng = np.random.default_rng(SEED)
     np.random.seed(SEED)  # Supertonic draws its starting noise from np.random
     tts = TTS()
@@ -192,18 +211,18 @@ def main():
     builtin = set(tts.voice_style_names)
     jobs = []
     for voice in voices:
-        for word in KEYWORDS:
+        for word in keywords:
             for k in range(PER_KEYWORD):
                 jobs.append((word, MANNERS[k % len(MANNERS)].format(word), voice, float(rng.choice(SPEEDS)), int(rng.choice(STEPS))))
-        for word in rng.choice(UNKNOWN, PER_UNKNOWN, replace=False):
+        for word in rng.choice(unknown, PER_UNKNOWN, replace=False):
             jobs.append(('unknown', MANNERS[int(rng.integers(len(MANNERS)))].format(word), voice, float(rng.choice(SPEEDS)), int(rng.choice(STEPS))))
     # A few clips for "Run on files": every keyword and some other words, by voices picked at random.
     names = list(voices)
-    trials = [(word, f'{word}', names[int(rng.integers(len(names)))], 1.05, 8) for word in KEYWORDS for _ in range(3)]
-    trials += [('unknown', word, names[int(rng.integers(len(names)))], 1.05, 8) for word in ('출발', '경찰', '해변', '안녕하세요')]
-    out_dir = ROOT / 'data' / 'audio' / 'kws-ko'
-    predict_dir = ROOT / 'data' / 'predict' / 'kws-ko'
-    bundle = ROOT / 'public' / 'datasets' / 'kws-ko.bin'
+    trials = [(word, f'{word}', names[int(rng.integers(len(names)))], 1.05, 8) for word in keywords for _ in range(3)]
+    trials += [('unknown', word, names[int(rng.integers(len(names)))], 1.05, 8) for word in others]
+    out_dir = ROOT / 'data' / 'audio' / bank
+    predict_dir = ROOT / 'data' / 'predict' / bank
+    bundle = ROOT / 'public' / 'datasets' / f'{bank}.bin'
 
     if '--repair' in sys.argv:
         # Keep the bundle, make again only its clips without a proper word (the same jobs: same voices,
@@ -237,7 +256,7 @@ def main():
             write_wav(out_dir / label / f'{voice}_{n:02d}.wav', clip)
     left = [i for i in range(len(jobs)) if problem(jobs[i][0], unmulaw(mulaw(clips[i])))]
     print(f'check: {len(left)} clips without a proper word', flush=True)
-    index = json.dumps({'rate': RATE, 'seconds': SECONDS, 'labels': KEYWORDS + ['unknown'], 'voices': names, 'source': 'Supertonic 3 (Supertone)', 'clips': index_clips}, ensure_ascii=False).encode('utf-8')
+    index = json.dumps({'rate': RATE, 'seconds': SECONDS, 'labels': keywords + ['unknown'], 'voices': names, 'source': 'Supertonic 3 (Supertone)', 'clips': index_clips}, ensure_ascii=False).encode('utf-8')
     bundle.parent.mkdir(parents=True, exist_ok=True)
     bundle.write_bytes(struct.pack('<I', len(index)) + index + bytes(data))
     print(f'{len(index_clips)} clips, {len(voices)} voices -> {bundle.relative_to(ROOT)} ({bundle.stat().st_size // 1024} KB)')

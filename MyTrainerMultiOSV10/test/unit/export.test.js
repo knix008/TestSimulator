@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import * as tf from '@tensorflow/tfjs';
+import { createRequire } from 'node:module';
 import { soundsFor } from './sounds.mjs';
 import { fromSource, sampleX } from '../../src/domain/datasets.js';
 import { generateC } from '../../src/domain/export-c.js';
@@ -18,10 +18,18 @@ import { cleanTrain, effectiveTask } from '../../src/domain/project.js';
 import { SAMPLE_IDS, sampleProject } from '../../src/domain/samples.js';
 import { canonicalWeights } from '../../src/engine/tfbuild.js';
 import { Trainer } from '../../src/engine/trainer-core.js';
+import { registerWasmTrainingKernels } from '../../src/engine/wasm-kernels.js';
 import { zipBlob } from '../../src/platform/zip.js';
 import { ensureVenvTts } from '../../scripts/venv-tts.mjs';
 
-tf.setBackend('cpu');
+// The WASM backend with MyTrainer's gradient kernels (they match the CPU's, wasm.test.js): the large keyword
+// models train in seconds instead of minutes on the plain JavaScript CPU backend. CommonJS builds, so the WASM
+// backend registers with the same TensorFlow.js.
+const require = createRequire(import.meta.url);
+const tf = require('@tensorflow/tfjs');
+require('@tensorflow/tfjs-backend-wasm');
+registerWasmTrainingKernels(tf);
+await tf.setBackend('wasm');
 
 const gcc = ['gcc', 'C:/Msys64/ucrt64/bin/gcc.exe', 'C:/msys64/mingw64/bin/gcc.exe', '/usr/bin/gcc', '/usr/bin/cc'].find((candidate) => spawnSync(candidate, ['--version'], { stdio: 'ignore' }).status === 0);
 // ONNX Runtime: MYTRAINER_ORT_PYTHON, else .venv-tts (made / completed now when it is missing), else a Python on PATH.

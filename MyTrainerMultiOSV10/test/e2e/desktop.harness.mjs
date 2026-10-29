@@ -27,9 +27,9 @@ export class App {
   /** env: extra variables (MYTRAINER_PYTHON points the PyTorch engine at a Python). */
   constructor({ env = {}, storage = null } = {}) {
     this.extraEnv = env;
-    // Tests drive the app themselves: no "training finished" popup in the way (unless a test asks for it).
+    // Tests drive the app themselves: no "training finished" or welcome popup in the way (unless a test asks for it).
     const key = 'mytrainer.settings.v1';
-    this.storage = storage?.[key] && typeof storage[key] === 'object' ? { ...storage, [key]: { notifyTrainDone: false, ...storage[key] } } : storage;
+    this.storage = storage?.[key] && typeof storage[key] === 'object' ? { ...storage, [key]: { notifyTrainDone: false, showWelcome: false, ...storage[key] } } : storage;
   }
 
   async start() {

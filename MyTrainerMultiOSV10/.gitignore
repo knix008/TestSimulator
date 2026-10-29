@@ -15,6 +15,11 @@ release/
 /MyTrainer-*.rpm
 /MyTrainer-*.AppImage
 
+# Tutorial videos (npm run tutorial:video): large, made again from the app
+docs/video/*.mp4
+public/docs/video/
+/MyTrainer-Tutorial*.mp4
+
 # Test runs (npm test)
 test-results/
 *.log

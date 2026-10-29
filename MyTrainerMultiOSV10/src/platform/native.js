@@ -3,7 +3,7 @@
 // otherwise). Everything platform-specific is here.
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { emitTo as tauriEmitTo, listen as tauriListen } from '@tauri-apps/api/event';
-import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
+import { getCurrentWindow, LogicalSize, Window } from '@tauri-apps/api/window';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n.js';
 
@@ -107,8 +107,8 @@ export async function chooseFolder(defaultPath = null) {
 }
 
 /** The user's guide in its own window (desktop: an app window; web: a browser window). */
-export function openGuideWindow(name, title) {
-  if (isDesktop()) return invoke('open_doc_window', { name, title });
+export function openGuideWindow(name, title, dark = null) {
+  if (isDesktop()) return invoke('open_doc_window', { name, title, dark });
   const win = globalThis.open(`./docs/${name}`, 'mytrainer-guide', 'popup=yes,width=1000,height=820');
   win?.focus();
   return Promise.resolve();
@@ -225,7 +225,13 @@ export async function listFonts() {
 
 // ───────────────────────── window
 
-export const setWindowTheme = (dark) => (isDesktop() ? getCurrentWindow().setTheme(dark ? 'dark' : 'light').catch(() => {}) : Promise.resolve());
+/** The title bars of this window and of an open user's guide window follow the app's theme. */
+export async function setWindowTheme(dark) {
+  if (!isDesktop()) return;
+  const theme = dark ? 'dark' : 'light';
+  await getCurrentWindow().setTheme(theme).catch(() => {});
+  if (getCurrentWindow().label === 'main') await Window.getByLabel('doc-guide').then((doc) => doc?.setTheme(theme)).catch(() => {});
+}
 
 /** The page needs at least width × height (CSS px). The window is a little larger than the page in it (a frameless
  * window keeps a resize border around the web view, about 7 px a side on Windows), so that difference is added. */

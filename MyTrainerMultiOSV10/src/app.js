@@ -20,7 +20,7 @@ import { BLOCK_IDS, BLOCKS, LAYER_GROUPS, LAYERS, parseShape, shapeText } from '
 import { evaluationReport } from './domain/metrics.js';
 import { cleanSplit, cleanSteps, newStep, prepare, transformInput } from './domain/preprocess.js';
 import { baseName, cleanTrain, effectiveTask, newProject, normalizeProject, parseProject, serializeProject, stripExtension } from './domain/project.js';
-import { sampleProject, SAMPLES } from './domain/samples.js';
+import { sampleProject, SAMPLE_IDS, SAMPLES } from './domain/samples.js';
 import { addRecent, ANIMATIONS, History, loadRecent, loadSettings, removeRecent, SESSION_KEY, storeRecent, storeSettings, VIEW_TABS } from './domain/settings.js';
 import { TfEngine, TorchEngine } from './engine/engines.js';
 import { getLanguage, setLanguage, t } from './i18n.js';
@@ -54,6 +54,7 @@ import { clipFrom, LiveCamera, LiveMicrophone, pictureFrom, speechInput } from '
 
 const AUDIO_EXTENSIONS = ['wav', 'mp3', 'ogg', 'flac', 'm4a', 'webm'];
 import { startPageHtml } from './ui/startpage.js';
+import { Tutorial } from './ui/tutorial.js';
 import { drawTestView, testViewHtml } from './ui/testview.js';
 import { drawTrainView, statusText, trainViewHtml } from './ui/trainview.js';
 
@@ -1147,6 +1148,10 @@ const commands = {
   bottomPanel: { label: 'menu.bottomPanel', icon: 'panelBottom', checked: () => state.settings.showBottomPanel, run: () => updateSettings({ showBottomPanel: !state.settings.showBottomPanel }) },
   statusBar: { label: 'menu.statusBar', icon: 'statusBar', checked: () => state.settings.showStatusBar, run: () => updateSettings({ showStatusBar: !state.settings.showStatusBar }) },
   guide: { label: 'menu.guide', icon: 'userGuide', key: 'F1', run: () => openGuide() },
+  tutorial: { label: 'menu.tutorial', icon: 'tutorial', run: () => startTutorial() },
+  tutorialDoc: { label: 'menu.tutorialDoc', icon: 'tutorialDoc', run: () => openGuide('tutorial') },
+  tutorialVideo: { label: 'menu.tutorialVideo', icon: 'tutorialVideo', run: () => openTutorialVideo() },
+  welcome: { label: 'menu.welcome', icon: 'home', run: () => openWelcome() },
   shortcuts: { label: 'menu.shortcuts', icon: 'keyboard', run: () => popups.open('shortcuts') },
   about: { label: 'menu.about', icon: 'info', run: () => popups.open('about') },
 };
@@ -1159,7 +1164,7 @@ const MENUS = {
   model: ['addLayer', 'autoLayout', 'sep', 'delete', 'duplicate'],
   data: ['tab_data', 'importCsv', 'importImages', 'newSeed'],
   train: ['train', 'pause', 'step', 'stop', 'reset', 'sep', 'engineTf', 'engineTorch', 'pyenv', 'sep', 'evaluate'],
-  help: ['guide', 'shortcuts', 'sep', 'about'],
+  help: ['guide', 'tutorial', 'tutorialDoc', 'tutorialVideo', 'welcome', 'sep', 'shortcuts', 'sep', 'about'],
 };
 const MENU_ICONS = { file: 'file', edit: 'edit', view: 'eye', model: 'tabModel', data: 'tabData', train: 'tabTrain', help: 'question' };
 const TOOLBAR = [['new', 'open', 'save', 'exportModel', 'print'], ['undo', 'redo'], ['addLayer', 'autoLayout', 'fit', 'neurons'], ['train', 'pause', 'step', 'stop', 'reset']];
@@ -1451,9 +1456,72 @@ async function evaluateNow() {
   else notify(t('test.torchNeedsRun'), 'error');
 }
 
-function openGuide() {
-  native.openGuideWindow(lang() === 'en' ? 'UsersGuide.en.html' : 'UsersGuide.html', `${t('menu.guide')} — MyTrainer`).catch((error) => reportError(error, 'guide'));
+/** The user's guide or the tutorial document in the UI language, in the document window (its title bar themed like the app). */
+function openGuide(doc = 'guide') {
+  const base = doc === 'tutorial' ? 'Tutorial' : 'UsersGuide';
+  const dark = resolveTheme(state.settings.theme, prefersDark(), state.settings.customTheme).dark;
+  native.openGuideWindow(`${base}${lang() === 'en' ? '.en' : ''}.html`, `${t(doc === 'tutorial' ? 'menu.tutorialDoc' : 'menu.guide')} — MyTrainer`, Boolean(dark)).catch((error) => reportError(error, 'guide'));
 }
+
+/** The tutorial video (silent; recorded in Korean, an English one is used when it was made): the system player on the desktop, a browser tab on the web. */
+function openTutorialVideo() {
+  const korean = 'video/MyTrainer-Tutorial.mp4';
+  const open = (name) => native.openDocument(name);
+  (lang() === 'en' ? open('video/MyTrainer-Tutorial.en.mp4').catch(() => open(korean)) : open(korean)).catch((error) => reportError(error, 'video'));
+}
+
+// ───────────────────────── the guided tour (src/ui/tutorial.js)
+
+/** The project the tour opened: kept from step to step, but never the user's own (edited) project of the same sample. */
+let tourProject = null;
+const waitFor = async (test, ms) => { const end = Date.now() + ms; while (!test() && Date.now() < end) await new Promise((r) => setTimeout(r, 100)); };
+const tutorial = new Tutorial({
+  t, lang,
+  // Popups as frames in the page while the tour runs: the tour points at them and a recording sees them.
+  onStart: () => { popups.inline = true; tourProject = null; },
+  onEnd: () => { popups.inline = false; },
+  onError: (error) => log(`tutorial: ${native.errorText(error)}`, 'error'),
+  showStart: () => { if (busy()) trainAction('stop'); state.showStart = true; renderAll(); },
+  /** The sample open on a tab: a fresh copy, except the one this tour opened already (it keeps its training). */
+  openSample: async (id, tab) => {
+    if (state.project !== tourProject || state.project.sample !== id) { if (busy()) trainAction('stop'); loadProject(sampleProject(id, lang())); tourProject = state.project; }
+    switchTab(tab);
+    // Two frames for the layout, but never longer than 200 ms: a hidden or minimised window draws no frames.
+    await Promise.race([new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), new Promise((r) => setTimeout(r, 200))]);
+  },
+  switchTab,
+  train: async ({ wait = 2000 } = {}) => {
+    if (!busy() && !state.run.history.length) startTraining();
+    await waitFor(() => state.run.history.length > 0, 8000);
+    await new Promise((r) => setTimeout(r, wait));
+  },
+  /** The test results now: a running training stops (the trainer evaluates the weights it has, and "continue" goes on later). */
+  evaluate: async () => {
+    if (busy()) trainAction('stop');
+    await waitFor(() => !busy() && Boolean(state.report), 20000);
+    if (!state.report && !busy()) { await evaluateNow(); await waitFor(() => Boolean(state.report), 10000); }
+  },
+});
+
+/** The tour opens samples of its own: unsaved work is offered for saving first (Cancel: no tour). */
+async function startTutorial(index = 0) {
+  if (tutorial.state().active) return;
+  if (!(await confirmDiscard())) return;
+  tutorial.start({ index }).catch((error) => reportError(error, 'tutorial'));
+}
+
+/** The welcome popup: where to begin, and whether to show it at the next start. */
+async function openWelcome() {
+  const result = await popups.open('welcome', { samples: SAMPLE_IDS.length });
+  const go = result?.go;
+  if (go === 'tutorial') startTutorial();
+  else if (go === 'tutorialDoc') openGuide('tutorial');
+  else if (go === 'tutorialVideo') openTutorialVideo();
+  else if (go === 'guide') openGuide();
+  else if (go === 'gallery') openGallery();
+  else if (go === 'new') newEmpty();
+}
+popups.on('welcome-show', (data) => updateSettings({ showWelcome: Boolean(data.value) }, { quiet: true }));
 
 async function openGallery() {
   const result = await popups.open('samples', {});
@@ -2173,7 +2241,7 @@ function bindShell() {
     if (stepRemove) { state.project.dataset.steps.splice(Number(stepRemove.dataset.stepRemove), 1); commit('data', { data: true }); return; }
     const stage = target.closest('[data-stage]');
     if (stage) { state.view.dataStage = stage.dataset.stage; renderCenter(); return; }
-    const preview = target.closest('canvas[data-preview="main"], canvas[data-test-canvas="mistakes"]');
+    const preview = target.closest('canvas[data-preview="main"], canvas[data-test-canvas="mistakes"], canvas[data-test-canvas="worst"]');
     if (preview?.hits) { previewClick(preview, event); return; }
     const liveCmd = target.closest('[data-live]');
     if (liveCmd && !liveCmd.disabled) { liveAction(liveCmd.dataset.live); return; }
@@ -2410,6 +2478,9 @@ function startAction(action, value) {
     case 'recent': openRecent(value); break;
     case 'forget': state.recent = removeRecent(state.recent, value); storeRecent(storage, state.recent); renderStart(); break;
     case 'guide': openGuide(); break;
+    case 'tutorial': startTutorial(); break;
+    case 'tutorialDoc': openGuide('tutorial'); break;
+    case 'tutorialVideo': openTutorialVideo(); break;
     case 'animation': updateSettings({ animation: value }, { quiet: true }); startBackground?.setKind(value); for (const chip of root.querySelectorAll('.anim-chip')) chip.classList.toggle('active', chip.dataset.value === value); break;
     case 'shuffle': { const next = startBackground?.shuffle(); if (next) { updateSettings({ animation: next }, { quiet: true }); for (const chip of root.querySelectorAll('.anim-chip')) chip.classList.toggle('active', chip.dataset.value === next); } break; }
     default: break;
@@ -2476,7 +2547,7 @@ function previewClick(canvas, event) {
   const hit = canvas.hits.find((h) => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
   if (!hit) return;
   if (hit.play && state.data?.media?.type === 'audio') playWave(state.data.media.waves[hit.index], state.data.media.rate);
-  if (canvas.dataset.testCanvas === 'mistakes') {
+  if (canvas.dataset.testCanvas === 'mistakes' || canvas.dataset.testCanvas === 'worst') {
     const part = state.prepared.test.n ? state.prepared.test : state.prepared.val;
     state.test.index = Math.min(hit.index, part.n - 1);
     state.test.mode = 'sample';
@@ -3371,8 +3442,10 @@ async function startApp() {
     setTimeout(() => { if (!state.python) native.pyDetect().then((detection) => { state.python = detection; renderStatus(); if (state.view.tab === 'train') renderCenter(); autoSetupPython(); }).catch(() => {}); }, 1500);
   }
   log(t('log.welcome', { version: VERSION }));
+  // The welcome popup, once the window is up (not when the app was started to open a file).
+  if (state.settings.showWelcome && !files.length) setTimeout(() => { if (state.settings.showWelcome) openWelcome(); }, 600);
   // Test hook (E2E): the app's state and actions.
-  globalThis.__mytrainer = { state, api, run, commands, switchTab, openSample, openSampleNow: (id) => loadProject(sampleProject(id, lang())), startTraining, probe, setEngine, loadProject, engines, graph: () => graphView, codeView: () => codeView };
+  globalThis.__mytrainer = { state, api, run, commands, switchTab, openSample, openSampleNow: (id) => loadProject(sampleProject(id, lang())), startTraining, probe, setEngine, loadProject, engines, graph: () => graphView, codeView: () => codeView, tutorial, openWelcome, openGuide };
 }
 
 startApp();

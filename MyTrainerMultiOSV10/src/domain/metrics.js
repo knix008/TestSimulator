@@ -65,5 +65,24 @@ export function evaluationReport(evaluation, task) {
   const predictions = Float32Array.from(evaluation.predictions);
   const targets = Float32Array.from(evaluation.targets);
   if (task.kind === 'classification') return { ...classificationReport(predictions, targets, evaluation.outputs, task.classes), summary: evaluation.summary };
-  return { ...regressionReport(predictions, targets.length === predictions.length ? targets : predictions), summary: evaluation.summary, outputs: evaluation.outputs };
+  const report = { ...regressionReport(predictions, targets.length === predictions.length ? targets : predictions), summary: evaluation.summary, outputs: evaluation.outputs };
+  if (task.kind === 'reconstruction' && targets.length === predictions.length) report.worst = worstReconstructions(predictions, targets, evaluation.outputs);
+  return report;
+}
+
+/**
+ * The samples an autoencoder rebuilds worst — the anomaly candidates: [{ index, error }] by mean squared
+ * error per sample, largest first (at most `limit`), with the median error for comparison.
+ */
+export function worstReconstructions(predictions, targets, outputs, limit = 24) {
+  const n = Math.floor(predictions.length / outputs);
+  const errors = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    for (let k = i * outputs; k < (i + 1) * outputs; k++) sum += (predictions[k] - targets[k]) ** 2;
+    errors[i] = sum / outputs;
+  }
+  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => errors[b] - errors[a]);
+  const sorted = Float32Array.from(errors).sort();
+  return { list: order.slice(0, limit).map((index) => ({ index, error: errors[index] })), median: n ? sorted[Math.floor(n / 2)] : 0 };
 }

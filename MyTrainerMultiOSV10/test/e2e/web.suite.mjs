@@ -16,9 +16,12 @@ export async function runWebSuite({ log = console.log, report } = {}) {
       results.push(result);
       if (report) report(result); else log(`  ✔ ${name}`);
     } catch (error) {
-      const result = { name, ok: false, ms: Date.now() - started, error: error.message };
+      // What the app logged last helps to see why (a training that did not start, an engine error …).
+      const recent = await page.eval(`JSON.stringify((__mytrainer.state.console ?? []).slice(-8).map((e) => e.level + ': ' + String(e.text).slice(0, 200)))`).catch(() => '[]');
+      const result = { name, ok: false, ms: Date.now() - started, error: `${error.message}
+    app log: ${recent}` };
       results.push(result);
-      if (report) report(result); else log(`  ✖ ${name}: ${error.message}`);
+      if (report) report(result); else log(`  ✖ ${name}: ${result.error}`);
       await page.screenshot(`test-results/fail-web-${name.replace(/[^a-z0-9]+/gi, '_')}.png`).catch(() => {});
     }
   };
@@ -231,6 +234,71 @@ export async function runWebSuite({ log = console.log, report } = {}) {
       const korean = texts.filter((x) => /[가-힣]/.test(x.replace(/출근|퇴근|경비|해제/g, '')));
       assert.deepEqual(korean, [], 'English texts only (the keywords themselves are Korean)');
       await page.eval(`__mytrainer.run('language')`);
+    });
+    await step('welcome popup: opens with six ways to begin; its check box saves "show at start" at once', async () => {
+      await page.eval(`(() => { __mytrainer.openWelcome(); return 1; })()`);
+      await page.waitFor(`Boolean(document.querySelector('iframe[src*="popup=welcome"]')?.contentDocument?.querySelector('[data-welcome-show]'))`);
+      const frame = `document.querySelector('iframe[src*="popup=welcome"]').contentDocument`;
+      assert.equal(await page.eval(`${frame}.querySelectorAll('[data-action="welcomeGo"]').length`), 6);
+      const before = await state('s.settings.showWelcome');
+      await page.eval(`(() => { ${frame}.querySelector('[data-welcome-show]').click(); return 1; })()`);
+      await page.waitFor(`__mytrainer.state.settings.showWelcome === ${!before}`);
+      assert.equal(await page.eval(`JSON.parse(localStorage.getItem('mytrainer.settings.v1')).showWelcome`), !before, 'stored');
+      await page.eval(`(() => { ${frame}.querySelector('[data-welcome-show]').click(); ${frame}.querySelector('[data-action="close"]').click(); return 1; })()`);
+      await page.waitFor(`!document.querySelector('iframe[src*="popup=welcome"]') || document.querySelector('iframe[src*="popup=welcome"]').hidden || getComputedStyle(document.querySelector('iframe[src*="popup=welcome"]').closest('[class]') ?? document.body).display === 'none'`).catch(() => {});
+    });
+    await step('tutorial: every step outlines its target with the card inside the window; Esc ends it and popups go back to windows', async () => {
+      await page.eval(`(() => { __mytrainer.tutorial.start({ index: 0 }); return 1; })()`);
+      const count = await page.eval(`__mytrainer.tutorial.state().count`);
+      const missing = [];
+      let evaluated = false;
+      for (let i = 0; i < count; i++) {
+        await page.eval(`(() => { __mytrainer.tutorial.go(${i}); return 1; })()`);
+        for (let k = 0; k < 120 && (await page.eval(`__mytrainer.tutorial.state().busy`)); k++) await sleep(250);
+        await sleep(400);
+        const info = JSON.parse(await page.eval(`(() => { const spot = document.querySelector('.tutorial-spot'); const card = document.querySelector('.tutorial-card').getBoundingClientRect(); return JSON.stringify({ id: __mytrainer.tutorial.state().id, spot: !spot.hidden, inside: card.left >= 0 && card.top >= 0 && card.right <= innerWidth + 1 && card.bottom <= innerHeight + 1, text: document.querySelector('.tutorial-card h3').textContent }); })()`));
+        if (!info.spot || !info.inside || !info.text) missing.push(info.id);
+        if (info.id === 'test') {
+          await page.waitFor('__mytrainer.state.report != null', { timeout: 30000 }).catch(() => {});
+          evaluated = (await state('s.report != null')) || await state('JSON.stringify({ run: s.run.state, epochs: s.run.history.length, sample: s.project.sample, engine: s.project.engine })');
+        }
+      }
+      assert.deepEqual(missing, [], 'steps without a target or with the card outside');
+      assert.equal(evaluated, true, 'the test step evaluated the model');
+      await page.key('Escape');
+      await page.waitFor(`!__mytrainer.tutorial.state().active && !document.querySelector('.tutorial-layer')`);
+    });
+    await step('anomaly detection: after training, the worst reconstructions are listed and most real anomalies are among them', async () => {
+      await page.eval(`(() => { __mytrainer.openSampleNow('anomalyAe'); __mytrainer.state.project.train.epochs = 12; __mytrainer.switchTab('train'); __mytrainer.startTraining(); return 1; })()`);
+      await page.waitFor(`__mytrainer.state.run.history.length === 12 && __mytrainer.state.run.state === 'idle' && Boolean(__mytrainer.state.report)`, { timeout: 120000 });
+      await page.eval(`(() => { __mytrainer.switchTab('test'); return 1; })()`);
+      await page.waitFor(`Boolean(document.querySelector('canvas[data-test-canvas="worst"]'))`);
+      const worst = JSON.parse(await state(`JSON.stringify((() => { const part = s.prepared.test.n ? s.prepared.test : s.prepared.val; const flags = s.data.anomaly; const total = Array.from(part.index).filter((i) => flags[i]).length; const top = s.report.worst.list.slice(0, total).filter((w) => flags[part.index[w.index]]).length; return { total, top, listed: s.report.worst.list.length }; })())`));
+      assert.ok(worst.listed > 0 && worst.total > 0, JSON.stringify(worst));
+      assert.ok(worst.top >= Math.ceil(worst.total / 2), `${worst.top} of ${worst.total} anomalies among the worst ${worst.total}`);
+    });
+    await step('Korean keywords 출근 · 퇴근 · 외출 · 복귀: opens with BC-ResNet+ and offers four models', async () => {
+      await page.eval(`(() => { __mytrainer.openSampleNow('kwsKoAttend'); __mytrainer.switchTab('train'); return 1; })()`);
+      await page.waitFor(`document.querySelectorAll('.variant-switch [data-variant]').length === 4`, { timeout: 60000 });
+      assert.equal(await page.eval(`document.querySelector('.variant-switch .active').dataset.variant`), 'bcResNetPlus');
+      await page.waitFor(`(__mytrainer.state.data?.labels?.length ?? 0) === 6`, { timeout: 90000 });
+      assert.deepEqual(JSON.parse(await state('JSON.stringify([...(s.data?.labels ?? [])].sort())')), ['noise', 'unknown', '복귀', '외출', '출근', '퇴근']);
+    });
+    await step('user\'s guide: larger text and another font are kept for the next document; languages and documents are linked', async () => {
+      await page.eval(`(() => { const f = document.createElement('iframe'); f.id = 'guide-check'; f.style.cssText = 'position:fixed;left:0;top:0;width:1000px;height:700px;z-index:99999'; f.src = './docs/UsersGuide.html'; document.body.append(f); return 1; })()`);
+      const doc = `document.getElementById('guide-check').contentDocument`;
+      await page.waitFor(`Boolean(${doc}?.querySelector('[data-doc-size="+"]'))`);
+      await page.eval(`(() => { const d = ${doc}; d.querySelector('[data-doc-size="+"]').click(); d.querySelector('[data-doc-size="+"]').click(); const s = d.querySelector('[data-doc-font]'); s.value = 'serif'; s.dispatchEvent(new Event('change')); return 1; })()`);
+      assert.equal(await page.eval(`${doc}.documentElement.style.getPropertyValue('--doc-size')`), '18px');
+      assert.equal(await page.eval(`${doc}.querySelector('[data-doc-size-label]').textContent`), '113%');
+      assert.match(await page.eval(`${doc}.documentElement.style.getPropertyValue('--doc-font')`), /serif/);
+      assert.ok(await page.eval(`Boolean(${doc}.querySelector('a[href="UsersGuide.en.html"]'))`), 'English link');
+      assert.equal(await page.eval(`${doc}.documentElement.style.getPropertyValue('--bg') !== ''`), true, "the app's theme colours");
+      await page.eval(`(() => { document.getElementById('guide-check').src = './docs/UsersGuide.en.html'; return 1; })()`);
+      await page.waitFor(`${doc}?.documentElement.lang === 'en' && Boolean(${doc}.querySelector('[data-doc-size-label]'))`);
+      await sleep(200);
+      assert.equal(await page.eval(`${doc}.documentElement.style.getPropertyValue('--doc-size')`), '18px', 'kept for the next page');
+      await page.eval(`(() => { const d = ${doc}; d.querySelector('[data-doc-size="0"]').click(); const s = d.querySelector('[data-doc-font]'); s.value = ''; s.dispatchEvent(new Event('change')); document.getElementById('guide-check').remove(); return 1; })()`);
     });
     await step('no page errors', async () => {
       const errors = await state('s.console.filter((e) => e.level === "error").map((e) => e.text)');

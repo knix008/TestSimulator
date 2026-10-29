@@ -4,12 +4,14 @@ MyTrainer lets you **draw** neural networks, prepare data, train them and **watc
 
 - The same app runs in a web browser and on Windows, macOS and Linux (Tauri 2).
 - Two training engines: **TensorFlow** inside the app (TensorFlow.js — WebGPU · WebGL · CPU), and **PyTorch** through this computer's Python (desktop app).
-- 23 sample models (MLP, CNN, autoencoders, RNN · LSTM · GRU, Conv1D, embeddings, residual connections, wide & deep), all with data generated offline.
+- **54 sample models**, all with data generated offline: perceptron, MLP, polynomial regression, **comparisons** (activation functions, overfitting and regularization, vanishing gradients, RNN · GRU · LSTM), CNN architectures (**VGG · Inception · DenseNet · MobileNet**), autoencoders (**denoising · anomaly detection** too), RNN · LSTM · GRU, Conv1D, **CNN + LSTM**, **transformers** (sentiment, forecasting, mini GPT), residual connections, wide & deep, speech (embedded DS-CNN · BC-ResNet, **two Korean keyword sets** and the live-ready **BC-ResNet+**), pictures, letters (OCR), video and tables (CSV).
+- New here? The **welcome window** at start offers the **tutorial** (19 steps pointing at the screen) and the **tutorial video**.
 
 ![Start page](docs/images/start.png)
 
 ## Quick start
 
+0. New to MyTrainer? **Start the tutorial** (welcome window, top of the start page, or **Help › Start the tutorial**) walks through the steps below on the screen with you.
 1. On the start page, click a **sample model** (e.g. "Spiral (3 classes)").
 2. Press **F5** (or ▶ on the toolbar): training starts and the **Train** tab draws the loss and accuracy curves and the decision boundary live.
 3. In the **Model** tab, press **Neuron view** and click a neuron: the **Properties** panel on the right shows its arithmetic (inputs × weights + bias → activation) with the real numbers.
@@ -33,13 +35,13 @@ MyTrainer lets you **draw** neural networks, prepare data, train them and **watc
 
 ### Where the data comes from
 
-- **Built-in datasets** — 2-D points (XOR, circles, moons, spiral, blobs, checkerboard), functions and tables (line, sine, Friedman), pictures (digits 0–9, shapes, coloured shapes, objects), letters (English A–Z, Hangul consonants), **speech commands** (formant synthesis, mel spectrogram), **video** (clips of moving objects), sequences (sine forecasting, patterns, counting ones, motion sensor) and text (short sentence sentiment, **English and Korean sentences for character-level language models**). Change the sample count, noise, seed … and the data is generated again at once.
-- **Recorded speech (real data)** — **Korean keywords: 출근 · 퇴근 · 경비 · 해제** (clock in · clock out · arm · disarm). 5520 clips (3840 keywords + 1680 unknown) from 120 Supertonic TTS voices (the built-in 5 male and 5 female, 30 blends of two and 80 nudged mixes of three) as a statement, a command and a question at several speeds, plus about 120 similar-sounding and everyday words (unknown: 출발 · 퇴장 · 경보 · 해지 …). **Augmented copies** (speed and pitch, time shift, gain, microphone colour, room echo, background noise, people talking behind, VTLP, SpecAugment) and a **background noise class** can be added. Making the spectrograms of all copies takes a while the first time; a progress window shows how far it is.
+- **Built-in datasets** — 2-D points (XOR, circles, moons, spiral, blobs, checkerboard), functions and tables (line, sine, Friedman), pictures (digits 0–9, shapes, coloured shapes, objects, **noisy digits** for denoising — the input is a digit under noise with blocks wiped out, the target the clean digit — and **digits + odd pictures** for anomaly detection — inverted digits, smudges and grids mixed in at a share you set), letters (English A–Z, Hangul consonants), **speech commands** (formant synthesis, mel spectrogram), **video** (clips of moving objects), sequences (sine forecasting, patterns, counting ones, motion sensor) and text (short sentence sentiment, **English and Korean sentences for character-level language models**). Change the sample count, noise, seed … and the data is generated again at once.
+- **Recorded speech (real data)** — **Korean keywords: 출근 · 퇴근 · 경비 · 해제** (clock in · clock out · arm · disarm). 5520 clips (3840 keywords + 1680 unknown) from 120 Supertonic TTS voices (the built-in 5 male and 5 female, 30 blends of two and 80 nudged mixes of three) as a statement, a command and a question at several speeds, plus about 120 similar-sounding and everyday words (unknown: 출발 · 퇴장 · 경보 · 해지 …). **Augmented copies** (speed and pitch, time shift, gain, microphone colour, room echo, background noise, people talking behind, VTLP, SpecAugment) and a **background noise class** can be added. Making the spectrograms of all copies takes a while the first time; a progress window shows how far it is. **Korean keywords: 출근 · 퇴근 · 외출 · 복귀** (clock in · clock out · going out · back) is made the same way (5520 clips); its unknown words add look-alikes of the new keywords such as 외식, 외부, 복구, 복지, 귀가, 경비, 해제 (about 150).
 - **Import CSV** — comma, semicolon and tab are detected. Pick the target column: text or few distinct values make it **classification**, otherwise **regression**. Text feature columns become one-hot columns; missing numbers get the column mean. Try `samples/student-pass.csv` (pass / fail, classification) and `samples/house-prices.csv` (regression).
 - **Import a picture folder** — sub-folder names are the classes (`cats/`, `dogs/` …). PNG · JPEG · GIF · WebP · BMP · AVIF · ICO · SVG · **TIFF · TGA** are read.
 - **Import a sound folder** — sub-folder names are the classes. WAV · MP3 · OGG · FLAC · M4A · WebM are read; the loudest second is kept at 8 kHz.
 
-The `data/` folder has ready examples: CSV (`csv/`), pictures (`images/`), sounds (`audio/speech/`, `audio/kws-ko/`) and files to predict (`predict/`). See `data/README.md`.
+The `data/` folder has ready examples: CSV (`csv/`), pictures (`images/`), sounds (`audio/speech/`, `audio/kws-ko/`, `audio/kws-ko-attend/`) and files to predict (`predict/`). See `data/README.md`.
 
 Click a sample to make it the **probe input**: the neuron view and the Train tab's neuron picture show that input passing through the network. The mouse wheel pages through the samples.
 
@@ -159,6 +161,7 @@ Every chart card has a title; hover over it (ⓘ) to see what the card shows (th
 - The input passing through the network is shown as a large neuron view, with the prediction (class probabilities · value · reconstruction).
 - **Performance (inference time)**: **Measure** puts test inputs through one at a time, 20 · 50 · 100 · 200 times: **mean ± standard deviation**, min … max, median, p95, and the **throughput** (inputs/s) of up to 256 inputs at once — from asking the engine to having the answer (what the app really waits).
 - **Evaluation** (automatic after training): accuracy, macro F1, loss, per-class precision · recall · F1, the **confusion matrix** (click a cell to list only those mistakes), pictures of the mistakes (click one to use it as input). Regression: MAE · RMSE · R², predicted vs actual and the error distribution.
+- **Worst reconstructions** (autoencoders): up to 24 test pictures with the largest reconstruction error (mean squared), each input above its reconstruction. An autoencoder rebuilds the common pictures well, so the top ones are the **anomaly candidates**; when the data flags anomalies (digits + odd pictures) the real ones get a **●**, so you see how well the detection worked. Click one to use it as the input.
 
 After training, the PyTorch engine keeps its run alive (`mt.serve`) to answer test requests; **End PyTorch** ends it.
 
@@ -203,19 +206,42 @@ A PyTorch run gets a folder (`runs/` in the app's data folder) with the script (
 
 | Group | Samples |
 |---|---|
-| Classification basics | XOR, circles, polynomial features + logistic regression, two moons, spiral (3 classes), softmax regression, checkerboard + batch norm |
-| Regression | Linear regression, sine curve fitting, tabular regression (Friedman) |
+| Classification basics | XOR, circles, polynomial features + logistic regression, two moons, spiral (3 classes), softmax regression, checkerboard + batch norm, **perceptron (a single neuron)**, **activation functions compared**, **overfitting and regularization**, **vanishing gradients in deep networks** |
+| Regression | Linear regression, sine curve fitting, tabular regression (Friedman), **polynomial regression** |
 | Tables (CSV) | Student pass prediction, house prices |
-| Pictures (CNN) | Digits (MLP), digits (CNN), shapes (CNN + BN + augmentation), coloured shapes (RGB CNN), objects (CNN) |
+| Pictures (CNN) | Digits (MLP), digits (CNN), shapes (CNN + BN + augmentation), coloured shapes (RGB CNN), objects (CNN), **VGG-style CNN**, **Inception blocks**, **DenseNet-style CNN**, **MobileNet-style CNN** |
 | Letters (OCR) | English capitals, Hangul consonants |
-| Speech | Speech commands (CNN · GRU), **keyword spotting DS-CNN · BC-ResNet (embedded)**, **Korean keyword spotting: 출근 · 퇴근 · 경비 · 해제** (Supertonic voices; ResNet CNN / DS-CNN / BC-ResNet) |
+| Speech | Speech commands (CNN · GRU), **keyword spotting DS-CNN · BC-ResNet (embedded)**, **Korean keyword spotting: 출근 · 퇴근 · 경비 · 해제** (Supertonic voices; ResNet CNN / DS-CNN / BC-ResNet), **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (BC-ResNet+ by default — about 20 thousand parameters, for live use; compare with ResNet CNN / DS-CNN / BC-ResNet) |
 | Video | Action recognition (frames + LSTM, stacked-frame CNN) |
 | Language models (LLM) | **Mini GPT** (English · Korean, character-level transformer), LSTM language model |
-| Autoencoders | Autoencoder, convolutional autoencoder |
-| Sequences · text | Forecasting (LSTM), pattern classification (GRU), counting ones (RNN), activity recognition (Conv1D), sentiment (embedding + LSTM) |
+| Autoencoders | Autoencoder, convolutional autoencoder, **denoising autoencoder**, **anomaly detection (autoencoder)** |
+| Sequences · text | Forecasting (LSTM), pattern classification (GRU), counting ones (RNN), activity recognition (Conv1D), sentiment (embedding + LSTM), **sentiment (transformer)**, **forecasting (transformer)**, **activity recognition (CNN + LSTM)**, **RNN, GRU and LSTM compared** |
 | Graph structures | Residual connection (ResNet block), wide & deep (concatenate) |
 
 Open them from **File › Sample models…** (the gallery) or the start page. The `samples/` folder has `.mytrain` files of some samples and the CSV examples.
+
+### Comparing models
+
+A sample with several models lets you pick one under **Model** at the top of the **Train** tab (edits are kept per model). Same data, same training settings, only the architecture changes — compare the loss curves and the results.
+
+| Sample | Models | What you see |
+|---|---|---|
+| Activation functions compared (spiral) | ReLU · tanh · sigmoid · GELU | sigmoid hardly learns (about 58% test accuracy), tanh is slow, ReLU and GELU reach about 99% fast |
+| Overfitting and regularization (moons, 120 points) | big network · dropout · small network | the big network's validation loss rises again (overfitting); dropout and the small network draw a smooth boundary |
+| Vanishing gradients (8 layers) | 8 sigmoid layers · ReLU + batch norm · residual connections | 8 sigmoid layers stay at chance (33%), residual connections reach 99% — see the per-layer sizes in the Train tab's **gradient flow** |
+| RNN, GRU and LSTM compared (90-step signals) | LSTM · GRU · simple RNN | the signals are long: the gateless RNN forgets their beginning (about 50%), GRU and LSTM reach 100% |
+| Korean keyword spotting (both samples) | ResNet CNN · DS-CNN · BC-ResNet (· BC-ResNet+) | the table below |
+
+**BC-ResNet+**, the default model of **Korean keyword spotting: 출근 · 퇴근 · 외출 · 복귀** (clock in, clock out, going out, back), stacks ten BC-ResNet blocks in four stages, a 1×1 convolution widening the channels 16 → 24 → 32 → 40 at each (halving the size midway keeps the work low). Tested on 3605 clips of voices it never heard (PyTorch, 20 epochs):
+
+| Model | Parameters | MACs | 4-keyword accuracy | 출근 · 퇴근 · 외출 · 복귀 |
+|---|---|---|---|---|
+| **BC-ResNet+** (default) | 21 k | 0.97 M | **95.9%** | 95.6 · 96.4 · 96.4 · 95.0 |
+| DS-CNN | 23 k | 5.4 M | 95.7% | 94.2 · 96.6 · 96.1 · 96.1 |
+| BC-ResNet | 4.7 k | 0.58 M | 92.0% | 91.9 · 91.3 · 93.1 · 91.9 |
+| ResNet CNN | 127 k | 24.7 M | 97.1% | 95.3 · 99.4 · 97.3 · 96.4 |
+
+BC-ResNet+ decides on one second of speech in about 1.8 ms with the app's engine (TensorFlow.js WASM) — plenty for live microphone use — and matches DS-CNN with 1/5.6 of its work. It learned from synthetic voices: check real ones with the microphone in the Test tab.
 
 ## Files
 
@@ -225,11 +251,23 @@ Open them from **File › Sample models…** (the gallery) or the start page. Th
 
 ## Start page
 
-The sample gallery, recent files and **twenty AI-themed moving backgrounds** (neural signals, gradient descent, attention, convolution, embedding space, tensors, activation functions, backpropagation, decision boundary, loss curves, dropout, token stream, diffusion, k-means, decision tree, firing neurons, weight matrix, latent space, recurrent network, GAN distributions). Pick one or a random one, set the speed and how often it changes. **Home** on the menu bar brings the page back.
+Along the top: **Start the tutorial**, the tutorial document and video, the **user's guide** and the sample gallery. Below: the sample gallery, recent files and **twenty AI-themed moving backgrounds** (neural signals, gradient descent, attention, convolution, embedding space, tensors, activation functions, backpropagation, decision boundary, loss curves, dropout, token stream, diffusion, k-means, decision tree, firing neurons, weight matrix, latent space, recurrent network, GAN distributions). Pick one or a random one, set the speed and how often it changes. **Home** on the menu bar brings the page back.
+
+## Welcome window
+
+At start the **welcome window** opens: **Start the tutorial**, **Tutorial document**, **Tutorial video**, **User's guide**, **Sample gallery** or **Empty project** — one click opens it. Untick **Show the welcome window at start** and it stays away from then on (saved at once); **Edit › Settings › General** has the same switch, and **Help › Welcome window** opens it any time.
+
+## Tutorial
+
+**Help › Start the tutorial** (or **Start the tutorial** on the start page or in the welcome window) goes with you through 19 steps in 7 chapters: it opens a sample, shows its data and model, trains it, and visits the neurons, the test, the code, comparing models and export. Each step outlines its part of the window and puts a card beside it: **Next / Back** (or → / ←, Enter) and **Close** (Esc). The tutorial opens samples of its own, so unsaved work is offered for saving first. **Help › Tutorial document** has the same steps with pictures; **Help › Tutorial video** shows them as a (silent) video.
+
+## The user's guide window
+
+The user's guide (F1) and the tutorial document open in a window of their own. Its top bar switches the **document** (user's guide · tutorial) and the **language** (한국어 · English), sets the **text size** (A− · A+ · ↺ reset, or Ctrl − / Ctrl + / Ctrl 0) and the **font** (default · serif · monospace); size and font stay for the next time. The window's colours and title bar **follow the app's theme**, also when the theme changes while it is open.
 
 ## Settings
 
-**Edit › Settings…** (a window of one fixed size, four tabs): **General** (language, start page, ask to save on exit, save weights, a popup when training has finished · visualization: colour map, neurons shown per layer, signal animation · PyTorch: Python path, build to install) / **Theme** (20 light · 20 dark · system) / **Custom theme** (background, surface, text, accent colours, dark or not, start from a theme, preview) / **Font · code** (font, size, weight, style · code font size, wrapping, visualization hooks). Changes (theme, font, language …) **apply to the main window at once**. **OK** keeps them, **Cancel** (or ×, Esc) puts back the settings the window opened with, and **Reset** sets this window's settings to their defaults (language and window layout stay; kept only with OK).
+**Edit › Settings…** (a window of one fixed size, four tabs): **General** (language, welcome window, start page, ask to save on exit, save weights, a popup when training has finished · visualization: colour map, neurons shown per layer, signal animation · PyTorch: Python path, build to install) / **Theme** (20 light · 20 dark · system) / **Custom theme** (background, surface, text, accent colours, dark or not, start from a theme, preview) / **Font · code** (font, size, weight, style · code font size, wrapping, visualization hooks). Changes (theme, font, language …) **apply to the main window at once**. **OK** keeps them, **Cancel** (or ×, Esc) puts back the settings the window opened with, and **Reset** sets this window's settings to their defaults (language and window layout stay; kept only with OK).
 
 ## Keyboard shortcuts
 

@@ -27,7 +27,10 @@ export class Page {
         this.pending.get(data.id)(data);
         this.pending.delete(data.id);
       } else if (data.method === 'Runtime.exceptionThrown') {
-        this.errors.push(data.params.exceptionDetails.exception?.description ?? data.params.exceptionDetails.text);
+        // With where it was thrown (an error from an evaluated test expression has no URL).
+        const d = data.params.exceptionDetails;
+        const where = d.url ? ` (${d.url.replace(/^https?:\/\/[^/]+/, '')}:${d.lineNumber + 1})` : d.stackTrace?.callFrames?.[0] ? ` (${d.stackTrace.callFrames[0].functionName || '?'} ${d.stackTrace.callFrames[0].url.replace(/^https?:\/\/[^/]+/, '')}:${d.stackTrace.callFrames[0].lineNumber + 1})` : ' (evaluated)';
+        this.errors.push(`${(d.exception?.description ?? d.text).split('\n')[0]}${where}`);
       } else if (data.method) {
         for (const listener of this.listeners.get(data.method) ?? []) listener(data.params);
       }

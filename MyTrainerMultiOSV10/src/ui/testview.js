@@ -238,7 +238,35 @@ function evaluationHtml(app, report) {
       <div class="metric"><span>${escapeHtml(t('test.loss'))}</span><b>${fmt(report.summary?.loss, 4)}</b></div>
     </div>
     <div class="regression-charts"><canvas data-test-canvas="pva"></canvas><canvas data-test-canvas="residuals"></canvas></div>
-  </div>`;
+  </div>
+  ${report.worst?.list.length && app.prepared()?.kind === 'image' ? `<h4>${escapeHtml(t('test.worst'))}</h4><p class="muted small">${escapeHtml(t('test.worstHint', { median: fmt(report.worst.median, 4) }))}</p><div class="mistakes"><canvas data-test-canvas="worst"></canvas></div>` : ''}`;
+}
+
+/** The worst reconstructions: each input over its reconstruction, its error, and a mark when the data flags it as an anomaly. */
+function drawWorst(app, canvas, report, part, s) {
+  const prepared = app.prepared();
+  const data = app.data();
+  const predictions = app.evaluation()?.predictions;
+  if (!predictions) return;
+  const size = 44;
+  const width = canvas.parentElement.clientWidth || 600;
+  const per = Math.max(1, Math.floor(width / (size + 10)));
+  const list = report.worst.list;
+  const rows = Math.ceil(list.length / per);
+  const { ctx } = setupCanvas(canvas, width, rows * (size * 2 + 26) + 4);
+  canvas.style.height = `${rows * (size * 2 + 26) + 4}px`;
+  canvas.hits = [];
+  list.forEach(({ index, error }, k) => {
+    const x = 4 + (k % per) * (size + 10);
+    const y = 4 + Math.floor(k / per) * (size * 2 + 26);
+    drawPicture(ctx, part.x.subarray(index * s, (index + 1) * s), prepared.inputShape, x, y, size, size);
+    drawPicture(ctx, Float32Array.from(predictions.slice(index * s, (index + 1) * s)), prepared.inputShape, x, y + size + 2, size, size);
+    const flagged = data.anomaly?.[part.index?.[index]] === 1;
+    ctx.fillStyle = flagged ? '#e15759' : theme().muted; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(`${flagged ? '● ' : ''}${fmt(error, 3)}`, x + size / 2, y + size * 2 + 14);
+    canvas.hits.push({ x, y, w: size, h: size * 2, index });
+  });
+  ctx.textAlign = 'left';
 }
 
 /** Draws the test view's canvases. */
@@ -327,6 +355,8 @@ export function drawTestView(app, host) {
   }
   const mistakes = host.querySelector('[data-test-canvas="mistakes"]');
   if (mistakes && report?.wrong) drawMistakes(app, mistakes, report, part, s);
+  const worst = host.querySelector('[data-test-canvas="worst"]');
+  if (worst && report?.worst) drawWorst(app, worst, report, part, s);
   const pva = host.querySelector('[data-test-canvas="pva"]');
   if (pva && report?.kind === 'regression') {
     const evaluation = app.evaluation();

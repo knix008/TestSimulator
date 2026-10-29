@@ -536,3 +536,29 @@ kbd { padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2p
 /* The stop button: a red square (grey while there is nothing to stop). */
 .stop-fill { fill: #e5484d; stroke: #e5484d; }
 :disabled .stop-fill, .disabled .stop-fill { fill: currentColor; stroke: currentColor; opacity: 0.45; }
+/* The welcome popup at start: where to begin. */
+.welcome { display: flex; flex-direction: column; gap: 16px; }
+.welcome-head { display: flex; gap: 16px; align-items: center; }
+.welcome-head h1 { margin: 0; font-size: 1.5em; }
+.welcome-head h1 small { font-size: 0.55em; color: var(--muted); font-weight: 500; }
+.welcome-head p { margin: 4px 0 0; }
+.welcome-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.welcome-action { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; font: inherit; }
+.welcome-action:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.welcome-action .icon { width: 26px; height: 26px; flex: none; color: var(--accent); }
+.welcome-action span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.welcome-action small { color: var(--muted); font-size: 0.86em; line-height: 1.35; }
+.welcome-action.primary { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+/* The guided tour: the page dims except the outlined target; the card sits beside it. */
+.tutorial-layer { position: fixed; inset: 0; z-index: 9000; pointer-events: none; }
+.tutorial-shade { position: absolute; inset: 0; background: rgba(8, 12, 20, 0.45); display: none; pointer-events: auto; }
+.tutorial-layer.no-target .tutorial-shade { display: block; }
+.tutorial-spot { position: absolute; border: 2px solid var(--accent); border-radius: 10px; box-shadow: 0 0 0 9999px rgba(8, 12, 20, 0.45), 0 0 0 5px color-mix(in srgb, var(--accent) 35%, transparent); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; pointer-events: none; }
+.tutorial-card { position: absolute; width: min(430px, calc(100vw - 20px)); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32); padding: 14px 16px 12px; pointer-events: auto; transition: left 0.25s, top 0.25s; }
+.tutorial-card h3 { margin: 4px 0 6px; font-size: 1.12em; }
+.tutorial-card p { margin: 0 0 10px; line-height: 1.55; }
+.tutorial-meta { display: flex; justify-content: space-between; color: var(--accent); font-size: 0.85em; font-weight: 600; }
+.tutorial-progress { height: 3px; border-radius: 2px; background: var(--border); margin-bottom: 10px; overflow: hidden; }
+.tutorial-progress i { display: block; height: 100%; background: var(--accent); }
+.tutorial-buttons { display: flex; gap: 6px; align-items: center; }
+.tutorial-buttons .grow { flex: 1; }

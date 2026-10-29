@@ -13,3 +13,11 @@ export function soundsFor(source) {
   }
   return cache.get(source.bank);
 }
+
+/** At most about `n` clips of a sound bank, spread evenly over every label (null stays null). */
+export function fewClips(clips, n = 160) {
+  if (!clips) return clips;
+  const byLabel = Map.groupBy(clips, (clip) => clip.label);
+  const each = Math.max(1, Math.ceil(n / byLabel.size));
+  return [...byLabel.values()].flatMap((list) => list.filter((_, i) => i % Math.max(1, Math.floor(list.length / each)) === 0).slice(0, each));
+}

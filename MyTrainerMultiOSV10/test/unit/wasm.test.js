@@ -9,7 +9,8 @@ import { sampleProject, SAMPLE_IDS } from '../../src/domain/samples.js';
 import { fromSource } from '../../src/domain/datasets.js';
 import { prepare } from '../../src/domain/preprocess.js';
 import { cleanTrain, effectiveTask } from '../../src/domain/project.js';
-import { soundsFor } from './sounds.mjs';
+import { fewClips, soundsFor } from './sounds.mjs';
+import { modelProject, SAMPLE_MODELS } from './models.mjs';
 
 // The CommonJS builds, so the WASM backend registers with the same TensorFlow.js as the tests use.
 const require = createRequire(import.meta.url);
@@ -71,24 +72,28 @@ test('WASM gradient of an embedding lookup (UnsortedSegmentSum) equals the CPU\'
   cpu.forEach((v, i) => assert.ok(Math.abs(v - wasm[i]) < 1e-4, `${i}: ${v} vs ${wasm[i]}`));
 });
 
-test('every sample model trains one epoch on the WASM backend (no GPU)', { timeout: 600000 }, async () => {
-  await tf.setBackend('wasm');
-  const failed = [];
-  for (const id of SAMPLE_IDS) {
-    const project = sampleProject(id, 'en');
+// Every model of every sample (each choice of model too) trains one epoch on the WASM backend (no GPU). A sound
+// bank gives a few hundred of its clips, every word kept: enough to build and train, not minutes of spectrograms.
+for (const entry of SAMPLE_MODELS) {
+  test(`trains one epoch on the WASM backend (no GPU) — ${entry.label}`, { timeout: 300000 }, async () => {
+    await tf.setBackend('wasm');
+    const project = modelProject(entry);
     project.train = cleanTrain({ ...project.train, epochs: 1 });
-    const data = fromSource(project.dataset.source, { sounds: soundsFor(project.dataset.source), overrides: { copies: 1, n: Math.min(project.dataset.source.params?.n ?? 400, 200) } });
+    const data = fromSource(project.dataset.source, { sounds: fewClips(soundsFor(project.dataset.source), 300), overrides: { copies: 1, n: Math.min(project.dataset.source.params?.n ?? 400, 200) } });
     const prepared = prepare(data, project.dataset.steps, project.dataset.split);
     const task = effectiveTask(prepared.task, project.model, prepared.inputShape);
     const messages = [];
     const trainer = new Trainer(tf, (m) => messages.push(m));
-    await trainer.handle({ type: 'build', graph: project.model, inputShape: prepared.inputShape, task, train: project.train });
-    await trainer.handle({ type: 'data', train: prepared.train, val: prepared.val, test: prepared.test, kind: prepared.kind, task, inputShape: prepared.inputShape });
-    await trainer.handle({ type: 'train' });
-    const error = messages.find((m) => m.type === 'error');
-    const loss = messages.find((m) => m.type === 'done')?.history?.at(-1)?.loss;
-    if (error || !Number.isFinite(loss)) failed.push(`${id}: ${error?.message ?? `loss ${loss}`}`);
-    trainer.dispose();
-  }
-  assert.deepEqual(failed, []);
-});
+    try {
+      await trainer.handle({ type: 'build', graph: project.model, inputShape: prepared.inputShape, task, train: project.train });
+      await trainer.handle({ type: 'data', train: prepared.train, val: prepared.val, test: prepared.test, kind: prepared.kind, task, inputShape: prepared.inputShape });
+      await trainer.handle({ type: 'train' });
+      const error = messages.find((m) => m.type === 'error');
+      assert.equal(error, undefined, error?.message);
+      const loss = messages.find((m) => m.type === 'done')?.history?.at(-1)?.loss;
+      assert.ok(Number.isFinite(loss), `loss ${loss}`);
+    } finally {
+      trainer.dispose();
+    }
+  });
+}

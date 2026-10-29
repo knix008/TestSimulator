@@ -128,7 +128,7 @@ const tabsHtml = (list, current) => `<nav class="tabs" role="tablist"><div class
 // ───────────────────────── popups
 
 function render() {
-  const renderers = { report: renderReport, summary: renderSummary, export: renderExport, settings: renderSettings, about: renderAbout, confirm: renderConfirm, error: renderError, progress: renderProgress, pyenv: renderPyEnv, samples: renderSamples, prompt: renderPrompt, shortcuts: renderShortcuts, themes: renderThemes };
+  const renderers = { report: renderReport, summary: renderSummary, export: renderExport, settings: renderSettings, about: renderAbout, welcome: renderWelcome, confirm: renderConfirm, error: renderError, progress: renderProgress, pyenv: renderPyEnv, samples: renderSamples, prompt: renderPrompt, shortcuts: renderShortcuts, themes: renderThemes };
   const html = (renderers[kind] ?? renderSettings)();
   if (html != null) root.innerHTML = html;
   bindSteppers(root, (key, value) => update({ [key]: value }));
@@ -161,6 +161,7 @@ function renderSettings() {
   switch (state.tab) {
     case 'general':
       body = row('globe', t('settings.language'), `<span class="segmented"><button class="segment ${s().language === 'ko' ? 'active' : ''}" data-set="language" data-value="ko">한국어</button><button class="segment ${s().language === 'en' ? 'active' : ''}" data-set="language" data-value="en">English</button></span>`)
+        + toggle('showWelcome', t('settings.showWelcome'), 'tutorial')
         + toggle('showStartPage', t('settings.showStartPage'), 'home')
         + toggle('confirmExit', t('settings.confirmExit'), 'exit')
         + toggle('saveWeights', t('settings.saveWeights'), 'save')
@@ -230,6 +231,26 @@ function renderAbout() {
       <p class="muted small">${escapeHtml(t('about.libraries'))}: TensorFlow.js, PyTorch (${escapeHtml(t('about.optional'))}), CodeMirror 6, Tauri 2</p>
       <p class="muted small">© SHKWON (knix008@naver.com)</p></div></div>`,
     foot: `<span class="grow"></span>${button('close', t('common.close'), 'check', 'primary')}`,
+  });
+  requestAnimationFrame(ready);
+  return null;
+}
+
+/** At start: where to begin (tutorial, its document and video, the guide, the samples, a new project), and whether to show this next time. */
+function renderWelcome() {
+  const go = (value, glyph, label, hint, extra = '') => `<button class="welcome-action ${extra}" data-action="welcomeGo" data-value="${value}" title="${escapeHtml(hint)}">${icon(glyph)}<span><b>${escapeHtml(label)}</b><small>${escapeHtml(hint)}</small></span></button>`;
+  root.innerHTML = frame({
+    glyph: 'home', title: t('welcome.title'),
+    body: `<div class="welcome"><div class="welcome-head"><img src="${appIcon}" alt="" class="about-icon small"/><div><h1>MyTrainer <small>v${escapeHtml(VERSION)}</small></h1><p>${escapeHtml(t('start.tagline'))}</p><p class="muted small">${escapeHtml(t('welcome.lead', { n: P().samples ?? '' }))}</p></div></div>
+      <div class="welcome-grid">
+        ${go('tutorial', 'tutorial', t('welcome.tutorial'), t('welcome.tutorialHint'), 'primary')}
+        ${go('tutorialDoc', 'tutorialDoc', t('menu.tutorialDoc'), t('welcome.tutorialDocHint'))}
+        ${go('tutorialVideo', 'tutorialVideo', t('menu.tutorialVideo'), t('welcome.videoHint'))}
+        ${go('guide', 'userGuide', t('menu.guide'), t('welcome.guideHint'))}
+        ${go('gallery', 'samples', t('start.gallery'), t('welcome.galleryHint'))}
+        ${go('new', 'file', t('welcome.new'), t('welcome.newHint'))}
+      </div></div>`,
+    foot: `<label class="inline-check"><input type="checkbox" data-welcome-show ${s().showWelcome ? 'checked' : ''}/><span>${escapeHtml(t('settings.showWelcome'))}</span></label><span class="grow"></span>${button('close', t('common.close'), 'check')}`,
   });
   requestAnimationFrame(ready);
   return null;
@@ -470,6 +491,7 @@ root.addEventListener('click', (event) => {
     case 'settingsCancel': cancelSettings(); break;
     case 'settingsReset': resetSettings(); break;
     case 'choice': close({ choice: actionButton.dataset.value }); break;
+    case 'welcomeGo': close({ go: actionButton.dataset.value }); break;
     case 'promptOk': close({ value: root.querySelector('[data-prompt]')?.value ?? '' }); break;
     case 'copy': navigator.clipboard.writeText(`${P().message}\n${P().detail}`).then(() => { state.copied = true; render(); }).catch(() => {}); break;
     case 'use': action('py-use', { path: actionButton.dataset.value }); break;
@@ -513,6 +535,8 @@ root.addEventListener('change', (event) => {
   if (target.matches('[data-custom-use]')) { if (target.checked) updateCustom({}); else update({ theme: 'light' }); return; }
   if (target.matches('[data-custom-dark]')) { updateCustom({ dark: target.checked }); return; }
   if (target.matches('[data-custom-from]') && target.value) { update({ customTheme: customFrom(resolveTheme(target.value, false, null)), theme: CUSTOM }); return; }
+  // The main window owns the settings while this popup is open: it saves the choice at once.
+  if (target.matches('[data-welcome-show]')) { state.settings = { ...state.settings, showWelcome: target.checked }; action('welcome-show', { value: target.checked }); return; }
   if (target.matches('[data-toggle]')) update({ [target.dataset.toggle]: target.checked });
   else if (target.matches('[data-setting]')) {
     const key = target.dataset.setting;

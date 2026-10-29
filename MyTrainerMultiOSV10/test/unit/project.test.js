@@ -1,6 +1,7 @@
 // Project files, settings, undo history, PyTorch code generation, metrics, the Python dictionary
 // and the UI dictionaries.
 import { soundsFor } from './sounds.mjs';
+import { modelProject, SAMPLE_MODELS } from './models.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -65,11 +66,12 @@ function anyPython() {
   return null;
 }
 
-test('the generated PyTorch code of every sample is valid Python, with a model class and a settings dictionary', () => {
+test('the generated PyTorch code of every sample model is valid Python, with a model class and a settings dictionary', () => {
   const python = anyPython();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mytrainer-codegen-'));
-  for (const id of SAMPLE_IDS) {
-    const project = sampleProject(id, 'en');
+  for (const entry of SAMPLE_MODELS) {
+    const id = entry.label.replace('/', '_');
+    const project = modelProject(entry);
     const data = fromSource(project.dataset.source, { sounds: soundsFor(project.dataset.source), overrides: { copies: 1, n: 60 } });
     const prepared = prepare(data, project.dataset.steps, project.dataset.split);
     const task = effectiveTask(prepared.task, project.model, prepared.inputShape);

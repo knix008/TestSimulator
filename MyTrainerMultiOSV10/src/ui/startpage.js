@@ -26,6 +26,9 @@ export function startPageHtml(app) {
         <img src="${appIcon}" alt="" class="start-icon"/>
         <div><h1>MyTrainer <small>v${escapeHtml(app.version())}</small></h1><p>${escapeHtml(t('start.tagline'))}</p></div>
         <div class="start-hero-actions">
+          <button class="button big" data-start="tutorial" title="${escapeHtml(t('welcome.tutorialHint'))}">${icon('tutorial')}<span>${escapeHtml(t('menu.tutorial'))}</span></button>
+          <button class="button big icon-only" data-start="tutorialDoc" title="${escapeHtml(t('menu.tutorialDoc'))}" aria-label="${escapeHtml(t('menu.tutorialDoc'))}">${icon('tutorialDoc')}</button>
+          <button class="button big icon-only" data-start="tutorialVideo" title="${escapeHtml(t('menu.tutorialVideo'))}" aria-label="${escapeHtml(t('menu.tutorialVideo'))}">${icon('tutorialVideo')}</button>
           <button class="button big" data-start="guide">${icon('userGuide')}<span>${escapeHtml(t('menu.guide'))}</span></button>
           <button class="button big primary" data-start="gallery">${icon('samples')}<span>${escapeHtml(t('start.gallery'))}</span></button>
         </div>

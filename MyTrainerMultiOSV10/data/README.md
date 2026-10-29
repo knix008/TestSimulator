@@ -10,6 +10,7 @@ Files to import into MyTrainer or to run trained models on (rebuilt with `npm ru
 | `images/digits/`, `images/letters/`, `images/hangul/` | 숫자·영문자·한글 자음 손글씨풍 그림 / hand-drawn-style characters | 그림 폴더 가져오기 / Import picture folder |
 | `audio/speech/` | yes·no·up·down·left·right 음성(WAV) / spoken keywords | 데이터 › 음성 폴더 가져오기 / Import sound folder |
 | `audio/kws-ko/` | 한국어 키워드 출근·퇴근·경비·해제·unknown, 기본 화자 10명(M1–M5, F1–F5)의 WAV (`npm run data:kws`) / Korean keywords, the 10 built-in Supertonic voices | 음성 폴더 가져오기 / Import sound folder |
-| `predict/` | 새 입력: 흰 바탕 그림, WAV, 정답 없는 CSV, 문장, `kws-ko/` 키워드·비슷한 말 몇 개 / new inputs, `kws-ko/` a few keyword and look-alike clips | 테스트 › 입력 데이터 선택해서 실행 / Test › Run on data you choose |
+| `audio/kws-ko-attend/` | 한국어 키워드 출근·퇴근·외출·복귀·unknown, 기본 화자 10명의 WAV (`npm run data:kws-attend`) / Korean attendance keywords, the 10 built-in voices | 음성 폴더 가져오기 / Import sound folder |
+| `predict/` | 새 입력: 흰 바탕 그림, WAV, 정답 없는 CSV, 문장, `kws-ko/`·`kws-ko-attend/` 키워드·비슷한 말 몇 개 / new inputs, `kws-ko/`·`kws-ko-attend/` a few keyword and look-alike clips | 테스트 › 입력 데이터 선택해서 실행 / Test › Run on data you choose |
 
 하위 폴더 이름이 클래스(정답)입니다. / Sub-folder names are the classes.

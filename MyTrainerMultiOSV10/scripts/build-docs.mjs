@@ -21,10 +21,16 @@ const publicDocs = path.join(root, 'public', 'docs');
 const imagesDir = path.join(docsDir, 'images');
 const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 
+// `doc` groups the two languages of one document: the top bar switches documents in the same language and
+// languages of the same document.
 const PAGES = [
-  { input: 'UsersGuide.md', output: 'UsersGuide.html', lang: 'ko', other: 'UsersGuide.en.html', otherLabel: 'English', title: 'MyTrainer 사용 설명서' },
-  { input: 'UsersGuide.en.md', output: 'UsersGuide.en.html', lang: 'en', other: 'UsersGuide.html', otherLabel: '한국어', title: "MyTrainer User's Guide" },
-];
+  { input: 'UsersGuide.md', output: 'UsersGuide.html', lang: 'ko', doc: 'guide', title: 'MyTrainer 사용 설명서' },
+  { input: 'UsersGuide.en.md', output: 'UsersGuide.en.html', lang: 'en', doc: 'guide', title: "MyTrainer User's Guide" },
+  { input: 'Tutorial.md', output: 'Tutorial.html', lang: 'ko', doc: 'tutorial', title: 'MyTrainer 튜토리얼' },
+  { input: 'Tutorial.en.md', output: 'Tutorial.en.html', lang: 'en', doc: 'tutorial', title: 'MyTrainer tutorial' },
+].filter((info) => fs.existsSync(path.join(root, info.input)));
+const DOC_NAMES = { guide: { ko: '사용 설명서', en: "User's guide" }, tutorial: { ko: '튜토리얼', en: 'Tutorial' } };
+const pageOf = (doc, lang) => PAGES.find((info) => info.doc === doc && info.lang === lang);
 
 /** Markdown sources and the page each becomes (for rewriting links between documents). */
 const MD_TO_HTML = new Map(PAGES.map((page) => [path.resolve(root, page.input), page.output]));
@@ -284,10 +290,20 @@ const CSS = `
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
-  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: 16px;
-  font-family: "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: var(--doc-size, 16px);
+  font-family: var(--doc-font, "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif);
   word-break: keep-all; overflow-wrap: anywhere;
 }
+.topbar .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.topbar .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.topbar .seg a, .topbar .seg button { border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 3px 11px; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.topbar .seg > :last-child { border-right: 0; }
+.topbar .seg .on { background: var(--accent); color: #fff; }
+.topbar .seg a:hover, .topbar .seg button:hover { background: var(--accent-soft); }
+.topbar .seg .on:hover { background: var(--accent); }
+.topbar .size { min-width: 46px; text-align: center; color: var(--muted); padding: 3px 4px; font-variant-numeric: tabular-nums; }
+.topbar select { font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px 6px; }
+.topbar .label { color: var(--muted); }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .topbar {
@@ -298,12 +314,12 @@ a:hover { text-decoration: underline; }
 .topbar .grow { flex: 1; }
 .topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
 .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
-nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding: 12px 8px 12px 0; }
-nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 12px; margin: 0 0 8px 10px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: .875em; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: .86em; margin: 0 0 8px 10px; }
 nav.toc ul { list-style: none; margin: 0; padding: 0; }
 nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
 nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
-nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: 13px; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: .93em; }
 main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
 h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
 h1 { font-size: 2em; margin: 0 0 .6em; }
@@ -314,20 +330,20 @@ h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
 h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
 .table-wrap { overflow-x: auto; margin: 14px 0; }
-table { border-collapse: collapse; width: 100%; font-size: 15px; }
+table { border-collapse: collapse; width: 100%; font-size: .94em; }
 th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
 th { background: var(--accent-soft); font-weight: 600; }
 tbody tr:nth-child(even) td { background: var(--row-alt); }
 code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
 pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
-pre code { background: none; padding: 0; font-size: 14px; }
+pre code { background: none; padding: 0; font-size: .875em; }
 blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
 blockquote p { margin: 6px 0; }
 hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
 ul, ol { padding-left: 1.6em; }
 li { margin: 3px 0; }
 li > ul, li > ol { margin: 4px 0; }
-footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+footer { color: var(--muted); font-size: .82em; text-align: center; padding: 24px; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
   nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
@@ -343,7 +359,21 @@ footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px
 
 const THEME_SCRIPT = "(function () { var key = 'mytrainer.docTheme'; function apply(raw) { try { var t = JSON.parse(raw); if (!t || !t.vars) return; var root = document.documentElement; for (var name in t.vars) root.style.setProperty(name, t.vars[name]); root.style.colorScheme = t.dark ? 'dark' : 'light'; } catch (e) { /* keep the page's own colours */ } } try { apply(localStorage.getItem(key)); } catch (e) { /* no storage */ } addEventListener('storage', function (e) { if (e.key === key) apply(e.newValue); }); })();";
 
-function page({ title, lang, html, toc, other, otherLabel }) {
+// The reader's choices (text size and font), kept in localStorage for every document and window.
+const VIEW_SCRIPT = "(function () { var key = 'mytrainer.docView', MIN = 12, MAX = 26, BASE = 16; var FONTS = { '': '', serif: '\"Noto Serif KR\", \"Batang\", \"바탕\", \"AppleMyungjo\", Georgia, serif', mono: '\"D2Coding\", \"Cascadia Code\", Consolas, monospace' }; function read() { try { var v = JSON.parse(localStorage.getItem(key)) || {}; return { size: Math.min(MAX, Math.max(MIN, Number(v.size) || BASE)), font: FONTS[v.font] !== undefined ? v.font : '' }; } catch (e) { return { size: BASE, font: '' }; } } function apply(v) { var root = document.documentElement; root.style.setProperty('--doc-size', v.size + 'px'); if (FONTS[v.font]) root.style.setProperty('--doc-font', FONTS[v.font]); else root.style.removeProperty('--doc-font'); var label = document.querySelector('[data-doc-size-label]'); if (label) label.textContent = Math.round((v.size / BASE) * 100) + '%'; var select = document.querySelector('[data-doc-font]'); if (select) select.value = v.font; } function save(v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* no storage */ } apply(v); } apply(read()); addEventListener('storage', function (e) { if (e.key === key) apply(read()); }); addEventListener('DOMContentLoaded', function () { apply(read()); document.querySelectorAll('[data-doc-size]').forEach(function (button) { button.addEventListener('click', function () { var v = read(); var step = button.getAttribute('data-doc-size'); v.size = step === '0' ? BASE : Math.min(MAX, Math.max(MIN, v.size + (step === '+' ? 1 : -1))); save(v); }); }); var select = document.querySelector('[data-doc-font]'); if (select) select.addEventListener('change', function () { var v = read(); v.font = select.value; save(v); }); addEventListener('keydown', function (e) { if (!(e.ctrlKey || e.metaKey)) return; var v = read(); if (e.key === '=' || e.key === '+') v.size = Math.min(MAX, v.size + 1); else if (e.key === '-') v.size = Math.max(MIN, v.size - 1); else if (e.key === '0') v.size = BASE; else return; e.preventDefault(); save(v); }); }); })();";
+
+/** The top bar: the documents, the languages, the text size and the font. */
+function topBar({ lang, doc, output }) {
+  const ko = lang === 'ko';
+  const docs = [...new Set(PAGES.map((info) => info.doc))];
+  const docLinks = docs.length > 1 ? `<span class="seg" role="navigation">${docs.map((d) => { const target = pageOf(d, lang) ?? pageOf(d, ko ? 'en' : 'ko'); return `<a href="${escapeHtml(target.output)}" class="${d === doc ? 'on' : ''}">${escapeHtml(DOC_NAMES[d][lang])}</a>`; }).join('')}</span>` : '';
+  const langLinks = `<span class="seg" title="${ko ? '언어' : 'Language'}">${['ko', 'en'].map((l) => { const target = pageOf(doc, l); return target ? `<a href="${escapeHtml(target.output)}" hreflang="${l}" class="${target.output === output ? 'on' : ''}">${l === 'ko' ? '한국어' : 'English'}</a>` : ''; }).join('')}</span>`;
+  const size = `<span class="label">${ko ? '글자 크기' : 'Text size'}</span><span class="seg"><button type="button" data-doc-size="-" title="${ko ? '작게 (Ctrl -)' : 'Smaller (Ctrl -)'}">A−</button><span class="size" data-doc-size-label>100%</span><button type="button" data-doc-size="+" title="${ko ? '크게 (Ctrl +)' : 'Larger (Ctrl +)'}">A+</button><button type="button" data-doc-size="0" title="${ko ? '원래 크기 (Ctrl 0)' : 'Reset (Ctrl 0)'}">↺</button></span>`;
+  const font = `<select data-doc-font title="${ko ? '글꼴' : 'Font'}"><option value="">${ko ? '기본 글꼴' : 'Default font'}</option><option value="serif">${ko ? '명조' : 'Serif'}</option><option value="mono">${ko ? '고정폭' : 'Monospace'}</option></select>`;
+  return `<header class="topbar"><span class="brand">MyTrainer <small>v${escapeHtml(version)}</small></span><span class="grow"></span><div class="tools">${docLinks}${langLinks}${size}${font}</div></header>`;
+}
+
+export function page({ title, lang, html, toc, doc, output }) {
   const tocHtml = toc.length ? `<nav class="toc" aria-label="${lang === 'ko' ? '목차' : 'Contents'}"><p class="toc-title">${lang === 'ko' ? '목차' : 'Contents'}</p><ul>${toc.map((item) => `<li class="h${item.level}"><a href="#${item.id}">${item.html.replace(/<a [^>]*>|<\/a>/g, '')}</a></li>`).join('')}</ul></nav>` : '<nav class="toc" aria-hidden="true"></nav>';
   return `<!doctype html>
 <html lang="${lang}">
@@ -354,9 +384,10 @@ function page({ title, lang, html, toc, other, otherLabel }) {
 <title>${escapeHtml(title)}</title>
 <style>${CSS}</style>
 <script>${THEME_SCRIPT}</script>
+<script>${VIEW_SCRIPT}</script>
 </head>
 <body>
-<header class="topbar"><span class="brand">MyTrainer <small>v${escapeHtml(version)}</small></span><span class="grow"></span>${other ? `<a class="lang" href="${escapeHtml(other)}" hreflang="${lang === 'ko' ? 'en' : 'ko'}">${escapeHtml(otherLabel)}</a>` : ''}</header>
+${topBar({ lang, doc, output })}
 <div class="layout">
 ${tocHtml}
 <main>
@@ -400,6 +431,8 @@ export function build() {
   fs.mkdirSync(publicDocs, { recursive: true });
   for (const info of PAGES) fs.copyFileSync(path.join(docsDir, info.output), path.join(publicDocs, info.output));
   const images = copyDir(imagesDir, path.join(publicDocs, 'images'));
+  // The tutorial video (npm run tutorial:video), for Help › Tutorial video in the browser.
+  copyDir(path.join(docsDir, 'video'), path.join(publicDocs, 'video'));
   return { written, images };
 }
 

@@ -1,0 +1,141 @@
+{
+  "video": "MyTrainer-Tutorial.mp4",
+  "width": 1600,
+  "height": 900,
+  "duration": 91.9,
+  "recorded": "2026-10-29T13:24:25.315Z",
+  "chapters": [
+    {
+      "id": "start",
+      "title": "시작",
+      "start": 1.5
+    },
+    {
+      "id": "model",
+      "title": "모델 그리기",
+      "start": 13.9
+    },
+    {
+      "id": "data",
+      "title": "데이터",
+      "start": 31.6
+    },
+    {
+      "id": "train",
+      "title": "학습",
+      "start": 36.4
+    },
+    {
+      "id": "inside",
+      "title": "속 들여다보기",
+      "start": 59.7
+    },
+    {
+      "id": "compare",
+      "title": "모델 비교",
+      "start": 74
+    },
+    {
+      "id": "finish",
+      "title": "내보내기와 도움말",
+      "start": 79.3
+    }
+  ],
+  "steps": [
+    {
+      "id": "welcome",
+      "title": "MyTrainer 에 오신 것을 환영합니다",
+      "start": 1.5
+    },
+    {
+      "id": "samples",
+      "title": "예제 모델",
+      "start": 5.3
+    },
+    {
+      "id": "openSample",
+      "title": "예제 열기: 두 개의 반달",
+      "start": 9.6
+    },
+    {
+      "id": "graph",
+      "title": "모델 그래프",
+      "start": 13.9
+    },
+    {
+      "id": "palette",
+      "title": "층 팔레트",
+      "start": 18.7
+    },
+    {
+      "id": "inspector",
+      "title": "속성",
+      "start": 23.5
+    },
+    {
+      "id": "console",
+      "title": "콘솔 · 모델 요약 · 문제",
+      "start": 27.8
+    },
+    {
+      "id": "data",
+      "title": "데이터 탭",
+      "start": 31.6
+    },
+    {
+      "id": "trainTab",
+      "title": "학습 설정",
+      "start": 36.4
+    },
+    {
+      "id": "engine",
+      "title": "두 엔진: TensorFlow 와 PyTorch",
+      "start": 41.2
+    },
+    {
+      "id": "startTraining",
+      "title": "학습 시작",
+      "start": 45.5
+    },
+    {
+      "id": "liveCharts",
+      "title": "실시간 그래프",
+      "start": 49.6
+    },
+    {
+      "id": "neurons",
+      "title": "뉴런 보기",
+      "start": 59.7
+    },
+    {
+      "id": "test",
+      "title": "테스트",
+      "start": 64.7
+    },
+    {
+      "id": "code",
+      "title": "PyTorch 코드",
+      "start": 69.7
+    },
+    {
+      "id": "variants",
+      "title": "모델 구조 고르기",
+      "start": 74
+    },
+    {
+      "id": "export",
+      "title": "저장과 내보내기",
+      "start": 79.3
+    },
+    {
+      "id": "settings",
+      "title": "설정과 테마",
+      "start": 84.3
+    },
+    {
+      "id": "help",
+      "title": "도움말",
+      "start": 88.6
+    }
+  ]
+}

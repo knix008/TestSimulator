@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content="MyTrainer scripts/build-docs.mjs" />
+<title>MyTrainer Tutorial</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f7f8fa; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dde2ea;
+  --accent: #2f6fde; --accent-soft: #e8f0fe; --code-bg: #f1f3f7; --row-alt: #f8fafc; --shadow: 0 1px 3px rgba(20, 30, 50, .08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --surface: #1b1f27; --text: #e3e7ee; --muted: #9aa4b5; --border: #2e3440;
+    --accent: #6ea8ff; --accent-soft: #1f2b40; --code-bg: #242a35; --row-alt: #1f242d; --shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.7; font-size: var(--doc-size, 16px);
+  font-family: var(--doc-font, "Pretendard", "Segoe UI", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", "Noto Sans CJK KR", system-ui, sans-serif);
+  word-break: keep-all; overflow-wrap: anywhere;
+}
+.topbar .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.topbar .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.topbar .seg a, .topbar .seg button { border: 0; border-right: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 3px 11px; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.topbar .seg > :last-child { border-right: 0; }
+.topbar .seg .on { background: var(--accent); color: #fff; }
+.topbar .seg a:hover, .topbar .seg button:hover { background: var(--accent-soft); }
+.topbar .seg .on:hover { background: var(--accent); }
+.topbar .size { min-width: 46px; text-align: center; color: var(--muted); padding: 3px 4px; font-variant-numeric: tabular-nums; }
+.topbar select { font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px 6px; }
+.topbar .label { color: var(--muted); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.topbar {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  background: var(--surface); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.topbar .brand { font-weight: 700; color: var(--text); }
+.topbar .grow { flex: 1; }
+.topbar .lang { border: 1px solid var(--border); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; max-width: 1320px; margin: 0 auto; padding: 24px; }
+nav.toc { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 88px); overflow: auto; font-size: .875em; padding: 12px 8px 12px 0; }
+nav.toc .toc-title { font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: .86em; margin: 0 0 8px 10px; }
+nav.toc ul { list-style: none; margin: 0; padding: 0; }
+nav.toc li a { display: block; padding: 3px 10px; border-left: 2px solid transparent; color: var(--text); border-radius: 0 6px 6px 0; }
+nav.toc li a:hover { background: var(--accent-soft); text-decoration: none; }
+nav.toc li.h3 a { padding-left: 24px; color: var(--muted); font-size: .93em; }
+main { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 32px 44px 48px; box-shadow: var(--shadow); }
+h1, h2, h3, h4 { line-height: 1.3; scroll-margin-top: 72px; }
+h1 { font-size: 2em; margin: 0 0 .6em; }
+h2 { font-size: 1.5em; margin: 2em 0 .6em; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 1.2em; margin: 1.6em 0 .5em; }
+h4 { font-size: 1.05em; margin: 1.4em 0 .4em; }
+.anchor { opacity: 0; margin-left: 6px; font-weight: 400; color: var(--muted); }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); display: block; margin: 12px 0; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { border-collapse: collapse; width: 100%; font-size: .94em; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--accent-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--row-alt); }
+code { font-family: "Cascadia Code", Consolas, "D2Coding", "Courier New", monospace; font-size: .9em; background: var(--code-bg); border-radius: 4px; padding: 1px 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+pre code { background: none; padding: 0; font-size: .875em; }
+blockquote { margin: 14px 0; padding: 8px 16px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--text); }
+blockquote p { margin: 6px 0; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 3px 0; }
+li > ul, li > ol { margin: 4px 0; }
+footer { color: var(--muted); font-size: .82em; text-align: center; padding: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+  nav.toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  main { padding: 20px 18px 32px; border-radius: 10px; }
+  .topbar { padding: 10px 14px; }
+}
+@media print {
+  .topbar, nav.toc { display: none; }
+  .layout { display: block; padding: 0; }
+  main { border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+<script>(function () { var key = 'mytrainer.docTheme'; function apply(raw) { try { var t = JSON.parse(raw); if (!t || !t.vars) return; var root = document.documentElement; for (var name in t.vars) root.style.setProperty(name, t.vars[name]); root.style.colorScheme = t.dark ? 'dark' : 'light'; } catch (e) { /* keep the page's own colours */ } } try { apply(localStorage.getItem(key)); } catch (e) { /* no storage */ } addEventListener('storage', function (e) { if (e.key === key) apply(e.newValue); }); })();</script>
+<script>(function () { var key = 'mytrainer.docView', MIN = 12, MAX = 26, BASE = 16; var FONTS = { '': '', serif: '"Noto Serif KR", "Batang", "바탕", "AppleMyungjo", Georgia, serif', mono: '"D2Coding", "Cascadia Code", Consolas, monospace' }; function read() { try { var v = JSON.parse(localStorage.getItem(key)) || {}; return { size: Math.min(MAX, Math.max(MIN, Number(v.size) || BASE)), font: FONTS[v.font] !== undefined ? v.font : '' }; } catch (e) { return { size: BASE, font: '' }; } } function apply(v) { var root = document.documentElement; root.style.setProperty('--doc-size', v.size + 'px'); if (FONTS[v.font]) root.style.setProperty('--doc-font', FONTS[v.font]); else root.style.removeProperty('--doc-font'); var label = document.querySelector('[data-doc-size-label]'); if (label) label.textContent = Math.round((v.size / BASE) * 100) + '%'; var select = document.querySelector('[data-doc-font]'); if (select) select.value = v.font; } function save(v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* no storage */ } apply(v); } apply(read()); addEventListener('storage', function (e) { if (e.key === key) apply(read()); }); addEventListener('DOMContentLoaded', function () { apply(read()); document.querySelectorAll('[data-doc-size]').forEach(function (button) { button.addEventListener('click', function () { var v = read(); var step = button.getAttribute('data-doc-size'); v.size = step === '0' ? BASE : Math.min(MAX, Math.max(MIN, v.size + (step === '+' ? 1 : -1))); save(v); }); }); var select = document.querySelector('[data-doc-font]'); if (select) select.addEventListener('change', function () { var v = read(); v.font = select.value; save(v); }); addEventListener('keydown', function (e) { if (!(e.ctrlKey || e.metaKey)) return; var v = read(); if (e.key === '=' || e.key === '+') v.size = Math.min(MAX, v.size + 1); else if (e.key === '-') v.size = Math.max(MIN, v.size - 1); else if (e.key === '0') v.size = BASE; else return; e.preventDefault(); save(v); }); }); })();</script>
+</head>
+<body>
+<header class="topbar"><span class="brand">MyTrainer <small>v1.0.0</small></span><span class="grow"></span><div class="tools"><span class="seg" role="navigation"><a href="UsersGuide.en.html" class="">User&#39;s guide</a><a href="Tutorial.en.html" class="on">Tutorial</a></span><span class="seg" title="Language"><a href="Tutorial.html" hreflang="ko" class="">한국어</a><a href="Tutorial.en.html" hreflang="en" class="on">English</a></span><span class="label">Text size</span><span class="seg"><button type="button" data-doc-size="-" title="Smaller (Ctrl -)">A−</button><span class="size" data-doc-size-label>100%</span><button type="button" data-doc-size="+" title="Larger (Ctrl +)">A+</button><button type="button" data-doc-size="0" title="Reset (Ctrl 0)">↺</button></span><select data-doc-font title="Font"><option value="">Default font</option><option value="serif">Serif</option><option value="mono">Monospace</option></select></div></header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="toc-title">Contents</p><ul><li class="h2"><a href="#contents">Contents</a></li><li class="h2"><a href="#1-getting-started">1. Getting started</a></li><li class="h3"><a href="#1-welcome-to-mytrainer">1. Welcome to MyTrainer</a></li><li class="h3"><a href="#2-sample-models">2. Sample models</a></li><li class="h3"><a href="#3-opening-a-sample-two-moons">3. Opening a sample: two moons</a></li><li class="h2"><a href="#2-drawing-a-model">2. Drawing a model</a></li><li class="h3"><a href="#4-the-model-graph">4. The model graph</a></li><li class="h3"><a href="#5-the-layer-palette">5. The layer palette</a></li><li class="h3"><a href="#6-properties">6. Properties</a></li><li class="h3"><a href="#7-console-summary-and-problems">7. Console, summary and problems</a></li><li class="h2"><a href="#3-data">3. Data</a></li><li class="h3"><a href="#8-the-data-tab">8. The Data tab</a></li><li class="h2"><a href="#4-training">4. Training</a></li><li class="h3"><a href="#9-training-settings">9. Training settings</a></li><li class="h3"><a href="#10-two-engines-tensorflow-and-pytorch">10. Two engines: TensorFlow and PyTorch</a></li><li class="h3"><a href="#11-start-training">11. Start training</a></li><li class="h3"><a href="#12-live-charts">12. Live charts</a></li><li class="h2"><a href="#5-looking-inside">5. Looking inside</a></li><li class="h3"><a href="#13-neurons">13. Neurons</a></li><li class="h3"><a href="#14-test">14. Test</a></li><li class="h3"><a href="#15-pytorch-code">15. PyTorch code</a></li><li class="h2"><a href="#6-comparing-models">6. Comparing models</a></li><li class="h3"><a href="#16-choosing-a-model">16. Choosing a model</a></li><li class="h2"><a href="#7-export-and-help">7. Export and help</a></li><li class="h3"><a href="#17-saving-and-export">17. Saving and export</a></li><li class="h3"><a href="#18-settings-and-themes">18. Settings and themes</a></li><li class="h3"><a href="#19-help">19. Help</a></li></ul></nav>
+<main>
+<h1 id="mytrainer-tutorial">MyTrainer Tutorial</h1>
+<p>This tutorial walks through MyTrainer on the real screen: opening a sample, its data and model, training it live, looking at the neurons, testing, the generated PyTorch code, comparing models and exporting. The same steps run inside the program — <strong>Help › Start the tutorial</strong> (or <strong>Start the tutorial</strong> on the start page or in the welcome window) outlines each part of the window with a card beside it: Next / Back, or → / ← and Esc. <strong>Help › Tutorial video</strong> shows it as a video.</p>
+<h2 id="contents">Contents <a class="anchor" href="#contents" aria-hidden="true">#</a></h2>
+<ol><li>Getting started</li><li>Drawing a model</li><li>Data</li><li>Training</li><li>Looking inside</li><li>Comparing models</li><li>Export and help</li></ol>
+<h2 id="1-getting-started">1. Getting started <a class="anchor" href="#1-getting-started" aria-hidden="true">#</a></h2>
+<h3 id="1-welcome-to-mytrainer">1. Welcome to MyTrainer <a class="anchor" href="#1-welcome-to-mytrainer" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/01-welcome.jpg" alt="Welcome to MyTrainer" loading="lazy" /></p>
+<p>Draw a neural network, prepare its data, train it and watch what every layer and neuron does. This tutorial opens a sample, trains it and looks at the results with you. Go on with [Next] or →, close it any time with Esc.</p>
+<h3 id="2-sample-models">2. Sample models <a class="anchor" href="#2-sample-models" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/02-samples.jpg" alt="Sample models" loading="lazy" /></p>
+<p>The samples are grouped by field on the right of the start screen: basics, regression, images (CNN), speech, sequences, transformers, autoencoders and more. A click opens a project with its data, model and training settings; all the data is generated, so it works offline.</p>
+<h3 id="3-opening-a-sample-two-moons">3. Opening a sample: two moons <a class="anchor" href="#3-opening-a-sample-two-moons" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/03-openSample.jpg" alt="Opening a sample: two moons" loading="lazy" /></p>
+<p>&quot;Two moons&quot; is open. The tabs along the top follow the work: Data → Model → Neurons → Code → Train → Test. Ctrl+1 … Ctrl+6 switch between them too.</p>
+<h2 id="2-drawing-a-model">2. Drawing a model <a class="anchor" href="#2-drawing-a-model" aria-hidden="true">#</a></h2>
+<h3 id="4-the-model-graph">4. The model graph <a class="anchor" href="#4-the-model-graph" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/04-graph.jpg" alt="The model graph" loading="lazy" /></p>
+<p>Layers are cards and the data paths are lines. Each card shows the layer type, its output shape and its parameter count; a number such as (32) on a line is the shape of the tensor flowing there. When shapes do not fit, the card turns red and the problem list says why.</p>
+<h3 id="5-the-layer-palette">5. The layer palette <a class="anchor" href="#5-the-layer-palette" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/05-palette.jpg" alt="The layer palette" loading="lazy" /></p>
+<p>Drag a layer from the palette onto the graph, or onto a line to insert it there. There are 27 kinds — dense, convolutions, depthwise convolutions, recurrent layers (RNN, LSTM, GRU), self-attention, normalization, add, concatenate and more — and the search box finds them by their PyTorch names (nn.Conv2d …) too.</p>
+<h3 id="6-properties">6. Properties <a class="anchor" href="#6-properties" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/06-inspector.jpg" alt="Properties" loading="lazy" /></p>
+<p>Pick a layer to change its values — units, activation, kernel size — in the Properties panel on the right. With nothing picked it shows the model summary (layers, parameters, input and output, task) and the problems.</p>
+<h3 id="7-console-summary-and-problems">7. Console, summary and problems <a class="anchor" href="#7-console-summary-and-problems" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/07-console.jpg" alt="Console, summary and problems" loading="lazy" /></p>
+<p>The bottom panel has tabs for the console (what happened), a per-layer model summary table and the problem list. While training, the console logs the loss and accuracy of every epoch.</p>
+<h2 id="3-data">3. Data <a class="anchor" href="#3-data" aria-hidden="true">#</a></h2>
+<h3 id="8-the-data-tab">8. The Data tab <a class="anchor" href="#8-the-data-tab" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/08-data.jpg" alt="The Data tab" loading="lazy" /></p>
+<p>Choose where the data comes from (a generator, a CSV file, a picture or sound folder), its options, the preprocessing steps (standardize, polynomial features, noise, flips …) and the train / validation / test split, and look at the samples. The moons data is 400 points in two interlocking half-moons — no straight line separates them.</p>
+<h2 id="4-training">4. Training <a class="anchor" href="#4-training" aria-hidden="true">#</a></h2>
+<h3 id="9-training-settings">9. Training settings <a class="anchor" href="#9-training-settings" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/09-trainTab.jpg" alt="Training settings" loading="lazy" /></p>
+<p>On the left of the Train tab set the engine and device, then the optimizer, learning rate, epochs, batch size, loss and learning-rate schedule. The advanced settings add label smoothing, mixup, weight decay and early stopping.</p>
+<h3 id="10-two-engines-tensorflow-and-pytorch">10. Two engines: TensorFlow and PyTorch <a class="anchor" href="#10-two-engines-tensorflow-and-pytorch" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/10-engine.jpg" alt="Two engines: TensorFlow and PyTorch" loading="lazy" /></p>
+<p>Pick the engine on the toolbar. TensorFlow (TensorFlow.js) trains right inside the app on WebGPU, WebGL or the CPU; PyTorch runs the PyTorch code made from the model with this computer&#39;s Python. Both draw their results on the same screens.</p>
+<h3 id="11-start-training">11. Start training <a class="anchor" href="#11-start-training" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/11-startTraining.jpg" alt="Start training" loading="lazy" /></p>
+<p>Press ▶ Start training (F5). Pause (F6), one batch at a time (F10), stop and reset are here and on the toolbar.</p>
+<h3 id="12-live-charts">12. Live charts <a class="anchor" href="#12-live-charts" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/12-liveCharts.jpg" alt="Live charts" loading="lazy" /></p>
+<p>Every epoch updates the loss and accuracy curves (training and validation), the decision boundary, the gradient flow per layer and one probe input travelling through the network. A validation curve that turns up again means overfitting.</p>
+<h2 id="5-looking-inside">5. Looking inside <a class="anchor" href="#5-looking-inside" aria-hidden="true">#</a></h2>
+<h3 id="13-neurons">13. Neurons <a class="anchor" href="#13-neurons" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/13-neurons.jpg" alt="Neurons" loading="lazy" /></p>
+<p>See each layer&#39;s activations and weights in colour. Click a neuron to see how its value was computed — weighted sum + bias → activation — with the real numbers. Convolutions show feature maps, LSTMs their gates, attention its weight table.</p>
+<h3 id="14-test">14. Test <a class="anchor" href="#14-test" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/14-test.jpg" alt="Test" loading="lazy" /></p>
+<p>After training the model is evaluated on the test data: accuracy, precision / recall / F1 per class, the confusion matrix and the mistakes. Click a sample to use it as the input, or draw your own, pick files or use the microphone or webcam.</p>
+<h3 id="15-pytorch-code">15. PyTorch code <a class="anchor" href="#15-pytorch-code" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/15-code.jpg" alt="PyTorch code" loading="lazy" /></p>
+<p>A readable PyTorch script made from the model and its training settings. Edit it and run it with the PyTorch engine; it has syntax colours, completion and explanations on hover.</p>
+<h2 id="6-comparing-models">6. Comparing models <a class="anchor" href="#6-comparing-models" aria-hidden="true">#</a></h2>
+<h3 id="16-choosing-a-model">16. Choosing a model <a class="anchor" href="#16-choosing-a-model" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/16-variants.jpg" alt="Choosing a model" loading="lazy" /></p>
+<p>Samples with several models, such as &quot;Activation functions compared&quot;, let you pick the model at the top of the Train tab. Train sigmoid, tanh, ReLU and GELU in turn and compare their curves. Overfitting and regularization, vanishing gradients, RNN / GRU / LSTM and Korean keyword spotting compare the same way.</p>
+<h2 id="7-export-and-help">7. Export and help <a class="anchor" href="#7-export-and-help" aria-hidden="true">#</a></h2>
+<h3 id="17-saving-and-export">17. Saving and export <a class="anchor" href="#17-saving-and-export" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/17-export.jpg" alt="Saving and export" loading="lazy" /></p>
+<p>A project is one .mytrain file with the data settings, the model and the trained weights. Export a trained model to ONNX, TensorFlow.js, C source (microcontrollers) or a PyTorch script, and save or print a training report as PDF.</p>
+<h3 id="18-settings-and-themes">18. Settings and themes <a class="anchor" href="#18-settings-and-themes" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/18-settings.jpg" alt="Settings and themes" loading="lazy" /></p>
+<p>Settings change the language, the theme (light, dark or your own), fonts, the visualizations and the Python path. The welcome window at start is switched on and off here too.</p>
+<h3 id="19-help">19. Help <a class="anchor" href="#19-help" aria-hidden="true">#</a></h3>
+<p><img src="images/tutorial/en/19-help.jpg" alt="Help" loading="lazy" /></p>
+<p>The Help menu has the user&#39;s guide (F1), this tutorial with its document and video, the welcome window and the shortcuts. The guide window changes language, text size and font along its top and follows the app&#39;s theme. Now open another sample!</p>
+<hr />
+<p>See the <a href="UsersGuide.en.html">user&#39;s guide</a> for every feature in detail.</p>
+<p>© SHKWON (knix008@naver.com)</p>
+</main>
+</div>
+<footer>MyTrainer v1.0.0 · © SHKWON (knix008@naver.com)</footer>
+</body>
+</html>

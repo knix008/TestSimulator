@@ -16,7 +16,7 @@ const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen
 
 /// Popup windows. Each is an OS window of its own (label `popup-<kind>`), owned
 /// by the main window: it can sit outside the main window and closes with it.
-const POPUP_KINDS: &[&str] = &["settings", "about", "confirm", "error", "progress", "pyenv", "samples", "prompt", "shortcuts", "menu", "themes", "summary", "export", "report"];
+const POPUP_KINDS: &[&str] = &["settings", "about", "welcome", "confirm", "error", "progress", "pyenv", "samples", "prompt", "shortcuts", "menu", "themes", "summary", "export", "report"];
 
 #[derive(Default)]
 struct Shared {
@@ -238,7 +238,9 @@ async fn open_external(target: String) -> Result<(), String> {
 /// The user's guide in a window of its own (label "doc-guide"): an ordinary resizable window with the
 /// system title bar showing docs/<name> from the app's pages; opened again it comes to the front.
 #[tauri::command]
-async fn open_doc_window(app: AppHandle, name: String, title: String) -> Result<(), String> {
+async fn open_doc_window(app: AppHandle, name: String, title: String, dark: Option<bool>) -> Result<(), String> {
+    // The title bar follows the app's theme like the page does (the page reads its colours from localStorage).
+    let theme = dark.map(|dark| if dark { tauri::Theme::Dark } else { tauri::Theme::Light });
     let safe: String = name.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '_' || *c == '-').collect();
     if !safe.ends_with(".html") {
         return Err(format!("not a document: {name}"));
@@ -248,6 +250,7 @@ async fn open_doc_window(app: AppHandle, name: String, title: String) -> Result<
     if let Some(window) = app.get_webview_window("doc-guide") {
         let _ = window.eval(&format!("location.replace('/docs/{safe}')"));
         let _ = window.set_title(&title);
+        let _ = window.set_theme(theme);
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
@@ -260,6 +263,7 @@ async fn open_doc_window(app: AppHandle, name: String, title: String) -> Result<
         .inner_size(1000.0, 820.0)
         .min_inner_size(560.0, 400.0)
         .center()
+        .theme(theme)
         .additional_browser_args(BROWSER_ARGS)
         .build()
         .map_err(|error| error.to_string())?;
