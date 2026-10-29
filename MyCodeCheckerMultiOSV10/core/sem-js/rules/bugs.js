@@ -604,7 +604,7 @@ function reassignRule(id, kinds, ref, sev, nameEn, nameKo, whyEn, whyKo, msgEn, 
   });
 }
 
-reassignRule('const-reassign', ['const', 'using'], 'S3500', 'CR', 'Attempts should not be made to update "const" variables', '"const" 변수를 바꾸려고 하면 안 됩니다',
+reassignRule('const-reassign', ['const', 'using', 'await using'],'S3500', 'CR', 'Attempts should not be made to update "const" variables', '"const" 변수를 바꾸려고 하면 안 됩니다',
   'Assigning to a const binding throws a TypeError at runtime.', 'const 바인딩에 대입하면 실행 시 TypeError가 납니다.',
   (n) => `"${n}" is a constant and cannot be reassigned.`, (n) => `"${n}"는 상수라 다시 대입할 수 없습니다.`);
 reassignRule('function-reassign', ['function'], 'S1527', 'MA', 'Function declarations should not be reassigned', '함수 선언을 다시 대입하면 안 됩니다',

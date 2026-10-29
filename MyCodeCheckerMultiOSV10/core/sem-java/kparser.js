@@ -223,6 +223,17 @@ class KParser {
         if (t.v !== 'enum' && nx.t === 'id' && nx.nl && (MODS.has(nx.v) || ['fun', 'val', 'var', 'class', 'object', 'interface', 'constructor'].includes(nx.v))) { mods.add(t.v); this.i++; continue; }
       }
       if (t.t === 'id' && t.v === 'fun' && this.is('interface', 1)) { mods.add('fun'); this.i++; continue; }
+      // Context receivers / parameters: "context(Logger)" (1.6.20) and
+      // "context(logger: Logger)" (2.2) before a declaration.
+      if (t.t === 'id' && !t.bq && t.v === 'context' && this.is('(', 1)) {
+        const close = this.match[this.i + 1];
+        const nx = close > 0 ? this.t[close + 1] : null;
+        if (nx && ((nx.t === 'id' && (MODS.has(nx.v) || ['fun', 'val', 'var', 'class', 'object', 'interface', 'constructor', 'context'].includes(nx.v))) || (nx.t === 'op' && nx.v === '@'))) {
+          mods.add('context');
+          this.i = close + 1;
+          continue;
+        }
+      }
       break;
     }
     return { mods, annos };
@@ -1050,7 +1061,8 @@ class KParser {
           if (this.is('->')) break;
         }
       }
-      if (this.is('if') && !this.is('(', 0) && false) this.i++;
+      // Guard condition (Kotlin 2.1): "is Ok if x > 0 ->", "else if ok ->".
+      if (this.is('if')) { this.i++; c.guard = this.expr(); }
       this.expect('->');
       c.body = [this.controlBody()];
       sw.cases.push(this.done(c));

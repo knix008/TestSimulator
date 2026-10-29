@@ -216,6 +216,15 @@ class Parser {
           if (n.type === 'name' && !n.nl && this.isIdentTok(n)) return this.parseVarStatement('using', start);
           break;
         }
+        case 'await': {
+          // Explicit resource management: "await using x = ..." (ES2026 / TS 5.2).
+          const [a, b] = this.peek2();
+          if (a.type === 'name' && a.value === 'using' && !a.esc && !a.nl && b.type === 'name' && !b.nl && this.isIdentTok(b)) {
+            this.next();
+            return this.parseVarStatement('await using', start);
+          }
+          break;
+        }
         case 'function': return this.parseFunction(start, true, false);
         case 'async': {
           const n = this.peek();
