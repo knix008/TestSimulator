@@ -7,8 +7,9 @@ import * as descriptive from './descriptive.js';
 import * as htest from './htest.js';
 import * as regress from './regress.js';
 import * as cluster from './cluster.js';
+import * as extra from './extra.js';
 
-const PARTS = [['dist', dist], ['distobj', distobj], ['descriptive', descriptive], ['htest', htest], ['regress', regress], ['cluster', cluster]];
+const PARTS = [['dist', dist], ['distobj', distobj], ['descriptive', descriptive], ['htest', htest], ['regress', regress], ['cluster', cluster], ['extra', extra]];
 export const builtins = {};
 export const help = {};
 export const classes = {};

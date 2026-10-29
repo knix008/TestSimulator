@@ -9,6 +9,7 @@ import {
   SEV, TYPE_ICON, SEV_ICON,
 } from './views/Panels';
 import { DefectsView, StreamsView, ComponentsEditor, PoliciesEditor, ModelsEditor } from './views/DefectAnalysis';
+import { ProjectSettings } from './views/ProjectSettings';
 import { ComplianceView, MisraView } from './views/Compliance';
 import { ReportsView } from './views/Reports';
 import { ScaView } from './views/Sca';
@@ -39,6 +40,7 @@ import { TutorialWelcome } from './components/TutorialWelcome';
 import { progressPatch, shouldShowWelcome } from './lib/tutorialSettings';
 import { usePopupWindows, openPopupWindow, onBroadcast, warmPopups, popupRoute } from './lib/popups';
 import { ask, toast, attempt, showError, errorText as errorTextOf } from './lib/ui';
+import { track } from './lib/progress';
 import { record, clearHistory, undo as historyUndo, redo as historyRedo, subscribeHistory, onHistoryApplied, typingTarget, historyState } from './lib/history';
 import { projectSignature, subscribeDirty, dirtyEditors, listenChildEditors, saveEditors, useEditorDirty } from './lib/dirty';
 import { UiHost } from './components/UiHost';
@@ -138,6 +140,7 @@ export default function App() {
   const [checked, setChecked] = useState([]);
   const [codeFile, setCodeFile] = useState('');
   const [codeText, setCodeText] = useState('');
+  const [codeBinary, setCodeBinary] = useState(null); // { size } of a binary file in the code view
   const [codeLine, setCodeLine] = useState(0);
   const [codeError, setCodeError] = useState('');
   // Start-page tiles: the standard a compliance / MISRA view opens on, and a language to filter by after the next analysis.
@@ -168,6 +171,7 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState(null);
   // Centre tabs: Home pinned first, one tab per opened view (kept in settings.tabs).
   const [tabs, setTabs] = useState([{ id: 'start', view: 'start' }]);
+  const shownTabs = useRef(new Set()); // the tabs whose view was built (see renderView)
   const mainRef = useRef(null);
   const scrollOf = useRef({});
   const prevView = useRef('start');
@@ -637,6 +641,27 @@ export default function App() {
       setScanJob((s) => (s && s.id === jobId ? null : s));
     }
   };
+  // The results' export to the database (Settings › Database) after an
+  // analysis: in the background, shown in the progress popup; a failure opens
+  // an error popup. The analysis is already saved on this computer.
+  const watchDbExport = async (jobId) => {
+    const job = track(t('pp_db_save'));
+    try {
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 1000));
+        let j;
+        try { j = await call('db.exportJob', { jobId }); } catch { return; }
+        const pr = j.progress || {};
+        if (pr.total) job.update(pr.done || 0, pr.total);
+        if (j.status === 'running') continue;
+        if (j.status === 'done') toast(t('dbj_saved'), 'ok');
+        else if (j.status === 'failed' && j.error) showError(Object.assign(new Error(j.error.message), { code: j.error.code, text: j.error.text }), t('dbj_auto_failed'));
+        return;
+      }
+    } finally {
+      job.end();
+    }
+  };
   const cancelScanJob = async () => {
     const cur = scanJobRef.current;
     if (!cur) return;
@@ -681,10 +706,7 @@ export default function App() {
         if (langAfterScan.current) { setFilter({ ...EMPTY_FILTER, lang: langAfterScan.current }); setView('issues'); }
         else setView('overview');
         if (res.task && res.task.reports && res.task.reports.files.length) toast(t('rs_written', { n: res.task.reports.files.length, folder: res.task.reports.folder }), 'ok', 9000);
-        if (res.task && res.task.dbError) {
-          const e = res.task.dbError;
-          showError(Object.assign(new Error(e.message), { code: e.code, text: e.text }), t('dbj_auto_failed'));
-        }
+        if (res.task && res.task.dbJobId) watchDbExport(res.task.dbJobId);
         const policy = res.analysis.defectAnalysis && res.analysis.defectAnalysis.policy;
         const gateBad = res.analysis.qualityGate.status !== 'OK';
         const policyBad = policy && policy.status === 'ERROR';
@@ -803,8 +825,10 @@ export default function App() {
     setCodeLine(Number(line) || 0);
     setCodeError('');
     try {
-      const res = await call('project.file', { projectId: project.id, file });
-      setCodeText(res.text);
+      // A binary file comes back as its first bytes and size: the code view shows it as hex.
+      const res = await call('project.file', { projectId: project.id, file, limit: 0 });
+      setCodeBinary(res.binary ? { size: res.size } : null);
+      setCodeText(res.binary ? '' : res.text);
     } catch (err) {
       setCodeText(null);
       setCodeError(errorTextOf(err));
@@ -825,7 +849,7 @@ export default function App() {
     else if (id === 'settings' || id.startsWith('settings:')) {
       const tab = id.startsWith('settings:') ? id.slice(9) : null;
       // The settings window's shortcut buttons come back as { action } and run here.
-      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: 600, onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings, gates: ws.gates }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
+      if (usePopupWindows()) openPopupWindow({ kind: 'settings', center: true, width: 920, height: 720, onResult: (r) => { if (r && r.action) setTimeout(() => actionRef.current && actionRef.current(r.action), 0); }, payload: { tab, ws: { settings: ws.settings, gates: ws.gates }, theme: ws.settings.theme, language: getLanguage(), customThemes: getCustomThemesRaw() } });
       else { setSettingsTab(tab); setDialog({ kind: 'settings' }); }
     }
     else if (id.startsWith('adminTab:')) { setAdminTab(id.slice(9)); setView('admin'); }
@@ -841,6 +865,8 @@ export default function App() {
     else if (id === 'undo' || id === 'redo') runHistory(id);
     else if (id === 'deleteProject') deleteProject();
     else if (id.startsWith('sampleFile:')) openSampleFile(id.slice(11));
+    else if (id === 'refresh') { const data = await reload(); if (data) toast(t('cm_refreshed'), 'ok'); }
+    else if (id.startsWith('openCode:')) { const rest = id.slice(9); const at = rest.indexOf(':'); openCode(rest.slice(at + 1), Number(rest.slice(0, at)) || 0); }
     else if (id.startsWith('sampleOpen:')) {
       setBusy(true);
       setMessage(t('analyzing'));
@@ -988,13 +1014,13 @@ export default function App() {
   const codeLineRef = useRef(0);
   codeLineRef.current = codeLine;
   const openCodeRef = useRef(null);
-  openCodeRef.current = async (f) => { try { setCodeText((await call('project.file', { projectId: projectRef.current.id, file: f })).text); setCodeError(''); } catch (err) { setCodeError(errorTextOf(err)); } };
+  openCodeRef.current = async (f) => { try { const r = await call('project.file', { projectId: projectRef.current.id, file: f, limit: 0 }); setCodeBinary(r.binary ? { size: r.size } : null); setCodeText(r.binary ? '' : r.text); setCodeError(''); } catch (err) { setCodeError(errorTextOf(err)); } };
   const openCodeIn = async (projectId, file) => {
     setView('code');
     setCodeFile(file);
     setCodeLine(0);
     setCodeError('');
-    try { setCodeText((await call('project.file', { projectId, file })).text); } catch (err) { setCodeText(null); setCodeError(errorTextOf(err)); }
+    try { const r = await call('project.file', { projectId, file, limit: 0 }); setCodeBinary(r.binary ? { size: r.size } : null); setCodeText(r.binary ? '' : r.text); } catch (err) { setCodeText(null); setCodeError(errorTextOf(err)); }
   };
 
   // ── Tabs ───────────────────────────────────────────────
@@ -1088,6 +1114,7 @@ export default function App() {
       { sep: true },
       { id: 'openFolder', label: t('open_folder'), icon: 'folder', keys: 'Ctrl+O' },
       { id: 'openSample', label: t('open_sample'), icon: 'play' },
+      { id: 'view:projectSettings', label: t('ps_menu'), icon: 'settings', disabled: !project },
       { id: 'excludeDirs', label: t('xd_menu'), icon: 'filter', disabled: !project },
       { id: 'resetAnalysis', label: t('ra_menu'), icon: 'refresh', disabled: !project || busy },
       { sep: true },
@@ -1206,6 +1233,10 @@ export default function App() {
     revealRight();
   };
   const lastTask = (ws.tasks || []).filter((x) => !project || x.projectId === project.id).slice(-1)[0] || null;
+  // Tabs whose view has been shown. A restored tab is built the first time it
+  // is shown: twenty restored tabs would otherwise all load their data (reports,
+  // graphs …) at once when the window opens. Once built, a tab stays mounted.
+  shownTabs.current.add(view);
   // One open tab's view (inactive tabs stay mounted, hidden, with their own state).
   const renderView = (view) => (
     <>
@@ -1214,10 +1245,10 @@ export default function App() {
             onBackground={(startBackground) => patchSettings({ startBackground })}
             onRecent={async (p) => { if (await save({ ...ws, activeProjectId: p.id })) setView('overview'); }} />}
           {view === 'overview' && <Overview analysis={analysis} project={project} onGo={onAction} />}
-          {view === 'issues' && <IssueBrowser issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} filter={filter} setFilter={setFilter} selected={selected} onSelect={(i) => { setSelected(i); if (i) revealRight(); }} checked={checked} setChecked={setChecked} onUpdate={onUpdate} onReview={onReview} approval={ws.settings.approval} onTicket={onTicket} project={project} branch={branch} />}
-          {view === 'hotspots' && <Hotspots issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} onUpdate={onUpdate} />}
+          {view === 'issues' && <IssueBrowser issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} filter={filter} setFilter={setFilter} selected={selected} onSelect={(i) => { setSelected(i); if (i) revealRight(); }} checked={checked} setChecked={setChecked} onUpdate={onUpdate} onReview={onReview} approval={ws.settings.approval} onTicket={onTicket} project={project} branch={branch} serverSearch={!desktop} onOpenCode={openCode} />}
+          {view === 'hotspots' && <Hotspots issues={(analysis && analysis.issues) || []} hasAnalysis={!!analysis} rules={allRules} onUpdate={onUpdate} onOpenCode={openCode} />}
           {view === 'measures' && <Measures analysis={analysis} />}
-          {view === 'code' && <CodeView analysis={analysis} file={codeFile} text={codeText} error={codeError} line={codeLine} onOpen={openCode} onPickIssue={jumpTo} />}
+          {view === 'code' && <CodeView analysis={analysis} file={codeFile} text={codeText} binary={codeBinary} projectId={project && project.id} error={codeError} line={codeLine} onOpen={openCode} rules={allRules} onPickIssue={(i) => { setSelected(i); setView('issues'); revealRight(); }} />}
           {view === 'his' && <HisView project={project} stamp={stamp} onOpenAt={openCode} />}
           {view === 'arch' && <ArchView project={project} stamp={stamp} issues={(analysis && analysis.issues) || []} onOpenAt={openCode} />}
           {view === 'approvals' && <ApprovalsView project={project} stamp={stamp} onChanged={reload} />}
@@ -1244,8 +1275,8 @@ export default function App() {
           }} />}
           {view === 'portfolios' && <Portfolios portfolios={ws.portfolios || []} projects={ws.projects || []} onChange={(portfolios) => save({ ...ws, portfolios })} />}
           {view === 'tasks' && <Tasks tasks={ws.tasks || []} />}
-          {view === 'defects' && <DefectsView analysis={analysis} onUpdate={onUpdate} />}
-          {view === 'streams' && <StreamsView history={history} analysis={storedAnalysis} />}
+          {view === 'defects' && <DefectsView analysis={analysis} onUpdate={onUpdate} onOpenCode={openCode} />}
+          {view === 'streams' && <StreamsView history={history} analysis={storedAnalysis} project={project} branch={branch} />}
           {view === 'components' && <ComponentsEditor components={(ws.defectAnalysis && ws.defectAnalysis.components) || []} onChange={(components) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, components } })} />}
           {view === 'policies' && <PoliciesEditor policies={(ws.defectAnalysis && ws.defectAnalysis.policies) || []} project={project} onChange={(policies) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, policies } }, { reanalyze: true })} onAssign={(policyId) => {
             if (!project) return;
@@ -1259,6 +1290,7 @@ export default function App() {
           {view === 'snapshots' && <HistoryView project={project} branch={branch} stamp={stamp} />}
           {view === 'pullrequest' && <PullRequestView project={project} branch={branch} stamp={stamp} />}
           {view === 'dast' && <DastView />}
+          {view === 'projectSettings' && <ProjectSettings ws={ws} project={project} analysis={storedAnalysis} busy={busy} onSave={persist} />}
           {view === 'admin' && <AdminView ws={ws} project={project} branch={branch} onSaveWorkspace={persist} onWorkspaceChanged={reload} initialTab={adminTab} onDeleteProject={deleteProject} />}
           {view === 'models' && <ModelsEditor models={(ws.defectAnalysis && ws.defectAnalysis.models) || []} onChange={(models) => save({ ...ws, defectAnalysis: { ...ws.defectAnalysis, models } })} />}
     </>
@@ -1279,7 +1311,7 @@ export default function App() {
     <ProjectCtx.Provider value={project && !analysis ? project : null}>
     <div className="app" onClick={() => {}}>
       <MenuBar menus={menus} onAction={onAction} theme={(ws.settings && ws.settings.theme) || 'midnight'} startActive={onStart} dirty={dirty} />
-      <Toolbar onAction={onAction} busy={busy} view={view} branch={branch} branches={branches} panels={panels} history={hist} onBranch={(name) => { setDesktop(null); setBranch(name); }} />
+      <Toolbar onAction={onAction} busy={busy} view={view} branch={branch} branches={branches} panels={panels} history={hist} canSave={!!project} unsaved={projectDirty} onBranch={(name) => { setDesktop(null); setBranch(name); }} />
       <div className="body-row">
         {showLeft && (
           <>
@@ -1292,12 +1324,15 @@ export default function App() {
           </>
         )}
         <div className="center-col">
-          <DocTabs tabs={tabs} active={view} onActivate={(id) => { const tb = tabs.find((x) => x.id === id); if (tb) setView(tb.view); }} onClose={closeTabs} onReorder={reorderTabs} onMoveTo={moveTabTo}
-            suffix={(ws.projects || []).length > 1 && project ? project.name : ''} />
+          {/* The start page shows no tabs; the Start menu goes back to the last view. */}
+          {!onStart && (
+            <DocTabs tabs={tabs} active={view} onActivate={(id) => { const tb = tabs.find((x) => x.id === id); if (tb) setView(tb.view); }} onClose={closeTabs} onReorder={reorderTabs} onMoveTo={moveTabTo}
+              suffix={(ws.projects || []).length > 1 && project ? project.name : ''} />
+          )}
           <main ref={mainRef} className={`main ${onStart ? 'start-mode' : ''}`} onScroll={(e) => { scrollOf.current.__last = e.currentTarget.scrollTop; }}>
           {tabs.map((tb) => (
             <div key={tb.id} className="tab-pane" hidden={tb.id !== view} data-pane={tb.id} data-tour={`view-${tb.view}`}>
-              <TabActiveCtx.Provider value={tb.id === view}>{renderView(tb.view)}</TabActiveCtx.Provider>
+              <TabActiveCtx.Provider value={tb.id === view}>{shownTabs.current.has(tb.id) ? renderView(tb.view) : null}</TabActiveCtx.Provider>
             </div>
           ))}
           </main>
@@ -1307,7 +1342,7 @@ export default function App() {
                 onChange={(h) => setPanelsState((p) => ({ ...p, bottom: { ...p.bottom, h } }))} onCommit={(h) => setPanel('bottom', { h })} />}
               <BottomPanel tab={panels.bottom.tab} onTab={(tab) => setPanel('bottom', { tab })} folded={panels.bottom.folded} onFold={(v) => setPanel('bottom', { folded: v })}
                 onClose={() => setPanel('bottom', { on: false })} height={panels.bottom.h} analysis={analysis} task={lastTask} view={view} codeFile={codeFile}
-                busy={busy} message={message} jobs={jobs} messages={messages} onClearMessages={() => setMessages([])} onJump={jumpTo} />
+                busy={busy} message={message} jobs={jobs} messages={messages} onClearMessages={() => setMessages([])} onJump={jumpTo} onOpenCode={openCode} />
             </>
           )}
         </div>

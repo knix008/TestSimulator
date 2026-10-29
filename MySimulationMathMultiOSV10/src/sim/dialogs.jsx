@@ -1,23 +1,33 @@
 // Dialogs of the block-diagram editor: block parameters, model settings and
 // the mask editor. Floating panels inside the editor (draggable title bar).
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Stepper, IconSelect, Toggle, Tabs } from '../views/common';
 import { blockDef } from '../../core/sim/blocks/index.js';
 import { DTYPES } from '../../core/sim/blocks/util.js';
 import { SimIcon } from './icons';
+import { enumIcon } from './logic.js';
 import { tr, lbl } from './i18n';
 
 const isPlainNumber = (s) => /^\s*[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?\s*$/i.test(String(s));
 const decimals = (s) => { const m = /\.(\d+)/.exec(String(s)); return m ? Math.min(6, m[1].length) : 0; };
 
-/** A floating dialog frame with a draggable title. */
-export function SimDialog({ title, icon = 'settings', onClose, children, footer, width = 460, className = '' }) {
+/** False while the owning editor tab is hidden: its dialogs (portalled to <body>) hide too. */
+export const DialogVisible = React.createContext(true);
+
+/**
+ * A floating dialog frame with a draggable title. It is portalled to <body>
+ * (fixed position, centred on the window) so a short editor pane never clips
+ * it; the body scrolls only when the window itself is too small.
+ */
+export function SimDialog({ title, icon = 'settings', onClose, children, footer, width = 460, height, className = '' }) {
   const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const visible = useContext(DialogVisible);
   useEffect(() => {
     const el = ref.current; if (!el || pos) return;
-    const host = el.offsetParent || document.body;
-    setPos({ x: Math.max(8, (host.clientWidth - el.offsetWidth) / 2), y: Math.max(8, Math.min(70, (host.clientHeight - el.offsetHeight) / 2)) });
+    setPos({ x: Math.max(8, (window.innerWidth - el.offsetWidth) / 2), y: Math.max(8, Math.min(110, (window.innerHeight - el.offsetHeight) / 2)) });
+    el.focus({ preventScroll: true });
   }, [pos]);
   useEffect(() => {
     const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
@@ -28,12 +38,14 @@ export function SimDialog({ title, icon = 'settings', onClose, children, footer,
   const down = (e) => {
     if (e.button !== 0 || e.target.closest('button')) return;
     const sx = e.clientX, sy = e.clientY, p = pos || { x: 0, y: 0 };
-    const move = (ev) => setPos({ x: Math.max(0, p.x + ev.clientX - sx), y: Math.max(0, p.y + ev.clientY - sy) });
+    const el = ref.current;
+    const maxX = window.innerWidth - (el ? el.offsetWidth : 100), maxY = window.innerHeight - 40;
+    const move = (ev) => setPos({ x: Math.max(0, Math.min(maxX, p.x + ev.clientX - sx)), y: Math.max(0, Math.min(maxY, p.y + ev.clientY - sy)) });
     const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
     window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
   };
-  return (
-    <div ref={ref} className={`sim-dialog ${className}`} role="dialog" aria-label={title} style={{ width, left: pos ? pos.x : -9999, top: pos ? pos.y : 0 }}
+  return createPortal(
+    <div ref={ref} tabIndex={-1} className={`sim-dialog ${className}`} role="dialog" aria-label={title} style={{ width, height, left: pos ? pos.x : -9999, top: pos ? pos.y : 0, display: visible ? undefined : 'none' }}
       onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       <div className="sim-dialog-title" onPointerDown={down}>
         <SimIcon name={icon} size={15} /><span className="ellipsis">{title}</span><span className="spacer" />
@@ -41,7 +53,8 @@ export function SimDialog({ title, icon = 'settings', onClose, children, footer,
       </div>
       <div className="sim-dialog-body">{children}</div>
       {footer && <div className="sim-dialog-foot">{footer}</div>}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -50,8 +63,8 @@ export function ParamField({ p, value, onChange, lang }) {
   const [fx, setFx] = useState(false);
   const v = value == null ? p.def : value;
   if (p.type === 'enum' || p.type === 'popup') {
-    const options = (p.options || []).map((o) => ({ value: o.value, label: lbl(lang, o.label) || o.value, icon: 'list' }));
-    if (!options.some((o) => o.value === v)) options.push({ value: v, label: v, icon: 'list' });
+    const options = (p.options || []).map((o) => ({ value: o.value, label: lbl(lang, o.label) || o.value, icon: o.icon || enumIcon(o.value) }));
+    if (!options.some((o) => o.value === v)) options.push({ value: v, label: v, icon: enumIcon(v) });
     return <IconSelect value={v} options={options} onChange={onChange} width="100%" ariaLabel={lbl(lang, p.label)} />;
   }
   if (p.type === 'dtype') {
@@ -79,8 +92,8 @@ export function ParamField({ p, value, onChange, lang }) {
   return <input type="text" className="sim-text" spellCheck={false} value={v} onChange={(e) => onChange(e.target.value)} aria-label={lbl(lang, p.label)} />;
 }
 
-/** Parameters of a masked block, as ParamField descriptors. */
-function maskParamDefs(mask) {
+/** Parameters of a masked block, as ParamField descriptors (also used by the side panel 블록 속성). */
+export function maskParamDefs(mask) {
   return (mask.params || []).map((mp) => ({
     name: mp.name, type: mp.type === 'checkbox' ? 'bool' : mp.type === 'popup' ? 'enum' : 'expr', def: mp.value ?? '',
     label: { en: mp.prompt || mp.name, ko: mp.prompt || mp.name },
@@ -119,12 +132,17 @@ export function BlockDialog({ block, lang, onApply, onClose, running, onTune }) 
       <label className="sim-field"><span>{tr(lang, 'name')}</span><input type="text" className="sim-text" value={name} onChange={(e) => setName(e.target.value)} /></label>
       {tabs.length > 1 && <Tabs tabs={tabs.map((id) => ({ id, label: tr(lang, id) }))} value={tab} onChange={setTab} />}
       {!params.length && <p className="muted">{tr(lang, 'noParams')}</p>}
-      {params.filter((p) => (p.tab || 'main') === tab).map((p) => (
-        <label key={p.name} className="sim-field">
-          <span title={p.name}>{lbl(lang, p.label) || p.name}</span>
-          <ParamField p={p} value={vals[p.name]} lang={lang} onChange={(v) => set(p.name, v)} />
-        </label>
-      ))}
+      {/* every tab is laid out in the same cell, so the dialog keeps one size whichever tab is shown */}
+      {params.length > 0 && <div className="sim-tabstack">{tabs.map((tb) => (
+        <div key={tb} className={tb === tab ? 'on' : 'off'} aria-hidden={tb === tab ? undefined : true}>
+          {params.filter((p) => (p.tab || 'main') === tb).map((p) => (
+            <label key={p.name} className="sim-field">
+              <span title={p.name}>{lbl(lang, p.label) || p.name}</span>
+              <ParamField p={p} value={vals[p.name]} lang={lang} onChange={(v) => set(p.name, v)} />
+            </label>
+          ))}
+        </div>
+      ))}</div>}
       {slider && Number.isFinite(low) && Number.isFinite(high) && high > low && (
         <label className="sim-field"><span>{tr(lang, 'slider')}</span>
           <input type="range" className="sim-slider" min={low} max={high} step={(high - low) / 200} value={Number(vals.Gain) || 0}
@@ -135,7 +153,7 @@ export function BlockDialog({ block, lang, onApply, onClose, running, onTune }) 
   );
 }
 
-const SOLVERS = ['auto', 'ode45', 'ode23', 'ode113', 'ode15s', 'ode23s', 'ode23t', 'ode23tb', 'ode1', 'ode2', 'ode3', 'ode4', 'ode5', 'ode8', 'ode14x', 'discrete'];
+export const SOLVERS = ['auto', 'ode45', 'ode23', 'ode113', 'ode15s', 'ode23s', 'ode23t', 'ode23tb', 'ode1', 'ode2', 'ode3', 'ode4', 'ode5', 'ode8', 'ode14x', 'discrete'];
 
 export function SettingsDialog({ model, lang, onApply, onClose }) {
   const [s, setS] = useState({ ...model.settings });
@@ -149,7 +167,7 @@ export function SettingsDialog({ model, lang, onApply, onClose }) {
   const B = (key) => <label key={key} className="sim-field"><span>{tr(lang, key)}</span><ParamField p={{ name: key, type: 'bool', def: 'off' }} value={s[key]} lang={lang} onChange={set(key)} /></label>;
   const T = (key, labelKey) => <label key={key} className="sim-field"><span>{tr(lang, labelKey)} — {tr(lang, 'varName')}</span><input type="text" className="sim-text" value={s[key] || ''} onChange={(e) => set(key)(e.target.value)} /></label>;
   return (
-    <SimDialog title={`${tr(lang, 'modelSettings')}: ${model.name}`} icon="settings" onClose={onClose} width={540}
+    <SimDialog title={`${tr(lang, 'modelSettings')}: ${model.name}`} icon="settings" onClose={onClose} width={560} height={640} className="sim-dialog-fixed"
       footer={<>
         <button type="button" className="vbtn" onClick={onClose}><SimIcon name="close" size={14} /><span>{tr(lang, 'cancel')}</span></button>
         <button type="button" className="vbtn vbtn-primary" onClick={() => { onApply(s, ws.filter((v) => v.name.trim())); onClose(); }}><SimIcon name="run" size={14} /><span>{tr(lang, 'ok')}</span></button>

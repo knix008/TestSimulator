@@ -46,7 +46,11 @@
     "opener:allow-open-path",
     "allow-host-info",
     "allow-renderer-ready",
+    "allow-child-window",
     "allow-set-m-association",
-    "allow-m-association"
+    "allow-m-association",
+    "allow-print-info",
+    "allow-print-pdf",
+    "allow-print-html"
   ]
 }

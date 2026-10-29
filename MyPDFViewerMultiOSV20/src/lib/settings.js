@@ -135,7 +135,7 @@ export function normalize(raw) {
   out.sidebarWidth = clampSidebarWidth(out.sidebarWidth);
   out.rightPanelWidth = clampInfoPanelWidth(out.rightPanelWidth);
   out.captureQuality = Math.min(1, Math.max(0.1, out.captureQuality));
-  if (!['text', 'image', 'region'].includes(out.tool)) out.tool = 'text';
+  if (!['text', 'image', 'region', 'read'].includes(out.tool)) out.tool = 'text';
   out.pageLayout = normalizePageLayout(out.pageLayout);
   out.pageEffect = normalizePageEffect(out.pageEffect);
   out.zoomMode = normalizeZoomMode(out.zoomMode);

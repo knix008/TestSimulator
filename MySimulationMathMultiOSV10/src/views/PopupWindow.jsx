@@ -22,6 +22,7 @@ import { UiHost } from '../components/UiHost';
 import { columnsOf } from '../lib/menuColumns';
 import { AboutDialog } from './About';
 import { PromptHost } from '../components/PromptHost';
+import { GuidePage } from '../components/GuideWindow';
 
 function useCloseOnBlur(enabled) {
   useEffect(() => {
@@ -128,7 +129,7 @@ function PopupContent({ kind, id, payload }) {
   if (kind === 'themes') {
     return (
       <div className="popup-root popup-themes">
-        <ThemePicker value={payload.value} onPick={(v) => sendResult(id, { id: `theme:${v}` })}
+        <ThemePicker list value={payload.value} onPick={(v) => sendResult(id, { id: `theme:${v}` })}
           onNewCustom={() => sendResult(id, { id: 'settings:custom' })} onEditCustom={() => sendResult(id, { id: 'settings:custom' })} />
       </div>
     );
@@ -190,6 +191,12 @@ function PoolWindow({ slot }) {
 
 export function PopupWindow() {
   const route = popupRoute();
+  // The user manual (desktop child window or web browser window) runs on its own.
+  if (route.kind === 'guide') return <GuidePage />;
+  return <PopupWindowMain route={route} />;
+}
+
+function PopupWindowMain({ route }) {
   const [payload, setPayload] = useState(null);
   useLanguage();
   useEffect(() => {

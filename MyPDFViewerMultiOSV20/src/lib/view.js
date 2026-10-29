@@ -5,7 +5,7 @@ export const HIGHLIGHT_COLOR = 'rgba(255, 214, 0, 0.42)';
 
 export const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8];
 
-export const TOOLS = ['text', 'image', 'region'];
+export const TOOLS = ['text', 'image', 'region', 'read'];
 
 export const MIN_CAPTURE = 6;
 
@@ -441,6 +441,7 @@ export function normalizeRotation(deg) {
 export function cycleTool(tool) {
   if (tool === 'text') return 'image';
   if (tool === 'image') return 'region';
+  if (tool === 'region') return 'read';
   return 'text';
 }
 

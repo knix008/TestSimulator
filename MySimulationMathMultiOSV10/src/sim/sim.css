@@ -1,19 +1,21 @@
 /* Block-diagram editor. Uses the app theme variables (src/styles.css). */
 .sim-editor { container-type: inline-size; container-name: simed; --sim-canvas: var(--bg); --sim-block: var(--bg-elev); display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; background: var(--bg); color: var(--fg); outline: none; position: relative; }
-.sim-toolbar { display: flex; align-items: center; flex-wrap: nowrap; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-height: 36px; overflow: hidden; }
+.sim-toolbar { display: flex; align-items: center; flex-wrap: wrap; row-gap: 2px; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-height: 36px; overflow: hidden; }
 .sim-tb { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 7px; border: 1px solid transparent; border-radius: 5px; background: none; color: var(--fg); white-space: nowrap; flex: none; }
 .sim-tb:hover:not(:disabled) { background: var(--bg-hover); }
 .sim-tb.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .sim-tb.primary:not(:disabled) { color: var(--ok); }
 .sim-tb-label { font-size: 12px; }
-@container simed (max-width: 1640px) { .sim-toolbar .sim-tb.minor .sim-tb-label { display: none; } }
-@container simed (max-width: 1240px) { .sim-toolbar .sim-tb-label { display: none; } .sim-tb { padding: 0 6px; } }
+@container simed (max-width: 1100px) { .sim-toolbar .sim-tb.minor .sim-tb-label { display: none; } }
+@container simed (max-width: 640px) { .sim-toolbar .sim-tb-label { display: none; } .sim-tb { padding: 0 6px; } }
 .sim-sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 4px; flex: none; }
 .sim-time { display: inline-flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 104px; padding: 0 6px; flex: none; }
 .sim-time-val { font-family: var(--mono); font-size: 11px; white-space: nowrap; }
 .sim-progress { display: block; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .sim-progress > span { display: block; height: 100%; background: var(--accent); transition: width .15s; }
 .sim-stoptime { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg-muted); flex: none; margin-right: 4px; }
+.sim-zoom { display: inline-flex; align-items: center; flex: none; margin: 0 2px; }
+.sim-zoom .step-value { font-size: 12px; }
 .sim-stop-input { width: 62px; height: 26px; text-align: center; font-family: var(--mono); font-size: 12px; padding: 0 4px; }
 
 .sim-body { flex: 1; display: flex; min-height: 0; }
@@ -62,10 +64,14 @@
 .sim-scope-grip { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, var(--fg-muted) 50%, transparent 60%, var(--fg-muted) 70%, transparent 80%); }
 
 /* dialogs */
-.sim-dialog { position: absolute; z-index: 30; display: flex; flex-direction: column; max-height: calc(100% - 16px); background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow); }
+.sim-dialog { position: fixed; z-index: 45; display: flex; flex-direction: column; max-height: calc(100vh - 16px); color: var(--fg); font-size: 13px; outline: none; background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow); }
 .sim-dialog-title { display: flex; align-items: center; gap: 7px; padding: 7px 8px 7px 12px; border-bottom: 1px solid var(--border); font-weight: 600; cursor: move; }
 .sim-dialog-body { padding: 10px 14px; overflow: auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .sim-dialog-foot { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); }
+.sim-dialog-fixed .sim-dialog-body { flex: 1; }
+.sim-tabstack { display: grid; }
+.sim-tabstack > div { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sim-tabstack > .off { visibility: hidden; pointer-events: none; }
 .sim-field { display: grid; grid-template-columns: 170px minmax(0, 1fr); align-items: center; gap: 10px; font-size: 12.5px; }
 .sim-field > span:first-child { color: var(--fg-muted); }
 .sim-text { width: 100%; height: var(--ctl-h, 30px); font-family: var(--mono); font-size: 12px; }
@@ -104,6 +110,3 @@
 .sim-state.running { color: var(--ok); }
 .sim-state.paused { color: var(--folder); }
 .sim-state.error { color: var(--danger); }
-.sim-grip { width: 16px; height: 16px; align-self: flex-end; flex: none; margin-left: 4px; background:
-  radial-gradient(circle, var(--fg-muted) 1.2px, transparent 1.5px) 0 0 / 5px 5px;
-  clip-path: polygon(100% 0, 100% 100%, 0 100%); }

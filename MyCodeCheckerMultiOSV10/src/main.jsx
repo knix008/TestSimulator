@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { PopupWindow } from './views/PopupWindow';
 import { popupRoute } from './lib/popups';
+import { ContextMenuHost } from './components/ContextMenu';
 import './styles.css';
 
 class Boundary extends React.Component {
@@ -18,6 +19,6 @@ class Boundary extends React.Component {
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Boundary>{popupRoute() ? <PopupWindow /> : <App />}</Boundary>
+    <Boundary>{popupRoute() ? <PopupWindow /> : <App />}<ContextMenuHost /></Boundary>
   </React.StrictMode>,
 );

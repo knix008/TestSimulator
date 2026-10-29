@@ -1,6 +1,6 @@
 // Sparse matrices (compressed sparse column): construction, conversion,
 // arithmetic helpers for the base operators, a sparse LU direct solver,
-// Krylov iterative solvers (pcg, gmres, bicgstab, minres, cgs, lsqr) and
+// Krylov iterative solvers (pcg, gmres, bicg, bicgstab, minres, cgs, lsqr) and
 // incomplete factorizations (ilu, ichol).
 //
 // JS helpers exported for other areas (see index.js `sparseOps`):
@@ -533,6 +533,66 @@ function bicgstabCore(A, b, n, tol, maxit, prec, x0) {
   return { x: best.x, flag: 1, relres: best.rel, iter: best.it, resvec };
 }
 
+/** Preconditioner pair for bicg: forward z = M \ r and adjoint z = M' \ r (M = M1*M2). */
+function makePrecBicg(M1, M2, ctx, n) {
+  const none = (M) => M == null || (M.dims && M.dims[0] * M.dims[1] === 0 && !isFuncHandle(M));
+  const flag = (w) => tensor('char', [1, w.length], Array.from(w, (ch) => ch.charCodeAt(0)));
+  const adj = (M) => {
+    if (none(M)) return null;
+    if (isFuncHandle(M)) return { fh: M };
+    if (isSparse(M)) return { fw: M, bw: spTranspose(M, true) };
+    const t = dbl(M, 'bicg', 'M'); const [m, k] = t.dims;
+    const re = new Float64Array(m * k), im = t.im ? new Float64Array(m * k) : null;
+    for (let j = 0; j < k; j++) for (let i = 0; i < m; i++) { re[j + i * k] = t.re[i + j * m]; if (im) im[j + i * k] = -t.im[i + j * m]; }
+    return { fw: M, bw: tensor('double', [k, m], re, im) };
+  };
+  const a1 = adj(M1), a2 = adj(M2);
+  if (!a1 && !a2) return null;
+  const solver = (a, trans) => {
+    if (!a) return null;
+    if (a.fh) return (r) => fromVal(ctx.call(a.fh, [toVal(r), flag(trans ? 'transp' : 'notransp')], 1)[0], n);
+    return makePrec(trans ? a.bw : a.fw, null, ctx, n);
+  };
+  const f1 = solver(a1, false), f2 = solver(a2, false), b1 = solver(a1, true), b2 = solver(a2, true);
+  return {
+    fw: (r) => { let z = r; if (f1) z = f1(z); if (f2) z = f2(z); return z; },
+    bw: (r) => { let z = r; if (b2) z = b2(z); if (b1) z = b1(z); return z; },
+  };
+}
+
+function bicgCore(A, b, n, tol, maxit, prec, x0) {
+  let x = x0 || vz(n);
+  const nb = vnorm(b) || 1;
+  if (vnorm(b) === 0) return { x: vz(n), flag: 0, relres: 0, iter: 0, resvec: [0] };
+  const r = vsub(b, A(x));
+  const rt = vcopy(r);
+  const resvec = [vnorm(r)];
+  if (resvec[0] / nb <= tol) return { x, flag: 0, relres: resvec[0] / nb, iter: 0, resvec };
+  let p = null, pt = null, rho1 = null;
+  let best = { x: vcopy(x), rel: resvec[0] / nb, it: 0 };
+  const cdivS = (a, b2) => cdiv(a[0], a[1], b2[0], b2[1]);
+  for (let it = 1; it <= maxit; it++) {
+    const z = prec ? prec.fw(r) : r, zt = prec ? prec.bw(rt) : rt;
+    const rho = vdot(rt, z);
+    if ((rho[0] === 0 && rho[1] === 0) || !Number.isFinite(rho[0]) || !Number.isFinite(rho[1])) return { x: best.x, flag: 4, relres: best.rel, iter: best.it, resvec };
+    if (p == null) { p = vcopy(z); pt = vcopy(zt); } else {
+      const beta = cdivS(rho, rho1);
+      const np = vcopy(z); axpy(np, beta[0], beta[1], p); p = np;
+      const npt = vcopy(zt); axpy(npt, beta[0], -beta[1], pt); pt = npt;
+    }
+    const q = A(p), qt = A(pt, true);
+    const pq = vdot(pt, q);
+    if (pq[0] === 0 && pq[1] === 0) return { x: best.x, flag: 4, relres: best.rel, iter: best.it, resvec };
+    const alpha = cdivS(rho, pq);
+    axpy(x, alpha[0], alpha[1], p); axpy(r, -alpha[0], -alpha[1], q); axpy(rt, -alpha[0], alpha[1], qt);
+    rho1 = rho;
+    const nr = vnorm(r); resvec.push(nr);
+    if (nr / nb < best.rel) best = { x: vcopy(x), rel: nr / nb, it };
+    if (nr / nb <= tol) return { x, flag: 0, relres: vnorm(vsub(b, A(x))) / nb, iter: it, resvec };
+  }
+  return { x: best.x, flag: 1, relres: best.rel, iter: best.it, resvec };
+}
+
 function cgsCore(A, b, n, tol, maxit, prec, x0) {
   let x = x0 || vz(n);
   const nb = vnorm(b) || 1;
@@ -729,15 +789,16 @@ function runIter(fn, args, nargout, ctx, kind) {
   if (args.length < 2) fail(`${fn}:notEnoughInputs`, 'Not enough input arguments.');
   const p = iterArgs(args, fn, kind === 'gmres');
   const n = p.n;
-  const Aop = makeOp(args[0], ctx, n, fn, kind === 'lsqr');
+  const Aop = makeOp(args[0], ctx, n, fn, kind === 'lsqr' || kind === 'bicg');
   if (!isFuncHandle(args[0]) && !isText(args[0]) && kind !== 'lsqr') {
     const d = args[0].dims; if (d[0] !== n || d[1] !== n) fail(`${fn}:dimagree`, 'A must be a square matrix of size length(b).');
   }
-  const prec = kind === 'lsqr' ? null : makePrec(p.M1, p.M2, ctx, n);
+  const prec = kind === 'lsqr' || kind === 'bicg' ? null : makePrec(p.M1, p.M2, ctx, n);
   const x0 = p.x0 ? fromVal(p.x0, kind === 'lsqr' ? (isFuncHandle(args[0]) ? dbl(p.x0, fn).re.length : args[0].dims[1]) : n) : null;
   let r;
   if (kind === 'pcg') r = pcgCore(Aop, p.b, n, p.tol, p.maxit ?? Math.min(n, 20), prec, x0);
   else if (kind === 'bicgstab') r = bicgstabCore(Aop, p.b, n, p.tol, p.maxit ?? Math.min(n, 20), prec, x0);
+  else if (kind === 'bicg') r = bicgCore(Aop, p.b, n, p.tol, p.maxit ?? Math.min(n, 20), makePrecBicg(p.M1, p.M2, ctx, n), x0);
   else if (kind === 'cgs') r = cgsCore(Aop, p.b, n, p.tol, p.maxit ?? Math.min(n, 20), prec, x0);
   else if (kind === 'minres') r = minresCore(Aop, p.b, n, p.tol, p.maxit ?? Math.min(n, 20), prec, x0);
   else if (kind === 'gmres') {
@@ -1055,6 +1116,7 @@ export const builtins = {
   pcg(args, nargout, ctx) { return runIter('pcg', args, nargout, ctx, 'pcg'); },
   gmres(args, nargout, ctx) { return runIter('gmres', args, nargout, ctx, 'gmres'); },
   bicgstab(args, nargout, ctx) { return runIter('bicgstab', args, nargout, ctx, 'bicgstab'); },
+  bicg(args, nargout, ctx) { return runIter('bicg', args, nargout, ctx, 'bicg'); },
   cgs(args, nargout, ctx) { return runIter('cgs', args, nargout, ctx, 'cgs'); },
   minres(args, nargout, ctx) { return runIter('minres', args, nargout, ctx, 'minres'); },
   lsqr(args, nargout, ctx) { return runIter('lsqr', args, nargout, ctx, 'lsqr'); },
@@ -1152,6 +1214,7 @@ export const help = {
   condest: H('1-norm condition number estimate.', '1-노름 조건수 추정.', ['c = condest(A)']),
   pcg: H('Preconditioned conjugate gradients.', '전처리 켤레 기울기법.', IT_SYNTAX('pcg')),
   gmres: H('Generalized minimum residual method (with restarts).', '일반화 최소 잔차법 (재시작 포함).', ['x = gmres(A, b)', 'x = gmres(A, b, restart, tol, maxit, M1, M2, x0)', '[x, flag, relres, iter, resvec] = gmres(...)']),
+  bicg: H("Biconjugate gradients method (A may be a function handle afun(x, 'notransp' | 'transp')).", "쌍켤레 기울기법 (A 는 afun(x, 'notransp' | 'transp') 함수 핸들 가능).", IT_SYNTAX('bicg')),
   bicgstab: H('Biconjugate gradients stabilized method.', '안정화 쌍켤레 기울기법.', IT_SYNTAX('bicgstab')),
   cgs: H('Conjugate gradients squared method.', '제곱 켤레 기울기법.', IT_SYNTAX('cgs')),
   minres: H('Minimum residual method (symmetric matrices).', '최소 잔차법 (대칭 행렬).', IT_SYNTAX('minres')),

@@ -1,0 +1,81 @@
+/* The user manual window (src/components/GuideWindow.jsx). Colours are the
+   app's theme tokens; the content rules are in lib/guide.js GUIDE_CONTENT_CSS
+   (shared with the print page). The chrome has no scrollbars; only the
+   table of contents and the content scroll. */
+
+html.guide-page, html.guide-page body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
+html.guide-page #root { height: 100%; }
+
+.guide-root {
+  display: flex; flex-direction: column; height: 100%; min-height: 0; position: relative;
+  background: var(--bg); color: var(--fg); font-family: var(--font, system-ui, sans-serif); font-size: var(--fs, 13px);
+}
+.guide-window { border: 1px solid var(--border-strong, var(--border)); box-sizing: border-box; }
+
+.guide-bar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; min-width: 0; overflow: hidden;
+  background: var(--bg-panel); border-bottom: 1px solid var(--border); user-select: none;
+}
+.guide-float .guide-bar { cursor: move; }
+.guide-title { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; white-space: nowrap; margin-right: 2px; }
+.guide-sep { flex: 0 0 auto; width: 1px; height: 22px; background: var(--border); margin: 0 2px; }
+.guide-grow { flex: 1 1 auto; align-self: stretch; min-width: 12px; }
+.guide-bar .vbtn { flex: 0 0 auto; }
+.guide-bar .iselect { flex: 0 1 auto; min-width: 0; }
+.guide-x { width: 32px; height: 28px; flex: 0 0 auto; }
+
+/* [−] 12px [+]: the value is centred between the buttons. */
+.guide-font { display: inline-flex; align-items: stretch; flex: 0 0 auto; height: 28px; border: 1px solid var(--border-strong, var(--border)); border-radius: 6px; overflow: hidden; background: var(--bg); }
+.guide-font-btn { width: 28px; height: auto; border: 0; border-radius: 0; background: var(--bg-elev); color: var(--fg); font-size: 15px; line-height: 1; cursor: pointer; padding: 0; }
+.guide-font-btn:hover:not(:disabled) { background: var(--bg-hover); }
+.guide-font-btn:disabled { opacity: 0.4; cursor: default; }
+.guide-font-val {
+  display: inline-flex; align-items: center; justify-content: center; text-align: center; width: 52px;
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border); font-variant-numeric: tabular-nums;
+}
+
+.guide-main { flex: 1 1 auto; min-height: 0; display: flex; }
+.guide-toc {
+  flex: 0 0 280px; min-width: 0; overflow: auto; padding: 6px 4px 16px; box-sizing: border-box;
+  background: var(--bg-panel); border-right: 1px solid var(--border);
+}
+.guide-toc-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px 8px; font-weight: 600; color: var(--fg-muted); text-transform: none; }
+.guide-toc ul { list-style: none; margin: 0; padding: 0; }
+.guide-toc-row { display: flex; align-items: center; gap: 2px; border-radius: 5px; border-left: 3px solid transparent; }
+.guide-toc-row:hover { background: var(--bg-hover); }
+.guide-toc-row.in { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.guide-toc-row.on { background: var(--bg-sel); border-left-color: var(--accent); }
+.guide-toc-row.on .guide-toc-link { color: var(--fg); font-weight: 600; }
+.guide-toc-tw { flex: 0 0 auto; display: inline-grid; place-items: center; width: 18px; height: 22px; padding: 0; border: 0; background: none; color: var(--fg-muted); cursor: pointer; }
+.guide-toc-tw:disabled { visibility: hidden; }
+.guide-toc-dot { flex: 0 0 auto; width: 18px; }
+.guide-toc-link {
+  flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; align-items: baseline; padding: 4px 6px 4px 2px; border: 0; background: none;
+  color: var(--fg); font: inherit; text-align: left; cursor: pointer;
+}
+.d1 > .guide-toc-row .guide-toc-link, .d2 > .guide-toc-row .guide-toc-link { color: var(--fg-muted); }
+.d0 > .guide-toc-row .guide-toc-link { font-weight: 600; }
+.guide-toc-num { flex: 0 0 auto; color: var(--accent); font-variant-numeric: tabular-nums; font-size: 0.92em; }
+.guide-toc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.guide-content { flex: 1 1 auto; min-width: 0; overflow: auto; padding: 18px 30px 60px; box-sizing: border-box; background: var(--bg); scroll-padding-top: 8px; }
+.guide-doc { margin: 0 auto; }
+
+.guide-grip { position: absolute; right: 0; bottom: 0; display: flex; padding: 2px; color: var(--fg-muted); cursor: nwse-resize; }
+
+/* In-page floating window (web when popups are blocked). */
+.guide-float {
+  position: fixed; z-index: 7000; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--border-strong, var(--border)); box-shadow: var(--shadow, 0 18px 50px rgba(0, 0, 0, 0.45));
+}
+.guide-float .guide-root { flex: 1 1 auto; }
+.guide-float-grip {
+  position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--border-strong, var(--border)) 50%, var(--border-strong, var(--border)) 60%, transparent 60%, transparent 70%, var(--border-strong, var(--border)) 70%, var(--border-strong, var(--border)) 80%, transparent 80%);
+}
+
+@media (max-width: 760px) {
+  .guide-toc { flex-basis: 190px; }
+  .guide-content { padding: 12px 14px 40px; }
+  .guide-title span, .guide-bar .vbtn span { display: none; }
+}

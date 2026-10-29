@@ -68,9 +68,13 @@ export function rateColor(rate, colors) {
 
 // ---------------------------------------------------------------- grid and rulers
 
+/** Major spacing (model units) shared by the rulers and the 5×5 grid: a 1/2/5 step about 70 px apart on screen. */
+export const majorStep = (zoom) => niceStep(70 / zoom);
+
+/** The 5×5 grid: major lines at the ruler labels, 5 minor cells between them. */
 export function drawGrid(ctx, v, colors) {
-  const step = gridStepFor(GRID_BASE, v.zoom);
-  const major = step * 5;
+  const major = majorStep(v.zoom);
+  const step = major / 5;
   const a = toModel(v, 0, 0), b = toModel(v, v.width, v.height);
   const lines = (spacing, color, width) => {
     ctx.beginPath();
@@ -97,8 +101,8 @@ const tickLabel = (x) => { const r = Math.round(x * 1e6) / 1e6; return Object.is
 
 /** Rulers along the top and left edges with major/minor ticks, labels and the cursor marker. */
 export function drawRulers(ctx, v, colors, cursor) {
-  const major = niceStep(70 / v.zoom);
-  const minor = major / (String(major).startsWith('2') ? 4 : 5);
+  const major = majorStep(v.zoom);
+  const minor = major / 5;
   const a = toModel(v, 0, 0), b = toModel(v, v.width, v.height);
   ctx.save();
   ctx.fillStyle = colors.ruler;
@@ -481,7 +485,14 @@ export function drawBlock(ctx, block, opts) {
     ctx.setLineDash([]);
     ctx.fillStyle = colors.accent;
     const s = 6 / (opts.zoom || 1);
-    for (const [hx, hy] of handlePoints(block)) ctx.fillRect(hx - s / 2, hy - s / 2, s, s);
+    handlePoints(block).forEach(([hx, hy], k) => {
+      if (k !== opts.hotHandle) { ctx.fillRect(hx - s / 2, hy - s / 2, s, s); return; }
+      // the handle under the pointer: bigger, with a ring, so it reads as "drag to resize"
+      const S = s * 1.8;
+      ctx.fillRect(hx - S / 2, hy - S / 2, S, S);
+      ctx.strokeStyle = colors.canvas || '#fff'; ctx.lineWidth = 1.5 / (opts.zoom || 1);
+      ctx.strokeRect(hx - S / 2, hy - S / 2, S, S);
+    });
   }
   if (opts.error) { ctx.strokeStyle = colors.danger; ctx.lineWidth = 2; ctx.strokeRect(x - 2, y - 2, w + 4, h + 4); }
   ctx.restore();

@@ -48,6 +48,9 @@ export const IconSelectAll = (p) => (
 export const IconMarquee = (p) => (
   <S {...p}><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><rect x="8" y="8" width="8" height="8" rx="1" strokeDasharray="2 2" /></S>
 );
+export const IconHand = (p) => (
+  <S {...p}><path d="M8 12V6.5a1.5 1.5 0 0 1 3 0V11M11 10.5V5a1.5 1.5 0 0 1 3 0v5.5M14 10.5V6.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.6a5 5 0 0 1-4.1-2.2L4 14.6a1.5 1.5 0 0 1 2.3-1.9L8 14.3V12" /></S>
+);
 export const IconImage = (p) => (
   <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.8" /><path d="m4 18 5-5 3.5 3.5L16 13l4 4" /></S>
 );

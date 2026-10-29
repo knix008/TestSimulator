@@ -907,6 +907,10 @@
   "ko": "● 표시된 줄에 이슈가 있습니다. 오른쪽 목록에서 내용을 확인하세요.",
   "en": "Lines marked ● have an issue. See the list on the right for details."
  },
+ "cv_hex_pending": {
+  "ko": "큰 바이너리 파일에서 이슈가 가리키는 바이트 위치를 백그라운드에서 찾는 중입니다. 찾는 동안에도 화면은 멈추지 않고, 끝나면 해당 바이트가 강조됩니다.",
+  "en": "The byte positions the issues point to are being found in the background in a large binary file. The view stays usable meanwhile; the bytes are highlighted when it is done."
+ },
  "cv_retry": {
   "ko": "읽지 못한 파일을 같은 위치로 다시 불러옵니다.",
   "en": "Loads the file that failed to open again, at the same line."
@@ -1055,6 +1059,26 @@
   "ko": "결과를 저장할 SQLite 데이터베이스 파일의 경로입니다.",
   "en": "Path of the SQLite database file that stores the results."
  },
+ "db_per_project": {
+  "ko": "SQLite 로 저장할 때 프로젝트마다 파일을 따로 쓸지 정합니다.",
+  "en": "Whether SQLite saves each project in a file of its own."
+ },
+ "db_per_project_label": {
+  "ko": "켜면 위 파일과 같은 폴더에 <파일 이름>-<프로젝트 키>.db 를 프로젝트마다 만들고, 끄면 위 파일 하나에 모든 프로젝트를 저장합니다.",
+  "en": "On: each project is saved to <file name>-<project key>.db in the folder of the file above. Off: every project goes into that one file."
+ },
+ "ps_engines": {
+  "ko": "이 프로젝트에 적용할 분석 엔진과 규칙 묶음(예: MISRA C, MISRA C++, AUTOSAR, CERT)을 고릅니다.",
+  "en": "Chooses the analysis engines and rule sets (for example MISRA C, MISRA C++, AUTOSAR, CERT) this project uses."
+ },
+ "ps_engines_own": {
+  "ko": "켜면 이 프로젝트는 아래에서 고른 엔진만 씁니다(처음에는 모두 선택). 끄면 설정 › 분석의 선택을 따릅니다.",
+  "en": "On: this project uses only the engines picked below (all of them at first). Off: the choice in Settings › Analysis applies."
+ },
+ "ps_profile_none": {
+  "ko": "이 언어의 파일은 분석하지 않습니다. 규칙도 적용하지 않고 이슈도 만들지 않습니다.",
+  "en": "Files of this language are not analyzed: no rules apply and no issues are made."
+ },
  "db_file_hint": {
   "ko": "결과를 저장할 SQLite 파일의 위치입니다.",
   "en": "Location of the SQLite file for the results."
@@ -1068,8 +1092,8 @@
   "en": "Whether to save the issue list as well. Many issues make saving take longer."
  },
  "db_kind": {
-  "ko": "저장할 데이터베이스 종류(SQLite, PostgreSQL, MySQL·MariaDB, SQL Server)를 고릅니다.",
-  "en": "Chooses the database type: SQLite, PostgreSQL, MySQL/MariaDB or SQL Server."
+  "ko": "저장할 데이터베이스 종류(MySQL, SQLite3, MariaDB, PostgreSQL, MSSQL)를 고릅니다.",
+  "en": "Chooses the database type: MySQL, SQLite3, MariaDB, PostgreSQL or MSSQL."
  },
  "db_pick": {
   "ko": "폴더를 고르면 그 폴더의 mycodechecker.db 를 DB 파일 경로로 넣습니다.",
@@ -3075,6 +3099,22 @@
   "ko": "기본값은 실제 메모리의 3/4(최소 8 GB)입니다. Reset 을 누르면 기본값으로 돌아갑니다.",
   "en": "The default is three quarters of the physical memory (at least 8 GB). Reset returns to it."
  },
+ "st_analysis_mode": {
+  "ko": "C/C++ 정밀 분석을 어떻게 진행할지 고릅니다. 순차는 메모리를 적게 쓰고 PC를 덜 바쁘게 합니다. 병렬은 큰 프로젝트에서 2~3배 빠르지만 메모리를 몇 배 더 씁니다.",
+  "en": "How the deep C/C++ analysis runs. Sequential uses little memory and keeps the computer responsive. Parallel is two to three times faster on a large project but uses several times the memory."
+ },
+ "st_analysis_mode_hint": {
+  "ko": "두 방식의 분석 결과는 같습니다. 기본값은 순차입니다.",
+  "en": "Both modes give the same results. The default is sequential."
+ },
+ "st_mode_sequential": {
+  "ko": "한 작업자가 C/C++ 묶음을 차례대로 분석합니다. 메모리를 가장 적게 씁니다. CPU 1코어, 분석 메모리 4 GB 이상이 필요합니다.",
+  "en": "One worker analyzes the C/C++ batches one after the other. Uses the least memory. Needs 1 CPU core and an analysis memory limit of 4 GB or more."
+ },
+ "st_mode_parallel": {
+  "ko": "여러 작업자가 C/C++ 묶음을 동시에 분석합니다. CPU 4코어 이상, 분석 메모리 9 GB 이상이 필요하며, 모자라면 순차로 진행합니다.",
+  "en": "Several workers analyze the C/C++ batches at the same time. Needs 4 CPU cores or more and an analysis memory limit of 9 GB or more; below that the analysis runs sequentially."
+ },
  "st_more_analysis": {
   "ko": "여기 없는 세부 분석 설정은 관리 화면에서 바꿀 수 있습니다.",
   "en": "More detailed analysis settings are in the Administration page."
@@ -3124,8 +3164,8 @@
   "en": "Create and edit your own themes by picking the colors."
  },
  "st_tab_db": {
-  "ko": "분석 결과를 내보낼 데이터베이스(SQLite 등) 연결과 자동 내보내기를 설정합니다.",
-  "en": "Set the database (SQLite and others) connection and automatic export of analysis results."
+  "ko": "분석 결과를 저장할 데이터베이스(MySQL · SQLite3 · MariaDB · PostgreSQL · MSSQL) 연결을 설정하고 시험합니다. 켜 두면 분석마다 백그라운드로 저장합니다.",
+  "en": "Set up and test the database connection (MySQL, SQLite3, MariaDB, PostgreSQL, MSSQL). When on, each analysis is saved there in the background."
  },
  "st_tab_gate": {
   "ko": "분석이 통과·실패하는 기준인 품질 게이트 조건을 정합니다.",
@@ -3180,8 +3220,8 @@
   "en": "The current state of each item. Use it to filter the list."
  },
  "tab_close": {
-  "ko": "이 탭을 닫습니다. 홈 탭은 닫을 수 없습니다.",
-  "en": "Closes this tab. The Home tab cannot be closed."
+  "ko": "이 탭을 닫습니다. 마지막 탭을 닫으면 시작 화면으로 돌아갑니다.",
+  "en": "Closes this tab. Closing the last tab returns to the start page."
  },
  "tab_close_all": {
   "ko": "홈을 뺀 열린 탭을 모두 닫습니다.",

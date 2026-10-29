@@ -106,6 +106,28 @@ void main() {
   gl_FragColor = vec4(vColor, t.a * uAlpha);
 }`;
 
+// ---------------------------------------------------------------- coordinate axes
+
+/** X / Y / Z axis colours (red, green, blue) readable on dark or light backgrounds. */
+export function axisPalette(dark) {
+  return dark
+    ? [[1.0, 0.42, 0.42], [0.37, 0.82, 0.41], [0.36, 0.64, 1.0]]
+    : [[0.82, 0.13, 0.13], [0.11, 0.56, 0.2], [0.11, 0.39, 0.85]];
+}
+
+/**
+ * Screen directions of the world X / Y / Z unit vectors for a camera at
+ * azimuth az / elevation el (degrees), as [{ x, y, depth }] with x to the
+ * right, y up and depth toward the viewer — the orientation triad.
+ */
+export function triadDirs(az, el) {
+  const a = az * DEG, e = el * DEG;
+  const d = [Math.cos(e) * Math.sin(a), -Math.cos(e) * Math.cos(a), Math.sin(e)]; // toward the camera
+  const up = [-Math.sin(e) * Math.sin(a), Math.sin(e) * Math.cos(a), Math.cos(e)];
+  const right = [up[1] * d[2] - up[2] * d[1], up[2] * d[0] - up[0] * d[2], up[0] * d[1] - up[1] * d[0]];
+  return [0, 1, 2].map((k) => ({ x: right[k], y: up[k], depth: d[k] }));
+}
+
 // ---------------------------------------------------------------- view
 
 export class Axes3DView {
@@ -132,12 +154,14 @@ export class Axes3DView {
     this.zoomF = 1;
     this.target = new THREE.Vector3();
     this.ax = null; this.fig = null;
-    this.opts = { theme: null, grid: true, gridAtZero: false, lighting: true, defaultLight: null, showLightGizmo: false };
+    this.opts = { theme: null, grid: true, gridAtZero: false, lighting: true, defaultLight: null, axesLines: true };
+    this.axisGroup = new THREE.Group();
+    this.scene.add(this.axisGroup);
+    this.axisTips = [];
     this.cache = new Map(); // child id → { key, obj }
     this.axesKey = '';
     this.optKey = '';
     this.clipPlanes = [];
-    this.lightGizmos = [];
     this.half = new THREE.Vector3(0.5, 0.5, 0.5);
     this.boxViewKey = '';
   }
@@ -229,6 +253,17 @@ export class Axes3DView {
     if (this.rev[k]) u = 1 - u;
     const f = a + u * (b - a);
     return this.logs[k] ? 10 ** f : f;
+  }
+  /** A data-space direction → unit world direction (axis scaling and direction applied). */
+  dirToWorld(p) {
+    const v = new THREE.Vector3(...[0, 1, 2].map((k) => { const [a, b] = this.flim[k]; const x = fin(p[k]) ? p[k] : 0; return (x / (b - a || 1)) * this.size[k] * (this.rev[k] ? -1 : 1); }));
+    return v.lengthSq() > 0 ? v.normalize() : new THREE.Vector3(0, 0, 1);
+  }
+  /** A world direction → data-space direction scaled so its largest component is 1. */
+  dirToData(w) {
+    const d = [0, 1, 2].map((k) => { const [a, b] = this.flim[k]; return (w.getComponent(k) / this.size[k]) * (b - a) * (this.rev[k] ? -1 : 1); });
+    const m = Math.max(...d.map(Math.abs)) || 1;
+    return d.map((x) => Number((x / m).toPrecision(4)));
   }
   toWorld(x, y, z) { return [this.w1(0, x), this.w1(1, y), this.w1(2, z)]; }
   toData(v) { return [this.d1(0, v.x), this.d1(1, v.y), this.d1(2, v.z)]; }
@@ -860,6 +895,49 @@ export class Axes3DView {
     }
   }
 
+  /**
+   * Coordinate axes: X / Y / Z lines through the data origin (1 on log axes),
+   * running past the box with a cone arrowhead at the positive end. The tips
+   * are kept for the labels drawn by drawOverlay.
+   */
+  buildAxisLines() {
+    disposeChildren(this.axisGroup);
+    this.axisTips = [];
+    if (!this.opts.axesLines || !this.ax || this.ax.props.Visible === false) return;
+    const pal = axisPalette(!!this.theme.dark);
+    const R = this.radius || 0.87;
+    const h = [this.half.x, this.half.y, this.half.z];
+    const o = [0, 1, 2].map((k) => { const w = this.w1(k, this.logs[k] ? 1 : 0); return fin(w) ? Math.max(-h[k] * 4, Math.min(h[k] * 4, w)) : -h[k]; });
+    for (let k = 0; k < 3; k++) {
+      const sign = this.rev[k] ? -1 : 1;               // world direction of increasing data
+      const hi = Math.max(h[k], o[k]) + 0.28 * R, lo = Math.min(-h[k], o[k]) - 0.06 * R;
+      const a = o.slice(), b = o.slice();
+      a[k] = sign > 0 ? lo : hi; b[k] = sign > 0 ? hi : lo;
+      const col = new THREE.Color(...pal[k]);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b], 3));
+      const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.95, depthWrite: false }));
+      line.renderOrder = 64;
+      this.axisGroup.add(line);
+      const len = 0.075 * R;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(len * 0.32, len, 14), new THREE.MeshBasicMaterial({ color: col }));
+      const dir = new THREE.Vector3(...[0, 1, 2].map((i) => (i === k ? sign : 0)));
+      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      cone.position.set(b[0], b[1], b[2]).addScaledVector(dir, -len / 2);
+      cone.renderOrder = 64;
+      this.axisGroup.add(cone);
+      this.axisTips.push({ k, world: new THREE.Vector3(b[0], b[1], b[2]).addScaledVector(dir, len * 0.9), color: pal[k] });
+    }
+  }
+
+  /** The label of axis k for the axis-line tip: the user's XLabel / YLabel / ZLabel, else X / Y / Z. */
+  axisName(k) {
+    const lab = this.ax && this.ax.props[['XLabel', 'YLabel', 'ZLabel'][k]];
+    const s = lab && lab.props && lab.props.Visible !== false ? lab.props.String : null;
+    const text = Array.isArray(s) ? s.join(' ') : s == null ? '' : String(s);
+    return text.trim() ? { text, interpreter: lab.props.Interpreter, user: true } : { text: 'XYZ'[k], interpreter: 'none', user: false };
+  }
+
   // The edge each axis is labelled on, and its outward direction (world).
   labelEdges() {
     const h = this.half;
@@ -902,7 +980,6 @@ export class Axes3DView {
 
   buildLights() {
     disposeChildren(this.lightGroup);
-    this.lightGizmos = [];
     if (!this.opts.lighting) return;
     const amb = new THREE.AmbientLight(0xffffff, Math.PI * 0.35);
     this.lightGroup.add(amb);
@@ -915,8 +992,10 @@ export class Axes3DView {
     } else if (this.opts.defaultLight !== false) {
       const dl = this.opts.defaultLight || {};
       const fr = this.dataFrame();
-      const pos = dl.position || [fr.center[0] - fr.half[0] * 2, fr.center[1] - fr.half[1] * 3, fr.center[2] + fr.half[2] * 4];
-      list.push({ key: 'default', position: pos, style: dl.style || 'infinite', headlight: !!dl.headlight, color: dl.color || [1, 1, 1], intensity: fin(dl.intensity) ? dl.intensity : 1 });
+      const st = dl.style || 'infinite';
+      // infinite: a direction (data units); local: a point
+      const pos = dl.position || (st === 'local' ? [fr.center[0] - fr.half[0] * 2, fr.center[1] - fr.half[1] * 3, fr.center[2] + fr.half[2] * 4] : [-fr.half[0] * 2, -fr.half[1] * 3, fr.half[2] * 4]);
+      list.push({ key: 'default', position: pos, style: st, headlight: !!dl.headlight, color: dl.color || [1, 1, 1], intensity: fin(dl.intensity) ? dl.intensity : 1 });
     }
     const center = new THREE.Vector3(...this.toWorld(...c0));
     for (const L of list) {
@@ -926,9 +1005,13 @@ export class Axes3DView {
       if (L.headlight) {
         this.updateCamera();
         wpos = this.camera.position.clone();
-      } else {
+      } else if (L.style === 'local') {
         const w = new THREE.Vector3(...this.toWorld(...L.position));
         wpos = [w.x, w.y, w.z].every(fin) ? w : new THREE.Vector3(1, -1, 1);
+      } else {
+        // an infinite light's Position is the direction it shines from (data units)
+        const d = this.dirToWorld(L.position);
+        wpos = center.clone().addScaledVector(d, R * 4);
       }
       let light;
       if (L.style === 'local' && !L.headlight) {
@@ -941,11 +1024,6 @@ export class Axes3DView {
         this.lightGroup.add(light.target);
       }
       this.lightGroup.add(light);
-      if (!L.headlight) {
-        const dir = wpos.clone().sub(center);
-        const gpos = L.style === 'local' ? wpos.clone() : center.clone().addScaledVector(dir.lengthSq() > 0 ? dir.clone().normalize() : new THREE.Vector3(0, 0, 1), 1.6 * R);
-        this.lightGizmos.push({ key: L.key, world: gpos, color: L.color, style: L.style, origLen: dir.length() || R, center });
-      }
     }
   }
 
@@ -969,6 +1047,7 @@ export class Axes3DView {
     u.uMinPx.value = 10 * this.dpr;
     u.uColor.value.setRGB(...th.grid);
     u.uAxisColor.value.setRGB(...(th.accent || [0.3, 0.8, 0.95]));
+    u.uAxisOn.value = this.opts.axesLines ? 0 : 1; // the coordinate axes replace the floor's axis lines
     u.uMinorAlpha.value = Math.min(0.5, (th.gridAlpha || 0.12) * 1.6);
     u.uMajorAlpha.value = Math.min(0.8, (th.gridMajorAlpha || 0.28) * 1.7);
     u.uTarget.value.copy(this.target);
@@ -984,8 +1063,8 @@ export class Axes3DView {
   render() {
     if (!this.ax) { this.renderer.clear(); return; }
     this.updateCamera();
-    const vk = summarise([this.view, this.w, this.h, this.zoomF, this.target.toArray(), this.axesKey, this.optKey, this.ax.props.Box, this.ax.props.XGrid, this.ax.props.YGrid, this.ax.props.ZGrid, this.opts.grid, this.ax.props.XTick, this.ax.props.YTick, this.ax.props.ZTick]);
-    if (vk !== this.boxViewKey) { this.boxViewKey = vk; this.buildBox(); }
+    const vk = summarise([this.view, this.w, this.h, this.zoomF, this.target.toArray(), this.axesKey, this.optKey, this.ax.props.Box, this.ax.props.XGrid, this.ax.props.YGrid, this.ax.props.ZGrid, this.opts.grid, this.ax.props.XTick, this.ax.props.YTick, this.ax.props.ZTick, !!this.opts.axesLines, this.ax.props.XLabel, this.ax.props.YLabel, this.ax.props.ZLabel]);
+    if (vk !== this.boxViewKey) { this.boxViewKey = vk; this.buildBox(); this.buildAxisLines(); }
     this.buildLights();
     for (const o of this.dataRoot.children) o.traverse((c) => { if (c.material && c.material.uniforms && c.material.uniforms.uScale) c.material.uniforms.uScale.value = this.dpr; });
     this.updateGround();
@@ -1023,7 +1102,9 @@ export class Axes3DView {
           if (l < 1e-6) { dx = s.x - boxC.x; dy = s.y - boxC.y; } else { dx /= l; dy /= l; }
           return { s, dx, dy };
         };
-        T[k].ticks.forEach((v, i) => {
+        const ea = this.projectWorld(new THREE.Vector3(...e.a)), eb = this.projectWorld(new THREE.Vector3(...e.b));
+        const endOn = Math.hypot(eb.x - ea.x, eb.y - ea.y) < Math.max(24, size * 2.5 * Math.max(1, T[k].ticks.length - 1) * 0.6);
+        if (!endOn) T[k].ticks.forEach((v, i) => {
           const c = e.a.slice(); c[k] = this.w1(k, v);
           const w = new THREE.Vector3(...c.map((x, j) => x + e.out[j] * off));
           if (![w.x, w.y, w.z].every(fin)) return;
@@ -1033,14 +1114,14 @@ export class Axes3DView {
           const r = drawTex(g, T[k].labels[i] || '', s.x, s.y, { size, color: css, align, valign });
           far = Math.max(far, align === 'center' ? r.height : r.width);
         });
-        if (T[k].exponent) {
+        if (T[k].exponent && !endOn) {
           const w = new THREE.Vector3(...e.b.map((x, j) => x + e.out[j] * off * 2.5));
           const s = this.projectWorld(w);
           drawTex(g, `\\times10^{${T[k].exponent}}`, s.x, s.y, { size, color: css, align: 'center', valign: 'middle' });
         }
         // axis label
         const lab = p[['XLabel', 'YLabel', 'ZLabel'][k]];
-        if (lab && lab.props && lab.props.String && lab.props.Visible !== false && String(lab.props.String).length) {
+        if (!this.opts.axesLines && lab && lab.props && lab.props.String && lab.props.Visible !== false && String(lab.props.String).length) {
           const mid = e.a.map((x, i) => (x + e.b[i]) / 2);
           const w = new THREE.Vector3(...mid.map((x, j) => x + e.out[j] * off));
           const { s, dx, dy } = place(w);
@@ -1074,36 +1155,46 @@ export class Axes3DView {
         background: isRgb(tp.BackgroundColor) ? rgbCss(tp.BackgroundColor) : null, edge: isRgb(tp.EdgeColor) ? rgbCss(tp.EdgeColor) : null, margin: tp.Margin,
       });
     }
-    // light gizmos
-    if (this.opts.showLightGizmo && this.opts.lighting) {
-      for (const L of this.lightGizmos) {
-        const s = this.projectWorld(L.world);
-        const c = this.projectWorld(L.center);
+    // coordinate axes: billboard labels at the positive tips, and the orientation triad
+    if (visible && this.opts.axesLines) {
+      const halo = rgbCss(th.axes || (th.dark ? [0.07, 0.09, 0.11] : [1, 1, 1]), 0.78);
+      for (const t of this.axisTips) {
+        const s = this.projectWorld(t.world);
         if (![s.x, s.y].every(fin)) continue;
-        g.save();
-        g.setLineDash([4, 4]);
-        g.strokeStyle = rgbCss(th.accent || [0.3, 0.8, 0.95], 0.7);
-        g.lineWidth = 1;
-        g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(s.x, s.y); g.stroke();
-        g.setLineDash([]);
-        const r = 7;
-        g.fillStyle = rgbCss(L.color);
-        g.strokeStyle = th.dark ? '#000' : '#333';
-        g.lineWidth = 1.2;
-        g.beginPath(); g.arc(s.x, s.y, r, 0, Math.PI * 2); g.fill(); g.stroke();
-        g.strokeStyle = rgbCss(L.color);
-        g.lineWidth = 1.6;
-        g.beginPath();
-        for (let i = 0; i < 8; i++) {
-          const a = (i * Math.PI) / 4;
-          g.moveTo(s.x + Math.cos(a) * (r + 3), s.y + Math.sin(a) * (r + 3));
-          g.lineTo(s.x + Math.cos(a) * (r + 7), s.y + Math.sin(a) * (r + 7));
-        }
-        g.stroke();
-        if (L.style === 'local') { g.fillStyle = th.dark ? '#000' : '#fff'; g.beginPath(); g.arc(s.x, s.y, 2.5, 0, Math.PI * 2); g.fill(); }
-        g.restore();
+        const name = this.axisName(t.k);
+        const base = this.projectWorld(t.world.clone().addScaledVector(new THREE.Vector3(...[0, 1, 2].map((i) => (i === t.k ? (this.rev[t.k] ? -1 : 1) : 0))), -0.5 * (this.radius || 0.87)));
+        if (Math.hypot(s.x - base.x, s.y - base.y) < 14) continue;
+        const c = this.projectWorld(t.world.clone().addScaledVector(new THREE.Vector3(...[0, 1, 2].map((i) => (i === t.k ? (this.rev[t.k] ? -1 : 1) : 0))), -0.1));
+        let dx = s.x - c.x, dy = s.y - c.y;
+        const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+        drawTex(g, name.text, s.x + dx * 10, s.y + dy * 10, {
+          size: name.user ? size * 1.05 : size * 1.15, bold: !name.user, color: rgbCss(t.color), interpreter: name.interpreter,
+          align: dx < -0.35 ? 'right' : dx > 0.35 ? 'left' : 'center', valign: dy > 0.35 ? 'top' : dy < -0.35 ? 'bottom' : 'middle', background: halo, margin: 2,
+        });
       }
+      this.drawTriad(g, 40, this.h - 40, 26, th);
     }
+    g.restore();
+  }
+
+  /** CAD-style orientation triad centred at (cx, cy): the X / Y / Z directions as the camera sees them. */
+  drawTriad(g, cx, cy, L, th) {
+    const pal = axisPalette(!!th.dark);
+    const dirs = triadDirs(this.view[0], this.view[1]).map((d, k) => ({ ...d, k, sign: this.rev[k] ? -1 : 1 }));
+    g.save();
+    g.fillStyle = rgbCss(th.axes || [0.5, 0.5, 0.5], 0.55);
+    g.strokeStyle = rgbCss(th.fg || [0.5, 0.5, 0.5], 0.25); g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, L + 12, 0, Math.PI * 2); g.fill(); g.stroke();
+    for (const d of dirs.slice().sort((a, b) => a.depth * a.sign - b.depth * b.sign)) {
+      const ex = cx + d.x * d.sign * L, ey = cy - d.y * d.sign * L;
+      const col = rgbCss(d.depth * d.sign < -0.2 ? pal[d.k].map((v) => v * 0.6 + 0.2) : pal[d.k]);
+      g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 2.2; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke();
+      g.beginPath(); g.arc(ex, ey, 2.6, 0, Math.PI * 2); g.fill();
+      const lx = cx + d.x * d.sign * (L + 8), ly = cy - d.y * d.sign * (L + 8);
+      drawTex(g, 'XYZ'[d.k], lx, ly, { size: 11, bold: true, color: col, align: 'center', valign: 'middle', interpreter: 'none' });
+    }
+    g.beginPath(); g.fillStyle = rgbCss(th.fg || [0.5, 0.5, 0.5], 0.8); g.arc(cx, cy, 2, 0, Math.PI * 2); g.fill();
     g.restore();
   }
 
@@ -1142,39 +1233,11 @@ export class Axes3DView {
     return { point: this.toData(pt), id, type: h.object.userData.type || null };
   }
 
-  hitLight(cssX, cssY) {
-    if (!this.opts.showLightGizmo || !this.opts.lighting) return null;
-    this.updateCamera();
-    for (const L of this.lightGizmos) {
-      const s = this.projectWorld(L.world);
-      if (Math.hypot(s.x - cssX, s.y - cssY) <= 12) return L.key;
-    }
-    return null;
-  }
-
-  dragLight(key, cssX, cssY) {
-    const L = this.lightGizmos.find((g) => g.key === key);
-    if (!L) return null;
-    const rc = this.ray(cssX, cssY);
-    const c = L.center;
-    const r = L.world.distanceTo(c);
-    const o = rc.ray.origin, d = rc.ray.direction;
-    const oc = o.clone().sub(c);
-    const b = oc.dot(d), cc = oc.lengthSq() - r * r;
-    const disc = b * b - cc;
-    let hit;
-    if (disc >= 0) hit = o.clone().addScaledVector(d, -b - Math.sqrt(disc));
-    else { const t = -b; hit = c.clone().add(o.clone().addScaledVector(d, t).sub(c).normalize().multiplyScalar(r)); }
-    const dir = hit.clone().sub(c).normalize();
-    L.world.copy(c).addScaledVector(dir, r);
-    const wpos = L.style === 'local' ? L.world.clone() : c.clone().addScaledVector(dir, L.origLen);
-    return { key, position: this.toData(wpos) };
-  }
-
   dispose() {
     this.clearCache();
     disposeChildren(this.boxGroup);
     disposeChildren(this.lightGroup);
+    disposeChildren(this.axisGroup);
     this.ground.geometry.dispose();
     this.ground.material.dispose();
     this.renderer.dispose();

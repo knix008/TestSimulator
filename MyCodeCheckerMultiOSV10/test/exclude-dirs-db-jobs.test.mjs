@@ -102,7 +102,7 @@ test('a cancelled export stops between statements and rolls back', async () => {
 test('db.exportStart runs as a job with progress; the time limit is a setting', async () => {
   const api = createApi({ configDir: tmp('mcc-dbj-') });
   const file = path.join(tmp('mcc-dbjf-'), 'j.db');
-  const saved = await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file, autoExport: false, timeoutSec: 2 } });
+  const saved = await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file, perProject: false, autoExport: false, timeoutSec: 2 } });
   assert.equal(saved.timeoutSec, 5, 'clamped to at least 5 s');
   const r = await api.call('project.scan', { path: path.resolve('samples/demo') });
   const { jobId } = await api.call('db.exportStart', { projectId: r.project.id });
@@ -125,10 +125,13 @@ test('db.exportStart runs as a job with progress; the time limit is a setting', 
 
 test('an automatic export failure after a scan is reported with a coded error', async () => {
   const api = createApi({ configDir: tmp('mcc-dbe-') });
-  await api.call('db.save', { db: { enabled: true, kind: 'postgres', host: '127.0.0.1', port: 1, user: 'x', password: 'y', autoExport: true } });
+  await api.call('db.save', { db: { enabled: true, kind: 'postgres', host: '127.0.0.1', port: 1, user: 'x', password: 'y' } });
   const r = await api.call('project.scan', { path: path.resolve('samples/demo') });
-  assert.equal(r.task.dbError.code, 'DB_CONNECT');
-  assert.ok(r.task.dbError.text.ko.includes('연결할 수 없습니다'));
+  for (let t0 = Date.now(); (await api.call('db.exportJob', { jobId: r.task.dbJobId })).status === 'running' && Date.now() - t0 < 30000;) await new Promise((res) => setTimeout(res, 50));
+  const job = await api.call('db.exportJob', { jobId: r.task.dbJobId });
+  assert.equal(job.error.code, 'DB_CONNECT');
+  assert.ok(job.error.text.ko.includes('연결할 수 없습니다'));
+  assert.equal(api.store.load().tasks[0].dbError.code, 'DB_CONNECT', 'kept on the task');
 });
 
 test('identical lines in one file get distinct issue keys; the first keeps its key', () => {
@@ -145,9 +148,106 @@ test('identical lines in one file get distinct issue keys; the first keeps its k
 test('a repeated issue key still exports (rows get #2)', async () => {
   const file = path.join(tmp('mcc-dbdup-'), 'd.db');
   const issues = [{ key: 'same', rule: 'r', line: 1, message: 'a' }, { key: 'same', rule: 'r', line: 2, message: 'b' }];
-  const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file }, { project: PROJECT, branch: 'main', analysis: { ...ANALYSIS, issues } });
+  const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file, perProject: false }, { project: PROJECT, branch: 'main', analysis: { ...ANALYSIS, issues } });
   assert.equal(out.issues, 2);
   const d = new DatabaseSync(file);
   assert.deepEqual(d.prepare('select issue_key k from mcc_issues order by issue_key').all().map((r) => r.k), ['same', 'same#2']);
   d.close();
+});
+
+test('exclusion globs: **/ also matches no folder, ? is one character', () => {
+  const { glob } = require('../core/platform/util.js');
+  const cases = [
+    ['dup/a.js', '**/dup/**', true], ['src/dup/a.js', '**/dup/**', true], ['dupx/a.js', '**/dup/**', false],
+    ['a.min.js', '**/*.min.js', true], ['x/a.min.js', '**/*.min.js', true], ['vendor/x.js', '**/vendor/**', true],
+    ['src/a.js', 'src/*.js', true], ['src/x/a.js', 'src/*.js', false], ['a1.c', 'a?.c', true], ['a12.c', 'a?.c', false],
+  ];
+  for (const [rel, pattern, want] of cases) assert.equal(glob(rel, pattern), want, `${pattern} on ${rel}`);
+});
+
+test('a project exclusion pattern leaves a root folder out of the next analysis', async () => {
+  const api = createApi({ configDir: tmp('mcc-pex-') });
+  const first = await api.call('project.scan', { path: path.resolve('samples/demo') });
+  assert.ok(first.analysis.files.some((f) => f.path.startsWith('dup/')));
+  const ws = await api.call('workspace.load', { slim: true });
+  ws.projects[0].exclusions = ['**/dup/**'];
+  await api.call('workspace.save', { workspace: ws, slim: true });
+  const next = await api.call('project.scan', { path: path.resolve('samples/demo') });
+  assert.ok(!next.analysis.files.some((f) => f.path.startsWith('dup/')), 'dup/ left out');
+});
+
+test('a binary file is read as bytes, a range at a time, with the byte ranges of issue lines', async () => {
+  const dir = tmp('mcc-bin-');
+  const src = path.join(dir, 'src');
+  fs.mkdirSync(src, { recursive: true });
+  const bytes = Buffer.concat([Buffer.from('line one\nsecret = "x"\n'), Buffer.from([0, 1, 2, 255, 10]), Buffer.from('tail')]);
+  fs.writeFileSync(path.join(src, 'blob.bin'), bytes);
+  fs.writeFileSync(path.join(src, 'a.js'), 'var a = 1;\n');
+  const api = createApi({ configDir: path.join(dir, 'data') });
+  const r = await api.call('project.scan', { path: src });
+  const id = r.project.id;
+  const head = await api.call('project.file', { projectId: id, file: 'blob.bin', limit: 0 });
+  assert.equal(head.binary, true);
+  assert.equal(head.size, bytes.length);
+  assert.equal(head.base64, '');
+  const page = await api.call('project.file', { projectId: id, file: 'blob.bin', offset: 9, limit: 4, lines: [2, 3] });
+  assert.deepEqual([...Buffer.from(page.base64, 'base64')], [...bytes.subarray(9, 13)]);
+  assert.deepEqual(page.ranges, { 2: [9, 22], 3: [22, 27] });
+  const text = await api.call('project.file', { projectId: id, file: 'a.js' });
+  assert.equal(text.text, 'var a = 1;\n');
+  assert.equal(text.binary, undefined);
+});
+
+test('a large binary: pages answer at once while the issue positions are found in the background, then kept', async () => {
+  const binfile = require('../core/binfile.js');
+  const dir = tmp('mcc-bigbin-');
+  const src = path.join(dir, 'src');
+  fs.mkdirSync(src, { recursive: true });
+  // Larger than what is read during the call; newlines here and there, the evidence near the end.
+  const size = binfile.SYNC_MAX * 3 + 12345;
+  const bytes = Buffer.alloc(size, 0x41);
+  const newlines = [];
+  for (let p = 100; p < size - 4096; p += 70001) { bytes[p] = 10; newlines.push(p); }
+  bytes[0] = 0;
+  const evidence = 'inflate 1.2.11 Copyright 1995';
+  const at = size - 2000;
+  Buffer.from(evidence, 'latin1').copy(bytes, at);
+  const file = path.join(src, 'libbig.so');
+  fs.writeFileSync(file, bytes);
+  fs.writeFileSync(path.join(src, 'a.js'), 'var a = 1;\n');
+  const api = createApi({ configDir: path.join(dir, 'data') });
+  const id = (await api.call('project.scan', { path: src })).project.id;
+  const lines = [1, 2, 50, newlines.length + 1, newlines.length + 5];
+  const ask = { projectId: id, file: 'libbig.so', limit: 0, lines, find: [evidence, 'not in this file'] };
+  const first = await api.call('project.file', ask);
+  assert.equal(first.binary, true);
+  assert.equal(first.rangesPending, true, 'a large file is read in the background');
+  // A page is answered while the file is being read, with its bytes.
+  const page = await api.call('project.file', { projectId: id, file: 'libbig.so', offset: 4096, limit: 32 });
+  assert.equal(page.rangesPending, undefined);
+  assert.deepEqual([...Buffer.from(page.base64, 'base64')], [...bytes.subarray(4096, 4128)]);
+  let done = first;
+  for (let n = 0; done.rangesPending && n < 400; n++) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    done = await api.call('project.file', ask);
+  }
+  assert.equal(done.rangesPending, undefined, 'the background read ends');
+  const ends = newlines.map((p) => p + 1);
+  const range = (line) => [line === 1 ? 0 : ends[line - 2], line - 1 < ends.length ? ends[line - 1] : size];
+  assert.deepEqual(done.ranges, { 1: range(1), 2: range(2), 50: range(50), [newlines.length + 1]: range(newlines.length + 1) });
+  assert.deepEqual(done.found, { [evidence]: [at, at + evidence.length] });
+  // Kept: asked again (and for other lines), answered from what was found, at once.
+  const again = await api.call('project.file', { ...ask, lines: [3] });
+  assert.equal(again.rangesPending, undefined);
+  assert.deepEqual(again.ranges, { 3: range(3) });
+  assert.deepEqual(again.found, done.found);
+  // A changed file is read again.
+  bytes[200] = 10;
+  fs.writeFileSync(file, bytes);
+  fs.utimesSync(file, new Date(), new Date(Date.now() + 5000));
+  const changed = await api.call('project.file', { ...ask, lines: [2] });
+  assert.equal(changed.rangesPending, true);
+  await binfile.settle(file);
+  const after = await api.call('project.file', { ...ask, lines: [2] });
+  assert.deepEqual(after.ranges, { 2: [101, 201] });
 });

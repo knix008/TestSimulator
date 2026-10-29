@@ -21,7 +21,7 @@ The analysis runs in the program's own Node.js engine. The desktop program (Wind
 | Reports | HTML, CSV, Word, Excel, PDF, regulatory ZIP | all |
 | Collaboration | Users, permissions, tokens, LDAP, mail notifications, Jira / Redmine / GitHub / GitLab tickets, PR decoration, webhooks, scheduled analyses, audit log | Code Quality, Defect Analysis servers |
 | AI | Ask an LLM for a fix of one issue, review it as a diff, apply it | AI CodeFix |
-| Data | Export results to SQLite, PostgreSQL, MySQL/MariaDB or SQL Server | — |
+| Data | Save results to MySQL, SQLite3, MariaDB, PostgreSQL or MSSQL (in the background after each analysis) | — |
 | Workspace | Project files (.mccp), undo / redo, save prompt on exit, analysis progress window, tabs, panels that fold and turn off, 40 themes plus your own, 20 animated Start page backgrounds, a tutorial, the user's guide inside the app | the same screens as MyHeatManager and MyCAD |
 
 ## Installation
@@ -71,7 +71,7 @@ To use it in a browser, run `npm run web` in the source folder and open http://1
 
 | Menu | Items |
 |---|---|
-| Start | Opens the Start page (the Home tab) |
+| Start | Opens the Start page (it has no tab in the tab strip) |
 | File | New project… (Ctrl+N) · Open project… (Ctrl+Shift+O) · Save project (Ctrl+S) · Save project as… (Ctrl+Shift+S) · Delete project · Recent projects › 1.–10. · Clear the list · Open folder… (Ctrl+O) · Sample project · Reports… · Export JSON · Export SARIF · HTML report · Export CSV · Quality gate badge · Defect CSV · Quit |
 | Edit | Undo (Ctrl+Z) · Redo (Ctrl+Y · Ctrl+Shift+Z) — the items carry the name of the action (for example "Undo: Project settings") |
 | Issues | All · Bugs · Vulnerabilities · Code smells · Security hotspots · Exception approval |
@@ -257,6 +257,8 @@ node scripts/defect-cli.mjs format-errors --dir samples/cpp-sensor/.mcc
 
 Left out of the analysis: folders such as `node_modules`, `.git`, `dist`, `build`, `target`, `vendor`, `bin`, `obj`, `coverage` and `.mcc`; files that match the **Exclusion patterns** setting; the project's **Excluded folders**; files over 800 KB; binary files. 
 
+**Project settings**: **Project › Project settings** in the left navigation (or **File › Project settings…**) gathers what this project is analyzed with: basics (name, key, description, tags, main branch; the source folder is shown only), analysis engines (turn each check group on or off: MISRA C:2012/2023, MISRA C:2004, MISRA C++:2023, MISRA C++:2008, AUTOSAR C++14, CERT and more; unless **Choose for this project only** is on, the choice in **Settings › Analysis** applies, and a choice of the project's own starts with all of them on), rules and gate (quality gate, defect policy, quality profile per language; "Default" follows the workspace, and a language set to **None** is not analyzed), analysis scope (exclusion patterns, excluded folders), C/C++ include folders and macros, the project's own new code definition and coverage report paths. **Save** applies them from the next analysis, **Save and analyze** at once; saving can be undone (Ctrl+Z). In exclusion patterns `**/` also matches no folder, so `**/dup/**` leaves out a `dup/` folder at the top too.
+
 **Excluded folders**: in **File › Excluded folders…** (or **Excluded folders** in Administration › Analysis settings, and under **More** in the New project dialog) expand the source folder's tree and check the folders to leave out. A checked folder and every file below it are not analyzed. A folder with the same name elsewhere stays in (excluding `apis` still analyzes `src/apis`). Folders that are always skipped are marked **always skipped**. It applies from the next analysis and is saved in the project file (`.mccp`) as `excludeDirs`.
 
 **Delete results and analyze again**: **File › Delete results and analyze again…** deletes the project's stored analyses (every branch's latest result, activity history, snapshots and new-code baseline) and analyzes again at once. With no baseline, all code is new code, so a quality gate that checks new code judges every problem. **Delete results only** keeps issue states (confirmed, false positive, assignee, comments); **Delete issue states too** removes them as well. This cannot be undone.
@@ -327,7 +329,7 @@ See [Generating reports](#generating-reports).
 
 #### Issues
 
-To handle large projects (hundreds of thousands of issues), the window holds the **open project's issues only**. Opening a project or finishing an analysis fetches them in pages, with **Loading issues… n / total** at the bottom meanwhile. Switching projects fetches the new one's issues and lets the previous one's go. Lists show the first 300 rows; scroll to the end or press **Show more** for more.
+To handle large projects (hundreds of thousands of issues), the window holds the **open project's issues only**. Opening a project or finishing an analysis fetches them in pages, with **Loading issues… n / total** at the bottom meanwhile. Switching projects fetches the new one's issues and lets the previous one's go. Long lists are **paged** (first, previous, page number, next and last under the list; 100, 200, 500 or 1000 rows a page). An analysis with many issues brings its 200,000 most severe into the window, but **the search of the Issues view runs over the whole analysis**: words (any part of the rule, the message in Korean or English, or the path; every word must appear), severity, type, status, engine, standard, new code only and the sort order (severity, file, rule, new code first, analysis order) are handled by the service, and the type tab counts and pages follow the result. Issues are kept in local databases (SQLite) in the data folder, a folder per project (`projects/<project>/`) and a file per analysis and snapshot, so even millions give a page and their counts at once, and changing an issue saves that issue only. Issue files of earlier versions (`issues/*.ndjson`) move into the database the first time they are opened.
 
 
 The list of bugs, vulnerabilities and code smells. Search at the top (**Search rules, messages, files**) and filter by **Severity** (Blocker, Critical, Major, Minor, Info), **Type**, **Status**, **Engine**, **Standard** (OWASP, CWE, MISRA, MOIS …), language and **New code only**. Arriving from a category in Security reports or MISRA sets a **Category filter**; **Clear filter** removes it.
@@ -578,7 +580,7 @@ Deactivated users cannot sign in. Sign out with **Tools › Sign out**.
 | Theme | The current theme, the **Custom themes** group on top, then **Dark** 20 and **Light** 20 (two columns each). A click previews at once |
 | Custom themes | The list on the left and a **Base theme**; **New** (from the chosen base theme), **Duplicate**, **Remove**, **Import**, **Export** (JSON), **Use this theme**. On the right: name, kind (dark / light) and 15 colour tokens (background, panel, card, hover, selection, border, strong border, text, dim text, accent, strong accent, text on accent, folder / warning, file, danger), **From base theme** to start over, and a **Preview** of menus, buttons and lists |
 | Start page | Show this page at start, **Background** (20 kinds as buttons + **Random**), **Speed** 0–300 %, **Transparency** 0–100 % (0 % shows the background fully, higher fades it), **Shuffle every** (seconds, 0 = off — a different background at that interval), **Change at start** (a different background at every start), Cards: **Reset card layout**. A small preview moves at once |
-| Analysis | Exclusion patterns (one per line; defaults `**/*.min.js`, `**/vendor/**`, `**/node_modules/**`, `**/dist/**`, `**/build/**`), cognitive complexity limit (15), parameter limit (7), max files (default 0 = no limit), **Analysis memory limit** (GB, default three quarters of the physical memory, at least 8 GB, from the next analysis), **More settings** › **Open Administration › Analysis settings**, **Checks** (core code quality rules, Defect Analysis, semantic analysis per language, taint, Security Weakness, MISRA C:2012/2023, MISRA C:2004, MISRA C++:2023, MISRA C++:2008, CERT, AUTOSAR, runtime errors, HIS, architecture, SCA, IaC, each on or off; a check that is off is not run and does not report, from the next analysis) |
+| Analysis | Exclusion patterns (one per line; defaults `**/*.min.js`, `**/vendor/**`, `**/node_modules/**`, `**/dist/**`, `**/build/**`), cognitive complexity limit (15), parameter limit (7), max files (default 0 = no limit), **Analysis memory limit** (GB, default three quarters of the physical memory, at least 8 GB, from the next analysis), **Analysis mode** (**Sequential** (default): the deep C/C++ analysis on one worker, batch after batch; needs 1 CPU core and 4 GB analysis memory, 16 GB or more for a large C/C++ project / **Parallel**: on several workers at once, two to three times faster on a large project; needs 4 CPU cores and 9 GB analysis memory, 64 GB of memory for a large C/C++ project; below that it runs sequentially. Both give the same results; from the next analysis), **More settings** › **Open Administration › Analysis settings**, **Checks** (core code quality rules, Defect Analysis, semantic analysis per language, taint, Security Weakness, MISRA C:2012/2023, MISRA C:2004, MISRA C++:2023, MISRA C++:2008, CERT, AUTOSAR, runtime errors, HIS, architecture, SCA, IaC, each on or off; a check that is off is not run and does not report, from the next analysis) |
 | Quality gate | The default quality gate's conditions: **Use** per condition, metric, operator and threshold, **Add condition**, **Remove**, **Default conditions**. Saving changes the verdict at once, without a new analysis |
 | Reports | **Store pictures inside the Markdown file** (off saves them as PNG files in `<report name>_images`), **Save reports after each analysis** (reports, formats PDF/Word/Excel/PowerPoint/HTML/Markdown/CSV, folder; empty means `reports/<project key>` in the data folder) |
 | New code | New code (previous analysis, number of days, changed lines (git), since previous version, since a specific analysis) and days. Per-project definitions are in Administration › Analysis settings |
@@ -611,18 +613,18 @@ Exports analysis results as database tables for other tools (BI dashboards, repo
 
 | Item | Meaning |
 |---|---|
-| Save results to a database | On / off (off by default) |
-| Kind | **SQLite file** (built into Node), **PostgreSQL** (5432), **MySQL / MariaDB** (3306), **SQL Server** (1433) |
+| Save results to a database | On / off (off by default). When on, each finished analysis is saved on this computer and then **also to the database, in the background** (the analysis does not wait for it; progress shows in the progress popup, a failure in an error popup and the analysis log). When off, results stay on this computer. This connection setup is kept on this computer only |
+| Kind | **MySQL** (3306), **SQLite3 file** (built into Node), **MariaDB** (3306), **PostgreSQL** (5432), **MSSQL** (SQL Server, 1433) |
 | Database file | The SQLite file path (pick with **Folder…**). Empty creates it in the app data folder |
+| File per project | On (the default): each project is saved to its own `<file name>-<project key>.db` in the folder of the database file. Off: every project goes into the database file |
 | Host, port, database, user, password | The server connection (database default `mycodechecker`) |
 | Encrypted connection | SSL/TLS |
 | Schema / prefix | Put in front of the table names (default `mcc`) — tables `mcc_projects`, `mcc_analyses`, `mcc_issues`, `mcc_measures` (created when missing). Letters, digits and `_` only |
-| Auto export | **After every committed analysis** |
 | Include issues | **Save the issue list too**; off exports only projects, analyses and measures |
 | Time limit (s) | When the connection or one SQL statement takes longer (default 60 s, 5–3600), saving stops, is rolled back and the error is shown |
 | Connection test | **Test connection** |
 
-With auto export off, use **Export to DB** in the **Reports** view to send the current result now ("Analysis … · … issues · … measures"). Exporting the same analysis again replaces its rows, so nothing is duplicated. When saving takes more than half a second a progress window shows the step (connecting, checking tables, writing rows, committing), rows written, elapsed and remaining time and the per-statement time limit, with **Cancel**. Auto export appears in the analysis progress window as **Saving to the database**. Errors such as a timeout or a failed connection are shown in a popup. A failed export never stops the analysis; the reason is also left as a task warning (`DB: …`) and in the bottom panel's **Analysis log**.
+**Export to DB** in the **Reports** view sends the current result now (it joins an export of the same branch that is already running) ("Analysis … · … issues · … measures"). Exporting the same analysis again replaces its rows, so nothing is duplicated. When saving takes more than half a second a progress window shows the step (connecting, checking tables, writing rows, committing), rows written, elapsed and remaining time and the per-statement time limit, with **Cancel**. Auto export appears in the analysis progress window as **Saving to the database**. Errors such as a timeout or a failed connection are shown in a popup. A failed export never stops the analysis; the reason is also left as a task warning (`DB: …`) and in the bottom panel's **Analysis log**.
 
 ## Workflows
 
@@ -775,7 +777,7 @@ On macOS use ⌘ instead of Ctrl.
 | DAST finds few pages | Add seed URLs or OpenAPI; for login, cookie, bearer or login fields |
 | Screen and CI results differ | `scan.mjs --path` in CI uses the default gate and all rules. Use `--workspace` for the app's settings, or upload with `--server` to use the server's profiles |
 
-The workspace file is in `%APPDATA%\MyCodeChecker\workspace.json` on Windows, `~/Library/Application Support/MyCodeChecker/` on macOS and `~/.config/MyCodeChecker/` on Linux. If a problem persists, back up this folder, move it away and restart to begin from a clean state.
+The workspace file is in `%APPDATA%\MyCodeChecker\workspace.json` on Windows (issues in `projects/<project>/*.db` beside it; the `issues.db` of earlier versions moves there when first used), `~/Library/Application Support/MyCodeChecker/` on macOS and `~/.config/MyCodeChecker/` on Linux. If a problem persists, back up this folder, move it away and restart to begin from a clean state.
 
 ## Glossary
 

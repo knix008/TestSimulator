@@ -1,8 +1,8 @@
 // Document tabs for the centre area: scripts, models, variables and figures
 // each get a tab (icon + title, close ×). Middle
 // click closes, drag reorders, the context menu closes this / others / to the
-// right / all. When the tabs overflow, the strip scrolls without a scrollbar
-// and "<" ">" (click = one tab, hold = repeat) and "⌄" (list) appear.
+// right / all. The strip scrolls without a scrollbar; "<" ">" at the right
+// end (click = one tab, hold = repeat) are always there, disabled at the ends.
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dragGhost } from '../lib/dragGhost';
 import { t, useLanguage } from '../lib/i18n';
@@ -173,7 +173,6 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
     }
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
-  const listItems = () => tabs.map((tb) => { const info = tabInfo(tb); return { id: `go:${tb.id}`, label: `${info.label}${suffix && !tb.pinned ? ` · ${suffix}` : ''}`, icon: info.icon, on: tb.id === active }; });
 
   return (
     <div className="doc-tabs" data-tour="doc-tabs" role="tablist" aria-label={t('tab_strip')}>
@@ -212,15 +211,10 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
           );
         })}
       </div>
-      {edges.overflow && (
-        <span className="doc-tab-nav" data-tour="doc-tab-nav">
-          <button type="button" className="icon-btn" disabled={!edges.left} title={t('tab_prev')} aria-label={t('tab_prev')} onPointerDown={() => hold(-1)} onPointerUp={release} onPointerLeave={release}><Icon name="chevronLeft" size={14} /></button>
-          <button type="button" className="icon-btn" disabled={!edges.right} title={t('tab_next')} aria-label={t('tab_next')} onPointerDown={() => hold(1)} onPointerUp={release} onPointerLeave={release}><Icon name="chevronRight" size={14} /></button>
-        </span>
-      )}
-      <button type="button" className="icon-btn doc-tab-list" title={t('tab_list')} aria-label={t('tab_list')} onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); openMenuAt({ preventDefault() {}, clientX: r.left - 200, clientY: r.bottom }, listItems()); }}>
-        <Icon name="chevronDown" size={14} />
-      </button>
+      <span className="doc-tab-nav" data-tour="doc-tab-nav">
+        <button type="button" className="icon-btn" disabled={!edges.left} title={t('tab_prev')} aria-label={t('tab_prev')} onPointerDown={() => hold(-1)} onPointerUp={release} onPointerLeave={release}><Icon name="chevronLeft" size={14} /></button>
+        <button type="button" className="icon-btn" disabled={!edges.right} title={t('tab_next')} aria-label={t('tab_next')} onPointerDown={() => hold(1)} onPointerUp={release} onPointerLeave={release}><Icon name="chevronRight" size={14} /></button>
+      </span>
       {menu && (
         <div className="menu-pop doc-tab-menu" style={{ left: Math.max(4, Math.min(menu.x, window.innerWidth - menuSize(menu.items, 240).width - 10)), top: menu.y }} onClick={(e) => e.stopPropagation()}>
           {menuColumnsNodes(menu.items, (it) => (

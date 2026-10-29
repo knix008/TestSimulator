@@ -44,7 +44,7 @@ describe('language packs', () => {
 
   it('covers the main feature areas', () => {
     const expected = [
-      'toolbar.print', 'toolbar.toolText', 'toolbar.toolImage', 'toolbar.toolRegion',
+      'toolbar.print', 'toolbar.toolText', 'toolbar.toolImage', 'toolbar.toolRegion', 'toolbar.toolRead', 'tip.readTool', 'menu.readTool',
       'toolbar.comments', 'toolbar.bookmarks', 'toolbar.search',
       'toolbar.infoPanel', 'tip.infoPanel', 'info.title', 'info.empty', 'info.encrypted',
       'toolbar.rotate', 'toolbar.goPage', 'toolbar.panels',

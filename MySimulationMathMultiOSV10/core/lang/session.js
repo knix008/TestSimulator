@@ -67,6 +67,8 @@ export function createSessionWith(registry, opts = {}) {
         frame.fi = pseudo;
         const run = new Compiler(rt, { fi: pseudo, depth: null }).block(ast.body);
         rt.stack.push(frame);
+        // stepFirst: pause before the first statement (the editor's 단계 실행), then step from there.
+        if (eopts.stepFirst) { rt.stepMode = 'stepIn'; rt.stepDepth = rt.stack.length; rt.updateDbg(); }
         try {
           run(frame);
         } catch (e) {
@@ -109,6 +111,8 @@ export function createSessionWith(registry, opts = {}) {
       return complete(rt, String(text), cursor == null ? String(text).length : cursor);
     },
     help(name) { return helpFor(rt, String(name)); },
+    /** Functions whose name or help text matches: [{ name, en, ko }], name matches first (the 함수 도움말 pane). */
+    helpSearch(query, limit = 80) { return helpSearch(rt, String(query || ''), limit); },
 
     handleMessage(msg) {
       if (!msg || typeof msg.type !== 'string') return undefined;
@@ -131,6 +135,26 @@ export function createSessionWith(registry, opts = {}) {
   rt.ctx.session = session;
   for (const install of reg.installs || []) install(rt.ctx);
   return session;
+}
+
+// ------------------------------------------------------------------ help search
+function helpSearch(rt, query, limit) {
+  const q = query.trim().toLowerCase();
+  const out = [];
+  for (const [name, h] of Object.entries(rt.help || {})) {
+    if (!h) continue;
+    const n = name.toLowerCase();
+    let rank;
+    if (!q) rank = 3;
+    else if (n === q) rank = 0;
+    else if (n.startsWith(q)) rank = 1;
+    else if (n.includes(q)) rank = 2;
+    else if (`${h.en || ''} ${h.ko || ''}`.toLowerCase().includes(q)) rank = 3;
+    else continue;
+    out.push({ rank, name, en: String(h.en || '').split('\n')[0], ko: String(h.ko || '').split('\n')[0] });
+  }
+  out.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
+  return out.slice(0, Math.max(1, Math.min(500, Number(limit) || 80))).map(({ rank, ...r }) => r);
 }
 
 // ------------------------------------------------------------------ completion

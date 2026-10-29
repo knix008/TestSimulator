@@ -188,6 +188,7 @@ describe('normalize', () => {
     expect(normalize({ tool: 'lasso' }).tool).toBe('text');
     expect(normalize({ tool: 'image' }).tool).toBe('image');
     expect(normalize({ tool: 'region' }).tool).toBe('region');
+    expect(normalize({ tool: 'read' }).tool).toBe('read');
   });
 
   it('filters recent files without a path and trims to 10', () => {

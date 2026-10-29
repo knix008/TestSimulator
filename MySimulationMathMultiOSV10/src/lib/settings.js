@@ -3,13 +3,16 @@
 // back after a short pause (one write for a burst of changes).
 import { useEffect, useState } from 'react';
 import { loadSettings, storeSettings } from './backend.js';
+import { PRINT_DEFAULTS } from '../print/printdoc.js';
 
 export const MONO_FONTS = ['Consolas', 'Cascadia Mono', 'D2Coding', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Courier New', 'monospace'];
 
 export const DEFAULT_LAYOUT = {
-  folder: { on: true, w: 250 },
+  folder: { on: true, w: 250, collapsed: false },
   workspace: { on: true },
   history: { on: true },
+  cmd: { on: true },
+  rightCollapsed: false,
   rightW: 300,
   cmdH: 260,
   wsRatio: 0.58,
@@ -29,7 +32,14 @@ export const DEFAULTS = {
   keyboard: { ctrlEnterSection: true, tabCompletion: true, ctrlCCopies: true },
   layout: DEFAULT_LAYOUT,
   openFiles: [],
+  recentFiles: [],
+  showStartOnLaunch: true,
+  startBackground: {},
   ribbonTab: 'home',
+  // The last print setup (src/print/printdoc.js PRINT_DEFAULTS).
+  print: PRINT_DEFAULTS,
+  // The launch popup "튜토리얼을 실행할까요?" (askOnLaunch) and whether the tour was played to the end.
+  tutorial: { askOnLaunch: true, done: false },
 };
 
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);

@@ -335,10 +335,7 @@ function componentFor(file, components) {
 }
 
 function glob(rel, pattern) {
-  let p = String(pattern || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!p) return false;
-  const body = p.split('**').map((part) => part.split('*').map((s) => s.replace(/[.+^${}()|[\]\\]/g, '\\$&')).join('[^/]*')).join('.*');
-  return new RegExp(`(?:^|/)${body}$`, 'i').test(rel);
+  return require('./platform/util').glob(rel, pattern);
 }
 
 function isDismissed(issue) {

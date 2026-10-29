@@ -933,7 +933,9 @@ function drawLegendIcon(ctx, n, x, y, w, theme, ax) {
     }
     default: {
       let fc = p.FaceColor;
-      if (!Array.isArray(fc)) fc = n.type === 'surface' || n.type === 'contour' || n.type === 'patch' ? cmap[Math.floor(cmap.length * 0.6)] : theme.accent;
+      const mapped = n.type === 'surface' || n.type === 'contour' || n.type === 'patch';
+      // a mesh has white faces and coloured edges: show the colormap so the swatch is visible
+      if (!Array.isArray(fc) || (mapped && fc.every((v) => v > 0.95))) fc = mapped ? cmap[Math.floor(cmap.length * 0.6)] : theme.accent;
       ctx.fillStyle = rgbCss(fc, p.FaceAlpha ?? 1);
       ctx.fillRect(x + 2, y - 5, w - 4, 10);
       const ec = Array.isArray(p.EdgeColor) ? p.EdgeColor : Array.isArray(p.LineColor) ? p.LineColor : null;

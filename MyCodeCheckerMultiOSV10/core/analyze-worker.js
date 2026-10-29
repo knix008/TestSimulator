@@ -11,7 +11,7 @@ const { collectSources, analyzeSources } = require('./analyze');
 const { runCfamilyPool } = require('./cfamily-pool');
 
 const ISSUE_CHUNK = 50000;
-const { root, options, osvSource } = workerData;
+const { root, options, osvSource, parallel } = workerData;
 const opts = { ...options };
 // The advisory database is rebuilt here from its source instead of being copied.
 if (osvSource && opts.sca) {
@@ -32,12 +32,16 @@ opts.releaseMemory = (() => {
 (async () => {
   const onProgress = (p) => parentPort.postMessage({ type: 'progress', ...p });
   const { sources, options: collected } = collectSources(root, { ...opts, onProgress });
-  // A large C/C++ project runs its shared engines on a pool of workers first.
+  // Settings › Analysis › Parallel: a large C/C++ project runs its shared
+  // engines on a pool of workers first. Sequential (the default) uses this
+  // thread only: slower, but far less memory and processor.
   let cfamilyFindings = null;
-  try {
-    cfamilyFindings = await runCfamilyPool(sources, collected, { onProgress });
-  } catch {
-    cfamilyFindings = null; // one thread, as before
+  if (parallel) {
+    try {
+      cfamilyFindings = await runCfamilyPool(sources, collected, { onProgress });
+    } catch {
+      cfamilyFindings = null; // one thread, as before
+    }
   }
   const analysis = analyzeSources(sources, { ...collected, cfamilyFindings });
   // Millions of issues do not fit one message: they go in chunks first.

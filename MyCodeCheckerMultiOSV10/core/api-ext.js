@@ -410,6 +410,21 @@ function createExtensions({ workspace, saveWorkspace, configDir, issuesOf = (iss
       const out = history.defectLifecycle((state.snapshots || []).map((s) => ({ ...s, issues: issuesOf(s.issues) || [] })));
       return out instanceof Map ? Object.fromEntries(out) : out;
     },
+    // Streams: defects new in and gone from the right analysis of the history
+    // against the left one (by CID). The window gets counts, not the CIDs.
+    'defect.streamDiff': (args) => {
+      const rows = latestFor(args).state.history || [];
+      const older = rows[Number(args.left)];
+      const newer = rows[Number(args.right)];
+      if (!older || !newer || !Array.isArray(older.cids) || !Array.isArray(newer.cids)) return { added: 0, removed: 0 };
+      const a = new Set(older.cids);
+      const b = new Set(newer.cids);
+      let added = 0;
+      let removed = 0;
+      for (const cid of b) if (!a.has(cid)) added++;
+      for (const cid of a) if (!b.has(cid)) removed++;
+      return { added, removed };
+    },
     'activity.events': (args) => history.activityEvents(latestFor(args).state.history || [], { category: args.category }),
     'activity.trend': (args) => history.trendSeries(latestFor(args).state.history || [], args.metrics || ['bugs', 'vulnerabilities', 'code_smells']),
     'issue.age': (args) => history.issueAge(latestFor(args).analysis.issues),

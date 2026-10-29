@@ -38,10 +38,21 @@ function groupOf(issue) {
   return 'quality';
 }
 
-/** Ids of the groups that are off, from settings.checks. */
-function disabledChecks(settings) {
-  const checks = (settings && settings.checks) || {};
+/**
+ * Ids of the groups that are off: the project's own choice (project.checks,
+ * set in Project settings; a group it does not name is on), else the
+ * workspace's (settings.checks).
+ */
+function disabledChecks(settings, project) {
+  const own = project && project.checks && typeof project.checks === 'object' ? project.checks : null;
+  const checks = own || (settings && settings.checks) || {};
   return CHECK_GROUPS.filter((g) => checks[g.id] === false).map((g) => g.id);
+}
+
+/** The languages a project does not analyze at all (quality profile "none"). */
+const NO_PROFILE = 'none';
+function skippedLanguages(project) {
+  return Object.entries((project && project.profiles) || {}).filter(([, v]) => v === NO_PROFILE).map(([lang]) => lang);
 }
 
 /** An engine runs unless every group it reports for is off. */
@@ -55,4 +66,4 @@ function listChecks() {
   return CHECK_GROUPS.map(({ id, ko, en, hint, engines }) => ({ id, label: { ko, en }, hint: hint || null, engines: engines || [] }));
 }
 
-module.exports = { CHECK_GROUPS, groupOf, disabledChecks, engineOff, listChecks };
+module.exports = { CHECK_GROUPS, NO_PROFILE, groupOf, disabledChecks, skippedLanguages, engineOff, listChecks };

@@ -10,8 +10,9 @@ import * as design from './design.js';
 import * as spectral from './spectral.js';
 import * as proc from './proc.js';
 import * as dfilt from './dfilt.js';
+import * as extra from './extra.js';
 
-const PARTS = [['windows', windows], ['design', design], ['spectral', spectral], ['proc', proc], ['dfilt', dfilt]];
+const PARTS = [['windows', windows], ['design', design], ['spectral', spectral], ['proc', proc], ['dfilt', dfilt], ['extra', extra]];
 
 export const builtins = Object.create(null);
 export const help = Object.create(null);
@@ -27,7 +28,7 @@ for (const [name, mod] of PARTS) {
 }
 
 /** Shared names owned by another area (base/linalg): not registered here. */
-export const DEFER = ['conv2'];
+export const DEFER = [];
 /** Names offered to the registry only when no other area defines them. */
 export const SHARED_NAMES = Object.keys(proc.shared);
 export const skipped = [];

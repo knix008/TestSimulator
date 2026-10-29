@@ -43,9 +43,13 @@ test('SQLite export creates tables and is idempotent', async () => {
   await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file } });
   const t = await api.call('db.test', {});
   assert.match(t.version, /^SQLite /);
+  assert.equal(t.file, path.join(path.dirname(file), 'out-<project>.db'), 'the test names the per-project files');
+  assert.deepEqual(fs.readdirSync(path.dirname(file)), [], 'the test leaves no file behind');
   const first = await api.call('db.export', { projectId: r.project.id });
   await api.call('db.export', { projectId: r.project.id });
-  const d = new DatabaseSync(file);
+  assert.equal(first.file, db.fileFor({ kind: 'sqlite', file }, r.project));
+  assert.ok(!fs.existsSync(file), 'one file per project, not the chosen file');
+  const d = new DatabaseSync(first.file);
   try {
     assert.equal(d.prepare('select count(*) c from mcc_analyses').get().c, 1, 'same analysis replaces itself');
     assert.equal(d.prepare('select count(*) c from mcc_issues').get().c, first.issues);
@@ -58,16 +62,31 @@ test('SQLite export creates tables and is idempotent', async () => {
   }
 });
 
-test('automatic export after a committed scan, and failures become task warnings', async () => {
+// The export runs after the analysis, in the background (db.exportJob).
+async function dbJobEnd(api, jobId) {
+  const t0 = Date.now();
+  for (;;) {
+    const j = await api.call('db.exportJob', { jobId });
+    if (j.status !== 'running') return j;
+    if (Date.now() - t0 > 30000) throw new Error('DB job still running');
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+test('with a database set up, results go there in the background after each analysis; failures become task warnings', async () => {
   const api = createApi({ configDir: tmp('mcc-dba-') });
   const file = path.join(tmp('mcc-dbf-'), 'auto.db');
-  await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file, autoExport: true } });
+  await api.call('db.save', { db: { enabled: true, kind: 'sqlite', file } });
   const r = await api.call('project.scan', { path: path.resolve('samples/demo') });
-  const d = new DatabaseSync(file);
+  assert.ok(r.task.dbJobId, 'the analysis does not wait for the database');
+  assert.equal((await dbJobEnd(api, r.task.dbJobId)).status, 'done');
+  assert.ok(api.store.load().tasks[0].db.analysisId, 'the outcome is added to the task');
+  const d = new DatabaseSync(db.fileFor({ kind: 'sqlite', file }, r.project));
   assert.equal(d.prepare('select count(*) c from mcc_analyses').get().c, 1);
   d.close();
   await api.call('db.save', { db: { kind: 'postgres', host: '127.0.0.1', port: 1, user: 'x', password: 'y' } });
-  await api.call('project.scan', { path: path.resolve('samples/demo') });
+  const r2 = await api.call('project.scan', { path: path.resolve('samples/demo') });
+  assert.equal((await dbJobEnd(api, r2.task.dbJobId)).status, 'failed');
   const task = api.store.load().tasks[0];
   assert.ok(task.warnings.some((w) => /^DB: /.test(w)), 'connection failure reported, scan still succeeds');
   assert.equal(task.status, 'SUCCESS');
@@ -110,7 +129,7 @@ test('project information goes with the analysis; tables from older versions get
     issues: [{ key: 'k', rule: 'r', type: 'BUG', severity: 'MAJOR', file: 'a.c', line: 1, message: 'm' }],
   };
   const settings = { exclusions: ['**/gen/**'], checks: { misraC2004: false, cert: true }, theme: 'nord', ai: { apiKey: 'secret' } };
-  const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file }, { project, branch: 'main', analysis, settings });
+  const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file, perProject: false }, { project, branch: 'main', analysis, settings });
   const d = new DatabaseSync(file);
   const p = d.prepare("select * from mcc_projects where id = 'p1'").get();
   assert.equal(p.description, 'Power board');
@@ -131,4 +150,24 @@ test('project information goes with the analysis; tables from older versions get
   const all = JSON.stringify(d.prepare('select * from mcc_project_details').all()) + JSON.stringify(d.prepare('select * from mcc_projects').all());
   assert.ok(!all.includes('secret') && !all.includes('nord'));
   d.close();
+});
+
+test('SQLite saves each project in a file of its own; perProject off keeps them in one file', async () => {
+  const folder = tmp('mcc-dbper-');
+  const file = path.join(folder, 'mycodechecker.db');
+  const analysis = { finishedAt: '2026-10-29T00:00:00Z', qualityGate: { status: 'OK' }, measures: { bugs: 1 }, issues: [{ key: 'k', rule: 'r', type: 'BUG', severity: 'MAJOR', file: 'a.c', line: 1, message: 'm' }] };
+  const projects = [{ id: 'p1', key: 'alpha' }, { id: 'p2', key: 'beta/2' }, { id: 'p3' }];
+  for (const project of projects) {
+    const out = await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file }, { project, branch: 'main', analysis });
+    assert.equal(out.file, db.fileFor({ kind: 'sqlite', file }, project));
+  }
+  assert.deepEqual(fs.readdirSync(folder).filter((n) => n.endsWith('.db')).sort(), ['mycodechecker-alpha.db', 'mycodechecker-beta_2.db', 'mycodechecker-p3.db']);
+  const d = new DatabaseSync(path.join(folder, 'mycodechecker-alpha.db'));
+  assert.deepEqual(d.prepare('select id from mcc_projects').all().map((r) => r.id), ['p1'], 'only its own project');
+  d.close();
+  for (const project of projects) await db.exportAnalysis({ ...db.DEFAULTS, enabled: true, kind: 'sqlite', file, perProject: false }, { project, branch: 'main', analysis });
+  const one = new DatabaseSync(file);
+  assert.equal(one.prepare('select count(*) c from mcc_projects').get().c, 3);
+  one.close();
+  assert.equal(db.settingsOf({ settings: {} }, folder).perProject, true, 'on by default');
 });

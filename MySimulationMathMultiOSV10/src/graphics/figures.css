@@ -1,0 +1,92 @@
+/* Figure area. Uses the app theme variables (src/styles.css). */
+.fig-area { container-type: inline-size; container-name: figarea; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; background: var(--bg); color: var(--fg); position: relative; }
+.fig-tabs { display: flex; align-items: stretch; gap: 1px; min-height: 30px; padding: 2px 6px 0; background: var(--bg-panel); border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.fig-tab { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; min-width: 0; padding: 0 4px 0 10px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; color: var(--fg-muted); font-size: 12px; cursor: pointer; white-space: nowrap; flex: none; user-select: none; }
+.fig-tab:hover { background: var(--bg-hover); color: var(--fg); }
+.fig-tab.on { background: var(--bg); color: var(--fg); border-color: var(--border); margin-bottom: -1px; }
+.fig-tab .ellipsis { min-width: 0; }
+.fig-tab-x { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 4px; }
+
+.fig-toolbar { display: flex; align-items: center; flex-wrap: wrap; row-gap: 2px; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-height: 36px; overflow: hidden; }
+.fig-tb { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 7px; border: 1px solid transparent; border-radius: 5px; background: none; color: var(--fg); white-space: nowrap; flex: none; }
+.fig-tb:hover:not(:disabled) { background: var(--bg-hover); }
+.fig-tb:disabled { opacity: .45; }
+.fig-tb.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.fig-tb-label { font-size: 12px; }
+.fig-sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 4px; flex: none; }
+.fig-zoom { display: inline-flex; align-items: center; flex: none; margin: 0 2px; }
+.fig-zoom .stepper input, .fig-zoom .step-btn { height: 26px; }
+.fig-zoom .stepper-unit { font-size: 11px; color: var(--fg-muted); margin-left: 3px; }
+@container figarea (max-width: 1100px) { .fig-toolbar .fig-tb.minor .fig-tb-label { display: none; } }
+@container figarea (max-width: 640px) { .fig-toolbar .fig-tb-label { display: none; } .fig-tb { padding: 0 6px; } }
+
+.fig-banner { display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: color-mix(in srgb, var(--accent) 14%, var(--bg-panel)); border-bottom: 1px solid var(--border); font-size: 12px; }
+.fig-banner .vbtn { height: 24px; }
+.fig-body { position: relative; flex: 1; min-height: 0; min-width: 0; display: flex; }
+.fig-empty { flex: 1; }
+.fig-view { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.fig-stage { position: relative; flex: 1; min-height: 0; min-width: 0; overflow: hidden; outline: none; }
+.fig-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.fig-over { touch-action: none; }
+.fig-status { display: flex; align-items: center; gap: 14px; height: 22px; padding: 0 10px; border-top: 1px solid var(--border); background: var(--bg-panel); font-size: 11.5px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; }
+.fig-status-coords { font-family: var(--mono); color: var(--fg); }
+.fig-status-hint { min-width: 0; }
+
+/* ui components */
+.fig-ui { position: absolute; pointer-events: none; }
+.fig-ui > *, .fig-ui-panel > * { pointer-events: auto; }
+.fig-ui-btn { box-sizing: border-box; padding: 0 6px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--bg-elev); color: var(--fg); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fig-ui-btn:hover:not(:disabled) { filter: brightness(1.08); border-color: var(--accent); }
+.fig-ui-btn.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.fig-ui-btn:disabled { opacity: .5; cursor: default; }
+.fig-ui-label { box-sizing: border-box; display: flex; overflow: hidden; color: var(--fg); font-size: 12px; }
+.fig-ui-check { box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; color: var(--fg); font-size: 12px; cursor: pointer; overflow: hidden; white-space: nowrap; }
+.fig-ui-edit { box-sizing: border-box; padding: 0 5px; border: 1px solid var(--border-strong); border-radius: 3px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; resize: none; }
+.fig-ui-slider { box-sizing: border-box; margin: 0; accent-color: var(--accent); }
+.fig-ui-list { box-sizing: border-box; overflow: auto; border: 1px solid var(--border-strong); background: var(--bg); font-size: 12px; }
+.fig-ui-item { padding: 2px 6px; cursor: pointer; white-space: nowrap; }
+.fig-ui-item:hover { background: var(--bg-hover); }
+.fig-ui-item.on { background: color-mix(in srgb, var(--accent) 24%, transparent); color: var(--fg); }
+.fig-ui-drop { box-sizing: border-box; display: flex; align-items: stretch; }
+.fig-ui-drop > * { flex: 1; min-width: 0; height: 100%; }
+.fig-ui-drop button { height: 100%; }
+.fig-ui-frame { box-sizing: border-box; border: 1px solid var(--border-strong); }
+.fig-ui-panel { box-sizing: border-box; margin: 0; padding: 0; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--bg-panel); }
+.fig-ui-panel > legend { margin-left: 8px; padding: 0 4px; font-size: 12px; color: var(--fg-muted); }
+
+/* dialogs */
+.fig-dialog .dialog-body { gap: 10px; }
+.fig-dlg-field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.fig-dlg-field input { height: var(--ctl-h, 30px); }
+.fig-dlg-prompt { margin: 0; white-space: pre-line; }
+.fig-dlg-list { max-height: 300px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); font-size: 12.5px; }
+.fig-dlg-actions { gap: 6px; align-items: center; }
+
+/* export dialog: fixed size, no scrollbars */
+.fig-export { width: 900px; height: 560px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); display: flex; flex-direction: column; overflow: hidden; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); }
+.fig-export .dialog-title { flex: none; }
+.fig-export-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 388px minmax(0, 1fr); gap: 14px; padding: 12px 14px; overflow: hidden; }
+.fig-export-opts { display: flex; flex-direction: column; gap: 5px; min-width: 0; overflow: hidden; font-size: 12.5px; }
+.fig-xrow { display: flex; align-items: center; gap: 8px; min-height: 30px; min-width: 0; }
+.fig-xlbl { width: 70px; flex: none; color: var(--fg-muted); }
+.fig-xpair { gap: 10px; padding-left: 78px; }
+.fig-xpair .stepper-label { min-width: 0; }
+.fig-xinfo { min-height: 18px; color: var(--fg-muted); font-size: 12px; }
+.fig-xpick { height: 30px; padding: 0 9px; }
+.fig-xname { flex: 1; min-width: 0; height: var(--ctl-h, 30px); }
+.fig-xext { color: var(--fg-muted); font-family: var(--mono); }
+.fig-xfolder { flex: 1; min-width: 0; color: var(--fg-muted); }
+.fig-xnote { display: flex; align-items: flex-start; gap: 6px; min-height: 30px; padding: 0 0 0 78px; font-size: 11.5px; line-height: 1.4; color: var(--warn, #e0a030); }
+.fig-xnote.empty { visibility: hidden; }
+.fig-xnote svg { flex: none; margin-top: 2px; }
+.fig-export-preview { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.fig-xcheck { flex: 1; min-height: 0; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; }
+.fig-xcheck.on { background-color: #fff; background-image: linear-gradient(45deg, #cfcfcf 25%, transparent 25%), linear-gradient(-45deg, #cfcfcf 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #cfcfcf 75%), linear-gradient(-45deg, transparent 75%, #cfcfcf 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; }
+.fig-xcheck img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+.fig-xcaption { color: var(--fg-muted); }
+.fig-export-foot { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.fig-pickbar { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 12px; background: var(--bg-elev); border: 1px solid var(--accent); border-radius: 8px; box-shadow: var(--shadow); font-size: 12.5px; }
+.fig-pickbar .vbtn { height: 26px; }
+.fig-export-back { z-index: 48; } /* app prompts (save chooser, z 50) stay on top */
+.fig-xorient { height: 28px; padding: 0 9px; gap: 5px; }
+.fig-xhint { color: var(--fg-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   IconOpen, IconUrl, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy, IconClip,
-  IconSelectAll, IconMarquee, IconImage, IconText, IconHighlight, IconBookmark, IconComment,
+  IconSelectAll, IconMarquee, IconHand, IconImage, IconText, IconHighlight, IconBookmark, IconComment,
   IconFirst, IconPrev, IconNext, IconLast, IconZoomIn, IconZoomOut,
   IconRotateLeft, IconRotateRight, IconSidebar, IconRightPanel,
   IconSettings, IconInfo, IconFlag, IconTheme, IconTrash, IconDown, IconFolder,
@@ -440,6 +440,7 @@ export default function Toolbar({
           { id: 'text', icon: IconSelectText, label: t('toolbar.toolText'), tip: t('tip.textTool') },
           { id: 'image', icon: IconImage, label: t('toolbar.toolImage'), tip: t('tip.imageTool') },
           { id: 'region', icon: IconMarquee, label: t('toolbar.toolRegion'), tip: t('tip.regionTool') },
+          { id: 'read', icon: IconHand, label: t('toolbar.toolRead'), tip: t('tip.readTool') },
         ].map((item) => (
           <button
             key={item.id}

@@ -9,13 +9,14 @@ import { languageOptions } from '../../components/Flags';
 import { ThemePicker } from '../../components/ThemePicker';
 import { Btn, BtnGroup, IconSelect, Stepper, RangeStepper, Toggle, FilePickButton, saveText, emitAction, errorText } from '../common';
 import { AnimatedBackground } from '../../lib/startBackground';
+import { ChecksBox } from '../../components/ChecksBox';
 import { BgKindGrid } from '../StartPage';
 import { metricLabel } from '../Panels';
 import { DEFAULT_GATE_CONDITIONS, GATE_METRICS } from '../../lib/gateDefaults';
 
 export const MASK = '••••••••';
 const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'];
-const DB_PORT = { postgres: 5432, mysql: 3306, mssql: 1433 };
+const DB_PORT = { postgres: 5432, mysql: 3306, mariadb: 3306, mssql: 1433 };
 
 export function Row({ icon, label, title, children, wide }) {
   return (
@@ -201,11 +202,46 @@ export function StartTab({ d, set, setBg }) {
 }
 
 // ── 분석 ──────────────────────────────────────────────────
+// Parallel needs two pool workers: four cores (two are left free) and 2.5 GB
+// of pool heap each, the pool getting 60% of the analysis memory limit
+// (core/cfamily-pool.js poolSize). Below that the analysis runs sequentially.
+const PARALLEL_MIN_CPUS = 4;
+const PARALLEL_MIN_GB = 9;
+
+function AnalysisModeRow({ d, set }) {
+  const [sys, setSys] = useState(null);
+  useEffect(() => { call('system.memory').then(setSys).catch(() => {}); }, []);
+  const parallelOk = !sys || (sys.cpus >= PARALLEL_MIN_CPUS && d.memoryLimitGb >= PARALLEL_MIN_GB);
+  // Each mode: its button, what it needs, and what a large project should have
+  // (or, for parallel on a computer below its needs, that it runs sequentially).
+  const mode = (id, icon) => {
+    const unmet = id === 'parallel' && !parallelOk;
+    return (
+      <div className="st-mode" data-mode={id}>
+        <Btn icon={icon} label={t(`st_mode_${id}`)} title={t(`st_mode_${id}_tip`)} active={d.analysisMode === id} onClick={() => set({ analysisMode: id })} />
+        <span className={`small ${unmet ? 'bad' : ''}`}>{t(`st_mode_${id}_req`)}</span>
+        <span className={`small ${unmet ? 'bad' : ''}`}>{unmet ? t('st_mode_parallel_unmet') : t(`st_mode_${id}_rec`)}</span>
+      </div>
+    );
+  };
+  const label = (
+    <span className="st-mode-label">
+      {t('st_analysis_mode')}
+      {sys && <span className="small">{t('st_mode_this_pc', { cpus: sys.cpus, gb: sys.totalGb })}</span>}
+    </span>
+  );
+  return (
+    <Row icon="cpu" label={label} title={t('st_analysis_mode_hint')} wide>
+      <div className="st-modes">{mode('sequential', 'list')}{mode('parallel', 'layers')}</div>
+    </Row>
+  );
+}
+
 export function AnalysisTab({ d, set, close }) {
   return (
     <>
       <Row icon="filter" label={t('exclusions')} title={t('st_exclusions_hint')} wide>
-        <textarea className="mono st-textarea" rows={7} value={d.exclusionsText} onChange={(e) => set({ exclusionsText: e.target.value })} />
+        <textarea className="mono st-textarea" rows={4} value={d.exclusionsText} onChange={(e) => set({ exclusionsText: e.target.value })} />
       </Row>
       <div className="st-grid2">
         <Row icon="flow" label={t('limit_cognitive')}><Stepper value={d.limits.cognitive} min={1} max={1000} ariaLabel={t('limit_cognitive')} onChange={(v) => set({ limits: { ...d.limits, cognitive: v } })} /></Row>
@@ -215,38 +251,10 @@ export function AnalysisTab({ d, set, close }) {
         <Row icon="file" label={t('st_max_files')} title={t('st_max_files_hint')}><Stepper value={d.maxFiles} min={0} max={10000000} step={500} width={90} ariaLabel={t('st_max_files')} unit={d.maxFiles ? '' : t('st_no_limit')} onChange={(v) => set({ maxFiles: v })} /></Row>
         <Row icon="gauge" label={t('st_memory_limit')} title={t('st_memory_limit_hint')}><Stepper value={d.memoryLimitGb} min={1} max={4096} step={1} width={70} ariaLabel={t('st_memory_limit')} unit="GB" onChange={(v) => set({ memoryLimitGb: v })} /></Row>
       </div>
+      <AnalysisModeRow d={d} set={set} />
       <Row icon="settings" label={t('st_more_analysis')}><Btn icon="users" label={t('st_open_admin_settings')} onClick={() => close('adminSettings')} /></Row>
       <ChecksBox checks={d.checks} onChange={(checks) => set({ checks })} />
     </>
-  );
-}
-
-// Check groups (core/checks.js): a group that is off is not run / not reported.
-function ChecksBox({ checks, onChange }) {
-  const [list, setList] = useState(null);
-  const lang = getLanguage();
-  useEffect(() => { call('checks.list').then(setList).catch(() => setList([])); }, []);
-  const on = (id) => checks[id] !== false;
-  const setAll = (value) => onChange(Object.fromEntries((list || []).map((g) => [g.id, value])));
-  return (
-    <div className="st-checks" data-tour="check-groups">
-      <div className="st-checks-head">
-        <strong><Icon name="list" size={14} /> {t('ck_title')}</strong>
-        <span className="small">{t('ck_count', { on: (list || []).filter((g) => on(g.id)).length, total: (list || []).length })}</span>
-        <span className="spacer" />
-        <Btn icon="check" label={t('ck_all_on')} onClick={() => setAll(true)} />
-        <Btn icon="close" label={t('ck_all_off')} onClick={() => setAll(false)} />
-      </div>
-      <p className="small">{t('ck_hint')}</p>
-      <div className="st-checks-grid">
-        {(list || []).map((g) => (
-          <label key={g.id} className={`st-check ${on(g.id) ? 'on' : ''}`} data-check={g.id} title={g.hint ? g.hint[lang] || g.hint.en : undefined}>
-            <input type="checkbox" checked={on(g.id)} onChange={(e) => onChange({ ...checks, [g.id]: e.target.checked })} />
-            <span><b>{g.label[lang] || g.label.en}</b>{g.hint && <span className="small">{g.hint[lang] || g.hint.en}</span>}</span>
-          </label>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -431,7 +439,7 @@ export function DbTab({ db, setB, dbErr }) {
     setTest({ busy: true });
     try {
       const r = await call('db.test', { db });
-      setTest({ ok: r.ok !== false, text: `${r.kind || ''} ${r.version || ''}${r.tables ? ` · ${t('db_tables')}: ${(r.tables || []).join(', ') || '—'}` : ''}` });
+      setTest({ ok: r.ok !== false, text: `${r.kind || ''} ${r.version || ''}${r.tables ? ` · ${t('db_tables')}: ${(r.tables || []).join(', ') || '—'}` : ''}${r.file ? ` · ${r.file}` : ''}` });
     } catch (err) { setTest({ ok: false, text: errorText(err) }); }
   };
   const sqlite = db.kind === 'sqlite';
@@ -443,10 +451,11 @@ export function DbTab({ db, setB, dbErr }) {
         <Row icon="check" label={t('in_enabled')}><Toggle icon="database" label={t('db_enable')} checked={!!db.enabled} onChange={(v) => setB({ enabled: v })} /></Row>
         <Row icon="database" label={t('db_kind')}>
           <IconSelect value={db.kind} width={200} ariaLabel={t('db_kind')} onChange={(v) => setB({ kind: v, port: DB_PORT[v] || db.port })} options={[
+            { value: 'mysql', label: 'MySQL', icon: 'database' },
             { value: 'sqlite', label: t('db_sqlite'), icon: 'file' },
+            { value: 'mariadb', label: 'MariaDB', icon: 'database' },
             { value: 'postgres', label: 'PostgreSQL', icon: 'database' },
-            { value: 'mysql', label: 'MySQL · MariaDB', icon: 'database' },
-            { value: 'mssql', label: 'SQL Server', icon: 'database' },
+            { value: 'mssql', label: 'MSSQL (SQL Server)', icon: 'database' },
           ]} />
         </Row>
       </div>
@@ -458,6 +467,11 @@ export function DbTab({ db, setB, dbErr }) {
           </span>
         </Row>
       )}
+      {sqlite && (
+        <Row icon="folder" label={t('db_per_project')} title={t('db_per_project_hint')} wide>
+          <Toggle icon="layers" label={t('db_per_project_label')} checked={db.perProject !== false} onChange={(v) => setB({ perProject: v })} />
+        </Row>
+      )}
       <div className="st-grid2">
         {!sqlite && <Row icon="globe" label={t('in_host')}><input value={db.host || ''} placeholder="localhost" onChange={(e) => setB({ host: e.target.value })} /></Row>}
         {!sqlite && <Row icon="hash" label={t('in_port')}><Stepper value={Number(db.port) || DB_PORT[db.kind]} min={1} max={65535} width={70} ariaLabel={t('in_port')} onChange={(v) => setB({ port: v })} /></Row>}
@@ -467,7 +481,6 @@ export function DbTab({ db, setB, dbErr }) {
         {!sqlite && <Row icon="lock" label="SSL / TLS"><Toggle icon="lock" label={t('db_ssl')} checked={!!db.ssl} onChange={(v) => setB({ ssl: v })} /></Row>}
         <Row icon="layers" label={t('db_schema')} title={t('db_schema_hint')}><input value={db.schema || ''} placeholder="mcc" onChange={(e) => setB({ schema: e.target.value })} /></Row>
         <Row icon="clock" label={t('db_timeout')} title={t('db_timeout_hint')}><Stepper value={Number(db.timeoutSec) || 60} min={5} max={3600} step={5} width={70} ariaLabel={t('db_timeout')} onChange={(v) => setB({ timeoutSec: v })} /></Row>
-        <Row icon="upload" label={t('db_auto')}><Toggle icon="upload" label={t('db_auto_label')} checked={!!db.autoExport} onChange={(v) => setB({ autoExport: v })} /></Row>
         <Row icon="bug" label={t('db_issues')}><Toggle icon="list" label={t('db_issues_label')} checked={!!db.includeIssues} onChange={(v) => setB({ includeIssues: v })} /></Row>
         <Row icon="refresh" label={t('ai_test')}>
           <span className="hrow0">

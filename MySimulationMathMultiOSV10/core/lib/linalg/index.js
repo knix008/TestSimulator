@@ -8,8 +8,10 @@ import * as fft from './fft.js';
 import * as interp from './interp.js';
 import * as special from './special.js';
 import * as matrices from './matrices.js';
+import * as qz from './qz.js';
+import * as extra from './extra.js';
 
-const MODULES = [['dense', dense], ['sparse', sparse], ['fft', fft], ['interp', interp], ['special', special], ['matrices', matrices]];
+const MODULES = [['dense', dense], ['sparse', sparse], ['fft', fft], ['interp', interp], ['special', special], ['matrices', matrices], ['qz', qz], ['extra', extra]];
 
 export const builtins = Object.create(null);
 export const help = Object.create(null);

@@ -38,6 +38,7 @@ const P = {
   flip: <><path d="M12 3v18" strokeDasharray="2 2" /><path d="M9 7 4 12l5 5zM15 7l5 5-5 5z" /></>,
   trash: <><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></>,
   copy: <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></>,
+  duplicate: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M15 12v6M12 15h6" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>,
   paste: <><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V2h6v2M9 10h6M9 14h6" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   minus: <path d="M5 12h14" />,

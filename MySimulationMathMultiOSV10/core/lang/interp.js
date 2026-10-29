@@ -104,6 +104,7 @@ export class Interp {
     this.state = Object.create(null);
     this.messageHandlers = [];
     this.pendingArgNames = null;
+    this.builtinArgNames = null;
     this.listeners = new WeakMap();
     this.deleted = new WeakSet();
     this.ctx = this.makeCtx();
@@ -135,6 +136,7 @@ export class Interp {
       checkInterrupt() { if (rt.intFlag !== null && rt.intFlag[0] !== 0) rt.interrupted(); },
       getVar(name, scope = 'caller') { const ws = scope === 'base' ? rt.base : rt.currentWs(); return disown(rt.readWs(ws, name)); },
       setVar(name, v, scope = 'caller') { const ws = scope === 'base' ? rt.base : rt.currentWs(); rt.writeWs(ws, name, v); rt.varsChanged = true; },
+      inputName(i) { const n = rt.builtinArgNames; return n && typeof n[i] === 'string' && n[i] ? n[i] : null; },
       evalString(code, scope = 'base') { return rt.evalIn(scope === 'base' ? rt.baseFrame : rt.currentFrame(), String(code), true); },
     };
     return ctx;
@@ -669,8 +671,12 @@ export class Interp {
     return sprintfLite(fmt, args);
   }
   callBuiltin(name, fn, args, nargout) {
+    // ctx.inputName(i) reads the caller's argument variable names during the call.
+    const saved = this.builtinArgNames;
+    this.builtinArgNames = this.pendingArgNames;
     this.pendingArgNames = null;
-    const r =this.callBuiltinFn(name, fn, args, nargout);
+    let r;
+    try { r = this.callBuiltinFn(name, fn, args, nargout); } finally { this.builtinArgNames = saved; }
     if (Array.isArray(r)) return r;
     if (r === undefined || r === null) return [];
     return [r];

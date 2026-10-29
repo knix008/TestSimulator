@@ -2,6 +2,7 @@
 
 // Saving analysis results to a database: SQLite (Node's built-in node:sqlite),
 // PostgreSQL (pg), MySQL / MariaDB (mysql2) and SQL Server (mssql).
+// SQLite writes one file per project by default (fileFor).
 // Tables (prefix from settings.database.schema, default "mcc"):
 //   <p>_projects  (id, project_key, name, path, updated_at)
 //   <p>_analyses  (id, project_id, branch, analyzed_at, gate, main measures, measures_json)
@@ -19,9 +20,10 @@ const path = require('path');
 const crypto = require('crypto');
 
 const MASK = '••••••••';
-const DEFAULT_PORT = { postgres: 5432, mysql: 3306, mssql: 1433 };
+// MariaDB speaks the MySQL protocol and SQL: it uses the mysql2 driver and the mysql dialect.
+const DEFAULT_PORT = { postgres: 5432, mysql: 3306, mariadb: 3306, mssql: 1433 };
 // timeoutSec: the longest one statement (or the connection) may take.
-const DEFAULTS = { enabled: false, kind: 'sqlite', file: '', host: '127.0.0.1', port: 0, database: 'mycodechecker', user: '', password: '', ssl: false, schema: 'mcc', autoExport: true, includeIssues: true, timeoutSec: 60 };
+const DEFAULTS = { enabled: false, kind: 'sqlite', file: '', host: '127.0.0.1', port: 0, database: 'mycodechecker', user: '', password: '', ssl: false, schema: 'mcc', autoExport: true, includeIssues: true, timeoutSec: 60, perProject: true };
 
 function fail(code, message, ko) {
   return Object.assign(new Error(message), { code }, ko ? { text: { en: message, ko } } : {});
@@ -61,6 +63,18 @@ function settingsOf(ws, configDir) {
   return s;
 }
 
+// SQLite with perProject (the default): one file per project beside the chosen
+// file, <name>-<project key>.db, so each project's results are a small file of
+// their own (searched, copied and removed on their own). No project: the
+// pattern, <name>-<project>.db.
+function fileFor(s, project) {
+  if (s.kind !== 'sqlite' || s.perProject === false || !s.file) return s.file;
+  const ext = path.extname(s.file) || '.db';
+  const stem = path.basename(s.file, path.extname(s.file));
+  const key = project ? String(project.key || project.id || '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '') || 'project' : '<project>';
+  return path.join(path.dirname(s.file), `${stem}-${key}${ext}`);
+}
+
 function publicSettings(ws, configDir) {
   const s = settingsOf(ws, configDir);
   return { ...s, password: s.password ? MASK : '' };
@@ -70,7 +84,7 @@ function saveSettings(ws, next, configDir) {
   const prev = settingsOf(ws, configDir);
   const merged = { ...prev, ...(next || {}) };
   if (merged.password === MASK) merged.password = prev.password;
-  if (!['sqlite', 'postgres', 'mysql', 'mssql'].includes(merged.kind)) throw fail('BAD_REQUEST', `Unknown database kind: ${merged.kind}`);
+  if (!['sqlite', 'postgres', 'mysql', 'mariadb', 'mssql'].includes(merged.kind)) throw fail('BAD_REQUEST', `Unknown database kind: ${merged.kind}`);
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,30}$/.test(merged.schema || '')) throw fail('BAD_REQUEST', 'The table prefix may use letters, digits and _ only');
   merged.port = Number(merged.port) || DEFAULT_PORT[merged.kind] || 0;
   merged.timeoutSec = Math.min(3600, Math.max(5, Math.round(Number(merged.timeoutSec) || DEFAULTS.timeoutSec)));
@@ -172,13 +186,13 @@ async function connect(s, opts = {}) {
         async close() { await client.end(); },
       };
     }
-    if (s.kind === 'mysql') {
+    if (s.kind === 'mysql' || s.kind === 'mariadb') {
       const mysql = req('mysql2/promise');
       const conn = await mysql.createConnection({ host: s.host, port: s.port, database: s.database, user: s.user, password: s.password, ssl: s.ssl ? {} : undefined, connectTimeout: 15000, charset: 'utf8mb4' });
       return {
         kind: 'mysql',
         async query(sql, params = []) { const [rows] = await conn.query(sql, params); return Array.isArray(rows) ? rows : []; },
-        async version() { const [rows] = await conn.query('select version() as v'); return `MySQL ${rows[0].v}`; },
+        async version() { const [rows] = await conn.query('select version() as v'); return `${/mariadb/i.test(rows[0].v) || s.kind === 'mariadb' ? 'MariaDB' : 'MySQL'} ${rows[0].v}`; },
         async close() { await conn.end(); },
       };
     }
@@ -267,7 +281,8 @@ async function exportAnalysis(s, { project, branch, analysis, settings }, opts =
   const ms = timeoutMs(s);
   const report = (phase, done = 0, total = 0) => { if (opts.onProgress) opts.onProgress({ phase, done, total }); };
   report('connect');
-  const conn = guarded(await withTimeout(connect(s, opts), ms + 1000, 'connect'), ms, opts);
+  const file = fileFor(s, project);
+  const conn = guarded(await withTimeout(connect({ ...s, file }, opts), ms + 1000, 'connect'), ms, opts);
   const p = s.schema || 'mcc';
   try {
     report('schema');
@@ -300,7 +315,7 @@ async function exportAnalysis(s, { project, branch, analysis, settings }, opts =
         defines: project.defines || {}, coverageReports: project.coverageReports || [], newCode: project.newCode || { newCode: (settings || {}).newCode || 'previous' },
         gateId: project.gateId || null, policyId: project.policyId || null, profiles: project.profiles || {},
       };
-      const checksOff = Object.entries(((settings || {}).checks) || {}).filter(([, on]) => on === false).map(([id]) => id);
+      const checksOff = require('./checks').disabledChecks(settings, project);
       await insertRows(conn, `${p}_project_details`, ['analysis_id', 'project_id', 'branch', 'analyzed_at', 'quality_gate', 'gate_status', 'gate_json', 'config_json', 'checks_off', 'languages_json', 'files', 'ncloc'],
         [[analysisId, project.id, str(branch, 190), str(analysis.finishedAt, 40), str(gate.name), str(gate.status, 20),
           JSON.stringify((gate.conditions || []).map((c) => ({ metric: c.metric, op: c.op, threshold: c.threshold, actual: c.actual, status: c.status, enabled: c.enabled !== false }))),
@@ -314,7 +329,7 @@ async function exportAnalysis(s, { project, branch, analysis, settings }, opts =
         issues.map((i) => [analysisId, str(rowKey(String(i.key)), 190), str(i.rule, 190), str(i.type, 40), str(i.severity, 20), str(i.status || 'OPEN', 40), str(i.resolution, 40), str(i.file), num(i.line), str(msg(i.message, 'en')), str(msg(i.message, 'ko')), str(i.engine, 60), str(i.checker, 120), i.cid == null ? null : String(i.cid), str(i.cwe, 40), i.isNew ? 1 : 0, str(i.assignee, 190), JSON.stringify(i.tags || []), str(i.createdAt, 40)]), step);
       report('commit', done, total);
     });
-    return { analysisId, issues: issues.length, measures: measureRows.length, kind: conn.kind };
+    return { analysisId, issues: issues.length, measures: measureRows.length, kind: conn.kind, ...(conn.kind === 'sqlite' ? { file } : {}) };
   } finally {
     await conn.close();
   }
@@ -323,13 +338,17 @@ async function exportAnalysis(s, { project, branch, analysis, settings }, opts =
 /** Connect, create the tables if needed, and report the server version and tables. */
 async function testConnection(s, opts = {}) {
   const ms = timeoutMs(s);
-  const conn = guarded(await withTimeout(connect(s, opts), ms + 1000, 'connect'), ms, opts);
+  // Per-project SQLite files: the folder is tried with a scratch file, removed after.
+  const perProject = s.kind === 'sqlite' && s.perProject !== false && s.file && !opts.driver;
+  const scratch = perProject ? path.join(path.dirname(s.file), `.mcc-test-${process.pid}-${Date.now()}.db`) : null;
+  const conn = guarded(await withTimeout(connect(scratch ? { ...s, file: scratch } : s, opts), ms + 1000, 'connect'), ms, opts);
   try {
     await ensureSchema(conn, s.schema || 'mcc');
-    return { ok: true, kind: conn.kind, version: await withTimeout(conn.version(), ms, 'version'), tables: tableDefs(s.schema || 'mcc').map((d) => d.name) };
+    return { ok: true, kind: conn.kind, version: await withTimeout(conn.version(), ms, 'version'), tables: tableDefs(s.schema || 'mcc').map((d) => d.name), ...(perProject ? { file: fileFor(s, null) } : {}) };
   } finally {
     await conn.close();
+    if (scratch) for (const x of ['', '-wal', '-shm', '-journal']) require('fs').rmSync(scratch + x, { force: true });
   }
 }
 
-module.exports = { DEFAULTS, DEFAULT_PORT, MASK, settingsOf, publicSettings, saveSettings, tableDefs, createSql, placeholders, chunkSize, connect, exportAnalysis, testConnection, withTimeout };
+module.exports = { DEFAULTS, DEFAULT_PORT, MASK, settingsOf, publicSettings, saveSettings, fileFor, tableDefs, createSql, placeholders, chunkSize, connect, exportAnalysis, testConnection, withTimeout };

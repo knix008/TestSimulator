@@ -13,12 +13,13 @@ import { getCustomThemesRaw } from '../themes';
 export function useApi(method, args, deps, enabled = true) {
   const [state, setState] = useState({ data: null, error: '', loading: false });
   const seq = useRef(0);
-  const run = useCallback(async () => {
+  // reload() asks the service to compute again ({ fresh }) instead of reusing its cached result.
+  const run = useCallback(async (fresh) => {
     if (!enabled) { setState({ data: null, error: '', loading: false }); return null; }
     const id = ++seq.current;
     setState((s) => ({ ...s, loading: true, error: '' }));
     try {
-      const data = await call(method, args);
+      const data = await call(method, fresh === true ? { ...args, fresh: true } : args);
       if (id === seq.current) setState({ data, error: '', loading: false });
       return data;
     } catch (err) {
@@ -28,7 +29,7 @@ export function useApi(method, args, deps, enabled = true) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, enabled, ...deps]);
   useEffect(() => { run(); }, [run]);
-  return { ...state, reload: run };
+  return { ...state, reload: () => run(true) };
 }
 
 // ── Save / open ───────────────────────────────────────────
@@ -504,6 +505,16 @@ export function emitAction(id) {
   window.dispatchEvent(new CustomEvent('mcc-action', { detail: id }));
 }
 
+/**
+ * Props for a list row of something in a source file (an issue, a defect, a
+ * hotspot …): double-click opens the whole file in the code view at that line.
+ * The row's details already show in the right panel on a single click.
+ */
+export function openCodeRow(file, line) {
+  if (!file) return {};
+  return { title: t('ib_dblclick_code'), 'data-open-file': file, 'data-open-line': Number(line) || 0, onDoubleClick: () => emitAction(`openCode:${Number(line) || 0}:${file}`) };
+}
+
 // "No project / no analysis yet" with the two ways out.
 // App provides the open project (without an analysis the empty state offers to analyze it).
 export const ProjectCtx = React.createContext(null);
@@ -632,29 +643,75 @@ export function Glossary({ id, terms, title }) {
 
 // ── Long lists ──────────────────────────────────────────────
 // A large project has 100 000+ issues; one <tr> each blocks the window for
-// minutes. Lists render the first rows and add more when the end scrolls
-// into view (or on "Show more"). Returns the rows to render and the footer.
+// minutes. Lists render one page of rows at a time.
 const ROWS_STEP = 300;
-export function useRowWindow(list, step = ROWS_STEP) {
-  const [count, setCount] = useState(step);
-  const footRef = useRef(null);
-  useEffect(() => { setCount(step); }, [list, step]);
-  const more = list.length > count;
+const PAGE_SIZES = [100, 200, 500, 1000];
+const PAGE_SIZE_KEY = 'mcc.pageSize';
+function storedPageSize(fallback) {
+  try {
+    const v = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return PAGE_SIZES.includes(v) ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** The rows-per-page choice, kept on this computer: [size, setSize]. */
+export function usePageSize(fallback = 500) {
+  const [size, setSize] = useState(() => storedPageSize(fallback));
+  const set = (n) => {
+    setSize(n);
+    try { localStorage.setItem(PAGE_SIZE_KEY, String(n)); } catch { /* per-viewer only */ }
+  };
+  return [size, set];
+}
+
+/**
+ * Page navigation under a long list: the range shown, first / previous /
+ * page number / next / last and the page size. page is 0-based. A new page
+ * starts at the top of its table.
+ */
+export function Pager({ total, page, size, onPage, onSize, note }) {
+  useLanguage();
+  const ref = useRef(null);
+  const pages = Math.max(1, Math.ceil(total / size));
+  const at = Math.min(page, pages - 1);
+  const go = (n) => onPage(Math.max(0, Math.min(pages - 1, n)));
   useEffect(() => {
-    const el = footRef.current;
-    if (!more || !el || typeof IntersectionObserver === 'undefined') return undefined;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) setCount((c) => c + step);
-    }, { rootMargin: '400px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [more, count, step]);
-  const rows = more ? list.slice(0, count) : list;
-  const footer = more ? (
-    <div className="row-window-more" ref={footRef}>
-      <span className="small">{t('rw_shown', { n: count.toLocaleString(), total: list.length.toLocaleString() })}</span>
-      <Btn icon="chevronDown" label={t('rw_more')} onClick={() => setCount((c) => c + step * 10)} />
+    const box = ref.current && ref.current.closest('.table-wrap, .bp-body, .view-list, .list-grow');
+    if (box && box.scrollTo) box.scrollTo({ top: 0 });
+  }, [at, size]);
+  return (
+    <div className="row-pager" data-testid="row-pager" ref={ref}>
+      <span className="small">{total ? t('rw_range', { from: (at * size + 1).toLocaleString(), to: Math.min(total, (at + 1) * size).toLocaleString(), total: total.toLocaleString() }) : t('rw_none')}</span>
+      {note ? <span className="small row-pager-note">{note}</span> : null}
+      <span className="spacer" />
+      <span className="row-pager-nav">
+        <button type="button" className="icon-btn" disabled={at === 0} title={t('rw_first')} aria-label={t('rw_first')} onClick={() => go(0)}><Icon name="chevronsLeft" size={14} /></button>
+        <button type="button" className="icon-btn" disabled={at === 0} title={t('rw_prev')} aria-label={t('rw_prev')} onClick={() => go(at - 1)}><Icon name="chevronLeft" size={14} /></button>
+        <input className="row-pager-page" type="number" min={1} max={pages} value={at + 1} aria-label={t('rw_page')}
+          onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n) && n >= 1) go(n - 1); }} />
+        <span className="small">/ {pages.toLocaleString()}</span>
+        <button type="button" className="icon-btn" disabled={at >= pages - 1} title={t('rw_next')} aria-label={t('rw_next')} onClick={() => go(at + 1)}><Icon name="chevronRight" size={14} /></button>
+        <button type="button" className="icon-btn" disabled={at >= pages - 1} title={t('rw_last')} aria-label={t('rw_last')} onClick={() => go(pages - 1)}><Icon name="chevronsRight" size={14} /></button>
+      </span>
+      <IconSelect value={size} width={120} ariaLabel={t('rw_page_size')} title={t('rw_page_size')}
+        options={PAGE_SIZES.map((n) => ({ value: n, label: t('rw_per_page', { n }), icon: 'list' }))}
+        onChange={(n) => { onSize(n); onPage(Math.floor((at * size) / n)); }} />
     </div>
-  ) : null;
+  );
+}
+
+// Long lists in the window are shown a page at a time (Pager), so a list of
+// hundreds of thousands never builds more than one page of rows. The page
+// goes back to the first when the list changes.
+export function useRowWindow(list, step = ROWS_STEP) {
+  const [size, setSize] = usePageSize(PAGE_SIZES.includes(step) ? step : 500);
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [list]);
+  const pages = Math.max(1, Math.ceil(list.length / size));
+  const at = Math.min(page, pages - 1);
+  const rows = list.length > size ? list.slice(at * size, (at + 1) * size) : list;
+  const footer = list.length > PAGE_SIZES[0] ? <Pager total={list.length} page={at} size={size} onPage={setPage} onSize={setSize} /> : null;
   return { rows, footer };
 }

@@ -15,9 +15,14 @@ import {
 } from './render';
 import { LibraryPanel, DND_TYPE } from './LibraryPanel';
 import { ScopeWindow } from './ScopeWindow';
-import { BlockDialog, SettingsDialog, MaskEditor, SimDialog } from './dialogs';
+import { BlockDialog, SettingsDialog, MaskEditor, SimDialog, DialogVisible } from './dialogs';
 import { SimIcon } from './icons';
 import { tr, lbl } from './i18n';
+import { Stepper } from '../views/common';
+import { stepZoom, removeSeg } from './logic.js';
+import { openMenu } from '../lib/menu';
+import { usePopupWindows } from '../lib/popups';
+import { publishSimEditor, withdrawSimEditor } from './editorApi';
 import './sim.css';
 
 const SCOPE_TYPES = new Set(['Scope', 'FloatingScope', 'XYGraph']);
@@ -38,31 +43,16 @@ function fmtTime(t) {
   return Math.abs(t) >= 1e4 ? t.toExponential(3) : t.toFixed(Math.abs(t) < 10 ? 3 : 2);
 }
 
-/** Removes a segment (branch) from a line; returns false when the whole line went away. */
-function removeSeg(line, target) {
-  if (line === target) return false;
-  const rec = (seg) => {
-    seg.branches = (seg.branches || []).filter((b) => b !== target);
-    seg.branches.forEach(rec);
-    seg.branches = seg.branches.filter((b) => b.dst || (b.branches && b.branches.length));
-    if (!seg.dst && seg.branches.length === 1) {
-      const b = seg.branches[0];
-      seg.points = [...(seg.points || []), ...(b.points || [])];
-      seg.dst = b.dst; seg.branches = b.branches || [];
-    }
-  };
-  rec(line);
-  return !!(line.dst || (line.branches && line.branches.length));
-}
-
-export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty, onTitle, onSaveAs, onNew, onOpen }) {
+// externalLibrary: the app shows the block library in its left side panel (the column here is hidden);
+// onLibrary: the toolbar's 라이브러리 button then asks the app to show that panel.
+export function ModelEditor({ engine, path, modelName, docId, defaults, lang = 'ko', active = true, onDirty, onTitle, onSaveAs, onPath, onNew, onOpen, externalLibrary = false, onLibrary }) {
   const L = (k, v) => tr(lang, k, v);
   const rootRef = useRef(null);
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const coordRef = useRef(null);
   const modelRef = useRef(null);
-  if (!modelRef.current) modelRef.current = newModel(modelNameOfPath(path || 'untitled'));
+  if (!modelRef.current) modelRef.current = newModel(modelName || modelNameOfPath(path || 'untitled'));
   const nameRef = useRef(modelRef.current.name);
   const pathRef = useRef(path || '');
   const [, setRev] = useState(0);
@@ -90,6 +80,7 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
   const mode = useRef(null);
   const cursor = useRef(null);
   const space = useRef(false);
+  const hot = useRef(null); // { id, corner } of the resize handle under the pointer
   const geoRef = useRef([]);
   const drawPending = useRef(false);
   const scopePending = useRef(false);
@@ -115,12 +106,21 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
         modelRef.current = normalizeModel(msg.model, msg.name);
         nameRef.current = msg.name;
         if (msg.path) pathRef.current = msg.path;
+        const fresh = !path && !modelName && !msg.path && !modelRef.current.root.blocks.length && modelRef.current.settings;
+        if (fresh && defaults) {
+          if (defaults.solver) modelRef.current.settings.solver = String(defaults.solver);
+          if (defaults.stopTime != null && defaults.stopTime !== '') modelRef.current.settings.stopTime = String(defaults.stopTime);
+          post({ type: 'sim.edit', name: msg.name, model: modelRef.current });
+        }
         undoStack.current = []; redoStack.current = [];
         setCrumbs([]); setSel(new Set());
         if (onTitle) onTitle(msg.name);
-        setDirty(false);
+        // A model built by M code (new_system + add_block …) that was never saved has content but no
+        // file: it counts as changed, so closing or quitting asks to save it.
+        const r = modelRef.current.root || {};
+        setDirty(!msg.path && ((r.blocks || []).length > 0 || (r.lines || []).length > 0));
         bump();
-        requestAnimationFrame(() => fitView());
+        requestAnimationFrame(() => fitRef.current());
         return;
       }
       if (msg.name !== nameRef.current || msg.reason === 'open') return;
@@ -132,6 +132,8 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
       bump();
     },
     saved(msg) {
+      const waiter = saveWaiters.current.get(msg.reqId);
+      if (waiter) { saveWaiters.current.delete(msg.reqId); waiter(!!msg.ok); }
       if (msg.reqId !== handlersSaveReq.current) return;
       if (!msg.ok) { setDiags((d) => [...d, { level: 'error', message: L('saveFailed', { error: msg.error || '' }) }]); return; }
       if (msg.name && msg.name !== nameRef.current) { nameRef.current = msg.name; modelRef.current.name = msg.name; }
@@ -193,9 +195,19 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
       engine.on('sim.compiled', (m) => handlers.current.compiled(m)),
       engine.on('sim.diagnostic', (m) => handlers.current.diagnostic(m)),
     ];
-    openReq.current = `open${++reqSeq}`;
-    engine.post({ type: 'sim.open', reqId: openReq.current, path: path || undefined, name: modelNameOfPath(path || 'untitled') });
     return () => offs.forEach((f) => typeof f === 'function' && f());
+  }, [engine]);
+  // Load the model: a file / loaded model for a path, else a new untitled one (unique name).
+  // A path that this editor just saved to (Save As renames the tab) is not loaded again.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!engine || !engine.post) return;
+    if (opened.current && (path || '') === (pathRef.current || '')) return; // StrictMode re-run, or our own Save As
+    opened.current = true;
+    openReq.current = `open${++reqSeq}`;
+    if (path) engine.post({ type: 'sim.open', reqId: openReq.current, path, name: modelNameOfPath(path) });
+    else if (modelName) engine.post({ type: 'sim.open', reqId: openReq.current, name: modelName }); // a model made by M code (open_system)
+    else engine.post({ type: 'sim.new', reqId: openReq.current });
   }, [engine, path]);
 
   useEffect(() => { if (onTitle) onTitle(nameRef.current); }, []);
@@ -262,7 +274,7 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     if (compiled.current && compiled.current.ports) for (const [k, p] of Object.entries(compiled.current.ports)) if (p && p.width > 1) wide.add(k);
     drawLines(ctx, [...geo, ...extra], { colors: col, selected: sel, rates, wide });
     for (const b of s.blocks) {
-      drawBlock(ctx, b, { colors: col, selected: sel.has(b.id), zoom: v.zoom, rate: rates ? rates.get(b.id) : null, values: values.current.displays[b.id], error: errorBlocks.has(b.id) });
+      drawBlock(ctx, b, { colors: col, selected: sel.has(b.id), zoom: v.zoom, rate: rates ? rates.get(b.id) : null, values: values.current.displays[b.id], error: errorBlocks.has(b.id), hotHandle: hot.current && hot.current.id === b.id ? hot.current.corner : -1 });
     }
     for (const n of s.notes || []) { ctx.fillStyle = col.muted; ctx.font = '12px "Segoe UI", sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; String(n.text || '').split('\n').forEach((l, i) => ctx.fillText(l, n.x, n.y + i * 15)); }
     if (m && m.target && m.targetPt) {
@@ -282,8 +294,28 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
   useLayoutEffect(() => {
     draw();
     // read-only hook for automated GUI checks (screen ↔ model coordinates, current system)
-    if (rootRef.current) rootRef.current.__sim = { view: view.current, model: modelRef.current, system: sys(), crumbs };
+    if (rootRef.current) rootRef.current.__sim = { view: view.current, model: modelRef.current, system: sys(), crumbs, scopes: scopeStore.current, values: values.current, status, sel: [...sel], undo: undoStack.current.length, redo: redoStack.current.length, dirty, geom: portGeometry };
+    // the app's side panels (editorApi.js): read the model, act through change()
+    publishSimEditor(docId, {
+      docId, name: nameRef.current, model: modelRef.current, crumbs, selected: [...sel], status, running: status.state === 'running' || status.state === 'paused',
+      addItem: (item) => addItem(item),
+      openPath: (ids) => { if (systemAt(modelRef.current, ids)) { setCrumbs(ids); setSel(new Set()); } },
+      select: (ids) => setSel(new Set(ids)),
+      setBlock: (id, { params, name }) => change((mm, s) => {
+        const b = s.blocks.find((x) => x.id === id); if (!b) return false;
+        const want = name == null ? b.name : String(name).trim() || b.name;
+        const nm = want !== b.name && s.blocks.some((x) => x !== b && x.name === want) ? uniqueName(s, want) : want;
+        const ps = params || b.params;
+        if (nm === b.name && JSON.stringify(ps) === JSON.stringify(b.params)) return false;
+        b.params = ps; b.name = nm;
+      }),
+      tune: (id, params) => post({ type: 'sim.tune', name: nameRef.current, block: id, params }),
+      setSettings: (patch) => change((mm) => { const next = { ...mm.settings, ...patch }; if (JSON.stringify(next) === JSON.stringify(mm.settings)) return false; mm.settings = next; }),
+      openSettings: () => setDialog({ kind: 'settings' }),
+      openBlock: (id) => { const b = sys().blocks.find((x) => x.id === id); if (b) setDialog({ kind: 'block', id }); },
+    });
   });
+  useEffect(() => () => withdrawSimEditor(docId), [docId]);
 
   // canvas size
   useEffect(() => {
@@ -295,6 +327,8 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
       view.current.width = Math.max(10, r.width); view.current.height = Math.max(10, r.height);
       c.width = Math.round(view.current.width * dpr); c.height = Math.round(view.current.height * dpr);
       c.style.width = `${view.current.width}px`; c.style.height = `${view.current.height}px`;
+      // a fit asked for while the tab was hidden (no size yet) happens once it is shown
+      if (needFit.current && r.width >= 120 && r.height >= 80) { needFit.current = false; fitRef.current(); return; }
       draw();
     };
     fit();
@@ -319,8 +353,11 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     setZoomPct(Math.round(z * 100));
     requestDraw();
   };
+  const needFit = useRef(false);
+  const fitRef = useRef(null);
   const fitView = () => {
     const v = view.current;
+    if (v.width < 120 || v.height < 80 || !wrapRef.current || !wrapRef.current.offsetWidth) { needFit.current = true; return; }
     const b = systemBounds(sys());
     const inset = toggles.rulers ? RULER : 0;
     if (!b) { v.zoom = 1; v.px = inset + 40; v.py = inset + 40; setZoomPct(100); requestDraw(); return; }
@@ -332,7 +369,8 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     setZoomPct(Math.round(z * 100));
     requestDraw();
   };
-  useEffect(() => { requestAnimationFrame(fitView); }, [crumbs.join('/')]);
+  fitRef.current = fitView;
+  useEffect(() => { requestAnimationFrame(() => fitRef.current()); }, [crumbs.join('/')]);
 
   // ---------------------------------------------------------------- hit testing
   const hit = (mx, my) => {
@@ -387,6 +425,35 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
   };
 
   // ---------------------------------------------------------------- pointer
+  // The pointer shows what a drag would do: resize on a handle, move on a block, draw a line on
+  // a port, pan (grab) with Space or Ctrl held on empty canvas. Set on the canvas directly, so
+  // moving the pointer does not re-render the editor.
+  const HANDLE_CURSOR = ['nwse-resize', 'nesw-resize', 'nesw-resize', 'nwse-resize']; // handlePoints: TL, TR, BL, BR
+  const cursorFor = (h, ctrl) => {
+    if (space.current) return 'grab'; // Space + drag pans anywhere
+    if (h.kind === 'handle') return HANDLE_CURSOR[h.corner];
+    if (h.kind === 'out') return 'crosshair';
+    if (h.kind === 'in') return connections(sys()).some((c) => c.dst.block === h.block.id && c.dst.port === h.port) ? 'move' : 'crosshair';
+    if (h.kind === 'block') return 'move';
+    if (h.kind === 'line') return 'pointer';
+    return ctrl ? 'grab' : 'default'; // Ctrl + drag on empty canvas pans
+  };
+  const setCanvasCursor = (c) => { const el = canvasRef.current; if (el && el.style.cursor !== c) el.style.cursor = c; };
+  const setHot = (h) => {
+    const n = h && h.kind === 'handle' ? { id: h.block.id, corner: h.corner } : null;
+    const o = hot.current;
+    if ((o && o.id) !== (n && n.id) || (o && o.corner) !== (n && n.corner)) { hot.current = n; requestDraw(); }
+  };
+  const ctrlDown = useRef(false);
+  const refreshCursor = () => {
+    if (mode.current) return;
+    const m = cursor.current;
+    const panKey = space.current || ctrlDown.current;
+    if (!m) { setCanvasCursor(panKey ? 'grab' : 'default'); return; }
+    const h = hit(m.x, m.y);
+    setHot(h);
+    setCanvasCursor(cursorFor(h, ctrlDown.current));
+  };
   const screenOf = (e) => { const r = canvasRef.current.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   const onPointerDown = (e) => {
     rootRef.current && rootRef.current.focus({ preventScroll: true });
@@ -394,11 +461,13 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     const sp = screenOf(e);
     const m = toModel(view.current, sp.x, sp.y);
     canvasRef.current.setPointerCapture(e.pointerId);
-    if (e.button === 1 || (e.button === 0 && space.current)) { e.preventDefault(); mode.current = { kind: 'pan', last: sp }; return; }
+    if (e.button === 1 || (e.button === 0 && space.current)) { e.preventDefault(); mode.current = { kind: 'pan', last: sp }; setCanvasCursor('grabbing'); return; }
     if (e.button === 2) return;
     if (e.button !== 0) return;
     const h = hit(m.x, m.y);
     const s = sys();
+    // Ctrl + drag on empty canvas moves the view (Shift + drag still adds to the selection).
+    if ((e.ctrlKey || e.metaKey) && h.kind === 'none') { e.preventDefault(); mode.current = { kind: 'pan', last: sp }; setCanvasCursor('grabbing'); return; }
     const additive = e.ctrlKey || e.metaKey || e.shiftKey;
     if (h.kind === 'handle') {
       mode.current = { kind: 'resize', block: h.block, corner: h.corner, orig: { x: h.block.x, y: h.block.y, w: h.block.w, h: h.block.h }, start: m, before: JSON.stringify(modelRef.current) };
@@ -453,6 +522,8 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     const md = mode.current;
     if (!md) {
       if (toggles.rulers) requestDraw();
+      ctrlDown.current = e.ctrlKey || e.metaKey;
+      { const h0 = hit(m.x, m.y); setHot(h0); setCanvasCursor(cursorFor(h0, ctrlDown.current)); }
       // hover value tooltip on lines
       const h = hit(m.x, m.y);
       if (h.kind === 'line') {
@@ -519,6 +590,7 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     const md = mode.current;
     mode.current = null;
     try { canvasRef.current.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
+    requestAnimationFrame(refreshCursor);
     if (!md) return;
     const sp = screenOf(e);
     const m = toModel(view.current, sp.x, sp.y);
@@ -727,12 +799,12 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
         else if (!si && di) {
           const key = `${c.src.block}:${c.src.port}`;
           let ip = inMap.get(key);
-          if (!ip) { nin++; ip = makeBlock(mm, 'Inport', { params: { Port: String(nin) } }, inner); const db = inside.find((q) => q.id === c.dst.block); const dp = db && portGeometry(db).in.find((q) => q.port === c.dst.port); ip.x = snapTo(x0 - 90, true); ip.y = dp ? dp.y - ip.h / 2 : y0 + (nin - 1) * 50; inner.blocks.push(ip); inMap.set(key, { blk: ip, n: nin, src: c.src }); ip = inMap.get(key); }
+          if (!ip) { nin++; ip = makeBlock(mm, 'Inport', { params: { Port: String(nin) } }, inner); ip.name = uniqueName(inner, `In${nin}`); const db = inside.find((q) => q.id === c.dst.block); const dp = db && portGeometry(db).in.find((q) => q.port === c.dst.port); ip.x = snapTo(x0 - 90, true); ip.y = dp ? dp.y - ip.h / 2 : y0 + (nin - 1) * 50; inner.blocks.push(ip); inMap.set(key, { blk: ip, n: nin, src: c.src }); ip = inMap.get(key); }
           connect(mm, inner, { block: ip.blk.id, port: 1 }, c.dst);
         } else if (si && !di) {
           const key = `${c.src.block}:${c.src.port}`;
           let op = outMap.get(key);
-          if (!op) { nout++; const ob = makeBlock(mm, 'Outport', { params: { Port: String(nout) } }, inner); const sb = inside.find((q) => q.id === c.src.block); const sp = sb && portGeometry(sb).out.find((q) => q.port === c.src.port); ob.x = snapTo(x1 + 60, true); ob.y = sp ? sp.y - ob.h / 2 : y0 + (nout - 1) * 50; inner.blocks.push(ob); op = { blk: ob, n: nout, dsts: [] }; outMap.set(key, op); connect(mm, inner, c.src, { block: ob.id, port: 1 }); }
+          if (!op) { nout++; const ob = makeBlock(mm, 'Outport', { params: { Port: String(nout) } }, inner); ob.name = uniqueName(inner, `Out${nout}`); const sb = inside.find((q) => q.id === c.src.block); const sp = sb && portGeometry(sb).out.find((q) => q.port === c.src.port); ob.x = snapTo(x1 + 60, true); ob.y = sp ? sp.y - ob.h / 2 : y0 + (nout - 1) * 50; inner.blocks.push(ob); op = { blk: ob, n: nout, dsts: [] }; outMap.set(key, op); connect(mm, inner, c.src, { block: ob.id, port: 1 }); }
           op.dsts.push(c.dst);
         }
       }
@@ -750,16 +822,26 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     let p = pathRef.current;
     const hasDir = /[\\/]/.test(p || '');
     if (as || !hasDir) {
-      if (onSaveAs) { p = await onSaveAs(nameRef.current); if (!p) return; }
-      else { setDialog({ kind: 'saveas', value: p && hasDir ? p : `${nameRef.current}.smdl` }); return; }
+      if (onSaveAs) {
+        p = await onSaveAs(nameRef.current); if (!p) return false;
+        // The editor's own path first, then the tab's: the tab's new path must not make the
+        // editor load that file (it does not exist yet, so the model would come back empty).
+        pathRef.current = p;
+        if (onPath) onPath(p);
+      }
+      else { setDialog({ kind: 'saveas', value: p && hasDir ? p : `${nameRef.current}.smdl` }); return false; }
     }
-    doSave(p);
+    return doSave(p);
   };
   const doSave = (p) => {
     const reqId = `save${++reqSeq}`;
     handlersSaveReq.current = reqId;
+    // resolves with the engine's answer (sim.saved), so closing a tab can wait for it
+    const done = new Promise((resolve) => { saveWaiters.current.set(reqId, resolve); });
     post({ type: 'sim.save', reqId, name: nameRef.current, path: p, model: modelRef.current });
+    return done;
   };
+  const saveWaiters = useRef(new Map());
   const handlersSaveReq = useRef(null);
 
   const running = status.state === 'running' || status.state === 'paused' || status.state === 'compiling';
@@ -776,12 +858,36 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
   const compile = () => post({ type: 'sim.compile', name: nameRef.current, model: modelRef.current, reqId: `c${++reqSeq}` });
   const toggle = (k) => setToggles((t) => ({ ...t, [k]: !t[k] }));
 
+  // ribbon / app commands (App.jsx: 'msm-model-command' {id, command}, 'msm-sim-library')
+  const cmdRef = useRef(null);
+  cmdRef.current = { run, stop, pause, step, status, save, active, docId, showLibrary: () => setToggles((t) => (t.library ? t : { ...t, library: true })) };
+  useEffect(() => {
+    const onCmd = (e) => {
+      const c = cmdRef.current; const d = e.detail || {};
+      if (c.docId ? d.id !== c.docId : !c.active) return;
+      if (d.command === 'run') c.run();
+      else if (d.command === 'stop') c.stop();
+      else if (d.command === 'pause') { if (c.status.state === 'running' || c.status.state === 'paused') c.pause(); }
+      else if (d.command === 'step') { if (c.status.state !== 'running') c.step(); }
+      else if (d.command === 'save' || d.command === 'saveAs') {
+        d.handled = true;
+        const r = c.save(d.command === 'saveAs');
+        if (d.done) Promise.resolve(r).then((ok) => d.done(!!ok), () => d.done(false));
+      }
+    };
+    const onLib = () => { if (cmdRef.current.active) cmdRef.current.showLibrary(); };
+    window.addEventListener('msm-model-command', onCmd);
+    window.addEventListener('msm-sim-library', onLib);
+    return () => { window.removeEventListener('msm-model-command', onCmd); window.removeEventListener('msm-sim-library', onLib); };
+  }, []);
+
   // ---------------------------------------------------------------- keyboard
   const onKeyDown = (e) => {
     if (isTyping(e.target)) return;
     const k = e.key;
+    if (k === 'Control' || k === 'Meta') { ctrlDown.current = true; refreshCursor(); }
     const ctrl = e.ctrlKey || e.metaKey;
-    if (k === ' ') { space.current = true; e.preventDefault(); return; }
+    if (k === ' ') { space.current = true; e.preventDefault(); refreshCursor(); return; }
     if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); del(); return; }
     if (k === 'Escape') { setSel(new Set()); setMenu(null); mode.current = null; requestDraw(); return; }
     if (!ctrl && k.startsWith('Arrow')) {
@@ -801,9 +907,13 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
     }[key];
     if (act) { e.preventDefault(); act(); }
   };
-  const onKeyUp = (e) => { if (e.key === ' ') space.current = false; };
+  const onKeyUp = (e) => { if (e.key === ' ') space.current = false; if (e.key === 'Control' || e.key === 'Meta') ctrlDown.current = false; refreshCursor(); };
 
   // ---------------------------------------------------------------- context menu
+  // Menu items run the newest commands: the right-click selects the block first, and the
+  // functions of that older render would still see the previous selection.
+  const cmds = useRef({});
+  cmds.current = { del, rotate, flip, duplicate, makeSubsystem, copySel, paste, fitView };
   const onContextMenu = (e) => {
     e.preventDefault();
     const sp = screenOf(e);
@@ -816,16 +926,17 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
       items = [
         { icon: 'settings', label: b.system ? L('openBlock') : L('blockParams'), run: () => openBlock(b) },
         b.system && b.mask ? { icon: 'settings', label: L('blockParams'), run: () => setDialog({ kind: 'block', id: b.id }) } : null,
-        { sep: true },
-        { icon: 'copy', label: L('copy'), keys: 'Ctrl+C', run: () => { setSel(new Set([b.id])); setTimeout(copySel); } },
-        { icon: 'copy', label: L('duplicate'), keys: 'Ctrl+D', run: duplicate },
-        { icon: 'rotate', label: L('rotate'), keys: 'Ctrl+R', run: rotate },
-        { icon: 'flip', label: L('flip'), keys: 'Ctrl+I', run: flip },
-        { icon: 'subsystem', label: L('makeSubsystem'), keys: 'Ctrl+G', run: makeSubsystem },
         { icon: 'mask', label: L('mask'), keys: 'Ctrl+M', run: () => setDialog({ kind: 'mask', id: b.id }) },
         { icon: 'info', label: L('showName'), run: () => change((mm, s) => { const x = s.blocks.find((q) => q.id === b.id); x.showName = x.showName === false; }) },
         { sep: true },
-        { icon: 'trash', label: L('delete'), keys: 'Del', run: del },
+        { icon: 'copy', label: L('copy'), keys: 'Ctrl+C', run: () => { setSel(new Set([b.id])); setTimeout(() => cmds.current.copySel()); } },
+        { icon: 'duplicate', label: L('duplicate'), keys: 'Ctrl+D', run: () => cmds.current.duplicate() },
+        { sep: true },
+        { icon: 'rotate', label: L('rotate'), keys: 'Ctrl+R', run: () => cmds.current.rotate() },
+        { icon: 'flip', label: L('flip'), keys: 'Ctrl+I', run: () => cmds.current.flip() },
+        { icon: 'subsystem', label: L('makeSubsystem'), keys: 'Ctrl+G', run: () => cmds.current.makeSubsystem() },
+        { sep: true },
+        { icon: 'trash', label: L('delete'), keys: 'Del', run: () => cmds.current.del() },
       ].filter(Boolean);
     } else if (h.kind === 'line') {
       const id = h.item.line.id;
@@ -843,14 +954,20 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
             b.params.Signals = [...list, key].join(',');
           }),
         })),
-        { icon: 'trash', label: L('delete'), keys: 'Del', run: del },
+        { icon: 'trash', label: L('delete'), keys: 'Del', run: () => cmds.current.del() },
       ];
     } else {
       items = [
-        { icon: 'paste', label: L('paste'), keys: 'Ctrl+V', run: () => paste() },
-        { icon: 'fit', label: L('fit'), keys: 'Ctrl+0', run: fitView },
+        { icon: 'paste', label: L('paste'), keys: 'Ctrl+V', run: () => cmds.current.paste() },
+        { icon: 'fit', label: L('fit'), keys: 'Ctrl+0', run: () => cmds.current.fitView() },
         { icon: 'settings', label: L('modelSettings'), keys: 'Ctrl+E', run: () => setDialog({ kind: 'settings' }) },
       ];
+    }
+    // Desktop: a child window like every other context menu (it can go past the window's edge).
+    if (usePopupWindows()) {
+      const list = items.map((it, i) => (it.sep ? { sep: true } : { id: String(i), label: it.label, icon: it.icon, keys: it.keys }));
+      openMenu({ x: e.clientX, y: e.clientY }, list, (id) => { const it = items[Number(id)]; if (it && it.run) it.run(); }, { width: 230 });
+      return;
     }
     const r = wrapRef.current.getBoundingClientRect();
     setMenu({ x: Math.min(sp.x, r.width - 230), y: Math.min(sp.y, r.height - items.length * 28 - 10), items });
@@ -898,19 +1015,21 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
         <TB icon="update" label={L('update')} title={L('update_tip')} onClick={compile} />
         <span className="sim-sep" />
         <TB icon="fit" minor label={L('fit')} title={L('fit_tip')} onClick={fitView} />
-        <TB icon="zoomOut" minor label={L('zoomOut')} onClick={() => setZoom(view.current.zoom / 1.25)} />
-        <TB icon="zoomIn" minor label={L('zoomIn')} onClick={() => setZoom(view.current.zoom * 1.25)} />
+        {/* 축소 · ratio · 확대 in one control: the stepper's − / + carry the zoom icons. */}
+        <span className="sim-zoom" title={L('zoom')}>
+          <Stepper value={zoomPct} min={10} max={800} step={1} width={50} unit="%" ariaLabel={L('zoom')} decIcon="zoomOut" incIcon="zoomIn" decTitle={L('zoomOut')} incTitle={L('zoomIn')} onChange={(v) => setZoom(stepZoom(zoomPct, v) / 100)} />
+        </span>
         <span className="sim-sep" />
         <TB icon="grid" label={L('grid')} title={L('grid_tip')} on={toggles.grid} onClick={() => toggle('grid')} />
         <TB icon="snap" label={L('snap')} title={L('snap_tip')} on={toggles.snap} onClick={() => toggle('snap')} />
         <TB icon="rulers" label={L('rulers')} title={L('rulers_tip')} on={toggles.rulers} onClick={() => toggle('rulers')} />
         <TB icon="colors" label={L('stColors')} title={L('st_tip')} on={toggles.rates} onClick={() => { toggle('rates'); if (!toggles.rates) compile(); }} />
-        <TB icon="library" label={L('library')} title={L('lib_tip')} on={toggles.library} onClick={() => toggle('library')} />
+        <TB icon="library" label={L('library')} title={L('lib_tip')} on={externalLibrary || toggles.library} onClick={() => (externalLibrary && onLibrary ? onLibrary() : toggle('library'))} />
         <span className="sim-sep" />
         <TB icon="settings" label={L('settings')} title={L('settings_tip')} onClick={() => setDialog({ kind: 'settings' })} />
       </div>
       <div className="sim-body">
-        {toggles.library && <MemoLibrary lang={lang} onAdd={(it) => addItem(it)} width={232} />}
+        {toggles.library && !externalLibrary && <MemoLibrary lang={lang} onAdd={(it) => addItem(it)} width={232} />}
         <div className="sim-main">
           <div className="sim-crumbs">
             <button type="button" className={`sim-crumb ${crumbs.length ? '' : 'on'}`} onClick={() => setCrumbs([])}><SimIcon name="home" size={13} /><span>{nameRef.current}{dirty ? ' *' : ''}</span></button>
@@ -922,8 +1041,7 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
           </div>
           <div ref={wrapRef} className="sim-canvas-wrap" onDragOver={onDragOver} onDrop={onDrop}>
             <canvas ref={canvasRef} className="sim-canvas" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
-              onPointerLeave={() => { cursor.current = null; setTip(null); requestDraw(); }} onDoubleClick={onDoubleClick} onContextMenu={onContextMenu}
-              style={{ cursor: space.current ? 'grab' : 'default' }} />
+              onPointerLeave={() => { cursor.current = null; setTip(null); setHot(null); requestDraw(); }} onDoubleClick={onDoubleClick} onContextMenu={onContextMenu} />
             {tip && <div className="sim-tip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>}
             {menu && (
               <div className="sim-menu" style={{ left: menu.x, top: menu.y }} onPointerDown={(e) => e.stopPropagation()}>
@@ -938,6 +1056,7 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
               <ScopeWindow key={b.id} block={b} index={i} lang={lang} store={scopeStore.current.get(b.id)} tick={scopeTick} status={{ start: Number(st.startTime), stop: Number(status.stop ?? st.stopTime) }}
                 onClose={() => setOpenScopes((o) => o.filter((x) => x !== b.id))} />
             ))}
+            <DialogVisible.Provider value={!!active}>
             {dialog && dialog.kind === 'block' && dlgBlock && (
               <BlockDialog block={dlgBlock} lang={lang} running={running} onClose={() => setDialog(null)}
                 onTune={(params) => post({ type: 'sim.tune', name: nameRef.current, block: dlgBlock.id, params })}
@@ -968,6 +1087,7 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
             {dialog && dialog.kind === 'saveas' && (
               <TextDialog lang={lang} title={L('savePath')} icon="save" value={dialog.value} wide onClose={() => setDialog(null)} onOk={(v) => { if (v.trim()) doSave(v.trim()); }} />
             )}
+            </DialogVisible.Provider>
           </div>
           {diags.length > 0 && (
             <div className="sim-diags">
@@ -987,13 +1107,12 @@ export function ModelEditor({ engine, path, lang = 'ko', active = true, onDirty,
       <div className="sim-status">
         <span className="sim-sitem"><SimIcon name="zoomIn" size={12} />{L('zoom')} {zoomPct}%</span>
         <span className="sim-sitem" ref={coordRef}>x —, y —</span>
-        <span className="sim-sitem"><SimIcon name="settings" size={12} />{L('solver')} {st.solver || 'auto'} ({st.solverType === 'fixed' ? L('fixed') : L('variable')})</span>
+        <span className="sim-sitem"><SimIcon name="settings" size={12} />{L('solver')} {st.solver || 'auto'} ({st.solverType === 'fixed' || /^(ode[1-58]|ode14x)$/.test(String(st.solver || '')) ? L('fixed') : L('variable')})</span>
         <span className="sim-sitem"><SimIcon name="block" size={12} />{curSys.blocks.length} {L('blocks')}</span>
         <span className={`sim-sitem sim-state ${status.state}`}>{L(stateKey)}{status.message ? ` — ${status.message}` : ''}</span>
         <span className="spacer" />
         <span className="sim-sitem muted">{L('help_keys')}</span>
         {dirty && <span className="sim-sitem">● {L('dirty')}</span>}
-        <span className="sim-grip" aria-hidden="true" />
       </div>
     </div>
   );

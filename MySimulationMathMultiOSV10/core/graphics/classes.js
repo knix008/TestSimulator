@@ -4,6 +4,7 @@ import { tensor, bool, num, str, cell, isCell, isStruct, isTensor, empty, toTens
 import { gerr, isTxt, txt, nums } from './util.js';
 import { G, handleValue, handleIds, isHandleValue, getProp, setProp, displayHandle, destroy, CLASS_PREFIX } from './model.js';
 import { TYPE_CLASS } from './schema.js';
+import { builtins as manage } from './manage.js';
 
 const nameOf = (s) => {
   const x = s.subs;
@@ -163,8 +164,10 @@ const methods = {
   isempty(args) { return bool(args[0].gh.length === 0); },
   numel(args) { return num(args[0].gh.length); },
   length(args) { return num(args[0].gh.length ? Math.max(...args[0].dims) : 0); },
-  get(args, nargout, ctx) { return ctx.call('get', args, 1)[0]; },
-  set(args, nargout, ctx) { ctx.call('set', args, 0); return []; },
+  // Straight to the builtins: ctx.call('get', …) would dispatch on the handle
+  // argument back to this method and recurse until the stack overflows.
+  get(args, nargout, ctx) { return manage.get(args, nargout, ctx); },
+  set(args, nargout, ctx) { manage.set(args, 0, ctx); return []; },
   ishandle(args, nargout, ctx) { return methods.isvalid(args, nargout, ctx); },
   isgraphics(args, nargout, ctx) { return methods.isvalid(args, nargout, ctx); },
   disp(args, nargout, ctx) { ctx.out(displayHandle(ctx, args[0], '')); return []; },

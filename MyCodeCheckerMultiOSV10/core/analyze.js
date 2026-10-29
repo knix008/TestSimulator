@@ -77,6 +77,8 @@ function prepareFiles(files, options = {}) {
   const exclusions = options.exclusions || [];
   const excludeDirs = normDirs(options.excludeDirs);
   const onlyLangs = options.languages && options.languages.length ? new Set(options.languages) : null;
+  // Languages the project does not analyze (quality profile "none").
+  const skipLangs = new Set(options.skipLanguages || []);
   const prepared = [];
   for (const file of files || []) {
     const rel = toRel(root, file.path);
@@ -84,6 +86,7 @@ function prepareFiles(files, options = {}) {
     const lang = detectLanguage(file.path);
     if (!lang) continue;
     if (onlyLangs && !onlyLangs.has(lang)) continue;
+    if (skipLangs.has(lang)) continue;
     const text = String(file.text == null ? '' : file.text);
     if (text.includes('\0')) continue;
     prepared.push({ path: rel, text, lang });
@@ -110,6 +113,7 @@ function walk(root, options) {
   const maxFiles = options.maxFiles || Infinity;
   const exclusions = options.exclusions || [];
   const excludeDirs = normDirs(options.excludeDirs);
+  const skipLangs = new Set(options.skipLanguages || []);
   const visit = (dir) => {
     if (out.length >= maxFiles) return;
     let entries = [];
@@ -126,7 +130,8 @@ function walk(root, options) {
       } else if (ent.isFile()) {
         const rel = path.relative(root, full);
         if (excluded(rel, exclusions)) continue;
-        if (!detectLanguage(full)) continue;
+        const lang = detectLanguage(full);
+        if (!lang || skipLangs.has(lang)) continue;
         out.push(full);
       }
     }
@@ -874,15 +879,7 @@ function excluded(rel, patterns) {
 }
 
 function matchGlob(rel, pattern) {
-  let p = String(pattern || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!p) return false;
-  const body = p.split('**').map((part) => part.split('*').map(escapeReg).join('[^/]*')).join('.*');
-  const re = new RegExp(`(?:^|/)${body}$`, 'i');
-  return re.test(rel);
-}
-
-function escapeReg(s) {
-  return s.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  return require('./platform/util').glob(rel, pattern);
 }
 
 let rulesCache = null;

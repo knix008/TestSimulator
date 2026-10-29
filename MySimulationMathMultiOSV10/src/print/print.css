@@ -1,0 +1,48 @@
+/* The print dialog (PrintDialog.jsx): a fixed-size modal, theme tokens only.
+   The form never scrolls (tabs keep it short); only the preview pane does. */
+.msp-back { position: fixed; inset: 0; z-index: 900; background: rgba(0, 0, 0, .45); display: grid; place-items: center; }
+.msp-dlg {
+  width: min(1100px, calc(100vw - 16px)); height: min(700px, calc(100vh - 16px));
+  display: grid; grid-template-rows: 40px minmax(0, 1fr) 52px;
+  background: var(--bg-elev); color: var(--fg); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow);
+  overflow: hidden; font-size: var(--fs, 13px);
+}
+.msp-titlebar { display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-width: 0; }
+.msp-titlebar strong { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.msp-titlebar .msp-doc { flex: 1 1 auto; min-width: 0; color: var(--fg-muted); }
+.msp-main { display: grid; grid-template-columns: 384px minmax(0, 1fr); min-height: 0; }
+.msp-form { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-right: 1px solid var(--border); overflow: hidden; min-height: 0; }
+.msp-form .vtabs { margin: 6px 0 4px; flex: none; }
+.msp-form .vtab { flex: 1 1 0; justify-content: center; min-width: 0; }
+.msp-form .vtab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msp-tab { display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+.msp-row { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 34px; }
+.msp-row.wide { grid-template-columns: 0 minmax(0, 1fr); gap: 0; }
+.msp-label { color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msp-ctl { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: nowrap; }
+.msp-ctl > .iselect { flex: 1 1 auto; min-width: 0; }
+.msp-ctl .stepper-label { color: var(--fg-muted); margin-right: 4px; }
+.msp-ctl .btn-group { flex: none; }
+.msp-ctl .toggle-row { flex-wrap: wrap; }
+.msp-input { height: var(--ctl-h, 30px); min-width: 0; width: 100%; flex: 1 1 auto; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: var(--radius, 6px); background: var(--bg); color: var(--fg); font: inherit; }
+.msp-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.msp-input.invalid { border-color: var(--danger); }
+.msp-input:disabled { opacity: .5; }
+.msp-note { display: inline-flex; align-items: center; gap: 6px; color: var(--fg-muted); }
+.msp-area { margin-top: auto; color: var(--fg-muted); padding-top: 6px; }
+.msp-preview { display: grid; grid-template-rows: 40px minmax(0, 1fr); min-width: 0; min-height: 0; background: color-mix(in srgb, var(--bg) 70%, #808080); }
+.msp-pv-bar { display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); min-width: 0; }
+.msp-pv-bar .spacer { flex: 1; }
+.msp-pv-title { font-weight: 600; }
+.msp-pv-scroll { position: relative; overflow: auto; padding: 14px 16px; min-height: 0; }
+.msp-pv-box { position: relative; margin: 0 auto; }
+.msp-pv-frame { position: absolute; left: 0; top: 0; border: 0; background: transparent; color-scheme: light; transform-origin: 0 0; transition: opacity .12s; }
+.msp-pv-loading { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 14px; background: var(--bg-elev); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.msp-footer { display: flex; align-items: center; gap: 10px; padding: 0 12px; border-top: 1px solid var(--border); background: var(--bg-panel); min-width: 0; }
+.msp-footer .spacer { flex: 1 1 0; }
+.msp-hint, .msp-error { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.msp-hint { color: var(--fg-muted); }
+.msp-hint, .msp-error { white-space: nowrap; text-overflow: ellipsis; }
+.msp-error { color: var(--danger); }
+.msp-count { color: var(--fg-muted); white-space: nowrap; flex: none; }
+.msp-footer .btn-group { flex: none; }

@@ -2,7 +2,7 @@
 // chart and activity events.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
-import { useApi, ApiState, Btn, IconSelect, Tabs, Stat, ViewHeader, Empty, fmtDate, NoProject, SevBadge, useRowWindow } from './common';
+import { useApi, ApiState, Btn, IconSelect, Tabs, Stat, ViewHeader, Empty, fmtDate, NoProject, SevBadge, useRowWindow, openCodeRow } from './common';
 import { msg } from './Panels';
 
 const METRICS = ['bugs', 'vulnerabilities', 'code_smells', 'security_hotspots', 'sqale_index', 'coverage', 'duplicated_lines_density', 'ncloc'];
@@ -100,7 +100,7 @@ export function HistoryView({ project, branch, stamp }) {
                   <thead><tr><th>CID</th><th>{t('cov_checker')}</th><th>{t('location')}</th><th>{t('hs_first')}</th><th>{t('hs_last')}</th><th>{t('hs_fixed_in')}</th><th className="num">{t('hs_reintroduced')}</th><th>{t('status')}</th></tr></thead>
                   <tbody>
                     {lifeRows.map((r) => (
-                      <tr key={r.cid}>
+                      <tr key={r.cid} className={r.file ? 'click' : ''} {...openCodeRow(r.file, r.line)}>
                         <td>{r.cid}</td>
                         <td className="small">{r.checker}</td>
                         <td className="small wrap">{r.file}</td>
@@ -186,7 +186,7 @@ function IssueList({ issues }) {
           <thead><tr><th>CID</th><th>{t('severity')}</th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
           <tbody>
             {rows.map((i) => (
-              <tr key={`${i.cid}-${i.key}`}>
+              <tr key={`${i.cid}-${i.key}`} className={i.file ? 'click' : ''} {...openCodeRow(i.file, i.line)}>
                 <td>{i.cid}</td>
                 <td><SevBadge sev={i.severity} /></td>
                 <td className="wrap">{msg(i)}<div className="small">{i.rule}{i.checker ? ` · ${i.checker}` : ''}</div></td>

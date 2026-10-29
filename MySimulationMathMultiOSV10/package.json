@@ -22,6 +22,7 @@
     "web:serve": "node server/server.js",
     "msm": "node scripts/msm.mjs",
     "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:samples": "node scripts/generate-sample-thumbs.mjs",
     "test": "node --test --test-reporter=./test/reporter.mjs test/*.test.mjs"
   },
   "dependencies": {

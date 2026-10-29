@@ -98,3 +98,34 @@ test('project.resetAnalysis deletes the results; the next analysis treats all co
   assert.deepEqual(ws.projects[0].issueState, {});
   await assert.rejects(api.call('project.resetAnalysis', { projectId: 'none' }), (e) => e.code === 'NOT_FOUND');
 });
+
+test('a project can choose its own engines (all on to start) and leave a language out with the profile "none"', async () => {
+  const { disabledChecks, skippedLanguages } = require('../core/checks.js');
+  assert.deepEqual(disabledChecks({ checks: { autosar: false } }, {}), ['autosar'], 'no own choice: the workspace\'s');
+  assert.deepEqual(disabledChecks({ checks: { autosar: false } }, { checks: {} }), [], 'an own choice starts with every group on');
+  assert.deepEqual(disabledChecks({}, { checks: { misraCpp2023: false, misraC2012: true } }), ['misraCpp2023']);
+  assert.deepEqual(skippedLanguages({ profiles: { cpp: 'none', js: 'p1', py: '' } }), ['cpp']);
+
+  const CPP = path.resolve('samples/cpp-sensor');
+  const api = createApi({ configDir: tmp('mcc-own-checks-') });
+  const all = await api.call('project.scan', { path: CPP });
+  const groupsOf = (a) => new Set(a.issues.map(groupOf));
+  assert.ok(groupsOf(all.analysis).has('misraCpp2023') && groupsOf(all.analysis).has('autosar'), 'C++ engines report on the sample');
+  const setProject = async (patch, settings) => {
+    const ws = await api.call('workspace.load', {});
+    await api.call('workspace.save', { workspace: { ...(settings ? { settings: { ...ws.settings, ...settings } } : {}), projects: ws.projects.map((p) => (p.id === all.project.id ? { ...p, ...patch } : p)) } });
+  };
+  // The project's own choice wins over the workspace's.
+  await setProject({ checks: { misraCpp2023: false, autosar: false } }, { checks: {} });
+  const own = await api.call('project.scan', { path: CPP });
+  assert.ok(!groupsOf(own.analysis).has('misraCpp2023') && !groupsOf(own.analysis).has('autosar'));
+  assert.ok(groupsOf(own.analysis).has('cert'), 'the other engines still run');
+  await setProject({ checks: {} }, { checks: { misraCpp2023: false } });
+  const back = await api.call('project.scan', { path: CPP });
+  assert.ok(groupsOf(back.analysis).has('misraCpp2023'), 'an own choice with everything on ignores the workspace\'s off');
+  // A language left out entirely.
+  await setProject({ checks: undefined, profiles: { cpp: 'none' } });
+  const none = await api.call('project.scan', { path: CPP });
+  assert.equal(none.analysis.issues.filter((i) => /\.(cpp|hpp|h)$/.test(i.file)).length, 0);
+  assert.equal((none.analysis.languages || {}).cpp, undefined);
+});

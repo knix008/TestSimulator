@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { call } from '../lib/backend';
 import { Icon, CloseButton } from '../components/Chrome';
-import { Empty, SevBadge, TypeBadge, fmtDate } from './common';
+import { Empty, SevBadge, TypeBadge, fmtDate, useRowWindow } from './common';
 import { engineOf } from './standards';
 
 const OPENISH = new Set(['OPEN', 'CONFIRMED', 'REOPENED', 'TO_REVIEW']);
@@ -25,16 +25,19 @@ export function problemsFor(analysis, view, codeFile) {
   return list;
 }
 
-function ProblemsTab({ list, scope, onJump }) {
+// A long list is paged (the shared pager under it).
+function ProblemsTab({ list, scope, onJump, onOpenCode }) {
   useLanguage();
+  const { rows, footer } = useRowWindow(list);
   if (!list.length) return <Empty icon="checkCircle" text={t('bp_no_problems')} />;
   return (
     <div className="bp-list">
       <div className="bp-scope small"><Icon name="filter" size={12} /> {scope}</div>
       <table className="bp-table">
         <tbody>
-          {list.slice(0, 400).map((i, idx) => (
-            <tr key={`${i.key}-${idx}`} className="click" title={t('bp_jump')} onClick={() => onJump(i)}>
+          {rows.map((i, idx) => (
+            <tr key={`${i.key}-${idx}`} className="click" title={t('bp_jump')} onClick={() => onJump(i)}
+              data-open-file={i.file || undefined} data-open-line={i.line || 0} onDoubleClick={() => { if (onOpenCode && i.file) onOpenCode(i.file, i.line); }}>
               <td className="nowrap"><SevBadge sev={i.severity} /></td>
               <td className="wrap"><span className="msg-line"><TypeBadge type={i.type} short />{textOf(i.message)}</span></td>
               <td className="small nowrap mono">{i.file}:{i.line}</td>
@@ -43,7 +46,7 @@ function ProblemsTab({ list, scope, onJump }) {
           ))}
         </tbody>
       </table>
-      {list.length > 400 && <div className="small bp-more">{t('bp_more', { n: list.length - 400 })}</div>}
+      {footer}
     </div>
   );
 }
@@ -135,7 +138,7 @@ export const BOTTOM_TABS = [
   ['output', 'terminal', 'bp_output'],
 ];
 
-export function BottomPanel({ tab, onTab, folded, onFold, onClose, height, analysis, task, view, codeFile, busy, message, jobs, messages, onClearMessages, onJump }) {
+export function BottomPanel({ tab, onTab, folded, onFold, onClose, height, analysis, task, view, codeFile, busy, message, jobs, messages, onClearMessages, onJump, onOpenCode }) {
   useLanguage();
   const problems = useMemo(() => problemsFor(analysis, view, codeFile), [analysis, view, codeFile]);
   const warnCount = ((analysis && analysis.warnings) || []).length + ((task && task.warnings) || []).length;
@@ -161,7 +164,7 @@ export function BottomPanel({ tab, onTab, folded, onFold, onClose, height, analy
       {head}
       {!folded && (
         <div className="bp-body">
-          {tab === 'problems' && <ProblemsTab list={problems} scope={scope} onJump={onJump} />}
+          {tab === 'problems' && <ProblemsTab list={problems} scope={scope} onJump={onJump} onOpenCode={onOpenCode} />}
           {tab === 'log' && <LogTab analysis={analysis} task={task} />}
           {tab === 'jobs' && <JobsTab active busy={busy} message={message} jobs={jobs} />}
           {tab === 'output' && <OutputTab messages={messages} onClear={onClearMessages} />}

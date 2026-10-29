@@ -17,7 +17,7 @@ import { ErrorDialog, ProgressDialog, PromptDialog, PropertiesDialog, UnsavedDia
 import CaptureDialog from './components/CaptureDialog.jsx';
 import PrintDialog from './components/PrintDialog.jsx';
 import {
-  IconCopy, IconSelectAll, IconMarquee, IconHighlight, IconBookmark, IconZoomIn,
+  IconCopy, IconSelectAll, IconMarquee, IconHand, IconHighlight, IconBookmark, IconZoomIn,
   IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconImage,
   IconSelectText, IconDownload, IconClip, IconClose, IconComment,
   IconFitPage, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary, IconOpen, IconFolderOpen,
@@ -1750,13 +1750,14 @@ export default function App() {
       if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); if (doc) setShowPrint(true); return; }
       if (mod && e.key.toLowerCase() === 'm') {
         e.preventDefault();
-        // Cycle text → image → region → text.
+        // Cycle text → image → region → read → text.
         setTool(cycleTool(tool));
         return;
       }
       if (mod && e.key === '1') { e.preventDefault(); setTool('text'); return; }
       if (mod && e.key === '2') { e.preventDefault(); setTool('image'); return; }
       if (mod && e.key === '3') { e.preventDefault(); setTool('region'); return; }
+      if (mod && e.key === '4') { e.preventDefault(); setTool('read'); return; }
       if (mod && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         setOverlayInset(true);
@@ -1873,6 +1874,7 @@ export default function App() {
       { icon: IconSelectText, label: t('menu.textTool'), onClick: () => setTool('text'), disabled: !doc },
       { icon: IconImage, label: t('menu.imageTool'), onClick: () => setTool('image'), disabled: !doc },
       { icon: IconMarquee, label: t('menu.regionTool'), onClick: () => setTool('region'), disabled: !doc },
+      { icon: IconHand, label: t('menu.readTool'), onClick: () => setTool('read'), disabled: !doc },
       { icon: IconImage, label: t('toolbar.images'), onClick: () => extractImages(pageNumber), disabled: !doc },
       { icon: IconBookmark, label: t('menu.addBookmark'), onClick: () => addBookmark(snapText, highlightShot), disabled: !doc },
       { icon: IconClip, label: t('menu.attachFile'), onClick: () => attachFile(), disabled: !doc },

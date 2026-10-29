@@ -9,7 +9,8 @@ import { dimsText } from '../lib/valueFormat';
 
 const COLS = [['name', 'ws_name'], ['summary', 'ws_value'], ['size', 'ws_size'], ['cls', 'ws_class']];
 
-export function WorkspacePane({ variables, selected, onSelect, onOpen, onAction, engineReady }) {
+// selection: the names picked with Ctrl+click (several, in order); onSelect(name, event).
+export function WorkspacePane({ variables, selected, selection, onSelect, onOpen, onAction, engineReady }) {
   useLanguage();
   const [sort, setSort] = useState({ key: 'name', dir: 1 });
   const [filter, setFilter] = useState('');
@@ -66,7 +67,7 @@ export function WorkspacePane({ variables, selected, onSelect, onOpen, onAction,
           </thead>
           <tbody>
             {rows.map((v) => (
-              <tr key={v.name} className={selected === v.name ? 'sel' : ''} onClick={() => onSelect(v.name)} onDoubleClick={() => onOpen(v.name)} onContextMenu={(e) => menu(e, v)} title={v.global ? t('ws_global') : undefined}>
+              <tr key={v.name} className={selected === v.name || (selection && selection.includes(v.name)) ? 'sel' : ''} onClick={(e) => onSelect(v.name, e)} onDoubleClick={() => onOpen(v.name)} onContextMenu={(e) => menu(e, v)} title={v.global ? t('ws_global') : undefined}>
                 <td className="ws-name"><Icon name="variable" size={13} />{v.name}{v.global ? <span className="small muted"> (global)</span> : null}</td>
                 <td className="ws-value mono ellipsis" title={String(v.summary || '')}>{v.summary}</td>
                 <td className="mono">{dimsText(v.dims)}</td>

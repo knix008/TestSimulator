@@ -38,6 +38,17 @@ export function ScopeWindow({ block, store, tick, lang, status, onClose, index =
   const canvas = useRef(null);
   const layout = useRef(null);
   const drag = useRef(null);
+  const rootEl = useRef(null);
+  // the first placement fits inside the editor canvas (a short pane must not clip the plot)
+  useLayoutEffect(() => {
+    const host = rootEl.current && rootEl.current.parentElement; if (!host) return;
+    const W = host.clientWidth, H = host.clientHeight;
+    setPos((p) => {
+      const w = Math.max(260, Math.min(p.w, W - 24)), h = Math.max(180, Math.min(p.h, H - 16));
+      const x = Math.max(0, Math.min(p.x, W - w - 8)), y = Math.max(0, Math.min(p.y, H - h - 8));
+      return x === p.x && y === p.y && w === p.w && h === p.h ? p : { x, y, w, h };
+    });
+  }, []);
 
   // ----- drawing
   useLayoutEffect(() => {
@@ -210,7 +221,7 @@ export function ScopeWindow({ block, store, tick, lang, status, onClose, index =
 
   const title = (p.Title && String(p.Title).trim()) || block.name;
   return (
-    <div className="sim-scope" style={{ left: pos.x, top: pos.y, width: pos.w, height: pos.h }} onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+    <div ref={rootEl} className="sim-scope" data-block={block.id} style={{ left: pos.x, top: pos.y, width: pos.w, height: pos.h }} onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
       <div className="sim-scope-head" onPointerDown={startDrag('move')}>
         <SimIcon name="scope" size={14} /><span className="sim-scope-title ellipsis">{title}</span>
         <span className="spacer" />

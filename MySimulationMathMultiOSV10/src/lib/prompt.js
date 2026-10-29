@@ -1,9 +1,9 @@
 // Promise-based input dialogs drawn by <PromptHost/>:
 //   askText({ title, label, value, icon })                 → string | null
 //   askPath({ mode: 'open'|'save'|'folder', title, start, name, exts }) → path | null
-// askPath is the in-page file chooser (web build, or when a native dialog is
-// not available); the desktop normally uses the system dialogs (chooseFile).
-import { isDesktop, pickFile, pickFolder, pickSavePath, joinPath } from './backend';
+// askPath is the in-page file chooser, used on the web and on the desktop alike:
+// the Windows system dialog left a large empty band above its buttons and does
+// not follow the app theme.
 
 const subs = new Set();
 let current = null;
@@ -25,16 +25,7 @@ function show(req) {
 export const askText = (opts) => show({ kind: 'text', ...opts });
 export const askPath = (opts) => show({ kind: 'path', mode: 'open', ...opts });
 
-/**
- * Open / save / folder chooser: the system dialog on the desktop, the in-page
- * chooser on the web. exts: ['.m', '.mat'] (empty = any file).
- */
-export async function chooseFile({ mode = 'open', title, start, name, exts = [], filterName = '' } = {}) {
-  if (isDesktop) {
-    const filters = exts.length ? [{ name: filterName || exts.join(' '), extensions: exts.map((e) => e.replace(/^\./, '')) }] : undefined;
-    if (mode === 'folder') return pickFolder({ defaultPath: start });
-    if (mode === 'save') return pickSavePath({ defaultPath: start && name ? joinPath(start, name) : name || start, filters });
-    return pickFile({ defaultPath: start, filters });
-  }
+/** Open / save / folder chooser (the in-page chooser). exts: ['.m', '.mat'] (empty = any file). */
+export async function chooseFile({ mode = 'open', title, start, name, exts = [] } = {}) {
   return askPath({ mode, title, start, name, exts });
 }

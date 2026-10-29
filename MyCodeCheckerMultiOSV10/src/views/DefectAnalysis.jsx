@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { t, textOf, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { Inspector } from '../components/Layout';
-import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow, Glossary } from './common';
+import { Btn, IconSelect, Stepper, Toggle, ViewHeader, Empty, NoProject, Stat, CovPill, emitAction, useRowWindow, Glossary, useApi } from './common';
 import { ask } from '../lib/ui';
 
 const PRESETS = ['outstanding', 'new', 'high', 'dismissed', 'fixed'];
@@ -28,7 +28,7 @@ function text(value) {
   return textOf(value);
 }
 
-export function DefectsView({ analysis, onUpdate }) {
+export function DefectsView({ analysis, onUpdate, onOpenCode }) {
   useLanguage();
   const [preset, setPreset] = useState('outstanding');
   const [q, setQ] = useState('');
@@ -118,7 +118,8 @@ export function DefectsView({ analysis, onUpdate }) {
               <thead><tr><th><span data-term="cid">CID</span></th><th><span data-term="impact">{t('cov_impact')}</span></th><th><span data-term="checker">{t('cov_checker')}</span></th><th>{t('message')}</th><th>{t('location')}</th></tr></thead>
               <tbody>
                 {shown.map((issue, idx) => (
-                  <tr key={`${issue.cid}-${issue.line}-${idx}`} data-tour="defect-row" className={`click ${selected && selected.cid === issue.cid ? 'sel' : ''}`} onClick={() => setCid(issue.cid)}>
+                  <tr key={`${issue.cid}-${issue.line}-${idx}`} data-tour="defect-row" className={`click ${selected && selected.cid === issue.cid ? 'sel' : ''}`} onClick={() => setCid(issue.cid)}
+                    title={t('ib_dblclick_code')} data-open-file={issue.file || undefined} data-open-line={issue.line || 0} onDoubleClick={() => { if (onOpenCode && issue.file) onOpenCode(issue.file, issue.line); }}>
                     <td className="mono">{issue.cid}</td>
                     <td className="nowrap"><span className={`impact-badge impact-${issue.impact}`}><Icon name={impactIcon(issue.impact)} size={12} />{impactLabel(issue.impact)}</span></td>
                     <td className="small">{issue.checker}<div>{issue.kind}</div></td>
@@ -213,21 +214,17 @@ function Owner({ issue, onUpdate }) {
   );
 }
 
-export function StreamsView({ history, analysis }) {
+export function StreamsView({ history, analysis, project, branch }) {
   useLanguage();
   const rows = history || [];
   const [left, setLeft] = useState(Math.max(0, rows.length - 2));
   const [right, setRight] = useState(Math.max(0, rows.length - 1));
   const older = rows[left];
   const newer = rows[right];
-  let added = 0;
-  let removed = 0;
-  if (older && newer && older.cids && newer.cids) {
-    const a = new Set(older.cids);
-    const b = new Set(newer.cids);
-    added = [...b].filter((cid) => !a.has(cid)).length;
-    removed = [...a].filter((cid) => !b.has(cid)).length;
-  }
+  // The service compares the two analyses' defect IDs (millions on a large project) and keeps the answer.
+  const diff = useApi('defect.streamDiff', { projectId: project && project.id, branch, left, right }, [project && project.id, branch, left, right, rows.length], !!project && !!older && !!newer && left !== right);
+  const added = (diff.data && diff.data.added) || 0;
+  const removed = (diff.data && diff.data.removed) || 0;
   const cov = (analysis && analysis.defectAnalysis) || {};
   const snapOptions = rows.map((row, i) => ({ value: i, label: String(i + 1), icon: 'history' }));
   return (

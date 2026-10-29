@@ -76,5 +76,13 @@ export function iconOf(block) {
 export function searchLibrary(text) {
   const q = String(text || '').trim().toLowerCase();
   if (!q) return LIBRARY;
-  return LIBRARY.filter((i) => i.type.toLowerCase().includes(q) || i.label.en.toLowerCase().includes(q) || (i.label.ko || '').includes(q));
+  // every word must appear in the type or one of the labels ('PID 제어기', 'transfer fcn', 'gain slider')
+  const words = q.split(/\s+/).filter(Boolean);
+  const hay = (i) => [i.type, i.label.en, i.label.ko || ''].map((s) => String(s).toLowerCase());
+  return LIBRARY.filter((i) => {
+    const h = hay(i);
+    if (h.some((s) => s.includes(q))) return true;
+    const all = h.join(' ');
+    return words.every((w) => all.includes(w));
+  });
 }

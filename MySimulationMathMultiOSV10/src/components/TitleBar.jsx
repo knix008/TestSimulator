@@ -12,6 +12,7 @@ import { Icon, WindowButtons } from './Chrome';
 import { ThemePicker } from './ThemePicker';
 import { usePopupWindows, openPopupWindow, closePopups } from '../lib/popups';
 import { getCustomThemesRaw } from '../themes';
+import { themeListSize } from './ThemePicker';
 
 export const RIBBON_TABS = [
   ['home', 'home', 'rb_home'],
@@ -19,6 +20,7 @@ export const RIBBON_TABS = [
   ['apps', 'apps', 'rb_apps'],
   ['editor', 'script', 'rb_editor'],
   ['simulation', 'model', 'rb_simulation'],
+  ['help', 'book', 'rb_help'],
 ];
 
 export function TitleBar({ tab, onTab, theme, onAction, dirty, busy, debug, onClose }) {
@@ -59,7 +61,8 @@ export function TitleBar({ tab, onTab, theme, onAction, dirty, busy, debug, onCl
     if (usePopupWindows()) {
       const r = e.currentTarget.getBoundingClientRect();
       await closePopups();
-      await openPopupWindow({ kind: 'themes', anchor: { left: r.right - 580, right: r.right, top: r.top, bottom: r.bottom }, width: 580, height: 400,
+      const size = themeListSize();
+      await openPopupWindow({ kind: 'themes', anchor: { left: r.right - size.width, right: r.right, top: r.top, bottom: r.bottom }, width: size.width, height: size.height,
         payload: { theme, language: lang, customThemes: getCustomThemesRaw(), value: theme }, onResult: (res) => res && res.id && onAction(res.id) });
       return;
     }
@@ -94,13 +97,15 @@ export function TitleBar({ tab, onTab, theme, onAction, dirty, busy, debug, onCl
         <button type="button" className="tb-btn tb-lang" title={t('tip_language_toggle', { lang: otherLang.label })} aria-label={t('tip_language_toggle', { lang: otherLang.label })} onClick={() => onAction(`lang:${otherLang.value}`)}>
           <LangFlag lang={lang} width={22} height={15} /><span className="tb-lang-code">{lang.toUpperCase()}</span>
         </button>
-        <button type="button" className="tb-btn tb-icon-only" title={t('tip_settings')} aria-label={t('tip_settings')} onClick={() => onAction('settings')}><Icon name="settings" size={15} /></button>
+        <button type="button" className="tb-btn tb-icon-only tb-guide" data-tour="tb-guide" title={t('tip_guide')} aria-label={t('tip_guide')} onClick={() => onAction('guide')}><Icon name="book" size={15} /></button>
+        <button type="button" className="tb-btn tb-icon-only tb-tutorial" data-tour="tb-tutorial" title={t('tip_tutorial')} aria-label={t('tip_tutorial')} onClick={() => onAction('tutorial')}><Icon name="graduation" size={15} /></button>
+        <button type="button" className="tb-btn tb-icon-only" data-tour="tb-settings" title={t('tip_settings')} aria-label={t('tip_settings')} onClick={() => onAction('settings')}><Icon name="settings" size={15} /></button>
         <button type="button" className="tb-btn tb-icon-only" title={t('tip_about')} aria-label={t('tip_about')} onClick={() => onAction('about')}><Icon name="info" size={15} /></button>
       </span>
       {isDesktop && <WindowButtons onClose={onClose} />}
       {pickerOpen && (
         <div className="menu-pop theme-pop" style={{ right: 8, left: 'auto' }} onClick={(e) => e.stopPropagation()}>
-          <ThemePicker value={theme} onPick={(id) => { setPickerOpen(false); onAction(`theme:${id}`); }}
+          <ThemePicker list value={theme} onPick={(id) => { setPickerOpen(false); onAction(`theme:${id}`); }}
             onNewCustom={() => { setPickerOpen(false); onAction('settings:custom'); }} onEditCustom={() => { setPickerOpen(false); onAction('settings:custom'); }} />
         </div>
       )}

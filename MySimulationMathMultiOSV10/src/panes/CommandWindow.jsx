@@ -25,6 +25,9 @@ function Linked({ text, onLink }) {
   return out;
 }
 
+// Clickable examples shown while the window is empty (each runs at once).
+const EXAMPLES = ['1 + 2 * 3', 'A = magic(4)', 'x = linspace(0, 2*pi, 200); plot(x, sin(x)); grid on', 'inv([2 1; 1 3])', 'help plot'];
+
 export const CommandWindow = forwardRef(function CommandWindow({ engine, settings, busy, engineState, debug, onDebugReply, history, onHistoryAdd, onOpenLink }, ref) {
   useLanguage();
   const cmd = (settings && settings.cmd) || {};
@@ -36,6 +39,10 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
   const [comp, setComp] = useState(null); // { items, index, from, to }
   const hist = useRef({ index: -1, prefix: '', draft: '' });
   const outRef = useRef(null);
+  // Counts error output: an error the engine already printed is not printed again.
+  const errSeq = useRef(0);
+  // Output and the prompt scroll together: the prompt follows the last output line.
+  const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const queue = useRef([]);
   const stick = useRef(true);
@@ -44,6 +51,7 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
   const print = useCallback((str, stream = 'out') => {
     const s = String(str == null ? '' : str);
     if (!s) return;
+    if (stream === 'err') errSeq.current += 1;
     const list = entries.current;
     const last = list[list.length - 1];
     if (last && last.stream === stream && last.text.length < 4000 && !last.frames) last.text += s;
@@ -91,8 +99,10 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
       print(`${t('cw_engine_missing')}\n`, 'warn');
       return { ok: false };
     }
-    const res = await engine.eval(code, { echo: true, history: addHistory });
-    if (res && res.ok === false) printError(res.error);
+    // The echo line is printed here; the engine must not echo it a second time.
+    const errBefore = errSeq.current;
+    const res = await engine.eval(code, { echo: false, history: addHistory });
+    if (res && res.ok === false && errSeq.current === errBefore) printError(res.error);
     return res;
   }, [engine, engineState, print, printError, onHistoryAdd, clear]);
 
@@ -116,7 +126,7 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
 
   // Keep the view at the bottom unless the user scrolled up.
   useLayoutEffect(() => {
-    const el = outRef.current;
+    const el = scrollRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   });
 
@@ -221,13 +231,26 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
   };
 
   const rows = Math.min(10, text.split('\n').length);
+  // The completion list opens below the prompt when there is no room above it.
+  const compBelow = () => { const r = inputRef.current && inputRef.current.parentElement; const sc = scrollRef.current; return !!(r && sc && r.getBoundingClientRect().top - sc.getBoundingClientRect().top < 160); };
   const prompt = inputReq ? '' : debug ? 'K>>' : '>>';
   return (
     <div className="cw" style={{ '--cw-font': `"${cmd.fontFamily || 'Consolas'}", Consolas, "D2Coding", monospace`, '--cw-size': `${cmd.fontSize || 13}px` }} onKeyDown={onPaneKey}>
+      <div ref={scrollRef} className="cw-scroll" onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8; }}
+        onMouseUp={(e) => { if (e.target === e.currentTarget && !String(window.getSelection() || '') && inputRef.current) inputRef.current.focus(); }}>
       <div ref={outRef} className={`cw-out selectable ${cmd.compact ? 'compact' : ''}`} tabIndex={0} aria-label={t('cw_title')} role="log"
-        onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 8; }}
         onMouseUp={() => { if (!String(window.getSelection() || '') && inputRef.current) inputRef.current.focus(); }}>
-        {entries.current.length === 0 && <div className="cw-hint small">{t('cw_hint')}</div>}
+        {entries.current.length === 0 && (
+          <div className="cw-start">
+            <div className="cw-hint small">{t('cw_hint')}</div>
+            <div className="cw-examples" aria-label={t('cw_examples')}>
+              <span className="small">{t('cw_examples')}</span>
+              {EXAMPLES.map((ex) => (
+                <button key={ex} type="button" className="cw-example" title={t('cw_example_tip')} onClick={() => { setText(''); run(ex); }}><Icon name="play" size={11} /><code>{ex}</code></button>
+              ))}
+            </div>
+          </div>
+        )}
         {entries.current.map((en) => (en.frames ? (
           <div key={en.id} className="cw-frames">
             {en.frames.map((f, i) => (
@@ -235,16 +258,21 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
             ))}
           </div>
         ) : (
-          <span key={en.id} className={`cw-${en.stream}`}>{en.stream === 'err' || en.stream === 'warn' ? <Linked text={en.text} onLink={onOpenLink} /> : en.text}</span>
+          <span key={en.id} className={en.stream === 'out' ? 'cw-stdout' : `cw-${en.stream}`}>{en.stream === 'err' || en.stream === 'warn' ? <Linked text={en.text} onLink={onOpenLink} /> : en.text}</span>
         )))}
       </div>
       <div className={`cw-input-row ${busy && !inputReq && !debug ? 'busy' : ''}`}>
         <span className="cw-prompt" aria-hidden="true">{busy && !inputReq && !debug ? <Icon name="spinner" size={13} className="spin" /> : prompt}</span>
         <textarea ref={inputRef} className="cw-input" rows={rows} value={text} spellCheck={false} aria-label={t('cw_input')}
-          placeholder={inputReq ? t('cw_input_requested') : debug ? t('cw_debug_hint') : ''}
+          placeholder={inputReq ? t('cw_input_requested') : debug ? t('cw_debug_hint') : t('cw_placeholder')}
           onChange={(e) => { setText(e.target.value); hist.current.index = -1; }} onKeyDown={onKey} />
+        {busy && !inputReq && !debug ? (
+          <button type="button" className="cw-run stop" title={`${t('cw_interrupt')} (Ctrl+C)`} onClick={() => engine.interrupt()}><Icon name="stop" size={12} />{t('cw_stop_btn')}</button>
+        ) : (
+          <button type="button" className="cw-run" disabled={!text.trim()} title={`${t('cw_run_btn')} (Enter)`} onClick={() => { submit(); if (inputRef.current) inputRef.current.focus(); }}><Icon name="play" size={12} />{t('cw_run_btn')}</button>
+        )}
         {comp && (
-          <div className="cw-comp" role="listbox" aria-label={t('cw_completions')}>
+          <div className={`cw-comp ${compBelow() ? 'below' : ''}`} role="listbox" aria-label={t('cw_completions')}>
             {comp.items.map((it, i) => (
               <button key={`${it.label}-${i}`} type="button" role="option" aria-selected={i === comp.index} className={`cw-comp-item ${i === comp.index ? 'on' : ''}`}
                 onMouseDown={(e) => { e.preventDefault(); apply(it, comp.from, comp.to); }}>
@@ -254,6 +282,7 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

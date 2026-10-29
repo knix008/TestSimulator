@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { subscribePrompt } from '../lib/prompt';
-import { fsApi, joinPath, dirName, extOf } from '../lib/backend';
+import { fsApi, joinPath, dirName, extOf, hostInfo } from '../lib/backend';
 import { Dialog, Icon } from './Chrome';
 import { Btn, BtnGroup } from '../views/common';
 import { fileIcon } from '../lib/files';
@@ -32,6 +32,29 @@ function TextPrompt({ req }) {
 
 function PathPrompt({ req }) {
   const [dir, setDir] = useState(req.start || '/');
+  const [places, setPlaces] = useState([]);
+  // Places on the left: the work folder, home, Documents, Desktop and (Windows) the drives that exist.
+  useEffect(() => {
+    let alive = true;
+    hostInfo().then(async (info) => {
+      if (!alive || !info) return;
+      if (!req.start && info.start) setDir(info.start);
+      const list = [{ path: info.start, icon: 'home', label: t('pd_work') }];
+      if (!info.jail && info.home) {
+        list.push({ path: info.home, icon: 'user', label: t('pd_home') });
+        for (const [sub, icon, key] of [['Documents', 'file', 'pd_documents'], ['Desktop', 'layout', 'pd_desktop'], ['Downloads', 'download', 'pd_downloads']]) {
+          const p = joinPath(info.home, sub);
+          if (await fsApi.exists(p).catch(() => false)) list.push({ path: p, icon, label: t(key) });
+        }
+        if (info.platform === 'win32') {
+          const drives = await Promise.all('CDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(async (d) => ((await fsApi.exists(d + ':/').catch(() => false)) ? d : null)));
+          for (const d of drives.filter(Boolean)) list.push({ path: d + ':/', icon: 'database', label: d + ':' });
+        }
+      }
+      if (alive) setPlaces(list.filter((x) => x.path));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [items, setItems] = useState([]);
   const [error, setError] = useState('');
   const [name, setName] = useState(req.name || '');
@@ -59,6 +82,16 @@ function PathPrompt({ req }) {
         <button type="button" className="icon-btn" title={t('cf_up')} aria-label={t('cf_up')} disabled={dir === dirName(dir)} onClick={() => setDir(dirName(dir))}><Icon name="arrowUp" size={15} /></button>
         <input className="mono pd-path" value={dir} onChange={(e) => setDir(e.target.value)} aria-label={t('cf_path')} />
       </div>
+      <div className="pd-main">
+      {places.length > 0 && (
+        <div className="pd-places" role="list" aria-label={t('pd_places')}>
+          {places.map((pl) => (
+            <button key={pl.path} type="button" role="listitem" className={`pd-place ${dir.replace(/\/+$/, '') === pl.path.replace(/\/+$/, '') ? 'on' : ''}`} title={pl.path} onClick={() => { setDir(pl.path); setSel(''); }}>
+              <Icon name={pl.icon} size={14} /><span className="ellipsis">{pl.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="pd-list" role="listbox" aria-label={t('cf_title')}>
         {error && <div className="small bad">{error}</div>}
         {shown.map((it) => (
@@ -69,6 +102,7 @@ function PathPrompt({ req }) {
           </button>
         ))}
         {!error && !shown.length && <div className="small muted">{t('cf_empty')}</div>}
+      </div>
       </div>
       {req.mode !== 'folder' && (
         <label className="form-row inline pd-name"><span className="form-label">{t('dlg_file_name')}</span>

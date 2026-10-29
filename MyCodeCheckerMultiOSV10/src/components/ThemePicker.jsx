@@ -1,6 +1,6 @@
 // Theme picker: custom themes (with 새로 만들기 / 편집) on top, then the
-// built-in themes as two groups side by side — Dark | Light — each 20
-// themes in 2 columns of compact rows (swatch + name). Used by the settings
+// built-in themes as two groups, Dark above Light, each 20
+// themes in 2 columns of compact rows (swatch + name), read top to bottom. Used by the settings
 // 테마 tab and the toolbar theme popup.
 import React from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
@@ -44,7 +44,8 @@ export function ThemePicker({ value, onPick, onNewCustom, onEditCustom }) {
         {[[t('st_dark'), dark, 'palette'], [t('st_light'), light, 'sun']].map(([title, list, icon]) => (
           <div key={title} className="tp-group">
             <div className="tp-head"><Icon name={icon} size={13} /><span>{title}</span><span className="tp-count">{list.length}</span></div>
-            <div className="tp-cols">{list.map((th) => <Entry key={th.id} th={th} on={value === th.id} onPick={onPick} />)}</div>
+            {/* Two columns read top to bottom: the first half on the left, the rest on the right. */}
+            <div className="tp-cols tp-down" style={{ gridTemplateRows: `repeat(${Math.max(1, Math.ceil(list.length / 2))}, auto)` }}>{list.map((th) => <Entry key={th.id} th={th} on={value === th.id} onPick={onPick} />)}</div>
           </div>
         ))}
       </div>

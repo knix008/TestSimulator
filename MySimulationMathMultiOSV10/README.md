@@ -49,7 +49,8 @@ The web version only sees files inside its work folder (default `~/MySimulationM
 
 ## 문서 / Docs
 
-- [USERSGUIDE.md](USERSGUIDE.md) — 사용 설명서 / user's guide
+- 앱 안의 사용 설명서(F1)와 튜토리얼 / in-app user manual (F1) and guided tutorial — `src/docs/<ko|en>/*.md`, 그림 / images `public/docs/images/<ko|en>/`
+- [USERSGUIDE.md](USERSGUIDE.md) — 사용 설명서 요약 / user's guide summary
 - [ARCHITECTURE.md](ARCHITECTURE.md) — 구조 / architecture
 - [core/CONTRACT.md](core/CONTRACT.md) — 모듈 계약 / module contract
 

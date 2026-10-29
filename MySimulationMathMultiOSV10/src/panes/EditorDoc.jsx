@@ -23,7 +23,7 @@ export function EditorDoc({ doc, active, settings, register, onDirty, onCursor, 
   actionsRef.current = {
     ...actions,
     ctrlEnterSection: settings.keyboard.ctrlEnterSection !== false,
-    onChange: (text) => { const d = text !== saved.current; setDirty(d); },
+    onChange: (text) => { const d = text !== saved.current; setDirty(d); window.dispatchEvent(new CustomEvent('msm-editor-change', { detail: { id: doc.id } })); },
     onCursor: (c) => { if (active) onCursor(c); },
     onBreakpoints: (lines) => onBreakpoints(lines),
   };
@@ -43,7 +43,7 @@ export function EditorDoc({ doc, active, settings, register, onDirty, onCursor, 
     const start = (text) => {
       if (!alive || !host.current) return;
       saved.current = text;
-      ed.current = createMEditor({ parent: host.current, doc: text, settings: settings.editor, actions: new Proxy({}, { get: (_, k) => actionsRef.current[k] }) });
+      ed.current = createMEditor({ parent: host.current, doc: text, settings: { ...settings.editor, ...(doc.options || {}) }, actions: new Proxy({}, { get: (_, k) => actionsRef.current[k] }) });
       if (breakpoints && breakpoints.length) ed.current.setBreakpoints(breakpoints);
       if (doc.initialText != null && !doc.path) { ed.current.setText(doc.initialText); }
       setState('ready');
@@ -68,7 +68,8 @@ export function EditorDoc({ doc, active, settings, register, onDirty, onCursor, 
   useEffect(() => { onDirty(doc.id, dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
   useEditorDirty(`doc:${doc.id}`, dirty, { label: doc.title, save: () => (pathRef.current ? save() : actions.saveAs(doc.id)) });
 
-  useEffect(() => { if (ed.current) ed.current.configure(settings.editor); }, [settings.editor]);
+  // Settings → editor options; a document's own options (문서 속성: tab size, wrap) win.
+  useEffect(() => { if (ed.current) ed.current.configure({ ...settings.editor, ...(doc.options || {}) }); }, [settings.editor, doc.options]);
   useEffect(() => { if (ed.current) ed.current.setDebugLine(debugLine || null); }, [debugLine, state]);
   useEffect(() => { if (active && ed.current) { ed.current.focus(); const v = ed.current.view; const head = v.state.selection.main.head; const line = v.state.doc.lineAt(head); onCursor({ line: line.number, col: head - line.from + 1, sel: 0 }); } }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (doc.line && ed.current) ed.current.gotoLine(doc.line); }, [doc.line, doc.lineSeq]); // eslint-disable-line react-hooks/exhaustive-deps

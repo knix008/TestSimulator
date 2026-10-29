@@ -214,7 +214,7 @@ export function bcastMaps(da, db, opname = '') {
 
 // ------------------------------------------------------------- indexing
 
-const isColonArg = (s) => (isChar(s) && s.re.length === 1 && s.re[0] === 58) || (isString(s) && s.data.length === 1 && s.data[0] === ':');
+const isColonArg = (s) => (!!s && s.colon === true) || (isChar(s) && s.re.length === 1 && s.re[0] === 58) || (isString(s) && s.data.length === 1 && s.data[0] === ':');
 
 /** Index list (0-based) of one subscript against extent n. */
 export function subIndex(s, n, allowGrow = false) {

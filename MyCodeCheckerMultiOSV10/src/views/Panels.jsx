@@ -1,10 +1,10 @@
 import { ask } from '../lib/ui';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon, CloseButton, TYPE_ICON, SEV_ICON, STATUS_ICON } from '../components/Chrome';
-import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText, useRowWindow, fmtDate } from './common';
+import { IconSelect, Btn, BtnGroup, Stepper, Toggle, FilePickButton, saveText, ViewHeader, Empty, NoProject, Stat, SevBadge, TypeBadge, StatusPill, sevLabel, statusLabel, emitAction, errorText, useRowWindow, fmtDate, useApi, Pager, usePageSize } from './common';
 import { call, openExternal } from '../lib/backend';
-import { Inspector } from '../components/Layout';
+import { Inspector, Splitter } from '../components/Layout';
 import { AiFixBox } from './AiFix';
 import { ISSUE_STANDARDS, standardsOf, matchesStandard, standardChips, engineOf, ENGINE_ICON } from './standards';
 
@@ -451,15 +451,66 @@ function TicketBox({ keys, onTicket }) {
   );
 }
 
-export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSelect, checked, setChecked, onUpdate, onReview, approval, hasAnalysis, onTicket, project, branch }) {
+// The issue search of a saved analysis runs in the service over the whole
+// analysis (its local database, issue.search): the window holds only the
+// most severe issues of a large one. Words wait until typing pauses.
+const SORTS = ['severity', 'file', 'rule', 'new', 'list'];
+function useIssueSearch(enabled, project, branch, filter, issues) {
+  const [q, setQ] = useState(filter.q || '');
+  useEffect(() => { const id = setTimeout(() => setQ(filter.q || ''), 300); return () => clearTimeout(id); }, [filter.q]);
+  const [sort, setSort] = useState('severity');
+  const [size, setSize] = usePageSize(500);
+  const [page, setPage] = useState(0);
+  const query = {
+    q,
+    severity: filter.severity || '',
+    type: filter.type || '',
+    status: filter.status || '',
+    newOnly: !!filter.newOnly,
+    engine: filter.engine || '',
+    standard: filter.standard || '',
+    lang: filter.lang ? LANG_EXT[filter.lang] || [] : [],
+    rules: filter.rules && filter.rules.length ? filter.rules : null,
+    keys: filter.keys && filter.keys.length ? filter.keys : null,
+  };
+  const queryKey = JSON.stringify(query);
+  useEffect(() => { setPage(0); }, [queryKey, sort, size, project && project.id, branch]);
+  // The counts (type tabs, engine list) belong to the filter: asked for on its
+  // first page only, and kept while paging or sorting.
+  const facetsFor = useRef({ key: '', facets: null });
+  const countKey = `${project && project.id}|${branch}|${queryKey}`;
+  const wantFacets = facetsFor.current.key !== countKey || page === 0;
+  // A changed analysis (a new one, or a triage change reloading the issues) asks again.
+  const res = useApi('issue.search', { projectId: project && project.id, branch, filter: query, sort, offset: page * size, limit: size, facets: wantFacets ? ['type', 'engine'] : false },
+    [project && project.id, branch, queryKey, sort, page, size, issues], enabled);
+  if (res.data && res.data.facets && !res.loading) facetsFor.current = { key: countKey, facets: res.data.facets };
+  const data = res.data && !res.data.facets && facetsFor.current.key === countKey ? { ...res.data, facets: facetsFor.current.facets } : res.data;
+  return { res: { ...res, data }, sort, setSort, size, setSize, page, setPage, searching: q !== (filter.q || '') || res.loading };
+}
+
+export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSelect, checked, setChecked, onUpdate, onReview, approval, hasAnalysis, onTicket, project, branch, serverSearch, onOpenCode }) {
   useLanguage();
   const [comment, setComment] = useState('');
   const [assignee, setAssignee] = useState('');
   const ruleMap = useMemo(() => new Map(rules.map((r) => [r.key, r])), [rules]);
-  const list = useMemo(() => filterIssues(issues, filter, false, ruleMap), [issues, filter, ruleMap]);
-  const { rows: shown, footer } = useRowWindow(list);
+  const searchBranch = project && project.branches ? (project.branches[branch] ? branch : (project.mainBranch || 'main')) : '';
+  const server = useIssueSearch(!!(serverSearch && project && searchBranch && hasAnalysis), project, searchBranch, filter, issues);
+  // Without the service's answer (a desktop analysis, or an error) the window's issues are filtered here.
+  const useServer = !!(serverSearch && project && searchBranch && hasAnalysis) && !server.res.error && !!server.res.data;
+  const list = useMemo(() => (useServer ? [] : filterIssues(issues, filter, false, ruleMap)), [useServer, issues, filter, ruleMap]);
+  const local = useRowWindow(list);
+  const found = useServer ? server.res.data : null;
+  const shown = useServer ? found.issues : local.rows;
+  const total = useServer ? found.total : list.length;
+  const footer = useServer
+    ? <Pager total={found.total} page={server.page} size={server.size} onPage={server.setPage} onSize={server.setSize}
+      note={server.searching ? t('ib_searching') : t('ib_search_scope')} />
+    : local.footer;
   const checkedSet = useMemo(() => new Set(checked), [checked]);
-  const engines = useMemo(() => [...new Set(issues.map(engineOf))].sort(), [issues]);
+  const engines = useMemo(() => {
+    const fromServer = found && found.facets && found.facets.engine ? Object.keys(found.facets.engine) : [];
+    return [...new Set([...issues.map(engineOf), ...fromServer, ...(filter.engine ? [filter.engine] : [])])].sort();
+  }, [issues, found, filter.engine]);
   const rule = selected && ruleMap.get(selected.rule);
   const toggle = (key) => setChecked(checkedSet.has(key) ? checked.filter((k) => k !== key) : [...checked, key]);
   const chips = selected ? standardChips(standardsOf(selected, rule)) : [];
@@ -473,28 +524,30 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
       </div>
     );
   }
-  const visible = issues.filter((i) => i.type !== 'SECURITY_HOTSPOT');
-  const typeCount = (type) => visible.filter((i) => i.type === type).length;
+  const visible = useServer ? null : issues.filter((i) => i.type !== 'SECURITY_HOTSPOT');
+  const typeFacet = (found && found.facets && found.facets.type) || {};
+  const typeCount = (type) => (useServer ? (type ? typeFacet[type] || 0 : Object.entries(typeFacet).filter(([k]) => k !== 'SECURITY_HOTSPOT').reduce((n, [, c]) => n + c, 0)) : visible.filter((i) => !type || i.type === type).length);
   return (
     <div className="view view-list">
       <ViewHeader icon="bug" title={t('nav_issues')} hint={t('vh_issues')} />
       <div className="type-tabs">
-        {[['', 'list', t('all'), visible.length], ...TYPES.map((ty) => [ty, TYPE_ICON[ty], { BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells') }[ty], typeCount(ty)])].map(([ty, icon, label, n]) => (
+        {[['', 'list', t('all'), typeCount('')], ...TYPES.map((ty) => [ty, TYPE_ICON[ty], { BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells') }[ty], typeCount(ty)])].map(([ty, icon, label, n]) => (
           <button key={ty || 'all'} type="button" className={`type-tab ${ty ? `kind-${ty}` : ''} ${filter.type === ty ? 'on' : ''}`} onClick={() => setFilter({ ...filter, type: ty })} aria-pressed={filter.type === ty}>
             <Icon name={icon} size={15} /><span>{label}</span><span className="vtab-count">{n}</span>
           </button>
         ))}
       </div>
-      <Filters filter={filter} setFilter={setFilter} types={TYPES} engines={engines} />
+      <Filters filter={filter} setFilter={setFilter} types={TYPES} engines={engines}
+        sort={useServer ? server.sort : null} setSort={server.setSort} />
       {filter.drillLabel && (
         <div className="drill-bar">
-          <Icon name="filter" size={14} /><span>{t('ib_drill')}: <strong>{filter.drillLabel}</strong> ({list.length})</span>
+          <Icon name="filter" size={14} /><span>{t('ib_drill')}: <strong>{filter.drillLabel}</strong> ({total.toLocaleString()})</span>
           <Btn icon="close" label={t('ib_clear_drill')} onClick={() => setFilter({ ...filter, rules: null, keys: null, drillLabel: '' })} />
         </div>
       )}
       {filter.lang && (
         <div className="drill-bar" data-filter="lang">
-          <Icon name="code" size={14} /><span>{t('ib_lang_filter')}: <strong>{LANG_NAME[filter.lang] || filter.lang}</strong> ({list.length})</span>
+          <Icon name="code" size={14} /><span>{t('ib_lang_filter')}: <strong>{LANG_NAME[filter.lang] || filter.lang}</strong> ({total.toLocaleString()})</span>
           <Btn icon="close" label={t('ib_clear_drill')} onClick={() => setFilter({ ...filter, lang: '' })} />
         </div>
       )}
@@ -505,7 +558,8 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
             <thead><tr><th /><th><span data-term="severity">{t('severity')}</span></th><th>{t('message')}</th><th>{t('location')}</th><th>{t('status')}</th></tr></thead>
             <tbody>
               {shown.map((issue, idx) => (
-                <tr key={`${issue.key}-${idx}`} data-tour="issue-row" className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}>
+                <tr key={`${issue.key}-${idx}`} data-tour="issue-row" className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => onSelect(issue)}
+                  title={t('ib_dblclick_code')} data-open-file={issue.file || undefined} data-open-line={issue.line || 0} onDoubleClick={() => { if (onOpenCode && issue.file) onOpenCode(issue.file, issue.line); }}>
                   <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={t('ib_select')} checked={checkedSet.has(issue.key)} onChange={() => toggle(issue.key)} /></td>
                   <td className="nowrap"><SevBadge sev={issue.severity} />{issue.isNew && <div><span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span></div>}</td>
                   <td className="wrap"><div className="msg-line"><TypeBadge type={issue.type} short />{msg(issue)}</div><div className="small">{issue.rule}{engineOf(issue) !== 'core' ? ` · ${engineOf(issue)}` : ''}{issue.review && issue.review.state === 'REQUESTED' ? <> · <span className="warn-text"><Icon name="hourglass" size={11} /> {t('rv_state_requested')}</span></> : null}</div></td>
@@ -516,7 +570,7 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
             </tbody>
           </table>
           {footer}
-          {list.length === 0 && (visible.length
+          {total === 0 && !(useServer && server.searching) && ((useServer ? typeCount('') : visible.length)
             ? <Empty icon="filter" text={t('es_no_match')} hint={t('es_no_match_hint')}><Btn icon="close" label={t('es_clear_filters')} onClick={() => setFilter({ ...filter, q: '', severity: '', type: '', status: '', newOnly: false, engine: '', standard: '', rules: null, keys: null, drillLabel: '' })} /></Empty>
             : <Empty icon="checkCircle" text={t('es_no_issues')} hint={t('es_no_issues_hint')} />)}
           </div>
@@ -586,7 +640,7 @@ export function IssueBrowser({ issues, rules, filter, setFilter, selected, onSel
   );
 }
 
-export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
+export function Hotspots({ issues, rules, onUpdate, hasAnalysis, onOpenCode }) {
   useLanguage();
   const [cur, setCur] = useState(null);
   const [only, setOnly] = useState('');
@@ -621,7 +675,8 @@ export function Hotspots({ issues, rules, onUpdate, hasAnalysis }) {
               <thead><tr><th>{t('severity')}</th><th>{t('message')}</th><th>{t('status')}</th></tr></thead>
               <tbody>
                 {shown.map((issue) => (
-                  <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => setCur(issue.key)}>
+                  <tr key={issue.key} className={`click ${selected && selected.key === issue.key ? 'sel' : ''}`} onClick={() => setCur(issue.key)}
+                    title={t('ib_dblclick_code')} data-open-file={issue.file || undefined} data-open-line={issue.line || 0} onDoubleClick={() => { if (onOpenCode && issue.file) onOpenCode(issue.file, issue.line); }}>
                     <td className="nowrap"><SevBadge sev={issue.severity} /></td>
                     <td className="wrap">{msg(issue)}<div className="small">{issue.file}:{issue.line}</div></td>
                     <td><StatusPill status={issue.status} /></td>
@@ -689,7 +744,7 @@ function EventPath({ events, file }) {
 
 export { TYPE_ICON, SEV_ICON };
 
-function Filters({ filter, setFilter, types, engines }) {
+function Filters({ filter, setFilter, types, engines, sort, setSort }) {
   useLanguage();
   const set = (patch) => setFilter({ ...filter, ...patch });
   const typeLabel = (s) => ({ BUG: t('bugs'), VULNERABILITY: t('vulns'), CODE_SMELL: t('smells'), SECURITY_HOTSPOT: t('hotspots') }[s] || s);
@@ -711,6 +766,10 @@ function Filters({ filter, setFilter, types, engines }) {
       <button type="button" role="switch" aria-checked={!!filter.newOnly} className={`vbtn toggle ${filter.newOnly ? 'on' : ''}`} onClick={() => set({ newOnly: !filter.newOnly })}>
         <span className="switch" aria-hidden="true"><span /></span><Icon name="clock" size={15} /><span>{t('new_only')}</span>
       </button>
+      {sort && (
+        <IconSelect value={sort} onChange={setSort} title={t('ib_sort')} ariaLabel={t('ib_sort')} width={170}
+          options={SORTS.map((s) => ({ value: s, label: t(`ib_sort_${s}`), icon: { severity: 'alert', file: 'file', rule: 'list', new: 'sparkle', list: 'layers' }[s] }))} />
+      )}
     </div>
   );
 }
@@ -772,7 +831,8 @@ export function Measures({ analysis }) {
                 <tr key={k}>
                   <td><span className="metric-name"><Icon name={iconOf(k)} size={14} /><span data-term={k}>{metricLabel(k, lang)}</span>{String(k).startsWith('new_') && <span className="pill new-pill"><Icon name="sparkle" size={10} /> {t('new_code')}</span>}</span></td>
                   <td className="small mono">{k}</td>
-                  <td className="num">{v == null ? '—' : String(v)}</td>
+                  {/* A list value (js=56;py=15;…) wraps after each ; instead of widening the table. */}
+                  <td className="num ms-value">{v == null ? '—' : String(v).split(';').join('; ')}</td>
                 </tr>
               ))}
             </tbody>
@@ -783,18 +843,406 @@ export function Measures({ analysis }) {
   );
 }
 
-export function CodeView({ analysis, file, text, onOpen, line, error }) {
+// Word wrap of the code view and the width of its file list: kept on this computer.
+const CODE_WRAP_KEY = 'mcc.codeWrap';
+const CODE_TREE_KEY = 'mcc.codeTreeWidth';
+const CODE_TREE_MIN = 140;
+const CODE_TREE_MAX = 720;
+function storedTreeWidth() {
+  try { const v = Number(localStorage.getItem(CODE_TREE_KEY)); return v >= CODE_TREE_MIN && v <= CODE_TREE_MAX ? v : 260; } catch { return 260; }
+}
+function storedCodeWrap() {
+  try { return localStorage.getItem(CODE_WRAP_KEY) === '1'; } catch { return false; }
+}
+
+// Issues listed beside the code, and of the picked line, a step at a time.
+const CODE_ISSUE_ROWS = 200;
+const LINE_ISSUE_ROWS = 50;
+
+// The issues of the line picked in the code view, with what is wrong and how
+// to fix it (the rule's why / fix), so they read there without leaving the code.
+function LineIssues({ line, issues, picked, ruleMap, onPickIssue, follow }) {
+  useLanguage();
+  const ref = useRef(null);
+  const [shown, setShown] = useState(LINE_ISSUE_ROWS);
+  useEffect(() => { setShown(LINE_ISSUE_ROWS); }, [line]);
+  // Brought into view in the panel when a line of the code is picked (not when
+  // an issue of the list above is: the list stays where it is).
+  useEffect(() => { if (follow && ref.current && ref.current.scrollIntoView) ref.current.scrollIntoView({ block: 'nearest' }); }, [line, picked, follow]);
+  return (
+    <div className="line-issues" data-testid="line-issues" ref={ref}>
+      <h3 className="sub-title"><Icon name="alert" size={15} />{t('cv_line_issues', { n: line })}</h3>
+      {issues.length === 0 && <p className="small muted">{t('cv_line_none')}</p>}
+      {issues.slice(0, shown).map((i) => {
+        const rule = ruleMap.get(i.rule);
+        return (
+          <div key={i.key} className={`line-issue ${picked === i.key ? 'on' : ''}`}>
+            <div className="chips"><TypeBadge type={i.type} /><SevBadge sev={i.severity} /><StatusPill status={i.status} resolution={i.resolution} /></div>
+            <div className="line-issue-msg">{msg(i)}</div>
+            <div className="small muted mono">{i.rule}{rule && rule.name ? ` · ${textOf(rule.name)}` : ''}</div>
+            {rule && rule.why && <><h4 className="line-issue-h"><Icon name="lightbulb" size={13} />{t('why')}</h4><p className="small">{textOf(rule.why)}</p></>}
+            {rule && rule.fix && <><h4 className="line-issue-h"><Icon name="wrench" size={13} />{t('how_to_fix')}</h4><p className="small">{textOf(rule.fix)}</p></>}
+            {!rule && <p className="small muted">{t('cv_no_rule_text')}</p>}
+            {onPickIssue && <Btn icon="bug" label={t('cv_open_in_issues')} onClick={() => onPickIssue(i)} />}
+          </div>
+        );
+      })}
+      {issues.length > shown && <div className="more-row"><Btn icon="plus" label={t('ib_show_more', { n: Math.min(LINE_ISSUE_ROWS, issues.length - shown) })} onClick={() => setShown(shown + LINE_ISSUE_ROWS)} /></div>}
+    </div>
+  );
+}
+
+// A binary file in the code view, laid out like a hex editor: offset | 16
+// bytes in hex | the same bytes as text (. for what is not printable), a page
+// at a time from the service. A byte is picked with a click (in either column)
+// or the arrow keys; it is outlined in both columns and its values show in the
+// inspector below. The bytes an issue is about are marked: the string it names
+// as its evidence (a library's version string …) when the file holds it, else
+// the start of its line (the bytes from one newline to the next). Only the
+// rows in sight are built, and where the issues are is found by the service
+// in the background for a large file (a note shows while it reads).
+const HEX_ROW = 16;
+// More than this many bytes in one "line" says nothing about where the issue
+// is: only the line's first row is marked.
+const HEX_LINE_MAX = 4096;
+// A page holds up to 1000 rows; only the rows in sight (and this many more
+// above and below) are built, so scrolling and the arrow keys stay quick.
+const HEX_OVERSCAN = 24;
+// While the service still reads a large file for the issue positions, it is asked again this often.
+const HEX_POLL_MS = 800;
+// Issues named in one tooltip (a library can have thousands on its line 1).
+const HEX_TIP_MAX = 20;
+// Quoted strings of an issue's message ("inflate 1.2.11 Copyright 1995"), the evidence to look for.
+const evidenceOf = (i) => {
+  const m = i.message;
+  const text = [m && typeof m === 'object' ? m.en : m, msg(i)].filter(Boolean).join('\n');
+  return [...new Set([...text.matchAll(/"([^"\n]{3,120})"/g)].map((x) => x[1]))];
+};
+const hexOf = (n, w) => n.toString(16).toUpperCase().padStart(w, '0');
+const printable = (b) => b >= 32 && b < 127;
+const issuesTip = (list, line) => {
+  const head = list.slice(0, HEX_TIP_MAX).map(line).join('\n');
+  return list.length > HEX_TIP_MAX ? `${head}\n${t('pp_more', { n: list.length - HEX_TIP_MAX })}` : head;
+};
+
+// One row of the hex view: offset | 16 bytes | text. hitAt holds, per byte of
+// the page, the index of its mark in marks (-1: none); selK is the picked
+// byte's place in this row (-1: not in it). A row is built again only when one
+// of these changes, so moving the picked byte rebuilds two rows.
+const HexRow = React.memo(function HexRow({ data, base, r, hitAt, marks, selK, pickLine }) {
+  const at = base + r * HEX_ROW;
+  const cells = [];
+  const text = [];
+  let rowMark = null;
+  for (let k = 0; k < HEX_ROW; k++) {
+    const i = r * HEX_ROW + k;
+    const pos = at + k;
+    if (i >= data.length) { cells.push(<span key={k} className={`hx-b ${k === 8 ? 'gap' : ''}`} />); text.push(<span key={k} className="hx-c" />); continue; }
+    const b = data[i];
+    const m = hitAt[i] >= 0 ? marks[hitAt[i]] : null;
+    if (m && !rowMark) rowMark = m;
+    const cls = `${m ? 'hit' : ''} ${k === selK ? 'sel' : ''} ${b === 0 ? 'zero' : ''}`;
+    cells.push(<span key={k} data-o={pos} className={`hx-b ${k === 8 ? 'gap' : ''} ${cls}`}>{hexOf(b, 2)}</span>);
+    text.push(<span key={k} data-o={pos} className={`hx-c ${cls} ${printable(b) ? '' : 'np'}`}>{printable(b) ? String.fromCharCode(b) : '.'}</span>);
+  }
+  const picked = rowMark && rowMark.line === pickLine;
+  return (
+    <div data-row={at} className={`hx-row ${rowMark ? 'mark' : ''} ${picked ? 'picked' : ''} ${selK >= 0 ? 'cur' : ''}`}
+      title={rowMark ? issuesTip(rowMark.issues, (i) => `${i.rule}: ${msg(i)}`) || t('cv_issue_here') : undefined}>
+      <span className="hx-off">{hexOf(at, 8)}</span><span className="hx-hex">{cells}</span><span className="hx-text">{text}</span>
+    </div>
+  );
+});
+
+function HexView({ projectId, file, size, issues, pickLine, onPickLine }) {
+  useLanguage();
+  const [pageSize, setPageSize] = usePageSize(500);
+  const [page, setPage] = useState(0);
+  const [bytes, setBytes] = useState(null);
+  const [found, setFound] = useState({ ranges: {}, found: {} });
+  // The service is still reading the file for where the issues are.
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const [sel, setSel] = useState(null);
+  const [goto, setGoto] = useState('');
+  const [font, setFont] = useState(12);
+  // The part of the page in sight: scrollTop and height of the box, the height of one row.
+  const [port, setPort] = useState({ top: 0, height: 800 });
+  const [rowH, setRowH] = useState(0);
+  const box = useRef(null);
+  const rows = Math.max(1, Math.ceil(size / HEX_ROW));
+  const pageBytes = pageSize * HEX_ROW;
+  const issueLines = useMemo(() => [...new Set(issues.map((i) => i.line).filter((n) => n > 0))].sort((a, b) => a - b), [issues]);
+  // Each issue's evidence strings, found once per list.
+  const evidenceBy = useMemo(() => issues.map(evidenceOf), [issues]);
+  const evidence = useMemo(() => [...new Set(evidenceBy.flat())], [evidenceBy]);
+  useEffect(() => { setPage(0); setSel(null); }, [file]);
+  // Where the issues are: their lines and evidence strings as byte ranges (again
+  // when the file's issues change). A large file is read for them in the
+  // background: asked again until the service has them all.
+  const issuesKey = issueLines.join(',') + '|' + evidence.join('\u0001');
+  useEffect(() => {
+    let live = true;
+    let timer = null;
+    let last = '';
+    if (!issueLines.length && !evidence.length) { setFound({ ranges: {}, found: {} }); setPending(false); return undefined; }
+    const ask = () => call('project.file', { projectId, file, limit: 0, lines: issueLines, find: evidence })
+      .then((r) => {
+        if (!live) return;
+        const next = { ranges: r.ranges || {}, found: r.found || {} };
+        const sig = JSON.stringify(next);
+        if (sig !== last) { last = sig; setFound(next); }
+        setPending(!!r.rangesPending);
+        if (r.rangesPending) timer = setTimeout(ask, HEX_POLL_MS);
+      })
+      .catch(() => { if (live) setPending(false); });
+    ask();
+    return () => { live = false; clearTimeout(timer); };
+  }, [projectId, file, issuesKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let live = true;
+    setError('');
+    call('project.file', { projectId, file, offset: page * pageBytes, limit: pageBytes })
+      .then((r) => {
+        if (!live) return;
+        const bin = atob(r.base64 || '');
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        setBytes({ offset: r.offset, data: out });
+      })
+      .catch((err) => { if (live) setError(err.message || String(err)); });
+    return () => { live = false; };
+  }, [projectId, file, page, pageBytes]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The rows as wide as the pane: the font shrinks (to 10px) before the text
+  // column is cut off (the header row's width, measured, scales with the font).
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const fit = () => {
+      setPort((p) => (p.height === el.clientHeight ? p : { top: el.scrollTop, height: el.clientHeight }));
+      const head = el.querySelector('.hx-head');
+      if (!head) return;
+      const now = parseFloat(getComputedStyle(el).fontSize) || 12;
+      const used = [...head.children].reduce((w, c) => w + c.getBoundingClientRect().width, 0);
+      if (!used) return;
+      const next = Math.max(10, Math.min(13, Math.floor(((el.clientWidth - 16) / used) * now * 2) / 2));
+      setFont((f) => (f === next ? f : next));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Scrolling moves the rows in sight (once per frame).
+  const frame = useRef(0);
+  const onScroll = () => {
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const el = box.current;
+      if (el) setPort((p) => (p.top === el.scrollTop && p.height === el.clientHeight ? p : { top: el.scrollTop, height: el.clientHeight }));
+    });
+  };
+  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  // The height of a row, measured (it follows the font).
+  React.useLayoutEffect(() => {
+    const row = box.current && box.current.querySelector('.hx-row');
+    const h = row ? row.getBoundingClientRect().height : 0;
+    if (h && Math.abs(h - rowH) > 0.01) setRowH(h);
+  });
+  // The marked byte ranges, one per issue (issues on the same bytes share it).
+  const marks = useMemo(() => {
+    const out = new Map();
+    issues.forEach((i, n) => {
+      const ev = evidenceBy[n].map((s) => found.found[s]).find(Boolean);
+      const ln = found.ranges[i.line];
+      let r = ev ? { a: ev[0], b: ev[1], evidence: true } : null;
+      if (!r && ln) r = { a: ln[0], b: ln[1] - ln[0] > HEX_LINE_MAX ? Math.min(ln[1], ln[0] + HEX_ROW) : ln[1], evidence: false };
+      if (!r) return;
+      const key = `${r.a}:${r.b}`;
+      const same = out.get(key);
+      if (same) same.issues.push(i);
+      else out.set(key, { ...r, line: i.line, issues: [i] });
+    });
+    return [...out.values()].sort((x, y) => x.a - y.a);
+  }, [issues, evidenceBy, found]);
+  // The marks of the page in memory, and per byte of it the one it is in (the first, by start).
+  const pageMarks = useMemo(() => {
+    if (!bytes) return { list: [], hitAt: new Int32Array(0) };
+    const base = bytes.offset;
+    const end = base + bytes.data.length;
+    const list = marks.filter((m) => m.a < end && m.b > base);
+    const hitAt = new Int32Array(bytes.data.length).fill(-1);
+    list.forEach((m, j) => {
+      for (let p = Math.max(m.a, base); p < Math.min(m.b, end); p++) if (hitAt[p - base] < 0) hitAt[p - base] = j;
+    });
+    return { list, hitAt };
+  }, [bytes, marks]);
+  const markAt = (pos) => {
+    if (bytes && pos >= bytes.offset && pos < bytes.offset + bytes.data.length) {
+      const j = pageMarks.hitAt[pos - bytes.offset];
+      return j >= 0 ? pageMarks.list[j] : null;
+    }
+    return marks.find((m) => pos >= m.a && pos < m.b) || null;
+  };
+  // Shows a byte: its page, picked (and scrolled to once the page is there).
+  const scrollTo = useRef(null);
+  const show = (pos) => {
+    const at = Math.max(0, Math.min(size - 1, pos));
+    setSel(at);
+    const want = Math.floor(at / pageBytes);
+    if (want !== page) setPage(want);
+    scrollTo.current = at;
+  };
+  // A new page starts at its top; a byte to show is brought into sight (to the
+  // middle, when it is not in sight already).
+  const shownBytes = useRef(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !bytes) return;
+    if (shownBytes.current !== bytes) {
+      shownBytes.current = bytes;
+      if (scrollTo.current == null) el.scrollTop = 0;
+    }
+    const pos = scrollTo.current;
+    if (pos == null || !rowH || pos < bytes.offset || pos >= bytes.offset + bytes.data.length) return;
+    scrollTo.current = null;
+    const head = el.querySelector('.hx-head');
+    const headH = head ? head.offsetHeight : 0;
+    const y = headH + Math.floor((pos - bytes.offset) / HEX_ROW) * rowH;
+    if (y < el.scrollTop + headH || y + rowH > el.scrollTop + el.clientHeight) el.scrollTop = Math.max(0, y - el.clientHeight / 2);
+  });
+  // Picking a line (the issue list, a link) goes to its marked bytes: once per
+  // pick (not again each time the marks grow while the file is still read).
+  const shownPick = useRef('');
+  useEffect(() => {
+    const m = marks.find((x) => x.line === pickLine);
+    const key = m ? `${file}|${pickLine}|${m.a}` : '';
+    if (m && key !== shownPick.current) { shownPick.current = key; show(m.a); }
+  }, [pickLine, marks]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onKey = (e) => {
+    if (sel == null) return;
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -HEX_ROW, ArrowDown: HEX_ROW, PageUp: -HEX_ROW * 16, PageDown: HEX_ROW * 16 }[e.key];
+    if (e.key === 'Home') { e.preventDefault(); show(e.ctrlKey ? 0 : sel - (sel % HEX_ROW)); return; }
+    if (e.key === 'End') { e.preventDefault(); show(e.ctrlKey ? size - 1 : sel - (sel % HEX_ROW) + HEX_ROW - 1); return; }
+    if (!step) return;
+    e.preventDefault();
+    show(sel + step);
+  };
+  const onPick = (e) => {
+    const cell = e.target.closest && e.target.closest('[data-o]');
+    if (!cell) return;
+    const pos = Number(cell.dataset.o);
+    setSel(pos);
+    const m = markAt(pos);
+    if (m) onPickLine(m.line);
+    if (box.current) box.current.focus({ preventScroll: true });
+  };
+  const goTo = (e) => {
+    e.preventDefault();
+    const s = goto.trim().replace(/^0x/i, '');
+    // A hex offset, as the offset column shows them (0x optional).
+    if (/^[0-9a-f]+$/i.test(s)) show(parseInt(s, 16));
+  };
+  // The rows in sight (plus a margin), between two spacers as tall as the rows left out.
+  const lines = [];
+  let padTop = 0;
+  let padBottom = 0;
+  if (bytes) {
+    const count = Math.ceil(bytes.data.length / HEX_ROW);
+    const h = rowH || font * 1.65;
+    const first = Math.max(0, Math.floor(port.top / h) - HEX_OVERSCAN);
+    const last = Math.min(count, Math.ceil((port.top + port.height) / h) + HEX_OVERSCAN);
+    padTop = first * h;
+    padBottom = (count - last) * h;
+    for (let r = first; r < last; r++) {
+      const at = bytes.offset + r * HEX_ROW;
+      const selK = sel != null && sel >= at && sel < at + HEX_ROW ? sel - at : -1;
+      lines.push(<HexRow key={at} data={bytes.data} base={bytes.offset} r={r} hitAt={pageMarks.hitAt} marks={pageMarks.list} selK={selK} pickLine={pickLine} />);
+    }
+  }
+  // The picked byte's values (little-endian, as most targets store them), from the page in memory.
+  const view = bytes && sel != null && sel >= bytes.offset && sel < bytes.offset + bytes.data.length
+    ? new DataView(bytes.data.buffer, bytes.data.byteOffset + (sel - bytes.offset)) : null;
+  const val = (fn, n) => (view && view.byteLength >= n ? String(fn(view)) : '—');
+  const selMark = sel != null ? markAt(sel) : null;
+  return (
+    <>
+    <div className="hx-bar">
+      <form className="hx-goto" onSubmit={goTo}>
+        <Icon name="search" size={12} />
+        <input className="mono" value={goto} placeholder={t('cv_hex_goto_ph')} aria-label={t('cv_hex_goto')} title={t('cv_hex_goto_tip')} onChange={(e) => setGoto(e.target.value)} />
+        <button type="submit" className="vbtn"><Icon name="chevronRight" size={15} /><span>{t('cv_hex_goto')}</span></button>
+      </form>
+      {marks.length > 0 && (
+        <span className="hx-marks">
+          <span className="small muted">{t('cv_hex_marks', { n: marks.length })}</span>
+          {marks.slice(0, 8).map((m) => (
+            <button key={m.a} type="button" className="hx-markbtn mono" title={issuesTip(m.issues, msg)} onClick={() => { show(m.a); onPickLine(m.line); }}>
+              {hexOf(m.a, 8)}{m.evidence ? ' ★' : ''}
+            </button>
+          ))}
+        </span>
+      )}
+      {pending && <span className="small muted hx-pending" data-testid="hex-pending" title={t('cv_hex_pending_tip')}><Icon name="clock" size={12} />{t('cv_hex_pending')}</span>}
+    </div>
+    <div className="hexview" data-testid="hexview" ref={box} tabIndex={0} style={{ fontSize: font }} onClick={onPick} onKeyDown={onKey} onScroll={onScroll}>
+      <div className="hx-head">
+        <span className="hx-off">{t('cv_hex_offset')}</span>
+        <span className="hx-hex">{Array.from({ length: HEX_ROW }, (_, k) => <span key={k} className={`hx-b ${k === 8 ? 'gap' : ''} ${sel != null && sel % HEX_ROW === k ? 'on' : ''}`}>{hexOf(k, 2)}</span>)}</span>
+        <span className="hx-text">{t('cv_hex_text')}</span>
+      </div>
+      {error && <p className="small bad">{error}</p>}
+      {!bytes && !error && <p className="small muted">{t('loading')}</p>}
+      {padTop > 0 && <div className="hx-pad" style={{ height: padTop }} />}
+      {lines}
+      {padBottom > 0 && <div className="hx-pad" style={{ height: padBottom }} />}
+    </div>
+    <div className="hx-inspect" data-testid="hex-inspector">
+      {sel == null ? <span className="small muted">{t('cv_hex_pick')}</span> : (
+        <>
+          <span><b>{t('cv_hex_at')}</b> <span className="mono">0x{hexOf(sel, 8)} ({sel.toLocaleString()})</span></span>
+          <span title={t('cv_hex_le_tip')}><b>int8</b> <span className="mono">{val((d) => d.getInt8(0), 1)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>uint8</b> <span className="mono">{val((d) => d.getUint8(0), 1)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>int16</b> <span className="mono">{val((d) => d.getInt16(0, true), 2)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>uint16</b> <span className="mono">{val((d) => d.getUint16(0, true), 2)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>int32</b> <span className="mono">{val((d) => d.getInt32(0, true), 4)}</span></span>
+          <span title={t('cv_hex_le_tip')}><b>uint32</b> <span className="mono">{val((d) => d.getUint32(0, true), 4)}</span></span>
+          <span><b>{t('cv_hex_bits')}</b> <span className="mono">{val((d) => d.getUint8(0).toString(2).padStart(8, '0'), 1)}</span></span>
+          {selMark && <span className="hx-inspect-issue" title={issuesTip(selMark.issues, msg)}><Icon name="alert" size={12} />{selMark.issues.slice(0, 3).map((i) => msg(i)).join(' · ')}{selMark.issues.length > 3 ? ` · ${t('pp_more', { n: selMark.issues.length - 3 })}` : ''}</span>}
+        </>
+      )}
+    </div>
+    {rows > 100 && <Pager total={rows} page={page} size={pageSize} onPage={(p) => { setPage(p); }} onSize={(n) => { setPageSize(n); setPage(0); }} note={t('cv_hex_note', { n: size.toLocaleString() })} />}
+    </>
+  );
+}
+
+export function CodeView({ analysis, file, text, onOpen, line, error, rules, onPickIssue, binary, projectId }) {
   useLanguage();
   const [q, setQ] = useState('');
+  // The picked line (a click on the code, an issue of the list, or the line a link opened).
+  const [pick, setPick] = useState({ line: 0, key: '' });
+  // (An issue picked in the list moves to its line too: its pick is kept.)
+  useEffect(() => { const n = Number(line) || 0; setPick((p) => (p.line === n ? p : { line: n, key: '', from: 'link' })); }, [file, line]);
+  const ruleMap = useMemo(() => new Map((rules || []).map((r) => [r.key, r])), [rules]);
+  const [wrap, setWrapState] = useState(storedCodeWrap);
+  const setWrap = (v) => { setWrapState(v); try { localStorage.setItem(CODE_WRAP_KEY, v ? '1' : '0'); } catch { /* per-viewer only */ } };
+  const [treeW, setTreeW] = useState(storedTreeWidth);
+  const keepTreeW = (w) => { try { localStorage.setItem(CODE_TREE_KEY, String(w)); } catch { /* per-viewer only */ } };
   // Jump to a line (HIS / architecture links open code at file:line).
   useEffect(() => {
     if (!line) return;
     const el = document.querySelector(`.codepane .row[data-ln="${line}"]`);
     if (el) el.scrollIntoView({ block: 'center' });
   }, [line, text]);
+  // The open file's issues (a library can have thousands), sorted once per analysis and file.
+  const fileIssues = useMemo(() => (analysis ? (analysis.issues || []).filter((i) => i.file === file).sort((a, b) => a.line - b.line) : []), [analysis, file]);
+  const marks = useMemo(() => new Set(fileIssues.map((i) => i.line)), [fileIssues]);
+  const pickIssues = useMemo(() => fileIssues.filter((i) => i.line === pick.line).sort((a, b) => (a.key === pick.key ? -1 : b.key === pick.key ? 1 : 0)), [fileIssues, pick.line, pick.key]);
+  const [issueRows, setIssueRows] = useState(CODE_ISSUE_ROWS);
+  useEffect(() => { setIssueRows(CODE_ISSUE_ROWS); }, [file]);
   if (!analysis) return <div className="view"><ViewHeader icon="code" title={t('nav_code')} hint={t('vh_code')} /><NoProject text={t('es_no_analysis')} /></div>;
-  const fileIssues = (analysis.issues || []).filter((i) => i.file === file).sort((a, b) => a.line - b.line);
-  const marks = new Set(fileIssues.map((i) => i.line));
   const fileRow = (analysis.files || []).find((f) => f.path === file);
   const lines = text == null ? [] : String(text).split(/\r?\n/);
   const files = q ? analysis.files.filter((f) => f.path.toLowerCase().includes(q.toLowerCase())) : analysis.files;
@@ -802,23 +1250,35 @@ export function CodeView({ analysis, file, text, onOpen, line, error }) {
     <div className="view view-fill">
       <ViewHeader icon="code" title={t('nav_code')} hint={t('vh_code')} />
       <div className="code-wrap">
-        <div className="filetree">
+        <div className="filetree" style={{ width: treeW }}>
           <div className="filetree-search"><Icon name="search" size={13} /><input placeholder={t('cv_filter')} aria-label={t('cv_filter')} value={q} onChange={(e) => setQ(e.target.value)} /></div>
           {files.map((f) => (
             <button key={f.path} className={f.path === file ? 'on' : ''} onClick={() => onOpen(f.path)} title={f.path}>
-              <Icon name="file" size={13} /><span className="ft-name">{f.path}</span>{f.issues ? <span className="nav-count warn">{f.issues}</span> : null}
+              <Icon name="file" size={13} /><span className="ft-name">{f.path}</span>{f.issues ? <span className="nav-count warn" data-tip-title={t('cv_count_title')} data-tip-text={t(f.hotspots ? 'cv_count_text_hs' : 'cv_count_text', { n: f.issues, h: f.hotspots || 0 })}>{f.issues}</span> : null}
             </button>
           ))}
         </div>
-        <div className="codepane selectable">
+        <Splitter axis="x" value={treeW} min={CODE_TREE_MIN} max={CODE_TREE_MAX} label={t('cv_resize_tree')} onChange={setTreeW} onCommit={keepTreeW} />
+        <div className={`codepane selectable ${wrap ? 'wrap' : ''} ${binary ? 'binary' : ''}`}>
+          {file && (
+            <div className="code-toolbar">
+              <Icon name="file" size={13} /><span className="mono small code-toolbar-file" title={file}>{file}</span>
+              <span className="spacer" />
+              {binary
+                ? <span className="small muted" title={t('cv_binary_tip')}><Icon name="hash" size={12} /> {t('cv_binary', { n: binary.size.toLocaleString() })}</span>
+                : <span title={t('cv_wrap_tip')}><Toggle icon="wrapText" label={t('cv_wrap')} checked={wrap} onChange={setWrap} /></span>}
+            </div>
+          )}
           {!file && <Empty icon="file" text={t('cv_pick')} hint={t('cv_pick_hint')} />}
           {file && error && (
             <Empty icon="alert" text={t('cv_load_failed', { file })} hint={error}>
               <Btn icon="refresh" label={t('cv_retry')} onClick={() => onOpen(file, line)} />
             </Empty>
           )}
-          {lines.map((src, i) => (
-            <div key={i} data-ln={i + 1} className={`row ${marks.has(i + 1) ? 'mark' : ''} ${line === i + 1 ? 'goto' : ''}`} title={marks.has(i + 1) ? t('cv_issue_here') : undefined}><span className="ln">{marks.has(i + 1) ? '● ' : ''}{i + 1}</span><span>{src || ' '}</span></div>
+          {binary && file && <HexView projectId={projectId} file={file} size={binary.size} issues={fileIssues} pickLine={pick.line} onPickLine={(n) => setPick({ line: n, key: '', from: 'code' })} />}
+          {!binary && lines.map((src, i) => (
+            <div key={i} data-ln={i + 1} className={`row ${marks.has(i + 1) ? 'mark' : ''} ${line === i + 1 ? 'goto' : ''} ${pick.line === i + 1 ? 'picked' : ''}`} title={marks.has(i + 1) ? t('cv_issue_here') : undefined}
+              data-open-file={file} data-open-line={i + 1} onClick={() => { if (!(window.getSelection && String(window.getSelection()))) setPick({ line: i + 1, key: '', from: 'code' }); }}><span className="ln">{marks.has(i + 1) ? '● ' : ''}{i + 1}</span><span className="src">{src || ' '}</span></div>
           ))}
         </div>
       </div>
@@ -832,11 +1292,17 @@ export function CodeView({ analysis, file, text, onOpen, line, error }) {
           </div>
           <h3 className="sub-title"><Icon name="list" size={15} />{t('cv_file_issues')}</h3>
           {fileIssues.length === 0 && <Empty icon="checkCircle" text={t('es_no_issues')} />}
-          {fileIssues.map((i) => (
-            <button key={i.key} type="button" className="insp-row" onClick={() => onOpen(file, i.line)} title={t('bp_jump')}>
+          {fileIssues.slice(0, issueRows).map((i) => (
+            <button key={i.key} type="button" className={`insp-row ${pick.key === i.key ? 'on' : ''}`} onClick={() => { onOpen(file, i.line); setPick({ line: i.line, key: i.key, from: 'list' }); }} title={t('cv_pick_issue_tip')}>
               <SevBadge sev={i.severity} /><span className="insp-row-text">{msg(i)}</span><span className="small mono">:{i.line}</span>
             </button>
           ))}
+          {fileIssues.length > issueRows && <div className="more-row"><Btn icon="plus" label={t('ib_show_more', { n: Math.min(CODE_ISSUE_ROWS, fileIssues.length - issueRows) })} onClick={() => setIssueRows(issueRows + CODE_ISSUE_ROWS)} /></div>}
+          {pick.line > 0 && (
+            <LineIssues line={pick.line} picked={pick.key} ruleMap={ruleMap} onPickIssue={onPickIssue} follow={pick.from !== 'list'}
+              issues={pickIssues} />
+          )}
+          {pick.line === 0 && fileIssues.length > 0 && <p className="small muted line-issues-hint"><Icon name="info" size={12} /> {t('cv_pick_line_hint')}</p>}
         </Inspector>
       )}
     </div>
@@ -855,7 +1321,7 @@ export function Duplications({ analysis, onOpen }) {
         <div key={b.hash + b.instances[0].path + b.instances[0].start} className="panel dup-block">
           <div className="sub-title"><Icon name="copy" size={15} /><strong>{b.lines} {t('lines')}</strong><span className="small">· {t('dup_places', { n: b.instances.length })}</span></div>
           {b.instances.map((inst) => (
-            <button key={inst.path + inst.start} type="button" className="recent-item compact" onClick={() => onOpen(inst.path)} title={t('dup_open')}>
+            <button key={inst.path + inst.start} type="button" className="recent-item compact" onClick={() => onOpen(inst.path, inst.start)} title={t('dup_open')}>
               <Icon name="file" size={14} /><span className="recent-text"><span className="mono">{inst.path}:{inst.start}–{inst.end}</span></span><Icon name="chevronRight" size={14} />
             </button>
           ))}

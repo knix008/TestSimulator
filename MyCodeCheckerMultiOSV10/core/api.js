@@ -46,7 +46,9 @@ function createApi(opts = {}) {
       const analyses = [...Object.values(project.branches || {}).map((b) => b && b.latest), project.desktop];
       for (const a of analyses) {
         if (!a || !a.measures) continue;
-        a.measures = currentMeasures(a);
+        // A list not read since the load still has the measures it was saved
+        // with (every change to it is saved, which refreshes them first).
+        if (!store.pendingIssues(a)) a.measures = measuresOf(a);
         a.qualityGate = evaluateGate(gate, a.measures);
       }
       for (const b of Object.values(project.branches || {})) {
@@ -54,6 +56,22 @@ function createApi(opts = {}) {
       }
     }
     return ws;
+  }
+
+  // Measures from an issue list, worked out again only when the list changed
+  // (each API call refreshes the gates, and millions of issues take seconds).
+  // A list is parsed once per file version and changed in place only with
+  // store.touch, so the list and its change count identify the result.
+  const measureCache = new WeakMap();
+  function measuresOf(a) {
+    const list = a.issues;
+    if (!Array.isArray(list)) return currentMeasures(a);
+    const changes = store.changesOf(list);
+    const hit = measureCache.get(list);
+    if (hit && hit.changes === changes) return hit.measures;
+    const measures = currentMeasures(a);
+    measureCache.set(list, { changes, measures });
+    return measures;
   }
 
   // The project's profile per language (else the language default), with inheritance.
@@ -149,7 +167,21 @@ function createApi(opts = {}) {
     const newCode = await newCodeOptions(ws, project, branchState, target, keys);
     const cov = ws.defectAnalysis || {};
     const policy = (cov.policies || []).find((p) => p.id === (project.policyId || '')) || (cov.policies || []).find((p) => p.isDefault) || DEFAULT_POLICY;
-    const previousIssues = ((branchState.latest && branchState.latest.issues) || []).map(slimIssue);
+    // The previous analysis's issues (millions on a large project) are read a
+    // piece at a time, so progress polls and other calls are answered meanwhile.
+    const job = args.__job;
+    const prepare = (done, total) => {
+      if (!job || job.status !== 'running') return;
+      const mb = (n) => Math.round(n / 1048576).toLocaleString('en');
+      job.progress = { phase: 'prepare', done: Math.round(done / 1048576), total: Math.max(1, Math.round(total / 1048576)), percent: 0, detail: `${mb(done)} / ${mb(total)} MB`, elapsedMs: Date.now() - job.startedAt, etaMs: null };
+    };
+    const before = branchState.latest ? await store.loadIssues(branchState.latest, prepare) : [];
+    const previousIssues = [];
+    for (let n = 0; n < before.length; n++) {
+      previousIssues.push(slimIssue(before[n]));
+      if (n % 200000 === 199999) await new Promise((resolve) => setImmediate(resolve));
+    }
+    if (job && job.status !== 'running') throw Object.assign(new Error('Analysis cancelled'), { code: 'CANCELLED' });
     const task = {
       id: `t-${Date.now().toString(36)}`,
       projectId: id,
@@ -163,7 +195,8 @@ function createApi(opts = {}) {
       analysis = await analyzeFor(args.__job, ws, abs, {
         exclusions: [...(ws.settings.exclusions || []), ...((project && project.exclusions) || []), ...(Array.isArray(args.exclusions) ? args.exclusions : [])],
         excludeDirs: [...((project && project.excludeDirs) || []), ...(Array.isArray(args.excludeDirs) ? args.excludeDirs : [])],
-        disabledChecks: require('./checks').disabledChecks(ws.settings),
+        disabledChecks: require('./checks').disabledChecks(ws.settings, project),
+        skipLanguages: require('./checks').skippedLanguages(project),
         coverageReports: (Array.isArray(args.coverageReports) && args.coverageReports.length ? args.coverageReports : null) || (project && project.coverageReports && project.coverageReports.length ? project.coverageReports : ws.settings.coverageReports) || undefined,
         inactive: profile.inactive,
         overrides: profile.overrides,
@@ -267,26 +300,26 @@ function createApi(opts = {}) {
       task.warnings.push(err.message);
     }
     ws.tasks = [task, ...(ws.tasks || [])].slice(0, 100);
+    // The issue lists go into the database a piece at a time (minutes for
+    // millions of issues), so the service keeps answering; the save then
+    // writes only the workspace.
+    await store.prepareLists(ws, args.__job ? (done, total) => {
+      const job = args.__job;
+      job.progress = { ...job.progress, phase: 'store', done, total, percent: Math.min(99, Math.max(job.progress.percent || 0, 97 + Math.round((done / Math.max(1, total)) * 2))), detail: '', elapsedMs: Date.now() - job.startedAt, etaMs: null };
+    } : undefined);
     commitScan();
     for (const [event, ctx] of integrate.analysisEvents(project, branch, analysis, previousLatest)) await integrate.notify(ws, event, ctx);
-    // Results to the configured database (Settings › Database › automatic export).
-    const dbs = dbsink.settingsOf(ws, store.dir);
-    if (dbs.enabled && dbs.autoExport) {
-      const job = args.__job;
+    // With a database set up (Settings › Database), the results go there too,
+    // in the background: the analysis is saved here first and does not wait.
+    // Its outcome is added to the task (db / dbError) when the export ends.
+    if (dbsink.settingsOf(ws, store.dir).enabled) {
       try {
-        const out = await dbsink.exportAnalysis(dbs, { project, branch, analysis, settings: ws.settings }, {
-          isCancelled: () => !!(job && job.status === 'cancelled'),
-          onProgress: job ? (pr) => { job.progress = { ...job.progress, ...dbProgress(pr, job.startedAt, job.progress && job.progress.percent) }; } : undefined,
-        });
-        task.db = { analysisId: out.analysisId, issues: out.issues };
+        task.dbJobId = startDbExport({ projectId: project.id, branch, taskId: task.id }, null).jobId;
+        ws.tasks = [{ ...task }, ...(ws.tasks || []).filter((t) => t.id !== task.id)].slice(0, 100);
+        commitScan();
       } catch (err) {
         task.warnings.push(`DB: ${err.message}`);
-        // The GUI shows this in a popup after the analysis.
-        const { code, text } = require('./errors').describe(err);
-        task.dbError = { code, message: err.message, text };
       }
-      ws.tasks = [{ ...task }, ...(ws.tasks || []).filter((t) => t.id !== task.id)].slice(0, 100);
-      commitScan();
     }
     // Reports written automatically after the analysis (Settings › Reports).
     try {
@@ -331,9 +364,19 @@ function createApi(opts = {}) {
     const patch = args.patch || {};
     project.issueState = project.issueState || {};
     checkIssuePatch(patch);
+    // A list not read yet is not read for this (millions of issues take
+    // seconds): its issues are taken from and written to the database.
+    const analyses = [...Object.values(project.branches || {}).map((b) => b && b.latest), project.desktop].filter(Boolean);
+    const fromDb = new Map();
+    for (const a of analyses) {
+      const hit = store.pendingByKeys(a, keys);
+      if (hit) fromDb.set(a, hit);
+    }
     const known = new Set(Object.keys(project.issueState));
-    for (const b of Object.values(project.branches || {})) for (const i of (b.latest && b.latest.issues) || []) known.add(i.key);
-    for (const i of (project.desktop && project.desktop.issues) || []) known.add(i.key);
+    for (const a of analyses) {
+      if (fromDb.has(a)) for (const k of fromDb.get(a).keys()) known.add(k);
+      else for (const k of keyMap(a.issues || []).keys()) known.add(k);
+    }
     const unknown = keys.filter((k) => !known.has(k));
     if (unknown.length) throw Object.assign(new Error(`Unknown issue: ${unknown.slice(0, 3).join(', ')}`), { code: 'NOT_FOUND', keys: unknown });
     const now = new Date().toISOString();
@@ -345,6 +388,10 @@ function createApi(opts = {}) {
     if (approval.required && closing && !args.viaApproval) {
       throw Object.assign(new Error('This change needs an approved exception request'), { code: 'APPROVAL_REQUIRED' });
     }
+    // The analyses' lists, each with a key index (a list can hold millions).
+    const lists = analyses.filter((a) => !fromDb.has(a)).map((a) => a.issues).filter(Array.isArray);
+    const changedIn = new Map(lists.map((l) => [l, []]));
+    const dbChanged = new Map([...fromDb.keys()].map((a) => [a, []]));
     for (const key of keys) {
       const prev = project.issueState[key] || {};
       const next = { ...prev };
@@ -370,13 +417,13 @@ function createApi(opts = {}) {
       if (patch.comment) next.comments = [...(prev.comments || []), { at: now, author: args.by || patch.author || ws.settings.assignee || 'me', text: patch.comment }];
       project.issueState[key] = next;
       const targets = [];
-      for (const branch of Object.values(project.branches || {})) {
-        const issue = branch.latest && (branch.latest.issues || []).find((i) => i.key === key);
-        if (issue) targets.push(issue);
+      for (const list of lists) {
+        const issue = keyMap(list).get(key);
+        if (issue) { targets.push(issue); changedIn.get(list).push(issue); }
       }
-      if (project.desktop && project.desktop.issues) {
-        const issue = project.desktop.issues.find((i) => i.key === key);
-        if (issue) targets.push(issue);
+      for (const [a, byKey] of fromDb) {
+        const issue = byKey.get(key);
+        if (issue) { targets.push(issue); dbChanged.get(a).push(issue); }
       }
       let cid = (args.cids && args.cids[key]) || (keys.length === 1 ? patch.cid : null);
       for (const issue of targets) {
@@ -399,12 +446,21 @@ function createApi(opts = {}) {
       }
       if (cid) project.issueState[`cid:${cid}`] = next;
     }
-    // Issues were changed in place: their files are written on this save.
-    store.touch(...Object.values(project.branches || {}).map((b) => b && b.latest && b.latest.issues), project.desktop && project.desktop.issues);
+    // Issues were changed in place: their rows are written on this save.
+    for (const [list, items] of changedIn) if (items.length) store.changed(list, items);
+    // Rows of lists not read yet are written now; the list is read in the
+    // background, and the gates count the change once it is in.
+    for (const [a, items] of dbChanged) {
+      if (!items.length) continue;
+      store.updatePending(a, items);
+      store.loadIssues(a).catch(() => { /* read again on the next use */ });
+    }
     refreshGates(ws, project.id);
     saveWorkspace(ws);
     if (patch.assignee || patch.owner) {
-      const latest = (((project.branches || {})[project.mainBranch || 'main'] || {}).latest || { issues: [] }).issues.filter((i) => keys.includes(i.key));
+      const main = ((project.branches || {})[project.mainBranch || 'main'] || {}).latest;
+      const mainIssues = main && fromDb.has(main) ? [...fromDb.get(main).values()] : (main && main.issues) || [];
+      const latest = mainIssues.filter((i) => keys.includes(i.key));
       integrate.notify(ws, 'issues-assigned', { project: { id: project.id, key: project.key, name: project.name }, issues: latest.map((i) => ({ assignee: patch.assignee || patch.owner, rule: i.rule, message: i.message, file: i.file, line: i.line, severity: i.severity, type: i.type })) });
     }
     return { ok: true, count: keys.length };
@@ -583,6 +639,19 @@ function createApi(opts = {}) {
 
   // Database export as a job (db.exportStart / db.exportJob / db.exportCancel), so
   // the GUI can show progress and a timeout or failure while it runs.
+  // The database outcome of an analysis's background export, on its task.
+  function noteOnTask(taskId, fields) {
+    if (!taskId) return;
+    try {
+      const ws = workspace();
+      const task = (ws.tasks || []).find((x) => x.id === taskId);
+      if (!task) return;
+      Object.assign(task, fields);
+      if (fields.dbError) task.warnings = [...(task.warnings || []), `DB: ${fields.dbError.message}`];
+      saveWorkspace(ws);
+    } catch { /* the export itself is done */ }
+  }
+
   function startDbExport(args, who) {
     const ws = workspace();
     const project = (ws.projects || []).find((p) => p.id === args.projectId);
@@ -592,8 +661,12 @@ function createApi(opts = {}) {
     if (!b || !b.latest) throw Object.assign(new Error('No analysis'), { code: 'NOT_FOUND' });
     const s = dbsink.settingsOf(ws, store.dir);
     if (!s.enabled && !args.force) return dbsink.exportAnalysis(s, { project, branch, analysis: b.latest, settings: ws.settings }, { force: false });
+    // One export of a branch at a time: a second start (Export to DB while the
+    // background export after an analysis runs) joins the running one.
+    const running = [...dbJobs.values()].find((j) => j.status === 'running' && j.projectId === project.id && j.branch === branch);
+    if (running) return { jobId: running.id, joined: true };
     const id = `dbjob-${Date.now().toString(36)}-${++jobSeq}`;
-    const job = { id, status: 'running', by: (who && who.login) || null, startedAt: Date.now(), path: `${s.kind} · ${s.kind === 'sqlite' ? s.file : `${s.host}:${s.port}/${s.database}`}`, timeoutSec: s.timeoutSec, progress: { phase: 'connect', done: 0, total: 0, percent: 0, elapsedMs: 0, etaMs: null } };
+    const job = { id, status: 'running', projectId: project.id, branch, by: (who && who.login) || null, startedAt: Date.now(), path: `${s.kind} · ${s.kind === 'sqlite' ? s.file : `${s.host}:${s.port}/${s.database}`}`, timeoutSec: s.timeoutSec, progress: { phase: 'connect', done: 0, total: 0, percent: 0, elapsedMs: 0, etaMs: null } };
     dbJobs.set(id, job);
     dbsink.exportAnalysis(s, { project, branch, analysis: b.latest, settings: ws.settings }, {
       force: !!args.force,
@@ -604,10 +677,12 @@ function createApi(opts = {}) {
       job.status = 'done';
       job.result = result;
       job.progress = { ...job.progress, percent: 100, etaMs: 0, elapsedMs: Date.now() - job.startedAt };
+      noteOnTask(args.taskId, { db: { analysisId: result.analysisId, issues: result.issues } });
     }, (err) => {
       const { code, text } = require('./errors').describe(err);
       if (job.status !== 'cancelled' || err.code !== 'CANCELLED') job.status = err.code === 'CANCELLED' ? 'cancelled' : 'failed';
       job.error = { code, message: err.message, text };
+      noteOnTask(args.taskId, { dbError: job.error });
     }).finally(() => forgetLater(dbJobs, id));
     return { jobId: id };
   }
@@ -627,19 +702,6 @@ function createApi(opts = {}) {
   const WEIGHT = { collect: [0, 10], rules: [10, 45], engines: [55, 42], finish: [97, 3] };
   // With the C/C++ pool (phase 'cfamily') that phase comes first and is most of the time.
   const WEIGHT_POOL = { collect: [0, 5], cfamily: [5, 65], rules: [70, 12], engines: [82, 12], finish: [94, 6] };
-
-  // Indexes of an issue list, most severe first (stable); kept per list.
-  const severityOrders = new WeakMap();
-  const SEVERITY_RANK = { BLOCKER: 0, CRITICAL: 1, MAJOR: 2, MINOR: 3, INFO: 4 };
-  function severityOrder(list) {
-    let order = severityOrders.get(list);
-    if (!order) {
-      const rank = (i) => SEVERITY_RANK[i.severity] ?? 5;
-      order = Uint32Array.from({ length: list.length }, (_, n) => n).sort((x, y) => rank(list[x]) - rank(list[y]) || x - y);
-      severityOrders.set(list, order);
-    }
-    return order;
-  }
 
   // A worker gets V8's default heap (about 4 GB), which a large project can
   // outgrow; settings.memoryLimitGb sets it (core/memory.js).
@@ -697,7 +759,7 @@ function createApi(opts = {}) {
     const safe = { ...opts, sca: opts.sca ? { ...opts.sca, advisoryDb: undefined } : opts.sca };
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'analyze-worker.js'), {
-        workerData: { root: abs, options: safe, osvSource: ws.settings && ws.settings.osvSource },
+        workerData: { root: abs, options: safe, osvSource: ws.settings && ws.settings.osvSource, parallel: !!(ws.settings && ws.settings.analysisMode === 'parallel') },
         resourceLimits: { maxOldGenerationSizeMb: workerHeapMb() },
       });
       job.worker = worker;
@@ -783,7 +845,63 @@ function createApi(opts = {}) {
     const rel = String(args.file || '').replace(/\\/g, '/');
     if (rel.includes('..')) throw new Error('Invalid path');
     const full = path.join(project.path, rel);
-    return { path: rel, text: fs.readFileSync(full, 'utf8') };
+    // A binary file (an image, an object file …) is not text: the window shows
+    // its bytes as hex, one range at a time ({ offset, limit }), instead of
+    // decoding all of it into one huge line.
+    const stat = fs.statSync(full);
+    const size = stat.size;
+    const fd = fs.openSync(full, 'r');
+    try {
+      const head = Buffer.alloc(Math.min(size, 8192));
+      fs.readSync(fd, head, 0, head.length, 0);
+      if (isBinary(head)) {
+        const offset = Math.max(0, Math.min(size, Number(args.offset) || 0));
+        const asked = args.limit === undefined || args.limit === null ? 65536 : Number(args.limit) || 0;
+        const limit = Math.max(0, Math.min(1048576, asked, size - offset));
+        const bytes = Buffer.alloc(limit);
+        fs.readSync(fd, bytes, 0, limit, offset);
+        // lines: the issue lines of the file, as byte ranges { line: [start, end) }
+        // (a line is what lies between two newline bytes), to mark them in the hex view.
+        // find: strings an issue names as its evidence (a version string in a
+        // library …), as byte ranges of their first occurrence { text: [start, end) }.
+        // Both need the whole file read: a large one is read in the background
+        // (core/binfile.js) and the answer says rangesPending until it is done.
+        const lines = Array.isArray(args.lines) ? args.lines : [];
+        const find = Array.isArray(args.find) ? args.find : [];
+        let ranges;
+        let found;
+        let rangesPending;
+        if (lines.length || find.length) {
+          const at = require('./binfile').lookup(full, stat, lines, find);
+          if (lines.length) ranges = at.ranges;
+          if (find.length) found = at.found;
+          if (at.pending) rangesPending = true;
+        }
+        return { path: rel, binary: true, size, offset, base64: bytes.toString('base64'), ranges, found, rangesPending };
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+    return { path: rel, text: readText(full) };
+  }
+
+  // NUL bytes, or many control characters, in the first bytes (a UTF-16 text
+  // file starts with its byte order mark and is text).
+  function isBinary(head) {
+    if (head.length >= 2 && ((head[0] === 0xff && head[1] === 0xfe) || (head[0] === 0xfe && head[1] === 0xff))) return false;
+    let control = 0;
+    for (const b of head) {
+      if (b === 0) return true;
+      if (b < 7 || (b > 13 && b < 32 && b !== 27)) control++;
+    }
+    return head.length > 0 && control / head.length > 0.1;
+  }
+
+  function readText(full) {
+    const buf = fs.readFileSync(full);
+    if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return buf.subarray(2).toString('utf16le');
+    if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return Buffer.from(buf.subarray(2)).swap16().toString('utf16le');
+    return buf.toString('utf8');
   }
 
   function report(args) {
@@ -807,14 +925,14 @@ function createApi(opts = {}) {
     // { slim: true } leaves the issue lists out (the GUI keeps its own); a large
     // project's issues are hundreds of MB.
     // { issuesFor: '<project id>' | 'active' } keeps that one project's issues.
-    'workspace.load': (args, who) => slimmed(access.filterWorkspace(refreshGates(workspace()), who), args && (args.slim || args.issuesFor), args && args.issuesFor),
+    'workspace.load': (args, who) => slimmed(access.filterWorkspace(refreshGates(workspace()), who), args && (args.slim || args.issuesFor), args && args.issuesFor, store.issueCount),
     'workspace.save': (args, who) => {
       const stored = workspace();
       const merged = access.mergeWorkspace(stored, args.workspace || args, who);
       merged.profiles = profiles.stampChanges(stored.profiles, merged.profiles, who ? who.login : null);
       // A changed gate (or gate assignment) is judged at once.
       const saved = saveWorkspace(refreshGates(merged));
-      return slimmed(access.filterWorkspace(saved, who), args.slim || args.issuesFor, args.issuesFor);
+      return slimmed(access.filterWorkspace(saved, who), args.slim || args.issuesFor, args.issuesFor, store.issueCount);
     },
     // Settings (and the quality gates) from the settings window: the patch is
     // merged into the stored settings here, so the window never loads or sends
@@ -823,23 +941,46 @@ function createApi(opts = {}) {
     // desktop analysis), offset, limit } -> { total, issues }. The GUI holds the
     // open project's issues only and fetches them in pages, so no answer comes
     // near the size one JavaScript string can hold, however large the project.
-    'project.issues': (args, who) => {
+    'project.issues': async (args, who) => {
       const ws = access.filterWorkspace(workspace(), who);
       const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
       if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
       const a = args.branch ? ((project.branches || {})[args.branch] || {}).latest : project.desktop;
-      const all = (a && a.issues) || [];
+      if (!a) return { total: 0, offset: 0, issues: [] };
       const offset = Math.max(0, Number(args.offset) || 0);
       const limit = Math.min(50000, Math.max(1, Number(args.limit) || 20000));
+      if (store.pendingIssues(a) && !(args.order === 'severity' && store.headReady(a))) await store.loadIssues(a);
       // order: 'severity' pages the most severe first (a window that cannot hold
-      // millions of issues takes the head of this order).
+      // millions of issues takes the head of this order, kept in a file of its own).
       if (args.order === 'severity') {
-        const order = severityOrder(all);
+        const page = store.severityPage(a, offset, limit);
+        if (page) return { total: page.total, offset, issues: page.issues };
+        const all = a.issues || [];
+        const order = store.severityOrder(all);
         const issues = [];
         for (let n = offset; n < Math.min(order.length, offset + limit); n++) issues.push(all[order[n]]);
         return { total: all.length, offset, issues };
       }
+      const all = a.issues || [];
       return { total: all.length, offset, issues: all.slice(offset, offset + limit) };
+    },
+    // Issue search over a whole analysis (the local database): filters, words,
+    // sort and a page, with the total and, on request, counts per severity,
+    // type, status, engine and the top rules of the result.
+    'issue.search': async (args, who) => {
+      const ws = access.filterWorkspace(workspace(), who);
+      const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
+      if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
+      const a = args.branch ? ((project.branches || {})[args.branch] || {}).latest : project.desktop;
+      if (!a) return { total: 0, offset: 0, issues: [], facets: {} };
+      const filter = { ...(args.filter || {}) };
+      if (filter.standard) filter.standardRules = rulesOfStandard(filter.standard);
+      const offset = Math.max(0, Number(args.offset) || 0);
+      const limit = Math.min(5000, Math.max(1, Number(args.limit) || 500));
+      const page = await store.searchIssues(project, a, filter, { offset, limit, sort: args.sort || 'severity' });
+      // facets: true (all) or the names wanted, e.g. ['type', 'engine'].
+      const which = Array.isArray(args.facets) ? args.facets : undefined;
+      return { total: page.total, offset, issues: page.issues, facets: args.facets ? await store.issueFacets(project, a, filter, which) : undefined };
     },
     'settings.patch': (args, who) => {
       const stored = workspace();
@@ -906,11 +1047,17 @@ function createApi(opts = {}) {
       const ws = access.filterWorkspace(workspace(), who);
       const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
       if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
-      return require('./target').survey(project.path, {
-        exclusions: [...(ws.settings.exclusions || []), ...(project.exclusions || [])],
-        excludeDirs: project.excludeDirs || [],
+      // exclusions / excludeDirs: the project's own ones being edited (Project settings), else the saved ones.
+      const own = Array.isArray(args.exclusions) ? args.exclusions : (project.exclusions || []);
+      const out = require('./target').survey(project.path, {
+        exclusions: [...(ws.settings.exclusions || []), ...own],
+        excludeDirs: Array.isArray(args.excludeDirs) ? args.excludeDirs : (project.excludeDirs || []),
         maxFiles: ws.settings.maxFiles || 0,
       });
+      // Which pattern list left a folder out: the workspace's or the project's.
+      const { excluded } = require('./analyze');
+      for (const s of out.skipped || []) if (s.reason === 'exclusion') s.from = excluded(s.dir, ws.settings.exclusions || []) ? 'workspace' : 'project';
+      return out;
     },
     'scan.start': (args, who) => {
       args = args || {};
@@ -988,6 +1135,20 @@ function createApi(opts = {}) {
       saveWorkspace(ws);
       return { file: written.file };
     },
+    // Desktop only: the system clipboard's text, for Paste in the right-click
+    // menu when the page may not read the clipboard itself.
+    'clipboard.read': () => {
+      if (!opts.localFiles) throw Object.assign(new Error('The clipboard is only available in the desktop app'), { code: 'NO_METHOD' });
+      const { execFileSync } = require('child_process');
+      const run = (cmd, argv) => execFileSync(cmd, argv, { encoding: 'utf8', timeout: 5000, windowsHide: true, maxBuffer: 16 * 1048576 });
+      let text = '';
+      try {
+        if (process.platform === 'win32') text = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-Clipboard -Raw']).replace(/\r?\n$/, '');
+        else if (process.platform === 'darwin') text = run('pbpaste', []);
+        else { try { text = run('wl-paste', ['--no-newline']); } catch { text = run('xclip', ['-selection', 'clipboard', '-o']); } }
+      } catch { text = ''; }
+      return { text };
+    },
     // Desktop only (createApi({ localFiles: true })): write an export to a path
     // the user picked in the save dialog.
     'file.save': (args) => {
@@ -1030,7 +1191,7 @@ function createApi(opts = {}) {
     },
     'samples.list': () => sampleList(),
     // Physical memory and the default analysis memory limit, in GB.
-    'system.memory': () => ({ totalGb: require('./memory').totalGb(), defaultGb: require('./memory').defaultLimitGb() }),
+    'system.memory': () => ({ totalGb: require('./memory').totalGb(), defaultGb: require('./memory').defaultLimitGb(), cpus: require('os').cpus().length }),
     'samples.open': async (args) => {
       const s = sampleList().find((x) => x.id === args.id);
       if (!s) throw Object.assign(new Error(`Sample not found: ${args.id}`), { code: 'NOT_FOUND' });
@@ -1280,6 +1441,77 @@ function createApi(opts = {}) {
   });
   if (opts.scheduler) runner.start();
 
+  // Results of heavy read-only calls (reports, graphs, compliance, history),
+  // reused while what they are computed from is unchanged: a window that
+  // opens many views asks for them all at once, and each takes seconds on a
+  // large project. The key holds the project (without its issue lists), each
+  // branch's analysis (time, issue count, in-place changes, history and
+  // snapshots) and the workspace sections analyses depend on, but not the
+  // window's own settings (open tabs, panels, theme …), which change all the
+  // time. { fresh: true } (a view's Refresh) computes again.
+  const CACHED = /^(arch\.graph|metrics\.his|sca\.scan|compliance\.report|misra\.(plan|compliance)|activity\.(trend|events)|issue\.(age|search)|defect\.(lifecycle|streamDiff)|snapshot\.(list|compare)|report\.(kinds|export))$/;
+  const READ_CACHE_SIZE = 64;
+  const WINDOW_SETTINGS = new Set(['theme', 'language', 'customThemes', 'startBackground', 'panels', 'tabs', 'tutorial', 'installLanguage', 'showStartOnLaunch']);
+  const readCache = new Map();
+  function readKey(ws, name, args, who) {
+    const { fresh, ...rest } = args || {};
+    const settings = {};
+    for (const [k, v] of Object.entries(ws.settings || {})) if (!WINDOW_SETTINGS.has(k)) settings[k] = v;
+    const project = rest.projectId ? (ws.projects || []).find((p) => p.id === rest.projectId) : null;
+    let projectPart = null;
+    if (project) {
+      const { branches, desktop, issueState, ...own } = project;
+      const analysis = (a) => a && { at: a.finishedAt, count: store.issueCount(a), changes: store.pendingIssues(a) ? 0 : store.changesOf(a.issues) };
+      projectPart = {
+        own,
+        states: issueState ? Object.keys(issueState).length : 0,
+        desktop: analysis(desktop),
+        branches: Object.entries(branches || {}).map(([b, s]) => [b, s && analysis(s.latest), s && (s.history || []).length, s && (s.snapshots || []).length]),
+      };
+    }
+    const shared = { settings, gates: ws.gates, profiles: ws.profiles, customRules: ws.customRules, defectAnalysis: ws.defectAnalysis };
+    return `${who ? who.login : ''}|${name}|${JSON.stringify(rest)}|${JSON.stringify(projectPart)}|${JSON.stringify(shared)}|${store.issueRevision()}`;
+  }
+
+  // A key -> issue index per list, rebuilt when the list changes length.
+  const keyMaps = new WeakMap();
+  function keyMap(list) {
+    let m = keyMaps.get(list);
+    if (!m || m.size === 0 || m.n !== list.length) {
+      m = new Map();
+      for (const issue of list) if (!m.has(issue.key)) m.set(issue.key, issue);
+      m.n = list.length;
+      keyMaps.set(list, m);
+    }
+    return m;
+  }
+
+  // Standard filter of the issue search: the rules of a coding standard.
+  const standardRules = new Map();
+  function rulesOfStandard(id) {
+    if (!standardRules.has(id)) {
+      const { standardIds } = require('./issuedb');
+      standardRules.set(id, listRules().filter((r) => standardIds(null, r).includes(id)).map((r) => r.key));
+    }
+    return standardRules.get(id);
+  }
+
+  // Calls that go through a branch's whole issue list (or its snapshots'):
+  // those lists are read first a piece at a time (store.loadIssues), so a
+  // large project does not stop the service while they are parsed.
+  // (issue.update does not read lists: it changes the rows of one not read yet.)
+  const LIST_READERS = /^(compliance\.report|misra\.compliance|issue\.(age|review|aiFix\w*)|report\.(export|regulatory)|snapshot\.compare|defect\.lifecycle|db\.exportStart)$/;
+  async function prefetchLists(ws, name, args) {
+    const project = (ws.projects || []).find((p) => p.id === args.projectId);
+    if (!project) return;
+    const state = (project.branches || {})[args.branch || project.mainBranch || 'main'];
+    const lists = [];
+    if (state && state.latest) lists.push(state.latest);
+    if (project.desktop) lists.push(project.desktop);
+    if (state && /^(snapshot\.compare|defect\.lifecycle)$/.test(name)) for (const s of state.snapshots || []) if (s && s.issues && s.issues.$file) lists.push(s.issues);
+    for (const target of lists) await store.loadIssues(target);
+  }
+
   // ctx.token is the caller's user token; it matters only when permissions are on.
   async function call(name, args, ctx = {}) {
     const fn = methods[name];
@@ -1289,15 +1521,30 @@ function createApi(opts = {}) {
       throw err;
     }
     let who;
+    const ws = workspace();
     try {
-      who = access.check(workspace(), name, args || {}, ctx.token || '');
+      who = access.check(ws, name, args || {}, ctx.token || '');
     } catch (err) {
       if (err.code === 'FORBIDDEN' || (err.code === 'UNAUTHORIZED' && name === 'security.login')) audit(name, args, null, err.code);
       throw err;
     }
+    const key = CACHED.test(name) ? readKey(ws, name, args, who) : null;
+    if (LIST_READERS.test(name) && !(key && !(args && args.fresh) && readCache.has(key))) await prefetchLists(ws, name, args || {});
+    if (key && !(args && args.fresh)) {
+      const hit = readCache.get(key);
+      if (hit) {
+        readCache.delete(key);
+        readCache.set(key, hit); // most recently used last
+        return hit;
+      }
+    }
     let result;
     try {
       result = await fn(args || {}, who);
+      if (key) {
+        readCache.set(key, result);
+        while (readCache.size > READ_CACHE_SIZE) readCache.delete(readCache.keys().next().value);
+      }
     } catch (err) {
       if (AUDITED.test(name)) audit(name, args, who, err.code || 'FAILED');
       throw err;
@@ -1405,12 +1652,20 @@ function cloneSharingAnalyses(ws) {
 }
 
 // A workspace without the issue lists (each analysis keeps issueCount).
-function slimmed(ws, slim, issuesFor) {
+// countOf(analysis): its issue count without reading a list that is still a file.
+function slimmed(ws, slim, issuesFor, countOf = (a) => a.issues.length) {
   if (!slim || !ws) return ws;
   const keep = issuesFor === 'active' ? ws.activeProjectId : issuesFor || null;
-  // Also the new-code baselines (issue keys, line hashes): the GUI never reads them.
-  const strip = (a, keepIssues) => (a && Array.isArray(a.issues) ? { ...a, issues: keepIssues ? a.issues : undefined, keys: undefined, issueCount: a.issues.length, ...(a.defectAnalysis ? { defectAnalysis: { ...a.defectAnalysis, cids: undefined } } : {}) } : a);
-  const branch = (b, keepIssues) => ({ ...b, keys: undefined, cids: undefined, lineHashes: undefined, latest: strip(b.latest, keepIssues), history: (b.history || []).map(({ keys, ...h }) => h) });
+  // Also the new-code baselines (issue keys, line hashes, defect IDs): the GUI
+  // never reads them, and a large analysis has millions. The issues are left
+  // out by name, so a list not read yet is not read for this.
+  const strip = (a, keepIssues) => {
+    if (!a || !Object.prototype.hasOwnProperty.call(a, 'issues')) return a;
+    const rest = {};
+    for (const k of Object.keys(a)) if (k !== 'issues') rest[k] = a[k];
+    return { ...rest, issues: keepIssues ? a.issues : undefined, keys: undefined, issueCount: countOf(a), ...(a.defectAnalysis ? { defectAnalysis: { ...a.defectAnalysis, cids: undefined } } : {}) };
+  };
+  const branch = (b, keepIssues) => ({ ...b, keys: undefined, cids: undefined, lineHashes: undefined, latest: strip(b.latest, keepIssues), history: (b.history || []).map(({ keys, cids, ...h }) => ({ ...h, cidCount: Array.isArray(cids) ? cids.length : undefined })) });
   return {
     ...ws,
     slim: true,

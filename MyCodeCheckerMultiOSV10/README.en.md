@@ -45,7 +45,7 @@ A **code quality and security workbench** that runs on your own computer. It bri
 - **Scheduled analyses** (cron; code analysis or web scan), **audit log**, housekeeping
 - **Compatible Web API** (`/api/issues/search`, `/api/qualitygates/project_status` …) — dashboards and scripts written for the compatible API read it as is
 - **AI CodeFix** — asks an LLM for a fix of one issue, shows it as a diff and applies it only when you accept (an applied fix can be undone with **Undo fix**). Anthropic Claude (official SDK, default model `claude-opus-5-5`), OpenAI-compatible servers or a local Ollama
-- **Database export** — analysis results as tables in SQLite, PostgreSQL, MySQL/MariaDB or SQL Server (after every analysis or on demand)
+- **Database export** — analysis results as tables in MySQL, SQLite3, MariaDB, PostgreSQL or MSSQL (in the background after every analysis, or on demand)
 - **Required software** — finds Git and a C/C++ compiler and, when missing, asks before installing them with the package manager (winget, scoop, Homebrew, apt, dnf, pacman, zypper)
 
 ### Workspace

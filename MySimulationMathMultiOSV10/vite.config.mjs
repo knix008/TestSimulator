@@ -39,4 +39,6 @@ export default defineConfig({
   },
   preview: { headers: ISOLATION_HEADERS },
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
+  // The engine worker imports core/session.js lazily (code splitting): ES module workers only.
+  worker: { format: 'es' },
 });

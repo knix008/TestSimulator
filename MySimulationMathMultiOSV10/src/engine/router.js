@@ -116,6 +116,9 @@ export function createEngineCore({ post, createSession, fs, host, interruptFlag 
       case 'help':
         reply(msg.id, () => (session && typeof session.help === 'function' ? session.help(String(msg.name || '')) : null));
         return;
+      case 'help.search':
+        reply(msg.id, () => (session && typeof session.helpSearch === 'function' ? session.helpSearch(String(msg.query || ''), msg.limit) : []));
+        return;
       case 'breakpoints':
         if (session && typeof session.setBreakpoints === 'function') { try { session.setBreakpoints(msg.file, msg.lines || []); } catch { /* reported when hit */ } }
         return;

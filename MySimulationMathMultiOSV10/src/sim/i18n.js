@@ -1,6 +1,7 @@
 // UI text of the block-diagram editor (Korean + English). tr(lang, key, vars).
 const STR = {
   en: {
+    px_no_model: 'Open a model (simulation tab) to see it here.', px_n_selected: '{n} blocks selected', px_revert: 'Revert', px_no_block: 'No block selected: the model settings. Click a block on the canvas to edit it here.', px_all_settings: 'All settings',
     new: 'New', open: 'Open', save: 'Save', saveAs: 'Save As', undo: 'Undo', redo: 'Redo',
     run: 'Run', pause: 'Pause', cont: 'Continue', step: 'Step', stop: 'Stop', update: 'Update',
     fit: 'Fit', zoomIn: 'Zoom in', zoomOut: 'Zoom out', grid: 'Grid', snap: 'Snap', rulers: 'Rulers',
@@ -41,6 +42,7 @@ const STR = {
     fit_tip: 'Fit the diagram to the view (Ctrl+0)', help_keys: 'Space+drag or middle drag: pan · Wheel: zoom · Drag from a line: branch',
   },
   ko: {
+    px_no_model: '모델을 열면 여기에 나옵니다 (시뮬레이션 탭).', px_n_selected: '블록 {n}개 선택됨', px_revert: '되돌리기', px_no_block: '선택한 블록이 없어 모델 설정을 보여 줍니다. 캔버스에서 블록을 누르면 여기서 고칩니다.', px_all_settings: '전체 설정',
     new: '새로 만들기', open: '열기', save: '저장', saveAs: '다른 이름으로 저장', undo: '실행 취소', redo: '다시 실행',
     run: '실행', pause: '일시 정지', cont: '계속', step: '한 단계', stop: '정지', update: '갱신',
     fit: '맞춤', zoomIn: '확대', zoomOut: '축소', grid: '격자', snap: '스냅', rulers: '눈금자',

@@ -15,7 +15,7 @@ import { call } from '../lib/backend';
 import { Icon, Dialog, menuIcon } from '../components/Chrome';
 import { LangFlag } from '../components/Flags';
 import { ThemePicker } from '../components/ThemePicker';
-import { popupRoute, receivePayload, sendResult, closeSelf, broadcast, setPoolCloser, announceShown } from '../lib/popups';
+import { popupRoute, receivePayload, sendResult, closeSelf, broadcast, setPoolCloser, announceShown, fitPopupHeight } from '../lib/popups';
 import { SettingsDialog } from './Settings';
 import { UiHost } from '../components/UiHost';
 import { columnsOf } from '../lib/menuColumns';
@@ -124,14 +124,7 @@ function PopupContent({ kind, id, payload }) {
   // First paint → the main window records the time it took.
   useEffect(() => { requestAnimationFrame(() => announceShown(id)); }, [id]);
   if (kind === 'menu' || kind === 'select') return <ListPopup id={id} kind={kind} items={payload.items || []} value={payload.value} />;
-  if (kind === 'themes') {
-    return (
-      <div className="popup-root popup-themes">
-        <ThemePicker value={payload.value} onPick={(v) => sendResult(id, { id: `theme:${v}` })}
-          onNewCustom={() => sendResult(id, { id: 'settings:custom' })} onEditCustom={() => sendResult(id, { id: 'settings:custom' })} />
-      </div>
-    );
-  }
+  if (kind === 'themes') return <ThemesPopup id={id} payload={payload} />;
   if (kind === 'settings') return <SettingsWindow id={id} payload={payload} />;
   if (kind === 'about') return <AboutDialog windowed summary={payload.summary} onClose={() => closeSelf()} />;
   if (kind === 'info') {
@@ -185,6 +178,27 @@ function PoolWindow({ slot }) {
   }, [slot]);
   if (!cur) return <div className="popup-root" />;
   return <PopupContent key={cur.id} kind={cur.kind} id={cur.id} payload={cur.payload || {}} />;
+}
+
+// The theme picker in its own window, fitted to the picker's height (the
+// number of custom themes changes it).
+function ThemesPopup({ id, payload }) {
+  const box = useRef(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return undefined;
+    const fit = () => fitPopupHeight(Math.ceil(el.getBoundingClientRect().height));
+    fit();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
+    if (ro) ro.observe(el);
+    return () => { if (ro) ro.disconnect(); };
+  }, []);
+  return (
+    <div className="popup-root popup-themes" ref={box}>
+      <ThemePicker value={payload.value} onPick={(v) => sendResult(id, { id: `theme:${v}` })}
+        onNewCustom={() => sendResult(id, { id: 'settings:custom' })} onEditCustom={() => sendResult(id, { id: 'settings:custom' })} />
+    </div>
+  );
 }
 
 export function PopupWindow() {
