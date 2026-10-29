@@ -46,13 +46,26 @@ rule({
   bad: php('function area($w, $h, $unit) // Noncompliant\n{\n    return $w * $h;\n}'),
   good: php('function area($w, $h)\n{\n    return $w * $h;\n}\n$f = function ($x) {\n    return func_get_args();\n};'),
 });
+// A function named in a string ('my_callback' handed to add_action,
+// array_map, usort...) is a callback: its signature is the caller's.
+function namedAsCallback(n, cx) {
+  if (n.k !== 'FuncDecl' || !n.name) return false;
+  const name = A.shortName(n.name).toLowerCase();
+  return (cx.pf.byKind.get('Lit') || []).some((l) => l.kind === 'str' && String(l.value).toLowerCase().replace(/^\\+/, '').split('\\').pop() === name);
+}
 function unusedParams(n, cx) {
   const sc = n.scope;
   if (!sc || sc.dynamic || sc.hasFuncGetArgs || !n.body || !n.body.stmts.length) return;
-  for (const s of sc.params) {
-    if (s.reads > 0 || s.alias || s.name.startsWith('_') || (s.param && s.param.mods && s.param.mods.size)) continue;
+  if (namedAsCallback(n, cx)) return;
+  // A closure's parameters are positional for its caller (fn ($key, $value)):
+  // only the ones after the last used parameter can be dropped.
+  let lastUsed = -1;
+  if (n.k === 'Closure') sc.params.forEach((s, i) => { if (s.reads > 0 || s.alias) lastUsed = i; });
+  sc.params.forEach((s, i) => {
+    if (i < lastUsed) return;
+    if (s.reads > 0 || s.alias || s.name.startsWith('_') || (s.param && s.param.mods && s.param.mods.size)) return;
     cx.report(s.param, s.name);
-  }
+  });
 }
 
 rule({

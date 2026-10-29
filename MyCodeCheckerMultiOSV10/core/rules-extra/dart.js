@@ -4,6 +4,7 @@
 // Flutter lifecycle bugs and the usual security hotspots.
 
 const { maker } = require('./util');
+const { namedSecretSkip } = require('./secret-values');
 
 const R = maker('dart', ['dart']);
 
@@ -35,12 +36,12 @@ R('unawaited-future', 'B', 'MI', 5, ['async'],
   ['Future result possibly ignored', 'Errors of an un-awaited future are lost and the work may not be finished.', 'await it, or wrap it in unawaited() on purpose.'],
   ['퓨처 결과를 무시할 수 있습니다', 'await하지 않은 퓨처의 오류는 사라지고 작업이 끝나지 않을 수 있습니다.', 'await하거나 의도적으로 unawaited()로 감싸세요.'],
   'repository.save(user);', 'await repository.save(user);',
-  { skip: (raw) => /\bawait\b|\bunawaited\b|\breturn\b/.test(raw) });
+  { skip: (raw) => /\bawait\b|\bunawaited\b|\breturn\b/.test(raw) || /\w+Sync\s*\(|\.(?:writeln|writeAll|writeCharCode)\s*\(|\b(?:sb|buffer|buf|out|stdout|stderr|sink)\.write\s*\(/.test(raw) });
 R('self-comparison', 'B', 'MA', 5, ['suspicious'],
-  /\b(\w+(?:\.\w+)*)\s*(?:==|!=|&&|\|\|)\s*\1\b(?![.(\w])/,
+  /(?<![\w.])(\w+(?:\.\w+)*)\s*(?:==|!=|&&|\|\|)\s*\1\b(?![.(\w])/,
   ['Identical expressions on both sides of an operator', 'a == a is always true and usually a copy-paste error.', 'Compare the intended expressions.'],
   ['연산자 양쪽 식이 같습니다', 'a == a는 항상 참이며 보통 복사-붙여넣기 실수입니다.', '의도한 식끼리 비교하세요.'],
-  'if (a.id == a.id) save(a);', 'if (a.id == b.id) save(a);', { ns: true, ref: 'S1764' });
+  'if (a.id == a.id) save(a);', ['if (a.id == b.id) save(a);', 'other is Point && other.x == x && other.y == y;'], { ns: true, ref: 'S1764' });
 R('empty-catch', 'S', 'MA', 5, ['error-handling'],
   /\bcatch\s*\([^)]*\)\s*\{\s*\}/,
   ['Empty catch block', 'The error is silently ignored.', 'Log or handle the error.'],
@@ -67,7 +68,8 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b(?:final|const|var|String)\s+\w*(?:password|passwd|pwd|secret|apiKey|token)\w*\s*=\s*['"][^'"\s]{4,}['"]/i,
   ['Hard-coded credential', 'Anyone with the app bundle can read the secret.', 'Fetch it from a server or secure storage.'],
   ['자격 증명을 코드에 적었습니다', '앱 번들을 가진 누구나 비밀을 읽을 수 있습니다.', '서버나 보안 저장소에서 가져오세요.'],
-  'const apiKey = \'sk-12345abcdef\';', 'final apiKey = await storage.read(key: \'apiKey\');', { ref: 'S2068' });
+  'const apiKey = \'sk-12345abcdef\';', ['final apiKey = await storage.read(key: \'apiKey\');', "const tokenKey = 'auth_token';", "const passwordHint = 'Enter your password';"],
+  { ref: 'S2068', skip: (raw, line, file) => namedSecretSkip(raw, file) });
 R('weak-hash', 'V', 'CR', 15, ['crypto', 'cwe-328', 'owasp-a02'],
   /\b(?:md5|sha1)\.convert\s*\(/,
   ['Weak hash algorithm', 'MD5 and SHA-1 collisions are practical.', 'Use sha256 or stronger.'],

@@ -69,8 +69,45 @@ function condParts(e, out = []) {
 
 const LOG_FNS = new Set(['log', 'log10', 'log2', 'logf', 'logl', 'log10f', 'log2f']);
 const SQRT_FNS = new Set(['sqrt', 'sqrtf', 'sqrtl']);
-const NONNULL_FNS = new Set(['strlen', 'strcpy', 'strncpy', 'strcat', 'strncat', 'strcmp', 'strncmp', 'strchr', 'strrchr', 'strstr', 'memcpy', 'memmove', 'memset', 'memcmp', 'fopen', 'fclose', 'fputs', 'fgets', 'puts', 'atoi', 'atol', 'atof', 'strtol', 'strtoul', 'strtod', 'printf', 'sprintf', 'snprintf', 'fprintf', 'qsort', 'bsearch']);
+// Library functions and the (0-based) pointer arguments that must not be null.
+// Other arguments are not pointers (memset's fill value, a size) or may be
+// null by contract (strtol's end pointer, snprintf's buffer with size 0).
+const NONNULL_ARGS = new Map([
+  ['strlen', [0]], ['strcpy', [0, 1]], ['strncpy', [0, 1]], ['strcat', [0, 1]], ['strncat', [0, 1]], ['strcmp', [0, 1]],
+  ['strncmp', [0, 1]], ['strchr', [0]], ['strrchr', [0]], ['strstr', [0, 1]], ['memcpy', [0, 1]], ['memmove', [0, 1]],
+  ['memset', [0]], ['memcmp', [0, 1]], ['fopen', [0, 1]], ['fclose', [0]], ['fputs', [0, 1]], ['fgets', [0, 2]], ['puts', [0]],
+  ['atoi', [0]], ['atol', [0]], ['atof', [0]], ['strtol', [0]], ['strtoul', [0]], ['strtod', [0]], ['printf', [0]],
+  ['sprintf', [0, 1]], ['snprintf', [2]], ['fprintf', [0, 1]], ['qsort', [3]], ['bsearch', [0, 4]],
+]);
+const NONNULL_FNS = new Set(NONNULL_ARGS.keys());
+const PRECOND_FNS = new Set([...NONNULL_FNS, 'log', 'log10', 'log2', 'logf', 'logl', 'log10f', 'log2f', 'sqrt', 'sqrtf', 'sqrtl',
+  'isalnum', 'isalpha', 'isblank', 'iscntrl', 'isdigit', 'isgraph', 'islower', 'isprint', 'ispunct', 'isspace', 'isupper', 'isxdigit', 'tolower', 'toupper']);
 const CTYPE_FNS = new Set(['isalnum', 'isalpha', 'isblank', 'iscntrl', 'isdigit', 'isgraph', 'islower', 'isprint', 'ispunct', 'isspace', 'isupper', 'isxdigit', 'tolower', 'toupper']);
+
+// Variables 0.2.1 looks at: [{ v, used }]. headerScope: only the
+// namespace-scope variables declared in headers (else: everything else).
+function unusedVarCandidates(unit, headerScope) {
+  const out = [];
+  const used = U.usedSyms(unit).syms;
+  for (const v of U.ix(unit).get('VarDecl')) {
+    const s = v.symbol;
+    if (!s || s.predefined) continue;
+    if (!v.name || v.name.startsWith('__')) continue;
+    const local = s.storage === 'automatic' || (s.scope && (s.scope.kind === 'function' || s.scope.kind === 'block'));
+    if (!local && s.linkage !== 'internal') continue;
+    if ((!local && U.isHeaderFile(v.loc.file)) !== headerScope) continue;
+    if (U.attrNames(v).includes('maybe_unused')) continue;
+    const t = U.canon(v.ctype);
+    if (t.kind === 'record') {
+      const hasCtorDtor = U.methods(t).some((m) => m.node.isConstructor || m.node.isDestructor);
+      if (hasCtorDtor || U.bases(t).length) continue;
+    }
+    if (U.unknownT(v.ctype) && !(v.specs && v.specs.typeSpec && v.specs.typeSpec.type === 'AutoType')) continue;
+    out.push({ v, used: used.has(s) || s.uses.length > 0 });
+  }
+  return out;
+}
+const reportUnusedVar = (api, v) => api.report(v.nameLoc ? { ...v.nameLoc, file: v.loc.file } : v, M(`Variable '${v.name}' is never used.`, `변수 '${v.name}' 이(가) 한 번도 사용되지 않습니다.`));
 
 const isNullLit = (e, unit) => {
   e = U.strip(e);
@@ -106,9 +143,12 @@ module.exports = [
     why: ['A condition that is always true or always false usually signals a logic error or leftover debugging code.', '항상 참이거나 항상 거짓인 조건은 대개 논리 오류나 남겨진 디버깅 코드를 뜻합니다.'],
     fix: ['Remove the condition or correct it so that it depends on run-time state.', '조건을 없애거나 실행 시 상태에 따라 달라지도록 고치세요.'],
     check(unit, api) {
-      for (const { e, kind } of controlling(unit)) {
+      for (const { e, kind, stmt } of controlling(unit)) {
         if ((kind === 'while' || kind === 'for') && literalBool(e, true)) continue; // infinite loop idiom
         if (kind === 'do' && literalBool(e, false)) continue; // do { } while (false)
+        // `STATUS(CID_X, OK)` expanding to `((st) == OK ? (st) : ...)` with constant
+        // arguments: the macro computes a constant, there is no run-time choice
+        if (kind === '?:' && stmt.loc && stmt.loc.macro && U.constAny(stmt, unit)) continue;
         const c = U.constInt(e, unit);
         if (c) {
           api.report(e, M(`The ${kind} condition is always ${c.value !== 0n ? 'true' : 'false'}.`, `${kind} 조건이 항상 ${c.value !== 0n ? '참' : '거짓'}입니다.`));
@@ -164,25 +204,24 @@ module.exports = [
     name: ['Variables with limited visibility should be used at least once', '가시 범위가 제한된 변수는 한 번 이상 사용해야 합니다'],
     why: ['A local or internal variable that is never used is clutter and may indicate a missing piece of logic.', '쓰이지 않는 지역 변수나 내부 변수는 잡음이며 빠진 논리를 뜻할 수 있습니다.'],
     fix: ['Remove the variable or use it; mark intentional ones [[maybe_unused]].', '변수를 지우거나 사용하세요. 의도적이라면 [[maybe_unused]] 를 붙이세요.'],
-    check(unit, api) {
-      const used = U.usedSyms(unit).syms;
-      for (const v of U.ix(unit).get('VarDecl')) {
-        const s = v.symbol;
-        if (!s || used.has(s) || s.uses.length || s.predefined) continue;
-        if (!v.name || v.name.startsWith('__')) continue;
-        const local = s.storage === 'automatic' || (s.scope && (s.scope.kind === 'function' || s.scope.kind === 'block'));
-        if (!local && s.linkage !== 'internal') continue;
-        if (s.linkage === 'internal' && s.isConstexpr === undefined && U.isHeaderFile(v.loc.file)) continue;
-        if (U.attrNames(v).includes('maybe_unused')) continue;
-        const t = U.canon(v.ctype);
-        if (t.kind === 'record') {
-          const hasCtorDtor = U.methods(t).some((m) => m.node.isConstructor || m.node.isDestructor);
-          if (hasCtorDtor || U.bases(t).length) continue;
+    // A namespace-scope internal variable of a header (`constexpr int kMax = 4;`)
+    // is copied into every unit that includes the header: it is unused only
+    // when no unit uses it, so headers are decided over the whole project.
+    project(project, api) {
+      const byKey = new Map();
+      for (const unit of project.units) {
+        if (unit.lang !== 'cpp') continue;
+        for (const { v, used } of unusedVarCandidates(unit, true)) {
+          const key = `${v.loc.file}:${v.loc.line}:${v.name}`;
+          const e = byKey.get(key);
+          if (!e) byKey.set(key, { v, used });
+          else if (used) e.used = true;
         }
-        if (U.unknownT(v.ctype) && !(v.specs && v.specs.typeSpec && v.specs.typeSpec.type === 'AutoType')) continue;
-        if (t.kind === 'closure') { /* unused lambda object is still unused */ }
-        api.report(v.nameLoc ? { ...v.nameLoc, file: v.loc.file } : v, M(`Variable '${v.name}' is never used.`, `변수 '${v.name}' 이(가) 한 번도 사용되지 않습니다.`));
       }
+      for (const { v, used } of byKey.values()) if (!used) reportUnusedVar(api, v);
+    },
+    check(unit, api) {
+      for (const { v, used } of unusedVarCandidates(unit, false)) if (!used) reportUnusedVar(api, v);
     },
   }),
   R({
@@ -287,6 +326,8 @@ module.exports = [
       for (const c of U.ix(unit).get('CallExpr')) {
         const cn = U.callName(c);
         if (!cn || cn.member || (cn.qualifier && cn.qualifier !== 'std')) continue;
+        // only the library functions, not a project function (or member) of the same name
+        if (!U.isLibCall(c, PRECOND_FNS)) continue;
         const a0 = c.args && c.args[0];
         const v = a0 ? U.constAny(a0, unit) : null;
         const num = v ? Number(v.value) : null;
@@ -294,8 +335,8 @@ module.exports = [
         else if (LOG_FNS.has(cn.name) && num !== null && num <= 0) api.report(c, M(`'${cn.name}' is called with a non-positive argument.`, `'${cn.name}' 를 0 이하의 인자로 호출합니다.`));
         else if (CTYPE_FNS.has(cn.name) && num !== null && (num < -1 || num > 255) && c.args.length === 1) api.report(c, M(`'${cn.name}' needs a value representable as unsigned char or EOF.`, `'${cn.name}' 의 인자는 unsigned char 로 나타낼 수 있는 값이거나 EOF 여야 합니다.`));
         else if (NONNULL_FNS.has(cn.name)) {
-          const i = (c.args || []).findIndex((a) => isNullLit(a, unit));
-          if (i >= 0 && !(cn.name === 'snprintf' && i === 0)) api.report(c, M(`'${cn.name}' is passed a null pointer as argument ${i + 1}.`, `'${cn.name}' 의 ${i + 1}번째 인자로 널 포인터를 넘깁니다.`));
+          const i = NONNULL_ARGS.get(cn.name).find((k) => c.args && c.args[k] && isNullLit(c.args[k], unit));
+          if (i !== undefined) api.report(c, M(`'${cn.name}' is passed a null pointer as argument ${i + 1}.`, `'${cn.name}' 의 ${i + 1}번째 인자로 널 포인터를 넘깁니다.`));
         }
       }
     },

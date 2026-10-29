@@ -8,11 +8,13 @@ const R = maker('ps', ['ps1']);
 
 R('write-host', 'S', 'MI', 2, ['convention'],
   /\bWrite-Host\b/i,
-  ['Write-Host', 'Write-Host bypasses the pipeline, so output cannot be captured or redirected.', 'Use Write-Output, Write-Verbose or Write-Information.'],
-  ['Write-Host를 씁니다', 'Write-Host는 파이프라인을 우회해 출력을 받거나 리다이렉트할 수 없습니다.', 'Write-Output, Write-Verbose, Write-Information을 쓰세요.'],
+  ['Write-Host', 'Write-Host writes to the host (the information stream since PowerShell 5), not to the output pipeline, so callers cannot pipe or assign the text.', 'Use Write-Output, Write-Verbose or Write-Information.'],
+  ['Write-Host를 씁니다', 'Write-Host는 출력 파이프라인이 아니라 호스트(PowerShell 5부터는 정보 스트림)에 써서 호출자가 글을 파이프하거나 변수에 받을 수 없습니다.', 'Write-Output, Write-Verbose, Write-Information을 쓰세요.'],
   'Write-Host "Done"', 'Write-Information "Done"');
 R('cmdlet-alias', 'S', 'MI', 2, ['convention'],
-  /(?:^|\|)\s*(?:%|\?|gci|gc|sls|iwr|irm|sal|ni|ri|gcm|gm|ii|sc|select|where|foreach)(?=\s|\{)/i,
+  // foreach ($x in $list) at the start of a line is the language statement, not the alias.
+  // ? Type.Method(...) on a continuation line is the PowerShell 7 ternary.
+  /(?:^|\|)\s*(?:%|\?(?!\s+[\w.[\]]+\s*\()|gci|gc|sls|iwr|irm|sal|ni|ri|gcm|gm|ii|sc|select|where|foreach(?!\s*\())(?=\s|\{)/i,
   ['Cmdlet alias in a script', 'Aliases differ between hosts and editions and are hard to read.', 'Use the full cmdlet name, for example ForEach-Object or Where-Object.'],
   ['스크립트에서 cmdlet 별칭을 씁니다', '별칭은 호스트와 버전마다 다르고 읽기 어렵습니다.', 'ForEach-Object, Where-Object처럼 전체 이름을 쓰세요.'],
   'Get-ChildItem | ? { $_.Length -gt 0 }', 'Get-ChildItem | Where-Object { $_.Length -gt 0 }');
@@ -105,7 +107,9 @@ R('recursive-remove-variable', 'H', 'MA', 10, ['cwe-73'],
   /\bRemove-Item\b(?=[^|;]*-Recurse)(?=[^|;]*\$\w+)(?![^|;]*-WhatIf)/i,
   ['Recursive delete of a variable path', 'If the variable is empty or wrong, the command can remove far more than intended.', 'Validate the path (Test-Path, a base-folder check) before deleting.'],
   ['변수 경로를 재귀 삭제합니다', '변수가 비었거나 틀리면 의도보다 훨씬 많이 지울 수 있습니다.', '지우기 전에 경로를 검증하세요(Test-Path, 기준 폴더 확인).'],
-  'Remove-Item $target -Recurse -Force', 'Remove-Item $target -Recurse -WhatIf');
+  'Remove-Item $target -Recurse -Force', ['Remove-Item $target -Recurse -WhatIf', 'if (Test-Path $wixLocal) { Remove-Item $wixLocal -Recurse -Force }'],
+  // Checked with Test-Path on the same line (the fix).
+  { skip: (raw) => /\bTest-Path\b/i.test(raw) });
 R('empty-catch', 'S', 'MA', 5, ['error-handling'],
   /\bcatch\s*(?:\[[^\]]*\]\s*)?\{\s*\}/i,
   ['Empty catch block', 'Errors are silently dropped.', 'Log the error with Write-Error, or rethrow.'],

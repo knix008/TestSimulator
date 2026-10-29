@@ -10,7 +10,7 @@ const { cf } = U;
 const cat = (e, unit) => U.numCat(e && U.strip(e) ? U.strip(e).ctype : null, unit.target);
 const catT = (t, unit) => U.numCat(t, unit.target);
 const tname = (t) => U.tstr(U.nonRef(t));
-const src = (unit, e) => cf.sourceText(unit, e) || '?';
+const src = (unit, e) => U.nodeText(unit, e);
 
 const isNullConst = (e) => {
   e = U.strip(e);
@@ -197,6 +197,7 @@ module.exports = [
     why: ['0 and NULL are integers, which can pick the wrong overload or hide the pointer meaning.', '0 과 NULL 은 정수라서 잘못된 오버로드를 고르거나 포인터라는 뜻을 숨길 수 있습니다.'],
     fix: ['Write nullptr.', 'nullptr 를 쓰세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       const rep = (e) => api.report(e, M(`'${src(unit, e)}' is used as a null pointer constant; use nullptr.`, `'${src(unit, e)}' 를 널 포인터 상수로 씁니다. nullptr 를 쓰세요.`));
       for (const c of C.conversions(unit)) {
         const d = U.canon(U.nonRef(c.dst)).kind;
@@ -221,11 +222,16 @@ module.exports = [
         const ft = C.fnTypeOfCallee(call);
         (call.args || []).forEach((a, i) => {
           const e = U.strip(a);
-          if (!e || e.type === 'StringLiteral' || !e.ctype || U.canon(e.ctype).kind !== 'array') return;
+          // __func__ / __FUNCTION__ are string literals in all but name (the exception for literals applies)
+          if (!e || e.type === 'StringLiteral' || (e.type === 'Identifier' && (e.predefined || (e.symbol && e.symbol.predefined))) || !e.ctype || U.canon(e.ctype).kind !== 'array') return;
           const pt = ft && ft.params[i];
           if (pt && U.canon(pt).kind === 'reference') return;
           if (!ft && !(U.callName(call) || {}).name) return;
-          api.report(e, M(`The array '${src(unit, e)}' decays to a pointer when passed as argument ${i + 1}.`, `배열 '${src(unit, e)}' 가 ${i + 1}번째 인자로 넘겨지며 포인터로 붕괴합니다.`));
+          // inside a macro argument the source text of the node is the whole macro call
+          const name = e.loc && e.loc.macro ? (e.type === 'Identifier' ? e.name : (e.type === 'MemberExpr' ? e.member : null)) : src(unit, e);
+          api.report(e, name
+            ? M(`The array '${name}' decays to a pointer when passed as argument ${i + 1}.`, `배열 '${name}' 가 ${i + 1}번째 인자로 넘겨지며 포인터로 붕괴합니다.`)
+            : M(`An array decays to a pointer when passed as argument ${i + 1}.`, `배열이 ${i + 1}번째 인자로 넘겨지며 포인터로 붕괴합니다.`));
         });
       }
     },

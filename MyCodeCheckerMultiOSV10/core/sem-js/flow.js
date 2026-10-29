@@ -61,7 +61,7 @@ function refVar(id, tracked) {
 function events(node, out, tracked, cond) {
   if (!node || typeof node !== 'object') return;
   switch (node.type) {
-    case 'Identifier': {
+    case 'Identifier': case 'JSXIdentifier': {
       const v = refVar(node, tracked);
       if (v && node._ref.read) out.push({ v, r: true, node });
       return;
@@ -232,7 +232,7 @@ function liveness(cfg, trackedList) {
       for (let j = ev.length - 1; j >= 0; j--) {
         const e = ev[j];
         if (e.w) {
-          if (report && !live.has(e.v)) report(e);
+          if (report) report(e, !live.has(e.v));
           if (!e.cond) live.delete(e.v);
         } else if (e.r) live.add(e.v);
       }
@@ -256,9 +256,13 @@ function liveness(cfg, trackedList) {
       if (nin.size !== old.size || [...nin].some((v) => !old.has(v))) { liveIn.set(b, nin); changed = true; }
     }
   }
+  // a write is dead only when it is dead in every block that holds it (a
+  // finally body is built twice, once per exit)
   const dead = [];
-  for (const b of blocks) transfer(b, outOf(b), (e) => dead.push(e));
-  return dead;
+  const liveWrites = new Set();
+  for (const b of blocks) transfer(b, outOf(b), (e, isDead) => { if (isDead) dead.push(e); else liveWrites.add(e.node); });
+  const seen = new Set();
+  return dead.filter((e) => !liveWrites.has(e.node) && !seen.has(e.node) && seen.add(e.node));
 }
 
 // ------------------------------------------------------------------ symbolic execution

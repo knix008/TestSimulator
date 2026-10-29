@@ -124,7 +124,13 @@ module.exports = [
       const x = U.ix(unit);
       const rep = (n, what, ko) => api.report(n, M(`${what} is not part of standard C++17.`, `${ko} 은(는) 표준 C++17 에 없습니다.`));
       const lines = new Set();
+      // A parse error is only a finding when the unit is self-contained: with a
+      // header that was not found (system, SDK or third-party), the unknown
+      // names it declares (templates such as `sp<T>`, types, macros) make our
+      // parser fail on code that is valid C++ (not a property of the code).
+      const selfContained = !U.incompleteUnit(unit);
       for (const d of unit.diagnostics) {
+        if (!selfContained) break;
         if (d.code !== 'parse-error' || U.isBuiltin(d.file) || lines.has(`${d.file}:${d.line}`)) continue;
         lines.add(`${d.file}:${d.line}`);
         api.report({ file: d.file, line: d.line, col: d.col }, M(`The code does not parse as C++: ${d.message}.`, `코드가 C++ 로 해석되지 않습니다: ${d.message}.`));
@@ -156,7 +162,9 @@ module.exports = [
       for (const n of x.get('GotoStmt')) if (n.computed) rep(n, 'A computed goto (GNU extension)', '계산된 goto (GNU 확장)');
       for (const n of x.get('AddrLabelExpr')) rep(n, 'The address of a label (GNU extension)', '레이블의 주소 (GNU 확장)');
       for (const n of x.get('Attribute')) if (n.syntax === 'gnu' || n.syntax === 'declspec') rep(n, `The attribute '${n.name}' (compiler extension)`, `속성 '${n.name}' (컴파일러 확장)`);
-      for (const n of x.get('VarDecl')) if (n.ctype && U.canon(n.ctype).kind === 'array' && U.canon(n.ctype).vla) rep(n, `The variable-length array '${n.name}'`, `가변 길이 배열 '${n.name}'`);
+      // A bound naming an unknown identifier (`MAX_PATH` from a header that was
+      // not found) is a constant the analysis cannot see, not a run-time size.
+      for (const n of x.get('VarDecl')) if (n.ctype && U.canon(n.ctype).kind === 'array' && U.canon(n.ctype).vla && !U.hasUnresolved(U.canon(n.ctype).sizeExpr)) rep(n,`The variable-length array '${n.name}'`, `가변 길이 배열 '${n.name}'`);
       for (const n of x.get('UnaryExpr')) if ((n.op === '++' || n.op === '--') && n.arg && U.numCat(n.arg.ctype, unit.target) === 'bool') rep(n, `'${n.op}' on a bool (removed in C++17)`, `bool 에 대한 '${n.op}' (C++17 에서 제거)`);
       for (const n of x.get('FunctionDeclarator')) if (n.throwSpec) rep(n, `The dynamic exception specification 'throw(${n.throwSpec})' (removed in C++17)`, `동적 예외 명세 'throw(${n.throwSpec})' (C++17 에서 제거)`);
       for (const n of x.get('NamedType', 'Identifier')) {

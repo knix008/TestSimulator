@@ -112,7 +112,9 @@ R('key-file-copied', 'V', 'CR', 20, ['cwe-798', 'secrets'],
   /^\s*(?:COPY|ADD)\b[^#\n]*(?:\bid_(?:rsa|dsa|ecdsa|ed25519)\b|\.pem\b|\.key\b|\.p12\b|\.pfx\b|\.env\b|\.npmrc\b|\.pypirc\b|credentials\b)/i,
   ['Key or credential file copied into the image', 'Anyone who pulls the image gets the key.', 'Mount it at build time with --mount=type=secret, or inject at run time.'],
   ['키나 자격 증명 파일을 이미지에 복사합니다', '이미지를 받는 누구나 키를 얻습니다.', '빌드 시 --mount=type=secret으로 마운트하거나 실행 시 주입하세요.'],
-  'COPY id_rsa /root/.ssh/id_rsa', 'COPY known_hosts /root/.ssh/known_hosts');
+  'COPY id_rsa /root/.ssh/id_rsa', ['COPY known_hosts /root/.ssh/known_hosts', 'COPY .env.example /app/.env.example'],
+  // Templates (.env.example) and CA / public certificates are not secrets.
+  { skip: (raw) => !/^\s*(?:COPY|ADD)\b[^#\n]*(?:\bid_(?:rsa|dsa|ecdsa|ed25519)\b(?!\.pub)|(?<!\b(?:ca|cacert|cert|certs?|chain|fullchain|bundle|public|pub|root-ca|ca-bundle))\.pem\b|\.key\b|\.p12\b|\.pfx\b|\.env\b(?!\.(?:example|sample|template|dist|defaults)\b)|\.npmrc\b|\.pypirc\b|credentials\b)/i.test(raw) });
 R('healthcheck-none', 'S', 'IN', 1, ['reliability'],
   /^\s*HEALTHCHECK\s+NONE\b/i,
   ['HEALTHCHECK NONE', 'Disabling the health check hides a hung container from the orchestrator.', 'Define a HEALTHCHECK that probes the service.'],

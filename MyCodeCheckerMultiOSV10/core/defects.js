@@ -6,6 +6,7 @@
 // (null, leak, use-after-free, dead code). Not a whole-program compiler.
 
 const crypto = require('crypto');
+const { classify } = require('./metrics');
 
 const IMPACT_OF = { BLOCKER: 'High', CRITICAL: 'High', MAJOR: 'Medium', MINOR: 'Low', INFO: 'Low' };
 const NULLISH = 'NULL|null|nullptr|nil|None';
@@ -455,22 +456,88 @@ function evaluatePolicy(policy, stats) {
   };
 }
 
+// Statements that leave the current block for good.
+const EXIT_RE = /^\s*(?:return|throw|break|continue|goto)\b|^\s*(?:exit|_exit|_Exit|abort|quick_exit|longjmp|siglongjmp)\s*\(/;
+const EXIT_ANY = /\b(?:return|throw|break|continue|goto)\b|\b(?:exit|_exit|_Exit|abort|quick_exit|longjmp|siglongjmp)\s*\(/;
+// Calls that only read a pointer argument: passing an allocation to them does
+// not hand it over. Any other call may take ownership (list_add, a setter...).
+const BORROWING = new Set(('printf fprintf sprintf snprintf vsnprintf vsprintf vfprintf vprintf dprintf puts fputs fputc putc fgets fgetc getc ungetc '
+  + 'fread fwrite fscanf sscanf vfscanf fseek fseeko ftell ftello rewind fflush feof ferror clearerr fileno setvbuf setbuf fgetpos fsetpos '
+  + 'memset memcpy memmove memcmp memchr strlen strnlen strcpy strncpy strlcpy strcat strncat strlcat strcmp strncmp strcasecmp strncasecmp '
+  + 'strchr strrchr strstr strpbrk strspn strcspn strtok strtok_r strdup strndup strtol strtoul strtoll strtoull strtod strtof atoi atol atoll atof '
+  + 'sprintf_s snprintf_s strcpy_s strncpy_s strcat_s memcpy_s memmove_s memset_s wcslen wcscpy wcsncpy wcscmp '
+  + 'assert sizeof if while for switch return').split(' '));
+
+// Is this (trimmed) line the head of a control statement whose body is the
+// next line, without braces: `if (x)`, `} else`, `for (...)`, `do`?
+function bracelessHead(prev) {
+  if (!prev) return false;
+  return /\)\s*$/.test(prev) || /^(?:\}\s*)?else$/.test(prev) || /^do$/.test(prev) || /:\s*$/.test(prev) && /^(?:if|elif|else|for|while|with|try|except)\b/.test(prev);
+}
+
+// The name of the call whose argument list holds position `at`, or ''.
+function calleeAt(code, at) {
+  let level = 0;
+  for (let j = at - 1; j >= 0; j--) {
+    const c = code[j];
+    if (c === ')') level++;
+    else if (c === '(') {
+      if (level > 0) { level--; continue; }
+      const m = code.slice(0, j).match(/([A-Za-z_]\w*)\s*$/);
+      return m ? m[1] : '';
+    }
+  }
+  return '';
+}
+
+// Does the allocation `name` leave the function's hands on this line:
+// stored somewhere, or passed to a call that may keep it?
+function escapes(code, name) {
+  const n = escRe(name);
+  if (new RegExp(`(?:^|[^=!<>])=\\s*(?:\\([^()]*\\)\\s*)?&?\\s*${n}\\s*(?:[;,)}]|$)`).test(code)) return true;
+  const re = new RegExp(`[(,]\\s*(?:\\([^()]*\\)\\s*)?${n}\\s*(?=[,)])`, 'g');
+  let m;
+  while ((m = re.exec(code))) {
+    const callee = calleeAt(code, m.index + 1);
+    if (callee && !BORROWING.has(callee)) return true;
+  }
+  return false;
+}
+
 function pathDefects(text, lang, file, options = {}) {
   const inactive = new Set(options.inactive || []);
   const lines = String(text || '').split(/\r?\n/);
   const findings = [];
   const enabled = (key) => !inactive.has(key) && allows(key, lang);
   const py = lang === 'py';
+  // C-like languages: comments (block comments too) removed up front.
+  const slash = !py && lang !== 'sh' && lang !== 'rb';
+  const stripped = slash ? classify(text, 'slash').code : null;
+  const cpp = lang === 'c' || lang === 'cpp' || lang === 'cs';
   let depth = 0;
   let fn = 'global';
   let fnLine = 1;
+  let fnEnd = 0;
+  // alloc: allocations into locals still owned here (RESOURCE_LEAK);
+  // nullable: allocator results not yet checked against null (NULL_RETURNS).
   const alloc = new Map();
-  const freed = new Set();
+  const nullable = new Map();
+  const locals = new Set();
+  // freed: name -> { depth, exits } — `exits` once the block that freed it
+  // was left by return / goto / break, so the code after the block runs on
+  // the other path, where the pointer was not freed.
+  const freed = new Map();
   const uninit = new Map();
   const guards = [];
   const nullArms = [];
   let locks = [];
   let returnDepth = -1;
+  let prev = '';
+  let directive = false;
+  // Brace depth of struct / class / union bodies: member declarations are
+  // not uninitialized locals.
+  const records = [];
+  let pendingRecord = false;
   // Brace depth of the enclosing namespace / extern "C" blocks: functions
   // defined directly inside them are top-level functions too.
   const nsStack = [];
@@ -485,7 +552,9 @@ function pathDefects(text, lang, file, options = {}) {
         ]));
       }
     }
-    if (enabled('defect:LOCK')) {
+    // A function named after locking (my_lock, LockQueue) takes the lock for
+    // its caller on purpose.
+    if (enabled('defect:LOCK') && !(/(?:^|_)(?:lock|acquire)|[a-z\d](?:Lock|Acquire)(?![a-z])|^(?:Lock|Acquire)/.test(fn) && !/unlock/i.test(fn))) {
       for (const lock of locks) {
         findings.push(found('defect:LOCK', atLine, { en: 'Lock is not released', ko: '잠금을 풀지 않습니다' }, [
           ev(lock, 'lock', { en: 'Lock acquired', ko: '잠금을 얻습니다' }),
@@ -494,6 +563,8 @@ function pathDefects(text, lang, file, options = {}) {
       }
     }
     alloc.clear();
+    nullable.clear();
+    locals.clear();
     freed.clear();
     uninit.clear();
     locks = [];
@@ -502,25 +573,60 @@ function pathDefects(text, lang, file, options = {}) {
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
-    const code = codeOf(raw, lang);
+    const withStrings = slash ? stripped[i] : codeOf(raw, lang);
+    // String contents are not code: "close(fd)" or "fd: %d" in a message.
+    const code = stripStrings(withStrings);
     if (py) depth = indentOf(raw);
-    guards.splice(0, guards.length, ...guards.filter((g) => depth >= g.depth));
-    for (let a = nullArms.length - 1; a >= 0; a--) {
-      if (depth < nullArms[a].depth || i > nullArms[a].limit) nullArms.splice(a, 1);
+    // Preprocessor lines (with their \ continuations): #else / #elif /
+    // #endif start another configuration, so a return above is not a reason
+    // to call the next line unreachable; the directives are not statements.
+    if (cpp && (directive || /^\s*#/.test(code))) {
+      directive = /\\\s*$/.test(withStrings);
+      returnDepth = -1;
+      continue;
     }
+    if (!code.trim()) continue;
+    const trimmed = code.trim();
+    const conditional = bracelessHead(prev);
+    prev = trimmed;
+    // A `{` alone on its line (Allman style) still belongs to the statement
+    // above: what that statement's condition established holds inside.
+    const allman = /^\{/.test(trimmed);
+    if (!allman) {
+      guards.splice(0, guards.length, ...guards.filter((g) => depth >= g.depth));
+      for (let a = nullArms.length - 1; a >= 0; a--) {
+        if (depth < nullArms[a].depth || i > nullArms[a].limit) nullArms.splice(a, 1);
+      }
+    }
+    for (const [name, f] of freed) if (f.exits && depth < f.depth) freed.delete(name);
+    while (records.length && depth < records[records.length - 1]) records.pop();
+    // An else branch (or the next case) runs instead of the branch above: what
+    // that branch assumed or freed does not hold here.
+    const caseLabel = /^\s*(case\b[^:]*|default\s*):/.test(code);
+    if (/^\s*(?:\}\s*)?else\b|^\s*(?:\}\s*)?(?:catch|except)\b/.test(code)) {
+      const outer = /^\s*\}/.test(code) ? depth - 1 : depth;
+      for (let a = nullArms.length - 1; a >= 0; a--) if (nullArms[a].depth > outer) nullArms.splice(a, 1);
+      for (const [name, f] of freed) if (f.depth > outer) freed.delete(name);
+    }
+    if (caseLabel) for (const [name, f] of freed) if (f.depth >= depth) freed.delete(name);
 
     while (nsStack.length && depth < nsStack[nsStack.length - 1]) nsStack.pop();
     if ((!py && depth === topDepth()) || (py && indentOf(raw) === 0)) {
       const sig = functionName(code);
       if (sig && sig !== fn) {
-        flush(Math.max(1, i));
+        flush(fnEnd > fnLine ? fnEnd : Math.max(1, i));
         fn = sig;
         fnLine = i + 1;
       }
     }
     if (returnDepth >= 0 && depth < returnDepth) returnDepth = -1;
-    // A case / default label starts a new reachable path.
-    if (/^\s*(case\b[^:]*|default\s*):/.test(code)) returnDepth = -1;
+    // A case / default label, or a goto label, starts a new reachable path.
+    if (caseLabel || /^\s*[A-Za-z_]\w*\s*:(?!:)/.test(code)) returnDepth = -1;
+    // `} else {`, `} catch (e) {`: the other branch is reachable.
+    if (/^\s*\}\s*(?:else|catch|finally|except)\b/.test(code)) returnDepth = -1;
+    // A nested function (hoisted JS function, C# local function) is not a
+    // statement that runs after the return.
+    if (returnDepth >= 0 && functionName(code)) returnDepth = -1;
     if (enabled('defect:UNREACHABLE') && returnDepth >= 0 && depth >= returnDepth && code.trim() && !/^\s*[{}]/.test(code) && !/^\s*(else|catch|finally|case|default)\b/.test(code)) {
       findings.push(found('defect:UNREACHABLE', i + 1, { en: 'This statement is unreachable', ko: '이 문장에는 도달하지 않습니다' }, [
         ev(Math.max(1, i), 'path', { en: 'Returned above this block', ko: '이 블록 위에서 이미 반환했습니다' }),
@@ -532,45 +638,75 @@ function pathDefects(text, lang, file, options = {}) {
     const positive = positiveGuard(code);
     if (positive) guards.push({ name: positive, depth: depth + 1 });
     const negative = negativeGuard(code);
+    // `if (!p) return;` or `if (p == NULL) { ...; return; }`: the rest of
+    // the block runs only with p not null.
+    const tested = nullTests(code);
+    if (tested && EXIT_ANY.test(tested.rest)) for (const name of tested.names) guards.push({ name, depth });
+    const asserted = code.match(/^\s*\w*assert\w*\s*\(\s*([A-Za-z_]\w*)\s*(?:!=\s*(?:NULL|nullptr|0)\s*)?[)&]/i);
+    if (asserted) guards.push({ name: asserted[1], depth });
     if (negative && enabled('defect:FORWARD_NULL')) {
       const after = code.replace(/^[\s\S]*\)/, '');
-      if (derefs(after, negative) && !/^\s*(return|throw|break|continue)\b/.test(after)) {
+      if (derefs(after, negative) && !EXIT_RE.test(after)) {
         findings.push(found('defect:FORWARD_NULL', i + 1, { en: `${negative} is null on this path`, ko: `이 경로에서 ${negative}은 널입니다` }, [
           ev(i + 1, 'branch', { en: `Assuming ${negative} is null`, ko: `${negative}이 널이라고 가정합니다` }),
           ev(i + 1, 'deref', { en: `${negative} is dereferenced`, ko: `${negative}을 역참조합니다` }, true),
         ]));
       } else {
-        nullArms.push({ name: negative, depth: depth + 1, line: i + 1, limit: i + 12 });
+        nullArms.push({ name: negative, depth: depth + 1, line: i + 1, limit: i + 12, report: true });
       }
     }
-    if (/^\s*(return|throw)\b/.test(code) && !/\bif\b/.test(code)) {
+    // `if (!a || !b) {`: neither is known to be null inside, but when the
+    // block exits, both are non-null after it.
+    if (tested && !EXIT_ANY.test(tested.rest)) {
+      for (const name of tested.names) if (!(name === negative && enabled('defect:FORWARD_NULL'))) nullArms.push({ name, depth: depth + 1, line: i + 1, limit: i + 12, report: false });
+    }
+    // Only what follows `return` is returned: in `if (!p) return -1;` p is
+    // tested, not handed to the caller.
+    const retAt = code.search(/\breturn\b/);
+    if (retAt >= 0) {
+      const returned = code.slice(retAt + 6);
       for (const name of [...alloc.keys()]) {
-        if (new RegExp(`\\b${escRe(name)}\\b`).test(code)) alloc.delete(name);
+        if (new RegExp(`\\b${escRe(name)}\\b`).test(returned)) alloc.delete(name);
       }
+    }
+    // A return that is the body of a brace-less if / else / loop above is
+    // conditional: the next line still runs on the other path.
+    if (/^\s*(return|throw)\b/.test(code) && !/\bif\b/.test(code) && !conditional) {
       if (/;\s*$/.test(code.trim()) || py) returnDepth = depth;
-    } else if (/\breturn\b/.test(code)) {
-      for (const name of [...alloc.keys()]) {
-        if (new RegExp(`\\b${escRe(name)}\\b`).test(code)) alloc.delete(name);
-      }
     }
+    // Leaving the block that freed a pointer: the code after it runs on the
+    // other path.
+    if (EXIT_ANY.test(code) && !conditional && !/^\s*(?:\}\s*)?(?:if|else|for|while|switch|do)\b/.test(code)) for (const f of freed.values()) if (f.depth === depth) f.exits = true;
 
-    seeAlloc(code, i + 1, alloc, lang, options.models);
-    if (depth > topDepth()) seeUninit(code, i + 1, uninit, lang);
+    if (depth > topDepth() && (lang === 'c' || lang === 'cpp')) seeLocals(code, locals);
+    for (const name of [...alloc.keys()]) if (alloc.get(name) !== i + 1 && escapes(code, name)) alloc.delete(name);
+    for (const name of [...nullable.keys()]) if (assigns(code, name)) nullable.delete(name);
+    seeAlloc(code, i + 1, alloc, nullable, locals, lang, options.models);
+    if (depth > topDepth() && !(records.length && depth >= records[records.length - 1])) seeUninit(code, i + 1, uninit, lang);
     const freeName = freeCall(code);
     if (freeName) {
       if (freed.has(freeName) && enabled('defect:DOUBLE_FREE')) {
         findings.push(found('defect:DOUBLE_FREE', i + 1, { en: `${freeName} is freed twice`, ko: `${freeName}을 두 번 해제합니다` }, [
+          ev(freed.get(freeName).line, 'free', { en: 'First free', ko: '첫 번째 해제' }),
           ev(i + 1, 'main', { en: 'Second free', ko: '두 번째 해제' }, true),
         ]));
       }
-      freed.add(freeName);
+      // A free in a one-line `if (c) { free(p); return; }` belongs to the
+      // branch, not to the enclosing block.
+      const inBranch = conditional || /^\s*(?:\}\s*)?(?:if|else|for|while)\b/.test(code);
+      const rest = code.slice(code.search(/\b(?:free|fclose|close|delete)\b/));
+      freed.set(freeName, { depth: inBranch ? depth + 1 : depth, line: i + 1, exits: EXIT_ANY.test(rest) });
       alloc.delete(freeName);
+      nullable.delete(freeName);
       uninit.delete(freeName);
     }
-    if (/pthread_mutex_lock\s*\(|\.lock\s*\(\s*\)/.test(code) && !/unlock/.test(code)) locks.push(i + 1);
+    // `free(p); p = NULL;` or a new value: p is no longer the freed pointer.
+    for (const name of [...freed.keys()]) if (assigns(code, name)) freed.delete(name);
+    // Mutex calls, and `x.lock();` as a statement (not `sp = weak.lock()`).
+    if (/pthread_mutex_lock\s*\(|^\s*[\w.\->]+\.lock\s*\(\s*\)\s*;/.test(code) && !/unlock/.test(code)) locks.push(i + 1);
     if (/pthread_mutex_unlock\s*\(|\.unlock\s*\(\s*\)/.test(code)) locks.pop();
 
-    if (enabled('defect:DIVIDE_BY_ZERO') && /\/\s*0(?:\.0+)?\b/.test(stripStrings(code)) && !/^\s*\/[/*]/.test(code)) {
+    if (enabled('defect:DIVIDE_BY_ZERO') && /\/\s*0(?:\.0+)?(?![.\w])(?!\s*\/)/.test(stripStrings(code)) && !/^\s*\/[/*]/.test(code)) {
       findings.push(found('defect:DIVIDE_BY_ZERO', i + 1, { en: 'Divisor is zero', ko: '나누는 값이 0입니다' }, [
         ev(i + 1, 'main', { en: 'Division by zero', ko: '0으로 나눔' }, true),
       ]));
@@ -583,11 +719,12 @@ function pathDefects(text, lang, file, options = {}) {
 
     for (const arm of nullArms) {
       if (arm.fired || i + 1 === arm.line) continue;
-      if (assigns(code, arm.name) || /^\s*(return|throw|break|continue)\b/.test(code)) {
+      if (assigns(code, arm.name) || EXIT_RE.test(code)) {
         arm.fired = true;
+        if (EXIT_RE.test(code) && depth === arm.depth) guards.push({ name: arm.name, depth: arm.depth - 1 });
         continue;
       }
-      if (derefs(code, arm.name)) {
+      if (arm.report && derefs(code, arm.name)) {
         arm.fired = true;
         findings.push(found('defect:FORWARD_NULL', i + 1, { en: `${arm.name} is null on this path`, ko: `이 경로에서 ${arm.name}은 널입니다` }, [
           ev(arm.line, 'branch', { en: `Assuming ${arm.name} is null`, ko: `${arm.name}이 널이라고 가정합니다` }),
@@ -597,7 +734,7 @@ function pathDefects(text, lang, file, options = {}) {
     }
 
     if (enabled('defect:USE_AFTER_FREE')) {
-      for (const name of freed) {
+      for (const name of freed.keys()) {
         if (!uses(code, name) || freeCall(code) === name) continue;
         findings.push(found('defect:USE_AFTER_FREE', i + 1, { en: `${name} is used after it was freed`, ko: `해제한 ${name}을 사용합니다` }, [
           ev(i + 1, 'main', { en: 'Use after free', ko: '해제한 뒤 사용' }, true),
@@ -608,13 +745,16 @@ function pathDefects(text, lang, file, options = {}) {
     }
 
     if (enabled('defect:NULL_RETURNS')) {
-      for (const [name] of alloc) {
+      for (const [name] of nullable) {
         if (!derefs(code, name)) continue;
         const guarded = positive === name || guards.some((g) => g.name === name && depth >= g.depth);
         if (guarded) continue;
-        if (alloc.get(name) === i + 1 && !derefs(code.split('=').slice(1).join('='), name)) continue;
+        if (nullable.get(name) === i + 1 && !derefs(code.split('=').slice(1).join('='), name)) continue;
+        // Checked on the line itself: `p && p->n`, `!p || p->n`, `p ? p->n : 0`.
+        const n = escRe(name);
+        if (new RegExp(`\\b${n}\\s*(?:!=\\s*(?:NULL|nullptr|0)\\s*)?(?:&&|\\?)|(?:!\\s*${n}|\\b${n}\\s*==\\s*(?:NULL|nullptr|0))\\s*\\|\\|`).test(code)) continue;
         findings.push(found('defect:NULL_RETURNS', i + 1, { en: `${name} may be null`, ko: `${name}이 널일 수 있습니다` }, [
-          ev(alloc.get(name), 'alloc', { en: `${name} comes from an allocator`, ko: `${name}은 할당 결과입니다` }),
+          ev(nullable.get(name), 'alloc', { en: `${name} comes from an allocator`, ko: `${name}은 할당 결과입니다` }),
           ev(i + 1, 'deref', { en: 'Dereferenced without a null check', ko: '널 확인 없이 역참조합니다' }, true),
         ]));
         guards.push({ name, depth: 0 });
@@ -637,11 +777,18 @@ function pathDefects(text, lang, file, options = {}) {
       }
     }
 
-    applyModels(code, i + 1, options.models, lang, findings);
+    applyModels(withStrings, i + 1, options.models, lang, findings);
     if (!py) {
       const opensScope = /^\s*(?:inline\s+)?namespace\b[^;{]*\{|^\s*extern\s+"C(?:\+\+)?"\s*\{/.test(code);
-      depth = Math.max(0, depth + count(code, '{') - count(code, '}'));
+      const braces = stripStrings(code);
+      const before = depth;
+      depth = Math.max(0, depth + count(braces, '{') - count(braces, '}'));
       if (opensScope) nsStack.push(depth);
+      if (/^\s*(?:typedef\s+)?(?:struct|class|union)\b[^;()=]*$/.test(code)) pendingRecord = true;
+      if (pendingRecord && depth > before) { records.push(before + 1); pendingRecord = false; } else if (/;\s*$/.test(code)) pendingRecord = false;
+      // The function body closed: report what it left open and forget its
+      // state, even when the next signature spans several lines.
+      if (before > topDepth() && depth <= topDepth()) { flush(i + 1); fnEnd = i + 1; }
     }
     if (!py && depth === 0 && i > fnLine) {
       /* function body ended on this line if it closed the last brace */
@@ -740,15 +887,57 @@ function negativeGuard(code) {
   return '';
 }
 
-function seeAlloc(code, line, alloc, lang, models) {
+// Allocations: every target may be null (nullable); only a pointer local to
+// the function is owned by it (alloc) — a global, a field or `*out` keeps the
+// memory alive after the function returns.
+// `if (!a || b == NULL || !c) <rest>`: the names tested for null when every
+// term of the condition is such a test, and the text after the condition.
+function nullTests(code) {
+  const m = code.match(/\bif\s*\(/);
+  if (!m) return null;
+  const open = m.index + m[0].length;
+  let level = 1;
+  let j = open;
+  for (; j < code.length && level; j++) {
+    if (code[j] === '(') level++;
+    else if (code[j] === ')') level--;
+  }
+  if (level) return null;
+  const names = [];
+  for (const term of code.slice(open, j - 1).split('||')) {
+    const t = term.trim().replace(/^\((.*)\)$/, '$1').trim();
+    const x = t.match(new RegExp(`^!\\s*([A-Za-z_]\\w*)$|^([A-Za-z_]\\w*)\\s*===?\\s*(?:${NULLISH}|0)$|^(?:${NULLISH}|0)\\s*===?\\s*([A-Za-z_]\\w*)$`));
+    if (!x) return null;
+    names.push(x[1] || x[2] || x[3]);
+  }
+  return { names, rest: code.slice(j) };
+}
+
+function seeAlloc(code, line, alloc, nullable, locals, lang, models) {
+  const take = (name) => {
+    nullable.set(name, line);
+    if (locals.has(name)) alloc.set(name, line);
+  };
   if (lang === 'c' || lang === 'cpp') {
-    const m = code.match(/\b([A-Za-z_]\w*)\s*=\s*(?:\(\s*[\w\s*]+\s*\)\s*)?(malloc|calloc|realloc|strdup|fopen)\s*\(/);
-    if (m) alloc.set(m[1], line);
+    const m = code.match(/(?<!(?:->|\.)\s*)\b([A-Za-z_]\w*)\s*=\s*(?:\(\s*[\w\s*]+\s*\)\s*)?(malloc|calloc|realloc|strdup|fopen)\s*\(/);
+    if (m) take(m[1]);
   }
   for (const model of compileModels(models)) {
     if (model.kind !== 'allocator' || !model.re.test(code)) continue;
-    const m = code.match(/\b([A-Za-z_]\w*)\s*=/);
-    if (m) alloc.set(m[1], line);
+    const m = code.match(/(?<!(?:->|\.)\s*)\b([A-Za-z_]\w*)\s*=/);
+    if (m) take(m[1]);
+  }
+}
+
+// Pointer locals declared on this line (`char *p`, `FILE *f = ...`, `auto p =`).
+// Static locals outlive the call.
+function seeLocals(code, locals) {
+  if (/\bstatic\b/.test(code)) return;
+  const re = /(?:^|[;{(])\s*(?:(?:const|volatile|struct|union|enum|unsigned|signed|register)\s+)*([A-Za-z_][\w:]*)(?:\s*<[^;=()]*>)?(\s*\*+\s*|\s+)(?:const\s+)?([A-Za-z_]\w*)\s*(?=[=;,[)])/g;
+  let m;
+  while ((m = re.exec(code))) {
+    if (/^(return|else|case|goto|sizeof|delete|throw|new)$/.test(m[1])) continue;
+    if (m[2].includes('*') || m[1] === 'auto') locals.add(m[3]);
   }
 }
 
@@ -765,19 +954,26 @@ function freeCall(code) {
   return m ? m[1] : '';
 }
 
+// sizeof does not evaluate its operand: `malloc(sizeof *p)` reads nothing.
+function noSizeof(code) {
+  return String(code).replace(/\bsizeof\s*\((?:[^()]|\([^()]*\))*\)|\bsizeof\s+[*&\s]*[A-Za-z_]\w*(?:\s*(?:->|\.)\s*[A-Za-z_]\w*)*/g, 'sizeof(_)');
+}
+
 function derefs(code, name) {
   const n = escRe(name);
-  return new RegExp(`\\*\\s*${n}\\b|\\b${n}\\s*->|\\b${n}\\s*\\.\\s*[A-Za-z_]|\\b${n}\\s*\\[`).test(code);
+  // `*p` is a dereference, `a * p` a multiplication.
+  return new RegExp(`(?:(?<![\\w)\\]]\\s*)|(?<=\\breturn\\s*))\\*\\s*${n}\\b|(?<!(?:->|\\.)\\s*)\\b${n}\\s*->|(?<!(?:->|\\.)\\s*)\\b${n}\\s*\\.\\s*[A-Za-z_]|(?<!(?:->|\\.)\\s*)\\b${n}\\s*\\[`).test(noSizeof(code));
 }
 
 function assigns(code, name) {
   return new RegExp(`(^|[^\\w.*>-])${escRe(name)}\\s*=[^=]`).test(code);
 }
 
+// A read of the variable itself: `s.len` / `s->len` name a member, not `len`.
 function uses(code, name) {
   if (derefs(code, name)) return true;
   if (assigns(code, name)) return false;
-  return new RegExp(`\\b${escRe(name)}\\b`).test(code);
+  return new RegExp(`(?<!(?:->|\\.)\\s*)\\b${escRe(name)}\\b`).test(noSizeof(code));
 }
 
 function applyModels(code, line, models, lang, findings) {

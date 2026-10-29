@@ -70,6 +70,63 @@ export function portOf(cfg: Config | undefined): number {
 }
 `,
     },
+    {
+      bad: `
+function open(p) {
+  let v = null;
+  try {
+    if (p.ok) v = p.value;
+  } finally {
+    p.close();
+  }
+  return v.length; // Noncompliant
+}
+function warnOnly(t) {
+  let prm;
+  if (t.id) prm = { name: t.v };
+  else t.warn('bad parameter');
+  return prm.name; // Noncompliant
+}
+open({}); warnOnly({});
+`,
+      good: `
+// a throw inside try leaves through finally: the read after the try is not reached
+function parseSuffix(p) {
+  let pl;
+  try {
+    pl = p.parseParamList();
+  } finally {
+    p.popScope();
+  }
+  return pl.params;
+}
+// this.fail() and die() always throw
+class Parser {
+  fail(msg) {
+    const e = new Error(msg);
+    e.pos = this.i;
+    throw e;
+  }
+  type(opts) {
+    let t;
+    if (this.isId()) t = this.node('Type');
+    else this.fail('expected type');
+    t.nullable = opts.nullable;
+    return t;
+  }
+}
+function die(msg) {
+  throw new Error(msg);
+}
+function param(t) {
+  let prm;
+  if (t.id) prm = { name: t.v };
+  else die('bad parameter');
+  return prm.name;
+}
+parseSuffix({}); new Parser().type({}); param({});
+`,
+    },
   ],
 
   'unreachable-branch': {
@@ -208,6 +265,32 @@ counter();
 }
 `,
     },
+    {
+      path: 'src/Flag.jsx',
+      bad: `import { FLAGS } from './flags';
+export function Flag({ lang }) {
+  let Icon = FLAGS[0].Icon; // Noncompliant
+  Icon = FLAGS[1].Icon;
+  return <Icon lang={lang} />;
+}
+`,
+      good: `import { FLAGS } from './flags';
+// <Icon /> reads Icon
+export function Flag({ lang, ...rest }) {
+  const Icon = (FLAGS.find((f) => f.lang === lang) || FLAGS[0]).Icon;
+  return <Icon {...rest} />;
+}
+export function Finally(p) {
+  let state = 'start';
+  try {
+    state = p.run();
+  } finally {
+    p.done(state);
+  }
+  return state;
+}
+`,
+    },
   ],
 
   'unreachable-code': {
@@ -269,6 +352,28 @@ function scan(list) {
 check(1);
 choose(0);
 scan([]);
+// the statement after a call that always throws is not reported
+class Reader {
+  fail(msg) { throw new Error(msg); }
+  next() {
+    if (this.ok) return 1;
+    this.fail('eof');
+    return null;
+  }
+}
+new Reader().next();
+class Ev {
+  fail(m) { throw new Error(m); }
+  op(o, a, b) {
+    switch (o) {
+      case '+': return a + b;
+      case '-': return a - b;
+      default: this.fail('op ' + o);
+    }
+    return 0;
+  }
+}
+new Ev().op('+', 1, 2);
 `,
   },
 

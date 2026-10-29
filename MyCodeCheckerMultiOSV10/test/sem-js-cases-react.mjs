@@ -150,6 +150,39 @@ export function useCounter(start: number, enabled: boolean) {
 }
 `,
     },
+    {
+      path: 'src/Panel.jsx',
+      bad: `import { useContext, createContext } from 'react';
+const Ctx = createContext({ on: false });
+export function useOn(skip) {
+  if (skip) return false;
+  return useContext(Ctx).on; // Noncompliant
+}
+`,
+      good: `import { useContext, createContext } from 'react';
+const Ctx = createContext({ on: false });
+// the hook sits in the return statement itself, not after an early return
+export function useOn() {
+  return !!useContext(Ctx).on;
+}
+`,
+    },
+    {
+      path: 'src/check.js',
+      bad: `import { useMemo } from 'react';
+export function check(u) {
+  return useMemo(() => u, [u]); // Noncompliant
+}
+`,
+      good: `// no React here: X.useKind() is an ordinary method
+const X = require('./uses');
+function check(u) {
+  const k = X.useKind(u);
+  return k === 'write';
+}
+module.exports = { check };
+`,
+    },
   ],
 
   'state-mutation': {

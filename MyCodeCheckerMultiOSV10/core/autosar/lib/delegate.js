@@ -4,7 +4,7 @@
 // The MISRA rule pack is reused read-only: the AUTOSAR rule runs the MISRA
 // rule's check with its own api, so findings carry the AUTOSAR key.
 //
-//   D('A5-2-4', ['8.2.5'], { cat, enf, name, why, fix, ... })
+//   D('A5-2-4', ['8.2.5'], { cat, enf, name, why, fix, only, ... })
 //
 // Name / explanation default to the MISRA rule's own (project-written) texts.
 
@@ -45,8 +45,11 @@ function D(id, misraIds, over = {}) {
     why: over.why || first.why,
     fix: over.fix || first.fix,
   };
-  if (checks.length) spec.check = (unit, api) => { for (const r of checks) r.check(unit, api); };
-  if (projects.length) spec.project = (project, api) => { for (const r of projects) r.project(project, api); };
+  // over.only(message): keep only the findings of the MISRA rule that this
+  // AUTOSAR rule covers (when the MISRA rule checks more than one thing)
+  const wrap = over.only ? (api) => ({ ...api, report: (where, message, extra) => (over.only(message || {}) ? api.report(where, message, extra) : undefined) }) : (api) => api;
+  if (checks.length) spec.check = (unit, api) => { const a = wrap(api); for (const r of checks) r.check(unit, a); };
+  if (projects.length) spec.project = (project, api) => { const a = wrap(api); for (const r of projects) r.project(project, a); };
   const rule = A(spec);
   rule.meta.delegates = misraIds.map((m) => `misra-cpp:${m}`);
   return rule;

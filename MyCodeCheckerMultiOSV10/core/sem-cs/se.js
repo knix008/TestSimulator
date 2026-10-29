@@ -1116,6 +1116,17 @@ class FnSE {
     return out;
   }
 
+  neverReturns(e, name, tdot) {
+    if ((name === 'Exit' || name === 'FailFast') && (tdot === 'Environment' || tdot === 'System.Environment')) return true;
+    const ms = T.resolveCall(e, this.project);
+    if (!ms || ms.length !== 1 || !ms[0].node) return false;
+    const m = ms[0].node;
+    if ((m.attrs || []).some((a) => a.name === 'DoesNotReturn' || a.name === 'System.Diagnostics.CodeAnalysis.DoesNotReturn')) return true;
+    if (m.mods && (m.mods.has('virtual') || m.mods.has('abstract'))) return false;
+    if (m.exprBody) return unparen(m.exprBody).k === 'ThrowExpr';
+    return !!(m.body && m.body.stmts.length === 1 && m.body.stmts[0].k === 'Throw');
+  }
+
   applyCall(e, name, qual, tdot, ro, s, vs) {
     const args = e.args;
     const recv = ro.v;
@@ -1138,6 +1149,9 @@ class FnSE {
       const st = this.learn(s, vs[0], { b: true });
       return st ? [{ s: st, v: this.fresh(st, null)[1] }] : [];
     }
+    // calls that never return end the path: Environment.Exit / FailFast, and project
+    // methods marked [DoesNotReturn] or whose body only throws (throw helpers)
+    if (this.neverReturns(e, name, tdot)) return [];
     let st = s;
     // ---- receiver state changes
     if (recv != null && !ro.isType) {

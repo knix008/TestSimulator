@@ -662,6 +662,16 @@ R('goto-statement', 'S907', 'S', 'MA', 10, ['brain-overload'],
   ['"goto" 문을 쓰면 안 됩니다', 'goto는 제어 흐름을 따라가기 어렵게 합니다.', '구조적 반복, break, return을 쓰세요.'],
   { kinds: { Goto(n, cx) { if (n.kind === 'label') cx.report(n, `Remove this use of 'goto'.`, `'goto' 사용을 지우세요.`); } } });
 
+function conditionalChain(e) {
+  for (let x = e; x; ) {
+    x = unparen(x);
+    if (!x) return false;
+    if (x.k === 'Member') { if (x.cond) return true; x = x.expr; continue; }
+    if (x.k === 'Invocation' || x.k === 'Element') { if (x.cond) return true; x = x.expr; continue; }
+    return false;
+  }
+  return false;
+}
 R('redundant-boolean-literal', 'S1125', 'S', 'MI', 5, ['clumsy'],
   ['Boolean literals should not be redundant', 'Comparing with true/false or returning true/false from a ternary adds noise.', 'Simplify: use the condition itself or its negation.'],
   ['불리언 리터럴이 불필요하면 안 됩니다', 'true/false와 비교하거나 삼항식에서 true/false를 돌려주는 것은 잡음입니다.', '조건 자체나 부정을 쓰도록 단순하게 고치세요.'],
@@ -676,6 +686,8 @@ R('redundant-boolean-literal', 'S1125', 'S', 'MI', 5, ['clumsy'],
         const t = T.typeOf(other, cx.project);
         if (!t || t.name !== 'bool' || t.nullable) return;
         if (other.k === 'Member' && other.cond) return;
+        // `a?.B().C() == true`: a ?. anywhere in the receiver chain makes the result bool?
+        if (conditionalChain(other)) return;
       }
       cx.report(n, 'Remove the unnecessary Boolean literal(s).', '불필요한 불리언 리터럴을 지우세요.');
     },

@@ -16,6 +16,36 @@ function fnTypeOfCallee(call) {
   return c.kind === 'function' ? c : null;
 }
 
+// C++ <cmath> overloads the math functions for float and long double, but the
+// front end only declares the double versions: a call such as std::cos(f)
+// with a float argument is typed double here although it is float. Such
+// calls make the operand types of the surrounding expression unreliable.
+const MATH = new Set(['acos', 'asin', 'atan', 'atan2', 'cos', 'sin', 'tan', 'acosh', 'asinh', 'atanh', 'cosh', 'sinh', 'tanh',
+  'exp', 'exp2', 'expm1', 'frexp', 'ldexp', 'log', 'log10', 'log1p', 'log2', 'logb', 'modf', 'scalbn', 'scalbln', 'ilogb',
+  'pow', 'sqrt', 'cbrt', 'hypot', 'erf', 'erfc', 'tgamma', 'lgamma', 'ceil', 'floor', 'fmod', 'trunc', 'round', 'lround',
+  'llround', 'nearbyint', 'rint', 'lrint', 'llrint', 'remainder', 'remquo', 'copysign', 'nextafter', 'nexttoward', 'fdim',
+  'fmax', 'fmin', 'fma', 'fabs', 'abs']);
+function mathOverload(call) {
+  const cn = U.callName(call);
+  if (!cn || cn.member || (cn.qualifier && cn.qualifier !== 'std') || !MATH.has(cn.name)) return false;
+  const s = call.calleeSymbol || cn.node.symbol;
+  if (s && !s.system) return false; // a project function of that name
+  return (call.args || []).some((a) => {
+    const c = a && a.ctype ? U.nonRef(a.ctype) : null;
+    return !!(c && c.kind === 'float' && c.name !== 'double');
+  });
+}
+function hasMathOverload(e) {
+  if (!e) return false;
+  let found = false;
+  U.cf.walk(e, (n) => {
+    if (n.type === 'LambdaExpr') return U.cf.walk.SKIP;
+    if (n.type === 'CallExpr' && mathOverload(n)) { found = true; return U.cf.walk.STOP; }
+    return undefined;
+  });
+  return found;
+}
+
 // [{ src: Expr, dst: Type, node, ctx: 'assign'|'init'|'arg'|'return', name }]
 function conversions(unit) {
   return U.memo(unit, 'conversions', () => {
@@ -38,7 +68,7 @@ function conversions(unit) {
     }
     for (const c of x.get('CallExpr')) {
       const ft = fnTypeOfCallee(c);
-      if (!ft) continue;
+      if (!ft || mathOverload(c)) continue;
       (c.args || []).forEach((arg, i) => {
         const pt = ft.params[i];
         if (!pt || !arg || arg.type === 'InitList' || arg.type === 'PackExpansion') return;
@@ -52,7 +82,7 @@ function conversions(unit) {
       if (U.unknownT(rt) || U.canon(rt).kind === 'reference' || U.canon(rt).kind === 'record') continue;
       out.push({ src: r.arg, dst: rt, node: r, ctx: 'return', name: 'return value' });
     }
-    return out;
+    return out.filter((c) => !hasMathOverload(c.src));
   });
 }
 
@@ -95,16 +125,16 @@ function binops(unit) {
     };
     for (const b of x.get('BinaryExpr')) {
       if (b.op === ',' || b.op === '&&' || b.op === '||' || b.op === '.*' || b.op === '->*') continue;
-      if (!builtin(b.left) || !builtin(b.right)) continue;
+      if (!builtin(b.left) || !builtin(b.right) || hasMathOverload(b.left) || hasMathOverload(b.right)) continue;
       out.push({ node: b, op: b.op, l: b.left, r: b.right, compound: false });
     }
     for (const a of x.get('AssignExpr')) {
       const op = COMPOUND[a.op];
-      if (!op || !builtin(a.left) || !builtin(a.right)) continue;
+      if (!op || !builtin(a.left) || !builtin(a.right) || hasMathOverload(a.right)) continue;
       out.push({ node: a, op, l: a.left, r: a.right, compound: true });
     }
     return out;
   });
 }
 
-module.exports = { conversions, srcType, boolContexts, binops, fnTypeOfCallee, ARITH_OPS, BIT_OPS, SHIFT_OPS, REL_OPS, EQ_OPS };
+module.exports = { mathOverload, hasMathOverload, conversions, srcType, boolContexts, binops, fnTypeOfCallee, ARITH_OPS, BIT_OPS, SHIFT_OPS, REL_OPS, EQ_OPS };

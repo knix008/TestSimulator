@@ -11,6 +11,25 @@ const { cf } = U;
 const fundamental = (t) => { const c = t ? U.canon(t) : null; return !!(c && (c.kind === 'int' || c.kind === 'float' || c.kind === 'enum' || c.kind === 'pointer' || c.kind === 'nullptr')); };
 const isRef = (t) => { const c = t ? U.canon(t) : null; return c && c.kind === 'reference' ? c : null; };
 
+// Standard classes with a std::initializer_list constructor.
+const STD_INIT_LIST = new Set(['vector', 'deque', 'list', 'forward_list', 'set', 'multiset', 'map', 'multimap',
+  'unordered_set', 'unordered_multiset', 'unordered_map', 'unordered_multimap', 'basic_string', 'string', 'wstring',
+  'u16string', 'u32string', 'u8string', 'valarray', 'priority_queue', 'queue', 'stack']);
+
+// The declared class of `v` has a constructor taking a std::initializer_list.
+function hasInitListCtor(ts, v) {
+  if (STD_INIT_LIST.has(U.stdTemplate(ts))) return true;
+  const rec = U.recordOf(v.ctype);
+  if (!rec || U.canon(v.ctype).kind !== 'record') return false;
+  return U.methods(rec).some((m) => {
+    const f = m.node;
+    if (!(f.isConstructor || f.name === (rec.name || '').split('::').pop())) return false;
+    const p = (f.params || [])[0];
+    const pts = p && p.specs && p.specs.typeSpec;
+    return !!(pts && pts.type === 'NamedType' && /(^|::)initializer_list$/.test(pts.qname || pts.name || ''));
+  });
+}
+
 // Parameters of function definitions (not lambdas): [{ p, fn }]
 function defParams(unit) {
   return U.memo(unit, 'autosar.defParams', () => {
@@ -184,6 +203,7 @@ module.exports = [
     why: ['Brace initialization forbids narrowing conversions and avoids the most vexing parse.', '중괄호 초기화는 좁히는 변환을 막고 가장 성가신 구문 분석(most vexing parse)을 피합니다.'],
     fix: ['Write T x{value}; instead of T x = value; or T x(value);.', 'T x = value; 나 T x(value); 대신 T x{value}; 로 쓰세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       for (const v of U.ix(unit).get('VarDecl')) {
         if (!v.init || v.initStyle === 'brace' || !v.initStyle) continue;
         const ts = v.specs && v.specs.typeSpec;
@@ -191,6 +211,10 @@ module.exports = [
         const decl = U.parent(v);
         const owner = decl && U.parent(decl);
         if (owner && owner.type === 'RangeForStmt') continue;
+        // Exception of the rule: a class with a std::initializer_list
+        // constructor, where braces would call that constructor instead
+        // (std::vector<int> v(3, 0); std::string s(n, ' ');)
+        if (v.initStyle === 'paren' && hasInitListCtor(ts, v)) continue;
         api.report(U.at(v), M(`'${v.name}' is initialized with ${v.initStyle === 'paren' ? 'parentheses' : 'an equals sign'} instead of braces.`, `'${v.name}' 을(를) 중괄호 대신 ${v.initStyle === 'paren' ? '괄호' : '등호'}로 초기화합니다.`));
       }
     },

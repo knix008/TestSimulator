@@ -391,6 +391,19 @@ rule({
 });
 
 // ── concurrency ──
+
+// A call that can be Object.wait(long[, int]) / notify() / notifyAll(): not
+// one with a non-numeric argument, nor a method of a project class.
+function monitorCall(n, cx) {
+  for (const a of n.args) {
+    const t = cx.typeOf(a);
+    if (A.isStrLit(A.strip(a)) || (t && !/^(long|int|short|byte|char|Long|Integer|Short|Byte)$/.test(t))) return false;
+  }
+  const info = n.o ? (cx.typeOf(n.o) ? cx.proj.info(cx.typeOf(n.o).replace(/\?$/, '')) : null) : cx.clsInfo;
+  if (info && cx.proj.findMethods(info, n.id).some((m) => (m.params || []).length === n.args.length)) return false;
+  return true;
+}
+
 rule({
   id: 'wait-notify-outside-sync', type: 'B', sev: 'MA', debt: 20, tags: ['multi-threading'], ref: 'S2273',
   en: ['"wait", "notify" and "notifyAll" should only be called when a lock is obviously held', 'Calling these without holding the monitor throws IllegalMonitorStateException.', 'Call them inside a synchronized block on the same object.'],
@@ -401,6 +414,7 @@ rule({
       if (!/^(wait|notify|notifyAll)$/.test(n.id || '')) return;
       if (n.id === 'wait' ? n.args.length > 2 : n.args.length) return;
       if (n.o && (cx.typeOf(n.o) === 'Condition' || /^(Thread|CountDownLatch)$/.test(cx.typeOf(n.o) || ''))) return;
+      if (!monitorCall(n, cx)) return;
       if (H.inSync(cx)) return;
       cx.report(n, [n.id]);
     },
@@ -425,6 +439,7 @@ rule({
     Call(n, cx) {
       if (!((n.id === 'wait' && n.args.length <= 2) || (n.id === 'await' && n.args.length === 0 && cx.typeOf(n.o) === 'Condition'))) return;
       if (n.id === 'wait' && n.o && /^(Thread|Process|CompletableFuture)$/.test(cx.typeOf(n.o) || '')) return;
+      if (n.id === 'wait' && !monitorCall(n, cx)) return;
       if (n.id === 'wait' && n.args.length && !H.inSync(cx)) return;
       if (H.inLoopWithin(cx)) return;
       cx.report(n, [n.id + '()']);

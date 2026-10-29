@@ -505,7 +505,8 @@ class Visitor {
 
   jsxRef(name, scope) {
     const id = { type: 'Identifier', name: name.name, start: name.start, end: name.end, parent: name.parent, _jsx: name };
-    this.sm.ref(scope, id, { read: true });
+    // the element name carries the reference too, so flow analysis sees <L /> as a read of L
+    name._ref = this.sm.ref(scope, id, { read: true });
   }
 }
 

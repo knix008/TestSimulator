@@ -114,6 +114,11 @@ function nameSpaces(project, api) {
   }
 }
 
+function sameTagKind(a, b) {
+  const x = U.canon(a.type), y = U.canon(b.type);
+  return !!(x && y && x.kind === y.kind && (x.tag || '') === (y.tag || ''));
+}
+
 // Any identifier name used for two different entities.
 function reuse(project, api) {
   const first = new Map();
@@ -124,6 +129,8 @@ function reuse(project, api) {
     if (prev.key === e.key) continue;
     // a struct tag and its typedef of the same name are one declaration in practice
     if ((prev.sym.kind === 'tag' && e.sym.kind === 'typedef') || (prev.sym.kind === 'typedef' && e.sym.kind === 'tag')) continue;
+    // `struct S *p;` or `struct S;` refers to the tag declared elsewhere (one type)
+    if (prev.sym.kind === 'tag' && e.sym.kind === 'tag' && !(prev.sym.definition && e.sym.definition) && sameTagKind(prev.sym, e.sym)) continue;
     api.report(e.loc, M(`The identifier '${e.name}' is reused.`, `식별자 '${e.name}'를 재사용했습니다.`));
   }
 }

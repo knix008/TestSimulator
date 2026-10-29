@@ -174,6 +174,7 @@ module.exports = [
     why: ['Null-terminated character arrays are easily overrun and their length must be tracked by hand.', '널 종료 문자 배열은 넘치기 쉽고 길이를 손으로 관리해야 합니다.'],
     fix: ['Use std::string (or std::string_view for read-only text).', 'std::string(읽기 전용이면 std::string_view)을 쓰세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       const isChar = (t) => { const c = t ? U.canon(t) : null; return !!(c && c.kind === 'int' && (c.name === 'char' || c.name === 'wchar_t' || c.name === 'char16_t' || c.name === 'char32_t' || c.name === 'char8_t')); };
       for (const v of U.ix(unit).get('VarDecl', 'FieldDecl')) {
         if (!v.ctype || v.loc.macro) continue;

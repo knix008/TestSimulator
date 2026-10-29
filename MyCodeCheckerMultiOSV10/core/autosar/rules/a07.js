@@ -132,6 +132,7 @@ module.exports = [
     why: ['An alias declaration (using) is easier to read and also works for templates.', '별칭 선언(using)이 읽기 쉽고 템플릿에도 쓸 수 있습니다.'],
     fix: ['Write using Name = Type; instead.', '대신 using Name = Type; 을 쓰세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       for (const t of U.ix(unit).get('TypedefDecl')) if (!t.loc.macro) api.report(U.at(t), M(`'${t.name}' is declared with typedef.`, `'${t.name}' 을(를) typedef 로 선언했습니다.`));
     },
   }),

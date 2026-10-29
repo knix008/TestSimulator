@@ -179,17 +179,18 @@ function patternUses(p, fx) {
 function deadStores(cfg, tracked, reach) {
   const liveIn = new Map();
   const blocks = cfg.blocks.filter((b) => reach.has(b));
+  const alive = new Set(); // def nodes live in at least one copy of their block
   const transfer = (b, live, onDead) => {
     const cfx = condEffects(b.cond);
     if (cfx) {
-      for (const d of cfx.defs) if (d.sym && tracked(d.sym)) { if (!live.has(d.sym) && onDead) onDead(d, { kind: 'cond', node: b.cond.node }); live.delete(d.sym); }
+      for (const d of cfx.defs) if (d.sym && tracked(d.sym)) { if (!live.has(d.sym) && onDead) onDead(d, { kind: 'cond', node: b.cond.node }); else if (onDead) alive.add(d.node); live.delete(d.sym); }
       for (const u of cfx.uses) if (u.sym && tracked(u.sym)) live.add(u.sym);
       for (const u of cfx.deferred) if (u.sym && tracked(u.sym)) live.add(u.sym);
     }
     for (let i = b.elems.length - 1; i >= 0; i--) {
       const el = b.elems[i];
       const fx = effects(el);
-      for (const d of fx.defs) if (d.sym && tracked(d.sym)) { if (!live.has(d.sym) && onDead) onDead(d, el); live.delete(d.sym); }
+      for (const d of fx.defs) if (d.sym && tracked(d.sym)) { if (!live.has(d.sym) && onDead) onDead(d, el); else if (onDead) alive.add(d.node); live.delete(d.sym); }
       for (const k of fx.kills) if (k.sym && tracked(k.sym)) live.delete(k.sym);
       for (const u of fx.uses) if (u.sym && tracked(u.sym)) live.add(u.sym);
       for (const u of fx.deferred) if (u.sym && tracked(u.sym)) live.add(u.sym);
@@ -215,7 +216,9 @@ function deadStores(cfg, tracked, reach) {
     for (const e of b.succ) { const s = liveIn.get(e.to); if (s) for (const x of s) out.add(x); }
     transfer(b, out, (d, el) => dead.push({ def: d, el }));
   }
-  return dead;
+  // A finally body is built twice (normal and abrupt exit); a store there is
+  // dead only when it is dead in both copies.
+  return dead.filter((x) => !x.def.node || !alive.has(x.def.node));
 }
 
 // ── definite assignment ─────────────────────────────────────

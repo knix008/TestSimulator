@@ -12,6 +12,9 @@ const inAnonNs = (n) => cf.ancestors(n).some((a) => a.type === 'NamespaceDecl' &
 const inTemplate = (n) => cf.ancestors(n).some((a) => a.type === 'TemplateDecl');
 const isInlineSpec = (n) => { const s = U.specsOf(n); return !!(s && (s.functionSpecs.includes('inline') || s.functionSpecs.includes('constexpr') || s.functionSpecs.includes('consteval'))); };
 const storageOf = (n) => { const s = U.specsOf(n); return (s && s.storage) || []; };
+const ENTRY_POINTS = new Set(['WinMain', 'wWinMain', 'wmain', '_tmain', '_tWinMain', 'DllMain']);
+// main or a Windows entry point (their signatures are fixed by the platform)
+const isEntryPoint = (fd) => !!fd && !fd.qualifier && (fd.name === 'main' || ENTRY_POINTS.has(fd.name)) && !cf.enclosing(fd, ['RecordDecl', 'NamespaceDecl']);
 
 function isLocalAuto(sym) {
   return sym && (sym.kind === 'variable' || sym.kind === 'parameter') && sym.storage === 'automatic' && U.canon(sym.type).kind !== 'reference';
@@ -132,7 +135,9 @@ module.exports = [
           }
           for (const x of decl.declarators) {
             if (x.qualifier) continue; // out-of-line member / namespace member definition
-            if (x.type === 'FunctionDecl' && (x.name === 'main' || /^operator (new|delete)/.test(x.name || ''))) continue;
+            // main and the Windows entry points (which the system also looks up
+            // in the global namespace) cannot live in a namespace
+            if (x.type === 'FunctionDecl' && (x.name === 'main' || ENTRY_POINTS.has(x.name) || /^operator (new|delete)/.test(x.name || ''))) continue;
             rep(x, x.name || (x.names ? x.names.map((n) => n.name).join(',') : '?'));
           }
         } else if (decl.type === 'AliasDecl' || decl.type === 'ConceptDecl') rep(decl, decl.name);
@@ -356,7 +361,7 @@ module.exports = [
     },
     project(project, api) {
       for (const g of project.globalSymbols.values()) {
-        if (g.system || g.name === 'main' || g.units.size !== 1 || !g.defined) continue;
+        if (g.system || g.name === 'main' || ENTRY_POINTS.has(g.name) || g.units.size !== 1 || !g.defined) continue;
         const decls = g.decls.filter((d) => !U.isBuiltin(d.file));
         if (!decls.length || decls.some((d) => U.isHeaderFile(d.file))) continue;
         const syms = g.symbols.map((s) => s.symbol);
@@ -552,11 +557,11 @@ module.exports = [
         const anc = cf.ancestors(b);
         if (anc.some((a) => a.type === 'AliasDecl' || (a.type === 'Declaration' && a.specs && a.specs.storage.includes('typedef')))) continue;
         const ds = anc.find((a) => a.type === 'Declaration');
-        if (ds && ds.declarators.some((d) => d.type === 'FunctionDecl' && d.name === 'main') && U.parent(b) === ds.specs) continue;
+        if (ds && ds.declarators.some((d) => d.type === 'FunctionDecl' && isEntryPoint(d)) && U.parent(b) === ds.specs) continue;
         const pd = anc.find((a) => a.type === 'ParamDecl');
         if (pd) {
           const fd = anc.find((a) => a.type === 'FunctionDecl');
-          if (fd && (fd.name === 'main' || ((fd.name === 'operator++' || fd.name === 'operator--') && !pd.name))) continue;
+          if (fd && (isEntryPoint(fd) || ((fd.name === 'operator++' || fd.name === 'operator--') && !pd.name))) continue;
           if (fd && /^operator\s*""/.test(fd.name || '')) continue;
         }
         api.report(b, M(`The standard integer type '${b.names.join(' ')}' is used directly.`, `표준 정수 타입 '${b.names.join(' ')}' 를 직접 씁니다.`));

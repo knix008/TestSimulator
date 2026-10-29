@@ -29,6 +29,7 @@ module.exports = [
     why: ['The <cxxx> headers put the C library into namespace std and add C++ overloads; <xxx.h> pollutes the global namespace.', '<cxxx> 헤더는 C 라이브러리를 std 네임스페이스에 넣고 C++ 오버로드를 더하지만, <xxx.h> 는 전역 네임스페이스를 어지럽힙니다.'],
     fix: ['Include <cstdio> instead of <stdio.h> (and so on).', '<stdio.h> 대신 <cstdio> 처럼 C++ 헤더를 포함하세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       for (const inc of unit.includes || []) {
         if (U.isBuiltin(inc.file)) continue;
         const base = path.posix.basename(String(inc.name || ''));

@@ -7,7 +7,7 @@ const U = require('../lib/util');
 const F = require('../lib/flow');
 const { cf } = U;
 
-const src = (unit, e) => cf.sourceText(unit, e) || '?';
+const src = (unit, e) => U.nodeText(unit, e);
 const isFallthrough = (s) => s && s.type === 'NullStmt' && (s.attributes || []).some((a) => a.name === 'fallthrough');
 
 function endsClause(stmts) {
@@ -81,7 +81,17 @@ module.exports = [
     fix: ['Enclose the body in braces.', '본문을 중괄호로 감싸세요.'],
     check(unit, api) {
       const x = U.ix(unit);
-      const chk = (body, what, ko) => { if (body && body.type !== 'CompoundStmt') api.report(body, M(`The body of the ${what} is not enclosed in braces.`, `${ko} 의 본문이 중괄호로 감싸여 있지 않습니다.`)); };
+      const chk = (body, what, ko) => {
+        if (!body || body.type === 'CompoundStmt') return;
+        const p = U.parent(body);
+        // The statement comes from a macro body: it is reported once, at the
+        // #define (the fix belongs there, not at every line that calls it).
+        const mac = p && p.loc && p.loc.macro;
+        const def = mac ? U.macroDefLoc(unit, mac) : null;
+        api.report(def || body, mac
+          ? M(`The body of the ${what} in macro '${mac}' is not enclosed in braces.`, `매크로 '${mac}' 안의 ${ko} 의 본문이 중괄호로 감싸여 있지 않습니다.`)
+          : M(`The body of the ${what} is not enclosed in braces.`, `${ko} 의 본문이 중괄호로 감싸여 있지 않습니다.`));
+      };
       for (const s of x.get('WhileStmt')) chk(s.body, 'while loop', 'while 반복문');
       for (const s of x.get('DoStmt')) chk(s.body, 'do loop', 'do 반복문');
       for (const s of x.get('ForStmt', 'RangeForStmt')) chk(s.body, 'for loop', 'for 반복문');

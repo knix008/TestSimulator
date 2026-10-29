@@ -642,10 +642,11 @@ P.boundsCheck = function boundsCheck(st, o, t, bytes, node, mode, L, pv) {
   if (!definite && !possible) return;
   const sizeText = o.size ? (I.isConst(o.size) ? `${o.size.lo} bytes` : `${I.show(o.size)} bytes`) : 'its allocated size';
   const sizeKo = o.size ? (I.isConst(o.size) ? `${o.size.lo}바이트` : `${I.show(o.size)}바이트`) : '할당 크기';
-  const atText = at !== null ? ` at byte offset ${at}` : ' past its end';
-  const atKo = at !== null ? ` 바이트 오프셋 ${at}에서` : ' 끝을 넘어';
-  const using = idxText ? ` using index ${idxText}${idxV && idxV.iv ? ` (which evaluates to ${I.show(at !== null && esz ? I.konst(Math.floor(at / esz)) : idxV.iv)})` : ''}` : '';
-  const usingKo = idxText ? ` 인덱스 ${idxText}${idxV && idxV.iv ? `(값 ${I.show(at !== null && esz ? I.konst(Math.floor(at / esz)) : idxV.iv)})` : ''}로` : '';
+  // A possible overrun is the end of a range, not a value known to occur.
+  const atText = at !== null ? (definite ? ` at byte offset ${at}` : ` at byte offset up to ${at}`) : ' past its end';
+  const atKo = at !== null ? (definite ? ` 바이트 오프셋 ${at}에서` : ` 최대 바이트 오프셋 ${at}에서`) : ' 끝을 넘어';
+  const using = idxText ? ` using index ${idxText}${idxV && idxV.iv ? ` (which ${definite ? 'evaluates' : 'can evaluate'} to ${I.show(at !== null && esz ? I.konst(Math.floor(at / esz)) : idxV.iv)})` : ''}` : '';
+  const usingKo = idxText ? ` 인덱스 ${idxText}${idxV && idxV.iv ? `(${definite ? '값' : '최대 값'} ${I.show(at !== null && esz ? I.konst(Math.floor(at / esz)) : idxV.iv)})` : ''}로` : '';
   const evs = [o.aev, st.trail];
   if (idxV && idxV.tev) evs.push(idxV.tev);
   // A pointer to one variable (not an array) indexed past it: the defect analysis ARRAY_VS_SINGLETON.
@@ -658,8 +659,8 @@ P.boundsCheck = function boundsCheck(st, o, t, bytes, node, mode, L, pv) {
     return;
   }
   this.report('OVERRUN', node, {
-    en: `Overrunning ${o.name} of ${sizeText} by ${what.en}${atText}${using}.`,
-    ko: `${sizeKo}인 ${o.name}을(를)${atKo}${usingKo} ${what.ko}하여 범위를 넘습니다.`,
+    en: `${definite ? 'Overrunning' : 'Possibly overrunning'} ${o.name} of ${sizeText} by ${what.en}${atText}${using}.`,
+    ko: `${sizeKo}인 ${o.name}을(를)${atKo}${usingKo} ${what.ko}하여 범위를 넘${definite ? '습니다' : '을 수 있습니다'}.`,
   }, evs, { tag: 'overrun', confidence: definite ? 'definite' : 'possible' });
 };
 
@@ -794,8 +795,8 @@ P.arith = function arith(st, node, op, a, b, t, isNeg, isIncDec) {
         if ((definite && (operandsBounded || I.isConst(ai) || f.overflow === 'full')) || (operandsBounded && !definite)) {
           if (operandsBounded || f.overflow === 'full' || (I.isConst(ai) && I.isConst(bi))) {
             this.report('INTEGER_OVERFLOW', node, {
-              en: `Signed integer overflow: ${this.src(node, 40)} can reach ${I.show(m)}, outside the range of ${T.typeToString(ct)}.`,
-              ko: `부호 있는 정수 오버플로: ${this.src(node, 40)}의 값이 ${I.show(m)}까지 되어 ${T.typeToString(ct)} 범위를 벗어납니다.`,
+              en: `${definite ? 'Signed integer overflow' : 'Possible signed integer overflow'}: ${this.src(node, 40)} can reach ${I.show(m)}, outside the range of ${T.typeToString(ct)}.`,
+              ko: `부호 있는 정수 오버플로${definite ? '' : ' 가능성'}: ${this.src(node, 40)}의 값이 ${I.show(m)}까지 되어 ${T.typeToString(ct)} 범위를 벗어날 수 있습니다.`,
             }, [a.tev, b.tev, st.trail], { tag: 'overflow', confidence: definite ? 'definite' : 'possible' });
           }
         }
@@ -1062,6 +1063,11 @@ P.evalAssign = function evalAssign(st, e) {
     const ct = T.isInteger(this.T(e.right.ctype)) ? T.usualArithmetic(lt, this.T(e.right.ctype), this.target) : lt;
     const fake = { ...e, left: e.left, right: e.right };
     nv = this.arith(st, fake, op, this.convert(old, ct, e.left.ctype, e), this.convert(rhs, ct, e.right.ctype, e), ct);
+    // `used += n` where n was read into buf + used with a size N - used
+    // (calls.js offsetRel): the sum cannot pass N.
+    if (op === '+' && rhs.rel && L.k === 'var' && L.key === rhs.rel.key && nv && nv.iv && nv.iv.hi > rhs.rel.end) {
+      nv = { ...nv, iv: I.make(Math.min(nv.iv.lo, rhs.rel.end), rhs.rel.end) };
+    }
   } else nv = {};
   this.store(st, L, nv, e, null);
   return nv;

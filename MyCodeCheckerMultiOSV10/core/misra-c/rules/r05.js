@@ -200,7 +200,16 @@ function r57(project, api) {
   uniqueness(project, api, (s) => s.kind === 'tag',
     (s, o) => `Identifier '${o.name}' reuses the tag name '${s.name}' declared at ${at(s)}.`,
     (s, o) => `식별자 '${o.name}'가 ${at(s)}에 선언된 태그 이름 '${s.name}'를 다시 씁니다.`,
-    (s, o) => o.kind === 'typedef' && typedefNamesTag(o, s));
+    (s, o) => (o.kind === 'typedef' && typedefNamesTag(o, s)) || sameTagReference(s, o));
+}
+
+// Two declarations of one tag where at least one only refers to it (`struct
+// timeval *tv;`, `struct S;`) name the same type, e.g. one from a header in
+// several files: only two definitions of the tag are two types.
+function sameTagReference(s, o) {
+  if (s.kind !== 'tag' || o.kind !== 'tag' || (s.definition && o.definition)) return false;
+  const a = U.canon(s.type), b = U.canon(o.type);
+  return !!(a && b && a.kind === b.kind && (a.tag || '') === (b.tag || ''));
 }
 
 function r58(project, api) {

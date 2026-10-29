@@ -7,7 +7,7 @@ const U = require('../lib/util');
 const C = require('../lib/conv');
 const { cf } = U;
 
-const src = (unit, e) => cf.sourceText(unit, e) || '?';
+const src = (unit, e) => U.nodeText(unit, e);
 const tname = (t) => U.tstr(U.nonRef(t));
 
 const GROUP = {
@@ -235,6 +235,7 @@ module.exports = [
     why: ['These casts can silently perform a const_cast or reinterpret_cast and are hard to search for.', '이런 캐스트는 const_cast 나 reinterpret_cast 를 조용히 수행할 수 있고 찾기도 어렵습니다.'],
     fix: ['Use static_cast, const_cast or reinterpret_cast as appropriate.', '알맞은 static_cast, const_cast, reinterpret_cast 를 쓰세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       for (const c of U.ix(unit).get('CastExpr')) {
         if (c.loc.macro && U.isBuiltin((unit.macroTable.get(c.loc.macro) || {}).file)) continue;
         const to = U.canon(castTo(c));

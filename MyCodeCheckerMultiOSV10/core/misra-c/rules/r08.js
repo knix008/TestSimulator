@@ -137,6 +137,14 @@ function isDefinitionNode(d) {
   return false;
 }
 
+// A unit that did not find all its headers, defining an entity that a project
+// header declares: that header is most likely the one it failed to include.
+function declaredInUnfoundHeader(unit, api, s) {
+  if (!U.hasMissingHeaders(unit)) return false;
+  const g = api.project && api.project.globalSymbols && api.project.globalSymbols.get(s.qname || s.name);
+  return !!(g && (g.decls || []).some((d) => !d.isDefinition && d.file && cf.isHeader(d.file) && !U.isBuiltin(d.file)));
+}
+
 function r84(unit, api) {
   for (const s of unit.symbols) {
     if ((s.kind !== 'function' && s.kind !== 'variable') || s.linkage !== 'external' || !U.isUserSym(s)) continue;
@@ -147,12 +155,13 @@ function r84(unit, api) {
     if (def.type === 'VarDecl' && !(def.symbol && def.symbol.scope && def.symbol.scope.kind === 'file') && cf.enclosing(def, 'FunctionDecl')) continue;
     const prior = decls.slice(0, decls.indexOf(def)).filter((d) => d !== def);
     if (!prior.length) {
+      if (declaredInUnfoundHeader(unit, api, s)) continue;
       api.report(where(def), msg(
         `'${s.name}' is defined with external linkage but no earlier declaration is visible.`,
         `'${s.name}'를 외부 링크로 정의했지만 앞서 보이는 선언이 없습니다.`));
       continue;
     }
-    const incompatible = prior.find((p) => p.ctype && def.ctype && !T.sameType(p.ctype, def.ctype));
+    const incompatible = prior.find((p) => p.ctype && def.ctype && !U.mentionsUnknown(p.ctype) && !U.mentionsUnknown(def.ctype) && !U.sameType(p.ctype, def.ctype));
     if (incompatible) {
       api.report(where(def), msg(
         `Definition of '${s.name}' ('${declTypeString(def)}') is not compatible with its declaration at ${at(incompatible)} ('${declTypeString(incompatible)}').`,

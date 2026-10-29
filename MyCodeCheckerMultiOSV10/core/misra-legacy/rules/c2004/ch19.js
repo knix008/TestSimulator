@@ -31,11 +31,29 @@ function allowedBody(b) {
   return false;
 }
 
+// A single identifier is a constant when it names an enumeration constant (C90
+// 6.1.3) or another macro that itself expands to an allowed form.
+function allowedName(unit, byName, name, depth) {
+  if (depth > 20) return false;
+  const m = byName.get(name);
+  if (m) return allowedExpansion(unit, byName, m.body || [], depth + 1);
+  let s = null;
+  try { s = unit.lookup ? unit.lookup(name) : null; } catch (_) { s = null; }
+  return !!(s && s.kind === 'enumerator');
+}
+function allowedExpansion(unit, byName, b, depth) {
+  if (allowedBody(b)) return true;
+  return b.length === 1 && b[0].kind === 'identifier' && allowedName(unit, byName, b[0].value, depth);
+}
+
 function macroBodies(unit, api) {
   const files = new Set(U.sourcesOnce(unit, api, 'c04-19.4').map(([f]) => f));
+  const byName = new Map();
+  for (const m of unit.macros || []) if (m.kind === 'object') byName.set(m.name, m);
   for (const m of unit.macros || []) {
     if (!files.has(m.file)) continue;
     if (allowedBody(m.body || [])) continue;
+    if (m.kind === 'object' && allowedExpansion(unit, byName, m.body || [], 0)) continue;
     api.report({ file: m.file, line: m.line, col: m.col }, M(`Macro '${m.name}' expands to something other than a constant, a braced initialiser, a parenthesised expression, a qualifier or a do-while-zero block.`,
       `매크로 '${m.name}'가 상수, 중괄호 초기화자, 괄호 식, 한정자, do-while-zero 블록이 아닌 것으로 확장됩니다.`));
   }

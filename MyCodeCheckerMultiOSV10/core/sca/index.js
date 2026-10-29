@@ -405,6 +405,12 @@ function hygieneFindings(deps, byId, roots, options) {
   for (const list of byRoot.values()) {
     const versions = [...new Set(list.map((d) => d.version))];
     if (versions.length < 2) continue;
+    // Report what the project can align: versions one dedupe would merge, or
+    // a duplicate that involves a direct dependency. Incompatible majors that
+    // only transitive dependencies pull in (syn 1 and 2 in a Cargo.lock)
+    // are by design in npm and Cargo and need an upstream release.
+    const dedupable = versions.some((a, k) => versions.slice(k + 1).some((b) => compatibleVersions(a, b)));
+    if (!dedupable && !list.some((d) => d.direct)) continue;
     const first = list.find((d) => d.direct) || list[0];
     const loc = location(first, byId);
     out.push({
@@ -433,6 +439,47 @@ function hygieneFindings(deps, byId, roots, options) {
 
 function safeSatisfies(eco, v, spec) {
   try { return satisfies(eco, v, spec); } catch { return false; }
+}
+
+// Cargo workspace members have no Cargo.lock of their own: the workspace
+// root's lock pins their dependencies. Give each member dependency the
+// locked version (the highest one that satisfies its spec), so it is not
+// reported as unlocked and its advisories are checked at the real version.
+function resolveFromWorkspaceLock(parsed) {
+  const locks = new Map(parsed.filter((p) => p.ecosystem === 'crates.io' && p.kind === 'lock').map((l) => [dirname(l.file), l]));
+  if (!locks.size) return;
+  for (const p of parsed) {
+    if (p.ecosystem !== 'crates.io' || p.kind !== 'manifest') continue;
+    let d = dirname(p.file);
+    if (locks.has(d)) continue;
+    let lock = null;
+    while (d && !lock) { d = dirname(d); lock = locks.get(d) || null; }
+    if (!lock) continue;
+    for (const dep of p.deps) {
+      if (dep.version) continue;
+      const pick = lock.deps
+        .filter((x) => x.name === dep.name && (dep.spec == null || safeSatisfies('crates.io', x.version, dep.spec)))
+        .sort((a, b) => compare('crates.io', b.version, a.version))[0];
+      if (!pick) continue;
+      dep.version = pick.version;
+      dep.lockFile = lock.file;
+      dep.lockLine = pick.line || 1;
+    }
+  }
+}
+
+// Two resolved versions that one dedupe could merge: same major (same
+// leftmost non-zero part for 0.x, the semver rule npm and Cargo use).
+function compatibleVersions(a, b) {
+  const parts = (v) => String(v).replace(/^v/, '').split(/[.+-]/).map((x) => Number(x));
+  const pa = parts(a);
+  const pb = parts(b);
+  for (let k = 0; k < 3; k++) {
+    if (!Number.isFinite(pa[k]) || !Number.isFinite(pb[k])) return false;
+    if (pa[k] !== pb[k]) return false;
+    if (pa[k] !== 0) return true;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------- scan ---
@@ -493,6 +540,7 @@ function scanDependencies(input, options = {}) {
     }
   }
 
+  resolveFromWorkspaceLock(parsed);
   // Directory.Packages.props has only versions; do not treat it as a project.
   const projects = parsed.filter((p) => !(p.centralVersions && !p.deps.length));
   const { dependencies, graph } = buildGraph(projects);

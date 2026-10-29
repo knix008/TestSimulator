@@ -201,7 +201,7 @@ R('weak-cipher-mode', 'S5542', 'V', 'CR', 20, [SEC, 'owasp-a2'],
   } });
 
 const KEY_IMPORT = /^(ImportParameters|ImportCspBlob|FromXmlString|Import\w*Key|ImportFromPem|ImportFromEncryptedPem|ImportSubjectPublicKeyInfo|ImportPkcs8PrivateKey)$/;
-// `var rsa = new RSACryptoServiceProvider(); rsa.ImportCspBlob(blob);` (or KeySize set afterwards)
+// `var rsa = new RSACryptoServiceProvider(); rsa.ImportCspBlob(blob);`
 function keyImported(n) {
   const v = n.parent && n.parent.k === 'VarDecl' && n.parent.init === n ? n.parent : null;
   const sym = v && v.sym;
@@ -209,7 +209,6 @@ function keyImported(n) {
   return sym.refs.some((r) => {
     const m = r.parent;
     if (!m || m.k !== 'Member' || m.expr !== r) return false;
-    if (m.name === 'KeySize' && m.parent && m.parent.k === 'Assign' && m.parent.left === m) return true;
     return KEY_IMPORT.test(m.name) && m.parent && m.parent.k === 'Invocation' && m.parent.expr === m;
   });
 }

@@ -42,7 +42,8 @@ R('iam-wildcard-action', 'V', 'CR', 15, ['cwe-269', 'owasp-a01', 'iam'],
   /^\s*(?:"?Action"?|actions|NotAction)\s*[=:]\s*\[?\s*"(?:\*|[a-z0-9-]+:\*)"/i,
   ['IAM policy allows every action', '"*" or "service:*" grants far more than the workload needs.', 'List the specific actions.'],
   ['IAM 정책이 모든 동작을 허용합니다', '"*"나 "service:*"는 워크로드에 필요한 것보다 훨씬 많이 허용합니다.', '구체적인 동작을 나열하세요.'],
-  '  actions = ["s3:*"]', '  actions = ["s3:GetObject"]');
+  '  actions = ["s3:*"]', ['  actions = ["s3:GetObject"]', '  "Effect": "Deny", "Action": "*",'],
+  { skip: (raw) => /"?Effect"?\s*[=:]\s*"Deny"/i.test(raw) });
 R('iam-wildcard-resource', 'H', 'MA', 10, ['cwe-732', 'owasp-a01', 'iam'],
   /^\s*(?:"?Resource"?|resources)\s*[=:]\s*\[?\s*"\*"/i,
   ['IAM policy on every resource', 'Resource "*" applies the permissions to all resources in the account.', 'Scope the policy to specific ARNs.'],

@@ -82,6 +82,17 @@ function digraphs(unit, api, id) {
   }
 }
 
+// Does the ';' at n follow, on its line, the end of a macro invocation?
+function afterMacroCall(unit, n, line) {
+  for (const e of unit.expansions || []) {
+    if (e.nested || e.file !== n.loc.file || (e.endLine || e.line) !== n.loc.line) continue;
+    const end = e.endCol || e.col;
+    if (!end || end > n.loc.col) continue;
+    if (/^\)?\s*$/.test(line.slice(end - 1, n.loc.col - 1)) || /^\s*$/.test(line.slice(end, n.loc.col - 1))) return true;
+  }
+  return false;
+}
+
 // A null statement shall be alone on its line (a comment may follow after a space).
 function nullStatementLine(unit, api) {
   for (const n of U.get(unit, 'NullStmt')) {
@@ -95,6 +106,9 @@ function nullStatementLine(unit, api) {
     const before = line.slice(0, n.loc.col - 1);
     const after = line.slice(n.loc.col);
     const ok = before.trim() === '' && (after.trim() === '' || /^\s+(\/\/|\/\*)/.test(after));
+    // `MACRO(x);` where the macro expands to a block: before preprocessing the
+    // ';' ends what reads as a call statement, not a null statement
+    if (!ok && afterMacroCall(unit, n, line)) continue;
     if (!ok) api.report(n, M('The null statement is not on a line by itself.', '널 문장이 한 줄에 단독으로 있지 않습니다.'));
   }
 }

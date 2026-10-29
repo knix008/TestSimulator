@@ -10,6 +10,23 @@ const { cf } = U;
 
 const LOOP_TYPES = ['ForStmt', 'WhileStmt', 'DoStmt', 'RangeForStmt'];
 
+// The null statement directly follows a statement produced by a macro call
+// (`FOO(x);` with FOO expanding to `{ ... }` or `if (...) ...`).
+function afterMacroStmt(s) {
+  const p = U.parent(s);
+  if (!p) return false;
+  let prev = null;
+  if (p.type === 'CompoundStmt') { const i = p.body.indexOf(s); prev = i > 0 ? p.body[i - 1] : null; }
+  // `if (c) FOO(x);`: the macro statement is the last piece of the previous statement
+  for (let k = 0; k < 20 && prev && prev.loc && !prev.loc.macro; k++) {
+    if (prev.type === 'IfStmt') prev = prev.else || prev.then;
+    else if (prev.type === 'WhileStmt' || prev.type === 'ForStmt' || prev.type === 'RangeForStmt' || prev.type === 'LabelStmt' || prev.type === 'CaseStmt' || prev.type === 'DefaultStmt') prev = prev.body;
+    else break;
+  }
+  if (!prev || !prev.loc || !prev.loc.macro) return false;
+  return prev.loc.endLine === s.loc.line && prev.loc.end <= s.loc.start;
+}
+
 // Variables written in an expression: Map<Symbol, kind[]>
 function writes(node) {
   const out = new Map();
@@ -182,6 +199,9 @@ module.exports = [
     check(unit, api) {
       for (const s of U.ix(unit).get('NullStmt')) {
         if (s.loc.macro || (s.attributes && s.attributes.length)) continue;
+        // `LOG(x);` where LOG expands to `{ ... }`: before preprocessing the
+        // `;` ends the macro call statement, it is not a null statement
+        if (afterMacroStmt(s)) continue;
         const text = lineText(unit, s.loc.file, s.loc.line);
         if (text === null) continue;
         const code = text.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '').trim();
@@ -189,7 +209,29 @@ module.exports = [
       }
     },
   }),
-  D('M6-3-1', ['9.3.1'], { name: ['The body of a switch, while, do or for statement shall be a compound statement', 'switch, while, do, for 문의 본문은 복합문이어야 합니다'] }),
+  // Not delegated to MISRA C++:2023 9.3.1: that rule also covers if / else,
+  // which AUTOSAR checks separately (M6-4-1).
+  A({
+    id: 'M6-3-1', cat: 'Required', enf: 'automated', misra: '9.3.1', sev: 'MAJOR', debt: 2,
+    name: ['The body of a switch, while, do or for statement shall be a compound statement', 'switch, while, do, for 문의 본문은 복합문이어야 합니다'],
+    why: ['Without braces, a statement added later may look like part of the body but is not.', '중괄호가 없으면 나중에 추가한 문장이 본문처럼 보이지만 실제로는 아닙니다.'],
+    fix: ['Enclose the body in braces.', '본문을 중괄호로 감싸세요.'],
+    check(unit, api) {
+      const x = U.ix(unit);
+      const chk = (s, what, ko) => {
+        if (!s.body || s.body.type === 'CompoundStmt') return;
+        // from a macro body: reported once, at the #define
+        const def = s.loc.macro ? U.macroDefLoc(unit, s.loc.macro) : null;
+        api.report(def || s.body, s.loc.macro
+          ? M(`The body of the ${what} in macro '${s.loc.macro}' is not enclosed in braces.`, `매크로 '${s.loc.macro}' 안의 ${ko} 의 본문이 중괄호로 감싸여 있지 않습니다.`)
+          : M(`The body of the ${what} is not enclosed in braces.`, `${ko} 의 본문이 중괄호로 감싸여 있지 않습니다.`));
+      };
+      for (const s of x.get('WhileStmt')) chk(s, 'while loop', 'while 반복문');
+      for (const s of x.get('DoStmt')) chk(s, 'do loop', 'do 반복문');
+      for (const s of x.get('ForStmt', 'RangeForStmt')) chk(s, 'for loop', 'for 반복문');
+      for (const s of x.get('SwitchStmt')) chk(s, 'switch', 'switch 문');
+    },
+  }),
   A({
     id: 'M6-4-1', cat: 'Required', enf: 'automated', sev: 'MAJOR', debt: 2,
     name: ['An if (condition) or else shall be followed by a compound statement; else may be followed by another if', 'if (조건) 과 else 뒤에는 복합문이 와야 합니다(else 뒤에는 if 도 됩니다)'],
@@ -197,9 +239,13 @@ module.exports = [
     fix: ['Wrap the body in braces.', '본문을 중괄호로 감싸세요.'],
     check(unit, api) {
       for (const s of U.ix(unit).get('IfStmt')) {
-        if (s.loc.macro) continue;
-        if (s.then && s.then.type !== 'CompoundStmt') api.report(s.then, M('The body of this if is not a compound statement.', '이 if 의 본문이 복합문이 아닙니다.'));
-        if (s.else && s.else.type !== 'CompoundStmt' && s.else.type !== 'IfStmt') api.report(s.else, M('The else branch is not a compound statement.', 'else 갈래가 복합문이 아닙니다.'));
+        // An if from a macro body is reported too (as MISRA C++:2023 9.3.1
+        // does), once, at the #define of the macro.
+        const mac = s.loc.macro;
+        const def = mac ? U.macroDefLoc(unit, mac) : null;
+        const inMac = mac ? [` (in macro '${mac}')`, ` (매크로 '${mac}' 안)`] : ['', ''];
+        if (s.then && s.then.type !== 'CompoundStmt') api.report(def || s.then, M(`The body of this if is not a compound statement${inMac[0]}.`, `이 if 의 본문이 복합문이 아닙니다${inMac[1]}.`));
+        if (s.else && s.else.type !== 'CompoundStmt' && s.else.type !== 'IfStmt') api.report(def || s.else, M(`The else branch is not a compound statement${inMac[0]}.`, `else 갈래가 복합문이 아닙니다${inMac[1]}.`));
       }
     },
   }),

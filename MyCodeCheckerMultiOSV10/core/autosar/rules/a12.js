@@ -37,7 +37,9 @@ function inlineCtors(rd, rec) {
 }
 
 module.exports = [
-  D('A12-0-1', ['15.0.1'], { name: ['If a class declares a copy or move operation or a destructor, it shall declare all five special members', '클래스가 복사, 이동 연산이나 소멸자 중 하나를 선언하면 다섯 특수 멤버를 모두 선언해야 합니다'] }),
+  // 15.0.1 also checks the destructor of polymorphic classes, which AUTOSAR
+  // checks as A12-4-1: only the rule-of-five findings belong here.
+  D('A12-0-1', ['15.0.1'], { only: (m) => !/^Polymorphic class/.test(m.en || ''), name: ['If a class declares a copy or move operation or a destructor, it shall declare all five special members', '클래스가 복사, 이동 연산이나 소멸자 중 하나를 선언하면 다섯 특수 멤버를 모두 선언해야 합니다'] }),
   D('A12-0-2', ['24.5.2'], { name: ['Bitwise operations and operations that assume data representation shall not be performed on objects', '객체에 비트 단위 연산이나 데이터 표현을 가정한 연산을 하면 안 됩니다'] }),
   D('A12-1-1', ['15.1.2'], { cat: 'Required' }),
   A({
@@ -94,7 +96,8 @@ module.exports = [
         if (!bases.has(rec)) continue;
         const dt = specials(rec, rd.name).get('dtor');
         const virt = dt && (U.isVirtualDecl(dt.node) || dt.node.isOverride || dt.node.isFinal);
-        const inheritedVirtual = U.bases(rec).some((b) => b.rec && U.isPolymorphic(b.rec));
+        // a base of unknown type (its header was not found) may give a virtual destructor
+        const inheritedVirtual = U.bases(rec).some((b) => !b.rec || U.isPolymorphic(b.rec));
         if (!dt) {
           if (!inheritedVirtual) api.report(rd, M(`The base class '${rd.name}' has an implicit public non-virtual destructor.`, `기반 클래스 '${rd.name}' 의 소멸자가 암시적인 public 비가상 소멸자입니다.`));
         } else if (dt.access === 'public' && !virt && !inheritedVirtual) {

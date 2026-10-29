@@ -144,15 +144,18 @@ rule('unreachable-code', {
 }, (ctx) => {
   const roots = [ctx.ast, ...ctx.functions()];
   const dead = new Set();
+  const live = new Set();
   for (const fn of roots) {
     if (fn.type !== 'Program' && !fn.body) continue;
     let cfg;
     try { cfg = ctx.cfg(fn); } catch { continue; }
     for (const b of cfg.blocks) {
-      if (b.reachable || b.pred.length) continue;
+      if (b.reachable || b.pred.length || b.afterNoReturn) { for (const s of b.stmts) live.add(s); continue; }
       for (const s of b.stmts) dead.add(s);
     }
   }
+  // a finally body is built twice (normal / exceptional exit): one live copy keeps it
+  for (const s of live) dead.delete(s);
   for (const s of dead) {
     if (HOISTED.has(s.type) || s.type === 'SwitchCase') continue;
     if (s.type === 'VariableDeclaration' && s.kind === 'var' && s.declarations.every((d) => !d.init)) continue;

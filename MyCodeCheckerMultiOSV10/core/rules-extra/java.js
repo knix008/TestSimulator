@@ -102,8 +102,9 @@ R('empty-method', 'S', 'MI', 5, ['suspicious'],
   ['Empty method', 'An empty method is unfinished, or should explain why it does nothing.', 'Implement it, throw UnsupportedOperationException, or add a comment.'],
   ['빈 메서드입니다', '빈 메서드는 미완성이거나 왜 아무 일도 안 하는지 설명해야 합니다.', '구현하거나 UnsupportedOperationException을 던지거나 주석을 다세요.'],
   'public void onStop() {}', ['public void onStop() { save(); }', 'public Foo() {}', 'public record Point(int x, int y) { }', 'public void onStop() { /* nothing to release */ }'],
-  // A comment between the braces is the explanation the rule asks for.
-  { skip: (raw) => /\{\s*(?:\/\*|\/\/)/.test(raw) });
+  // A comment between the braces is the explanation the rule asks for. Kotlin
+  // files run this rule too: there kt:empty-function reports the same body.
+  { skip: (raw, line, file) => /\{\s*(?:\/\*|\/\/)/.test(raw) || (file && file.lang === 'kt') });
 R('class-naming', 'S', 'MI', 2, ['convention'],
   /\b(?:class|interface|enum|record)\s+[a-z]\w*\s*[{<(]|\b(?:class|interface|enum|record)\s+[a-z]\w*\s+(?:extends|implements)\b/,
   ['Type name not in PascalCase', 'Java types start with an upper-case letter.', 'Rename the type to PascalCase.'],
@@ -315,10 +316,12 @@ R('hardcoded-db-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   ['소스에 데이터베이스 비밀번호가 있습니다', '코드나 바이너리를 가진 누구나 비밀번호를 압니다.', '자격 증명을 환경이나 금고에서 읽으세요.'],
   'DriverManager.getConnection(url, "app", "s3cret");', 'DriverManager.getConnection(url, user, password);');
 R('prepare-concat', 'V', 'CR', 20, ['cwe-89', 'owasp-a03', 'sql'],
-  /\bprepare(?:Statement|Call)\s*\(\s*"[^"]*"\s*\+|\b(?:rawQuery|execSQL)\s*\(\s*"[^"]*"\s*\+/,
+  // A value joined after the literals: "a " + "b" (a line-wrapped constant) is not.
+  /\b(?:prepare(?:Statement|Call)|rawQuery|execSQL)\s*\(\s*(?:"[^"]*"\s*\+\s*)+(?!")[\w(]/,
   ['SQL built by concatenation', 'Concatenating values into SQL defeats the prepared statement and allows injection.', 'Use ? placeholders and bind the values.'],
   ['문자열 연결로 SQL을 만듭니다', '값을 SQL에 이어 붙이면 준비된 문장이 무력해져 주입이 가능합니다.', '? 자리표시자를 쓰고 값을 바인딩하세요.'],
-  'conn.prepareStatement("select * from t where id=" + id);', 'conn.prepareStatement("select * from t where id = ?");');
+  ['conn.prepareStatement("select * from t where id=" + id);', 'conn.prepareStatement("select * from t " + "where id=" + id);'],
+  ['conn.prepareStatement("select * from t where id = ?");', 'conn.prepareStatement("select * from t where a = ? " + "and b = ?");']);
 R('webview-javascript', 'H', 'MA', 10, ['cwe-79', 'android'],
   /\bsetJavaScriptEnabled\s*\(\s*true\s*\)|\baddJavascriptInterface\s*\(/,
   ['WebView JavaScript enabled', 'Script in a WebView can reach exposed Java objects and local data.', 'Enable it only for trusted content and limit exposed interfaces.'],

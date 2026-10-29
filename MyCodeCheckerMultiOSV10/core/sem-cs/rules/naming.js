@@ -99,6 +99,9 @@ function paramDecls(pf) {
     if (!par) continue;
     if (par.k === 'TypeDecl' && (par.kind === 'record' || par.kind === 'record struct')) continue;
     if (dictated(par)) continue;
+    // COM / native interface members keep the names of the native API
+    const owner = ownerOf(par);
+    if (owner && interopType(owner)) continue;
     out.push(p);
   }
   return out;
@@ -240,7 +243,10 @@ R('acronym-casing', '', 'S', 'MI', 5, ['convention'],
 function acronymCheck(n, cx, isType) {
   if (!n.name) return;
   if (isType ? interopType(n) : (dictated(n) || (ownerOf(n) && interopType(ownerOf(n))))) return;
-  const name = isType && n.kind === 'interface' ? n.name.replace(/^I(?=[A-Z])/, '') : n.name;
+  let name = isType && n.kind === 'interface' ? n.name.replace(/^I(?=[A-Z])/, '') : n.name;
+  // `HWP2DocForm_Load`: the part before the underscore is the control or form
+  // name the designer copied; only the event part belongs to this method
+  if (n.k === 'Method' && /^\w+_[A-Z]\w*$/.test(name) && U.isEventHandler(n)) name = name.slice(name.lastIndexOf('_') + 1);
   const acr = longAcronym(name);
   if (!acr) return;
   const fixed = acr[0] + acr.slice(1).toLowerCase();
@@ -253,7 +259,9 @@ R('hungarian-notation', '', 'S', 'MI', 5, ['convention'],
   ['Names should not use Hungarian notation', 'Type prefixes such as "str" or "int" repeat what the compiler already knows and become wrong when the type changes.', 'Remove the type prefix and name the variable after its meaning.'],
   ['이름에 헝가리안 표기법을 쓰면 안 됩니다', '"str"이나 "int" 같은 타입 접두사는 컴파일러가 이미 아는 것을 반복하고, 타입이 바뀌면 틀린 이름이 됩니다.', '타입 접두사를 지우고 의미에 맞게 이름을 지으세요.'],
   { file(pf, cx) {
-    const hit = (name) => { const m = HUNGARIAN.exec(name); return m ? m[1] : null; };
+    // lp / dw / sz next to P/Invoke declarations mirror the Win32 signature they are passed to
+    const win32 = fileHasInterop(pf);
+    const hit = (name) => { const m = HUNGARIAN.exec(name); return m && !(win32 && /^(lp|dw|sz)$/.test(m[1])) ? m[1] : null; };
     for (const d of localDecls(pf, cx)) {
       const p = hit(d.name);
       if (p) reportVar(cx, d, `Remove the type prefix '${p}' from variable '${d.name}'.`, `변수 '${d.name}'에서 타입 접두사 '${p}'를 지우세요.`);
@@ -639,6 +647,8 @@ R('get-method-returns-void', '', 'S', 'MA', 5, ['convention', 'confusing'],
   { kinds: { Method(n, cx) {
     if (!/^Get([A-Z]|$)/.test(n.name) || !n.retType || n.retType.name !== 'void' || n.retType.ptr) return;
     if (dictated(n) || (n.params || []).some((p) => p.mods.includes('out') || p.mods.includes('ref'))) return;
+    // `GetVersion_Click(object sender, EventArgs e)` handles the click of a "Get version" button
+    if (U.isEventHandler(n)) return;
     if (n.params.some((p) => p.type && /^(Action|Func|IList|ICollection|List|Dictionary|IDictionary|HashSet|ISet|StringBuilder|Stream|TextWriter)$/.test(p.type.name))) return;
     cx.report(n, `Make '${n.name}' return a value, or rename it after what it does.`, `'${n.name}'가 값을 반환하게 하거나 하는 일에 맞게 이름을 바꾸세요.`, { atName: true });
   } } });

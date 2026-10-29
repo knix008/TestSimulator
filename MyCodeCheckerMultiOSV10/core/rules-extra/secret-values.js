@@ -14,12 +14,15 @@
 const TEST_PATH = /(?:^|\/)(?:tests?|__tests__|specs?|testdata|test-?data|fixtures?|__fixtures__|__mocks__|mocks?|e2e)\/|(?:^|\/)[^/]*[._-](?:test|spec|tests)\.[^/]+$|(?:^|\/)test_[^/]+\.py$|(?:^|\/)[^/]*_test\.(?:go|py|rb|rs|exs?|dart)$|(?:^|\/)tests?_[^/]*\.rs$|(?:^|\/)[^/]*Tests?\.(?:java|kt|cs|scala|swift|groovy|vb)$|(?:^|\/)[^/]*(?:Spec|IT)\.(?:java|kt|scala|groovy)$/;
 const GENERATED_PATH = /(?:^|\/)(?:generated|__generated__|gen)\/|\.(?:g|generated|designer)\.[^/]+$|\.pb\.go$|_pb2\.py$/i;
 
+// A file's path: the file ({ path }) or the path itself.
+const pathOf = (file) => String((file && typeof file === 'object' ? file.path : file) || '').replace(/\\/g, '/');
+
 function isTestPath(file) {
-  return !!file && TEST_PATH.test(String(file).replace(/\\/g, '/'));
+  return !!file && TEST_PATH.test(pathOf(file));
 }
 
 function isGeneratedPath(file) {
-  return !!file && GENERATED_PATH.test(String(file).replace(/\\/g, '/'));
+  return !!file && GENERATED_PATH.test(pathOf(file));
 }
 
 // Fixture or generated file: a name-based secret rule does not apply.
@@ -127,7 +130,31 @@ function connectionSkip(raw, file) {
   return any;
 }
 
+// skip(raw, code, file) for the per-language hard-coded password rules
+// (swift / dart / scala / objc: let passwordKey = "password"). The variable
+// holds a key, a field name or a label when its name says so
+// (tokenKey, passwordField, secretName) or its value is benign.
+const NAMED_SECRET = /(\w*(?:password|passwd|pwd|secret|apiKey|token)\w*)\s*(?::\s*[\w.?]+\s*)?=\s*@?(["'])((?:(?!\2).){4,}?)\2/gi;
+const KEY_NAME_SUFFIX = /(?:Key|Keys|Name|Field|Label|Title|Placeholder|Hint|Prompt|Message|Msg|Text|Url|URL|Uri|Path|Header|Id|ID|Type|Kind|Param|Column|Attr|Attribute|Identifier|Account|Service|Endpoint)$/;
+function namedSecretSkip(raw, file) {
+  const line = String(raw);
+  if (fixturePath(file)) return true;
+  NAMED_SECRET.lastIndex = 0;
+  let m;
+  let any = false;
+  while ((m = NAMED_SECRET.exec(line))) {
+    any = true;
+    // ...Key is a lookup key (tokenKey), except for the secret keys themselves (apiKey, secretKey).
+    const secretKey = /(?:api|secret|private|access|signing|encryption|master|client|app)_?key$/i.test(m[1]);
+    if ((KEY_NAME_SUFFIX.test(m[1]) && !secretKey) || /^k[A-Z]\w*Key$/.test(m[1])) continue;
+    if (benignValue(m[3], m[1])) continue;
+    return false;
+  }
+  return any;
+}
+
 module.exports = {
+  namedSecretSkip,
   TEST_PATH, isTestPath, isGeneratedPath, fixturePath,
   PLACEHOLDER_VALUE, isLabel, isNameConstant, benignValue,
   passwordSkip, tokenSkip, connectionSkip,

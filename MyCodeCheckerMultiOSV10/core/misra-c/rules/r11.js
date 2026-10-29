@@ -33,11 +33,13 @@ function conversions(unit) {
   out = [];
   for (const c of U.nodes(unit, 'CastExpr')) {
     if (!c.arg || !c.typeName || !c.typeName.ctype) continue;
-    out.push({ node: c, value: c.arg, from: U.valueType(c.arg), to: c.typeName.ctype, explicit: true });
+    // the int result of an undeclared function is not its real type
+    if (U.guessedType(unit, c.arg)) continue;
+    out.push({ node: c, value: c.arg, from: U.valueType(c.arg, unit), to: c.typeName.ctype, explicit: true });
   }
   for (const s of U.conversionSites(unit)) {
-    const from = U.valueType(s.value);
-    if (!from || !s.to) continue;
+    const from = U.valueType(s.value, unit);
+    if (!from || !s.to || U.guessedType(unit, s.value)) continue;
     const fc = cls(from), tc = cls(s.to);
     if (!fc || !tc) continue;
     if (!/ptr/.test(fc) && !/ptr/.test(tc)) continue;
@@ -63,7 +65,7 @@ function each(unit, fn) {
 }
 
 function sameTarget(a, b) {
-  try { return T.sameType(U.canon(a).to, U.canon(b).to, { ignoreQuals: true }); } catch (_) { return false; }
+  try { return U.sameType(U.canon(a).to, U.canon(b).to, { ignoreQuals: true }); } catch (_) { return false; }
 }
 
 function r111(unit, api) {
@@ -74,7 +76,7 @@ function r111(unit, api) {
       const f = U.canon(cv.from), t = U.canon(cv.to);
       const fFn = f.kind === 'function' ? f : U.canon(f.to);
       const tFn = U.canon(t.to);
-      try { if (T.sameType(fFn, tFn)) return; } catch (_) { return; }
+      try { if (U.sameType(fFn, tFn)) return; } catch (_) { return; }
       say(api, unit, cv, 'the function pointer types are incompatible', '함수 포인터 타입이 호환되지 않습니다');
       return;
     }

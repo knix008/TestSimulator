@@ -42,7 +42,7 @@ function unrelatedPointers(unit, api) {
     if (!to || !from) continue;
     if (to.kind === 'void' || from.kind === 'void' || to.kind === 'function' || from.kind === 'function') continue;
     if (T.isUnknown(to) || T.isUnknown(from)) continue;
-    if (T.sameType(to, from, { ignoreQuals: true })) continue;
+    if (U.A.sameType(to, from, { ignoreQuals: true })) continue;
     if (to.kind === 'record' && from.kind === 'record' && (X.isDerivedFrom(to, from) || X.isDerivedFrom(from, to))) continue;
     api.report(c, M(`A pointer to '${U.tstr(from)}' is converted to a pointer to the unrelated type '${U.tstr(to)}'.`, `'${U.tstr(from)}' 포인터를 관계없는 형식 '${U.tstr(to)}'의 포인터로 변환했습니다.`));
   }

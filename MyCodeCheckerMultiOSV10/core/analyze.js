@@ -19,6 +19,8 @@ const cfront = require('./cfront');
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'target', 'vendor', '__pycache__',
   '.venv', 'venv', 'bin', 'obj', '.idea', '.vs', '.next', 'out', 'coverage', '.mcc',
+  // Build output and caches of other tool chains.
+  'dist-electron', '.nuxt', '.svelte-kit', '.angular', '.gradle', '.turbo',
 ]);
 
 const STRUCT_BY_KEY = new Map(STRUCTURAL.map((r) => [r.key, r]));
@@ -232,7 +234,9 @@ function analyzeSources(files, options = {}) {
         if (rule.scope !== 'any' && structural.commentOnly[i] && line.trim() === '') continue;
         rule.re.lastIndex = 0;
         if (!rule.re.test(line)) continue;
-        if (rule.skip && rule.skip(structural.lines[i], line)) continue;
+        // skip(rawLine, codeLine, file, { index, lines }): a rule may look at the
+        // file (its language, path) and the lines around the match.
+        if (rule.skip && rule.skip(structural.lines[i], line, file, { index: i, lines: structural.lines })) continue;
         push({
           line: i + 1,
           message: rule.name,

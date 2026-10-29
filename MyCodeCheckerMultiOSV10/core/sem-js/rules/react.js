@@ -105,6 +105,8 @@ rule('hooks-rules', {
   why: ['React identifies hooks by call order; calling them conditionally, in loops, in callbacks or outside components breaks state.', 'React는 호출 순서로 Hook을 구별합니다. 조건부, 반복 안, 콜백, 컴포넌트 밖에서 부르면 상태가 깨집니다.'],
   fix: ['Call hooks unconditionally at the top level of a component or custom hook.', 'Hook은 컴포넌트나 사용자 Hook의 최상위에서 조건 없이 호출하세요.'],
 }, (ctx) => {
+  // useX() in a file that neither imports React nor renders JSX is an ordinary function
+  if (!U.isReactFile(ctx)) return;
   for (const call of ctx.nodes('CallExpression')) {
     if (!U.isHookCall(call)) continue;
     const name = ctx.text(call.callee);
@@ -122,7 +124,8 @@ rule('hooks-rules', {
     const cond = conditionalAncestor(call, fn);
     if (cond) { ctx.report(call.callee, m(`React Hook "${name}" is called ${cond}. Hooks must be called in the exact same order in every render.`, `React Hook "${name}"를 ${cond === 'in a loop' ? '반복 안에서' : '조건부로'} 호출합니다. Hook은 매 렌더마다 같은 순서로 호출해야 합니다.`)); continue; }
     if (fn.body.type === 'BlockStatement') {
-      const early = B.ownReturns(fn).find((r) => r.start < call.start);
+      // a return that ends before the call (not the one the call sits in)
+      const early = B.ownReturns(fn).find((r) => r.end <= call.start);
       if (early) ctx.report(call.callee, m(`React Hook "${name}" is called after an early return (line ${ctx.line(early)}).`, `React Hook "${name}"를 이른 반환(${ctx.line(early)}번 줄) 뒤에 호출합니다.`));
     }
   }

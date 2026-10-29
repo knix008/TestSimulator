@@ -188,7 +188,11 @@ R('return-value-ignored', 'S2201', 'B', 'MA', 10, ['suspicious'],
     if (t && t.name === 'string' && !t.ranks && STRING_PURE.has(name)) { report(); return; }
     if (t && (t.name === 'DateTime' || t.name === 'TimeSpan' || t.name === 'DateTimeOffset') && !t.ranks && DATE_PURE.has(name)) { report(); return; }
     if (LINQ_PURE.has(name) && !['Contains', 'Remove', 'Add', 'Reverse'].includes(name) && (t ? (T.COLLECTIONS.has(t.name) || t.ranks) : isLinqChain(target))) {
-      if (e.args.some((a) => a.expr.k === 'Lambda' && lambdaHasSideEffects(a.expr))) return;
+      // ToList() / Count() at the end runs the lambdas of the whole chain:
+      // xs.Select(x => { Log(x); return x; }).ToList(); is there for its side effects
+      for (let c = e; c && c.k === 'Invocation'; c = unparen(callTarget(c) || {})) {
+        if (c.args.some((a) => a.expr.k === 'Lambda' && lambdaHasSideEffects(a.expr))) return;
+      }
       report();
     }
     function report() { cx.report(n, `Use the return value of '${name}'; the call has no side effects.`, `'${name}'의 반환값을 사용하세요. 이 호출은 부수 효과가 없습니다.`); }
@@ -198,7 +202,13 @@ function isLinqChain(e) {
   e = unparen(e);
   return e && e.k === 'Invocation' && ['Where', 'Select', 'OrderBy', 'OrderByDescending', 'Skip', 'Take', 'Distinct', 'SelectMany', 'GroupBy'].includes(callName(e));
 }
-function lambdaHasSideEffects(l) { return !!U.containsKind(l.body, ['Assign', 'Invocation']) && l.body.k !== 'Binary'; }
+function lambdaHasSideEffects(l) {
+  const b = unparen(l.body);
+  // `s => Log(s)`: the body itself is a call (containsKind skips the root)
+  if (b && b.k === 'Invocation') { const nm = callName(b); if (!(STRING_PURE.has(nm) || LINQ_PURE.has(nm) || nm === 'ToString')) return true; }
+  if (b && (b.k === 'Assign' || (b.k === 'Unary' && (b.op === '++' || b.op === '--')))) return true;
+  return !!U.containsKind(l.body, ['Assign', 'Invocation']) && l.body.k !== 'Binary';
+}
 function projectDefinesMethod(project, name) {
   if (project._methodNames === undefined) {
     project._methodNames = new Set();
@@ -729,8 +739,8 @@ R('flags-zero-none', 'S2346', 'S', 'CR', 5, ['convention'],
     if (!td || !attrNamed(td.attrs, ['Flags'])) return;
     if (n.value && U.numVal(n.value) === 0 && n.name !== 'None') cx.report(n, `Rename '${n.name}' to 'None'.`, `'${n.name}'의 이름을 'None'으로 바꾸세요.`);
   } } });
-R('non-flags-bitwise', 'S4070', 'S', 'MI', 5, ['convention'],
-  ['Non-flags enums should not be marked with "FlagsAttribute"', 'Combining members of an enum without [Flags] with | or & produces values that no member represents.', 'Add [Flags] with power-of-two values, or do not combine the members.'],
+R('non-flags-bitwise', 'S3265', 'S', 'MI', 5, ['convention'],
+  ['Members of non-flags enums should not be combined with bitwise operators', 'Combining members of an enum without [Flags] with | or & produces values that no member represents.', 'Add [Flags] with power-of-two values, or do not combine the members.'],
   ['Flags가 아닌 열거형을 비트 연산으로 조합하면 안 됩니다', '[Flags]가 없는 열거형 멤버를 | 나 &로 조합하면 어떤 멤버도 나타내지 않는 값이 됩니다.', '2의 거듭제곱 값과 함께 [Flags]를 붙이거나 멤버를 조합하지 마세요.'],
   { kinds: { Binary(n, cx) {
     if (n.op !== '|') return;

@@ -9,6 +9,24 @@ const R = maker('php', ['php']);
 const IF_PAREN = String.raw`\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)`;
 const INPUT = String.raw`\$_(?:GET|POST|REQUEST|COOKIE|FILES)\b`;
 
+// The line with the inside of '...' and "..." literals blanked; backtick
+// (shell) strings are kept as they are.
+function blankQuoted(line) {
+  let out = '';
+  let q = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) {
+      if (c === '\\') { out += '  '; i++; continue; }
+      if (c === q) { q = null; out += c; } else out += ' ';
+      continue;
+    }
+    if (c === '"' || c === "'") q = c;
+    out += c;
+  }
+  return out;
+}
+
 // ── Bugs ─────────────────────────────────────────────────────
 R('self-assignment', 'B', 'MA', 5, ['pitfall'],
   /^\s*(\$\w+(?:->\w+)*)\s*=(?![=>])\s*\1\s*;/,
@@ -42,10 +60,11 @@ R('nested-ternary', 'B', 'MA', 5, ['confusing'],
   ['중첩된 삼항 연산자입니다', '괄호 없는 중첩 삼항은 PHP 8에서 치명적 오류이고 중첩 자체도 읽기 어렵습니다.', 'if / else나 match를 쓰세요.'],
   "$s = $a ? 'x' : $b ? 'y' : 'z';", ["$s = $a ? 'x' : 'z';", "$t = ($a ? 1 : 2) + ($b ? 3 : 4);"], { skip: (raw, line) => !nestedTernary(line) });
 R('removed-function', 'B', 'CR', 10, ['deprecated'],
-  /(?<![\w$>:])(?:each|ereg|eregi|ereg_replace|eregi_replace|split|spliti|money_format|get_magic_quotes_gpc|create_function|mysql_\w+)\s*\(/,
+  // calls only: a method or function declared with the name (function each(...)) is not the builtin
+  /(?<![\w$>:])(?<!function\s+&?\s*)(?:each|ereg|eregi|ereg_replace|eregi_replace|split|spliti|money_format|get_magic_quotes_gpc|create_function|mysql_\w+)\s*\(/,
   ['Function removed from PHP', 'each, ereg*, split, create_function, money_format and mysql_* no longer exist in PHP 7 / 8.', 'Use foreach, preg_*, explode, closures, NumberFormatter and PDO / mysqli.'],
   ['PHP에서 제거된 함수입니다', 'each, ereg*, split, create_function, money_format, mysql_*는 PHP 7 / 8에 없습니다.', 'foreach, preg_*, explode, 클로저, NumberFormatter, PDO / mysqli를 쓰세요.'],
-  '$parts = split(",", $line);', '$parts = explode(",", $line);');
+  '$parts = split(",", $line);', ['$parts = explode(",", $line);', 'public function each(array $rows, callable $fn): void', '$items->each(fn ($i) => $i->save());']);
 R('parse-str-one-arg', 'B', 'CR', 10, ['cwe-621', 'deprecated'],
   /\bparse_str\s*\(\s*[^,()]+\)/,
   ['parse_str without a result array', 'With one argument parse_str created variables from the query string; PHP 8 requires the second argument.', 'Pass an array: parse_str($q, $params).'],
@@ -59,10 +78,11 @@ R('loose-in-array', 'S', 'MI', 2, ['pitfall'],
 
 // ── Code smells ──────────────────────────────────────────────
 R('debug-output', 'S', 'MA', 5, ['debug'],
-  /\b(?:var_dump|print_r|var_export|debug_zval_dump|debug_print_backtrace|dd|dump)\s*\(/,
+  // the functions, not methods such as $response->dump() or a declared function dump()
+  /(?<![\w$>:\\])(?<!function\s+)(?:var_dump|print_r|var_export|debug_zval_dump|debug_print_backtrace|dd|dump)\s*\(/,
   ['Debug output left in', 'var_dump and print_r leak internals to the page.', 'Use a logger.'],
   ['디버그 출력이 남아 있습니다', 'var_dump와 print_r는 내부 정보를 페이지에 흘립니다.', '로거를 쓰세요.'],
-  'var_dump($user);', ['$log->debug("user", ["id" => $id]);', '$text = print_r($data, true);'],
+  'var_dump($user);', ['$log->debug("user", ["id" => $id]);', '$text = print_r($data, true);', '$yaml = $dumper->dump($config);', 'public function dump(): array'],
   { skip: (raw) => /\b(?:print_r|var_export)\s*\([^;]*,\s*true\s*\)/.test(raw) });
 R('exit-die', 'S', 'MI', 5, ['design'],
   /(?<![\w$>:])(?:die|exit)\s*(?:\(|;)/,
@@ -164,11 +184,19 @@ R('ssl-verify-disabled', 'V', 'CR', 15, ['cwe-295', 'owasp-a07', 'tls'],
   ['TLS certificate check disabled', 'Without verification any certificate is accepted, allowing man-in-the-middle.', 'Keep verification on and set CURLOPT_CAINFO if needed.'],
   ['TLS 인증서 검사를 끕니다', '검증하지 않으면 아무 인증서나 받아들여 중간자 공격을 허용합니다.', '검증을 켜 두고 필요하면 CURLOPT_CAINFO를 설정하세요.'],
   'curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);', 'curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);');
+// The SQL argument itself (after mysqli_query's / pg_query's connection) is
+// interpolated or concatenated; a bound value such as [$id, '%' . $term]
+// after it is not. WordPress table names ({$wpdb->posts}) are not data.
+const SQL_INTERP = /\b(?:(?:mysqli_query|mysqli_multi_query|pg_query)\s*\(\s*(?:\$\w+\s*,\s*)?|(?:sqlite_query|->query|->exec|->prepare|->rawQuery|->get_(?:var|row|col|results)|DB::(?:select|statement|raw|unprepared)|->whereRaw|->selectRaw|->orderByRaw)\s*\(\s*)(?:"[^"]*\$\w|(?:'[^']*'|"[^"]*")\s*\.\s*\$|\$\w+\s*\.\s*['"])/i;
+const WP_TABLE = /\{\$wpdb->(?:prefix|base_prefix|posts|postmeta|users|usermeta|options|comments|commentmeta|terms|termmeta|term_taxonomy|term_relationships|links|blogs|site|sitemeta)\}/g;
 R('sql-interpolation', 'V', 'CR', 20, ['cwe-89', 'owasp-a03', 'sql'],
-  /\b(?:mysqli_query|mysqli_multi_query|pg_query|sqlite_query|->query|->exec|->prepare|->rawQuery|DB::(?:select|statement|raw|unprepared)|->whereRaw|->selectRaw|->orderByRaw)\s*\([^;]*(?:"[^"]*\$\w|['"]\s*\.\s*\$)/i,
+  SQL_INTERP,
   ['SQL built with variables', 'Values interpolated or concatenated into SQL allow injection.', 'Use prepared statements with bound parameters.'],
   ['변수로 SQL을 만듭니다', 'SQL에 끼워 넣거나 이어 붙인 값은 주입을 허용합니다.', '바인딩 매개변수가 있는 준비된 문장을 쓰세요.'],
-  '$db->query("SELECT * FROM users WHERE id = $id");', '$stmt = $db->prepare("SELECT * FROM users WHERE id = ?");');
+  '$db->query("SELECT * FROM users WHERE id = $id");',
+  ['$stmt = $db->prepare("SELECT * FROM users WHERE id = ?");', "$rows = DB::select('SELECT id FROM t WHERE a = ? AND b LIKE ?', [$id, '%' . $term . '%']);",
+    '$row = $wpdb->get_row($wpdb->prepare("SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d", $id));'],
+  { skip: (raw, line) => !SQL_INTERP.test(line.replace(WP_TABLE, 'wp_table')) });
 R('file-from-input', 'V', 'CR', 20, ['cwe-22', 'owasp-a01'],
   new RegExp(String.raw`\b(?:file_get_contents|fopen|readfile|file|unlink|file_put_contents|copy|rename|move_uploaded_file|opendir|scandir)\s*\([^;]*${INPUT}`),
   ['File path from request input', 'A path from input can use ../ or a URL wrapper to reach other files.', 'Use basename and check the path against an allowed folder.'],
@@ -195,8 +223,9 @@ R('shell-backticks', 'V', 'CR', 30, ['cwe-78', 'owasp-a03'],
   /`[^`]*\$\w+[^`]*`/,
   ['Shell command in backticks with a variable', 'Backticks run the string in a shell, so the variable can inject commands.', 'Use escapeshellarg, or avoid the shell.'],
   ['변수가 든 백틱 셸 명령입니다', '백틱은 문자열을 셸에서 실행하므로 변수가 명령을 주입할 수 있습니다.', 'escapeshellarg를 쓰거나 셸을 피하세요.'],
-  '$out = `ls $dir`;', '$out = shell_exec("ls " . escapeshellarg($dir));',
-  { skip: (raw) => /escapeshellarg/.test(raw) });
+  '$out = `ls $dir`;', ['$out = shell_exec("ls " . escapeshellarg($dir));', '$sql = "SELECT * FROM `{$table}` WHERE `id` = ?";'],
+  // backticks inside a '...' or "..." literal quote SQL identifiers, they run nothing
+  { skip: (raw, line) => /escapeshellarg/.test(raw) || !/`[^`]*\$\w+[^`]*`/.test(blankQuoted(line)) });
 R('session-fixation', 'V', 'MA', 10, ['cwe-384', 'owasp-a07'],
   new RegExp(String.raw`\bsession_id\s*\(\s*${INPUT}`),
   ['Session id taken from the request', 'An attacker can fix the victim\'s session id before login.', 'Call session_regenerate_id(true) after login and never accept ids from input.'],

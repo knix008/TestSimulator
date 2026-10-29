@@ -6,6 +6,13 @@ const { maker } = require('./util');
 
 const R = maker('go', ['go']);
 
+// _test.go files: panics, default clients and math/rand belong to the test.
+// skip gets the file as { path } (or its path) when the caller passes it.
+function goTestPath(file) {
+  const p = typeof file === 'string' ? file : file && file.path;
+  return !!p && /_test\.go$/.test(String(p));
+}
+
 // ── Bugs ─────────────────────────────────────────────────────
 R('self-assignment', 'B', 'MA', 5, ['pitfall'],
   /^\s*([A-Za-z_][\w.]*)\s*=\s*\1\s*$/,
@@ -67,7 +74,8 @@ R('panic-call', 'S', 'IN', 5, ['error-handling'],
   /(?<![\w.])panic\s*\(/,
   ['panic in code', 'A panic crashes the program unless recovered; libraries should return errors.', 'Return an error.'],
   ['코드에서 panic을 부릅니다', 'panic은 recover하지 않으면 프로그램을 죽입니다. 라이브러리는 오류를 돌려줘야 합니다.', '오류를 돌려주세요.'],
-  'panic("unreachable")', 'return fmt.Errorf("unexpected state %d", s)');
+  'panic("unreachable")', 'return fmt.Errorf("unexpected state %d", s)',
+  { skip: (raw, line, file) => goTestPath(file) });
 R('context-todo', 'S', 'IN', 2, ['unfinished'],
   /\bcontext\.TODO\s*\(\s*\)/,
   ['context.TODO()', 'TODO marks a context that should be passed in from the caller.', 'Accept a ctx parameter and pass it down.'],
@@ -112,7 +120,8 @@ R('http-no-timeout', 'H', 'MI', 5, ['cwe-400', 'reliability'],
   /\bhttp\.(?:Get|Post|Head|PostForm)\s*\(|&?\bhttp\.Client\s*\{\s*\}/,
   ['HTTP client without a timeout', 'The default client waits forever on a stalled server.', 'Use an http.Client with Timeout set, or a context deadline.'],
   ['시간 제한 없는 HTTP 클라이언트입니다', '기본 클라이언트는 멈춘 서버를 끝없이 기다립니다.', 'Timeout을 설정한 http.Client나 컨텍스트 마감을 쓰세요.'],
-  'resp, err := http.Get(url)', 'resp, err := client.Get(url)');
+  'resp, err := http.Get(url)', 'resp, err := client.Get(url)',
+  { skip: (raw, line, file) => goTestPath(file) });
 R('server-no-timeout', 'H', 'MI', 5, ['cwe-400', 'reliability'],
   /\bhttp\.ListenAndServe(?:TLS)?\s*\(|&?\bhttp\.Server\s*\{\s*Addr\s*:\s*[^,}]+\s*,?\s*(?:Handler\s*:\s*[^,}]+\s*,?\s*)?\}/,
   ['HTTP server without timeouts', 'Without ReadHeaderTimeout a slow client can hold connections open (Slowloris).', 'Use an http.Server with ReadHeaderTimeout, ReadTimeout and WriteTimeout.'],
@@ -237,4 +246,4 @@ R('integer-parse-truncation', 'B', 'MA', 10, ['cwe-190'],
   'n, _ := strconv.Atoi(s); small := int16(n)', 'v, err := strconv.ParseInt(s, 10, 16)',
   { skip: (raw) => !/\bstrconv\.(?:Atoi|ParseInt|ParseUint)\b/.test(raw) || !/\bint(?:8|16|32)\s*\(/.test(raw) });
 
-module.exports = { RULES: R.rules };
+module.exports = { RULES: R.rules, goTestPath };

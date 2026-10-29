@@ -4,6 +4,7 @@
 // Foundation / Security framework misuse and memory-management hints.
 
 const { maker } = require('./util');
+const { namedSecretSkip } = require('./secret-values');
 
 const R = maker('objc', ['objc']);
 
@@ -57,7 +58,8 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b\w*(?:password|passwd|pwd|secret|apiKey|token)\w*\s*=\s*@"[^"\s]{4,}"/i,
   ['Hard-coded credential', 'Anyone with the binary can extract the secret.', 'Load it from the Keychain or a server.'],
   ['자격 증명을 코드에 적었습니다', '바이너리를 가진 누구나 비밀을 꺼낼 수 있습니다.', 'Keychain이나 서버에서 불러오세요.'],
-  'NSString *password = @"hunter22";', 'NSString *password = [keychain stringForKey:@"password"];', { ref: 'S2068' });
+  'NSString *password = @"hunter22";', ['NSString *password = [keychain stringForKey:@"password"];', 'static NSString *const kPasswordKey = @"password";'],
+  { ref: 'S2068', skip: (raw, line, file) => namedSecretSkip(raw, file) });
 R('trust-all-certs', 'V', 'CR', 30, ['tls', 'cwe-295', 'owasp-a07'],
   /\ballowsAnyHTTPSCertificate|\bsetAllowsAnyHTTPSCertificate\s*:\s*YES|\bcredentialForTrust\s*:\s*challenge\.protectionSpace\.serverTrust\b/,
   ['Server certificate accepted without evaluation', 'Accepting any certificate allows man-in-the-middle attacks.', 'Evaluate the trust with SecTrustEvaluateWithError or pin the key.'],

@@ -1035,6 +1035,8 @@ function looksLikeCode(text) {
   if (!CODE_HINT.test(t)) return false;
   if (/^(eslint|@ts-|prettier|istanbul|c8|jshint|global|jslint|#region|#endregion|@flow|@jsx|@vite|webpack|tslint|noinspection|NOMCC|TODO|FIXME|XXX|HACK|NOTE)/i.test(t)) return false;
   if (/^https?:\/\//.test(t)) return false;
+  // section rulers: // ---- name (1 - 2) ----, // ==== x ====
+  if (/^(?:-{2,}|={2,}|\*{2,}|#{2,}|\/{2,})/.test(t)) return false;
   let ast;
   try { ast = parse(t, { ts: true, jsx: false }); } catch {
     try { ast = parse(t, { ts: false, jsx: true }); } catch { return false; }
@@ -1062,6 +1064,12 @@ function looksLikeCode(text) {
   const code = t.slice(0, ast.body[ast.body.length - 1].end);
   if (ast.body.length === 1 && ast.body[0].type === 'ExpressionStatement' && ast.body[0].expression.type === 'CallExpression' && !/[;]\s*$|\)\s*$/.test(code)) return false;
   if (ast.body.length === 1 && ast.body[0].type === 'ExpressionStatement' && !/[;)\]}]\s*$/.test(code)) return false;
+  if (ast.body.length === 1) {
+    const st = ast.body[0];
+    // prose: "word (an aside)" is not a call, "return value" is not a statement
+    if (st.type === 'ExpressionStatement' && st.expression.type === 'CallExpression' && /^\s+\(/.test(code.slice(st.expression.callee.end - st.start)) && !/;\s*$/.test(code)) return false;
+    if ((st.type === 'ReturnStatement' || st.type === 'ThrowStatement') && !/[;(){}[\].=]/.test(code.slice(code.indexOf(' ') + 1))) return false;
+  }
   return true;
 }
 
@@ -1097,6 +1105,47 @@ rule('commented-code', {
   }
 });
 
+// Calls that never return: process.exit() and the Next.js navigation helpers
+// (redirect, notFound, ...), which throw to leave the request.
+const NEXT_NO_RETURN = new Set(['redirect', 'permanentRedirect', 'notFound', 'unauthorized', 'forbidden']);
+function neverReturns(ctx, el) {
+  let e = el && unwrapTS(el);
+  if (e && e.type === 'AwaitExpression') e = unwrapTS(e.argument);
+  if (!e || e.type !== 'CallExpression') return false;
+  const t = ctx.target(e.callee);
+  if (!t) return false;
+  if (t.global && t.name === 'process.exit') return true;
+  return /^next(?:\/|$)/.test(t.module || '') && NEXT_NO_RETURN.has(t.path[t.path.length - 1]);
+}
+
+// The function is the callback of an effect hook: returning nothing or a
+// cleanup function is the hook's contract.
+function isEffectCallback(fn) {
+  const p = fn.parent;
+  if (!p || p.type !== 'CallExpression' || p.arguments[0] !== fn) return false;
+  const c = unwrapTS(p.callee);
+  const name = c.type === 'Identifier' ? c.name : c.type === 'MemberExpression' && !c.computed ? c.property.name : '';
+  return /^use(?:Layout|Insertion)?Effect$/.test(name);
+}
+
+// "return void x" and "return f()" where f is typed "() => void" give no value.
+function noValue(ctx, arg) {
+  const a = unwrapTS(arg);
+  if (!a || W.isUndefined(a)) return true;
+  if (a.type === 'UnaryExpression' && a.operator === 'void') return true;
+  if (a.type === 'CallExpression' && a.callee.type === 'Identifier') {
+    const v = ctx.varOf(a.callee);
+    const d = v && v.defs.length === 1 && v.defs[0];
+    const id = d && d.id;
+    const ann = id && id.typeAnnotation && id.typeAnnotation.typeAnnotation;
+    if (ann && ann.type === 'TSFunctionType') {
+      const rt = ann.returnType && ann.returnType.typeAnnotation;
+      if (rt && rt.type === 'TSVoidKeyword') return true;
+    }
+  }
+  return false;
+}
+
 rule('consistent-return', {
   t: 'S', s: 'MA', debt: 5, ref: 'S3801', tags: ['confusing'],
   name: ['Functions should use "return" consistently', '함수는 "return"을 일관되게 써야 합니다'],
@@ -1110,13 +1159,16 @@ rule('consistent-return', {
       if (t.type === 'TSUnionType' && t.types.some((x) => x.type === 'TSUndefinedKeyword' || x.type === 'TSVoidKeyword')) continue;
       if (t.type === 'TSVoidKeyword' || t.type === 'TSUndefinedKeyword' || t.type === 'TSAnyKeyword' || t.type === 'TSUnknownKeyword') continue;
     }
+    if (isEffectCallback(fn)) continue;
     const rets = B.ownReturns(fn);
-    const withVal = rets.filter((r) => r.argument && !W.isUndefined(r.argument));
+    const withVal = rets.filter((r) => r.argument && !noValue(ctx, r.argument));
     if (!withVal.length) continue;
     const bare = rets.find((r) => !r.argument);
     let cfg;
     try { cfg = ctx.cfg(fn); } catch { continue; }
-    if (bare || cfg.fallsOff) {
+    // falling off after process.exit() / redirect() does not return undefined
+    const fallsOff = cfg.fallsOff && cfg.exit.pred.some((b) => b.reachable && b.fallsOff && !neverReturns(ctx, b.elements[b.elements.length - 1]));
+    if (bare || fallsOff) {
       ctx.report(fnHead(fn), m(`Refactor ${fnLabel(fn)} to use "return" consistently${bare ? '' : '; it can end without returning a value'}.`, `${fnLabelKo(fn)}가 "return"을 일관되게 쓰도록 고치세요${bare ? '' : '. 값을 돌려주지 않고 끝날 수 있습니다'}.`));
     }
   }
@@ -1337,7 +1389,11 @@ rule('this-alias', {
   fix: ['Use arrow functions, which keep "this".', '"this"를 유지하는 화살표 함수를 쓰세요.'],
 }, (ctx) => {
   for (const d of ctx.nodes('VariableDeclarator')) {
-    if (d.id.type === 'Identifier' && d.init && unwrapTS(d.init).type === 'ThisExpression') ctx.report(d, m(`Remove the alias "${d.id.name}" of "this"; use arrow functions instead.`, `"this"의 별칭 "${d.id.name}"를 지우고 화살표 함수를 쓰세요.`));
+    if (d.id.type !== 'Identifier' || !d.init || unwrapTS(d.init).type !== 'ThisExpression') continue;
+    // a cursor that walks from this (for (let s = this; s; s = s.parent)) is not an alias
+    const v = ctx.varOf(d.id);
+    if (v && v.refs.some((r) => r.write && !r.init)) continue;
+    ctx.report(d, m(`Remove the alias "${d.id.name}" of "this"; use arrow functions instead.`, `"this"의 별칭 "${d.id.name}"를 지우고 화살표 함수를 쓰세요.`));
   }
 });
 

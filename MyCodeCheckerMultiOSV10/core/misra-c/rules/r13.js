@@ -135,7 +135,7 @@ module.exports = [
         while (cf.parentOf(top) && (cf.parentOf(top).type === 'InitList' || cf.parentOf(top).type === 'DesignatedInit')) top = cf.parentOf(top);
         if (seen.has(top)) continue;
         seen.add(top);
-        for (const e of sideEffects(top, unit)) {
+        for (const e of sideEffects(top, unit, { project: api.project })) {
           const d = describeEffect(unit, e);
           api.report(e.node, msg(`Initializer list contains the persistent side effect ${d.en}.`, `초기화 목록에 지속적인 부작용(${d.ko})이 있습니다.`));
         }
@@ -173,7 +173,7 @@ module.exports = [
     check(unit, api) {
       for (const { expr } of fullExpressions(unit)) {
         for (const part of commaParts(expr)) {
-          const eff = sideEffects(part, unit);
+          const eff = sideEffects(part, unit, { project: api.project });
           if (eff.length < 2) continue;
           const inc = eff.find((e) => e.kind === 'incdec');
           if (!inc) continue;
@@ -206,7 +206,7 @@ module.exports = [
     check(unit, api) {
       for (const b of nodes(unit, 'BinaryExpr')) {
         if (b.op !== '&&' && b.op !== '||') continue;
-        const eff = sideEffects(b.right, unit);
+        const eff = sideEffects(b.right, unit, { project: api.project });
         if (!eff.length) continue;
         const d = describeEffect(unit, eff[0]);
         api.report(eff[0].node, msg(`The right operand of '${b.op}' has the persistent side effect ${d.en}.`, `'${b.op}'의 오른쪽 피연산자에 지속적인 부작용(${d.ko})이 있습니다.`));

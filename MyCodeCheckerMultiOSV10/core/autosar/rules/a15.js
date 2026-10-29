@@ -123,6 +123,13 @@ module.exports = [
       for (const f of U.fnDefs(unit)) {
         if (!f.body || f.body.type !== 'CompoundStmt' || f.isDestructor || U.inTemplate(f) || noexceptOf(f) !== false) continue;
         if (f.isConstructor && (f.ctorInits || []).length) continue;
+        // `C::C() {}` still default-constructs the bases and members, and a
+        // member such as std::list or a mutex wrapper may throw doing so
+        if (f.isConstructor) {
+          const rec = U.ownerRecord(unit, f);
+          const plain = (t) => { const c = t ? U.canon(t) : null; return !!c && (scalar(c) || (c.kind === 'array' && scalar(U.canon(c.of)))); };
+          if (!rec || U.bases(rec).length || !U.fields(rec).every((m) => plain(m.node.ctype))) continue;
+        }
         const ft = f.ctype ? U.canon(f.ctype) : null;
         if (!ft || ft.kind !== 'function' || !scalar(ft.ret) || !(f.params || []).every((p) => !p.ctype || scalar(p.ctype) || U.canon(p.ctype).kind === 'reference')) continue;
         let mayThrow = false;

@@ -2,6 +2,7 @@
 
 // MISRA C:2012 / 2023 chapter 21 — standard libraries.
 
+const A = require('../lib/a-util');
 const B = require('../lib/b-common');
 const L = require('../lib/b-stdlib');
 const F = require('../lib/b-flow');
@@ -308,7 +309,7 @@ module.exports = [
         if (c.args.length < 2) continue;
         const a = pointeeOf(c.args[0]), b = pointeeOf(c.args[1]);
         if (!a || !b || T.isVoid(canon(a)) || T.isVoid(canon(b)) || T.isUnknown(canon(a)) || T.isUnknown(canon(b))) continue;
-        if (T.sameType(a, b, { ignoreQuals: true })) continue;
+        if (A.sameType(a, b, { ignoreQuals: true })) continue;
         api.report(c, msg(`'${calleeName(c)}' gets pointers to different types '${T.typeToString(a)}' and '${T.typeToString(b)}'.`, `'${calleeName(c)}'에 서로 다른 형 '${T.typeToString(a)}'와(과) '${T.typeToString(b)}'에 대한 포인터를 넘깁니다.`));
       }
     },
@@ -493,7 +494,7 @@ module.exports = [
         const generic = nm === 'remquo' ? c.args.slice(0, 2) : nm === 'fma' ? c.args.slice(0, 3) : c.args.slice(0, 2);
         if (generic.length < 2) continue;
         const t0 = generic[0].ctype;
-        const other = generic.find((a) => a.ctype && t0 && !T.sameType(T.unqualified(a.ctype), T.unqualified(t0), { ignoreQuals: true }));
+        const other = generic.find((a) => a.ctype && t0 && !A.sameType(T.unqualified(a.ctype), T.unqualified(t0), { ignoreQuals: true }));
         if (other) api.report(c, msg(`Type-generic '${nm}' gets arguments of types '${T.typeToString(t0)}' and '${T.typeToString(other.ctype)}'.`, `형 일반 '${nm}'에 '${T.typeToString(t0)}'와(과) '${T.typeToString(other.ctype)}' 형의 인자를 넘깁니다.`));
       }
     },

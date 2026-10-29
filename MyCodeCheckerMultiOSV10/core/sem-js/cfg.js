@@ -33,6 +33,87 @@ function constTruth(test) {
   return !!v.value;
 }
 
+// ---- functions of the file that never return (their body ends in a throw
+// and has no return): a call to one ends the path like a throw statement,
+// e.g. a parser's this.fail(...).
+const FN_TYPES = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
+
+function hasOwnReturn(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'ReturnStatement') return true;
+  for (const k in node) {
+    if (k === 'parent' || k.charCodeAt(0) === 95) continue;
+    const v = node[k];
+    if (!v || typeof v !== 'object') continue;
+    if (Array.isArray(v)) { for (const x of v) if (x && typeof x.type === 'string' && !FN_TYPES.has(x.type) && x.type !== 'ClassDeclaration' && x.type !== 'ClassExpression' && hasOwnReturn(x)) return true; } else if (typeof v.type === 'string' && !FN_TYPES.has(v.type) && v.type !== 'ClassDeclaration' && v.type !== 'ClassExpression' && hasOwnReturn(v)) return true;
+  }
+  return false;
+}
+
+function alwaysThrows(fn) {
+  if (!fn || !fn.body || fn.body.type !== 'BlockStatement' || fn.async || fn.generator) return false;
+  const body = fn.body.body;
+  return body.length > 0 && body[body.length - 1].type === 'ThrowStatement' && !hasOwnReturn(fn.body);
+}
+
+const NO_RETURN = new WeakMap();
+function noReturnOf(program) {
+  let info = NO_RETURN.get(program);
+  if (info) return info;
+  info = { fns: new Set(), methods: new Map() };
+  const stack = [program];
+  while (stack.length) {
+    const n = stack.pop();
+    if (!n || typeof n !== 'object') continue;
+    if (n.type === 'MethodDefinition' && n.kind === 'method' && !n.computed && n.key && n.key.type === 'Identifier' && alwaysThrows(n.value)) {
+      const body = n.parent;
+      if (!info.methods.has(body)) info.methods.set(body, new Set());
+      info.methods.get(body).add(`${n.static ? 's' : 'i'}:${n.key.name}`);
+    } else if (FN_TYPES.has(n.type) && alwaysThrows(n)) info.fns.add(n);
+    for (const k in n) {
+      if (k === 'parent' || k.charCodeAt(0) === 95) continue;
+      const v = n[k];
+      if (!v || typeof v !== 'object') continue;
+      if (Array.isArray(v)) { for (const x of v) if (x && typeof x.type === 'string') stack.push(x); } else if (typeof v.type === 'string') stack.push(v);
+    }
+  }
+  NO_RETURN.set(program, info);
+  return info;
+}
+
+// The class body whose methods "this" refers to at node (arrows see through).
+function thisClassBody(node) {
+  let p = node.parent;
+  while (p) {
+    if (p.type === 'FunctionDeclaration' || p.type === 'FunctionExpression') {
+      const md = p.parent;
+      return md && md.type === 'MethodDefinition' && !md.static ? md.parent : null;
+    }
+    p = p.parent;
+  }
+  return null;
+}
+
+function isNoReturnCall(expr, program) {
+  if (!program || !expr || expr.type !== 'CallExpression') return false;
+  const info = noReturnOf(program);
+  const c = expr.callee;
+  if (c.type === 'Identifier') {
+    const v = c._ref && c._ref.resolved;
+    if (!v || v.defs.length !== 1) return false;
+    const d = v.defs[0];
+    if (d.kind === 'function') return info.fns.has(d.node);
+    if (d.kind === 'const' && d.node && d.node.type === 'VariableDeclarator' && d.node.init) return info.fns.has(d.node.init);
+    return false;
+  }
+  if (c.type === 'MemberExpression' && !c.computed && !c.optional && c.object.type === 'ThisExpression' && c.property.type === 'Identifier' && info.methods.size) {
+    const body = thisClassBody(expr);
+    const set = body && info.methods.get(body);
+    return !!set && set.has(`i:${c.property.name}`);
+  }
+  return false;
+}
+
 class Builder {
   constructor(root) {
     this.root = root;
@@ -42,6 +123,9 @@ class Builder {
     this.finallys = [];
     this.pendingLabels = [];
     this.exit = new Block(-1, null);
+    let top = root;
+    while (top.parent) top = top.parent;
+    this.program = top.type === 'Program' ? top : null;
   }
 
   newBlock() {
@@ -138,7 +222,18 @@ class Builder {
     cur.stmts.push(s);
     switch (s.type) {
       case 'BlockStatement': return this.stmts(s.body, cur);
-      case 'ExpressionStatement': cur.elements.push(s.expression); return cur;
+      case 'ExpressionStatement':
+        cur.elements.push(s.expression);
+        if (isNoReturnCall(s.expression, this.program)) {
+          this.throwFrom(cur);
+          // the code after it is dead, but is not reported as unreachable
+          // code (the call is not a visible jump): it continues in a block
+          // that nothing reaches
+          const rest = this.newBlock();
+          rest.afterNoReturn = true;
+          return rest;
+        }
+        return cur;
       case 'VariableDeclaration':
         for (const d of s.declarations) cur.elements.push(d);
         return cur;
@@ -278,37 +373,46 @@ class Builder {
         return after;
       }
       case 'TryStatement': {
-        const finB = s.finalizer ? this.newBlock() : null;
+        // The finally block is built twice: fin.entry runs after normal
+        // completion (and jumps), fin.exc after an exception and rethrows. One
+        // shared block would let a path that threw before an assignment reach
+        // the code after the try statement.
+        const fin = s.finalizer ? { entry: this.newBlock(), exc: this.newBlock(), targets: new Set() } : null;
+        const exc = fin ? fin.exc : null;
         let catchB = null;
         if (s.handler) {
-          if (finB) this.handlers.push(finB);
+          if (exc) this.handlers.push(exc);
           catchB = this.newBlock();
-          if (finB) this.handlers.pop();
+          if (exc) this.handlers.pop();
         }
-        const fin = finB ? { entry: finB, targets: new Set() } : null;
         if (fin) this.finallys.push(fin);
-        this.handlers.push(catchB || finB);
+        this.handlers.push(catchB || exc);
         const tryStart = this.newBlock();
         this.link(cur, tryStart);
         const tryEnd = this.stmt(s.block, tryStart);
         this.handlers.pop();
         let catchEnd = null;
         if (catchB) {
-          if (finB) this.handlers.push(finB);
+          if (exc) this.handlers.push(exc);
           catchB.isCatch = true;
           catchB.elements.push({ type: 'CatchParam', node: s.handler, start: s.handler.start, end: s.handler.start });
           catchEnd = this.stmt(s.handler.body, catchB);
-          if (finB) this.handlers.pop();
+          if (exc) this.handlers.pop();
         }
-        if (fin) this.finallys.pop();
-        if (finB) {
-          finB.isFinally = true;
-          this.link(tryEnd, finB);
-          this.link(catchEnd, finB);
-          const finEnd = this.stmt(s.finalizer, finB);
+        if (fin) {
+          this.finallys.pop();
+          fin.entry.isFinally = true;
+          fin.exc.isFinally = true;
+          fin.exc.finallyCopy = true;
+          const xEnd = this.stmt(s.finalizer, fin.exc);
+          if (xEnd) this.throwFrom(xEnd);
+          // nothing completes normally or jumps: only the exceptional copy runs
+          if (!tryEnd && !catchEnd && !fin.targets.size) return null;
+          this.link(tryEnd, fin.entry);
+          this.link(catchEnd, fin.entry);
+          const finEnd = this.stmt(s.finalizer, fin.entry);
           if (!finEnd) return null;
           for (const t of fin.targets) this.link(finEnd, t);
-          if (!catchB) this.throwFrom(finEnd);
           if (!tryEnd && !catchEnd) return null;
           const after = this.newBlock();
           this.link(finEnd, after);

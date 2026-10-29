@@ -88,6 +88,10 @@ function d44(unit, api) {
         else if (k === false) prose++;
       }
       if (!code || code < prose) continue;
+      // a documentation comment (/** */, /*! */, ///, //!) that also has prose, or a
+      // comment that announces a usage example, shows code instead of disabling it
+      const doc = /^\/(\*\*(?!\/)|\*!|\/\/|\/!)/.test(c.value || '');
+      if ((doc && prose > 0) || /\b(usage|examples?|e\.g\.)\s*:/i.test(body)) continue;
       api.report(c, msg('This comment appears to contain commented-out code.', '이 주석에 주석 처리된 코드가 있는 것으로 보입니다.'));
     }
   }

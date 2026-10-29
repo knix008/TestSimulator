@@ -412,8 +412,96 @@ function usedSyms(unit) {
   });
 }
 
+// The unit depends on declarations the analysis does not have: an #include
+// that was not found, or names that resolved to nothing / were taken as
+// unknown types or macros. Parse errors of such a unit say more about the
+// missing headers than about the code.
+function incompleteUnit(unit) {
+  return memo(unit, 'incomplete', () => {
+    if ((unit.includes || []).some((i) => i.kind === 'missing')) return true;
+    if ((unit.unresolved || []).some((n) => user(n))) return true;
+    const x = ix(unit);
+    if (x.get('MacroCallDecl').length) return true;
+    return x.get('NamedType').some((n) => n.unknown);
+  });
+}
+
+// An expression mentions an identifier that resolved to nothing.
+function hasUnresolved(e) {
+  if (!e) return false;
+  let found = false;
+  cf.walk(e, (n) => {
+    if (n.type === 'Identifier' && !n.symbol) { found = true; return cf.walk.STOP; }
+    return undefined;
+  });
+  return found;
+}
+
+// Expression text rebuilt from the AST (for nodes produced by a macro, whose
+// source text is the whole macro call, not the expression).
+function printExpr(e, depth = 0) {
+  if (!e) return '';
+  if (depth > 6) return '...';
+  const p = (x) => printExpr(x, depth + 1);
+  switch (e.type) {
+    case 'Identifier': return e.qname || e.name || '';
+    case 'IntegerLiteral': case 'FloatingLiteral': case 'CharLiteral': case 'StringLiteral': return e.raw != null ? String(e.raw) : '';
+    case 'BoolLiteral': return e.value ? 'true' : 'false';
+    case 'NullptrLiteral': return 'nullptr';
+    case 'ThisExpr': return 'this';
+    case 'ParenExpr': return `(${p(e.expr)})`;
+    case 'UnaryExpr': return e.prefix === false ? `${p(e.arg)}${e.op}` : `${e.op}${/^[a-z]/.test(e.op) ? ' ' : ''}${p(e.arg)}`;
+    case 'BinaryExpr': case 'AssignExpr': return `${p(e.left)} ${e.op} ${p(e.right)}`;
+    case 'ConditionalExpr': return `${p(e.test)} ? ${p(e.consequent)} : ${p(e.alternate)}`;
+    case 'MemberExpr': return `${p(e.object)}${e.arrow ? '->' : '.'}${e.member}`;
+    case 'IndexExpr': return `${p(e.object)}[${p(e.index)}]`;
+    case 'CallExpr': return `${p(e.callee)}(${(e.args || []).length ? '...' : ''})`;
+    case 'CastExpr': return e.kind === 'c-style' ? `(${tstr(e.typeName && e.typeName.ctype)})${p(e.arg)}` : `${e.kind}<${tstr(e.typeName && e.typeName.ctype)}>(${p(e.arg)})`;
+    default: return '...';
+  }
+}
+
+// Source text of a node for messages: for code produced by a macro (the
+// location is the macro call) the expression rebuilt from the AST.
+function nodeText(unit, e) {
+  const text = cf.sourceText(unit, e) || '?';
+  // an object-like macro (`TRUE`, `NULL`) is clearer by its name
+  if (e && e.loc && e.loc.macro && !/^\w+$/.test(text)) {
+    const t = printExpr(e);
+    if (t && t !== '...') return t;
+  }
+  return text;
+}
+
+// Location of the user #define of macro `name` (where code produced by its
+// expansion is written), or null for a macro of a built-in header.
+function macroDefLoc(unit, name) {
+  if (!name) return null;
+  const m = (unit.macroTable && unit.macroTable.get(name)) || (unit.macros || []).find((d) => d.name === name);
+  if (!m || !m.file || isBuiltin(m.file) || m.predefined || m.commandLine) return null;
+  return { file: m.file, line: m.line, col: m.col };
+}
+
+// For rules whose only remedy is C++-only syntax (std::array, nullptr,
+// enum class, using, C++ casts, <cxxx> headers): a header that C units also
+// include must stay valid C, so a finding there could not be fixed. Returns
+// an api whose report() drops findings located in such a shared header.
+function cppOnlyFix(api) {
+  const langs = api && api.project && api.project.fileLangs;
+  if (!langs) return api;
+  return {
+    ...api,
+    report(where, message, extra) {
+      const loc = where && (where.loc || where);
+      const file = (loc && loc.file) || (api.unit && api.unit.file);
+      if (file && langs.get(file) === 'both') return undefined;
+      return api.report(where, message, extra);
+    },
+  };
+}
+
 module.exports = {
-  usedSyms,
+  usedSyms, incompleteUnit, hasUnresolved, printExpr, nodeText, cppOnlyFix, macroDefLoc,
   cf, T, user, isBuiltin, ix, memo,
   canon, nonRef, unknownT, tstr, numCat, isIntegralCat, isNumericCat, sizeOf, recordOf, pointee, isFnPtr, ptrDepth,
   constInt, constAny,

@@ -132,6 +132,11 @@ function deadStores(g, onDead) {
 
 // Statements that can never execute: reported once at the first statement
 // after a reachable one in each statement list.
+function isSkipCall(s) {
+  if (!s || s.k !== 'ExprStmt') return false;
+  const c = A.callee(A.strip(s.x));
+  return !!(c && c.recv && /^(?:Skip|Skipf|SkipNow)$/.test(c.name));
+}
 function unreachableStatements(g, report) {
   const reach = reachable(g);
   const lists = [];
@@ -143,13 +148,16 @@ function unreachableStatements(g, report) {
   });
   for (const stmts of lists) {
     let prevReach = null;
+    let prev = null;
     for (const s of stmts) {
       if (s.k === 'Empty') continue;
       const e = g.entryOf.get(s);
       if (!e) continue;
       const r = reach.has(e.id);
-      if (!r && prevReach === true && s.k !== 'Labeled') { report(s); break; }
+      // t.Skip("too slow") keeps the rest of a test on purpose: it is disabled, not dead
+      if (!r && prevReach === true && s.k !== 'Labeled' && !isSkipCall(prev)) { report(s); break; }
       prevReach = r;
+      prev = s;
     }
   }
 }

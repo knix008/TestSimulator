@@ -380,10 +380,18 @@ class FnAnalyzer {
     try {
       const x = T.intRange(c, this.target);
       if (x) r = { lo: Number(x.min), hi: Number(x.max), min: Number(x.min), max: Number(x.max), bits: x.bits, unsigned: Number(x.min) === 0 };
-      // an enum object holds one of its enumerators (values outside need an explicit cast)
-      if (r && c.kind === 'enum' && c.constants && c.constants.length) {
+      // C++: an enum object holds a value of the smallest bit-field that fits
+      // its enumerators ([dcl.enum]; {1, 2, 3} -> 0..3), other values need a
+      // cast. C converts any int to an enum implicitly, so a C enum object
+      // has the full range of its underlying type.
+      if (r && c.kind === 'enum' && c.constants && c.constants.length && this.lang === 'cpp') {
         const vals = c.constants.map((k) => Number(k.value));
-        r = { ...r, min: Math.min(...vals), max: Math.max(...vals), lo: Math.min(...vals), hi: Math.max(...vals) };
+        const lo = Math.min(...vals), hi = Math.max(...vals);
+        let min, max;
+        if (lo >= 0) { min = 0; max = 2 ** Math.ceil(Math.log2(hi + 1)) - 1; }
+        else { const b = Math.ceil(Math.log2(Math.max(-lo, hi + 1))) + 1; min = -(2 ** (b - 1)); max = 2 ** (b - 1) - 1; }
+        min = Math.max(min, r.min); max = Math.min(max, r.max);
+        r = { ...r, min, max, lo: min, hi: max };
       }
     } catch { r = null; }
     this.rangeCache.set(k, r);

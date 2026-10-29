@@ -50,7 +50,9 @@ function defaultFact(t, other) {
 function mergeFact(t, a, b) {
   if (t === 'n') return { nil: a.nil || b.nil, nn: a.nn || b.nn, o: a.o || b.o };
   if (t === 'r') return { open: a.open || b.open, closed: a.closed || b.closed, line: a.open ? a.line : b.line, col: a.open ? a.col : b.col, kind: a.kind || b.kind, name: a.name || b.name };
-  if (t === 'l') return { held: a.held || b.held, free: a.free || b.free, line: a.held ? a.line : b.line, col: a.held ? a.col : b.col, deferred: a.deferred && b.deferred, name: a.name || b.name };
+  // deferred: every path that may hold the lock registered a deferred unlock
+  // (if err != nil { mu.Lock(); defer mu.Unlock() } joins a path that never locked)
+  if (t === 'l') return { held: a.held || b.held, free: a.free || b.free, line: a.held ? a.line : b.line, col: a.held ? a.col : b.col, deferred: (a.deferred || !a.held) && (b.deferred || !b.held) && (a.deferred || b.deferred), name: a.name || b.name };
   return a;
 }
 function sameFact(a, b) {
@@ -412,11 +414,12 @@ class FnSE {
           `'${recv}'은(는) 이미 잠긴 상태(${cur.line}행)에서 다시 잠급니다. 교착 상태가 됩니다.`,
           { events: [{ line: cur.line, tag: 'lock', text: { en: 'first lock', ko: '처음 잠금' }, main: false }, { line: at.line, tag: 'lock', text: { en: 'second lock', ko: '두 번째 잠금' }, main: true }] });
       }
-      st[key] = { held: true, free: false, line: at.line, col: at.col, deferred: false, name: recv };
+      // a defer x.Unlock() registered earlier still runs at return (Unlock / Sleep / Lock cycles)
+      st[key] = { held: true, free: false, line: at.line, col: at.col, deferred: !!(cur && cur.deferred), name: recv };
       return;
     }
     if (deferred) { if (cur) st[key] = { ...cur, deferred: true }; else st[key] = { held: false, free: true, line: at.line, col: at.col, deferred: true, name: recv }; return; }
-    st[key] = { held: false, free: true, line: cur ? cur.line : at.line, col: cur ? cur.col : at.col, deferred: false, name: recv };
+    st[key] = { held: false, free: true, line: cur ? cur.line : at.line, col: cur ? cur.col : at.col, deferred: !!(cur && cur.deferred), name: recv };
   }
 
   // ── function exit ──

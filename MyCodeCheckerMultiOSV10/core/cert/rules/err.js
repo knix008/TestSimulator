@@ -41,7 +41,23 @@ const ko = (v) => KO_IND[v] || v;
 const NUMERIC_CONV = /^[diouxXaAeEfFgG]$/;
 const SCAN_FMT = { scanf: 0, fscanf: 1, sscanf: 1, vscanf: 0, vfscanf: 1, vsscanf: 1 };
 
-const isZeroAssign = (unit, a) => a.op === '=' && S.isErrno(a.left) && U.constInt(unit, a.right) === 0n;
+// Most digits a scanf conversion may read without leaving its target type
+// (the smallest the standard allows: int/long 32 bits): '%4d' reads at most
+// 9999, which no int overflows.
+const SAFE_DIGITS = {
+  dec: { hh: 2, h: 4, '': 9, l: 9, z: 9, t: 9, ll: 18, j: 18, q: 18, I64: 18, I32: 9 },
+  x: { hh: 2, h: 4, '': 8, l: 8, z: 8, t: 8, ll: 16, j: 16, q: 16, I64: 16, I32: 8 },
+  o: { hh: 2, h: 5, '': 10, l: 10, z: 10, t: 10, ll: 21, j: 21, q: 21, I64: 21, I32: 10 },
+  f: { '': 38, l: 308, L: 308 },
+};
+function widthFits(c) {
+  if (!c.width || c.width === '*') return false;
+  const kind = /[diu]/.test(c.conv) ? 'dec' : /[xX]/.test(c.conv) ? 'x' : c.conv === 'o' ? 'o' : 'f';
+  const max = SAFE_DIGITS[kind][c.length];
+  return max != null && Number(c.width) <= max;
+}
+
+const isZeroAssign =(unit, a) => a.op === '=' && S.isErrno(a.left) && U.constInt(unit, a.right) === 0n;
 
 // A NULL-returning result counts as checked when it is tested, returned, stored
 // elsewhere or handed to a user function (not when passed to memset/fclose...).
@@ -166,7 +182,7 @@ module.exports = [
       for (const c of S.calls(unit, Object.keys(SCAN_FMT), api.project)) {
         const fmt = U.strLit(c.args[SCAN_FMT[c.name]]);
         if (fmt == null) continue;
-        const conv = F.parse(fmt).find((x) => NUMERIC_CONV.test(x.conv) && !x.flags.includes('*') && !/^%\*/.test(x.text));
+        const conv = F.parse(fmt).find((x) => NUMERIC_CONV.test(x.conv) && !x.flags.includes('*') && !/^%\*/.test(x.text) && !widthFits(x));
         if (conv) api.report(c.node, M(`${c.name}() converts a number with '${conv.text}'; overflow is undefined and cannot be detected.`, `${c.name}() 가 '${conv.text}' 로 숫자를 변환합니다. 넘침은 정의되지 않은 동작이며 감지할 수 없습니다.`));
       }
     },

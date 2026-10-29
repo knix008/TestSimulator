@@ -2,6 +2,7 @@
 
 // MISRA C:2012 / 2023 chapter 16 — switch statements.
 
+const A = require('../lib/a-util');
 const B = require('../lib/b-common');
 
 const { cf, rule, msg, nodes, text } = B;
@@ -121,7 +122,7 @@ module.exports = [
     check(unit, api) {
       for (const sw of nodes(unit, 'SwitchStmt')) {
         if (!sw.cond || sw.cond.type === 'Declaration') continue;
-        const et = cf.essentialType(sw.cond, { target: unit.target });
+        const et = A.et(unit, api, sw.cond);
         if (et && et.category === 'boolean') api.report(sw.cond, msg(`The switch expression '${text(unit, sw.cond)}' is essentially Boolean.`, `switch 식 '${text(unit, sw.cond)}'이(가) 본질적으로 불리언입니다.`));
       }
     },

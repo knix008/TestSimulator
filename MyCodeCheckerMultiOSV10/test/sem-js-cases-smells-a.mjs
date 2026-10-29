@@ -1391,6 +1391,12 @@ function total(items) {
   return sum;
 }
 total([]);
+// return value
+total([1]);
+// declarations (C++)
+total([2]);
+// ---- alignment (8.15 - 8.17) ----
+total([3]);
 `,
   },
 
@@ -1440,6 +1446,46 @@ export function size(s: string): number | undefined {
 export function maybe(s: string): void {
   if (s) return;
   console.log(s);
+}
+`,
+    },
+    {
+      lang: 'ts',
+      bad: `export function size(x: number) { // Noncompliant
+  if (x > 1) return 'big';
+  if (x < 0) return;
+}
+`,
+      good: `import { useEffect, useCallback } from 'react';
+import { redirect } from 'next/navigation';
+// redirect() and process.exit() never return
+export async function create(form: FormData): Promise<{ error: string }> {
+  if (!form.get('title')) return { error: 'missing' };
+  await form.get('x');
+  redirect('/list');
+}
+export function cli(args: string[]): number {
+  if (args.length) return 1;
+  process.exit(2);
+}
+export function useWatch(el: HTMLElement | null, run: (f: () => void) => void) {
+  // an effect returns nothing or its cleanup
+  useEffect(() => {
+    if (!el) return;
+    const h = () => {};
+    el.addEventListener('x', h);
+    return () => el.removeEventListener('x', h);
+  }, [el]);
+  // return void ... and a call typed () => void give no value
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'a') return;
+    if (e.key === 'b') return void e.preventDefault();
+  };
+  const guard = useCallback((action: () => void) => {
+    if (!el) return action();
+    el.focus();
+  }, [el]);
+  run(() => guard(() => onKey(new KeyboardEvent('k'))));
 }
 `,
     },

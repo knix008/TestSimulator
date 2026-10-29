@@ -10,8 +10,46 @@ const R = maker('rs', ['rs']);
 // in their own file (tests.rs, tests_menu.rs, parser_test.rs): unwrap,
 // expect, panic! and println! are the idiom there.
 const RUST_NON_PRODUCT = /(?:^|\/)(?:tests|benches|examples)\/|(?:^|\/)build\.rs$|(?:^|\/)tests?(?:_[^/]*)?\.rs$|(?:^|\/)[^/]*_tests?\.rs$/;
+// A file's path: the file ({ path }) or the path itself.
+const pathOf = (file) => String((file && typeof file === 'object' ? file.path : file) || '').replace(/\\/g, '/');
 function rustNonProductPath(file) {
-  return !!file && RUST_NON_PRODUCT.test(String(file).replace(/\\/g, '/'));
+  return !!file && RUST_NON_PRODUCT.test(pathOf(file));
+}
+
+// Lines inside a #[cfg(test)] item (usually mod tests { ... }) or a #[test]
+// function, given all lines of the file. Cached per lines array.
+const TEST_LINES = new WeakMap();
+function rustTestLines(lines) {
+  let marks = TEST_LINES.get(lines);
+  if (marks) return marks;
+  marks = new Uint8Array(lines.length);
+  const code = (l) => String(l).replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)'/g, "''").replace(/\/\/.*$/, '');
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^\s*#\[(?:cfg\(test\)|(?:test|tokio::test|rstest)\b)/.test(lines[i])) continue;
+    let depth = 0;
+    let opened = false;
+    let j = i;
+    for (; j < lines.length; j++) {
+      const s = code(lines[j]);
+      for (const c of s) {
+        if (c === '{') { depth++; opened = true; } else if (c === '}') depth--;
+      }
+      marks[j] = 1;
+      if (opened && depth <= 0) break;
+      if (!opened && j > i && /;\s*$/.test(s)) break; // #[cfg(test)] use x; / mod tests;
+    }
+    i = j;
+  }
+  TEST_LINES.set(lines, marks);
+  return marks;
+}
+// skip(raw, line, file, lines, index): test, bench, example or build file,
+// or a line inside a test module / test function.
+// lines may be the skip() context { index, lines } instead.
+function rustTestCode(file, lines, index) {
+  if (lines && !Array.isArray(lines) && typeof lines === 'object') ({ lines, index } = lines);
+  if (rustNonProductPath(file)) return true;
+  return Array.isArray(lines) && Number.isInteger(index) && rustTestLines(lines)[index] === 1;
 }
 
 R('self-assignment', 'B', 'MA', 5, ['pitfall'],
@@ -59,13 +97,13 @@ R('panic', 'S', 'MI', 5, ['error-handling'],
   ['panic! in code', 'A panic aborts the thread; recoverable failures should return Result.', 'Return an error.'],
   ['코드에서 panic!을 부릅니다', 'panic은 스레드를 중단시키므로 복구 가능한 실패는 Result를 돌려줘야 합니다.', '오류를 돌려주세요.'],
   'panic!("bad state");', 'return Err(Error::BadState);',
-  { skip: (raw, line, file) => rustNonProductPath(file) });
+  { skip: (raw, line, file, lines, index) => rustTestCode(file, lines, index) });
 R('print-debug', 'S', 'IN', 2, ['debug'],
   /\b(?:println|eprintln|print|eprint)!\s*\(/,
   ['Console print macro', 'Prints are not logs and cannot be filtered or switched off.', 'Use the log or tracing crate.'],
   ['콘솔 출력 매크로입니다', '출력은 로그가 아니라 거르거나 끌 수 없습니다.', 'log나 tracing 크레이트를 쓰세요.'],
   'println!("value = {}", v);', ['tracing::debug!(value = v);', 'println!("cargo:rerun-if-changed=build.rs");'],
-  { skip: (raw, line, file) => /\bprintln!\s*\(\s*"cargo:/.test(line) || rustNonProductPath(file) });
+  { skip: (raw, line, file, lines, index) => /\bprintln!\s*\(\s*"cargo:/.test(line) || rustTestCode(file, lines, index) });
 R('allow-lints', 'S', 'IN', 2, ['convention'],
   /#!?\[\s*allow\s*\([^)]*(?:\b(?:warnings|unused|nonstandard_style|future_incompatible|rust_2018_idioms|let_underscore)\b(?!_)|\bclippy::(?:all|pedantic|nursery|restriction|cargo|complexity|correctness|perf|style|suspicious)\b(?!_))|#!\[\s*allow\s*\([^)]*\b(?:dead_code|unsafe_code)\b/,
   ['Broad lint allowed', 'Allowing a whole lint group, or a lint for the whole crate or module, hides new problems.', 'Allow the single lint on the item where it is justified.'],
@@ -150,7 +188,7 @@ R('wildcard-use', 'S', 'MI', 2, ['convention'],
   ['Wildcard use', 'Glob imports hide where names come from and can clash.', 'Import the items you use.'],
   ['와일드카드 use입니다', '글롭 import는 이름의 출처를 숨기고 충돌할 수 있습니다.', '쓰는 항목을 import하세요.'],
   'use std::collections::*;', ['use std::collections::HashMap;', 'use super::*;', 'use crate::prelude::*;'],
-  { skip: (raw, line, file) => /\b(?:super|prelude|tests?|testkit|test_?utils?)::\*/.test(raw) || rustNonProductPath(file) });
+  { skip: (raw, line, file, lines, index) => /\b(?:super|prelude|tests?|testkit|test_?utils?)::\*/.test(raw) || rustTestCode(file, lines, index) });
 R('deprecated-try-macro', 'S', 'MI', 2, ['deprecated'],
   /(?<![\w:])try!\s*\(/,
   ['try! macro', 'try! is deprecated and a reserved word since Rust 2018.', 'Use the ? operator.'],
@@ -186,4 +224,4 @@ function underscoreParamsOnly(line) {
   return params.length > 0 && params.every((p) => /^(?:mut\s+)?_\w*\s*:/.test(p));
 }
 
-module.exports = { RULES: R.rules, rustNonProductPath, sqlHolesAreConstants };
+module.exports = { RULES: R.rules, rustNonProductPath, rustTestCode, sqlHolesAreConstants };

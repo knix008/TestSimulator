@@ -128,7 +128,8 @@ const RULES = [
     fix: { en: 'Use a logger with levels, or remove the call.', ko: '레벨이 있는 로거를 쓰거나 호출을 지우세요.' } }),
   R({ key: 'js:with', langs: 'js', type: 'BUG', severity: 'MAJOR', debtMin: 15, tags: ['deprecated'],
     re: /(?<![\w$.])with\s*\(/,
-    skip: (raw, line) => /^\s*(?:(?:static|async|get|set)\s+)*with\s*\([^)]*\)\s*\{/.test(line),
+    // a method named with is written with( (the statement is formatted with ( )
+    skip: (raw, line) => /^\s*(?:(?:static|async|get|set)\s+)*with\([^)]*\)\s*\{/.test(line),
     name: { en: 'with statement', ko: 'with 문' },
     why: { en: 'with makes name lookup unpredictable and is forbidden in strict mode.', ko: 'with는 이름 탐색을 예측할 수 없게 하고 strict 모드에서 금지됩니다.' },
     fix: { en: 'Refer to the object explicitly.', ko: '객체를 명시적으로 참조하세요.' } }),
@@ -172,9 +173,9 @@ const RULES = [
     why: { en: 'Sequential await inside a loop hides a chance to run work concurrently.', ko: '루프 안의 순차 await는 동시에 할 수 있는 일을 숨깁니다.' },
     fix: { en: 'Collect promises and await Promise.all when the calls are independent.', ko: '호출이 독립적이면 프로미스를 모아 Promise.all로 기다리세요.' } }),
   R({ key: 'js:sql-concat', langs: 'js', type: 'VULNERABILITY', severity: 'CRITICAL', debtMin: 30, tags: ['sqli', 'cwe-89'],
-    re: /['"`][^'"`]*\b(?:SELECT\b[^'"`]*\bFROM|INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM)\b[^'"`]*(?:['"]\s*\+|\$\{)|query\s*\(\s*['"][^'"]*['"]\s*\+/,
-    // A template whose values are bound (?, $1) interpolates identifiers, not data.
-    skip: (raw, line) => !/['"]\s*\+/.test(line) && /(?:[=(,<>]\s*\?|\?\s*[,)]|\bLIMIT\s+\?|\$\d\b)/.test(line),
+    // SQL text in a string literal joined with +; SELECTED + 1 or 'Deleted ' + n is not SQL.
+    // Templates are left to the taint analysis: most interpolate quoted identifiers or bound fragments.
+    re: /['"][^'"]*\b(?:SELECT\b[^'"]*\bFROM|INSERT\s+INTO|UPDATE\s+\S+\s+SET|DELETE\s+FROM)\b[^'"]*['"]\s*\+|query\s*\(\s*['"][^'"]*['"]\s*\+/,
     name: { en: 'SQL built by concatenation', ko: '이어 붙인 SQL' },
     why: { en: 'Concatenated SQL is altered by quotes in the data.', ko: '이어 붙인 SQL은 데이터의 따옴표로 변형됩니다.' },
     fix: { en: 'Use bound parameters.', ko: '바인드 파라미터를 쓰세요.' } }),
@@ -260,6 +261,8 @@ const RULES = [
     fix: { en: 'Default to None and create the container inside the function.', ko: '기본값은 None으로 하고 함수 안에서 컨테이너를 만드세요.' } }),
   R({ key: 'py:assert', langs: 'py', type: 'SECURITY_HOTSPOT', severity: 'MINOR', debtMin: 5, tags: ['cwe-617'],
     re: /^\s*assert\b/,
+    // In test files assert is the test itself (pytest), not a runtime check.
+    skip: (raw, line, file) => require('./rules-extra/py').pyTestPath(file),
     name: { en: 'assert used as a check', ko: '검사로 쓰인 assert' },
     why: { en: 'Python strips assert when it runs with -O.', ko: '파이썬은 -O로 실행하면 assert를 제거합니다.' },
     fix: { en: 'Raise an exception for checks that must always run.', ko: '항상 실행되어야 하는 검사는 예외를 일으키세요.' } }),
@@ -434,7 +437,9 @@ const RULES = [
 
   // ── Go (gosec style) ──────────────────────────────────────
   R({ key: 'go:sql-concat', langs: 'go', type: 'VULNERABILITY', severity: 'CRITICAL', debtMin: 30, tags: ['sqli', 'cwe-89'],
-    re: /(?:Query|Exec|QueryRow)\s*\(\s*(?:fmt\.Sprintf|[^)]*\+)/,
+    // The query argument itself is built with Sprintf or +; a + inside the
+    // SQL text ("SET n = n + 1") or among the parameters (id+1) is not.
+    re: /(?:Query|Exec|QueryRow)\s*\(\s*(?:fmt\.Sprintf\s*\(|(?:"(?:[^"\\]|\\.)*"|`[^`]*`|[\w.]+)\s*\+)|(?:QueryContext|ExecContext|QueryRowContext)\s*\(\s*[\w.()]+\s*,\s*(?:fmt\.Sprintf\s*\(|(?:"(?:[^"\\]|\\.)*"|`[^`]*`|[\w.]+)\s*\+)/,
     name: { en: 'SQL built with sprintf or +', ko: 'sprintf나 + 로 만든 SQL' },
     why: { en: 'Query text built from data is SQL injection.', ko: '데이터로 만든 쿼리 문자열은 SQL 주입입니다.' },
     fix: { en: 'Use placeholders (?, $1) and extra arguments.', ko: '자리표시자(?, $1)와 추가 인자를 쓰세요.' } }),
@@ -444,7 +449,10 @@ const RULES = [
     why: { en: 'The TLS client will accept any certificate.', ko: 'TLS 클라이언트가 어떤 인증서든 받아들입니다.' },
     fix: { en: 'Leave verification on.', ko: '검증을 켜 두세요.' } }),
   R({ key: 'go:math-rand', langs: 'go', type: 'SECURITY_HOTSPOT', severity: 'MAJOR', debtMin: 10, tags: ['cwe-330'],
-    re: /\bmath\/rand\b|\brand\.(?:Int|Read|Intn)\s*\(/,
+    // rand.Read / rand.Int are also crypto/rand's (rand.Int(rand.Reader, max)):
+    // only the import and the math-only calls are reported.
+    re: /\bmath\/rand\b|\brand\.(?:Intn|Int31n?|Int63n?|Float32|Float64|Perm|Shuffle|Seed)\s*\(|\brand\.Int\s*\(\s*\)/,
+    skip: (raw, line, file) => require('./rules-extra/go').goTestPath(file),
     name: { en: 'math/rand', ko: 'math/rand' },
     why: { en: 'math/rand is not for secrets.', ko: 'math/rand는 시크릿용이 아닙니다.' },
     fix: { en: 'Use crypto/rand for tokens.', ko: '토큰에는 crypto/rand를 쓰세요.' } }),
@@ -467,14 +475,15 @@ const RULES = [
   // ── Rust (clippy style) ───────────────────────────────────
   R({ key: 'rs:unwrap', langs: 'rs', type: 'CODE_SMELL', severity: 'MAJOR', debtMin: 10, tags: ['panic'],
     re: /\.unwrap\s*\(\s*\)/,
-    // Tests, benches, examples and build.rs panic on purpose (third argument: the file path).
-    skip: (raw, line, file) => require('./rules-extra/rs').rustNonProductPath(file),
+    // Tests, benches, examples, build.rs and #[cfg(test)] modules panic on purpose
+    // (arguments 3-5: the file path, all lines of the file, the line index).
+    skip: (raw, line, file, lines, index) => require('./rules-extra/rs').rustTestCode(file, lines, index),
     name: { en: 'unwrap()', ko: 'unwrap()' },
     why: { en: 'unwrap panics when the value is None or Err.', ko: '값이 None이나 Err이면 unwrap은 패닉합니다.' },
     fix: { en: 'Use ? or match and handle the failure.', ko: '? 나 match로 실패를 처리하세요.' } }),
   R({ key: 'rs:expect', langs: 'rs', type: 'CODE_SMELL', severity: 'MINOR', debtMin: 5, tags: ['panic'],
     re: /\.expect\s*\(/,
-    skip: (raw, line, file) => require('./rules-extra/rs').rustNonProductPath(file),
+    skip: (raw, line, file, lines, index) => require('./rules-extra/rs').rustTestCode(file, lines, index),
     name: { en: 'expect()', ko: 'expect()' },
     why: { en: 'expect still panics, only with a message.', ko: 'expect도 메시지만 다를 뿐 패닉합니다.' },
     fix: { en: 'Propagate the error with ? where you can.', ko: '가능하면 ? 로 오류를 전파하세요.' } }),
@@ -503,12 +512,15 @@ const RULES = [
 
   // ── PHP ───────────────────────────────────────────────────
   R({ key: 'php:eval', langs: 'php', type: 'VULNERABILITY', severity: 'CRITICAL', debtMin: 30, tags: ['cwe-95'],
-    re: /\b(?:eval|assert)\s*\(/,
+    // The functions, not $redis->eval() or Foo::eval(); assert() evaluates
+    // only a string argument (PHP 7 and older), assert($x > 0) runs no code.
+    re: /(?<![\w>:$\\])(?<!function\s+)eval\s*\(|(?<![\w>:$\\])(?<!function\s+)assert\s*\(\s*['"]/,
     name: { en: 'eval or assert', ko: 'eval 또는 assert' },
     why: { en: 'eval and assert run a string as PHP.', ko: 'eval과 assert는 문자열을 PHP로 실행합니다.' },
     fix: { en: 'Remove dynamic code execution.', ko: '동적 코드 실행을 제거하세요.' } }),
   R({ key: 'php:shell', langs: 'php', type: 'VULNERABILITY', severity: 'CRITICAL', debtMin: 30, tags: ['cwe-78'],
-    re: /\b(?:shell_exec|passthru|system|exec|popen)\s*\(/,
+    // The functions, not methods such as $pdo->exec($sql) or a function exec() declared here.
+    re: /(?<![\w>:$\\])(?<!function\s+)(?:shell_exec|passthru|system|exec|popen|proc_open|pcntl_exec)\s*\(/,
     name: { en: 'Shell execution', ko: '셸 실행' },
     why: { en: 'These functions pass a string to a shell.', ko: '이 함수들은 문자열을 셸에 넘깁니다.' },
     fix: { en: 'Avoid a shell, or escape arguments with escapeshellarg.', ko: '셸을 피하거나 escapeshellarg로 인자를 이스케이프하세요.' } }),
@@ -540,18 +552,22 @@ const RULES = [
 
   // ── Ruby (brakeman style) ─────────────────────────────────
   R({ key: 'rb:eval', langs: 'rb', type: 'VULNERABILITY', severity: 'CRITICAL', debtMin: 30, tags: ['cwe-95'],
-    re: /\b(?:eval|class_eval|instance_eval|module_eval)\b/,
+    // A block (class_eval do ... end, instance_eval(&blk), { }) evaluates no text.
+    re: /(?<![\w:@$])(?<!def\s+)(?:eval|class_eval|instance_eval|module_eval|class_exec|module_exec)\b(?![?!])(?!\s*(?:do\b|\{|\(\s*&|&))/,
     name: { en: 'eval', ko: 'eval' },
     why: { en: 'eval runs a string as Ruby.', ko: 'eval은 문자열을 루비로 실행합니다.' },
     fix: { en: 'Call a method instead of evaluating text.', ko: '글을 평가하지 말고 메서드를 호출하세요.' } }),
   R({ key: 'rb:system', langs: 'rb', type: 'VULNERABILITY', severity: 'CRITICAL', debtMin: 30, tags: ['cwe-78'],
     // Kernel#system / #exec, not methods named exec_query or execute, nor obj.exec(...).
     re: /(?<![\w.:@$]|\bdef\s+)(?:system|exec)(?![\w?!:])\s*[\w('"%]|\b(?:Kernel|Process)\.(?:system|exec|spawn)\b|\b`\s*[\w(]/,
+    // The command is a plain literal: the multi-argument form (the fix itself,
+    // no shell) or a constant command line, with no data in it.
+    skip: (raw) => /(?:system|exec|spawn)\s*\(?\s*(?:'[^'#]*'|"(?:[^"\\#]|\\.|#(?!\{))*")\s*(?:,|\)|$)/.test(raw),
     name: { en: 'system or exec', ko: 'system 또는 exec' },
     why: { en: 'A shell command built from data is command injection.', ko: '데이터로 만든 셸 명령은 명령 주입입니다.' },
     fix: { en: 'Use a multi-argument form that skips the shell.', ko: '셸을 건너뛰는 다중 인자 형태를 쓰세요.' } }),
   R({ key: 'rb:html-safe', langs: 'rb', type: 'VULNERABILITY', severity: 'MAJOR', debtMin: 20, tags: ['xss'],
-    re: /\.html_safe\b|raw\s*\(/,
+    re: /\.html_safe\b|(?<![\w.:@$])raw\s*\(/,
     name: { en: 'html_safe or raw', ko: 'html_safe 또는 raw' },
     why: { en: 'Marking a string html_safe disables escaping.', ko: '문자열을 html_safe로 표시하면 이스케이프가 꺼집니다.' },
     fix: { en: 'Escape untrusted data, or sanitize HTML.', ko: '신뢰할 수 없는 데이터는 이스케이프하거나 HTML을 정화하세요.' } }),
@@ -566,7 +582,9 @@ const RULES = [
     why: { en: 'Marshal data from outside can run code.', ko: '외부의 Marshal 데이터는 코드를 실행할 수 있습니다.' },
     fix: { en: 'Use JSON.', ko: 'JSON을 쓰세요.' } }),
   R({ key: 'rb:skip-auth', langs: 'rb', type: 'SECURITY_HOTSPOT', severity: 'MAJOR', debtMin: 15, tags: ['auth'],
-    re: /skip_before_action/,
+    // Only filters that guard access (authenticate_user!, require_login,
+    // verify_authenticity_token, authorize...); skipping :set_locale is not.
+    re: /\bskip_before_(?:action|filter)\b(?=.*:\w*(?:auth|login|logged_in|signed_in|verify|admin|permission|access|session|token|csrf|protect|require_user|current_user|ensure_user|check_user))/,
     name: { en: 'skip_before_action', ko: 'skip_before_action' },
     why: { en: 'Skipping a before_action often skips authentication.', ko: 'before_action을 건너뛰면 인증도 건너뛰는 경우가 많습니다.' },
     fix: { en: 'Skip only the filter you mean, and review the action.', ko: '의도한 필터만 건너뛰고 액션을 검토하세요.' } }),
@@ -590,7 +608,8 @@ const RULES = [
   R({ key: 'sh:rm-rf-var', langs: 'sh', type: 'BUG', severity: 'BLOCKER', debtMin: 30, tags: ['destructive'],
     re: /\brm\s+-rf\s+\$/,
     // ${DIR:?} aborts on an empty value, which is the fix.
-    skip: (raw, line) => !/\brm\s+-rf\s+\$(?!\{\w+:\?)/.test(line),
+    // A command printed by echo / printf is not run.
+    skip: (raw, line) => !/\brm\s+-rf\s+\$(?!\{\w+:\?)/.test(line) || /^\s*(?:echo|printf)\b/.test(line),
     name: { en: 'rm -rf of a variable', ko: '변수를 rm -rf' },
     why: { en: 'If the variable is empty, rm -rf can target / or the current directory.', ko: '변수가 비면 rm -rf가 / 나 현재 디렉터리를 겨냥할 수 있습니다.' },
     fix: { en: 'Quote the path, refuse an empty value, and use --.', ko: '경로를 따옴표로 감싸고 빈 값은 거부하며 -- 를 쓰세요.' } }),
@@ -603,7 +622,8 @@ const RULES = [
     fix: { en: 'Quote "$var".', ko: '"$var"처럼 따옴표로 감싸세요.' } }),
   R({ key: 'sh:cd', langs: 'sh', type: 'BUG', severity: 'MINOR', debtMin: 5, tags: ['errors'],
     re: /^\s*cd\s+/,
-    skip: (line) => /\|\||&&/.test(line),
+    // Checked with || / &&, or the script runs under set -e (arguments 4-5: all lines, the line index).
+    skip: (line, code, file, lines, index) => /\|\||&&/.test(line) || require('./rules-extra/sh').errexitBefore(lines, index),
     name: { en: 'cd without a failure check', ko: '실패 확인 없는 cd' },
     why: { en: 'If cd fails, the next commands run in the wrong directory.', ko: 'cd가 실패하면 다음 명령이 잘못된 디렉터리에서 실행됩니다.' },
     fix: { en: 'Use cd dir || exit.', ko: 'cd dir || exit 를 쓰세요.' } }),
@@ -789,7 +809,7 @@ const RULES = [
   // ── Common text markers ───────────────────────────────────
   R({ key: 'common:todo', langs: '*', type: 'CODE_SMELL', severity: 'INFO', debtMin: 5, scope: 'any', tags: ['convention'],
     re: /\b(?:TODO|FIXME|XXX|HACK)\b/,
-    // In a comment only: not 'TODO' in a string, an enum member or context.TODO().
+    // In a comment only: not the marker word in a string, an enum member or a Go context call.
     skip: (line) => !require('./rules-extra/common').todoInComment(line),
     name: { en: 'TODO or FIXME comment', ko: 'TODO 또는 FIXME 주석' },
     why: { en: 'A leftover marker is unfinished work still in the tree.', ko: '남아 있는 표시는 아직 끝나지 않은 일입니다.' },
@@ -837,11 +857,13 @@ function declaresSerialUid(ctx) {
   for (let i = ctx.index; i < ctx.lines.length && i < ctx.index + 5000; i++) {
     const raw = String(ctx.lines[i]);
     const code = blankStrings(raw.replace(/\/\/.*$/, ''));
-    if (opened && depth === 1 && /\bserialVersionUID\b/.test(code)) return true;
+    // The part of the line directly in the class body (not in a nested type or method).
+    let own = '';
     for (const c of code) {
       if (c === '{') { depth++; opened = true; } else if (c === '}') depth--;
+      else if (depth === 1) own += c;
     }
-    if (opened && /\bserialVersionUID\b/.test(code) && i === ctx.index) return true;
+    if (/\bserialVersionUID\b/.test(own)) return true;
     if (opened && depth <= 0) return false;
   }
   return false;

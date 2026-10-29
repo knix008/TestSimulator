@@ -559,26 +559,26 @@ func open(p string) (int, error) { return 0, nil }
 // io.EOF is returned unwrapped by io.Reader.Read and the other reader-style
 // calls ("Read must return EOF itself, not an error wrapping EOF, because
 // callers will test for EOF using =="), so err == io.EOF is the documented
-// idiom when every assignment of err comes from such a call.
-const EOF_CALLS = /^(?:Read|ReadAt|ReadByte|ReadBytes|ReadRune|ReadString|ReadLine|ReadSlice|ReadFull|ReadAtLeast|ReadDir|Readdir|Readdirnames|ReadFrom|ReadMsg|ReadRecord|ReadPart|Next|NextPart|NextRawPart|NextReader|NextToken|Token|RawToken|Decode|Recv|ReadMessage|ReadJSON|Peek|Discard)$/;
-function eofFromReader(sentinel, errExpr) {
+// idiom when the assignment of err just before the comparison is such a call.
+const EOF_CALLS = /^(?:Read|ReadAt|ReadByte|ReadBytes|ReadRune|ReadString|ReadLine|ReadSlice|ReadFull|ReadAtLeast|ReadDir|Readdir|Readdirnames|ReadFrom|ReadMsg|ReadRecord|ReadPart|Next|NextPart|NextRawPart|NextReader|NextToken|Token|RawToken|Decode|Recv|ReadMessage|ReadJSON|ReadMIMEHeader|ReadContinuedLine|ReadDotLines|ReadDotBytes|Peek|Discard)$/;
+function eofFromReader(sentinel, errExpr, cmp) {
   const s = A.strip(sentinel);
   if (!s || s.k !== 'Selector' || s.sel.name !== 'EOF') return false;
   const x = A.strip(s.x);
   if (!x || x.k !== 'Ident' || x.name !== 'io') return false;
   const e = A.strip(errExpr);
   if (!e || e.k !== 'Ident' || !e.sym) return false;
-  let seen = 0;
+  let last = null;
   for (const id of [e.sym.node, ...e.sym.refs]) {
     const as = id && id.parent;
     if (!as || as.k !== 'Assign' || !as.lhs.includes(id)) continue;
-    if (as.rhs.length !== 1) return false;
-    const call = A.strip(as.rhs[0]);
-    const c = call && call.k === 'Call' ? A.callee(call) : null;
-    if (!c || !c.name || !EOF_CALLS.test(c.name)) return false;
-    seen++;
+    if (as.pos == null || cmp.pos == null || as.pos >= cmp.pos) continue;
+    if (!last || as.pos > last.pos) last = as;
   }
-  return seen > 0;
+  if (!last || last.rhs.length !== 1) return false;
+  const call = A.strip(last.rhs[0]);
+  const c = call && call.k === 'Call' ? A.callee(call) : null;
+  return !!(c && c.name && EOF_CALLS.test(c.name));
 }
 
 rule({
@@ -590,7 +590,7 @@ rule({
       if (n.op !== '==' && n.op !== '!=') return;
       const pair = (H.isErrExpr(n.x) && H.isSentinel(n.y)) ? n.y : (H.isErrExpr(n.y) && H.isSentinel(n.x)) ? n.x : null;
       if (!pair) return;
-      if (eofFromReader(pair, pair === n.y ? n.x : n.y)) return;
+      if (eofFromReader(pair, pair === n.y ? n.x : n.y, n)) return;
       const fn = H.fnOf(n);
       if (fn && fn.k === 'FuncDecl' && fn.recv && fn.name.name === 'Is') return;
       cx.report(n, `Use errors.Is to compare with '${cx.norm(pair)}' so that wrapped errors match.`, `감싼 오류도 일치하도록 '${cx.norm(pair)}'과(와)의 비교에 errors.Is를 쓰세요.`);

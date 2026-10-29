@@ -5,6 +5,7 @@
 // Groovy, and 'js' also covers TypeScript (languages.ruleLangsFor).
 
 const { maker, blankStrings } = require('./util');
+const { fixturePath } = require('./secret-values');
 
 const CODE = ['js', 'py', 'java', 'cs', 'go', 'rs', 'php', 'rb'];
 const R = maker('common', CODE);
@@ -17,7 +18,8 @@ R('hardcoded-ip', 'H', 'MI', 5, ['cwe-547'],
   ['하드코딩된 IP 주소입니다', '고정 주소는 네트워크가 바뀌면 깨지고 내부 구성을 드러냅니다.', '설정에서 주소를 읽거나 호스트 이름을 쓰세요.'],
   'const db = "10.20.30.40";', ['const db = config.dbHost;', 'const local = "127.0.0.1";', 'const version = "1.2.3.4";', 'const doc = "192.0.2.10";', "  '6.2.4.1': { title: 'Injection' },"],
   {
-    skip: (raw) => {
+    skip: (raw, line, file) => {
+      if (fixturePath(file)) return true;
       const m = /['"`]((?:\d{1,3}\.){3}\d{1,3})/.exec(raw);
       if (!m) return true;
       const octets = m[1].split('.').map(Number);
@@ -32,30 +34,70 @@ R('cleartext-protocol', 'H', 'MA', 10, ['cwe-319', 'owasp-a02'],
   /['"`](?:ftp|telnet|ldap|smtp|imap|pop3|mqtt|nntp|gopher|tftp):\/\/(?!localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)/i,
   ['Clear-text protocol URL', 'FTP, Telnet, LDAP, SMTP and similar URLs send data and credentials unencrypted.', 'Use the TLS variant: ftps, ldaps, smtps, imaps, mqtts or SSH.'],
   ['평문 프로토콜 URL입니다', 'FTP, Telnet, LDAP, SMTP 같은 URL은 데이터와 자격 증명을 암호화하지 않고 보냅니다.', 'TLS 판을 쓰세요: ftps, ldaps, smtps, imaps, mqtts, SSH.'],
-  'url = "ftp://files.example.com/drop"', ['url = "sftp://files.example.com/drop"', 'url = "ldaps://dc.example.com"']);
+  'url = "ftp://files.example.com/drop"', ['url = "sftp://files.example.com/drop"', 'url = "ldaps://dc.example.com"'],
+  { skip: (raw, line, file) => fixturePath(file) });
 R('cleartext-http', 'H', 'MI', 5, ['cwe-319', 'owasp-a02'],
   // A host must follow: "http://" alone is a scheme prefix (starts_with("http://")).
   /['"`]http:\/\/(?=[^'"`\s])(?!localhost\b|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|\*|(?:[\w-]+\.)+localhost\b|www\.apple\.com\/DTDs\/|(?:[\w-]+\.)*(?:example\.(?:com|org|net)|w3\.org|xmlsoap\.org|apache\.org|json-schema\.org|purl\.org|xml\.org|openxmlformats\.org|springframework\.org|java\.sun\.com|jcp\.org|android\.com)\b|schemas\.|xmlns\.|javax\.xml\.)/,
   ['URL over plain HTTP', 'Requests to this URL can be read and changed on the network.', 'Use https.'],
   ['평문 HTTP URL입니다', '이 URL로 가는 요청은 네트워크에서 읽히고 바뀔 수 있습니다.', 'https를 쓰세요.'],
   'API = "http://api.payments.io/v1"', ['API = "https://api.payments.io/v1"', 'NS = "http://www.w3.org/2001/XMLSchema"', 'f.setFeature("http://xml.org/sax/features/external-general-entities", false);'],
-  { langs: ['py', 'java', 'cs', 'go', 'rs', 'php', 'rb'], lang: 'py' });
+  { langs: ['py', 'java', 'cs', 'go', 'rs', 'php', 'rb'], lang: 'py', skip: (raw, line, file) => fixturePath(file) });
 R('tmp-path', 'H', 'MI', 5, ['cwe-377', 'owasp-a01'],
   /['"`]\/tmp\/[\w.-]/,
   ['Fixed path in /tmp', 'Another local user can create or link the file first.', 'Create temporary files with the platform API (mkstemp, createTempFile, os.CreateTemp).'],
   ['/tmp의 고정 경로입니다', '다른 로컬 사용자가 먼저 파일을 만들거나 링크할 수 있습니다.', '플랫폼 API로 임시 파일을 만드세요(mkstemp, createTempFile, os.CreateTemp).'],
-  'const out = "/tmp/report.csv";', 'const out = path.join(os.tmpdir(), randomName());');
+  'const out = "/tmp/report.csv";', 'const out = path.join(os.tmpdir(), randomName());',
+  { skip: (raw, line, file) => fixturePath(file) });
 
 // A group made only of character-class atoms, at least one of them repeated,
 // and repeated again: (a+)+, (\w+\s?)*, ([a-z]*)+, (.*)*
 const ATOM = String.raw`(?:\\[wWdDsS.]|\.|\[(?:[^\]\\]|\\.)*\]|[A-Za-z0-9])`;
 const NESTED = new RegExp(String.raw`\((?:\?:)?(?=[^)]*[+*])(?:${ATOM}[+*?]?){1,6}\)(?:[+*]|\{\d+,\d*\})`);
+const NESTED_ALL = new RegExp(NESTED.source, 'g');
+const ATOM_Q = new RegExp(String.raw`(${ATOM})([+*?]?)`, 'g');
+
+// The set test of one atom: does it match the character c?
+function atomMatches(atom, c) {
+  if (atom === '.') return true;
+  if (atom[0] === '\\') {
+    const k = atom[1];
+    if (k === '.') return c === '.';
+    try { return new RegExp('\\' + k).test(c); } catch { return true; }
+  }
+  if (atom[0] === '[') {
+    try { return new RegExp(atom).test(c); } catch { return true; }
+  }
+  return atom === c;
+}
+
+// (?:\.\w+)*, (?:[-_][a-z]+)*, (\d+,)*: an atom without a quantifier matches
+// only characters that none of the quantified atoms can match, so the
+// repetitions cannot overlap and the group backtracks linearly.
+const SAMPLE = [...Array.from({ length: 95 }, (_, k) => String.fromCharCode(32 + k)), '\t', '\n', 'é'];
+function delimitedGroup(group) {
+  const inner = group.replace(/^\((?:\?:)?/, '').replace(/\)(?:[+*]|\{\d+,\d*\})$/, '');
+  const atoms = [];
+  ATOM_Q.lastIndex = 0;
+  let m;
+  while ((m = ATOM_Q.exec(inner))) atoms.push({ atom: m[1], q: m[2] });
+  const fixed = atoms.filter((a) => !a.q);
+  const repeated = atoms.filter((a) => a.q);
+  const overlap = (x, y) => SAMPLE.some((c) => atomMatches(x, c) && atomMatches(y, c));
+  return fixed.some((f) => repeated.every((a) => !overlap(f.atom, a.atom)));
+}
+
+function safeNestedQuantifiers(line) {
+  const groups = String(line).match(NESTED_ALL) || [];
+  return groups.length > 0 && groups.every(delimitedGroup);
+}
 R('regex-nested-quantifier', 'H', 'MA', 10, ['cwe-1333', 'redos'],
   new RegExp(String.raw`['"\x60/].*?${NESTED.source}`),
   ['Regular expression with nested quantifiers', 'Patterns like (a+)+ backtrack exponentially on crafted input (ReDoS).', 'Remove the nested quantifier, use atomic groups or a linear-time engine.'],
   ['중첩 수량자가 있는 정규식입니다', '(a+)+ 같은 패턴은 조작된 입력에서 지수적으로 역추적합니다(ReDoS).', '중첩 수량자를 없애거나 원자 그룹, 선형 시간 엔진을 쓰세요.'],
   ['const re = /^(\\w+\\s?)*$/;', 're = re.compile(r"^(a+)+$")'],
-  ['const re = /^\\w+(\\s\\w+)?$/;', 'x = (i++)*2;', 'const m = /^\\s*(?:unsigned\\s+|static\\s+)*(int|char)\\s+/;']);
+  ['const re = /^\\w+(\\s\\w+)?$/;', 'x = (i++)*2;', 'const m = /^\\s*(?:unsigned\\s+|static\\s+)*(int|char)\\s+/;', 'const dotted = /^\\w+(?:\\.\\w+)*$/;', 'const words = /^[a-z]+(?:[-_][a-z]+)*$/;'],
+  { skip: (raw, line) => safeNestedQuantifiers(line) });
 R('long-line', 'S', 'IN', 2, ['convention'],
   /^.{251,}$/,
   ['Line longer than 250 characters', 'Very long lines are hard to read and review side by side.', 'Break the line.'],
@@ -77,7 +119,8 @@ R('invisible-character', 'B', 'MA', 5, ['cwe-1007'],
 
 // common:todo sees whole lines (comments included). The marker counts only in
 // a comment: after closed string literals are removed, a comment marker must
-// come before it. 'TODO' in a string, Status.TODO or context.TODO() is code.
+// come before it. The marker word in a string, an enum member or Go's
+// context package function is code.
 const COMMENT_BEFORE_MARKER = /(?:\/\/|\/\*|^\s*\*|#|--|<!--|^\s*;|'|\bREM\b|^\s*!|%|\(\*|\{-|^.{6}[*\/]|\*>|^\s*")[^\n]*?\b(?:TODO|FIXME|XXX|HACK)\b/i;
 function todoInComment(raw) {
   const s = String(raw).replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\\n]|\\.)*`/g, '""');

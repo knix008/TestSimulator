@@ -23,8 +23,26 @@ function scopedRanges(unit) {
 }
 
 module.exports = [
-  D('A16-0-1', ['19.0.2'], {
+  // Function-like macros (MISRA C++:2023 19.0.2), and also object-like macros
+  // other than include guards (`#define MAX_SIZE 1024U` is non-compliant in
+  // the standard's example: use a constexpr constant) and #undef.
+  A({
+    id: 'A16-0-1', cat: 'Required', enf: 'automated', misra: '19.0.2', sev: 'MAJOR', debt: 10,
     name: ['The preprocessor shall only be used for file inclusion, include guards and conditional compilation', '전처리기는 파일 포함, 포함 가드, 조건부 컴파일에만 써야 합니다'],
+    why: ['Macros ignore scopes and types; inline functions, templates and constexpr constants do the same job safely.', '매크로는 범위와 타입을 무시합니다. inline 함수, 템플릿, constexpr 상수가 같은 일을 안전하게 합니다.'],
+    fix: ['Replace the macro by an inline or constexpr function, a template or a constexpr constant.', '매크로를 inline 또는 constexpr 함수, 템플릿, constexpr 상수로 바꾸세요.'],
+    check(unit, api) {
+      const guards = new Set();
+      for (const g of (unit.headerGuards || new Map()).values()) if (g && g.macro) guards.add(`${g.file}|${g.macro}`);
+      for (const d of userDirectives(unit)) {
+        if (!d.active) continue;
+        if (d.kind === 'undef') { api.report(d, M(`#undef '${d.macro || '?'}' is used.`, `#undef '${d.macro || '?'}' 를 씁니다.`)); continue; }
+        if (d.kind !== 'define' || !d.def) continue;
+        const m = d.def;
+        if (m.kind === 'function') api.report(d, M(`Function-like macro '${m.name}' is defined.`, `함수형 매크로 '${m.name}' 가 정의되었습니다.`));
+        else if (!guards.has(`${d.file}|${m.name}`)) api.report(d, M(`Macro '${m.name}' is defined for something other than an include guard.`, `매크로 '${m.name}' 를 포함 가드가 아닌 용도로 정의합니다.`));
+      }
+    },
   }),
   D('A16-2-1', ['19.2.3'], { name: ["The ', \", /*, //, \\ characters shall not occur in a header file name or in an #include directive", "헤더 파일 이름이나 #include 지시문에 ', \", /*, //, \\ 가 있으면 안 됩니다"] }),
   A({
@@ -49,7 +67,9 @@ module.exports = [
       for (const d of userDirectives(unit)) {
         if (d.kind !== 'define' && d.kind !== 'undef') continue;
         const inside = ranges.find((r) => r.file === d.file && d.line > r.start && d.line < r.end);
-        if (inside) api.report(d, M(`The macro '${d.macro || '?'}' is ${d.kind === 'define' ? 'defined' : 'undefined'} inside a ${inside.kind === 'NamespaceDecl' ? 'namespace' : inside.kind === 'RecordDecl' ? 'class' : 'function'}.`, `매크로 '${d.macro || '?'}' 를 ${inside.kind === 'NamespaceDecl' ? '네임스페이스' : inside.kind === 'RecordDecl' ? '클래스' : '함수'} 안에서 ${d.kind === 'define' ? '정의' : '해제'}합니다.`));
+        // a directive in an inactive branch is not run, so it has no macro name yet
+        const name = d.macro || (d.tokens && d.tokens[0] && d.tokens[0].value) || '?';
+        if (inside) api.report(d, M(`The macro '${name}' is ${d.kind === 'define' ? 'defined' : 'undefined'} inside a ${inside.kind === 'NamespaceDecl' ? 'namespace' : inside.kind === 'RecordDecl' ? 'class' : 'function'}.`, `매크로 '${name}' 를 ${inside.kind === 'NamespaceDecl' ? '네임스페이스' : inside.kind === 'RecordDecl' ? '클래스' : '함수'} 안에서 ${d.kind === 'define' ? '정의' : '해제'}합니다.`));
       }
     },
   }),

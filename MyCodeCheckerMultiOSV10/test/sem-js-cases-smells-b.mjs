@@ -111,6 +111,13 @@ function double(values) {
     return interval;
   }
 }
+// a cursor walking from this is not an alias
+class Scope {
+  lookup(name) {
+    for (let s = this; s; s = s.parent) if (s.vars.has(name)) return s.vars.get(name);
+    return null;
+  }
+}
 `,
   },
 

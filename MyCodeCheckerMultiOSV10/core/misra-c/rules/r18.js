@@ -2,6 +2,7 @@
 
 // MISRA C:2012 / 2023 chapter 18 — pointers and arrays.
 
+const A = require('../lib/a-util');
 const B = require('../lib/b-common');
 
 const { cf, T, rule, msg, nodes, text, skipParens, isPointerType, isArrayType, canon } = B;
@@ -18,7 +19,7 @@ function pointerOffset(e, unit, depth = 0) {
       if (d) {
         const r = pointerOffset(d, unit, depth + 1);
         // element types must agree
-        if (r && T.sameType(T.pointee(t) || t, T.pointee(T.decay(r.sym.type)) || t, { ignoreQuals: true })) return r;
+        if (r && A.sameType(T.pointee(t) || t, T.pointee(T.decay(r.sym.type)) || t, { ignoreQuals: true })) return r;
       }
     }
     return null;

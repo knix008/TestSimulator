@@ -279,7 +279,20 @@ R('cfn-ebs-unencrypted', ['cfn'], 'V', 'MA', 5, ['aws', 'ebs', 'cwe-311'],
 R('cfn-iam-wildcard-action', ['cfn'], 'V', 'CR', 15, ['aws', 'iam', 'cwe-269', 'owasp-a01'],
   ['IAM policy allows every action', 'Action "*" grants full control over the account resources it covers.', 'List only the actions the principal needs.'],
   ['IAM 정책이 모든 작업을 허용합니다', 'Action "*"는 해당 리소스에 대한 모든 권한을 줍니다.', '주체에게 필요한 작업만 나열하세요.'],
-  { re: /["']?\bAction["']?\s*:\s*(?:\[\s*)?["']\*["']/, ref: 'S6302' });
+  {
+    // A Deny statement with Action "*" restricts; only an Allow grants everything.
+    check: (doc) => {
+      const out = [];
+      doc.lines.forEach((l, i) => {
+        const m = /["']?\bAction["']?\s*:\s*(?:\[\s*)?["']\*["']/.exec(l);
+        if (!m) return;
+        if (kv('Effect', 'Deny').test(slice(doc, itemOf(doc, i, m.index)))) return;
+        out.push({ line: i });
+      });
+      return out;
+    },
+    ref: 'S6302',
+  });
 R('cfn-hardcoded-secret', ['cfn'], 'V', 'BL', 30, ['aws', 'cwe-798', 'owasp-a07', 'secrets'],
   ['Hard-coded password in the template', 'The secret is stored in source control and visible in the stack configuration.', 'Use {{resolve:secretsmanager:...}}, a NoEcho parameter or ManageMasterUserPassword.'],
   ['템플릿에 비밀번호를 적었습니다', '비밀이 소스 관리에 남고 스택 구성에서 보입니다.', '{{resolve:secretsmanager:...}}, NoEcho 매개변수 또는 ManageMasterUserPassword를 쓰세요.'],
@@ -366,10 +379,12 @@ R('k8s-secret-in-env', ['k8s'], 'V', 'BL', 30, ['k8s', 'cwe-798', 'secrets'],
       const L = doc.lines;
       for (let i = 0; i < L.length; i++) {
         if (!/^\s*-\s+name\s*:\s*["']?\w*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY)\w*["']?\s*$/i.test(L[i])) continue;
+        // TOKEN_TTL, PASSWORD_FILE, SECRET_NAME ... configure a secret, they do not hold one.
+        if (/(?:TTL|EXPIRY|EXPIRES|LENGTH|FILE|PATH|DIR|NAME|URL|URI|ENDPOINT|HEADER|TYPE|MODE|ENABLED|ID)["']?\s*$/i.test(L[i])) continue;
         for (let j = i + 1; j < L.length && j <= i + 3; j++) {
           if (/^\s*-\s/.test(L[j])) break;
           const m = /^\s*value\s*:\s*["']?([^"'\s]{4,})/.exec(L[j]);
-          if (m && !/^\$\(|^\{\{/.test(m[1])) { out.push({ line: j }); break; }
+          if (m && !/^\$\(|^\{\{|^(?:\d+|true|false|yes|no)$/i.test(m[1])) { out.push({ line: j }); break; }
         }
       }
       return out;
@@ -449,12 +464,15 @@ R('ansible-state-latest', ['ansible'], 'S', 'MI', 5, ['ansible', 'reproducibilit
 
 // ── ARM templates ────────────────────────────────────────────
 const SECRET_NAME = /(?:password|secret|token|connectionstring|accountkey|sharedkey|apikey)/i;
+// A parameter that names or configures a secret (keyVaultSecretName,
+// tokenLifetime, passwordLength) instead of holding it.
+const SECRET_SETTING = /(?:Name|Id|Uri|Url|Version|Type|Length|Count|Lifetime|Expiry|Expiration|Days|Enabled|Policy|Mode)$/;
 
 function armParams(doc) {
   const out = [];
   doc.lines.forEach((l, i) => {
     const m = /^\s*"(\w+)"\s*:\s*\{\s*$/.exec(l);
-    if (!m || !SECRET_NAME.test(m[1]) || /(?:Name|Id|Uri|Url|Version|Type)$/.test(m[1])) return;
+    if (!m || !SECRET_NAME.test(m[1]) || SECRET_SETTING.test(m[1])) return;
     const block = jsonEnclosing(doc.lines, i, l.length);
     const body = slice(doc, block);
     if (!/"type"\s*:\s*"/i.test(body)) return;
@@ -520,7 +538,7 @@ R('bicep-secure-param', ['bicep'], 'V', 'CR', 10, ['azure', 'cwe-532', 'secrets'
         const m = /^\s*(@secure\(\)\s*)?param\s+(\w+)\s+(?:string|object)\b/.exec(l);
         if (!m || m[1]) return;
         const name = m[2];
-        if (!SECRET_NAME.test(name) || /(?:Name|Id|Uri|Url|Version|Type|Length|Count)$/.test(name)) return;
+        if (!SECRET_NAME.test(name) || SECRET_SETTING.test(name)) return;
         for (let j = i - 1; j >= 0; j--) {
           if (blank(L[j])) continue;
           if (!/^\s*@/.test(L[j])) break;

@@ -2,9 +2,59 @@
 
 // Python.
 
-const { maker } = require('./util');
+const { maker, blankStrings } = require('./util');
 
 const R = maker('py', ['py']);
+
+function unbalancedClose(line) {
+  let depth = 0;
+  for (const c of blankStrings(line)) {
+    if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') depth--;
+  }
+  return depth < 0;
+}
+
+// Test code (pytest / unittest files and folders), where assert and print are
+// the point. skip gets the file as { path } (or its path) when the caller passes it.
+const PY_TEST_PATH = /(?:^|\/)(?:tests?|testing)\/|(?:^|\/)(?:test_[^/]*|[^/]*_tests?|conftest)\.py$/i;
+function pyTestPath(file) {
+  const p = typeof file === 'string' ? file : file && file.path;
+  return !!p && PY_TEST_PATH.test(String(p).replace(/\\/g, '/'));
+}
+
+// ctx = { index, lines } (the line's index and the file's raw lines), when the
+// caller passes it; without it these return false and the rule reports.
+const indentOf = (s) => /^\s*/.exec(s)[0].replace(/\t/g, '        ').length;
+
+// The except clause on lines[index] has a bare raise (or raise ... from) in its body.
+function handlerReraises(ctx) {
+  if (!ctx || !Array.isArray(ctx.lines) || ctx.index == null) return false;
+  const head = String(ctx.lines[ctx.index]);
+  const ind = indentOf(head);
+  if (/:\s*raise\b/.test(head)) return true;
+  for (let i = ctx.index + 1; i < ctx.lines.length && i < ctx.index + 200; i++) {
+    const s = String(ctx.lines[i]);
+    if (!s.trim() || /^\s*#/.test(s)) continue;
+    if (indentOf(s) <= ind) return false;
+    // raise / raise exc (the caught one) / raise Wrapped(...) from exc
+    if (/^\s*raise\s*(?:$|#|[a-z_]\w*\s*(?:#.*)?$|.*\bfrom\s+[a-z_]\w*\s*(?:#.*)?$)/.test(s)) return true;
+  }
+  return false;
+}
+
+// The literal on this line is one piece of an implicit string concatenation:
+// the previous line ends with a string and the line starts with one, or the
+// next line starts with a string.
+function inStringConcat(raw, ctx) {
+  if (!ctx || !Array.isArray(ctx.lines) || ctx.index == null) return false;
+  const cur = String(raw).trim();
+  const prev = String(ctx.lines[ctx.index - 1] || '').replace(/#.*$/, '').trim();
+  const next = String(ctx.lines[ctx.index + 1] || '').trim();
+  const startsStr = (s) => /^[rRbBuUfF]{0,2}['"]/.test(s);
+  if (startsStr(cur) && /['"]$/.test(prev)) return true;
+  return /['"]$/.test(cur.replace(/#.*$/, '').trim()) && startsStr(next);
+}
 
 // ── Bugs ─────────────────────────────────────────────────────
 R('self-assignment', 'B', 'MA', 5, ['pitfall'],
@@ -98,7 +148,9 @@ R('except-base-exception', 'S', 'MI', 5, ['error-handling', 'cwe-396'],
   /^\s*except\s*\(?\s*BaseException\b/,
   ['except BaseException', 'Catching BaseException also swallows KeyboardInterrupt and SystemExit.', 'Catch Exception or a narrower class.'],
   ['BaseException을 잡습니다', 'BaseException을 잡으면 KeyboardInterrupt와 SystemExit도 삼킵니다.', 'Exception이나 더 좁은 클래스를 잡으세요.'],
-  'except BaseException as exc:', 'except ValueError as exc:');
+  'except BaseException as exc:', 'except ValueError as exc:',
+  // A handler that re-raises (add a note, clean up, then raise) swallows nothing.
+  { skip: (raw, line, file, ctx) => handlerReraises(ctx) });
 R('raise-generic', 'S', 'MA', 5, ['error-handling', 'cwe-397'],
   /\braise\s+(?:Exception|BaseException)\s*\(/,
   ['Generic Exception raised', 'Callers cannot catch a plain Exception without catching everything.', 'Raise a specific built-in or custom exception.'],
@@ -115,15 +167,18 @@ R('len-comparison', 'S', 'IN', 2, ['clumsy'],
   ['len()을 0과 비교합니다', '빈 시퀀스는 이미 거짓입니다.', 'if items: 또는 if not items: 로 쓰세요.'],
   'if len(items) == 0:', 'if not items:');
 R('fstring-no-placeholder', 'S', 'MI', 2, ['clumsy'],
-  /(?<![\w'"])f(['"])(?!\1)[^{}'"]*\1/,
+  /(?<![\w'"\\])f(['"])(?!\1)[^{}'"]*\1/,
   ['f-string without placeholders', 'The f prefix does nothing without {}.', 'Drop the f prefix.'],
   ['자리표시자 없는 f-문자열입니다', '{}가 없으면 f 접두사는 아무 일도 하지 않습니다.', 'f 접두사를 지우세요.'],
-  "msg = f'done'", ["msg = f'done {count}'", "pair = ('f', 'x')", '    return f"""']);
+  "msg = f'done'", ["msg = f'done {count}'", "pair = ('f', 'x')", '    return f"""', "ESC = {'b': '\\b', 'f': '\\f', 'n': '\\n'}"],
+  // a piece of an implicit concatenation (f'{a} ' / f'rest') is one f-string with the others
+  { skip: (raw, line, file, ctx) => inStringConcat(raw, ctx) });
 R('print-debug', 'S', 'IN', 2, ['debug'],
   /^\s*print\s*\(/,
   ['print() left in the code', 'Prints are hard to filter and switch off in production.', 'Use the logging module.'],
   ['print()가 남아 있습니다', 'print는 운영에서 거르거나 끄기 어렵습니다.', 'logging 모듈을 쓰세요.'],
-  'print(response)', 'logger.debug("response %s", response)');
+  'print(response)', 'logger.debug("response %s", response)',
+  { skip: (raw, line, file) => pyTestPath(file) });
 R('debugger', 'S', 'MA', 5, ['debug'],
   /\b(?:pdb|ipdb|pudb)\.set_trace\s*\(|^\s*breakpoint\s*\(\s*\)|^\s*import\s+(?:pdb|ipdb|pudb)\b/,
   ['Debugger call left in', 'A breakpoint stops the program waiting for console input.', 'Remove it before committing.'],
@@ -139,8 +194,10 @@ R('lambda-assignment', 'S', 'MI', 2, ['convention'],
   ['Lambda assigned to a name', 'A named lambda loses its name in tracebacks.', 'Use def.'],
   ['람다를 이름에 대입합니다', '이름 붙인 람다는 traceback에서 이름을 잃습니다.', 'def를 쓰세요.'],
   'square = lambda x: x * x', ['def square(x): return x * x', '    key=lambda tp: tp.name)):', '        true_fn = lambda: tf.argmax(x, axis=1),'],
-  // a trailing comma is a keyword argument of a call spread over lines
-  { skip: (raw) => /,\s*(?:#.*)?$/.test(raw) });
+  // a keyword argument of a call spread over lines: a trailing comma, or more
+  // closing than opening brackets (the call's last argument)
+  { skip: (raw, line, file, ctx) => /,\s*(?:#.*)?$/.test(raw) || unbalancedClose(line)
+    || !!(ctx && Array.isArray(ctx.lines) && /[(,]\s*(?:#.*)?$/.test(String(ctx.lines[ctx.index - 1] || ''))) });
 R('empty-function', 'S', 'MI', 5, ['suspicious'],
   /^\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*(?:->\s*[^:]+)?:\s*pass\s*$/,
   ['Function body is only pass', 'An empty function is unfinished or should explain why it does nothing.', 'Implement it, add a docstring, or use ... for an abstract stub.'],
@@ -330,4 +387,4 @@ R('subprocess-shell-string', 'V', 'CR', 20, ['cwe-78', 'owasp-a03'],
   ['문자열로 만든 명령줄입니다', '포맷한 명령 문자열은 셸이나 분리가 끼면 바로 주입을 부릅니다.', '인자 목록을 넘기세요.'],
   "subprocess.run(f'convert {src} {dst}')", "subprocess.run(['convert', src, dst])");
 
-module.exports = { RULES: R.rules };
+module.exports = { RULES: R.rules, pyTestPath };

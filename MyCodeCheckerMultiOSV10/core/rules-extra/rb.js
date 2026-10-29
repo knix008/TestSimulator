@@ -169,9 +169,10 @@ R('jwt-unverified', 'V', 'CR', 20, ['cwe-347', 'owasp-a02', 'jwt'],
   ['검증 없이 JWT를 디코딩합니다', 'false(또는 alg none)를 넘기면 서명 검사를 건너뛰어 클레임을 위조할 수 있습니다.', 'verify true와 기대하는 알고리즘으로 디코딩하세요.'],
   'payload = JWT.decode(token, nil, false)', "payload = JWT.decode(token, key, true, algorithm: 'HS256')");
 R('shell-interpolation', 'V', 'CR', 30, ['cwe-78', 'owasp-a03'],
-  /\b(?:Open3\.\w+|IO\.popen|spawn|system|exec)\s*\(?\s*"[^"]*#\{|%x\{[^}]*#\{/,
+  // Kernel#spawn / #system / #exec, not conn.exec("SELECT ... #{id}") (a database call)
+  /(?:\b(?:Open3\.\w+|IO\.popen)|(?<![\w.:])(?:spawn|system|exec)|\b(?:Kernel|Process)\.(?:spawn|system|exec))\s*\(?\s*"[^"]*#\{|%x\{[^}]*#\{/,
   ['Shell command with interpolation', 'Interpolated values in a shell string can inject commands.', 'Pass the program and arguments separately: system("tar", "xf", path).'],
   ['보간이 든 셸 명령입니다', '셸 문자열에 보간한 값은 명령을 주입할 수 있습니다.', '프로그램과 인자를 따로 넘기세요: system("tar", "xf", path).'],
-  'Open3.capture2("convert #{src} #{dst}")', 'Open3.capture2("convert", src, dst)', { raw: true });
+  'Open3.capture2("convert #{src} #{dst}")', ['Open3.capture2("convert", src, dst)', 'conn.exec("SELECT * FROM t WHERE id = #{conn.escape(id)}")'], { raw: true });
 
 module.exports = { RULES: R.rules };

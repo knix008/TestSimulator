@@ -165,8 +165,9 @@ test('Python SQL formatting rule tells parameters from formatting', () => {
 });
 
 test('Ruby system/exec rule ignores execute, exec_query and receiver methods', () => {
-  for (const line of ['conn.execute("SELECT 1")', 'conn.exec_query(sql)', 'stmt.exec(x)', 'def system(cmd)']) assert.equal(fires('rb:system', line), false, line);
-  for (const line of ['system("ls #{cmd}")', 'system "ls", dir', 'exec(cmd)', 'Kernel.system(cmd)']) assert.equal(fires('rb:system', line), true, line);
+  // The multi-argument form and a constant command line carry no shell-built data.
+  for (const line of ['conn.execute("SELECT 1")', 'conn.exec_query(sql)', 'stmt.exec(x)', 'def system(cmd)', 'system "ls", dir', 'system("tar", "czf", out, dir)', 'system("make clean")']) assert.equal(fires('rb:system', line), false, line);
+  for (const line of ['system("ls #{cmd}")', 'system "ls " + dir', 'exec(cmd)', 'Kernel.system(cmd)', 'system("rm -rf #{path}", exception: true)']) assert.equal(fires('rb:system', line), true, line);
 });
 
 test('Rust SQL rule sees a format! that builds a statement before the call', () => {

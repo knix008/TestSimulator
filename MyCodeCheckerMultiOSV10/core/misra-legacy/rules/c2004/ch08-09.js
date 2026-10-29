@@ -15,7 +15,7 @@ function prototypes(unit, api) {
     const s = c.calleeSymbol || (U.strip(c.callee) && U.strip(c.callee).symbol);
     if (!s || s.kind !== 'function') continue;
     const ft = fnType(s.type);
-    if (s.implicit) api.report(c, M(`'${s.name}' is called without a visible prototype.`, `'${s.name}'를 보이는 프로토타입 없이 호출했습니다.`));
+    if (s.implicit) { if (!U.B.maybeDeclaredInMissingHeader(unit, api.project, s)) api.report(c, M(`'${s.name}' is called without a visible prototype.`, `'${s.name}'를 보이는 프로토타입 없이 호출했습니다.`)); }
     else if (ft && ft.prototype === false && !s.system) api.report(c, M(`'${s.name}' is called through a declaration that is not a prototype.`, `'${s.name}'를 프로토타입이 아닌 선언으로 호출했습니다.`));
   }
   for (const f of U.funcs(unit)) {

@@ -22,6 +22,7 @@ module.exports = [
     why: ['C-style arrays decay to pointers, lose their size and invite out-of-bounds access.', 'C 스타일 배열은 포인터로 변환되며 크기를 잃고 범위 밖 접근을 부릅니다.'],
     fix: ['Use std::array (or another container).', 'std::array (또는 다른 컨테이너) 를 쓰세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       for (const v of U.ix(unit).get('VarDecl', 'FieldDecl')) {
         if (!v.ctype || U.canon(v.ctype).kind !== 'array') continue;
         api.report(v, M(`'${v.name}' is declared as a C-style array of type '${U.tstr(v.ctype)}'.`, `'${v.name}' 가 C 스타일 배열 '${U.tstr(v.ctype)}' 로 선언되었습니다.`));

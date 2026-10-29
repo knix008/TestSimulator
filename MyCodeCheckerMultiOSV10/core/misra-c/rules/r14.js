@@ -2,6 +2,7 @@
 
 // MISRA C:2012 / 2023 chapter 14 — control statement expressions.
 
+const A = require('../lib/a-util');
 const B = require('../lib/b-common');
 
 const { cf, T, rule, msg, nodes, sideEffects, text, skipParens, lvalueBase } = B;
@@ -116,7 +117,7 @@ module.exports = [
         const counter = loopCounterOf(fs);
         if (!fs.inc) problems.push(['the third clause is empty, so there is no loop counter', '셋째 절이 비어 있어 루프 카운터가 없습니다']);
         else if (incW.size !== 1) problems.push([`the third clause modifies ${incW.size} objects instead of one loop counter`, `셋째 절이 루프 카운터 하나가 아닌 ${incW.size}개의 객체를 수정합니다`]);
-        else if (sideEffects(fs.inc, unit).some((e) => e.kind === 'call' || e.kind === 'volatile')) problems.push(['the third clause has side effects other than updating the counter', '셋째 절에 카운터 갱신 외의 부작용이 있습니다']);
+        else if (sideEffects(fs.inc, unit, { project: api.project }).some((e) => e.kind === 'call' || e.kind === 'volatile')) problems.push(['the third clause has side effects other than updating the counter', '셋째 절에 카운터 갱신 외의 부작용이 있습니다']);
         if (fs.init && counter) {
           const iw = writes(fs.init);
           const others = [...iw.keys()].filter((s) => s !== counter);
@@ -125,7 +126,7 @@ module.exports = [
         }
         const bodyW = writes(fs.body);
         if (fs.cond) {
-          if (sideEffects(fs.cond, unit).length) problems.push(['the second clause has side effects', '둘째 절에 부작용이 있습니다']);
+          if (sideEffects(fs.cond, unit, { project: api.project }).length) problems.push(['the second clause has side effects', '둘째 절에 부작용이 있습니다']);
           const cr = reads(fs.cond);
           if (counter && !cr.has(counter)) problems.push([`the second clause does not use the loop counter '${counter.name}'`, `둘째 절이 루프 카운터 '${counter.name}'을(를) 사용하지 않습니다`]);
           for (const s of cr.keys()) {
@@ -167,7 +168,9 @@ module.exports = [
     fix: ['Write the comparison explicitly, for example x != 0 or p != NULL.', 'x != 0, p != NULL처럼 비교를 명시적으로 쓰세요.'],
     check(unit, api) {
       for (const { stmt, cond } of controlling(unit)) {
-        const et = cf.essentialType(cond, { target: unit.target });
+        // configured Boolean typedefs count; a type guessed for an undeclared function does not
+        if (A.guessedType(unit, cond)) continue;
+        const et = A.et(unit, api, cond);
         if (!et || et.category === 'boolean') continue;
         const kind = stmt.type === 'IfStmt' ? 'if' : stmt.type === 'ForStmt' ? 'for' : stmt.type === 'DoStmt' ? 'do-while' : 'while';
         api.report(cond, msg(`The controlling expression '${text(unit, cond)}' of the ${kind} statement is essentially '${et.category}', not Boolean.`, `${kind} 문의 제어 식 '${text(unit, cond)}'이(가) 불리언이 아닌 본질적 '${et.category}' 형입니다.`));

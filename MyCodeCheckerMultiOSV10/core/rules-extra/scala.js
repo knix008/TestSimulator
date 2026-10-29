@@ -4,6 +4,7 @@
 // Option.get and the security rules that apply on the JVM.
 
 const { maker } = require('./util');
+const { namedSecretSkip } = require('./secret-values');
 
 const R = maker('scala', ['scala']);
 
@@ -32,7 +33,8 @@ R('return-in-lambda', 'B', 'MA', 10, ['suspicious'],
   /=>\s*\{?[^}]*\breturn\b/,
   ['return inside a lambda', 'return in a closure returns from the enclosing method by throwing an exception.', 'Make the lambda an expression and drop return.'],
   ['람다 안에서 return을 씁니다', '클로저 안의 return은 예외를 던져 바깥 메서드에서 돌아옵니다.', '람다를 식으로 만들고 return을 지우세요.'],
-  'items.foreach { x => if (x < 0) return }', 'items.takeWhile(_ >= 0).foreach(handle)', { ns: true });
+  'items.foreach { x => if (x < 0) return }', ['items.takeWhile(_ >= 0).foreach(handle)', '    case None => return Left(err)'],
+  { ns: true, skip: (raw, line) => /^\s*case\b[^=]*=>/.test(line) && !/=>[^=]*=>\s*\{?[^}]*\breturn\b/.test(line) });
 R('equals-without-hashcode', 'B', 'MA', 10, ['equality'],
   /\boverride\s+def\s+equals\s*\(/,
   ['equals overridden', 'Overriding equals without hashCode breaks hash-based collections.', 'Override hashCode too, or use a case class.'],
@@ -40,10 +42,10 @@ R('equals-without-hashcode', 'B', 'MA', 10, ['equality'],
   'override def equals(o: Any): Boolean = o match {', 'final case class Point(x: Int, y: Int)',
   { skip: (raw) => /hashCode/.test(raw) });
 R('self-comparison', 'B', 'MA', 5, ['suspicious'],
-  /\b(\w+(?:\.\w+)*)\s*(?:==|!=|&&|\|\|)\s*\1\b(?![.(\w])/,
+  /(?<![\w.])(\w+(?:\.\w+)*)\s*(?:==|!=|&&|\|\|)\s*\1\b(?![.(\w])/,
   ['Identical expressions on both sides of an operator', 'a == a is always true and usually a copy-paste error.', 'Compare the intended expressions.'],
   ['연산자 양쪽 식이 같습니다', 'a == a는 항상 참이며 보통 복사-붙여넣기 실수입니다.', '의도한 식끼리 비교하세요.'],
-  'if (a.id == a.id) save(a)', 'if (a.id == b.id) save(a)', { ns: true, ref: 'S1764' });
+  'if (a.id == a.id) save(a)', ['if (a.id == b.id) save(a)', 'case p: Point => p.x == x && p.y == y'], { ns: true, ref: 'S1764' });
 R('catch-throwable', 'B', 'MA', 10, ['error-handling', 'cwe-396'],
   /\bcase\s+\w+\s*:\s*(?:Throwable|Exception)\s*=>/,
   ['Catching Throwable or Exception', 'This also catches fatal errors and control-flow throwables.', 'Use case NonFatal(e) => or catch the specific exception.'],
@@ -80,7 +82,8 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b(?:val|var)\s+\w*(?:password|passwd|pwd|secret|apiKey|token)\w*\s*(?::\s*String\s*)?=\s*"[^"\s]{4,}"/i,
   ['Hard-coded credential', 'Anyone with the source or jar can read the secret.', 'Read it from configuration or a secret store.'],
   ['자격 증명을 코드에 적었습니다', '소스나 jar를 가진 누구나 비밀을 읽을 수 있습니다.', '설정이나 비밀 저장소에서 읽으세요.'],
-  'val password = "p4ssw0rd!"', 'val password = sys.env("DB_PASSWORD")', { ref: 'S2068' });
+  'val password = "p4ssw0rd!"', ['val password = sys.env("DB_PASSWORD")', 'val PasswordField = "password"'],
+  { ref: 'S2068', skip: (raw, line, file) => namedSecretSkip(raw, file) });
 R('http-url', 'H', 'MI', 5, ['tls', 'cwe-319'],
   /"http:\/\/(?!localhost|127\.0\.0\.1)[\w.-]+/,
   ['Clear-text HTTP URL', 'Traffic over http:// can be read and changed on the network.', 'Use https://.'],

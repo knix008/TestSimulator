@@ -94,7 +94,9 @@ function stdTemplate(ts) {
 }
 
 const inTemplate = (n) => cf.ancestors(n).some((a) => a.type === 'TemplateDecl');
-const isMain = (fd) => fd && fd.name === 'main' && !fd.qualifier && !cf.enclosing(fd, ['RecordDecl', 'NamespaceDecl']);
+// main, or a Windows program / DLL entry point (called by the system, like main)
+const ENTRY_POINTS = new Set(['main', 'WinMain', 'wWinMain', 'wmain', '_tmain', '_tWinMain', 'DllMain']);
+const isMain = (fd) => fd && ENTRY_POINTS.has(fd.name) && !fd.qualifier && !cf.enclosing(fd, ['RecordDecl', 'NamespaceDecl']);
 
 // Has side effects (assignment, ++/--, call, new/delete, throw, volatile access).
 function hasSideEffects(e) {

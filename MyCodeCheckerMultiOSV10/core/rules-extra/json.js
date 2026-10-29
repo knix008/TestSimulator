@@ -18,13 +18,15 @@ const MANIFEST = /(?:^|\/)(?:package|composer|bower)\.json$/i;
 const NOT_DEP_KEY = /^\s*"(?:versions?|include|exclude|files|origins?|target|pattern|glob|scope|allow|deny|resources?|actions?|paths?|match(?:es)?|hosts?|domains?|methods|headers|types|lib|extends|tag|channel|[A-Z][\w-]*)"\s*:/;
 // skip(raw, line, file) of json:star-version: outside a manifest (when the
 // path is known) or on a key that is not a package name.
+// A file's path: the file ({ path }) or the path itself.
+const pathOf = (file) => String((file && typeof file === 'object' ? file.path : file) || '').replace(/\\/g, '/');
 function starVersionSkip(raw, file) {
-  if (file && !MANIFEST.test(String(file).replace(/\\/g, '/'))) return true;
+  if (file && !MANIFEST.test(pathOf(file))) return true;
   return NOT_DEP_KEY.test(raw) || !/^\s*"(?:@[\w.-]+\/)?[\w.-]+"\s*:/.test(raw);
 }
 // skip(raw, line, file) of json:postinstall: only package.json runs install scripts.
 function installScriptSkip(raw, file) {
-  return !!file && !/(?:^|\/)package\.json$/i.test(String(file).replace(/\\/g, '/'));
+  return !!file && !/(?:^|\/)package\.json$/i.test(pathOf(file));
 }
 
 R('http-url', 'H', 'MI', 5, ['cwe-319', 'owasp-a02'],
@@ -80,7 +82,8 @@ R('policy-wildcard-action', 'V', 'CR', 15, ['cwe-269', 'owasp-a01', 'iam'],
   /"(?:Action|NotAction)"\s*:\s*(?:\[\s*)?"(?:\*|[a-z0-9-]+:\*)"/,
   ['Policy allows every action', '"*" or "service:*" grants far more than needed.', 'List the specific actions.'],
   ['정책이 모든 동작을 허용합니다', '"*"나 "service:*"는 필요보다 훨씬 많이 허용합니다.', '구체적인 동작을 나열하세요.'],
-  '      "Action": "s3:*",', '      "Action": "s3:GetObject",');
+  '      "Action": "s3:*",', ['      "Action": "s3:GetObject",', '{ "Effect": "Deny", "Action": "*", "Resource": "*" }'],
+  { skip: (raw) => /"Effect"\s*:\s*"Deny"/.test(raw) });
 R('policy-wildcard-principal', 'V', 'CR', 15, ['cwe-284', 'owasp-a01', 'iam'],
   /"Principal"\s*:\s*(?:"\*"|\{\s*"AWS"\s*:\s*(?:\[\s*)?"\*")/,
   ['Policy grants access to everyone', 'Principal "*" lets any AWS account or anonymous user in.', 'Name the accounts or roles allowed.'],

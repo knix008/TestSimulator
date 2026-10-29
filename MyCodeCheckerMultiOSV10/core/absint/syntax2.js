@@ -829,14 +829,30 @@ function unusedValue(an) {
   const dead = [];
   for (const b of blocks) {
     if (reach && !reach.has(b)) continue;
-    transfer(b, outOf(b), (x) => dead.push(x));
+    transfer(b, outOf(b), (x) => dead.push({ ...x, block: b }));
   }
-  // later stores of each variable, to tell "overwritten" from "never used"
+  // later stores of each variable, to tell "overwritten" from "never used":
+  // only a store the dead one can flow to (on the CFG) overwrites it.
   const defsOf = new Map();
   for (const b of blocks) for (const it of items.get(b)) for (const x of events(it)) if (x.def) {
     if (!defsOf.has(x.def.id)) defsOf.set(x.def.id, []);
-    defsOf.get(x.def.id).push(x);
+    defsOf.get(x.def.id).push({ ...x, block: b });
   }
+  const reachMemo = new Map();
+  const reachFrom = (b) => {
+    if (reachMemo.has(b)) return reachMemo.get(b);
+    const seen = new Set();
+    const work = (b.succs || []).map((e) => e.to);
+    while (work.length) {
+      const n = work.pop();
+      if (!n || seen.has(n)) continue;
+      seen.add(n);
+      for (const e of n.succs || []) work.push(e.to);
+    }
+    reachMemo.set(b, seen);
+    return seen;
+  };
+  const flowsTo = (x, d) => (d.block === x.block && d.node.loc.start > x.node.loc.start) || reachFrom(x.block).has(d.block);
   const reported = new Set();
   for (const x of dead) {
     if (reported.has(x.node) || !x.node.loc || x.node.loc.file !== an.file || inMacro(x.node)) continue;
@@ -850,7 +866,7 @@ function unusedValue(an) {
     if (constInt(an, rhs) !== null) continue;
     reported.add(x.node);
     const s = x.def;
-    const later = (defsOf.get(s.id) || []).filter((d) => d !== x && d.node.loc && d.node.loc.start > x.node.loc.start).sort((a, b) => a.node.loc.start - b.node.loc.start)[0];
+    const later = (defsOf.get(s.id) || []).filter((d) => d.node !== x.node && d.node.loc && flowsTo(x, d)).sort((a, b) => a.node.loc.start - b.node.loc.start)[0];
     const fromCall = skipCasts(rhs) && skipCasts(rhs).type === 'CallExpr';
     const what = fromCall ? { en: `the value returned by ${an.src(skipCasts(rhs).callee, 30)}()`, ko: `${an.src(skipCasts(rhs).callee, 30)}()가 반환한 값` } : { en: `value ${an.src(rhs, 30)}`, ko: `값 ${an.src(rhs, 30)}` };
     const msg = later ? {

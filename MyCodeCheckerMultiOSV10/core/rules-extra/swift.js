@@ -4,6 +4,7 @@
 // operations, weak crypto, App Transport Security, credentials and smells.
 
 const { maker } = require('./util');
+const { namedSecretSkip } = require('./secret-values');
 
 const R = maker('swift', ['swift']);
 
@@ -40,10 +41,10 @@ R('self-assignment', 'B', 'MA', 5, ['suspicious'],
   ['변수를 자기 자신에 대입합니다', 'x = x는 아무 일도 하지 않으며 보통 오타를 숨깁니다.', '의도한 값을 대입하세요.'],
   'name = name', 'self.name = name', { ref: 'S1656' });
 R('identical-operands', 'B', 'MA', 5, ['suspicious'],
-  /\b(\w+(?:\.\w+)*)\s*(?:==|!=|&&|\|\|)\s*\1\b(?![.(\w])/,
+  /(?<![\w.])(\w+(?:\.\w+)*)\s*(?:==|!=|&&|\|\|)\s*\1\b(?![.(\w])/,
   ['Identical expressions on both sides of an operator', 'a == a is always true and usually a copy-paste error.', 'Compare the intended expressions.'],
   ['연산자 양쪽 식이 같습니다', 'a == a는 항상 참이며 보통 복사-붙여넣기 실수입니다.', '의도한 식끼리 비교하세요.'],
-  'if count == count {', 'if count == limit {', { ref: 'S1764', ns: true });
+  'if count == count {', ['if count == limit {', 'return self.name == name && self.id == id'], { ref: 'S1764', ns: true });
 R('unowned-self', 'S', 'MI', 5, ['crash', 'memory'],
   /\[\s*unowned\s+self\s*\]/,
   ['[unowned self] capture', 'Accessing an unowned self after it is released crashes.', 'Capture [weak self] and unwrap it.'],
@@ -53,7 +54,8 @@ R('strong-delegate', 'B', 'MA', 5, ['memory', 'retain-cycle'],
   /^\s*(?:public\s+|internal\s+|private\s+)?var\s+delegate\s*:/,
   ['Delegate property held strongly', 'A strong delegate usually forms a retain cycle with its owner.', 'Declare it weak var delegate.'],
   ['delegate 속성을 강하게 참조합니다', '강한 delegate는 보통 소유자와 순환 참조를 만듭니다.', 'weak var delegate로 선언하세요.'],
-  'var delegate: LoginDelegate?', 'weak var delegate: LoginDelegate?');
+  'var delegate: LoginDelegate?', ['weak var delegate: LoginDelegate?', 'var delegate: LoginDelegate? { get set }'],
+  { skip: (raw) => /\{\s*get\b/.test(raw) });
 R('empty-catch', 'S', 'MA', 5, ['error-handling'],
   /\bcatch\s*(?:let\s+\w+\s*)?\{\s*\}/,
   ['Empty catch block', 'The error is silently ignored.', 'Log or handle the error.'],
@@ -90,7 +92,8 @@ R('hardcoded-password', 'V', 'BL', 30, ['cwe-798', 'owasp-a07', 'secrets'],
   /\b(?:let|var)\s+\w*(?:password|passwd|pwd|secret|apiKey|token)\w*\s*(?::\s*String\s*)?=\s*"[^"\s]{4,}"/i,
   ['Hard-coded credential', 'Anyone with the binary or source can read the secret.', 'Load it from the Keychain or a server.'],
   ['자격 증명을 코드에 적었습니다', '바이너리나 소스를 가진 누구나 비밀을 읽을 수 있습니다.', 'Keychain이나 서버에서 불러오세요.'],
-  'let password = "s3cr3tPass"', 'let password = try keychain.read("password")', { ref: 'S2068' });
+  'let password = "s3cr3tPass"', ['let password = try keychain.read("password")', 'static let tokenKey = "auth_token"', 'let passwordLabel = "Password"'],
+  { ref: 'S2068', skip: (raw, line, file) => namedSecretSkip(raw, file) });
 R('server-trust-bypass', 'V', 'CR', 30, ['tls', 'cwe-295', 'owasp-a07'],
   /completionHandler\s*\(\s*\.useCredential\s*,\s*URLCredential\s*\(\s*trust\s*:/,
   ['Server certificate accepted without evaluation', 'Trusting every server certificate allows man-in-the-middle attacks.', 'Evaluate the trust with SecTrustEvaluateWithError or pin the key.'],
@@ -142,7 +145,8 @@ R('any-object-cast', 'S', 'MI', 5, ['types'],
   /:\s*\[?\s*(?:Any|AnyObject)\s*\]?\s*(?:[=,)]|$)/,
   ['Value typed as Any', 'Any hides the real type and pushes checks to run time.', 'Use a concrete type, a protocol or a generic.'],
   ['값의 타입이 Any입니다', 'Any는 실제 타입을 숨기고 검사를 실행 시점으로 미룹니다.', '구체 타입, 프로토콜 또는 제네릭을 쓰세요.'],
-  'func handle(payload: Any) {', 'func handle(payload: Payload) {');
+  'func handle(payload: Any) {', ['func handle(payload: Payload) {', 'let json: [String: Any] = [:]', 'func decode(_ dict: [String: Any]) {'],
+  { skip: (raw, line) => !/:\s*\[?\s*(?:Any|AnyObject)\s*\]?\s*(?:[=,)]|$)/.test(line.replace(/\[\s*[\w.]+\s*:\s*(?:Any|AnyObject)\??\s*\]/g, '[Dict]')) });
 R('nested-closure-depth', 'S', 'MI', 10, ['brain-overload'],
   /\{[^{}]*\bin\b[^{}]*\{[^{}]*\bin\b[^{}]*\{[^{}]*\bin\b/,
   ['Closures nested three deep on one line', 'Deep closure nesting is hard to read.', 'Extract named functions or use async / await.'],

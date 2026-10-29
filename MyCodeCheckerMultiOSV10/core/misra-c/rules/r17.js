@@ -114,6 +114,7 @@ module.exports = [
         // library functions missing from the front end's built-in headers
         const h = L.HEADER_OF.get(s.name);
         if (h && headerIncluded(unit, h)) continue;
+        if (B.maybeDeclaredInMissingHeader(unit, api.project, s)) continue;
         api.report(c, msg(`'${s.name}' is called without a visible declaration.`, `'${s.name}'을(를) 선언 없이 호출했습니다.`));
       }
     },
@@ -183,6 +184,9 @@ module.exports = [
       for (const c of nodes(unit, 'CallExpr')) {
         const t = B.canon(c.ctype);
         if (!t || T.isVoid(t) || T.isUnknown(t)) continue;
+        // an undeclared function has no known return value (17.3 reports the call)
+        const s = c.calleeSymbol || (skipParens(c.callee) && skipParens(c.callee).symbol);
+        if (s && s.implicit) continue;
         if (!ignoredResult(c)) continue;
         const n = B.calleeName(c) || text(unit, c.callee);
         api.report(c, msg(`The value returned by '${n}' is discarded.`, `'${n}'의 반환 값을 버렸습니다.`));

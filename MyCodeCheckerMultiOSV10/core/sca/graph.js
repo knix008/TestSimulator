@@ -123,6 +123,8 @@ function buildGroup(parsedList) {
     node.direct = d.direct !== false;
     node.manifestFile = d.file;
     node.manifestLine = d.line || 1;
+    // Version pinned by a lock elsewhere (a Cargo workspace root's Cargo.lock).
+    if (d.lockFile && d.version) { node.lockFile = d.lockFile; node.lockLine = d.lockLine || 1; node.resolved = true; }
     node.scope = d.scope || node.scope;
     if (d.edges && d.sbom) node.sbomEdges = d.edges;
   }

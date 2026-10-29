@@ -29,7 +29,7 @@ function run(rule, text, lang) {
     if (rule.scope !== 'any' && structural.commentOnly[i] && line.trim() === '') continue;
     rule.re.lastIndex = 0;
     if (!rule.re.test(line)) continue;
-    if (rule.skip && rule.skip(structural.lines[i], line)) continue;
+    if (rule.skip && rule.skip(structural.lines[i], line, { lang, path: `sample.${lang}`, text }, { index: i, lines: structural.lines })) continue;
     hits.push(i + 1);
   }
   return hits;

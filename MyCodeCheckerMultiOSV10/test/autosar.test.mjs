@@ -1762,11 +1762,13 @@ done:
   return 0;
 }` },
   { key: 'M6-3-1', bad: `int f(int a) {
-  if (a > 0)
-    return 1; //!
-  return 0;
+  while (a > 0)
+    --a; //!
+  return a;
 }`, good: `int f(int a) {
-  if (a > 0) { return 1; } else if (a < 0) { return -1; } else { return 0; }
+  while (a > 0) { --a; }
+  if (a < 0) return -1; // if / else is M6-4-1, not this rule
+  return a;
 }` },
   { key: 'M6-4-2', bad: `int f(int a) {
   int r = 0;
@@ -2030,11 +2032,11 @@ public:
   Swappable& operator=(Swappable o) noexcept;
   ~Swappable();
 };` },
-  { key: 'A12-0-1', title: 'polymorphic destructor', bad: `struct Shape { //!
+  { key: 'A12-0-1', title: 'polymorphic destructor is A12-4-1', bad: `struct Shape { //!
   virtual void draw();
+  virtual ~Shape();
 };`, good: `struct Shape {
   virtual void draw();
-  virtual ~Shape() = default;
 };` },
   { key: 'A12-0-2', bad: `#include <cstring>
 void f(int* d, const int* s) {
@@ -2212,8 +2214,16 @@ C::C(int v) try : m(v) {
   int k = v;
   (void)k;
 }` },
-  { key: 'A16-0-1', bad: `#define SQ(x) ((x) * (x)) //!`, good: `#define LIMIT 10
-constexpr int sq(int x) { return x * x; }` },
+  { key: 'A16-0-1', bad: `#define SQ(x) ((x) * (x)) //!`, good: `constexpr int sq(int x) { return x * x; }` },
+  { key: 'A16-0-1', title: 'object-like macro, include guard', bad: [{ path: 'lim.hpp', text: `#ifndef LIM_HPP
+#define LIM_HPP
+#define LIMIT 10 //!
+#endif
+` }, { path: 'm.cpp', text: '#include "lim.hpp"\nint f() { return LIMIT; }\n' }], good: [{ path: 'lim.hpp', text: `#ifndef LIM_HPP
+#define LIM_HPP
+constexpr int kLimit = 10;
+#endif
+` }, { path: 'm.cpp', text: '#include "lim.hpp"\nint f() { return kLimit; }\n' }] },
   { key: 'A16-2-1', bad: `#include "we'ird.h" //!`, good: `#include <cstdint>` },
   { key: 'A16-7-1', bad: `#pragma pack(1) //!
 int x = 0;`, good: `int x = 0;` },

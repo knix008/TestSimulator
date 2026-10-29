@@ -147,7 +147,7 @@ function isHookCall(call) {
 }
 
 function isReactFile(ctx) {
-  for (const imp of ctx.imports().values()) if (imp.source === 'react' || imp.source === 'preact' || imp.source === 'react-dom') return true;
+  for (const imp of ctx.imports().values()) if (/^(?:react|react-dom|react-native|preact)(?:\/|$)/.test(imp.source)) return true;
   return ctx.scope.hasJsx;
 }
 

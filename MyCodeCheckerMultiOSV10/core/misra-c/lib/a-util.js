@@ -165,8 +165,18 @@ function quals(t) {
   return q;
 }
 // the converted (decayed) type of an operand
-function valueType(e) {
+// unit (optional): `c ? p : NULL` has the type of p (C11 6.5.15p6), not void *.
+function valueType(e, unit) {
   if (!e || !e.ctype) return null;
+  const x = unit ? skip(e) : null;
+  if (x && x.type === 'ConditionalExpr') {
+    const a = x.consequent || x.test, b = x.alternate;
+    const ptr = (n) => n && n.ctype && isPtr(valueType(n, unit));
+    if (ptr(a) && ptr(b)) {
+      if (isNullPtrConst(unit, b) && !isNullPtrConst(unit, a)) return valueType(a, unit);
+      if (isNullPtrConst(unit, a) && !isNullPtrConst(unit, b)) return valueType(b, unit);
+    }
+  }
   try { return T.decay(e.ctype); } catch (_) { return e.ctype; }
 }
 
@@ -203,7 +213,75 @@ function etOpts(unit, api) {
   if (bt) o.booleanTypedefs = bt;
   return o;
 }
-function et(unit, api, e) { return cf.essentialType(e, etOpts(unit, api)); }
+// Does a type mention a name the front end could not resolve (a type from a
+// header that was not found)? Two declarations of one entity then cannot be
+// compared.
+function mentionsUnknown(t, depth = 0) {
+  if (!t || depth > 20) return false;
+  let c;
+  try { c = canon(t); } catch (_) { return true; }
+  if (!c || T.isUnknown(c)) return true;
+  switch (c.kind) {
+    case 'pointer': case 'reference': return mentionsUnknown(c.to, depth + 1);
+    case 'array': return mentionsUnknown(c.of, depth + 1);
+    case 'function': return mentionsUnknown(c.ret, depth + 1) || (c.params || []).some((p) => mentionsUnknown(p, depth + 1));
+    default: return false;
+  }
+}
+
+// The built-in element type of a wide string literal (L"", u"", U"") and the
+// typedef the C headers give it (wchar_t is int on most targets).
+const WIDE = { wchar_t: ['int', 'unsigned int', 'unsigned short', 'short', 'long', 'unsigned long'], char16_t: ['unsigned short'], char32_t: ['unsigned int'] };
+function charLike(A, B) { return !!WIDE[A.name] && WIDE[A.name].includes(B.name); }
+
+// types.sameType, also for a struct, union or enum without a tag seen through
+// a qualified copy of its type (`const T *` with `typedef struct { ... } T`):
+// the copies are told apart by the record's id, not by its (absent) name.
+function sameType(a, b, opts = {}) {
+  if (T.sameType(a, b, opts)) return true;
+  const A = canon(a), B = canon(b);
+  if (!A || !B || A.kind !== B.kind) return false;
+  if (!opts.ignoreQuals && (!!A.const !== !!B.const || !!A.volatile !== !!B.volatile)) return false;
+  switch (A.kind) {
+    case 'record': case 'enum': return A.id != null && A.id === B.id;
+    case 'int': return charLike(A, B) || charLike(B, A);
+    case 'pointer': return sameType(A.to, B.to);
+    case 'array': return (A.size == null || B.size == null || A.size === B.size) && sameType(A.of, B.of);
+    case 'function': {
+      if (!sameType(A.ret, B.ret)) return false;
+      if (!A.prototype || !B.prototype) return true;
+      if ((A.params || []).length !== (B.params || []).length || A.variadic !== B.variadic) return false;
+      return A.params.every((p, i) => sameType(p, B.params[i], { ignoreQuals: true }));
+    }
+    default: return false;
+  }
+}
+
+// The type of an expression is only a guess when it comes from a call to an
+// implicitly declared function in a unit that did not find all its headers:
+// the function is then most likely declared, with its real type, in one of them.
+function hasMissingHeaders(unit) {
+  return !!unit && (unit.includes || []).some((i) => i.kind === 'missing');
+}
+const GUESS_OPS = new Set(['*', '/', '%', '+', '-', '<<', '>>', '&', '|', '^']);
+function guessedType(unit, e) {
+  if (!hasMissingHeaders(unit)) return false;
+  const walk = (n, depth) => {
+    const x = skip(n);
+    if (!x || depth > 30) return false;
+    if (x.type === 'CallExpr') {
+      const s = x.calleeSymbol || (skip(x.callee) && skip(x.callee).symbol);
+      return !!(s && s.implicit);
+    }
+    if (x.type === 'BinaryExpr' && GUESS_OPS.has(x.op)) return walk(x.left, depth + 1) || walk(x.right, depth + 1);
+    if (x.type === 'ConditionalExpr') return walk(x.consequent || x.test, depth + 1) || walk(x.alternate, depth + 1);
+    if (x.type === 'UnaryExpr' && (x.op === '-' || x.op === '+' || x.op === '~')) return walk(x.arg, depth + 1);
+    return false;
+  };
+  return walk(e, 0);
+}
+const UNKNOWN_ET = Object.freeze({ category: 'other', type: T.T.unknown, name: '?', size: null, ice: false, value: null });
+function et(unit, api, e) { return guessedType(unit, e) ? UNKNOWN_ET : cf.essentialType(e, etOpts(unit, api)); }
 function etOfType(unit, api, t) { return cf.essentialTypeOfType(t, etOpts(unit, api)); }
 function etName(r) {
   if (!r) return '?';
@@ -338,7 +416,7 @@ function isElided(value, sub) {
   if (!isAggregate(sub)) return false;
   if (isStringFor(value, sub)) return false;
   const vt = value.ctype;
-  if (vt && T.sameType(vt, sub, { ignoreQuals: true })) return false;
+  if (vt && sameType(vt, sub, { ignoreQuals: true })) return false;
   return true;
 }
 
@@ -459,5 +537,5 @@ module.exports = {
   locKey, symKey, symLoc, isUserSym, canon, typeStr, isPtr, pointee, isAggregate, isConstQ, quals, valueType,
   constOf, iceValue, isNullPtrConst, isIntZero, etOpts, et, etOfType, etName, catKo, fnTypeOfCall, paramTypeAt,
   initEntries, isZeroInit, walkInit, resolveDesignators, isStringFor, conversionSites, siteKo, siteEn, misraOpts,
-  userSources, lineInfo, firstScan,
+  userSources, lineInfo, firstScan, hasMissingHeaders, guessedType, sameType, mentionsUnknown,
 };

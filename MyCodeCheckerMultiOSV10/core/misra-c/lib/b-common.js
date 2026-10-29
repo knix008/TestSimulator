@@ -313,10 +313,60 @@ function pureFunctions(unit) {
   return res;
 }
 
-function callIsPure(call, unit) {
+// Pure functions across the units of a project (a pure getter defined in
+// another file): Set of keys, see funcKey.
+const PROJECT_PURITY = new WeakMap();
+const funcKey = (s) => (s.linkage === 'external' ? `ext:${s.qname || s.name}` : s);
+function projectPureFunctions(project) {
+  const units = project && project.units;
+  if (!units || !units.length) return new Set();
+  let res = PROJECT_PURITY.get(units);
+  if (res) return res;
+  const bodies = new Map();
+  for (const u of units) {
+    for (const f of cf.functionsOf(u)) {
+      if (!f.symbol || !f.body) continue;
+      const k = funcKey(f.symbol);
+      if (!bodies.has(k)) bodies.set(k, f);
+    }
+  }
+  const cand = new Set(bodies.keys());
+  const impure = (f) => {
+    let bad = false;
+    cf.walk(f.body, (n) => {
+      if (bad) return cf.walk.STOP;
+      if (n.type === 'SizeofExpr' || n.type === 'AlignofExpr') return cf.walk.SKIP;
+      if (n.type === 'AssignExpr' || (n.type === 'UnaryExpr' && (n.op === '++' || n.op === '--'))) {
+        if (!isLocalSym(lvalueBase(n.type === 'AssignExpr' ? n.left : n.arg))) bad = true;
+      } else if (n.type === 'CallExpr') {
+        const s = n.calleeSymbol;
+        const nm = calleeName(n);
+        if (s && cand.has(funcKey(s))) return undefined;
+        if (nm && PURE_LIB.has(nm) && !(s && bodies.has(funcKey(s)))) return undefined;
+        bad = true;
+      } else if ((n.type === 'Identifier' || n.type === 'MemberExpr' || n.type === 'IndexExpr' || (n.type === 'UnaryExpr' && n.op === '*')) && isVolatileType(n.ctype)) {
+        bad = true;
+      } else if (n.type === 'AsmStmt' || n.type === 'StmtExpr') bad = true;
+      else if (n.type === 'VarDecl' && n.symbol && n.symbol.storage === 'static') bad = true;
+      return undefined;
+    });
+    return bad;
+  };
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const k of [...cand]) if (impure(bodies.get(k))) { cand.delete(k); changed = true; }
+  }
+  res = cand;
+  PROJECT_PURITY.set(units, res);
+  return res;
+}
+
+// project (optional): also judge functions defined in other units of the project.
+function callIsPure(call, unit, project) {
   const s = call.calleeSymbol;
   const nm = calleeName(call);
   if (s && unit && pureFunctions(unit).has(s)) return true;
+  if (s && project && s.linkage === 'external' && projectPureFunctions(project).has(funcKey(s))) return true;
   if (nm && PURE_LIB.has(nm) && !(s && s.definition && s.definition.body && isUser(s.definition))) return true;
   return false;
 }
@@ -324,6 +374,7 @@ function callIsPure(call, unit) {
 // Potential (persistent) side effects of an expression, in source order.
 // [{ node, kind: 'assign' | 'incdec' | 'call' | 'volatile' }]
 // opts.intoSizeof: also look into sizeof / _Alignof operands.
+// opts.project: calls of pure functions defined in other units are no side effect.
 function sideEffects(expr, unit, opts = {}) {
   const out = [];
   if (!expr) return out;
@@ -341,7 +392,7 @@ function sideEffects(expr, unit, opts = {}) {
     if (n.type === 'LambdaExpr') return cf.walk.SKIP;
     if (n.type === 'AssignExpr') out.push({ node: n, kind: 'assign' });
     else if (n.type === 'UnaryExpr' && (n.op === '++' || n.op === '--')) out.push({ node: n, kind: 'incdec' });
-    else if (n.type === 'CallExpr') { if (!callIsPure(n, unit)) out.push({ node: n, kind: 'call' }); }
+    else if (n.type === 'CallExpr') { if (!callIsPure(n, unit, opts.project)) out.push({ node: n, kind: 'call' }); }
     else if (n.type === 'StmtExpr') { out.push({ node: n, kind: 'call' }); return cf.walk.SKIP; }
     else if ((n.type === 'Identifier' || n.type === 'MemberExpr' || n.type === 'IndexExpr' || (n.type === 'UnaryExpr' && n.op === '*')) && isVolatileType(n.ctype)) {
       // innermost volatile designator only
@@ -431,6 +482,17 @@ function includesHeader(unit, names) {
   return unit.includes.filter((i) => isUserLoc(i) && set.has(i.name));
 }
 
+// An implicitly declared function (C) whose declaration may sit in a header
+// the unit includes but that was not found: the call is then not known to
+// be undeclared. Functions defined in the project, and units that found all
+// their headers, are judged as they are.
+function maybeDeclaredInMissingHeader(unit, project, sym) {
+  if (!(unit.includes || []).some((i) => i.kind === 'missing')) return false;
+  const g = project && project.globalSymbols && project.globalSymbols.get(sym.qname || sym.name);
+  if (g && (g.definitions || []).some((d) => d.file && !String(d.file).startsWith('<'))) return false;
+  return !(sym.decls || []).some((d) => d && d.type === 'FunctionDecl' && d.body);
+}
+
 // Strings: plain-char string literal or char array?
 function isPlainCharType(t) {
   const c = canon(t);
@@ -442,5 +504,5 @@ module.exports = {
   isLibCall, libCalls, libUses, text, constInt, isVolatileType, canon, isPointerType, isArrayType,
   isFunctionType, typedefNameIn, lvalueBase, isLocalSym, pointerBase, singleDefinition, PURE_LIB,
   pureFunctions, callIsPure, sideEffects, isVlaType, describeEffect, fullExpressions, valueDiscarded,
-  enclosingFunction, lineOf, before, includesHeader, isPlainCharType,
+  enclosingFunction, lineOf, before, includesHeader, isPlainCharType, maybeDeclaredInMissingHeader,
 };

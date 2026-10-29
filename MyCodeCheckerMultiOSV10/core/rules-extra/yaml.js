@@ -87,8 +87,12 @@ R('plain-secret-value', 'V', 'CR', 20, ['cwe-798', 'secrets'],
   /^\s*-?\s*['"]?\w*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY)\w*['"]?\s*[:=]\s*['"]?(?![$<{%(]|true\b|false\b|null\b|~|\s*$)[^\s'"#]{4,}/i,
   ['Secret value in YAML', 'Credentials in manifests end up in Git history and in every rendered copy.', 'Reference a Kubernetes Secret, a CI secret or a vault.'],
   ['YAML에 시크릿 값이 있습니다', '매니페스트의 자격 증명은 Git 이력과 렌더링된 모든 사본에 남습니다.', 'Kubernetes Secret, CI 시크릿, 금고를 참조하세요.'],
-  '      DB_PASSWORD: hunter2secret', ['      DB_PASSWORD: ${DB_PASSWORD}', '      DB_PASSWORD: {{ .Values.db.password }}', '      secretKeyRef:', '      AUTH_TOKEN_TTL: 3600'],
-  { skip: (raw) => /secretKeyRef|valueFrom|\b(?:TTL|EXPIRY|EXPIRES|LENGTH|HEADER|NAME|FILE|PATH|URL|ENDPOINT)\b\s*:/i.test(raw) || /:\s*\d+\s*$/.test(raw) });
+  ['      DB_PASSWORD: hunter2secret', '  jwt_secret: c0ffee-Long-Key'], ['      DB_PASSWORD: ${DB_PASSWORD}', '      DB_PASSWORD: {{ .Values.db.password }}', '      secretKeyRef:', '      AUTH_TOKEN_TTL: 3600',
+    '          secretName: db-credentials', '  existingSecret: my-release-postgresql', '    secrets: inherit', '  tokenUrl: https://auth.example.com/token', '  ansible_password: !vault |'],
+  // A key that names, points to or configures a secret (secretName,
+  // existingSecret, tokenUrl, PASSWORD_FILE, secrets: inherit) holds no value
+  // to leak; neither does an Ansible !vault value or a number.
+  { skip: (raw) => /secretKeyRef|valueFrom/i.test(raw) || /^\s*-?\s*['"]?(?:\w*(?:TTL|EXPIRY|EXPIRES|LENGTH|HEADER|NAME|FILE|PATH|URL|URI|ENDPOINT|REF|TYPE|MODE|POLICY|PROVIDER|ENABLED|ID|KEY_ID|SCOPE|STORE|VERSION)|existing\w*|secrets)['"]?\s*[:=]/i.test(raw) || /[:=]\s*!vault\b/.test(raw) || /:\s*\d+\s*$/.test(raw) });
 
 // ── GitHub Actions ───────────────────────────────────────────
 R('gha-unpinned-action', 'H', 'MI', 5, ['cwe-829', 'owasp-a08', 'supply-chain', 'github-actions'],

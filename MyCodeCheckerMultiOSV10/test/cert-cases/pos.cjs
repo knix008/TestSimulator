@@ -221,4 +221,14 @@ void start(void) { pthread_t t; pthread_create(&t, NULL, w, NULL); pthread_detac
     good: PT + `void *w(void *a) { return a; }
 int start(void) { pthread_t t; if (pthread_create(&t, NULL, w, NULL) != 0) return -1; return pthread_detach(t); }`,
   },
+  {
+    // exec*() returns only on failure: what follows the call handles it.
+    key: 'cert:POS54-C',
+    bad: `#include <unistd.h>
+#include <signal.h>
+void run(pid_t child) { kill(child, SIGTERM); if (fork() == 0) { execl("/bin/sh", "sh", "-c", "true", (char *)0); _exit(127); } }`,
+    good: `#include <unistd.h>
+#include <signal.h>
+int run(pid_t child) { if (kill(child, SIGTERM) != 0) return -1; if (fork() == 0) { execl("/bin/sh", "sh", "-c", "true", (char *)0); _exit(127); } return 0; }`,
+  },
 ];

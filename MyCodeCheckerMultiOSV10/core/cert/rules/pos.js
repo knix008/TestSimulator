@@ -395,6 +395,9 @@ module.exports = [
           if (bad) { api.report(c.node, M('mmap() returns MAP_FAILED, not NULL, on failure; the check compares with NULL.', 'mmap() 은 실패 시 NULL 이 아니라 MAP_FAILED 를 반환하는데 NULL 과 비교합니다.')); continue; }
         }
         const r = U.resultUse(c.node);
+        // exec*() returns only on failure: the code after the call is its
+        // error handling, so the value itself need not be tested.
+        if (/^exec/.test(c.name) && (r.kind === 'discarded' || r.kind === 'var')) continue;
         if (r.kind === 'discarded') api.report(c.node, M(`The return value of ${c.name}() is ignored; it reports failure with ${POS54[c.name]}.`, `${c.name}() 의 반환값을 무시합니다. 이 함수는 실패를 ${ko(POS54[c.name])} 로 알립니다.`));
         else if (r.kind === 'var' && !U.symChecked(r.sym, c.node)) api.report(c.node, M(`The result of ${c.name}() is stored in '${r.sym.name}' but never checked for ${POS54[c.name]}.`, `${c.name}() 의 결과를 '${r.sym.name}' 에 저장하지만 ${ko(POS54[c.name])} 인지 확인하지 않습니다.`));
       }

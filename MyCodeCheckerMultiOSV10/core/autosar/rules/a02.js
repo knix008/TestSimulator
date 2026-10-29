@@ -139,15 +139,22 @@ module.exports = [
     why: ['Names that differ only in case, underscores or look-alike characters (O/0, l/1, S/5, rn/m) are easily mixed up.', '대소문자, 밑줄, 비슷한 글자(O/0, l/1, S/5, rn/m)만 다른 이름은 쉽게 뒤섞입니다.'],
     fix: ['Rename one of the identifiers so the two clearly differ.', '두 이름이 분명히 다르도록 하나를 바꾸세요.'],
     check(unit, api) {
+      // Two names can only be mixed up where both are visible: one's scope
+      // encloses the other's (a member and a parameter of its class's method,
+      // a global and a local). Parameters of two unrelated functions are not.
+      const encloses = (a, b) => { for (let s = b; s; s = s.parent) if (s === a) return true; return false; };
+      const overlap = (a, b) => !a.scope || !b.scope || encloses(a.scope, b.scope) || encloses(b.scope, a.scope);
       const seen = new Map();
       for (const s of unit.symbols || []) {
         if (!s.name || s.system || s.predefined || s.kind === 'label' || s.name.length < 2) continue;
         const d = s.decls && s.decls[0];
         if (!d || !U.user(d) || /^operator|^~/.test(s.name)) continue;
         const k = confusable(s.name);
-        const prev = seen.get(k);
-        if (prev && prev.name !== s.name) api.report(U.at(d), M(`'${s.name}' is typographically ambiguous with '${prev.name}'.`, `'${s.name}' 은(는) '${prev.name}' 과(와) 글자 모양으로 구별하기 어렵습니다.`));
-        else if (!prev) seen.set(k, s);
+        let l = seen.get(k);
+        if (!l) seen.set(k, (l = []));
+        const prev = l.find((p) => p.name !== s.name && overlap(p, s));
+        if (prev) api.report(U.at(d), M(`'${s.name}' is typographically ambiguous with '${prev.name}'.`, `'${s.name}' 은(는) '${prev.name}' 과(와) 글자 모양으로 구별하기 어렵습니다.`));
+        l.push(s);
       }
     },
   }),
@@ -221,10 +228,18 @@ module.exports = [
     why: ['Mixing letter cases in hexadecimal digits makes constants harder to compare and read.', '16진 숫자에 대소문자를 섞으면 상수를 비교하고 읽기 어렵습니다.'],
     fix: ['Write the hexadecimal digits A-F in upper case.', '16진 숫자 A-F 를 대문자로 쓰세요.'],
     check(unit, api) {
-      for (const l of U.ix(unit).get('IntegerLiteral')) {
-        if (l.base !== 16) continue;
-        const digits = String(l.raw).replace(/^0[xX]/, '').replace(/[uUlLzZ]+$/, '');
-        if (/[a-f]/.test(digits)) api.report(l, M(`The hexadecimal constant '${l.raw}' uses lower-case digits.`, `16진 상수 '${l.raw}' 에 소문자 숫자가 있습니다.`));
+      // A lexical rule: the tokens as written (a constant in a macro body is
+      // reported once at the #define, not at every line that expands it).
+      for (const { file, tokens } of U.rawTokenFiles(unit)) {
+        const skipped = (unit.skipped || []).filter((s) => s.file === file);
+        for (const t of tokens) {
+          if (t.kind !== 'number' || !/^0[xX]/.test(t.value)) continue;
+          if (skipped.some((s) => t.line >= s.startLine && t.line <= s.endLine)) continue;
+          let digits = t.value.slice(2);
+          if (t.udSuffix) digits = digits.slice(0, -t.udSuffix.length);
+          digits = digits.replace(/[pP].*$/, '').replace(/[uUlLzZ]+$/, '').replace(/'/g, '');
+          if (/[a-f]/.test(digits)) api.report({ file, line: t.line, col: t.col }, M(`The hexadecimal constant '${t.value}' uses lower-case digits.`, `16진 상수 '${t.value}' 에 소문자 숫자가 있습니다.`));
+        }
       }
     },
   }),

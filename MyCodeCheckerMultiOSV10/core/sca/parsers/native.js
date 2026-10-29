@@ -3,7 +3,7 @@
 // Go (go.mod, go.sum), Rust (Cargo.toml, Cargo.lock), Ruby (Gemfile,
 // Gemfile.lock), PHP (composer.json, composer.lock).
 
-const { parseJson, lineOf } = require('../util');
+const { parseJson, lineOf, dirname } = require('../util');
 const { parseToml } = require('../toml');
 const { licenseFromMetadata } = require('../license');
 const { compare } = require('../versions');
@@ -77,23 +77,58 @@ function cargoSpec(v) {
   return { spec: '*' };
 }
 
-function parseCargoToml(text, file) {
+// [workspace.dependencies] of the workspace root above a member crate
+// (foo.workspace = true inherits the version from there), or null.
+function cargoWorkspaceDeps(file, readFile) {
+  if (typeof readFile !== 'function') return null;
+  let dir = dirname(file);
+  while (dir) {
+    dir = dirname(dir);
+    const path = dir ? `${dir}/Cargo.toml` : 'Cargo.toml';
+    const text = readFile(path);
+    if (text) {
+      try {
+        const root = parseToml(text);
+        if (root.workspace) return root.workspace.dependencies || {};
+      } catch { /* not a workspace root */ }
+    }
+    if (!dir) break;
+  }
+  return null;
+}
+
+function parseCargoToml(text, file, ctx = {}) {
   const doc = parseToml(text);
   const deps = [];
-  const wsDeps = (doc.workspace && doc.workspace.dependencies) || {};
+  let wsDeps = (doc.workspace && doc.workspace.dependencies) || null;
+  let wsLoaded = !!wsDeps;
+  const inherited = (name) => {
+    if (!wsLoaded) { wsDeps = cargoWorkspaceDeps(file, ctx.readFile); wsLoaded = true; }
+    return wsDeps ? wsDeps[name] : undefined;
+  };
   const sections = [[doc.dependencies, 'prod'], [doc['dev-dependencies'], 'dev'], [doc['build-dependencies'], 'dev']];
   for (const t of Object.values(doc.target || {})) {
     if (!t || typeof t !== 'object') continue;
     sections.push([t.dependencies, 'prod'], [t['dev-dependencies'], 'dev'], [t['build-dependencies'], 'dev']);
   }
-  if (!doc.package && doc.workspace) sections.push([wsDeps, 'prod']);
+  if (!doc.package && doc.workspace) sections.push([doc.workspace.dependencies, 'prod']);
   for (const [block, scope] of sections) {
     if (!block) continue;
     for (const [alias, v] of Object.entries(block)) {
       const s = cargoSpec(v);
       const name = s.pkg || alias;
       let spec = s.spec;
-      if (s.workspace) spec = cargoSpec(wsDeps[name]).spec;
+      if (s.workspace) {
+        // Inherited from the workspace root: its version, or a local path
+        // crate there. Unknown when the root is not readable (not "*").
+        const w = inherited(name);
+        if (w === undefined) spec = null;
+        else {
+          const ws = cargoSpec(w);
+          if (ws.path && !(w && w.version)) continue;
+          spec = ws.spec;
+        }
+      }
       if (s.path && !(v && v.version)) continue; // local path crate
       deps.push({ name, spec, scope: s.optional && scope === 'prod' ? 'optional' : scope, line: lineOf(block, alias), direct: true });
     }

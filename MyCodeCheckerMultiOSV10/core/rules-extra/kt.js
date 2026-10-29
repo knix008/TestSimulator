@@ -7,6 +7,46 @@ const { maker } = require('./util');
 
 const R = maker('kt', ['kt']);
 
+// skip(rawLine, line, file, ctx): ctx { index, lines } gives the file's lines
+// when the caller passes them; without it only the line itself is known.
+const TEST_PATH = /(^|[\\/])(test|tests|androidTest|testFixtures)[\\/]|(Test|Tests|Spec)\.kts?$/;
+
+// The declaration lines just above lines[index] (annotations, modifiers).
+function annotationsAbove(ctx, max = 4) {
+  if (!ctx || !Array.isArray(ctx.lines) || ctx.index == null) return '';
+  const out = [];
+  for (let i = ctx.index - 1; i >= 0 && out.length < max; i--) {
+    const s = String(ctx.lines[i]).trim();
+    if (!s.startsWith('@')) break;
+    out.push(s);
+  }
+  return out.join(' ');
+}
+
+// Name of the nearest function declared at or above lines[index] (a guess by
+// indentation: the closest "fun" line indented less than the statement).
+function enclosingFun(ctx, raw) {
+  const own = /\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?(\w+)\s*\(/.exec(String(raw));
+  if (own) return { name: own[1], annos: annotationsAbove(ctx) + ' ' + raw };
+  if (!ctx || !Array.isArray(ctx.lines) || ctx.index == null) return null;
+  const indent = (s) => /^\s*/.exec(s)[0].length;
+  const mine = indent(String(ctx.lines[ctx.index]));
+  for (let i = ctx.index - 1; i >= 0 && i > ctx.index - 400; i--) {
+    const s = String(ctx.lines[i]);
+    if (!s.trim() || indent(s) >= mine) continue;
+    const m = /\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?(\w+)\s*\(/.exec(s);
+    if (m) return { name: m[1], annos: annotationsAbove({ lines: ctx.lines, index: i }) + ' ' + s };
+    if (/^\s*(?:[\w@]+\s+)*(?:class|object|interface)\b/.test(s)) return null;
+  }
+  return null;
+}
+
+const inMainOrTest = (raw, file, ctx) => {
+  if (file && TEST_PATH.test(String(file.path || ''))) return true;
+  const f = enclosingFun(ctx, raw);
+  return !!f && (f.name === 'main' || /@(?:Test|ParameterizedTest|BeforeEach|BeforeTest|Before)\b/.test(f.annos));
+};
+
 R('not-null-assertion', 'S', 'MA', 5, ['null-safety'],
   /[\w)\]]!!(?=\s*[.\[)?:,;]|\s*$)/,
   ['Not-null assertion !!', '!! turns a null into a NullPointerException at run time.', 'Use ?. with ?: or check for null first.'],
@@ -31,8 +71,8 @@ R('run-blocking', 'S', 'MA', 10, ['coroutines'],
   /\brunBlocking\s*(?:<[^>]*>)?\s*[({]/,
   ['runBlocking outside main or tests', 'runBlocking blocks the calling thread, which freezes UI or request threads.', 'Make the caller suspend or use a scope.'],
   ['main이나 테스트 밖의 runBlocking입니다', 'runBlocking은 호출 스레드를 막아 UI나 요청 스레드를 멈춥니다.', '호출자를 suspend로 만들거나 스코프를 쓰세요.'],
-  'val user = runBlocking { api.user() }', 'val user = api.user()',
-  { skip: (raw) => /fun\s+main\s*\(|@Test/.test(raw) });
+  'val user = runBlocking { api.user() }', ['val user = api.user()', 'fun main() = runBlocking {', '@Test fun loads() = runBlocking {'],
+  { skip: (raw, line, file, ctx) => /fun\s+main\s*\(|@Test/.test(raw) || inMainOrTest(raw, file, ctx) });
 R('thread-sleep-coroutine', 'S', 'MI', 5, ['coroutines'],
   /\bsuspend\s+fun\b.*\bThread\.sleep\s*\(/,
   ['Thread.sleep in a suspend function', 'Sleeping blocks the dispatcher thread instead of suspending.', 'Use delay().'],
@@ -47,7 +87,9 @@ R('empty-function', 'S', 'MI', 5, ['suspicious'],
   /\bfun\s+(?:<[^>]*>\s*)?[\w.]+\s*\([^)]*\)\s*(?::\s*[\w<>?, ]+\s*)?\{\s*\}/,
   ['Empty function', 'An empty body is unfinished or should explain why it does nothing.', 'Implement it or add a comment.'],
   ['빈 함수입니다', '빈 본문은 미완성이거나 왜 아무 일도 안 하는지 설명해야 합니다.', '구현하거나 주석을 다세요.'],
-  'fun onStop() {}', 'fun onStop() { save() }');
+  'fun onStop() {}', ['fun onStop() { save() }', 'fun onStop() { /* nothing to release */ }'],
+  // A comment between the braces is the explanation the rule asks for.
+  { skip: (raw) => /\{\s*(?:\/\*|\/\/)/.test(raw) });
 R('class-naming', 'S', 'MI', 2, ['convention'],
   /\b(?:class|interface|object)\s+[a-z]\w*(?=\s*[({:<]|\s*$)/,
   ['Type name not in PascalCase', 'Kotlin types start with an upper-case letter.', 'Rename the type.'],
@@ -57,8 +99,9 @@ R('function-naming', 'S', 'MI', 2, ['convention'],
   /\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?[A-Z][a-z]\w*\s*\(/,
   ['Function name starts with a capital letter', 'Kotlin functions are named in camelCase (Composable functions excepted).', 'Rename the function.'],
   ['함수 이름이 대문자로 시작합니다', 'Kotlin 함수 이름은 camelCase입니다(Composable 함수 제외).', '함수 이름을 바꾸세요.'],
-  'fun LoadUser(id: Long) {', ['fun loadUser(id: Long) {', '@Composable fun UserCard(user: User) {'],
-  { skip: (raw) => /@Composable/.test(raw) });
+  'fun LoadUser(id: Long) {', ['fun loadUser(id: Long) {', '@Composable fun UserCard(user: User) {', 'fun Money(cents: Long): Money = MoneyImpl(cents)'],
+  // @Composable may sit on the lines above; a factory function may take its type's name (Kotlin conventions).
+  { skip: (raw, line, file, ctx) => /@Composable/.test(raw) || /@Composable/.test(annotationsAbove(ctx)) || /\bfun\s+(?:<[^>]*>\s*)?(\w+)\s*\(.*\)\s*:\s*\1\b/.test(raw) });
 R('deprecated-case-functions', 'S', 'MI', 2, ['deprecated'],
   /\.(?:toUpperCase|toLowerCase|capitalize|decapitalize)\s*\(\s*\)/,
   ['Deprecated case conversion', 'toUpperCase / capitalize are deprecated and locale-sensitive.', 'Use uppercase() / lowercase() / replaceFirstChar.'],
@@ -78,8 +121,8 @@ R('exit-process', 'S', 'MA', 5, ['design'],
   /\bexitProcess\s*\(/,
   ['exitProcess called', 'Exiting the JVM from library or app code skips cleanup and is hard to test.', 'Return an error to the caller or throw.'],
   ['exitProcess를 호출합니다', '라이브러리나 앱 코드에서 JVM을 끝내면 정리를 건너뛰고 테스트하기 어렵습니다.', '호출자에게 오류를 돌려주거나 예외를 던지세요.'],
-  'exitProcess(1)', 'throw IllegalStateException("config missing")',
-  { skip: (raw) => /fun\s+main\s*\(/.test(raw) });
+  'exitProcess(1)', ['throw IllegalStateException("config missing")', 'fun main() { exitProcess(run()) }'],
+  { skip: (raw, line, file, ctx) => /fun\s+main\s*\(/.test(raw) || (enclosingFun(ctx, raw) || {}).name === 'main' });
 R('kotlin-random', 'H', 'MA', 10, ['cwe-330', 'owasp-a02'],
   /(?<![\w.])Random\.(?:nextInt|nextLong|nextBytes|nextDouble|Default)\b|(?<![\w.])Random\s*\(\s*\d*\s*\)/,
   ['Non-cryptographic random generator', 'kotlin.random.Random is predictable and must not create tokens or keys.', 'Use java.security.SecureRandom.'],

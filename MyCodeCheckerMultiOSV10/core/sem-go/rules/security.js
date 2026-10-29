@@ -98,7 +98,8 @@ rule({
       const oct = [m[2], m[3], m[4], m[5]].map(Number);
       if (oct.some((o) => o > 255)) return;
       if (oct[0] === 127 || oct[0] === 0 || m[1] === '255.255.255.255' || (oct[0] === 192 && oct[1] === 0 && oct[2] === 2) || (oct[0] === 198 && (oct[1] === 51 || oct[1] === 18 || oct[1] === 19)) || (oct[0] === 203 && oct[1] === 0 && oct[2] === 113)) return;
-      if (/^\d+\.\d+\.\d+\.\d+$/.test(v) && cx.pf.isTest) return;
+      // test fixtures (req.RemoteAddr = "1.2.3.4:1234", URL tables) connect nowhere
+      if (cx.pf.isTest) return;
       cx.report(n, `Make sure using the hard-coded IP address '${m[1]}' is safe here.`, `직접 적은 IP 주소 '${m[1]}'을(를) 여기서 써도 안전한지 확인하세요.`);
     },
   },

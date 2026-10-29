@@ -207,12 +207,38 @@ P.sizeArgCheck = function sizeArgCheck(st, n, sizeNode, callNode, fname) {
   }
   if (n.wrap) {
     this.report('INTEGER_OVERFLOW', sizeNode, {
-      en: `${name} wraps around and is then used as the size argument of ${fname}.`,
-      ko: `${name}이(가) 한 바퀴 돈 값으로 ${fname}의 크기 인자에 쓰입니다.`,
+      en: n.wrap.definite ? `${name} wraps around and is then used as the size argument of ${fname}.` : `${name} may wrap around and is then used as the size argument of ${fname}.`,
+      ko: n.wrap.definite ? `${name}이(가) 한 바퀴 돈 값으로 ${fname}의 크기 인자에 쓰입니다.` : `${name}이(가) 한 바퀴 돌 수 있는 값으로 ${fname}의 크기 인자에 쓰입니다.`,
     }, [n.wrap.ev, st.trail], { tag: 'overflow_sink', confidence: n.wrap.definite ? 'definite' : 'possible' });
     return true;
   }
   return false;
+};
+
+// `buf + x` (or `&buf[x]`) with a size `K - ... - x`: the call ends at
+// offset K - ..., whatever x is. Intervals do not relate x to the size, so
+// without this the classic `recv(fd, buf + used, sizeof buf - used, 0)` looks
+// like it may run past the end. Returns { key, end } (end: upper bound of
+// x + size) or null.
+P.offsetRel = function offsetRel(st, bufNode, sizeNode, n) {
+  const b = skip(bufNode);
+  let off = null;
+  if (b && b.type === 'BinaryExpr' && b.op === '+') off = this.isPtrT(skip(b.left) && skip(b.left).ctype) ? skip(b.right) : skip(b.left);
+  else if (b && b.type === 'UnaryExpr' && b.op === '&' && skip(b.arg) && skip(b.arg).type === 'IndexExpr') off = skip(skip(b.arg).index);
+  if (!off || off.type !== 'Identifier' || !n || !n.iv || !Number.isFinite(n.iv.hi)) return null;
+  const key = this.keyOf(off);
+  if (!key) return null;
+  let s = skip(sizeNode);
+  let found = false;
+  while (s && s.type === 'BinaryExpr' && s.op === '-') {
+    const r = skip(s.right);
+    if (r && r.type === 'Identifier' && this.keyOf(r) === key) { found = true; break; }
+    s = skip(s.left);
+  }
+  if (!found) return null;
+  const xv = this.peek(st, off);
+  if (!xv || !xv.iv || !Number.isFinite(xv.iv.lo)) return null;
+  return { key, end: n.iv.hi + xv.iv.lo, xlo: xv.iv.lo };
 };
 
 // n bytes written to (or read from) the buffer v points to.
@@ -222,6 +248,10 @@ P.copySizeCheck = function copySizeCheck(st, v, n, argNode, sizeNode, fname, mod
   if (!tg || tg.o.st === 'freed') return;
   const o = tg.o;
   const len = n.iv;
+  // The size shrinks as the offset grows: the end is fixed (see offsetRel).
+  const rel = sizeNode ? this.offsetRel(st, argNode, sizeNode, n) : null;
+  // The pointer may itself sit at an offset in the object: off = base + x.
+  if (rel && (o.esz || 1) === 1 && o.size && Number.isFinite(o.size.lo) && tg.t.off && Number.isFinite(tg.t.off.lo) && tg.t.off.lo - rel.xlo + rel.end <= o.size.lo) return;
   let definite = false, possible = false;
   if (tg.avail) {
     const av = tg.avail;
@@ -235,8 +265,8 @@ P.copySizeCheck = function copySizeCheck(st, v, n, argNode, sizeNode, fname, mod
   const size = o.size ? (I.isConst(o.size) ? `${o.size.lo}` : I.show(o.size)) : '?';
   const what = mode === 'write' ? { en: 'writing', ko: '쓰기' } : { en: 'reading', ko: '읽기' };
   this.report('OVERRUN', argNode, {
-    en: `Overrunning ${o.name} of ${size} bytes by ${what.en} ${I.show(len)} bytes through ${name} in ${fname}.`,
-    ko: `${fname}에서 ${name}을(를) 통해 ${I.show(len)}바이트를 ${what.ko}하여 ${size}바이트인 ${o.name}의 범위를 넘습니다.`,
+    en: `${definite ? 'Overrunning' : 'Possibly overrunning'} ${o.name} of ${size} bytes by ${what.en} ${I.show(len)} bytes through ${name} in ${fname}.`,
+    ko: `${fname}에서 ${name}을(를) 통해 ${I.show(len)}바이트를 ${what.ko}하여 ${size}바이트인 ${o.name}의 범위를 넘${definite ? '습니다' : '을 수 있습니다'}.`,
   }, [o.aev, n.tev, st.trail], { tag: 'overrun', confidence: definite ? 'definite' : 'possible' });
 };
 
@@ -718,7 +748,13 @@ P.applyModel = function applyModel(st, e, m, args, vals, fname) {
       });
       const r = { pt: [{ o: o.id, off: I.konst(0) }], nul: 'maybe', oom: true };
       if (this.E.opts.allocNull) r.nret = nretOf();
-      if (old && old.o.kind === 'heap' && old.o.ak && old.o.st === 'live') {
+      // In a loop the block being grown can come from this very realloc
+      // (same allocation site, same abstract object): the new block is that
+      // object again, so it must not be marked released.
+      if (old && old.o.id === o.id) {
+        if (this.pendingRealloc && this.pendingRealloc.id === o.id) this.pendingRealloc = null;
+        st.mut(o.id).multi = false;
+      } else if (old && old.o.kind === 'heap' && old.o.ak && old.o.st === 'live') {
         const mo = st.mut(old.o.id);
         mo.st = 'freed';
         mo.fev = [this.ev(e, 'freed_arg', `${fname} releases the old block on success.`, `${fname}이(가) 성공하면 이전 블록을 해제합니다.`)];
@@ -866,7 +902,11 @@ P.applyModel = function applyModel(st, e, m, args, vals, fname) {
       if (len && !this.sizeArgCheck(st, len, args[m.len], e, fname)) this.copySizeCheck(st, buf, len, args[m.buf], args[m.len], fname, 'write');
       this.taintBuffer(st, buf, e, fname, 'no');
       const hi = len && len.iv && Number.isFinite(len.iv.hi) ? len.iv.hi : 2147483647;
-      return { iv: I.make(-1, hi), neg: { fn: fname, ev: this.ev(e, 'negative_return_fn', `${fname} returns -1 on failure.`, `${fname}은(는) 실패하면 -1을 반환합니다.`) } };
+      const res = { iv: I.make(-1, hi), neg: { fn: fname, ev: this.ev(e, 'negative_return_fn', `${fname} returns -1 on failure.`, `${fname}은(는) 실패하면 -1을 반환합니다.`) } };
+      // recv(fd, buf + used, N - used): `used += result` stays <= N.
+      const rel = len ? this.offsetRel(st, args[m.buf], args[m.len], len) : null;
+      if (rel) res.rel = { key: rel.key, end: rel.end };
+      return res;
     }
     case 'fread': {
       if (v1 && v2 && v1.iv && v2.iv) this.copySizeCheck(st, v0, { iv: I.mul(v1.iv, v2.iv) }, args[0], args[2], fname, 'write');

@@ -149,6 +149,7 @@ module.exports = [
     why: ['Without a fixed underlying type the size and signedness of the enumeration are implementation-defined.', '기반 타입을 고정하지 않으면 열거형의 크기와 부호가 구현 정의가 됩니다.'],
     fix: ['Add an underlying type, for example "enum class Mode : std::uint8_t".', '"enum class Mode : std::uint8_t" 처럼 기반 타입을 붙이세요.'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       for (const e of U.ix(unit).get('EnumDecl')) {
         if (e.isDefinition && !e.underlying) api.report(e, M(`Enumeration '${e.name || '<anonymous>'}' has no explicit underlying type.`, `열거형 '${e.name || '<익명>'}' 에 명시적 기반 타입이 없습니다.`));
       }
@@ -160,6 +161,7 @@ module.exports = [
     why: ['Unscoped enumerators leak into the enclosing scope and convert implicitly to integers.', '범위 없는 열거자는 바깥 범위로 새어 나가고 정수로 암시적 변환됩니다.'],
     fix: ['Use "enum class" (or declare the enumeration inside a class).', '"enum class" 를 쓰세요 (또는 클래스 안에 선언하세요).'],
     check(unit, api) {
+      api = U.cppOnlyFix(api); // a header shared with C must stay C
       for (const e of U.ix(unit).get('EnumDecl')) {
         if (!e.isDefinition || e.scoped) continue;
         const rd = cf.enclosing(e, ['RecordDecl', 'FunctionDecl']);

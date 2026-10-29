@@ -31,6 +31,7 @@ function fromEssential(r) {
 }
 
 function ut(unit, e) {
+  if (U.A.guessedType(unit, e)) return fromEssential(null);
   try { return fromEssential(cf.essentialType(e, { target: unit.target })); } catch (_) { return fromEssential(null); }
 }
 function utOfType(unit, t) {

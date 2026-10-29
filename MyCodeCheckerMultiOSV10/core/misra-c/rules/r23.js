@@ -2,6 +2,7 @@
 
 // MISRA C:2012 Amendment 3 / MISRA C:2023 chapter 23 — generic selections.
 
+const A = require('../lib/a-util');
 const B = require('../lib/b-common');
 
 const { cf, T, rule, msg, nodes, text, canon, isUserLoc } = B;
@@ -125,7 +126,7 @@ module.exports = [
           if (a.isDefault || !a.typeName) return false;
           const at = canon(a.typeName.ctype);
           if (!at || at.kind !== 'pointer') return false;
-          return T.sameType(at.to, ct.to, { ignoreQuals: true }) || T.isVoid(canon(at.to));
+          return A.sameType(at.to, ct.to, { ignoreQuals: true }) || T.isVoid(canon(at.to));
         });
         if (near) api.report(g, msg(`The controlling type '${T.typeToString(ct)}' only matches '${assocTypeText(near)}' through an implicit pointer conversion, so default is selected.`, `제어 형 '${T.typeToString(ct)}'은(는) 암시적 포인터 변환을 거쳐야 '${assocTypeText(near)}'와(과) 일치하므로 default가 선택됩니다.`));
       }

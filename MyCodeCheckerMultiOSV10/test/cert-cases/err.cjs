@@ -118,4 +118,12 @@ int f(const char *s) { int a = atoi(s); long b; sscanf(s, "%ld", &b); return a +
 #include <errno.h>
 long f(const char *s) { char *end; errno = 0; long v = strtol(s, &end, 10); if (end == s || errno == ERANGE) return 0; return v; }`,
   },
+  {
+    // A field width small enough for the type cannot overflow: '%4d' reads at most 9999.
+    key: 'cert:ERR34-C',
+    bad: `#include <stdio.h>
+int f(const char *s, int *y, int *m) { return sscanf(s, "%4d-%12d", y, m) == 2; }`,
+    good: `#include <stdio.h>
+int f(const char *s, int *y, int *m, int *d) { return sscanf(s, "%4d-%2d-%2d", y, m, d) == 3; }`,
+  },
 ];

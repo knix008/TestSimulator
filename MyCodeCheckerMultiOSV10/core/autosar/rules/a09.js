@@ -43,6 +43,17 @@ const retKind = (f) => {
 };
 
 // Use of `this` in a member function body: { usesThis, modifies }
+// An unqualified identifier in the body that resolved to nothing.
+function unresolvedIn(body) {
+  let found = false;
+  cf.walk(body, (n) => {
+    if (found) return cf.walk.STOP;
+    if (n.type === 'Identifier' && !n.symbol && !n.qualifier && !n.predefined) found = true;
+    return undefined;
+  });
+  return found;
+}
+
 function thisUse(f) {
   return U.memo(f, 'autosar.thisUse', () => {
     let usesThis = false;
@@ -145,6 +156,9 @@ module.exports = [
         if (decls.some((d) => U.hasStorage(d, 'static'))) continue;
         if (decls.some((d) => d.type === 'FunctionDecl' && (U.isVirtualDecl(d) || d.isOverride || d.isFinal))) continue;
         if (!f.body || f.body.type !== 'CompoundStmt' || !f.body.body.length) continue;
+        // A name that resolved to nothing (a member declared in a header that
+        // was not found, a member of an unknown base) may be a use of `this`.
+        if (unresolvedIn(f.body)) continue;
         const { usesThis, modifies } = thisUse(f);
         if (!usesThis) api.report(U.at(f), M(`The member function '${f.name}' does not use the object and can be made static.`, `멤버 함수 '${f.name}' 은(는) 객체를 쓰지 않으므로 static 으로 만들 수 있습니다.`));
         else if (!U.isConstMethod(f) && !modifies) api.report(U.at(f), M(`The member function '${f.name}' does not modify the object and can be made const.`, `멤버 함수 '${f.name}' 은(는) 객체를 바꾸지 않으므로 const 로 만들 수 있습니다.`));

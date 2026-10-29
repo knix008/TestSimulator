@@ -93,7 +93,9 @@ R('dollar-star', 'B', 'MI', 2, ['pitfall'],
   /"\$\*"|(?<!["\w])\$\*(?!["\w])/,
   ['$* instead of "$@"', '$* joins the arguments and loses the original word boundaries.', 'Use "$@".'],
   ['"$@" 대신 $*를 씁니다', '$*는 인자를 합쳐 원래 단어 경계를 잃습니다.', '"$@"를 쓰세요.'],
-  'exec node app.js $*', 'exec node app.js "$@"');
+  ['exec node app.js $*', 'exec node app.js "$*"'], ['exec node app.js "$@"', 'say() { printf \'==> %s\\n\' "$*"; }', 'echo "$*" >&2'],
+  // "$*" as one joined string for printf / echo is what it is for.
+  { skip: (raw, line) => !/(?<!["\w])\$\*(?!["\w])/.test(line) && /(?:^|[;{(&|]\s*)(?:echo|printf)\b/.test(line) });
 R('eq-in-single-bracket', 'B', 'MI', 2, ['portability'],
   /(?<!\[)\[\s+[^\]]*\s==\s[^\]]*\s\](?!\])/,
   ['== inside [ ]', 'POSIX test uses =; == fails in dash and other sh implementations.', 'Use = in [ ], or [[ ]] in bash.'],
@@ -174,4 +176,16 @@ function unquotedExpansion(line) {
   return false;
 }
 
-module.exports = { RULES: R.rules, unquotedExpansion };
+// set -e (errexit) is on before line index: a failing cd stops the script.
+// lines may be the skip() context { index, lines } instead.
+function errexitBefore(lines, index) {
+  if (lines && !Array.isArray(lines) && typeof lines === 'object') ({ lines, index } = lines);
+  if (!Array.isArray(lines) || !Number.isInteger(index)) return false;
+  for (let i = 0; i < index && i < lines.length; i++) {
+    const l = String(lines[i]);
+    if (/^\s*set\s+(?:-[A-Za-z]*e[A-Za-z]*|-o\s+errexit)\b/.test(l) || (i === 0 && /^#!.*\s-[A-Za-z]*e[A-Za-z]*\s*$/.test(l))) return true;
+  }
+  return false;
+}
+
+module.exports = { RULES: R.rules, unquotedExpansion, errexitBefore };

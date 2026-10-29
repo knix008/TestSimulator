@@ -79,7 +79,8 @@ module.exports = [
           const niceKo = { copyCtor: '복사 생성자', copyAssign: '복사 대입', moveCtor: '이동 생성자', moveAssign: '이동 대입' };
           api.report(rd, M(`'${rd.name}' declares ${userDtor && !declared.length ? 'a destructor' : declared.map((x) => nice[x]).join(', ')} but not the ${missing.map((x) => nice[x]).join(', ')}.`, `'${rd.name}' 가 ${userDtor && !declared.length ? '소멸자' : declared.map((x) => niceKo[x]).join(', ')} 를 선언하지만 ${missing.map((x) => niceKo[x]).join(', ')} 는 선언하지 않습니다.`));
         }
-        if (!rd.isFinal && U.isPolymorphic(rec) && !U.bases(rec).some((b) => U.isPolymorphic(b.rec))) {
+        // a base of unknown type (its header was not found) may give a virtual destructor
+        if (!rd.isFinal && U.isPolymorphic(rec) && !U.bases(rec).some((b) => !b.rec || U.isPolymorphic(b.rec))) {
           if (!dtor) api.report(rd, M(`Polymorphic class '${rd.name}' has an implicit public non-virtual destructor.`, `다형 클래스 '${rd.name}' 의 소멸자가 암시적인 public 비가상 소멸자입니다.`));
           else if (dtor.access === 'public' && !U.isVirtualDecl(dtor.node) && !dtor.node.isOverride) api.report(dtor.node, M(`Polymorphic class '${rd.name}' has a public non-virtual destructor.`, `다형 클래스 '${rd.name}' 의 소멸자가 public 비가상입니다.`));
         }

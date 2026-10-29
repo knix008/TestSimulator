@@ -33,7 +33,8 @@ function isCvalue(e) {
   if (!e) return false;
   if (e.type === 'BinaryExpr' && ARITH.has(e.op)) return true;
   if (e.type === 'UnaryExpr' && (e.op === '-' || e.op === '~' || e.op === '+')) return true;
-  if (e.type === 'ConditionalExpr') return isCvalue(e.consequent) || isCvalue(e.alternate);
+  // `c ? -1 : 0`: a constant branch (`-1`) is not a composite expression
+  if (e.type === 'ConditionalExpr') return [e.consequent, e.alternate].some((b) => isCvalue(b) && !U.constInt(b, null, true));
   return false;
 }
 
@@ -162,7 +163,10 @@ module.exports = [
         const r = U.canon(c.to);
         return r.kind === 'record' && r.decl && !r.decl.isFinal && r.tag !== 'union' ? r : null;
       };
-      const rep = (n, r) => api.report(n, M(`Pointer arithmetic is applied to a pointer to the non-final class '${r.name}'.`, `final 이 아닌 클래스 '${r.name}' 의 포인터에 포인터 산술을 씁니다.`));
+      const rep = (n, r) => {
+        const name = r.name || r.typedefName || '<anonymous>'; // typedef struct { ... } T;
+        api.report(n, M(`Pointer arithmetic is applied to a pointer to the non-final class '${name}'.`, `final 이 아닌 클래스 '${name}' 의 포인터에 포인터 산술을 씁니다.`));
+      };
       const x = U.ix(unit);
       for (const b of x.get('BinaryExpr')) if (b.op === '+' || b.op === '-') { const r = nonFinalPointee(b.left) || nonFinalPointee(b.right); if (r) rep(b, r); }
       for (const i of x.get('IndexExpr')) { const r = nonFinalPointee(i.object); if (r) rep(i, r); }

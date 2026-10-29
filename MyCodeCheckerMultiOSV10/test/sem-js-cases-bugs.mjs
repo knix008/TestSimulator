@@ -1334,6 +1334,21 @@ collect([]);
   return [log.length, index.get('a')];
 }
 collect([]);
+// sort() returns the array and pop() an element: both read it
+function sortedNames(list) {
+  const names = [];
+  for (const it of list) names.push(it.name);
+  return names.sort().join(',');
+}
+function drain(list) {
+  const stack = [];
+  for (const it of list) stack.push(it);
+  const out = [];
+  while (stack.length) out.push(stack.pop());
+  return out;
+}
+sortedNames([]);
+drain([]);
 `,
   },
 

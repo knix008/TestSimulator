@@ -52,6 +52,10 @@ class Engine {
     this.models = models || [];
     this.userFiles = new Set(files.map((f) => f.path));
     this.summaries = new Map();
+    // Functions defined more than once (a weak stub and the real one, one
+    // definition per build configuration): which body runs is not known, so
+    // no single summary describes the call.
+    this.multiDef = new Set();
     this.defined = new Set();
     this.declKey = new Map();
     this.throwsOf = new Map(); // function key -> { ev } when an exception can escape it
@@ -97,6 +101,7 @@ class Engine {
 
   summaryFor(sym, unit, fname) {
     const k = sym ? this.keyForSym(sym, unit) : fname;
+    if (k && this.multiDef.has(k)) return null;
     return (k && this.summaries.get(k)) || null;
   }
 
@@ -168,6 +173,7 @@ class Engine {
       for (const n of cg.nodes.values()) {
         for (const d of n.definitions || []) this.declKey.set(d.node, n.key);
         if (n.defined) this.defined.add(n.key);
+        if (new Set((n.definitions || []).map((d) => `${d.node && d.node.loc ? d.node.loc.file : ''}:${d.node && d.node.loc && d.node.loc.start}`)).size > 1) this.multiDef.add(n.key);
       }
       let sccs = [];
       try { sccs = cg.sccs(); } catch { sccs = [...cg.nodes.keys()].map((k) => [k]); }
