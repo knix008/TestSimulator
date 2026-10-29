@@ -20,7 +20,7 @@ import {
   IconCopy, IconSelectAll, IconMarquee, IconHand, IconHighlight, IconBookmark, IconZoomIn,
   IconZoomOut, IconFitWidth, IconRotateRight, IconPrev, IconNext, IconImage,
   IconSelectText, IconDownload, IconClip, IconClose, IconComment,
-  IconFitPage, IconFitHeight, IconActual, IconGallery, IconStar, IconLibrary, IconOpen, IconFolderOpen,
+  IconFitPage, IconFitHeight, IconActual, IconStar, IconLibrary, IconOpen, IconFolderOpen,
 } from './components/Icons.jsx';
 
 import {
@@ -60,7 +60,7 @@ import {
 } from './lib/pdf-write.js';
 import {
   registerOpened, addPaths, removeFromGallery, setFavorite, isFavorite, renderThumb,
-  recentlyOpened, favoritesOf, clampTileSize, forgetOpened, forgetAllOpened, inGallery, clampBookSize,
+  recentlyOpened, favoritesOf, clampTileSize, forgetOpened, forgetAllOpened, clampBookSize,
 } from './lib/gallery.js';
 import { setThumb, getThumb, deleteThumb } from './lib/thumb-store.js';
 import { listHighlights, splitHighlightDeletes } from './lib/highlights.js';
@@ -1480,31 +1480,9 @@ export default function App() {
     openByPath(entry.path);
   }, [fail, openByPath, t, toast]);
 
-  // ── Gallery ────────────────────────────────────────────
-  const addToGallery = useCallback(async () => {
-    if (!isDesktop) return;
-    try {
-      const picked = await api.openPdfDialog({
-        defaultDir: openDefaultDir(settings),
-        multi: true,
-        title: t('gallery.addTitle'),
-        filters: [{ name: 'PDF', extensions: ['pdf'] }],
-      });
-      if (!picked) return;
-      const paths = Array.isArray(picked) ? picked : [picked];
-      let added = 0;
-      setSettings((s) => {
-        const r = addPaths(s.gallery, paths);
-        added = r.added;
-        return { ...s, gallery: r.list };
-      });
-      toast(added ? t('gallery.added', { n: added }) : t('gallery.already'), added ? 'ok' : 'info');
-    } catch (err) {
-      fail(err, 'open');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fail, settings.defaultOpenDir, settings.lastDir, t, toast]);
-
+  // ── Opened files (the gallery) ─────────────────────────
+  // Every PDF opened lands here by itself, so there is no way to add one
+  // without opening it — only to take entries off.
   // Only the entry goes; the file stays where it is.
   const removeFromGalleryList = useCallback((path) => {
     setSettings((s) => ({ ...s, gallery: removeFromGallery(s.gallery, path) }));
@@ -1531,24 +1509,6 @@ export default function App() {
     history.reset(history.state);
     toast(t('history.editCleared'), 'ok');
   }, [history, t, toast]);
-
-  const registerCurrentInGallery = useCallback(() => {
-    if (!file?.path) return;
-    const entry = { path: file.path, name: file.name, dir: dirName(file.path), size: file.size };
-    setSettings((s) => ({ ...s, gallery: registerOpened(s.gallery, entry) }));
-    if (doc) renderThumb(doc).then((th) => (th ? setThumb(file.path, th) : null)).catch(() => {});
-    toast(t('gallery.added', { n: 1 }), 'ok');
-  }, [doc, file, t, toast]);
-
-  const addPathToGallery = useCallback((path) => {
-    let added = 0;
-    setSettings((s) => {
-      const r = addPaths(s.gallery, [path]);
-      added = r.added;
-      return { ...s, gallery: r.list };
-    });
-    toast(added ? t('gallery.added', { n: 1 }) : t('gallery.already'), added ? 'ok' : 'info');
-  }, [t, toast]);
 
   const toggleFavorite = useCallback((entry, on) => {
     setSettings((s) => ({ ...s, gallery: setFavorite(s.gallery, entry, on) }));
@@ -1883,9 +1843,6 @@ export default function App() {
       { icon: IconBookmark, label: t('menu.addBookmark'), onClick: () => addBookmark(snapText, highlightShot), disabled: !doc },
       { icon: IconClip, label: t('menu.attachFile'), onClick: () => attachFile(), disabled: !doc },
       { separator: true },
-      file?.path && inGallery(settings.gallery, file.path)
-        ? { icon: IconGallery, label: t('ctx.removeFromGallery'), onClick: () => removeFromGalleryList(file.path) }
-        : { icon: IconGallery, label: t('ctx.addToGallery'), onClick: () => registerCurrentInGallery(), disabled: !file?.path },
       // Both library items, only the one that applies enabled.
       { icon: IconStar, label: t('gallery.favorite'), onClick: () => currentEntry && toggleFavorite(currentEntry, true), disabled: !currentEntry || isFavorite(settings.gallery, file?.path) },
       { icon: IconLibrary, label: t('gallery.unfavorite'), onClick: () => currentEntry && toggleFavorite(currentEntry, false), disabled: !currentEntry || !isFavorite(settings.gallery, file?.path) },
@@ -1903,7 +1860,7 @@ export default function App() {
     setMenu({ open: true, x: e.clientX, y: e.clientY, items });
   }, [addBookmark, addComment, applyHighlight, attachFile, changeZoom, copyPageText, copySelection, copySelectedImage, doc, extractImages,
     goToPage, keepSelectedImage, pageNumber, rotate, saveSelectedImage, selectedImage, selectionText, setTool, settings.pageLayout, t,
-    file, settings.gallery, currentEntry, toggleFavorite, removeFromGalleryList, registerCurrentInGallery]);
+    file, settings.gallery, currentEntry, toggleFavorite, removeFromGalleryList]);
 
   // Menus built by a panel (left panel rows, gallery cards) open through the same menu.
   const openItemsMenu = useCallback((e, items) => {
@@ -1994,7 +1951,6 @@ export default function App() {
       onOpen={openGalleryEntry}
       onRemove={removeFromGalleryList}
       onFavorite={toggleFavorite}
-      onAdd={isDesktop ? addToGallery : undefined}
       onNeedThumb={requestGalleryThumb}
       onCardMenu={galleryCardMenu}
       onShowLibrary={() => setShowLibrary(true)}
@@ -2171,10 +2127,7 @@ export default function App() {
           onContextMenuItems={openItemsMenu}
           onRevealPath={isDesktop ? revealPath : undefined}
           onCopyText={copyPlainText}
-          isInGallery={(p) => inGallery(settings.gallery, p)}
           isFavoritePath={(p) => isFavorite(settings.gallery, p)}
-          onAddPathToGallery={addPathToGallery}
-          onRemoveFromGallery={removeFromGalleryList}
           folderRoot={settings.folderRoot}
           drives={drives}
           currentFilePath={file?.path || ''}

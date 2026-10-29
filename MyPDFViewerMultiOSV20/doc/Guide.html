@@ -90,7 +90,7 @@
       <li><a href="#copy">5. 텍스트 · 그림 복사</a></li>
       <li><a href="#highlight">6. 형광펜</a></li>
       <li><a href="#save">7. 저장</a></li>
-      <li><a href="#gallery">8. 갤러리</a></li>
+      <li><a href="#gallery">8. 열어 본 파일</a></li>
       <li><a href="#library">9. 서재</a></li>
       <li><a href="#panels">10. 좌측 패널</a></li>
       <li><a href="#menus">11. 오른쪽 클릭 메뉴</a></li>
@@ -113,7 +113,7 @@
 
     <h2 id="intro">1. 소개</h2>
     <p>MyPDFViewer는 PDF를 빠르게 열어 읽고, 필요한 부분에 <b>형광펜</b>을 칠해 <b>PDF 파일 안에 저장</b>하며, 문서 속 텍스트와 그림을 손쉽게 복사하는 프로그램입니다.
-      열어 본 문서는 <b>갤러리</b>에 저절로 모이고, 아끼는 문서는 <b>서재</b>에 꽂아 두고 책장처럼 크게 볼 수 있습니다.</p>
+      열어 본 문서는 <b>열어 본 파일</b>에 저절로 모이고, 아끼는 문서는 <b>서재</b>에 꽂아 두고 책장처럼 크게 볼 수 있습니다.</p>
     <ul>
       <li>문서를 열면 항상 <b>화면 맞춤</b>으로 쪽 전체가 보입니다. 툴바 버튼으로 원본 · 폭 · 높이 맞춤을 바로 바꿉니다.</li>
       <li>형광펜은 PDF 표준 주석으로 저장되어 다른 PDF 프로그램에서도 그대로 보입니다.</li>
@@ -127,7 +127,7 @@
     <figure><img src="images/start.png" alt="시작 화면"><figcaption>시작 화면 — 위쪽 소개, 아래 왼쪽부터 시작하기 · 내 서재 · 시작 화면 배경</figcaption></figure>
     <ul>
       <li><b>위쪽 카드</b> — 프로그램 이름과 버전, <b>[프로그램 설명]</b>(이 설명서를 새 창으로 엽니다), <b>[서재로 크게 보기]</b>.</li>
-      <li><b>시작하기</b> — 열기, URL 열기, 갤러리. 아래에는 <b>최근 연 파일</b>이 있고 각 줄의 ✕ 로 기록에서 지웁니다.</li>
+      <li><b>시작하기</b> — 열기, URL 열기, 열어 본 파일. 아래에는 <b>최근 연 파일</b>이 있고 각 줄의 ✕ 로 기록에서 지웁니다.</li>
       <li><b>내 서재</b> — 서재에 넣은 문서가 책장에 꽂혀 보입니다. 책을 누르면 그 문서가 열립니다.</li>
       <li><b>시작 화면 배경</b> — 움직이는 3D 배경을 고르고 조절합니다(아래).</li>
       <li>맨 아래 <b>시작할 때 이 화면 보이기</b> 를 끄면 다음부터는 빈 화면으로 시작합니다.</li>
@@ -159,7 +159,7 @@
     <figure><img src="images/viewer.png" alt="문서 보기"><figcaption>문서를 연 화면 — 위쪽 툴바, 왼쪽 패널(축소판), 가운데 문서</figcaption></figure>
 
     <h2 id="view">4. 보기 맞춤과 확대</h2>
-    <figure><img src="images/toolbar.png" alt="툴바"><figcaption>툴바 — 왼쪽부터 홈 · 파일 · 실행 취소 · 선택 도구 · 복사 · 쪽 이동 · 페이지 배치 · 확대 · 보기 맞춤 · 회전, 오른쪽에 갤러리 · 서재 · 사이드바 · 테마 · 언어 · 도움말 · 설정</figcaption></figure>
+    <figure><img src="images/toolbar.png" alt="툴바"><figcaption>툴바 — 왼쪽부터 홈 · 파일 · 실행 취소 · 선택 도구 · 복사 · 쪽 이동 · 페이지 배치 · 확대 · 보기 맞춤 · 회전, 오른쪽에 열어 본 파일 · 서재 · 사이드바 · 테마 · 언어 · 도움말 · 설정</figcaption></figure>
     <table>
       <tr><th>버튼</th><th>보이는 모양</th></tr>
       <tr><td>화면 맞춤</td><td>쪽 전체가 창 안에 들어옵니다. 문서를 열 때 항상 이 모양입니다.</td></tr>
@@ -197,18 +197,18 @@
       <li>저장하지 않은 변경이 있으면 창이나 탭을 닫기 전에 저장할지 묻습니다.</li>
     </ul>
 
-    <h2 id="gallery">8. 갤러리</h2>
-    <p>툴바의 <b>갤러리</b> 버튼으로 엽니다. 열어 본 PDF가 <b>저절로 등록</b>되어 첫 쪽 그림과 이름으로 모입니다.</p>
-    <figure><img src="images/gallery.png" alt="갤러리 타일"><figcaption>타일 보기 — 크기 슬라이더로 카드 크기를 조절, ☆ 로 서재에 추가, ✕ 로 등록 해제</figcaption></figure>
-    <figure><img src="images/gallery-details.png" alt="갤러리 자세히"><figcaption>자세히 보기 — 이름 · 폴더 · 크기 · 마지막으로 연 날 · 등록한 날, 머리글을 누르면 정렬</figcaption></figure>
+    <h2 id="gallery">8. 열어 본 파일</h2>
+    <p>툴바의 <b>열어 본 파일</b> 버튼으로 엽니다. 열어 본 PDF가 <b>저절로 쌓여</b> 첫 쪽 그림과 이름으로 모입니다.</p>
+    <figure><img src="images/gallery.png" alt="열어 본 파일 타일"><figcaption>타일 보기 — 크기 슬라이더로 카드 크기를 조절, ☆ 로 서재에 추가, ✕ 로 목록에서 빼기</figcaption></figure>
+    <figure><img src="images/gallery-details.png" alt="열어 본 파일 자세히"><figcaption>자세히 보기 — 이름 · 폴더 · 크기 · 마지막으로 연 날 · 등록한 날, 머리글을 누르면 정렬</figcaption></figure>
     <ul>
-      <li><b>[파일 추가]</b> — 열지 않고 갤러리에 등록합니다. 페이지 오른쪽 클릭의 <b>갤러리에 등록</b> 도 같은 일을 합니다.</li>
-      <li>✕ 로 등록을 해제해도 파일은 지워지지 않습니다.</li>
+      <li>파일을 열기만 하면 들어오므로 따로 추가하는 버튼이나 메뉴는 없습니다.</li>
+      <li>✕ 로 목록에서 빼도 파일은 지워지지 않습니다.</li>
       <li>이름이나 폴더로 찾기, 전체 / 서재 보기, 최근 연 순 · 이름 · 추가한 순 · 크기 정렬을 지원합니다.</li>
     </ul>
 
     <h2 id="library">9. 서재</h2>
-    <p>아끼는 문서를 <b>서재에 추가</b>(갤러리 카드의 ☆, 오른쪽 클릭 메뉴)하면 툴바의 <b>서재</b> 버튼으로 책장처럼 크게 볼 수 있습니다. 서재는 화면 전체를 씁니다. 툴바의 <b>사이드바</b> · <b>문서 정보</b> 버튼(<kbd>F9</kbd> · <kbd>F8</kbd>)을 누르면 좌우 패널이 서재 옆에 열립니다.</p>
+    <p>아끼는 문서를 <b>서재에 추가</b>([열어 본 파일] 카드의 ☆, 오른쪽 클릭 메뉴)하면 툴바의 <b>서재</b> 버튼으로 책장처럼 크게 볼 수 있습니다. 서재는 화면 전체를 씁니다. 툴바의 <b>사이드바</b> · <b>문서 정보</b> 버튼(<kbd>F9</kbd> · <kbd>F8</kbd>)을 누르면 좌우 패널이 서재 옆에 열립니다.</p>
     <figure><img src="images/library.png" alt="서재 책장"><figcaption>책장 보기 — 책 크기 슬라이더, 정렬, 찾기, 전체 삭제, 파일 추가</figcaption></figure>
     <div class="grid2">
       <figure><img src="images/library-covers.png" alt="서재 표지"><figcaption>표지 보기</figcaption></figure>
@@ -217,7 +217,7 @@
     <ul>
       <li><b>책장 · 표지 · 목록 · 자세히</b> 네 가지 보기 — 크기 슬라이더 하나가 모든 보기의 크기를 함께 바꿉니다 (아주 작게도 볼 수 있습니다).</li>
       <li>책 제목은 한 줄로 줄여(…) 보여 주어 책들이 수평으로 고르게 섭니다.</li>
-      <li>책마다 ✕ 로 서재에서 빼고, <b>전체 삭제</b> 로 서재를 비웁니다. 파일과 갤러리 카드는 그대로입니다.</li>
+      <li>책마다 ✕ 로 서재에서 빼고, <b>전체 삭제</b> 로 서재를 비웁니다. 파일과 [열어 본 파일] 카드는 그대로입니다.</li>
     </ul>
 
     <h2 id="panels">10. 좌측 패널</h2>
@@ -239,9 +239,9 @@
     <div class="grid2">
       <figure class="narrow"><img src="images/context-menu.png" alt="오른쪽 클릭 메뉴"><figcaption>페이지 위 오른쪽 클릭</figcaption></figure>
       <div>
-        <p>페이지, 좌측 패널의 모든 항목, 갤러리와 서재의 카드마다 아이콘이 붙은 메뉴가 있습니다.</p>
+        <p>페이지, 좌측 패널의 모든 항목, 열어 본 파일과 서재의 카드마다 아이콘이 붙은 메뉴가 있습니다.</p>
         <ul>
-          <li>페이지 — 복사, 형광펜, 코멘트, 도구, 이미지 추출, 책갈피, 첨부, <b>갤러리에 등록 / 제거</b>, <b>서재에 추가</b>, 쪽 이동, 확대, 보기 맞춤, 회전</li>
+          <li>페이지 — 복사, 형광펜, 코멘트, 도구, 이미지 추출, 책갈피, 첨부, <b>서재에 추가</b>, 쪽 이동, 확대, 보기 맞춤, 회전</li>
           <li>파일 항목 — 열기, 서재에 추가 / 빼기, 폴더에서 보기, 경로 복사</li>
           <li>형광펜 · 책갈피 · 주석 — 이동, 글자 복사, 지우기</li>
         </ul>
@@ -277,14 +277,14 @@
       <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></td><td>텍스트 / 이미지 / 영역 도구 / 읽기 모드</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>실행 취소 / 다시 실행</td></tr>
       <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>찾기</td><td><kbd>F9</kbd></td><td>사이드바</td></tr>
       <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd></td><td>확대 / 축소</td><td><kbd>Ctrl</kbd>+<kbd>0</kbd></td><td>원본 크기</td></tr>
-      <tr><td><kbd>PageUp</kbd> / <kbd>PageDown</kbd></td><td>이전 · 다음 쪽</td><td><kbd>Esc</kbd></td><td>갤러리 · 서재 닫기</td></tr>
+      <tr><td><kbd>PageUp</kbd> / <kbd>PageDown</kbd></td><td>이전 · 다음 쪽</td><td><kbd>Esc</kbd></td><td>열어 본 파일 · 서재 닫기</td></tr>
     </table>
 
     <h2 id="install">15. 설치와 데이터</h2>
     <ul>
       <li>Windows 설치 파일은 <code>npm run build:win</code> 으로 만듭니다 (macOS <code>build:mac</code>, Linux <code>build:linux</code>).</li>
       <li>설치할 때 바로 가기와 PDF 기본 뷰어 설정을 고를 수 있습니다. 예전 Electron 판은 먼저 지우고, 남은 설정을 지울지 묻습니다.</li>
-      <li>설정 · 최근 파일 · 갤러리 · 서재는 <code>%APPDATA%\MyPDFViewer\settings.json</code> 에 저장됩니다. 갤러리 그림은 앱 데이터 안에 따로 보관됩니다.</li>
+      <li>설정 · 최근 파일 · 열어 본 파일 · 서재는 <code>%APPDATA%\MyPDFViewer\settings.json</code> 에 저장됩니다. 첫 쪽 그림은 앱 데이터 안에 따로 보관됩니다.</li>
     </ul>
     <div class="tip">문제가 생기면 오류 창의 <b>오류 내용 복사</b> 로 전체 내용을 한 번에 복사해 전달하세요.</div>
 

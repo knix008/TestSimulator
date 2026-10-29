@@ -169,7 +169,7 @@ describe('StartScreen', () => {
     const { onOpenFile, onOpenUrl, onShowGallery, onShowLibrary, onOpenGuide } = renderStart();
     fireEvent.click(screen.getByRole('button', { name: /^열기/ }));
     fireEvent.click(screen.getByRole('button', { name: /URL 열기/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^갤러리/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^열어 본 파일/ }));
     fireEvent.click(screen.getByRole('button', { name: /서재로 크게 보기/ }));
     fireEvent.click(screen.getByRole('button', { name: /프로그램 설명/ }));
     expect([onOpenFile, onOpenUrl, onShowGallery, onShowLibrary, onOpenGuide].every((f) => f.mock.calls.length === 1)).toBe(true);

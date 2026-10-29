@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  IconStar, IconClose, IconPdf, IconTiles, IconDetails, IconPlus, IconGallery, IconSearch, IconLibrary,
+  IconStar, IconClose, IconPdf, IconTiles, IconDetails, IconGallery, IconSearch, IconLibrary,
 } from './Icons.jsx';
 import {
   sortGallery, filterGallery, isCurrent, favoritesOf, TILE_MIN, TILE_MAX, GALLERY_SORTS,
@@ -57,11 +57,12 @@ export function fmtDate(ts, lang) {
   }
 }
 
-// The gallery fills the document area: every registered PDF as a picture with
-// its name (tiles, resizable) or as a sortable table (details).
+// The opened-files view (called the gallery in code) fills the document area:
+// every PDF ever opened as a picture with its name (tiles, resizable) or as a
+// sortable table (details). Entries come only from opening a file.
 export default function Gallery({
   entries = [], currentPath = '', view = 'tiles', tileSize = 168,
-  onView, onTileSize, onOpen, onRemove, onFavorite, onAdd, onNeedThumb, onClose, onCardMenu, onShowLibrary,
+  onView, onTileSize, onOpen, onRemove, onFavorite, onNeedThumb, onClose, onCardMenu, onShowLibrary,
 }) {
   const { t, i18n } = useTranslation();
   const [only, setOnly] = useState('all');
@@ -189,11 +190,6 @@ export default function Gallery({
           </button>
         </div>
 
-        {onAdd ? (
-          <button type="button" className="btn" onClick={onAdd} title={t('gallery.addTip')}>
-            <IconPlus size={15} /> {t('gallery.add')}
-          </button>
-        ) : null}
         {onShowLibrary ? (
           <button type="button" className="btn icon-only" onClick={onShowLibrary} title={t('library.open')} aria-label={t('library.open')}>
             <IconLibrary size={15} />

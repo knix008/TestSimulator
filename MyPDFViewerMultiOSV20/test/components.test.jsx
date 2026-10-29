@@ -562,7 +562,7 @@ describe('Toolbar panel buttons', () => {
     expect(screen.queryByRole('button', { name: 'Comments' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Bookmarks' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Find' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Gallery' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Opened files' }));
     expect(screen.queryByRole('button', { name: 'Library list' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Library' }));
     expect(onGallery).toHaveBeenCalledTimes(1);

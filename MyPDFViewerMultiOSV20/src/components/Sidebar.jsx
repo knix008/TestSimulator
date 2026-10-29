@@ -60,7 +60,7 @@ export default function Sidebar({
   onForgetRecent, onForgetAllRecent, onClearEditHistory, onClearLibrary,
   highlights = [], highlightsBusy = false, onGoToHighlight, onDeleteHighlights,
   onContextMenuItems, onRevealPath, onCopyText,
-  isInGallery, isFavoritePath, onAddPathToGallery, onRemoveFromGallery,
+  isFavoritePath,
   folderRoot = '', currentFilePath = '', desktop = false, onPickFolder, onSelectDrive, onOpenFolderFile, loadFolder,
   drives = [],
 }) {
@@ -306,9 +306,6 @@ export default function Sidebar({
                   ]
                   : [
                     { icon: IconOpen, label: t('ctx.open'), onClick: () => onOpenFolderFile?.(node.path) },
-                    isInGallery?.(node.path)
-                      ? { icon: IconGallery, label: t('ctx.removeFromGallery'), onClick: () => onRemoveFromGallery?.(node.path) }
-                      : { icon: IconGallery, label: t('ctx.addToGallery'), onClick: () => onAddPathToGallery?.(node.path) },
                     ...libraryPair({ path: node.path, name: node.name, size: node.size }, !!isFavoritePath?.(node.path)),
                     { separator: true },
                     onRevealPath ? { icon: IconFolderOpen, label: t('ctx.reveal'), onClick: () => onRevealPath(node.path) } : null,

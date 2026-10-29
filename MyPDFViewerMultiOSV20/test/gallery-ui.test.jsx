@@ -25,7 +25,7 @@ const entries = [
 function renderGallery(props = {}) {
   const handlers = {
     onView: vi.fn(), onTileSize: vi.fn(), onOpen: vi.fn(), onRemove: vi.fn(), onFavorite: vi.fn(),
-    onAdd: vi.fn(), onNeedThumb: vi.fn(), onClose: vi.fn(), onCardMenu: vi.fn(),
+    onNeedThumb: vi.fn(), onClose: vi.fn(), onCardMenu: vi.fn(),
   };
   const utils = render(<Gallery entries={entries} currentPath={'C:\\d\\b.pdf'} {...handlers} {...props} />);
   return { ...utils, ...handlers };
@@ -52,7 +52,7 @@ describe('Gallery', () => {
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: 'b.pdf' }));
     fireEvent.click(within(card).getByLabelText('서재에 추가'));
     expect(onFavorite).toHaveBeenCalledWith(expect.objectContaining({ name: 'b.pdf' }), true);
-    fireEvent.click(within(card).getByLabelText(/갤러리에서 제거/));
+    fireEvent.click(within(card).getByLabelText(/목록에서 빼기/));
     expect(onRemove).toHaveBeenCalledWith('C:\\d\\b.pdf');
     expect(onOpen).toHaveBeenCalledTimes(1);
     fireEvent.contextMenu(card);
@@ -91,17 +91,19 @@ describe('Gallery', () => {
     expect([...container.querySelectorAll('.gal-name')].map((n) => n.textContent)).toEqual(['c.pdf']);
   });
 
-  it('adds files and closes with Esc', () => {
-    const { onAdd, onClose } = renderGallery();
-    fireEvent.click(screen.getByRole('button', { name: /파일 추가/ }));
-    expect(onAdd).toHaveBeenCalled();
+  // Only opening a file puts it on this list, so there is nothing to add by hand.
+  it('has no add button, is titled Opened files, and closes with Esc', () => {
+    const { onClose } = renderGallery();
+    expect(screen.queryByRole('button', { name: /파일 추가/ })).toBeNull();
+    expect(screen.getByLabelText('열어 본 파일')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/갤러리/);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
 
   it('explains the empty gallery', () => {
     renderGallery({ entries: [] });
-    expect(screen.getByText(/자동으로 등록됩니다/)).toBeTruthy();
+    expect(screen.getByText(/저절로 쌓입니다/)).toBeTruthy();
   });
 });
 
@@ -226,7 +228,7 @@ describe('Favorites panel', () => {
     expect(onToggleFavorite).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'a.pdf' }), false);
     fireEvent.click(screen.getByTitle('현재 문서를 서재에 추가'));
     expect(onToggleFavorite).toHaveBeenLastCalledWith(current, true);
-    fireEvent.click(screen.getByTitle('갤러리 열기'));
+    fireEvent.click(screen.getByTitle('열어 본 파일 보기'));
     expect(onShowGallery).toHaveBeenCalled();
   });
 });

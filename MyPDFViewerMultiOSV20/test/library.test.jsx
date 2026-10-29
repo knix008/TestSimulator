@@ -104,7 +104,7 @@ describe('Library', () => {
     expect(container.querySelectorAll('.book')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: /파일 추가/ }));
     expect(onAdd).toHaveBeenCalled();
-    fireEvent.click(screen.getByLabelText('갤러리 열기'));
+    fireEvent.click(screen.getByLabelText('열어 본 파일 보기'));
     expect(onShowGallery).toHaveBeenCalled();
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();

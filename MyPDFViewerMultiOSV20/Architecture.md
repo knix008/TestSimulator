@@ -275,27 +275,27 @@ PDF 저장을 권합니다 (`win_force_close` 로만 실제로 닫힙니다).
 
 ---
 
-## 7.55 갤러리 · 서재 · 형광펜 목록 · 직접 인쇄
+## 7.55 열어 본 파일 · 서재 · 형광펜 목록 · 직접 인쇄
 
-* **갤러리** — [src/lib/gallery.js](src/lib/gallery.js) 의 순수 함수가 `settings.gallery`(`{ path, name, dir, size, addedAt, openedAt?, favorite? }`)를
-  다룹니다. 문서를 열면 `registerOpened`, 손으로 넣으면 `addPaths`, 빼면 `removeFromGallery`. 경로는 대소문자·구분자를
-  가리지 않고 같은 파일로 봅니다. 예전 설정 파일에 갤러리가 없으면 최근 파일로 시작합니다(`seedGallery`).
+* **열어 본 파일**(코드 이름 gallery) — [src/lib/gallery.js](src/lib/gallery.js) 의 순수 함수가 `settings.gallery`(`{ path, name, dir, size, addedAt, openedAt?, favorite? }`)를
+  다룹니다. 문서를 열면 `registerOpened`, 빼면 `removeFromGallery`. 손으로 넣는 길은 서재의 [추가](`addPaths` + `setFavorite`)뿐입니다 — 열지 않은 파일을 이 목록에 넣는 버튼 · 오른쪽 클릭 메뉴는 열어 본 목록에 맞지 않아 뺐습니다. 경로는 대소문자·구분자를
+  가리지 않고 같은 파일로 봅니다. 예전 설정 파일에 이 목록이 없으면 최근 파일로 시작합니다(`seedGallery`).
   **첫 쪽 그림**은 설정이 아니라 [thumb-store.js](src/lib/thumb-store.js)(IndexedDB + 메모리)에 둡니다 — 수백 장이면
   localStorage 에 들어가지 않습니다. 열 때 `renderThumb` 로 다시 그리므로 저장한 형광펜도 그림에 보이고,
-  열지 않고 등록한 파일은 카드가 화면에 들어올 때 앱이 하나씩 읽어 그립니다.
+  서재에 바로 추가한 파일은 카드가 화면에 들어올 때 앱이 하나씩 읽어 그립니다.
   [Gallery.jsx](src/components/Gallery.jsx) 는 문서 영역을 덮는 화면입니다(타일 · 자세히, 크기 `galleryTileSize`).
-* **서재** — 갤러리 항목의 `favorite` 표시입니다. [Library.jsx](src/components/Library.jsx) 는 책장 · 표지 · 목록 · 자세히 보기이고,
+* **서재** — 열어 본 파일 항목의 `favorite` 표시입니다. [Library.jsx](src/components/Library.jsx) 는 책장 · 표지 · 목록 · 자세히 보기이고,
   책장 한 칸에 몇 권 들어가는지는 `booksPerShelf` / `shelvesOf`, 책 사이 간격은 `shelfGap(크기)` 로 CSS 의
   `calc(var(--book) * 0.12 + 8px)` 와 같습니다. 제목은 한 줄(`text-overflow: ellipsis`) — 두 줄 제목이 표지를 위로 밀어 줄이 들쭉날쭉했습니다.
-* **겹쳐 보이는 화면** — 시작 화면 · 갤러리 · 서재는 App 의 `overlay` 상태 하나로 고릅니다(`setShowGallery` / `setShowLibrary` 는
+* **겹쳐 보이는 화면** — 시작 화면 · 열어 본 파일 · 서재는 App 의 `overlay` 상태 하나로 고릅니다(`setShowGallery` / `setShowLibrary` 는
   그 위의 얇은 래퍼). 둘을 따로 두고 한쪽 updater 안에서 다른 쪽 setState 를 부르면 툴바 버튼이 가끔 듣지 않았습니다.
   셋 다 `.workarea` 끝에 절대 위치로 그려 **좌측 패널까지** 덮습니다. 문서를 열면 `overlay` 와 홈 화면이 닫힙니다.
-* **기록 패널의 최근 연 파일**은 갤러리 중 `openedAt` 이 있는 것입니다. 지우기는 `forgetOpened` — `openedAt` 만 지워
-  갤러리 카드는 남깁니다. 편집 기록 지우기는 `history.reset(현재 상태)` 입니다.
+* **기록 패널의 최근 연 파일**은 열어 본 파일 중 `openedAt` 이 있는 것입니다. 지우기는 `forgetOpened` — `openedAt` 만 지워
+  [열어 본 파일] 카드는 남깁니다. 편집 기록 지우기는 `history.reset(현재 상태)` 입니다.
 * **형광펜 목록** — [highlights.js](src/lib/highlights.js) 가 작업 공간 형광펜과 PDF에 저장된 형광펜(pdf.js 주석 id `12R`)을 합칩니다.
   저장 전 것은 작업 공간에서 빼고(실행 취소 가능), 저장된 것은 `removePdfAnnotations()` 가 각 쪽 `/Annots` 에서 그 객체 참조를
   빼낸 바이트로 문서를 **제자리에서 다시 열고** 변경됨으로 표시합니다 — 캔버스가 그리는 외형까지 바로 사라지고, Ctrl+S 로 파일에 반영됩니다.
-* **오른쪽 클릭** — 페이지 · 좌측 패널 행 · 갤러리 카드가 같은 `ContextMenu` 를 씁니다. 메뉴가 없는 곳에서는 데스크톱 웹뷰의
+* **오른쪽 클릭** — 페이지 · 좌측 패널 행 · 열어 본 파일 · 서재 카드가 같은 `ContextMenu` 를 씁니다. 메뉴가 없는 곳에서는 데스크톱 웹뷰의
   브라우저 메뉴(뒤로 · 새로 고침 · 검사)를 막습니다(입력란은 제외).
 * **직접 인쇄** — 인쇄 창이 `print_list_printers` 로 프린터 목록을 받고, [인쇄] 는 pdf.js 가 그린 JPEG 들을
   `print_pages` 로 보냅니다(본문 `[u32 쪽수][u32 길이…][JPEG…]`, 프린터 · 매수 · 방향 · 제목은 헤더).
