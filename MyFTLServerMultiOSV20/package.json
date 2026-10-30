@@ -1,0 +1,68 @@
+{
+  "name": "myftpserver",
+  "productName": "My FTP Server",
+  "version": "1.0.1",
+  "description": "My FTP Server — FTP / FTPS / SFTP server for Windows, macOS, Linux (Tauri 2) and the web (shared folders as virtual paths, users with read/write rights, self-signed certificates, SSH host keys, profiles, live log and statistics).",
+  "author": {
+    "name": "SHKWON",
+    "email": "knix008@naver.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/generate-build-info.mjs",
+    "start": "node scripts/start.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/generate-icons.mjs --if-needed && node scripts/generate-build-info.mjs && vite build",
+    "build:debug": "node scripts/build.mjs debug",
+    "build:win": "node scripts/build.mjs win",
+    "build:mac": "node scripts/build.mjs mac",
+    "build:linux": "node scripts/build.mjs linux",
+    "build:all": "node scripts/build.mjs all",
+    "web": "npm run build && node server/server.js",
+    "web:serve": "node server/server.js",
+    "tauri": "tauri",
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:build-info": "node scripts/generate-build-info.mjs",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --test-timeout=30000 --test-reporter=./test/reporter.mjs test/*.test.mjs",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "smoke": "node scripts/smoke.mjs",
+    "clean": "node scripts/clean.mjs",
+    "clean:all": "node scripts/clean.mjs --all"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-opener": "^2.7.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
+    "@vitejs/plugin-react": "^4.3.1",
+    "basic-ftp": "^6.2.1",
+    "esbuild": "^0.24.2",
+    "sharp": "^0.33.4",
+    "vite": "^5.4.1"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true,
+    "esbuild@0.24.2": true
+  },
+  "homepage": "https://github.com/knix008/TestSimulator",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/knix008/TestSimulator.git"
+  },
+  "keywords": [
+    "ftp",
+    "ftps",
+    "sftp",
+    "server",
+    "file-transfer",
+    "tauri"
+  ]
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-renderer-ready"
+description = "Enables the renderer_ready command without any pre-configured scope."
+commands.allow = ["renderer_ready"]
+
+[[permission]]
+identifier = "deny-renderer-ready"
+description = "Denies the renderer_ready command without any pre-configured scope."
+commands.deny = ["renderer_ready"]

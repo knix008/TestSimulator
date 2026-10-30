@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My FTP Server",
+  "mainBinaryName": "MyFTPServer",
+  "version": "../package.json",
+  "identifier": "com.shkwon.myftpserver",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://127.0.0.1:5189",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "node scripts/prepare-tauri.mjs --release && node node_modules/vite/bin/vite.js build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "app", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "category": "Utility",
+    "shortDescription": "FTP / FTPS / SFTP server",
+    "longDescription": "My FTP Server shares folders as virtual paths over FTP, FTPS and SFTP: per-user read/write rights, self-signed SSL certificates, SSH host keys, settings profiles, a live log and statistics.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "sidecar/": "sidecar/"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Korean", "English"],
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}

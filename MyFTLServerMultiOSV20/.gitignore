@@ -1,0 +1,32 @@
+# ── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ── Build output (reproducible: npm install && npm run build:<os>) ──
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/icons/
+src-tauri/sidecar/
+src/build-info.json
+public/icon.svg
+
+# ── Installers copied to the project root by scripts/build.mjs ──
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+
+# ── Smoke-test output (npm run smoke): screenshots, private profile ──
+.smoke/
+
+# ── Local / editor / OS noise ───────────────────────────
+*.log
+npm-debug.log*
+.vite/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
