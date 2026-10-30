@@ -116,11 +116,24 @@ test('document: options become classes (grayscale, no backgrounds, no wrap, no l
 
 test('document: images fit the page or take the custom scale', () => {
   const fit = buildPrintHtml({ kind: 'image', imageDataUrl: 'data:image/png;base64,AAAA', imageWidthPx: 800 }, { scaleMode: 'fit' });
-  assert.match(fit, /<div class="msp-img fit [^"]*"><img src="data:image\/png;base64,AAAA"/);
+  assert.match(fit, /<figure class="msp-img fit [^"]*" style="height:267mm"><img src="data:image\/png;base64,AAAA"/);
+  assert.match(fit, /\.msp-img \{[^}]*padding: 10mm/, '그림 여백 normal = 10 mm around the image');
+  assert.match(buildPrintHtml({ kind: 'image', imageDataUrl: 'data:,' }, { imagePad: 'large' }), /\.msp-img \{[^}]*padding: 18mm/);
+  assert.match(buildPrintHtml({ kind: 'image', imageDataUrl: 'data:,' }, { imagePad: 'none' }), /\.msp-img \{[^}]*padding: 0mm/);
   const half = buildPrintHtml({ kind: 'image', imageDataUrl: 'data:,', imageWidthPx: 800 }, { scaleMode: 'custom', scale: 50 });
   assert.match(half, /style="width:400px"/);
   const lighter = buildPrintHtml({ kind: 'image', imageDataUrl: 'data:,', lightenable: true }, { lighten: true });
   assert.match(lighter, /msp-img fit lighten/);
+});
+
+test('document: several images (a model and its scopes) each on a page with a caption; scopes can be left out', () => {
+  const spec = { kind: 'image', images: [{ dataUrl: 'data:a', caption: 'model', role: 'diagram' }, { dataUrl: 'data:b', caption: 'model/Scope', role: 'scope' }] };
+  const both = buildPrintHtml(spec, {});
+  assert.equal((both.match(/<figure class="msp-img/g) || []).length, 2);
+  assert.match(both, /<figcaption>model\/Scope<\/figcaption>/);
+  const noScopes = buildPrintHtml(spec, { scopes: false });
+  assert.equal((noScopes.match(/<figure class="msp-img/g) || []).length, 1);
+  assert.doesNotMatch(noScopes, /<figcaption>/, 'a single image needs no caption');
 });
 
 test('document: an html document keeps its head styles and body, drops scripts, gets <base>', () => {

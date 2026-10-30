@@ -21,6 +21,9 @@ msm_lang_done:
 
 !macro NSIS_HOOK_POSTUNINSTALL
   Delete "$INSTDIR\install-language"
-  ; The optional .m association (Settings > General) belongs to this user.
+  ; The .mym association of Settings > General belongs to this user: removed when it is ours.
+  ReadRegStr $0 HKCU "Software\Classes\.mym" ""
+  StrCmp $0 "MySimulationMath.MFile" 0 +2
+    DeleteRegValue HKCU "Software\Classes\.mym" ""
   DeleteRegKey HKCU "Software\Classes\MySimulationMath.MFile"
 !macroend

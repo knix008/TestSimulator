@@ -19,7 +19,7 @@ Set the folder to open on launch with **Start folder** in Settings › General (
 
 | File | Action |
 | --- | --- |
-| `.m`, text | Open in the editor |
+| `.mym`, `.m`, text | Open in the editor |
 | `.smdl`, `.slx`, `.mdl` | Open in the model editor |
 | `.mat` | Load into the workspace with `load` |
 | Image, sound, CSV, Excel, JSON | Import as variables (the command that was run is shown in the Command Window) |

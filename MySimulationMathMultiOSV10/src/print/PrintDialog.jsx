@@ -6,6 +6,9 @@
 // (paginate.js); that same finished document goes to the printer (desktop:
 // print_html, silently, no second dialog), to a PDF (print_pdf) or to the
 // browser's print dialog (web). The setup is remembered (settings.print).
+// 문서로 내보내기 writes the same content as PDF / HTML / Markdown / Word
+// (docexport.js); 이미지로 저장 (figures, models) writes each image as PNG,
+// JPEG, GIF, WEBP, BMP or TIFF, transparent where the format allows it.
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '../lib/i18n';
 import { Icon, CloseButton } from '../components/Chrome';
@@ -14,11 +17,46 @@ import { getSettings, patchSettings } from '../lib/settings';
 import { chooseFile } from '../lib/prompt';
 import { toast } from '../lib/ui';
 import { pt } from './i18n';
-import { PAPERS, PAPER_NAMES, MARGIN_PRESETS, NUP_CHOICES, FONT_RANGE, SCALE_RANGE, normalizeSetup, buildPrintHtml, pageGeometry, nupLayout, parsePageRanges, dateText } from './printdoc';
+import { PAPERS, PAPER_NAMES, MARGIN_PRESETS, NUP_CHOICES, FONT_RANGE, SCALE_RANGE, IMAGE_PADS, normalizeSetup, buildPrintHtml, pageGeometry, nupLayout, parsePageRanges, dateText, printImages } from './printdoc';
+import { documentOf, toHtml, toMarkdown, toDocx, imageBytes } from './docexport';
+import { fsApi } from '../lib/backend';
 import { paginate, settle, serialize } from './paginate';
 import { printInfo, printSilently, printPdf, printInBrowser } from './host';
 
 const PX_PER_MM = 96 / 25.4;
+
+// 문서로 내보내기 / 이미지로 저장 choices
+const DOC_FORMATS = [['pdf', 'file', '.pdf'], ['html', 'globe', '.html'], ['md', 'book', '.md'], ['docx', 'file', '.docx']];
+const IMAGE_FORMATS = [['png', '.png', true], ['jpg', '.jpg', false], ['gif', '.gif', true], ['webp', '.webp', true], ['bmp', '.bmp', false], ['tiff', '.tif', true]];
+const baseOf = (title) => String(title || 'document').replace(/\.[^.\/]+$/, '').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'document';
+const dirOf = (p) => String(p).replace(/[\\/][^\\/]*$/, '');
+const stemOf = (p) => String(p).replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '');
+
+/** A button that opens a small list above it (inside the dialog, so it is never behind the modal). */
+function DropUp({ icon, label, title, disabled, items, onPick }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const off = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    window.addEventListener('mousedown', off, true);
+    return () => window.removeEventListener('mousedown', off, true);
+  }, [open]);
+  return (
+    <span className="msp-drop" ref={ref}>
+      <Btn icon={icon} label={label} title={title} disabled={disabled} active={open} onClick={() => setOpen((v) => !v)} />
+      {open && (
+        <div className="msp-drop-list" role="menu">
+          {items.map((it) => (it.sep ? <div key={it.key} className="msp-drop-sep" /> : (
+            <button key={it.id} type="button" role="menuitem" className="msp-drop-item" onClick={() => { setOpen(false); onPick(it.id); }}>
+              <Icon name={it.icon} size={14} /><span className="msp-drop-label">{it.label}</span>{it.note && <small>{it.note}</small>}
+            </button>
+          )))}
+        </div>
+      )}
+    </span>
+  );
+}
 
 function Row({ label, children, wide }) {
   return (
@@ -152,6 +190,58 @@ export function PrintDialog({ spec, done }) {
     } catch (e) { setError(pt('error', { error: String((e && e.message) || e) })); }
     setBusy(false);
   };
+  // 문서로 내보내기: PDF through the print pipeline, the others from docexport.js
+  const exportDoc = async (fmt) => {
+    if (!canGo && fmt === 'pdf') return;
+    if (fmt === 'pdf') {
+      if (info.pdf) { savePdf(); return; }
+      toast(pt('pdf_browser'), 'ok', 6000);
+      remember();
+      try { await printInBrowser(finalRef.current); } catch (e) { setError(pt('error', { error: String((e && e.message) || e) })); }
+      return;
+    }
+    const [, , ext] = DOC_FORMATS.find((f) => f[0] === fmt);
+    const path = await chooseFile({ mode: 'save', title: pt(`exp_${fmt}`), name: baseOf(spec.title) + ext, exts: [ext], filterName: pt(`exp_${fmt}`) });
+    if (!path) return;
+    const file = /\.[A-Za-z0-9]+$/.test(path.replace(/^.*[\\/]/, '')) ? path : path + ext;
+    setBusy(true); setError(''); remember();
+    try {
+      const doc = documentOf(spec, setup, setup.date ? dateRef.current : '');
+      if (fmt === 'html') await fsApi.writeText(file, toHtml(doc));
+      else if (fmt === 'docx') await fsApi.writeBytes(file, toDocx(doc));
+      else {
+        // Markdown: the images as files next to the .md
+        const stem = stemOf(file), dir = dirOf(file);
+        const names = doc.blocks.filter((b) => b.type === 'image').map((b, i) => `${stem}_${i + 1}.png`);
+        let k = 0;
+        for (const b of doc.blocks) if (b.type === 'image') { await fsApi.writeBytes(`${dir}/${names[k]}`, imageBytes(b)); k++; }
+        await fsApi.writeText(file, toMarkdown(doc, (i) => names[i]));
+      }
+      toast(pt('exported', { path: file }), 'ok', 5000);
+    } catch (e) { setError(pt('error', { error: String((e && e.message) || e) })); }
+    setBusy(false);
+  };
+  // 이미지로 저장: every image of the document (a model: the diagram, then its scopes)
+  const savable = kind === 'image' && printImages(spec, setup).some((im) => typeof im.save === 'function');
+  const saveImages = async (pick) => {
+    const [fmt, transparent] = pick.split(':');
+    const [, ext] = IMAGE_FORMATS.find((f) => f[0] === fmt);
+    const list = printImages(spec, setup).filter((im) => typeof im.save === 'function');
+    const path = await chooseFile({ mode: 'save', title: pt('save_image'), name: baseOf(spec.title) + ext, exts: [ext], filterName: fmt.toUpperCase() });
+    if (!path) return;
+    const first = /\.[A-Za-z0-9]+$/.test(path.replace(/^.*[\\/]/, '')) ? path : path + ext;
+    setBusy(true); setError('');
+    try {
+      const dir = dirOf(first), stem = stemOf(first);
+      for (let i = 0; i < list.length; i++) {
+        const name = i === 0 ? first : `${dir}/${stem}_${String(list[i].caption || i + 1).replace(/^.*\//, '').replace(/[\\/:*?"<>|\s]+/g, '_')}${ext}`;
+        // eslint-disable-next-line no-await-in-loop
+        await fsApi.writeBytes(name, await list[i].save(fmt, transparent === 't'));
+      }
+      toast(pt('images_saved', { path: first, n: list.length }), 'ok', 5000);
+    } catch (e) { setError(pt('error', { error: String((e && e.message) || e) })); }
+    setBusy(false);
+  };
   const cancel = () => { if (!busy) done({ ok: false, cancelled: true }); };
   const doPrintRef = useRef(doPrint);
   doPrintRef.current = doPrint;
@@ -253,6 +343,16 @@ export function PrintDialog({ spec, done }) {
                     </div>
                   </Row>
                 )}
+                {kind === 'image' && (
+                  <Row label={pt('img_pad')}>
+                    <BtnGroup>
+                      {Object.keys(IMAGE_PADS).map((k) => <Btn key={k} label={pt(`img_pad_${k}`)} title={`${IMAGE_PADS[k]} mm`} active={setup.imagePad === k} onClick={() => set({ imagePad: k })} />)}
+                    </BtnGroup>
+                  </Row>
+                )}
+                {kind === 'image' && (spec.images || []).some((im) => im.role === 'scope') && (
+                  <Row label="" wide><Toggle checked={setup.scopes} onChange={(v) => set({ scopes: v })} label={pt('scopes_include', { n: spec.images.filter((im) => im.role === 'scope').length })} icon="chart" /></Row>
+                )}
                 {kind === 'image' && spec.lightenable && (
                   <Row label="" wide><span title={pt('lighten_tip')}><Toggle checked={setup.lighten} onChange={(v) => set({ lighten: v })} label={pt('lighten')} icon="sun" /></span></Row>
                 )}
@@ -301,6 +401,13 @@ export function PrintDialog({ spec, done }) {
           <span className="spacer" />
           <span className="msp-count">{layout.loading ? '' : (layout.printed === layout.pages && L.n === 1 ? pt('pages_count', { n: layout.pages }) : pt('sheets_count', layout))}</span>
           <BtnGroup>
+            <DropUp icon="file" label={pt('export_doc')} title={pt('export_doc_tip')} disabled={busy || layout.loading}
+              items={DOC_FORMATS.map(([id, icon]) => ({ id, icon, label: pt(`exp_${id}`), note: pt(`exp_${id}_note`) }))} onPick={exportDoc} />
+            {savable && (
+              <DropUp icon="image" label={pt('save_image')} title={pt('save_image_tip')} disabled={busy}
+                items={IMAGE_FORMATS.flatMap(([id, , alpha]) => [{ id: `${id}:o`, icon: 'image', label: id === 'tiff' ? 'TIFF' : id.toUpperCase(), note: pt('img_opaque') }, ...(alpha ? [{ id: `${id}:t`, icon: 'drop', label: id === 'tiff' ? 'TIFF' : id.toUpperCase(), note: pt('img_transparent') }] : [])])}
+                onPick={saveImages} />
+            )}
             {info.pdf && !fileOut && <Btn icon="download" label={pt('save_pdf')} disabled={!canGo} onClick={savePdf} />}
             <Btn icon="close" label={pt('cancel')} disabled={busy} onClick={cancel} />
             <Btn icon={busy ? 'spinner' : fileOut ? 'download' : 'print'} label={busy ? pt('printing') : fileOut ? pt('save_pdf') : pt('print')} primary disabled={!canGo} onClick={doPrint}

@@ -31,7 +31,7 @@ test('samples/: the model files open with their blocks and simulate', () => {
     const m = parseModel(text, name);
     assert.ok(m.root.blocks.length >= 2, rel);
     // the same model as built by its build_ script
-    const r = s.evaluate(files[rel.replace(/[^/]+\.smdl$/, `build_${name}.m`)]);
+    const r = s.evaluate(files[rel.replace(/[^/]+\.smdl$/, `build_${name}.mym`)]);
     assert.equal(r.ok, true, rel);
     const built = simState(s.ctx).models.get(name).model;
     assert.deepEqual(m.root.blocks.map((b) => b.name).sort(), built.root.blocks.map((b) => b.name).sort(), rel);

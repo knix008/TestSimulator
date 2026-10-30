@@ -13,6 +13,7 @@ import { fallbackOp } from './ops.js';
 import { joinPath, dirName, baseName, normPath, Workspace, Frame, bytesOf, helpComment } from './interp.js';
 import { KEYWORDS } from './lexer.js';
 import { disown } from './indexing.js';
+import { M_EXT, M_EXTS, isMFile, stripMExt } from './mext.js';
 
 const S = (v, what) => toStr(v, what);
 const textArg = (v, fn) => { if (!v || !isText(v)) throw new MError(`core:${fn}:notText`, 'Argument must be a character vector or string scalar.'); return toStr(v); };
@@ -54,9 +55,10 @@ export function helpFor(rt, name) {
 function fileFor(rt, name) {
   if (!name) return null;
   if (name.includes('/') || name.includes('\\')) return normPath(name);
-  const n = name.replace(/\.m$/, '');
+  const n = stripMExt(name);
   const f = rt.findFile(n);
-  if (f) return f.path;
+  // 'f.m' asked for by its extension: that file, not f.mym found first on the path
+  if (f && (!isMFile(name) || f.path.toLowerCase().endsWith(name.slice(n.length).toLowerCase()))) return f.path;
   try { const p = joinPath(normPath(rt.fs.cwd()), name); if (rt.fs.exists(p)) return p; } catch { /* ignore */ }
   return null;
 }
@@ -211,10 +213,14 @@ export const builtins = {
   },
   run(args, nargout, ctx) {
     const rt = ctx.interp;
-    let p = textArg(args[0], 'run');
-    if (!p.endsWith('.m')) p += '.m';
-    const full = p.includes('/') || p.includes('\\') ? absPath(rt, p) : fileFor(rt, p) || absPath(rt, p);
-    if (!rt.fs.exists(full)) throw new MError('core:run:fileNotFound', `File "${p}" not found.`);
+    const p = textArg(args[0], 'run');
+    // run('f'): f.mym, else f.m (on the path or relative to the current folder)
+    let full = null;
+    for (const c of isMFile(p) ? [p] : M_EXTS.map((e) => p + e)) {
+      const f = c.includes('/') || c.includes('\\') ? absPath(rt, c) : fileFor(rt, c) || absPath(rt, c);
+      if (rt.fs.exists(f)) { full = f; break; }
+    }
+    if (!full) throw new MError('core:run:fileNotFound', `File "${p}" not found.`);
     const info = rt.loadFile(full);
     const frame = rt.currentFrame();
     const old = normPath(rt.fs.cwd());
@@ -238,7 +244,7 @@ export const builtins = {
     if (!type || type === 'file' || type === 'class' || type === 'builtin' || type === 'dir') {
       if (type !== 'dir' && type !== 'builtin') {
         let t = null;
-        try { t = /^[A-Za-z][\w.]*$/.test(name) ? rt.resolve(name.replace(/\.m$/, '')) : null; } catch { t = null; }
+        try { t = /^[A-Za-z][\w.]*$/.test(name) ? rt.resolve(stripMExt(name)) : null; } catch { t = null; }
         if (t && t.kind === 'class' && !t.ci.js && (type === '' || type === 'class')) return num(8);
         if (t && (t.kind === 'user' || t.kind === 'script') && type !== 'class') return num(2);
         if (t && t.kind === 'class' && t.ci.js && (type === '' || type === 'class')) return num(8);
@@ -399,9 +405,9 @@ export const builtins = {
     const file = f.file || '';
     const opt = args[0] ? S(args[0]) : '';
     if (!file) return str('');
-    if (opt === 'fullpath') return str(file.replace(/\.m$/, ''));
+    if (opt === 'fullpath') return str(stripMExt(file));
     if (opt === 'class') return str(f.fi && f.fi.classInfo ? f.fi.classInfo.name : '');
-    return str(baseName(file).replace(/\.m$/, ''));
+    return str(stripMExt(baseName(file)));
   },
 
   // ---------------------------------------------------------------- function handles
@@ -579,12 +585,12 @@ export const builtins = {
     const d = args.length ? absPath(rt, S(args[0])) : normPath(rt.fs.cwd());
     let list = [];
     try { list = rt.fs.list(d); } catch { throw new MError('core:what:notFound', `Folder ${d} not found.`); }
-    const m = list.filter((e) => !e.isDir && e.name.endsWith('.m')).map((e) => e.name);
+    const m = list.filter((e) => !e.isDir && isMFile(e.name)).map((e) => e.name);
     const mat = list.filter((e) => !e.isDir && e.name.endsWith('.mat')).map((e) => e.name);
     const classes = list.filter((e) => e.isDir && e.name.startsWith('@')).map((e) => e.name.slice(1));
     const pkgs = list.filter((e) => e.isDir && e.name.startsWith('+')).map((e) => e.name.slice(1));
     if (nargout > 0) return structOf({ path: str(d), m: cellOfStr(m), mat: cellOfStr(mat), classes: cellOfStr(classes), packages: cellOfStr(pkgs) });
-    if (m.length) { rt.out(`\nM-files in folder ${d}\n`); printList(rt, m.map((x) => x.replace(/\.m$/, ''))); }
+    if (m.length) { rt.out(`\nM-files in folder ${d}\n`); printList(rt, m.map((x) => stripMExt(x))); }
     if (mat.length) { rt.out(`\nMAT-files in folder ${d}\n`); printList(rt, mat); }
     if (classes.length) { rt.out(`\nClasses in folder ${d}\n`); printList(rt, classes); }
     if (pkgs.length) { rt.out(`\nPackages in folder ${d}\n`); printList(rt, pkgs); }
@@ -809,7 +815,7 @@ export const builtins = {
       const name = S(a);
       let p = fileFor(rt, name);
       if (!p) {
-        p = absPath(rt, name.endsWith('.m') || name.includes('.') ? name : name + '.m');
+        p = absPath(rt, isMFile(name) || name.includes('.') ? name : name + M_EXT); // a new file gets the app's extension
         try { if (!rt.fs.exists(p)) rt.fs.writeText(p, ''); } catch { /* read-only */ }
       }
       rt.onEvent({ type: 'openFile', path: p, line: 1 });
@@ -888,7 +894,7 @@ function funcInfoOf(rt, v) {
     if (v.fi) return v.fi;
     v = str(v.name);
   }
-  const name = S(v).replace(/\.m$/, '');
+  const name = stripMExt(S(v));
   const t = rt.resolve(name);
   if (t && t.kind === 'user') return t.fi;
   if (t && t.kind === 'builtin') return { params: ['varargin'], outs: ['varargout'] };

@@ -92,8 +92,8 @@ const ROWS = [
     ['홈 리본', '홈 리본에는 새 스크립트·새 모델·열기·저장, 파일 찾기, 데이터 가져오기, 작업 공간·명령 창 지우기, 실행 취소, 창 켜기/끄기, 레이아웃, 환경 설정이 있습니다.'],
     ['Home ribbon', 'Home has New Script, New Model, Open and Save, Find Files, Import Data, Clear Workspace / Command Window, Undo, pane toggles, Layout and Preferences.']],
   ['folder', 'desktop', ['[data-pane="folder"]'], ['desk', 'act:pane:folder'],
-    ['현재 폴더', '현재 폴더 창은 작업 폴더의 파일을 보여 줍니다. .m 파일을 두 번 클릭하면 편집기로, 모델은 모델 편집기로, 데이터 파일은 작업 공간으로 불러옵니다. 오른쪽 클릭으로 새로 만들기·이름 바꾸기·삭제를 합니다.'],
-    ['Current Folder', 'Current Folder lists the work folder. Double-click a .m file to edit it, a model to open the model editor, a data file to load it. Right-click for new, rename and delete.']],
+    ['현재 폴더', '현재 폴더 창은 작업 폴더의 파일을 보여 줍니다. M 파일(.mym, .m)을 두 번 클릭하면 편집기로, 모델은 모델 편집기로, 데이터 파일은 작업 공간으로 불러옵니다. 오른쪽 클릭으로 새로 만들기·이름 바꾸기·삭제를 합니다.'],
+    ['Current Folder', 'Current Folder lists the work folder. Double-click an M file (.mym, .m) to edit it, a model to open the model editor, a data file to load it. Right-click for new, rename and delete.']],
 
   // ── 3. 새 스크립트 ──────────────────────────────
   ['newScript', 'script', ['.doc-area'], ['desk', 'act:closeDocs', 'act:newScript:script', 'act:tab:editor'],

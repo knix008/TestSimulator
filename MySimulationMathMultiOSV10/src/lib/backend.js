@@ -143,7 +143,7 @@ export function openExternal(url) {
   import('@tauri-apps/plugin-opener').then((m) => m.openUrl(url)).catch(() => { window.open(url, '_blank', 'noopener'); });
 }
 
-/** Windows: whether .m files open with this app (per user); null elsewhere. */
+/** Windows: whether .mym files open with this app (per user); null elsewhere. */
 export async function mAssociation() {
   if (!isDesktop) return null;
   try { return await (await import('@tauri-apps/api/core')).invoke('m_association'); } catch { return null; }

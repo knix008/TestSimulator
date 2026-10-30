@@ -6,7 +6,7 @@ import { Axes3DView } from './render3d.js';
 import { PAPER, readTheme, rgbCss } from './theme.js';
 import { drawTex } from './text.js';
 import { SvgContext } from './svgctx.js';
-import { bytesToBase64, deflate, rgbaToRgb, buildPdf, blobBytes, encodeGif, setPngDpi, setJpegDpi } from './encode.js';
+import { bytesToBase64, deflate, rgbaToRgb, buildPdf, blobBytes, encodeGif, encodeBmp, encodeTiff, setPngDpi, setJpegDpi } from './encode.js';
 import { formatInfo, outputSize, clampRect } from './exportopts.js';
 
 /**
@@ -254,6 +254,9 @@ export async function encodeExport(fig, e, paintOpts) {
   } else if (f.id === 'gif') {
     const img = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
     bytes = encodeGif(img.data, canvas.width, canvas.height, { transparent: background === 'none' });
+  } else if (f.id === 'bmp' || f.id === 'tiff') {
+    const img = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    bytes = f.id === 'bmp' ? encodeBmp(img.data, canvas.width, canvas.height) : encodeTiff(img.data, canvas.width, canvas.height, { alpha: background === 'none' });
   } else {
     bytes = await blobBytes(await toBlob(canvas, f.mime, f.quality ? (e.quality ?? 92) / 100 : undefined));
     if (f.id === 'png' && e.dpi) bytes = setPngDpi(bytes, e.dpi);

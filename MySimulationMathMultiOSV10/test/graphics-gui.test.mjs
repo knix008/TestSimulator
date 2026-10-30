@@ -409,17 +409,20 @@ test('PNG pHYs and JPEG JFIF DPI writers', async () => {
 
 test('export options: formats, transparency rules, size, aspect lock, file names, regions', async () => {
   const { FORMATS, normalizeExport, backgroundChoices, outputSize, lockedPair, fileNameFor, clampRect, EXPORT_DEFAULTS } = await import('../src/graphics/exportopts.js');
-  assert.deepEqual(FORMATS.map((f) => f.id), ['png', 'jpg', 'gif', 'webp', 'svg', 'pdf']);
-  assert.deepEqual(FORMATS.filter((f) => f.alpha).map((f) => f.id), ['png', 'gif', 'webp', 'svg']);
+  assert.deepEqual(FORMATS.map((f) => f.id), ['png', 'jpg', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'pdf']);
+  assert.deepEqual(FORMATS.filter((f) => f.alpha).map((f) => f.id), ['png', 'gif', 'webp', 'tiff', 'svg']);
   assert.deepEqual(backgroundChoices('jpg'), ['theme', 'white']);
   assert.deepEqual(backgroundChoices('webp'), ['theme', 'white', 'none']);
   let r = normalizeExport({ format: 'jpg', background: 'none' });
   assert.equal(r.opts.background, 'white');
   assert.deepEqual(r.notes, ['noAlphaJpg']);
   assert.deepEqual(normalizeExport({ format: 'pdf', background: 'none' }).notes, ['noAlphaPdf']);
+  assert.deepEqual(normalizeExport({ format: 'bmp', background: 'none' }).notes, ['noAlphaBmp']);
+  assert.equal(fileNameFor('chart.tif', 'tiff'), 'chart.tif');
+  assert.equal(fileNameFor('chart.png', 'bmp'), 'chart.bmp');
   r = normalizeExport({ format: 'gif', background: 'none' });
   assert.equal(r.opts.background, 'none'); assert.deepEqual(r.notes, []);
-  r = normalizeExport({ format: 'bmp', scale: 7, dpi: 5, quality: 300, width: -4, target: 'x' });
+  r = normalizeExport({ format: 'xyz', scale: 7, dpi: 5, quality: 300, width: -4, target: 'x' });
   assert.equal(r.opts.format, 'png'); assert.equal(r.opts.scale, EXPORT_DEFAULTS.scale); assert.equal(r.opts.dpi, 36); assert.equal(r.opts.quality, 100); assert.equal(r.opts.width, 16); assert.equal(r.opts.target, 'figure');
   assert.deepEqual(outputSize({ sizeMode: 'scale', scale: 3 }, 400, 300), { width: 1200, height: 900, sx: 3, sy: 3 });
   assert.deepEqual(outputSize({ sizeMode: 'pixels', width: 800, height: 10, lock: true }, 400, 300), { width: 800, height: 600, sx: 2, sy: 2 });

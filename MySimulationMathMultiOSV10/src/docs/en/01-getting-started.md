@@ -1,6 +1,6 @@
 # Getting Started
 
-MySimulationMath is a program for numerical computing in the **M language** (`.m` scripts and functions), drawing 2D and 3D figures, and simulating **block diagram models**. It runs with the same interface as a desktop app (Tauri 2) on Windows, macOS and Linux, and in a web browser. The computation engine runs separately from the interface inside a Web Worker, so the window never freezes, even during long computations.
+MySimulationMath is a program for numerical computing in the **M language** (`.mym` scripts and functions), drawing 2D and 3D figures, and simulating **block diagram models**. It runs with the same interface as a desktop app (Tauri 2) on Windows, macOS and Linux, and in a web browser. The computation engine runs separately from the interface inside a Web Worker, so the window never freezes, even during long computations.
 
 ![MySimulationMath desktop: Current Folder on the left, document tabs and Command Window in the middle, Workspace and Command History on the right](images/en/desktop.png)
 
@@ -51,7 +51,7 @@ title('Damped sine wave')
 
 | Extension | Contents | Double-click to |
 | --- | --- | --- |
-| `.m` | M scripts, functions, classes | Open in the editor |
+| `.mym`, `.m` | M scripts, functions, classes (saved as `.mym`) | Open in the editor |
 | `.smdl` | Block diagram model (JSON) | Open in the model editor |
 | `.slx`, `.mdl` | Models from other programs (common blocks are imported read-only) | Open in the model editor |
 | `.mat` | Workspace data | Load with `load` |

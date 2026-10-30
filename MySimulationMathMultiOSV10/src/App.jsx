@@ -16,6 +16,7 @@ import { ask, toast, showError } from './lib/ui';
 import { openMenu } from './lib/menu';
 import { askText, chooseFile } from './lib/prompt';
 import { fileKind, importCommand, mQuote, varNameOf, getModelExts } from './lib/files';
+import { M_EXT, stripMExt } from '../core/lang/mext.js';
 import { getCustomThemesRaw } from './themes';
 import { Icon, ResizeGrip } from './components/Chrome';
 import { TitleBar } from './components/TitleBar';
@@ -109,7 +110,6 @@ function Desktop() {
   const [problemCounts, setProblemCounts] = useState(null);
   // 맞춤법: function and constant names are not misspellings (filled once the engine is ready)
   const spellKnownRef = useRef(null);
-  useEffect(() => { if (engineReady && !spellKnownRef.current) engine.catalog().then((c) => { spellKnownRef.current = new Set((c || []).map((x) => String(x.name).toLowerCase())); }); }, [engineReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const [breakpoints, setBreakpoints] = useState(loadBreakpoints);
   const [dialog, setDialog] = useState(null);
   // The launch popup "튜토리얼을 실행할까요?" (settings.tutorial.askOnLaunch), once per launch.
@@ -128,6 +128,7 @@ function Desktop() {
   const activeDoc = docs.find((d) => d.id === active) || null;
   const activeEditor = activeDoc && activeDoc.kind === 'file' ? editors.current.get(activeDoc.id) : null;
   const engineReady = engineState === 'ready' || engineState === 'busy';
+  useEffect(() => { if (engineReady && !spellKnownRef.current) engine.catalog().then((c) => { spellKnownRef.current = new Set((c || []).map((x) => String(x.name).toLowerCase())); }); }, [engineReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Boot: engine, folder, open files ─────────────────────
   useEffect(() => {
@@ -153,7 +154,7 @@ function Desktop() {
       engine.onRequest('http', httpRequest),
       engine.onRequest('debug.paused', (m) => new Promise((resolve) => {
         setDebug({ file: m.file, line: m.line, stack: m.stack || [], resolve });
-        const untitled = m.file && /^\/untitled\/([^/]+)\.m$/.exec(m.file.replace(/\\/g, '/'));
+        const untitled = m.file && /^\/untitled\/([^/]+)\.mym$/.exec(m.file.replace(/\\/g, '/'));
         if (untitled) { setStartOn(false); setActive(untitled[1]); } else if (m.file) openFile(m.file, { line: m.line });
       })),
     ];
@@ -354,8 +355,8 @@ function Desktop() {
   function newScript(initialText) {
     const used = new Set(docsRef.current.map((d) => d.title));
     let n = 1;
-    while (used.has(n === 1 ? 'untitled.m' : `untitled${n}.m`)) n += 1;
-    const doc = { id: newId('f'), kind: 'file', path: null, title: n === 1 ? 'untitled.m' : `untitled${n}.m`, icon: 'script', initialText };
+    while (used.has(n === 1 ? `untitled${M_EXT}` : `untitled${n}${M_EXT}`)) n += 1;
+    const doc = { id: newId('f'), kind: 'file', path: null, title: n === 1 ? `untitled${M_EXT}` : `untitled${n}${M_EXT}`, icon: 'script', initialText };
     setDocs((list) => [...list, doc]);
     setStartOn(false);
     setActive(doc.id);
@@ -370,11 +371,11 @@ function Desktop() {
     setStartOn(false);
     setActive(doc.id);
   }
-  /** The flow's M code saved as its own .m file. */
+  /** The flow's M code saved as its own M file (.mym). */
   async function exportFlowCode(code, name) {
-    let p = await chooseFile({ mode: 'save', title: t('fl_export'), start: cwd, name, exts: ['.m'], filterName: t('ft_m') });
+    let p = await chooseFile({ mode: 'save', title: t('fl_export'), start: cwd, name, exts: [M_EXT, '.m'], filterName: t('ft_m') });
     if (!p) return;
-    if (!/\.[A-Za-z0-9]+$/.test(baseName(p))) p += '.m';
+    if (!/\.[A-Za-z0-9]+$/.test(baseName(p))) p += M_EXT;
     try {
       await fsApi.writeText(p, code);
       setFolderKey((k) => k + 1);
@@ -456,10 +457,10 @@ function Desktop() {
     if (doc.kind !== 'file' && doc.kind !== 'flow') return false;
     const ed = editors.current.get(id);
     if (!ed) return false;
-    const ext = doc.kind === 'flow' ? '.mflow' : '.m';
+    const ext = doc.kind === 'flow' ? '.mflow' : M_EXT;
     let path = doc.path;
     if (!path || as) {
-      path = await chooseFile({ mode: 'save', title: t('ed_save_as'), start: path ? dirName(path) : cwd, name: path ? baseName(path) : doc.title, exts: [ext], filterName: doc.kind === 'flow' ? t('ft_flow') : t('ft_m') });
+      path = await chooseFile({ mode: 'save', title: t('ed_save_as'), start: path ? dirName(path) : cwd, name: path ? baseName(path) : doc.title, exts: doc.kind === 'flow' ? [ext] : [ext, '.m'], filterName: doc.kind === 'flow' ? t('ft_flow') : t('ft_m') });
       if (!path) return false;
       if (!/\.[A-Za-z0-9]+$/.test(baseName(path))) path += ext;
     }
@@ -508,12 +509,12 @@ function Desktop() {
     let path = doc.path;
     if (docDirtyRef.current[id]) path = await saveDoc(id);
     if (!path) return;
-    const name = baseName(path).replace(/\.m$/i, '');
+    const name = stripMExt(baseName(path));
     const here = dirName(path) === engine.cwd || dirName(path) === cwd;
     runCode(here && /^[A-Za-z]\w*$/.test(name) ? name : `run(${mQuote(path)})`);
   }
   // 단계 실행: the whole script, paused before its first statement (then 단계 F10 / 단계 들어가기 F11 / 계속 F5).
-  // An unsaved script runs under /untitled/<doc id>.m so the pause shows in its tab.
+  // An unsaved script runs under /untitled/<doc id>.mym so the pause shows in its tab.
   async function stepRunDoc(id = active) {
     const doc = docsRef.current.find((d) => d.id === id);
     if (!doc || doc.kind !== 'file') return;
@@ -523,7 +524,7 @@ function Desktop() {
     const ed = editors.current.get(id);
     const text = ed && ed.editor ? ed.editor.getText() : '';
     if (!text.trim()) return;
-    engine.eval(text, { echo: false, history: false, file: path || `/untitled/${id}.m`, stepFirst: true }).catch(() => {});
+    engine.eval(text, { echo: false, history: false, file: path || `/untitled/${id}${M_EXT}`, stepFirst: true }).catch(() => {});
   }
   function runSection() {
     if (!activeEditor || !activeEditor.editor) return;
@@ -865,6 +866,7 @@ function Desktop() {
       { id: 'uncomment', icon: 'uncomment', label: t('rb_uncomment'), keys: 'Ctrl+T', disabled: !isEditor, run: edCall('uncomment') },
       { id: 'indent', icon: 'indent', label: t('rb_indent'), keys: 'Ctrl+]', disabled: !isEditor, run: edCall('indent') },
       { id: 'outdent', icon: 'outdent', label: t('rb_outdent'), keys: 'Ctrl+[', disabled: !isEditor, run: edCall('outdent') },
+      { id: 'reindent', icon: 'sparkle', label: t('rb_reindent'), keys: 'Ctrl+I', tip: t('rb_reindent_tip'), disabled: !isEditor, run: edCall('reindent') },
     ],
     help: [
       { id: 'help:guide', icon: 'book', label: t('hp_guide'), keys: 'F1', primary: true, run: () => startAction('guide') },
@@ -913,7 +915,7 @@ function Desktop() {
   const paneCtx = {
     engine, settings, engineReady, cwd, folderKey, varKey, changeFolder, pathsChanged, runCode, showFigures: () => showFigures({ force: true }),
     openFile: (p, o) => openFile(p, o),
-    runFilePath: (p) => { const n = baseName(p).replace(/\.m$/i, ''); runCode(dirName(p) === cwd && /^[A-Za-z]\w*$/.test(n) ? n : `run(${mQuote(p)})`); },
+    runFilePath: (p) => { const n = stripMExt(baseName(p)); runCode(dirName(p) === cwd && /^[A-Za-z]\w*$/.test(n) ? n : `run(${mQuote(p)})`); },
     runQuiet: (code) => runCode(code, { echo: false, history: false }),
     variables, selectedVar, selectedVars: pickedVars, openVariable, workspaceAction, clearWorkspace,
     selectedVarObjs: pickedVars.map((n) => variables.find((v) => v.name === n)).filter(Boolean),
@@ -933,7 +935,7 @@ function Desktop() {
     activeFileDoc, editors, docDirty, debug, breakpoints, debugReply,
     setDocOptions: (id, options) => setDocs((list) => list.map((d) => (d.id === id ? { ...d, options: options || undefined } : d))),
     openAt: (file, line) => {
-      const u = /^\/untitled\/([^/]+)\.m$/.exec(String(file).replace(/\\/g, '/'));
+      const u = /^\/untitled\/([^/]+)\.mym$/.exec(String(file).replace(/\\/g, '/'));
       if (u && docsRef.current.some((d) => d.id === u[1])) { activate(u[1]); const ed = editors.current.get(u[1]); if (ed && ed.editor) setTimeout(() => ed.editor.gotoLine(line), 0); } else openFile(file, { line });
     },
     removeBreakpoint: (file, line) => setBreakpointLines(file, (breakpoints[file] || []).filter((l) => l !== line)),
@@ -1030,7 +1032,7 @@ function Desktop() {
                       <EditorDoc doc={d} active={d.id === active} settings={settings} register={registerEditor} onDirty={onDocDirty}
                         onCursor={setCursor} breakpoints={d.path ? breakpoints[d.path] || [] : []}
                         onBreakpoints={(lines) => { if (d.path) setBreakpointsFor(d.path, lines); }}
-                        debugLine={debug && dbgFile && dbgFile.replace(/\\/g, '/') === (d.path || `/untitled/${d.id}.m`) ? debug.line : null}
+                        debugLine={debug && dbgFile && dbgFile.replace(/\\/g, '/') === (d.path || `/untitled/${d.id}${M_EXT}`) ? debug.line : null}
                         actions={{ run: () => (debugRef.current ? debugReply('continue') : runDoc(d.id)), runSection, evalSelection, save: () => saveDoc(d.id), saveAs: (id) => saveDoc(id, { as: true }), debug: (a) => debugReply(a), complete: (text, cur) => engine.complete(text, cur), help: (name) => engine.help(name),
                           spellWords: () => getSettings().editor.spellWords || [], spellKnown: () => spellKnownRef.current,
                           addSpellWord: (w) => { const list = getSettings().editor.spellWords || []; if (!list.includes(w)) patchSettings({ editor: { spellWords: [...list, w] } }); } }} />

@@ -131,8 +131,8 @@ test('cwd, clc and openFile events', () => {
   assert.deepEqual(h.events.find((e) => e.type === 'cwd'), { type: 'cwd', path: '/home/proj' });
   assert.ok(h.events.some((e) => e.type === 'clc'));
   const opened = h.events.filter((e) => e.type === 'openFile').map((e) => e.path);
-  assert.deepEqual(opened, ['/home/proj/f1.m', '/home/proj/newfile.m']);
-  assert.equal(h.fs.exists('/home/proj/newfile.m'), true);
+  assert.deepEqual(opened, ['/home/proj/f1.m', '/home/proj/newfile.mym'], 'an existing .m opens as .m; a new file gets .mym');
+  assert.equal(h.fs.exists('/home/proj/newfile.mym'), true);
 });
 
 test('input() asks the host; pause() without a host does not block long', () => {

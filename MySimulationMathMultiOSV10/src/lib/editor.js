@@ -15,6 +15,7 @@ import { search, searchKeymap, highlightSelectionMatches, openSearchPanel, gotoL
 import { tags } from '@lezer/highlight';
 import { hoverHelp } from './hoverHelp.js';
 import { spellCheck } from './spell.js';
+import { reindentM } from './indentM.js';
 export { sectionOfText } from './sections.js';
 
 export const mLanguage = StreamLanguage.define(octave);
@@ -142,6 +143,9 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
   const spell = new Compartment();
   const ed = settings || {};
   const tabSize = ed.tabSize || 4;
+  // 들여쓰기 간격 (Settings › 편집기): spaces per level for Tab, Enter and 자동 들여쓰기; the tab size is the width of a tab character
+  const indentOf = (o) => ' '.repeat(o.indentSize || o.tabSize || 4);
+  let indentOpts = { unit: indentOf(ed), functions: ed.indentFunctions === false ? 'nested' : 'all' };
   const call = (name, ...args) => { const fn = actions[name]; return fn ? fn(...args) : undefined; };
   // 맞춤법: English words in comments and strings (lib/spell.js)
   const spellExt = () => spellCheck({ words: () => call('spellWords') || [], known: () => call('spellKnown') || null, onAdd: (w) => call('addSpellWord', w) });
@@ -161,6 +165,23 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
       validFor: /^\w*$/,
     };
   };
+
+  // 자동 들여쓰기: the whole text (or the selected lines, indented in the context of the whole text), one Undo step
+  let viewRef = null;
+  function reindent() {
+    const view = viewRef;
+    if (!view) return;
+    const doc = view.state.doc;
+    const next = reindentM(doc.toString(), indentOpts.unit, { functions: indentOpts.functions }).split(/\r?\n/);
+    const sel = view.state.selection.main;
+    const a = sel.empty ? 1 : doc.lineAt(sel.from).number, b = sel.empty ? doc.lines : doc.lineAt(sel.to).number;
+    const changes = [];
+    for (let n = a; n <= b; n++) {
+      const line = doc.line(n);
+      if (next[n - 1] !== undefined && next[n - 1] !== line.text) changes.push({ from: line.from, to: line.to, insert: next[n - 1] });
+    }
+    if (changes.length) view.dispatch({ changes, userEvent: 'input.indent' });
+  }
 
   const toggleBp = (view, lineNo) => {
     const n = lineNo || view.state.doc.lineAt(view.state.selection.main.head).number;
@@ -183,6 +204,7 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
     { key: 'Mod-]', run: indentMore },
     { key: 'Mod-[', run: indentLess },
     { key: 'Mod-g', run: gotoLine, preventDefault: true },
+    { key: 'Mod-i', run: () => { reindent(); return true; }, preventDefault: true },
   ];
 
   const state = EditorState.create({
@@ -231,7 +253,7 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
       search({ top: true }),
       mLanguage,
       sectionPlugin,
-      tabs.of([EditorState.tabSize.of(tabSize), indentUnit.of(' '.repeat(tabSize))]),
+      tabs.of([EditorState.tabSize.of(tabSize), indentUnit.of(indentOpts.unit)]),
       wrap.of(ed.wrap ? EditorView.lineWrapping : []),
       look.of(lookTheme({ fontFamily: ed.fontFamily || 'Consolas', fontSize: ed.fontSize || 13 })),
       keymap.of([...keys, ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, ...completionKeymap, indentWithTab]),
@@ -246,6 +268,7 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
     ],
   });
   const view = new EditorView({ state, parent });
+  viewRef = view;
 
   return {
     view,
@@ -277,12 +300,14 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
     uncomment: () => lineUncomment(view),
     indent: () => indentMore(view),
     outdent: () => indentLess(view),
+    reindent: () => { reindent(); view.focus(); },
     configure(next) {
       const n = next || {};
       const ts = n.tabSize || 4;
+      indentOpts = { unit: indentOf(n), functions: n.indentFunctions === false ? 'nested' : 'all' };
       view.dispatch({ effects: [
         look.reconfigure(lookTheme({ fontFamily: n.fontFamily || 'Consolas', fontSize: n.fontSize || 13 })),
-        tabs.reconfigure([EditorState.tabSize.of(ts), indentUnit.of(' '.repeat(ts))]),
+        tabs.reconfigure([EditorState.tabSize.of(ts), indentUnit.of(indentOf(n))]),
         wrap.reconfigure(n.wrap ? EditorView.lineWrapping : []),
         numbers.reconfigure(n.lineNumbers === false ? [] : lineNumbers()),
         spell.reconfigure(n.spellCheck ? spellExt() : []),

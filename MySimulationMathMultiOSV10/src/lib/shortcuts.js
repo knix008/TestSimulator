@@ -35,6 +35,7 @@ export const SHORTCUT_GROUPS = [
     ['Ctrl+D', ['같은 단어 하나 더 선택', 'Select the next occurrence']],
     ['Ctrl+Shift+L', ['같은 단어 모두 선택', 'Select all occurrences']],
     ['Ctrl+G', ['줄로 이동', 'Go to line']],
+    ['Ctrl+I', ['자동 들여쓰기 (선택한 줄, 없으면 전체)', 'Auto indent (the selection, else the whole file)']],
     ['Ctrl+R / Ctrl+T', ['주석 / 주석 해제', 'Comment / uncomment']],
     ['Ctrl+/', ['주석 토글', 'Toggle comment']],
     ['Ctrl+] / Ctrl+[', ['들여쓰기 / 내어쓰기', 'Indent / outdent']],

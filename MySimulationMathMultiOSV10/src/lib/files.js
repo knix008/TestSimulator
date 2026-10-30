@@ -1,7 +1,8 @@
 // File kinds by extension: which icon, and what double-click does.
 import { extOf } from './backend.js';
 
-export const SCRIPT_EXTS = ['.m'];
+// M code: the app's own .mym (new and saved files) and .m (still opened and run); core/lang/mext.js
+export const SCRIPT_EXTS = ['.mym', '.m'];
 export const FLOW_EXTS = ['.mflow'];
 export const DEFAULT_MODEL_EXTS = ['.smdl', '.msim'];
 export const DATA_EXTS = ['.mat'];

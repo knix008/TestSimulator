@@ -11,6 +11,7 @@ import { fileIcon, fileKind, getModelExts } from '../lib/files';
 import { askText, chooseFile } from '../lib/prompt';
 import { ask, showError } from '../lib/ui';
 import { record } from '../lib/history';
+import { M_EXT } from '../../core/lang/mext.js';
 import { copyText } from '../views/common';
 
 const sortEntries = (list) => [...list].sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) : a.isDir ? -1 : 1));
@@ -73,7 +74,7 @@ export function CurrentFolderPane({ cwd, refreshKey, onChdir, onOpen, onRun, onP
 
   const newFile = async (kind) => {
     const dir = targetDir();
-    const def = kind === 'folder' ? t('cf_new_folder_name') : kind === 'model' ? `untitled${getModelExts()[0]}` : 'untitled.m';
+    const def = kind === 'folder' ? t('cf_new_folder_name') : kind === 'model' ? `untitled${getModelExts()[0]}` : `untitled${M_EXT}`;
     const name = await askText({ title: kind === 'folder' ? t('cf_new_folder') : kind === 'model' ? t('cf_new_model') : t('cf_new_script'), label: t('dlg_file_name'), value: def, icon: kind === 'folder' ? 'folder' : 'plus' });
     if (!name) return;
     const p = joinPath(dir, name.trim());

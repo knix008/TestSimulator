@@ -17,6 +17,13 @@ import { catValues, buildMatrix } from './concat.js';
 import { formatDisplay, formatDisp, brief } from './display.js';
 import { ClassInfo, makeJsClassInfo, HANDLE_METHODS } from '../classes.js';
 import { sprintfLite } from './sprintf.js';
+import { M_EXTS, isMFile, stripMExt } from './mext.js';
+
+/** The M file of `name` in a folder listing (.mym before .m): [file name, entry] or null. */
+function mEntry(listing, name) {
+  for (const ext of M_EXTS) { const e = listing.get(name + ext); if (e && !e.isDir) return [name + ext, e]; }
+  return null;
+}
 
 const joinPath = (d, n) => (d.endsWith('/') ? d + n : d + '/' + n);
 const dirName = (p) => { const i = p.lastIndexOf('/'); return i <= 0 ? '/' : p.slice(0, i); };
@@ -474,7 +481,7 @@ export class Interp {
     this.dirCache.set(dir, c);
     return map;
   }
-  /** Finds name.m (or a class folder) in the search path. Returns a path or null. */
+  /** Finds name.mym / name.m (or a class folder) in the search path. Returns a path or null. */
   findFile(name) {
     if (name.includes('.')) {
       const parts = name.split('.');
@@ -483,23 +490,24 @@ export class Interp {
       for (const d of this.searchDirs()) {
         const dir = joinPath(d, pkgPath);
         const m = this.listing(dir);
-        if (m.has(last + '.m')) return { path: joinPath(dir, last + '.m'), mtime: m.get(last + '.m').mtimeMs };
+        const f = mEntry(m, last);
+        if (f) return { path: joinPath(dir, f[0]), mtime: f[1].mtimeMs };
         if (m.has('@' + last)) {
           const cd = joinPath(dir, '@' + last);
-          const mm = this.listing(cd);
-          if (mm.has(last + '.m')) return { path: joinPath(cd, last + '.m'), mtime: mm.get(last + '.m').mtimeMs, classDir: cd };
+          const c = mEntry(this.listing(cd), last);
+          if (c) return { path: joinPath(cd, c[0]), mtime: c[1].mtimeMs, classDir: cd };
         }
       }
       return null;
     }
     for (const d of this.searchDirs()) {
       const m = this.listing(d);
-      const e = m.get(name + '.m');
-      if (e && !e.isDir) return { path: joinPath(d, name + '.m'), mtime: e.mtimeMs };
+      const f = mEntry(m, name);
+      if (f) return { path: joinPath(d, f[0]), mtime: f[1].mtimeMs };
       if (m.has('@' + name)) {
         const cd = joinPath(d, '@' + name);
-        const mm = this.listing(cd);
-        if (mm.has(name + '.m')) return { path: joinPath(cd, name + '.m'), mtime: mm.get(name + '.m').mtimeMs, classDir: cd };
+        const c = mEntry(this.listing(cd), name);
+        if (c) return { path: joinPath(cd, c[0]), mtime: c[1].mtimeMs, classDir: cd };
       }
     }
     return null;
@@ -508,9 +516,8 @@ export class Interp {
     if (!file) return null;
     const d = dirName(file);
     const pd = baseName(d) === 'private' ? d : joinPath(d, 'private');
-    const m = this.listing(pd);
-    const e = m.get(name + '.m');
-    return e ? { path: joinPath(pd, name + '.m'), mtime: e.mtimeMs } : null;
+    const f = mEntry(this.listing(pd), name);
+    return f ? { path: joinPath(pd, f[0]), mtime: f[1].mtimeMs } : null;
   }
 
   /** Parses (cached by mtime) a file into a FileInfo. */
@@ -520,7 +527,7 @@ export class Interp {
     const c = this.fileCache.get(path);
     if (c && c.mtime === mtime) return c.info;
     const src = this.fs.readText(path);
-    const name = baseName(path).replace(/\.m$/, '');
+    const name = stripMExt(baseName(path));
     const ast = parse(src, { file: path });
     const info = { path, name, kind: ast.kind, ast, src, locals: new Map(), main: null, script: null, classdef: ast.classdef || null };
     for (const fn of ast.functions) info.locals.set(fn.name, this.makeFuncInfo(fn, info, null, null));
@@ -1189,7 +1196,7 @@ export class Interp {
   }
   addFolderMethods(ci, classDir, name) {
     for (const [fname, e] of this.listing(classDir)) {
-      if (e.isDir || !fname.endsWith('.m') || fname === name + '.m') continue;
+      if (e.isDir || !isMFile(fname) || stripMExt(fname) === name) continue;
       const info = this.loadFile(joinPath(classDir, fname), e.mtimeMs);
       if (info.main) { info.main.classInfo = ci; ci.methods.set(info.main.name, { fi: info.main, static: false, access: 'public', cls: ci }); }
     }

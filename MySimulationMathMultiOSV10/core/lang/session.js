@@ -8,6 +8,7 @@ import { builtins as langBuiltins, help as langHelp, fallbacks, helpFor } from '
 import { langClasses } from '../classes.js';
 import { KEYWORDS } from './lexer.js';
 import { disown } from './indexing.js';
+import { isMFile, stripMExt } from './mext.js';
 import { checkSource, catalog } from './check.js';
 import { createMemoryFs } from '../fs-memory.js';
 
@@ -63,7 +64,7 @@ export function createSessionWith(registry, opts = {}) {
       if (!eopts.file && code.trim()) onEvent({ type: 'history', command: code });
       return guarded(() => {
         const ast = rt.parseCode(code, { isVar: (n) => rt.readWs(rt.base, n) !== undefined, file: eopts.file || null, cache: false });
-        const frame = new Frame(rt.base, null, eopts.file ? normPath(eopts.file) : null, eopts.file ? baseName(normPath(eopts.file)).replace(/\.m$/, '') : 'base', 'base');
+        const frame = new Frame(rt.base, null, eopts.file ? normPath(eopts.file) : null, eopts.file ? stripMExt(baseName(normPath(eopts.file))) : 'base', 'base');
         const pseudo = rt.codeInfo(ast, frame);
         frame.fi = pseudo;
         const run = new Compiler(rt, { fi: pseudo, depth: null }).block(ast.body);
@@ -202,7 +203,7 @@ function complete(rt, text, cursor) {
     for (const d of rt.searchDirs()) {
       const dir = joinPath(d, parts.map((p) => '+' + p).join('/'));
       for (const [name, e] of rt.listing(dir)) {
-        if (!e.isDir && name.endsWith('.m') && name.startsWith(prefix)) add(name.slice(0, -2), 'function');
+        if (!e.isDir && isMFile(name) && name.startsWith(prefix)) add(stripMExt(name), 'function');
         if (e.isDir && name.startsWith('+') && name.slice(1).startsWith(prefix)) add(name.slice(1), 'package');
       }
     }
@@ -222,7 +223,7 @@ function complete(rt, text, cursor) {
   for (const k of [...KEYWORDS].sort()) if (k.startsWith(token)) add(k, 'keyword');
   for (const d of rt.searchDirs()) {
     for (const [name, e] of rt.listing(d)) {
-      if (!e.isDir && name.endsWith('.m') && name.startsWith(token)) add(name.slice(0, -2), 'file');
+      if (!e.isDir && isMFile(name) && name.startsWith(token)) add(stripMExt(name), 'file');
       if (e.isDir && name.startsWith('@') && name.slice(1).startsWith(token)) add(name.slice(1), 'class');
       if (e.isDir && name.startsWith('+') && name.slice(1).startsWith(token)) add(name.slice(1), 'package');
     }

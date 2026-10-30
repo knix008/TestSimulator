@@ -1,6 +1,6 @@
 # Editor
 
-The editor is a tab for writing `.m` scripts, functions, classes and text files. It supports M syntax highlighting, line numbers, bracket matching, autocomplete, find/replace, section execution and breakpoint debugging.
+The editor is a tab for writing `.mym` scripts, functions, classes and text files. It supports M syntax highlighting, line numbers, bracket matching, autocomplete, find/replace, section execution and breakpoint debugging.
 
 ![Editor: %% sections, line numbers, syntax highlighting, run output](images/en/editor.png)
 
@@ -37,7 +37,7 @@ legend('data', 'fitted curve')
 
 A line starting with `%%` marks a section boundary and is shown in the editor as a bold line. Writing a section name after the `%%` makes the code easier to read.
 
-> Note: A script in the current folder runs by its name alone; a script in another folder runs with `run('path/file.m')`. The run command is recorded in the Command Window and the Command History.
+> Note: A script in the current folder runs by its name alone; a script in another folder runs with `run('path/file.mym')`. The run command is recorded in the Command Window and the Command History.
 
 ## Debugging
 

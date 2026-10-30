@@ -56,7 +56,7 @@ format compact
 
 ## Errors and Links
 
-Errors are shown in red and warnings in orange. Clicking the `file.m:line` or `(line 12)` part of a message opens that line in the editor. You can see the last error again with `lasterr` and `MException`.
+Errors are shown in red and warnings in orange. Clicking the `file.mym:line` or `(line 12)` part of a message opens that line in the editor. You can see the last error again with `lasterr` and `MException`.
 
 ## Code That Asks for Input
 
@@ -83,4 +83,4 @@ You can use the same engine in a terminal without the GUI.
 | --- | --- |
 | `npm run msm` | Interactive prompt (quit with `exit`) |
 | `npm run msm -- -r "x = magic(3)"` | Run the code, then quit |
-| `npm run msm -- --cd work run_me.m` | Change the folder and run a script |
+| `npm run msm -- --cd work run_me.mym` | Change the folder and run a script |

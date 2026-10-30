@@ -13,7 +13,7 @@ const MAX_HITS = 500;
 
 export function FindFilesDialog({ cwd, onOpen, onClose }) {
   useLanguage();
-  const [pattern, setPattern] = useState('*.m');
+  const [pattern, setPattern] = useState('*.mym');
   const [text, setText] = useState('');
   const [sub, setSub] = useState(true);
   const [hits, setHits] = useState([]);

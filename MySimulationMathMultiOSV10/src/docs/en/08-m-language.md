@@ -112,11 +112,13 @@ arrayfun(@(k) k^2, 1:4)
 cellfun(@numel, {'ab', 'cde', ''})
 ```
 
-A function file (`name.m`) starts with `function [outputs…] = name(inputs…)`. Use `nargin` and `nargout` for the number of arguments, and `varargin` and `varargout` for variable arguments. Validate inputs with an `arguments` block, `validateattributes` or `inputParser`.
+A function file (`name.mym`) starts with `function [outputs…] = name(inputs…)`. Use `nargin` and `nargout` for the number of arguments, and `varargin` and `varargout` for variable arguments. Validate inputs with an `arguments` block, `validateattributes` or `inputParser`.
 
 ## Scripts
 
-A script is an `.m` file that lists statements without `function`. It reads and writes the workspace variables directly. Typing its name runs it (when it is in the current folder or on the path), and `run path` also works. You can put local functions at the end of the file.
+> File extension: this program saves M files as `.mym`. Existing `.m` files still open, run and are found on the path. When a `.mym` and a `.m` file have the same name, the `.mym` file is used.
+
+A script is a `.mym` file that lists statements without `function`. It reads and writes the workspace variables directly. Typing its name runs it (when it is in the current folder or on the path), and `run path` also works. You can put local functions at the end of the file.
 
 ## Strings and Output
 
@@ -152,7 +154,7 @@ classdef Account < handle
 end
 ```
 
-After saving the code above as `Account.m`:
+After saving the code above as `Account.mym`:
 
 ```m
 a = Account("Kim");

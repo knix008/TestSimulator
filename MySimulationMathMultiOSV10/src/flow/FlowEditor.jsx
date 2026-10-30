@@ -1,7 +1,7 @@
 // 그래픽 편집기: a document (.mflow) where constants, variables, operators,
 // formulas and functions are blocks, wired output → input, and the M code is
 // generated live next to the canvas (src/flow/flow.js). The flow is saved in
-// its own file; the code is run, opened as a script or exported as an .m file.
+// its own file; the code is run, opened as a script or exported as an M file (.mym).
 //
 // Canvas: drag the background to pan, the wheel zooms at the pointer, drag a
 // block to move it, drag from an output port (right) to an input port (left)
@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
+import { M_EXT } from '../../core/lang/mext.js';
 import { Stepper } from '../views/common';
 import { fsApi } from '../lib/backend';
 import { useEditorDirty } from '../lib/dirty';
@@ -326,7 +327,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
       <div className="fl-toolbar" role="toolbar">
         <Tb icon="play" label={t('fl_run')} title={t('fl_run_tip')} primary disabled={!hasCode || !engineReady} onClick={() => actions.run(gen.code)} />
         <Tb icon="script" label={t('fl_open_script')} title={t('fl_open_script_tip')} disabled={!hasCode} onClick={() => actions.openAsScript(gen.code)} />
-        <Tb icon="download" label={t('fl_export')} title={t('fl_export_tip')} disabled={!hasCode} onClick={() => actions.exportM(gen.code, `${stem}.m`)} />
+        <Tb icon="download" label={t('fl_export')} title={t('fl_export_tip')} disabled={!hasCode} onClick={() => actions.exportM(gen.code, `${stem}${M_EXT}`)} />
         <span className="fl-sep" />
         <Tb icon="undo" label={t('tb_undo')} title={`${t('tb_undo')} (Ctrl+Z)`} disabled={!undo.current.length} onClick={doUndo} />
         <Tb icon="redo" label={t('tb_redo')} title={`${t('tb_redo')} (Ctrl+Y)`} disabled={!redo.current.length} onClick={doRedo} />

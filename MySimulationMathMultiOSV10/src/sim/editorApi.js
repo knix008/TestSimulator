@@ -8,7 +8,7 @@
 //   subscribeSimEditors(fn) → unsubscribe                    (fn() after any publish, batched)
 //
 // api: {
-//   docId, name, model, crumbs: [subsystem block ids], selected: [block ids], status, running,
+//   docId, name, model, crumbs: [subsystem block ids], selected: [block ids], status, running, scopes (Map block id → results),
 //   addItem(libraryItem)                 add a library block at the view centre (like a double-click)
 //   openPath(crumbs)                     show that system level (like the breadcrumbs)
 //   select(ids)                          select blocks of the current level

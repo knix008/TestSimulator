@@ -26,7 +26,7 @@ export const DEFAULTS = {
   restoreFiles: true,
   confirmExit: true,
   cmd: { fontFamily: 'Consolas', fontSize: 13, numericFormat: 'short', compact: false, scrollback: 5000 },
-  editor: { fontFamily: 'Consolas', fontSize: 13, tabSize: 4, autosave: false, autosaveSec: 30, wrap: false, lineNumbers: true, spellCheck: true, spellWords: [] },
+  editor: { fontFamily: 'Consolas', fontSize: 13, tabSize: 4, autosave: false, autosaveSec: 30, wrap: false, lineNumbers: true, spellCheck: true, spellWords: [], indentSize: 4, indentFunctions: true },
   figures: { renderer: 'canvas', grid: false, rulers: false, edges: true },
   sim: { solver: 'ode45', stopTime: 10 },
   keyboard: { ctrlEnterSection: true, tabCompletion: true, ctrlCCopies: true },

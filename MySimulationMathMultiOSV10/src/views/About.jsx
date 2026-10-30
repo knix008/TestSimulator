@@ -50,7 +50,7 @@ export function AboutDialog({ onClose, windowed }) {
     [L('버전', 'Version'), version],
     [L('빌드', 'Build'), `${version} · ${import.meta.env && import.meta.env.DEV ? L('개발', 'development') : L('배포', 'release')}`],
     [L('구성', 'Parts'), L('명령 창 · 편집기 · 작업 공간 · 현재 폴더 · 그림 · 블록 다이어그램', 'Command Window · Editor · Workspace · Current Folder · Figures · Block Diagram')],
-    [L('언어', 'Language'), L('M 언어 (.m 스크립트와 함수)', 'M language (.m scripts and functions)')],
+    [L('언어', 'Language'), L('M 언어 (.mym 스크립트와 함수, .m 파일도 읽음)', 'M language (.mym scripts and functions; .m files are read too)')],
     [L('플랫폼', 'Platform'), `Windows · macOS · Linux · Web (${L('현재', 'now')}: ${os(info)}${isDesktop ? '' : ' · Web'})`],
     [L('런타임', 'Runtime'), runtime()],
     [L('데이터 폴더', 'Data folder'), dataFolder(info)],

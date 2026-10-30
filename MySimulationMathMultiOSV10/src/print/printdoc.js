@@ -21,6 +21,8 @@ export const PAPERS = {
 export const PAPER_NAMES = [...Object.keys(PAPERS), 'custom'];
 export const MARGIN_PRESETS = { none: 0, narrow: 8, normal: 15, wide: 25 }; // mm, every side
 export const NUP_CHOICES = [1, 2, 4, 6, 9, 16];
+// 그림 여백: white space around a figure / diagram / scope image inside the page margins (mm, every side)
+export const IMAGE_PADS = { none: 0, small: 4, normal: 10, large: 18 };
 export const FONT_RANGE = [6, 24];
 export const SCALE_RANGE = [10, 400];
 
@@ -34,6 +36,7 @@ export const PRINT_DEFAULTS = {
   fontSize: 10, lineNumbers: true, wrap: true, syntax: true,
   header: true, headerText: '', date: true, pageNumbers: true,
   color: true, backgrounds: true, lighten: true,
+  imagePad: 'normal', scopes: true,
   copies: 1, collate: true, duplex: 'none',
 };
 
@@ -55,7 +58,8 @@ export function normalizeSetup(setup) {
   s.scale = Math.round(num(s.scale, SCALE_RANGE[0], SCALE_RANGE[1], 100));
   s.nup = NUP_CHOICES.includes(Number(s.nup)) ? Number(s.nup) : 1;
   s.fontSize = Math.round(num(s.fontSize, FONT_RANGE[0], FONT_RANGE[1], 10));
-  for (const k of ['lineNumbers', 'wrap', 'syntax', 'header', 'date', 'pageNumbers', 'color', 'backgrounds', 'lighten', 'collate']) s[k] = s[k] !== false;
+  for (const k of ['lineNumbers', 'wrap', 'syntax', 'header', 'date', 'pageNumbers', 'color', 'backgrounds', 'lighten', 'collate', 'scopes']) s[k] = s[k] !== false;
+  if (!(s.imagePad in IMAGE_PADS)) s.imagePad = 'normal';
   s.headerText = String(s.headerText || '');
   s.copies = Math.round(num(s.copies, 1, 999, 1));
   s.duplex = s.duplex === 'long' || s.duplex === 'short' ? s.duplex : 'none';
@@ -211,6 +215,7 @@ export function pageCss(setup) {
 export function contentCss(setup) {
   const s = normalizeSetup(setup);
   const g = pageGeometry(s);
+  const IMAGE_PAD = IMAGE_PADS[s.imagePad];
   return `
   .msp-code { font-family: ${FONT_MONO}; font-size: ${s.fontSize}pt; line-height: 1.35; }
   .msp-code .l { display: flex; align-items: flex-start; }
@@ -222,9 +227,10 @@ export function contentCss(setup) {
   .tk-k { color: #0033b3; font-weight: 600; } .tk-f { color: #00627a; } .tk-s { color: #067d17; } .tk-c { color: #6a737d; font-style: italic; }
   .tk-n { color: #1750eb; } .tk-o { color: #444; } .tk-b { color: #555; } .tk-m { color: #9e880d; } .tk-a { color: #871094; } .tk-i { color: #c00; }
   .cw-err { color: #c00000; } .cw-warn { color: #a05a00; } .cw-echo { color: #0b4f8a; font-weight: 600; } .cw-info { color: #555; font-style: italic; }
-  .msp-img { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .msp-img img { display: block; }
-  .msp-img.fit img { width: 100%; height: 100%; object-fit: contain; }
+  .msp-img { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box; padding: ${IMAGE_PAD}mm; break-inside: avoid; }
+  .msp-img img { display: block; max-width: 100%; }
+  .msp-img.fit img { width: 100%; flex: 1 1 auto; min-height: 0; object-fit: contain; }
+  .msp-img figcaption { flex: none; margin-top: 2mm; font-size: 9pt; color: #333; text-align: center; }
   .msp-img.lighten img { filter: invert(1) hue-rotate(180deg); }
   .msp-html { overflow-wrap: break-word; }
   .msp-html img, .msp-html svg, .msp-html canvas, .msp-html video { max-width: 100%; max-height: ${Math.floor(g.ch)}mm; height: auto; }
@@ -240,10 +246,20 @@ export function contentCss(setup) {
 }
 
 /**
+ * The images of an image document: spec.images ([{ dataUrl, widthPx, caption, role }]) or the single
+ * spec.imageDataUrl; scope results (role 'scope') only when the setup includes them.
+ */
+export function printImages(spec, setup) {
+  const s = normalizeSetup(setup);
+  const list = Array.isArray(spec.images) && spec.images.length ? spec.images : [{ dataUrl: spec.imageDataUrl, widthPx: spec.imageWidthPx, caption: '' }];
+  return list.filter((im) => s.scopes || im.role !== 'scope');
+}
+
+/**
  * The document before pagination. spec:
  *   { title, kind: 'text' | 'code' | 'html' | 'image',
  *     text?, runs? ([{ t, c }], e.g. syntax colours), html?, baseUrl?,
- *     imageDataUrl?, imageWidthPx? (CSS px of the image at 100 %) }
+ *     imageDataUrl?, imageWidthPx? (CSS px of the image at 100 %), or images: [{ dataUrl, widthPx, caption, role }] }
  * The content sits in <div id="msp-src">; paginate.js pours it into pages.
  */
 export function buildPrintHtml(spec, setup) {
@@ -254,8 +270,14 @@ export function buildPrintHtml(spec, setup) {
   let body = '';
   if (kind === 'image') {
     const fit = s.scaleMode === 'fit';
-    const w = !fit && Number(spec.imageWidthPx) > 0 ? ` style="width:${Math.round(Number(spec.imageWidthPx) * s.scale) / 100}px"` : '';
-    body = `<div class="msp-img ${fit ? 'fit' : ''} ${spec.lightenable && s.lighten ? 'lighten' : ''}"><img src="${esc(spec.imageDataUrl || '')}" alt="${title}"${w}></div>`;
+    // each image fills one page (fit) or keeps its size × scale; captions when there are several or one is given
+    const list = printImages(spec, s);
+    const g = pageGeometry(s);
+    body = list.map((im) => {
+      const w = !fit && Number(im.widthPx) > 0 ? ` style="width:${Math.round(Number(im.widthPx) * s.scale) / 100}px"` : '';
+      const cap = im.caption && (list.length > 1 || im.captionAlways) ? `<figcaption>${esc(im.caption)}</figcaption>` : '';
+      return `<figure class="msp-img ${fit ? 'fit' : ''} ${spec.lightenable && s.lighten ? 'lighten' : ''}" style="height:${fit ? `${Math.floor(g.ch)}mm` : 'auto'}"><img src="${esc(im.dataUrl || '')}" alt="${esc(im.caption || spec.title || '')}"${w}>${cap}</figure>`;
+    }).join('\n');
   } else if (kind === 'html') {
     const parts = splitHtml(spec.html);
     extraHead = parts.head;

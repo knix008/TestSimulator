@@ -43,6 +43,15 @@
     "fileAssociations": [
       {
         "ext": [
+          "mym"
+        ],
+        "name": "MySimulationMath.MFile",
+        "description": "MySimulationMath M file",
+        "role": "Editor",
+        "mimeType": "text/x-mysimulationmath-m"
+      },
+      {
+        "ext": [
           "msim",
           "smdl"
         ],

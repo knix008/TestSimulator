@@ -6,7 +6,7 @@ Open the settings window with the gear in the title bar, **Home › Preferences*
 
 | Tab | Items |
 | --- | --- |
-| General | Language, start folder, reopen open files, ask to save on exit, `.m` file association (Windows) |
+| General | Language, start folder, reopen open files, ask to save on exit, `.mym` file association (Windows) |
 | Theme | Preview and choose from 40 themes (20 dark · 20 light) |
 | Custom themes | Create your own theme (choose each color), import · export |
 | Start Page | Show the start page on launch, **Tutorial prompt › Ask whether to run the tutorial on launch**, background type · speed · transparency · shuffle, card auto-arrange |

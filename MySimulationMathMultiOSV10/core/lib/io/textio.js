@@ -7,6 +7,7 @@ import {
 } from './util.js';
 import { getFile, parseSizeArg, shapeOutput, writeTextFid } from './files.js';
 import { saturate } from '../../value.js';
+import { M_EXTS } from '../../lang/mext.js';
 
 // ---------------------------------------------------------------- format parsing (scanf family)
 
@@ -558,7 +559,7 @@ function type(args, nargout, ctx) {
   let text = '';
   for (const a of args) {
     const name = S(a, 'File name');
-    const p = findFile(ctx, name, ['.m']);
+    const p = findFile(ctx, name, M_EXTS);
     if (!p) throw E('io:type:fileNotFound', `File '${name}' not found.`);
     const t = bytesToText(ctx.fs.readBytes(p));
     text += '\n' + t + (t.endsWith('\n') ? '' : '\n') + '\n';

@@ -2,7 +2,7 @@
 //
 //   import { openPrintDialog } from '../print';
 //   const r = await openPrintDialog({
-//     title: 'demo.m',            // header text, PDF file name
+//     title: 'demo.mym',          // header text, PDF file name
 //     kind: 'code',               // 'text' | 'code' | 'html' | 'image'
 //     text: '...',                // text / code
 //     language: 'm',              // code: 'm' gives syntax colours
@@ -35,6 +35,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { PrintDialog } from './PrintDialog';
 import { highlightM } from './highlight';
+import { isMFile } from '../../core/lang/mext.js';
 import './print.css';
 
 export { PRINT_DEFAULTS, normalizeSetup, parsePageRanges, buildPrintHtml, PAPERS } from './printdoc';
@@ -47,7 +48,7 @@ export function isPrintDialogOpen() { return !!openNow; }
 export function openPrintDialog(spec = {}) {
   if (openNow) return openNow;
   const s = { ...spec, kind: spec.kind || 'text' };
-  if (s.kind === 'code' && !s.runs && (s.language === 'm' || /\.m$/i.test(s.title || ''))) s.runs = highlightM(s.text || '');
+  if (s.kind === 'code' && !s.runs && (s.language === 'm' || isMFile(s.title))) s.runs = highlightM(s.text || '');
   if (typeof document === 'undefined') return Promise.resolve({ ok: false });
   const host = document.createElement('div');
   host.className = 'msp-host';

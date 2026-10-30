@@ -235,3 +235,86 @@ export function setJpegDpi(jpg, dpi) {
   const app0 = Uint8Array.from([0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 1, d >> 8, d & 255, d >> 8, d & 255, 0, 0]);
   return concat([jpg.subarray(0, 2), app0, jpg.subarray(2)]);
 }
+
+/** BMP (24-bit, bottom-up rows): RGBA composited over `over` (BMP readers rarely honour alpha). */
+export function encodeBmp(rgba, width, height, over = [255, 255, 255]) {
+  const row = Math.ceil((width * 3) / 4) * 4;
+  const size = 54 + row * height;
+  const out = new Uint8Array(size);
+  const dv = new DataView(out.buffer);
+  out[0] = 0x42; out[1] = 0x4d;
+  dv.setUint32(2, size, true); dv.setUint32(10, 54, true);
+  dv.setUint32(14, 40, true); dv.setInt32(18, width, true); dv.setInt32(22, height, true);
+  dv.setUint16(26, 1, true); dv.setUint16(28, 24, true); dv.setUint32(34, row * height, true);
+  dv.setInt32(38, 3780, true); dv.setInt32(42, 3780, true); // 96 dpi
+  for (let y = 0; y < height; y++) {
+    const o = 54 + (height - 1 - y) * row;
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4, a = rgba[i + 3] / 255;
+      out[o + x * 3] = Math.round(rgba[i + 2] * a + over[2] * (1 - a));
+      out[o + x * 3 + 1] = Math.round(rgba[i + 1] * a + over[1] * (1 - a));
+      out[o + x * 3 + 2] = Math.round(rgba[i] * a + over[0] * (1 - a));
+    }
+  }
+  return out;
+}
+
+/** Baseline TIFF, uncompressed RGBA (unassociated alpha) — or RGB composited over white when alpha is false. */
+export function encodeTiff(rgba, width, height, { alpha = true } = {}) {
+  const spp = alpha ? 4 : 3;
+  const data = new Uint8Array(width * height * spp);
+  for (let p = 0, q = 0; p < rgba.length; p += 4, q += spp) {
+    const a = rgba[p + 3] / 255;
+    if (alpha) { data[q] = rgba[p]; data[q + 1] = rgba[p + 1]; data[q + 2] = rgba[p + 2]; data[q + 3] = rgba[p + 3]; } else {
+      data[q] = Math.round(rgba[p] * a + 255 * (1 - a)); data[q + 1] = Math.round(rgba[p + 1] * a + 255 * (1 - a)); data[q + 2] = Math.round(rgba[p + 2] * a + 255 * (1 - a));
+    }
+  }
+  const tags = [
+    [256, 4, 1, width], [257, 4, 1, height], [258, 3, spp, null], [259, 3, 1, 1], [262, 3, 1, 2], [273, 4, 1, null],
+    [277, 3, 1, spp], [278, 4, 1, height], [279, 4, 1, data.length], [282, 5, 1, null], [283, 5, 1, null], [284, 3, 1, 1], [296, 3, 1, 2],
+  ];
+  if (alpha) tags.push([338, 3, 1, 2]);
+  const ifdOff = 8, ifdSize = 2 + tags.length * 12 + 4;
+  const bpsOff = ifdOff + ifdSize, resOff = bpsOff + spp * 2, dataOff = resOff + 16;
+  const out = new Uint8Array(dataOff + data.length);
+  const dv = new DataView(out.buffer);
+  out[0] = 0x49; out[1] = 0x49; dv.setUint16(2, 42, true); dv.setUint32(4, ifdOff, true);
+  dv.setUint16(ifdOff, tags.length, true);
+  tags.forEach(([tag, type, count, value], k) => {
+    const e = ifdOff + 2 + k * 12;
+    dv.setUint16(e, tag, true); dv.setUint16(e + 2, type, true); dv.setUint32(e + 4, count, true);
+    let v = value;
+    if (tag === 258) v = bpsOff; else if (tag === 273) v = dataOff; else if (tag === 282) v = resOff; else if (tag === 283) v = resOff + 8;
+    if (type === 3 && count === 1) dv.setUint16(e + 8, v, true); else dv.setUint32(e + 8, v, true);
+  });
+  for (let k = 0; k < spp; k++) dv.setUint16(bpsOff + k * 2, 8, true);
+  dv.setUint32(resOff, 96, true); dv.setUint32(resOff + 4, 1, true); dv.setUint32(resOff + 8, 96, true); dv.setUint32(resOff + 12, 1, true);
+  out.set(data, dataOff);
+  return out;
+}
+
+const canvasBlob = (canvas, type, q) => (canvas.convertToBlob ? canvas.convertToBlob({ type, quality: q })
+  : new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('The image could not be encoded.'))), type, q)));
+
+/**
+ * A canvas as image file bytes: format png | jpg | gif | webp | bmp | tiff.
+ * transparent: keep the alpha channel where the format has one (else the
+ * image is put on white). quality 10–100 for jpg / webp.
+ */
+export async function encodeCanvas(canvas, format, { transparent = false, quality = 92 } = {}) {
+  let c = canvas;
+  const alphaOk = ['png', 'gif', 'webp', 'tiff'].includes(format);
+  if (!transparent || !alphaOk) {
+    // flatten on white (jpg / bmp have no alpha; an opaque export asked for)
+    c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(canvas.width, canvas.height) : Object.assign(document.createElement('canvas'), { width: canvas.width, height: canvas.height });
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(canvas, 0, 0);
+  }
+  const pixels = () => c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  if (format === 'gif') return encodeGif(pixels(), c.width, c.height, { transparent: transparent && alphaOk });
+  if (format === 'bmp') return encodeBmp(pixels(), c.width, c.height);
+  if (format === 'tiff') return encodeTiff(pixels(), c.width, c.height, { alpha: transparent });
+  const mime = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }[format] || 'image/png';
+  return blobBytes(await canvasBlob(c, mime, format === 'jpg' || format === 'webp' ? quality / 100 : undefined));
+}

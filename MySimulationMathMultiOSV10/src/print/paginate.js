@@ -80,9 +80,13 @@ export function paginate(doc, setup, info = {}) {
   };
 
   if (kind === 'image') {
-    const p = mkPage();
-    content.forEach((n) => p.zoom.appendChild(n));
-    p.zoom.style.height = '100%';
+    // one page per image (a model: the diagram, then each scope; pages per sheet can put them together)
+    const figs = content.filter((n) => n.nodeType === 1);
+    for (const n of figs.length ? figs : content) {
+      const p = mkPage();
+      p.zoom.appendChild(n);
+      p.zoom.style.height = '100%';
+    }
   } else {
     content.forEach((n) => { if (n.nodeType === 1) splitPreLines(n); });
     // Fit: shrink (never enlarge) so the widest line / table fits the width.

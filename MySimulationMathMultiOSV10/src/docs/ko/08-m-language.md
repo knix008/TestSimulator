@@ -112,11 +112,13 @@ arrayfun(@(k) k^2, 1:4)
 cellfun(@numel, {'ab', 'cde', ''})
 ```
 
-함수 파일(`이름.m`)은 `function [출력…] = 이름(입력…)` 으로 시작합니다. `nargin`, `nargout` 으로 인자 개수를, `varargin`, `varargout` 으로 가변 인자를 다룹니다. 입력 검사는 `arguments` 블록, `validateattributes`, `inputParser` 로 합니다.
+함수 파일(`이름.mym`)은 `function [출력…] = 이름(입력…)` 으로 시작합니다. `nargin`, `nargout` 으로 인자 개수를, `varargin`, `varargout` 으로 가변 인자를 다룹니다. 입력 검사는 `arguments` 블록, `validateattributes`, `inputParser` 로 합니다.
 
 ## 스크립트
 
-스크립트는 `function` 없이 문장을 늘어놓은 `.m` 파일입니다. 작업 공간의 변수를 그대로 읽고 씁니다. 이름만 치면(현재 폴더나 경로에 있을 때) 실행되며, `run 경로` 도 됩니다. 파일 끝에 지역 함수를 둘 수 있습니다.
+> 파일 확장자: 이 프로그램은 M 파일을 `.mym` 으로 저장합니다. 기존 `.m` 파일도 그대로 열고 실행하며 경로에서 찾습니다. 같은 이름의 `.mym` 과 `.m` 이 함께 있으면 `.mym` 을 씁니다.
+
+스크립트는 `function` 없이 문장을 늘어놓은 `.mym` 파일입니다. 작업 공간의 변수를 그대로 읽고 씁니다. 이름만 치면(현재 폴더나 경로에 있을 때) 실행되며, `run 경로` 도 됩니다. 파일 끝에 지역 함수를 둘 수 있습니다.
 
 ## 문자열과 출력
 
@@ -152,7 +154,7 @@ classdef Account < handle
 end
 ```
 
-위 코드를 `Account.m` 으로 저장한 뒤:
+위 코드를 `Account.mym` 으로 저장한 뒤:
 
 ```m
 a = Account("Kim");

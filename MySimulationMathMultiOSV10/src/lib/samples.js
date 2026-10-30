@@ -561,10 +561,10 @@ twinPrimes = p([diff(p) == 2, false])
 /** Code for 새 함수 / 새 클래스 / 섹션 스크립트. */
 export const TEMPLATES = {
   function: `function y = myFunction(x)
-%MYFUNCTION Short description.
-%   y = myFunction(x) ...
+    %MYFUNCTION Short description.
+    %   y = myFunction(x) ...
 
-y = x;
+    y = x;
 end
 `,
   class: `classdef MyClass

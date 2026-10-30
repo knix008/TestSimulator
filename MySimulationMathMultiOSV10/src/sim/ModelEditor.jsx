@@ -301,7 +301,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     if (rootRef.current) rootRef.current.__sim = { view: view.current, model: modelRef.current, system: sys(), crumbs, scopes: scopeStore.current, values: values.current, status, sel: [...sel], undo: undoStack.current.length, redo: redoStack.current.length, dirty, geom: portGeometry };
     // the app's side panels (editorApi.js): read the model, act through change()
     publishSimEditor(docId, {
-      docId, name: nameRef.current, model: modelRef.current, crumbs, selected: [...sel], status, running: status.state === 'running' || status.state === 'paused',
+      docId, name: nameRef.current, model: modelRef.current, crumbs, selected: [...sel], status, scopes: scopeStore.current, running: status.state === 'running' || status.state === 'paused',
       addItem: (item) => addItem(item),
       openPath: (ids) => { if (systemAt(modelRef.current, ids)) { setCrumbs(ids); setSel(new Set()); } },
       select: (ids) => setSel(new Set(ids)),

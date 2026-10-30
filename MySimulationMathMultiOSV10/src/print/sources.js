@@ -2,13 +2,18 @@
 //   editor tab      -> its text as code (M files with syntax colours)
 //   variable tab    -> the variable editor's grid as a table
 //   figures tab     -> the current figure as an image (rendered for paper)
-//   model tab       -> the visible model canvas as an image (read from the DOM)
+//   model tab       -> the whole diagram drawn for paper, and a plot of every scope with
+//                      results (src/sim/printModel.js); the visible canvas only as a fallback
+// Images carry save(format, transparent) → file bytes (이미지로 저장).
 //   no document, or the focus in the Command Window -> the Command Window text
 import { openPrintDialog } from './index.js';
 import { pt } from './i18n';
 import { toast } from '../lib/ui';
 import { exportFigureBytes } from '../graphics/paint.js';
-import { bytesToBase64 } from '../graphics/encode.js';
+import { bytesToBase64, encodeCanvas } from '../graphics/encode.js';
+import { simEditor } from '../sim/editorApi';
+import { isMFile } from '../../core/lang/mext.js';
+import { modelPrintImages } from '../sim/printModel';
 import { figureTitle } from '../graphics/scene.js';
 import { esc } from './printdoc';
 
@@ -39,8 +44,10 @@ export async function printFigure(ctl = typeof window !== 'undefined' ? window._
   if (!fig) { toast(pt('figure_none'), 'warn'); return { ok: false }; }
   const { width, height } = ctl.sizeOf(fig);
   const out = await exportFigureBytes(fig, { format: 'png', width, height, scale: 3, background: 'white' }, ctl.paintOptions(fig));
+  const title = figureTitle(fig, 'Figure {n}');
+  const save = async (format, transparent) => (await exportFigureBytes(fig, { format, width, height, scale: 3, background: transparent ? 'none' : 'white' }, ctl.paintOptions(fig))).bytes;
   return openPrintDialog({
-    title: figureTitle(fig, 'Figure {n}'), kind: 'image', imageDataUrl: `data:${out.mime};base64,${bytesToBase64(out.bytes)}`, imageWidthPx: width,
+    title, kind: 'image', images: [{ dataUrl: `data:${out.mime};base64,${bytesToBase64(out.bytes)}`, widthPx: width, heightPx: height, caption: title, role: 'figure', save }],
     setup: width > height * 1.05 ? { landscape: true } : undefined,
   });
 }
@@ -61,7 +68,22 @@ function luminance(canvas) {
   } catch { return 1; }
 }
 
-function printModel(doc) {
+/** A model: the whole diagram for paper, then the scopes with results (the editor of doc, editorApi.js). */
+async function printModel(doc) {
+  const api = simEditor(doc.id);
+  if (api && api.model) {
+    const items = modelPrintImages(api);
+    const images = items.map((im) => ({
+      dataUrl: im.render({ scale: 3 }).toDataURL('image/png'), widthPx: im.width, heightPx: im.height, caption: im.caption, role: im.role,
+      save: (format, transparent) => encodeCanvas(im.render({ scale: 3, transparent }), format, { transparent }),
+    }));
+    const d = items[0];
+    return openPrintDialog({ title: doc.title, kind: 'image', images, setup: d.width > d.height * 1.05 ? { landscape: true } : undefined });
+  }
+  return printModelCanvas(doc);
+}
+
+function printModelCanvas(doc) {
   const page = shownPage('model');
   const canvases = page ? [...page.querySelectorAll('canvas')].filter((c) => c.width > 0 && c.height > 0 && c.offsetParent !== null) : [];
   const canvas = canvases.sort((a, b) => b.width * b.height - a.width * a.height)[0];
@@ -106,7 +128,7 @@ export function printActiveDocument({ doc, editorApi } = {}) {
   if (!doc || inCmd) return printCommandWindow();
   if (doc.kind === 'file') {
     const text = editorApi && editorApi.editor ? editorApi.editor.getText() : '';
-    const isM = /\.m$/i.test(doc.title || doc.path || '');
+    const isM = isMFile(doc.title || doc.path || '');
     return openPrintDialog({ title: doc.title, kind: 'code', text, language: isM ? 'm' : '' });
   }
   if (doc.kind === 'figures') return printFigure();

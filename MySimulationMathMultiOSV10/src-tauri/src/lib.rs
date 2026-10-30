@@ -137,7 +137,7 @@ fn reg(args: &[&str]) -> Option<String> {
 fn m_association() -> bool {
     #[cfg(windows)]
     {
-        return reg(&["query", r"HKCU\Software\Classes\.m", "/ve"]).map(|t| t.contains("MySimulationMath.MFile")).unwrap_or(false);
+        return reg(&["query", r"HKCU\Software\Classes\.mym", "/ve"]).map(|t| t.contains("MySimulationMath.MFile")).unwrap_or(false);
     }
     #[allow(unreachable_code)]
     false
@@ -154,11 +154,11 @@ fn set_m_association(app: tauri::AppHandle, on: bool) -> bool {
             let ok = reg(&["add", r"HKCU\Software\Classes\MySimulationMath.MFile", "/ve", "/d", "M language file", "/f"]).is_some()
                 && reg(&["add", r"HKCU\Software\Classes\MySimulationMath.MFile\DefaultIcon", "/ve", "/d", &icon, "/f"]).is_some()
                 && reg(&["add", r"HKCU\Software\Classes\MySimulationMath.MFile\shell\open\command", "/ve", "/d", &command, "/f"]).is_some()
-                && reg(&["add", r"HKCU\Software\Classes\.m", "/ve", "/d", "MySimulationMath.MFile", "/f"]).is_some();
+                && reg(&["add", r"HKCU\Software\Classes\.mym", "/ve", "/d", "MySimulationMath.MFile", "/f"]).is_some();
             return ok;
         }
         if m_association() {
-            let _ = reg(&["delete", r"HKCU\Software\Classes\.m", "/ve", "/f"]);
+            let _ = reg(&["delete", r"HKCU\Software\Classes\.mym", "/ve", "/f"]);
         }
         let _ = reg(&["delete", r"HKCU\Software\Classes\MySimulationMath.MFile", "/f"]);
         return true;

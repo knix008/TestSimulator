@@ -7,6 +7,8 @@ export const FORMATS = [
   { id: 'jpg', ext: 'jpg', mime: 'image/jpeg', raster: true, alpha: false, quality: true, dpi: true },
   { id: 'gif', ext: 'gif', mime: 'image/gif', raster: true, alpha: true, quality: false, dpi: false },
   { id: 'webp', ext: 'webp', mime: 'image/webp', raster: true, alpha: true, quality: true, dpi: false },
+  { id: 'bmp', ext: 'bmp', mime: 'image/bmp', raster: true, alpha: false, quality: false, dpi: false },
+  { id: 'tiff', ext: 'tif', mime: 'image/tiff', raster: true, alpha: true, quality: false, dpi: false },
   { id: 'svg', ext: 'svg', mime: 'image/svg+xml', raster: false, alpha: true, quality: false, dpi: false },
   { id: 'pdf', ext: 'pdf', mime: 'application/pdf', raster: false, alpha: false, quality: false, dpi: false },
 ];
@@ -46,7 +48,7 @@ export function normalizeExport(o = {}) {
     orientation: o.orientation === 'landscape' || o.orientation === 'portrait' ? o.orientation : null,
   };
   const notes = [];
-  if (out.background === 'none' && !f.alpha) { out.background = 'white'; notes.push(f.id === 'jpg' ? 'noAlphaJpg' : 'noAlphaPdf'); }
+  if (out.background === 'none' && !f.alpha) { out.background = 'white'; notes.push(f.id === 'jpg' ? 'noAlphaJpg' : f.id === 'bmp' ? 'noAlphaBmp' : 'noAlphaPdf'); }
   return { opts: out, notes };
 }
 
@@ -79,7 +81,7 @@ export function lockedPair(o, changed, value, baseW, baseH) {
 /** File name with the format's extension (other extensions replaced, unsafe characters removed). */
 export function fileNameFor(name, format) {
   const ext = formatInfo(format).ext;
-  let base = String(name || 'figure').trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\.(png|jpe?g|gif|webp|svg|pdf)$/i, '');
+  let base = String(name || 'figure').trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\.(png|jpe?g|gif|webp|svg|pdf|bmp|tiff?)$/i, '');
   if (!base) base = 'figure';
   return `${base}.${ext}`;
 }

@@ -97,6 +97,12 @@ export function EditorTab({ d, set }) {
       <Row icon="code" label={t('st_font')}><IconSelect value={e.fontFamily} width={220} ariaLabel={t('st_font')} onChange={(v) => setE({ fontFamily: v })} options={fontOptions()} /></Row>
       <Row icon="hash" label={t('st_font_size')}><Stepper value={e.fontSize} min={8} max={32} ariaLabel={t('st_font_size')} unit="px" onChange={(v) => setE({ fontSize: v })} /></Row>
       <Row icon="indent" label={t('st_tab_size')}><Stepper value={e.tabSize} min={1} max={8} ariaLabel={t('st_tab_size')} onChange={(v) => setE({ tabSize: v })} /></Row>
+      <Row icon="indent" label={t('st_indent_size')} title={t('st_indent_size_tip')}>
+        <span className="st-inline">
+          <Stepper value={e.indentSize || e.tabSize || 4} min={1} max={8} ariaLabel={t('st_indent_size')} unit={t('st_spaces')} onChange={(v) => setE({ indentSize: v })} />
+          <Toggle icon="code" label={t('st_indent_functions')} checked={e.indentFunctions !== false} onChange={(v) => setE({ indentFunctions: v })} />
+        </span>
+      </Row>
       <Row icon="list" label={t('st_line_numbers')}><Toggle icon="list" label={t('st_line_numbers_toggle')} checked={e.lineNumbers !== false} onChange={(v) => setE({ lineNumbers: v })} /></Row>
       <Row icon="unfold" label={t('st_wrap')}><Toggle icon="unfold" label={t('st_wrap_toggle')} checked={!!e.wrap} onChange={(v) => setE({ wrap: v })} /></Row>
       <Row icon="save" label={t('st_autosave')}>
