@@ -246,9 +246,50 @@ export function orthoThrough(pts, firstHoriz = true) {
   return simplify(out);
 }
 
+/** The connection styles of a line (line.style): 꺾은 선 (the default), 직선, 곡선. */
+export const LINE_STYLES = ['ortho', 'straight', 'curve'];
+export const LINE_STYLE_ICON = { ortho: 'lineOrtho', straight: 'lineStraight', curve: 'lineCurve' };
+export const lineStyleOf =(line) => (line && LINE_STYLES.includes(line.style) ? line.style : 'ortho');
+const CURVE_STEPS = 16;
+
 /**
- * Geometry of every line of the system: [{ line, seg, pts:[[x,y]...], branchPoint?, dst }].
- * `byId` maps block id → block.
+ * Smooth curve through the points (Catmull-Rom as cubic Béziers), sampled to a polyline so that
+ * drawing, arrow heads and hit tests stay polyline code. startDir / endDir: the outward directions
+ * of the ports at the ends (the curve leaves and enters along them), or null at a branch point.
+ */
+export function curveThrough(pts, startDir = null, endDir = null) {
+  if (pts.length < 2) return pts.map((p) => [...p]);
+  const n = pts.length;
+  const span = (i, j) => Math.hypot(pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]);
+  const tan = pts.map((p, i) => {
+    if (i === 0) {
+      const v = DV[startDir];
+      return v ? [v[0] * span(0, 1), v[1] * span(0, 1)] : [pts[1][0] - p[0], pts[1][1] - p[1]];
+    }
+    if (i === n - 1) {
+      const v = DV[endDir];
+      return v ? [-v[0] * span(n - 2, n - 1), -v[1] * span(n - 2, n - 1)] : [p[0] - pts[n - 2][0], p[1] - pts[n - 2][1]];
+    }
+    return [(pts[i + 1][0] - pts[i - 1][0]) / 2, (pts[i + 1][1] - pts[i - 1][1]) / 2];
+  });
+  const out = [[...pts[0]]];
+  for (let i = 0; i + 1 < n; i++) {
+    const p0 = pts[i], p3 = pts[i + 1];
+    const p1 = [p0[0] + tan[i][0] / 3, p0[1] + tan[i][1] / 3];
+    const p2 = [p3[0] - tan[i + 1][0] / 3, p3[1] - tan[i + 1][1] / 3];
+    for (let k = 1; k <= CURVE_STEPS; k++) {
+      const t = k / CURVE_STEPS, u = 1 - t;
+      const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+      out.push(k === CURVE_STEPS ? [...p3] : [a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0], a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1]]);
+    }
+  }
+  return out;
+}
+
+/**
+ * Geometry of every line of the system: [{ line, seg, pts:[[x,y]...], ctrl?, branchPoint?, dst }].
+ * `byId` maps block id → block. pts is what is drawn and hit; for a 곡선 line ctrl holds the
+ * points the curve goes through (start, seg.points, end), which is what a new branch splits.
  */
 export function lineGeometry(sys, byId, override = null) {
   const out = [];
@@ -259,21 +300,27 @@ export function lineGeometry(sys, byId, override = null) {
     if (!sb) continue;
     const sp = g(sb).out.find((p) => p.port === line.src.port);
     if (!sp) continue;
+    const style = lineStyleOf(line);
     const rec = (seg, start, startDir, depth) => {
-      let pts;
+      let pts, ctrl = null;
       let dstBlock = null;
+      const via = seg.points && seg.points.length ? seg.points : [];
       if (seg.dst) {
         dstBlock = byId.get(seg.dst.block);
         const dg = dstBlock ? g(dstBlock) : null;
         const dp = dg ? (typeof seg.dst.port === 'string' ? dg.special : dg.in).find((p) => p.port === seg.dst.port) : null;
         if (!dp) return;
-        if (seg.points && seg.points.length) pts = orthoThrough([start, ...seg.points, [dp.x, dp.y]], startDir ? horiz(startDir) : false);
+        if (style === 'straight') pts = simplify([start, ...via, [dp.x, dp.y]]);
+        else if (style === 'curve') { ctrl = simplify([start, ...via, [dp.x, dp.y]]); pts = curveThrough(ctrl, startDir, dp.dir); }
+        else if (via.length) pts = orthoThrough([start, ...via, [dp.x, dp.y]], startDir ? horiz(startDir) : false);
         else if (startDir) pts = routeOrtho({ x: start[0], y: start[1] }, startDir, dp, dp.dir, [sb, dstBlock]);
         else pts = routeFromPoint(start, dp, dp.dir, [sb, dstBlock]);
-      } else {
-        pts = seg.points && seg.points.length ? orthoThrough([start, ...seg.points], startDir ? horiz(startDir) : false) : [start];
-      }
+      } else if (!via.length) pts = [start];
+      else if (style === 'straight') pts = simplify([start, ...via]);
+      else if (style === 'curve') { ctrl = simplify([start, ...via]); pts = curveThrough(ctrl, startDir, null); }
+      else pts = orthoThrough([start, ...via], startDir ? horiz(startDir) : false);
       const item = { line, seg, pts, dst: seg.dst, depth };
+      if (ctrl) item.ctrl = ctrl;
       out.push(item);
       if (seg.branches && seg.branches.length) {
         const bp = pts[pts.length - 1];
@@ -588,7 +635,7 @@ export function drawLines(ctx, items, opts) {
     }
     if (it.branchPoint) { ctx.beginPath(); ctx.arc(it.branchPoint[0], it.branchPoint[1], 2.6, 0, Math.PI * 2); ctx.fill(); }
     if (it.depth === 0 && it.line.name) {
-      const p = it.pts.length > 1 ? [(it.pts[0][0] + it.pts[1][0]) / 2, (it.pts[0][1] + it.pts[1][1]) / 2] : it.pts[0];
+      const p = it.ctrl ? it.pts[Math.floor(it.pts.length / 2)] : it.pts.length > 1 ? [(it.pts[0][0] + it.pts[1][0]) / 2, (it.pts[0][1] + it.pts[1][1]) / 2] : it.pts[0];
       ctx.font = '11px "Segoe UI", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';

@@ -12,7 +12,7 @@ import { getModelExts } from '../lib/files';
 import { LIBRARY, blockDef, portsOf } from '../../core/sim/blocks/index.js';
 import {
   RULER, GRID_BASE, drawGrid, drawRulers, drawBlock, drawLines, lineGeometry, distToPolyline, routeOrtho, routeFromPoint,
-  themeColors, toModel, handlePoints, rateColor,
+  themeColors, toModel, handlePoints, rateColor, LINE_STYLES, LINE_STYLE_ICON, lineStyleOf,
 } from './render';
 import { LibraryPanel, DND_TYPE } from './LibraryPanel';
 import { ScopeWindow } from './ScopeWindow';
@@ -21,7 +21,8 @@ import { SimIcon } from './icons';
 import { ModelCodePane } from './ModelCodePane';
 import { tr, lbl } from './i18n';
 import { Stepper } from '../views/common';
-import { stepZoom, removeSeg, withModelExt as withExt } from './logic.js';
+import { Splitter } from '../components/Layout';
+import { stepZoom, removeSeg, withModelExt as withExt, blockTipInfo, CODE_PANE, codePaneMax } from './logic.js';
 
 const withModelExt = (p) => withExt(p, getModelExts());
 import { openMenu } from '../lib/menu';
@@ -67,6 +68,8 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
   const view = useRef({ zoom: 1, px: 80, py: 70, width: 800, height: 600 });
   const [zoomPct, setZoomPct] = useState(100);
   const [toggles, setToggles] = useState(loadToggles);
+  const [codeW, setCodeW] = useState(() => Number(toggles.codeW) || CODE_PANE.width); // 코드 보기 width, live while the splitter is dragged
+  const bodyRef = useRef(null);
   const undoStack = useRef([]);
   const redoStack = useRef([]);
   const [dirty, setDirtyState] = useState(false);
@@ -318,7 +321,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         let n = 0;
         const put = (o, k, v) => { if (v === undefined) return; if (v == null || v === '') { if (k in o) { delete o[k]; n++; } } else if (o[k] !== v) { o[k] = v; n++; } };
         for (const b of s.blocks) if (want.has(b.id)) { put(b, 'fg', patch.fg); put(b, 'bg', patch.bg); }
-        for (const l of s.lines) if (want.has(l.id)) put(l, 'color', patch.color);
+        for (const l of s.lines) if (want.has(l.id)) { put(l, 'color', patch.color); put(l, 'style', patch.style === 'ortho' ? null : patch.style); }
         if (!n) return false;
       }),
       tune: (id, params) => post({ type: 'sim.tune', name: nameRef.current, block: id, params }),
@@ -525,6 +528,12 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     return out;
   }
 
+  const blockTip = (b, sp) => {
+    const info = blockTipInfo(b, blockDef(b.type), { lbl: (v) => lbl(lang, v), subsystem: L('subsystem') });
+    const w = wrapRef.current ? wrapRef.current.clientWidth : 800;
+    const x = sp.x + 14 + 320 > w ? Math.max(4, sp.x - 14 - 320) : sp.x + 14; // near the right edge: open to the left
+    return { block: b.id, x, y: sp.y + 16, ...info };
+  };
   const onPointerMove = (e) => {
     const sp = screenOf(e);
     const v = view.current;
@@ -545,6 +554,9 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         const name = h.item.line.name;
         if (val || name || w) setTip({ x: sp.x + 14, y: sp.y + 12, text: `${name ? `${name}: ` : ''}${val ? `[${val.slice(0, 8).map((x) => Number(x.toPrecision(5))).join(', ')}${val.length > 8 ? ', …' : ''}]` : ''}${w ? `  (${w.width})` : ''}` });
         else setTip(null);
+      } else if (h.kind === 'block' || h.kind === 'in' || h.kind === 'out') {
+        // hover description on blocks: name, type and what the block does; it stays where it opened until the pointer leaves the block
+        if (!tip || tip.block !== h.block.id) setTip(blockTip(h.block, sp));
       } else if (tip) setTip(null);
       return;
     }
@@ -635,8 +647,9 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         if (!line) return false;
         // find the same segment object again in the (possibly unchanged) model
         const seg = findSegLike(line, it.seg) || line;
-        const pts = it.pts;
-        const idx = Math.max(0, md.idx);
+        // a 곡선 line splits at the points it goes through, not at the samples drawn
+        const pts = it.ctrl || it.pts;
+        const idx = Math.max(0, it.ctrl ? distToPolyline(it.ctrl, md.at[0], md.at[1]).idx : md.idx);
         const P = [Math.round(md.at[0] * 2) / 2, Math.round(md.at[1] * 2) / 2];
         const tailEnd = seg.dst ? pts.length - 1 : pts.length;
         const child = { points: pts.slice(idx + 1, tailEnd).map((p) => [...p]), dst: seg.dst, branches: seg.branches || [] };
@@ -957,6 +970,12 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
       items = [
         { icon: 'settings', label: L('rename'), run: () => setDialog({ kind: 'rename', lineId: id, value: h.item.line.name || '' }) },
         { icon: 'workspace', label: `${L('logSignal')}${h.item.line.log ? ' ✓' : ''}`, run: () => change((mm, s) => { const l = s.lines.find((q) => q.id === id); l.log = !l.log; }) },
+        { sep: true },
+        ...LINE_STYLES.map((st) => ({
+          icon: LINE_STYLE_ICON[st], label: `${L(`line_${st}`)}${lineStyleOf(h.item.line) === st ? ' ✓' : ''}`,
+          run: () => change((mm, s) => { const l = s.lines.find((q) => q.id === id); if (!l || lineStyleOf(l) === st) return false; if (st === 'ortho') delete l.style; else l.style = st; }),
+        })),
+        { sep: true },
         ...sys().blocks.filter((b) => b.type === 'FloatingScope').map((fs) => ({
           icon: 'scope', label: `${L('addScope')}: ${fs.name}`,
           run: () => change((mm, s) => {
@@ -1042,7 +1061,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         <span className="sim-sep" />
         <TB icon="settings" label={L('settings')} title={L('settings_tip')} onClick={() => setDialog({ kind: 'settings' })} />
       </div>
-      <div className="sim-body">
+      <div className="sim-body" ref={bodyRef}>
         {toggles.library && !externalLibrary && <MemoLibrary lang={lang} onAdd={(it) => addItem(it)} width={232} />}
         <div className="sim-main">
           <div className="sim-crumbs">
@@ -1061,7 +1080,12 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
           <div ref={wrapRef} className="sim-canvas-wrap" onDragOver={onDragOver} onDrop={onDrop}>
             <canvas ref={canvasRef} className="sim-canvas" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
               onPointerLeave={() => { cursor.current = null; setTip(null); setHot(null); requestDraw(); }} onDoubleClick={onDoubleClick} onContextMenu={onContextMenu} />
-            {tip && <div className="sim-tip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>}
+            {tip && (tip.block ? (
+              <div className="sim-tip sim-tip-block" data-tip="block" style={{ left: tip.x, top: tip.y }}>
+                <div className="sim-tip-title"><strong>{tip.title}</strong>{tip.sub && <span className="sim-tip-sub">{tip.sub}</span>}</div>
+                {tip.text && <div className="sim-tip-desc">{tip.text}</div>}
+              </div>
+            ) : <div className="sim-tip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>)}
             {menu && (
               <div className="sim-menu" style={{ left: menu.x, top: menu.y }} onPointerDown={(e) => e.stopPropagation()}>
                 {menu.items.map((it, i) => (it.sep ? <div key={i} className="sim-menu-sep" /> : (
@@ -1123,7 +1147,12 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
           )}
         </div>
         {toggles.code && (
-          <ModelCodePane engine={engine} model={modelRef.current} rev={rev} name={nameRef.current} lang={lang} running={status.state === 'running' || status.state === 'paused'}
+          <Splitter axis="x" dir={-1} value={codeW} min={CODE_PANE.min} label={L('code_title')}
+            max={codePaneMax(bodyRef.current ? bodyRef.current.clientWidth : 1200, toggles.library && !externalLibrary ? 232 : 0)}
+            onChange={setCodeW} onCommit={(w) => setToggles((t) => ({ ...t, codeW: w }))} />
+        )}
+        {toggles.code && (
+          <ModelCodePane engine={engine} width={codeW} model={modelRef.current} rev={rev} name={nameRef.current} lang={lang} running={status.state === 'running' || status.state === 'paused'}
             onOpenScript={onOpenScript} onClose={() => toggle('code')} />
         )}
       </div>

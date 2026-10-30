@@ -81,6 +81,7 @@ function emitSystem(sys, parts, lines, notes) {
     lines.push(`add_line(${pathExpr(parts)}, ${q(`${escapeName(a.name)}/${port(c.src.port)}`)}, ${q(`${escapeName(d.name)}/${port(c.dst.port)}`)});`);
     if (c.name) notes.add(`signal names (${c.name})`);
     if (c.line.color) notes.add('line colours');
+    if (c.line.style) notes.add('line shapes');
   }
   if ((sys.notes || []).length) notes.add('notes');
 }

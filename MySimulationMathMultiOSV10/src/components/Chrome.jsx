@@ -173,6 +173,9 @@ const PATHS = {
   mask: <><path d="M3 8c3-3 15-3 18 0 0 6-4 10-9 10S3 14 3 8z" /><circle cx="8.5" cy="10" r="1.5" /><circle cx="15.5" cy="10" r="1.5" /></>,
   scope: <><rect x="3" y="4" width="18" height="14" rx="2" /><path d="M5 13c2-5 4-5 6 0s4 5 6 0" /><path d="M9 21h6" /></>,
   workspace: <><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></>,
+  lineOrtho: <><path d="M4 18h7V6h9" /><circle cx="4" cy="18" r="1.5" /><circle cx="20" cy="6" r="1.5" /></>,
+  lineStraight: <><path d="M4 18 20 6" /><circle cx="4" cy="18" r="1.5" /><circle cx="20" cy="6" r="1.5" /></>,
+  lineCurve: <><path d="M4 18c8 0 8-12 16-12" /><circle cx="4" cy="18" r="1.5" /><circle cx="20" cy="6" r="1.5" /></>,
 };
 
 export const ICON_NAMES = Object.keys(PATHS);

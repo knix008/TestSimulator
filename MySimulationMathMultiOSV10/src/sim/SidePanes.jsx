@@ -12,6 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { systemAt } from '../../core/sim/model.js';
 import { blockDef } from '../../core/sim/blocks/index.js';
 import { LibraryPanel } from './LibraryPanel';
+import { LINE_STYLES, LINE_STYLE_ICON, lineStyleOf } from './render';
 import { ParamField, maskParamDefs, SOLVERS } from './dialogs';
 import { IconSelect } from '../views/common';
 import { Icon } from '../components/Chrome';
@@ -106,6 +107,24 @@ function ColorRow({ label, value, fill, onPick, lang }) {
   );
 }
 
+/** 선 모양 of the picked lines: 꺾은 선 / 직선 / 곡선 (none lit when they differ). */
+const sameStyle = (lines) => { const v = lines.map(lineStyleOf); return v.every((x) => x === v[0]) ? v[0] : undefined; };
+function LineStyleRow({ value, onPick, lang }) {
+  return (
+    <div className="sim-color-row">
+      <span className="small">{tr(lang, 'line_style')}</span>
+      <div className="sim-line-styles" role="radiogroup" aria-label={tr(lang, 'line_style')}>
+        {LINE_STYLES.map((st) => (
+          <button key={st} type="button" role="radio" aria-checked={value === st} data-style={st} className={`sim-line-style ${value === st ? 'on' : ''}`}
+            title={tr(lang, `line_${st}`)} onClick={() => onPick(st)}>
+            <Icon name={LINE_STYLE_ICON[st]} size={16} /><span>{tr(lang, `line_${st}`)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The colours of the picked blocks (outline+icon, fill) and lines; one value when they agree. */
 function StyleSection({ api, blocks, lines, lang }) {
   const same = (list, k) => { const v = list.map((o) => o[k] || null); return v.every((x) => x === v[0]) ? v[0] : undefined; };
@@ -116,6 +135,7 @@ function StyleSection({ api, blocks, lines, lang }) {
       {blocks.length > 0 && <ColorRow label={tr(lang, 'color_fg')} value={same(blocks, 'fg')} lang={lang} onPick={(v) => api.setStyle(ids, { fg: v })} />}
       {blocks.length > 0 && <ColorRow label={tr(lang, 'color_bg')} value={same(blocks, 'bg')} fill lang={lang} onPick={(v) => api.setStyle(ids, { bg: v })} />}
       {lines.length > 0 && <ColorRow label={tr(lang, 'color_line')} value={same(lines, 'color')} lang={lang} onPick={(v) => api.setStyle(ids, { color: v })} />}
+      {lines.length > 0 && <LineStyleRow value={sameStyle(lines)} lang={lang} onPick={(v) => api.setStyle(lines.map((l) => l.id), { style: v })} />}
     </div>
   );
 }

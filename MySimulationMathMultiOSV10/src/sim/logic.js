@@ -11,6 +11,23 @@ export function withModelExt(p, exts = ['.smdl']) {
   return exts.some((e) => name.endsWith(e.toLowerCase()) && name.length > e.length) ? s : `${s}${exts[0]}`;
 }
 
+/**
+ * The hover description of a block on the canvas: its name, its kind (mask type, 서브시스템 or the
+ * library label, left out when it repeats the name) and what it does (mask description or the
+ * library description). def = blockDef(block.type); label / desc are [en, ko] or text, read with lbl.
+ */
+export function blockTipInfo(block, def, { lbl, subsystem }) {
+  const m = block.mask || null;
+  const type = m && m.type ? m.type : block.system ? subsystem : def ? lbl(def.label) : block.type;
+  const text = m && m.description ? m.description : def ? lbl(def.desc) || '' : '';
+  return { title: block.name, sub: type && type !== block.name ? type : '', text };
+}
+
+/** 코드 보기 width limits: at least `min`, and the canvas beside it keeps `canvasMin` (libW: the library column, 0 when hidden). */
+export const CODE_PANE = { min: 240, width: 440, canvasMin: 200 };
+export const codePaneMax = (bodyW, libW = 0) => Math.max(CODE_PANE.min, Math.round(bodyW - libW - CODE_PANE.canvasMin));
+export const codePaneWidth = (w, bodyW, libW = 0) => Math.max(CODE_PANE.min, Math.min(codePaneMax(bodyW, libW), Math.round(Number(w) || CODE_PANE.width)));
+
 /** Removes a segment (branch) from a line; returns false when the whole line went away. */
 export function removeSeg(line, target) {
   if (line === target) return false;

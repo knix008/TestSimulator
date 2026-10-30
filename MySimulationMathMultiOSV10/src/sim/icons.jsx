@@ -59,6 +59,9 @@ const P = {
   function: <><path d="M14 4h-2a3 3 0 0 0-3 3v13M6 11h7" /><path d="m15 13 5 6M20 13l-5 6" /></>,
   attributes: <><path d="M4 4h7l9 9-7 7-9-9z" /><circle cx="8" cy="8" r="1.5" /></>,
   verify: <><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" /><path d="m8.5 12 2.5 2.5L16 9.5" /></>,
+  lineOrtho: <><path d="M4 18h7V6h9" /><circle cx="4" cy="18" r="1.5" /><circle cx="20" cy="6" r="1.5" /></>,
+  lineStraight: <><path d="M4 18 20 6" /><circle cx="4" cy="18" r="1.5" /><circle cx="20" cy="6" r="1.5" /></>,
+  lineCurve: <><path d="M4 18c8 0 8-12 16-12" /><circle cx="4" cy="18" r="1.5" /><circle cx="20" cy="6" r="1.5" /></>,
 };
 
 export function SimIcon({ name, size = 16, className }) {

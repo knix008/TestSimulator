@@ -10,7 +10,7 @@ import { modelToCode } from '../../core/sim/codegen.js';
 import { SimIcon } from './icons';
 import { tr } from './i18n';
 
-export function ModelCodePane({ engine, model, rev, name, running, lang, onOpenScript, onClose }) {
+export function ModelCodePane({ engine, model, rev, name, running, lang, width, onOpenScript, onClose }) {
   const L = (k, v) => tr(lang, k, v);
   const host = useRef(null);
   const ed = useRef(null);
@@ -71,7 +71,7 @@ export function ModelCodePane({ engine, model, rev, name, running, lang, onOpenS
   applyRef.current = apply;
 
   return (
-    <div className="sim-code" data-pane="model-code">
+    <div className="sim-code" data-pane="model-code" style={width ? { flexBasis: width } : undefined}>
       <div className="sim-code-head">
         <SimIcon name="function" size={14} /><strong>{L('code_title')}</strong>
         {edited && <span className="sim-code-edited" title={L('code_edited_tip')}>● {L('code_edited')}</span>}
