@@ -4,7 +4,7 @@
 // can reuse them. Node format: core/graphics/PROTOCOL.md.
 import * as THREE from 'three';
 import { drawTex } from './text.js';
-import { rgbCss } from './theme.js';
+import { rgbCss, faceColoured } from './theme.js';
 import { mapColor } from '../../core/graphics/colormaps.js';
 import { ticksFor, tickLabels, maxTicksFor } from '../../core/graphics/ticks.js';
 import { createGroundGrid, updateGroundGrid } from './grid3d.js';
@@ -154,7 +154,7 @@ export class Axes3DView {
     this.zoomF = 1;
     this.target = new THREE.Vector3();
     this.ax = null; this.fig = null;
-    this.opts = { theme: null, grid: true, gridAtZero: false, lighting: true, defaultLight: null, axesLines: true };
+    this.opts = { theme: null, grid: true, gridAtZero: false, lighting: true, defaultLight: null, axesLines: true, edges: true };
     this.axisGroup = new THREE.Group();
     this.scene.add(this.axisGroup);
     this.axisTips = [];
@@ -178,7 +178,7 @@ export class Axes3DView {
 
   setOptions(o = {}) {
     Object.assign(this.opts, o);
-    const key = summarise({ t: this.opts.theme && [this.opts.theme.name, this.opts.theme.fg, this.opts.theme.axes, this.opts.theme.grid, this.opts.theme.dark], l: !!this.opts.lighting });
+    const key = summarise({ t: this.opts.theme && [this.opts.theme.name, this.opts.theme.fg, this.opts.theme.axes, this.opts.theme.grid, this.opts.theme.dark], l: !!this.opts.lighting, e: this.opts.edges !== false });
     if (key !== this.optKey) { this.optKey = key; this.clearCache(); if (this.ax) this.rebuild(); }
     this.boxViewKey = '';
   }
@@ -449,7 +449,7 @@ export class Axes3DView {
   }
 
   buildSurface(n) {
-    const p = n.props;
+    const p = faceColoured(n.props, this.opts.edges);
     const Z = matData(p.ZData);
     const [m, nn] = matDims(p.ZData);
     if (!(m >= 1 && nn >= 1)) return null;
@@ -523,7 +523,7 @@ export class Axes3DView {
     }
     // edges
     const ec = p.EdgeColor;
-    if (ec !== 'none' && p.LineStyle !== 'none') {
+    if (ec !== 'none' && p.LineStyle !== 'none' && (this.opts.edges !== false || p.FaceColor === 'none')) {
       const seg = [], col = [];
       const style = p.MeshStyle || 'both';
       const push = (a, ia, ja, b, ib, jb) => {
@@ -559,7 +559,7 @@ export class Axes3DView {
   }
 
   buildPatch(n) {
-    const p = n.props;
+    const p = faceColoured(n.props, this.opts.edges);
     const V = matData(p.Vertices), [nv, vd] = matDims(p.Vertices);
     const F = matData(p.Faces), [nf, fk] = matDims(p.Faces);
     if (!nv || !nf) return null;
@@ -606,7 +606,7 @@ export class Axes3DView {
       }
     }
     const ec = p.EdgeColor;
-    if (ec !== 'none' && p.LineStyle !== 'none') {
+    if (ec !== 'none' && p.LineStyle !== 'none' && (this.opts.edges !== false || p.FaceColor === 'none')) {
       const seg = [], col = [];
       faces.forEach((ids, f) => {
         const L = ids.length;
@@ -1083,6 +1083,8 @@ export class Axes3DView {
     g.save();
     g.translate(ox, oy);
     const visible = p.Visible !== false;
+    // axis text sits on top of the grid plane and the box: a halo of the axes background keeps it readable
+    const halo = rgbCss(th.axes || (th.dark ? [0.07, 0.09, 0.11] : [1, 1, 1]), 0.9);
     if (visible) {
       const E = this.labelEdges();
       const T = this.tickInfo();
@@ -1111,13 +1113,13 @@ export class Axes3DView {
           const { s, dx, dy } = place(w);
           const align = dx < -0.35 ? 'right' : dx > 0.35 ? 'left' : 'center';
           const valign = dy > 0.35 ? 'top' : dy < -0.35 ? 'bottom' : 'middle';
-          const r = drawTex(g, T[k].labels[i] || '', s.x, s.y, { size, color: css, align, valign });
+          const r = drawTex(g, T[k].labels[i] || '', s.x, s.y, { size, color: css, align, valign, halo });
           far = Math.max(far, align === 'center' ? r.height : r.width);
         });
         if (T[k].exponent && !endOn) {
           const w = new THREE.Vector3(...e.b.map((x, j) => x + e.out[j] * off * 2.5));
           const s = this.projectWorld(w);
-          drawTex(g, `\\times10^{${T[k].exponent}}`, s.x, s.y, { size, color: css, align: 'center', valign: 'middle' });
+          drawTex(g, `\\times10^{${T[k].exponent}}`, s.x, s.y, { size, color: css, align: 'center', valign: 'middle', halo });
         }
         // axis label
         const lab = p[['XLabel', 'YLabel', 'ZLabel'][k]];
@@ -1128,13 +1130,13 @@ export class Axes3DView {
           const dist = far + 8;
           const lc = this.colorProp(lab, 'Color', th.fg);
           const lsz = (lab.props.FontSize || fs * 1.1) * 1.2;
-          if (k === 2) drawTex(g, lab.props.String, s.x + dx * dist - lsz * 0.2, s.y, { size: lsz, color: rgbCss(isRgb(lc) ? lc : th.fg), align: 'center', valign: 'bottom', rotation: 90, interpreter: lab.props.Interpreter });
+          if (k === 2) drawTex(g, lab.props.String, s.x + dx * dist - lsz * 0.2, s.y, { size: lsz, color: rgbCss(isRgb(lc) ? lc : th.fg), align: 'center', valign: 'bottom', rotation: 90, interpreter: lab.props.Interpreter, halo });
           else {
             // rotate x/y labels along their edge direction (screen)
             const sa = this.projectWorld(new THREE.Vector3(...e.a)), sb = this.projectWorld(new THREE.Vector3(...e.b));
             let ang = (-Math.atan2(sb.y - sa.y, sb.x - sa.x) * 180) / Math.PI;
             if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
-            drawTex(g, lab.props.String, s.x + dx * (dist + lsz * 0.6), s.y + dy * (dist + lsz * 0.6), { size: lsz, color: rgbCss(isRgb(lc) ? lc : th.fg), align: 'center', valign: 'middle', rotation: ang, interpreter: lab.props.Interpreter });
+            drawTex(g, lab.props.String, s.x + dx * (dist + lsz * 0.6), s.y + dy * (dist + lsz * 0.6), { size: lsz, color: rgbCss(isRgb(lc) ? lc : th.fg), align: 'center', valign: 'middle', rotation: ang, interpreter: lab.props.Interpreter, halo });
           }
         }
       }
@@ -1157,7 +1159,6 @@ export class Axes3DView {
     }
     // coordinate axes: billboard labels at the positive tips, and the orientation triad
     if (visible && this.opts.axesLines) {
-      const halo = rgbCss(th.axes || (th.dark ? [0.07, 0.09, 0.11] : [1, 1, 1]), 0.78);
       for (const t of this.axisTips) {
         const s = this.projectWorld(t.world);
         if (![s.x, s.y].every(fin)) continue;

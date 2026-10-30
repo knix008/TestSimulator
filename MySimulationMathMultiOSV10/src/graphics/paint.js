@@ -10,13 +10,13 @@ import { bytesToBase64, deflate, rgbaToRgb, buildPdf, blobBytes, encodeGif, setP
 import { formatInfo, outputSize, clampRect } from './exportopts.js';
 
 /**
- * o: { theme, views (Map axId → {XLim, YLim}), grid5, grid3d, background,
+ * o: { theme, views (Map axId → {XLim, YLim}), grid5, grid3d, edges, background,
  *      dpr, views3d (Map axId → Axes3DView, kept; null = temporary views),
  *      state3d (Map axId → {zoomF, target}), lightOpts(ax) → render3d options }
  * Returns the layout (items carry their mapper / 3D view).
  */
 export function paintFigure(ctx, fig, W, H, o) {
-  const opts = { theme: o.theme, views: o.views || new Map(), grid5: !!o.grid5, background: o.background, view3d: new Map() };
+  const opts = { theme: o.theme, views: o.views || new Map(), grid5: !!o.grid5, edges: o.edges !== false, background: o.background, view3d: new Map() };
   const layout = computeLayout(ctx, fig, W, H, opts.views);
   opts.layout = layout;
   drawFigure(ctx, fig, W, H, opts, 'base');
@@ -35,7 +35,7 @@ export function paintFigure(ctx, fig, W, H, o) {
     const w = Math.max(1, Math.round(it.region.w)), h = Math.max(1, Math.round(it.region.h));
     if (v._sz !== `${w}x${h}@${dpr}`) { v.setSize(w, h, dpr); v._sz = `${w}x${h}@${dpr}`; }
     const lo = o.lightOpts ? o.lightOpts(ax) : { lighting: false };
-    v.setOptions({ theme: o.theme, grid: !!o.grid3d, axesLines: o.axesLines !== false, ...lo });
+    v.setOptions({ theme: o.theme, grid: !!o.grid3d, axesLines: o.axesLines !== false, edges: o.edges !== false, ...lo });
     if (v._node !== ax) {
       v.setAxes(ax, fig);
       v._node = ax;

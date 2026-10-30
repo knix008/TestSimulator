@@ -2,7 +2,7 @@
 // recorder): layout, cartesian / polar axes, every 2D object type, legends,
 // colorbars, heatmaps, annotations, the 5×5 grid and the rulers.
 import { drawTex, measureTex, linesOf } from './text.js';
-import { rgbCss, mix } from './theme.js';
+import { rgbCss, mix, faceColoured } from './theme.js';
 import { gridStepFor, logGridLines } from './grid.js';
 import { ticksFor, tickLabels, maxTicksFor, minorTicks, dateTicks, niceNum } from '../../core/graphics/ticks.js';
 import { mapColor } from '../../core/graphics/colormaps.js';
@@ -342,7 +342,7 @@ function drawAxes2D(ctx, it, opts) {
   ctx.save();
   ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
   const cmap = cmapRows(p.Colormap);
-  const cctx = { m, cmap, clim: p.CLim, theme, ax, fs };
+  const cctx = { m, cmap, clim: p.CLim, theme, ax, fs, edges: opts.edges !== false };
   for (const c of ax.children.slice().reverse()) drawChild2D(ctx, c, cctx);
   ctx.restore();
   // unclipped children (text with Clipping off)
@@ -512,6 +512,9 @@ function drawMarkers(ctx, xs, ys, m, p, base) {
 }
 const arr = (M) => (M ? M.data : []);
 
+/** Edge lines of a filled object; the toolbar's Edges toggle hides them (wireframes with no face keep theirs). */
+const edgesShown = (p, cctx) => p.EdgeColor !== 'none' && (cctx.edges !== false || p.FaceColor === 'none');
+
 export function drawChild2D(ctx, c, cctx) {
   const p = c.props;
   if (p.Visible === false) return;
@@ -574,7 +577,7 @@ export function drawChild2D(ctx, c, cctx) {
     case 'bar': case 'histogram': {
       const rects = p.Rects || [];
       const fcBase = p.FaceColor === 'auto' ? cctx.theme.accent : p.FaceColor;
-      const ec = p.EdgeColor === 'none' ? null : p.EdgeColor === 'auto' || p.EdgeColor === 'flat' ? rgbCss(cctx.theme.fg) : rgbCss(p.EdgeColor);
+      const ec = !edgesShown(p, cctx) ? null : p.EdgeColor === 'auto' || p.EdgeColor === 'flat' ? rgbCss(cctx.theme.fg) : rgbCss(p.EdgeColor);
       const alpha = p.FaceAlpha ?? 1;
       for (const r of rects) {
         const x0 = m.x(r[0]), x1 = m.x(r[2]), y0 = m.y(r[1]), y1 = m.y(r[3]);
@@ -607,7 +610,7 @@ export function drawChild2D(ctx, c, cctx) {
       for (let i = X.length - 1; i >= 0; i--) ctx.lineTo(m.x(X[i]), m.y(lo[i]));
       ctx.closePath();
       if (p.FaceColor !== 'none') { ctx.fillStyle = rgbCss(p.FaceColor === 'flat' ? cctx.theme.accent : p.FaceColor, p.FaceAlpha ?? 1); ctx.fill(); }
-      if (p.EdgeColor !== 'none' && p.LineStyle !== 'none') { polyline(ctx, X, up, m); strokeStyle(ctx, rgbCss(p.EdgeColor), p.LineStyle, p.LineWidth); ctx.stroke(); ctx.setLineDash([]); }
+      if (edgesShown(p, cctx) && p.LineStyle !== 'none') { polyline(ctx, X, up, m); strokeStyle(ctx, rgbCss(p.EdgeColor), p.LineStyle, p.LineWidth); ctx.stroke(); ctx.setLineDash([]); }
       break;
     }
     case 'patch': drawPatch2D(ctx, c, cctx); break;
@@ -709,11 +712,11 @@ function patchFaceColor(p, cctx, f, verts) {
 }
 
 function drawPatch2D(ctx, c, cctx) {
-  const p = c.props, m = cctx.m;
+  const p = faceColoured(c.props, cctx.edges), m = cctx.m;
   const V = p.Vertices, F = p.Faces;
   if (!V || !F) return;
   const nv = V.dims[0], [nf, k] = F.dims;
-  const ec = p.EdgeColor === 'none' ? null : p.EdgeColor === 'flat' || p.EdgeColor === 'interp' ? rgbCss(cctx.theme.fg) : rgbCss(p.EdgeColor);
+  const ec = !edgesShown(p, cctx) ? null : p.EdgeColor === 'flat' || p.EdgeColor === 'interp' ? rgbCss(cctx.theme.fg) : rgbCss(p.EdgeColor);
   for (let f = 0; f < nf; f++) {
     const verts = [];
     for (let j = 0; j < k; j++) { const v = matAt(F, f, j); if (finite(v) && v >= 1 && v <= nv) verts.push(v - 1); }
@@ -728,7 +731,7 @@ function drawPatch2D(ctx, c, cctx) {
 }
 
 function drawSurface2D(ctx, c, cctx) {
-  const p = c.props, m = cctx.m;
+  const p = faceColoured(c.props, cctx.edges), m = cctx.m;
   const Z = p.ZData;
   if (!Z) return;
   const [rows, cols] = Z.dims;
@@ -738,7 +741,7 @@ function drawSurface2D(ctx, c, cctx) {
   const C = p.CData || Z;
   const truecolor = C.dims.length === 3;
   const colAt = (i, j) => truecolor ? rgbCss([matAt(C, i, j), C.data[i + j * rows + rows * cols], C.data[i + j * rows + 2 * rows * cols]]) : colorFromCData(cctx, matAt(C, i, j));
-  const ec = p.EdgeColor === 'none' ? null : Array.isArray(p.EdgeColor) ? rgbCss(p.EdgeColor) : 'flat';
+  const ec = !edgesShown(p, cctx) ? null : Array.isArray(p.EdgeColor) ? rgbCss(p.EdgeColor) : 'flat';
   for (let j = 0; j < cols - 1; j++) for (let i = 0; i < rows - 1; i++) {
     const pts = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]];
     ctx.beginPath();

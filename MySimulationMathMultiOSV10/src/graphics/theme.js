@@ -50,3 +50,13 @@ export function readTheme() {
     accent, ruler: elev, rulerText: muted, rulerLine: border,
   };
 }
+
+/**
+ * Props of a surface / patch drawn with the Edges toggle off. A mesh keeps its
+ * colours in the edges (EdgeColor 'flat' / 'interp' over a solid face), so the
+ * faces take that colouring instead of turning into a plain white sheet.
+ */
+export function faceColoured(p, edgesOn) {
+  if (edgesOn !== false || !Array.isArray(p.FaceColor) || (p.EdgeColor !== 'flat' && p.EdgeColor !== 'interp')) return p;
+  return { ...p, FaceColor: p.EdgeColor, EdgeColor: 'none' };
+}

@@ -12,6 +12,8 @@
 //   { type: 'variable.set', id, name, value } → { type: 'reply', id, data }
 //   { type: 'clear', id, names }              → { type: 'reply', id, data }
 //   { type: 'help', id, name }                → { type: 'reply', id, data }
+//   { type: 'catalog', id }                   → { type: 'reply', id, data }
+//   { type: 'check', id, src, file }          → { type: 'reply', id, data }
 //   { type: 'breakpoints', file, lines }      (no answer)
 //   anything else (graphics.*, sim.* …)      → session.handleMessage(msg)
 // engine → GUI: out, done, reply, event, request (from host), graphics.* / sim.* (host.post).
@@ -115,6 +117,12 @@ export function createEngineCore({ post, createSession, fs, host, interruptFlag 
         return;
       case 'help':
         reply(msg.id, () => (session && typeof session.help === 'function' ? session.help(String(msg.name || '')) : null));
+        return;
+      case 'catalog':
+        reply(msg.id, () => (session && typeof session.catalog === 'function' ? session.catalog() : []));
+        return;
+      case 'check':
+        reply(msg.id, () => (session && typeof session.check === 'function' ? session.check(String(msg.src || ''), { file: msg.file || undefined }) : []));
         return;
       case 'help.search':
         reply(msg.id, () => (session && typeof session.helpSearch === 'function' ? session.helpSearch(String(msg.query || ''), msg.limit) : []));

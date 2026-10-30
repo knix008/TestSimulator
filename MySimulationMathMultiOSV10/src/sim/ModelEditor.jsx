@@ -8,6 +8,7 @@ import {
   newModel, makeBlock, uniqueName, reassignIds, systemAt, connections, detachBlock, connect, portGeometry, systemBounds,
   modelNameOfPath, clone, newSystem, normalizeModel,
 } from '../../core/sim/model.js';
+import { getModelExts } from '../lib/files';
 import { LIBRARY, blockDef, portsOf } from '../../core/sim/blocks/index.js';
 import {
   RULER, GRID_BASE, drawGrid, drawRulers, drawBlock, drawLines, lineGeometry, distToPolyline, routeOrtho, routeFromPoint,
@@ -17,9 +18,12 @@ import { LibraryPanel, DND_TYPE } from './LibraryPanel';
 import { ScopeWindow } from './ScopeWindow';
 import { BlockDialog, SettingsDialog, MaskEditor, SimDialog, DialogVisible } from './dialogs';
 import { SimIcon } from './icons';
+import { ModelCodePane } from './ModelCodePane';
 import { tr, lbl } from './i18n';
 import { Stepper } from '../views/common';
-import { stepZoom, removeSeg } from './logic.js';
+import { stepZoom, removeSeg, withModelExt as withExt } from './logic.js';
+
+const withModelExt = (p) => withExt(p, getModelExts());
 import { openMenu } from '../lib/menu';
 import { usePopupWindows } from '../lib/popups';
 import { publishSimEditor, withdrawSimEditor } from './editorApi';
@@ -45,7 +49,7 @@ function fmtTime(t) {
 
 // externalLibrary: the app shows the block library in its left side panel (the column here is hidden);
 // onLibrary: the toolbar's 라이브러리 button then asks the app to show that panel.
-export function ModelEditor({ engine, path, modelName, docId, defaults, lang = 'ko', active = true, onDirty, onTitle, onSaveAs, onPath, onNew, onOpen, externalLibrary = false, onLibrary }) {
+export function ModelEditor({ engine, path, modelName, docId, defaults, lang = 'ko', active = true, onDirty, onTitle, onSaveAs, onPath, onNew, onOpen, externalLibrary = false, onLibrary, onOpenScript }) {
   const L = (k, v) => tr(lang, k, v);
   const rootRef = useRef(null);
   const wrapRef = useRef(null);
@@ -55,7 +59,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
   if (!modelRef.current) modelRef.current = newModel(modelName || modelNameOfPath(path || 'untitled'));
   const nameRef = useRef(modelRef.current.name);
   const pathRef = useRef(path || '');
-  const [, setRev] = useState(0);
+  const [rev, setRev] = useState(0);
   const bump = useCallback(() => setRev((r) => r + 1), []);
   const [crumbs, setCrumbs] = useState([]);
   const [sel, setSel] = useState(() => new Set());
@@ -308,6 +312,14 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         const ps = params || b.params;
         if (nm === b.name && JSON.stringify(ps) === JSON.stringify(b.params)) return false;
         b.params = ps; b.name = nm;
+      }),
+      setStyle: (ids, patch) => change((mm, s) => {
+        const want = new Set(ids);
+        let n = 0;
+        const put = (o, k, v) => { if (v === undefined) return; if (v == null || v === '') { if (k in o) { delete o[k]; n++; } } else if (o[k] !== v) { o[k] = v; n++; } };
+        for (const b of s.blocks) if (want.has(b.id)) { put(b, 'fg', patch.fg); put(b, 'bg', patch.bg); }
+        for (const l of s.lines) if (want.has(l.id)) put(l, 'color', patch.color);
+        if (!n) return false;
       }),
       tune: (id, params) => post({ type: 'sim.tune', name: nameRef.current, block: id, params }),
       setSettings: (patch) => change((mm) => { const next = { ...mm.settings, ...patch }; if (JSON.stringify(next) === JSON.stringify(mm.settings)) return false; mm.settings = next; }),
@@ -824,6 +836,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     if (as || !hasDir) {
       if (onSaveAs) {
         p = await onSaveAs(nameRef.current); if (!p) return false;
+        p = withModelExt(p);
         // The editor's own path first, then the tab's: the tab's new path must not make the
         // editor load that file (it does not exist yet, so the model would come back empty).
         pathRef.current = p;
@@ -1025,6 +1038,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         <TB icon="rulers" label={L('rulers')} title={L('rulers_tip')} on={toggles.rulers} onClick={() => toggle('rulers')} />
         <TB icon="colors" label={L('stColors')} title={L('st_tip')} on={toggles.rates} onClick={() => { toggle('rates'); if (!toggles.rates) compile(); }} />
         <TB icon="library" label={L('library')} title={L('lib_tip')} on={externalLibrary || toggles.library} onClick={() => (externalLibrary && onLibrary ? onLibrary() : toggle('library'))} />
+        <TB icon="function" label={L('code')} title={L('code_tip')} on={!!toggles.code} onClick={() => toggle('code')} />
         <span className="sim-sep" />
         <TB icon="settings" label={L('settings')} title={L('settings_tip')} onClick={() => setDialog({ kind: 'settings' })} />
       </div>
@@ -1032,7 +1046,12 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         {toggles.library && !externalLibrary && <MemoLibrary lang={lang} onAdd={(it) => addItem(it)} width={232} />}
         <div className="sim-main">
           <div className="sim-crumbs">
-            <button type="button" className={`sim-crumb ${crumbs.length ? '' : 'on'}`} onClick={() => setCrumbs([])}><SimIcon name="home" size={13} /><span>{nameRef.current}{dirty ? ' *' : ''}</span></button>
+            {/* The model's name as the canvas title: tag, name, and the file it lives in (or 저장 안 됨). */}
+            <button type="button" className={`sim-crumb sim-crumb-model ${crumbs.length ? '' : 'on'}`} onClick={() => setCrumbs([])} title={pathRef.current || L('crumb_unsaved')}>
+              <SimIcon name="diag" size={16} /><span className="sim-crumb-tag">{L('crumb_model')}</span><span className="sim-crumb-name">{nameRef.current}</span>
+              {dirty && <span className="sim-crumb-dirty" title={L('crumb_dirty')}>●</span>}
+              <span className="sim-crumb-file">{pathRef.current ? pathRef.current.replace(/^.*[\\/]/, '') : L('crumb_unsaved')}</span>
+            </button>
             {crumbBlocks.map((b, i) => (
               <React.Fragment key={b.id}><SimIcon name="chevronRight" size={12} />
                 <button type="button" className={`sim-crumb ${i === crumbBlocks.length - 1 ? 'on' : ''}`} onClick={() => setCrumbs(crumbs.slice(0, i + 1))}><SimIcon name="subsystem" size={13} /><span>{b.name}</span></button>
@@ -1085,7 +1104,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
                 onOk={(v) => change((mm, s) => { const l = s.lines.find((x) => x.id === dialog.lineId); if (!l || l.name === v) return false; l.name = v; })} />
             )}
             {dialog && dialog.kind === 'saveas' && (
-              <TextDialog lang={lang} title={L('savePath')} icon="save" value={dialog.value} wide onClose={() => setDialog(null)} onOk={(v) => { if (v.trim()) doSave(v.trim()); }} />
+              <TextDialog lang={lang} title={L('savePath')} icon="save" value={dialog.value} wide onClose={() => setDialog(null)} onOk={(v) => { if (v.trim()) doSave(withModelExt(v)); }} />
             )}
             </DialogVisible.Provider>
           </div>
@@ -1103,6 +1122,10 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
             </div>
           )}
         </div>
+        {toggles.code && (
+          <ModelCodePane engine={engine} model={modelRef.current} rev={rev} name={nameRef.current} lang={lang} running={status.state === 'running' || status.state === 'paused'}
+            onOpenScript={onOpenScript} onClose={() => toggle('code')} />
+        )}
       </div>
       <div className="sim-status">
         <span className="sim-sitem"><SimIcon name="zoomIn" size={12} />{L('zoom')} {zoomPct}%</span>

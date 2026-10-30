@@ -1,0 +1,275 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_open_closed",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "6",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "Step",
+    "name": "Step",
+    "x": 40,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Time": "0",
+     "Before": "0",
+     "After": "1",
+     "SampleTime": "0"
+    },
+    "showName": true
+   },
+   {
+    "id": "b2",
+    "type": "TransferFcn",
+    "name": "Open loop",
+    "x": 320,
+    "y": 50,
+    "w": 100,
+    "h": 46,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Numerator": "[1]",
+     "Denominator": "[1 1]",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "Sum",
+    "name": "Error",
+    "x": 180,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Inputs": "|+-",
+     "IconShape": "rectangular"
+    },
+    "showName": true
+   },
+   {
+    "id": "b4",
+    "type": "Gain",
+    "name": "K",
+    "x": 320,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Gain": "5",
+     "Multiplication": "Element-wise(K.*u)"
+    },
+    "showName": true
+   },
+   {
+    "id": "b5",
+    "type": "TransferFcn",
+    "name": "Closed loop",
+    "x": 460,
+    "y": 145,
+    "w": 100,
+    "h": 46,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Numerator": "[1]",
+     "Denominator": "[1 1]",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b6",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 740,
+    "y": 50,
+    "w": 40,
+    "h": 84,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "3",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l7",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b2",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b3",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b6",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l8",
+    "src": {
+     "block": "b3",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b4",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l9",
+    "src": {
+     "block": "b4",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b5",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l10",
+    "src": {
+     "block": "b5",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b3",
+       "port": 2
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b6",
+       "port": 3
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l11",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b6",
+     "port": 2
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 12,
+ "meta": {
+  "description": "개루프와 폐루프 / Open loop vs closed loop — 같은 플랜트를 피드백 없이·있이 움직여 비교합니다 / The same plant driven without and with feedback",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

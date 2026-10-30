@@ -1,5 +1,5 @@
 // The title bar is the toolbar (no OS title bar): app icon and name, the
-// ribbon tabs (홈 / 플롯 / 앱 / 편집기 / 시뮬레이션), a drag region, the busy
+// 시작 화면 button, the ribbon tabs (홈 / 플롯 / 앱 / 편집기 / 시뮬레이션), a drag region, the busy
 // indicator, the theme (click = next, ⌄ = picker), the language toggle,
 // settings, about and the window buttons. When narrow, the tab and theme
 // labels hide first; the icons, language, theme and window buttons stay.
@@ -23,7 +23,7 @@ export const RIBBON_TABS = [
   ['help', 'book', 'rb_help'],
 ];
 
-export function TitleBar({ tab, onTab, theme, onAction, dirty, busy, debug, onClose }) {
+export function TitleBar({ tab, onTab, startOn, onStart, theme, onAction, dirty, busy, debug, onClose }) {
   useLanguage();
   const lang = getLanguage();
   const otherLang = LANGUAGES.find((l) => l.value !== lang) || LANGUAGES[0];
@@ -76,6 +76,11 @@ export function TitleBar({ tab, onTab, theme, onAction, dirty, busy, debug, onCl
         <span className="tb-title" data-tauri-drag-region>{dirty && <span className="tb-dirty" title={t('dirty_tip')} aria-label={t('dirty_tip')}>● </span>}{t('appName')}</span>
       </span>
       <span className="rb-tabs" role="tablist" aria-label={t('rb_tabs')}>
+        {onStart && (
+          <button type="button" aria-pressed={!!startOn} data-rtab="start" className={`menu-btn rb-tab rb-start ${startOn ? 'on' : ''}`} title={t('sp_show_start')} onClick={onStart}>
+            <Icon name="start" size={14} /><span className="rb-tab-label">{t('tb_start')}</span>
+          </button>
+        )}
         {RIBBON_TABS.map(([id, icon, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} data-rtab={id} className={`menu-btn rb-tab ${tab === id ? 'on' : ''}`} title={t(label)} onClick={() => onTab(id)}>
             <Icon name={icon} size={14} /><span className="rb-tab-label">{t(label)}</span>

@@ -15,6 +15,7 @@ const P = {
   datacursor: <><path d="M5 19 19 5" strokeDasharray="2 2.5" /><circle cx="12" cy="12" r="2.5" /><path d="M14 10h5v-5" /><rect x="13" y="3" width="8" height="5" rx="1" /></>,
   reset: <><path d="M4 12a8 8 0 1 0 2.3-5.7" /><path d="M4 4v5h5" /></>,
   grid: <><rect x="3" y="3" width="18" height="18" rx="1" /><path d="M9 3v18M15 3v18M3 9h18M3 15h18" /></>,
+  edges: <><path d="M3 17c3-1 4-8 9-8s6 7 9 8" /><path d="M5.5 15.2 8 20M9 11l1.5 9.5M15 11l-1.5 9.5M18.5 15.2 16 20M3 17h18" /></>,
   rulers: <><path d="M3 3h18v5H8v13H3z" /><path d="M7 3v2M11 3v3M15 3v2M19 3v3M3 12h2M3 16h3M3 20h2" /></>,
   legend: <><path d="M4 6h3M4 12h3M4 18h3" strokeWidth="3" /><path d="M10 6h10M10 12h10M10 18h10" /></>,
   colorbar: <><rect x="8" y="3" width="6" height="18" rx="1" /><path d="M8 8h6M8 13h6M8 17h6M17 5h3M17 12h3M17 19h3" /></>,

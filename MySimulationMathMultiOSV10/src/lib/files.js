@@ -2,6 +2,7 @@
 import { extOf } from './backend.js';
 
 export const SCRIPT_EXTS = ['.m'];
+export const FLOW_EXTS = ['.mflow'];
 export const DEFAULT_MODEL_EXTS = ['.smdl', '.msim'];
 export const DATA_EXTS = ['.mat'];
 export const TABLE_EXTS = ['.csv', '.tsv', '.xlsx', '.xls', '.json'];
@@ -17,10 +18,11 @@ export function setModelExts(ext) {
 }
 export const getModelExts = () => modelExts;
 
-/** 'script' | 'model' | 'data' | 'table' | 'image' | 'audio' | 'text' | 'other' */
+/** 'script' | 'flow' | 'model' | 'data' | 'table' | 'image' | 'audio' | 'text' | 'other' */
 export function fileKind(name) {
   const e = extOf(name);
   if (SCRIPT_EXTS.includes(e)) return 'script';
+  if (FLOW_EXTS.includes(e)) return 'flow';
   if (modelExts.includes(e)) return 'model';
   if (DATA_EXTS.includes(e)) return 'data';
   if (TABLE_EXTS.includes(e)) return 'table';
@@ -30,7 +32,7 @@ export function fileKind(name) {
   return 'other';
 }
 
-const ICON = { script: 'script', model: 'model', data: 'database', table: 'table', image: 'image', audio: 'waves', text: 'file', other: 'file' };
+const ICON = { script: 'script', flow: 'flow', model: 'model', data: 'database', table: 'table', image: 'image', audio: 'waves', text: 'file', other: 'file' };
 export const fileIcon = (name) => ICON[fileKind(name)] || 'file';
 
 /** M string literal for a path ('it''s' doubling). */

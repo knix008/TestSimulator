@@ -8,6 +8,7 @@ import { builtins as langBuiltins, help as langHelp, fallbacks, helpFor } from '
 import { langClasses } from '../classes.js';
 import { KEYWORDS } from './lexer.js';
 import { disown } from './indexing.js';
+import { checkSource, catalog } from './check.js';
 import { createMemoryFs } from '../fs-memory.js';
 
 const EMPTY_REGISTRY = { builtins: {}, help: {}, classes: {}, installs: [], owner: {} };
@@ -113,6 +114,10 @@ export function createSessionWith(registry, opts = {}) {
     help(name) { return helpFor(rt, String(name)); },
     /** Functions whose name or help text matches: [{ name, en, ko }], name matches first (the 함수 도움말 pane). */
     helpSearch(query, limit = 80) { return helpSearch(rt, String(query || ''), limit); },
+    /** Every documented builtin: [{ name, kind, area, en, ko }] (the 도움말 panel). */
+    catalog() { return catalog(rt); },
+    /** Problems of an M source: [{ severity, line, col, code, name?, message }] (the 문제점 panel). */
+    check(src, copts = {}) { return checkSource(rt, String(src || ''), copts); },
 
     handleMessage(msg) {
       if (!msg || typeof msg.type !== 'string') return undefined;

@@ -24,6 +24,13 @@
 .sim-crumb { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 7px; border: 0; border-radius: 4px; background: none; color: var(--fg-muted); font-size: 12px; white-space: nowrap; }
 .sim-crumb:hover { background: var(--bg-hover); color: var(--fg); }
 .sim-crumb.on { color: var(--fg); font-weight: 600; }
+.sim-crumbs { min-height: 34px; }
+.sim-crumb-model { height: 28px; gap: 7px; padding: 0 8px; }
+.sim-crumb-model svg { color: var(--accent); flex: none; }
+.sim-crumb-tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.sim-crumb-name { font-size: 15px; font-weight: 700; color: var(--fg); max-width: 40ch; overflow: hidden; text-overflow: ellipsis; }
+.sim-crumb-dirty { color: var(--accent); font-size: 11px; }
+.sim-crumb-file { font-size: 12px; font-weight: 400; color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; }
 .sim-canvas-wrap { position: relative; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 .sim-canvas { position: absolute; inset: 0; display: block; touch-action: none; }
 
@@ -110,3 +117,25 @@
 .sim-state.running { color: var(--ok); }
 .sim-state.paused { color: var(--folder); }
 .sim-state.error { color: var(--danger); }
+
+/* 코드 보기 (ModelCodePane.jsx): the model as editable M code beside the diagram */
+.sim-code { flex: 0 0 440px; min-width: 0; display: flex; flex-direction: column; font-family: var(--font); border-left: 1px solid var(--border); background: var(--bg-panel); }
+.sim-code-head { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 6px 0 10px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.sim-code-head svg { color: var(--accent); flex: none; }
+.sim-code-edited { color: var(--accent); font-size: 11.5px; }
+.sim-code-tools { display: flex; flex-wrap: wrap; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--border); }
+.sim-code-note { display: flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 12px; border-bottom: 1px solid var(--border); color: var(--fg-muted); }
+.sim-code-note.ok { color: var(--ok); }
+.sim-code-note.bad { color: var(--danger); }
+.sim-code-note svg { flex: none; }
+.sim-code-editor { flex: 1; min-height: 0; }
+
+/* 블록 속성 › 색 (SidePanes.jsx): swatches for outline / fill / line colours */
+.sim-style { padding-bottom: 6px; }
+.sim-color-row { display: flex; flex-direction: column; gap: 4px; padding: 4px 10px; }
+.sim-swatches { display: flex; flex-wrap: wrap; gap: 5px; }
+.sim-swatch { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 2px solid var(--border-strong); cursor: pointer; position: relative; flex: none; }
+.sim-swatch.on { box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent); }
+.sim-swatch.theme { background: linear-gradient(135deg, var(--bg) 45%, var(--fg) 45%, var(--fg) 55%, var(--bg) 55%); }
+.sim-swatch.custom { background: conic-gradient(#e03131, #f08c00, #2f9e44, #0c8599, #1c7ed6, #7048e8, #c2255c, #e03131); overflow: hidden; }
+.sim-swatch.custom input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }

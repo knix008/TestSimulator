@@ -9,6 +9,7 @@ import { languageOptions } from '../../components/Flags';
 import { ThemePicker } from '../../components/ThemePicker';
 import { Btn, BtnGroup, IconSelect, Stepper, Toggle, FilePickButton, saveText } from '../common';
 import { MONO_FONTS } from '../../lib/settings';
+import { ShortcutGroups } from '../Shortcuts';
 import { chooseFile } from '../../lib/prompt';
 import { ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND } from '../../lib/startBackground';
 
@@ -143,12 +144,6 @@ export function SimulationTab({ d, set }) {
 }
 
 // ── 키보드 ────────────────────────────────────────────────
-export const SHORTCUTS = [
-  ['Ctrl+N', 'sc_new_script'], ['Ctrl+O', 'sc_open'], ['Ctrl+S', 'sc_save'], ['F5', 'sc_run'], ['Ctrl+Enter', 'sc_run_section'],
-  ['F9', 'sc_eval_selection'], ['F10 / F11 / Shift+F11', 'sc_step'], ['F12', 'sc_breakpoint'], ['Ctrl+R / Ctrl+T', 'sc_comment'],
-  ['Ctrl+F', 'sc_find'], ['Ctrl+G', 'sc_goto'], ['Ctrl+C', 'sc_interrupt'], ['Tab', 'sc_complete'], ['↑ / ↓', 'sc_history'],
-  ['Ctrl+0 / Ctrl+Shift+0', 'sc_focus'], ['Ctrl+Z / Ctrl+Y', 'sc_undo'],
-];
 export function KeyboardTab({ d, set }) {
   const k = d.keyboard;
   const setK = (p) => set({ keyboard: { ...k, ...p } });
@@ -160,9 +155,7 @@ export function KeyboardTab({ d, set }) {
         <Toggle icon="copy" label={t('st_ctrl_c_copies')} checked={k.ctrlCCopies !== false} onChange={(v) => setK({ ctrlCCopies: v })} />
       </div>
       <div className="st-sep">{t('st_shortcuts')}</div>
-      <dl className="st-keys">
-        {SHORTCUTS.map(([keys, label]) => <React.Fragment key={label}><dt><kbd>{keys}</kbd></dt><dd>{t(label)}</dd></React.Fragment>)}
-      </dl>
+      <div className="st-keys-scroll"><ShortcutGroups /></div>
     </>
   );
 }
@@ -272,8 +265,8 @@ export function StartTab({ d, set }) {
   const tut = { askOnLaunch: true, ...(d.tutorial || {}) };
   return (
     <>
-      <Row icon="home" label={t('st_start_show')} title={t('sp_show')}>
-        <Toggle icon="home" label={t('sp_show')} checked={d.showStartOnLaunch !== false} onChange={(v) => set({ showStartOnLaunch: v })} />
+      <Row icon="start" label={t('st_start_show')} title={t('sp_show')}>
+        <Toggle icon="start" label={t('sp_show')} checked={d.showStartOnLaunch !== false} onChange={(v) => set({ showStartOnLaunch: v })} />
       </Row>
       <Row icon="graduation" label={t('st_tutorial_ask')} title={t('st_tutorial_ask_hint')}>
         <Toggle icon="graduation" label={t('st_tutorial_ask_toggle')} checked={tut.askOnLaunch !== false} onChange={(v) => set({ tutorial: { ...tut, askOnLaunch: v } })} />

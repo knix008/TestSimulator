@@ -1,0 +1,112 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_chirp",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "10",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "Chirp",
+    "name": "Chirp",
+    "x": 40,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "f1": "0.1",
+     "T": "10",
+     "f2": "2"
+    },
+    "showName": true
+   },
+   {
+    "id": "b2",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 320,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "1",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l3",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b2",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 4,
+ "meta": {
+  "description": "처프 신호 / Chirp signal — 주파수가 0.1 Hz에서 2 Hz로 올라가는 사인파 / A sine sweeping from 0.1 Hz to 2 Hz",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

@@ -1,0 +1,397 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_lorenz",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "25",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "Mux",
+    "name": "Mux",
+    "x": 40,
+    "y": 145,
+    "w": 10,
+    "h": 75,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Inputs": "3"
+    },
+    "showName": false
+   },
+   {
+    "id": "b2",
+    "type": "Fcn",
+    "name": "dx",
+    "x": 180,
+    "y": 50,
+    "w": 100,
+    "h": 46,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Expr": "10*(u(2) - u(1))",
+     "SampleTime": "-1"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "Fcn",
+    "name": "dy",
+    "x": 180,
+    "y": 145,
+    "w": 100,
+    "h": 46,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Expr": "u(1)*(28 - u(3)) - u(2)",
+     "SampleTime": "-1"
+    },
+    "showName": true
+   },
+   {
+    "id": "b4",
+    "type": "Fcn",
+    "name": "dz",
+    "x": 180,
+    "y": 240,
+    "w": 100,
+    "h": 46,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Expr": "u(1)*u(2) - 8/3*u(3)",
+     "SampleTime": "-1"
+    },
+    "showName": true
+   },
+   {
+    "id": "b5",
+    "type": "Integrator",
+    "name": "x",
+    "x": 460,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "1",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b6",
+    "type": "Integrator",
+    "name": "y",
+    "x": 460,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "1",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b7",
+    "type": "Integrator",
+    "name": "z",
+    "x": 460,
+    "y": 240,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "1",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b8",
+    "type": "XYGraph",
+    "name": "x-z",
+    "x": 740,
+    "y": 145,
+    "w": 40,
+    "h": 62,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "XMin": "-1",
+     "XMax": "1",
+     "YMin": "-1",
+     "YMax": "1",
+     "AutoScale": "on",
+     "Title": "",
+     "SampleTime": "-1",
+     "Decimation": "1"
+    },
+    "showName": true
+   },
+   {
+    "id": "b9",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 740,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "1",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l10",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b2",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b3",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b4",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l11",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b5",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l12",
+    "src": {
+     "block": "b3",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b6",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l13",
+    "src": {
+     "block": "b4",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b7",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l14",
+    "src": {
+     "block": "b5",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b1",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b8",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b9",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l15",
+    "src": {
+     "block": "b6",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b1",
+     "port": 2
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l16",
+    "src": {
+     "block": "b7",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b1",
+       "port": 3
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b8",
+       "port": 2
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 17,
+ "meta": {
+  "description": "로렌츠 끌개 / Lorenz attractor — σ=10, ρ=28, β=8/3 의 혼돈 궤적 (나비 모양) / The chaotic orbit for σ=10, ρ=28, β=8/3 (the butterfly)",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

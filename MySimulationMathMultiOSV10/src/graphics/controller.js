@@ -29,6 +29,7 @@ export class FigureController {
     this.grid = false;
     this.rulers = false;
     this.axesLines = true;        // 3D coordinate axes (X / Y / Z lines, tip labels, triad)
+    this.edges = true;            // edge lines of filled surfaces / patches / bars (off = faces only)
     this.toggles = new Map();     // figId → { legend, colorbar } (null = as the engine sent)
     this.views2d = new Map();     // axId → { XLim, YLim } (GUI zoom / pan)
     this.home = new Map();        // axId → { XLim, YLim, XLimMode, YLimMode, View }
@@ -204,6 +205,7 @@ export class FigureController {
   setGrid(on) { this.grid = !!on; this.emit(); }
   setRulers(on) { this.rulers = !!on; this.emit(); }
   setAxesLines(on) { this.axesLines = !!on; this.emit(); }
+  setEdges(on) { this.edges = !!on; this.emit(); }
   isShown(prop, figId = this.active) { const f = this.figure(figId); return !!f && anyShown(f, prop); }
   toggleShown(which, figId = this.active) {
     const fig = this.figure(figId);
@@ -436,7 +438,7 @@ export class FigureController {
   paintOptions(fig) {
     const state3d = new Map(this.state3d);
     for (const [id, v] of this.views3d) state3d.set(id, { zoomF: v.zoomF, target: v.target.toArray(), view: v.getView() });
-    return { views: this.views2d, grid5: this.grid, grid3d: this.grid, axesLines: this.axesLines, state3d, lightOpts: (ax) => lightOptionsFor(ax) };
+    return { views: this.views2d, grid5: this.grid, grid3d: this.grid, axesLines: this.axesLines, edges: this.edges, state3d, lightOpts: (ax) => lightOptionsFor(ax) };
   }
 
   sizeOf(fig, req = {}) {

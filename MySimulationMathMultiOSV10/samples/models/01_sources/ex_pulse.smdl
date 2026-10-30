@@ -1,0 +1,167 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_pulse",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "10",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "PulseGenerator",
+    "name": "Pulse",
+    "x": 40,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "PulseType": "time",
+     "Amplitude": "1",
+     "Period": "2",
+     "PulseWidth": "50",
+     "PhaseDelay": "0",
+     "SampleTime": "0"
+    },
+    "showName": true
+   },
+   {
+    "id": "b2",
+    "type": "Integrator",
+    "name": "Integrator",
+    "x": 180,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "0",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 320,
+    "y": 50,
+    "w": 40,
+    "h": 62,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "2",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l4",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b3",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b2",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l5",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b3",
+     "port": 2
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 6,
+ "meta": {
+  "description": "펄스 열 / Pulse train — 주기 2초, 폭 50 %인 펄스와 그 적분 / A 2 s, 50 % pulse train and its integral",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

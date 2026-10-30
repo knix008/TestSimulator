@@ -1,0 +1,204 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_integrate_sine",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "10",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "SineWave",
+    "name": "Sine",
+    "x": 40,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Amplitude": "1",
+     "Bias": "0",
+     "Frequency": "1",
+     "Phase": "0",
+     "SampleTime": "0"
+    },
+    "showName": true
+   },
+   {
+    "id": "b2",
+    "type": "Integrator",
+    "name": "Integrator",
+    "x": 180,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "0",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "Derivative",
+    "name": "Derivative",
+    "x": 180,
+    "y": 240,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "CoefficientInTFapproximation": "inf"
+    },
+    "showName": true
+   },
+   {
+    "id": "b4",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 460,
+    "y": 145,
+    "w": 40,
+    "h": 84,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "3",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l5",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b2",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b3",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b4",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l6",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b4",
+     "port": 2
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l7",
+    "src": {
+     "block": "b3",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b4",
+     "port": 3
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 8,
+ "meta": {
+  "description": "적분과 미분 / Integral and derivative — sin t 의 적분 (1−cos t)과 미분 (cos t) / The integral (1−cos t) and derivative (cos t) of sin t",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

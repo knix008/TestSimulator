@@ -1,0 +1,159 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_discrete_tf",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "5",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "Step",
+    "name": "Step",
+    "x": 40,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Time": "0",
+     "Before": "0",
+     "After": "1",
+     "SampleTime": "0"
+    },
+    "showName": true
+   },
+   {
+    "id": "b2",
+    "type": "DiscreteTransferFcn",
+    "name": "Plant",
+    "x": 180,
+    "y": 50,
+    "w": 100,
+    "h": 46,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Numerator": "[0.1]",
+     "Denominator": "[1 -0.9]",
+     "SampleTime": "0.1"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 460,
+    "y": 50,
+    "w": 40,
+    "h": 62,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "2",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l4",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b2",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b3",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l5",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b3",
+     "port": 2
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 6,
+ "meta": {
+  "description": "이산 전달 함수 / Discrete transfer function — 0.1/(z−0.9)의 계단 응답 (샘플 0.1초) / Step response of 0.1/(z−0.9), sample time 0.1 s",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

@@ -26,6 +26,18 @@ export function niceStep(min) {
 export const toScreen = (v, x, y) => ({ x: x * v.zoom + v.px, y: y * v.zoom + v.py });
 export const toModel = (v, sx, sy) => ({ x: (sx - v.px) / v.zoom, y: (sy - v.py) / v.zoom });
 
+/**
+ * A user colour as CSS: '#e03131', 'red', 'rgba(…)', or '[1 0 0]' / '[1, 0.5, 0]' (0…1, as set_param
+ * and the code view write it). Empty, 'auto' or 'default' → null (the theme colour is used).
+ */
+export function cssColor(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s || /^(auto|default|none)$/i.test(s)) return null;
+  const m = /^\[\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*\]$/.exec(s);
+  if (m) return `rgb(${[m[1], m[2], m[3]].map((x) => Math.round(Math.max(0, Math.min(1, Number(x))) * 255)).join(', ')})`;
+  return s;
+}
+
 /** Theme colours read from the CSS variables of `el`. */
 export function themeColors(el) {
   const cs = getComputedStyle(el);
@@ -401,7 +413,7 @@ export function drawBlock(ctx, block, opts) {
   const { colors } = opts;
   const hint = iconOf(block);
   const shape = shapeOf(block, hint);
-  const fg = (opts.rate != null && rateColor(opts.rate, colors)) || block.fg || colors.fg;
+  const fg = (opts.rate != null && rateColor(opts.rate, colors)) || cssColor(block.fg) || colors.fg;
   const { x, y, w, h } = block;
   ctx.save();
   ctx.lineWidth = 1.3;
@@ -409,7 +421,7 @@ export function drawBlock(ctx, block, opts) {
   shapePath(ctx, block, shape);
   if (shape === 'bar') { ctx.fillStyle = fg; ctx.fillRect(x, y, w, h); }
   else {
-    ctx.fillStyle = block.bg || colors.block;
+    ctx.fillStyle = cssColor(block.bg) || colors.block;
     ctx.fill();
     if (block.system && !block.mask) { ctx.save(); ctx.lineWidth = 1.6; ctx.stroke(); ctx.restore(); } else ctx.stroke();
   }
@@ -555,7 +567,7 @@ export function drawLines(ctx, items, opts) {
   ctx.lineJoin = 'round';
   for (const it of items) {
     const sel = opts.selected && opts.selected.has(it.line.id);
-    const col = (opts.rates && rateColor(opts.rates.get(it.line.src.block), colors)) || colors.fg;
+    const col = (opts.rates && rateColor(opts.rates.get(it.line.src.block), colors)) || cssColor(it.line.color) || colors.fg;
     ctx.strokeStyle = sel ? colors.accent : col;
     ctx.lineWidth = (sel ? 2 : 1.2) * (opts.wide && opts.wide.has(`${it.line.src.block}:${it.line.src.port}`) ? 1.8 : 1);
     if (it.temp) ctx.setLineDash([5, 4]);

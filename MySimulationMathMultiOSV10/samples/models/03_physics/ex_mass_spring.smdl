@@ -1,0 +1,349 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_mass_spring",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "15",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "Step",
+    "name": "Force",
+    "x": 40,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Time": "0",
+     "Before": "0",
+     "After": "1",
+     "SampleTime": "0"
+    },
+    "showName": true
+   },
+   {
+    "id": "b2",
+    "type": "Sum",
+    "name": "Sum",
+    "x": 180,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Inputs": "|+--",
+     "IconShape": "rectangular"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "Gain",
+    "name": "1 over m",
+    "x": 320,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Gain": "1",
+     "Multiplication": "Element-wise(K.*u)"
+    },
+    "showName": true
+   },
+   {
+    "id": "b4",
+    "type": "Integrator",
+    "name": "Velocity",
+    "x": 460,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "0",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b5",
+    "type": "Integrator",
+    "name": "Position",
+    "x": 600,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "0",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b6",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 740,
+    "y": 50,
+    "w": 40,
+    "h": 62,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "2",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   },
+   {
+    "id": "b7",
+    "type": "Gain",
+    "name": "Damping c",
+    "x": 460,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": true,
+    "params": {
+     "Gain": "0.5",
+     "Multiplication": "Element-wise(K.*u)"
+    },
+    "showName": true
+   },
+   {
+    "id": "b8",
+    "type": "Gain",
+    "name": "Spring k",
+    "x": 600,
+    "y": 240,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": true,
+    "params": {
+     "Gain": "4",
+     "Multiplication": "Element-wise(K.*u)"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l9",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b2",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l10",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b3",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l11",
+    "src": {
+     "block": "b3",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b4",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l12",
+    "src": {
+     "block": "b4",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b5",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b6",
+       "port": 2
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b7",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l13",
+    "src": {
+     "block": "b5",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b6",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b8",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l14",
+    "src": {
+     "block": "b7",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b2",
+     "port": 2
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l15",
+    "src": {
+     "block": "b8",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b2",
+     "port": 3
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 16,
+ "meta": {
+  "description": "질량-스프링-댐퍼 / Mass-spring-damper — m·x'' + c·x' + k·x = F 를 적분기 두 개로 풉니다 (m=1, c=0.5, k=4) / m·x'' + c·x' + k·x = F with two integrators (m=1, c=0.5, k=4)",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

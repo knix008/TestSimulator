@@ -1,7 +1,7 @@
 // CodeMirror 6 for M files: syntax colours from the theme (--syn-*), line
 // numbers, a breakpoint gutter, the debugger's current line, %% section
-// rules, run-section, completion from the engine, find / replace and
-// comment / indent commands.
+// rules, run-section, completion and hover help from the engine, find /
+// replace and comment / indent commands.
 import { EditorState, Compartment, StateField, StateEffect, RangeSet, RangeSetBuilder } from '@codemirror/state';
 import {
   EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor,
@@ -13,6 +13,8 @@ import { octave } from '@codemirror/legacy-modes/mode/octave';
 import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { search, searchKeymap, highlightSelectionMatches, openSearchPanel, gotoLine } from '@codemirror/search';
 import { tags } from '@lezer/highlight';
+import { hoverHelp } from './hoverHelp.js';
+import { spellCheck } from './spell.js';
 export { sectionOfText } from './sections.js';
 
 export const mLanguage = StreamLanguage.define(octave);
@@ -128,7 +130,8 @@ const KIND_TYPE = { function: 'function', builtin: 'function', variable: 'variab
 /**
  * Creates an editor in `parent`. actions (a mutable object the caller keeps
  * current): onChange(text), onCursor({ line, col, sel }), onBreakpoints(lines),
- * complete(text, cursor) → [{ label, kind }], run(), runSection(), evalSelection(),
+ * complete(text, cursor) → [{ label, kind }], help(name) → { en, ko, syntax }, spellWords() → [words],
+ * spellKnown() → Set of lower-case names, addSpellWord(word), run(), runSection(), evalSelection(),
  * save(), toggleBreakpoint().
  */
 export function createMEditor({ parent, doc = '', settings = {}, actions = {} }) {
@@ -136,9 +139,12 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
   const tabs = new Compartment();
   const wrap = new Compartment();
   const numbers = new Compartment();
+  const spell = new Compartment();
   const ed = settings || {};
   const tabSize = ed.tabSize || 4;
   const call = (name, ...args) => { const fn = actions[name]; return fn ? fn(...args) : undefined; };
+  // 맞춤법: English words in comments and strings (lib/spell.js)
+  const spellExt = () => spellCheck({ words: () => call('spellWords') || [], known: () => call('spellKnown') || null, onAdd: (w) => call('addSpellWord', w) });
 
   const completionSource = async (context) => {
     const word = context.matchBefore(/[\w.]*/);
@@ -216,6 +222,8 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
       bracketMatching(),
       closeBrackets(),
       autocompletion({ override: [completionSource], activateOnTyping: true }),
+      hoverHelp((name) => call('help', name)),
+      spell.of(ed.spellCheck ? spellExt() : []),
       rectangularSelection(),
       crosshairCursor(),
       highlightActiveLine(),
@@ -244,12 +252,15 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
     getText: () => view.state.doc.toString(),
     setText(text) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }); },
     focus: () => view.focus(),
+    /** Replaces the selection with text (the 도움말 panel's insert). */
+    insert(text) { view.dispatch(view.state.replaceSelection(String(text))); view.focus(); },
     selection() { const r = view.state.selection.main; return view.state.sliceString(r.from, r.to); },
     currentLine: () => view.state.doc.lineAt(view.state.selection.main.head).number,
     section: () => sectionAt(view.state, view.state.selection.main.head),
-    gotoLine(n) {
+    gotoLine(n, col) {
       const line = view.state.doc.line(Math.max(1, Math.min(view.state.doc.lines, n || 1)));
-      view.dispatch({ selection: { anchor: line.from }, scrollIntoView: true, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) });
+      const at = line.from + Math.max(0, Math.min(line.length, (col || 1) - 1));
+      view.dispatch({ selection: { anchor: at }, scrollIntoView: true, effects: EditorView.scrollIntoView(line.from, { y: 'center' }) });
       view.focus();
     },
     setDebugLine(n) {
@@ -274,6 +285,7 @@ export function createMEditor({ parent, doc = '', settings = {}, actions = {} })
         tabs.reconfigure([EditorState.tabSize.of(ts), indentUnit.of(' '.repeat(ts))]),
         wrap.reconfigure(n.wrap ? EditorView.lineWrapping : []),
         numbers.reconfigure(n.lineNumbers === false ? [] : lineNumbers()),
+        spell.reconfigure(n.spellCheck ? spellExt() : []),
       ] });
     },
     destroy: () => view.destroy(),

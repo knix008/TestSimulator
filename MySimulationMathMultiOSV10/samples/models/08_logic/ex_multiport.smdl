@@ -1,0 +1,286 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_multiport",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "12",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "CounterLimited",
+    "name": "Counter",
+    "x": 40,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "uplimit": "2",
+     "SampleTime": "2"
+    },
+    "showName": true
+   },
+   {
+    "id": "b2",
+    "type": "Bias",
+    "name": "Plus 1",
+    "x": 180,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Bias": "1"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "SineWave",
+    "name": "Sine",
+    "x": 40,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Amplitude": "1",
+     "Bias": "0",
+     "Frequency": "1",
+     "Phase": "0",
+     "SampleTime": "0"
+    },
+    "showName": true
+   },
+   {
+    "id": "b4",
+    "type": "SignalGenerator",
+    "name": "Square",
+    "x": 40,
+    "y": 240,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "WaveForm": "square",
+     "Amplitude": "1",
+     "Frequency": "1",
+     "Units": "rad/sec"
+    },
+    "showName": true
+   },
+   {
+    "id": "b5",
+    "type": "Ramp",
+    "name": "Ramp",
+    "x": 40,
+    "y": 335,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "slope": "0.1",
+     "start": "0",
+     "InitialOutput": "0"
+    },
+    "showName": true
+   },
+   {
+    "id": "b6",
+    "type": "MultiportSwitch",
+    "name": "Select",
+    "x": 320,
+    "y": 145,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Inputs": "3",
+     "DataPortOrder": "one-based",
+     "DataPortForDefault": "last"
+    },
+    "showName": true
+   },
+   {
+    "id": "b7",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 600,
+    "y": 145,
+    "w": 40,
+    "h": 62,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "2",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l8",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b2",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l9",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b6",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b7",
+       "port": 2
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l10",
+    "src": {
+     "block": "b3",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b6",
+     "port": 2
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l11",
+    "src": {
+     "block": "b4",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b6",
+     "port": 3
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l12",
+    "src": {
+     "block": "b5",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b6",
+     "port": 4
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l13",
+    "src": {
+     "block": "b6",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b7",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 14,
+ "meta": {
+  "description": "다중 전환 / Multiport switch — 카운터가 1·2·3을 돌며 세 신호 중 하나를 고릅니다 / A counter cycles 1, 2, 3 and picks one of three signals",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

@@ -23,6 +23,8 @@
     "msm": "node scripts/msm.mjs",
     "generate:icons": "node scripts/generate-icons.mjs",
     "generate:samples": "node scripts/generate-sample-thumbs.mjs",
+    "generate:models": "node scripts/generate-model-thumbs.mjs",
+    "generate:sample-files": "node scripts/generate-sample-files.mjs",
     "test": "node --test --test-reporter=./test/reporter.mjs test/*.test.mjs"
   },
   "dependencies": {
@@ -38,6 +40,8 @@
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-opener": "^2.7.2",
+    "dictionary-en": "^4.0.0",
+    "nspell": "^2.1.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.186.1"

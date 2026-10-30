@@ -117,7 +117,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
   const theme = useFigureTheme();
   useEffect(() => ctl.subscribe(setVersion), [ctl]);
   useEffect(() => ctl.attach(), [ctl]);
-  useEffect(() => { ctl.grid = !!defaults.grid; ctl.rulers = !!defaults.rulers; ctl.axesLines = defaults.axes !== false; ctl.emit(); }, [ctl, defaults.grid, defaults.rulers, defaults.axes]);
+  useEffect(() => { ctl.grid = !!defaults.grid; ctl.rulers = !!defaults.rulers; ctl.axesLines = defaults.axes !== false; ctl.edges = defaults.edges !== false; ctl.emit(); }, [ctl, defaults.grid, defaults.rulers, defaults.axes, defaults.edges]);
   if (typeof window !== 'undefined') window.__msmFigures = ctl;
 
   const order = ctl.visibleOrder();
@@ -128,7 +128,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
   const L = (k, v) => tr(lang, k, v);
 
   const setPersist = (key, on) => {
-    if (key === 'axes') ctl.setAxesLines(on); else ctl[key === 'grid' ? 'setGrid' : 'setRulers'](on);
+    if (key === 'axes') ctl.setAxesLines(on); else if (key === 'edges') ctl.setEdges(on); else ctl[key === 'grid' ? 'setGrid' : 'setRulers'](on);
     patchSettings({ figures: { [key]: on } });
   };
 
@@ -168,6 +168,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
       { id: 'grid', label: L('grid'), icon: 'grid', on: ctl.grid },
       { id: 'rulers', label: L('rulers'), icon: 'scale', on: ctl.rulers },
       { id: 'axes', label: L('axesLines'), icon: 'plotLog', on: ctl.axesLines },
+      { id: 'edges', label: L('edges'), icon: 'plotMesh', on: ctl.edges },
       { id: 'legend', label: L('legend'), icon: 'legend', on: ctl.isShown('Legend') },
       { sep: true },
       { id: 'export', label: L('export'), icon: 'download' },
@@ -182,6 +183,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
       else if (id === 'view') ctl.toggle2d3d();
       else if (id === 'grid' || id === 'rulers') setPersist(id, !ctl[id]);
       else if (id === 'axes') setPersist('axes', !ctl.axesLines);
+      else if (id === 'edges') setPersist('edges', !ctl.edges);
       else if (id === 'legend') ctl.toggleShown('legend');
       else if (id === 'export') ctl.openExport();
       else if (id === 'copy') doCopy(false);
@@ -241,6 +243,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
         <Tb icon="grid" label={L('grid')} title={L('grid_tip')} on={ctl.grid} onClick={() => setPersist('grid', !ctl.grid)} />
         <Tb icon="rulers" label={L('rulers')} title={L('rulers_tip')} on={ctl.rulers} onClick={() => setPersist('rulers', !ctl.rulers)} />
         <Tb icon="axes3" label={L('axesLines')} title={L('axesLines_tip')} on={ctl.axesLines} onClick={() => setPersist('axes', !ctl.axesLines)} />
+        <Tb icon="edges" label={L('edges')} title={L('edges_tip')} on={ctl.edges} onClick={() => setPersist('edges', !ctl.edges)} />
         <Tb icon="legend" label={L('legend')} title={L('legend_tip')} on={ctl.isShown('Legend')} disabled={!fig} onClick={() => ctl.toggleShown('legend')} minor />
         <Tb icon="colorbar" label={L('colorbar')} title={L('colorbar_tip')} on={ctl.isShown('Colorbar')} disabled={!fig} onClick={() => ctl.toggleShown('colorbar')} minor />
         <span className="fig-sep" />

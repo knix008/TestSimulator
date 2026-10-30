@@ -1343,3 +1343,5 @@ svg.ic { color: color-mix(in srgb, var(--ic, currentColor) 82%, var(--fg)); }
 .start-page .start-hero { background: color-mix(in srgb, var(--bg-panel) 86%, transparent); }
 .start-bg { will-change: transform; transform: translateZ(0); }
 .start-scroll { isolation: isolate; }
+.start-models-note { margin: 0 2px 8px; color: var(--fg-muted); line-height: 1.45; }
+.start-model .sample-preview.model-preview { height: 112px !important; }

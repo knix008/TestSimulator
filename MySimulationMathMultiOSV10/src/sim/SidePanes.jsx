@@ -81,12 +81,60 @@ function useDraft(source, key) {
   return [draft, setDraft];
 }
 
+// 색: theme colour, nine colours (the start page's block-group palette), or any colour
+const SWATCHES = [['green', '#2f9e44'], ['blue', '#1c7ed6'], ['violet', '#7048e8'], ['teal', '#0c8599'], ['orange', '#e8590c'], ['amber', '#f08c00'], ['red', '#e03131'], ['pink', '#c2255c'], ['gray', '#868e96']];
+const FILL_ALPHA = '38'; // swatch fills: the colour at ~22 % so the outline and icon stay readable
+const hex6 = (v) => (/^#[0-9a-f]{6}/i.test(String(v || '')) ? String(v).slice(0, 7) : '#808080');
+
+function ColorRow({ label, value, fill, onPick, lang }) {
+  const mixed = value === undefined;
+  const cur = mixed ? null : value || null;
+  return (
+    <div className="sim-color-row">
+      <span className="small">{label}</span>
+      <div className="sim-swatches" role="radiogroup" aria-label={label}>
+        <button type="button" role="radio" aria-checked={!mixed && !cur} className={`sim-swatch theme ${!mixed && !cur ? 'on' : ''}`} title={tr(lang, 'color_theme')} onClick={() => onPick(null)} />
+        {SWATCHES.map(([nm, c]) => {
+          const v = fill ? c + FILL_ALPHA : c;
+          return <button key={nm} type="button" role="radio" aria-checked={cur === v} className={`sim-swatch ${cur === v ? 'on' : ''}`} title={tr(lang, `color_${nm}`)} style={{ background: v, borderColor: c }} onClick={() => onPick(v)} />;
+        })}
+        <label className="sim-swatch custom" title={tr(lang, 'color_custom')}>
+          <input type="color" value={hex6(cur)} aria-label={tr(lang, 'color_custom')} onChange={(e) => onPick(fill ? e.target.value + FILL_ALPHA : e.target.value)} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/** The colours of the picked blocks (outline+icon, fill) and lines; one value when they agree. */
+function StyleSection({ api, blocks, lines, lang }) {
+  const same = (list, k) => { const v = list.map((o) => o[k] || null); return v.every((x) => x === v[0]) ? v[0] : undefined; };
+  const ids = [...blocks, ...lines].map((o) => o.id);
+  return (
+    <div className="sim-style">
+      <div className="fp-section small"><Icon name="palette" size={12} />{tr(lang, 'color')}</div>
+      {blocks.length > 0 && <ColorRow label={tr(lang, 'color_fg')} value={same(blocks, 'fg')} lang={lang} onPick={(v) => api.setStyle(ids, { fg: v })} />}
+      {blocks.length > 0 && <ColorRow label={tr(lang, 'color_bg')} value={same(blocks, 'bg')} fill lang={lang} onPick={(v) => api.setStyle(ids, { bg: v })} />}
+      {lines.length > 0 && <ColorRow label={tr(lang, 'color_line')} value={same(lines, 'color')} lang={lang} onPick={(v) => api.setStyle(ids, { color: v })} />}
+    </div>
+  );
+}
+
 export function BlockPropsPane({ docId, lang, noModelText }) {
   const api = useSimEditor(docId);
   if (!api) return <div className="pane"><NoModel lang={lang} text={noModelText} /></div>;
   const sys = systemAt(api.model, api.crumbs) || api.model.root;
   const picked = (api.selected || []).map((id) => sys.blocks.find((b) => b.id === id)).filter(Boolean);
-  if (picked.length > 1) return <div className="pane"><div className="pane-empty small muted"><Icon name="cube" size={14} />{tr(lang, 'px_n_selected', { n: picked.length })}</div></div>;
+  const lines = (api.selected || []).map((id) => sys.lines.find((l) => l.id === id)).filter(Boolean);
+  if (picked.length > 1 || (lines.length && picked.length !== 1)) {
+    return (
+      <div className="pane sim-props" data-style="multi">
+        <div className="pane-tools"><Icon name={picked.length ? 'cube' : 'flow'} size={14} /><span className="small ellipsis">
+          {[picked.length ? tr(lang, 'px_n_selected', { n: picked.length }) : '', lines.length ? tr(lang, 'px_n_lines', { n: lines.length }) : ''].filter(Boolean).join(' · ')}</span></div>
+        <div className="pane-scroll"><StyleSection api={api} blocks={picked} lines={lines} lang={lang} /></div>
+      </div>
+    );
+  }
   if (picked.length === 1) return <BlockProps key={`${api.docId}:${picked[0].id}`} api={api} block={picked[0]} lang={lang} />;
   return <ModelSettings key={api.docId} api={api} lang={lang} />;
 }
@@ -120,6 +168,7 @@ function BlockProps({ api, block, lang }) {
             <ParamField p={p} value={vals[p.name]} lang={lang} onChange={(v) => set(p.name, v)} />
           </label>
         ))}
+        <StyleSection api={api} blocks={[block]} lines={[]} lang={lang} />
       </div>
       <Footer lang={lang} changed={changed} onApply={apply} onRevert={() => { setVals({ ...block.params }); setName(block.name); }} />
     </div>

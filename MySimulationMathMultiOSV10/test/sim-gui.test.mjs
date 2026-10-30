@@ -4,8 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { stepZoom, removeSeg, enumIcon } from '../src/sim/logic.js';
-import { majorStep, niceStep } from '../src/sim/render.js';
+import { stepZoom, removeSeg, enumIcon, withModelExt } from '../src/sim/logic.js';
+import { majorStep, niceStep, cssColor } from '../src/sim/render.js';
 import { LIBRARY, searchLibrary, blockDef } from '../core/sim/blocks/index.js';
 
 const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -79,4 +79,24 @@ test('the 5×5 grid has its major lines at the ruler labels', () => {
     assert.equal(major, niceStep(70 / zoom));
     assert.ok(major * zoom >= 70 && major * zoom < 70 * 2.5 + 1e-9, `major ${major} at zoom ${zoom}`);
   }
+});
+
+test('model save paths always get a model extension', () => {
+  const exts = ['.smdl', '.msim'];
+  assert.equal(withModelExt('C:/work/pendulum', exts), 'C:/work/pendulum.smdl');
+  assert.equal(withModelExt('/work/pendulum.smdl', exts), '/work/pendulum.smdl');
+  assert.equal(withModelExt('/work/a.MSIM', exts), '/work/a.MSIM');
+  assert.equal(withModelExt('/work/notes.txt', exts), '/work/notes.txt.smdl');
+  assert.equal(withModelExt('/work/v1.2/model', exts), '/work/v1.2/model.smdl', 'a dot in a folder name is not an extension');
+  assert.equal(withModelExt('  ', exts), '');
+});
+
+test('user colours of blocks and lines: CSS colours as they are, [r g b] in 0…1 as rgb(), empty / auto = theme', () => {
+  assert.equal(cssColor('#e03131'), '#e03131');
+  assert.equal(cssColor('red'), 'red');
+  assert.equal(cssColor('[1 0 0]'), 'rgb(255, 0, 0)');
+  assert.equal(cssColor('[0.5, 1, 0]'), 'rgb(128, 255, 0)');
+  assert.equal(cssColor(''), null);
+  assert.equal(cssColor('auto'), null);
+  assert.equal(cssColor(undefined), null);
 });

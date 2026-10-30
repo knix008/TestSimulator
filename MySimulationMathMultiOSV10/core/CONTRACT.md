@@ -144,6 +144,8 @@ s.listVariables() → [{ name, cls, dims, bytes, summary, global }]
 s.getVariable(name) / s.setVariable(name, value) / s.clear(names?)
 s.complete(text, cursor) → [{ label, kind }]      // functions, variables, fields, files
 s.help(name) → { text, syntax, en, ko } | null
+s.catalog() → [{ name, kind, area, en, ko }]      // every documented builtin (kind: function | constant)
+s.check(src, { file }) → [{ severity, line, col, code, name?, message }]  // static problems (core/lang/check.js)
 s.handleMessage(msg)                              // GUI → engine messages (routes ctx.onMessage handlers)
 s.setInterruptFlag(int32Array)                    // SharedArrayBuffer flag (index 0 != 0 → interrupt)
 s.setBreakpoints(file, lines[])                   // debugger
@@ -162,7 +164,7 @@ reply: `'continue' | 'step' | 'stepIn' | 'stepOut' | 'stop' | { eval: code }`.
 The engine runs in a Web Worker (`src/engine/worker.js`). Messages are plain
 JSON objects with a `type`:
 
-- GUI → engine: `eval`, `complete`, `variables`, `variable.get`, `variable.set`,
+- GUI → engine: `eval`, `complete`, `catalog`, `check`, `variables`, `variable.get`, `variable.set`,
   `graphics.*` (figure interaction, UI callbacks), `sim.*` (run, stop, step,
   model edits from the editor).
 - engine → GUI: `out`, `done`, `event` (session events above), `request`

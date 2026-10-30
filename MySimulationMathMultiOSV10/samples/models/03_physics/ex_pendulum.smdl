@@ -1,0 +1,291 @@
+{
+ "format": "smdl",
+ "version": 1,
+ "name": "ex_pendulum",
+ "settings": {
+  "startTime": "0",
+  "stopTime": "15",
+  "solver": "auto",
+  "solverType": "variable",
+  "fixedStep": "auto",
+  "maxStep": "auto",
+  "minStep": "auto",
+  "initialStep": "auto",
+  "relTol": "1e-3",
+  "absTol": "auto",
+  "zeroCross": "on",
+  "maxConsecutiveZc": "1000",
+  "saveTime": "on",
+  "timeName": "tout",
+  "saveOutput": "on",
+  "outputName": "yout",
+  "saveState": "off",
+  "stateName": "xout",
+  "signalLogging": "on",
+  "logName": "logsout",
+  "singleOutput": "on",
+  "singleOutputName": "out",
+  "limitPoints": "off",
+  "maxPoints": "1000",
+  "decimation": "1",
+  "algebraicLoop": "warning",
+  "pacing": "off",
+  "pacingRate": "1",
+  "stopOnAssert": "on"
+ },
+ "workspace": [],
+ "buses": {},
+ "root": {
+  "blocks": [
+   {
+    "id": "b1",
+    "type": "Mux",
+    "name": "Mux",
+    "x": 40,
+    "y": 50,
+    "w": 10,
+    "h": 50,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Inputs": "2"
+    },
+    "showName": false
+   },
+   {
+    "id": "b2",
+    "type": "Fcn",
+    "name": "Dynamics",
+    "x": 180,
+    "y": 50,
+    "w": 100,
+    "h": 46,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "Expr": "-9.81*sin(u(1)) - 0.2*u(2)",
+     "SampleTime": "-1"
+    },
+    "showName": true
+   },
+   {
+    "id": "b3",
+    "type": "Integrator",
+    "name": "omega",
+    "x": 320,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "0",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b4",
+    "type": "Integrator",
+    "name": "theta",
+    "x": 460,
+    "y": 50,
+    "w": 40,
+    "h": 40,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "ExternalReset": "none",
+     "InitialConditionSource": "internal",
+     "InitialCondition": "1",
+     "LimitOutput": "off",
+     "UpperSaturationLimit": "inf",
+     "LowerSaturationLimit": "-inf",
+     "ShowSaturationPort": "off",
+     "ShowStatePort": "off",
+     "AbsoluteTolerance": "auto"
+    },
+    "showName": true
+   },
+   {
+    "id": "b5",
+    "type": "Scope",
+    "name": "Scope",
+    "x": 600,
+    "y": 50,
+    "w": 40,
+    "h": 62,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "NumInputPorts": "2",
+     "SampleTime": "-1",
+     "Title": "",
+     "AutoScale": "on",
+     "YMin": "-1",
+     "YMax": "1",
+     "TimeRange": "auto",
+     "Layout": "separate",
+     "Legend": "off",
+     "Decimation": "1",
+     "LimitDataPoints": "off",
+     "MaxDataPoints": "5000",
+     "DataLogging": "off",
+     "DataLoggingVariableName": "ScopeData",
+     "DataLoggingSaveFormat": "Structure With Time"
+    },
+    "showName": true
+   },
+   {
+    "id": "b6",
+    "type": "XYGraph",
+    "name": "Phase plane",
+    "x": 600,
+    "y": 240,
+    "w": 40,
+    "h": 62,
+    "rot": 0,
+    "flip": false,
+    "params": {
+     "XMin": "-1",
+     "XMax": "1",
+     "YMin": "-1",
+     "YMax": "1",
+     "AutoScale": "on",
+     "Title": "",
+     "SampleTime": "-1",
+     "Decimation": "1"
+    },
+    "showName": true
+   }
+  ],
+  "lines": [
+   {
+    "id": "l7",
+    "src": {
+     "block": "b1",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b2",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l8",
+    "src": {
+     "block": "b2",
+     "port": 1
+    },
+    "points": [],
+    "dst": {
+     "block": "b3",
+     "port": 1
+    },
+    "branches": [],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l9",
+    "src": {
+     "block": "b3",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b4",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b1",
+       "port": 2
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b5",
+       "port": 2
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b6",
+       "port": 2
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   },
+   {
+    "id": "l10",
+    "src": {
+     "block": "b4",
+     "port": 1
+    },
+    "points": [],
+    "dst": null,
+    "branches": [
+     {
+      "points": [],
+      "dst": {
+       "block": "b1",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b5",
+       "port": 1
+      },
+      "branches": []
+     },
+     {
+      "points": [],
+      "dst": {
+       "block": "b6",
+       "port": 1
+      },
+      "branches": []
+     }
+    ],
+    "name": "",
+    "log": false
+   }
+  ],
+  "notes": []
+ },
+ "nextId": 11,
+ "meta": {
+  "description": "진자 / Pendulum — θ'' = −(g/L)·sin θ − b·θ' (g/L = 9.81, b = 0.2), 처음 각도 1 rad / θ'' = −(g/L)·sin θ − b·θ' (g/L = 9.81, b = 0.2), starting at 1 rad",
+  "created": "2026-10-30T00:00:00.000Z",
+  "modified": "2026-10-30T00:00:00.000Z"
+ }
+}

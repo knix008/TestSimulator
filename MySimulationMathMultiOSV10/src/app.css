@@ -134,6 +134,13 @@
 .editor-host .cm-panel.cm-search button { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 4px; color: var(--fg); padding: 2px 8px; }
 .editor-host .cm-searchMatch { background: color-mix(in srgb, var(--folder) 35%, transparent); }
 .editor-host .cm-tooltip { background: var(--bg-elev); border: 1px solid var(--border-strong); color: var(--fg); }
+.editor-host .cm-tooltip-hover { border-radius: 6px; box-shadow: var(--shadow); }
+.cm-hover-help { max-width: 460px; padding: 7px 10px 8px; font-family: var(--font); font-size: 12.5px; line-height: 1.45; }
+.cm-hover-help-head { display: flex; align-items: baseline; gap: 8px; }
+.cm-hover-help-head strong { color: var(--syn-function); font-family: Consolas, "D2Coding", monospace; font-size: 13px; }
+.cm-hover-help-kind { color: var(--fg-muted); font-size: 11px; }
+.cm-hover-help-text { margin-top: 3px; white-space: pre-wrap; }
+.cm-hover-help-syntax { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border); color: var(--fg-muted); font-family: Consolas, "D2Coding", monospace; font-size: 12px; white-space: pre; overflow-x: auto; }
 .editor-host .cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--bg-sel); color: var(--fg); }
 .editor-host .cm-foldPlaceholder { background: var(--bg-hover); border: 1px solid var(--border); color: var(--fg-muted); }
 
@@ -218,3 +225,34 @@
 .pd-place.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .pd-main .pd-list { flex: 1; min-width: 0; }
 .path-dialog .dialog-actions { margin-top: 0; }
+
+/* 단축키 window (views/Shortcuts.jsx): two columns of groups, keys aligned in each group */
+.sc-dialog { width: min(1040px, calc(100vw - 48px)); max-width: none; }
+.sc-dialog .dialog-body { display: flex; flex-direction: column; gap: 8px; }
+.sc-tools { display: flex; }
+.sc-tools .pane-filter { max-width: 360px; }
+.sc-scroll { height: min(560px, calc(100vh - 220px)); overflow: auto; padding-right: 4px; }
+.sc-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; align-items: start; }
+.sc-group { min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-panel); padding: 6px 10px 8px; }
+.sc-group h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; font-size: 13px; }
+.sc-group h3 svg { color: var(--accent); }
+.sc-group h3 small { margin-left: auto; color: var(--fg-muted); font-weight: 400; }
+.sc-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0; font-size: 12px; align-items: center; }
+.sc-list dt { margin: 0; white-space: nowrap; }
+.sc-list dd { margin: 0; color: var(--fg-muted); min-width: 0; }
+.sc-keys { display: inline-flex; align-items: center; gap: 3px; }
+.sc-keys kbd { font-family: var(--cw-font, Consolas, monospace); font-size: 11px; padding: 1px 6px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--bg); white-space: nowrap; }
+.sc-plus, .sc-or { color: var(--fg-muted); font-size: 10.5px; }
+.sc-none { display: flex; align-items: center; gap: 6px; padding: 12px; }
+.st-keys-scroll { max-height: 330px; overflow: auto; padding-right: 4px; }
+.st-keys-scroll .sc-groups { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 760px) { .sc-groups { grid-template-columns: minmax(0, 1fr); } }
+
+/* 맞춤법 (lib/spell.js): suggestions on hover */
+.cm-spell-tip { padding: 6px 8px; font-family: var(--font); font-size: 12px; max-width: 360px; }
+.cm-spell-head { color: var(--fg-muted); margin-bottom: 5px; }
+.cm-spell-sugs { display: flex; flex-wrap: wrap; gap: 4px; }
+.cm-spell-sugs button, .cm-spell-add { height: 22px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 11px; background: var(--bg); color: var(--fg); font-size: 12px; cursor: pointer; }
+.cm-spell-sugs button:hover, .cm-spell-add:hover { border-color: var(--accent); }
+.cm-spell-add { margin-top: 6px; color: var(--fg-muted); }
+.cm-spell-none { color: var(--fg-muted); }

@@ -209,3 +209,58 @@ test('기본값으로 and swaps clear folds and weights even though settings are
   s = apply(s, sidePatch(s, 'editor', 'right', { fold: {} }));
   assert.equal(sideState(s, 'editor', 'right').fold.docprops, false);
 });
+
+test('editor hover help: names under the pointer, definitions in the file, engine help for builtins', async () => {
+  const { nameAt, localDefinition } = await import('../src/lib/hoverHelp.js');
+  assert.deepEqual(nameAt('y = sin(x) + pi;', 5), { from: 4, to: 7, name: 'sin' });
+  assert.equal(nameAt('s.pi = 3;', 3), null, 'struct fields are not looked up');
+  assert.equal(nameAt('x = 12;', 5), null);
+  const src = [
+    'g = 9.81;   % 중력 가속도 [m/s^2]',
+    '% 공기 밀도',
+    'rho = 1.225;',
+    'y = drop(2);',
+    'function h = drop(t)',
+    '% DROP  자유 낙하 거리',
+    '  h = 0.5 * g * t.^2;',
+    'end',
+  ].join('\n');
+  assert.deepEqual(localDefinition(src, 'g'), { kind: 'constant', line: 1, syntax: ['g = 9.81'], text: '중력 가속도 [m/s^2]' });
+  assert.deepEqual(localDefinition(src, 'rho'), { kind: 'constant', line: 3, syntax: ['rho = 1.225'], text: '공기 밀도' });
+  assert.deepEqual(localDefinition(src, 'drop'), { kind: 'function', line: 5, syntax: ['h = drop(t)'], text: 'DROP  자유 낙하 거리' });
+  assert.equal(localDefinition(src, 'sin'), null);
+  const s = createSession();
+  for (const n of ['sin', 'plot', 'pi', 'eps']) assert.ok(s.help(n) && s.help(n).ko, `engine help for ${n}`);
+});
+
+test('engine check (문제점) and catalog (도움말): syntax errors, undefined names, unused values, outputs', () => {
+  const s = createSession();
+  const src = [
+    'g = 9.81;',
+    'y = drop(2) + zz;',
+    'plot(1:3, sin(y) * pi);',
+    'f = @(t) t.^2 + g;',
+    'function [h, v] = drop(t)',
+    '  tmp = 3;',
+    '  h = 0.5 * g * t.^2;',
+    'end',
+  ].join('\n');
+  const got = s.check(src).map((p) => `${p.severity}:${p.code}:${p.name}:${p.line}:${p.col}`);
+  assert.deepEqual(got, ['warning:undefined:zz:2:15', 'warning:outputNotSet:v:5:14', 'info:unused:tmp:6:3', 'warning:undefined:g:7:13']);
+  const bad = s.check('x = (1 + ;');
+  assert.equal(bad.length, 1);
+  assert.equal(bad[0].severity, 'error');
+  assert.equal(bad[0].code, 'parse');
+  assert.equal(bad[0].line, 1);
+  assert.deepEqual(s.check('function a\nend\nfunction a\nend').map((p) => p.code), ['duplicateFunction']);
+  assert.deepEqual(s.check('function r = outer(x)\n  k = 2;\n  r = inner(x);\n  function y = inner(z)\n    y = z * k;\n  end\nend'), [], 'nested functions share variables');
+  s.evaluate('wsVar = 5;');
+  assert.deepEqual(s.check('disp(wsVar)'), [], 'scripts see the workspace');
+  const cat = s.catalog();
+  assert.ok(cat.length > 1000);
+  assert.ok(!cat.some((c) => c.name.startsWith('__')));
+  assert.equal(cat.find((c) => c.name === 'pi').kind, 'constant');
+  const sin = cat.find((c) => c.name === 'sin');
+  assert.equal(sin.kind, 'function');
+  assert.ok(sin.ko && sin.en && sin.area);
+});

@@ -157,7 +157,7 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
     let layout = null;
     try {
       layout = paintFigure(g, fig, fw, fh, {
-        theme, views: ctl.views2d, grid5: ctl.grid, grid3d: ctl.grid, axesLines: ctl.axesLines, dpr, views3d: ctl.views3d, state3d: ctl.state3d,
+        theme, views: ctl.views2d, grid5: ctl.grid, grid3d: ctl.grid, axesLines: ctl.axesLines, edges: ctl.edges, dpr, views3d: ctl.views3d, state3d: ctl.state3d,
         lightOpts: (ax) => lightOptionsFor(ax),
       });
     } catch (e) { console.error('figure paint', e); }

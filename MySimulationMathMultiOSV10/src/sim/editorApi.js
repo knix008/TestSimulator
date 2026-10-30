@@ -13,6 +13,7 @@
 //   openPath(crumbs)                     show that system level (like the breadcrumbs)
 //   select(ids)                          select blocks of the current level
 //   setBlock(id, { params, name })       apply a block's parameters / name (one Undo step)
+//   setStyle(ids, { fg, bg, color })     colours of blocks (outline+icon / fill) and lines; null = theme colour
 //   tune(id, params)                     live parameter change while running (sim.tune)
 //   setSettings(patch)                   change the model settings (one Undo step)
 //   openSettings() / openBlock(id)       the full model settings / block parameter dialog

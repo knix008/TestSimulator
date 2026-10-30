@@ -61,7 +61,7 @@ export const PANEL_SET_IDS = Object.keys(PANEL_SETS);
 
 /** The ribbon tab a document kind belongs to (activating the document shows it). */
 export function tabForDocKind(kind) {
-  if (kind === 'file') return 'editor';
+  if (kind === 'file' || kind === 'flow') return 'editor';
   if (kind === 'figures') return 'plots';
   if (kind === 'model') return 'simulation';
   return null;

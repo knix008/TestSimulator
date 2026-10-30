@@ -3,6 +3,14 @@
 /** −/+ on the zoom stepper move to the next multiple of 10 %; a typed value is taken as is. */
 export const stepZoom = (cur, v) => (v === cur + 1 ? Math.floor(cur / 10) * 10 + 10 : v === cur - 1 ? Math.max(10, Math.ceil(cur / 10) * 10 - 10) : v);
 
+/** A model save path always ends in one of `exts` ("pendulum" → "pendulum.smdl"; other extensions get one added). */
+export function withModelExt(p, exts = ['.smdl']) {
+  const s = String(p || '').trim();
+  if (!s) return s;
+  const name = s.replace(/^.*[\\/]/, '').toLowerCase();
+  return exts.some((e) => name.endsWith(e.toLowerCase()) && name.length > e.length) ? s : `${s}${exts[0]}`;
+}
+
 /** Removes a segment (branch) from a line; returns false when the whole line went away. */
 export function removeSeg(line, target) {
   if (line === target) return false;

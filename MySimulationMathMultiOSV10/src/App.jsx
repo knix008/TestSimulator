@@ -27,6 +27,9 @@ import { MenuHost } from './components/MenuHost';
 import { PromptHost } from './components/PromptHost';
 import { ProgressHost } from './components/ProgressHost';
 import { CommandWindow } from './panes/CommandWindow';
+import { HelpBrowser, ProblemsPane } from './panes/BottomPanes';
+import { FlowEditor } from './flow/FlowEditor';
+import { withModelExt } from './sim/logic.js';
 import { WorkspacePane } from './panes/Workspace';
 import { HistoryPane, loadHistory, storeHistory, SESSION_START } from './panes/CommandHistory';
 import { CurrentFolderPane } from './panes/CurrentFolder';
@@ -35,6 +38,7 @@ import { VariableEditor } from './panes/VariableEditor';
 import { FigureAreaGuard, ModelEditorGuard, loadSim } from './panes/Guarded';
 import { SettingsDialog } from './views/Settings';
 import { AboutDialog } from './views/About';
+import { ShortcutsDialog } from './views/Shortcuts';
 import { FindFilesDialog } from './views/FindFiles';
 import { StartPage } from './views/StartPage';
 import { TEMPLATES } from './lib/samples';
@@ -76,6 +80,7 @@ function Desktop() {
   useLanguage();
   const settings = useSettings();
   const layout = useMemo(() => ({ ...DEFAULT_LAYOUT, ...(settings.layout || {}), folder: { ...DEFAULT_LAYOUT.folder, ...((settings.layout || {}).folder || {}) }, workspace: { ...DEFAULT_LAYOUT.workspace, ...((settings.layout || {}).workspace || {}) }, history: { ...DEFAULT_LAYOUT.history, ...((settings.layout || {}).history || {}) }, cmd: { ...DEFAULT_LAYOUT.cmd, ...((settings.layout || {}).cmd || {}) } }), [settings.layout]);
+  const bottomTab = ['cmd', 'help', 'problems'].includes(layout.bottomTab) ? layout.bottomTab : 'cmd';
   const [live, setLive] = useState({}); // pane sizes while dragging
   const L = { ...layout, ...live };
   const tab = settings.ribbonTab || 'home';
@@ -101,6 +106,10 @@ function Desktop() {
   const [cursor, setCursor] = useState(null);
   const [folderKey, setFolderKey] = useState(0);
   const [varKey, setVarKey] = useState(0);
+  const [problemCounts, setProblemCounts] = useState(null);
+  // 맞춤법: function and constant names are not misspellings (filled once the engine is ready)
+  const spellKnownRef = useRef(null);
+  useEffect(() => { if (engineReady && !spellKnownRef.current) engine.catalog().then((c) => { spellKnownRef.current = new Set((c || []).map((x) => String(x.name).toLowerCase())); }); }, [engineReady]); // eslint-disable-line react-hooks/exhaustive-deps
   const [breakpoints, setBreakpoints] = useState(loadBreakpoints);
   const [dialog, setDialog] = useState(null);
   // The launch popup "튜토리얼을 실행할까요?" (settings.tutorial.askOnLaunch), once per launch.
@@ -201,7 +210,7 @@ function Desktop() {
 
   // Remember the open files.
   useEffect(() => {
-    const paths = docs.filter((d) => (d.kind === 'file' || d.kind === 'model') && d.path).map((d) => d.path);
+    const paths = docs.filter((d) => (d.kind === 'file' || d.kind === 'model' || d.kind === 'flow') && d.path).map((d) => d.path);
     if (JSON.stringify(paths) !== JSON.stringify(getSettings().openFiles || [])) patchSettings({ openFiles: paths });
   }, [docs]);
 
@@ -259,7 +268,7 @@ function Desktop() {
   // Command Window included) until a document is opened or it is toggled off.
   const showStart = () => setStartOn(true);
   function addRecent(path, kind) {
-    if (!path || (kind !== 'model' && kind !== 'script' && kind !== 'file')) return;
+    if (!path || (kind !== 'model' && kind !== 'script' && kind !== 'file' && kind !== 'flow')) return;
     const list = (getSettings().recentFiles || []).filter((r) => r.path !== path);
     patchSettings({ recentFiles: [{ path, kind: kind === 'model' ? 'model' : 'file' }, ...list].slice(0, 20) });
   }
@@ -297,7 +306,7 @@ function Desktop() {
       close: () => setStartOn(false),
       helpCmd: () => runCode('help'),
       functions: async () => { const q = await askText({ title: t('sp_h_functions'), label: t('sp_h_keyword'), value: '', icon: 'search', mono: true }); if (q && q.trim()) runCode('lookfor ' + q.trim().replace(/[^\w ]/g, '')); },
-      shortcuts: () => ask({ title: t('sp_h_shortcuts'), icon: 'key', body: t('sp_shortcuts_body'), buttons: [{ id: 'ok', label: t('ok'), primary: true }] }),
+      shortcuts: () => setDialog({ kind: 'shortcuts' }),
       prefs: () => openSettings(),
       about: () => openAbout(),
       guide: () => openGuide(),
@@ -323,6 +332,12 @@ function Desktop() {
       setActive(doc.id);
       return;
     }
+    if (kind === 'flow') {
+      const doc = { id: newId('g'), kind: 'flow', path, title: baseName(path), icon: 'flow' };
+      setDocs((list) => [...list, doc]);
+      setActive(doc.id);
+      return;
+    }
     if (kind === 'data' || kind === 'image' || kind === 'audio') {
       if (!quiet && cmdRef.current) cmdRef.current.run(importCommand(path));
       return;
@@ -344,6 +359,27 @@ function Desktop() {
     setDocs((list) => [...list, doc]);
     setStartOn(false);
     setActive(doc.id);
+  }
+  /** 그래픽 편집기: a new flow document (blocks → M code), saved as .mflow. */
+  function newFlow() {
+    const used = new Set(docsRef.current.map((d) => d.title));
+    let n = 1;
+    while (used.has(n === 1 ? 'untitled.mflow' : `untitled${n}.mflow`)) n += 1;
+    const doc = { id: newId('g'), kind: 'flow', path: null, title: n === 1 ? 'untitled.mflow' : `untitled${n}.mflow`, icon: 'flow' };
+    setDocs((list) => [...list, doc]);
+    setStartOn(false);
+    setActive(doc.id);
+  }
+  /** The flow's M code saved as its own .m file. */
+  async function exportFlowCode(code, name) {
+    let p = await chooseFile({ mode: 'save', title: t('fl_export'), start: cwd, name, exts: ['.m'], filterName: t('ft_m') });
+    if (!p) return;
+    if (!/\.[A-Za-z0-9]+$/.test(baseName(p))) p += '.m';
+    try {
+      await fsApi.writeText(p, code);
+      setFolderKey((k) => k + 1);
+      toast(t('fl_exported', { name: baseName(p) }), 'ok', 2200);
+    } catch (e) { showError(e); }
   }
   // open_system('name'): focus the model's tab, or open one (by file, else by the loaded model's name).
   function openModelDoc(name, path) {
@@ -417,21 +453,21 @@ function Desktop() {
         if (!detail.handled) resolve(false); // no editor (still loading or failed): nothing saved
       });
     }
-    if (doc.kind !== 'file') return false;
+    if (doc.kind !== 'file' && doc.kind !== 'flow') return false;
     const ed = editors.current.get(id);
     if (!ed) return false;
+    const ext = doc.kind === 'flow' ? '.mflow' : '.m';
     let path = doc.path;
     if (!path || as) {
-      path = await chooseFile({ mode: 'save', title: t('ed_save_as'), start: path ? dirName(path) : cwd, name: path ? baseName(path) : doc.title, exts: ['.m'], filterName: t('ft_m') });
+      path = await chooseFile({ mode: 'save', title: t('ed_save_as'), start: path ? dirName(path) : cwd, name: path ? baseName(path) : doc.title, exts: [ext], filterName: doc.kind === 'flow' ? t('ft_flow') : t('ft_m') });
       if (!path) return false;
-      if (!/\.[A-Za-z0-9]+$/.test(baseName(path))) path += '.m';
+      if (!/\.[A-Za-z0-9]+$/.test(baseName(path))) path += ext;
     }
     try {
       await ed.save(path);
-      addRecent(path, 'file');
+      addRecent(path, doc.kind === 'flow' ? 'flow' : 'file');
       if (path !== doc.path) setDocs((list) => list.map((d) => (d.id === id ? { ...d, path, title: baseName(path) } : d)));
-      const lines = ed.editor ? ed.editor.breakpoints() : [];
-      setBreakpointsFor(path, lines);
+      if (ed.editor) setBreakpointsFor(path, ed.editor.breakpoints());
       setFolderKey((k) => k + 1);
       toast(t('ed_saved', { name: baseName(path) }), 'ok', 1800);
       return path;
@@ -599,6 +635,7 @@ function Desktop() {
   }
   /** The guided tour asks for a pane: on this screen when it has it, else on the home screen. */
   function showPane(id) {
+    if (id === 'cmd') { setLayout({ cmd: { ...layout.cmd, on: true }, bottomTab: 'cmd' }); return; }
     if (!PANES[id]) return;
     const cur = getSettings();
     let key = setKey;
@@ -723,7 +760,7 @@ function Desktop() {
     const inEditor = e.target && e.target.closest && e.target.closest('.cm-editor');
     if (mod && !e.shiftKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); newScript(); }
     else if (mod && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openAny(); }
-    else if (mod && (e.key === 's' || e.key === 'S') && !inEditor) { e.preventDefault(); if (active) saveDoc(active, { as: e.shiftKey }); }
+    else if (mod && (e.key === 's' || e.key === 'S') && (!inEditor || e.shiftKey)) { e.preventDefault(); if (active) saveDoc(active, { as: e.shiftKey }); }
     else if (mod && e.key === ',') { e.preventDefault(); openSettings(); }
     else if (mod && !e.shiftKey && !e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); doPrint(); }
     else if (mod && e.key === '0' && !e.shiftKey) { e.preventDefault(); if (cmdRef.current) cmdRef.current.focus(); }
@@ -746,6 +783,7 @@ function Desktop() {
   const selVar = variables.find((v) => v.name === selectedVar) || null;
   const plottable = !!selVar && NUMERIC.has(selVar.cls);
   const isEditor = !!(activeDoc && activeDoc.kind === 'file');
+  const isFlow = !!(activeDoc && activeDoc.kind === 'flow');
   const isModel = !!(activeDoc && activeDoc.kind === 'model');
   const edCall = (fn) => () => { if (activeEditor && activeEditor.editor) activeEditor.editor[fn](); };
   // The app-wide context menu (lib/contextMenus.js) runs these.
@@ -768,12 +806,11 @@ function Desktop() {
   ];
   const ribbons = {
     home: [
-      { id: 'start', icon: 'home', label: t('sp_show_start'), on: startOn, run: () => setStartOn((v) => !v) },
-      { sep: true },
       { id: 'newScript', icon: 'script', label: t('rb_new_script'), keys: 'Ctrl+N', run: () => newScript() },
+      { id: 'newFlow', icon: 'flow', label: t('rb_new_flow'), tip: t('rb_new_flow_tip'), run: newFlow },
       { id: 'newModel', icon: 'model', label: t('rb_new_model'), run: newModel },
       { id: 'open', icon: 'folder', label: t('rb_open'), keys: 'Ctrl+O', run: openAny },
-      { id: 'save', icon: 'save', label: t('rb_save'), keys: 'Ctrl+S', disabled: !(isEditor || isModel), run: () => saveDoc(active) },
+      { id: 'save', icon: 'save', label: t('rb_save'), keys: 'Ctrl+S', disabled: !(isEditor || isModel || isFlow), run: () => saveDoc(active) },
       { id: 'print', icon: 'print', label: pt('print'), keys: 'Ctrl+P', tip: pt('print_tip'), run: doPrint },
       { sep: true },
       { id: 'findFiles', icon: 'search', label: t('rb_find_files'), run: () => setDialog({ kind: 'find' }) },
@@ -808,10 +845,12 @@ function Desktop() {
     ],
     editor: [
       { id: 'ed:new', icon: 'script', label: t('rb_new_script'), run: () => newScript() },
+      { id: 'ed:newFlow', icon: 'flow', label: t('rb_new_flow'), tip: t('rb_new_flow_tip'), run: newFlow },
       { id: 'ed:open', icon: 'folder', label: t('rb_open'), run: openAny },
-      { id: 'ed:save', icon: 'save', label: t('rb_save'), keys: 'Ctrl+S', disabled: !isEditor, run: () => saveDoc(active) },
-      { id: 'ed:saveAs', icon: 'download', label: t('ed_save_as'), disabled: !isEditor, run: () => saveDoc(active, { as: true }) },
+      { id: 'ed:save', icon: 'save', label: t('rb_save'), keys: 'Ctrl+S', disabled: !isEditor && !isFlow, run: () => saveDoc(active) },
+      { id: 'ed:saveAs', icon: 'download', label: t('ed_save_as'), disabled: !isEditor && !isFlow, run: () => saveDoc(active, { as: true }) },
       { id: 'ed:print', icon: 'print', label: pt('print'), keys: 'Ctrl+P', tip: pt('print_tip'), run: doPrint },
+      { id: 'ed:spell', icon: 'check', label: t('spell_toggle'), tip: t('spell_toggle_tip'), on: settings.editor.spellCheck !== false, run: () => patchSettings({ editor: { spellCheck: settings.editor.spellCheck === false } }) },
       { sep: true },
       { id: 'run', icon: 'play', label: t('rb_run'), keys: 'F5', primary: true, disabled: !isEditor || busy, run: () => runDoc() },
       { id: 'stepRun', icon: 'stepIn', label: t('rb_step_run'), keys: 'Ctrl+F10', tip: t('rb_step_run_tip'), disabled: !isEditor || busy || !!debug, run: () => stepRunDoc() },
@@ -902,7 +941,7 @@ function Desktop() {
     varPropsName: varDoc ? varDoc.name : selectedVar,
     simDocId: simDoc ? simDoc.id : null, lang: getLanguage(),
     insertToPrompt: (text) => {
-      if (!layout.cmd.on) setLayout({ cmd: { ...layout.cmd, on: true } });
+      if (!layout.cmd.on || bottomTab !== 'cmd') setLayout({ cmd: { ...layout.cmd, on: true }, bottomTab: 'cmd' });
       setTimeout(() => { const ta = document.querySelector('.cw-input'); if (ta) { ta.focus(); document.execCommand('insertText', false, text); } }, 30);
     },
   };
@@ -918,23 +957,51 @@ function Desktop() {
   const dbgFile = debug && debug.file;
   const stateLabel = debug ? t('dbg_paused') : engineState === 'busy' || busy ? t('st_busy') : engineState === 'ready' ? t('st_ready') : engineState === 'starting' ? t('st_starting') : t('st_no_engine');
 
+  // The bottom panel: 명령 창 | 도움말 | 문제점 (the Command Window stays mounted behind the other tabs).
+  const insertFromHelp = (text) => {
+    if (activeEditor && activeEditor.editor) activeEditor.editor.insert(text);
+    else paneCtx.insertToPrompt(text);
+  };
+  const problemTotal = problemCounts ? problemCounts.error + problemCounts.warning + problemCounts.info : 0;
+  const bottomTabs = [
+    { id: 'cmd', icon: 'terminal', label: t('cw_title') },
+    { id: 'help', icon: 'book', label: t('bp_help') },
+    { id: 'problems', icon: problemCounts && problemCounts.error ? 'xCircle' : 'alert', label: t('bp_problems'), badge: problemTotal || null, bad: !!(problemCounts && problemCounts.error) },
+  ];
   const commandWindow = (
-    <div className="cw-wrap pane-box" data-pane="cmd">
-      <div className="pane-head"><Icon name="terminal" size={14} /><strong>{t('cw_title')}</strong><span className="spacer" />
-        {(busy || debug) && <button type="button" className="icon-btn" title={`${t('cw_interrupt')} (Ctrl+C)`} aria-label={t('cw_interrupt')} onClick={() => { if (debug) debugReply('stop'); else engine.interrupt(); }}><Icon name="stop" size={13} /></button>}
-        <button type="button" className="icon-btn" title={pt('print')} aria-label={pt('print')} onClick={() => { if (!isPrintDialogOpen()) printCommandWindow(); }}><Icon name="print" size={13} /></button>
-        <button type="button" className="icon-btn" title={t('rb_clear_cmd')} aria-label={t('rb_clear_cmd')} onClick={() => cmdRef.current && cmdRef.current.clear()}><Icon name="clearCmd" size={13} /></button>
+    <div className="cw-wrap pane-box" data-pane="cmd" data-bottom-tab={bottomTab}>
+      <div className="pane-head bp-head">
+        <div className="bp-tabs" role="tablist" aria-label={t('bp_panel')}>
+          {bottomTabs.map((b) => (
+            <button key={b.id} type="button" role="tab" aria-selected={bottomTab === b.id} className={`bp-tab ${bottomTab === b.id ? 'on' : ''}`} data-bottom={b.id} onClick={() => setLayout({ bottomTab: b.id })}>
+              <Icon name={b.icon} size={13} /><span>{b.label}</span>{b.badge != null && <span className={`bp-badge ${b.bad ? 'bad' : ''}`}>{b.badge}</span>}
+            </button>
+          ))}
+        </div>
+        <span className="spacer" />
+        {bottomTab === 'cmd' && (busy || debug) && <button type="button" className="icon-btn" title={`${t('cw_interrupt')} (Ctrl+C)`} aria-label={t('cw_interrupt')} onClick={() => { if (debug) debugReply('stop'); else engine.interrupt(); }}><Icon name="stop" size={13} /></button>}
+        {bottomTab === 'cmd' && <button type="button" className="icon-btn" title={pt('print')} aria-label={pt('print')} onClick={() => { if (!isPrintDialogOpen()) printCommandWindow(); }}><Icon name="print" size={13} /></button>}
+        {bottomTab === 'cmd' && <button type="button" className="icon-btn" title={t('rb_clear_cmd')} aria-label={t('rb_clear_cmd')} onClick={() => cmdRef.current && cmdRef.current.clear()}><Icon name="clearCmd" size={13} /></button>}
         <button type="button" className="icon-btn close-x" title={t('pn_close')} aria-label={t('pn_close')} onClick={() => togglePane('cmd')}><Icon name="close" size={12} /></button>
       </div>
+      {bottomTab === 'help' && <HelpBrowser engine={engine} engineReady={engineReady} variables={variables} onInsert={insertFromHelp} />}
+      <div className="bp-body" style={bottomTab === 'problems' ? undefined : { display: 'none' }}>
+        <ProblemsPane engine={engine} engineReady={engineReady} refreshKey={varKey} onCount={setProblemCounts}
+          active={activeDoc && activeDoc.kind === 'file' ? { id: activeDoc.id, title: activeDoc.title, path: activeDoc.path } : null}
+          getText={(id) => { const ed = editors.current.get(id); return ed && ed.editor ? ed.editor.getText() : null; }}
+          onGoto={(id, line, col) => { activate(id); const ed = editors.current.get(id); if (ed && ed.editor) setTimeout(() => ed.editor.gotoLine(line, col), 0); }} />
+      </div>
+      <div className="bp-body" style={bottomTab === 'cmd' ? undefined : { display: 'none' }}>
       <CommandWindow ref={cmdRef} engine={engine} settings={settings} busy={busy} engineState={engineState} debug={debug} onDebugReply={debugReply}
         history={historyCommands} onHistoryAdd={addHistory} onOpenLink={(file, line) => openFile(/^([A-Za-z]:)?\//.test(file) ? file : joinPath(cwd, file), { line })} />
+      </div>
     </div>
   );
 
   return (
     <div className="app msm" data-engine={engineState}>
       {/* On the start page only the start page shows: no ribbon. A title-bar tab closes it and shows that ribbon. */}
-      <TitleBar tab={startOn ? null : tab} onTab={(id) => { setStartOn(false); setTab(id); }} theme={settings.theme} onAction={onTitleAction} dirty={anyDirty} busy={busy} debug={debug} onClose={requestClose} />
+      <TitleBar tab={startOn ? null : tab} onTab={(id) => { setStartOn(false); setTab(id); }} startOn={startOn} onStart={() => setStartOn((v) => !v)} theme={settings.theme} onAction={onTitleAction} dirty={anyDirty} busy={busy} debug={debug} onClose={requestClose} />
       {!startOn && <Ribbon tabId={tab} items={ribbons[tab] || ribbons.home} />}
       {/* The start page fills the window: the side and bottom panes are hidden (kept mounted). */}
       <div className={`body-row ${startOn ? 'start-mode' : ''}`}>
@@ -943,6 +1010,7 @@ function Desktop() {
             <StartPage settings={settings} recent={settings.recentFiles || []} onAction={startAction} onRecentOpen={openRecent} onRecentRemove={removeRecent}
               onRecentClear={() => patchSettings({ recentFiles: [] })}
               onSample={(sm, run) => { if (run) { setStartOn(false); runCode(sm.code, { echo: false }); } else newScript(sm.code); }}
+              onModelSample={(m, code) => { if (code) newScript(m.code); else { setStartOn(false); runCode(m.code, { echo: false, history: false }); } }}
               showOnLaunch={settings.showStartOnLaunch !== false} onShowOnLaunch={(v) => patchSettings({ showStartOnLaunch: v })}
               onBackground={(startBackground) => patchSettings({ startBackground })} />
           </div>
@@ -963,20 +1031,28 @@ function Desktop() {
                         onCursor={setCursor} breakpoints={d.path ? breakpoints[d.path] || [] : []}
                         onBreakpoints={(lines) => { if (d.path) setBreakpointsFor(d.path, lines); }}
                         debugLine={debug && dbgFile && dbgFile.replace(/\\/g, '/') === (d.path || `/untitled/${d.id}.m`) ? debug.line : null}
-                        actions={{ run: () => (debugRef.current ? debugReply('continue') : runDoc(d.id)), runSection, evalSelection, save: () => saveDoc(d.id), saveAs: (id) => saveDoc(id, { as: true }), debug: (a) => debugReply(a), complete: (text, cur) => engine.complete(text, cur) }} />
+                        actions={{ run: () => (debugRef.current ? debugReply('continue') : runDoc(d.id)), runSection, evalSelection, save: () => saveDoc(d.id), saveAs: (id) => saveDoc(id, { as: true }), debug: (a) => debugReply(a), complete: (text, cur) => engine.complete(text, cur), help: (name) => engine.help(name),
+                          spellWords: () => getSettings().editor.spellWords || [], spellKnown: () => spellKnownRef.current,
+                          addSpellWord: (w) => { const list = getSettings().editor.spellWords || []; if (!list.includes(w)) patchSettings({ editor: { spellWords: [...list, w] } }); } }} />
+                    )}
+                    {d.kind === 'flow' && (
+                      <FlowEditor doc={d} active={d.id === active} engine={engine} engineReady={engineReady} variables={variables} register={registerEditor} onDirty={onDocDirty}
+                        actions={{ saveAs: (id) => saveDoc(id, { as: true }), openAsScript: (code) => newScript(code), exportM: exportFlowCode,
+                          run: (code) => { setLayout({ cmd: { ...layout.cmd, on: true }, bottomTab: 'cmd' }); runCode(code, { echo: false, history: false }); } }} />
                     )}
                     {d.kind === 'var' && <VariableEditor engine={engine} name={d.name} active={d.id === active} refreshKey={varKey} format={settings.cmd.numericFormat.startsWith('long') ? 'long' : 'short'} />}
                     {d.kind === 'model' && (
                       <ModelEditorGuard engine={engine} path={d.path} modelName={d.modelName} docId={d.id} lang={getLanguage()} active={d.id === active} defaults={settings.sim}
                         onDirty={(dirty) => onDocDirty(d.id, !!dirty)}
                         onTitle={(title) => setDocs((list) => list.map((x) => (x.id === d.id ? { ...x, title: title || x.title } : x)))}
-                        onSaveAs={async (name) => { const p = await chooseFile({ mode: 'save', title: t('ed_save_as'), start: d.path ? dirName(d.path) : cwd, name: `${name || 'untitled'}${getModelExts()[0]}`, exts: getModelExts(), filterName: t('ft_model') });
+                        onSaveAs={async (name) => { let p = await chooseFile({ mode: 'save', title: t('ed_save_as'), start: d.path ? dirName(d.path) : cwd, name: `${name || 'untitled'}${getModelExts()[0]}`, exts: getModelExts(), filterName: t('ft_model') });
+                          if (p) p = withModelExt(p, getModelExts());
                           // A file open in another tab: both tabs would be one model in the engine.
                           const same = (a, b) => String(a || '').replace(/\\/g, '/').toLowerCase() === String(b || '').replace(/\\/g, '/').toLowerCase();
                           if (p && docsRef.current.some((x) => x.id !== d.id && x.kind === 'model' && same(x.path, p))) { showError(t('mdl_path_open', { name: baseName(p) })); return null; }
                           return p; }}
                         onPath={(p) => setDocs((list) => list.map((x) => (x.id === d.id ? { ...x, path: p, title: baseName(p) } : x)))}
-                        onNew={newModel} onOpen={openModelDialog}
+                        onNew={newModel} onOpen={openModelDialog} onOpenScript={(code) => newScript(code)}
                         externalLibrary={simLibOutside} onLibrary={() => ensurePane(setKey, 'simlib', 'left')} />
                     )}
                   </TabActiveCtx.Provider>
@@ -995,7 +1071,7 @@ function Desktop() {
               <span className="center-empty-actions">
                 <button type="button" className="vbtn primary" onClick={() => togglePane('cmd')}><Icon name="terminal" size={14} />{t('pn_open_cmd')}</button>
                 <button type="button" className="vbtn" onClick={() => newScript()}><Icon name="script" size={14} />{t('rb_new_script')}</button>
-                <button type="button" className="vbtn" onClick={() => setStartOn(true)}><Icon name="home" size={14} />{t('sp_show_start')}</button>
+                <button type="button" className="vbtn" onClick={() => setStartOn(true)}><Icon name="start" size={14} />{t('sp_show_start')}</button>
               </span>
             </div>
           )}
@@ -1016,7 +1092,7 @@ function Desktop() {
         <span className="spacer" />
         {activeDoc && activeDoc.kind === 'file' && cursor && <span className="sb-item">{t('sb_ln_col', { line: cursor.line, col: cursor.col })}{cursor.sel ? ` (${t('sb_sel', { n: cursor.sel })})` : ''}</span>}
         {activeDoc && activeDoc.kind === 'file' && <span className="sb-item">UTF-8</span>}
-        {activeDoc && <span className="sb-item">{activeDoc.kind === 'file' ? (fileKind(activeDoc.title) === 'script' ? t('sb_lang_m') : t('sb_lang_text')) : activeDoc.kind === 'model' ? t('mdl_title') : activeDoc.kind === 'var' ? t('ve_title') : t('fig_title')}</span>}
+        {activeDoc && <span className="sb-item">{activeDoc.kind === 'file' ? (fileKind(activeDoc.title) === 'script' ? t('sb_lang_m') : t('sb_lang_text')) : activeDoc.kind === 'model' ? t('mdl_title') : activeDoc.kind === 'flow' ? t('fl_title') : activeDoc.kind === 'var' ? t('ve_title') : t('fig_title')}</span>}
         <span className="sb-panels" role="group" aria-label={t('pn_panels')}>
           <button type="button" className={`sb-panel ${leftOn ? 'on' : ''}`} aria-pressed={leftOn} title={t('px_toggle_left', { names: sideNames(settings, setKey, 'left') })} onClick={() => toggleSide('left')}><Icon name="panelLeft" size={14} /></button>
           <button type="button" className={`sb-panel ${layout.cmd.on ? 'on' : ''}`} aria-pressed={layout.cmd.on} title={t('pn_toggle_bottom')} onClick={() => togglePane('cmd')}><Icon name="panelBottom" size={14} /></button>
@@ -1026,6 +1102,7 @@ function Desktop() {
       </div>
       {dialog && dialog.kind === 'settings' && <SettingsDialog settings={settings} initialTab={dialog.tab} onClose={() => setDialog(null)} onSave={saveSettingsDraft} />}
       {dialog && dialog.kind === 'about' && <AboutDialog onClose={() => setDialog(null)} />}
+      {dialog && dialog.kind === 'shortcuts' && <ShortcutsDialog onClose={() => setDialog(null)} />}
       {dialog && dialog.kind === 'find' && <FindFilesDialog cwd={cwd} onOpen={(p, line) => openFile(p, { line })} onClose={() => setDialog(null)} />}
       <UiHost />
       <MenuHost />

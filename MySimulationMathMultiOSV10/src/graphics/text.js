@@ -117,8 +117,9 @@ export function measureTex(ctx, s, size, opts = {}) {
 
 /**
  * Draws TeX text. align: 'left'|'center'|'right'; valign: 'top'|'middle'|
- * 'bottom'|'baseline'|'cap'; rotation in degrees (counter-clockwise).
- * Returns the box {width, height} drawn.
+ * 'bottom'|'baseline'|'cap'; rotation in degrees (counter-clockwise);
+ * halo: a colour stroked around the glyphs first, so lines behind the text
+ * (a 3D grid plane, axis lines) stop at its edge. Returns the box {width, height} drawn.
  */
 export function drawTex(ctx, s, x, y, opts = {}) {
   const size = opts.size || 12;
@@ -141,9 +142,19 @@ export function drawTex(ctx, s, x, y, opts = {}) {
     if (opts.background && opts.background !== 'none') { ctx.fillStyle = opts.background; ctx.fillRect(bx, top - pad, m.width + 2 * pad, m.height + 2 * pad); }
     if (opts.edge && opts.edge !== 'none') { ctx.strokeStyle = opts.edge; ctx.lineWidth = 1; ctx.strokeRect(bx, top - pad, m.width + 2 * pad, m.height + 2 * pad); }
   }
-  ctx.fillStyle = opts.color || '#000';
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
+  if (opts.halo && opts.halo !== 'none' && ctx.strokeText) {
+    ctx.strokeStyle = opts.halo;
+    ctx.lineWidth = Math.max(2.5, size * 0.32);
+    ctx.lineJoin = 'round';
+    m.lines.forEach((ln, k) => {
+      const lx = align === 'left' ? 0 : align === 'right' ? -ln.width : (align === 'center' ? -ln.width / 2 : 0);
+      const base = top + k * m.lineHeight + size * 0.95;
+      for (const r of ln.runs) { ctx.font = r.font; ctx.strokeText(r.text, lx + r.x, base + r.dy); }
+    });
+  }
+  ctx.fillStyle = opts.color || '#000';
   m.lines.forEach((ln, k) => {
     const lx = align === 'left' ? 0 : align === 'right' ? -ln.width : (align === 'center' ? -ln.width / 2 : 0);
     const base = top + k * m.lineHeight + size * 0.95;

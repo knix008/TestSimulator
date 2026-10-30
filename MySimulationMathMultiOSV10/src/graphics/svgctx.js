@@ -169,7 +169,16 @@ export class SvgContext {
     const a2 = alpha * st.globalAlpha;
     this.body.push(`<text transform="matrix(${r4(a)} ${r4(b)} ${r4(c)} ${r4(d)} ${num(e)} ${num(g)})" x="${num(x)}" y="${num(y)}" font-family="${esc(f.family.replace(/"/g, "'"))}" font-size="${num(f.size)}"${f.weight !== 'normal' ? ` font-weight="${f.weight}"` : ''}${f.style !== 'normal' ? ` font-style="${f.style}"` : ''} fill="${esc(color)}"${a2 < 1 ? ` fill-opacity="${num(a2)}"` : ''}${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${base ? ` dominant-baseline="${base}"` : ''} xml:space="preserve">${esc(text)}</text>`);
   }
-  strokeText() { /* not used by the renderers */ }
+  strokeText(text, x, y) {
+    const st = this.st;
+    const f = parseFont(st.font);
+    const { color, alpha } = svgColor(st.strokeStyle);
+    const anchor = st.textAlign === 'center' ? 'middle' : st.textAlign === 'right' || st.textAlign === 'end' ? 'end' : 'start';
+    const base = { top: 'hanging', hanging: 'hanging', middle: 'central', bottom: 'text-after-edge', ideographic: 'text-after-edge' }[st.textBaseline];
+    const [a, b, c, d, e, g] = st.m;
+    const a2 = alpha * st.globalAlpha;
+    this.body.push(`<text transform="matrix(${r4(a)} ${r4(b)} ${r4(c)} ${r4(d)} ${num(e)} ${num(g)})" x="${num(x)}" y="${num(y)}" font-family="${esc(f.family.replace(/"/g, "'"))}" font-size="${num(f.size)}"${f.weight !== 'normal' ? ` font-weight="${f.weight}"` : ''}${f.style !== 'normal' ? ` font-style="${f.style}"` : ''} fill="none" stroke="${esc(color)}" stroke-width="${num(st.lineWidth || 1)}" stroke-linejoin="round"${a2 < 1 ? ` stroke-opacity="${num(a2)}"` : ''}${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${base ? ` dominant-baseline="${base}"` : ''} xml:space="preserve">${esc(text)}</text>`);
+  }
 
   // ---- images
   drawImage(img, ...a) {

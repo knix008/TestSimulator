@@ -169,6 +169,8 @@ class EngineClient {
   setVariable(name, value) { return this._call('variable.set', { name, value }); }
   clear(names) { return this._call('clear', { names: names || [] }); }
   help(name) { return this._call('help', { name }).catch(() => null); }
+  catalog() { return this._call('catalog').catch(() => []); }
+  check(src, file) { return this._call('check', { src, file }).catch(() => []); }
   helpSearch(query, limit = 80) { return this._call('help.search', { query, limit }).catch(() => []); }
   chdir(path) { return this._call('cwd', { path }); }
   setBreakpoints(file, lines) { this.post({ type: 'breakpoints', file, lines }); }

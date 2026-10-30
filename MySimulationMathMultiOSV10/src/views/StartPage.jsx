@@ -12,14 +12,15 @@ import { Icon } from '../components/Chrome';
 import { useTabActive } from '../components/DocTabs';
 import { Btn, Stepper, RangeStepper, Confirm } from './common';
 import { SAMPLES, SAMPLE_CATEGORIES } from '../lib/samples';
+import { MODEL_SAMPLES, MODEL_CATEGORIES } from '../lib/modelSamples';
 import { AnimatedBackground, ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND, themeColors } from '../lib/startBackground';
 
 export function startBackgroundOf(settings) {
   return { ...DEFAULT_START_BACKGROUND, ...((settings && settings.startBackground) || {}) };
 }
 
-export const CARD_IDS = ['hero', 'templates', 'recent', 'side', 'help', 'samples'];
-export const DEFAULT_SPAN = { hero: 3, templates: 2, recent: 1, side: 1, help: 2, samples: 3 };
+export const CARD_IDS = ['hero', 'templates', 'recent', 'side', 'help', 'models', 'samples'];
+export const DEFAULT_SPAN = { hero: 3, templates: 2, recent: 1, side: 1, help: 2, models: 3, samples: 3 };
 
 // 새로 만들기: [action, icon, name key, description key]
 const GROUPS = [
@@ -119,7 +120,36 @@ function SampleCurve({ id, cat, color }) {
   );
 }
 
-export function StartPage({ settings, recent = [], onAction, onRecentOpen, onRecentRemove, onRecentClear, onSample, showOnLaunch, onShowOnLaunch, onBackground }) {
+/**
+ * The example model's real diagram: public/models/<id>.webp, drawn by the
+ * model editor's renderer (npm run generate:models). Missing image: a sketch.
+ */
+const MODEL_IMAGES = `${(import.meta.env && import.meta.env.BASE_URL) || './'}models/`;
+function ModelArt(props) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <ModelSketch {...props} />;
+  return (
+    <img className="sample-preview model-preview" src={`${MODEL_IMAGES}${props.id}.webp`} alt="" aria-hidden="true" loading="lazy" draggable={false}
+      style={{ objectFit: 'contain' }} onError={() => setFailed(true)} />
+  );
+}
+
+/** Fallback: blocks left to right, a feedback wire when the model has one. */
+function ModelSketch({ color, n = 4, feedback }) {
+  const W = 240, H = 64, bw = 34, bh = 22, y = 16;
+  const xs = Array.from({ length: n }, (_, i) => 14 + (i * (W - 28 - bw)) / (n - 1));
+  return (
+    <svg className="sample-preview model-preview" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      {xs.slice(0, -1).map((x, i) => (
+        <g key={`w${i}`} stroke={color} strokeWidth="1.4" fill="none"><path d={`M${x + bw},${y + bh / 2} H${xs[i + 1] - 4}`} /><path d={`M${xs[i + 1] - 7},${y + bh / 2 - 3} l4,3 l-4,3`} /></g>
+      ))}
+      {feedback && <path d={`M${xs[n - 2] + bw + 8},${y + bh / 2} V${H - 6} H${xs[1] - 10} V${y + bh / 2}`} stroke={color} strokeOpacity="0.7" strokeWidth="1.2" fill="none" strokeDasharray="3 2" />}
+      {xs.map((x, i) => <rect key={i} x={x} y={y} width={bw} height={bh} rx="3" fill={color} fillOpacity={i === n - 1 ? 0.3 : 0.16} stroke={color} strokeWidth="1.2" />)}
+    </svg>
+  );
+}
+
+export function StartPage({ settings, recent = [], onAction, onRecentOpen, onRecentRemove, onRecentClear, onSample, onModelSample, showOnLaunch, onShowOnLaunch, onBackground }) {
   useLanguage();
   const [preview, setPreview] = useState(null);
   const bg = preview || startBackgroundOf(settings);
@@ -132,6 +162,8 @@ export function StartPage({ settings, recent = [], onAction, onRecentOpen, onRec
   const [confirmClear, setConfirmClear] = useState(false);
   const [version, setVersion] = useState('');
   const [sampleCat, setSampleCat] = useState('all');
+  const [modelCat, setModelCat] = useState('all');
+  const shownModels = modelCat === 'all' ? MODEL_SAMPLES : MODEL_SAMPLES.filter((m) => m.cat === modelCat);
   const li = getLanguage() === 'ko' ? 0 : 1;
   const shownSamples = sampleCat === 'all' ? SAMPLES : SAMPLES.filter((s) => s.cat === sampleCat);
   useEffect(() => { hostInfo().then((i) => setVersion((i && i.version) || '')).catch(() => {}); }, []);
@@ -409,6 +441,30 @@ export function StartPage({ settings, recent = [], onAction, onRecentOpen, onRec
         <RangeStepper value={bg.transparency} min={0} max={100} step={5} unit="%" ariaLabel={t('sp_transparency')} onChange={(v) => save({ transparency: v })} />
         <div className="start-speed"><span className="icon"><Icon name="dice" size={14} /></span><span>{t('sp_shuffle_every')}</span><Stepper value={bg.shuffleSec || 0} min={0} max={600} step={5} width={52} ariaLabel={t('sp_shuffle_every')} onChange={(v) => save({ shuffleSec: v })} /><span className="unit">{t('sp_seconds')}</span></div>
         <label className="start-check"><input type="checkbox" checked={!!bg.random} onChange={(e) => save({ random: e.target.checked })} /><span>{t('sp_random')}</span></label>
+      </>
+    )),
+    models: card('models', 'start-models', 'model', `${t('sp_models')} (${shownModels.length}/${MODEL_SAMPLES.length})`, (
+      <>
+        <p className="start-models-note small">{t('sp_models_note')}</p>
+        <div className="sample-cats" role="radiogroup" aria-label={t('sp_models')}>
+          {[{ id: 'all', icon: 'apps', name: [t('sp_all'), t('sp_all')] }, ...MODEL_CATEGORIES].map((c) => (
+            <button key={c.id} type="button" role="radio" aria-checked={modelCat === c.id} className={`bg-kind sample-cat ${modelCat === c.id ? 'on' : ''}`} onClick={() => setModelCat(c.id)}>
+              <Icon name={c.icon} size={13} /><span>{c.name[li]}</span><small>{c.id === 'all' ? MODEL_SAMPLES.length : MODEL_SAMPLES.filter((m) => m.cat === c.id).length}</small>
+            </button>
+          ))}
+        </div>
+        <div className="start-sample-grid">
+          {shownModels.map((m) => (
+            <div key={m.id} className="start-sample start-model" role="button" tabIndex={0} data-model={m.id} title={m.desc[li]} onClick={() => onModelSample(m, false)} onKeyDown={(e) => { if (e.key === 'Enter') onModelSample(m, false); }}>
+              <ModelArt id={m.id} color={m.color} n={Math.min(5, Math.max(2, m.blocks - 1))} feedback={m.feedback} />
+              <b><Icon name="model" size={12} /> {m.name[li]}</b>
+              <span className="tags">{m.tags.map((tag) => <span key={tag} className="tag">{tag}</span>)}
+                <button type="button" className="sample-run" title={t('sp_model_code')} aria-label={t('sp_model_code')} onClick={(e) => { e.stopPropagation(); onModelSample(m, true); }}><Icon name="code" size={10} /></button>
+              </span>
+              <small>{m.desc[li]}</small>
+            </div>
+          ))}
+        </div>
       </>
     )),
     samples: card('samples', 'start-samples', 'grid', `${t('sp_samples')} (${shownSamples.length}/${SAMPLES.length})`, (

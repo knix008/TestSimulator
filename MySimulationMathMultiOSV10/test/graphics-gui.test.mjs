@@ -467,6 +467,30 @@ test('controller: export dialog state, picking, request and remembered options',
   assert.equal(ctl.exportDlg, null);
 });
 
+test('edges toggle: filled patches lose their outlines, wireframes keep theirs; the paint options carry it', async () => {
+  const { drawChild2D } = await import('../src/graphics/render2d.js');
+  const ctl = new FigureController(fakeEngine(), {});
+  assert.equal(ctl.paintOptions(null).edges, true, 'edge lines are on by default');
+  ctl.setEdges(false);
+  assert.equal(ctl.paintOptions(null).edges, false);
+  const strokes = (props, edges) => {
+    let n = 0;
+    const ctx = new Proxy({}, { get: (_, k) => (k === 'stroke' ? () => { n++; } : () => {}), set: () => true });
+    const m = { x: (v) => v * 10, y: (v) => v * 10 };
+    const node = { type: 'patch', props: { Vertices: { dims: [3, 2], data: [0, 1, 0, 0, 0, 1] }, Faces: { dims: [1, 3], data: [1, 2, 3] }, EdgeColor: [0, 0, 0], LineStyle: '-', LineWidth: 0.5, FaceAlpha: 1, ...props }, children: [] };
+    drawChild2D(ctx, node, { m, cmap: [], clim: [0, 1], theme: { fg: [0, 0, 0], accent: [0, 0, 1] }, edges });
+    return n;
+  };
+  assert.equal(strokes({ FaceColor: [1, 0, 0] }, true), 1);
+  assert.equal(strokes({ FaceColor: [1, 0, 0] }, false), 0, 'filled face: outline hidden');
+  assert.equal(strokes({ FaceColor: 'none' }, false), 1, 'wireframe keeps its lines');
+  const { faceColoured } = await import('../src/graphics/theme.js');
+  const mesh = { FaceColor: [1, 1, 1], EdgeColor: 'flat' };
+  assert.equal(faceColoured(mesh, true), mesh, 'edges on: unchanged');
+  assert.deepEqual(faceColoured(mesh, false), { FaceColor: 'flat', EdgeColor: 'none' }, 'mesh without lines: faces take the edge colours');
+  assert.equal(faceColoured({ FaceColor: 'interp', EdgeColor: [0, 0, 0] }, false).FaceColor, 'interp', 'surf keeps its own face colours');
+});
+
 test('polar and UI axes colours follow the theme like cartesian axes', async () => {
   const { THEMED } = await import('../core/graphics/schema.js');
   assert.deepEqual(THEMED.polaraxes, THEMED.axes);
