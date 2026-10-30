@@ -177,13 +177,25 @@ fn popup_menu_visible(app: AppHandle) -> bool {
 // ── Main window (built here, not in tauri.conf.json, so it can create dialog windows) ──
 fn build_main_window(app: &AppHandle) -> tauri::Result<()> {
     let popups = app.clone();
-    WebviewWindowBuilder::new(app, MAIN, WebviewUrl::default())
+    // Built where it was last time and in the theme's colour, so the window neither opens
+    // white nor jumps when the page starts.
+    let (place, background) = host::main_window_start();
+    let num = |k: &str| place.get(k).and_then(serde_json::Value::as_f64);
+    let mut builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::default())
         .title("MyImageViewer")
-        .inner_size(1400.0, 900.0)
+        .inner_size(num("width").unwrap_or(1400.0), num("height").unwrap_or(900.0))
         .min_inner_size(1200.0, 600.0)
         .decorations(false)
         .resizable(true)
-        .center()
+        .maximized(place.get("maximized").and_then(serde_json::Value::as_bool).unwrap_or(false));
+    builder = match (num("x"), num("y")) {
+        (Some(x), Some(y)) => builder.position(x, y),
+        _ => builder.center(),
+    };
+    if let Some((r, g, b)) = background {
+        builder = builder.background_color(tauri::window::Color(r, g, b, 255));
+    }
+    builder
         // window.open("about:blank#dialog-…") from the page = one of its dialogs
         // (dialogWindow.js); anything else is not ours to open.
         .on_new_window(move |url, features| {

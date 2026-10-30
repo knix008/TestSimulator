@@ -16,6 +16,18 @@ A multi-platform image viewer and editor built with **Tauri** and vanilla JavaSc
   - Selection tools: Rectangle, Lasso, Polygon, Magic Wand
   - Selection outlines stay a **constant on-screen thickness** at any zoom / image size (visible even on very large images)
   - Background removal (algorithmic + **AI**), crop to selection
+  - **Drawing & annotation**: brush, highlighter, eraser, line, arrow, rectangle, ellipse (outline / fill), text (font, size, bold, italic, background box)
+  - **Retouching**: mosaic and blur brushes (hide faces, number plates), clone stamp (Alt+click source), spot healing, red-eye removal
+  - **Crop tool** with ratios (free, original, 1:1, 4:3, 3:2, 16:9, portrait variants) and a rule-of-thirds frame; **straighten** by any angle (drag along the horizon), cropping the empty corners or growing the canvas; **canvas size** with anchor and fill
+  - **Tone**: exposure, highlights, shadows sliders; **tone curve** (RGB / R / G / B) and **levels** with live preview; **auto enhance**; **white balance picker**
+  - **Selection edits**: select all, invert, feather, grow / shrink, blur or mosaic the selection; **watermark** (one place or tiled)
+  - **Live shapes & text**: a new shape / text keeps its handles — move, resize (resize cursors on the handles), restyle, double-click text to edit, drag the grip while typing; text outline and shadow
+  - **Selections**: Shift adds, Alt subtracts, drag inside moves the outline, Ctrl+drag moves the pixels
+  - **Saving** keeps the photo information (EXIF, orientation and size corrected; GPS removable); JPEG / BMP put transparency on white
+  - **Vibrance** slider, **noise reduction**, **batch processing** (resize / convert / watermark many files into new files)
+  - Undo keeps one copy per pixel change (effect steps share it) under a memory budget
+  - **Save selection as image**: only the selected part (as shown, effects included) becomes a new file; the picture is unchanged. Also from right-click in the editor and "Select a region to save…" in the viewer
+  - Every stroke, shape, retouch or dialog is **one undo step**; rotate / flip after a pixel edit keeps it; **Reset all** goes back to the file as opened
   - Undo / Redo (`Ctrl+Z` / `Ctrl+Y`) — pixels, effects, and transforms (up to 20 steps)
   - Edit window: **Cancel** discards the session; **Apply** commits — dirty/save prompt only after Apply with unsaved changes
   - Edit window has the same chrome as the main window: menu bar (file name, window buttons, File / Edit / View / Effects / Help) and toolbar with undo / redo

@@ -154,8 +154,14 @@ module.exports = {
       assertIncludes(main, 'pub fn window_recall()', 'validate before reuse');
       assertIncludes(main, 'app.available_monitors()', 'never restores off-screen');
       assertIncludes(main, 'cfg.insert("window".into(), state.clone());', 'merged into the ui config file');
-      assertIncludes(bridge, "const saved = await call('window-recall');", 'recalled at start-up');
-      assertIncludes(bridge, 'if (saved.maximized && win.maximize) await win.maximize();', 'maximised state restored');
+      // Built in place by the host (no move / resize after the page starts), in the theme's colour.
+      const shell = h.read('src-tauri/src/main.rs');
+      assertIncludes(main, 'pub fn main_window_start()', 'recalled for the window builder');
+      assertIncludes(shell, 'let (place, background) = host::main_window_start();', 'recalled at start-up');
+      assertIncludes(shell, '.maximized(place.get("maximized")', 'maximised state restored');
+      assertIncludes(shell, 'builder.background_color(', 'never opens white');
+      assertIncludes(bridge, "call('window-background', hex)", 'theme colour reported for the next start');
+      assert(!bridge.includes("call('window-recall')"), 'the page does not move the window again');
       assertIncludes(bridge, 'if (win.onMoved) await win.onMoved(() => { queueRemember();', 'move tracked');
     });
 

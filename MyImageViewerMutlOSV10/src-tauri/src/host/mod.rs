@@ -42,6 +42,12 @@ pub(crate) fn app() -> Option<&'static AppHandle> {
     APP.get()
 }
 
+/// Where and how main.rs builds the main window: the remembered place (window_recall's
+/// { x?, y?, width, height, maximized } or null) and the last theme background.
+pub fn main_window_start() -> (Value, Option<(u8, u8, u8)>) {
+    (config::window_recall(), config::window_background())
+}
+
 /// Push `payload` to the page's listeners of `channel` (onOpenProgress, onDirectoryChanged …).
 pub(crate) fn emit(channel: &str, payload: Value) {
     if let Some(app) = app() {
@@ -150,6 +156,7 @@ fn dispatch(channel: &str, args: &[Value]) -> Value {
         "get-saved-last-open-dir" => json!(config::last_open_dir().filter(|d| Path::new(d).exists())),
         "window-remember" => config::window_remember(a0),
         "window-recall" => config::window_recall(),
+        "window-background" => config::save_window_background(s0),
         "get-launch-file" => json!(system::take_launch_file()),
         "queue-open-file" => {
             system::queue_open_file(s0);

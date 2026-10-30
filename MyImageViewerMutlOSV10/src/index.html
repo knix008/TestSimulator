@@ -9,6 +9,14 @@
   <link rel="icon" type="image/png" href="./assets/icon.png">
   <link rel="shortcut icon" href="./assets/icon.ico">
   <link rel="stylesheet" href="./styles/main.css">
+  <script>
+    // The saved theme from the first paint on (app.js checks it and applies the rest), so
+    // the page does not open in the default theme and then switch.
+    try {
+      const theme = localStorage.getItem('theme');
+      if (theme && theme !== 'custom') document.documentElement.setAttribute('data-theme', theme);
+    } catch { /* no storage */ }
+  </script>
 </head>
 <body>
   <div id="app">
@@ -43,6 +51,33 @@
       <div class="start-bg" aria-hidden="true"></div>
       <div class="start-scroll" id="start-scroll"></div>
     </div>
+    <script>
+      // "Show this screen at startup": the first paint is already the start page with the
+      // chosen scene — the picture startbg.js saved of it last time (startSnap:<scene>), else
+      // its colours — instead of the main view and a stand-in background. app.js fills in
+      // the cards; startbg.js fades the live 3D scene in over the picture.
+      try {
+        const saved = JSON.parse(localStorage.getItem('startScreen') || '{}') || {};
+        if (saved.showOnStart !== false) {
+          const scene = /^[a-z]+$/.test(saved.scene) ? saved.scene : 'valley';
+          const host = document.querySelector('#start-page .start-bg');
+          const transparency = Math.max(0, Math.min(100, Math.round(Number(saved.transparency)) || 0));
+          host.dataset.scene = scene;
+          if (transparency) host.style.opacity = String(1 - transparency / 100);
+          const data = localStorage.getItem(`startSnap:${scene}`);
+          if (data) {
+            const img = document.createElement('img');
+            img.className = 'start-bg-preview';
+            img.alt = '';
+            img.dataset.scene = scene;
+            img.src = data;
+            host.prepend(img);
+          }
+          document.getElementById('start-page').hidden = false;
+          document.body.classList.add('home-open');
+        }
+      } catch { /* no storage: app.js shows the start page */ }
+    </script>
 
     <!-- ═══ Main Area ═══ -->
     <div id="main-area">
@@ -761,6 +796,14 @@ Do you want to save before closing?</p>
       <span class="ew-spacer"></span>
     </div>
 
+    <!-- Drawing, retouching, crop / straighten: tool buttons, then the active tool's options
+         (both built by editTools.js; its own row so the window's minimum width does not grow) -->
+    <div id="ew-tools-row">
+      <div class="ew-group" id="ew-tool-buttons" role="toolbar"></div>
+      <div class="ew-sep"></div>
+      <div id="ew-tool-options"></div>
+    </div>
+
     <!-- Body: presets (left) + canvas + adjustments (right) -->
     <div id="edit-window-body">
       <!-- Both side panels collapse to a rail showing their icon + title (built by app.js) -->
@@ -944,9 +987,10 @@ Do you want to save before closing?</p>
           <div id="settings-theme-light" class="settings-theme-grid"></div>
           <div class="settings-theme-kind" data-i18n="theme.custom">Custom theme</div>
           <div class="theme-custom" id="settings-custom-theme">
-            <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1e1e1e"></label>
-            <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#cccccc"></label>
-            <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#0078d4"></label>
+            <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1f2433"></label>
+            <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#dde3f0"></label>
+            <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#e8a33d"></label>
+            <button type="button" class="settings-btn" data-custom-reset data-i18n="theme.resetDefault">Default</button>
             <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
           </div>
         </div>
@@ -974,6 +1018,20 @@ Do you want to save before closing?</p>
               <span class="settings-hint" data-i18n="settings.smoothingHint">Off shows the individual pixels (medical / pixel-art images)</span>
             </label>
             <input type="checkbox" id="settings-smoothing" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-keep-exif">
+              <span data-i18n="settings.keepExif">Keep photo information when saving</span>
+              <span class="settings-hint" data-i18n="settings.keepExifHint">Date taken, camera and exposure stay in the saved JPEG / PNG</span>
+            </label>
+            <input type="checkbox" id="settings-keep-exif" class="settings-toggle">
+          </div>
+          <div class="settings-row">
+            <label for="settings-strip-gps">
+              <span data-i18n="settings.stripGps">Remove the location (GPS)</span>
+              <span class="settings-hint" data-i18n="settings.stripGpsHint">For pictures you share: the rest of the information stays</span>
+            </label>
+            <input type="checkbox" id="settings-strip-gps" class="settings-toggle">
           </div>
           <div class="settings-row">
             <label for="settings-bg-algo" data-i18n="toolbar.bgAlgo">Background removal algorithm</label>
@@ -1464,11 +1522,191 @@ Do you want to save before closing?</p>
         <div id="theme-picker-light" class="theme-picker-grid"></div>
         <div class="theme-picker-kind" data-i18n="theme.custom">Custom theme</div>
         <div class="theme-custom" id="theme-picker-custom">
-          <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1e1e1e"></label>
-          <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#cccccc"></label>
-          <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#0078d4"></label>
+          <label><span data-i18n="theme.bg">Background</span><input type="color" data-custom="bg" value="#1f2433"></label>
+          <label><span data-i18n="theme.text">Text</span><input type="color" data-custom="text" value="#dde3f0"></label>
+          <label><span data-i18n="theme.accent">Accent</span><input type="color" data-custom="accent" value="#e8a33d"></label>
+          <button type="button" class="settings-btn" data-custom-reset data-i18n="theme.resetDefault">Default</button>
           <button type="button" class="settings-btn" data-custom-apply data-i18n="theme.apply">Apply</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Edit window dialogs (editTools.js) ═══ -->
+  <!-- Tone curve & levels: live preview on the picture, OK = one undo step -->
+  <div id="tone-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box tone-dialog-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="toneCurve"></span>
+          <span data-i18n="tone.title">Tone Curve &amp; Levels</span>
+        </span>
+        <button class="dialog-close-btn" type="button" id="tone-close">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body tone-dialog-body">
+        <div class="tone-tabs" role="tablist">
+          <button type="button" class="tone-tab active" data-tone-tab="curve" data-i18n="tone.tab.curve">Curve</button>
+          <button type="button" class="tone-tab" data-tone-tab="levels" data-i18n="tone.tab.levels">Levels</button>
+        </div>
+        <div class="tone-panel active" data-tone-panel="curve">
+          <div class="tone-channel-row" role="radiogroup">
+            <label class="tone-chip"><input type="radio" name="tone-channel" value="rgb" checked> <span>RGB</span></label>
+            <label class="tone-chip ch-r"><input type="radio" name="tone-channel" value="r"> <span data-i18n="tone.red">Red</span></label>
+            <label class="tone-chip ch-g"><input type="radio" name="tone-channel" value="g"> <span data-i18n="tone.green">Green</span></label>
+            <label class="tone-chip ch-b"><input type="radio" name="tone-channel" value="b"> <span data-i18n="tone.blue">Blue</span></label>
+          </div>
+          <canvas id="tone-curve" class="tone-curve" width="256" height="256"></canvas>
+          <div class="tone-hint" data-i18n="tone.curveHint">Click to add a point, drag to move it, double-click to remove it.</div>
+        </div>
+        <div class="tone-panel" data-tone-panel="levels">
+          <canvas id="tone-levels-hist" class="tone-hist" width="256" height="110"></canvas>
+          <div class="tone-row"><span data-i18n="tone.inBlack">Input black</span><input type="range" id="tone-in-black" min="0" max="254" step="1" value="0"><output id="tone-in-black-val">0</output></div>
+          <div class="tone-row"><span data-i18n="tone.gamma">Midtones</span><input type="range" id="tone-gamma" min="-100" max="100" step="1" value="0"><output id="tone-gamma-val">1.00</output></div>
+          <div class="tone-row"><span data-i18n="tone.inWhite">Input white</span><input type="range" id="tone-in-white" min="1" max="255" step="1" value="255"><output id="tone-in-white-val">255</output></div>
+          <div class="tone-row"><span data-i18n="tone.outBlack">Output black</span><input type="range" id="tone-out-black" min="0" max="255" step="1" value="0"><output id="tone-out-black-val">0</output></div>
+          <div class="tone-row"><span data-i18n="tone.outWhite">Output white</span><input type="range" id="tone-out-white" min="0" max="255" step="1" value="255"><output id="tone-out-white-val">255</output></div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="tone-auto" class="footer-left" data-i18n="tone.auto">Auto</button>
+        <button type="button" id="tone-reset" data-i18n="tone.reset">Reset</button>
+        <button type="button" id="tone-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="tone-ok" data-i18n="resize.ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas size: new width / height, where the picture sits, what fills the new area -->
+  <div id="canvas-size-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box canvas-size-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="canvasSize"></span>
+          <span data-i18n="canvasSize.title">Canvas Size</span>
+        </span>
+        <button class="dialog-close-btn" type="button" id="canvas-size-close">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body canvas-size-body">
+        <div class="canvas-size-current" id="canvas-size-current"></div>
+        <div class="canvas-size-grid">
+          <label><span data-i18n="resize.width">Width</span><input type="number" id="canvas-size-w" min="1" max="30000" step="1"><span data-i18n="resize.px">px</span></label>
+          <label><span data-i18n="resize.height">Height</span><input type="number" id="canvas-size-h" min="1" max="30000" step="1"><span data-i18n="resize.px">px</span></label>
+          <label><span data-i18n="canvasSize.margin">Add on every side</span><input type="number" id="canvas-size-margin" min="-5000" max="5000" step="1" value="0"><span data-i18n="resize.px">px</span></label>
+        </div>
+        <div class="canvas-size-label" data-i18n="canvasSize.anchor">Picture position</div>
+        <div class="canvas-anchor" id="canvas-anchor" role="radiogroup"></div>
+        <div class="canvas-size-label" data-i18n="canvasSize.fill">New area</div>
+        <div class="canvas-fill-row">
+          <label><input type="radio" name="canvas-fill" value="transparent" checked> <span data-i18n="canvasSize.transparent">Transparent</span></label>
+          <label><input type="radio" name="canvas-fill" value="color"> <span data-i18n="canvasSize.color">Colour</span></label>
+          <input type="color" id="canvas-size-color" value="#ffffff">
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="canvas-size-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="canvas-size-ok" data-i18n="resize.ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Watermark: text laid over the picture (one place or tiled); previewed on the picture -->
+  <div id="watermark-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box watermark-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="watermark"></span>
+          <span data-i18n="watermark.title">Watermark</span>
+        </span>
+        <button class="dialog-close-btn" type="button" id="watermark-close">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body watermark-body">
+        <label class="wm-field wm-wide"><span data-i18n="watermark.text">Text</span><input type="text" id="wm-text" spellcheck="false"></label>
+        <label class="wm-field"><span data-i18n="et.font">Font</span><select id="wm-font"></select></label>
+        <label class="wm-field"><span data-i18n="et.color">Colour</span><input type="color" id="wm-color" value="#ffffff"></label>
+        <div class="wm-field wm-wide"><span data-i18n="watermark.size">Size</span><input type="range" id="wm-size" min="2" max="30" step="1" value="6"><output id="wm-size-val">6%</output></div>
+        <div class="wm-field wm-wide"><span data-i18n="et.opacity">Opacity</span><input type="range" id="wm-opacity" min="5" max="100" step="1" value="45"><output id="wm-opacity-val">45%</output></div>
+        <div class="wm-field wm-wide"><span data-i18n="watermark.angle">Angle</span><input type="range" id="wm-angle" min="-90" max="90" step="1" value="0"><output id="wm-angle-val">0°</output></div>
+        <div class="wm-field wm-wide">
+          <span data-i18n="watermark.position">Position</span>
+          <div class="canvas-anchor" id="wm-anchor" role="radiogroup"></div>
+          <label class="wm-tile"><input type="checkbox" id="wm-tile"> <span data-i18n="watermark.tile">Repeat over the whole picture</span></label>
+        </div>
+        <label class="wm-check"><input type="checkbox" id="wm-shadow" checked> <span data-i18n="watermark.shadow">Shadow (readable on any background)</span></label>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="watermark-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="watermark-ok" data-i18n="resize.ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch processing: many pictures at once (batch.js) -->
+  <div id="batch-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box batch-box">
+      <div class="dialog-header">
+        <span class="dialog-title">
+          <span class="dialog-title-icon" data-icon="batch"></span>
+          <span data-i18n="batch.title">Batch Processing</span>
+        </span>
+        <button class="dialog-close-btn" type="button" id="batch-close">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body batch-body">
+        <div class="batch-label" data-i18n="batch.target">Pictures</div>
+        <label class="batch-row"><input type="radio" name="batch-target" value="selected"> <span data-i18n="batch.selected">Selected</span> (<span id="batch-count-selected">0</span>)</label>
+        <label class="batch-row"><input type="radio" name="batch-target" value="folder" checked> <span data-i18n="batch.folder">Every picture in this folder</span> (<span id="batch-count-folder">0</span>)</label>
+        <div class="batch-label" data-i18n="batch.do">Do</div>
+        <label class="batch-row"><input type="checkbox" id="batch-resize" checked> <span data-i18n="batch.resize">Longest side at most</span>
+          <input type="number" id="batch-longest" min="16" max="20000" step="1" value="1920"> <span data-i18n="resize.px">px</span></label>
+        <div class="batch-row"><span data-i18n="resize.format">Format</span>
+          <select id="batch-format">
+            <option value="jpg">JPEG</option>
+            <option value="png">PNG</option>
+            <option value="webp">WebP</option>
+            <option value="keep" data-i18n="batch.keepFormat">Same as the original</option>
+          </select>
+          <span data-i18n="resize.fileQuality">File quality</span>
+          <input type="range" id="batch-quality" min="40" max="100" step="1" value="90"><output id="batch-quality-val">90</output></div>
+        <label class="batch-row"><input type="checkbox" id="batch-wm"> <span data-i18n="watermark.title">Watermark</span>
+          <input type="text" id="batch-wm-text" spellcheck="false"></label>
+        <div class="batch-hint" data-i18n="batch.wmHint">The watermark uses the size, colour and position last set in Image › Watermark.</div>
+        <div class="batch-label" data-i18n="resize.saveTo">Save to</div>
+        <div class="batch-row"><input type="text" id="batch-dir" spellcheck="false"><button type="button" id="batch-browse" data-i18n="resize.browse">Browse…</button></div>
+        <label class="batch-row"><span data-i18n="batch.suffix">Add to the name</span><input type="text" id="batch-suffix" spellcheck="false"></label>
+        <div class="batch-hint" data-i18n="batch.safeHint">Originals are never changed; an existing file gets a number instead of being replaced.</div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="batch-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="batch-ok" data-i18n="batch.start">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- One number (feather / grow / shrink / blur / mosaic size) -->
+  <div id="amount-overlay" class="dialog-overlay" style="display:none;">
+    <div class="dialog-box amount-box">
+      <div class="dialog-header">
+        <span class="dialog-title"><span id="amount-title"></span></span>
+        <button class="dialog-close-btn" type="button" id="amount-close">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="dialog-body amount-body">
+        <span id="amount-label"></span>
+        <input type="range" id="amount-range" min="1" max="100" step="1" value="10">
+        <input type="number" id="amount-number" min="1" max="100" step="1" value="10">
+        <span data-i18n="resize.px">px</span>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" id="amount-cancel" data-i18n="dialog.unsaved.cancel">Cancel</button>
+        <button type="button" class="primary" id="amount-ok" data-i18n="resize.ok">OK</button>
       </div>
     </div>
   </div>
@@ -1494,7 +1732,11 @@ Do you want to save before closing?</p>
   <script src="./js/fileDialog.js"></script>
   <script src="./js/thumbs.js"></script>
   <script src="./js/browse.js"></script>
+  <script src="./js/editOps.js"></script>
+  <script src="./js/exifCarry.js"></script>
   <script src="./js/editor.js"></script>
+  <script src="./js/editTools.js"></script>
+  <script src="./js/batch.js"></script>
   <script src="./js/fileTree.js"></script>
   <script src="./js/dragdrop.js"></script>
   <script src="./js/dialogWindow.js"></script>

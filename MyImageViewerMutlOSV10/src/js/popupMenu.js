@@ -31,6 +31,7 @@
   function wire(items, s) {
     return (items || []).map((it) => {
       if (!it || it.separator) return it;
+      if (Array.isArray(it.columns)) return { columns: it.columns.map((col) => ({ title: col.title, items: wire(col.items, s) })) };
       const o = { ...it };
       if (it.id != null) o.action = () => invoke('popup_menu_event', { ev: { type: 'action', id: it.id, seq: s } }).catch(() => {});
       else delete o.action;

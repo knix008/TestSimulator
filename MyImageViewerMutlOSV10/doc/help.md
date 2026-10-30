@@ -130,6 +130,28 @@ Presets (grayscale, sepia, invert and others) are on the left. Brightness, contr
 
 Rotate, flip and colour changes made in the viewer share the same undo stack. **Reset all edits** reloads the file as it was opened.
 
+### Drawing and retouch tools
+
+The second toolbar row holds the tools; the options of the one you pick (colour, size, opacity …) appear to its right and are remembered per tool. Each stroke, shape or retouch is one undo step.
+
+- **Brush** `B`, **highlighter** `H`, **eraser** `E` (erases to transparent, save as PNG)
+- **Line** `L`, **arrow** `A`, **rectangle** `R`, **ellipse** `O` — `Shift` snaps to 45° / squares / circles; **Fill** paints the inside
+- **Text** `T` — click, type, `Ctrl+Enter` (or click elsewhere) to place, `Esc` to cancel
+- **Mosaic** `M` and **blur** `U` brushes hide faces or number plates
+- **Clone stamp** `S` — `Alt`+click the source, then paint; **spot healing** `J`; **red-eye** `Y` — click each pupil
+- **Crop** `C` with a ratio, then `Enter` or double-click; **straighten** `K` — drag along the horizon or set the angle, `Enter`
+- **White balance picker** `W` — click something white or grey
+
+A shape or text you just made stays **live** with handles: drag it to move, drag a handle to resize (the pointer shows ↔ ↕ ⤡ over a handle), change its colour, width or font, double-click text to type in it again; while typing, drag the ✥ grip at the box's top-left to move it. It goes into the picture when you start the next one or do anything else. `Enter` places it, `Delete` removes it, arrow keys nudge it, `Ctrl+Z` before it is placed drops it. Text has **B · I · outline · shadow** toggles.
+
+Selections: `Shift` adds, `Alt` subtracts, dragging inside moves the outline, `Ctrl`+drag moves the selected pixels.
+
+`[` / `]` change the brush size. `Esc` switches the tool off (a second `Esc` closes the editor). `Space`+drag or the middle button moves the picture with any tool.
+
+The **Image** menu has Canvas size, Auto enhance, Tone curve & levels (live preview, OK = one undo step), Reset tone, Reduce noise and Watermark. **Exposure, highlights, shadows and vibrance** are in the Adjustments panel.
+
+Saving keeps the photo information (date taken, camera, GPS — Settings can drop GPS or keep nothing); JPEG puts transparent areas on white. **File › Batch processing…** resizes, converts or watermarks many pictures at once into new files (originals untouched, never overwritten). To save only part of a picture: right-click the viewer › **Select a region to save…** (the editor opens with the rectangle tool), drag over the part, then right-click › **Save selection as image…**. It saves what you see (effects included) as a new file; the picture itself does not change, and outside a lasso / wand shape is transparent. The **Select** menu (also under right-click › Select) has the selection tools, Save selection as image, Select all `Ctrl+A`, Invert `Ctrl+Shift+I`, Clear `Ctrl+D`, Feather, Grow, Shrink, and Blur / Mosaic selection.
+
 ## Resize
 
 **Edit › Resize Image** (`Ctrl+Shift+R`) shows a preview next to the size.
@@ -193,6 +215,8 @@ The language button switches between 한국어 and English. The flag is the lang
 | Resize | `Ctrl+Shift+R` |
 | Previous / next | `Left` `Page Up` / `Right` `Page Down` |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Y` |
+| Edit tools | `B` `H` `E` `L` `A` `R` `O` `T` `M` `U` `S` `J` `Y` `C` `K` `W`, size `[` / `]` |
+| Select all / invert / clear (edit window) | `Ctrl+A` / `Ctrl+Shift+I` / `Ctrl+D` |
 | Copy | `Ctrl+C` |
 | Clear selection / close | `Esc` |
 | Fullscreen | `F11` |

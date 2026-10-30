@@ -35,6 +35,10 @@
   };
 
   // Declared before the first await: rAF callbacks below may run before later lets initialise
+  // Custom theme: read by _applyTheme('custom') during init, long before its section below
+  const CUSTOM_THEME_KEY = 'customThemeV1';
+  // The custom theme's preset until the user picks colours (not a copy of Dark)
+  const CUSTOM_THEME_DEFAULT = { bg: '#1f2433', text: '#dde3f0', accent: '#e8a33d' };
   let _appliedMinWidth = 0;
   let _ewFitW = 0, _ewFitH = 0;
   let _settingsReady = false;   // _syncSettingsDialog() is a no-op until _initSettingsDialog() ran
@@ -281,6 +285,9 @@
   let _startBg = null;
   let _startBgLoading = null;
   let _startSyncing = false;
+  let _batchReady = false;
+  // The start page opens later in this init: load the 3D module and queue its shaders now.
+  if (_startScreen().showOnStart) _ensureStartBg().then((bg) => bg?.prewarm());
   const HOME_TASKS = [
     // Explorer (first of "What you can do"): straight to the main view — explorer on the left,
     // the folder's images in the middle
@@ -308,6 +315,8 @@
     imageSmoothing: '1',        // smooth pixels when zoomed in
     dicomDefaultFps: '10',      // cine speed when the file has none
     dicomOverlayColor: '#00ff80',
+    keepExif: '1',              // saving keeps the photo information (date taken, camera …)
+    stripGps: '0',              // … without the location
   };
   const PREF_KEYS = [
     'theme', 'lang', 'bgRemoveAlgo', 'subtitlesEnabled', 'subtitleLanguage', MEDIA_VOL_KEY, MEDIA_MUTE_KEY,
@@ -767,16 +776,17 @@
         }
       }
       if (lastDirOk) {
-        // Always reopen and show the last folder (contact sheet), not the start screen.
+        // Reopen the last folder (contact sheet). With the start screen on, it opens
+        // underneath it, so the start screen does not flash away and back.
         showHome = false;
-        _hideHome();
+        if (!homeAtStart) _hideHome();
         if (!_browseMode) {
           _browseMode = true;
           try { localStorage.setItem(BROWSE_KEY, '1'); } catch { /* ignore */ }
           FileTree.setFoldersOnly?.(true);
         }
         try {
-          await _openFolder(lastDir, { openFirst: false, instant: true });
+          await _openFolder(lastDir, { openFirst: false, instant: true, keepHome: homeAtStart });
         } catch {
           try {
             await FileTree.revealPath(lastDir);
@@ -975,6 +985,8 @@
       { id: 'file',    labelKey: 'menu.file',    icon: 'file',    prefix: 'ew-', items: () => _ewFileMenuItems() },
       { id: 'edit',    labelKey: 'menu.edit',    icon: 'edit',    prefix: 'ew-', items: () => _ewEditMenuItems() },
       { id: 'view',    labelKey: 'menu.view',    icon: 'image',   prefix: 'ew-', items: () => _ewViewMenuItems() },
+      { id: 'image',   labelKey: 'menu.image',   icon: 'toneCurve', prefix: 'ew-', items: () => EditTools.imageMenuItems() },
+      { id: 'select',  labelKey: 'menu.select',  icon: 'rectSelect', prefix: 'ew-', items: () => _ewSelectMenuItems() },
       { id: 'effects', labelKey: 'menu.effects', icon: 'effects', prefix: 'ew-', items: () => _effectsMenuItems() },
       { id: 'help',    labelKey: 'menu.help',    icon: 'help',    prefix: 'ew-', items: () => _helpMenuItems() },
     ];
@@ -1092,7 +1104,7 @@
       { separator: true },
       !_isWeb() && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
       !_isWeb() && { separator: true },
-      { icon: Icons.palette,  label: t('menu.theme'),    action: () => _openThemePicker() },
+      { icon: Icons.palette,  label: t('menu.theme'),    submenu: () => _themeMenuItems() },
       { icon: Icons.language, label: t('menu.language'), submenu: () => _langMenuItems() },
     ].filter(Boolean);
   }
@@ -1114,6 +1126,7 @@
       { icon: Icons.saveAs,     label: t('menu.saveAs'),     shortcut: 'Ctrl+Shift+S', disabled: !hasImg, action: () => _saveAs() },
       { icon: Icons.export,     label: t('menu.export'),     disabled: !hasImg, submenu: () => _exportMenuItems() },
       { icon: Icons.print,      label: t('menu.print'),      shortcut: 'Ctrl+P',       disabled: !_canPrint(), action: () => _openPrintPreview() },
+      { icon: Icons.batch,      label: `${t('batch.title')}…`, action: () => _openBatch() },
       { separator: true },
       { icon: Icons.fileInfo,   label: t('menu.fileInfo'),   shortcut: 'Ctrl+I',       disabled: !hasFile, action: () => _showFileInfoDialog() },
       !isWeb && { icon: Icons.explorer, label: t('context.showInExplorer'), disabled: !hasFile, action: () => _showInExplorer() },
@@ -1221,30 +1234,12 @@
       { icon: Icons.next, label: t('menu.nextImage'),     shortcut: '→ / Page Down', disabled: !canNext, action: () => _nextImage() },
       { separator: true },
       ..._dicomContextItems(),
-      { icon: Icons.palette, label: t('menu.theme'), action: () => _openThemePicker() },
+      { icon: Icons.palette, label: t('menu.theme'), submenu: () => _themeMenuItems() },
       { separator: true },
       { icon: Icons.language, label: t('menu.language'), submenu: () => _langMenuItems() },
       { separator: true },
       { icon: Icons.settings, label: t('menu.settings'), action: () => _openSettings() },
     ].filter(Boolean);
-  }
-
-  /** Theme picker rows: dark themes, separator, light themes — swatch icon, check on the current one. */
-  function _themeMenuItems() {
-    const t = I18n.t.bind(I18n);
-    const row = (th) => ({
-      icon: Themes.swatchSvg(th.id),
-      label: Themes.label(th.id, t),
-      checked: state.theme === th.id,
-      action: () => _applyTheme(th.id),
-    });
-    return [
-      { icon: Icons.moon, label: t('menu.darkThemes'), disabled: true },
-      ...Themes.ofKind('dark').map(row),
-      { separator: true },
-      { icon: Icons.sun, label: t('menu.lightThemes'), disabled: true },
-      ...Themes.ofKind('light').map(row),
-    ];
   }
 
   function _langMenuItems() {
@@ -1275,15 +1270,17 @@
   function _windowMenuItems() {
     const t = I18n.t.bind(I18n);
     const web = _isWeb();
+    // On the start screen everything here is greyed out except Settings
+    const home = _homeIsOpen();
     return [
-      { icon: Icons.panelLeft,  label: t('menu.leftPanel'),  checked: _layout.left,  action: () => _toggleLeftPanel() },
-      { icon: Icons.panelRight, label: t('menu.rightPanel'), checked: _layout.right, action: () => _toggleRightPanel() },
+      { icon: Icons.panelLeft,  label: t('menu.leftPanel'),  checked: _layout.left,  disabled: home, action: () => _toggleLeftPanel() },
+      { icon: Icons.panelRight, label: t('menu.rightPanel'), checked: _layout.right, disabled: home, action: () => _toggleRightPanel() },
       { separator: true },
-      { icon: Icons.viewGrid, label: t('menu.browseMode'), checked: _browseMode, action: () => _toggleBrowseMode() },
+      { icon: Icons.viewGrid, label: t('menu.browseMode'), checked: _browseMode, disabled: home, action: () => _toggleBrowseMode() },
       { separator: true },
-      !web && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', action: () => window.electronAPI.toggleFullscreen?.() },
-      !web && { icon: Icons.panelRight, label: t('menu.minimize'), action: () => window.electronAPI.windowMinimize?.() },
-      !web && { icon: Icons.fitWindow, label: t('menu.maximize'), action: () => window.electronAPI.windowMaximize?.() },
+      !web && { icon: Icons.fullscreen, label: t('menu.fullscreen'), shortcut: 'F11', disabled: home, action: () => window.electronAPI.toggleFullscreen?.() },
+      !web && { icon: Icons.panelRight, label: t('menu.minimize'), disabled: home, action: () => window.electronAPI.windowMinimize?.() },
+      !web && { icon: Icons.fitWindow, label: t('menu.maximize'), disabled: home, action: () => window.electronAPI.windowMaximize?.() },
       !web && { separator: true },
       { icon: Icons.settings, label: t('menu.settings'), action: () => _openSettings() },
     ].filter(Boolean);
@@ -1334,6 +1331,7 @@
     btn?.classList.remove('is-on');
     btn?.setAttribute('aria-pressed', 'false');
     _startBg?.hide();
+    if (page) requestAnimationFrame(() => FileTree.ensureSelectedVisible?.());
   }
 
   function _homeIsOpen() {
@@ -2490,6 +2488,7 @@
   function _onHistoryChange() {
     _editorSeq = ++_actionSeq;
     _updateUndoRedoBtns();
+    if (state.editMode) window.EditTools?.refresh();
     _syncSlidersFromEffects('eff');
     _syncSlidersFromEffects('ew-eff');
     _queueColorPanelSync();
@@ -6345,8 +6344,8 @@
     _syncBrowseChrome();
   }
 
-  async function _openFolder(dirPath, { openFirst = true, instant = false } = {}) {
-    _hideHome();
+  async function _openFolder(dirPath, { openFirst = true, instant = false, keepHome = false } = {}) {
+    if (!keepHome) _hideHome();
     const work = async () => {
       _rememberRecentDir(dirPath);
       if (window.electronAPI.platform === 'web') {
@@ -7321,8 +7320,9 @@
         : `${dir.replace(/[\\/]+$/, '')}/${fname}`;
 
       const writeResult = await _runOpWithProgress(async (dlg) => {
-        const dataUrl = Editor.exportResizedDataUrl(w, h, mime, fileQ, interp);
-        if (!dataUrl) return { success: false, error: 'export' };
+        const exported = Editor.exportResizedDataUrl(w, h, mime, fileQ, interp);
+        if (!exported) return { success: false, error: 'export' };
+        const dataUrl = await _withPhotoInfo(exported, { w, h });
         dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
         return await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
       }, { messageKey: 'progress.saving', kind: 'encode' });
@@ -7596,9 +7596,13 @@
     if (!content) return;
 
     const sliders = [
+      { key:'exposure',   label:'effects.exposure',   min:-100,max:100, step:1,  def:0 },
       { key:'brightness', label:'effects.brightness', min:0,   max:200, step:1,  def:100 },
       { key:'contrast',   label:'effects.contrast',   min:0,   max:200, step:1,  def:100 },
+      { key:'highlights', label:'effects.highlights', min:-100,max:100, step:1,  def:0 },
+      { key:'shadows',    label:'effects.shadows',    min:-100,max:100, step:1,  def:0 },
       { key:'saturation', label:'effects.saturation', min:0,   max:200, step:1,  def:100 },
+      { key:'vibrance',   label:'effects.vibrance',   min:-100,max:100, step:1,  def:0 },
       { key:'hue',        label:'effects.hue',        min:-180,max:180, step:1,  def:0 },
       { key:'blur',       label:'effects.blur',       min:0,   max:20,  step:0.5,def:0 },
       { key:'tiltShift',  label:'effects.miniatureDepth',  min:0,   max:100, step:1,  def:0 },
@@ -8971,6 +8975,7 @@
     _applyEditWindowIcons();
     if (_ewInitDone) return;
     _ewInitDone = true;
+    _initEditTools();
     _initEwPanelLayout();
     _lockBarScroll(document.getElementById('ew-menubar'));
     _lockBarScroll(document.getElementById('ew-toolbar-row'));
@@ -9048,8 +9053,11 @@
     }, { passive: false });
 
     editCanvasArea.addEventListener('mousedown', (e) => {
-      if (Editor.getTool() !== 'pointer') return;
+      // Any tool: middle button or Space + drag pans; the pointer tool pans with the left button too
+      const panAnyTool = e.button === 1 || (e.button === 0 && window.EditTools?.isSpaceHeld());
+      if (Editor.getTool() !== 'pointer' && !panAnyTool) return;
       if (e.button !== 0 && e.button !== 1) return;
+      if (e.button === 1) e.preventDefault();
       _ewPanning = true;
       _ewPanStartX = e.clientX; _ewPanStartY = e.clientY;
       _ewPanOriginX = _ewPanX; _ewPanOriginY = _ewPanY;
@@ -9065,6 +9073,7 @@
       if (_ewPanning) {
         _ewPanning = false;
         editCanvasArea.style.cursor = Editor.getTool() === 'pointer' ? 'grab' : 'crosshair';
+        if (window.EditTools?.getActive()) EditTools.refresh();
       }
     });
 
@@ -9082,7 +9091,40 @@
     });
   }
 
+  /** Drawing / retouch tools, crop & straighten, tone / canvas / watermark dialogs (editTools.js). */
+  function _initEditTools() {
+    if (!window.EditTools) return;
+    const statusEl = document.getElementById('ew-status-msg');
+    EditTools.init({
+      t: (k) => I18n.t(k),
+      status: (msg) => { if (statusEl) statusEl.textContent = msg || ''; },
+      showDialog: (id) => _showDialog(id),
+      dialogOpen: () => [...document.querySelectorAll('.dialog-overlay')].some((el) => el.classList.contains('visible') || el.style.display === 'flex'),
+      onToolChange: (id) => {
+        ['ew-tool-pointer', 'ew-tool-rect', 'ew-tool-lasso', 'ew-tool-polygon', 'ew-tool-magic'].forEach((bid) => {
+          document.getElementById(bid)?.classList.toggle('active', !id && bid === 'ew-tool-pointer');
+        });
+        const tolWrap = document.getElementById('ew-tolerance-wrap');
+        if (tolWrap && id) tolWrap.style.display = 'none';
+        editCanvasArea.classList.remove('drag-mode', 'select-mode');
+        if (id) {
+          editCanvasArea.classList.add('select-mode');
+          editCanvasArea.style.cursor = 'default';
+        } else {
+          editCanvasArea.classList.add('drag-mode');
+          editCanvasArea.style.cursor = 'grab';
+          selCanvas.style.cursor = 'grab';
+        }
+        requestAnimationFrame(() => _syncEditChromeMinSize());
+      },
+      onPixelsChanged: () => { _ewUpdateSelBtns(); _updateUndoRedoBtns(); _updateStatus({ dims: true }); },
+      onEffectsChanged: () => { _syncSlidersFromEffects('eff'); _syncSlidersFromEffects('ew-eff'); },
+      onSelectionChanged: () => _ewUpdateSelBtns(),
+    });
+  }
+
   function _ewSetTool(tool) {
+    if (window.EditTools?.getActive()) EditTools.deactivate();
     Editor.setTool(tool);
     ['ew-tool-pointer','ew-tool-rect','ew-tool-lasso','ew-tool-polygon','ew-tool-magic'].forEach(id => {
       document.getElementById(id)?.classList.remove('active');
@@ -9206,6 +9248,8 @@
       { icon: Icons.save, label: t('context.save'), shortcut: 'Ctrl+S', action: () => { _save(); } },
       { icon: Icons.saveAs, label: t('context.saveAs'), shortcut: 'Ctrl+Shift+S', action: () => { _saveAsNewFile(); } },
       { separator: true },
+      { icon: Icons.rectSelect, label: t('menu.select'), submenu: () => _ewSelectMenuItems() },
+      { icon: Icons.saveAs,   label: `${t('sel.saveAs')}…`, disabled: !hasSel, action: () => _saveSelectionAs() },
       { icon: Icons.cut,      label: t('context.cut'),      disabled: !hasSel, action: _ewCut },
       { icon: Icons.copy,     label: t('context.copy'),     disabled: !hasSel, action: _ewCopy },
       { separator: true },
@@ -9335,10 +9379,11 @@
     if (!filePath || !format || state.isAnimated || _isWeb()) return state.editMode ? _saveAsNewFile() : _saveAs();
 
     const writeResult = await _runOpWithProgress(async (dlg) => {
-      const dataUrl = (format === 'image/jpeg' || format === 'image/webp')
+      const exported = (format === 'image/jpeg' || format === 'image/webp')
         ? Editor.exportAsDataUrl(format, 0.92)
         : Editor.exportAsDataUrl(format);
-      if (!dataUrl) return { success: false, error: 'export' };
+      if (!exported) return { success: false, error: 'export' };
+      const dataUrl = await _withPhotoInfo(exported, Editor.getDimensions());
       dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
       // Our own write must not reload the file (that would drop the edit history)
       _ignoreWatchUntil = Date.now() + 2000;
@@ -9359,6 +9404,147 @@
     }
     await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', writeResult.error || '');
     return false;
+  }
+
+  /**
+   * Edit window ▸ Select menu (and the right-click flyout): the selection tools, saving or
+   * copying the selected part, then the selection edits from editTools.js.
+   */
+  function _ewSelectMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const has = Editor.isLoaded();
+    const hasSel = has && Editor.hasSelection();
+    const tool = Editor.getTool();
+    const pickTool = (id) => () => _ewSetTool(id);
+    return [
+      { icon: Icons.rectSelect, label: t('toolbar.toolRect'),    checked: tool === 'rect-select', disabled: !has, action: pickTool('rect-select') },
+      { icon: Icons.lasso,      label: t('toolbar.toolLasso'),   checked: tool === 'lasso',       disabled: !has, action: pickTool('lasso') },
+      { icon: Icons.polygon,    label: t('toolbar.toolPolygon'), checked: tool === 'polygon',     disabled: !has, action: pickTool('polygon') },
+      { icon: Icons.magicWand,  label: t('toolbar.toolMagic'),   checked: tool === 'magic-wand',  disabled: !has, action: pickTool('magic-wand') },
+      { separator: true },
+      { icon: Icons.saveAs, label: `${t('sel.saveAs')}…`, disabled: !hasSel, action: () => _saveSelectionAs() },
+      { icon: Icons.copy,   label: t('context.copy'), shortcut: 'Ctrl+C', disabled: !hasSel, action: () => _ewCopy() },
+      { icon: Icons.crop,   label: t('editWindow.cropSel'), disabled: !hasSel, action: () => _cropToSelection() },
+      { separator: true },
+      ...EditTools.selectMenuItems(),
+    ];
+  }
+
+  /** File ▸ Batch processing: the selected thumbnails, or every picture in the folder in view. */
+  async function _openBatch(paths = null) {
+    if (!window.Batch) return;
+    if (!_batchReady) {
+      _batchReady = true;
+      Batch.init({
+        t: (k) => I18n.t(k),
+        runWithProgress: (fn, opts) => _runOpWithProgress(fn, opts),
+        withPhotoInfo: (dataUrl, dims, src) => _withPhotoInfo(dataUrl, dims, src),
+        folderImages: async (dir) => (await FileTree.getImageFilesInDir(dir)).filter((p) => FormatSupport.isImage(p) && !FormatSupport.isVideo(p) && !FormatSupport.isAudio(p)),
+        drawWatermark: (c, W, H, o) => EditTools.drawWatermark(c, W, H, o),
+        showDialog: (id) => _showDialog(id),
+        status: (msg) => _updateStatus({ msg }),
+        refreshTree: () => FileTree.refresh({ force: true }).catch(() => {}),
+        report: (done, failed, dir) => _saveRelatedPrompt({
+          title: I18n.t('batch.title'),
+          message: `${I18n.t('batch.done')}: ${done.length}${failed.length ? ` · ${I18n.t('batch.failed')}: ${failed.length}` : ''}`,
+          detail: failed.length ? failed.slice(0, 12).join('\n') : dir,
+          buttons: [I18n.t('error.ok') || 'OK'], defaultId: 0, cancelId: 0, icon: 'save',
+        }),
+      });
+    }
+    const selected = paths || (Browse.isVisible?.() ? Browse.getSelectedPaths?.() : []) || [];
+    let folder = Browse.getDir?.() || '';
+    if (!folder && state.currentFile) folder = await window.electronAPI.pathDirname(state.currentFile).catch(() => '');
+    if (!folder && !selected.length) { _updateStatus({ msg: I18n.t('batch.noFolder') }); return; }
+    await Batch.open({ selected: selected.length ? selected : (state.currentFile ? [state.currentFile] : []), folder });
+  }
+
+  /** Viewer ▸ right-click: open the editor with the rectangle tool, ready to pick the part to save. */
+  async function _selectRegionToSave() {
+    if (!state.editMode) await _openEditWindow();
+    if (!state.editMode) return;
+    _ewSetTool('rect-select');
+    const msg = document.getElementById('ew-status-msg');
+    if (msg) msg.textContent = I18n.t('sel.pickRegionHint');
+  }
+
+  /**
+   * Save only the selected part as a new file (the picture itself is not changed): what is
+   * on screen inside the selection's bounding box, transparent outside a lasso / wand shape.
+   */
+  async function _saveSelectionAs() {
+    if (!Editor.hasSelection?.()) {
+      const msg = document.getElementById('ew-status-msg');
+      if (msg) msg.textContent = I18n.t('sel.none');
+      return false;
+    }
+    const suffix = (I18n.t('save.selectionSuffix') || 'selection').trim() || 'selection';
+    const srcPath = state.currentFile || '';
+    const stem = (srcPath.split(/[/\\]/).pop() || 'image').replace(/\.[^.]+$/, '');
+    let defaultPath = `${stem}_${suffix}.png`;
+    if (srcPath && window.electronAPI?.pathDirname && window.electronAPI?.pathJoin) {
+      try {
+        const dir = await window.electronAPI.pathDirname(srcPath);
+        if (dir) defaultPath = await window.electronAPI.pathJoin(dir, defaultPath);
+      } catch (_) { /* name only */ }
+    }
+    const dlgResult = await window.FileDialog.save({ defaultPath });
+    if (!dlgResult || dlgResult.canceled || !dlgResult.filePath) return false;
+    const savePath = dlgResult.filePath;
+    const ext = savePath.split('.').pop().toLowerCase();
+    const format = { jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', bmp: 'image/bmp' }[ext] || 'image/png';
+    const quality = (format === 'image/jpeg' || format === 'image/webp')
+      ? (Number.isFinite(dlgResult.quality) ? dlgResult.quality : 0.92) : undefined;
+    const writeResult = await _runOpWithProgress(async (dlg) => {
+      const exported = Editor.exportSelection(format, quality);
+      if (!exported) return { success: false, error: 'export' };
+      const box = Editor.getSelectionBounds();
+      const dataUrl = await _withPhotoInfo(exported, box ? { w: box.w, h: box.h } : {});
+      dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
+      const wr = await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
+      if (wr && wr.success) {
+        try { await FileTree.refresh({ force: true }); } catch (_) { /* ignore */ }
+      }
+      return wr;
+    }, { messageKey: 'progress.saving', kind: 'encode', force: _editWindowOpen() });
+    if (!writeResult || writeResult.error === 'export') return false;
+    if (!writeResult.success) {
+      await _showError(I18n.t('dialog.save.error') || 'Could not save the file.', writeResult.error || '');
+      return false;
+    }
+    const name = savePath.split(/[/\\]/).pop();
+    _updateStatus({ msg: `${I18n.t('sel.saved')}: ${name}` });
+    const msg = document.getElementById('ew-status-msg');
+    if (msg) msg.textContent = `${I18n.t('sel.saved')}: ${name}`;
+    return true;
+  }
+
+  /**
+   * The photo information (EXIF: date taken, camera, exposure, GPS …) of the open file,
+   * carried into a JPEG / PNG about to be written (a canvas encodes pixels only). The
+   * orientation becomes "upright" and the size the saved one; Settings can drop the GPS
+   * part or keep nothing. Any problem leaves the image as it was.
+   */
+  async function _withPhotoInfo(dataUrl, { w, h } = {}, srcPath = state.currentFile) {
+    if (!_prefOn('keepExif') || !window.ExifCarry || !srcPath) return dataUrl;
+    const m = /^data:(image\/(?:jpeg|png));base64,/.exec(dataUrl || '');
+    if (!m) return dataUrl;
+    try {
+      const src = await window.electronAPI.readFileBytes(srcPath);
+      if (!src || src.error) return dataUrl;
+      const bin = atob(dataUrl.slice(m[0].length));
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      const res = ExifCarry.carry(out, src instanceof Uint8Array ? src : new Uint8Array(src), {
+        width: w, height: h, stripGps: _pref('stripGps') === '1',
+      });
+      if (res === out) return dataUrl;
+      let text = '';
+      for (let i = 0; i < res.length; i += 0x8000) text += String.fromCharCode.apply(null, res.subarray(i, i + 0x8000));
+      return `data:${m[1]};base64,${btoa(text)}`;
+    } catch {
+      return dataUrl;
+    }
   }
 
   async function _saveAs(andClose = false, opts = {}) {
@@ -9393,10 +9579,11 @@
       : undefined;
 
     const writeResult = await _runOpWithProgress(async (dlg) => {
-      const dataUrl = quality !== undefined
+      const exported = quality !== undefined
         ? Editor.exportAsDataUrl(format, quality)
         : Editor.exportAsDataUrl(format);
-      if (!dataUrl) return { success: false, error: 'export' };
+      if (!exported) return { success: false, error: 'export' };
+      const dataUrl = await _withPhotoInfo(exported, Editor.getDimensions());
       dlg?.set(55, I18n.t('progress.saving') || 'Saving…');
       const wr = await window.electronAPI.writeFile({ filePath: savePath, dataUrl });
       if (wr && wr.success) {
@@ -10734,6 +10921,8 @@
         ..._treeClipboardItems(multiPaths, entry),
         printables.length && { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P',
           action: () => _printPath(printables[0]) },
+        printables.length && { icon: Icons.batch, label: `${t('batch.title')}… (${printables.length})`,
+          action: () => _openBatch(printables) },
         !isWeb && { separator: true },
         !isWeb && { icon: Icons.delete, label: `${t('context.deleteFile')} (${multiPaths.length})`,
           danger: true,
@@ -11038,6 +11227,7 @@
       hasImg && { icon: Icons.saveAs, label: t('context.saveAs'), shortcut: 'Ctrl+Shift+S', action: () => _saveAs() },
       { icon: Icons.print, label: t('menu.print'), shortcut: 'Ctrl+P', disabled: !_canPrint(), action: () => _openPrintPreview() },
       hasImg && { icon: Icons.copy,   label: t('context.copy'),   shortcut: 'Ctrl+C', action: _copyToClipboard },
+      hasImg && !isAv && { icon: Icons.rectSelect, label: `${t('sel.pickRegion')}…`, action: () => _selectRegionToSave() },
       hasImg && { icon: Icons.rotateRight, label: t('context.transform'), submenu: () => [
         { icon: Icons.rotateLeft,  label: t('context.rotateLeft'),  shortcut: 'Ctrl+[', action: () => _rotate(-90) },
         { icon: Icons.rotateRight, label: t('context.rotateRight'), shortcut: 'Ctrl+]', action: () => _rotate(90) },
@@ -11169,7 +11359,6 @@
     _syncThemePickerButtons();
   }
 
-  const CUSTOM_THEME_KEY = 'customThemeV1';
 
   function _readCustomTheme() {
     try {
@@ -11178,7 +11367,7 @@
         return { bg: o.bg, text: o.text, accent: o.accent };
       }
     } catch { /* defaults */ }
-    return { bg: '#1e1e1e', text: '#cccccc', accent: '#0078d4' };
+    return { ...CUSTOM_THEME_DEFAULT };
   }
 
   function _hexRgb(hex) {
@@ -11228,9 +11417,9 @@
 
   function _applyCustomTheme(colors) {
     const next = {
-      bg: colors?.bg || '#1e1e1e',
-      text: colors?.text || '#cccccc',
-      accent: colors?.accent || '#0078d4',
+      bg: colors?.bg || CUSTOM_THEME_DEFAULT.bg,
+      text: colors?.text || CUSTOM_THEME_DEFAULT.text,
+      accent: colors?.accent || CUSTOM_THEME_DEFAULT.accent,
     };
     try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next)); } catch { /* ignore */ }
     _writeCustomThemeStyle(next);
@@ -11261,6 +11450,9 @@
     root?.querySelector('[data-custom-apply]')?.addEventListener('click', () => {
       _applyCustomTheme(_customFrom(root));
     });
+    root?.querySelector('[data-custom-reset]')?.addEventListener('click', () => {
+      _applyCustomTheme(CUSTOM_THEME_DEFAULT);
+    });
   }
 
   /** Palette button: step to the next theme in the list (10 dark, then 10 light, wrapping). */
@@ -11272,9 +11464,51 @@
     _applyTheme(Themes.next(state.theme));
   }
 
-  /** ▾ button and the Theme menu: a panel of its own, not clipped by the window. */
-  function _openThemeMenu() {
-    _openThemePicker();
+  /** ▾ button: the themes as a drop-down under the button (drawn by the menu overlay, so not clipped by the window). */
+  function _openThemeMenu(btn) {
+    if (!btn) { _openThemePicker(); return; }
+    const r = btn.getBoundingClientRect();
+    btn.classList.add('is-open');
+    ContextMenu.show(r.left, r.bottom + 2, _themeMenuItems(), {
+      onHide: () => btn.classList.remove('is-open'),
+    });
+  }
+
+  /** Custom theme… and Theme settings… on top, then the Dark and Light themes side by side. */
+  function _themeMenuItems() {
+    const t = I18n.t.bind(I18n);
+    const kind = (k) => Themes.ofKind(k).map((th) => ({
+      icon: Themes.swatchSvg(th.id),
+      label: Themes.label(th.id, t),
+      checked: state.theme === th.id,
+      action: () => _applyTheme(th.id),
+    }));
+    return [
+      // Applied at once: the saved colours, or the preset; Theme settings… edits them
+      { icon: _customThemeSwatch(), label: t('theme.custom'), checked: state.theme === 'custom', action: () => _applyCustomTheme(_readCustomTheme()) },
+      { icon: Icons.settings, label: `${t('menu.themeSettings')}…`, action: () => _openThemeSettings() },
+      { separator: true },
+      { columns: [
+        { title: t('menu.darkThemes'), items: kind('dark') },
+        { title: t('menu.lightThemes'), items: kind('light') },
+      ] },
+    ];
+  }
+
+  /** The menu swatch of the custom theme, drawn like Themes.swatchSvg. */
+  function _customThemeSwatch() {
+    const { bg, text, accent } = _readCustomTheme();
+    const bar = _mixHex(bg, text, _lum(bg) > 0.62 ? 0.05 : 0.16);
+    return `<svg viewBox="0 0 16 16" class="theme-swatch"><rect x="1" y="2" width="14" height="12" rx="2" fill="${bg}"/>`
+      + `<rect x="1" y="2" width="14" height="4" rx="2" fill="${bar}"/><rect x="1" y="5" width="14" height="1" fill="${bar}"/>`
+      + `<circle cx="11.5" cy="10.5" r="2" fill="${accent}"/>`
+      + `<rect x="1.5" y="2.5" width="13" height="11" rx="1.5" fill="none" stroke="rgba(128,128,128,.6)" stroke-width="1"/></svg>`;
+  }
+
+  /** Settings, opened on its Theme tab. */
+  function _openThemeSettings() {
+    _openSettings();
+    _settingsSelectTab('theme');
   }
 
   function _openThemePicker() {
@@ -11432,6 +11666,10 @@
     checker?.addEventListener('change', () => { _setPref('viewerChecker', checker.checked ? '1' : '0'); _applyViewerPrefs(); });
     const smoothing = document.getElementById('settings-smoothing');
     smoothing?.addEventListener('change', () => { _setPref('imageSmoothing', smoothing.checked ? '1' : '0'); _applyViewerPrefs(); });
+    const keepExif = document.getElementById('settings-keep-exif');
+    const stripGps = document.getElementById('settings-strip-gps');
+    keepExif?.addEventListener('change', () => { _setPref('keepExif', keepExif.checked ? '1' : '0'); if (stripGps) stripGps.disabled = !keepExif.checked; });
+    stripGps?.addEventListener('change', () => _setPref('stripGps', stripGps.checked ? '1' : '0'));
     // DICOM
     const annot = document.getElementById('settings-dicom-annot');
     annot?.addEventListener('change', () => { if (annot.checked !== _dicomAnnotOn) _dicomToggleAnnotations(); });
@@ -11626,6 +11864,10 @@
     if (checker) checker.checked = _prefOn('viewerChecker');
     const smoothing = document.getElementById('settings-smoothing');
     if (smoothing) smoothing.checked = _prefOn('imageSmoothing');
+    const keepExif = document.getElementById('settings-keep-exif');
+    if (keepExif) keepExif.checked = _prefOn('keepExif');
+    const stripGps = document.getElementById('settings-strip-gps');
+    if (stripGps) { stripGps.checked = _pref('stripGps') === '1'; stripGps.disabled = !_prefOn('keepExif'); }
     // DICOM
     const annot = document.getElementById('settings-dicom-annot');
     if (annot) annot.checked = _dicomAnnotOn;
@@ -11782,6 +12024,7 @@
   function _initKeyboard() {
     document.addEventListener('keydown', (e) => {
       if (_isFileDialogOpen()) return;
+      if (state.editMode && window.EditTools?.handleKey(e)) return;
       const ctrl = e.ctrlKey || e.metaKey;
 
       if (ctrl && e.shiftKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); _pickOpenFolder(); return; }
@@ -11974,6 +12217,7 @@
   async function _refreshLang() {
     await I18n.loadLanguage(state.lang);
     I18n.applyToDOM();
+    window.EditTools?.applyI18n();
     _buildEffectsPanel();
     _populateBgAlgoSelect();
     _updateStatus();

@@ -602,15 +602,12 @@ function compile(gl, type, source) {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const log = gl.getShaderInfoLog(shader);
-    gl.deleteShader(shader);
-    throw new Error(log || 'shader');
-  }
   return shader;
 }
 
-function linkProgram(gl, vs, fs, attribs) {
+// Compiling and linking only queue the work. The first status query waits for
+// it, so startLink returns at once and finishLink is where a broken shader throws.
+function startLink(gl, vs, fs, attribs) {
   const a = compile(gl, gl.VERTEX_SHADER, vs);
   const b = compile(gl, gl.FRAGMENT_SHADER, fs);
   const handle = gl.createProgram();
@@ -618,10 +615,18 @@ function linkProgram(gl, vs, fs, attribs) {
   gl.attachShader(handle, b);
   attribs.forEach((name, i) => gl.bindAttribLocation(handle, i, name));
   gl.linkProgram(handle);
-  gl.deleteShader(a);
-  gl.deleteShader(b);
-  if (!gl.getProgramParameter(handle, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(handle) || 'link');
-  return { handle, attribs, uniforms: new Map() };
+  return { handle, attribs, uniforms: new Map(), shaders: [a, b] };
+}
+
+function finishLink(gl, prog) {
+  if (!gl.getProgramParameter(prog.handle, gl.LINK_STATUS)) {
+    const [a, b] = prog.shaders;
+    const log = gl.getShaderInfoLog(a) || gl.getShaderInfoLog(b) || gl.getProgramInfoLog(prog.handle);
+    throw new Error(log || 'link');
+  }
+  for (const shader of prog.shaders) gl.deleteShader(shader);
+  delete prog.shaders;
+  return prog;
 }
 
 // ── matrices (column-major, like WebGL)
@@ -692,6 +697,7 @@ const IDENTITY = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 
 export class Kit {
   constructor(gl) {
     this.gl = gl;
+    this.parallel = gl.getExtension('KHR_parallel_shader_compile');
     this.programs = new Map();
     this.enabled = 0;
     this.view = new Float32Array(16);
@@ -716,15 +722,30 @@ export class Kit {
     let prog = this.programs.get(name);
     if (!prog) {
       const def = PROGRAMS[name];
-      prog = linkProgram(this.gl, def.vs, def.fs, def.attribs);
+      prog = startLink(this.gl, def.vs, def.fs, def.attribs);
       this.programs.set(name, prog);
     }
-    return prog;
+    return prog.shaders ? finishLink(this.gl, prog) : prog;
   }
 
-  /** Compile every program now, so the first frame of any scene does not stall. */
+  /** Queue every program now, so the first frame of any scene does not stall. */
   warm() {
-    for (const name of Object.keys(PROGRAMS)) this.program(name);
+    for (const [name, def] of Object.entries(PROGRAMS)) {
+      if (!this.programs.has(name)) this.programs.set(name, startLink(this.gl, def.vs, def.fs, def.attribs));
+    }
+  }
+
+  /**
+   * True once every queued program is linked. With KHR_parallel_shader_compile
+   * the driver compiles off the main thread and this never waits; without it
+   * there is nothing to ask, so the first draw takes the wait instead.
+   */
+  ready() {
+    if (!this.parallel) return true;
+    for (const prog of this.programs.values()) {
+      if (prog.shaders && !this.gl.getProgramParameter(prog.handle, this.parallel.COMPLETION_STATUS_KHR)) return false;
+    }
+    return true;
   }
 
   indexed({ pos, idx }, size) {

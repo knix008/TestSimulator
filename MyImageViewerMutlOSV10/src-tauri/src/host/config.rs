@@ -120,6 +120,33 @@ pub fn window_recall() -> Value {
     json!({ "x": x.round(), "y": y.round(), "width": width, "height": height, "maximized": maximized })
 }
 
+/// The page's background colour (#rrggbb), kept so the next start builds the window in the
+/// theme's colour instead of white while the webview starts.
+pub fn save_window_background(hex: &str) -> Value {
+    if parse_hex(hex).is_none() {
+        return Value::Null;
+    }
+    let mut cfg = read();
+    if cfg.get("windowBackground").and_then(Value::as_str) != Some(hex) {
+        cfg.insert("windowBackground".into(), json!(hex));
+        write(&cfg);
+    }
+    json!(hex)
+}
+
+pub fn window_background() -> Option<(u8, u8, u8)> {
+    read().get("windowBackground").and_then(Value::as_str).and_then(parse_hex)
+}
+
+fn parse_hex(hex: &str) -> Option<(u8, u8, u8)> {
+    let h = hex.strip_prefix('#')?;
+    if h.len() != 6 || !h.is_ascii() {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).ok();
+    Some((byte(0)?, byte(2)?, byte(4)?))
+}
+
 /// Monitor work areas in logical px (the unit the page saves bounds in).
 fn work_areas() -> Vec<(f64, f64, f64, f64)> {
     let Some(app) = super::app() else {

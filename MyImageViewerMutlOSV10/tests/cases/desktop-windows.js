@@ -260,6 +260,67 @@ module.exports = {
       assertIncludes(host, '.unwrap_or_else(|| super::home_dir().to_string_lossy().into_owned())', 'default folder = home');
     });
 
+    test('Theme ▾ opens a drop-down under the button, not a dialog window', () => {
+      const body = app.slice(app.indexOf('function _openThemeMenu(btn)'), app.indexOf('function _openThemePicker()'));
+      assertIncludes(body, 'ContextMenu.show(r.left, r.bottom + 2, _themeMenuItems()', 'drop-down below the button');
+      // Custom theme… and Theme settings… on top, then Dark | Light as two columns (no flyouts)
+      const custom = body.indexOf('action: () => _applyCustomTheme(_readCustomTheme())');
+      const settings = body.indexOf('action: () => _openThemeSettings()');
+      const cols = body.indexOf('{ columns: [');
+      assert(custom > 0 && custom < settings && settings < cols, 'custom, settings, then the columns');
+      assertIncludes(body, "{ title: t('menu.darkThemes'), items: kind('dark') }", 'dark column');
+      assertIncludes(body, "{ title: t('menu.lightThemes'), items: kind('light') }", 'light column');
+      assert(!body.includes('submenu:'), 'themes listed directly');
+      assertIncludes(body, "_settingsSelectTab('theme');", 'settings open on the Theme tab');
+      const menu = require('../helpers').read('src/js/contextMenu.js');
+      const popup = require('../helpers').read('src/js/popupMenu.js');
+      assertIncludes(menu, 'container.appendChild(_buildColumns(item.columns, level));', 'menu draws columns');
+      assertIncludes(menu, "out.push({ columns });", 'columns reach the overlay window');
+      assertIncludes(popup, 'if (Array.isArray(it.columns))', 'overlay wires column rows');
+      assertIncludes(css, '.ctx-columns { display: flex;', 'side by side');
+      assert(require('../helpers').read('src/i18n/ko.json').includes('"menu.themeSettings": "테마 설정"'), 'ko label');
+      assert(app.split('function _themeMenuItems()').length === 2, 'one theme menu builder');
+      assert(!app.includes("label: t('menu.theme'),    action: () => _openThemePicker()"), 'View menu: submenu too');
+    });
+
+    test('Custom theme has its own preset, applies from the drop-down and can go back to it', () => {
+      assertIncludes(app, "const CUSTOM_THEME_DEFAULT = { bg: '#1f2433', text: '#dde3f0', accent: '#e8a33d' };", 'preset (not a copy of Dark)');
+      assertIncludes(app, 'return { ...CUSTOM_THEME_DEFAULT };', 'used when nothing is saved');
+      assertIncludes(app, '_applyCustomTheme(CUSTOM_THEME_DEFAULT);', 'Default button');
+      assertIncludes(app, 'icon: _customThemeSwatch()', 'its colours in the menu');
+      assert(html.split('data-custom-reset').length === 3, 'Default button in Settings and in the picker');
+      assert(html.split('data-custom="bg" value="#1f2433"').length === 3, 'inputs start at the preset');
+    });
+
+    test('Window menu is greyed out on the start screen, except Settings', () => {
+      const body = app.slice(app.indexOf('function _windowMenuItems()'), app.indexOf('function _helpMenuItems()'));
+      assertIncludes(body, 'const home = _homeIsOpen();', 'start screen checked');
+      assert(body.split('disabled: home').length - 1 === 6, 'panels, browse, fullscreen, minimise, maximise');
+      assert(/label: t\('menu\.settings'\), action:/.test(body), 'Settings stays enabled');
+    });
+
+    test('Start screen opens on the chosen scene at the first paint, not a stand-in', () => {
+      const h2 = require('../helpers');
+      const bg = h2.read('src/js/startbg.js');
+      const gl = h2.read('src/js/start3d/gl.js');
+      // index.html: theme and start page (scene colours + last picture) before any script runs
+      assertIncludes(html, "document.documentElement.setAttribute('data-theme', theme)", 'saved theme at first paint');
+      assertIncludes(html, 'localStorage.getItem(`startSnap:${scene}`)', 'last picture of the scene');
+      assertIncludes(html, "document.getElementById('start-page').hidden = false;", 'start page at first paint');
+      assertIncludes(css, ".start-bg[data-scene='valley']", 'scene colours when there is no picture yet');
+      assertIncludes(css, ".start-bg[data-scene='grid']", 'every scene has colours');
+      // startbg.js: same key, saved while the scene runs, preview removed after the fade-in
+      assertIncludes(bg, 'const SNAP_KEY = (id) => `startSnap:${id}`;', 'same key as index.html');
+      assertIncludes(bg, 'this.savePreview(this.kind)', 'picture saved');
+      assertIncludes(bg, 'if (!this.kit.ready())', 'draws only once the shaders are linked');
+      // Shaders compile in parallel off the main thread; the 3D module loads early
+      assertIncludes(gl, "gl.getExtension('KHR_parallel_shader_compile')", 'parallel compile');
+      assertIncludes(app, '_ensureStartBg().then((bg) => bg?.prewarm());', 'prewarmed during start-up');
+      // Restoring the last folder happens under the start screen (no flash away and back)
+      assertIncludes(app, 'if (!homeAtStart) _hideHome();', 'start screen kept');
+      assertIncludes(app, 'keepHome: homeAtStart', 'folder opened underneath');
+    });
+
     test('Start screen: Explorer is the first card of "What you can do" and opens the main view', () => {
       const tasks = app.slice(app.indexOf('const HOME_TASKS = ['), app.indexOf('const HOME_TASKS = [') + 600);
       assert(tasks.indexOf("title: 'home.explorer'") > 0 && tasks.indexOf("title: 'home.explorer'") < tasks.indexOf("title: 'menu.openFolder'"), 'first card');

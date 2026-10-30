@@ -70,7 +70,7 @@ module.exports = {
       const { editor } = src;
       assertIncludes(editor, "tintColor: '', tintAmount: 0", 'tint effect with defaults');
       assertIncludes(editor, "tc.globalCompositeOperation = 'color';", 'tint keeps the luminance');
-      assertIncludes(editor, 'function setEffects(map)', 'batched setter');
+      assertIncludes(editor, 'function setEffects(map, saveHist = true)', 'batched setter (one undo step unless a live preview)');
       assertIncludes(editor, 'setEffect, setEffects, getEffects', 'exported');
       // Wheel commits on pointer-up only, so a drag is one history entry.
       const wheel = app.slice(app.indexOf('function _initColorWheel'), app.indexOf('function _syncColorPick'));

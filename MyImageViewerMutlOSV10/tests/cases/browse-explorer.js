@@ -390,6 +390,16 @@ module.exports = {
       assert(body.indexOf('pathDirname(filePath)') < body.indexOf('Browse.getDir?.()'), 'dirname wins over the sheet folder');
     });
 
+    test('Filmstrip starts with a Parent folder tile that goes up one folder', () => {
+      const row = browse.slice(browse.indexOf('<div class="browse-filmstrip-row">'), browse.indexOf('id="browse-grid"'));
+      assertIncludes(row, 'id="browse-film-up"', 'left of the photos, outside the scrolling grid');
+      assertIncludes(browse, 'if (!filmUp.disabled) goUp();', 'click goes to the parent');
+      assertIncludes(browse, "up.disabled = !_dir || _isRootDir(_dir);", 'disabled at a drive root');
+      assert(/function _isRootDir\(dir\) \{\s*return \/\^\[A-Za-z\]:\[\\\\\/\]\?\$\//.test(browse), 'drive root regex keeps its backslash');
+      assertIncludes(css, '#browse-view.is-filmstrip .browse-film-up {', 'shown only in the strip');
+      assert(ko['browse.parentFolder'] === '상위 폴더' && en['browse.parentFolder'] === 'Parent folder', 'both languages');
+    });
+
     test('Opening / previewing a file does not expand a collapsed side panel', () => {
       const openBody = app.slice(app.indexOf('async function _openFile('), app.indexOf('function _revealOpenedImage('));
       const prevBody = app.slice(app.indexOf('function _previewFileInfo('), app.indexOf('function _browseTip('));

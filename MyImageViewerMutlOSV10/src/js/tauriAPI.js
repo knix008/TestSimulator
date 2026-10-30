@@ -340,11 +340,6 @@ ${band('ftr', footerMm, footer)}
     return Ctor ? new Ctor(width, height) : { width, height };
   }
 
-  function logicalPos(x, y) {
-    const Ctor = tauri.dpi && tauri.dpi.LogicalPosition;
-    return Ctor ? new Ctor(x, y) : { x, y };
-  }
-
   function messageBox(options) {
     const buttons = options.buttons && options.buttons.length ? options.buttons : ['OK'];
     const cancelId = Number.isInteger(options.cancelId) ? options.cancelId : buttons.length - 1;
@@ -662,16 +657,22 @@ ${band('ftr', footerMm, footer)}
   window.addEventListener('DOMContentLoaded', async () => {
     const win = getWin();
     if (!win) return;
-    try {
-      const saved = await call('window-recall');
-      if (saved && saved.width && saved.height) {
-        if (Number.isFinite(saved.x) && Number.isFinite(saved.y) && win.setPosition) {
-          await win.setPosition(logicalPos(saved.x, saved.y));
-        }
-        await win.setSize(logicalSize(saved.width, saved.height));
-        if (saved.maximized && win.maximize) await win.maximize();
-      }
-    } catch { /* first launch */ }
+    // The host builds the window where it was last time (main.rs) and in the colour the
+    // page reports here, so a start neither opens white nor moves the window.
+    let reportedBg = '';
+    const reportBg = () => {
+      const m = getComputedStyle(document.body).backgroundColor.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (!m) return;
+      const hex = `#${m.slice(1, 4).map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`;
+      if (hex === reportedBg) return;
+      reportedBg = hex;
+      call('window-background', hex).catch(() => {});
+    };
+    new MutationObserver(() => setTimeout(reportBg, 0))
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    new MutationObserver(() => setTimeout(reportBg, 0))
+      .observe(document.head, { childList: true, subtree: true, characterData: true });
+    reportBg();
 
     try {
       if (win.onCloseRequested) {

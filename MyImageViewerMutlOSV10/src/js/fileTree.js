@@ -1093,6 +1093,8 @@ window.FileTree = (() => {
 
   return {
     init, loadDrives, revealPath, openRoot, getRoot, getSelected, setSelected,
+    // The tree was filled while hidden (under the start page): scroll to the selection once shown
+    ensureSelectedVisible: () => _scrollRow('nearest'),
     getSelectedPaths, getImageFilesInDir, indexOfPath, refresh, forgetPath, remapPath, handleKey,
     setFoldersOnly, isFoldersOnly, goUp, navigateTo, parentOf: _parentOf, applyI18n,
     pathsForDrag: _pathsForDragOut,

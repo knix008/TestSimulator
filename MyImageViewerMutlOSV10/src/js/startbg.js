@@ -25,6 +25,15 @@ function cssHex(rgb) {
   return `#${rgb.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('')}`;
 }
 
+// A small picture of each scene, taken while it is on screen. At the next start it
+// stands in while the shaders compile, so the page opens on the chosen scene and not
+// on a stand-in gradient. index.html paints it at the first paint, before this module
+// has even loaded, with the same key.
+const SNAP_KEY = (id) => `startSnap:${id}`;
+const SNAP_WIDTH = 640;
+const SNAP_AFTER_MS = 700;    // a moving scene is captured once it has run this long
+const PREVIEW_FADE_MS = 450;  // the canvas's fade-in (main.css) before the preview goes
+
 /**
  * The active theme for the scenes: `accent`, `bg`, `dark`, and `c(rgb, k)`,
  * which turns a natural colour toward the accent's hue at the same brightness,
@@ -55,6 +64,8 @@ export class StartBackground {
     this.frame = 0;
     this.states = new Map();
     this.clock = { camera: 0, objects: 0, sky: 0, step: 0 };
+    this.captured = new Set();   // scenes whose picture was saved this run
+    this.shownAt = 0;            // when the current scene was first drawn
     this.roll();
     this.fresh = true;
   }
@@ -106,6 +117,9 @@ export class StartBackground {
       this.kit = new Kit(gl);
       const range = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
       this.kit.maxPoint = Math.max(1, Math.min(256, range?.[1] ?? 64));
+      // The shaders take seconds to compile on some GPUs. Queue them all now and draw
+      // only once they are linked (applySize), so the page itself paints at once.
+      this.kit.warm();
     } catch (error) {
       console.error(error);
       this.fail(canvas);
@@ -158,8 +172,9 @@ export class StartBackground {
     }
     this.wanted = true;
     this.fade();
-    this.ensureGl();
     this.kind = this.choice().scene;
+    this.showPreview(this.kind);
+    this.ensureGl();
     // Draw one frame now, then keep moving. A hidden window may not run animation frames.
     this.resize();
     this.applySize();
@@ -200,6 +215,13 @@ export class StartBackground {
   applySize() {
     const gl = this.gl;
     if (!gl || !this.wantW || !this.wantH) return;
+    if (!this.kit.ready()) {
+      // The canvas stays hidden behind the preview; look again next frame (a running loop already does).
+      if (!this.running && !this.waitFrame) {
+        this.waitFrame = requestAnimationFrame(() => { this.waitFrame = 0; if (this.wanted) this.applySize(); });
+      }
+      return;
+    }
     const now = performance.now();
     const realloc = this.canvas.width !== this.wantW || this.canvas.height !== this.wantH;
     if (realloc) {
@@ -211,9 +233,53 @@ export class StartBackground {
     this.kit.aspect = this.canvas.width / this.canvas.height;
     this.kit.height = this.canvas.height;
     this.draw();
-    this.canvas.classList.remove('is-pending');
+    if (this.canvas.hidden) return;
+    if (!this.shownAt) this.shownAt = now;
+    if (!this.captured.has(this.kind) && (!this.running || now - this.shownAt > SNAP_AFTER_MS)) this.savePreview(this.kind);
+    if (this.canvas.classList.contains('is-pending')) {
+      this.canvas.classList.remove('is-pending');
+      clearTimeout(this.previewTimer);
+      this.previewTimer = setTimeout(() => this.dropPreview(), PREVIEW_FADE_MS);
+    }
     if (realloc) gl.flush();
     this.releaseSnap(now, realloc);
+  }
+
+  /** The saved picture of the scene under the canvas until the canvas has drawn. */
+  showPreview(id) {
+    this.host.dataset.scene = id;
+    if (this.canvas && !this.canvas.classList.contains('is-pending')) return;
+    let img = this.host.querySelector('.start-bg-preview');
+    if (img?.dataset.scene === id) return;
+    img?.remove();
+    let data = null;
+    try { data = localStorage.getItem(SNAP_KEY(id)); } catch { /* no storage */ }
+    if (!data) return;
+    img = document.createElement('img');
+    img.className = 'start-bg-preview';
+    img.alt = '';
+    img.dataset.scene = id;
+    img.src = data;
+    this.host.prepend(img);
+  }
+
+  dropPreview() {
+    clearTimeout(this.previewTimer);
+    this.host.querySelector('.start-bg-preview')?.remove();
+  }
+
+  // The drawing buffer is preserved, so the frame on the canvas can be read at any time.
+  savePreview(id) {
+    this.captured.add(id);
+    try {
+      const w = Math.min(SNAP_WIDTH, this.canvas.width);
+      const h = Math.max(1, Math.round(w * this.canvas.height / this.canvas.width));
+      const small = document.createElement('canvas');
+      small.width = w;
+      small.height = h;
+      small.getContext('2d').drawImage(this.canvas, 0, 0, w, h);
+      localStorage.setItem(SNAP_KEY(id), small.toDataURL('image/jpeg', 0.72));
+    } catch { /* no storage: the next start shows the scene's swatch colours */ }
   }
 
   // The cover stays for the resized frame, then the new picture shows through.
@@ -318,6 +384,9 @@ export class StartBackground {
     this.fade();
     if (scene !== this.kind) {
       this.kind = scene;
+      this.host.dataset.scene = scene;
+      this.shownAt = 0;
+      this.dropPreview();
       this.snap?.remove();
       this.snapUntil = null;
     }

@@ -5,6 +5,7 @@
  *           remove: { title, action },            — × button at the right of the row
  *           submenu: items | () => items | () => Promise<items> }  — flyout on hover / click
  *   { separator: true }
+ *   { columns: [{ title, items }, …] }               — lists side by side (the theme drop-down)
  *   `items` may also be a function returning the items (re-run by refreshSubmenu).
  *
  * On the desktop the menu is shown in the menu overlay window (electronAPI.popupMenu →
@@ -111,6 +112,12 @@ window.ContextMenu = (() => {
     for (const it of items || []) {
       if (!it) continue;
       if (it.separator) { out.push({ separator: true }); continue; }
+      if (Array.isArray(it.columns)) {
+        const columns = [];
+        for (const col of it.columns) columns.push({ title: col.title || '', items: await _serialize(col.items) });
+        out.push({ columns });
+        continue;
+      }
       const o = {
         label: it.label, icon: it.icon || '', detail: it.detail, title: it.title, shortcut: it.shortcut,
         disabled: !!it.disabled, danger: !!it.danger, checked: !!it.checked, inline: !!it.inline,
@@ -306,8 +313,38 @@ window.ContextMenu = (() => {
         container.appendChild(sep);
         continue;
       }
+      if (Array.isArray(item.columns)) {
+        container.appendChild(_buildColumns(item.columns, level));
+        continue;
+      }
       container.appendChild(_buildRow(item, level));
     }
+  }
+
+  /** Lists side by side, each under its own title. */
+  function _buildColumns(columns, level) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ctx-columns';
+    for (const col of columns) {
+      const box = document.createElement('div');
+      box.className = 'ctx-column';
+      if (col.title) {
+        const title = document.createElement('div');
+        title.className = 'ctx-column-title';
+        title.textContent = col.title;
+        box.appendChild(title);
+      }
+      for (const item of col.items || []) {
+        if (!item) continue;
+        if (item.separator) {
+          const sep = document.createElement('div');
+          sep.className = 'ctx-separator';
+          box.appendChild(sep);
+        } else box.appendChild(_buildRow(item, level));
+      }
+      wrap.appendChild(box);
+    }
+    return wrap;
   }
 
   function _cancelClose() {

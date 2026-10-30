@@ -6,8 +6,8 @@ window.Editor = (() => {
   let selCanvas       = null; // selection overlay
   let displayCtx      = null;
   let selCtx          = null;
-  let originalImg     = null; // HTMLImageElement
-  let originalPixels  = null; // ImageData snapshot of original
+  let originalImg     = null; // what rotate / flip start from: the file, or the pixels after an edit
+  let sourceImg       = null; // the file as loaded (Reset all goes back to it)
   let workingPixels   = null; // ImageData after canvas-based edits
 
   let naturalW = 0, naturalH = 0;
@@ -17,6 +17,9 @@ window.Editor = (() => {
     hue: 0, blur: 0, grayscale: 0, sepia: 0, invert: 0,
     sharpen: 0, emboss: false, edge: false, vignette: 0, warmth: 0, grain: 0, posterize: 0,
     solarize: 0, tiltShift: 0,
+    // Tone (EditOps.applyTone): exposure / highlights / shadows −100…100, levels, curves
+    // ({ rgb, r, g, b } point lists) and white-balance gains [r, g, b]; null = untouched
+    exposure: 0, highlights: 0, shadows: 0, vibrance: 0, levels: null, curve: null, wb: null,
     tintColor: '', tintAmount: 0,   // colour-wheel tint: '#rrggbb' laid over the photo in "color" blend
     borderWidth: 0, borderColor: '#ffffff', borderShadow: 0,
     borderShadowStyle: 'soft', borderShadowDir: 'br',
@@ -42,6 +45,13 @@ window.Editor = (() => {
   let panX   = 0;
   let panY   = 0;
 
+  /* ─── Painting / retouch tools (editTools.js): get the pointer while set ─── */
+  // A shape / text still being placed lives on the overlay: flush() draws it in before any
+  // other edit, save or export; discard() drops it (Undo while it is live)
+  let pendingHook = null;
+  const _flush = () => { pendingHook?.flush?.(); };
+  let toolHandler = null;   // { down(p, e), hover(p, e), dblclick(p, e), leave(), cursor }
+
   /* ─── Selection ─── */
   let currentTool = 'pointer'; // 'pointer'|'rect-select'|'lasso'|'polygon'|'magic-wand'
   let selectionPath = null;    // [{x,y}, …]
@@ -51,11 +61,18 @@ window.Editor = (() => {
   let selStartX = 0, selStartY = 0;
   let polygonPoints = [];
   let magicTolerance = 32;
+  let _selCombine = null;  // Shift / Alt at the start: { mode: 'add' | 'sub', mask, path, type } of the selection before
 
   /* ─── History ─── */
   const history = [];
   let histIndex = -1;
   const MAX_HISTORY = 20;
+  // Undo keeps one copy of the pixels per step that changed them; steps that only change
+  // effects or the frame share the copy before them. The copies stay under this budget
+  // (oldest steps go first, two always stay): 20 copies of a 24 MP photo would be 1.8 GB.
+  const MAX_HISTORY_BYTES = 768 * 1024 * 1024;
+  let _pixVersion = 0;      // bumped whenever the working pixels change in place (_bake)
+  let _histShare = null;    // { src, version, copy }: the last copy and what it was taken from
 
   /* ─── Listeners ─── */
   let onDirtyCallback   = null;
@@ -89,13 +106,14 @@ window.Editor = (() => {
   ═══════════════════════════════════════════ */
   function loadImage(img) {
     originalImg     = img;
+    sourceImg       = img;
     naturalW        = img.naturalWidth  || img.width;
     naturalH        = img.naturalHeight || img.height;
 
     rotation = 0; flipH = false; flipV = false;
     _resetEffects();
     clearSelection();
-    history.length = 0; histIndex = -1;
+    history.length = 0; histIndex = -1; _histShare = null;
 
     _resizeCanvases();
     _drawOriginalToWorking();
@@ -115,11 +133,11 @@ window.Editor = (() => {
     if (!w || !h) return false;
     const sameSize = w === naturalW && h === naturalH;
     originalImg = img;
+    sourceImg = img;
     naturalW = w;
     naturalH = h;
-    originalPixels = null;
     if (!sameSize) clearSelection();
-    history.length = 0; histIndex = -1;
+    history.length = 0; histIndex = -1; _histShare = null;
     _resizeCanvases();
     _drawOriginalToWorking();
     _render();
@@ -158,9 +176,6 @@ window.Editor = (() => {
     oc.restore();
 
     workingPixels = oc.getImageData(0, 0, cw, ch);
-    if (!originalPixels) {
-      originalPixels = oc.getImageData(0, 0, cw, ch);
-    }
   }
 
   /* ═══════════════════════════════════════════
@@ -202,6 +217,7 @@ window.Editor = (() => {
     const pc = photo.getContext('2d');
 
     let pixData = workingPixels;
+    if (_toneOn()) pixData = _asImageData(EditOps.applyTone(workingPixels, _toneParams()));
     if (effects.sharpen > 0) pixData = _applySharpen(pixData, effects.sharpen / 100);
     if (effects.emboss)      pixData = _applyEmboss(pixData);
     if (effects.edge)        pixData = _applyEdgeDetect(pixData);
@@ -234,6 +250,22 @@ window.Editor = (() => {
       pc.putImageData(g, 0, 0);
     }
     return photo;
+  }
+
+  /* ── Tone (exposure, highlights / shadows, levels, curves, white balance) ── */
+  function _toneParams() {
+    return {
+      exposure: effects.exposure, highlights: effects.highlights, shadows: effects.shadows, vibrance: effects.vibrance,
+      levels: effects.levels, curve: effects.curve, wb: effects.wb,
+    };
+  }
+
+  function _toneOn() {
+    return !!window.EditOps && !EditOps.toneIsIdentity(_toneParams());
+  }
+
+  function _asImageData(img) {
+    return img instanceof ImageData ? img : new ImageData(img.data, img.width, img.height);
   }
 
   function _smoothstep(edge0, edge1, x) {
@@ -1011,7 +1043,7 @@ window.Editor = (() => {
     } else {
       _drawFrame(photo, frame);
     }
-    if (selMask) _drawSelectionMarching();
+    if (selMask) _drawSelection();
 
     if (onDirtyCallback) onDirtyCallback();
   }
@@ -1042,7 +1074,7 @@ window.Editor = (() => {
     if (!workingPixels) return false;
     const px = workingPixels.width * workingPixels.height;
     const kernel =
-      effects.sharpen > 0 || effects.emboss || effects.edge
+      effects.sharpen > 0 || effects.emboss || effects.edge || _toneOn()
       || effects.grain > 0 || effects.posterize > 1 || effects.warmth !== 0
       || effects.solarize > 0;
     const cssHeavy = effects.blur > 0 || effects.tiltShift > 0 || effects.tintAmount > 0
@@ -1363,20 +1395,27 @@ window.Editor = (() => {
     }
 
     if (!changed) return;
+    // Live preview (a slider being dragged, the tone dialog): draw only, no history step
+    if (!saveHist) { _requestEffectRender(false, false); return; }
 
     // Committed slider / control: show progress when the render is heavy
     _requestEffectRender(true, true);
   }
 
+  /** One history step for effects already shown by live previews (tone dialog OK). */
+  function commitEffects() {
+    _saveHistory();
+  }
+
   /** Several effects as one change: one render, one undo step. */
-  function setEffects(map) {
+  function setEffects(map, saveHist = true) {
     let changed = false;
     for (const [key, value] of Object.entries(map || {})) {
       if (!(key in effects) || effects[key] === value) continue;
       effects[key] = value;
       changed = true;
     }
-    if (changed) _requestEffectRender(true, true);
+    if (changed) _requestEffectRender(saveHist, saveHist);
   }
 
   function getEffects() { return { ...effects }; }
@@ -1398,6 +1437,8 @@ window.Editor = (() => {
     effects.emboss = false; effects.edge = false;
     effects.vignette = 0; effects.warmth = 0; effects.grain = 0; effects.posterize = 0;
     effects.solarize = 0; effects.tiltShift = 0;
+    effects.exposure = 0; effects.highlights = 0; effects.shadows = 0; effects.vibrance = 0;
+    effects.levels = null; effects.curve = null; effects.wb = null;
     effects.tintColor = ''; effects.tintAmount = 0;
     effects.borderWidth = 0; effects.borderColor = '#ffffff'; effects.borderShadow = 0;
     effects.borderShadowStyle = 'soft';
@@ -1418,7 +1459,7 @@ window.Editor = (() => {
       || effects.sepia !== 0 || effects.invert !== 0 || effects.sharpen !== 0
       || effects.emboss || effects.edge || effects.vignette !== 0 || effects.warmth !== 0
       || effects.grain !== 0 || effects.posterize !== 0 || effects.solarize !== 0
-      || effects.tiltShift !== 0
+      || effects.tiltShift !== 0 || _toneOn()
       || (!!effects.tintColor && effects.tintAmount !== 0)
       || effects.borderWidth !== 0 || effects.borderShadow !== 0
       || (effects.borderShadowStyle && effects.borderShadowStyle !== 'soft')
@@ -1606,8 +1647,9 @@ window.Editor = (() => {
       borderCaptionUnderline: effects.borderCaptionUnderline,
       borderCaptionStrike: effects.borderCaptionStrike,
     };
+    const tone = _toneParams();
     _resetEffects();
-    Object.assign(effects, border);
+    Object.assign(effects, border, tone);
     const preset = PRESETS[name];
     if (preset) Object.assign(effects, preset);
     if (JSON.stringify(effects) === before) return Promise.resolve();
@@ -1618,6 +1660,7 @@ window.Editor = (() => {
      Transform
   ═══════════════════════════════════════════ */
   async function rotate(deg) {
+    _flush();
     return _runSyncWithProgress(() => {
       rotation = ((rotation + deg) % 360 + 360) % 360;
       clearSelection();
@@ -1629,6 +1672,7 @@ window.Editor = (() => {
   }
 
   async function flip(axis) {
+    _flush();
     return _runSyncWithProgress(() => {
       if (axis === 'h') flipH = !flipH;
       else              flipV = !flipV;
@@ -1640,6 +1684,7 @@ window.Editor = (() => {
   }
 
   async function resetTransform() {
+    _flush();
     if (rotation === 0 && !flipH && !flipV) return;
     return _runSyncWithProgress(() => {
       rotation = 0; flipH = false; flipV = false;
@@ -1652,11 +1697,18 @@ window.Editor = (() => {
   }
 
   async function resetAll() {
+    _flush();
     const needT = !(rotation === 0 && !flipH && !flipV);
     const needE = _effectsChangedFromDefault();
-    if (!needT && !needE) return;
+    const needP = !!sourceImg && originalImg !== sourceImg;   // drawn on, cropped, retouched …
+    if (!needT && !needE && !needP) return;
     return _runSyncWithProgress(() => {
       rotation = 0; flipH = false; flipV = false;
+      if (needP) {
+        originalImg = sourceImg;
+        naturalW = sourceImg.naturalWidth || sourceImg.width;
+        naturalH = sourceImg.naturalHeight || sourceImg.height;
+      }
       _resetEffects();
       clearSelection();
       _resizeCanvases();
@@ -1670,6 +1722,7 @@ window.Editor = (() => {
      Selection Tools
   ═══════════════════════════════════════════ */
   function setTool(tool) {
+    if (toolHandler) { toolHandler.leave?.(); toolHandler = null; }
     currentTool = tool;
     if (selCanvas) {
       selCanvas.style.cursor =
@@ -1702,9 +1755,25 @@ window.Editor = (() => {
   }
 
   function _onSelMouseDown(e) {
+    if (toolHandler) { if (e.button === 0) toolHandler.down?.(_canvasPoint(e), e); return; }
     if (currentTool === 'pointer') return;
+    // Selection tools use the left button; a right-click (the menu) must not start a new selection
+    if (e.button !== 0) return;
     e.preventDefault();
     const p = _canvasPoint(e);
+
+    if (!isDrawingSelection && selMask && _maskAt(p) > 0 && !e.shiftKey && !e.altKey) {
+      // Ctrl + drag inside the selection moves the selected pixels; a plain drag inside a
+      // rectangle / lasso selection moves its outline
+      if (e.ctrlKey || e.metaKey) { _startSelMove(p, true); return; }
+      if (currentTool === 'rect-select' || currentTool === 'lasso') { _startSelMove(p, false); return; }
+    }
+    // Shift adds to the selection, Alt takes away from it (kept until this one is finished)
+    if (!isDrawingSelection) {
+      _selCombine = selMask && (e.shiftKey || e.altKey)
+        ? { mode: e.shiftKey ? 'add' : 'sub', mask: selMask, path: selectionPath, type: selectionType }
+        : null;
+    }
 
     if (currentTool === 'rect-select') {
       isDrawingSelection = true;
@@ -1723,11 +1792,125 @@ window.Editor = (() => {
       _drawPolygonInProgress(null);
     } else if (currentTool === 'magic-wand') {
       _doMagicWand(p.x, p.y);
+      if (_applyCombine()) { _drawSelection(); if (onSelectionChange) onSelectionChange(!!selMask); }
     }
+  }
+
+  function _maskAt(p) {
+    if (!selMask || !workingPixels) return 0;
+    const w = workingPixels.width, h = workingPixels.height;
+    if (p.x < 0 || p.y < 0 || p.x >= w || p.y >= h) return 0;
+    return selMask[(p.y | 0) * w + (p.x | 0)];
+  }
+
+  /** Merge the new selection into the one before it (Shift / Alt). True when it did. */
+  function _applyCombine() {
+    const c = _selCombine;
+    _selCombine = null;
+    if (!c || !c.mask || !selMask || !workingPixels) return false;
+    const w = workingPixels.width, h = workingPixels.height;
+    const out = EditOps.combineMasks(c.mask, selMask, c.mode);
+    const box = EditOps.maskBounds(out, w, h, 0);
+    if (!box) { clearSelection(); return true; }
+    selMask = out;
+    selectionType = 'mask';
+    selectionPath = [{ x: box.x, y: box.y }, { x: box.x + box.w, y: box.y }, { x: box.x + box.w, y: box.y + box.h }, { x: box.x, y: box.y + box.h }];
+    return true;
+  }
+
+  /** A selection drag that came to nothing: back to the selection before it when adding / subtracting. */
+  function _cancelNewSelection() {
+    const c = _selCombine;
+    _selCombine = null;
+    if (!c) { clearSelection(); return; }
+    selMask = c.mask;
+    selectionPath = c.path;
+    selectionType = c.type;
+    _drawSelection();
+  }
+
+  /**
+   * Drag inside the selection: move its outline, or (pixels) lift the selected part and put
+   * it down where the drag ends, leaving the place it came from transparent — one undo step.
+   */
+  function _startSelMove(start, pixels) {
+    const w = workingPixels.width, h = workingPixels.height;
+    const mask = selMask, path = selectionPath, type = selectionType;
+    const box = EditOps.maskBounds(mask, w, h, 0);
+    if (!box) return;
+    let lifted = null;
+    if (pixels) {
+      lifted = document.createElement('canvas');
+      lifted.width = box.w; lifted.height = box.h;
+      const lc = lifted.getContext('2d');
+      const part = lc.createImageData(box.w, box.h);
+      for (let y = 0; y < box.h; y++) {
+        for (let x = 0; x < box.w; x++) {
+          const m = mask[(y + box.y) * w + x + box.x];
+          if (!m) continue;
+          const si = ((y + box.y) * w + x + box.x) * 4, di = (y * box.w + x) * 4;
+          part.data[di] = workingPixels.data[si];
+          part.data[di + 1] = workingPixels.data[si + 1];
+          part.data[di + 2] = workingPixels.data[si + 2];
+          part.data[di + 3] = workingPixels.data[si + 3] * m / 255;
+        }
+      }
+      lc.putImageData(part, 0, 0);
+    }
+    let dx = 0, dy = 0;
+    const preview = () => {
+      selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+      _withSelOffset(() => {
+        selCtx.save();
+        selCtx.translate(dx, dy);
+        if (lifted) selCtx.drawImage(lifted, box.x, box.y);
+        if (path && path.length) {
+          selCtx.beginPath();
+          selCtx.moveTo(path[0].x, path[0].y);
+          for (let i = 1; i < path.length; i++) selCtx.lineTo(path[i].x, path[i].y);
+          selCtx.closePath();
+          _selStroke(selCtx, SEL_COLOR_BRIGHT, 0);
+          selCtx.beginPath();
+          selCtx.moveTo(path[0].x, path[0].y);
+          for (let i = 1; i < path.length; i++) selCtx.lineTo(path[i].x, path[i].y);
+          selCtx.closePath();
+          _selStroke(selCtx, SEL_COLOR_DARK, SEL_DASH[0]);
+        }
+        selCtx.restore();
+      });
+    };
+    const move = (ev) => {
+      const q = _canvasPoint(ev);
+      dx = q.x - start.x; dy = q.y - start.y;
+      preview();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      if (!dx && !dy) { _drawSelection(); return; }
+      if (lifted) {
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const cc = c.getContext('2d', { willReadFrequently: true });
+        const hole = _cloneImageData(workingPixels);
+        for (let i = 0; i < mask.length; i++) if (mask[i]) hole.data[i * 4 + 3] *= (255 - mask[i]) / 255;
+        cc.putImageData(hole, 0, 0);
+        cc.drawImage(lifted, box.x + dx, box.y + dy);
+        workingPixels = cc.getImageData(0, 0, w, h);
+      }
+      selMask = EditOps.shiftMask(mask, w, h, dx, dy);
+      selectionPath = path ? path.map((pt) => ({ x: pt.x + dx, y: pt.y + dy })) : null;
+      selectionType = type;
+      if (lifted) { _bake(); _render(); _saveHistory(); } else _drawSelection();
+      if (onSelectionChange) onSelectionChange(!!selMask);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
   }
 
   function _onSelMouseMove(e) {
     const p = _canvasPoint(e);
+    if (toolHandler) { toolHandler.hover?.(p, e); return; }
 
     if (currentTool === 'polygon' && isDrawingSelection) {
       _drawPolygonInProgress(p);
@@ -1744,6 +1927,8 @@ window.Editor = (() => {
   }
 
   function _onSelMouseUp(e) {
+    if (toolHandler) return;   // the tool follows the drag on window (editTools.js)
+    if (e.button !== 0) return;
     if (!isDrawingSelection && currentTool !== 'polygon') return;
     const p = _canvasPoint(e);
 
@@ -1757,18 +1942,20 @@ window.Editor = (() => {
         ];
         selectionType = 'rect';
         _buildMaskFromPath(selectionPath);
-        _drawSelectionMarching();
+        _applyCombine();
+        _drawSelection();
       } else {
-        clearSelection();
+        _cancelNewSelection();
       }
     } else if (currentTool === 'lasso') {
       isDrawingSelection = false;
       if (selectionPath.length > 4) {
         selectionType = 'lasso';
         _buildMaskFromPath(selectionPath);
-        _drawSelectionMarching();
+        _applyCombine();
+        _drawSelection();
       } else {
-        clearSelection();
+        _cancelNewSelection();
       }
     }
 
@@ -1776,15 +1963,17 @@ window.Editor = (() => {
   }
 
   function _onSelDblClick(e) {
+    if (toolHandler) { toolHandler.dblclick?.(_canvasPoint(e), e); return; }
     if (currentTool !== 'polygon') return;
     isDrawingSelection = false;
     if (polygonPoints.length >= 3) {
       selectionPath = polygonPoints.slice();
       selectionType = 'polygon';
       _buildMaskFromPath(selectionPath);
-      _drawSelectionMarching();
+      _applyCombine();
+      _drawSelection();
     } else {
-      clearSelection();
+      _cancelNewSelection();
     }
     polygonPoints = [];
     if (onSelectionChange) onSelectionChange(!!selMask);
@@ -1885,6 +2074,12 @@ window.Editor = (() => {
         selCtx.stroke();
       });
     });
+  }
+
+  /** Outline for drawn selections; tinted mask for the wand and edited masks. */
+  function _drawSelection() {
+    if (selectionType === 'magic' || selectionType === 'mask') _drawMagicWandOverlay();
+    else _drawSelectionMarching();
   }
 
   function _drawSelectionMarching() {
@@ -1988,24 +2183,30 @@ window.Editor = (() => {
     if (onSelectionChange) onSelectionChange(true);
   }
 
+  let _maskTint = null;   // { mask, canvas }: the tint of the current mask, built once
+
   function _drawMagicWandOverlay() {
     if (!selMask || !workingPixels) return;
     const w = workingPixels.width, h = workingPixels.height;
     selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
 
-    const tmp = document.createElement('canvas');
-    tmp.width = w; tmp.height = h;
-    const tc = tmp.getContext('2d');
-    const imgData = tc.createImageData(w, h);
-    for (let i = 0; i < selMask.length; i++) {
-      if (selMask[i]) {
-        imgData.data[i*4]   = 255;
-        imgData.data[i*4+1] = 215;
-        imgData.data[i*4+2] = 0;
-        imgData.data[i*4+3] = 50;
+    if (!_maskTint || _maskTint.mask !== selMask || _maskTint.canvas.width !== w || _maskTint.canvas.height !== h) {
+      const tmp = document.createElement('canvas');
+      tmp.width = w; tmp.height = h;
+      const tc = tmp.getContext('2d');
+      const imgData = tc.createImageData(w, h);
+      for (let i = 0; i < selMask.length; i++) {
+        if (selMask[i]) {
+          imgData.data[i*4]   = 255;
+          imgData.data[i*4+1] = 215;
+          imgData.data[i*4+2] = 0;
+          imgData.data[i*4+3] = Math.round(50 * selMask[i] / 255);   // a feathered edge fades out
+        }
       }
+      tc.putImageData(imgData, 0, 0);
+      _maskTint = { mask: selMask, canvas: tmp };
     }
-    tc.putImageData(imgData, 0, 0);
+    const tmp = _maskTint.canvas;
     const inset = _frameLayout().inset;
     selCtx.drawImage(tmp, inset, inset);
     _withSelOffset(() => {
@@ -2049,6 +2250,7 @@ window.Editor = (() => {
 
   /** Clear pixels outside (or inside) the current selection mask. */
   function removeBackground(removeInside = false) {
+    _flush();
     if (!selMask || !workingPixels) return false;
 
     const data = workingPixels.data;
@@ -2062,6 +2264,7 @@ window.Editor = (() => {
     }
     // Keep only the smallest rectangle covering the selection
     cropAfterBackgroundRemove();
+    _bake();
     _render();
     _saveHistory();
     return true;
@@ -2091,7 +2294,7 @@ window.Editor = (() => {
         displayCtx.clearRect(0, 0, naturalW, naturalH);
         displayCtx.drawImage(img, 0, 0);
         workingPixels = displayCtx.getImageData(0, 0, naturalW, naturalH);
-        originalPixels = displayCtx.getImageData(0, 0, naturalW, naturalH);
+        _bake();
         clearSelection();
         _render();
         resolve(true);
@@ -2162,6 +2365,7 @@ window.Editor = (() => {
    * @param {number} [tolerance]
    */
   function removeBackgroundAuto(algorithm, tolerance) {
+    _flush();
     if (!workingPixels) return false;
 
     const algo = (typeof algorithm === 'string' ? algorithm : 'flood') || 'flood';
@@ -2273,12 +2477,14 @@ window.Editor = (() => {
     }
     // Shrink to selection bbox (or opaque content) so save size matches content
     cropAfterBackgroundRemove();
+    _bake();
     _render();
     _saveHistory();
     return true;
   }
 
   function fillSelection(r, g, b, a = 255) {
+    _flush();
     if (!selMask || !workingPixels) return false;
     const data = workingPixels.data;
     for (let i = 0; i < selMask.length; i++) {
@@ -2286,6 +2492,7 @@ window.Editor = (() => {
         data[i*4]=r; data[i*4+1]=g; data[i*4+2]=b; data[i*4+3]=a;
       }
     }
+    _bake();
     _render();
     _saveHistory();
     return true;
@@ -2383,12 +2590,6 @@ window.Editor = (() => {
     workingPixels = cropped;
     naturalW = width;
     naturalH = height;
-    // Keep originalPixels aligned with new canvas so reset/effects stay consistent
-    originalPixels = new ImageData(
-      new Uint8ClampedArray(cropped.data),
-      width,
-      height
-    );
     clearSelection();
     _render();
     return true;
@@ -2417,12 +2618,13 @@ window.Editor = (() => {
   }
 
   async function cropToSelection() {
+    _flush();
     if (!selMask || !workingPixels) return false;
     const bounds = getSelectionBounds(0);
     if (!bounds) return false;
     return _runSyncWithProgress(() => {
       const ok = cropToRect(bounds.x, bounds.y, bounds.w, bounds.h, { clearOutsideMask: true });
-      if (ok) _saveHistory();
+      if (ok) { _bake(); _saveHistory(); }
       return ok;
     }, { kind: 'transform', messageKey: 'progress.applying' });
   }
@@ -2438,6 +2640,7 @@ window.Editor = (() => {
 
   /* ─── Cut: copy selection → clipboard data URL, then erase pixels ─── */
   async function cut() {
+    _flush();
     if (!selMask || !workingPixels) return null;
 
     return _runSyncWithProgress(() => {
@@ -2467,6 +2670,7 @@ window.Editor = (() => {
       }
 
       clearSelection();
+      _bake();
       _render();
       _saveHistory();
       return dataUrl;
@@ -2475,25 +2679,40 @@ window.Editor = (() => {
 
   /* ─── Copy selection to data URL ─── */
   async function copySelection() {
+    _flush();
     if (!selMask || !workingPixels) return null;
-    return _runSyncWithProgress(() => {
-      const w = workingPixels.width, h = workingPixels.height;
-      let x1=w, y1=h, x2=0, y2=0;
-      for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-        if (selMask[y*w+x]) { x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y); }
+    return _runSyncWithProgress(() => exportSelection('image/png'), { kind: 'clipboard', messageKey: 'progress.copying' });
+  }
+
+  /**
+   * The selected part as its own picture, the way it looks (effects included, no frame):
+   * the selection's bounding box, pixels outside the selection transparent (a feathered
+   * edge fades). Formats without transparency get a white background.
+   * Returns a data URL, or null without a selection.
+   */
+  function exportSelection(format = 'image/png', quality) {
+    _flush();
+    if (!selMask || !workingPixels) return null;
+    const w = workingPixels.width, h = workingPixels.height;
+    const box = EditOps.maskBounds(selMask, w, h, 0);
+    if (!box) return null;
+    const c = document.createElement('canvas');
+    c.width = box.w; c.height = box.h;
+    const cc = c.getContext('2d', { willReadFrequently: true });
+    cc.drawImage(_composePhoto(), -box.x, -box.y);
+    const d = cc.getImageData(0, 0, box.w, box.h);
+    let partial = false;
+    for (let y = 0; y < box.h; y++) {
+      for (let x = 0; x < box.w; x++) {
+        const m = selMask[(y + box.y) * w + (x + box.x)];
+        if (m === 255) continue;
+        partial = true;
+        const i = (y * box.w + x) * 4 + 3;
+        d.data[i] = d.data[i] * m / 255;
       }
-      if (x2<=x1 || y2<=y1) return null;
-      const cw=x2-x1, ch=y2-y1;
-      const c = document.createElement('canvas'); c.width=cw; c.height=ch;
-      const ctx2 = c.getContext('2d');
-      ctx2.putImageData(workingPixels, -x1, -y1);
-      const d = ctx2.getImageData(0,0,cw,ch);
-      for (let y=0;y<ch;y++) for (let x=0;x<cw;x++) {
-        if (!selMask[(y+y1)*w+(x+x1)]) d.data[(y*cw+x)*4+3]=0;
-      }
-      ctx2.putImageData(d,0,0);
-      return c.toDataURL('image/png');
-    }, { kind: 'clipboard', messageKey: 'progress.copying' });
+    }
+    if (partial) cc.putImageData(d, 0, 0);
+    return _encode(c, format, quality);
   }
 
   /* ═══════════════════════════════════════════
@@ -2509,16 +2728,73 @@ window.Editor = (() => {
   }
 
   function _snapshot() {
+    const same = _histShare && _histShare.src === workingPixels && _histShare.version === _pixVersion;
+    const working = same ? _histShare.copy : _cloneImageData(workingPixels);
+    _histShare = { src: workingPixels, version: _pixVersion, copy: working };
     return {
-      working:  _cloneImageData(workingPixels),
-      original: _cloneImageData(originalPixels),
+      working,
       effects:  { ...effects },
       rotation,
       flipH,
       flipV,
       naturalW,
       naturalH,
+      // The file itself is shared; an edited base is rebuilt from `working` on undo
+      base: originalImg === sourceImg ? sourceImg : null,
     };
+  }
+
+  /** Undo memory: bytes of the distinct pixel copies held. */
+  function _historyBytes() {
+    const seen = new Set();
+    let bytes = 0;
+    for (const f of history) {
+      if (!f.working || seen.has(f.working)) continue;
+      seen.add(f.working);
+      bytes += f.working.data.byteLength;
+    }
+    return bytes;
+  }
+
+  /**
+   * The picture rotate / flip start from, for a step whose base was an edit: undo the
+   * step's rotation and flips on its pixels (forward: rotate, then flip).
+   */
+  function _baseFromFrame(frame) {
+    const wp = frame.working;
+    const swap = frame.rotation === 90 || frame.rotation === 270;
+    const bw = swap ? wp.height : wp.width, bh = swap ? wp.width : wp.height;
+    const src = document.createElement('canvas');
+    src.width = wp.width; src.height = wp.height;
+    src.getContext('2d').putImageData(wp, 0, 0);
+    const c = document.createElement('canvas');
+    c.width = bw; c.height = bh;
+    const cc = c.getContext('2d');
+    cc.translate(bw / 2, bh / 2);
+    cc.scale(frame.flipH ? -1 : 1, frame.flipV ? -1 : 1);
+    cc.rotate(-frame.rotation * Math.PI / 180);
+    cc.drawImage(src, -wp.width / 2, -wp.height / 2);
+    return c;
+  }
+
+  /**
+   * After a pixel edit (crop, fill, cut, drawing, retouching, background removal …) the
+   * edited pixels become the picture rotate / flip start from. They used to redraw the
+   * file as loaded, which dropped the edits (and stretched it into a cropped size).
+   */
+  function _bake() {
+    if (!workingPixels) return;
+    const c = document.createElement('canvas');
+    c.width = workingPixels.width;
+    c.height = workingPixels.height;
+    c.getContext('2d').putImageData(workingPixels, 0, 0);
+    originalImg = c;
+    naturalW = c.width;
+    naturalH = c.height;
+    _pixVersion++;
+    rotation = 0;
+    flipH = false;
+    flipV = false;
   }
 
   function _saveHistory() {
@@ -2526,11 +2802,13 @@ window.Editor = (() => {
     if (histIndex < history.length - 1) history.splice(histIndex + 1);
     history.push(_snapshot());
     if (history.length > MAX_HISTORY) history.shift();
+    while (history.length > 2 && _historyBytes() > MAX_HISTORY_BYTES) history.shift();
     histIndex = history.length - 1;
     if (onHistoryChange) onHistoryChange();
   }
 
   async function undo() {
+    if (pendingHook?.discard?.()) return true;   // the live shape / text was not drawn yet
     if (histIndex <= 0) return false;
     return _runSyncWithProgress(() => {
       histIndex--;
@@ -2541,6 +2819,7 @@ window.Editor = (() => {
   }
 
   async function redo() {
+    if (pendingHook?.discard?.()) return true;
     if (histIndex >= history.length - 1) return false;
     return _runSyncWithProgress(() => {
       histIndex++;
@@ -2554,7 +2833,7 @@ window.Editor = (() => {
     _restoringHistory = true;
     try {
       workingPixels  = _cloneImageData(frame.working);
-      originalPixels = _cloneImageData(frame.original);
+      _histShare = { src: workingPixels, version: _pixVersion, copy: frame.working };
       _resetEffects();
       Object.assign(effects, frame.effects);
       rotation = frame.rotation;
@@ -2562,6 +2841,7 @@ window.Editor = (() => {
       flipV    = frame.flipV;
       naturalW = frame.naturalW;
       naturalH = frame.naturalH;
+      originalImg = frame.base || _baseFromFrame(frame);
 
       const w = workingPixels.width;
       const h = workingPixels.height;
@@ -2620,6 +2900,7 @@ window.Editor = (() => {
   }
 
   function commitEditSession() {
+    _flush();
     _editSession = null;
   }
 
@@ -2632,7 +2913,24 @@ window.Editor = (() => {
      Export / Save / Resize
   ═══════════════════════════════════════════ */
   function exportAsDataUrl(format = 'image/png', quality = 0.95) {
-    return displayCanvas ? displayCanvas.toDataURL(format, quality) : null;
+    _flush();
+    return displayCanvas ? _encode(displayCanvas, format, quality) : null;
+  }
+
+  /**
+   * Canvas → data URL. JPEG and BMP have no transparency: the browser would turn erased,
+   * cut or background-removed pixels black, so they are laid on white first.
+   */
+  function _encode(canvas, format, quality) {
+    if (format !== 'image/jpeg' && format !== 'image/bmp') return canvas.toDataURL(format, quality);
+    const flat = document.createElement('canvas');
+    flat.width = canvas.width;
+    flat.height = canvas.height;
+    const fc = flat.getContext('2d');
+    fc.fillStyle = '#ffffff';
+    fc.fillRect(0, 0, flat.width, flat.height);
+    fc.drawImage(canvas, 0, 0);
+    return flat.toDataURL(format, quality);
   }
 
   function _applySmoothing(ctx, quality) {
@@ -2676,12 +2974,14 @@ window.Editor = (() => {
   }
 
   function exportResizedDataUrl(width, height, format = 'image/png', fileQuality = 0.92, interp = 'high') {
+    _flush();
     if (!displayCanvas) return null;
     const scaled = _drawScaled(displayCanvas, width, height, interp);
-    return scaled.toDataURL(format, fileQuality);
+    return _encode(scaled, format, fileQuality);
   }
 
   async function resizeTo(width, height, { quality = 'high' } = {}) {
+    _flush();
     if (!displayCanvas || !workingPixels) return false;
     const w = Math.max(1, Math.round(width));
     const h = Math.max(1, Math.round(height));
@@ -2703,7 +3003,7 @@ window.Editor = (() => {
       displayCtx.clearRect(0, 0, w, h);
       displayCtx.drawImage(scaled, 0, 0);
       workingPixels = displayCtx.getImageData(0, 0, w, h);
-      originalPixels = displayCtx.getImageData(0, 0, w, h);
+      _bake();
       clearSelection();
       _render();
       _saveHistory();
@@ -2717,7 +3017,7 @@ window.Editor = (() => {
 
   function clear() {
     originalImg = null;
-    originalPixels = null;
+    sourceImg = null;
     workingPixels = null;
     naturalW = 0;
     naturalH = 0;
@@ -2728,6 +3028,7 @@ window.Editor = (() => {
     clearSelection();
     history.length = 0;
     histIndex = -1;
+    _histShare = null;
     if (displayCanvas) {
       displayCanvas.width = 0;
       displayCanvas.height = 0;
@@ -2742,6 +3043,218 @@ window.Editor = (() => {
   function getDimensions() {
     if (!displayCanvas) return { w: 0, h: 0 };
     return { w: displayCanvas.width, h: displayCanvas.height };
+  }
+
+  /* ═══════════════════════════════════════════
+     Pixel API for editTools.js (drawing, retouching, crop / straighten, selection edits)
+  ═══════════════════════════════════════════ */
+
+  /** Route pointer input to a tool ({ down, hover, dblclick, leave, cursor }); null = back to selection tools. */
+  function setToolHandler(handler) {
+    if (toolHandler && toolHandler !== handler) toolHandler.leave?.();
+    toolHandler = handler || null;
+    currentTool = handler ? 'external' : 'pointer';
+    if (selCanvas) selCanvas.style.cursor = handler?.cursor || (handler ? 'crosshair' : 'default');
+    isDrawingSelection = false;
+    polygonPoints = [];
+    redrawOverlay();
+  }
+
+  function setPendingHook(hook) { pendingHook = hook || null; }
+
+  /** Image pixel → window coordinates (where to put the text box). */
+  function imageToClient(x, y) {
+    const r = selCanvas.getBoundingClientRect();
+    const inset = _frameLayout().inset;
+    return { x: r.left + (x + inset) * r.width / selCanvas.width, y: r.top + (y + inset) * r.height / selCanvas.height };
+  }
+
+  /** Window coordinates → image pixel (the frame inset taken off). */
+  function clientToImage(clientX, clientY) {
+    return _canvasPoint({ clientX, clientY });
+  }
+
+  /** Image pixels per screen pixel at the current zoom. */
+  function imageScale() {
+    return selCanvas ? _selScale() : 1;
+  }
+
+  /** Overlay = the selection outline, then whatever `draw(ctx, scale)` adds (image coordinates). */
+  function redrawOverlay(draw) {
+    if (!selCtx || !selCanvas) return;
+    selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+    if (selMask) _drawSelection();
+    if (typeof draw === 'function') _withSelOffset(() => draw(selCtx, _selScale()));
+  }
+
+  /** The working pixels themselves (edit in place, then previewPixels / commitPixels). */
+  function getPixels() { return workingPixels; }
+
+  /** Show part of the working pixels at once (live brush feedback; effects follow on commit). */
+  function previewPixels(rect) {
+    if (!workingPixels || !displayCtx) return;
+    const frame = _frameLayout();
+    const w = workingPixels.width, h = workingPixels.height;
+    const x = Math.max(0, Math.floor(rect ? rect.x : 0));
+    const y = Math.max(0, Math.floor(rect ? rect.y : 0));
+    const x2 = Math.min(w, Math.ceil(rect ? rect.x + rect.w : w));
+    const y2 = Math.min(h, Math.ceil(rect ? rect.y + rect.h : h));
+    if (x2 <= x || y2 <= y) return;
+    displayCtx.putImageData(workingPixels, frame.inset, frame.inset, x, y, x2 - x, y2 - y);
+  }
+
+  /** Finish a pixel edit: new pixels (another size is fine) or the edited working pixels → base, render, history. */
+  function commitPixels(img) {
+    if (img) {
+      const resized = img.width !== workingPixels?.width || img.height !== workingPixels?.height;
+      workingPixels = _asImageData(img);
+      if (resized) clearSelection();
+    }
+    if (!workingPixels) return false;
+    _bake();
+    _render();
+    _saveHistory();
+    return true;
+  }
+
+  /** The selection mask (one byte per pixel, 0–255) or null. */
+  function getMask() { return selMask; }
+
+  /** Replace the selection with a mask (shown as a tint; empty → no selection). */
+  function setMask(mask) {
+    if (!workingPixels || !mask) { clearSelection(); return false; }
+    const w = workingPixels.width, h = workingPixels.height;
+    const box = EditOps.maskBounds(mask, w, h, 0);
+    if (!box) { clearSelection(); return false; }
+    selMask = mask;
+    selectionType = 'mask';
+    selectionPath = [
+      { x: box.x, y: box.y }, { x: box.x + box.w, y: box.y },
+      { x: box.x + box.w, y: box.y + box.h }, { x: box.x, y: box.y + box.h },
+    ];
+    redrawOverlay();
+    if (onSelectionChange) onSelectionChange(true);
+    return true;
+  }
+
+  function selectAll() {
+    if (!workingPixels) return false;
+    const m = new Uint8ClampedArray(workingPixels.width * workingPixels.height).fill(255);
+    setMask(m);
+    selectionType = 'rect';
+    selectionPath = [
+      { x: 0, y: 0 }, { x: workingPixels.width, y: 0 },
+      { x: workingPixels.width, y: workingPixels.height }, { x: 0, y: workingPixels.height },
+    ];
+    redrawOverlay();
+    return true;
+  }
+
+  /** Invert / feather / grow / shrink the selection (radius in px). */
+  function editSelection(kind, amount = 0) {
+    if (!selMask || !workingPixels) return false;
+    const w = workingPixels.width, h = workingPixels.height;
+    const ops = {
+      invert: () => EditOps.invertMask(selMask),
+      feather: () => EditOps.featherMask(selMask, w, h, amount),
+      grow: () => EditOps.growMask(selMask, w, h, amount),
+      shrink: () => EditOps.shrinkMask(selMask, w, h, amount),
+    };
+    if (!ops[kind]) return false;
+    return setMask(ops[kind]());
+  }
+
+  /** Noise reduction over the picture, or only the selection when there is one. */
+  async function denoise(strength) {
+    _flush();
+    if (!workingPixels) return false;
+    return _runSyncWithProgress(() => {
+      const done = EditOps.denoise(workingPixels, strength);
+      if (selMask) EditOps.blendByMask(workingPixels, done, selMask);
+      else workingPixels = _asImageData(done);
+      return commitPixels();
+    }, { kind: 'transform', messageKey: 'progress.applying' });
+  }
+
+  /** Blur or mosaic the selected pixels (a feathered selection blends). */
+  async function filterSelection(kind, amount) {
+    _flush();
+    if (!selMask || !workingPixels) return false;
+    return _runSyncWithProgress(() => {
+      const done = kind === 'mosaic'
+        ? EditOps.pixelate(workingPixels, amount)
+        : EditOps.boxBlur(workingPixels, amount);
+      EditOps.blendByMask(workingPixels, done, selMask);
+      return commitPixels();
+    }, { kind: 'transform', messageKey: 'progress.applying' });
+  }
+
+  /**
+   * Turn the picture by any angle. `crop`: keep the largest upright rectangle without
+   * empty corners; otherwise the canvas grows and the corners are `fill` (or transparent).
+   */
+  async function rotateFree(deg, { crop = true, fill = '' } = {}) {
+    _flush();
+    if (!workingPixels || !deg) return false;
+    return _runSyncWithProgress(() => {
+      const w = workingPixels.width, h = workingPixels.height;
+      const rad = deg * Math.PI / 180;
+      const fit = EditOps.rotatedFit(w, h, rad);
+      const out = crop ? fit.crop : fit.expand;
+      const src = document.createElement('canvas');
+      src.width = w; src.height = h;
+      src.getContext('2d').putImageData(workingPixels, 0, 0);
+      const dst = document.createElement('canvas');
+      dst.width = out.w; dst.height = out.h;
+      const dc = dst.getContext('2d');
+      if (fill && !crop) { dc.fillStyle = fill; dc.fillRect(0, 0, out.w, out.h); }
+      dc.imageSmoothingQuality = 'high';
+      dc.translate(out.w / 2, out.h / 2);
+      dc.rotate(rad);
+      dc.drawImage(src, -w / 2, -h / 2);
+      return commitPixels(dc.getImageData(0, 0, out.w, out.h));
+    }, { kind: 'transform', messageKey: 'progress.applying' });
+  }
+
+  /** Crop to a rectangle (crop tool). */
+  async function cropTo(rect) {
+    _flush();
+    if (!workingPixels || !rect) return false;
+    return _runSyncWithProgress(() => {
+      const ok = cropToRect(rect.x, rect.y, rect.w, rect.h);
+      if (ok) { _bake(); _saveHistory(); }
+      return ok;
+    }, { kind: 'transform', messageKey: 'progress.applying' });
+  }
+
+  /** New canvas size; the picture sits at anchor (0–1, 0–1); new area = `fill` or transparent. */
+  async function resizeCanvas(nw, nh, ax = 0.5, ay = 0.5, fill = '') {
+    _flush();
+    if (!workingPixels) return false;
+    nw = Math.max(1, Math.round(nw)); nh = Math.max(1, Math.round(nh));
+    return _runSyncWithProgress(() => {
+      const w = workingPixels.width, h = workingPixels.height;
+      const c = document.createElement('canvas');
+      c.width = nw; c.height = nh;
+      const cc = c.getContext('2d');
+      if (fill) { cc.fillStyle = fill; cc.fillRect(0, 0, nw, nh); }
+      const src = document.createElement('canvas');
+      src.width = w; src.height = h;
+      src.getContext('2d').putImageData(workingPixels, 0, 0);
+      cc.drawImage(src, Math.round((nw - w) * ax), Math.round((nh - h) * ay));
+      return commitPixels(cc.getImageData(0, 0, nw, nh));
+    }, { kind: 'transform', messageKey: 'progress.applying' });
+  }
+
+  /** Draw onto the working pixels with a 2D context (`draw(ctx)`), then commit. */
+  function paintPixels(draw) {
+    if (!workingPixels) return false;
+    const c = document.createElement('canvas');
+    c.width = workingPixels.width; c.height = workingPixels.height;
+    const cc = c.getContext('2d', { willReadFrequently: true });
+    cc.putImageData(workingPixels, 0, 0);
+    draw(cc);
+    return commitPixels(cc.getImageData(0, 0, c.width, c.height));
   }
 
   function getPhotoDimensions() {
@@ -2759,12 +3272,16 @@ window.Editor = (() => {
     setTool, getTool, clearSelection, hasSelection,
     removeBackground, removeBackgroundAuto, listBgAlgorithms, isRembgAlgorithm, applyFromDataUrl,
     fillSelection, cropToSelection, cropAfterBackgroundRemove, getSelectionBounds,
-    cut, copySelection,
+    cut, copySelection, exportSelection,
     setMagicTolerance,
     undo, redo, canUndo, canRedo, saveHistory: _saveHistory,
     beginEditSession, revertEditSession, commitEditSession, hasEditSessionChanges,
     exportAsDataUrl, exportResizedDataUrl, resizeTo, getCanvasElement, isLoaded, clear,
     getDimensions, getPhotoDimensions, getRotation, getFlipState,
+    // editTools.js
+    setToolHandler, setPendingHook, imageToClient, clientToImage, imageScale, redrawOverlay, getPixels, previewPixels, commitPixels,
+    paintPixels, getMask, setMask, selectAll, editSelection, filterSelection, rotateFree, cropTo,
+    resizeCanvas, commitEffects, denoise,
     _applyEdgeDetect,
   };
 })();

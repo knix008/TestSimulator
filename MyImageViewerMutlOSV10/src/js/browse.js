@@ -109,6 +109,10 @@ window.Browse = (() => {
       </div>
       <div class="browse-filmstrip-row">
         <button type="button" class="browse-film-nav" id="browse-film-prev" aria-label="${_t('toolbar.prev', 'Previous image')}"></button>
+        <button type="button" class="browse-film-up" id="browse-film-up">
+          <span class="browse-film-up-icon"></span>
+          <span class="browse-film-up-name">${_t('browse.parentFolder', 'Parent folder')}</span>
+        </button>
         <div class="browse-grid" id="browse-grid" tabindex="0"></div>
         <button type="button" class="browse-film-nav" id="browse-film-next" aria-label="${_t('toolbar.next', 'Next image')}"></button>
       </div>`;
@@ -135,6 +139,18 @@ window.Browse = (() => {
         e.preventDefault();
         e.stopPropagation();
         if (!filmNext.disabled) _stepFilm(1);
+      });
+    }
+
+    // Filmstrip: the first tile, fixed at the left of the strip, goes to the parent folder
+    const filmUp = _root.querySelector('#browse-film-up');
+    if (filmUp) {
+      filmUp.querySelector('.browse-film-up-icon').innerHTML = Icons.folderUp || Icons.folder || '';
+      filmUp.title = _t('browse.parentFolder', 'Parent folder');
+      filmUp.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!filmUp.disabled) goUp();
       });
     }
 
@@ -379,6 +395,13 @@ window.Browse = (() => {
     next.disabled = i < 0 || i >= files.length - 1;
     prev.classList.toggle('is-disabled', prev.disabled);
     next.classList.toggle('is-disabled', next.disabled);
+    const up = _root.querySelector('#browse-film-up');
+    if (up) up.disabled = !_dir || _isRootDir(_dir);
+  }
+
+  /** A drive root (C:\) or / has no parent to go up to. */
+  function _isRootDir(dir) {
+    return /^[A-Za-z]:[\\/]?$/.test(dir) || /^[\\/]+$/.test(dir);
   }
 
   /** Window-level, so rebuilding the chrome (language switch) cannot stack copies. */

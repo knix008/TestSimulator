@@ -67,29 +67,34 @@ uniform float uFreq;
 uniform vec2 uSeed;
 uniform vec4 uShape;
 float terrainH(vec2 w) {
+  if (uMode > 4.5 && uMode < 5.5) return 0.0;
   vec2 p = w * uFreq + uSeed;
-  if (uMode < 0.5) return (fbm4(p) - 0.45) * uAmp;
+  // One ridge4 and two fbm4 per call, each mode choosing their scales. Written
+  // with a call per branch, the unrolled noise loops made this shader take
+  // seconds to compile on Direct3D (the terrain shader calls this three times).
+  float fa = fbm4(p * (uMode < 0.5 ? 1.0 : uMode < 1.5 ? 0.5 : uMode < 3.5 ? 1.0 : uMode < 4.5 ? 3.0 : uMode < 6.5 ? 1.0 : 3.0));
+  float fb = fbm4(p * (uMode < 3.5 ? 1.0 : uMode < 4.5 ? 2.0 : uMode < 6.5 ? 1.0 : 1.5));
+  float r = ridge4(p);
+  if (uMode < 0.5) return (fa - 0.45) * uAmp;
   if (uMode < 1.5) {
-    float n = fbm4(p * 0.5);
-    float s = sin(p.x * 2.6 + p.y * 0.9 + n * 5.0);
+    float s = sin(p.x * 2.6 + p.y * 0.9 + fa * 5.0);
     float crest = 1.0 - abs(s);
-    return (crest * crest * 0.6 + n * 0.7 - 0.3) * uAmp;
+    return (crest * crest * 0.6 + fa * 0.7 - 0.3) * uAmp;
   }
-  if (uMode < 2.5) return (ridge4(p) - 0.25) * uAmp;
+  if (uMode < 2.5) return (r - 0.25) * uAmp;
   if (uMode < 3.5) {
     float off = abs(length(w) - uShape.x);
-    return ridge4(p) * smoothstep(uShape.y, uShape.z, off) * uAmp;
+    return r * smoothstep(uShape.y, uShape.z, off) * uAmp;
   }
   if (uMode < 4.5) {
     float d = length(w - uShape.xy);
     float rim = smoothstep(uShape.z, uShape.w, d);
-    return mix(-3.0 + fbm4(p * 3.0) * 1.5, (ridge4(p) * 0.8 + fbm4(p * 2.0) * 0.4) * uAmp, rim);
+    return mix(-3.0 + fa * 1.5, (r * 0.8 + fb * 0.4) * uAmp, rim);
   }
-  if (uMode < 5.5) return 0.0;
-  if (uMode < 6.5) return ridge4(p) * smoothstep(uShape.x, uShape.y, length(w)) * uAmp - 4.0;
+  if (uMode < 6.5) return r * smoothstep(uShape.x, uShape.y, length(w)) * uAmp - 4.0;
   float off = abs(length(w) - (uShape.x + sin(atan(w.y, w.x) * uShape.w) * 25.0));
-  float floorH = -1.4 + off * 0.07 + fbm4(p * 3.0) * 0.8;
-  return mix(floorH, (ridge4(p) * 0.9 + fbm4(p * 1.5) * 0.3) * uAmp, smoothstep(uShape.y, uShape.z, off));
+  float floorH = -1.4 + off * 0.07 + fa * 0.8;
+  return mix(floorH, (r * 0.9 + fb * 0.3) * uAmp, smoothstep(uShape.y, uShape.z, off));
 }
 `;
 

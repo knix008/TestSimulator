@@ -1,7 +1,7 @@
 {
   "name": "image-viewer-multios",
   "version": "1.0.2",
-  "buildNumber": "20261028",
+  "buildNumber": "20261030",
   "description": "MyImageViewer — multi-platform image viewer and editor with dark/light themes and Korean/English support",
   "author": "SHKWON",
   "scripts": {
