@@ -5,7 +5,8 @@
 // Every action that needs a dialog, a job with progress, or both panels
 // lives here; the panels only render and report selections.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { call, runJob, cancelJob, resolveConflict, writeClipboardText } from './lib/backend';
+import { call, runJob, cancelJob, resolveConflict, writeClipboardText, broadcastAppearance, onAppearance, openManual } from './lib/backend';
+import { setAppearance, getAppearance } from './lib/appearance';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
 import { setSeparator, baseName, dirName, formatSpeed, formatSize, formatDate, timeStamp, samePath, isUnder, parseHostInput } from './lib/format';
 import { playSuccess, playError, setSoundsEnabled } from './lib/sound';
@@ -94,6 +95,7 @@ export default function App() {
       setSoundsEnabled(s.sounds !== false);
       const theme = applyTheme(themeIdOf(s));
       s.theme = theme.id;
+      setAppearance({ theme: theme.id, language: s.language || 'ko', fontSize: s.fontSize });
       if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
       setServerWidth(Number(s.serverWidth) > 0.1 && Number(s.serverWidth) < 0.9 ? Number(s.serverWidth) : 0.5);
       setLogHeight(Number(s.logHeight) >= 60 ? Number(s.logHeight) : 170);
@@ -118,28 +120,19 @@ export default function App() {
 
   useEffect(() => { document.title = t('appName'); }, [session && session.language]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const electron = window.myFtpClient;
-    if (!electron || !electron.onDialogAppearance) return undefined;
-    return electron.onDialogAppearance((appearance) => {
-      if (!appearance || !appearance.theme) return;
-      const theme = applyTheme(appearance.theme);
-      setSession((s) => (s ? { ...s, theme: theme.id, themeBg: theme.tokens['--bg'] } : s));
-    });
-  }, []);
+  // A theme previewed in the settings window shows here too.
+  useEffect(() => onAppearance((appearance) => {
+    if (!appearance || !appearance.theme) return;
+    const theme = applyTheme(appearance.theme);
+    setSession((s) => (s ? { ...s, theme: theme.id, themeBg: theme.tokens['--bg'] } : s));
+  }), []);
 
   const saveSession = useCallback((patch) => {
     setSession((s) => (s ? { ...s, ...patch } : s));
     call('session.save', { patch }).catch(() => {});
-    const electron = window.myFtpClient;
-    if (electron && electron.broadcastAppearance) {
+    if ('theme' in patch || 'language' in patch || 'fontSize' in patch) {
       const next = { ...(session || {}), ...patch };
-      electron.broadcastAppearance({
-        theme: next.theme,
-        language: next.language,
-        fontSize: next.fontSize,
-        bg: next.themeBg,
-      }).catch(() => {});
+      broadcastAppearance(setAppearance({ theme: next.theme, language: next.language, fontSize: next.fontSize }));
     }
   }, [session]);
 
@@ -576,6 +569,7 @@ export default function App() {
       if (v) applySettings(v);
     }
     else if (id === 'about') dialogs.about(info);
+    else if (id === 'manual') openManual(getAppearance()).catch((err) => dialogs.error(err));
     else if (id === 'fontDec' || id === 'fontInc') {
       const cur = Math.max(8, Math.min(32, Number(session && session.terminalFontSize) || 13));
       const next = Math.max(8, Math.min(32, cur + (id === 'fontInc' ? 1 : -1)));

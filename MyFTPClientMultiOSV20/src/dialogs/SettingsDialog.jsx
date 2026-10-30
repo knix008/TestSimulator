@@ -3,7 +3,8 @@
 // the form never needs a scrollbar.
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
-import { call } from '../lib/backend';
+import { call, pickFolder, broadcastAppearance } from '../lib/backend';
+import { appearanceOf } from '../lib/appearance';
 import { THEMES, themeById, themeSwatchStyle, applyTheme, DEFAULT_THEME } from '../themes';
 import { DialogFrame } from './Dialogs';
 import { ContextMenu } from '../components/ContextMenu';
@@ -70,16 +71,8 @@ export function SettingsDialog({ spec, done }) {
   const notifyTheme = (id) => {
     const theme = applyTheme(id);
     if (typeof spec.onPreviewTheme === 'function') spec.onPreviewTheme(theme.id, theme);
-    const electron = typeof window !== 'undefined' ? window.myFtpClient : null;
-    if (electron && electron.broadcastAppearance) {
-      const from = spec.values || {};
-      electron.broadcastAppearance({
-        theme: theme.id,
-        language: v.language || from.language,
-        fontSize: v.fontSize || from.fontSize,
-        bg: theme.tokens['--bg'],
-      }).catch(() => {});
-    }
+    const from = spec.values || {};
+    broadcastAppearance(appearanceOf({ theme: theme.id, language: v.language || from.language, fontSize: v.fontSize || from.fontSize }));
     return theme;
   };
   const cancel = () => {
@@ -102,10 +95,10 @@ export function SettingsDialog({ spec, done }) {
     });
   };
 
-  const pickFolder = async (key) => {
+  const browseFolder = async (key) => {
     try {
-      const r = await call('local.pickFolder', { start: v[key] || localDir });
-      if (r && r.path) set(key, r.path);
+      const picked = await pickFolder(v[key] || localDir);
+      if (picked) set(key, picked);
     } catch { /* web host has no native picker */ }
   };
   const prompts = v.shellPrompts || {};
@@ -169,7 +162,7 @@ export function SettingsDialog({ spec, done }) {
                 <input type="text" value={v.lastLocalPath || ''} placeholder={t('set_local_cwd_placeholder')}
                   onChange={(e) => set('lastLocalPath', e.target.value)} title={t('set_local_cwd_hint')} />
                 {canPick && (
-                  <button type="button" className="btn icon" title={t('set_local_cwd_browse')} onClick={() => pickFolder('lastLocalPath')}>
+                  <button type="button" className="btn icon" title={t('set_local_cwd_browse')} onClick={() => browseFolder('lastLocalPath')}>
                     <Icon name="folder" size={14} />
                   </button>
                 )}
@@ -193,7 +186,7 @@ export function SettingsDialog({ spec, done }) {
                 <input type="text" value={v.terminalStartDir || ''} placeholder={t('set_term_cwd_placeholder')}
                   onChange={(e) => set('terminalStartDir', e.target.value)} title={t('set_term_cwd_hint')} />
                 {canPick && (
-                  <button type="button" className="btn icon" title={t('set_term_cwd_browse')} onClick={() => pickFolder('terminalStartDir')}>
+                  <button type="button" className="btn icon" title={t('set_term_cwd_browse')} onClick={() => browseFolder('terminalStartDir')}>
                     <Icon name="folder" size={14} />
                   </button>
                 )}

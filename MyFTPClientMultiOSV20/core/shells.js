@@ -23,6 +23,14 @@ function firstFile(candidates) {
   return null;
 }
 
+// Cygwin's and MSYS2's bash started directly (not through a login shell) keep
+// the PATH they inherit, so `uname`, `ls`… could come from another toolset
+// (Git's, when this app was started from Git Bash). Their own bin goes first.
+function ownBinFirst(bash) {
+  const inherited = Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH');
+  return [path.dirname(bash), inherited ? process.env[inherited] : ''].filter(Boolean).join(path.delimiter);
+}
+
 function which(name) {
   const dirs = String(process.env.PATH || '').split(path.delimiter).filter(Boolean);
   if (process.platform === 'win32') {
@@ -136,13 +144,13 @@ function listWindows() {
     'C:\\msys64\\usr\\bin\\bash.exe',
     path.join(pf, 'msys64', 'usr', 'bin', 'bash.exe'),
   ]);
-  if (msys) out.push(shell('msys2', 'MSYS2', 'MSYS2', msys, [], { kind: 'posix', env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
+  if (msys) out.push(shell('msys2', 'MSYS2', 'MSYS2', msys, [], { kind: 'posix', env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', PATH: ownBinFirst(msys) } }));
 
   const cygwin = firstFile([
     'C:\\cygwin64\\bin\\bash.exe',
     'C:\\cygwin\\bin\\bash.exe',
   ]);
-  if (cygwin) out.push(shell('cygwin', 'Cygwin', 'Cygwin', cygwin, [], { kind: 'posix', env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } }));
+  if (cygwin) out.push(shell('cygwin', 'Cygwin', 'Cygwin', cygwin, [], { kind: 'posix', env: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', PATH: ownBinFirst(cygwin) } }));
 
   const nu = which('nu');
   if (nu) out.push(shell('nu', 'Nushell', 'Nushell', nu, [], { kind: 'posix' }));

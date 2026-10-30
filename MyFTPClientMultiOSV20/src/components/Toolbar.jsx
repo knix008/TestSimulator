@@ -3,12 +3,14 @@
 //          저장 / 삭제 (moved here from the connection bar)
 //   right  terminal view, theme picker (split: main cycles, caret lists all 16),
 //          language toggle (the flag of the language you switch TO), Settings,
-//          Info, and — in the desktop app — minimize / maximize / close.
-// The bar is the window's drag region; every control opts out of dragging.
+//          the user guide (its own window), Info, and — in the desktop app —
+//          minimize / maximize / close.
+// The bar is the window's drag region (backend.installWindowDrag); every
+// control opts out of dragging.
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { THEMES, themeById, nextThemeId } from '../themes';
-import { isElectron, windowControl, onMaximized } from '../lib/backend';
+import { isDesktop, windowControl, onMaximized } from '../lib/backend';
 import { Icon, Flag } from './Icons';
 import { ContextMenu } from './ContextMenu';
 
@@ -46,7 +48,7 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
     swatchBg: th.tokens['--bg'],
   }));
   // Double-click on the empty part of the bar toggles maximize, like a title bar.
-  const onDouble = (e) => { if (isElectron && !e.target.closest('button, select, input, .tb-profile')) windowControl('maximize'); };
+  const onDouble = (e) => { if (isDesktop && !e.target.closest('button, select, input, .tb-profile')) windowControl('maximize'); };
   return (
     <div className="toolbar" onDoubleClick={onDouble}>
       <div className="tb-main">
@@ -97,11 +99,14 @@ export function Toolbar({ onAction, theme, connection, profiles, profileName, on
         <Icon name="settings" /><span>{t('settings')}</span>
       </button>
       <span className="tb-sep" />
+      <button className="tb-btn" title={t('tip_manual')} onClick={() => onAction('manual')}>
+        <Icon name="book" /><span>{t('manual')}</span>
+      </button>
       <button className="tb-btn" title={t('tip_about')} onClick={() => onAction('about')}>
         <Icon name="info" /><span>{t('menu_info')}</span>
       </button>
       </div>
-      {isElectron && <><span className="tb-sep" /><WindowButtons /></>}
+      {isDesktop && <><span className="tb-sep" /><WindowButtons /></>}
       {themeMenu && (
         <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
           onPick={(id) => { setThemeMenu(null); onAction(id); }} />

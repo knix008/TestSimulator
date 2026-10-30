@@ -26,6 +26,23 @@ function uniqueTitle(tabs, base) {
   return `${base} ${Date.now()}`;
 }
 
+// The n-th open tab of a shell: the smallest number no open tab of that shell uses.
+function nextShellSeq(tabs, shellId) {
+  const used = new Set(tabs.filter((tab) => tab.kind === 'local' && tab.shellId === shellId).map((tab) => tab.seq));
+  let n = 1;
+  while (used.has(n)) n += 1;
+  return n;
+}
+
+// A local tab's title is worked out on every render, so it follows the UI language
+// ("명령 프롬프트 2" ↔ "Command Prompt 2"). A remote tab keeps the title it got.
+export function tabTitle(tab, shells) {
+  if (tab.kind !== 'local') return tab.title;
+  const sh = shells.find((s) => s.id === tab.shellId);
+  const base = shellLabel(sh) || tab.title || t('term');
+  return tab.seq > 1 ? `${base} ${tab.seq}` : base;
+}
+
 export const LogPanel = forwardRef(function LogPanel({
   lines, onClear, onCopy, height, onResizeStart, onEnsureHeight,
   localDir, terminalStartDir, connection, remotePath, theme, fontSize, fontFamily, scrollback, onError,
@@ -111,11 +128,14 @@ export const LogPanel = forwardRef(function LogPanel({
         rows: 24,
         shellId: kind === 'local' ? shellId : undefined,
       });
-      const sh = shells.find((s) => s.id === shellId);
-      const base = kind === 'remote'
-        ? (snap.title || t('term_remote', { user: (connection && connection.user) || '', host: (connection && connection.host) || '' }))
-        : (shellLabel(sh) || snap.title || t('term'));
-      setTabs((cur) => [...cur, { id: snap.id, kind, title: uniqueTitle(cur, base), shellId }]);
+      setTabs((cur) => {
+        if (kind === 'remote') {
+          const base = snap.title || t('term_remote', { user: (connection && connection.user) || '', host: (connection && connection.host) || '' });
+          return [...cur, { id: snap.id, kind, title: uniqueTitle(cur, base), shellId }];
+        }
+        const sid = snap.shellId || shellId;
+        return [...cur, { id: snap.id, kind, title: snap.title, shellId: sid, seq: nextShellSeq(cur, sid) }];
+      });
       setActive(snap.id);
       if (kind === 'local' && shellId && onLastShell) onLastShell(shellId);
       if (onEnsureHeight && height < 180) onEnsureHeight(220);
@@ -207,9 +227,9 @@ export const LogPanel = forwardRef(function LogPanel({
               {tabs.map((tab) => (
                 <div key={tab.id} className={`dock-tab${active === tab.id ? ' active' : ''}`}
                   onClick={() => setActive(tab.id)} onAuxClick={(e) => { if (e.button === 1) closeTab(tab.id, e); }}
-                  title={tab.title} role="tab" aria-selected={active === tab.id}>
+                  title={tabTitle(tab, shells)} role="tab" aria-selected={active === tab.id}>
                   <Icon name={tab.kind === 'remote' ? 'server' : 'terminal'} size={12} />
-                  <span className="dock-tab-label">{tab.title}</span>
+                  <span className="dock-tab-label">{tabTitle(tab, shells)}</span>
                   <button type="button" className="dock-tab-close" title={t('term_close')} onClick={(e) => closeTab(tab.id, e)}>
                     <Icon name="close" size={10} />
                   </button>

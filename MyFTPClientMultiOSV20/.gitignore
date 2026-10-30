@@ -3,13 +3,16 @@ node_modules/
 
 # ── Build output (reproducible: npm install && npm run build:<os>) ──
 dist/
-release/
-out/
-build/icons/
 src/build-info.json
 public/icon.svg
 
-# ── Installers copied to the project root by scripts/copy-installer.js ──
+# ── Tauri (Rust) build output. Cargo.lock and src-tauri/icons/ are committed. ──
+src-tauri/target/
+src-tauri/gen/
+# Node runtime + bundled core shipped as a resource (scripts/stage-runtime.mjs)
+src-tauri/runtime/
+
+# ── Installers copied to the project root by scripts/copy-installer.mjs ──
 *.exe
 *.dmg
 *.AppImage
@@ -20,11 +23,8 @@ public/icon.svg
 *.blockmap
 *.msi
 *.msix
-latest.yml
-latest-mac.yml
-latest-linux.yml
 
-# ── Smoke-test output (npm run smoke): screenshots, scripts, private profile ──
+# ── Smoke-test output (npm run smoke): screenshots, private profile, Edge profile ──
 .smoke/
 .icons-preview.png
 .npm-install.log

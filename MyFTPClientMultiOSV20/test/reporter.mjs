@@ -27,6 +27,8 @@ const FEATURE = {
   'test/term-color.test.mjs': 'Terminal colours',
   'test/complete.test.mjs': 'Tab completion',
   'test/fonts.test.mjs': 'Fonts',
+  'test/desktop.test.mjs': 'Desktop host · user guide',
+  'test/rust.test.mjs': 'Tauri shell (cargo test)',
 };
 
 function ms(d) {

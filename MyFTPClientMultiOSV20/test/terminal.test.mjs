@@ -280,8 +280,54 @@ test('terminal: cmd prompt, key echo, CR Enter, hangul', async (t) => {
 
     await typeKeys(s.id, 'echo 한글-cmd');
     await api.call('terminal.write', { id: s.id, data: '\r' });
-    const hangul = await waitForCount(s.id, '한글-cmd', 2, 5000);
+    await waitForCount(s.id, '한글-cmd', 2, 5000);
+    // The next prompt follows the output a moment later.
+    const hangul = await waitForMatch(s.id, /한글-cmd\n(?:[^\n]*\n)*?[A-Za-z]:\\[^\n]*>\s*$/, 5000);
     assert.match(plain(hangul), /[A-Za-z]:\\.*>\s*$/);
+  } finally {
+    await api.call('terminal.close', { id: s.id });
+  }
+});
+
+test('terminal: tab title and banner follow the UI language', async () => {
+  const { shellTitle } = require('../core/terminal');
+  const cmd = { label: 'Command Prompt', labelKo: '명령 프롬프트' };
+  assert.equal(shellTitle(cmd, 'en'), 'Command Prompt');
+  assert.equal(shellTitle(cmd, 'ko'), '명령 프롬프트');
+  assert.equal(shellTitle({ label: 'Git Bash' }, 'ko'), 'Git Bash');
+
+  const r = await api.call('terminal.shells');
+  const sh = r.shells[0];
+  for (const language of ['en', 'ko']) {
+    await api.call('session.save', { patch: { language } });
+    const s = await api.call('terminal.open', { kind: 'local', cwd, shellId: sh.id });
+    try {
+      const expected = language === 'en' ? sh.label : (sh.labelKo || sh.label);
+      assert.equal(s.title, expected);
+      await waitFor(s.id, expected, 3000);
+    } finally {
+      await api.call('terminal.close', { id: s.id });
+    }
+  }
+  const panel = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', 'src', 'components', 'LogPanel.jsx'), 'utf8');
+  // Local tab titles are computed at render time, not frozen when the tab opened.
+  assert.match(panel, /export function tabTitle\(tab, shells\)/);
+  assert.match(panel, /<span className="dock-tab-label">\{tabTitle\(tab, shells\)\}<\/span>/);
+});
+
+test('terminal: keys typed while a command runs, Enter included, run after it', async () => {
+  const win = process.platform === 'win32';
+  const s = await api.call('terminal.open', { kind: 'local', cwd, ...(win ? { shellId: 'cmd' } : {}) });
+  try {
+    await waitFor(s.id, win ? '>' : '$', 5000);
+    await api.call('terminal.write', { id: s.id, data: win ? 'ping -n 2 127.0.0.1 >nul\r' : 'sleep 1\r' });
+    // Typed at once, one key per write, while the command is still running.
+    await typeKeys(s.id, 'echo ahead-of-timex');
+    await api.call('terminal.write', { id: s.id, data: '\x7f' });
+    await api.call('terminal.write', { id: s.id, data: '\r' });
+    // The echoed line and the command's output.
+    const out = await waitForCount(s.id, 'ahead-of-time', 2, 10000);
+    assert.equal(plain(out).includes('ahead-of-timex'), false);
   } finally {
     await api.call('terminal.close', { id: s.id });
   }

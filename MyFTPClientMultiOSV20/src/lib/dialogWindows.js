@@ -1,7 +1,8 @@
-// Opens a named dialog as its own Electron window and waits for the result.
-// Several callers of the same name share one window: the existing one is
-// focused and they all resolve when it submits or closes.
-const electron = typeof window !== 'undefined' ? window.myFtpClient : null;
+// Opens a named dialog as its own window (src-tauri/src/dialogs.rs) and waits
+// for the result. Several callers of the same name share one window: the
+// existing one is focused and they all resolve when it submits or closes.
+import { isTauri, invoke, listen } from './backend.js';
+import { getAppearance } from './appearance.js';
 
 const waiters = new Map(); // name → [resolve]
 
@@ -21,10 +22,10 @@ function settle(name, data) {
 
 let wired = false;
 function ensureWired() {
-  if (wired || !electron || !electron.onDialogResult) return;
+  if (wired || !isTauri) return;
   wired = true;
-  electron.onDialogResult((msg) => { if (msg && msg.name) settle(msg.name, msg.data); });
-  electron.onDialogClosed((msg) => {
+  listen('dialog:result', (msg) => { if (msg && msg.name) settle(msg.name, msg.data); });
+  listen('dialog:closed', (msg) => {
     // Result is the source of truth. Closed is only a fallback for Alt+F4 /
     // the window being destroyed before submit; wait a tick so a pending
     // result is not overwritten with null.
@@ -51,13 +52,13 @@ export function serializablePayload(payload) {
 }
 
 export function detachedDialogsEnabled() {
-  return !!(electron && electron.openDialog && typeof window !== 'undefined' && window.__mfcDetachedDialogs);
+  return !!(isTauri && typeof window !== 'undefined' && window.__mfcDetachedDialogs);
 }
 
 export function openDetachedDialog(name, payload) {
   ensureWired();
   const pending = addWaiter(name);
-  return electron.openDialog(name, serializablePayload(payload)).then(
+  return invoke('dialog_open', { name, payload: { appearance: getAppearance(), ...serializablePayload(payload) } }).then(
     () => pending,
     (err) => {
       settle(name, null);

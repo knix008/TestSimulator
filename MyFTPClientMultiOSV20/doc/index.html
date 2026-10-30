@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My FTP Client 사용 설명서</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg">
+<link rel="stylesheet" href="manual.css">
+</head>
+<body class="ko">
+<header class="doc-head">
+  <h1><img src="../icon.svg" alt=""><span class="ko">My FTP Client 사용 설명서</span><span class="en">My FTP Client User Guide</span></h1>
+  <span class="spacer"></span>
+  <div class="tools">
+    <div class="lang-group" role="group" aria-label="Language">
+      <button type="button" data-lang="ko">
+        <svg width="20" height="14" viewBox="0 0 36 24" aria-hidden="true"><rect width="36" height="24" rx="3" fill="#ffffff" stroke="#c8ccd4"/><g transform="translate(18 12)"><path d="M-6 0a6 6 0 0 1 12 0a3 3 0 0 1 -6 0a3 3 0 0 0 -6 0z" fill="#cd2e3a" transform="rotate(-33)"/><path d="M6 0a6 6 0 0 1 -12 0a3 3 0 0 1 6 0a3 3 0 0 0 6 0z" fill="#0047a0" transform="rotate(-33)"/></g><g fill="#000"><g transform="translate(6.5 5.5) rotate(-33)"><rect x="-3" y="-2.4" width="6" height="1.2"/><rect x="-3" y="-0.6" width="6" height="1.2"/><rect x="-3" y="1.2" width="6" height="1.2"/></g><g transform="translate(29.5 18.5) rotate(-33)"><rect x="-3" y="-2.4" width="2.6" height="1.2"/><rect x="0.4" y="-2.4" width="2.6" height="1.2"/><rect x="-3" y="-0.6" width="2.6" height="1.2"/><rect x="0.4" y="-0.6" width="2.6" height="1.2"/><rect x="-3" y="1.2" width="2.6" height="1.2"/><rect x="0.4" y="1.2" width="2.6" height="1.2"/></g><g transform="translate(29.5 5.5) rotate(33)"><rect x="-3" y="-2.4" width="2.6" height="1.2"/><rect x="0.4" y="-2.4" width="2.6" height="1.2"/><rect x="-3" y="-0.6" width="6" height="1.2"/><rect x="-3" y="1.2" width="2.6" height="1.2"/><rect x="0.4" y="1.2" width="2.6" height="1.2"/></g><g transform="translate(6.5 18.5) rotate(33)"><rect x="-3" y="-2.4" width="6" height="1.2"/><rect x="-3" y="-0.6" width="2.6" height="1.2"/><rect x="0.4" y="-0.6" width="2.6" height="1.2"/><rect x="-3" y="1.2" width="6" height="1.2"/></g></g></svg>
+        한국어
+      </button>
+      <button type="button" data-lang="en">
+        <svg width="20" height="14" viewBox="0 0 36 24" aria-hidden="true"><defs><clipPath id="gb"><rect width="36" height="24" rx="3"/></clipPath></defs><g clip-path="url(#gb)"><rect width="36" height="24" fill="#012169"/><path d="M0 0L36 24M36 0L0 24" stroke="#fff" stroke-width="4.8"/><path d="M0 0L36 24M36 0L0 24" stroke="#c8102e" stroke-width="1.8"/><path d="M18 0V24M0 12H36" stroke="#fff" stroke-width="7"/><path d="M18 0V24M0 12H36" stroke="#c8102e" stroke-width="4"/></g></svg>
+        English
+      </button>
+    </div>
+    <div class="size" role="group">
+      <button type="button" id="size-down"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 18l5-12 5 12M4.7 14h6.6M16 12h6"/></svg></button>
+      <output id="size-now">14px</output>
+      <button type="button" id="size-up"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 18l5-12 5 12M4.7 14h6.6M16 12h6M19 9v6"/></svg></button>
+    </div>
+  </div>
+  <span class="win-buttons">
+    <button type="button" class="win-btn" id="win-min"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor"/></svg></button>
+    <button type="button" class="win-btn" id="win-max"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor"><rect x=".5" y=".5" width="9" height="9"/></svg></button>
+    <button type="button" class="win-btn close" id="win-close"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.1"><path d="M.5.5l9 9M9.5.5l-9 9"/></svg></button>
+  </span>
+</header>
+
+<div class="layout">
+  <nav id="side" aria-label="Contents"></nav>
+  <div id="content">
+  <main>
+    <p class="lead ko">My FTP Client 는 FTP · FTPS · SFTP 서버에 접속해 파일을 올리고 내려받는 프로그램입니다. 왼쪽은 서버, 오른쪽은 내 컴퓨터의 폴더 트리이고, 아래에는 로그와 터미널이 있습니다. Windows · macOS · Linux 데스크톱 앱과 웹 브라우저 판이 같은 화면을 씁니다.</p>
+    <p class="lead en">My FTP Client connects to FTP, FTPS and SFTP servers to upload and download files. The server is on the left, your computer's folder tree on the right, and the log and terminal below. The desktop app (Windows, macOS, Linux) and the web version share the same screen.</p>
+
+    <section id="start">
+      <h2><span class="ko">시작하기</span><span class="en">Getting started</span></h2>
+      <figure>
+        <img src="img/main.png" alt="">
+        <figcaption><span class="ko">테스트 FTP 서버의 /pub 에 연결된 모습</span><span class="en">Connected to /pub on a test FTP server</span></figcaption>
+      </figure>
+      <div class="ko">
+        <h3>처음 실행</h3>
+        <ol>
+          <li>접속 바에서 프로토콜을 고르고 호스트, 사용자, 비밀번호를 입력합니다.</li>
+          <li><b>Connect</b> 를 누르거나 입력란에서 <kbd>Enter</kbd> 를 칩니다.</li>
+          <li>왼쪽 서버 목록에서 파일을 고르고 <b>→</b> 로 내려받거나, 오른쪽 로컬 트리에서 고르고 <b>←</b> 로 올립니다.</li>
+        </ol>
+        <h3>설치와 제거</h3>
+        <p>Windows 설치 프로그램은 처음에 한국어/English 를 고릅니다. 이미 설치된 My FTP Client(이전 Electron 판 포함)가 있으면 삭제 후 설치할지 묻고, 남아 있는 데이터(접속 프로파일·기록·설정)를 지울지도 묻습니다. [아니요] 를 고르면 기존 설정을 그대로 이어서 씁니다. 다음 페이지에서 바탕화면 / 시작 메뉴 바로가기를 고릅니다.</p>
+        <p>설치된 앱에는 Node 런타임이 들어 있으므로 Node.js 를 따로 설치할 필요가 없습니다.</p>
+      </div>
+      <div class="en">
+        <h3>First run</h3>
+        <ol>
+          <li>Pick the protocol on the connection bar and enter the host, user and password.</li>
+          <li>Press <b>Connect</b>, or <kbd>Enter</kbd> in any of the fields.</li>
+          <li>Pick files in the server list on the left and press <b>→</b> to download, or pick them in the local tree on the right and press <b>←</b> to upload.</li>
+        </ol>
+        <h3>Installing and removing</h3>
+        <p>The Windows installer first asks for Korean or English. If My FTP Client is already installed (the earlier Electron build included), it asks whether to remove it and install this version, and whether to delete the data it left (connection profiles, history, settings). Choose No to keep your settings. The next page offers desktop and Start menu shortcuts.</p>
+        <p>The installed app carries its own Node runtime, so Node.js does not need to be installed.</p>
+      </div>
+    </section>
+
+    <section id="layout">
+      <h2><span class="ko">화면 구성</span><span class="en">The window</span></h2>
+      <div class="ko">
+        <table>
+          <tr><th>영역</th><th>설명</th></tr>
+          <tr><td>툴바</td><td>OS 제목 표시줄을 대신합니다. 앱 이름, 현재 연결(녹색 점), 프로파일(선택 · 저장 · 삭제), 터미널 보기, 글꼴 작게 / 현재 크기 / 글꼴 크게, 테마, 언어, 설정, <b>설명서</b>, 정보, 그리고 최소화 · 최대화 · 닫기. 빈 곳을 끌면 창이 움직이고, 두 번 클릭하면 최대화/복원됩니다.</td></tr>
+          <tr><td>접속 바</td><td>프로토콜 · 호스트 · 포트 · 사용자 · 비밀번호 · 접속 기록 · Connect(연결되면 Disconnect)</td></tr>
+          <tr><td>서버 패널</td><td>서버의 현재 폴더. <code>[..]</code> 은 상위 폴더. 폴더 먼저, 이름순.</td></tr>
+          <tr><td>전송 바</td><td><b>←</b> 업로드, <b>→</b> 다운로드. 바를 끌면 두 패널의 너비가 바뀝니다.</td></tr>
+          <tr><td>로컬 패널</td><td>드라이브 → 폴더 → 파일 트리. 고른 폴더가 다운로드 대상이며 다음 실행 때 다시 열립니다.</td></tr>
+          <tr><td>하단 독</td><td>로그 탭과 터미널 탭. 가로 막대를 끌어 높이를 바꿉니다.</td></tr>
+          <tr><td>상태 표시줄</td><td>현재 상태와 전송 진행률 · 속도 · 취소. 오른쪽 아래 점 무늬(크기 조절 마커)를 끌면 창 크기가 바뀝니다.</td></tr>
+        </table>
+        <p>창의 최소 크기는 1200×720 이며 이 크기에서도 툴바와 창 버튼이 한 줄로 모두 보입니다. 창 위치와 크기는 기억했다가 다음에 그대로 엽니다.</p>
+      </div>
+      <div class="en">
+        <table>
+          <tr><th>Area</th><th>What it is</th></tr>
+          <tr><td>Toolbar</td><td>Replaces the OS title bar: app name, current connection (green dot), profiles (pick · save · delete), terminal view, smaller / current size / larger text, theme, language, settings, <b>Guide</b>, about, and minimize · maximize · close. Drag an empty spot to move the window; double-click to maximize or restore.</td></tr>
+          <tr><td>Connection bar</td><td>Protocol · host · port · user · password · history · Connect (Disconnect once connected)</td></tr>
+          <tr><td>Server panel</td><td>The server's current folder. <code>[..]</code> is the parent. Folders first, by name.</td></tr>
+          <tr><td>Transfer bar</td><td><b>←</b> upload, <b>→</b> download. Drag the bar to change the panel widths.</td></tr>
+          <tr><td>Local panel</td><td>Drives → folders → files. The chosen folder is where downloads go, and it opens again next time.</td></tr>
+          <tr><td>Bottom dock</td><td>The log tab and terminal tabs. Drag the bar above it to change its height.</td></tr>
+          <tr><td>Status bar</td><td>Current state, transfer progress, speed and Cancel. Drag the dotted grip at the bottom-right to resize the window.</td></tr>
+        </table>
+        <p>The smallest window is 1200×720; every toolbar control and window button still fits on one row. The window opens where and as large as you left it.</p>
+      </div>
+    </section>
+
+    <section id="connect">
+      <h2><span class="ko">서버에 연결하기</span><span class="en">Connecting</span></h2>
+      <div class="ko">
+        <h3>접속 정보</h3>
+        <ul>
+          <li>프로토콜을 바꾸면 포트가 맞게 바뀝니다 (FTP/FTPS 21, SFTP 22). 다른 포트는 직접 입력합니다.</li>
+          <li>FTP 에서 사용자를 비우면 anonymous 로 접속합니다.</li>
+          <li>호스트 칸에 <code>ftp://ftp.example.com/pub</code>, <code>sftp://user:pw@host:2222</code> 같은 URL 을 붙여 넣으면 프로토콜 · 호스트 · 포트 · 사용자 · 비밀번호로 나뉘어 채워집니다.</li>
+          <li>FTPS 는 명시적 TLS(AUTH TLS)를 쓰며 서버 인증서를 검증하지 않습니다. SFTP 는 비밀번호(키보드 인터랙티브 포함) 인증입니다.</li>
+        </ul>
+        <h3>연결 중과 오류</h3>
+        <p>연결하는 동안 상태 표시줄에 진행 표시와 <b>취소</b> 가 나옵니다. 30초 안에 연결되지 않으면 시간 초과입니다. 실패하면 오류 창에 원인, 코드, 자세한 내용이 나오고 <b>자세한 내용 복사</b> 로 클립보드에 복사할 수 있습니다.</p>
+        <figure><img src="img/error.png" alt=""><figcaption>연결할 수 없는 포트에 접속했을 때의 오류 창</figcaption></figure>
+      </div>
+      <div class="en">
+        <h3>Connection details</h3>
+        <ul>
+          <li>Changing the protocol sets its port (FTP/FTPS 21, SFTP 22). Type another port if the server uses one.</li>
+          <li>An empty user on FTP logs in as anonymous.</li>
+          <li>Paste a URL such as <code>ftp://ftp.example.com/pub</code> or <code>sftp://user:pw@host:2222</code> into Host: it is split into protocol, host, port, user and password.</li>
+          <li>FTPS uses explicit TLS (AUTH TLS) and does not verify the server certificate. SFTP uses password (and keyboard-interactive) authentication.</li>
+        </ul>
+        <h3>While connecting, and errors</h3>
+        <p>While connecting, the status bar shows progress and <b>Cancel</b>. After 30 seconds without an answer the attempt times out. A failure opens an error window with the cause, a code and the details; <b>Copy details</b> puts them on the clipboard.</p>
+        <figure><img src="img/error.png" alt=""><figcaption>The error window after connecting to a closed port</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="profiles">
+      <h2><span class="ko">프로파일과 접속 기록</span><span class="en">Profiles and history</span></h2>
+      <div class="ko">
+        <h3>프로파일</h3>
+        <ul>
+          <li>툴바의 <b>저장</b> 은 현재 접속 정보를 이름을 붙여 저장합니다. 같은 이름이면 덮어씁니다.</li>
+          <li>목록에서 고르면 접속 정보가 채워지고, 마지막에 고른 프로파일은 다음 실행 때 자동으로 채워집니다.</li>
+          <li><b>삭제</b> 는 목록 창에서 여러 개를 체크해 한 번에 지웁니다.</li>
+        </ul>
+        <h3>접속 기록</h3>
+        <p>Connect 왼쪽의 시계 단추는 연결에 성공한 서버를 최신순으로 보여 줍니다(최근 20개, 접속 횟수·시각). 고르면 프로토콜 · 호스트 · 포트 · 사용자가 채워지고, 같은 서버의 프로파일이 있으면 비밀번호도 채워집니다. 기록에는 비밀번호를 저장하지 않습니다.</p>
+        <figure><img src="img/history.png" alt=""><figcaption>접속 기록 목록</figcaption></figure>
+      </div>
+      <div class="en">
+        <h3>Profiles</h3>
+        <ul>
+          <li><b>Save</b> on the toolbar stores the current connection under a name; the same name overwrites it.</li>
+          <li>Picking one fills in the connection; the last one picked is filled in at the next start.</li>
+          <li><b>Delete</b> lets you tick several in a list and remove them at once.</li>
+        </ul>
+        <h3>History</h3>
+        <p>The clock button left of Connect lists the servers you connected to, newest first (last 20, with count and time). Picking one fills in protocol, host, port and user, and the password when a profile for that server exists. History never stores passwords.</p>
+        <figure><img src="img/history.png" alt=""><figcaption>The connection history</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="browse">
+      <h2><span class="ko">파일 탐색</span><span class="en">Browsing</span></h2>
+      <div class="ko">
+        <h3>서버 패널</h3>
+        <ul>
+          <li>폴더를 두 번 클릭하거나 <kbd>Enter</kbd>: 들어가기. <code>[..]</code> 또는 <kbd>Backspace</kbd>: 상위 폴더.</li>
+          <li>파일을 두 번 클릭하거나 <kbd>Enter</kbd>: 현재 로컬 폴더로 다운로드.</li>
+          <li><kbd>Ctrl</kbd>+클릭, <kbd>Shift</kbd>+클릭으로 여러 개 선택, <kbd>Ctrl</kbd>+<kbd>A</kbd> 전체 선택, <kbd>F5</kbd> 새로 고침.</li>
+        </ul>
+        <h3>로컬 패널</h3>
+        <ul>
+          <li>▸ 를 누르거나 폴더를 두 번 클릭하면 펼쳐집니다. <kbd>→</kbd> / <kbd>←</kbd> 로 펼치기·접기.</li>
+          <li>파일을 두 번 클릭하거나 <kbd>Enter</kbd>: 서버의 현재 폴더로 업로드.</li>
+          <li>제목 옆의 드라이브 단추로 다른 드라이브나 홈 폴더로 바로 갑니다.</li>
+        </ul>
+        <figure><img src="img/drives.png" alt=""><figcaption>드라이브 단추 — 볼륨 이름과 홈 폴더</figcaption></figure>
+      </div>
+      <div class="en">
+        <h3>Server panel</h3>
+        <ul>
+          <li>Double-click a folder or press <kbd>Enter</kbd> to open it; <code>[..]</code> or <kbd>Backspace</kbd> goes up.</li>
+          <li>Double-click a file or press <kbd>Enter</kbd> to download it to the current local folder.</li>
+          <li><kbd>Ctrl</kbd>+click and <kbd>Shift</kbd>+click select several, <kbd>Ctrl</kbd>+<kbd>A</kbd> selects all, <kbd>F5</kbd> refreshes.</li>
+        </ul>
+        <h3>Local panel</h3>
+        <ul>
+          <li>Click ▸ or double-click a folder to expand it; <kbd>→</kbd> / <kbd>←</kbd> expand and collapse.</li>
+          <li>Double-click a file or press <kbd>Enter</kbd> to upload it to the server's current folder.</li>
+          <li>The drive button next to the title jumps to another drive or your home folder.</li>
+        </ul>
+        <figure><img src="img/drives.png" alt=""><figcaption>The drive button: volume names and the home folder</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="transfer">
+      <h2><span class="ko">업로드와 다운로드</span><span class="en">Uploading and downloading</span></h2>
+      <div class="ko">
+        <h3>보내는 방법</h3>
+        <table>
+          <tr><th>방법</th><th>동작</th></tr>
+          <tr><td>서버에서 고르고 <b>→</b></td><td>현재 로컬 폴더로 다운로드</td></tr>
+          <tr><td>로컬에서 고르고 <b>←</b></td><td>서버의 현재 폴더로 업로드</td></tr>
+          <tr><td>두 번 클릭</td><td>파일 하나를 바로 전송</td></tr>
+          <tr><td>오른쪽 클릭 → 다운로드 / 업로드</td><td>메뉴에서 전송</td></tr>
+        </table>
+        <h3>진행과 결과</h3>
+        <ul>
+          <li>폴더는 하위 폴더까지 통째로 옮깁니다. 먼저 전체 파일 수와 크기를 세어 진행률과 속도를 보여 줍니다.</li>
+          <li>동시 전송 수(설정, 기본 3)만큼 나란히 옮기며, 상태 표시줄의 <b>취소</b> 로 언제든 멈춥니다.</li>
+          <li>파일마다 로그 한 줄(원본 → 대상, 크기, 걸린 시간, 속도)이 남고, 끝나면 결과가 기록되고 패널이 새로 고쳐집니다.</li>
+        </ul>
+        <figure><img src="img/transfer.png" alt=""><figcaption>폴더 다운로드와 폴더 업로드 뒤의 로그</figcaption></figure>
+        <h3>같은 이름이 있을 때</h3>
+        <p>크기와 날짜가 같으면 건너뛰기(설정, 기본 켜짐)에 해당하지 않으면 충돌 창이 뜹니다. <b>덮어쓰기</b> / <b>건너뛰기</b> / <b>취소</b> 중에서 고르고, "이후 항목에도 동일하게 적용" 을 체크하면 남은 파일에 같은 답을 씁니다.</p>
+        <figure><img src="img/conflict.png" alt=""><figcaption>충돌 창</figcaption></figure>
+      </div>
+      <div class="en">
+        <h3>Ways to transfer</h3>
+        <table>
+          <tr><th>How</th><th>What happens</th></tr>
+          <tr><td>Pick on the server, press <b>→</b></td><td>Download to the current local folder</td></tr>
+          <tr><td>Pick locally, press <b>←</b></td><td>Upload to the server's current folder</td></tr>
+          <tr><td>Double-click</td><td>Transfer one file right away</td></tr>
+          <tr><td>Right-click → Download / Upload</td><td>Transfer from the menu</td></tr>
+        </table>
+        <h3>Progress and results</h3>
+        <ul>
+          <li>Folders go with everything inside. The files are counted and sized first, so progress and speed are exact.</li>
+          <li>Up to the number of parallel transfers (Settings, default 3) move at once; <b>Cancel</b> on the status bar stops at any time.</li>
+          <li>Each file leaves one log line (source → target, size, time, speed); at the end the result is logged and the panel refreshes.</li>
+        </ul>
+        <figure><img src="img/transfer.png" alt=""><figcaption>The log after downloading and uploading folders</figcaption></figure>
+        <h3>When the name exists</h3>
+        <p>Unless "skip when size and date match" (Settings, on by default) applies, a conflict window asks: <b>Overwrite</b>, <b>Skip</b> or <b>Cancel</b>. Tick "apply to the rest" to give the same answer for the remaining files.</p>
+        <figure><img src="img/conflict.png" alt=""><figcaption>The conflict window</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="menus">
+      <h2><span class="ko">오른쪽 클릭 메뉴</span><span class="en">Right-click menus</span></h2>
+      <div class="ko">
+        <h3>서버</h3>
+        <p>다운로드 · 새로 고침 · 상위 폴더로 · 새 폴더 · 이름 바꾸기 · 삭제 · 경로 복사. 서버의 삭제는 되돌릴 수 없습니다.</p>
+        <figure><img src="img/server-menu.png" alt=""><figcaption>서버 항목의 메뉴</figcaption></figure>
+        <h3>로컬</h3>
+        <p>업로드 · 새로 고침 · 탐색기에서 열기 · 열기(기본 앱) · 새 폴더 · 이름 바꾸기 · 삭제 · 경로 복사. 로컬 삭제는 휴지통을 거치지 않습니다. 탐색기에서 열기와 열기는 데스크톱 앱에서만 됩니다.</p>
+        <figure><img src="img/local-menu.png" alt=""><figcaption>로컬 항목의 메뉴</figcaption></figure>
+      </div>
+      <div class="en">
+        <h3>Server</h3>
+        <p>Download · Refresh · Up · New folder · Rename · Delete · Copy path. Deleting on the server cannot be undone.</p>
+        <figure><img src="img/server-menu.png" alt=""><figcaption>The menu of a server item</figcaption></figure>
+        <h3>Local</h3>
+        <p>Upload · Refresh · Show in file manager · Open (default app) · New folder · Rename · Delete · Copy path. Local delete does not use the recycle bin. Show and Open are desktop-only.</p>
+        <figure><img src="img/local-menu.png" alt=""><figcaption>The menu of a local item</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="terminal">
+      <h2><span class="ko">터미널</span><span class="en">Terminal</span></h2>
+      <div class="ko">
+        <p>툴바의 <b>터미널 보기</b> 를 켜면 하단 독에 터미널 탭이 생깁니다. <b>+</b> 로 이 컴퓨터에 설치된 셸(PowerShell, 명령 프롬프트, Git Bash, WSL, bash, zsh …)을 골라 탭을 엽니다(최대 8개). SFTP 로 연결된 동안에는 원격 SSH 셸도 고를 수 있습니다.</p>
+        <figure><img src="img/terminal.png" alt=""><figcaption>하단 독의 터미널 탭</figcaption></figure>
+        <h3>키</h3>
+        <table>
+          <tr><th>키</th><th>동작</th></tr>
+          <tr><td><kbd>Tab</kbd></td><td>명령과 경로 자동 완성. 후보가 여럿이면 한 번 더 눌러 목록</td></tr>
+          <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>이전 명령</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>실행 중인 명령 중단 (선택 영역이 있으면 복사)</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>붙여넣기</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>화면 지우기</td></tr>
+        </table>
+        <h3>프롬프트와 글꼴</h3>
+        <p>시작 폴더, 글꼴, 글꼴 크기, 최대 줄 수, 셸마다의 프롬프트(<code>{path}</code> <code>{folder}</code> <code>{shell}</code> <code>{user}</code> <code>{host}</code>)는 설정의 터미널 탭에서 바꿉니다.</p>
+      </div>
+      <div class="en">
+        <p>Turn on <b>Terminal view</b> on the toolbar to get terminal tabs in the bottom dock. <b>+</b> opens a tab with one of the shells installed on this computer (PowerShell, Command Prompt, Git Bash, WSL, bash, zsh …), up to 8. While connected over SFTP, a remote SSH shell is offered too.</p>
+        <figure><img src="img/terminal.png" alt=""><figcaption>A terminal tab in the bottom dock</figcaption></figure>
+        <h3>Keys</h3>
+        <table>
+          <tr><th>Key</th><th>What it does</th></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Completes commands and paths; press again to list several candidates</td></tr>
+          <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Earlier commands</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Stops the running command (copies when text is selected)</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Paste</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Clear the screen</td></tr>
+        </table>
+        <h3>Prompt and font</h3>
+        <p>The start folder, font, font size, line limit and each shell's prompt (<code>{path}</code> <code>{folder}</code> <code>{shell}</code> <code>{user}</code> <code>{host}</code>) are on the Terminal tab of Settings.</p>
+      </div>
+    </section>
+
+    <section id="look">
+      <h2><span class="ko">테마 · 언어 · 글꼴 크기</span><span class="en">Theme, language and text size</span></h2>
+      <div class="ko">
+        <h3>테마</h3>
+        <p>테마 단추의 왼쪽은 다음 테마로 바꾸고, ▾ 는 16가지(어두운 10, 밝은 6) 목록을 엽니다. 대화 상자와 이 설명서도 같은 테마로 바로 바뀝니다.</p>
+        <figure><img src="img/themes.png" alt=""><figcaption>테마 목록</figcaption></figure>
+        <h3>언어와 글꼴 크기</h3>
+        <p>국기 단추는 바꿀 언어의 국기를 보여 줍니다(한국어 ↔ English). 툴바의 <b>A− / 현재 px / A+</b> 는 터미널 글꼴(8–32px)과 화면 글꼴(11–18px)을 함께 바꿉니다.</p>
+        <figure><img src="img/english.png" alt=""><figcaption>밝은 테마와 영어 화면</figcaption></figure>
+      </div>
+      <div class="en">
+        <h3>Theme</h3>
+        <p>The left half of the theme button goes to the next theme; ▾ opens the list of 16 (10 dark, 6 light). Dialogs and this guide change with it at once.</p>
+        <figure><img src="img/themes.png" alt=""><figcaption>The theme list</figcaption></figure>
+        <h3>Language and text size</h3>
+        <p>The flag button shows the language you switch to (Korean ↔ English). <b>A− / current px / A+</b> on the toolbar change the terminal font (8–32px) and the screen font (11–18px) together.</p>
+        <figure><img src="img/english.png" alt=""><figcaption>A light theme in English</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="settings">
+      <h2><span class="ko">설정</span><span class="en">Settings</span></h2>
+      <div class="ko">
+        <p>설정 창은 탭으로 나뉜 고정 크기 창이며 스크롤바가 없습니다. 테마를 고르면 바로 미리 보기가 적용되고, 취소하면 원래대로 돌아갑니다.</p>
+        <figure><img src="img/settings-window.png" alt=""><figcaption>별도 창으로 열린 설정</figcaption></figure>
+        <h3>일반</h3>
+        <p>언어 · 테마 · 글꼴 크기 · 로컬 폴더(찾아보기 단추로 폴더 선택) · 삭제 전에 확인 · 마지막 로컬 폴더 복원 · 알림음 · 연결 성공 안내 창.</p>
+        <h3>터미널</h3>
+        <p>시작 폴더 · 글꼴 · 글꼴 크기 · 최대 줄 수 · 셸별 프롬프트.</p>
+        <h3>전송</h3>
+        <p>동시 전송 수(1–4) · 크기와 날짜가 같으면 건너뛰기.</p>
+      </div>
+      <div class="en">
+        <p>Settings is a fixed-size window split into tabs, with no scroll bar. A theme picked there previews at once; Cancel puts the old one back.</p>
+        <figure><img src="img/settings-window.png" alt=""><figcaption>Settings in its own window</figcaption></figure>
+        <h3>General</h3>
+        <p>Language · theme · text size · local folder (with a Browse button) · confirm before delete · reopen the last local folder · sounds · window after connecting.</p>
+        <h3>Terminal</h3>
+        <p>Start folder · font · font size · line limit · prompt per shell.</p>
+        <h3>Transfer</h3>
+        <p>Parallel transfers (1–4) · skip when size and date match.</p>
+      </div>
+    </section>
+
+    <section id="windows">
+      <h2><span class="ko">팝업 창과 설명서 창</span><span class="en">Pop-up windows and this guide</span></h2>
+      <div class="ko">
+        <h3>팝업 창</h3>
+        <p>확인 · 오류 · 충돌 · 설정 · 정보 창은 데스크톱 앱에서 메인 창과 따로 열리므로 메인 창 밖이나 다른 모니터로 옮길 수 있습니다. 크기는 내용에 맞춰 열린 뒤 고정되며, 메인 창을 닫으면 함께 닫힙니다.</p>
+        <h3>설명서 창</h3>
+        <p>툴바의 <b>설명서</b> 는 이 문서를 독립된 창으로 엽니다. 메인 창 밖 어디로든 옮길 수 있고, 메인 창과 따로 최소화·최대화할 수 있습니다. 메인 창의 테마와 언어를 따라가며, 위쪽 단추로 언어와 글자 크기(− / 현재 px / +)를 이 창에서만 바꿀 수 있습니다. 왼쪽은 문서의 구조, 오른쪽은 내용입니다.</p>
+      </div>
+      <div class="en">
+        <h3>Pop-ups</h3>
+        <p>Confirm, error, conflict, settings and about open as windows of their own in the desktop app, so you can move them outside the main window or to another monitor. They are sized to their content, then fixed, and close with the main window.</p>
+        <h3>The guide window</h3>
+        <p><b>Guide</b> on the toolbar opens this document in a window of its own. Move it anywhere outside the main window and minimize or maximize it separately. It follows the main window's theme and language; the buttons at the top change the language and the text size (− / current px / +) here only. The structure is on the left, the content on the right.</p>
+      </div>
+    </section>
+
+    <section id="web">
+      <h2><span class="ko">웹 버전</span><span class="en">The web version</span></h2>
+      <div class="ko">
+        <pre>npm run web                     # http://127.0.0.1:5188 — 이 컴퓨터에서만
+node server/server.js --host 0.0.0.0 --port 8080 --token 비밀값 --no-open</pre>
+        <p>브라우저 화면은 데스크톱 앱과 같습니다. "로컬" 은 서버 프로그램이 도는 컴퓨터의 파일이고, FTP/SFTP 연결도 그 컴퓨터에서 이루어집니다. 다른 컴퓨터에서 쓰려면 반드시 <code>--token</code> 을 주고 <code>http://주소:포트/?token=비밀값</code> 으로 접속합니다. 브라우저에서는 탐색기에서 열기와 열기를 쓸 수 없고, 팝업은 페이지 안에 뜨며, 이 설명서는 새 탭으로 열립니다.</p>
+      </div>
+      <div class="en">
+        <pre>npm run web                     # http://127.0.0.1:5188 — this computer only
+node server/server.js --host 0.0.0.0 --port 8080 --token secret --no-open</pre>
+        <p>The browser shows the same screen as the desktop app. "Local" is the computer the server runs on, and FTP/SFTP connections are made from there. To use it from another computer, always pass <code>--token</code> and open <code>http://address:port/?token=secret</code>. In a browser, Show in file manager and Open are not available, pop-ups appear inside the page, and this guide opens in a new tab.</p>
+      </div>
+    </section>
+
+    <section id="data">
+      <h2><span class="ko">데이터 파일과 문제 해결</span><span class="en">Data files and troubleshooting</span></h2>
+      <div class="ko">
+        <h3>데이터 파일</h3>
+        <table>
+          <tr><th>파일</th><th>내용</th></tr>
+          <tr><td><code>session.json</code></td><td>설정, 마지막 폴더, 창 위치, 터미널 글꼴·프롬프트</td></tr>
+          <tr><td><code>profiles.json</code></td><td>접속 프로파일</td></tr>
+          <tr><td><code>history.json</code></td><td>접속 기록 (비밀번호 없음)</td></tr>
+        </table>
+        <p>위치: Windows <code>%APPDATA%\My FTP Client\</code>, macOS <code>~/Library/Application Support/My FTP Client/</code>, Linux <code>~/.config/My FTP Client/</code>. 이전 Electron 판과 같은 폴더라 설정이 그대로 이어집니다.</p>
+        <h3>문제 해결</h3>
+        <ul>
+          <li>비밀번호는 base64 로만 감춰집니다. 공용 컴퓨터에서는 프로파일에 비밀번호를 저장하지 마세요.</li>
+          <li>FTP 는 수동(passive) 모드로 접속합니다. 서버가 잘못된 수동 모드 주소를 알려 주면 데이터 연결이 실패할 수 있습니다.</li>
+          <li>오류 창의 <b>자세한 내용 복사</b> 로 원인과 기술 정보를 함께 복사해 전달할 수 있습니다.</li>
+        </ul>
+      </div>
+      <div class="en">
+        <h3>Data files</h3>
+        <table>
+          <tr><th>File</th><th>Holds</th></tr>
+          <tr><td><code>session.json</code></td><td>Settings, last folder, window position, terminal font and prompts</td></tr>
+          <tr><td><code>profiles.json</code></td><td>Connection profiles</td></tr>
+          <tr><td><code>history.json</code></td><td>Connection history (no passwords)</td></tr>
+        </table>
+        <p>Location: Windows <code>%APPDATA%\My FTP Client\</code>, macOS <code>~/Library/Application Support/My FTP Client/</code>, Linux <code>~/.config/My FTP Client/</code>. It is the same folder the Electron build used, so settings carry over.</p>
+        <h3>Troubleshooting</h3>
+        <ul>
+          <li>Passwords are only hidden with base64. Do not save passwords in profiles on a shared computer.</li>
+          <li>FTP connects in passive mode. A server that announces a wrong passive address makes data connections fail.</li>
+          <li><b>Copy details</b> in an error window copies the cause together with the technical details, ready to pass on.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+  </div>
+</div>
+<span class="grip" id="grip"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><g fill="currentColor"><circle cx="11.5" cy="11.5" r="1.2"/><circle cx="11.5" cy="7" r="1.2"/><circle cx="11.5" cy="2.5" r="1.2"/><circle cx="7" cy="11.5" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="2.5" cy="11.5" r="1.2"/></g></svg></span>
+<script src="manual.js"></script>
+</body>
+</html>

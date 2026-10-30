@@ -1,13 +1,13 @@
 // The one API surface both hosts expose to the UI.
 //
-//   electron/ipc.js     → ipcMain.handle('api', (e, name, args) => api.call(name, args))
-//   server/server.js    → POST /api/<name> with a JSON body
+//   server/server.js    → POST /api/<name> with a JSON body — the web version,
+//                         and the desktop app (src-tauri spawns the same server)
 //
 // Every method takes a single plain-object argument and returns JSON-able
 // data, so the renderer's backend layer (src/lib/backend.js) is a thin
 // transport switch. Long operations (connect, transfers, remote delete)
-// return a job snapshot right away; the UI then follows the job (IPC push or
-// HTTP polling) until it finishes.
+// return a job snapshot right away; the UI then polls the job until it
+// finishes.
 'use strict';
 
 const os = require('os');
@@ -56,7 +56,8 @@ function createApi(host = {}) {
         clipboard: !!host.clipboard,
         detachedDialogs: !!host.detachedDialogs,
         terminals: true,
-        pickFolder: !!host.pickFolder,
+        // The desktop page opens the native folder picker itself (Tauri dialog).
+        pickFolder: !!(host.pickFolder || host.pickFolderInUi),
       },
     }),
     'app.fonts': async () => {
@@ -180,6 +181,7 @@ function createApi(host = {}) {
         prompt: s.powershellPrompt,
         prompts: s.shellPrompts,
         maxChunks: s.terminalMaxLines,
+        language: s.language,
       });
     },
     'terminal.write': async ({ id, data }) => terminals.write(id, data),

@@ -98,7 +98,7 @@ const ko = {
 
   // toolbar / settings / about
   theme: '테마', next_theme: '다음 테마', tip_theme: '테마 선택 (16가지)', tip_next_theme: '다음 테마로 전환: {theme}', tip_language: '한국어 / English',
-  settings: '설정', tip_settings: '설정', settings_title: '설정', menu_info: '정보', tip_about: '프로그램 정보',
+  settings: '설정', tip_settings: '설정', settings_title: '설정', menu_info: '정보', tip_about: '프로그램 정보', manual: '설명서', tip_manual: '사용 설명서 (별도 창)',
   set_tab_general: '일반', set_tab_terminal: '터미널', set_tab_transfer: '전송',
   set_term_prompt_shell: '셸',
   term_view: '터미널', tip_term_view: '터미널 보기',
@@ -125,7 +125,7 @@ const ko = {
   set_skip_unchanged: '크기와 날짜가 같으면 건너뛰기',
   about_title: '프로그램 정보', about_desc: 'Windows / macOS / Linux / 웹용 FTP · FTPS · SFTP 클라이언트',
   version: '버전', author: '제작자', author_name: 'SHKWON (knix008@naver.com)', copyright: 'Copyright © 2026 SHKWON',
-  about_build: '빌드', about_host: '실행 환경', host_electron: '데스크톱 (Electron)', host_web: '웹 브라우저',
+  about_build: '빌드', about_host: '실행 환경', host_tauri: '데스크톱 (Tauri)', host_web: '웹 브라우저',
   about_libs: 'FTP/FTPS: basic-ftp · SFTP: ssh2',
 };
 
@@ -220,7 +220,7 @@ const en = {
   reveal_unsupported: 'The file manager cannot be opened from the web version.',
 
   theme: 'Theme', next_theme: 'Next theme', tip_theme: 'Choose a theme (16 built in)', tip_next_theme: 'Switch to the next theme: {theme}', tip_language: '한국어 / English',
-  settings: 'Settings', tip_settings: 'Settings', settings_title: 'Settings', menu_info: 'Info', tip_about: 'About My FTP Client',
+  settings: 'Settings', tip_settings: 'Settings', settings_title: 'Settings', menu_info: 'Info', tip_about: 'About My FTP Client', manual: 'Guide', tip_manual: 'User guide (separate window)',
   set_tab_general: 'General', set_tab_terminal: 'Terminal', set_tab_transfer: 'Transfer',
   set_term_prompt_shell: 'Shell',
   term_view: 'Terminal', tip_term_view: 'Show terminal',
@@ -247,7 +247,7 @@ const en = {
   set_skip_unchanged: 'Skip files with the same size and date',
   about_title: 'About', about_desc: 'FTP · FTPS · SFTP client for Windows / macOS / Linux / the web',
   version: 'Version', author: 'Author', author_name: 'SHKWON (knix008@naver.com)', copyright: 'Copyright © 2026 SHKWON',
-  about_build: 'Build', about_host: 'Running on', host_electron: 'Desktop (Electron)', host_web: 'Web browser',
+  about_build: 'Build', about_host: 'Running on', host_tauri: 'Desktop (Tauri)', host_web: 'Web browser',
   about_libs: 'FTP/FTPS: basic-ftp · SFTP: ssh2',
 };
 

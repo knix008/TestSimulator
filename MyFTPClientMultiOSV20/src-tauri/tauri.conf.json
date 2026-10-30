@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My FTP Client",
+  "mainBinaryName": "MyFTPClient",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.myftpclient",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://127.0.0.1:5187",
+    "beforeDevCommand": "node scripts/tauri-before-dev.mjs",
+    "beforeBuildCommand": "node scripts/tauri-before-build.mjs"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "My FTP Client",
+        "width": 1200,
+        "height": 720,
+        "minWidth": 1200,
+        "minHeight": 720,
+        "resizable": true,
+        "center": true,
+        "decorations": false,
+        "shadow": true,
+        "backgroundColor": "#12161c",
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* asset: http://asset.localhost; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:*; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "category": "Utility",
+    "shortDescription": "FTP / FTPS / SFTP client",
+    "resources": {
+      "runtime/": "runtime/"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}

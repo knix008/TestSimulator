@@ -67,15 +67,15 @@ test('dialogs: serializablePayload strips functions so IPC can clone the spec', 
 });
 
 test('dialogs: every popup is locked; only non-settings windows fit to content', () => {
-  const src = fs.readFileSync(path.join(root, 'electron', 'dialogs.js'), 'utf8');
-  assert.match(src, /settings:\s*\{[^}]*width:\s*540/);
-  assert.match(src, /settings:\s*\{[^}]*height:\s*520/);
-  assert.match(src, /settings:\s*\{[^}]*fit:\s*false/);
-  assert.match(src, /resizable:\s*false/);
-  assert.match(src, /maximizable:\s*false/);
-  assert.match(src, /applyLockedDialogSize/);
-  assert.match(src, /spec\.fit === false/);
-  assert.doesNotMatch(src, /!win\.isResizable\(\)/);
+  const src = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'dialogs.rs'), 'utf8');
+  assert.match(src, /"settings" => \(540\.0, 520\.0, false\)/);
+  assert.match(src, /\.resizable\(false\)/);
+  assert.match(src, /\.maximizable\(false\)/);
+  assert.match(src, /\.decorations\(false\)/);
+  assert.match(src, /fn dialog_set_size/);
+  assert.match(src, /!spec\(&kind\)\.fit/);
+  // Owned by the opener (closes with it) but not modal.
+  assert.match(src, /builder\.parent\(&window\)/);
   const win = fs.readFileSync(path.join(root, 'src', 'DialogWindow.jsx'), 'utf8');
   assert.match(win, /ResizeObserver/);
   assert.match(win, /kind === 'settings'/);
@@ -115,25 +115,37 @@ test('terminal: UI closes the tab when the session exits', () => {
   assert.match(core, /this\.finish\(leaving\.code\)/);
 });
 
-test('installer: existing install asks to uninstall first', () => {
-  const src = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
+test('installer: existing install (Electron or Tauri) asks to uninstall first', () => {
+  const src = fs.readFileSync(path.join(root, 'src-tauri', 'windows', 'hooks.nsh'), 'utf8');
+  const conf = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  assert.equal(conf.bundle.windows.nsis.installerHooks, 'windows/hooks.nsh');
   assert.match(src, /이미 설치되어 있습니다/);
   assert.match(src, /기존 설치를 삭제한 뒤 새로 설치할까요/);
   assert.match(src, /MB_YESNO\|MB_ICONQUESTION/);
-  assert.match(src, /\/SD IDYES IDYES MfcRemovePrevious/);
-  assert.match(src, /^\s*Abort\s*$/m);
-  assert.match(src, /PrevUninstaller/);
+  assert.match(src, /\/SD IDYES IDYES mfc_ask_data/);
+  assert.match(src, /^\s*Quit\s*$/m);
   assert.match(src, /--updated/);
-  assert.match(src, /UNINSTALL_FILENAME/);
   assert.match(src, /taskkill \/F \/IM/);
+  // The names the hooks spell out match the bundle.
+  assert.match(src, new RegExp(`MFC_PRODUCT "${conf.productName}"`));
+  assert.match(src, new RegExp(`MFC_EXE "${conf.mainBinaryName}\.exe"`));
+  assert.match(src, new RegExp(`MFC_IDENTIFIER "${conf.identifier.replace(/\./g, '\.')}"`));
+  // electron-builder's uninstall key is the UUID v5 of the appId.
+  assert.match(src, /98cf3d3c-96a5-5b6e-953c-dbfa86aff896/);
+  // Saved data is kept unless the user says otherwise.
+  assert.match(src, /MB_DEFBUTTON2/);
+  assert.match(src, /\/SD IDNO IDNO mfc_remove/);
 });
 
 test('main window minimum size keeps the window buttons visible', () => {
-  const main = fs.readFileSync(path.join(root, 'electron', 'main.js'), 'utf8');
-  assert.match(main, /MIN_WINDOW_WIDTH\s*=\s*1200/);
-  assert.match(main, /MIN_WINDOW_HEIGHT\s*=\s*720/);
-  assert.match(main, /minWidth:\s*MIN_WINDOW_WIDTH/);
-  assert.match(main, /minHeight:\s*MIN_WINDOW_HEIGHT/);
+  const conf = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const win = conf.app.windows[0];
+  assert.equal(win.minWidth, 1200);
+  assert.equal(win.minHeight, 720);
+  assert.equal(win.decorations, false);
+  const main = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'main.rs'), 'utf8');
+  assert.match(main, /MIN_WINDOW_WIDTH: f64 = 1200\.0/);
+  assert.match(main, /MIN_WINDOW_HEIGHT: f64 = 720\.0/);
   const tb = fs.readFileSync(path.join(root, 'src', 'components', 'Toolbar.jsx'), 'utf8');
   assert.match(tb, /className="tb-main"/);
   assert.match(tb, /WindowButtons/);

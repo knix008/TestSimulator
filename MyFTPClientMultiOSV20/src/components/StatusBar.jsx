@@ -2,29 +2,20 @@
 // progress bar (marquee while connecting, percent during transfers), the
 // speed and a Cancel button on the right. The bottom-right corner carries a
 // size grip (the WinForms SizeGrip) — the frameless window has no visible
-// border to grab, so the grip drives the window size over IPC.
-import React, { useRef } from 'react';
+// border to grab, so a press on the grip hands the resize to the OS.
+import React from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { formatSize, formatSpeed } from '../lib/format';
-import { isElectron, getWindowSize, setWindowSize } from '../lib/backend';
+import { isDesktop, startResize } from '../lib/backend';
 
 function SizeGrip() {
-  const drag = useRef(null);
-  const down = async (e) => {
+  const down = (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    const [w, h] = await getWindowSize();
-    drag.current = { x: e.screenX, y: e.screenY, w, h };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    startResize();
   };
-  const move = (e) => {
-    const d = drag.current;
-    if (!d) return;
-    setWindowSize(d.w + (e.screenX - d.x), d.h + (e.screenY - d.y));
-  };
-  const up = (e) => { drag.current = null; try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ } };
   return (
-    <span className="size-grip" title={t('win_resize')} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+    <span className="size-grip" title={t('win_resize')} onPointerDown={down}>
       <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
         <g fill="currentColor">
           <circle cx="11.5" cy="11.5" r="1.2" /><circle cx="11.5" cy="7" r="1.2" /><circle cx="11.5" cy="2.5" r="1.2" />
@@ -41,7 +32,7 @@ export function StatusBar({ status, progress, onCancel }) {
   const p = progress;
   const pct = p && p.total > 0 ? Math.min(100, Math.round((p.done * 100) / p.total)) : null;
   return (
-    <div className={`statusbar ${isElectron ? 'has-grip' : ''}`}>
+    <div className={`statusbar ${isDesktop ? 'has-grip' : ''}`}>
       <span className="status-text ellipsis" title={status}>{status}</span>
       {p && (
         <span className="status-progress">
@@ -54,7 +45,7 @@ export function StatusBar({ status, progress, onCancel }) {
           {onCancel && <button className="btn tiny" onClick={onCancel} disabled={p.cancelling}>{t('status_cancel')}</button>}
         </span>
       )}
-      {isElectron && <SizeGrip />}
+      {isDesktop && <SizeGrip />}
     </div>
   );
 }

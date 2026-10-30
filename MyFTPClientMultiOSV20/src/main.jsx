@@ -2,9 +2,11 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import DialogWindow, { dialogNameFromLocation } from './DialogWindow';
+import { installWindowDrag } from './lib/backend';
 import './styles.css';
 
 const dialogName = dialogNameFromLocation();
+installWindowDrag();
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

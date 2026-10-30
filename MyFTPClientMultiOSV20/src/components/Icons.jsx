@@ -38,6 +38,7 @@ const paths = {
   delete: <><circle cx="12" cy="12" r="9" /><path d="M6 6l12 12" /></>,
   open: <><path d="M14 3h7v7" /><path d="M21 3l-9 9" /><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" /></>,
   explorer: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11" /></>,
+  book: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /><path d="M9 7h7M9 11h5" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></>,
   warning: <><path d="M12 3l10 18H2z" /><path d="M12 10v4M12 17h.01" /></>,
   check: <><path d="M5 12l5 5L20 7" /></>,

@@ -66,6 +66,11 @@ function parseExitLine(line) {
 
 function childEnv(extra) {
   const env = { ...process.env, ...utf8LocaleEnv(), ...colorEnv(), ...(extra || {}) };
+  // A shell that brings its own PATH replaces the inherited one, whatever its
+  // spelling (Windows calls it Path); two spellings would leave the choice to chance.
+  if (extra && extra.PATH) {
+    for (const key of Object.keys(env)) if (key !== 'PATH' && key.toUpperCase() === 'PATH') delete env[key];
+  }
   delete env.ELECTRON_FORCE_LOCALE;
   delete env.LANGUAGE;
   delete env.NO_COLOR;
@@ -129,13 +134,18 @@ class TerminalSession extends EventEmitter {
   }
 }
 
+// The shell's name in the UI language ('en' → "Command Prompt", otherwise "명령 프롬프트").
+function shellTitle(sh, language) {
+  return language === 'en' ? sh.label : (sh.labelKo || sh.label);
+}
+
 class LocalSession extends TerminalSession {
-  constructor(id, { cwd, shellId, prompts, prompt, maxChunks }) {
+  constructor(id, { cwd, shellId, prompts, prompt, maxChunks, language }) {
     const sh = resolveShell(shellId);
     const dir = resolveCwd(cwd);
     super(id, {
       kind: 'local',
-      title: sh.labelKo || sh.label,
+      title: shellTitle(sh, language),
       cwd: dir,
       shellId: sh.id,
       maxChunks,
@@ -153,10 +163,12 @@ class LocalSession extends TerminalSession {
     this._atLineStart = true;
     this._history = [];
     this._histIdx = -1;
-    this._queued = '';
+    // Keys typed while a command runs (Enter and Backspace included), replayed
+    // at the next prompt as if typed there.
+    this._typeahead = '';
     this._completionKey = '';
     this.child = null;
-    this.echo(`${colorizeBanner(sh.labelKo || sh.label)}\r\n`);
+    this.echo(`${colorizeBanner(shellTitle(sh, language))}\r\n`);
     this._prompt();
   }
 
@@ -177,10 +189,10 @@ class LocalSession extends TerminalSession {
     this._ensureNl();
     this.echo(this._promptText());
     this._atLineStart = false;
-    if (this._queued) {
-      this._line = this._queued;
-      this.echo(this._queued);
-      this._queued = '';
+    if (this._typeahead) {
+      const keys = this._typeahead;
+      this._typeahead = '';
+      this.write(keys);
     }
   }
 
@@ -279,7 +291,11 @@ class LocalSession extends TerminalSession {
       if (ch === '\x1b') { this._esc = '\x1b'; continue; }
       if (ch === '\r' || ch === '\n') {
         if (ch === '\r' && chars[i + 1] === '\n') i += 1;
-        if (this._busy) continue;
+        if (this._busy) {
+          // Type-ahead: Enter and whatever follows run after the current command.
+          this._typeahead += `\r${chars.slice(i + 1).join('')}`;
+          return;
+        }
         this.echo('\r\n');
         const line = this._line;
         this._line = '';
@@ -289,10 +305,7 @@ class LocalSession extends TerminalSession {
       }
       if (ch === '\u007f' || ch === '\b') {
         if (this._busy) {
-          if (this._queued) {
-            const { rest } = popLastChar(this._queued);
-            this._queued = rest;
-          }
+          if (this._typeahead && !this._typeahead.endsWith('\r')) this._typeahead = popLastChar(this._typeahead).rest;
           continue;
         }
         this._completionKey = '';
@@ -302,7 +315,7 @@ class LocalSession extends TerminalSession {
       if (ch === '\u0003') {
         this.echo('^C\r\n');
         this._line = '';
-        this._queued = '';
+        this._typeahead = '';
         this._histIdx = -1;
         this._completionKey = '';
         this._killChild();
@@ -331,7 +344,7 @@ class LocalSession extends TerminalSession {
       }
       if (ch < ' ') continue;
       if (this._busy) {
-        this._queued += ch;
+        this._typeahead += ch;
         continue;
       }
       this._completionKey = '';
@@ -580,7 +593,7 @@ class TerminalRegistry extends EventEmitter {
     return listShells();
   }
 
-  async open({ kind = 'local', cwd, connId, remotePath, cols, rows, shellId, prompts, prompt, maxChunks } = {}) {
+  async open({ kind = 'local', cwd, connId, remotePath, cols, rows, shellId, prompts, prompt, maxChunks, language } = {}) {
     if (this.map.size >= MAX_SESSIONS) {
       const e = new Error(`At most ${MAX_SESSIONS} terminals can be open`);
       e.code = 'EMAX';
@@ -611,7 +624,7 @@ class TerminalRegistry extends EventEmitter {
         throw err;
       }
     } else {
-      session = new LocalSession(id, { cwd, shellId, prompts, prompt, maxChunks });
+      session = new LocalSession(id, { cwd, shellId, prompts, prompt, maxChunks, language });
       this._bind(session);
       this.map.set(id, session);
     }
@@ -660,4 +673,4 @@ class TerminalRegistry extends EventEmitter {
   }
 }
 
-module.exports = { TerminalRegistry, MAX_SESSIONS, parseExitLine };
+module.exports = { TerminalRegistry, MAX_SESSIONS, parseExitLine, shellTitle };

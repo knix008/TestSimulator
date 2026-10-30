@@ -1,0 +1,87 @@
+/* My FTP Client — user guide. The colour tokens are the app's own (src/themes.js):
+   opened from the app, manual.js replaces them with the main window's theme. */
+:root {
+  color-scheme: dark;
+  --bg: #12161c; --bg-panel: #181d25; --bg-elev: #1e2430; --bg-hover: #262d3a;
+  --fg: #e6e9ef; --fg-muted: #98a2b3; --border: #2b3240; --border-strong: #3a4354;
+  --accent: #5b9cff; --accent-text: #0b1220;
+  --doc-size: 14px;
+  --head-h: 52px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 14px/1.6 "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  overflow: hidden;
+}
+body.ko .en, body.en .ko { display: none !important; }
+/* Below this width the header would wrap; the window's minimum is wider. */
+html { min-width: 760px; }
+
+/* ── Header: one row — title, language, text size, window buttons ── */
+.doc-head {
+  height: var(--head-h); display: flex; align-items: center; gap: 14px; padding: 0 0 0 16px;
+  background: var(--bg-elev); border-bottom: 1px solid var(--border); font-size: 13px; user-select: none;
+}
+.doc-head h1 { margin: 0; font-size: 15px; font-weight: 650; display: flex; align-items: center; gap: 9px; white-space: nowrap; }
+.doc-head h1 img { width: 22px; height: 22px; border: 0; background: none; border-radius: 0; }
+.doc-head .spacer { flex: 1; align-self: stretch; }
+.tools { display: flex; align-items: center; gap: 10px; padding-right: 12px; }
+.lang-group, .size { display: inline-flex; align-items: stretch; height: 30px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--bg-panel); }
+.lang-group button { display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.lang-group button + button { border-left: 1px solid var(--border); }
+.lang-group button:hover { background: var(--bg-hover); }
+.lang-group button.on { background: var(--accent); color: var(--accent-text); }
+.lang-group svg { display: block; border-radius: 2px; flex: none; }
+.size button { width: 32px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; display: grid; place-items: center; }
+.size button:hover:not(:disabled) { background: var(--bg-hover); }
+.size button:disabled { opacity: 0.35; cursor: default; }
+/* The current size sits centred between − and +. */
+.size output {
+  min-width: 56px; display: flex; align-items: center; justify-content: center; text-align: center;
+  font-variant-numeric: tabular-nums; border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+}
+.win-buttons { display: none; align-self: stretch; }
+body.desktop .win-buttons { display: flex; }
+.win-btn { width: 46px; border: 0; background: none; color: inherit; cursor: pointer; display: grid; place-items: center; }
+.win-btn:hover { background: var(--bg-hover); }
+.win-btn.close:hover { background: #e81123; color: #fff; }
+
+/* ── Body: structure on the left, content on the right ── */
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); height: calc(100vh - var(--head-h)); }
+#side {
+  overflow-y: auto; padding: 12px 8px 28px; border-right: 1px solid var(--border); background: var(--bg-panel);
+  font-size: calc(var(--doc-size) - 1px);
+}
+#side ol { list-style: none; margin: 0; padding: 0; }
+#side ol ol { margin: 2px 0 6px 12px; padding-left: 10px; border-left: 1px solid var(--border); }
+#side a { display: block; padding: 0.35em 10px; border-radius: 6px; color: inherit; text-decoration: none; line-height: 1.35; }
+#side ol ol a { padding: 0.25em 8px; color: var(--fg-muted); }
+#side a:hover { background: var(--bg-hover); }
+#side a.on { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-weight: 600; }
+#content { overflow-y: auto; scroll-behavior: smooth; }
+main { max-width: 940px; margin: 0 auto; padding: 22px 26px 80px; font-size: var(--doc-size); }
+.lead { margin: 0 0 20px; color: var(--fg-muted); }
+section { margin: 0 0 26px; padding: 18px 20px 8px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; scroll-margin-top: 12px; }
+section h2 { margin: 0 0 10px; font-size: 1.3em; }
+section h3 { margin: 18px 0 6px; font-size: 1.05em; scroll-margin-top: 12px; }
+p { margin: 0 0 10px; }
+ul, ol { margin: 0 0 12px; padding-left: 1.3em; }
+li { margin: 2px 0; }
+figure { margin: 4px 0 16px; }
+figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border-strong); border-radius: 8px; background: #000; }
+figcaption { margin-top: 6px; color: var(--fg-muted); font-size: 0.86em; }
+table { width: 100%; border-collapse: collapse; margin: 0 0 14px; font-size: 0.93em; }
+th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--fg-muted); font-weight: 650; white-space: nowrap; }
+code, kbd { font-family: "Cascadia Mono", Consolas, monospace; font-size: 0.9em; }
+code { padding: 0 4px; border-radius: 4px; background: var(--bg-elev); }
+kbd { padding: 0 5px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--bg-elev); }
+pre { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: var(--bg-elev); overflow-x: auto; }
+.note { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 0 6px 6px 0; }
+a { color: var(--accent); }
+
+/* Resize grip, bottom-right (the window has no frame). */
+.grip { display: none; position: fixed; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; color: var(--fg-muted); place-items: end; padding: 0 2px 2px 0; }
+body.desktop .grip { display: grid; }

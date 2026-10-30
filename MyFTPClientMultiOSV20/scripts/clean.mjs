@@ -1,7 +1,7 @@
 // Removes everything that a build reproduces:
-//   dist/ release/ build/icons/ public/icon.svg src/build-info.json .smoke/
-//   and the installers copied to the project root.
-// `--all` also removes node_modules/ (then `npm install` again).
+//   dist/ src-tauri/runtime/ src-tauri/gen/ public/icon.svg src/build-info.json
+//   .smoke/ and the installers copied to the project root.
+// `--all` also removes node_modules/ and src-tauri/target/ (then `npm install` again).
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -10,10 +10,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const all = process.argv.includes('--all');
 
-const targets = ['dist', 'release', path.join('build', 'icons'), path.join('public', 'icon.svg'), path.join('src', 'build-info.json'), '.smoke', '.icons-preview.png', '.npm-install.log'];
-if (all) targets.push('node_modules');
+const targets = ['dist', path.join('src-tauri', 'runtime'), path.join('src-tauri', 'gen'), path.join('public', 'icon.svg'), path.join('src', 'build-info.json'), '.smoke', '.icons-preview.png', '.npm-install.log'];
+if (all) targets.push('node_modules', path.join('src-tauri', 'target'));
 for (const name of fs.readdirSync(root)) {
-  if (/\.(exe|dmg|AppImage|deb|rpm|snap|blockmap)$/i.test(name)) targets.push(name);
+  if (/\.(exe|msi|dmg|AppImage|deb|rpm)$/i.test(name)) targets.push(name);
 }
 
 let removed = 0;
