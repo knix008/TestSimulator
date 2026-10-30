@@ -266,6 +266,18 @@ class Engine {
       case 'click': { const el = firstMatch(arg); if (el) { el.click(); await sleep(300); } break; }
       case 'scroll': { const el = firstMatch(arg); if (el) { el.scrollIntoView({ block: 'center' }); await sleep(300); } break; }
       case 'wait': await sleep(Number(arg) || 300); break;
+      case 'fill-source': {
+        // Types a sample's folder into the new-project dialog's source box.
+        const input = firstMatch('[data-tour="new-project-source"] input');
+        const list = await call('samples.list').catch(() => []);
+        const sample = list.find((s) => s.id === arg) || list[0];
+        if (input && sample) {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, sample.path);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          await sleep(300);
+        }
+        break;
+      }
       case 'guide': if (mcc().openGuide) { mcc().openGuide('guide'); await sleep(600); } break;
       case 'close-guide': if (mcc().closeGuide) mcc().closeGuide(); break;
       default: break;

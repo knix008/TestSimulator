@@ -412,9 +412,17 @@ td.mono, .mono { font-family: var(--mono); font-size: 11.5px; }
 .glossary dd { margin: 0; line-height: 1.45; }
 
 /* Excluded-folder picker */
-.xd-dialog { width: min(620px, 94vw); }
+/* Only the tree scrolls; the dialog (or its window) never does. */
+.dialog.xd-dialog { width: min(620px, 94vw); height: min(560px, 86vh); display: flex; flex-direction: column; overflow: hidden; }
+.dialog.xd-dialog > .dialog-body,
+html.popup-window .dialog.windowed.xd-dialog > .dialog-body,
+.dialog-window > .dialog.windowed.xd-dialog > .dialog-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.dialog.xd-dialog > .dialog-body > *,
+.dialog-window > .dialog.windowed.xd-dialog > .dialog-body > * { flex-shrink: 0; }
 .xd-root { display: flex; align-items: center; gap: 6px; margin: 6px 0; color: var(--fg-muted); overflow-wrap: anywhere; }
-.xd-tree { height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 0; background: var(--bg); }
+.dialog.xd-dialog > .dialog-body > .xd-tree,
+.dialog-window > .dialog.windowed.xd-dialog > .dialog-body > .xd-tree { flex: 1 1 auto; min-height: 60px; }
+.xd-tree { overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 0; background: var(--bg); }
 .xd-row { display: flex; align-items: center; gap: 2px; min-height: 26px; padding-right: 8px; }
 .xd-row:hover { background: var(--bg-hover, rgba(128, 128, 128, .08)); }
 .xd-row.off .xd-name { color: var(--fg-muted); text-decoration: line-through; }
@@ -462,6 +470,9 @@ td.mono, .mono { font-family: var(--mono); font-size: 11.5px; }
 .form-grid > label, .form-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--fg-muted); min-width: 0; }
 .form-grid > label > input, .form-grid > label > textarea { color: var(--fg); width: 100%; }
 .form-grid > label > input { height: var(--ctl-h); }
+.form-grid > .pj-exclude { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--fg-muted); min-width: 0; }
+.pj-exclude .input-row { align-items: center; }
+.pj-exclude .chips { flex: 1; min-width: 0; color: var(--fg); }
 .form-grid > label > .iselect { width: 100%; }
 .form-grid .span2 { grid-column: span 2; }
 .form-end { display: flex; justify-content: flex-end; align-items: end; grid-column: -2 / -1; }

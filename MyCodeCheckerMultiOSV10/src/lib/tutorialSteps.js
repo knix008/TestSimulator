@@ -24,6 +24,7 @@
 //   'click:<sel>'      click the first element matching (ignored when missing)
 //   'scroll:<sel>'     scroll the element into view
 //   'wait:<ms>'        wait
+//   'fill-source:<id>' type sample <id>'s folder into the new-project source box
 //   'guide' / 'close-guide'  open / close the user's guide window
 // Before every step the engine closes menus and dialogs left by the previous one.
 // dwell: auto-play time in ms (default: from the text length).
@@ -86,8 +87,14 @@ const ROWS = [
 
   // ── 2. 프로젝트와 분석 ───────────────────────────────
   ['newProject', 'project', DIALOG('dialog-new-project'), ['start', 'act:newProject', 'wait:300'],
-    ['새 프로젝트 만들기', '파일 › 새 프로젝트(Ctrl+N)는 소스 폴더와 설정을 프로젝트 파일(.mccp)에 담습니다. [이름] 과 [소스 폴더] 를 적으면 [프로젝트 파일] 경로가 채워집니다. [더 많은 설정] 을 켜면 프로젝트 키, 제외할 경로, 품질 프로파일과 게이트 같은 항목이 나오고, [만든 뒤 바로 분석] 이 켜져 있으면 저장하자마자 분석합니다. 프로젝트 파일에는 설정만 들어 있어 동료와 공유하거나 저장소에 함께 넣어 두기 좋습니다.'],
-    ['Creating a project', 'File › New project (Ctrl+N) puts a source folder and its settings in a project file (.mccp). Enter the [Name] and the [Source folder] and the [Project file] path fills in. [More settings] shows the project key, paths to exclude, the quality profile and gate and more, and with [Analyse after creating] on, the project is analysed as soon as it is saved. A project file holds only settings, so it is easy to share or to keep in the repository.']],
+    ['새 프로젝트 만들기', '파일 › 새 프로젝트(Ctrl+N)는 소스 폴더와 설정을 프로젝트 파일(.mccp)에 담습니다. [이름] 과 [소스 폴더] 를 적으면 [프로젝트 파일] 경로가 채워집니다. 바로 아래 [분석 제외 폴더] 에서 분석하지 않을 폴더를 미리 고를 수 있습니다. [더 많은 설정] 을 켜면 기본 브랜치, 설명, 제외 패턴이 나오고, [만든 뒤 바로 분석] 이 켜져 있으면 저장하자마자 분석합니다. 프로젝트 파일에는 설정만 들어 있어 동료와 공유하거나 저장소에 함께 넣어 두기 좋습니다.'],
+    ['Creating a project', 'File › New project (Ctrl+N) puts a source folder and its settings in a project file (.mccp). Enter the [Name] and the [Source folder] and the [Project file] path fills in. Right below, [Excluded folders] lets you leave folders out of the analysis from the start. [More settings] shows the main branch, a description and exclusion patterns, and with [Analyse after creating] on, the project is analysed as soon as it is saved. A project file holds only settings, so it is easy to share or to keep in the repository.']],
+  ['newProjectExcludePick', 'project', T('exclude-dirs', '.xd-dialog'), ['start', 'act:newProject', 'wait:300', 'fill-source:demo', 'click:[data-tour="new-project-exclude"] .vbtn', 'wait:700', 'click:.xd-dialog [data-rel="dup"] input', 'wait:200'],
+    ['새 프로젝트에서 제외 폴더 고르기', '[소스 폴더] 를 정한 뒤 [분석 제외 폴더] 의 [폴더 선택…] 을 누르면 소스 폴더의 트리가 열립니다. ▸ 로 폴더를 펼치고, 빼고 싶은 폴더에 체크합니다. 체크한 폴더와 그 아래 모든 파일은 분석하지 않으며, 위 폴더를 체크하면 아래 폴더는 저절로 함께 빠집니다. node_modules, .git, build 처럼 [항상 제외] 가 붙은 폴더는 따로 고르지 않아도 빠집니다. 다 고르면 [저장] 을 누릅니다.'],
+    ['Excluding folders in a new project', 'Once the [Source folder] is set, [Choose folders…] under [Excluded folders] opens the folder tree of the source. Expand folders with ▸ and check the ones to leave out. A checked folder and everything below it is not analysed, and checking a folder takes the folders below it along. Folders marked [always skipped], such as node_modules, .git and build, are left out without choosing them. Press [Save] when done.']],
+  ['newProjectExcluded', 'project', T('new-project-exclude', '.pj-exclude'), ['start', 'act:newProject', 'wait:300', 'fill-source:demo', 'click:[data-tour="new-project-exclude"] .vbtn', 'wait:700', 'click:.xd-dialog [data-rel="dup"] input', 'click:.xd-dialog .vbtn-primary', 'wait:200'],
+    ['고른 제외 폴더 확인', '저장한 폴더는 [분석 제외 폴더] 에 칩으로 보입니다. 칩의 ✕ 로 하나씩 뺄 수 있고, [폴더 선택…] 을 다시 눌러 고칠 수 있습니다. [소스 폴더] 를 바꾸면 목록은 비워집니다. 고른 폴더는 프로젝트 파일(.mccp)의 excludeDirs 에 저장되어 첫 분석부터 적용되고, 나중에는 파일 › 분석 제외 폴더… 나 프로젝트 설정의 [분석 범위] 에서 바꿉니다.'],
+    ['Checking the excluded folders', 'The saved folders show as chips under [Excluded folders]. The ✕ on a chip removes one, and [Choose folders…] opens the tree again to change them. Changing the [Source folder] clears the list. The folders are saved in excludeDirs of the project file (.mccp) and apply from the very first analysis; later you change them in File › Excluded folders… or under [Analysis scope] in the project settings.']],
   ['openProject', 'project', T('menu-popup', '.menu-pop', '[role="menu"]'), ['project', 'menu:file'],
     ['프로젝트 열기와 저장', '파일 메뉴에서 [프로젝트 열기](Ctrl+Shift+O)로 .mccp 파일을, [폴더 열기](Ctrl+O)로 소스 폴더를 바로 엽니다. .mccp 파일을 탐색기에서 두 번 눌러도 MyCodeChecker 가 열립니다. [저장](Ctrl+S)과 [다른 이름으로 저장](Ctrl+Shift+S)은 지금 프로젝트의 설정을 파일로 남기고, 아래쪽에는 최근 프로젝트 목록이 있습니다.'],
     ['Opening and saving projects', 'In the File menu, [Open project] (Ctrl+Shift+O) opens a .mccp file and [Open folder] (Ctrl+O) opens a source folder directly. Double-clicking a .mccp file in the file manager also opens MyCodeChecker. [Save] (Ctrl+S) and [Save as] (Ctrl+Shift+S) write the current project\'s settings to a file, and the recent projects are listed below.']],

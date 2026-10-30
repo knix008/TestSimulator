@@ -54,6 +54,8 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
     if (fileTouched) return;
     setFile(source ? joinPath(source, `${keyFrom(name || baseName(source))}.mccp`) : '');
   }, [name, source, fileTouched]);
+  // Excluded folders are relative to the source folder; a new source starts empty.
+  useEffect(() => { setExcludeDirs([]); }, [source]);
   const browse = async () => {
     const dir = await pickFolder();
     if (dir) { setSource(dir); if (!name) setName(baseName(dir)); }
@@ -94,7 +96,7 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
       <div className="pj-head"><FileIcon size={44} /><p className="small">{t('pj_new_hint')}</p></div>
       <div className="form-grid">
         <label className="span2">{t('name')}<input autoFocus value={name} placeholder={t('pj_name_ph')} onChange={(e) => setName(e.target.value)} /></label>
-        <label className="span2">{t('pj_source')}
+        <label className="span2" data-tour="new-project-source">{t('pj_source')}
           <span className="input-row">
             <input value={source} placeholder={t('pj_source_ph')} onChange={(e) => setSource(e.target.value)} />
             {isDesktop && <Btn icon="folder" label={t('pj_browse')} onClick={browse} />}
@@ -106,6 +108,19 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
             {isDesktop && <Btn icon="save" label={t('pj_browse')} onClick={browseFile} />}
           </span>
         </label>
+        <div className="span4 pj-exclude" data-tour="new-project-exclude">
+          <span>{t('ad_exclude_dirs')}</span>
+          <div className="input-row">
+            <div className="chips">
+              {excludeDirs.length ? excludeDirs.map((dir) => (
+                <span key={dir} className="chip"><Icon name="folder" size={11} />{dir}
+                  <button type="button" className="chip-x" aria-label={t('remove')} title={t('remove')} onClick={() => setExcludeDirs(excludeDirs.filter((x) => x !== dir))}><Icon name="close" size={10} /></button>
+                </span>
+              )) : <span className="small muted">{source.trim() ? t('xd_none') : t('xd_need_source')}</span>}
+            </div>
+            <Btn icon="folder" label={t('xd_pick')} disabled={!source.trim()} title={source.trim() ? undefined : t('xd_need_source')} onClick={() => setPickDirs(true)} />
+          </div>
+        </div>
       </div>
       <Toggle icon="settings" label={t('pj_more')} checked={more} onChange={setMore} />
       {more && (
@@ -113,13 +128,6 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
           <label>{t('pj_main_branch')}<input value={mainBranch} onChange={(e) => setMainBranch(e.target.value)} /></label>
           <label className="span2">{t('pj_description')}<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
           <label className="span4">{t('exclusions')}<textarea className="mono" value={exclusions} placeholder={'**/generated/**\n**/*.test.js'} onChange={(e) => setExclusions(e.target.value)} /></label>
-          <div className="span4">
-            <span>{t('ad_exclude_dirs')}</span>
-            <div className="chips">
-              {excludeDirs.length ? excludeDirs.map((dir) => <span key={dir} className="chip"><Icon name="folder" size={11} />{dir}</span>) : <span className="small">{t('xd_none')}</span>}
-            </div>
-            <Btn icon="folder" label={t('xd_pick')} disabled={!source.trim()} title={source.trim() ? undefined : t('xd_need_source')} onClick={() => setPickDirs(true)} />
-          </div>
         </div>
       )}
       {pickDirs && <ExcludeDirsDialog root={source.trim()} value={excludeDirs} onClose={() => setPickDirs(false)} onSave={(dirs) => { setExcludeDirs(dirs); setPickDirs(false); }} />}
