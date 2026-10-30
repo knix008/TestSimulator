@@ -10,6 +10,7 @@
 // finishes.
 'use strict';
 
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const local = require('./local');
@@ -33,6 +34,23 @@ function createApi(host = {}) {
   history.load();
   const connections = new Connections();
   const terminals = new TerminalRegistry({ connections });
+
+  const dragTempRoot = path.join(os.tmpdir(), 'myftpclient-drag');
+  fs.mkdirSync(dragTempRoot, { recursive: true });
+  // Explorer may still be copying out of a drag folder for a while; a day later it is safe to go.
+  for (const name of fs.readdirSync(dragTempRoot)) {
+    const p = path.join(dragTempRoot, name);
+    try { if (Date.now() - fs.statSync(p).mtimeMs > 24 * 3600_000) fs.rmSync(p, { recursive: true, force: true }); } catch { /* in use */ }
+  }
+
+  function transferOpts(id) {
+    const s = session.get();
+    return {
+      concurrency: s.transferConcurrency,
+      skipUnchanged: s.skipUnchanged,
+      acquirePool: (n, signal) => connections.acquireTransferPool(id, n, signal),
+    };
+  }
 
   function checkRemoteName(name) {
     if (!name || name.includes('/') || name === '.' || name === '..') {
@@ -73,6 +91,14 @@ function createApi(host = {}) {
     'local.mkdir': async ({ dir, name }) => ({ path: await local.makeDirectory(dir, name) }),
     'local.rename': async ({ path: p, newName }) => ({ path: await local.renamePath(p, newName) }),
     'local.delete': async ({ paths }) => local.deletePaths(paths || []),
+    // Copy / move inside this machine (paste, drag between folders, files from Explorer).
+    'local.copy': async ({ items, destDir, move }) => {
+      if (!(await local.isDirectory(destDir))) throw Object.assign(new Error(`Local folder not found: ${destDir}`), { code: 'ENOENT', path: destDir });
+      return jobs.run(move ? 'localMove' : 'localCopy', { count: (items || []).length, destDir }, (job) => transfer.copyLocal(items || [], destDir, job, { move: !!move })).snapshot();
+    },
+    // A fresh folder for server files dragged out of the window: they are
+    // downloaded there, then handed to the OS drag. Old ones go at start-up.
+    'local.dragTemp': async () => ({ path: await fs.promises.mkdtemp(path.join(dragTempRoot, 'drag-')) }),
     'local.reveal': async ({ path: p }) => {
       if (!host.revealPath) throw Object.assign(new Error('Not available in the web version'), { code: 'UNSUPPORTED' });
       await host.revealPath(p);
@@ -124,27 +150,25 @@ function createApi(host = {}) {
     },
     'remote.delete': async ({ id, items }) =>
       jobs.run('remoteDelete', { count: (items || []).length }, (job) => transfer.removeRemote(connections.get(id), items || [], job)).snapshot(),
+    'remote.move': async ({ id, items, destDir }) => {
+      const client = connections.get(id);
+      return jobs.run('remoteMove', { count: (items || []).length, destDir }, (job) => transfer.moveRemote(client, items || [], destDir || '/', job)).snapshot();
+    },
+    'remote.copy': async ({ id, items, destDir }) => {
+      const client = connections.get(id);
+      return jobs.run('remoteCopy', { count: (items || []).length, destDir }, (job) => transfer.copyRemote(client, items || [], destDir || '/', job, transferOpts(id))).snapshot();
+    },
 
-    // ── transfers (return job snapshots) ──
-    'transfer.download': async ({ id, items, localDir }) => {
+    // ── transfers (return job snapshots); `move` = cut & paste ──
+    'transfer.download': async ({ id, items, localDir, move }) => {
       const client = connections.get(id);
       if (!(await local.isDirectory(localDir))) throw Object.assign(new Error(`Local folder not found: ${localDir}`), { code: 'ENOENT', path: localDir });
-      const s = session.get();
-      const opts = {
-        concurrency: s.transferConcurrency,
-        skipUnchanged: s.skipUnchanged,
-        acquirePool: (n, signal) => connections.acquireTransferPool(id, n, signal),
-      };
+      const opts = { ...transferOpts(id), move: !!move };
       return jobs.run('download', { count: (items || []).length, localDir }, (job) => transfer.download(client, items || [], localDir, job, opts)).snapshot();
     },
-    'transfer.upload': async ({ id, items, remoteDir }) => {
+    'transfer.upload': async ({ id, items, remoteDir, move }) => {
       const client = connections.get(id);
-      const s = session.get();
-      const opts = {
-        concurrency: s.transferConcurrency,
-        skipUnchanged: s.skipUnchanged,
-        acquirePool: (n, signal) => connections.acquireTransferPool(id, n, signal),
-      };
+      const opts = { ...transferOpts(id), move: !!move };
       return jobs.run('upload', { count: (items || []).length, remoteDir }, (job) => transfer.upload(client, items || [], remoteDir || '/', job, opts)).snapshot();
     },
 

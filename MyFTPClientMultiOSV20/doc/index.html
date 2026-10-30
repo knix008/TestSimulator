@@ -164,6 +164,7 @@
           <li>폴더를 두 번 클릭하거나 <kbd>Enter</kbd>: 들어가기. <code>[..]</code> 또는 <kbd>Backspace</kbd>: 상위 폴더.</li>
           <li>파일을 두 번 클릭하거나 <kbd>Enter</kbd>: 현재 로컬 폴더로 다운로드.</li>
           <li><kbd>Ctrl</kbd>+클릭, <kbd>Shift</kbd>+클릭으로 여러 개 선택, <kbd>Ctrl</kbd>+<kbd>A</kbd> 전체 선택, <kbd>F5</kbd> 새로 고침.</li>
+          <li><kbd>Del</kbd> 선택한 항목(여러 개도) 삭제, <kbd>F2</kbd> 이름 바꾸기, <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd> 복사 · 잘라내기 · 붙여넣기 — 로컬 패널도 같습니다.</li>
         </ul>
         <h3>로컬 패널</h3>
         <ul>
@@ -179,6 +180,7 @@
           <li>Double-click a folder or press <kbd>Enter</kbd> to open it; <code>[..]</code> or <kbd>Backspace</kbd> goes up.</li>
           <li>Double-click a file or press <kbd>Enter</kbd> to download it to the current local folder.</li>
           <li><kbd>Ctrl</kbd>+click and <kbd>Shift</kbd>+click select several, <kbd>Ctrl</kbd>+<kbd>A</kbd> selects all, <kbd>F5</kbd> refreshes.</li>
+          <li><kbd>Del</kbd> deletes the selection (several items too), <kbd>F2</kbd> renames, <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>X</kbd> / <kbd>V</kbd> copy, cut and paste — the same in the local panel.</li>
         </ul>
         <h3>Local panel</h3>
         <ul>
@@ -211,6 +213,23 @@
         <h3>같은 이름이 있을 때</h3>
         <p>크기와 날짜가 같으면 건너뛰기(설정, 기본 켜짐)에 해당하지 않으면 충돌 창이 뜹니다. <b>덮어쓰기</b> / <b>건너뛰기</b> / <b>취소</b> 중에서 고르고, "이후 항목에도 동일하게 적용" 을 체크하면 남은 파일에 같은 답을 씁니다.</p>
         <figure><img src="img/conflict.png" alt=""><figcaption>충돌 창</figcaption></figure>
+        <h3>복사 · 잘라내기 · 붙여넣기</h3>
+        <table>
+          <tr><th>복사한 곳 → 붙여넣는 곳</th><th>동작</th></tr>
+          <tr><td>로컬 → 서버</td><td>서버의 현재 폴더로 업로드 (잘라내기면 뒤에 로컬 원본 삭제)</td></tr>
+          <tr><td>서버 → 로컬</td><td>현재 로컬 폴더로 다운로드 (잘라내기면 뒤에 서버 원본 삭제)</td></tr>
+          <tr><td>서버 → 서버</td><td>잘라내기는 이름 바꾸기로 이동, 복사는 임시 폴더를 거쳐 다시 올림</td></tr>
+          <tr><td>로컬 → 로컬</td><td>폴더째 복사 / 이동</td></tr>
+          <tr><td>탐색기 ↔ 앱</td><td>탐색기에서 복사한 파일을 패널에 <kbd>Ctrl</kbd>+<kbd>V</kbd>, 로컬 패널에서 복사한 파일을 탐색기에 붙여 넣기 (Windows)</td></tr>
+        </table>
+        <p>잘라낸 항목은 흐리게 보입니다. 같은 폴더에 복사하면 <code>이름 (2).txt</code> 처럼 새 이름이 붙고, 같은 이름이 있으면 위의 충돌 창이 뜹니다.</p>
+        <h3>끌어 놓기</h3>
+        <ul>
+          <li>행을 다른 패널로 끌면 전송, 같은 패널의 폴더 행으로 끌면 그 폴더로 옮깁니다. 커서 옆에 <b>복사 → 폴더</b> / <b>이동 → 폴더</b> 가 보입니다.</li>
+          <li>탐색기와 같은 규칙: 같은 쪽(같은 드라이브)은 이동, <kbd>Ctrl</kbd> 은 복사. 다른 쪽이나 앱 밖의 파일은 복사, <kbd>Shift</kbd> 는 이동. <kbd>Esc</kbd> 로 취소.</li>
+          <li>탐색기·바탕 화면의 파일을 <b>서버 패널에 놓으면 바로 업로드</b>, 로컬 폴더 행에 놓으면 그 폴더로 복사합니다.</li>
+          <li>창 밖으로 끌어 탐색기·바탕 화면에 놓을 수 있습니다. 서버 항목은 임시 폴더로 먼저 받으니 그동안 버튼을 누르고 있으세요 (Windows). 웹 버전은 창 안에서만 됩니다.</li>
+        </ul>
       </div>
       <div class="en">
         <h3>Ways to transfer</h3>
@@ -231,6 +250,23 @@
         <h3>When the name exists</h3>
         <p>Unless "skip when size and date match" (Settings, on by default) applies, a conflict window asks: <b>Overwrite</b>, <b>Skip</b> or <b>Cancel</b>. Tick "apply to the rest" to give the same answer for the remaining files.</p>
         <figure><img src="img/conflict.png" alt=""><figcaption>The conflict window</figcaption></figure>
+        <h3>Copy, cut and paste</h3>
+        <table>
+          <tr><th>Copied from → pasted into</th><th>What happens</th></tr>
+          <tr><td>Local → server</td><td>Upload to the server's current folder (a cut removes the local originals afterwards)</td></tr>
+          <tr><td>Server → local</td><td>Download to the current local folder (a cut removes the server originals afterwards)</td></tr>
+          <tr><td>Server → server</td><td>A cut moves by renaming; a copy goes through a temporary folder and back up</td></tr>
+          <tr><td>Local → local</td><td>Copy or move, folders included</td></tr>
+          <tr><td>Explorer ↔ the app</td><td>Files copied in Explorer paste into a panel with <kbd>Ctrl</kbd>+<kbd>V</kbd>; files copied in the local panel paste into Explorer (Windows)</td></tr>
+        </table>
+        <p>Cut items are dimmed. A copy into the same folder gets a new name such as <code>name (2).txt</code>; an existing name brings up the conflict window above.</p>
+        <h3>Drag and drop</h3>
+        <ul>
+          <li>Drag rows to the other panel to transfer them, or onto a folder row in the same panel to put them there. The cursor shows <b>Copy → folder</b> or <b>Move → folder</b>.</li>
+          <li>Explorer's rules: on the same side (same drive) a drag moves, <kbd>Ctrl</kbd> copies; to the other side or from outside the app it copies, <kbd>Shift</kbd> moves. <kbd>Esc</kbd> cancels.</li>
+          <li>Files from Explorer or the desktop <b>dropped on the server panel are uploaded right away</b>; dropped on a local folder row they are copied there.</li>
+          <li>Drag out of the window onto Explorer or the desktop. Server items are fetched to a temporary folder first, so keep the button down meanwhile (Windows). The web version drags inside the page only.</li>
+        </ul>
       </div>
     </section>
 
@@ -238,18 +274,18 @@
       <h2><span class="ko">오른쪽 클릭 메뉴</span><span class="en">Right-click menus</span></h2>
       <div class="ko">
         <h3>서버</h3>
-        <p>다운로드 · 새로 고침 · 상위 폴더로 · 새 폴더 · 이름 바꾸기 · 삭제 · 경로 복사. 서버의 삭제는 되돌릴 수 없습니다.</p>
+        <p>다운로드 · 새로 고침 · 상위 폴더로 · 새 폴더 · 이름 바꾸기 · 삭제 · 잘라내기 · 복사 · 붙여넣기 · 경로 복사. 서버의 삭제는 되돌릴 수 없습니다.</p>
         <figure><img src="img/server-menu.png" alt=""><figcaption>서버 항목의 메뉴</figcaption></figure>
         <h3>로컬</h3>
-        <p>업로드 · 새로 고침 · 탐색기에서 열기 · 열기(기본 앱) · 새 폴더 · 이름 바꾸기 · 삭제 · 경로 복사. 로컬 삭제는 휴지통을 거치지 않습니다. 탐색기에서 열기와 열기는 데스크톱 앱에서만 됩니다.</p>
+        <p>업로드 · 새로 고침 · 탐색기에서 열기 · 열기(기본 앱) · 새 폴더 · 이름 바꾸기 · 삭제 · 잘라내기 · 복사 · 붙여넣기 · 경로 복사. 로컬 삭제는 휴지통을 거치지 않습니다. 탐색기에서 열기와 열기는 데스크톱 앱에서만 됩니다.</p>
         <figure><img src="img/local-menu.png" alt=""><figcaption>로컬 항목의 메뉴</figcaption></figure>
       </div>
       <div class="en">
         <h3>Server</h3>
-        <p>Download · Refresh · Up · New folder · Rename · Delete · Copy path. Deleting on the server cannot be undone.</p>
+        <p>Download · Refresh · Up · New folder · Rename · Delete · Cut · Copy · Paste · Copy path. Deleting on the server cannot be undone.</p>
         <figure><img src="img/server-menu.png" alt=""><figcaption>The menu of a server item</figcaption></figure>
         <h3>Local</h3>
-        <p>Upload · Refresh · Show in file manager · Open (default app) · New folder · Rename · Delete · Copy path. Local delete does not use the recycle bin. Show and Open are desktop-only.</p>
+        <p>Upload · Refresh · Show in file manager · Open (default app) · New folder · Rename · Delete · Cut · Copy · Paste · Copy path. Local delete does not use the recycle bin. Show and Open are desktop-only.</p>
         <figure><img src="img/local-menu.png" alt=""><figcaption>The menu of a local item</figcaption></figure>
       </div>
     </section>

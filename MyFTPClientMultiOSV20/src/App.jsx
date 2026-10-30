@@ -3,12 +3,16 @@
 // Layout (the WinForms original, top to bottom): toolbar · connection bar ·
 // [ server listing | ←/→ transfer bar | local tree ] · log · status bar.
 // Every action that needs a dialog, a job with progress, or both panels
-// lives here; the panels only render and report selections.
+// lives here; the panels only render and report selections. Copy / cut /
+// paste and drag & drop between the panels, Explorer and the desktop end up in
+// transferInto(): upload, download, or a copy / move on one side.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { call, runJob, cancelJob, resolveConflict, writeClipboardText, broadcastAppearance, onAppearance, openManual } from './lib/backend';
+import { call, runJob, cancelJob, resolveConflict, writeClipboardText, broadcastAppearance, onAppearance, openManual,
+  isTauri, startNativeDrag, dragKeys, writeFileClipboard, readFileClipboard, clearFileClipboard, onOsDragDrop } from './lib/backend';
+import { setDragHandler, dropTargetAt } from './lib/filedrag';
 import { setAppearance, getAppearance } from './lib/appearance';
 import { t, setLanguage, getLanguage, useLanguage } from './lib/i18n';
-import { setSeparator, baseName, dirName, formatSpeed, formatSize, formatDate, timeStamp, samePath, isUnder, parseHostInput } from './lib/format';
+import { setSeparator, baseName, dirName, joinLocal, posixParent, formatSpeed, formatSize, formatDate, timeStamp, samePath, isUnder, parseHostInput } from './lib/format';
 import { playSuccess, playError, setSoundsEnabled } from './lib/sound';
 import { SETTINGS_DEFAULTS } from './lib/settings';
 import { applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
@@ -32,6 +36,14 @@ function themeIdOf(s) {
 }
 
 const EMPTY_FORM = { protocol: 'FTP', host: '', port: '21', user: '', password: '' };
+
+// Path rules per side: server paths are POSIX and case-sensitive.
+const sidePaths = {
+  server: { parent: posixParent, same: (a, b) => a === b, under: (c, p) => c === p || c.startsWith(p.endsWith('/') ? p : `${p}/`) },
+  local: { parent: dirName, same: samePath, under: isUnder },
+};
+
+const sameHover = (a, b) => (!a && !b) || (a && b && a.side === b.side && a.dir === b.dir && a.row === b.row);
 const MAX_LOG = 2000;
 
 export default function App() {
@@ -60,6 +72,11 @@ export default function App() {
   const [terminalView, setTerminalView] = useState(false);
   const [bootError, setBootError] = useState('');
   const [ctxMenu, setCtxMenu] = useState(null);
+  const [clip, setClip] = useState(null);          // { side, items, move, connId } — the app's copy / cut
+  const [dropHover, setDropHover] = useState(null); // { side, dir, row } under a drag
+  const nativeDragRef = useRef(null);              // our drag that went out to the OS (it may come back)
+  const osEnterPaths = useRef([]);
+  const osDropRef = useRef(null);
   const localTree = useRef(null);
   const filesRef = useRef(null);
   const logPanelRef = useRef(null);
@@ -340,16 +357,19 @@ export default function App() {
 
   const summary = (r) => t('transfer_summary', { n: r.done }) + (r.skipped ? t('transfer_skipped', { n: r.skipped }) : '');
 
-  const download = async (items) => {
+  // `dir` is the target folder (the current one by default); `move` removes
+  // the sources afterwards (cut & paste, Shift-drag).
+  const download = async (items, { dir, move } = {}) => {
     const c = connRef.current;
-    if (!c) { showError(t('dlg_error'), t('not_connected')); return; }
-    if (!items.length) { setStatus(t('nothing_selected')); return; }
-    if (!localDir) return;
+    if (!c) { showError(t('dlg_error'), t('not_connected')); return null; }
+    if (!items.length) { setStatus(t('nothing_selected')); return null; }
+    const dest = dir || localDir;
+    if (!dest) return null;
     const name = items.length === 1 ? baseName(items[0].path) : `${items.length} items`;
-    appendLog(t('log_download_start', { src: items.map((i) => i.path).join(', '), dest: localDir }));
+    appendLog(t('log_download_start', { src: items.map((i) => i.path).join(', '), dest }) + (move ? t('log_move_tag') : ''));
     let snap;
     try {
-      snap = await runTransfer('transfer.download', { id: c.id, items: items.map((i) => ({ path: i.path, isDir: i.isDir, size: i.size, mtime: i.mtime })), localDir }, t('verb_download'));
+      snap = await runTransfer('transfer.download', { id: c.id, items: items.map((i) => ({ path: i.path, isDir: i.isDir, size: i.size, mtime: i.mtime })), localDir: dest, move: !!move }, t('verb_download'));
     } catch (err) { snap = { status: 'error', error: errMsg(err), errorDetail: err.stack || '' }; }
     if (snap.status === 'done') {
       playSuccess();
@@ -363,19 +383,21 @@ export default function App() {
       setStatus(t('status_download_failed'));
       showError(t('dlg_download_error'), snap.error, snap.errorDetail);
     }
-    if (localTree.current) localTree.current.refresh(localDir);
+    if (localTree.current) localTree.current.refresh(dest);
+    if (move && connRef.current) loadServer(server.path);
+    return snap;
   };
 
-  const upload = async (items) => {
+  const upload = async (items, { dir, move } = {}) => {
     const c = connRef.current;
-    if (!c) { showError(t('dlg_error'), t('not_connected')); return; }
-    if (!items.length) { setStatus(t('nothing_selected')); return; }
+    if (!c) { showError(t('dlg_error'), t('not_connected')); return null; }
+    if (!items.length) { setStatus(t('nothing_selected')); return null; }
     const name = items.length === 1 ? baseName(items[0].path) : `${items.length} items`;
-    const remoteDir = server.path;
-    appendLog(t('log_upload_start', { src: items.map((i) => i.path).join(', '), dest: remoteDir }));
+    const remoteDir = dir || server.path;
+    appendLog(t('log_upload_start', { src: items.map((i) => i.path).join(', '), dest: remoteDir }) + (move ? t('log_move_tag') : ''));
     let snap;
     try {
-      snap = await runTransfer('transfer.upload', { id: c.id, items: items.map((i) => ({ path: i.path, isDir: i.isDir })), remoteDir }, t('verb_upload'));
+      snap = await runTransfer('transfer.upload', { id: c.id, items: items.map((i) => ({ path: i.path, isDir: i.isDir })), remoteDir, move: !!move }, t('verb_upload'));
     } catch (err) { snap = { status: 'error', error: errMsg(err), errorDetail: err.stack || '' }; }
     if (snap.status === 'done') {
       playSuccess();
@@ -389,7 +411,185 @@ export default function App() {
       setStatus(t('status_upload_failed'));
       showError(t('dlg_upload_error'), snap.error, snap.errorDetail);
     }
-    if (connRef.current) loadServer(remoteDir);
+    if (connRef.current) loadServer(server.path);
+    if (move) refreshLocalParents(items);
+    return snap;
+  };
+
+  const refreshLocalParents = (items) => {
+    if (!localTree.current) return;
+    for (const p of new Set(items.map((i) => dirName(i.path)))) localTree.current.refresh(p);
+  };
+
+  // Copy or move on one side: server → server (rename, or copy through a
+  // temporary folder) and local → local.
+  const copyMove = async (side, items, dir, move) => {
+    const c = connRef.current;
+    if (side === 'server' && !c) { showError(t('dlg_error'), t('not_connected')); return null; }
+    const name = items.length === 1 ? baseName(items[0].path) : `${items.length} items`;
+    const verb = t(move ? 'verb_move' : 'verb_copy');
+    appendLog(t('log_copy_start', { verb, src: items.map((i) => i.path).join(', '), dest: dir }));
+    const list = items.map((i) => ({ path: i.path, isDir: i.isDir, size: i.size, mtime: i.mtime }));
+    let snap;
+    try {
+      snap = side === 'server'
+        ? await runTransfer(move ? 'remote.move' : 'remote.copy', { id: c.id, items: list, destDir: dir }, verb)
+        : await runTransfer('local.copy', { items: list, destDir: dir, move: !!move }, verb);
+    } catch (err) { snap = { status: 'error', error: errMsg(err), errorDetail: err.stack || '' }; }
+    if (snap.status === 'done') {
+      playSuccess();
+      appendLog(`${t('log_copy_done', { verb, name })}  (${summary(snap.result)})`, 'ok');
+      setStatus(t('status_copy_done', { verb, name }));
+    } else if (snap.status === 'cancelled') {
+      appendLog(t('log_copy_cancelled', { verb, name }));
+      setStatus(t('status_copy_cancelled', { verb }));
+    } else {
+      appendLog(t('log_copy_failed', { verb, msg: snap.error }), 'error');
+      setStatus(t('status_copy_failed', { verb }));
+      showError(t('dlg_copy_error'), snap.error, snap.errorDetail);
+    }
+    if (side === 'server') { if (connRef.current) loadServer(server.path); }
+    else if (localTree.current) {
+      await localTree.current.refresh(dir);
+      if (move) refreshLocalParents(items);
+    }
+    return snap;
+  };
+
+  // src: { side, items, external? } — what travels; side / dir: where it lands.
+  const transferInto = async (src, side, dir, move) => {
+    if (!src || !src.items.length || !dir) return null;
+    if (progress) { setStatus(t('busy')); return null; }
+    if (src.side === 'server' && side === 'local') return download(src.items, { dir, move });
+    if (src.side === 'local' && side === 'server') return upload(src.items, { dir, move });
+    return copyMove(side, src.items, dir, move);
+  };
+
+  // Explorer-style defaults: on the same side (same drive) a drag moves and
+  // Ctrl copies; across sides, or from outside the app, it copies and Shift
+  // moves. Null when the drop would do nothing (onto itself, into itself, a
+  // move into the folder it is already in).
+  const dropPlan = (src, target, keys) => {
+    if (!src || !target || !src.items.length) return null;
+    if (target.side === 'server' && !connRef.current) return null;
+    const P = sidePaths[target.side];
+    if (src.side === target.side) {
+      for (const it of src.items) if (P.same(it.path, target.dir) || (it.isDir && P.under(target.dir, it.path))) return null;
+    }
+    let move;
+    if (src.side === target.side && !src.external) {
+      const sameDrive = src.side === 'server' || !info || info.sep !== '\\' || src.items[0].path.slice(0, 2).toLowerCase() === target.dir.slice(0, 2).toLowerCase();
+      move = sameDrive ? !keys.ctrl : (keys.shift && !keys.ctrl);
+    } else move = keys.shift && !keys.ctrl;
+    if (move && src.side === target.side && src.items.every((it) => P.same(P.parent(it.path), target.dir))) return null;
+    return { move };
+  };
+
+  const showDropHover = (next) => setDropHover((h) => (sameHover(h, next) ? h : next));
+  const targetAt = (x, y) => dropTargetAt(x, y, (side) => (side === 'server' ? (connRef.current ? server.path : '') : localDir), dirName);
+  const dropLabel = (plan, target) => t(plan.move ? 'drop_move' : 'drop_copy', { dir: (target.side === 'server' ? target.dir.split('/').pop() : baseName(target.dir)) || target.dir });
+
+  const statLocal = async (paths) => (await Promise.all(paths.map((p) => call('local.stat', { path: p }).catch(() => null)))).filter(Boolean);
+
+  // A drag that left the window: the OS takes it over (Explorer, the desktop).
+  // Server rows are fetched to a temporary folder first; if the button was
+  // let go meanwhile there is nothing to drag any more.
+  const dragOut = async (src, keys) => {
+    if (!isTauri) { setStatus(t('drag_out_unsupported')); return; }
+    let paths;
+    let move = false;
+    if (src.side === 'local') {
+      paths = src.items.map((i) => i.path);
+      move = keys.shift && !keys.ctrl;
+    } else {
+      const c = connRef.current;
+      if (!c) return;
+      if (!info || info.platform !== 'win32') { setStatus(t('drag_out_unsupported')); return; }
+      if (progress) { setStatus(t('busy')); return; }
+      setStatus(t('drag_out_preparing'));
+      let snap;
+      try {
+        const tmp = (await call('local.dragTemp')).path;
+        paths = src.items.map((i) => joinLocal(tmp, i.name || baseName(i.path)));
+        snap = await runTransfer('transfer.download', { id: c.id, items: src.items.map((i) => ({ path: i.path, isDir: i.isDir, size: i.size, mtime: i.mtime })), localDir: tmp }, t('verb_download'));
+      } catch (err) { snap = { status: 'error', error: errMsg(err), errorDetail: err.stack || '' }; }
+      if (snap.status === 'cancelled') { setStatus(t('status_download_cancelled')); return; }
+      if (snap.status !== 'done') { setStatus(t('status_download_failed')); showError(t('dlg_download_error'), snap.error, snap.errorDetail); return; }
+      if (!(await dragKeys()).left) { setStatus(t('drag_out_released')); appendLog(t('drag_out_released')); return; }
+      setStatus(t('ready'));
+    }
+    nativeDragRef.current = src;
+    appendLog(t('log_drag_out', { n: paths.length }));
+    try { await startNativeDrag(paths, move); } catch (err) { appendLog(errMsg(err), 'error'); }
+    setTimeout(() => { if (nativeDragRef.current === src) nativeDragRef.current = null; }, 500);
+    if (src.side === 'local') refreshLocalParents(src.items);   // a move into Explorer took them away
+  };
+
+  // Files from outside (Explorer, the desktop) or our own drag coming back.
+  osDropRef.current = async (ev) => {
+    if (ev.type === 'leave') { showDropHover(null); return; }
+    if (ev.type === 'enter') osEnterPaths.current = ev.paths;
+    const own = nativeDragRef.current;
+    const paths = ev.paths && ev.paths.length ? ev.paths : osEnterPaths.current;
+    const src = own || { side: 'local', external: true, items: paths.map((p) => ({ path: p, name: baseName(p), isDir: false })) };
+    const target = targetAt(ev.x, ev.y);
+    if (ev.type !== 'drop') { showDropHover(dropPlan(src, target, { shift: false, ctrl: false }) ? target : null); return; }
+    showDropHover(null);
+    nativeDragRef.current = null;
+    let real = src;
+    if (!own) {
+      const items = await statLocal(paths);
+      if (!items.length) return;
+      real = { side: 'local', external: true, items };
+    }
+    const plan = dropPlan(real, target, await dragKeys());
+    if (plan) transferInto(real, target.side, target.dir, plan.move);
+  };
+
+  // ── Copy / cut / paste ──
+  // Local items also go on the system clipboard as a file list (Explorer can
+  // paste them); server items put their paths there as text, which replaces
+  // a file list copied in Explorer, so Ctrl+V pastes what was copied last.
+  const clipboardOp = async (side, op) => {
+    if (op === 'paste') { paste(side); return; }
+    const items = side === 'server' ? serverSelected() : localSelEntries.filter((e) => !e.kind);
+    if (!items.length) { setStatus(t('nothing_selected')); return; }
+    const move = op === 'cut';
+    const paths = items.map((i) => i.path);
+    setClip({ side, items, move, connId: side === 'server' && conn ? conn.id : null });
+    if (side !== 'local' || !(await writeFileClipboard(paths, move, paths.join('\n')))) writeClipboardText(paths.join('\n'));
+    setStatus(t(move ? 'status_clip_cut' : 'status_clip_copy', { n: items.length }));
+  };
+
+  const paste = async (side) => {
+    if (side === 'server' && !connRef.current) return;
+    let src = clip;
+    const shell = await readFileClipboard();
+    const mine = src && src.side === 'local' && shell && shell.paths.length === src.items.length && src.items.every((it, i) => samePath(it.path, shell.paths[i]));
+    if (shell && shell.paths.length && !mine) {
+      const items = await statLocal(shell.paths);
+      if (items.length) src = { side: 'local', items, move: shell.cut, external: true };
+    }
+    if (!src) { setStatus(t('clipboard_empty')); return; }
+    if (src.side === 'server' && (!connRef.current || src.connId !== connRef.current.id)) { setStatus(t('clip_other_connection')); return; }
+    const dir = side === 'server' ? server.path : localDir;
+    const P = sidePaths[side];
+    if (src.move && src.side === side && src.items.every((it) => P.same(P.parent(it.path), dir))) return;
+    const snap = await transferInto(src, side, dir, src.move);
+    if (src.move && snap && snap.status === 'done') {
+      setClip(null);
+      if (src.side === 'local') clearFileClipboard();
+    }
+  };
+
+  const deleteSelected = (side) => {
+    if (side === 'server') { remove('server', serverSelected()); return; }
+    if (localSelEntries.length && !localSelEntries.some((e) => e.kind)) remove('local', localSelEntries);
+  };
+
+  const renameSelected = (side) => {
+    if (side === 'server') { const sel = serverSelected(); if (sel.length === 1) rename('server', sel[0]); return; }
+    if (localSelEntries.length === 1 && !localSelEntries[0].kind) rename('local', localSelEntries[0]);
   };
 
   const serverSelected = () => server.entries.filter((e) => serverSel.has(e.path));
@@ -485,7 +685,8 @@ export default function App() {
 
   // ── Context menus ──
   const serverContext = (x, y, entry) => {
-    const sel = serverSelected();
+    // A right-click on a row outside the selection selects it in the same event; this render does not know yet.
+    const sel = entry && !serverSel.has(entry.path) ? [entry] : serverSelected();
     const items = [
       { id: 'download', label: t('ctx_download'), icon: 'download', disabled: !sel.length },
       { sep: true },
@@ -493,13 +694,18 @@ export default function App() {
       { id: 'parent', label: t('ctx_go_parent'), icon: 'folderUp', disabled: server.parent === null },
       { sep: true },
       { id: 'newFolder', label: t('ctx_new_folder'), icon: 'folderNew' },
-      { id: 'rename', label: t('ctx_rename'), icon: 'rename', disabled: sel.length !== 1 },
-      { id: 'delete', label: t('ctx_delete'), icon: 'trash', disabled: !sel.length },
+      { id: 'rename', label: t('ctx_rename'), icon: 'rename', disabled: sel.length !== 1, shortcut: 'F2' },
+      { id: 'delete', label: t('ctx_delete'), icon: 'trash', disabled: !sel.length, shortcut: 'Del' },
+      { sep: true },
+      { id: 'cut', label: t('ctx_cut'), icon: 'cut', disabled: !sel.length, shortcut: 'Ctrl+X' },
+      { id: 'copy', label: t('ctx_copy'), icon: 'copy', disabled: !sel.length, shortcut: 'Ctrl+C' },
+      { id: 'paste', label: t('ctx_paste'), icon: 'paste', disabled: !clip && !isTauri, shortcut: 'Ctrl+V' },
       { sep: true },
       { id: 'copyPath', label: t('ctx_copy_path'), icon: 'copy', disabled: !entry },
     ];
     setCtxMenu({ x, y, items, onPick: (id) => {
-      if (id === 'download') download(sel);
+      if (id === 'cut' || id === 'copy' || id === 'paste') clipboardOp('server', id);
+      else if (id === 'download') download(sel);
       else if (id === 'refresh') refreshServer();
       else if (id === 'parent') loadServer(server.parent);
       else if (id === 'newFolder') newFolder('server');
@@ -510,7 +716,7 @@ export default function App() {
   };
 
   const localContext = (x, y, entry) => {
-    const sel = localSelEntries;
+    const sel = entry && !localSel.has(entry.path) ? [entry] : localSelEntries;
     const items = [
       { id: 'upload', label: t('ctx_upload'), icon: 'upload', disabled: !sel.length || !conn },
       { sep: true },
@@ -519,13 +725,18 @@ export default function App() {
       { id: 'open', label: t('ctx_open'), icon: 'open', disabled: !(info && info.capabilities.open) || !entry || entry.isDir },
       { sep: true },
       { id: 'newFolder', label: t('ctx_new_folder'), icon: 'folderNew' },
-      { id: 'rename', label: t('ctx_rename'), icon: 'rename', disabled: sel.length !== 1 || (entry && entry.kind) },
-      { id: 'delete', label: t('ctx_delete'), icon: 'trash', disabled: !sel.length || sel.some((e) => e.kind) },
+      { id: 'rename', label: t('ctx_rename'), icon: 'rename', disabled: sel.length !== 1 || (entry && entry.kind), shortcut: 'F2' },
+      { id: 'delete', label: t('ctx_delete'), icon: 'trash', disabled: !sel.length || sel.some((e) => e.kind), shortcut: 'Del' },
+      { sep: true },
+      { id: 'cut', label: t('ctx_cut'), icon: 'cut', disabled: !sel.length || sel.some((e) => e.kind), shortcut: 'Ctrl+X' },
+      { id: 'copy', label: t('ctx_copy'), icon: 'copy', disabled: !sel.length || sel.some((e) => e.kind), shortcut: 'Ctrl+C' },
+      { id: 'paste', label: t('ctx_paste'), icon: 'paste', disabled: !clip && !isTauri, shortcut: 'Ctrl+V' },
       { sep: true },
       { id: 'copyPath', label: t('ctx_copy_path'), icon: 'copy', disabled: !entry },
     ];
     setCtxMenu({ x, y, items, onPick: (id) => {
-      if (id === 'upload') upload(sel);
+      if (id === 'cut' || id === 'copy' || id === 'paste') clipboardOp('local', id);
+      else if (id === 'upload') upload(sel);
       else if (id === 'refresh') { if (localTree.current) localTree.current.refresh(localDir); }
       else if (id === 'reveal') reveal(entry ? entry.path : localDir);
       else if (id === 'open') call('local.open', { path: entry.path }).catch((err) => showError(t('dlg_error'), err));
@@ -621,18 +832,53 @@ export default function App() {
     document.addEventListener('mouseup', up);
   };
 
+  // ── Drag & drop wiring (handlers see this render's state) ──
+  useEffect(() => {
+    setDragHandler({
+      hover: (pt, src, keys) => {
+        const target = targetAt(pt.x, pt.y);
+        const plan = dropPlan(src, target, keys);
+        showDropHover(plan ? target : null);
+        return plan ? dropLabel(plan, target) : '';
+      },
+      drop: (pt, src, keys) => {
+        const target = targetAt(pt.x, pt.y);
+        const plan = dropPlan(src, target, keys);
+        showDropHover(null);
+        if (plan) transferInto(src, target.side, target.dir, plan.move);
+      },
+      out: (src, keys) => { showDropHover(null); dragOut(src, keys); },
+      end: () => showDropHover(null),
+    });
+  });
+
+  useEffect(() => onOsDragDrop((ev) => { if (osDropRef.current) osDropRef.current(ev); }), []);
+
+  // The browser would open a file dropped on the page; the web version has no path to it.
+  useEffect(() => {
+    if (isTauri) return undefined;
+    const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    const over = (e) => { if (hasFiles(e)) e.preventDefault(); };
+    const drop = (e) => { if (hasFiles(e)) { e.preventDefault(); setStatus(t('drop_web_unsupported')); } };
+    document.addEventListener('dragover', over);
+    document.addEventListener('drop', drop);
+    return () => { document.removeEventListener('dragover', over); document.removeEventListener('drop', drop); };
+  }, []);
+
   // ── Smoke-test / automation hook ──
   useEffect(() => {
     window.__mfc = {
       action, call, dialogs,
       connect, disconnect, download, upload, loadServer,
-      get state() { return { conn, server, localDir, serverSel: Array.from(serverSel), localSel: Array.from(localSel), log, status, progress, profiles, history, form }; },
+      clipboardOp, paste, transferInto, deleteSelected, dropPlan, osDrop: (ev) => osDropRef.current(ev),
+      get state() { return { conn, server, localDir, serverSel: Array.from(serverSel), localSel: Array.from(localSel), log, status, progress, profiles, history, form, clip, dropHover }; },
       setForm, setLocalDir: (p) => localTree.current && localTree.current.expandTo(p),
     };
   });
 
   if (!session || !info) return <div className="boot">{bootError || t('loading')}</div>;
 
+  const cutSet = clip && clip.move ? new Set(clip.items.map((i) => i.path)) : null;
   const canDownload = !!conn && serverSel.size > 0 && !progress;
   const canUpload = !!conn && localSelEntries.length > 0 && !progress;
 
@@ -648,13 +894,19 @@ export default function App() {
         <div className="panel-slot" style={{ flex: `${serverWidth} 1 0` }}>
           <RemotePanel connected={!!conn} path={server.path} parent={server.parent} entries={server.entries} loading={server.loading} error={server.error}
             selection={serverSel} onSelection={setServerSel} onNavigate={(p) => loadServer(p)} onOpenFile={(e) => download([e])}
-            onContextMenu={serverContext} onRefresh={refreshServer} active={active === 'server'} onActivate={() => setActive('server')} />
+            onContextMenu={serverContext} onRefresh={refreshServer} active={active === 'server'} onActivate={() => setActive('server')}
+            onDelete={() => deleteSelected('server')} onRename={() => renameSelected('server')} onClipboard={(op) => clipboardOp('server', op)}
+            dropOver={!!dropHover && dropHover.side === 'server'} dropRow={dropHover && dropHover.side === 'server' ? dropHover.row : null}
+            cutPaths={clip && clip.move && clip.side === 'server' ? cutSet : null} />
         </div>
         <TransferBar onUpload={uploadSelected} onDownload={downloadSelected} canUpload={canUpload} canDownload={canDownload} onResizeStart={startVSplit} />
         <div className="panel-slot" style={{ flex: `${1 - serverWidth} 1 0` }}>
           <LocalTree ref={localTree} selection={localSel} onSelection={onLocalSelection} onCurrentDir={onLocalDir}
             onOpenFile={(e) => upload([e])} onContextMenu={localContext} onError={(err) => showError(t('dlg_error'), err)}
-            active={active === 'local'} onActivate={() => setActive('local')} />
+            active={active === 'local'} onActivate={() => setActive('local')}
+            onDelete={() => deleteSelected('local')} onRename={() => renameSelected('local')} onClipboard={(op) => clipboardOp('local', op)}
+            dropOver={!!dropHover && dropHover.side === 'local'} dropRow={dropHover && dropHover.side === 'local' ? dropHover.row : null}
+            cutPaths={clip && clip.move && clip.side === 'local' ? cutSet : null} />
         </div>
       </div>
       <LogPanel ref={logPanelRef} lines={log} height={logHeight} onResizeStart={startHSplit}

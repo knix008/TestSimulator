@@ -50,7 +50,7 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 |------|------|
 | `api.js` | `createApi(host)` → `{ call(name, args) }`. `app.*`, `local.*`, `remote.*`, `transfer.*`, `profiles.*`, `jobs.*`, `session.*`, `terminal.*`. 호스트는 `openPath / revealPath / pickFolderInUi / detachedDialogs` 같은 네이티브 기능 여부만 주입. `serializeError` 로 오류를 `{code, message, path, stack}` 으로 직렬화 |
 | `remote.js` | `createClient({protocol, host, port, user, password})` → `FtpClient` 또는 `SftpClient`. 공통 메서드: `connect(signal)`, `close()`, `list(dir)`, `exists(p)`, `mkdir`, `ensureDir`, `rename`, `removeFile`, `removeEmptyDir`, `download`, `upload`. 원격 경로는 항상 절대 POSIX 경로 |
-| `transfer.js` | `download` / `upload` / `removeRemote`. 1) 계획 2) 동일 파일 건너뛰기 3) 연결 풀(1–4)로 파일 전송. 대상 존재 시 `job.askConflict()` |
+| `transfer.js` | `download` / `upload`(`move` 면 파일마다 원본 삭제 = 잘라내기) / `removeRemote` / `moveRemote`(rename, 같은 이름 폴더는 병합) / `copyRemote`(임시 폴더로 받아 다시 올림) / `copyLocal`(복사·이동, 다른 드라이브면 복사 후 삭제). 같은 폴더에 붙이면 `uniqueName` 이 `이름 (2)`. 1) 계획 2) 동일 파일 건너뛰기 3) 연결 풀(1–4)로 파일 전송. 대상 존재 시 `job.askConflict()` |
 | `connections.js` | 연결을 id 로 관리. `connect(opts, job)` 은 잡 안에서 실행되어 UI 가 "연결 중…" 과 취소를 보여 줌 |
 | `local.js` | 드라이브 목록(Windows: PowerShell `Win32_LogicalDisk` 로 볼륨 이름, 60초 캐시), 폴더 나열, mkdir/rename/delete, `walk` |
 | `jobs.js` | `Job`: 진행률·속도·충돌·파일별 `notes`. 33ms 로 업데이트 병합. 끝난 잡은 60초 보관 |
@@ -71,6 +71,7 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 - `nodecore.rs` — 코어를 **첫 순간 별도 스레드**에서 띄웁니다: `node server/server.js --port <빈 포트> --token <난수> --parent-pid <셸 pid> --config <설정 폴더>`, `MFC_HOST_NAME=tauri`. `app.info` 가 응답할 때까지 기다린 뒤 `host_config` 명령이 `{origin, token}` 을 페이지에 줍니다. 디버그 빌드는 소스 트리(`server/`)를, 릴리스는 `resources/runtime/`(번들된 `node.exe` + esbuild 한 파일 `server.js`)를 실행합니다. Tauri 의 리소스 경로는 `\\?\C:\…` 형태라 Node 가 못 읽으므로 `plain_path` 로 바꿉니다. 종료 시 `app.shutdown` 후 프로세스를 정리하고, 셸이 비정상 종료되면 코어가 `--parent-pid` 감시로 스스로 끝납니다.
 - `dialogs.rs` — 팝업을 **별도 웹뷰 창**으로 엽니다(같은 `index.html`, `window.__MFC_DIALOG__` 로 대화상자 이름 전달). 여는 창이 `parent`(같이 닫힘)지만 모달은 아니어서 메인 창 밖·다른 모니터로 이동 가능. 모두 `resizable(false)`·`decorations(false)`. 설정은 `fit: false`(540×520 고정), 나머지는 `dialog_set_size` 로 내용에 맞춤. 결과는 여는 창에 `dialog:result` 이벤트로, 닫힘은 `dialog:closed`. 테마 변경은 `broadcast_appearance` → 모든 창에 `dialog:appearance`. `manual_open` 은 **사용 설명서**(`doc/index.html`)를 parent 없는 독립 창(크기 조절 가능)으로 엽니다.
 - `windows/hooks.nsh` — NSIS 설치 훅: 언어 선택 후 기존 설치(Electron 판 uninstall 키 `98cf3d3c-…` 또는 Tauri 판) 감지 → 삭제 후 설치 확인, 이전 데이터 삭제 여부, 바로가기 페이지.
+- `clipdrag.rs` — 파일 드래그·클립보드(Command Center 에서 가져옴). `start_file_drag`(`drag` 크레이트, OS 드래그로 로컬 경로 넘김), `drag_keys`(OS 드래그 중 Shift/Ctrl/왼쪽 버튼 — 페이지는 키 이벤트를 못 받음), Windows `clipboard_write_files / read_files / clear_files`(CF_HDROP + Preferred DropEffect). 메인 창은 `dragDropEnabled: true` 라 탐색기 드롭을 경로로 받습니다 — 그 대신 Windows 에서 페이지 안 HTML5 DnD 가 꺼지므로 행 끌기는 마우스 이벤트로 합니다(`src/lib/filedrag.js`).
 - `capabilities/default.json` — 창 제어, 이벤트, `dialog:allow-open`(폴더 선택), 클립보드 읽기/쓰기.
 
 ### server/server.js
@@ -94,6 +95,7 @@ UI 프레임워크를 전혀 참조하지 않습니다. 웹 서버와 데스크�
 | `components/TerminalView.jsx` | xterm.js + FitAddon. `onData` → `terminal.write`. 수평 스크롤 숨김 |
 | `dialogs/Dialogs.jsx` | Promise 기반: prompt · confirm · message/error · conflict · profileDelete · about · settings. 데스크톱은 `openDetachedDialog` |
 | `dialogs/SettingsDialog.jsx` | 일반 / 터미널 / 전송 탭. 셸 드롭다운 + 프롬프트 한 줄. `fill` 로 고정 창을 채움 |
+| `lib/filedrag.js` | 행 끌기(마우스 이벤트 + 고스트), `dropTargetAt`(패널 `data-drop-side`, 행 `data-path`/`data-dir`). 창 밖으로 나가면 App 의 `dragOut` 이 OS 드래그로 넘김 |
 | `lib/backend.js` | 호스트 스위치. Tauri: `host_config` 로 코어 주소·토큰을 받아 fetch, 창 버튼·툴바 드래그(`installWindowDrag`)·크기 조절·폴더 선택(dialog 플러그인)·클립보드(clipboard-manager)·설명서 창. 웹: 같은 출처 fetch. `runJob(name, args, onUpdate)` |
 | `lib/dialogWindows.js` | 분리 창 대기열. `serializablePayload` 가 함수를 제거해 직렬화되게 하고, 현재 외관(`appearance.js`)을 함께 보냄 |
 | `lib/appearance.js` | 창끼리 공유하는 외관 `{theme, language, fontSize, bg, mode, vars}` |

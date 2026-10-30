@@ -16,6 +16,7 @@ const FEATURE = {
   'test/core.test.mjs': 'FTP · local · profiles · history',
   'test/ftps.test.mjs': 'FTPS',
   'test/sftp.test.mjs': 'SFTP',
+  'test/copymove.test.mjs': 'Copy · cut · paste · drag',
   'test/terminal.test.mjs': 'Terminal',
   'test/errors.test.mjs': 'Error dialogs',
   'test/ui.test.mjs': 'Settings · theme · i18n · dialogs',

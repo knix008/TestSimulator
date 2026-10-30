@@ -144,6 +144,61 @@ export async function readClipboardText() {
   try { return await navigator.clipboard.readText(); } catch { return ''; }
 }
 
+// ── Files in and out (desktop): OS drag & drop, the shell file clipboard ──
+
+// Hands local `paths` to an OS drag (Explorer / Finder / the desktop can take
+// them). `move` asks the drop target to move rather than copy. Resolves when
+// the drag is over.
+export async function startNativeDrag(paths, move = false) {
+  if (!isTauri) return;
+  await invoke('start_file_drag', { paths, moveFiles: !!move });
+}
+
+// { shift, ctrl, left } held right now — the page sees no key events during an OS drag.
+export async function dragKeys() {
+  if (!isTauri) return { shift: false, ctrl: false, left: false };
+  try { return await invoke('drag_keys'); } catch { return { shift: false, ctrl: false, left: false }; }
+}
+
+// Windows: a real file list on the clipboard, so Explorer can paste what we cut
+// or copied. False where the host has none.
+export async function writeFileClipboard(paths, cut, text) {
+  if (!isTauri) return false;
+  try { return !!(await invoke('clipboard_write_files', { paths, cut: !!cut, text: text || '' })); } catch { return false; }
+}
+
+// { paths, cut } from the shell clipboard (also a cut or copy made in
+// Explorer), or null when this host cannot read one.
+export async function readFileClipboard() {
+  if (!isTauri) return null;
+  try {
+    const data = await invoke('clipboard_read_files');
+    return data && Array.isArray(data.paths) ? { paths: data.paths, cut: !!data.cut } : null;
+  } catch { return null; }
+}
+
+export async function clearFileClipboard() {
+  if (isTauri) await invoke('clipboard_clear_files').catch(() => {});
+}
+
+// Files dragged over / dropped on the window from outside (Explorer, the
+// desktop, our own drag coming back). `cb({ type, x, y, paths })` with CSS
+// pixel coordinates; type is enter | over | drop | leave.
+export function onOsDragDrop(cb) {
+  if (!isTauri) return () => {};
+  let off = null;
+  let stopped = false;
+  import('@tauri-apps/api/webview').then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent((event) => {
+    const p = event.payload || {};
+    const scale = window.devicePixelRatio || 1;
+    const pos = p.position || { x: 0, y: 0 };
+    cb({ type: p.type, x: pos.x / scale, y: pos.y / scale, paths: p.paths || [] });
+  })).then((unlisten) => {
+    if (stopped) unlisten(); else off = unlisten;
+  }).catch(() => {});
+  return () => { stopped = true; if (off) off(); };
+}
+
 // ── Terminal output: polled (terminal.read) in both hosts ──
 
 export const terminalsStream = false;

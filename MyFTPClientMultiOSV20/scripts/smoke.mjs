@@ -3,7 +3,8 @@
 // test FTP server (test/ftp-server.mjs) on a temp folder, launches the exe
 // with a private profile (MFC_CONFIG_DIR) and its WebView2 debugging port, and
 // drives the window through window.__mfc over CDP: connect, list, download,
-// upload, conflict, error dialog… Each scenario is screenshotted into
+// upload, conflict, error dialog, Del / copy · cut · paste / drag & drop
+// between the panels and files dropped from outside… Each scenario is screenshotted into
 // .smoke/<scenario>.png. Then the dialog windows and the user guide window are
 // checked as separate windows, and the web version (server + headless Edge).
 //
@@ -28,6 +29,7 @@ const smokeDir = path.join(root, '.smoke');
 const profile = path.join(smokeDir, 'profile');
 const localDir = path.join(smokeDir, 'local');
 const serverRoot = path.join(smokeDir, 'server');
+const outsideFile = path.join(smokeDir, 'outside', 'drop.txt');   // "Explorer" files dropped on the window
 const exeName = process.platform === 'win32' ? 'MyFTPClient.exe' : 'MyFTPClient';
 // Its own cargo target folder: the exe of a running `npm start` (target/debug) is locked.
 const targetDir = path.join(root, 'src-tauri', 'target', 'smoke');
@@ -62,6 +64,9 @@ function seed() {
   fs.writeFileSync(path.join(serverRoot, 'pub', 'data.json'), '{"ok":true}');
   fs.writeFileSync(path.join(serverRoot, 'pub', 'video.mp4'), Buffer.alloc(2_000_000, 4));
   fs.writeFileSync(path.join(serverRoot, 'readme.txt'), 'server readme');   // same name as a local file → conflict
+  fs.rmSync(path.dirname(outsideFile), { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(outsideFile), { recursive: true });
+  fs.writeFileSync(outsideFile, 'dropped from outside');
   fs.mkdirSync(profile, { recursive: true });
 }
 
@@ -85,6 +90,45 @@ const CONNECT = `
   await until(() => window.__mfc.state.conn && window.__mfc.state.server.entries.length > 0);
 `;
 const SEP = path.sep === '\\' ? '\\\\' : '/';
+
+// Rows, presses, keys and drags as the panels receive them (React handlers + the
+// document listeners of lib/filedrag.js). The OS side of a drop is the page's
+// own handler (window.__mfc.osDrop) fed what Tauri's drag-drop event carries.
+const FILEOPS = `
+  const untilA = async (fn, ms = 15000) => { const t0 = Date.now(); while (!(await fn())) { if (Date.now() - t0 > ms) throw new Error('timeout: ' + fn.toString()); await wait(80); } };
+  const idle = () => !window.__mfc.state.progress;
+  const row = (panel, name) => Array.from(document.querySelectorAll(panel === 'server' ? '.remote-panel tbody tr' : '.local-panel .tree-row'))
+    .find((r) => { const n = r.querySelector('.c-name span, .tree-name'); return n && n.textContent === name; });
+  const centre = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 }; };
+  const press = async (el, mods = {}) => {
+    const p = centre(el);
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: p.x, clientY: p.y, ...mods }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: p.x, clientY: p.y, ...mods }));
+    await wait(80);
+  };
+  const key = (panel, k, code, mods = {}) => {
+    const el = document.querySelector(panel === 'server' ? '.remote-panel .table-wrap' : '.local-panel .tree-wrap');
+    el.focus();
+    el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: k, code, ...mods }));
+  };
+  const ctrl = (panel, letter) => key(panel, letter, 'Key' + letter.toUpperCase(), { ctrlKey: true });
+  const confirmYes = async () => { await until(() => document.querySelector('.dlg .btn.danger')); document.querySelector('.dlg .btn.danger').click(); };
+  const exists = async (p) => (await window.__mfc.call('local.exists', { path: p })).exists;
+  const onServer = async (dir, name) => (await window.__mfc.call('remote.list', { id: window.__mfc.state.conn.id, path: dir })).entries.some((e) => e.name === name);
+  const L = window.__mfc.state.localDir;
+  const J = (...a) => a.join('${SEP}');
+  const dragTo = async (from, to, mods = {}) => {
+    const a = centre(from), b = centre(to);
+    from.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: a.x, clientY: a.y, ...mods }));
+    for (let i = 1; i <= 8; i++) { document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: a.x + ((b.x - a.x) * i) / 8, clientY: a.y + ((b.y - a.y) * i) / 8, ...mods })); await wait(15); }
+    const ghost = document.querySelector('.file-drag-ghost');
+    const label = ghost ? ghost.querySelector('.fdg-effect').textContent : '(no ghost)';
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: b.x, clientY: b.y, ...mods }));
+    if (document.querySelector('.file-drag-ghost')) throw new Error('the drag ghost stayed after the drop');
+    await wait(100);
+    return label;
+  };
+`;
 
 const SCENARIOS = {
   main: `await wait(300); return 'booted';`,
@@ -122,6 +166,71 @@ const SCENARIOS = {
     if (before === after) throw new Error('tab title did not follow the language: ' + after);
     if (/[가-힣]/.test(after)) throw new Error('Korean left in the English tab title: ' + after);
     return JSON.stringify({ before, after });`,
+  // Del deletes several selected rows on either side (after the confirmation).
+  file_delete: `${CONNECT} ${FILEOPS}
+    await window.__mfc.loadServer('/pub'); await wait(300);
+    await press(row('server', 'data.json')); await press(row('server', 'welcome.txt'), { ctrlKey: true }); await wait(100);
+    if (window.__mfc.state.serverSel.length !== 2) throw new Error('server multi-select: ' + window.__mfc.state.serverSel.length);
+    key('server', 'Delete', 'Delete'); await confirmYes();
+    await untilA(async () => idle() && !(await onServer('/pub', 'data.json')) && !(await onServer('/pub', 'welcome.txt')));
+    await press(row('local', 'readme.txt')); await press(row('local', 'archive.zip'), { ctrlKey: true }); await wait(100);
+    if (window.__mfc.state.localSel.length !== 2) throw new Error('local multi-select: ' + window.__mfc.state.localSel.length);
+    key('local', 'Delete', 'Delete'); await confirmYes();
+    await untilA(async () => !(await exists(J(L, 'readme.txt'))) && !(await exists(J(L, 'archive.zip'))));
+    return 'Del: 2 server + 2 local items';`,
+  // Ctrl+C / X / V inside and across the panels; into the same folder makes "name (2)".
+  file_clipboard: `${CONNECT} ${FILEOPS}
+    await window.__mfc.loadServer('/pub'); await wait(300);
+    await press(row('local', 'archive.zip')); ctrl('local', 'c'); await wait(200); ctrl('server', 'v');
+    await untilA(async () => idle() && await onServer('/pub', 'archive.zip'));
+    await press(row('server', 'data.json')); ctrl('server', 'x'); await wait(200);
+    if (!row('server', 'data.json').classList.contains('cut')) throw new Error('cut row is not dimmed');
+    ctrl('local', 'v');
+    await untilA(async () => idle() && await exists(J(L, 'data.json')) && !(await onServer('/pub', 'data.json')));
+    await press(row('local', 'readme.txt')); ctrl('local', 'c'); await wait(200); ctrl('local', 'v');
+    await untilA(async () => idle() && await exists(J(L, 'readme (2).txt')));
+    await press(row('server', 'welcome.txt')); ctrl('server', 'c'); await wait(200); ctrl('server', 'v');
+    await untilA(async () => idle() && await onServer('/pub', 'welcome (2).txt'));
+    return JSON.stringify(window.__mfc.state.log.slice(-4).map((l) => l.text));`,
+  // Rows dragged between the panels and into folders: across = copy, same side = move, Ctrl = copy.
+  file_drag: `${CONNECT} ${FILEOPS}
+    await window.__mfc.loadServer('/pub'); await wait(300);
+    const labels = [];
+    labels.push(await dragTo(row('server', 'data.json'), row('local', 'photos')));
+    await untilA(async () => idle() && await exists(J(L, 'photos', 'data.json')));
+    labels.push(await dragTo(row('local', 'readme.txt'), row('server', 'images')));
+    await untilA(async () => idle() && await onServer('/pub/images', 'readme.txt'));
+    labels.push(await dragTo(row('server', 'welcome.txt'), row('server', 'images')));
+    await untilA(async () => idle() && await onServer('/pub/images', 'welcome.txt') && !(await onServer('/pub', 'welcome.txt')));
+    labels.push(await dragTo(row('server', 'data.json'), row('server', 'images'), { ctrlKey: true }));
+    await untilA(async () => idle() && await onServer('/pub/images', 'data.json') && await onServer('/pub', 'data.json'));
+    labels.push(await dragTo(row('local', 'archive.zip'), row('local', 'docs')));
+    await untilA(async () => idle() && await exists(J(L, 'docs', 'archive.zip')) && !(await exists(J(L, 'archive.zip'))));
+    labels.push(await dragTo(row('local', 'photos'), row('local', 'readme.txt')));
+    const want = [/^(복사|Copy) → photos$/, /^(복사|Copy) → images$/, /^(이동|Move) → images$/, /^(복사|Copy) → images$/, /^(이동|Move) → docs$/, /^$/];
+    labels.forEach((l, i) => { if (!want[i].test(l)) throw new Error('drag ' + i + ' label: ' + l); });
+    return JSON.stringify(labels);`,
+  // Files from outside the app (what Tauri's drag-drop event delivers) onto the server and into a local folder.
+  file_osdrop: `${CONNECT} ${FILEOPS}
+    await window.__mfc.loadServer('/pub'); await wait(300);
+    const ext = ${JSON.stringify(outsideFile)};
+    const wrapBox = document.querySelector('.remote-panel .table-wrap').getBoundingClientRect();
+    const sp = { x: wrapBox.left + wrapBox.width / 2, y: wrapBox.bottom - 12 };
+    await window.__mfc.osDrop({ type: 'enter', ...sp, paths: [ext] });
+    await window.__mfc.osDrop({ type: 'over', ...sp, paths: [] });
+    await wait(50);
+    if (!document.querySelector('.remote-panel.drop-over')) throw new Error('server panel not highlighted under an OS drag');
+    await window.__mfc.osDrop({ type: 'drop', ...sp, paths: [ext] });
+    await untilA(async () => idle() && await onServer('/pub', 'drop.txt'));
+    const lp = centre(row('local', 'docs'));
+    await window.__mfc.osDrop({ type: 'enter', ...lp, paths: [ext] });
+    await window.__mfc.osDrop({ type: 'over', ...lp, paths: [] });
+    await wait(50);
+    if (!row('local', 'docs').classList.contains('drop-target')) throw new Error('local folder not highlighted under an OS drag');
+    await window.__mfc.osDrop({ type: 'drop', ...lp, paths: [ext] });
+    await untilA(async () => idle() && await exists(J(L, 'docs', 'drop.txt')));
+    if (!(await exists(ext))) throw new Error('a plain drop from outside must copy, not move');
+    return 'OS drop: server + local folder';`,
   about: `window.__mfc.action('about'); await until(() => document.querySelector('.dlg')); return 'about';`,
   settings: `window.__mfc.action('settings'); await until(() => document.querySelector('.settings-dlg')); return 'settings';`,
   themes: `await wait(300); document.querySelector('.tb-split-caret').click(); await wait(200); return 'themes';`,
@@ -364,6 +473,11 @@ async function webSmoke(ftp) {
       if (!fs.existsSync(path.join(serverRoot, 'pub', 'docs', 'notes', 'a.txt'))) throw new Error('folder upload incomplete');
       if (!/업로드 완료|Upload finished/.test(out)) throw new Error('upload log line missing');
       console.log('[smoke] desktop transfer verified (download 2 items, upload folder tree)');
+      for (const name of ['file_delete', 'file_clipboard', 'file_drag', 'file_osdrop']) {
+        seed(); seedProfile(ftp);
+        await desktopShot(name, SCENARIOS[name]);
+      }
+      console.log('[smoke] Del · copy / cut / paste · drag between panels · OS drops verified');
       seed(); seedProfile(ftp);
       await desktopWindows();
     }

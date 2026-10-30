@@ -32,6 +32,21 @@ const ko = {
   ctx_download: '다운로드', ctx_upload: '업로드', ctx_refresh: '새로 고침', ctx_reveal: '탐색기에서 열기', ctx_open: '열기',
   ctx_new_folder: '새 폴더', ctx_rename: '이름 바꾸기', ctx_delete: '삭제', ctx_go_parent: '상위 폴더로', ctx_go_home: '홈 폴더로',
   ctx_copy_path: '경로 복사',
+  ctx_cut: '잘라내기', ctx_copy: '복사', ctx_paste: '붙여넣기', busy: '다른 작업이 진행 중입니다. 끝난 뒤 다시 하세요.',
+
+  // copy · cut · paste · drag & drop
+  verb_copy: '복사', verb_move: '이동',
+  drop_copy: '복사 → {dir}', drop_move: '이동 → {dir}',
+  log_copy_start: '{verb} 시작: {src}  →  {dest}', log_copy_done: '{verb} 완료: {name}', status_copy_done: '{verb} 완료: {name}',
+  log_copy_failed: '{verb} 실패: {msg}', status_copy_failed: '{verb} 실패', log_copy_cancelled: '{verb} 취소됨: {name}', status_copy_cancelled: '{verb} 취소됨',
+  dlg_copy_error: '복사 · 이동 오류', log_move_tag: ' — 원본 삭제',
+  status_clip_copy: '복사함: {n}개 항목 — 붙여넣을 곳에서 Ctrl+V', status_clip_cut: '잘라냄: {n}개 항목 — 붙여넣을 곳에서 Ctrl+V',
+  clipboard_empty: '붙여넣을 항목이 없습니다.', clip_other_connection: '복사하거나 잘라낸 서버 항목은 지금 연결된 서버의 것이 아닙니다.',
+  drag_out_preparing: '창 밖으로 끌기: 서버 파일을 임시 폴더로 받는 중…',
+  drag_out_released: '받는 동안 마우스 버튼이 놓여 끌기를 멈췄습니다. 버튼을 누른 채 기다리거나 다운로드를 쓰세요.',
+  drag_out_unsupported: '이 환경에서는 창 밖으로 끌어 낼 수 없습니다.', log_drag_out: '창 밖으로 끌기: {n}개 항목',
+  drop_web_unsupported: '웹 버전에서는 바깥 파일을 끌어 놓을 수 없습니다. 데스크톱 앱을 쓰세요.',
+  conflict_title_copy: '복사 — 파일 충돌', conflict_title_move: '이동 — 파일 충돌',
 
   // status / log messages
   status_connecting: '연결 중... {url}', log_connecting: '{protocol} 연결 시도 중...  host={host}  port={port}  user={user}',
@@ -157,6 +172,21 @@ const en = {
   ctx_download: 'Download', ctx_upload: 'Upload', ctx_refresh: 'Refresh', ctx_reveal: 'Show in file manager', ctx_open: 'Open',
   ctx_new_folder: 'New folder', ctx_rename: 'Rename', ctx_delete: 'Delete', ctx_go_parent: 'Go to parent folder', ctx_go_home: 'Go to home folder',
   ctx_copy_path: 'Copy path',
+  ctx_cut: 'Cut', ctx_copy: 'Copy', ctx_paste: 'Paste', busy: 'Another operation is running. Try again when it is done.',
+
+  // copy · cut · paste · drag & drop
+  verb_copy: 'Copying', verb_move: 'Moving',
+  drop_copy: 'Copy → {dir}', drop_move: 'Move → {dir}',
+  log_copy_start: '{verb} started: {src}  →  {dest}', log_copy_done: '{verb} finished: {name}', status_copy_done: '{verb} finished: {name}',
+  log_copy_failed: '{verb} failed: {msg}', status_copy_failed: '{verb} failed', log_copy_cancelled: '{verb} cancelled: {name}', status_copy_cancelled: '{verb} cancelled',
+  dlg_copy_error: 'Copy / move error', log_move_tag: ' — source removed',
+  status_clip_copy: 'Copied {n} item(s) — press Ctrl+V where they should go', status_clip_cut: 'Cut {n} item(s) — press Ctrl+V where they should go',
+  clipboard_empty: 'Nothing to paste.', clip_other_connection: 'The copied or cut server items belong to another connection.',
+  drag_out_preparing: 'Dragging out: fetching the server files to a temporary folder…',
+  drag_out_released: 'The mouse button was released while the files were fetched, so the drag stopped. Keep the button down, or use Download.',
+  drag_out_unsupported: 'Dragging out of the window is not available here.', log_drag_out: 'Dragged out of the window: {n} item(s)',
+  drop_web_unsupported: 'The web version cannot take files dropped from outside. Use the desktop app.',
+  conflict_title_copy: 'Copy — file conflict', conflict_title_move: 'Move — file conflict',
 
   status_connecting: 'Connecting… {url}', log_connecting: 'Connecting with {protocol}…  host={host}  port={port}  user={user}',
   status_connected: 'Connected — {url}', log_connected: 'Connected: {url}',

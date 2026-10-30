@@ -4,11 +4,13 @@
 //   • the main window: frameless (the toolbar is the title bar), opens in the
 //     saved theme colour at the saved position / size, which it saves on close
 //   • dialog windows and the user guide window (dialogs.rs)
+//   • files in and out: OS drag & drop, the shell file clipboard (clipdrag.rs)
 //   • one instance: a second start focuses the running window
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod nodecore;
 mod dialogs;
+mod clipdrag;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -186,6 +188,11 @@ fn main() {
             dialogs::dialog_set_size,
             dialogs::broadcast_appearance,
             dialogs::manual_open,
+            clipdrag::start_file_drag,
+            clipdrag::drag_keys,
+            clipdrag::clipboard_write_files,
+            clipdrag::clipboard_read_files,
+            clipdrag::clipboard_clear_files,
         ])
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {

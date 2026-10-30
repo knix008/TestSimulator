@@ -1,13 +1,17 @@
 // "로컬 (Local)" — the hierarchical tree of the original: drives (with their
 // volume labels) at the top, folders and files below, loaded lazily when a
 // node is expanded. Selecting a node makes its folder the download target;
-// double-clicking a file uploads it.
+// double-clicking a file uploads it. Rows drag to the server, into another
+// local folder, or out of the window (lib/filedrag.js); Del deletes, F2
+// renames, Ctrl+C / X / V copy, cut and paste.
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { call } from '../lib/backend';
 import { t, useLanguage } from '../lib/i18n';
 import { formatSize, iconFor, samePath, isUnder, dirName, getSeparator } from '../lib/format';
+import { armRowDrag } from '../lib/filedrag';
 import { Icon } from './Icons';
 import { ContextMenu } from './ContextMenu';
+import { CLIPBOARD_KEYS } from './RemotePanel';
 
 function rootIcon(kind) {
   if (kind === 'network') return 'driveNet';
@@ -31,7 +35,7 @@ function joinParts(parts, upTo) {
   return acc;
 }
 
-export const LocalTree = forwardRef(function LocalTree({ selection, onSelection, onCurrentDir, onOpenFile, onContextMenu, onError, active, onActivate }, ref) {
+export const LocalTree = forwardRef(function LocalTree({ selection, onSelection, onCurrentDir, onOpenFile, onContextMenu, onError, active, onActivate, onDelete, onRename, onClipboard, dropRow, dropOver, cutPaths }, ref) {
   useLanguage();
   const [roots, setRoots] = useState([]);
   // path → { children: entry[] | null, expanded, loading, error }
@@ -161,6 +165,19 @@ export const LocalTree = forwardRef(function LocalTree({ selection, onSelection,
     setCursor(entry.path);
     emit(next);
     onCurrentDir(entry.isDir ? entry.path : dirName(entry.path));
+    return next;
+  };
+
+  // Same as the server listing: a press on a selected row keeps the selection
+  // for a drag. Drives (top-level roots) never travel.
+  const press = (entry, e) => {
+    const keep = !e.ctrlKey && !e.metaKey && !e.shiftKey && selection.has(entry.path);
+    let next = selection;
+    if (keep) { onActivate(); setCursor(entry.path); onCurrentDir(entry.isDir ? entry.path : dirName(entry.path)); } else next = select(entry, e);
+    armRowDrag(e, () => ({ side: 'local', items: rowsRef.current.filter((r) => r.entry && r.depth > 0 && next.has(r.entry.path)).map((r) => r.entry) }), {
+      onClick: keep ? () => select(entry, { ctrlKey: false, metaKey: false, shiftKey: false }) : null,
+      countLabel: (n) => t('items_count', { n }),
+    });
   };
 
   const toggle = (entry) => { if (nodes[entry.path] && nodes[entry.path].expanded) collapse(entry.path); else expand(entry.path); };
@@ -189,6 +206,9 @@ export const LocalTree = forwardRef(function LocalTree({ selection, onSelection,
     }
     else if (e.key === 'Enter' && cur) { e.preventDefault(); if (cur.isDir) toggle(cur); else onOpenFile(cur); }
     else if (e.key === 'F5' && cur) { e.preventDefault(); refresh(cur.isDir ? cur.path : dirName(cur.path)); }
+    else if (e.key === 'Delete' && selection.size) { e.preventDefault(); onDelete(); }
+    else if (e.key === 'F2' && selection.size === 1) { e.preventDefault(); onRename(); }
+    else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && CLIPBOARD_KEYS[e.code]) { e.preventDefault(); onClipboard(CLIPBOARD_KEYS[e.code]); }
   };
 
   const ctx = (e, entry) => {
@@ -199,7 +219,7 @@ export const LocalTree = forwardRef(function LocalTree({ selection, onSelection,
   };
 
   return (
-    <div className={`panel local-panel ${active ? 'active' : ''}`} onMouseDown={onActivate}>
+    <div className={`panel local-panel ${active ? 'active' : ''} ${dropOver ? 'drop-over' : ''}`} onMouseDown={onActivate} data-drop-side="local">
       <div className="panel-head">
         <Icon name="explorer" />
         <span className="panel-title">{t('local')}</span>
@@ -212,10 +232,10 @@ export const LocalTree = forwardRef(function LocalTree({ selection, onSelection,
         {rows.map((r) => r.info ? (
           <div key={r.key} className="tree-row info" style={{ paddingLeft: 8 + r.depth * 18 }}><span className="tree-expander" /><span className="muted">{r.info}</span></div>
         ) : (
-          <div key={r.entry.path} data-path={r.entry.path}
-            className={`tree-row ${selection.has(r.entry.path) ? 'selected' : ''} ${cursor === r.entry.path ? 'cursor' : ''}`}
+          <div key={r.entry.path} data-path={r.entry.path} data-dir={r.entry.isDir ? '1' : undefined}
+            className={`tree-row ${selection.has(r.entry.path) ? 'selected' : ''} ${cursor === r.entry.path ? 'cursor' : ''} ${dropRow === r.entry.path ? 'drop-target' : ''} ${cutPaths && cutPaths.has(r.entry.path) ? 'cut' : ''}`}
             style={{ paddingLeft: 8 + r.depth * 18 }}
-            onMouseDown={(e) => { if (e.button === 0) select(r.entry, e); }}
+            onMouseDown={(e) => { if (e.button === 0) press(r.entry, e); }}
             onDoubleClick={(e) => { e.preventDefault(); if (r.entry.isDir) toggle(r.entry); else onOpenFile(r.entry); }}
             onContextMenu={(e) => { e.stopPropagation(); ctx(e, r.entry); }}>
             <span className="tree-expander" onMouseDown={(e) => { e.stopPropagation(); }} onClick={(e) => { e.stopPropagation(); if (r.entry.isDir) toggle(r.entry); }}>

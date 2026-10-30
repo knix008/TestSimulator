@@ -171,6 +171,17 @@ button:disabled { cursor: default; opacity: 0.45; }
 .panel.active .tree-row.selected { background: var(--bg-sel); }
 .tree-row.cursor { box-shadow: inset 2px 0 0 var(--accent); }
 .tree-row.info { color: var(--fg-muted); }
+
+/* drag & drop, cut & paste */
+.panel.drop-over .table-wrap { box-shadow: inset 0 0 0 2px var(--accent); }
+.file-table tbody tr.drop-target, .tree-row.drop-target { background: color-mix(in srgb, var(--accent) 30%, transparent); outline: 1px solid var(--accent); outline-offset: -1px; }
+.file-table tbody tr.cut td, .tree-row.cut { opacity: 0.5; }
+body.file-dragging, body.file-dragging * { cursor: default !important; user-select: none !important; }
+.file-drag-ghost { position: fixed; left: 0; top: 0; z-index: 10000; pointer-events: none; display: flex; align-items: center; gap: 8px; max-width: 360px; padding: 4px 10px; border-radius: 4px; background: var(--bg-elev); color: var(--fg); border: 1px solid var(--accent); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); font-size: 12px; white-space: nowrap; }
+.file-drag-ghost .fdg-name { overflow: hidden; text-overflow: ellipsis; }
+.file-drag-ghost .fdg-effect { color: var(--accent); font-weight: 600; }
+.file-drag-ghost.no-drop { border-color: var(--border); opacity: 0.75; }
+.file-drag-ghost.no-drop .fdg-effect::before { content: '⊘'; color: var(--fg-muted); }
 .tree-expander { width: 16px; flex: none; display: inline-flex; justify-content: center; color: var(--fg-muted); cursor: pointer; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; }
 .tree-size { margin-left: 8px; font-size: 11px; }

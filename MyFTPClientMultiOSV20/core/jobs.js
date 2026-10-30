@@ -62,6 +62,9 @@ class Job extends EventEmitter {
 
   setTotal(total, bytesTotal = 0) { this.total = total; this.bytesTotal = bytesTotal; this._emit(); }
 
+  // A second phase starts from zero (a server-side copy: download, then upload).
+  resetProgress() { this.current = 0; this.bytes = 0; this.speed = 0; this._speedSamples = []; this._emit(); }
+
   // A file starts: `detail` is shown to the user.
   begin(detail) { this.detail = detail || ''; this._emit(); }
 

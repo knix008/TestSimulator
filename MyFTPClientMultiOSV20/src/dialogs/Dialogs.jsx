@@ -151,7 +151,7 @@ function ConflictDialog({ spec, done }) {
   const [applyAll, setApplyAll] = useState(false);
   const { name, destPath, destIsDir, kind } = spec.info;
   return (
-    <DialogFrame title={kind === 'upload' ? t('conflict_title_upload') : t('conflict_title_download')} onClose={() => done({ answer: 'cancel', applyAll: false })} icon="warning" width={520}
+    <DialogFrame title={t(`conflict_title_${['upload', 'copy', 'move'].includes(kind) ? kind : 'download'}`)} onClose={() => done({ answer: 'cancel', applyAll: false })} icon="warning" width={520}
       footer={<>
         <button className="btn" onClick={() => done({ answer: 'cancel', applyAll: false })}>{t('cancel')}</button>
         <button className="btn" onClick={() => done({ answer: 'skip', applyAll })}>{t('skip')}</button>
