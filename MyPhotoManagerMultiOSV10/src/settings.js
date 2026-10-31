@@ -41,7 +41,7 @@ export const DEFAULTS = Object.freeze({
   // Start page picture: one of START_SCENE_IDS; overall speed 0–100 (20 = the designed pace) and the
   // speed of each clock in percent of that pace, 0–300: camera, objects (waves, weather, shapes), sky and light;
   // transparency 0 (picture fully shown) – 100 (only the theme background).
-  startScreen: { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0 },
+  startScreen: { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0, layout: null, showOnLaunch: true },
   // Background removal in the editor. The algorithms themselves ship in src/edit/background.js.
   background: { algorithm: DEFAULT_BG_ALGORITHM, lineColor: DEFAULT_BG_LINE_COLOR, lineStyle: DEFAULT_BG_LINE_STYLE, lineWidth: DEFAULT_BG_LINE_WIDTH },
   lastFolder: null,

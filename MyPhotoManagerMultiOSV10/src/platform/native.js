@@ -104,3 +104,22 @@ export const setWindowTitle = (title) => {
   document.title = title;
   return isDesktop() ? getCurrentWindow().setTitle(title).catch(() => {}) : Promise.resolve();
 };
+
+// ───────── user guide (public/doc/index.html)
+// Desktop: a window of its own beside the main one. Browser: a new tab. The
+// guide reads the app's language and theme from localStorage (same origin) and
+// follows later changes through the `storage` event.
+export const GUIDE_APPEARANCE_KEY = 'myphoto-guide-appearance';
+
+/** appearance = { language, mode, vars: { '--bg': …, … } } */
+export function shareGuideAppearance(appearance) {
+  try { localStorage.setItem(GUIDE_APPEARANCE_KEY, JSON.stringify(appearance)); } catch { /* private mode */ }
+}
+
+export function openGuide(appearance) {
+  shareGuideAppearance(appearance);
+  const query = `lang=${encodeURIComponent(appearance.language)}`;
+  if (isDesktop()) return invoke('open_guide', { query });
+  window.open(`./doc/index.html?${query}`, 'myphoto-user-guide');
+  return Promise.resolve();
+}

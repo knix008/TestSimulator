@@ -41,3 +41,6 @@ public/vendor/
 samples/_*.png
 samples/image-*.dcm
 samples/ct-lung-screening-nlst-series/
+
+# Guide pictures copied by scripts/build-guide.mjs (sources: docs/guide/images)
+public/doc/img/

@@ -2232,9 +2232,6 @@ export function createEditor({ onDone }) {
     bar.append(
       h('div.editor-bar-side',
         h('div.tool-group',
-          button('panelLeft', t('toolbar.leftPane'), () => (paneOpen ? setEditorPane({ panelCollapsed: true }) : showEditorPane()), { title: paneOpen ? t('pane.collapse') : t('pane.expand'), className: paneOpen ? 'on' : '', id: 'edit-panel-toggle' }),
-          button('panelRight', t('toolbar.rightPane'), () => (infoShown ? setEditorPane({ infoCollapsed: true }) : showInfoPane()), { title: infoShown ? t('pane.collapse') : t('pane.expand'), className: infoShown ? 'on' : '', id: 'edit-info-toggle' })),
-        h('div.tool-group',
           h('button.btn.primary', { type: 'button', id: 'edit-save', disabled: !dirty || busy, onclick: () => save(false) }, h('span', { html: icon('save') }), t('edit.save')),
           button('saveAs', t('edit.saveAs'), () => save(true), { id: 'edit-save-as', title: `${t('edit.saveAs')} (${keyOf({ id: 'edit:saveAs', key: 'Ctrl+Shift+S' })})`, disabled: busy }),
           h('button.btn', { type: 'button', id: 'edit-cancel', onclick: cancel }, t('edit.done'))),
@@ -2258,7 +2255,12 @@ export function createEditor({ onDone }) {
           button('zoomOut', t('view.zoomOut'), () => zoomStep(-1), { title: `${t('view.zoomOut')} (-)`, id: 'edit-zoom-out' }),
           h('span.zoom-value', { id: 'edit-zoom', title: t('view.zoomLevel') }, zoomText()),
           button('zoomIn', t('view.zoomIn'), () => zoomStep(1), { title: `${t('view.zoomIn')} (+)`, id: 'edit-zoom-in' })),
-        busy ? h('span.busy', t('edit.saving')) : null));
+        busy ? h('span.busy', t('edit.saving')) : null),
+      // Panel toggles sit at the right end, as in the manage toolbar.
+      h('div.tool-spacer'),
+      h('div.tool-group.editor-panes',
+        button('panelLeft', t('toolbar.leftPane'), () => (paneOpen ? setEditorPane({ panelCollapsed: true }) : showEditorPane()), { title: paneOpen ? t('pane.collapse') : t('pane.expand'), className: paneOpen ? 'on' : '', id: 'edit-panel-toggle' }),
+        button('panelRight', t('toolbar.rightPane'), () => (infoShown ? setEditorPane({ infoCollapsed: true }) : showInfoPane()), { title: infoShown ? t('pane.collapse') : t('pane.expand'), className: infoShown ? 'on' : '', id: 'edit-info-toggle' })));
     layoutSide();
     layoutInfo();
   }
@@ -2320,8 +2322,18 @@ export function createEditor({ onDone }) {
     }
     busy = true;
     updateBar();
+    // Rendering and encoding the full picture hold the page for a while (seconds on a
+    // large photo): show the progress at once and let it paint between the steps,
+    // so the window does not look frozen.
+    const large = full.width * full.height > 4e6 || cutout;
+    const progress = progressDialog(t('edit.saving'), { cancellable: false, immediate: large });
+    const step = async (done, text) => {
+      progress.update(done, 4, text);
+      // A frame to paint (a hidden page gets no frames: the timeout goes on anyway).
+      await new Promise((resolve) => { requestAnimationFrame(() => setTimeout(resolve, 30)); setTimeout(resolve, 120); });
+    };
     try {
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await step(0, `${t('edit.saving')} ${suggested}`);
       await prepareEdit(edit);
       if (cutout && isNeuralAlgorithm(edit.background.algorithm)) {
         const bare = render(full, edit, { scale: 1, skipBackground: true, layerImages, high: fullHigh });
@@ -2329,6 +2341,7 @@ export function createEditor({ onDone }) {
         const normalized = normalizeBackground(edit.background);
         await prepareNeuralMask({ width: base.width, height: base.height, data: base.data }, selectionToPixels(normalized.selection, base.width, base.height), normalized.algorithm);
       }
+      await step(1);
       let output = render(full, edit, { scale: 1, layerImages, high: fullHigh });
       if (cutout) {
         const pixels = context2d(output, { willReadFrequently: true }).getImageData(0, 0, output.width, output.height);
@@ -2341,10 +2354,13 @@ export function createEditor({ onDone }) {
         applyAdjustments(precise, edit.adjust);
       }
       const sourceIsJpeg = ['jpg', 'jpeg', 'jpe', 'jfif'].includes(ext);
+      await step(2);
       const bytes = await encodeCanvas(output, format, { quality, original: sourceIsJpeg ? original : null, high: precise });
       let backedUp = false;
       if (target === item.path && fs.caps.originals) { await fs.backupOriginal(item.path); backedUp = true; }
+      await step(3);
       const how = await fs.write(target, bytes);
+      progress.close();
       thumbs.invalidate(target);
       fs.releaseUrl?.(target);
       if (target !== item.path) app.catalog.copyPath(item.path, target);
@@ -2361,6 +2377,7 @@ export function createEditor({ onDone }) {
       await reload();
       return true;
     } catch (error) {
+      progress.close();
       busy = false;
       updateBar();
       if (String(error?.message || error) === 'cancelled') return false;

@@ -24,8 +24,8 @@
     "build:all": "node scripts/build.mjs all",
     "build:icons": "node scripts/render-icons.mjs",
     "fixtures": "node scripts/make-fixtures.mjs",
-    "predev": "node scripts/vendor-assets.mjs",
-    "prebuild:web": "node scripts/vendor-assets.mjs"
+    "predev": "node scripts/vendor-assets.mjs && node scripts/build-guide.mjs",
+    "prebuild:web": "node scripts/vendor-assets.mjs && node scripts/build-guide.mjs"
   },
   "dependencies": {
     "@cornerstonejs/codec-charls": "^1.2.7",

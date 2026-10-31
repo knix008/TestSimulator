@@ -101,9 +101,9 @@ test('APP-STARTBG: overall and per-clock speeds', () => {
 
 test('APP-STARTBG: settings keep every speed in range', () => {
   const fresh = normalize(null).startScreen;
-  assert.deepEqual(fresh, { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0 });
+  assert.deepEqual(fresh, { scene: 'valley', motion: 20, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0, layout: null, showOnLaunch: true });
   const old = normalize({ startScreen: { scene: 'ocean', motion: 'medium' } }).startScreen;
-  assert.deepEqual(old, { scene: 'ocean', motion: 55, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0 }, 'settings from before the clocks');
+  assert.deepEqual(old, { scene: 'ocean', motion: 55, cameraSpeed: 100, objectSpeed: 100, skySpeed: 100, transparency: 0, layout: null, showOnLaunch: true }, 'settings from before the clocks');
   assert.equal(normalize({ startScreen: { transparency: 140 } }).startScreen.transparency, 100);
   assert.equal(normalize({ startScreen: { transparency: -1 } }).startScreen.transparency, 0);
   assert.equal(startTransparency('35.4'), 35);

@@ -8,6 +8,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeGuide } from '../../scripts/build-guide.mjs';
 import { Page, sleep, waitTarget } from './cdp.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -60,6 +61,7 @@ export class App {
     for (const dir of [this.profile, this.config, this.data]) fs.mkdirSync(dir, { recursive: true });
     copyDir(fixtures, this.photos);
     await this.options.prepare?.(this.work);
+    writeGuide(); // the guide window's text and pictures (npm run dev does it in predev)
     if (!(await portOpen(DEV_PORT))) {
       this.vite = spawn(process.execPath, [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js'), '--port', String(DEV_PORT), '--strictPort'], { cwd: root, stdio: 'ignore' });
       for (let i = 0; i < 150 && !(await portOpen(DEV_PORT)); i++) await sleep(100);

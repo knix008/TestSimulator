@@ -11,6 +11,7 @@ import { errorDetails, invoke, isDesktop } from '../platform/native.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { wrapNumber } from './steppers.js';
+import { installTooltips } from './tooltip.js';
 
 const stack = [];
 const windows = new Set(); // open dialog windows (Window objects)
@@ -90,6 +91,7 @@ function openWindow(box, title) {
   }
   box.classList.add('in-window');
   win.document.body.append(box);
+  installTooltips(win.document);
   for (const input of box.querySelectorAll('input[type=number]')) wrapNumber(input);
   windows.add(win);
   // Off-screen measuring can come out a little short (fonts, wrapped inputs): if the

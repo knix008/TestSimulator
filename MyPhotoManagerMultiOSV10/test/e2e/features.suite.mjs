@@ -16,7 +16,7 @@ import { readEmbeddedXmp } from '../../src/formats/xmpembed.js';
 import { ADOBE, buildIcc } from '../helpers/icc-build.mjs';
 import { decodePng16, encodePng16 } from '../../src/formats/highbit.js';
 import { encodeGif } from '../../src/create/gif.js';
-import { sleep } from './cdp.mjs';
+import { listTargets, Page, sleep } from './cdp.mjs';
 import { copyDir, fixtures, root } from './harness.mjs';
 
 const P = 'window.__myphoto';
@@ -3630,6 +3630,128 @@ export const cases = [
       assert.equal(await settingsNow(), before.settings, 'settings restored');
       assert.deepEqual(userFiles(), before.files, 'the user\'s photos were not touched');
       assert.ok(fs.existsSync(path.join(app.work, 'data', 'tutorial-photos', 'forest.jpg')), 'the tutorial used its own folder');
+    },
+  },
+  {
+    ids: ['APP-STARTICONS', 'APP-STARTLAYOUT'],
+    group: '앱', name: '시작 화면: 배경 아이콘, 패널을 끌어 탭으로 묶고 새 열로 옮기며 폭·높이를 바꾸고 배치를 되돌린다',
+    run: async (app) => {
+      const m = app.main;
+      const layout = async () => JSON.parse(await m.eval(`${P}.app.settings.startScreen.layout ?? 'null'`));
+      await m.eval(`${P}.closeAllDialogs(); ${P}.actions.setMode('start'); 1`);
+      await m.waitFor(`document.querySelectorAll('.start-page .start-scene').length === 22`, { message: 'start page' });
+      assert.equal(await m.eval(`[...document.querySelectorAll('.start-page .start-scene')].filter((b) => b.querySelector('.start-scene-icon svg') && b.querySelector('.start-scene-name').textContent).length`), 22, 'every background has an icon and a name');
+      await m.eval(`document.querySelector('#start-layout-reset').click(); 1`);
+      // Recent folders dropped on the header of Get started: one group with two tabs.
+      const to = await m.center('.start-tab[data-tab=begin]');
+      await m.drag(await m.center('.start-tab[data-tab=recent]'), { x: to.x + 40, y: to.y });
+      await m.waitFor(`document.querySelectorAll('.start-group.tabbed .start-tab').length === 2`, { message: 'grouped as tabs' });
+      assert.deepEqual((await layout()).columns[0].groups[0].panels, ['begin', 'recent']);
+      assert.ok(await m.eval(`document.querySelector('.start-panel[data-panel=begin]').hidden && !document.querySelector('.start-panel[data-panel=recent]').hidden`), 'the dropped panel is shown');
+      await m.eval(`document.querySelector('.start-tab[data-tab=begin]').click(); 1`);
+      await m.waitFor(`!document.querySelector('.start-panel[data-panel=begin]').hidden && document.querySelector('.start-panel[data-panel=recent]').hidden`, { message: 'a tab click shows its panel' });
+      // Tasks to the right edge: a third column.
+      const edge = await m.eval(`(() => { const r = document.querySelector('.start-board').getBoundingClientRect(); return { x: r.right - 6, y: r.top + 60 }; })()`);
+      await m.drag(await m.center('.start-tab[data-tab=tasks]'), edge);
+      await m.waitFor(`document.querySelectorAll('.start-column').length === 3`, { message: 'new column' });
+      assert.deepEqual((await layout()).columns[2].groups[0].panels, ['tasks']);
+      // Width of the first column, height of a group.
+      const split = await m.center('.start-col-split');
+      await m.drag(split, { x: split.x + 80, y: split.y });
+      const handle = await m.center('.start-column[data-column="1"] .start-group-resize');
+      await m.drag(handle, { x: handle.x, y: handle.y - 60 });
+      const sized = await layout();
+      assert.ok(sized.columns[0].width >= 420, `column width ${sized.columns[0].width}`);
+      assert.ok(sized.columns[1].groups[0].height > 0, 'group height kept');
+      // Kept over a new render, then reset.
+      await m.eval(`${P}.actions.setMode('manage'); ${P}.actions.setMode('start'); 1`);
+      await m.waitFor(`document.querySelectorAll('.start-column').length === 3`, { message: 'layout kept' });
+      await m.eval(`document.querySelector('#start-layout-reset').click(); 1`);
+      await m.waitFor(`document.querySelectorAll('.start-column').length === 2 && !document.querySelector('.start-group.tabbed')`, { message: 'layout reset' });
+    },
+  },
+  {
+    ids: ['APP-STARTSHOW'],
+    group: '앱', name: '"시작 화면 보여주기" 는 시작 화면과 설정에 있고, 끄면 관리 화면으로 시작한다',
+    run: async (app) => {
+      const m = app.main;
+      await m.eval(`${P}.closeAllDialogs(); ${P}.actions.setMode('start'); 1`);
+      await m.waitFor(`document.querySelector('#start-show-on-launch')?.checked === true`, { message: 'checked by default' });
+      await m.eval(`document.querySelector('#start-show-on-launch').click(); 1`);
+      await m.waitFor(`${P}.app.settings.startScreen.showOnLaunch === false`, { message: 'saved' });
+      await m.eval(`document.querySelector('#open-settings').click(); 1`);
+      await m.waitFor(`Boolean(${P}.dq('.settings-tab[data-tab=start]'))`, { message: 'settings' });
+      await m.eval(`${P}.dq('.settings-tab[data-tab=start]').click(); 1`);
+      await m.waitFor(`Boolean(${P}.dq('#settings-show-start'))`, { message: 'in the settings' });
+      assert.equal(await m.eval(`${P}.dq('#settings-show-start').checked`), false, 'the settings show the same choice');
+      await m.eval(`${P}.closeAllDialogs(); 1`);
+      await app.restart([]);
+      await sleep(1500);
+      assert.equal(await app.main.eval(`${P}.app.state.mode`), 'manage', 'opens in the manage view');
+      await app.main.eval(`${P}.app.settings.startScreen.showOnLaunch = true; ${P}.app.saveSettings(); 1`);
+      await sleep(500);
+      await app.restart([]);
+      await sleep(1500);
+      assert.equal(await app.main.eval(`${P}.app.state.mode`), 'start', 'on again: opens on the start page');
+      await app.restart();
+    },
+  },
+  {
+    ids: ['APP-TOOLTIP', 'EDIT-PANETOGGLE'],
+    group: '앱', name: '툴팁이 곧바로 뜨고, 편집 툴바의 패널 단추는 오른쪽 끝에 있다',
+    run: async (app) => {
+      const m = app.main;
+      await m.eval(`${P}.closeAllDialogs(); ${P}.actions.setMode('start'); 1`);
+      const home = await m.center('#start-home');
+      await m.mouse('mouseMoved', home.x, home.y, { button: 'none' });
+      await sleep(400);
+      assert.equal(await m.eval(`(() => { const t = document.querySelector('.quick-tip'); return t && !t.hidden ? t.textContent : null; })()`), await m.eval(`${P}.t('start.title')`), 'tooltip within 400 ms');
+      await m.mouse('mouseMoved', 4, home.y + 300, { button: 'none' });
+      await sleep(150);
+      assert.ok(await m.eval(`document.querySelector('.quick-tip').hidden && Boolean(document.querySelector('#start-home').getAttribute('title'))`), 'gone, and the title is back');
+      await open(app, app.photos, 3);
+      await openEditor(app, await pathOf(app, 'beach.jpg'));
+      const bar = await m.eval(`(() => { const bar = document.querySelector('.editor-toolbar').getBoundingClientRect(); const right = document.querySelector('#edit-info-toggle').getBoundingClientRect(); const left = document.querySelector('#edit-panel-toggle').getBoundingClientRect(); const zoom = document.querySelector('#edit-zoom-in').getBoundingClientRect(); return { gap: bar.right - right.right, after: left.left > zoom.right }; })()`);
+      assert.ok(bar.gap < 20 && bar.after, JSON.stringify(bar));
+      await m.eval(`${P}.dq('#edit-cancel').click(); 1`);
+      await m.waitFor(`${P}.app.state.mode !== 'edit'`, { message: 'editor closed' });
+    },
+  },
+  {
+    ids: ['APP-GUIDE'],
+    group: '앱', name: '사용 설명서는 별도 창: 국기 언어 선택, 글자 축소·현재 px·확대, 목차',
+    run: async (app) => {
+      await app.main.eval(`${P}.closeAllDialogs(); ${P}.menu('help', 'help.guide'); 1`);
+      let target = null;
+      for (let i = 0; i < 60 && !target; i++) {
+        await sleep(250);
+        target = (await listTargets(app.port)).find((t) => t.type === 'page' && /\/doc\/index\.html/.test(t.url));
+      }
+      assert.ok(target, 'the guide window opened');
+      const g = await new Page(target).open();
+      try {
+        await g.waitFor(`Boolean(window.__myphotoGuide) && document.querySelectorAll('#doc h2').length >= 15`, { message: 'guide text' });
+        const head = JSON.parse(await g.eval(`(() => { const out = document.querySelector('#size-now'); const r = out.getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(out); const t = range.getBoundingClientRect(); return JSON.stringify({ flags: [...document.querySelectorAll('.lang-group button')].map((b) => Boolean(b.querySelector('svg.flag')) && b.dataset.lang), size: out.textContent, centred: Math.abs((t.left + t.right) / 2 - (r.left + r.right) / 2) < 1.5, toc: document.querySelectorAll('#side a').length }); })()`));
+        assert.deepEqual(head.flags, ['ko', 'en'], 'languages with flags');
+        assert.equal(head.size, '14px');
+        assert.ok(head.centred, 'current size centred');
+        assert.ok(head.toc >= 15, 'contents');
+        await g.eval(`document.querySelector('#size-down').click(); 1`);
+        assert.equal(await g.eval(`document.querySelector('#size-now').textContent + '|' + getComputedStyle(document.querySelector('main')).fontSize`), '13px|13px');
+        await g.eval(`document.querySelector('#size-up').click(); 1`);
+        await g.eval(`document.querySelector('.lang-group button[data-lang=en]').click(); 1`);
+        assert.equal(await g.eval(`document.querySelector('#doc h2').textContent`), '1. Window layout');
+        assert.equal(await g.eval(`document.title`), 'MyPhotoManager User Guide');
+        await g.eval(`document.querySelector('.lang-group button[data-lang=ko]').click(); 1`);
+        assert.equal(await g.eval(`document.querySelector('#doc h2').textContent`), '1. 화면 구성');
+        // A second request brings the same window forward.
+        await app.main.eval(`${P}.menu('help', 'help.guide'); 1`);
+        await sleep(800);
+        assert.equal((await listTargets(app.port)).filter((t) => t.type === 'page' && /\/doc\/index\.html/.test(t.url)).length, 1, 'one guide window');
+        await g.eval(`window.close(); 1`).catch(() => {});
+      } finally {
+        g.close();
+      }
     },
   },
 ];

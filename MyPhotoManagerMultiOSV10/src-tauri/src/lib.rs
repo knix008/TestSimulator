@@ -645,6 +645,39 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+/// The user guide (doc/index.html) in its own window, not owned by the main one
+/// so it can sit anywhere. `query` carries the language and the theme. A second
+/// request brings the open guide forward (the page follows later changes itself).
+/// Async: a window made inside a synchronous command deadlocks on Windows.
+#[tauri::command]
+async fn open_guide(app: AppHandle, query: String) -> Result<(), String> {
+    if let Some(existing) = app.get_webview_window("guide") {
+        let _ = existing.unminimize();
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+    let mut builder = WebviewWindowBuilder::new(&app, "guide", WebviewUrl::App(format!("doc/index.html?{query}").into()))
+        .title(tr!("MyPhotoManager 사용 설명서", "MyPhotoManager User Guide"))
+        .inner_size(1060.0, 780.0)
+        .min_inner_size(720.0, 480.0)
+        .additional_browser_args(BROWSER_ARGS)
+        .on_document_title_changed(|window, title| {
+            let _ = window.set_title(&title);
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone()).map_err(|e| e.to_string())?;
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        let scale = main.scale_factor().unwrap_or(1.0);
+        if let Ok(p) = main.outer_position() {
+            builder = builder.position(f64::from(p.x) / scale + 60.0, f64::from(p.y) / scale + 40.0);
+        }
+    }
+    builder.build().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn focus_main(app: &AppHandle) {
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.show();
@@ -729,6 +762,15 @@ pub fn run() {
                 None => builder.inner_size(1440.0, 900.0).center(),
             };
             let main = builder.build()?;
+            // The guide is not owned by the main window: it goes with it, or the program would keep running.
+            let handle = app.handle().clone();
+            main.on_window_event(move |event| {
+                if let tauri::WindowEvent::Destroyed = event {
+                    if let Some(guide) = handle.get_webview_window("guide") {
+                        let _ = guide.destroy();
+                    }
+                }
+            });
             if let Some(path) = state_path {
                 window_state::track(&main, path);
             }
@@ -785,6 +827,7 @@ pub fn run() {
             mtp_devices,
             mtp_stage,
             quit_app,
+            open_guide,
             start_file_drag
         ])
         .run(tauri::generate_context!())

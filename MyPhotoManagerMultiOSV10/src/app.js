@@ -6,7 +6,7 @@ import { GROUP_KEYS, SORT_KEYS } from './catalog/listing.js';
 import { ARCHIVES, isArchive, isMedia, kindOf, MEDIA_EXTENSIONS } from './formats/types.js';
 import { getLanguage, onLanguageChange, plural, setLanguage, t } from './i18n.js';
 import { filesFromDrop, fs, hasFolderAccess, webFs } from './platform/fs.js';
-import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onCloseRequested, onFileDrop, setWindowTheme, setWindowTitle, showWindow, startWindowResize } from './platform/native.js';
+import { chooseFiles, chooseFolder, errorText, invoke, isDesktop, listen, onCloseRequested, onFileDrop, openGuide, setWindowTheme, shareGuideAppearance, setWindowTitle, showWindow, startWindowResize } from './platform/native.js';
 import { setColorManagement } from './formats/decode.js';
 import { DEFAULTS as DEFAULT_SETTINGS, loadSettings, loadSettingsFile } from './settings.js';
 import {
@@ -58,6 +58,9 @@ import { watchMinWidth } from './ui/minwidth.js';
 import * as analysis from './analysis/analyzer.js';
 import { categoryCounts, categoryIds, categoryKey } from './analysis/taxonomy.js';
 import { customThemeDialog, EDIT_CUSTOM, themeSelect } from './ui/themepicker.js';
+import { installTooltips } from './ui/tooltip.js';
+
+installTooltips();
 
 app.settings = loadSettings();
 setLanguage(app.settings.language);
@@ -73,6 +76,14 @@ let shownTheme = null;
 function updateTheme() {
   shownTheme = applyTheme(currentTheme(), app.settings.customTheme);
   setWindowTheme(shownTheme.mode === 'dark');
+  shareGuideAppearance(guideAppearance());
+}
+/** The user guide wears the app's theme and speaks its language (it follows changes). */
+function guideAppearance() {
+  const style = document.documentElement.style;
+  const vars = {};
+  for (const name of style) if (name.startsWith('--')) vars[name] = style.getPropertyValue(name);
+  return { language: getLanguage(), mode: shownTheme?.mode === 'light' ? 'light' : 'dark', vars };
 }
 function setTheme(id) {
   app.settings.theme = id;
@@ -860,7 +871,7 @@ function helpMenu() {
     { label: t('shortcuts.title'), icon: 'keyboard', shortcut: 'F1', action: shortcutsDialog },
     { label: t('keys.title'), icon: 'keyboard', action: keymapDialog },
     { label: t('tut.menu'), icon: 'play', action: () => tutorial.start() },
-    { label: t('help.guide'), icon: 'help', action: () => fs.openUrl('https://github.com/knix008').catch(() => {}) },
+    { label: t('help.guide'), icon: 'help', action: () => openGuide(guideAppearance()).catch((error) => toast(errorText(error), 'error')) },
     'separator',
     { label: t('about.title'), icon: 'info', action: aboutDialog },
   ];
@@ -1585,6 +1596,7 @@ app.on('settings', () => {});
 app.on('roots-changed', () => folderPane.render());
 app.on('open-archive', (path) => openArchive(path));
 onLanguageChange(() => {
+  shareGuideAppearance(guideAppearance());
   renderAll();
   // Re-opening the viewer would load app.state.viewPath again and replace the picture on screen.
   if (app.state.mode === 'view') viewer.relabel();
@@ -1713,7 +1725,7 @@ async function start() {
   renderAll();
   await folderPane.render();
   const startup = isDesktop() ? await invoke('startup_paths').catch(() => []) : [];
-  if (!startup.length) setMode('start');
+  if (!startup.length && app.settings.startScreen?.showOnLaunch !== false) setMode('start');
   showWindow();
 
   // What to show first. A folder opened for the command line replaces the start page.

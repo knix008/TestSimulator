@@ -54,7 +54,7 @@ export async function openCompare(items) {
     };
     drawStars();
     const panel = h('div.compare-panel', h('div.compare-name', item.name), view, h('div.compare-foot', stars,
-      h('button.tool', { type: 'button', title: t('file.delete'), html: icon('trash'), onclick: async () => { await deleteItems([item.path]); panel.classList.add('deleted'); } })), info);
+      h('button.tool', { type: 'button', title: t('file.delete'), html: icon('trash'), onclick: async () => { await deleteItems([item.path]); panel.classList.add('deleted'); } })), h('div.compare-info', info));
     grid.append(panel);
     const entry = { item, view, el: null, width: 0, height: 0 };
     panels.push(entry);

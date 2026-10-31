@@ -55,6 +55,8 @@ export async function settingsDialog({ onApply }) {
   const xmpEmbed = check(s.xmpEmbed, t('settings.xmpEmbed'));
   const tiles = check(s.mapTiles, t('settings.mapTiles'));
   const autoAnalysis = check(s.analysis?.auto !== false, t('analysis.auto'));
+  const showStart = check(s.startScreen?.showOnLaunch !== false, t('start.showOnLaunch'));
+  showStart.input.id = 'settings-show-start';
   autoAnalysis.input.dataset.key = 'analysis-auto';
   const startup = selectEl([['last', t('settings.startLast')], ['pictures', t('settings.startPictures')], ['home', t('settings.startHome')]], s.startup);
   const bgAlgorithm = selectEl(BG_ALGORITHMS.map((id) => [id, t(`edit.bg.${id}`)]), s.background?.algorithm ?? 'grabcut');
@@ -156,6 +158,7 @@ export async function settingsDialog({ onApply }) {
       group(t('settings.background'), field(t('settings.bgAlgorithm'), bgAlgorithm), h('div.hint', t('settings.bgAlgorithmHint')), h('div.field-label', t('settings.bgLine')), field(t('settings.bgLineColor'), bgLineColor), field(t('settings.bgLineStyle'), bgLineStyle), field(t('settings.bgLineWidth'), bgLineWidth), linePreview, h('div.field-label', t('settings.bgModels')), modelBox, h('div.hint', t('settings.bgModelsHint'))))],
     ['start', 'home', t('settings.startScreen'), h('div.settings-groups',
       group(t('settings.startScreen'),
+        showStart.el,
         h('div.field-label', t('settings.startScene')),
         createStartScenes(startScene, (id) => { startScene = id; previewStart(); }),
         createStartSpeed(startSpeeds, (values) => { startSpeeds = values; previewStart(); })))],
@@ -218,7 +221,7 @@ export async function settingsDialog({ onApply }) {
     video: { autoplay: video.autoplay.input.checked, loop: video.loop.input.checked, muted: video.muted.input.checked, controls: video.controls.input.checked, resume: video.resume.input.checked, nextAtEnd: video.nextAtEnd.input.checked, volume: Math.max(0, Math.min(100, Number(video.volume.value) || 0)), speed: Number(video.speed.value) || 1, fit: video.fit.value },
     xmpSidecar: xmp.input.checked, xmpEmbed: xmpEmbed.input.checked, colorManagement: colorManaged.input.checked, measureUnit: measureUnit.value, mapTiles: tiles.input.checked, analysis: { ...(s.analysis ?? {}), auto: autoAnalysis.input.checked }, startup: startup.value, slideshow: slideshow.read(),
     background: (() => { const line = selectionLine({ lineColor: bgLineColor.value, lineStyle: bgLineStyle.value, lineWidth: bgLineWidth.value }); return { ...(s.background ?? {}), algorithm: bgAlgorithm.value, lineColor: line.color, lineStyle: line.style, lineWidth: line.width }; })(),
-    startScreen: { scene: startSceneId(startScene), ...startSpeedValues(startSpeeds) },
+    startScreen: { ...(s.startScreen ?? {}), scene: startSceneId(startScene), ...startSpeedValues(startSpeeds), showOnLaunch: showStart.input.checked },
   });
   s.viewer = { ...s.viewer, wheel: wheel.value, enlarge: enlarge.input.checked, smooth: smooth.input.checked };
   app.saveSettings();
