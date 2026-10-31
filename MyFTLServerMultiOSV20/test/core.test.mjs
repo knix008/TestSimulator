@@ -14,7 +14,7 @@ const require = createRequire(import.meta.url);
 const { VirtualFileSystem, normalizePath, posixJoin, posixParent, posixBase } = require('../core/vfs');
 const { authenticate, permissionSummary, ANONYMOUS, DENY } = require('../core/auth');
 const { Settings, normalize, toFile, DEFAULTS: SETTINGS_DEFAULTS, DEFAULT_PORTS, SETTINGS_VERSION, encodeSecret, decodeSecret } = require('../core/settings');
-const { generateSelfSigned, writeSelfSigned, loadCertificate, inspectCertificate } = require('../core/x509');
+const { generateSelfSigned, writeSelfSigned, loadCertificate, inspectCertificate, derInteger } = require('../core/x509');
 const hostkey = require('../core/hostkey');
 const { createApi, serializeError } = require('../core/api');
 const { Log, stamp } = require('../core/log');
@@ -256,6 +256,16 @@ describe('Settings & profiles', () => {
 });
 
 describe('Certificates (x509)', () => {
+  test('DER INTEGER is minimal (random serials with leading zero bytes)', () => {
+    const hex = (b) => derInteger(Buffer.from(b, 'hex')).toString('hex');
+    assert.equal(hex('0012'), '020112');          // redundant 0x00 dropped — OpenSSL calls it "illegal padding"
+    assert.equal(hex('000012'), '020112');
+    assert.equal(hex('0080'), '02020080');        // 0x00 kept: 0x80 would read as negative
+    assert.equal(hex('80'), '02020080');
+    assert.equal(hex('00'), '020100');
+    assert.equal(derInteger(2).toString('hex'), '020102');
+  });
+
   test('self-signed certificate is valid and loads for TLS', () => {
     const g = generateSelfSigned({ commonName: '192.168.1.10', validityYears: 2 });
     assert.match(g.cert, /BEGIN CERTIFICATE/);

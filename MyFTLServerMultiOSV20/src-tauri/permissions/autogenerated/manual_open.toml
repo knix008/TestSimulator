@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-manual-open"
+description = "Enables the manual_open command without any pre-configured scope."
+commands.allow = ["manual_open"]
+
+[[permission]]
+identifier = "deny-manual-open"
+description = "Denies the manual_open command without any pre-configured scope."
+commands.deny = ["manual_open"]

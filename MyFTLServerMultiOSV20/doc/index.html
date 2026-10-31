@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My FTP Server 사용 설명서</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg">
+<link rel="stylesheet" href="manual.css">
+</head>
+<body class="ko">
+<header class="doc-head">
+  <h1><img src="../icon.svg" alt=""><span class="ko">My FTP Server 사용 설명서</span><span class="en">My FTP Server User Guide</span></h1>
+  <span class="spacer"></span>
+  <div class="tools">
+    <div class="lang-group" role="group" aria-label="Language">
+      <button type="button" data-lang="ko">
+        <svg width="20" height="14" viewBox="0 0 36 24" aria-hidden="true"><rect width="36" height="24" rx="3" fill="#ffffff" stroke="#c8ccd4"/><g transform="translate(18 12)"><path d="M-6 0a6 6 0 0 1 12 0a3 3 0 0 1 -6 0a3 3 0 0 0 -6 0z" fill="#cd2e3a" transform="rotate(-33)"/><path d="M6 0a6 6 0 0 1 -12 0a3 3 0 0 1 6 0a3 3 0 0 0 6 0z" fill="#0047a0" transform="rotate(-33)"/></g><g fill="#000"><g transform="translate(6.5 5.5) rotate(-33)"><rect x="-3" y="-2.4" width="6" height="1.2"/><rect x="-3" y="-0.6" width="6" height="1.2"/><rect x="-3" y="1.2" width="6" height="1.2"/></g><g transform="translate(29.5 18.5) rotate(-33)"><rect x="-3" y="-2.4" width="2.6" height="1.2"/><rect x="0.4" y="-2.4" width="2.6" height="1.2"/><rect x="-3" y="-0.6" width="2.6" height="1.2"/><rect x="0.4" y="-0.6" width="2.6" height="1.2"/><rect x="-3" y="1.2" width="2.6" height="1.2"/><rect x="0.4" y="1.2" width="2.6" height="1.2"/></g><g transform="translate(29.5 5.5) rotate(33)"><rect x="-3" y="-2.4" width="2.6" height="1.2"/><rect x="0.4" y="-2.4" width="2.6" height="1.2"/><rect x="-3" y="-0.6" width="6" height="1.2"/><rect x="-3" y="1.2" width="2.6" height="1.2"/><rect x="0.4" y="1.2" width="2.6" height="1.2"/></g><g transform="translate(6.5 18.5) rotate(33)"><rect x="-3" y="-2.4" width="6" height="1.2"/><rect x="-3" y="-0.6" width="2.6" height="1.2"/><rect x="0.4" y="-0.6" width="2.6" height="1.2"/><rect x="-3" y="1.2" width="6" height="1.2"/></g></g></svg>
+        한국어
+      </button>
+      <button type="button" data-lang="en">
+        <svg width="20" height="14" viewBox="0 0 36 24" aria-hidden="true"><defs><clipPath id="gb"><rect width="36" height="24" rx="3"/></clipPath></defs><g clip-path="url(#gb)"><rect width="36" height="24" fill="#012169"/><path d="M0 0L36 24M36 0L0 24" stroke="#fff" stroke-width="4.8"/><path d="M0 0L36 24M36 0L0 24" stroke="#c8102e" stroke-width="1.8"/><path d="M18 0V24M0 12H36" stroke="#fff" stroke-width="7"/><path d="M18 0V24M0 12H36" stroke="#c8102e" stroke-width="4"/></g></svg>
+        English
+      </button>
+    </div>
+    <div class="size" role="group">
+      <button type="button" id="size-down"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 18l5-12 5 12M4.7 14h6.6M16 12h6"/></svg></button>
+      <output id="size-now">13px</output>
+      <button type="button" id="size-up"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 18l5-12 5 12M4.7 14h6.6M16 12h6M19 9v6"/></svg></button>
+    </div>
+  </div>
+  <span class="win-buttons">
+    <button type="button" class="win-btn" id="win-min"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor"/></svg></button>
+    <button type="button" class="win-btn" id="win-max"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor"><rect x=".5" y=".5" width="9" height="9"/></svg></button>
+    <button type="button" class="win-btn close" id="win-close"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.1"><path d="M.5.5l9 9M9.5.5l-9 9"/></svg></button>
+  </span>
+</header>
+
+<div class="layout">
+  <nav id="side" aria-label="Contents"></nav>
+  <div id="content">
+  <main>
+    <p class="lead ko">My FTP Server 는 이 컴퓨터의 폴더를 FTP · FTPS · SFTP 로 공유하는 서버 프로그램입니다. 여러 폴더를 가상 경로로 묶고, 사용자마다 읽기 · 쓰기 권한을 주고, 자체 서명 인증서와 SSH 호스트 키를 만들며, 접속과 전송을 실시간 로그와 통계로 보여 줍니다. Windows · macOS · Linux 데스크톱 앱과 웹 브라우저 판이 같은 화면을 씁니다.</p>
+    <p class="lead en">My FTP Server shares folders of this computer over FTP, FTPS and SFTP. It maps several folders to virtual paths, gives each user read and write rights, makes self-signed certificates and SSH host keys, and shows connections and transfers in a live log with statistics. The desktop app (Windows, macOS, Linux) and the web version share the same screen.</p>
+
+    <section id="start">
+      <h2><span class="ko">시작하기</span><span class="en">Getting started</span></h2>
+      <figure>
+        <img src="img/start-page.png" alt="">
+        <figcaption><span class="ko">앱을 열면 나오는 시작 페이지</span><span class="en">The start page the app opens on</span></figcaption>
+      </figure>
+      <div class="ko">
+        <h3>처음 실행 (5 단계)</h3>
+        <ol>
+          <li><b>공유 폴더 → 추가</b>: 가상 이름(예: <code>data</code>)과 실제 폴더를 고릅니다. 클라이언트는 이 폴더를 <code>/data/</code> 로 봅니다.</li>
+          <li><b>프로토콜</b>을 켭니다. 체크하면 표준 포트(FTP 21, FTPS 990, SFTP 22)가 채워집니다. Linux · macOS 에서 1024 미만 포트는 관리자 권한이 필요하므로 2121 / 2990 / 2222 를 권장합니다.</li>
+          <li><b>인증</b>: 기본은 익명 접속(읽기 전용)입니다. 올리기 · 지우기가 필요하면 사용자를 추가하고 「쓰기」를 체크합니다.</li>
+          <li>FTPS 나 「FTP에 AUTH TLS 허용」을 쓰려면 <b>보안 → 인증서 생성</b>을 누릅니다. SFTP 호스트 키는 처음 시작할 때 자동으로 만들어집니다.</li>
+          <li><b>▶ 서버 시작</b>. 아래쪽 <b>접속 주소</b> 탭에서 주소를 복사해 클라이언트에 붙여 넣습니다.</li>
+        </ol>
+        <h3>시작 페이지</h3>
+        <p>앱을 열면 움직이는 배경 위에 카드가 놓인 시작 페이지가 나옵니다. 맨 위 카드에서 서버를 시작 · 중지하고, <b>사용법</b>(이 설명서) · 설정 · 정보 · 서버 화면으로 갑니다. 서버 상태, 빠른 작업(공유 · 사용자 추가, 인증서 · 호스트 키 생성, 로그 저장 · 복사, 설정 폴더), 공유 폴더, 접속 주소, 프로파일, 도움말, 배경 카드가 있습니다.</p>
+        <ul>
+          <li>카드는 머리글을 끌어 옮기고, 오른쪽 아래 모서리로 크기를 바꿉니다. 「자동 정렬」은 빈틈없이 다시 배치합니다. 배치는 다음 실행에도 남습니다.</li>
+          <li>툴바 맨 왼쪽(앱 이름 옆)의 <b>홈</b> 버튼이나 「서버 화면으로」로 서버 화면과 오갑니다.</li>
+          <li>「시작할 때 이 페이지 표시」를 끄면 앱이 서버 화면으로 바로 열립니다.</li>
+        </ul>
+        <h3>설치와 제거</h3>
+        <p>Windows 설치 프로그램은 처음에 한국어 / English 를 고릅니다. 이미 설치된 My FTP Server(이전 Electron 판 포함)가 있으면 완전히 지운 뒤 설치하고, 남아 있는 데이터(설정 · 프로파일 · 인증서 · 호스트 키 · 로그)를 지울지 묻습니다. [아니요] 를 고르면 기존 설정을 그대로 이어서 씁니다. 설치된 앱에는 Node 런타임이 들어 있으므로 Node.js 를 따로 설치할 필요가 없습니다.</p>
+      </div>
+      <div class="en">
+        <h3>First run (five steps)</h3>
+        <ol>
+          <li><b>Shared folders → Add</b>: pick a virtual name (e.g. <code>data</code>) and a real folder. Clients see the folder as <code>/data/</code>.</li>
+          <li>Turn on the <b>protocols</b>. Ticking one fills in its standard port (FTP 21, FTPS 990, SFTP 22). Ports below 1024 need administrator rights on Linux and macOS, so 2121 / 2990 / 2222 are a good choice there.</li>
+          <li><b>Authentication</b>: anonymous access (read-only) is on by default. Add a user and tick “Write” for uploads and deletes.</li>
+          <li>For FTPS or “Allow AUTH TLS on FTP”, press <b>Security → Generate certificate</b>. The SFTP host key is created on the first start.</li>
+          <li><b>▶ Start server</b>. Copy an address from the <b>Addresses</b> tab at the bottom into the client.</li>
+        </ol>
+        <h3>The start page</h3>
+        <p>The app opens on a start page: cards over a moving background. The top card starts and stops the server and leads to the <b>User guide</b> (this window), Settings, About and the server view. Further cards show the server status, quick actions (add a share or a user, generate a certificate or host key, save or copy the log, open the settings folder), the shares, the addresses, the profiles, help and the background.</p>
+        <ul>
+          <li>Drag a card by its header to move it; drag its bottom-right corner to resize it. “Auto arrange” packs the cards again. The layout is kept.</li>
+          <li>The <b>Home</b> button at the left of the toolbar (next to the app name) and “To the server view” switch between the start page and the server view.</li>
+          <li>Untick “Show this page at start” to open the app on the server view.</li>
+        </ul>
+        <h3>Installing and removing</h3>
+        <p>The Windows installer first asks for Korean or English. An installed My FTP Server (the earlier Electron build too) is removed completely first, and you are asked whether to delete its data (settings, profiles, certificate, host key, log). Choose [No] to keep using your settings. The installed app carries its own Node runtime: Node.js need not be installed.</p>
+      </div>
+    </section>
+
+    <section id="screen">
+      <h2><span class="ko">화면 구성</span><span class="en">The server view</span></h2>
+      <figure>
+        <img src="img/main.png" alt="">
+        <figcaption><span class="ko">FTP · FTPS · SFTP 가 실행 중인 서버 화면</span><span class="en">The server view with FTP, FTPS and SFTP running</span></figcaption>
+      </figure>
+      <div class="ko">
+        <table>
+          <tr><th>영역</th><th>설명</th></tr>
+          <tr><td>툴바</td><td>창의 제목 표시줄을 대신합니다. 앱 이름, <b>홈</b>(시작 페이지 ⇄ 서버 화면), 프로파일(선택 · 저장 · 삭제), 폴더 트리 접기, 테마, 언어, 설정, 정보, 창 버튼. 빈 곳을 끌면 창이 움직이고 두 번 누르면 최대화됩니다.</td></tr>
+          <tr><td>제어 바</td><td>▶ 시작 / ■ 중지, 프로토콜 스위치와 포트, 실행 중 접속 수, 「FTP에 AUTH TLS 허용」, 오른쪽에 통계(현재 · 총 접속, 업로드 · 다운로드 수와 용량). 언제나 한 줄입니다.</td></tr>
+          <tr><td>폴더 트리 (왼쪽)</td><td>클라이언트가 보는 트리: <code>/</code> 아래 공유 폴더, 그 아래 실제 폴더와 파일. 두 번 누르면 탐색기에서 엽니다.</td></tr>
+          <tr><td>공유 폴더 · 인증</td><td>가상 이름 → 실제 폴더 표, 익명 접속 스위치와 사용자 표.</td></tr>
+          <tr><td>보안 · 네트워크</td><td>FTPS 인증서와 SFTP 호스트 키, 버퍼 · 최대 접속 · PASV · 바인드 주소.</td></tr>
+          <tr><td>로그 / 접속 주소</td><td>아래쪽 두 탭. 로그는 시간이 붙은 기록, 접속 주소는 클라이언트가 쓸 URL 목록.</td></tr>
+          <tr><td>상태 표시줄</td><td>● 실행 중 / ○ 중지됨, 상태 메시지, 가동 시간, 🔒 설정 잠김, 오른쪽 아래 크기 조절 그립.</td></tr>
+        </table>
+        <p class="note">서버가 실행 중일 때는 모든 설정이 잠깁니다. 바꾸려면 먼저 ■ 중지하세요. 접속자가 있으면 중지 전에 확인 창이 뜹니다.</p>
+      </div>
+      <div class="en">
+        <table>
+          <tr><th>Area</th><th>What it does</th></tr>
+          <tr><td>Toolbar</td><td>Replaces the window's title bar: app name, <b>Home</b> (start page ⇄ server view), profiles (choose · save · delete), the folder-tree toggle, theme, language, Settings, About and the window buttons. Drag an empty spot to move the window; double-click to maximize.</td></tr>
+          <tr><td>Control bar</td><td>▶ Start / ■ Stop, the protocol switches and ports, live connection counts, “Allow AUTH TLS on FTP”, and on the right the statistics (current and total connections, uploads and downloads with sizes). Always one line.</td></tr>
+          <tr><td>Folder tree (left)</td><td>The tree clients see: the shares under <code>/</code>, then the real folders and files. Double-click opens the item in the file manager.</td></tr>
+          <tr><td>Shares · Authentication</td><td>Virtual name → real folder; the anonymous switch and the users.</td></tr>
+          <tr><td>Security · Network</td><td>FTPS certificate and SFTP host key; buffer, connection limit, PASV and bind address.</td></tr>
+          <tr><td>Log / Addresses</td><td>Two tabs at the bottom: the timestamped log, and the URLs clients connect to.</td></tr>
+          <tr><td>Status bar</td><td>● Running / ○ Stopped, the status message, uptime, 🔒 settings locked, and the resize grip at the bottom-right.</td></tr>
+        </table>
+        <p class="note">While the server runs, every setting is locked. Press ■ Stop first to change them. With clients connected you are asked before stopping.</p>
+      </div>
+    </section>
+
+    <section id="shares">
+      <h2><span class="ko">공유 폴더</span><span class="en">Shared folders</span></h2>
+      <figure>
+        <img src="img/share-dialog.png" alt="">
+        <figcaption><span class="ko">공유 폴더 추가 창</span><span class="en">Adding a shared folder</span></figcaption>
+      </figure>
+      <div class="ko">
+        <p><b>가상 이름</b>은 클라이언트에 보이는 폴더 이름입니다(<code>/</code> · <code>\</code> 불가, 대소문자 구분 없음, 중복 불가). <b>실제 경로</b>는 이 컴퓨터의 폴더이며, 「찾기」로 고르면 폴더 이름이 가상 이름으로 제안됩니다.</p>
+        <ul>
+          <li>여러 개를 등록하면 루트 <code>/</code> 에 가상 이름들이 폴더로 나열됩니다. 공유가 하나뿐이면 <code>/a/b</code> 처럼 이름을 생략한 경로도 그 공유로 해석됩니다.</li>
+          <li>클라이언트는 공유 밖으로 나갈 수 없습니다. <code>/data/../..</code> 는 루트로 잘리고, 루트에는 파일을 만들거나 공유를 지울 수 없습니다.</li>
+          <li>없는 폴더는 표에 빨간 「폴더 없음」이 뜨고 시작할 때 건너뜁니다(모두 없으면 시작 거부).</li>
+          <li>두 번 누르기 · <kbd>Enter</kbd> = 편집, <kbd>Delete</kbd> = 제거, <kbd>↑</kbd> <kbd>↓</kbd> = 선택 이동.</li>
+        </ul>
+        <figure><img src="img/tree.png" alt=""><figcaption>왼쪽 폴더 트리 — 클라이언트가 보게 될 구조</figcaption></figure>
+      </div>
+      <div class="en">
+        <p>The <b>virtual name</b> is the folder name clients see (no <code>/</code> or <code>\</code>, case-insensitive, unique). The <b>real path</b> is a folder on this computer; picking it with “Browse” suggests its name as the virtual name.</p>
+        <ul>
+          <li>With several shares, the root <code>/</code> lists their virtual names as folders. With a single share, a path without the name such as <code>/a/b</code> also goes to it.</li>
+          <li>Clients cannot leave the shares: <code>/data/../..</code> stops at the root, and nothing can be created in the root nor a share deleted.</li>
+          <li>A missing folder shows a red “missing” badge and is skipped at start (if all are missing, the start is refused).</li>
+          <li>Double-click or <kbd>Enter</kbd> = edit, <kbd>Delete</kbd> = remove, <kbd>↑</kbd> <kbd>↓</kbd> = move the selection.</li>
+        </ul>
+        <figure><img src="img/tree.png" alt=""><figcaption>The folder tree on the left: what clients will see</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="users">
+      <h2><span class="ko">인증과 권한</span><span class="en">Authentication and rights</span></h2>
+      <figure>
+        <img src="img/user-dialog.png" alt="">
+        <figcaption><span class="ko">사용자 추가 창 — 읽기 · 쓰기 권한</span><span class="en">Adding a user with read and write rights</span></figcaption>
+      </figure>
+      <div class="ko">
+        <table>
+          <tr><th>계정</th><th>접속</th><th>권한</th></tr>
+          <tr><td><code>anonymous</code></td><td>「익명 접속 허용」이 켜져 있을 때. 암호는 아무 값(SFTP 는 암호 없이)</td><td><b>읽기 전용</b> — 목록 · 다운로드만. 올리기 · 폴더 만들기 · 지우기 · 이름 바꾸기는 거부됩니다</td></tr>
+          <tr><td>등록 사용자</td><td>이름은 대소문자 무시, 암호는 정확히 일치</td><td>「읽기」 / 「쓰기」 조합. 쓰기만 있으면 목록 · 다운로드가 거부됩니다</td></tr>
+        </table>
+        <ul>
+          <li>거부된 로그인 · 읽기 · 쓰기는 로그에 「로그인 실패」 / 「읽기 거부」 / 「쓰기 거부」로 남습니다.</li>
+          <li>암호는 설정 파일에 base64 로만 감춰집니다(암호화가 아님). 여러 사람이 쓰는 컴퓨터에서는 설정 폴더 권한에 주의하세요.</li>
+        </ul>
+      </div>
+      <div class="en">
+        <table>
+          <tr><th>Account</th><th>Log-in</th><th>Rights</th></tr>
+          <tr><td><code>anonymous</code></td><td>When “Allow anonymous” is on. Any password (SFTP: none)</td><td><b>Read-only</b>: listing and downloads. Uploads, new folders, deletes and renames are refused</td></tr>
+          <tr><td>Registered user</td><td>Name case-insensitive, password exact</td><td>Any mix of “Read” and “Write”. Write-only users cannot list or download</td></tr>
+        </table>
+        <ul>
+          <li>Refused log-ins, reads and writes appear in the log as “Login failed”, “Read denied” and “Write denied”.</li>
+          <li>Passwords are only hidden with base64 in the settings file, not encrypted. Mind the settings folder's permissions on a shared computer.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="protocols">
+      <h2><span class="ko">프로토콜과 접속 주소</span><span class="en">Protocols and addresses</span></h2>
+      <figure>
+        <img src="img/addresses.png" alt="">
+        <figcaption><span class="ko">접속 주소 탭 — 프로토콜 × 네트워크 인터페이스</span><span class="en">The Addresses tab: protocol × network interface</span></figcaption>
+      </figure>
+      <div class="ko">
+        <h3>FTP</h3>
+        <p>평문 FTP(기본 21). 수동(PASV · EPSV)과 능동(PORT · EPRT) 모드, 이어받기(<code>REST</code>), 이름 바꾸기, <code>MLSD</code> · <code>MLST</code> · <code>MDTM</code> · <code>SIZE</code> · <code>APPE</code> 를 지원합니다.</p>
+        <h3>FTPS</h3>
+        <table>
+          <tr><th>방식</th><th>서버 설정</th><th>클라이언트 설정</th></tr>
+          <tr><td>Explicit (AUTH TLS)</td><td>FTP 를 켜고 「FTP에 AUTH TLS 허용」 + 인증서</td><td>“명시적 FTP over TLS”, FTP 포트. <code>PROT P</code> 로 데이터도 암호화</td></tr>
+          <tr><td>Implicit (기본 990)</td><td>FTPS 를 켜고 인증서</td><td>“암시적 FTP over TLS”, 처음부터 TLS</td></tr>
+        </table>
+        <p>인증서가 없거나 읽지 못하면 FTPS 는 시작이 거부되고, Explicit 만 쓰는 FTP 는 경고를 남기고 평문으로 시작합니다. 자체 서명 인증서는 클라이언트에서 한 번 “신뢰” 해야 합니다.</p>
+        <h3>SFTP</h3>
+        <p>SSH 의 sftp 하위 시스템만 제공합니다(기본 22). 셸 · 명령 실행 · 포트 포워딩 · 공개키 인증은 거부됩니다. 클라이언트가 처음 접속할 때 보여 주는 호스트 키 지문이 <b>보안 → SHA256 지문</b>과 같은지 확인하세요.</p>
+        <h3>접속 주소</h3>
+        <p>로그 옆 「접속 주소」 탭은 이 컴퓨터의 IPv4 주소마다 켜진 프로토콜의 <code>ftp://</code> · <code>ftps://</code> · <code>sftp://</code> URL 을 한 줄씩 보여 줍니다. 행의 ⧉ 나 「전체 복사」로 복사하고, 쓸모없는 주소(가상 어댑터 등)는 🗑 로 지울 수 있습니다(「복원」으로 되돌림).</p>
+      </div>
+      <div class="en">
+        <h3>FTP</h3>
+        <p>Plain FTP (21 by default). Passive (PASV, EPSV) and active (PORT, EPRT) mode, resume (<code>REST</code>), renames, <code>MLSD</code>, <code>MLST</code>, <code>MDTM</code>, <code>SIZE</code> and <code>APPE</code>.</p>
+        <h3>FTPS</h3>
+        <table>
+          <tr><th>Kind</th><th>Server</th><th>Client</th></tr>
+          <tr><td>Explicit (AUTH TLS)</td><td>FTP on, “Allow AUTH TLS on FTP” and a certificate</td><td>“Explicit FTP over TLS” on the FTP port; <code>PROT P</code> encrypts the data too</td></tr>
+          <tr><td>Implicit (990 by default)</td><td>FTPS on and a certificate</td><td>“Implicit FTP over TLS”: TLS from the start</td></tr>
+        </table>
+        <p>Without a readable certificate FTPS refuses to start, while FTP with only explicit TLS starts in plain text with a warning. Clients must trust a self-signed certificate once.</p>
+        <h3>SFTP</h3>
+        <p>Only the SSH sftp subsystem (22 by default). Shells, commands, port forwarding and public-key log-in are refused. Check that the host key fingerprint a client shows on its first connection matches <b>Security → SHA256 fingerprint</b>.</p>
+        <h3>Addresses</h3>
+        <p>The “Addresses” tab next to the log lists one <code>ftp://</code>, <code>ftps://</code> or <code>sftp://</code> URL per enabled protocol and IPv4 address of this computer. Copy a row with ⧉ or all of them with “Copy all”; remove useless ones (virtual adapters…) with 🗑 and bring them back with “Restore”.</p>
+      </div>
+    </section>
+
+    <section id="security">
+      <h2><span class="ko">인증서와 호스트 키</span><span class="en">Certificates and host keys</span></h2>
+      <figure>
+        <img src="img/cert-dialog.png" alt="">
+        <figcaption><span class="ko">자체 서명 인증서 생성 창</span><span class="en">Generating a self-signed certificate</span></figcaption>
+      </figure>
+      <div class="ko">
+        <h3>FTPS 인증서</h3>
+        <ul>
+          <li><b>인증서 생성</b>: CN(기본: 컴퓨터 이름), 유효 기간(1~30년), 키 길이(RSA 2048 / 4096), 저장 경로를 정하면 <code>server_cert.pem</code> 과 <code>server_cert_key.pem</code> 이 만들어지고 「인증서 파일」이 채워집니다.</li>
+          <li>기존 인증서는 「찾기」로 <code>.pem</code> · <code>.crt</code> · <code>.cer</code> · <code>.pfx</code> · <code>.p12</code> 를 고릅니다. <code>.pfx</code> 와 암호화된 키는 「인증서 암호」가 필요합니다.</li>
+          <li>인증서 칸 아래에 주체와 만료일(또는 오류)이 표시됩니다.</li>
+        </ul>
+        <h3>SFTP 호스트 키</h3>
+        <ul>
+          <li>비워 두면 설정 폴더의 <code>ssh_host_rsa.pem</code> 을 쓰고, 없으면 첫 시작 때 만듭니다.</li>
+          <li><b>키 생성</b>은 새 키로 교체합니다. 그러면 클라이언트마다 “호스트 키가 바뀌었다” 는 경고가 뜨므로 꼭 필요할 때만 쓰세요.</li>
+          <li>⧉ 로 SHA256 지문을 복사해 사용자에게 알려 줄 수 있습니다.</li>
+        </ul>
+        <figure><img src="img/hostkey.png" alt=""><figcaption>보안 패널 — 인증서 요약과 호스트 키 지문</figcaption></figure>
+      </div>
+      <div class="en">
+        <h3>FTPS certificate</h3>
+        <ul>
+          <li><b>Generate certificate</b>: choose the CN (the computer name by default), validity (1–30 years), key size (RSA 2048 / 4096) and where to save; <code>server_cert.pem</code> and <code>server_cert_key.pem</code> are written and “Certificate file” is filled in.</li>
+          <li>To use an existing certificate, “Browse” for a <code>.pem</code>, <code>.crt</code>, <code>.cer</code>, <code>.pfx</code> or <code>.p12</code>. A <code>.pfx</code> or an encrypted key needs the “Certificate password”.</li>
+          <li>The subject and expiry date (or the error) appear under the certificate field.</li>
+        </ul>
+        <h3>SFTP host key</h3>
+        <ul>
+          <li>Left empty, <code>ssh_host_rsa.pem</code> in the settings folder is used, created on the first start.</li>
+          <li><b>Generate key</b> replaces the key. Every client then warns that the host key changed, so only do it when needed.</li>
+          <li>⧉ copies the SHA256 fingerprint to hand to your users.</li>
+        </ul>
+        <figure><img src="img/hostkey.png" alt=""><figcaption>The Security panel: certificate summary and host key fingerprint</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="network">
+      <h2><span class="ko">네트워크 · 성능</span><span class="en">Network and performance</span></h2>
+      <div class="ko">
+        <table>
+          <tr><th>항목</th><th>내용</th></tr>
+          <tr><td>버퍼 (KB)</td><td>FTP · FTPS 전송 버퍼. 4 ~ 4096, 기본 64</td></tr>
+          <tr><td>최대 접속</td><td>프로토콜별 동시 접속 상한(0 = 무제한). 넘으면 FTP 는 <code>421</code>, SFTP 는 연결을 끊습니다</td></tr>
+          <tr><td>PASV 포트 범위</td><td>수동 모드 데이터 연결의 포트 범위(비우면 임의). 방화벽 · 공유기에서 FTP 포트와 함께 이 범위를 열어야 밖에서 목록 · 전송이 됩니다</td></tr>
+          <tr><td>PASV 외부 주소</td><td>NAT 뒤에서 알릴 공인 IPv4. 같은 사설망의 클라이언트에는 자동으로 로컬 주소를 알립니다</td></tr>
+          <tr><td>바인드 주소</td><td>받을 로컬 IP(비우면 모든 인터페이스). <code>127.0.0.1</code> 이면 이 컴퓨터만</td></tr>
+        </table>
+        <p>숫자 칸은 좌우의 − / + 버튼으로도 바꿉니다.</p>
+      </div>
+      <div class="en">
+        <table>
+          <tr><th>Field</th><th>Meaning</th></tr>
+          <tr><td>Buffer (KB)</td><td>FTP / FTPS transfer buffer, 4–4096, 64 by default</td></tr>
+          <tr><td>Max connections</td><td>Per protocol (0 = unlimited). Beyond it FTP answers <code>421</code> and SFTP closes the connection</td></tr>
+          <tr><td>PASV port range</td><td>Ports for passive data connections (empty = any). Open this range together with the FTP port in the firewall or router, or listings and transfers fail from outside</td></tr>
+          <tr><td>PASV external address</td><td>The public IPv4 announced behind NAT. Clients on the same private network get the local address automatically</td></tr>
+          <tr><td>Bind address</td><td>The local IP to listen on (empty = all interfaces). <code>127.0.0.1</code> = this computer only</td></tr>
+        </table>
+        <p>Number fields also change with their − / + buttons.</p>
+      </div>
+    </section>
+
+    <section id="run">
+      <h2><span class="ko">시작 · 로그 · 통계</span><span class="en">Running, log and statistics</span></h2>
+      <figure>
+        <img src="img/transfer.png" alt="">
+        <figcaption><span class="ko">FTP · FTPS · SFTP 전송 뒤의 로그와 통계</span><span class="en">The log and statistics after FTP, FTPS and SFTP transfers</span></figcaption>
+      </figure>
+      <div class="ko">
+        <h3>시작과 중지</h3>
+        <p>▶ 시작을 누르면 설정을 검사한 뒤 켜진 프로토콜을 한꺼번에 띄웁니다. 하나라도 실패하면(포트 사용 중 등) 이미 뜬 것도 모두 닫고 「서버 시작 오류」 창에 원인을 보여 줍니다. ■ 중지는 모든 연결을 끊습니다.</p>
+        <h3>로그</h3>
+        <ul>
+          <li>로그는 화면(최근 3000줄)과 <code>ftpserver.log</code> 파일에 남습니다. 「프로토콜 상세」를 켜면 명령 · 응답 줄도 보입니다(파일에는 기록되지 않음).</li>
+          <li>「전체 복사」는 클립보드로, 「로그 저장」은 파일로 내보냅니다. ⌫ 는 화면만 비웁니다. 위쪽 분할 바를 끌어 로그 높이를 바꿉니다.</li>
+        </ul>
+        <h3>통계</h3>
+        <p>제어 바 오른쪽은 서버를 시작한 뒤의 현재 · 총 접속 수, 업로드 · 다운로드 수와 용량입니다. FTP · FTPS · SFTP 를 모두 셉니다.</p>
+      </div>
+      <div class="en">
+        <h3>Starting and stopping</h3>
+        <p>▶ Start checks the settings, then brings up every enabled protocol together. If one fails (a port in use…), the others are closed again and the “Server start error” window explains why. ■ Stop disconnects everyone.</p>
+        <h3>Log</h3>
+        <ul>
+          <li>The log is kept on screen (last 3000 lines) and in <code>ftpserver.log</code>. “Protocol detail” also shows commands and replies (never written to the file).</li>
+          <li>“Copy all” copies to the clipboard, “Save log” writes a file, ⌫ clears the screen. Drag the splitter above it to change its height.</li>
+        </ul>
+        <h3>Statistics</h3>
+        <p>The right of the control bar counts, since the start, current and total connections and the number and size of uploads and downloads, over FTP, FTPS and SFTP.</p>
+      </div>
+    </section>
+
+    <section id="profiles">
+      <h2><span class="ko">프로파일</span><span class="en">Profiles</span></h2>
+      <div class="ko">
+        <ul>
+          <li><b>저장</b>: 공유 · 프로토콜 · 사용자 · 보안 · 네트워크 설정 전체를 이름으로 저장합니다. 같은 이름이면 덮어씁니다.</li>
+          <li>툴바 목록이나 시작 페이지의 프로파일 카드에서 고르면 그 설정이 현재 설정이 됩니다.</li>
+          <li><b>삭제</b>: 선택한 프로파일 파일만 지웁니다(현재 설정은 유지).</li>
+        </ul>
+        <p>설정은 바꿀 때마다 자동으로 <code>server_settings.json</code> 에 저장됩니다. <kbd>F5</kbd> 는 지금 저장, <kbd>F6</kbd> 은 파일에서 다시 읽기입니다.</p>
+      </div>
+      <div class="en">
+        <ul>
+          <li><b>Save</b> stores all shares, protocols, users, security and network settings under a name, replacing a profile of the same name.</li>
+          <li>Pick one in the toolbar list or on the start page's Profiles card to make it the current settings.</li>
+          <li><b>Delete</b> removes the selected profile file only (the current settings stay).</li>
+        </ul>
+        <p>Settings are saved to <code>server_settings.json</code> as you change them. <kbd>F5</kbd> saves now, <kbd>F6</kbd> reloads the file.</p>
+      </div>
+    </section>
+
+    <section id="look">
+      <h2><span class="ko">테마 · 언어 · 배경</span><span class="en">Themes, language and backgrounds</span></h2>
+      <figure>
+        <img src="img/themes.png" alt="">
+        <figcaption><span class="ko">툴바의 테마 목록 — 맨 위 사용자 정의 테마와 설정, 아래 어두운 테마 20개 · 밝은 테마 20개</span><span class="en">The toolbar's theme list: custom themes and Settings on top, then 20 dark and 20 light themes</span></figcaption>
+      </figure>
+      <div class="ko">
+        <h3>테마</h3>
+        <ul>
+          <li>툴바의 테마 버튼은 다음 테마로 넘어가고, 옆의 ▾ 는 테마 목록을 엽니다. 어두운 테마 20개와 밝은 테마 20개가 한 줄에 10개씩 두 줄로 놓입니다.</li>
+          <li>목록 맨 위에는 <b>사용자 정의 테마</b>(만든 테마들과 「사용자 정의 테마」 만들기 버튼)와 <b>설정</b> 버튼이 있습니다.</li>
+        </ul>
+        <h3>사용자 정의 테마</h3>
+        <figure><img src="img/settings-theme.png" alt=""><figcaption>설정 › 테마 — 사용자 정의 테마 편집</figcaption></figure>
+        <p>설정 › 테마 탭 맨 위에서 「… 바탕으로 새 테마」를 누르면 현재 테마를 복사한 새 테마가 만들어집니다. 이름, 어두운 · 밝은 테마 여부, 창 배경 · 패널 · 글자 · 강조색 등 15가지 색을 바꾸면 바로 미리 보입니다. 「확인」으로 저장하고 「취소」하면 원래대로 돌아갑니다.</p>
+        <h3>언어</h3>
+        <p>툴바의 국기 버튼은 바꿀 언어(한국어 ⇄ English)의 국기입니다. 화면과 로그 메시지가 함께 바뀝니다.</p>
+        <figure><img src="img/light-en.png" alt=""><figcaption>밝은 테마와 영어 화면</figcaption></figure>
+        <h3>시작 페이지 배경</h3>
+        <p>배경 카드에서 21가지 움직이는 배경(네트워크, 서버와 클라이언트, 레이더, 데이터 비, 지구, 파일 전송, 회로, 신호 파형, 별자리, 오로라, 육각 격자, 위성 링크, 데이터 터널, 트래픽 그래프, 폴더 트리, 동기화, 암호화, 워프, 와이어 지형, 광섬유, 신호 송출)을 고르고, 속도 · 투명도, 섞기 간격(− 20초 + 처럼 초 단위), 시작할 때 무작위 배경을 정합니다.</p>
+      </div>
+      <div class="en">
+        <h3>Themes</h3>
+        <ul>
+          <li>The theme button on the toolbar moves to the next theme; the ▾ beside it opens the list: 20 dark and 20 light themes, ten a row in two rows each.</li>
+          <li>On top of the list are the <b>custom themes</b> (yours, and a “Custom theme” button that makes one) and a <b>Settings</b> button.</li>
+        </ul>
+        <h3>Custom themes</h3>
+        <figure><img src="img/settings-theme.png" alt=""><figcaption>Settings › Theme: editing a custom theme</figcaption></figure>
+        <p>At the top of Settings › Theme, “New theme from …” copies the current theme into a new one. Change its name, dark or light, and its 15 colours (window background, panels, text, accent…) and see them at once. OK keeps it; Cancel puts everything back.</p>
+        <h3>Language</h3>
+        <p>The flag on the toolbar is the language you switch to (Korean ⇄ English). The screen and the log messages change together.</p>
+        <figure><img src="img/light-en.png" alt=""><figcaption>A light theme in English</figcaption></figure>
+        <h3>Start page background</h3>
+        <p>The Background card offers 21 moving backgrounds (network, server and clients, radar, data rain, globe, file transfer, circuit, signal waves, constellation, aurora, hex grid, satellite link, data tunnel, traffic graph, folder tree, sync, encryption, warp, wire terrain, fibre optics, broadcast), their speed and transparency, a shuffle interval (in seconds, − 20 s + style) and a random background at start.</p>
+      </div>
+    </section>
+
+    <section id="settings">
+      <h2><span class="ko">설정</span><span class="en">Settings</span></h2>
+      <figure>
+        <img src="img/settings.png" alt="">
+        <figcaption><span class="ko">설정 창 — 일반 · 테마 · 동작 탭</span><span class="en">The Settings window: General, Theme and Behaviour tabs</span></figcaption>
+      </figure>
+      <div class="ko">
+        <table>
+          <tr><th>탭</th><th>항목</th></tr>
+          <tr><td>일반</td><td>언어, 글꼴 크기</td></tr>
+          <tr><td>테마</td><td>사용자 정의 테마(만들기 · 삭제 · 이름 · 색), 어두운 테마 20개, 밝은 테마 20개</td></tr>
+          <tr><td>동작</td><td>접속자가 있을 때 중지 전 확인, 앱 시작 시 서버 자동 시작, 창을 닫아도 서버 유지(트레이로), 알림음, 시작할 때 시작 페이지 표시</td></tr>
+        </table>
+        <p>「기본값」은 보고 있는 탭의 항목만 되돌립니다(사용자 정의 테마는 지우지 않음).</p>
+      </div>
+      <div class="en">
+        <table>
+          <tr><th>Tab</th><th>Fields</th></tr>
+          <tr><td>General</td><td>Language, font size</td></tr>
+          <tr><td>Theme</td><td>Custom themes (new, delete, name, colours), 20 dark and 20 light themes</td></tr>
+          <tr><td>Behaviour</td><td>Ask before stopping with clients connected, start the server with the app, keep serving when the window closes (tray), sounds, show the start page at start</td></tr>
+        </table>
+        <p>“Defaults” resets the fields of the visible tab only (custom themes are kept).</p>
+      </div>
+    </section>
+
+    <section id="web">
+      <h2><span class="ko">웹 버전</span><span class="en">The web version</span></h2>
+      <figure>
+        <img src="img/web.png" alt="">
+        <figcaption><span class="ko">브라우저에서 연 웹 버전</span><span class="en">The web version in a browser</span></figcaption>
+      </figure>
+      <div class="ko">
+        <pre>node server/server.js                         # http://127.0.0.1:5190
+node server/server.js --host 0.0.0.0 --port 8080 --token 비밀값 --no-open --autostart</pre>
+        <ul>
+          <li>FTP · FTPS · SFTP 는 <code>server.js</code> 를 실행한 컴퓨터에서 돌고, 브라우저는 원격 제어판입니다. 경로와 「찾기」는 그 컴퓨터 기준입니다.</li>
+          <li>다른 컴퓨터에서 관리하려면 반드시 <code>--token</code> 을 주고 <code>?token=비밀값</code> 으로 접속하세요.</li>
+          <li><code>--autostart</code> 는 프로세스가 뜨자마자 저장된 설정으로 시작합니다(NAS · 부팅 스크립트용).</li>
+        </ul>
+      </div>
+      <div class="en">
+        <pre>node server/server.js                         # http://127.0.0.1:5190
+node server/server.js --host 0.0.0.0 --port 8080 --token secret --no-open --autostart</pre>
+        <ul>
+          <li>FTP, FTPS and SFTP run on the computer that runs <code>server.js</code>; the browser is a remote control panel. Paths and “Browse” are that computer's.</li>
+          <li>To manage it from another computer, always give <code>--token</code> and open <code>?token=secret</code>.</li>
+          <li><code>--autostart</code> starts the servers with the saved settings as soon as the process is up (NAS, boot scripts).</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="trouble">
+      <h2><span class="ko">문제 해결과 데이터</span><span class="en">Troubleshooting and data</span></h2>
+      <figure>
+        <img src="img/error.png" alt="">
+        <figcaption><span class="ko">설정 오류 창 — 자세한 내용과 복사</span><span class="en">A settings error with details to copy</span></figcaption>
+      </figure>
+      <div class="ko">
+        <h3>자주 보는 문제</h3>
+        <table>
+          <tr><th>증상</th><th>확인할 것</th></tr>
+          <tr><td>「포트 N이(가) 이미 사용 중」</td><td>같은 포트를 쓰는 다른 프로그램(IIS FTP, OpenSSH 서버 등)을 멈추거나 포트를 바꿉니다</td></tr>
+          <tr><td>「바인드할 권한이 없습니다」</td><td>Linux · macOS 의 1024 미만 포트 — <code>sudo</code> 로 실행하거나 2121 / 2990 / 2222 사용</td></tr>
+          <tr><td>접속은 되는데 목록 · 전송이 안 됨</td><td>방화벽에서 PASV 포트 범위 허용, NAT 뒤라면 PASV 외부 주소 지정</td></tr>
+          <tr><td>익명으로 올리기가 안 됨</td><td>정상입니다(읽기 전용). 쓰기 권한이 있는 사용자를 추가하세요</td></tr>
+          <tr><td>SFTP 호스트 키 경고</td><td>키를 새로 만들었기 때문. 클라이언트의 known_hosts 항목을 갱신합니다</td></tr>
+          <tr><td>창을 닫았는데 서버가 계속 돔</td><td>「창을 닫아도 서버 유지」가 켜진 상태. 트레이 아이콘 우클릭 → 종료</td></tr>
+        </table>
+        <h3>데이터 파일</h3>
+        <p>설정 폴더(정보 창에 표시): Windows <code>%APPDATA%\My FTP Server</code>, macOS <code>~/Library/Application Support/My FTP Server</code>, Linux <code>~/.config/My FTP Server</code>. <code>server_settings.json</code>(서버 설정), <code>profiles/</code>, <code>session.json</code>(언어 · 테마 · 사용자 정의 테마 · 시작 페이지), <code>ftpserver.log</code>, 인증서와 <code>ssh_host_rsa.pem</code> 이 들어 있습니다.</p>
+        <h3>단축키</h3>
+        <table>
+          <tr><th>키</th><th>동작</th></tr>
+          <tr><td><kbd>F5</kbd> / <kbd>F6</kbd></td><td>설정 저장 / 다시 읽기</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>대화상자 · 목록 닫기</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> · <kbd>Delete</kbd></td><td>표에서 선택 이동 · 편집 · 제거</td></tr>
+        </table>
+      </div>
+      <div class="en">
+        <h3>Common problems</h3>
+        <table>
+          <tr><th>Symptom</th><th>What to check</th></tr>
+          <tr><td>“Port N is already in use”</td><td>Stop the other program on that port (IIS FTP, an OpenSSH server…) or change the port</td></tr>
+          <tr><td>“No permission to bind”</td><td>Ports below 1024 on Linux and macOS: run with <code>sudo</code> or use 2121 / 2990 / 2222</td></tr>
+          <tr><td>Log-in works but listings and transfers fail</td><td>Open the PASV port range in the firewall; behind NAT set the PASV external address</td></tr>
+          <tr><td>Anonymous uploads fail</td><td>As intended (read-only). Add a user with write rights</td></tr>
+          <tr><td>SFTP host key warning</td><td>The key was regenerated. Update the client's known_hosts entry</td></tr>
+          <tr><td>The server keeps running after closing the window</td><td>“Keep serving when the window closes” is on. Right-click the tray icon → Quit</td></tr>
+        </table>
+        <h3>Data files</h3>
+        <p>The settings folder (shown in About): Windows <code>%APPDATA%\My FTP Server</code>, macOS <code>~/Library/Application Support/My FTP Server</code>, Linux <code>~/.config/My FTP Server</code>. It holds <code>server_settings.json</code> (server settings), <code>profiles/</code>, <code>session.json</code> (language, theme, custom themes, start page), <code>ftpserver.log</code>, the certificate and <code>ssh_host_rsa.pem</code>.</p>
+        <h3>Keyboard</h3>
+        <table>
+          <tr><th>Key</th><th>Action</th></tr>
+          <tr><td><kbd>F5</kbd> / <kbd>F6</kbd></td><td>Save / reload the settings</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close a dialog or list</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd> · <kbd>Enter</kbd> · <kbd>Delete</kbd></td><td>Move · edit · remove in the tables</td></tr>
+        </table>
+      </div>
+    </section>
+  </main>
+  </div>
+</div>
+<span class="grip" id="grip"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><g fill="currentColor"><circle cx="11.5" cy="11.5" r="1.2"/><circle cx="11.5" cy="7" r="1.2"/><circle cx="11.5" cy="2.5" r="1.2"/><circle cx="7" cy="11.5" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="2.5" cy="11.5" r="1.2"/></g></svg></span>
+<script src="manual.js"></script>
+</body>
+</html>

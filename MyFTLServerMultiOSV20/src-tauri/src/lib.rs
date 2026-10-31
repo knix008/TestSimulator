@@ -11,6 +11,7 @@
 //   • the tray icon ("close hides to the tray while the server runs")
 //   • one running copy (a second start shows the first one's window)
 //   • folder / file dialogs, reveal, open, clipboard: plugins the page calls
+//   • the user guide (doc/index.html) in its own frameless window
 // Quitting closes the host's stdin; it stops the servers and exits.
 
 mod host;
@@ -27,11 +28,14 @@ use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::window::Color;
-use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, PhysicalSize, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_opener::OpenerExt;
 
 const APP_NAME: &str = "My FTP Server";
 const MAIN: &str = "main";
+const MANUAL: &str = "manual";
+const THEME_MENU: &str = "theme-menu";
+const DIALOG_PREFIX: &str = "dlg-";
 const TRAY_ID: &str = "myftpserver";
 const DEFAULT_W: f64 = 1360.0;
 const DEFAULT_H: f64 = 800.0;
@@ -65,6 +69,12 @@ struct AppState {
     min_size: Mutex<(f64, f64)>,
     tray: Mutex<TrayState>,
     quitting: AtomicBool,
+    /// The theme dropdown's button (CSS px in the main window), while it is open.
+    menu_anchor: Mutex<Option<MenuAnchor>>,
+    /// The dropdown is on screen (a focus loss before that is not a close).
+    menu_shown: AtomicBool,
+    /// The page's `window.__MFS_HOST__` script: dialog windows get it too.
+    boot_script: Mutex<String>,
 }
 
 fn state(app: &AppHandle) -> tauri::State<'_, AppState> {
@@ -222,13 +232,17 @@ fn first_frame_color(config: &Path) -> Color {
         .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
         .and_then(|v| v.get("themeBg").and_then(|b| b.as_str()).map(str::to_string))
         .unwrap_or_default();
-    let h = hex.trim_start_matches('#');
-    if h.len() == 6 {
-        if let (Ok(r), Ok(g), Ok(b)) = (u8::from_str_radix(&h[0..2], 16), u8::from_str_radix(&h[2..4], 16), u8::from_str_radix(&h[4..6], 16)) {
-            return Color(r, g, b, 255);
-        }
+    hex_color(&hex).unwrap_or(Color(0x12, 0x16, 0x1c, 255))
+}
+
+/// "#rrggbb" → Color.
+fn hex_color(hex: &str) -> Option<Color> {
+    let h = hex.trim().trim_start_matches('#');
+    if h.len() != 6 || !h.is_ascii() {
+        return None;
     }
-    Color(0x12, 0x16, 0x1c, 255)
+    let p = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).ok();
+    Some(Color(p(0)?, p(2)?, p(4)?, 255))
 }
 
 // ── Minimum size ─────────────────────────────────────────────
@@ -295,6 +309,321 @@ fn quit(app: &AppHandle) {
 #[tauri::command]
 fn quit_app(app: AppHandle) {
     quit(&app);
+}
+
+// ── User guide ───────────────────────────────────────────────
+/// The user guide (doc/index.html) in its own frameless window, not owned by
+/// the main one so it can sit anywhere. `appearance` = { language, bg, mode,
+/// vars } (the main window's theme). A second request brings the open guide
+/// forward and hands it the current appearance. Async: a window made inside a
+/// synchronous command deadlocks on Windows.
+#[tauri::command]
+async fn manual_open(app: AppHandle, appearance: serde_json::Value) -> Result<bool, String> {
+    if let Some(existing) = app.get_webview_window(MANUAL) {
+        let _ = existing.emit_to(MANUAL, "doc:appearance", appearance);
+        let _ = existing.unminimize();
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(true);
+    }
+    let script = format!("window.__MFS_DOC__ = {appearance};");
+    let mut builder = WebviewWindowBuilder::new(&app, MANUAL, WebviewUrl::App("doc/index.html".into()))
+        .title(format!("{APP_NAME} — User Guide"))
+        .inner_size(1060.0, 780.0)
+        .min_inner_size(820.0, 480.0)
+        .resizable(true)
+        .decorations(false)
+        .shadow(true)
+        .initialization_script(&script);
+    if let Some(color) = appearance.get("bg").and_then(|v| v.as_str()).and_then(hex_color) {
+        builder = builder.background_color(color);
+    }
+    if let Some(dir) = webview_data_dir(&app) {
+        builder = builder.data_directory(dir);
+    }
+    if let Some(main) = app.get_webview_window(MAIN) {
+        let scale = main.scale_factor().unwrap_or(1.0);
+        if let Ok(p) = main.outer_position() {
+            builder = builder.position(p.x as f64 / scale + 60.0, p.y as f64 / scale + 40.0);
+        }
+    }
+    let win = builder.build().map_err(|e| e.to_string())?;
+    window_icon::apply(&win);
+    Ok(true)
+}
+
+// ── Theme dropdown ───────────────────────────────────────────
+// The toolbar's theme list is taller than the window may be, so it is a
+// window of its own (owned by the main one, no frame, sized to the menu):
+// it can reach past the main window's edges. It loads the app page, which
+// renders only the menu when `window.__MFS_MENU__` is set; a pick comes back
+// to the main window as `theme-menu:pick`, and losing focus closes it.
+
+#[derive(Deserialize, Default, Clone, Copy)]
+#[serde(default)]
+struct MenuAnchor {
+    left: f64,
+    right: f64,
+    top: f64,
+    bottom: f64,
+}
+
+#[derive(Deserialize)]
+struct ThemeMenuArgs {
+    anchor: MenuAnchor,
+    /// { current, language, fontSize, customThemes, bg } for the menu page.
+    data: serde_json::Value,
+}
+
+fn close_theme_menu(app: &AppHandle) {
+    let st = state(app);
+    st.menu_shown.store(false, Ordering::SeqCst);
+    let was_open = st.menu_anchor.lock().unwrap().take().is_some();
+    if let Some(w) = app.get_webview_window(THEME_MENU) {
+        let _ = w.destroy();
+    }
+    if was_open {
+        let _ = app.emit_to(MAIN, "theme-menu:closed", ());
+    }
+}
+
+/// Where the menu goes, in physical pixels: right edge under the button's,
+/// kept on the monitor's work area, above the button when there is no room below.
+fn menu_place(anchor: MenuAnchor, origin: (f64, f64), scale: f64, size: (f64, f64), work: Option<(f64, f64, f64, f64)>) -> (f64, f64) {
+    let (w, h) = size;
+    let mut x = origin.0 + anchor.right * scale - w;
+    let mut y = origin.1 + (anchor.bottom + 2.0) * scale;
+    if let Some((wx, wy, ww, wh)) = work {
+        x = x.min(wx + ww - w).max(wx);
+        if y + h > wy + wh {
+            let above = origin.1 + (anchor.top - 2.0) * scale - h;
+            y = if above >= wy { above } else { (wy + wh - h).max(wy) };
+        }
+    }
+    (x.round(), y.round())
+}
+
+#[tauri::command]
+async fn theme_menu_open(app: AppHandle, args: ThemeMenuArgs) -> Result<bool, String> {
+    close_theme_menu(&app);
+    *state(&app).menu_anchor.lock().unwrap() = Some(args.anchor);
+    let script = format!("window.__MFS_MENU__ = {};", args.data);
+    let mut builder = WebviewWindowBuilder::new(&app, THEME_MENU, WebviewUrl::App("index.html".into()))
+        .title("Theme")
+        .decorations(false)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .skip_taskbar(true)
+        .shadow(true)
+        .visible(false)
+        .focused(false)
+        .inner_size(420.0, 640.0)
+        .initialization_script(&script);
+    if let Some(color) = args.data.get("bg").and_then(|v| v.as_str()).and_then(hex_color) {
+        builder = builder.background_color(color);
+    }
+    if let Some(dir) = webview_data_dir(&app) {
+        builder = builder.data_directory(dir);
+    }
+    if let Some(main) = app.get_webview_window(MAIN) {
+        builder = builder.parent(&main).map_err(|e| e.to_string())?;
+    }
+    let menu = builder.build().map_err(|e| e.to_string())?;
+    let handle = app.clone();
+    menu.on_window_event(move |event| {
+        if let WindowEvent::Focused(false) = event {
+            if state(&handle).menu_shown.load(Ordering::SeqCst) {
+                let h = handle.clone();
+                let _ = handle.run_on_main_thread(move || close_theme_menu(&h));
+            }
+        }
+    });
+    Ok(true)
+}
+
+/// The menu page measured itself: size the window to it, place it, show it.
+#[tauri::command]
+fn theme_menu_size(app: AppHandle, width: f64, height: f64) {
+    let (Some(menu), Some(main)) = (app.get_webview_window(THEME_MENU), app.get_webview_window(MAIN)) else { return };
+    let Some(anchor) = *state(&app).menu_anchor.lock().unwrap() else { return };
+    if !width.is_finite() || !height.is_finite() {
+        return;
+    }
+    let scale = main.scale_factor().unwrap_or(1.0);
+    let (w, h) = (width.ceil().max(120.0), height.ceil().max(40.0));
+    let _ = menu.set_size(LogicalSize::new(w, h));
+    let origin = main.inner_position().map(|p| (p.x as f64, p.y as f64)).unwrap_or((0.0, 0.0));
+    let probe = (origin.0 + anchor.right * scale, origin.1 + anchor.bottom * scale);
+    let work = app.monitor_from_point(probe.0, probe.1).ok().flatten().or_else(|| main.current_monitor().ok().flatten()).map(|m| {
+        let wa = m.work_area();
+        (wa.position.x as f64, wa.position.y as f64, wa.size.width as f64, wa.size.height as f64)
+    });
+    let (x, y) = menu_place(anchor, origin, scale, (w * scale, h * scale), work);
+    // A frameless window may still have an invisible border: place the client area.
+    let (dx, dy) = match (menu.outer_position(), menu.inner_position()) {
+        (Ok(o), Ok(i)) => ((i.x - o.x) as f64, (i.y - o.y) as f64),
+        _ => (0.0, 0.0),
+    };
+    let _ = menu.set_position(PhysicalPosition::new((x - dx) as i32, (y - dy) as i32));
+    let _ = menu.show();
+    let _ = menu.set_focus();
+    state(&app).menu_shown.store(true, Ordering::SeqCst);
+}
+
+/// An item of the menu: "theme:<id>", "newCustomTheme" or "themeSettings".
+#[tauri::command]
+fn theme_menu_pick(app: AppHandle, id: String) {
+    let _ = app.emit_to(MAIN, "theme-menu:pick", id);
+    close_theme_menu(&app);
+}
+
+#[tauri::command]
+fn theme_menu_close(app: AppHandle) {
+    close_theme_menu(&app);
+}
+
+// ── Dialog windows ───────────────────────────────────────────
+// Settings and About are windows of their own: owned by the main window (they
+// stay above it and close with it) but not modal, movable anywhere, past the
+// main window's edges too. The page is the app's index.html with
+// `window.__MFS_DIALOG__ = { kind, payload }` (and the host script, so it
+// reaches the server like the main page). It shows the window once painted
+// (dialog_ready), may fit it to its content (dialog_size), sends live theme
+// previews (dialog_preview) and its result (dialog_submit) to the main window;
+// a window closed any other way reports `null`.
+
+/// Inner size of a dialog window; `fit` = sized to its content when painted.
+fn dialog_spec(kind: &str) -> (f64, f64, bool) {
+    match kind {
+        "settings" => (700.0, 640.0, false),
+        _ => (520.0, 360.0, true),
+    }
+}
+
+fn dialog_kind(label: &str) -> &str {
+    label.strip_prefix(DIALOG_PREFIX).unwrap_or(label)
+}
+
+/// Logical top-left that centres `size` on the main window, inside its monitor's work area.
+fn centre_on_main(app: &AppHandle, size: (f64, f64)) -> Option<(f64, f64)> {
+    let main = app.get_webview_window(MAIN)?;
+    let scale = main.scale_factor().ok()?;
+    let pos = main.outer_position().ok()?.to_logical::<f64>(scale);
+    let outer = main.outer_size().ok()?.to_logical::<f64>(scale);
+    let (mut x, mut y) = (pos.x + (outer.width - size.0) / 2.0, pos.y + (outer.height - size.1) / 2.0);
+    if let Ok(Some(m)) = main.current_monitor() {
+        let ms = m.scale_factor();
+        let wa = m.work_area();
+        let (wx, wy, ww, wh) = (wa.position.x as f64 / ms, wa.position.y as f64 / ms, wa.size.width as f64 / ms, wa.size.height as f64 / ms);
+        x = x.min(wx + ww - size.0).max(wx);
+        y = y.min(wy + wh - size.1).max(wy);
+    }
+    Some((x.round(), y.round()))
+}
+
+#[tauri::command]
+async fn dialog_open(app: AppHandle, kind: String, payload: serde_json::Value) -> Result<bool, String> {
+    if !matches!(kind.as_str(), "settings" | "about") {
+        return Err(format!("unknown dialog {kind}"));
+    }
+    close_theme_menu(&app);
+    let label = format!("{DIALOG_PREFIX}{kind}");
+    if let Some(existing) = app.get_webview_window(&label) {
+        let _ = existing.unminimize();
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(true);
+    }
+    let (width, height, _) = dialog_spec(&kind);
+    let boot = state(&app).boot_script.lock().unwrap().clone();
+    let script = format!("{boot}\nwindow.__MFS_DIALOG__ = {};", serde_json::json!({ "kind": kind, "payload": payload }));
+    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
+        .title(payload.get("title").and_then(|v| v.as_str()).unwrap_or(APP_NAME))
+        .inner_size(width, height)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .decorations(false)
+        .shadow(true)
+        .visible(false)
+        .initialization_script(&script);
+    if let Some(color) = payload.get("bg").and_then(|v| v.as_str()).and_then(hex_color) {
+        builder = builder.background_color(color);
+    }
+    if let Some(dir) = webview_data_dir(&app) {
+        builder = builder.data_directory(dir);
+    }
+    if let Some((x, y)) = centre_on_main(&app, (width, height)) {
+        builder = builder.position(x, y);
+    }
+    if let Some(main) = app.get_webview_window(MAIN) {
+        builder = builder.parent(&main).map_err(|e| e.to_string())?;
+    }
+    let win = builder.build().map_err(|e| e.to_string())?;
+    window_icon::apply(&win);
+    let handle = app.clone();
+    let closing = kind.clone();
+    win.on_window_event(move |event| {
+        if let WindowEvent::Destroyed = event {
+            // After a submit the main window has its answer already; it takes the first one.
+            let _ = handle.emit_to(MAIN, "dialog:result", serde_json::json!({ "kind": closing, "data": null }));
+        }
+    });
+    // Shown when painted (dialog_ready); if the page never says so, show it anyway.
+    let late = win.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(2000));
+        if !late.is_visible().unwrap_or(true) {
+            let _ = late.show();
+            let _ = late.set_focus();
+        }
+    });
+    Ok(true)
+}
+
+#[tauri::command]
+fn dialog_ready(window: WebviewWindow) {
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+/// Fits a content-sized dialog (About) once, centred on the main window again.
+#[tauri::command]
+fn dialog_size(app: AppHandle, window: WebviewWindow, width: f64, height: f64) {
+    if !dialog_spec(dialog_kind(window.label())).2 || !width.is_finite() || !height.is_finite() || width < 80.0 || height < 80.0 {
+        return;
+    }
+    let size = (width.ceil(), height.ceil());
+    let _ = window.set_size(LogicalSize::new(size.0, size.1));
+    if let Some((x, y)) = centre_on_main(&app, size) {
+        let _ = window.set_position(tauri::LogicalPosition::new(x, y));
+    }
+}
+
+/// Live preview from the settings window (theme, custom themes): the main window follows.
+#[tauri::command]
+fn dialog_preview(app: AppHandle, data: serde_json::Value) {
+    let _ = app.emit_to(MAIN, "dialog:preview", data);
+}
+
+/// The dialog's answer (null = cancelled) goes to the main window; the dialog closes.
+#[tauri::command]
+fn dialog_submit(app: AppHandle, window: WebviewWindow, data: serde_json::Value) {
+    let _ = app.emit_to(MAIN, "dialog:result", serde_json::json!({ "kind": dialog_kind(window.label()), "data": data }));
+    // Back to the main window first: Windows may otherwise activate another program.
+    if let Some(main) = app.get_webview_window(MAIN) {
+        let _ = main.set_focus();
+    }
+    let _ = window.destroy();
+}
+
+/// Theme or language changed in the main window: the open guide follows.
+#[tauri::command]
+fn broadcast_appearance(app: AppHandle, appearance: serde_json::Value) {
+    if app.get_webview_window(MANUAL).is_some() {
+        let _ = app.emit_to(MANUAL, "doc:appearance", appearance);
+    }
 }
 
 // ── Tray ─────────────────────────────────────────────────────
@@ -389,6 +718,9 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
         min_size: Mutex::new((MIN_W, MIN_H)),
         tray: Mutex::new(TrayState { enabled: false, keep: false, show: "My FTP Server".into(), quit: "Quit".into() }),
         quitting: AtomicBool::new(false),
+        menu_anchor: Mutex::new(None),
+        menu_shown: AtomicBool::new(false),
+        boot_script: Mutex::new(String::new()),
     });
 
     // The servers live in the Node host; the page cannot work without it, so
@@ -405,6 +737,7 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
         *state(app.handle()).host.lock().unwrap() = Some(h);
     }
     let script = format!("window.__MFS_HOST__ = Object.freeze({boot});");
+    *state(app.handle()).boot_script.lock().unwrap() = script.clone();
 
     let nav_app = app.handle().clone();
     let mut builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
@@ -445,12 +778,17 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
     let handle = app.handle().clone();
     let w = win.clone();
     win.on_window_event(move |event| match event {
-        WindowEvent::Moved(_) => remember_win_state(&handle, &w),
+        WindowEvent::Moved(_) => {
+            close_theme_menu(&handle);
+            remember_win_state(&handle, &w);
+        }
         WindowEvent::Resized(_) => {
+            close_theme_menu(&handle);
             enforce_min_size(&handle, &w);
             remember_win_state(&handle, &w);
         }
         WindowEvent::CloseRequested { api, .. } => {
+            close_theme_menu(&handle);
             remember_win_state(&handle, &w);
             save_win_state(&handle);
             let keep = state(&handle).tray.lock().map(|t| t.keep).unwrap_or(false);
@@ -459,6 +797,13 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
                 api.prevent_close();
                 let _ = w.hide();
                 update_tray(&handle);
+            } else {
+                // The guide and the dialogs go with the main window, or the program would keep running.
+                for (label, other) in handle.webview_windows() {
+                    if label == MANUAL || label.starts_with(DIALOG_PREFIX) {
+                        let _ = other.destroy();
+                    }
+                }
             }
         }
         _ => {}
@@ -488,7 +833,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![renderer_ready, set_min_size, set_tray, quit_app])
+        .invoke_handler(tauri::generate_handler![renderer_ready, set_min_size, set_tray, quit_app, manual_open, broadcast_appearance, theme_menu_open, theme_menu_size, theme_menu_pick, theme_menu_close, dialog_open, dialog_ready, dialog_size, dialog_preview, dialog_submit])
         .setup(|app| {
             boot(app).map_err(|e| {
                 eprintln!("{e}");
@@ -505,4 +850,42 @@ pub fn run() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BUTTON: MenuAnchor = MenuAnchor { left: 1000.0, right: 1020.0, top: 6.0, bottom: 32.0 };
+
+    #[test]
+    fn menu_hangs_under_the_button_right_aligned() {
+        let (x, y) = menu_place(BUTTON, (100.0, 50.0), 1.0, (400.0, 600.0), Some((0.0, 0.0, 1920.0, 1040.0)));
+        assert_eq!((x, y), (100.0 + 1020.0 - 400.0, 50.0 + 34.0));
+    }
+
+    #[test]
+    fn menu_may_pass_the_main_window_but_stays_on_the_work_area() {
+        // Taller than the room below the button: above it if that fits, else pinned to the bottom.
+        let (_, y) = menu_place(BUTTON, (0.0, 900.0), 1.0, (400.0, 600.0), Some((0.0, 0.0, 1920.0, 1040.0)));
+        assert_eq!(y, 900.0 + 4.0 - 600.0);
+        let (_, y) = menu_place(BUTTON, (0.0, 300.0), 1.0, (400.0, 900.0), Some((0.0, 0.0, 1920.0, 1040.0)));
+        assert_eq!(y, 1040.0 - 900.0);
+        let (x, _) = menu_place(MenuAnchor { left: 0.0, right: 30.0, top: 6.0, bottom: 32.0 }, (0.0, 0.0), 1.0, (400.0, 300.0), Some((0.0, 0.0, 1920.0, 1040.0)));
+        assert_eq!(x, 0.0);
+    }
+
+    #[test]
+    fn menu_place_scales_css_pixels() {
+        let (x, y) = menu_place(BUTTON, (0.0, 0.0), 1.5, (600.0, 900.0), None);
+        assert_eq!((x, y), (1020.0 * 1.5 - 600.0, 34.0 * 1.5));
+    }
+
+    #[test]
+    fn hex_colours() {
+        assert!(hex_color("#12161c").is_some());
+        assert!(hex_color("12161c").is_some());
+        assert!(hex_color("#fff").is_none());
+        assert!(hex_color("#zzzzzz").is_none());
+    }
 }

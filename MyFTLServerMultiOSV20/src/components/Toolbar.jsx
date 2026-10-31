@@ -1,18 +1,20 @@
 // The top bar of the frameless window — it replaces the OS title bar:
-//   left   app icon + name, the profile combo with 저장 / 삭제 (the server
-//          state is shown by the ▶/■ button underneath, not here)
-//          then the start-page toggle (start page ⇄ server view) and the
+//   left   app icon + name, the start-page toggle (홈: start page ⇄ server
+//          view), the profile combo with 저장 / 삭제 (the server state is
+//          shown by the ▶/■ button underneath, not here), then the
 //          folder-tree toggle (opens / folds the left sidebar)
-//   right  theme picker (split button: main part cycles, caret lists all 16),
+//   right  theme picker (split button: main part cycles, caret opens the
+//          theme popup — custom themes and ⚙ on top, 20 dark + 20 light),
 //          language toggle (the flag of the language you switch TO), Settings,
 //          Info, and — in the desktop app — minimize / maximize / close.
 // The bar is the window's drag region; every control opts out of dragging.
 import React, { useEffect, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
-import { THEMES, themeById, nextThemeId } from '../themes';
+import { themeById, nextThemeId } from '../themes';
 import { isDesktop, platform, windowControl, onMaximized, startWindowDrag } from '../lib/backend';
 import { Icon, Flag } from './Icons';
-import { ContextMenu } from './ContextMenu';
+import { ThemePopup } from './ThemePopup';
+import { themeName } from './ThemeGrid';
 
 function WindowButtons() {
   const [max, setMax] = useState(false);
@@ -34,18 +36,13 @@ function WindowButtons() {
   );
 }
 
-export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, treeOpen = true, startOpen = false }) {
+// onThemeMenu(button): the desktop opens the theme dropdown as a window of its
+// own (it may reach past this window); without it the menu is in the page.
+export function Toolbar({ onAction, onThemeMenu, theme, profiles, profileName, onPickProfile, onSaveProfile, onDeleteProfile, busy, treeOpen = true, startOpen = false }) {
   useLanguage();
   const [themeMenu, setThemeMenu] = useState(null);
   const lang = getLanguage();
-  const themeLabel = (id) => { const th = themeById(id); return lang === 'ko' ? th.label : th.labelEn; };
-  const themeItems = THEMES.map((th) => ({
-    id: `theme:${th.id}`,
-    label: lang === 'ko' ? th.label : th.labelEn,
-    checked: th.id === theme,
-    swatch: th.tokens['--accent'],
-    swatchBg: th.tokens['--bg'],
-  }));
+  const themeLabel = (id) => themeName(themeById(id), lang);
   // Windows: the CSS drag region is the system's own caption (move, snap,
   // double-click maximises). macOS / Linux ignore it: the page moves the window.
   const pageDrag = isDesktop && platform !== 'win32';
@@ -57,6 +54,10 @@ export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile,
       <img src="./icon.svg" alt="" width={20} height={20} className="tb-logo" />
       <span className="tb-title">{t('appName')}</span>
       <span className="tb-sep" />
+      <button className={`tb-btn tb-icon-only tb-start ${startOpen ? 'active' : ''}`} title={t('tip_start_page')} aria-label={t('start_page')} aria-pressed={startOpen} onClick={() => onAction('toggleStart')}>
+        <Icon name="home" />
+      </button>
+      <span className="tb-sep" />
       <span className="tb-profile">
         <span className="tb-label">{t('profile')}</span>
         <select value={profileName} onChange={(e) => onPickProfile(e.target.value)} disabled={busy} title={t('tip_profile_select')}>
@@ -67,18 +68,15 @@ export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile,
         <button className="tb-btn" onClick={onDeleteProfile} title={t('tip_profile_delete')} disabled={busy || !profileName}><Icon name="trash" /><span>{t('profile_delete')}</span></button>
       </span>
       <span className="tb-sep" />
-      <button className={`tb-btn tb-icon-only tb-start ${startOpen ? 'active' : ''}`} title={t('tip_start_page')} aria-label={t('start_page')} aria-pressed={startOpen} onClick={() => onAction('toggleStart')}>
-        <Icon name="home" />
-      </button>
       <button className={`tb-btn tb-icon-only tb-tree ${treeOpen ? 'active' : ''}`} disabled={startOpen} title={treeOpen ? t('tree_collapse') : t('tree_expand')} aria-pressed={treeOpen} onClick={() => onAction('toggleTree')}>
         <Icon name="sidebar" />
       </button>
       <span className="tb-spacer" />
       <span className="tb-split">
         <button className="tb-btn tb-split-main" title={t('tip_next_theme', { theme: themeLabel(nextThemeId(theme)) })} onClick={() => onAction('nextTheme')}>
-          <Icon name="palette" /><span>{themeLabel(theme)}</span>
+          <Icon name="palette" /><span className="tb-theme-name">{themeLabel(theme)}</span>
         </button>
-        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onClick={(e) => setThemeMenu(themeMenu ? null : e.currentTarget)}>
+        <button className="tb-btn tb-split-caret" title={t('tip_theme')} aria-label={t('tip_theme')} onClick={(e) => { if (onThemeMenu) onThemeMenu(e.currentTarget); else setThemeMenu(themeMenu ? null : e.currentTarget); }}>
           <Icon name="chevronDown" size={14} />
         </button>
       </span>
@@ -94,7 +92,7 @@ export function Toolbar({ onAction, theme, profiles, profileName, onPickProfile,
       </button>
       {isDesktop && <><span className="tb-sep" /><WindowButtons /></>}
       {themeMenu && (
-        <ContextMenu anchorEl={themeMenu} x={0} y={0} items={themeItems} onClose={() => setThemeMenu(null)}
+        <ThemePopup anchorEl={themeMenu} current={theme} onClose={() => setThemeMenu(null)}
           onPick={(id) => { setThemeMenu(null); onAction(id); }} />
       )}
     </div>

@@ -1,12 +1,12 @@
 // The one API surface both hosts expose to the UI.
 //
-//   electron/ipc.js     → ipcMain.handle('api', (e, name, args) => api.call(name, args))
-//   server/server.js    → POST /api/<name> with a JSON body
+//   host/host.js        → POST /api/<name> on 127.0.0.1 behind a token (desktop, Tauri)
+//   server/server.js    → POST /api/<name> with a JSON body (web)
 //
 // Every method takes one plain-object argument and returns JSON-able data.
 // Live updates (log lines, client counts, transfer statistics) are events
-// of `api.log` ('line') and `api.manager` ('update'): Electron pushes them
-// over IPC, the web UI polls `server.poll` instead.
+// of `api.log` ('line') and `api.manager` ('update'); both UIs poll
+// `server.poll` for them.
 'use strict';
 
 const os = require('os');

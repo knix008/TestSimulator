@@ -1,9 +1,9 @@
 // In-app modal dialogs. They are stacked and promise-based: App calls e.g.
 // `await dialogs.prompt({...})` and gets the user's answer back.
 import React, { useEffect, useRef, useState } from 'react';
-import { t, useLanguage } from '../lib/i18n';
+import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { Icon } from '../components/Icons';
-import { writeClipboardText } from '../lib/backend';
+import { writeClipboardText, isDesktop, openDialogWindow } from '../lib/backend';
 import { SettingsDialog } from './SettingsDialog';
 import { ShareDialog } from './ShareDialog';
 import { UserDialog } from './UserDialog';
@@ -105,7 +105,7 @@ function MessageDialog({ spec, done }) {
 
 // ── About ──
 
-function AboutDialog({ spec, done }) {
+export function AboutDialog({ spec, done }) {
   const info = spec.info || {};
   const build = info.buildInfo || {};
   return (
@@ -157,6 +157,13 @@ export function DialogHost({ stack, resolve }) {
   );
 }
 
+// The main window's look for a dialog window: { appearance, bg }.
+function lookOf(session) {
+  const s = session || {};
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  return { appearance: { language: getLanguage(), fontSize: s.fontSize, theme: s.theme, customThemes: s.customThemes || [] }, bg };
+}
+
 // Hook that owns the stack and exposes promise-based openers.
 let seq = 1;
 export function useDialogs() {
@@ -183,8 +190,15 @@ export function useDialogs() {
     message: (spec) => push({ type: 'message', ...spec }),
     // error(err | message, extraDetail?, title?) — an Error's code/path/stack become the details block.
     error: (err, detail, title) => push({ type: 'message', kind: 'error', title, ...describeError(err, detail) }),
-    about: (info) => push({ type: 'about', info }),
-    settings: (values) => push({ type: 'settings', values }),
+    // Desktop: Settings and About are windows of their own (DialogWindow.jsx);
+    // `session` gives them the main window's look.
+    about: (info, session) => (isDesktop
+      ? openDialogWindow('about', { info, title: t('about_title'), ...lookOf(session) })
+      : push({ type: 'about', info })),
+    // opts: { tab: 'theme', newCustom: true } (the toolbar's theme dropdown)
+    settings: (values, opts) => (isDesktop
+      ? openDialogWindow('settings', { values, ...(opts || {}), title: t('settings_title'), ...lookOf(values) })
+      : push({ type: 'settings', values, ...(opts || {}) })),
     share: (spec) => push({ type: 'share', ...spec }),
     user: (spec) => push({ type: 'user', ...spec }),
     cert: (spec) => push({ type: 'cert', ...spec }),

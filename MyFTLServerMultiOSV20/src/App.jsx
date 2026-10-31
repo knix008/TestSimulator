@@ -8,12 +8,12 @@
 // the config file shortly after every change; ▶ 시작 sends them to the
 // server manager.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { call, subscribe, writeClipboardText, downloadText, isDesktop, setMinWindowSize, setWindowSize, hostError, firstRun, rendererReady, setTray } from './lib/backend';
+import { call, subscribe, writeClipboardText, downloadText, isDesktop, setMinWindowSize, setWindowSize, hostError, firstRun, rendererReady, setTray, openManual, broadcastAppearance, openThemeMenu, onThemeMenu, onDialogPreview } from './lib/backend';
 import { t, tIn, setLanguage, getLanguage, useLanguage, LANGUAGES } from './lib/i18n';
 import { fileStamp, timeStamp, baseName, dirName } from './lib/format';
 import { playSuccess, playError, setSoundsEnabled } from './lib/sound';
 import { SETTINGS_DEFAULTS } from './lib/settings';
-import { THEMES, applyTheme, themeById, nextThemeId, DEFAULT_THEME } from './themes';
+import { THEMES, applyTheme, themeById, nextThemeId, DEFAULT_THEME, setCustomThemes } from './themes';
 import { Toolbar } from './components/Toolbar';
 import { ControlBar } from './components/ControlBar';
 import { SharesPanel } from './components/SharesPanel';
@@ -75,6 +75,7 @@ export default function App() {
       setLanguage(s.language || 'ko');
       applyFontSize(s.fontSize);
       setSoundsEnabled(s.sounds !== false);
+      setCustomThemes(s.customThemes);
       const theme = applyTheme(s.theme || DEFAULT_THEME);
       s.theme = theme.id;
       if (s.themeBg !== theme.tokens['--bg']) call('session.save', { patch: { theme: theme.id, themeBg: theme.tokens['--bg'] } }).catch(() => {});
@@ -98,6 +99,13 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { document.title = t('appName'); }, [session && session.language]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The user guide wears the app's theme and speaks its language.
+  const appearance = () => {
+    const th = themeById(session ? session.theme : DEFAULT_THEME);
+    return { language: getLanguage(), bg: th.tokens['--bg'], mode: th.mode, vars: th.tokens };
+  };
+  useEffect(() => { if (session) broadcastAppearance(appearance()); }, [session && session.theme, session && session.language, session && session.customThemes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The desktop window opens hidden: shown once the UI (or the error) is painted.
   const painted = !!(session && info && settings) || !!bootError;
@@ -333,16 +341,41 @@ export default function App() {
     call('app.setLanguage', { lang: v.language }).catch(() => {});
     applyFontSize(v.fontSize);
     setSoundsEnabled(v.sounds !== false);
+    setCustomThemes(v.customThemes);
     const theme = applyTheme(v.theme);
     saveSession({ ...v, theme: theme.id, themeBg: theme.tokens['--bg'] });
+  };
+  const openSettings = async (opts) => {
+    const v = await dialogs.settings(session, opts);
+    if (v) applyAppSettings(v);
+    else { setCustomThemes(session.customThemes); applyTheme(session.theme); }   // undo the window's preview
+  };
+  // The settings window (desktop) previews its theme here as well.
+  useEffect(() => onDialogPreview(({ theme, customThemes }) => { setCustomThemes(customThemes); applyTheme(theme); }), []);
+  // Desktop theme dropdown (a window of its own): its pick comes back here. A
+  // click on ▾ that closed it (focus moved to this window) must not reopen it.
+  const actionRef = useRef(null);
+  const menuClosedAt = useRef(0);
+  useEffect(() => onThemeMenu({
+    onPick: (id) => { if (actionRef.current) actionRef.current(id); },
+    onClosed: () => { menuClosedAt.current = Date.now(); },
+  }), []);
+  const themeMenu = (button) => {
+    if (Date.now() - menuClosedAt.current < 350) return;
+    const th = themeById(session.theme);
+    openThemeMenu(button, { current: th.id, language: getLanguage(), fontSize: session.fontSize, customThemes: session.customThemes || [], bg: th.tokens['--bg'] })
+      .catch((err) => showError(t('dlg_error'), err));
   };
   const action = async (id) => {
     if (id === 'nextTheme') setTheme(nextThemeId(session ? session.theme : DEFAULT_THEME));
     else if (id.startsWith('theme:')) setTheme(id.slice(6));
     else if (id === 'toggleLanguage') { const lang = getLanguage() === 'ko' ? 'en' : 'ko'; setLanguage(lang); call('app.setLanguage', { lang }).catch(() => {}); saveSession({ language: lang }); }
     else if (id === 'toggleTree') saveSession({ treeCollapsed: !session.treeCollapsed });
-    else if (id === 'settings') { const v = await dialogs.settings(session); if (v) applyAppSettings(v); }
-    else if (id === 'about') dialogs.about(info);
+    else if (id === 'settings') openSettings();
+    else if (id === 'themeSettings') openSettings({ tab: 'theme' });
+    else if (id === 'newCustomTheme') openSettings({ tab: 'theme', newCustom: true });
+    else if (id === 'about') dialogs.about(info, session);
+    else if (id === 'manual') openManual(appearance()).catch((err) => showError(t('dlg_error'), err));
     else if (id === 'start') start();
     else if (id === 'stop') stop();
     // Start page
@@ -359,6 +392,7 @@ export default function App() {
     else if (id === 'saveProfile') saveProfile();
     else if (id.startsWith('reveal:')) reveal(id.slice(7));
   };
+  actionRef.current = action;
 
   // ── Tree sidebar: width splitter ──
   const startVSplit = (e) => {
@@ -425,12 +459,16 @@ export default function App() {
       if (sel === '.toolbar') {
         const btn = fontOf('.toolbar .tb-btn', body);
         const small = fontOf('.tb-label', body);
+        // A custom theme's name is cut at the widest built-in one (.tb-theme-name max-width).
         const themeName = (l) => Math.max(...THEMES.map((th) => textW(btn, l === 'ko' ? th.label : th.labelEn)));
+        const nameCap = Math.ceil(Math.max(themeName('ko'), themeName('en')));
+        document.documentElement.style.setProperty('--theme-name-max', `${nameCap}px`);
         const cur = themeById(session.theme);
+        const curW = Math.min(nameCap, textW(btn, cur.custom || lang === 'ko' ? cur.label : cur.labelEn));
         for (const l of LANGUAGES) {
           let d = textW(small, tIn(l, 'profile')) - textW(small, tIn(lang, 'profile'));
           for (const k of ['profile_save', 'profile_delete', 'settings', 'menu_info']) d += textW(btn, tIn(l, k)) - textW(btn, tIn(lang, k));
-          d += themeName(l) - textW(btn, lang === 'ko' ? cur.label : cur.labelEn);
+          d += themeName(l) - curW;
           extra = Math.max(extra, d);
         }
       } else if (sel === '.control-bar') {
@@ -514,7 +552,7 @@ export default function App() {
     <div className="app">
       {/* Frameless window: a no-drag strip over the toolbar's top edge keeps the top resize handle usable. */}
       {isDesktop && <span className="win-resize-edge" aria-hidden="true" />}
-      <Toolbar onAction={action} theme={session.theme} busy={locked} treeOpen={!session.treeCollapsed} startOpen={startOn}
+      <Toolbar onAction={action} onThemeMenu={isDesktop ? themeMenu : undefined} theme={session.theme} busy={locked} treeOpen={!session.treeCollapsed} startOpen={startOn}
         profiles={profiles} profileName={profileName} onPickProfile={pickProfile} onSaveProfile={saveProfile} onDeleteProfile={deleteProfile} />
       <div className="app-body">
       {startOn && (

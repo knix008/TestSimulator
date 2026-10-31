@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-theme-menu-pick"
+description = "Enables the theme_menu_pick command without any pre-configured scope."
+commands.allow = ["theme_menu_pick"]
+
+[[permission]]
+identifier = "deny-theme-menu-pick"
+description = "Denies the theme_menu_pick command without any pre-configured scope."
+commands.deny = ["theme_menu_pick"]

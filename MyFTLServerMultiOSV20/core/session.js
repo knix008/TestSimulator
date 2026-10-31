@@ -11,6 +11,7 @@ const DEFAULTS = {
   language: 'ko',
   theme: 'midnight',
   themeBg: '',
+  customThemes: [],           // [{ id: 'custom-…', label, mode, colors }] (Settings › 테마)
   fontSize: 13,
   logHeight: 190,
   lastProfile: '',

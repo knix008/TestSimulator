@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "theme-menu",
+  "description": "The toolbar theme dropdown, a window of its own so it can reach past the main window: it sizes itself and sends the picked item back",
+  "windows": ["theme-menu"],
+  "permissions": [
+    "core:default",
+    "allow-theme-menu-size",
+    "allow-theme-menu-pick",
+    "allow-theme-menu-close"
+  ]
+}

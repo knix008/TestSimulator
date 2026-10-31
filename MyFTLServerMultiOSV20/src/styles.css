@@ -1,4 +1,4 @@
-/* My FTP Server — 16 themes set from src/themes.js as CSS variables on :root.
+/* My FTP Server — 40 themes + custom themes set from src/themes.js as CSS variables on :root.
    The values here are the "midnight" defaults shown until the session loads. */
 :root {
   --bg: #12161c;
@@ -317,7 +317,6 @@ input[readonly] { opacity: 0.8; }
 .form-row { display: flex; flex-direction: column; gap: 6px; }
 /* ── Settings window: fixed size, tabs along the top (like the sibling apps) ── */
 .dlg.fill .dlg-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
-.dlg.settings-dlg { height: 520px; }
 .settings-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .settings-tabs { display: flex; flex: none; border-bottom: 1px solid var(--border); background: var(--bg-elev); }
 .settings-tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 9px 10px; color: var(--fg-muted); font-weight: 600; border-radius: 0; box-shadow: none; }
@@ -331,6 +330,13 @@ input[readonly] { opacity: 0.8; }
 .set-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .set-field select, .set-field .theme-select-btn { width: 100%; max-width: 320px; }
 .set-font-row { display: flex; align-items: center; gap: 12px; }
+/* Language: the two flags as one segmented control. */
+.set-lang { display: inline-flex; align-self: flex-start; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--bg); }
+.set-lang-btn { display: inline-flex; align-items: center; gap: 8px; padding: 5px 14px; border: 0; border-radius: 0; background: none; color: var(--fg); cursor: pointer; white-space: nowrap; }
+.set-lang-btn + .set-lang-btn { border-left: 1px solid var(--border); }
+.set-lang-btn:hover { background: var(--bg-hover); }
+.set-lang-btn.on { background: var(--accent); color: var(--accent-text); }
+.set-lang-btn .flag { display: block; flex: none; border-radius: 2px; }
 .set-font-row select { width: 110px; }
 .set-font-sample { color: var(--fg-muted); white-space: nowrap; line-height: 1; }
 .theme-select-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; color: var(--fg); min-height: 32px; }
@@ -362,7 +368,9 @@ input[readonly] { opacity: 0.8; }
 
 /* about */
 .about { display: flex; gap: 18px; align-items: flex-start; }
-.about-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.about-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+/* Long paths (the settings folder) wrap instead of scrolling the dialog sideways. */
+.about-text > div { overflow-wrap: anywhere; }
 .about-name { font-size: 17px; font-weight: 700; }
 .about-copy { margin-top: 8px; }
 
@@ -480,3 +488,70 @@ input[readonly] { opacity: 0.8; }
   background: linear-gradient(135deg, transparent 0 55%, currentColor 55% 65%, transparent 65% 75%, currentColor 75% 85%, transparent 85%); opacity: .7; }
 .card-resize:hover { color: var(--accent); opacity: 1; }
 .start-page .sp-btn svg.icon, .start-page .small-button svg.icon, .start-page .icon-btn svg.icon { color: inherit; flex: none; }
+
+/* ── Themes: the toolbar dropdown and Settings › 테마 (components/ThemeGrid.jsx, ThemePopup.jsx) ── */
+.tb-theme-name { display: inline-block; max-width: var(--theme-name-max, 160px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+/* An ordinary dropdown menu (.ctx-menu) of one-line items. */
+.ctx-menu.theme-menu { min-width: 0; }
+.theme-menu-top { display: flex; gap: 2px; }
+.theme-menu-top .ctx-item { width: auto; flex: 1; white-space: nowrap; }
+.theme-modes { display: flex; gap: 6px; }
+.theme-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.theme-group + .theme-group { padding-left: 6px; border-left: 1px solid var(--border); }
+.theme-group-title { display: flex; align-items: center; gap: 5px; padding: 2px 10px 2px; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); }
+/* Ten a column, filled top to bottom: two columns per mode. */
+.theme-list { display: grid; grid-auto-flow: column; grid-template-rows: repeat(10, auto); grid-auto-columns: minmax(150px, max-content); column-gap: 2px; }
+.theme-item { white-space: nowrap; min-width: 0; }
+.theme-item .ctx-label { overflow: hidden; text-overflow: ellipsis; }
+.theme-item .theme-swatch { flex: none; }
+.theme-badge { color: var(--accent); margin-right: 3px; }
+/* The dropdown: two columns only — dark (ten a column, top to bottom), light under it. */
+.theme-menu .theme-modes { flex-direction: column; gap: 0; }
+.theme-menu .theme-list { grid-template-columns: repeat(2, minmax(150px, 1fr)); grid-auto-columns: unset; }
+.theme-menu .theme-group + .theme-group { padding-left: 0; border-left: 0; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+.theme-menu .theme-list.custom { grid-template-rows: none; grid-auto-flow: row; }
+/* The desktop dropdown's own window (main.jsx, ThemeMenuWindow): the menu is the page. */
+html.menu-window, html.menu-window body, html.menu-window #root { height: auto; overflow: hidden; background: var(--bg-elev); }
+html.menu-window #root { display: inline-block; }
+html.menu-window .ctx-menu.theme-menu { position: static; max-height: none; box-shadow: none; border-radius: 0; border-color: var(--border-strong); }
+/* A dialog window (DialogWindow.jsx): the dialog is the whole window; its title bar moves it. */
+html.dialog-window, html.dialog-window body, html.dialog-window #root { overflow: hidden; background: var(--bg-panel); }
+html.dialog-window .dlg-backdrop { position: static; inset: auto; background: none; display: block; }
+html.dialog-window .dlg { width: 100vw !important; max-width: none; max-height: none; border-radius: 0; box-shadow: none; border-color: var(--border-strong); }
+html.dialog-window .dlg.fill { height: 100vh; }
+html.dialog-window .dlg-body { overflow-x: hidden; }
+html.dialog-window .dlg-title { cursor: default; user-select: none; }
+.btn.small { min-width: 0; padding: 4px 9px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; flex: none; }
+
+/* Settings › 테마: the same lists in smaller items, custom themes and the editor on top. */
+.dlg.settings-dlg { height: 640px; }
+.settings-themes { display: flex; flex-direction: column; gap: 10px; height: 100%; overflow-y: auto; }
+.settings-themes .theme-item { padding: 2px 6px; gap: 6px; font-size: 12px; }
+.settings-themes .theme-list { grid-auto-columns: minmax(0, 1fr); }
+.settings-themes .theme-modes { gap: 4px; }
+.settings-themes .theme-modes > .theme-group { flex: 1; }
+.settings-themes .theme-group-title { padding: 0 6px 2px; }
+.custom-theme { padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.custom-theme-row { display: flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 6px; }
+.custom-theme-row .theme-list.custom { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px; }
+.custom-theme-row .theme-list.custom .theme-item { width: auto; max-width: 180px; }
+.custom-theme-fields { display: flex; flex-direction: column; gap: 6px; }
+.custom-theme-fields.disabled { opacity: 0.55; }
+.custom-theme-head { display: flex; align-items: center; gap: 8px; }
+.custom-theme-head label { flex: none; color: var(--fg-muted); font-size: 12px; }
+.custom-theme-head input { flex: 1; min-width: 0; }
+.custom-theme-head select { flex: none; width: 140px; }
+.custom-colors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; }
+.custom-color { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.custom-color-name { flex: 1; min-width: 0; font-size: 11.5px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.custom-color input[type="color"] { flex: none; width: 24px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; cursor: pointer; }
+.custom-color input.mono { flex: none; width: 74px; padding: 2px 4px; font-size: 11px; }
+
+/* Start page › 배경: "섞기 간격" and its value on one line (the global number-input
+   width of 100% squeezed the label to one syllable per line). */
+.start-speed.start-shuffle > span:nth-child(2) { flex: 1 1 auto; white-space: nowrap; min-width: max-content; }
+.start-speed .sp-num { flex: none; width: 104px; }
+/* NumberField with a unit: "− 20초 +", the number and unit centred together. */
+.numfield.with-unit .num-mid { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 1px; }
+.numfield.with-unit input { flex: none; padding: 0; text-align: right; }
+.num-unit { color: var(--fg-muted); white-space: nowrap; }

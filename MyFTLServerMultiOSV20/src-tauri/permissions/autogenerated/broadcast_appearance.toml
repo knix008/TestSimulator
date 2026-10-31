@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-broadcast-appearance"
+description = "Enables the broadcast_appearance command without any pre-configured scope."
+commands.allow = ["broadcast_appearance"]
+
+[[permission]]
+identifier = "deny-broadcast-appearance"
+description = "Denies the broadcast_appearance command without any pre-configured scope."
+commands.deny = ["broadcast_appearance"]

@@ -196,3 +196,84 @@ export function quitApp() {
   if (isDesktop) quiet(invoke('quit_app'));
   else window.close();
 }
+
+// ── User guide (doc/index.html) ──
+// Desktop: its own window beside the main one. Browser: a new tab. Either
+// way it gets the app's theme and language, and follows later changes
+// (`doc:appearance` on the desktop, localStorage in a browser).
+//   appearance = { language, bg, mode, vars: { '--bg': …, … } }
+export const DOC_APPEARANCE_KEY = 'mfs-doc-appearance';
+
+export function openManual(appearance) {
+  try { localStorage.setItem(DOC_APPEARANCE_KEY, JSON.stringify(appearance)); } catch { /* private mode */ }
+  if (isDesktop) return invoke('manual_open', { appearance });
+  window.open('./doc/index.html', 'mfs-user-guide');
+  return Promise.resolve(true);
+}
+
+/** Theme or language changed: the open guide follows. */
+export function broadcastAppearance(appearance) {
+  try { localStorage.setItem(DOC_APPEARANCE_KEY, JSON.stringify(appearance)); } catch { /* private mode */ }
+  if (isDesktop) quiet(invoke('broadcast_appearance', { appearance }));
+}
+
+// ── Theme dropdown (desktop) ──
+// A window of its own beside the main one (src-tauri theme_menu_open), so it
+// may reach past the main window's edges. `button` is the ▾ (its rectangle in
+// this page); `data` = { current, language, fontSize, customThemes, bg }.
+export function openThemeMenu(button, data) {
+  const r = button.getBoundingClientRect();
+  return invoke('theme_menu_open', { args: { anchor: { left: r.left, right: r.right, top: r.top, bottom: r.bottom }, data } });
+}
+
+export function closeThemeMenu() {
+  if (isDesktop) quiet(invoke('theme_menu_close'));
+}
+
+/** onPick("theme:<id>" | "newCustomTheme" | "themeSettings"), onClosed(): returns an unsubscribe function. */
+export function onThemeMenu({ onPick, onClosed }) {
+  if (!isDesktop) return () => {};
+  const offs = [win().listen('theme-menu:pick', (e) => onPick(String(e.payload))), win().listen('theme-menu:closed', () => onClosed())];
+  return () => offs.forEach((p) => p.then((off) => off()).catch(() => {}));
+}
+
+// ── Dialog windows (desktop): Settings and About ──
+// Windows of their own (src-tauri dialog_open), movable past the main window.
+// The main window awaits `dialog:result` (null = cancelled or closed); the
+// settings window also sends live theme previews (`dialog:preview`).
+const pendingDialogs = new Map();
+let dialogResults = null;
+
+export async function openDialogWindow(kind, payload) {
+  if (pendingDialogs.has(kind)) { quiet(invoke('dialog_open', { kind, payload })); return pendingDialogs.get(kind).promise; }
+  let resolve;
+  const promise = new Promise((r) => { resolve = r; });
+  pendingDialogs.set(kind, { promise, resolve });
+  if (!dialogResults) {
+    dialogResults = win().listen('dialog:result', (e) => {
+      const { kind: k, data } = e.payload || {};
+      const p = pendingDialogs.get(k);
+      if (p) { pendingDialogs.delete(k); p.resolve(data === undefined ? null : data); }
+    });
+  }
+  await dialogResults;
+  try { await invoke('dialog_open', { kind, payload }); } catch (err) { pendingDialogs.delete(kind); throw err; }
+  return promise;
+}
+
+export function onDialogPreview(cb) {
+  if (!isDesktop) return () => {};
+  const p = win().listen('dialog:preview', (e) => cb(e.payload || {}));
+  return () => { p.then((off) => off()).catch(() => {}); };
+}
+
+// In a dialog window: what to show, and the way back.
+export const dialogWindow = typeof window !== 'undefined' ? window.__MFS_DIALOG__ || null : null;
+export function submitDialog(data) { return invoke('dialog_submit', { data: data === undefined ? null : data }); }
+export function previewDialog(data) { quiet(invoke('dialog_preview', { data })); }
+/** Painted: fit the window to `size` (About) and show it. */
+export function dialogReady(size) {
+  if (size) quiet(invoke('dialog_size', size));
+  quiet(invoke('dialog_ready'));
+}
+export function startDialogDrag() { quiet(win().startDragging()); }

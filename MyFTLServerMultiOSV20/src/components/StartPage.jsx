@@ -12,6 +12,7 @@ import { formatSize, formatUptime } from '../lib/format';
 import { AnimatedBackground, ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND, themeColors } from '../lib/startBackground';
 import { addressRows } from './AddressesPanel';
 import { Icon } from './Icons';
+import { NumberField } from './NumberField';
 
 export function startBackgroundOf(session) {
   return { ...DEFAULT_START_BACKGROUND, ...((session && session.startBackground) || {}) };
@@ -310,6 +311,7 @@ export function StartPage({ info, session, settings, server, stats, profiles, pr
         </div>
         <div className="start-hero-actions">
           <div className="start-docs">
+            <Btn icon="book" label={t('sp_manual')} title={t('sp_manual_tip')} onClick={() => onAction('manual')} />
             <Btn icon="settings" label={t('settings')} title={t('tip_settings')} onClick={() => onAction('settings')} />
             <Btn icon="info" label={t('menu_info')} title={t('tip_about')} onClick={() => onAction('about')} />
             <Btn icon="server" label={t('sp_open_server')} title={t('sp_open_server_tip')} onClick={() => onAction('open')} />
@@ -402,7 +404,7 @@ export function StartPage({ info, session, settings, server, stats, profiles, pr
           {['sp_step1', 'sp_step2', 'sp_step3', 'sp_step4'].map((k) => <li key={k}>{t(k)}</li>)}
         </ol>
         <div className="sp-keys small muted"><Icon name="keyboard" size={13} /><span>{t('sp_keys')}</span></div>
-        {[['nextTheme', 'palette', 'sp_h_theme'], ['toggleLanguage', 'globe', 'sp_h_language'], ['settings', 'settings', 'settings'], ['about', 'star', 'menu_info']].map(([action, icon, label]) => (
+        {[['manual', 'book', 'sp_manual'], ['nextTheme', 'palette', 'sp_h_theme'],['toggleLanguage', 'globe', 'sp_h_language'], ['settings', 'settings', 'settings'], ['about', 'star', 'menu_info']].map(([action, icon, label]) => (
           <button key={label} type="button" className="start-link compact" title={t(label)} onClick={() => onAction(action)}><span className="icon"><Icon name={icon} size={15} /></span><span className="name">{t(label)}</span><span /></button>
         ))}
       </div>
@@ -414,8 +416,9 @@ export function StartPage({ info, session, settings, server, stats, profiles, pr
         <Range value={bg.speed} min={0} max={300} step={10} unit="%" label={t('sp_speed')} onChange={(v) => save({ speed: v })} />
         <div className="start-speed"><span className="icon"><Icon name="eye" size={14} /></span><span>{t('sp_transparency')}</span></div>
         <Range value={bg.transparency} min={0} max={100} step={5} unit="%" label={t('sp_transparency')} onChange={(v) => save({ transparency: v })} />
-        <div className="start-speed"><span className="icon"><Icon name="dice" size={14} /></span><span>{t('sp_shuffle_every')}</span>
-          <input type="number" className="sp-num" min={0} max={600} step={5} value={bg.shuffleSec || 0} aria-label={t('sp_shuffle_every')} onChange={(e) => save({ shuffleSec: Math.max(0, Math.min(600, Number(e.target.value) || 0)) })} /><span className="unit">{t('sp_seconds')}</span>
+        <div className="start-speed start-shuffle"><span className="icon"><Icon name="dice" size={14} /></span><span>{t('sp_shuffle_every')}</span>
+          <NumberField className="sp-num" value={bg.shuffleSec || 0} min={0} max={600} step={5} unit={t('sp_seconds')} mono={false} label={t('sp_shuffle_every')}
+            onChange={(v) => save({ shuffleSec: v })} />
         </div>
         <label className="start-check"><input type="checkbox" checked={!!bg.random} onChange={(e) => save({ random: e.target.checked })} /><span>{t('sp_random')}</span></label>
       </>

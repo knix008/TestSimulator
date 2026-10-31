@@ -12,7 +12,8 @@ import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { cardsOf, place, compact, autoArrange, swapVertical, layoutValue, overlaps, COLS } from '../src/lib/startLayout.js';
-import { ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND } from '../src/lib/startBackground.js';
+import { ANIMATION_KINDS, ANIMATION_ICONS, DEFAULT_START_BACKGROUND, AnimatedBackground } from '../src/lib/startBackground.js';
+import { THEMES, CUSTOM_COLOR_KEYS, setCustomThemes, getCustomThemes, allThemes, themeById, nextThemeId, baseColorsOf, buildCustomTheme } from '../src/themes.js';
 import { tIn } from '../src/lib/i18n.js';
 
 const require = createRequire(import.meta.url);
@@ -168,6 +169,47 @@ describe('Start page', () => {
   test('background kinds all have an icon and the default kind exists', () => {
     assert.ok(ANIMATION_KINDS.includes(DEFAULT_START_BACKGROUND.kind));
     for (const k of ANIMATION_KINDS) assert.ok(ANIMATION_ICONS[k], k);
+    const icons = fs.readFileSync(path.join(root, 'src', 'components', 'Icons.jsx'), 'utf8');
+    for (const k of ANIMATION_KINDS) assert.match(icons, new RegExp(`^  ${ANIMATION_ICONS[k]}: `, 'm'), `icon ${ANIMATION_ICONS[k]} drawn`);
+  });
+
+  test('21 backgrounds, each one draws frames without errors (stub canvas)', () => {
+    assert.equal(ANIMATION_KINDS.length, 21);
+    assert.equal(new Set(ANIMATION_KINDS).size, 21);
+    // Just enough DOM for the engine: a canvas whose 2D context accepts every call.
+    const saved = { document: globalThis.document, window: globalThis.window };
+    globalThis.document = { hidden: true, addEventListener() {}, removeEventListener() {} };
+    globalThis.window = { devicePixelRatio: 1 };
+    const gradient = { addColorStop() {} };
+    const calls = { fill: 0, stroke: 0, text: 0 };
+    const ctx = new Proxy({}, {
+      get: (o, k) => {
+        if (k in o) return o[k];
+        if (k === 'createLinearGradient' || k === 'createRadialGradient') return () => gradient;
+        if (k === 'fill' || k === 'fillRect') return () => { calls.fill++; };
+        if (k === 'stroke') return () => { calls.stroke++; };
+        if (k === 'fillText') return () => { calls.text++; };
+        return () => {};
+      },
+      set: (o, k, v) => { o[k] = v; return true; },
+    });
+    const canvas = { getContext: () => ctx, getBoundingClientRect: () => ({ width: 1200, height: 760 }) };
+    const colors = () => ({ bg: [18, 22, 28], accent: [76, 201, 240], accent2: [67, 97, 238], text: [228, 233, 240], danger: [255, 107, 107], ok: [74, 222, 128], warn: [245, 196, 81], dark: true });
+    try {
+      for (const kind of ANIMATION_KINDS) {
+        const bg = new AnimatedBackground(canvas, { colors, kind });
+        assert.equal(bg.kind, kind);
+        assert.equal(typeof bg[`draw_${kind}`], 'function', `draw_${kind}`);
+        const before = calls.fill + calls.stroke + calls.text;
+        for (let f = 0; f < 90; f++) { bg.time += 1 / 30; bg.draw(1 / 30); }
+        bg.draw(0);                                   // paused (speed 0) still draws
+        assert.ok(calls.fill + calls.stroke + calls.text - before > 90, `${kind} paints`);
+        bg.destroy();
+      }
+    } finally {
+      globalThis.document = saved.document;
+      globalThis.window = saved.window;
+    }
   });
 
   test('every start page string exists in Korean and English', () => {
@@ -178,6 +220,100 @@ describe('Start page', () => {
     for (const key of keys) {
       for (const lang of ['ko', 'en']) assert.notEqual(tIn(lang, key), key, `${lang}: ${key} missing`);
     }
+  });
+});
+
+describe('Themes', () => {
+  after(() => setCustomThemes([]));
+
+  test('40 built-in themes: 20 dark first, then 20 light, unique ids, every token set', () => {
+    assert.equal(THEMES.length, 40);
+    assert.deepEqual(THEMES.map((th) => th.mode), [...Array(20).fill('dark'), ...Array(20).fill('light')]);
+    assert.equal(new Set(THEMES.map((th) => th.id)).size, 40);
+    const keys = Object.keys(THEMES[0].tokens);
+    for (const th of THEMES) {
+      assert.ok(th.label && th.labelEn, th.id);
+      assert.deepEqual(Object.keys(th.tokens), keys, th.id);
+      for (const k of ['--bg', '--fg', '--accent', '--border']) assert.match(th.tokens[k], /^#[0-9a-f]{6}$/i, `${th.id} ${k}`);
+    }
+  });
+
+  test('custom themes: registered first, found by id, cycled, rebuilt from base colours', () => {
+    const base = themeById('nord');
+    const custom = { id: 'custom-test', label: 'Mine', mode: 'light', colors: { ...baseColorsOf(base), accent: '#ff3366' } };
+    setCustomThemes([custom, { id: 'broken' }, null]);
+    assert.equal(getCustomThemes().length, 1);
+    assert.equal(allThemes()[0].id, 'custom-test');
+    const th = themeById('custom-test');
+    assert.ok(th.custom);
+    assert.equal(th.mode, 'light');
+    assert.equal(th.tokens['--accent'], '#ff3366');
+    assert.equal(th.tokens['--bg'], base.tokens['--bg']);
+    assert.equal(nextThemeId('custom-test'), THEMES[0].id);
+    assert.deepEqual(Object.keys(baseColorsOf(base)).sort(), [...CUSTOM_COLOR_KEYS].sort());
+    assert.equal(buildCustomTheme({ id: 'x', colors: baseColorsOf(base) }).mode, 'dark');
+    setCustomThemes([]);
+    assert.equal(themeById('custom-test').id, THEMES[0].id, 'a deleted custom theme falls back');
+  });
+
+  test('the dropdown window may size itself and send the pick back (and nothing more)', () => {
+    const caps = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'capabilities', 'theme-menu.json'), 'utf8'));
+    assert.deepEqual(caps.windows, ['theme-menu']);
+    const src = fs.readFileSync(path.join(root, 'src', 'components', 'ThemePopup.jsx'), 'utf8');
+    const used = [...src.matchAll(/invoke\('([a-z_]+)'/g)].map((m) => `allow-${m[1].replace(/_/g, '-')}`);
+    assert.ok(used.length >= 3);
+    for (const p of used) assert.ok(caps.permissions.includes(p), p);
+    assert.match(fs.readFileSync(path.join(root, 'src', 'main.jsx'), 'utf8'), /__MFS_MENU__[\s\S]*ThemeMenuWindow/);
+    const css = fs.readFileSync(path.join(root, 'src', 'styles.css'), 'utf8');
+    assert.match(css, /\.theme-menu \.theme-modes \{ flex-direction: column;/, 'light under dark in the dropdown');
+    assert.match(css, /\.theme-menu \.theme-list \{ grid-template-columns: repeat\(2,/, 'two columns');
+  });
+
+  test('every theme popup / settings string exists in Korean and English', () => {
+    const keys = new Set(CUSTOM_COLOR_KEYS.map((k) => `set_color_${k}`));
+    for (const f of ['components/ThemePopup.jsx', 'components/ThemeGrid.jsx', 'dialogs/SettingsDialog.jsx']) {
+      const src = fs.readFileSync(path.join(root, 'src', f), 'utf8');
+      for (const m of src.matchAll(/(?<![\w.])t\('([a-z0-9_]+)'/gi)) keys.add(m[1]);
+    }
+    for (const key of keys) for (const lang of ['ko', 'en']) assert.notEqual(tIn(lang, key), key, `${lang}: ${key} missing`);
+  });
+});
+
+describe('User guide', () => {
+  const doc = (f) => fs.readFileSync(path.join(root, 'doc', f), 'utf8');
+
+  test('doc/index.html: every picture exists, every section in both languages', () => {
+    const html = doc('index.html');
+    const imgs = [...html.matchAll(/<img src="(img\/[^"]+)"/g)].map((m) => m[1]);
+    assert.ok(imgs.length >= 12);
+    for (const src of new Set(imgs)) assert.ok(fs.existsSync(path.join(root, 'doc', src)), src);
+    const sections = [...html.matchAll(/<section id="([a-z-]+)">([\s\S]*?)<\/section>/g)];
+    assert.ok(sections.length >= 12);
+    for (const [, id, body] of sections) {
+      assert.match(body, /<h2><span class="ko">[^<]+<\/span><span class="en">[^<]+<\/span><\/h2>/, id);
+      assert.match(body, /<div class="ko">/, `${id} ko`);
+      assert.match(body, /<div class="en">/, `${id} en`);
+    }
+    assert.match(html, /id="size-down"[\s\S]*<output id="size-now">13px<\/output>[\s\S]*id="size-up"/, '− 13px + in that order');
+    assert.match(html, /data-lang="ko"[\s\S]*data-lang="en"/);
+  });
+
+  test('text size: 13px by default, − / + around a centred value', () => {
+    assert.match(doc('manual.js'), /SIZE_DEFAULT = 13;/);
+    assert.match(doc('manual.css'), /--doc-size: 13px;/);
+    assert.match(doc('manual.css'), /\.size output \{[^}]*justify-content: center;[^}]*text-align: center;/);
+  });
+
+  test('the guide window may move, resize and close itself; the page may open it', () => {
+    const caps = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'capabilities', 'manual.json'), 'utf8'));
+    assert.deepEqual(caps.windows, ['manual']);
+    for (const p of ['core:window:allow-start-dragging', 'core:window:allow-start-resize-dragging', 'core:window:allow-minimize', 'core:window:allow-toggle-maximize', 'core:window:allow-close']) assert.ok(caps.permissions.includes(p), p);
+    const conf = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+    assert.equal(conf.app.withGlobalTauri, true, 'manual.js drives its window through window.__TAURI__');
+    assert.match(fs.readFileSync(path.join(root, 'vite.config.mjs'), 'utf8'), /cpSync\(docRoot/);
+    const lib = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+    assert.match(lib, /async fn manual_open/, 'made in an async command (a sync one deadlocks)');
+    assert.match(fs.readFileSync(path.join(root, 'src', 'components', 'StartPage.jsx'), 'utf8'), /onAction\('manual'\)/);
   });
 });
 
@@ -206,9 +342,16 @@ describe('Packaging', () => {
   test('the shell commands the page calls are allowed, and the sidecar is bundled', () => {
     const caps = JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'));
     const ids = caps.permissions.map((p) => (typeof p === 'string' ? p : p.identifier));
-    for (const cmd of ['renderer_ready', 'set_min_size', 'set_tray', 'quit_app']) assert.ok(ids.includes(`allow-${cmd.replace(/_/g, '-')}`), cmd);
+    for (const cmd of ['renderer_ready', 'set_min_size', 'set_tray', 'quit_app', 'manual_open', 'broadcast_appearance']) assert.ok(ids.includes(`allow-${cmd.replace(/_/g, '-')}`), cmd);
     const backend = fs.readFileSync(path.join(root, 'src', 'lib', 'backend.js'), 'utf8');
-    for (const m of backend.matchAll(/invoke\('([a-z_]+)'/g)) assert.ok(ids.includes(`allow-${m[1].replace(/_/g, '-')}`), m[1]);
+    // backend.js also serves the dialog and dropdown windows: each command is allowed to some window.
+    const capDir = path.join(root, 'src-tauri', 'capabilities');
+    const anyIds = fs.readdirSync(capDir).flatMap((f) => JSON.parse(fs.readFileSync(path.join(capDir, f), 'utf8')).permissions.map((p) => (typeof p === 'string' ? p : p.identifier)));
+    for (const m of backend.matchAll(/invoke\('([a-z_]+)'/g)) assert.ok(anyIds.includes(`allow-${m[1].replace(/_/g, '-')}`), m[1]);
+    const dlg = JSON.parse(fs.readFileSync(path.join(capDir, 'dialogs.json'), 'utf8'));
+    assert.deepEqual(dlg.windows, ['dlg-*']);
+    for (const p of ['core:window:allow-start-dragging', 'allow-dialog-submit', 'allow-dialog-ready', 'allow-dialog-size', 'allow-dialog-preview']) assert.ok(dlg.permissions.includes(p), p);
+    assert.ok(ids.includes('allow-dialog-open') && !ids.includes('allow-dialog-submit'), 'the main window opens dialogs; only dialogs submit');
     for (const p of ['core:window:allow-start-resize-dragging', 'core:window:allow-toggle-maximize', 'opener:allow-reveal-item-in-dir', 'clipboard-manager:allow-write-text']) assert.ok(ids.includes(p), p);
     assert.equal(conf.bundle.resources['sidecar/'], 'sidecar/');
     assert.match(conf.build.beforeBuildCommand, /prepare-tauri\.mjs --release/);

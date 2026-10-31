@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-theme-menu-close"
+description = "Enables the theme_menu_close command without any pre-configured scope."
+commands.allow = ["theme_menu_close"]
+
+[[permission]]
+identifier = "deny-theme-menu-close"
+description = "Denies the theme_menu_close command without any pre-configured scope."
+commands.deny = ["theme_menu_close"]

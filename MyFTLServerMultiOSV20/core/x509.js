@@ -31,7 +31,16 @@ const len = (n) => {
 const tlv = (tag, content) => Buffer.concat([Buffer.from([tag]), len(content.length), content]);
 const seq = (...parts) => tlv(0x30, Buffer.concat(parts));
 const set = (...parts) => tlv(0x31, Buffer.concat(parts));
-const int = (buf) => { if (typeof buf === 'number') buf = Buffer.from([buf]); if (buf[0] & 0x80) buf = Buffer.concat([Buffer.from([0]), buf]); return tlv(0x02, buf); };
+// Minimal two's-complement: DER rejects a leading 0x00 that the next byte
+// does not need ("illegal padding"), which a random serial hits 1 time in 512.
+const int = (buf) => {
+  if (typeof buf === 'number') buf = Buffer.from([buf]);
+  let i = 0;
+  while (i < buf.length - 1 && buf[i] === 0 && !(buf[i + 1] & 0x80)) i++;
+  buf = buf.subarray(i);
+  if (buf[0] & 0x80) buf = Buffer.concat([Buffer.from([0]), buf]);
+  return tlv(0x02, buf);
+};
 const nul = () => Buffer.from([0x05, 0x00]);
 const bool = (v) => Buffer.from([0x01, 0x01, v ? 0xff : 0x00]);
 const utf8 = (s) => tlv(0x0c, Buffer.from(s, 'utf8'));
@@ -185,4 +194,4 @@ function inspectCertificate(certPath) {
   }
 }
 
-module.exports = { generateSelfSigned, writeSelfSigned, loadCertificate, inspectCertificate };
+module.exports = { generateSelfSigned, writeSelfSigned, loadCertificate, inspectCertificate, derInteger: int };

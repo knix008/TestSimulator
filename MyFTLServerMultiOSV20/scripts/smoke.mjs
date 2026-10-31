@@ -22,6 +22,7 @@ import net from 'node:net';
 import path from 'node:path';
 import http from 'node:http';
 import { freeDevPort } from './dev-port.mjs';
+import { ANIMATION_KINDS } from '../src/lib/startBackground.js';
 
 const require = createRequire(import.meta.url);
 const { writeSelfSigned } = require('../core/x509');
@@ -107,10 +108,29 @@ const SCENARIOS = {
   addresses_delete: `(async () => { ${START} document.querySelectorAll('.bp-tab')[1].click(); await wait(200); const before = document.querySelectorAll('.addr-table tbody tr').length; document.querySelector('.addr-table .icon-btn.danger').click(); await wait(200); const after = document.querySelectorAll('.addr-table tbody tr').length; document.querySelectorAll('.addr-hint .tb-btn')[1].click(); await wait(200); const none = document.querySelectorAll('.addr-table tbody tr.addr-row').length; const session = window.__mfs.state.session.hiddenAddresses.length; document.querySelectorAll('.addr-hint .tb-btn')[2].click(); await wait(200); const restored = document.querySelectorAll('.addr-table tbody tr').length; return JSON.stringify({ before, after, none, restored, session }); })()`,
   tree: `(async () => { ${BOOT} await wait(300); const rows = () => document.querySelectorAll('.tree-row:not(.info)').length; const a = rows(); document.querySelectorAll('.tree-row')[1].querySelector('.tree-chevron').click(); await until(() => rows() > a, 5000); const b = rows(); document.querySelectorAll('.tree-row')[2].querySelector('.tree-chevron').click(); await wait(400); document.querySelector('.tree-toggle').click(); await wait(150); const collapsed = !document.querySelector('.tree-panel'); document.querySelector('.tb-tree').click(); await wait(150); return JSON.stringify({ before: a, after: b, collapsed, restored: !!document.querySelector('.tree-panel') }); })()`,
   tree_open: `(async () => { ${BOOT} await wait(300); const rows = () => document.querySelectorAll('.tree-row:not(.info)').length; const a = rows(); document.querySelectorAll('.tree-row')[1].querySelector('.tree-chevron').click(); await until(() => rows() > a, 5000); document.querySelectorAll('.tree-row')[2].querySelector('.tree-chevron').click(); await wait(400); document.querySelectorAll('.tree-row')[1].click(); return JSON.stringify({ rows: rows() }); })()`,
-  about: `(async () => { ${BOOT} ${CHECK} window.__mfs.action('about'); await until(() => document.querySelector('.dlg')); check(/Tauri/.test(document.querySelector('.dlg').textContent), 'About names the Tauri host'); return 'about'; })()`,
-  settings: `(async () => { ${BOOT} window.__mfs.action('settings'); await until(() => document.querySelector('.dlg')); return 'settings'; })()`,
-  settings_behavior: `(async () => { ${BOOT} ${CHECK} window.__mfs.action('settings'); await until(() => document.querySelector('.dlg')); document.querySelectorAll('.settings-tab')[1].click(); await wait(150); const opts = [...document.querySelectorAll('.set-option')]; check(opts.length === 5, 'five behaviour options'); check(opts.every((o) => !o.classList.contains('disabled')), 'tray option enabled on the desktop'); const pane = document.querySelector('.settings-pane'); check(pane.scrollHeight <= pane.clientHeight + 1, 'behaviour tab fits without scrolling'); return 'settings / behaviour tab'; })()`,
-  themes: `(async () => { ${BOOT} document.querySelector('.tb-split-caret').click(); await wait(200); return 'themes'; })()`,
+  // Settings and About are windows of their own (WINDOWS): the main page only opens them.
+  about: `(async () => { ${BOOT} ${CHECK} await wait(1000); window.__mfs.action('about'); await wait(800); check(!document.querySelector('.dlg'), 'not drawn inside the main window'); return 'about window opened'; })()`,
+  settings: `(async () => { ${BOOT} ${CHECK} await wait(1000); window.__mfs.action('settings'); await wait(800); check(!document.querySelector('.dlg'), 'not drawn inside the main window'); return 'settings window opened'; })()`,
+  settings_behavior: `(async () => { ${BOOT} await wait(1000); window.__mfs.action('settings'); await wait(800); return 'settings window opened'; })()`,
+  // The theme dropdown: on the desktop a window of its own (checked in MENU).
+  themes: `(async () => { ${BOOT}
+    await wait(1000);   // the window is on screen (shown after the first paint)
+    document.querySelector('.tb-split-caret').click();
+    await wait(1200);
+    return 'theme dropdown opened';
+  })()`,
+  // "+ 사용자 정의 테마": the settings window on its theme tab with a copy of the current theme.
+  settings_theme: `(async () => { ${BOOT} await wait(1000); window.__mfs.action('newCustomTheme'); await wait(800); return 'settings window (theme tab) opened'; })()`,
+  custom_theme_saved: `(async () => { ${BOOT} await wait(1000); window.__mfs.action('newCustomTheme'); await wait(800); return 'settings window (theme tab) opened'; })()`,
+  // 사용법 on the start page opens the user guide window (checked in desktopShot).
+  manual: `(async () => { ${BOOT} ${CHECK}
+    await until(() => document.querySelector('.start-page'));
+    const btn = [...document.querySelectorAll('.start-hero .sp-btn')].find((b) => /사용법|User guide/.test(b.textContent));
+    check(btn, 'user guide button on the start page');
+    btn.click();
+    await wait(1500);
+    return 'user guide opened';
+  })()`,
   light_en: `(async () => { ${BOOT} window.__mfs.action('theme:daylight'); window.__mfs.action('toggleLanguage'); await wait(200); await window.__mfs.start(); await until(() => window.__mfs.state.server.running); await wait(300); return 'light/en'; })()`,
   theme_nord: `(async () => { ${BOOT} window.__mfs.action('theme:nord'); await wait(300); return 'nord'; })()`,
   picker: `(async () => { ${BOOT} window.__mfs.dialogs.path({ mode: 'folder', start: ${JSON.stringify(smokeDir)} }); await until(() => document.querySelector('.picker-item')); await wait(300); return 'picker'; })()`,
@@ -128,6 +148,24 @@ const SCENARIOS = {
     check(document.querySelectorAll('.start-shares .start-row').length === 2, 'two shares');
     check(document.querySelectorAll('.start-profiles .start-row').length === 2, 'two profiles');
     check(document.querySelectorAll('.start-addresses .start-row').length >= 3, 'addresses listed');
+    const bar = [...document.querySelector('.toolbar').children];
+    check(bar.indexOf(document.querySelector('.tb-start')) < bar.indexOf(document.querySelector('.tb-profile')), 'home button left of the profile');
+    // 섞기 간격: label, then − value초 + on the same line, the value centred.
+    const sh = document.querySelector('.start-shuffle');
+    check(sh.children[1].getBoundingClientRect().height < 24, 'shuffle label on one line');
+    const nf = sh.querySelector('.numfield');
+    const [minus, mid, plus] = nf.children;
+    check(minus.classList.contains('num-btn') && mid.classList.contains('num-mid') && plus.classList.contains('num-btn'), '− value +');
+    check(/초/.test(mid.textContent), 'value in seconds');
+    const nr = nf.getBoundingClientRect(); const lr = sh.children[1].getBoundingClientRect();
+    check(Math.abs((nr.top + nr.bottom) / 2 - (lr.top + lr.bottom) / 2) < 6, 'value on the label line');
+    const mr = mid.getBoundingClientRect(); const ir = mid.firstChild.getBoundingClientRect(); const ur = mid.lastChild.getBoundingClientRect();
+    check(Math.abs((ir.left + ur.right) / 2 - (mr.left + mr.right) / 2) < 3, 'value centred');
+    plus.click();
+    await until(() => (window.__mfs.state.session.startBackground || {}).shuffleSec === 5);
+    minus.click();
+    await until(() => (window.__mfs.state.session.startBackground || {}).shuffleSec === 0);
+    check(document.querySelectorAll('.bg-kind[data-kind]').length === 21, '21 backgrounds');
     return JSON.stringify({ cards, kind: bg.kind });
   })()`,
   start_page_run: `(async () => { ${BOOT} ${CHECK}
@@ -183,9 +221,212 @@ const SCENARIOS = {
 };
 
 // Scenario → session patch for its seed (the start page shows only when asked).
-const SEED = { start_page: { showStartOnLaunch: true }, start_page_run: { showStartOnLaunch: true }, start_page_switch: { showStartOnLaunch: true }, start_page_arrange: { showStartOnLaunch: true }, start_page_en_light: { showStartOnLaunch: true } };
+const SEED = { start_page: { showStartOnLaunch: true }, start_page_run: { showStartOnLaunch: true }, start_page_switch: { showStartOnLaunch: true }, start_page_arrange: { showStartOnLaunch: true }, start_page_en_light: { showStartOnLaunch: true }, manual: { showStartOnLaunch: true } };
 // Every kind, one screenshot each (--scenario backgrounds).
-const BG_KINDS = ['network', 'packets', 'radar', 'binaryRain', 'globe', 'transfer', 'circuit', 'waves', 'particles', 'aurora'];
+const BG_KINDS = ANIMATION_KINDS;
+
+// The program's other windows (desktop): after the scenario, each step finds
+// the next new window, runs `check` there (and screenshots it), `pick`s
+// something in it (it may close), then runs `after` in the main window.
+const WIN_LIB = `
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (fn, ms = 10000) => { const t0 = Date.now(); while (!fn()) { if (Date.now() - t0 > ms) throw new Error('timeout: ' + fn.toString()); await wait(50); } };
+  const check = (ok, what) => { if (!ok) throw new Error('check failed: ' + what); };
+`;
+const MENU_LIB = `${WIN_LIB}
+  await until(() => document.querySelector('.theme-menu'));
+  await wait(400);
+  const pop = document.querySelector('.theme-menu');
+`;
+// A dialog window: the dialog fills it, the title bar is its only frame.
+const DLG_LIB = `${WIN_LIB}
+  await until(() => document.querySelector('.dlg'));
+  await wait(400);
+  const dlg = document.querySelector('.dlg');
+  check(document.documentElement.classList.contains('dialog-window'), 'a dialog window');
+  check(Math.abs(dlg.getBoundingClientRect().width - innerWidth) < 2, 'the dialog fills its window');
+  check(dlg.querySelector('.dlg-title'), 'title bar to move it by');
+`;
+const MAIN_ACCENT = `getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()`;
+const SET_ACCENT = `const accent = document.querySelectorAll('.custom-color input.mono')[9];
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(accent, '#ff3366');
+      accent.dispatchEvent(new Event('input', { bubbles: true }));
+      await until(() => ${MAIN_ACCENT} === '#ff3366');`;
+const WINDOWS = {
+  // 사용자 정의 테마 + 설정 on top; dark (two columns of ten, top to bottom) with
+  // light under it — two columns in all, one-line items, the whole menu shown.
+  themes: [{
+    check: `(async () => { ${MENU_LIB}
+      check(pop.classList.contains('ctx-menu'), 'an ordinary dropdown menu');
+      const top = pop.firstElementChild;
+      check(top.classList.contains('theme-menu-top') && top.querySelector('.theme-new-custom') && top.querySelector('.theme-open-settings'), 'custom theme and settings items on top');
+      const groups = [...pop.querySelectorAll('.theme-group')];
+      check(groups.map((g) => g.dataset.mode).join() === 'dark,light', 'dark first, then light');
+      check(groups[0].getBoundingClientRect().bottom <= groups[1].getBoundingClientRect().top + 1, 'light under dark');
+      const all = [...pop.querySelectorAll('.theme-modes .theme-item')];
+      check(new Set(all.map((c) => Math.round(c.getBoundingClientRect().left))).size === 2, 'two columns in all');
+      for (const g of groups) {
+        const items = [...g.querySelectorAll('.theme-item')];
+        check(items.length === 20, g.dataset.mode + ': 20 themes');
+        const first = items.slice(0, 10).map((c) => c.getBoundingClientRect());
+        const second = items.slice(10).map((c) => c.getBoundingClientRect());
+        check(first.every((r, i) => !i || (Math.round(r.left) === Math.round(first[0].left) && r.top > first[i - 1].top)), g.dataset.mode + ': first ten down the left column');
+        check(second.every((r) => r.left > first[0].left), g.dataset.mode + ': next ten in the right column');
+        check(items.every((c) => c.getBoundingClientRect().height < 34 && c.querySelector('.theme-swatch')), g.dataset.mode + ': one-line items with a swatch');
+      }
+      const r = pop.getBoundingClientRect();
+      check(r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1, 'the whole menu is shown: ' + [r.width, r.height, innerWidth, innerHeight]);
+      return JSON.stringify({ menu: [Math.round(r.width), Math.round(r.height)], at: [screenX, screenY] });
+    })()`,
+    pick: `document.querySelector('.theme-group[data-mode="light"] .theme-item').click()`,
+    after: `(async () => { ${BOOT} await until(() => document.documentElement.dataset.mode === 'light'); return 'light theme picked from the dropdown'; })()`,
+  }],
+  settings: [{
+    check: `(async () => { ${DLG_LIB}
+      check(document.querySelectorAll('.settings-tab').length === 3, 'three tabs');
+      const langs = [...document.querySelectorAll('.set-lang-btn')];
+      check(langs.length === 2 && langs[0].querySelector('.flag-kr') && langs[1].querySelector('.flag-gb'), 'language choices with flags');
+      check(langs.find((b) => b.classList.contains('on')).dataset.lang === 'ko', 'the current language is marked');
+      check(Math.abs(innerHeight - dlg.getBoundingClientRect().height) < 2, 'fixed-size window, dialog fills it');
+      return JSON.stringify({ window: [innerWidth, innerHeight], at: [screenX, screenY] });
+    })()`,
+    dragOut: true,
+  }],
+  settings_behavior: [{
+    check: `(async () => { ${DLG_LIB}
+      document.querySelector('.settings-tab[data-tab="behavior"]').click();
+      await wait(150);
+      const opts = [...document.querySelectorAll('.set-option')];
+      check(opts.length === 5, 'five behaviour options');
+      check(opts.every((o) => !o.classList.contains('disabled')), 'tray option enabled on the desktop');
+      const pane = document.querySelector('.settings-pane');
+      check(pane.scrollHeight <= pane.clientHeight + 1, 'behaviour tab fits without scrolling');
+      return 'settings / behaviour tab';
+    })()`,
+  }],
+  // A copy of the current theme, previewed in both windows; Cancel undoes it in the main one.
+  settings_theme: [{
+    check: `(async () => { ${DLG_LIB}
+      check(document.querySelector('.settings-tab.active').dataset.tab === 'theme', 'opens on the theme tab');
+      const name = document.querySelector('.custom-theme-head input');
+      check(name.value.length > 0 && !name.disabled, 'a new custom theme is being edited');
+      ${SET_ACCENT}
+      check(document.querySelectorAll('.settings-themes .theme-group[data-mode] .theme-item').length === 40, '40 built-in themes');
+      check(document.querySelectorAll('.custom-theme .theme-item').length === 1, 'the custom theme on top');
+      const pane = document.querySelector('.settings-themes');
+      check(pane.scrollHeight <= pane.clientHeight + 1, 'theme tab fits without scrolling');
+      await wait(200);
+      return 'custom theme previewed in the settings window';
+    })()`,
+    after: `(async () => { ${BOOT} await until(() => ${MAIN_ACCENT} === '#ff3366'); return 'the main window previews it too'; })()`,
+  }, {
+    // The same window again (the previous step left it open): Cancel.
+    same: true,
+    check: `(async () => { ${DLG_LIB} return 'cancel'; })()`,
+    pick: `(() => { const b = [...document.querySelectorAll('.dlg-footer .btn')]; b[b.indexOf(document.querySelector('.dlg-footer .btn.primary')) - 1].click(); })()`,
+    after: `(async () => { ${BOOT} await until(() => ${MAIN_ACCENT} === '#4cc9f0' && !(window.__mfs.state.session.customThemes || []).length); return 'Cancel put the main window back'; })()`,
+  }],
+  // Saved: stored in the session, then listed on top of the dropdown and applied from there.
+  custom_theme_saved: [{
+    check: `(async () => { ${DLG_LIB} ${SET_ACCENT} return 'custom theme edited'; })()`,
+    pick: `document.querySelector('.dlg .btn.primary').click()`,
+    after: `(async () => { ${BOOT} ${CHECK}
+      await until(() => (window.__mfs.state.session.customThemes || []).length === 1);
+      check(window.__mfs.state.session.theme === window.__mfs.state.session.customThemes[0].id, 'the custom theme is the current one');
+      window.__mfs.action('theme:nord');
+      await until(() => document.documentElement.dataset.theme === 'nord');
+      await wait(300);
+      document.querySelector('.tb-split-caret').click();
+      await wait(1200);
+      return 'saved; dropdown opened';
+    })()`,
+  }, {
+    check: `(async () => { ${MENU_LIB}
+      const item = pop.querySelector('.theme-list.custom .theme-item');
+      check(item && /^custom-/.test(item.dataset.themeId), 'custom theme listed on top');
+      check(item.getBoundingClientRect().top < pop.querySelector('.theme-modes').getBoundingClientRect().top, 'above the built-in themes');
+      return item.dataset.themeId;
+    })()`,
+    pick: `document.querySelector('.theme-list.custom .theme-item').click()`,
+    after: `(async () => { ${BOOT} await until(() => /^custom-/.test(document.documentElement.dataset.theme) && ${MAIN_ACCENT} === '#ff3366'); return 'custom theme applied from the dropdown'; })()`,
+  }],
+  about: [{
+    check: `(async () => { ${DLG_LIB}
+      check(/Tauri/.test(dlg.textContent), 'About names the Tauri host');
+      const body = dlg.querySelector('.dlg-body');
+      check(body.scrollWidth <= body.clientWidth + 1 && document.documentElement.scrollWidth <= innerWidth, 'no sideways scrolling');
+      check(Math.abs(innerHeight - dlg.getBoundingClientRect().height) < 3, 'window fitted to the dialog: ' + [innerHeight, dlg.getBoundingClientRect().height]);
+      return JSON.stringify({ window: [innerWidth, innerHeight] });
+    })()`,
+    dragOut: true,
+    pick: `document.querySelector('.dlg-footer .btn').click()`,
+    after: `(async () => { ${BOOT} await wait(300); return 'about closed'; })()`,
+  }],
+};
+
+// Drags a dialog window by its title bar with the real mouse (scripts/os-drag.ps1)
+// until it sits past the main window's right edge, and checks it got there.
+const WIN_OBJ = `({ x: screenX, y: screenY, w: outerWidth, h: outerHeight, dpr: devicePixelRatio })`;
+const WIN_GEOMETRY = `JSON.stringify(${WIN_OBJ})`;
+async function dragOut(main, dlg, pid) {
+  if (process.platform !== 'win32') return 'drag skipped (Windows only)';
+  const m = JSON.parse(await main.evaluate(WIN_GEOMETRY));
+  const before = JSON.parse(await dlg.evaluate(`(() => { const t = document.querySelector('.dlg-title').getBoundingClientRect(); const hit = document.elementFromPoint(t.left + 60, t.top + t.height / 2); return JSON.stringify({ ...${WIN_OBJ}, tx: t.left + 60, ty: t.top + t.height / 2, hit: hit ? hit.tagName + '.' + hit.className + ' ' + getComputedStyle(hit).webkitAppRegion : 'none', focus: document.hasFocus(), title: document.title }); })()`));
+  const dx = Math.round(m.x + m.w + 30 - before.x);
+  const dpr = before.dpr;
+  const x = Math.round((before.x + before.tx) * dpr);
+  const y = Math.round((before.y + before.ty) * dpr);
+  const under = execFileSync('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'os-drag.ps1'), `-X:${x}`, `-Y:${y}`, `-DX:${Math.round(dx * dpr)}`, '-DY:0', `-ProcessId:${pid}`, '-Title', before.title], { encoding: 'utf8' }).trim();
+  if (/^blocked/.test(under)) throw new Error(`no drag (nothing pressed): ${under}`);
+  await wait(400);
+  const after = JSON.parse(await dlg.evaluate(`JSON.stringify({ ...${WIN_OBJ}, presses: window.__mfsPresses || 0 })`));
+  const moved = after.x - before.x;
+  // (Crossing onto another monitor may shift it a little.)
+  if (moved < dx / 2) throw new Error(`the dialog did not follow the mouse: moved ${moved}px of ${dx}px (pressed at ${x},${y} on ${before.hit}, focused ${before.focus}, page saw ${after.presses} press(es), dpr ${dpr}, ${under})`);
+  if (after.x + after.w <= m.x + m.w + 100) throw new Error(`the dialog did not get out of the main window: right ${after.x + after.w}, main right ${m.x + m.w}`);
+  return `dragged by its title bar ${moved}px, out past the main window (dialog ${after.x}–${after.x + after.w}, main right ${m.x + m.w})`;
+}
+
+/** A page target of the program not in `seen` (and not the user guide). */
+async function otherPage(port, seen, ms = 15000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    try {
+      const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+      const page = list.find((x) => x.type === 'page' && !seen.includes(x.webSocketDebuggerUrl) && /tauri\.localhost|^tauri:/.test(x.url) && !/\/doc\//.test(x.url));
+      if (page) return page.webSocketDebuggerUrl;
+    } catch { /* not up yet */ }
+    await wait(250);
+  }
+  throw new Error('no second window');
+}
+
+// The user guide window (doc/index.html, its own CDP page target): the
+// header's language and text-size controls, every picture loaded.
+const DOC_CHECK = `(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (fn, ms = 10000) => { const t0 = Date.now(); while (!fn()) { if (Date.now() - t0 > ms) throw new Error('timeout: ' + fn.toString()); await wait(50); } };
+  const check = (ok, what) => { if (!ok) throw new Error('check failed: ' + what); };
+  await until(() => document.body.classList.contains('ready'));
+  const imgs = [...document.querySelectorAll('main img')];
+  await until(() => imgs.every((i) => i.complete), 10000);
+  const broken = imgs.filter((i) => !i.naturalWidth).map((i) => i.getAttribute('src'));
+  check(!broken.length, 'pictures load: ' + broken);
+  check(document.querySelectorAll('.lang-group button').length === 2, 'language buttons');
+  const now = document.getElementById('size-now');
+  check(now.textContent === '13px', '13px by default: ' + now.textContent);
+  check(getComputedStyle(now).justifyContent === 'center', 'size centred');
+  const [down, up] = [document.getElementById('size-down'), document.getElementById('size-up')];
+  check(down.compareDocumentPosition(now) & Node.DOCUMENT_POSITION_FOLLOWING && now.compareDocumentPosition(up) & Node.DOCUMENT_POSITION_FOLLOWING, '− 13px + order');
+  up.click(); check(now.textContent === '14px', '+ makes 14px'); down.click(); check(now.textContent === '13px', '− back to 13px');
+  document.querySelector('.lang-group button[data-lang="en"]').click(); check(document.body.classList.contains('en') && /User Guide/.test(document.title), 'English');
+  document.querySelector('.lang-group button[data-lang="ko"]').click(); check(document.body.classList.contains('ko'), 'Korean');
+  check(document.body.classList.contains('desktop') === !!window.__TAURI__, 'window buttons on the desktop');
+  check(document.querySelectorAll('#side a').length >= 12, 'contents built');
+  await wait(300);
+  return JSON.stringify({ images: imgs.length, sections: document.querySelectorAll('main section').length, bg: getComputedStyle(document.body).backgroundColor });
+})()`;
 
 // ── CDP ──
 class Cdp {
@@ -260,11 +501,12 @@ async function webviewGone(dir, ms = 20000) {
 
 // The target shows up while the page is still loading; a script started then
 // dies with it ("Execution context was destroyed"). Wait for the loaded app.
-async function settled(cdp, ms = 30000) {
+// `app: false` — a page that is not the app (the user guide): loaded is enough.
+async function settled(cdp, ms = 30000, app = true) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
     try {
-      if (await cdp.evaluate("document.readyState === 'complete' && !!(window.__mfs && window.__mfs.state.settings)")) return;
+      if (await cdp.evaluate(app ? "document.readyState === 'complete' && !!(window.__mfs && window.__mfs.state.settings)" : "document.readyState === 'complete'")) return;
     } catch { /* context replaced: ask again */ }
     await wait(150);
   }
@@ -288,7 +530,7 @@ function killTree(pid) {
 // One run of the desktop program: scenario → screenshot → quit (and the
 // servers must be gone afterwards). `after(cdp, child)` may close the window
 // itself (tray / quit scenarios) instead of the default quit.
-async function desktopShot(name, script, { during = null, after = null } = {}) {
+async function desktopShot(name, script, { during = null, after = null, docWindow = false, windows = null } = {}) {
   if (!fs.existsSync(exe)) throw new Error(`${path.relative(root, exe)} missing — run \`npm run build:debug\` first.`);
   const cdpPort = await freeDevPort(9461);
   const env = { ...process.env, MFS_USER_DATA: profile, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${cdpPort}` };
@@ -301,7 +543,8 @@ async function desktopShot(name, script, { during = null, after = null } = {}) {
   const shot = path.join(smokeDir, `${name}.png`);
   let cdp = null;
   try {
-    cdp = await Cdp.connect(await pageTarget(cdpPort, (u) => /tauri\.localhost|^tauri:/.test(u)));
+    const mainWs = await pageTarget(cdpPort, (u) => /tauri\.localhost|^tauri:/.test(u));
+    cdp = await Cdp.connect(mainWs);
     await cdp.send('Runtime.enable');
     await settled(cdp);
     const duringRun = during ? during() : null;
@@ -311,6 +554,37 @@ async function desktopShot(name, script, { during = null, after = null } = {}) {
     const size = await cdp.screenshot(shot);
     if (result !== null && result !== undefined) console.log(`[smoke] ${name}: ${typeof result === 'string' ? result : JSON.stringify(result)}`);
     console.log(`[smoke] desktop ${name} OK → ${path.relative(root, shot)} (${size} bytes)`);
+    if (windows) {
+      // Dialogs and the theme dropdown are windows of their own.
+      const seen = [mainWs];
+      let last = null;
+      for (const [k, step] of windows.entries()) {
+        const ws = step.same && last ? last : await otherPage(cdpPort, seen);
+        if (!seen.includes(ws)) seen.push(ws);
+        last = ws;
+        const w = await Cdp.connect(ws);
+        try {
+          await w.send('Runtime.enable');
+          const info = await w.evaluate(step.check);
+          const shot = path.join(smokeDir, `${name}_window${k ? k + 1 : ''}.png`);
+          const winSize = await w.screenshot(shot);
+          console.log(`[smoke] desktop ${name} window ${k + 1} OK → ${path.relative(root, shot)} (${winSize} bytes) ${info}`);
+          if (step.dragOut) console.log(`[smoke] desktop ${name}: ${await dragOut(cdp, w, child.pid)}`);
+          if (step.pick) await w.send('Runtime.evaluate', { expression: step.pick }, { noReply: true });
+        } finally { w.close(); }
+        if (step.after) console.log(`[smoke] desktop ${name}: ${await cdp.evaluate(step.after)}`);
+      }
+    }
+    if (docWindow) {
+      // The scenario opened the user guide: its window is a page target of its own.
+      const doc = await Cdp.connect(await pageTarget(cdpPort, (u) => /\/doc\/index\.html/.test(u), 15000));
+      try {
+        await doc.send('Runtime.enable');
+        const info = await doc.evaluate(DOC_CHECK);
+        const docSize = await doc.screenshot(path.join(smokeDir, `${name}_window.png`));
+        console.log(`[smoke] desktop ${name} guide window OK → .smoke/${name}_window.png (${docSize} bytes) ${info}`);
+      } finally { doc.close(); }
+    }
     if (after) await after(cdp, child, exited);
     else {
       // The page asks the shell to quit; the answer may never come (the page is going away).
@@ -461,14 +735,16 @@ async function browserShot(name, url, script, during) {
   const bin = browserPath();
   if (!bin) { console.log('[smoke] no Edge / Chrome found — the web page itself is not screenshotted'); return null; }
   const cdpPort = await freeDevPort(9481);
-  const dataDir = path.join(smokeDir, 'browser');
-  fs.rmSync(dataDir, { recursive: true, force: true });
+  // A browser that just quit (or its crash handler) may still hold a file of the
+  // last profile: retry, then fall back to a fresh folder.
+  let dataDir = path.join(smokeDir, 'browser');
+  try { fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch { dataDir = path.join(smokeDir, `browser-${Date.now()}`); }
   const child = spawn(bin, ['--headless=new', `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${dataDir}`, '--no-first-run', '--no-default-browser-check', '--disable-sync', '--window-size=1400,900', url], { stdio: 'ignore', detached: process.platform !== 'win32' });
   let cdp = null;
   try {
     cdp = await Cdp.connect(await pageTarget(cdpPort, (u) => u.startsWith(url)));
     await cdp.send('Runtime.enable');
-    await settled(cdp);
+    await settled(cdp, 30000, !url.includes('/doc/'));
     const duringRun = during ? during() : null;
     const result = await cdp.evaluate(script);
     if (duringRun) await duringRun;
@@ -506,6 +782,8 @@ async function webSmoke(scenario = null) {
     // The UI itself in a browser pointed at the server.
     const s = scenario || 'running';
     await browserShot(`web_${s}`, `http://127.0.0.1:${port}/`, SCENARIOS[s], s === 'transfer' ? roundTrips : null);
+    // The user guide is served from dist/doc as well.
+    if (!scenario) await browserShot('web_manual', `http://127.0.0.1:${port}/doc/index.html`, DOC_CHECK);
   } finally {
     child.kill();
   }
@@ -515,6 +793,8 @@ async function runScenario(name) {
   seed(SEED[name] || {});
   const extra = {};
   if (name === 'transfer') extra.during = roundTrips;
+  if (name === 'manual') extra.docWindow = true;
+  if (WINDOWS[name]) extra.windows = WINDOWS[name];
   return desktopShot(name, SCENARIOS[name], extra);
 }
 
@@ -543,6 +823,9 @@ async function runScenario(name) {
     console.log('[smoke] desktop verified (server started from the UI, real FTP + FTPS + SFTP transfers, counters updated)');
     await runScenario('start_page');
     await runScenario('start_page_run');
+    await runScenario('themes');
+    await runScenario('custom_theme_saved');
+    await runScenario('manual');
     // Tray: closing while serving hides the window, the servers keep running.
     seed({ minimizeToTray: true });
     await desktopShot('tray', `(async () => { ${START} await new Promise((r) => setTimeout(r, 800)); return 'serving'; })()`, { after: trayClose });

@@ -1,20 +1,22 @@
 # My FTP Server — 아키텍처
 
-`FTPServerWinV10`(C# WinForms, 자체 FTP 구현 + FxSsh) 을 하나의 JavaScript 코드베이스로 옮겨 Windows·macOS·Linux 데스크톱(Electron)과 웹(브라우저 + Node 서버)에서 같은 UI 로 같은 서버 코어를 제어합니다. 의존성은 `ssh2`(SFTP) 하나이며 FTP/FTPS·인증서 생성·호스트 키는 Node 표준 모듈만 씁니다.
+`FTPServerWinV10`(C# WinForms, 자체 FTP 구현 + FxSsh) 을 하나의 JavaScript 코드베이스로 옮겨 Windows·macOS·Linux 데스크톱(Tauri 2)과 웹(브라우저 + Node 서버)에서 같은 UI 로 같은 서버 코어를 제어합니다. 서버 코어의 의존성은 `ssh2`(SFTP) 하나이며 FTP/FTPS·인증서 생성·호스트 키는 Node 표준 모듈만 씁니다. 데스크톱에서도 리스너는 Node 에서 돌므로, Tauri(Rust) 셸은 창·트레이·네이티브 대화상자만 맡고 코어는 **Node 호스트 프로세스**(`host/host.js`)가 실행합니다.
 
 ```
 ┌──────────────────── UI (src/, React) ─────────────────────┐
 │ App.jsx ── Toolbar · ControlBar · [Shares|Users / Security|Network] │
-│           · LogPanel(로그·접속 주소 탭) · StatusBar · Dialogs   │
-│ lib/backend.js  ← 호스트 판별: window.myFtpServer ?           │
-└───────────┬───────────────────────────────┬────────────────┘
-   IPC invoke + push(server:log/update)   fetch POST /api/<name> + server.poll 폴링
-┌───────────▼─────────┐             ┌───────▼──────────────┐
-│ electron/           │             │ server/server.js     │
-│  main.js · ipc.js   │             │  node:http, 정적 dist │
-│  preload.js         │             │  --host/--port/--token│
-└───────────┬─────────┘             └───────┬──────────────┘
-            └──────────────┬────────────────┘
+│           · LogPanel(로그·접속 주소 탭) · StatusBar · StartPage · Dialogs │
+│ lib/backend.js  ← 호스트 판별: window.__MFS_HOST__ ?        │
+└──────┬──────────────────────┬────────────────────┬─────────┘
+  Tauri invoke / 플러그인   fetch POST /api/<name>   fetch POST ./api/<name>
+  (창·트레이·대화상자·       + 토큰, server.poll     + server.poll 폴링
+   열기·클립보드)            폴링
+┌──────▼──────────────┐ ┌────▼─────────────────┐ ┌──▼───────────────────┐
+│ src-tauri/ (Rust)   │ │ host/host.js (Node)  │ │ server/server.js     │
+│  lib.rs · host.rs   │─┤  127.0.0.1:임의 포트  │ │  node:http, 정적 dist │
+│  창·트레이·단일 실행 │ │  토큰, stdin 닫힘=종료 │ │  --host/--port/--token│
+└─────────────────────┘ └────┬─────────────────┘ └──┬───────────────────┘
+   실행·준비 줄 읽기·종료        └──── server/http-api.js ───┘
                    ┌───────▼────────┐
                    │ core/api.js    │  하나의 메서드 표 (JSON in/out)
                    ├────────────────┤
@@ -35,7 +37,7 @@
 ## 1. 계층
 
 ### core/ — 플랫폼 무관, Node 전용
-Electron 을 전혀 참조하지 않으므로 Electron 메인 프로세스와 웹 서버가 **같은 객체**를 씁니다. 테스트도 이 계층만으로 실제 포트를 열어 검증합니다.
+데스크톱 셸을 전혀 참조하지 않으므로 데스크톱의 Node 호스트와 웹 서버가 **같은 객체**를 씁니다. 테스트도 이 계층만으로 실제 포트를 열어 검증합니다.
 
 | 파일 | 역할 |
 |------|------|
@@ -52,19 +54,28 @@ Electron 을 전혀 참조하지 않으므로 Electron 메인 프로세스와 �
 | `log.js` | `Log(file)`: `info/ok/warn/error(key, params)` 는 `messages.js` 의 한/영 템플릿을 렌더해 `{seq, time, level, text}` 로 보관(최근 3000줄)·`'line'` 이벤트·파일 큐 기록. `trace(text)` 는 프로토콜 대화 — 화면에만(파일은 `verbose` 일 때). `after(seq)` 로 웹 폴링 |
 | `local.js` | `listRoots`(Windows 드라이브 / `/`·홈), `listDirectory(path, {filesToo, extensions})`, `makeDirectory`, `statPath` — 웹 버전의 「찾기」 |
 
-### electron/
-- `main.js` — **프레임리스 창**(`frame: false`, 기본 1360×800, 바닥 최소 1100×720 = `window-size.js`; 렌더러가 레이아웃이 생기는 즉시 툴바·컨트롤 바가 한 줄에 필요한 폭을 재서 `win:setMinSize` 로 올림 — 버튼이 가려지는 크기로는 줄어들지 않고, 접속 수 배지·잠금 표시가 자리를 미리 차지하므로 **시작/중지로 창 크기가 변하지 않음**; 최소 폭은 두 언어의 라벨·가장 긴 테마 이름·시작/중지/시작 중… 버튼을 canvas `measureText` 로 더해 계산하므로 **언어·테마를 바꿔도 변하지 않음**(`langExtra()`); 첫 실행(저장된 창 위치 없음)에는 표/보안·네트워크/로그 세 단이 같은 높이가 되도록 창 높이를 정함(화면 높이로 제한); 창 위치 저장; 프레임리스 창의 위쪽 가장자리는 `.win-resize-edge`(no-drag 5px) 덕에 크기 조절 가능), 단일 인스턴스, `MFS_USER_DATA` 로 별도 프로필(스모크·병렬 실행), `createApi` 에 `dialog.showOpenDialog/showSaveDialog`, `shell.showItemInFolder/openPath`, `clipboard` 주입. **트레이**: `minimizeToTray` 이고 서버가 실행 중이면 닫기 → 숨김, 트레이 메뉴에서 표시/종료. `autoStart` 면 준비 직후 `server.start`. 종료 시 `api.shutdown()` 으로 리스너 정리. 스모크 훅 `--smoke-shot / --smoke-script / --smoke-settle / --smoke-delay / --smoke-url`(웹 UI 를 preload 없이 로드).
-- `ipc.js` — `ipcMain.handle('api')` → `api.call` 을 `{ok, data} | {ok:false, error}` 로 감싸고, `api.log 'line'` → `server:log`, `api.manager 'update'` → `server:update` 를 렌더러에 푸시. 창 제어 `win:control`(minimize/maximize/close), `win:isMaximized`, `win:getSize/setSize`(상태바 크기 조절 마커), **`win:setMinSize`**(렌더러가 잰 최소 크기 — 바닥값 이상으로만, 현재 창이 더 작으면 키움), `win:maximized` 푸시, `app:quit`.
-- `preload.js` — `contextBridge` 로 `window.myFtpServer = { call, onLog, onUpdate, windowControl, isMaximized, getWindowSize, setWindowSize, setMinWindowSize, onMaximized, quit }`. 브리지를 넘는 `Error` 는 message 만 남으므로 `{ok, error}` 를 그대로 넘기고 렌더러(`backend.js unwrap`)가 `Error` 를 재구성합니다.
+### host/host.js — 데스크톱의 Node 호스트
+`startHost({configDir, version, buildInfo})` 가 `createApi({name:'tauri'})` 를 만들고 `server/http-api.js` 의 같은 핸들러로 **127.0.0.1 의 임의 포트**에서 제공합니다. 요청마다 무작위 토큰(24바이트 hex)을 요구하고, 앱 페이지(`tauri://` / `http://tauri.localhost`)가 부를 수 있도록 CORS 를 엽니다. 프로토콜은 두 가지뿐입니다:
 
-### server/server.js
-`node:http` 만 사용. `POST /api/<name>`(JSON, 8MB 제한) 과 `dist/` 정적 파일(경로 탈출 차단, SPA 폴백). 기본 127.0.0.1:5190, `--host 0.0.0.0` 이면 `--token` 권장(`Authorization: Bearer` 또는 `?token=`; 없으면 경고 출력). `--config` 로 설정 폴더, `--autostart` 로 즉시 시작, `--no-open` 으로 브라우저 자동 열기 생략. 환경 변수 `MFS_PORT/HOST/TOKEN/CONFIG/NO_OPEN/AUTOSTART` 도 같은 뜻. 종료 시그널에서 `api.shutdown()`.
+- stdout 첫 줄 `{"ready":true,"port":<n>,"token":"<hex>"}` (실패면 `{"ready":false,"error":…}` 후 종료). 로그 줄은 stderr 로(`npm start` 콘솔).
+- **stdin 이 닫히면** `api.shutdown()` 으로 리스너를 정리하고 종료 — 셸이 비정상 종료해도 서버 포트가 남지 않습니다.
+
+세션의 `autoStart` 가 켜져 있으면 준비 직후 `server.start`. 환경 변수 `MFS_CONFIG_DIR / MFS_VERSION / MFS_BUILD_INFO` 는 셸이 넣습니다.
+
+### src-tauri/ — Tauri 2 셸 (Rust)
+- `lib.rs` — 부팅 순서: 설정 폴더(`%APPDATA%\My FTP Server` 등, Electron 판과 같은 곳; `MFS_USER_DATA` 면 그 폴더 — 스모크·병렬 실행용, 단일 실행 잠금도 끔) → Node 호스트 실행(`host.rs`, 실패해도 창은 열고 이유를 페이지에 전달) → **숨긴 프레임리스 창**(기본 1360×800, 바닥 최소 1100×720, 첫 프레임 배경색은 저장된 테마로) 을 만들고 `window.__MFS_HOST__ = {port, token, platform, firstRun, error}` 를 주입 → 페이지가 그려지면 `renderer_ready` 로 표시. 창 위치·크기·최대화는 앱 데이터 폴더의 `window-state.json`(모니터 밖이면 무시). 명령: **`set_min_size`**(페이지가 잰 최소 크기 — 바닥값 이상으로만, 보이지 않는 테두리 보정, 창이 더 작으면 키움; Snap 등이 최소 크기를 지나치면 `Resized` 에서 되돌림), `set_tray`(트레이 표시 여부·서버 실행 중 여부·메뉴 문구), `quit_app`. **트레이**: `minimizeToTray` 이고 서버가 실행 중이면 닫기 → 숨김, 아이콘 클릭 = 표시, 메뉴에서 표시/종료. 플러그인: single-instance(두 번째 실행은 첫 창을 앞으로), dialog, opener(reveal·open), clipboard-manager. 앱 밖 URL 로의 이동은 기본 브라우저로. 종료 시 `Host::stop()`.
+- `host.rs` — Node 실행 파일 선택: `MFS_NODE` → 설치본의 `resources/sidecar/node(.exe)` → PATH 의 node. 릴리스는 `sidecar/host.js`(번들), 디버그 빌드는 프로젝트의 `host/host.js`. `ELECTRON_RUN_AS_NODE` 를 지우고 Windows 에선 콘솔 창 없이(`CREATE_NO_WINDOW`) 띄워 첫 줄을 기다립니다(시간 제한). 종료는 stdin 닫기 → 3초 대기 → kill.
+- **보조 창** — 사용 설명서 `manual`(`doc/index.html`, `manual_open` / 테마 · 언어 변경은 `doc:appearance`), 테마 드롭다운 `theme-menu`(`theme_menu_open/size/pick/close`, 포커스를 잃으면 닫힘, 모니터 작업 영역 안에 버튼 아래 · 공간이 없으면 위), 설정 · 정보 `dlg-*`(`dialog_open/ready/size/preview/submit`). 창마다 capability(`manual.json`, `theme-menu.json`, `dialogs.json`)가 필요한 명령만 허용합니다. 메인 창을 닫으면 함께 닫힙니다. `withGlobalTauri` 는 설명서 페이지(`manual.js`)가 자기 창을 다루느라 켜져 있습니다.
+- `window_icon.rs` — Windows 에서 창·작업 표시줄 아이콘을 모니터 DPI 에 맞는 크기로 설정. `capabilities/default.json` 이 페이지가 부를 수 있는 명령·플러그인 권한을 정합니다.
+
+### server/ — 웹 호스트
+`http-api.js` 는 `POST /api/<name>`(JSON, 8MB 제한, 토큰·CORS 선택) 처리기로 데스크톱 호스트와 공용입니다. `server.js` 는 `node:http` 만 사용해 그것과 `dist/` 정적 파일(경로 탈출 차단, SPA 폴백)을 제공합니다. 기본 127.0.0.1:5190, `--host 0.0.0.0` 이면 `--token` 권장(`Authorization: Bearer` 또는 `?token=`; 없으면 경고 출력). `--config` 로 설정 폴더, `--autostart` 로 즉시 시작, `--no-open` 으로 브라우저 자동 열기 생략. 환경 변수 `MFS_PORT/HOST/TOKEN/CONFIG/NO_OPEN/AUTOSTART` 도 같은 뜻. 종료 시그널에서 `api.shutdown()`.
 
 ### src/ — React UI
 | 파일 | 역할 |
 |------|------|
 | `App.jsx` | 상태·액션의 중심. 부팅(info → session → settings → profiles → server.state → log → subscribe), **설정 초안**(`updateSettings` 가 500ms 뒤 `settings.save quiet`, 시작 전 `flushSettings`), 시작/중지(검증 팝업·접속자 확인), 공유/사용자 CRUD, 인증서·호스트 키 생성, 로그 복사/저장, 프로파일, 테마/언어/설정, 로그 분할 바, F5/F6. **한 줄 보장**: `ResizeObserver` 로 툴바·제어 바의 필요 폭과 (고정 줄 + 표 최소 136px + 보안/네트워크 자연 높이 + 로그 80px) 의 필요 높이를 재서 `setMinWindowSize` 와 `--app-min-width`(브라우저는 가로 스크롤)로 적용하고, 로그 분할 바의 상한을 그에 맞춰 잠급니다. `window.__mfs` 자동화 훅 |
-| `components/Toolbar.jsx` | 타이틀바 대체(드래그 영역, 더블클릭 = 최대화 토글): 앱 이름·**프로파일 콤보/저장/삭제**·테마 분할 버튼·언어 국기·설정·정보·**창 버튼**(Electron 만). 서버 상태는 ▶/■ 버튼과 상태 표시줄이 보여 주므로 여기엔 없음 |
+| `components/Toolbar.jsx` | 타이틀바 대체(드래그 영역, 더블클릭 = 최대화 토글): 앱 이름·**프로파일 콤보/저장/삭제**·테마 분할 버튼·언어 국기·설정·정보·시작 페이지 전환·**창 버튼**(데스크톱만). 서버 상태는 ▶/■ 버튼과 상태 표시줄이 보여 주므로 여기엔 없음 |
 | `components/ControlBar.jsx` | ▶ 시작/■ 중지, 프로토콜 스위치(체크하면 표준 포트 채움)·포트·실행 중 접속 수, AUTH TLS 스위치, 통계 3종 |
 | `components/SharesPanel.jsx` `UsersPanel.jsx` | 표 + 추가/편집/제거, 더블클릭·Enter·Delete·↑↓, 폴더 없음 표시 / 익명 스위치·권한 태그 |
 | `components/SecurityPanel.jsx` | FTPS 블록(인증서·개인키·암호·찾기·생성·요약 줄)과 SFTP 블록(키 경로·생성·폴더·지문 복사). 해당 프로토콜이 꺼지면 `.off` |
@@ -74,9 +85,12 @@ Electron 을 전혀 참조하지 않으므로 Electron 메인 프로세스와 �
 | `components/LogPanel.jsx`, `StatusBar.jsx` | 아래 패널 = 탭 두 개(로그 / 접속 주소). 로그: 자동 스크롤, trace 토글, 복사/저장/지우기, 분할 바 / 상태 표시줄: **● 실행 중·○ 중지됨·시작 중…**(일시 메시지에 덮이지 않음) + 상태 메시지 + 가동 시간 + 🔒 **설정 잠김** 배지(별도 줄이 아니라 상태 표시줄 항목 — 시작해도 창 높이가 변하지 않도록) + SizeGrip(포인터 캡처 후 크기 요청, 프레임당 1회) |
 | `dialogs/Dialogs.jsx` | 스택형 Promise 대화상자: prompt · confirm · message/error(자세한 내용 + 복사) · share · user · cert · path · settings · about |
 | `dialogs/PathPicker.jsx` | 웹 버전의 폴더/파일/저장 선택기 — `local.roots/list/mkdir` 로 서버 쪽 파일 시스템 탐색 |
-| `lib/backend.js` | 전송 스위치: Electron IPC(푸시) ↔ fetch + `server.poll` 폴링(700ms, 접속자가 있으면 250ms). `subscribe({onLog, onUpdate}, fromSeq)`, `writeClipboardText`(호스트 → navigator.clipboard 폴백), `downloadText`(웹 로그 저장) |
+| `components/StartPage.jsx` | 시작 페이지: 전체 창 움직이는 배경(`lib/startBackground.js`, 21종 — 종류·자동 바꾸기·속도·투명도) 위에 히어로 카드(아이콘·이름·버전·▶/■)와 상태·빠른 작업·공유·접속 주소·프로파일·도움말·배경 카드. 카드는 끌어 옮기고 크기 조절(`lib/startLayout.js` — 격자 배치·겹침 해소·자동 정렬, 끄는 동안 `lib/dragGhost.js`), 배치·배경은 세션 `startBackground`. `showStartOnLaunch` 면 앱이 이 화면으로 열림 |
+| `lib/backend.js` | 전송 스위치: 데스크톱(`window.__MFS_HOST__` 있음) = Node 호스트에 fetch + 토큰, 창·대화상자·reveal/open·클립보드는 Tauri `invoke`/플러그인 직접; 웹 = `./api/<name>`. 둘 다 `server.poll` 폴링(700ms, 접속자가 있으면 250ms). `subscribe({onLog, onUpdate}, fromSeq)`, `writeClipboardText`(호스트 → navigator.clipboard 폴백), `downloadText`(웹 로그 저장). 호스트가 뜨지 못했으면 `hostError` 로 이유를 보여 줌 |
 | `lib/i18n.js` `format.js` `sound.js` `settings.js` | `t(key, params)`·`useLanguage()` / 크기·시간·경로 헬퍼 / Web Audio 알림음 / UI 쪽 기본값·기본 포트 |
-| `themes.js` `styles.css` | 16개 테마 → CSS 변수. `.main` 은 **2×2 그리드**(1행 공유·인증 표 `minmax(136px,1fr)`, 2행 보안·네트워크 `auto`) — 두 행을 공유하므로 보안/네트워크 상단이 항상 일치. `.control-bar`/`.cb-group` 은 `nowrap`, `.stat` 의 숫자 칸은 최소 폭을 가져 자릿수가 늘어도 흔들리지 않음 |
+| `components/ThemePopup.jsx` `ThemeGrid.jsx` | 툴바 ▾ 의 테마 드롭다운: 일반 메뉴 항목(색 견본 + 이름 한 줄). 맨 위 「사용자 정의 테마」 · 「설정」과 사용자 정의 테마들, 그 아래 어두운 테마 20개(10개씩 두 열, 위에서 아래로), 그 아래 밝은 테마 20개 — 전체 두 열. 데스크톱은 **별도 창**(`theme_menu_open` → `ThemeMenuWindow`)이라 메인 창 밖으로 나갈 수 있고, 웹은 페이지 안 메뉴 |
+| `dialogs/DialogWindow.jsx` | 데스크톱에서 설정 · 정보는 **별도 창**(`dialog_open`): 메인 창에 소유되지만 모달이 아니고 제목 표시줄로 끌어 어디로든 옮김. 창 페이지는 같은 `index.html` + `window.__MFS_DIALOG__`, 결과는 `dialog:result`, 설정의 테마 미리 보기는 `dialog:preview` 로 메인 창에도 적용(취소하면 되돌림) |
+| `themes.js` `styles.css` | 40개 테마(어두운 20 · 밝은 20) + 사용자 정의 테마(`setCustomThemes`, 세션 `customThemes`, 기본 색 15개) → CSS 변수. `.main` 은 **2×2 그리드**(1행 공유·인증 표 `minmax(136px,1fr)`, 2행 보안·네트워크 `auto`) — 두 행을 공유하므로 보안/네트워크 상단이 항상 일치. `.control-bar`/`.cb-group` 은 `nowrap`, `.stat` 의 숫자 칸은 최소 폭을 가져 자릿수가 늘어도 흔들리지 않음 |
 
 ## 2. 시작 흐름
 
@@ -120,19 +134,21 @@ LIST/RETR/STOR …
 
 | 명령 | 내용 |
 |------|------|
-| `npm test` (71) | `node --test --test-reporter=./test/reporter.mjs test/*.test.mjs` — 시험은 `describe` 스위트로 분류되고, `test/reporter.mjs` 가 파일 › 스위트별 결과와 **요약 표(스위트/파일/전체의 pass·fail·skip·시간)**, 실패 상세를 맨 끝에 모아 출력합니다(`--test-timeout=30000`, 리스너는 `after()` 훅으로 정리). 코어 계층만으로 임시 폴더와 포트 0(임의 포트)을 써서 실제 클라이언트(basic-ftp · ssh2 · 직접 소켓)와 왕복합니다. API 를 거치는 시험은 `normalize` 가 포트 0 을 기본 포트로 바꾸므로 빈 포트를 골라 씁니다 |
-| `test/core.test.mjs` (37) | 스위트: VFS · 인증 · 설정/프로파일 · 인증서 · 호스트 키 · 로그/메시지 · 세션 · 로컬 FS · 매니저 · API · UI 서식(`src/lib/format.js`). `normalizePath`, VFS 매핑·탈출 차단·단일 공유의 bare 경로·파일 목록·건너뛴 공유, `authenticate`(익명 읽기 전용·대소문자·권한 없음 거부), `normalize`(기본값·PascalCase·`b64:`·범위 클램프·빈 항목 제거), `Settings` 저장/불러오기/프로파일, `Session`, `messages` 한/영, `Log`(링 버퍼 3000·seq 폴링·파일에는 trace 제외), `local`(루트·폴더 우선·확장자 필터·mkdir·stat), `manager.validate`(no_shares·cert_not_found·port_clash 코드/메시지), x509(TLS 로 실제 동작, SAN·유효 기간, 별도 키 파일, 키 없음 EKEY, PEM 아님), 호스트 키 생성·지문 형식·손상 키, `createApi`(info·settings·validate·poll·오류 직렬화·언어·log.*·profiles 왕복·hostkey/cert·UNSUPPORTED). 추가: posix 경로 헬퍼·자연 정렬·빈 VFS, 비밀번호 인코딩 왕복·손상 설정 파일·프로파일 이름 검증/정렬, 인증서 inspect 필드·키 쌍 일치, 호스트 키 idempotent/재생성/md5, **한/영 메시지 키·플레이스홀더 동일성**, 로그 verbose 파일 기록, 세션 기본값/손상 파일/창 위치, 매니저 시작·중지·update 이벤트·로그 키, API 메서드 표·quiet 저장·데스크톱 호스트 콜백, `formatSize/formatUptime/baseName/dirName/joinPath` |
+| `npm test` (84) | `node --test --test-reporter=./test/reporter.mjs test/*.test.mjs` — 시험은 `describe` 스위트로 분류되고, `test/reporter.mjs` 가 파일 › 스위트별 결과와 **요약 표(스위트/파일/전체의 pass·fail·skip·시간)**, 실패 상세를 맨 끝에 모아 출력합니다(`--test-timeout=30000`, 리스너는 `after()` 훅으로 정리). 코어 계층만으로 임시 폴더와 포트 0(임의 포트)을 써서 실제 클라이언트(basic-ftp · ssh2 · 직접 소켓)와 왕복합니다. API 를 거치는 시험은 `normalize` 가 포트 0 을 기본 포트로 바꾸므로 빈 포트를 골라 씁니다 |
+| `test/core.test.mjs` (38) | 스위트: VFS · 인증 · 설정/프로파일 · 인증서 · 호스트 키 · 로그/메시지 · 세션 · 로컬 FS · 매니저 · API · UI 서식(`src/lib/format.js`). `normalizePath`, VFS 매핑·탈출 차단·단일 공유의 bare 경로·파일 목록·건너뛴 공유, `authenticate`(익명 읽기 전용·대소문자·권한 없음 거부), `normalize`(기본값·PascalCase·`b64:`·범위 클램프·빈 항목 제거), `Settings` 저장/불러오기/프로파일, `Session`, `messages` 한/영, `Log`(링 버퍼 3000·seq 폴링·파일에는 trace 제외), `local`(루트·폴더 우선·확장자 필터·mkdir·stat), `manager.validate`(no_shares·cert_not_found·port_clash 코드/메시지), x509(DER INTEGER 최소 인코딩 — 0x00 으로 시작하는 무작위 일련번호, TLS 로 실제 동작, SAN·유효 기간, 별도 키 파일, 키 없음 EKEY, PEM 아님), 호스트 키 생성·지문 형식·손상 키, `createApi`(info·settings·validate·poll·오류 직렬화·언어·log.*·profiles 왕복·hostkey/cert·UNSUPPORTED). 추가: posix 경로 헬퍼·자연 정렬·빈 VFS, 비밀번호 인코딩 왕복·손상 설정 파일·프로파일 이름 검증/정렬, 인증서 inspect 필드·키 쌍 일치, 호스트 키 idempotent/재생성/md5, **한/영 메시지 키·플레이스홀더 동일성**, 로그 verbose 파일 기록, 세션 기본값/손상 파일/창 위치, 매니저 시작·중지·update 이벤트·로그 키, API 메서드 표·quiet 저장·데스크톱 호스트 콜백, `formatSize/formatUptime/baseName/dirName/joinPath` |
 | `test/ftp.test.mjs` (18) | 스위트: 파일 작업 · 인증/권한 · 경로 안전 · 프로토콜 명령 · FTPS · 수명주기/제한/로그 · 목록 서식. basic-ftp 로 목록/업·다운로드/이름 변경/삭제/mkdir, `REST` 이어받기, 익명 읽기 전용·잘못된 암호·미등록 사용자 거부, 다중 공유에서 `..` 클램프·루트 쓰기 거부·공유 루트 삭제 거부, 접속 제한(421)과 접속 수 카운터, **Explicit AUTH TLS + PROT P** 와 **Implicit TLS**(자체 서명 인증서 생성 후), 사용 중인 포트의 오류 메시지. 직접 제어 연결(`rawSession`)로 **명령별 응답 코드 40여 개**(로그인 전 530, SYST/FEAT/OPTS/TYPE/MODE/STRU/STAT/MLST/SIZE/MDTM, 503/504/501/502/500/553/425), **능동 모드 PORT/EPRT**, NLST, **REST+STOR 이어 올리기**, APPE, PASV 포트 범위·LAN 피어에는 로컬 주소, UTF-8 파일·폴더 이름, 쓰기 전용 사용자, 로그 이벤트 키, `stop()` 이 세션을 끊는지, 바인드 주소. 추가: MLSD·단일 파일 LIST·`-la` 옵션·따옴표 경로·ABOR·X 별칭·상대 CWD·MLST(인수 없음), 폴더 RNFR/RNTO·비어 있지 않은 RMD·폴더 DELE·루트로 RNTO·재귀 MKD 거부, REST+RETR 꼬리·REST 소비·범위 밖/음수 REST·EPSV 교체·닫힌 포트로 PORT → 425, 읽기 전용/쓰기 전용 사용자의 명령별 550·재로그인, 무제한 접속·총 접속 수·trace 에 암호 미노출·중지 후 접속 거부, `formatBytes/mlsdTime/listLine/mlsxLine` |
 | `test/sftp.test.mjs` (16) | 스위트: 파일 작업 · 인증/권한 · 경로 안전/프로토콜 · 수명주기/제한/로그 · 매니저(전 프로토콜). ssh2 클라이언트로 realpath/readdir/전송/mkdir/rename/unlink/rmdir, 익명(암호 없음) 읽기 전용·잘못된 암호 거부, shell/exec 거부, 읽기 전용·쓰기 전용 사용자, 익명 업로드 거부·익명 비허용, 가상 루트·`..` 탈출·공유 루트 보호·폴더를 파일로 열기·READLINK/SYMLINK 미지원, 120개 항목 READDIR 페이징, setstat mtime, UTF-8 이름, 접속 제한·카운터·`stop()`, **매니저**: API 를 통해 FTP+FTPS+SFTP 동시 실행·상태·통계·중지, 포트가 막힌 리스너 하나 때문에 전체가 롤백되는지, 설정 오류 코드(no_shares·no_protocol·port_clash), 손상된 인증서는 FTPS 시작 거부·FTP 는 경고만. 추가: 핸들 단위 open/write(오프셋)/fstat/fsetstat/read(꼬리·EOF)/close 와 transfer 이벤트 1회, appendFile/writeFile(truncate)/readFile/exists, 스트림 왕복·lstat=stat, 잘못된 핸들·폴더/루트 open·기존 폴더 mkdir·비어 있지 않은 rmdir·폴더 unlink·opendir 오류·READDIR EOF, 같은 연결의 두 번째 SFTP 세션·shell 거부 후 계속 사용, 무제한 접속·transfer 이벤트의 user/peer·중지 후 접속 거부, 매니저 재시작(새 포트·SFTP 추가)·프로토콜별 카운터·바이트 합계·`shutdown()` |
-| `npm run smoke` | 실제 Electron 창(별도 프로필 `.smoke/profile` — 자체 서명 인증서 포함, 공유 `.smoke/share`·`docs`)을 `window.__mfs` 로 조작해 FTP+FTPS+SFTP 를 시작 → 실제 클라이언트로 **FTP**(트리 업로드·2MB 다운로드), **FTPS**(AUTH TLS 업로드, implicit 다운로드, 읽기 전용 삭제 거부), **SFTP**(readdir·put/get·unlink) → 통계 증가 확인, 스크린샷 `.smoke/*.png`. 이어서 웹 서버를 띄워 HTTP API 로 같은 왕복을 하고 preload 없는 창으로 브라우저 모드도 검사 |
-| `npm run smoke -- --scenario <name> [--web]` | `main running transfer share_dialog user_dialog cert_dialog cert_generated error port_error about settings settings_behavior addresses minsize themes light_en theme_nord picker all` — `minsize` 는 시작 전후·언어 전환 전후의 `--app-min-width`(스트립별 측정값 + 다른 언어 여유분 `window.__mfsNeeds`)와 창 크기를 돌려주어 시작·언어 전환으로 창이 커지지 않는지 확인; `tree` / `tree_open` 은 트리 펼침·접기·파일 표시 |
+| `test/desktop.test.mjs` (12) | 스위트: Node 호스트 · 시작 페이지 · 패키징. 호스트가 토큰 없이 거부·CORS·`autoStart`, **프로세스로서** stdout 준비 줄 하나·stdin 닫힘에 종료, 웹 처리기는 토큰·CORS 없음; 시작 페이지 기본 배치(격자 안·겹침 없음)·이동/크기/교환·저장 왕복·새 카드 추가, 배경 종류 아이콘, 한/영 문자열; package.json·Cargo.toml·제목의 버전 일치, Electron 흔적 없음, 페이지가 부르는 셸 명령이 capabilities 에 허용되고 sidecar 가 번들되는지 |
+| `npm run test:rust` | `cargo test` — Node 호스트 준비 줄 파싱 등 |
+| `npm run smoke` | `npm run build:debug` 로 만든 `src-tauri/target/test/debug/MyFTPServer.exe`(`--release` 면 릴리스)를 별도 프로필(`MFS_USER_DATA=.smoke/profile` — 자체 서명 인증서 포함, 공유 `.smoke/share`·`docs`)로 띄우고, `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port` 로 연 **CDP** 로 `window.__mfs` 를 조작해 FTP+FTPS+SFTP 를 시작 → 실제 클라이언트로 **FTP**(트리 업로드·2MB 다운로드), **FTPS**(AUTH TLS 업로드, implicit 다운로드, 읽기 전용 삭제 거부), **SFTP**(readdir·put/get·unlink) → 통계 증가 확인, 스크린샷 `.smoke/*.png`. 매 실행 뒤 **종료하면 서버 포트가 닫히는지**(Node 호스트도 끝났는지) 확인. 시작 페이지, 트레이(서버 실행 중 닫기 → 숨김·계속 서비스), 그냥 닫기도 검사. 이어서 웹 서버를 띄워 헤드리스 Edge/Chrome 으로 같은 왕복. `--desktop-only` / `--web-only` |
+| `npm run smoke -- --scenario <name> [--web]` | `main running transfer share_dialog user_dialog cert_dialog cert_generated hostkey error port_error minsize addresses addresses_delete tree tree_open about settings settings_behavior themes light_en theme_nord picker start_page start_page_run start_page_switch start_page_arrange start_page_en_light all`, 그리고 배경 10종을 하나씩 찍는 `backgrounds` — `minsize` 는 시작 전후·언어 전환 전후의 `--app-min-width`(스트립별 측정값 + 다른 언어 여유분 `window.__mfsNeeds`)와 창 크기를 돌려주어 시작·언어 전환으로 창이 커지지 않는지 확인; `tree` / `tree_open` 은 트리 펼침·접기·파일 표시 |
 
 ## 6. 빌드·패키징
-- `scripts/generate-icons.mjs`: `assets/icon.svg` → `build/icons/icon.{ico,icns,png}` + Linux PNG 세트 (sharp + 자체 ICO/ICNS 인코더 `scripts/ico.mjs`).
-- `scripts/generate-build-info.mjs` → `src/build-info.json`(빌드 시각·커밋) 을 정보 대화상자에 표시; `sync-public-svgs.mjs` 가 아이콘을 `public/` 에 복사.
-- electron-builder: NSIS(`build/installer.nsh` — 기존 설치 감지·삭제 확인, 바로가기 선택, 이전 데이터 삭제 여부), DMG(x64+arm64), AppImage + deb(`build/linux/after-*.sh`). `postbuild:*` 가 설치 파일을 프로젝트 루트로 복사.
-- `ssh2` 의 선택 의존성 `cpu-features` 는 네이티브 모듈이지만 없어도 순수 JS 로 동작합니다(`allowScripts` 에 electron/sharp/esbuild 만 허용).
-- `scripts/start-electron.mjs` 는 `ELECTRON_RUN_AS_NODE` 를 지운 환경으로 Electron 을 띄웁니다(이 변수가 있으면 Electron 이 Node 처럼 동작). `free-port.mjs` 가 Vite 포트 5189 를 비웁니다.
+- `scripts/generate-icons.mjs`: `assets/icon.svg` → `src-tauri/icons/`(32·128·128@2x·512 PNG, `icon.ico`, `icon.icns`) + `public/icon.svg` (sharp + 자체 ICO/ICNS 인코더 `scripts/icons.mjs`). `--if-needed` 면 원본이 바뀌었을 때만.
+- `scripts/generate-build-info.mjs` → `src/build-info.json`(빌드 시각·커밋) 을 정보 대화상자에 표시.
+- `scripts/prepare-tauri.mjs`(`tauri.conf.json` 의 `beforeBuildCommand`): 아이콘·빌드 정보 → esbuild 로 `host/host.js` 를 `src-tauri/sidecar/host.js` 한 파일로 묶음(`ssh2` 의 선택 네이티브 모듈 `cpu-features`·`*.node` 는 제외 — 없어도 순수 JS 로 동작) → `--release` 면 지금 실행 중인 Node 실행 파일도 복사. `sidecar/` 는 번들 리소스로 설치본에 들어갑니다.
+- `scripts/build.mjs`: `build:win` = NSIS(`src-tauri/windows/hooks.nsh` — 언어 선택, 기존 설치(Electron 판 포함) 완전 삭제·실행 중이면 종료, 이전 데이터 삭제 질문, 제거 시 「데이터 삭제」면 `%APPDATA%\My FTP Server` 까지; Tauri 훅은 페이지를 추가할 수 없어 질문은 첫 페이지 전에), `build:mac` = .app + DMG, `build:linux` = AppImage + deb. 설치 파일을 프로젝트 루트로 복사하고 이전 버전 것은 지움. `build:debug` 는 설치 파일 없이 `src-tauri/target/test/debug/` 에 페이지를 품은 디버그 실행 파일을 만듭니다(`npm start` 가 쓰는 `target/debug` 와 분리 — 실행 중이면 잠기므로).
+- `scripts/start.mjs`(`npm start`): 5189 부터 127.0.0.1·::1 양쪽에서 비어 있는 포트를 골라(`dev-port.mjs`, 다른 프로그램의 포트는 건드리지 않음) Vite 를 먼저 띄우고, 응답하면 그 주소로 `tauri dev`. 디버그 빌드는 PATH 의 Node 로 프로젝트의 `host/host.js` 를 실행합니다. `ELECTRON_RUN_AS_NODE` 는 모든 스크립트·셸에서 지웁니다(편집기 터미널에서 새어 들어오면 나중에 띄우는 Electron 앱이 Node 처럼 동작).
 
 ## 7. 원본(WinForms) 대비 달라진 점
 | 원본 | 이 구현 |
@@ -144,4 +160,4 @@ LIST/RETR/STOR …
 | 통계는 FTP 만 | SFTP 전송도 집계, 프로토콜별 접속 수 |
 | 최대 스레드(미사용) | **최대 접속 수** 실제 적용 (421) |
 | 설정 파일이 exe 옆 | OS 별 설정 폴더, 원본 PascalCase JSON 도 읽음 |
-| Windows 전용, 고정 창 | Windows · macOS · Linux · 웹, 프레임리스 창, 16 테마, 한/영, 트레이, 자동 시작 |
+| Windows 전용, 고정 창 | Windows · macOS · Linux · 웹, 프레임리스 창, 40 테마 + 사용자 정의 테마, 한/영, 트레이, 자동 시작, 시작 페이지, 그림 사용 설명서 |

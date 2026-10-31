@@ -11,7 +11,7 @@
     "beforeBuildCommand": "node scripts/prepare-tauri.mjs --release && node node_modules/vite/bin/vite.js build"
   },
   "app": {
-    "withGlobalTauri": false,
+    "withGlobalTauri": true,
     "windows": [],
     "security": {
       "csp": null

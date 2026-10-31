@@ -1,6 +1,6 @@
 // The file system of the machine the server runs on — for the folder /
 // file picker of the web version (the desktop app uses the OS dialogs), and
-// for the "실제 경로" checks. Plain Node, no Electron.
+// for the "실제 경로" checks. Plain Node, no desktop shell.
 'use strict';
 
 const fs = require('fs');

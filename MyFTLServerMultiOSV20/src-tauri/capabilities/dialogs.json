@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "dialogs",
+  "description": "Settings and About as windows of their own: moved by their title bar, sized to their content, results and theme previews sent to the main window",
+  "windows": ["dlg-*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "allow-dialog-ready",
+    "allow-dialog-size",
+    "allow-dialog-preview",
+    "allow-dialog-submit"
+  ]
+}

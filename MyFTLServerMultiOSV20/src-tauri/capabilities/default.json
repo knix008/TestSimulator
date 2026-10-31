@@ -33,6 +33,11 @@
     "allow-renderer-ready",
     "allow-set-min-size",
     "allow-set-tray",
-    "allow-quit-app"
+    "allow-quit-app",
+    "allow-manual-open",
+    "allow-broadcast-appearance",
+    "allow-theme-menu-open",
+    "allow-theme-menu-close",
+    "allow-dialog-open"
   ]
 }

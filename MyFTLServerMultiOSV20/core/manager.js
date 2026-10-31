@@ -4,8 +4,8 @@
 //   state   { running, startedAt, protocols: [{ proto, port, clients, total }], bind }
 //   stats   { clients, totalClients, uploads, uploadBytes, downloads, downloadBytes }
 //
-// Every change is announced with 'update' → { state, stats } so the Electron
-// host can push it, and the web host can hand it out on request.
+// Every change is announced with 'update' → { state, stats }; the hosts
+// hand the latest one out on request (`server.poll`).
 'use strict';
 
 const fs = require('fs');
