@@ -1,96 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Icon of MyEBookReader's own document type (.ebkvw workspace).
-     A thick 3D sheet — stacked offset copies give it depth — with a folded
-     corner, a blue band and the word eBook across it, so the file is told
-     apart from the application at a glance. Light from the top left. -->
+<!-- Icon of MyEBookReader's own document type (.ebkvw workspace), 2026.
+     A thick, softly lit document sheet — its side shows under it and a shadow
+     falls beneath — with the top-right corner folded down, a few lines of
+     text, and the application's glossy indigo-violet tile as an emblem at the
+     bottom, so the file reads as "a MyEBookReader document" and is still told
+     apart from the application itself. Light from the top left. -->
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="page" x1="0.04" y1="0" x2="0.5" y2="1">
+    <linearGradient id="sheet" x1="0.1" y1="0" x2="0.6" y2="1">
       <stop offset="0"    stop-color="#ffffff"/>
-      <stop offset="0.48" stop-color="#eef2f6"/>
-      <stop offset="1"    stop-color="#b9c4d0"/>
+      <stop offset="0.6"  stop-color="#f4f2ff"/>
+      <stop offset="1"    stop-color="#dcd6fb"/>
     </linearGradient>
-    <linearGradient id="pageFront" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#9fadbb"/>
-      <stop offset="1" stop-color="#4a5665"/>
+    <linearGradient id="sheetSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#b3a9e8"/>
+      <stop offset="1"    stop-color="#7a6cc9"/>
     </linearGradient>
-    <linearGradient id="pageRight" x1="0" y1="0" x2="1" y2="0.15">
-      <stop offset="0" stop-color="#8b98a6"/>
-      <stop offset="1" stop-color="#2d3742"/>
+    <linearGradient id="fold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#e4defe"/>
+      <stop offset="1"    stop-color="#b7abf2"/>
     </linearGradient>
-    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#eaf0f5"/>
-      <stop offset="1" stop-color="#93a1af"/>
+    <linearGradient id="face" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0"    stop-color="#5b6cff"/>
+      <stop offset="0.45" stop-color="#6a3df0"/>
+      <stop offset="1"    stop-color="#3a1596"/>
     </linearGradient>
-    <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0"    stop-color="#8ce8f7"/>
-      <stop offset="0.4"  stop-color="#2a9ad6"/>
-      <stop offset="1"    stop-color="#123a78"/>
-    </linearGradient>
-    <linearGradient id="bandDepth" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#17568f"/>
-      <stop offset="1" stop-color="#081c3a"/>
-    </linearGradient>
-    <linearGradient id="bandGloss" x1="0" y1="0" x2="0.2" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.62"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.08"/>
-      <stop offset="1"    stop-color="#000000" stop-opacity="0.24"/>
-    </linearGradient>
-    <radialGradient id="fspec" cx="0.22" cy="0.14" r="0.74">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.92"/>
-      <stop offset="0.3"  stop-color="#ffffff" stop-opacity="0.2"/>
-      <stop offset="0.7"  stop-color="#ffffff" stop-opacity="0"/>
+    <radialGradient id="auroraCyan" cx="0.12" cy="0.1" r="0.7">
+      <stop offset="0"    stop-color="#52e3ff" stop-opacity="0.9"/>
+      <stop offset="1"    stop-color="#52e3ff" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="fground" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0"   stop-color="#0d1622" stop-opacity="0.4"/>
-      <stop offset="0.6" stop-color="#0d1622" stop-opacity="0.12"/>
-      <stop offset="1"   stop-color="#0d1622" stop-opacity="0"/>
+    <radialGradient id="auroraCoral" cx="0.92" cy="0.95" r="0.7">
+      <stop offset="0"    stop-color="#ff7a6b" stop-opacity="0.95"/>
+      <stop offset="1"    stop-color="#ff5fa2" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="fgloss" x1="0" y1="0" x2="0.25" y2="1">
-      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.6"/>
-      <stop offset="0.4"  stop-color="#ffffff" stop-opacity="0.08"/>
-      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1"    stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+    <clipPath id="emblem">
+      <rect x="378" y="590" width="268" height="268" rx="70"/>
+    </clipPath>
   </defs>
 
-  <ellipse cx="512" cy="878" rx="330" ry="66" fill="url(#fground)"/>
+  <!-- Shadow, the sheet's side, the sheet -->
+  <path d="M236 150 H600 L800 350 V880 H236 Z" fill="#1d0a5a" opacity="0.35" filter="url(#shadow)" transform="translate(14 30)"/>
+  <path d="M236 150 H600 L800 350 V880 a40 40 0 0 1 -40 40 H276 a40 40 0 0 1 -40 -40 Z" fill="url(#sheetSide)" transform="translate(0 22)"/>
+  <path d="M276 128 H600 L800 328 V880 a40 40 0 0 1 -40 40 H276 a40 40 0 0 1 -40 -40 V168 a40 40 0 0 1 40 -40 Z" fill="url(#sheet)"/>
 
-  <!-- Sheets under the top one: depth without any outline -->
-  <g>
-    <path d="M232 188 h372 l188 188 v480 H232 Z" fill="#8492a1" opacity="0.35" transform="translate(26 26)"/>
-    <path d="M232 188 h372 l188 188 v480 H232 Z" fill="#9aa7b5" opacity="0.5" transform="translate(13 13)"/>
+  <!-- Folded corner and the shade it casts -->
+  <path d="M600 128 L800 328 H640 a40 40 0 0 1 -40 -40 Z" fill="#6a5bc4" opacity="0.25" transform="translate(-10 14)"/>
+  <path d="M600 128 L800 328 H640 a40 40 0 0 1 -40 -40 Z" fill="url(#fold)"/>
+
+  <!-- Lines of text -->
+  <rect x="300" y="250" width="200" height="34" rx="17" fill="#6a3df0"/>
+  <g fill="#8f86c9" opacity="0.7">
+    <rect x="300" y="350" width="436" height="22" rx="11"/>
+    <rect x="300" y="404" width="436" height="22" rx="11"/>
+    <rect x="300" y="458" width="360" height="22" rx="11"/>
+    <rect x="300" y="512" width="300" height="22" rx="11"/>
   </g>
 
-  <!-- Front / right thickness of the top sheet -->
-  <path d="M232 820 h560 v46 H232 Z" fill="url(#pageFront)"/>
-  <path d="M792 376 v490 l34 -30 V406 Z" fill="url(#pageRight)"/>
-
-  <!-- The sheet itself, with its folded corner -->
-  <path d="M232 156 h372 l188 188 v476 H232 Z" fill="url(#page)"/>
-  <path d="M604 156 l188 188 H604 Z" fill="url(#fold)"/>
-  <path d="M232 156 h372 l188 188 v476 H232 Z" fill="url(#fgloss)"/>
-
-  <!-- Text lines above the band -->
-  <g stroke="#93a1af" stroke-opacity="0.6" stroke-width="20" stroke-linecap="round" fill="none">
-    <path d="M300 440 h250"/>
-    <path d="M300 500 h424"/>
+  <!-- The application's tile, small, with its page -->
+  <rect x="378" y="604" width="268" height="268" rx="70" fill="#25106b"/>
+  <rect x="378" y="590" width="268" height="268" rx="70" fill="url(#face)"/>
+  <g clip-path="url(#emblem)">
+    <rect x="378" y="590" width="268" height="268" fill="url(#auroraCyan)"/>
+    <rect x="378" y="590" width="268" height="268" fill="url(#auroraCoral)"/>
+    <path d="M378 590 H646 V700 C580 680 450 720 378 690 Z" fill="url(#sheen)"/>
   </g>
-
-  <!-- The band, carrying the word -->
-  <path d="M276 610 h472 v56 l-26 26 H276 Z" fill="url(#bandDepth)"/>
-  <rect x="276" y="580" width="472" height="86" rx="10" fill="url(#band)"/>
-  <rect x="276" y="580" width="472" height="86" rx="10" fill="url(#bandGloss)"/>
-  <text x="512" y="648" text-anchor="middle"
-        font-family="Segoe UI, Arial, Helvetica, DejaVu Sans, sans-serif"
-        font-size="66" font-weight="700" letter-spacing="2" fill="#ffffff">eBook</text>
-
-  <!-- Two closed books below, so the file reads as a reading file -->
-  <g>
-    <path d="M300 736 h424 v34 l-22 22 H300 Z" fill="url(#bandDepth)" opacity="0.7"/>
-    <rect x="300" y="716" width="424" height="46" rx="8" fill="url(#band)" opacity="0.85"/>
-    <rect x="300" y="716" width="60" height="46" rx="8" fill="#ffffff" fill-opacity="0.28"/>
+  <path d="M470 646 H556 a10 10 0 0 1 10 10 V746 L534 798 H470 a10 10 0 0 1 -10 -10 V656 a10 10 0 0 1 10 -10 Z" fill="#ffffff"/>
+  <path d="M566 746 C548 752 540 760 534 798 C550 782 562 770 566 746 Z" fill="#d8d0ff"/>
+  <rect x="476" y="666" width="56" height="10" rx="5" fill="#6a3df0"/>
+  <g fill="#9a90d6">
+    <rect x="476" y="690" width="74" height="7" rx="3.5"/>
+    <rect x="476" y="708" width="74" height="7" rx="3.5"/>
+    <rect x="476" y="726" width="54" height="7" rx="3.5"/>
   </g>
-
-  <!-- Light from the top left -->
-  <path d="M232 156 h372 l188 188 v476 H232 Z" fill="url(#fspec)" opacity="0.7"/>
 </svg>

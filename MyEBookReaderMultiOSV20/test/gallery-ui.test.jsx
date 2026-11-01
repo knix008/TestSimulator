@@ -62,8 +62,14 @@ describe('Gallery', () => {
   it('resizes the tiles with the slider', () => {
     const { container, onTileSize } = renderGallery({ tileSize: 168 });
     expect(container.querySelector('.gal-tiles').style.getPropertyValue('--tile')).toBe('168px');
-    fireEvent.change(screen.getByLabelText('크기'), { target: { value: '280' } });
+    fireEvent.change(screen.getByRole('slider', { name: '크기' }), { target: { value: '280' } });
     expect(onTileSize).toHaveBeenCalledWith(280);
+    // − and + on either side of the slider, the value centred with its unit.
+    expect(screen.getByText('168px')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '크기 — 늘리기' }));
+    expect(onTileSize).toHaveBeenLastCalledWith(176);
+    fireEvent.click(screen.getByRole('button', { name: '크기 — 줄이기' }));
+    expect(onTileSize).toHaveBeenLastCalledWith(160);
   });
 
   it('switches to the details table with sortable columns', () => {
@@ -368,7 +374,9 @@ describe('Print dialog on the desktop', () => {
     await waitFor(() => expect(screen.getByLabelText('프린터').value).toBe('Home'));
     expect(screen.getByRole('option', { name: 'Home (기본)' })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('프린터'), { target: { value: 'Office' } });
-    fireEvent.change(screen.getByLabelText('매수'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: '매수 — 늘리기' }));
+    fireEvent.click(screen.getByRole('button', { name: '매수 — 늘리기' }));
+    expect(screen.getByText('3매')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('용지 방향'), { target: { value: 'landscape' } });
     fireEvent.click(screen.getByRole('button', { name: '인쇄' }));
     expect(onPrint).toHaveBeenCalledWith({ pages: [1, 2, 3, 4], scope: 'all', printer: 'Office', copies: 3, orientation: 'landscape' });

@@ -2143,6 +2143,7 @@ export default function App() {
       <Toolbar
         settings={settings}
         doc={doc}
+        onPrint={() => setShowPrint(true)}
         pageNumber={pageNumber}
         numPages={doc?.numPages || 0}
         scale={scale}

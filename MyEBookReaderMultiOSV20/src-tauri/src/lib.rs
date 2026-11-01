@@ -8,6 +8,7 @@
 //   • native dialogs, chunked file I/O with progress, URL downloads
 //   • clipboard, fonts, settings.json, the detached theme popup
 mod files;
+mod popout;
 mod print;
 
 use serde::Deserialize;
@@ -905,6 +906,7 @@ fn is_app_url(url: &tauri::Url) -> bool {
 
 fn build_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
   let handle = app.clone();
+  let popouts = app.clone();
   let w = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
     .title("MyEBookReader")
     .inner_size(1480.0, 960.0)
@@ -923,6 +925,17 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         let _ = handle.opener().open_url(url.as_str(), None::<&str>);
       }
       false
+    })
+    // Settings, About and the context menu open as windows of their own.
+    .on_new_window(move |url, features| {
+      if url.scheme() == "about" {
+        if let Some(main) = popouts.get_webview_window(MAIN) {
+          return popout::new_window(&popouts, &main, &url, features);
+        }
+      } else if files::is_external_url(url.as_str()) {
+        let _ = popouts.opener().open_url(url.as_str(), None::<&str>);
+      }
+      tauri::webview::NewWindowResponse::Deny
     })
     .build()?;
   *state(app).min_size.lock().unwrap() = (MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
@@ -978,6 +991,9 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
       };
       let _ = app.emit_to(MAIN, "file-drop", payload);
     }
+    (label, WindowEvent::Destroyed) if popout::is_popout(label) => {
+      popout::closed(app, label);
+    }
     (THEME_POPUP, WindowEvent::Focused(false)) => {
       let shown = state(app).popup.lock().unwrap().map(|a| a.shown).unwrap_or(false);
       if shown {
@@ -990,11 +1006,16 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  let app = tauri::Builder::default()
-    .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+  let mut builder = tauri::Builder::default();
+  // A test run with its own settings folder is its own instance: handing its
+  // files to the user's running copy would open test books there instead.
+  if std::env::var_os("MYEBOOKREADER_CONFIG_DIR").filter(|d| !d.is_empty()).is_none() {
+    builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
       focus_main(app);
       deliver_open(app, files::openable_from_args(argv, Path::new(&cwd)));
-    }))
+    }));
+  }
+  let app = builder
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_opener::init())
     .manage(AppState::default())
@@ -1047,6 +1068,9 @@ pub fn run() {
       win_open_theme_popup,
       win_set_popup_size,
       win_close_theme_popup,
+      popout::popout_show,
+      popout::popout_hide,
+      popout::popout_close,
       win_pick_theme,
       win_open_guide,
       win_set_theme_kind,

@@ -1,5 +1,6 @@
-// The icons are MyEBookReader's own (an open book, and an eBook sheet for the
-// .ebkvw workspace) — not the PDF sheet this app started from.
+// The icons are MyEBookReader's own (a turning page on a glossy 3D tile, and a
+// sheet with that tile as its emblem for the .ebkvw workspace) — not the PDF
+// sheet this app started from.
 import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -40,11 +41,27 @@ function describeIcon(name, svg) {
       expect(svg).toMatch(/[Ss]hadow|feGaussianBlur|[Gg]round/);
     });
 
-    it('says what it is: the word is drawn on it', () => {
-      expect(svg.toLowerCase()).toMatch(/<text[^>]*>[\s\S]*ebook/i);
+    it('sits on a glossy, raised surface (sheen and a side under the face)', () => {
+      expect(svg).toMatch(/id="(sheen|sheet)"/);
+      expect(svg).toMatch(/id="(side|sheetSide)"/);
     });
   });
 }
+
+describe('what the icons show', () => {
+  it('the application: a page turning over at its corner, with a bookmark', () => {
+    expect(appSvg).toContain('id="curl"');
+    expect(appSvg).toContain('id="paper"');
+    expect(appSvg).toContain('ribbon');
+    // No lettering: the current style reads by its picture alone.
+    expect(appSvg).not.toMatch(/<text/);
+  });
+
+  it('the document: a sheet carrying the application tile as its emblem', () => {
+    expect(fileSvg).toContain('id="emblem"');
+    expect(fileSvg).toContain('id="face"');
+  });
+});
 
 describeIcon('application', appSvg);
 describeIcon('document', fileSvg);
@@ -55,7 +72,7 @@ describe('the two icons are different', () => {
   });
 
   it('give the document type its own look', () => {
-    // The app icon is a book on a plate; the document icon is a sheet.
+    // The app icon is a page on a tile; the document icon is a sheet.
     expect(appSvg).toContain('ribbon');
     expect(fileSvg).toContain('fold');
   });

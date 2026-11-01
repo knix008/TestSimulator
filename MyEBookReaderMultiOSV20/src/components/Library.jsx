@@ -10,6 +10,7 @@ import {
 import { GalleryThumb, fmtDate } from './Gallery.jsx';
 import { formatBytes } from '../lib/platform.js';
 import { bookTitleOf } from '../lib/folders.js';
+import { RangeStepper } from './Stepper.jsx';
 
 const VIEW_ICONS = { shelf: IconLibrary, list: IconOutline, details: IconDetails, covers: IconTiles };
 
@@ -223,18 +224,19 @@ export default function Library({
             ))}
           </select>
         ) : null}
-        <label className="gal-size" title={t('library.bookSize')}>
+        <div className="gal-size" title={t('library.bookSize')}>
           <span>{t('library.bookSize')}</span>
-          <input
-            type="range"
+          <RangeStepper
+            className="compact"
             min={BOOK_MIN}
             max={BOOK_MAX}
             step={10}
             value={bookSize}
-            aria-label={t('library.bookSize')}
-            onChange={(e) => onBookSize?.(Number(e.target.value))}
+            format={(v) => `${v}px`}
+            onChange={(v) => onBookSize?.(v)}
+            label={t('library.bookSize')}
           />
-        </label>
+        </div>
 
         <div className="seg-row gal-views" role="group" aria-label={t('gallery.view')}>
           {LIBRARY_VIEWS.map((v) => {

@@ -4,6 +4,7 @@ import Modal from './Modal.jsx';
 import { IconInfo, IconCopy, IconCheck } from './Icons.jsx';
 import { appInfo, copyText, isDesktop, openExternal } from '../lib/platform.js';
 import buildInfo from '../build-info.json';
+import { SUPPORTED_FORMATS } from '../lib/ebook/book.js';
 
 const AUTHOR = 'SHKWON(knix008@naver.com)';
 
@@ -36,13 +37,27 @@ export default function AboutDialog({ open, onClose }) {
     [t('about.branch'), buildInfo.gitBranch || '—'],
     [t('about.platform'), platform],
     [t('about.runtime'), runtime],
-    [t('about.docType'), '.pdfvw — MyEBookReader Workspace'],
+    [t('about.docType'), '.ebkvw — MyEBookReader Workspace'],
     [t('about.license'), buildInfo.license || 'MIT'],
     [t('about.author'), AUTHOR],
   ];
 
+  const formats = SUPPORTED_FORMATS.map((f) => ({
+    id: f.id,
+    name: t(`about.fmt.${f.id}`),
+    ext: f.ext.map((e) => `.${e}`).join(' '),
+    kind: t(f.reflowable ? 'about.formatReflow' : 'about.formatFixed'),
+    reflowable: f.reflowable,
+  }));
+
   const doCopy = async () => {
-    const text = ['MyEBookReader', ...rows.map(([k, v]) => `${k}: ${v}`)].join('\n');
+    const text = [
+      'MyEBookReader',
+      ...rows.map(([k, v]) => `${k}: ${v}`),
+      '',
+      `${t('about.formats')}:`,
+      ...formats.map((f) => `  ${f.name} — ${f.ext} (${f.kind})`),
+    ].join('\n');
     try {
       await copyText(text);
       setCopied(true);
@@ -58,6 +73,7 @@ export default function AboutDialog({ open, onClose }) {
       onClose={onClose}
       width={560}
       className="about-modal"
+      windowName="about"
       closeLabel={t('about.close')}
       footer={(
         <>
@@ -98,6 +114,20 @@ export default function AboutDialog({ open, onClose }) {
           ))}
         </tbody>
       </table>
+
+      <h4 className="about-formats-title">{t('about.formats')}</h4>
+      <table className="kv about-formats" data-about-formats>
+        <tbody>
+          {formats.map((f) => (
+            <tr key={f.id}>
+              <th>{f.name}</th>
+              <td className="about-ext">{f.ext}</td>
+              <td><span className={`about-kind${f.reflowable ? ' reflow' : ''}`}>{f.kind}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="capture-note">{t('about.formatNote')}</p>
     </Modal>
   );
 }

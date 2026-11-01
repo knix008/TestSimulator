@@ -74,7 +74,7 @@ describe('Library', () => {
   it('scales every view with one size slider', () => {
     const { container, onBookSize, rerender } = renderLibrary({ bookSize: 220 });
     expect(container.querySelector('[data-library]').style.getPropertyValue('--book')).toBe('220px');
-    fireEvent.change(screen.getByLabelText('크기'), { target: { value: '300' } });
+    fireEvent.change(screen.getByRole('slider', { name: '크기' }), { target: { value: '300' } });
     expect(onBookSize).toHaveBeenCalledWith(300);
     rerender(<Library entries={entries} bookSize={300} view="list" />);
     expect(container.querySelector('[data-library]').style.getPropertyValue('--book')).toBe('300px');

@@ -4,6 +4,7 @@ import Modal from './Modal.jsx';
 import { IconMarquee, IconCopy, IconDownload, IconClip, IconCheck } from './Icons.jsx';
 import { IMAGE_FORMATS, formatById, previewDataUrl } from '../lib/image.js';
 import { formatBytes } from '../lib/platform.js';
+import { RangeStepper } from './Stepper.jsx';
 
 // Shown after a rectangle is dragged out of a page. The preview is the actual
 // encoded result, so the effect of the format and the quality setting is
@@ -112,19 +113,17 @@ export default function CaptureDialog({ capture, settings, onChange, onCopy, onS
       </label>
 
       {format.lossy ? (
-        <label className="field">
-          <span className="field-label">{t('capture.quality')} — {Math.round(quality * 100)}%</span>
-          <input
-            className="range"
-            type="range"
-            min="10"
-            max="100"
-            step="1"
+        <div className="field">
+          <span className="field-label">{t('capture.quality')}</span>
+          <RangeStepper
+            min={10}
+            max={100}
             value={Math.round(quality * 100)}
-            onChange={(e) => onChange({ ...settings, captureQuality: Number(e.target.value) / 100 })}
-            title={t('capture.quality')}
+            format={(v) => `${v}%`}
+            onChange={(v) => onChange({ ...settings, captureQuality: v / 100 })}
+            label={t('capture.quality')}
           />
-        </label>
+        </div>
       ) : null}
 
       <p className="capture-note">{t('capture.note')}</p>

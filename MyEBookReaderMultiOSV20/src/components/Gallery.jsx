@@ -8,6 +8,7 @@ import {
 } from '../lib/gallery.js';
 import { getThumb, peekThumb, subscribeThumb } from '../lib/thumb-store.js';
 import { formatBytes } from '../lib/platform.js';
+import { RangeStepper } from './Stepper.jsx';
 
 // The first-page picture of one entry. It is fetched when the card scrolls
 // near the view; a file added without being opened asks the app to draw one.
@@ -154,18 +155,19 @@ export default function Gallery({
                 <option key={k} value={`${k}:${k === 'name' ? 'asc' : 'desc'}`}>{t(`gallery.sortBy.${k}`)}</option>
               ))}
             </select>
-            <label className="gal-size" title={t('gallery.tileSize')}>
+            <div className="gal-size" title={t('gallery.tileSize')}>
               <span>{t('gallery.tileSize')}</span>
-              <input
-                type="range"
+              <RangeStepper
+                className="compact"
                 min={TILE_MIN}
                 max={TILE_MAX}
                 step={8}
                 value={tileSize}
-                aria-label={t('gallery.tileSize')}
-                onChange={(e) => onTileSize?.(Number(e.target.value))}
+                format={(v) => `${v}px`}
+                onChange={(v) => onTileSize?.(v)}
+                label={t('gallery.tileSize')}
               />
-            </label>
+            </div>
           </>
         ) : null}
 

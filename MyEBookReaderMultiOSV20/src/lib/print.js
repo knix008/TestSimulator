@@ -11,8 +11,10 @@ export { buildPrintHtml };
 
 export const PRINT_SCOPES = ['all', 'current', 'custom'];
 export const PRINT_DPI = 150;   // good enough for text, small enough to stay responsive
-export const PREVIEW_MAX_WIDTH = 500;   // the preview pane is the wide column of the dialog
-export const PREVIEW_MAX_HEIGHT = 460;
+// The preview pane is the wide column of the dialog; the page leaves a margin
+// of backdrop around it so only the printed sheet looks like paper.
+export const PREVIEW_MAX_WIDTH = 470;
+export const PREVIEW_MAX_HEIGHT = 436;
 
 // Which page of the current selection the preview should show.
 export function clampPreviewIndex(index, count) {

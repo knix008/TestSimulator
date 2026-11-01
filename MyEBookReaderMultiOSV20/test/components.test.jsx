@@ -575,7 +575,8 @@ describe('Toolbar panel buttons', () => {
     expect(onComments).not.toHaveBeenCalled();
     expect(onBookmarks).not.toHaveBeenCalled();
     expect(onSearch).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+    // Print is a toolbar button too, right after the selection tools.
+    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Document info' })).toBeTruthy();
   });
 
@@ -1046,5 +1047,26 @@ describe('rotate buttons', () => {
     fireEvent.click(buttons[0]);
     fireEvent.click(buttons[1]);
     expect(onRotate.mock.calls).toEqual([[-90], [90]]);
+  });
+
+  it('puts the print button right after the selection tools', async () => {
+    await setLanguage('en');
+    const noop = () => {};
+    const onPrint = vi.fn();
+    const { container } = render(
+      <Toolbar
+        settings={{ ...DEFAULT_SETTINGS, theme: 'dark' }} doc={{ numPages: 3 }} pageNumber={1} numPages={3} scale={1}
+        hasSelection={false} dirty={false} history={{ canUndo: false, canRedo: false, undo: noop, redo: noop }}
+        tool="text" onTool={noop} panel="none" onCopyText={noop} onSelectPage={noop} onExtractImages={noop}
+        onHighlight={noop} onComment={noop} onComments={noop} onBookmarks={noop} onBookmark={noop}
+        onGoToPage={noop} onZoom={noop} onZoomMode={noop} onRotate={noop} onLayout={noop} onSearch={noop}
+        onTogglePanel={noop} onToggleInfo={noop} onPrint={onPrint}
+      />,
+    );
+    const tools = container.querySelector('.tool-picker');
+    const next = tools.nextElementSibling;
+    expect(next.getAttribute('aria-label')).toBe('Print');
+    fireEvent.click(next.querySelector('button'));
+    expect(onPrint).toHaveBeenCalledTimes(1);
   });
 });

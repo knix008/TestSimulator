@@ -5,6 +5,7 @@ import {
   START_BG_IDS, START_INTERVALS, START_OPACITY_MIN, START_OPACITY_MAX, START_SPEED_MIN, START_SPEED_MAX,
   nextStartBg,
 } from '../lib/startbg.js';
+import { NumberStepper, RangeStepper } from './Stepper.jsx';
 
 // Choosing the start-screen background: 21 buttons with a picture each, a
 // shuffle button, transparency and speed, and automatic changes. The same
@@ -48,35 +49,33 @@ export default function BackgroundPicker({ settings, onChange, compact = false }
         <IconDice size={15} /> {t('startbg.shuffle')}
       </button>
 
-      <label className="bg-slider">
+      <div className="bg-slider">
         <IconOpacity size={15} />
         <span>{t('startbg.opacity')}</span>
-        <input
-          type="range"
+        <RangeStepper
           min={START_OPACITY_MIN}
           max={START_OPACITY_MAX}
           step={0.05}
           value={settings.startBgOpacity}
-          aria-label={t('startbg.opacity')}
-          onChange={(e) => set({ startBgOpacity: Number(e.target.value) })}
+          format={(v) => `${Math.round(v * 100)}%`}
+          onChange={(v) => set({ startBgOpacity: v })}
+          label={t('startbg.opacity')}
         />
-        <output>{Math.round(settings.startBgOpacity * 100)}%</output>
-      </label>
+      </div>
 
-      <label className="bg-slider">
+      <div className="bg-slider">
         <IconSpeed size={15} />
         <span>{t('startbg.speed')}</span>
-        <input
-          type="range"
+        <RangeStepper
           min={START_SPEED_MIN}
           max={START_SPEED_MAX}
           step={0.1}
           value={settings.startBgSpeed}
-          aria-label={t('startbg.speed')}
-          onChange={(e) => set({ startBgSpeed: Number(e.target.value) })}
+          format={(v) => `${Math.round(v * 100)}%`}
+          onChange={(v) => set({ startBgSpeed: v })}
+          label={t('startbg.speed')}
         />
-        <output>{Math.round(settings.startBgSpeed * 100)}%</output>
-      </label>
+      </div>
 
       <div className="bg-auto">
         <label className="bg-check">
@@ -87,17 +86,16 @@ export default function BackgroundPicker({ settings, onChange, compact = false }
           />
           <span>{t('startbg.random')}</span>
         </label>
-        <label className="bg-interval" title={t('startbg.intervalTip')}>
+        <div className="bg-interval" title={t('startbg.intervalTip')}>
           <IconClock size={15} />
-          <select
-            className="input"
+          <NumberStepper
+            values={START_INTERVALS}
             value={settings.startBgInterval}
-            aria-label={t('startbg.interval')}
-            onChange={(e) => set({ startBgInterval: Number(e.target.value) })}
-          >
-            {START_INTERVALS.map((n) => <option key={n} value={n}>{intervalLabel(n)}</option>)}
-          </select>
-        </label>
+            format={intervalLabel}
+            onChange={(v) => set({ startBgInterval: v })}
+            label={t('startbg.interval')}
+          />
+        </div>
       </div>
     </div>
   );

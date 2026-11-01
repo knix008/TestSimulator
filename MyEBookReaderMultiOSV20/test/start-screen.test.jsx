@@ -113,14 +113,18 @@ describe('BackgroundPicker', () => {
   it('changes opacity, speed, random order and the automatic interval', () => {
     const onChange = vi.fn();
     render(<BackgroundPicker settings={DEFAULT_SETTINGS} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText('투명도'), { target: { value: '0.35' } });
+    fireEvent.change(screen.getByRole('slider', { name: '투명도' }), { target: { value: '0.35' } });
     expect(onChange).toHaveBeenLastCalledWith({ startBgOpacity: 0.35 });
-    fireEvent.change(screen.getByLabelText('움직임 속도'), { target: { value: '2.5' } });
+    fireEvent.change(screen.getByRole('slider', { name: '움직임 속도' }), { target: { value: '2.5' } });
     expect(onChange).toHaveBeenLastCalledWith({ startBgSpeed: 2.5 });
     fireEvent.click(screen.getByText('무작위 순서'));
     expect(onChange).toHaveBeenLastCalledWith({ startBgRandom: true });
-    fireEvent.change(screen.getByLabelText('자동 변경 간격'), { target: { value: '60' } });
-    expect(onChange).toHaveBeenLastCalledWith({ startBgInterval: 60 });
+    // The interval steps through its fixed choices: never → 15 s.
+    expect(screen.getByRole('button', { name: '자동 변경 간격 — 줄이기' }).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '자동 변경 간격 — 늘리기' }));
+    expect(onChange).toHaveBeenLastCalledWith({ startBgInterval: 15 });
+    fireEvent.click(screen.getByRole('button', { name: '투명도 — 늘리기' }));
+    expect(onChange.mock.calls.at(-1)[0].startBgOpacity).toBeCloseTo(DEFAULT_SETTINGS.startBgOpacity + 0.05, 5);
     fireEvent.click(screen.getByRole('button', { name: /무작위 배경/ }));
     expect(onChange.mock.calls.at(-1)[0].startBg).not.toBe('books');
   });

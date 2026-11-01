@@ -9,7 +9,8 @@ import {
 
 const root = path.resolve(import.meta.dirname, '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
-const hostSrc = read('src-tauri', 'src', 'lib.rs');
+// lib.rs plus the modules whose commands it registers.
+const hostSrc = `${read('src-tauri', 'src', 'lib.rs')}\n${read('src-tauri', 'src', 'popout.rs')}`;
 const bridgeSrc = read('src', 'lib', 'desktop-bridge.js');
 const conf = JSON.parse(read('src-tauri', 'tauri.conf.json'));
 const capability = JSON.parse(read('src-tauri', 'capabilities', 'default.json'));
@@ -19,7 +20,7 @@ const matches = (src, re) => [...src.matchAll(re)].map((m) => m[1]);
 
 describe('bridge ↔ host commands', () => {
   const handlerBlock = hostSrc.slice(hostSrc.indexOf('generate_handler!['), hostSrc.indexOf('])', hostSrc.indexOf('generate_handler![')));
-  const registered = new Set(matches(handlerBlock, /^\s*([a-z_]+),?\s*$/gm));
+  const registered = new Set(matches(handlerBlock, /^\s*(?:[a-z_]+::)?([a-z_]+),?\s*$/gm));
   const defined = new Set(matches(hostSrc, /#\[tauri::command\]\s*(?:pub\s+)?(?:async\s+)?fn\s+([a-z_]+)/g));
   const called = new Set(matches(bridgeSrc, /call\('([a-z_]+)'/g));
 
@@ -35,9 +36,9 @@ describe('bridge ↔ host commands', () => {
 
   it('emits every event the bridge listens for', () => {
     const listened = new Set(matches(bridgeSrc, /(?:on|channel)\('([a-z-]+)'/g));
-    const emitted = new Set(matches(hostSrc, /emit(?:_to)?\((?:MAIN, )?"([a-z-]+)"/g));
+    const emitted = new Set(matches(hostSrc, /emit(?:_to)?\((?:(?:crate::)?MAIN, )?"([a-z-]+)"/g));
     expect([...listened].sort()).toEqual(
-      ['close-request', 'file-drop', 'maximized', 'open-path', 'task-progress', 'theme-picked'],
+      ['close-request', 'file-drop', 'maximized', 'open-path', 'popout-closed', 'task-progress', 'theme-picked'],
     );
     expect([...listened].filter((e) => !emitted.has(e))).toEqual([]);
   });

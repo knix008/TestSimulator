@@ -38,6 +38,13 @@ export const EBOOK_EXTENSIONS = FORMATS.flatMap((f) => f.ext);
 /** Everything the open dialog and the folder tree offer. */
 export const BOOK_EXTENSIONS = ['pdf', ...EBOOK_EXTENSIONS];
 
+/** What the reader can actually read, for the About window: PDF first, then
+ * the e-book formats. .cbr is left out — a RAR comic is refused with a hint. */
+export const SUPPORTED_FORMATS = [
+  { id: 'pdf', ext: ['pdf'], reflowable: false },
+  ...FORMATS.map((f) => ({ id: f.id, ext: f.ext.filter((e) => e !== 'cbr'), reflowable: f.reflowable })),
+];
+
 export function formatById(id) {
   return FORMATS.find((f) => f.id === id) || null;
 }

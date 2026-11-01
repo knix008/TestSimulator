@@ -10,6 +10,7 @@ import { IMAGE_FORMATS } from '../lib/image.js';
 import { isDesktop, appInfo } from '../lib/platform.js';
 import { FIT_ZOOM_MODES, zoomModeLabelKey } from '../lib/view.js';
 import BackgroundPicker from './BackgroundPicker.jsx';
+import { NumberStepper, RangeStepper } from './Stepper.jsx';
 
 const TABS = ['appearance', 'viewer', 'start', 'copy', 'files'];
 
@@ -47,6 +48,7 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
       onClose={onClose}
       width={780}
       className="settings-modal"
+      windowName="settings"
       closeLabel={t('settings.close')}
       footer={(
         <>
@@ -120,25 +122,14 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
 
                 <div className="field">
                   <span className="field-label">{t('settings.fontSize')}</span>
-                  <div className="stepper" role="group" aria-label={t('settings.fontSize')}>
-                    <button
-                      type="button"
-                      className="btn stepper-btn"
-                      disabled={settings.fontSize <= FONT_SIZE_MIN}
-                      onClick={() => set({ fontSize: stepFontSize(settings.fontSize, -1) })}
-                      title={t('settings.fontSmaller')}
-                      aria-label={t('settings.fontSmaller')}
-                    >−</button>
-                    <span className="stepper-value">{settings.fontSize}px</span>
-                    <button
-                      type="button"
-                      className="btn stepper-btn"
-                      disabled={settings.fontSize >= FONT_SIZE_MAX}
-                      onClick={() => set({ fontSize: stepFontSize(settings.fontSize, 1) })}
-                      title={t('settings.fontLarger')}
-                      aria-label={t('settings.fontLarger')}
-                    >+</button>
-                  </div>
+                  <NumberStepper
+                    min={FONT_SIZE_MIN}
+                    max={FONT_SIZE_MAX}
+                    value={settings.fontSize}
+                    format={(v) => `${v}px`}
+                    onChange={(v) => set({ fontSize: stepFontSize(v, 0, 0) })}
+                    label={t('settings.fontSize')}
+                  />
                 </div>
 
                 <div className="row seg-row">
@@ -259,19 +250,17 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
         <div className={`settings-panel${tab === 'copy' ? ' on' : ''}`} aria-hidden={tab !== 'copy'} {...(tab !== 'copy' ? { inert: '' } : {})}>
           <div className="settings-split">
             <section className="sgroup">
-              <label className="field">
-                <span className="field-label">{t('settings.minImageSize')} — {settings.minImageSize}px</span>
-                <input
-                  className="range"
-                  type="range"
-                  min="1"
-                  max="256"
-                  step="1"
+              <div className="field">
+                <span className="field-label">{t('settings.minImageSize')}</span>
+                <RangeStepper
+                  min={1}
+                  max={256}
                   value={settings.minImageSize}
-                  onChange={(e) => set({ minImageSize: Number(e.target.value) })}
-                  title={t('settings.minImageSize')}
+                  format={(v) => `${v}px`}
+                  onChange={(v) => set({ minImageSize: v })}
+                  label={t('settings.minImageSize')}
                 />
-              </label>
+              </div>
               <label className="field">
                 <span className="field-label">{t('settings.captureFormat')}</span>
                 <div className="row seg-row seg-fill">
@@ -287,21 +276,17 @@ export default function SettingsDialog({ open, settings, onChange, onClose, onPi
                   ))}
                 </div>
               </label>
-              <label className="field">
-                <span className="field-label">
-                  {t('settings.captureQuality')} — {Math.round(settings.captureQuality * 100)}%
-                </span>
-                <input
-                  className="range"
-                  type="range"
-                  min="10"
-                  max="100"
-                  step="1"
+              <div className="field">
+                <span className="field-label">{t('settings.captureQuality')}</span>
+                <RangeStepper
+                  min={10}
+                  max={100}
                   value={Math.round(settings.captureQuality * 100)}
-                  onChange={(e) => set({ captureQuality: Number(e.target.value) / 100 })}
-                  title={t('settings.captureQuality')}
+                  format={(v) => `${v}%`}
+                  onChange={(v) => set({ captureQuality: v / 100 })}
+                  label={t('settings.captureQuality')}
                 />
-              </label>
+              </div>
             </section>
 
             <section className="sgroup">

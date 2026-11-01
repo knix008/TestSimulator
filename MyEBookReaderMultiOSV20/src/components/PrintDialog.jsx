@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
 import { IconPrint, IconPrev, IconNext } from './Icons.jsx';
+import { NumberStepper } from './Stepper.jsx';
 import {
   clampPreviewIndex, pagesForScope, renderPreviewPage, choosePrinter, clampCopies, PRINT_ORIENTATIONS,
 } from '../lib/print.js';
@@ -202,20 +203,17 @@ export default function PrintDialog({
                 </select>
               </label>
               <div className="print-device-row">
-                <label className="field">
+                <div className="field" data-print-copies>
                   <span className="field-label">{t('print.copies')}</span>
-                  <input
-                    className="input"
-                    type="number"
+                  <NumberStepper
                     min={1}
                     max={99}
-                    value={copies}
-                    onChange={(e) => setCopies(e.target.value)}
-                    onBlur={() => setCopies((c) => clampCopies(c))}
-                    aria-label={t('print.copies')}
-                    data-print-copies
+                    value={clampCopies(copies)}
+                    format={(n) => t('print.copiesValue', { n })}
+                    onChange={setCopies}
+                    label={t('print.copies')}
                   />
-                </label>
+                </div>
                 <label className="field">
                   <span className="field-label">{t('print.orientation')}</span>
                   <select

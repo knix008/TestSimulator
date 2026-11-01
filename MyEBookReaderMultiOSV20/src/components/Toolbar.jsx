@@ -104,6 +104,27 @@ function useToolbarMinWidth(barRef, scrollRef, deps) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measure, ...deps]);
+
+  // Groups also come and go with the document and the page layout (the
+  // page-turn controls, aA, …); a toolbar that grew must widen the window too.
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!isDesktop || !scroll || typeof ResizeObserver === 'undefined') return undefined;
+    let frame = 0;
+    const soon = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
+    const sizes = new ResizeObserver(soon);
+    const watch = () => {
+      sizes.disconnect();
+      for (const el of scroll.children) sizes.observe(el);
+      for (const el of document.querySelector('.titlebar')?.children || []) sizes.observe(el);
+    };
+    watch();
+    const kids = new MutationObserver(() => { watch(); soon(); });
+    kids.observe(scroll, { childList: true });
+    const tb = document.querySelector('.titlebar');
+    if (tb) kids.observe(tb, { childList: true });
+    return () => { cancelAnimationFrame(frame); sizes.disconnect(); kids.disconnect(); };
+  }, [measure, scrollRef]);
 }
 
 // Every toolbar control carries a `title`, which the global Tooltip component
@@ -303,7 +324,7 @@ export default function Toolbar({
   onGoToPage, onZoom, onZoomMode, onRotate, onLayout, onPageEffect,
   onSearch, onTogglePanel, onToggleInfo,
   galleryOpen = false, onGallery, libraryOpen = false, onLibrary,
-  bookFontSize = null, onBookFontSize,
+  bookFontSize = null, onBookFontSize, onPrint,
 }) {
   // Home, the File menu, theme, language, help, settings and about live in the
   // title bar (HomeFileButtons and AppButtons below).
@@ -359,6 +380,13 @@ export default function Toolbar({
           </button>
         ))}
       </div>
+
+      {/* Print sits right after the selection tools (it is also in the File menu). */}
+      {onPrint ? (
+        <div className="toolbar-group" role="group" aria-label={t('toolbar.print')}>
+          <ToolButton icon={IconPrint} label={t('toolbar.print')} tip={t('tip.print')} onClick={onPrint} disabled={!doc} showLabel={showLabel} />
+        </div>
+      ) : null}
 
       <div className="toolbar-sep" />
 

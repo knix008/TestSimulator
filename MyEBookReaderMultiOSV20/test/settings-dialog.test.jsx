@@ -38,9 +38,9 @@ describe('SettingsDialog', () => {
 
   it('steps the font size down and up with the side buttons', async () => {
     const { onChange } = await renderSettings({ settings: { fontSize: 14 } });
-    fireEvent.click(screen.getByRole('button', { name: 'Smaller font' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Font size — Decrease' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ fontSize: 13 }));
-    fireEvent.click(screen.getByRole('button', { name: 'Larger font' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Font size — Increase' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ fontSize: 15 }));
   });
 

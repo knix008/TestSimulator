@@ -260,6 +260,12 @@ export function createDesktopApi({
       // Dark or light native title bars for the app's ordinary windows.
       setThemeKind: (dark) => call('win_set_theme_kind', { dark: Boolean(dark) }),
       onThemePicked: on('theme-picked'),
+      // Settings, About and the context menu as windows of their own (see
+      // src/lib/popout.js and src-tauri/src/popout.rs).
+      popoutShow: (opts = {}) => call('popout_show', { opts }),
+      popoutHide: (label) => call('popout_hide', { label: String(label || '') }),
+      popoutClose: (label) => call('popout_close', { label: String(label || '') }),
+      onPopoutClosed: on('popout-closed'),
     },
   };
 }
