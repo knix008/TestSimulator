@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyEBookReader",
+  "mainBinaryName": "MyEBookReader",
+  "version": "../package.json",
+  "identifier": "com.shkwon.myebookreader",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5191",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "license": "MIT",
+    "category": "Productivity",
+    "shortDescription": "E-book reader",
+    "longDescription": "Read PDF, EPUB, MOBI, AZW / AZW3 (Kindle), DjVu, FB2, CBZ comics, TXT, Markdown and HTML with page-turn effects; highlight and comment on them, and copy the text and images inside them.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "icons/file.ico": "file.ico",
+      "icons/file.png": "file.png"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["ebkvw"],
+        "name": "MyEBookReader.Workspace",
+        "description": "MyEBookReader Workspace (highlights, clips and bookmarks for a book)",
+        "mimeType": "application/x-myebookreader-workspace",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}

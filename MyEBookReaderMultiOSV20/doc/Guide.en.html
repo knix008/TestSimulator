@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyEBookReader Guide</title>
+<style>
+  :root {
+    --bg: #f6f4f2; --panel: #ffffff; --text: #221d1b; --dim: #5d5551; --muted: #8b817c;
+    --border: #e2ddd9; --accent: #c33a32; --accent-soft: #fbe9e7; --code: #f1eeeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14100f; --panel: #1e1918; --text: #efe8e5; --dim: #b3a8a4; --muted: #857a76;
+      --border: #38302e; --accent: #e0574d; --accent-soft: #3a1f1c; --code: #282221;
+    }
+  }
+  /* Every size is in rem: the text-size buttons in the top bar change the root size. */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    font-size: 0.95rem; line-height: 1.7;
+  }
+  .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow: auto; padding: 1.2rem 1rem;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li a {
+    display: block; padding: 0.3rem 0.6rem; border-radius: 0.45rem; color: var(--dim); text-decoration: none; font-size: 0.85rem;
+  }
+  nav li a:hover { background: var(--accent-soft); color: var(--text); }
+  main { max-width: 64rem; padding: 2rem 2.75rem 5rem; }
+  header.hero {
+    display: flex; gap: 1.25rem; align-items: center; padding: 1.4rem 1.5rem; margin-bottom: 1.9rem;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 1rem;
+  }
+  header.hero img { width: 4.5rem; height: 4.5rem; }
+  header.hero h1 { margin: 0; font-size: 1.75rem; }
+  header.hero p { margin: 0.25rem 0 0; color: var(--dim); }
+  h2 { margin: 2.9rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-size: 1.4rem; }
+  h3 { margin: 1.6rem 0 0.4rem; font-size: 1.08rem; }
+  ul, ol.steps { padding-left: 1.4rem; }
+  li + li { margin-top: 0.2rem; }
+  figure { margin: 1.1rem 0 1.4rem; }
+  figure img {
+    display: block; max-width: 100%; height: auto; border-radius: 0.6rem;
+    border: 1px solid var(--border); box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  }
+  figure.narrow img { max-width: 26rem; }
+  figure.strip img { box-shadow: none; }
+  figcaption { margin-top: 0.5rem; font-size: 0.82rem; color: var(--muted); text-align: center; }
+  kbd {
+    display: inline-block; padding: 0 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border);
+    border-bottom-width: 2px; background: var(--code); font: 0.8rem/1.6 Consolas, monospace;
+  }
+  code { padding: 0.05rem 0.3rem; border-radius: 0.25rem; background: var(--code); font: 0.82rem Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1.25rem; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); }
+  .tip {
+    margin: 0.9rem 0; padding: 0.75rem 1rem; border-radius: 0.6rem; background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+  footer { margin-top: 3.75rem; color: var(--muted); font-size: 0.82rem; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 1.5rem 1.1rem 4rem; }
+    .grid2, .grid4 { grid-template-columns: 1fr; }
+  }
+</style>
+<script src="theme.js"></script>
+<script src="guide.js"></script>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <ol>
+      <li><a href="#intro">1. Introduction</a></li>
+      <li><a href="#screen">2. The window</a></li>
+      <li><a href="#start">3. Start screen</a></li>
+      <li><a href="#open">4. Opening books</a></li>
+      <li><a href="#formats">5. Formats</a></li>
+      <li><a href="#turn">6. Page-turn effects</a></li>
+      <li><a href="#font">7. Font size (aA)</a></li>
+      <li><a href="#view">8. Fit and zoom</a></li>
+      <li><a href="#text">9. Selecting and copying text</a></li>
+      <li><a href="#image">10. Pictures and areas</a></li>
+      <li><a href="#highlight">11. Highlights</a></li>
+      <li><a href="#search">12. Search</a></li>
+      <li><a href="#save">13. Saving</a></li>
+      <li><a href="#gallery">14. Opened files</a></li>
+      <li><a href="#library">15. Library</a></li>
+      <li><a href="#panels">16. Left panel</a></li>
+      <li><a href="#print">17. Printing</a></li>
+      <li><a href="#settings">18. Settings</a></li>
+      <li><a href="#keys">19. Shortcuts</a></li>
+      <li><a href="#install">20. Install and data</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <img src="images/icon.svg" alt="">
+      <div>
+        <h1>MyEBookReader Guide</h1>
+        <p>Read PDF, EPUB, MOBI, AZW3, DjVu, FB2 and CBZ with page-turn effects, highlight them, and take out their text and pictures — version 1.0.2 · Windows · macOS · Linux · web browser</p>
+      </div>
+    </header>
+
+    <div class="tip">This guide opens in a window of its own (<kbd>F1</kbd>, or <b>Help</b> in the title bar). Use <b>aA [−] [+]</b> in the bar at the top to change the guide's text size, and the <b>한국어 / English</b> buttons to change its language. The pictures show the Korean interface.</div>
+
+    <h2 id="intro">1. Introduction</h2>
+    <p>MyEBookReader reads e-books in many formats — <b>PDF, EPUB, MOBI, AZW/AZW3 (Kindle), DjVu, FB2, CBZ, TXT, Markdown and HTML</b> — in one program.
+      Whatever the format, you turn pages one or two at a time with <b>the same page-turn effects</b>, and highlights, bookmarks, copying text and pictures, search and printing work just as they do for a PDF.</p>
+    <ul>
+      <li>Flowing text such as EPUB and MOBI is laid out into pages when it opens; <b>aA</b> in the toolbar changes its font size.</li>
+      <li>Every book you open collects in <b>Opened files</b>; the ones you love go on the shelves of your <b>Library</b>.</li>
+      <li>Highlights in a PDF are saved inside the file; for other formats they are saved in a workspace (<code>.ebkvw</code>).</li>
+    </ul>
+
+    <h2 id="screen">2. The window</h2>
+    <h3>Title bar</h3>
+    <figure class="strip"><img src="images/titlebar.png" alt="Title bar"><figcaption>The title bar — Home and File on the left, the book's name in the middle, theme, language, help, settings and about on the right, then the window buttons</figcaption></figure>
+    <p>Buttons that are about the program as a whole live in the <b>title bar</b>; the toolbar keeps only what works on the book you are reading.</p>
+    <table>
+      <tr><th>Button</th><th>What it does</th></tr>
+      <tr><td>Home</td><td>A toggle — shows the start screen; press again to go back to what you were reading.</td></tr>
+      <tr><td>File ▾</td><td>Open (<kbd>Ctrl</kbd>+<kbd>O</kbd>), open URL, save, save as, attach file, save workspace, export text, print, and the recent files (☆ add to library, the bin removes one, <b>Clear all</b> removes them all).</td></tr>
+      <tr><td>Theme</td><td>Each press moves to the next theme. The ▾ list has your <b>custom</b> themes and a <b>Settings</b> button (to make one) at the top, then the <b>20 Dark</b> themes, then the <b>20 Light</b> ones below, each in two columns.</td></tr>
+      <tr><td>Language (flag)</td><td>Korean ↔ English. The flag shows the language you switch to.</td></tr>
+      <tr><td>Help · Settings · About</td><td>This guide, the settings window, version and author.</td></tr>
+    </table>
+    <h3>Toolbar</h3>
+    <figure class="strip"><img src="images/toolbar.png" alt="Toolbar"><figcaption>The toolbar — tools, copy, undo, pages, layout, page-turn effect, zoom, <b>aA font size</b>, view fit, rotate; on the right Opened files, Library, left panel, document info</figcaption></figure>
+    <figure><img src="images/viewer.png" alt="A book open"><figcaption>An EPUB open — the left panel (contents), tabs, the page, and the previous / next page buttons at its sides</figcaption></figure>
+
+    <h2 id="start">3. Start screen</h2>
+    <p>The start screen appears when the program starts; <b>Home</b> in the title bar brings it back.</p>
+    <figure><img src="images/start.png" alt="Start screen"><figcaption>The start screen — getting started and recent files, my library, the moving background</figcaption></figure>
+    <ul>
+      <li><b>Getting started</b> — open, open URL, opened files.</li>
+      <li><b>Recent files</b> — ✕ removes one line; <b>🗑 Clear all</b> beside the heading clears the whole list. The files themselves are not touched.</li>
+      <li><b>My library</b> — the covers of your library. <b>🗑 Clear all</b> empties it; <b>See all</b> opens the library screen.</li>
+      <li><b>Move and resize panels</b> — drag the <b>⠿</b> handle at the start of a panel's title (top-left on the intro card) to move it, and its bottom-right corner to resize it. The arrangement is remembered.</li>
+      <li><b>Auto arrange</b> at the top right of the start screen puts every panel back in its automatic place.</li>
+      <li><b>Home</b> is a toggle — pressed, it shows the start screen; pressed again, it goes back to the book (or the empty window).</li>
+      <li>Right-click a recent file or a library book for open, add to / remove from library, remove from recent files, show in folder and copy path.</li>
+    </ul>
+    <div class="grid2">
+      <figure><img src="images/start-background.png" alt="Background"><figcaption>21 moving backgrounds with opacity, speed and automatic change</figcaption></figure>
+      <div>
+        <p>Pick one of 21 3D scenes about reading and books — book cloud, pages, stars, falling letters, galaxy, aurora, ink and more.</p>
+        <ul>
+          <li><b>Random background</b> · <b>opacity</b> (10–100 %) · <b>motion speed</b> (10–300 %)</li>
+          <li><b>Change every</b> 15 seconds to 5 minutes, in order or at random.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="open">4. Opening books</h2>
+    <ul>
+      <li><b>File ▾ → Open</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>) — the type list of the dialog narrows it to <i>books and workspaces, PDF, EPUB, Kindle, DjVu, FictionBook, comics, text or pictures</i>. Several files open as tabs.</li>
+      <li><b>Drag and drop</b> book files onto the window.</li>
+      <li><b>Open URL</b> downloads a book from the internet.</li>
+      <li>The <b>folder panel</b> lists PDF, EPUB, MOBI, AZW, AZW3, DjVu, FB2 and CBZ files.</li>
+      <li>Choose <b>Set as the default reader for e-books</b> when installing to open EPUB, MOBI, AZW3, DjVu, FB2 and CBZ by double-clicking. PDF is only added to the "Open with" list.</li>
+    </ul>
+    <div class="tip">Flowing text such as EPUB and MOBI is laid out into pages as it opens. A book of several hundred pages usually takes 1–4 seconds, while <b>Laying out pages</b> is shown.</div>
+
+    <h2 id="formats">5. Formats</h2>
+    <table>
+      <tr><th>Format</th><th>Extensions</th><th>Notes</th></tr>
+      <tr><td>PDF</td><td><code>.pdf</code></td><td>Highlights and comments can be saved inside the file.</td></tr>
+      <tr><td>EPUB 2 / 3</td><td><code>.epub</code></td><td>Contents, cover, pictures, links between chapters.</td></tr>
+      <tr><td>Kindle</td><td><code>.mobi</code> <code>.azw</code> <code>.azw3</code> <code>.kf8</code> <code>.prc</code></td><td>MOBI 6, KF8 and files holding both; HUFF/CDIC compression. DRM-protected files and KFX are refused with the reason.</td></tr>
+      <tr><td>DjVu</td><td><code>.djvu</code> <code>.djv</code></td><td>Scanned pages; with an OCR text layer, selection and search work.</td></tr>
+      <tr><td>FictionBook</td><td><code>.fb2</code> <code>.fb2.zip</code></td><td>Poems, epigraphs and pictures.</td></tr>
+      <tr><td>Comics</td><td><code>.cbz</code></td><td>One picture per page. Re-save a RAR comic (<code>.cbr</code>) as ZIP.</td></tr>
+      <tr><td>Text</td><td><code>.txt</code> <code>.md</code> <code>.html</code></td><td>Split into chapters at the headings.</td></tr>
+      <tr><td>Pictures</td><td><code>.png</code> <code>.jpg</code> <code>.gif</code> <code>.webp</code> <code>.bmp</code> <code>.tif</code></td><td>A one-page book.</td></tr>
+    </table>
+    <p>A file with the wrong extension still opens: its contents decide the format. A book's own fonts, colours and margins are not used; the text is set in the reader's own book style.</p>
+    <div class="grid4">
+      <figure><img src="images/format-azw3.png" alt="AZW3"><figcaption>Kindle AZW3</figcaption></figure>
+      <figure><img src="images/format-fb2.png" alt="FB2"><figcaption>FictionBook</figcaption></figure>
+      <figure><img src="images/format-djvu.png" alt="DjVu"><figcaption>DjVu scan</figcaption></figure>
+      <figure><img src="images/format-cbz.png" alt="CBZ"><figcaption>CBZ comic</figcaption></figure>
+    </div>
+
+    <h2 id="turn">6. Page-turn effects</h2>
+    <p>With the page layout on <b>single page</b> or <b>two-page view</b>, the chosen effect plays when you turn a page — <b>the same in every format</b> (continuous view scrolls instead).
+      Each press of the effect button goes <b>none → fade → slide → flip</b>; ▾ picks from the list.</p>
+    <div class="grid2">
+      <figure><img src="images/turn-flip.png" alt="Flip"><figcaption>Flip — the page you leave folds over like paper, with the next page already drawn beneath it</figcaption></figure>
+      <figure><img src="images/turn-slide.png" alt="Slide"><figcaption>Slide — the page you leave slides away as the next one comes in</figcaption></figure>
+    </div>
+    <ul>
+      <li>Turn with the <b>‹ ›</b> buttons beside the page, <kbd>PageUp</kbd> / <kbd>PageDown</kbd>, <kbd>←</kbd> / <kbd>→</kbd>, the mouse wheel or the page number.</li>
+      <li>The next page is drawn before the turn plays, so even quick turns never show a blank page.</li>
+      <li>With "reduce animations" on in Windows, pages change without an effect.</li>
+    </ul>
+
+    <h2 id="font">7. Font size (aA)</h2>
+    <figure class="strip narrow"><img src="images/font-size-control.png" alt="Font size"><figcaption>aA · smaller · the size · larger</figcaption></figure>
+    <p>When flowing text is open — EPUB, MOBI, AZW3, FB2, TXT, Markdown, HTML — the toolbar shows <b>aA [−] 18px [+]</b>.</p>
+    <ul>
+      <li>Each press changes the text by 2 px (10–40 px). The size is remembered for the next book.</li>
+      <li>The pages are laid out again and you stay <b>in the same chapter, at the same place in it</b>; only the page count changes.</li>
+      <li>It is not shown for <b>PDF, DjVu, comics and pictures</b>, whose type is part of the page — zoom those instead.</li>
+    </ul>
+    <figure><img src="images/font-large.png" alt="Larger text"><figcaption>Text at 24 px — the same chapter now takes more pages</figcaption></figure>
+    <div class="tip">Highlights are kept as positions on the page. Read a highlighted book at the same text size: changing it can move highlights off their words.</div>
+
+    <h2 id="view">8. Fit and zoom</h2>
+    <table>
+      <tr><th>Button</th><th>What you see</th></tr>
+      <tr><td>Fit page</td><td>The whole page fits the window; books always open like this.</td></tr>
+      <tr><td>Actual size</td><td>100 % (<kbd>Ctrl</kbd>+<kbd>0</kbd>).</td></tr>
+      <tr><td>Fit width · fit height</td><td>The page's width or height fits the window.</td></tr>
+    </table>
+    <p>Zoom with the toolbar, <kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd> or <kbd>Ctrl</kbd>+wheel; drag an empty spot to move a large page. Layout is <b>single page, continuous or two-page view</b>, and pages turn by 90°.</p>
+
+    <h2 id="text">9. Selecting and copying text</h2>
+    <p>With the <b>text tool</b> (<kbd>Ctrl</kbd>+<kbd>1</kbd>) drag over the words — the selection shows just as in a PDF — and copy with <kbd>Ctrl</kbd>+<kbd>C</kbd> or the right-click menu. Several lines copy in reading order.</p>
+    <div class="grid2">
+      <figure><img src="images/selection.png" alt="Selection"><figcaption>Text selected in an EPUB</figcaption></figure>
+      <figure class="narrow"><img src="images/context-menu.png" alt="Right-click menu"><figcaption>The right-click menu — copy, highlight, comment, tools, add to library, pages, zoom</figcaption></figure>
+    </div>
+    <ul>
+      <li>Every right-click menu item has an icon. Document tabs (close this tab, close other tabs, library, show in folder, copy path) and <b>text fields</b> such as the search box (cut, copy, paste, select all) have menus too.</li>
+      <li><kbd>Ctrl</kbd>+<kbd>A</kbd> selects the page; <b>copy this page's text</b>; <b>File ▾ → Export text</b> writes the whole book to a <code>.txt</code>.</li>
+    </ul>
+
+    <h2 id="image">10. Pictures and areas</h2>
+    <div class="grid2">
+      <figure><img src="images/image-tool.png" alt="Image tool"><figcaption>The image tool outlines every picture; pick one and right-click to copy, save or keep it</figcaption></figure>
+      <figure><img src="images/region.png" alt="Area tool"><figcaption>The area tool — drag a rectangle and copy or save it as a picture</figcaption></figure>
+    </div>
+    <ul>
+      <li><b>Image tool</b> (<kbd>Ctrl</kbd>+<kbd>2</kbd>) takes a picture out at its full resolution; a comic or DjVu page is one picture.</li>
+      <li><b>Area tool</b> (<kbd>Ctrl</kbd>+<kbd>3</kbd>) cuts out any rectangle — tables, formulas, text — as PNG, JPEG, WebP, GIF or BMP.</li>
+      <li><b>Read mode</b> (<kbd>Ctrl</kbd>+<kbd>4</kbd>) selects nothing.</li>
+    </ul>
+
+    <h2 id="highlight">11. Highlights</h2>
+    <ol class="steps">
+      <li>Select the words with the text tool.</li>
+      <li>Choose <b>Highlight</b> in the right-click menu or the ▾ beside the copy button.</li>
+      <li>Save with <kbd>Ctrl</kbd>+<kbd>S</kbd> — inside the file for a PDF, in a workspace (<code>.ebkvw</code>) for other formats.</li>
+    </ol>
+    <figure><img src="images/highlights.png" alt="Highlights"><figcaption>A highlight in an EPUB and the highlights list in the left panel (click to go there, ✕ removes one, the bin removes all)</figcaption></figure>
+
+    <h2 id="search">12. Search</h2>
+    <p><kbd>Ctrl</kbd>+<kbd>F</kbd> opens the search panel. Clicking a result turns to that page and <b>marks the word on it</b>. EPUB, MOBI, FB2, TXT and DjVu with OCR text are all searchable.</p>
+    <figure><img src="images/search.png" alt="Search"><figcaption>Search results and the mark on the page</figcaption></figure>
+
+    <h2 id="save">13. Saving</h2>
+    <ul>
+      <li><b>Save</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) — a PDF gets its highlights, comments, bookmarks and attachments written into the file. EPUB, MOBI and the rest are never rewritten; a <b>workspace (<code>.ebkvw</code>)</b> is saved instead.</li>
+      <li><b>Save As</b> — a PDF as <code>name-annotated.pdf</code>, other formats as a new workspace.</li>
+      <li>A <b>workspace</b> keeps the book's path, the page and view, highlights, bookmarks, clips and attachments; double-click it to open the book as you left it. MyPDFViewer workspaces (pdfvw) open too.</li>
+      <li>Unsaved changes are asked about before a tab or the window closes.</li>
+    </ul>
+
+    <h2 id="gallery">14. Opened files</h2>
+    <p>Open it with the <b>Opened files</b> button. Every book you open collects here with its first page (or cover) and name.</p>
+    <figure><img src="images/gallery.png" alt="Opened files"><figcaption>Tiles — size slider, ☆ add to library, ✕ take off the list, <b>🗑 Clear all</b> at the top right</figcaption></figure>
+    <figure><img src="images/gallery-details.png" alt="Details"><figcaption>Details — name, folder, size and dates; click a heading to sort</figcaption></figure>
+    <ul>
+      <li><b>🗑 Clear all</b> empties the list at once. <b>Books in your library stay</b>, and no file is deleted.</li>
+      <li>Search, all / library only, and sort by last opened, name, added or size.</li>
+    </ul>
+
+    <h2 id="library">15. Library</h2>
+    <p><b>Add to library</b> (☆ on a card, the right-click menu, or ☆ on a recent file in File ▾) and the toolbar's <b>Library</b> button shows your books like shelves.</p>
+    <figure><img src="images/library.png" alt="Library"><figcaption>Shelves — a cover (first page) for every format, size slider, sort, search, <b>🗑 Clear all</b>, add files</figcaption></figure>
+    <div class="grid2">
+      <figure><img src="images/library-covers.png" alt="Covers"><figcaption>Covers</figcaption></figure>
+      <figure><img src="images/library-list.png" alt="List"><figcaption>List</figcaption></figure>
+    </div>
+    <ul>
+      <li>Four views: <b>shelves, covers, list, details</b>. ✕ takes one book off; <b>🗑 Clear all</b> empties the library (files and Opened files stay).</li>
+    </ul>
+
+    <h2 id="panels">16. Left panel</h2>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/history-panel.png" alt="History"><figcaption>History — recent files and edit history</figcaption></figure>
+      <figure class="narrow"><img src="images/library-panel.png" alt="Library panel"><figcaption>Library — count, clear all, ✕ on each book</figcaption></figure>
+    </div>
+    <table>
+      <tr><th>Tab</th><th>Contents</th></tr>
+      <tr><td>Folders</td><td>Drives, folder tree and e-book files</td></tr>
+      <tr><td>Thumbnails · Contents</td><td>Page pictures and the collapsible contents (EPUB, MOBI, FB2 contents; PDF bookmarks)</td></tr>
+      <tr><td>Highlights · Comments · Bookmarks · Search · Images · Attachments · Clips</td><td>Each list, and going to the place</td></tr>
+      <tr><td>Library · History</td><td>Library books, recent files and edit history — remove one or all</td></tr>
+    </table>
+
+    <h2 id="print">17. Printing</h2>
+    <figure><img src="images/print.png" alt="Print"><figcaption>Range, printer, copies, orientation and preview</figcaption></figure>
+    <p>In the narrow column on the left choose all, the current page or a custom range (<code>1-5, 8, 11-13</code>), the printer, copies and orientation; check the pages in the wide preview on the right and press <b>[Print]</b> to print straight away. An EPUB prints with the pages it was laid out into.</p>
+
+    <h2 id="settings">18. Settings</h2>
+    <div class="grid2">
+      <figure><img src="images/settings-view.png" alt="Viewer settings"><figcaption>Settings → Viewer — zoom, layout, page-turn effect</figcaption></figure>
+      <figure><img src="images/settings-start.png" alt="Start screen settings"><figcaption>Settings → Start screen</figcaption></figure>
+    </div>
+    <ul>
+      <li><b>Appearance</b> — 40 themes, interface font and size. <b>Viewer</b> — zoom, layout, effect. <b>Start screen</b>, <b>Copying</b>, <b>Files</b>.</li>
+      <li>The book's text size is set with <b>aA</b> in the toolbar (section 7).</li>
+    </ul>
+
+    <h2 id="keys">19. Shortcuts</h2>
+    <table>
+      <tr><th>Key</th><th>Action</th><th>Key</th><th>Action</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open</td><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save (into the PDF / to a workspace)</td></tr>
+      <tr><td><kbd>PageDown</kbd> <kbd>→</kbd></td><td>Next page</td><td><kbd>PageUp</kbd> <kbd>←</kbd></td><td>Previous page</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></td><td>Text / image / area / read</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>Undo / redo</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copy selection</td><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Select the page</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Search</td><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd></td><td>Zoom in / out / actual size</td><td><kbd>F9</kbd> · <kbd>F8</kbd></td><td>Left panel · document info</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd> · <kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td>Close tab · next tab</td><td><kbd>F1</kbd></td><td>This guide</td></tr>
+    </table>
+
+    <h2 id="install">20. Install and data</h2>
+    <ul>
+      <li>Installers are built with <code>npm run build:win</code> (macOS <code>build:mac</code>, Linux <code>build:linux</code>).</li>
+      <li>The installer asks about shortcuts and <b>Set as the default reader for e-books</b>. An earlier Electron build (MyEbooks) is removed first, and you are asked whether to keep its settings.</li>
+      <li>Settings, recent files, opened files and the library are kept in <code>%APPDATA%\MyEBookReader\settings.json</code>.</li>
+    </ul>
+    <div class="tip">If something goes wrong, <b>Copy error details</b> in the error window copies everything at once.</div>
+
+    <footer>MyEBookReader 1.0.2 · © SHKWON (knix008@naver.com) · MIT License</footer>
+  </main>
+</div>
+</body>
+</html>

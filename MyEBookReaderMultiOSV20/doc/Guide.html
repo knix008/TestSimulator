@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyEBookReader 프로그램 설명서</title>
+<style>
+  :root {
+    --bg: #f6f4f2; --panel: #ffffff; --text: #221d1b; --dim: #5d5551; --muted: #8b817c;
+    --border: #e2ddd9; --accent: #c33a32; --accent-soft: #fbe9e7; --code: #f1eeeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14100f; --panel: #1e1918; --text: #efe8e5; --dim: #b3a8a4; --muted: #857a76;
+      --border: #38302e; --accent: #e0574d; --accent-soft: #3a1f1c; --code: #282221;
+    }
+  }
+  /* Every size is in rem: the text-size buttons in the top bar change the root size. */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    font-size: 0.95rem; line-height: 1.7;
+  }
+  .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow: auto; padding: 1.2rem 1rem;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li a {
+    display: block; padding: 0.3rem 0.6rem; border-radius: 0.45rem; color: var(--dim); text-decoration: none; font-size: 0.85rem;
+  }
+  nav li a:hover { background: var(--accent-soft); color: var(--text); }
+  main { max-width: 64rem; padding: 2rem 2.75rem 5rem; }
+  header.hero {
+    display: flex; gap: 1.25rem; align-items: center; padding: 1.4rem 1.5rem; margin-bottom: 1.9rem;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 1rem;
+  }
+  header.hero img { width: 4.5rem; height: 4.5rem; }
+  header.hero h1 { margin: 0; font-size: 1.75rem; }
+  header.hero p { margin: 0.25rem 0 0; color: var(--dim); }
+  h2 { margin: 2.9rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-size: 1.4rem; }
+  h3 { margin: 1.6rem 0 0.4rem; font-size: 1.08rem; }
+  ul, ol.steps { padding-left: 1.4rem; }
+  li + li { margin-top: 0.2rem; }
+  figure { margin: 1.1rem 0 1.4rem; }
+  figure img {
+    display: block; max-width: 100%; height: auto; border-radius: 0.6rem;
+    border: 1px solid var(--border); box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  }
+  figure.narrow img { max-width: 26rem; }
+  figure.strip img { box-shadow: none; }
+  figcaption { margin-top: 0.5rem; font-size: 0.82rem; color: var(--muted); text-align: center; }
+  kbd {
+    display: inline-block; padding: 0 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border);
+    border-bottom-width: 2px; background: var(--code); font: 0.8rem/1.6 Consolas, monospace;
+  }
+  code { padding: 0.05rem 0.3rem; border-radius: 0.25rem; background: var(--code); font: 0.82rem Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1.25rem; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); }
+  .tip {
+    margin: 0.9rem 0; padding: 0.75rem 1rem; border-radius: 0.6rem; background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+  footer { margin-top: 3.75rem; color: var(--muted); font-size: 0.82rem; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 1.5rem 1.1rem 4rem; }
+    .grid2, .grid4 { grid-template-columns: 1fr; }
+  }
+</style>
+<script src="theme.js"></script>
+<script src="guide.js"></script>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <ol>
+      <li><a href="#intro">1. 소개</a></li>
+      <li><a href="#screen">2. 화면 구성</a></li>
+      <li><a href="#start">3. 시작 화면</a></li>
+      <li><a href="#open">4. 책 열기</a></li>
+      <li><a href="#formats">5. 읽을 수 있는 형식</a></li>
+      <li><a href="#turn">6. 페이지 넘김 효과</a></li>
+      <li><a href="#font">7. 글자 크기 (aA)</a></li>
+      <li><a href="#view">8. 보기 맞춤과 확대</a></li>
+      <li><a href="#text">9. 텍스트 선택과 복사</a></li>
+      <li><a href="#image">10. 그림 · 영역 복사</a></li>
+      <li><a href="#highlight">11. 형광펜</a></li>
+      <li><a href="#search">12. 찾기</a></li>
+      <li><a href="#save">13. 저장</a></li>
+      <li><a href="#gallery">14. 열어 본 파일</a></li>
+      <li><a href="#library">15. 서재</a></li>
+      <li><a href="#panels">16. 좌측 패널</a></li>
+      <li><a href="#print">17. 인쇄</a></li>
+      <li><a href="#settings">18. 설정</a></li>
+      <li><a href="#keys">19. 단축키</a></li>
+      <li><a href="#install">20. 설치와 데이터</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <img src="images/icon.svg" alt="">
+      <div>
+        <h1>MyEBookReader 프로그램 설명서</h1>
+        <p>PDF · EPUB · MOBI · AZW3 · DjVu · FB2 · CBZ 를 페이지 넘김 효과와 함께 읽고, 형광펜을 칠하고, 글자와 그림을 꺼내 쓰는 리더 — 버전 1.0.2 · Windows · macOS · Linux · 웹 브라우저</p>
+      </div>
+    </header>
+
+    <div class="tip">이 설명서는 프로그램과 따로 떨어진 창으로 열립니다 (<kbd>F1</kbd> 또는 제목 표시줄의 <b>도움말</b>). 맨 위 막대의 <b>aA [−] [+]</b> 로 설명서 글자 크기를, <b>한국어 / English</b> 버튼으로 언어를 바꿀 수 있습니다.</div>
+
+    <h2 id="intro">1. 소개</h2>
+    <p>MyEBookReader는 <b>PDF · EPUB · MOBI · AZW/AZW3(Kindle) · DjVu · FB2 · CBZ · TXT · Markdown · HTML</b> 등 여러 형식의 전자책을 한 프로그램에서 읽는 리더입니다.
+      어떤 형식이든 한 쪽씩 · 두 쪽씩 넘겨 읽으며 <b>같은 페이지 넘김 효과</b>가 적용되고, 형광펜 · 책갈피 · 텍스트와 그림 복사 · 찾기 · 인쇄가 PDF와 똑같이 동작합니다.</p>
+    <ul>
+      <li>EPUB · MOBI 같은 <b>흐르는 글</b>은 열 때 쪽으로 나누고, 툴바의 <b>aA</b> 로 글자 크기를 바꿀 수 있습니다.</li>
+      <li>열어 본 책은 <b>열어 본 파일</b>에 저절로 모이고, 아끼는 책은 <b>서재</b>에 꽂아 책장처럼 봅니다.</li>
+      <li>PDF의 형광펜은 파일 안에, 다른 형식의 형광펜은 작업 파일(<code>.ebkvw</code>)에 저장됩니다.</li>
+    </ul>
+
+    <h2 id="screen">2. 화면 구성</h2>
+    <h3>제목 표시줄</h3>
+    <figure class="strip"><img src="images/titlebar.png" alt="제목 표시줄"><figcaption>제목 표시줄 — 왼쪽에 홈 · 파일, 가운데 책 이름, 오른쪽에 테마 · 언어 · 도움말 · 설정 · 프로그램 정보와 창 버튼</figcaption></figure>
+    <p>프로그램 전체에 관한 버튼은 맨 위 <b>제목 표시줄</b>에 있습니다. 툴바에는 지금 읽는 책을 다루는 버튼만 남겼습니다.</p>
+    <table>
+      <tr><th>버튼</th><th>하는 일</th></tr>
+      <tr><td>홈</td><td>켜고 끄는 버튼 — 누르면 시작 화면, 다시 누르면 읽던 화면으로 돌아갑니다.</td></tr>
+      <tr><td>파일 ▾</td><td>열기 (<kbd>Ctrl</kbd>+<kbd>O</kbd>) · URL 열기 · 저장 · 다른 이름으로 저장 · 파일 첨부 · 작업 파일 저장 · 텍스트 내보내기 · 인쇄, 그리고 최근 파일 목록 (☆ 서재에 추가, 휴지통으로 하나씩 · <b>전체 지우기</b>).</td></tr>
+      <tr><td>테마</td><td>누를 때마다 다음 테마로 바뀝니다. 오른쪽 ▾ 의 목록은 맨 위에 <b>사용자 정의</b> 테마와 <b>설정</b> 버튼(사용자 정의 테마 만들기), 그 아래 <b>Dark 20가지</b>, 다시 그 아래 <b>Light 20가지</b>를 두 줄로 보여 줍니다.</td></tr>
+      <tr><td>언어 (국기)</td><td>한국어 ↔ English. 국기는 바꿀 언어를 보여 줍니다.</td></tr>
+      <tr><td>도움말 · 설정 · 프로그램 정보</td><td>이 설명서, 설정 창, 버전과 만든 이 정보.</td></tr>
+    </table>
+    <h3>툴바</h3>
+    <figure class="strip"><img src="images/toolbar.png" alt="툴바"><figcaption>툴바 — 선택 도구 · 복사 · 실행 취소 · 쪽 이동 · 페이지 배치 · 넘김 효과 · 확대 · <b>aA 글자 크기</b> · 보기 맞춤 · 회전, 오른쪽에 열어 본 파일 · 서재 · 사이드바 · 문서 정보</figcaption></figure>
+    <figure><img src="images/viewer.png" alt="책을 연 화면"><figcaption>EPUB을 연 화면 — 왼쪽 패널(목차), 탭, 가운데 쪽, 양옆의 이전 · 다음 쪽 버튼</figcaption></figure>
+
+    <h2 id="start">3. 시작 화면</h2>
+    <p>프로그램을 켜면 시작 화면이 나옵니다. 제목 표시줄의 <b>홈</b> 버튼으로 언제든 다시 엽니다.</p>
+    <figure><img src="images/start.png" alt="시작 화면"><figcaption>시작 화면 — 시작하기 · 최근 연 파일, 내 서재, 시작 화면 배경</figcaption></figure>
+    <ul>
+      <li><b>시작하기</b> — 열기, URL 열기, 열어 본 파일.</li>
+      <li><b>최근 연 파일</b> — 각 줄의 ✕ 로 하나씩, 제목 오른쪽 <b>🗑 전체 삭제</b> 로 목록 전체를 지웁니다. 파일 자체는 지워지지 않습니다.</li>
+      <li><b>내 서재</b> — 서재에 넣은 책이 표지로 보입니다. <b>🗑 전체 삭제</b> 로 서재를 비우고, <b>크게 보기</b> 로 서재 화면을 엽니다.</li>
+      <li>위쪽 카드의 <b>[프로그램 설명]</b> 은 이 설명서를, <b>[서재로 크게 보기]</b> 는 서재를 엽니다.</li>
+      <li><b>패널 옮기기 · 크기 바꾸기</b> — 각 패널 제목 맨 앞의 <b>⠿</b> 손잡이(제목 카드는 왼쪽 위)를 끌면 패널이 옮겨지고, 오른쪽 아래 모서리를 끌면 크기가 바뀝니다. 바꾼 배치는 기억됩니다.</li>
+      <li><b>자동 정렬</b> — 시작 화면 오른쪽 위의 <b>⊞ 자동 정렬</b> 을 누르면 패널이 처음 배치로 돌아갑니다.</li>
+      <li><b>홈</b> 버튼은 켜고 끄는 방식입니다 — 눌러진 동안 시작 화면을 보여 주고, 다시 누르면 책을 읽던 화면(책이 없으면 빈 화면)으로 돌아갑니다.</li>
+      <li>최근 연 파일과 서재의 책에서 오른쪽 클릭하면 열기 · 서재에 추가 / 빼기 · 최근 기록에서 지우기 · 폴더에서 보기 · 경로 복사 메뉴가 나옵니다.</li>
+    </ul>
+    <div class="grid2">
+      <figure><img src="images/start-background.png" alt="시작 화면 배경"><figcaption>21가지 움직이는 배경과 투명도 · 속도 · 자동 변경</figcaption></figure>
+      <div>
+        <p>책 구름 · 낱장 · 별빛 · 글자 비 · 은하 · 오로라 · 잉크 등 읽기와 책을 주제로 한 21가지 3D 배경 가운데 하나를 고릅니다.</p>
+        <ul>
+          <li><b>무작위 배경</b> · <b>투명도</b>(10–100 %) · <b>움직임 속도</b>(10–300 %)</li>
+          <li><b>자동 변경</b> — 15초 ~ 5분마다 배경을 바꾸고, <b>무작위 순서</b> 를 켜면 순서 없이 바뀝니다.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="open">4. 책 열기</h2>
+    <ul>
+      <li><b>파일 ▾ → 열기</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>) — 열기 창의 형식 목록에서 <i>책과 작업 파일 · PDF · EPUB · Kindle · DjVu · FictionBook · 만화 · 글 · 그림</i> 가운데 고를 수 있습니다. 여러 개를 고르면 탭으로 열립니다.</li>
+      <li><b>끌어 놓기</b> — 탐색기에서 책 파일을 창으로 끌어 옵니다.</li>
+      <li><b>URL 열기</b> — 인터넷 주소의 책을 내려받아 엽니다.</li>
+      <li><b>폴더 패널</b> — 왼쪽 패널의 폴더 탭은 PDF · EPUB · MOBI · AZW · AZW3 · DjVu · FB2 · CBZ 파일을 보여 줍니다.</li>
+      <li>설치할 때 <b>전자책의 기본 리더로 설정</b>을 고르면 EPUB · MOBI · AZW3 · DjVu · FB2 · CBZ 를 두 번 눌러 엽니다. PDF는 [연결 프로그램] 목록에만 추가됩니다.</li>
+    </ul>
+    <div class="tip">EPUB · MOBI 같은 흐르는 글은 여는 순간 쪽으로 나눕니다. 수백 쪽짜리 책도 보통 1~4초면 열리고, 그동안 <b>[페이지를 나누는 중]</b> 창이 보입니다.</div>
+
+    <h2 id="formats">5. 읽을 수 있는 형식</h2>
+    <table>
+      <tr><th>형식</th><th>확장자</th><th>참고</th></tr>
+      <tr><td>PDF</td><td><code>.pdf</code></td><td>형광펜 · 주석을 파일 안에 저장할 수 있습니다.</td></tr>
+      <tr><td>EPUB 2 / 3</td><td><code>.epub</code></td><td>목차, 표지, 그림, 장 사이 링크.</td></tr>
+      <tr><td>Kindle</td><td><code>.mobi</code> <code>.azw</code> <code>.azw3</code> <code>.kf8</code> <code>.prc</code></td><td>MOBI 6 · KF8 · 둘을 함께 담은 파일, HUFF/CDIC 압축. DRM 이 걸린 파일과 KFX 는 열 수 없다고 알려 줍니다.</td></tr>
+      <tr><td>DjVu</td><td><code>.djvu</code> <code>.djv</code></td><td>스캔한 쪽 그림. OCR 글자 층이 있으면 선택 · 찾기 가능.</td></tr>
+      <tr><td>FictionBook</td><td><code>.fb2</code> <code>.fb2.zip</code></td><td>시 · 제사(epigraph) · 그림 포함.</td></tr>
+      <tr><td>만화</td><td><code>.cbz</code></td><td>그림 하나가 한 쪽. RAR 만화(<code>.cbr</code>)는 ZIP으로 바꾸어 여세요.</td></tr>
+      <tr><td>글</td><td><code>.txt</code> <code>.md</code> <code>.html</code></td><td>제목으로 장을 나눕니다.</td></tr>
+      <tr><td>그림</td><td><code>.png</code> <code>.jpg</code> <code>.gif</code> <code>.webp</code> <code>.bmp</code> <code>.tif</code></td><td>한 장짜리 책.</td></tr>
+    </table>
+    <p>확장자가 틀려도(예: EPUB인데 <code>.txt</code>) 파일 내용을 보고 알맞게 엽니다. 책에 들어 있던 글꼴 · 색 · 여백 서식은 쓰지 않고 읽기 좋은 본문 서식으로 보여 줍니다.</p>
+    <div class="grid4">
+      <figure><img src="images/format-azw3.png" alt="AZW3"><figcaption>Kindle AZW3</figcaption></figure>
+      <figure><img src="images/format-fb2.png" alt="FB2"><figcaption>FictionBook</figcaption></figure>
+      <figure><img src="images/format-djvu.png" alt="DjVu"><figcaption>DjVu 스캔</figcaption></figure>
+      <figure><img src="images/format-cbz.png" alt="CBZ"><figcaption>만화 CBZ</figcaption></figure>
+    </div>
+
+    <h2 id="turn">6. 페이지 넘김 효과</h2>
+    <p>툴바의 페이지 배치를 <b>한 페이지씩</b> 또는 <b>두 쪽 보기</b>로 두면, 쪽을 넘길 때 고른 효과가 <b>모든 형식에 똑같이</b> 적용됩니다 (이어보기에서는 스크롤합니다).
+      넘김 효과 버튼을 누를 때마다 <b>없음 → 페이드 → 밀기 → 넘기기</b> 순서로 바뀌고, ▾ 로 목록에서 고를 수도 있습니다.</p>
+    <div class="grid2">
+      <figure><img src="images/turn-flip.png" alt="넘기기 효과"><figcaption>넘기기 — 넘어가는 쪽(앞 쪽)이 종이처럼 접히고, 그 아래 다음 쪽이 이미 그려져 있습니다</figcaption></figure>
+      <figure><img src="images/turn-slide.png" alt="밀기 효과"><figcaption>밀기 — 앞 쪽이 옆으로 밀려나며 다음 쪽이 들어옵니다</figcaption></figure>
+    </div>
+    <ul>
+      <li>넘기는 방법 — 쪽 양옆의 <b>‹ ›</b> 버튼, <kbd>PageUp</kbd> / <kbd>PageDown</kbd>, <kbd>←</kbd> / <kbd>→</kbd>, 마우스 휠, 툴바의 쪽 번호.</li>
+      <li>넘기는 동안 다음 쪽은 미리 그려 두므로, 빠르게 연달아 넘겨도 빈 쪽이 보이지 않습니다.</li>
+      <li>Windows의 "애니메이션 줄이기"를 켜 두면 효과 없이 바로 넘어갑니다.</li>
+    </ul>
+
+    <h2 id="font">7. 글자 크기 (aA)</h2>
+    <figure class="strip narrow"><img src="images/font-size-control.png" alt="글자 크기 버튼"><figcaption>aA · 작게 · 지금 크기 · 크게</figcaption></figure>
+    <p>EPUB · MOBI · AZW3 · FB2 · TXT · Markdown · HTML 처럼 <b>흐르는 글</b>을 열면 툴바에 <b>aA [−] 18px [+]</b> 가 나타납니다.</p>
+    <ul>
+      <li>[−] · [+] 를 누를 때마다 2px 씩 바뀝니다 (10 ~ 40px). 고른 크기는 기억되어 다음 책에도 쓰입니다.</li>
+      <li>쪽을 다시 나누어도 <b>읽던 장과 그 장 안의 위치에 그대로</b> 머뭅니다. 전체 쪽 수만 달라집니다.</li>
+      <li>글자가 쪽에 그려져 있는 <b>PDF · DjVu · 만화 · 그림</b>에서는 이 버튼이 보이지 않습니다. 대신 확대 · 축소를 쓰세요.</li>
+    </ul>
+    <figure><img src="images/font-large.png" alt="큰 글자"><figcaption>글자 크기 24px — 같은 장이 더 많은 쪽으로 나뉩니다</figcaption></figure>
+    <div class="tip">형광펜은 쪽 위의 위치로 저장됩니다. 형광펜을 칠한 책은 같은 글자 크기로 읽으세요. 크기를 바꾸면 칠한 자리가 글자와 어긋날 수 있습니다.</div>
+
+    <h2 id="view">8. 보기 맞춤과 확대</h2>
+    <table>
+      <tr><th>버튼</th><th>보이는 모양</th></tr>
+      <tr><td>화면 맞춤</td><td>쪽 전체가 창 안에 들어옵니다. 책을 열 때 항상 이 모양입니다.</td></tr>
+      <tr><td>원본 크기</td><td>100 % (<kbd>Ctrl</kbd>+<kbd>0</kbd>).</td></tr>
+      <tr><td>폭 맞춤 · 높이 맞춤</td><td>쪽의 폭 · 높이를 창에 맞춥니다.</td></tr>
+    </table>
+    <p>확대 · 축소는 툴바, <kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd>, <kbd>Ctrl</kbd>+휠. 크게 확대된 쪽은 빈 곳을 끌어 옮깁니다. 페이지 배치는 <b>한 페이지씩 · 이어보기 · 두 쪽 보기</b> 가운데 고르고, 90° 회전도 됩니다.</p>
+
+    <h2 id="text">9. 텍스트 선택과 복사</h2>
+    <p><b>텍스트 도구</b>(<kbd>Ctrl</kbd>+<kbd>1</kbd>)로 글자를 끌어 선택하면 PDF와 똑같이 선택 영역이 보이고, <kbd>Ctrl</kbd>+<kbd>C</kbd> 또는 오른쪽 클릭 메뉴로 복사합니다. 여러 줄도 읽는 순서대로 복사됩니다.</p>
+    <div class="grid2">
+      <figure><img src="images/selection.png" alt="텍스트 선택"><figcaption>EPUB 본문을 끌어 선택한 모습</figcaption></figure>
+      <figure class="narrow"><img src="images/context-menu.png" alt="오른쪽 클릭 메뉴"><figcaption>오른쪽 클릭 메뉴 — 복사 · 형광펜 · 코멘트 · 도구 · 서재에 추가 · 이동 · 확대</figcaption></figure>
+    </div>
+    <ul>
+      <li>모든 오른쪽 클릭 메뉴의 항목에는 아이콘이 붙어 있습니다. 문서 탭(이 탭 닫기 · 다른 탭 모두 닫기 · 서재 · 폴더에서 보기 · 경로 복사)과 검색 칸 같은 <b>글자 입력 칸</b>(잘라내기 · 복사 · 붙여넣기 · 모두 선택)에도 메뉴가 있습니다.</li>
+      <li><kbd>Ctrl</kbd>+<kbd>A</kbd> — 이 쪽 전체 선택, <b>이 페이지 텍스트 복사</b>, <b>파일 ▾ → 텍스트 내보내기</b>(책 전체를 <code>.txt</code>로).</li>
+    </ul>
+
+    <h2 id="image">10. 그림 · 영역 복사</h2>
+    <div class="grid2">
+      <figure><img src="images/image-tool.png" alt="이미지 도구"><figcaption>이미지 도구 — 그림에 테두리가 생기고, 눌러 고른 뒤 오른쪽 클릭으로 복사 · 저장 · 클립 보관</figcaption></figure>
+      <figure><img src="images/region.png" alt="영역 캡처"><figcaption>영역 도구 — 사각형으로 끈 부분을 그림으로 복사 · 저장</figcaption></figure>
+    </div>
+    <ul>
+      <li><b>이미지 도구</b>(<kbd>Ctrl</kbd>+<kbd>2</kbd>) — 책 속 그림을 원본 해상도로 꺼냅니다. 만화 · DjVu 는 쪽 전체가 그림 하나입니다.</li>
+      <li><b>영역 도구</b>(<kbd>Ctrl</kbd>+<kbd>3</kbd>) — 표 · 수식 · 본문 어디든 사각형으로 잘라 PNG · JPEG · WebP · GIF · BMP 로 저장합니다.</li>
+      <li><b>읽기 모드</b>(<kbd>Ctrl</kbd>+<kbd>4</kbd>) — 아무것도 선택하지 않고 읽기만 합니다.</li>
+    </ul>
+
+    <h2 id="highlight">11. 형광펜</h2>
+    <ol class="steps">
+      <li>텍스트 도구로 칠할 글자를 끌어 선택합니다.</li>
+      <li>오른쪽 클릭 메뉴나 복사 버튼 옆 ▾ 메뉴에서 <b>형광펜 칠하기</b>.</li>
+      <li><kbd>Ctrl</kbd>+<kbd>S</kbd> 로 저장합니다 — PDF는 파일 안에, 다른 형식은 작업 파일(<code>.ebkvw</code>)에.</li>
+    </ol>
+    <figure><img src="images/highlights.png" alt="형광펜"><figcaption>EPUB에 칠한 형광펜과 좌측 패널의 형광펜 목록 (누르면 그 자리로, ✕ 로 하나, 휴지통으로 모두 지우기)</figcaption></figure>
+
+    <h2 id="search">12. 찾기</h2>
+    <p><kbd>Ctrl</kbd>+<kbd>F</kbd> 로 왼쪽 찾기 패널을 열고 낱말을 입력합니다. 결과를 누르면 그 쪽으로 넘어가고 <b>쪽 위의 낱말이 강조</b>됩니다. EPUB · MOBI · FB2 · TXT 와 OCR 글자가 있는 DjVu 모두 찾을 수 있습니다.</p>
+    <figure><img src="images/search.png" alt="찾기"><figcaption>찾기 결과 목록과 쪽 위의 강조 표시</figcaption></figure>
+
+    <h2 id="save">13. 저장</h2>
+    <ul>
+      <li><b>저장</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) — PDF는 형광펜 · 주석 · 책갈피 · 첨부를 열린 PDF 파일에 바로 씁니다. EPUB · MOBI 등은 책 파일을 고치지 않고 <b>작업 파일(<code>.ebkvw</code>)</b> 로 저장합니다.</li>
+      <li><b>다른 이름으로 저장</b> — PDF는 <code>문서이름-annotated.pdf</code> 로, 다른 형식은 새 작업 파일로.</li>
+      <li><b>작업 파일</b> — 원본 책 경로, 보던 쪽과 보기, 형광펜 · 책갈피 · 클립 · 첨부를 담습니다. 두 번 누르면 책이 열리며 그대로 복원됩니다. MyPDFViewer의 작업 파일(pdfvw)도 열립니다.</li>
+      <li>저장하지 않은 변경이 있으면 탭이나 창을 닫기 전에 묻습니다.</li>
+    </ul>
+
+    <h2 id="gallery">14. 열어 본 파일</h2>
+    <p>툴바의 <b>열어 본 파일</b> 버튼으로 엽니다. 열어 본 책이 저절로 쌓여 첫 쪽(또는 표지) 그림과 이름으로 모입니다.</p>
+    <figure><img src="images/gallery.png" alt="열어 본 파일"><figcaption>타일 보기 — 크기 슬라이더, ☆ 서재에 추가, ✕ 목록에서 빼기, 오른쪽 위 <b>🗑 전체 삭제</b></figcaption></figure>
+    <figure><img src="images/gallery-details.png" alt="자세히 보기"><figcaption>자세히 보기 — 이름 · 폴더 · 크기 · 날짜, 머리글로 정렬</figcaption></figure>
+    <ul>
+      <li><b>🗑 전체 삭제</b> — 목록을 한 번에 비웁니다. <b>서재에 넣은 책은 남고</b>, 파일 자체는 지워지지 않습니다.</li>
+      <li>찾기, 전체 / 서재 보기, 최근 연 순 · 이름 · 추가한 순 · 크기 정렬.</li>
+    </ul>
+
+    <h2 id="library">15. 서재</h2>
+    <p>아끼는 책을 <b>서재에 추가</b>(카드의 ☆, 오른쪽 클릭 메뉴, 파일 ▾ 의 최근 파일 ☆)하면 툴바의 <b>서재</b> 버튼으로 책장처럼 크게 봅니다.</p>
+    <figure><img src="images/library.png" alt="서재"><figcaption>책장 보기 — 형식마다 표지(첫 쪽) 그림, 크기 슬라이더, 정렬, 찾기, <b>🗑 전체 삭제</b>, 파일 추가</figcaption></figure>
+    <div class="grid2">
+      <figure><img src="images/library-covers.png" alt="표지 보기"><figcaption>표지 보기</figcaption></figure>
+      <figure><img src="images/library-list.png" alt="목록 보기"><figcaption>목록 보기</figcaption></figure>
+    </div>
+    <ul>
+      <li><b>책장 · 표지 · 목록 · 자세히</b> 네 가지 보기. 책마다 ✕ 로 빼고, <b>🗑 전체 삭제</b> 로 서재를 비웁니다 (파일과 [열어 본 파일] 목록은 그대로).</li>
+    </ul>
+
+    <h2 id="panels">16. 좌측 패널</h2>
+    <div class="grid2">
+      <figure class="narrow"><img src="images/history-panel.png" alt="기록 패널"><figcaption>기록 — 최근 연 파일과 편집 기록</figcaption></figure>
+      <figure class="narrow"><img src="images/library-panel.png" alt="서재 패널"><figcaption>서재 — 권수, 전체 삭제, 항목마다 ✕</figcaption></figure>
+    </div>
+    <table>
+      <tr><th>탭</th><th>내용</th></tr>
+      <tr><td>폴더</td><td>드라이브와 폴더 트리, 전자책 파일</td></tr>
+      <tr><td>축소판 · 목차</td><td>쪽 그림과 접히는 목차 (EPUB · MOBI · FB2 의 목차, PDF 책갈피)</td></tr>
+      <tr><td>형광펜 · 주석 · 책갈피 · 찾기 · 이미지 · 첨부 · 클립</td><td>각 목록과 그 자리로 이동</td></tr>
+      <tr><td>서재 · 기록</td><td>서재의 책, 최근 연 파일과 편집 기록 — 개별 · 전체 삭제</td></tr>
+    </table>
+
+    <h2 id="print">17. 인쇄</h2>
+    <figure><img src="images/print.png" alt="인쇄 창"><figcaption>인쇄 범위 · 프린터 · 매수 · 용지 방향과 미리보기</figcaption></figure>
+    <p>왼쪽 좁은 칸에서 전체 · 현재 쪽 · 사용자 지정(<code>1-5, 8, 11-13</code>) 범위와 프린터 · 매수 · 용지 방향을 고르고, 오른쪽 넓은 칸의 미리보기로 쪽을 확인한 뒤 <b>[인쇄]</b> 를 누르면 바로 인쇄됩니다. EPUB 등은 나누어진 쪽 그대로 인쇄됩니다.</p>
+
+    <h2 id="settings">18. 설정</h2>
+    <div class="grid2">
+      <figure><img src="images/settings-view.png" alt="설정 보기"><figcaption>설정 → 보기 — 확대 방식, 페이지 배치, 넘김 효과</figcaption></figure>
+      <figure><img src="images/settings-start.png" alt="설정 시작 화면"><figcaption>설정 → 시작 화면</figcaption></figure>
+    </div>
+    <ul>
+      <li><b>모양</b> — 테마 40가지, 화면 글꼴과 크기. <b>보기</b> — 확대 · 배치 · 넘김 효과. <b>시작 화면</b> · <b>복사</b> · <b>파일</b>.</li>
+      <li>책 본문 글자 크기는 툴바의 <b>aA</b> 로 바꿉니다 (7장).</li>
+    </ul>
+
+    <h2 id="keys">19. 단축키</h2>
+    <table>
+      <tr><th>키</th><th>동작</th><th>키</th><th>동작</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>열기</td><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>저장 (PDF 안에 / 작업 파일로)</td></tr>
+      <tr><td><kbd>PageDown</kbd> <kbd>→</kbd></td><td>다음 쪽</td><td><kbd>PageUp</kbd> <kbd>←</kbd></td><td>이전 쪽</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></td><td>텍스트 / 이미지 / 영역 / 읽기</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td><td>실행 취소 / 다시 실행</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>선택 복사</td><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>쪽 전체 선택</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>찾기</td><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>인쇄</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd> / <kbd>-</kbd> / <kbd>0</kbd></td><td>확대 / 축소 / 원본 크기</td><td><kbd>F9</kbd> · <kbd>F8</kbd></td><td>좌측 패널 · 문서 정보</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd> · <kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td>탭 닫기 · 다음 탭</td><td><kbd>F1</kbd></td><td>이 설명서</td></tr>
+    </table>
+
+    <h2 id="install">20. 설치와 데이터</h2>
+    <ul>
+      <li>설치 파일은 <code>npm run build:win</code> (macOS <code>build:mac</code>, Linux <code>build:linux</code>) 으로 만듭니다.</li>
+      <li>설치 화면에서 바로 가기와 <b>전자책의 기본 리더로 설정</b>을 고릅니다. 예전 Electron 판(MyEbooks)이 있으면 먼저 지우고, 남은 설정을 지울지 묻습니다.</li>
+      <li>설정 · 최근 파일 · 열어 본 파일 · 서재는 <code>%APPDATA%\MyEBookReader\settings.json</code> 에 저장됩니다.</li>
+    </ul>
+    <div class="tip">문제가 생기면 오류 창의 <b>오류 내용 복사</b> 로 전체 내용을 한 번에 복사해 전달하세요.</div>
+
+    <footer>MyEBookReader 1.0.2 · © SHKWON (knix008@naver.com) · MIT License</footer>
+  </main>
+</div>
+</body>
+</html>

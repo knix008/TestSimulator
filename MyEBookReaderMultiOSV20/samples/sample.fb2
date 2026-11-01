@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>sf</genre>
+      <author><first-name>Suho</first-name><last-name>Kwon</last-name></author>
+      <book-title>MyEBookReader FB2 샘플</book-title>
+      <annotation><p>FictionBook 형식을 시험하기 위한 샘플입니다.</p></annotation>
+      <lang>ko</lang>
+      <date>2026</date>
+    </title-info>
+    <publish-info><publisher>TestSimulator</publisher><year>2026</year></publish-info>
+  </description>
+  <body>
+    <section>
+      <title><p>첫 장 — 열기 (Opening)</p></title>
+      <p>MyEBookReader 는 EPUB·PDF·MOBI·FB2·CBZ·Markdown·HTML·텍스트를 한 프로그램에서 읽습니다.</p>
+      <p>This sample book exists so the reader can be exercised end to end: a table of contents, several chapters, an image, an internal link and text long enough to paginate.</p>
+      <p>왼쪽 패널에서 목차를, 오른쪽 패널에서 책 정보와 읽기 설정을 볼 수 있습니다.</p>
+    </section>
+    <section>
+      <title><p>둘째 장 — 표시 (Marks)</p></title>
+      <p>글을 선택하고 형광펜 버튼을 누르면 그 부분이 칠해지고, 오른쪽 패널의 목록에 남습니다.</p>
+      <p>Bookmarks, highlights and notes are kept in a reading file (.ebkr) next to the book, so the book itself is never rewritten.</p>
+    </section>
+    <section>
+      <title><p>셋째 장 — 그림과 인쇄 (Pictures and printing)</p></title>
+      <p>그림은 책 안에 들어 있는 자원을 그대로 보여 줍니다.</p>
+      <p>Printing offers everything, this chapter, or a range you type, with a preview that uses the paper size and margins you chose.</p>
+      <p>단락 1. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 1 of filler text so that pagination has something to do.</p>
+      <p>단락 2. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 2 of filler text so that pagination has something to do.</p>
+      <p>단락 3. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 3 of filler text so that pagination has something to do.</p>
+      <p>단락 4. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 4 of filler text so that pagination has something to do.</p>
+      <p>단락 5. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 5 of filler text so that pagination has something to do.</p>
+      <p>단락 6. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 6 of filler text so that pagination has something to do.</p>
+      <p>단락 7. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 7 of filler text so that pagination has something to do.</p>
+      <p>단락 8. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 8 of filler text so that pagination has something to do.</p>
+      <p>단락 9. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 9 of filler text so that pagination has something to do.</p>
+      <p>단락 10. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 10 of filler text so that pagination has something to do.</p>
+      <p>단락 11. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 11 of filler text so that pagination has something to do.</p>
+      <p>단락 12. 페이지 넘김 방식을 "한 쪽씩 보기"로 바꾸면 이 장이 여러 쪽으로 나뉩니다. Paragraph 12 of filler text so that pagination has something to do.</p>
+    </section>
+  </body>
+</FictionBook>
