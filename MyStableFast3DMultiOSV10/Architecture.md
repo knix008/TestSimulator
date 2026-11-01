@@ -1,0 +1,112 @@
+# MyStableFast3D — 구조
+
+## 한눈에
+
+```
+┌──────────────── 화면 (React + three.js, src/) ────────────────┐
+│ Toolbar · StartScreen · InputPanel · ViewerPane · RightPanel  │
+│ LogPanel · StatusBar · SettingsDialog · AboutDialog           │
+│         │ lib/engine.js (HTTP)        │ window.desktopAPI     │
+└─────────┼─────────────────────────────┼───────────────────────┘
+          │                             │ (데스크톱만)
+          ▼                             ▼
+┌────────────── 엔진 (Python) ───┐  ┌──── Tauri 호스트 (Rust) ────┐
+│ mysf3d.server  HTTP API        │◀─│ engine.rs: uv 받기, venv,   │
+│ mysf3d.installer 자동 설치      │  │   python -m mysf3d 실행/감시 │
+│ mysf3d.models  SF3D · TripoSR  │  │ lib.rs: 창, 파일, 대화상자,  │
+│ mysf3d.pipeline 장치 · 단계     │  │   클립보드, 설정, 팝아웃     │
+│ mysf3d.raster  PyTorch 래스터   │  └─────────────────────────────┘
+└────────────────────────────────┘
+   웹 버전: scripts/engine.mjs 가 엔진을 같은 방법으로 띄움
+```
+
+화면은 웹과 데스크톱이 같은 코드입니다. 차이는 `lib/platform.js` 한 곳(파일 열기 · 저장 · 클립보드 · 설정 저장)과
+엔진 주소를 아는 방법(데스크톱은 호스트가 알려 주고, 웹은 설정의 주소)뿐입니다.
+
+## 엔진
+
+### 시작
+
+데스크톱(`src-tauri/src/engine.rs`)과 웹(`scripts/engine.mjs`)이 같은 순서로 띄웁니다.
+
+1. `<엔진 폴더>/bin/uv` — 없으면 GitHub 릴리스에서 받아 풉니다(Windows zip, 그 밖 tar.gz). uv 0.13.1 고정.
+2. `uv venv --python 3.11 <엔진 폴더>/venv` — uv 가 Python 을 직접 받습니다(`UV_PYTHON_INSTALL_DIR=<엔진>/python`, `only-managed`).
+3. `venv/python -m mysf3d --home <엔진> --port <포트> --uv <uv> --parent-pid <앱 PID>`
+   - 표준 라이브러리만으로 시작해 바로 HTTP 를 엽니다. `MYSF3D_LISTENING <port>` 한 줄로 실행기에 알립니다.
+   - 부모 프로세스가 끝나면 스스로 끝납니다(Windows `WaitForSingleObject`, 그 밖 `kill(pid, 0)` 폴링).
+     **stdin 감시는 쓰지 않습니다**: Windows 에서 파이프를 읽고 있는 스레드가 있으면 다른 스레드의 GetFileType/isatty 가
+     GIL 을 쥔 채 멈춰, PyTorch 를 불러오는 순간 엔진 전체가 굳었습니다.
+   - 종료 코드 75 = 다시 시작해 달라(엔진 다시 설치 후).
+
+엔진 폴더: Windows `%LOCALAPPDATA%\MyStableFast3D\engine`, macOS `~/Library/Application Support/MyStableFast3D/engine`,
+Linux `~/.local/share/MyStableFast3D/engine`. `MYSF3D_ENGINE_HOME` 으로 바꿉니다(시험용). 데스크톱과 웹이 같은 폴더를 씁니다.
+
+### 설치 (`installer.py`)
+
+| 단계 | 내용 |
+| --- | --- |
+| torch | `nvidia-smi` 로 GPU 확인 → `cuda`(cu128 인덱스) · `cpu`(cpu 인덱스) · `default`(PyPI: Apple Silicon, Linux ARM) · `mac-intel`(2.2.2). torch 2.8.0 / torchvision 0.23.0 |
+| packages | SF3D requirements 의 고정 버전(transformers 4.42.3, open_clip 2.24.0, trimesh 4.4.1, numpy 1.26.4, huggingface-hub 0.23.4, rembg 2.0.57 …) |
+| optional | gpytoolbox · pynanoinstantmeshes (실패해도 리메시만 꺼짐) |
+| bgmodel | rembg u2net (`U2NET_HOME=<엔진>/u2net`) |
+| 모델별 source | GitHub 고정 커밋 zip → `<엔진>/models/<id>/src` |
+| 모델별 weights | Hugging Face 캐시에 있으면 그대로(네트워크 없이), 없으면 받기. 받는 동안 바이트 진행률. 약관 동의가 필요한 모델에 토큰이 없으면 `needs-token` |
+| 모델별 verify | import 확인과 장치 보고 |
+
+끝난 단계는 `install-state.json` 에 기록되어 중단되면 이어서 합니다. 레시피(`RECIPE`)가 바뀌면 처음부터.
+설치 중에도 HTTP 는 열려 있어 화면이 `/api/health` 의 단계 · 진행률과 `/api/logs` 를 보여 줍니다.
+
+### 컴파일 없는 SF3D
+
+SF3D 는 `texture_baker`, `uv_unwrapper` 두 C++/CUDA 확장을 설치 때 컴파일해야 합니다(Windows 는 Visual Studio).
+자동 설치를 위해 그 세 연산자를 PyTorch 로 다시 구현해 같은 이름으로 등록합니다(`mysf3d/raster.py`, `torch.library`):
+
+- `texture_baker_cpp::rasterize` — 삼각형마다 경계 상자 안의 픽셀 후보를 텐서로 펼쳐 무게 중심 좌표 판정(baker.cpp 와 같은 표본점 · 규칙). 픽셀당 한 삼각형만 쓰도록 승자를 정합니다. 후보 수를 묶음으로 나눠 메모리를 제한.
+- `texture_baker_cpp::interpolate` — 픽셀별 속성 보간.
+- `UVUnwrapper::assign_faces_uv_to_atlas_index` — 같은 큐브 면 그룹에서 UV 가 겹치는 면을 1024² 표본 격자로 찾아, 축 방향으로 뒤에 있는 면을 다음 슬롯(+6, 최대 12)으로 옮깁니다(unwrapper.cpp 규칙).
+
+`shims/texture_baker`, `shims/uv_unwrapper` 패키지가 이 연산자를 쓰는 upstream Python 코드(unwrap.py)를 그대로 불러옵니다.
+TripoSR 의 `torchmcubes` 는 scikit-image marching cubes 로 대체합니다.
+DINOv2 · CLIP 은 설정만으로 만들어 1.8 GB 의 사전 학습 가중치를 받지 않습니다(`model.safetensors` 가 덮어씀).
+
+### 변환 (`pipeline.py`)
+
+- 한 번에 한 모델만 메모리에. 모델을 바꾸면 내리고(`empty_cache`) 새로 불러옵니다.
+- 장치: CUDA → MPS → CPU. GPU 에서 실패(메모리 · 드라이버 오류)하면 CPU 로 옮겨 **같은 작업을 다시** 합니다(`job.fallback`).
+- 단계 보고: 모델의 함수(`get_scene_codes`, `triplane_to_meshes`, `unwrap_uv`, `rasterize` …)를 감싸 단계를 바꾸고, 트랜스포머 블록의
+  forward pre-hook 으로 모델 단계 안의 진행률과 **취소 지점**을 만듭니다.
+- 결과는 두 모델 모두 −Z 를 바라보므로 Y 축 180° 돌려 glTF 관례(+Z 정면)로 맞춥니다. GLB 로 보냅니다.
+
+### HTTP API (`server.py`)
+
+`GET /api/health · /api/logs?after= · /api/models · /api/jobs · /api/jobs/<id> · /api/jobs/<id>/result.glb | input.png | result-obj.zip`,
+`POST /api/config {hfToken, device, model} · /api/models/<id>/install · /api/install/retry · /api/reinstall · /api/jobs?<옵션> (본문=이미지) · /api/jobs/<id>/cancel`.
+모든 출처 허용(CORS, Private Network Access). 기본 127.0.0.1.
+
+## 3D 화면 (`lib/viewer3d.js`)
+
+- **무한 격자**: 2×2 평면을 카메라 xz 로 옮기고 `uDistance` 배 확대한 셰이더. 큰 칸과 `uDivisions`(기본 5) 로 나눈 작은 칸을 `fwidth` 로
+  선을 그리고 거리에 따라 흐리게. 큰 칸 크기는 자동(모델 크기의 0.8 배를 1·2·5×10ⁿ 로 올림) 또는 설정.
+- **좌표축 · 눈금자**: 선 · 원뿔 · 점선 + CSS2DRenderer 글자. 눈금자는 작은 칸마다 눈금, 큰 칸마다 길이, 높이 눈금자는 모델 뒤 모서리.
+  뷰는 `isolation: isolate` 로 글자 층의 z-index 가 시작 화면 위로 새지 않게 합니다.
+- **광원**: 설정의 광원 목록 → three.js 광원 + 손잡이(공, 고리, 조준 점선). 공을 누르면 선택하고 그 자리에서 TransformControls 를
+  `XYZ` 축으로 바로 끌기 시작합니다. 위치는 **모델 크기 단위**(`sceneScale`)로 저장해 어떤 크기의 모델에서도 같은 자리.
+  끄는 동안 `onLightMove` 로 설정에 기록.
+- 재질 모드는 메시마다 원래 재질을 기억하고 바꿔 끼우며, 저장(`exportRoot`)은 원래 재질과 회전 · 배율로 합니다.
+
+## 3D 형식 (`lib/formats.js`)
+
+three.js 로더/익스포터를 형식별로 지연 로드합니다. OBJ 의 `mtllib`, MTL 의 `map_*`, .gltf 의 `uri`, DAE 의 `init_from` 을 읽어
+함께 쓰는 파일을 찾고(데스크톱은 같은 폴더, 웹은 함께 선택한 파일), LoadingManager URL 변환으로 blob URL 을 넘깁니다.
+
+## 데스크톱 호스트 (`src-tauri`)
+
+V20 의 호스트에서 전자책 기능(인쇄, PDF, 폴더 트리)을 빼고 엔진 실행기를 더했습니다. 창은 OS 기본 테두리(제목 표시줄)를 쓰고,
+테마에 맞춰 `set_theme` 으로 밝게/어둡게. 설정 · 정보는 V20 처럼 팝아웃 창(`popout.rs`), 테마 메뉴는 분리 창, 사용 설명서는 별도 창.
+NSIS 제거 시 엔진(수 GB)과 설정을 지울지 따로 묻습니다(`windows/hooks.nsh`).
+
+## 설정
+
+`lib/settings.js` 하나의 객체(모양 · 레이아웃 · 변환 · 장면 `view` · 광원 `lights` · 최근 파일)를 localStorage 와
+`%APPDATA%\MyStableFast3D\settings.json` 에 저장. 알 수 없는 키는 버리고 값은 범위로 자릅니다. 엔진 쪽 설정(장치 · 모델 · 토큰)은
+`<엔진>/engine-prefs.json`, `hf-token`.

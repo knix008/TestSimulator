@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyStableFast3D User’s Guide</title>
+<style>
+  :root {
+    --bg: #f6f4f2; --panel: #ffffff; --text: #221d1b; --dim: #5d5551; --muted: #8b817c;
+    --border: #e2ddd9; --accent: #c33a32; --accent-soft: #fbe9e7; --code: #f1eeeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14100f; --panel: #1e1918; --text: #efe8e5; --dim: #b3a8a4; --muted: #857a76;
+      --border: #38302e; --accent: #e0574d; --accent-soft: #3a1f1c; --code: #282221;
+    }
+  }
+  /* Every size is in rem: the text-size buttons in the top bar change the root size. */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    font-size: 0.95rem; line-height: 1.7;
+  }
+  .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); }
+  nav {
+    position: sticky; top: 0; height: 100vh; overflow: auto; padding: 1.2rem 1rem;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav li a {
+    display: block; padding: 0.3rem 0.6rem; border-radius: 0.45rem; color: var(--dim); text-decoration: none; font-size: 0.85rem;
+  }
+  nav li a:hover { background: var(--accent-soft); color: var(--text); }
+  main { max-width: 64rem; padding: 2rem 2.75rem 5rem; }
+  header.hero {
+    display: flex; gap: 1.25rem; align-items: center; padding: 1.4rem 1.5rem; margin-bottom: 1.9rem;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 1rem;
+  }
+  header.hero img { width: 4.5rem; height: 4.5rem; }
+  header.hero h1 { margin: 0; font-size: 1.75rem; }
+  header.hero p { margin: 0.25rem 0 0; color: var(--dim); }
+  h2 { margin: 2.9rem 0 0.6rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--accent); font-size: 1.4rem; }
+  h3 { margin: 1.6rem 0 0.4rem; font-size: 1.08rem; }
+  ul, ol.steps { padding-left: 1.4rem; }
+  li + li { margin-top: 0.2rem; }
+  figure { margin: 1.1rem 0 1.4rem; }
+  figure img {
+    display: block; max-width: 100%; height: auto; border-radius: 0.6rem;
+    border: 1px solid var(--border); box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  }
+  figure.narrow img { max-width: 26rem; }
+  figure.strip img { box-shadow: none; }
+  figcaption { margin-top: 0.5rem; font-size: 0.82rem; color: var(--muted); text-align: center; }
+  kbd {
+    display: inline-block; padding: 0 0.4rem; border-radius: 0.3rem; border: 1px solid var(--border);
+    border-bottom-width: 2px; background: var(--code); font: 0.8rem/1.6 Consolas, monospace;
+  }
+  code { padding: 0.05rem 0.3rem; border-radius: 0.25rem; background: var(--code); font: 0.82rem Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1.25rem; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel); }
+  .tip {
+    margin: 0.9rem 0; padding: 0.75rem 1rem; border-radius: 0.6rem; background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+  footer { margin-top: 3.75rem; color: var(--muted); font-size: 0.82rem; }
+  @media (max-width: 820px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 1.5rem 1.1rem 4rem; }
+    .grid2, .grid4 { grid-template-columns: 1fr; }
+  }
+</style>
+<script src="theme.js"></script>
+
+<script src="theme.js"></script>
+<script src="guide.js"></script>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <ol>
+      <li><a href="#intro">1. Introduction</a></li>
+      <li><a href="#install">2. Installing and first run</a></li>
+      <li><a href="#screen">3. The window</a></li>
+      <li><a href="#start">4. Start screen</a></li>
+      <li><a href="#convert">5. Image to 3D</a></li>
+      <li><a href="#models">6. Choosing a model</a></li>
+      <li><a href="#device">7. GPU and CPU</a></li>
+      <li><a href="#open">8. Opening 3D files</a></li>
+      <li><a href="#view">9. Moving around</a></li>
+      <li><a href="#grid">10. Grid · axes · rulers</a></li>
+      <li><a href="#lights">11. Lights</a></li>
+      <li><a href="#material">12. Materials and display</a></li>
+      <li><a href="#transform">13. Rotating and scaling</a></li>
+      <li><a href="#save">14. Saving and converting</a></li>
+      <li><a href="#log">15. Log panel</a></li>
+      <li><a href="#settings">16. Settings</a></li>
+      <li><a href="#web">17. Web build</a></li>
+      <li><a href="#keys">18. Shortcuts</a></li>
+      <li><a href="#data">19. Data and uninstalling</a></li>
+      <li><a href="#trouble">20. Troubleshooting</a></li>
+      <li><a href="#license">21. Licenses</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <img src="images/icon.svg" alt="">
+      <div>
+        <h1>MyStableFast3D User’s Guide</h1>
+        <p>Turn one picture into a 3D model, look at 3D files, and save them in other formats.</p>
+      </div>
+    </header>
+
+    <h2 id="intro">1. Introduction</h2>
+    <p>MyStableFast3D runs <b>Stable Fast 3D</b> (Stability AI) and <b>TripoSR</b> (Tripo AI · Stability AI) <b>on this computer</b> to turn images into 3D models. The Windows, macOS and Linux desktop apps and the web build share the same screen.</p>
+    <ul>
+      <li><b>Local by default</b> — images never leave the computer. The paid Stability AI API is only used when you switch it on in Settings.</li>
+      <li><b>The GPU when there is one, the CPU otherwise</b> — nothing to choose. A conversion that fails on the GPU is redone on the CPU automatically.</li>
+      <li><b>Installs itself</b> — Python, PyTorch and the models are installed on first run; every step shows in the log panel.</li>
+      <li><b>3D viewer and converter</b> — opens GLB, glTF, OBJ, STL, PLY, FBX, DAE, 3MF, 3DS, USDZ and more, saves GLB, glTF, OBJ, STL, PLY and USDZ.</li>
+    </ul>
+    <figure><img src="images/main.en.png" alt="Main window with a converted model"><figcaption>A converted chair on the endless grid, with axes, rulers, light handles, the settings panel on the right and the log below</figcaption></figure>
+
+    <h2 id="install">2. Installing and first run</h2>
+    <ol class="steps">
+      <li>Run the installer (Windows <code>MyStableFast3D_1.0.0_x64-setup.exe</code>, macOS <code>.dmg</code>, Linux <code>.AppImage</code> / <code>.deb</code>).</li>
+      <li>On first start the <b>engine</b> installs itself:
+        <table>
+          <tr><th>Step</th><th>What</th><th>Size (about)</th></tr>
+          <tr><td>uv · Python</td><td>Python 3.11 for the engine only (the system Python is not touched)</td><td>60 MB</td></tr>
+          <tr><td>PyTorch</td><td>CUDA build with an NVIDIA GPU, CPU build without, default build on a Mac (Apple GPU)</td><td>CUDA 2.5 GB · CPU 200 MB</td></tr>
+          <tr><td>Libraries</td><td>transformers, trimesh, rembg …</td><td>500 MB</td></tr>
+          <tr><td>Background model</td><td>u2net</td><td>176 MB</td></tr>
+          <tr><td>Conversion model</td><td>the chosen model's code and weights (on first use)</td><td>SF3D 4 GB · TripoSR 1.7 GB</td></tr>
+        </table>
+      </li>
+      <li>When it is done the status bar shows <b>Ready · (device)</b>. Later starts skip the installation.</li>
+    </ol>
+    <div class="tip"><b>The Stable Fast 3D weights require accepting a license.</b> Sign in on the <a href="https://huggingface.co/stabilityai/stable-fast-3d">model page</a> and accept it, create a Read token under <a href="https://huggingface.co/settings/tokens">Access Tokens</a> and paste it into <b>Settings → Engine → Hugging Face token</b>; the installation then continues. A box over the 3D view asks for it too. To start without a token, choose TripoSR.</div>
+    <figure class="narrow"><img src="images/engine-install.en.png" alt="Engine installation"><figcaption>While installing, the step and its progress show over the 3D view</figcaption></figure>
+
+    <h2 id="screen">3. The window</h2>
+    <p>The window uses the system's own title bar; everything below it is the program.</p>
+    <table>
+      <tr><th>Area</th><th>Contents</th></tr>
+      <tr><td>Toolbar (top)</td><td>Home · File menu, open image / 3D file, the <b>model picker</b> and <b>Convert to 3D</b>, Save (format menu), Save view, view controls (fit · directions · auto-rotate · wireframe · grid · axes · rulers · bounding box · light handles), panels. At the right end: theme · language · guide · settings · about</td></tr>
+      <tr><td>Input panel (left)</td><td>The input image, what the model saw (background removed), and this session's history</td></tr>
+      <tr><td>3D view (centre)</td><td>The model, endless grid, axes, rulers, lights, view cube (bottom right)</td></tr>
+      <tr><td>Settings panel (right)</td><td>Convert · Scene · Lights · Material · Model · Camera tabs</td></tr>
+      <tr><td>Log panel (bottom)</td><td>Everything installation and conversion do</td></tr>
+      <tr><td>Status bar</td><td>What is happening and its progress, vertex · triangle counts, the model, engine state and device</td></tr>
+    </table>
+    <p>Drag the inner edge of a side panel to resize it and use its header button to collapse it; drag the top edge of the log panel to change its height.</p>
+
+    <h2 id="start">4. Start screen</h2>
+    <figure><img src="images/start.en.png" alt="Start screen"><figcaption>The start screen</figcaption></figure>
+    <p>The program opens on the start screen: open image, open 3D file and guide buttons, the steps, recent files, the engine state and the models, and the supported formats. The <b>Home</b> button shows or hides it at any time; untick <b>Show this screen when the program starts</b> to go straight to the 3D view.</p>
+
+    <h2 id="convert">5. Image to 3D</h2>
+    <ol class="steps">
+      <li><b>Open image</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>), or drop a picture on the window. PNG, JPG, WebP, BMP, GIF and TIFF are read.</li>
+      <li>Pick a model in the toolbar's model menu (<a href="#models">chapter 6</a>).</li>
+      <li>Press <b>Convert to 3D</b> (<kbd>F5</kbd>). The steps (background → model → mesh → UV unwrap → texture bake) and progress show over the view; <b>Cancel</b> (<kbd>Esc</kbd>) stops it.</li>
+      <li>The result appears in the view and in the <b>History</b> on the left. <b>What the model saw</b> is the picture with its background removed and centred.</li>
+    </ol>
+    <h3>Options (Settings panel → Convert)</h3>
+    <table>
+      <tr><th>Option</th><th>What it does</th></tr>
+      <tr><td>Remove the background</td><td>Keeps only the object. A PNG that is already transparent is used as is.</td></tr>
+      <tr><td>Object size ratio</td><td>How much of the picture the object fills (0.5–1, default 0.85)</td></tr>
+      <tr><td>Texture resolution (SF3D)</td><td>Auto is 1024 px on a GPU, 512 on the CPU. 2048 is sharper but slower.</td></tr>
+      <tr><td>Remesh · vertex count (SF3D)</td><td>Rebuilds an even mesh and reduces vertices (when the remeshing libraries are installed)</td></tr>
+      <tr><td>Mesh resolution · surface threshold (TripoSR)</td><td>Grid resolution for the surface (auto: GPU 256, CPU 192) and the density taken as surface</td></tr>
+    </table>
+    <div class="tip">One object, large and centred, clearly separated from the background works best — ideally seen slightly from above and the side.</div>
+
+    <h2 id="models">6. Choosing a model</h2>
+    <figure class="narrow"><img src="images/model-menu.en.png" alt="Model menu"><figcaption>The model picker in the toolbar</figcaption></figure>
+    <table>
+      <tr><th></th><th>Stable Fast 3D</th><th>TripoSR</th></tr>
+      <tr><td>Result</td><td>UV-unwrapped mesh with PBR textures (colour, normal, roughness, metalness)</td><td>Vertex-coloured mesh</td></tr>
+      <tr><td>Time (RTX 4070 laptop)</td><td>about 1.5 s</td><td>about 6 s</td></tr>
+      <tr><td>Time (16-thread CPU)</td><td>about 30 s</td><td>about 20 s</td></tr>
+      <tr><td>License</td><td>Stability AI Community License (acceptance required)</td><td>MIT</td></tr>
+      <tr><td>Weights</td><td>4 GB</td><td>1.7 GB</td></tr>
+    </table>
+    <p>A model is installed automatically the first time it converts (or when its download button in the menu is pressed). One model is in memory at a time; switching unloads the previous one.</p>
+
+    <h2 id="device">7. GPU and CPU</h2>
+    <ul>
+      <li><b>Auto</b> (default): an NVIDIA GPU (CUDA), the Apple GPU (MPS) on Apple-silicon Macs, the CPU otherwise.</li>
+      <li>When a conversion fails on the GPU (memory, driver), the model moves to the CPU and <b>the same image is converted again</b>. The log says so, and the Settings panel's <b>Last conversion</b> shows "GPU failed → CPU".</li>
+      <li>Settings panel → Convert → <b>Device</b> can fix it to the GPU or the CPU.</li>
+      <li>A computer without a GPU gets the CPU build of PyTorch (about 200 MB) from the start.</li>
+    </ul>
+
+    <h2 id="open">8. Opening 3D files</h2>
+    <p>Use <b>Open 3D file</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd>) or drop the file on the window.</p>
+    <table>
+      <tr><th>Format</th><th>Extensions</th></tr>
+      <tr><td>glTF</td><td>.glb .gltf</td></tr>
+      <tr><td>Wavefront OBJ (+MTL, textures)</td><td>.obj</td></tr>
+      <tr><td>STL · PLY</td><td>.stl .ply</td></tr>
+      <tr><td>FBX · COLLADA · KMZ</td><td>.fbx .dae .kmz</td></tr>
+      <tr><td>3MF · AMF · 3DS · LightWave</td><td>.3mf .amf .3ds .lwo</td></tr>
+      <tr><td>USD</td><td>.usdz .usda .usdc .usd</td></tr>
+      <tr><td>VRML · VTK</td><td>.wrl .vrml .vtk .vtp</td></tr>
+      <tr><td>Point clouds</td><td>.pcd .xyz</td></tr>
+    </table>
+    <p>Files a model refers to — an OBJ's MTL and textures, a .gltf's .bin and pictures — are found in the same folder by the desktop app. In the web build, <b>select them together</b> in the open dialog or drop them together.</p>
+
+    <h2 id="view">9. Moving around</h2>
+    <table>
+      <tr><th>Mouse</th><th>Does</th></tr>
+      <tr><td>Left drag</td><td>Orbit around the model</td></tr>
+      <tr><td>Right drag (or <kbd>Shift</kbd>+left)</td><td>Pan</td></tr>
+      <tr><td>Wheel</td><td>Zoom</td></tr>
+      <tr><td>Click the view cube (bottom right)</td><td>Look along that axis</td></tr>
+    </table>
+    <p><b>Fit to view</b> (<kbd>F</kbd>) frames the model and the lights; its arrow menu offers front · back · left · right · top · bottom · isometric. <b>Auto-rotate</b> circles slowly (speed in the Camera tab).</p>
+
+    <h2 id="grid">10. Grid · axes · rulers</h2>
+    <figure><img src="images/scene.en.png" alt="Scene tab and bounding box"><figcaption>The Scene tab and the bounding box with dimensions</figcaption></figure>
+    <ul>
+      <li><b>Grid</b>: an endless plane on the ground (Y = 0). Each major cell is split <b>5 × 5</b> and the lines fade with distance. The major cell is automatic (a 1 m model gets 1 m cells with 20 cm squares) or chosen; divisions, strength and colour can be changed.</li>
+      <li><b>Axes</b>: X (red) · Y (green, up) · Z (blue); negative directions dashed.</li>
+      <li><b>Rulers</b>: ticks every small square along X and Z with the length at each major cell, and a height (Y) ruler at the model's back corner. Units: m · cm · mm · in or none.</li>
+      <li><b>Bounding box</b>: the box around the model with its X · Y · Z dimensions.</li>
+    </ul>
+    <p>The background (theme colour · solid · gradient · environment), environment reflections, tone mapping, exposure and shadows are in the Scene tab too.</p>
+
+    <h2 id="lights">11. Lights</h2>
+    <figure><img src="images/lights.en.png" alt="Lights tab"><figcaption>The Lights tab; the selected light carries a move handle</figcaption></figure>
+    <ul>
+      <li><b>Press a light ball in the 3D view and drag it</b> to move the light. The selected light carries a move handle: drag an arrow to move along one axis, a square to stay in one plane.</li>
+      <li>The dashed line shows where the light points (the model's centre).</li>
+      <li>Kinds: <b>Sun</b> (directional, shadows) · <b>Point</b> · <b>Spot</b> · <b>Sky</b> (sky / ground colours) · <b>Ambient</b>. Each has on/off, colour, intensity, position, shadows, angle …</li>
+      <li>Positions are kept in the model's size units, so lights keep their place around models of any size. The arrangement is remembered; <b>Default lights</b> restores the first three.</li>
+    </ul>
+
+    <h2 id="material">12. Materials and display</h2>
+    <table>
+      <tr><th>Material</th><th>Shows</th></tr>
+      <tr><td>Original</td><td>The file's textures and materials</td></tr>
+      <tr><td>Clay</td><td>Plain grey, shape only (colour adjustable)</td></tr>
+      <tr><td>Normals</td><td>Face directions as colours</td></tr>
+      <tr><td>Vertex</td><td>Colours stored in vertices (TripoSR results)</td></tr>
+    </table>
+    <p>Wireframe, flat shading and back faces can be switched on. Display materials only change the view; saving uses the original materials.</p>
+
+    <h2 id="transform">13. Rotating and scaling</h2>
+    <p>The Model tab shows the file (vertices · triangles · materials · textures, size) and sets rotation (degrees) and scale. Buttons like <b>X −90°</b> stand Z-up files upright. The model always stands on the ground; rotation and scale are applied when saving.</p>
+
+    <h2 id="save">14. Saving and converting</h2>
+    <p><b>Save</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) uses the last format; its arrow menu picks another. Whatever format a model came in, it can be saved in any of these:</p>
+    <table>
+      <tr><th>Format</th><th>Textures</th><th>For</th></tr>
+      <tr><td>glTF Binary (.glb)</td><td>included</td><td>web, game engines, Blender (recommended)</td></tr>
+      <tr><td>glTF (.gltf)</td><td>included (embedded)</td><td>readable JSON</td></tr>
+      <tr><td>Wavefront OBJ (.obj)</td><td>no</td><td>wide compatibility</td></tr>
+      <tr><td>STL (.stl, binary / ASCII)</td><td>no</td><td>3D printing</td></tr>
+      <tr><td>PLY (.ply)</td><td>vertex colours</td><td>point clouds, scans</td></tr>
+      <tr><td>USDZ (.usdz)</td><td>included</td><td>Apple AR Quick Look</td></tr>
+    </table>
+    <p><b>Save view</b> saves what the view shows as a PNG. A history item's save button saves that result as it is. Settings → Files can <b>save each result next to its image automatically</b> (desktop).</p>
+
+    <h2 id="log">15. Log panel</h2>
+    <figure><img src="images/log.en.png" alt="Log panel"><figcaption>The log panel</figcaption></figure>
+    <p>Installation (packages, model downloads), model loading, each conversion step and errors collect here in order. Filter by source (app · launcher · engine) and level (debug · info · warning · error); find, copy, save to a file or clear. <kbd>Ctrl</kbd>+<kbd>L</kbd> shows or hides it; clicking the engine state in the status bar opens it.</p>
+
+    <h2 id="settings">16. Settings</h2>
+    <figure><img src="images/settings-engine.en.png" alt="Settings – Engine"><figcaption>Settings → Engine</figcaption></figure>
+    <table>
+      <tr><th>Tab</th><th>Contents</th></tr>
+      <tr><td>Appearance</td><td>Themes (20 dark · 20 light · custom), language, font · size · style</td></tr>
+      <tr><td>Engine</td><td>How to convert (this computer · another computer's engine · Stability AI API), device, Hugging Face token, restart · open folder · reinstall</td></tr>
+      <tr><td>Screen</td><td>Start screen, toolbar labels, status bar, log panel</td></tr>
+      <tr><td>Files</td><td>Default format, automatic saving</td></tr>
+    </table>
+    <h3>How to convert</h3>
+    <ul>
+      <li><b>This computer (local engine)</b> — the default. Images stay on the computer.</li>
+      <li><b>Another computer's engine</b> — run the engine on a GPU machine with <code>npm run engine -- --host 0.0.0.0</code> and enter its address (e.g. <code>http://192.168.0.10:57650</code>).</li>
+      <li><b>Stability AI API (paid)</b> — off by default. Choosing it asks for confirmation and an API key; every conversion uses credits and uploads the image to Stability AI. While it is in use the status bar says "Stability AI API (paid)".</li>
+    </ul>
+
+    <h2 id="web">17. Web build</h2>
+    <p>The web build opens the same screen in a browser; conversions run in the engine on this computer.</p>
+    <ul>
+      <li><code>npm run web</code> — the dev server (<code>http://localhost:5195</code>) and the engine (<code>http://127.0.0.1:57650</code>) together. The engine shares the desktop app's folder, so it installs once.</li>
+      <li><code>npm run engine</code> — the engine alone; takes <code>--port</code>, <code>--host</code> and <code>--home</code>.</li>
+      <li><code>npm run build</code> — the web page in <code>dist/</code>, for any web server; the engine address is set in Settings → Engine.</li>
+    </ul>
+
+    <h2 id="keys">18. Shortcuts</h2>
+    <table>
+      <tr><th>Keys</th><th>Does</th></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Open image</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>Open 3D file</td></tr>
+      <tr><td><kbd>F5</kbd> or <kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Convert to 3D</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cancel the conversion</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Fit to view</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Log panel</td></tr>
+    </table>
+
+    <h2 id="data">19. Data and uninstalling</h2>
+    <table>
+      <tr><th>What</th><th>Windows</th><th>macOS / Linux</th></tr>
+      <tr><td>Settings</td><td><code>%APPDATA%\MyStableFast3D\settings.json</code></td><td><code>~/Library/Application Support/MyStableFast3D</code> · <code>~/.config/MyStableFast3D</code></td></tr>
+      <tr><td>Engine (Python, PyTorch, model code, background model)</td><td><code>%LOCALAPPDATA%\MyStableFast3D\engine</code></td><td><code>~/Library/Application Support/MyStableFast3D/engine</code> · <code>~/.local/share/MyStableFast3D/engine</code></td></tr>
+      <tr><td>Model weights</td><td colspan="2">The shared Hugging Face cache <code>~/.cache/huggingface</code> (used by other programs too)</td></tr>
+    </table>
+    <p>Uninstalling on Windows asks separately whether to remove the engine (several GB) and the settings. The shared Hugging Face cache is left alone. To install the engine afresh, use Settings → Engine → <b>Reinstall engine</b>.</p>
+
+    <h2 id="trouble">20. Troubleshooting</h2>
+    <table>
+      <tr><th>Symptom</th><th>Remedy</th></tr>
+      <tr><td>"Cannot reach the engine" (web)</td><td>Check that <code>npm run engine</code> is running and the address in Settings → Engine.</td></tr>
+      <tr><td>"Token needed"</td><td>Accept the license and enter a token as in <a href="#install">chapter 2</a>, or use TripoSR.</td></tr>
+      <tr><td>Installation failed</td><td>Read the error in the log panel and press <b>Retry</b>. PyPI, download.pytorch.org, github.com and huggingface.co must be reachable.</td></tr>
+      <tr><td>A GPU, but the CPU is used</td><td>Update the NVIDIA driver, then Settings → Engine → Reinstall engine.</td></tr>
+      <tr><td>Odd results</td><td>Try a plainer background, another object size ratio, or the other model.</td></tr>
+    </table>
+    <div class="tip"><b>Copy the error</b> in the error dialog and the log panel's <b>Save to a file</b> pass on everything at once.</div>
+
+    <h2 id="license">21. Licenses</h2>
+    <p>MyStableFast3D is MIT-licensed. The models are not included; they are downloaded on first use under their own licenses.</p>
+    <ul>
+      <li><b>Stable Fast 3D</b> — Stability AI Community License; commercial use is free below USD 1M annual revenue (registration required). <b>Powered by Stability AI</b>. This Stability AI Model is licensed under the Stability AI Community License, Copyright © Stability AI Ltd. All Rights Reserved.</li>
+      <li><b>TripoSR</b> — MIT (Tripo AI &amp; Stability AI)</li>
+    </ul>
+    <p>The compiled extensions (<code>texture_baker</code>, <code>uv_unwrapper</code>, <code>torchmcubes</code>) are replaced by PyTorch / scikit-image code that does the same. See <code>NOTICE.md</code> and <code>LICENSE-MODELS.md</code> in the installation folder.</p>
+
+    <footer>MyStableFast3D 1.0.0 · © SHKWON (knix008@naver.com) · MIT License · Powered by Stability AI</footer>
+  </main>
+</div>
+</body>
+</html>

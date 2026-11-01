@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyStableFast3D",
+  "mainBinaryName": "MyStableFast3D",
+  "version": "../package.json",
+  "identifier": "com.shkwon.mystablefast3d",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5195",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "license": "MIT",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Image to 3D",
+    "longDescription": "Turn one picture into a 3D model with Stable Fast 3D or TripoSR, on this computer (GPU when there is one, CPU otherwise); view 3D files on an endless grid with axes, rulers and movable lights, and save them as GLB, glTF, OBJ, STL, PLY or USDZ. Powered by Stability AI.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../engine/mysf3d/": "engine/mysf3d/",
+      "../engine/shims/": "engine/shims/",
+      "../LICENSE-MODELS.md": "LICENSE-MODELS.md",
+      "../NOTICE.md": "NOTICE.md"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}
