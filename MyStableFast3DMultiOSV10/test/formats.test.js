@@ -117,6 +117,38 @@ describe('saving and reading back', () => {
     expect(xml).toMatch(/<triangle v1="\d+" v2="\d+" v3="\d+" pid="2" p1=/);
   });
 
+  it('gives a glTF primitive without a material a plain one, not the metallic default', async () => {
+    // One triangle, used by two primitives: one bare, one explicitly metallic.
+    const tri = Buffer.from(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]).buffer);
+    const gltf = {
+      asset: { version: '2.0' },
+      buffers: [{ byteLength: 36 }],
+      bufferViews: [{ buffer: 0, byteLength: 36 }],
+      accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 0] }],
+      materials: [{ pbrMetallicRoughness: { metallicFactor: 1, roughnessFactor: 0.2 } }],
+      meshes: [{ primitives: [{ attributes: { POSITION: 0 } }, { attributes: { POSITION: 0 }, material: 0 }] }],
+      nodes: [{ mesh: 0 }],
+      scenes: [{ nodes: [0] }],
+    };
+    let json = Buffer.from(JSON.stringify(gltf));
+    json = Buffer.concat([json, Buffer.alloc(-json.length & 3, 0x20)]);
+    const chunk = (type, data) => {
+      const head = Buffer.alloc(8);
+      head.writeUInt32LE(data.length, 0);
+      head.writeUInt32LE(type, 4);
+      return Buffer.concat([head, data]);
+    };
+    const body = Buffer.concat([chunk(0x4e4f534a, json), chunk(0x004e4942, tri)]);
+    const head = Buffer.alloc(12);
+    head.writeUInt32LE(0x46546c67, 0);
+    head.writeUInt32LE(2, 4);
+    head.writeUInt32LE(12 + body.length, 8);
+    const back = await loadModel('x.glb', new Uint8Array(Buffer.concat([head, body])));
+    const mats = [];
+    back.object.traverse((o) => { if (o.isMesh) mats.push(o.material); });
+    expect(mats.map((m) => [m.metalness, m.roughness])).toEqual([[0.05, 0.7], [1, 0.2]]);
+  });
+
   it('writes the unit it is told', async () => {
     const dae = new TextDecoder().decode(await exportModel(cube(), 'dae', { units: 'mm' }));
     expect(dae).toMatch(/<unit name="millimeter" meter="0.001"\/>/);

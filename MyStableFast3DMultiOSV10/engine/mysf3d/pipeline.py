@@ -363,7 +363,10 @@ def linear_vertex_colors(glb):
     colours came out pale and washed out (the robot's blue at saturation
     0.31 instead of the picture's 0.79). They are converted and stored as
     normalised 16-bit values: 8 bits of linear light would band in the
-    darks. Meshes without vertex colours come back untouched.
+    darks. A vertex-coloured primitive with no material is also given a
+    plain one: glTF's default is fully metallic, which takes no diffuse
+    light, so the lights barely showed on it. Meshes without vertex colours
+    come back untouched.
     """
     import json
     import struct
@@ -418,6 +421,16 @@ def linear_vertex_colors(glb):
         acc.update({"bufferView": len(views) - 1, "byteOffset": 0, "componentType": 5123, "normalized": True})
         acc.pop("min", None)
         acc.pop("max", None)
+        changed = True
+    bare = [
+        p for m in doc.get("meshes", []) for p in m.get("primitives", [])
+        if "COLOR_0" in p.get("attributes", {}) and "material" not in p
+    ]
+    if bare:
+        materials = doc.setdefault("materials", [])
+        materials.append({"pbrMetallicRoughness": {"metallicFactor": 0.0, "roughnessFactor": 0.7}})
+        for p in bare:
+            p["material"] = len(materials) - 1
         changed = True
     if not changed:
         return glb

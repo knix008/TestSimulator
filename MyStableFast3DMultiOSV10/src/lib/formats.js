@@ -263,6 +263,26 @@ function meshFromGeometry(geometry, points = false) {
   }));
 }
 
+// A glTF primitive with no material gets the spec's default one: fully
+// metallic and fully rough, which takes no diffuse light at all, so the lights
+// barely change it (TripoSR's vertex-coloured meshes came this way). It gets
+// the same plain surface as the other formats instead.
+function plainDefaultMaterials(gltf) {
+  const json = gltf.parser?.json;
+  if (!json) return;
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const at = gltf.parser.associations.get(o);
+    const prim = at && json.meshes?.[at.meshes]?.primitives?.[at.primitives];
+    if (!prim || prim.material !== undefined) return;
+    for (const m of [].concat(o.material)) {
+      if (!m.isMeshStandardMaterial) continue;
+      m.metalness = 0.05;
+      m.roughness = 0.7;
+    }
+  });
+}
+
 async function parse(id, name, data, manager) {
   const buffer = () => toArrayBuffer(data);
   switch (id) {
@@ -271,6 +291,7 @@ async function parse(id, name, data, manager) {
       const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
       const loader = new GLTFLoader(manager);
       const gltf = await loader.parseAsync(id === 'glb' ? buffer() : text(data), '');
+      plainDefaultMaterials(gltf);
       return { object: gltf.scene, animations: gltf.animations || [] };
     }
     case 'obj': {

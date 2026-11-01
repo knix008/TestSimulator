@@ -321,6 +321,9 @@ class GeometryTest(unittest.TestCase):
         c = srgb[:, :3] / 255.0
         expect = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
         self.assertLess(np.abs(got[:, :3] - expect).max(), 1e-4)
+        # Not glTF's default (fully metallic) material, which the lights barely show on.
+        prim = doc["meshes"][0]["primitives"][0]
+        self.assertEqual(doc["materials"][prim["material"]]["pbrMetallicRoughness"]["metallicFactor"], 0.0)
         self.assertEqual(len(glb) % 4, 0)
         self.assertEqual(struct.unpack_from("<I", glb, 8)[0], len(glb))
         # Still a valid GLB for trimesh, same geometry.

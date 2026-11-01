@@ -498,7 +498,9 @@ export class Viewer3D {
     const box = new THREE.Box3().setFromObject(this.modelRoot);
     if (box.isEmpty()) return;
     const helper = new THREE.Box3Helper(box, new THREE.Color(this.view.bboxColor || '#f0b429'));
-    helper.material.depthTest = false;
+    // Depth-tested, so the model hides the edges behind it and sits inside the box.
+    helper.material.depthTest = true;
+    helper.material.depthWrite = false;
     helper.material.transparent = true;
     helper.renderOrder = 6;
     this.bbox.add(helper);
