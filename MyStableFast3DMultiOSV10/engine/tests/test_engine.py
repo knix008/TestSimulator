@@ -299,6 +299,37 @@ class GeometryTest(unittest.TestCase):
         Image.fromarray(np.full((8, 8), 32768, np.uint16)).save(buf, format="TIFF")
         self.assertAlmostEqual(int(np.asarray(open_input_image(buf.getvalue()))[0, 0, 0]), 128, delta=2)
 
+    def test_vertex_colours_are_written_linear(self):
+        # glTF reads COLOR_0 as linear; the models' colours are sRGB.
+        import json
+        import struct
+        import numpy as np
+        import trimesh
+        from mysf3d.pipeline import linear_vertex_colors
+
+        ball = trimesh.creation.icosphere(subdivisions=1)
+        srgb = np.tile(np.array([[42, 113, 204, 255], [0, 31, 113, 255], [255, 255, 255, 255]], np.uint8), (len(ball.vertices) // 3 + 1, 1))[: len(ball.vertices)]
+        ball.visual = trimesh.visual.ColorVisuals(ball, vertex_colors=srgb)
+        glb = linear_vertex_colors(ball.export(file_type="glb"))
+        jl = struct.unpack_from("<I", glb, 12)[0]
+        doc = json.loads(glb[20:20 + jl])
+        binary = glb[20 + jl + 8:]
+        acc = doc["accessors"][doc["meshes"][0]["primitives"][0]["attributes"]["COLOR_0"]]
+        self.assertEqual((acc["componentType"], acc["normalized"]), (5123, True))
+        view = doc["bufferViews"][acc["bufferView"]]
+        got = np.frombuffer(binary[view["byteOffset"]:view["byteOffset"] + view["byteLength"]], "<u2").reshape(acc["count"], -1) / 65535.0
+        c = srgb[:, :3] / 255.0
+        expect = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+        self.assertLess(np.abs(got[:, :3] - expect).max(), 1e-4)
+        self.assertEqual(len(glb) % 4, 0)
+        self.assertEqual(struct.unpack_from("<I", glb, 8)[0], len(glb))
+        # Still a valid GLB for trimesh, same geometry.
+        back = trimesh.load(__import__("io").BytesIO(glb), file_type="glb", force="mesh")
+        self.assertEqual(len(back.faces), len(ball.faces))
+        # A textured mesh (no COLOR_0) is left exactly as it was.
+        plain = trimesh.creation.box().export(file_type="glb")
+        self.assertIs(linear_vertex_colors(plain), plain)
+
     def test_refine_redoes_only_the_surface(self):
         import trimesh
         from mysf3d.pipeline import Engine

@@ -69,7 +69,10 @@ export const DEFAULT_VIEW = {
   bgColor2: '#101215',
   environment: true,
   envIntensity: 0.8,
-  toneMapping: 'aces',       // aces | agx | neutral | none
+  // Neutral (Khronos PBR Neutral) keeps the model's base colours: ACES pushed
+  // orange towards yellow and washed out bright colours.
+  toneMapping: 'neutral',    // aces | agx | neutral | none
+  colorRev: 2,               // see normalizeView: earlier saves had ACES as the default
   exposure: 1,
   shadows: true,
   shadowOpacity: 0.3,
@@ -164,6 +167,10 @@ export function normalizeView(raw) {
     else if (typeof def === 'number') out[key] = Number.isFinite(Number(val)) ? Number(val) : def;
     else out[key] = typeof val === 'number' ? val : String(val);
   }
+  // Saved before colorRev 2, 'aces' was just the old default: move it to the
+  // new one once (a later explicit choice of ACES is kept).
+  if (!(Number(raw.colorRev) >= 2) && out.toneMapping === 'aces') out.toneMapping = 'neutral';
+  out.colorRev = 2;
   if (out.gridSize !== 'auto' && !(Number(out.gridSize) > 0)) out.gridSize = 'auto';
   out.gridDivisions = Math.min(20, Math.max(1, Math.round(out.gridDivisions)));
   out.fov = Math.min(100, Math.max(15, out.fov));

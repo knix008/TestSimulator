@@ -755,7 +755,7 @@ export class Viewer3D {
     this.view = { ...view };
     const v = this.view;
     const r = this.renderer;
-    r.toneMapping = { aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping, neutral: THREE.NeutralToneMapping, none: THREE.NoToneMapping }[v.toneMapping] ?? THREE.ACESFilmicToneMapping;
+    r.toneMapping = { aces: THREE.ACESFilmicToneMapping, agx: THREE.AgXToneMapping, neutral: THREE.NeutralToneMapping, none: THREE.NoToneMapping }[v.toneMapping] ?? THREE.NeutralToneMapping;
     r.toneMappingExposure = Number(v.exposure) || 1;
     r.shadowMap.enabled = !!v.shadows;
     this.scene.environment = v.environment ? this.envMap : null;

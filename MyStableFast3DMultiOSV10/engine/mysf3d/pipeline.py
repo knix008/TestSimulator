@@ -353,6 +353,85 @@ def finish_mesh(mesh, options, log=None):
     return mesh, tilt
 
 
+def linear_vertex_colors(glb):
+    """GLB bytes with their vertex colours (COLOR_0) made linear, as glTF
+    requires.
+
+    The models give vertex colours in sRGB — the picture's own values — and
+    trimesh writes them as they are. Every glTF reader (the app's viewer,
+    Blender) takes COLOR_0 as linear and brightens it once more, so the
+    colours came out pale and washed out (the robot's blue at saturation
+    0.31 instead of the picture's 0.79). They are converted and stored as
+    normalised 16-bit values: 8 bits of linear light would band in the
+    darks. Meshes without vertex colours come back untouched.
+    """
+    import json
+    import struct
+
+    import numpy as np
+
+    if len(glb) < 20 or glb[:4] != b"glTF":
+        return glb
+    json_len, json_type = struct.unpack_from("<II", glb, 12)
+    if json_type != 0x4E4F534A:
+        return glb
+    doc = json.loads(glb[20:20 + json_len])
+    rest = 20 + json_len
+    binary = b""
+    if rest + 8 <= len(glb):
+        bin_len, bin_type = struct.unpack_from("<II", glb, rest)
+        if bin_type == 0x004E4942:
+            binary = glb[rest + 8:rest + 8 + bin_len]
+    accessors = doc.get("accessors", [])
+    views = doc.get("bufferViews", [])
+    wanted = sorted({
+        p["attributes"]["COLOR_0"]
+        for m in doc.get("meshes", []) for p in m.get("primitives", [])
+        if "COLOR_0" in p.get("attributes", {})
+    })
+    out = bytearray(binary)
+    changed = False
+    for index in wanted:
+        acc = accessors[index]
+        if acc.get("componentType") not in (5121, 5126) or "bufferView" not in acc:
+            continue
+        comps = {"VEC3": 3, "VEC4": 4}.get(acc.get("type"))
+        if not comps:
+            continue
+        view = views[acc["bufferView"]]
+        size = 1 if acc["componentType"] == 5121 else 4
+        stride = view.get("byteStride") or comps * size
+        start = view.get("byteOffset", 0) + acc.get("byteOffset", 0)
+        count = acc["count"]
+        dtype = np.uint8 if size == 1 else np.float32
+        rows = np.frombuffer(bytes(binary[start:start + stride * count]).ljust(stride * count, b"\0"), np.uint8).reshape(count, stride)
+        values = rows[:, :comps * size].copy().view(dtype).reshape(count, comps).astype(np.float64)
+        if size == 1:
+            values /= 255.0
+        rgb = values[:, :3]
+        values[:, :3] = np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+        packed = np.round(np.clip(values, 0, 1) * 65535.0).astype("<u2").tobytes()
+        while len(out) % 4:
+            out.append(0)
+        views.append({"buffer": 0, "byteOffset": len(out), "byteLength": len(packed), "target": 34962})
+        out += packed
+        acc.update({"bufferView": len(views) - 1, "byteOffset": 0, "componentType": 5123, "normalized": True})
+        acc.pop("min", None)
+        acc.pop("max", None)
+        changed = True
+    if not changed:
+        return glb
+    while len(out) % 4:
+        out.append(0)
+    doc["buffers"][0]["byteLength"] = len(out)
+    text = json.dumps(doc, separators=(",", ":")).encode("utf-8")
+    text += b" " * (-len(text) % 4)
+    total = 12 + 8 + len(text) + 8 + len(out)
+    return (struct.pack("<III", 0x46546C67, 2, total)
+            + struct.pack("<II", len(text), 0x4E4F534A) + text
+            + struct.pack("<II", len(out), 0x004E4942) + bytes(out))
+
+
 def open_input_image(data):
     """The picture sent with a job as an upright RGBA image: PNG, JPEG, WebP,
     AVIF, GIF (its first frame), BMP, ICO (its largest size), TIFF — 16-bit
@@ -574,7 +653,7 @@ class Engine:
 
     @staticmethod
     def _export(job, mesh):
-        job.files["result.glb"] = mesh.export(file_type="glb", include_normals=True)
+        job.files["result.glb"] = linear_vertex_colors(mesh.export(file_type="glb", include_normals=True))
         job.stats = {"vertices": int(len(mesh.vertices)), "faces": int(len(mesh.faces))}
         if "textureResolution" in job.options:
             job.stats["textureResolution"] = job.options["textureResolution"]

@@ -224,3 +224,15 @@ describe('samples', () => {
     expect(sampleImageFor(index.images[0], index)).toBeNull();
   });
 });
+
+describe('colour defaults', () => {
+  it('uses Neutral tone mapping and moves old ACES defaults over once', () => {
+    expect(DEFAULT_VIEW.toneMapping).toBe('neutral');
+    // An old save: ACES was only the default then.
+    expect(normalizeView({ toneMapping: 'aces' }).toneMapping).toBe('neutral');
+    // Chosen after the change: kept.
+    expect(normalizeView({ toneMapping: 'aces', colorRev: 2 }).toneMapping).toBe('aces');
+    expect(normalizeView({ toneMapping: 'agx' }).toneMapping).toBe('agx');
+    expect(normalizeView({}).colorRev).toBe(2);
+  });
+});
