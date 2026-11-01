@@ -122,6 +122,9 @@ impl TauriUi {
         if let Ok(hwnd) = win.hwnd() {
             win32::prepare(hwnd.0 as isize);
             self.hwnds.lock().unwrap().insert(spec.label.clone(), hwnd.0 as isize as u64);
+            if spec.fence {
+                take_drops(&win, hwnd.0 as isize);
+            }
         }
         self.place(&win, spec.bounds);
         Some(win)
@@ -565,6 +568,31 @@ impl Ui for TauriUi {
             app.exit(0);
         });
     }
+}
+
+// 박스 창의 끌어다 놓기 받이를 우리 것으로 바꾼다 (droptarget.rs 참고).
+// 페이지에는 Tauri 가 보내던 것과 같은 이름과 모양으로 보낸다.
+#[cfg(windows)]
+fn take_drops(win: &tauri::WebviewWindow, hwnd: isize) {
+    use crate::droptarget::{self, Event};
+    let label = win.label().to_string();
+    let app = win.app_handle().clone();
+    let _ = win.run_on_main_thread(move || {
+        let send = move |event: Event| {
+            let at = |(x, y): (f64, f64)| json!({ "x": x, "y": y });
+            let (name, payload) = match event {
+                Event::Enter(paths, p) => ("tauri://drag-enter", json!({ "paths": paths, "position": at(p) })),
+                Event::Over(p) => ("tauri://drag-over", json!({ "position": at(p) })),
+                Event::Drop(paths, p) => ("tauri://drag-drop", json!({ "paths": paths, "position": at(p) })),
+                Event::Leave => ("tauri://drag-leave", Value::Null),
+            };
+            let _ = app.emit_filter(name, payload, |target| match target {
+                tauri::EventTarget::Webview { label: l } | tauri::EventTarget::WebviewWindow { label: l } => *l == label,
+                _ => false,
+            });
+        };
+        droptarget::install(windows::Win32::Foundation::HWND(hwnd as *mut std::ffi::c_void), Box::new(send));
+    });
 }
 
 impl TauriUi {

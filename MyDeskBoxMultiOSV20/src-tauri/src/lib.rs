@@ -19,6 +19,8 @@ pub mod deskpick;
 pub mod desktop;
 #[cfg(windows)]
 mod dragout;
+#[cfg(windows)]
+mod droptarget;
 mod fatal;
 pub mod geom;
 pub mod hold;
