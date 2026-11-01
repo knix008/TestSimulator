@@ -138,6 +138,7 @@ export const FEATURES = [
   ['EDIT-NONDESTRUCTIVE', '비파괴 재편집(원본+설정)'],
   ['EDIT-RESTORE', '원본으로 복원'],
   ['EDIT-RAW', 'RAW 현상(LibRaw 디모자이크)'],
+  ['EDIT-PANETOGGLE', '편집 툴바의 패널 열기/닫기 단추가 오른쪽 끝'],
   // ── Create
   ['CREATE-PRINT', '인쇄·밀착 인화'],
   ['CREATE-PDF', 'PDF 만들기'],
@@ -189,7 +190,6 @@ export const FEATURES = [
   ['APP-STARTSHOW', '"시작 화면 보여주기" 체크 상자(시작 화면·설정), 끄면 관리 화면으로 시작'],
   ['APP-GUIDE', '사용 설명서 별도 창: 국기와 함께 언어 선택, 글자 축소·현재 px(가운데)·확대, 목차'],
   ['APP-TOOLTIP', '툴팁이 곧바로 뜸(브라우저 기본 지연 없음), 대화 상자 창에서도'],
-  ['EDIT-PANETOGGLE', '편집 툴바의 패널 열기/닫기 단추가 오른쪽 끝'],
   ['APP-THEMETAB', '설정의 테마 탭(미리 보기 카드)'],
   ['APP-ABOUTFORMATS', '정보 창: 지원하는 모든 파일 형식'],
   ['APP-HEADER', '머리글: 테마·언어(국기 토글)·설정(톱니바퀴)·정보, 대시보드 왼쪽의 분류 버튼'],
