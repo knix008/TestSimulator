@@ -49,6 +49,9 @@ const EFFECT_TIP = {
 // row needs depends on the language, the UI font and whether button labels are
 // shown, so it is measured from the laid-out toolbar and handed to the main
 // process as the window's minimum width rather than guessed as a constant.
+// The least room the book's name gets in the title bar, between its buttons.
+const TITLE_ROOM = 160;
+
 function useToolbarMinWidth(barRef, scrollRef, deps) {
   const last = useRef(0);
 
@@ -72,7 +75,20 @@ function useToolbarMinWidth(barRef, scrollRef, deps) {
     // Everything else on the row: the toolbar's own padding, the gap and the
     // app group pinned to the right.
     const chrome = bar.getBoundingClientRect().width - scroll.getBoundingClientRect().width;
-    const needed = Math.ceil(chrome + content) + 2;
+    // The title bar has buttons of its own (Home, File, theme, language,
+    // help, settings, about, the window buttons); they must all stay in view
+    // too, with some room left for the book's name between them.
+    let titleBar = 0;
+    const tb = document.querySelector('.titlebar');
+    if (tb) {
+      for (const el of tb.children) {
+        if (el.classList.contains('titlebar-drag')) continue;
+        const cs = getComputedStyle(el);
+        titleBar += el.getBoundingClientRect().width + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
+      }
+      titleBar += TITLE_ROOM;
+    }
+    const needed = Math.ceil(Math.max(chrome + content, titleBar)) + 2;
     if (!Number.isFinite(needed) || needed <= 0) return;
     if (Math.abs(needed - last.current) < 2) return;
     last.current = needed;
@@ -565,23 +581,24 @@ export default function Toolbar({
         ))}
       </div>
 
-      <div className="toolbar-group">
-        <MenuButton
-          icon={IconRotateRight}
-          label={t('toolbar.rotate')}
-          tip={t('tip.rotate')}
-          menuTip={t('tip.rotatePick')}
+      {/* Rotate: one button each way, side by side. */}
+      <div className="toolbar-group" role="group" aria-label={t('toolbar.rotate')}>
+        <ToolButton
+          icon={IconRotateLeft}
+          label={t('toolbar.rotateLeft')}
+          tip={t('tip.rotateLeft')}
+          onClick={() => onRotate(-90)}
+          disabled={!doc}
           showLabel={showLabel}
-          width={220}
-          onAction={() => onRotate(90)}
-        >
-          <ul className="dd-list">
-            <li><button className="dd-item" onClick={() => onRotate(-90)} disabled={!doc} title={t('tip.rotateLeft')}>
-              <IconRotateLeft size={15} /><span className="dd-name wide">{t('toolbar.rotateLeft')}</span></button></li>
-            <li><button className="dd-item" onClick={() => onRotate(90)} disabled={!doc} title={t('tip.rotateRight')}>
-              <IconRotateRight size={15} /><span className="dd-name wide">{t('toolbar.rotateRight')}</span></button></li>
-          </ul>
-        </MenuButton>
+        />
+        <ToolButton
+          icon={IconRotateRight}
+          label={t('toolbar.rotateRight')}
+          tip={t('tip.rotateRight')}
+          onClick={() => onRotate(90)}
+          disabled={!doc}
+          showLabel={showLabel}
+        />
       </div>
       </div>
 

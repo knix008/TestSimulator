@@ -658,7 +658,11 @@ fn win_set_min_width(window: WebviewWindow, width: f64) -> bool {
     slot.0 = min;
     slot.1
   };
-  let _ = window.set_min_size(Some(LogicalSize::new(min, min_h)));
+  // A frameless window's minimum binds its OUTER rect, invisible resize
+  // borders included; asking for the client minimum alone let edge drags stop
+  // 16 px short, and the Resized clamp then pushed back — a flickering edge.
+  let (fw, fh) = frame_extra(&window);
+  let _ = window.set_min_size(Some(LogicalSize::new(min + fw, min_h + fh)));
   if !window.is_maximized().unwrap_or(false) && !window.is_fullscreen().unwrap_or(false) {
     let (w, h) = logical_inner(&window);
     if w < min {
@@ -666,6 +670,22 @@ fn win_set_min_width(window: WebviewWindow, width: f64) -> bool {
     }
   }
   true
+}
+
+/// The window's frame around its client area, in logical px (the invisible
+/// resize borders of a frameless Windows window; nothing elsewhere).
+fn frame_extra(window: &WebviewWindow) -> (f64, f64) {
+  if cfg!(not(target_os = "windows")) {
+    return (0.0, 0.0);
+  }
+  let scale = window.scale_factor().unwrap_or(1.0);
+  match (window.outer_size(), window.inner_size()) {
+    (Ok(o), Ok(i)) => (
+      f64::from(o.width.saturating_sub(i.width)) / scale,
+      f64::from(o.height.saturating_sub(i.height)) / scale,
+    ),
+    _ => (0.0, 0.0),
+  }
 }
 
 #[tauri::command]
@@ -931,10 +951,21 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
       close_theme_popup(app);
       app.exit(0);
     }
-    (MAIN, WindowEvent::Resized(_)) => {
+    (MAIN, WindowEvent::Resized(size)) => {
       let now = window.is_maximized().unwrap_or(false);
       if state(app).maximized.swap(now, Ordering::SeqCst) != now {
         let _ = app.emit_to(MAIN, "maximized", now);
+      }
+      // set_min_size only holds the user's own edge drags: Windows Snap and
+      // SetWindowPos from other programs make the window narrower than the
+      // toolbar and title bar need, and their buttons were cut off. Put the
+      // size back up whenever that happens.
+      if !now && !window.is_minimized().unwrap_or(false) && size.width > 0 && size.height > 0 {
+        let (min_w, min_h) = *state(app).min_size.lock().unwrap();
+        let cur = size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0));
+        if cur.width + 0.5 < min_w || cur.height + 0.5 < min_h {
+          let _ = window.set_size(LogicalSize::new(cur.width.max(min_w), cur.height.max(min_h)));
+        }
       }
     }
     (MAIN, WindowEvent::DragDrop(drop)) => {

@@ -1023,3 +1023,28 @@ describe('menus on tabs and start-screen items', () => {
     expect(onTabMenu).toHaveBeenCalledWith(expect.anything(), tabs[0]);
   });
 });
+
+describe('rotate buttons', () => {
+  it('shows rotate left and rotate right as two buttons, not a drop-down', async () => {
+    await setLanguage('en');
+    const noop = () => {};
+    const onRotate = vi.fn();
+    const { container } = render(
+      <Toolbar
+        settings={{ ...DEFAULT_SETTINGS, theme: 'dark' }} doc={{ numPages: 3 }} pageNumber={1} numPages={3} scale={1}
+        hasSelection={false} dirty={false} history={{ canUndo: false, canRedo: false, undo: noop, redo: noop }}
+        tool="text" onTool={noop} panel="none" onCopyText={noop} onSelectPage={noop} onExtractImages={noop}
+        onHighlight={noop} onComment={noop} onComments={noop} onBookmarks={noop} onBookmark={noop}
+        onGoToPage={noop} onZoom={noop} onZoomMode={noop} onRotate={onRotate} onLayout={noop} onSearch={noop}
+        onTogglePanel={noop} onToggleInfo={noop}
+      />,
+    );
+    const group = container.querySelector('[role=group][aria-label="Rotate"]');
+    const buttons = group.querySelectorAll('button');
+    expect(buttons).toHaveLength(2);
+    expect(group.querySelector('.chevron')).toBe(null);
+    fireEvent.click(buttons[0]);
+    fireEvent.click(buttons[1]);
+    expect(onRotate.mock.calls).toEqual([[-90], [90]]);
+  });
+});
