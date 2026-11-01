@@ -101,9 +101,27 @@ three.js 로더/익스포터를 형식별로 지연 로드합니다. OBJ 의 `mt
 
 ## 데스크톱 호스트 (`src-tauri`)
 
-V20 의 호스트에서 전자책 기능(인쇄, PDF, 폴더 트리)을 빼고 엔진 실행기를 더했습니다. 창은 OS 기본 테두리(제목 표시줄)를 쓰고,
-테마에 맞춰 `set_theme` 으로 밝게/어둡게. 설정 · 정보는 V20 처럼 팝아웃 창(`popout.rs`), 테마 메뉴는 분리 창, 사용 설명서는 별도 창.
+V20 의 호스트에서 전자책 기능(PDF, 폴더 트리)을 빼고 엔진 실행기를 더했습니다. 창은 **테두리 없는 창**(`decorations(false)` + 그림자)이고
+툴바가 제목 표시줄입니다: Windows 는 `app-region: drag`(WebView2 비클라이언트 영역), 다른 OS 는 `win_start_dragging`.
+최소화 · 최대화 · 닫기는 `WindowControls.jsx` → `win_*` 명령, 최대화 상태는 Resized 때 `maximized` 이벤트로 알리고, 최소 크기는
+보이지 않는 테두리(`frame_extra`)를 더해 겁니다. 오른쪽 아래 `ResizeGrip` 은 최대화 중 숨깁니다.
+설정 · 정보 · 컨텍스트 메뉴는 V20 처럼 팝아웃 창(`popout.rs`), 사용 설명서는 별도 창.
+인쇄(`print.rs`, V20 에서 가져옴)는 화면이 합성한 A4 PNG 장들을 받아 Windows 는 GDI, macOS · Linux 는 CUPS `lp` 로 보냅니다.
 NSIS 제거 시 엔진(수 GB)과 설정을 지울지 따로 묻습니다(`windows/hooks.nsh`).
+
+## 인쇄 (`lib/print.js`, `PrintDialog.jsx`)
+
+배치(`view` · `views4` · `views6` · `sheets`)마다 방향 목록이 있고, `viewer3d.capture({direction, width, height, white, helpers})` 로
+방향별 그림을 오프스크린으로 찍어 `composeSheets` 가 A4(150 dpi) 장에 머리말과 함께 붙입니다. 미리 보기도 같은 장을 씁니다.
+데스크톱은 `framePages`(개수 + 길이 + PNG 바이트)로 호스트에 넘기고, 웹은 `print-html.js` 로 숨은 iframe 에서 브라우저 인쇄.
+
+## 시작 화면 · 튜토리얼 · 예제
+
+- 시작 화면 카드(`lib/startlayout.js`: hero · how · recent · engine · formats · bg)는 끌기 · 크기 바꾸기 결과를 `startLayout` 에 저장하고
+  보드 폭이 바뀌면 안으로 당깁니다. 배경은 V20 의 `lib/startbg.js`(21종 캔버스 애니메이션).
+- 튜토리얼(`Tutorial.jsx`, `lib/tutorialSteps.js`)은 단계마다 대상 선택자 · 설명 · 동작(`image:` · `model:` · `tab:` · `menu:` · `print` …)을 갖고,
+  동작은 App 의 `tourApi` 가 실제 화면에서 실행합니다. 진행 위치 `tutorialIndex`, 시작 때 묻기 `tutorialAsk`.
+- 예제는 `samples/`(git 에 포함)를 `scripts/sync-samples.mjs` 가 `public/samples` 로 복사하고 `lib/samples.js` 가 `index.json` 을 읽습니다.
 
 ## 설정
 

@@ -10,14 +10,13 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch, hasBrowser } from '../test/e2e/cdp.mjs';
-import { defaultHome } from './engine.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(root, 'doc', 'images');
 const APP = process.env.APP_URL || 'http://localhost:5195/';
 const ENGINE = process.env.ENGINE_URL || 'http://127.0.0.1:57650';
 const SAMPLE = process.env.SAMPLE_IMAGE
-  || path.join(defaultHome(), 'models', 'sf3d', 'src', 'demo_files', 'examples', 'chair1.png');
+  || path.join(root, 'samples', 'images', 'mug.png');
 const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
 
 // An engine that is always half-way through installing PyTorch.
@@ -62,7 +61,7 @@ async function shots(lang) {
   const file = (n) => path.join(OUT, `${n}${suffix}.png`);
   const b = await launch({ port: lang === 'en' ? 9582 : 9581, width: 1520, height: 940 });
   try {
-    const state = (extra = {}) => JSON.stringify({ engineUrl: ENGINE, lang, showStartPage: true, theme: 'dark', ...extra });
+    const state = (extra = {}) => JSON.stringify({ engineUrl: ENGINE, lang, showStartPage: true, tutorialAsk: false, theme: 'dark', ...extra });
     await b.goto(APP);
     await b.eval(`localStorage.clear(); localStorage.setItem('mystablefast3d-lang', '${lang}'); localStorage.setItem('mystablefast3d-state', ${JSON.stringify(state())}); true`);
     await b.goto(APP);
@@ -113,6 +112,29 @@ async function shots(lang) {
     await b.eval(`[...document.querySelectorAll('.settings-modal .tab')][1].click(); true`);
     await sleep(500);
     await clip(b, file('settings-engine'), await rectOf(b, '.settings-modal', 0));
+    await b.eval(`document.querySelector('.settings-modal .modal-x').click(); true`);
+    await sleep(300);
+
+    // The print dialog with its preview.
+    await b.eval(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', ctrlKey: true })); true`);
+    await b.waitFor(`!!document.querySelector('.print-modal img.print-preview-canvas')`, 20000);
+    await sleep(400);
+    await clip(b, file('print'), await rectOf(b, '.print-modal', 0));
+    await b.eval(`[...document.querySelectorAll('.print-modal .modal-foot .btn')].find((x) => /취소|Cancel/.test(x.textContent)).click(); true`);
+    await sleep(300);
+
+    // The tutorial on its light step.
+    await b.eval(`[...document.querySelectorAll('.toolbar-right .tbtn.chevron')][1].click(); true`);
+    await sleep(300);
+    await b.eval(`document.querySelector('[data-help-tutorial]').click(); true`);
+    await b.waitFor(`!!window.__mysf3dTutorial?.active`, 5000);
+    await b.eval(`window.__mysf3dTutorial.go(0); true`);
+    const target = await b.eval(`(async () => { const { STEPS } = await import('/src/lib/tutorialSteps.js'); return STEPS.findIndex((s) => s.id === 'light-drag'); })()`);
+    await b.eval(`window.__mysf3dTutorial.go(${target}); true`);
+    await b.waitFor(`window.__mysf3dTutorial.index === ${target} && !window.__mysf3dTutorial.busy`, 20000);
+    await sleep(900);
+    await b.shot(file('tutorial'));
+    await b.eval(`window.__mysf3dTutorial.stop(false); true`);
   } finally {
     b.close();
   }

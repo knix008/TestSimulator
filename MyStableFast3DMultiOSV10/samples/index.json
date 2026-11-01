@@ -1,0 +1,84 @@
+{
+  "images": [
+    {
+      "file": "images/robot.png",
+      "ko": "로봇",
+      "en": "Robot"
+    },
+    {
+      "file": "images/mug.png",
+      "ko": "머그컵",
+      "en": "Mug"
+    },
+    {
+      "file": "images/pawn.png",
+      "ko": "체스 폰",
+      "en": "Chess pawn"
+    },
+    {
+      "file": "images/tree.png",
+      "ko": "나무",
+      "en": "Tree"
+    },
+    {
+      "file": "images/toy-car.png",
+      "ko": "장난감 자동차",
+      "en": "Toy car"
+    }
+  ],
+  "models": [
+    {
+      "file": "models/robot.glb",
+      "ko": "로봇",
+      "en": "Robot",
+      "format": "glb"
+    },
+    {
+      "file": "models/shapes.gltf",
+      "ko": "도형 모음",
+      "en": "Shapes",
+      "format": "gltf"
+    },
+    {
+      "file": "models/mug.obj",
+      "ko": "머그컵",
+      "en": "Mug",
+      "format": "obj",
+      "files": [
+        "models/mug.mtl"
+      ]
+    },
+    {
+      "file": "models/pawn.stl",
+      "ko": "체스 폰",
+      "en": "Chess pawn",
+      "format": "stl"
+    },
+    {
+      "file": "models/tree.ply",
+      "ko": "나무",
+      "en": "Tree",
+      "format": "ply"
+    },
+    {
+      "file": "models/toy-car.usdz",
+      "ko": "장난감 자동차",
+      "en": "Toy car",
+      "format": "usdz"
+    }
+  ],
+  "results": [
+    {
+      "file": "results/mug-sf3d.glb",
+      "ko": "머그컵 (Stable Fast 3D)",
+      "en": "Mug (Stable Fast 3D)",
+      "format": "glb"
+    },
+    {
+      "file": "results/robot-triposr.glb",
+      "ko": "로봇 (TripoSR)",
+      "en": "Robot (TripoSR)",
+      "format": "glb"
+    }
+  ]
+}

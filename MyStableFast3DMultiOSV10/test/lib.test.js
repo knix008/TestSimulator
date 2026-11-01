@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { normalize, normalizeLights, normalizeView, DEFAULT_LIGHTS, DEFAULT_VIEW, addRecentFile, clampPanelWidth, clampLogHeight } from '../src/lib/settings.js';
 import { appendLines, filterLines, formatLine, makeLine, MAX_LINES } from '../src/lib/logs.js';
-import { jobQuery, joinUrl, convertWithEngine, EngineError } from '../src/lib/engine.js';
-import { niceGridSize, rulerText } from '../src/lib/viewer3d.js';
+import { jobQuery, joinUrl, convertWithEngine, EngineError, EngineClient } from '../src/lib/engine.js';
+import { groupOptions, changedFromDefault, valueOf, SURFACE_KEYS } from '../src/components/ConvertOptions.jsx';
+import { niceGridSize, rulerText, zoomGridSize } from '../src/lib/viewer3d.js';
 import { RESOURCES } from '../src/i18n.js';
 
 describe('settings', () => {
@@ -100,6 +101,24 @@ describe('engine client', () => {
     expect(seen).toEqual(['model', 'done']);
   });
 
+  it('asks the engine to refine a finished job', async () => {
+    const calls = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ id: 'j1', state: 'done', stats: { faces: 8 } }), { status: 200 });
+    };
+    try {
+      const job = await new EngineClient('http://h:1').refine('j1', { smoothing: 20, subdivide: 0 });
+      expect(job.stats.faces).toBe(8);
+    } finally {
+      globalThis.fetch = real;
+    }
+    expect(calls[0].url).toBe('http://h:1/api/jobs/j1/refine');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(calls[0].init.body)).toEqual({ smoothing: 20, subdivide: 0 });
+  });
+
   it('reports a failed job', async () => {
     vi.useFakeTimers();
     const client = { submit: async () => 'j', job: async () => ({ state: 'failed', error: 'CUDA out of memory' }), file: async () => null, cancel: () => {} };
@@ -119,6 +138,25 @@ describe('viewer helpers', () => {
     expect(niceGridSize(0)).toBe(1);
   });
 
+  it('re-spaces the grid as the view zooms, in 1-2-5 steps', () => {
+    expect(zoomGridSize(2.6)).toBe(1);
+    expect(zoomGridSize(26)).toBe(10);
+    expect(zoomGridSize(0.26)).toBe(0.1);
+    expect(zoomGridSize(6)).toBe(2);
+    expect(zoomGridSize(12)).toBe(5);
+    // The step stays put just past a boundary, then moves on.
+    expect(zoomGridSize(4.2, 1)).toBe(1);
+    expect(zoomGridSize(6, 1)).toBe(2);
+    expect(zoomGridSize(1.9, 1)).toBe(1);
+    expect(zoomGridSize(1.5, 1)).toBe(0.5);
+    // On screen a cell stays between about a fifth and a half of the distance.
+    for (let d = 0.01; d < 1e4; d *= 1.37) {
+      const cell = zoomGridSize(d);
+      expect(cell / d).toBeGreaterThan(0.19);
+      expect(cell / d).toBeLessThanOrEqual(0.5000001);
+    }
+  });
+
   it('writes ruler numbers without trailing zeros', () => {
     expect(rulerText(0.2 * 3, 'm')).toBe('0.6 m');
     expect(rulerText(-1, '')).toBe('-1');
@@ -133,5 +171,37 @@ describe('translations', () => {
     const en = keys(RESOURCES.en).sort();
     expect(ko.filter((k) => !en.includes(k))).toEqual([]);
     expect(en.filter((k) => !ko.includes(k))).toEqual([]);
+  });
+});
+
+describe('conversion settings', () => {
+  const model = {
+    common: [
+      { key: 'removeBackground', type: 'bool', default: true, group: 'input' },
+      { key: 'minPartSize', type: 'number', default: 0.5, group: 'surface' },
+      { key: 'smoothing', type: 'number', default: 10, group: 'surface' },
+      // An older engine sends no groups: surface keys are still known.
+      { key: 'straighten', type: 'bool', default: true },
+    ],
+    options: [{ key: 'threshold', type: 'number', default: 25 }],
+  };
+
+  it('sorts the options into input, model and surface', () => {
+    const g = groupOptions(model);
+    expect(g.input.map((o) => o.key)).toEqual(['removeBackground']);
+    expect(g.model.map((o) => o.key)).toEqual(['threshold']);
+    expect(g.surface.map((o) => o.key)).toEqual(['minPartSize', 'smoothing', 'straighten']);
+    expect(g.surface.every((o) => SURFACE_KEYS.includes(o.key))).toBe(true);
+    // Before the engine answers there are still the input options.
+    expect(groupOptions(undefined).input.length).toBeGreaterThan(0);
+  });
+
+  it('tells a changed value from the recommended one', () => {
+    const opts = groupOptions(model).surface;
+    expect(changedFromDefault({}, opts)).toBe(false);
+    expect(changedFromDefault({ smoothing: 10 }, opts)).toBe(false);
+    expect(changedFromDefault({ smoothing: 20 }, opts)).toBe(true);
+    expect(valueOf({ smoothing: 20 }, opts[1])).toBe(20);
+    expect(valueOf({}, opts[1])).toBe(10);
   });
 });

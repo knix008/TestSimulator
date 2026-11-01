@@ -158,15 +158,41 @@ function FlagSvg({ size = 18, children, ...rest }) {
   );
 }
 
+// One trigram of the Taegukgi: three bars (solid or broken) stacked along the
+// flag's diagonal. `bars` from the inside out: true = solid.
+function Trigram({ x, y, angle, bars }) {
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${angle})`} fill="#000">
+      {bars.map((solid, i) => {
+        const yy = (i - 1) * 1.7 - 0.55;
+        return solid
+          ? <rect key={i} x="-3" y={yy} width="6" height="1.1" />
+          : (
+            <g key={i}>
+              <rect x="-3" y={yy} width="2.55" height="1.1" />
+              <rect x="0.45" y={yy} width="2.55" height="1.1" />
+            </g>
+          );
+      })}
+    </g>
+  );
+}
+
+// The Taegukgi: the red-and-blue taeguk turned along the diagonal (red on
+// top), and geon ☰ · gam ☵ · ri ☲ · gon ☷ in the corners.
 export const FlagKo = (p) => (
   <FlagSvg {...p}>
     <rect width="36" height="24" rx="2.2" fill="#fff" />
-    <g transform="translate(18 12)">
-      <circle r="6.4" fill="#CD2E3A" />
-      <path d="M0-6.4A6.4 6.4 0 0 1 0 6.4A3.2 3.2 0 0 1 0 0A3.2 3.2 0 0 0 0-6.4Z" fill="#0047A0" />
-      <circle cy="-3.2" r="3.2" fill="#CD2E3A" />
-      <circle cy="3.2" r="3.2" fill="#0047A0" />
+    <g transform="translate(18 12) rotate(33.69)">
+      <circle r="6" fill="#0047A0" />
+      <path d="M-6 0A6 6 0 0 1 6 0Z" fill="#CD2E3A" />
+      <circle cx="-3" r="3" fill="#CD2E3A" />
+      <circle cx="3" r="3" fill="#0047A0" />
     </g>
+    <Trigram x={10.1} y={6.4} angle={-56.31} bars={[true, true, true]} />
+    <Trigram x={25.9} y={17.6} angle={-56.31} bars={[false, false, false]} />
+    <Trigram x={25.9} y={6.4} angle={56.31} bars={[false, true, false]} />
+    <Trigram x={10.1} y={17.6} angle={56.31} bars={[true, false, true]} />
     <rect width="36" height="24" rx="2.2" fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth="1" />
   </FlagSvg>
 );
@@ -413,6 +439,9 @@ export const IconFit = (p) => (
 );
 export const IconPalette = (p) => (
   <S {...p}><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-1-.8-1.4-.8-2.4 0-1 .8-1.6 1.8-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10" cy="7" r="1" /><circle cx="15" cy="7.5" r="1" /></S>
+);
+export const IconSliders = (p) => (
+  <S {...p}><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></S>
 );
 export const IconRefresh = (p) => (
   <S {...p}><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></S>

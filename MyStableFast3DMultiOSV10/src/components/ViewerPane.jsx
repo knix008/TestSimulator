@@ -5,15 +5,17 @@ import { IconImage, IconCube, IconStop } from './Icons.jsx';
 import { formatDuration } from '../lib/platform.js';
 
 // The 3D view in the middle of the window, plus what lies over it: the empty
-// state, the progress of a running conversion and the drop zone.
+// state (only while nothing is open, not even an image), the progress of a
+// running conversion and the drop zone.
 const ViewerPane = forwardRef(function ViewerPane({
-  view, lights, object, animations, job, busy, dragOver, onCancel, onOpenImage, onOpenModel,
-  onLightMove, onLightSelect, selectedLight, banner,
+  view, lights, object, animations, job, busy, hasImage, dragOver, onCancel, onOpenImage, onOpenModel,
+  onLightMove, onLightSelect, selectedLight, banner, onContextMenu,
 }, ref) {
   const { t } = useTranslation();
   const hostRef = useRef(null);
   const viewerRef = useRef(null);
   const callbacks = useRef({});
+  const rightDown = useRef(null);
   callbacks.current = { onLightMove, onLightSelect };
 
   useEffect(() => {
@@ -48,9 +50,21 @@ const ViewerPane = forwardRef(function ViewerPane({
   const pct = Math.round((job?.progress || 0) * 100);
 
   return (
-    <main className={`viewer viewer3d${dragOver ? ' dragging' : ''}`}>
+    <main
+      className={`viewer viewer3d${dragOver ? ' dragging' : ''}`}
+      // Right-drag pans the view; only a right-click that did not move opens the menu.
+      onPointerDown={(e) => { if (e.button === 2) rightDown.current = { x: e.clientX, y: e.clientY }; }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const d = rightDown.current;
+        rightDown.current = null;
+        if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return;
+        if (e.target.closest('.engine-banner, .convert-overlay, .viewer-empty .welcome')) return;
+        onContextMenu?.(e.clientX, e.clientY);
+      }}
+    >
       <div className="viewer3d-host" ref={hostRef} />
-      {!object && !busy ? (
+      {!object && !busy && !hasImage ? (
         <div className="viewer-empty">
           <div className="welcome">
             <img src="./icon.svg" alt="" width="96" height="96" />

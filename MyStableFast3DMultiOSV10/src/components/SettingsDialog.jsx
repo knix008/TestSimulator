@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal.jsx';
-import { IconSettings, IconFlag, IconAlert, IconKey, IconRefresh, IconFolder, IconTrash } from './Icons.jsx';
+import { IconSettings, IconFlag, IconAlert, IconKey, IconRefresh, IconFolder, IconTrash, IconSparkles } from './Icons.jsx';
 import { LANGUAGES } from '../i18n.js';
 import { CustomThemeEditor, ThemeChipGroups } from './ThemePicker.jsx';
 import { getSystemFonts } from '../lib/fonts.js';
@@ -9,13 +9,15 @@ import { DEFAULT_ENGINE_URL, FONT_SIZE_MAX, FONT_SIZE_MIN, stepFontSize } from '
 import { EXPORT_FORMATS } from '../lib/formats.js';
 import { isDesktop, appInfo } from '../lib/platform.js';
 import { NumberStepper } from './Stepper.jsx';
+import BackgroundPicker from './BackgroundPicker.jsx';
+import { STEPS } from '../lib/tutorialSteps.js';
 
 const TABS = ['appearance', 'engine', 'view', 'files'];
 
 // Every application setting lives here. Changes apply immediately (and are
 // persisted by App), so there is no OK/Apply dance.
 export default function SettingsDialog({
-  open, settings, onChange, onClose, onReset, health, onToken, onClearToken, onReinstall, onOpenEngineFolder, onRestartEngine,
+  open, settings, onChange, onClose, onReset, health, tab: askedTab, onTutorial, onToken, onClearToken, onReinstall, onOpenEngineFolder, onRestartEngine,
 }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState('appearance');
@@ -23,6 +25,8 @@ export default function SettingsDialog({
   const [storagePath, setStoragePath] = useState('');
   const [token, setToken] = useState('');
   const [key, setKey] = useState(settings.stabilityKey || '');
+
+  useEffect(() => { if (open && askedTab) setTab(askedTab); }, [open, askedTab]);
 
   useEffect(() => {
     if (!open) return;
@@ -234,6 +238,18 @@ export default function SettingsDialog({
               </section>
             </div>
             <div className="settings-side">
+              <section className="sgroup" data-settings-tutorial>
+                <h4>{t('tutorial.settingsTitle')}</h4>
+                <label className="check"><input type="checkbox" checked={settings.tutorialAsk} onChange={(e) => set({ tutorialAsk: e.target.checked })} /><span>{t('tutorial.settingsAsk')}</span></label>
+                <p className="panel-note">{settings.tutorialDone ? t('tutorial.settingsDone') : t('tutorial.settingsProgress', { n: settings.tutorialIndex + 1, total: STEPS.length })}</p>
+                <div className="row">
+                  <button className="btn small primary" onClick={onTutorial}><IconSparkles size={14} /> {t('tutorial.start')}</button>
+                </div>
+              </section>
+              <section className="sgroup">
+                <h4>{t('start.background')}</h4>
+                <BackgroundPicker settings={settings} onChange={(patch) => set(patch)} />
+              </section>
               <section className="sgroup">
                 <h4>{t('settings.viewerDefaults')}</h4>
                 <p className="panel-note">{t('settings.viewerNote')}</p>

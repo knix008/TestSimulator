@@ -33,8 +33,11 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../engine/mysf3d/": "engine/mysf3d/",
-      "../engine/shims/": "engine/shims/",
+      "../engine/mysf3d/*.py": "engine/mysf3d/",
+      "../engine/mysf3d/models/*.py": "engine/mysf3d/models/",
+      "../engine/shims/texture_baker/*.py": "engine/shims/texture_baker/",
+      "../engine/shims/torchmcubes/*.py": "engine/shims/torchmcubes/",
+      "../engine/shims/uv_unwrapper/*.py": "engine/shims/uv_unwrapper/",
       "../LICENSE-MODELS.md": "LICENSE-MODELS.md",
       "../NOTICE.md": "NOTICE.md"
     },

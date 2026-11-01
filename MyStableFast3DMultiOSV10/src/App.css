@@ -890,6 +890,22 @@ p.hint.dir-hint { margin-left: 0; margin-bottom: 8px; }
 .start-board.free { display: block; }
 .start-board.free .start-grid { display: contents; }
 .start-board.free .start-card { overflow: auto; box-sizing: border-box; }
+/* Snapping to the grid (lib/startlayout.js): the held card follows the
+   pointer, a dashed silhouette marks the grid spot it will drop into, and the
+   other cards slide out of its way. The grid shows on the board meanwhile. */
+.start-board.free .start-card { transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease; }
+.start-board.free .start-card.held { transition: none; box-shadow: 0 18px 44px var(--shadow); opacity: 0.94; }
+.card-ghost {
+  position: absolute; z-index: 0; pointer-events: none; box-sizing: border-box;
+  border: 2px dashed var(--accent); border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  transition: left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease;
+}
+.start-board.arranging {
+  background-image:
+    repeating-linear-gradient(to right, color-mix(in srgb, var(--accent) 7%, transparent) 0 calc(var(--grid-col) - 16px), transparent calc(var(--grid-col) - 16px) var(--grid-col)),
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--grid-row) - 1px), color-mix(in srgb, var(--border) 70%, transparent) calc(var(--grid-row) - 1px) var(--grid-row));
+}
 .start-card { position: relative; }
 /* Just the ⠿ mark: no background or border in any state, only its colour changes. */
 .card-handle, .card-handle:hover, .card-handle:active, .card-handle:focus {

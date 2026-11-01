@@ -35,7 +35,15 @@ export const EXPORT_FORMATS = [
   { id: 'stl', ext: 'stl', name: 'STL (.stl)', mime: 'model/stl', textures: false },
   { id: 'stl-ascii', ext: 'stl', name: 'STL ASCII (.stl)', mime: 'model/stl', textures: false },
   { id: 'ply', ext: 'ply', name: 'PLY (.ply)', mime: 'application/octet-stream', textures: false },
+  { id: 'ply-ascii', ext: 'ply', name: 'PLY ASCII (.ply)', mime: 'text/plain', textures: false },
   { id: 'usdz', ext: 'usdz', name: 'USDZ (.usdz)', mime: 'model/vnd.usdz+zip', textures: true },
+  { id: '3mf', ext: '3mf', name: '3D Manufacturing (.3mf)', mime: 'model/3mf', textures: false },
+  { id: 'amf', ext: 'amf', name: 'AMF (.amf)', mime: 'application/x-amf', textures: false },
+  { id: 'dae', ext: 'dae', name: 'COLLADA (.dae)', mime: 'model/vnd.collada+xml', textures: false },
+  { id: 'wrl', ext: 'wrl', name: 'VRML 2.0 (.wrl)', mime: 'model/vrml', textures: false },
+  { id: 'vtk', ext: 'vtk', name: 'VTK (.vtk)', mime: 'text/plain', textures: false },
+  { id: 'pcd', ext: 'pcd', name: 'Point cloud PCD (.pcd)', mime: 'text/plain', textures: false, points: true },
+  { id: 'xyz', ext: 'xyz', name: 'Point cloud XYZ (.xyz)', mime: 'text/plain', textures: false, points: true },
 ];
 
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff'];
@@ -71,6 +79,12 @@ export function exportName(name, formatId) {
 }
 
 const text = (data) => new TextDecoder().decode(data instanceof Uint8Array ? data : new Uint8Array(data));
+
+// The start of an AMF file as text (it may be zipped: then no unit is read).
+const amfText = (data) => {
+  const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+  return u8[0] === 0x50 && u8[1] === 0x4b ? '' : text(u8.subarray(0, 4096));
+};
 
 const toArrayBuffer = (data) => {
   const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
@@ -247,7 +261,14 @@ async function parse(id, name, data, manager) {
     }
     case 'amf': {
       const { AMFLoader } = await import('three/examples/jsm/loaders/AMFLoader.js');
-      return { object: new AMFLoader(manager).parse(buffer()), animations: [] };
+      // The loader turns every unit into millimetres; the numbers are kept as
+      // written instead, as for every other format (the viewer's unit setting
+      // says what they mean).
+      const object = new AMFLoader(manager).parse(buffer());
+      const unit = /<amf\b[^>]*\bunit\s*=\s*"([^"]+)"/i.exec(amfText(data))?.[1]?.toLowerCase();
+      const scale ={ inch: 25.4, feet: 304.8, meter: 1000, micron: 0.001 }[unit];
+      if (scale) object.scale.multiplyScalar(1 / scale);
+      return { object, animations: [] };
     }
     case 'pcd': {
       const { PCDLoader } = await import('three/examples/jsm/loaders/PCDLoader.js');
@@ -256,11 +277,7 @@ async function parse(id, name, data, manager) {
     }
     case 'xyz': {
       const { XYZLoader } = await import('three/examples/jsm/loaders/XYZLoader.js');
-      const loader = new XYZLoader(manager);
-      const geometry = await new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(new Blob([data]));
-        loader.load(url, (g) => { URL.revokeObjectURL(url); resolve(g); }, undefined, reject);
-      });
+      const geometry = new XYZLoader(manager).parse(text(data));
       return { object: meshFromGeometry(geometry, true), animations: [] };
     }
     case 'kmz': {
@@ -281,7 +298,9 @@ async function parse(id, name, data, manager) {
 }
 
 // Saves `object` (with its transform) as `formatId`. Returns Uint8Array.
-export async function exportModel(object, formatId) {
+// `units` (the viewer's unit setting) names the unit in the formats that
+// record one (3MF, AMF, COLLADA); the numbers themselves are not changed.
+export async function exportModel(object, formatId, { units = 'm' } = {}) {
   const fmt = exportFormat(formatId);
   object.updateMatrixWorld(true);
   switch (fmt.id) {
@@ -303,12 +322,26 @@ export async function exportModel(object, formatId) {
       const out = new STLExporter().parse(object, { binary });
       return binary ? new Uint8Array(out.buffer, out.byteOffset, out.byteLength) : new TextEncoder().encode(out);
     }
-    case 'ply': {
+    case 'ply':
+    case 'ply-ascii': {
       const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js');
+      const binary = fmt.id === 'ply';
       const out = await new Promise((resolve) => {
-        new PLYExporter().parse(object, resolve, { binary: true });
+        new PLYExporter().parse(object, resolve, { binary });
       });
-      return new Uint8Array(out);
+      return binary ? new Uint8Array(out) : new TextEncoder().encode(out);
+    }
+    case '3mf':
+    case 'amf':
+    case 'dae':
+    case 'wrl':
+    case 'vtk':
+    case 'pcd':
+    case 'xyz': {
+      const w = await import('./exporters.js');
+      const meshes = w.collectMeshes(object);
+      const write = { '3mf': w.write3MF, amf: w.writeAMF, dae: w.writeDAE, wrl: w.writeVRML, vtk: w.writeVTK, pcd: w.writePCD, xyz: w.writeXYZ }[fmt.id];
+      return write(meshes, { units });
     }
     case 'usdz': {
       const { USDZExporter } = await import('three/examples/jsm/exporters/USDZExporter.js');

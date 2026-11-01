@@ -35,6 +35,16 @@ Downloaded on first use from https://github.com/VAST-AI-Research/TripoSR and
 https://huggingface.co/stabilityai/TripoSR. Its compiled marching-cubes
 extension (`torchmcubes`) is replaced by scikit-image (`engine/shims/torchmcubes`).
 
+## Hunyuan3D
+
+Tencent Hunyuan 3D 2.0 / 2.1 — Copyright (C) Tencent, under the Tencent Hunyuan
+3D Community Licenses (not available in the EU, the UK and South Korea).
+Downloaded on first use, after the user accepts the license in the app, from
+https://github.com/Tencent-Hunyuan/Hunyuan3D-2 (commit f8db63096c8282cb27354314d896feba5ba6ff8a),
+https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 (commit 82920d643c0dc2f7bfd7255f45f62d386edfe60c)
+and https://huggingface.co/tencent. Only the shape generation runs (no texture
+"paint" model); surfaces use the plain marching-cubes extractor.
+
 ## Other components
 
 three.js (MIT), React (MIT), i18next (MIT), Tauri (MIT / Apache-2.0),

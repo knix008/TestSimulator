@@ -93,6 +93,14 @@ export class EngineClient {
 
   async cancel(id) { return (await request(this.url(`/api/jobs/${id}/cancel`), { method: 'POST' })).json(); }
 
+  // New surface options on a finished job (no model run): the job comes back
+  // with its new result.glb ready.
+  async refine(id, options) {
+    return (await request(this.url(`/api/jobs/${id}/refine`), {
+      method: 'POST', body: JSON.stringify(options), headers: { 'Content-Type': 'application/json' }, timeout: 300000,
+    })).json();
+  }
+
   async file(id, name) {
     const res = await request(this.url(`/api/jobs/${id}/${name}`), { timeout: 120000 });
     return new Uint8Array(await res.arrayBuffer());

@@ -26,7 +26,23 @@ class ModelSpec:
     commit = ""
     check_file = ""           # a file the source download must contain
     textured = False          # the result has a texture (else vertex colours)
+    output = ""               # texture | vertex-colors | shape (default from `textured`)
     options = []              # option descriptors for the app's panel
+    packages = ()             # pip packages only this model needs
+    common_defaults = {}      # recommended values of COMMON_OPTIONS for this model
+    # Versions of one model share a family; the app offers a version picker.
+    family = ""
+    family_name = ""
+    version = ""
+    version_label = ""
+    # The license does not cover every country: installed only after the
+    # user has accepted that in the app (see Service.accept_license).
+    region_restricted = False
+    license_note = None
+
+    @property
+    def source_id(self):
+        return self.id
 
     def source_dir(self, home):
         return os.path.join(home, "models", self.id, "src")
@@ -63,7 +79,15 @@ class ModelSpec:
             "gated": self.gated,
             "size": self.size_label,
             "textured": self.textured,
+            "output": self.output or ("texture" if self.textured else "vertex-colors"),
             "options": self.options,
+            "common": common_options(self),
+            "family": self.family or self.id,
+            "familyName": self.family_name or self.name,
+            "version": self.version,
+            "versionLabel": self.version_label,
+            "regionRestricted": self.region_restricted,
+            "licenseNote": self.license_note,
         }
 
 
@@ -71,17 +95,37 @@ def option(key, kind, default, **extra):
     return {"key": key, "type": kind, "default": default, **extra}
 
 
+# `group` sorts the options in the app's conversion settings window: the
+# input image, the model itself (each model's own options, which carry no
+# group) and the surface clean-up afterwards. Surface options can be changed
+# on a finished result without converting again (pipeline.SURFACE_OPTIONS).
 COMMON_OPTIONS = [
-    option("removeBackground", "bool", True),
-    option("foregroundRatio", "number", 0.85, min=0.5, max=1.0, step=0.05),
+    option("removeBackground", "bool", True, group="input"),
+    option("foregroundRatio", "number", 0.85, min=0.5, max=1.0, step=0.05, group="input"),
+    # Loose pieces smaller than this share (%) of the largest one are removed.
+    option("minPartSize", "number", 0.5, min=0, max=20, step=0.5, group="surface"),
+    # Each level splits every triangle in four before smoothing (×4 faces).
+    option("subdivide", "number", 0, min=0, max=2, step=1, integer=True, group="surface"),
+    # Taubin smoothing passes over the finished surface (0 = none).
+    option("smoothing", "number", 0, min=0, max=50, step=1, integer=True, group="surface"),
+    # Stand the result upright: a photo taken from above makes a model that
+    # assumes a level camera lean towards the viewer (see pipeline.upright).
+    option("straighten", "bool", True, group="surface"),
 ]
+
+
+def common_options(spec):
+    """The options every model takes, with this model's recommended defaults
+    (ModelSpec.common_defaults)."""
+    defaults = getattr(spec, "common_defaults", None) or {}
+    return [{**o, "default": defaults.get(o["key"], o["default"])} for o in COMMON_OPTIONS]
 
 
 def normalize_options(spec, raw, device):
     """Clamps the options sent with a job to what the model accepts."""
     raw = raw or {}
     out = {}
-    for opt in COMMON_OPTIONS + spec.options:
+    for opt in common_options(spec) + spec.options:
         key, kind, default = opt["key"], opt["type"], opt["default"]
         val = raw.get(key, default)
         if kind == "bool":
@@ -111,8 +155,9 @@ def normalize_options(spec, raw, device):
 def _registry():
     from .sf3d import StableFast3D
     from .triposr import TripoSR
+    from .hunyuan3d import VERSIONS as HUNYUAN3D
 
-    return [StableFast3D(), TripoSR()]
+    return [StableFast3D(), TripoSR(), *(cls() for cls in HUNYUAN3D)]
 
 
 MODELS = _registry()

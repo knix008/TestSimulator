@@ -28,6 +28,9 @@ class TripoSR(ModelSpec):
     source_zip = f"https://codeload.github.com/VAST-AI-Research/TripoSR/zip/{commit}"
     check_file = os.path.join("tsr", "system.py")
     textured = False
+    # Marching cubes leaves a stepped surface: split once and smoothed well by
+    # default (as SF3D).
+    common_defaults = {"smoothing": 10, "subdivide": 1}
     options = [
         option(
             "mcResolution", "select", "auto",

@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconCheck, IconChip, IconLayers, IconCube, IconAlert } from './Icons.jsx';
 import { engineSummary } from './EngineCard.jsx';
+import { ResizeGrip } from './WindowControls.jsx';
 
 // Bottom status bar: what the app is doing, the engine and its device, the
 // model in use and what is in the view. Each cell has a tooltip.
@@ -43,6 +44,7 @@ export default function StatusBar({ message, busy, health, connection, modelName
         {sum.kind === 'error' ? <IconAlert size={14} /> : sum.kind === 'busy' ? <span className="spinner" /> : <IconChip size={14} />}
         {sum.text}
       </button>
+      <ResizeGrip />
     </footer>
   );
 }

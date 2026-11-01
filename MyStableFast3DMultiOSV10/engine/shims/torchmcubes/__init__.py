@@ -4,6 +4,12 @@ scikit-image's marching cubes.
 marching_cubes(volume, threshold) → (vertices (V, 3) float, faces (F, 3) long),
 vertices in index units with x along the volume's last axis, as torchmcubes
 returns them (TripoSR swaps the axes back right after).
+
+The inside of the object is where the volume is above the threshold, and the
+faces wind so their normals point out of it, as torchmcubes does. scikit-image
+winds them the other way round for such a volume; left like that, every face
+of the result looks inward and a viewer that culls back faces shows the
+object in pieces.
 """
 
 import numpy as np
@@ -18,6 +24,7 @@ def marching_cubes(volume, threshold=0.0):
 
     verts, faces, _normals, _values = measure.marching_cubes(vol, level=threshold)
     verts = np.ascontiguousarray(verts[:, ::-1])
+    faces = np.ascontiguousarray(faces[:, ::-1])
     return torch.from_numpy(verts.astype(np.float32)), torch.from_numpy(faces.astype(np.int64))
 
 

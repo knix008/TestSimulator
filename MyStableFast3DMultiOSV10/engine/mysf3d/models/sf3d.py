@@ -63,6 +63,10 @@ class StableFast3D(ModelSpec):
     source_zip = f"https://codeload.github.com/Stability-AI/stable-fast-3d/zip/{commit}"
     check_file = os.path.join("sf3d", "system.py")
     textured = True
+    # The recommended clean-up: its surface is bumpy, so each triangle is split
+    # once and the result smoothed well (measured on the samples: the angle
+    # between neighbouring faces drops to about a third).
+    common_defaults = {"smoothing": 10, "subdivide": 1}
     options = [
         option(
             "textureResolution", "select", "auto",

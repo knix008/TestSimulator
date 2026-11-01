@@ -4,11 +4,13 @@ import Panel from './Panel.jsx';
 import { Section, Check, SelectField, RangeField, NumberField, ColorField, Vec3Field, Seg } from './Form.jsx';
 import {
   IconSettings, IconWand, IconGrid, IconBulb, IconPalette, IconCube, IconCamera, IconPlus, IconTrash,
-  IconRefresh, IconEye, IconFit,
+  IconRefresh, IconEye, IconFit, IconSliders,
 } from './Icons.jsx';
+import { OptionField, commonOptions, optionValues, valueOf } from './ConvertOptions.jsx';
 import { DEFAULT_LIGHTS, DEFAULT_VIEW } from '../lib/settings.js';
 import { MOVABLE, VIEW_PRESETS, rulerText } from '../lib/viewer3d.js';
 import { formatDuration, openExternal } from '../lib/platform.js';
+import { groupFamilies, shownVersion } from '../lib/modelFamilies.js';
 
 export const RIGHT_TABS = [
   { id: 'convert', icon: IconWand },
@@ -32,60 +34,30 @@ function Row({ label, value }) {
 const fmtInt = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString() : '—');
 
 // ── Convert ───────────────────────────────────────────────
-function ConvertTab({ settings, onSettings, models, health, lastJob, onDevice, t, lang }) {
+function ConvertTab({
+  settings, onSettings, models, health, lastJob, onDevice, onPickModel, onOpenConvertSettings, onRefine, canRefine, refining, t, lang,
+}) {
   const model = models.find((m) => m.id === settings.model);
-  const values = settings.convertOptions?.[settings.model] || {};
+  const families = groupFamilies(models);
+  const family = families.find((f) => f.versions.some((m) => m.id === settings.model));
+  const values = optionValues(settings, settings.model);
   const setOpt = (key, value) => onSettings((s) => ({
     ...s,
     convertOptions: { ...s.convertOptions, [s.model]: { ...(s.convertOptions?.[s.model] || {}), [key]: value } },
   }));
-  const optValue = (o) => (values[o.key] !== undefined ? values[o.key] : o.default);
-  const common = [
-    { key: 'removeBackground', type: 'bool', default: true },
-    { key: 'foregroundRatio', type: 'number', default: 0.85, min: 0.5, max: 1, step: 0.05 },
-  ];
   const remeshOk = health?.loaded !== 'sf3d' || health?.capabilities?.remesh;
   const stability = settings.backend === 'stability';
 
-  const renderOption = (o) => {
-    const label = t(`opt.${o.key}`, o.key);
-    const tip = t(`optTip.${o.key}`, '');
-    if (o.type === 'bool') {
-      return <Check key={o.key} label={label} tip={tip} checked={optValue(o)} onChange={(v) => setOpt(o.key, v)} />;
-    }
-    if (o.type === 'select') {
-      return (
-        <SelectField
-          key={o.key}
-          label={label}
-          tip={tip}
-          value={optValue(o)}
-          disabled={o.needs === 'remesh' && !remeshOk}
-          options={o.choices.map((c) => ({
-            value: c.value,
-            label: c.value === 'auto' && o.deviceDefault
-              ? t('opt.auto', { gpu: o.deviceDefault.gpu, cpu: o.deviceDefault.cpu })
-              : t(`opt.${o.key}Choice.${c.value}`, String(c.value)),
-          }))}
-          onChange={(v) => setOpt(o.key, v)}
-        />
-      );
-    }
-    if (o.allowOff !== undefined) {
-      const off = Number(optValue(o)) === o.allowOff;
-      return (
-        <div key={o.key}>
-          <Check label={label} tip={tip} checked={!off} onChange={(on) => setOpt(o.key, on ? 10000 : o.allowOff)} />
-          {off ? null : (
-            <NumberField label={t('opt.target')} value={optValue(o)} min={o.min} max={o.max} step={o.step} onChange={(v) => setOpt(o.key, v)} />
-          )}
-        </div>
-      );
-    }
-    return (
-      <RangeField key={o.key} label={label} tip={tip} value={Number(optValue(o))} min={o.min} max={o.max} step={o.step} onChange={(v) => setOpt(o.key, v)} />
-    );
-  };
+  const renderOption = (o) => (
+    <OptionField
+      key={o.key}
+      o={o}
+      t={t}
+      value={valueOf(values, o)}
+      disabled={o.needs === 'remesh' && !remeshOk}
+      onChange={(v) => setOpt(o.key, v)}
+    />
+  );
 
   const dev = health?.device || {};
   return (
@@ -95,12 +67,26 @@ function ConvertTab({ settings, onSettings, models, health, lastJob, onDevice, t
           <p className="panel-note warn">{t('right.stabilityActive')}</p>
         ) : (
           <>
+            {/* The model, then its version when it has several; each version
+                keeps its own options below. */}
             <SelectField
               label={t('right.modelPick')}
-              value={settings.model}
-              options={(models.length ? models : [{ id: settings.model, name: settings.model }]).map((m) => ({ value: m.id, label: m.name }))}
-              onChange={(id) => onSettings((s) => ({ ...s, model: id }))}
+              value={family?.family || settings.model}
+              options={(families.length ? families : [{ family: settings.model, name: settings.model }]).map((f) => ({ value: f.family, label: f.name }))}
+              onChange={(id) => {
+                const fam = families.find((f) => f.family === id);
+                if (fam) onPickModel(shownVersion(fam, settings.model, settings.modelVersions).id);
+              }}
             />
+            {family && family.versions.length > 1 ? (
+              <SelectField
+                label={t('model.version')}
+                tip={t('model.versionTip', { name: family.name })}
+                value={settings.model}
+                options={family.versions.map((m) => ({ value: m.id, label: `${m.versionLabel || m.name} · ${m.size}` }))}
+                onChange={(id) => onPickModel(id)}
+              />
+            ) : null}
             {model ? (
               <>
                 <p className="panel-note">{model.summary?.[lang] || model.summary?.en}</p>
@@ -108,8 +94,11 @@ function ConvertTab({ settings, onSettings, models, health, lastJob, onDevice, t
                   <Row label={t('right.status')} value={t(`model.status.${model.status}`, model.status)} />
                   <Row label={t('right.license')} value={model.license} />
                   <Row label={t('right.size')} value={model.size} />
-                  <Row label={t('right.output')} value={model.textured ? t('right.textured') : t('right.vertexColors')} />
+                  <Row label={t('right.output')} value={model.output === 'shape' ? t('right.shapeOnly') : model.textured ? t('right.textured') : t('right.vertexColors')} />
                 </dl>
+                {model.status === 'needs-license' ? (
+                  <button className="btn small" onClick={() => onPickModel(model.id)}>{t('model.checkLicense')}</button>
+                ) : null}
                 <div className="panel-links">
                   <button className="linkish" onClick={() => openExternal(model.page)}>{t('right.modelPage')}</button>
                   {model.licenseUrl ? <button className="linkish" onClick={() => openExternal(model.licenseUrl)}>{t('right.licenseText')}</button> : null}
@@ -121,16 +110,31 @@ function ConvertTab({ settings, onSettings, models, health, lastJob, onDevice, t
         )}
       </Section>
 
-      <Section title={t('right.options')}>
-        {common.map(renderOption)}
+      <Section
+        title={t('right.options')}
+        actions={(
+          <button className="icon-btn" onClick={onOpenConvertSettings} title={t('convertSettings.open')} aria-label={t('convertSettings.open')}>
+            <IconSliders size={15} />
+          </button>
+        )}
+      >
+        {commonOptions(model).map(renderOption)}
         {(model?.options || []).map(renderOption)}
-        <button
-          className="btn small"
-          onClick={() => onSettings((s) => ({ ...s, convertOptions: { ...s.convertOptions, [s.model]: {} } }))}
-          title={t('right.resetOptions')}
-        >
-          <IconRefresh size={14} /> {t('right.resetOptions')}
-        </button>
+        <div className="panel-buttons">
+          <button
+            className="btn small"
+            onClick={() => onSettings((s) => ({ ...s, convertOptions: { ...s.convertOptions, [s.model]: {} } }))}
+            title={t('right.resetOptions')}
+          >
+            <IconRefresh size={14} /> {t('right.resetOptions')}
+          </button>
+          <button className="btn small" onClick={onOpenConvertSettings} title={t('convertSettings.open')}>
+            <IconSliders size={14} /> {t('convertSettings.openShort')}
+          </button>
+          <button className="btn small" onClick={onRefine} disabled={!canRefine || refining} title={canRefine ? t('convertSettings.refineTip') : t('convertSettings.refineUnavailable')}>
+            <IconWand size={14} /> {refining ? t('convertSettings.refining') : t('convertSettings.refine')}
+          </button>
+        </div>
       </Section>
 
       <Section title={t('right.device')}>
@@ -420,8 +424,8 @@ function CameraTab({ view, setView, onView, onFit, t }) {
 }
 
 export default function RightPanel({
-  settings, onSettings, models, health, lastJob, onDevice, modelInfo, transform, onTransform,
-  selectedLight, onSelectLight, onView, onFit,
+  settings, onSettings, models, health, lastJob, onDevice, onPickModel, modelInfo, transform, onTransform,
+  selectedLight, onSelectLight, onView, onFit, onOpenConvertSettings, onRefine, canRefine, refining,
 }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language?.startsWith('en') ? 'en' : 'ko';
@@ -459,7 +463,7 @@ export default function RightPanel({
         ))}
       </div>
       <div className="panel-scroll">
-        {tab === 'convert' ? <ConvertTab settings={settings} onSettings={onSettings} models={models} health={health} lastJob={lastJob} onDevice={onDevice} t={t} lang={lang} /> : null}
+        {tab === 'convert' ? <ConvertTab settings={settings} onSettings={onSettings} models={models} health={health} lastJob={lastJob} onDevice={onDevice} onPickModel={onPickModel} onOpenConvertSettings={onOpenConvertSettings} onRefine={onRefine} canRefine={canRefine} refining={refining} t={t} lang={lang} /> : null}
         {tab === 'scene' ? <SceneTab view={view} setView={setView} t={t} /> : null}
         {tab === 'lights' ? (
           <LightsTab lights={settings.lights} setLights={setLights} selected={selectedLight} onSelect={onSelectLight} view={view} setView={setView} t={t} />

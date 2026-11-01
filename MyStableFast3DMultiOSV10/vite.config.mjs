@@ -19,6 +19,26 @@ export default defineConfig({
     // is part of the page.
     watch: { ignored: ['**/src-tauri/**', '**/engine/**'] },
   },
+  // The loaders and exporters are imported only when a file of that kind is
+  // first opened or saved. Left to discover them then, Vite re-bundles its
+  // dependencies mid-session and the page's already-issued import of the old
+  // bundle fails ("Failed to fetch dynamically imported module"). Bundle them
+  // all up front.
+  optimizeDeps: {
+    include: [
+      'three',
+      ...[
+        'controls/OrbitControls', 'controls/TransformControls', 'environments/RoomEnvironment',
+        'helpers/ViewHelper', 'renderers/CSS2DRenderer',
+        'exporters/GLTFExporter', 'exporters/OBJExporter', 'exporters/PLYExporter', 'exporters/STLExporter',
+        'exporters/USDZExporter', 'libs/fflate.module',
+        'loaders/3MFLoader', 'loaders/AMFLoader', 'loaders/ColladaLoader', 'loaders/FBXLoader',
+        'loaders/GLTFLoader', 'loaders/KMZLoader', 'loaders/LWOLoader', 'loaders/MTLLoader', 'loaders/OBJLoader',
+        'loaders/PCDLoader', 'loaders/PLYLoader', 'loaders/STLLoader', 'loaders/TDSLoader', 'loaders/USDZLoader',
+        'loaders/VRMLLoader', 'loaders/VTKLoader', 'loaders/XYZLoader',
+      ].map((m) => `three/examples/jsm/${m}.js`),
+    ],
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

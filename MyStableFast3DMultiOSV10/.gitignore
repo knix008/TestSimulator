@@ -82,3 +82,5 @@ desktop.ini
 # Python bytecode (engine/)
 __pycache__/
 *.pyc
+# copied from samples/ — npm run sync:samples (part of prepare:assets)
+public/samples/

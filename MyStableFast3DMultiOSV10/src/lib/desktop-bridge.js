@@ -139,6 +139,18 @@ export function createDesktopApi({
 
     listFonts: () => call('list_fonts'),
 
+    // Straight to a printer chosen in the app's own print dialog. `pages` is
+    // the framed JPEGs (lib/print.js framePages).
+    listPrinters: () => call('print_list_printers'),
+    printTo: ({ pages, printer, copies = 1, landscape = false, title = '' } = {}) => call('print_pages', pages, {
+      headers: {
+        'x-printer': encodeURIComponent(String(printer || '')),
+        'x-copies': String(Math.max(1, Math.min(99, Math.round(Number(copies) || 1)))),
+        'x-landscape': landscape ? '1' : '0',
+        'x-title': encodeURIComponent(String(title || '')),
+      },
+    }),
+
     loadSettings: () => call('settings_load'),
     saveSettings: (data) => call('settings_save', { data }),
 
@@ -167,6 +179,13 @@ export function createDesktopApi({
     }),
 
     win: {
+      minimize: () => call('win_minimize'),
+      toggleMaximize: () => call('win_toggle_maximize'),
+      isMaximized: () => call('win_is_maximized'),
+      onMaximizeChange: on('maximized'),
+      getSize: () => call('win_get_size'),
+      setSize: ({ width, height } = {}) => call('win_set_size', { width: Number(width), height: Number(height) }),
+      startDragging: () => call('win_start_dragging'),
       close: () => call('win_close'),
       forceClose: () => call('win_force_close'),
       onCloseRequest: on('close-request'),

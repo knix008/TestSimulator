@@ -287,8 +287,12 @@ class Installer:
     def constraints_file(self, state):
         build = TORCH_BUILDS[state["build"]]
         path = os.path.join(self.home, "constraints.txt")
+        # The pinned base packages too, so a model's own packages cannot
+        # upgrade what the other models were set up with.
+        pinned = [p for p in PACKAGES if "==" in p and not p.startswith("numpy")]
         with open(path, "w", encoding="utf-8") as f:
             f.write(f"torch=={build['torch']}\ntorchvision=={build['torchvision']}\nnumpy==1.26.4\n")
+            f.write("".join(f"{p}\n" for p in pinned))
         return path
 
     # ── Base steps ────────────────────────────────────────
@@ -323,7 +327,23 @@ class Installer:
 
     # ── Model steps ───────────────────────────────────────
     def model_source(self, spec, entry):
+        result = self._model_source_files(spec)
+        # Packages only this model needs (installed here, so models set up
+        # before there were any stay complete).
+        if spec.packages:
+            self.log.info(f"Packages for {spec.name}: {' '.join(spec.packages)}")
+            self.pip([*spec.packages, "--constraint", self.constraints_file(self.current_state())])
+        return result
+
+    def _model_source_files(self, spec):
         target = spec.source_dir(self.home)
+        marker = os.path.join(target, ".mysf3d-commit")
+        # Versions of one model share their code: downloaded once.
+        if os.path.isfile(os.path.join(target, spec.check_file)) and os.path.isfile(marker):
+            with open(marker, encoding="utf-8") as f:
+                if f.read().strip() == spec.commit:
+                    self.log.info(f"{spec.name} source already here ({spec.commit[:10]}).")
+                    return {"commit": spec.commit}
         self.log.info(f"Downloading the {spec.name} source ({spec.commit[:10]}) …")
         with tempfile.TemporaryDirectory(dir=self.home) as tmp:
             archive = os.path.join(tmp, "src.zip")
@@ -339,6 +359,8 @@ class Installer:
             shutil.move(os.path.join(tmp, roots[0]), target)
         if not os.path.isfile(os.path.join(target, spec.check_file)):
             raise RuntimeError(f"The {spec.name} source is incomplete.")
+        with open(marker, "w", encoding="utf-8") as f:
+            f.write(spec.commit)
         return {"commit": spec.commit}
 
     def model_weights(self, spec, entry):
@@ -417,9 +439,13 @@ class Installer:
 
             def update(self, n=1):
                 out = super().update(n)
+                # Counted here: without a terminal the bar is disabled, and a
+                # disabled tqdm never moves its own count (stuck at 0 %).
+                self._mysf3d_done = getattr(self, "_mysf3d_done", 0) + (n or 0)
                 total = self.total or 0
                 if total:
-                    installer.on_progress(fraction=min(1.0, self.n / total), done=self.n, size=total)
+                    done = max(self._mysf3d_done, self.n or 0)
+                    installer.on_progress(fraction=min(1.0, done / total), done=done, size=total)
                 if installer.cancelled:
                     raise Cancelled()
                 return out

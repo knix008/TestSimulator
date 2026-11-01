@@ -62,6 +62,164 @@ class OptionsTest(unittest.TestCase):
             self.assertTrue(j["name"] and j["license"] and j["page"].startswith("https://"))
             self.assertTrue(m.source_zip.endswith(m.commit))
 
+    def test_versions_share_a_family(self):
+        hy = [m for m in models.MODELS if m.family == "hunyuan3d"]
+        self.assertGreaterEqual(len(hy), 5)
+        self.assertEqual(len({m.id for m in hy}), len(hy))
+        for m in hy:
+            j = m.to_json()
+            self.assertTrue(j["regionRestricted"] and j["licenseNote"]["ko"] and j["versionLabel"])
+            self.assertEqual(j["familyName"], "Hunyuan3D")
+            self.assertEqual(j["output"], "shape")
+            # Turbo versions decode with their own VAE, downloaded with them.
+            self.assertEqual(bool(m.turbo_vae), m.turbo)
+            self.assertTrue(all(f.startswith(m.subfolder + "/") or f.startswith(m.turbo_vae + "/") for f in m.files))
+        # The 2.0 versions share one source download.
+        self.assertEqual(len({m.source_id for m in hy if m.id != "hunyuan3d-2.1"}), 1)
+
+    def test_common_options_take_model_defaults(self):
+        spec = models.get("triposr")
+        keys = [o["key"] for o in models.common_options(spec)]
+        self.assertEqual(keys[:2], ["removeBackground", "foregroundRatio"])
+        self.assertIn("straighten", keys)
+        opts = models.normalize_options(spec, {"smoothing": "99"}, "cuda")
+        self.assertEqual(opts["smoothing"], 50)
+        self.assertTrue(opts["straighten"])
+        self.assertEqual(opts["subdivide"], 1)
+        self.assertEqual(models.normalize_options(spec, {"subdivide": "5"}, "cuda")["subdivide"], 2)
+        # Every common option says where the settings window shows it, and
+        # the surface ones are exactly those a finished result can redo.
+        from mysf3d.pipeline import SURFACE_OPTIONS
+
+        common = models.common_options(spec)
+        self.assertTrue(all(o.get("group") in ("input", "surface") for o in common))
+        self.assertEqual(sorted(o["key"] for o in common if o["group"] == "surface"), sorted(SURFACE_OPTIONS))
+
+
+class GeometryTest(unittest.TestCase):
+    """The clean-up after a model: standing the result upright, smoothing."""
+
+    def setUp(self):
+        try:
+            import numpy  # noqa: F401
+            import trimesh  # noqa: F401
+        except ImportError:
+            self.skipTest("numpy / trimesh not installed")
+
+    def test_upright_undoes_a_lean_about_x(self):
+        import numpy as np
+        import trimesh
+        from mysf3d.pipeline import upright_angle
+
+        mug = trimesh.creation.cylinder(radius=0.3, height=1.0, sections=48)
+        mug.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))  # stand on Y
+        self.assertEqual(upright_angle(mug.vertices), 0.0)
+        leaning = mug.copy()
+        leaning.apply_transform(trimesh.transformations.rotation_matrix(np.radians(20), [1, 0, 0]))
+        self.assertAlmostEqual(np.degrees(upright_angle(leaning.vertices)), -20.0, delta=0.6)
+
+    def test_smoothing_keeps_seam_copies_together(self):
+        import numpy as np
+        import trimesh
+        from mysf3d.pipeline import smooth_surface
+
+        ball = trimesh.creation.icosphere(subdivisions=3)
+        rng = np.random.default_rng(1)
+        ball.vertices = ball.vertices + rng.normal(0, 0.02, ball.vertices.shape)
+        # Split every face's corners apart, as UV seams do.
+        split = trimesh.Trimesh(ball.vertices[ball.faces].reshape(-1, 3), np.arange(len(ball.faces) * 3).reshape(-1, 3), process=False)
+        before = np.std(np.linalg.norm(split.vertices, axis=1))
+        smooth_surface(split, 10)
+        after = np.linalg.norm(split.vertices, axis=1)
+        self.assertLess(np.std(after), before * 0.6)
+        # Copies of one corner still meet: no cracks.
+        joined = trimesh.Trimesh(split.vertices, split.faces)
+        joined.merge_vertices(digits_vertex=6)
+        self.assertEqual(len(joined.vertices), len(ball.vertices))
+
+    def test_inward_faces_are_turned_round(self):
+        import trimesh
+        from mysf3d.pipeline import face_outward
+
+        ball = trimesh.creation.icosphere(subdivisions=2)
+        self.assertFalse(face_outward(ball))
+        ball.invert()
+        self.assertLess(ball.volume, 0)
+        self.assertTrue(face_outward(ball))
+        self.assertGreater(ball.volume, 0)
+
+    def test_marching_cubes_shim_faces_outward(self):
+        # TripoSR hands over a volume that is positive inside the object.
+        import numpy as np
+        import trimesh
+
+        try:
+            import torch
+            import skimage  # noqa: F401
+        except ImportError:
+            self.skipTest("needs torch and scikit-image (the engine's Python)")
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "shims"))
+        from torchmcubes import marching_cubes
+
+        g = np.linspace(-1, 1, 24)
+        x, y, z = np.meshgrid(g, g, g, indexing="ij")
+        inside = torch.tensor(0.7 - np.sqrt(x ** 2 + y ** 2 + z ** 2), dtype=torch.float32)
+        v, f = marching_cubes(inside, 0.0)
+        self.assertGreater(trimesh.Trimesh(v[..., [2, 1, 0]].numpy(), f.numpy()).volume, 0)
+
+    def test_specks_are_dropped_and_the_body_kept(self):
+        import trimesh
+        from mysf3d.pipeline import drop_fragments
+
+        body = trimesh.creation.icosphere(subdivisions=3)
+        speck = trimesh.creation.icosphere(subdivisions=0, radius=0.05)
+        speck.apply_translation([2, 0, 0])
+        both = trimesh.util.concatenate([body, speck])
+        self.assertEqual(drop_fragments(both.copy(), 0), 0)
+        self.assertEqual(drop_fragments(both.copy(), 1.0), 0)  # 20 of 1280 faces: 1.6 %
+        self.assertEqual(drop_fragments(both, 5.0), 1)
+        self.assertEqual(len(both.faces), len(body.faces))
+
+    def test_subdivision_carries_uvs_and_stays_closed(self):
+        import numpy as np
+        import trimesh
+        from mysf3d.pipeline import finish_mesh, joined_surface
+
+        ball = trimesh.creation.icosphere(subdivisions=2)
+        # Seams everywhere, each corner with its own UV.
+        split = trimesh.Trimesh(ball.vertices[ball.faces].reshape(-1, 3), np.arange(len(ball.faces) * 3).reshape(-1, 3), process=False)
+        uv = np.random.default_rng(2).random((len(split.vertices), 2))
+        split.visual = trimesh.visual.TextureVisuals(uv=uv, material=trimesh.visual.material.SimpleMaterial())
+        out, _ = finish_mesh(split, {"subdivide": 1, "smoothing": 5, "minPartSize": 0.5, "straighten": False})
+        self.assertEqual(len(out.faces), 4 * len(ball.faces))
+        self.assertEqual(len(out.visual.uv), len(out.vertices))
+        joined, inverse = joined_surface(out)
+        self.assertTrue(joined.is_watertight)
+        # Both copies of a seam point carry one normal.
+        n = np.asarray(out.vertex_normals)
+        self.assertTrue(np.allclose(n, joined.vertex_normals[inverse]))
+        self.assertEqual(len(split.faces), len(ball.faces))  # the raw mesh is left alone
+
+    def test_refine_redoes_only_the_surface(self):
+        import trimesh
+        from mysf3d.pipeline import Engine
+
+        class Log:
+            def info(self, *_):
+                pass
+
+        job = Job("r1", b"", {}, "a.png", "triposr")
+        job.options = models.normalize_options(models.get("triposr"), {}, "cuda")
+        job._raw = trimesh.creation.icosphere(subdivisions=2)
+        job.finish("done")
+        Engine(".", Log()).refine(job, models.get("triposr"), {"subdivide": 0, "smoothing": 0, "mcResolution": 128})
+        self.assertEqual(job.stats["faces"], len(job._raw.faces))
+        self.assertEqual(job.options["subdivide"], 0)
+        self.assertEqual(job.options["mcResolution"], 256)  # not a surface option: unchanged
+        self.assertTrue(job.files["result.glb"].startswith(b"glTF"))
+        Engine(".", Log()).refine(job, models.get("triposr"), {"subdivide": 1})
+        self.assertEqual(job.stats["faces"], 4 * len(job._raw.faces))
+
 
 class JobTest(unittest.TestCase):
     def test_progress_moves_forward_through_stages(self):

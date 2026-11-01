@@ -9,7 +9,7 @@ const SHOW_MAX = 1500;
 // The bottom panel: everything the app, the desktop host and the engine log —
 // installation, model loading, each conversion step — filterable, copyable
 // and savable. Its top edge resizes it.
-export default function LogPanel({ settings, onSettings, lines, onClear, onCopy, onSave }) {
+export default function LogPanel({ settings, onSettings, lines, onClear, onCopy, onSave, onLineMenu }) {
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [src, setSrc] = useState('all');
@@ -98,9 +98,21 @@ export default function LogPanel({ settings, onSettings, lines, onClear, onCopy,
         <button className="icon-btn" onClick={onClear} title={t('log.clear')}><IconTrash size={15} /></button>
         <button className="icon-btn" onClick={() => onSettings((s) => ({ ...s, logPanel: false }))} title={t('log.close')}><IconClose size={15} /></button>
       </div>
-      <div className="log-body" ref={bodyRef} onScroll={onScroll} role="log" aria-live="polite">
+      <div
+        className="log-body"
+        ref={bodyRef}
+        onScroll={onScroll}
+        role="log"
+        aria-live="polite"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          const row = e.target.closest('[data-line]');
+          const line = row ? visible.find((l) => String(l.id) === row.dataset.line) : null;
+          onLineMenu?.(e.clientX, e.clientY, line, formatLines(shown));
+        }}
+      >
         {visible.length === 0 ? <p className="log-empty">{t('log.empty')}</p> : visible.map((l) => (
-          <div key={l.id} className={`log-line lvl-${l.level}`}>
+          <div key={l.id} className={`log-line lvl-${l.level}`} data-line={l.id}>
             <span className="log-time">{timeText(l.t)}</span>
             <span className="log-lvl">{l.level.toUpperCase()}</span>
             <span className="log-src">{l.src}</span>

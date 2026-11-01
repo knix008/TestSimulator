@@ -2,7 +2,7 @@
 
 **사진 한 장을 3D 모델로** 바꾸는 다중 플랫폼 프로그램입니다. **Stable Fast 3D**(Stability AI)와 **TripoSR**(Tripo AI · Stability AI)를
 **이 컴퓨터에서 직접** 실행하며 — **GPU가 있으면 GPU, 없으면 CPU** — 결과와 여러 형식의 3D 파일을 무한 격자 · 좌표축 · 눈금자 · 움직이는 광원이 있는
-3D 화면에서 보고 **GLB · glTF · OBJ · STL · PLY · USDZ** 로 바꿔 저장합니다.
+3D 화면에서 보고 **GLB · glTF · OBJ · STL · PLY · USDZ · 3MF · AMF · DAE · VRML · VTK · PCD · XYZ** 로 바꿔 저장합니다.
 버전 **1.0.0**. 하나의 코드베이스로 **웹 브라우저 · Windows · macOS · Linux** 에서 동작하며, 데스크톱 앱은 **Tauri 2**(Rust + 운영체제 웹뷰),
 화면은 **React + three.js**, 변환 엔진은 **Python(PyTorch)** 입니다. 화면 스타일은 MyEBookReader V20 을 따릅니다.
 
@@ -15,7 +15,7 @@
 | 기능 | 설명 |
 | --- | --- |
 | 이미지 → 3D | 이미지를 열고(끌어다 놓기 가능) **[3D로 변환]**. 배경 자동 제거 → 모델 계산 → 메시 → UV 펼치기 → 텍스처 굽기 단계와 진행률이 보이고 취소할 수 있습니다 |
-| 모델 선택 | 툴바의 **모델 드롭다운**: **Stable Fast 3D**(PBR 텍스처 메시) · **TripoSR**(정점 색 메시). 모델은 등록 구조(`engine/mysf3d/models/`)라 다른 모델을 추가할 수 있습니다. 처음 쓰는 모델은 자동 설치 |
+| 모델 선택 | 툴바의 **모델 드롭다운**: **Stable Fast 3D**(PBR 텍스처 메시) · **TripoSR**(정점 색 메시) · **Hunyuan3D**(형상, 2.1 · 2.0 · 2.0 Turbo · 2.0 mini · mini Turbo 중 **버전 선택**, 버전마다 옵션 따로; 지역 제한 라이선스라 처음 고를 때 동의 창). 모델은 등록 구조(`engine/mysf3d/models/`)라 다른 모델을 추가할 수 있습니다. 처음 쓰는 모델은 자동 설치 |
 | GPU / CPU | CUDA → Apple MPS → CPU 자동 선택. **GPU에서 실패하면 CPU로 자동 재변환**. 설정에서 GPU · CPU 고정 가능 |
 | 자동 설치 | 첫 실행에 uv · Python 3.11 · PyTorch(GPU 유무에 맞는 판) · 라이브러리 · 배경 제거 모델 · 모델 코드와 가중치를 스스로 설치. **C++ 컴파일러가 필요 없습니다** — SF3D 의 컴파일 확장을 PyTorch 코드로 대체 |
 | 로컬 우선 | 기본은 이 컴퓨터의 엔진. **유료 Stability AI API 는 기본 꺼짐** — 설정 → 엔진에서 확인 후 키를 넣어야만 사용. 다른 컴퓨터의 엔진(GPU 서버)에도 연결 가능 |
@@ -24,9 +24,13 @@
 | 우측 설정 패널 | 변환 · 장면(격자 · 축 · 눈금자 · 단위 · 배경 · 환경광 · 톤 매핑 · 노출 · 그림자) · 광원 · 재질(원래 · 점토 · 법선 · 정점 색, 와이어프레임 · 플랫 · 양면) · 모델(정보 · 회전 · 배율) · 카메라(시야각 · 방향 · 자동 회전) |
 | 3D 파일 | **열기**: GLB · glTF · OBJ(+MTL · 텍스처) · STL · PLY · FBX · DAE · 3MF · 3DS · USDZ/USDA/USDC · VRML · VTK · AMF · PCD · XYZ · KMZ · LWO. **저장**: GLB · glTF · OBJ · STL(바이너리/ASCII) · PLY · USDZ, 회전 · 배율 적용 |
 | 로그 패널 | 하단 패널에 설치 · 모델 불러오기 · 변환의 모든 단계. 출처 · 수준 필터, 찾기, 복사, 파일로 저장 |
-| 시작 화면 | 열기 버튼 · 사용 순서 · 최근 파일 · 엔진 상태와 모델 · 지원 형식 |
+| 시작 화면 | 열기 버튼 · 사용 순서 · 최근 파일과 예제 · 엔진 상태와 모델 · 지원 형식. 카드는 끌어 옮기고 크기를 바꾸며(12열 격자에 맞춤 · 놓일 자리 실루엣 · 겹치는 카드는 아래로 밀림) [자동 정렬] 로 되돌립니다. **배경 21종**(움직임 · 속도 · 투명도 · 자동 바꾸기). 시작 화면에서는 좌우 · 하단 패널과 그 버튼이 꺼집니다 |
+| 저장 · 내보내기 · 인쇄 | **저장**(Ctrl+S, GLB) · **내보내기**(Ctrl+Shift+S, 형식 선택 · PNG). **인쇄**(Ctrl+P): 한 방향 · 4방향 · 6방향 · 방향별 한 장, 정보 머리말 · 흰 배경 · 보조선, 프린터 · 매수 · 방향, 미리 보기 (Windows GDI · CUPS `lp` · 웹은 브라우저 인쇄) |
+| 예제 | `samples/` — 변환용 이미지 5개, 3D 파일 6형식(GLB · glTF · OBJ+MTL · STL · PLY · USDZ), 변환 결과 2개. 시작 화면과 파일 메뉴에서 바로 엽니다 (`npm run samples` 로 다시 생성) |
+| 튜토리얼 | 8장 33단계를 실제 화면에서 따라 하는 학습. 시작할 때 할지 묻고("다음 시작 때 묻기"), 설정 → 화면에서도 켜고 끄며 이어서 할 수 있습니다 |
+| 컨텍스트 메뉴 | 3D 화면 · 입력 이미지 · 기록 · 로그에서 오른쪽 클릭, 모든 항목에 아이콘 |
 | 사용 설명서 | `doc/Guide.html` · `Guide.en.html` — 앱의 [사용 설명서] 버튼이 테마에 맞춰 별도 창으로 엽니다 |
-| 모양 | 테마 40종 + 사용자 정의, 한국어 / English, 글꼴 설정. OS 기본 제목 표시줄, 툴바 오른쪽 끝에 테마 · 언어 · 설명서 · 설정 · 정보 |
+| 모양 | 테마 40종 + 사용자 정의, 한국어 / English, 글꼴 설정. **제목 표시줄 없이** 툴바가 제목 표시줄 역할(끌어 창 이동, 두 번 눌러 최대화) — 왼쪽에 프로그램 아이콘 · 이름 · 버전(폭이 모자라면 아이콘만), 오른쪽 끝에 테마 · 언어 · 도움말 · 설정 · 정보 · 최소화 · 최대화 · 닫기 |
 
 ## 빠른 시작
 
@@ -65,8 +69,10 @@ Stable Fast 3D 가중치는 Hugging Face 에서 약관 동의가 필요합니다
 
 ```bash
 npm test               # JS(vitest) + 엔진(Python unittest) + Rust(cargo test)
-npm run smoke          # 웹 e2e: 헤드리스 Edge/Chrome + 실행 중인 엔진 (시작 화면 · 변환 · 격자 · 광원 끌기 · 형식 왕복 · OBJ+MTL · 설정)
-npm run guide:images   # 사용 설명서 그림 다시 찍기 (한국어 · 영어)
+npm run smoke          # 웹 e2e 15단계: 헤드리스 Edge/Chrome + 실행 중인 엔진 (시작 화면 · 변환 · 격자 · 광원 끌기 · 형식 왕복 · OBJ+MTL ·
+                       #   인쇄 미리 보기 · 메뉴 아이콘 · 튜토리얼 전 단계 · 설정). ENGINE_URL 로 엔진 지정
+npm run guide:images   # 사용 설명서 그림 다시 찍기 (한국어 · 영어, dev 서버와 엔진 필요)
+npm run samples        # samples/ 다시 만들기
 ```
 
 ## 폴더
@@ -76,7 +82,10 @@ src/                React 화면 (App.jsx, components/, lib/)
   lib/viewer3d.js   3D 화면: 무한 격자 셰이더, 좌표축, 눈금자, 광원 손잡이(TransformControls), 카메라
   lib/formats.js    3D 형식 읽기 · 저장 (three.js 로더 · 익스포터), 함께 쓰는 파일(MTL, .bin, 텍스처) 찾기
   lib/engine.js     엔진 · 원격 엔진 · Stability API 클라이언트
-src-tauri/          Tauri 호스트 (lib.rs 창 · 파일 · 대화상자, engine.rs 엔진 실행기)
+  lib/print.js      인쇄 배치 · 방향별 캡처 · A4 장 합성
+  lib/tutorialSteps.js  튜토리얼 장 · 단계 · 동작
+src-tauri/          Tauri 호스트 (lib.rs 창 · 파일 · 대화상자, engine.rs 엔진 실행기, print.rs 인쇄)
+samples/            예제 이미지 · 3D 파일 · 변환 결과 (index.json)
 engine/             Python 엔진 (mysf3d: HTTP API · 설치기 · 모델 등록 · 순수 PyTorch 래스터라이저, shims/)
 scripts/            engine.mjs(웹용 실행기) · web.mjs · 빌드 · 아이콘 · 설명서 그림
 doc/                사용 설명서 (Guide.html, Guide.en.html, images/)

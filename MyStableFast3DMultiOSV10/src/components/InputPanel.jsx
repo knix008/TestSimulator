@@ -2,16 +2,28 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import Panel from './Panel.jsx';
 import { Section } from './Form.jsx';
-import { IconImage, IconCube, IconTrash, IconExport, IconOpen, IconWand } from './Icons.jsx';
-import { formatBytes, formatDuration } from '../lib/platform.js';
+import { IconImage, IconCube, IconTrash, IconExport, IconOpen, IconWand, IconClose } from './Icons.jsx';
+import { formatBytes, formatDuration, isDesktop } from '../lib/platform.js';
+
+// A small "clear all" for a section heading.
+function ClearAll({ label, onClick }) {
+  return (
+    <button className="clear-all" onClick={onClick} title={label} aria-label={label}>
+      <IconTrash size={13} /> {label}
+    </button>
+  );
+}
 
 // The left panel: the image to convert (as picked, and as the model saw it
-// after background removal), and this session's results to go back to.
+// after background removal), this session's results to go back to, and the
+// recent files.
 export default function InputPanel({
   settings, onSettings, image, prepared, history, currentId, onOpenImage, onConvert, busy,
-  onShowHistory, onSaveHistory, onRemoveHistory,
+  onShowHistory, onSaveHistory, onRemoveHistory, onClearHistory, onImageMenu, onHistoryMenu,
+  onOpenRecent, onRemoveRecent, onClearRecent,
 }) {
   const { t } = useTranslation();
+  const recent = settings.recentFiles.slice(0, 10);
   return (
     <Panel
       side="left"
@@ -29,7 +41,7 @@ export default function InputPanel({
         <div className="info-body">
           <Section title={t('left.input')}>
             {image ? (
-              <figure className="input-figure">
+              <figure className="input-figure" onContextMenu={(e) => { e.preventDefault(); onImageMenu?.(e.clientX, e.clientY); }}>
                 <img src={image.url} alt={image.name} className="checker" />
                 <figcaption title={image.path || image.name}>
                   <strong>{image.name}</strong>
@@ -37,7 +49,7 @@ export default function InputPanel({
                 </figcaption>
               </figure>
             ) : (
-              <button className="input-empty" onClick={onOpenImage} title={t('tip.openImage')}>
+              <button className="input-empty" onClick={onOpenImage} title={t('tip.openImage')} onContextMenu={(e) => { e.preventDefault(); onImageMenu?.(e.clientX, e.clientY); }}>
                 <IconImage size={34} />
                 <span>{t('left.noImage')}</span>
                 <small>{t('left.dropHint')}</small>
@@ -58,11 +70,14 @@ export default function InputPanel({
             </Section>
           ) : null}
 
-          <Section title={t('left.history', { n: history.length })}>
+          <Section
+            title={t('left.history', { n: history.length })}
+            actions={history.length ? <ClearAll label={t('left.clearHistory')} onClick={onClearHistory} /> : null}
+          >
             {history.length === 0 ? <p className="panel-note">{t('left.historyEmpty')}</p> : (
               <ul className="history-list">
                 {history.map((h) => (
-                  <li key={h.id} className={h.id === currentId ? 'active' : ''}>
+                  <li key={h.id} className={h.id === currentId ? 'active' : ''} onContextMenu={(e) => { e.preventDefault(); onHistoryMenu?.(e.clientX, e.clientY, h); }}>
                     <button className="history-item" onClick={() => onShowHistory(h)} title={h.name}>
                       {h.thumb ? <img src={h.thumb} alt="" /> : <span className="history-icon">{h.kind === 'model' ? <IconCube size={22} /> : <IconWand size={22} />}</span>}
                       <span className="history-text">
@@ -85,6 +100,30 @@ export default function InputPanel({
               </ul>
             )}
           </Section>
+
+          {/* Paths only mean something on the desktop. */}
+          {isDesktop ? (
+            <Section
+              title={t('recent.title')}
+              actions={recent.length ? <ClearAll label={t('recent.clear')} onClick={onClearRecent} /> : null}
+            >
+              {recent.length === 0 ? <p className="panel-note">{t('recent.empty')}</p> : (
+                <ul className="recent-list">
+                  {recent.map((f) => (
+                    <li key={f.path || f.name}>
+                      <button className="recent-item" onClick={() => onOpenRecent(f)} title={f.path || f.name}>
+                        {f.kind === 'model' ? <IconCube size={14} /> : <IconImage size={14} />}
+                        <span className="recent-name">{f.name}</span>
+                      </button>
+                      <button className="icon-btn" onClick={() => onRemoveRecent(f.path || f.name)} title={t('recent.remove')} aria-label={t('recent.remove')}>
+                        <IconClose size={12} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+          ) : null}
         </div>
       </div>
     </Panel>

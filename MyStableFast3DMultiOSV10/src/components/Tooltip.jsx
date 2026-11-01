@@ -42,6 +42,9 @@ export default function Tooltip() {
     document.addEventListener('mouseover', onOver, true);
     document.addEventListener('mouseout', onOut, true);
     document.addEventListener('mousedown', hide, true);
+    // A grip that calls preventDefault on pointerdown (the start screen's
+    // card handles) gets no mousedown: the tip would ride along the drag.
+    document.addEventListener('pointerdown', hide, true);
     window.addEventListener('blur', hide);
     window.addEventListener('scroll', hide, true);
     return () => {
@@ -49,6 +52,7 @@ export default function Tooltip() {
       document.removeEventListener('mouseover', onOver, true);
       document.removeEventListener('mouseout', onOut, true);
       document.removeEventListener('mousedown', hide, true);
+      document.removeEventListener('pointerdown', hide, true);
       window.removeEventListener('blur', hide);
       window.removeEventListener('scroll', hide, true);
     };

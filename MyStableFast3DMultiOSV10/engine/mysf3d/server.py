@@ -59,11 +59,13 @@ class Service:
         self.engine = None
         self.device_pref = "auto"
         self.selected = models.DEFAULT_MODEL
+        self.accepted_licenses = set()   # model families whose license limits were accepted
         self.jobs = {}
         self.order = []
         self.queue = queue.Queue()
         self.lock = threading.Lock()
         self.model_lock = threading.RLock()
+        self.refine_lock = threading.Lock()  # one surface refine at a time
         self.installer = None
         self.base_state = {}
         self.started = time.time()
@@ -85,13 +87,15 @@ class Service:
                 self.device_pref = prefs["device"]
             if self.models.get(prefs.get("model")):
                 self.selected = prefs["model"]
+            self.accepted_licenses = set(str(x) for x in prefs.get("acceptedLicenses") or [])
         except Exception:
             pass
 
     def _save_prefs(self):
         try:
             with open(self._prefs_path(), "w", encoding="utf-8") as f:
-                json.dump({"device": self.device_pref, "model": self.selected}, f)
+                json.dump({"device": self.device_pref, "model": self.selected,
+                           "acceptedLicenses": sorted(self.accepted_licenses)}, f)
         except Exception:
             pass
 
@@ -140,7 +144,12 @@ class Service:
             st = self.model_status[spec.id]
             if st["status"] in ("installing", "loading", "ready", "needs-token", "failed"):
                 continue
-            st["status"] = "installed" if self.installer.model_complete(spec.id) else "not-installed"
+            if self.installer.model_complete(spec.id):
+                st["status"] = "installed"
+            elif spec.region_restricted and spec.family not in self.accepted_licenses:
+                st["status"] = "needs-license"
+            else:
+                st["status"] = "not-installed"
 
     def ensure_model(self, model_id, quiet=False):
         """Installs `model_id` if needed and makes it the loaded model.
@@ -152,6 +161,14 @@ class Service:
         if spec is None:
             raise ValueError(f"Unknown model: {model_id}")
         st = self.model_status[spec.id]
+        if spec.region_restricted and spec.family not in self.accepted_licenses:
+            # Nothing is downloaded until the user has read the license's
+            # territory limits in the app and accepted them.
+            st.update(status="needs-license", error="")
+            self.log.warn(f"{spec.name}: its license limits where it may be used; accept it in the app first.")
+            if not quiet:
+                raise ValueError(f"{spec.name}: the license has not been accepted")
+            return False
         with self.model_lock:
             if self.engine is not None and self.engine.spec is spec and self.engine.model is not None:
                 st["status"] = "ready"
@@ -206,6 +223,15 @@ class Service:
             changed.append("device")
             if self.engine is not None:
                 self._background(self.engine.set_preference, self._torch_pref())
+        accept = body.get("acceptLicense")
+        if accept and any(m.family == accept and m.region_restricted for m in self.models.MODELS):
+            self.accepted_licenses.add(str(accept))
+            changed.append("license")
+            for m in self.models.MODELS:
+                if m.family == accept and self.model_status[m.id]["status"] == "needs-license":
+                    self.model_status[m.id].update(status="not-installed", error="")
+            if self.state == "ready" and self.models.get(self.selected).family == accept:
+                self._background(self.ensure_model, self.selected, True)
         model = body.get("model")
         if model and self.models.get(model) and model != self.selected:
             self.selected = model
@@ -275,6 +301,18 @@ class Service:
         if job.state == "queued":
             job.finish("cancelled")
         return True
+
+    def refine(self, job_id, options):
+        """New surface options on a finished job: smoothing and the like run
+        again on the model's mesh, without the model."""
+        job = self.jobs.get(job_id)
+        if job is None:
+            raise LookupError("No such job.")
+        if job.state != "done" or self.engine is None:
+            raise ValueError("Only a finished conversion can be refined.")
+        spec = self.models.get(job.model)
+        with self.refine_lock:
+            return self.engine.refine(job, spec, options)
 
     def _worker(self):
         from .pipeline import Cancelled
@@ -483,6 +521,12 @@ def make_handler(service, log):
                 return self._json({"ok": True, "id": job.id})
             if parts[:2] == ["api", "jobs"] and len(parts) == 4 and parts[3] == "cancel":
                 return self._json({"ok": service.cancel(parts[2])})
+            if parts[:2] == ["api", "jobs"] and len(parts) == 4 and parts[3] == "refine":
+                try:
+                    job = service.refine(parts[2], self._json_body())
+                except LookupError as e:
+                    return self._error(404, str(e))
+                return self._json(job.to_json())
             return self._error(404, "Not found.")
 
     return Handler

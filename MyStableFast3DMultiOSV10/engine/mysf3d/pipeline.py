@@ -71,6 +71,175 @@ def is_device_error(err):
     return any(k in text for k in ("cuda", "cudnn", "cublas", "out of memory", "mps", "metal", "device-side"))
 
 
+def upright_angle(vertices, limit_deg=35.0):
+    """The tilt about X (radians) that stands a reconstructed object upright.
+
+    Single-image models assume a level camera; a photo taken from above makes
+    the object lean towards the viewer by about the camera's elevation. The
+    model faces +Z and stands on Y, so that lean is a rotation about X. Most
+    objects stand squarely, so the angle that makes their box in the Y-Z
+    plane smallest is taken — only when it clearly beats leaving it alone, so
+    an object that is meant to be slanted is not "corrected".
+    """
+    import numpy as np
+
+    pts = np.asarray(vertices, dtype=np.float64)
+    if len(pts) < 8:
+        return 0.0
+    try:
+        import trimesh
+
+        pts = np.asarray(trimesh.convex.convex_hull(pts).vertices)
+    except Exception:  # noqa: BLE001 — a hull is only a speed-up
+        if len(pts) > 20000:
+            pts = pts[np.linspace(0, len(pts) - 1, 20000).astype(int)]
+    y, z = pts[:, 1], pts[:, 2]
+
+    def area(rad):
+        c, s = np.cos(rad), np.sin(rad)
+        yy = y * c - z * s
+        zz = y * s + z * c
+        return np.ptp(yy) * np.ptp(zz)
+
+    coarse = np.radians(np.arange(-limit_deg, limit_deg + 0.5, 1.0))
+    best = coarse[int(np.argmin([area(a) for a in coarse]))]
+    fine = best + np.radians(np.arange(-1.0, 1.01, 0.1))
+    best = fine[int(np.argmin([area(a) for a in fine]))]
+    if abs(np.degrees(best)) < 1.0 or area(best) > area(0.0) * 0.97:
+        return 0.0
+    return float(best)
+
+
+def joined_surface(mesh):
+    """The surface with the copies of each point joined, and for every vertex
+    of `mesh` its joined vertex.
+
+    Textured meshes split their vertices along UV seams. Anything that looks
+    at neighbours (smoothing, normals, which faces touch) has to see through
+    the seams, or it opens cracks and draws lines along them.
+    """
+    import numpy as np
+    import trimesh
+
+    # Copies are exact (indexing, or the same midpoint of a seam edge). A
+    # tolerance would also join distinct points of the tiny edges marching
+    # cubes leaves, tearing the surface there. (+ 0.0 makes -0.0 equal 0.0.)
+    v = np.asarray(mesh.vertices, dtype=np.float64) + 0.0
+    _, first, inverse = np.unique(v, axis=0, return_index=True, return_inverse=True)
+    inverse = inverse.reshape(-1)
+    return trimesh.Trimesh(v[first], inverse[np.asarray(mesh.faces)], process=False), inverse
+
+
+def smooth_surface(mesh, iterations):
+    """Taubin smoothing (keeps the volume) of the surface in place, with the
+    seam copies joined and the result handed back to every copy (UVs stay as
+    they are)."""
+    import numpy as np
+    import trimesh
+
+    joined, inverse = joined_surface(mesh)
+    trimesh.smoothing.filter_taubin(joined, lamb=0.5, nu=-0.53, iterations=int(iterations))
+    mesh.vertices = np.asarray(joined.vertices)[inverse]
+
+
+def face_outward(mesh):
+    """Turns the faces round when they look into the object (the surface
+    encloses a negative volume). True when it did."""
+    joined, _ = joined_surface(mesh)
+    if len(joined.faces) and joined.is_winding_consistent and joined.volume < 0:
+        mesh.invert()
+        return True
+    return False
+
+
+def drop_fragments(mesh, percent):
+    """Removes the loose pieces with fewer faces than `percent` % of the
+    largest piece (specks the model left floating around the object).
+    Returns how many pieces were removed."""
+    import numpy as np
+    import trimesh
+
+    if percent <= 0 or len(mesh.faces) == 0:
+        return 0
+    joined, _ = joined_surface(mesh)
+    labels = trimesh.graph.connected_component_labels(joined.face_adjacency, node_count=len(joined.faces))
+    counts = np.bincount(labels)
+    small = counts < counts.max() * percent / 100.0
+    if not small.any():
+        return 0
+    mesh.update_faces(~small[labels])
+    mesh.remove_unreferenced_vertices()
+    return int(small.sum())
+
+
+def subdivide_surface(mesh, levels):
+    """Splits every triangle in four, `levels` times, carrying the UVs or
+    vertex colours along. Smoothing afterwards then has the vertices to round
+    off what were flat facets. Returns the new mesh."""
+    import numpy as np
+    import trimesh
+
+    for _ in range(int(levels)):
+        vis = mesh.visual
+        attrs = {}
+        if vis.kind == "texture" and getattr(vis, "uv", None) is not None:
+            attrs["uv"] = np.asarray(vis.uv, dtype=np.float64)
+        elif vis.kind == "vertex":
+            attrs["color"] = np.asarray(vis.vertex_colors, dtype=np.float64)
+        v, f, a = trimesh.remesh.subdivide(mesh.vertices, mesh.faces, vertex_attributes=attrs)
+        if "uv" in attrs:
+            visual = trimesh.visual.TextureVisuals(uv=a["uv"], material=vis.material)
+        elif "color" in attrs:
+            visual = trimesh.visual.ColorVisuals(vertex_colors=np.clip(np.round(a["color"]), 0, 255).astype(np.uint8))
+        else:
+            visual = None
+        mesh = trimesh.Trimesh(v, f, visual=visual, process=False)
+    return mesh
+
+
+def seamless_normals(mesh):
+    """Vertex normals taken over the joined surface, so both copies of a seam
+    point get the same normal and no line shows along the seams."""
+    joined, inverse = joined_surface(mesh)
+    mesh.vertex_normals = joined.vertex_normals[inverse]
+
+
+# The options finish_mesh reads: they can be changed on a finished result
+# without running the model again (Engine.refine).
+SURFACE_OPTIONS = ("minPartSize", "subdivide", "smoothing", "straighten")
+
+
+def finish_mesh(mesh, options, log=None):
+    """The clean-up after a model, on a copy of its raw mesh: faces outward,
+    loose specks removed, subdivided, smoothed, stood upright, seamless
+    normals. Returns (mesh, tilt in degrees)."""
+    import numpy as np
+    import trimesh
+
+    mesh = mesh.copy()
+    if face_outward(mesh) and log:
+        log.info("The faces looked inward; turned them round.")
+    dropped = drop_fragments(mesh, float(options.get("minPartSize") or 0))
+    if dropped and log:
+        log.info(f"Removed {dropped} loose piece(s).")
+    levels = int(options.get("subdivide") or 0)
+    if levels > 0:
+        mesh = subdivide_surface(mesh, levels)
+    smoothing = int(options.get("smoothing") or 0)
+    if smoothing > 0:
+        smooth_surface(mesh, smoothing)
+    tilt = 0.0
+    if options.get("straighten"):
+        angle = upright_angle(mesh.vertices)
+        if angle:
+            mesh.apply_transform(trimesh.transformations.rotation_matrix(angle, [1, 0, 0]))
+            if log:
+                log.info(f"Stood the model upright: tilted {np.degrees(angle):+.1f}° about X.")
+        tilt = float(np.degrees(angle))
+    seamless_normals(mesh)
+    return mesh, tilt
+
+
 def resize_foreground(image, ratio):
     """Crops to the opaque part, pads it square and then so it fills `ratio`
     of the side (the preprocessing both models were trained with)."""
@@ -254,21 +423,48 @@ class Engine:
         mesh = self.spec.run(self.model, image, job.options, device, self)
         if device == "cuda":
             job.peak_memory = int(torch.cuda.max_memory_allocated())
-        # Both models return the object facing -Z (seen from where the photo
-        # was taken). glTF's front is +Z — the app's Front view and its first
-        # camera look from there — so turn it round.
+        # SF3D and TripoSR return the object facing -Z (seen from where the
+        # photo was taken). glTF's front is +Z — the app's Front view and its
+        # first camera look from there — so those are turned round; a model
+        # that already faces +Z says so with `faces_front = True`.
         import numpy as np
         import trimesh
 
-        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi, [0, 1, 0]))
+        if not getattr(self.spec, "faces_front", False):
+            mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi, [0, 1, 0]))
 
+        job._raw = mesh
+        job.enter("remesh")
+        mesh, job.tilt = finish_mesh(mesh, job.options, self.log)
         job.enter("export")
+        self._export(job, mesh)
+        return job.files
+
+    @staticmethod
+    def _export(job, mesh):
         job.files["result.glb"] = mesh.export(file_type="glb", include_normals=True)
         job.stats = {"vertices": int(len(mesh.vertices)), "faces": int(len(mesh.faces))}
         if "textureResolution" in job.options:
             job.stats["textureResolution"] = job.options["textureResolution"]
         job._mesh = mesh
-        return job.files
+
+    def refine(self, job, spec, raw_options):
+        """Cleans a finished job's raw mesh again with new surface options
+        (no model run, so it needs neither the model nor its lock)."""
+        if job._raw is None:
+            raise ValueError("This result can no longer be refined.")
+        merged = {**job.options, **{k: v for k, v in (raw_options or {}).items() if k in SURFACE_OPTIONS}}
+        options = normalize_options(spec, merged, job.device or "cpu")
+        started = time.time()
+        mesh, tilt = finish_mesh(job._raw, options, self.log)
+        job.options = {**job.options, **{k: options[k] for k in SURFACE_OPTIONS if k in options}}
+        job.tilt = tilt
+        self._export(job, mesh)
+        self.log.info(
+            f"[{job.id}] surface refined in {time.time() - started:.1f} s: "
+            f"{job.stats['vertices']:,} vertices, {job.stats['faces']:,} faces"
+        )
+        return job
 
     @staticmethod
     def export_obj_zip(mesh, name="model"):
@@ -309,10 +505,12 @@ class Job:
         self.device = ""
         self.device_name = ""
         self.fallback = False
+        self.tilt = 0.0          # degrees the result was stood upright by
         self.peak_memory = 0
         self.input_size = None
         self.cancel_requested = False
         self._mesh = None
+        self._raw = None         # the model's mesh before finish_mesh (for refine)
         self.on_stage = None
 
     def check(self):
@@ -366,6 +564,7 @@ class Job:
             "device": self.device,
             "deviceName": self.device_name,
             "fallback": self.fallback,
+            "tilt": round(self.tilt, 1),
             "peakMemory": self.peak_memory,
             "inputSize": list(self.input_size) if self.input_size else None,
             "elapsed": round((self.finished or now) - (self.started or now), 2) if self.started else 0,

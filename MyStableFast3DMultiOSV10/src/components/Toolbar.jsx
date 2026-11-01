@@ -5,15 +5,19 @@ import {
   IconHome, IconFolder, IconOpen, IconImage, IconCube, IconRecent, IconTrash, IconDown,
   IconWand, IconStop, IconExport, IconCamera, IconFit, IconOrbit, IconWireframe, IconGrid,
   IconAxes, IconRuler, IconBulb, IconBox, IconPanelLeftOpen, IconPanelRightOpen, IconTerminal,
-  IconTheme, IconFlag, IconHelp, IconSettings, IconInfo, IconLayers, IconCheck, IconAlert,
-  IconDownload, IconEye, IconClose,
+  IconTheme, IconFlag, IconHelp, IconSettings, IconInfo, IconLayers, IconCheck, IconAlert, IconSliders,
+  IconDownload, IconEye, IconClose, IconSave, IconPrint, IconSparkles,
 } from './Icons.jsx';
+import WindowControls, { DragArea } from './WindowControls.jsx';
 import { nextTheme, THEME_OPEN_SETTINGS } from '../lib/themes.js';
 import { ThemeMenu } from './ThemePicker.jsx';
 import { otherLang } from '../i18n.js';
 import { api, isDesktop } from '../lib/platform.js';
 import { EXPORT_FORMATS } from '../lib/formats.js';
 import { VIEW_PRESETS } from '../lib/viewer3d.js';
+import { SAMPLE_GROUPS, sampleLabel } from '../lib/samples.js';
+import { groupFamilies, shownVersion } from '../lib/modelFamilies.js';
+import buildInfo from '../build-info.json';
 
 // The window must never be narrow enough to hide a toolbar button. How much the
 // row needs depends on the language, the UI font and whether button labels are
@@ -38,7 +42,14 @@ function useToolbarMinWidth(barRef, scrollRef, deps) {
       return w + el.getBoundingClientRect().width
         + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
     }, 0) + gap * (kids.length - 1);
-    const chrome = bar.getBoundingClientRect().width - scroll.getBoundingClientRect().width;
+    // Everything else on the row (app buttons, window buttons, padding),
+    // without the stretch of the drag area, which only needs a little room.
+    const dragEl = bar.querySelector('.toolbar-drag');
+    const dragW = dragEl ? dragEl.getBoundingClientRect().width : 0;
+    // The program's name may hide when room runs out, so it does not count.
+    const nameEl = bar.querySelector('.toolbar-brand-text:not(.hidden)');
+    const nameW = nameEl ? nameEl.getBoundingClientRect().width + 8 : 0;
+    const chrome = bar.getBoundingClientRect().width - scroll.getBoundingClientRect().width - dragW - nameW + 48;
     const needed = Math.ceil(chrome + content) + 2;
     if (!Number.isFinite(needed) || needed <= 0) return;
     if (Math.abs(needed - last.current) < 2) return;
@@ -256,42 +267,66 @@ export function MenuButton({
 }
 
 // The model picker: which image-to-3D model converts the next image.
-function ModelMenu({ models, current, onPick, onInstall, lang, t }) {
+// One entry per model; a model with several versions (Hunyuan3D) shows the
+// version in use or last picked, with a button per version under it.
+function ModelMenu({ models, current, remembered, onPick, onInstall, lang, t }) {
+  const families = groupFamilies(models);
   return (
     <>
       <div className="dd-head"><span>{t('model.choose')}</span></div>
       <ul className="dd-list model-list">
-        {models.map((m) => {
+        {families.map((fam) => {
+          const m = shownVersion(fam, current, remembered);
           const status = m.status || 'unknown';
+          const inUse = fam.versions.some((x) => x.id === current);
           return (
-            <li key={m.id}>
-              <button
-                className={`dd-item model-item${m.id === current ? ' active' : ''}`}
-                onClick={() => onPick(m.id)}
-                title={m.summary?.[lang] || m.summary?.en || m.name}
-              >
-                {m.id === current ? <IconCheck size={15} /> : <IconLayers size={15} />}
-                <span className="model-item-text">
-                  <span className="model-item-name">{m.name}</span>
-                  <span className="model-item-sub">{m.summary?.[lang] || m.summary?.en || ''}</span>
-                  <span className="model-item-meta">
-                    <span className={`model-status s-${status}`}>{t(`model.status.${status}`, status)}</span>
-                    {m.license ? <span>{m.license}</span> : null}
-                    {m.size ? <span>{m.size}</span> : null}
-                    {m.gated ? <span className="model-gated">{t('model.gated')}</span> : null}
-                  </span>
-                </span>
-              </button>
-              {status === 'not-installed' && onInstall ? (
+            <li key={fam.family} className="model-family">
+              <div className="model-row">
                 <button
-                  className="icon-btn"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onInstall(m.id); }}
-                  title={t('model.installNow')}
-                  aria-label={t('model.installNow')}
+                  className={`dd-item model-item${inUse ? ' active' : ''}`}
+                  onClick={() => onPick(m.id)}
+                  title={m.summary?.[lang] || m.summary?.en || m.name}
                 >
-                  <IconDownload size={15} />
+                  {inUse ? <IconCheck size={15} /> : <IconLayers size={15} />}
+                  <span className="model-item-text">
+                    <span className="model-item-name">{m.name}</span>
+                    <span className="model-item-sub">{m.summary?.[lang] || m.summary?.en || ''}</span>
+                    <span className="model-item-meta">
+                      <span className={`model-status s-${status}`}>{t(`model.status.${status}`, status)}</span>
+                      {m.license ? <span>{m.license}</span> : null}
+                      {m.size ? <span>{m.size}</span> : null}
+                      {m.gated ? <span className="model-gated">{t('model.gated')}</span> : null}
+                      {m.regionRestricted ? <span className="model-gated">{t('model.restricted')}</span> : null}
+                    </span>
+                  </span>
                 </button>
+                {status === 'not-installed' && onInstall ? (
+                  <button
+                    className="icon-btn"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); onInstall(m.id); }}
+                    title={t('model.installNow')}
+                    aria-label={t('model.installNow')}
+                  >
+                    <IconDownload size={15} />
+                  </button>
+                ) : null}
+              </div>
+              {fam.versions.length > 1 ? (
+                <div className="model-versions" role="group" aria-label={t('model.versionTip', { name: fam.name })}>
+                  <span className="model-versions-label">{t('model.version')}</span>
+                  {fam.versions.map((v) => (
+                    <button
+                      key={v.id}
+                      className={`model-version${v.id === m.id ? ' shown' : ''}${v.id === current ? ' active' : ''}`}
+                      onClick={() => onPick(v.id)}
+                      title={`${v.name} · ${v.size} · ${t(`model.status.${v.status || 'unknown'}`, v.status)}`}
+                      data-model-version={v.id}
+                    >
+                      {v.versionLabel || v.name}
+                    </button>
+                  ))}
+                </div>
               ) : null}
             </li>
           );
@@ -304,11 +339,11 @@ function ModelMenu({ models, current, onPick, onInstall, lang, t }) {
 }
 
 export default function Toolbar({
-  settings, onSettings, hasModel, hasImage, busy, models, onHome, homeOpen,
-  onOpenImage, onOpenModel, onOpenRecent, onRemoveRecent, onClearRecent,
-  onConvert, onCancel, onPickModel, onInstallModel,
-  onExport, onScreenshot, onFit, onView,
-  onTheme, onLang, onHelp, onShowSettings, onAbout,
+  settings, onSettings, hasModel, hasImage, busy, models, onHome, homeOpen, panelsLocked = false,
+  onOpenImage, onOpenModel, onOpenRecent, onRemoveRecent, onClearRecent, samples, onOpenSample,
+  onConvert, onCancel, onPickModel, onInstallModel, onConvertSettings,
+  onSave, onExport, onPrint, onScreenshot, onFit, onView,
+  onTheme, onLang, onHelp, onTutorial, onShowSettings, onAbout,
 }) {
   const { t, i18n } = useTranslation();
   const showLabel = settings.showToolbarLabels;
@@ -316,6 +351,35 @@ export default function Toolbar({
   const scrollRef = useRef(null);
   const v = settings.view;
   const lang = i18n.language?.startsWith('en') ? 'en' : 'ko';
+
+  // The program's name and version beside its icon, only while the row has
+  // room for them: measured from the drag area's slack, with some hysteresis
+  // so they do not flicker on and off at the threshold. The drag area never
+  // gets narrower than its min-width, so running out of room shows up as the
+  // buttons being cut off — the name gives way to them first (the window's
+  // minimum width is measured without it).
+  const [showName, setShowName] = useState(true);
+  const nameRef = useRef(null);
+  const nameWidth = useRef(160);   // measured while it shows
+  useEffect(() => {
+    const bar = barRef.current;
+    const scroll = scrollRef.current;
+    if (!bar || !scroll || typeof ResizeObserver === 'undefined') return undefined;
+    const check = () => {
+      const drag = bar.querySelector('.toolbar-drag');
+      if (!drag) return;
+      const slack = drag.getBoundingClientRect().width;
+      const clipped = scroll.scrollWidth > scroll.clientWidth + 1;
+      const el = nameRef.current;
+      if (el && !el.classList.contains('hidden')) nameWidth.current = el.getBoundingClientRect().width + 8;
+      setShowName((on) => (on ? !clipped && slack > 16 : !clipped && slack > nameWidth.current + 40));
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(bar);
+    ro.observe(scroll);
+    check();
+    return () => ro.disconnect();
+  }, []);
 
   useToolbarMinWidth(barRef, scrollRef, [
     showLabel, i18n.language, settings.fontFamily, settings.fontSize, settings.fontWeight, settings.fontStyle,
@@ -336,6 +400,13 @@ export default function Toolbar({
 
   return (
     <div className="toolbar" ref={barRef}>
+      <div className="toolbar-brand" title={`MyStableFast3D v${buildInfo.version}`}>
+        <img src="./icon.svg" alt="" width="22" height="22" />
+        <span ref={nameRef} className={`toolbar-brand-text${showName ? '' : ' hidden'}`} aria-hidden={!showName}>
+          <strong>MyStableFast3D</strong>
+          <small>v{buildInfo.version}</small>
+        </span>
+      </div>
       <div className="toolbar-scroll" ref={scrollRef}>
         <div className="toolbar-group" role="group">
           <ToolButton icon={IconHome} label={t('toolbar.home')} tip={t('tip.home')} onClick={onHome} active={homeOpen} showLabel={showLabel} />
@@ -345,8 +416,12 @@ export default function Toolbar({
                 <IconImage size={15} /><span className="dd-name wide">{t('toolbar.openImage')}</span><span className="dd-key">Ctrl+O</span></button></li>
               <li><button className="dd-item" onClick={onOpenModel} title={t('tip.openModel')}>
                 <IconCube size={15} /><span className="dd-name wide">{t('toolbar.openModel')}</span><span className="dd-key">Ctrl+Shift+O</span></button></li>
+              <li><button className="dd-item" onClick={onSave} disabled={!hasModel} title={t('tip.save')}>
+                <IconSave size={15} /><span className="dd-name wide">{t('toolbar.save')}</span><span className="dd-key">Ctrl+S</span></button></li>
               <li><button className="dd-item" onClick={() => onExport()} disabled={!hasModel} title={t('tip.export')}>
-                <IconExport size={15} /><span className="dd-name wide">{t('toolbar.export')}</span><span className="dd-key">Ctrl+S</span></button></li>
+                <IconExport size={15} /><span className="dd-name wide">{t('toolbar.exportAs')}</span><span className="dd-key">Ctrl+Shift+S</span></button></li>
+              <li><button className="dd-item" onClick={onPrint} disabled={!hasModel} title={t('tip.print')}>
+                <IconPrint size={15} /><span className="dd-name wide">{t('toolbar.print')}</span><span className="dd-key">Ctrl+P</span></button></li>
               <li><button className="dd-item" onClick={onScreenshot} disabled={!hasModel} title={t('tip.screenshot')}>
                 <IconCamera size={15} /><span className="dd-name wide">{t('toolbar.screenshot')}</span></button></li>
             </ul>
@@ -386,7 +461,25 @@ export default function Toolbar({
                 ))}
               </ul>
             )}
+            {samples ? (
+              <>
+                <div className="dd-head"><span>{t('samples.title')}</span></div>
+                <ul className="dd-list">
+                  {SAMPLE_GROUPS.flatMap((g) => samples[g].map((e) => (
+                    <li key={e.file}>
+                      <button className="dd-item" onClick={() => onOpenSample(e)} title={e.file}>
+                        {g === 'images' ? <IconImage size={15} /> : g === 'results' ? <IconWand size={15} /> : <IconCube size={15} />}
+                        <span className="dd-name">{sampleLabel(e, lang)}</span>
+                        <span className="dd-dir">{e.file.split('/').pop()}</span>
+                      </button>
+                    </li>
+                  )))}
+                </ul>
+              </>
+            ) : null}
           </MenuButton>
+          <ToolButton icon={IconSave} label={t('toolbar.save')} tip={t('tip.save')} onClick={onSave} disabled={!hasModel} showLabel={showLabel} />
+          <ToolButton icon={IconPrint} label={t('toolbar.print')} tip={t('tip.print')} onClick={onPrint} disabled={!hasModel} showLabel={showLabel} />
         </div>
 
         <div className="toolbar-sep" />
@@ -408,7 +501,7 @@ export default function Toolbar({
             className="model-picker"
             disabled={settings.backend === 'stability'}
           >
-            <ModelMenu models={models} current={settings.model} onPick={onPickModel} onInstall={onInstallModel} lang={lang} t={t} />
+            <ModelMenu models={models} current={settings.model} remembered={settings.modelVersions} onPick={onPickModel} onInstall={onInstallModel} lang={lang} t={t} />
           </MenuButton>
           {busy ? (
             <button className="tbtn with-label danger" onClick={onCancel} title={t('tip.cancel')}>
@@ -419,6 +512,9 @@ export default function Toolbar({
               <IconWand size={18} /><span className="tbtn-label">{t('toolbar.convert')}</span>
             </button>
           )}
+          <button className="tbtn" onClick={onConvertSettings} title={t('tip.convertSettings')} aria-label={t('toolbar.convertSettings')}>
+            <IconSliders size={18} />
+          </button>
         </div>
 
         <div className="toolbar-sep" />
@@ -427,12 +523,10 @@ export default function Toolbar({
           <MenuButton
             icon={IconExport}
             label={t('toolbar.export')}
-            tip={t('tip.exportAs', { fmt: settings.exportFormat.toUpperCase() })}
-            menuTip={t('tip.exportMenu')}
+            tip={t('tip.exportMenu')}
             showLabel={showLabel}
-            width={260}
+            width={280}
             disabled={!hasModel}
-            onAction={() => onExport(settings.exportFormat)}
           >
             <div className="dd-head"><span>{t('toolbar.exportAs')}</span></div>
             <ul className="dd-list">
@@ -444,6 +538,8 @@ export default function Toolbar({
                   </button>
                 </li>
               ))}
+              <li><button className="dd-item" onClick={onScreenshot} title={t('tip.screenshot')}>
+                <IconCamera size={15} /><span className="dd-name wide">{t('toolbar.screenshotPng')}</span></button></li>
             </ul>
           </MenuButton>
           <ToolButton icon={IconCamera} label={t('toolbar.screenshot')} tip={t('tip.screenshot')} onClick={onScreenshot} disabled={!hasModel} showLabel={showLabel} />
@@ -483,13 +579,17 @@ export default function Toolbar({
         <div className="toolbar-sep" />
 
         <div className="toolbar-group" role="group" aria-label={t('toolbar.panels')}>
-          <ToolButton icon={IconPanelLeftOpen} label={t('toolbar.leftPanel')} tip={t('tip.leftPanel')} onClick={() => toggle('leftPanel')} active={settings.leftPanel} showLabel={showLabel} />
-          <ToolButton icon={IconPanelRightOpen} label={t('toolbar.rightPanel')} tip={t('tip.rightPanel')} onClick={() => toggle('rightPanel')} active={settings.rightPanel} showLabel={showLabel} />
-          <ToolButton icon={IconTerminal} label={t('toolbar.log')} tip={t('tip.log')} onClick={() => toggle('logPanel')} active={settings.logPanel} showLabel={showLabel} />
+          {/* Nothing to show beside or under the start screen: off while it is up. */}
+          <ToolButton icon={IconPanelLeftOpen} label={t('toolbar.leftPanel')} tip={panelsLocked ? t('tip.panelsOnStart') : t('tip.leftPanel')} onClick={() => toggle('leftPanel')} active={!panelsLocked && settings.leftPanel} disabled={panelsLocked} showLabel={showLabel} />
+          <ToolButton icon={IconPanelRightOpen} label={t('toolbar.rightPanel')} tip={panelsLocked ? t('tip.panelsOnStart') : t('tip.rightPanel')} onClick={() => toggle('rightPanel')} active={!panelsLocked && settings.rightPanel} disabled={panelsLocked} showLabel={showLabel} />
+          <ToolButton icon={IconTerminal} label={t('toolbar.log')} tip={panelsLocked ? t('tip.panelsOnStart') : t('tip.log')} onClick={() => toggle('logPanel')} active={!panelsLocked && settings.logPanel} disabled={panelsLocked} showLabel={showLabel} />
         </div>
       </div>
 
-      {/* Theme, language, help, settings and about: always at the right end. */}
+      <DragArea />
+
+      {/* Theme, language, help, settings and about: always at the right end,
+          then the window's own buttons. */}
       <div className="toolbar-right">
         <MenuButton
           icon={IconTheme}
@@ -517,10 +617,26 @@ export default function Toolbar({
           tip={t('tip.lang')}
           onClick={() => onLang()}
         />
-        <ToolButton icon={IconHelp} label={t('toolbar.help')} tip={t('tip.help')} onClick={onHelp} />
+        <MenuButton
+          icon={IconHelp}
+          label={t('toolbar.help')}
+          tip={t('tip.help')}
+          menuTip={t('tip.helpMenu')}
+          width={240}
+          align="right"
+          onAction={onHelp}
+        >
+          <ul className="dd-list">
+            <li><button className="dd-item" onClick={onHelp} title={t('tip.help')}>
+              <IconHelp size={15} /><span className="dd-name wide">{t('toolbar.help')}</span><span className="dd-key">F1</span></button></li>
+            <li><button className="dd-item" onClick={onTutorial} title={t('tutorial.open')} data-help-tutorial>
+              <IconSparkles size={15} /><span className="dd-name wide">{t('tutorial.title')}</span></button></li>
+          </ul>
+        </MenuButton>
         <ToolButton icon={IconSettings} label={t('toolbar.settings')} tip={t('tip.settings')} onClick={onShowSettings} />
         <ToolButton icon={IconInfo} label={t('toolbar.about')} tip={t('tip.about')} onClick={onAbout} />
       </div>
+      <WindowControls />
     </div>
   );
 }

@@ -10,7 +10,20 @@ import StartScreen from './components/StartScreen.jsx';
 import EngineCard, { engineSummary } from './components/EngineCard.jsx';
 import SettingsDialog from './components/SettingsDialog.jsx';
 import AboutDialog from './components/AboutDialog.jsx';
-import { ErrorDialog } from './components/Dialogs.jsx';
+import ConvertSettingsDialog from './components/ConvertSettingsDialog.jsx';
+import { groupOptions, optionValues, valueOf } from './components/ConvertOptions.jsx';
+import { ErrorDialog, LicenseDialog } from './components/Dialogs.jsx';
+import { pickVersion, needsLicense } from './lib/modelFamilies.js';
+import PrintDialog from './components/PrintDialog.jsx';
+import ContextMenu from './components/ContextMenu.jsx';
+import Tutorial, { TutorialAsk } from './components/Tutorial.jsx';
+import { STEPS } from './lib/tutorialSteps.js';
+import {
+  IconFit, IconEye, IconOrbit, IconWireframe, IconGrid, IconAxes, IconRuler, IconBox, IconBulb, IconSave, IconExport,
+  IconPrint, IconCamera, IconCopy, IconImage, IconCube, IconWand, IconTrash, IconTerminal, IconSettings, IconClose,
+} from './components/Icons.jsx';
+import { framePages, printViaBrowser } from './lib/print.js';
+import { loadSampleIndex, fetchSample } from './lib/samples.js';
 import Tooltip from './components/Tooltip.jsx';
 import Toasts from './components/Toasts.jsx';
 import {
@@ -19,7 +32,7 @@ import {
 } from './lib/settings.js';
 import { isDarkTheme } from './lib/themes.js';
 import {
-  api, isDesktop, openFilesDialog, readPath, readSibling, saveBinary, saveText, copyText,
+  api, isDesktop, openFilesDialog, readPath, readSibling, saveBinary, saveText, copyText, copyImage,
   baseName, dirName, writeBinaryTo, filesToPayloads,
 } from './lib/platform.js';
 import {
@@ -89,7 +102,7 @@ export default function App() {
   const [engineUrl, setEngineUrl] = useState('');
   const [image, setImage] = useState(null);
   const [prepared, setPrepared] = useState(null);
-  const [current, setCurrent] = useState(null);      // { id, object, animations, name, format, path, stats, fromImage, bytes }
+  const [current, setCurrent] = useState(null);      // { id, object, animations, name, format, path, stats, fromImage, bytes, jobId }
   const [transform, setTransform] = useState({ rotation: [0, 0, 0], scale: 1 });
   const [history, setHistory] = useState([]);
   const [job, setJob] = useState(null);
@@ -98,7 +111,19 @@ export default function App() {
   const [selectedLight, setSelectedLight] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showConvertSettings, setShowConvertSettings] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [menu, setMenu] = useState({ open: false, x: 0, y: 0, items: [] });
+  const [samples, setSamples] = useState(null);
+  const [tourActive, setTourActive] = useState(false);
+  const [askTour, setAskTour] = useState(false);
+  const [settingsTab, setSettingsTab] = useState(null);
+
+  useEffect(() => { loadSampleIndex().then(setSamples); }, []);
   const [error, setError] = useState(null);
+  const [licenseFor, setLicenseFor] = useState(null);   // a model waiting for its license to be accepted
   const [toasts, setToasts] = useState([]);
   const [message, setMessage] = useState('');
   const [homeOpen, setHomeOpen] = useState(null);
@@ -133,6 +158,7 @@ export default function App() {
       if (!alive) return;
       setSettingsState(s);
       setHomeOpen(s.showStartPage);
+      setAskTour(s.tutorialAsk);
       log('info', t('log.started', { version: '' }).trim());
     }).catch(() => setSettingsState(normalize(null)));
     return () => { alive = false; };
@@ -275,7 +301,8 @@ export default function App() {
     const id = ++historySeq;
     const stats = modelStats(object);
     setTransform({ rotation: [0, 0, 0], scale: 1 });
-    setCurrent({ id, object, animations, name, format, path, stats, fromImage, bytes });
+    // jobId: the engine job behind a conversion, whose surface can be refined.
+    setCurrent({ id, object, animations, name, format, path, stats, fromImage, bytes, jobId: kind === 'conversion' ? j?.id : undefined });
     setHomeOpen(false);
     // A thumbnail of the first frame for the history list.
     setTimeout(async () => {
@@ -342,6 +369,12 @@ export default function App() {
     } catch (err) { fail(err, 'openModel'); }
   }, [fail, openFiles]);
 
+  const openSample = useCallback(async (entry) => {
+    try {
+      await openFiles(await fetchSample(entry));
+    } catch (err) { fail(err, 'open', entry.file); }
+  }, [fail, openFiles]);
+
   const openRecent = useCallback(async (f) => {
     if (!isDesktop || !f.path) return;
     try {
@@ -353,6 +386,11 @@ export default function App() {
       await openPaths([f.path]);
     } catch (err) { fail(err, 'open', f.path); }
   }, [fail, openPaths, setSettings, t, toast]);
+
+  const clearRecent = useCallback(() => {
+    setSettings((s) => ({ ...s, recentFiles: [] }));
+    toast(t('recent.cleared'), 'ok');
+  }, [setSettings, t, toast]);
 
   // Files handed over by the shell (open with…, a second launch) and dropped.
   useEffect(() => {
@@ -379,6 +417,8 @@ export default function App() {
   const convert = useCallback(async () => {
     const s = settingsRef.current;
     if (!image || busy) return;
+    const chosen = s.backend === 'stability' ? null : models.find((m) => m.id === s.model);
+    if (needsLicense(chosen)) { setLicenseFor(chosen); return; }
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setBusy(true);
@@ -416,7 +456,7 @@ export default function App() {
         setTimeout(async () => {
           try {
             const root = viewerRef.current?.exportRoot();
-            const bytes = fmt.id === 'glb' ? result.glb : await exportModel(root, fmt.id);
+            const bytes = fmt.id === 'glb' ? result.glb : await exportModel(root, fmt.id, { units: s.view?.units });
             await writeBinaryTo(target, bytes);
             log('info', t('log.autoSaved', { path: target }));
           } catch (err) { fail(err, 'save', target); }
@@ -439,18 +479,50 @@ export default function App() {
 
   const cancel = useCallback(() => abortRef.current?.abort(), []);
 
+  // The surface options (smoothing, subdividing, …) applied again to the
+  // conversion on screen: the engine redoes only the clean-up of the model's
+  // raw mesh, in a second or two, and the result replaces the one shown.
+  const canRefine = !!client && !!current?.jobId && !busy;
+  const refine = useCallback(async () => {
+    const s = settingsRef.current;
+    if (!client || !current?.jobId || refining || busy) return;
+    const model = models.find((m) => m.id === s.model);
+    const values = optionValues(s, s.model);
+    const options = Object.fromEntries(groupOptions(model).surface.map((o) => [o.key, valueOf(values, o)]));
+    setRefining(true);
+    setMessage(t('status.refining'));
+    log('info', t('log.refineStart', { name: current.name }));
+    try {
+      const done = await client.refine(current.jobId, options);
+      const glb = await client.file(done.id, 'result.glb');
+      const { object, animations } = await loadModel(current.name, glb);
+      await showModel({ object, animations, name: current.name, format: 'glb', fromImage: current.fromImage, bytes: glb, kind: 'conversion', job: done });
+      setLastJob(done);
+      const faces = (done.stats?.faces || 0).toLocaleString();
+      setMessage(t('status.refined', { faces }));
+      toast(t('status.refined', { faces }), 'ok');
+    } catch (err) {
+      setMessage('');
+      fail(err, 'refine', current.name);
+    } finally {
+      setRefining(false);
+    }
+  }, [busy, client, current, fail, log, models, refining, showModel, t, toast]);
+
   // ── Saving ─────────────────────────────────────────────
-  const exportCurrent = useCallback(async (formatId) => {
+  // Export: the format given (or the last one used), remembered for next
+  // time. Save (below) is always GLB and does not change that choice.
+  const exportCurrent = useCallback(async (formatId, { remember = true } = {}) => {
     const s = settingsRef.current;
     if (!current) return;
     const fmt = exportFormat(formatId || s.exportFormat);
-    setSettings((x) => ({ ...x, exportFormat: fmt.id }));
+    if (remember) setSettings((x) => ({ ...x, exportFormat: fmt.id }));
     try {
       setMessage(t('status.exporting', { fmt: fmt.name }));
       const root = viewerRef.current?.exportRoot();
       const untouched = current.format === 'glb' && fmt.id === 'glb'
         && transform.scale === 1 && transform.rotation.every((r) => r === 0) && current.bytes;
-      const bytes = untouched ? current.bytes : await exportModel(root, fmt.id);
+      const bytes = untouched ? current.bytes : await exportModel(root, fmt.id, { units: s.view?.units });
       const saved = await saveBinary({
         defaultName: exportName(current.name, fmt.id),
         defaultDir: s.lastDir,
@@ -464,6 +536,44 @@ export default function App() {
       } else setMessage('');
     } catch (err) { setMessage(''); fail(err, 'save'); }
   }, [current, fail, log, setSettings, t, toast, transform]);
+
+  const saveGlb = useCallback(() => exportCurrent('glb', { remember: false }), [exportCurrent]);
+
+  // ── Printing ───────────────────────────────────────────
+  const doPrint = useCallback(async ({ pages, printer, copies, landscape, viaSystem }) => {
+    const title = current?.name || 'MyStableFast3D';
+    setPrinting(true);
+    try {
+      if (isDesktop && !viaSystem && api.printTo) {
+        const n = await api.printTo({ pages: framePages(pages), printer, copies, landscape, title });
+        toast(t('print.sent', { n: n || pages.length }), 'ok');
+        log('info', `${t('print.sent', { n: n || pages.length })} — ${printer}`);
+      } else {
+        await printViaBrowser(pages, title);
+      }
+      setShowPrint(false);
+    } catch (err) {
+      if (!/PRINT_CANCELLED/.test(String(err?.message || err))) fail(err, 'print');
+    } finally {
+      setPrinting(false);
+    }
+  }, [current, fail, log, t, toast]);
+
+  const printInfo = useMemo(() => {
+    if (!current) return { title: 'MyStableFast3D', lines: [] };
+    const st = current.stats || {};
+    const unit = settings?.view?.units === 'none' ? '' : ` ${settings?.view?.units || ''}`;
+    const size = (st.size || []).map((n) => (n * (transform.scale || 1)).toFixed(3)).join(' × ');
+    return {
+      title: current.name,
+      lines: [
+        `${t('modelTab.size')}: ${size}${unit}`,
+        `${t('right.vertices')} ${(st.vertices || 0).toLocaleString()} · ${t('modelTab.triangles')} ${(st.triangles || 0).toLocaleString()} · ${t('modelTab.materials')} ${st.materials || 0} · ${t('modelTab.textures')} ${st.textures || 0}`,
+        current.fromImage ? `${t('modelTab.from')}: ${current.fromImage}${lastJob ? ` · ${lastJob.modelName} · ${lastJob.deviceName}` : ''}` : (current.path || current.format?.toUpperCase() || ''),
+        new Date().toLocaleString(),
+      ].filter(Boolean),
+    };
+  }, [current, lastJob, settings?.view?.units, t, transform.scale]);
 
   const screenshot = useCallback(async () => {
     const shot = viewerRef.current?.snapshot();
@@ -509,14 +619,30 @@ export default function App() {
   }, [client, connection, fail]);
 
   const pickModel = useCallback((id) => {
-    setSettings((s) => ({ ...s, model: id, backend: s.backend === 'stability' ? 'local' : s.backend }));
-    const name = models.find((m) => m.id === id)?.name || id;
-    log('info', t('log.modelPicked', { name }));
+    const m = models.find((x) => x.id === id);
+    // A region-limited license is shown and accepted first.
+    if (needsLicense(m)) { setLicenseFor(m); return; }
+    setSettings((s) => ({ ...pickVersion(s, models, id), backend: s.backend === 'stability' ? 'local' : s.backend }));
+    log('info', t('log.modelPicked', { name: m?.name || id }));
   }, [log, models, setSettings, t]);
 
   const installModel = useCallback(async (id) => {
+    const m = models.find((x) => x.id === id);
+    if (needsLicense(m)) { setLicenseFor(m); return; }
     try { await client?.installModel(id); } catch (err) { fail(err, 'engine'); }
-  }, [client, fail]);
+  }, [client, fail, models]);
+
+  // The user ticked the box and accepted: the engine records it for the
+  // whole family, and the model becomes the one in use.
+  const acceptLicense = useCallback(async (m) => {
+    setLicenseFor(null);
+    try {
+      await client?.config({ acceptLicense: m.family || m.id });
+      setSettings((s) => ({ ...pickVersion(s, models, m.id), backend: s.backend === 'stability' ? 'local' : s.backend }));
+      log('info', t('license.accepted', { name: m.familyName || m.name }));
+      toast(t('license.accepted', { name: m.familyName || m.name }), 'ok');
+    } catch (err) { fail(err, 'engine'); }
+  }, [client, fail, log, models, setSettings, t, toast]);
 
   const openGuide = useCallback(() => {
     const page = settingsRef.current?.lang === 'en' ? 'Guide.en.html' : 'Guide.html';
@@ -532,6 +658,122 @@ export default function App() {
     } catch (err) { fail(err, 'save'); }
   }, [fail, t, toast]);
 
+  // ── Context menus (every item has an icon) ─────────────
+  const closeMenu = useCallback(() => setMenu((m) => ({ ...m, open: false })), []);
+  const openMenu = useCallback((x, y, items) => setMenu({ open: true, x, y, items }), []);
+
+  const copyView = useCallback(async () => {
+    const shot = viewerRef.current?.snapshot();
+    if (!shot) return;
+    try { await copyImage(shot); toast(t('status.copied'), 'ok'); } catch (err) { fail(err, 'copy'); }
+  }, [fail, t, toast]);
+
+  const viewMenu = useCallback((x, y) => {
+    const v = settingsRef.current.view;
+    const toggle = (key) => () => setSettings((s) => ({ ...s, view: { ...s.view, [key]: !s.view[key] } }));
+    const on = (b) => (b ? ' ✓' : '');
+    const has = !!current;
+    openMenu(x, y, [
+      { icon: IconFit, label: t('toolbar.fit'), onClick: () => viewerRef.current?.fit(), disabled: !has },
+      { icon: IconEye, label: t('view.front'), onClick: () => viewerRef.current?.setView('front'), disabled: !has },
+      { icon: IconEye, label: t('view.top'), onClick: () => viewerRef.current?.setView('top'), disabled: !has },
+      { icon: IconEye, label: t('view.iso'), onClick: () => viewerRef.current?.setView('iso'), disabled: !has },
+      { separator: true },
+      { icon: IconOrbit, label: t('toolbar.autoRotate') + on(v.autoRotate), onClick: toggle('autoRotate') },
+      { icon: IconWireframe, label: t('toolbar.wireframe') + on(v.wireframe), onClick: toggle('wireframe') },
+      { icon: IconGrid, label: t('toolbar.grid') + on(v.grid), onClick: toggle('grid') },
+      { icon: IconAxes, label: t('toolbar.axes') + on(v.axes), onClick: toggle('axes') },
+      { icon: IconRuler, label: t('toolbar.rulers') + on(v.rulers), onClick: toggle('rulers') },
+      { icon: IconBox, label: t('toolbar.bbox') + on(v.boundingBox), onClick: toggle('boundingBox') },
+      { icon: IconBulb, label: t('toolbar.lights') + on(v.showLightHelpers), onClick: toggle('showLightHelpers') },
+      { separator: true },
+      { icon: IconSave, label: t('toolbar.save'), onClick: saveGlb, disabled: !has },
+      { icon: IconExport, label: `${t('toolbar.export')} (${settingsRef.current.exportFormat.toUpperCase()})`, onClick: () => exportCurrent(), disabled: !has },
+      { icon: IconPrint, label: t('toolbar.print'), onClick: () => setShowPrint(true), disabled: !has },
+      { icon: IconCamera, label: t('toolbar.screenshot'), onClick: screenshot, disabled: !has },
+      { icon: IconCopy, label: t('menu.copyView'), onClick: copyView, disabled: !has },
+      { separator: true },
+      { icon: IconImage, label: t('toolbar.openImage'), onClick: openImage },
+      { icon: IconCube, label: t('toolbar.openModel'), onClick: openModel },
+      { icon: IconSettings, label: t('menu.viewSettings'), onClick: () => setSettings((s) => ({ ...s, rightPanel: true, rightTab: 'scene' })) },
+    ]);
+  }, [copyView, current, exportCurrent, openImage, openMenu, openModel, saveGlb, setSettings, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const imageMenu = useCallback((x, y) => {
+    openMenu(x, y, [
+      { icon: IconImage, label: t('left.choose'), onClick: openImage },
+      { icon: IconWand, label: t('toolbar.convert'), onClick: () => convert(), disabled: !image || busy },
+      { icon: IconCopy, label: t('menu.copyName'), onClick: () => copyText(image?.path || image?.name || '').then(() => toast(t('status.copied'), 'ok')), disabled: !image },
+      { separator: true },
+      { icon: IconClose, label: t('menu.clearImage'), onClick: () => { setImage(null); setPrepared(null); }, disabled: !image || busy, danger: true },
+    ]);
+  }, [busy, convert, image, openImage, openMenu, t, toast]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const historyMenu = useCallback((x, y, h) => {
+    openMenu(x, y, [
+      { icon: IconCube, label: t('menu.showItem'), onClick: () => showHistory(h) },
+      { icon: IconSave, label: t('left.saveItem'), onClick: () => saveHistory(h) },
+      { icon: IconCopy, label: t('menu.copyName'), onClick: () => copyText(h.path || h.name).then(() => toast(t('status.copied'), 'ok')) },
+      { separator: true },
+      { icon: IconTrash, label: t('left.removeItem'), onClick: () => setHistory((list) => list.filter((x2) => x2.id !== h.id)), danger: true },
+    ]);
+  }, [openMenu, t, toast]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const logMenu = useCallback((x, y, line, shownText) => {
+    openMenu(x, y, [
+      { icon: IconCopy, label: t('menu.copyLine'), onClick: () => copyText(line.msg).then(() => toast(t('status.copied'), 'ok')), disabled: !line },
+      { icon: IconCopy, label: t('log.copy'), onClick: () => copyText(shownText).then(() => toast(t('status.copied'), 'ok')) },
+      { icon: IconSave, label: t('log.save'), onClick: () => saveLog(shownText) },
+      { separator: true },
+      { icon: IconTrash, label: t('log.clear'), onClick: () => setLines([]), danger: true },
+      { icon: IconTerminal, label: t('log.close'), onClick: () => setSettings((s) => ({ ...s, logPanel: false })) },
+    ]);
+  }, [openMenu, saveLog, setSettings, t, toast]);
+
+  // ── Tutorial ───────────────────────────────────────────
+  // What the tour's steps need from the app (components/Tutorial.jsx).
+  const tourRef = useRef({});
+  tourRef.current = { samples, current, openSample, setSettings };
+  const tourApi = useMemo(() => ({
+    closeTransient: async () => {
+      document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      setMenu((m) => ({ ...m, open: false }));
+      setShowSettings(false);
+      setShowPrint(false);
+      setSelectedLight(null);
+    },
+    showStart: (on) => setHomeOpen(!!on),
+    openSample: async (file, kind) => {
+      const { samples: list, current: cur, openSample: open } = tourRef.current;
+      const entry = list && ['images', 'models', 'results'].flatMap((g) => list[g]).find((e) => e.file === file);
+      if (!entry) return;
+      const name = file.split('/').pop();
+      if (kind === 'model' && cur?.name === name) { setHomeOpen(false); return; }
+      await open(entry);
+      setHomeOpen(false);
+      if (kind === 'model') {
+        const end = Date.now() + 8000;
+        while (Date.now() < end && !window.__mysf3dViewer?.model) await new Promise((r) => { setTimeout(r, 100); });
+      }
+    },
+    selectTab: (id) => { setHomeOpen(false); tourRef.current.setSettings((s) => ({ ...s, rightPanel: true, rightTab: id })); },
+    showPanels: () => { setHomeOpen(false); tourRef.current.setSettings((s) => ({ ...s, leftPanel: true, rightPanel: true, logPanel: true })); },
+    openSettings: (tab) => { setSettingsTab(tab); setShowSettings(true); },
+    openPrint: () => { if (tourRef.current.current) setShowPrint(true); },
+    selectLight: (id) => setSelectedLight(id),
+  }), []);
+
+  const startTour = useCallback((resume = false) => {
+    setAskTour(false);
+    if (!resume) setSettings((s) => ({ ...s, tutorialIndex: 0 }));
+    setTourActive(true);
+  }, [setSettings]);
+
+  const stopTour = useCallback((done) => {
+    setTourActive(false);
+    setSettings((s) => ({ ...s, tutorialDone: s.tutorialDone || !!done, tutorialIndex: done ? 0 : s.tutorialIndex }));
+  }, [setSettings]);
+
   // ── Keyboard ───────────────────────────────────────────
   useEffect(() => {
     const onKey = (e) => {
@@ -539,15 +781,17 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); if (e.shiftKey) openModel(); else openImage(); }
-      else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); exportCurrent(); }
+      else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); if (e.shiftKey) exportCurrent(); else saveGlb(); }
+      else if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); if (current) setShowPrint(true); }
       else if (mod && e.key.toLowerCase() === 'l') { e.preventDefault(); setSettings((s) => ({ ...s, logPanel: !s.logPanel })); }
       else if (e.key === 'F5' || (mod && e.key === 'Enter')) { e.preventDefault(); convert(); }
+      else if (e.key === 'F1') { e.preventDefault(); openGuide(); }
       else if (e.key === 'Escape' && busy) cancel();
       else if (!mod && e.key.toLowerCase() === 'f' && current) viewerRef.current?.fit();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [busy, cancel, convert, current, exportCurrent, openImage, openModel, setSettings]);
+  }, [busy, cancel, convert, current, exportCurrent, openGuide, openImage, openModel, saveGlb, setSettings]);
 
   // Show the window once the first frame is up (desktop).
   useEffect(() => {
@@ -581,28 +825,38 @@ export default function App() {
         busy={busy}
         models={models}
         homeOpen={startVisible}
+        panelsLocked={startVisible}
         onHome={() => setHomeOpen(!startVisible)}
         onOpenImage={openImage}
         onOpenModel={openModel}
         onOpenRecent={openRecent}
+        samples={samples}
+        onOpenSample={openSample}
         onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
-        onClearRecent={() => setSettings((s) => ({ ...s, recentFiles: [] }))}
+        onClearRecent={clearRecent}
         onConvert={convert}
+        onConvertSettings={() => setShowConvertSettings(true)}
         onCancel={cancel}
         onPickModel={pickModel}
         onInstallModel={installModel}
+        onSave={saveGlb}
         onExport={exportCurrent}
+        onPrint={() => setShowPrint(true)}
         onScreenshot={screenshot}
         onFit={() => viewerRef.current?.fit()}
         onView={(name) => viewerRef.current?.setView(name)}
         onTheme={(id) => setSettings((s) => ({ ...s, theme: id }))}
         onLang={() => setSettings((s) => ({ ...s, lang: s.lang === 'en' ? 'ko' : 'en' }))}
         onHelp={openGuide}
+        onTutorial={() => startTour(true)}
         onShowSettings={() => setShowSettings(true)}
         onAbout={() => setShowAbout(true)}
       />
 
       <div className="workarea">
+        {/* The start screen takes the whole work area: no side or log panels
+            under it (their toolbar buttons are disabled meanwhile). */}
+        {startVisible ? null : (
         <InputPanel
           settings={settings}
           onSettings={setSettings}
@@ -616,7 +870,18 @@ export default function App() {
           onShowHistory={showHistory}
           onSaveHistory={saveHistory}
           onRemoveHistory={(h) => setHistory((list) => list.filter((x) => x.id !== h.id))}
+          onClearHistory={() => setHistory([])}
+          onOpenRecent={openRecent}
+          onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
+          onClearRecent={clearRecent}
+          onImageMenu={imageMenu}
+          onHistoryMenu={historyMenu}
         />
+        )}
+        {/* The middle column: the 3D view and, under it, the log. The side
+            panels run the full height beside it. */}
+        <div className="center-col">
+        <div className="center-stage">
         <ViewerPane
           ref={viewerRef}
           view={settings.view}
@@ -625,11 +890,13 @@ export default function App() {
           animations={current?.animations}
           job={job}
           busy={busy}
+          hasImage={!!image}
           dragOver={dragOver}
           onCancel={cancel}
           onOpenImage={openImage}
           onOpenModel={openModel}
           selectedLight={selectedLight}
+          onContextMenu={viewMenu}
           onLightSelect={(id) => {
             setSelectedLight(id);
             if (id) setSettings((s) => ({ ...s, rightPanel: true, rightTab: 'lights' }));
@@ -649,6 +916,20 @@ export default function App() {
             </div>
           ) : null}
         />
+        </div>
+        {startVisible ? null : (
+        <LogPanel
+          settings={settings}
+          onSettings={setSettings}
+          lines={lines}
+          onClear={() => setLines([])}
+          onCopy={async (text) => { try { await copyText(text); toast(t('status.copied'), 'ok'); } catch (err) { fail(err, 'copy'); } }}
+          onSave={saveLog}
+          onLineMenu={logMenu}
+        />
+        )}
+        </div>
+        {startVisible ? null : (
         <RightPanel
           settings={settings}
           onSettings={setSettings}
@@ -656,6 +937,7 @@ export default function App() {
           health={health}
           lastJob={lastJob}
           onDevice={(id) => setSettings((s) => ({ ...s, device: id }))}
+          onPickModel={pickModel}
           modelInfo={current}
           transform={transform}
           onTransform={setTransform}
@@ -663,7 +945,12 @@ export default function App() {
           onSelectLight={setSelectedLight}
           onView={(name) => viewerRef.current?.setView(name)}
           onFit={() => viewerRef.current?.fit()}
+          onOpenConvertSettings={() => setShowConvertSettings(true)}
+          onRefine={refine}
+          canRefine={canRefine}
+          refining={refining}
         />
+        )}
         {startVisible ? (
           <StartScreen
             settings={settings}
@@ -674,25 +961,20 @@ export default function App() {
             onOpenImage={openImage}
             onOpenModel={openModel}
             onOpenRecent={openRecent}
+            samples={samples}
+            onOpenSample={openSample}
             onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
+            onClearRecent={clearRecent}
             onGuide={openGuide}
+            onTutorial={() => startTour(true)}
             onRetry={retryEngine}
             onToken={sendToken}
-            onShowLog={() => setSettings((s) => ({ ...s, logPanel: true }))}
+            onShowLog={() => { setHomeOpen(false); setSettings((s) => ({ ...s, logPanel: true })); }}
             onPickModel={pickModel}
             onClose={() => setHomeOpen(false)}
           />
         ) : null}
       </div>
-
-      <LogPanel
-        settings={settings}
-        onSettings={setSettings}
-        lines={lines}
-        onClear={() => setLines([])}
-        onCopy={async (text) => { try { await copyText(text); toast(t('status.copied'), 'ok'); } catch (err) { fail(err, 'copy'); } }}
-        onSave={saveLog}
-      />
 
       {settings.showStatusBar ? (
         <StatusBar
@@ -708,10 +990,12 @@ export default function App() {
       ) : null}
 
       <SettingsDialog
+        tab={settingsTab}
+        onTutorial={() => { setShowSettings(false); startTour(false); }}
         open={showSettings}
         settings={settings}
         onChange={(next) => setSettings(() => next)}
-        onClose={() => setShowSettings(false)}
+        onClose={() => { setShowSettings(false); setSettingsTab(null); }}
         onReset={() => {
           const kept = { recentFiles: settings.recentFiles, lastDir: settings.lastDir };
           setSettings(() => ({ ...DEFAULT_SETTINGS, ...kept }));
@@ -731,10 +1015,50 @@ export default function App() {
           try { await api.openPath(await api.engine.folder()); } catch (err) { fail(err, 'engine'); }
         }}
       />
+      <PrintDialog
+        open={showPrint && !!current}
+        settings={settings}
+        onChange={(next) => setSettings(() => next)}
+        onPrint={doPrint}
+        onClose={() => setShowPrint(false)}
+        busy={printing}
+        capture={(opts) => viewerRef.current?.viewer()?.capture(opts)}
+        info={printInfo}
+        listPrinters={isDesktop && api.listPrinters ? api.listPrinters : null}
+      />
+      <ContextMenu open={menu.open} x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />
+      <ConvertSettingsDialog
+        open={showConvertSettings}
+        onClose={() => setShowConvertSettings(false)}
+        settings={settings}
+        onSettings={setSettings}
+        models={models}
+        health={health}
+        onConvert={convert}
+        canConvert={!!image && !busy}
+        onRefine={refine}
+        canRefine={canRefine}
+        refining={refining}
+      />
       <AboutDialog open={showAbout} onClose={() => setShowAbout(false)} health={health} />
       <ErrorDialog error={error} onClose={() => setError(null)} />
+      <LicenseDialog model={licenseFor} onAccept={acceptLicense} onCancel={() => setLicenseFor(null)} />
       <Toasts toasts={toasts} onDismiss={(id) => setToasts((list) => list.filter((x) => x.id !== id))} />
       <Tooltip />
+      <Tutorial
+        active={tourActive}
+        index={Math.min(settings.tutorialIndex, STEPS.length - 1)}
+        onIndex={(i) => setSettings((s) => ({ ...s, tutorialIndex: i }))}
+        onStop={stopTour}
+        app={tourApi}
+      />
+      <TutorialAsk
+        open={askTour && !tourActive}
+        settings={settings}
+        onStart={startTour}
+        onLater={() => setAskTour(false)}
+        onChange={(on) => setSettings((s) => ({ ...s, tutorialAsk: on }))}
+      />
     </div>
   );
 }

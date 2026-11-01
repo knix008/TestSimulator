@@ -11,6 +11,7 @@
 mod engine;
 mod files;
 mod popout;
+mod print;
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -37,6 +38,7 @@ const MAX_MIN_WINDOW_WIDTH: f64 = 2000.0;
 struct AppState {
   pending_open: Mutex<Option<String>>,
   renderer_ready: AtomicBool,
+  maximized: AtomicBool,
   min_size: Mutex<(f64, f64)>,
   clipboard: Mutex<Option<arboard::Clipboard>>,
   popup: Mutex<Option<PopupAnchor>>,
@@ -369,6 +371,33 @@ fn shell_open_path(app: AppHandle, path: String) -> Result<bool, String> {
   Ok(true)
 }
 
+// ── Printing (no second, system print window) ────────────────
+#[tauri::command]
+async fn print_list_printers() -> print::Printers {
+  tauri::async_runtime::spawn_blocking(print::list_printers).await.unwrap_or_default()
+}
+
+/// Body: the sheets as JPEGs (see print::split_pages). The job travels in headers.
+#[tauri::command]
+async fn print_pages(request: Request<'_>) -> Result<usize, String> {
+  let job = print::Job {
+    printer: header(&request, "x-printer").unwrap_or_default(),
+    copies: print::clamp_copies(header(&request, "x-copies").and_then(|c| c.parse().ok()).unwrap_or(1)),
+    landscape: header(&request, "x-landscape").as_deref() == Some("1"),
+    title: header(&request, "x-title").unwrap_or_default(),
+  };
+  let InvokeBody::Raw(body) = request.body() else {
+    return Err("Expected the pages as the request body".into());
+  };
+  let body = body.clone();
+  tauri::async_runtime::spawn_blocking(move || {
+    let pages = print::split_pages(&body)?;
+    print::print_pages(&job, &pages)
+  })
+  .await
+  .map_err(err)?
+}
+
 // ── Fonts (the settings dialog's font list) ──────────────────
 #[tauri::command]
 async fn list_fonts() -> Vec<String> {
@@ -421,7 +450,70 @@ async fn stability_convert(request: Request<'_>) -> Result<Response, String> {
   Ok(Response::new(glb))
 }
 
-// ── Window ───────────────────────────────────────────────────
+// ── Window (frameless: the page draws the controls) ──────────
+#[tauri::command]
+fn win_minimize(window: WebviewWindow) {
+  let _ = window.minimize();
+}
+
+#[tauri::command]
+fn win_toggle_maximize(window: WebviewWindow) -> bool {
+  if window.is_maximized().unwrap_or(false) {
+    let _ = window.unmaximize();
+  } else {
+    let _ = window.maximize();
+  }
+  window.is_maximized().unwrap_or(false)
+}
+
+#[tauri::command]
+fn win_is_maximized(window: WebviewWindow) -> bool {
+  window.is_maximized().unwrap_or(false)
+}
+
+#[tauri::command]
+fn win_get_size(window: WebviewWindow) -> Value {
+  let (width, height) = logical_inner(&window);
+  let (min_w, min_h) = *state(window.app_handle()).min_size.lock().unwrap();
+  json!({ "width": width.round(), "height": height.round(), "minWidth": min_w, "minHeight": min_h })
+}
+
+/// The resize grip in the status bar drags the size itself.
+#[tauri::command]
+fn win_set_size(window: WebviewWindow, width: f64, height: f64) -> bool {
+  if window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false) {
+    return false;
+  }
+  if !width.is_finite() || !height.is_finite() {
+    return false;
+  }
+  let (min_w, min_h) = *state(window.app_handle()).min_size.lock().unwrap();
+  window.set_size(LogicalSize::new(width.round().max(min_w), height.round().max(min_h))).is_ok()
+}
+
+/// The window's frame around its client area, in logical px (the invisible
+/// resize borders of a frameless Windows window; nothing elsewhere).
+fn frame_extra(window: &WebviewWindow) -> (f64, f64) {
+  if cfg!(not(target_os = "windows")) {
+    return (0.0, 0.0);
+  }
+  let scale = window.scale_factor().unwrap_or(1.0);
+  match (window.outer_size(), window.inner_size()) {
+    (Ok(o), Ok(i)) => (
+      f64::from(o.width.saturating_sub(i.width)) / scale,
+      f64::from(o.height.saturating_sub(i.height)) / scale,
+    ),
+    _ => (0.0, 0.0),
+  }
+}
+
+/// macOS / Linux: the toolbar's empty space moves the window (Windows does it
+/// natively through the page's `app-region: drag`).
+#[tauri::command]
+fn win_start_dragging(window: WebviewWindow) -> bool {
+  window.start_dragging().is_ok()
+}
+
 #[tauri::command]
 fn win_close(window: WebviewWindow) {
   let _ = window.close();
@@ -467,7 +559,11 @@ fn win_set_min_width(window: WebviewWindow, width: f64) -> bool {
     slot.0 = min;
     slot.1
   };
-  let _ = window.set_min_size(Some(LogicalSize::new(min, min_h)));
+  // A frameless window's minimum binds its OUTER rect, invisible resize
+  // borders included; asking for the client minimum alone lets edge drags
+  // stop 16 px short and the Resized clamp then pushes back (a flicker).
+  let (fw, fh) = frame_extra(&window);
+  let _ = window.set_min_size(Some(LogicalSize::new(min + fw, min_h + fh)));
   if !window.is_maximized().unwrap_or(false) && !window.is_fullscreen().unwrap_or(false) {
     let (w, h) = logical_inner(&window);
     if w < min {
@@ -698,6 +794,10 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     .title(APP_NAME)
     .inner_size(1520.0, 960.0)
     .min_inner_size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+    // Frameless: the toolbar is the title bar (drag area, minimise /
+    // maximise / close at its right end) and the status bar has the grip.
+    .decorations(false)
+    .shadow(true)
     .visible(false)
     .center()
     .theme(Some(tauri::Theme::Dark))
@@ -745,6 +845,10 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
       app.exit(0);
     }
     (MAIN, WindowEvent::Resized(size)) => {
+      let now = window.is_maximized().unwrap_or(false);
+      if state(app).maximized.swap(now, Ordering::SeqCst) != now {
+        let _ = app.emit_to(MAIN, "maximized", now);
+      }
       // set_min_size only holds the user's own edge drags: Windows Snap and
       // other programs can make the window narrower than the toolbar needs.
       if !window.is_maximized().unwrap_or(false) && !window.is_minimized().unwrap_or(false) && size.width > 0 && size.height > 0 {
@@ -827,6 +931,8 @@ pub fn run() {
       shell_show_item,
       shell_open_path,
       list_fonts,
+      print_list_printers,
+      print_pages,
       settings_load,
       settings_save,
       stability_convert,
@@ -835,6 +941,12 @@ pub fn run() {
       engine::engine_restart,
       engine::engine_stop,
       engine::engine_folder,
+      win_minimize,
+      win_toggle_maximize,
+      win_is_maximized,
+      win_get_size,
+      win_set_size,
+      win_start_dragging,
       win_close,
       win_force_close,
       win_set_title,

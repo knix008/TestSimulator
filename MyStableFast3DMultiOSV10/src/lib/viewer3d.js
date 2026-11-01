@@ -63,12 +63,75 @@ export const VIEW_PRESETS = {
 };
 
 const AXIS_COLORS = { x: 0xe5534b, y: 0x57ab5a, z: 0x4a90e2 };
+const AXIS_TEXT = { x: '#ff6b62', y: '#6fd36f', z: '#5ea4ff' };
+const ORIGIN = new THREE.Vector3(0, 0, 0);
+
+// The colour a light's handle is drawn in: sun yellow for a white (or nearly
+// white) light, so it reads as a sun; a coloured light shows its own colour.
+// Only the handle — the light itself keeps the colour it was given.
+const SUN_YELLOW = new THREE.Color('#ffc928');
+export function handleColor(value) {
+  const c = new THREE.Color(value || '#ffffff');
+  const hsl = {};
+  c.getHSL(hsl);
+  return hsl.s < 0.25 && hsl.l > 0.7 ? SUN_YELLOW.clone() : c;
+}
 
 function label(textContent, className) {
   const el = document.createElement('div');
   el.className = className;
   el.textContent = textContent;
   return new CSS2DObject(el);
+}
+
+// Text drawn in the 3D scene, so the model hides it like it hides the axes
+// and rulers (an HTML label always shows on top) and it is in print shots.
+// It keeps one size on screen: `pixels` tall, set by _fitTextSprites().
+const TEXT_STYLES = {
+  ruler: { font: '500 21px system-ui, sans-serif', color: '#e8e8e8', pill: 'rgba(0, 0, 0, 0.45)', pixels: 17 },
+  axis: { font: '700 26px system-ui, sans-serif', color: '#ffffff', outline: '#000000', pixels: 20 },
+};
+function textSprite(text, style, color) {
+  const st = TEXT_STYLES[style];
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.font = st.font;
+  const padX = st.pill ? 8 : 4;
+  const w = Math.ceil(ctx.measureText(text).width) + padX * 2;
+  const h = 34;
+  canvas.width = w;
+  canvas.height = h;
+  ctx.font = st.font;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (st.pill) {
+    ctx.fillStyle = st.pill;
+    ctx.beginPath();
+    ctx.roundRect(0, 3, w, h - 6, 8);
+    ctx.fill();
+  }
+  if (st.outline) {
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = st.outline;
+    ctx.globalAlpha = 0.85;
+    ctx.strokeText(text, w / 2, h / 2 + 1);
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = color || st.color;
+  ctx.fillText(text, w / 2, h / 2 + 1);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.minFilter = THREE.LinearFilter;
+  map.generateMipmaps = false;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map, transparent: true, depthTest: true, depthWrite: false, sizeAttenuation: false,
+  }));
+  sprite.renderOrder = 9;
+  sprite.userData.text = text;
+  sprite.userData.textPixels = st.pixels;
+  sprite.userData.textAspect = w / h;
+  sprite.raycast = () => {};
+  return sprite;
 }
 
 function disposeObject(root) {
@@ -99,6 +162,22 @@ export function niceGridSize(extent) {
   const m = raw / pow;
   const step = m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10;
   return step * pow;
+}
+
+// The automatic major cell follows the zoom: 1, 2 or 5 × 10^n, between 0.4×
+// and 1× of half the camera's distance, so the cells (and the ruler ticks on
+// them) keep about the same size on screen however far in or out the view
+// goes. `current` is kept while it is still near that range, so the step does
+// not flicker back and forth while zooming across a boundary.
+export const ZOOM_GRID_FACTOR = 0.5;
+export function zoomGridSize(distance, current = 0) {
+  if (!(distance > 0) || !Number.isFinite(distance)) return current > 0 ? current : 1;
+  const raw = distance * ZOOM_GRID_FACTOR;
+  if (current > 0 && current > raw / (2.5 * 1.12) && current <= raw * 1.12) return current;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const m = raw / pow;
+  const step = m >= 5 ? 5 : m >= 2 ? 2 : 1;
+  return Number((step * pow).toPrecision(6));
 }
 
 export class Viewer3D {
@@ -180,7 +259,9 @@ export class Viewer3D {
 
     this.shadowCatcher = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.ShadowMaterial({ opacity: 0.25 }),
+      // No depth: the axes and rulers lying on the floor would flicker
+      // against it now that they hide behind the model.
+      new THREE.ShadowMaterial({ opacity: 0.25, depthWrite: false }),
     );
     this.shadowCatcher.rotation.x = -Math.PI / 2;
     this.shadowCatcher.receiveShadow = true;
@@ -238,13 +319,25 @@ export class Viewer3D {
     return this.model ? niceGridSize(Math.max(s.x, s.y, s.z) || 1) : 1;
   }
 
-  gridSize() {
+  gridAuto() {
     const v = this.view;
-    if (v.gridSize === 'auto' || !(Number(v.gridSize) > 0)) {
-      const s = this.modelSize();
-      return niceGridSize(Math.max(s.x, s.y, s.z) || 1);
-    }
-    return Number(v.gridSize);
+    return v.gridSize === 'auto' || !(Number(v.gridSize) > 0);
+  }
+
+  gridSize() {
+    if (!this.gridAuto()) return Number(this.view.gridSize);
+    if (!this._zoomMajor) this._zoomGrid();
+    return this._zoomMajor;
+  }
+
+  // Picks the automatic major cell for the camera's distance now; true when
+  // it changed (the grid, rulers and axes then need rebuilding).
+  _zoomGrid() {
+    const dist = this.camera.position.distanceTo(this.controls.target);
+    const next = zoomGridSize(dist, this._zoomMajor);
+    if (next === this._zoomMajor) return false;
+    this._zoomMajor = next;
+    return true;
   }
 
   _buildAxes(extent) {
@@ -254,13 +347,13 @@ export class Viewer3D {
     for (const [axis, color] of Object.entries(AXIS_COLORS)) {
       const dir = new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0);
       const pos = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(extent)]);
-      const line = new THREE.Line(pos, new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true }));
+      const line = new THREE.Line(pos, new THREE.LineBasicMaterial({ color, transparent: true }));
       line.renderOrder = 5;
       this.axes.add(line);
       if (v.negativeAxes) {
         const neg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(-extent)]);
         const dashed = new THREE.Line(neg, new THREE.LineDashedMaterial({
-          color, dashSize: extent / 40, gapSize: extent / 60, transparent: true, opacity: 0.6, depthTest: false,
+          color, dashSize: extent / 40, gapSize: extent / 60, transparent: true, opacity: 0.6,
         }));
         dashed.computeLineDistances();
         dashed.renderOrder = 5;
@@ -268,13 +361,13 @@ export class Viewer3D {
       }
       const cone = new THREE.Mesh(
         new THREE.ConeGeometry(extent * 0.018, extent * 0.06, 16),
-        new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true }),
+        new THREE.MeshBasicMaterial({ color, transparent: true }),
       );
       cone.position.copy(dir).multiplyScalar(extent);
       cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
       cone.renderOrder = 5;
       this.axes.add(cone);
-      const name = label(axis.toUpperCase(), `axis-label axis-${axis}`);
+      const name = textSprite(axis.toUpperCase(), 'axis', AXIS_TEXT[axis]);
       name.position.copy(dir).multiplyScalar(extent * 1.07);
       this.axes.add(name);
     }
@@ -312,7 +405,7 @@ export class Viewer3D {
         const isMajor = i % divisions === 0;
         tick(axis, at, isMajor ? major * 0.12 : major * 0.05);
         if (isMajor) {
-          const l = label(rulerText(at, v.units === 'none' ? '' : v.units), `ruler-label ruler-${axis}`);
+          const l = textSprite(rulerText(at, v.units === 'none' ? '' : v.units), 'ruler');
           if (axis === 'x') l.position.set(at, 0, major * 0.2);
           else if (axis === 'z') l.position.set(major * 0.2, 0, at);
           else l.position.set(yx - major * 0.25, at, yz);
@@ -323,7 +416,7 @@ export class Viewer3D {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     const color = new THREE.Color(v.rulerColor || '#d0d0d0');
-    const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.9 }));
+    const lines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
     lines.renderOrder = 4;
     this.rulers.add(lines);
   }
@@ -372,7 +465,7 @@ export class Viewer3D {
   }
 
   _makeHandle(spec) {
-    const color = new THREE.Color(spec.color || '#ffffff');
+    const color = handleColor(spec.color);
     const r = this.handleRadius();
     const group = new THREE.Group();
     const bulb = new THREE.Mesh(
@@ -390,8 +483,24 @@ export class Viewer3D {
     ring.userData.billboard = true;
     ring.userData.lightId = spec.id;
     group.add(ring);
+    // Rays all round, long and short in turn, so the handle reads as a sun.
+    const rays = [];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const [from, to] = i % 2 ? [r * 1.9, r * 2.6] : [r * 1.9, r * 3.2];
+      rays.push(Math.cos(a) * from, Math.sin(a) * from, 0, Math.cos(a) * to, Math.sin(a) * to, 0);
+    }
+    const rayGeo = new THREE.BufferGeometry();
+    rayGeo.setAttribute('position', new THREE.Float32BufferAttribute(rays, 3));
+    const sunRays = new THREE.LineSegments(rayGeo, new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }));
+    sunRays.renderOrder = 8;
+    sunRays.userData.billboard = true;
+    sunRays.userData.rays = true;
+    // Lines pick within a whole world unit: the bulb and ring do the picking.
+    sunRays.raycast = () => {};
+    group.add(sunRays);
     if (spec.type !== 'point') {
-      // A line towards where the light points (the origin / its target).
+      // A line towards where the light points: the origin, where the axes meet.
       const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]);
       const line = new THREE.Line(g, new THREE.LineDashedMaterial({ color, dashSize: 0.05, gapSize: 0.04, depthTest: false, transparent: true, opacity: 0.8 }));
       line.renderOrder = 7;
@@ -447,8 +556,8 @@ export class Viewer3D {
       const [x, y, z] = spec.position || [2, 3, 2];
       light.position.set(x * s, y * s, z * s);
       if (light.target) {
-        const t = this.modelCenter();
-        light.target.position.copy(t);
+        // Every light aims at the origin (0, 0, 0), where the axes meet.
+        light.target.position.set(0, 0, 0);
         light.target.updateMatrixWorld();
       }
       if (light.isSpotLight) {
@@ -471,16 +580,31 @@ export class Viewer3D {
       if (handle) {
         handle.visible = this.view.showLightHelpers !== false && spec.enabled !== false;
         handle.position.copy(light.position);
-        handle.children[0].material.color.set(spec.color || '#ffffff');
-        const aim = handle.children.find((c) => c.userData.aim);
-        if (aim) {
-          const target = this.modelCenter().sub(light.position);
-          const pts = [new THREE.Vector3(), target];
-          aim.geometry.setFromPoints(pts);
-          aim.computeLineDistances();
-        }
+        const hc = handleColor(spec.color);
+        handle.children[0].material.color.copy(hc);
+        handle.children.find((c) => c.userData.rays)?.material.color.copy(hc);
+        this._aimLine(handle, light);
       }
     }
+  }
+
+  // The dashed line from a light's handle all the way to where the light
+  // points: its target, which is the origin (0, 0, 0). The line lives in the
+  // handle, which is scaled to keep a steady size on screen, so the far end
+  // is divided by that scale; it is redrawn only when the handle moves or
+  // rescales.
+  _aimLine(handle, light) {
+    const aim = handle.children.find((c) => c.userData.aim);
+    if (!aim) return;
+    const to = light.target ? light.target.position : ORIGIN;
+    const scale = handle.scale.x || 1;
+    const key = `${handle.position.x},${handle.position.y},${handle.position.z},${to.x},${to.y},${to.z},${scale}`;
+    if (aim.userData.key === key) return;
+    aim.userData.key = key;
+    const end = to.clone().sub(handle.position).divideScalar(scale);
+    aim.geometry.setFromPoints([new THREE.Vector3(), end]);
+    aim.geometry.computeBoundingSphere();
+    aim.computeLineDistances();
   }
 
   _syncLightFromHandle(id, live) {
@@ -616,6 +740,7 @@ export class Viewer3D {
 
   refreshHelpers() {
     const v = this.view;
+    if (this.gridAuto()) this._zoomGrid();
     const major = this.gridSize();
     const radius = Math.max(this.modelRadius(), major);
     const camDist = this.camera.position.distanceTo(this.controls.target);
@@ -629,7 +754,9 @@ export class Viewer3D {
     u.uMinorColor.value.copy(cMinor);
     this.grid.visible = !!v.grid;
 
-    const extent = Math.max(major * (Number(v.rulerCells) || 5), radius * 1.4);
+    // Zoomed far in the cells are small: the rulers still cover the model,
+    // but stop at 40 cells so they do not grow hundreds of labels.
+    const extent = Math.max(major * (Number(v.rulerCells) || 5), Math.min(radius * 1.4, major * 40));
     const ms = this.modelSize();
     const key = `${major}|${extent}|${v.gridDivisions}|${v.units}|${v.rulerY}|${v.negativeAxes}|${v.rulerColor}|${ms.x.toFixed(4)}|${ms.y.toFixed(4)}|${ms.z.toFixed(4)}|${!!this.model}`;
     if (key !== this._helperKey) {
@@ -832,6 +959,12 @@ export class Viewer3D {
     for (const h of this.handles.children) {
       for (const c of h.children) if (c.userData.billboard) c.quaternion.copy(this.camera.quaternion);
     }
+    for (const { handle, light } of this.lights.values()) {
+      if (handle?.visible) this._aimLine(handle, light);
+    }
+    // Zooming in or out past a step re-spaces the grid and the rulers.
+    if (this.gridAuto() && this._zoomGrid()) this.refreshHelpers();
+    this._fitTextSprites();
     const u = this.grid.material.uniforms;
     const camDist = this.camera.position.distanceTo(this.controls.target);
     u.uDistance.value = Math.max(camDist * 12, u.uMajor.value * 60);
@@ -841,9 +974,105 @@ export class Viewer3D {
     this.labels.render(this.scene, this.camera);
   }
 
+  // Sizes the axis and ruler text so it stands `textPixels` tall on screen.
+  // A sprite without size attenuation is measured in clip space, so its
+  // scale depends only on the view's height and field of view.
+  _fitTextSprites(force = false) {
+    const height = this.renderer.getSize(new THREE.Vector2()).y || 1;
+    const p11 = this.camera.projectionMatrix.elements[5] || 1;
+    const key = `${height}|${p11}|${this.axes.children.length}|${this.rulers.children.length}|${this._helperKey}`;
+    if (!force && key === this._textKey) return;
+    this._textKey = key;
+    for (const group of [this.axes, this.rulers]) {
+      for (const s of group.children) {
+        if (!s.isSprite) continue;
+        const h = (2 * s.userData.textPixels) / (p11 * height);
+        s.scale.set(h * s.userData.textAspect, h, 1);
+      }
+    }
+  }
+
   snapshot() {
     this.render();
     return this.renderer.domElement.toDataURL('image/png');
+  }
+
+  // A picture for printing: the model from `direction` (a VIEW_PRESETS name,
+  // or null for the camera as it is) at width × height, on white when asked,
+  // with or without the grid / axes / rulers. Light handles and the move
+  // gizmo never show. Everything is put back afterwards.
+  capture({ direction = null, width = 900, height = 700, white = false, helpers = false } = {}) {
+    const r = this.renderer;
+    const keep = {
+      pos: this.camera.position.clone(),
+      target: this.controls.target.clone(),
+      near: this.camera.near,
+      far: this.camera.far,
+      aspect: this.camera.aspect,
+      bg: this.scene.background,
+      grid: this.grid.visible,
+      axes: this.axes.visible,
+      rulers: this.rulers.visible,
+      bbox: this.bbox.visible,
+      handles: this.handles.visible,
+      gizmo: this.gizmo.getHelper().visible,
+      size: r.getSize(new THREE.Vector2()),
+      ratio: r.getPixelRatio(),
+    };
+    try {
+      r.setPixelRatio(1);
+      r.setSize(width, height, false);
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+      if (direction && VIEW_PRESETS[direction]) {
+        const center = this.modelCenter();
+        const radius = this.modelRadius();
+        const fov = THREE.MathUtils.degToRad(this.camera.fov);
+        const fit = Math.min(1, this.camera.aspect);
+        const dist = (radius / Math.sin(fov / 2)) * 1.1 / fit;
+        this.camera.position.copy(center).add(new THREE.Vector3(...VIEW_PRESETS[direction]).normalize().multiplyScalar(dist));
+        this.camera.lookAt(center);
+        this.camera.near = Math.max(0.001, dist / 1000);
+        this.camera.far = Math.max(100, dist * 100);
+        this.camera.updateProjectionMatrix();
+      }
+      // The grid and rulers spaced for this shot's distance (the next frame
+      // re-spaces them for the view again).
+      if (helpers && this.gridAuto() && this._zoomGrid()) this.refreshHelpers();
+      if (white) this.scene.background = new THREE.Color('#ffffff');
+      this.grid.visible = helpers && keep.grid;
+      this.axes.visible = helpers && keep.axes;
+      this.rulers.visible = helpers && keep.rulers;
+      this.bbox.visible = helpers && keep.bbox;
+      this.handles.visible = false;
+      this.gizmo.getHelper().visible = false;
+      if (white && helpers) {
+        const u = this.grid.material.uniforms;
+        u.uMajorColor.value.set('#9a9a9a');
+        u.uMinorColor.value.set('#d4d4d4');
+      }
+      this._fitTextSprites(true);
+      r.clear();
+      r.render(this.scene, this.camera);
+      return r.domElement.toDataURL('image/png');
+    } finally {
+      this.scene.background = keep.bg;
+      this.grid.visible = keep.grid;
+      this.axes.visible = keep.axes;
+      this.rulers.visible = keep.rulers;
+      this.bbox.visible = keep.bbox;
+      this.handles.visible = keep.handles;
+      this.gizmo.getHelper().visible = keep.gizmo;
+      this.camera.position.copy(keep.pos);
+      this.controls.target.copy(keep.target);
+      this.camera.near = keep.near;
+      this.camera.far = keep.far;
+      this.camera.lookAt(keep.target);
+      r.setPixelRatio(keep.ratio);
+      this._helperKey = '';
+      this.refreshHelpers();
+      this.resize();
+    }
   }
 
   dispose() {

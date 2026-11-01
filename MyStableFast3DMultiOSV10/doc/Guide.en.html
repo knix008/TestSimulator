@@ -123,9 +123,10 @@
       <li><b>Local by default</b> — images never leave the computer. The paid Stability AI API is only used when you switch it on in Settings.</li>
       <li><b>The GPU when there is one, the CPU otherwise</b> — nothing to choose. A conversion that fails on the GPU is redone on the CPU automatically.</li>
       <li><b>Installs itself</b> — Python, PyTorch and the models are installed on first run; every step shows in the log panel.</li>
-      <li><b>3D viewer and converter</b> — opens GLB, glTF, OBJ, STL, PLY, FBX, DAE, 3MF, 3DS, USDZ and more, saves GLB, glTF, OBJ, STL, PLY and USDZ.</li>
+      <li><b>3D viewer and converter</b> — opens GLB, glTF, OBJ, STL, PLY, FBX, DAE, 3MF, 3DS, USDZ and more, exports GLB, glTF, OBJ, STL, PLY, USDZ, 3MF, AMF, DAE, VRML, VTK, PCD and XYZ, and prints views of the model on A4.</li>
+      <li><b>Tutorial and examples</b> — a 33-step tour on the real screen, and example pictures and 3D files ready to open.</li>
     </ul>
-    <figure><img src="images/main.en.png" alt="Main window with a converted model"><figcaption>A converted chair on the endless grid, with axes, rulers, light handles, the settings panel on the right and the log below</figcaption></figure>
+    <figure><img src="images/main.en.png" alt="Main window with a converted model"><figcaption>The sample mug, converted, on the endless grid, with axes, rulers, light handles, the settings panel on the right and the log below</figcaption></figure>
 
     <h2 id="install">2. Installing and first run</h2>
     <ol class="steps">
@@ -146,21 +147,41 @@
     <figure class="narrow"><img src="images/engine-install.en.png" alt="Engine installation"><figcaption>While installing, the step and its progress show over the 3D view</figcaption></figure>
 
     <h2 id="screen">3. The window</h2>
-    <p>The window uses the system's own title bar; everything below it is the program.</p>
+    <p>The window has no separate title bar: <b>the toolbar is the title bar</b>. The program icon sits at its left end, with the name and version when there is room. Drag an empty part of the toolbar to move the window, double-click it to maximise; <b>minimise · maximise · close</b> are at the right end, and the grip at the right end of the status bar (or the window edges) resizes it.</p>
     <table>
       <tr><th>Area</th><th>Contents</th></tr>
-      <tr><td>Toolbar (top)</td><td>Home · File menu, open image / 3D file, the <b>model picker</b> and <b>Convert to 3D</b>, Save (format menu), Save view, view controls (fit · directions · auto-rotate · wireframe · grid · axes · rulers · bounding box · light handles), panels. At the right end: theme · language · guide · settings · about</td></tr>
+      <tr><td>Toolbar (top)</td><td>Program icon, Home · File menu · <b>Print</b>, open image / 3D file, the <b>model picker</b> and <b>Convert to 3D</b>, <b>Save · Export</b> · Save view, view controls (fit · directions · auto-rotate · wireframe · grid · axes · rulers · bounding box · light handles), panels. At the right end: theme · language · Help (guide · tutorial) · settings · about, then the window buttons</td></tr>
       <tr><td>Input panel (left)</td><td>The input image, what the model saw (background removed), and this session's history</td></tr>
       <tr><td>3D view (centre)</td><td>The model, endless grid, axes, rulers, lights, view cube (bottom right)</td></tr>
       <tr><td>Settings panel (right)</td><td>Convert · Scene · Lights · Material · Model · Camera tabs</td></tr>
       <tr><td>Log panel (bottom)</td><td>Everything installation and conversion do</td></tr>
       <tr><td>Status bar</td><td>What is happening and its progress, vertex · triangle counts, the model, engine state and device</td></tr>
     </table>
-    <p>Drag the inner edge of a side panel to resize it and use its header button to collapse it; drag the top edge of the log panel to change its height.</p>
+    <p>The side panels run down to the status bar; the log panel sits in the middle between them. Drag the inner edge of a side panel to resize it and use its header button to collapse it; drag the top edge of the log panel to change its height.</p>
 
     <h2 id="start">4. Start screen</h2>
     <figure><img src="images/start.en.png" alt="Start screen"><figcaption>The start screen</figcaption></figure>
-    <p>The program opens on the start screen: open image, open 3D file and guide buttons, the steps, recent files, the engine state and the models, and the supported formats. The <b>Home</b> button shows or hides it at any time; untick <b>Show this screen when the program starts</b> to go straight to the 3D view.</p>
+    <p>The program opens on the start screen: open image, open 3D file, tutorial and guide buttons, the steps, recent files and <b>examples</b>, the engine state and the models, the supported formats and the background. The <b>Home</b> button shows or hides it at any time; untick <b>Show this screen when the program starts</b> to go straight to the 3D view. On the start screen the side and log panels are hidden and their toolbar buttons are off.</p>
+    <ul>
+      <li><b>Move and resize the panels</b>: drag the ⠿ before a title to move it, the bottom-right corner to resize it. Panels snap to a 12-column grid: while dragging, a dashed silhouette shows where the panel will land and the panels in the way slide down. <b>Auto arrange</b> (top right) puts them back. The arrangement is kept.</li>
+      <li><b>Background</b>: pick one of 21 moving backgrounds (cubes, galaxy, stars, waves …), its opacity, speed, automatic change and random order. Also in Settings → Screen.</li>
+    </ul>
+    <h3>Examples</h3>
+    <p>Open them from the start screen's <b>Examples</b> list or the File menu; they are also in <code>samples/</code>.</p>
+    <table>
+      <tr><th>Kind</th><th>Files</th></tr>
+      <tr><td>Pictures to convert (transparent PNG)</td><td>robot · mug · pawn · tree · toy-car</td></tr>
+      <tr><td>3D files (one per format)</td><td>robot.glb · shapes.gltf · mug.obj(+mtl) · pawn.stl · tree.ply · toy-car.usdz</td></tr>
+      <tr><td>Conversion results</td><td>mug-sf3d.glb (Stable Fast 3D) · robot-triposr.glb (TripoSR)</td></tr>
+    </table>
+    <h3>Tutorial</h3>
+    <figure><img src="images/tutorial.en.png" alt="Tutorial"><figcaption>The tutorial outlines the part of the window each step is about and explains it on a card</figcaption></figure>
+    <p>At start-up the program asks <b>Run the tutorial?</b> — Start or Later; untick <b>Ask again next time</b> to stop the question (turn it back on in Settings → Screen → Tutorial). The tutorial also opens from the start screen, the toolbar's Help menu and Settings → Screen.</p>
+    <ul>
+      <li>8 chapters, 33 steps: start screen, the window, image to 3D, the 3D view, lights, material and model, save · export · print, settings and engine.</li>
+      <li>Each step opens an example, a tab or a menu to show it for real.</li>
+      <li><kbd>→</kbd>/<kbd>Space</kbd> next, <kbd>←</kbd> previous, <kbd>Esc</kbd> close. Drag the card by its head, jump with the chapter list, ▶ auto-plays. It remembers where you stopped.</li>
+    </ul>
 
     <h2 id="convert">5. Image to 3D</h2>
     <ol class="steps">
@@ -169,7 +190,8 @@
       <li>Press <b>Convert to 3D</b> (<kbd>F5</kbd>). The steps (background → model → mesh → UV unwrap → texture bake) and progress show over the view; <b>Cancel</b> (<kbd>Esc</kbd>) stops it.</li>
       <li>The result appears in the view and in the <b>History</b> on the left. <b>What the model saw</b> is the picture with its background removed and centred.</li>
     </ol>
-    <h3>Options (Settings panel → Convert)</h3>
+    <h3>Options (Settings panel → Convert, or the conversion settings window)</h3>
+    <p>The button beside <b>Convert to 3D</b> on the toolbar (the sliders), or <b>Settings window</b> in the settings panel, opens the <b>Conversion settings</b> window. Its parameters come in three groups, <b>Input image · Model · Surface clean-up</b>, and changes are kept at once. ⟳ on a group puts that group back to the recommended values; <b>Reset all to defaults</b> puts back all of them.</p>
     <table>
       <tr><th>Option</th><th>What it does</th></tr>
       <tr><td>Remove the background</td><td>Keeps only the object. A PNG that is already transparent is used as is.</td></tr>
@@ -177,7 +199,14 @@
       <tr><td>Texture resolution (SF3D)</td><td>Auto is 1024 px on a GPU, 512 on the CPU. 2048 is sharper but slower.</td></tr>
       <tr><td>Remesh · vertex count (SF3D)</td><td>Rebuilds an even mesh and reduces vertices (when the remeshing libraries are installed)</td></tr>
       <tr><td>Mesh resolution · surface threshold (TripoSR)</td><td>Grid resolution for the surface (auto: GPU 256, CPU 192) and the density taken as surface</td></tr>
+      <tr><td>Stand upright</td><td>A photo taken from above gives a result that leans forward. When on (recommended), the angle within ±35° about X at which the object stands most squarely is found and applied. Turn it off when the slant is the real shape.</td></tr>
+      <tr><td>Remove small pieces (%)</td><td>Removes loose pieces smaller than this share of the largest one (default 0.5); 0 keeps them all.</td></tr>
+      <tr><td>Subdivide faces</td><td>Splits each triangle in four before smoothing (×4 faces per level) so flat facets round off. Recommended 1 for SF3D and TripoSR.</td></tr>
+      <tr><td>Surface smoothing</td><td>Passes that even out a bumpy surface (the volume is kept); 0 leaves it. Recommended 10 for SF3D and TripoSR.</td></tr>
+      <tr><td>Inference steps · guidance · shape resolution · face limit · seed (Hunyuan3D)</td><td>The defaults are Tencent's demo values (30 steps, Turbo 5 · guidance 5 · resolution 256 · 40,000 faces · seed 1234). Another seed gives another shape.</td></tr>
     </table>
+    <p>Every option starts at the model's <b>recommended value</b>, which also ends its tooltip. <b>Recommended values</b> puts the model's (version's) options back. Options are kept per model and per version.</p>
+    <p><b>Apply to the result</b>: the surface clean-up group (small pieces · subdividing · smoothing · standing upright) can be applied to the result on screen without converting again. The engine keeps the mesh the model first made and cleans that up again, so trying several values never wears the result down. Only for a result this engine has just converted.</p>
     <div class="tip">One object, large and centred, clearly separated from the background works best — ideally seen slightly from above and the side.</div>
 
     <h2 id="models">6. Choosing a model</h2>
@@ -191,6 +220,16 @@
       <tr><td>Weights</td><td>4 GB</td><td>1.7 GB</td></tr>
     </table>
     <p>A model is installed automatically the first time it converts (or when its download button in the menu is pressed). One model is in memory at a time; switching unloads the previous one.</p>
+    <h3>Hunyuan3D and versions</h3>
+    <p><b>Hunyuan3D</b> (Tencent) comes in several versions: pick one with the <b>Version</b> buttons under Hunyuan3D in the model menu, or the <b>Version</b> box in the settings panel. Each version has its own weights, options and install state. It makes the shape only (no texture, light grey): the texture models need compiled CUDA extensions and 20+ GB of GPU memory, so they are not included.</p>
+    <table>
+      <tr><th>Version</th><th>What it is</th><th>Download</th></tr>
+      <tr><td>2.1</td><td>The latest open release (June 2025), the most detailed. 10 GB of GPU memory advised</td><td>7.4 GB</td></tr>
+      <tr><td>2.0 · 2.0 Turbo</td><td>The standard model and a 5-step fast version</td><td>4.9 · 5.3 GB</td></tr>
+      <tr><td>2.0 mini · mini Turbo</td><td>The small model (0.6B), light and fast</td><td>3.8 · 4.2 GB</td></tr>
+    </table>
+    <p>When the GPU has less free memory than a version wants, its image encoder, diffusion model and shape decoder take turns on the GPU (a little slower) — for example while another program uses GPU memory.</p>
+    <div class="tip"><b>Region-limited license</b> — the Tencent Hunyuan 3D Community License excludes <b>the European Union, the United Kingdom and South Korea</b> from its territory. The first time you pick it, a license window opens; it is installed only after you tick the box and press <b>Accept and use</b>. Using it only where and how the license allows is your responsibility.</div>
 
     <h2 id="device">7. GPU and CPU</h2>
     <ul>
@@ -223,6 +262,7 @@
       <tr><td>Wheel</td><td>Zoom</td></tr>
       <tr><td>Click the view cube (bottom right)</td><td>Look along that axis</td></tr>
     </table>
+    <p><b>Right-click menus</b>: right-click (without dragging) the 3D view, the input image, the history or the log for the commands that apply there, each with an icon — fit and directions, grid / axes / rulers, save · export · print · copy the view, clear the image, copy a log line and more.</p>
     <p><b>Fit to view</b> (<kbd>F</kbd>) frames the model and the lights; its arrow menu offers front · back · left · right · top · bottom · isometric. <b>Auto-rotate</b> circles slowly (speed in the Camera tab).</p>
 
     <h2 id="grid">10. Grid · axes · rulers</h2>
@@ -258,17 +298,36 @@
     <p>The Model tab shows the file (vertices · triangles · materials · textures, size) and sets rotation (degrees) and scale. Buttons like <b>X −90°</b> stand Z-up files upright. The model always stands on the ground; rotation and scale are applied when saving.</p>
 
     <h2 id="save">14. Saving and converting</h2>
-    <p><b>Save</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) uses the last format; its arrow menu picks another. Whatever format a model came in, it can be saved in any of these:</p>
+    <p><b>Save</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>, right of the File button) writes the model as GLB (as it was, when not rotated or scaled). <b>Export</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>) offers the other formats and the view as a PNG picture. Whatever format a model came in, it can be exported in any of these:</p>
     <table>
       <tr><th>Format</th><th>Textures</th><th>For</th></tr>
       <tr><td>glTF Binary (.glb)</td><td>included</td><td>web, game engines, Blender (recommended)</td></tr>
       <tr><td>glTF (.gltf)</td><td>included (embedded)</td><td>readable JSON</td></tr>
       <tr><td>Wavefront OBJ (.obj)</td><td>no</td><td>wide compatibility</td></tr>
       <tr><td>STL (.stl, binary / ASCII)</td><td>no</td><td>3D printing</td></tr>
-      <tr><td>PLY (.ply)</td><td>vertex colours</td><td>point clouds, scans</td></tr>
+      <tr><td>PLY (.ply, binary / ASCII)</td><td>vertex colours</td><td>point clouds, scans</td></tr>
       <tr><td>USDZ (.usdz)</td><td>included</td><td>Apple AR Quick Look</td></tr>
+      <tr><td>3D Manufacturing (.3mf)</td><td>material and vertex colours</td><td>3D printing (slicers)</td></tr>
+      <tr><td>AMF (.amf)</td><td>material colours</td><td>3D printing</td></tr>
+      <tr><td>COLLADA (.dae)</td><td>material and vertex colours</td><td>SketchUp and many 3D programs</td></tr>
+      <tr><td>VRML 2.0 (.wrl)</td><td>material and vertex colours</td><td>older CAD and science tools</td></tr>
+      <tr><td>VTK (.vtk)</td><td>vertex colours</td><td>ParaView, scientific visualisation</td></tr>
+      <tr><td>PCD · XYZ (.pcd, .xyz)</td><td>point colours</td><td>point clouds (vertices only, no faces)</td></tr>
     </table>
+    <p>3MF, AMF and DAE files record the <b>unit</b> from Settings → Scene (the numbers are kept as they are).</p>
     <p><b>Save view</b> saves what the view shows as a PNG. A history item's save button saves that result as it is. Settings → Files can <b>save each result next to its image automatically</b> (desktop).</p>
+
+    <h3>Printing</h3>
+    <figure><img src="images/print.en.png" alt="Print dialog"><figcaption>The print dialog: choose on the left, preview on the right</figcaption></figure>
+    <p><b>Print</b> (<kbd>Ctrl</kbd>+<kbd>P</kbd>, right of Save) prints pictures of the model on A4.</p>
+    <table>
+      <tr><th>Option</th><th>Does</th></tr>
+      <tr><td>What to print</td><td>The view · 4 views on a sheet (front · right · top · isometric) · 6 views on a sheet · a sheet per view</td></tr>
+      <tr><td>Model details</td><td>Name, size, vertex · triangle · material · texture counts, source image and model, date at the top</td></tr>
+      <tr><td>White background · grid</td><td>An ink-saving white background; whether grid, axes and rulers show</td></tr>
+      <tr><td>Printer · copies · orientation (desktop)</td><td>The installed printers (default marked), 1–99 copies, auto · portrait · landscape. Print sends straight to that printer; System print window… opens the system's dialog</td></tr>
+      <tr><td>Preview</td><td>The sheets as they will print; ◀ ▶ when there are several</td></tr>
+    </table>
 
     <h2 id="log">15. Log panel</h2>
     <figure><img src="images/log.en.png" alt="Log panel"><figcaption>The log panel</figcaption></figure>
@@ -305,7 +364,10 @@
       <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>O</kbd></td><td>Open 3D file</td></tr>
       <tr><td><kbd>F5</kbd> or <kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Convert to 3D</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Cancel the conversion</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save (GLB)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Export (last format)</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Print</td></tr>
+      <tr><td><kbd>F1</kbd></td><td>User’s guide</td></tr>
       <tr><td><kbd>F</kbd></td><td>Fit to view</td></tr>
       <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Log panel</td></tr>
     </table>
@@ -335,6 +397,7 @@
     <ul>
       <li><b>Stable Fast 3D</b> — Stability AI Community License; commercial use is free below USD 1M annual revenue (registration required). <b>Powered by Stability AI</b>. This Stability AI Model is licensed under the Stability AI Community License, Copyright © Stability AI Ltd. All Rights Reserved.</li>
       <li><b>TripoSR</b> — MIT (Tripo AI &amp; Stability AI)</li>
+      <li><b>Hunyuan3D 2.0 · 2.1</b> — Tencent Hunyuan 3D Community License. The EU, the UK and South Korea are outside its territory; commercial use above 1 million monthly users needs a separate license.</li>
     </ul>
     <p>The compiled extensions (<code>texture_baker</code>, <code>uv_unwrapper</code>, <code>torchmcubes</code>) are replaced by PyTorch / scikit-image code that does the same. See <code>NOTICE.md</code> and <code>LICENSE-MODELS.md</code> in the installation folder.</p>
 

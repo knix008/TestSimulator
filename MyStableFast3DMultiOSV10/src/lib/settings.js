@@ -4,6 +4,10 @@
 // localStorage on every change and mirrored to <config>/settings.json in the
 // desktop app, so a restart restores the previous session exactly.
 import { loadPersistedState, writeLocalState, readLocalState } from './platform.js';
+import { normalizeStartLayout } from './startlayout.js';
+import {
+  normalizeStartBg, clampStartOpacity, clampStartSpeed, normalizeStartInterval,
+} from './startbg.js';
 import {
   applyCustomThemeVars, clearCustomThemeVars, isCustomThemeId, isDarkTheme, normalizeCustomThemes,
 } from './themes.js';
@@ -104,6 +108,17 @@ export const DEFAULT_SETTINGS = {
   showStatusBar: true,
   showToolbarLabels: false,
   showStartPage: true,
+  tutorialAsk: true,         // ask at start-up whether to run the tutorial
+  tutorialIndex: 0,          // the step it was left on
+  tutorialDone: false,       // played to the end once
+
+  // Start-screen background (lib/startbg.js)
+  startBg: 'cubes',          // one of the 21 moving backgrounds
+  startBgOpacity: 0.6,       // 0.1–1
+  startBgSpeed: 1,           // 0.1–3
+  startBgRandom: false,      // automatic changes pick a random one, not the next
+  startBgInterval: 0,        // seconds between automatic changes, 0 = never
+  startLayout: null,         // start-screen cards placed by hand; null = automatic grid
 
   // Conversion
   backend: 'local',          // local | remote | stability
@@ -113,7 +128,8 @@ export const DEFAULT_SETTINGS = {
   stabilityConfirmed: false,
   model: 'sf3d',
   device: 'auto',            // auto | gpu | cpu
-  convertOptions: {},        // { [modelId]: { key: value } }
+  convertOptions: {},        // { [modelId]: { key: value } } — per version
+  modelVersions: {},         // { [family]: modelId } — the version last picked
   autoSave: false,           // save each result next to its image (desktop)
   autoSaveFormat: 'glb',
 
@@ -121,6 +137,14 @@ export const DEFAULT_SETTINGS = {
   view: DEFAULT_VIEW,
   lights: DEFAULT_LIGHTS,
   exportFormat: 'glb',
+
+  // Printing (components/PrintDialog.jsx)
+  printLayout: 'views4',     // view | views4 | views6 | sheets
+  printInfo: true,           // the model's name, size and counts at the top
+  printWhite: true,          // white background instead of the view's
+  printHelpers: false,       // grid, axes and rulers in the pictures
+  printOrientation: 'auto',  // auto | portrait | landscape
+  printPrinter: '',          // '' = the system default printer
 
   // Session
   lastDir: '',
@@ -191,10 +215,17 @@ export function normalize(raw) {
   out.leftPanelWidth = clampPanelWidth(out.leftPanelWidth, 290);
   out.rightPanelWidth = clampPanelWidth(out.rightPanelWidth, 330);
   out.logHeight = clampLogHeight(out.logHeight);
+  if (!['view', 'views4', 'views6', 'sheets'].includes(out.printLayout)) out.printLayout = 'views4';
+  if (!['auto', 'portrait', 'landscape'].includes(out.printOrientation)) out.printOrientation = 'auto';
   if (!['local', 'remote', 'stability'].includes(out.backend)) out.backend = 'local';
   if (!['auto', 'gpu', 'cpu'].includes(out.device)) out.device = 'auto';
   if (!['debug', 'info', 'warn', 'error'].includes(out.logLevel)) out.logLevel = 'info';
   if (!['convert', 'scene', 'lights', 'material', 'model', 'camera'].includes(out.rightTab)) out.rightTab = 'convert';
+  out.startBg = normalizeStartBg(out.startBg);
+  out.startBgOpacity = clampStartOpacity(out.startBgOpacity);
+  out.startBgSpeed = clampStartSpeed(out.startBgSpeed);
+  out.startBgInterval = normalizeStartInterval(out.startBgInterval);
+  out.startLayout = normalizeStartLayout(raw.startLayout);
   out.customThemes = normalizeCustomThemes(out.customThemes);
   if (isCustomThemeId(out.theme) && !out.customThemes.some((t) => t.id === out.theme)) out.theme = 'dark';
   if (typeof out.engineUrl !== 'string' || !/^https?:\/\//i.test(out.engineUrl.trim())) out.engineUrl = DEFAULT_ENGINE_URL;
