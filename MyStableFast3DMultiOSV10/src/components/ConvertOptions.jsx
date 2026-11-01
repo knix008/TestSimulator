@@ -51,6 +51,7 @@ function recommended(o, t) {
 
 export function OptionField({ o, value, onChange, t, disabled = false }) {
   const label = t(`opt.${o.key}`, o.key);
+  const unit = t(`optUnit.${o.key}`, '');
   const tip = [t(`optTip.${o.key}`, ''), t('opt.recommended', { value: recommended(o, t) })].filter(Boolean).join(' ');
   if (o.type === 'bool') {
     return <Check label={label} tip={tip} checked={value} disabled={disabled} onChange={onChange} />;
@@ -86,6 +87,6 @@ export function OptionField({ o, value, onChange, t, disabled = false }) {
   // A slider for a short range; a number box when there are too many values
   // to pick on one (the seed).
   return (o.max - o.min) / (o.step || 1) > 1000
-    ? <NumberField label={label} tip={tip} value={Number(value)} min={o.min} max={o.max} step={o.step} onChange={onChange} />
-    : <RangeField label={label} tip={tip} value={Number(value)} min={o.min} max={o.max} step={o.step} disabled={disabled} onChange={onChange} />;
+    ? <NumberField label={label} tip={tip} value={Number(value)} min={o.min} max={o.max} step={o.step} unit={unit} onChange={onChange} />
+    : <RangeField label={label} tip={tip} value={Number(value)} min={o.min} max={o.max} step={o.step} unit={unit} disabled={disabled} onChange={onChange} />;
 }

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { NumberBox } from './Stepper.jsx';
 
 // Small form controls for the settings panels, all on the app's .field /
 // .check / .input styles so every panel reads the same.
@@ -35,21 +36,12 @@ export function SelectField({ label, value, options, onChange, tip, disabled }) 
   );
 }
 
-// A slider with the number beside it; the number can be typed too.
-export function RangeField({ label, value, min, max, step = 0.01, onChange, tip, format, disabled }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => { setDraft(String(value)); }, [value]);
-  const commit = (raw) => {
-    const n = Number(raw);
-    if (Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n)));
-    else setDraft(String(value));
-  };
+// A slider with the number beside it: − [ value unit ] +, the number can be
+// typed too.
+export function RangeField({ label, value, min, max, step = 0.01, onChange, tip, unit = '', disabled }) {
   return (
     <div className="field range-field" title={tip || label}>
-      <span className="field-label">
-        {label}
-        {format ? <em className="hint">{format(value)}</em> : null}
-      </span>
+      <span className="field-label">{label}</span>
       <div className="range-row">
         <input
           type="range"
@@ -62,48 +54,29 @@ export function RangeField({ label, value, min, max, step = 0.01, onChange, tip,
           onChange={(e) => onChange(Number(e.target.value))}
           aria-label={label}
         />
-        <input
-          className="input num"
-          value={draft}
-          disabled={disabled}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => commit(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') commit(e.currentTarget.value); }}
-          aria-label={label}
-        />
+        <NumberBox value={Number(value)} min={min} max={max} step={step} unit={unit} label={label} disabled={disabled} onChange={onChange} />
       </div>
     </div>
   );
 }
 
-export function NumberField({ label, value, onChange, step = 1, min, max, tip, disabled, placeholder }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => { setDraft(String(value)); }, [value]);
-  const commit = (raw) => {
-    const n = Number(raw);
-    if (!Number.isFinite(n)) { setDraft(String(value)); return; }
-    let v = n;
-    if (min !== undefined) v = Math.max(min, v);
-    if (max !== undefined) v = Math.min(max, v);
-    onChange(v);
-  };
+// A number on its own: − [ value unit ] +.
+export function NumberField({ label, value, onChange, step = 1, min, max, tip, unit = '', disabled }) {
   return (
-    <label className="field" title={tip || label}>
+    <div className="field" title={tip || label}>
       <span className="field-label">{label}</span>
-      <input
-        className="input"
-        type="number"
+      <NumberBox
+        className="wide"
+        value={Number(value)}
+        min={min ?? -Infinity}
+        max={max ?? Infinity}
         step={step}
-        min={min}
-        max={max}
-        value={draft}
-        placeholder={placeholder}
+        unit={unit}
+        label={label}
         disabled={disabled}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit(e.currentTarget.value); }}
+        onChange={onChange}
       />
-    </label>
+    </div>
   );
 }
 
@@ -119,13 +92,9 @@ export function ColorField({ label, value, onChange, tip }) {
   );
 }
 
-// Three numbers in a row (a position, a rotation).
-export function Vec3Field({ label, value, onChange, step = 0.1, tip }) {
-  const [draft, setDraft] = useState(value.map(String));
-  useEffect(() => { setDraft(value.map((n) => String(Math.round(n * 1000) / 1000))); }, [value]);
-  const commit = (i, raw) => {
-    const n = Number(raw);
-    if (!Number.isFinite(n)) { setDraft(value.map(String)); return; }
+// Three numbers in a row (a position, a rotation), each − [ value unit ] +.
+export function Vec3Field({ label, value, onChange, step = 0.1, unit = '', tip }) {
+  const set = (i, n) => {
     const next = [...value];
     next[i] = n;
     onChange(next);
@@ -135,19 +104,17 @@ export function Vec3Field({ label, value, onChange, step = 0.1, tip }) {
       <span className="field-label">{label}</span>
       <div className="vec3">
         {['X', 'Y', 'Z'].map((axis, i) => (
-          <label key={axis} className={`vec3-cell axis-${axis.toLowerCase()}`}>
+          <div key={axis} className={`vec3-cell axis-${axis.toLowerCase()}`}>
             <span>{axis}</span>
-            <input
-              className="input"
-              type="number"
+            <NumberBox
+              className="compact"
+              value={Math.round(Number(value[i]) * 1000) / 1000}
               step={step}
-              value={draft[i]}
-              onChange={(e) => { const d = [...draft]; d[i] = e.target.value; setDraft(d); }}
-              onBlur={(e) => commit(i, e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') commit(i, e.currentTarget.value); }}
-              aria-label={`${label} ${axis}`}
+              unit={unit}
+              label={`${label} ${axis}`}
+              onChange={(n) => set(i, n)}
             />
-          </label>
+          </div>
         ))}
       </div>
     </div>

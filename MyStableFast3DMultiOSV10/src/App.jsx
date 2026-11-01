@@ -23,7 +23,7 @@ import {
   IconPrint, IconCamera, IconCopy, IconImage, IconCube, IconWand, IconTrash, IconTerminal, IconSettings, IconClose,
 } from './components/Icons.jsx';
 import { framePages, printViaBrowser } from './lib/print.js';
-import { loadSampleIndex, fetchSample } from './lib/samples.js';
+import { loadSampleIndex, fetchSample, sampleImageFor } from './lib/samples.js';
 import Tooltip from './components/Tooltip.jsx';
 import Toasts from './components/Toasts.jsx';
 import {
@@ -37,7 +37,7 @@ import {
 } from './lib/platform.js';
 import {
   IMAGE_EXTENSIONS, MODEL_EXTENSIONS, IMPORT_FORMATS, isImageFile, isModelFile, formatOf, gatherFiles,
-  loadModel, exportModel, exportFormat, exportName, modelStats, baseOf, extOf,
+  loadModel, exportModel, exportFormat, exportName, modelStats, baseOf, extOf, normalizeImage, imageMime,
 } from './lib/formats.js';
 import { EngineClient, convertWithEngine, convertWithStability, engineUrlFor } from './lib/engine.js';
 import { appendLines, makeLine } from './lib/logs.js';
@@ -283,12 +283,15 @@ export default function App() {
   }, [setSettings]);
 
   const setInputImage = useCallback(async (file) => {
-    const blob = new Blob([file.data], { type: `image/${extOf(file.name) === 'jpg' ? 'jpeg' : extOf(file.name)}` });
+    // AVIF, GIF, BMP, ICO, SVG …: shown and sent as a PNG copy (`png`);
+    // the original name, size and path stay what the user opened.
+    const png = await normalizeImage(file.name, file.data);
+    const blob = png ? new Blob([png], { type: 'image/png' }) : new Blob([file.data], { type: imageMime(file.name) });
     const url = URL.createObjectURL(blob);
     const dims = await imageInfo(url);
     setImage((old) => {
       if (old?.url) URL.revokeObjectURL(old.url);
-      return { ...file, url, ...dims };
+      return { ...file, url, png, ...dims };
     });
     setPrepared(null);
     setHomeOpen(false);
@@ -369,11 +372,15 @@ export default function App() {
     } catch (err) { fail(err, 'openModel'); }
   }, [fail, openFiles]);
 
+  // A 3D example brings its picture into the input panel as well, so what it
+  // was made from is in view (and can be converted again).
   const openSample = useCallback(async (entry) => {
     try {
+      const picture = sampleImageFor(entry, samples);
+      if (picture) await setInputImage((await fetchSample(picture))[0]);
       await openFiles(await fetchSample(entry));
     } catch (err) { fail(err, 'open', entry.file); }
-  }, [fail, openFiles]);
+  }, [fail, openFiles, samples, setInputImage]);
 
   const openRecent = useCallback(async (f) => {
     if (!isDesktop || !f.path) return;
@@ -430,12 +437,16 @@ export default function App() {
     log('info', t('log.convertStart', { name: image.name, model: s.backend === 'stability' ? 'Stability AI API' : s.model }));
     try {
       let result;
+      // A picture the web view turned into PNG (AVIF, GIF, …) goes as that.
+      const send = image.png
+        ? { data: image.png, name: image.name.replace(/\.[^.]+$/, '.png') }
+        : { data: image.data, name: image.name };
       if (s.backend === 'stability') {
-        result = await convertWithStability({ data: image.data, name: image.name, options, key: s.stabilityKey, onProgress: setJob, signal: ctrl.signal });
+        result = await convertWithStability({ ...send, options, key: s.stabilityKey, onProgress: setJob, signal: ctrl.signal });
       } else {
         if (!client) throw new Error(t('engine.unreachable'));
         result = await convertWithEngine(client, {
-          data: image.data, name: image.name, model: s.model, options, signal: ctrl.signal,
+          ...send, model: s.model, options, signal: ctrl.signal,
           onProgress: (j) => setJob({ ...j, elapsed: j.elapsed || (Date.now() - started) / 1000 }),
         });
       }

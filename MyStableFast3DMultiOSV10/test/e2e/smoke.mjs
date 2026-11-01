@@ -159,6 +159,16 @@ async function main() {
       await b.waitFor(`document.querySelector('.statusbar').textContent.includes('표면을 다시 다듬었습니다')`, 60000);
       const after = await b.eval(`document.querySelector('.statusbar').textContent`);
       assert(String(before) !== after, 'the result did not change');
+      // A model of the same size replaced: the axis / ruler labels must be
+      // sized again (left at 1 × 1 m they cover the whole view), and the
+      // texture must still be there.
+      await sleep(400);
+      const scene = await b.eval(`(() => { const v = window.__mysf3dViewer; const s = []; let maps = 0;
+        v.scene.traverse((o) => { if (o.isSprite && o.visible) s.push(o.scale.y); });
+        v.model.traverse((o) => { if (o.isMesh && [].concat(o.material).some((m) => m.map)) maps++; });
+        return { big: s.filter((h) => h > 0.5).length, maps }; })()`);
+      assert(scene.big === 0, `${scene.big} label sprites left unsized after the refine`);
+      assert(scene.maps > 0, 'the refined result lost its texture');
       await b.eval(`document.querySelector('.convert-settings-modal .modal-foot .btn').click(); true`);
       await b.waitFor(`document.querySelector('.convert-settings-modal .modal-foot .btn').disabled`, 2000);
       // Saving is debounced: wait for the stored options to empty.
@@ -172,6 +182,12 @@ async function main() {
         div: v.grid.material.uniforms.uDivisions.value, grid: v.grid.visible,
         axes: v.axes.children.length, rulers: v.rulers.children.length, labels: v.rulers.children.filter((c) => c.isSprite).length }; })()`);
       assert(v.grid && v.div === 5, `grid ${JSON.stringify(v)}`);
+      // One sun: only directional lights get the rayed handle.
+      const suns = await b.eval(`(() => { const v = window.__mysf3dViewer; let rayed = 0, dir = 0;
+        for (const [, e] of v.lights) { if (e.spec.type === 'directional') dir++;
+          const r = e.handle?.children.find((c) => c.userData.rays); if (r && r.geometry.attributes.position.count === 24) rayed++; }
+        return { rayed, dir }; })()`);
+      assert(suns.rayed === suns.dir, `sun-shaped handles ${suns.rayed}, directional lights ${suns.dir}`);
       assert(v.axes >= 9 && v.rulers > 5 && v.labels > 3, `helpers ${JSON.stringify(v)}`);
     });
 

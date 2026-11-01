@@ -46,7 +46,75 @@ export const EXPORT_FORMATS = [
   { id: 'xyz', ext: 'xyz', name: 'Point cloud XYZ (.xyz)', mime: 'text/plain', textures: false, points: true },
 ];
 
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff'];
+// Pictures that can be converted. The engine reads every one of them (Pillow:
+// AVIF and WebP built in); the app shows and sends a PNG copy of those the
+// web view decodes itself, and the original of the rest (TIFF).
+export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'jfif', 'pjpeg', 'pjp', 'webp', 'avif', 'gif', 'bmp', 'dib', 'tif', 'tiff', 'ico', 'svg'];
+
+// Sent as they are: the engine and Stability AI both take these directly.
+const PASS_THROUGH = new Set(['png', 'jpg', 'jpeg', 'jfif', 'pjpeg', 'pjp', 'webp']);
+
+export function imageMime(name) {
+  const ext = extOf(name);
+  if (['jpg', 'jpeg', 'jfif', 'pjpeg', 'pjp'].includes(ext)) return 'image/jpeg';
+  if (ext === 'svg') return 'image/svg+xml';
+  if (ext === 'ico') return 'image/x-icon';
+  if (ext === 'tif' || ext === 'tiff') return 'image/tiff';
+  if (ext === 'dib') return 'image/bmp';
+  return `image/${ext || 'png'}`;
+}
+
+/**
+ * Turns any picture the web view can decode into PNG bytes (first frame of
+ * an animation, transparency kept; an SVG drawn at least 1024 px wide), so
+ * the engine and the paid API get one plain format. Pictures that need no
+ * change, and those the web view cannot decode (TIFF), come back as null:
+ * the original bytes go to the engine, which reads them itself.
+ */
+export async function normalizeImage(name, data) {
+  const ext = extOf(name);
+  if (PASS_THROUGH.has(ext)) return null;
+  const blob = new Blob([data], { type: imageMime(name) });
+  let source = null;
+  let width = 0;
+  let height = 0;
+  try {
+    if (ext === 'svg') {
+      const url = URL.createObjectURL(blob);
+      try {
+        const img = new Image();
+        await new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; img.src = url; });
+        const scale = Math.max(1, 1024 / Math.max(1, img.naturalWidth || 1024));
+        width = Math.round((img.naturalWidth || 1024) * scale);
+        height = Math.round((img.naturalHeight || 1024) * scale);
+        source = img;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(source, 0, 0, width, height);
+        return await canvasPng(canvas);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }
+    source = await createImageBitmap(blob);
+    width = source.width;
+    height = source.height;
+  } catch {
+    return null;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext('2d').drawImage(source, 0, 0);
+  source.close?.();
+  return canvasPng(canvas);
+}
+
+async function canvasPng(canvas) {
+  const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  return out ? new Uint8Array(await out.arrayBuffer()) : null;
+}
 
 export const MODEL_EXTENSIONS = IMPORT_FORMATS.flatMap((f) => f.ext);
 

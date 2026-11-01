@@ -172,21 +172,33 @@ def drop_fragments(mesh, percent):
     return int(small.sum())
 
 
-def subdivide_surface(mesh, levels):
+def subdivide_surface(mesh, levels, carry=None):
     """Splits every triangle in four, `levels` times, carrying the UVs or
-    vertex colours along. Smoothing afterwards then has the vertices to round
-    off what were flat facets. Returns the new mesh."""
+    vertex colours along (and the per-vertex arrays in `carry`, updated in
+    place). Smoothing afterwards then has the vertices to round off what were
+    flat facets. Returns the new mesh."""
     import numpy as np
     import trimesh
 
+    carry = carry if carry is not None else {}
     for _ in range(int(levels)):
         vis = mesh.visual
-        attrs = {}
+        attrs = {f"carry:{k}": v for k, v in carry.items()}
         if vis.kind == "texture" and getattr(vis, "uv", None) is not None:
             attrs["uv"] = np.asarray(vis.uv, dtype=np.float64)
         elif vis.kind == "vertex":
             attrs["color"] = np.asarray(vis.vertex_colors, dtype=np.float64)
-        v, f, a = trimesh.remesh.subdivide(mesh.vertices, mesh.faces, vertex_attributes=attrs)
+        v, f = trimesh.remesh.subdivide(mesh.vertices, mesh.faces)
+        # The new vertices are the midpoints of the unique edges, in the order
+        # subdivide() makes them; the attributes are worked out the same way.
+        # (trimesh's own vertex_attributes pairs them with the wrong edges
+        # — 4.4: scrambled UVs, the texture turns to noise.)
+        edges = np.sort(trimesh.geometry.faces_to_edges(np.asarray(mesh.faces)), axis=1)
+        unique, _ = trimesh.grouping.unique_rows(edges)
+        ends = edges[unique]
+        a = {k: np.vstack((val, val[ends].mean(axis=1))) for k, val in attrs.items()}
+        for k in carry:
+            carry[k] = a[f"carry:{k}"]
         if "uv" in attrs:
             visual = trimesh.visual.TextureVisuals(uv=a["uv"], material=vis.material)
         elif "color" in attrs:
@@ -202,6 +214,101 @@ def seamless_normals(mesh):
     point get the same normal and no line shows along the seams."""
     joined, inverse = joined_surface(mesh)
     mesh.vertex_normals = joined.vertex_normals[inverse]
+    return mesh.vertex_normals
+
+
+def _tangent_frames(pos, faces, uv_file, face_id, bary, normals):
+    """The tangent frame a viewer builds for a tangent-space normal map without
+    tangents (three.js getTangentFrame: a cotangent frame from the position
+    and UV derivatives, normalised by the longer axis), at sample points given
+    as (face, barycentric). Returns T·scale, B·scale and N, each (n, 3)."""
+    import numpy as np
+
+    f = faces[face_id]
+    p0, p1, p2 = pos[f[:, 0]], pos[f[:, 1]], pos[f[:, 2]]
+    t0, t1, t2 = uv_file[f[:, 0]], uv_file[f[:, 1]], uv_file[f[:, 2]]
+    n = normals[f[:, 0]] * bary[:, 0:1] + normals[f[:, 1]] * bary[:, 1:2] + normals[f[:, 2]] * bary[:, 2:3]
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+    # Edges stand in for the screen derivatives: the frame is the same for
+    # any basis of the triangle's plane that turns the same way round N.
+    q0, q1 = p1 - p0, p2 - p0
+    st0, st1 = t1 - t0, t2 - t0
+    q1perp = np.cross(q1, n)
+    q0perp = np.cross(n, q0)
+    t = q1perp * st0[:, 0:1] + q0perp * st1[:, 0:1]
+    b = q1perp * st0[:, 1:2] + q0perp * st1[:, 1:2]
+    det = np.maximum((t * t).sum(1), (b * b).sum(1))
+    scale = np.where(det > 0, 1.0 / np.sqrt(np.where(det > 0, det, 1.0)), 0.0)[:, None]
+    return t * scale, b * scale, n
+
+
+def rebake_normal_map(mesh, old_pos, old_normals, chunk=1 << 20):
+    """Keeps a tangent-space normal map true after the surface moved.
+
+    Stable Fast 3D bakes the fine detail of the surface into a normal map,
+    relative to the frame of its own bumpy mesh. Smoothed or subdivided, the
+    mesh has other frames, and the old map read in them turns into noise
+    that buries the texture. So every texel is read as the viewer read it on
+    the old surface (old positions and normals, carried along per vertex) and
+    written again in the frame of the new one: the light falls on the same
+    detail as before, on the cleaner shape. glTF without tangents is read by
+    three.js with the green channel flipped; that is kept.
+    Returns True when the mesh had a normal map to rework.
+    """
+    import numpy as np
+    import torch
+    from PIL import Image
+
+    from .raster import rasterize
+
+    vis = mesh.visual
+    mat = getattr(vis, "material", None)
+    img = getattr(mat, "normalTexture", None)
+    if vis.kind != "texture" or img is None or getattr(vis, "uv", None) is None:
+        return False
+    w, h = img.size
+    if w != h:
+        return False
+    uv = np.asarray(vis.uv, dtype=np.float64)
+    faces = np.asarray(mesh.faces, dtype=np.int64)
+    # Rows run down the image from v = 1 (the convention SF3D bakes with).
+    rast = rasterize(torch.from_numpy(uv.astype(np.float32)), torch.from_numpy(faces), w).numpy().reshape(-1, 4)
+    texels = np.nonzero(rast[:, 3] >= 0)[0]
+    if texels.size == 0:
+        return False
+    data = np.asarray(img.convert("RGB"), dtype=np.float32).reshape(-1, 3) / 255.0
+    # A material of its own: the job's raw mesh (refined again later) may
+    # share this one, and its map must stay the model's.
+    mat = mat.copy()
+    vis.material = mat
+    uv_file = np.stack([uv[:, 0], 1.0 - uv[:, 1]], 1)   # as written to glTF
+    new_pos = np.asarray(mesh.vertices, dtype=np.float64)
+    new_normals = np.asarray(joined_normals(mesh), dtype=np.float64)
+    flip = np.array([1.0, -1.0, 1.0])                     # normalScale (1, -1)
+    for start in range(0, texels.size, chunk):
+        idx = texels[start:start + chunk]
+        fid = rast[idx, 3].astype(np.int64)
+        bary = rast[idx, :3].astype(np.float64)
+        m = (data[idx].astype(np.float64) * 2.0 - 1.0) * flip
+        t, b, n = _tangent_frames(old_pos, faces, uv_file, fid, bary, old_normals)
+        world = t * m[:, 0:1] + b * m[:, 1:2] + n * m[:, 2:3]
+        t, b, n = _tangent_frames(new_pos, faces, uv_file, fid, bary, new_normals)
+        frame = np.stack([t, b, n], axis=2)                # columns T, B, N
+        ok = np.abs(np.linalg.det(frame)) > 1e-12
+        out = np.linalg.solve(np.where(ok[:, None, None], frame, np.eye(3)), world[..., None])[..., 0] * flip
+        # The viewer normalises after mixing, so only the direction counts;
+        # the texel's own length is kept so an unmoved surface keeps its map.
+        out *= np.linalg.norm(m, axis=1, keepdims=True) / np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-12)
+        keep = ok & np.isfinite(out).all(1)
+        data[idx[keep]] = (out[keep] * 0.5 + 0.5).clip(0, 1).astype(np.float32)
+    mat.normalTexture = Image.fromarray((data.reshape(h, w, 3) * 255.0 + 0.5).astype(np.uint8), "RGB")
+    return True
+
+
+def joined_normals(mesh):
+    """Seam-free vertex normals of `mesh` (as seamless_normals sets them)."""
+    joined, inverse = joined_surface(mesh)
+    return joined.vertex_normals[inverse]
 
 
 # The options finish_mesh reads: they can be changed on a finished result
@@ -223,11 +330,17 @@ def finish_mesh(mesh, options, log=None):
     if dropped and log:
         log.info(f"Removed {dropped} loose piece(s).")
     levels = int(options.get("subdivide") or 0)
-    if levels > 0:
-        mesh = subdivide_surface(mesh, levels)
     smoothing = int(options.get("smoothing") or 0)
+    # The surface before it moves, per vertex, for the normal map's sake.
+    carry = {}
+    if levels > 0 or smoothing > 0:
+        carry = {"pos": np.asarray(mesh.vertices, dtype=np.float64).copy(), "nrm": np.asarray(joined_normals(mesh), dtype=np.float64)}
+    if levels > 0:
+        mesh = subdivide_surface(mesh, levels, carry)
     if smoothing > 0:
         smooth_surface(mesh, smoothing)
+    if carry and rebake_normal_map(mesh, carry["pos"], carry["nrm"]) and log:
+        log.info("Re-baked the normal map for the cleaned-up surface.")
     tilt = 0.0
     if options.get("straighten"):
         angle = upright_angle(mesh.vertices)
@@ -238,6 +351,27 @@ def finish_mesh(mesh, options, log=None):
         tilt = float(np.degrees(angle))
     seamless_normals(mesh)
     return mesh, tilt
+
+
+def open_input_image(data):
+    """The picture sent with a job as an upright RGBA image: PNG, JPEG, WebP,
+    AVIF, GIF (its first frame), BMP, ICO (its largest size), TIFF — 16-bit
+    and floating-point ones scaled down to 8 bits rather than clipped to
+    white."""
+    import numpy as np
+    from PIL import Image, ImageOps
+
+    image = Image.open(io.BytesIO(data))
+    if getattr(image, "n_frames", 1) > 1:
+        image.seek(0)
+    if image.format == "ICO" and getattr(image, "ico", None) is not None:
+        image.size = max(image.ico.sizes(), key=lambda s: s[0] * s[1])
+    image = ImageOps.exif_transpose(image)
+    if image.mode in ("I;16", "I;16B", "I;16L", "I", "F"):
+        arr = np.asarray(image, dtype=np.float64)
+        top = 65535.0 if image.mode.startswith("I;16") or arr.max() > 255 else 255.0
+        image = Image.fromarray(np.clip(arr / top * 255.0 + 0.5, 0, 255).astype(np.uint8), "L")
+    return image.convert("RGBA")
 
 
 def resize_foreground(image, ratio):
@@ -399,13 +533,11 @@ class Engine:
 
     def _convert_on(self, device, job):
         import torch
-        from PIL import Image, ImageOps
 
         job.device = device
         job.device_name = device_name(device)
         job.enter("background")
-        image = Image.open(io.BytesIO(job.image_bytes))
-        image = ImageOps.exif_transpose(image).convert("RGBA")
+        image = open_input_image(job.image_bytes)
         job.input_size = image.size
         has_alpha = image.getextrema()[3][0] < 255
         if job.options["removeBackground"] and not has_alpha:

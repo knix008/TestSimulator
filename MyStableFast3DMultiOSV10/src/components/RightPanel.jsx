@@ -193,7 +193,7 @@ function SceneTab({ view, setView, t }) {
         <Check label={t('scene.negativeAxes')} checked={view.negativeAxes} onChange={(v) => setView({ negativeAxes: v })} />
         <Check label={t('scene.rulers')} checked={view.rulers} onChange={(v) => setView({ rulers: v })} />
         <Check label={t('scene.rulerY')} checked={view.rulerY} onChange={(v) => setView({ rulerY: v })} />
-        <RangeField label={t('scene.rulerCells')} value={view.rulerCells} min={1} max={20} step={1} onChange={(v) => setView({ rulerCells: v })} />
+        <RangeField label={t('scene.rulerCells')} value={view.rulerCells} min={1} max={20} step={1} unit={t('numUnit.cells')} onChange={(v) => setView({ rulerCells: v })} />
         <SelectField
           label={t('scene.units')}
           value={view.units}
@@ -318,7 +318,7 @@ function LightsTab({ lights, setLights, selected, onSelect, view, setView, t }) 
           ) : null}
           {sel.type === 'spot' ? (
             <>
-              <RangeField label={t('lights.angle')} value={sel.angle || 30} min={5} max={85} step={1} onChange={(v) => update(sel.id, { angle: v })} />
+              <RangeField label={t('lights.angle')} value={sel.angle || 30} min={5} max={85} step={1} unit={t('numUnit.degree')} onChange={(v) => update(sel.id, { angle: v })} />
               <RangeField label={t('lights.penumbra')} value={sel.penumbra ?? 0.3} min={0} max={1} step={0.05} onChange={(v) => update(sel.id, { penumbra: v })} />
             </>
           ) : null}
@@ -381,8 +381,8 @@ function ModelTab({ info, transform, onTransform, view, t }) {
         </dl>
       </Section>
       <Section title={t('modelTab.transform')}>
-        <Vec3Field label={t('modelTab.rotation')} step={15} value={transform.rotation} onChange={(v) => onTransform({ ...transform, rotation: v })} />
-        <NumberField label={t('modelTab.scale')} value={transform.scale} min={0.0001} step={0.1} onChange={(v) => onTransform({ ...transform, scale: v })} />
+        <Vec3Field label={t('modelTab.rotation')} step={15} unit={t('numUnit.degree')} value={transform.rotation} onChange={(v) => onTransform({ ...transform, rotation: v })} />
+        <NumberField label={t('modelTab.scale')} value={transform.scale} min={0.0001} step={0.1} unit={t('numUnit.times')} onChange={(v) => onTransform({ ...transform, scale: v })} />
         <div className="row">
           <button className="btn small" onClick={() => onTransform({ ...transform, rotation: [transform.rotation[0] - 90, transform.rotation[1], transform.rotation[2]] })}>X −90°</button>
           <button className="btn small" onClick={() => onTransform({ ...transform, rotation: [transform.rotation[0] + 90, transform.rotation[1], transform.rotation[2]] })}>X +90°</button>
@@ -412,7 +412,7 @@ function CameraTab({ view, setView, onView, onFit, t }) {
         <button className="btn small" onClick={onFit}><IconFit size={14} /> {t('toolbar.fit')}</button>
       </Section>
       <Section title={t('camera.lens')}>
-        <RangeField label={t('camera.fov')} value={view.fov} min={15} max={100} step={1} format={(v) => `${v}°`} onChange={(v) => setView({ fov: v })} />
+        <RangeField label={t('camera.fov')} value={view.fov} min={15} max={100} step={1} unit={t('numUnit.degree')} onChange={(v) => setView({ fov: v })} />
       </Section>
       <Section title={t('camera.motion')}>
         <Check label={t('camera.autoRotate')} checked={view.autoRotate} onChange={(v) => setView({ autoRotate: v })} />

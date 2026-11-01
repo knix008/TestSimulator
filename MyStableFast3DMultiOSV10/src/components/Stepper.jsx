@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconMinus, IconPlus } from './Icons.jsx';
 
@@ -60,6 +60,55 @@ export function NumberStepper({
       <StepButton dir={-1} label={label} disabled={disabled || atEnd(value, -1, opts)} onClick={() => onChange(stepValue(value, -1, opts))} />
       <output className="stepper-value" aria-live="polite">{format(value)}</output>
       <StepButton dir={1} label={label} disabled={disabled || atEnd(value, 1, opts)} onClick={() => onChange(stepValue(value, 1, opts))} />
+    </div>
+  );
+}
+
+// − [ value unit ] +   (a number the user may also type). The value and its
+// unit sit together in the middle of the box; typing commits on Enter or
+// when the box loses focus, the buttons step at once.
+export function NumberBox({
+  value, onChange, min = -Infinity, max = Infinity, step = 1, unit = '', label, disabled = false, className = '',
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const inputRef = useRef(null);
+  useEffect(() => { setDraft(String(value)); }, [value]);
+  const opts = { min, max, step };
+  const num = Number(value);
+  const commit = (raw) => {
+    const n = Number(String(raw).trim());
+    if (String(raw).trim() === '' || !Number.isFinite(n)) { setDraft(String(value)); return; }
+    const v = Math.min(max, Math.max(min, n));
+    setDraft(String(v));
+    if (v !== num) onChange(v);
+  };
+  return (
+    <div className={`numbox${className ? ` ${className}` : ''}${disabled ? ' disabled' : ''}`} role="group" aria-label={label}>
+      <StepButton dir={-1} label={label} disabled={disabled || atEnd(num, -1, opts)} onClick={() => onChange(stepValue(num, -1, opts))} />
+      {/* A click anywhere in the box (beside the digits too) edits the number. */}
+      <div className="numbox-field" onMouseDown={(e) => { if (e.target !== inputRef.current) { e.preventDefault(); inputRef.current?.focus(); } }}>
+        <input
+          ref={inputRef}
+          className="numbox-input"
+          inputMode="decimal"
+          value={draft}
+          disabled={disabled}
+          style={{ width: `${Math.max(1, draft.length) + 0.6}ch` }}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit(e.currentTarget.value);
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              onChange(stepValue(num, e.key === 'ArrowUp' ? 1 : -1, opts));
+            }
+          }}
+          aria-label={label}
+          title={label}
+        />
+        {unit ? <span className="numbox-unit">{unit}</span> : null}
+      </div>
+      <StepButton dir={1} label={label} disabled={disabled || atEnd(num, 1, opts)} onClick={() => onChange(stepValue(num, 1, opts))} />
     </div>
   );
 }

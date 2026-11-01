@@ -12,7 +12,7 @@ import {
   START_CARDS, normalizeStartLayout, measureLayout, clampLayout, moveCard, resizeCard, boardHeight,
   snapLayout, placeCard, columnStep, GRID_ROW,
 } from '../lib/startlayout.js';
-import { IMPORT_FORMATS, EXPORT_FORMATS } from '../lib/formats.js';
+import { IMPORT_FORMATS, EXPORT_FORMATS, IMAGE_EXTENSIONS } from '../lib/formats.js';
 import buildInfo from '../build-info.json';
 import { SAMPLE_GROUPS, sampleLabel } from '../lib/samples.js';
 import { groupFamilies, shownVersion } from '../lib/modelFamilies.js';
@@ -295,7 +295,7 @@ export default function StartScreen({
                   <p className="start-formats-title"><IconExport size={13} /> {t('start.canSave')}</p>
                   <p className="start-formats">{[...new Set(EXPORT_FORMATS.map((f) => `.${f.ext}`))].join('  ')}</p>
                   <p className="start-formats-title"><IconImage size={13} /> {t('start.images')}</p>
-                  <p className="start-formats">.png .jpg .jpeg .webp .bmp .gif .tif</p>
+                  <p className="start-formats">{IMAGE_EXTENSIONS.map((e) => `.${e}`).join(' ')}</p>
                 </>
               ))}
             </div>

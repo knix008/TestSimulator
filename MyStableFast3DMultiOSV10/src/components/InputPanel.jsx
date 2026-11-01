@@ -1,9 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Panel from './Panel.jsx';
 import { Section } from './Form.jsx';
 import { IconImage, IconCube, IconTrash, IconExport, IconOpen, IconWand, IconClose } from './Icons.jsx';
 import { formatBytes, formatDuration, isDesktop } from '../lib/platform.js';
+
+// The input picture, or — for one the web view cannot draw (TIFF) — a note
+// that it is there and will still be converted (the engine reads it).
+function InputPreview({ image, t }) {
+  const [broken, setBroken] = useState('');
+  if (broken === image.url) {
+    return (
+      <div className="input-nopreview" data-no-preview>
+        <IconImage size={28} />
+        <span>{t('left.noPreview')}</span>
+      </div>
+    );
+  }
+  return <img src={image.url} alt={image.name} className="checker" onError={() => setBroken(image.url)} />;
+}
 
 // A small "clear all" for a section heading.
 function ClearAll({ label, onClick }) {
@@ -42,7 +57,7 @@ export default function InputPanel({
           <Section title={t('left.input')}>
             {image ? (
               <figure className="input-figure" onContextMenu={(e) => { e.preventDefault(); onImageMenu?.(e.clientX, e.clientY); }}>
-                <img src={image.url} alt={image.name} className="checker" />
+                <InputPreview image={image} t={t} />
                 <figcaption title={image.path || image.name}>
                   <strong>{image.name}</strong>
                   <span>{image.width && image.height ? `${image.width} × ${image.height} px · ` : ''}{formatBytes(image.size || 0)}</span>

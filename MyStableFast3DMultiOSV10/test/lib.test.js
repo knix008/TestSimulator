@@ -3,6 +3,7 @@ import { normalize, normalizeLights, normalizeView, DEFAULT_LIGHTS, DEFAULT_VIEW
 import { appendLines, filterLines, formatLine, makeLine, MAX_LINES } from '../src/lib/logs.js';
 import { jobQuery, joinUrl, convertWithEngine, EngineError, EngineClient } from '../src/lib/engine.js';
 import { groupOptions, changedFromDefault, valueOf, SURFACE_KEYS } from '../src/components/ConvertOptions.jsx';
+import { sampleImageFor } from '../src/lib/samples.js';
 import { niceGridSize, rulerText, zoomGridSize } from '../src/lib/viewer3d.js';
 import { RESOURCES } from '../src/i18n.js';
 
@@ -203,5 +204,23 @@ describe('conversion settings', () => {
     expect(changedFromDefault({ smoothing: 20 }, opts)).toBe(true);
     expect(valueOf({ smoothing: 20 }, opts[1])).toBe(20);
     expect(valueOf({}, opts[1])).toBe(10);
+  });
+});
+
+describe('samples', () => {
+  const index = {
+    images: [{ file: 'images/robot.png' }, { file: 'images/toy-car.png' }, { file: 'images/toy.png' }],
+    models: [{ file: 'models/robot.glb' }, { file: 'models/toy-car.usdz' }, { file: 'models/shapes.gltf' }],
+    results: [{ file: 'results/robot-triposr.glb' }, { file: 'results/x.glb', image: 'images/toy.png' }],
+  };
+
+  it('finds the picture a 3D example was made from', () => {
+    expect(sampleImageFor(index.models[0], index).file).toBe('images/robot.png');
+    expect(sampleImageFor(index.results[0], index).file).toBe('images/robot.png');
+    // The longest matching name wins: toy-car, not toy.
+    expect(sampleImageFor(index.models[1], index).file).toBe('images/toy-car.png');
+    expect(sampleImageFor(index.results[1], index).file).toBe('images/toy.png');
+    expect(sampleImageFor(index.models[2], index)).toBeNull();
+    expect(sampleImageFor(index.images[0], index)).toBeNull();
   });
 });

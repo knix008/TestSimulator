@@ -26,6 +26,25 @@ export async function fetchSample(entry, base = './samples/') {
   return out;
 }
 
+const baseOf = (file) => file.split('/').pop().replace(/\.[^.]+$/, '');
+
+// The picture a 3D example was made from (models/robot.glb and
+// results/robot-triposr.glb ← images/robot.png), so opening the example puts
+// its picture in the input panel too; null for a 3D file without one
+// (shapes.gltf) and for a picture itself. `entry.image` names it outright.
+export function sampleImageFor(entry, index) {
+  const images = index?.images || [];
+  if (!entry || images.includes(entry)) return null;
+  if (entry.image) return images.find((i) => i.file === entry.image) || null;
+  const base = baseOf(entry.file);
+  let best = null;
+  for (const img of images) {
+    const b = baseOf(img.file);
+    if ((base === b || base.startsWith(`${b}-`)) && (!best || b.length > baseOf(best.file).length)) best = img;
+  }
+  return best;
+}
+
 export function sampleLabel(entry, lang) {
   return (lang === 'en' ? entry.en : entry.ko) || entry.file.split('/').pop();
 }

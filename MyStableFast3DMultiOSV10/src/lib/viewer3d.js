@@ -32,10 +32,18 @@ const GRID_FRAGMENT = /* glsl */`
   uniform vec3 uMinorColor;
   uniform vec3 uMajorColor;
   uniform float uOpacity;
+  // Where the X and Z axes lie on the plane: the grid leaves out its own line
+  // there (from uAxisFrom to uAxisTo along the axis), or the grey line, wider
+  // than the axis, covers it.
+  uniform float uAxisFrom;
+  uniform float uAxisTo;
   varying vec3 vWorld;
   float lines(float size, float width) {
     vec2 r = vWorld.xz / size;
     vec2 g = abs(fract(r - 0.5) - 0.5) / (fwidth(r) * width);
+    // The line x = 0 runs along Z, the line z = 0 along X.
+    if (abs(r.x) < 0.5 && vWorld.z >= uAxisFrom && vWorld.z <= uAxisTo) g.x = 1.0;
+    if (abs(r.y) < 0.5 && vWorld.x >= uAxisFrom && vWorld.x <= uAxisTo) g.y = 1.0;
     return 1.0 - min(min(g.x, g.y), 1.0);
   }
   void main() {
@@ -66,12 +74,14 @@ const AXIS_COLORS = { x: 0xe5534b, y: 0x57ab5a, z: 0x4a90e2 };
 const AXIS_TEXT = { x: '#ff6b62', y: '#6fd36f', z: '#5ea4ff' };
 const ORIGIN = new THREE.Vector3(0, 0, 0);
 
-// The colour a light's handle is drawn in: sun yellow for a white (or nearly
-// white) light, so it reads as a sun; a coloured light shows its own colour.
-// Only the handle — the light itself keeps the colour it was given.
+// The colour a light's handle is drawn in: a white (or nearly white) sun —
+// the directional light — in sun yellow, so it reads as the sun; every other
+// light, and a coloured sun, in its own colour. Only the handle: the light
+// itself keeps the colour it was given.
 const SUN_YELLOW = new THREE.Color('#ffc928');
-export function handleColor(value) {
+export function handleColor(value, type = 'directional') {
   const c = new THREE.Color(value || '#ffffff');
+  if (type !== 'directional') return c;
   const hsl = {};
   c.getHSL(hsl);
   return hsl.s < 0.25 && hsl.l > 0.7 ? SUN_YELLOW.clone() : c;
@@ -302,6 +312,8 @@ export class Viewer3D {
         uMinorColor: { value: new THREE.Color(0x666666) },
         uMajorColor: { value: new THREE.Color(0x999999) },
         uOpacity: { value: 1 },
+        uAxisFrom: { value: 0 },
+        uAxisTo: { value: -1 },        // empty: no axes drawn yet
       },
     });
     const grid = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, 1, 1), material);
@@ -343,6 +355,10 @@ export class Viewer3D {
   _buildAxes(extent) {
     disposeObject(this.axes);
     this.axes.clear();
+    // New label sprites start 1 × 1 m: they must be sized on the next frame
+    // even when nothing else changed (a model of the same size replaced —
+    // left as they were, giant blurred labels cover the whole view).
+    this._textKey = '';
     const v = this.view;
     for (const [axis, color] of Object.entries(AXIS_COLORS)) {
       const dir = new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0);
@@ -367,15 +383,69 @@ export class Viewer3D {
       cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
       cone.renderOrder = 5;
       this.axes.add(cone);
+      // The axis name: placed every frame on the part of the axis in view
+      // (_placeAxisLabels), drawn over everything so the model never hides it.
       const name = textSprite(axis.toUpperCase(), 'axis', AXIS_TEXT[axis]);
       name.position.copy(dir).multiplyScalar(extent * 1.07);
+      name.material.depthTest = false;
+      name.renderOrder = 10;
+      name.userData.axisDir = dir.clone();
+      name.userData.axisExtent = extent;
       this.axes.add(name);
+    }
+    this._axisSpan = [v.negativeAxes ? -extent : 0, extent];
+    this._applyAxisSpan();
+  }
+
+  // Tells the grid where the X and Z axes lie (or that none are drawn).
+  _applyAxisSpan() {
+    const u = this.grid?.material.uniforms;
+    if (!u) return;
+    const [from, to] = this.view.axes && this._axisSpan ? this._axisSpan : [0, -1];
+    u.uAxisFrom.value = from;
+    u.uAxisTo.value = to;
+  }
+
+  // Each axis name sits at the far end of its axis, or — when that end is
+  // outside the view (zoomed in, the axes reach past the edges) — at the
+  // farthest point of the axis still inside it, so X, Y and Z are always
+  // there to read.
+  _placeAxisLabels() {
+    if (!this.axes.visible) return;
+    const p = new THREE.Vector3();
+    const inside = (t, dir) => {
+      p.copy(dir).multiplyScalar(t).project(this.camera);
+      return p.z < 1 && Math.abs(p.x) < 0.9 && Math.abs(p.y) < 0.86;
+    };
+    for (const s of this.axes.children) {
+      const dir = s.userData.axisDir;
+      if (!dir) continue;
+      const end = s.userData.axisExtent * 1.07;
+      let t = end;
+      if (!inside(end, dir)) {
+        // The farthest sample in view (the origin may be out of view too
+        // when zoomed in), then refined towards the edge of the view.
+        const n = 64;
+        let lo = -1;
+        for (let i = n - 1; i >= 1 && lo < 0; i--) if (inside((end * i) / n, dir)) lo = i;
+        if (lo < 0) { s.visible = false; continue; }   // the axis is not in view
+        let a = (end * lo) / n;
+        let b = (end * (lo + 1)) / n;
+        for (let i = 0; i < 16; i++) {
+          const mid = (a + b) / 2;
+          if (inside(mid, dir)) a = mid; else b = mid;
+        }
+        t = a;
+      }
+      s.visible = true;
+      s.position.copy(dir).multiplyScalar(t);
     }
   }
 
   _buildRulers(major, extent) {
     disposeObject(this.rulers);
     this.rulers.clear();
+    this._textKey = '';   // new label sprites to size (see _buildAxes)
     const v = this.view;
     const divisions = Math.max(1, Number(v.gridDivisions) || 5);
     const minor = major / divisions;
@@ -465,7 +535,7 @@ export class Viewer3D {
   }
 
   _makeHandle(spec) {
-    const color = handleColor(spec.color);
+    const color = handleColor(spec.color, spec.type);
     const r = this.handleRadius();
     const group = new THREE.Group();
     const bulb = new THREE.Mesh(
@@ -483,16 +553,27 @@ export class Viewer3D {
     ring.userData.billboard = true;
     ring.userData.lightId = spec.id;
     group.add(ring);
-    // Rays all round, long and short in turn, so the handle reads as a sun.
+    // Only the sun (the directional light) has rays: there is one sun, and a
+    // point or spot light next to it must not read as a second one.
     const rays = [];
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      const [from, to] = i % 2 ? [r * 1.9, r * 2.6] : [r * 1.9, r * 3.2];
-      rays.push(Math.cos(a) * from, Math.sin(a) * from, 0, Math.cos(a) * to, Math.sin(a) * to, 0);
+    if (spec.type === 'directional') {
+      // Rays all round, long and short in turn.
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const [from, to] = i % 2 ? [r * 1.9, r * 2.6] : [r * 1.9, r * 3.2];
+        rays.push(Math.cos(a) * from, Math.sin(a) * from, 0, Math.cos(a) * to, Math.sin(a) * to, 0);
+      }
+    } else {
+      // A bulb: a thin halo round it (a full circle, drawn as segments).
+      for (let i = 0; i < 32; i += 1) {
+        const a0 = (i / 32) * Math.PI * 2;
+        const a1 = ((i + 1) / 32) * Math.PI * 2;
+        rays.push(Math.cos(a0) * r * 2.1, Math.sin(a0) * r * 2.1, 0, Math.cos(a1) * r * 2.1, Math.sin(a1) * r * 2.1, 0);
+      }
     }
     const rayGeo = new THREE.BufferGeometry();
     rayGeo.setAttribute('position', new THREE.Float32BufferAttribute(rays, 3));
-    const sunRays = new THREE.LineSegments(rayGeo, new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }));
+    const sunRays = new THREE.LineSegments(rayGeo, new THREE.LineBasicMaterial({ color, depthTest: false, transparent: true, opacity: spec.type === 'directional' ? 0.95 : 0.6 }));
     sunRays.renderOrder = 8;
     sunRays.userData.billboard = true;
     sunRays.userData.rays = true;
@@ -580,7 +661,7 @@ export class Viewer3D {
       if (handle) {
         handle.visible = this.view.showLightHelpers !== false && spec.enabled !== false;
         handle.position.copy(light.position);
-        const hc = handleColor(spec.color);
+        const hc = handleColor(spec.color, spec.type);
         handle.children[0].material.color.copy(hc);
         handle.children.find((c) => c.userData.rays)?.material.color.copy(hc);
         this._aimLine(handle, light);
@@ -765,6 +846,7 @@ export class Viewer3D {
       this._buildRulers(major, extent);
     }
     this.axes.visible = !!v.axes;
+    this._applyAxisSpan();
     this.rulers.visible = !!v.rulers;
     this._buildBBox();
 
@@ -965,6 +1047,7 @@ export class Viewer3D {
     // Zooming in or out past a step re-spaces the grid and the rulers.
     if (this.gridAuto() && this._zoomGrid()) this.refreshHelpers();
     this._fitTextSprites();
+    this._placeAxisLabels();
     const u = this.grid.material.uniforms;
     const camDist = this.camera.position.distanceTo(this.controls.target);
     u.uDistance.value = Math.max(camDist * 12, u.uMajor.value * 60);
