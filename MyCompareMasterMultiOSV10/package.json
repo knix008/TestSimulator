@@ -15,6 +15,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "installer": "node scripts/copy-installer.mjs",
     "samples": "node scripts/make-samples.mjs",
+    "guide:shots": "node scripts/guide-shots.mjs",
     "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
     "build:ui": "node node_modules/vite/bin/vite.js build",
     "build:server": "node scripts/bundle-server.mjs",
