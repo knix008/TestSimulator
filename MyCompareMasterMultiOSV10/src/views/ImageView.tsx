@@ -26,6 +26,8 @@ import { paneHeaderStyle } from "../../core/themes.js";
 import { Icon } from "../icons.js";
 import { PathBar } from "../PathBar.js";
 import { useApp, type CompareTab } from "../state.js";
+import { viewState } from "../viewCache.js";
+import { diffPixels, pixelsOf, type PixelDiff, type Rect } from "../imageDiff.js";
 
 export { IMAGE_EXTENSIONS, isImagePath } from "../../core/images.js";
 
@@ -38,28 +40,11 @@ type Mode = "sideBySide" | "blend" | "difference";
 
 type Size = { width: number; height: number };
 
-type Rect = { x: number; y: number; width: number; height: number };
-
-type Diff = {
-  /** The union of the two pictures: what the comparison is done over. */
-  width: number;
-  height: number;
-  different: number;
-  total: number;
-  /** The difference picture, ready to put on a canvas. */
-  map: ImageData;
-  /** The changed regions, as boxes over the union, for marking both sides. */
-  areas: Rect[];
-};
+/** A comparison as the view uses it: the difference picture ready to put on a canvas. */
+type Diff = Omit<PixelDiff, "map"> & { map: ImageData };
 
 /** The scales the buttons step through. Sixteen times is where single pixels read. */
 const ZOOMS = [0.1, 0.25, 0.33, 0.5, 0.67, 1, 1.5, 2, 3, 4, 6, 8, 12, 16];
-
-/** How far a channel has to move to count as a change, past encoder noise. */
-const THRESHOLD = 8;
-
-/** The grid the changed areas are reported on: fine enough to point, coarse enough to see. */
-const BLOCK = 12;
 
 export function ImageView({ tab }: {
   tab: CompareTab;
@@ -75,14 +60,33 @@ export function ImageView({ tab }: {
     paneHeaderStyle(settings.headerColors[pane], settings.theme, settings.customTheme);
 
   const summary = tab.summary;
-  const [mode, setMode] = useState<Mode>("sideBySide");
-  const [blend, setBlend] = useState(50);
-  const [marks, setMarks] = useState(true);
+  /*
+   * What this tab last showed. Switching tabs unmounts the view; coming back to the
+   * same comparison (the same summary — Refresh or a change on disk makes a new one)
+   * takes the pictures and the difference from here instead of decoding and diffing
+   * the pair all over again.
+   */
+  const kept = viewState(tab.id, "image", () => ({
+    summary: null as CompareTab["summary"] | null,
+    leftUrl: "",
+    rightUrl: "",
+    sizes: { left: null, right: null } as { left: Size | null; right: Size | null },
+    diff: null as Diff | null,
+    mode: "sideBySide" as Mode,
+    blend: 50,
+    marks: true,
+    zoom: null as number | null,
+  }));
+  const fresh = kept.summary !== summary;
+  const [mode, setMode] = useState<Mode>(kept.mode);
+  const [blend, setBlend] = useState(kept.blend);
+  const [marks, setMarks] = useState(kept.marks);
   /** null is "fit the window"; a number is that many times life size. */
-  const [zoom, setZoom] = useState<number | null>(null);
-  const [sizes, setSizes] = useState<{ left: Size | null; right: Size | null }>({ left: null, right: null });
+  const [zoom, setZoom] = useState<number | null>(kept.zoom);
+  const [sizes, setSizes] = useState(fresh ? { left: null, right: null } : kept.sizes);
   const [viewport, setViewport] = useState<Size>({ width: 0, height: 0 });
-  const [diff, setDiff] = useState<Diff | null>(null);
+  const [diff, setDiff] = useState<Diff | null>(fresh ? null : kept.diff);
+  Object.assign(kept, { mode, blend, marks, zoom });
 
   /*
    * The two addresses, held still.
@@ -92,23 +96,24 @@ export function ImageView({ tab }: {
    * during the render that uses it, that stamp is a new address on every render: the
    * browser throws away the picture it had half-loaded and starts again, the effect
    * below sees new inputs and runs again, and the pair never finishes loading. So the
-   * address is pinned to what it actually depends on — the path, and when the file
-   * was last written.
+   * address is pinned to the comparison it belongs to, and kept with the tab.
    */
   const leftUrl = useMemo(
-    () => (summary.left.path ? api.imageUrl(summary.left.path) : ""),
+    () => (fresh ? (summary.left.path ? api.imageUrl(summary.left.path) : "") : kept.leftUrl),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the stamp is the point
-    [summary.left.path, summary.left.modified],
+    [summary],
   );
   const rightUrl = useMemo(
-    () => (summary.right.path ? api.imageUrl(summary.right.path) : ""),
+    () => (fresh ? (summary.right.path ? api.imageUrl(summary.right.path) : "") : kept.rightUrl),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the stamp is the point
-    [summary.right.path, summary.right.modified],
+    [summary],
   );
 
   /* ------------------------------------------------------ the comparison */
 
   useEffect(() => {
+    if (kept.summary === summary && kept.leftUrl === leftUrl && kept.rightUrl === rightUrl) return undefined;
+    kept.summary = null;
     setSizes({ left: null, right: null });
     setDiff(null);
     if (!leftUrl || !rightUrl) return undefined;
@@ -118,17 +123,22 @@ export function ImageView({ tab }: {
       try {
         const [left, right] = await Promise.all([load(leftUrl), load(rightUrl)]);
         if (cancelled) return;
-        setSizes({
+        const nextSizes = {
           left: { width: left.naturalWidth, height: left.naturalHeight },
           right: { width: right.naturalWidth, height: right.naturalHeight },
-        });
-        if (left.naturalWidth > 0 && right.naturalWidth > 0) setDiff(compare(left, right));
+        };
+        // The pictures show at once; the difference follows when it is worked out.
+        setSizes(nextSizes);
+        const nextDiff = left.naturalWidth > 0 && right.naturalWidth > 0 ? await compare(left, right) : null;
+        if (cancelled) return;
+        setDiff(nextDiff);
+        Object.assign(kept, { summary, leftUrl, rightUrl, sizes: nextSizes, diff: nextDiff });
       } catch {
         // A format this build cannot decode; `Picture` says so in the pane.
       }
     })();
     return () => { cancelled = true; };
-  }, [leftUrl, rightUrl]);
+  }, [kept, leftUrl, rightUrl, summary]);
 
   /*
    * One geometry for both panes — the union of the two pictures — so that a point in
@@ -557,110 +567,69 @@ function Marks({ width, height, areas }: { width: number; height: number; areas:
 /**
  * The whole comparison in one pass over the union of the two pictures.
  *
- * Both sides are drawn into their own canvas at the union size so that a file which
- * is only present, or only large, on one side still has something to compare: the
- * area the other picture does not cover is transparent, and transparent against a
- * colour is a difference.
+ * Both sides are drawn at the union size so that a file which is only present, or
+ * only large, on one side still has something to compare: the area the other picture
+ * does not cover is transparent, and transparent against a colour is a difference.
+ *
+ * It runs in a worker when the platform has one that can draw: the worker is given
+ * the two addresses, decodes the pictures itself and hands the difference back, so
+ * the window keeps answering while a large pair is compared. Without OffscreenCanvas
+ * (an older WebKit), or when the worker cannot decode a format, it runs here.
  */
-function compare(left: HTMLImageElement, right: HTMLImageElement): Diff {
+async function compare(left: HTMLImageElement, right: HTMLImageElement): Promise<Diff> {
+  const worker = diffWorker();
+  if (worker) {
+    try {
+      const id = (nextRequest += 1);
+      const result = await new Promise<PixelDiff>((resolve, reject) => {
+        waiting.set(id, { resolve, reject });
+        worker.postMessage({ id, left: left.src, right: right.src });
+      });
+      return asDiff(result);
+    } catch {
+      // Fall through to the page.
+    }
+  }
   const width = Math.max(left.naturalWidth, right.naturalWidth);
   const height = Math.max(left.naturalHeight, right.naturalHeight);
-  const a = pixels(left, width, height);
-  const b = pixels(right, width, height);
-
-  const map = new ImageData(width, height);
-  const columns = Math.ceil(width / BLOCK);
-  const rows = Math.ceil(height / BLOCK);
-  const changed = new Uint8Array(columns * rows);
-  let different = 0;
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const at = (y * width + x) * 4;
-      const delta = Math.max(
-        Math.abs(a[at] - b[at]),
-        Math.abs(a[at + 1] - b[at + 1]),
-        Math.abs(a[at + 2] - b[at + 2]),
-        Math.abs(a[at + 3] - b[at + 3]),
-      );
-      if (delta > THRESHOLD) {
-        different += 1;
-        changed[Math.floor(y / BLOCK) * columns + Math.floor(x / BLOCK)] = 1;
-        // Changed pixels in red, at the strength of the change.
-        map.data[at] = 255;
-        map.data[at + 1] = 60;
-        map.data[at + 2] = 60;
-        map.data[at + 3] = Math.min(255, 90 + delta);
-      } else {
-        // Unchanged pixels as a dim grey ghost, so the shape is still readable.
-        const grey = ((a[at] + a[at + 1] + a[at + 2]) / 3) * 0.3;
-        map.data[at] = grey;
-        map.data[at + 1] = grey;
-        map.data[at + 2] = grey;
-        map.data[at + 3] = a[at + 3] ? 90 : 0;
-      }
-    }
-  }
-
-  return { width, height, different, total: width * height, map, areas: boxes(changed, columns, rows, width, height) };
-}
-
-function pixels(image: HTMLImageElement, width: number, height: number): Uint8ClampedArray {
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) return new Uint8ClampedArray(width * height * 4);
-  context.drawImage(image, 0, 0);
-  return context.getImageData(0, 0, width, height).data;
+  const a = pixelsOf(left, width, height, canvas);
+  const b = pixelsOf(right, width, height, canvas);
+  return asDiff(diffPixels(a, b, width, height));
 }
 
-/**
- * The changed blocks, joined into as few boxes as possible.
- *
- * A run of neighbouring blocks across a row becomes one box, and a box is then
- * grown downward while the row below changes in exactly the same columns. A
- * one-word edit in a screenshot comes out as one box rather than forty.
- */
-function boxes(changed: Uint8Array, columns: number, rows: number, width: number, height: number): Rect[] {
-  const used = new Uint8Array(changed.length);
-  const out: Rect[] = [];
+function asDiff(result: PixelDiff): Diff {
+  return { ...result, map: new ImageData(result.map as Uint8ClampedArray<ArrayBuffer>, result.width, result.height) };
+}
 
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const at = row * columns + column;
-      if (!changed[at] || used[at]) continue;
+type Waiting = { resolve: (diff: PixelDiff) => void; reject: (error: Error) => void };
+const waiting = new Map<number, Waiting>();
+let nextRequest = 0;
+/** The one worker, made on first use; null once it is known not to work here. */
+let worker: Worker | null | undefined;
 
-      let end = column;
-      while (end + 1 < columns && changed[row * columns + end + 1] && !used[row * columns + end + 1]) end += 1;
-
-      let last = row;
-      const matches = (candidate: number) => {
-        if (candidate >= rows) return false;
-        for (let x = column; x <= end; x += 1) {
-          if (!changed[candidate * columns + x] || used[candidate * columns + x]) return false;
-        }
-        // Not wider than the run we started with, or the box would claim untouched blocks.
-        if (column > 0 && changed[candidate * columns + column - 1]) return false;
-        if (end + 1 < columns && changed[candidate * columns + end + 1]) return false;
-        return true;
-      };
-      while (matches(last + 1)) last += 1;
-
-      for (let y = row; y <= last; y += 1) {
-        for (let x = column; x <= end; x += 1) used[y * columns + x] = 1;
-      }
-
-      out.push({
-        x: column * BLOCK,
-        y: row * BLOCK,
-        width: Math.min(width, (end + 1) * BLOCK) - column * BLOCK,
-        height: Math.min(height, (last + 1) * BLOCK) - row * BLOCK,
-      });
-    }
+function diffWorker(): Worker | null {
+  if (worker !== undefined) return worker;
+  try {
+    if (typeof OffscreenCanvas === "undefined" || typeof createImageBitmap === "undefined") throw new Error("no OffscreenCanvas");
+    const made = new Worker(new URL("../imageDiff.worker.ts", import.meta.url), { type: "module" });
+    made.onmessage = (event: MessageEvent<{ id: number; diff?: PixelDiff; error?: string }>) => {
+      const entry = waiting.get(event.data.id);
+      if (!entry) return;
+      waiting.delete(event.data.id);
+      if (event.data.diff) entry.resolve(event.data.diff);
+      else entry.reject(new Error(event.data.error ?? "image comparison failed"));
+    };
+    made.onerror = () => {
+      worker = null;
+      for (const entry of waiting.values()) entry.reject(new Error("image comparison worker failed"));
+      waiting.clear();
+    };
+    worker = made;
+  } catch {
+    worker = null;
   }
-
-  return out;
+  return worker;
 }
 
 /** The share of the picture that differs, to one decimal place. */

@@ -247,7 +247,11 @@ async fn window_min_size(app: AppHandle, width: f64, height: f64) -> f64 {
     let min_width = width.ceil().max(640.0).min(area.0);
     let min_height = height.ceil().max(480.0).min(area.1);
     *app.state::<Shell>().min_size.lock().unwrap_or_else(|e| e.into_inner()) = (min_width, min_height);
-    let _ = main.set_min_size(Some(LogicalSize::new(min_width, min_height)));
+    // The page measured the client area; the OS minimum binds the outer rect, which on
+    // a frameless window carries invisible resize borders. Without them the edge drag
+    // stopped 16 px short of the toolbar's width.
+    let (extra_w, extra_h) = frame_extra(&main);
+    let _ = main.set_min_size(Some(LogicalSize::new(min_width + extra_w, min_height + extra_h)));
     if let (Ok(scale), Ok(size)) = (main.scale_factor(), main.inner_size()) {
         let size = size.to_logical::<f64>(scale);
         if size.width < min_width {
@@ -255,6 +259,32 @@ async fn window_min_size(app: AppHandle, width: f64, height: f64) -> f64 {
         }
     }
     min_width
+}
+
+/// How much larger the outer rect is than the client area, in logical pixels.
+fn frame_extra(window: &tauri::WebviewWindow) -> (f64, f64) {
+    let (Ok(scale), Ok(outer), Ok(inner)) = (window.scale_factor(), window.outer_size(), window.inner_size()) else {
+        return (0.0, 0.0);
+    };
+    let outer = outer.to_logical::<f64>(scale);
+    let inner = inner.to_logical::<f64>(scale);
+    ((outer.width - inner.width).max(0.0), (outer.height - inner.height).max(0.0))
+}
+
+/// Puts the window back to its minimum when something other than an edge drag made
+/// it smaller: Windows Snap and SetWindowPos from other programs pass the minimum
+/// by, and the toolbar's last buttons were then cut off.
+fn keep_minimum(window: &tauri::Window) {
+    if window.is_maximized().unwrap_or(false) || window.is_minimized().unwrap_or(false) {
+        return;
+    }
+    let Some(shell) = window.try_state::<Shell>() else { return };
+    let (min_width, min_height) = *shell.min_size.lock().unwrap_or_else(|e| e.into_inner());
+    let (Ok(scale), Ok(size)) = (window.scale_factor(), window.inner_size()) else { return };
+    let size = size.to_logical::<f64>(scale);
+    if size.width + 0.5 < min_width || size.height + 0.5 < min_height {
+        let _ = window.set_size(LogicalSize::new(size.width.max(min_width), size.height.max(min_height)));
+    }
 }
 
 #[tauri::command]
@@ -561,6 +591,7 @@ fn main() {
             match event {
                 tauri::WindowEvent::Moved(_) if label == "main" => track(window),
                 tauri::WindowEvent::Resized(_) if label == "main" => {
+                    keep_minimum(window);
                     track(window);
                     let maximized = window.is_maximized().unwrap_or(false);
                     let _ = app.emit_to("main", "window:state", json!({ "maximized": maximized }));

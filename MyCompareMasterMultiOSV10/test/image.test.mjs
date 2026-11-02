@@ -10,6 +10,39 @@ import zlib from "node:zlib";
 import test from "node:test";
 import { encodePng } from "../core/png.ts";
 import { decodeTiff, isTiff } from "../core/tiff.ts";
+import { diffPixels } from "../src/imageDiff.ts";
+
+/* -------------------------------------------- the picture comparison */
+
+/** A width × height picture of one opaque colour. */
+function solid(width, height, [r, g, b]) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let at = 0; at < data.length; at += 4) data.set([r, g, b, 255], at);
+  return data;
+}
+
+test("picture diff › two identical pictures have no difference and no boxes", () => {
+  const diff = diffPixels(solid(30, 20, [10, 20, 30]), solid(30, 20, [10, 20, 30]), 30, 20);
+  assert.equal(diff.different, 0);
+  assert.equal(diff.total, 600);
+  assert.deepEqual(diff.areas, []);
+  assert.equal(diff.map.length, 30 * 20 * 4);
+});
+
+test("picture diff › one changed pixel is counted, painted red and boxed by its block", () => {
+  const a = solid(30, 20, [0, 0, 0]);
+  const b = solid(30, 20, [0, 0, 0]);
+  b.set([200, 0, 0, 255], (15 * 30 + 25) * 4);
+  const diff = diffPixels(a, b, 30, 20);
+  assert.equal(diff.different, 1);
+  assert.equal(diff.map[(15 * 30 + 25) * 4], 255);
+  assert.deepEqual(diff.areas, [{ x: 24, y: 12, width: 6, height: 8 }]);
+});
+
+test("picture diff › a change within the encoder-noise threshold is not a difference", () => {
+  const diff = diffPixels(solid(4, 4, [100, 100, 100]), solid(4, 4, [106, 100, 100]), 4, 4);
+  assert.equal(diff.different, 0);
+});
 
 /* ------------------------------------------------------------------ *
  * Building a TIFF

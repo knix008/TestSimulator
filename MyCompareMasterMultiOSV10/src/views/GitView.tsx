@@ -14,6 +14,7 @@ import { api, type CommitInfo, type GitChange } from "../api.js";
 import { GitGraph } from "../GitGraph.js";
 import { Icon } from "../icons.js";
 import { useApp, type GitTab } from "../state.js";
+import { viewState } from "../viewCache.js";
 
 const SCOPE_ICON: Record<string, string> = {
   staged: "stage",
@@ -29,19 +30,31 @@ export function GitView({ tab }: {
 }) {
   const app = useApp();
   const { t } = app;
-  const [commits, setCommits] = useState<CommitInfo[]>([]);
+  /*
+   * The history last read for this tab. Coming back from another tab shows it as it
+   * was; Refresh (a new repository record) or another view reads it again.
+   */
+  const kept = viewState(tab.id, "git", () => ({
+    repository: null as GitTab["repository"] | null,
+    view: null as GitTab["view"] | null,
+    commits: [] as CommitInfo[],
+  }));
+  const [commits, setCommits] = useState<CommitInfo[]>(kept.commits);
 
   useEffect(() => {
+    if (kept.repository === tab.repository && kept.view === tab.view) return undefined;
     let cancelled = false;
     api.gitLog(120)
       .then((list) => {
-        if (!cancelled) setCommits(list);
+        if (cancelled) return;
+        setCommits(list);
+        Object.assign(kept, { repository: tab.repository, view: tab.view, commits: list });
       })
       .catch(() => setCommits([]));
     return () => {
       cancelled = true;
     };
-  }, [tab.repository.path, tab.view]);
+  }, [kept, tab.repository, tab.view]);
 
   const isConflicted = (change: GitChange) =>
     change.scope === "conflicted" || tab.conflicted.includes(change.path);

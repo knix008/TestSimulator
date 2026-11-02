@@ -248,14 +248,11 @@ kbd {
   background: var(--toolbar-bg);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
-  /* When the window is narrower than the toolbar, the toolbar is what scrolls. */
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
+  /* Never a scrollbar under the toolbar: the window's minimum width is measured from
+     the toolbar (measure.ts), so every button always fits. */
+  overflow: hidden;
   user-select: none;
 }
-
-.toolbar::-webkit-scrollbar { height: 6px; }
 
 .toolbar-group {
   display: inline-flex;
@@ -1627,8 +1624,8 @@ mark.word.modified { background: var(--word-modified); }
   cursor: default;
 }
 
-.tree-pair:nth-child(odd) .tree-cell { background: var(--row-zebra); }
-.tree-pair:nth-child(even) .tree-cell { background: var(--row-even); }
+.tree-pair.odd .tree-cell { background: var(--row-zebra); }
+.tree-pair.even .tree-cell { background: var(--row-even); }
 .tree-pair.status-different .tree-cell { background: var(--row-modified); }
 .tree-pair.status-leftOnly .tree-cell.side-left { background: var(--row-removed); }
 .tree-pair.status-rightOnly .tree-cell.side-right { background: var(--row-added); }

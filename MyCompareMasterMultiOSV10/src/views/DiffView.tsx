@@ -31,6 +31,7 @@ import { Icon } from "../icons.js";
 import { PathBar } from "../PathBar.js";
 import type { Token } from "../../core/grammar.js";
 import { useApp, type CompareTab } from "../state.js";
+import { viewState } from "../viewCache.js";
 
 /** Extra rows fetched above and below the viewport, so scrolling does not flicker. */
 const OVERSCAN = 40;
@@ -55,9 +56,26 @@ export function DiffView({ tab }: { tab: CompareTab }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLDivElement>(null);
 
-  const [window_, setWindow] = useState({ start: 0, count: 120 });
-  const [text, setText] = useState<Map<number, TextRow>>(new Map());
-  const [hex, setHex] = useState<{ start: number; rows: HexRow[] }>({ start: 0, rows: [] });
+  /*
+   * What this tab last showed. Switching tabs unmounts the view; coming back to the
+   * same comparison (the same summary — Refresh, an edit or a change on disk makes a
+   * new one) puts the rows, the scroll position and the marks back from here instead
+   * of asking the server for them again.
+   */
+  const kept = viewState(tab.id, "diff", () => ({
+    summary: null as CompareTab["summary"] | null,
+    fetched: "",
+    window: { start: 0, count: 120 },
+    text: new Map<number, TextRow>(),
+    hex: { start: 0, rows: [] as HexRow[] },
+    scrollTop: 0,
+    bookmarks: [] as number[],
+  }));
+  const same = kept.summary === summary;
+  const [window_, setWindow] = useState(same ? kept.window : { start: 0, count: 120 });
+  const [text, setText] = useState<Map<number, TextRow>>(same ? kept.text : new Map());
+  const [hex, setHex] = useState<{ start: number; rows: HexRow[] }>(same ? kept.hex : { start: 0, rows: [] });
+  kept.window = window_;
   const [rowHeight, setRowHeight] = useState(20);
   const [editing, setEditing] = useState<{ row: number; side: "left" | "right"; value: string } | null>(null);
 
@@ -108,6 +126,13 @@ export function DiffView({ tab }: { tab: CompareTab }) {
     setWindow((current) => (current.start === start && current.count === count ? current : { start, count }));
   }, [rowHeight, wrap]);
 
+  // Back on a tab: where it was scrolled to, before the window is worked out from it.
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (scroller && kept.summary === summary) scroller.scrollTop = kept.scrollTop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
+  }, []);
+
   useEffect(() => {
     if (wrap) {
       setWindow({ start: 0, count: Math.min(rowCount, WRAP_LIMIT) });
@@ -132,6 +157,9 @@ export function DiffView({ tab }: { tab: CompareTab }) {
     // when "differences only" has spread it across a large part of the file.
     const from = positions[0];
     const span = Math.min(positions[positions.length - 1] - from + 1, MAX_FETCH);
+    // Already on screen: the same rows of the same comparison, kept from last time.
+    const request = `${from}:${span}:${settings.wordHighlight}:${settings.syntaxHighlight}`;
+    if (kept.summary === summary && kept.fetched === request) return undefined;
 
     const load = () => {
       api.rows(summary.id, from, span, settings.wordHighlight, settings.syntaxHighlight)
@@ -141,9 +169,14 @@ export function DiffView({ tab }: { tab: CompareTab }) {
             const map = new Map<number, TextRow>();
             data.rows.forEach((row, offset) => map.set(data.start + offset, row));
             setText(map);
+            kept.text = map;
           } else {
-            setHex({ start: data.start, rows: data.rows });
+            const rows = { start: data.start, rows: data.rows };
+            setHex(rows);
+            kept.hex = rows;
           }
+          kept.summary = summary;
+          kept.fetched = request;
         })
         .catch((error) => {
           if (cancelled) return;
@@ -161,7 +194,7 @@ export function DiffView({ tab }: { tab: CompareTab }) {
     return () => {
       cancelled = true;
     };
-  }, [app, realIndex, rowCount, settings.syntaxHighlight, settings.wordHighlight, summary.id, window_]);
+  }, [app, kept, realIndex, rowCount, settings.syntaxHighlight, settings.wordHighlight, summary, window_]);
 
   /* ------------------------------------ keeping the cursor in view */
 
@@ -200,9 +233,15 @@ export function DiffView({ tab }: { tab: CompareTab }) {
   const matches = useMemo(() => new Set(matchRows), [matchRows]);
 
   /** Bookmarks are the user's own marks, so they live with the tab, not the file. */
-  const [bookmarks, setBookmarks] = useState<number[]>([]);
+  const [bookmarks, setBookmarks] = useState<number[]>(kept.bookmarks);
   const nextBookmarkRef = useRef<() => void>(() => {});
-  useEffect(() => setBookmarks([]), [summary.id]);
+  const markedId = useRef(summary.id);
+  useEffect(() => {
+    if (markedId.current === summary.id) return;
+    markedId.current = summary.id;
+    setBookmarks([]);
+  }, [summary.id]);
+  kept.bookmarks = bookmarks;
 
   const toggleBookmark = useCallback((row: number) => {
     setBookmarks((current) => (current.includes(row)
@@ -351,7 +390,12 @@ export function DiffView({ tab }: { tab: CompareTab }) {
           }}
         />
 
-        <div className="diff-scroller" ref={scrollerRef} onScroll={recompute} data-testid="diff-scroller">
+        <div className="diff-scroller" ref={scrollerRef}
+          onScroll={(event) => {
+            kept.scrollTop = event.currentTarget.scrollTop;
+            recompute();
+          }}
+          data-testid="diff-scroller">
           <div
             className={`diff-spacer${summary.mode === "binary" ? " hex" : ""}`}
             style={{ height: totalHeight }}

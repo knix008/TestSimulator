@@ -53,7 +53,7 @@ change the text size. 한국어판: [UsersGuide.md](UsersGuide.md).
 <a id="start-first"></a>
 ### The first run
 
-![The start screen — new sessions, recent items, theme and background cards](assets/guide/en/start.png)
+![The start screen — new sessions, recent items, theme and background cards](images/en/start.png)
 
 The first time the program starts, a **welcome card** appears at the bottom right of the
 window.
@@ -82,7 +82,7 @@ For opening things from the command line see
 <a id="screen"></a>
 ## The window
 
-![The main window with a text comparison open](assets/guide/en/text-compare.png)
+![The main window with a text comparison open](images/en/text-compare.png)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -125,7 +125,7 @@ follows the toolbar and the two panels.
 <a id="menus"></a>
 ## Menus
 
-![The menu bar](assets/guide/en/menubar.png)
+![The menu bar](images/en/menubar.png)
 
 Click a title on the menu bar to open its menu; with a menu open, moving the pointer to
 another title switches to that menu. Items that cannot be used right now are greyed out.
@@ -198,7 +198,7 @@ two register items open the Git tab of the settings window.
 <a id="menu-context"></a>
 ### Right-click menus
 
-![The right-click menu of a text comparison](assets/guide/en/context-menu.png)
+![The right-click menu of a text comparison](images/en/context-menu.png)
 
 The **right mouse button** opens a menu that fits what is under the pointer: copy, paste,
 difference navigation, word wrap and zoom in a text comparison; copy, delete and swap in a
@@ -211,7 +211,7 @@ and the log and terminal switches in the bottom panel.
 <a id="toolbar"></a>
 ## The toolbar
 
-![The toolbar with a text comparison open](assets/guide/en/toolbar.png)
+![The toolbar with a text comparison open](images/en/toolbar.png)
 
 A group whose every button is unavailable is hidden: the merge buttons appear only on a
 merge tab, the folder buttons only in a folder comparison.
@@ -330,14 +330,18 @@ audio, version, registry) cannot be edited.
   rules only change what counts as a difference.
 - **Back and forward** (`Alt+←` · `Alt+→`) return to what you were looking at, across tabs
   and between a repository's change list and its commits.
-- **Swap sides** exchanges left and right; **Refresh** (`F5`) reads the files again.
+- **Swap sides** exchanges left and right; **Refresh** (`F5`) reads the files again and compares them.
+- **Compared again when they change**: when another program edits a file or folder being
+  compared, the tab in front is compared again straight away (within a second); a tab behind it
+  is compared again when you bring it forward. Moving between tabs alone never re-runs a
+  comparison, and the scroll position and open folders stay as they were.
 
 ---
 
 <a id="folder-compare"></a>
 ## Folder comparison
 
-![A folder comparison — the two trees and the tree toolbar](assets/guide/en/folder-compare.png)
+![A folder comparison — the two trees and the tree toolbar](images/en/folder-compare.png)
 
 **File › Compare Directories...** (`Ctrl+Shift+O`)
 
@@ -468,7 +472,7 @@ These comparisons show **what a file means**, not what it says, so they cannot b
 <a id="merge-screen"></a>
 ### The merge screen
 
-![A 3-way merge — Base, Local and Remote above, the result below, the conflict list on the left](assets/guide/en/merge.png)
+![A 3-way merge — Base, Local and Remote above, the result below, the conflict list on the left](images/en/merge.png)
 
 At the top, three panes: **Base (common ancestor) · Local (ours) · Remote (theirs)**; below
 them, the editable **Result**. All four are **aligned line by line** and scroll together. A
@@ -512,7 +516,7 @@ redone (`Ctrl+Y`).
 <a id="git"></a>
 ## Git
 
-![A git repository — the changes and the branch and merge graph](assets/guide/en/git.png)
+![A git repository — the changes and the branch and merge graph](images/en/git.png)
 
 **File › Open Git Repository...** lists the working tree's changes, staged changes,
 untracked files and conflicted files together, beside the commit history drawn as a **graph
@@ -616,7 +620,7 @@ Panel**.
 <a id="terminal-shell"></a>
 ### Terminal and shells
 
-![The bottom panel — the log tab and a terminal tab](assets/guide/en/bottom-panel.png)
+![The bottom panel — the log tab and a terminal tab](images/en/bottom-panel.png)
 
 Open and close it with the toolbar's terminal button, **View › Terminal Panel** or
 `` Ctrl+` ``. It starts **in the folder being compared** (the left root of a folder
@@ -689,7 +693,7 @@ The toolbar's print button or `Ctrl+P` opens the **print preview**.
 <a id="settings"></a>
 ## Settings
 
-![Settings — the General tab](assets/guide/en/settings-general.png)
+![Settings — the General tab](images/en/settings-general.png)
 
 The gear button on the toolbar, **Tools › Settings...** or `Ctrl+,`. The window has a **fixed
 size and never scrolls**; settings are **one per line**, on ten tabs. Number fields have
@@ -708,7 +712,7 @@ size and never scrolls**; settings are **one per line**, on ten tabs. Number fie
 | **Prompt** | Nineteen presets, segments, style, path style, two lines, colour per repository state |
 | **Custom Prompts** | Save, rename and delete your own prompts; edit each segment's colours and template |
 
-![Settings — the Start screen tab](assets/guide/en/settings-start.png)
+![Settings — the Start screen tab](images/en/settings-start.png)
 
 Everything is restored at the next start, including the window's position and size.
 
@@ -717,7 +721,7 @@ Everything is restored at the next start, including the window's position and si
 <a id="themes"></a>
 ## Themes, language, font and zoom
 
-![The theme drop-down — light and dark themes in two columns](assets/guide/en/theme-menu.png)
+![The theme drop-down — light and dark themes in two columns](images/en/theme-menu.png)
 
 - **Themes**: twenty light themes paired with twenty dark ones. The toolbar's theme button
   or `Ctrl+T` switches to the **light ↔ dark partner** of the current theme; `▾` beside it
@@ -771,7 +775,7 @@ While the tutorial is running, `→` is next, `←` is back and `Esc` closes it.
 <a id="help-tour"></a>
 ### The tutorial
 
-![The tutorial — the highlighted part and its card](assets/guide/en/tutorial.png)
+![The tutorial — the highlighted part and its card](images/en/tutorial.png)
 
 **Help › Tutorial** dims the window, lights up one part at a time and explains it on a card
 beside it: the menu bar, the toolbar, the start screen, opening a comparison, the comparison
@@ -786,7 +790,7 @@ itself, merging, the panels, the log and terminal, themes, settings and this gui
 <a id="help-guide"></a>
 ### The guide window
 
-![The user's guide window — contents, search, language and text size](assets/guide/en/guide.png)
+![The user's guide window — contents, search, language and text size](images/en/guide.png)
 
 **Help › User's Guide** (`F1`) opens this guide in a resizable window of its own.
 
@@ -845,6 +849,9 @@ it on the clipboard, ready to paste into a report.
 - Put big folders such as `node_modules` and `dist` in **Settings › Compare › Excluded
   folders** (they are there by default).
 - Narrow the comparison with **file masks** to the files you care about.
+- Files of the same size are compared by reading them, which is where most of the time goes.
+  Many are read at once, and only the rows on screen are drawn, so even tens of thousands of
+  entries scroll smoothly.
 
 <a id="trouble-wrap"></a>
 ### Word wrap will not turn on for a very large file

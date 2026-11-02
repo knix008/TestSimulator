@@ -231,9 +231,11 @@ TOTAL                387 / 387  ████████████████
 | `scripts/` | Development launcher, icon generator, bundlers, runtime staging, test runners. |
 | `test/` | Unit tests and the reporter that groups them by category. |
 | `samples/` | Generated inputs the GUI test and a curious user can both try. |
+| `doc/` | The user's guide (`UsersGuide.md`, `UsersGuide.en.md`), the hands-on tutorial (`Tutorial.md`, `Tutorial.en.md`) and the guide's pictures (`images/`). |
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together and
-[UsersGuide.md](UsersGuide.md) for the user-facing walkthrough.
+[doc/UsersGuide.md](doc/UsersGuide.md) for the user-facing reference, and
+[doc/Tutorial.md](doc/Tutorial.md) for a step-by-step tutorial.
 
 ---
 

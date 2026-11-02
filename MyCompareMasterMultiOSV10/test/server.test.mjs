@@ -414,3 +414,59 @@ test("git › a folder that is not a repository is refused", async (t) => {
   assert.equal(status, 400);
   assert.equal(body.code, "NO_REPO");
 });
+
+/* ------------------------------------------------- changes on disk */
+
+/** Asks until the answer names `id`, or gives up after a few seconds. */
+async function changedSoon(body, id) {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const { body: answer } = await api("POST", "/api/changes", body);
+    if (answer.changed.includes(id)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+test("changes › an untouched file comparison is not reported", async () => {
+  const left = write("watch/untouched-l.txt", "a\n");
+  const right = write("watch/untouched-r.txt", "b\n");
+  const { body } = await api("POST", "/api/compare/files", { left, right });
+  const { body: answer } = await api("POST", "/api/changes", { compares: [body.compare.id], directories: [] });
+  assert.deepEqual(answer.changed, []);
+});
+
+test("changes › a file written after it was read is reported until it is read again", async () => {
+  const left = write("watch/edit-l.txt", "a\n");
+  const right = write("watch/edit-r.txt", "b\n");
+  const { body } = await api("POST", "/api/compare/files", { left, right });
+  const id = body.compare.id;
+  fs.writeFileSync(right, "b\nc\n", "utf8");
+  const ask = { compares: [id], directories: [] };
+  assert.ok(await changedSoon(ask, id));
+  await api("POST", `/api/compare/${id}/reload`);
+  const { body: answer } = await api("POST", "/api/changes", ask);
+  assert.deepEqual(answer.changed, []);
+});
+
+test("changes › a file in a compared folder is reported, and a reload settles it", async () => {
+  const left = path.join(scratch, "watch-dir", "left");
+  const right = path.join(scratch, "watch-dir", "right");
+  write("watch-dir/left/one.txt", "one\n");
+  write("watch-dir/right/one.txt", "one\n");
+  const { body } = await api("POST", "/api/compare/directories", { left, right });
+  const id = body.directory.id;
+  const ask = { compares: [], directories: [id] };
+  const { body: first } = await api("POST", "/api/changes", ask);
+  assert.deepEqual(first.changed, []);
+  write("watch-dir/right/sub/two.txt", "two\n");
+  assert.ok(await changedSoon(ask, id));
+  await api("POST", `/api/directory/${id}/reload`);
+  const { body: settled } = await api("POST", "/api/changes", ask);
+  assert.deepEqual(settled.changed, []);
+});
+
+test("changes › ids that are not open are ignored", async () => {
+  const { status, body } = await api("POST", "/api/changes", { compares: ["cmp-none"], directories: ["dir-none", 4] });
+  assert.equal(status, 200);
+  assert.deepEqual(body.changed, []);
+});

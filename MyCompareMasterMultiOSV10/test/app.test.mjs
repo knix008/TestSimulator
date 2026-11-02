@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
-import { compareDirectories, DEFAULT_EXCLUDES } from "../core/dirCompare.ts";
+import { compareDirectories, compareDirectoriesAsync, DEFAULT_EXCLUDES } from "../core/dirCompare.ts";
 import { parseArguments } from "../core/cli.ts";
 import { contrastRatio, deltaE, luminance, mix, parseHex, readableOn, toHex } from "../core/color.ts";
 import { LANGUAGES, translate, translator } from "../core/i18n.ts";
@@ -103,6 +103,21 @@ test("directory › files of equal size but different content are different", ()
 
 test("directory › a missing folder is an error, not an empty result", () => {
   assert.throws(() => compareDirectories(path.join(scratch, "nope"), scratch), /Directory not found/);
+});
+
+test("directory › reading the pairs in parallel gives the same answer as one at a time", async () => {
+  const { left, right } = tree();
+  // Large enough to be read in chunks: equal size, differing only in the last chunk.
+  const big = Buffer.alloc(200_000, 7);
+  fs.writeFileSync(path.join(left, "big-same.bin"), big);
+  fs.writeFileSync(path.join(right, "big-same.bin"), big);
+  fs.writeFileSync(path.join(left, "big-diff.bin"), big);
+  fs.writeFileSync(path.join(right, "big-diff.bin"), Buffer.concat([big.subarray(0, -1), Buffer.from([8])]));
+  const parallel = await compareDirectoriesAsync(left, right);
+  assert.deepEqual(parallel, compareDirectories(left, right));
+  const byStatus = Object.fromEntries(parallel.entries.map((entry) => [entry.rel, entry.status]));
+  assert.equal(byStatus["big-same.bin"], "same");
+  assert.equal(byStatus["big-diff.bin"], "different");
 });
 
 /* ------------------------------------------------------------- settings */
@@ -428,7 +443,7 @@ test("i18n › placeholders are substituted", () => {
 
 /* ------------------------------------------------- user's guide and tour */
 
-const guideOf = (file) => parseGuide(fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8"));
+const guideOf = (file) => parseGuide(fs.readFileSync(new URL(`../doc/${file}`, import.meta.url), "utf8"));
 
 test("guide › every section exists in both languages, in the same order", () => {
   const ko = guideOf("UsersGuide.md");
@@ -466,9 +481,25 @@ test("guide › every link inside the guide points at a section", () => {
   for (const file of ["UsersGuide.md", "UsersGuide.en.md"]) {
     const doc = guideOf(file);
     const ids = new Set(doc.sections.map((s) => s.id));
-    const markdown = fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+    const markdown = fs.readFileSync(new URL(`../doc/${file}`, import.meta.url), "utf8");
     for (const match of markdown.matchAll(/\]\(#([^)]+)\)/g)) {
       assert.ok(ids.has(match[1]), `${file}: link to missing #${match[1]}`);
+    }
+  }
+});
+
+test("tutorial › both languages walk through the same steps, and every link and picture resolves", () => {
+  const read = (file) => fs.readFileSync(new URL(`../doc/${file}`, import.meta.url), "utf8");
+  const ko = read("Tutorial.md");
+  const en = read("Tutorial.en.md");
+  const anchors = (text) => [...text.matchAll(/<a id="([^"]+)"><\/a>/g)].map((match) => match[1]);
+  assert.ok(anchors(ko).length >= 9, `only ${anchors(ko).length} steps`);
+  assert.deepEqual(anchors(en), anchors(ko));
+  for (const [file, text] of [["Tutorial.md", ko], ["Tutorial.en.md", en]]) {
+    const ids = new Set(anchors(text));
+    for (const match of text.matchAll(/\]\(#([^)]+)\)/g)) assert.ok(ids.has(match[1]), `${file}: link to missing #${match[1]}`);
+    for (const match of text.matchAll(/\]\(([^)#]+\.(?:md|png))\)/g)) {
+      assert.ok(fs.existsSync(new URL(`../doc/${match[1]}`, import.meta.url)), `${file}: missing doc/${match[1]}`);
     }
   }
 });
@@ -479,8 +510,8 @@ test("guide › every picture either guide shows exists, in that language's fold
     const images = guideImages(guideOf(file));
     assert.ok(images.length >= 10, `${file} shows only ${images.length} pictures`);
     for (const src of images) {
-      assert.ok(src.startsWith(`assets/guide/${language}/`), `${file}: ${src} is not under assets/guide/${language}/`);
-      assert.ok(fs.existsSync(new URL(`../${src}`, import.meta.url)), `${file}: missing ${src}`);
+      assert.ok(src.startsWith(`images/${language}/`), `${file}: ${src} is not under doc/images/${language}/`);
+      assert.ok(fs.existsSync(new URL(`../doc/${src}`, import.meta.url)), `${file}: missing doc/${src}`);
     }
     names[language] = images.map((src) => src.split("/").pop());
   }

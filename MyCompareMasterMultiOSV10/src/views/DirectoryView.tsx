@@ -9,7 +9,7 @@
  * Each side's root folder is set from the path bar at the top of its own pane, and
  * double-clicking a file opens that pair as a line-by-line comparison in a new tab.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CONTEXT_ACTION_EVENT } from "../contextMenus.js";
 import {
   allFolders,
@@ -27,6 +27,10 @@ import { fileIcon } from "../fileIcons.js";
 import { Icon } from "../icons.js";
 import { PathBar } from "../PathBar.js";
 import { useApp, type DirectoryTab } from "../state.js";
+import { viewState } from "../viewCache.js";
+
+/** Rows built above and below the visible ones, so a fast scroll does not show gaps. */
+const TREE_OVERSCAN = 30;
 
 const STATUS_ICON: Record<FileCompareStatus, string> = {
   same: "equal",
@@ -49,16 +53,30 @@ export function DirectoryView({ tab }: {
   const tint = (pane: "base" | "local" | "remote" | "result") =>
     paneHeaderStyle(settings.headerColors[pane], settings.theme, settings.customTheme);
 
-  const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  /*
+   * What this tab last showed, so that coming back to it from another tab finds the
+   * same folders open, the same filter typed and the list where it was scrolled.
+   */
+  const kept = viewState(tab.id, "directory", () => ({
+    entries: null as DirectoryTab["result"]["entries"] | null,
+    expanded: new Set<string>(),
+    query: "",
+    scrollTop: 0,
+  }));
+  const [query, setQuery] = useState(kept.query);
+  const [expanded, setExpanded] = useState<Set<string>>(kept.expanded);
+  kept.query = query;
+  kept.expanded = expanded;
 
   const tree = useMemo(() => buildTree(tab.result.entries), [tab.result.entries]);
 
   // A fresh comparison opens on the folders that actually contain changes, which is
   // what a user is looking for; a tree collapsed to its roots tells them nothing.
   useEffect(() => {
+    if (kept.entries === tab.result.entries) return;
+    kept.entries = tab.result.entries;
     setExpanded(new Set(foldersWithDifferences(tree)));
-  }, [tree]);
+  }, [kept, tab.result.entries, tree]);
 
   /*
    * Two shapes for the same comparison: a tree to browse, or one flat list of every
@@ -105,6 +123,40 @@ export function DirectoryView({ tab }: {
     element.addEventListener(CONTEXT_ACTION_EVENT, onAction);
     return () => element.removeEventListener(CONTEXT_ACTION_EVENT, onAction);
   }, []);
+
+  // Back on this tab: the list where it was left.
+  useLayoutEffect(() => {
+    if (scrollerRef.current) scrollerRef.current.scrollTop = kept.scrollTop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
+  }, []);
+
+  /*
+   * Only the rows on screen are in the page.
+   *
+   * A comparison of two large trees is tens of thousands of rows; built in full they
+   * made every scroll, every resize and every status message — anything that renders
+   * the window again — cost half a second. Rows are all one height, so the ones in
+   * view follow from the scroll position, with the rest stood in for by padding.
+   */
+  const [scrollTop, setScrollTop] = useState(kept.scrollTop);
+  const [viewHeight, setViewHeight] = useState(800);
+  const [rowHeight, setRowHeight] = useState(24);
+  useLayoutEffect(() => {
+    const element = scrollerRef.current;
+    if (!element) return undefined;
+    const observer = new ResizeObserver(() => setViewHeight(element.clientHeight));
+    observer.observe(element);
+    setViewHeight(element.clientHeight);
+    return () => observer.disconnect();
+  }, []);
+  // Measured from a row, since padding, font and zoom all decide it.
+  useLayoutEffect(() => {
+    const row = scrollerRef.current?.querySelector<HTMLElement>(".tree-pair");
+    const measured = row?.getBoundingClientRect().height ?? 0;
+    if (measured > 4 && Math.abs(measured - rowHeight) > 0.5) setRowHeight(measured);
+  });
+  const first = Math.max(0, Math.floor(scrollTop / rowHeight) - TREE_OVERSCAN);
+  const last_ = Math.min(rows.length, Math.ceil((scrollTop + viewHeight) / rowHeight) + TREE_OVERSCAN);
 
   return (
     <div className="directory-view" data-tour="directory-view">
@@ -192,12 +244,20 @@ export function DirectoryView({ tab }: {
 
       {tab.sync ? <SyncBar tab={tab} /> : null}
 
-      <div className="tree-scroller" data-testid="directory-tree" ref={scrollerRef}>
-        <div className="tree-grid">
-          {rows.map(({ node, depth, expandable, expanded: isExpanded, rails, last }) => (
+      <div
+        className="tree-scroller"
+        data-testid="directory-tree"
+        ref={scrollerRef}
+        onScroll={(event) => {
+          kept.scrollTop = event.currentTarget.scrollTop;
+          setScrollTop(kept.scrollTop);
+        }}
+      >
+        <div className="tree-grid" style={{ paddingTop: first * rowHeight, paddingBottom: (rows.length - last_) * rowHeight }}>
+          {rows.slice(first, last_).map(({ node, depth, expandable, expanded: isExpanded, rails, last }, offset) => (
             <div
               key={node.rel}
-              className={`tree-pair status-${node.status}${tab.selected === node.rel ? " selected" : ""}`}
+              className={`tree-pair status-${node.status}${(first + offset) % 2 === 0 ? " odd" : " even"}${tab.selected === node.rel ? " selected" : ""}`}
               data-entry={node.rel}
               data-context="dir-entry"
               data-context-key={node.rel}

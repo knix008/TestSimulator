@@ -49,6 +49,7 @@ import {
   type RepoInfo,
 } from "./api.js";
 import * as host from "./host.js";
+import { forgetViewState } from "./viewCache.js";
 
 /* ------------------------------------------------------------------ *
  * Tabs
@@ -116,6 +117,9 @@ export type Place = { tabId: string; view?: GitViewSpec; cursor?: number };
 
 /** How far back the history remembers. */
 const MAX_HISTORY = 50;
+
+/** How often the open tabs' files are checked for changes on disk. */
+const CHANGE_POLL_MS = 1000;
 
 /*
  * A message for the status bar or the log.
@@ -412,6 +416,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (activeRef.current === id) setActiveId(next.length > 0 ? next[next.length - 1].id : null);
       return next;
     });
+    forgetViewState(id);
+    staleTabs.current.delete(id);
+    brokenTabs.current.delete(id);
     const tab = tabsRef.current.find((item) => item.id === id);
     if (tab?.kind === "compare") api.closeCompare(tab.summary.id).catch(() => {});
   }, []);
@@ -644,9 +651,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   /* --------------------------------------------------------- reload */
 
-  const reloadActive = useCallback(async () => {
-    const tab = tabsRef.current.find((item) => item.id === activeRef.current);
+  /** Tabs whose files changed while another tab was in front. */
+  const staleTabs = useRef(new Set<string>());
+  /** Tabs whose files changed and could not be read again: said once, not every second. */
+  const brokenTabs = useRef(new Set<string>());
+
+  /**
+   * Compares a tab again from disk. Refresh asks for it; so does a change on disk
+   * (`watched`), which reports a failure — a file deleted, say — in the status bar
+   * rather than a dialog nobody asked for.
+   */
+  const reloadTab = useCallback(async (id: string | null, watched = false) => {
+    const tab = tabsRef.current.find((item) => item.id === id);
     if (!tab) return;
+    staleTabs.current.delete(tab.id);
     try {
       if (tab.kind === "compare") {
         const summary = await withProgress("progress.readingFiles", () => api.reloadCompare(tab.summary.id));
@@ -665,10 +683,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
           conflicted: result.conflicted,
         }));
       }
+      brokenTabs.current.delete(tab.id);
     } catch (error) {
-      report(error);
+      if (!watched) report(error);
+      else if (!brokenTabs.current.has(tab.id)) setStatus(error instanceof Error ? error.message : String(error));
+      if (watched) brokenTabs.current.add(tab.id);
     }
-  }, [patchTab, report, t, withProgress]);
+  }, [patchTab, report, setStatus, withProgress]);
+
+  const reloadActive = useCallback(() => reloadTab(activeRef.current), [reloadTab]);
+
+  /*
+   * Comparing again when the files change, and only then.
+   *
+   * Switching tabs never re-runs a comparison: the views keep what they showed
+   * (viewCache.ts). What does is Refresh, or this — once a second the server is asked
+   * which of the open tabs' files moved on since they were read. The tab in front is
+   * compared again at once; one behind is marked and compared when it comes forward,
+   * so ten tabs over a busy build tree do not all re-walk it in the background.
+   */
+  useEffect(() => {
+    let busy = false;
+    const timer = window.setInterval(() => {
+      if (busy) return;
+      const open = tabsRef.current;
+      const compares = open.flatMap((tab) => (tab.kind === "compare" ? [tab.summary.id] : []));
+      const directories = open.flatMap((tab) => (tab.kind === "directory" ? [tab.directoryId] : []));
+      if (compares.length === 0 && directories.length === 0) return;
+      busy = true;
+      api.changedSessions(compares, directories)
+        .then(async (changed) => {
+          for (const tab of tabsRef.current) {
+            const session = tab.kind === "compare" ? tab.summary.id : tab.kind === "directory" ? tab.directoryId : null;
+            if (!session || !changed.includes(session)) continue;
+            if (tab.id === activeRef.current) await reloadTab(tab.id, true);
+            else staleTabs.current.add(tab.id);
+          }
+        })
+        .catch(() => {})
+        .finally(() => { busy = false; });
+    }, CHANGE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [reloadTab]);
+
+  useEffect(() => {
+    if (activeId && staleTabs.current.has(activeId)) void reloadTab(activeId, true);
+  }, [activeId, reloadTab]);
 
   const swapActive = useCallback(async () => {
     const tab = tabsRef.current.find((item) => item.id === activeRef.current);

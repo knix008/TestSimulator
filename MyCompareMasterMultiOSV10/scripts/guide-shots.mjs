@@ -8,7 +8,7 @@
 // folder (light theme, no welcome card), copies samples/ into a scratch folder so
 // nothing the app does can touch the real samples, builds a small git repository
 // there, then drives headless Edge (or Chrome) over CDP and writes
-// assets/guide/<lang>/*.png. Everything it started is stopped at the end.
+// doc/images/<lang>/*.png. Everything it started is stopped at the end.
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -202,7 +202,7 @@ async function shot(language, name, area) {
     ]);
   }
   if (!result) throw new Error(`screenshot ${language}/${name} timed out`);
-  const file = path.join(root, "assets", "guide", language, `${name}.png`);
+  const file = path.join(root, "doc", "images", language, `${name}.png`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, Buffer.from(result.data, "base64"));
   console.log(`  ${path.relative(root, file).replace(/\\/g, "/")}  ${Math.round(fs.statSync(file).size / 1024)} KB`);

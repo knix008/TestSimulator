@@ -2,7 +2,7 @@
  * The user's guide (Help › User's Guide, F1).
  *
  * A window of its own, like every other dialog, but the one that may be resized. The
- * text is UsersGuide.md / UsersGuide.en.md — the same files GitHub shows — parsed by
+ * text is doc/UsersGuide.md / doc/UsersGuide.en.md — the same files GitHub shows — parsed by
  * src/guideDoc.ts and drawn here, in the app's language and theme.
  *
  * Left: the contents, a tree of the `##` sections with their `###` subsections; click to
@@ -14,8 +14,8 @@
  * section ids, so switching keeps the reader on the same section.
  */
 import { createContext, Fragment, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import koGuide from "../../UsersGuide.md?raw";
-import enGuide from "../../UsersGuide.en.md?raw";
+import koGuide from "../../doc/UsersGuide.md?raw";
+import enGuide from "../../doc/UsersGuide.en.md?raw";
 import { parseGuide, parseInline, sectionText, type GuideBlock, type GuideDocument, type GuideSection } from "../guideDoc.js";
 import type { DialogProps } from "../DialogHost.js";
 import * as host from "../host.js";
@@ -280,14 +280,14 @@ export function GuideDialog({ payload, settings }: DialogProps) {
 }
 
 /*
- * The guide's pictures. Vite turns every PNG under assets/guide into a URL at build
- * time; the Markdown names them relative to the repository root (so GitHub shows them
- * too), which is the key here.
+ * The guide's pictures. Vite turns every PNG under doc/images into a URL at build
+ * time; the Markdown names them relative to doc/ (so GitHub shows them too), which is
+ * the key here.
  */
 const IMAGE_URLS: Record<string, string> = Object.fromEntries(
   Object.entries(
-    import.meta.glob<string>("../../assets/guide/**/*.png", { eager: true, query: "?url", import: "default" }),
-  ).map(([file, url]) => [file.replace(/^(\.\.\/)+/, ""), url]),
+    import.meta.glob<string>("../../doc/images/**/*.png", { eager: true, query: "?url", import: "default" }),
+  ).map(([file, url]) => [file.replace(/^(\.\.\/)+doc\//, ""), url]),
 );
 
 function imageUrl(src: string): string | null {

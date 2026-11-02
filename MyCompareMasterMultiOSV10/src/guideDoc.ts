@@ -1,7 +1,7 @@
 /**
  * The user's guide, read from the two Markdown files at the project root.
  *
- * `UsersGuide.md` (Korean) and `UsersGuide.en.md` (English) are the one source: the
+ * `doc/UsersGuide.md` (Korean) and `doc/UsersGuide.en.md` (English) are the one source: the
  * same text is read on GitHub and shown in the app's guide window, so the two can never
  * drift apart. Every `##` and `###` heading is preceded by an `<a id="..."></a>` line,
  * and the ids are the same in both languages — that is what lets the window keep its
@@ -173,7 +173,7 @@ export function parseGuide(markdown: string): GuideDocument {
       continue;
     }
 
-    // A picture on a line of its own: `![caption](assets/guide/ko/start.png)`.
+    // A picture on a line of its own: `![caption](images/ko/start.png)`.
     const image = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(trimmed);
     if (image) {
       flushParagraph(paragraph);

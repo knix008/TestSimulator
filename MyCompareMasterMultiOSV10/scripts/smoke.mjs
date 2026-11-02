@@ -2416,7 +2416,12 @@ async function run() {
     await waitFor(async () => !(await answers(app.corePort)), 6000).catch(() => {
       throw new Error(`the core on port ${app.corePort} outlived the app`);
     });
-    assert(!(await answers(app.cdpPort)), "the WebView is still serving after the app quit");
+    // The WebView's browser process outlives the exe by a moment while debugging
+    // clients are attached (measured: answering at +10 ms, gone well within 2 s), so it
+    // gets the same grace as the core rather than one look straight after the exit.
+    await waitFor(async () => !(await answers(app.cdpPort)), 6000).catch(() => {
+      throw new Error("the WebView is still serving after the app quit");
+    });
     return `${before} windows, exit code 0, core stopped`;
   });
 }

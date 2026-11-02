@@ -128,6 +128,8 @@ export const api = {
     post<{ compare: CompareSummary; replaced: number }>(
       `/api/compare/${id}/replace`, { side, find, replace, ...options },
     ),
+  changedSessions: (compares: string[], directories: string[]) =>
+    post<{ changed: string[] }>("/api/changes", { compares, directories }).then((r) => r.changed),
   reloadCompare: (id: string) =>
     post<{ compare: CompareSummary }>(`/api/compare/${id}/reload`).then((r) => r.compare),
   rows: (id: string, start: number, count: number, words: boolean, syntax = false) =>

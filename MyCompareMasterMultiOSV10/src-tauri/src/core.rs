@@ -103,6 +103,9 @@ impl Core {
             .args(app_args)
             .current_dir(&launch.cwd)
             .env_remove("ELECTRON_RUN_AS_NODE")
+            // A folder comparison reads many files at once; libuv's default of four
+            // threads left it waiting on the disk a third of the time.
+            .env("UV_THREADPOOL_SIZE", "16")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());

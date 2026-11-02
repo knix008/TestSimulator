@@ -9,10 +9,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DOC_EXTENSION } from "./appInfo.js";
+import { ChangeWatch, type FileSnapshot } from "./changeWatch.js";
 import { CompareSession, type CompareSide, type SearchOptions } from "./compareSession.js";
 import { containsConflictMarkers, parse as parseConflicts } from "./conflictMarkers.js";
 import {
-  compareDirectories,
+  compareDirectoriesAsync,
   type CompareDirectoriesOptions,
   type DirectoryCompareResult,
 } from "./dirCompare.js";
@@ -78,6 +79,8 @@ export class CompareMasterApp {
   /** Live server connections, one per remote comparison. */
   private readonly remotes = new Map<string, RemoteSession>();
   private readonly directories = new Map<string, DirectorySessionInfo>();
+  /** What tells an open tab that its files changed on disk. */
+  private readonly watch = new ChangeWatch();
   private repo: git.RepoInfo | null = null;
   private pending: PendingRequest | null = null;
 
@@ -140,8 +143,8 @@ export class CompareMasterApp {
 
   /* ---------------------------------------------------- directories */
 
-  openDirectories(leftRoot: string, rightRoot: string, excludes?: readonly string[]): DirectorySessionInfo {
-    const result = compareDirectories(leftRoot, rightRoot, this.directoryOptions(excludes));
+  async openDirectories(leftRoot: string, rightRoot: string, excludes?: readonly string[]): Promise<DirectorySessionInfo> {
+    const result = await compareDirectoriesAsync(leftRoot, rightRoot, this.directoryOptions(excludes));
     const info: DirectorySessionInfo = { id: nextId("dir"), result };
     this.directories.set(info.id, info);
     this.remember("directories", [result.left, result.right]);
@@ -166,12 +169,39 @@ export class CompareMasterApp {
     };
   }
 
-  reloadDirectory(id: string): DirectorySessionInfo {
+  async reloadDirectory(id: string): Promise<DirectorySessionInfo> {
     const previous = this.directory(id);
-    const result = compareDirectories(previous.result.left, previous.result.right, this.directoryOptions());
+    const result = await compareDirectoriesAsync(previous.result.left, previous.result.right, this.directoryOptions());
     const info: DirectorySessionInfo = { id, result };
     this.directories.set(id, info);
+    this.watch.settled(id);
     return info;
+  }
+
+  /**
+   * Which of these sessions no longer match the disk, so their tabs compare again.
+   * The renderer names the sessions its tabs hold; any other folder watch is dropped.
+   */
+  changedSessions(compareIds: readonly string[], directoryIds: readonly string[]): string[] {
+    const changed: string[] = [];
+    for (const id of compareIds) {
+      const session = this.compares.get(id);
+      if (!session) continue;
+      const sides: FileSnapshot[] = [];
+      for (const side of [session.left, session.right]) {
+        if (side.path && side.modified !== null) sides.push({ path: side.path, size: side.size, modified: side.modified });
+      }
+      if (sides.length > 0 && this.watch.filesChanged(sides)) changed.push(id);
+    }
+    const folders = new Map<string, string[]>();
+    for (const id of directoryIds) {
+      const info = this.directories.get(id);
+      if (!info) continue;
+      // A server comparison has only its local side to watch.
+      folders.set(id, this.remotes.has(id) ? [info.result.left] : [info.result.left, info.result.right]);
+    }
+    changed.push(...this.watch.foldersChanged(folders));
+    return changed;
   }
 
   /**
@@ -206,12 +236,12 @@ export class CompareMasterApp {
   }
 
   /** Renames one entry on one side, and re-reads the comparison. */
-  renameDirectoryEntry(id: string, side: "left" | "right", rel: string, nextRel: string): {
+  async renameDirectoryEntry(id: string, side: "left" | "right", rel: string, nextRel: string): Promise<{
     directory: DirectorySessionInfo;
-  } {
+  }> {
     const info = this.directory(id);
     renameEntry(side === "left" ? info.result.left : info.result.right, rel, nextRel);
-    return { directory: this.reloadDirectory(id) };
+    return { directory: await this.reloadDirectory(id) };
   }
 
   /**
@@ -230,11 +260,11 @@ export class CompareMasterApp {
    * It takes the plan rather than the mode: what runs is then exactly what was
    * shown, even if a file changed on disk between the preview and the confirmation.
    */
-  applySync(id: string, plan: SyncPlan): { results: OperationResult[]; directory: DirectorySessionInfo } {
+  async applySync(id: string, plan: SyncPlan): Promise<{ results: OperationResult[]; directory: DirectorySessionInfo }> {
     const info = this.directory(id);
     const results = groupByOperation(plan).map(({ operation, relatives }) =>
       applyOperation(operation, info.result.left, info.result.right, relatives));
-    return { results, directory: this.reloadDirectory(id) };
+    return { results, directory: await this.reloadDirectory(id) };
   }
 
   /** Opens one entry of a directory comparison as a file comparison. */
@@ -257,13 +287,13 @@ export class CompareMasterApp {
    * Copies or deletes entries between the two sides of a directory comparison, then
    * re-walks the trees so the view reflects what is now on disk.
    */
-  applyDirectoryOperation(id: string, operation: FileOperation, relatives: readonly string[]): {
+  async applyDirectoryOperation(id: string, operation: FileOperation, relatives: readonly string[]): Promise<{
     result: OperationResult;
     directory: DirectorySessionInfo;
-  } {
+  }> {
     const info = this.directory(id);
     const result = applyOperation(operation, info.result.left, info.result.right, relatives);
-    return { result, directory: this.reloadDirectory(id) };
+    return { result, directory: await this.reloadDirectory(id) };
   }
 
   /* --------------------------------------------------- side editing */

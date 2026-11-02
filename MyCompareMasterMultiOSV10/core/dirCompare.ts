@@ -50,11 +50,66 @@ export type CompareDirectoriesOptions = {
   archives?: boolean;
 };
 
+/** Same-size pairs whose bytes are read at once; past a handful the disk is the limit. */
+const PARALLEL_READS = 16;
+
+/** One collator for the whole sort: `localeCompare` with options builds one per call. */
+const collator = new Intl.Collator(undefined, { sensitivity: "accent" });
+
 export function compareDirectories(
   leftRoot: string,
   rightRoot: string,
   options: CompareDirectoriesOptions | readonly string[] = {},
 ): DirectoryCompareResult {
+  const walked = walkBoth(leftRoot, rightRoot, options);
+  const equal = walked.pairs.map(([leftFile, rightFile]) => entriesEqual(walked.left, leftFile, walked.right, rightFile));
+  return settle(walked, equal);
+}
+
+/**
+ * The same comparison, with the files' contents read many at a time.
+ *
+ * Reading the pairs is nearly all of the cost of comparing two trees — opening a
+ * file on Windows, with a virus scanner looking at it, costs far more than reading a
+ * small one — and one after another it took ten seconds for twenty thousand files.
+ * The walk itself stays as it is: it is a fraction of that.
+ */
+export async function compareDirectoriesAsync(
+  leftRoot: string,
+  rightRoot: string,
+  options: CompareDirectoriesOptions | readonly string[] = {},
+): Promise<DirectoryCompareResult> {
+  const walked = walkBoth(leftRoot, rightRoot, options);
+  const equal = new Array<boolean>(walked.pairs.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < walked.pairs.length) {
+      const index = next++;
+      const [leftFile, rightFile] = walked.pairs[index];
+      equal[index] = await entriesEqualAsync(walked.left, leftFile, walked.right, rightFile);
+    }
+  };
+  await Promise.all(Array.from({ length: PARALLEL_READS }, worker));
+  return settle(walked, equal);
+}
+
+type Walked = {
+  left: string;
+  right: string;
+  settings: CompareDirectoriesOptions;
+  keys: string[];
+  leftFiles: Map<string, WalkedFile>;
+  rightFiles: Map<string, WalkedFile>;
+  /** The files present on both sides, in key order: what has to be read to compare. */
+  pairs: [WalkedFile, WalkedFile][];
+  truncated: boolean;
+};
+
+function walkBoth(
+  leftRoot: string,
+  rightRoot: string,
+  options: CompareDirectoriesOptions | readonly string[],
+): Walked {
   // A plain array is still accepted as "just the folder exclusions", which is how
   // the older call sites and the tests read.
   const settings: CompareDirectoriesOptions = Array.isArray(options)
@@ -68,17 +123,28 @@ export function compareDirectories(
 
   const leftFiles = walkFolder(left, skip, keep, settings.archives === true);
   const rightFiles = walkFolder(right, skip, keep, settings.archives === true);
-  const keys = [...new Set([...leftFiles.keys(), ...rightFiles.keys()])].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: "accent" }));
+  const all = [...new Set([...leftFiles.keys(), ...rightFiles.keys()])].sort(collator.compare);
+  const keys = all.slice(0, MAX_ENTRIES);
+  const pairs: [WalkedFile, WalkedFile][] = [];
+  for (const key of keys) {
+    const leftFile = leftFiles.get(key);
+    const rightFile = rightFiles.get(key);
+    if (leftFile && rightFile) pairs.push([leftFile, rightFile]);
+  }
+  return { left, right, settings, keys, leftFiles, rightFiles, pairs, truncated: all.length > MAX_ENTRIES };
+}
 
+/** The entries and counts, given whether each pair (in `pairs` order) is equal. */
+function settle(walked: Walked, equal: readonly boolean[]): DirectoryCompareResult {
+  const { left, right, settings, keys, leftFiles, rightFiles, truncated } = walked;
+  let pair = 0;
   const entries: DirectoryEntry[] = [];
   let same = 0;
   let different = 0;
   let leftOnly = 0;
   let rightOnly = 0;
-  const truncated = keys.length > MAX_ENTRIES;
 
-  for (const key of keys.slice(0, MAX_ENTRIES)) {
+  for (const key of keys) {
     const leftFile = leftFiles.get(key);
     const rightFile = rightFiles.get(key);
     // The map key is case-folded on Windows and macOS so the two sides pair up;
@@ -86,7 +152,7 @@ export function compareDirectories(
     const rel = (leftFile ?? rightFile)?.rel ?? key;
     let status: FileCompareStatus;
     if (leftFile && rightFile) {
-      status = entriesEqual(left, leftFile, right, rightFile) ? "same" : "different";
+      status = equal[pair++] ? "same" : "different";
       if (status === "same") same += 1;
       else different += 1;
     } else if (leftFile) {
@@ -337,4 +403,52 @@ function entriesEqual(
     leftFile.size,
     rightFile.size,
   );
+}
+
+/** `entriesEqual`, reading the files without holding up the server. */
+async function entriesEqualAsync(
+  leftRoot: string,
+  leftFile: WalkedFile,
+  rightRoot: string,
+  rightFile: WalkedFile,
+): Promise<boolean> {
+  if (leftFile.size !== rightFile.size) return false;
+  if (leftFile.crc !== undefined || rightFile.crc !== undefined) {
+    return leftFile.crc === rightFile.crc;
+  }
+  if (leftFile.size === 0) return true;
+  const leftPath = path.join(leftRoot, leftFile.rel);
+  const rightPath = path.join(rightRoot, rightFile.rel);
+  // Most files fit in one read each; only a large one is walked in chunks, so that
+  // sixteen of them at once never hold more than a few megabytes.
+  if (leftFile.size <= CHUNK) {
+    try {
+      const [leftBytes, rightBytes] = await Promise.all([fs.promises.readFile(leftPath), fs.promises.readFile(rightPath)]);
+      return leftBytes.equals(rightBytes);
+    } catch {
+      return false;
+    }
+  }
+  let leftHandle: fs.promises.FileHandle | undefined;
+  let rightHandle: fs.promises.FileHandle | undefined;
+  try {
+    leftHandle = await fs.promises.open(leftPath, "r");
+    rightHandle = await fs.promises.open(rightPath, "r");
+    const leftBuffer = Buffer.allocUnsafe(CHUNK);
+    const rightBuffer = Buffer.allocUnsafe(CHUNK);
+    for (;;) {
+      const [leftRead, rightRead] = await Promise.all([
+        leftHandle.read(leftBuffer, 0, CHUNK, null),
+        rightHandle.read(rightBuffer, 0, CHUNK, null),
+      ]);
+      if (leftRead.bytesRead !== rightRead.bytesRead) return false;
+      if (leftRead.bytesRead === 0) return true;
+      if (!leftBuffer.subarray(0, leftRead.bytesRead).equals(rightBuffer.subarray(0, rightRead.bytesRead))) return false;
+    }
+  } catch {
+    return false;
+  } finally {
+    await leftHandle?.close().catch(() => {});
+    await rightHandle?.close().catch(() => {});
+  }
 }

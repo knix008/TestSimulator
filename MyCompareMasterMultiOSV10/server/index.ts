@@ -141,6 +141,12 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
     res.json({ compare: session.summary() });
   }));
 
+  // The open tabs' sessions that no longer match the disk; asked about every second.
+  server.post("/api/changes", wrap((req, res) => {
+    const ids = (value: unknown) => (Array.isArray(value) ? value.filter((item) => typeof item === "string") : []);
+    res.json({ changed: app.changedSessions(ids(req.body?.compares), ids(req.body?.directories)) });
+  }));
+
   server.post("/api/compare/:id/reload", wrap((req, res) => {
     res.json({ compare: app.reloadCompare(routeId(req)).summary() });
   }));
@@ -172,26 +178,26 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
 
   /* ------------------------------------------ directory comparison */
 
-  server.post("/api/compare/directories", wrap((req, res) => {
+  server.post("/api/compare/directories", wrap(async (req, res) => {
     const excludes = Array.isArray(req.body?.excludes) ? req.body.excludes.map(String) : undefined;
-    res.json({ directory: app.openDirectories(text(req.body?.left), text(req.body?.right), excludes) });
+    res.json({ directory: await app.openDirectories(text(req.body?.left), text(req.body?.right), excludes) });
   }));
 
-  server.post("/api/directory/:id/reload", wrap((req, res) => {
-    res.json({ directory: app.reloadDirectory(routeId(req)) });
+  server.post("/api/directory/:id/reload", wrap(async (req, res) => {
+    res.json({ directory: await app.reloadDirectory(routeId(req)) });
   }));
 
   server.post("/api/directory/:id/open", wrap((req, res) => {
     res.json({ compare: app.openDirectoryEntry(routeId(req), text(req.body?.rel)).summary() });
   }));
 
-  server.post("/api/directory/:id/operate", wrap((req, res) => {
+  server.post("/api/directory/:id/operate", wrap(async (req, res) => {
     const operation = req.body?.operation;
     if (!isFileOperation(operation)) {
       throw new ApiError(`Unknown operation: ${String(operation)}`, "BAD_REQUEST", 400);
     }
     const relatives = Array.isArray(req.body?.relatives) ? req.body.relatives.map(String) : [];
-    res.json(app.applyDirectoryOperation(routeId(req), operation, relatives));
+    res.json(await app.applyDirectoryOperation(routeId(req), operation, relatives));
   }));
 
   server.post("/api/compare/remote", wrap(async (req, res) => {
@@ -204,9 +210,9 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
     });
   }));
 
-  server.post("/api/directory/:id/rename", wrap((req, res) => {
+  server.post("/api/directory/:id/rename", wrap(async (req, res) => {
     const side = req.body?.side === "right" ? "right" : "left";
-    res.json(app.renameDirectoryEntry(routeId(req), side, text(req.body?.rel), text(req.body?.name)));
+    res.json(await app.renameDirectoryEntry(routeId(req), side, text(req.body?.rel), text(req.body?.name)));
   }));
 
   server.post("/api/directory/:id/sync/plan", wrap((req, res) => {
@@ -220,12 +226,12 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
     });
   }));
 
-  server.post("/api/directory/:id/sync/apply", wrap((req, res) => {
+  server.post("/api/directory/:id/sync/apply", wrap(async (req, res) => {
     const plan = req.body?.plan;
     if (!plan || !isSyncMode(plan.mode) || !Array.isArray(plan.actions)) {
       throw new ApiError("That synchronisation plan is not usable.", "BAD_REQUEST", 400);
     }
-    res.json(app.applySync(routeId(req), plan));
+    res.json(await app.applySync(routeId(req), plan));
   }));
 
   server.get("/api/compare/:id/search", wrap((req, res) => {
