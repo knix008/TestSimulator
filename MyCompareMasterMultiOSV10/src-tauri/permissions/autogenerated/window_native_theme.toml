@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-window-native-theme"
+description = "Enables the window_native_theme command without any pre-configured scope."
+commands.allow = ["window_native_theme"]
+
+[[permission]]
+identifier = "deny-window-native-theme"
+description = "Denies the window_native_theme command without any pre-configured scope."
+commands.deny = ["window_native_theme"]

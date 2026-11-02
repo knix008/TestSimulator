@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-window-reset-zoom"
+description = "Enables the window_reset_zoom command without any pre-configured scope."
+commands.allow = ["window_reset_zoom"]
+
+[[permission]]
+identifier = "deny-window-reset-zoom"
+description = "Denies the window_reset_zoom command without any pre-configured scope."
+commands.deny = ["window_reset_zoom"]

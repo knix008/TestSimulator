@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-window-title"
+description = "Enables the window_title command without any pre-configured scope."
+commands.allow = ["window_title"]
+
+[[permission]]
+identifier = "deny-window-title"
+description = "Denies the window_title command without any pre-configured scope."
+commands.deny = ["window_title"]

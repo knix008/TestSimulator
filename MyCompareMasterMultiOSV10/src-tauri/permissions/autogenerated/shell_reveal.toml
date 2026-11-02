@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shell-reveal"
+description = "Enables the shell_reveal command without any pre-configured scope."
+commands.allow = ["shell_reveal"]
+
+[[permission]]
+identifier = "deny-shell-reveal"
+description = "Denies the shell_reveal command without any pre-configured scope."
+commands.deny = ["shell_reveal"]

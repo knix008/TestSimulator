@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-print-window"
+description = "Enables the print_window command without any pre-configured scope."
+commands.allow = ["print_window"]
+
+[[permission]]
+identifier = "deny-print-window"
+description = "Denies the print_window command without any pre-configured scope."
+commands.deny = ["print_window"]

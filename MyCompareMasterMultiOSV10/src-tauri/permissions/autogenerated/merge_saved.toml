@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-merge-saved"
+description = "Enables the merge_saved command without any pre-configured scope."
+commands.allow = ["merge_saved"]
+
+[[permission]]
+identifier = "deny-merge-saved"
+description = "Denies the merge_saved command without any pre-configured scope."
+commands.deny = ["merge_saved"]

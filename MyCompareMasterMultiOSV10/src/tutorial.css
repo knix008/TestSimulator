@@ -1,0 +1,215 @@
+/*
+ * The guided tour (TutorialTour.tsx) and its first-run welcome card
+ * (TutorialWelcome.tsx). Every colour is a theme token, so the tour looks at home on
+ * all forty themes and the custom one.
+ */
+
+/* ------------------------------------------------------------- overlay */
+
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+  font-family: var(--ui-font);
+  font-size: 13px;
+}
+
+/* Nothing to light up: the whole window dims behind the centred card. */
+.tour-layer.dimmed { background: rgba(0, 0, 0, 0.45); }
+
+.tour-spotlight {
+  position: fixed;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-lg);
+  /* The dimming is the spotlight's own shadow, so the lit part stays fully visible. */
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent),
+    0 0 0 200vmax rgba(0, 0, 0, 0.45);
+  transition: left 0.22s ease, top 0.22s ease, width 0.22s ease, height 0.22s ease;
+}
+
+/* -------------------------------------------------------------- card */
+
+.tour-card {
+  position: fixed;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: left 0.22s ease, top 0.22s ease;
+}
+
+/* Both cards move by dragging (src/dragCard.ts): the tour by its header, the welcome
+   card anywhere that is not a control. */
+.tour-head, .tour-welcome { cursor: move; user-select: none; }
+.tour-head button, .tour-welcome button, .tour-welcome label, .tour-welcome input { cursor: pointer; }
+.tour-card.moved { transition: none; }
+
+.tour-card.centred {
+  left: 50%;
+  top: 50%;
+  width: 440px;
+  transform: translate(-50%, -50%);
+}
+
+.tour-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.tour-head-title { flex: 1 1 auto; min-width: 0; }
+.tour-count { font-weight: 500; font-variant-numeric: tabular-nums; opacity: 0.9; white-space: nowrap; }
+
+.tour-close {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.tour-close:hover { background: color-mix(in srgb, currentColor 18%, transparent); }
+
+.tour-progress { height: 3px; background: var(--panel-3); }
+.tour-progress i { display: block; height: 100%; background: var(--accent); transition: width 0.25s ease; }
+
+.tour-body { padding: 4px 16px 4px; }
+.tour-body h3 { margin: 12px 0 6px; font-size: 15px; }
+.tour-body p { margin: 0 0 10px; line-height: 1.6; }
+
+.tour-missing {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  padding: 7px 9px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 12px;
+}
+.tour-missing .icon { flex: 0 0 auto; margin-top: 2px; }
+
+.tour-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.tour-keys {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.tour-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tour-button:hover:not(:disabled) { background: var(--hover); }
+.tour-button:disabled { opacity: 0.45; cursor: default; }
+.tour-button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+.tour-button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, var(--text)); }
+.tour-button.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.tour-button.ghost:hover:not(:disabled) { color: var(--text); background: var(--hover); }
+
+/* -------------------------------------------------------- welcome card */
+
+.tour-welcome {
+  position: fixed;
+  right: 18px;
+  bottom: 40px;
+  z-index: 890;
+  display: flex;
+  gap: 12px;
+  width: 420px;
+  max-width: calc(100vw - 36px);
+  padding: 14px 14px 12px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  font-family: var(--ui-font);
+  font-size: 13px;
+  animation: tour-welcome-in 0.25s ease-out;
+}
+
+@keyframes tour-welcome-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.tour-welcome-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tour-welcome-main { flex: 1 1 auto; min-width: 0; }
+.tour-welcome-main header { display: flex; align-items: flex-start; gap: 6px; }
+.tour-welcome-main h3 { flex: 1 1 auto; margin: 2px 0 6px; font-size: 14px; }
+.tour-welcome-main .tour-close { color: var(--muted); }
+.tour-welcome-main .tour-close:hover { color: var(--text); background: var(--hover); }
+.tour-welcome-main p { margin: 0 0 10px; line-height: 1.55; color: var(--text); }
+.tour-welcome-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.tour-welcome-hint { display: block; color: var(--muted); font-size: 11px; }
+.tour-welcome-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 10px; }
+
+/* "Show at startup" (settings.showTutorial), on both the tour card and the welcome card. */
+.tour-startup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.tour-startup input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.tour-card > .tour-startup { padding: 2px 16px 10px; }

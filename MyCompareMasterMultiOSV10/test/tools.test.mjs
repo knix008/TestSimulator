@@ -1,0 +1,516 @@
+/**
+ * The comparison-tool features beyond a plain diff: the folder tree, the file masks,
+ * the copy/delete operations and copying lines from one side of a file to the other.
+ */
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test, { after } from "node:test";
+import { compareDirectories, maskFilter } from "../core/dirCompare.ts";
+import { allFolders, buildTree, flatRows, flatten, foldersWithDifferences } from "../core/dirTree.ts";
+import { fileIcon } from "../src/fileIcons.ts";
+import { applyOperation, copyEntry, deleteEntry, resolveInside } from "../core/fileOps.ts";
+import { CompareSession } from "../core/compareSession.ts";
+import { contrastRatio } from "../core/color.ts";
+import { translator } from "../core/i18n.ts";
+import { THEMES, theme as themeOf } from "../core/themes.ts";
+import { DUOTONE, firstSubpath, ICON_TONE, TONES, toneOf } from "../src/iconTones.ts";
+import {
+  buildMenu,
+  COMMAND_TARGETS,
+  CONTEXT_MENUS,
+  LOCAL_ITEMS,
+  TEXT_MENU,
+  tidySeparators,
+  withSelectionCopy,
+} from "../src/contextMenus.ts";
+
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mcm-tools-"));
+after(() => fs.rmSync(scratch, { recursive: true, force: true }));
+
+function pair(name) {
+  const root = path.join(scratch, name);
+  const left = path.join(root, "left");
+  const right = path.join(root, "right");
+  const put = (base, relative, text) => {
+    const target = path.join(base, relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, text, "utf8");
+  };
+  put(left, "README.md", "left\n");
+  put(right, "README.md", "right\n");
+  put(left, "same.txt", "same\n");
+  put(right, "same.txt", "same\n");
+  put(left, "only-left.log", "l\n");
+  put(right, "only-right.log", "r\n");
+  put(left, "src/app.ts", "const a = 1;\n");
+  put(right, "src/app.ts", "const a = 2;\n");
+  put(left, "src/util.ts", "export {};\n");
+  put(right, "src/util.ts", "export {};\n");
+  put(left, "src/deep/x.ts", "x\n");
+  put(right, "src/deep/x.ts", "x\n");
+  return { root, left, right };
+}
+
+const byRel = (nodes) => Object.fromEntries(nodes.map((node) => [node.rel, node]));
+
+/* ------------------------------------------------------------------ tree */
+
+test("tree › files group under their folders", () => {
+  const { left, right } = pair("tree-a");
+  const tree = buildTree(compareDirectories(left, right).entries);
+  const top = byRel(tree);
+  assert.ok(top["src"], "src is a folder node");
+  assert.equal(top["src"].directory, true);
+  assert.equal(top["README.md"].directory, false);
+  const inSrc = byRel(top["src"].children);
+  assert.ok(inSrc["src/app.ts"]);
+  assert.ok(inSrc["src/deep"], "nested folders are kept");
+});
+
+test("tree › folders come before files, both alphabetically", () => {
+  const { left, right } = pair("tree-b");
+  const tree = buildTree(compareDirectories(left, right).entries);
+  const directories = tree.filter((node) => node.directory).map((node) => node.name);
+  const files = tree.filter((node) => !node.directory).map((node) => node.name);
+  assert.ok(directories.length > 0 && files.length > 0, "the fixture has both");
+  assert.deepEqual(tree.slice(0, directories.length).map((node) => node.name), directories);
+  // The same collation the tree uses: a file manager sorts `README.md` next to
+  // `readme.md`, not in a separate upper-case block.
+  const collated = [...files].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "accent" }));
+  assert.deepEqual(files, collated);
+});
+
+test("tree › a folder's status rolls up from its contents", () => {
+  const { left, right } = pair("tree-c");
+  const tree = buildTree(compareDirectories(left, right).entries);
+  const top = byRel(tree);
+  // src holds one changed file and two identical ones.
+  assert.equal(top["src"].status, "different");
+  const inSrc = byRel(top["src"].children);
+  assert.equal(inSrc["src/deep"].status, "same", "a folder of identical files is identical");
+});
+
+test("tree › a folder present on one side only is marked that way", () => {
+  const root = path.join(scratch, "tree-one-side");
+  fs.mkdirSync(path.join(root, "left", "only"), { recursive: true });
+  fs.mkdirSync(path.join(root, "right"), { recursive: true });
+  fs.writeFileSync(path.join(root, "left", "only", "a.txt"), "a\n");
+  const tree = buildTree(compareDirectories(path.join(root, "left"), path.join(root, "right")).entries);
+  const top = byRel(tree);
+  assert.equal(top["only"].status, "leftOnly");
+  assert.equal(top["only"].right, null, "the right side has no node to show");
+  assert.notEqual(top["only"].left, null);
+});
+
+test("tree › flattening respects expansion, filters and search", () => {
+  const { left, right } = pair("tree-d");
+  const tree = buildTree(compareDirectories(left, right).entries);
+
+  const collapsed = flatten(tree, new Set());
+  assert.equal(collapsed.some((row) => row.node.rel === "src/app.ts"), false, "collapsed folders hide children");
+  assert.ok(collapsed.some((row) => row.node.rel === "src"));
+
+  const expanded = flatten(tree, new Set(allFolders(tree)));
+  assert.ok(expanded.some((row) => row.node.rel === "src/deep/x.ts"));
+  assert.ok(expanded.find((row) => row.node.rel === "src/deep/x.ts").depth === 2, "depth follows the nesting");
+
+  const onlyDifferent = flatten(tree, new Set(allFolders(tree)), {
+    same: false, different: true, leftOnly: false, rightOnly: false,
+  });
+  assert.equal(onlyDifferent.some((row) => row.node.rel === "same.txt"), false);
+  assert.ok(onlyDifferent.some((row) => row.node.rel === "src/app.ts"));
+
+  const searched = flatten(tree, new Set(allFolders(tree)), undefined, "util");
+  assert.ok(searched.some((row) => row.node.rel === "src/util.ts"));
+  assert.equal(searched.some((row) => row.node.rel === "README.md"), false);
+});
+
+test("tree › every row carries the guides its indent needs", () => {
+  const { left, right } = pair("tree-d");
+  const tree = buildTree(compareDirectories(left, right).entries);
+  const rows = flatten(tree, new Set(allFolders(tree)));
+
+  for (const row of rows) {
+    // One rail per level above the row's own, which is where its elbow goes.
+    assert.equal(row.rails.length, Math.max(0, row.depth - 1), `${row.node.rel} at depth ${row.depth}`);
+  }
+
+  // The last row of a folder closes its branch; the ones before it do not.
+  const inSrc = rows.filter((row) => row.node.rel.startsWith("src/") && row.depth === 1);
+  assert.ok(inSrc.length > 1);
+  assert.equal(inSrc.at(-1).last, true);
+  assert.equal(inSrc.slice(0, -1).every((row) => row.last === false), true);
+
+  // A grandchild's rail is drawn only while its parent's folder has more to come.
+  const deep = rows.filter((row) => row.depth === 2);
+  assert.ok(deep.length > 0);
+  for (const row of deep) {
+    const parent = rows.find((other) => other.node.rel === row.node.rel.split("/").slice(0, -1).join("/"));
+    assert.equal(row.rails[0], !parent.last, `${row.node.rel} under ${parent.node.rel}`);
+  }
+
+  // The flat list has no hierarchy, so it has no guides either.
+  for (const row of flatRows(compareDirectories(left, right).entries)) {
+    assert.deepEqual(row.rails, []);
+    assert.equal(row.depth, 0);
+  }
+});
+
+test("tree › a folder with nothing left after filtering disappears", () => {
+  const { left, right } = pair("tree-e");
+  const tree = buildTree(compareDirectories(left, right).entries);
+  const rows = flatten(tree, new Set(allFolders(tree)), {
+    same: false, different: false, leftOnly: true, rightOnly: false,
+  });
+  assert.equal(rows.some((row) => row.node.rel === "src"), false, "src holds nothing left-only");
+  assert.ok(rows.some((row) => row.node.rel === "only-left.log"));
+});
+
+test("tree › an entry is drawn as the kind of file it is", () => {
+  // The kind comes from the name, which is all a directory comparison has.
+  assert.equal(fileIcon("anything", true), "folder");
+  assert.equal(fileIcon("logo.png", false), "image");
+  assert.equal(fileIcon("diagram.svg", false), "image", "a drawing is a picture, not markup");
+  assert.equal(fileIcon("theme.mp3", false), "music");
+  assert.equal(fileIcon("clip.mp4", false), "video");
+  assert.equal(fileIcon("bundle.zip", false), "archive");
+  assert.equal(fileIcon("report.docx", false), "page", "an office document is not an archive");
+  assert.equal(fileIcon("budget.xlsx", false), "grid");
+  assert.equal(fileIcon("app.ts", false), "code", "and not a video stream");
+  assert.equal(fileIcon("server.key", false), "lock", "and not a Keynote deck");
+  assert.equal(fileIcon("config.yml", false), "settings");
+  assert.equal(fileIcon("tool.exe", false), "binary");
+  assert.equal(fileIcon(".gitignore", false), "git");
+  assert.equal(fileIcon("notes.txt", false), "page");
+  assert.equal(fileIcon("mystery.qqq", false), "file");
+  assert.equal(fileIcon("LICENSE", false), "page");
+
+  // The flat view lists whole paths, and the name is the last part of one.
+  assert.equal(fileIcon("src/assets/logo.png", false), "image");
+  assert.equal(fileIcon("src\\assets\\logo.png", false), "image");
+});
+
+test("tree › the changed folders are the ones worth opening", () => {
+  const { left, right } = pair("tree-f");
+  const tree = buildTree(compareDirectories(left, right).entries);
+  assert.deepEqual(foldersWithDifferences(tree), ["src"]);
+});
+
+/* ----------------------------------------------------------------- masks */
+
+test("masks › an include mask is an allow-list", () => {
+  const keep = maskFilter(["*.ts"], []);
+  assert.equal(keep("app.ts"), true);
+  assert.equal(keep("app.js"), false);
+});
+
+test("masks › an exclude mask always wins", () => {
+  const keep = maskFilter(["*.ts"], ["*.d.ts"]);
+  assert.equal(keep("app.ts"), true);
+  assert.equal(keep("types.d.ts"), false);
+});
+
+test("masks › `?` matches one character and dots are literal", () => {
+  const keep = maskFilter(["?.txt"], []);
+  assert.equal(keep("a.txt"), true);
+  assert.equal(keep("ab.txt"), false);
+  assert.equal(keep("axtxt"), false, "the dot is not a wildcard");
+});
+
+test("masks › no masks means everything", () => {
+  const keep = maskFilter([], []);
+  assert.equal(keep("anything.at.all"), true);
+});
+
+test("masks › a comparison can be narrowed to one file type", () => {
+  const { left, right } = pair("masks-a");
+  const result = compareDirectories(left, right, { includeMasks: ["*.ts"] });
+  assert.ok(result.entries.length > 0);
+  assert.ok(result.entries.every((entry) => entry.rel.endsWith(".ts")), result.entries.map((e) => e.rel).join(", "));
+});
+
+test("masks › a comparison can skip a file type", () => {
+  const { left, right } = pair("masks-b");
+  const result = compareDirectories(left, right, { excludeMasks: ["*.log"] });
+  assert.equal(result.entries.some((entry) => entry.rel.endsWith(".log")), false);
+  assert.ok(result.entries.some((entry) => entry.rel.endsWith(".md")));
+});
+
+/* ------------------------------------------------------- file operations */
+
+test("operations › copying a file to the other side makes them identical", () => {
+  const { left, right } = pair("ops-a");
+  copyEntry(left, right, "README.md");
+  assert.equal(fs.readFileSync(path.join(right, "README.md"), "utf8"), "left\n");
+  const result = compareDirectories(left, right);
+  assert.equal(result.entries.find((entry) => entry.rel === "README.md").status, "same");
+});
+
+test("operations › copying a folder takes its contents with it", () => {
+  const { left, right } = pair("ops-b");
+  fs.rmSync(path.join(right, "src"), { recursive: true, force: true });
+  copyEntry(left, right, "src");
+  assert.ok(fs.existsSync(path.join(right, "src", "deep", "x.ts")));
+});
+
+test("operations › deleting removes the entry from that side only", () => {
+  const { left, right } = pair("ops-c");
+  deleteEntry(left, "only-left.log");
+  assert.equal(fs.existsSync(path.join(left, "only-left.log")), false);
+  assert.ok(fs.existsSync(path.join(right, "only-right.log")));
+});
+
+test("operations › a batch reports what it did and what it could not", () => {
+  const { left, right } = pair("ops-d");
+  const result = applyOperation("copyToRight", left, right, ["README.md", "does-not-exist.txt"]);
+  assert.deepEqual(result.done, ["README.md"]);
+  assert.equal(result.failed.length, 1);
+  assert.equal(result.failed[0].rel, "does-not-exist.txt");
+});
+
+test("operations › a path outside the compared folder is refused", () => {
+  const { left, right } = pair("ops-e");
+  assert.throws(() => resolveInside(left, "../right/README.md"), /outside/);
+  const result = applyOperation("deleteLeft", left, right, ["../right/README.md"]);
+  assert.equal(result.done.length, 0);
+  assert.equal(result.failed.length, 1);
+  assert.ok(fs.existsSync(path.join(right, "README.md")), "the escape attempt deleted nothing");
+});
+
+test("operations › the compared folder itself cannot be deleted", () => {
+  const { left, right } = pair("ops-f");
+  assert.throws(() => deleteEntry(left, ""), /cannot be deleted/);
+  assert.ok(fs.existsSync(left));
+  void right;
+});
+
+/* ------------------------------------------------- copying lines across */
+
+function session(leftText, rightText) {
+  const side = (label, text) => ({
+    label,
+    path: label,
+    data: Buffer.from(text, "utf8"),
+    size: text.length,
+    modified: null,
+    missing: false,
+  });
+  return new CompareSession("test", side("left.txt", leftText), side("right.txt", rightText));
+}
+
+test("apply › taking a modified row replaces that line on the target", () => {
+  const compare = session("one\ntwo\nthree\n", "one\nTWO\nthree\n");
+  const rowIndex = compare.allRows().findIndex((row) => row.kind === "modified");
+  assert.deepEqual(compare.takeRows("right", [rowIndex]), ["one", "two", "three"]);
+  assert.deepEqual(compare.takeRows("left", [rowIndex]), ["one", "TWO", "three"]);
+});
+
+test("apply › taking an added row inserts it on the other side", () => {
+  const compare = session("one\nthree\n", "one\ntwo\nthree\n");
+  const rowIndex = compare.allRows().findIndex((row) => row.kind === "added");
+  assert.deepEqual(compare.takeRows("left", [rowIndex]), ["one", "two", "three"]);
+});
+
+test("apply › taking a removed row deletes it from the other side", () => {
+  const compare = session("one\ntwo\nthree\n", "one\nthree\n");
+  const rowIndex = compare.allRows().findIndex((row) => row.kind === "removed");
+  assert.deepEqual(compare.takeRows("left", [rowIndex]), ["one", "three"]);
+});
+
+test("apply › taking nothing leaves the file as it was", () => {
+  const compare = session("one\ntwo\n", "one\nTWO\n");
+  assert.deepEqual(compare.takeRows("right", []), ["one", "TWO"]);
+  assert.deepEqual(compare.takeRows("left", []), ["one", "two"]);
+});
+
+test("apply › a whole block can be taken at once", () => {
+  const compare = session("a\nb\nc\nd\n", "a\nX\nY\nd\n");
+  const rows = compare.allRows()
+    .map((row, index) => (row.kind === "same" ? -1 : index))
+    .filter((index) => index >= 0);
+  assert.deepEqual(compare.takeRows("right", rows), ["a", "b", "c", "d"]);
+});
+
+test("edit › replacing one line rebuilds that side", () => {
+  const compare = session("one\ntwo\n", "one\ntwo\n");
+  assert.deepEqual(compare.replaceRow("left", 1, "TWO"), ["one", "TWO"]);
+  assert.deepEqual(compare.sideLines("left"), ["one", "two"], "the session itself is untouched");
+});
+
+test("edit › a binary comparison refuses to be edited", () => {
+  const binary = (label, bytes) => ({
+    label, path: label, data: Buffer.from(bytes), size: bytes.length, modified: null, missing: false,
+  });
+  const compare = new CompareSession("bin", binary("a.bin", [0, 1, 2]), binary("b.bin", [0, 9, 2]));
+  assert.equal(compare.mode, "binary");
+  assert.throws(() => compare.takeRows("right", [0]), /cannot be edited/);
+});
+
+/* ------------------------------------------------- icons and menus */
+
+const source = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta.url), "utf8");
+
+/** The names in the STROKE table of src/icons.tsx (a JSX file, so read rather than imported). */
+function iconNames() {
+  const text = source("src/icons.tsx");
+  const start = text.indexOf("const STROKE");
+  const body = text.slice(start, text.indexOf("\n};", start));
+  return new Set([...body.matchAll(/^\s+([A-Za-z0-9]+):\s*"/gm)].map((match) => match[1]));
+}
+
+/** Every source file of the UI, with its text. */
+function uiSources() {
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(new URL(`../${dir}`, import.meta.url), { withFileTypes: true })) {
+      const relative = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(relative);
+      else if (/\.(ts|tsx)$/.test(entry.name)) out.push({ file: relative, text: source(relative) });
+    }
+  };
+  walk("src");
+  out.push({ file: "core/sessions.ts", text: source("core/sessions.ts") });
+  return out;
+}
+
+/** The command ids of src/commands.ts, as they are spelled in its lists. */
+function commandIds() {
+  const text = source("src/commands.ts");
+  return new Set([...text.matchAll(/"((?:file|edit|view|nav|merge|dir|tools|help)\.[A-Za-z]+)"/g)].map((m) => m[1]));
+}
+
+test("icons › every icon has a colour, and every colour is a known hue", () => {
+  const names = iconNames();
+  const missing = [...names].filter((name) => !toneOf(name));
+  assert.deepEqual(missing, [], `icons without a hue in src/iconTones.ts: ${missing.join(", ")}`);
+  const stale = Object.keys(ICON_TONE).filter((name) => !names.has(name));
+  assert.deepEqual(stale, [], `hues for icons that do not exist: ${stale.join(", ")}`);
+  for (const [name, tone] of Object.entries(ICON_TONE)) assert.ok(TONES.includes(tone), `${name}: ${tone}`);
+  for (const name of DUOTONE) assert.ok(names.has(name), `duotone icon ${name} does not exist`);
+});
+
+test("icons › the meaningful hues", () => {
+  assert.equal(toneOf("folder"), "amber");
+  assert.equal(toneOf("file"), "blue");
+  assert.equal(toneOf("merge"), "purple");
+  assert.equal(toneOf("conflict"), "conflict");
+  assert.equal(toneOf("git"), "orange");
+  assert.equal(toneOf("trash"), "red");
+  assert.equal(toneOf("find"), "teal");
+  assert.equal(toneOf("save"), "green");
+  // The diff states are the theme's own colours, not hues of their own.
+  assert.equal(toneOf("added"), "added");
+  assert.equal(toneOf("removed"), "removed");
+  assert.equal(toneOf("nothing-like-this"), undefined);
+});
+
+test("icons › the duotone wash fills only the first, closed shape", () => {
+  assert.equal(firstSubpath("M4 4h6v16H4zM14 4h6v16h-6z"), "M4 4h6v16H4z");
+  assert.equal(firstSubpath("M5 12h14"), "M5 12h14");
+  assert.equal(firstSubpath("m6 6 12 12M18 6 6 18"), "m6 6 12 12");
+  const text = source("src/icons.tsx");
+  for (const name of DUOTONE) {
+    const match = new RegExp(`^\\s+${name}:\\s*"([^"]+)"`, "m").exec(text);
+    assert.ok(match, name);
+    assert.match(firstSubpath(match[1]), /z$/i, `${name}: the washed shape must be closed`);
+  }
+});
+
+test("icons › every hue reads on every theme of its kind", () => {
+  const css = source("src/styles.css");
+  const shades = (selector) => {
+    const at = css.search(new RegExp(`${selector.replace(/[[\]"()]/g, "\\$&")} \\{\\s+--tone-blue`));
+    assert.ok(at >= 0, `no tone block for ${selector}`);
+    const body = css.slice(at, css.indexOf("}", at));
+    return Object.fromEntries([...body.matchAll(/--tone-([a-z]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
+  };
+  const light = shades(":root");
+  const dark = shades(':root[data-theme-kind="dark"]');
+  const hues = TONES.filter((tone) => !["added", "removed", "modified", "conflict", "resolved"].includes(tone));
+  for (const hue of hues) {
+    assert.ok(light[hue], `light shade of ${hue}`);
+    assert.ok(dark[hue], `dark shade of ${hue}`);
+    assert.notEqual(light[hue].toLowerCase(), dark[hue].toLowerCase(), `${hue} needs two shades`);
+  }
+  // 3:1 is the WCAG figure for icons and other non-text graphics.
+  for (const item of THEMES) {
+    const vars = themeOf(item.id).vars;
+    const shadesOf = item.kind === "dark" ? dark : light;
+    for (const surface of ["--panel", "--menu-bg", "--toolbar-bg", "--bg", "--statusbar-bg"]) {
+      for (const hue of hues) {
+        const ratio = contrastRatio(shadesOf[hue], vars[surface]);
+        assert.ok(ratio >= 3, `${hue} on ${item.id} ${surface}: ${ratio.toFixed(2)}:1`);
+      }
+    }
+  }
+});
+
+test("icons › every icon a menu row, button or list asks for exists", () => {
+  const names = iconNames();
+  const unknown = [];
+  for (const { file, text } of uiSources()) {
+    for (const match of text.matchAll(/\bicon:\s*"([A-Za-z0-9]+)"/g)) if (!names.has(match[1])) unknown.push(`${file}: ${match[1]}`);
+    for (const match of text.matchAll(/<Icon\s+name="([A-Za-z0-9]+)"/g)) if (!names.has(match[1])) unknown.push(`${file}: ${match[1]}`);
+  }
+  assert.deepEqual(unknown, [], "names that would fall back to a plain dot");
+});
+
+test("context menu › every row of every context menu has an icon", () => {
+  const names = iconNames();
+  const commands = commandIds();
+  const t = translator("en");
+  for (const [id, item] of Object.entries(LOCAL_ITEMS)) {
+    assert.ok(names.has(item.icon), `${id}: icon ${item.icon}`);
+    assert.notEqual(t(item.label), item.label, `${id}: label ${item.label} is not translated`);
+  }
+  for (const [target, ids] of Object.entries(CONTEXT_MENUS)) {
+    assert.ok(ids.length > 0, `${target} has an empty menu`);
+    for (const id of ids) {
+      if (id === "-") continue;
+      if (id.startsWith("@")) {
+        assert.ok(COMMAND_TARGETS.includes(id.slice(1)), `${target}: ${id} is not a command-table menu`);
+        continue;
+      }
+      assert.ok(id in LOCAL_ITEMS || commands.has(id), `${target}: ${id} is neither a command nor a local row`);
+    }
+    // Built with a command table that always answers with an icon, every row has one.
+    const rows = buildMenu(ids, t, (id) => [{ kind: "item", id, label: id, icon: "check" }]);
+    for (const row of rows) {
+      if (row.kind === "separator") continue;
+      assert.ok(row.icon && names.has(row.icon), `${target}: ${row.id} has no icon`);
+    }
+  }
+  for (const id of TEXT_MENU) if (id !== "-") assert.ok(id in LOCAL_ITEMS, id);
+});
+
+test("context menu › the command-table menus and the menu bar give every row an icon", () => {
+  // Rows in commands.ts are built from `{ id, label, icon }`; a row without `icon:` is a
+  // type error, and an unknown name is caught above. What is left to check is that no
+  // row literal there leaves the icon out.
+  const text = source("src/commands.ts");
+  const starts = [...text.matchAll(/kind:\s*"item"/g)].map((match) => match.index);
+  assert.ok(starts.length > 0);
+  for (const start of starts) {
+    const next = text.indexOf("kind:", start + 5);
+    const row = text.slice(start, Math.min(next < 0 ? text.length : next, start + 600));
+    assert.match(row, /\bicon:/, `a menu row without an icon: ${row.slice(0, 80)}`);
+  }
+});
+
+test("context menu › separators are tidied and a selection gets a Copy", () => {
+  const t = translator("en");
+  const sep = { kind: "separator" };
+  const row = (id) => ({ kind: "item", id, label: id, icon: "check" });
+  assert.deepEqual(tidySeparators([sep, row("a"), sep, sep, row("b"), sep]).map((item) => item.kind === "separator" ? "-" : item.id), ["a", "-", "b"]);
+  assert.deepEqual(withSelectionCopy([row("x")], "", t).map((item) => item.id), ["x"]);
+  const added = withSelectionCopy([row("x")], "picked", t);
+  assert.equal(added[0].id, "ctx.copySelection");
+  assert.equal(added[0].icon, "copy");
+  assert.equal(withSelectionCopy([row("edit.copy")], "picked", t).length, 1, "no second Copy");
+  // Local rows carry their enabled state.
+  const built = buildMenu(["text.cut", "-", "text.paste"], t, () => [], (id) => id === "text.paste");
+  assert.equal(built[0].disabled, true);
+  assert.equal(built[2].disabled, false);
+});

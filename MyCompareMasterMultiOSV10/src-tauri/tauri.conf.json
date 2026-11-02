@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My Compare Master",
+  "mainBinaryName": "MyCompareMaster",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.mycomparemaster",
+  "build": {
+    "frontendDist": "boot",
+    "beforeBuildCommand": "node scripts/tauri-before-build.mjs"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "DeveloperTool",
+    "shortDescription": "File, folder and 3-way merge comparison tool",
+    "longDescription": "My Compare Master compares two files or two directory trees side by side, highlights every difference down to the word, merges three-way with conflict resolution, synchronises folders, and works as a git difftool / mergetool.",
+    "resources": {
+      "runtime/": "runtime/",
+      "../assets/document.ico": "document.ico"
+    },
+    "icon": [
+      "../assets/icons/32x32.png",
+      "../assets/icons/128x128.png",
+      "../assets/icons/128x128@2x.png",
+      "../assets/icon.png",
+      "../assets/icon.icns",
+      "../assets/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["dmrg"],
+        "name": "My Compare Master Session",
+        "description": "My Compare Master Session",
+        "mimeType": "application/x-mycomparemaster-session",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../assets/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}
