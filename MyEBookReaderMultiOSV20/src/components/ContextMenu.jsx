@@ -69,21 +69,46 @@ export default function ContextMenu({ open, x, y, items, onClose }) {
       onClose();
     };
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    // A real click on the menu window gives it the focus (its webview takes
+    // it although the window is not focusable), so this window blurs before
+    // the click arrives. Closing on that blur removed the item under the
+    // pointer, and Highlight, Copy, Copy image, Add to library… did nothing.
+    // A blur only closes the menu once the focus has left both windows, for
+    // another program; a press on the page closes it through pointerdown.
+    const menuWin = host?.win || null;
+    const menuHasFocus = () => {
+      try { return !!menuWin && !menuWin.closed && menuWin.document.hasFocus(); } catch { return false; }
+    };
+    let blurTimer = 0;
+    const onBlur = () => {
+      if (!menuWin) { onClose(); return; }
+      clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => { if (!menuHasFocus() && !document.hasFocus()) onClose(); }, 150);
+    };
+    const onMenuFocus = () => clearTimeout(blurTimer);
     // Capture: a bubble listener misses clicks that stopPropagation, and a
     // window mousedown that closed the menu before click fired is why Copy
-    // (and other items) did nothing. The menu window never takes focus, so a
-    // click on it does not blur this window.
+    // (and other items) did nothing.
     window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('resize', onClose);
-    window.addEventListener('blur', onClose);
+    window.addEventListener('blur', onBlur);
     window.addEventListener('keydown', onKey);
+    // The menu window holding the focus closes like the page would: on
+    // Escape, and when the focus leaves it for another program.
+    menuWin?.addEventListener('focus', onMenuFocus);
+    menuWin?.addEventListener('blur', onBlur);
+    menuWin?.addEventListener('keydown', onKey);
     return () => {
+      clearTimeout(blurTimer);
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('resize', onClose);
-      window.removeEventListener('blur', onClose);
+      window.removeEventListener('blur', onBlur);
       window.removeEventListener('keydown', onKey);
+      menuWin?.removeEventListener('focus', onMenuFocus);
+      menuWin?.removeEventListener('blur', onBlur);
+      menuWin?.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose]);
+  }, [open, host, onClose]);
 
   if (!open) return null;
 

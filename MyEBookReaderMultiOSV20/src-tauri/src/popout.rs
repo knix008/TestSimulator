@@ -8,8 +8,9 @@
 //
 // Dialogs can then be moved anywhere, outside the program too, and the main
 // window is disabled while one is open, as the in-page modal was. The menu
-// window never takes focus — clicking an item must not blur the main window,
-// which closes its menus — so it is shown and hidden natively.
+// window is shown without taking focus, natively; a click on it still hands
+// its webview the focus, so the page keeps the menu open across that blur
+// (ContextMenu.jsx).
 use serde::Deserialize;
 use tauri::webview::{NewWindowFeatures, NewWindowResponse};
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
