@@ -494,6 +494,165 @@ test('edges toggle: filled patches lose their outlines, wireframes keep theirs; 
   assert.equal(faceColoured({ FaceColor: 'interp', EdgeColor: [0, 0, 0] }, false).FaceColor, 'interp', 'surf keeps its own face colours');
 });
 
+test('Box toggle: on by default, in the paint options, toolbar, menu and settings; off keeps the walls outlined', async () => {
+  const fs = await import('node:fs');
+  const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+  const ctl = new FigureController(fakeEngine(), {});
+  assert.equal(ctl.paintOptions(null).box, true, 'the box is on by default');
+  ctl.setBox(false);
+  assert.equal(ctl.paintOptions(null).box, false);
+  for (const lang of ['ko', 'en']) for (const k of ['box', 'box_tip']) assert.notEqual(tr(lang, k), k, `${lang}.${k}`);
+  const area = read('../src/graphics/FigureArea.jsx');
+  assert.match(area, /<Tb icon="box3" label=\{L\('box'\)\} title=\{L\('box_tip'\)\} on=\{ctl\.box\} onClick=\{\(\) => setPersist\('box', !ctl\.box\)\} \/>/);
+  assert.match(area, /\{ id: 'box', label: L\('box'\), icon: 'cube', on: ctl\.box \}/);
+  assert.match(area, /ctl\.box = defaults\.box !== false/);
+  assert.match(read('../src/graphics/icons.jsx'), /\n {2}box3: /);
+  assert.match(read('../src/lib/settings.js'), /figures: \{[^}]*box: true/);
+  assert.match(read('../src/graphics/FigureView.jsx'), /box: ctl\.box/);
+  assert.match(read('../src/graphics/paint.js'), /box: o\.box !== false/);
+  const r3 = read('../src/graphics/render3d.js');
+  assert.match(r3, /if \(this\.opts\.box !== false\) \{\s*\n\s*for \(const sy of \[-1, 1\]\)/, 'on: all 12 edges');
+  assert.match(r3, /if \(gseg\.length && this\.opts\.box === false\) \{/, 'off: the walls keep their outline');
+  assert.match(r3, /this\.opts\.box !== false, this\.ax\.props\.XLabel/, 'toggling redraws the box');
+});
+
+test('box lines: one line per place (no double lines where a grid line meets a box edge or two walls meet)', async () => {
+  const { dedupeSegments } = await import('../src/graphics/render3d.js');
+  const edge = [-1, -1, -1, 1, -1, -1];
+  const grid = [
+    1, -1, -1, -1, -1, -1,          // the box edge again, drawn the other way: dropped
+    0, -1, -1, 0, 1, -1,            // a real grid line: kept
+    0, 1, -1, 0, -1, -1 + 1e-9,     // the same grid line again (another wall, rounding): dropped
+    -1, 1, -1, 1, 1, -1,            // a wall outline edge: kept once
+    -1, 1, -1, 1, 1, -1,
+  ];
+  assert.deepEqual(dedupeSegments(grid, [edge]), [0, -1, -1, 0, 1, -1, -1, 1, -1, 1, 1, -1]);
+  assert.deepEqual(dedupeSegments([], [edge]), []);
+  const fs = await import('node:fs');
+  const r3 = fs.readFileSync(new URL('../src/graphics/render3d.js', import.meta.url), 'utf8');
+  assert.match(r3, /const grid = dedupeSegments\(gseg, edges\.map\(\(\[, a, b\]\) => \[\.\.\.a, \.\.\.b\]\)\);/);
+  // the ground grid leaves the box floor (same plane) to the box's own grid
+  const g3 = fs.readFileSync(new URL('../src/graphics/grid3d.js', import.meta.url), 'utf8');
+  assert.match(g3, /uniform vec2 uHole;/);
+  assert.match(g3, /if \(uHole\.x > 0\.0 && abs\(hit\.x\) <= uHole\.x \+ hw\.x && abs\(hit\.y\) <= uHole\.y \+ hw\.y\) discard;/);
+  assert.match(g3, /uHole: \{ value: new THREE\.Vector2\(0, 0\) \}/);
+  assert.match(r3, /const hole = !!\(p\.XGrid \|\| p\.YGrid\) && Math\.abs\(u\.uZ0\.value - floorZ\)/);
+  assert.match(r3, /u\.uHole\.value\.set\(hole \? h\.x : 0, hole \? h\.y : 0\);/);
+});
+
+test('the ground grid lines up with the box ticks (each axis its own step)', async () => {
+  const { groundBase } = await import('../src/graphics/render3d.js');
+  assert.equal(groundBase([0, 5, 10, 15]), 0.2, 'ticks every 5: lines every 1, 5, 25');
+  assert.equal(groundBase([-10, -5, 0, 5, 10]), 0.2);
+  assert.ok(Math.abs(groundBase([0.1, 0.2, 0.3]) - 0.004) < 1e-12);
+  assert.equal(groundBase([1, 10, 100], true), null, 'log axis: own spacing');
+  assert.equal(groundBase([0, 1, 3]), null, 'uneven ticks');
+  assert.equal(groundBase([1, 6, 11]), null, 'ticks off the step');
+  assert.equal(groundBase([5]), null, 'a single tick');
+  const fs = await import('node:fs');
+  const g3 = fs.readFileSync(new URL('../src/graphics/grid3d.js', import.meta.url), 'utf8');
+  assert.match(g3, /uniform vec2 uBase;/);
+  assert.match(g3, /vec2 s0 = uBase \* pow\(5\.0, k\);/);
+  const r3 = fs.readFileSync(new URL('../src/graphics/render3d.js', import.meta.url), 'utf8');
+  assert.match(r3, /groundBase\(T\[k\]\.ticks, this\.logs\[k\]\) \|\| fallback/);
+});
+
+test('the colormap drop-down in the figure properties has a fixed width', async () => {
+  const fs = await import('node:fs');
+  const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+  assert.match(read('../src/panes/FigureProps.jsx'), /<IconSelect value=\{cmap\} options=\{CMAP_OPTIONS\} width=\{150\}/);
+  assert.match(read('../src/panels.css'), /\.fp-row \.iselect \{ flex: none; height: 26px; \}/);
+  // the line width stepper is as wide as the colormap: 28 + 94 + 28 = 150
+  assert.match(read('../src/panes/FigureProps.jsx'), /<Stepper value=\{lw\} min=\{0\.5\} max=\{10\} step=\{0\.5\} width=\{94\}/);
+  assert.match(read('../src/styles.css'), /\.step-btn \{ width: 28px;/);
+  assert.match(read('../src/panels.css'), /\.fp-row > \.stepper \{ flex: none; \}/);
+});
+
+test('3D grid: a tick line hugging the box edge (limits just off the ticks) is left to the edge', async () => {
+  const { innerTick } = await import('../src/graphics/render3d.js');
+  assert.equal(innerTick(0, 1), true);
+  assert.equal(innerTick(0.9, 1), true);
+  assert.equal(innerTick(1, 1), false, 'on the edge');
+  // xlim [-9.72745 10.2725]: tick 10 sits 0.27 (1.4 %) inside the edge
+  const half = 1, w = ((10 + 9.72745) / 20 - 0.5) * 2 * half;
+  assert.equal(innerTick(w, half), false);
+  assert.equal(innerTick(-w, half), false);
+  assert.equal(innerTick(NaN, 1), false);
+});
+
+test('colorbar: dragged sideways in the figure, kept per axes, drawn at the offset, reset by double-click', async () => {
+  const ctl = new FigureController(fakeEngine(), {});
+  assert.equal(ctl.paintOptions(null).colorbarDx.size, 0);
+  ctl.setColorbarDx(7, -42.4);
+  assert.equal(ctl.paintOptions(null).colorbarDx.get(7), -42);
+  ctl.setColorbarDx(7, 0);
+  assert.equal(ctl.colorbarDx.has(7), false, '0 puts it back');
+  // drawColorbar: the offset moves the bar and the area to grab (bar + labels)
+  const { drawColorbar } = await import('../src/graphics/render2d.js');
+  const calls = [];
+  const ctx = new Proxy({}, { get: (t, k) => (k in t ? t[k] : (k === 'measureText' ? () => ({ width: 20 }) : () => calls.push(k))), set: (t, k, v) => { t[k] = v; return true; } });
+  const ax = { props: { Colormap: [[0, 0, 1], [1, 1, 0]], CLim: [0, 1], Colorbar: { props: { Location: 'eastoutside', Limits: [0, 1], FontSize: 10, TicksMode: 'auto', TickLabelsMode: 'auto', Direction: 'normal', Label: null }, auto: ['Color'] } } };
+  const theme = { fg: [1, 1, 1] };
+  const a = drawColorbar(ctx, ax, { x: 100, y: 10, w: 0, h: 200 }, theme, true, 0);
+  const b = drawColorbar(ctx, ax, { x: 100, y: 10, w: 0, h: 200 }, theme, true, -30);
+  assert.equal(b.x, a.x - 30);
+  assert.equal(b.hit.x, a.hit.x - 30);
+  assert.ok(a.hit.w > a.w + 20, 'the labels are part of the grab area');
+  const fs = await import('node:fs');
+  const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+  const view = read('../src/graphics/FigureView.jsx');
+  assert.match(view, /kind: 'colorbar', axId: cb\.node\.id/);
+  assert.match(view, /Math\.max\(-d\.hit\.x, Math\.min\(fw - d\.hit\.x - d\.hit\.w, x - d\.x\)\)/, 'kept inside the figure');
+  assert.match(view, /onDoubleClick=.*ctl\.setColorbarDx\(cb\.node\.id, 0\)/);
+  assert.match(view, /'ew-resize'/);
+  const r2 = read('../src/graphics/render2d.js');
+  assert.equal((r2.match(/it\.colorbar = drawColorbar\(/g) || []).length, 2, '2D axes and 3D overlay');
+  assert.match(read('../src/graphics/paint.js'), /colorbarDx: o\.colorbarDx \|\| null/);
+});
+
+test('3D surface without edge lines: colours and light blend across cells (no seams that look like lines)', async () => {
+  const { smoothFaces } = await import('../src/graphics/theme.js');
+  const surf = { FaceColor: 'flat', EdgeColor: [0, 0, 0], FaceLighting: 'flat' };
+  assert.equal(smoothFaces(surf, true), surf, 'edges on: unchanged');
+  assert.deepEqual(smoothFaces(surf, false), { ...surf, FaceColor: 'interp', FaceLighting: 'gouraud' });
+  assert.equal(smoothFaces({ FaceColor: 'interp', FaceLighting: 'flat' }, false).FaceLighting, 'gouraud', 'interp faces lose flat lighting too');
+  assert.equal(smoothFaces({ FaceColor: 'flat', FaceLighting: 'none' }, false).FaceLighting, 'none', 'unlit stays unlit');
+  assert.equal(smoothFaces({ FaceColor: [1, 0, 0], FaceLighting: 'gouraud' }, false).FaceColor[0], 1, 'a solid colour stays');
+  const wire = { FaceColor: 'none', EdgeColor: 'flat' };
+  assert.equal(smoothFaces(wire, false), wire, 'wireframes are left alone');
+
+  // the real buildSurface on a view without WebGL: shared (indexed) vertices, smooth shading, no lines
+  const { Axes3DView } = await import('../src/graphics/render3d.js');
+  const view = Object.assign(Object.create(Axes3DView.prototype), {
+    ax: { props: { Colormap: [[0, 0, 1], [1, 1, 0]], CLim: [0, 3] } }, clipPlanes: [],
+    opts: { lighting: true, edges: true },
+  });
+  view.toWorld = (x, y, z) => [x, y, z];
+  const node = { id: 1, props: { ...surf, XData: [1, 2, 3], YData: [1, 2, 3], ZData: { dims: [3, 3], data: [0, 1, 2, 1, 2, 3, 0, 1, 2] }, LineStyle: '-' } };
+  const kinds = (g) => g.children.map((c) => c.type);
+  const on = view.buildSurface(node);
+  assert.deepEqual(kinds(on), ['Mesh', 'LineSegments'], 'edges on: faces + lines');
+  assert.equal(on.children[0].geometry.index, null, 'edges on: one colour per cell (separate vertices)');
+  view.opts.edges = false;
+  const off = view.buildSurface(node);
+  assert.deepEqual(kinds(off), ['Mesh'], 'edges off: no lines');
+  const mesh = off.children[0];
+  assert.ok(mesh.geometry.index, 'cells share their corner vertices');
+  // 2×2 cells, each split 8×8 and blended bilinearly (no diagonal zigzag): a 17×17 grid
+  const pos = mesh.geometry.getAttribute('position'), col = mesh.geometry.getAttribute('color');
+  assert.equal(col.count, 17 * 17);
+  assert.equal(mesh.geometry.getAttribute('normal').count, 17 * 17);
+  const at = (I, J) => I + J * 17;
+  assert.deepEqual([pos.getX(at(8, 8)), pos.getY(at(8, 8)), pos.getZ(at(8, 8))], [2, 2, 2], 'grid points stay where they are');
+  // cell centre: the mean of its four corners (z 0, 1, 1, 2 → 1), coloured by the colormap at that value
+  assert.ok(Math.abs(pos.getZ(at(4, 4)) - 1) < 1e-6, 'bilinear, not one diagonal');
+  const want = view.mapValue(1, 'scaled');
+  assert.ok([col.getX(at(4, 4)), col.getY(at(4, 4)), col.getZ(at(4, 4))].every((v, k) => Math.abs(v - want[k]) < 1e-6), 'colour from the blended value');
+  assert.equal(mesh.geometry.index.count, 16 * 16 * 6);
+  assert.equal(mesh.material.flatShading, false, 'Gouraud lighting');
+  assert.equal(mesh.material.vertexColors, true);
+});
+
 test('polar and UI axes colours follow the theme like cartesian axes', async () => {
   const { THEMED } = await import('../core/graphics/schema.js');
   assert.deepEqual(THEMED.polaraxes, THEMED.axes);

@@ -315,7 +315,8 @@ function drawAxes3DOverlay(ctx, it, opts) {
   const view = opts.view3d && opts.view3d.get(it.node.id);
   if (view && view.drawOverlay) view.drawOverlay(ctx, it.region.x, it.region.y, opts.theme);
   const ax = it.node;
-  if (ax.props.Colorbar && ax.props.Colorbar.props.Visible !== false) drawColorbar(ctx, ax, { x: it.region.x + it.region.w + 6, y: it.region.y + it.region.h * 0.1, w: 0, h: it.region.h * 0.8 }, opts.theme, true);
+  it.colorbar = null;
+  if (ax.props.Colorbar && ax.props.Colorbar.props.Visible !== false) it.colorbar = drawColorbar(ctx, ax, { x: it.region.x + it.region.w + 6, y: it.region.y + it.region.h * 0.1, w: 0, h: it.region.h * 0.8 }, opts.theme, true, colorbarDx(opts, ax));
   if (ax.props.Legend && ax.props.Legend.props.Visible !== false) drawLegend(ctx, ax, it.region, opts.theme);
 }
 
@@ -351,9 +352,13 @@ function drawAxes2D(ctx, it, opts) {
     drawAxisLines2D(ctx, ax, m, st, fg, fgY, fs, theme);
     drawTitleBlock(ctx, ax, box.x + box.w / 2, it.outer.y + 6, theme, box);
   }
-  if (p.Colorbar && p.Colorbar.props.Visible !== false) drawColorbar(ctx, ax, box, theme);
+  it.colorbar = null;
+  if (p.Colorbar && p.Colorbar.props.Visible !== false) it.colorbar = drawColorbar(ctx, ax, box, theme, false, colorbarDx(opts, ax));
   if (p.Legend && p.Legend.props.Visible !== false) drawLegend(ctx, ax, box, theme);
 }
+
+/** The sideways offset (px) the colorbar of `ax` was dragged by in the figure view. */
+const colorbarDx = (opts, ax) => (opts.colorbarDx && opts.colorbarDx.get(ax.id)) || 0;
 
 /** The 5×5 grid: minor lines (nice step, readable at any zoom) and a stronger major line every 5. */
 export function drawGrid5(ctx, ax, m, theme, minorOn, which = { x: true, y: true }) {
@@ -957,7 +962,8 @@ function colorbarThickness(ctx, ax) {
   return 14 + 6 + Math.max(0, ...labels.map((s) => ctx.measureText(s).width)) + (cb.props.Label && hasText(cb.props.Label) ? fs * 1.6 : 0);
 }
 
-export function drawColorbar(ctx, ax, box, theme, beside = false) {
+/** Draws the colorbar; dx moves it sideways (dragged in the figure). → its rect plus `hit`, the area to grab. */
+export function drawColorbar(ctx, ax, box, theme, beside = false, dx = 0) {
   const cb = ax.props.Colorbar;
   const p = cb.props;
   const cmap = cmapRows(p.Colormap || ax.props.Colormap);
@@ -976,6 +982,7 @@ export function drawColorbar(ctx, ax, box, theme, beside = false) {
     w = box.w; x = box.x; h = th;
     y = loc === 'southoutside' ? box.y + box.h + 30 : loc === 'northoutside' ? box.y - th - 8 : loc === 'south' ? box.y + box.h - th - 30 : box.y + 10;
   }
+  x += dx || 0;
   const n = cmap.length;
   const rev = p.Direction === 'reverse';
   for (let i = 0; i < n; i++) {
@@ -1010,7 +1017,10 @@ export function drawColorbar(ctx, ax, box, theme, beside = false) {
     if (vertical) { ctx.font = `${fs}px sans-serif`; const lw = Math.max(0, ...labels.map((s) => ctx.measureText(String(s)).width)); drawTex(ctx, t.props.String, x + w + 10 + lw, y + h / 2, { size: fontPx(t.props.FontSize), align: 'center', valign: 'top', rotation: 90, color: fg }); }
     else drawTex(ctx, t.props.String, x + w / 2, y + h + fs * 1.6, { size: fontPx(t.props.FontSize), align: 'center', valign: 'top', color: fg });
   }
-  return { x, y, w, h };
+  ctx.font = `${fs}px sans-serif`;
+  const lw = vertical ? Math.max(0, ...labels.map((s) => ctx.measureText(String(s ?? '')).width)) : 0;
+  const hit = vertical ? { x: x - 4, y: y - 4, w: w + 9 + lw, h: h + 8 } : { x: x - 4, y: y - 4, w: w + 8, h: h + fs * 1.6 + 8 };
+  return { x, y, w, h, hit };
 }
 
 // ---------------------------------------------------------------- polar axes

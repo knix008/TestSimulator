@@ -423,6 +423,7 @@ const MODE_OF = {
   XTickLabel: 'XTickLabelMode', YTickLabel: 'YTickLabelMode', ZTickLabel: 'ZTickLabelMode', DataAspectRatio: 'DataAspectRatioMode', PlotBoxAspectRatio: 'PlotBoxAspectRatioMode',
   ThetaLim: 'ThetaLimMode', RLim: 'RLimMode', RTick: 'RTickMode', ThetaTick: 'ThetaTickMode', LevelList: 'LevelListMode', LevelStep: 'LevelStepMode',
   Limits: 'LimitsMode', Ticks: 'TicksMode', TickLabels: 'TickLabelsMode', ColorLimits: 'ColorLimitsMode', CData: 'CDataMode',
+  CameraPosition: 'CameraPositionMode', CameraTarget: 'CameraTargetMode', CameraUpVector: 'CameraUpVectorMode', CameraViewAngle: 'CameraViewAngleMode',
 };
 function autoModes(o, pname) {
   const m = MODE_OF[pname];

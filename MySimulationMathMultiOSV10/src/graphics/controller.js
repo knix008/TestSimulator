@@ -30,8 +30,10 @@ export class FigureController {
     this.rulers = false;
     this.axesLines = true;        // 3D coordinate axes (X / Y / Z lines, tip labels, triad)
     this.edges = true;            // edge lines of filled surfaces / patches / bars (off = faces only)
+    this.box = true;              // the 3D box: all 12 edges (off = the labelled edges only)
     this.toggles = new Map();     // figId → { legend, colorbar } (null = as the engine sent)
     this.views2d = new Map();     // axId → { XLim, YLim } (GUI zoom / pan)
+    this.colorbarDx = new Map();  // axId → px the colorbar was dragged sideways
     this.home = new Map();        // axId → { XLim, YLim, XLimMode, YLimMode, View }
     this.posted = new Map();      // axId → last { XLim, YLim, View } the GUI sent
     this.last3d = new Map();      // axId → last 3D [az el] (for the 2D / 3D toggle)
@@ -84,7 +86,7 @@ export class FigureController {
     if (!this.scene.figures.size) return;
     this.scene = emptyScene();
     this.active = null;
-    this.views2d.clear(); this.home.clear(); this.posted.clear(); this.tips.clear(); this.layouts.clear();
+    this.views2d.clear(); this.colorbarDx.clear(); this.home.clear(); this.posted.clear(); this.tips.clear(); this.layouts.clear();
     this.disposeViews();
     this.emit();
   }
@@ -206,6 +208,9 @@ export class FigureController {
   setRulers(on) { this.rulers = !!on; this.emit(); }
   setAxesLines(on) { this.axesLines = !!on; this.emit(); }
   setEdges(on) { this.edges = !!on; this.emit(); }
+  setBox(on) { this.box = !!on; this.emit(); }
+  /** Moves the colorbar of axes `axId` sideways by dx px from where it is drawn (0: back in place). */
+  setColorbarDx(axId, dx) { if (dx) this.colorbarDx.set(axId, Math.round(dx)); else this.colorbarDx.delete(axId); this.emit(); }
   isShown(prop, figId = this.active) { const f = this.figure(figId); return !!f && anyShown(f, prop); }
   toggleShown(which, figId = this.active) {
     const fig = this.figure(figId);
@@ -438,7 +443,7 @@ export class FigureController {
   paintOptions(fig) {
     const state3d = new Map(this.state3d);
     for (const [id, v] of this.views3d) state3d.set(id, { zoomF: v.zoomF, target: v.target.toArray(), view: v.getView() });
-    return { views: this.views2d, grid5: this.grid, grid3d: this.grid, axesLines: this.axesLines, edges: this.edges, state3d, lightOpts: (ax) => lightOptionsFor(ax) };
+    return { views: this.views2d, grid5: this.grid, grid3d: this.grid, axesLines: this.axesLines, edges: this.edges, box: this.box, colorbarDx: this.colorbarDx, state3d, lightOpts: (ax) => lightOptionsFor(ax) };
   }
 
   sizeOf(fig, req = {}) {

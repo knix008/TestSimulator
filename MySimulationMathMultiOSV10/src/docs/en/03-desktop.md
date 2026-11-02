@@ -24,8 +24,8 @@ Choosing a ribbon tab changes the buttons in the row below. Every button has bot
 | **Home** | Start Page, New Script, New Model, Open, Save, Find Files, Import Data, Clear Workspace, Clear Command Window, Undo / Redo, show/hide Current Folder, Workspace and Command History, Layout, Preferences |
 | **Plots** | Plot the variables selected in the Workspace: plot, area, bar, barh, stairs, stem, scatter, histogram, pie, polarplot, semilogy, surf, mesh, contour, imagesc, figure area |
 | **Apps** | Import Data, Variable Editor, plot gallery, figure area, Block library, Find Files, Restart Engine |
-| **Editor** | New Script, Open, Save, Save As, Run, Run Section, debug (Continue, Step, Step In, Step Out, Stop), Breakpoint, clear all breakpoints, find, comment, uncomment, indent, outdent |
-| **Simulation** | New Model, open model, Save, Library, Run, Stop |
+| **Editor** | New Script, Open, Save, Save As, Run, Run Section, debug (Continue, Step, Step In, Step Out, Stop), Breakpoint, clear all breakpoints, find, comment, uncomment, indent, outdent, To Model |
+| **Simulation** | New Model, open model, Save, Print, Library, Run (Continue while paused), Pause, Step, Stop |
 | **Help** | User Manual ({{F1}}), Run Tutorial, Tutorial Document, Command Help, Find Functions, Shortcuts, Samples, Preferences, About |
 
 > Note: The buttons on the Plots tab show the command they run in the Command Window before running it, so you can immediately see how to recreate the same figure in code.
@@ -36,17 +36,21 @@ Choosing a ribbon tab changes the buttons in the row below. Every button has bot
 | --- | --- | --- |
 | Current Folder | Left | Files and folders of the working folder |
 | Document tabs | Top center | Editor, Variable Editor, figures, model editor |
-| Command Window | Bottom center (the whole center when no document is open) | `>>` prompt |
+| Bottom panel | Bottom center | **Command Window** (`>>` prompt) · **Problems** · **Help** tabs |
 | Workspace | Top right | List of variables |
 | Command History | Bottom right | Commands that were run |
 
 - Drag the boundary (splitter) between windows to resize them. With the keyboard, focus a splitter and use the arrow keys.
 - Close a window with the ✕ on the right of its header, and reopen it with the show/hide buttons on the ribbon's **Home** tab or the **Layout** menu.
 - **Layout › Default layout** restores the initial arrangement, and **Command Window only** closes all the side windows.
+- The bottom panel's tabs are, from the left, **Command Window** · **Problems** · **Help**. When there are problems, the Problems tab shows their number.
+- Right-click menus are one column. In the desktop app a menu is a separate window, so it can extend past the edge of the main window.
 
 ## Document Tabs
 
 Opening a file creates a tab at the top center. Drag tabs to reorder them, and close them with a middle-button click or the ✕. Unsaved tabs are marked with ●, and closing one asks whether to save (Save · Don't Save · Cancel). When there are many tabs, scroll the tab row with the `<` `>` buttons at the right end (hold to keep scrolling). Right-clicking a tab shows a menu with Close this tab · Close other tabs · Close tabs to the right · Close all.
+
+When no document is open, the document area shows "No script or model is open…" with the buttons **New Script**, **New Model**, **Open** and **Start Page** (plus **Open Command Window** when the Command Window is closed). The bottom panel keeps its own height.
 
 ## Status Bar
 

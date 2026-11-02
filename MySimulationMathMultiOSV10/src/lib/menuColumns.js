@@ -5,17 +5,18 @@
 //   const cols = columnsOf(items);       // [[{ item, index }], …] (1 or 2 columns)
 //   cols.jump(active, +1 | -1)            // ←/→: same row in the other column
 //   menuSize(items, colWidth)             // { width, height } for a popup window
+//   columns: 1 keeps one column whatever the length (context menus: one line per item, in one list)
 export const TWO_COLUMN_MIN = 7;
 export const ROW_H = 30;
 export const SEP_H = 9;
 
 const rowsOf = (list) => list.reduce((h, x) => h + (x.item.sep ? SEP_H : ROW_H), 0);
 
-export function columnsOf(items) {
+export function columnsOf(items, { columns = 2 } = {}) {
   const all = (items || []).map((item, index) => ({ item, index }));
   const count = all.filter((x) => !x.item.sep).length;
   let cols;
-  if (count < TWO_COLUMN_MIN) cols = [all];
+  if (count < TWO_COLUMN_MIN || columns < 2) cols = [all];
   else {
     // Groups between separators.
     const groups = [[]];
@@ -59,8 +60,8 @@ export function columnsOf(items) {
 }
 
 /** Popup size for a list: one or two columns of colWidth, plus padding. */
-export function menuSize(items, colWidth) {
-  const cols = columnsOf(items);
+export function menuSize(items, colWidth, opts = {}) {
+  const cols = columnsOf(items, opts);
   const height = Math.max(...cols.map(rowsOf)) + 10;
   return { width: cols.length > 1 ? colWidth * 2 + 9 : colWidth, height, columns: cols.length };
 }

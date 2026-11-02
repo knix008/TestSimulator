@@ -56,6 +56,9 @@ function diagramImage(model, crumbs, title) {
   };
 }
 
+/** The whole root diagram of a model as a print image (the 수식으로 모델 만들기 preview). */
+export const diagramImageOf = (model) => diagramImage(model, [], model.name);
+
 const fmt = (x) => { if (!Number.isFinite(x)) return String(x); const a = Math.abs(x); if (a !== 0 && (a >= 1e5 || a < 1e-3)) return x.toExponential(2); return String(Number(x.toPrecision(4))); };
 function ticks(lo, hi, n = 6) {
   if (!(hi > lo)) { const c = Number.isFinite(lo) ? lo : 0; lo = c - 1; hi = c + 1; }

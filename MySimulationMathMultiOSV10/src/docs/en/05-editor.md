@@ -89,3 +89,12 @@ The first comment lines become the help shown by `help stats`. You can also put 
 ## Live Script and Class Templates
 
 On the Start Page, **New › Live script** opens a template divided into `%%` sections in a new tab, and **Function** and **Class** open `function` and `classdef` templates.
+
+## Converting a Script to a Model
+
+You can build a block-diagram model from the differential equations, transfer functions or state-space equations written in a script.
+
+- Right-click the code editor › **Convert Script to Model…** (**Convert Selection to Model…** when text is selected)
+- Ribbon **Editor › To Model** (the last button; only the selection when there is one)
+
+Either way the **Model from equations** dialog opens filled with the script (or the selection). Check the preview on the right and press **New model** to open the model in a new tab. Opened from a script there is no diagram to add to, so the **Add to this diagram** button is not shown. For how to write the equations, see **Models from Equations** in the block diagram chapter.

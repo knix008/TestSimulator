@@ -935,6 +935,15 @@ svg.arch-graph:active { cursor: grabbing; }
 .st-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .st-field > input { flex: 1; min-width: 0; height: var(--ctl-h); }
 .st-field .input-row { flex: 1; min-width: 0; }
+/* one width per kind of control, so the settings line up: drop-downs and switches 360 px (the
+   longest switch label fits), number steppers 150 px (28 + 94 + 28) */
+.st-field { --st-ctl-w: 360px; }
+.st-field .iselect { width: var(--st-ctl-w) !important; max-width: 100%; flex: none; }
+.st-field .toggle { width: var(--st-ctl-w); max-width: 100%; flex: none; justify-content: flex-start; }
+.st-field .toggle > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-field .st-inline .toggle { width: auto; }   /* a switch beside a stepper on one row keeps its own width */
+.st-field .stepper { flex: none; }
+.st-field .stepper .step-value { width: 94px !important; }
 .st-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 18px; }
 .st-grid2 .st-row { grid-template-columns: 112px minmax(0, 1fr); }
 .st-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }

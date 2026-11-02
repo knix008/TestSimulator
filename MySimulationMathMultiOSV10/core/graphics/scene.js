@@ -1,4 +1,5 @@
 // Scene serialisation (see PROTOCOL.md) and flushing to the GUI.
+import { matrixOf, isIdentity, transformNode } from './xform.js';
 import { G, isAxesType, THEMED } from './model.js';
 import { TYPES, COMMON } from './schema.js';
 import { axesInfo, contourGeometry, stairPath, histRects } from './compute.js';
@@ -104,12 +105,14 @@ export function serialize(ctx, o, derived = null) {
       break;
     }
     case 'legend': props.Axes = o.internal.axes ?? null; break;
+    case 'hgtransform': node.type = 'hggroup'; props.IsTransform = true; break;
     default: break;
   }
   for (const c of o.children) {
     const co = st.objs.get(c);
     if (co) node.children.push(serialize(ctx, co, childDerived));
   }
+  if (o.type === 'hgtransform') { const T = matrixOf(o.props.Matrix); if (!isIdentity(T)) transformNode(node, T); }
   return node;
 }
 
@@ -165,7 +168,7 @@ export function plotChildren(st, ax) {
     for (const id of ids.slice().reverse()) {
       const o = st.objs.get(id);
       if (!o) continue;
-      if (o.type === 'hggroup') { if (o.internal.legendAs) out.push(o); else walk(o.children); continue; }
+      if (o.type === 'hggroup' || o.type === 'hgtransform') { if (o.internal.legendAs) out.push(o); else walk(o.children); continue; }
       if (LEGENDABLE.has(o.type) && !o.internal.noLegend && o.props.HandleVisibility !== 'off') out.push(o);
     }
   };

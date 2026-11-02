@@ -22,7 +22,8 @@ export function collectVarNames(fn) {
         case 'assign': names.add(s.lhs.name); break;
         case 'massign': for (const l of s.lhs) if (l.t === 'lv') names.add(l.name); break;
         case 'for': names.add(s.lv.name); walk(s.body); break;
-        case 'while': walk(s.body); break;
+        case 'while': case 'do': walk(s.body); break;
+        case 'unwind': walk(s.body); walk(s.cleanup); break;
         case 'if': for (const c of s.clauses) walk(c.body); if (s.else) walk(s.else); break;
         case 'switch': for (const c of s.cases) walk(c.body); if (s.otherwise) walk(s.otherwise); break;
         case 'try': walk(s.body); if (s.id) names.add(s.id); walk(s.cbody); break;
@@ -457,6 +458,8 @@ export class Compiler {
       case 'if': return this.ifStmt(s);
       case 'for': return this.forStmt(s);
       case 'while': return this.whileStmt(s);
+      case 'do': return this.doStmt(s);
+      case 'unwind': return this.unwindStmt(s);
       case 'switch': return this.switchStmt(s);
       case 'try': return this.tryStmt(s);
       case 'break': return () => S_BREAK;
@@ -667,6 +670,44 @@ export class Compiler {
         if (r !== S_NORMAL) { if (r === S_BREAK) break; if (r === S_CONTINUE) continue; return r; }
       }
       return S_NORMAL;
+    };
+  }
+
+  /** Octave's do … until: the body runs at least once, until the condition is true. */
+  doStmt(s) {
+    const rt = this.rt;
+    const c = this.cond(s.cond);
+    const body = this.block(s.body);
+    return (f) => {
+      for (;;) {
+        if (rt.intFlag !== null && rt.intFlag[0] !== 0) rt.interrupted();
+        const r = body(f);
+        if (r !== S_NORMAL) { if (r === S_BREAK) break; if (r !== S_CONTINUE) return r; }
+        if (c(f)) break;
+      }
+      return S_NORMAL;
+    };
+  }
+
+  /** Octave's unwind_protect: the cleanup block always runs, also when the body fails or returns. */
+  unwindStmt(s) {
+    const rt = this.rt;
+    const body = this.block(s.body);
+    const cleanup = this.block(s.cleanup);
+    return (f) => {
+      const depth = rt.stack.length;
+      const endDepth = rt.endStack.length;
+      let r;
+      try {
+        r = body(f);
+      } catch (e) {
+        rt.unwindTo(depth);
+        rt.endStack.length = endDepth;
+        cleanup(f);
+        throw e;
+      }
+      const r2 = cleanup(f);
+      return r2 !== S_NORMAL ? r2 : r;
     };
   }
 

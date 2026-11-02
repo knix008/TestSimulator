@@ -36,14 +36,14 @@ function useCloseOnBlur(enabled) {
   }, [enabled]);
 }
 
-function ListPopup({ id, items, value, kind }) {
+function ListPopup({ id, items, value, kind, columns = 2 }) {
   useLanguage();
   const list = items.filter((x) => !x.sep);
   const [active, setActive] = useState(Math.max(0, list.findIndex((x) => (kind === 'select' ? x.value === value : false))));
   const box = useRef(null);
   const pick = (item) => { if (!item.disabled) sendResult(id, kind === 'select' ? { value: item.value } : { id: item.id }); };
   // Long lists: two columns filled top to bottom (lib/menuColumns).
-  const cols = columnsOf(items);
+  const cols = columnsOf(items, { columns });
   useEffect(() => {
     const key = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); closeSelf(); }
@@ -125,7 +125,7 @@ function PopupContent({ kind, id, payload }) {
   }, [kind]);
   // First paint → the main window records the time it took.
   useEffect(() => { requestAnimationFrame(() => announceShown(id)); }, [id]);
-  if (kind === 'menu' || kind === 'select') return <ListPopup id={id} kind={kind} items={payload.items || []} value={payload.value} />;
+  if (kind === 'menu' || kind === 'select') return <ListPopup id={id} kind={kind} items={payload.items || []} value={payload.value} columns={payload.columns || 2} />;
   if (kind === 'themes') {
     return (
       <div className="popup-root popup-themes">

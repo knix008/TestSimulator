@@ -14,7 +14,7 @@ import { openMenu } from './menu';
 import { popupRoute } from './popups';
 import { t } from './i18n';
 
-let extras = {}; // { runSelection(text), editorCommand(name), clearCommandWindow(), pasteToPrompt(text) }
+let extras = {}; // { runSelection(text), editorCommand(name), clearCommandWindow(), pasteToPrompt(text), toModel(text) }
 
 /** App registers the actions that need the app (running code, editor commands). */
 export function setContextMenuActions(next) { extras = next || {}; }
@@ -74,12 +74,15 @@ function editorMenu(view) {
       { id: 'comment', label: t('rb_comment'), icon: 'comment', keys: 'Ctrl+R', disabled: ro || !extras.editorCommand },
       { id: 'uncomment', label: t('rb_uncomment'), icon: 'uncomment', keys: 'Ctrl+T', disabled: ro || !extras.editorCommand },
       { id: 'find', label: t('rb_find'), icon: 'search', keys: 'Ctrl+F', disabled: !extras.editorCommand },
+      { sep: true },
+      { id: 'toModel', label: t(text ? 'cm_to_model_sel' : 'cm_to_model'), icon: 'model', disabled: !extras.toModel },
     ],
     run: async (id) => {
       if (id === 'copy') { await writeClipboard(text); view.focus(); } else if (id === 'cut') { await writeClipboard(text); replace(''); } else if (id === 'paste') { const s = await readClipboard(); if (s != null) replace(s); } else if (id === 'all') { view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } }); view.focus(); } else if (id === 'runSel') extras.runSelection(text);
       else if (id === 'comment') cmd('comment')();
       else if (id === 'uncomment') cmd('uncomment')();
       else if (id === 'find') cmd('find')();
+      else if (id === 'toModel') extras.toModel(text || view.state.doc.toString());
     },
   };
 }

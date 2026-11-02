@@ -14,7 +14,7 @@
 //   var:<name> / open:<path>    open a variable in the Variable Editor / a file
 //   closeDocs                   close the documents the tour itself opened (without asking)
 import { useEffect, useRef } from 'react';
-import { TOUR_CODE, tourCode } from './tutorialSteps';
+import { TOUR_CODE, tourCode, TOUR_MODEL } from './tutorialSteps';
 import { getLanguage } from './i18n';
 import { getSettings, patchSettings } from './settings';
 
@@ -68,6 +68,21 @@ export function useTourActions(ctx) {
           const ed = c.activeEditor();
           const text = ed && ed.editor && ed.editor.getText ? ed.editor.getText() : '';
           if (text.trim()) await c.runCode(text, { echo: false });
+          break;
+        }
+        // the example model the block-diagram chapter shows (built from equations, opened in a tab)
+        case 'tourModel': {
+          const d = c.docs().find((x) => mine.current.has(x.id) && x.kind === 'model' && x.modelName === TOUR_MODEL);
+          if (d) { c.activate(d.id); break; }
+          await c.runCode(TOUR_CODE.model, { echo: false });
+          await new Promise((r) => setTimeout(r, 700));
+          for (const x of c.docs()) if (!before.has(x.id) && x.kind === 'model') mine.current.add(x.id);
+          break;
+        }
+        case 'ioGraph': {
+          const ed = [...(window.__msmSimEditors ? window.__msmSimEditors.values() : [])].find((e) => e.name === TOUR_MODEL);
+          const b = ed && ed.model.root.blocks.find((x) => x.type === 'Integrator');
+          if (b) ed.showIO(b.id);
           break;
         }
         case 'figures': c.showFigures({ force: true }); break;

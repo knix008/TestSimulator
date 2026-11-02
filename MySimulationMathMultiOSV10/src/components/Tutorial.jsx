@@ -13,7 +13,7 @@
 import React, { useEffect, useReducer, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { getLanguage, useLanguage } from '../lib/i18n';
-import { onBroadcast } from '../lib/popups';
+import { onBroadcast, broadcast } from '../lib/popups';
 import { Icon, CloseButton } from './Chrome';
 import { dragGhost } from '../lib/dragGhost';
 import { STEPS, CHAPTERS, chapterName, stepText, dwellOf } from '../lib/tutorialSteps';
@@ -175,6 +175,8 @@ class Engine {
       else if (op === 'grid') ctl.setGrid(true);
       else if (op === 'rulers') ctl.setRulers(true);
       else if (op === 'nogrid') { ctl.setGrid(false); ctl.setRulers(false); }
+      else if (op.startsWith('edges:')) ctl.setEdges(op.slice(6) !== 'off');
+      else if (op.startsWith('box:')) ctl.setBox(op.slice(4) !== 'off');
       else if (op === 'reset') ctl.resetView();
       else if (op.startsWith('mode:')) ctl.setMode(op.slice(5));
     } catch { /* no figure yet */ }
@@ -209,6 +211,8 @@ class Engine {
       case 'click': { const el = firstMatch(arg); if (el) { el.click(); await sleep(250); } break; }
       case 'scroll': { const el = firstMatch(arg); if (el) { el.scrollIntoView({ block: 'center' }); await sleep(300); } break; }
       case 'wait': await sleep(Number(arg) || 300); break;
+      // a key on the window (key:Escape closes the dialog a step opened)
+      case 'key': window.dispatchEvent(new KeyboardEvent('keydown', { key: arg, bubbles: true })); await sleep(200); break;
       default: break;
     }
   }
@@ -426,7 +430,7 @@ export function Tutorial({ onProgress }) {
 export function startTour(opts = {}) {
   const tour = window.__msm && window.__msm.tutorial;
   if (tour) return tour.start(opts);
-  import('../lib/popups').then((m) => m.broadcast('msm-tutorial-start', opts)).catch(() => {});
+  broadcast('msm-tutorial-start', opts).catch(() => {});
   return undefined;
 }
 

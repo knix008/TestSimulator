@@ -51,12 +51,12 @@ function useContentCss() {
 export async function printChapters(chapters, { title, lang, fontSize }) {
   const baseUrl = new URL('./', window.location.href).href;
   const html = manualPrintHtml(chapters, { title, lang, baseUrl, fontSize });
-  // The shared dialog: page setup on the left, preview on the right. Bundled when present.
-  const mods = import.meta.glob('../print/index.js');
-  const load = mods['../print/index.js'];
-  if (load) {
+  // The shared dialog: page setup on the left, preview on the right. Bundled when present (eager:
+  // the app imports it statically anyway, so a lazy import only drew a build warning).
+  const mods = import.meta.glob('../print/index.js', { eager: true });
+  const m = mods['../print/index.js'];
+  if (m) {
     try {
-      const m = await load();
       if (m && typeof m.openPrintDialog === 'function') return await m.openPrintDialog({ kind: 'html', html, title, baseUrl });
     } catch (e) { console.warn('print dialog', e); }
   }

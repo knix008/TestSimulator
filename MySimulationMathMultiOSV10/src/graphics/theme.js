@@ -60,3 +60,14 @@ export function faceColoured(p, edgesOn) {
   if (edgesOn !== false || !Array.isArray(p.FaceColor) || (p.EdgeColor !== 'flat' && p.EdgeColor !== 'interp')) return p;
   return { ...p, FaceColor: p.EdgeColor, EdgeColor: 'none' };
 }
+
+/**
+ * A 3D surface with the Edges toggle off: flat faces (one colour and one light value per
+ * grid cell) show their cell borders as steps that look like drawn lines, so the colours
+ * and the lighting are blended across the cells instead (FaceColor 'interp', Gouraud).
+ */
+export function smoothFaces(p, edgesOn) {
+  if (edgesOn !== false || p.FaceColor === 'none') return p;
+  const FaceLighting = p.FaceLighting === 'flat' || p.FaceLighting == null ? 'gouraud' : p.FaceLighting;
+  return { ...p, FaceColor: p.FaceColor === 'flat' ? 'interp' : p.FaceColor, FaceLighting };
+}

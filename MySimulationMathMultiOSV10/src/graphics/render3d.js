@@ -4,7 +4,7 @@
 // can reuse them. Node format: core/graphics/PROTOCOL.md.
 import * as THREE from 'three';
 import { drawTex } from './text.js';
-import { rgbCss, faceColoured } from './theme.js';
+import { rgbCss, faceColoured, smoothFaces } from './theme.js';
 import { mapColor } from '../../core/graphics/colormaps.js';
 import { ticksFor, tickLabels, maxTicksFor } from '../../core/graphics/ticks.js';
 import { createGroundGrid, updateGroundGrid } from './grid3d.js';
@@ -15,6 +15,47 @@ const matData = (v) => (isMat(v) ? v.data : Array.isArray(v) ? v : v == null ? [
 const matDims = (v) => (isMat(v) ? v.dims : Array.isArray(v) ? [1, v.length] : [0, 0]);
 const isRgb = (c) => Array.isArray(c) && c.length >= 3 && typeof c[0] === 'number';
 const fin = Number.isFinite;
+
+/**
+ * Line segments (flat x1 y1 z1 x2 y2 z2 …) without repeats and without the ones lying on a
+ * segment of `taken` (each [x1, y1, z1, x2, y2, z2]); either direction counts as the same.
+ */
+export function dedupeSegments(seg, taken = []) {
+  const r = (v) => Math.round(v * 1e5);
+  const key = (s) => {
+    const a = `${r(s[0])},${r(s[1])},${r(s[2])}`, b = `${r(s[3])},${r(s[4])},${r(s[5])}`;
+    return a < b ? `${a}|${b}` : `${b}|${a}`;
+  };
+  const seen = new Set(taken.map(key));
+  const out = [];
+  for (let i = 0; i + 5 < seg.length; i += 6) {
+    const s = seg.slice(i, i + 6);
+    const k = key(s);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(...s);
+  }
+  return out;
+}
+
+/**
+ * The ground grid's base step for an axis whose ticks are evenly spaced multiples of their step
+ * (step / 25: the levels step/5, step, 5·step line up with the ticks); null otherwise (log axes,
+ * uneven or offset ticks) so the caller keeps its own spacing.
+ */
+export function groundBase(ticks, log = false) {
+  if (log || !ticks || ticks.length < 2) return null;
+  const step = ticks[1] - ticks[0];
+  if (!(step > 0) || !Number.isFinite(step)) return null;
+  const even = ticks.every((v, i) => Math.abs(v - ticks[0] - i * step) <= 1e-6 * step);
+  const onStep = Math.abs(ticks[0] / step - Math.round(ticks[0] / step)) <= 1e-6;
+  return even && onStep ? step / 25 : null;
+}
+
+/** A grid line at world w on an axis of half length `half` is drawn only when it keeps clear of both edges (1.5 % of the length). */
+export function innerTick(w, half) {
+  return Number.isFinite(w) && Math.abs(w) < half - 0.03 * half;
+}
 
 function colormapRows(cm) {
   if (!isMat(cm)) return Array.isArray(cm) && Array.isArray(cm[0]) ? cm : [[0, 0, 0.5], [0, 1, 1], [1, 1, 0], [0.5, 0, 0]];
@@ -154,7 +195,7 @@ export class Axes3DView {
     this.zoomF = 1;
     this.target = new THREE.Vector3();
     this.ax = null; this.fig = null;
-    this.opts = { theme: null, grid: true, gridAtZero: false, lighting: true, defaultLight: null, axesLines: true, edges: true };
+    this.opts = { theme: null, grid: true, gridAtZero: false, lighting: true, defaultLight: null, axesLines: true, edges: true, box: true };
     this.axisGroup = new THREE.Group();
     this.scene.add(this.axisGroup);
     this.axisTips = [];
@@ -414,7 +455,7 @@ export class Axes3DView {
 
   lit(n) { return !!this.opts.lighting && n.props.FaceLighting !== 'none'; }
 
-  faceMaterial(n, { vertexColors = false, color = null, alpha = 1, quadNormals = false }) {
+  faceMaterial(n, { vertexColors = false, color = null, alpha = 1, quadNormals = false, lighting = null }) {
     const p = n.props;
     const common = { side: THREE.DoubleSide, vertexColors, clippingPlanes: this.clipPlanes, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 };
     if (alpha < 1) Object.assign(common, { transparent: true, opacity: alpha, depthWrite: false });
@@ -424,7 +465,7 @@ export class Axes3DView {
       const diff = fin(p.DiffuseStrength) ? p.DiffuseStrength : 0.8;
       const m = new THREE.MeshPhongMaterial({
         ...common,
-        flatShading: p.FaceLighting === 'flat' && !quadNormals,
+        flatShading: (lighting || p.FaceLighting) === 'flat' && !quadNormals,
         shininess: fin(p.SpecularExponent) ? p.SpecularExponent * 2 : 20,
         specular: new THREE.Color().setScalar(Math.min(1, spec * 0.3)),
       });
@@ -448,8 +489,74 @@ export class Axes3DView {
     return mapColor(cmap, v, lo, hi);
   }
 
+  /**
+   * An interpolated surface: each grid cell is split into r×r small cells whose positions, normals and
+   * colours are blended bilinearly from the cell's four corners. Two triangles per cell would blend
+   * along one diagonal only, which shows as a zigzag pattern; the colour comes from the blended data
+   * value through the colormap (not from blended RGB), so it follows the colormap's own steps.
+   * col: { C, mapping } for vertex colours, null for a solid face colour.
+   */
+  smoothSurfaceGeometry(pos, ok, m, nn, col) {
+    // corner normals of the coarse grid
+    const coarse = new THREE.BufferGeometry();
+    coarse.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const cidx = [];
+    for (let j = 0; j < nn - 1; j++) for (let i = 0; i < m - 1; i++) {
+      const a = i + j * m, b = i + 1 + j * m, c = i + 1 + (j + 1) * m, d = i + (j + 1) * m;
+      if (ok[a] && ok[b] && ok[c] && ok[d]) cidx.push(a, b, c, a, c, d);
+    }
+    coarse.setIndex(cidx);
+    coarse.computeVertexNormals();
+    const nor = coarse.getAttribute('normal').array;
+    coarse.dispose();
+    const cells = Math.max(1, (m - 1) * (nn - 1));
+    const r = Math.max(1, Math.min(8, Math.floor(Math.sqrt(200000 / cells)), Math.ceil(192 / Math.max(m - 1, nn - 1))));
+    const M = (m - 1) * r + 1, NN = (nn - 1) * r + 1;
+    const P = new Float32Array(M * NN * 3), Nr = new Float32Array(M * NN * 3);
+    const RGB = col ? new Float32Array(M * NN * 3) : null;
+    const good = new Uint8Array(M * NN);
+    const { C, mapping } = col || {};
+    const scalar = col && C.length === m * nn;
+    for (let J = 0; J < NN; J++) for (let I = 0; I < M; I++) {
+      const i = Math.min(m - 2, Math.floor(I / r)), j = Math.min(nn - 2, Math.floor(J / r));
+      const u = (I - i * r) / r, v = (J - j * r) / r;
+      // corners with a weight (a vertex on a grid line does not read the cell beyond it)
+      const cs = [[i, j, (1 - u) * (1 - v)], [i + 1, j, u * (1 - v)], [i + 1, j + 1, u * v], [i, j + 1, (1 - u) * v]].filter((c) => c[2] > 1e-12);
+      const K = I + J * M;
+      if (!cs.every(([ci, cj]) => ok[ci + cj * m])) continue;
+      good[K] = 1;
+      let nx = 0, ny = 0, nz = 0, val = 0, cr = 0, cg = 0, cb = 0;
+      for (const [ci, cj, w] of cs) {
+        const k = ci + cj * m;
+        P[3 * K] += w * pos[3 * k]; P[3 * K + 1] += w * pos[3 * k + 1]; P[3 * K + 2] += w * pos[3 * k + 2];
+        nx += w * nor[3 * k]; ny += w * nor[3 * k + 1]; nz += w * nor[3 * k + 2];
+        if (scalar) val += w * C[k];
+        else if (col) { const cc = this.colorAt(C, m, nn, ci, cj, mapping) || [0.5, 0.5, 0.5]; cr += w * cc[0]; cg += w * cc[1]; cb += w * cc[2]; }
+      }
+      const l = Math.hypot(nx, ny, nz) || 1;
+      Nr[3 * K] = nx / l; Nr[3 * K + 1] = ny / l; Nr[3 * K + 2] = nz / l;
+      if (col) {
+        const cc = scalar ? this.mapValue(val, mapping) || [0.5, 0.5, 0.5] : [cr, cg, cb];
+        RGB[3 * K] = cc[0]; RGB[3 * K + 1] = cc[1]; RGB[3 * K + 2] = cc[2];
+      }
+    }
+    const idx = [];
+    for (let J = 0; J < NN - 1; J++) for (let I = 0; I < M - 1; I++) {
+      const a = I + J * M, b = a + 1, c = a + 1 + M, d = a + M;
+      const i = Math.floor(I / r), j = Math.floor(J / r);
+      if (!(ok[i + j * m] && ok[i + 1 + j * m] && ok[i + 1 + (j + 1) * m] && ok[i + (j + 1) * m])) continue;
+      if (good[a] && good[b] && good[c] && good[d]) idx.push(a, b, c, a, c, d);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(P, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(Nr, 3));
+    if (RGB) g.setAttribute('color', new THREE.BufferAttribute(RGB, 3));
+    g.setIndex(idx);
+    return g;
+  }
+
   buildSurface(n) {
-    const p = faceColoured(n.props, this.opts.edges);
+    const p = smoothFaces(faceColoured(n.props, this.opts.edges), this.opts.edges);
     const Z = matData(p.ZData);
     const [m, nn] = matDims(p.ZData);
     if (!(m >= 1 && nn >= 1)) return null;
@@ -496,26 +603,9 @@ export class Axes3DView {
           group.add(mesh);
         }
       } else {
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        const idx = [];
-        for (let j = 0; j < nn - 1; j++) for (let i = 0; i < m - 1; i++) {
-          const a = i + j * m, b = i + 1 + j * m, c = i + 1 + (j + 1) * m, d = i + (j + 1) * m;
-          if (ok[a] && ok[b] && ok[c] && ok[d]) idx.push(a, b, c, a, c, d);
-        }
-        g.setIndex(idx);
-        let mat;
-        if (isRgb(fc)) mat = this.faceMaterial(n, { color: fc, alpha });
-        else {
-          const col = new Float32Array(N * 3);
-          for (let j = 0; j < nn; j++) for (let i = 0; i < m; i++) {
-            const k = i + j * m; const cc = this.colorAt(C, m, nn, i, j, mapping) || [0.5, 0.5, 0.5];
-            col[3 * k] = cc[0]; col[3 * k + 1] = cc[1]; col[3 * k + 2] = cc[2];
-          }
-          g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-          mat = this.faceMaterial(n, { vertexColors: true, alpha });
-        }
-        g.computeVertexNormals();
+        const g = this.smoothSurfaceGeometry(pos, ok, m, nn, isRgb(fc) ? null : { C, mapping });
+        const mat = isRgb(fc) ? this.faceMaterial(n, { color: fc, alpha, lighting: p.FaceLighting })
+          : this.faceMaterial(n, { vertexColors: true, alpha, lighting: p.FaceLighting });
         const mesh = new THREE.Mesh(g, mat);
         mesh.userData = { id: n.id, type: 'surface', pick: true };
         group.add(mesh);
@@ -852,26 +942,44 @@ export class Axes3DView {
     const galpha = this.ax.auto && this.ax.auto.includes('GridColor') ? th.gridMajorAlpha : (fin(p.GridAlpha) ? p.GridAlpha : 0.15);
     const gseg = [];
     const T = this.tickInfo();
-    if (p.XGrid) for (const v of T[0].ticks) { const x = this.w1(0, v); gseg.push(x, -h.y, bz, x, h.y, bz, x, by, -h.z, x, by, h.z); }
-    if (p.YGrid) for (const v of T[1].ticks) { const y = this.w1(1, v); gseg.push(-h.x, y, bz, h.x, y, bz, bx, y, -h.z, bx, y, h.z); }
-    if (p.ZGrid) for (const v of T[2].ticks) { const z = this.w1(2, v); gseg.push(-h.x, by, z, h.x, by, z, bx, -h.y, z, bx, h.y, z); }
-    if (gseg.length && gseg.every(fin)) {
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(gseg, 3));
-      const gc = isRgb(gcol) ? gcol : th.grid;
-      const ls = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: new THREE.Color(...gc), transparent: true, opacity: Math.min(1, galpha * 1.6), depthWrite: false }));
-      ls.renderOrder = 61;
-      this.boxGroup.add(ls);
+    // a tick line right next to the box edge (limits a little off the ticks, e.g. after a pan) would
+    // show as a double line beside the edge: the edge stands for it
+    const inner = (k) => T[k].ticks.filter((v) => innerTick(this.w1(k, v), [h.x, h.y, h.z][k]));
+    if (p.XGrid) for (const v of inner(0)) { const x = this.w1(0, v); gseg.push(x, -h.y, bz, x, h.y, bz, x, by, -h.z, x, by, h.z); }
+    if (p.YGrid) for (const v of inner(1)) { const y = this.w1(1, v); gseg.push(-h.x, y, bz, h.x, y, bz, bx, y, -h.z, bx, y, h.z); }
+    if (p.ZGrid) for (const v of inner(2)) { const z = this.w1(2, v); gseg.push(-h.x, by, z, h.x, by, z, bx, -h.y, z, bx, h.y, z); }
+    // the walls' outline: grid lines sit on ticks only, so without it an edge whose limit is not a tick
+    // (often the far vertical one) goes missing when the box is off
+    if (gseg.length && this.opts.box === false) {
+      const fx = -bx, fy = -by, fz = -bz;   // the front side of each wall
+      gseg.push(-h.x, by, bz, h.x, by, bz, bx, -h.y, bz, bx, h.y, bz, bx, by, -h.z, bx, by, h.z,   // where the walls meet
+        -h.x, fy, bz, h.x, fy, bz, fx, -h.y, bz, fx, h.y, bz,                                        // floor
+        bx, fy, -h.z, bx, fy, h.z, fx, by, -h.z, fx, by, h.z,                                        // the two vertical outer edges
+        bx, -h.y, -bz, bx, h.y, -bz, -h.x, by, -bz, h.x, by, -bz);                                   // the walls' top
     }
     // box edges / axis lines
     const edges = [];
     const E = this.labelEdges();
-    if (p.Box) {
+    // the Box toggle: on draws all 12 edges (the far vertical one too, which the grid only gives when a
+    // tick falls on the limit); off leaves the three labelled edges
+    if (this.opts.box !== false) {
       for (const sy of [-1, 1]) for (const sz of [-1, 1]) edges.push([0, [-h.x, sy * h.y, sz * h.z], [h.x, sy * h.y, sz * h.z]]);
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) edges.push([1, [sx * h.x, -h.y, sz * h.z], [sx * h.x, h.y, sz * h.z]]);
       for (const sx of [-1, 1]) for (const sy of [-1, 1]) edges.push([2, [sx * h.x, sy * h.y, -h.z], [sx * h.x, sy * h.y, h.z]]);
     } else {
       edges.push([0, E[0].a, E[0].b], [1, E[1].a, E[1].b], [2, E[2].a, E[2].b]);
+    }
+    // one line per place: two lines on the same spot in different colours (a grid line on a tick at the
+    // limit, the walls' outline under a box edge, two walls meeting) show as a double line, so a grid
+    // segment on a box / axis edge is left to that edge and repeats are dropped
+    const grid = dedupeSegments(gseg, edges.map(([, a, b]) => [...a, ...b]));
+    if (grid.length && grid.every(fin)) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(grid, 3));
+      const gc = isRgb(gcol) ? gcol : th.grid;
+      const ls = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: new THREE.Color(...gc), transparent: true, opacity: Math.min(1, galpha * 1.6), depthWrite: false }));
+      ls.renderOrder = 61;
+      this.boxGroup.add(ls);
     }
     // tick marks (into the box along the label edges)
     const tl = 0.018 * this.radius;
@@ -1043,7 +1151,11 @@ export class Axes3DView {
       if (k === 0) { u.uScale.value.x = s; u.uOffset.value.x = off; } else { u.uScale.value.y = s; u.uOffset.value.y = off; }
     }
     const span = Math.max(this.flim[0][1] - this.flim[0][0], this.flim[1][1] - this.flim[1][0]);
-    u.uBase.value = 10 ** Math.floor(Math.log10(span > 0 ? span : 1)) / 125; // 5^k multiples hit 0.2, 1, 5 × 10^n
+    const fallback = 10 ** Math.floor(Math.log10(span > 0 ? span : 1)) / 125; // 5^k multiples hit 0.2, 1, 5 × 10^n
+    // lines on the box's ticks: the base is the tick step / 25, so 5^k levels hold the ticks and their fifths
+    const T = this.tickInfo();
+    const base = [0, 1].map((k) => groundBase(T[k].ticks, this.logs[k]) || fallback);
+    u.uBase.value.set(base[0], base[1]);
     u.uMinPx.value = 10 * this.dpr;
     u.uColor.value.setRGB(...th.grid);
     u.uAxisColor.value.setRGB(...(th.accent || [0.3, 0.8, 0.95]));
@@ -1055,6 +1167,11 @@ export class Axes3DView {
     const vis = this.camera === this.ortho ? (this.ortho.top - this.ortho.bottom) : R * 2 / this.zoomF;
     u.uFadeStart.value = Math.max(R * 1.2, vis * 0.9);
     u.uFadeEnd.value = Math.max(R * 6, vis * 6);
+    // the ground grid leaves the box floor to the box's own grid when that face shows one
+    const p = this.ax.props, h = this.half;
+    const floorZ = this.viewDir().z >= 0 ? -h.z : h.z;
+    const hole = !!(p.XGrid || p.YGrid) && Math.abs(u.uZ0.value - floorZ) <= 1e-9 * (Math.abs(h.z) || 1);
+    u.uHole.value.set(hole ? h.x : 0, hole ? h.y : 0);
     updateGroundGrid(g, this.camera, this.w * this.dpr, this.h * this.dpr);
   }
 
@@ -1063,7 +1180,7 @@ export class Axes3DView {
   render() {
     if (!this.ax) { this.renderer.clear(); return; }
     this.updateCamera();
-    const vk = summarise([this.view, this.w, this.h, this.zoomF, this.target.toArray(), this.axesKey, this.optKey, this.ax.props.Box, this.ax.props.XGrid, this.ax.props.YGrid, this.ax.props.ZGrid, this.opts.grid, this.ax.props.XTick, this.ax.props.YTick, this.ax.props.ZTick, !!this.opts.axesLines, this.ax.props.XLabel, this.ax.props.YLabel, this.ax.props.ZLabel]);
+    const vk = summarise([this.view, this.w, this.h, this.zoomF, this.target.toArray(), this.axesKey, this.optKey, this.ax.props.Box, this.ax.props.XGrid, this.ax.props.YGrid, this.ax.props.ZGrid, this.opts.grid, this.ax.props.XTick, this.ax.props.YTick, this.ax.props.ZTick, !!this.opts.axesLines, this.opts.box !== false, this.ax.props.XLabel, this.ax.props.YLabel, this.ax.props.ZLabel]);
     if (vk !== this.boxViewKey) { this.boxViewKey = vk; this.buildBox(); this.buildAxisLines(); }
     this.buildLights();
     for (const o of this.dataRoot.children) o.traverse((c) => { if (c.material && c.material.uniforms && c.material.uniforms.uScale) c.material.uniforms.uScale.value = this.dpr; });

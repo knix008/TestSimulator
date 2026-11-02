@@ -9,9 +9,10 @@
 @container simed (max-width: 1100px) { .sim-toolbar .sim-tb.minor .sim-tb-label { display: none; } }
 @container simed (max-width: 640px) { .sim-toolbar .sim-tb-label { display: none; } .sim-tb { padding: 0 6px; } }
 .sim-sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 4px; flex: none; }
-.sim-time { display: inline-flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 104px; padding: 0 6px; flex: none; }
-.sim-time-val { font-family: var(--mono); font-size: 11px; white-space: nowrap; }
-.sim-progress { display: block; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+/* the time sits on the buttons' centre line (28 px like .sim-tb); the progress bar lies under it */
+.sim-time { position: relative; display: inline-flex; align-items: center; height: 28px; min-width: 104px; padding: 0 6px; flex: none; }
+.sim-time-val { font-family: var(--mono); font-size: 11px; line-height: 1; white-space: nowrap; }
+.sim-progress { position: absolute; left: 6px; right: 6px; bottom: 1px; display: block; height: 3px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .sim-progress > span { display: block; height: 100%; background: var(--accent); transition: width .15s; }
 .sim-stoptime { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg-muted); flex: none; margin-right: 4px; }
 .sim-zoom { display: inline-flex; align-items: center; flex: none; margin: 0 2px; }
@@ -140,6 +141,39 @@
 .sim-swatches { display: flex; flex-wrap: wrap; gap: 5px; }
 .sim-swatch { width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 2px solid var(--border-strong); cursor: pointer; position: relative; flex: none; }
 .sim-swatch.on { box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent); }
+/* 수식으로 모델 만들기 */
+.sim-eq .sim-dialog-body { gap: 10px; }
+.sim-eq-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sim-eq-kinds { display: flex; flex-wrap: wrap; gap: 4px; }
+.sim-eq-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 10px; }
+.sim-eq-left, .sim-eq-right { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.sim-eq-text { flex: 1; min-height: 0; resize: none; padding: 8px 10px; font-family: var(--mono); font-size: 13px; line-height: 1.55; tab-size: 4; white-space: pre; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.sim-eq-help { line-height: 1.45; }
+.sim-eq-preview { flex: 1; min-height: 140px; position: relative; border: 1px solid var(--border); border-radius: 6px; background: #ffffff; overflow: hidden; }
+.sim-eq-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sim-eq-problem { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--bg); overflow: auto; }
+.sim-eq-error { display: flex; align-items: flex-start; gap: 6px; color: var(--danger); font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; }
+.sim-eq-hints-title { margin-bottom: -4px; font-size: 11.5px; font-weight: 600; color: var(--fg-muted); }
+.sim-eq-hints { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sim-eq-hints.notes { max-height: 96px; overflow: auto; }
+.sim-eq-hint { display: flex; align-items: flex-start; gap: 7px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elev, var(--bg)); font-size: 12px; line-height: 1.45; }
+.sim-eq-hint > svg { flex: none; margin-top: 2px; color: #d9a400; }
+.sim-eq-hint-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.sim-eq-hint-code { font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; }
+.sim-eq-fix, .sim-eq-unfix { flex: none; height: 24px; padding: 0 8px; font-size: 12px; }
+.sim-eq-help { display: flex; align-items: flex-start; gap: 8px; }
+.sim-eq-help > span { flex: 1; min-width: 0; }
+.sim-eq-error svg { flex: none; margin-top: 2px; }
+.sim-eq-info { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; margin: 0; font-size: 12px; }
+.sim-eq-info dt { color: var(--fg-muted); }
+.sim-eq-info dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere; }
+.sim-eq-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.sim-eq-opt { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.sim-eq-opt > span:first-child { color: var(--fg-muted); white-space: nowrap; }
+.sim-eq-stop { width: 70px; }
+.sim-eq-name { width: 140px; }
+.sim-eq-name.bad { border-color: var(--danger); }
+.sim-eq-fail { display: inline-flex; align-items: center; gap: 5px; min-width: 0; color: var(--danger); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sim-line-styles { display: flex; flex-wrap: wrap; gap: 4px; }
 .sim-line-style { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--fg); font-size: 12px; cursor: pointer; }
 .sim-line-style:hover { background: var(--bg-hover); }

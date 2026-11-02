@@ -1,6 +1,7 @@
 // Computed graphics data: data extents, automatic axes limits / ticks,
 // subplot and tile layout, and derived geometry (bars, areas, histograms,
 // quiver arrows, contours, stairs). Pure ESM.
+import { matrixOf, forEachTransformedLeaf } from './xform.js';
 import { autoLimits, ticksFor, tickLabels, maxTicksFor, dateTicks, linearTicks } from './ticks.js';
 import { autoLevels, contourLines, contourBands, contourMatrix } from './contour.js';
 import { G, isAxesType, figureOf } from './model.js';
@@ -24,7 +25,7 @@ export function implicitX(M) {
 
 /** Adds the extent of one object to ext (log flags → positive only). */
 export function addExtent(st, o, ext, logs, derived) {
-  if (o.props.Visible === false && o.type !== 'hggroup') return;
+  if (o.props.Visible === false && o.type !== 'hggroup' && o.type !== 'hgtransform') return;
   const p = o.props;
   const lx = logs.x, ly = logs.y, lz = logs.z;
   switch (o.type) {
@@ -107,6 +108,9 @@ export function addExtent(st, o, ext, logs, derived) {
     case 'hggroup':
       for (const c of o.children) { const co = st.objs.get(c); if (co) addExtent(st, co, ext, logs, derived); }
       break;
+    case 'hgtransform':
+      forEachTransformedLeaf(st, o, matrixOf(o.props.Matrix), (leaf) => addExtent(st, leaf, ext, logs, derived));
+      break;
     default: break;
   }
 }
@@ -118,7 +122,7 @@ export function deriveAxes(st, ax) {
   const out = new Map();
   const kids = ax.children.map((c) => st.objs.get(c)).filter(Boolean).reverse(); // creation order
   const flat = [];
-  const walk = (list) => { for (const o of list) { if (o.type === 'hggroup') walk(o.children.map((c) => st.objs.get(c)).filter(Boolean).reverse()); else flat.push(o); } };
+  const walk = (list) => { for (const o of list) { if (o.type === 'hggroup' || o.type === 'hgtransform') walk(o.children.map((c) => st.objs.get(c)).filter(Boolean).reverse()); else flat.push(o); } };
   walk(kids);
   // bars, grouped by creation call
   const groups = new Map();
