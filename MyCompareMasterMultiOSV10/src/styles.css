@@ -2191,13 +2191,24 @@ mark.word.modified { background: var(--word-modified); }
 .dialog-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
 .dialog-button:disabled { opacity: 0.4; cursor: default; }
 
-.about-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.about-hero { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
 .about-icon { display: block; flex: 0 0 auto; }
 .about-hero h2 { margin: 0 0 4px; font-size: 18px; }
 .about-hero p { margin: 0; color: var(--muted); word-break: keep-all; }
 /* Nothing in the About window is cut short: long values wrap instead. */
 .about-value { white-space: normal; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
-.about-path { font-family: var(--pane-font); font-size: 0.92em; }
+.about-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 7px 18px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2, var(--panel));
+}
+.about-grid dt { color: var(--muted); }
+.about-grid dd { margin: 0; min-width: 0; }
 .license-text { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 .feature-list { list-style: none; margin: 0 0 6px; padding: 0; }
@@ -2498,7 +2509,7 @@ mark.word.modified { background: var(--word-modified); }
 }
 
 .dialog.floating.size-settings { width: min(1060px, 96vw); height: min(700px, 92vh); }
-.dialog.floating.size-about { width: 600px; height: 480px; }
+.dialog.floating.size-about { width: 600px; height: 372px; }
 .dialog.floating.size-print { width: min(1000px, 94vw); height: min(760px, 90vh); }
 .dialog.floating.size-error { width: 660px; height: 440px; }
 .dialog.floating.size-recent { width: 680px; height: 480px; }

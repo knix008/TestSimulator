@@ -56,7 +56,9 @@ function loadLanguage(): Language | null {
 }
 
 export function GuideDialog({ payload, settings }: DialogProps) {
-  const [language, setLanguage] = useState<Language>(() => loadLanguage() ?? (settings.language === "en" ? "en" : "ko"));
+  // Until the viewer picks one here, the guide follows the app's language, live.
+  const [chosen, setLanguage] = useState<Language | null>(loadLanguage);
+  const language: Language = chosen ?? (settings.language === "en" ? "en" : "ko");
   // The guide's own labels follow the guide's language, not the app's.
   const t = useMemo(() => translator(language), [language]);
   const keepRef = useRef<string | null>(null);

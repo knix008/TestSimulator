@@ -19,11 +19,11 @@ import {
 import { APP_ICON_URL } from "../appIcon.js";
 import type { DialogProps } from "../DialogHost.js";
 import * as host from "../host.js";
-import { Button, Buttons, Field } from "./parts.js";
+import { Button, Buttons } from "./parts.js";
 
 const PLATFORM_NAMES: Record<string, string> = { win32: "Windows", darwin: "macOS", linux: "Linux" };
 
-export function AboutDialog({ settings, t, close }: DialogProps) {
+export function AboutDialog({ t, close }: DialogProps) {
   const [versions, setVersions] = useState<Record<string, string>>({});
   const [platform, setPlatform] = useState(navigator.platform);
   const [packaged, setPackaged] = useState(false);
@@ -57,7 +57,6 @@ export function AboutDialog({ settings, t, close }: DialogProps) {
     `Author   ${AUTHOR}`,
     `Build    ${stamp}`,
     `Runtime  ${build}`,
-    `Settings ${settings.settingsPath}`,
   ].join("\n");
 
   return (
@@ -70,16 +69,20 @@ export function AboutDialog({ settings, t, close }: DialogProps) {
         </div>
       </div>
 
-      <Field label={t("about.author")}><strong data-testid="about-author">{AUTHOR}</strong></Field>
-      <Field label={t("about.version")}>{APP_VERSION}</Field>
-      <Field label={t("about.documents")}>.{DOC_EXTENSION} — {DOC_DESCRIPTION}</Field>
-      <Field label={t("about.buildTime")}>{stamp}</Field>
-      <Field label={t("about.build")}>
-        <span className="about-value" title={build}>{build}</span>
-      </Field>
-      <Field label={t("about.settingsPath")}>
-        <span className="about-value about-path" title={settings.settingsPath}>{settings.settingsPath}</span>
-      </Field>
+      {/* Label and value side by side in one compact grid: the labels take only the
+          width the longest needs, so nothing floats across an empty column. */}
+      <dl className="about-grid">
+        <dt>{t("about.author")}</dt>
+        <dd><strong data-testid="about-author">{AUTHOR}</strong></dd>
+        <dt>{t("about.version")}</dt>
+        <dd>{APP_VERSION}</dd>
+        <dt>{t("about.documents")}</dt>
+        <dd>.{DOC_EXTENSION} — {DOC_DESCRIPTION}</dd>
+        <dt>{t("about.buildTime")}</dt>
+        <dd>{stamp}</dd>
+        <dt>{t("about.build")}</dt>
+        <dd className="about-value" title={build}>{build}</dd>
+      </dl>
 
       <p className="license-text">{COPYRIGHT}</p>
 

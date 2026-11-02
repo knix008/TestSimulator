@@ -158,7 +158,8 @@
   position: fixed;
   right: 18px;
   bottom: 40px;
-  z-index: 890;
+  /* Under the web build's dialog layer (500): a dialog opened from it stays on top. */
+  z-index: 450;
   display: flex;
   gap: 12px;
   width: 420px;

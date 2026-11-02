@@ -416,9 +416,7 @@ const STRINGS = {
   "about.author": ["제작자", "Author"],
   "about.version": ["버전", "Version"],
   "about.buildTime": ["빌드 시각", "Build time"],
-  "about.build": ["실행 환경", "Runtime"],
-  "about.settingsPath": ["설정 파일", "Settings file"],
-  "about.documents": ["문서 형식", "Document type"],
+  "about.build": ["실행 환경", "Runtime"],  "about.documents": ["문서 형식", "Document type"],
   "about.description": [
     "Git과 함께 쓰거나 단독으로 쓸 수 있는 파일·디렉터리 비교 및 3-way 병합 도구입니다.",
     "A file, directory and 3-way merge tool that works with git or on its own.",

@@ -161,7 +161,7 @@ async function boxOf(selector, pad = 8) {
 function clip(box, pad = 0) {
   const x = Math.max(0, Math.floor(box.left - pad));
   const y = Math.max(0, Math.floor(box.top - pad));
-  const right = Math.min(WIDTH, Math.ceil(box.right + pad));
+  const right = Math.min(width, Math.ceil(box.right + pad));
   const bottom = Math.min(HEIGHT, Math.ceil(box.bottom + pad));
   return { x, y, width: right - x, height: bottom - y, scale: 1 };
 }
@@ -171,11 +171,37 @@ const union = (a, b) => ({
   right: Math.max(a.x + a.width, b.x + b.width), bottom: Math.max(a.y + a.height, b.y + b.height),
 });
 
+/**
+ * The desktop window is never narrower than its toolbar (App.tsx sets the minimum
+ * size from it), so a full-window picture is at least that wide, too.
+ */
+let width = WIDTH;
+async function fitToolbar() {
+  const need = await js("(() => { const bar = document.querySelector('[data-tour=\"toolbar\"]'); return bar ? Math.ceil(bar.scrollWidth) : 0; })()");
+  const next = Math.max(WIDTH, need);
+  if (next !== width) {
+    width = next;
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
+    await sleep(300);
+  }
+}
+
 async function shot(language, name, area) {
+  if (!area) await fitToolbar();
   await sleep(350);
   const params = { format: "png", captureBeyondViewport: false };
   if (area) params.clip = area;
-  const result = await cdp.send("Page.captureScreenshot", params);
+  // A headless capture now and then waits forever for a frame; give it a nudge
+  // (bring the page to the front) and a second try rather than hanging the run.
+  let result = null;
+  for (let attempt = 0; attempt < 3 && !result; attempt += 1) {
+    await cdp.send("Page.bringToFront").catch(() => {});
+    result = await Promise.race([
+      cdp.send("Page.captureScreenshot", params),
+      sleep(20000).then(() => null),
+    ]);
+  }
+  if (!result) throw new Error(`screenshot ${language}/${name} timed out`);
   const file = path.join(root, "assets", "guide", language, `${name}.png`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, Buffer.from(result.data, "base64"));
@@ -216,8 +242,9 @@ async function shootLanguage(language) {
 
   // The tutorial on the start screen.
   await js("window.__mcmCommands['help.tutorial'].run(); true");
-  await sleep(300);
+  await cdp.until("window.__mcmTour && window.__mcmTour.state().active", 5000);
   await js("window.__mcmTour.go(window.__mcmTour.steps.findIndex((s) => s.id === 'start-new-session')); true");
+  await cdp.until("document.querySelector('.tour-card') && document.querySelector('.tour-spotlight')", 5000);
   await sleep(900);
   const card = await boxOf(".tour-card", 0);
   const lit = await boxOf(".tour-spotlight", 0);
@@ -229,6 +256,7 @@ async function shootLanguage(language) {
   await open("files", [sample("files", "left.txt"), sample("files", "right.txt")]);
   await sleep(900);
   await shot(language, "text-compare");
+  await fitToolbar();
   await shot(language, "toolbar", await boxOf('[data-tour="toolbar"]', 0));
   await shot(language, "menubar", await boxOf('[data-tour="menubar"]', 0));
 
@@ -251,11 +279,28 @@ async function shootLanguage(language) {
   await key("Escape", "Escape", 27);
   await sleep(300);
 
-  // The bottom panel with a terminal open.
-  await update({ showTerminalPanel: true, bottomPanel: "terminal", logPanelHeight: 230 });
-  await sleep(3500);
+  // The bottom panel with a terminal open in the repository, after a couple of commands.
+  // (The start screen has no bottom panel, so a tab stays open.)
+  await closeTabs();
+  await open("repository", [repo.replace(/\\/g, "/")]);
+  await sleep(800);
+  await update({ termCwd: repo, showTerminalPanel: true, bottomPanel: "terminal", logPanelHeight: 240 });
+  await cdp.until("document.querySelector('[data-field=terminalInput]')", 15000);
+  await sleep(2500);
+  for (const command of ["git log --oneline --graph -4", "git status --short"]) {
+    await js(`(() => {
+      const input = document.querySelector('[data-field=terminalInput]');
+      input.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(command)});
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    })()`);
+    await sleep(200);
+    await key("Enter", "Enter", 13);
+    await sleep(2500);
+  }
   await shot(language, "bottom-panel", await boxOf('[data-tour="bottom-panel"]', 0));
-  await update({ showTerminalPanel: false, bottomPanel: "log", logPanelHeight: 140 });
+  await update({ termCwd: "", showTerminalPanel: false, bottomPanel: "log", logPanelHeight: 140 });
   await closeTabs();
 
   // A folder comparison.
@@ -312,7 +357,18 @@ try {
     PORT: String(apiPort),
     MCM_SETTINGS_DIR: settingsDir,
   });
-  start(process.execPath, [path.join(root, "node_modules", "vite", "bin", "vite.js"), "--port", String(uiPort), "--strictPort"], {
+  // A production build served by `vite preview` rather than the dev server: nothing
+  // hot-reloads the page halfway through when a source file changes during the run.
+  const vite = path.join(root, "node_modules", "vite", "bin", "vite.js");
+  const dist = path.join(scratch, "dist");
+  console.log("building the UI…");
+  const build = spawnSync(process.execPath, [vite, "build", "--outDir", dist, "--emptyOutDir", "--logLevel", "error"], {
+    cwd: root,
+    stdio: "inherit",
+    env: { ...process.env, MCM_API: api },
+  });
+  if (build.status !== 0) throw new Error("vite build failed");
+  start(process.execPath, [vite, "preview", "--outDir", dist, "--port", String(uiPort), "--strictPort"], {
     MCM_API: api,
   });
   await waitForUrl(`${api}/api/settings`);
@@ -331,6 +387,8 @@ try {
   const target = await waitForTarget(cdpPort, (item) => item.type === "page");
   cdp = await connect(target);
   await cdp.send("Page.enable");
+  // A page that thinks it has focus keeps painting, which captures need.
+  await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true }).catch(() => {});
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
 
   for (const language of languages) await shootLanguage(language);

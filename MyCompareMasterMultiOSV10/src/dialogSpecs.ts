@@ -15,7 +15,7 @@ export const DIALOG_SPECS = {
   // Wide and tall enough for the prompt editor, whose preview, preset cards and segment
   // fields are the largest thing in the dialog.
   settings: { width: 1060, height: 700, fixed: true },
-  about: { width: 600, height: 480, fixed: true },
+  about: { width: 600, height: 372, fixed: true },
   print: { width: 1000, height: 760, fixed: true },
   error: { width: 660, height: 440, fixed: true },
   progress: { width: 420, height: 140, fixed: true },
