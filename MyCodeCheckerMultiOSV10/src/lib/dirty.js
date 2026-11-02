@@ -35,17 +35,20 @@ function apply(key, dirty, meta = {}) {
 
 export function setEditorDirty(key, dirty, meta = {}) {
   const { save, ...plain } = meta;
-  if (popupRoute()) broadcast('mcc-editor-dirty', { key, dirty: !!dirty, label: plain.label || '' }).catch(() => {});
+  if (popupRoute()) broadcast('mcc-editor-dirty', { key, dirty: !!dirty, label: plain.label || '', savable: !!save }).catch(() => {});
   else apply(key, !!dirty, { ...plain, save });
 }
 
-/** In an editor: report unsaved edits while `dirty` (cleared on unmount). */
+/** In an editor: report unsaved edits while `dirty` (cleared on unmount).
+ *  Without `save` (a form like the new project dialog) it is only listed in
+ *  the exit prompt; saving on exit passes it by. */
 export function useEditorDirty(key, dirty, { label = '', save } = {}) {
   const saveRef = useRef(save);
   saveRef.current = save;
+  const savable = !!save;
   useEffect(() => {
-    setEditorDirty(key, !!dirty, { label, save: () => (saveRef.current ? saveRef.current() : undefined) });
-  }, [key, dirty, label]);
+    setEditorDirty(key, !!dirty, { label, save: savable ? () => (saveRef.current ? saveRef.current() : undefined) : undefined });
+  }, [key, dirty, label, savable]);
   useEffect(() => () => setEditorDirty(key, false), [key]);
   // A child-window editor saves when the main window asks.
   useEffect(() => {
@@ -60,13 +63,14 @@ export const dirtyEditors = () => [...editors.entries()].map(([key, v]) => ({ ke
 
 /** Main window: listen to editors in child windows. */
 export function listenChildEditors() {
-  return onBroadcast('mcc-editor-dirty', (p) => { if (p && p.key) apply(p.key, p.dirty, { label: p.label, remote: true }); });
+  return onBroadcast('mcc-editor-dirty', (p) => { if (p && p.key) apply(p.key, p.dirty, { label: p.label, remote: true, savable: p.savable !== false }); });
 }
 
 /** Saves every dirty editor (child windows are asked and given a moment). */
 export async function saveEditors() {
   for (const [key, v] of [...editors.entries()]) {
     if (v.remote) {
+      if (!v.savable) continue;
       await broadcast('mcc-editor-save', { key });
       const t0 = Date.now();
       while (editors.has(key) && Date.now() - t0 < 4000) await new Promise((r) => setTimeout(r, 100));
