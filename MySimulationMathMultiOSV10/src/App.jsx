@@ -30,13 +30,14 @@ import { ProgressHost } from './components/ProgressHost';
 import { CommandWindow } from './panes/CommandWindow';
 import { HelpBrowser, ProblemsPane } from './panes/BottomPanes';
 import { FlowEditor } from './flow/FlowEditor';
-import { withModelExt } from './sim/logic.js';
+import { withModelExt, simButtons } from './sim/logic.js';
+import { simEditor, subscribeSimEditors, simEditorStates } from './sim/editorApi';
 import { WorkspacePane } from './panes/Workspace';
 import { HistoryPane, loadHistory, storeHistory, SESSION_START } from './panes/CommandHistory';
 import { CurrentFolderPane } from './panes/CurrentFolder';
 import { EditorDoc } from './panes/EditorDoc';
 import { VariableEditor } from './panes/VariableEditor';
-import { FigureAreaGuard, ModelEditorGuard, loadSim } from './panes/Guarded';
+import { FigureAreaGuard, ModelEditorGuard, EquationDialogGuard, loadSim } from './panes/Guarded';
 import { SettingsDialog } from './views/Settings';
 import { AboutDialog } from './views/About';
 import { ShortcutsDialog } from './views/Shortcuts';
@@ -83,6 +84,14 @@ function Desktop() {
   const layout = useMemo(() => ({ ...DEFAULT_LAYOUT, ...(settings.layout || {}), folder: { ...DEFAULT_LAYOUT.folder, ...((settings.layout || {}).folder || {}) }, workspace: { ...DEFAULT_LAYOUT.workspace, ...((settings.layout || {}).workspace || {}) }, history: { ...DEFAULT_LAYOUT.history, ...((settings.layout || {}).history || {}) }, cmd: { ...DEFAULT_LAYOUT.cmd, ...((settings.layout || {}).cmd || {}) } }), [settings.layout]);
   const bottomTab = ['cmd', 'help', 'problems'].includes(layout.bottomTab) ? layout.bottomTab : 'cmd';
   const [live, setLive] = useState({}); // pane sizes while dragging
+  // the open model editors publish their run state (sim/editorApi): the 시뮬레이션 ribbon follows it.
+  // Only a changed state re-renders the app: an editor publishes after every render of its own, so
+  // re-rendering on each publish would loop (the page froze, e.g. on Ctrl+, with a model open).
+  const [, setSimStates] = useState('');
+  useEffect(() => subscribeSimEditors(() => {
+    const now = [...simEditorStates()].join('|');
+    setSimStates((prev) => (prev === now ? prev : now));
+  }), []);
   const L = { ...layout, ...live };
   const tab = settings.ribbonTab || 'home';
 
@@ -786,9 +795,15 @@ function Desktop() {
   const isEditor = !!(activeDoc && activeDoc.kind === 'file');
   const isFlow = !!(activeDoc && activeDoc.kind === 'flow');
   const isModel = !!(activeDoc && activeDoc.kind === 'model');
+  const simApi = isModel ? simEditor(activeDoc.id) : null;
+  const simBtn = simButtons(isModel && simApi ? (simApi.status && simApi.status.state) || 'idle' : null);
   const edCall = (fn) => () => { if (activeEditor && activeEditor.editor) activeEditor.editor[fn](); };
   // The app-wide context menu (lib/contextMenus.js) runs these.
+  // 모델로 변환: the script (or its selection) as equations in the 수식으로 모델 만들기 dialog
+  const toModel = (text) => { loadSim(); setDialog({ kind: 'toModel', text: String(text || '') }); };
+  const editorToModel = () => { const ed = activeEditor && activeEditor.editor; if (ed) toModel(ed.selection() || ed.getText()); };
   setContextMenuActions({
+    toModel,
     runSelection: (text) => { if (String(text).trim()) runCode(text); },
     editorCommand: (name) => edCall(name)(),
     clearCommandWindow: () => cmdRef.current && cmdRef.current.clear(),
@@ -867,6 +882,8 @@ function Desktop() {
       { id: 'indent', icon: 'indent', label: t('rb_indent'), keys: 'Ctrl+]', disabled: !isEditor, run: edCall('indent') },
       { id: 'outdent', icon: 'outdent', label: t('rb_outdent'), keys: 'Ctrl+[', disabled: !isEditor, run: edCall('outdent') },
       { id: 'reindent', icon: 'sparkle', label: t('rb_reindent'), keys: 'Ctrl+I', tip: t('rb_reindent_tip'), disabled: !isEditor, run: edCall('reindent') },
+      { sep: true },
+      { id: 'toModel', icon: 'model', label: t('rb_to_model'), tip: t('rb_to_model_tip'), disabled: !isEditor, run: editorToModel },
     ],
     help: [
       { id: 'help:guide', icon: 'book', label: t('hp_guide'), keys: 'F1', primary: true, run: () => startAction('guide') },
@@ -886,10 +903,10 @@ function Desktop() {
       { id: 'sim:library', icon: 'library', label: t('sim_library'), run: () => showLibrary() },
       { sep: true },
       { sep: true },
-      { id: 'sim:run', icon: 'play', label: t('sim_run'), primary: true, disabled: !isModel, run: () => { const detail = { id: active, path: activeDoc.path, command: 'run', solver: settings.sim.solver, stopTime: settings.sim.stopTime }; window.dispatchEvent(new CustomEvent('msm-model-command', { detail })); } },
-      { id: 'sim:pause', icon: 'pause', label: t('sim_pause'), tip: t('sim_pause_tip'), disabled: !isModel, run: () => { window.dispatchEvent(new CustomEvent('msm-model-command', { detail: { id: active, path: activeDoc.path, command: 'pause' } })); } },
-      { id: 'sim:step', icon: 'step', label: t('sim_step'), tip: t('sim_step_tip'), disabled: !isModel, run: () => { window.dispatchEvent(new CustomEvent('msm-model-command', { detail: { id: active, path: activeDoc.path, command: 'step' } })); } },
-      { id: 'sim:stopRun', icon: 'stop', label: t('sim_stop'), disabled: !isModel, run: () => { window.dispatchEvent(new CustomEvent('msm-model-command', { detail: { id: active, path: activeDoc.path, command: 'stop' } })); } },
+      { id: 'sim:run', icon: 'play', label: simBtn.paused ? t('sim_continue') : t('sim_run'), primary: true, disabled: !simBtn.run, run: () => { const detail = { id: active, path: activeDoc.path, command: 'run', solver: settings.sim.solver, stopTime: settings.sim.stopTime }; window.dispatchEvent(new CustomEvent('msm-model-command', { detail })); } },
+      { id: 'sim:pause', icon: 'pause', label: t('sim_pause'), tip: t('sim_pause_tip'), on: simBtn.paused, disabled: !simBtn.pause, run: () => { window.dispatchEvent(new CustomEvent('msm-model-command', { detail: { id: active, path: activeDoc.path, command: 'pause' } })); } },
+      { id: 'sim:step', icon: 'step', label: t('sim_step'), tip: t('sim_step_tip'), disabled: !simBtn.step, run: () => { window.dispatchEvent(new CustomEvent('msm-model-command', { detail: { id: active, path: activeDoc.path, command: 'step' } })); } },
+      { id: 'sim:stopRun', icon: 'stop', label: t('sim_stop'), disabled: !simBtn.stop, run: () => { window.dispatchEvent(new CustomEvent('msm-model-command', { detail: { id: active, path: activeDoc.path, command: 'stop' } })); } },
     ],
   };
 
@@ -967,8 +984,8 @@ function Desktop() {
   const problemTotal = problemCounts ? problemCounts.error + problemCounts.warning + problemCounts.info : 0;
   const bottomTabs = [
     { id: 'cmd', icon: 'terminal', label: t('cw_title') },
-    { id: 'help', icon: 'book', label: t('bp_help') },
     { id: 'problems', icon: problemCounts && problemCounts.error ? 'xCircle' : 'alert', label: t('bp_problems'), badge: problemTotal || null, bad: !!(problemCounts && problemCounts.error) },
+    { id: 'help', icon: 'book', label: t('bp_help') },   // 도움말 last (rightmost)
   ];
   const commandWindow = (
     <div className="cw-wrap pane-box" data-pane="cmd" data-bottom-tab={bottomTab}>
@@ -1066,23 +1083,27 @@ function Desktop() {
               </div>
             </div>
           </div>
-          {!hasDocs && !layout.cmd.on && (
-            <div className="center-empty">
-              <Icon name="panelBottom" size={28} />
-              <p>{t('pn_empty')}</p>
+          {/* No documents: the empty editor area asks for a script or a model; the Command Window
+              stays below at its own height (it no longer fills the column). */}
+          {!hasDocs && (
+            <div className="center-empty" data-empty="docs">
+              <Icon name="script" size={30} />
+              <p>{t('pn_empty_docs')}</p>
               <span className="center-empty-actions">
-                <button type="button" className="vbtn primary" onClick={() => togglePane('cmd')}><Icon name="terminal" size={14} />{t('pn_open_cmd')}</button>
-                <button type="button" className="vbtn" onClick={() => newScript()}><Icon name="script" size={14} />{t('rb_new_script')}</button>
-                <button type="button" className="vbtn" onClick={() => setStartOn(true)}><Icon name="start" size={14} />{t('sp_show_start')}</button>
+                <button type="button" className="vbtn primary" data-act="newScript" onClick={() => newScript()}><Icon name="script" size={14} />{t('rb_new_script')}</button>
+                <button type="button" className="vbtn" data-act="newModel" onClick={() => newModel()}><Icon name="model" size={14} />{t('rb_new_model')}</button>
+                <button type="button" className="vbtn" data-act="open" onClick={() => openAny()}><Icon name="folder" size={14} />{t('rb_open')}</button>
+                <button type="button" className="vbtn" data-act="start" onClick={() => setStartOn(true)}><Icon name="start" size={14} />{t('sp_show_start')}</button>
+                {!layout.cmd.on && <button type="button" className="vbtn" data-act="cmd" onClick={() => togglePane('cmd')}><Icon name="terminal" size={14} />{t('pn_open_cmd')}</button>}
               </span>
             </div>
           )}
-          {hasDocs && layout.cmd.on && (
+          {layout.cmd.on && (
             <Splitter axis="y" dir={-1} value={L.cmdH} min={LIMITS.cmdH[0]} max={LIMITS.cmdH[1]} label={t('cw_title')}
               onChange={(v) => setLive((x) => ({ ...x, cmdH: v }))} onCommit={(v) => { setLive((x) => ({ ...x, cmdH: undefined })); setLayout({ cmdH: v }); }} />
           )}
           {/* Hidden, not unmounted, when closed: the output and the prompt history stay. */}
-          <div className={`cmd-slot ${hasDocs ? '' : 'fill'}`} style={layout.cmd.on ? (hasDocs ? { height: L.cmdH } : undefined) : { display: 'none' }}>{commandWindow}</div>
+          <div className="cmd-slot" style={layout.cmd.on ? { height: L.cmdH } : { display: 'none' }}>{commandWindow}</div>
         </div>
         <PanelSide side="right" setKey={setKey} settings={settings} ctx={paneCtx} />
         <PanePool ctx={paneCtx} show={shownPanes} />
@@ -1105,6 +1126,7 @@ function Desktop() {
       {dialog && dialog.kind === 'settings' && <SettingsDialog settings={settings} initialTab={dialog.tab} onClose={() => setDialog(null)} onSave={saveSettingsDraft} />}
       {dialog && dialog.kind === 'about' && <AboutDialog onClose={() => setDialog(null)} />}
       {dialog && dialog.kind === 'shortcuts' && <ShortcutsDialog onClose={() => setDialog(null)} />}
+      {dialog && dialog.kind === 'toModel' && <EquationDialogGuard lang={getLanguage()} engine={engine} running={false} initialText={dialog.text} onClose={() => setDialog(null)} />}
       {dialog && dialog.kind === 'find' && <FindFilesDialog cwd={cwd} onOpen={(p, line) => openFile(p, { line })} onClose={() => setDialog(null)} />}
       <UiHost />
       <MenuHost />

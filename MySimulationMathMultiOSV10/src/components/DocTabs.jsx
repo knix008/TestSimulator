@@ -167,8 +167,8 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
     e.preventDefault();
     if (usePopupWindows()) {
       const r = { left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY };
-      const size = menuSize(items, 240);
-      openPopupWindow({ kind: 'menu', anchor: r, width: size.width, height: size.height, payload: { ...look(), items }, onResult: (res) => res && res.id && runMenu(res.id) });
+      const size = menuSize(items, 240, { columns: 1 });
+      openPopupWindow({ kind: 'menu', anchor: r, width: size.width, height: size.height, payload: { ...look(), items, columns: 1 }, onResult: (res) => res && res.id && runMenu(res.id) });
       return;
     }
     setMenu({ x: e.clientX, y: e.clientY, items });
@@ -216,12 +216,12 @@ export function DocTabs({ tabs, active, onActivate, onClose, onReorder, onMoveTo
         <button type="button" className="icon-btn" disabled={!edges.right} title={t('tab_next')} aria-label={t('tab_next')} onPointerDown={() => hold(1)} onPointerUp={release} onPointerLeave={release}><Icon name="chevronRight" size={14} /></button>
       </span>
       {menu && (
-        <div className="menu-pop doc-tab-menu" style={{ left: Math.max(4, Math.min(menu.x, window.innerWidth - menuSize(menu.items, 240).width - 10)), top: menu.y }} onClick={(e) => e.stopPropagation()}>
+        <div className="menu-pop doc-tab-menu" style={{ left: Math.max(4, Math.min(menu.x, window.innerWidth - menuSize(menu.items, 240, { columns: 1 }).width - 10)), top: menu.y }} onClick={(e) => e.stopPropagation()}>
           {menuColumnsNodes(menu.items, (it) => (
             <button key={it.id} type="button" className={`menu-item ${it.on ? 'on' : ''}`} disabled={!!it.disabled} onClick={() => { setMenu(null); runMenu(it.id); }}>
               <Icon name={menuIcon(it)} size={14} /><span className="menu-item-label">{it.label}</span>{it.keys && <span className="menu-keys">{it.keys}</span>}{it.on && <Icon name="check" size={13} />}
             </button>
-          ))}
+          ), { columns: 1 })}
         </div>
       )}
     </div>

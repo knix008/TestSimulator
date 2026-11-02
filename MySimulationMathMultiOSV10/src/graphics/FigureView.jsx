@@ -44,6 +44,16 @@ function dashedRect(g, x, y, w, h, theme, label, { fill = true, strong = true } 
 
 const inBox = (b, x, y) => b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
 
+/** The axes item whose colorbar (bar and tick labels) is under figure point (fx, fy). */
+export function colorbarAt(layout, fx, fy) {
+  if (!layout) return null;
+  for (let i = layout.items.length - 1; i >= 0; i--) {
+    const it = layout.items[i];
+    if (it.node && it.colorbar && it.colorbar.hit && inBox(it.colorbar.hit, fx, fy)) return it;
+  }
+  return null;
+}
+
 /** Layout item under figure point (fx, fy). */
 function hitItem(layout, fx, fy) {
   if (!layout) return null;
@@ -63,6 +73,7 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
   const [size, setSize] = useState({ W: 0, H: 0 });
   const [status, setStatus] = useState('');
   const [ctrl, setCtrl] = useState(false);
+  const [cbHover, setCbHover] = useState(false);   // the pointer is on a colorbar (it can be dragged)
   useEffect(() => {
     const on = (e) => setCtrl(!!(e.ctrlKey || e.metaKey));
     const off = () => setCtrl(false);
@@ -157,7 +168,7 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
     let layout = null;
     try {
       layout = paintFigure(g, fig, fw, fh, {
-        theme, views: ctl.views2d, grid5: ctl.grid, grid3d: ctl.grid, axesLines: ctl.axesLines, edges: ctl.edges, dpr, views3d: ctl.views3d, state3d: ctl.state3d,
+        theme, views: ctl.views2d, grid5: ctl.grid, grid3d: ctl.grid, axesLines: ctl.axesLines, edges: ctl.edges, box: ctl.box, colorbarDx: ctl.colorbarDx, dpr, views3d: ctl.views3d, state3d: ctl.state3d,
         lightOpts: (ax) => lightOptionsFor(ax),
       });
     } catch (e) { console.error('figure paint', e); }
@@ -222,6 +233,14 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
       e.preventDefault();
       return;
     }
+    // the colorbar: drag it sideways (double-click puts it back)
+    const cb = e.button === 0 && !picking ? colorbarAt(layout, fx, fy) : null;
+    if (cb) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      drag.current = { x, y, kind: 'colorbar', axId: cb.node.id, dx0: ctl.colorbarDx.get(cb.node.id) || 0, hit: cb.colorbar.hit, moved: false };
+      e.preventDefault();
+      return;
+    }
     if (!it) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const start = { x, y, fx, fy, it, button: e.button, shift: e.shiftKey, moved: false };
@@ -253,7 +272,18 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
     cursor.current = { x, y };
     const d = drag.current;
     updateStatus(x - ox, y - ox);
-    if (!d) { drawOverlay(); return; }
+    if (!d) {
+      const over = !!colorbarAt(ctl.layouts.get(fig.id), x - ox, y - ox);
+      if (over !== cbHover) setCbHover(over);
+      drawOverlay();
+      return;
+    }
+    if (d.kind === 'colorbar') {
+      // kept inside the figure
+      const move = Math.max(-d.hit.x, Math.min(fw - d.hit.x - d.hit.w, x - d.x));
+      ctl.setColorbarDx(d.axId, d.dx0 + move);
+      return;
+    }
     if (Math.hypot(x - d.x, y - d.y) > 3) d.moved = true;
     const it = d.it;
     switch (d.kind) {
@@ -354,7 +384,8 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
   };
 
   const panning = drag.current && (drag.current.kind === 'pan2d' || drag.current.kind === 'pan3d');
-  const cursorCss = (ctrl || panning) && !(ctl.ginput && ctl.ginput.figId === fig.id) && !(ctl.exportDlg && ctl.exportDlg.picking) ? 'move'
+  const cursorCss = cbHover || (drag.current && drag.current.kind === 'colorbar') ? 'ew-resize'
+    : (ctrl || panning) && !(ctl.ginput && ctl.ginput.figId === fig.id) && !(ctl.exportDlg && ctl.exportDlg.picking) ? 'move'
     : (ctl.ginput && ctl.ginput.figId === fig.id) || (ctl.exportDlg && ctl.exportDlg.picking) ? 'crosshair' : { zoom: 'zoom-in', zoomout: 'zoom-out', pan: 'grab', rotate: 'move', datacursor: 'crosshair' }[mode] || 'default';
   const hint = ctl.exportDlg && ctl.exportDlg.picking ? tr(lang, `pick_${ctl.exportDlg.picking}`) : tr(lang, `hint_${mode}`);
   const tax = ctl.targetAxes(fig.id);
@@ -366,7 +397,8 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
         <canvas ref={base} className="fig-canvas" />
         <canvas ref={over} className="fig-canvas fig-over" style={{ cursor: cursorCss }}
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => { drag.current = null; band.current = null; }}
-          onPointerLeave={() => { if (!drag.current) { cursor.current = null; setStatus(''); drawOverlay(); } }}
+          onPointerLeave={() => { if (!drag.current) { cursor.current = null; setStatus(''); setCbHover(false); drawOverlay(); } }}
+          onDoubleClick={(e) => { const { x, y } = local(e); const cb = colorbarAt(ctl.layouts.get(fig.id), x - ox, y - ox); if (cb) ctl.setColorbarDx(cb.node.id, 0); }}
           onContextMenu={(e) => { if (onMenu) onMenu(e); else e.preventDefault(); }} />
         <UiLayer ctl={ctl} fig={fig} left={ox} top={ox} width={fw} height={fh} theme={theme} lang={lang} />
       </div>

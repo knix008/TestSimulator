@@ -431,7 +431,7 @@ export function textscanCore(text0, fmt, opts = {}) {
   return { cols, pos };
 }
 
-function tsCell(cols, collect) {
+export function tsCell(cols, collect) {
   const vals = cols.map((c) => {
     if (c.cls === 'cell') return { kind: 'cell', v: cell([c.values.length, 1], c.values.map((s) => str(s))) };
     if (c.cls === 'char') {

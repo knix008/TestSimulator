@@ -46,7 +46,11 @@ export const TOUR_CODE = {
   ].join('\n'),
   plot: 't = linspace(0, 10, 400);\nplot(t, exp(-0.3*t) .* cos(2*pi*0.8*t))\ngrid on',
   surf: '[X, Y] = meshgrid(-3:0.15:3);\nZ = peaks(X, Y);\nfigure; surf(X, Y, Z); colorbar',
+  // the block-diagram chapter's example: a spring–mass–damper built from its equation
+  model: "eq2model('tourspring', {\"k = 4; c = 0.5\", \"x'' = -c*x' - k*x + u\", \"x(0) = 1\"}, 'StopTime', 20, 'Overwrite', 'on');",
 };
+/** The name of that example model (tourActions: tourModel, ioGraph). */
+export const TOUR_MODEL = 'tourspring';
 
 TOUR_CODE['script.ko'] = TOUR_CODE.script.replace('%% Damped oscillation', '%% 감쇠 진동').replace('%% Peak', '%% 최댓값');
 /** The code for a key in a language ('script' → 'script.ko' when there is one). */
@@ -94,6 +98,12 @@ const ROWS = [
   ['folder', 'desktop', ['[data-pane="folder"]'], ['desk', 'act:pane:folder'],
     ['현재 폴더', '현재 폴더 창은 작업 폴더의 파일을 보여 줍니다. M 파일(.mym, .m)을 두 번 클릭하면 편집기로, 모델은 모델 편집기로, 데이터 파일은 작업 공간으로 불러옵니다. 오른쪽 클릭으로 새로 만들기·이름 바꾸기·삭제를 합니다.'],
     ['Current Folder', 'Current Folder lists the work folder. Double-click an M file (.mym, .m) to edit it, a model to open the model editor, a data file to load it. Right-click for new, rename and delete.']],
+  ['bottomPanel', 'desktop', ['.bp-tabs', '[data-pane="cmd"]'], ['desk', 'act:pane:cmd'],
+    ['하단 패널', '아래쪽 패널에는 [명령 창], [문제점], [도움말] 탭이 있습니다. 문제점은 열린 스크립트의 오류와 경고를, 도움말은 커서가 있는 함수의 설명을 보여 줍니다. 위쪽 경계를 끌어 높이를 바꿉니다.'],
+    ['Bottom panel', 'The bottom panel has the [Command Window], [Problems] and [Help] tabs. Problems lists the errors and warnings of the open script, Help explains the function at the cursor. Drag its top border to change the height.']],
+  ['emptyArea', 'desktop', ['[data-empty="docs"]', '.center-col'], ['desk', 'act:closeDocs', 'wait:300'],
+    ['빈 편집 영역', '열린 스크립트나 모델이 없으면 가운데에 [새 스크립트], [새 모델], [열기], [시작 화면] 단추가 나옵니다. 명령 창은 아래에 제 높이로 남습니다.'],
+    ['Empty editor area', 'With no script or model open, the middle shows [New Script], [New Model], [Open] and [Start Screen] buttons. The Command Window stays below at its own height.']],
 
   // ── 3. 새 스크립트 ──────────────────────────────
   ['newScript', 'script', ['.doc-area'], ['desk', 'act:closeDocs', 'act:newScript:script', 'act:tab:editor'],
@@ -118,6 +128,9 @@ const ROWS = [
   ['runScript', 'editor', ['[data-pane="cmd"]'], ['desk', 'act:ensureScript:script', 'act:runDoc', 'idle', 'wait:600'],
     ['스크립트 실행 결과', '스크립트를 실행했습니다. fprintf 의 출력은 명령 창에 나오고, plot 은 그림 탭을 엽니다.'],
     ['Script output', 'The script ran. The fprintf output is in the Command Window and plot opened the Figures tab.']],
+  ['toModel', 'editor', RIBBON('toModel'), ['desk', 'act:ensureScript:script', 'act:tab:editor'],
+    ['스크립트를 모델로', '편집기 리본 끝의 [모델로 변환] 이나 편집기 오른쪽 클릭 메뉴의 [스크립트를 모델로 변환…] 은 스크립트(또는 선택한 부분)의 수식으로 [수식으로 모델 만들기] 창을 엽니다. x\'\' = -x 같은 미분방정식, G = 1/(s + 1) 같은 전달 함수, A·B·C·D 상태 공간이 블록 다이어그램이 됩니다.'],
+    ['Script to model', '[To Model] at the end of the Editor ribbon, or [Convert Script to Model…] in the editor\'s right-click menu, opens [Model from equations] with the equations of the script (or the selection). Differential equations such as x\'\' = -x, transfer functions such as G = 1/(s + 1) and A, B, C, D state space become a block diagram.']],
 
   // ── 6. 그림 창 ───────────────────────────────
   ['figure', 'figures', ['.fig-area'], ['desk', 'act:ensurePlot:plot', 'idle', 'act:figures', 'wait:300'],
@@ -135,6 +148,15 @@ const ROWS = [
   ['figGrid', 'figures', FIG_TB(13), ['desk', 'act:ensurePlot:surf', 'idle', 'act:figures', 'wait:300', 'fig:3d', 'fig:grid', 'fig:rulers'],
     ['격자와 눈금자', '[격자] 는 보조선 5칸마다 주선이 있는 5×5 격자(3D 에서는 끝없는 바닥 격자)를, [눈금자] 는 위쪽과 왼쪽 가장자리의 데이터 단위 눈금자를 켭니다.'],
     ['Grid and rulers', '[Grid] shows a 5×5 grid (a major line every five minor ones; an infinite ground grid in 3D) and [Rulers] shows data-unit rulers along the top and left edges.']],
+  ['figEdges', 'figures', ['.fig-tb[data-tb="edges"]', '.fig-toolbar'], ['desk', 'act:ensurePlot:surf', 'idle', 'act:figures', 'wait:300', 'fig:3d', 'fig:edges:off'],
+    ['선 끄기', '[선] 을 끄면 곡면의 메시 선이 사라지고, 색과 밝기가 칸 사이에서 부드럽게 이어져 선 무늬 없이 매끈한 면이 됩니다. 다시 누르면 선이 돌아옵니다.'],
+    ['Edges off', 'With [Edges] off the mesh lines go and the colours and light blend smoothly across the cells, so the surface is smooth with no line pattern. Press it again to bring the lines back.']],
+  ['figBox', 'figures', ['.fig-tb[data-tb="box3"]', '.fig-toolbar'], ['desk', 'act:ensurePlot:surf', 'idle', 'act:figures', 'wait:300', 'fig:3d', 'fig:box:off'],
+    ['상자', '[상자] 는 3D 그래프를 둘러싼 상자의 모서리 12개를 켜고 끕니다. 끄면 눈금이 있는 축 모서리와 격자가 있는 뒷벽의 테두리만 남습니다.'],
+    ['Box', '[Box] turns the 12 edges of the box around a 3D plot on and off. Off leaves the labelled axis edges and the outline of the gridded back walls.']],
+  ['figColorbar', 'figures', ['.fig-area'], ['desk', 'act:ensurePlot:surf', 'idle', 'act:figures', 'fig:edges:on', 'fig:box:on'],
+    ['컬러바 옮기기', '컬러바는 마우스로 끌어 옆으로 옮길 수 있습니다(그림 밖으로는 나가지 않음). 두 번 클릭하면 원래 자리로 돌아가고, 내보내기와 인쇄도 옮긴 자리 그대로 나옵니다.'],
+    ['Moving the colorbar', 'Drag the colorbar sideways with the mouse (it stays inside the figure). Double-click puts it back; export and print use the moved position.']],
 
   // ── 7. 블록 다이어그램 ─────────────────────────
   ['model', 'model', ['.sim-canvas-wrap', '[data-doc="model"]'], ['desk', 'act:closeDocs', 'act:ensureModel', 'act:tab:simulation', 'wait:800'],
@@ -149,6 +171,15 @@ const ROWS = [
   ['simRibbon', 'model', RIBBON('sim:run'), ['desk', 'act:ensureModel', 'act:tab:simulation'],
     ['시뮬레이션 리본', '시뮬레이션 리본에서도 새 모델·열기·저장·라이브러리·실행·중지를 합니다. 기본 솔버와 정지 시간은 설정 › 시뮬레이션에서 정합니다.'],
     ['Simulation ribbon', 'The Simulation ribbon also has New Model, Open, Save, Library, Run and Stop. The default solver and stop time are in Settings › Simulation.']],
+  ['eqModel', 'model', ['.sim-tb[data-tb="equation"]', '.sim-toolbar'], ['desk', 'key:Escape', 'act:ensureModel', 'wait:300'],
+    ['수식으로 모델 만들기', '모델 도구 모음의 [수식] 은 수식을 블록 다이어그램으로 바꾸는 창을 엽니다. 왼쪽에 식을 쓰면 오른쪽에 만들어질 다이어그램이 바로 보이고, 틀린 곳은 줄 번호와 [고치기] 힌트로 알려 줍니다. [새 모델] 은 새 탭으로 열고 [이 다이어그램에 넣기] 는 지금 모델에 넣습니다.'],
+    ['Model from equations', '[Equations] on the model toolbar opens a window that turns equations into a block diagram. Type them on the left and the diagram shows on the right as you type; a mistake is reported with its line number and a [Fix] hint. [New model] opens a tab, [Add to this diagram] puts the blocks in the current model.']],
+  ['ioGraph', 'model', ['.sim-scope', '.sim-canvas-wrap'], ['desk', 'key:Escape', 'act:tourModel', 'wait:900', 'act:ioGraph', 'wait:600', 'idle', 'wait:1500'],
+    ['입력·출력 그래프', '블록을 오른쪽 클릭해 [입력·출력 그래프] 를 고르면 그 블록으로 들어오는 신호와 나가는 신호를 그리는 스코프(이름 IO)가 옆에 생기고, 시뮬레이션이 실행되어 그래프가 열립니다. 실행 버튼은 상태에 따라 켜지고(멈춤 → 실행·한 단계, 실행 중 → 일시 정지·중지) 실행하면 모델의 모든 스코프 창이 열립니다.'],
+    ['Input and output graph', 'Right-click a block and choose [Graph of inputs and outputs]: a scope (named IO) showing what goes into the block and what comes out appears beside it, the simulation runs and the graph opens. The run buttons follow the state (stopped → Run, Step; running → Pause, Stop) and Run opens every scope window of the model.']],
+  ['toScript', 'model', ['.sim-tb[data-tb="script"]', '.sim-toolbar'], ['desk', 'act:tourModel', 'wait:300'],
+    ['모델을 스크립트로', '모델 도구 모음의 [스크립트로] (또는 빈 캔버스의 오른쪽 클릭 메뉴) 는 모델을 M 코드로 새 스크립트 탭에 씁니다. 이 스크립트를 실행하면 모델이 다시 만들어지고 열립니다. [코드] 단추는 모델 옆에 코드를 보여 주고, 고쳐서 적용하면 다이어그램이 바뀝니다.'],
+    ['Model to script', '[To script] on the model toolbar (or the empty canvas\'s right-click menu) writes the model as M code in a new script tab; running that script builds the model again and opens it. The [Code] button shows the code beside the model; edit it and apply to change the diagram.']],
 
   // ── 8. 설정과 도움말 ───────────────────────────
   ['settings', 'finish', T('tb-settings', '.app-controls .tb-icon-only'), ['desk', 'act:closeDocs', 'act:tab:home'],

@@ -1,7 +1,8 @@
 // M-language builtins of the simulation area: model files and editors
 // (new_system, open_system, load_system, close_system, save_system), paths
 // (bdroot, gcs, gcb, gcbh, find_system), editing (add_block, delete_block,
-// add_line, delete_line, replace_block, set_param, get_param), simulation
+// add_line, delete_line, replace_block, set_param, get_param), models from
+// equations (eq2model, ode2model, tf2model, ss2model; eqmodel.js), simulation
 // (sim, simset, simget, parsim) and the SimulationInput / SimulationOutput
 // classes.
 import {
@@ -14,6 +15,10 @@ import { Run } from './runtime.js';
 import { simState, E, post, entryOf, addModel, loadModel, markChanged, handleOf, resolveObj, absPath } from './state.js';
 import { writeModelFile } from './files.js';
 import { startRun, finish, prepareRun } from './messages.js';
+import { parseEquations, tfSpec, ssSpec, specModel, EQ_INPUTS } from './eqmodel.js';
+import { eqHints } from './eqhint.js';
+import { isLTI, ltiArg } from '../lib/numeric/control/cls.js';
+import { toTF, toSS } from '../lib/numeric/control/lti.js';
 
 // ------------------------------------------------------------ helpers
 const T = (v) => (v != null && isText(v) ? toStr(v) : null);
@@ -358,6 +363,79 @@ function simNames(ctx, args, nargout, fn) {
   return st.cur.system;
 }
 
+// ------------------------------------------------------------ 수식 → 모델 helpers
+const EQ_OPTS = ['kind', 'input', 'stoptime', 'open', 'overwrite', 'ts'];
+/** Trailing name/value options (Kind, Input, StopTime, Open, Overwrite, Ts) and the arguments before them. */
+function eqOptions(args) {
+  let k = args.length;
+  while (k >= 2 && T(args[k - 2]) != null && EQ_OPTS.includes(T(args[k - 2]).toLowerCase())) k -= 2;
+  const o = {};
+  for (let i = k; i < args.length; i += 2) o[T(args[i]).toLowerCase()] = args[i + 1];
+  return { rest: args.slice(0, k), o };
+}
+/** The model name (a first argument that is a plain name) or a free one: eqmodel, eqmodel1 … */
+function eqName(ctx, rest, fn) {
+  const first = rest.length > 1 ? T(rest[0]) : null;
+  if (first != null && /^[A-Za-z]\w*$/.test(first.trim())) return { name: first.trim(), items: rest.slice(1) };
+  if (first != null && rest.length > 1 && !/[=']/.test(first)) throw E(`sim:${fn}:name`, `'${first}' is not a valid model name.`);
+  const st = simState(ctx);
+  let name = 'eqmodel';
+  for (let k = 1; st.models.has(name); k++) name = `eqmodel${k}`;
+  return { name, items: rest };
+}
+/** Equation text from text, string arrays and cells of text (one equation per element). */
+function eqText(items, fn) {
+  const out = [];
+  for (const v of items) {
+    if (isText(v)) out.push(toStr(v));
+    else if (v && v.cls === 'string') out.push(...v.data.map(String));
+    else if (isCell(v)) out.push(...v.data.map((x) => { if (!isText(x)) throw E(`sim:${fn}:arg`, 'Every cell must hold an equation as text.'); return toStr(x); }));
+    else throw E(`sim:${fn}:arg`, 'The equations must be text.');
+  }
+  return out.join('\n');
+}
+const numRow = (v, what, fn) => { if (!isTensor(v) || isChar(v)) throw E(`sim:${fn}:arg`, `${what} must be a numeric vector.`); return Array.from(v.re); };
+const numRows = (v, what, fn) => {
+  if (!isTensor(v) || isChar(v)) throw E(`sim:${fn}:arg`, `${what} must be a numeric matrix.`);
+  const [r, c] = v.dims;
+  return Array.from({ length: r }, (_, i) => Array.from({ length: c }, (__, j) => v.re[i + j * r]));
+};
+const optNum = (v, what, fn) => { const x = isText(v) ? Number(toStr(v)) : isTensor(v) ? v.re[0] : NaN; if (!Number.isFinite(x)) throw E(`sim:${fn}:arg`, `${what} must be a number.`); return x; };
+/** parseEquations whose error message ends with the first hint (eqhint.js). */
+function parseWithHint(text, kind) {
+  try { return parseEquations(text, { kind }); } catch (e) {
+    const h = e && e.identifier && String(e.identifier).startsWith('sim:eq:') ? eqHints(text, e, { kind })[0] : null;
+    if (h) e.message += `\nHint: ${h.en}${h.preview ? ` → ${h.preview.split('\n').join('; ')}` : ''}`;
+    throw e;
+  }
+}
+const optOn = (v, dflt) => (v == null ? dflt : isText(v) ? /^(on|1|true|yes)$/i.test(toStr(v)) : isTensor(v) ? v.re[0] !== 0 : dflt);
+
+function eqBuiltin(args, nargout, ctx, fn, kind) {
+  const { rest, o } = eqOptions(args);
+  const { name, items } = eqName(ctx, rest, fn);
+  if (!items.length) throw E(`sim:${fn}:arg`, `Use ${fn}(name, "x' = -x") (or several equations / a cell of equations).`);
+  const k = o.kind != null ? need(o.kind, 'Kind', fn).toLowerCase() : kind;
+  const text = eqText(items, fn);
+  return finishEq(ctx, parseWithHint(text, k), name, o, nargout, fn, text);
+}
+/** Builds, registers and (unless Open is off) opens the model; → its name. */
+function finishEq(ctx, spec, name, o, nargout, fn, text = '') {
+  const st = simState(ctx);
+  const input = o.input != null ? need(o.input, 'Input', fn).toLowerCase() : 'step';
+  if (!EQ_INPUTS.includes(input)) throw E(`sim:${fn}:input`, `Input must be ${EQ_INPUTS.join(', ')} (got '${input}').`);
+  if (st.models.has(name)) {
+    if (!optOn(o.overwrite, false)) throw E(`sim:${fn}:exists`, `A model named '${name}' is already loaded: close_system('${name}') first or pass 'Overwrite', 'on'.`);
+    builtins.close_system([str(name)], 0, ctx);
+  }
+  const stop = o.stoptime != null ? (isText(o.stoptime) ? toStr(o.stoptime) : fmtN(optNum(o.stoptime, 'StopTime', fn))) : '10';
+  const { model } = specModel(spec, { name, input, stopTime: stop, description: text });
+  addModel(ctx, model, '');
+  st.cur.system = name; st.cur.block = '';
+  if (optOn(o.open, true)) post(ctx, { type: 'sim.openEditor', name, path: '' });
+  return nargout ? str(name) : [];
+}
+
 export const builtins = {
   new_system(args, nargout, ctx) {
     const st = simState(ctx);
@@ -566,6 +644,47 @@ export const builtins = {
     const one = (o) => { const r = resolveObj(ctx, objArg(o, 'get_param')); return r.block ? getBlockParam(ctx, r, name) : getModelParam(ctx, r, name); };
     if (isCell(args[0])) return cell(args[0].dims, args[0].data.map(one));
     return one(args[0]);
+  },
+  // 수식으로 모델 만들기 (eqmodel.js)
+  eq2model(args, nargout, ctx) { return eqBuiltin(args, nargout, ctx, 'eq2model', 'auto'); },
+  ode2model(args, nargout, ctx) { return eqBuiltin(args, nargout, ctx, 'ode2model', 'ode'); },
+  tf2model(args, nargout, ctx) {
+    const { rest, o } = eqOptions(args);
+    const { name, items } = eqName(ctx, rest, 'tf2model');
+    if (!items.length) throw E('sim:tf2model:arg', "Use tf2model(name, num, den), tf2model(name, 'G = 1/(s + 1)') or tf2model(name, sys).");
+    let spec;
+    if (isLTI(items[0])) {
+      const m = toTF(ltiArg(items[0]));
+      if (m.ny !== 1 || m.nu !== 1) throw E('sim:tf2model:siso', `tf2model needs one input and one output (the model is ${m.ny}×${m.nu}).`);
+      if (m.Ts < 0) throw E('sim:tf2model:ts', 'The model is discrete with an unspecified sample time; set its Ts first.');
+      spec = tfSpec([{ name: 'G', num: m.num[0][0], den: m.den[0][0] }], m.Ts > 0 ? m.Ts : null);
+    } else if (isText(items[0]) || items.every((v) => isText(v) || isCell(v))) {
+      spec = parseWithHint(eqText(items, 'tf2model'), 'tf');
+    } else {
+      if (items.length < 2) throw E('sim:tf2model:arg', 'Give the numerator and the denominator coefficients.');
+      const ts = o.ts != null ? optNum(o.ts, 'Ts', 'tf2model') : null;
+      spec = tfSpec([{ name: 'G', num: numRow(items[0], 'The numerator', 'tf2model'), den: numRow(items[1], 'The denominator', 'tf2model') }], ts);
+    }
+    return finishEq(ctx, spec, name, o, nargout, 'tf2model');
+  },
+  ss2model(args, nargout, ctx) {
+    const { rest, o } = eqOptions(args);
+    const { name, items } = eqName(ctx, rest, 'ss2model');
+    if (!items.length) throw E('sim:ss2model:arg', "Use ss2model(name, A, B, C, D), ss2model(name, 'A = …; B = …; C = …; D = …') or ss2model(name, sys).");
+    let spec;
+    if (isLTI(items[0])) {
+      const m = toSS(ltiArg(items[0]));
+      if (m.E) throw E('sim:ss2model:descriptor', 'Descriptor models (E) are not supported.');
+      if (m.Ts < 0) throw E('sim:ss2model:ts', 'The model is discrete with an unspecified sample time; set its Ts first.');
+      spec = ssSpec({ A: m.A, B: m.B, C: m.C, D: m.D, ts: m.Ts > 0 ? m.Ts : null });
+    } else if (isText(items[0]) || isCell(items[0])) {
+      spec = parseWithHint(eqText(items, 'ss2model'), 'ss');
+    } else {
+      if (items.length < 3) throw E('sim:ss2model:arg', 'Give at least A, B and C.');
+      const [A, Bm, C, D, x0] = items.map((v, i) => numRows(v, ['A', 'B', 'C', 'D', 'x0'][i] || 'argument', 'ss2model'));
+      spec = ssSpec({ A, B: Bm, C, D, x0, ts: o.ts != null ? optNum(o.ts, 'Ts', 'ss2model') : null });
+    }
+    return finishEq(ctx, spec, name, o, nargout, 'ss2model');
   },
   sim(args, nargout, ctx) {
     if (!args.length) throw E('sim:sim:arg', "Use sim('model') or sim(simIn).");

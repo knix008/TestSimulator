@@ -43,7 +43,7 @@ function useFigureTheme() {
 
 function Tb({ icon, label, title, on, onClick, disabled, minor }) {
   return (
-    <button type="button" className={`fig-tb ${on ? 'on' : ''} ${minor ? 'minor' : ''}`} title={title || label} aria-pressed={on === undefined ? undefined : !!on} disabled={disabled} onClick={onClick}>
+    <button type="button" data-tb={icon} className={`fig-tb ${on ? 'on' : ''} ${minor ? 'minor' : ''}`} title={title || label} aria-pressed={on === undefined ? undefined : !!on} disabled={disabled} onClick={onClick}>
       <FigIcon name={icon} size={15} /><span className="fig-tb-label">{label}</span>
     </button>
   );
@@ -117,7 +117,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
   const theme = useFigureTheme();
   useEffect(() => ctl.subscribe(setVersion), [ctl]);
   useEffect(() => ctl.attach(), [ctl]);
-  useEffect(() => { ctl.grid = !!defaults.grid; ctl.rulers = !!defaults.rulers; ctl.axesLines = defaults.axes !== false; ctl.edges = defaults.edges !== false; ctl.emit(); }, [ctl, defaults.grid, defaults.rulers, defaults.axes, defaults.edges]);
+  useEffect(() => { ctl.grid = !!defaults.grid; ctl.rulers = !!defaults.rulers; ctl.axesLines = defaults.axes !== false; ctl.edges = defaults.edges !== false; ctl.box = defaults.box !== false; ctl.emit(); }, [ctl, defaults.grid, defaults.rulers, defaults.axes, defaults.edges, defaults.box]);
   if (typeof window !== 'undefined') window.__msmFigures = ctl;
 
   const order = ctl.visibleOrder();
@@ -128,7 +128,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
   const L = (k, v) => tr(lang, k, v);
 
   const setPersist = (key, on) => {
-    if (key === 'axes') ctl.setAxesLines(on); else if (key === 'edges') ctl.setEdges(on); else ctl[key === 'grid' ? 'setGrid' : 'setRulers'](on);
+    if (key === 'axes') ctl.setAxesLines(on); else if (key === 'edges') ctl.setEdges(on); else if (key === 'box') ctl.setBox(on); else ctl[key === 'grid' ? 'setGrid' : 'setRulers'](on);
     patchSettings({ figures: { [key]: on } });
   };
 
@@ -169,6 +169,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
       { id: 'rulers', label: L('rulers'), icon: 'scale', on: ctl.rulers },
       { id: 'axes', label: L('axesLines'), icon: 'plotLog', on: ctl.axesLines },
       { id: 'edges', label: L('edges'), icon: 'plotMesh', on: ctl.edges },
+      { id: 'box', label: L('box'), icon: 'cube', on: ctl.box },
       { id: 'legend', label: L('legend'), icon: 'legend', on: ctl.isShown('Legend') },
       { sep: true },
       { id: 'export', label: L('export'), icon: 'download' },
@@ -184,6 +185,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
       else if (id === 'grid' || id === 'rulers') setPersist(id, !ctl[id]);
       else if (id === 'axes') setPersist('axes', !ctl.axesLines);
       else if (id === 'edges') setPersist('edges', !ctl.edges);
+      else if (id === 'box') setPersist('box', !ctl.box);
       else if (id === 'legend') ctl.toggleShown('legend');
       else if (id === 'export') ctl.openExport();
       else if (id === 'copy') doCopy(false);
@@ -244,6 +246,7 @@ export function FigureArea({ engine, lang = 'ko', active = true, defaults = {} }
         <Tb icon="rulers" label={L('rulers')} title={L('rulers_tip')} on={ctl.rulers} onClick={() => setPersist('rulers', !ctl.rulers)} />
         <Tb icon="axes3" label={L('axesLines')} title={L('axesLines_tip')} on={ctl.axesLines} onClick={() => setPersist('axes', !ctl.axesLines)} />
         <Tb icon="edges" label={L('edges')} title={L('edges_tip')} on={ctl.edges} onClick={() => setPersist('edges', !ctl.edges)} />
+        <Tb icon="box3" label={L('box')} title={L('box_tip')} on={ctl.box} onClick={() => setPersist('box', !ctl.box)} />
         <Tb icon="legend" label={L('legend')} title={L('legend_tip')} on={ctl.isShown('Legend')} disabled={!fig} onClick={() => ctl.toggleShown('legend')} minor />
         <Tb icon="colorbar" label={L('colorbar')} title={L('colorbar_tip')} on={ctl.isShown('Colorbar')} disabled={!fig} onClick={() => ctl.toggleShown('colorbar')} minor />
         <span className="fig-sep" />

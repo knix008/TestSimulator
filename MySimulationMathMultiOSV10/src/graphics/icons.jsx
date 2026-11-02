@@ -5,6 +5,7 @@ const P = {
   zoomIn: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4M8 11h6M11 8v6" /></>,
   zoomOut: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4M8 11h6" /></>,
   boxzoom: <><rect x="3" y="3" width="12" height="12" rx="1" strokeDasharray="3 2" /><circle cx="15" cy="15" r="4" /><path d="m21 21-3-3" /></>,
+  box3: <><path d="M4 8h12v12H4z" /><path d="m4 8 4-4h12v12l-4 4M16 8l4-4" /></>,
   cube: <><path d="M12 3 3 7.5v9L12 21l9-4.5v-9z" /><path d="M3 7.5 12 12l9-4.5M12 12v9" /></>,
   square: <><rect x="4" y="4" width="16" height="16" rx="1" /><path d="M4 14h16M14 4v16" strokeDasharray="2 2" /></>,
   axes3: <><path d="M10 14V3M10 14l9 4M10 14l-6.5 6" /><path d="m8 5 2-2 2 2M17 15.2l2.2 2.8-3.4.9M4 17.6l-.6 2.6 2.7-.2" /></>,

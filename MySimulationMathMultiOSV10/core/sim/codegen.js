@@ -86,7 +86,11 @@ function emitSystem(sys, parts, lines, notes) {
   if ((sys.notes || []).length) notes.add('notes');
 }
 
-export function modelToCode(model, name = model.name) {
+/**
+ * opts.script: a script on its own (모델을 스크립트로): it makes the model when it is not loaded (else
+ * empties it), sets the model workspace values as variables the blocks read, and opens the model.
+ */
+export function modelToCode(model, name = model.name, { script = false } = {}) {
   const lines = [];
   const notes = new Set();
   emitSystem(model.root, [], lines, notes);
@@ -96,11 +100,22 @@ export function modelToCode(model, name = model.name) {
     const s = text(v);
     if (s != null && SETTING_NAMES[k] && text(defs[k]) !== s) settings.push(`set_param(mdl, ${q(SETTING_NAMES[k])}, ${q(s)});`);
   }
-  const head = [
+  const head = script ? [
+    `% Model "${name}" as a script: running it builds the model (or rebuilds it when it is loaded) and opens it.`,
+    `mdl = ${q(name)};`,
+    'try',
+    '  new_system(mdl);',
+    'catch',
+    "  delete_block(find_system(mdl, 'SearchDepth', 1, 'Type', 'block'));   % already loaded: start from an empty diagram",
+    'end',
+  ] : [
     `% Model "${name}" as M code: run it (or press Apply) and the diagram is rebuilt from this text.`,
     `mdl = ${q(name)};`,
     "delete_block(find_system(mdl, 'SearchDepth', 1, 'Type', 'block'));   % start from an empty diagram",
   ];
   if (notes.size) head.push(`% Not in the code: ${[...notes].join(', ')}.`);
-  return `${[...head, '', ...lines, ...(settings.length ? ['', ...settings] : [])].join('\n')}\n`;
+  const ws = script ? (model.workspace || []).filter((w) => w && /^[A-Za-z]\w*$/.test(w.name) && text(w.value) != null) : [];
+  const vars = ws.length ? ['', '% model workspace values (the blocks read them)', ...ws.map((w) => `${w.name} = ${text(w.value)};`)] : [];
+  const tail = script ? ['', 'open_system(mdl);'] : [];
+  return `${[...head, ...vars, '', ...lines, ...(settings.length ? ['', ...settings] : []), ...tail].join('\n')}\n`;
 }

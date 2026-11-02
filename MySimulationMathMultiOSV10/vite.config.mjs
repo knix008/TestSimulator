@@ -38,7 +38,22 @@ export default defineConfig({
     watch: { ignored: ['**/dist/**', '**/src-tauri/**', '**/samples/**'] },
   },
   preview: { headers: ISOLATION_HEADERS },
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
+  build: {
+    outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500,
+    // libraries in their own chunks, so the app's chunk holds the app (and a library update leaves it cached)
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\\/]node_modules[\\/](@codemirror|@lezer|crelt|style-mod|w3c-keyname)[\\/]/.test(id)) return 'codemirror';
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react';
+          if (/[\\/]node_modules[\\/](nspell|dictionary-en)[\\/]/.test(id)) return 'spell';
+          if (/[\\/]node_modules[\\/]three[\\/]/.test(id)) return 'three';
+          return undefined;
+        },
+      },
+    },
+  },
   // The engine worker imports core/session.js lazily (code splitting): ES module workers only.
   worker: { format: 'es' },
 });

@@ -30,5 +30,9 @@ function notify() {
 
 export function publishSimEditor(docId, api) { editors.set(docId || 'default', api); notify(); }
 export function withdrawSimEditor(docId, api) { const k = docId || 'default'; if (!api || editors.get(k) === api) { editors.delete(k); notify(); } }
+// GUI checks (headless browser) read the open editors here
+if (typeof window !== 'undefined') window.__msmSimEditors = editors;
 export function simEditor(docId) { return editors.get(docId || 'default') || null; }
+/** "docId:state" of every open editor (what the app's ribbon depends on). */
+export function simEditorStates() { return [...editors].map(([k, e]) => `${k}:${(e.status && e.status.state) || 'idle'}`); }
 export function subscribeSimEditors(fn) { subs.add(fn); return () => subs.delete(fn); }

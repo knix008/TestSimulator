@@ -82,6 +82,12 @@ export function SimPaneGuard({ which, ...props }) {
   return <Boundary what={t('mdl_title')}><Comp {...props} /></Boundary>;
 }
 
+/** The equations → model dialog (sim/EquationDialog.jsx), loaded with the simulation chunk. */
+export function EquationDialogGuard(props) {
+  const { Comp } = useModule(loadSim, 'EquationDialog');
+  return Comp ? <Boundary what={t('mdl_title')}><Comp {...props} /></Boundary> : null;
+}
+
 export function ModelEditorGuard(props) {
   useLanguage();
   const { Comp, missing, error } = useModule(loadSim, 'ModelEditor');

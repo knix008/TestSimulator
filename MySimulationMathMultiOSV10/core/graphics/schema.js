@@ -21,7 +21,8 @@ const LINEISH = [
   ['MarkerEdgeColor', 'color', 'auto', ['auto', 'none']], ['MarkerFaceColor', 'color', 'none', ['auto', 'none']], ['MarkerIndices', 'vec', null],
   ['DisplayName', 'text', ''], ['SeriesIndex', 'num', 1], ['AlignVertexCenters', 'bool', OFF],
 ];
-const XYZ = [['XData', 'mat', null], ['YData', 'mat', null], ['ZData', 'mat', null], ['XDataMode', 'enum', 'manual', ['auto', 'manual']]];
+const XYZ = [['XData', 'mat', null], ['YData', 'mat', null], ['ZData', 'mat', null], ['XDataMode', 'enum', 'manual', ['auto', 'manual']],
+  ['XDataSource', 'text', ''], ['YDataSource', 'text', ''], ['ZDataSource', 'text', '']];
 const LIGHTING = [
   ['FaceLighting', 'enum', 'flat', ['flat', 'gouraud', 'none']], ['EdgeLighting', 'enum', 'none', ['flat', 'gouraud', 'none']],
   ['AmbientStrength', 'num', 0.3], ['DiffuseStrength', 'num', 0.6], ['SpecularStrength', 'num', 0.9], ['SpecularExponent', 'num', 10],
@@ -81,7 +82,9 @@ export const TYPES = {
     ['LineStyleOrder', 'texts', ['-']], ['LineStyleOrderIndex', 'int', 1],
     ['View', 'vec2', [0, 90]], ['DataAspectRatio', 'vec3', [1, 1, 1]], ['DataAspectRatioMode', 'enum', 'auto', ['auto', 'manual']],
     ['PlotBoxAspectRatio', 'vec3', [1, 1, 1]], ['PlotBoxAspectRatioMode', 'enum', 'auto', ['auto', 'manual']], ['Projection', 'enum', 'orthographic', ['orthographic', 'perspective']],
-    ['CameraPosition', 'vec3', [0, 0, 1]], ['CameraTarget', 'vec3', [0, 0, 0]], ['CameraUpVector', 'vec3', [0, 1, 0]], ['CameraViewAngle', 'num', 6.6086],
+    ['CameraPosition', 'vec3', [0, 0, 1]], ['CameraTarget', 'vec3', [0, 0, 0]], ['CameraUpVector', 'vec3', [0, 0, 1]], ['CameraViewAngle', 'num', 6.6086],
+    ['CameraPositionMode', 'enum', 'auto', ['auto', 'manual']], ['CameraTargetMode', 'enum', 'auto', ['auto', 'manual']],
+    ['CameraUpVectorMode', 'enum', 'auto', ['auto', 'manual']], ['CameraViewAngleMode', 'enum', 'auto', ['auto', 'manual']],
     ['XTick', 'vec', []], ['YTick', 'vec', []], ['ZTick', 'vec', []], ['XTickMode', 'enum', 'auto', ['auto', 'manual']], ['YTickMode', 'enum', 'auto', ['auto', 'manual']], ['ZTickMode', 'enum', 'auto', ['auto', 'manual']],
     ['XTickLabel', 'texts', []], ['YTickLabel', 'texts', []], ['ZTickLabel', 'texts', []],
     ['XTickLabelMode', 'enum', 'auto', ['auto', 'manual']], ['YTickLabelMode', 'enum', 'auto', ['auto', 'manual']], ['ZTickLabelMode', 'enum', 'auto', ['auto', 'manual']],
@@ -168,6 +171,7 @@ export const TYPES = {
     ['HeadStyle', 'text', 'vback2'], ['HeadLength', 'num', 10], ['HeadWidth', 'num', 10], ['TextColor', 'color', [0, 0, 0]], ['BackgroundColor', 'color', 'none', ['none']], ['EdgeColor', 'color', [0, 0, 0], ['none']],
     ['FitBoxToText', 'bool', OFF], ['Interpreter', 'enum', 'tex', ['tex', 'latex', 'none']]],
   hggroup: [['DisplayName', 'text', '']],
+  hgtransform: [['Matrix', 'mat', null], ['DisplayName', 'text', '']],
   uicontrol: [['Style', 'enum', 'pushbutton', ['pushbutton', 'togglebutton', 'radiobutton', 'checkbox', 'edit', 'text', 'slider', 'listbox', 'popupmenu', 'frame']],
     ['String', 'text', ''], ['Value', 'any', null], ['Min', 'num', 0], ['Max', 'num', 1], ['SliderStep', 'vec2', [0.01, 0.1]], ['Position', 'vec4', [20, 20, 60, 20]], ['Units', 'text', 'pixels'],
     ['Enable', 'enum', 'on', ['on', 'off', 'inactive']], ['BackgroundColor', 'color', [0.94, 0.94, 0.94]], ['ForegroundColor', 'color', [0, 0, 0]], ['Callback', 'cb', null],
@@ -208,7 +212,7 @@ export const TYPE_CLASS = {
   root: 'Root', figure: 'Figure', axes: 'Axes', polaraxes: 'PolarAxes', uiaxes: 'UIAxes', line: 'Line', animatedline: 'AnimatedLine', scatter: 'Scatter',
   surface: 'Surface', patch: 'Patch', text: 'Text', image: 'Image', rectangle: 'Rectangle', light: 'Light', quiver: 'Quiver', contour: 'Contour',
   bar: 'Bar', histogram: 'Histogram', histogram2: 'Histogram2', area: 'Area', stair: 'Stair', stem: 'Stem', errorbar: 'ErrorBar', legend: 'Legend', colorbar: 'ColorBar',
-  tiledlayout: 'TiledChartLayout', heatmap: 'HeatmapChart', annotation: 'Annotation', hggroup: 'Group', uicontrol: 'UIControl', uipanel: 'Panel', uibutton: 'Button',
+  tiledlayout: 'TiledChartLayout', heatmap: 'HeatmapChart', annotation: 'Annotation', hggroup: 'Group', hgtransform: 'Transform', uicontrol: 'UIControl', uipanel: 'Panel', uibutton: 'Button',
   uislider: 'Slider', uieditfield: 'EditField', uilabel: 'Label', uidropdown: 'DropDown', uicheckbox: 'CheckBox', waitbar: 'Waitbar',
 };
 

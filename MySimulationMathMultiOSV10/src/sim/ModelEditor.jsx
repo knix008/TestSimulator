@@ -19,15 +19,19 @@ import { ScopeWindow } from './ScopeWindow';
 import { BlockDialog, SettingsDialog, MaskEditor, SimDialog, DialogVisible } from './dialogs';
 import { SimIcon } from './icons';
 import { ModelCodePane } from './ModelCodePane';
+import { EquationDialog } from './EquationDialog';
+import { insertEquationModel } from '../../core/sim/eqmodel.js';
 import { tr, lbl } from './i18n';
 import { Stepper } from '../views/common';
 import { Splitter } from '../components/Layout';
-import { stepZoom, removeSeg, withModelExt as withExt, blockTipInfo, CODE_PANE, codePaneMax } from './logic.js';
+import { stepZoom, removeSeg, withModelExt as withExt, blockTipInfo, CODE_PANE, codePaneMax, simButtons } from './logic.js';
 
 const withModelExt = (p) => withExt(p, getModelExts());
 import { openMenu } from '../lib/menu';
 import { usePopupWindows } from '../lib/popups';
 import { publishSimEditor, withdrawSimEditor } from './editorApi';
+import { modelToCode } from '../../core/sim/codegen.js';
+import { ioSignals, findIoViewer, ioViewerBlock, scopesToOpen } from './viewers.js';
 import './sim.css';
 
 const SCOPE_TYPES = new Set(['Scope', 'FloatingScope', 'XYGraph']);
@@ -328,6 +332,9 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
       setSettings: (patch) => change((mm) => { const next = { ...mm.settings, ...patch }; if (JSON.stringify(next) === JSON.stringify(mm.settings)) return false; mm.settings = next; }),
       openSettings: () => setDialog({ kind: 'settings' }),
       openBlock: (id) => { const b = sys().blocks.find((x) => x.id === id); if (b) setDialog({ kind: 'block', id }); },
+      showIO: (id) => { const b = sys().blocks.find((x) => x.id === id); if (b) showIO(b); },
+      run: () => cmdRef.current && cmdRef.current.run(),
+      openScopes,
     });
   });
   useEffect(() => () => withdrawSimEditor(docId), [docId]);
@@ -711,11 +718,31 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     if (SCOPE_TYPES.has(b.type)) { setOpenScopes((o) => (o.includes(b.id) ? o : [...o, b.id])); return; }
     setDialog({ kind: 'block', id: b.id });
   };
+  // On Run: every scope of the model (subsystems too), also the ones closed before (a run always shows
+  // its graphs); windows of deleted scopes go (before, nothing opened once any window had been open)
   const autoOpenScopes = () => {
     const ids = [];
     const rec = (s) => { for (const b of s.blocks) { if (SCOPE_TYPES.has(b.type)) ids.push(b.id); if (b.system) rec(b.system); } };
-    rec(sys());
-    setOpenScopes((o) => (o.length ? o : ids.slice(0, 4)));
+    rec(modelRef.current.root);
+    setOpenScopes((o) => scopesToOpen(o, ids));
+  };
+  // 입력·출력 그래프: a Floating Scope beside the block with its input and output signals (one Undo
+  // step; an existing one is reused), its window opened and the model run
+  const showIO = (b) => {
+    let id = null;
+    change((mm, s) => {
+      const blk = s.blocks.find((q) => q.id === b.id);
+      if (!blk) return false;
+      const found = findIoViewer(s, ioSignals(s, blk));
+      if (found) { id = found.id; return false; }
+      const v = ioViewerBlock(mm, s, blk, { lang });
+      if (!v) return false;
+      s.blocks.push(v);
+      id = v.id;
+    });
+    if (!id) return;
+    setOpenScopes((o) => (o.includes(id) ? o : [...o, id]));
+    if (!running) requestAnimationFrame(() => cmdRef.current.run());
   };
 
   // ---------------------------------------------------------------- drop from the library
@@ -871,6 +898,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
   const handlersSaveReq = useRef(null);
 
   const running = status.state === 'running' || status.state === 'paused' || status.state === 'compiling';
+  const btn = simButtons(status.state || 'idle');   // the same rule as the 시뮬레이션 ribbon (logic.js)
   const run = () => {
     if (status.state === 'paused') { post({ type: 'sim.continue', name: nameRef.current }); return; }
     if (running) return;
@@ -952,6 +980,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
       items = [
         { icon: 'settings', label: b.system ? L('openBlock') : L('blockParams'), run: () => openBlock(b) },
         b.system && b.mask ? { icon: 'settings', label: L('blockParams'), run: () => setDialog({ kind: 'block', id: b.id }) } : null,
+        { icon: 'scope', label: L('ioGraph'), disabled: !ioSignals(sys(), b).length, run: () => showIO(b) },
         { icon: 'mask', label: L('mask'), keys: 'Ctrl+M', run: () => setDialog({ kind: 'mask', id: b.id }) },
         { icon: 'info', label: L('showName'), run: () => change((mm, s) => { const x = s.blocks.find((q) => q.id === b.id); x.showName = x.showName === false; }) },
         { sep: true },
@@ -993,11 +1022,12 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         { icon: 'paste', label: L('paste'), keys: 'Ctrl+V', run: () => cmds.current.paste() },
         { icon: 'fit', label: L('fit'), keys: 'Ctrl+0', run: () => cmds.current.fitView() },
         { icon: 'settings', label: L('modelSettings'), keys: 'Ctrl+E', run: () => setDialog({ kind: 'settings' }) },
+        ...(onOpenScript ? [{ sep: true }, { icon: 'script', label: L('toScript_menu'), run: toScript }] : []),
       ];
     }
     // Desktop: a child window like every other context menu (it can go past the window's edge).
     if (usePopupWindows()) {
-      const list = items.map((it, i) => (it.sep ? { sep: true } : { id: String(i), label: it.label, icon: it.icon, keys: it.keys }));
+      const list = items.map((it, i) => (it.sep ? { sep: true } : { id: String(i), label: it.label, icon: it.icon, keys: it.keys, disabled: !!it.disabled }));
       openMenu({ x: e.clientX, y: e.clientY }, list, (id) => { const it = items[Number(id)]; if (it && it.run) it.run(); }, { width: 230 });
       return;
     }
@@ -1015,8 +1045,10 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
   const stateKey = `state_${status.state || 'idle'}`;
   const scopeBlocks = openScopes.map((id) => { let f = null; const rec = (s) => { for (const b of s.blocks) { if (b.id === id) f = b; if (b.system) rec(b.system); } }; rec(model.root); return f; }).filter(Boolean);
 
+  // 스크립트로: the model as M code (the code view's text) in a new script tab
+  const toScript = () => { if (onOpenScript) onOpenScript(modelToCode(modelRef.current, nameRef.current, { script: true })); };
   const TB = ({ icon, label, onClick, disabled, on, title, primary, minor }) => (
-    <button type="button" className={`sim-tb ${on ? 'on' : ''} ${primary ? 'primary' : ''} ${minor ? 'minor' : ''}`} onClick={onClick} disabled={disabled} title={title || label} aria-pressed={on === undefined ? undefined : !!on}>
+    <button type="button" data-tb={icon} className={`sim-tb ${on ? 'on' : ''} ${primary ? 'primary' : ''} ${minor ? 'minor' : ''}`} onClick={onClick} disabled={disabled} title={title || label} aria-pressed={on === undefined ? undefined : !!on}>
       <SimIcon name={icon} size={15} /><span className="sim-tb-label">{label}</span>
     </button>
   );
@@ -1032,10 +1064,10 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         <TB icon="undo" minor label={L('undo')} title={`${L('undo')} (Ctrl+Z)`} onClick={undo} disabled={!undoStack.current.length} />
         <TB icon="redo" minor label={L('redo')} title={`${L('redo')} (Ctrl+Y)`} onClick={redo} disabled={!redoStack.current.length} />
         <span className="sim-sep" />
-        <TB icon="run" label={status.state === 'paused' ? L('cont') : L('run')} title={L('run_tip')} onClick={run} disabled={status.state === 'running' || status.state === 'compiling'} primary />
-        <TB icon="pause" label={L('pause')} title={L('pause_tip')} onClick={pause} disabled={!(status.state === 'running' || status.state === 'paused')} on={status.state === 'paused'} />
-        <TB icon="step" label={L('step')} title={L('step_tip')} onClick={step} disabled={status.state === 'running'} />
-        <TB icon="stop" label={L('stop')} title={L('stop_tip')} onClick={stop} disabled={!running} />
+        <TB icon="run" label={btn.paused ? L('cont') : L('run')} title={L('run_tip')} onClick={run} disabled={!btn.run} primary />
+        <TB icon="pause" label={L('pause')} title={L('pause_tip')} onClick={pause} disabled={!btn.pause} on={btn.paused} />
+        <TB icon="step" label={L('step')} title={L('step_tip')} onClick={step} disabled={!btn.step} />
+        <TB icon="stop" label={L('stop')} title={L('stop_tip')} onClick={stop} disabled={!btn.stop} />
         <span className="sim-time" title={L('time')}>
           <span className="sim-time-val">{L('time')} {fmtTime(Number(status.time) || 0)}</span>
           <span className="sim-progress"><span style={{ width: `${progress * 100}%` }} /></span>
@@ -1059,6 +1091,8 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
         <TB icon="library" label={L('library')} title={L('lib_tip')} on={externalLibrary || toggles.library} onClick={() => (externalLibrary && onLibrary ? onLibrary() : toggle('library'))} />
         <TB icon="function" label={L('code')} title={L('code_tip')} on={!!toggles.code} onClick={() => toggle('code')} />
         <span className="sim-sep" />
+        <TB icon="equation" label={L('eq')} title={L('eq_tip')} onClick={() => setDialog({ kind: 'equation' })} />
+        {onOpenScript && <TB icon="script" label={L('toScript')} title={L('toScript_tip')} onClick={toScript} />}
         <TB icon="settings" label={L('settings')} title={L('settings_tip')} onClick={() => setDialog({ kind: 'settings' })} />
       </div>
       <div className="sim-body" ref={bodyRef}>
@@ -1089,7 +1123,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
             {menu && (
               <div className="sim-menu" style={{ left: menu.x, top: menu.y }} onPointerDown={(e) => e.stopPropagation()}>
                 {menu.items.map((it, i) => (it.sep ? <div key={i} className="sim-menu-sep" /> : (
-                  <button key={i} type="button" className="sim-menu-item" onClick={() => { setMenu(null); it.run(); }}>
+                  <button key={i} type="button" className="sim-menu-item" disabled={!!it.disabled} onClick={() => { setMenu(null); it.run(); }}>
                     <SimIcon name={it.icon} size={14} /><span className="spacer-text">{it.label}</span>{it.keys && <span className="sim-menu-keys">{it.keys}</span>}
                   </button>
                 )))}
@@ -1126,6 +1160,15 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
             {dialog && dialog.kind === 'rename' && (
               <TextDialog lang={lang} title={L('rename')} icon="settings" value={dialog.value} onClose={() => setDialog(null)}
                 onOk={(v) => change((mm, s) => { const l = s.lines.find((x) => x.id === dialog.lineId); if (!l || l.name === v) return false; l.name = v; })} />
+            )}
+            {dialog && dialog.kind === 'equation' && (
+              <EquationDialog lang={lang} engine={engine} running={running} onClose={() => setDialog(null)}
+                onInsert={(built) => {
+                  let ids = [];
+                  change((mm, s) => { ids = insertEquationModel(mm, s, built); });
+                  setSel(new Set(ids));
+                  requestAnimationFrame(() => fitView());
+                }} />
             )}
             {dialog && dialog.kind === 'saveas' && (
               <TextDialog lang={lang} title={L('savePath')} icon="save" value={dialog.value} wide onClose={() => setDialog(null)} onOk={(v) => { if (v.trim()) doSave(withModelExt(v)); }} />

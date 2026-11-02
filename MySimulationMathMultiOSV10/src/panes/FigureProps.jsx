@@ -154,11 +154,11 @@ export function FigureProps({ runCode }) {
         </div>
         <div className="fp-row">
           <span className="fp-label">{t('px_colormap')}</span>
-          <IconSelect value={cmap} options={CMAP_OPTIONS} placeholder={cmap || '—'} ariaLabel={t('px_colormap')} title={t('px_colormap')} icon="palette" onChange={(name) => run(`colormap(gca, ${mQuote(name)})`)} />
+          <IconSelect value={cmap} options={CMAP_OPTIONS} width={150} placeholder={cmap || '—'} ariaLabel={t('px_colormap')} title={t('px_colormap')} icon="palette" onChange={(name) => run(`colormap(gca, ${mQuote(name)})`)} />
         </div>
         <div className="fp-row">
           <span className="fp-label">{t('px_linewidth')}</span>
-          <Stepper value={lw} min={0.5} max={10} step={0.5} width={52} ariaLabel={t('px_linewidth')} onChange={(w) => run(`set(findobj(gca, 'Type', 'line'), 'LineWidth', ${w})`)} />
+          <Stepper value={lw} min={0.5} max={10} step={0.5} width={94} ariaLabel={t('px_linewidth')} onChange={(w) => run(`set(findobj(gca, 'Type', 'line'), 'LineWidth', ${w})`)} />
         </div>
       </div>
     </div>

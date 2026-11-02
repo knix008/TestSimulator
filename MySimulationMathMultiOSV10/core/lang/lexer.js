@@ -9,15 +9,32 @@
 //   sp: true when whitespace precedes the token on the same line.
 import { MError } from '../value.js';
 
+/**
+ * Octave's specific end keywords and the block each one closes. The lexer
+ * returns them as an `end` keyword token with `form` set to the word.
+ */
+export const END_FORMS = {
+  endif: 'if', endfor: 'for', endparfor: 'parfor', endwhile: 'while', endswitch: 'switch', endfunction: 'function',
+  end_try_catch: 'try', end_unwind_protect: 'unwind_protect', endclassdef: 'classdef', endproperties: 'properties',
+  endmethods: 'methods', endevents: 'events', endenumeration: 'enumeration',
+};
+/** Octave block keywords: do … until, unwind_protect … unwind_protect_cleanup … end_unwind_protect. */
+export const OCTAVE_KEYWORDS = ['do', 'until', 'unwind_protect', 'unwind_protect_cleanup', ...Object.keys(END_FORMS)];
+
 export const KEYWORDS = new Set([
   'break', 'case', 'catch', 'classdef', 'continue', 'else', 'elseif', 'end', 'for', 'function', 'global',
   'if', 'otherwise', 'parfor', 'persistent', 'return', 'spmd', 'switch', 'try', 'while',
+  ...OCTAVE_KEYWORDS,
 ]);
-const BLOCK_OPENERS = new Set(['if', 'for', 'parfor', 'while', 'switch', 'try', 'function', 'classdef', 'spmd']);
+const BLOCK_OPENERS = new Set(['if', 'for', 'parfor', 'while', 'switch', 'try', 'function', 'classdef', 'spmd', 'do', 'unwind_protect']);
 const CLASS_SECTIONS = new Set(['properties', 'methods', 'events', 'enumeration']);
 const NO_COMMAND = new Set(['classdef', 'properties', 'events', 'enumeration', 'arguments', 'methods']);
 
-const OPS2 = ['==', '~=', '!=', '<=', '>=', '&&', '||', '.*', './', '.\\', '.^', ".'"];
+// three-character operators first: Octave's element-wise power `.**` and the element-wise assignment operators
+const OPS3 = ['.**', '.*=', './=', '.\\=', '.^='];
+// operator assignment (x += 1): only at the top level of a statement
+const ASSIGN_OPS = new Set(['+=', '-=', '*=', '/=', '\\=', '^=', '|=', '&=', '.*=', './=', '.\\=', '.^=']);
+const OPS2 = ['==', '~=', '!=', '<=', '>=', '&&', '||', '**', '+=', '-=', '*=', '/=', '\\=', '^=', '|=', '&=', '.*', './', '.\\', '.^', ".'"];
 const OPS1 = '+-*/\\^<>&|~!=:,;()[]{}.@?';
 const CMD_OPS = ['==', '~=', '!=', '<=', '>=', '&&', '||', '.*', './', '.\\', '.^', '+', '-', '*', '/', '\\', '^', '<', '>', '&', '|', ':'];
 
@@ -65,7 +82,7 @@ export function lex(src, opts = {}) {
     if (!p) return true;
     if (p.type === 'nl') return true;
     if (p.type === 'op' && (p.value === ';' || p.value === ',')) return true;
-    if (p.type === 'kw' && (p.value === 'else' || p.value === 'try' || p.value === 'otherwise')) return true;
+    if (p.type === 'kw' && (p.value === 'else' || p.value === 'try' || p.value === 'otherwise' || p.value === 'do' || p.value === 'unwind_protect' || p.value === 'unwind_protect_cleanup')) return true;
     return false;
   };
   const valueEnding = (p) => {
@@ -75,6 +92,8 @@ export function lex(src, opts = {}) {
     return false;
   };
   const restOfLineBlank = (j) => { while (j < n && isSpace(src[j])) j++; return j >= n || src[j] === '\n' || src[j] === '\r'; };
+  // only blanks, then ; , a comment or the end of the line
+  const restIsStatementEnd = (j) => { while (j < n && isSpace(src[j])) j++; return j >= n || src[j] === '\n' || src[j] === '\r' || src[j] === ';' || src[j] === ',' || src[j] === '%' || src[j] === '#'; };
   const lineBlankBefore = (j) => { for (let k = lineStart; k < j; k++) if (!isSpace(src[k])) return false; return true; };
   const newline = () => {
     // called with src[i] at '\n' or '\r'
@@ -92,14 +111,14 @@ export function lex(src, opts = {}) {
   };
 
   function blockComment() {
-    // at '%{' alone on a line
+    // at '%{' (or Octave's '#{') alone on a line
     let depth = 0;
     for (;;) {
       if (i >= n) return;
       const eol = (() => { let j = i; while (j < n && src[j] !== '\n' && src[j] !== '\r') j++; return j; })();
       const text = src.slice(i, eol).trim();
-      if (text === '%{') depth++;
-      else if (text === '%}') depth--;
+      if (text === '%{' || text === '#{') depth++;
+      else if (text === '%}' || text === '#}') depth--;
       i = eol;
       if (depth === 0) return;
       if (i < n) newline();
@@ -114,7 +133,7 @@ export function lex(src, opts = {}) {
       const c = src[j];
       if (c === '\n' || c === '\r') break;
       if (isSpace(c)) { if (cur !== null) { args.push(cur); cur = null; } j++; continue; }
-      if (cur === null && (c === ';' || c === ',' || c === '%')) break;
+      if (cur === null && (c === ';' || c === ',' || c === '%' || c === '#')) break;
       if (c === '.' && src.startsWith('...', j) && cur === null) { j = n; while (j < n) j++; break; }
       if (c === "'") {
         j++;
@@ -141,9 +160,12 @@ export function lex(src, opts = {}) {
     let k = j;
     while (k < n && isSpace(src[k])) k++;
     const c = src[k];
-    if (k >= n || c === '\n' || c === '\r' || c === ';' || c === ',' || c === '%') return false;
+    if (k >= n || c === '\n' || c === '\r' || c === ';' || c === ',' || c === '%' || c === '#') return false;
     if (c === '(') return false;
     if (c === '=' && src[k + 1] !== '=') return false;
+    // x += 1, x .*= 2 (operator assignment), x++ / x-- are statements, not commands
+    if (/^(\.?[*/\\^]|[+\-|&])=(?!=)/.test(src.slice(k, k + 4))) return false;
+    if ((src.startsWith('++', k) || src.startsWith('--', k)) && restIsStatementEnd(k + 2)) return false;
     if (isVar && isVar(name)) return false;
     if (c === '.' && src.startsWith('...', k)) return false;
     for (const op of CMD_OPS) {
@@ -163,7 +185,7 @@ export function lex(src, opts = {}) {
     const c = src[i];
     if (isSpace(c)) { i++; sp = true; continue; }
     if (c === '\n' || c === '\r') { emitNl(); newline(); sp = false; continue; }
-    if (c === '%') {
+    if (c === '%' || c === '#') {
       if (src[i + 1] === '{' && lineBlankBefore(i) && restOfLineBlank(i + 2)) { blockComment(); continue; }
       skipToEol();
       continue;
@@ -226,12 +248,24 @@ export function lex(src, opts = {}) {
       const word = src.slice(i, j);
       const p = prev();
       const afterDot = p && p.type === 'op' && p.value === '.' && !p.sp && !sp;
-      if (!afterDot && KEYWORDS.has(word)) {
+      // `do` and `until` are keywords only where a loop can start / end (do = 1 stays a variable)
+      let kwWord = !afterDot && KEYWORDS.has(word);
+      if (kwWord && word === 'do') {
+        let k = j; while (k < n && isSpace(src[k])) k++;
+        const nx = src[k];
+        kwWord = atStmtStart() && !(nx === '=' && src[k + 1] !== '=') && nx !== '(' && nx !== '.' && nx !== '{' && !(nx === "'" && k === j);
+      } else if (kwWord && word === 'until') kwWord = atStmtStart() && blocks.length > 0 && blocks[blocks.length - 1] === 'do';
+      if (kwWord) {
         if (word === 'end' && inIndex()) { i = j; push('endval', 'end', start); continue; }
         i = j;
+        if (Object.prototype.hasOwnProperty.call(END_FORMS, word)) {
+          push('kw', 'end', start, { form: word });
+          blocks.pop();
+          continue;
+        }
         push('kw', word, start);
         if (BLOCK_OPENERS.has(word)) blocks.push(word);
-        else if (word === 'end') blocks.pop();
+        else if (word === 'end' || word === 'until') blocks.pop();
         continue;
       }
       // contextual block keywords inside classdef / functions
@@ -239,7 +273,7 @@ export function lex(src, opts = {}) {
         const top = blocks[blocks.length - 1];
         let k = j; while (k < n && isSpace(src[k])) k++;
         const nx = src[k];
-        const opensBlock = k >= n || nx === '\n' || nx === '\r' || nx === '%' || nx === '(' || nx === ';' || nx === ',';
+        const opensBlock = k >= n || nx === '\n' || nx === '\r' || nx === '%' || nx === '#' || nx === '(' || nx === ';' || nx === ',';
         if (opensBlock && ((top === 'classdef' && CLASS_SECTIONS.has(word)) || (top === 'function' && word === 'arguments' && nx !== ';' && nx !== ','))) {
           i = j;
           push('id', word, start, { section: true });
@@ -279,11 +313,18 @@ export function lex(src, opts = {}) {
     }
     // operators
     let op = null;
-    for (const o of OPS2) if (src.startsWith(o, i)) { op = o; break; }
+    // x++ / x-- after a value at the end of a statement, ++x / --x as a whole statement
+    if ((c === '+' || c === '-') && src[i + 1] === c && !stack.length
+      && ((valueEnding(prev()) && !sp && restIsStatementEnd(i + 2)) || (atStmtStart() && /^[A-Za-z]\w*[ \t]*([;,%#\r\n]|$)/.test(src.slice(i + 2, i + 80))))) op = c + c;
+    if (!op) for (const o of OPS3) if (src.startsWith(o, i)) { op = o; break; }
+    if (!op) for (const o of OPS2) if (src.startsWith(o, i)) { op = o; break; }
+    // operator assignment only at the top level (not inside brackets, where `=` is not an assignment)
+    if (op && ASSIGN_OPS.has(op) && (stack.length || src[i + op.length] === '=')) op = op.slice(0, -1) || null;
     if (!op && OPS1.includes(c)) op = c;
     if (!op) err(`Invalid text character "${c}".`);
     if (op === '!=') op = '~=';
     if (op === '!') op = '~';
+    if (op === '**' || op === '.**') { i += op.length; push('op', op === '**' ? '^' : '.^', start); continue; }
     i += op.length;
     if (op === '(' || op === '[' || op === '{') stack.push(op);
     else if (op === ')' || op === ']' || op === '}') {

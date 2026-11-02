@@ -25,7 +25,9 @@
     "generate:samples": "node scripts/generate-sample-thumbs.mjs",
     "generate:models": "node scripts/generate-model-thumbs.mjs",
     "generate:sample-files": "node scripts/generate-sample-files.mjs",
-    "test": "node --test --test-reporter=./test/reporter.mjs test/*.test.mjs"
+    "tutorial:video": "node scripts/tutorial-video.mjs",
+    "test": "node --test --test-reporter=./test/reporter.mjs test/*.test.mjs",
+    "docs:shots": "node scripts/docs-screenshots.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.0",

@@ -59,7 +59,7 @@ export function MenuHost() {
             {it.on && <Icon name="check" size={13} />}
           </button>
         );
-      })}
+      }, { columns: menu.columns || 2 })}
     </div>
   );
 }

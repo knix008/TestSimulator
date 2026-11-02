@@ -87,6 +87,9 @@ The toolbar at the top of the Figures tab applies to the selected figure and axe
 | **2D view / 3D view** | Switch the selected axes between the 2D top-down view (`view(2)`) and the 3D view |
 | **Grid** | 5×5 grid: a major line every 5 minor lines (an endless floor grid in 3D) |
 | **Rulers** | Rulers in data units along the top and left edges |
+| **Axes** | In 3D, the X (red), Y (green) and Z (blue) lines through the origin with labels, and the orientation triad |
+| **Edges** | Show surface mesh lines and patch and bar outlines. Off draws the faces only, and 3D surfaces blend colour and light smoothly across the cells so no line pattern remains |
+| **Box** | Show all 12 edges of the box around a 3D plot. Off keeps only the labelled axis edges and the outline of the gridded back walls |
 | **Legend / Colorbar** | Show or hide |
 | **Export** | Save as PNG, JPEG, SVG or PDF |
 | **Copy** | Copy the figure to the clipboard as an image |
@@ -95,7 +98,11 @@ Mouse: the wheel zooms in/out at the cursor position, dragging with the middle b
 
 ![Data tips](images/en/figure-datatip.png)
 
-> Tip: The on/off state of the grid and rulers is remembered, and you can set the defaults in Settings › Figures.
+Drag the colorbar sideways with the mouse to move it (it stays inside the figure). Double-click puts it back, and export and print use the moved position.
+
+Grids in 3D figures are drawn without double lines. A grid line that would sit right next to a box edge (axis limits slightly off the ticks, e.g. after panning) is left out, and the floor grid of **Grid** follows the axis tick spacing and is not drawn under a gridded box floor.
+
+> Tip: The on/off state of the grid, rulers, axes, edges and box is remembered, and you can set the defaults for the grid and rulers in Settings › Figures. The same toggles are also in the figure's right-click menu.
 
 ## 3D shading
 

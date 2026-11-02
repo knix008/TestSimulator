@@ -20,7 +20,7 @@ uniform vec2 uResolution;      // device px
 uniform float uZ0;             // plane height (world)
 uniform vec2 uScale;           // data-per-world for x, y (sign = direction)
 uniform vec2 uOffset;          // data value at world 0
-uniform float uBase;           // base minor step (data units)
+uniform vec2 uBase;            // base minor step of x and y (data units): the tick step / 25
 uniform float uMinPx;          // minimum minor spacing (px)
 uniform vec3 uColor;
 uniform vec3 uAxisColor;
@@ -30,8 +30,9 @@ uniform float uMajorAlpha;
 uniform vec3 uTarget;          // world centre the fade is measured from
 uniform float uFadeStart;
 uniform float uFadeEnd;
+uniform vec2 uHole;            // half size (world) of the box floor, which draws its own grid; 0: none
 
-float lineAt(vec2 p, vec2 fw, float s) {
+float lineAt(vec2 p, vec2 fw, vec2 s) {
   vec2 q = p / s;
   vec2 w = max(fw / s, vec2(1e-6));
   vec2 g = abs(fract(q - 0.5) - 0.5) / w;
@@ -55,11 +56,15 @@ void main() {
 
   vec2 p = uOffset + uScale * hit.xy;           // data coordinates
   vec2 fw = fwidth(p);
-  float foot = max(sqrt(fw.x * fw.y), 1e-30);
-  float lod = log(foot * uMinPx / uBase) / log(5.0);
+  vec2 hw = fwidth(hit.xy) * 1.5;
+  // under the box floor only the box's grid: two grids on one plane show as double lines
+  if (uHole.x > 0.0 && abs(hit.x) <= uHole.x + hw.x && abs(hit.y) <= uHole.y + hw.y) discard;
+  // spacing in base steps (each axis its own base, so the lines continue the box's tick lines)
+  float foot = max(sqrt((fw.x / uBase.x) * (fw.y / uBase.y)), 1e-30);
+  float lod = log(foot * uMinPx) / log(5.0);
   float k = ceil(lod);
   float a0 = clamp(k - lod, 0.0, 1.0);          // finest level fades in as it opens up
-  float s0 = uBase * pow(5.0, k);
+  vec2 s0 = uBase * pow(5.0, k);
   float l0 = lineAt(p, fw, s0);
   float l1 = lineAt(p, fw, s0 * 5.0);
   float l2 = lineAt(p, fw, s0 * 25.0);
@@ -97,7 +102,7 @@ export function createGroundGrid() {
       uZ0: { value: 0 },
       uScale: { value: new THREE.Vector2(1, 1) },
       uOffset: { value: new THREE.Vector2(0, 0) },
-      uBase: { value: 0.1 },
+      uBase: { value: new THREE.Vector2(0.1, 0.1) },
       uMinPx: { value: 10 },
       uColor: { value: new THREE.Color(0.5, 0.5, 0.5) },
       uAxisColor: { value: new THREE.Color(0.3, 0.8, 0.95) },
@@ -107,6 +112,7 @@ export function createGroundGrid() {
       uTarget: { value: new THREE.Vector3() },
       uFadeStart: { value: 2 },
       uFadeEnd: { value: 8 },
+      uHole: { value: new THREE.Vector2(0, 0) },
     },
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);

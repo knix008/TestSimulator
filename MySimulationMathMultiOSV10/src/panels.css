@@ -33,7 +33,8 @@
 .fp-row { display: flex; align-items: center; gap: 8px; padding: 3px 10px; font-size: 12px; min-width: 0; }
 .fp-label { flex: none; width: 76px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fp-input { flex: 1; min-width: 0; height: 24px; padding: 2px 6px; font-size: 12px; }
-.fp-row .iselect { flex: 1; min-width: 0; height: 26px; }
+.fp-row .iselect { flex: none; height: 26px; }
+.fp-row > .stepper { flex: none; }   /* the same 150 px as the colormap: 28 + 94 + 28 */
 .fp-lim { flex-wrap: wrap; row-gap: 3px; }
 .fp-lim .fp-label { width: 100%; }
 .fp-lim-steps { display: inline-flex; gap: 4px; flex-wrap: wrap; min-width: 0; }

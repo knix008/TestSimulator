@@ -3,13 +3,16 @@
 // Program: { kind: 'script'|'function'|'classdef', body: Stmt[], functions: Fn[], classdef?, file }
 // Fn: { name, params: string[], outs: string[], body: Stmt[], nested: Fn[], args: ArgBlock[], line, endLine, text? }
 // Statements carry `line`. Expressions are plain objects with `t`.
-import { lex, parseError } from './lexer.js';
+import { lex, parseError, END_FORMS } from './lexer.js';
 
 const BIN_LEVELS = [
   ['||'], ['&&'], ['|'], ['&'], ['<', '<=', '>', '>=', '==', '~='],
 ];
 const ADD_OPS = new Set(['+', '-']);
 const MUL_OPS = new Set(['*', '/', '\\', '.*', './', '.\\']);
+// Octave operator assignment: x += y is x = x + (y)
+const ASSIGN_OPS = { '+=': '+', '-=': '-', '*=': '*', '/=': '/', '\\=': '\\', '^=': '^', '|=': '|', '&=': '&', '.*=': '.*', './=': './', '.\\=': '.\\', '.^=': '.^' };
+const END_KW = new Set(['end', 'else', 'elseif', 'case', 'otherwise', 'catch', 'until', 'unwind_protect_cleanup']);
 
 class Parser {
   constructor(tokens, opts) {
@@ -52,7 +55,7 @@ class Parser {
       if (this.is('eof')) break;
       if (this.isKw('function')) { functions.push(this.func()); this.skipNl(); continue; }
       if (functions.length && kind === 'function') this.err('Statements are not allowed between function definitions.');
-      if (functions.length && kind === 'script') this.err('Local functions in a script must be at the end of the file.');
+      // scripts may define functions anywhere (Octave command-line functions: `1; function f … endfunction; f()`)
       const s = this.statement();
       if (s) body.push(s);
     }
@@ -84,7 +87,7 @@ class Parser {
     if (t.type === 'nl') { this.next(); return true; }
     if (t.type === 'eof') return true;
     // keywords may follow on the same line in some contexts (e.g. `if x disp(1) end`)
-    if (t.type === 'kw' && (t.value === 'end' || t.value === 'else' || t.value === 'elseif' || t.value === 'case' || t.value === 'otherwise' || t.value === 'catch')) return true;
+    if (t.type === 'kw' && END_KW.has(t.value)) return true;
     this.err(`Invalid expression near "${this.tokText()}". Check for missing operators, commas or semicolons.`);
   }
 
@@ -106,9 +109,19 @@ class Parser {
         case 'try': return this.tryStmt();
         case 'break': case 'continue': case 'return': this.next(); this.endOfStatement(); return { t: t.value, line };
         case 'global': case 'persistent': return this.declStmt(t.value);
-        case 'spmd': { this.next(); const body = this.block(['end']); this.expectKw('end'); this.endOfStatement(); return { t: 'block', body, line }; }
+        case 'spmd': { this.next(); const body = this.block(['end']); this.expectEnd('spmd'); this.endOfStatement(); return { t: 'block', body, line }; }
+        case 'do': return this.doStmt();
+        case 'unwind_protect': return this.unwindStmt();
         default: this.err(`Illegal use of reserved keyword "${t.value}".`);
       }
+    }
+    // ++x / --x
+    if (t.type === 'op' && (t.value === '++' || t.value === '--')) {
+      this.next();
+      const e = this.postfix();
+      const lv = this.toLvalue(e);
+      const print = this.endOfStatement();
+      return { t: 'assign', lhs: lv, rhs: { t: 'bin', op: t.value[0], a: e, b: { t: 'num', v: 1, imag: false, cls: 'double' } }, print, line, opAssign: t.value };
     }
     // assignment or expression
     if (t.type === 'op' && t.value === '[' ) {
@@ -129,11 +142,52 @@ class Parser {
       const print = this.endOfStatement();
       return { t: 'assign', lhs: lv, rhs, print, line };
     }
+    if (this.tok.type === 'op' && Object.prototype.hasOwnProperty.call(ASSIGN_OPS, this.tok.value)) {
+      const op = this.next().value;
+      const lv = this.toLvalue(e);
+      const rhs = this.expr();
+      const print = this.endOfStatement();
+      return { t: 'assign', lhs: lv, rhs: { t: 'bin', op: ASSIGN_OPS[op], a: e, b: { t: 'paren', e: rhs } }, print, line, opAssign: op };
+    }
+    if (this.tok.type === 'op' && (this.tok.value === '++' || this.tok.value === '--')) {
+      const op = this.next().value;
+      const lv = this.toLvalue(e);
+      const print = this.endOfStatement();
+      return { t: 'assign', lhs: lv, rhs: { t: 'bin', op: op[0], a: e, b: { t: 'num', v: 1, imag: false, cls: 'double' } }, print, line, opAssign: op };
+    }
     const print = this.endOfStatement();
     return { t: 'expr', e, print, line };
   }
 
   expectKw(v) { if (!this.isKw(v)) this.err(`Expected "${v}" near "${this.tokText()}".`); return this.next(); }
+  /** `end` or the Octave end keyword of this block (endif, endfor, …). */
+  expectEnd(...kinds) {
+    const t = this.tok;
+    if (!this.isKw('end')) this.err(`Expected "end" near "${this.tokText()}".`);
+    if (t.form && !kinds.includes(END_FORMS[t.form])) this.err(`"${t.form}" does not close the "${kinds[0]}" block; use "end" or the matching end keyword.`);
+    return this.next();
+  }
+
+  doStmt() {
+    // do … until cond
+    const line = this.next().line;
+    const body = this.block(['until']);
+    this.expectKw('until');
+    const cond = this.expr();
+    this.endOfStatement();
+    return { t: 'do', body, cond, line };
+  }
+
+  unwindStmt() {
+    // unwind_protect … unwind_protect_cleanup … end_unwind_protect
+    const line = this.next().line;
+    const body = this.block(['unwind_protect_cleanup', 'end']);
+    let cleanup = [];
+    if (this.isKw('unwind_protect_cleanup')) { this.next(); cleanup = this.block(['end']); }
+    this.expectEnd('unwind_protect');
+    this.endOfStatement();
+    return { t: 'unwind', body, cleanup, line };
+  }
 
   tryMultiLhs() {
     // [a, b, ~, c(2), s.f] = ...
@@ -180,7 +234,7 @@ class Parser {
       if (this.isKw('else')) { this.next(); elseBody = this.block(['end']); }
       break;
     }
-    this.expectKw('end');
+    this.expectEnd('if');
     this.endOfStatement();
     return { t: 'if', clauses, else: elseBody, line };
   }
@@ -209,7 +263,7 @@ class Parser {
       this.expectOp(')');
     }
     const body = this.block(['end']);
-    this.expectKw('end');
+    this.expectEnd('for', 'parfor');
     this.endOfStatement();
     return { t: 'for', lv, e, body, line };
   }
@@ -218,7 +272,7 @@ class Parser {
     const line = this.next().line;
     const cond = this.expr();
     const body = this.block(['end']);
-    this.expectKw('end');
+    this.expectEnd('while');
     this.endOfStatement();
     return { t: 'while', cond, body, line };
   }
@@ -235,7 +289,7 @@ class Parser {
       if (this.isKw('otherwise')) { this.next(); otherwise = this.block(['case', 'otherwise', 'end']); continue; }
       break;
     }
-    this.expectKw('end');
+    this.expectEnd('switch');
     this.endOfStatement();
     return { t: 'switch', e, cases, otherwise, line };
   }
@@ -254,7 +308,7 @@ class Parser {
       }
       cbody = this.block(['end']);
     }
-    this.expectKw('end');
+    this.expectEnd('try');
     this.endOfStatement();
     return { t: 'try', body, id, cbody, line };
   }
@@ -599,7 +653,7 @@ class Parser {
       if (t.type === 'kw' && t.value === 'end') {
         if (!this.endStyle) this.err('Unexpected "end": this file defines functions without "end".');
         fn.endLine = t.line;
-        this.next();
+        this.expectEnd('function');
         if (this.isOp(';') || this.isOp(',')) this.next();
         break;
       }
@@ -641,7 +695,7 @@ class Parser {
     const items = [];
     for (;;) {
       this.skipNl();
-      if (this.isKw('end')) { this.next(); break; }
+      if (this.isKw('end')) { this.expectEnd('arguments'); break; }
       if (this.is('eof')) this.err('The arguments block is missing its "end".');
       items.push(this.propLike(true));
     }
@@ -703,7 +757,7 @@ class Parser {
     for (;;) {
       this.skipNl();
       const t = this.tok;
-      if (t.type === 'kw' && t.value === 'end') { this.next(); break; }
+      if (t.type === 'kw' && t.value === 'end') { this.expectEnd('classdef'); break; }
       if (t.type === 'eof') this.err('The class definition is missing its "end".');
       if (t.type === 'id' && t.section) {
         this.next();
@@ -711,7 +765,7 @@ class Parser {
         if (t.value === 'properties') {
           for (;;) {
             this.skipNl();
-            if (this.isKw('end')) { this.next(); break; }
+            if (this.isKw('end')) { this.expectEnd('properties'); break; }
             const p = this.propLike(false);
             p.attrs = a;
             cd.props.push(p);
@@ -719,7 +773,7 @@ class Parser {
         } else if (t.value === 'methods') {
           for (;;) {
             this.skipNl();
-            if (this.isKw('end')) { this.next(); break; }
+            if (this.isKw('end')) { this.expectEnd('methods'); break; }
             if (this.isKw('function')) { const fn = this.func(); fn.attrs = a; cd.methods.push(fn); continue; }
             // method signature only (defined in its own file): skip the line
             while (!this.is('nl') && !this.is('eof')) this.next();
@@ -727,13 +781,13 @@ class Parser {
         } else if (t.value === 'events') {
           for (;;) {
             this.skipNl();
-            if (this.isKw('end')) { this.next(); break; }
+            if (this.isKw('end')) { this.expectEnd('events'); break; }
             cd.events.push({ name: this.expectId(), attrs: a });
           }
         } else if (t.value === 'enumeration') {
           for (;;) {
             this.skipNl();
-            if (this.isKw('end')) { this.next(); break; }
+            if (this.isKw('end')) { this.expectEnd('enumeration'); break; }
             const nm = this.expectId();
             let args = [];
             if (this.isOp('(')) { this.next(); args = this.args(')'); }

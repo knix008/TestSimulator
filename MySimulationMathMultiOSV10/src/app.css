@@ -38,7 +38,6 @@
 .doc-body { flex: 1; min-height: 0; position: relative; }
 .doc-page { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
 .cmd-slot { flex: none; min-height: 0; display: flex; flex-direction: column; }
-.cmd-slot.fill { flex: 1; }
 .cmd-slot > .pane-box { flex: 1; }
 .doc-tab-dirty { color: var(--folder); }
 .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
