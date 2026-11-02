@@ -9,8 +9,11 @@
 // at the margin either way).
 // Pure (tested in test/indent.test.mjs).
 
-const OPEN = new Set(['if', 'for', 'parfor', 'while', 'switch', 'try', 'function', 'classdef', 'properties', 'methods', 'events', 'enumeration', 'spmd', 'arguments']);
-const MID = new Set(['else', 'elseif', 'catch']); // close the branch above, open the next one
+const OPEN = new Set(['if', 'for', 'parfor', 'while', 'switch', 'try', 'function', 'classdef', 'properties', 'methods', 'events', 'enumeration', 'spmd', 'arguments', 'do', 'unwind_protect']);
+const MID = new Set(['else', 'elseif', 'catch', 'unwind_protect_cleanup']); // close the branch above, open the next one
+// Octave's end keywords (endif, endfor, …) and `until` (closes do) count as `end`
+const END_WORDS = new Set(['endif', 'endfor', 'endparfor', 'endwhile', 'endswitch', 'endfunction', 'end_try_catch', 'end_unwind_protect', 'endclassdef', 'endproperties', 'endmethods', 'endevents', 'endenumeration', 'until']);
+const normWord = (t) => (END_WORDS.has(t) ? 'end' : t);
 const CASE = new Set(['case', 'otherwise']);
 // section keywords open a block only as the first word of a line (methods(obj) is a call); class sections only inside classdef
 const SECTION = new Set(['properties', 'methods', 'events', 'enumeration', 'arguments']);
@@ -22,7 +25,7 @@ function codeOf(line) {
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (q) { if (c === q) { if (line[i + 1] === q) { i++; continue; } q = null; } continue; }
-    if (c === '%') break;
+    if (c === '%' || c === '#') break;
     if (c === '.' && line.startsWith('...', i)) return { code: out, cont: true };
     // ' starts a string unless it is a transpose (after a name, number, closing bracket, ' or .')
     if (c === '"' || (c === "'" && !/[\w)\]}'.]/.test(out.trimEnd() === out ? out[out.length - 1] || '' : ' '))) { q = c; out += ' '; continue; }
@@ -41,7 +44,10 @@ function keywordsOf(code) {
     if (t === '(' || t === '[' || t === '{') { depth++; continue; }
     if (t === ')' || t === ']' || t === '}') { depth = Math.max(0, depth - 1); continue; }
     if (depth || t.startsWith('.')) continue; // inside brackets, or a field name (s.end)
-    if (OPEN.has(t) || MID.has(t) || CASE.has(t) || t === 'end') out.push(t);
+    // do / until are keywords only as statements (do = 1 is a variable)
+    if ((t === 'do' || t === 'until') && /^\s*(=(?!=)|\()/.test(code.slice(m.index + t.length))) continue;
+    const k = normWord(t);
+    if (OPEN.has(k) || MID.has(k) || CASE.has(k) || k === 'end') out.push(k);
   }
   return out;
 }
@@ -73,16 +79,16 @@ export function reindentM(text, unit = '    ', opts = {}) {
   const out = [];
   for (const raw of lines) {
     const trimmed = raw.trim();
-    if (blockComment) { out.push(raw.replace(/\s+$/, '')); if (/^%\}\s*$/.test(trimmed)) blockComment = false; continue; }
+    if (blockComment) { out.push(raw.replace(/\s+$/, '')); if (/^[%#]\}\s*$/.test(trimmed)) blockComment = false; continue; }
     if (!trimmed) { out.push(''); continue; }
-    if (/^%\{\s*$/.test(trimmed)) { out.push(unit.repeat(width(stack)) + trimmed); blockComment = true; continue; }
+    if (/^[%#]\{\s*$/.test(trimmed)) { out.push(unit.repeat(width(stack)) + trimmed); blockComment = true; continue; }
     const { code, cont: nextCont } = codeOf(trimmed);
     const kws = keywordsOf(code);
     // how far the line itself moves out: a leading end / else / case closes before the line
     let depth = width(stack);
     const first = kws[0];
     const top = stack[stack.length - 1];
-    const leading = first && new RegExp(`^${first}\\b`).test(code.trim());
+    const leading = first && normWord((/^[A-Za-z_]\w*/.exec(code.trim()) || [''])[0]) === first;
     if (leading && first === 'end') depth = top === 'fn0' ? width(stack) : Math.max(0, width(stack) - (top === 'case' ? 2 : 1));
     else if (leading && first === 'function' && fnEnd) { const kind = allFunctions || stack.length ? 'function' : 'fn0'; depth = width([...stack, kind]) - (kind === 'fn0' ? 0 : 1); }
     else if (leading && MID.has(first)) depth = Math.max(0, depth - 1);

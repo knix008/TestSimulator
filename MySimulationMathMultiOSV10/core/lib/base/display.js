@@ -652,12 +652,15 @@ export const builtins = {
         return undefined;
       }
     }
-    ctx.out(formatValue(v, name || 'ans', ctx));
+    // code written for Octave: Octave's layout (core/lang/octdisplay.js)
+    const oct = ctx.interp && ctx.interp.octaveDisplayText ? ctx.interp.octaveDisplayText(name || 'ans', v) : null;
+    ctx.out(oct != null ? oct : formatValue(v, name || 'ans', ctx));
     return undefined;
   },
   disp(args, nargout, ctx) {
     if (args.length < 1) throw E('base:disp:notEnoughInputs', 'Not enough input arguments.');
-    ctx.out(dispText(args[0], ctx));
+    const oct = ctx.interp && ctx.interp.octaveDispText ? ctx.interp.octaveDispText(args[0]) : null;
+    ctx.out(oct != null ? oct : dispText(args[0], ctx));
     return undefined;
   },
   formattedDisplayText(args, nargout, ctx) {

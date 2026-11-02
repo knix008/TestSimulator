@@ -5,6 +5,7 @@ import { absPath, nameValues, isTextArg, extName, fsExists, isDirPath } from '..
 import { sniff } from './codecs/common.js';
 import { decodePng, encodePng, pngInfo } from './codecs/png.js';
 import { decodeJpeg, encodeJpeg, jpegInfo } from './codecs/jpeg.js';
+import { encodeLosslessJpeg } from './codecs/ljpeg.js';
 import { decodeBmp, encodeBmp, bmpInfo } from './codecs/bmp.js';
 import { decodeGif, encodeGif, appendGif } from './codecs/gif.js';
 import { decodeTiff, encodeTiff, tiffIfds, tiffPageInfo } from './codecs/tiff.js';
@@ -29,11 +30,43 @@ const fmtOf = (s) => FMT_ALIAS[String(s).toLowerCase().replace(/^\./, '')] || nu
 const isNumArg = (v) => v != null && (isTensor(v) || isSparse(v)) && !isChar(v);
 const textOf = (v) => (isTextArg(v) ? toStr(v) : null);
 
+// ---------------------------------------------------------------- IMAGE_PATH
+
+/** Folders searched for image files given with a relative name (after the current folder). */
+export function imagePathDirs(ctx) {
+  const text = ctx.state.imagePath ?? '.';
+  return text.split(/;|:(?![\\/])/).map((d) => d.trim()).filter(Boolean);
+}
+
+function IMAGE_PATH(args, nargout, ctx) {
+  const old = ctx.state.imagePath ?? '.';
+  if (args.length) {
+    if (args.length > 1 && !(isTextArg(args[1]) && toStr(args[1]).toLowerCase() === 'local')) throw IE('IMAGE_PATH', 'badOption', "The second argument can only be 'local'.");
+    if (!isTextArg(args[0])) throw IE('IMAGE_PATH', 'badValue', 'IMAGE_PATH must be a character vector (folders separated by the path separator).');
+    ctx.state.imagePath = toStr(args[0]);
+    if (nargout === 0) return [];
+  }
+  return str(old);
+}
+
 function locate(ctx, file, fmt) {
-  const p = absPath(ctx, file);
-  if (fsExists(ctx, p) && !isDirPath(ctx, p)) return p;
   const exts = fmt ? FORMAT_LIST.find((f) => f.ext.includes(fmt) || fmtOf(f.ext[0]) === fmt)?.ext.map((e) => '.' + e) || ['.' + fmt] : READ_EXTS;
-  for (const e of exts) if (fsExists(ctx, p + e)) return p + e;
+  const tryAt = (p) => {
+    if (fsExists(ctx, p) && !isDirPath(ctx, p)) return p;
+    for (const e of exts) if (fsExists(ctx, p + e)) return p + e;
+    return null;
+  };
+  const hit = tryAt(absPath(ctx, file));
+  if (hit) return hit;
+  const rel = !/^([A-Za-z]:)?[\\/]/.test(file) && !/^[a-z]+:\/\//i.test(file);
+  if (rel) {
+    for (const d of imagePathDirs(ctx)) {
+      if (d === '.') continue;
+      let h = null;
+      try { h = tryAt(absPath(ctx, `${d.replace(/[\\/]+$/, '')}/${file}`)); } catch { h = null; }
+      if (h) return h;
+    }
+  }
   throw IE('imread', 'fileNotFound', `File "${file}" does not exist.`);
 }
 
@@ -173,7 +206,9 @@ function writePng(A, map, opts) {
 function writeJpeg(A, map, opts) {
   const quality = opts.quality ? toTensor(opts.quality).re[0] : 75;
   if (quality < 0 || quality > 100) throw IE('imwrite', 'badQuality', 'Quality must be between 0 and 100.');
-  if (opts.mode && textOf(opts.mode).toLowerCase() === 'lossless') throw IE('imwrite', 'losslessJpeg', 'Lossless JPEG writing is not supported; use PNG instead.');
+  const mode = opts.mode ? textOf(opts.mode).toLowerCase() : 'lossy';
+  if (mode !== 'lossy' && mode !== 'lossless') throw IE('imwrite', 'badMode', "Mode must be 'lossy' or 'lossless'.");
+  if (mode === 'lossless') return writeLosslessJpeg(A, map, opts);
   let img;
   if (map) img = rgbBytesOf(A, map);
   else {
@@ -181,6 +216,22 @@ function writeJpeg(A, map, opts) {
     if (img.channels !== 1 && img.channels !== 3) throw IE('imwrite', 'badChannels', 'JPEG images must be grayscale or truecolor.');
   }
   return encodeJpeg(img, { quality: Math.max(1, quality), comment: opts.comment ? toStr(opts.comment) : null });
+}
+
+/** Lossless JPEG (SOF3): 8-bit images, or 2..16-bit with uint16 data ('BitDepth'). */
+function writeLosslessJpeg(A, map, opts) {
+  let img, precision = 8;
+  if (map) img = rgbBytesOf(A, map);
+  else {
+    const cls = imgOf(A, 'imwrite').cls;
+    const wide = cls === 'uint16';
+    precision = opts.bitdepth ? toTensor(opts.bitdepth).re[0] : wide ? 16 : 8;
+    if (!(Number.isInteger(precision) && precision >= 2 && precision <= 16)) throw IE('imwrite', 'badBitDepth', 'BitDepth must be an integer from 2 to 16 for lossless JPEG.');
+    if (precision > 8 && !wide) throw IE('imwrite', 'badBitDepth', 'Lossless JPEG with more than 8 bits needs uint16 data.');
+    img = arrayToRaster(A, { depth: precision > 8 ? 16 : 8 });
+    if (img.channels !== 1 && img.channels !== 3) throw IE('imwrite', 'badChannels', 'JPEG images must be grayscale or truecolor.');
+  }
+  return encodeLosslessJpeg(img, { precision });
 }
 
 function writeBmp(A, map) {
@@ -313,8 +364,8 @@ function infoRecords(bytes, path, fmt, stat) {
   if (kind === 'jpg') {
     const i = jpegInfo(bytes);
     return [{
-      ...common('jpg', null, i.width, i.height, 8 * i.components, i.components === 1 ? 'grayscale' : i.components === 4 ? 'CMYK' : 'truecolor'),
-      NumberOfSamples: num(i.components), CodingMethod: str('Huffman'), CodingProcess: str(i.coding === 'progressive' ? 'Progressive' : 'Sequential'), Comment: cellStr(i.comments),
+      ...common('jpg', null, i.width, i.height, (i.bitDepth || 8) * i.components, i.components === 1 ? 'grayscale' : i.components === 4 ? 'CMYK' : 'truecolor'),
+      NumberOfSamples: num(i.components), CodingMethod: str('Huffman'), CodingProcess: str(i.coding === 'progressive' ? 'Progressive' : i.coding === 'lossless' ? 'Lossless' : 'Sequential'), Comment: cellStr(i.comments),
     }];
   }
   if (kind === 'bmp') {
@@ -400,7 +451,7 @@ function imformats(args, nargout, ctx) {
   return struct([1, data.length], fields, data);
 }
 
-export const builtins = { imread, imwrite, imfinfo, imformats };
+export const builtins = { imread, imwrite, imfinfo, imformats, IMAGE_PATH };
 void isString;
 
 export const help = {
@@ -410,8 +461,8 @@ export const help = {
     syntax: ['A = imread(filename)', 'A = imread(filename, fmt)', '[X, map] = imread(filename)', '[A, map, alpha] = imread(filename)', 'A = imread(filename, idx)', 'A = imread(filename, \'Frames\', \'all\')', 'A = imread(filename, \'Index\', idx)'],
   },
   imwrite: {
-    en: 'Write an image to a file. The format comes from the extension or the fmt argument. Options: Alpha, BitDepth, Transparency (PNG), Quality, Comment (JPEG), DelayTime, LoopCount, TransparentColor, DisposalMethod, WriteMode (GIF), Compression, Description, Resolution, WriteMode, ColorSpace (TIFF), Encoding, MaxValue (PNM).',
-    ko: '이미지를 파일로 저장합니다. 형식은 확장자나 fmt 인수로 정합니다. 옵션: Alpha, BitDepth, Transparency(PNG), Quality, Comment(JPEG), DelayTime, LoopCount, TransparentColor, DisposalMethod, WriteMode(GIF), Compression, Description, Resolution, WriteMode, ColorSpace(TIFF), Encoding, MaxValue(PNM).',
+    en: 'Write an image to a file. The format comes from the extension or the fmt argument. Options: Alpha, BitDepth, Transparency (PNG), Quality, Comment, Mode (lossy or lossless), BitDepth (JPEG; lossless 2..16 bits), DelayTime, LoopCount, TransparentColor, DisposalMethod, WriteMode (GIF), Compression, Description, Resolution, WriteMode, ColorSpace (TIFF), Encoding, MaxValue (PNM).',
+    ko: '이미지를 파일로 저장합니다. 형식은 확장자나 fmt 인수로 정합니다. 옵션: Alpha, BitDepth, Transparency(PNG), Quality, Comment, Mode(lossy/lossless), BitDepth(JPEG; 무손실은 2..16비트), DelayTime, LoopCount, TransparentColor, DisposalMethod, WriteMode(GIF), Compression, Description, Resolution, WriteMode, ColorSpace(TIFF), Encoding, MaxValue(PNM).',
     syntax: ['imwrite(A, filename)', 'imwrite(X, map, filename)', 'imwrite(..., fmt)', 'imwrite(..., Name, Value)'],
   },
   imfinfo: {
@@ -423,5 +474,10 @@ export const help = {
     en: 'List the supported image file formats.',
     ko: '지원하는 이미지 파일 형식 목록을 보여 줍니다.',
     syntax: ['imformats', 'formats = imformats', 'fmt = imformats(ext)'],
+  },
+  IMAGE_PATH: {
+    en: "Query or set the folders imread and imfinfo search for image files given with a relative name (after the current folder; folders separated by ';'). Default '.'.",
+    ko: "상대 이름으로 준 이미지 파일을 imread와 imfinfo가 (현재 폴더 다음에) 찾을 폴더를 조회하거나 바꿉니다 (폴더는 ';'로 구분). 기본값 '.'.",
+    syntax: ['val = IMAGE_PATH()', 'old_val = IMAGE_PATH(new_val)', 'IMAGE_PATH(new_val, "local")'],
   },
 };

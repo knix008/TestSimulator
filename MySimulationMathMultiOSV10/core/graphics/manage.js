@@ -3,12 +3,12 @@ import { str, num, tensor, rowVec, cell, empty, bool, structOf, isCell, isStruct
 import { gerr, isTxt, txt, txtList, nums, isNum, lower, eqi } from './util.js';
 import {
   G, create, destroy, getObj, mustObj, objsOf, handleValue, handleIds, isHandleValue, isGraphicsArg, getProp, setProp, setPairs, getAll, settableInfo,
-  findProp, matOfRows, matOfValue, rowsOfMat, touch, isAxesType, figureOf, axesOf, invokeCallback, onSet, canonicalName, propNames,
+  findProp, objProp, matOfRows, matOfValue, rowsOfMat, touch, isAxesType, figureOf, axesOf, invokeCallback, onSet, canonicalName, propNames,
 } from './model.js';
 import { TYPES, COMMON } from './schema.js';
 import { currentFigure, currentAxes, newFigure, makeCurrentFigure, makeCurrentAxes, newAxes, allAxes, clearAxes, leadingAxes, newplot, resetAxes } from './figax.js';
 import { axesInfo, subplotOuter, tileOuter, innerFromOuter } from './compute.js';
-import { colormapByName, COLORMAP_NAMES } from './colormaps.js';
+import { colormapByName, COLORMAP_NAMES, cubehelixRows } from './colormaps.js';
 import { flush, resolvedColormap, plotChildren } from './scene.js';
 
 const isPlaceholder = (id) => id === -1;
@@ -178,7 +178,7 @@ function setBuiltin(args, nargout, ctx) {
   const objs = objsOf(ctx, args[0]);
   if (args.length === 1) return settableInfo(ctx, objs[0]);
   if (args.length === 2 && isTxt(args[1])) {
-    const e = findProp(objs[0].type, txt(args[1]));
+    const e = objProp(objs[0], txt(args[1]));
     if (!e) throw gerr('unknownProperty', `Unrecognized property '${txt(args[1])}'.`);
     return e[1] === 'enum' ? cell([e[3].length, 1], e[3].map((s) => str(s))) : cell([0, 0], []);
   }
@@ -1000,6 +1000,15 @@ export const builtins = {
   linkaxes: linkaxesBuiltin,
   ...Object.fromEntries(COLORMAP_NAMES.filter((n) => n !== 'default').map((n) => [n, cmapFn(n)])),
   parula: cmapFn('default'),
+  // cubehelix(n, start, rots, hue, gamma): the colormap with its own parameters
+  cubehelix(args, nargout, ctx) {
+    if (args.length <= 1) return cmapFn('cubehelix')(args, nargout, ctx);
+    const p = args.map((v) => nums(v)[0]);
+    const rows = cubehelixRows(Math.max(0, Math.round(p[0])), ...p.slice(1));
+    const t = tensor('double', [rows.length, 3]);
+    rows.forEach((r, i) => { t.re[i] = r[0]; t.re[i + rows.length] = r[1]; t.re[i + 2 * rows.length] = r[2]; });
+    return t;
+  },
 };
 delete builtins.uifigure_internal;
 

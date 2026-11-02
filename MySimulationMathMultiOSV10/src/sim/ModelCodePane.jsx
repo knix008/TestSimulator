@@ -9,6 +9,7 @@ import { createMEditor } from '../lib/editor';
 import { modelToCode } from '../../core/sim/codegen.js';
 import { SimIcon } from './icons';
 import { tr } from './i18n';
+import { writeText } from '../lib/clipboard';
 
 export function ModelCodePane({ engine, model, rev, name, running, lang, width, onOpenScript, onClose }) {
   const L = (k, v) => tr(lang, k, v);
@@ -85,7 +86,7 @@ export function ModelCodePane({ engine, model, rev, name, running, lang, width, 
         <button type="button" className="sim-tb" disabled={!edited} title={L('code_reset_tip')} onClick={reset}>
           <SimIcon name="update" size={14} /><span className="sim-tb-label">{L('code_reset')}</span>
         </button>
-        <button type="button" className="sim-tb" title={L('code_copy_tip')} onClick={() => navigator.clipboard && navigator.clipboard.writeText(ed.current ? ed.current.getText() : '')}>
+        <button type="button" className="sim-tb" title={L('code_copy_tip')} onClick={() => writeText(ed.current ? ed.current.getText() : '')}>
           <SimIcon name="copy" size={14} /><span className="sim-tb-label">{L('copy')}</span>
         </button>
         {onOpenScript && (

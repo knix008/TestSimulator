@@ -146,7 +146,7 @@ export function computeLayout(ctx, fig, W, H, views = new Map()) {
         visit(c, { x: outer.x + yl, y: outer.y + th, w: outer.w - yl, h: outer.h - th - xl });
         continue;
       }
-      if (c.type === 'uipanel') { visit(c, frame); continue; }
+      if (c.type === 'uipanel' || c.type === 'uibuttongroup') { visit(c, frame); continue; }
       if (c.type === 'heatmap') { const outer = toPx(c.props.OuterPosition, frame); items.push({ node: c, kind: 'heatmap', outer, box: heatmapBox(ctx, c, outer) }); continue; }
       if (!['axes', 'polaraxes', 'uiaxes'].includes(c.type)) continue;
       const p = c.props;
@@ -160,7 +160,9 @@ export function computeLayout(ctx, fig, W, H, views = new Map()) {
         items.push({ node: c, kind: 'axes3d', outer, region, box: region, titleH });
         continue;
       }
-      items.push({ node: c, kind: 'axes2d', outer, box: axes2dBox(ctx, c, outer, views.get(c.id)) });
+      // innerposition (subplot('Position', ...), axes('Position', ...), plotyy): the plot box is Position itself
+      const inner = p.PositionConstraint === 'innerposition' && Array.isArray(p.Position) && p.Position.length === 4 ? toPx(p.Position, frame) : null;
+      items.push({ node: c, kind: 'axes2d', outer, box: axes2dBox(ctx, c, inner || outer, views.get(c.id)) });
     }
   };
   visit(fig, area);

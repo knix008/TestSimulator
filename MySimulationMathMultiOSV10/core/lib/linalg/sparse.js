@@ -1224,3 +1224,5 @@ export const help = {
   symrcm: H('Symmetric reverse Cuthill-McKee ordering.', '대칭 역 Cuthill-McKee 순서.', ['r = symrcm(S)']),
 };
 void outMat; void optText; void isOpt; void tensor;
+// Helpers shared with sparse2.js (pcr, qmr, tfqmr).
+export { makeOp, makePrec, iterArgs, finishIter, spLUSolve, vz, vcopy, vdot, vnorm, axpy, vsub, toVal, fromVal };

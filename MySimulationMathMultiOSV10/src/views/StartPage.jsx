@@ -19,13 +19,15 @@ export function startBackgroundOf(settings) {
   return { ...DEFAULT_START_BACKGROUND, ...((settings && settings.startBackground) || {}) };
 }
 
-export const CARD_IDS = ['hero', 'templates', 'recent', 'side', 'help', 'models', 'samples'];
+// the samples come before the model examples (the model examples are the last card)
+export const CARD_IDS = ['hero', 'templates', 'recent', 'side', 'help', 'samples', 'models'];
 export const DEFAULT_SPAN = { hero: 3, templates: 2, recent: 1, side: 1, help: 2, models: 3, samples: 3 };
 
 // 새로 만들기: [action, icon, name key, description key]
 const GROUPS = [
   ['sp_g_code', [
     ['newScript', 'script', 'sp_t_script', 'sp_t_script_d'],
+    ['newFlow', 'flow', 'sp_t_flow', 'sp_t_flow_d'],
     ['newLive', 'runSection', 'sp_t_live', 'sp_t_live_d'],
     ['newFunction', 'code', 'sp_t_function', 'sp_t_function_d'],
     ['newClass', 'layers', 'sp_t_class', 'sp_t_class_d'],
@@ -391,6 +393,7 @@ export function StartPage({ settings, recent = [], onAction, onRecentOpen, onRec
           <div className="start-docs">
             <Btn icon="folder" label={t('rb_open')} onClick={() => onAction('open')} />
             <Btn icon="model" label={t('sp_t_model')} onClick={() => onAction('newModel')} />
+            <Btn icon="flow" label={t('sp_t_flow')} title={t('sp_t_flow_d')} onClick={() => onAction('newFlow')} />
           </div>
           <Btn icon="script" label={t('sp_t_script')} primary onClick={() => onAction('newScript')} />
         </div>

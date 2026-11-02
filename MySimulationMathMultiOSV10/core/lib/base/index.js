@@ -26,13 +26,17 @@ import * as analysis from './analysis.js';
 import * as extras from './extras.js';
 import * as more from './more.js';
 import * as tablefun from './tablefun.js';
+import * as octave from './octave.js';
+import * as octsys from './octsys.js';
+// package functions (a.b.c names) and memory: their names / fields may only appear in core/compat/
+import * as pkgfuncs from '../../compat/pkgfuncs.js';
 import { classDef, setOwnClasses } from './util.js';
 
 const MODULES = [
   ['ops', ops], ['elmat', elmat], ['elfun', elfun], ['datafun', datafun], ['types', types], ['display', display],
   ['strings', strings], ['regexp', regexp], ['cellstruct', cellstruct], ['sets', sets], ['validate', validate],
   ['time', time], ['datetime', datetime], ['categorical', categorical], ['map', map], ['table', table],
-  ['analysis', analysis], ['extras', extras], ['more', more], ['tablefun', tablefun],
+  ['analysis', analysis], ['extras', extras], ['more', more], ['tablefun', tablefun], ['octave', octave], ['octsys', octsys], ['pkgfuncs', pkgfuncs],
 ];
 
 export const builtins = Object.create(null);

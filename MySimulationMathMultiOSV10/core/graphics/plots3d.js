@@ -39,7 +39,7 @@ function surfImpl(ctx, args, kind) {
   const { ax, held } = newplot(ctx, lead.ax);
   if (!held) set3D(ax);
   const props = { XData: X, YData: Y, ZData: Z, CData: C || Z };
-  if (kind === 'mesh' || kind === 'meshz' || kind === 'waterfall') { props.FaceColor = [1, 1, 1]; props.EdgeColor = 'flat'; props.FaceLighting = 'none'; }
+  if (kind === 'mesh' || kind === 'meshc' || kind === 'meshz' || kind === 'waterfall') { props.FaceColor = [1, 1, 1]; props.EdgeColor = 'flat'; props.FaceLighting = 'none'; }
   if (kind === 'waterfall') props.MeshStyle = 'row';
   if (kind === 'meshz' || kind === 'waterfall') Object.assign(props, curtain(X, Y, Z, C || Z));
   const s = create(ctx, 'surface', ax.id, props);

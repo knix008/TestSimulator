@@ -18,7 +18,15 @@ import { spellCheck } from './spell.js';
 import { reindentM } from './indentM.js';
 export { sectionOfText } from './sections.js';
 
-export const mLanguage = StreamLanguage.define(octave);
+// Octave block keywords the stock mode colours as plain names
+const EXTRA_KEYWORDS = new Set(['endswitch', 'endparfor', 'end_try_catch', 'unwind_protect', 'unwind_protect_cleanup', 'end_unwind_protect', 'endclassdef', 'endproperties', 'endmethods', 'endevents', 'endenumeration']);
+export const mLanguage = StreamLanguage.define({
+  ...octave,
+  token(stream, state) {
+    const style = octave.token(stream, state);
+    return style === 'variable' && EXTRA_KEYWORDS.has(stream.current()) ? 'keyword' : style;
+  },
+});
 
 const syn = (k) => `var(--syn-${k})`;
 export const mHighlight = HighlightStyle.define([

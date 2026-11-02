@@ -475,3 +475,5 @@ export const help = {
   qrinsert: H2('QR factorization after inserting a column or row.', '열 또는 행 삽입 후 QR 분해.', ['[Q1, R1] = qrinsert(Q, R, j, x)', "[Q1, R1] = qrinsert(Q, R, j, x, 'row')"]),
   qrdelete: H2('QR factorization after deleting a column or row.', '열 또는 행 삭제 후 QR 분해.', ['[Q1, R1] = qrdelete(Q, R, j)', "[Q1, R1] = qrdelete(Q, R, j, 'row')"]),
 };
+// Schur block helpers shared with factor2.js (trexc).
+export { swapBlocks, blocksOf };

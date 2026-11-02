@@ -49,6 +49,26 @@ export function findProp(type, name) {
 }
 export function propNames(type) { return [...specOf(type).values()].map((e) => e[0]); }
 
+/**
+ * Spec entry of a property of one object: its dynamic properties (addproperty, o.dyn:
+ * lower-case name → entry) first, then the properties of its type; unique prefixes work for both.
+ */
+export function objProp(o, name) {
+  if (!o.dyn) return findProp(o.type, name);
+  const l = String(name).toLowerCase();
+  const own = o.dyn.get(l);
+  if (own) return own;
+  let e = null;
+  try { e = findProp(o.type, name); } catch (err) { e = err; }
+  if (e && !(e instanceof Error) && e[0].toLowerCase() === l) return e;
+  const dyn = [...o.dyn.entries()].filter(([k]) => k.startsWith(l)).map(([, d]) => d);
+  if (e instanceof Error) { if (dyn.length === 0) throw e; throw gerr('ambiguousProperty', `Ambiguous property name '${name}' for ${TYPE_CLASS[o.type] || o.type}.`); }
+  if (e && dyn.length) throw gerr('ambiguousProperty', `Ambiguous property name '${name}' for ${TYPE_CLASS[o.type] || o.type}.`);
+  if (e) return e;
+  if (dyn.length > 1) throw gerr('ambiguousProperty', `Ambiguous property name '${name}' for ${TYPE_CLASS[o.type] || o.type}.`);
+  return dyn[0] || null;
+}
+
 const cloneDefault = (d) => (Array.isArray(d) ? d.map((x) => (Array.isArray(x) ? x.slice() : x)) : d);
 function applyDefaults(o) {
   for (const e of specOf(o.type).values()) o.props[e[0]] = cloneDefault(e[2]);
@@ -371,7 +391,7 @@ export function onGet(types, name, fn) { for (const t of types) HOOKS.get[`${t}.
 export function onSet(types, name, fn) { for (const t of types) HOOKS.set[`${t}.${name}`] = fn; }
 
 export function getProp(ctx, o, name) {
-  const entry = name === 'Type' ? ['Type', 'ro'] : name === 'Parent' || name === 'Children' ? [name, 'ro'] : findProp(o.type, name);
+  const entry = name === 'Type' ? ['Type', 'ro'] : name === 'Parent' || name === 'Children' ? [name, 'ro'] : objProp(o, name);
   if (!entry) throw gerr('unknownProperty', `Unrecognized property '${name}' for class '${TYPE_CLASS[o.type] || o.type}'.`);
   const pname = entry[0];
   if (pname === 'Type') return str(o.type === 'stair' ? 'stair' : o.type);
@@ -389,7 +409,7 @@ export function getProp(ctx, o, name) {
 
 export function canonicalName(o, name) {
   if (/^(type|parent|children)$/i.test(name)) return name[0].toUpperCase() + name.slice(1).toLowerCase();
-  const e = findProp(o.type, name);
+  const e = objProp(o, name);
   return e ? e[0] : null;
 }
 
@@ -398,17 +418,51 @@ export function setProp(ctx, o, name, v) {
   if (/^type$/i.test(name) || /^children$/i.test(name) && false) throw gerr('readOnlyProperty', `The '${name}' property is read-only.`);
   if (/^parent$/i.test(name)) { reparent(ctx, o, v); return; }
   if (/^children$/i.test(name)) { reorderChildren(ctx, o, v); return; }
-  const entry = findProp(o.type, name);
+  const entry = objProp(o, name);
   if (!entry) throw gerr('unknownProperty', `Unrecognized property '${name}' for class '${TYPE_CLASS[o.type] || o.type}'.`);
   const pname = entry[0];
   const hook = HOOKS.set[`${o.type}.${pname}`];
-  if (hook && hook.raw) { if (hook(ctx, o, null, v)) { o.userSet.add(pname); touch(G(ctx), o); return; } }
+  if (hook && hook.raw) { if (hook(ctx, o, null, v)) { o.userSet.add(pname); touch(G(ctx), o); afterSet(ctx, o, pname); return; } }
   const x = convertIn(entry, v, TYPE_CLASS[o.type]);
-  if (hook && !hook.raw) { if (hook(ctx, o, x, v)) { o.userSet.add(pname); touch(G(ctx), o); return; } }
+  if (hook && !hook.raw) { if (hook(ctx, o, x, v)) { o.userSet.add(pname); touch(G(ctx), o); afterSet(ctx, o, pname); return; } }
   o.props[pname] = x;
   o.userSet.add(pname);
   autoModes(o, pname);
   touch(G(ctx), o);
+  afterSet(ctx, o, pname);
+}
+
+/**
+ * Property listeners (addlistener) and linked properties (linkprop) run
+ * after a property was set through set / dot assignment.
+ */
+export function afterSet(ctx, o, pname) {
+  const inn = o.internal;
+  if (!inn || inn.inAfterSet) return;
+  const key = pname.toLowerCase();
+  const links = inn.links ? inn.links.filter((g) => g.props.has(key)) : [];
+  const listeners = inn.listeners && inn.listeners[key] ? inn.listeners[key].slice() : [];
+  if (!links.length && !listeners.length) return;
+  inn.inAfterSet = true;
+  try {
+    const st = G(ctx);
+    for (const g of links) {
+      for (const id of g.ids) {
+        const t = st.objs.get(id);
+        if (!t || t === o || !t.internal || t.internal.inAfterSet || !(pname in t.props)) continue;
+        const v = o.props[pname];
+        t.props[pname] = Array.isArray(v) ? v.slice() : v && v.dims && v.data ? { ...v, dims: v.dims.slice(), data: v.data.slice() } : v;
+        t.userSet.add(pname);
+        const mode = MODE_OF[pname];
+        if (mode && mode in t.props && mode in o.props) t.props[mode] = o.props[mode];
+        touch(st, t);
+        afterSet(ctx, t, pname);
+      }
+    }
+    for (const cb of listeners) invokeCallback(ctx, cb, o, null);
+  } finally {
+    inn.inAfterSet = false;
+  }
 }
 
 /** Sets a property from a JS value without validation (internal use). */
@@ -477,7 +531,7 @@ export function pairsStart(args, from = 0, typeHint = null) {
 
 /** All public properties of an object as a struct. */
 export function getAll(ctx, o) {
-  const names = ['Type', 'Parent', 'Children', ...propNames(o.type).filter((n) => !['Type', 'Parent', 'Children'].includes(n))];
+  const names = ['Type', 'Parent', 'Children', ...propNames(o.type).filter((n) => !['Type', 'Parent', 'Children'].includes(n)), ...(o.dyn ? [...o.dyn.values()].map((e) => e[0]) : [])];
   const rec = {};
   for (const n of names.sort((a, b) => a.localeCompare(b))) {
     try { rec[n] = getProp(ctx, o, n); } catch { /* skip */ }
@@ -488,7 +542,7 @@ export function getAll(ctx, o) {
 /** Possible values of settable properties (set(h) with no value). */
 export function settableInfo(ctx, o) {
   const rec = {};
-  for (const e of specOf(o.type).values()) {
+  for (const e of [...specOf(o.type).values(), ...(o.dyn ? o.dyn.values() : [])]) {
     if (e[1] === 'ro') continue;
     rec[e[0]] = e[1] === 'enum' ? cell([e[3].length, 1], e[3].map((s) => str(s))) : cell([0, 0], []);
   }

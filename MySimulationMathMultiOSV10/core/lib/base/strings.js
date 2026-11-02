@@ -959,7 +959,10 @@ export const builtins = {
     return bool(s !== null && /^[A-Za-z][A-Za-z0-9_]{0,62}$/.test(s) && !KW.includes(s));
   },
   iskeyword(args) {
-    const KW = ['break', 'case', 'catch', 'classdef', 'continue', 'else', 'elseif', 'end', 'for', 'function', 'global', 'if', 'otherwise', 'parfor', 'persistent', 'return', 'spmd', 'switch', 'try', 'while'];
+    const KW = ['break', 'case', 'catch', 'classdef', 'continue', 'else', 'elseif', 'end', 'for', 'function', 'global', 'if', 'otherwise', 'parfor', 'persistent', 'return', 'spmd', 'switch', 'try', 'while',
+      // the Octave dialect (core/lang/lexer.js)
+      'do', 'until', 'unwind_protect', 'unwind_protect_cleanup', 'end_unwind_protect', 'end_try_catch', 'endfunction', 'endif', 'endfor', 'endparfor', 'endwhile', 'endswitch',
+      'endclassdef', 'endproperties', 'endmethods', 'endevents', 'endenumeration'];
     if (args.length === 0) return cell([KW.length, 1], KW.map((k) => str(k)));
     return bool(KW.includes(textArg(args[0])));
   },

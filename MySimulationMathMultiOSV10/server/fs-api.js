@@ -7,6 +7,8 @@
 //   POST /api/host/info      platform, start folder, temp folder, whether system() works
 //   POST /api/settings/get   the stored GUI settings ({} when none)
 //   POST /api/settings/set   { settings } replaces them
+//   POST /api/ftp/<op>       FTP sessions for the engine's ftp class (server/ftp-client.js;
+//                            open, close, pwd, cd, list, get, put, delete, mkdir, rmdir, rename)
 //
 // Bytes travel as base64 (`readBytes` → { base64 }, `writeBytes` ← { base64 }).
 //
@@ -17,6 +19,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createFtpClient } from './ftp-client.js';
 
 export const API_PREFIX = '/api/';
 const MAX_BODY = 512 * 1024 * 1024;
@@ -204,7 +207,7 @@ export function apiHeaders(origin, corsOrigins) {
  * The request handler: resolves true when it answered (an /api/ request),
  * false for anything else (static files are the caller's business).
  */
-export function createFsApi({ root = defaultWebRoot(), jail = true, token = '', corsOrigins = [], configDir = defaultConfigDir(), allowSystem = false, version = '1.0.0', platform = process.platform } = {}) {
+export function createFsApi({ root = defaultWebRoot(), jail = true, token = '', corsOrigins = [], configDir = defaultConfigDir(), allowSystem = false, version = '1.0.0', platform = process.platform, allowFtp = true, ftpOptions = {} } = {}) {
   try { fs.mkdirSync(root, { recursive: true }); } catch { /* reported by the calls */ }
   const map = createMapper({ root, jail });
   const ops = createFsOps(map, { allowSystem });
@@ -222,6 +225,9 @@ export function createFsApi({ root = defaultWebRoot(), jail = true, token = '', 
     },
   };
   for (const [name, fn] of Object.entries(ops)) api[`fs/${name}`] = fn;
+  // FTP (allowFtp: false turns it off, e.g. for a server others can reach)
+  const ftp = allowFtp ? createFtpClient(ftpOptions) : null;
+  if (ftp) for (const [name, fn] of Object.entries(ftp.ops)) api[`ftp/${name}`] = fn;
 
   /** Runs one call directly (tests and the in-process host). */
   const call = (name, args = {}) => {
@@ -249,7 +255,7 @@ export function createFsApi({ root = defaultWebRoot(), jail = true, token = '', 
     }
     return true;
   }
-  return { handle, call, map, ops, settingsFile };
+  return { handle, call, map, ops, settingsFile, ftp };
 }
 
 /** COOP / COEP for pages that use SharedArrayBuffer (engine requests and Ctrl+C). */

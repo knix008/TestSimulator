@@ -2,7 +2,8 @@
 // rows. Each card is { col, row, w, h, fit } — col 0..2, w 1..3 columns,
 // row / h in rows; fit = the height follows the content (h is then the last
 // measured value). Kept in settings.startBackground.layout as
-// { version: 2, cards: { <id>: { col, row, w, h, fit } } }.
+// { version: 3, cards: { <id>: { col, row, w, h, fit } } } (version 2: before the model examples
+// moved below the samples; read the same way, with that move made once).
 //
 // Rules (vertical compaction, like react-grid-layout compactType 'vertical'):
 // after every move, resize, hide / show and on load, each card floats up as
@@ -100,10 +101,14 @@ export function cardsOf(saved, ids, defaultSpan, measured = {}, fallbackRows = 8
   const s = saved || {};
   const fitRows = (id) => measured[id] || fallbackRows;
   let cards;
-  if (s.version === 2 && s.cards && typeof s.cards === 'object') {
+  if ((s.version === 2 || s.version === 3) && s.cards && typeof s.cards === 'object') {
     cards = {};
     const present = ids.filter((id) => s.cards[id]);
     for (const id of present) cards[id] = fix(s.cards[id]);
+    // version 2 → 3: the model examples go below the samples (once; a later move by the user stays)
+    if (s.version === 2 && cards.models && cards.samples && cards.models.row < cards.samples.row) {
+      cards.models = { ...cards.models, row: Math.max(...Object.values(cards).map((c) => c.row + c.h)) };
+    }
     // A card added in a later version goes below the others.
     let bottom = Math.max(0, ...Object.values(cards).map((c) => c.row + c.h));
     for (const id of ids) {
@@ -158,7 +163,7 @@ export function swapVertical(cards, id, dir) {
 export function layoutValue(cards) {
   const out = {};
   for (const [id, c] of Object.entries(cards)) out[id] = { col: c.col, row: c.row, w: c.w, h: c.h, ...(c.fit ? { fit: true } : { fit: false }) };
-  return { version: 2, cards: out };
+  return { version: 3, cards: out };
 }
 
 export const layoutKey = (cards) => Object.keys(cards).sort().map((id) => `${id}:${cards[id].col},${cards[id].row},${cards[id].w},${cards[id].h}`).join('|');

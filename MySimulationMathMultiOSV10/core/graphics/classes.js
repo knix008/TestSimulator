@@ -2,7 +2,7 @@
 // display. Every type uses the same definition ('graphics.Line' etc.).
 import { tensor, bool, num, str, cell, isCell, isStruct, isTensor, empty, toTensor, isChar } from '../value.js';
 import { gerr, isTxt, txt, nums } from './util.js';
-import { G, handleValue, handleIds, isHandleValue, getProp, setProp, displayHandle, destroy, CLASS_PREFIX } from './model.js';
+import { G, handleValue, handleIds, isHandleValue, getProp, setProp, displayHandle, destroy, CLASS_PREFIX, canonicalName } from './model.js';
 import { TYPE_CLASS } from './schema.js';
 import { builtins as manage } from './manage.js';
 
@@ -167,8 +167,17 @@ const methods = {
   // Straight to the builtins: ctx.call('get', …) would dispatch on the handle
   // argument back to this method and recurse until the stack overflows.
   get(args, nargout, ctx) { return manage.get(args, nargout, ctx); },
-  set(args, nargout, ctx) { manage.set(args, 0, ctx); return []; },
+  set(args, nargout, ctx) { const r = manage.set(args, nargout, ctx); return nargout > 0 && r !== undefined ? r : []; },
   ishandle(args, nargout, ctx) { return methods.isvalid(args, nargout, ctx); },
+  // isprop(h, name): per handle, true when the object has that property (also dynamic ones from addproperty)
+  isprop(args, nargout, ctx) {
+    const st = G(ctx);
+    const v = args[0];
+    if (!isTxt(args[1])) throw gerr('isprop:name', 'isprop: PROP must be a character vector or string.');
+    const name = txt(args[1]);
+    const has = (id) => { const o = st.objs.get(id); if (!o) return 0; try { const c = canonicalName(o, name); return c && c.toLowerCase() === name.toLowerCase() ? 1 : 0; } catch { return 0; } };
+    return tensor('logical', v.dims.slice(), v.gh.map(has));
+  },
   isgraphics(args, nargout, ctx) { return methods.isvalid(args, nargout, ctx); },
   disp(args, nargout, ctx) { ctx.out(displayHandle(ctx, args[0], '')); return []; },
 };

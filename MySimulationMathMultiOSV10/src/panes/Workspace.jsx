@@ -1,17 +1,24 @@
 // 작업 공간 / Workspace: the variables of the base workspace (name, value,
 // size, class), sortable; double-click opens the Variable Editor; the context
 // menu opens, plots, renames, saves or clears a variable.
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { Icon } from '../components/Chrome';
 import { openMenu } from '../lib/menu';
 import { dimsText } from '../lib/valueFormat';
+import { diffVariables } from '../lib/wsDiff.js';
 
 const COLS = [['name', 'ws_name'], ['summary', 'ws_value'], ['size', 'ws_size'], ['cls', 'ws_class']];
 
 // selection: the names picked with Ctrl+click (several, in order); onSelect(name, event).
-export function WorkspacePane({ variables, selected, selection, onSelect, onOpen, onAction, engineReady }) {
+// pausedAt: 'file:line' while a step run is paused (the list is then that frame's variables).
+// runSeq: bumped as a run, section run or step starts; the variables then are what changes are marked against.
+export function WorkspacePane({ variables, selected, selection, onSelect, onOpen, onAction, engineReady, pausedAt, runSeq = 0 }) {
   useLanguage();
+  // new / changed since the run started: marked until the next run, section run or step
+  const base = useRef({ seq: runSeq, list: null });
+  if (base.current.seq !== runSeq) base.current = { seq: runSeq, list: variables || [] };
+  const { added, changed } = useMemo(() => diffVariables(base.current.list, variables), [variables, runSeq]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sort, setSort] = useState({ key: 'name', dir: 1 });
   const [filter, setFilter] = useState('');
   const rows = useMemo(() => {
@@ -45,6 +52,7 @@ export function WorkspacePane({ variables, selected, selection, onSelect, onOpen
         <span className="pane-filter"><Icon name="filter" size={13} /><input value={filter} placeholder={t('ws_filter')} aria-label={t('ws_filter')} onChange={(e) => setFilter(e.target.value)} /></span>
         <span className="small muted">{t('ws_count', { n: (variables || []).length })}</span>
       </div>
+      {pausedAt && <div className="ws-paused small" data-paused=""><Icon name="pause" size={12} />{t('ws_paused_at', { where: pausedAt })}</div>}
       <div className="pane-scroll" tabIndex={0} onKeyDown={(e) => {
         if (!selected) return;
         if (e.key === 'Enter') onOpen(selected);
@@ -67,8 +75,8 @@ export function WorkspacePane({ variables, selected, selection, onSelect, onOpen
           </thead>
           <tbody>
             {rows.map((v) => (
-              <tr key={v.name} className={selected === v.name || (selection && selection.includes(v.name)) ? 'sel' : ''} onClick={(e) => onSelect(v.name, e)} onDoubleClick={() => onOpen(v.name)} onContextMenu={(e) => menu(e, v)} title={v.global ? t('ws_global') : undefined}>
-                <td className="ws-name"><Icon name="variable" size={13} />{v.name}{v.global ? <span className="small muted"> (global)</span> : null}</td>
+              <tr key={v.name} data-mark={added.has(v.name) ? 'added' : changed.has(v.name) ? 'changed' : undefined} className={`${selected === v.name || (selection && selection.includes(v.name)) ? 'sel' : ''} ${added.has(v.name) ? 'added' : changed.has(v.name) ? 'changed' : ''}`} onClick={(e) => onSelect(v.name, e)} onDoubleClick={() => onOpen(v.name)} onContextMenu={(e) => menu(e, v)} title={v.global ? t('ws_global') : undefined}>
+                <td className="ws-name" title={added.has(v.name) ? t('ws_mark_added') : changed.has(v.name) ? t('ws_mark_changed') : undefined}><Icon name="variable" size={13} />{v.name}{v.global ? <span className="small muted"> (global)</span> : null}</td>
                 <td className="ws-value mono ellipsis" title={String(v.summary || '')}>{v.summary}</td>
                 <td className="mono">{dimsText(v.dims)}</td>
                 <td>{v.cls}</td>

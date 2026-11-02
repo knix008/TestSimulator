@@ -2,6 +2,7 @@
 // factors, restart intervals, gray / YCbCr / RGB / CMYK / YCCK), baseline
 // encoding (gray or YCbCr 4:4:4, quality 0..100).
 import { cerr, makeRaster, be16, Out } from './common.js';
+import { decodeLosslessJpeg } from './ljpeg.js';
 
 export const ZIGZAG = new Int32Array([
   0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28,
@@ -241,7 +242,8 @@ export function decodeJpeg(data) {
       }
       frame = { width, height, comps, hmax, vmax, mcusPerLine, mcusPerColumn, progressive: marker === 0xc2 };
     } else if ((marker >= 0xc3 && marker <= 0xcf) && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-      throw cerr('jpg', 'lossless, hierarchical and arithmetic-coded JPEG files are not supported');
+      if (marker === 0xc3) return decodeLosslessJpeg(data);
+      throw cerr('jpg', 'hierarchical and arithmetic-coded JPEG files are not supported');
     } else if (marker === 0xda) {
       if (!frame) throw cerr('jpg', 'scan before frame header');
       const ns = data[p++];
@@ -335,7 +337,7 @@ export function jpegInfo(data) {
     const len = be16(data, pos);
     if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
       info.bitDepth = data[pos + 2]; info.height = be16(data, pos + 3); info.width = be16(data, pos + 5); info.components = data[pos + 7];
-      info.coding = m === 0xc2 ? 'progressive' : m === 0xc0 || m === 0xc1 ? 'baseline' : 'other';
+      info.coding = m === 0xc2 ? 'progressive' : m === 0xc0 || m === 0xc1 ? 'baseline' : m === 0xc3 ? 'lossless' : 'other';
     }
     if (m === 0xfe) { let s = ''; for (let i = pos + 2; i < pos + len; i++) s += String.fromCharCode(data[i]); info.comments.push(s); }
     pos += len;

@@ -5,6 +5,7 @@ import { gerr, isTxt, txt, txtList, nums, isNum, lower, fmtNum } from './util.js
 import { G, create, destroy, objsOf, handleValue, handleIds, isHandleValue, setProp, setPairs, findProp, touch, isAxesType, figureOf, invokeCallback, eventData, onGet, onSet, getObj, mustObj } from './model.js';
 import { currentFigure, newFigure, makeCurrentFigure, makeCurrentAxes, newAxes } from './figax.js';
 import { flush } from './scene.js';
+import { handleExtraCallback, groupBefore, groupAfter } from './uiextra.js';
 
 // ---------------------------------------------------------------- base64
 
@@ -121,7 +122,8 @@ function saveasBuiltin(args, nargout, ctx) {
   let file = txt(args[1]);
   const ext = (/\.([A-Za-z0-9]+)$/.exec(file) || [])[1];
   let format = args[2] ? lower(txt(args[2])) : lower(ext || 'png');
-  if (format === 'fig') throw gerr('saveas:fig', "Saving the '.fig' format is not supported; use png, jpg, svg or pdf.");
+  // a figure file: savefig (core/graphics/octave.js) writes it
+  if (format === 'fig') { ctx.call('savefig', [args[0], str(ext ? file : `${file}.fig`)], 0); return []; }
   format = FORMAT_OF_EXT[format] || (['png', 'jpg', 'svg', 'pdf'].includes(format) ? format : null);
   if (!format) throw gerr('saveas:format', `Unsupported format '${args[2] ? txt(args[2]) : ext}'.`);
   if (!ext) file += `.${format}`;
@@ -395,6 +397,8 @@ export function handleMessage(ctx, msg) {
     case 'graphics.callback': {
       const o = st.objs.get(msg.handle);
       if (!o) return;
+      if (handleExtraCallback(ctx, o, msg)) { flush(ctx); return; }
+      const group = groupBefore(ctx, o);
       const prev = {};
       silently(st, () => {
         for (const [k, v] of Object.entries(msg.props || {})) {
@@ -416,6 +420,7 @@ export function handleMessage(ctx, msg) {
         if (msg.data && msg.data.point && o.type !== 'figure') { const ax = st.objs.get(o.parent); if (ax && isAxesType(ax.type)) ax.props.CurrentPoint = { dims: [2, 3], data: Float64Array.from([msg.data.point[0], msg.data.point[0], msg.data.point[1], msg.data.point[1], msg.data.point[2] || 0, msg.data.point[2] || 0]) }; }
         try { invokeCallback(ctx, cb, o, eventData(ctx, o, ev, extra)); } catch (err) { ctx.errOut(`Error in callback: ${err.message}\n`); }
       }
+      groupAfter(ctx, o, group);
       flush(ctx);
       return;
     }

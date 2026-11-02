@@ -2,6 +2,7 @@
 // toeplitz, hankel, hadamard, compan and a gallery of common test matrices.
 import { fail, out, outMat, optText, scal, intArg, H, dbl, resultCls, tensor } from './util.js';
 import { isText, toStr } from '../../value.js';
+import { sparseFromDense } from './sparse.js';
 
 function magicN(n) {
   const M = new Float64Array(n * n);
@@ -106,6 +107,20 @@ function gallery(args, nargout) {
     case 'minij': { const n = n1(0); const re = new Float64Array(n * n); for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) re[i + j * n] = Math.min(i, j) + 1; return outMat(n, n, re); }
     case 'moler': { const n = n1(0); const alpha = a[1] != null ? scal(a[1], 'gallery') : -1; const re = new Float64Array(n * n); for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) re[i + j * n] = i === j ? i + 1 : alpha * alpha * Math.min(i, j) + alpha; for (let i = 0; i < n; i++) re[i * (n + 1)] = alpha * alpha * i + 1; return outMat(n, n, re); }
     case 'lehmer': { const n = n1(0); const re = new Float64Array(n * n); for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) re[i + j * n] = (Math.min(i, j) + 1) / (Math.max(i, j) + 1); return outMat(n, n, re); }
+    // the 5-point Laplacian of an n×n grid: sparse n^2×n^2 (4 on the diagonal, -1 for each neighbour)
+    case 'poisson': {
+      const n = n1(0), N = n * n;
+      const re = new Float64Array(N * N);
+      for (let gy = 0; gy < n; gy++) for (let gx = 0; gx < n; gx++) {
+        const k = gx + gy * n;
+        re[k + k * N] = 4;
+        if (gx > 0) re[k + (k - 1) * N] = -1;
+        if (gx < n - 1) re[k + (k + 1) * N] = -1;
+        if (gy > 0) re[k + (k - n) * N] = -1;
+        if (gy < n - 1) re[k + (k + n) * N] = -1;
+      }
+      return sparseFromDense(outMat(N, N, re));
+    }
     case 'tridiag': {
       let n, c = -1, d = 2, e = -1;
       if (a.length >= 4) { n = n1(0); c = scal(a[1], 'gallery'); d = scal(a[2], 'gallery'); e = scal(a[3], 'gallery'); }
@@ -300,6 +315,6 @@ export const help = {
   hankel: H('Hankel matrix.', '한켈 행렬.', ['H = hankel(c)', 'H = hankel(c, r)']),
   hadamard: H('Hadamard matrix.', '아다마르 행렬.', ['H = hadamard(n)']),
   compan: H('Companion matrix of a polynomial.', '다항식의 동반 행렬.', ['A = compan(u)']),
-  gallery: H('Test matrices (minij, moler, lehmer, tridiag, kms, frank, circul, cauchy, lotkin, parter, ris, grcar, clement, jordbloc, fiedler, gearmat, pei, ipjfact, binomial, orthog, wilk, ...).', '시험 행렬 모음 (minij, moler, lehmer, tridiag, kms, frank, circul, cauchy, lotkin, parter, ris, grcar, clement, jordbloc, fiedler, gearmat, pei, ipjfact, binomial, orthog, wilk 등).', ["A = gallery('minij', n)", "A = gallery('tridiag', n, c, d, e)", "A = gallery('lehmer', n)"]),
+  gallery: H('Test matrices (minij, moler, lehmer, poisson, tridiag, kms, frank, circul, cauchy, lotkin, parter, ris, grcar, clement, jordbloc, fiedler, gearmat, pei, ipjfact, binomial, orthog, wilk, ...).', '시험 행렬 모음 (minij, moler, lehmer, poisson, tridiag, kms, frank, circul, cauchy, lotkin, parter, ris, grcar, clement, jordbloc, fiedler, gearmat, pei, ipjfact, binomial, orthog, wilk 등).', ["A = gallery('minij', n)", "A = gallery('tridiag', n, c, d, e)", "A = gallery('lehmer', n)"]),
 };
 void out; void tensor; void isText; void toStr;

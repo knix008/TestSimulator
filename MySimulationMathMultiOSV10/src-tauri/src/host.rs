@@ -6,6 +6,7 @@
 //   POST /api/host/info      platform, start folder, temp folder, system() available
 //   POST /api/settings/get   stored GUI settings ({} when none)
 //   POST /api/settings/set   { settings } replaces them
+//   POST /api/ftp/<op>       FTP sessions for the engine's ftp class (host_ftp.rs)
 //
 // Paths are real absolute paths with "/" separators (no jail on the desktop).
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -19,6 +20,9 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 use tiny_http::{Header, Method, Request, Response, Server};
+
+#[path = "host_ftp.rs"]
+mod ftp;
 
 pub struct HostServer {
     pub port: u16,
@@ -273,6 +277,7 @@ fn call(ctx: &Ctx, name: &str, args: &Value) -> ApiResult {
             let command = arg_str(args, "command")?;
             run_system(command, args.get("cwd").and_then(|v| v.as_str()))
         }
+        _ if name.starts_with("ftp/") => ftp::call(&name[4..], args),
         _ => Err(ApiError::new("ENOENT", format!("Unknown call {name}."))),
     }
 }

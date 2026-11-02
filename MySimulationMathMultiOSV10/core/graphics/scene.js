@@ -4,6 +4,7 @@ import { G, isAxesType, THEMED } from './model.js';
 import { TYPES, COMMON } from './schema.js';
 import { axesInfo, contourGeometry, stairPath, histRects } from './compute.js';
 import { colormapByName } from './colormaps.js';
+import { contextMenuId, tableScene } from './uiextra.js';
 
 const SKIP_KINDS = new Set(['any']);
 const SKIP_NAMES = new Set(['UserData', 'ContextMenu', 'UIContextMenu', 'Toolbar', 'Interactions', 'Layout', 'CurrentPoint', 'Theme', 'Labels']);
@@ -36,6 +37,8 @@ export function serialize(ctx, o, derived = null) {
     else props[name] = v;
   }
   const node = { id: o.id, type: o.type, props, children: [], auto: (THEMED[o.type] || []).filter((p) => !o.userSet.has(p)) };
+  const cm = o.props.ContextMenu != null || o.props.UIContextMenu != null ? contextMenuId(st, o) : null;
+  if (cm != null) props.ContextMenu = cm;
   let childDerived = derived;
   switch (o.type) {
     case 'figure':
@@ -105,6 +108,7 @@ export function serialize(ctx, o, derived = null) {
       break;
     }
     case 'legend': props.Axes = o.internal.axes ?? null; break;
+    case 'uitable': Object.assign(props, tableScene(o)); break;
     case 'hgtransform': node.type = 'hggroup'; props.IsTransform = true; break;
     default: break;
   }

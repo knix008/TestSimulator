@@ -157,8 +157,9 @@ function textread(args, nargout, ctx) {
   const opts = textscanOptions(o);
   opts.repeat = repeat;
   if (o.commentstyle !== undefined) {
-    // textread's comment styles are names: shell (#), c (/* */), c++ (//), matlab (%)
-    const map = { shell: ['#'], c: ['/*', '*/'], 'c++': ['//'], matlab: ['%'] };
+    // textread's comment styles are names: shell (#), c (/* */), c++ (//); other
+    // texts are used as the comment marker itself (for example '%')
+    const map = { shell: ['#'], c: ['/*', '*/'], 'c++': ['//'] };
     const name = S(o.commentstyle).toLowerCase();
     if (map[name]) opts.comment = map[name];
   }

@@ -78,6 +78,7 @@ export function CommandTab({ d, set }) {
           options={[['short', 'st_fmt_short'], ['long', 'st_fmt_long'], ['shortE', 'st_fmt_shorte'], ['longE', 'st_fmt_longe'], ['shortG', 'st_fmt_shortg'], ['longG', 'st_fmt_longg'], ['rat', 'st_fmt_rat'], ['hex', 'st_fmt_hex']].map(([v, k]) => ({ value: v, label: t(k), icon: 'hash' }))} />
       </Row>
       <Row icon="list" label={t('st_spacing')}><Toggle icon="list" label={t('st_compact')} checked={c.compact} onChange={(v) => setC({ compact: v })} /></Row>
+      <Row icon="clearCmd" label={t('st_clear_on_run')} title={t('st_clear_on_run_hint')}><Toggle icon="clearCmd" label={t('st_clear_on_run_on')} checked={c.clearOnRun !== false} onChange={(v) => setC({ clearOnRun: v })} /></Row>
       <Row icon="history" label={t('st_scrollback')}><Stepper value={c.scrollback} min={500} max={50000} step={500} width={80} ariaLabel={t('st_scrollback')} onChange={(v) => setC({ scrollback: v })} /></Row>
       <div className="st-preview mono" style={{ fontFamily: `"${c.fontFamily}", monospace`, fontSize: c.fontSize }}>
         <div>{'>> x = pi'}</div>{!c.compact && <div>&nbsp;</div>}

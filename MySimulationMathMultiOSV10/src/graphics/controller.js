@@ -76,6 +76,8 @@ export class FigureController {
       e.onRequest('graphics.dialog', (m) => this.onDialog(m)),
       e.onRequest('graphics.ginput', (m) => this.onGinput(m)),
       e.onRequest('graphics.uiwait', (m) => this.onUiwait(m)),
+      // isguirunning / have_window_system: any non-null answer means figures can be shown
+      e.onRequest('graphics.ping', () => ({ gui: true })),
     ];
     this.post({ type: 'graphics.sync' });
     return () => { offs.forEach((off) => off && off()); this.disposeViews(); };

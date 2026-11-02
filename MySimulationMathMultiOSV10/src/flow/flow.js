@@ -107,7 +107,8 @@ export function outputNames(flow) {
 export function portsOf(n) {
   switch (n.type) {
     case 'const': return { inputs: [], outputs: [n.name || 'value'] };
-    case 'var': return { inputs: [], outputs: [n.name || 'x'] };
+    // an optional input: linked, the value goes into the variable; open, the workspace variable is used
+    case 'var': return { inputs: ['='], outputs: [n.name || 'x'] };
     case 'op': return { inputs: ['a', 'b'], outputs: [n.name || 'r'] };
     case 'func': return { inputs: (n.inputs || []).map((p) => p.label), outputs: (n.outputs || []).map((o, i) => (n.names && n.names[i]) || o) };
     case 'expr': return { inputs: (n.inputs || []).map((p) => p.label), outputs: [n.name || 'r'] };
@@ -121,7 +122,7 @@ export function makeNode(flow, type, x, y, opts = {}) {
   const base = { id: newId(), type, x: Math.round(x), y: Math.round(y) };
   switch (type) {
     case 'const': return { ...base, name: opts.name || freeName(flow, 'c'), value: opts.value != null ? String(opts.value) : '1' };
-    case 'var': return { ...base, name: opts.name || 'x' };
+    case 'var': return { ...base, name: opts.name || freeVarName(flow) };
     case 'op': return { ...base, op: opts.op || '+', name: freeName(flow, 'r') };
     case 'expr': return { ...base, expr: opts.expr || 'a + b', inputs: [{ label: 'a' }, { label: 'b' }], name: freeName(flow, 'r') };
     case 'disp': return { ...base, label: '' };
@@ -181,6 +182,48 @@ export function removeItems(flow, ids) {
   return { ...flow, nodes, links: flow.links.filter((l) => !set.has(l.id) && keep.has(l.from.node) && keep.has(l.to.node)) };
 }
 
+export const FLOW_CLIP = 'msm-flow-blocks';
+
+/** The nodes `ids` and the links between them, for the clipboard ({ nodes, links }), or null. */
+export function copyItems(flow, ids) {
+  const set = new Set(ids);
+  const nodes = flow.nodes.filter((n) => set.has(n.id));
+  if (!nodes.length) return null;
+  const keep = new Set(nodes.map((n) => n.id));
+  const links = flow.links.filter((l) => keep.has(l.from.node) && keep.has(l.to.node));
+  return JSON.parse(JSON.stringify({ nodes, links }));
+}
+
+/**
+ * Pastes copied { nodes, links } shifted by `offset`: new ids, and output names already used get a
+ * free name (c1 → c2). Returns { flow, ids } (ids = the new nodes).
+ */
+export function pasteItems(flow, clip, offset = 30) {
+  if (!clip || !Array.isArray(clip.nodes) || !clip.nodes.length) return { flow, ids: [] };
+  const idMap = new Map();
+  let next = { ...flow, nodes: [...flow.nodes], links: [...flow.links] };
+  const rename = (nm) => {
+    if (!nm || !outputNames(next).includes(nm)) return nm;
+    return freeName(next, String(nm).replace(/\d+$/, '') || 'v');
+  };
+  for (const src of clip.nodes) {
+    if (!src || !src.type) continue;
+    const n = JSON.parse(JSON.stringify(src));
+    n.id = newId();
+    idMap.set(src.id, n.id);
+    n.x = Math.round((Number(n.x) || 0) + offset);
+    n.y = Math.round((Number(n.y) || 0) + offset);
+    if (n.type === 'func') n.names = (n.names || []).map(rename);
+    else if (n.type === 'const' || n.type === 'op' || n.type === 'expr') n.name = rename(n.name);
+    next = { ...next, nodes: [...next.nodes, n] };
+  }
+  for (const l of clip.links || []) {
+    const a = idMap.get(l.from && l.from.node), b = idMap.get(l.to && l.to.node);
+    if (a && b) next.links.push({ id: newId('l'), from: { node: a, port: l.from.port }, to: { node: b, port: l.to.port }, ...(l.style ? { style: l.style } : {}) });
+  }
+  return { flow: pruneLinks(next), ids: [...idMap.values()] };
+}
+
 /** Links whose ports no longer exist (after a node lost inputs / outputs) are dropped. */
 export function pruneLinks(flow) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
@@ -224,7 +267,9 @@ const wrap = (e) => (simple(e) ? e : `(${e})`);
 /**
  * M code of the flow: { code, problems: [{ node, code, message }] }.
  * problem codes: badName, dupName, missingInput, cycle, emptyFn.
- * opts.title: a header comment.
+ * opts.title: a header comment. A block with an input left open is not dropped: it becomes a comment
+ * line with ? for each open input and the problem (opts.problemText(problem) words it), so the
+ * script shows every block and what is still missing.
  */
 export function generateCode(flow, opts = {}) {
   const problems = [];
@@ -241,7 +286,7 @@ export function generateCode(flow, opts = {}) {
     const names = n.type === 'func' ? n.names || [] : n.type === 'const' || n.type === 'op' || n.type === 'expr' ? [n.name] : n.type === 'var' ? [n.name] : [];
     for (const nm of names) {
       if (!isVarName(nm)) { problems.push({ node: n.id, code: 'badName', name: nm || '', message: `"${nm || ''}" is not a valid variable name.` }); continue; }
-      if (n.type === 'var') continue;
+      if (n.type === 'var' && !into.has(`${n.id}:0`)) continue; // only a variable that is given a value is an output
       if (seen.has(nm) && seen.get(nm) !== n.id) problems.push({ node: n.id, code: 'dupName', name: nm, message: `"${nm}" is the output of more than one block.` });
       else seen.set(nm, n.id);
     }
@@ -251,6 +296,13 @@ export function generateCode(flow, opts = {}) {
     if (l) return outVar.get(`${l.from.node}:${l.from.port}`) || null;
     return null;
   };
+  const say = opts.problemText || ((p) => p.message);
+  const missing = (n, line, message) => {
+    const p = { node: n.id, code: 'missingInput', message };
+    problems.push(p);
+    lines.push(`% ${line}   <- ${say(p)}`);
+  };
+  const q = (v) => (v == null ? '?' : wrap(v));
   for (const n of order) {
     const note = n.note ? `   % ${String(n.note).replace(/\r?\n/g, ' ')}` : '';
     switch (n.type) {
@@ -259,22 +311,28 @@ export function generateCode(flow, opts = {}) {
         outVar.set(`${n.id}:0`, n.name);
         break;
       }
-      case 'var': outVar.set(`${n.id}:0`, n.name); break;
+      case 'var': {
+        const v = input(n, 0);
+        if (v != null && v !== n.name) lines.push(`${n.name} = ${v};${note}`);
+        else if (v == null && into.has(`${n.id}:0`)) { missing(n, `${n.name} = ?`, 'Connect the value to show.'); break; }
+        outVar.set(`${n.id}:0`, n.name);
+        break;
+      }
       case 'op': {
         const a = input(n, 0), b = input(n, 1);
-        if (a == null || b == null) { problems.push({ node: n.id, code: 'missingInput', message: 'Connect both inputs.' }); break; }
+        if (a == null || b == null) { missing(n, `${n.name} = ${q(a)} ${n.op} ${q(b)}`, 'Connect both inputs.'); break; }
         lines.push(`${n.name} = ${wrap(a)} ${n.op} ${wrap(b)};${note}`);
         outVar.set(`${n.id}:0`, n.name);
         break;
       }
       case 'expr': {
         const subst = new Map();
-        let missing = false;
+        let open = false;
         (n.inputs || []).forEach((p, i) => {
           const v = input(n, i);
-          if (v == null) missing = true; else subst.set(p.label, v);
+          if (v == null) open = true; else subst.set(p.label, v);
         });
-        if (missing) { problems.push({ node: n.id, code: 'missingInput', message: 'Connect every input of the formula.' }); break; }
+        if (open) { missing(n, `${n.name} = ${String(n.expr || '').trim() || '[]'}`, 'Connect every input of the formula.'); break; }
         // one pass, so an input fed by a variable named like another input is not replaced twice
         const e = String(n.expr || '').trim().replace(/(?<![\w.])[A-Za-z_]\w*/g, (m) => (subst.has(m) && subst.get(m) !== m ? wrap(subst.get(m)) : m));
         lines.push(`${n.name} = ${e || '[]'};${note}`);
@@ -285,7 +343,11 @@ export function generateCode(flow, opts = {}) {
         if (!n.fn) { problems.push({ node: n.id, code: 'emptyFn', message: 'No function name.' }); break; }
         const args = (n.inputs || []).map((p, i) => { const v = input(n, i); return v != null ? v : String(p.value || '').trim() || null; });
         while (args.length && args[args.length - 1] == null) args.pop();
-        if ((n.inputs || []).length && !args.length) { problems.push({ node: n.id, code: 'missingInput', message: 'Connect or fill in the inputs.' }); break; }
+        if ((n.inputs || []).length && !args.length) {
+          const outs = (n.names || []).length ? `${n.names.length > 1 ? `[${n.names.join(', ')}]` : n.names[0]} = ` : '';
+          missing(n, `${outs}${n.fn}(${(n.inputs || []).map(() => '?').join(', ')})`, 'Connect or fill in the inputs.');
+          break;
+        }
         const call = args.length ? `${n.fn}(${args.map((a) => (a == null ? '[]' : a)).join(', ')})` : n.fn;
         const names = n.names || [];
         if (!names.length) lines.push(`${call};${note}`);
@@ -296,7 +358,7 @@ export function generateCode(flow, opts = {}) {
       }
       case 'disp': {
         const a = input(n, 0);
-        if (a == null) { problems.push({ node: n.id, code: 'missingInput', message: 'Connect the value to show.' }); break; }
+        if (a == null) { missing(n, 'disp(?)', 'Connect the value to show.'); break; }
         lines.push(n.label ? `disp(${mStr(`${n.label}:`)}); disp(${a});` : `disp(${a});`);
         break;
       }
@@ -307,3 +369,82 @@ export function generateCode(flow, opts = {}) {
 }
 
 const mStr = (s) => `'${String(s).replace(/'/g, "''")}'`;
+
+/** A new 변수 block's name: x, y, z, t, u, v, w, then v1, v2, … — one no block uses yet. */
+export function freeVarName(flow) {
+  const used = new Set([...outputNames(flow), ...flow.nodes.filter((n) => n.type === 'var').map((n) => n.name)]);
+  const pick = ['x', 'y', 'z', 't', 'u', 'v', 'w'].find((n) => !used.has(n));
+  if (pick) return pick;
+  for (let k = 1; ; k++) if (!used.has(`v${k}`)) return `v${k}`;
+}
+
+/**
+ * The input a dragged wire snaps to at world point p, or null. An input port within `radius` (world
+ * units) wins, the nearest first; else a point on a block's body picks that block's input nearest in
+ * height, a free one before a linked one. The wire's own block is never a target.
+ * geo: { rect(n) → { x, y, w, h }, inY(n, i) → world y of input i (its x is n.x) }.
+ */
+export function snapInput(flow, from, p, radius, geo) {
+  const linked = new Set(flow.links.map((l) => `${l.to.node}:${l.to.port}`));
+  let best = null;
+  for (const n of flow.nodes) {
+    if (n.id === from.node) continue;
+    portsOf(n).inputs.forEach((_, i) => {
+      const d = Math.hypot(p.x - n.x, p.y - geo.inY(n, i));
+      if (d <= radius && (!best || d < best.d)) best = { node: n.id, port: i, d };
+    });
+  }
+  if (best) return { node: best.node, port: best.port };
+  for (let k = flow.nodes.length - 1; k >= 0; k--) { // the topmost block first
+    const n = flow.nodes[k];
+    if (n.id === from.node) continue;
+    const r = geo.rect(n);
+    if (p.x < r.x || p.x > r.x + r.w || p.y < r.y || p.y > r.y + r.h) continue;
+    const ins = portsOf(n).inputs.map((_, i) => ({ i, free: !linked.has(`${n.id}:${i}`), dy: Math.abs(p.y - geo.inY(n, i)) }));
+    if (!ins.length) return null;
+    ins.sort((a, b) => (b.free - a.free) || (a.dy - b.dy));
+    return { node: n.id, port: ins[0].i };
+  }
+  return null;
+}
+
+/** A connection line's shapes: 곡선 (the default), 직선, 꺾은선. */
+export const WIRE_STYLES = ['curve', 'straight', 'elbow'];
+export const wireStyleOf = (l) => (l && WIRE_STYLES.includes(l.style) ? l.style : 'curve');
+
+/** The SVG path of a line from an output (x1, y1) to an input (x2, y2) in a style. */
+export function wirePath(x1, y1, x2, y2, style = 'curve') {
+  if (style === 'straight') return `M${x1},${y1} L${x2},${y2}`;
+  if (style === 'elbow') {
+    // forward: across, up / down at the middle, across; backward: out 20, round the middle height, in 20
+    if (x2 >= x1 + 40) { const mx = Math.round((x1 + x2) / 2); return `M${x1},${y1} H${mx} V${y2} H${x2}`; }
+    const my = Math.round((y1 + y2) / 2);
+    return `M${x1},${y1} H${x1 + 20} V${my} H${x2 - 20} V${y2} H${x2}`;
+  }
+  const d = Math.max(40, Math.abs(x2 - x1) * 0.5);
+  return `M${x1},${y1} C${x1 + d},${y1} ${x2 - d},${y2} ${x2},${y2}`;
+}
+
+/** Sets the style of the links `ids` ('curve' drops the field: the default). */
+export function setWireStyle(flow, ids, style) {
+  const set = new Set(ids);
+  const s = WIRE_STYLES.includes(style) ? style : 'curve';
+  return { ...flow, links: flow.links.map((l) => {
+    if (!set.has(l.id)) return l;
+    const { style: _old, ...rest } = l;
+    return s === 'curve' ? rest : { ...rest, style: s };
+  }) };
+}
+
+/** The output port within `radius` (world units) of p, nearest first, or null. geo.outY(n, j) → world y; its x is n.x + geo.rect(n).w. */
+export function snapOutput(flow, p, radius, geo) {
+  let best = null;
+  for (const n of flow.nodes) {
+    const x = n.x + geo.rect(n).w;
+    portsOf(n).outputs.forEach((_, j) => {
+      const d = Math.hypot(p.x - x, p.y - geo.outY(n, j));
+      if (d <= radius && (!best || d < best.d)) best = { node: n.id, port: j, d };
+    });
+  }
+  return best && { node: best.node, port: best.port };
+}

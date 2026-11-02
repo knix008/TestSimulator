@@ -191,6 +191,20 @@ export const TYPES = {
     ['Editable', 'bool', OFF], ['Enable', 'bool', ON], ...FONT, ['FontColor', 'color', [0, 0, 0]], ['BackgroundColor', 'color', [0.96, 0.96, 0.96]], ['Placeholder', 'text', ''], ['Tooltip', 'text', '']],
   uicheckbox: [['Text', 'text', 'Check Box'], ['Value', 'bool', OFF], ['Position', 'vec4', [100, 100, 84, 22]], ['ValueChangedFcn', 'cb', null], ['Enable', 'bool', ON], ...FONT, ['FontColor', 'color', [0, 0, 0]], ['Tooltip', 'text', '']],
   waitbar: [['Value', 'num', 0], ['Message', 'text', '']],
+  // menus, context menus, tool bars, tables, button groups (uiextra.js)
+  uimenu: [['Text', 'text', ''], ['Label', 'text', ''], ['Callback', 'cb', null], ['MenuSelectedFcn', 'cb', null], ['Checked', 'bool', OFF], ['Enable', 'bool', ON],
+    ['Separator', 'bool', OFF], ['Accelerator', 'text', ''], ['Position', 'int', 1], ['ForegroundColor', 'color', [0, 0, 0]], ['MenuSelectedFcnMode', 'ro', null]],
+  uicontextmenu: [['Callback', 'cb', null], ['ContextMenuOpeningFcn', 'cb', null], ['Position', 'vec2', [0, 0]]],
+  uitoolbar: [['BackgroundColor', 'color', [0.94, 0.94, 0.94]]],
+  uipushtool: [['CData', 'mat', null], ['TooltipString', 'text', ''], ['Tooltip', 'text', ''], ['ClickedCallback', 'cb', null], ['Enable', 'bool', ON], ['Separator', 'bool', OFF], ['Icon', 'text', '']],
+  uitoggletool: [['CData', 'mat', null], ['TooltipString', 'text', ''], ['Tooltip', 'text', ''], ['ClickedCallback', 'cb', null], ['OnCallback', 'cb', null], ['OffCallback', 'cb', null],
+    ['State', 'bool', OFF], ['Enable', 'bool', ON], ['Separator', 'bool', OFF], ['Icon', 'text', '']],
+  uitable: [['Data', 'any', null], ['ColumnName', 'any', null], ['RowName', 'any', null], ['ColumnEditable', 'any', null], ['ColumnFormat', 'any', null], ['ColumnWidth', 'any', null],
+    ['Position', 'vec4', [20, 20, 300, 300]], ['Units', 'text', 'pixels'], ['CellEditCallback', 'cb', null], ['CellSelectionCallback', 'cb', null], ['KeyPressFcn', 'cb', null],
+    ['BackgroundColor', 'mat', null], ['ForegroundColor', 'color', [0, 0, 0]], ['RowStriping', 'bool', ON], ['Enable', 'enum', 'on', ['on', 'off', 'inactive']],
+    ['TooltipString', 'text', ''], ['Tooltip', 'text', ''], ['Extent', 'ro', null], ...FONT],
+  uibuttongroup: [['Title', 'text', ''], ['Position', 'vec4', [20, 20, 200, 150]], ['Units', 'text', 'pixels'], ['BackgroundColor', 'color', [0.94, 0.94, 0.94]], ['ForegroundColor', 'color', [0, 0, 0]],
+    ['BorderType', 'text', 'line'], ...FONT, ['SelectedObject', 'handle', null], ['SelectionChangedFcn', 'cb', null], ['SelectionChangeFcn', 'cb', null], ['TitlePosition', 'text', 'lefttop']],
 };
 TYPES.polaraxes = TYPES.axes;
 TYPES.uiaxes = TYPES.axes;
@@ -201,7 +215,7 @@ export const THEMED = {
   text: ['Color'], legend: ['TextColor', 'Color', 'EdgeColor'], colorbar: ['Color'], heatmap: ['MissingDataColor'],
   annotation: ['Color', 'TextColor', 'EdgeColor'], uicontrol: ['BackgroundColor', 'ForegroundColor'], uipanel: ['BackgroundColor', 'ForegroundColor'],
   uibutton: ['BackgroundColor', 'FontColor'], uislider: ['FontColor'], uieditfield: ['FontColor', 'BackgroundColor'], uilabel: ['FontColor'],
-  uidropdown: ['FontColor', 'BackgroundColor'], uicheckbox: ['FontColor'], rectangle: [], line: [], errorbar: [], stem: [], stair: [],
+  uidropdown: ['FontColor', 'BackgroundColor'], uicheckbox: ['FontColor'], uimenu: ['ForegroundColor'], uitable: ['ForegroundColor'], uibuttongroup: ['BackgroundColor', 'ForegroundColor'], rectangle: [], line: [], errorbar: [], stem: [], stair: [],
 };
 // polar and UI axes are axes: their colours follow the theme too (they were drawn with the stored black on dark themes)
 THEMED.polaraxes = THEMED.axes;
@@ -214,6 +228,7 @@ export const TYPE_CLASS = {
   bar: 'Bar', histogram: 'Histogram', histogram2: 'Histogram2', area: 'Area', stair: 'Stair', stem: 'Stem', errorbar: 'ErrorBar', legend: 'Legend', colorbar: 'ColorBar',
   tiledlayout: 'TiledChartLayout', heatmap: 'HeatmapChart', annotation: 'Annotation', hggroup: 'Group', hgtransform: 'Transform', uicontrol: 'UIControl', uipanel: 'Panel', uibutton: 'Button',
   uislider: 'Slider', uieditfield: 'EditField', uilabel: 'Label', uidropdown: 'DropDown', uicheckbox: 'CheckBox', waitbar: 'Waitbar',
+  uimenu: 'Menu', uicontextmenu: 'ContextMenu', uitoolbar: 'Toolbar', uipushtool: 'PushTool', uitoggletool: 'ToggleTool', uitable: 'Table', uibuttongroup: 'ButtonGroup',
 };
 
 /** Main properties shown when a handle is displayed. */
@@ -232,6 +247,11 @@ export const DISPLAY_PROPS = {
   colorbar: ['Location', 'Limits', 'FontSize', 'Position', 'Units'],
   bar: ['BarLayout', 'BarWidth', 'FaceColor', 'EdgeColor', 'BaseValue', 'XData', 'YData'],
   histogram: ['Data', 'Values', 'NumBins', 'BinEdges', 'BinWidth', 'BinLimits', 'Normalization', 'FaceColor', 'EdgeColor'],
+  uimenu: ['Text', 'Accelerator', 'Checked', 'Enable', 'Separator', 'Position'],
+  uitable: ['Data', 'ColumnName', 'RowName', 'ColumnEditable', 'Position', 'Units'],
+  uitoggletool: ['State', 'TooltipString', 'Enable', 'Separator'],
+  uipushtool: ['TooltipString', 'Enable', 'Separator'],
+  uibuttongroup: ['Title', 'SelectedObject', 'Position', 'Units'],
   contour: ['LineColor', 'LineStyle', 'LineWidth', 'Fill', 'LevelList', 'XData', 'YData', 'ZData'],
 };
 

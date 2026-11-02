@@ -3,7 +3,7 @@
 // Program: { kind: 'script'|'function'|'classdef', body: Stmt[], functions: Fn[], classdef?, file }
 // Fn: { name, params: string[], outs: string[], body: Stmt[], nested: Fn[], args: ArgBlock[], line, endLine, text? }
 // Statements carry `line`. Expressions are plain objects with `t`.
-import { lex, parseError, END_FORMS } from './lexer.js';
+import { lex, parseError, END_FORMS, isOctaveSource } from './lexer.js';
 
 const BIN_LEVELS = [
   ['||'], ['&&'], ['|'], ['&'], ['<', '<=', '>', '>=', '==', '~='],
@@ -47,13 +47,15 @@ class Parser {
       if (!this.is('eof')) this.err(`Unexpected "${this.tokText()}" after the class definition.`);
       return { kind: 'classdef', body: [], functions, classdef: cd, file: this.file };
     }
-    const kind = this.isKw('function') ? 'function' : 'script';
+    let kind = this.isKw('function') ? 'function' : 'script';
     const body = [];
     const functions = [];
     for (;;) {
       this.skipNl();
       if (this.is('eof')) break;
       if (this.isKw('function')) { functions.push(this.func()); this.skipNl(); continue; }
+      // code typed in the Command Window (no file) may define functions and then use them
+      if (functions.length && kind === 'function' && !this.file && this.endStyle) kind = 'script';
       if (functions.length && kind === 'function') this.err('Statements are not allowed between function definitions.');
       // scripts may define functions anywhere (Octave command-line functions: `1; function f … endfunction; f()`)
       const s = this.statement();
@@ -803,14 +805,18 @@ class Parser {
 }
 
 /** Parses source text. opts: { file, isVar, commandSyntax } */
+// The program notes whether it is Octave code (ast.octave): its values are then shown in Octave's
+// layout (core/lang/octdisplay.js).
 export function parse(src, opts = {}) {
-  const tokens = lex(src, opts);
+  const octave = opts.octave ?? isOctaveSource(src);
+  const tokens = lex(src, { ...opts, octave });
+  const mark = (ast) => { ast.octave = octave; return ast; };
   try {
-    return new Parser(tokens, { ...opts, src, endStyle: true }).program();
+    return mark(new Parser(tokens, { ...opts, src, endStyle: true }).program());
   } catch (e) {
     // files whose functions are not terminated by `end`
     if (e.identifier === 'core:parse' && /function/.test(src)) {
-      try { return new Parser(tokens, { ...opts, src, endStyle: false }).program(); } catch { /* report the first error */ }
+      try { return mark(new Parser(tokens, { ...opts, src, endStyle: false }).program()); } catch { /* report the first error */ }
     }
     throw e;
   }

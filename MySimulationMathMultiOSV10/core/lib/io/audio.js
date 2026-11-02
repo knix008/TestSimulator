@@ -1,11 +1,13 @@
 // Audio: audioread / audiowrite / audioinfo for WAV (PCM 8/16/24/32-bit,
-// IEEE float 32/64, WAVE_FORMAT_EXTENSIBLE), and playback through the GUI:
-// sound / soundsc / audioplayer / beep post 'audio.*' messages to ctx.host.
+// IEEE float 32/64, mu-law, A-law, WAVE_FORMAT_EXTENSIBLE, big-endian RIFX),
+// AU/SND, AIFF/AIFF-C and FLAC (codecs in audiofmt.js), and playback through
+// the GUI: sound / soundsc / audioplayer / beep post 'audio.*' messages to ctx.host.
 import {
   E, S, N, str, num, bool, tensor, isTextArg, isTensor, toTensor, absPath, extName, readFileBytes, writeFileBytes,
   structScalar, nameValues, ByteWriter,
 } from './util.js';
 import { object } from '../../value.js';
+import { decodeAu, decodeAiff, decodeFlac, decodeRifx, encodeAu, encodeAiff, encodeFlac, ulawToLinear, alawToLinear, linearToUlaw, linearToAlaw } from './audiofmt.js';
 
 // ---------------------------------------------------------------- WAV codec
 
@@ -14,7 +16,6 @@ export function parseWav(b) {
   const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
   const tag = (o) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
   if (b.length < 12 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') {
-    if (b.length >= 4 && tag(0) === 'RIFX') throw E('io:audioread:unsupported', 'Big-endian WAV (RIFX) files are not supported.');
     throw E('io:audioread:notWav', 'The file is not a WAV file.');
   }
   let p = 12;
@@ -47,7 +48,11 @@ export function parseWav(b) {
   }
   if (!fmt) throw E('io:audioread:corrupt', 'The WAV file has no format chunk.');
   if (!data) throw E('io:audioread:corrupt', 'The WAV file has no data chunk.');
-  if (fmt.format !== 1 && fmt.format !== 3) throw E('io:audioread:unsupported', `WAV encoding ${fmt.format} is not supported (only PCM and IEEE float).`);
+  if (fmt.format === 6 || fmt.format === 7) {
+    // G.711 A-law / mu-law: one byte per sample
+    return { ...fmt, bits: 8, frames: Math.floor(data.length / fmt.channels), data, info };
+  }
+  if (fmt.format !== 1 && fmt.format !== 3) throw E('io:audioread:unsupported', `WAV encoding ${fmt.format} is not supported (only PCM, IEEE float, mu-law and A-law).`);
   const bps = fmt.bits >> 3;
   const frames = Math.floor(data.length / (bps * fmt.channels));
   return { ...fmt, frames, data, info };
@@ -103,10 +108,48 @@ export function encodeWav({ channels, rate, frames, get, bits, float, info }) {
   return out.result();
 }
 
-function readWavFile(ctx, file) {
-  const ext = extName(file);
-  if (ext && ext !== '.wav' && ext !== '.wave') throw E('io:audioread:unsupportedFormat', `Audio format '${ext}' is not supported. Use WAV files.`);
-  return parseWav(readFileBytes(ctx, file, 'io:audioread:fileNotFound'));
+/** WAV parse result → decoded stream (see audiofmt.js). */
+function wavStream(w) {
+  const info = { title: w.info.INAM || '', artist: w.info.IART || '', comment: w.info.ICMT || '' };
+  if (w.format === 6 || w.format === 7) {
+    const dec = w.format === 7 ? ulawToLinear : alawToLinear;
+    const ch = w.channels;
+    return {
+      format: 'WAV', compression: w.format === 7 ? 'mu-law' : 'A-law', rate: w.rate, channels: ch, frames: w.frames, bits: 8, float: false, nativeCls: 'int16',
+      get: (f, c) => dec(w.data[f * ch + c]), toDouble: (x) => x / 32768, info,
+    };
+  }
+  const [get, , nativeCls] = sampleReader(w);
+  const sc = scaleOf(w);
+  return {
+    format: 'WAV', compression: 'Uncompressed', rate: w.rate, channels: w.channels, frames: w.frames, bits: w.bits, float: w.format === 3, nativeCls,
+    get, toDouble: w.format === 3 ? (x) => x : w.bits === 8 ? (x) => (x - 128) / 128 : (x) => x / sc, info,
+  };
+}
+
+/** Audio file formats this engine reads and writes (audioformats lists them). */
+export const AUDIO_FORMATS = [
+  { name: 'WAV', ext: ['.wav', '.wave'], description: 'Microsoft WAV (PCM 8/16/24/32-bit, IEEE float 32/64, mu-law, A-law; also big-endian RIFX)' },
+  { name: 'AU', ext: ['.au', '.snd'], description: 'Sun/NeXT AU (PCM 8/16/24/32-bit, IEEE float 32/64, mu-law, A-law)' },
+  { name: 'AIFF', ext: ['.aif', '.aiff'], description: 'Apple AIFF (PCM 8/16/24/32-bit)' },
+  { name: 'AIFC', ext: ['.aifc'], description: 'Apple AIFF-C (PCM, little-endian PCM, IEEE float 32/64, mu-law, A-law)' },
+  { name: 'FLAC', ext: ['.flac'], description: 'Free Lossless Audio Codec (8/16/24-bit)' },
+];
+
+/** Decodes audio bytes by their content (the extension only breaks ties). */
+export function decodeAudio(b, ext = '') {
+  const tag = b.length >= 4 ? String.fromCharCode(b[0], b[1], b[2], b[3]) : '';
+  if (tag === 'RIFF') return wavStream(parseWav(b));
+  if (tag === 'RIFX') return decodeRifx(b);
+  if (tag === '.snd') return decodeAu(b);
+  if (tag === 'FORM') return decodeAiff(b);
+  if (tag === 'fLaC' || (tag.startsWith('ID3') && ext === '.flac')) return decodeFlac(b);
+  if (/^\.(mp3|ogg|oga|opus|m4a|mp4|aac|wma)$/.test(ext)) throw E('io:audioread:unsupportedFormat', `Audio format '${ext}' (compressed with a lossy codec) is not supported. Supported: WAV, AU, AIFF, AIFF-C and FLAC.`);
+  throw E('io:audioread:unknownFormat', 'The file is not a supported audio file (WAV, AU, AIFF, AIFF-C or FLAC).');
+}
+
+function readAudioFile(ctx, file) {
+  return decodeAudio(readFileBytes(ctx, file, 'io:audioread:fileNotFound'), extName(file));
 }
 
 // ---------------------------------------------------------------- builtins
@@ -114,7 +157,7 @@ function readWavFile(ctx, file) {
 function audioread(args, nargout, ctx) {
   if (!args.length) throw E('io:audioread:notEnoughInputs', 'Not enough input arguments.');
   const file = S(args[0], 'File name');
-  const w = readWavFile(ctx, file);
+  const w = readAudioFile(ctx, file);
   let start = 1, stop = w.frames;
   let dataType = 'double';
   for (const a of args.slice(1)) {
@@ -124,20 +167,17 @@ function audioread(args, nargout, ctx) {
     start = r[0]; stop = r[1] === Infinity ? w.frames : r[1];
     if (!(start >= 1 && stop >= start - 1 && stop <= w.frames && Number.isInteger(start) && Number.isInteger(stop))) throw E('io:audioread:badRange', `Sample range must be within [1 ${w.frames}].`);
   }
-  const [get, , nativeCls] = sampleReader(w);
   const n = stop - start + 1;
   const ch = w.channels;
   const re = new Float64Array(n * ch);
-  const sc = scaleOf(w);
   for (let f = 0; f < n; f++) for (let c = 0; c < ch; c++) {
-    let x = get(start - 1 + f, c);
-    if (dataType === 'double') x = w.format === 3 ? x : w.bits === 8 ? (x - 128) / 128 : x / sc;
-    re[f + c * n] = x;
+    const x = w.get(start - 1 + f, c);
+    re[f + c * n] = dataType === 'double' ? w.toDouble(x) : x;
   }
   let y;
   if (dataType === 'native') {
-    if (nativeCls === 'single') for (let i = 0; i < re.length; i++) re[i] = Math.fround(re[i]);
-    y = tensor(nativeCls, [n, ch], re);
+    if (w.nativeCls === 'single') for (let i = 0; i < re.length; i++) re[i] = Math.fround(re[i]);
+    y = tensor(w.nativeCls, [n, ch], re);
   } else y = tensor('double', [n, ch], re);
   return [y, num(w.rate)];
 }
@@ -145,26 +185,29 @@ function audioread(args, nargout, ctx) {
 function audioinfo(args, nargout, ctx) {
   if (!args.length) throw E('io:audioinfo:notEnoughInputs', 'Not enough input arguments.');
   const file = S(args[0], 'File name');
-  const w = readWavFile(ctx, file);
+  const w = readAudioFile(ctx, file);
   return structScalar({
     Filename: str(absPath(ctx, file)),
-    CompressionMethod: str('Uncompressed'),
+    CompressionMethod: str(w.compression),
     NumChannels: num(w.channels),
     SampleRate: num(w.rate),
     TotalSamples: num(w.frames),
     Duration: num(w.frames / w.rate),
-    Title: str(w.info.INAM || ''),
-    Comment: str(w.info.ICMT || ''),
-    Artist: str(w.info.IART || ''),
+    Title: str(w.info.title || ''),
+    Comment: str(w.info.comment || ''),
+    Artist: str(w.info.artist || ''),
     BitsPerSample: num(w.bits),
   });
 }
+
+const WRITE_KIND = { '.wav': 'wav', '.wave': 'wav', '.au': 'au', '.snd': 'au', '.aif': 'aiff', '.aiff': 'aiff', '.aifc': 'aiff', '.flac': 'flac' };
 
 function audiowrite(args, nargout, ctx) {
   if (args.length < 3) throw E('io:audiowrite:notEnoughInputs', 'Not enough input arguments.');
   const file = S(args[0], 'File name');
   const ext = extName(file);
-  if (ext !== '.wav' && ext !== '.wave') throw E('io:audiowrite:unsupportedFormat', `Audio format '${ext || '(none)'}' is not supported. Use a .wav file name.`);
+  const kind = WRITE_KIND[ext];
+  if (!kind) throw E('io:audiowrite:unsupportedFormat', `Audio format '${ext || '(none)'}' is not supported. Use .wav, .au, .snd, .aif, .aiff, .aifc or .flac.`);
   const y = args[1];
   if (!isTensor(y)) throw E('io:audiowrite:badData', 'Audio data must be a numeric matrix.');
   const rate = N(args[2], 'Sample rate');
@@ -173,10 +216,21 @@ function audiowrite(args, nargout, ctx) {
   let [frames, channels] = y.dims;
   if (frames === 1 && channels > 1 && y.dims.length === 2) { frames = channels; channels = 1; }
   const isFloatIn = y.cls === 'double' || y.cls === 'single';
-  let bits = o.bitspersample !== undefined ? N(o.bitspersample) : y.cls === 'uint8' ? 8 : y.cls === 'int16' ? 16 : y.cls === 'int32' ? 32 : y.cls === 'single' ? 32 : 16;
-  if (![8, 16, 24, 32, 64].includes(bits)) throw E('io:audiowrite:badBits', 'BitsPerSample must be 8, 16, 24, 32 or 64.');
-  const float = bits === 64 || (bits === 32 && (y.cls === 'single' || (isFloatIn && o.bitspersample !== undefined)));
+  // Encoding: 'mu-law' / 'A-law' (WAV, AU, AIFF-C)
+  let codec = null;
+  if (o.encoding !== undefined) {
+    const e = S(o.encoding).toLowerCase().replace(/[^a-z]/g, '');
+    if (e === 'ulaw' || e === 'mulaw') codec = 'ulaw';
+    else if (e === 'alaw') codec = 'alaw';
+    else if (e !== 'pcm' && e !== 'linear') throw E('io:audiowrite:badEncoding', "Encoding must be 'PCM', 'mu-law' or 'A-law'.");
+    if (codec && kind === 'flac') throw E('io:audiowrite:badEncoding', 'FLAC files are always linear PCM.');
+  }
+  let bits = o.bitspersample !== undefined ? N(o.bitspersample) : y.cls === 'uint8' ? 8 : y.cls === 'int16' ? 16 : y.cls === 'int32' ? (kind === 'flac' ? 24 : 32) : y.cls === 'single' ? (kind === 'flac' ? 24 : 32) : 16;
+  if (codec) bits = 16;
+  if (kind === 'flac') { if (![8, 16, 24].includes(bits)) throw E('io:audiowrite:badBits', 'BitsPerSample must be 8, 16 or 24 for FLAC files.'); } else if (![8, 16, 24, 32, 64].includes(bits)) throw E('io:audiowrite:badBits', 'BitsPerSample must be 8, 16, 24, 32 or 64.');
+  const float = kind !== 'flac' && !codec && (bits === 64 || (bits === 32 && (y.cls === 'single' || (isFloatIn && o.bitspersample !== undefined))));
   if (bits === 64 && !isFloatIn) throw E('io:audiowrite:badBits', '64 bits per sample needs floating-point data.');
+  if (kind === 'aiff' && float && ext !== '.aifc') throw E('io:audiowrite:badBits', 'Floating-point samples need an AIFF-C file (.aifc).');
   let clipped = false;
   const at = (f, c) => y.re[f + c * frames];
   const get = (f, c) => {
@@ -197,11 +251,49 @@ function audiowrite(args, nargout, ctx) {
     const m = 2 ** (bits - 1);
     return Math.max(-m, Math.min(m - 1, Math.round(v * m)));
   };
-  const info = { INAM: o.title ? S(o.title) : '', IART: o.artist ? S(o.artist) : '', ICMT: o.comment ? S(o.comment) : '' };
-  const bytes = encodeWav({ channels, rate, frames, get, bits, float, info });
+  let bytes;
+  if (kind === 'wav') {
+    if (codec) {
+      const info = { INAM: o.title ? S(o.title) : '', IART: o.artist ? S(o.artist) : '', ICMT: o.comment ? S(o.comment) : '' };
+      bytes = encodeWavG711({ channels, rate, frames, get, codec, info });
+    } else {
+      const info = { INAM: o.title ? S(o.title) : '', IART: o.artist ? S(o.artist) : '', ICMT: o.comment ? S(o.comment) : '' };
+      bytes = encodeWav({ channels, rate, frames, get, bits, float, info });
+    }
+  } else {
+    const info = { title: o.title ? S(o.title) : '', artist: o.artist ? S(o.artist) : '', comment: o.comment ? S(o.comment) : '' };
+    const spec = { channels, rate, frames, get, bits, float, info, codec };
+    if (kind === 'au') bytes = encodeAu(spec);
+    else if (kind === 'flac') bytes = encodeFlac(spec);
+    else {
+      if (codec && ext !== '.aifc') throw E('io:audiowrite:badEncoding', 'mu-law and A-law samples need an AIFF-C file (.aifc).');
+      bytes = encodeAiff(spec);
+    }
+  }
   if (clipped) ctx.warning('io:audiowrite:dataClipped', 'Data clipped when writing file.');
   writeFileBytes(ctx, file, bytes);
   return undefined;
+}
+
+/** WAV with G.711 samples (format 7 = mu-law, 6 = A-law); get() gives 16-bit samples. */
+function encodeWavG711({ channels, rate, frames, get, codec, info }) {
+  const dataSize = frames * channels;
+  const enc = codec === 'ulaw' ? linearToUlaw : linearToAlaw;
+  const out = new ByteWriter(64 + dataSize);
+  const infoChunk = Object.entries(info || {}).filter(([, v]) => v);
+  let listSize = 0;
+  if (infoChunk.length) { listSize = 4; for (const [, v] of infoChunk) { const n = v.length + 1; listSize += 8 + n + (n & 1); } }
+  out.ascii('RIFF'); out.u32(4 + 26 + 12 + 8 + dataSize + (dataSize & 1) + (listSize ? 8 + listSize : 0)); out.ascii('WAVE');
+  out.ascii('fmt '); out.u32(18); out.u16(codec === 'ulaw' ? 7 : 6); out.u16(channels); out.u32(rate); out.u32(rate * channels); out.u16(channels); out.u16(8); out.u16(0);
+  out.ascii('fact'); out.u32(4); out.u32(frames);
+  if (listSize) {
+    out.ascii('LIST'); out.u32(listSize); out.ascii('INFO');
+    for (const [k, v] of infoChunk) { const n = v.length + 1; out.ascii(k); out.u32(n); out.ascii(v); out.u8(0); if (n & 1) out.u8(0); }
+  }
+  out.ascii('data'); out.u32(dataSize);
+  for (let f = 0; f < frames; f++) for (let c = 0; c < channels; c++) out.u8(enc(get(f, c)));
+  if (dataSize & 1) out.u8(0);
+  return out.result();
 }
 
 // ---------------------------------------------------------------- playback
@@ -262,7 +354,7 @@ function playerProps(p) {
   return { running, cur };
 }
 
-function makePlayer(args, ctx) {
+export function makePlayer(args, ctx) {
   if (!args.length) throw E('io:audioplayer:notEnoughInputs', 'Not enough input arguments.');
   const fs = args[1] !== undefined ? N(args[1]) : 8192;
   const { frames, channels } = channelsOf(args[0]);
@@ -279,7 +371,7 @@ function playFrom(ctx, p, range) {
   Object.assign(p, { running: true, paused: false, startedAt: Date.now(), startSample: a, current: a });
 }
 
-const PLAYER_CLASS = {
+export const PLAYER_CLASS = {
   handle: true,
   props: ['SampleRate', 'BitsPerSample', 'NumChannels', 'TotalSamples', 'CurrentSample', 'Running', 'Tag', 'UserData'],
   construct(args, ctx) { return makePlayer(args, ctx); },
@@ -346,8 +438,8 @@ export const builtins = {
 
 const H = (en, ko, syntax) => ({ en, ko, syntax });
 export const help = {
-  audioread: H('Read an audio file (WAV).', '오디오 파일(WAV)을 읽습니다.', ['[y, Fs] = audioread(filename)', '[y, Fs] = audioread(filename, samples)', "[y, Fs] = audioread(___, dataType)"]),
-  audiowrite: H('Write an audio file (WAV).', '오디오 파일(WAV)을 씁니다.', ['audiowrite(filename, y, Fs)', 'audiowrite(filename, y, Fs, Name, Value)']),
+  audioread: H('Read an audio file (WAV, AU/SND, AIFF, AIFF-C, FLAC).', '오디오 파일(WAV, AU/SND, AIFF, AIFF-C, FLAC)을 읽습니다.', ['[y, Fs] = audioread(filename)', '[y, Fs] = audioread(filename, samples)', "[y, Fs] = audioread(___, dataType)"]),
+  audiowrite: H("Write an audio file (WAV, AU/SND, AIFF, AIFF-C, FLAC; the extension picks the format). Options: BitsPerSample, Encoding ('PCM', 'mu-law', 'A-law'), Title, Artist, Comment.", "오디오 파일(WAV, AU/SND, AIFF, AIFF-C, FLAC; 확장자로 형식 결정)을 씁니다. 옵션: BitsPerSample, Encoding('PCM', 'mu-law', 'A-law'), Title, Artist, Comment.", ['audiowrite(filename, y, Fs)', 'audiowrite(filename, y, Fs, Name, Value)']),
   audioinfo: H('Information about an audio file.', '오디오 파일 정보.', ['info = audioinfo(filename)']),
   sound: H('Play a signal as sound.', '신호를 소리로 재생합니다.', ['sound(y)', 'sound(y, Fs)', 'sound(y, Fs, nBits)']),
   soundsc: H('Scale a signal and play it as sound.', '신호의 크기를 맞춰 소리로 재생합니다.', ['soundsc(y)', 'soundsc(y, Fs)', 'soundsc(y, Fs, yRange)']),

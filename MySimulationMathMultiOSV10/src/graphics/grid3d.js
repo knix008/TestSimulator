@@ -30,7 +30,8 @@ uniform float uMajorAlpha;
 uniform vec3 uTarget;          // world centre the fade is measured from
 uniform float uFadeStart;
 uniform float uFadeEnd;
-uniform vec2 uHole;            // half size (world) of the box floor, which draws its own grid; 0: none
+uniform vec2 uHole;            // half size (world) of the box floor (0: no box on the grid's plane)
+uniform float uHoleMode;       // 1: only a rim along the box edges is left out, 2: the whole floor is
 
 float lineAt(vec2 p, vec2 fw, vec2 s) {
   vec2 q = p / s;
@@ -57,8 +58,15 @@ void main() {
   vec2 p = uOffset + uScale * hit.xy;           // data coordinates
   vec2 fw = fwidth(p);
   vec2 hw = fwidth(hit.xy) * 1.5;
-  // under the box floor only the box's grid: two grids on one plane show as double lines
-  if (uHole.x > 0.0 && abs(hit.x) <= uHole.x + hw.x && abs(hit.y) <= uHole.y + hw.y) discard;
+  // On the box floor the grid goes on under the plot (its lines fall on the box's tick lines), except
+  // a rim along the box edges, where the box leaves out tick lines that would hug an edge (render3d
+  // innerTick): a grid line there would stand next to the edge like a second line. Mode 2 (the
+  // grid could not follow the ticks: log or uneven ticks) leaves the box floor to the box's grid.
+  if (uHole.x > 0.0 && abs(hit.x) <= uHole.x + hw.x && abs(hit.y) <= uHole.y + hw.y) {
+    if (uHoleMode > 1.5) discard;
+    vec2 rim = uHole * 0.03 + hw;
+    if (abs(hit.x) >= uHole.x - rim.x || abs(hit.y) >= uHole.y - rim.y) discard;
+  }
   // spacing in base steps (each axis its own base, so the lines continue the box's tick lines)
   float foot = max(sqrt((fw.x / uBase.x) * (fw.y / uBase.y)), 1e-30);
   float lod = log(foot * uMinPx) / log(5.0);
@@ -113,6 +121,7 @@ export function createGroundGrid() {
       uFadeStart: { value: 2 },
       uFadeEnd: { value: 8 },
       uHole: { value: new THREE.Vector2(0, 0) },
+      uHoleMode: { value: 1 },
     },
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);

@@ -6,6 +6,7 @@ import {
 } from './util.js';
 import { readMat5, writeMat5, matHeaderInfo, valueBytes } from '../../compat/mat5.js';
 import { struct, object, isObject, toStr } from '../../value.js';
+import { saveSettings, writeOctaveText, readOctaveText, isOctaveText } from './octtext.js';
 
 export const DEFAULT_MAT_FILE = 'workspace.mat';
 
@@ -80,6 +81,11 @@ export function readVarsFromFile(ctx, file, opts = {}) {
   const p = resolveMatFile(ctx, file);
   const bytes = readFileBytes(ctx, p, 'io:load:couldNotReadFile');
   const info = matHeaderInfo(bytes);
+  if (!info.kind && opts.ascii !== true && !opts.mat) {
+    // Octave text data format ("# name: ..." blocks)
+    const text = bytesToText(bytes);
+    if (isOctaveText(text)) return readOctaveText(text, opts.only || (() => true));
+  }
   if (opts.ascii === false || (info.kind && !opts.ascii)) {
     return readMat5(bytes, { only: opts.only, warn: (m) => ctx.warning('io:load:skipped', m) });
   }
@@ -98,6 +104,7 @@ function load(args, nargout, ctx) {
     const l = s.toLowerCase();
     if (l === '-ascii') ascii = true;
     else if (l === '-mat') { mat = true; ascii = false; }
+    else if (l === '-text') ascii = false;
     else if (l === '-regexp') regexp = true;
     else if (file === null && !(s.startsWith('-'))) file = s;
     else patterns.push(s);
@@ -107,7 +114,7 @@ function load(args, nargout, ctx) {
     const ext = extName(file);
     if (ext && ext !== '.mat') {
       const bytes = readFileBytes(ctx, absPath(ctx, file), 'io:load:couldNotReadFile');
-      ascii = !matHeaderInfo(bytes).kind;
+      ascii = !matHeaderInfo(bytes).kind && !isOctaveText(bytesToText(bytes.subarray(0, 4096)));
     }
   }
   const keep = nameFilter(patterns, regexp);
@@ -149,11 +156,14 @@ export function writeVarsToFile(ctx, file, vars, opts = {}) {
 function save(args, nargout, ctx) {
   let file = null;
   const names = [];
-  let ascii = false, dbl = false, tabs = false, append = false, compress = true, regexp = false, structName = null;
+  let ascii = false, dbl = false, tabs = false, append = false, compress = true, regexp = false, structName = null, text = false;
   const structFields = [];
   let inStruct = false;
-  for (const a of args) {
-    if (!isTextArg(a)) throw E('io:save:badArgument', 'Arguments must be text (file name, variable names or options).');
+  for (const a of args) if (!isTextArg(a)) throw E('io:save:badArgument', 'Arguments must be text (file name, variable names or options).');
+  // save_default_options apply when no format option is given
+  const FORMAT_RE = /^-(ascii|mat|v7|v6|v4|v7\.3|text|binary|mat-binary|mat7-binary)$/i;
+  const defaults = args.some((a) => FORMAT_RE.test(S(a))) ? [] : saveSettings(ctx).options.split(/\s+/).filter(Boolean).map((w) => str(w));
+  for (const a of [...defaults, ...args]) {
     const s = S(a);
     const l = s.toLowerCase();
     if (l.startsWith('-')) {
@@ -162,7 +172,8 @@ function save(args, nargout, ctx) {
       else if (l === '-double') dbl = true;
       else if (l === '-tabs') tabs = true;
       else if (l === '-append') append = true;
-      else if (l === '-mat' || l === '-v7') { /* default */ } else if (l === '-v6' || l === '-v4' || l === '-nocompression') compress = false;
+      else if (l === '-mat' || l === '-v7' || l === '-binary' || l === '-mat-binary' || l === '-mat7-binary') { text = false; } else if (l === '-text') text = true;
+      else if (l === '-zip' || l === '-z') { /* MAT-files are compressed already */ } else if (l === '-v6' || l === '-v4' || l === '-nocompression') compress = false;
       else if (l === '-v7.3') ctx.warning('io:save:v73', 'Version 7.3 (HDF5) files are not written; a version 7 MAT-file is saved instead.');
       else if (l === '-regexp') regexp = true;
       else if (l === '-struct') inStruct = true;
@@ -174,7 +185,7 @@ function save(args, nargout, ctx) {
     if (inStruct) structFields.push(s); else names.push(s);
   }
   if (file === null) file = DEFAULT_MAT_FILE;
-  if (!ascii && !extName(file)) file += '.mat';
+  if (!ascii && !text && !extName(file)) file += '.mat';
   let vars = [];
   if (structName !== null) {
     const s = ctx.getVar(structName, 'caller');
@@ -207,6 +218,14 @@ function save(args, nargout, ctx) {
     }
     const p = absPath(ctx, file);
     if (append && fsExists(ctx, p)) ctx.fs.appendText(p, text); else ctx.fs.writeText(p, text);
+    return undefined;
+  }
+  if (text) {
+    const st = saveSettings(ctx);
+    const p = absPath(ctx, file);
+    const more = append && fsExists(ctx, p);
+    const body = writeOctaveText(vars, { header: more ? '' : st.header, precision: st.precision, warn: (m) => ctx.warning('io:save:unsupportedType', m) });
+    if (more) ctx.fs.appendText(p, body); else ctx.fs.writeText(p, body);
     return undefined;
   }
   writeVarsToFile(ctx, file, vars, { append, compress });

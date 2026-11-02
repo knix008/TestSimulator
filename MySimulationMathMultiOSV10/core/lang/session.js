@@ -32,6 +32,9 @@ export function createSessionWith(registry, opts = {}) {
     rt.accessorStack.length = 0;
     rt.stepMode = null;
     rt.updateDbg();
+    // exit / quit: not an error; the host closes the session
+    if (me.identifier === 'core:exit') return { ok: true, exit: me.extra.status || 0 };
+    if (rt.beepOnError) { try { host.post({ type: 'beep' }); } catch { /* no GUI */ } }
     rt.lastError = me;
     rt.print(rt.errorReport(me) + '\n', 'err');
     return { ok: false, error: { identifier: me.identifier, message: me.message, stack: (me.mstack || []).map((s) => ({ ...s })) } };
@@ -61,8 +64,9 @@ export function createSessionWith(registry, opts = {}) {
     evaluate(code, eopts = {}) {
       code = String(code);
       if (eopts.echo) rt.print(`>> ${code}\n`, 'echo');
-      if (!eopts.file && code.trim()) onEvent({ type: 'history', command: code });
-      return guarded(() => {
+      if (!eopts.file && code.trim()) { onEvent({ type: 'history', command: code }); rt.history.push(code); }
+      if (rt.defaultPath === null) rt.defaultPath = rt.path.slice();
+      const result = guarded(() => {
         const ast = rt.parseCode(code, { isVar: (n) => rt.readWs(rt.base, n) !== undefined, file: eopts.file || null, cache: false });
         const frame = new Frame(rt.base, null, eopts.file ? normPath(eopts.file) : null, eopts.file ? stripMExt(baseName(normPath(eopts.file))) : 'base', 'base');
         const pseudo = rt.codeInfo(ast, frame);
@@ -78,6 +82,14 @@ export function createSessionWith(registry, opts = {}) {
           throw e;
         } finally { rt.stack.pop(); }
       });
+      // add_input_event_hook: the Command Window is idle again (waiting for the next command)
+      if (rt.inputHooks.size && !result.exit) {
+        for (const [, h] of [...rt.inputHooks]) {
+          const r = guarded(() => { rt.callAny(h.fn, h.data === undefined ? [] : [h.data], 0); }, { quiet: true });
+          if (!r.ok) break;
+        }
+      }
+      return result;
     },
 
     runFile(path) {

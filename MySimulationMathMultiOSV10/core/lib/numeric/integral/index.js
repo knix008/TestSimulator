@@ -283,7 +283,8 @@ function quadImpl(args, nargout, ctx) {
   if (args.length < 3) throw E('quad:nargin', 'quad needs a function and the integration limits.');
   const f = fnArgOf(args[0], 'quad');
   const a = toNum(args[1]), b = toNum(args[2]);
-  const tol = args.length > 3 && !isEmptyV(args[3]) ? toNum(args[3]) : 1e-6;
+  const qo = ctx.state && ctx.state.octaveOptions; // set by quad_options
+  const tol = args.length > 3 && !isEmptyV(args[3]) ? toNum(args[3]) : qo && qo['quad:set'] ? qo.quad['absolute tolerance'] : 1e-6;
   const trace = args.length > 4 && !isEmptyV(args[4]) && toNum(args[4]) !== 0;
   const extra = args.slice(5);
   let fcnt = 0; let warned = false;

@@ -10,6 +10,8 @@ import { ticksFor, tickLabels, maxTicksFor } from '../../core/graphics/ticks.js'
 import { createGroundGrid, updateGroundGrid } from './grid3d.js';
 
 const DEG = Math.PI / 180;
+/** Default camera view angle (degrees) of 3-D axes; a smaller CameraViewAngle zooms in (camzoom, camva). */
+const DEFAULT_VA = 6.6086;
 const isMat = (v) => v && typeof v === 'object' && Array.isArray(v.dims) && v.data != null;
 const matData = (v) => (isMat(v) ? v.data : Array.isArray(v) ? v : v == null ? [] : typeof v === 'number' ? [v] : []);
 const matDims = (v) => (isMat(v) ? v.dims : Array.isArray(v) ? [1, v.length] : [0, 0]);
@@ -51,6 +53,24 @@ export function groundBase(ticks, log = false) {
   const onStep = Math.abs(ticks[0] / step - Math.round(ticks[0] / step)) <= 1e-6;
   return even && onStep ? step / 25 : null;
 }
+
+/**
+ * Square ground cells: the bases (data units) of x and y as one world step when one axis's world step
+ * is a whole multiple of the other's. The smaller step wins, so both axes' ticks stay on grid lines
+ * (axis equal with x ticks every 2 and y ticks every 1: cells of 1 × 1, not 2 × 1). scale = data per world.
+ */
+export function squareBases(base, scale) {
+  const s = [Math.abs(scale[0]), Math.abs(scale[1])];
+  if (!(s[0] > 0 && s[1] > 0) || !(base[0] > 0 && base[1] > 0)) return base;
+  const w = [base[0] / s[0], base[1] / s[1]];
+  const lo = Math.min(w[0], w[1]);
+  const r = Math.max(w[0], w[1]) / lo;
+  if (Math.abs(r - Math.round(r)) > 1e-6 * r) return base;
+  return [lo * s[0], lo * s[1]];
+}
+
+/** How the ground grid treats the box floor: 1 = goes on under the plot (only an edge rim left out), 2 = left to the box's grid. */
+export function groundHoleMode(aligned, boxGrid) { return aligned || !boxGrid ? 1 : 2; }
 
 /** A grid line at world w on an axis of half length `half` is drawn only when it keeps clear of both edges (1.5 % of the length). */
 export function innerTick(w, half) {
@@ -247,6 +267,7 @@ export class Axes3DView {
     }
     this.camera = p.Projection === 'perspective' ? this.persp : this.ortho;
     this.computeTransform();
+    this.applyCameraProps(firstTime);
     const akey = summarise({ X: p.XLim, Y: p.YLim, Z: p.ZLim, xs: p.XScale, ys: p.YScale, zs: p.ZScale, xd: p.XDir, yd: p.YDir, zd: p.ZDir, pba: p.PlotBoxAspectRatio, dar: p.DataAspectRatio, darm: p.DataAspectRatioMode, c: p.CLim, cm: p.Colormap });
     if (akey !== this.axesKey) { this.axesKey = akey; this.clearCache(); }
     this.rebuild();
@@ -317,6 +338,29 @@ export class Axes3DView {
 
   // ------------------------------------------------------------ camera
 
+  /**
+   * camzoom / camva / camtarget / camup / camroll: the axes camera properties in
+   * manual mode set the zoom (view angle), the look-at point and the roll. They
+   * are applied only when they change, so mouse zoom / pan keep working on top.
+   */
+  applyCameraProps(force) {
+    const p = this.ax.props;
+    const tm = p.CameraTargetMode === 'manual';
+    const key = summarise([p.CameraViewAngleMode, p.CameraViewAngle, p.CameraTargetMode, p.CameraTarget, p.CameraUpVectorMode, p.CameraUpVector, tm ? [p.XLim, p.YLim, p.ZLim] : 0]);
+    if (key === this.camKey && !force) return;
+    const was = this.camKey;
+    this.camKey = key;
+    if (was === undefined && p.CameraViewAngleMode !== 'manual' && !tm && p.CameraUpVectorMode !== 'manual') return; // all automatic: keep the defaults
+    const va = Number(p.CameraViewAngle);
+    this.zoomF = p.CameraViewAngleMode === 'manual' && va > 0 && va < 180 ? Math.max(0.05, Math.min(200, Math.tan((DEFAULT_VA / 2) * DEG) / Math.tan((va / 2) * DEG))) : 1;
+    const t = p.CameraTarget;
+    if (tm && Array.isArray(t) && t.length === 3 && t.every(fin)) this.target.set(...this.toWorld(t[0], t[1], t[2]));
+    else this.target.set(0, 0, 0);
+    const u = p.CameraUpVector;
+    this.upData = p.CameraUpVectorMode === 'manual' && Array.isArray(u) && u.length === 3 && u.some((x) => x !== 0) ? u.slice() : null;
+    this.boxViewKey = '';
+  }
+
   getView() { return this.view.slice(); }
   setView(az, el) { this.view = [az, Math.max(-90, Math.min(90, el))]; this.boxViewKey = ''; }
   resetView() {
@@ -331,6 +375,12 @@ export class Axes3DView {
     return new THREE.Vector3(Math.cos(el) * Math.sin(az), -Math.cos(el) * Math.cos(az), Math.sin(el));
   }
   viewUp() {
+    if (this.upData) { // camup / camroll: the up vector projected onto the view plane
+      const d = this.viewDir();
+      const w = this.dirToWorld(this.upData);
+      w.addScaledVector(d, -w.dot(d));
+      if (w.lengthSq() > 1e-10) return w.normalize();
+    }
     const az = this.view[0] * DEG, el = this.view[1] * DEG;
     return new THREE.Vector3(-Math.sin(el) * Math.sin(az), Math.sin(el) * Math.cos(az), Math.cos(el));
   }
@@ -1154,7 +1204,9 @@ export class Axes3DView {
     const fallback = 10 ** Math.floor(Math.log10(span > 0 ? span : 1)) / 125; // 5^k multiples hit 0.2, 1, 5 × 10^n
     // lines on the box's ticks: the base is the tick step / 25, so 5^k levels hold the ticks and their fifths
     const T = this.tickInfo();
-    const base = [0, 1].map((k) => groundBase(T[k].ticks, this.logs[k]) || fallback);
+    const aligned = [0, 1].map((k) => groundBase(T[k].ticks, this.logs[k]));
+    let base = aligned.map((b) => b || fallback);
+    if (aligned[0] && aligned[1]) base = squareBases(base, [u.uScale.value.x, u.uScale.value.y]);
     u.uBase.value.set(base[0], base[1]);
     u.uMinPx.value = 10 * this.dpr;
     u.uColor.value.setRGB(...th.grid);
@@ -1167,11 +1219,13 @@ export class Axes3DView {
     const vis = this.camera === this.ortho ? (this.ortho.top - this.ortho.bottom) : R * 2 / this.zoomF;
     u.uFadeStart.value = Math.max(R * 1.2, vis * 0.9);
     u.uFadeEnd.value = Math.max(R * 6, vis * 6);
-    // the ground grid leaves the box floor to the box's own grid when that face shows one
+    // the ground grid on the box floor: it goes on under the plot when its lines follow the ticks
+    // (only a rim along the edges is left out); else the box floor keeps the box's own grid alone
     const p = this.ax.props, h = this.half;
     const floorZ = this.viewDir().z >= 0 ? -h.z : h.z;
-    const hole = !!(p.XGrid || p.YGrid) && Math.abs(u.uZ0.value - floorZ) <= 1e-9 * (Math.abs(h.z) || 1);
-    u.uHole.value.set(hole ? h.x : 0, hole ? h.y : 0);
+    const onFloor = Math.abs(u.uZ0.value - floorZ) <= 1e-9 * (Math.abs(h.z) || 1);
+    u.uHole.value.set(onFloor ? h.x : 0, onFloor ? h.y : 0);
+    u.uHoleMode.value = groundHoleMode(!!(aligned[0] && aligned[1]), !!(p.XGrid || p.YGrid));
     updateGroundGrid(g, this.camera, this.w * this.dpr, this.h * this.dpr);
   }
 

@@ -324,6 +324,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![host_info, renderer_ready, child_window, m_association, set_m_association, print::print_info, print::print_pdf, print::print_html])
         .setup(|app| {
             if let Err(err) = boot(app) {

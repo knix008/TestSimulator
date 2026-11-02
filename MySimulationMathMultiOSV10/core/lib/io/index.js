@@ -20,8 +20,12 @@ import * as xml from './xml.js';
 import * as xlsx from './xlsx.js';
 import * as archive from './archive.js';
 import * as image from '../image/index.js';
+import * as streams from './streams.js';
+import * as audiorec from './audiorec.js';
+import * as ftp from './ftp.js';
+import * as octtext from './octtext.js';
 
-const MODULES = [files, textio, delimited, fsys, web, audio, matio, json, xml, xlsx, archive, image];
+const MODULES = [files, textio, delimited, fsys, web, audio, matio, json, xml, xlsx, archive, image, streams, audiorec, ftp, octtext];
 const EARLIER = [base, linalg, numeric];
 
 export const builtins = Object.create(null);

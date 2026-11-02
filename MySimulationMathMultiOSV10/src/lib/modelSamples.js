@@ -240,6 +240,11 @@ export const MODEL_SAMPLES = [
   M('minmax', 'math', '#2ec4b6', ['MinMax'], ['최댓값 고르기', 'Picking the maximum'], ['위상이 다른 세 사인파 중 매 순간의 최댓값', 'The largest of three phase-shifted sines at each instant'],
     [B('Phase 0', 'SineWave', 0, 0), B('Phase 120', 'SineWave', 0, 1, { Phase: '2*pi/3' }), B('Phase 240', 'SineWave', 0, 2, { Phase: '4*pi/3' }), B('Max', 'MinMax', 1, 1, { Function: 'max', Inputs: '3' }), scope(4, 3, 1)],
     [['Phase 0/1', 'Max/1'], ['Phase 120/1', 'Max/2'], ['Phase 240/1', 'Max/3'], ['Phase 0/1', 'Scope/1'], ['Phase 120/1', 'Scope/2'], ['Phase 240/1', 'Scope/3'], ['Max/1', 'Scope/4']], '7'),
+  // the sum of every input next to the inputs themselves: one overlaid scope with a legend of the block names
+  M('sum_inputs', 'math', '#f72585', ['Sum', 'Scope'], ['입력들의 합', 'Sum of the inputs'], ['사인파·계단·램프를 Sum 블록으로 더해, 세 입력과 그 합을 한 스코프에 겹쳐 봅니다', 'A sine, a step and a ramp added by a Sum block: the three inputs and their sum overlaid on one scope'],
+    [B('Sine', 'SineWave', 0.8, 0), B('Step', 'Step', 0.4, 1, { Time: '2', After: '0.5' }), B('Ramp', 'Ramp', 0, 2, { slope: '0.1' }), B('Sum', 'Sum', 2.2, 1, { Inputs: '+++' }),
+      B('Scope', 'Scope', 4, 1, { NumInputPorts: '4', Layout: 'overlay', Legend: 'on' })],
+    [['Sine/1', 'Sum/1'], ['Step/1', 'Sum/2'], ['Ramp/1', 'Sum/3'], ['Sine/1', 'Scope/1'], ['Step/1', 'Scope/2'], ['Ramp/1', 'Scope/3'], ['Sum/1', 'Scope/4']], '10'),
   M('rounding', 'math', '#ff6b6b', ['Rounding Function'], ['내림 · 반올림 · 올림', 'Floor, round and ceil'], ['램프를 정수로 내림·반올림·올림합니다', 'A ramp rounded down, to nearest and up'],
     [B('Ramp', 'Ramp', 0, 1, { slope: '0.5' }), B('floor', 'Rounding', 1, 0, { Operator: 'floor' }), B('round', 'Rounding', 1, 1, { Operator: 'round' }), B('ceil', 'Rounding', 1, 2, { Operator: 'ceil' }), scope(4, 3, 1)],
     [['Ramp/1', 'floor/1'], ['Ramp/1', 'round/1'], ['Ramp/1', 'ceil/1'], ['Ramp/1', 'Scope/1'], ['floor/1', 'Scope/2'], ['round/1', 'Scope/3'], ['ceil/1', 'Scope/4']], '6'),

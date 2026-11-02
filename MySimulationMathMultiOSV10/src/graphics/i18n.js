@@ -41,6 +41,7 @@ const STR = {
     include: 'Include', incRulers: 'Rulers', incTips: 'Data tips', fileName: 'File name', folder: 'Folder', folderAsk: 'Chosen in the save dialog',
     save: 'Save…', copyPng: 'Copy as PNG', preview: 'Preview', previewHint: 'The preview is the real encoded output, scaled down; the checkerboard shows transparency.',
     savedTo: 'Saved: {path}',
+    menuBar: 'Figure menus', toolBar: 'Figure tools', tool: 'Tool',
   },
   ko: {
     figure: '그림 {n}', closeFig: '그림 닫기', noFigures: '아직 그림이 없습니다.',
@@ -83,6 +84,7 @@ const STR = {
     include: '포함', incRulers: '눈금자', incTips: '데이터 팁', fileName: '파일 이름', folder: '폴더', folderAsk: '저장 대화상자에서 고릅니다',
     save: '저장…', copyPng: 'PNG로 복사', preview: '미리 보기', previewHint: '미리 보기는 실제로 인코딩한 결과를 줄인 것입니다. 바둑판무늬는 투명한 부분입니다.',
     savedTo: '저장했습니다: {path}',
+    menuBar: '그림 메뉴', toolBar: '그림 도구', tool: '도구',
   },
 };
 export function tr(lang, key, vars) {

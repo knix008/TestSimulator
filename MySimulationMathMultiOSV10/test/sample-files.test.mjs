@@ -20,7 +20,7 @@ test('samples/: every start page sample is there and up to date (run npm run gen
     assert.equal(fs.readFileSync(p, 'utf8'), text, `samples/${rel} is out of date`);
   }
   assert.equal(Object.keys(files).filter((f) => f.startsWith('scripts/')).length, 49);
-  assert.equal(Object.keys(files).filter((f) => f.endsWith('.smdl')).length, 55);
+  assert.equal(Object.keys(files).filter((f) => f.endsWith('.smdl')).length, 56);
 });
 
 test('samples/: the model files open with their blocks and simulate', () => {

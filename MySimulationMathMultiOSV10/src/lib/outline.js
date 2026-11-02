@@ -5,7 +5,9 @@
 //   outlineOf(text) → [{ kind, name, line, depth }]
 //     kind: 'section' | 'classdef' | 'block' | 'function' | 'local' | 'nested' | 'method'
 
-const OPENERS = new Set(['if', 'for', 'parfor', 'while', 'switch', 'try', 'spmd', 'function', 'classdef', 'properties', 'methods', 'events', 'enumeration']);
+const OPENERS = new Set(['if', 'for', 'parfor', 'while', 'switch', 'try', 'spmd', 'function', 'classdef', 'properties', 'methods', 'events', 'enumeration', 'do', 'unwind_protect']);
+// Octave's closing words: endif, endfunction, end_try_catch … and until (closes do)
+const CLOSERS = /^(end(if|for|parfor|while|switch|function|classdef|properties|methods|events|enumeration|spmd)|end_try_catch|end_unwind_protect|until)$/;
 
 /** The code of a line with comments and quoted text removed (quotes kept as empty). */
 export function stripLine(line) {
@@ -13,7 +15,7 @@ export function stripLine(line) {
   let prev = '';
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (c === '%' || (c === '.' && line.startsWith('...', i))) break;
+    if (c === '%' || c === '#' || (c === '.' && line.startsWith('...', i))) break;
     if (c === '"' || (c === "'" && !/[\w)\]}.']/.test(prev))) {
       const q = c;
       let j = i + 1;
@@ -44,7 +46,7 @@ function blockTokens(code) {
     if (w === '(' || w === '[' || w === '{') { depth += 1; stmtStart = false; continue; }
     if (w === ')' || w === ']' || w === '}') { depth = Math.max(0, depth - 1); continue; }
     if (w === ';' || w === ',') { if (!depth) stmtStart = true; continue; }
-    if (depth === 0 && w === 'end') { toks.push('end'); stmtStart = false; continue; }
+    if (depth === 0 && (w === 'end' || CLOSERS.test(w))) { toks.push('end'); stmtStart = false; continue; }
     if (depth === 0 && stmtStart && OPENERS.has(w)) {
       // "properties" / "methods" as a plain name (x = methods(obj)) is not a block
       const rest = code.slice(re.lastIndex);

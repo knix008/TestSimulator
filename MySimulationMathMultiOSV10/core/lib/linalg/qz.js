@@ -284,3 +284,5 @@ export const builtins = {
 export const help = {
   qz: H('Generalized Schur (QZ) factorization: Q*A*Z = AA, Q*B*Z = BB.', '일반화 슈어(QZ) 분해: Q*A*Z = AA, Q*B*Z = BB.', ['[AA, BB, Q, Z] = qz(A, B)', '[AA, BB, Q, Z, V, W] = qz(A, B)', "[...] = qz(A, B, 'real')", "[...] = qz(A, B, 'complex')"]),
 };
+// Rotation helpers shared with factor2.js (qzhess, ordqz).
+export { rotg, rowRot, colRot };

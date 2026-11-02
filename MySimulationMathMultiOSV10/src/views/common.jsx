@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t, useLanguage, getLanguage } from '../lib/i18n';
 import { isDesktop, fsApi } from '../lib/backend';
+import { writeText } from '../lib/clipboard';
 import { chooseFile } from '../lib/prompt';
 import { errorText, toast, showError } from '../lib/ui';
 import { Icon, Dialog } from '../components/Chrome';
@@ -71,21 +72,7 @@ export function warningText(w) {
 // Error text with a plain explanation for the API error codes (lib/ui.js).
 export { errorText };
 
-export async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    let ok = false;
-    try { ok = document.execCommand('copy'); } catch { ok = false; }
-    ta.remove();
-    return ok;
-  }
-}
+export const copyText = (text) => writeText(text);
 
 // Reads a local file into text in the page (works on the web and in Tauri).
 export function FilePickButton({ label, icon = 'upload', accept, onText, className = 'vbtn' }) {

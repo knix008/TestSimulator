@@ -166,3 +166,107 @@ test('no lazy import of modules the app imports anyway (vite reporter warnings)'
   assert.doesNotMatch(read('../src/components/Tutorial.jsx'), /import\('\.\.\/lib\/popups'\)/);
   assert.match(read('../src/components/GuideWindow.jsx'), /import\.meta\.glob\('\.\.\/print\/index\.js', \{ eager: true \}\)/);
 });
+
+test('the app answers the engine: sound and recording (audioHost), web, panes, openvar, exit', () => {
+  const app = read('../src/App.jsx');
+  assert.match(app, /installAudioHost\(engine\),/);
+  assert.match(app, /engine\.onRequest\('web\.open', \(m\) => \{ if \(m && m\.url\) openExternal\(m\.url\); return \{ ok: true \}; \}\)/);
+  assert.match(app, /engine\.on\('event:showPane'/);
+  assert.match(app, /engine\.on\('event:openVariable'/);
+  assert.match(app, /engine\.on\('event:exit'/);
+  assert.doesNotMatch(app, /function playAudio/, 'the old player (it read fields the engine does not send) is gone');
+  const host = read('../src/lib/audioHost.js');
+  for (const t of ['audio.play', 'audio.stop', 'audio.pause', 'audio.resume', 'audio.beep', 'audio.record.pause', 'audio.record.resume']) assert.ok(host.includes(`engine.on('${t}'`), t);
+  for (const t of ['audio.playBlocking', 'audio.devices', 'audio.record.start', 'audio.record.data', 'audio.record.stop', 'audio.recordBlocking']) assert.ok(host.includes(`engine.onRequest('${t}'`), t);
+  // the fields the engine posts (core/lib/io/audio.js) are the ones the host reads
+  const eng = read('../core/lib/io/audio.js');
+  assert.match(eng, /type: 'audio\.play', id: [^,]+, sampleRate: [^,]+, numChannels: [^,]+, frames[^,]*, channels/);
+  assert.match(host, /Number\(msg\.sampleRate\)/);
+  assert.match(host, /msg\.channels/);
+});
+
+test('start page: the model examples come after the samples (new layouts, and saved version-2 layouts once)', async () => {
+  assert.match(read('../src/views/StartPage.jsx'), /CARD_IDS = \['hero', 'templates', 'recent', 'side', 'help', 'samples', 'models'\]/);
+  const { cardsOf, layoutValue } = await import('../src/lib/startLayout.js');
+  const ids = ['hero', 'samples', 'models'];
+  const span = { hero: 3, samples: 3, models: 3 };
+  const fresh = cardsOf(null, ids, span, { hero: 4, samples: 6, models: 6 });
+  assert.ok(fresh.samples.row < fresh.models.row, 'new layout: samples first');
+  // a saved layout from before: models above samples → moved below once
+  const old = { version: 2, cards: { hero: { col: 0, row: 0, w: 3, h: 4, fit: true }, models: { col: 0, row: 4, w: 3, h: 6, fit: true }, samples: { col: 0, row: 10, w: 3, h: 6, fit: true } } };
+  const moved = cardsOf(old, ids, span, { hero: 4, samples: 6, models: 6 });
+  assert.ok(moved.samples.row < moved.models.row, 'version 2: models moved below the samples');
+  assert.equal(moved.samples.row, 4, 'the samples float up into the free place');
+  const saved = layoutValue(moved);
+  assert.equal(saved.version, 3);
+  // version 3: the user's own order stays (models above samples is kept)
+  const mine = { version: 3, cards: old.cards };
+  const kept = cardsOf(mine, ids, span, { hero: 4, samples: 6, models: 6 });
+  assert.ok(kept.models.row < kept.samples.row, 'a version-3 layout is the user\'s choice');
+});
+
+test('a graphical script converts to a script: canvas right-click menu, toolbar and Editor ribbon', () => {
+  const fe = read('../src/flow/FlowEditor.jsx');
+  assert.match(fe, /onContextMenu=\{onMenu\}/);
+  assert.match(fe, /\{ id: 'toScript', label: t\('fl_to_script'\), icon: 'script', disabled: !hasCode \}/);
+  assert.match(fe, /if \(pick === 'toScript'\) actions\.openAsScript\(gen\.code\);/);
+  for (const k of ['run', 'export', 'undo', 'redo', 'all', 'remove', 'fit']) assert.ok(fe.includes(`pick === '${k}'`), k);
+  assert.match(fe, /<Tb icon="script" label=\{t\('fl_to_script'\)\}/);
+  const app = read('../src/App.jsx');
+  assert.match(app, /\{ id: 'flowToScript', icon: 'script', label: t\('fl_to_script'\), tip: t\('rb_flow_to_script_tip'\), disabled: !isFlow, run: \(\) => \{ const fe = editors\.current\.get\(active\); if \(fe && fe\.code\) newScript\(fe\.code\(\)\); \} \}/);
+  assert.match(app, /openAsScript: \(code\) => newScript\(code\)/);
+  for (const lang of ['ko', 'en']) { setLanguage(lang); for (const k of ['fl_to_script', 'rb_flow_to_script_tip']) assert.notEqual(t(k), k, `${lang}.${k}`); }
+});
+
+test('the graphical editor has a 코드 view toggle: a read-only code pane with a remembered width', () => {
+  const fe = read('../src/flow/FlowEditor.jsx');
+  assert.match(fe, /<Tb icon="code" label=\{t\('fl_code_view'\)\} title=\{t\('fl_code_view_tip'\)\} on=\{panes\.code\} onClick=\{\(\) => togglePane\('code'\)\} \/>/);
+  assert.match(fe, /<Splitter axis="x" dir=\{-1\}/);
+  assert.match(fe, /savePanes\(\(p\) => \(\{ \.\.\.p, codeW: w \}\)\)/, 'the dragged width is kept with the panes');
+  assert.match(fe, /<FlowCodePane width=/);
+  const pane = read('../src/flow/FlowCodePane.jsx');
+  assert.match(pane, /EditorState\.readOnly\.of\(true\)/);
+  assert.match(pane, /data-act="toScript"/);
+  for (const lang of ['ko', 'en']) { setLanguage(lang); for (const k of ['fl_code_view', 'fl_code_view_tip', 'fl_code_close', 'sp_t_flow', 'sp_t_flow_d']) assert.notEqual(t(k), k, `${lang}.${k}`); }
+});
+
+test('the start page and the empty editor area make a new graphical script', () => {
+  const sp = read('../src/views/StartPage.jsx');
+  assert.match(sp, /\['newFlow', 'flow', 'sp_t_flow', 'sp_t_flow_d'\]/);
+  assert.match(sp, /onAction\('newFlow'\)/);
+  const app = read('../src/App.jsx');
+  assert.match(app, /newModel,\r?\n\s+newFlow,/);
+  assert.match(app, /data-act="newFlow" onClick=\{\(\) => newFlow\(\)\}/);
+});
+
+test('the bottom panel keeps the height its splitter set, for every tab, with or without documents', () => {
+  const app = read('../src/App.jsx');
+  assert.match(app, /onCommit=\{\(v\) => \{ setLive\(\(\{ cmdH, \.\.\.x \}\) => x\); setLayout\(\{ cmdH: v \}\); \}\}/, 'the drag size is dropped, not set to undefined');
+  assert.doesNotMatch(app, /cmdH: undefined/);
+  assert.match(app, /if \(!\(L\.cmdH > 0\)\) L\.cmdH = DEFAULT_CMD_H;/);
+  // one slot for all three tabs, sized by the splitter
+  assert.match(app, /<div className="cmd-slot" style=\{layout\.cmd\.on \? \{ height: L\.cmdH \} : \{ display: 'none' \}\}>\{commandWindow\}<\/div>/);
+  const L = { ...{ cmdH: 300 }, ...(({ cmdH, ...x }) => x)({ cmdH: 340 }) };
+  assert.equal(L.cmdH, 300, 'after a drag ends the saved height is used');
+});
+
+test('start page help and function search show their answer in the Command Window', () => {
+  const app = read('../src/App.jsx');
+  assert.match(app, /helpCmd: \(\) => \{ setStartOn\(false\); showPane\('cmd'\); runCode\('help'\); \}/);
+  assert.match(app, /if \(key\) \{ setStartOn\(false\); showPane\('cmd'\); runCode\(`lookfor\('\$\{key\}'\)`\); \}/);
+  assert.ok(app.includes(String.raw`replace(/[^\p{L}\p{N}_ ]/gu, '')`), 'Korean keywords are kept');
+});
+
+test('the title bar icons share one hue (settings is not grey any more)', async () => {
+  const chrome = read('../src/components/Chrome.jsx');
+  assert.match(chrome, /\|uncomment\|settings\)\$\/, 'cyan'\]/);
+  assert.doesNotMatch(chrome, /\[\/\^\(settings\|wrench/);
+});
+
+test('the graphical editor has a 변수 block whose name is edited on the block', () => {
+  const fe = read('../src/flow/FlowEditor.jsx');
+  assert.match(fe, /\{ type: 'var', icon: 'variable', label: t\('fl_var'\), tip: t\('fl_var_tip'\) \}/);
+  assert.match(fe, /n\.type === 'var' \? 1 : 0/);
+  assert.match(fe, /\{n\.type === 'var' && \(/);
+  for (const lang of ['ko', 'en']) { setLanguage(lang); assert.notEqual(t('fl_var_tip'), 'fl_var_tip'); }
+});

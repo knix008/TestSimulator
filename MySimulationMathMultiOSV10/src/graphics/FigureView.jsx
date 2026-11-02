@@ -10,6 +10,8 @@ import { lightOptionsFor } from './controller.js';
 import { nearestPoint, zoomLimits, panLimits, fmtNum, lightsOf } from './scene.js';
 import { tr } from './i18n.js';
 import { UiLayer } from './UiLayer.jsx';
+import { MenuBar, UiToolbars, openUiMenu } from './UiMenus.jsx';
+import { findAccelerator, contextMenuOf } from './uimodel.js';
 
 /**
  * A selection rectangle that reads on any plot colour: a light translucent
@@ -380,7 +382,28 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
       return;
     }
     if (e.key === 'Escape') { ctl.clearTips(fig.id); band.current = null; drag.current = null; drawOverlay(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.length === 1) {
+      const m = findAccelerator(fig, e.key);
+      if (m) { e.preventDefault(); ctl.callback(m, 'MenuSelected'); return; }
+    }
     if (fig.props.KeyPressFcn) ctl.callback(fig, 'KeyPress', null, { key: e.key, character: e.key.length === 1 ? e.key : '' });
+  };
+
+  /** Right-click: the uicontextmenu of the object under the pointer (plot object, axes, then figure). */
+  const openContextMenu = (e) => {
+    const { x, y } = local(e);
+    const fx = x - ox, fy = y - ox;
+    const it = hitItem(ctl.layouts.get(fig.id), fx, fy);
+    const hit = it && it.kind === 'axes2d' && it.mapper ? nearestPoint(it.node, it.mapper, fx, fy, 6) : null;
+    for (const n of [hit && hit.node, it && it.node, fig]) {
+      const cm = n ? contextMenuOf(fig, n) : null;
+      if (!cm) continue;
+      e.preventDefault();
+      if (cm.props.Callback || cm.props.ContextMenuOpeningFcn) ctl.callback(cm, 'ContextMenuOpening');
+      openUiMenu(ctl, cm, { x: e.clientX, y: e.clientY });
+      return true;
+    }
+    return false;
   };
 
   const panning = drag.current && (drag.current.kind === 'pan2d' || drag.current.kind === 'pan3d');
@@ -393,13 +416,15 @@ export function FigureView({ ctl, fig, lang, theme, version, onMenu }) {
   const camera = tv ? `${tr(lang, 'az')} ${fmtNum(tv.getView()[0])}°  ${tr(lang, 'el')} ${fmtNum(tv.getView()[1])}°` : '';
   return (
     <div className="fig-view">
+      <MenuBar ctl={ctl} fig={fig} lang={lang} />
+      <UiToolbars ctl={ctl} fig={fig} lang={lang} />
       <div ref={stage} className="fig-stage" tabIndex={0} onKeyDown={onKeyDown} data-figure={fig.id}>
         <canvas ref={base} className="fig-canvas" />
         <canvas ref={over} className="fig-canvas fig-over" style={{ cursor: cursorCss }}
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => { drag.current = null; band.current = null; }}
           onPointerLeave={() => { if (!drag.current) { cursor.current = null; setStatus(''); setCbHover(false); drawOverlay(); } }}
           onDoubleClick={(e) => { const { x, y } = local(e); const cb = colorbarAt(ctl.layouts.get(fig.id), x - ox, y - ox); if (cb) ctl.setColorbarDx(cb.node.id, 0); }}
-          onContextMenu={(e) => { if (onMenu) onMenu(e); else e.preventDefault(); }} />
+          onContextMenu={(e) => { if (openContextMenu(e)) return; if (onMenu) onMenu(e); else e.preventDefault(); }} />
         <UiLayer ctl={ctl} fig={fig} left={ox} top={ox} width={fw} height={fh} theme={theme} lang={lang} />
       </div>
       <div className="fig-status">

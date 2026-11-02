@@ -3,7 +3,7 @@
 // needs (SharedArrayBuffer) and the file-system API (server/fs-api.js)
 // rooted at a workspace folder.
 //
-//   node server/server.js [--root <dir>] [--port 5231] [--host 127.0.0.1] [--allow-system] [--no-open]
+//   node server/server.js [--root <dir>] [--port 5231] [--host 127.0.0.1] [--allow-system] [--no-ftp] [--no-open]
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,8 +31,8 @@ const MIME = {
   '.woff2': 'font/woff2', '.wasm': 'application/wasm', '.m': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
 };
 
-export function createWebServer({ workRoot = defaultWebRoot(), allowSystem = false, distDir = dist } = {}) {
-  const { handle } = createFsApi({ root: workRoot, jail: true, allowSystem, version: readVersion(), platform: 'web' });
+export function createWebServer({ workRoot = defaultWebRoot(), allowSystem = false, allowFtp = true, distDir = dist } = {}) {
+  const { handle } = createFsApi({ root: workRoot, jail: true, allowSystem, allowFtp, version: readVersion(), platform: 'web' });
   return http.createServer(async (req, res) => {
     try {
       if (await handle(req, res)) return;
@@ -63,7 +63,7 @@ async function main() {
     console.error('dist/ is missing. Run "npm run build" first.');
     process.exit(1);
   }
-  const server = createWebServer({ workRoot, allowSystem: process.argv.includes('--allow-system') });
+  const server = createWebServer({ workRoot, allowSystem: process.argv.includes('--allow-system'), allowFtp: !process.argv.includes('--no-ftp') });
   server.listen(port, host, () => {
     const url = `http://${host}:${port}`;
     console.log(`MySimulationMath ${url}  (workspace folder: ${workRoot})`);

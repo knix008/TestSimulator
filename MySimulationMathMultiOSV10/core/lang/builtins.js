@@ -9,14 +9,17 @@ import {
 import { parseExpr } from './parser.js';
 import { Compiler } from './compile.js';
 import { formatDisplay, formatDisp, handleText } from './display.js';
+import { octaveDisplay } from './octdisplay.js';
 import { fallbackOp } from './ops.js';
 import { joinPath, dirName, baseName, normPath, Workspace, Frame, bytesOf, helpComment } from './interp.js';
 import { KEYWORDS } from './lexer.js';
 import { disown } from './indexing.js';
 import { M_EXT, M_EXTS, isMFile, stripMExt } from './mext.js';
+// Octave functions (core/lang/octave.js); it gets the helpers of this module through useHelpers
+import { octaveBuiltins, octaveHelp, compareValues, assertMessage, useHelpers } from './octave.js';
 
 const S = (v, what) => toStr(v, what);
-const textArg = (v, fn) => { if (!v || !isText(v)) throw new MError(`core:${fn}:notText`, 'Argument must be a character vector or string scalar.'); return toStr(v); };
+export const textArg = (v, fn) => { if (!v || !isText(v)) throw new MError(`core:${fn}:notText`, 'Argument must be a character vector or string scalar.'); return toStr(v); };
 const isVarName = (s) => /^[A-Za-z]\w{0,62}$/.test(s) && !KEYWORDS.has(s);
 const cellOfStr = (arr, col = true) => cell(col ? [arr.length, 1] : [1, arr.length], arr.map((s) => str(s)));
 const wsOf = (rt, which) => {
@@ -52,7 +55,7 @@ export function helpFor(rt, name) {
   return null;
 }
 
-function fileFor(rt, name) {
+export function fileFor(rt, name) {
   if (!name) return null;
   if (name.includes('/') || name.includes('\\')) return normPath(name);
   const n = stripMExt(name);
@@ -109,7 +112,7 @@ function genpathOf(rt, dir) {
   return out;
 }
 
-function absPath(rt, p) {
+export function absPath(rt, p) {
   p = normPath(p);
   if (p.startsWith('/') || /^[A-Za-z]:/.test(p)) return p;
   if (p === '~') return normPath(rt.fs.homeDir());
@@ -125,7 +128,7 @@ function absPath(rt, p) {
   return r.replace(/^\/([A-Za-z]:)/, '$1');
 }
 
-function stackStruct(rt, skip = 0) {
+export function stackStruct(rt, skip = 0) {
   const fr = rt.stackInfo().slice(skip);
   return struct([fr.length, 1], ['file', 'name', 'line'], fr.map((s) => { const r = Object.create(null); r.file = str(s.file); r.name = str(s.name); r.line = num(s.line); return r; }));
 }
@@ -301,7 +304,7 @@ export const builtins = {
     if (opt === 'import' || opt === 'java' || opt === 'mex') return [];
     clearVars(rt, ws, matchNames(Object.keys(ws.vars), words));
     // a function name clears its cached definition
-    for (const w of words) if (!/[*?]/.test(w)) { rt.fnCache.delete(w); }
+    for (const w of words) if (!/[*?]/.test(w) && !rt.locked.has(w)) { rt.fnCache.delete(w); }
     return [];
   },
   clearvars(args, nargout, ctx) {
@@ -505,6 +508,16 @@ export const builtins = {
     const rt = ctx.interp;
     if (!args.length) throw new MError('core:minrhs', 'Not enough input arguments.');
     const c = args[0];
+    // assert(observed, expected[, tol]): the second argument is a value, not a message
+    // (or both are texts / cells / structs to compare)
+    if (args.length >= 2 && (!isText(args[1]) || !(isTensor(c) && c.cls !== 'char'))) {
+      const tol = args.length > 2 ? toNum(args[2]) : 0;
+      const rows = compareValues(rt, c, args[1], tol);
+      if (!rows.length) return [];
+      const e = new MError('core:assertion:failed', assertMessage(rows));
+      e.fromError = true; e.extra.noFn = true;
+      throw e;
+    }
     let ok;
     try { ok = isTensor(c) && (c.cls === 'logical' || NUMERIC_CLASSES.includes(c.cls)) ? rt.truth(c) : (() => { throw new MError('core:assertion:LogicalScalar', 'Assertion input must be logical.'); })(); }
     catch (e) { if (e.identifier === 'core:assertion:LogicalScalar') throw e; ok = false; }
@@ -833,7 +846,7 @@ export const builtins = {
   help(args, nargout, ctx) {
     const rt = ctx.interp;
     if (!args.length) {
-      const text = 'Type "help name" for help on a function, or "doc name" to open the help browser.';
+      const text = 'Type "help name" for help on a function, "lookfor keyword" to search the function list,\nor "doc name" to open the help browser. Example: help plot';
       if (nargout > 0) return str(text);
       rt.out(text + '\n');
       return [];
@@ -862,7 +875,7 @@ export const builtins = {
     hits.sort((a, b) => a[0].localeCompare(b[0]));
     if (nargout > 0) return cellOfStr(hits.map((h) => h[0]));
     const w = Math.max(0, ...hits.map((h) => h[0].length));
-    rt.out(hits.map(([n, d]) => `${n.padEnd(w)} - ${d}`).join('\n') + (hits.length ? '\n' : ''));
+    rt.out(hits.length ? hits.map(([n, d]) => `${n.padEnd(w)} - ${d}`).join('\n') + '\n' : `No functions found for "${key}".\n`);
     return [];
   },
   profile(args, nargout, ctx) {
@@ -870,12 +883,29 @@ export const builtins = {
     const w = args.length ? S(args[0]).toLowerCase() : 'info';
     if (!rt.profiler) rt.profiler = { on: false, data: new Map(), start: 0 };
     const p = rt.profiler;
-    if (w === 'on' || w === 'resume') { p.on = true; if (w === 'on') p.data.clear(); p.start = Date.now(); return []; }
+    if (w === 'on' || w === 'resume') { p.on = true; if (w === 'on') { p.data.clear(); p.root = null; p.cur = null; } p.start = Date.now(); return []; }
     if (w === 'off') { p.on = false; return []; }
-    if (w === 'clear') { p.data.clear(); return []; }
+    if (w === 'clear') { p.data.clear(); p.root = null; p.cur = null; return []; }
     if (w === 'viewer' || w === 'report') { rt.onEvent({ type: 'profile', data: [...p.data].map(([name, d]) => ({ name, ...d })) }); p.on = false; return []; }
+    const names = [...p.data.keys()];
     const rows = [...p.data].map(([name, d]) => { const r = Object.create(null); r.FunctionName = str(name); r.NumCalls = num(d.calls); r.TotalTime = num(d.time / 1000); return r; });
-    const info = structOf({ FunctionTable: struct([rows.length, 1], ['FunctionName', 'NumCalls', 'TotalTime'], rows) });
+    // Hierarchical: the call tree (Index into FunctionTable, SelfTime, TotalTime, NumCalls, Children)
+    const HF = ['Index', 'SelfTime', 'TotalTime', 'NumCalls', 'Children'];
+    const tree = (node) => {
+      const kids = [...node.children.values()];
+      return struct([kids.length, 1], HF, kids.map((k) => {
+        const r = Object.create(null);
+        const childTime = [...k.children.values()].reduce((s, c) => s + c.time, 0);
+        r.Index = num(names.indexOf(k.name) + 1);
+        r.SelfTime = num(Math.max(0, k.time - childTime) / 1000);
+        r.TotalTime = num(k.time / 1000);
+        r.NumCalls = num(k.calls);
+        r.Children = tree(k);
+        return r;
+      }));
+    };
+    const hier = p.root ? tree(p.root) : struct([0, 1], HF, []);
+    const info = structOf({ FunctionTable: struct([rows.length, 1], ['FunctionName', 'NumCalls', 'TotalTime'], rows), Hierarchical: hier });
     if (nargout > 0 || w === 'info') return info;
     return [];
   },
@@ -922,7 +952,8 @@ fallbacks.vertcat = (args, nargout, ctx) => ctx.interp.concat(args.map((a) => [a
 fallbacks.display = (args, nargout, ctx) => {
   const rt = ctx.interp;
   const name = args.length > 1 ? S(args[1]) : 'ans';
-  rt.out(formatDisplay(name, args[0], rt.format, (o) => rt.objectDisplayText(o)));
+  const oct = rt.isOctaveFrame() ? octaveDisplay(name, args[0], rt.format) : null;
+  rt.out(oct != null ? oct : formatDisplay(name, args[0], rt.format, (o) => rt.objectDisplayText(o)));
   return [];
 };
 fallbacks.disp = (args, nargout, ctx) => { const rt = ctx.interp; rt.out(rt.dispText(args[0])); return []; };
@@ -960,7 +991,7 @@ export const help = {
   lastwarn: { en: 'Last warning message.', ko: '마지막 경고 메시지.', syntax: ['[msg, id] = lastwarn'] },
   lasterr: { en: 'Last error message.', ko: '마지막 오류 메시지.', syntax: ['[msg, id] = lasterr'] },
   rethrow: { en: 'Rethrow an error, keeping its stack.', ko: '오류를 스택을 유지한 채 다시 발생시킵니다.', syntax: ['rethrow(ME)'] },
-  assert: { en: 'Throw an error when a condition is false.', ko: '조건이 거짓이면 오류를 발생시킵니다.', syntax: ['assert(cond)', 'assert(cond, msg)', 'assert(cond, id, fmt, ...)'] },
+  assert: { en: 'Throw an error when a condition is false, or when an observed value differs from the expected one (tol > 0 absolute, tol < 0 relative).', ko: '조건이 거짓이거나 관찰값이 기대값과 다르면 오류를 발생시킵니다 (tol > 0 절대, tol < 0 상대 오차).', syntax: ['assert(cond)', 'assert(cond, msg)', 'assert(cond, id, fmt, ...)', 'assert(observed, expected)', 'assert(observed, expected, tol)'] },
   MException: { en: 'Error object with identifier, message, stack and causes.', ko: '식별자·메시지·스택·원인을 가진 오류 객체.', syntax: ['ME = MException(id, fmt, a1, ..., aN)', 'throw(ME)', 'rethrow(ME)', 'getReport(ME)', 'ME = addCause(ME, causeME)'] },
   onCleanup: { en: 'Run a task when the variable is cleared or the function exits.', ko: '변수가 지워지거나 함수가 끝날 때 작업을 실행합니다.', syntax: ['c = onCleanup(@() task)'] },
   run: { en: 'Run a script file.', ko: '스크립트 파일을 실행합니다.', syntax: ['run(scriptname)'] },
@@ -1009,3 +1040,7 @@ export const help = {
   profile: { en: 'Profile execution time of functions.', ko: '함수 실행 시간을 측정합니다.', syntax: ['profile on', 'profile off', 'p = profile(\'info\')', 'profile viewer'] },
   inmem: { en: 'Names of functions loaded in memory.', ko: '메모리에 로드된 함수 이름.', syntax: ['M = inmem'] },
 };
+
+useHelpers({ absPath, fileFor, textArg, helpFor });
+for (const [k, fn] of Object.entries(octaveBuiltins)) if (!(k in builtins)) builtins[k] = fn;
+for (const [k, h] of Object.entries(octaveHelp)) if (!(k in help)) help[k] = h;

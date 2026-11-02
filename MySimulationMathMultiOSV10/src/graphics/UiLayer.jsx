@@ -6,8 +6,10 @@ import React, { useEffect, useState } from 'react';
 import { IconSelect } from '../views/common';
 import { rgbCss } from './theme.js';
 import { uiItems } from './scene.js';
+import { contextMenuOf, cellText } from './uimodel.js';
+import { openUiMenu } from './UiMenus.jsx';
 
-const UI_TYPES = new Set(['uicontrol', 'uibutton', 'uislider', 'uieditfield', 'uilabel', 'uidropdown', 'uicheckbox', 'uipanel']);
+const UI_TYPES = new Set(['uicontrol', 'uibutton', 'uislider', 'uieditfield', 'uilabel', 'uidropdown', 'uicheckbox', 'uipanel', 'uibuttongroup', 'uitable']);
 
 function colorOf(node, prop, fallback) {
   const v = node.props[prop];
@@ -39,7 +41,7 @@ function EditBox({ value, onCommit, disabled, style, multiline, numeric, placeho
   return multiline ? <textarea className="fig-ui-edit" {...common} /> : <input type="text" inputMode={numeric ? 'decimal' : undefined} className="fig-ui-edit" {...common} />;
 }
 
-function Control({ node, ctl, pw, ph, theme }) {
+function Control({ node, ctl, pw, ph, theme, fig }) {
   const p = node.props;
   if (p.Visible === false) return null;
   const box = boxOf(node, pw, ph);
@@ -49,13 +51,16 @@ function Control({ node, ctl, pw, ph, theme }) {
   const style = { position: 'absolute', ...box, fontSize: pxFont(p), color: fg || undefined, background: bg || undefined, fontWeight: p.FontWeight === 'bold' ? 650 : undefined };
   const fire = (event, props) => ctl.callback(node, event, props);
   const tip = p.Tooltip || p.TooltipString || undefined;
+  const cm = fig ? contextMenuOf(fig, node) : null;
   const common = { 'data-handle': node.id, title: tip };
+  if (cm) common.onContextMenu = (e) => { e.preventDefault(); e.stopPropagation(); if (cm.props.Callback || cm.props.ContextMenuOpeningFcn) ctl.callback(cm, 'ContextMenuOpening'); openUiMenu(ctl, cm, { x: e.clientX, y: e.clientY }); };
 
-  if (node.type === 'uipanel') {
+  if (node.type === 'uitable') return <Table node={node} ctl={ctl} style={style} enabled={enabled} common={common} />;
+  if (node.type === 'uipanel' || node.type === 'uibuttongroup') {
     return (
       <fieldset className="fig-ui-panel" style={style} {...common}>
         {p.Title ? <legend>{p.Title}</legend> : null}
-        <Children nodes={node.children} ctl={ctl} pw={box.width} ph={box.height} theme={theme} />
+        <Children nodes={node.children} ctl={ctl} pw={box.width} ph={box.height} theme={theme} fig={fig} />
       </fieldset>
     );
   }
@@ -135,8 +140,48 @@ function Control({ node, ctl, pw, ph, theme }) {
   }
 }
 
-function Children({ nodes, ctl, pw, ph, theme }) {
-  return (nodes || []).slice().reverse().filter((n) => UI_TYPES.has(n.type)).map((n) => <Control key={n.id} node={n} ctl={ctl} pw={pw} ph={ph} theme={theme} />);
+/** uitable: a scrollable HTML table; editable cells commit on Enter / blur, logical cells are check boxes. */
+function Table({ node, ctl, style, enabled, common }) {
+  const p = node.props;
+  const [sel, setSel] = useState(null);
+  const cells = p.Cells || [];
+  const cols = p.ColumnNames || [];
+  const rows = p.RowNames || [];
+  const edit = (r, c, value) => ctl.callback(node, 'CellEdit', null, { row: r + 1, col: c + 1, value });
+  const pick = (r, c) => { setSel(`${r},${c}`); if (p.CellSelectionCallback) ctl.callback(node, 'CellSelection', null, { indices: [[r + 1, c + 1]] }); };
+  const width = (c) => (typeof (p.Widths || [])[c] === 'number' ? p.Widths[c] : undefined);
+  const fg = colorOf(node, 'ForegroundColor', null);
+  return (
+    <div className="fig-ui-table" style={{ ...style, background: undefined, color: fg || undefined }} {...common}>
+      <table>
+        {cols.length > 0 && (
+          <thead><tr>{rows.length > 0 && <th className="corner" />}{cols.map((s, c) => <th key={c} style={{ width: width(c), minWidth: width(c) }}>{s}</th>)}</tr></thead>
+        )}
+        <tbody>
+          {cells.map((row, r) => (
+            <tr key={r} className={p.RowStriping !== false && r % 2 ? 'odd' : ''}>
+              {rows.length > 0 && <th>{rows[r] ?? ''}</th>}
+              {row.map((cell, c) => {
+                const ed = enabled && p.Enable !== 'inactive' && (p.Editable || [])[c];
+                const fmt = (p.Formats || [])[c];
+                const cls = [cell.t === 'n' ? 'num' : '', sel === `${r},${c}` ? 'sel' : ''].join(' ').trim();
+                let content;
+                if (cell.t === 'b' || fmt === 'logical') content = <input type="checkbox" checked={!!cell.v} disabled={!ed} onChange={(e) => edit(r, c, e.target.checked)} />;
+                else if (ed && Array.isArray(fmt) && fmt.length) content = <IconSelect value={String(cell.v ?? '')} options={fmt.map((s) => ({ value: s, label: s, icon: 'list' }))} onChange={(v) => edit(r, c, v)} width={width(c) || 110} />;
+                else if (ed) content = <EditBox value={cellText(cell)} style={{ width: '100%', textAlign: cell.t === 'n' ? 'right' : 'left' }} numeric={cell.t === 'n'} onCommit={(s) => edit(r, c, s)} />;
+                else content = cellText(cell);
+                return <td key={c} className={cls} style={{ width: width(c), minWidth: width(c) }} onMouseDown={() => pick(r, c)}>{content}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Children({ nodes, ctl, pw, ph, theme, fig }) {
+  return (nodes || []).slice().reverse().filter((n) => UI_TYPES.has(n.type)).map((n) => <Control key={n.id} node={n} ctl={ctl} pw={pw} ph={ph} theme={theme} fig={fig} />);
 }
 
 export function UiLayer({ ctl, fig, left, top, width, height, theme }) {
@@ -144,7 +189,7 @@ export function UiLayer({ ctl, fig, left, top, width, height, theme }) {
   if (!has) return null;
   return (
     <div className="fig-ui" style={{ left, top, width, height }} onPointerDown={(e) => e.stopPropagation()}>
-      <Children nodes={fig.children} ctl={ctl} pw={width} ph={height} theme={theme} />
+      <Children nodes={fig.children} ctl={ctl} pw={width} ph={height} theme={theme} fig={fig} />
     </div>
   );
 }

@@ -534,10 +534,15 @@ test('box lines: one line per place (no double lines where a grid line meets a b
   // the ground grid leaves the box floor (same plane) to the box's own grid
   const g3 = fs.readFileSync(new URL('../src/graphics/grid3d.js', import.meta.url), 'utf8');
   assert.match(g3, /uniform vec2 uHole;/);
-  assert.match(g3, /if \(uHole\.x > 0\.0 && abs\(hit\.x\) <= uHole\.x \+ hw\.x && abs\(hit\.y\) <= uHole\.y \+ hw\.y\) discard;/);
+  // the grid goes on under the plot: only a rim along the box edges is left out (mode 1); the whole
+  // box floor only when the grid cannot follow the ticks and the box draws its own grid (mode 2)
+  assert.match(g3, /if \(uHole\.x > 0\.0 && abs\(hit\.x\) <= uHole\.x \+ hw\.x && abs\(hit\.y\) <= uHole\.y \+ hw\.y\) \{\r?\n\s*if \(uHoleMode > 1\.5\) discard;\r?\n\s*vec2 rim = uHole \* 0\.03 \+ hw;/);
   assert.match(g3, /uHole: \{ value: new THREE\.Vector2\(0, 0\) \}/);
-  assert.match(r3, /const hole = !!\(p\.XGrid \|\| p\.YGrid\) && Math\.abs\(u\.uZ0\.value - floorZ\)/);
-  assert.match(r3, /u\.uHole\.value\.set\(hole \? h\.x : 0, hole \? h\.y : 0\);/);
+  assert.match(r3, /u\.uHoleMode\.value = groundHoleMode\(!!\(aligned\[0\] && aligned\[1\]\), !!\(p\.XGrid \|\| p\.YGrid\)\);/);
+  const { groundHoleMode } = await import('../src/graphics/render3d.js');
+  assert.equal(groundHoleMode(true, true), 1, 'aligned: the grid shows under the plot');
+  assert.equal(groundHoleMode(false, false), 1, 'no box grid: nothing to double');
+  assert.equal(groundHoleMode(false, true), 2, 'log / uneven ticks with a box grid: the box grid alone');
 });
 
 test('the ground grid lines up with the box ticks (each axis its own step)', async () => {
@@ -554,7 +559,7 @@ test('the ground grid lines up with the box ticks (each axis its own step)', asy
   assert.match(g3, /uniform vec2 uBase;/);
   assert.match(g3, /vec2 s0 = uBase \* pow\(5\.0, k\);/);
   const r3 = fs.readFileSync(new URL('../src/graphics/render3d.js', import.meta.url), 'utf8');
-  assert.match(r3, /groundBase\(T\[k\]\.ticks, this\.logs\[k\]\) \|\| fallback/);
+  assert.match(r3, /const aligned = \[0, 1\]\.map\(\(k\) => groundBase\(T\[k\]\.ticks, this\.logs\[k\]\)\);\r?\n\s*let base = aligned\.map\(\(b\) => b \|\| fallback\);/);
 });
 
 test('the colormap drop-down in the figure properties has a fixed width', async () => {
@@ -735,4 +740,17 @@ test('export orientation: landscape / portrait lay the figure out at that shape;
   ctl.setExportOpts({ orientation: 'portrait', target: 'axes' });
   r = ctl.exportRequest();
   assert.deepEqual([r.figW, r.figH], [848, 376], 'an axes export keeps the on-screen layout');
+});
+
+test('the ground grid has square cells when one axis step is a whole multiple of the other', async () => {
+  const { squareBases } = await import('../src/graphics/render3d.js');
+  // axis equal (same data per world), x ticks every 2, y every 1: both 1 × 1 (the x ticks fall on every 2nd line)
+  assert.deepEqual(squareBases([2 / 25, 1 / 25], [0.5, 0.5]), [1 / 25, 1 / 25]);
+  // different data per world: the world steps are made equal
+  const b = squareBases([0.2, 0.04], [2, 0.2]);
+  assert.ok(Math.abs(b[0] / 2 - b[1] / 0.2) < 1e-12, 'one world step');
+  assert.ok(Math.abs(b[0] - 0.2) < 1e-12 && Math.abs(b[1] - 0.02) < 1e-12, 'the smaller world step wins');
+  // 2 and 5: no common step keeps both ticks on lines, so each axis keeps its own
+  assert.deepEqual(squareBases([2 / 25, 5 / 25], [1, 1]), [2 / 25, 5 / 25]);
+  assert.deepEqual(squareBases([0.1, 0.1], [-1, 1]), [0.1, 0.1], 'a reversed axis');
 });

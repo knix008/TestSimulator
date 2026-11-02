@@ -781,6 +781,8 @@ function valuesEqual(a, b, nanEqual) {
   }
   if (isFuncHandle(a)) return (a.name && a.name === b.name) || (a.text && a.text === b.text && a.closure === b.closure);
   if (isObject(a)) {
+    // graphics handles name objects by id (gh): two handle values of the same objects are equal
+    if (Array.isArray(a.gh) || Array.isArray(b.gh)) return Array.isArray(a.gh) && Array.isArray(b.gh) && a.gh.length === b.gh.length && a.gh.every((x, i) => x === b.gh[i]);
     if (a.handle && b.handle) return a.props === b.props;
     if (a.arr || b.arr) {
       if (!a.arr || !b.arr || a.arr.length !== b.arr.length) return false;

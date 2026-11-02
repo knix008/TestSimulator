@@ -56,7 +56,25 @@ export const COLORMAPS = {
   lines: (n) => Array.from({ length: n }, (_, i) => DEFAULT_COLOR_ORDER[i % DEFAULT_COLOR_ORDER.length].slice()),
   colorcube: formula((t, i, n) => hsvToRgb((i * 0.618034) % 1, 0.75 + 0.25 * ((i % 3) / 2), 0.6 + 0.4 * ((i % 2)))),
 };
-COLORMAPS.parula = COLORMAPS.default; // accepted name, same data as 'default'
+COLORMAPS.parula = COLORMAPS.default;
+/** Cubehelix (D. A. Green, 2011): brightness rises linearly while the hue turns. */
+export function cubehelixRows(n, start = 0.5, rots = -1.5, hue = 1, gamma = 1) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    let f = n === 1 ? 0 : i / (n - 1);
+    const ang = 2 * Math.PI * (start / 3 + 1 + rots * f);
+    f **= gamma;
+    const amp = (hue * f * (1 - f)) / 2;
+    const c = Math.cos(ang), s = Math.sin(ang);
+    out.push([f + amp * (-0.14861 * c + 1.78277 * s), f + amp * (-0.29227 * c - 0.90649 * s), f + amp * (1.97294 * c)].map((x) => Math.min(1, Math.max(0, x))));
+  }
+  return out;
+}
+// ocean: black → blue → cyan-ish white (red and green ramp in late, in thirds); rainbow: red → orange → yellow → green → blue → violet.
+COLORMAPS.ocean = formula((t) => [Math.max(0, (t - 2 / 3) * 3), Math.max(0, (t - 1 / 3) * 1.5), t]);
+COLORMAPS.rainbow = lerpAnchors([[1, 0, 0], [1, 0.5, 0], [1, 1, 0], [0, 0.8, 0], [0, 0, 1], [0.55, 0, 0.75]]);
+COLORMAPS.cubehelix = (n) => cubehelixRows(n);
+ // accepted name, same data as 'default'
 
 /** Our own seven-colour line colour order. */
 export const DEFAULT_COLOR_ORDER = [

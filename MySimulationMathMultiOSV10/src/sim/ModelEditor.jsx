@@ -31,12 +31,14 @@ import { openMenu } from '../lib/menu';
 import { usePopupWindows } from '../lib/popups';
 import { publishSimEditor, withdrawSimEditor } from './editorApi';
 import { modelToCode } from '../../core/sim/codegen.js';
-import { ioSignals, findIoViewer, ioViewerBlock, scopesToOpen } from './viewers.js';
+import { ioSignals, findIoViewer, ioViewerBlock, scopesToOpen, scopeLabels } from './viewers.js';
+import { readText, writeText, tagged, parseTagged } from '../lib/clipboard';
 import './sim.css';
 
 const SCOPE_TYPES = new Set(['Scope', 'FloatingScope', 'XYGraph']);
 const MAX_SCOPE_POINTS = 200000;
 let clipboard = null; // { blocks, lines } shared by all editors
+const BLOCK_CLIP = 'msm-model-blocks';
 let reqSeq = 0;
 
 const VIEW_KEY = 'sim.view';
@@ -61,6 +63,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
   const canvasRef = useRef(null);
   const coordRef = useRef(null);
   const modelRef = useRef(null);
+  const lastSys = useRef(null); // the blocks last taken from the system clipboard
   if (!modelRef.current) modelRef.current = newModel(modelName || modelNameOfPath(path || 'untitled'));
   const nameRef = useRef(modelRef.current.name);
   const pathRef = useRef(path || '');
@@ -783,7 +786,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     });
     setSel(new Set()); selSeg.current = null;
   };
-  const copySel = () => {
+  const copySel = (toSystem = true) => {
     const s = sys();
     const blocks = selectedBlocks();
     if (!blocks.length) return false;
@@ -796,6 +799,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
       if (keep) lines.push(c);
     }
     clipboard = JSON.stringify({ blocks, lines });
+    if (toSystem) writeText(tagged(BLOCK_CLIP, { blocks, lines })); // pastes into another model or window too
     return true;
   };
   function removeOutside(line, ids) {
@@ -807,6 +811,15 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     rec(line);
     return !!(line.dst || line.branches.length);
   }
+  // Ctrl+V: blocks copied in any window (the system clipboard), else the last copy here
+  const pasteClip = async (offset = 20) => {
+    const sysClip = parseTagged(await readText(), BLOCK_CLIP);
+    if (sysClip && Array.isArray(sysClip.blocks) && JSON.stringify({ blocks: sysClip.blocks, lines: sysClip.lines || [] }) !== lastSys.current) {
+      clipboard = JSON.stringify({ blocks: sysClip.blocks, lines: sysClip.lines || [] });
+      lastSys.current = clipboard;
+    }
+    paste(offset);
+  };
   const paste = (offset = 20) => {
     if (!clipboard) return;
     const data = JSON.parse(clipboard);
@@ -820,7 +833,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     });
     clipboard = JSON.stringify({ blocks: data.blocks.map((b) => ({ ...b, x: b.x + offset, y: b.y + offset })), lines: data.lines });
   };
-  const duplicate = () => { const keep = clipboard; if (copySel()) paste(20); clipboard = keep; };
+  const duplicate = () => { const keep = clipboard; if (copySel(false)) paste(20); clipboard = keep; };
   const rotate = () => change((mm, s) => {
     const bs = s.blocks.filter((b) => sel.has(b.id)); if (!bs.length) return false;
     for (const b of bs) { const cx = b.x + b.w / 2, cy = b.y + b.h / 2; b.rot = ((b.rot || 0) + 90) % 360; [b.w, b.h] = [b.h, b.w]; b.x = snapTo(cx - b.w / 2, toggles.snap); b.y = snapTo(cy - b.h / 2, toggles.snap); }
@@ -953,7 +966,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
     if (!ctrl) return;
     const key = k.toLowerCase();
     const act = {
-      c: () => copySel(), x: () => { if (copySel()) del(); }, v: () => paste(), d: () => (e.shiftKey ? compile() : duplicate()), a: selectAll,
+      c: () => copySel(), x: () => { if (copySel()) del(); }, v: () => pasteClip(), d: () => (e.shiftKey ? compile() : duplicate()), a: selectAll,
       z: () => (e.shiftKey ? redo() : undo()), y: redo, s: () => save(e.shiftKey), r: rotate, i: flip, g: makeSubsystem,
       m: () => { const b = selectedBlocks()[0]; if (b) setDialog({ kind: 'mask', id: b.id }); }, e: () => setDialog({ kind: 'settings' }),
       t: run, 0: fitView, '=': () => setZoom(view.current.zoom * 1.25), '+': () => setZoom(view.current.zoom * 1.25), '-': () => setZoom(view.current.zoom / 1.25),
@@ -967,7 +980,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
   // Menu items run the newest commands: the right-click selects the block first, and the
   // functions of that older render would still see the previous selection.
   const cmds = useRef({});
-  cmds.current = { del, rotate, flip, duplicate, makeSubsystem, copySel, paste, fitView };
+  cmds.current = { del, rotate, flip, duplicate, makeSubsystem, copySel, paste, pasteClip, fitView };
   const onContextMenu = (e) => {
     e.preventDefault();
     const sp = screenOf(e);
@@ -1019,7 +1032,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
       ];
     } else {
       items = [
-        { icon: 'paste', label: L('paste'), keys: 'Ctrl+V', run: () => cmds.current.paste() },
+        { icon: 'paste', label: L('paste'), keys: 'Ctrl+V', run: () => cmds.current.pasteClip() },
         { icon: 'fit', label: L('fit'), keys: 'Ctrl+0', run: () => cmds.current.fitView() },
         { icon: 'settings', label: L('modelSettings'), keys: 'Ctrl+E', run: () => setDialog({ kind: 'settings' }) },
         ...(onOpenScript ? [{ sep: true }, { icon: 'script', label: L('toScript_menu'), run: toScript }] : []),
@@ -1043,7 +1056,9 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
   const st = model.settings || {};
   const progress = Math.max(0, Math.min(1, status.progress || 0));
   const stateKey = `state_${status.state || 'idle'}`;
-  const scopeBlocks = openScopes.map((id) => { let f = null; const rec = (s) => { for (const b of s.blocks) { if (b.id === id) f = b; if (b.system) rec(b.system); } }; rec(model.root); return f; }).filter(Boolean);
+  // each open scope with the system it sits in (its legend names the blocks wired to it)
+  const scopeSys = new Map();
+  const scopeBlocks = openScopes.map((id) => { let f = null; const rec = (s) => { for (const b of s.blocks) { if (b.id === id) { f = b; scopeSys.set(id, s); } if (b.system) rec(b.system); } }; rec(model.root); return f; }).filter(Boolean);
 
   // 스크립트로: the model as M code (the code view's text) in a new script tab
   const toScript = () => { if (onOpenScript) onOpenScript(modelToCode(modelRef.current, nameRef.current, { script: true })); };
@@ -1130,7 +1145,7 @@ export function ModelEditor({ engine, path, modelName, docId, defaults, lang = '
               </div>
             )}
             {scopeBlocks.map((b, i) => (
-              <ScopeWindow key={b.id} block={b} index={i} lang={lang} store={scopeStore.current.get(b.id)} tick={scopeTick} status={{ start: Number(st.startTime), stop: Number(status.stop ?? st.stopTime) }}
+              <ScopeWindow key={b.id} block={b} index={i} lang={lang} labels={scopeLabels(scopeSys.get(b.id), b)} store={scopeStore.current.get(b.id)} tick={scopeTick} status={{ start: Number(st.startTime), stop: Number(status.stop ?? st.stopTime) }}
                 onClose={() => setOpenScopes((o) => o.filter((x) => x !== b.id))} />
             ))}
             <DialogVisible.Provider value={!!active}>

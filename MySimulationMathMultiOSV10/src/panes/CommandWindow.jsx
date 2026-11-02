@@ -213,8 +213,12 @@ export const CommandWindow = forwardRef(function CommandWindow({ engine, setting
     if (e.key === 'ArrowDown' && !text.slice(el.selectionEnd).includes('\n')) { e.preventDefault(); historyMove(1); return; }
     if (e.key === 'Escape') { e.preventDefault(); setText(''); hist.current.index = -1; return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C') && !e.shiftKey) {
-      const hasSel = el.selectionStart !== el.selectionEnd || String(window.getSelection() || '').length > 0;
-      if (hasSel && settings.keyboard.ctrlCCopies !== false) return;
+      // a selection in the prompt copies natively; one in the output (focus still in the prompt) is copied here
+      const outSel = String(window.getSelection() || '');
+      if (settings.keyboard.ctrlCCopies !== false) {
+        if (el.selectionStart !== el.selectionEnd) return;
+        if (outSel) { e.preventDefault(); copyText(outSel); return; }
+      }
       e.preventDefault();
       if (busy || inputReq) { engine.interrupt(); print('^C\n', 'warn'); setInputReq(null); queue.current = []; }
       else { if (text) print(`>> ${text}^C\n`, 'echo'); setText(''); }

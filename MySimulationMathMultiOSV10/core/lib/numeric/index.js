@@ -9,8 +9,9 @@ import * as optim from './optim/index.js';
 import * as stats from './stats/index.js';
 import * as signal from './signal/index.js';
 import * as control from './control/index.js';
+import * as octave from './octave/index.js';
 
-export const SUBMODULES = [['random', random], ['integral', integral], ['ode', ode], ['optim', optim], ['stats', stats], ['signal', signal], ['control', control]];
+export const SUBMODULES = [['random', random], ['integral', integral], ['ode', ode], ['optim', optim], ['stats', stats], ['signal', signal], ['control', control], ['octave', octave]];
 
 export const builtins = Object.create(null);
 export const help = Object.create(null);

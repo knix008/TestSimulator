@@ -36,7 +36,9 @@ are plain structured-cloneable objects (`postMessage`); numbers stay numbers
    → questdlg: { answer: string|'' }   inputdlg: { values: string[] } | { cancelled: true }
      listdlg: { indices: number[] (1-based) } | { cancelled: true }
      uigetfile/uiputfile: { file, path } | { cancelled: true }
-{ type: 'graphics.ginput', figure: figId, n }            → { points: [[x, y, button], ...] }
+{ type: 'graphics.ginput', figure: figId, n }            → { points: [[x, y, button], ...] }   // also gtext
+{ type: 'graphics.uiwait', figure: figId, timeout }      → { ok: true }    // uiwait, waitfor: answered on uiresume / close / timeout
+{ type: 'graphics.ping' }                                 → { gui: true }   // isguirunning / have_window_system (null = no GUI)
 ```
 
 ## 4. GUI → engine messages (`engine.post`, routed by `ctx.onMessage('graphics.', fn)`)
@@ -49,6 +51,9 @@ are plain structured-cloneable objects (`postMessage`); numbers stay numbers
                                                             // applied without echo (no update is sent back)
 { type: 'graphics.callback', handle, event: 'ButtonPushed'|'ValueChanged'|'Callback'|'ButtonDown'|'KeyPress'|'CloseRequest'|'SizeChanged',
   props?: { Value: ... } , data?: { ... } }                  // props are applied first, then the callback runs
+     // UI components (uiextra.js): 'MenuSelected' (uimenu), 'ContextMenuOpening' (uicontextmenu),
+     // 'ClickedCallback' (uipushtool; uitoggletool with props { State }), 'CellEdit' (uitable, data { row, col, value }),
+     // 'CellSelection' (uitable, data { indices })
 { type: 'graphics.close', id: figId }                       // the user closed a figure tab (runs CloseRequestFcn)
 { type: 'graphics.resize', id: figId, width, height }       // figure area size in px (updates Position)
 ```
@@ -106,6 +111,23 @@ Node = { id: number, type: string, props: { ... }, children: Node[], auto: strin
 | `waitbar` | Value (0..1), Message |
 
 `hggroup` nodes only group children (`pie`, `boxplot`); draw their children.
+An `hgtransform` object is sent as an `hggroup` node with `IsTransform: true`
+whose children already carry the transformed coordinates (core/graphics/xform.js:
+line, scatter, stem, stairs, surface, patch, text, light, quiver), so the
+renderers need no transform support.
+
+Axes camera properties (camzoom, camva, camtarget, camup, camroll): when
+`CameraViewAngleMode` / `CameraTargetMode` / `CameraUpVectorMode` is `'manual'`
+the 3-D renderer zooms by tan(6.6086°/2) / tan(CameraViewAngle/2), looks at
+`CameraTarget` and rolls the picture so `CameraUpVector` points up. `View` stays
+the source of the viewing direction (campos and camorbit set it).
+
+Every node whose `ContextMenu` / `UIContextMenu` is set carries `props.ContextMenu`
+= the uicontextmenu id. UI component nodes (uiextra.js): `uimenu` (Text, Checked,
+Enable, Separator, Accelerator; children = submenu items), `uicontextmenu`,
+`uitoolbar` with `uipushtool` / `uitoggletool` children (CData Mat, TooltipString,
+State, Separator), `uitable` (Cells, ColumnNames, RowNames, Editable, Formats,
+Widths, Position px), `uibuttongroup` (drawn like `uipanel`).
 
 ## 6. Coordinates
 

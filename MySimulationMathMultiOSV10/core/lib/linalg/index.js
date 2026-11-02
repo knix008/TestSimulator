@@ -10,8 +10,11 @@ import * as special from './special.js';
 import * as matrices from './matrices.js';
 import * as qz from './qz.js';
 import * as extra from './extra.js';
+import * as factor2 from './factor2.js';
+import * as sparse2 from './sparse2.js';
+import * as geomnd from './geomnd.js';
 
-const MODULES = [['dense', dense], ['sparse', sparse], ['fft', fft], ['interp', interp], ['special', special], ['matrices', matrices], ['qz', qz], ['extra', extra]];
+const MODULES = [['dense', dense], ['sparse', sparse], ['fft', fft], ['interp', interp], ['special', special], ['matrices', matrices], ['qz', qz], ['extra', extra], ['factor2', factor2], ['sparse2', sparse2], ['geomnd', geomnd]];
 
 export const builtins = Object.create(null);
 export const help = Object.create(null);

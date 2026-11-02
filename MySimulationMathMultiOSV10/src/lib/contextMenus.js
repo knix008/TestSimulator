@@ -13,6 +13,7 @@ import { EditorView } from '@codemirror/view';
 import { openMenu } from './menu';
 import { popupRoute } from './popups';
 import { t } from './i18n';
+import { readText, writeText } from './clipboard';
 
 let extras = {}; // { runSelection(text), editorCommand(name), clearCommandWindow(), pasteToPrompt(text), toModel(text) }
 
@@ -21,13 +22,8 @@ export function setContextMenuActions(next) { extras = next || {}; }
 
 const isField = (el) => !!el && ((el.tagName === 'INPUT' && /^(text|search|email|url|tel|password|number|)$/i.test(el.type || '')) || el.tagName === 'TEXTAREA' || el.isContentEditable);
 
-async function readClipboard() {
-  try { return await navigator.clipboard.readText(); } catch { return null; }
-}
-async function writeClipboard(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch { /* fall back */ }
-  try { return document.execCommand('copy'); } catch { return false; }
-}
+const readClipboard = () => readText();
+const writeClipboard = (text) => writeText(text);
 
 function fieldMenu(el) {
   const ro = el.readOnly || el.disabled;

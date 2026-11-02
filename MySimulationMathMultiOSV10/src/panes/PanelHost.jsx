@@ -72,7 +72,7 @@ function renderPane(id, c) {
     case 'folder':
       return <CurrentFolderPane cwd={c.cwd} refreshKey={c.folderKey} onChdir={c.changeFolder} onOpen={(p, o) => c.openFile(p, o)} onRun={c.runFilePath} onPathsChanged={c.pathsChanged} />;
     case 'workspace':
-      return <WorkspacePane variables={c.variables} selected={c.selectedVar} selection={c.selectedVars} onSelect={c.onSelectVar} onOpen={c.openVariable} onAction={c.workspaceAction} engineReady={c.engineReady} />;
+      return <WorkspacePane variables={c.variables} selected={c.selectedVar} selection={c.selectedVars} onSelect={c.onSelectVar} onOpen={c.openVariable} onAction={c.workspaceAction} engineReady={c.engineReady} pausedAt={c.pausedAt} runSeq={c.runSeq} />;
     case 'history':
       return <HistoryPane {...c.historyProps} />;
     case 'gallery':

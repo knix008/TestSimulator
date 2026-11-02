@@ -7,12 +7,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { t, useLanguage, setLanguage, getLanguage } from './lib/i18n';
 import { applyTheme, nextThemeId, setCustomThemes } from './themes';
 import { engine } from './engine/client';
-import { isDesktop, windowControl, hostInfo, fsApi, baseName, dirName, joinPath, setMAssociation } from './lib/backend';
+import { writeText } from './lib/clipboard';
+import { isDesktop, windowControl, hostInfo, fsApi, baseName, dirName, joinPath, setMAssociation, openExternal } from './lib/backend';
+import { installAudioHost } from './lib/audioHost';
+import { installFtpHost } from './lib/ftpHost';
 import { initSettings, useSettings, patchSettings, replaceSettings, flushSettings, getSettings, DEFAULT_LAYOUT } from './lib/settings';
 import { usePopupWindows, openPopupWindow, warmPopups, onBroadcast } from './lib/popups';
 import { subscribeHistory, undo as historyUndo, redo as historyRedo, record, typingTarget } from './lib/history';
 import { dirtyEditors, subscribeDirty, listenChildEditors, saveEditors } from './lib/dirty';
 import { ask, toast, showError } from './lib/ui';
+import { runDoneInfo } from './lib/runStatus.js';
 import { openMenu } from './lib/menu';
 import { askText, chooseFile } from './lib/prompt';
 import { fileKind, importCommand, mQuote, varNameOf, getModelExts } from './lib/files';
@@ -54,7 +58,8 @@ import { useTourActions } from './lib/tourActions';
 import { PanelSide, PanePool, sideNames } from './panes/PanelHost';
 import { PLOTS, NUMERIC, PANES, PANEL_SETS, panelSetFor, panelKey, tabForDocKind, sideState, sideShown, sidePatch, resetPatch, addPane, removePane } from './panes/panels';
 
-const LIMITS = { cmdH: [90, 2000] }; // side widths: panes/panels.js SIDE_LIMITS
+const LIMITS = { cmdH: [90, 2000] };
+const DEFAULT_CMD_H = 260; // the bottom panel's height when none is saved (lib/settings.js) // side widths: panes/panels.js SIDE_LIMITS
 
 let docSeq = 0;
 const newId = (p) => `${p}${++docSeq}`;
@@ -84,6 +89,7 @@ function Desktop() {
   const layout = useMemo(() => ({ ...DEFAULT_LAYOUT, ...(settings.layout || {}), folder: { ...DEFAULT_LAYOUT.folder, ...((settings.layout || {}).folder || {}) }, workspace: { ...DEFAULT_LAYOUT.workspace, ...((settings.layout || {}).workspace || {}) }, history: { ...DEFAULT_LAYOUT.history, ...((settings.layout || {}).history || {}) }, cmd: { ...DEFAULT_LAYOUT.cmd, ...((settings.layout || {}).cmd || {}) } }), [settings.layout]);
   const bottomTab = ['cmd', 'help', 'problems'].includes(layout.bottomTab) ? layout.bottomTab : 'cmd';
   const [live, setLive] = useState({}); // pane sizes while dragging
+  const openSettingsRef = useRef(null);   // openSettings (declared below) for the engine's preferences event
   // the open model editors publish their run state (sim/editorApi): the 시뮬레이션 ribbon follows it.
   // Only a changed state re-renders the app: an editor publishes after every render of its own, so
   // re-rendering on each publish would loop (the page froze, e.g. on Ctrl+, with a model open).
@@ -92,7 +98,9 @@ function Desktop() {
     const now = [...simEditorStates()].join('|');
     setSimStates((prev) => (prev === now ? prev : now));
   }), []);
+  // the sizes being dragged over the saved ones; a key that ended its drag is gone, not undefined
   const L = { ...layout, ...live };
+  if (!(L.cmdH > 0)) L.cmdH = DEFAULT_CMD_H;
   const tab = settings.ribbonTab || 'home';
 
   const [cwd, setCwd] = useState('');
@@ -102,6 +110,9 @@ function Desktop() {
   const debugRef = useRef(null);
   debugRef.current = debug;
   const [variables, setVariables] = useState([]);
+  // bumped as a run, section run or step starts: the Workspace marks what changed since then
+  const [runSeq, setRunSeq] = useState(0);
+  const markRun = () => setRunSeq((s) => s + 1);
   const [selectedVar, setSelectedVar] = useState(null);
   const [selectedVars, setSelectedVars] = useState([]); // Ctrl+click in the Workspace (the plot gallery plots them)
   // The side panels follow the screen: the last ribbon tab picked, or the document tab activated (panes/panels.js).
@@ -153,7 +164,17 @@ function Desktop() {
       engine.on('done', () => { setFolderKey((k) => k + 1); setVarKey((k) => k + 1); }),
       // A figure was drawn (core/graphics/PROTOCOL.md): show the figure tab.
       engine.on('*', (msg, type) => { if ((type === 'graphics.scene' || type === 'graphics.update') && msg && Array.isArray(msg.figures) && msg.figures.length) showFigures(); }),
-      engine.on('audio.play', (msg) => playAudio(msg)),
+      // sound and recording (sound, audioplayer, audiorecorder …)
+      installAudioHost(engine),
+      installFtpHost(engine),
+      // web(url): the system browser
+      engine.onRequest('web.open', (m) => { if (m && m.url) openExternal(m.url); return { ok: true }; }),
+      // commandhistory / filebrowser / workspace / openvar / exit (core/lang/octave.js)
+      engine.on('event:showPane', (ev) => { const pane = { files: 'folder' }[ev.pane] || ev.pane; if (pane) { setStartOn(false); showPane(pane); } }),
+      engine.on('event:openVariable', (ev) => { if (ev.name) { setStartOn(false); openVariable(ev.name); } }),
+      engine.on('event:exit', () => { if (isDesktop) windowControl('close'); }),
+      // preferences: the Settings window (Ctrl+,)
+      engine.on('event:showPreferences', () => openSettingsRef.current && openSettingsRef.current()),
       // Block diagrams (core/sim/PROTOCOL.md): a finished run wrote out / tout / yout; open_system shows a model.
       engine.on('sim.status', (msg) => { if (msg && msg.state === 'stopped') { engine.variables().then((v) => alive && setVariables(v || [])); setVarKey((k) => k + 1); } }),
       engine.on('sim.openEditor', (msg) => { if (msg && msg.name) openModelDoc(msg.name, msg.path); }),
@@ -163,6 +184,8 @@ function Desktop() {
       engine.onRequest('http', httpRequest),
       engine.onRequest('debug.paused', (m) => new Promise((resolve) => {
         setDebug({ file: m.file, line: m.line, stack: m.stack || [], resolve });
+        // the paused frame's variables (the engine waits, so it sends them along)
+        if (Array.isArray(m.vars)) setVariables(m.vars);
         const untitled = m.file && /^\/untitled\/([^/]+)\.mym$/.exec(m.file.replace(/\\/g, '/'));
         if (untitled) { setStartOn(false); setActive(untitled[1]); } else if (m.file) openFile(m.file, { line: m.line });
       })),
@@ -306,6 +329,7 @@ function Desktop() {
       newFunction: () => newScript(TEMPLATES.function),
       newClass: () => newScript(TEMPLATES.class),
       newModel,
+      newFlow,
       openModel: openModelDialog,
       open: openAny,
       library: () => showLibrary(),
@@ -314,8 +338,13 @@ function Desktop() {
       figures: () => showFigures({ force: true }),
       findFiles: () => setDialog({ kind: 'find' }),
       close: () => setStartOn(false),
-      helpCmd: () => runCode('help'),
-      functions: async () => { const q = await askText({ title: t('sp_h_functions'), label: t('sp_h_keyword'), value: '', icon: 'search', mono: true }); if (q && q.trim()) runCode('lookfor ' + q.trim().replace(/[^\w ]/g, '')); },
+      // help / lookfor print in the Command Window: close the start page and show it, or the answer is hidden
+      helpCmd: () => { setStartOn(false); showPane('cmd'); runCode('help'); },
+      functions: async () => {
+        const q = await askText({ title: t('sp_h_functions'), label: t('sp_h_keyword'), value: '', icon: 'search', mono: true });
+        const key = q ? q.trim().replace(/[^\p{L}\p{N}_ ]/gu, '') : '';
+        if (key) { setStartOn(false); showPane('cmd'); runCode(`lookfor('${key}')`); }
+      },
       shortcuts: () => setDialog({ kind: 'shortcuts' }),
       prefs: () => openSettings(),
       about: () => openAbout(),
@@ -504,14 +533,31 @@ function Desktop() {
 
   // ── Running code ─────────────────────────────────────────
   const runCode = (code, opts) => (cmdRef.current ? cmdRef.current.run(code, opts) : Promise.resolve());
+  // 실행할 때 명령 창 지우기 (Settings › 명령 창): a whole run starts on an empty Command Window
+  const clearForRun = () => { markRun(); if (getSettings().cmd.clearOnRun !== false && cmdRef.current) cmdRef.current.clear(); };
+  // A run ends with one line in the Command Window (done / stopped by an error, the time it took and the
+  // clock time) and a toast: even when the output is the same as before, the run is seen to have happened.
+  const reportRun = (res, t0) => {
+    if (!res || res.queued) return;
+    const info = runDoneInfo(res, performance.now() - t0, new Date());
+    if (cmdRef.current) cmdRef.current.print(`${info.ok ? '✓' : '✗'} ${t(info.ok ? 'cw_run_done' : 'cw_run_failed', info)}\n`, info.ok ? 'done' : 'failed');
+    toast(t(info.ok ? 'cw_run_done' : 'cw_run_failed', info), info.ok ? 'ok' : 'warn', 1800);
+  };
+  const runAndReport = async (code, opts) => {
+    const t0 = performance.now();
+    const res = await runCode(code, opts);
+    reportRun(res, t0);
+    return res;
+  };
   async function runDoc(id = active) {
     const doc = docsRef.current.find((d) => d.id === id);
     if (!doc || doc.kind !== 'file') return;
+    clearForRun();
     // A script never saved runs from the editor text: no Save As before every run.
     if (!doc.path) {
       const ed = editors.current.get(id);
       const text = ed && ed.editor ? ed.editor.getText() : '';
-      if (text.trim()) runCode(text, { echo: false, history: false });
+      if (text.trim()) runAndReport(text, { echo: false, history: false });
       return;
     }
     // A saved file with changes is saved in place (no dialog), then run from the file.
@@ -520,7 +566,7 @@ function Desktop() {
     if (!path) return;
     const name = stripMExt(baseName(path));
     const here = dirName(path) === engine.cwd || dirName(path) === cwd;
-    runCode(here && /^[A-Za-z]\w*$/.test(name) ? name : `run(${mQuote(path)})`);
+    runAndReport(here && /^[A-Za-z]\w*$/.test(name) ? name : `run(${mQuote(path)})`);
   }
   // 단계 실행: the whole script, paused before its first statement (then 단계 F10 / 단계 들어가기 F11 / 계속 F5).
   // An unsaved script runs under /untitled/<doc id>.mym so the pause shows in its tab.
@@ -533,20 +579,23 @@ function Desktop() {
     const ed = editors.current.get(id);
     const text = ed && ed.editor ? ed.editor.getText() : '';
     if (!text.trim()) return;
-    engine.eval(text, { echo: false, history: false, file: path || `/untitled/${id}${M_EXT}`, stepFirst: true }).catch(() => {});
+    clearForRun();
+    const t0 = performance.now(); // a step run ends with the same line, after its last step or 계속
+    engine.eval(text, { echo: false, history: false, file: path || `/untitled/${id}${M_EXT}`, stepFirst: true }).then((res) => reportRun(res, t0), () => {});
   }
   function runSection() {
     if (!activeEditor || !activeEditor.editor) return;
     const sec = activeEditor.editor.section();
-    if (sec.text.trim()) runCode(sec.text, { echo: false, history: false });
+    if (sec.text.trim()) { markRun(); runAndReport(sec.text, { echo: false, history: false }); }
   }
   function evalSelection() {
     if (!activeEditor || !activeEditor.editor) return;
     const text = activeEditor.editor.selection() || '';
-    if (text.trim()) runCode(text);
+    if (text.trim()) { markRun(); runCode(text); }
   }
   function debugReply(action) {
     if (!debug) { if (action === 'stop' && busy) engine.interrupt(); return; }
+    if (action !== 'stop') markRun();
     const d = debug;
     setDebug(null);
     d.resolve(action);
@@ -566,7 +615,7 @@ function Desktop() {
   async function workspaceAction(id, name) {
     if (id === 'open') openVariable(name);
     else if (id === 'plot') { setTab('plots'); runCode(`plot(${name})`); }
-    else if (id === 'copyName') navigator.clipboard && navigator.clipboard.writeText(name).catch(() => {});
+    else if (id === 'copyName') writeText(name);
     else if (id === 'rename') {
       const to = await askText({ title: t('ws_rename'), label: t('ws_new_name'), value: name, icon: 'edit', mono: true });
       if (to && to !== name && /^[A-Za-z]\w*$/.test(to)) {
@@ -676,6 +725,7 @@ function Desktop() {
   };
 
   // ── App actions (title bar) ──────────────────────────────
+  openSettingsRef.current = (stab) => openSettings(stab);
   const openSettings = async (stab) => {
     if (usePopupWindows()) {
       await openPopupWindow({ kind: 'settings', center: true, width: 920, height: 600,
@@ -884,6 +934,8 @@ function Desktop() {
       { id: 'reindent', icon: 'sparkle', label: t('rb_reindent'), keys: 'Ctrl+I', tip: t('rb_reindent_tip'), disabled: !isEditor, run: edCall('reindent') },
       { sep: true },
       { id: 'toModel', icon: 'model', label: t('rb_to_model'), tip: t('rb_to_model_tip'), disabled: !isEditor, run: editorToModel },
+      // a graphical script (.mflow) as an M script
+      { id: 'flowToScript', icon: 'script', label: t('fl_to_script'), tip: t('rb_flow_to_script_tip'), disabled: !isFlow, run: () => { const fe = editors.current.get(active); if (fe && fe.code) newScript(fe.code()); } },
     ],
     help: [
       { id: 'help:guide', icon: 'book', label: t('hp_guide'), keys: 'F1', primary: true, run: () => startAction('guide') },
@@ -930,7 +982,7 @@ function Desktop() {
   const pickedVars = selectedVars.length ? selectedVars : (selectedVar ? [selectedVar] : []);
   // What the side panes need (panes/PanelHost.jsx renders them).
   const paneCtx = {
-    engine, settings, engineReady, cwd, folderKey, varKey, changeFolder, pathsChanged, runCode, showFigures: () => showFigures({ force: true }),
+    engine, settings, engineReady, runSeq, pausedAt: debug && debug.file ? `${baseName(debug.file)}:${debug.line}` : null, cwd, folderKey, varKey, changeFolder, pathsChanged, runCode, showFigures: () => showFigures({ force: true }),
     openFile: (p, o) => openFile(p, o),
     runFilePath: (p) => { const n = stripMExt(baseName(p)); runCode(dirName(p) === cwd && /^[A-Za-z]\w*$/.test(n) ? n : `run(${mQuote(p)})`); },
     runQuiet: (code) => runCode(code, { echo: false, history: false }),
@@ -945,7 +997,7 @@ function Desktop() {
     },
     historyProps: {
       items: history, onRun: (c) => runCode(c),
-      onCopyToPrompt: (c) => { if (cmdRef.current) cmdRef.current.focus(); navigator.clipboard && navigator.clipboard.writeText(c).catch(() => {}); toast(t('hist_copied'), 'ok', 1500); },
+      onCopyToPrompt: (c) => { if (cmdRef.current) cmdRef.current.focus(); writeText(c); toast(t('hist_copied'), 'ok', 1500); },
       onDelete: (i) => setHistory((list) => { const next = list.filter((_, k) => k !== i); storeHistory(next); return next; }),
       onClearAll: async () => { if (await ask({ title: t('hist_clear_all'), body: t('hist_clear_confirm'), danger: true })) { setHistory([]); storeHistory([]); } },
     },
@@ -1057,7 +1109,7 @@ function Desktop() {
                     {d.kind === 'flow' && (
                       <FlowEditor doc={d} active={d.id === active} engine={engine} engineReady={engineReady} variables={variables} register={registerEditor} onDirty={onDocDirty}
                         actions={{ saveAs: (id) => saveDoc(id, { as: true }), openAsScript: (code) => newScript(code), exportM: exportFlowCode,
-                          run: (code) => { setLayout({ cmd: { ...layout.cmd, on: true }, bottomTab: 'cmd' }); runCode(code, { echo: false, history: false }); } }} />
+                          run: (code) => { setLayout({ cmd: { ...layout.cmd, on: true }, bottomTab: 'cmd' }); clearForRun(); runAndReport(code, { echo: false, history: false }); } }} />
                     )}
                     {d.kind === 'var' && <VariableEditor engine={engine} name={d.name} active={d.id === active} refreshKey={varKey} format={settings.cmd.numericFormat.startsWith('long') ? 'long' : 'short'} />}
                     {d.kind === 'model' && (
@@ -1092,6 +1144,7 @@ function Desktop() {
               <span className="center-empty-actions">
                 <button type="button" className="vbtn primary" data-act="newScript" onClick={() => newScript()}><Icon name="script" size={14} />{t('rb_new_script')}</button>
                 <button type="button" className="vbtn" data-act="newModel" onClick={() => newModel()}><Icon name="model" size={14} />{t('rb_new_model')}</button>
+                <button type="button" className="vbtn" data-act="newFlow" onClick={() => newFlow()}><Icon name="flow" size={14} />{t('rb_new_flow')}</button>
                 <button type="button" className="vbtn" data-act="open" onClick={() => openAny()}><Icon name="folder" size={14} />{t('rb_open')}</button>
                 <button type="button" className="vbtn" data-act="start" onClick={() => setStartOn(true)}><Icon name="start" size={14} />{t('sp_show_start')}</button>
                 {!layout.cmd.on && <button type="button" className="vbtn" data-act="cmd" onClick={() => togglePane('cmd')}><Icon name="terminal" size={14} />{t('pn_open_cmd')}</button>}
@@ -1100,7 +1153,7 @@ function Desktop() {
           )}
           {layout.cmd.on && (
             <Splitter axis="y" dir={-1} value={L.cmdH} min={LIMITS.cmdH[0]} max={LIMITS.cmdH[1]} label={t('cw_title')}
-              onChange={(v) => setLive((x) => ({ ...x, cmdH: v }))} onCommit={(v) => { setLive((x) => ({ ...x, cmdH: undefined })); setLayout({ cmdH: v }); }} />
+              onChange={(v) => setLive((x) => ({ ...x, cmdH: v }))} onCommit={(v) => { setLive(({ cmdH, ...x }) => x); setLayout({ cmdH: v }); }} />
           )}
           {/* Hidden, not unmounted, when closed: the output and the prompt history stay. */}
           <div className="cmd-slot" style={layout.cmd.on ? { height: L.cmdH } : { display: 'none' }}>{commandWindow}</div>
@@ -1162,26 +1215,4 @@ async function httpRequest(m) {
   }
 }
 
-let audioCtx = null;
-function playAudio(msg) {
-  try {
-    const rate = Number(msg.fs || msg.rate || 8192);
-    const raw = msg.samples || msg.data || [];
-    const channels = Math.max(1, Number(msg.channels || (Array.isArray(raw[0]) ? raw.length : 1)));
-    const chans = Array.isArray(raw[0]) || ArrayBuffer.isView(raw[0]) ? raw : [raw];
-    const n = chans[0].length;
-    if (!n) return;
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const buf = audioCtx.createBuffer(channels, n, rate);
-    for (let c = 0; c < channels; c++) {
-      const out = buf.getChannelData(c);
-      const src = chans[Math.min(c, chans.length - 1)];
-      for (let i = 0; i < n; i++) out[i] = Math.max(-1, Math.min(1, Number(src[i]) || 0));
-    }
-    const node = audioCtx.createBufferSource();
-    node.buffer = buf;
-    node.connect(audioCtx.destination);
-    node.start();
-  } catch (e) { console.error('audio.play', e); }
-}
 

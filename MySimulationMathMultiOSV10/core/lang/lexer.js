@@ -1,6 +1,9 @@
 // Lexer for the M language. Context sensitive in the same places the language
 // is: quote vs transpose, whitespace inside [] and {}, `end` inside indexing,
 // command syntax (`hold on`), block comments and `...` continuation.
+// Octave forms: # comments and #{ … #} blocks, endif / endfor / … (an `end`
+// token with `form`), do … until, unwind_protect, ** and .** (power),
+// x += y style operator assignment and the x++ / x-- statements.
 //
 // Tokens: { type, value, line, col, sp }
 //   type: 'num' (value: number, imag: bool, cls) | 'str' (char) | 'dstr' (string)
@@ -51,9 +54,41 @@ export function parseError(msg, line, col, file) {
   return e;
 }
 
+// Octave dialect: a source written for Octave is recognised by what only Octave accepts (a line
+// starting with #, the endif / endfunction … keywords, unwind_protect, do … until, printf / puts,
+// != , ++ / += …, **). In such a source "…" is a char array with backslash escapes, as in Octave;
+// elsewhere "…" stays a string value.
+const OCTAVE_MARKS = [
+  /^[ \t]*#(?![{}]?[ \t]*$|!)/m,                     // a # comment line (not #{ / #} alone, not #!)
+  /^#!/,                                             // a shebang line
+  /\b(endif|endwhile|endfor|endparfor|endfunction|endswitch|end_try_catch|end_unwind_protect|unwind_protect|endclassdef|endmethods|endproperties)\b/,
+  /^[ \t]*do[ \t]*(?:[%#].*)?\r?$[\s\S]*^[ \t]*until\b/m,
+  /(^|[^\w.])(printf|puts|fputs|fdisp)[ \t]*\(/m,
+  /[\w)\]][ \t]*!=/,
+  /[\w)\]][ \t]*(\+\+|--)[ \t]*(;|,|\r?$)/m,
+  /^[ \t]*(\+\+|--)[A-Za-z]/m,
+  /^[ \t]*[A-Za-z]\w*(\([^)]*\))?[ \t]*(\+|-|\*|\/|\^)=[^=]/m,
+  /[\w)\]][ \t]*\*\*[ \t]*[\w(.]/,
+];
+/** Whether a source is written in the Octave dialect (see OCTAVE_MARKS). */
+export function isOctaveSource(src) {
+  const text = String(src || '');
+  return OCTAVE_MARKS.some((re) => re.test(text));
+}
+
+/** An Octave double-quoted string body with its backslash escapes. */
+function octaveEscapes(s) {
+  return s.replace(/\\(x[0-9A-Fa-f]{1,2}|[0-7]{1,3}|.)/g, (m, e) => {
+    if (e[0] === 'x') return String.fromCharCode(parseInt(e.slice(1), 16));
+    if (/^[0-7]/.test(e)) return String.fromCharCode(parseInt(e, 8));
+    return { n: '\n', t: '\t', r: '\r', a: '\x07', b: '\b', f: '\f', v: '\v', '\\': '\\', '"': '"', "'": "'" }[e] ?? `\\${e}`;
+  });
+}
+
 /**
  * @param {string} src
- * @param {{isVar?: (name:string)=>boolean, file?: string, commandSyntax?: boolean}} opts
+ * @param {{isVar?: (name:string)=>boolean, file?: string, commandSyntax?: boolean, octave?: boolean}} opts
+ *   octave: the Octave dialect ("…" = char array with escapes); default: told from the source
  */
 export function lex(src, opts = {}) {
   const toks = [];
@@ -64,6 +99,7 @@ export function lex(src, opts = {}) {
   let sp = false;
   const cmdOk = opts.commandSyntax !== false;
   const isVar = opts.isVar || null;
+  const octave = opts.octave ?? isOctaveSource(src);
 
   const prev = () => (toks.length ? toks[toks.length - 1] : null);
   const inMatrix = () => stack.length > 0 && stack[stack.length - 1] !== '(';
@@ -281,6 +317,17 @@ export function lex(src, opts = {}) {
           continue;
         }
       }
+      // command syntax of a dotted (package) function name: pkg.fn arg (only names the caller knows)
+      if (!afterDot && opts.isCommandName && src[j] === '.' && !(isVar && isVar(word))) {
+        let k = j, full = word;
+        while (src[k] === '.' && /[A-Za-z_]/.test(src[k + 1] || '')) {
+          let e = k + 1;
+          while (e < n && /\w/.test(src[e])) e++;
+          full += src.slice(k, e);
+          k = e;
+        }
+        if (full !== word && opts.isCommandName(full) && tryCommand(full, k, start)) continue;
+      }
       if (!afterDot && tryCommand(word, j, start)) continue;
       i = j;
       push('id', word, start);
@@ -292,10 +339,13 @@ export function lex(src, opts = {}) {
       for (;;) {
         if (j >= n || src[j] === '\n' || src[j] === '\r') err('String is not terminated properly.');
         if (src[j] === '"') { if (src[j + 1] === '"') { s += '"'; j += 2; continue; } j++; break; }
+        // Octave: \" does not end the string (the escape is turned into " below)
+        if (octave && src[j] === '\\' && j + 1 < n && src[j + 1] !== '\n' && src[j + 1] !== '\r') { s += src[j] + src[j + 1]; j += 2; continue; }
         s += src[j++];
       }
       i = j;
-      push('dstr', s, start);
+      if (octave) push('str', octaveEscapes(s), start);
+      else push('dstr', s, start);
       continue;
     }
     if (c === "'") {
@@ -315,7 +365,7 @@ export function lex(src, opts = {}) {
     let op = null;
     // x++ / x-- after a value at the end of a statement, ++x / --x as a whole statement
     if ((c === '+' || c === '-') && src[i + 1] === c && !stack.length
-      && ((valueEnding(prev()) && !sp && restIsStatementEnd(i + 2)) || (atStmtStart() && /^[A-Za-z]\w*[ \t]*([;,%#\r\n]|$)/.test(src.slice(i + 2, i + 80))))) op = c + c;
+      && ((valueEnding(prev()) && restIsStatementEnd(i + 2)) || (atStmtStart() && /^[A-Za-z]\w*[ \t]*([;,%#\r\n]|$)/.test(src.slice(i + 2, i + 80))))) op = c + c;
     if (!op) for (const o of OPS3) if (src.startsWith(o, i)) { op = o; break; }
     if (!op) for (const o of OPS2) if (src.startsWith(o, i)) { op = o; break; }
     // operator assignment only at the top level (not inside brackets, where `=` is not an assignment)

@@ -102,6 +102,9 @@ const PATHS = {
   grid: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
   hourglass: <path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9" />,
   hash: <path d="M5 9h15M4 15h15M10 3L8 21M16 3l-2 18" />,
+  wireCurve: <path d="M3 18C10 18 14 6 21 6" />,
+  wireStraight: <path d="M3 18L21 6" />,
+  wireElbow: <path d="M3 18h9V6h9" />,
   waves: <path d="M2 8c3-3 5-3 8 0s5 3 8 0 3-2 4-2M2 14c3-3 5-3 8 0s5 3 8 0 3-2 4-2M2 20c3-3 5-3 8 0s5 3 8 0" />,
   panelLeft: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></>,
   panelRight: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></>,
@@ -223,9 +226,9 @@ const ICON_HUE = [
   [/^(model|flow|link|branch|tree|library|apps|move|layers|cpu|cube|rotate)$/, 'violet'],
   [/^(figure|image|palette|drop|eye)$/, 'pink'],
   [/^(save|download|upload|import|copy|paste|cut|external|cloud)$/, 'teal'],
-  [/^(search|filter|globe|info|book|graduation|help|report|comment|uncomment)$/, 'cyan'],
+  [/^(search|filter|globe|info|book|graduation|help|report|comment|uncomment|settings)$/, 'cyan'],
   [/^(table|grid|layout|panel\w*|database|list|variable|hash|unfold|fold|indent|outdent)$/, 'indigo'],
-  [/^(settings|wrench|key|lock|unlock|shield|user|users|group|gate)$/, 'slate'],
+  [/^(wrench|key|lock|unlock|shield|user|users|group|gate)$/, 'slate'],
   [/^(undo|redo|refresh|spinner|dice|chevron\w*|arrow\w*)$/, 'sky'],
 ];
 const hueCache = Object.create(null);

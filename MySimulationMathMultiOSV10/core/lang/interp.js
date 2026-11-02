@@ -15,9 +15,13 @@ import {
 import { fallbackOp, dnum, OP_SYMBOL } from './ops.js';
 import { catValues, buildMatrix } from './concat.js';
 import { formatDisplay, formatDisp, brief } from './display.js';
+import { octaveDisplay, octaveDisp } from './octdisplay.js';
 import { ClassInfo, makeJsClassInfo, HANDLE_METHODS } from '../classes.js';
 import { sprintfLite } from './sprintf.js';
 import { M_EXTS, isMFile, stripMExt } from './mext.js';
+
+/** Profiler clock (ms): high resolution where the runtime has it. */
+const profNow = globalThis.performance && typeof globalThis.performance.now === 'function' ? () => globalThis.performance.now() || 1e-9 : () => Date.now();
 
 /** The M file of `name` in a folder listing (.mym before .m): [file name, entry] or null. */
 function mEntry(listing, name) {
@@ -55,7 +59,7 @@ export class Frame {
 }
 
 /** Non-catchable control errors. */
-const UNCATCHABLE = new Set(['core:interrupted', 'core:debugQuit']);
+const UNCATCHABLE = new Set(['core:interrupted', 'core:debugQuit', 'core:exit']);
 
 export class Interp {
   constructor(opts) {
@@ -104,6 +108,26 @@ export class Interp {
     this.dbstopIfError = false;
     this.inDebugEval = false;
     this.recursionLimit = 500;
+    // Octave settings and session state (core/lang/octave.js)
+    this.maxStackDepth = 1024;
+    this.silentFunctions = false;
+    this.debugOnWarning = false;
+    this.debugOnInterrupt = false;
+    this.beepOnError = false;
+    this.missingFunctionHook = '';
+    this.autoloads = new Map(); // function name -> file
+    this.locked = new Set(); // mlock'ed function names
+    this.history = []; // Command Window commands
+    this.inputHooks = new Map(); // add_input_event_hook id -> { fn, data }
+    this.atexitFns = [];
+    this.memoCaches = new Set();
+    this.errnoValue = 0;
+    this.mfileEncoding = 'utf-8';
+    this.dirEncodings = new Map();
+    this.paused = null; // { frame, line, level } while stopped in the debugger
+    this.nextIgnored = null; // ~ outputs of the multiple assignment being evaluated (isargout)
+    this.pendingIgnored = null;
+    this.defaultPath = null;
     this.cleanupLive = 0;
     this.watchVars = false;
     this.varsChanged = false;
@@ -114,6 +138,9 @@ export class Interp {
     this.builtinArgNames = null;
     this.listeners = new WeakMap();
     this.deleted = new WeakSet();
+    // dotted builtin names (package functions such as a.b.c) may be called with command syntax
+    this.isPackageFunction = (name) => name.includes('.') && typeof this.builtins[name] === 'function';
+    this.classPrec = null; // superiorto / inferiorto: Map class -> Set of classes it is superior to
     this.ctx = this.makeCtx();
   }
 
@@ -181,8 +208,14 @@ export class Interp {
     let loc = '';
     if (f.kind !== 'base' && f.name) loc = `> In ${f.name}${f.line ? ` (line ${f.line})` : ''}\n`;
     this.print(`Warning: ${message}\n${loc}`, 'warn');
+    if (this.debugOnWarning && !this.inDebugEval && this.stack.length) this.pauseAt(f, f.line, 'warning');
   }
   interrupted() {
+    if (this.debugOnInterrupt && !this.inDebugEval && this.stack.length) {
+      if (this.intFlag) { try { Atomics.store(this.intFlag, 0, 0); } catch { this.intFlag[0] = 0; } }
+      const f = this.currentFrame();
+      if (this.pauseAt(f, f.line, 'interrupt') !== 'none') return;
+    }
     if (this.intFlag) { try { Atomics.store(this.intFlag, 0, 0); } catch { this.intFlag[0] = 0; } }
     throw new MError('core:interrupted', 'Operation terminated by user during execution.');
   }
@@ -334,9 +367,10 @@ export class Interp {
 
   // ---------------------------------------------------------------- operators
   op(name, args) {
-    // objects: class methods first
-    for (const a of args) {
+    // objects: class methods first (the superior class when several objects take part)
+    for (let a of args) {
       if (a !== undefined && a.isObject) {
+        if (this.classPrec !== null) a = this.dispatchObject(args, a);
         const r = this.tryObjectMethod(a, name, args, 1);
         if (r) { if (!r.length) throw this.noOutputError(name); return r[0]; }
         const imp = this.implicitObjectOp(name, args);
@@ -392,7 +426,14 @@ export class Interp {
 
   // ---------------------------------------------------------------- ans / display
   setAns(f, v) { this.writeWs(f.ws, 'ans', v); }
+  /** Whether the code running in frame f (default: the current one) is Octave code. */
+  isOctaveFrame(f = this.currentFrame()) { return !!(f && f.fi && f.fi.octave); }
+  /** Octave's layout of `name = v` / disp(v) when the running code is Octave code; else null. */
+  octaveDisplayText(name, v) { return this.isOctaveFrame() ? octaveDisplay(name, v, this.format) : null; }
+  octaveDispText(v) { return this.isOctaveFrame() ? octaveDisp(v, this.format) : null; }
   display(name, v, f) {
+    if (this.silentFunctions && f && f.kind === 'function') return;
+    if (this.isOctaveFrame(f || this.currentFrame())) { const t = octaveDisplay(name, v, this.format); if (t != null) { this.out(t); return; } }
     if (isObject(v)) {
       const r = this.tryObjectMethod(v, 'display', [v, str(name)], 0, true);
       if (r) return;
@@ -430,6 +471,7 @@ export class Interp {
     return null;
   }
   dispText(v) {
+    if (this.isOctaveFrame()) { const t = octaveDisp(v, this.format); if (t != null) return t; }
     if (isObject(v)) { const t = this.objectDisplayText(v); return t == null ? `  ${v.cls} object\n` : t.replace(/^ {2}/gm, '  ') + '\n'; }
     return formatDisp(v, this.format);
   }
@@ -520,16 +562,25 @@ export class Interp {
     return f ? { path: joinPath(pd, f[0]), mtime: f[1].mtimeMs } : null;
   }
 
+  /** Text of an M file in the encoding set by dir_encoding / mfile_encoding (UTF-8 by default). */
+  readSource(path) {
+    const enc = (this.dirEncodings.get(dirName(path)) || this.mfileEncoding || 'utf-8').toLowerCase();
+    if (enc === 'utf-8' || enc === 'utf8' || enc === 'system' || typeof TextDecoder === 'undefined') return this.fs.readText(path);
+    let dec;
+    try { dec = new TextDecoder(enc); } catch { return this.fs.readText(path); }
+    return dec.decode(this.fs.readBytes(path));
+  }
+
   /** Parses (cached by mtime) a file into a FileInfo. */
   loadFile(path, mtime) {
     path = normPath(path);
     if (mtime === undefined) { try { mtime = this.fs.stat(path).mtimeMs; } catch { mtime = 0; } }
     const c = this.fileCache.get(path);
     if (c && c.mtime === mtime) return c.info;
-    const src = this.fs.readText(path);
+    const src = this.readSource(path);
     const name = stripMExt(baseName(path));
-    const ast = parse(src, { file: path });
-    const info = { path, name, kind: ast.kind, ast, src, locals: new Map(), main: null, script: null, classdef: ast.classdef || null };
+    const ast = parse(src, { file: path, isCommandName: this.isPackageFunction });
+    const info = { path, name, kind: ast.kind, ast, src, locals: new Map(), main: null, script: null, classdef: ast.classdef || null, octave: !!ast.octave };
     for (const fn of ast.functions) info.locals.set(fn.name, this.makeFuncInfo(fn, info, null, null));
     if (ast.kind === 'function') {
       info.main = info.locals.get(ast.functions[0].name);
@@ -539,7 +590,7 @@ export class Interp {
       info.locals.set(name, info.main);
       info.main.help = helpComment(src, ast.functions[0].line);
     } else if (ast.kind === 'script') {
-      info.script = { name, body: ast.body, fileInfo: info, file: path, isScript: true, run: null, persist: Object.create(null), lookup: (n) => info.locals.get(n) || null, help: helpComment(src, 1) };
+      info.script = { name, body: ast.body, fileInfo: info, file: path, isScript: true, run: null, persist: Object.create(null), lookup: (n) => info.locals.get(n) || null, help: helpComment(src, 1), octave: info.octave };
     }
     this.fileCache.set(path, { mtime, info });
     // a changed file invalidates resolution caches
@@ -551,7 +602,7 @@ export class Interp {
     const fi = {
       name: ast.name, ast, params: ast.params, outs: ast.outs, file: fileInfo ? fileInfo.path : null, fileInfo, parent,
       classInfo, nested: new Map(), persist: Object.create(null), run: null, varNames: null, depth: null, help: null,
-      static: false, access: 'public', isScript: false,
+      static: false, access: 'public', isScript: false, octave: !!(fileInfo && fileInfo.octave),
     };
     for (const n of ast.nested) fi.nested.set(n.name, this.makeFuncInfo(n, fileInfo, fi, classInfo));
     fi.lookup = (name) => {
@@ -608,6 +659,12 @@ export class Interp {
       if (info.kind === 'classdef') t = { kind: 'class', ci: this.classFromFile(info, name, file.classDir) };
       else if (info.kind === 'function') t = file.classDir ? { kind: 'class', ci: this.classFromFolder(name, file.classDir, info) } : { kind: 'user', fi: info.main };
       else t = { kind: 'script', si: info.script };
+    } else if (this.autoloads.has(name) && this.fs.exists(this.autoloads.get(name))) {
+      // autoload(name, file): the function comes from that file
+      const info = this.loadFile(this.autoloads.get(name));
+      const fi = info.locals.get(name) || info.main;
+      if (fi) t = { kind: 'user', fi };
+      else if (info.script) t = { kind: 'script', si: info.script };
     } else if (this.builtins[name]) t = { kind: 'builtin', fn: this.builtins[name] };
     else if (this.jsClasses[name]) t = { kind: 'class', ci: this.jsClasses[name] };
     this.fnCache.set(name, { gen: this.gen, t });
@@ -623,7 +680,7 @@ export class Interp {
     for (let i = 0; i < args.length; i++) {
       const a = args[i];
       if (a !== undefined && a.isObject) {
-        const r = this.tryObjectMethod(a, name, args, nargout);
+        const r = this.tryObjectMethod(this.classPrec !== null ? this.dispatchObject(args, a) : a, name, args, nargout);
         if (r) return r;
         break;
       }
@@ -638,6 +695,12 @@ export class Interp {
     }
     const t = this.resolve(name);
     if (t !== null) return this.callTarget(t, name, args, nargout, f);
+    if (this.missingFunctionHook && this.missingFunctionHook !== name) {
+      // missing_function_hook: called with the name (it may print a hint); the error follows
+      const hook = this.missingFunctionHook;
+      this.missingFunctionHook = '';
+      try { this.callFunction(hook, [str(name)], 0, f, null); } catch { /* the hook's own failure is ignored */ } finally { this.missingFunctionHook = hook; }
+    }
     throw this.undefinedError(name, args);
   }
   undefinedError(name, args) {
@@ -682,6 +745,7 @@ export class Interp {
     const saved = this.builtinArgNames;
     this.builtinArgNames = this.pendingArgNames;
     this.pendingArgNames = null;
+    this.pendingIgnored = null;
     let r;
     try { r = this.callBuiltinFn(name, fn, args, nargout); } finally { this.builtinArgNames = saved; }
     if (Array.isArray(r)) return r;
@@ -742,7 +806,7 @@ export class Interp {
     ws.nargin = args.length;
     ws.nargout = nargout;
     const frame = new Frame(ws, fh.fi || null, fh.fi ? fh.fi.file : null, fh.text, 'anon');
-    if (this.stack.length >= this.recursionLimit) throw new MError('core:recursionLimit', `Maximum recursion limit of ${this.recursionLimit} reached.`);
+    if (this.stack.length >= this.recursionLimit || this.stack.length >= this.maxStackDepth) throw new MError('core:recursionLimit', `Maximum recursion limit of ${this.recursionLimit} reached.`);
     this.stack.push(frame);
     try {
       const body = fh.body();
@@ -801,12 +865,24 @@ export class Interp {
     ws.nargout = nargout;
     ws.argNames = this.pendingArgNames;
     this.pendingArgNames = null;
+    ws.ignored = this.pendingIgnored;
+    this.pendingIgnored = null;
     if (opts.presetOut !== undefined && no) { vars[outs[0]] = opts.presetOut; }
     const frame = new Frame(ws, fi, fi.file, fi.classInfo && !fi.isMain ? qualifiedName(fi) : fi.name, 'function');
-    if (this.stack.length >= this.recursionLimit) throw new MError('core:recursionLimit', `Maximum recursion limit of ${this.recursionLimit} reached. Use set(0,'RecursionLimit',N) to change the limit. Be aware that exceeding your available stack space can crash the program.`);
+    if (this.stack.length >= this.recursionLimit || this.stack.length >= this.maxStackDepth) throw new MError('core:recursionLimit', `Maximum recursion limit of ${this.recursionLimit} reached. Use set(0,'RecursionLimit',N) to change the limit. Be aware that exceeding your available stack space can crash the program.`);
     if (this.intFlag !== null && this.intFlag[0] !== 0) this.interrupted();
     this.stack.push(frame);
-    const prof = this.profiler && this.profiler.on ? Date.now() : 0;
+    const prof = this.profiler && this.profiler.on ? profNow() : 0;
+    // call tree for profile('info').Hierarchical / profexplore: one node per call path
+    let pnode = null;
+    if (prof) {
+      const p = this.profiler;
+      if (!p.root) p.root = { name: '', children: new Map(), calls: 0, time: 0, parent: null };
+      const parent = p.cur || p.root;
+      pnode = parent.children.get(frame.name);
+      if (!pnode) { pnode = { name: frame.name, children: new Map(), calls: 0, time: 0, parent }; parent.children.set(frame.name, pnode); }
+      p.cur = pnode;
+    }
     try {
       if (fi.argChecks && fi.argChecks.length) this.validateArgs(fi, frame, args);
       fi.run(frame);
@@ -815,11 +891,15 @@ export class Interp {
     } finally {
       this.stack.pop();
       if (this.cleanupLive > 0) this.runCleanups(ws);
+      if (ws.onExit) for (const fn of ws.onExit.splice(0).reverse()) fn();
       if (prof) {
         const key = frame.name;
         const d = this.profiler.data.get(key) || { calls: 0, time: 0 };
-        d.calls++; d.time += Date.now() - prof;
+        const dt = profNow() - prof;
+        d.calls++; d.time += dt;
         this.profiler.data.set(key, d);
+        pnode.calls++; pnode.time += dt;
+        this.profiler.cur = pnode.parent;
       }
     }
     // outputs
@@ -989,7 +1069,7 @@ export class Interp {
   // ---------------------------------------------------------------- indexing chains
   applyChainArgs(v, steps, f, nout, firstArgs) {
     if (v.isObject || v.cls === 'function_handle') return this.applyChain(v, steps, 0, f, nout, firstArgs);
-    const r = indexParen(v, firstArgs);
+    const r = indexParen(v, this.objectIndexArgs(firstArgs));
     if (steps.length === 1) return [r];
     return this.applyChain(r, steps, 1, f, nout);
   }
@@ -1010,13 +1090,13 @@ export class Interp {
           continue;
         }
         const args = firstArgs && k === 0 ? firstArgs : this.evalArgs(st, f, v);
-        v = indexParen(v, args);
+        v = indexParen(v, this.objectIndexArgs(args));
         if (v === undefined) throw new MError('core:index', 'Index failed.');
         continue;
       }
       if (st.k === '{}') {
         const args = this.evalArgs(st, f, v);
-        const list = indexBrace(v, args);
+        const list = indexBrace(v, this.objectIndexArgs(args));
         if (last) return list;
         if (list.length !== 1) throw this.csListError(list.length);
         v = list[0];
@@ -1043,10 +1123,14 @@ export class Interp {
   callChain(name, steps, f, nout, fi) {
     const st = steps[0];
     const callN = (k) => (k === steps.length - 1 ? (nout < 0 ? 1 : nout) : 1);
+    // [~, b] = name(...): the ignored outputs reach the called function (isargout), not calls in its arguments
+    const ignored = this.nextIgnored;
+    if (ignored !== null) this.nextIgnored = null;
     if (st.k === '()') {
       // `end` inside a function call's arguments refers to the enclosing index expression
       const args = this.evalArgs(st.end ? { args: st.args, end: false } : st, f, undefined);
       this.pendingArgNames = st.argNames;
+      this.pendingIgnored = steps.length === 1 ? ignored : null;
       const r = this.callFunction(name, args, callN(0), f, fi);
       if (steps.length === 1) return r;
       if (!r.length) throw this.noOutputError(name);
@@ -1104,7 +1188,7 @@ export class Interp {
     const st = steps[k];
     const last = k === steps.length - 1;
     let args = null, name = null;
-    if (st.k === '()' || st.k === '{}') args = pre && k === 0 ? pre : this.evalArgs(st, f, base);
+    if (st.k === '()' || st.k === '{}') args = this.objectIndexArgs(pre && k === 0 ? pre : this.evalArgs(st, f, base));
     else name = st.k === '.' ? st.name : this.fieldName(st.e.ev(f));
     if (base !== undefined && base.cls === 'function_handle') throw new MError('core:fhAssign', 'Unable to perform assignment to a function handle.');
     if (last) {
@@ -1210,6 +1294,14 @@ export class Interp {
     ci.ast = cd;
     ci.attrs = this.evalAttrs(cd.attrs);
     this.userClasses.set(name, { ci, gen: this.gen, info });
+    // classdef (InferiorClasses = {?A, ?B}): this class is superior to A and B
+    const inf = cd.attrs && cd.attrs.InferiorClasses && cd.attrs.InferiorClasses.expr;
+    if (inf) {
+      const names = [];
+      const walk = (n) => { if (!n || typeof n !== 'object') return; if (n.t === 'meta') { names.push(n.name); return; } for (const v of Object.values(n)) if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === 'object') walk(v); };
+      walk(inf);
+      for (const lo of names) if (lo !== name && !this.isSuperiorClass(name, lo)) this.setClassPrecedence(name, lo);
+    }
     for (const s of cd.supers) {
       if (s === 'handle' || s === 'dynamicprops') { ci.isHandle = true; if (s === 'dynamicprops') ci.dynamic = true; continue; }
       const sup = this.findClass(s);
@@ -1335,6 +1427,64 @@ export class Interp {
     const ci = this.classOf(obj);
     if (ci && ci.js && ci.js.def.size) return ci.js.def.size(obj);
     return obj.dims || [1, 1];
+  }
+
+  // ---------------------------------------------------------------- class precedence (superiorto / inferiorto)
+  /** Records that class `hi` takes precedence over class `lo` in method dispatch. */
+  setClassPrecedence(hi, lo) {
+    if (hi === lo) throw new MError('core:class:precedence', `A class cannot be superior or inferior to itself ('${hi}').`);
+    if (this.isSuperiorClass(lo, hi)) throw new MError('core:class:precedence', `Conflicting precedence: '${lo}' is already superior to '${hi}'.`);
+    if (this.classPrec === null) this.classPrec = new Map();
+    let s = this.classPrec.get(hi);
+    if (!s) { s = new Set(); this.classPrec.set(hi, s); }
+    s.add(lo);
+  }
+  /** True when class a was declared superior to class b (directly or through a chain of declarations). */
+  isSuperiorClass(a, b) {
+    if (this.classPrec === null) return false;
+    const seen = new Set([a]);
+    const todo = [a];
+    while (todo.length) {
+      const s = this.classPrec.get(todo.pop());
+      if (!s) continue;
+      if (s.has(b)) return true;
+      for (const c of s) if (!seen.has(c)) { seen.add(c); todo.push(c); }
+    }
+    return false;
+  }
+  /** The object argument whose class dispatches a call with several objects: the superior one, else the leftmost. */
+  dispatchObject(args, first) {
+    let best = first;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === undefined || !a.isObject || a === best || a.cls === best.cls) continue;
+      if (this.isSuperiorClass(a.cls, best.cls)) best = a;
+    }
+    return best;
+  }
+
+  // ---------------------------------------------------------------- objects used as indices (subsindex)
+  /** Replaces object index arguments by their subsindex result + 1 (one-based); other arguments pass through. */
+  objectIndexArgs(args) {
+    let out = null;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === undefined || a === COLON || !a.isObject) continue;
+      if (out === null) out = args.slice();
+      out[i] = this.subsindexOf(a);
+    }
+    return out === null ? args : out;
+  }
+  subsindexOf(obj) {
+    const r = this.tryObjectMethod(obj, 'subsindex', [obj], 1, true);
+    if (!r) throw new MError('core:index:objectIndex', `Objects of class '${obj.cls}' cannot be used as an index (the class has no subsindex method).`);
+    if (!r.length || r[0] === undefined) throw this.noOutputError('subsindex');
+    let v = r[0];
+    if (isSparse(v)) v = toTensor(v);
+    if (!isTensor(v) || v.cls === 'char' || v.cls === 'logical' || v.im) throw new MError('core:index:subsindex', `subsindex of class '${obj.cls}' must return a real numeric array of zero-based indices.`);
+    const re = new Float64Array(v.re.length);
+    for (let k = 0; k < re.length; k++) re[k] = v.re[k] + 1;
+    return tensor('double', v.dims.slice(), re);
   }
 
   /** Calls method `name` if the class of obj defines it; returns null otherwise. */
@@ -1638,27 +1788,30 @@ export class Interp {
   }
 
   // ---------------------------------------------------------------- evaluation entry points
+  // opts.octave: read the code in the Octave dialect ("…" = char array with escapes) even when the
+  // code alone does not show it (the %!test blocks of an Octave file); default: told from the code
   parseCode(code, opts = {}) {
     const cacheable = opts.cache !== false;
+    const key = opts.octave ? `\u0001${code}` : code;
     if (cacheable) {
-      const c = this.evalCache.get(code);
+      const c = this.evalCache.get(key);
       if (c) return c;
     }
-    const ast = parse(code, { file: opts.file || null, isVar: opts.isVar });
+    const ast = parse(code, { file: opts.file || null, isVar: opts.isVar, isCommandName: this.isPackageFunction, octave: opts.octave || undefined });
     if (cacheable) {
-      const toks = lex(code, { commandSyntax: true });
+      const toks = lex(code, { commandSyntax: true, isCommandName: this.isPackageFunction, octave: opts.octave || undefined });
       if (!toks.some((t) => t.type === 'cmd')) {
         if (this.evalCache.size > 500) this.evalCache.clear();
-        this.evalCache.set(code, ast);
+        this.evalCache.set(key, ast);
       }
     }
     return ast;
   }
 
   /** Runs code text in a frame's workspace. Returns values when the code is a single expression (ctx.evalString). */
-  evalIn(frame, code, wantValue, nargout = 1) {
+  evalIn(frame, code, wantValue, nargout = 1, opts = {}) {
     const ws = frame.ws;
-    const ast = this.parseCode(code, { isVar: (n) => this.readWs(ws, n) !== undefined });
+    const ast = this.parseCode(code, { isVar: (n) => this.readWs(ws, n) !== undefined, octave: opts.octave });
     const pseudo = this.codeInfo(ast, frame);
     const comp = new Compiler(this, { fi: pseudo, depth: frame.fi && frame.fi.depth ? frame.fi.depth : null });
     if (wantValue && ast.body.length === 1 && ast.body[0].t === 'expr') {
@@ -1682,9 +1835,12 @@ export class Interp {
   codeInfo(ast, frame) {
     const parentFi = frame.fi;
     const locals = new Map();
-    const info = { path: frame.file, locals };
+    // Octave code, or code run from Octave code (eval in an Octave function): shown in Octave's layout
+    const octave = !!ast.octave || !!(parentFi && parentFi.octave);
+    const info = { path: frame.file, locals, octave };
     for (const fn of ast.functions) locals.set(fn.name, this.makeFuncInfo(fn, info, null, null));
     return {
+      octave,
       name: frame.name, file: frame.file, isScript: true, persist: parentFi ? parentFi.persist : Object.create(null),
       classInfo: parentFi ? parentFi.classInfo : null, depth: parentFi ? parentFi.depth : null,
       lookup: (n) => locals.get(n) || (parentFi && parentFi.lookup ? parentFi.lookup(n) : null),
@@ -1716,12 +1872,37 @@ export class Interp {
     for (let i = this.stack.length - 1; i >= 0; i--) { const fr = this.stack[i]; if (fr.kind !== 'eval') out.push({ file: fr.file || '', name: fr.name || '', line: fr.line }); }
     return out;
   }
+  /** While paused: the paused frame, then its callers up to the base workspace (dbup / dbdown move along it). */
+  debugFrames() {
+    const p = this.paused;
+    if (!p) return [];
+    const out = [p.frame];
+    for (let i = this.stack.lastIndexOf(p.frame) - 1; i >= 0; i--) {
+      const fr = this.stack[i];
+      if (fr.kind !== 'eval' && fr.ws !== out[out.length - 1].ws) out.push(fr);
+    }
+    if (out[out.length - 1].ws !== this.base) out.push(this.baseFrame);
+    return out;
+  }
+  /** The frame debug commands evaluate in (moved by dbup / dbdown). */
+  debugFrame() {
+    const fr = this.debugFrames();
+    if (!fr.length) return null;
+    return fr[Math.min(this.paused.level, fr.length - 1)];
+  }
+  /** Returns 'none' when no debugger answered (no GUI), otherwise undefined after the user resumes. */
   pauseAt(f, line, reason) {
+    const saved = this.paused;
+    this.paused = { frame: f, line, level: 0, reason };
+    try { return this.pauseLoop(f, line, reason); } finally { this.paused = saved; }
+  }
+  pauseLoop(f, line, reason) {
     this.stepMode = null;
     this.updateDbg();
     for (;;) {
       const reply = this.host.request({ type: 'debug.paused', file: f.file || '', line, reason, stack: this.stackInfo(), vars: this.listVariables(f.ws) });
-      if (reply == null || reply === 'continue') return;
+      if (reply == null) return 'none';
+      if (reply === 'continue') return;
       if (reply === 'step' || reply === 'stepIn' || reply === 'stepOut') {
         this.stepMode = reply;
         this.stepDepth = this.stack.length;
@@ -1734,14 +1915,14 @@ export class Interp {
         const cmd = code.replace(/;$/, '');
         if (cmd === 'dbcont') return;
         if (cmd === 'dbquit') throw new MError('core:debugQuit', 'Debugging stopped.');
-        if (cmd === 'dbstep' || cmd === 'dbstep in' || cmd === 'dbstep out') {
-          this.stepMode = cmd === 'dbstep' ? 'step' : cmd === 'dbstep in' ? 'stepIn' : 'stepOut';
+        if (cmd === 'dbstep' || cmd === 'dbstep in' || cmd === 'dbstep out' || cmd === 'dbnext') {
+          this.stepMode = cmd === 'dbstep' || cmd === 'dbnext' ? 'step' : cmd === 'dbstep in' ? 'stepIn' : 'stepOut';
           this.stepDepth = this.stack.length;
           this.updateDbg();
           return;
         }
         this.inDebugEval = true;
-        try { this.evalIn(f, code, true, 0); } catch (e) {
+        try { this.evalIn(this.debugFrame() || f, code, true, 0); } catch (e) {
           const me = this.catchable(e);
           if (!me) throw e;
           this.print(this.errorReport(me) + '\n', 'err');
@@ -1796,18 +1977,85 @@ export function helpComment(src, fromLine) {
   const lines = src.split(/\r?\n/);
   const out = [];
   let i = fromLine; // line after header (1-based fromLine is the header line)
-  if (fromLine === 1 && !/^\s*%/.test(lines[0] || '')) i = 1;
+  // % comments, and Octave's # / ## comments (not %! / #! test blocks)
+  const COMMENT = /^\s*(?:%(?!!)|##?(?![!#]))(.*)$/;
+  if (fromLine === 1 && !/^\s*[%#]/.test(lines[0] || '')) i = 1;
   // comments right after the header
   for (; i < lines.length; i++) {
-    const m = /^\s*%(.*)$/.exec(lines[i]);
+    const m = COMMENT.exec(lines[i]);
     if (!m) break;
     out.push(m[1].replace(/^ /, ''));
   }
   if (!out.length) {
-    // comments before the header (scripts)
-    for (let j = 0; j < lines.length; j++) { const m = /^\s*%(.*)$/.exec(lines[j]); if (!m) break; out.push(m[1].replace(/^ /, '')); }
+    // comments before the header (scripts; Octave function files keep their help there): the first
+    // block of comment lines that is not a copyright notice or a ##### rule, blank lines between blocks
+    const end = fromLine > 1 ? fromLine - 1 : lines.length;
+    const RULE = /^\s*([%#])\1{3,}\s*$/;
+    const blocks = [];
+    for (let j = 0; j < end;) {
+      if (!lines[j].trim()) { j++; continue; }
+      if (!COMMENT.test(lines[j]) && !RULE.test(lines[j])) break;   // code: no help before it
+      const block = [];
+      for (; j < end && (COMMENT.test(lines[j]) || RULE.test(lines[j])); j++) if (!RULE.test(lines[j])) block.push(COMMENT.exec(lines[j])[1].replace(/^ /, ''));
+      const text = block.join('\n');
+      if (text.trim() && !/^\s*(Copyright|SPDX-License|This file is part of)/im.test(text)) blocks.push(block);
+    }
+    // a Texinfo block is the help (a banner above it is not); else the first block
+    const pick = blocks.find((b) => /-\*-\s*texinfo\s*-\*-/.test(b.join('\n'))) || blocks[0];
+    if (pick) out.push(...pick);
+    while (out.length && !out[0].trim()) out.shift();
   }
-  return out.length ? out.join('\n') : null;
+  return out.length ? texinfoText(out.join('\n')) : null;
+}
+
+/**
+ * Octave help written in Texinfo ("-*- texinfo -*-", @deftypefn …) as plain text, the way Octave's
+ * help shows it: " -- S = name (ARG)", @var{x} → X, @code{x} → x, @example blocks indented,
+ * @seealso{a, b} → "See also: a, b.". Other help text is returned unchanged.
+ */
+export function texinfoText(text) {
+  if (!/-\*-\s*texinfo\s*-\*-/.test(text)) return text;
+  const INLINE = {
+    var: (x) => x.toUpperCase(), code: (x) => x, samp: (x) => `'${x}'`, qcode: (x) => x, command: (x) => x, env: (x) => x,
+    emph: (x) => x, strong: (x) => x, dfn: (x) => x, file: (x) => `'${x}'`, url: (x) => x, uref: (x) => x.split(',')[0].trim(),
+    math: (x) => x, key: (x) => x, kbd: (x) => x, option: (x) => x, asis: (x) => x, w: (x) => x, sc: (x) => x.toUpperCase(),
+    ref: (x) => `"${x}"`, xref: (x) => `see "${x}"`, pxref: (x) => `see "${x}"`, footnote: (x) => `(${x})`, abbr: (x) => x, acronym: (x) => x,
+    dots: () => '...', result: () => '⇒', print: () => '-|', error: () => 'error→', equiv: () => '≡', expansion: () => '↦',
+    le: () => '<=', ge: () => '>=', pi: () => 'pi', minus: () => '-', copyright: () => '(C)', bullet: () => '•', TeX: () => 'TeX', LaTeX: () => 'LaTeX',
+  };
+  // inline commands, innermost first (no braces inside)
+  const inline = (s) => {
+    let prev;
+    do {
+      prev = s;
+      s = s.replace(/@([A-Za-z]+)\{([^{}]*)\}/g, (m, cmd, arg) => (INLINE[cmd] ? INLINE[cmd](arg) : arg));
+    } while (s !== prev);
+    return s.replace(/@@/g, '@').replace(/@\{/g, '{').replace(/@\}/g, '}').replace(/@([.,:!? ])/g, '$1');
+  };
+  const out = [];
+  let skip = false, indent = '';
+  for (let line of text.split('\n')) {
+    if (/-\*-\s*texinfo\s*-\*-/.test(line)) continue;
+    const t = line.trim();
+    if (/^@(tex|iftex|ifhtml|html|ignore)\b/.test(t)) { skip = true; continue; }
+    if (/^@end\s+(tex|iftex|ifhtml|html|ignore)\b/.test(t)) { skip = false; continue; }
+    if (skip) continue;
+    let m;
+    if ((m = /^@deftypefnx?\s*\{[^}]*\}\s*(.*)$/.exec(t))) {
+      // {@var{s} =} name (@var{x}) → S = name (X)
+      let rest = m[1].replace(/^\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/, '$1');
+      out.push(` -- ${inline(rest).replace(/\s+/g, ' ').trim()}`);
+      continue;
+    }
+    if ((m = /^@seealso\{(.*)\}\s*$/.exec(t))) { out.push('', `See also: ${inline(m[1])}.`); continue; }
+    if (/^@(example|smallexample|verbatim|display|format|lisp)\b/.test(t)) { indent = '     '; continue; }
+    if (/^@end\s+(example|smallexample|verbatim|display|format|lisp)\b/.test(t)) { indent = ''; continue; }
+    if (/^@end\b/.test(t) || /^@(group|noindent|ifnottex|ifinfo|c|comment|cindex|findex|deffn|sp)\b/.test(t)) continue;
+    if (/^@(itemize|enumerate|table|multitable)\b/.test(t)) continue;
+    if ((m = /^@itemx?\s*(.*)$/.exec(t))) { out.push(m[1] ? `  ${inline(m[1])}` : '  •'); continue; }
+    out.push(indent + inline(indent ? line.replace(/^\s{0,5}/, '') : line));
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
 }
 
 export function bytesOf(v) {

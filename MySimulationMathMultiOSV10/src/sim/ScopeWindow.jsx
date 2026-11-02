@@ -25,7 +25,8 @@ function nearest(t, tt) {
   return Math.abs(t[lo] - tt) <= Math.abs(t[hi] - tt) ? lo : hi;
 }
 
-export function ScopeWindow({ block, store, tick, lang, status, onClose, index = 0, colors }) {
+// labels: the legend's name of each input (port - 1), from the lines wired to the scope (viewers.js scopeLabels)
+export function ScopeWindow({ block, store, tick, lang, status, onClose, index = 0, colors, labels = [] }) {
   const p = block.params || {};
   const xy = block.type === 'XYGraph';
   const [pos, setPos] = useState({ x: 60 + index * 28, y: 50 + index * 28, w: 520, h: 340 });
@@ -129,7 +130,8 @@ export function ScopeWindow({ block, store, tick, lang, status, onClose, index =
             if (started) ctx.lineTo(X, Y); else { ctx.moveTo(X, Y); started = true; }
           }
           ctx.stroke();
-          legendItems.push({ col, label: `${tr(lang, 'scope') === 'Scope' ? 'In' : '입력 '}${s.port}${s.width > 1 ? `(${j + 1})` : ''}` });
+          const base = labels[s.port - 1] || `${tr(lang, 'scope') === 'Scope' ? 'In' : '입력 '}${s.port}`;
+          legendItems.push({ col, label: `${base}${s.width > 1 ? `(${j + 1})` : ''}` });
         }
       }
       ctx.restore();

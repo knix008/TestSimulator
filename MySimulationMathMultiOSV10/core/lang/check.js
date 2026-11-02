@@ -76,7 +76,7 @@ function colOf(lines, line, name) {
   for (let m; (m = re.exec(text));) {
     const before = text.slice(0, m.index + m[1].length);
     const q = (before.match(/'/g) || []).length + (before.match(/"/g) || []).length;
-    const pct = before.indexOf('%');
+    const pct = before.search(/[%#]/);
     if (pct >= 0) break;
     if (q % 2 === 0) return m.index + m[1].length + 1;
   }
@@ -86,7 +86,16 @@ function colOf(lines, line, name) {
 function knownName(rt, name) {
   if (KEYWORDS.has(name) || IMPLICIT.has(name)) return true;
   if (rt.help && rt.help[name]) return true;
+  if (packagePrefixes(rt).has(name)) return true;
   try { return !!rt.resolve(name); } catch { return false; }
+}
+/** First parts of dotted builtin / class names (pkg of pkg.fn): a.b.c(...) calls are not undefined names. */
+function packagePrefixes(rt) {
+  if (!rt.pkgPrefixes) {
+    rt.pkgPrefixes = new Set();
+    for (const k of [...Object.keys(rt.builtins || {}), ...Object.keys(rt.jsClasses || {})]) { const i = k.indexOf('.'); if (i > 0) rt.pkgPrefixes.add(k.slice(0, i)); }
+  }
+  return rt.pkgPrefixes;
 }
 
 export function checkSource(rt, src, opts = {}) {
@@ -94,7 +103,7 @@ export function checkSource(rt, src, opts = {}) {
   const lines = text.split(/\r?\n/);
   let ast;
   try {
-    ast = parse(text, { file: opts.file || undefined });
+    ast = parse(text, { file: opts.file || undefined, isCommandName: rt.isPackageFunction });
   } catch (e) {
     const p = (e && e.extra && e.extra.parse) || {};
     const line = p.line || e.parseLine || 1;

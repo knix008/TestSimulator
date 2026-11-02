@@ -14,10 +14,14 @@ import { Icon } from '../components/Chrome';
 import { M_EXT } from '../../core/lang/mext.js';
 import { Stepper } from '../views/common';
 import { fsApi } from '../lib/backend';
+import { openMenu } from '../lib/menu';
+import { readText, writeText, tagged, parseTagged } from '../lib/clipboard';
+import { Splitter } from '../components/Layout';
+import { FlowCodePane, flowCodeMax } from './FlowCodePane.jsx';
 import { useEditorDirty } from '../lib/dirty';
 import {
   emptyFlow, parseFlow, serializeFlow, makeNode, connect, removeItems, pruneLinks, generateCode, portsOf, applySyntax,
-  isVarName, OPS,
+  isVarName, OPS, copyItems, pasteItems, FLOW_CLIP, snapInput, snapOutput, WIRE_STYLES, wireStyleOf, wirePath, setWireStyle,
 } from './flow';
 import './flow.css';
 
@@ -32,7 +36,7 @@ function loadPanes() {
 }
 const ICON = { const: 'hash', var: 'variable', op: 'plus', expr: 'edit', func: 'code', disp: 'eye' };
 
-const bodyRows = (n) => (n.type === 'const' || n.type === 'expr' || n.type === 'op' ? 1 : 0);
+const bodyRows = (n) => (n.type === 'const' || n.type === 'expr' || n.type === 'op' || n.type === 'var' ? 1 : 0);
 function geom(n) {
   const p = portsOf(n);
   const b = bodyRows(n);
@@ -43,7 +47,25 @@ function geom(n) {
     h: HEAD + (b + p.inputs.length + p.outputs.length) * ROW + 6,
   };
 }
-const wire = (x1, y1, x2, y2) => { const d = Math.max(40, Math.abs(x2 - x1) * 0.5); return `M${x1},${y1} C${x1 + d},${y1} ${x2 - d},${y2} ${x2},${y2}`; };
+const wire = (x1, y1, x2, y2, style) => wirePath(x1, y1, x2, y2, style);
+const WIRE_ICON = { curve: 'wireCurve', straight: 'wireStraight', elbow: 'wireElbow' };
+/** The spot nearest (x, y), on a grid of block-sized steps, where a new block overlaps no block (its ports stay free to wire). */
+function freeSpot(nodes, p, h = 110) {
+  const gap = 24;
+  const boxes = nodes.map((n) => ({ x: n.x, y: n.y, w: W, h: geom(n).h }));
+  const clear = (x, y) => boxes.every((b) => x + W + gap <= b.x || b.x + b.w + gap <= x || y + h + gap <= b.y || b.y + b.h + gap <= y);
+  const sx = W + 60, sy = h + 30;
+  const steps = [];
+  for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) steps.push([i, j]);
+  steps.sort((a, b) => (a[0] ** 2 + a[1] ** 2) - (b[0] ** 2 + b[1] ** 2) || b[0] - a[0] || b[1] - a[1]);
+  for (const [i, j] of steps) { const x = p.x + i * sx, y = p.y + j * sy; if (clear(x, y)) return { x, y }; }
+  return { x: p.x + 30 * (nodes.length % 8), y: p.y + 30 * (nodes.length % 8) };
+}
+// block geometry for snapInput (world units), and how near (screen px) a wire end snaps to an input
+const GEO = { rect: (n) => ({ x: n.x, y: n.y, w: W, h: geom(n).h }), inY: (n, i) => n.y + geom(n).inY(i), outY: (n, j) => n.y + geom(n).outY(j) };
+const SNAP_PX = 28;
+// a code problem in the app's language (the English message when there is no key)
+const problemText = (p) => { const k = `fl_p_${p.code}`; const s = t(k, { name: p.name || '' }); return s === k ? p.message : s; };
 const titleOf = (n) => {
   switch (n.type) {
     case 'const': return t('fl_const');
@@ -67,8 +89,12 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
   const [catalog, setCatalog] = useState([]);
   const [helpOf, setHelpOf] = useState({});     // fn → help
   const [drag, setDrag] = useState(null);       // { kind: 'wire', from, x, y } while connecting
-  const [panes, setPanes] = useState(loadPanes); // { palette, side } shown
-  const togglePane = (k) => setPanes((p) => { const next = { ...p, [k]: !p[k] }; try { localStorage.setItem(PANES_KEY, JSON.stringify(next)); } catch { /* ignore */ } return next; });
+  const [panes, setPanes] = useState(loadPanes); // { palette, side, code, codeW }
+  const savePanes = (fn) => setPanes((p) => { const next = fn(p); try { localStorage.setItem(PANES_KEY, JSON.stringify(next)); } catch { /* ignore */ } return next; });
+  const togglePane = (k) => savePanes((p) => ({ ...p, [k]: !p[k] }));
+  const [wireStyle, setWireStyle0] = useState(() => (WIRE_STYLES.includes(loadPanes().wireStyle) ? loadPanes().wireStyle : 'curve')); // new lines
+  const [codeW, setCodeW] = useState(null);     // the code pane's width while its splitter is dragged
+  const mainRef = useRef(null);
   const [, setSavedTick] = useState(0);
   const flowRef = useRef(flow);
   flowRef.current = flow;
@@ -107,7 +133,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
     return () => { alive = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const gen = useMemo(() => generateCode(flow, { title: t('fl_header', { name: doc.title }) }), [flow, doc.title]);
+  const gen = useMemo(() => generateCode(flow, { title: t('fl_header', { name: doc.title }), problemText }), [flow, doc.title]);
   const dirty = state === 'ready' && !sameContent(flow, saved.current);
   const save = async (path) => {
     const target = path || pathRef.current;
@@ -118,7 +144,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
     return target;
   };
   useEffect(() => {
-    register(doc.id, { save, isDirty: () => !sameContent(flowRef.current, saved.current), code: () => generateCode(flowRef.current).code, kind: 'flow' });
+    register(doc.id, { save, isDirty: () => !sameContent(flowRef.current, saved.current), code: () => generateCode(flowRef.current, { title: t('fl_header', { name: doc.title }), problemText }).code, kind: 'flow' });
     return () => register(doc.id, null);
   }); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { onDirty(doc.id, dirty); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -148,14 +174,14 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
   const centerWorld = () => {
     const r = canvas.current.getBoundingClientRect();
     const c = toWorld(r.left + r.width / 2, r.top + r.height / 2);
-    const k = flowRef.current.nodes.length % 6;
-    return { x: c.x - W / 2 + k * 18, y: c.y - 40 + k * 18 };
+    return { x: c.x - W / 2, y: c.y - 40 };
   };
 
   // ── adding blocks ──
   const addBlock = async (spec, at) => {
     const f = flowRef.current;
-    const p = at || centerWorld();
+    // a click adds at the centre; a block already there moves the new one down-right, so none hides another
+    const p = at || freeSpot(f.nodes, centerWorld());
     let node;
     if (spec.type === 'func') {
       const h = await loadHelp(spec.fn);
@@ -180,6 +206,20 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
     commit(pruneLinks({ ...f, nodes: f.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }), key ? `${id}:${key}` : null);
   };
   const removeSel = () => { if (sel.length) { commit(removeItems(flowRef.current, sel)); setSel([]); } };
+  // the clipboard: the blocks as tagged JSON text, so they paste into another graphical script too
+  const copySel = (ids = sel) => {
+    const clip = copyItems(flowRef.current, ids);
+    if (!clip) return false;
+    writeText(tagged(FLOW_CLIP, clip));
+    return true;
+  };
+  const cutSel = () => { if (copySel()) removeSel(); };
+  const pasteClip = async () => {
+    const clip = parseTagged(await readText(), FLOW_CLIP);
+    if (!clip) return;
+    const r = pasteItems(flowRef.current, clip, 30);
+    if (r.ids.length) { commit(r.flow); setSel(r.ids); }
+  };
   const fit = () => {
     const ns = flowRef.current.nodes;
     const r = canvas.current.getBoundingClientRect();
@@ -204,8 +244,12 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
     const el = e.target;
     if (el.closest('input, textarea, button.fl-chip')) return;
     canvas.current.focus({ preventScroll: true });
-    const out = el.closest('[data-out]');
-    const inp = el.closest('[data-in]');
+    const outRow = el.closest('.fl-out');
+    const inRow = el.closest('.fl-in');
+    const nearOut = el.closest('[data-in]') ? null : snapOutput(flowRef.current, toWorld(e.clientX, e.clientY), SNAP_PX / flowRef.current.view.zoom * 0.6, GEO);
+    const out = el.closest('[data-out]') || (outRow && outRow.querySelector('[data-out]')) || (nearOut && { dataset: { out: `${nearOut.node}:${nearOut.port}` } });
+    const inRowPort = inRow && inRow.querySelector('[data-in]');
+    const inp = el.closest('[data-in]') || (inRowPort && inRowPort.classList.contains('linked') ? inRowPort : null);
     const nodeEl = el.closest('[data-node]');
     const linkEl = el.closest('[data-link]');
     if (out && e.button === 0) {
@@ -253,7 +297,11 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
       setFlowState(next);
       return;
     }
-    if (g.kind === 'wire') { const w = toWorld(e.clientX, e.clientY); setDrag((d) => (d ? { ...d, x: w.x, y: w.y } : d)); }
+    if (g.kind === 'wire') {
+      const w = toWorld(e.clientX, e.clientY);
+      const target = snapInput(flowRef.current, g.from, w, SNAP_PX / flowRef.current.view.zoom, GEO);
+      setDrag((d) => (d ? { ...d, x: w.x, y: w.y, target } : d));
+    }
   };
   const onPointerUp = (e) => {
     const g = gesture.current;
@@ -267,11 +315,11 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
     }
     if (g.kind === 'wire') {
       setDrag(null);
-      const target = document.elementFromPoint(e.clientX, e.clientY);
-      const inp = target && target.closest('[data-in]');
-      if (inp) {
-        const [node, port] = inp.dataset.in.split(':');
-        const next = connect(flowRef.current, g.from, { node, port: Number(port) });
+      // near an input, or anywhere on a block's body: no need to hit the small port exactly
+      const target = snapInput(flowRef.current, g.from, toWorld(e.clientX, e.clientY), SNAP_PX / flowRef.current.view.zoom, GEO);
+      if (target) {
+        let next = connect(flowRef.current, g.from, target);
+        if (next !== flowRef.current && wireStyle !== 'curve') next = setWireStyle(next, [next.links[next.links.length - 1].id], wireStyle); // new lines take the shape picked last
         if (next !== flowRef.current) commit(next);
       }
     }
@@ -290,6 +338,9 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
     else if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); }
     else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); doRedo(); }
     else if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); setSel(flowRef.current.nodes.map((n) => n.id)); }
+    else if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); copySel(); }
+    else if (mod && e.key.toLowerCase() === 'x') { e.preventDefault(); cutSel(); }
+    else if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteClip(); }
     else if (e.key === 'Escape') setSel([]);
   };
 
@@ -297,6 +348,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
   const q = query.trim().toLowerCase();
   const basics = [
     { type: 'const', icon: 'hash', label: t('fl_const'), tip: t('fl_const_tip') },
+    { type: 'var', icon: 'variable', label: t('fl_var'), tip: t('fl_var_tip') },
     { type: 'op', icon: 'plus', label: t('fl_op'), tip: t('fl_op_tip') },
     { type: 'expr', icon: 'edit', label: t('fl_expr'), tip: t('fl_expr_tip') },
     { type: 'disp', icon: 'eye', label: t('fl_disp'), tip: t('fl_disp_tip') },
@@ -310,9 +362,10 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
 
   // ── selection details ──
   const selNode = sel.length === 1 ? flow.nodes.find((n) => n.id === sel[0]) : null;
+  const selLinks = flow.links.filter((l) => sel.includes(l.id));
+  const styleLinks = (ids, style) => { setWireStyle0(style); savePanes((p) => ({ ...p, wireStyle: style })); if (ids.length) commit(setWireStyle(flowRef.current, ids, style)); };
   useEffect(() => { if (selNode && selNode.type === 'func') loadHelp(selNode.fn); }, [selNode && selNode.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const problemsOf = useMemo(() => { const m = new Map(); for (const p of gen.problems) m.set(p.node, [...(m.get(p.node) || []), p]); return m; }, [gen]);
-  const problemText = (p) => { const k = `fl_p_${p.code}`; const s = t(k, { name: p.name || '' }); return s === k ? p.message : s; };
 
   const byId = useMemo(() => new Map(flow.nodes.map((n) => [n.id, n])), [flow.nodes]);
   const connected = useMemo(() => new Set(flow.links.map((l) => `${l.to.node}:${l.to.port}`)), [flow.links]);
@@ -322,11 +375,64 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
 
   const hasCode = flow.nodes.length > 0;
   const stem = (doc.title || 'flow').replace(/\.mflow$/i, '');
+  // the canvas's right-click menu: convert to a script first, then run / export, edit, view
+  const onMenu = (e) => {
+    e.preventDefault();
+    const lineEl = e.target.closest && e.target.closest('[data-link]');
+    if (lineEl) {
+      const lid = lineEl.getAttribute('data-link');
+      const ids = sel.includes(lid) ? sel.filter((x) => flowRef.current.links.some((l) => l.id === x)) : [lid];
+      if (!sel.includes(lid)) setSel([lid]);
+      const cur = wireStyleOf(flowRef.current.links.find((l) => l.id === lid));
+      openMenu({ x: e.clientX, y: e.clientY }, [
+        ...WIRE_STYLES.map((s) => ({ id: `style:${s}`, label: t(`fl_wire_${s}`), icon: WIRE_ICON[s], on: s === cur })),
+        { sep: true },
+        { id: 'remove', label: t('remove'), icon: 'trash', keys: 'Delete' },
+      ], (pick) => {
+        if (pick && pick.startsWith('style:')) styleLinks(ids, pick.slice(6));
+        else if (pick === 'remove') { commit(removeItems(flowRef.current, ids)); setSel([]); }
+      });
+      return;
+    }
+    const hit = e.target.closest && e.target.closest('[data-node]');
+    const id = hit ? hit.getAttribute('data-node') : null;
+    if (id && !sel.includes(id)) setSel([id]);
+    const n = id ? 1 : sel.length;
+    const items = [
+      { id: 'toScript', label: t('fl_to_script'), icon: 'script', disabled: !hasCode },
+      { id: 'run', label: t('fl_run'), icon: 'play', disabled: !hasCode || !engineReady },
+      { id: 'export', label: t('fl_export'), icon: 'download', disabled: !hasCode },
+      { sep: true },
+      { id: 'undo', label: t('tb_undo'), icon: 'undo', keys: 'Ctrl+Z', disabled: !undo.current.length },
+      { id: 'redo', label: t('tb_redo'), icon: 'redo', keys: 'Ctrl+Y', disabled: !redo.current.length },
+      { sep: true },
+      { id: 'cut', label: t('cm_cut'), icon: 'cut', keys: 'Ctrl+X', disabled: !n },
+      { id: 'copy', label: t('copy'), icon: 'copy', keys: 'Ctrl+C', disabled: !n },
+      { id: 'paste', label: t('cm_paste'), icon: 'paste', keys: 'Ctrl+V' },
+      { sep: true },
+      { id: 'all', label: t('cm_select_all'), icon: 'selectAll', keys: 'Ctrl+A', disabled: !hasCode },
+      { id: 'remove', label: t('remove'), icon: 'trash', keys: 'Delete', disabled: !n },
+      { id: 'fit', label: t('fl_fit'), icon: 'fit', disabled: !hasCode },
+    ];
+    openMenu({ x: e.clientX, y: e.clientY }, items, (pick) => {
+      if (pick === 'toScript') actions.openAsScript(gen.code);
+      else if (pick === 'run') actions.run(gen.code);
+      else if (pick === 'export') actions.exportM(gen.code, `${stem}${M_EXT}`);
+      else if (pick === 'undo') doUndo();
+      else if (pick === 'copy') copySel(id && !sel.includes(id) ? [id] : sel);
+      else if (pick === 'cut') { const ids = id && !sel.includes(id) ? [id] : sel; if (copySel(ids)) { commit(removeItems(flowRef.current, ids)); setSel([]); } }
+      else if (pick === 'paste') pasteClip();
+      else if (pick === 'redo') doRedo();
+      else if (pick === 'all') setSel(flowRef.current.nodes.map((x) => x.id));
+      else if (pick === 'remove') { if (id && !sel.includes(id)) { commit(removeItems(flowRef.current, [id])); setSel([]); } else removeSel(); }
+      else if (pick === 'fit') fit();
+    });
+  };
   return (
     <div className="fl-doc" data-flow={doc.id}>
       <div className="fl-toolbar" role="toolbar">
         <Tb icon="play" label={t('fl_run')} title={t('fl_run_tip')} primary disabled={!hasCode || !engineReady} onClick={() => actions.run(gen.code)} />
-        <Tb icon="script" label={t('fl_open_script')} title={t('fl_open_script_tip')} disabled={!hasCode} onClick={() => actions.openAsScript(gen.code)} />
+        <Tb icon="script" label={t('fl_to_script')} title={t('fl_open_script_tip')} disabled={!hasCode} onClick={() => actions.openAsScript(gen.code)} />
         <Tb icon="download" label={t('fl_export')} title={t('fl_export_tip')} disabled={!hasCode} onClick={() => actions.exportM(gen.code, `${stem}${M_EXT}`)} />
         <span className="fl-sep" />
         <Tb icon="undo" label={t('tb_undo')} title={`${t('tb_undo')} (Ctrl+Z)`} disabled={!undo.current.length} onClick={doUndo} />
@@ -335,12 +441,13 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
         <span className="fl-sep" />
         <Tb icon="panelLeft" label={t('fl_palette')} title={t('fl_palette_tip')} on={panes.palette} onClick={() => togglePane('palette')} />
         <Tb icon="panelRight" label={t('fl_side')} title={t('fl_side_tip')} on={panes.side} onClick={() => togglePane('side')} />
+        <Tb icon="code" label={t('fl_code_view')} title={t('fl_code_view_tip')} on={panes.code} onClick={() => togglePane('code')} />
         <span className="fl-sep" />
         <Tb icon="fit" label={t('fl_fit')} title={t('fl_fit_tip')} onClick={fit} />
         <Stepper value={Math.round(view.zoom * 100)} min={ZOOMS[0] * 100} max={ZOOMS[1] * 100} step={10} width={54} unit="%" ariaLabel={t('fl_zoom')}
           decIcon="minus" incIcon="plus" decTitle={t('fl_zoom_out')} incTitle={t('fl_zoom_in')} onChange={(v) => zoomAt(v / 100)} />
       </div>
-      <div className="fl-main">
+      <div className="fl-main" ref={mainRef}>
         <div className="fl-palette" style={panes.palette ? undefined : { display: 'none' }}>
           <div className="pane-tools">
             <span className="pane-filter"><Icon name="search" size={13} /><input value={query} placeholder={t('fl_search')} aria-label={t('fl_search')} onChange={(e) => setQuery(e.target.value)} /></span>
@@ -356,7 +463,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
             {funcs.map((c) => <PaletteItem onAdd={addBlock} onDragStart={onDragStartItem} key={c.name} spec={{ type: 'func', fn: c.name }} icon={c.kind === 'constant' ? 'hash' : 'code'} label={c.name} tip={(ko && c.ko) || c.en} mono />)}
           </div>
         </div>
-        <div ref={canvas} className={`fl-canvas ${drag ? 'wiring' : ''}`} tabIndex={0} onKeyDown={onKeyDown}
+        <div ref={canvas} className={`fl-canvas ${drag ? 'wiring' : ''}`} tabIndex={0} onKeyDown={onKeyDown} onContextMenu={onMenu}
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => { gesture.current = null; setDrag(null); }}
           onDragOver={(e) => { if (e.dataTransfer.types.includes(DND)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }} onDrop={onDrop}
           style={{ backgroundPosition: `${view.x}px ${view.y}px`, backgroundSize: `${20 * view.zoom}px ${20 * view.zoom}px` }}>
@@ -372,7 +479,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
               {flow.links.map((l) => {
                 const a = byId.get(l.from.node), b = byId.get(l.to.node);
                 if (!a || !b) return null;
-                const d = wire(a.x + W, a.y + geom(a).outY(l.from.port), b.x, b.y + geom(b).inY(l.to.port));
+                const d = wire(a.x + W, a.y + geom(a).outY(l.from.port), b.x, b.y + geom(b).inY(l.to.port), wireStyleOf(l));
                 return (
                   <g key={l.id} data-link={l.id} className={`fl-wire ${sel.includes(l.id) ? 'on' : ''}`}>
                     <path d={d} className="fl-wire-hit" />
@@ -380,7 +487,13 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
                   </g>
                 );
               })}
-              {drag && (() => { const a = byId.get(drag.from.node); return a ? <path className="fl-wire-line fl-wire-temp" d={wire(a.x + W, a.y + geom(a).outY(drag.from.port), drag.x, drag.y)} /> : null; })()}
+              {drag && (() => {
+                const a = byId.get(drag.from.node);
+                if (!a) return null;
+                const t = drag.target && byId.get(drag.target.node); // the end sits on the input it will join
+                const ex = t ? t.x : drag.x, ey = t ? t.y + geom(t).inY(drag.target.port) : drag.y;
+                return <path className={`fl-wire-line fl-wire-temp ${t ? 'snap' : ''}`} d={wire(a.x + W, a.y + geom(a).outY(drag.from.port), ex, ey, wireStyle)} />;
+              })()}
             </svg>
             {flow.nodes.map((n) => {
               const g = geom(n);
@@ -397,6 +510,11 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
                       <input className="mono" value={n.value} aria-label={t('fl_value')} title={t('fl_value')} onChange={(e) => patchNode(n.id, { value: e.target.value }, 'value')} />
                     </div>
                   )}
+                  {n.type === 'var' && (
+                    <div className="fl-row" style={{ height: ROW }}>
+                      <input className={`mono ${isVarName(n.name) ? '' : 'invalid'}`} value={n.name || ''} aria-label={t('fl_name')} title={t('fl_var_hint')} onChange={(e) => patchNode(n.id, { name: e.target.value }, 'name')} />
+                    </div>
+                  )}
                   {n.type === 'expr' && (
                     <div className="fl-row" style={{ height: ROW }}>
                       <input className="mono" value={n.expr} aria-label={t('fl_formula')} title={t('fl_formula')} onChange={(e) => patchNode(n.id, { expr: e.target.value }, 'expr')} />
@@ -408,7 +526,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
                     const lit = n.type === 'func' && n.inputs[i] ? n.inputs[i].value : null;
                     return (
                       <div key={`i${i}`} className="fl-row fl-in" style={{ height: ROW }}>
-                        <span className={`fl-port in ${linked ? 'linked' : ''}`} data-in={`${n.id}:${i}`} title={label} />
+                        <span className={`fl-port in ${linked ? 'linked' : ''} ${drag && drag.target && drag.target.node === n.id && drag.target.port === i ? 'target' : ''}`} data-in={`${n.id}:${i}`} title={label} />
                         <span className="fl-plabel mono ellipsis">{label}</span>
                         {n.type === 'func' && !linked && (
                           <input className="mono fl-lit" value={lit || ''} placeholder={t('fl_optional')} aria-label={`${label} ${t('fl_value')}`}
@@ -428,10 +546,33 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
             })}
           </div>
         </div>
+        {/* 코드 보기: the generated M code beside the canvas, like the model editor's code pane */}
+        {panes.code && (
+          <Splitter axis="x" dir={-1} value={codeW || panes.codeW || 440} min={240} label={t('fl_code_view')}
+            max={flowCodeMax(mainRef.current, panes)} onChange={setCodeW}
+            onCommit={(w) => { setCodeW(null); savePanes((p) => ({ ...p, codeW: w })); }} />
+        )}
+        {panes.code && (
+          <FlowCodePane width={codeW || panes.codeW || 440} code={hasCode ? gen.code : ''} problems={gen.problems.length}
+            onToScript={() => actions.openAsScript(gen.code)} onClose={() => togglePane('code')} />
+        )}
         <div className="fl-side" style={panes.side ? undefined : { display: 'none' }}>
           <div className="fl-props pane-scroll">
             <div className="fp-section small"><Icon name="settings" size={12} />{t('fl_props')}</div>
-            {!selNode && <div className="pane-empty small muted">{sel.length > 1 ? t('fl_multi', { n: sel.length }) : t('fl_pick')}</div>}
+            {!selNode && !selLinks.length && <div className="pane-empty small muted">{sel.length > 1 ? t('fl_multi', { n: sel.length }) : t('fl_pick')}</div>}
+            {!selNode && selLinks.length > 0 && (
+              <div className="fl-propbox" data-wire-props="">
+                <Field label={selLinks.length > 1 ? t('fl_wire_n', { n: selLinks.length }) : t('fl_wire')}><span /></Field>
+                <div className="fl-chips">
+                  {WIRE_STYLES.map((s) => (
+                    <button key={s} type="button" data-style={s} className={`fl-chip ${selLinks.every((l) => wireStyleOf(l) === s) ? 'on' : ''}`} onClick={() => styleLinks(selLinks.map((l) => l.id), s)}>
+                      <Icon name={WIRE_ICON[s]} size={12} /> {t(`fl_wire_${s}`)}
+                    </button>
+                  ))}
+                </div>
+                <span className="small muted">{t('fl_wire_hint')}</span>
+              </div>
+            )}
             {selNode && <NodeProps node={selNode} help={selNode.type === 'func' ? helpOf[selNode.fn] : null} ko={ko} variables={variables}
               patch={(p, key) => patchNode(selNode.id, p, key)} reshape={(syntax) => { const f = flowRef.current; commit(pruneLinks({ ...f, nodes: f.nodes.map((n) => (n.id === selNode.id ? applySyntax(f, n, syntax) : n)) })); }} />}
           </div>
@@ -439,7 +580,7 @@ export function FlowEditor({ doc, active, engine, engineReady, variables, regist
             <div className="fp-section small">
               <Icon name="code" size={12} />{t('fl_code')}<span className="spacer" />
               {gen.problems.length > 0 ? <span className="fl-badge bad">{t('fl_problems', { n: gen.problems.length })}</span> : hasCode && <span className="fl-badge ok"><Icon name="checkCircle" size={11} /></span>}
-              <button type="button" className="icon-btn" title={t('copy')} aria-label={t('copy')} disabled={!hasCode} onClick={() => navigator.clipboard && navigator.clipboard.writeText(gen.code)}><Icon name="copy" size={12} /></button>
+              <button type="button" className="icon-btn" title={t('copy')} aria-label={t('copy')} disabled={!hasCode} onClick={() => writeText(gen.code)}><Icon name="copy" size={12} /></button>
             </div>
             {gen.problems.map((p, i) => (
               <button key={`${p.node}:${p.code}:${i}`} type="button" className="fl-problem" onClick={() => setSel([p.node])}><Icon name="alert" size={12} /><span>{titleOf(byId.get(p.node) || {})}: {problemText(p)}</span></button>

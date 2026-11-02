@@ -2,7 +2,7 @@
 //   { ev(f) → Value, cs(f) → Value[] (comma-separated list), mv(f, nout) → Value[] }
 // and each statement a function (f) → status (0 normal, 1 break, 2 continue, 3 return).
 // `f` is the running Frame (see interp.js); variables live in f.ws.vars.
-import { MError, tensor, str, string, complex, num } from '../value.js';
+import { MError, tensor, str, string, complex, num, bool } from '../value.js';
 import { COLON, disown, OWNED } from './indexing.js';
 import { BINOP_NAMES, UNOP_NAMES, POSTOP_NAMES, dnum, lnum, rangeCount } from './ops.js';
 import { buildMatrix, buildCell } from './concat.js';
@@ -403,6 +403,7 @@ export class Compiler {
           if (r.length === 0) throw rt.noOutputError(name);
           return r[0];
         };
+      if (name === 'isnull' && n.chain.length === 1 && n.chain[0].k === '()' && n.chain[0].args.length === 1) return this.isnullCall(n.chain[0].args[0], read, ev, run);
       return { ev, cs: (f) => run(f, -1), mv: (f, nout) => run(f, nout), isCall: true, name };
     }
     const base = this.expr(n.base);
@@ -411,6 +412,32 @@ export class Compiler {
       ev: (f) => { const r = run(f, 1); if (!r.length) throw new MError('core:noOutput', 'Indexing produced no value.'); return r[0]; },
       cs: (f) => run(f, -1),
       mv: run,
+    };
+  }
+
+  /**
+   * isnull(arg): true only when arg is written as a null literal ([], '' or "") in the call itself.
+   * Applies while `isnull` means the builtin (not a variable, local, private or user function).
+   */
+  isnullCall(argNode, read, ev, run) {
+    const rt = this.rt;
+    const fi = this.scope.fi;
+    const literal = (argNode.t === 'matrix' && argNode.rows.every((r) => r.length === 0)) || ((argNode.t === 'str' || argNode.t === 'dstr') && argNode.v === '');
+    const isBuiltin = (f) => {
+      if (read(f) !== undefined) return false;
+      if (fi && fi.lookup && fi.lookup('isnull')) return false;
+      if (f && f.file && rt.findPrivate('isnull', f.file)) return false;
+      const t = rt.resolve('isnull');
+      return !!(t && t.kind === 'builtin' && t.fn === rt.builtins.isnull);
+    };
+    const yes = () => bool(true);
+    const one = (f) => (literal && isBuiltin(f) ? yes() : ev(f));
+    return {
+      ev: one,
+      cs: (f) => (literal && isBuiltin(f) ? [yes()] : run(f, -1)),
+      mv: (f, nout) => (literal && isBuiltin(f) ? [yes()] : run(f, nout)),
+      isCall: true,
+      name: 'isnull',
     };
   }
 
@@ -564,11 +591,19 @@ export class Compiler {
     });
     const rhs = this.expr(s.rhs);
     const print = s.print;
+    const anyTilde = lhs.some((l) => l.tilde);
     return (f) => {
       // count outputs (c{1:3} and s.f on struct arrays expand)
       const counts = lhs.map((l) => (l.tilde || !l.steps ? 1 : rt.lhsCount(l, f)));
       const nout = counts.reduce((a, b) => a + b, 0);
-      const vals = rhs.mv(f, nout);
+      let vals;
+      if (anyTilde) {
+        // positions of ~ outputs, for isargout in the called function
+        const ign = [];
+        for (let i = 0, p = 1; i < lhs.length; p += counts[i], i++) if (lhs[i].tilde) ign.push(p);
+        rt.nextIgnored = ign;
+        try { vals = rhs.mv(f, nout); } finally { rt.nextIgnored = null; }
+      } else vals = rhs.mv(f, nout);
       if (vals.length < nout) {
         // the first output may be optional for a statement like [a, b] = size(x) — but missing ones are errors
         let need = 0, k = 0;
