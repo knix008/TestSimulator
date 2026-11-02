@@ -118,6 +118,50 @@ class GeometryTest(unittest.TestCase):
         leaning.apply_transform(trimesh.transformations.rotation_matrix(np.radians(20), [1, 0, 0]))
         self.assertAlmostEqual(np.degrees(upright_angle(leaning.vertices)), -20.0, delta=0.6)
 
+    def test_upright_stands_a_tall_object_by_its_centre_line(self):
+        # A pawn seen from above comes out leaning and with its round base
+        # sheared into a sloping disc. Levelling that base (the squarest box)
+        # tipped the pawn back by 10°; its centre line must end up vertical.
+        import numpy as np
+        import trimesh
+        from mysf3d.pipeline import _hull_points, _squarest_turn, upright_angle
+
+        profile = [[0.0, 0.0], [0.32, 0.0], [0.32, 0.06], [0.2, 0.15], [0.12, 0.55], [0.18, 0.62],
+                   [0.18, 0.66], [0.1, 0.7], [0.14, 0.8], [0.12, 0.9], [0.0, 0.95]]
+        # Dense along the height, like a model's surface (the slices need points).
+        profile = np.array(profile)
+        t = np.linspace(0, len(profile) - 1, 200)
+        profile = np.stack([np.interp(t, np.arange(len(profile)), profile[:, k]) for k in (0, 1)], 1)
+        pawn = trimesh.creation.revolve(profile, sections=64)          # stands on Z
+        pawn.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))
+        v = np.asarray(pawn.vertices, dtype=np.float64).copy()
+        low = v[:, 1] < 0.2                                            # the base slopes
+        v[low, 1] += -0.35 * v[low, 2] * (0.2 - v[low, 1]) / 0.2
+        c, s = np.cos(np.radians(20)), np.sin(np.radians(20))
+        v = v @ np.array([[1, 0, 0], [0, c, -s], [0, s, c]]).T
+        got = np.degrees(upright_angle(v))
+        self.assertAlmostEqual(got, -20.0, delta=1.5)
+        hull = _hull_points(v)
+        box = np.degrees(_squarest_turn(hull[:, 1], hull[:, 2], 35.0))
+        self.assertGreater(abs(box - got), 3.0)                         # the box would not do
+
+    def test_upright_also_undoes_a_sideways_lean(self):
+        import numpy as np
+        import trimesh
+        from mysf3d.pipeline import upright_rotation
+
+        mug = trimesh.creation.cylinder(radius=0.3, height=1.0, sections=48)
+        mug.apply_transform(trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0]))
+        mug.apply_transform(trimesh.transformations.rotation_matrix(np.radians(15), [1, 0, 0]))
+        mug.apply_transform(trimesh.transformations.rotation_matrix(np.radians(12), [0, 0, 1]))
+        turn, _, az = upright_rotation(mug.vertices)
+        self.assertNotEqual(az, 0.0)
+        # Where the mug's own up direction (its axis) points after the turn.
+        lean = (trimesh.transformations.rotation_matrix(np.radians(12), [0, 0, 1])[:3, :3]
+                @ trimesh.transformations.rotation_matrix(np.radians(15), [1, 0, 0])[:3, :3])
+        axis = turn @ lean @ [0, 1, 0]
+        self.assertLess(np.degrees(np.arccos(np.clip(axis[1], -1, 1))), 1.5)
+
     def test_smoothing_keeps_seam_copies_together(self):
         import numpy as np
         import trimesh

@@ -199,7 +199,7 @@
       <tr><td>Texture resolution (SF3D)</td><td>Auto is 1024 px on a GPU, 512 on the CPU. 2048 is sharper but slower.</td></tr>
       <tr><td>Remesh · vertex count (SF3D)</td><td>Rebuilds an even mesh and reduces vertices (when the remeshing libraries are installed)</td></tr>
       <tr><td>Mesh resolution · surface threshold (TripoSR)</td><td>Grid resolution for the surface (auto: GPU 256, CPU 192) and the density taken as surface</td></tr>
-      <tr><td>Stand upright</td><td>A photo taken from above gives a result that leans forward. When on (recommended), the angle within ±35° about X at which the object stands most squarely is found and applied. Turn it off when the slant is the real shape.</td></tr>
+      <tr><td>Stand upright</td><td>A photo taken from above gives a result that leans forward. A camera that was not held level makes it lean sideways too. When on (recommended), the angles within ±35° forwards-backwards (about X) and sideways (about Z) at which the object stands most squarely are found and applied. A tall object, such as a chess piece or a figure, is stood so that the line through the middles of its horizontal slices is vertical. Turn it off when the slant is the real shape.</td></tr>
       <tr><td>Remove small pieces (%)</td><td>Removes loose pieces smaller than this share of the largest one (default 0.5); 0 keeps them all.</td></tr>
       <tr><td>Subdivide faces</td><td>Splits each triangle in four before smoothing (×4 faces per level) so flat facets round off. Recommended 1 for SF3D and TripoSR.</td></tr>
       <tr><td>Surface smoothing</td><td>Passes that even out a bumpy surface (the volume is kept); 0 leaves it. Recommended 10 for SF3D and TripoSR.</td></tr>

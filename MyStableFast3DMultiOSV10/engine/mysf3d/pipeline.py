@@ -80,31 +80,149 @@ def upright_angle(vertices, limit_deg=35.0):
     objects stand squarely, so the angle that makes their box in the Y-Z
     plane smallest is taken — only when it clearly beats leaving it alone, so
     an object that is meant to be slanted is not "corrected".
+
+    A tall object is stood by its centre line instead (see _centre_line_turn):
+    the models also shear it — a chess pawn's round base, seen from above as
+    an ellipse, comes out as a sloping disc — and levelling that base by the
+    box tipped the whole pawn back by 10°.
     """
+    pts = _hull_points(vertices)
+    if pts is None:
+        return 0.0
+    all_pts = _sample_points(vertices)
+    return _lean_turn(pts[:, 1], pts[:, 2], all_pts[:, 1], all_pts[:, 2], limit_deg)
+
+
+def upright_rotation(vertices, limit_deg=35.0):
+    """The rotation (3×3) that stands a reconstructed object upright, and
+    the two angles it is made of: (matrix, about X, about Z), in radians.
+
+    Besides the lean towards the viewer (about X, see upright_angle), a
+    camera that was not held level leans the object sideways, about Z; the
+    same squarest-box rule finds that one in the X-Y plane. The two affect
+    each other, so they are taken in turns until neither moves.
+    """
+    import numpy as np
+
+    pts = _hull_points(vertices)
+    turn = np.eye(3)
+    total_x = total_z = 0.0
+    if pts is None:
+        return turn, 0.0, 0.0
+    all_pts = _sample_points(vertices)
+    for _ in range(4):
+        ax = _lean_turn(pts[:, 1], pts[:, 2], all_pts[:, 1], all_pts[:, 2], limit_deg)
+        if ax:
+            c, s = np.cos(ax), np.sin(ax)
+            step = np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+            pts, all_pts, turn, total_x = pts @ step.T, all_pts @ step.T, step @ turn, total_x + ax
+        az = _squarest_turn(pts[:, 0], pts[:, 1], limit_deg)
+        if az:
+            c, s = np.cos(az), np.sin(az)
+            step = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+            pts, all_pts, turn, total_z = pts @ step.T, all_pts @ step.T, step @ turn, total_z + az
+        if not ax and not az:
+            break
+    return turn, float(total_x), float(total_z)
+
+
+def _hull_points(vertices):
+    """The points of the convex hull (all that a bounding box depends on),
+    or None when there are too few to tell anything."""
     import numpy as np
 
     pts = np.asarray(vertices, dtype=np.float64)
     if len(pts) < 8:
-        return 0.0
+        return None
     try:
         import trimesh
 
-        pts = np.asarray(trimesh.convex.convex_hull(pts).vertices)
+        return np.asarray(trimesh.convex.convex_hull(pts).vertices)
     except Exception:  # noqa: BLE001 — a hull is only a speed-up
         if len(pts) > 20000:
             pts = pts[np.linspace(0, len(pts) - 1, 20000).astype(int)]
-    y, z = pts[:, 1], pts[:, 2]
+        return pts
+
+
+def _sample_points(vertices, limit=200000):
+    """The vertices, thinned out evenly to at most `limit`."""
+    import numpy as np
+
+    pts = np.asarray(vertices, dtype=np.float64)
+    if len(pts) > limit:
+        pts = pts[np.linspace(0, len(pts) - 1, limit).astype(int)]
+    return pts
+
+
+def _lean_turn(hull_y, hull_z, y, z, limit_deg):
+    """The turn about X: by the centre line for a tall object that has one,
+    else by the squarest box."""
+    by_box = _squarest_turn(hull_y, hull_z, limit_deg)
+    by_line = _centre_line_turn(y, z, limit_deg, start=by_box)
+    return by_line if by_line is not None else by_box
+
+
+def _centre_line_turn(y, z, limit_deg, start=0.0, tall=1.3, bins=20):
+    """The turn about X (radians) that makes the line through the middles of
+    the object's horizontal slices vertical, or None when that line says
+    nothing: the object is not clearly taller than deep, or the middles do
+    not lie along a line (a chair, a person leaning on purpose).
+
+    Tallness is judged stood up by `start` (the box's turn): leaning, a tall
+    object looks deeper and shorter than it is. The slices run from 10% to
+    95% of the height: the base is where the models distort most. The turn
+    is refined a few times, since the slices themselves change as the
+    object turns.
+    """
+    import numpy as np
+
+    c, s = np.cos(start), np.sin(start)
+    if np.ptp(y * c - z * s) < tall * np.ptp(y * s + z * c):
+        return None
+    angle = float(start)
+    for _ in range(4):
+        c, s = np.cos(angle), np.sin(angle)
+        yy, zz = y * c - z * s, y * s + z * c
+        lo, hi = yy.min(), yy.max()
+        edges = lo + (hi - lo) * np.linspace(0.10, 0.95, bins + 1)
+        which = np.digitize(yy, edges) - 1
+        mids, heights = [], []
+        for i in range(bins):
+            sel = zz[which == i]
+            if len(sel) >= 10:
+                mids.append((sel.min() + sel.max()) / 2)
+                heights.append((edges[i] + edges[i + 1]) / 2)
+        if len(mids) < bins * 0.75:
+            return None
+        slope, offset = np.polyfit(heights, mids, 1)
+        spread = np.std(np.asarray(mids) - (slope * np.asarray(heights) + offset))
+        if spread > 0.06 * np.ptp(zz):
+            return None
+        step = np.arctan(slope)
+        angle -= step
+        if abs(step) < np.radians(0.1):
+            break
+    if abs(np.degrees(angle)) < 1.0:
+        return 0.0
+    if abs(np.degrees(angle)) > limit_deg:
+        return None
+    return float(angle)
+
+
+def _squarest_turn(a, b, limit_deg):
+    """The turn in the a-b plane (radians, a towards b negative) that makes
+    the box of the points there smallest, or 0.0 when that does not clearly
+    beat leaving them alone."""
+    import numpy as np
 
     def area(rad):
         c, s = np.cos(rad), np.sin(rad)
-        yy = y * c - z * s
-        zz = y * s + z * c
-        return np.ptp(yy) * np.ptp(zz)
+        return np.ptp(a * c - b * s) * np.ptp(a * s + b * c)
 
     coarse = np.radians(np.arange(-limit_deg, limit_deg + 0.5, 1.0))
-    best = coarse[int(np.argmin([area(a) for a in coarse]))]
+    best = coarse[int(np.argmin([area(r) for r in coarse]))]
     fine = best + np.radians(np.arange(-1.0, 1.01, 0.1))
-    best = fine[int(np.argmin([area(a) for a in fine]))]
+    best = fine[int(np.argmin([area(r) for r in fine]))]
     if abs(np.degrees(best)) < 1.0 or area(best) > area(0.0) * 0.97:
         return 0.0
     return float(best)
@@ -321,7 +439,6 @@ def finish_mesh(mesh, options, log=None):
     loose specks removed, subdivided, smoothed, stood upright, seamless
     normals. Returns (mesh, tilt in degrees)."""
     import numpy as np
-    import trimesh
 
     mesh = mesh.copy()
     if face_outward(mesh) and log:
@@ -343,12 +460,15 @@ def finish_mesh(mesh, options, log=None):
         log.info("Re-baked the normal map for the cleaned-up surface.")
     tilt = 0.0
     if options.get("straighten"):
-        angle = upright_angle(mesh.vertices)
-        if angle:
-            mesh.apply_transform(trimesh.transformations.rotation_matrix(angle, [1, 0, 0]))
+        turn, ax, az = upright_rotation(mesh.vertices)
+        if ax or az:
+            m = np.eye(4)
+            m[:3, :3] = turn
+            mesh.apply_transform(m)
             if log:
-                log.info(f"Stood the model upright: tilted {np.degrees(angle):+.1f}° about X.")
-        tilt = float(np.degrees(angle))
+                log.info(f"Stood the model upright: tilted {np.degrees(ax):+.1f}° about X, {np.degrees(az):+.1f}° about Z.")
+        # How far the up direction moved, whichever way.
+        tilt = float(np.degrees(np.arccos(np.clip(turn[1, 1], -1.0, 1.0))))
     seamless_normals(mesh)
     return mesh, tilt
 
