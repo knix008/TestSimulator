@@ -514,6 +514,7 @@ function discoverBinaries(root, options = {}) {
     for (const e of entries) {
       if (out.length >= max) return;
       const r = rel ? `${rel}/${e.name}` : e.name;
+      if (options.isExcluded && options.isExcluded(r)) continue;
       if (e.isDirectory()) {
         if (BINARY_SKIP.has(e.name) || e.name.startsWith('.') || (options.skipDirs || []).includes(e.name)) continue;
         walkDir(path.join(dir, e.name), r, depth + 1);

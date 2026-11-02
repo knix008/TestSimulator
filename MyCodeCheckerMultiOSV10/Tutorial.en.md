@@ -82,7 +82,7 @@ Turn off [Show this page at start] at the bottom of the start page and the next 
 
 ![Creating a project](docs/images/tutorial/en/10-newProject.jpg)
 
-File › New project (Ctrl+N) puts a source folder and its settings in a project file (.mccp). Enter the [Name] and the [Source folder] and the [Project file] path fills in. Right below, [Excluded folders] lets you leave folders out of the analysis from the start. [More settings] shows the main branch, a description and exclusion patterns, and with [Analyse after creating] on, the project is analysed as soon as it is saved. A project file holds only settings, so it is easy to share or to keep in the repository.
+File › New project (Ctrl+N) puts a source folder and its settings in a project file (.mccp). Enter the [Name] and the [Source folder] and the [Project file] path fills in. Right below, [Excluded folders] lets you leave folders out of the analysis from the start, and [Exclusion patterns] below it takes globs, one per line. [More settings] shows the main branch and a description, and with [Analyse after creating] on, the project is analysed as soon as it is saved. A project file holds only settings, so it is easy to share or to keep in the repository.
 
 ### 11. Excluding folders in a new project
 

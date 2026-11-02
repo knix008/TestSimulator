@@ -121,13 +121,13 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
             <Btn icon="folder" label={t('xd_pick')} disabled={!source.trim()} title={source.trim() ? undefined : t('xd_need_source')} onClick={() => setPickDirs(true)} />
           </div>
         </div>
+        <label className="span4">{t('exclusions')}<textarea className="mono" value={exclusions} placeholder={'**/generated/**\n**/*.test.js'} onChange={(e) => setExclusions(e.target.value)} /></label>
       </div>
       <Toggle icon="settings" label={t('pj_more')} checked={more} onChange={setMore} />
       {more && (
         <div className="form-grid">
           <label>{t('pj_main_branch')}<input value={mainBranch} onChange={(e) => setMainBranch(e.target.value)} /></label>
           <label className="span2">{t('pj_description')}<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
-          <label className="span4">{t('exclusions')}<textarea className="mono" value={exclusions} placeholder={'**/generated/**\n**/*.test.js'} onChange={(e) => setExclusions(e.target.value)} /></label>
         </div>
       )}
       {pickDirs && <ExcludeDirsDialog root={source.trim()} value={excludeDirs} onClose={() => setPickDirs(false)} onSave={(dirs) => { setExcludeDirs(dirs); setPickDirs(false); }} />}

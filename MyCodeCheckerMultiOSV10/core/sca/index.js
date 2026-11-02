@@ -25,6 +25,7 @@ const { parseToml } = require('./toml');
 const reach = require('./reachability');
 const snippets = require('./snippets');
 const binary = require('./binary');
+const { exclusionTest } = require('../exclude');
 const { licenseObligations, compatibilityHints } = require('./license');
 
 const SKIP_DIRS = new Set([
@@ -57,6 +58,7 @@ function discoverFiles(root, options = {}) {
     for (const e of entries) {
       if (out.length >= maxFiles) return;
       const r = rel ? `${rel}/${e.name}` : e.name;
+      if (options.isExcluded && options.isExcluded(r)) continue;
       if (e.isDirectory()) {
         if (skip.has(e.name) || (e.name.startsWith('.') && e.name !== '.github')) continue;
         walk(path.join(dir, e.name), r, depth + 1);
@@ -497,6 +499,8 @@ function resolveDb(options) {
 }
 
 function scanDependencies(input, options = {}) {
+  // options.exclusions / options.excludeDirs: the project's analysis scope.
+  if (!options.isExcluded) options = { ...options, isExcluded: exclusionTest(options) };
   const { root, files } = normalizeInput(input, options);
   const fileMap = new Map();
   for (const f of files) if (f.text != null) fileMap.set(f.path, f.text);
@@ -691,6 +695,7 @@ function safeRead(abs) {
 
 function analyze(files, ctx = {}) {
   const options = { ...((ctx.options && (ctx.options.sca || ctx.options)) || {}) };
+  options.isExcluded = ctx.isExcluded || exclusionTest(ctx.options || {});
   const inactive = ctx.inactive instanceof Set ? [...ctx.inactive] : (ctx.inactive || []);
   const list = (files || []).filter((f) => f && f.path && isManifest(f.path)).map((f) => ({ path: f.path, text: f.text }));
   const seen = new Set(list.map((f) => f.path));

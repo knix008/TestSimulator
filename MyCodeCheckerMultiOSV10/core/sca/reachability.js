@@ -66,6 +66,7 @@ function collectSources(root, options = {}) {
     for (const e of entries) {
       if (out.length >= max) return;
       const r = rel ? `${rel}/${e.name}` : e.name;
+      if (options.isExcluded && options.isExcluded(r)) continue;
       if (e.isDirectory()) {
         if (skip.has(e.name) || e.name.startsWith('.')) continue;
         walk(path.join(dir, e.name), r, depth + 1);

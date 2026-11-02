@@ -56,6 +56,9 @@ function createExtensions({ workspace, saveWorkspace, configDir, issuesOf = (iss
         advisoryDb: advisoryDb(ws) || undefined,
         licensePolicy: ws.settings && ws.settings.licensePolicy,
         internalPatterns: (ws.settings && ws.settings.internalPackages) || [],
+        // The dependency and SBOM views cover what the analysis covers.
+        exclusions: [...((ws.settings && ws.settings.exclusions) || []), ...((project && project.exclusions) || [])],
+        excludeDirs: (project && project.excludeDirs) || [],
       },
       misra: (ws.settings && ws.settings.misra) || {},
       cfamily: {

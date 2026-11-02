@@ -15,6 +15,7 @@ const { checkerCatalog, decorateIssue, pathDefects, summarizeDefects } = require
 const checks = require('./checks');
 const { engines, engineCatalog, extraLineRules } = require('./engines');
 const cfront = require('./cfront');
+const { normDirs, inDirs, excluded, exclusionTest } = require('./exclude');
 
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'target', 'vendor', '__pycache__',
@@ -565,6 +566,10 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
   const shared = list.filter((engine) => cfront.ENGINE_IDS.has(engine.id));
   const metas = new Map();
   const seenKeys = new Set(issues.map((i) => i.key));
+  // Engines that read the tree themselves (SCA manifests, binaries) must not
+  // report on folders and patterns the project excludes.
+  const outOfScope = exclusionTest(ctx.options || {});
+  ctx.isExcluded = outOfScope;
   const parts = fileBatches(prepared, (ctx.options && ctx.options.engineBatchBytes) || ENGINE_BATCH_BYTES);
   plain.forEach((engine, index) => {
     const whole = WHOLE_TREE_ENGINES.has(engine.id) || parts.length === 1;
@@ -612,6 +617,7 @@ function runEngines(prepared, ctx, issues, overrides, warnings, report = () => {
     const meta = metas.get(engine.id);
     for (const f of found) {
       if (!f || !f.rule || !f.line || ctx.inactive.has(f.rule)) continue;
+      if (outOfScope && !byPath.has(f.file) && outOfScope(f.file)) continue;
       const m = meta.get(f.rule) || {};
       // A rule only reports on its own languages (headers .h may be C or C++).
       const fileLang = (byPath.get(f.file) || {}).lang;
@@ -861,27 +867,12 @@ function compileCustom(rule) {
 }
 
 function toRel(root, file) {
-  if (!root) return String(file).replace(/\\/g, '/');
+  // A relative path is already root-relative (resolving it against the
+  // working folder gives an absolute path when that is on another drive).
+  if (!root || !path.isAbsolute(file)) return String(file).replace(/\\/g, '/');
   const rel = path.relative(root, file);
   if (rel.startsWith('..')) return String(file).replace(/\\/g, '/');
   return rel.replace(/\\/g, '/');
-}
-
-// Folders excluded by the user (root-relative, e.g. "apis" or "src/gen"): the
-// folder and everything below it, only at that place in the tree.
-function normDirs(dirs) {
-  return (dirs || []).map((d) => String(d || '').replace(/\\/g, '/').replace(/^\.?\/+|\/+$/g, '').toLowerCase()).filter(Boolean);
-}
-
-function inDirs(rel, dirs) {
-  if (!dirs.length) return false;
-  const n = String(rel || '').replace(/\\/g, '/').toLowerCase();
-  return dirs.some((d) => n === d || n.startsWith(`${d}/`));
-}
-
-function excluded(rel, patterns) {
-  const n = String(rel || '').replace(/\\/g, '/');
-  return (patterns || []).some((p) => matchGlob(n, p));
 }
 
 function matchGlob(rel, pattern) {

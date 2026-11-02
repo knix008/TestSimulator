@@ -36,6 +36,22 @@ test('excluded folders are skipped at their place in the tree only', () => {
   assert.deepEqual([...new Set(res.issues.map((i) => i.file))], ['src/a.js']);
 });
 
+test('engines that read the tree themselves (SCA manifests) skip excluded folders and patterns', () => {
+  const root = tmp('mcc-xd-sca-');
+  const put = (rel, text) => { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), text); };
+  const pkg = JSON.stringify({ name: 'x', version: '1.0.0', dependencies: { lodash: '4.17.15' } });
+  put('src/a.js', JS);
+  put('third/package.json', pkg);
+  put('gen/package.json', pkg);
+  put('app/package.json', pkg);
+  const { analyzePath } = require('../core/analyze.js');
+  const files = (opts) => [...new Set(analyzePath(root, opts).issues.filter((i) => String(i.rule).startsWith('sca:')).map((i) => i.file))].sort();
+  assert.deepEqual(files({}), ['app/package.json', 'gen/package.json', 'third/package.json']);
+  assert.deepEqual(files({ excludeDirs: ['third'], exclusions: ['gen/**'] }), ['app/package.json']);
+  const sca = require('../core/sca');
+  assert.deepEqual(sca.scanDependencies(root, { excludeDirs: ['third', 'gen'] }).manifests.map((m) => m.file || m.path || m), ['app/package.json']);
+});
+
 test('project.dirs lists sub-folders; scans honour project.excludeDirs; .mccp keeps them', async () => {
   const root = tree();
   const api = createApi({ configDir: tmp('mcc-xd-ws-') });
