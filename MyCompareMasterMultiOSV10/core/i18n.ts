@@ -991,3 +991,23 @@ export function translator(language: Language) {
 }
 
 export type Translate = ReturnType<typeof translator>;
+
+let byText: Map<string, StringKey>[] | null = null;
+
+/**
+ * What `text`, shown in `from`, reads as in `to` — or undefined when it is not a whole
+ * entry of the table (a file name, a number, a string with arguments filled in).
+ * The window's minimum width uses it to measure the labels in the language that is
+ * not showing.
+ */
+export function retranslate(text: string, from: Language, to: Language): string | undefined {
+  if (!byText) {
+    byText = [new Map(), new Map()];
+    for (const [key, pair] of Object.entries(STRINGS) as [StringKey, readonly [string, string]][]) {
+      if (!byText[0].has(pair[0])) byText[0].set(pair[0], key);
+      if (!byText[1].has(pair[1])) byText[1].set(pair[1], key);
+    }
+  }
+  const key = byText[from === "en" ? 1 : 0].get(text);
+  return key ? translate(to, key) : undefined;
+}

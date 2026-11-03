@@ -201,152 +201,189 @@ const rgb = (r, g, b, a = 1) => [r / 255, g / 255, b / 255, a];
 const clamp = (value, low, high) => (value < low ? low : value > high ? high : value);
 const round255 = (value) => Math.round(clamp(value, 0, 1) * 255);
 
+/* ---------------- shapes and paints for the glass look ---------------- */
+
+/**
+ * A superellipse ("squircle"): the continuous-curvature corner current app icons use
+ * instead of a rounded rectangle, whose straight edge meets its arc with a visible kink.
+ * The p-norm is close enough to a true distance for the edge antialiasing.
+ */
+function squircle(cx, cy, half, n = 5) {
+  return (px, py) => {
+    const x = Math.abs(px - cx) / half;
+    const y = Math.abs(py - cy) / half;
+    return ((x ** n + y ** n) ** (1 / n) - 1) * half;
+  };
+}
+
+/** A linear gradient from (x1, y1) to (x2, y2) through `stops`: [[t, colour], ...]. */
+function ramp(x1, y1, x2, y2, stops) {
+  const vx = x2 - x1;
+  const vy = y2 - y1;
+  const lengthSquared = vx * vx + vy * vy || 1;
+  return (px, py) => {
+    const t = clamp(((px - x1) * vx + (py - y1) * vy) / lengthSquared, 0, 1);
+    let i = 0;
+    while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
+    const [t0, from] = stops[i];
+    const [t1, to] = stops[i + 1];
+    const u = clamp((t - t0) / (t1 - t0 || 1), 0, 1);
+    return from.map((value, channel) => value + (to[channel] - value) * u);
+  };
+}
+
+/**
+ * A soft shadow: the shape moved by (dx, dy) with its edge spread over `blur` pixels,
+ * kept inside `clip` so the transparent surround of the icon stays transparent.
+ */
+function softShadow(canvas, shape, clip, dx, dy, blur, color) {
+  canvas.fillClipped((x, y) => shape(x - dx, y - dy) / Math.max(blur, 1) * 1.5 - 0.5, clip, solid(color));
+}
+
 /* ---------------- the application icon ---------------- */
 
 /**
- * Two document columns being merged into one, on a rounded slab.
+ * Two pages of code side by side, merged into one page below them, on a vivid squircle.
  *
- * The 3D reading comes from light, not from an outline: a diagonal body gradient
- * that runs from lit to shaded, a soft specular glow sitting over the top-left
- * corner as though a lamp were up and to the left, and the slab's own edge shaded
- * by which way it faces, so the thing has a thickness instead of being a sticker.
- * There is deliberately no rim — an even bevel all the way round reads as a drawn
- * border, which is the one thing the icon must not have — so the edge lighting is
- * directional: lit along the top and left, shaded along the bottom and right, and
- * nothing at all on the two corners in between.
+ * The depth comes from layers of light rather than from a heavy bevel: a violet to
+ * teal body with soft colour blooms in two corners, translucent panes that let the
+ * colour through and catch a bright rim along their lit edges, and soft shadows under
+ * every layer. Each source page carries its own change (coral on the left, mint on the
+ * right) and the result carries both, so the picture reads as two becoming one.
+ *
+ * `paintAppIcon` draws in a 256-unit design space mapped by `k` and an origin, so the
+ * document icon can stamp the same emblem onto its page.
  */
-function drawAppIcon(size) {
-  const canvas = new Canvas(size);
-  const k = size / 256;
-  const s = (value) => value * k;
+function paintAppIcon(canvas, k, ox = 0, oy = 0) {
+  const X = (u) => ox + u * k;
+  const Y = (u) => oy + u * k;
+  const s = (u) => u * k;
+  const pixels = 256 * k; // the emblem's own size, which decides how much detail survives
 
-  const box = { x: s(16), y: s(16), w: s(224), h: s(224), r: s(52) };
-  const body = roundedRect(box.x, box.y, box.w, box.h, box.r);
+  const body = squircle(X(128), Y(128), s(114));
 
-  // 1. the slab
-  canvas.fill(body, gradient(box.x, box.y, box.w, box.h, rgb(63, 94, 162), rgb(20, 31, 56), "diagonal"));
+  // 1. the body: violet into indigo into teal, lit from the top-left
+  canvas.fill(body, ramp(X(24), Y(16), X(232), Y(240), [
+    [0, rgb(168, 85, 247)],
+    [0.5, rgb(79, 70, 229)],
+    [1, rgb(6, 148, 162)],
+  ]));
+  // colour blooms, the way light pools in tinted glass
+  canvas.fillClipped(body, body, glow(X(214), Y(42), s(130), rgb(244, 114, 182), 0.55));
+  canvas.fillClipped(body, body, glow(X(40), Y(226), s(130), rgb(45, 212, 191), 0.4));
+  canvas.fillClipped(body, body, glow(X(64), Y(48), s(150), rgb(255, 255, 255), 0.22));
+  canvas.fillClipped(body, body, glow(X(220), Y(230), s(150), rgb(15, 10, 60), 0.28));
+  // a narrow rolled edge with a crisp specular rim, not a wide bevel
+  canvas.fill(body, bevel(body, Math.max(s(10), 1.2), { lit: 0.42, shade: 0.3 }));
+  canvas.fill(body, bevel(body, Math.max(s(3), 1), { lit: 0.6, shade: 0.12 }));
 
-  // 2. the light itself: a broad highlight over the top-left corner, and a second,
-  // tighter one at its centre so the corner reads as catching the light rather than
-  // as being painted a lighter colour. Both are clipped to the body, so nothing
-  // spills past the slab's edge and no rim is drawn.
-  canvas.fillClipped(body, body, glow(box.x + s(62), box.y + s(54), s(168), rgb(255, 255, 255), 0.4));
-  canvas.fillClipped(body, body, glow(box.x + s(46), box.y + s(38), s(74), rgb(255, 255, 255), 0.3));
+  /* --- two pages of code above, merged into one below --- */
 
-  // 3. and the far corner falling away, which is what makes the near one look lit
-  canvas.fillClipped(body, body, glow(box.x + box.w - s(30), box.y + box.h - s(26), s(180), rgb(0, 0, 0), 0.26));
+  const pane = (cx, cy, w, h) => roundedRect(cx - w / 2, cy - h / 2, w, h, s(16));
+  const sources = [
+    { cx: X(82), mark: rgb(251, 113, 133), tint: rgb(253, 164, 175) },
+    { cx: X(174), mark: rgb(52, 211, 153), tint: rgb(110, 231, 183) },
+  ];
+  const sourceY = Y(70);
+  const sourceW = s(76);
+  const sourceH = s(80);
+  const resultX = X(128);
+  const resultY = Y(190);
+  const resultW = s(116);
+  const resultH = s(76);
+  const result = pane(resultX, resultY, resultW, resultH);
 
-  // 4. the edge: the top and left catch the lamp, the bottom and right fall into
-  // shade, and the slab stops being a flat shape with a gradient on it. Wide enough
-  // to be a rounded-over edge rather than a hairline, and clipped to the body, so
-  // the transparent surround is untouched.
-  canvas.fill(body, bevel(body, Math.max(s(15), 1.5), { lit: 0.5, shade: 0.45 }));
+  // A code line: indent and length in design units, relative to its page's centre.
+  const codeLine = (cx, cy, row, paint) => canvas.fill(
+    capsule(cx + s(row.from), cy + s(row.y), cx + s(row.to), cy + s(row.y), Math.max(s(7), 1)),
+    paint,
+  );
 
-  /* --- the mark: two columns merging into one --- */
+  for (const source of sources) softShadow(canvas, pane(source.cx, sourceY, sourceW, sourceH), body, s(2), s(7), s(12), rgb(30, 20, 90, 0.3));
+  softShadow(canvas, result, body, 0, s(9), s(16), rgb(30, 20, 90, 0.4));
 
-  const columnWidth = s(40);
-  const top = s(58);
-  const bottom = s(150);
-  const leftX = s(76);
-  const rightX = s(180);
-
-  const column = (cx, from, to) => {
-    const shape = roundedRect(cx - columnWidth / 2, top, columnWidth, bottom - top, s(10));
-    // Drop shadow first, so each column sits above the slab.
-    canvas.fill(
-      roundedRect(cx - columnWidth / 2 + s(3), top + s(4), columnWidth, bottom - top, s(10)),
-      solid(rgb(0, 0, 0, 0.22)),
-    );
-    canvas.fill(shape, gradient(cx - columnWidth / 2, top, columnWidth, bottom - top, from, to, "vertical"));
-    canvas.fillClipped(shape, shape, glow(cx - s(8), top + s(10), s(46), rgb(255, 255, 255), 0.4));
-  };
-
-  column(leftX, rgb(134, 239, 172), rgb(34, 150, 94));
-  column(rightX, rgb(147, 197, 253), rgb(37, 99, 190));
-
-  // Text lines on each column, skipped where they would only smear.
-  if (size >= 48) {
-    const line = solid(rgb(255, 255, 255, 0.55));
-    const width = Math.max(s(4), 1);
-    for (let y = top + s(16); y < bottom - s(12); y += s(20)) {
-      canvas.fill(capsule(leftX - s(11), y, leftX + s(11), y, width), line);
-      canvas.fill(capsule(rightX - s(11), y, rightX + s(11), y, width), line);
+  // The source pages: frosted glass, tinted by the side they come from, each with
+  // its own changed line.
+  for (const source of sources) {
+    const shape = pane(source.cx, sourceY, sourceW, sourceH);
+    canvas.fill(shape, ramp(0, sourceY - sourceH / 2, 0, sourceY + sourceH / 2, [
+      [0, rgb(255, 255, 255, 0.5)],
+      [1, rgb(255, 255, 255, 0.22)],
+    ]));
+    canvas.fill(shape, solid([...source.tint.slice(0, 3), 0.18]));
+    canvas.fillClipped(shape, shape, glow(source.cx - s(24), sourceY - s(28), s(64), rgb(255, 255, 255), 0.4));
+    canvas.fill(shape, bevel(shape, Math.max(s(5), 1), { lit: 0.85, shade: 0.2 }));
+    canvas.stroke(shape, Math.max(s(1.6), 0.8), solid(rgb(255, 255, 255, 0.55)));
+    if (pixels >= 48) {
+      const plain = solid(rgb(255, 255, 255, 0.9));
+      codeLine(source.cx, sourceY, { y: -22, from: -24, to: 18 }, plain);
+      codeLine(source.cx, sourceY, { y: -6, from: -16, to: 24 }, solid(source.mark));
+      codeLine(source.cx, sourceY, { y: 10, from: -16, to: 12 }, plain);
+      codeLine(source.cx, sourceY, { y: 26, from: -24, to: 8 }, plain);
     }
   }
 
-  /*
-   * The comparison: a two-way arrow in the gap between the columns.
-   *
-   * The icon has two things to say and they happen in that order — the files are
-   * compared against each other, and then they are merged into one — so the
-   * sideways arrow sits between the columns and the merge arrow runs below them.
-   * White rather than the merge's yellow: two marks of one colour would read as one
-   * shape, and the gap is narrow enough that they nearly touch.
-   *
-   * Skipped below 48px for the same reason as the text lines: the gap between the
-   * columns is eight pixels there, and an arrow drawn into it is a smudge that
-   * costs the merge mark its clarity without reading as an arrow itself.
-   */
-  if (size >= 48) {
-    const compareY = (top + bottom) / 2;
-    const leftTip = leftX + s(26);
-    const rightTip = rightX - s(26);
-    const head = s(15);
-    const halfHead = s(11);
-    // Drawn twice: once offset into shadow, once in white, so it sits above the
-    // slab the same way the columns do rather than being painted onto it.
-    const drawCompare = (dx, dy, paint) => {
-      canvas.fill(capsule(leftTip + head + dx, compareY + dy, rightTip - head + dx, compareY + dy, s(9)), paint);
-      canvas.fill(
-        triangle(
-          leftTip + dx, compareY + dy,
-          leftTip + head + dx, compareY - halfHead + dy,
-          leftTip + head + dx, compareY + halfHead + dy,
-        ),
-        paint,
-      );
-      canvas.fill(
-        triangle(
-          rightTip + dx, compareY + dy,
-          rightTip - head + dx, compareY + halfHead + dy,
-          rightTip - head + dx, compareY - halfHead + dy,
-        ),
-        paint,
-      );
-    };
+  // The merge: an arm from each page, joining into one arrow that points into the
+  // result. Thicker than the design space says at the small sizes, where a hairline
+  // would vanish.
+  const arm = Math.max(s(10), 1.8);
+  const join = Y(134);
+  const drawMerge = (dx, dy, paint) => {
+    canvas.fill(capsule(sources[0].cx + dx, sourceY + sourceH / 2 + s(5) + dy, resultX + dx, join + dy, arm), paint);
+    canvas.fill(capsule(sources[1].cx + dx, sourceY + sourceH / 2 + s(5) + dy, resultX + dx, join + dy, arm), paint);
+    canvas.fill(triangle(
+      resultX - s(15) + dx, join - s(2) + dy,
+      resultX + s(15) + dx, join - s(2) + dy,
+      resultX + dx, Y(149) + dy,
+    ), paint);
+  };
+  drawMerge(0, Math.max(s(3), 0.6), solid(rgb(40, 15, 70, 0.3)));
+  drawMerge(0, 0, ramp(0, sourceY + sourceH / 2, 0, Y(149), [
+    [0, rgb(253, 224, 71)],
+    [1, rgb(249, 115, 22)],
+  ]));
 
-    drawCompare(s(3), s(4), solid(rgb(0, 0, 0, 0.22)));
-    drawCompare(0, 0, solid(rgb(255, 255, 255, 0.95)));
+  // The result: one brighter page carrying both changes, which is the whole story —
+  // the two pages above have become this one.
+  canvas.fill(result, ramp(0, resultY - resultH / 2, 0, resultY + resultH / 2, [
+    [0, rgb(255, 255, 255, 0.92)],
+    [1, rgb(236, 233, 255, 0.82)],
+  ]));
+  canvas.fillClipped(result, result, glow(resultX - s(36), resultY - s(26), s(80), rgb(255, 255, 255), 0.5));
+  canvas.fill(result, bevel(result, Math.max(s(5), 1), { lit: 0.9, shade: 0.25 }));
+  canvas.stroke(result, Math.max(s(1.6), 0.8), solid(rgb(255, 255, 255, 0.8)));
+  if (pixels >= 48) {
+    const plain = solid(rgb(79, 70, 229, 0.55));
+    codeLine(resultX, resultY, { y: -21, from: -42, to: 22 }, plain);
+    codeLine(resultX, resultY, { y: -7, from: -32, to: 34 }, solid(sources[0].mark));
+    codeLine(resultX, resultY, { y: 7, from: -32, to: 26 }, solid(sources[1].mark));
+    codeLine(resultX, resultY, { y: 21, from: -42, to: 6 }, plain);
+  } else {
+    // Too small for lines: two bars of the change colours keep the result readable.
+    codeLine(resultX, resultY, { y: -8, from: -30, to: 30 }, solid(sources[0].mark));
+    codeLine(resultX, resultY, { y: 10, from: -30, to: 30 }, solid(sources[1].mark));
   }
+}
 
-  // The merge: two arms joining and one arrow pointing down into the result.
-  const armWidth = s(13);
-  const joinY = s(176);
-  const stemX = s(128);
-  const arm = solid(rgb(250, 204, 21));
-  canvas.fill(capsule(leftX, bottom - s(4), stemX, joinY, armWidth), arm);
-  canvas.fill(capsule(rightX, bottom - s(4), stemX, joinY, armWidth), arm);
-  canvas.fill(capsule(stemX, joinY, stemX, s(196), armWidth), arm);
-  canvas.fill(triangle(stemX - s(26), s(188), stemX + s(26), s(188), stemX, s(222)), arm);
-  canvas.fillClipped(
-    capsule(stemX, joinY, stemX, s(196), armWidth),
-    capsule(stemX, joinY, stemX, s(196), armWidth),
-    glow(stemX - s(5), joinY, s(40), rgb(255, 255, 255), 0.45),
-  );
-
+function drawAppIcon(size) {
+  const canvas = new Canvas(size);
+  paintAppIcon(canvas, size / 256);
   return canvas;
 }
 
 /* ---------------- the document icon ---------------- */
 
-/** A page with a folded corner, carrying the same merge mark and the same lighting. */
+/**
+ * A white page with a folded corner and the app's emblem on it: the same squircle,
+ * panes and badge, so a .dmrg file is recognisably this program's.
+ */
 function drawDocumentIcon(size) {
   const canvas = new Canvas(size);
   const k = size / 256;
   const s = (value) => value * k;
 
-  const page = { x: s(44), y: s(20), w: s(168), h: s(216), r: s(16) };
-  const fold = s(56);
+  const page = { x: s(40), y: s(16), w: s(176), h: s(224), r: s(20) };
+  const fold = s(54);
   const sheet = roundedRect(page.x, page.y, page.w, page.h, page.r);
   // The corner is cut away rather than painted over, so the icon's outline really is
   // a dog-eared page and the area outside it stays transparent.
@@ -357,13 +394,13 @@ function drawDocumentIcon(size) {
   );
   const body = (x, y) => Math.max(sheet(x, y), -corner(x, y));
 
-  canvas.fill(body, gradient(page.x, page.y, page.w, page.h, rgb(252, 253, 255), rgb(203, 213, 233), "diagonal"));
-  // The sheet's own edge, before the outline goes over it: a page this pale has
-  // almost no room to be lightened, so most of the roundness here comes from the
-  // bottom and right rolling into shade.
-  canvas.fill(body, bevel(body, Math.max(s(14), 1.2), { lit: 0.5, shade: 0.45 }));
-  canvas.stroke(body, Math.max(s(2.4), 1), solid(rgb(120, 136, 165, 0.75)));
-  canvas.fillClipped(body, body, glow(page.x + s(40), page.y + s(36), s(120), rgb(255, 255, 255), 0.55));
+  canvas.fill(body, ramp(page.x, page.y, page.x + page.w, page.y + page.h, [
+    [0, rgb(255, 255, 255)],
+    [1, rgb(226, 232, 245)],
+  ]));
+  canvas.fillClipped(body, body, glow(page.x + page.w, page.y + page.h, s(160), rgb(168, 85, 247), 0.12));
+  canvas.fill(body, bevel(body, Math.max(s(8), 1), { lit: 0.4, shade: 0.28 }));
+  canvas.stroke(body, Math.max(s(1.6), 0.8), solid(rgb(148, 163, 196, 0.7)));
 
   // The flap: the folded-back corner, lit from the top-left like everything else.
   const flap = triangle(
@@ -371,35 +408,23 @@ function drawDocumentIcon(size) {
     page.x + page.w, page.y + fold,
     page.x + page.w - fold, page.y + fold,
   );
-  canvas.fill(flap, gradient(
-    page.x + page.w - fold, page.y, fold, fold,
-    rgb(232, 238, 250), rgb(166, 181, 208), "diagonal",
-  ));
-  canvas.fill(flap, bevel(flap, Math.max(s(9), 1.2), { lit: 0.55, shade: 0.34 }));
-  canvas.stroke(flap, Math.max(s(2), 1), solid(rgb(120, 136, 165, 0.6)));
+  softShadow(canvas, flap, body, -s(2), s(4), s(8), rgb(30, 20, 90, 0.18));
+  canvas.fill(flap, ramp(page.x + page.w - fold, page.y + fold, page.x + page.w, page.y, [
+    [0, rgb(214, 222, 240)],
+    [1, rgb(246, 248, 253)],
+  ]));
+  canvas.stroke(flap, Math.max(s(1.4), 0.7), solid(rgb(148, 163, 196, 0.6)));
 
-  const leftX = page.x + s(44);
-  const rightX = page.x + s(124);
-  const top = page.y + s(78);
-  const bottom = page.y + s(136);
-  const columnWidth = s(30);
+  if (size >= 48) {
+    const line = solid(rgb(148, 163, 196, 0.8));
+    canvas.fill(capsule(page.x + s(26), page.y + s(34), page.x + s(96), page.y + s(34), s(8)), line);
+    canvas.fill(capsule(page.x + s(26), page.y + s(54), page.x + s(76), page.y + s(54), s(8)), line);
+  }
 
-  canvas.fill(
-    roundedRect(leftX - columnWidth / 2, top, columnWidth, bottom - top, s(8)),
-    gradient(leftX, top, columnWidth, bottom - top, rgb(134, 239, 172), rgb(34, 150, 94), "vertical"),
-  );
-  canvas.fill(
-    roundedRect(rightX - columnWidth / 2, top, columnWidth, bottom - top, s(8)),
-    gradient(rightX, top, columnWidth, bottom - top, rgb(147, 197, 253), rgb(37, 99, 190), "vertical"),
-  );
-
-  const stemX = (leftX + rightX) / 2;
-  const armWidth = s(11);
-  const arm = solid(rgb(234, 179, 8));
-  canvas.fill(capsule(leftX, bottom, stemX, bottom + s(22), armWidth), arm);
-  canvas.fill(capsule(rightX, bottom, stemX, bottom + s(22), armWidth), arm);
-  canvas.fill(capsule(stemX, bottom + s(22), stemX, bottom + s(40), armWidth), arm);
-  canvas.fill(triangle(stemX - s(21), bottom + s(34), stemX + s(21), bottom + s(34), stemX, bottom + s(62)), arm);
+  // The emblem: the app icon itself, scaled onto the lower part of the page.
+  const scale = size >= 48 ? 0.58 : 0.66;
+  const ek = k * scale;
+  paintAppIcon(canvas, ek, s(128) - 128 * ek, s(size >= 48 ? 156 : 146) - 128 * ek);
 
   return canvas;
 }

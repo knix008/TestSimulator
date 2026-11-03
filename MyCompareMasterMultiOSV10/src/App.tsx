@@ -156,7 +156,7 @@ export function App() {
       const next = windowMinimumWidth(element, {
         left: app.settings.leftPanelWidth,
         right: app.settings.rightPanelWidth,
-      }, menubar);
+      }, menubar, app.settings.language);
       // Only a real change is pushed: re-applying the same value on every resize
       // would make the window creep wider.
       if (next < 320 || Math.abs(next - applied) < 4) return;
