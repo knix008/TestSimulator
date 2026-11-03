@@ -7,21 +7,28 @@
 //   menuSize(items, colWidth)             // { width, height } for a popup window
 //
 // A list with an item marked oneColumn: true (or columnsOf(items, true))
-// always stays in one column — the Help menu.
+// always stays in one column — the Help menu. columnsOf(items, false, n) /
+// menuSize(items, colWidth, n) split a list without separators into n columns
+// (a long list that must show every item without scrolling).
 export const TWO_COLUMN_MIN = 7;
 export const ROW_H = 30;
 export const SEP_H = 9;
+export const COL_GAP = 9;
 
 const rowsOf = (list) => list.reduce((h, x) => h + (x.item.sep ? SEP_H : ROW_H), 0);
 
 export const isOneColumn = (items) => !!(items && items.some((x) => x && x.oneColumn));
 
-export function columnsOf(items, single = isOneColumn(items)) {
+export function columnsOf(items, single = isOneColumn(items), columns = 0) {
   const all = (items || []).map((item, index) => ({ item, index }));
   const count = all.filter((x) => !x.item.sep).length;
   let cols;
   if (single || count < TWO_COLUMN_MIN) cols = [all];
-  else {
+  else if (columns > 2 && !all.some((x) => x.item.sep)) {
+    const rows = Math.ceil(count / columns);
+    cols = [];
+    for (let i = 0; i < count; i += rows) cols.push(all.slice(i, i + rows));
+  } else {
     // Groups between separators.
     const groups = [[]];
     for (const x of all) {
@@ -64,8 +71,8 @@ export function columnsOf(items, single = isOneColumn(items)) {
 }
 
 /** Popup size for a list: one or two columns of colWidth, plus padding. */
-export function menuSize(items, colWidth) {
-  const cols = columnsOf(items);
+export function menuSize(items, colWidth, columns = 0) {
+  const cols = columnsOf(items, isOneColumn(items), columns);
   const height = Math.max(...cols.map(rowsOf)) + 10;
-  return { width: cols.length > 1 ? colWidth * 2 + 9 : colWidth, height, columns: cols.length };
+  return { width: colWidth * cols.length + COL_GAP * (cols.length - 1), height, columns: cols.length };
 }

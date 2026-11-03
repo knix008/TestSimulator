@@ -247,7 +247,19 @@ export function RangeStepper({ value, onChange, min = 0, max = 100, step = 1, un
 // Keyboard: Enter / Space / ArrowDown / ArrowUp open the list on the current
 // value; ArrowUp / ArrowDown / Home / End move; Enter / Space pick; Esc and
 // Tab close. The popup is clamped to the window on every side.
-export function IconSelect({ value, options, onChange, title, width, icon, placeholder, ariaLabel }) {
+// columns: split a long list into that many columns; fit: columns as wide as
+// the longest label and no height limit, so every option shows at once (on
+// the desktop the list is its own window and can go past the main window).
+const labelWidth = (() => {
+  let ctx = null;
+  return (texts, el) => {
+    if (!ctx) ctx = document.createElement('canvas').getContext('2d');
+    const cs = el ? getComputedStyle(el) : null;
+    ctx.font = cs ? `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}` : '13px sans-serif';
+    return Math.max(0, ...texts.map((x) => ctx.measureText(String(x)).width));
+  };
+})();
+export function IconSelect({ value, options, onChange, title, width, icon, placeholder, ariaLabel, columns = 0, fit = false }) {
   useLanguage();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
@@ -284,16 +296,18 @@ export function IconSelect({ value, options, onChange, title, width, icon, place
     const r = btn.current.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const two = options.length >= TWO_COLUMN_MIN;
-    const rows = two ? Math.ceil(options.length / 2) : options.length;
-    const want = Math.min(two ? 420 : 320, rows * 30 + 10);
+    const n = options.length < TWO_COLUMN_MIN ? 1 : Math.max(2, columns);
+    const two = n > 1;
+    const rows = Math.ceil(options.length / n);
+    const want = fit ? rows * 30 + 10 : Math.min(two ? 420 : 320, rows * 30 + 10);
     const below = vh - r.bottom - 6;
     const above = r.top - 6;
     const up = below < want && above > below;
     const h = Math.max(40, Math.min(want, up ? above : below));
     const top = up ? Math.max(4, r.top - h - 2) : Math.min(r.bottom + 2, vh - h - 4);
     const maxWidth = Math.max(120, vw - 12);
-    const w = Math.min(two ? Math.max(r.width, 180) * 2 + 9 : Math.max(r.width, 180), maxWidth);
+    const colW = fit ? Math.max(r.width, 180, Math.ceil(labelWidth(options.map((o) => o.label), btn.current)) + 64) : Math.max(r.width, 180);
+    const w = Math.min(colW * n + 9 * (n - 1), maxWidth);
     const left = Math.max(6, Math.min(r.left, vw - w - 6));
     setPos({ top, left, minWidth: w, maxWidth: Math.min(maxWidth, vw - left - 6), maxHeight: h });
   }, [open, options.length]);
@@ -323,8 +337,8 @@ export function IconSelect({ value, options, onChange, title, width, icon, place
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
     else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && n >= TWO_COLUMN_MIN) {
       e.preventDefault();
-      const half = Math.ceil(n / 2);
-      setActive((i) => (e.key === 'ArrowRight' ? (i < half ? Math.min(n - 1, i + half) : i) : (i >= half ? i - half : i)));
+      const half = Math.ceil(n / Math.max(2, columns));
+      setActive((i) => (e.key === 'ArrowRight' ? (i + half < n ? i + half : i) : (i >= half ? i - half : i)));
     }
     else if (e.key === 'Home' || e.key === 'PageUp') { e.preventDefault(); setActive(0); }
     else if (e.key === 'End' || e.key === 'PageDown') { e.preventDefault(); setActive(n - 1); }
@@ -335,9 +349,10 @@ export function IconSelect({ value, options, onChange, title, width, icon, place
   const openDesktop = () => {
     const r = btn.current.getBoundingClientRect();
     const items = options.map((o) => ({ value: o.value, label: String(o.label), icon: o.icon || 'list', flag: o.flag || '' }));
-    const size = menuSize(items, Math.max(r.width, 180));
+    const colW = fit ? Math.max(r.width, 180, Math.ceil(labelWidth(items.map((o) => o.label), btn.current)) + 64) : Math.max(r.width, 180);
+    const size = menuSize(items, colW, columns);
     const look = { theme: document.documentElement.dataset.theme, language: getLanguage(), customThemes: getCustomThemesRaw() };
-    openPopupWindow({ kind: 'select', anchor: r, width: size.width, height: Math.min(size.columns > 1 ? 420 : 320, size.height), payload: { ...look, items, value },
+    openPopupWindow({ kind: 'select', anchor: r, width: size.width, height: fit ? size.height : Math.min(size.columns > 1 ? 420 : 320, size.height), payload: { ...look, items, value, columns },
       onResult: (res) => { if (res && 'value' in res) onChange(res.value); if (btn.current) btn.current.focus(); } });
   };
   return (
@@ -351,8 +366,8 @@ export function IconSelect({ value, options, onChange, title, width, icon, place
         <Icon name="chevronDown" size={13} />
       </button>
       {open && pos && (
-        <div ref={pop} className={`iselect-pop ${options.length >= TWO_COLUMN_MIN ? 'two-col' : ''}`} role="listbox" aria-label={ariaLabel || title || undefined} onKeyDown={onListKey}
-          style={{ top: pos.top, left: pos.left, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight, '--rows': Math.ceil(options.length / 2) }}>
+        <div ref={pop} className={`iselect-pop ${options.length >= TWO_COLUMN_MIN ? 'two-col' : ''} ${options.length >= TWO_COLUMN_MIN && columns > 2 ? 'multi-col' : ''}`} role="listbox" aria-label={ariaLabel || title || undefined} onKeyDown={onListKey}
+          style={{ top: pos.top, left: pos.left, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight, '--rows': Math.ceil(options.length / Math.max(2, columns)), '--cols': Math.max(2, columns) }}>
           {options.map((o, i) => (
             <button key={String(o.value)} type="button" role="option" aria-selected={o.value === value} tabIndex={i === active ? 0 : -1}
               className={`iselect-item ${o.value === value ? 'on' : ''} ${i === active ? 'active' : ''}`}

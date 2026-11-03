@@ -3,7 +3,7 @@
 // language and the defect policy, what is left out (patterns and folders),
 // the C/C++ include folders and macros, coverage reports, the project's own
 // new code definition, its languages (found in the code, plus the ones the
-// user adds) and its own choice of analysis engines (check groups) for them. Saving goes through the workspace (undo, history);
+// user adds, minus the ones the user removes: their files are not analyzed) and its own choice of analysis engines (check groups) for them. Saving goes through the workspace (undo, history);
 // "Save and analyze" runs the analysis with the new settings at once.
 import React, { useEffect, useMemo, useState } from 'react';
 import { t, textOf, useLanguage, getLanguage } from '../lib/i18n';
@@ -49,6 +49,8 @@ function draftOf(project) {
     checks: { ...(project.checks || {}) },
     // Languages the user added to the ones found in the code.
     languages: [...(project.languages || [])],
+    // Languages the user removed: their files are left out of the analysis.
+    removedLanguages: [...(project.removedLanguages || [])],
   };
 }
 
@@ -104,27 +106,44 @@ function Section({ icon, title, hint, children }) {
 }
 
 // The project's languages: the ones found in the code (automatic) and the
-// ones the user added (removable), plus a picker to add another.
-function ProjectLanguages({ detected, added, all, loading, onChange }) {
+// ones the user added, plus a picker to add another. Any of them can be
+// removed: a removed language stays as a crossed-out chip (its files are not
+// analyzed) that can be put back.
+function ProjectLanguages({ detected, added, removed, all, loading, onChange }) {
   const lang = getLanguage();
   const name = (id) => { const l = all.find((x) => x.id === id); return l ? (l.label[lang] || l.label.en) : id; };
-  const extra = added.filter((id) => !detected.includes(id));
+  const auto = detected.filter((id) => !removed.includes(id));
+  const extra = added.filter((id) => !detected.includes(id) && !removed.includes(id));
   const options = [{ value: '', label: t('ps_langs_add'), icon: 'plus' },
-    ...all.filter((l) => !detected.includes(l.id) && !added.includes(l.id)).map((l) => ({ value: l.id, label: `${l.label[lang] || l.label.en} (${(l.exts || []).join(' ') || l.id})`, icon: 'code' }))];
+    ...all.filter((l) => !auto.includes(l.id) && !extra.includes(l.id)).map((l) => ({ value: l.id, label: `${l.label[lang] || l.label.en} (${(l.exts || []).join(' ') || l.id})`, icon: 'code' }))];
+  const add = (id) => onChange({ languages: detected.includes(id) || added.includes(id) ? added : [...added, id], removedLanguages: removed.filter((x) => x !== id) });
+  const remove = (id) => onChange({ languages: added.filter((x) => x !== id), removedLanguages: detected.includes(id) && !removed.includes(id) ? [...removed, id] : removed });
   return (
     <div className="ps-langs">
       <div className="ps-lang-chips">
         {loading && <span className="small muted">{t('ps_langs_finding')}</span>}
-        {!loading && detected.length === 0 && extra.length === 0 && <span className="small muted">{t('ps_langs_none')}</span>}
-        {detected.map((id) => <span key={id} className="chip ps-lang auto" title={t('ps_langs_detected')}><Icon name="search" size={11} /> {name(id)}</span>)}
+        {!loading && auto.length === 0 && extra.length === 0 && removed.length === 0 && <span className="small muted">{t('ps_langs_none')}</span>}
+        {auto.map((id) => (
+          <span key={id} className="chip ps-lang auto" title={t('ps_langs_detected')}>
+            <Icon name="search" size={11} /> {name(id)}
+            <button type="button" className="chip-x" aria-label={t('ps_langs_remove')} title={t('ps_langs_remove')} onClick={() => remove(id)}><Icon name="close" size={10} /></button>
+          </span>
+        ))}
         {extra.map((id) => (
           <span key={id} className="chip ps-lang added" title={t('ps_langs_added')}>
             <Icon name="plus" size={11} /> {name(id)}
-            <button type="button" className="chip-x" aria-label={t('remove')} title={t('remove')} onClick={() => onChange(added.filter((x) => x !== id))}><Icon name="close" size={10} /></button>
+            <button type="button" className="chip-x" aria-label={t('remove')} title={t('remove')} onClick={() => remove(id)}><Icon name="close" size={10} /></button>
+          </span>
+        ))}
+        {removed.map((id) => (
+          <span key={id} className="chip ps-lang removed" title={t('ps_langs_removed')}>
+            <Icon name="ban" size={11} /> <s>{name(id)}</s>
+            <button type="button" className="chip-x" aria-label={t('ps_langs_restore')} title={t('ps_langs_restore')} onClick={() => add(id)}><Icon name="undo" size={10} /></button>
           </span>
         ))}
       </div>
-      <IconSelect value="" width={260} ariaLabel={t('ps_langs_add')} options={options} onChange={(v) => { if (v) onChange([...added, v]); }} />
+      {removed.length > 0 && <p className="small muted">{t('ps_langs_removed_note')}</p>}
+      <IconSelect value="" width={260} ariaLabel={t('ps_langs_add')} options={options} columns={3} fit onChange={(v) => { if (v) add(v); }} />
     </div>
   );
 }
@@ -156,8 +175,9 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
   const detected = useMemo(() => (fromAnalysis.length ? fromAnalysis : Object.keys((survey.data && survey.data.languages) || {})).sort(), [fromAnalysis.join(','), survey.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const allLangs = useApi('languages.list', {}, []);
   const [autoChecks, setAutoChecks] = useState(false);
-  const projectLangs = useMemo(() => [...new Set([...detected, ...((d && d.languages) || [])])], [detected, d && d.languages]); // eslint-disable-line react-hooks/exhaustive-deps
-  const languages = useMemo(() => [...new Set([...projectLangs, ...Object.keys((project && project.profiles) || {})])].sort(), [projectLangs, project]);
+  const removedLangs = (d && d.removedLanguages) || [];
+  const projectLangs = useMemo(() => [...new Set([...detected, ...((d && d.languages) || [])])].filter((x) => !removedLangs.includes(x)), [detected, d && d.languages, removedLangs.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const languages = useMemo(() => [...new Set([...projectLangs, ...Object.keys((project && project.profiles) || {})])].filter((x) => !removedLangs.includes(x)).sort(), [projectLangs, project, removedLangs.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!project || !d) return <div className="view"><ViewHeader icon="settings" title={t('ps_title')} hint={t('ps_hint')} /><NoProject text={t('ps_no_project')} /></div>;
 
   const set = (patch) => setD((cur) => ({ ...cur, ...patch }));
@@ -203,6 +223,7 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
       newCode: d.ownNewCode ? { newCode: d.newCode, newCodeDays: d.newCodeDays, newCodeRef: d.newCodeRef.trim(), newCodeVersion: d.newCodeVersion.trim() } : undefined,
       checks: d.ownChecks ? d.checks : undefined,
       languages: d.languages.length ? d.languages : undefined,
+      removedLanguages: d.removedLanguages.length ? d.removedLanguages : undefined,
     };
     try {
       await onSave({ ...ws, projects: (ws.projects || []).map((p) => (p.id === project.id ? next : p)) });
@@ -256,8 +277,8 @@ export function ProjectSettings({ ws, project, analysis, busy, onSave }) {
           </Section>
 
           <Section icon="code" title={t('ps_langs')} hint={t('ps_langs_hint')}>
-            <ProjectLanguages detected={detected} added={d.languages} loading={!fromAnalysis.length && survey.loading} all={allLangs.data || []}
-              onChange={(next) => set({ languages: next })} />
+            <ProjectLanguages detected={detected} added={d.languages} removed={d.removedLanguages} loading={!fromAnalysis.length && survey.loading} all={allLangs.data || []}
+              onChange={(next) => set(next)} />
           </Section>
 
           <Section icon="cpu" title={t('ps_engines')} hint={t('ps_engines_hint')}>

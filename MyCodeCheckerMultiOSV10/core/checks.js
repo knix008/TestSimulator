@@ -55,7 +55,10 @@ function disabledChecks(settings, project) {
 /** The languages a project does not analyze at all (quality profile "none"). */
 const NO_PROFILE = 'none';
 function skippedLanguages(project) {
-  return Object.entries((project && project.profiles) || {}).filter(([, v]) => v === NO_PROFILE).map(([lang]) => lang);
+  const none = Object.entries((project && project.profiles) || {}).filter(([, v]) => v === NO_PROFILE).map(([lang]) => lang);
+  // Languages removed in Project settings › Project languages: their files are not analyzed.
+  const removed = Array.isArray(project && project.removedLanguages) ? project.removedLanguages : [];
+  return [...new Set([...none, ...removed])];
 }
 
 /** An engine runs unless every group it reports for is off. */

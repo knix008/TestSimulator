@@ -105,6 +105,7 @@ test('a project can choose its own engines (all on to start) and leave a languag
   assert.deepEqual(disabledChecks({ checks: { autosar: false } }, { checks: {} }), [], 'an own choice starts with every group on');
   assert.deepEqual(disabledChecks({}, { checks: { misraCpp2023: false, misraC2012: true } }), ['misraCpp2023']);
   assert.deepEqual(skippedLanguages({ profiles: { cpp: 'none', js: 'p1', py: '' } }), ['cpp']);
+  assert.deepEqual(skippedLanguages({ profiles: { cpp: 'none' }, removedLanguages: ['js', 'cpp'] }), ['cpp', 'js'], 'removed languages are skipped too');
 
   const CPP = path.resolve('samples/cpp-sensor');
   const api = createApi({ configDir: tmp('mcc-own-checks-') });
@@ -128,6 +129,11 @@ test('a project can choose its own engines (all on to start) and leave a languag
   const none = await api.call('project.scan', { path: CPP });
   assert.equal(none.analysis.issues.filter((i) => /\.(cpp|hpp|h)$/.test(i.file)).length, 0);
   assert.equal((none.analysis.languages || {}).cpp, undefined);
+  // A language removed in Project settings › Project languages: the same.
+  await setProject({ profiles: {}, removedLanguages: ['cpp'] });
+  const removed = await api.call('project.scan', { path: CPP });
+  assert.equal(removed.analysis.issues.filter((i) => /\.(cpp|hpp|h)$/.test(i.file)).length, 0);
+  assert.equal((removed.analysis.languages || {}).cpp, undefined);
 });
 
 test('a project\'s languages choose its default engines; added languages count too and are kept in the project file', async () => {

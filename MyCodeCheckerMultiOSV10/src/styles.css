@@ -297,6 +297,7 @@ td.act .btn-group .vbtn, td.act > .vbtn { height: 26px; padding: 0 9px; font-siz
 .iselect-pop.two-col { background-image: linear-gradient(var(--border), var(--border)); background-size: 1px calc(100% - 10px); background-position: 50% 50%; background-repeat: no-repeat; }
 .iselect-pop.two-col { display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--rows, 10), auto); grid-template-columns: 1fr 1fr; column-gap: 9px; }
 .iselect-pop { position: fixed; z-index: 80; overflow: auto; background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: 6px; box-shadow: var(--shadow); padding: 4px; }
+.iselect-pop.two-col.multi-col { grid-template-columns: repeat(var(--cols, 3), 1fr); background-image: none; }
 .iselect-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 4px 8px; border: 0; background: none; color: var(--fg); border-radius: 4px; text-align: left; white-space: nowrap; }
 .iselect-item .iselect-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .iselect-item:hover, .iselect-item.active { background: var(--bg-hover); }
@@ -1466,6 +1467,7 @@ html.popup-window .dialog.windowed > .dialog-body { flex: 1 1 auto; min-height: 
 .ps-lang-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 22px; }
 .chip.ps-lang { font-size: 12px; padding: 2px 8px; color: var(--fg); }
 .chip.ps-lang.auto { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.chip.ps-lang.removed { border-style: dashed; color: var(--fg-muted); }
 .chip.ps-lang.added { border-style: dashed; border-color: color-mix(in srgb, var(--ok, var(--accent)) 60%, var(--border)); }
 /* A check group for none of the project's languages. */
 .st-check.na { opacity: .62; }
