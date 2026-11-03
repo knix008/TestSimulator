@@ -1,0 +1,46 @@
+/* The command part of the toolbar (src/GitToolbar.tsx). */
+.git-toolbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.git-toolbar-ruler {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  gap: 4px;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.git-tool-slot { display: inline-flex; align-items: center; position: relative; flex: 0 0 auto; }
+.git-tool-sep { display: inline-block; width: 1px; height: 22px; margin: 0 4px 0 0; background: var(--line); }
+.toolbar .git-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+/* Tool windows: icon-only toolbar buttons (src/BuiltinTools.tsx). */
+.tool-bar button.icon-tool { padding: 4px 6px; }
+.git-tool-more {
+  top: calc(100% + 2px);
+  left: auto;
+  right: 0;
+  min-width: 200px;
+  max-height: calc(100vh - 120px);
+}
+.git-tool-more .group-start { border-top: 1px solid var(--line); }
+
+/*
+ * Nothing on the toolbar row ever shrinks or clips: the desktop window cannot get
+ * narrower than the row (App reports the width as the window minimum, and sets
+ * --app-min-width). Only the browser build lets the git group shrink — into "More".
+ */
+.toolbar > :not(.git-toolbar) { flex-shrink: 0; }
+.git-toolbar[data-overflow="off"] { flex: 1 0 auto; }
+div.app { min-width: var(--app-min-width, 680px); }

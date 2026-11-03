@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dialog-size"
+description = "Enables the dialog_size command without any pre-configured scope."
+commands.allow = ["dialog_size"]
+
+[[permission]]
+identifier = "deny-dialog-size"
+description = "Denies the dialog_size command without any pre-configured scope."
+commands.deny = ["dialog_size"]

@@ -156,7 +156,7 @@ export function App() {
       const next = windowMinimumWidth(element, {
         left: app.settings.leftPanelWidth,
         right: app.settings.rightPanelWidth,
-      }, menubar);
+      }, menubar, app.settings.language);
       // Only a real change is pushed: re-applying the same value on every resize
       // would make the window creep wider.
       if (next < 320 || Math.abs(next - applied) < 4) return;
@@ -302,13 +302,14 @@ export function App() {
       <InlineMenu />
       <InlineDialogs />
       {/* The guided tour, and its first-run offer. Whether it is offered at startup is
-          the "Show at startup" checkbox on both (settings.showTutorial), nothing else. */}
+          the "Show at startup" checkbox on both (settings.showTutorial); the offer only
+          ever appears on the start screen, the tour wherever it is run. */}
       <TutorialTour
         t={app.t}
         showAtStart={app.settings.showTutorial}
         onShowAtStart={(value) => void saveShowTutorial(value)}
       />
-      <TutorialWelcome />
+      <TutorialWelcome visible={onStart} />
     </div>
   );
 }

@@ -4,7 +4,7 @@ A file, directory and 3-way merge tool that works with git or entirely on its ow
 One codebase runs as a desktop application on **Windows, macOS and Linux**, and as a
 **web application** in a browser.
 
-![icon](public/icon.png)
+![icon](assets/icon.png)
 
 ---
 

@@ -1,0 +1,62 @@
+/*
+ * The theme drop-down (src/ThemeMenu.tsx): My themes, then Dark, then Light.
+ * Every entry has the same size (--theme-entry-w × --theme-entry-h, set by the
+ * component) in a strict two-column grid filled top to bottom.
+ */
+.theme-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  /* No height limit of its own: it opens in a menu window, which measures this box to
+     size itself (a viewport-based limit made the window measure itself 36px tall), and
+     the window is what gets fitted to the display. */
+  color: var(--ink);
+}
+.theme-menu-section { display: flex; flex-direction: column; gap: 2px; }
+.theme-menu-section + .theme-menu-section { border-top: 1px solid var(--line); padding-top: 6px; }
+/* Headers start where the entries' swatches start. */
+.theme-menu-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 7px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.theme-menu .theme-menu-title .icon { width: 14px; height: 14px; min-width: 14px; min-height: 14px; flex-basis: 14px; }
+
+.theme-menu-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(2, var(--theme-entry-w));
+  gap: 2px 6px;
+}
+.theme-menu .theme-option {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 16px;
+  align-items: center;
+  column-gap: 8px;
+  width: var(--theme-entry-w);
+  height: var(--theme-entry-h);
+  margin: 0;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.theme-menu .theme-option:hover { background: var(--hover); }
+.theme-menu .theme-option.selected { background: var(--accent-soft); border-color: var(--accent); }
+.theme-menu .swatches { width: 48px; height: 18px; }
+.theme-option-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.theme-option-check { display: inline-flex; width: 16px; justify-content: center; visibility: hidden; }
+.theme-option.selected .theme-option-check { visibility: visible; }
+.theme-option-check .icon { width: 14px; height: 14px; min-width: 14px; min-height: 14px; flex-basis: 14px; }
+/* The settings entry: the gear sits in the swatch column. */
+.theme-option-icon { display: inline-flex; width: 48px; justify-content: center; }

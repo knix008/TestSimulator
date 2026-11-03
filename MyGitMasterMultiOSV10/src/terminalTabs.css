@@ -1,0 +1,164 @@
+/* Terminal tabs in the bottom panel's tab row (src/TerminalTabs.tsx). The row is one
+   line: tabs that do not fit scroll sideways, reached with the < > buttons. */
+.terminal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.terminal-tab-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.terminal-tab-strip::-webkit-scrollbar { display: none; }
+
+.terminal-tab {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.terminal-tab:hover { background: var(--hover); }
+.terminal-tab.active { background: var(--accent-soft); color: var(--ink); }
+
+.terminal-tabs button {
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.terminal-tab-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 8px;
+  white-space: nowrap;
+}
+
+.terminal-tab-close,
+.terminal-new button,
+.terminal-scroll button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  padding: 0;
+  border-radius: 4px;
+}
+/* The close button: a 14px cross, always fully visible, red on hover. */
+.terminal-tabs .terminal-tab-close { width: 24px; height: 22px !important; margin-right: 1px; color: var(--term-close-fg); }
+.terminal-tabs .terminal-tab-close svg { width: 16px; height: 16px; stroke-width: 2.4; }
+.terminal-tabs .terminal-tab-close:hover { background: var(--danger); color: #fff; }
+
+.terminal-tabs svg:not(.icon) {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.terminal-new {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+.terminal-new button:hover,
+.terminal-new-caret.active,
+.terminal-scroll button:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.terminal-new-caret { width: 14px !important; }
+
+.terminal-shell-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--pop, var(--panel));
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+.terminal-shell-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: auto;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 5px;
+  text-align: left;
+  white-space: nowrap;
+}
+.terminal-shell-menu button:hover { background: var(--hover); }
+.terminal-shell-menu button.default { font-weight: 600; }
+.terminal-shell-empty { padding: 6px 10px; color: var(--muted); }
+
+.terminal-scroll {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--ink);
+}
+/* The tab controls get their own colours, one set per theme mode, so the < > arrows
+   and the close cross stand out from the tab text in every theme. */
+:root {
+  --term-step-fg: #ffffff;
+  --term-step-bg: #2563eb;
+  --term-step-border: #1d4ed8;
+  --term-close-fg: #b42318;
+}
+:root[data-mode="dark"] {
+  --term-step-fg: #0b1220;
+  --term-step-bg: #fbbf24;
+  --term-step-border: #f59e0b;
+  --term-close-fg: #fca5a5;
+}
+
+/* Big enough to see and hit: 26×22 buttons with 14px chevrons. */
+.terminal-tabs .terminal-scroll button.terminal-step {
+  width: 26px;
+  height: 22px;
+  border: 1px solid var(--term-step-border);
+  border-radius: 5px;
+  background: var(--term-step-bg);
+  color: var(--term-step-fg);
+}
+.terminal-tabs .terminal-scroll button.terminal-step svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+}
+.terminal-tabs .terminal-scroll button.terminal-step:hover:not(:disabled) { filter: brightness(1.12); }
+.terminal-tabs .terminal-scroll button.terminal-step:disabled {
+  opacity: 1;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: default;
+}

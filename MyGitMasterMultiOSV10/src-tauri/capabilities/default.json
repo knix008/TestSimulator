@@ -1,0 +1,43 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Every window (main, Diff and Merge tools, menu and dialog popups, the guide) loads from the core's loopback server",
+  "windows": [
+    "*"
+  ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*",
+      "http://127.0.0.1:*/*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "allow-window-minimize",
+    "allow-window-toggle-maximize",
+    "allow-window-is-maximized",
+    "allow-window-close",
+    "allow-window-ready",
+    "allow-window-start-drag",
+    "allow-window-start-resize",
+    "allow-pick-directory",
+    "allow-pick-program",
+    "allow-tool-open",
+    "allow-window-background",
+    "allow-settings-broadcast",
+    "allow-menu-open",
+    "allow-menu-close",
+    "allow-menu-payload",
+    "allow-menu-size",
+    "allow-menu-choose",
+    "allow-dialog-open",
+    "allow-dialog-payload",
+    "allow-dialog-result",
+    "allow-dialog-close",
+    "allow-dialog-close-all",
+    "allow-dialog-size",
+    "allow-guide-open",
+    "allow-window-min-size",
+    "allow-dialog-update"
+  ]
+}

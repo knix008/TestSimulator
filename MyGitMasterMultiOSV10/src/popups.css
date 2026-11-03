@@ -1,0 +1,214 @@
+/*
+ * Popup windows (src/popupWindow.tsx): the menu window, dialog windows and the
+ * browser's in-page stand-ins. Theme variables only.
+ *
+ * main.tsx marks a popup window's <html> with `popup-root` (and `menu-root` for the
+ * menu), which lifts the main window's minimum width and, for the menu, makes the page
+ * transparent so only the rounded menu box shows.
+ */
+
+html.popup-root, html.popup-root body, html.popup-root #root { min-width: 0; overflow: hidden; }
+html.popup-root body { background: var(--panel); color: var(--ink); }
+html.menu-root, html.menu-root body, html.menu-root #root { background: transparent; }
+
+/* ------------------------------------------------------------- the frame */
+
+.popup-frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.popup-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  flex: none;
+  padding: 0 0 0 10px;
+  background: var(--chrome, var(--header));
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+.popup-title-icon { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; flex: none; }
+.popup-title-icon svg { width: 16px; height: 16px; }
+.popup-title-text { flex: 1 1 auto; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.popup-close,
+.popup-window-button {
+  width: 44px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.popup-close svg, .popup-window-button svg { fill: none; stroke: currentColor; stroke-width: 1.2; }
+.popup-window-button:hover { background: var(--hover); }
+.popup-close:hover { background: #e81123; color: #ffffff; }
+
+.popup-content { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.popup-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.popup-message { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+.popup-detail { margin: 0; max-height: 200px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); font-size: 12px; }
+
+.popup-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  flex: none;
+}
+.popup-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--button, var(--panel));
+  border-radius: 4px;
+  padding: 6px 14px;
+}
+.popup-footer button:hover { background: var(--hover); }
+.popup-footer .primary { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
+.popup-footer .primary:hover { filter: brightness(1.08); background: var(--accent); }
+
+/* ---------------------------------------------------- the dialog windows */
+
+.dialog-window.empty, .menu-window.empty { display: none; }
+/* A fitted dialog reports its own height, so it must not stretch to the window. */
+.dialog-window { background: var(--panel); }
+.dialog-window.filled, .dialog-window.filled > .dialog-measure, .dialog-window.filled .popup-frame { height: 100vh; }
+
+/* Print preview fills its (resizable) window. */
+.popup-print { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.popup-print-body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.popup-print-body .print-screen { height: 100%; }
+
+/* ------------------------------------------------------------- menus */
+
+.menu-window { padding: 2px; }
+.menu-measure { display: inline-block; }
+.popup-menu-box {
+  background: var(--pop, var(--panel));
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+}
+html.menu-root .popup-menu-box { box-shadow: none; }
+.popup-menu { display: grid; grid-template-columns: 20px max-content 1fr max-content; min-width: 180px; }
+.popup-menu.with-check { grid-template-columns: 16px 20px max-content 1fr max-content; }
+.popup-menu-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 28px;
+  padding: 0 10px 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+.popup-menu-row.focused:not(.disabled), .popup-menu-row:hover:not(.disabled) { background: var(--hover); }
+.popup-menu-row.disabled { opacity: 0.45; cursor: default; }
+.popup-menu-row.checked .popup-menu-label { font-weight: 600; }
+.popup-menu-check { color: var(--accent); text-align: center; }
+.popup-menu-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; }
+.popup-menu-icon svg { width: 16px; height: 16px; }
+.popup-menu-swatches { display: inline-flex; gap: 1px; }
+.popup-menu-swatches i { width: 6px; height: 14px; border-radius: 1px; border: 1px solid rgba(0, 0, 0, 0.12); }
+.popup-menu-hint { color: var(--muted); font-size: 12px; text-align: right; overflow: hidden; text-overflow: ellipsis; }
+.popup-menu-shortcut { color: var(--muted); font-size: 12px; padding-left: 16px; }
+.popup-menu-separator { grid-column: 1 / -1; height: 1px; margin: 4px 6px; background: var(--line); }
+.popup-menu-header { grid-column: 1 / -1; padding: 6px 8px 2px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ------------------------------------------------- the browser's layers */
+
+.popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay, rgba(0, 0, 0, 0.32));
+}
+.popup-inline {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow, 0 12px 32px rgba(0, 0, 0, 0.25));
+}
+.popup-inline > .popup-frame { flex: 1 1 auto; min-height: 0; }
+.popup-menu-layer { position: fixed; inset: 0; z-index: 210; }
+.popup-menu-box.inline { position: fixed; }
+
+/* ------------------------------------- the app's dialogs (AppDialogs.tsx) */
+
+/* The form fills the popup: the window (or the in-page box) is the dialog now. */
+.popup-content > form.dialog.in-popup {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  resize: none;
+}
+.dialog-window.filled .popup-content > form.dialog.in-popup,
+.popup-inline .popup-content > form.dialog.prefs.in-popup { height: 100%; }
+.popup-content > form.dialog.in-popup .error-message { margin: 0 0 6px; font-weight: 600; }
+
+/* A row with a second button (remove a recent entry). */
+.popup-menu-row-wrap { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; position: relative; }
+.popup-menu-row-wrap > .popup-menu-row { padding-right: 40px; }
+.popup-menu-secondary {
+  position: absolute;
+  right: 4px;
+  top: 2px;
+  width: 26px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+.popup-menu-secondary:hover { background: var(--hover); color: var(--danger, #dc2626); }
+.popup-menu-secondary svg { width: 14px; height: 14px; }
+
+/* The theme drop-down in its window: the menu box is the frame. */
+.popup-menu-box > .theme-menu { min-width: 0; }
+
+/* The progress popup in its own window: the frame already has the title. */
+.popup-progress { display: flex; flex-direction: column; flex: 1 1 auto; }
+.popup-progress .progress-popup {
+  position: static;
+  transform: none;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.popup-progress .progress-popup-title { display: none; }

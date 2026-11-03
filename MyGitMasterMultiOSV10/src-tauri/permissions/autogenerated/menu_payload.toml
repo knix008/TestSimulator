@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-menu-payload"
+description = "Enables the menu_payload command without any pre-configured scope."
+commands.allow = ["menu_payload"]
+
+[[permission]]
+identifier = "deny-menu-payload"
+description = "Denies the menu_payload command without any pre-configured scope."
+commands.deny = ["menu_payload"]

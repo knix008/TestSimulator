@@ -1,0 +1,69 @@
+/* The progress pop-up (src/ProgressPopup.tsx). */
+.progress-popup {
+  position: fixed;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  width: min(420px, calc(100vw - 32px));
+  background: var(--pop);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.progress-popup-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--header);
+  border-bottom: 1px solid var(--line);
+}
+.progress-popup-title .icon { animation: progress-spin 1.2s linear infinite; }
+.progress-popup-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.progress-popup-op { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.progress-popup-op span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progress-popup-detail {
+  min-height: 16px;
+  font: 12px/1.35 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.progress-popup-bar { position: relative; height: 6px; border-radius: 3px; background: var(--accent-soft); overflow: hidden; }
+.progress-popup-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: progress-slide 1.3s ease-in-out infinite;
+}
+.progress-popup-foot { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.progress-popup-foot button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--button-border);
+  background: var(--button);
+  color: var(--ink);
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+.progress-popup-foot button:hover { background: var(--hover); }
+
+@keyframes progress-slide {
+  0% { left: -35%; }
+  100% { left: 100%; }
+}
+@keyframes progress-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-popup-title .icon { animation: none; }
+  .progress-popup-bar i { animation-duration: 3s; }
+}

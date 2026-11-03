@@ -1,4 +1,5 @@
 import { MIN_WORKSPACE } from "../core/settings.js";
+import { LANGUAGES, retranslate, type Language } from "../core/i18n.js";
 
 /**
  * The toolbar's natural width — the width below which one of its buttons would be
@@ -22,7 +23,7 @@ export function toolbarMinimumWidth(toolbar: Element): number {
  * (`scrollWidth`) as well as its box, because a group that is already squeezed
  * reports the squeezed width — which is exactly the case being prevented.
  */
-export function rowMinimumWidth(row: Element, stretchy: string[]): number {
+export function rowMinimumWidth(row: Element, stretchy: string[], language?: Language): number {
   const style = getComputedStyle(row);
   const gap = Number.parseFloat(style.columnGap || style.gap || "0") || 0;
   const children = ([...row.children] as HTMLElement[]).filter((child) => getComputedStyle(child).display !== "none");
@@ -42,7 +43,44 @@ export function rowMinimumWidth(row: Element, stretchy: string[]): number {
     width += Math.max(child.getBoundingClientRect().width, child.scrollWidth) + margins;
   }
 
-  return Math.ceil(width) + 8;
+  // With `language`, the row is also sized as it would read in every other language
+  // and the widest wins, so switching the language never moves the minimum.
+  return Math.ceil(width + (language ? otherLanguageExtra(row, language) : 0)) + 8;
+}
+
+let measuringContext: CanvasRenderingContext2D | null = null;
+
+/**
+ * How much wider the row's labels would be in the widest other language (0 when none
+ * is wider). Each label that is a whole entry of the string table is measured again,
+ * in its own font, as the other language spells it; the differences add up because
+ * the labels sit side by side.
+ */
+function otherLanguageExtra(row: Element, language: Language): number {
+  measuringContext ??= document.createElement("canvas").getContext("2d");
+  const context = measuringContext;
+  if (!context) return 0;
+
+  const labels = ([...row.querySelectorAll("span, button")] as HTMLElement[]).filter((element) =>
+    element.childNodes.length === 1
+    && element.firstChild?.nodeType === Node.TEXT_NODE
+    && element.getClientRects().length > 0);
+
+  let widest = 0;
+  for (const { id: other } of LANGUAGES) {
+    if (other === language) continue;
+    let extra = 0;
+    for (const label of labels) {
+      const text = label.textContent?.trim() ?? "";
+      const translated = text ? retranslate(text, language, other) : undefined;
+      if (translated === undefined || translated === text) continue;
+      const style = getComputedStyle(label);
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      extra += context.measureText(translated).width - context.measureText(text).width;
+    }
+    widest = Math.max(widest, extra);
+  }
+  return widest;
 }
 
 /**
@@ -57,9 +95,10 @@ export function windowMinimumWidth(
   toolbar: Element | null,
   panels: { left: number; right: number },
   menubar: Element | null = null,
+  language?: Language,
 ): number {
-  const forToolbar = toolbar ? toolbarMinimumWidth(toolbar) : 0;
-  const forMenubar = menubar ? rowMinimumWidth(menubar, ["menubar-drag"]) : 0;
+  const forToolbar = toolbar ? rowMinimumWidth(toolbar, ["toolbar-spacer"], language) : 0;
+  const forMenubar = menubar ? rowMinimumWidth(menubar, ["menubar-drag"], language) : 0;
   const forPanels = panels.left + panels.right + MIN_WORKSPACE;
   return Math.max(forToolbar, forMenubar, forPanels);
 }

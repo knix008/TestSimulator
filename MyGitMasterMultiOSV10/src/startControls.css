@@ -1,0 +1,109 @@
+/* Shared by the start screen and Settings › Start screen (startControls.tsx). Theme tokens only. */
+
+.range-stepper { display: inline-flex; align-items: center; gap: 6px; min-width: 0; width: 100%; }
+
+.range-step {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.range-step:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.range-step:disabled { opacity: 0.35; cursor: default; }
+
+.range-bar {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  touch-action: none;
+}
+.range-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.range-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--accent); pointer-events: none; }
+.range-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  pointer-events: none;
+}
+
+.range-value {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 6px 0 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.range-value input {
+  width: 3.4em;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.range-value input::-webkit-inner-spin-button,
+.range-value input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.range-value input:focus { outline: none; }
+.range-value:focus-within { border-color: var(--accent); }
+.range-suffix { color: var(--muted); }
+
+.bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 5px; }
+.bg-tile {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bg-tile > svg { flex: 0 0 auto; }
+.bg-tile > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bg-tile:hover { background: var(--hover); border-color: var(--accent); }
+.bg-tile.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.bg-tile:focus-visible { outline: 2px solid var(--accent); }
+
+/* Settings › Start screen: the tile grid scrolls inside its own box, never the window. */
+.settings-start-grid { flex: 0 1 auto; min-height: 0; max-height: 240px; overflow-y: auto; overflow-x: hidden; padding: 2px 4px 2px 0; margin-bottom: 6px; }
+
+/* Compact stepper: one small row, "[−] 100 % [+]". */
+.range-stepper.compact { width: auto; gap: 3px; }
+.range-stepper.compact .range-step { width: 20px; height: 20px; }
+.range-stepper.compact .range-value { height: 20px; padding: 0 4px 0 2px; font-size: 12px; }
+.range-stepper.compact .range-value input { width: 2.6em; font-size: 12px; }
+
+/* Each background's icon in its own colours (backgroundIcons.tsx) on a tinted chip. */
+.bg-icon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; }
+.bg-tile { height: 32px; }
+.bg-tile.on { border: 2px solid var(--accent); padding: 0 8px; background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.bg-tile.on .bg-icon { box-shadow: 0 0 0 1px var(--accent); }

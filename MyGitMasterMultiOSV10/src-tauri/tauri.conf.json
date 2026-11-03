@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My Git Master",
+  "mainBinaryName": "MyGitMaster",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.mygitmaster",
+  "build": {
+    "frontendDist": "boot",
+    "beforeBuildCommand": "node scripts/tauri-before-build.mjs"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "DeveloperTool",
+    "shortDescription": "Git client with a built-in diff & merge tool",
+    "longDescription": "My Git Master opens local repositories, clones and browses remotes, draws the commit graph, stages, commits, pulls and pushes, resolves conflicts in its own 3-way merge window, and has a built-in terminal.",
+    "resources": {
+      "runtime/": "runtime/"
+    },
+    "icon": [
+      "../assets/icons/32x32.png",
+      "../assets/icons/128x128.png",
+      "../assets/icons/128x128@2x.png",
+      "../assets/icon.png",
+      "../assets/icon.icns",
+      "../assets/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../assets/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "git"]
+      }
+    }
+  }
+}
