@@ -667,9 +667,9 @@ pub const GUIDE: &str = "guide";
 #[tauri::command]
 pub async fn guide_open(app: AppHandle, window: WebviewWindow, section: Option<String>) -> Result<bool, String> {
     if let Some(win) = app.get_webview_window(GUIDE) {
-        if let Some(section) = section.filter(|s| !s.is_empty()) {
-            let _ = app.emit_to(GUIDE, "guide:section", section);
-        }
+        // Always sent, also without a section: an open is also when the guide goes back to
+        // the main window's language.
+        let _ = app.emit_to(GUIDE, "guide:section", section.unwrap_or_default());
         let _ = win.unminimize();
         let _ = win.show();
         let _ = win.set_focus();

@@ -8,8 +8,10 @@
  * the highlight follows the reading position. Top: a search box that keeps only the
  * sections containing the words and marks them (Enter: next match, Esc: clear), a −/+
  * stepper for the text size, and a flag button that switches the guide alone between
- * 한국어 and English. Both are remembered; the language starts as the app's until the
- * button is used. Both files share their section ids, so switching keeps the place.
+ * 한국어 and English. The text size is remembered; the language is the main window's
+ * whenever the guide is opened and whenever the app's language changes — the button
+ * switches the guide alone until then. Both files share their section ids, so switching
+ * keeps the place.
  */
 import { createContext, Fragment, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import koGuide from "../doc/UsersGuide.md?raw";
@@ -21,7 +23,6 @@ import { usePopupSettings } from "./popupWindow";
 import "./guide.css";
 
 const FONT_KEY = "mgm.guide.fontSize";
-const LANGUAGE_KEY = "mgm.guide.language";
 const MIN_FONT = 11;
 const MAX_FONT = 22;
 const DEFAULT_FONT = 14;
@@ -52,11 +53,6 @@ function loadFontSize(): number {
   return Number.isFinite(value) && value >= MIN_FONT && value <= MAX_FONT ? value : DEFAULT_FONT;
 }
 
-function loadLanguage(): Lang | null {
-  const value = stored(LANGUAGE_KEY);
-  return value === "ko" || value === "en" ? value : null;
-}
-
 const Svg = ({ d }: { d: string }) => (
   <svg className="guide-svg" viewBox="0 0 16 16" aria-hidden="true"><path d={d} /></svg>
 );
@@ -65,8 +61,16 @@ const UP = "M4.2 9.6 8 5.4l3.8 4.2";
 
 export function GuideWindow({ section: requested }: { section?: string }) {
   const context = usePopupSettings();
-  const [chosen, setChosen] = useState<Lang | null>(loadLanguage);
+  // The guide's own choice (its language button); null = follow the main window.
+  const [chosen, setChosen] = useState<Lang | null>(null);
   const language: Lang = chosen ?? context?.lang ?? "ko";
+  // The app's language changed in the main window: the guide follows it.
+  const appLanguage = context?.lang;
+  useEffect(() => {
+    if (!appLanguage) return;
+    keepRef.current = activeRef.current;
+    setChosen(null);
+  }, [appLanguage]);
   const t = useCallback((key: string) => translate(language, key), [language]);
   const doc = guideFor(language);
   const [query, setQuery] = useState("");
@@ -118,9 +122,13 @@ export function GuideWindow({ section: requested }: { section?: string }) {
   }, []);
 
   // Opened again on a particular section (the desktop shell sends it).
+  // Opened again (from the Help menu, F1, a start-screen card): back to the main window's
+  // language, and to the section asked for, if any.
   useEffect(() => window.mgm?.onGuideSection?.((id) => {
     setQuery("");
-    requestAnimationFrame(() => jump(id));
+    keepRef.current = activeRef.current;
+    setChosen(null);
+    if (id) requestAnimationFrame(() => jump(id));
   }), [jump]);
 
   // Opened on a section, or the language changed: keep the place.
@@ -135,7 +143,6 @@ export function GuideWindow({ section: requested }: { section?: string }) {
     const next: Lang = language === "en" ? "ko" : "en";
     keepRef.current = activeRef.current;
     setChosen(next);
-    store(LANGUAGE_KEY, next);
   };
 
   const onScroll = useCallback(() => {

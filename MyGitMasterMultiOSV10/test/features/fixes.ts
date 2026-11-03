@@ -98,11 +98,21 @@ export function fixesCases(_ctx: FeatureCtx, add: AddCase): void {
 
   add("Diff", "Row colours reach the end of long lines in the Diff and Merge windows", async () => {
     const css = read("src", "styles.css");
-    const pane = /.side-pane-scroll {[^}]*}/.exec(css)?.[0] ?? "";
-    const lines = /.code-lines {[^}]*}/.exec(css)?.[0] ?? "";
+    const pane = /\.side-pane-scroll \{[^}]*\}/.exec(css)?.[0] ?? "";
+    const lines = /\.code-lines \{[^}]*\}/.exec(css)?.[0] ?? "";
     // minmax(100%, max-content) looked right but stayed at the pane width.
     assert(pane.includes("grid-template-columns: minmax(max-content, 1fr);"), "diff rows as wide as the longest line");
     assert(lines.includes("grid-template-columns: minmax(max-content, 1fr);") && lines.includes("overflow-x: auto;"), "merge rows too");
+  });
+
+  add("Guide", "The guide follows the main window's language when opened and when it changes", async () => {
+    const guide = read("src", "GuideWindow.tsx");
+    assert(guide.includes("useState<Lang | null>(null)") && !guide.includes("LANGUAGE_KEY"), "no remembered guide language overriding the app's");
+    const follow = guide.slice(guide.indexOf("if (!appLanguage) return;"), guide.indexOf("}, [appLanguage]);"));
+    assert(follow.includes("setChosen(null);"), "follows the app's language changes");
+    const reopen = guide.slice(guide.indexOf("window.mgm?.onGuideSection?.((id) => {"), guide.indexOf("}), [jump]);"));
+    assert(reopen.includes("setChosen(null);"), "resets on every open");
+    assert(read("src-tauri", "src", "popups.rs").includes(`app.emit_to(GUIDE, "guide:section", section.unwrap_or_default());`), "the shell announces every open");
   });
 
   add("Guide", "The guide's language button names the language it switches to", async () => {
