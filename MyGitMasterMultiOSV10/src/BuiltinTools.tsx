@@ -8,7 +8,15 @@ export function SideBySideDiff(props: { path: string; left: string; right: strin
   const document = useMemo(() => documentFromLines(displayLines(props.left), displayLines(props.right)), [props.left, props.right]);
   const blocks = document.diffBlocks;
   const marks = useMemo(() => changeMarks(document.rows), [document.rows]);
-  const [block, setBlock] = useState(0);
+  // -1 until the first jump, so Next lands on the first difference and Prev on the last.
+  const [block, setBlock] = useState(-1);
+  const current = useMemo(() => {
+    const start = blocks[block];
+    if (start === undefined) return null;
+    let end = start;
+    while (end < document.rows.length && document.rows[end].kind !== "same") end += 1;
+    return { start, end };
+  }, [block, blocks, document.rows]);
   const [wrap, setWrap] = useState(false);
   const leftPane = useRef<HTMLDivElement>(null);
   const rightPane = useRef<HTMLDivElement>(null);
@@ -21,19 +29,28 @@ export function SideBySideDiff(props: { path: string; left: string; right: strin
     to.scrollLeft = from.scrollLeft;
     syncing.current = false;
   };
+  const scrollToRow = (index: number) => {
+    const pane = leftPane.current;
+    const line = pane?.querySelector<HTMLElement>(`[data-row="${index}"]`);
+    if (!pane || !line) return;
+    // Measured against the pane itself: offsetTop counts from an outer ancestor (the
+    // pane is not positioned), which left the target a header's height off centre.
+    const top = line.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
+    pane.scrollTop = Math.max(0, top - pane.clientHeight / 2);
+    if (rightPane.current) rightPane.current.scrollTop = pane.scrollTop;
+  };
   const jump = (next: number) => {
-    if (blocks.length < 2 || !leftPane.current) return;
+    if (!blocks.length) return;
     const index = (next + blocks.length) % blocks.length;
     setBlock(index);
-    const line = leftPane.current.querySelector<HTMLElement>(`[data-row="${blocks[index]}"]`);
-    if (line) leftPane.current.scrollTop = Math.max(0, line.offsetTop - leftPane.current.clientHeight / 2);
-    if (rightPane.current) rightPane.current.scrollTop = leftPane.current.scrollTop;
+    scrollToRow(blocks[index]);
   };
-  const scrollToRow = (index: number) => {
-    const line = leftPane.current?.querySelector<HTMLElement>(`[data-row="${index}"]`);
-    if (!line || !leftPane.current) return;
-    leftPane.current.scrollTop = Math.max(0, line.offsetTop - leftPane.current.clientHeight / 2);
-    if (rightPane.current) rightPane.current.scrollTop = leftPane.current.scrollTop;
+  const jumpToMark = (row: number) => {
+    // Prev / Next continue from the block the change rail jumped to.
+    let index = -1;
+    while (index + 1 < blocks.length && blocks[index + 1] <= row) index += 1;
+    setBlock(index);
+    scrollToRow(row);
   };
   useLayoutEffect(() => {
     const leftLines = leftPane.current?.querySelectorAll<HTMLElement>(".side-line");
@@ -58,12 +75,12 @@ export function SideBySideDiff(props: { path: string; left: string; right: strin
         <span>-{document.removed}</span>
         <span>~{document.modified}</span>
         <button type="button" className="icon-tool" aria-pressed={wrap} aria-label={props.t("wordWrap")} title={props.t("wordWrap")} onClick={() => setWrap((value) => !value)}><MenuGlyph name="wrap" /></button>
-        <IconText icon="prev" iconOnly disabled={!blocks.length} onClick={() => jump(block - 1)}>{props.t("prevDiff")}</IconText>
+        <IconText icon="prev" iconOnly disabled={!blocks.length} onClick={() => jump(block < 0 ? -1 : block - 1)}>{props.t("prevDiff")}</IconText>
         <IconText icon="next" iconOnly disabled={!blocks.length} onClick={() => jump(block + 1)}>{props.t("nextDiff")}</IconText>
       </div>
       <div className={wrap ? "side-panes wrap" : "side-panes"}>
-        <DiffPane title={props.t("leftSide")} version={props.leftVersion} paneRef={leftPane} onScroll={(pane) => syncScroll(pane, rightPane.current)} rows={document.rows} marks={marks} onMark={scrollToRow} side="left" />
-        <DiffPane title={props.t("rightSide")} version={props.rightVersion} paneRef={rightPane} onScroll={(pane) => syncScroll(pane, leftPane.current)} rows={document.rows} marks={marks} onMark={scrollToRow} side="right" />
+        <DiffPane title={props.t("leftSide")} version={props.leftVersion} paneRef={leftPane} onScroll={(pane) => syncScroll(pane, rightPane.current)} rows={document.rows} marks={marks} current={current} onMark={jumpToMark} side="left" />
+        <DiffPane title={props.t("rightSide")} version={props.rightVersion} paneRef={rightPane} onScroll={(pane) => syncScroll(pane, leftPane.current)} rows={document.rows} marks={marks} current={current} onMark={jumpToMark} side="right" />
       </div>
       <ToolStatus t={props.t} lang={props.lang} path={props.path} state="ready" detail={`+${document.added}  -${document.removed}  ~${document.modified}`} />
     </div>
@@ -75,6 +92,7 @@ function DiffPane(props: {
   version: string;
   rows: DiffRow[];
   marks: ChangeMark[];
+  current: { start: number; end: number } | null;
   side: "left" | "right";
   paneRef: RefObject<HTMLDivElement | null>;
   onScroll: (pane: HTMLDivElement) => void;
@@ -97,7 +115,7 @@ function DiffPane(props: {
             : null;
           const marks = props.side === "left" ? spans?.left : spans?.right;
           return (
-            <div key={index} className={`side-line ${row.kind}`} data-row={index}>
+            <div key={index} className={`side-line ${row.kind}${props.current && index >= props.current.start && index < props.current.end ? " current" : ""}`} data-row={index}>
               <span className="no">{(props.side === "left" ? row.leftNo : row.rightNo) ?? ""}</span>
               <span className="text">{paint(text, marks) || " "}</span>
             </div>

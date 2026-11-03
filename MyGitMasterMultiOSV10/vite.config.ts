@@ -22,5 +22,16 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        // Keep the big libraries out of the app chunk so no single chunk crosses the limit.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("@xterm")) return "xterm";
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
+          return "vendor";
+        },
+      },
+    },
   },
 });

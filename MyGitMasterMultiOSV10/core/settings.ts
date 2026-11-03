@@ -49,6 +49,9 @@ const MAX_RECENT = 10;
 
 /** The settings folder name; src-tauri/src/main.rs and the installer hooks use it too. */
 export const SETTINGS_FOLDER = "MyGitMaster";
+/** Written by the Windows installer (src-tauri/windows/hooks.nsh) with the language picked
+ *  on its first page; the next start makes it the app's language and deletes it. */
+export const INSTALL_LANGUAGE_FILE = "install-language";
 /** The folder the Electron build (MyGitJS) used; its settings are copied over once. */
 const LEGACY_FOLDER = "MyGitJS";
 
@@ -124,6 +127,7 @@ export class SettingsStore {
     this.file = path.join(dir, "settings.json");
     this.keyFile = path.join(dir, ".key");
     this.data = this.load();
+    this.applyInstallLanguage(path.join(dir, INSTALL_LANGUAGE_FILE));
     // The core draws with themes too (the terminal prompt): it must know the user's.
     setCustomThemes(this.data.customThemes as CustomTheme[] | undefined);
   }
@@ -259,6 +263,25 @@ export class SettingsStore {
       return merged;
     } catch {
       return defaults();
+    }
+  }
+
+  /** Once per install: the language chosen in the installer wins over the saved one. */
+  private applyInstallLanguage(file: string): void {
+    let chosen: string;
+    try {
+      chosen = fs.readFileSync(file, "utf8").replace(/^﻿/, "").trim();
+    } catch {
+      return;
+    }
+    if (chosen === "ko" || chosen === "en") {
+      this.data = { ...this.data, language: chosen };
+      this.save();
+    }
+    try {
+      fs.rmSync(file, { force: true });
+    } catch {
+      /* read-only folder: it is applied again next start, which is harmless */
     }
   }
 

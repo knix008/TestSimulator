@@ -105,6 +105,15 @@ export function fixesCases(_ctx: FeatureCtx, add: AddCase): void {
     assert(lines.includes("grid-template-columns: minmax(max-content, 1fr);") && lines.includes("overflow-x: auto;"), "merge rows too");
   });
 
+  add("Diff", "Prev / Next difference reach every block, even a lone one, and centre it", async () => {
+    const tools = read("src", "BuiltinTools.tsx");
+    assert(tools.includes("const [block, setBlock] = useState(-1);"), "Next starts at the first difference, not the second");
+    assert(!tools.includes("blocks.length < 2"), "a single difference is still jumped to");
+    const scroll = tools.slice(tools.indexOf("const scrollToRow = "), tools.indexOf("const jump = "));
+    assert(scroll.includes("getBoundingClientRect") && !scroll.includes(".offsetTop"),"measured against the pane, not offsetTop's outer ancestor");
+    assert(tools.includes(`" current" : ""`) && read("src", "styles.css").includes(".side-line.current {"), "the current difference is marked");
+  });
+
   add("Guide", "The guide follows the main window's language when opened and when it changes", async () => {
     const guide = read("src", "GuideWindow.tsx");
     assert(guide.includes("useState<Lang | null>(null)") && !guide.includes("LANGUAGE_KEY"), "no remembered guide language overriding the app's");

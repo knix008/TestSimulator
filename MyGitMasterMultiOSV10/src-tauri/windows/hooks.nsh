@@ -9,6 +9,31 @@
 
 !define MGM_DATA_FOLDER "MyGitMaster"
 
+; Ask for the language on every install. Without this the language dialog is skipped
+; once a previous install saved "Installer Language" in the registry; that saved value
+; now only preselects the choice. A silent install still never asks.
+!define MUI_LANGDLL_ALWAYSSHOW
+
+; core/settings.ts (INSTALL_LANGUAGE_FILE) reads it on the next start, applies it and deletes it.
+!define MGM_INSTALL_LANGUAGE_FILE "install-language"
+
+; The language picked on the installer's first page becomes the app's language.
+; A silent install (an upgrade) never showed that page, so it keeps the user's choice.
+!macro NSIS_HOOK_POSTINSTALL
+  ${IfNot} ${Silent}
+    Push $0
+    CreateDirectory "$APPDATA\${MGM_DATA_FOLDER}"
+    FileOpen $0 "$APPDATA\${MGM_DATA_FOLDER}\${MGM_INSTALL_LANGUAGE_FILE}" w
+    ${If} $LANGUAGE = 1042
+      FileWrite $0 "ko"
+    ${Else}
+      FileWrite $0 "en"
+    ${EndIf}
+    FileClose $0
+    Pop $0
+  ${EndIf}
+!macroend
+
 !macro NSIS_HOOK_POSTUNINSTALL
   ${IfNot} ${Silent}
     ${If} ${FileExists} "$APPDATA\${MGM_DATA_FOLDER}\*.*"

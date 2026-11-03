@@ -16,7 +16,7 @@ import { gitEnv, releaseStaleIndexLock, clearStaleIndexLock, runGit } from "../c
 import { renderCsv, renderDocx, renderMarkdown, renderXlsx, type Report } from "../core/report.js";
 import { defaultPageSetup, paginate, renderPrintHtml, runningBands, type PrintBlock } from "../core/printLayout.js";
 import { renderPdf } from "../core/reportPdf.js";
-import { SettingsStore, DEFAULT_COMMIT_CATEGORIES, migrateLegacySettings } from "../core/settings.js";
+import { SettingsStore, DEFAULT_COMMIT_CATEGORIES, INSTALL_LANGUAGE_FILE, migrateLegacySettings } from "../core/settings.js";
 import { installedShells, resolveShell, sameShell } from "../core/shells.js";
 import { badgeOf, colorOf, countWork, hasChanges, mergeStatus, parseAheadBehind, statusFromPorcelain, EMPTY_STATUS } from "../core/status.js";
 import { applyTheme, isThemeId, nextThemeId, themeById, THEMES } from "../core/themes.js";
@@ -892,6 +892,22 @@ export function cases(ctx: Ctx): TestCase[] {
     assert(new SettingsStore(fresh).get().theme === "dark-ink", "still the first copy");
   });
 
+  add("Settings", "The language picked in the installer is applied once, on the next start", async () => {
+    const dir = path.join(ctx.home, "settings-install-language");
+    const marker = path.join(dir, INSTALL_LANGUAGE_FILE);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(marker, "en");
+    assert(new SettingsStore(dir).get().language === "en", "a fresh install opens in the installer's language");
+    assert(!fs.existsSync(marker), "the marker is consumed");
+    new SettingsStore(dir).update({ language: "ko", theme: "dark-ink" });
+    assert(new SettingsStore(dir).get().language === "ko", "a later choice in the app stays");
+    fs.writeFileSync(marker, "﻿en\r\n");
+    const reinstalled = new SettingsStore(dir).get();
+    assert(reinstalled.language === "en" && reinstalled.theme === "dark-ink", "a reinstall switches the language and keeps the rest");
+    fs.writeFileSync(marker, "fr");
+    assert(new SettingsStore(dir).get().language === "en" && !fs.existsSync(marker), "an unknown value is ignored and removed");
+  });
+
   add("Settings", "Updating the language keeps the current theme", async () => {
     const dir = path.join(ctx.home, "settings-partial");
     const store = new SettingsStore(dir);
@@ -1114,7 +1130,7 @@ export function cases(ctx: Ctx): TestCase[] {
   add("Build", "Icons, settings folder and installer hooks match across the app", async () => {
     const conf = JSON.parse(readProject("src-tauri", "tauri.conf.json")) as {
       version: string;
-      bundle: { icon: string[]; windows: { nsis: { installerHooks: string } } };
+      bundle: { icon: string[]; windows: { nsis: { installerHooks: string; displayLanguageSelector: boolean; languages: string[] } } };
     };
     const pkg = JSON.parse(readProject("package.json")) as { version: string };
     assert(conf.version === pkg.version, `${conf.version} vs ${pkg.version}`);
@@ -1129,6 +1145,13 @@ export function cases(ctx: Ctx): TestCase[] {
     const hooks = fs.readFileSync(path.join(PROJECT_DIR, "src-tauri", conf.bundle.windows.nsis.installerHooks));
     assert(hooks[0] === 0xef && hooks[1] === 0xbb && hooks[2] === 0xbf, "the NSIS hooks need a UTF-8 BOM for Korean text");
     assert(hooks.toString("utf8").includes(`!define MGM_DATA_FOLDER "${folder}"`), "hooks.nsh data folder");
+    const nsh = hooks.toString("utf8");
+    assert(nsh.includes(`!define MGM_INSTALL_LANGUAGE_FILE "${INSTALL_LANGUAGE_FILE}"`), "hooks.nsh install-language file");
+    const post = nsh.slice(nsh.indexOf("!macro NSIS_HOOK_POSTINSTALL"), nsh.indexOf("!macroend", nsh.indexOf("!macro NSIS_HOOK_POSTINSTALL")));
+    assert(post.includes("${IfNot} ${Silent}") && post.includes("$LANGUAGE = 1042") && post.includes(`FileWrite $0 "ko"`) && post.includes(`FileWrite $0 "en"`),
+      "the installer records its language, except on a silent upgrade");
+    assert(/^!define MUI_LANGDLL_ALWAYSSHOW\r?$/m.test(nsh), "the language is asked on every install, not only before the registry remembers one");
+    assert(conf.bundle.windows.nsis.displayLanguageSelector &&conf.bundle.windows.nsis.languages.join() === "Korean,English", "the installer asks for Korean or English");
   });
 
   add("Build", "The desktop core starts, reports its port and serves the API", async () => {
