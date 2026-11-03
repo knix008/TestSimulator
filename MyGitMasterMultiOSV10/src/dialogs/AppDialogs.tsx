@@ -124,7 +124,8 @@ export function AppDialog({ payload, settings, lang, t, onPrefs, resolve, close 
   const browseTool = async (kind: "diff" | "merge") => {
     if (dialog.type !== "prefs") return;
     const current = kind === "diff" ? dialog.tool : dialog.mergeTool;
-    const picked = window.mgm?.pickFile ? await window.mgm.pickFile() : window.prompt(t(kind === "diff" ? "diffTool" : "mergeTool"), current);
+    // The picker opens in the current tool's folder, or else where programs are installed.
+    const picked = window.mgm?.pickFile ? await window.mgm.pickFile(isBuiltinMergeTool(current) ? "" : current) : window.prompt(t(kind === "diff" ? "diffTool" : "mergeTool"), current);
     if (!picked) return;
     const known = diffTools.find((item) => sameToolPath(item.id, picked));
     if (kind === "diff") {

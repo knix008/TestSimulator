@@ -166,7 +166,8 @@ export function terminalCases(ctx: FeatureCtx, add: AddCase): void {
     // The strip itself (a browser component, so read rather than rendered here).
     const strip = fs.readFileSync(path.join(ROOT, "src", "TerminalTabs.tsx"), "utf8");
     for (const key of ["terminalPrevious", "terminalNext", "terminalNew", "terminalNewShell", "terminalClose"]) assert(strip.includes(`t("${key}")`), key);
-    assert(/disabled={!scrolls || index <= 0}/.test(strip) && /disabled={!scrolls || index >= tabs.length - 1}/.test(strip), "< > only when the tabs overflow");
+    assert(strip.includes("disabled={index <= 0}") && strip.includes("disabled={index < 0 || index >= tabs.length - 1}"), "< > enabled only when there is a tab on that side");
+    assert(strip.includes("{props.showing && (") && strip.includes("terminal-step"), "< > always shown (right end) while the terminal shows");
     assert(strip.includes("event.button === 1"), "middle-click closes");
     const css = fs.readFileSync(path.join(ROOT, "src", "terminalTabs.css"), "utf8");
     assert(/\.terminal-tab-strip\s*\{[^}]*overflow-x:\s*auto[^}]*white-space:\s*nowrap/s.test(css), "tabs stay on one line and scroll");

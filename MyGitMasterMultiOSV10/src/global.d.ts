@@ -9,7 +9,8 @@ export type PopupSpec = { width: number; height: number; fixed?: boolean; resiza
 export type MgmBridge = {
   pickDirectory: () => Promise<string | null>;
   pickSaveDirectory: () => Promise<string | null>;
-  pickFile: () => Promise<string | null>;
+  /** An external program; the dialog opens in `current`'s folder, else the system program folder. */
+  pickFile: (current?: string) => Promise<string | null>;
   openTool?: (url: string, kind: "diff" | "merge") => Promise<void>;
   platform: string;
   window?: {

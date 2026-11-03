@@ -120,7 +120,7 @@ export function TerminalTabStrip(props: {
                 <span>{title}</span>
               </button>
               <button type="button" className="terminal-tab-close" aria-label={`${t("terminalClose")} ${title}`} title={t("terminalClose")} onClick={() => closeTerminal(tab.id)}>
-                <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" /></svg>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" /></svg>
               </button>
             </div>
           );
@@ -145,14 +145,18 @@ export function TerminalTabStrip(props: {
           </div>
         )}
       </div>
-      <div className="terminal-scroll" data-overflow={scrolls ? "yes" : "no"}>
-        <button type="button" title={t("terminalPrevious")} aria-label={t("terminalPrevious")} disabled={!scrolls || index <= 0} onClick={() => step(-1)}>
-          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M6.2 2L3.4 5l2.8 3" /></svg>
-        </button>
-        <button type="button" title={t("terminalNext")} aria-label={t("terminalNext")} disabled={!scrolls || index >= tabs.length - 1} onClick={() => step(1)}>
-          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M3.8 2l2.8 3-2.8 3" /></svg>
-        </button>
-      </div>
+      {/* Always at the right end while the terminal shows; each button is enabled only
+          when there is a tab on that side to move to. */}
+      {props.showing && (
+        <div className="terminal-scroll" data-overflow={scrolls ? "yes" : "no"}>
+          <button type="button" className="terminal-step" title={t("terminalPrevious")} aria-label={t("terminalPrevious")} disabled={index <= 0} onClick={() => step(-1)}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" /></svg>
+          </button>
+          <button type="button" className="terminal-step" title={t("terminalNext")} aria-label={t("terminalNext")} disabled={index < 0 || index >= tabs.length - 1} onClick={() => step(1)}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" /></svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

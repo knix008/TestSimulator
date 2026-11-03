@@ -9,7 +9,7 @@ import { translate, type Lang } from "./i18n";
 import { publishAppearance } from "../core/appearance";
 import { usesBuiltinMerge } from "../core/mergeTool";
 import { applyTheme, nextThemeId, setCustomThemes, themeById, type CustomTheme } from "../core/themes";
-import { GitToolbar, rowWidth } from "./GitToolbar";
+import { FRAME_ALLOWANCE, GitToolbar, rowWidth } from "./GitToolbar";
 import { beginProgress, setProgressDetail, useProgress } from "./progress";
 import { Flag, Icon, MenuGlyph, type IconName } from "./icons";
 import { TerminalPanes, TerminalTabStrip } from "./TerminalTabs";
@@ -77,6 +77,8 @@ export function App() {
   const prefsChain = useRef(Promise.resolve());
   const menubarRef = useRef<HTMLDivElement>(null);
   const naturalWidths = useRef({ toolbar: 0, menubar: 0 });
+  /** What the summed widths missed, found by looking at the real layout (see below). */
+  const minCorrection = useRef(0);
   const minWidthTimer = useRef<number | null>(null);
   const sentMinWidth = useRef(0);
   const prefsGen = useRef(0);
@@ -138,6 +140,44 @@ export function App() {
     window.addEventListener("mousedown", close, true);
     return () => window.removeEventListener("mousedown", close, true);
   }, [menu, rail]);
+
+  // The summed widths can miss something drawn by the stylesheet (separators, rounding at
+  // 125 % scaling). The real layout cannot: whenever the toolbar's last button sticks out
+  // past the toolbar's edge, the minimum grows by exactly that much. It never shrinks the
+  // window or follows its size — it only triggers when a button is really clipped.
+  useEffect(() => {
+    const check = () => {
+      const bar = document.querySelector<HTMLElement>(".toolbar");
+      const end = bar?.querySelector<HTMLElement>(".toolbar-end");
+      if (!bar || !end || document.hidden) return;
+      // What the row really needs, read off the layout: from the toolbar's left edge to
+      // the last git button, the gap, the whole right-hand group, the right padding and
+      // the window edge. Independent of the window's current width (the right group is
+      // pushed by an auto margin, so its own width is used, not its position).
+      const style = getComputedStyle(bar);
+      const left = bar.getBoundingClientRect().left;
+      const gitButtons = Array.from(bar.querySelectorAll<HTMLElement>("button")).filter((button) => !end.contains(button) && button.offsetParent !== null);
+      const gitRight = Math.max(left, ...gitButtons.map((button) => button.getBoundingClientRect().right));
+      const need = Math.ceil(gitRight - left + (Number.parseFloat(style.columnGap) || 0) + end.getBoundingClientRect().width
+        + (Number.parseFloat(style.paddingRight) || 0) + FRAME_ALLOWANCE + 2);
+      const summed = Math.max(naturalWidths.current.toolbar, naturalWidths.current.menubar);
+      const correction = Math.max(0, need - summed);
+      if (summed > 0 && correction !== minCorrection.current) {
+        minCorrection.current = correction;
+        reportMinimumWidth();
+      }
+    };
+    window.addEventListener("resize", check);
+    const first = window.setTimeout(check, 1500);
+    const observer = new ResizeObserver(() => check());
+    const end = document.querySelector(".toolbar-end");
+    if (end) observer.observe(end);
+    return () => {
+      window.removeEventListener("resize", check);
+      window.clearTimeout(first);
+      observer.disconnect();
+    };
+  }, []);
 
   // The menu row's natural width (its labels change with the language).
   useEffect(() => {
@@ -560,7 +600,7 @@ export function App() {
 
   function sendMinimumWidth() {
     minWidthTimer.current = null;
-    const width = Math.max(naturalWidths.current.toolbar, naturalWidths.current.menubar);
+    const width = Math.max(naturalWidths.current.toolbar, naturalWidths.current.menubar) + minCorrection.current;
     if (width <= 0 || width === sentMinWidth.current) return;
     if (document.hidden) {
       document.addEventListener("visibilitychange", reportMinimumWidth, { once: true });

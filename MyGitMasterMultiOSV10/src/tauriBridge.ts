@@ -48,7 +48,7 @@ function createBridge(): MgmBridge {
     platform: platform(),
     pickDirectory: () => invoke("pick_directory", { create: false }),
     pickSaveDirectory: () => invoke("pick_directory", { create: true }),
-    pickFile: () => invoke("pick_program"),
+    pickFile: (current) => invoke("pick_program", { current: current || null }),
     openTool: (url, kind) => invoke("tool_open", { url, kind }),
     window: {
       minimize: () => invoke("window_minimize"),

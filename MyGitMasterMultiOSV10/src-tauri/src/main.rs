@@ -114,6 +114,24 @@ struct Bounds {
 struct Shell {
     /// The main window's last normal (not maximized / minimized) bounds, logical pixels.
     normal: Mutex<Option<Bounds>>,
+    /// The minimum the page measured for its toolbar (window_min_size), logical pixels.
+    min_size: Mutex<(f64, f64)>,
+}
+
+/// Windows applies a window's minimum only to sizing with the mouse; a size set any
+/// other way (another program, a restore to a saved size, a DPI change) can still be
+/// smaller and clip the toolbar. So every resize of the main window is checked too.
+fn enforce_min_size(window: &tauri::Window) {
+    if window.is_maximized().unwrap_or(false) || window.is_minimized().unwrap_or(false) || !window.is_visible().unwrap_or(true) {
+        return;
+    }
+    let Some(shell) = window.try_state::<Shell>() else { return };
+    let (min_width, min_height) = *shell.min_size.lock().unwrap_or_else(|e| e.into_inner());
+    let (Ok(scale), Ok(size)) = (window.scale_factor(), window.inner_size()) else { return };
+    let size = size.to_logical::<f64>(scale);
+    if size.width + 0.5 < min_width || size.height + 0.5 < min_height {
+        let _ = window.set_size(tauri::LogicalSize::new(size.width.max(min_width), size.height.max(min_height)));
+    }
 }
 
 fn track(window: &tauri::Window) {
@@ -318,6 +336,11 @@ async fn window_min_size(window: WebviewWindow, width: f64, height: f64) -> f64 
         .unwrap_or((f64::MAX, f64::MAX));
     let (min_width, min_height) = clamp_min_size(width, height, area);
     let _ = window.set_min_size(Some(tauri::LogicalSize::new(min_width, min_height)));
+    if window.label() == MAIN {
+        if let Some(shell) = window.try_state::<Shell>() {
+            *shell.min_size.lock().unwrap_or_else(|e| e.into_inner()) = (min_width, min_height);
+        }
+    }
     // A minimized or maximized window keeps its state: resizing it here would restore
     // it, which is what broke minimize / maximize. The new minimum applies on restore.
     let resting = window.is_maximized().unwrap_or(false) || window.is_minimized().unwrap_or(false) || !window.is_visible().unwrap_or(true);
@@ -355,14 +378,39 @@ async fn pick_directory(app: AppHandle, window: WebviewWindow, create: bool) -> 
     dialog.blocking_pick_folder().and_then(path_text)
 }
 
-/// An external diff / merge program.
+/// An external diff / merge program. The dialog opens where programs live: the folder
+/// of the tool already chosen (`current`), else the system's program folder.
 #[tauri::command]
-async fn pick_program(app: AppHandle, window: WebviewWindow) -> Option<String> {
+async fn pick_program(app: AppHandle, window: WebviewWindow, current: Option<String>) -> Option<String> {
     let mut dialog = app.dialog().file().set_parent(&window);
+    if let Some(dir) = program_folder(current.as_deref()) {
+        dialog = dialog.set_directory(dir);
+    }
     if cfg!(windows) {
         dialog = dialog.add_filter("Programs", &["exe", "cmd", "bat"]);
     }
     dialog.blocking_pick_file().and_then(path_text)
+}
+
+/// The folder to start a program search in (see pick_program).
+fn program_folder(current: Option<&str>) -> Option<PathBuf> {
+    let chosen = current
+        .map(|text| text.trim().trim_matches('"'))
+        .filter(|text| !text.is_empty())
+        .map(PathBuf::from)
+        .and_then(|path| if path.is_dir() { Some(path) } else { path.parent().map(PathBuf::from) })
+        .filter(|dir| dir.is_dir());
+    if chosen.is_some() {
+        return chosen;
+    }
+    let system = if cfg!(windows) {
+        std::env::var("ProgramFiles").map(PathBuf::from).unwrap_or_else(|_| PathBuf::from(r"C:\Program Files"))
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from("/Applications")
+    } else {
+        PathBuf::from("/usr/bin")
+    };
+    system.is_dir().then_some(system)
 }
 
 /// Opens the Diff or Merge tool window, or points the open one at a new file.
@@ -423,7 +471,7 @@ fn main() {
     builder
         .plugin(tauri_plugin_dialog::init())
         .manage(Core::new())
-        .manage(Shell { normal: Mutex::new(None) })
+        .manage(Shell { normal: Mutex::new(None), min_size: Mutex::new((MIN_WIDTH, MIN_HEIGHT)) })
         .manage(Popups::default())
         .invoke_handler(tauri::generate_handler![
             window_minimize,
@@ -486,6 +534,7 @@ fn main() {
                 tauri::WindowEvent::Moved(_) if is_main => track(window),
                 tauri::WindowEvent::Resized(_) => {
                     if is_main {
+                        enforce_min_size(window);
                         track(window);
                     }
                     let maximized = window.is_maximized().unwrap_or(false);
@@ -543,6 +592,18 @@ mod tests {
         assert_eq!(settings_background(&json!({ "theme": "dark-ink" })), "#121212");
         let broken = json!({ "theme": "custom-2", "customThemes": [{ "id": "custom-2", "colors": { "bg": "navy" } }] });
         assert_eq!(settings_background(&broken), theme_background(DEFAULT_THEME));
+    }
+
+    #[test]
+    fn program_picker_starts_in_a_program_folder() {
+        let exe = std::env::current_exe().unwrap();
+        let folder = exe.parent().unwrap().to_path_buf();
+        assert_eq!(program_folder(Some(&exe.to_string_lossy())), Some(folder.clone()));
+        assert_eq!(program_folder(Some(&format!("\"{}\"", exe.to_string_lossy()))), Some(folder));
+        // No tool yet (or the built-in one): the system program folder.
+        let system = program_folder(None);
+        assert_eq!(program_folder(Some("")), system);
+        assert_eq!(program_folder(Some("mygit:builtin")), system);
     }
 
     #[test]

@@ -90,17 +90,21 @@ button { cursor: pointer; }
 .window-controls button.close:hover { background: var(--danger); color: #fff; }
 .window-controls svg { width: 10px; height: 10px; display: block; fill: none; stroke: currentColor; stroke-width: 1.2; }
 .toolbar { height: 40px; gap: 6px; flex-wrap: nowrap; }
+/* The right-hand group: every control the same size, the same gap between each. */
 .toolbar-end { margin-left: auto; display: flex; align-items: center; gap: 6px; position: relative; flex: 0 0 auto; }
+.toolbar-end > button, .toolbar-end .split-tool > button:first-child { width: 32px; height: 30px; padding: 0; }
+.toolbar-end .pop-host { display: flex; }
 .split-tool { display: inline-flex; align-items: stretch; flex: 0 0 auto; }
 .split-tool > button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .split-tool .caret {
-  width: 28px;
-  padding: 0 4px;
+  width: 18px;
+  height: 30px;
+  padding: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  margin-left: -1px;
   justify-content: center;
 }
+.split-tool .caret svg { width: 12px; height: 12px; }
 .icon { width: 16px; height: 16px; min-width: 16px; min-height: 16px; flex: 0 0 16px; display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
 .icon .dab { stroke: none; }
 .flag-slot { width: 18px; height: 12px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; }
@@ -169,18 +173,27 @@ button { cursor: pointer; }
   padding: 4px 8px;
 }
 .menu > button:hover, .toolbar button:hover, .linkish:hover { background: var(--hover); }
+/* Toolbar buttons are flat: no border, a highlight on hover to show they can be
+   pressed, and a pressed look while the mouse button is down. */
 .toolbar button {
-  border-color: var(--button-border);
-  background: var(--button);
+  border-color: transparent;
+  background: transparent;
   white-space: nowrap;
   flex: 0 0 auto;
   justify-content: center;
   padding: 6px;
+  transition: background-color 0.12s, box-shadow 0.12s, transform 0.06s;
+}
+.toolbar button:hover:not(:disabled) { background: var(--hover); border-color: var(--button-border, var(--line)); }
+.toolbar button:active:not(:disabled) {
+  background: var(--accent-soft);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.22);
+  transform: translateY(1px);
 }
 .toolbar button:disabled { opacity: 0.45; cursor: default; }
 .toolbar button.active {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: transparent;
   color: var(--accent);
 }
 .menu-pop {

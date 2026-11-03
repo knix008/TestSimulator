@@ -60,10 +60,10 @@
   padding: 0;
   border-radius: 4px;
 }
-.terminal-tab-close { width: 18px; height: 18px !important; margin-right: 3px; opacity: 0.55; }
-.terminal-tab:hover .terminal-tab-close,
-.terminal-tab.active .terminal-tab-close { opacity: 1; }
-.terminal-tab-close:hover { background: var(--danger); color: #fff; }
+/* The close button: a 14px cross, always fully visible, red on hover. */
+.terminal-tabs .terminal-tab-close { width: 24px; height: 22px !important; margin-right: 1px; color: var(--term-close-fg); }
+.terminal-tabs .terminal-tab-close svg { width: 16px; height: 16px; stroke-width: 2.4; }
+.terminal-tabs .terminal-tab-close:hover { background: var(--danger); color: #fff; }
 
 .terminal-tabs svg:not(.icon) {
   width: 10px;
@@ -120,7 +120,45 @@
 .terminal-scroll {
   display: inline-flex;
   flex: 0 0 auto;
+  gap: 3px;
   margin-left: auto;
-  color: var(--muted);
+  padding-left: 8px;
+  color: var(--ink);
 }
-.terminal-scroll button:disabled { opacity: 0.35; cursor: default; }
+/* The tab controls get their own colours, one set per theme mode, so the < > arrows
+   and the close cross stand out from the tab text in every theme. */
+:root {
+  --term-step-fg: #ffffff;
+  --term-step-bg: #2563eb;
+  --term-step-border: #1d4ed8;
+  --term-close-fg: #b42318;
+}
+:root[data-mode="dark"] {
+  --term-step-fg: #0b1220;
+  --term-step-bg: #fbbf24;
+  --term-step-border: #f59e0b;
+  --term-close-fg: #fca5a5;
+}
+
+/* Big enough to see and hit: 26×22 buttons with 14px chevrons. */
+.terminal-tabs .terminal-scroll button.terminal-step {
+  width: 26px;
+  height: 22px;
+  border: 1px solid var(--term-step-border);
+  border-radius: 5px;
+  background: var(--term-step-bg);
+  color: var(--term-step-fg);
+}
+.terminal-tabs .terminal-scroll button.terminal-step svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+}
+.terminal-tabs .terminal-scroll button.terminal-step:hover:not(:disabled) { filter: brightness(1.12); }
+.terminal-tabs .terminal-scroll button.terminal-step:disabled {
+  opacity: 1;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: default;
+}
