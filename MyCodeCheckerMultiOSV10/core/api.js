@@ -1050,16 +1050,13 @@ function createApi(opts = {}) {
       const project = (ws.projects || []).find((p) => p.id === (args && args.projectId));
       if (!project) throw Object.assign(new Error('Project not found'), { code: 'NOT_FOUND' });
       // exclusions / excludeDirs: the project's own ones being edited (Project settings), else the saved ones.
-      const own = Array.isArray(args.exclusions) ? args.exclusions : (project.exclusions || []);
-      const out = require('./target').survey(project.path, {
-        exclusions: [...(ws.settings.exclusions || []), ...own],
-        excludeDirs: Array.isArray(args.excludeDirs) ? args.excludeDirs : (project.excludeDirs || []),
-        maxFiles: ws.settings.maxFiles || 0,
-      });
-      // Which pattern list left a folder out: the workspace's or the project's.
-      const { excluded } = require('./analyze');
-      for (const s of out.skipped || []) if (s.reason === 'exclusion') s.from = excluded(s.dir, ws.settings.exclusions || []) ? 'workspace' : 'project';
-      return out;
+      return surveyTarget(ws, project.path, Array.isArray(args.exclusions) ? args.exclusions : (project.exclusions || []), Array.isArray(args.excludeDirs) ? args.excludeDirs : (project.excludeDirs || []));
+    },
+    // The same survey of a source folder that is not a project yet (New project).
+    'project.survey': (args) => {
+      const source = path.resolve(String((args && args.path) || ''));
+      if (!args || !args.path || !fs.existsSync(source) || !fs.statSync(source).isDirectory()) throw Object.assign(new Error(`Source folder not found: ${source}`), { code: 'NOT_FOUND' });
+      return surveyTarget(workspace(), source, Array.isArray(args.exclusions) ? args.exclusions : [], Array.isArray(args.excludeDirs) ? args.excludeDirs : []);
     },
     'scan.start': (args, who) => {
       args = args || {};
@@ -1706,6 +1703,21 @@ function serializeError(err) {
   const extra = {};
   for (const k of ['projectId', 'projectName', 'file', 'keys', 'field']) if (err && err[k] !== undefined) extra[k] = err[k];
   return { code, message: (err && err.message) || String(err), text, ...extra };
+}
+
+// The analysis target of a folder (core/target.js): the workspace's and the
+// project's exclusion patterns, the project's excluded folders.
+function surveyTarget(ws, root, exclusions, excludeDirs) {
+  const settings = ws.settings || {};
+  const out = require('./target').survey(root, {
+    exclusions: [...(settings.exclusions || []), ...exclusions],
+    excludeDirs,
+    maxFiles: settings.maxFiles || 0,
+  });
+  // Which pattern list left a folder out: the workspace's or the project's.
+  const { excluded } = require('./analyze');
+  for (const s of out.skipped || []) if (s.reason === 'exclusion') s.from = excluded(s.dir, settings.exclusions || []) ? 'workspace' : 'project';
+  return out;
 }
 
 module.exports = { createApi, serializeError, publicProject };

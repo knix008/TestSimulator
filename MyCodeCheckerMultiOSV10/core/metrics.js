@@ -1,4 +1,5 @@
 'use strict';
+const commentedCode = require('./commented-code');
 
 // Line classification, size metrics, and structural issues (complexity,
 // length, parameters, nesting, empty catch). Heuristic, not a full parser.
@@ -57,6 +58,8 @@ function classify(text, kind) {
   const lines = splitLines(text);
   const code = [];
   const commentOnly = [];
+  // Lines of a Python docstring (documentation, not commented-out code).
+  const docs = [];
   let block = false;
   let pyDoc = false;
   for (const line of lines) {
@@ -118,8 +121,9 @@ function classify(text, kind) {
     }
     code.push(s);
     commentOnly.push(!!only);
+    docs.push(kind === 'hash' && pyDoc);
   }
-  return { lines, code, commentOnly };
+  return { lines, code, commentOnly, docs };
 }
 
 // Index of the quote that closes the one at `at` on this line, or -1.
@@ -237,22 +241,36 @@ function paramCount(header) {
 
 function structuralIssues(text, kind, limits) {
   const lim = { ...DEFAULT_LIMITS, ...(limits || {}) };
-  const { lines, code, commentOnly } = classify(text, kind);
+  const { lines, code, commentOnly, docs } = classify(text, kind);
   const issues = [];
   const metrics = metricsOf(text, kind);
   if (metrics.ncloc > lim.fileLength) {
     issues.push(issue('common:file-length', 1, { en: `File has ${metrics.ncloc} lines of code (limit ${lim.fileLength}).`, ko: `코드 ${metrics.ncloc}줄입니다 (한계 ${lim.fileLength}).` }));
   }
 
-  // Commented-out code: a comment line that still looks like a statement.
-  const codeLike = /\b(if|for|while|return|function|const|let|var|class|def|import|public|private)\b|;\s*$/;
-  for (let i = 0; i < lines.length; i++) {
-    if (!commentOnly[i]) continue;
-    const raw = lines[i].replace(/^\s*(\/\/|\/\*|\*|#|--)\s?/, '').trim();
-    // A keyword alone is prose ("cases for the parser: ..."); code also has
-    // code punctuation, or a block colon at the end (Python "if x:").
-    if (codeLike.test(raw) && raw.length > 8 && /[;{}()=[\]]|:\s*$/.test(raw)) {
-      issues.push(issue('common:commented-code', i + 1, { en: 'This comment looks like code that was turned off.', ko: '이 주석은 꺼 둔 코드로 보입니다.' }));
+  // Commented-out code: per comment (a block comment, or line comments in a
+  // row), the lines that are code by their structure, when the comment is
+  // not mostly prose, not documentation with prose and not an example
+  // (core/commented-code.js).
+  const style = kind === 'slash' ? 'slash' : kind === 'hash' ? 'hash' : 'dash';
+  // The marker and one space go; a tab or more spaces after it are the indent of an example.
+  const mark = style === 'slash' ? /^\s*(\/\/+!?|\/\*+!?|\*+(?!\/)) ?/ : style === 'hash' ? /^\s*#+!? ?/ : /^\s*(--+|'|\*>?|rem\b|\/\/\*?|<!--) ?/i;
+  const strip = (line) => line.replace(mark, '').replace(/\s*(\*+\/|-->)\s*$/, '');
+  for (let i = 0; i < lines.length;) {
+    if (!commentOnly[i] || docs[i]) { i++; continue; }
+    const group = [];
+    while (i < lines.length && commentOnly[i] && !docs[i]) {
+      // A new block comment starts a new comment.
+      if (group.length && style === 'slash' && /^\s*\/\*/.test(lines[i])) break;
+      group.push(i);
+      i++;
+      if (style === 'slash' && /\*\/\s*$/.test(lines[i - 1])) break;
+    }
+    const doc = style === 'slash' && /^\s*(\/\*\*(?![*/])|\/\*!|\/\/\/(?!\/)|\/\/!)/.test(lines[group[0]]);
+    const verdict = commentedCode.blockIsCode(group.map((n) => strip(lines[n])), { style, doc });
+    if (!verdict.isCode) continue;
+    for (const k of verdict.codeLines) {
+      issues.push(issue('common:commented-code', group[k] + 1, { en: 'This comment looks like code that was turned off.', ko: '이 주석은 꺼 둔 코드로 보입니다.' }));
     }
   }
 

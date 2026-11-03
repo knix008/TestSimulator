@@ -1050,6 +1050,8 @@ function looksLikeCode(text) {
         const e = s.expression;
         if (e.type === 'CallExpression' || e.type === 'AssignmentExpression' || e.type === 'UpdateExpression' || e.type === 'AwaitExpression' || e.type === 'NewExpression') codeish++;
         else if (e.type === 'Identifier' || e.type === 'Literal' || e.type === 'BinaryExpression' || e.type === 'SequenceExpression' || e.type === 'MemberExpression' || e.type === 'LogicalExpression' || e.type === 'TemplateLiteral' || e.type === 'UnaryExpression' || e.type === 'TSAsExpression') return false;
+        // a lone array or object describes a shape ("[{ t, line }]"); it does nothing as code
+        else if ((e.type === 'ArrayExpression' || e.type === 'ObjectExpression') && ast.body.length === 1) return false;
         else codeish++;
         break;
       }

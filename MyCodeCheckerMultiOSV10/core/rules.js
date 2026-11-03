@@ -665,7 +665,8 @@ const RULES = [
     why: { en: 'GRANT ALL gives every privilege on the object.', ko: 'GRANT ALL은 객체에 대한 모든 권한을 줍니다.' },
     fix: { en: 'Grant only the privileges the role needs.', ko: '역할에 필요한 권한만 부여하세요.' } }),
   R({ key: 'sql:dynamic-exec', langs: 'sql', type: 'VULNERABILITY', severity: 'CRITICAL', debtMin: 30, tags: ['sqli'],
-    re: /\bexec(?:ute)?\s*\(\s*['"]?\s*\+/i,
+    // EXEC('SELECT … ' + @name), EXEC(@sql + @where), EXECUTE IMMEDIATE 'SELECT …' || v
+    re: /\bexec(?:ute)?\s*\(\s*(?:N?'[^']*'|"[^"]*"|@\w+)\s*\+|\bexecute\s+immediate\s+[^;]*\|\|/i,
     name: { en: 'Dynamic EXEC', ko: '동적 EXEC' },
     why: { en: 'EXEC of a concatenated string is SQL injection.', ko: '이어 붙인 문자열의 EXEC는 SQL 주입입니다.' },
     fix: { en: 'Use parameters and sp_executesql.', ko: '파라미터와 sp_executesql을 쓰세요.' } }),

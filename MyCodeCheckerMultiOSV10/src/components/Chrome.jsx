@@ -404,6 +404,7 @@ export function Dialog({ title, children, onClose, wide, icon, className, window
 // Side navigation in five sections. counts: { [view]: number | { n, tone, tip } }.
 export const NAV_GROUPS = [
   ['project', 'nav_sec_project', 'folder', [
+    ['projectSettings', 'nav_project_settings', 'settings'],
     ['overview', 'nav_overview', 'chart'],
     ['measures', 'nav_measures', 'gauge'],
     ['code', 'nav_code', 'code'],
@@ -412,7 +413,6 @@ export const NAV_GROUPS = [
     ['activity', 'nav_activity', 'clock'],
     ['snapshots', 'nav_snapshots', 'history'],
     ['reports', 'nav_reports', 'report'],
-    ['projectSettings', 'nav_project_settings', 'settings'],
   ]],
   ['issues', 'nav_sec_issues', 'bug', [
     ['issues', 'nav_issues', 'bug'],

@@ -155,3 +155,30 @@ test('a project\'s languages choose its default engines; added languages count t
   assert.deepEqual(doc.settings.checks, { autosar: false });
   assert.deepEqual(settingsOfProject({ languages: ['cpp'] }).languages, ['cpp']);
 });
+
+test('a new project takes every project setting: the source survey finds its languages before it exists', async () => {
+  const configDir = tmp('mcc-new-settings-');
+  const api = createApi({ configDir });
+  const survey = await api.call('project.survey', { path: DEMO });
+  assert.ok(Object.keys(survey.languages).includes('js') && Object.keys(survey.languages).includes('py'), 'languages of the source folder');
+  await assert.rejects(api.call('project.survey', { path: path.join(DEMO, 'no-such-folder') }), (err) => err.code === 'NOT_FOUND');
+  const copy = path.join(tmp('mcc-new-src-'), 'demo');
+  fs.cpSync(DEMO, copy, { recursive: true, filter: (p) => !p.endsWith('.mccp') });
+  const res = await api.call('project.create', {
+    name: 'New demo', key: 'new-demo', source: copy, scan: false,
+    settings: { mainBranch: 'trunk', tags: ['team-a'], removedLanguages: ['py'], languages: ['kt'], checks: { autosar: false }, profiles: { js: 'none' }, includeDirs: ['include'], newCode: { newCode: 'days', newCodeDays: 7 } },
+  });
+  const ws = await api.call('workspace.load', {});
+  const p = ws.projects.find((x) => x.id === res.project.id);
+  assert.equal(p.key, 'new-demo');
+  assert.equal(p.mainBranch, 'trunk');
+  assert.deepEqual(p.tags, ['team-a']);
+  assert.deepEqual(p.removedLanguages, ['py']);
+  assert.deepEqual(p.languages, ['kt']);
+  assert.deepEqual(p.checks, { autosar: false });
+  assert.deepEqual(p.includeDirs, ['include']);
+  assert.equal(p.newCode.newCodeDays, 7);
+  const scanned = await api.call('project.scan', { path: copy });
+  const langs = Object.keys(scanned.analysis.languages || {});
+  assert.ok(!langs.includes('py') && !langs.includes('js'), 'the removed language and the one with profile none are not analyzed');
+});

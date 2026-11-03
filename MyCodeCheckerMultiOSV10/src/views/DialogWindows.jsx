@@ -217,7 +217,7 @@ export function DialogWindow({ kind, id, payload }) {
   const box = useRef(null);
   const done = (value) => sendResult(id, { value });
   const notify = (event) => sendResult(id, { event }, { close: false });
-  useFitDialogWindow(box, kind !== 'print' && kind !== 'progress');
+  useFitDialogWindow(box, kind !== 'print' && kind !== 'progress' && kind !== 'newProject');
   if (kind === 'print') return <PrintWindow payload={payload} />;
   if (kind === 'progress') return <div className="dialog-window progress-window"><ProgressWindow payload={payload} notify={notify} /></div>;
   const render = DIALOG_WINDOWS[kind];

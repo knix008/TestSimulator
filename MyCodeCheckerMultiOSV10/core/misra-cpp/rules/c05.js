@@ -4,6 +4,7 @@
 
 const { R, M } = require('../lib/meta');
 const U = require('../lib/util');
+const commentedCode = require('../../commented-code');
 const { cf } = U;
 
 const userComments = (unit) => (unit.comments || []).filter((c) => !U.isBuiltin(c.file));
@@ -97,7 +98,7 @@ module.exports = [
     check(unit, api) {
       for (const c of userComments(unit)) {
         const i = looksLikeCode(c.value);
-        if (i < 0) continue;
+        if (i < 0 || !commentedCode.cComment(c, unit).isCode) continue;
         api.report({ file: c.file, line: c.line + i, col: i ? 1 : c.col }, M('This comment appears to contain commented-out code.', '이 주석에는 주석 처리된 코드가 있는 것 같습니다.'));
       }
     },

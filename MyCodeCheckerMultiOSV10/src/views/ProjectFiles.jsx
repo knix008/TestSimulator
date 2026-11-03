@@ -1,12 +1,12 @@
 // Project files (*.mccp): 새 프로젝트, 프로젝트 열기, 다른 이름으로 저장.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { t, useLanguage } from '../lib/i18n';
 import { call, isDesktop, pickFolder, pickFile, pickSavePath } from '../lib/backend';
 import { Icon, Dialog } from '../components/Chrome';
-import { Btn, BtnGroup, Toggle, Empty, errorText, linesToList } from './common';
+import { Btn, BtnGroup, Empty, errorText, useApi } from './common';
 import { ask } from '../lib/ui';
 import { useEditorDirty } from '../lib/dirty';
-import { ExcludeDirsDialog } from '../components/ExcludeDirs';
+import { draftOf, fieldsOfDraft, useProjectLanguages, Section, Field, LanguagesSection, EnginesSection, RulesSection, ScopeSection, LanguageOptionsSection, CoverageSection, NewCodeSection } from './ProjectSettings';
 
 export const PROJECT_FILTER = { get name() { return t('pj_filter_name'); }, extensions: ['mccp'] };
 
@@ -32,46 +32,67 @@ export function FileIcon({ size = 18 }) {
   return <img src="./project-file.svg" alt="" width={size} height={size} className="mccp-icon" draggable={false} />;
 }
 
+// New project: the source folder and the project file, plus every project
+// setting of Project settings (ProjectSettings.jsx sections) in tabs, so the
+// first analysis already uses the languages, engines and rules chosen here.
+const NEW_TABS = [
+  ['basic', 'folder', 'ps_basic'],
+  ['langs', 'code', 'np_tab_langs'],
+  ['rules', 'gate', 'ps_rules'],
+  ['scope', 'filter', 'ps_scope'],
+  ['langopts', 'cpu', 'np_tab_build'],
+  ['newcode', 'clock', 'new_code_mode'],
+];
+const KEY_OK = /^[A-Za-z0-9_.:-]{1,190}$/;
+
 export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
   useLanguage();
-  const [name, setName] = useState('');
+  const [d, setD] = useState(() => draftOf({}));
+  const set = (patch) => setD((cur) => ({ ...cur, ...patch }));
+  const [tab, setTab] = useState('basic');
   const [source, setSource] = useState('');
   const [file, setFile] = useState('');
   const [fileTouched, setFileTouched] = useState(false);
-  const [mainBranch, setMainBranch] = useState('main');
-  const [description, setDescription] = useState('');
-  const [exclusions, setExclusions] = useState('');
-  const [excludeDirs, setExcludeDirs] = useState([]);
-  const [pickDirs, setPickDirs] = useState(false);
-  const [scan, setScan] = useState(true);
-  const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [overwriteAsk, setOverwriteAsk] = useState(false);
-  useEditorDirty('new-project', !!(name.trim() || source.trim()), { label: t('pj_new_title') });
+  const wsRes = useApi('workspace.load', { slim: true }, []);
+  const ws = wsRes.data || null;
+  useEditorDirty('new-project', !!(d.name.trim() || source.trim()), { label: t('pj_new_title') });
   // The project file goes into the source folder as <key>.mccp unless chosen.
+  const autoKey = keyFrom(d.name || baseName(source));
   useEffect(() => {
     if (fileTouched) return;
-    setFile(source ? joinPath(source, `${keyFrom(name || baseName(source))}.mccp`) : '');
-  }, [name, source, fileTouched]);
-  // Excluded folders are relative to the source folder; a new source starts empty.
-  useEffect(() => { setExcludeDirs([]); }, [source]);
+    setFile(source ? joinPath(source, `${keyFrom(d.key.trim() || autoKey)}.mccp`) : '');
+  }, [d.name, d.key, source, fileTouched]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Excluded folders and removed languages belong to a source folder; a new one starts empty.
+  useEffect(() => { set({ excludeDirs: [], removedLanguages: [] }); }, [source]);
+  // The languages of the source folder, surveyed once typing stops.
+  const [surveyPath, setSurveyPath] = useState('');
+  useEffect(() => { const id = setTimeout(() => setSurveyPath(source.trim()), 500); return () => clearTimeout(id); }, [source]);
+  const target = useMemo(() => (surveyPath ? { path: surveyPath } : null), [surveyPath]);
+  const langs = useProjectLanguages(d, target, null);
   const browse = async () => {
     const dir = await pickFolder();
-    if (dir) { setSource(dir); if (!name) setName(baseName(dir)); }
+    if (dir) { setSource(dir); if (!d.name) set({ name: baseName(dir) }); }
   };
   const browseFile = async () => {
     const p = await pickSavePath({ defaultPath: file, filters: [PROJECT_FILTER] });
     if (p) { setFile(p); setFileTouched(true); }
   };
+  const key = d.key.trim();
+  const keyBad = !!key && !KEY_OK.test(key);
+  const keyTaken = !!key && !!ws && (ws.projects || []).some((p) => p.key === key);
   // Created without analyzing; App then runs scan.start with the progress popup.
-  const create = async (overwrite = false, replace = false) => {
+  const create = async (scan, overwrite = false, replace = false) => {
+    if (keyBad || keyTaken) { setTab('basic'); setError(keyTaken ? t('ps_key_taken') : t('ps_key_bad')); return; }
     setBusy(true);
     setError('');
     try {
+      const { name, key: k, ...settings } = fieldsOfDraft(d);
       const res = await call('project.create', {
-        name: name.trim() || baseName(source), source: source.trim(), file: file.trim() || undefined, scan: false, overwrite, replace: replace || undefined,
-        settings: { mainBranch: mainBranch.trim() || 'main', description: description.trim() || undefined, exclusions: linesToList(exclusions), excludeDirs },
+        name: name || baseName(source), key: k || undefined, source: source.trim(), file: file.trim() || undefined, scan: false, overwrite, replace: replace || undefined,
+        settings: { ...settings, description: settings.description || undefined, tags: settings.tags.length ? settings.tags : undefined },
       });
       onDone(res, { analyze: scan });
     } catch (err) {
@@ -83,60 +104,71 @@ export function NewProjectDialog({ onClose, onDone, onOpenExisting }) {
           { id: 'open', label: t('pj_conflict_open'), icon: 'folder', primary: true },
           { id: 'cancel', label: t('cancel'), icon: 'close' },
         ] });
-        if (choice === 'replace') { create(overwrite, true); return; }
+        if (choice === 'replace') { create(scan, overwrite, true); return; }
         if (choice === 'open' && onOpenExisting) { onOpenExisting(err.projectId || (err.data && err.data.projectId)); return; }
         return;
       }
-      if (err.code === 'EXISTS' && !overwrite) setOverwriteAsk(true);
+      if (err.code === 'EXISTS' && !overwrite) setOverwriteAsk(scan ? 'scan' : 'create');
       setError(projectErrorText(err));
     } finally { setBusy(false); }
   };
+  const part = { ws, d, set, langs, target };
   return (
-    <Dialog dataTour="dialog-new-project" title={t('pj_new_title')} icon="plus" onClose={busy ? () => {} : onClose} wide>
-      <div className="pj-head"><FileIcon size={44} /><p className="small">{t('pj_new_hint')}</p></div>
-      <div className="form-grid">
-        <label className="span2">{t('name')}<input autoFocus value={name} placeholder={t('pj_name_ph')} onChange={(e) => setName(e.target.value)} /></label>
-        <label className="span2" data-tour="new-project-source">{t('pj_source')}
-          <span className="input-row">
-            <input value={source} placeholder={t('pj_source_ph')} onChange={(e) => setSource(e.target.value)} />
-            {isDesktop && <Btn icon="folder" label={t('pj_browse')} onClick={browse} />}
-          </span>
-        </label>
-        <label className="span4">{t('pj_file')}
-          <span className="input-row">
-            <input className="mono" value={file} placeholder={t('pj_file_ph')} onChange={(e) => { setFile(e.target.value); setFileTouched(true); }} />
-            {isDesktop && <Btn icon="save" label={t('pj_browse')} onClick={browseFile} />}
-          </span>
-        </label>
-        <div className="span4 pj-exclude" data-tour="new-project-exclude">
-          <span>{t('ad_exclude_dirs')}</span>
-          <div className="input-row">
-            <div className="chips">
-              {excludeDirs.length ? excludeDirs.map((dir) => (
-                <span key={dir} className="chip"><Icon name="folder" size={11} />{dir}
-                  <button type="button" className="chip-x" aria-label={t('remove')} title={t('remove')} onClick={() => setExcludeDirs(excludeDirs.filter((x) => x !== dir))}><Icon name="close" size={10} /></button>
-                </span>
-              )) : <span className="small muted">{source.trim() ? t('xd_none') : t('xd_need_source')}</span>}
-            </div>
-            <Btn icon="folder" label={t('xd_pick')} disabled={!source.trim()} title={source.trim() ? undefined : t('xd_need_source')} onClick={() => setPickDirs(true)} />
-          </div>
+    <Dialog dataTour="dialog-new-project" title={t('pj_new_title')} icon="plus" onClose={busy ? () => {} : onClose} className="np-dialog">
+      <div className="st-wrap">
+        <nav className="st-tabs" role="tablist" aria-orientation="vertical">
+          {NEW_TABS.map(([id, icon, label]) => (
+            <button key={id} type="button" role="tab" data-tab-id={id} aria-selected={tab === id} className={`st-tab ${tab === id ? 'on' : ''}`} onClick={() => setTab(id)}>
+              <Icon name={icon} size={15} /><span>{t(label)}</span>
+              {id === 'basic' && (!source.trim() || keyBad || keyTaken) && <span className="st-dot" title={t('np_needs_source')} />}
+            </button>
+          ))}
+        </nav>
+        <div className="st-pane np-pane" role="tabpanel" data-tab={tab}>
+          {tab === 'basic' && (
+            <>
+              <div className="pj-head"><FileIcon size={40} /><p className="small">{t('pj_new_hint')}</p></div>
+              <Section icon="folder" title={t('ps_basic')}>
+                <Field label={t('ps_name')}><input autoFocus value={d.name} placeholder={t('pj_name_ph')} onChange={(e) => set({ name: e.target.value })} /></Field>
+                <Field label={t('ps_key')} hint={t('ps_key_hint')}><input className="mono" value={d.key} placeholder={autoKey} onChange={(e) => set({ key: e.target.value })} /></Field>
+                {(keyBad || keyTaken) && <p className="small bad"><Icon name="alert" size={12} /> {keyTaken ? t('ps_key_taken') : t('ps_key_bad')}</p>}
+                <Field label={t('ps_description')}><textarea rows={2} value={d.description} onChange={(e) => set({ description: e.target.value })} /></Field>
+                <Field label={t('ps_tags')} hint={t('ps_tags_hint')}><input value={d.tags} placeholder="backend, team-a" onChange={(e) => set({ tags: e.target.value })} /></Field>
+                <Field label={t('ps_main_branch')} hint={t('ps_main_branch_hint')}><input value={d.mainBranch} onChange={(e) => set({ mainBranch: e.target.value })} /></Field>
+              </Section>
+              <Section icon="save" title={t('np_location')}>
+                <div data-tour="new-project-source">
+                  <Field label={t('pj_source')}>
+                    <span className="input-row">
+                      <input value={source} placeholder={t('pj_source_ph')} onChange={(e) => setSource(e.target.value)} />
+                      {isDesktop && <Btn icon="folder" label={t('pj_browse')} onClick={browse} />}
+                    </span>
+                  </Field>
+                </div>
+                <Field label={t('pj_file')}>
+                  <span className="input-row">
+                    <input className="mono" value={file} placeholder={t('pj_file_ph')} onChange={(e) => { setFile(e.target.value); setFileTouched(true); }} />
+                    {isDesktop && <Btn icon="save" label={t('pj_browse')} onClick={browseFile} />}
+                  </span>
+                </Field>
+              </Section>
+            </>
+          )}
+          {tab === 'langs' && <><LanguagesSection {...part} /><EnginesSection {...part} /></>}
+          {tab === 'rules' && <RulesSection {...part} />}
+          {tab === 'scope' && <div data-tour="new-project-exclude"><ScopeSection {...part} root={source.trim()} /></div>}
+          {tab === 'langopts' && <><LanguageOptionsSection {...part} /><CoverageSection {...part} /></>}
+          {tab === 'newcode' && <NewCodeSection {...part} />}
         </div>
-        <label className="span4">{t('exclusions')}<textarea className="mono" value={exclusions} placeholder={'**/generated/**\n**/*.test.js'} onChange={(e) => setExclusions(e.target.value)} /></label>
       </div>
-      <Toggle icon="settings" label={t('pj_more')} checked={more} onChange={setMore} />
-      {more && (
-        <div className="form-grid">
-          <label>{t('pj_main_branch')}<input value={mainBranch} onChange={(e) => setMainBranch(e.target.value)} /></label>
-          <label className="span2">{t('pj_description')}<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
-        </div>
-      )}
-      {pickDirs && <ExcludeDirsDialog root={source.trim()} value={excludeDirs} onClose={() => setPickDirs(false)} onSave={(dirs) => { setExcludeDirs(dirs); setPickDirs(false); }} />}
-      <Toggle icon="play" label={t('pj_scan_after')} checked={scan} onChange={setScan} />
-      {error && <p className="small bad"><Icon name="alert" size={12} /> {error}</p>}
-      <div className="dialog-actions">
+      <div className="st-foot">
+        {error ? <span className="small bad st-error" title={error}><Icon name="alert" size={12} /> {error}</span>
+          : !source.trim() ? <span className="small muted st-foot-hint">{t('np_needs_source')}</span> : null}
+        <span className="spacer" />
         <BtnGroup>
-          {overwriteAsk && <Btn icon="alert" label={t('pj_overwrite')} danger disabled={busy} onClick={() => create(true)} />}
-          <Btn icon={busy ? 'hourglass' : 'check'} label={busy ? t('pj_creating') : scan ? t('pj_create_analyze') : t('pj_create')} primary disabled={busy || !source.trim()} onClick={() => create(false)} />
+          {overwriteAsk && <Btn icon="alert" label={t('pj_overwrite')} danger disabled={busy} onClick={() => create(overwriteAsk === 'scan', true)} />}
+          <Btn icon={busy ? 'hourglass' : 'check'} label={busy ? t('pj_creating') : t('pj_create')} title={t('pj_create_tip')} disabled={busy || !source.trim()} onClick={() => create(false)} />
+          <Btn icon="play" label={t('pj_create_analyze')} title={t('pj_create_analyze_tip')} primary disabled={busy || !source.trim()} onClick={() => create(true)} />
           <Btn icon="close" label={t('cancel')} disabled={busy} onClick={onClose} />
         </BtnGroup>
       </div>

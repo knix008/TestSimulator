@@ -1440,7 +1440,7 @@ export default function App() {
           else setView('overview');
         };
         return (
-          <InWindow kind="newProject" width={780} height={600} onClose={() => setDialog(null)}
+          <InWindow kind="newProject" width={960} height={700} onClose={() => setDialog(null)}
             onResult={(r) => { if (!r) return; if (r.openExisting) onOpenExisting(r.openExisting); else if (r.done) onDone(r.done, { analyze: r.analyze }); }}>
             <NewProjectDialog onClose={() => setDialog(null)} onOpenExisting={onOpenExisting} onDone={onDone} />
           </InWindow>

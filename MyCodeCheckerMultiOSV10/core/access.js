@@ -47,6 +47,7 @@ const ACCESS = {
   'scan.cancel': 'auth',
   'project.submit': ['scan', 'global'],
   'project.create': ['provisioning', 'global'],
+  'project.survey': ['provisioning', 'global'],
   'project.open': ['scan', 'global'],
   'project.saveFile': ['admin', 'project'],
   'file.save': 'auth',

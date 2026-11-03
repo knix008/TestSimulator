@@ -4,6 +4,7 @@
 // fully decidable from source; these checks are documented approximations.
 
 const U = require('../lib/a-util');
+const commentedCode = require('../../commented-code');
 const { cf, T, meta, msg } = U;
 
 const nameOf = (c) => U.callName(c);
@@ -92,6 +93,8 @@ function d44(unit, api) {
       // comment that announces a usage example, shows code instead of disabling it
       const doc = /^\/(\*\*(?!\/)|\*!|\/\/|\/!)/.test(c.value || '');
       if ((doc && prose > 0) || /\b(usage|examples?|e\.g\.)\s*:/i.test(body)) continue;
+      // the shared judgement too: prose that starts like code, examples indented under an explanation
+      if (!commentedCode.cComment(c, unit).isCode) continue;
       api.report(c, msg('This comment appears to contain commented-out code.', '이 주석에 주석 처리된 코드가 있는 것으로 보입니다.'));
     }
   }

@@ -82,7 +82,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 .ps-field { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 10px; }
 .ps-field .ps-label { color: var(--fg-muted); font-size: 12px; }
 .ps-field .ps-control { min-width: 0; display: flex; }
-.ps-field .ps-control > input, .ps-field .ps-control > textarea { flex: 1; min-width: 0; }
+.ps-field .ps-control > input, .ps-field .ps-control > textarea, .ps-field .ps-control > .input-row { flex: 1; min-width: 0; }
 .ps-field:has(textarea) { align-items: start; }
 .ps-sub { font-size: 12px; font-weight: 700; color: var(--fg-muted); margin-top: 4px; }
 .ps-skipped { display: grid; gap: 6px; }
@@ -1053,6 +1053,19 @@ svg.arch-graph:active { cursor: grabbing; }
 
 /* ── Settings window: fixed size, no scrollbars ──────────────────────── */
 .dialog.settings-window { width: 920px; height: 720px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; }
+/* New project: fixed size like the Settings window; the tab's sections scroll. */
+.dialog.np-dialog { width: 960px; height: 700px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; }
+.np-dialog > .dialog-body, html.popup-window .dialog.windowed.np-dialog > .dialog-body, .dialog-window > .dialog.windowed.np-dialog > .dialog-body { flex: 1; min-height: 0; padding: 0; gap: 0; overflow: hidden; display: flex; flex-direction: column; }
+.st-pane.np-pane { overflow-y: auto; gap: 10px; }
+.st-pane.np-pane > * { flex-shrink: 0; }
+.np-note { display: flex; gap: 6px; align-items: baseline; margin: 0; }
+.nc-explain { border-left: 3px solid var(--accent); padding: 4px 10px; background: color-mix(in srgb, var(--accent) 7%, transparent); border-radius: 4px; display: flex; flex-direction: column; gap: 4px; }
+.nc-explain p { margin: 0; }
+.nc-modes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.nc-modes li { display: flex; gap: 8px; align-items: baseline; font-size: 12px; padding: 4px 8px; border-radius: 4px; color: var(--fg-muted); }
+.nc-modes li.on { color: var(--fg); background: var(--bg-sel); }
+.nc-modes li svg { flex: none; position: relative; top: 2px; }
+.np-pane .pj-head { margin: 0; }
 .settings-window > .dialog-body { flex: 1; min-height: 0; padding: 0; gap: 0; overflow: hidden; display: flex; flex-direction: column; }
 .st-wrap { flex: 1; min-height: 0; display: flex; overflow: hidden; }
 .st-tabs { flex: none; width: 186px; display: flex; flex-direction: column; gap: 1px; padding: 8px 6px; border-right: 1px solid var(--border); background: var(--bg-panel); overflow: hidden; }

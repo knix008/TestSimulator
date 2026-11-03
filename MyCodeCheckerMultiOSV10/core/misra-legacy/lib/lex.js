@@ -3,6 +3,7 @@
 // Lexical and preprocessor checks shared by MISRA C:2004 and C++:2008.
 
 const U = require('./util');
+const commentedCode = require('../../commented-code');
 
 const { cf, M } = U;
 
@@ -38,7 +39,7 @@ function commentedOut(unit, api, id, style) {
   for (const c of comments(unit, api, id)) {
     if (style && c.style !== style) continue;
     const body = c.style === 'block' ? c.value.slice(2, c.value.endsWith('*/') ? -2 : undefined) : c.value.slice(2);
-    if (looksLikeCode(body)) api.report(c, M('This comment appears to contain commented-out code.', '이 주석에 주석 처리된 코드가 있는 것으로 보입니다.'));
+    if (looksLikeCode(body) && commentedCode.cComment(c, unit).isCode) api.report(c, M('This comment appears to contain commented-out code.', '이 주석에 주석 처리된 코드가 있는 것으로 보입니다.'));
   }
 }
 
