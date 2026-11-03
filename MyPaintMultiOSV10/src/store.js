@@ -18,7 +18,17 @@
       fontStrike: false,
       zoom: 100,
       showGrid: false,
+      gridSize: 10,
+      showRulers: false,
       showShapes: true,
+      startScreen: {
+        show: true,
+        titleSize: 34,
+        textSize: 15,
+        align: "center",
+        showRecent: true,
+      },
+      recentColors: [],
       backgroundOpacity: 35,
       backgroundName: "",
       backgroundBytes: 0,
@@ -66,6 +76,20 @@
     return Math.min(max, Math.max(min, number));
   }
 
+  /* The start screen: whether it shows when the program starts, the size of its title and of
+   * its text, how its content lines up, and whether it lists the recent files. */
+  function normalizeStart(raw) {
+    const base = defaults().startScreen;
+    const value = Object.assign({}, base, raw || {});
+    return {
+      show: value.show !== false,
+      titleSize: Math.round(clamp(value.titleSize, 20, 64)),
+      textSize: Math.round(clamp(value.textSize, 11, 24)),
+      align: value.align === "left" ? "left" : "center",
+      showRecent: value.showRecent !== false,
+    };
+  }
+
   function load(storage) {
     const base = defaults();
     try {
@@ -77,6 +101,10 @@
       next.recentDirs = Array.isArray(data.recentDirs) ? data.recentDirs.slice(0, MAX_RECENT) : [];
       next.print = Object.assign(base.print, data.print || {});
       next.layout = Object.assign(base.layout, data.layout || {});
+      next.startScreen = normalizeStart(Object.assign(base.startScreen, data.startScreen || {}));
+      next.gridSize = clamp(next.gridSize, 2, 200);
+      next.showRulers = Boolean(next.showRulers);
+      next.recentColors = Array.isArray(data.recentColors) ? data.recentColors.filter((c) => /^#[0-9a-f]{6}$/i.test(c)).slice(0, 12) : [];
       next.zoom = clamp(next.zoom, 25, 400);
       next.fontSize = clamp(next.fontSize, 6, 400);
       next.strokeWidth = clamp(next.strokeWidth, 1, 96);
@@ -111,7 +139,7 @@
   function addRecent(state, item) {
     const entry = {
       id: item.id || (String(item.path || item.name) + ":" + Date.now()),
-      name: item.name || "untitled.mpaint",
+      name: item.name || "untitled.mypaint",
       path: item.path || "",
       at: item.at || new Date().toISOString(),
     };
@@ -175,5 +203,6 @@
     clearRecentDirs: clearRecentDirs,
     directoryOf: directoryOf,
     rememberDirectory: rememberDirectory,
+    normalizeStart: normalizeStart,
   };
 });

@@ -11,8 +11,13 @@
   const Icons = window.MyPaintIcons;
   const Store = window.MyPaintStore;
   const Sample = window.MyPaintSample;
+  const ColorPicker = window.MyPaintColorPicker;
+  const RichText = window.MyPaintRichText;
+  const SvgDoc = window.MyPaintSvgDoc;
   const TEST = new URLSearchParams(location.search).get("test") === "1";
   const GUIDE_URL = "https://localhost/mypaint/USERSGUIDE.md";
+  /* .mypaint is the drawing format; files saved by earlier versions as .mpaint still open. */
+  const DRAWING_EXT = /\.(mypaint|mpaint)$/i;
 
   let settings = Store.defaults();
   let docs = [];
@@ -50,6 +55,8 @@
   let textSession = null;
   let textFieldUndo = false;
   let textFocusToken = 0;
+  let editorCaret = null;       // where the caret was when the text editor lost focus
+  let lastTextRestyle = null;
   let cineTimer = null;
   let tagPage = 0;
   let convertState = { format: "png", quality: 92 };
@@ -63,6 +70,8 @@
   let regionDrag = false;   // the picked area is still being dragged out
   let lastSystemCopy = null;   // the picture last handed to the system clipboard
   let band = null;
+  let lastMenu = null;          // the menu last opened, so taking a recent file off reopens it
+  let startVisible = false;     // the start screen is over the work area
   const images = {};
   const extras = new Map();
 
@@ -161,6 +170,10 @@
     root.style.setProperty("--editor-weight", String(settings.fontStyle).indexOf("bold") >= 0 ? "700" : "400");
     root.style.setProperty("--editor-style", String(settings.fontStyle).indexOf("italic") >= 0 ? "italic" : "normal");
     root.style.setProperty("--zoom", String(scale()));
+    // the grid is measured on the picture: a cell is gridSize picture pixels and every fifth
+    // line is a major one, so zooming scales the whole 5 x 5 block with the drawing
+    root.style.setProperty("--grid-cell", (settings.gridSize * scale()) + "px");
+    root.style.setProperty("--grid-major", (settings.gridSize * 5 * scale()) + "px");
     root.style.setProperty("--canvas-w", (doc ? doc.width : 900) + "px");
     root.style.setProperty("--canvas-h", (doc ? doc.height : 560) + "px");
     root.style.setProperty("--workspace-image-opacity", String((settings.backgroundOpacity || 0) / 100));
@@ -170,7 +183,7 @@
   }
 
   function newDoc(options) {
-    const name = "untitled-" + nextName + ".mpaint";
+    const name = "untitled-" + nextName + ".mypaint";
     nextName += 1;
     return Paint.createDoc(Object.assign({
       name: name,
@@ -218,23 +231,58 @@
     return selectedShapes().filter((shape) => shape.kind === "text");
   }
 
+  /* While a text is being typed the toolbar shows the style the next character takes;
+   * otherwise that of the first selected text, or the default for new text. */
+  function caretFontStyle() {
+    const shape = editingShape();
+    const editor = $("textEditor");
+    if (!shape || !editor || editor.hidden || !RichText) return null;
+    return RichText.caretStyle(editor, Paint.styleOfShape(shape));
+  }
+
   function activeFontSize() {
+    const caret = caretFontStyle();
+    if (caret) return caret.fontSize;
     const shapes = activeTextShapes();
     return shapes.length ? shapes[0].fontSize : settings.fontSize;
   }
 
   function activeFontFamily() {
+    const caret = caretFontStyle();
+    if (caret) return caret.fontFamily;
     const shapes = activeTextShapes();
     return shapes.length ? shapes[0].fontFamily : settings.fontFamily;
   }
 
   function fontFlag(kind) {
+    const caret = caretFontStyle();
+    if (caret) return Boolean(caret[kind]);
     const shapes = activeTextShapes();
     const style = String(shapes.length ? shapes[0].fontStyle : settings.fontStyle);
     if (kind === "bold") return style.indexOf("bold") >= 0;
     if (kind === "italic") return style.indexOf("italic") >= 0;
     if (kind === "underline") return shapes.length ? !!shapes[0].underline : !!settings.fontUnderline;
     return shapes.length ? !!shapes[0].strike : !!settings.fontStrike;
+  }
+
+  /* Only the font controls follow the caret, so moving it does not rebuild the toolbar. */
+  function syncFontControls() {
+    const size = activeFontSize();
+    const value = $("fontSizeValue");
+    if (value) value.textContent = String(size);
+    const pick = document.querySelector("#toolbar .font-pick");
+    const family = activeFontFamily();
+    if (pick && document.activeElement !== pick) {
+      if (!Array.from(pick.options).some((option) => option.value === family)) pick.insertAdjacentHTML("afterbegin", optionTag(family, family, family));
+      pick.value = family;
+    }
+    [["fontBold", "bold"], ["fontItalic", "italic"], ["fontUnderline", "underline"], ["fontStrike", "strike"]].forEach((pair) => {
+      const on = fontFlag(pair[1]);
+      document.querySelectorAll('#toolbar [data-action="' + pair[0] + '"]').forEach((el) => {
+        el.classList.toggle("on", on);
+        el.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    });
   }
 
   function fontStyleButton(action, mark, label, on) {
@@ -268,35 +316,67 @@
     return '<button type="button" class="tool-btn' + (on ? " on" : "") + '" data-action="' + action + '" aria-pressed="' + (on ? "true" : "false") + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon(icon) + "</button>";
   }
 
+  /* The toolbar is a row of groups, each a kind of command, with a separator between two
+   * groups. The buttons pushed to the right end (theme, language, settings, about) are not a
+   * group of the row and get no separator. */
+  function toolbarGroups() {
+    return [
+      ["file", [
+        button("home", "home", t("start.open")),
+        button("new", "new", t("file.new")),
+        button("open", "open", t("file.open")),
+        button("save", "save", t("file.save")),
+        button("export", "download", t("file.export")),
+        button("print", "print", t("file.print")),
+      ]],
+      ["history", [
+        button("undo", "undo", t("edit.undo")),
+        button("redo", "redo", t("edit.redo")),
+      ]],
+      ["clipboard", [
+        button("cut", "cut", t("edit.cut")),
+        button("copy", "copy", t("edit.copy")),
+        button("paste", "paste", t("edit.paste")),
+        button("deleteShape", "trash", t("edit.delete")),
+        button("cropRegion", "crop", t("edit.crop")),
+      ]],
+      ["zoom", [
+        button("zoomOut", "zoomOut", t("view.zoomOut")),
+        '<button type="button" class="tool-btn zoom-readout" data-action="zoomReset" id="zoomValue" title="' + esc(t("view.zoomReset")) + '">' + settings.zoom + "%</button>",
+        button("zoomIn", "zoomIn", t("view.zoomIn")),
+      ]],
+      ["view", [
+        toggleButton("toggleGrid", "grid", t("view.grid"), settings.showGrid),
+        toggleButton("toggleRulers", "ruler", t("view.rulers"), settings.showRulers),
+        toggleButton("toggleShapes", "shapes", t("view.shapes"), settings.showShapes !== false),
+      ]],
+      ["panels", [
+        toggleButton("toggleLeft", "panelLeft", t("view.left"), settings.showLeft),
+        toggleButton("toggleRight", "panelRight", t("view.right"), settings.showRight),
+      ]],
+      ["font", [fontToolbar()]],
+    ];
+  }
+
   function renderToolbar() {
-    $("toolbar").innerHTML = [
-      button("new", "new", t("file.new")),
-      button("open", "open", t("file.open")),
-      button("save", "save", t("file.save")),
-      button("export", "download", t("file.export")),
-      '<i class="sep"></i>',
-      button("undo", "undo", t("edit.undo")),
-      button("redo", "redo", t("edit.redo")),
-      '<i class="sep"></i>',
-      button("cut", "cut", t("edit.cut")),
-      button("copy", "copy", t("edit.copy")),
-      button("paste", "paste", t("edit.paste")),
-      button("deleteShape", "trash", t("edit.delete")),
-      button("cropRegion", "crop", t("edit.crop")),
-      '<i class="sep"></i>',
-      button("zoomOut", "zoomOut", t("view.zoomOut")),
-      '<button type="button" class="tool-btn zoom-readout" data-action="zoomReset" id="zoomValue" title="' + esc(t("view.zoomReset")) + '">' + settings.zoom + "%</button>",
-      button("zoomIn", "zoomIn", t("view.zoomIn")),
-      toggleButton("toggleGrid", "grid", t("view.grid"), settings.showGrid),
-      toggleButton("toggleShapes", "shapes", t("view.shapes"), settings.showShapes !== false),
-      fontToolbar(),
-      '<i class="sep"></i>',
-      button("print", "print", t("file.print")),
-      '<span class="toolbar-end">' + toolbarActions().map(toolActionButton).join("") + "</span>",
-    ].join("");
+    const groups = toolbarGroups().map((group) => (
+      '<span class="tool-group" data-group="' + group[0] + '">' + group[1].join("") + "</span>"
+    ));
+    $("toolbar").innerHTML = groups.join('<i class="sep"></i>') +
+      '<span class="toolbar-end">' + toolbarActions().map(toolActionButton).join("") + "</span>";
     updateHistoryButtons();
     syncGrid();
     syncShapes();
+    syncPanels();
+  }
+
+  function syncPanels() {
+    [["toggleLeft", settings.showLeft], ["toggleRight", settings.showRight], ["toggleRulers", settings.showRulers]].forEach((pair) => {
+      document.querySelectorAll('#toolbar [data-action="' + pair[0] + '"]').forEach((el) => {
+        el.classList.toggle("on", Boolean(pair[1]));
+        el.setAttribute("aria-pressed", pair[1] ? "true" : "false");
+      });
+    });
   }
 
   function syncGrid() {
@@ -316,18 +396,19 @@
     });
   }
 
+  /* Only the flag of the language the button switches to; its name is the tooltip. */
   function languageButton() {
     const toEnglish = settings.language !== "en";
     const label = toEnglish ? "English" : "한국어";
     const code = toEnglish ? "uk" : "kr";
     const tip = t("view.language") + ": " + label;
     return '<button type="button" class="tool-btn lang-btn" data-action="language" data-flag="' + code + '" title="' + esc(tip) + '" aria-label="' + esc(tip) + '">' +
-      Icons.flag(code) + '<span class="lang-label">' + esc(label) + "</span></button>";
+      Icons.flag(code) + "</button>";
   }
 
   function toolbarActions() {
     return [
-      { action: "themeCycle", icon: "theme", tip: t("view.theme") },
+      { action: "themeCycle", icon: "themePalette", tip: t("view.theme") },
       { action: "themeMenu", icon: "caret", tip: t("view.themeList"), caret: true },
       { action: "language", icon: "language", tip: t("view.language") },
       { action: "settings", icon: "settings", tip: t("file.settings") },
@@ -349,24 +430,34 @@
     return { action: action, icon: icon, label: label, shortcut: shortcut || "", disabled: Boolean(disabled) };
   }
 
+  /* A recent file is a row of two buttons: the name opens it, the cross beside it takes it off
+   * the list without opening it. */
+  function recentMenuItems() {
+    const rows = (settings.recent || []).slice(0, Store.MAX_RECENT).map((row) => {
+      const item = menuItem("recent:" + row.id, "file", row.name);
+      item.remove = "recentRemove:" + row.id;
+      item.tip = row.path || row.name;
+      return item;
+    });
+    const recent = [menuItem("recent-label", "folder", t("file.recent"), "", true)].concat(rows);
+    if (!rows.length) recent.push(menuItem("recent-none", "file", t("file.none"), "", true));
+    return recent;
+  }
+
   function menuDefinitions() {
-    const recent = [menuItem("recent-label", "folder", t("file.recent"), "", true)]
-      .concat((settings.recent || []).map((row) => menuItem("recent:" + row.id, "file", row.name)));
-    if (recent.length === 1) recent.push(menuItem("recent-none", "file", t("file.none"), "", true));
     return [
       { id: "file", label: t("menu.file"), icon: "file", items: [
+        menuItem("home", "home", t("start.open")),
         menuItem("new", "new", t("file.new"), "Ctrl+N"),
         menuItem("open", "open", t("file.open"), "Ctrl+O"),
-        menuItem("openImage", "image", t("file.openImageAny")),
         menuItem("openUrl", "link", t("file.openUrl")),
         menuItem("save", "save", t("file.save"), "Ctrl+S"),
-        menuItem("saveAs", "saveAs", t("file.saveAs")),
-        menuItem("export", "download", t("file.export")),
-        menuItem("exportPng", "image", t("file.exportPng")),
-      ].concat(recent).concat([
-        menuItem("recentManager", "folder", t("file.manageRecent")),
-        menuItem("clearRecent", "trash", t("file.clearRecent")),
+        menuItem("saveAs", "saveAs", t("file.saveAs"), "Ctrl+Shift+S"),
+        menuItem("export", "download", t("file.export"), "Ctrl+E"),
         menuItem("print", "print", t("file.print"), "Ctrl+P"),
+      ].concat(recentMenuItems()).concat([
+        menuItem("recentManager", "folder", t("file.manageRecent")),
+        menuItem("clearRecent", "trash", t("file.clearRecent"), "", !(settings.recent || []).length),
         menuItem("exit", "exit", t("file.exit")),
       ]) },
       { id: "edit", label: t("menu.edit"), icon: "copy", items: [
@@ -395,9 +486,11 @@
         menuItem("zoomOut", "zoomOut", t("view.zoomOut"), "Ctrl+-"),
         menuItem("zoomReset", "check", t("view.zoomReset"), "Ctrl+0"),
         menuItem("toggleGrid", "grid", t("view.grid")),
+        menuItem("toggleRulers", "ruler", t("view.rulers")),
         menuItem("toggleShapes", "shapes", t("view.shapes")),
         menuItem("toggleLeft", "panelLeft", t("view.left")),
         menuItem("toggleRight", "panelRight", t("view.right")),
+        menuItem("home", "home", t("start.open")),
       ] },
       { id: "tools", label: t("menu.tools"), icon: "wrench", items: [
         menuItem("formats", "image", t("popup.formats")),
@@ -480,6 +573,7 @@
     });
     renderOverlay();
     layoutTextEditor();
+    scheduleRulers();
   }
 
   function renderOverlay() {
@@ -503,6 +597,171 @@
         outline + dragBox + "</svg>"
       : "";
     overlay.innerHTML = shapes + picked;
+  }
+
+  /* ── start screen ──
+   * Over the work area when the program starts (if the settings say so) and whenever Home is
+   * pressed: the program's name, the ways to begin, and the recent files, each of which can be
+   * taken off the list on its own. Its title and text sizes and its alignment are settings. */
+  function startButton(action, icon, label) {
+    return '<button type="button" class="start-btn" data-action="' + action + '" title="' + esc(label) + '">' +
+      Icons.icon(icon) + "<span>" + esc(label) + "</span></button>";
+  }
+
+  function renderStart() {
+    const el = $("startScreen");
+    if (!el) return null;
+    const conf = Store.normalizeStart(settings.startScreen);
+    const recent = (settings.recent || []).slice(0, Store.MAX_RECENT);
+    const rows = recent.map((row) => (
+      '<li class="start-recent-row">' +
+      '<button type="button" class="start-recent-open" data-action="recent:' + esc(row.id) + '" title="' + esc(row.path || row.name) + '">' +
+      Icons.icon(DRAWING_EXT.test(row.name) ? "file" : "image") +
+      '<span class="name">' + esc(row.name) + '</span><span class="path">' + esc(Store.directoryOf(row.path) || "") + "</span></button>" +
+      '<button type="button" class="start-recent-x" data-action="recentRemove:' + esc(row.id) + '" title="' + esc(t("recent.remove")) + '" aria-label="' + esc(t("recent.remove") + " " + row.name) + '">' +
+      '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button></li>'
+    )).join("");
+    const recentBlock = conf.showRecent
+      ? '<section class="start-recent" aria-labelledby="startRecentTitle">' +
+        '<header><h2 id="startRecentTitle">' + Icons.icon("folder") + "<span>" + esc(t("file.recent")) + "</span></h2>" +
+        '<button type="button" class="start-link" data-action="clearRecent"' + (recent.length ? "" : " disabled") + ">" + Icons.icon("trash") + "<span>" + esc(t("action.deleteAll")) + "</span></button></header>" +
+        (rows ? '<ul class="start-recent-list">' + rows + "</ul>" : '<p class="start-empty">' + esc(t("recent.empty")) + "</p>") +
+        "</section>"
+      : "";
+    el.innerHTML =
+      '<button type="button" class="start-close" data-action="hideStart" title="' + esc(t("start.close")) + '" aria-label="' + esc(t("start.close")) + '">' +
+      '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button>' +
+      '<div class="start-inner" data-align="' + conf.align + '" style="--start-title:' + conf.titleSize + "px;--start-text:" + conf.textSize + 'px">' +
+      '<div class="start-head"><img src="assets/icon.png" alt="" width="72" height="72">' +
+      '<div class="start-words"><h1 id="startTitle">' + esc(BUILD.title) + "</h1>" +
+      '<p class="start-sub">' + esc(t("start.subtitle")) + "</p></div></div>" +
+      '<div class="start-actions">' +
+      startButton("new", "new", t("file.new")) +
+      startButton("open", "open", t("file.open")) +
+      startButton("openUrl", "link", t("file.openUrl")) +
+      startButton("hideStart", "canvas", t("start.continue")) +
+      startButton("guide", "help", t("help.guide")) +
+      startButton("settingsStart", "settings", t("start.settings")) +
+      "</div>" + recentBlock +
+      '<label class="start-show"><input type="checkbox" data-start="show"' + (conf.show ? " checked" : "") + "> " + esc(t("start.showAtStart")) + "</label>" +
+      "</div>";
+    return el;
+  }
+
+  function showStart() {
+    if (textEditing) finishTextEditor();
+    closeMenu();
+    startVisible = true;
+    renderStart();
+    const el = $("startScreen");
+    if (el) el.hidden = false;
+    return true;
+  }
+
+  function hideStart() {
+    if (!startVisible) return false;
+    startVisible = false;
+    const el = $("startScreen");
+    if (el) el.hidden = true;
+    scheduleRulers();
+    return true;
+  }
+
+  /* ── rulers ──
+   * Two strips along the top and the left of the stage, counting picture pixels from the
+   * picture's top-left corner. The step between numbers follows the zoom so the labels never
+   * crowd, and is cut into fifths like the grid. A mark follows the pointer. */
+  const RULER_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000];
+  const RULER_SIZE = 20;
+  let rulerFrame = 0;
+
+  function rulerStep(zoom) {
+    return RULER_STEPS.find((step) => step * zoom >= 48) || RULER_STEPS[RULER_STEPS.length - 1];
+  }
+
+  function scheduleRulers() {
+    if (rulerFrame || !settings.showRulers) return;
+    rulerFrame = requestAnimationFrame(() => { rulerFrame = 0; renderRulers(); });
+  }
+
+  function paintRuler(canvas, length, origin, zoom, vertical, mark) {
+    const ratio = window.devicePixelRatio || 1;
+    const width = vertical ? RULER_SIZE : length;
+    const height = vertical ? length : RULER_SIZE;
+    // the strip's size on screen comes from the layout; only its backing store is set here
+    canvas.width = Math.max(1, Math.round(width * ratio));
+    canvas.height = Math.max(1, Math.round(height * ratio));
+    const ctx = canvas.getContext("2d");
+    const css = getComputedStyle(document.documentElement);
+    const ink = (css.getPropertyValue("--muted") || "#667085").trim();
+    const line = (css.getPropertyValue("--line") || "#d0d5dd").trim();
+    const accent = (css.getPropertyValue("--accent") || "#2563eb").trim();
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (vertical) { ctx.moveTo(RULER_SIZE - 0.5, 0); ctx.lineTo(RULER_SIZE - 0.5, length); }
+    else { ctx.moveTo(0, RULER_SIZE - 0.5); ctx.lineTo(length, RULER_SIZE - 0.5); }
+    ctx.stroke();
+    const step = rulerStep(zoom);
+    const minor = step / 5;
+    const first = Math.floor((-origin / zoom) / minor) * minor;
+    const last = (length - origin) / zoom;
+    ctx.fillStyle = ink;
+    ctx.strokeStyle = ink;
+    ctx.font = "10px " + cssFamily("Segoe UI");
+    ctx.textBaseline = "top";
+    ctx.beginPath();
+    for (let value = first; value <= last + minor; value += minor) {
+      const at = Math.round(origin + value * zoom) + 0.5;
+      if (at < 0 || at > length) continue;
+      const major = Math.abs(value / step - Math.round(value / step)) < 1e-6;
+      const tick = major ? RULER_SIZE : (Math.abs((value / minor) % 5) === 0 ? 10 : 5);
+      if (vertical) { ctx.moveTo(RULER_SIZE - tick, at); ctx.lineTo(RULER_SIZE, at); }
+      else { ctx.moveTo(at, RULER_SIZE - tick); ctx.lineTo(at, RULER_SIZE); }
+      if (major) {
+        const label = String(Math.round(value));
+        if (vertical) {
+          ctx.save();
+          ctx.translate(2, at + 2);
+          ctx.rotate(Math.PI / 2);
+          ctx.fillText(label, 0, -9);
+          ctx.restore();
+        } else {
+          ctx.fillText(label, at + 2, 2);
+        }
+      }
+    }
+    ctx.stroke();
+    if (mark != null) {
+      const at = Math.round(origin + mark * zoom) + 0.5;
+      ctx.strokeStyle = accent;
+      ctx.beginPath();
+      if (vertical) { ctx.moveTo(0, at); ctx.lineTo(RULER_SIZE, at); }
+      else { ctx.moveTo(at, 0); ctx.lineTo(at, RULER_SIZE); }
+      ctx.stroke();
+    }
+    return step;
+  }
+
+  function renderRulers() {
+    const wrap = $("stageWrap");
+    if (!wrap) return null;
+    wrap.classList.toggle("no-rulers", !settings.showRulers);
+    if (!settings.showRulers) return null;
+    const stage = $("stage");
+    const frame = $("canvasFrame");
+    const top = $("rulerH");
+    const side = $("rulerV");
+    if (!stage || !frame || !top || !side) return null;
+    const stageBox = stage.getBoundingClientRect();
+    const box = $("board").getBoundingClientRect();
+    const zoom = scale();
+    const mark = pointerSeen ? pointer : null;
+    const step = paintRuler(top, stageBox.width, box.left - stageBox.left, zoom, false, mark ? mark.x : null);
+    paintRuler(side, stageBox.height, box.top - stageBox.top, zoom, true, mark ? mark.y : null);
+    return { step: step, originX: box.left - stageBox.left, originY: box.top - stageBox.top };
   }
 
   const WIDTHS = [1, 2, 4, 8, 12, 20];
@@ -587,13 +846,85 @@
       '<div class="tool-grid">' + tools + "</div>",
       "<h2>" + esc(t("left.colors")) + "</h2>",
       '<div class="swatches">' + swatches + "</div>",
-      '<label class="color-row"><span>' + esc(t("palette.color")) + '</span><input type="color" data-pick="color" value="' + esc(settings.color) + '" title="' + esc(t("palette.color")) + '"></label>',
-      '<label class="color-row"><span>' + esc(t("palette.fill")) + '</span><input type="color" data-pick="fillColor" value="' + esc(settings.fillColor || "#ffffff") + '" title="' + esc(t("palette.fill")) + '"></label>',
+      '<div class="color-row"><span>' + esc(t("palette.color")) + "</span>" + colorButton("pick:color", settings.color, t("palette.color")) + "</div>",
+      '<div class="color-row"><span>' + esc(t("palette.fill")) + "</span>" + colorButton("pick:fillColor", settings.fillColor, t("palette.fill"), true) + "</div>",
       '<label class="color-row"><span>' + esc(t("palette.none")) + '</span><input type="checkbox" data-pick="noFill"' + (settings.fillColor ? "" : " checked") + ' title="' + esc(t("palette.none")) + '"></label>',
       widthPicks(),
       widthStep(),
       settings.showShapes === false ? "" : "<h2>" + Icons.icon("shapes") + "<span>" + esc(t("left.shapes")) + "</span></h2>" + '<div class="shape-list">' + shapeRows + "</div>",
     ].join("");
+  }
+
+  /* A colour is a swatch button; pressing it opens the chooser beside it (colorpicker.js). */
+  function colorButton(target, value, label, allowNone) {
+    const shown = value || "";
+    return '<button type="button" class="color-swatch-btn' + (shown ? "" : " none") + '" data-color="' + target + '"' + (allowNone ? " data-allow-none" : "") +
+      ' style="--swatch:' + esc(shown || "transparent") + '" title="' + esc(label) + '" aria-label="' + esc(label + " " + (shown || t("palette.none"))) + '">' +
+      '<i class="chip"></i><span class="hex">' + esc(shown || t("palette.none")) + "</span></button>";
+  }
+
+  function colorLine(label, control) {
+    return '<div class="line prop-line"><span>' + esc(label) + "</span>" + control + "</div>";
+  }
+
+  function colorValueOf(target) {
+    const doc = current();
+    const shape = firstSelected();
+    if (target === "pick:color") return settings.color;
+    if (target === "pick:fillColor") return settings.fillColor || "";
+    if (target === "prop:background") return doc ? doc.background : "#ffffff";
+    if (target === "prop:color") return shape ? shape.color : "";
+    if (target === "prop:fill") return shape ? shape.fill || "" : "";
+    return "";
+  }
+
+  function rememberColor(color) {
+    if (!/^#[0-9a-f]{6}$/i.test(color || "")) return;
+    settings.recentColors = [color].concat((settings.recentColors || []).filter((item) => item !== color)).slice(0, 12);
+  }
+
+  /* Writing a colour while the chooser is open draws it at once; the undo step is taken on
+   * the first change, so one visit to the chooser is one undo. */
+  function writeColor(target, color, session) {
+    const doc = current();
+    const shape = firstSelected();
+    if (target === "pick:color") { if (color) settings.color = color; return; }
+    if (target === "pick:fillColor") { settings.fillColor = color || ""; return; }
+    if (target.indexOf("prop:") !== 0 || !doc) return;
+    if (!session.undo) { pushUndo(); session.undo = true; }
+    const key = target.slice(5);
+    if (key === "background") { if (color) doc.background = color; }
+    else if (shape) shape[key] = key === "fill" ? (color || "") : (color || shape[key]);
+    markDirty();
+    renderBoard();
+  }
+
+  function openColorFor(btn) {
+    if (!window.MyPaintColorPicker || ColorPicker.recentlyClosed(btn)) return null;
+    const target = btn.dataset.color;
+    const session = { undo: false };
+    const paintButton = (color) => {
+      btn.style.setProperty("--swatch", color || "transparent");
+      btn.classList.toggle("none", !color);
+      const hex = btn.querySelector(".hex");
+      if (hex) hex.textContent = color || t("palette.none");
+    };
+    return ColorPicker.open({
+      anchor: btn,
+      value: colorValueOf(target),
+      allowNone: btn.hasAttribute("data-allow-none"),
+      palette: Paint.PALETTE,
+      recent: settings.recentColors || [],
+      labels: { title: btn.title, none: t("palette.none"), palette: t("left.colors"), recent: t("color.recent"), hex: "HEX" },
+      onInput: (color) => { paintButton(color); writeColor(target, color, session); },
+      onChange: (color) => { rememberColor(color); },
+      onClose: () => {
+        saveSettings();
+        if (target.indexOf("pick:") === 0) renderLeft();
+        else { renderRight(); renderLeft(); renderTabs(); }
+        renderStatus();
+      },
+    });
   }
 
   function propLine(label, control) {
@@ -705,9 +1036,9 @@
     const rows = [];
     if (shape) {
       rows.push('<div class="line"><span>' + esc(t("prop.kind")) + '</span><b class="grow">' + esc(t("kind." + shape.kind)) + "</b></div>");
-      rows.push(propLine(t("prop.color"), '<input data-prop="color" type="color" value="' + esc(shape.color) + '" title="' + esc(t("prop.color")) + '">'));
+      rows.push(colorLine(t("prop.color"), colorButton("prop:color", shape.color, t("prop.color"))));
       if (shape.kind === "rect" || shape.kind === "roundRect" || shape.kind === "ellipse" || shape.kind === "triangle") {
-        rows.push(propLine(t("prop.fill"), '<input data-prop="fill" type="color" value="' + esc(shape.fill || "#ffffff") + '" title="' + esc(t("prop.fill")) + '">'));
+        rows.push(colorLine(t("prop.fill"), colorButton("prop:fill", shape.fill, t("prop.fill"), true)));
       }
       rows.push(propLine(t("prop.width"), propSpin("prop", "width", shape.width, 1, 96, 1, t("prop.width"))));
       rows.push(propLine(t("prop.opacity"), propSpin("prop", "opacity", shape.opacity, 0, 100, 5, t("prop.opacity"))));
@@ -742,7 +1073,7 @@
     } else {
       rows.push(propLine(t("prop.name"), '<input data-prop="name" type="text" value="' + esc(doc ? doc.name : "") + '" title="' + esc(t("prop.name")) + '">'));
       rows.push('<div class="line"><span>' + esc(t("prop.path")) + '</span><b class="grow">' + esc((doc && doc.path) || "-") + "</b></div>");
-      rows.push(propLine(t("prop.background"), '<input data-prop="background" type="color" value="' + esc(doc ? doc.background : "#ffffff") + '" title="' + esc(t("prop.background")) + '">'));
+      rows.push(colorLine(t("prop.background"), colorButton("prop:background", doc ? doc.background : "#ffffff", t("prop.background"))));
       rows.push(propLine(t("canvas.width"), propSpin("prop", "canvasWidth", doc ? doc.width : 0, 16, 8192, 10, t("canvas.width"))));
       rows.push(propLine(t("canvas.height"), propSpin("prop", "canvasHeight", doc ? doc.height : 0, 16, 8192, 10, t("canvas.height"))));
       rows.push('<div class="line"><span>' + esc(t("prop.shapes")) + '</span><b class="grow">' + (doc ? doc.shapes.length : 0) + "</b></div>");
@@ -805,6 +1136,7 @@
     renderLeft();
     renderRight();
     renderStatus();
+    if (startVisible) renderStart();
   }
 
   function closeMenu() {
@@ -842,12 +1174,16 @@
   }
 
   function menuHTML(items) {
-    return items.map((item) => (
-      '<button type="button" class="menu-item" data-action="' + esc(item.action) + '"' + (item.disabled ? " disabled" : "") + ' title="' + esc(item.label) + '">' +
-      '<span class="ico">' + Icons.icon(item.icon) + "</span>" +
-      '<span class="label">' + esc(item.label) + "</span>" +
-      '<span class="shortcut">' + esc(item.shortcut) + "</span></button>"
-    )).join("");
+    return items.map((item) => {
+      const main = '<button type="button" class="menu-item" data-action="' + esc(item.action) + '"' + (item.disabled ? " disabled" : "") + ' title="' + esc(item.tip || item.label) + '">' +
+        '<span class="ico">' + Icons.icon(item.icon) + "</span>" +
+        '<span class="label">' + esc(item.label) + "</span>" +
+        '<span class="shortcut">' + esc(item.shortcut) + "</span></button>";
+      if (!item.remove) return main;
+      return '<div class="menu-row">' + main +
+        '<button type="button" class="menu-x" data-action="' + esc(item.remove) + '" title="' + esc(t("recent.remove")) + '" aria-label="' + esc(t("recent.remove") + " " + item.label) + '">' +
+        '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button></div>';
+    }).join("");
   }
 
   function themeMenuHTML() {
@@ -896,6 +1232,7 @@
   function openMenu(id, x, y, align) {
     const def = menuDefinitions().find((item) => item.id === id);
     if (!def) return null;
+    lastMenu = { id: id, x: x, y: y, align: align };
     const width = 320;
     const height = def.items.length * metrics.MENU_ROW + metrics.MENU_PAD + 2;
     const place = fitMenu(align === "right" ? x - width : x, y, width, height);
@@ -1208,7 +1545,9 @@
         '<label class="line"><span>' + esc(t("save.name")) + '</span><input data-field="name" type="text" value="' + esc(doc ? (doc.path || doc.name) : "") + '"></label>' +
         '<label class="line"><span>' + esc(t("save.dir")) + '</span><input data-field="dir" type="text" value="' + esc(settings.lastSaveDir) + '"></label>' +
         '<label class="line"><span>' + esc(t("save.format")) + '</span><select data-field="format">' +
-        optionTag("mpaint", t("save.drawing"), "mpaint") + optionTag("png", t("save.png"), "mpaint") + "</select></label>" +
+        optionTag("mypaint", t("save.drawing"), doc && doc.svg ? "svg" : "mypaint") +
+        Formats.SAVE_FORMATS.map((item) => optionTag(item.id, t("format." + item.id) + " (." + item.ext + ")", doc && doc.svg ? "svg" : "mypaint")).join("") +
+        "</select></label>" +
         "</div>" + foot(btn("confirm-save", t("action.save"), true) + btn("cancel", t("action.cancel")));
     }
     if (kind === "link") {
@@ -1264,8 +1603,10 @@
         '<div class="line"><span>' + esc(t("convert.source")) + '</span><b class="grow">' + esc(source ? t("kind." + source.kind) : t("kind.native")) + "</b></div>" +
         '<div class="line"><span>' + esc(t("convert.size")) + '</span><b class="grow">' + (doc ? doc.width + " x " + doc.height : "-") + "</b></div>" +
         '<label class="line"><span>' + esc(t("convert.format")) + '</span><select data-field="format">' +
-        Formats.SAVE_FORMATS.map((item) => optionTag(item.id, t("format." + item.id), convertState.format)).join("") + "</select></label>" +
-        '<label class="line"><span>' + esc(t("convert.quality")) + "</span>" + number("quality", convertState.quality, 10, 100) + "</label>" +
+        Formats.SAVE_FORMATS.map((item) => optionTag(item.id, t("format." + item.id) + " (." + item.ext + ")", convertState.format)).join("") + "</select></label>" +
+        '<label class="line quality-line" id="qualityLine"' + (lossyFormat(convertState.format) ? "" : " data-off") + '><span>' + esc(t("convert.quality")) + "</span>" +
+        number("quality", convertState.quality, 10, 100) + '<b class="unit" id="qualityPct">%</b></label>' +
+        '<div class="line hint" id="qualityHint">' + esc(lossyFormat(convertState.format) ? t("convert.qualityHint") : t("convert.lossless")) + "</div>" +
         "</div>" + foot(btn("apply-convert", t("convert.run"), true) + btn("cancel", t("action.cancel")));
     }
     if (kind === "formats") {
@@ -1403,7 +1744,7 @@
     return head(t("popup.settings")) +
       '<div class="popup-body">' +
       '<div class="tabs">' +
-      [["general", "settings.general"], ["font", "settings.font"], ["appearance", "settings.appearance"], ["workspace", "settings.workspace"]].map((pair) => (
+      [["general", "settings.general"], ["font", "settings.font"], ["appearance", "settings.appearance"], ["workspace", "settings.workspace"], ["start", "settings.start"]].map((pair) => (
         '<button type="button" data-tab="' + pair[0] + '"' + (settingsTab === pair[0] ? ' class="on"' : "") + ">" + esc(t(pair[1])) + "</button>"
       )).join("") + "</div>" +
       '<div data-panel="general"' + (settingsTab === "general" ? "" : " hidden") + ">" +
@@ -1436,7 +1777,23 @@
       '<button type="button" class="action" data-popup-action="clear-dirs"' + ((settings.recentDirs || []).length ? "" : " disabled") + ">" + esc(t("action.deleteAll")) + "</button></div>" +
       '<label class="line"><span>' + esc(t("settings.lastOpen")) + '</span><input data-field="lastOpenDir" type="text" readonly value="' + esc(settings.lastOpenDir) + '"></label>' +
       '<label class="line"><span>' + esc(t("settings.lastSave")) + '</span><input data-field="lastSaveDir" type="text" readonly value="' + esc(settings.lastSaveDir) + '"></label>' +
-      "</div></div>" + foot(btn("apply-settings", t("action.apply"), true) + btn("cancel", t("action.cancel")));
+      '<label class="line"><span>' + esc(t("settings.gridSize")) + "</span>" + number("gridSize", settings.gridSize, 2, 200) + '<b class="unit">px</b></label>' +
+      "</div>" +
+      startSettingsPanel(number) +
+      "</div>" + foot(btn("apply-settings", t("action.apply"), true) + btn("cancel", t("action.cancel")));
+  }
+
+  function startSettingsPanel(number) {
+    const conf = Store.normalizeStart(settings.startScreen);
+    return '<div data-panel="start"' + (settingsTab === "start" ? "" : " hidden") + ">" +
+      '<label class="line"><input data-field="startShow" type="checkbox"' + (conf.show ? " checked" : "") + "> " + esc(t("start.showAtStart")) + "</label>" +
+      '<label class="line"><span>' + esc(t("start.titleSize")) + "</span>" + number("startTitleSize", conf.titleSize, 20, 64) + '<b class="unit">px</b></label>' +
+      '<label class="line"><span>' + esc(t("start.textSize")) + "</span>" + number("startTextSize", conf.textSize, 11, 24) + '<b class="unit">px</b></label>' +
+      '<label class="line"><span>' + esc(t("start.align")) + '</span><select data-field="startAlign">' +
+      optionTag("center", t("start.alignCenter"), conf.align) + optionTag("left", t("start.alignLeft"), conf.align) + "</select></label>" +
+      '<label class="line"><input data-field="startRecent" type="checkbox"' + (conf.showRecent ? " checked" : "") + "> " + esc(t("start.showRecent")) + "</label>" +
+      '<div class="line"><span class="grow">' + esc(t("start.preview")) + '</span><button type="button" class="action" data-popup-action="start-preview">' + esc(t("start.open")) + "</button></div>" +
+      "</div>";
   }
 
   function messageTarget() {
@@ -1792,6 +2149,7 @@
     renderOverlay();
     renderStatus();
     keepCentered(anchor);
+    renderRulers();
     return settings.zoom;
   }
 
@@ -1804,14 +2162,53 @@
     return { family: settings.fontFamily, size: settings.fontSize, style: settings.fontStyle };
   }
 
+  /* A font change while a text is being typed goes to the selected characters, or — with
+   * nothing selected — to what is typed from the caret on (richtext.js). With text shapes
+   * selected but not being typed, it goes to the whole of each. It is also the default for
+   * the next new text. */
+  function runPatch(patch) {
+    const out = {};
+    if (patch.fontFamily) out.fontFamily = settings.fontFamily;
+    if (patch.fontSize != null) out.fontSize = settings.fontSize;
+    if (patch.fontStyle) {
+      out.bold = String(settings.fontStyle).indexOf("bold") >= 0;
+      out.italic = String(settings.fontStyle).indexOf("italic") >= 0;
+    }
+    if (patch.underline != null) out.underline = settings.fontUnderline;
+    if (patch.strike != null) out.strike = settings.fontStrike;
+    if (patch.color) out.color = patch.color;
+    return out;
+  }
+
   function applyTextFont(patch) {
-    const editing = textEditing;
+    const editing = editingShape();
+    const editor = $("textEditor");
     const shapes = activeTextShapes();
     if (patch.fontFamily) settings.fontFamily = patch.fontFamily;
     if (patch.fontSize != null) settings.fontSize = clamp(patch.fontSize, 6, 400);
     if (patch.fontStyle) settings.fontStyle = patch.fontStyle;
     if (patch.underline != null) settings.fontUnderline = !!patch.underline;
     if (patch.strike != null) settings.fontStrike = !!patch.strike;
+    const change = runPatch(patch);
+    if (editing && editor && !editor.hidden && RichText) {
+      const base = Paint.styleOfShape(editing);
+      const result = RichText.restyle(editor, change, base, scale(), editorCaret);
+      if (result.mode === "range") {
+        Paint.setTextRuns(editing, result.runs);
+        markDirty();
+      } else if (!editing.text) {
+        // nothing typed yet: the new style is the text's own
+        Object.assign(editing, { fontFamily: result.style.fontFamily, fontSize: result.style.fontSize, fontStyle: Paint.styleName(result.style), underline: result.style.underline, strike: result.style.strike });
+      }
+      lastTextRestyle = result;
+      saveSettings();
+      applyVisual();
+      layoutTextEditor();
+      renderRight();
+      syncFontControls();
+      editor.focus();
+      return { family: activeFontFamily(), size: activeFontSize(), mode: result.mode };
+    }
     if (shapes.length) {
       pushUndo();
       shapes.forEach((shape) => {
@@ -1820,18 +2217,16 @@
         if (patch.fontStyle) shape.fontStyle = settings.fontStyle;
         if (patch.underline != null) shape.underline = settings.fontUnderline;
         if (patch.strike != null) shape.strike = settings.fontStrike;
+        if (Array.isArray(shape.runs)) shape.runs = Paint.restyleRuns(shape.runs, 0, shape.text.length, change, Paint.styleOfShape(shape));
         Paint.normalizeShape(shape);
       });
       markDirty();
     }
     saveSettings();
     applyVisual();
-    if (editing) layoutTextEditor();
     renderBoard();
     renderRight();
     renderToolbar();
-    const editor = $("textEditor");
-    if (editing && editor && textEditing === editing) editor.focus();
     return { family: settings.fontFamily, size: activeFontSize() };
   }
 
@@ -1959,6 +2354,23 @@
     };
   }
 
+  function textDefaults() {
+    return Object.assign(shapeDefaults(), {
+      kind: "text",
+      x: 0,
+      y: 0,
+      w: 0,
+      h: 0,
+      fill: "",
+      text: "",
+      fontFamily: settings.fontFamily,
+      fontSize: settings.fontSize,
+      fontStyle: settings.fontStyle,
+      underline: !!settings.fontUnderline,
+      strike: !!settings.fontStrike,
+    });
+  }
+
   function shapeDefaults() {
     return {
       color: settings.color,
@@ -1974,62 +2386,92 @@
     return doc.shapes.find((shape) => shape.id === textEditing) || null;
   }
 
+  /* The editor sits where the text's baseline is, at the zoom of the picture: its spans
+   * carry sizes in picture pixels times the zoom, and it grows with what is typed. */
   function layoutTextEditor() {
     const shape = editingShape();
     const editor = $("textEditor");
     if (!shape || !editor || editor.hidden) return;
     const zoom = scale();
-    const chars = Math.max(1, editor.value.length);
+    const base = Paint.styleOfShape(shape);
+    if (editor.__zoom !== zoom) {
+      const at = RichText.selection(editor);
+      RichText.render(editor, RichText.read(editor, base), base, zoom);
+      editor.__zoom = zoom;
+      if (at && document.activeElement === editor) RichText.select(editor, at.start, at.end);
+    }
+    const runs = RichText.read(editor, base);
+    const size = runs.reduce((max, run) => Math.max(max, run.fontSize), 0) || shape.fontSize;
     editor.style.left = (shape.x * zoom) + "px";
-    editor.style.top = ((shape.y - shape.fontSize * 0.92) * zoom) + "px";
-    editor.style.fontSize = (shape.fontSize * zoom) + "px";
+    editor.style.top = ((shape.y - size * 0.92) * zoom) + "px";
+    editor.style.fontSize = (size * zoom) + "px";
+    editor.style.minHeight = (size * 1.2 * zoom) + "px";
+    editor.style.minWidth = (Math.max(shape.fontSize, 8) * zoom) + "px";
     editor.style.fontFamily = cssFamily(shape.fontFamily);
     editor.style.color = shape.color;
     editor.style.caretColor = shape.color;
     editor.style.fontStyle = String(shape.fontStyle).indexOf("italic") >= 0 ? "italic" : "normal";
     editor.style.fontWeight = String(shape.fontStyle).indexOf("bold") >= 0 ? "700" : "400";
     editor.style.textDecoration = [shape.underline ? "underline" : "", shape.strike ? "line-through" : ""].filter(Boolean).join(" ") || "none";
-    editor.style.height = (shape.fontSize * 1.35 * zoom) + "px";
-    editor.style.width = (Math.max(shape.fontSize * 2, chars * shape.fontSize + shape.fontSize) * zoom) + "px";
+  }
+
+  /* What was typed goes back into the shape as runs. */
+  function readTextEditor() {
+    const shape = editingShape();
+    const editor = $("textEditor");
+    if (!shape || !editor) return null;
+    Paint.setTextRuns(shape, RichText.read(editor, Paint.styleOfShape(shape)));
+    return shape;
   }
 
   function ensureTextEditor() {
     let editor = $("textEditor");
     if (editor) return editor;
-    editor = document.createElement("textarea");
+    editor = document.createElement("div");
     editor.id = "textEditor";
     editor.className = "text-editor";
-    editor.rows = 1;
+    editor.contentEditable = "true";
     editor.spellcheck = false;
-    editor.autocomplete = "off";
-    editor.addEventListener("input", () => {
+    editor.setAttribute("role", "textbox");
+    editor.setAttribute("autocomplete", "off");
+    RichText.attach(editor, () => {
       const shape = editingShape();
+      return shape ? Paint.styleOfShape(shape) : Paint.styleOfShape(Paint.makeShape("text", textDefaults()));
+    });
+    editor.addEventListener("input", () => {
+      const shape = readTextEditor();
       if (!shape) return;
-      shape.text = editor.value;
       const field = document.querySelector('#rightPanel [data-prop="text"]');
       if (field && document.activeElement !== field) field.value = shape.text;
       markDirty();
+      layoutTextEditor();
       renderBoard();
+      syncFontControls();
     });
     editor.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         event.stopPropagation();
         event.preventDefault();
         editor.blur();
-      } else if (event.key === "Enter") {
+      } else if (event.key === "Enter" && !event.isComposing) {
         event.preventDefault();
         editor.blur();
       }
     });
+    editor.addEventListener("keyup", syncFontControls);
+    editor.addEventListener("mouseup", syncFontControls);
     editor.addEventListener("blur", () => {
       const id = textEditing;
+      editorCaret = (RichText.selection(editor) || {}).start;
       setTimeout(() => {
         if (textEditing !== id) return;
-        if (document.activeElement === editor) return;
+        const now = document.activeElement;
+        if (now === editor) return;
+        // the font list keeps the text open: its choice comes back to the caret
+        if (now && now.closest && now.closest("#toolbar .font-bar")) return;
         const field = document.querySelector('#rightPanel [data-prop="text"]');
-        if (field && document.activeElement === field) {
-          const shape = editingShape();
-          if (shape) shape.text = editor.value;
+        if (field && now === field) {
+          readTextEditor();
           textEditing = null;
           editor.hidden = true;
           return;
@@ -2041,6 +2483,14 @@
     return editor;
   }
 
+  function placeCaret(editor, selectAll) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    if (!selectAll) range.collapse(false);
+    const sel = document.getSelection();
+    if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+  }
+
   function focusTextEditor(selectAll) {
     const editor = $("textEditor");
     const token = ++textFocusToken;
@@ -2048,8 +2498,8 @@
     setTimeout(() => {
       if (!editor || token !== textFocusToken || textEditing !== id) return;
       editor.focus();
-      if (selectAll) editor.select();
-      else editor.setSelectionRange(editor.value.length, editor.value.length);
+      placeCaret(editor, selectAll);
+      syncFontControls();
     }, 0);
   }
 
@@ -2064,30 +2514,33 @@
     if (textEditing) finishTextEditor();
     const editor = ensureTextEditor();
     if (!fresh) pushUndo();
-    textSession = { id: shape.id, fresh: !!fresh, before: shape.text || "", depth: undoStack.length };
+    textSession = { id: shape.id, fresh: !!fresh, before: JSON.stringify([shape.text || "", shape.runs || null]), depth: undoStack.length };
     textEditing = shape.id;
+    editorCaret = null;
     editor.hidden = false;
-    editor.value = shape.text || "";
+    editor.__zoom = scale();
+    RichText.render(editor, Paint.textRuns(shape), Paint.styleOfShape(shape), scale());
     editor.setAttribute("aria-label", t("prop.text"));
     layoutTextEditor();
-    focusTextEditor(!!editor.value);
+    focusTextEditor(!!shape.text);
   }
 
   function finishTextEditor() {
     const session = textSession;
     const editor = $("textEditor");
+    if (editor && !editor.hidden) readTextEditor();
     const shape = editingShape();
     const doc = current();
     textEditing = null;
     textSession = null;
+    editorCaret = null;
     if (editor) editor.hidden = true;
-    if (shape && editor) shape.text = editor.value;
     if (shape && doc && !shape.text) {
       doc.shapes = doc.shapes.filter((item) => item.id !== shape.id);
       selected = selected.filter((id) => id !== shape.id);
       if (session && session.fresh && undoStack.length === session.depth) undoStack.pop();
       updateHistoryButtons();
-    } else if (session && !session.fresh && shape && shape.text === session.before && undoStack.length === session.depth) {
+    } else if (session && !session.fresh && shape && JSON.stringify([shape.text, shape.runs || null]) === session.before && undoStack.length === session.depth) {
       undoStack.pop();
       updateHistoryButtons();
     }
@@ -2126,20 +2579,7 @@
         return hit;
       }
       pushUndo();
-      const shape = Paint.addShape(doc, Object.assign(shapeDefaults(), {
-        kind: "text",
-        x: x,
-        y: y,
-        w: 0,
-        h: 0,
-        fill: "",
-        text: "",
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize,
-        fontStyle: settings.fontStyle,
-        underline: !!settings.fontUnderline,
-        strike: !!settings.fontStrike,
-      }));
+      const shape = Paint.addShape(doc, Object.assign(textDefaults(), { x: x, y: y }));
       selected = [shape.id];
       markDirty();
       renderBoard();
@@ -2189,6 +2629,7 @@
   function moveDraw(x, y) {
     pointer = { x: x, y: y };
     probeAt(x, y);
+    scheduleRulers();
     const doc = current();
     if (dragState) {
       const dx = x - dragState.lastX;
@@ -2280,6 +2721,8 @@
       renderBoard();
       return null;
     }
+    // a free curve keeps only the points it bends at; the drawing smooths between them
+    if (shape.kind === "freeCurve") shape.points = Paint.simplifyPoints(shape.points, Math.max(0.8, 1.6 / scale()));
     pushUndo();
     const added = Paint.addShape(doc, shape);
     selected = [added.id];
@@ -2611,6 +3054,7 @@
   }
 
   function addDoc(doc, remember) {
+    hideStart();
     docs.push(doc);
     active = docs.length - 1;
     selected = [];
@@ -2693,20 +3137,44 @@
     return parsed.documents.length;
   }
 
+  /* What a file name saves as: a drawing for .mypaint (or no extension), otherwise the picture
+   * format its extension names. */
+  function saveFormatOf(filePath) {
+    const ext = Formats.extensionOf(filePath);
+    if (!ext || ext === "mypaint" || ext === "mpaint") return "mypaint";
+    const spec = Formats.SAVE_FORMATS.find((item) => item.ext === ext || item.id === ext ||
+      (item.id === "jpeg" && ext === "jpeg") || (item.id === "tiff" && ext === "tiff"));
+    return spec ? spec.id : "mypaint";
+  }
+
+  function saveFilters() {
+    return [{ name: t("open.drawing"), extensions: ["mypaint"] }].concat(Formats.SAVE_FORMATS.map((item) => ({
+      name: t("format." + item.id) + " (." + item.ext + ")",
+      extensions: item.id === "jpeg" ? ["jpg", "jpeg"] : item.id === "tiff" ? ["tif", "tiff"] : [item.ext],
+    })));
+  }
+
+  /* An SVG document saves back to SVG unless another format is asked for. */
+  function defaultSaveName(doc) {
+    if (doc.path) return doc.path;
+    if (doc.svg) return doc.name.replace(/\.[^.]+$/, "") + ".svg";
+    return DRAWING_EXT.test(doc.name) ? doc.name : doc.name.replace(/\.[^.]+$/, "") + ".mypaint";
+  }
+
   async function saveCurrent(forceDialog) {
     const doc = current();
     if (!doc) return null;
     if (forceDialog || !doc.path) {
-      if (TEST && !forceDialog) return finishSave(doc, doc.name, "mpaint");
+      if (TEST && !forceDialog) return finishSave(doc, doc.name, doc.svg ? "svg" : "mypaint");
       if (window.desktop && window.desktop.pickSave && !TEST) {
-        const file = await window.desktop.pickSave(doc.path || doc.name);
+        const file = await window.desktop.pickSave(defaultSaveName(doc), saveFilters());
         if (!file) return null;
-        return finishSave(doc, file, /\.png$/i.test(file) ? "png" : "mpaint");
+        return finishSave(doc, file, saveFormatOf(file));
       }
       openPopup("save");
       return null;
     }
-    return finishSave(doc, doc.path, /\.png$/i.test(doc.path) ? "png" : "mpaint");
+    return finishSave(doc, doc.path, saveFormatOf(doc.path));
   }
 
   function canvasDataUrl(doc) {
@@ -2732,11 +3200,24 @@
   }
 
   async function finishSave(doc, filePath, format) {
-    if (format === "png") return exportPng(doc, filePath);
+    if (format === "png" && !doc.svg) return exportPng(doc, filePath);
+    if (format && format !== "mypaint" && format !== "mpaint") {
+      const result = await convertDoc(doc, format, convertState.quality, filePath);
+      // an SVG kept as SVG is the document itself, so it is saved; any other picture is an export
+      if (format === "svg" && doc.svg) {
+        doc.path = filePath;
+        doc.name = String(filePath).split(/[/\\]/).pop() || doc.name;
+        doc.dirty = false;
+        rememberDoc(doc);
+        renderAll();
+      }
+      lastSaved = { path: filePath, bytes: result ? result.bytes : 0, format: format };
+      return lastSaved;
+    }
     const payload = Paint.serialize([flattenFrames(doc)]);
     await withProgress(t("progress.saving"), payload.length, async (report) => {
       await report(40);
-      lastSaved = { path: filePath, text: payload, bytes: payload.length, format: "mpaint" };
+      lastSaved = { path: filePath, text: payload, bytes: payload.length, format: "mypaint" };
       await report(80);
     });
     doc.path = filePath;
@@ -2785,9 +3266,9 @@
     await withProgress(t("progress.downloading"), Math.max(blob.size, metrics.PROGRESS_BYTES), async (report) => {
       await report(25);
       await report(70);
-      lastDownload = { name: "sample.mpaint", text: text, bytes: blob.size };
+      lastDownload = { name: "sample.mypaint", text: text, bytes: blob.size };
     });
-    if (!TEST) downloadBlob("sample.mpaint", blob);
+    if (!TEST) downloadBlob("sample.mypaint", blob);
     return lastDownload;
   }
 
@@ -2868,7 +3349,7 @@
     const size = file.size || String(file.text || "").length;
     const named = Formats.kindOf(file.name, null);
     const disk = diskPath(file);
-    if ((named === "" && /\.mpaint$/i.test(file.name || "")) || (disk && /\.mpaint$/i.test(disk))) {
+    if ((named === "" && DRAWING_EXT.test(file.name || "")) || (disk && DRAWING_EXT.test(disk))) {
       if (disk && window.desktop.readFile) {
         return { kind: "drawing", name: file.name, text: await window.desktop.readFile(disk) };
       }
@@ -3138,6 +3619,7 @@
   async function openPicture(bytes, name, path) {
     const result = await decodeBytes(bytes, name);
     const doc = pictureDoc(result, name, path);
+    hideStart();
     docs.push(doc);
     active = docs.length - 1;
     selected = [];
@@ -3264,21 +3746,38 @@
 
   /* ── converting to another format ── */
 
-  async function convertCurrent(format, quality) {
+  /* The quality percentage only changes what a lossy encoder writes. */
+  const LOSSY = ["jpeg", "webp", "avif", "jp2", "j2k"];
+  function lossyFormat(id) {
+    const spec = Formats.SAVE_FORMATS.find((item) => item.id === id);
+    if (spec && typeof spec.lossy === "boolean") return spec.lossy;
+    return LOSSY.indexOf(id) >= 0;
+  }
+
+  async function convertCurrent(format, quality, filePath) {
     const doc = current();
     if (!doc) return null;
+    return convertDoc(doc, format, quality, filePath);
+  }
+
+  /* Every picture format goes through here: the drawing is flattened to pixels and encoded,
+   * except SVG, which is written as vectors — the shapes themselves, over the SVG source of
+   * a document that came from an SVG file. */
+  async function convertDoc(doc, format, quality, filePath) {
     const spec = Formats.SAVE_FORMATS.find((item) => item.id === format) || Formats.SAVE_FORMATS[0];
     const canvas = renderCanvas(doc);
     const picture = { width: canvas.width, height: canvas.height, rgba: canvasPixels(canvas), canvas: canvas };
     const out = await withProgress(t("progress.exporting"), canvas.width * canvas.height * 4, async (report) => {
       await report(40);
-      const encoded = await Formats.encode(spec.id, picture, { quality: (quality == null ? convertState.quality : quality) / 100 });
+      const options = { quality: (quality == null ? convertState.quality : quality) / 100, name: doc.name };
+      if (spec.id === "svg") options.svgText = documentSvg(doc);
+      const encoded = await Formats.encode(spec.id, picture, options);
       await report(85);
       return encoded;
     });
     const base = (doc.name.replace(/\.[^.]+$/, "") || "image") + "." + out.ext;
     const dir = settings.lastSaveDir;
-    const path = dir ? dir.replace(/\\/g, "/").replace(/\/$/, "") + "/" + base : base;
+    const path = filePath || (dir ? dir.replace(/\\/g, "/").replace(/\/$/, "") + "/" + base : base);
     lastConvert = { path: path, format: spec.id, mime: out.mime, bytes: out.bytes.length, width: canvas.width, height: canvas.height };
     Store.rememberDirectory(settings, "save", path);
     saveSettings();
@@ -3287,7 +3786,7 @@
       out.bytes.forEach((value) => { binary += String.fromCharCode(value); });
       await window.desktop.writeBinary(path, btoa(binary));
     } else if (!TEST) {
-      downloadBlob(base, new Blob([out.bytes], { type: out.mime }));
+      downloadBlob(path.split(/[/\\]/).pop() || base, new Blob([out.bytes], { type: out.mime }));
     }
     renderStatus();
     return lastConvert;
@@ -3299,8 +3798,8 @@
     const group = (key, names) => ({ name: t(key) + " (" + names.map((name) => "." + name).join(" ").slice(0, 120) + ")", extensions: names });
     const pictures = Formats.listExtensions();
     return [
-      { name: t("open.everything"), extensions: ["mpaint"].concat(pictures) },
-      { name: t("open.drawing"), extensions: ["mpaint"] },
+      { name: t("open.everything"), extensions: ["mypaint", "mpaint"].concat(pictures) },
+      { name: t("open.drawing"), extensions: ["mypaint", "mpaint"] },
       group("kind.native", Array.from(Formats.NATIVE).sort()),
       group("kind.tiff", Array.from(Formats.TIFF).sort()),
       group("kind.heif", Array.from(Formats.HEIF).sort()),
@@ -3312,7 +3811,7 @@
   }
 
   function acceptAttribute() {
-    return [".mpaint"].concat(Formats.listExtensions().map((name) => "." + name)).join(",");
+    return [".mypaint", ".mpaint"].concat(Formats.listExtensions().map((name) => "." + name)).join(",");
   }
 
   /* Picking a file through Open places it straight away; dropping one asks what to do with it. */
@@ -3341,7 +3840,7 @@
     new: () => openPopup("newdoc"),
     open: () => {
       if (TEST) {
-        return openDrawingText(Paint.serialize([Paint.createDoc(Sample.shapes)]), "opened.mpaint", "");
+        return openDrawingText(Paint.serialize([Paint.createDoc(Sample.shapes)]), "opened.mypaint", "");
       }
       if (window.desktop && window.desktop.pickFiles) {
         return window.desktop.pickFiles(settings.lastOpenDir, openFilters()).then((files) => ingestPaths(files)).catch(showError);
@@ -3437,13 +3936,24 @@
       return openThemeMenu(place.x, place.y);
     },
     themeCustom: () => openPopup("theme", anchorUnder("[data-action='themeMenu']", metrics.POPUPS.theme.width)),
-    toggleLeft: () => { settings.showLeft = !settings.showLeft; saveSettings(); renderLeft(); return settings.showLeft; },
-    toggleRight: () => { settings.showRight = !settings.showRight; saveSettings(); renderRight(); return settings.showRight; },
+    toggleLeft: () => { settings.showLeft = !settings.showLeft; saveSettings(); renderLeft(); syncPanels(); renderRulers(); return settings.showLeft; },
+    toggleRight: () => { settings.showRight = !settings.showRight; saveSettings(); renderRight(); syncPanels(); renderRulers(); return settings.showRight; },
+    toggleRulers: () => {
+      settings.showRulers = !settings.showRulers;
+      saveSettings();
+      syncPanels();
+      renderRulers();
+      return settings.showRulers;
+    },
+    home: () => showStart(),
+    settingsStart: () => { settingsTab = "start"; return openPopup("settings"); },
+    hideStart: () => hideStart(),
     download: () => downloadSample(),
     link: () => openLink(GUIDE_URL),
-    guide: () => openPopup("guide"),
+    guide: () => openGuide(),
+    guidePopup: () => openPopup("guide"),
     recentManager: () => openPopup("recent"),
-    clearRecent: () => { Store.clearRecent(settings); saveSettings(); renderMenubar(); return settings.recent; },
+    clearRecent: () => clearRecentEntries(),
     exit: () => requestClose(),
   };
 
@@ -3451,7 +3961,7 @@
     if (!files || !files.length) return null;
     for (const file of files) {
       const name = String(file).split(/[/\\]/).pop();
-      if (/\.mpaint$/i.test(file)) {
+      if (DRAWING_EXT.test(file)) {
         const text = await window.desktop.readFile(file);
         openDrawingText(text, name, file);
         Store.rememberDirectory(settings, "open", file);
@@ -3468,7 +3978,8 @@
 
   function runAction(action) {
     try {
-      if (action.startsWith("recent:")) { closeMenu(); return openRecent(action.slice(7)); }
+      if (action.startsWith("recent:")) { closeMenu(); hideStart(); return openRecent(action.slice(7)); }
+      if (action.startsWith("recentRemove:")) return removeRecentEntry(action.slice(13), true);
       if (action.startsWith("tool:")) { closeMenu(); return setTool(action.slice(5)); }
       if (action.startsWith("color:")) { closeMenu(); return setColor(action.slice(6)); }
       if (action.startsWith("width:")) { closeMenu(); return setActiveSize(Number(action.slice(6))); }
@@ -3490,6 +4001,30 @@
       showError(error);
       return null;
     }
+  }
+
+  /* Taking one file off the recent list. From the File menu the menu opens again where it was,
+   * one row shorter, so several can be taken off in a row. */
+  function removeRecentEntry(id, reopen) {
+    Store.removeRecent(settings, id);
+    saveSettings();
+    const reopenAt = reopen ? lastMenu : null;
+    closeMenu();
+    renderMenubar();
+    renderStart();
+    if (popupKind === "recent") refreshPopupDocument("recent");
+    if (reopenAt && reopenAt.id === "file") openMenu("file", reopenAt.x, reopenAt.y, reopenAt.align);
+    return settings.recent;
+  }
+
+  function clearRecentEntries() {
+    Store.clearRecent(settings);
+    saveSettings();
+    closeMenu();
+    renderMenubar();
+    renderStart();
+    if (popupKind === "recent") refreshPopupDocument("recent");
+    return settings.recent;
   }
 
   function removeShapeById(id) {
@@ -3528,6 +4063,14 @@
     if ("restoreSession" in fields) settings.restoreSession = Boolean(fields.restoreSession);
     if ("showLeft" in fields) settings.showLeft = Boolean(fields.showLeft);
     if ("showRight" in fields) settings.showRight = Boolean(fields.showRight);
+    if (fields.gridSize != null && fields.gridSize !== "") settings.gridSize = clamp(fields.gridSize, 2, 200);
+    const start = {};
+    if ("startShow" in fields) start.show = Boolean(fields.startShow);
+    if (fields.startTitleSize != null && fields.startTitleSize !== "") start.titleSize = Number(fields.startTitleSize);
+    if (fields.startTextSize != null && fields.startTextSize !== "") start.textSize = Number(fields.startTextSize);
+    if (fields.startAlign) start.align = fields.startAlign;
+    if ("startRecent" in fields) start.showRecent = Boolean(fields.startRecent);
+    settings.startScreen = Store.normalizeStart(Object.assign({}, settings.startScreen, start));
     saveSettings();
     renderAll();
     if (!live) {
@@ -3559,6 +4102,20 @@
         if (node) node.click();
       }
     }
+  }
+
+  /* Picking a lossless format greys the quality out instead of rebuilding the dialog, so the
+   * list keeps its focus. A dialog in its own window is rebuilt. */
+  function syncConvertPopup() {
+    const lossy = lossyFormat(convertState.format);
+    if (popupEl && popupEl.dataset.kind === "convert") {
+      const line = popupEl.querySelector("#qualityLine");
+      const hint = popupEl.querySelector("#qualityHint");
+      if (line) line.toggleAttribute("data-off", !lossy);
+      if (hint) hint.textContent = lossy ? t("convert.qualityHint") : t("convert.lossless");
+      return;
+    }
+    if (popupKind === "convert") refreshPopupDocument("convert");
   }
 
   function refreshSettingsPopup(tab) {
@@ -3621,9 +4178,28 @@
       openFromUrl(fields.url).catch(showError);
       return fields.url;
     }
+    if (action === "convert-sync") {
+      const before = convertState.format;
+      convertState.format = fields.format || convertState.format;
+      if (fields.quality) convertState.quality = clamp(fields.quality, 10, 100);
+      if (before !== convertState.format) syncConvertPopup();
+      return convertState;
+    }
     if (action === "apply-convert") {
       convertState.format = fields.format || convertState.format;
       if (fields.quality) convertState.quality = clamp(fields.quality, 10, 100);
+      const spec = Formats.SAVE_FORMATS.find((item) => item.id === convertState.format) || Formats.SAVE_FORMATS[0];
+      // the desktop build asks where to write it; a browser downloads it
+      if (window.desktop && window.desktop.pickSave && !TEST) {
+        const doc = current();
+        const base = (doc.name.replace(/\.[^.]+$/, "") || "image") + "." + spec.ext;
+        const dir = settings.lastSaveDir ? settings.lastSaveDir.replace(/\\/g, "/").replace(/\/$/, "") + "/" : "";
+        closePopup();
+        window.desktop.pickSave(dir + base, saveFilters().filter((item) => item.extensions.indexOf(spec.ext) >= 0))
+          .then((file) => (file ? convertCurrent(spec.id, convertState.quality, file) : null))
+          .catch(showError);
+        return convertState;
+      }
       convertCurrent(convertState.format, convertState.quality).then(() => closePopup()).catch(showError);
       return convertState;
     }
@@ -3647,19 +4223,22 @@
       if (pendingClose >= 0) {
         const index = pendingClose;
         const tab = docs[index];
-        finishSave(tab, tab.path || tab.name, "mpaint").then(() => { closePopup(); dropTab(index); });
+        const target = tab.path || defaultSaveName(tab);
+        finishSave(tab, target, saveFormatOf(target)).then(() => { closePopup(); dropTab(index); });
         return null;
       }
       const doc = current();
-      finishSave(doc, doc.path || doc.name, "mpaint").then(() => closeApplication());
+      const target = doc.path || defaultSaveName(doc);
+      finishSave(doc, target, saveFormatOf(target)).then(() => closeApplication());
       return null;
     }
     if (action === "confirm-save") {
       const doc = current();
       const name = fields.name || doc.name;
       const dir = fields.dir || settings.lastSaveDir || "";
-      const format = fields.format === "png" ? "png" : "mpaint";
-      const base = name.split(/[/\\]/).pop().replace(/\.(mpaint|png)$/i, "") + "." + format;
+      const picked = Formats.SAVE_FORMATS.find((item) => item.id === fields.format);
+      const format = picked ? picked.id : "mypaint";
+      const base = name.split(/[/\\]/).pop().replace(/\.[A-Za-z0-9]{1,8}$/, "") + "." + (picked ? picked.ext : "mypaint");
       const path = dir ? (dir.replace(/\\/g, "/").replace(/\/$/, "") + "/" + base) : base;
       finishSave(doc, path, format).then(() => closePopup());
       return path;
@@ -3678,18 +4257,21 @@
       refreshSettingsPopup("workspace");
       return settings.recentDirs;
     }
+    if (action === "start-preview") {
+      applySettingsForm(fields, true);
+      closePopup();
+      return showStart();
+    }
     if (action === "bg-choose") { $("bgOpen").click(); return null; }
     if (action === "bg-clear") { clearBackground(); return null; }
     if (action === "remove-recent") {
       const id = (fieldOverride && fieldOverride.id) || (source && source.dataset && source.dataset.id);
-      Store.removeRecent(settings, id);
-      saveSettings();
+      removeRecentEntry(id, false);
       openPopup("recent");
       return settings.recent;
     }
     if (action === "clear-recent") {
-      Store.clearRecent(settings);
-      saveSettings();
+      clearRecentEntries();
       openPopup("recent");
       return settings.recent;
     }
@@ -3746,6 +4328,7 @@
       if (!textFieldUndo) pushUndo();
       textFieldUndo = false;
       shape.text = target.value;
+      delete shape.runs;
       Paint.normalizeShape(shape);
       markDirty();
       renderAll();
@@ -3840,6 +4423,7 @@
         pointerSeen = true;
         probeAt(point.x, point.y);
         renderStatus();
+        scheduleRulers();
         return;
       }
       moveDraw(point.x, point.y);
@@ -3896,9 +4480,15 @@
     wireResizeGrip();
     wireBoard();
     wireStagePan();
+    $("stage").addEventListener("scroll", scheduleRulers, { passive: true });
+    window.addEventListener("resize", scheduleRulers);
     $("toolbar").addEventListener("click", (event) => {
       const btn = event.target.closest("[data-action]");
       if (btn) runAction(btn.dataset.action);
+    });
+    // pressing a font button while typing must not take the caret out of the text
+    $("toolbar").addEventListener("mousedown", (event) => {
+      if (textEditing && event.target.closest(".font-bar button")) event.preventDefault();
     });
     $("toolbar").addEventListener("change", (event) => {
       const pick = event.target.closest("[data-font='family']");
@@ -3917,6 +4507,8 @@
       openMenu(btn.dataset.menu, rect.left, rect.bottom, "left");
     });
     $("leftPanel").addEventListener("click", (event) => {
+      const swatch = event.target.closest("[data-color]");
+      if (swatch) { openColorFor(swatch); return; }
       const btn = event.target.closest("[data-action]");
       if (btn) runAction(btn.dataset.action);
     });
@@ -3938,6 +4530,7 @@
         textFieldUndo = true;
       }
       shape.text = target.value;
+      delete shape.runs;
       markDirty();
       renderBoard();
     });
@@ -3950,6 +4543,8 @@
         stepProperty(step);
         return;
       }
+      const swatch = event.target.closest("[data-color]");
+      if (swatch) { openColorFor(swatch); return; }
       const btn = event.target.closest("[data-action]");
       if (btn) runAction(btn.dataset.action);
     });
@@ -3975,6 +4570,7 @@
       const kind = popupEl.dataset.kind;
       if (kind === "settings") { applySettingsForm(readFields(popupEl), true); return; }
       if (kind === "palette") { applyPaletteForm(readFields(popupEl)); return; }
+      if (kind === "convert") { popupAction("convert-sync", null, readFields(popupEl)); return; }
       if (kind !== "print") return;
       syncPrintFields(readFields(popupEl));
       printState.pageIndex = 0;
@@ -3992,6 +4588,18 @@
       active = Number(tab.dataset.tab);
       selected = [];
       renderAll();
+    });
+    $("startScreen").addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-action]");
+      if (!btn || btn.disabled) return;
+      // New and Open ask first, so the start screen stays until a document is really made
+      runAction(btn.dataset.action);
+    });
+    $("startScreen").addEventListener("change", (event) => {
+      const box = event.target.closest("[data-start]");
+      if (!box) return;
+      settings.startScreen = Store.normalizeStart(Object.assign({}, settings.startScreen, { show: box.checked }));
+      saveSettings();
     });
     $("tabPrev").addEventListener("click", () => { $("tabstrip").scrollLeft -= 140; });
     $("tabNext").addEventListener("click", () => { $("tabstrip").scrollLeft += 140; });
@@ -4013,15 +4621,17 @@
         }
         const editor = $("textEditor");
         if (!editor || !shape) return;
-        const next = (editor.value || "") + event.key;
-        editor.value = next;
-        editor.setSelectionRange(next.length, next.length);
-        editor.dispatchEvent(new Event("input", { bubbles: true }));
         editor.focus();
+        if (!RichText.selection(editor)) placeCaret(editor, false);
+        if (!document.execCommand("insertText", false, event.key)) {
+          editor.value = (editor.value || "") + event.key;
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+        }
         return;
       }
       if (event.key === "Escape" || event.code === "Escape") {
         if (inField) return;
+        if (startVisible && !menuEl && !popupEl) { hideStart(); return; }
         closeMenu();
         doDeselect();
         return;
@@ -4172,6 +4782,7 @@
     wire();
     await loadFonts();
     renderAll();
+    if (!TEST && Store.normalizeStart(settings.startScreen).show) showStart();
     window.MyPaint = api;
     api.ready = true;
   }
@@ -4342,7 +4953,7 @@
       return [data[0], data[1], data[2], data[3]];
     },
     closeTab: closeTab,
-    addTabs: (count) => { for (let i = 0; i < count; i += 1) docs.push(newDoc({ name: "extra-" + i + ".mpaint" })); renderTabs(); },
+    addTabs: (count) => { for (let i = 0; i < count; i += 1) docs.push(newDoc({ name: "extra-" + i + ".mypaint" })); renderTabs(); },
     tabOverflow: () => $("tabstrip").scrollWidth > $("tabstrip").clientWidth + 1,
     scrollTabs: (dir) => { $("tabstrip").scrollLeft += dir * 140; return $("tabstrip").scrollLeft; },
     showError: showError,

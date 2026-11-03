@@ -31,3 +31,6 @@ Desktop.ini
 # Local tooling
 .claude/
 .cursor/
+
+# Tauri build output
+src-tauri/target/

@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Every MyPaint window (main, menu, popup and pages opened with desktop.openWindow). Files, dialogs, clipboard and window control go through MyPaint's own commands (src-tauri/src/lib.rs); only event listening is opened here.","local":true,"windows":["*"],"permissions":["core:event:default"]}}

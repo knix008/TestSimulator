@@ -12,5 +12,7 @@ function copy(rel) {
 }
 
 fs.rmSync(dest, { recursive: true, force: true });
-["index.html", "style", "src", "assets"].forEach(copy);
+["index.html", "popup.html", "style", "src", "assets"].forEach(copy);
+// the user guide, when it is there
+["guide.html", "guide"].filter((rel) => fs.existsSync(path.join(root, rel))).forEach(copy);
 console.log("web build:", dest);

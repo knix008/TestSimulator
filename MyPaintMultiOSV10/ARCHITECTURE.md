@@ -72,9 +72,13 @@ hands it to one reader:
 | `j2k` | OpenJPEG |
 | `raw` | the full-size JPEG the camera wrote into the file |
 | `dicom` | `dicom.js` |
+| `extra` | `extra-formats.js` — TGA, Netpbm (PBM / PGM / PPM / PNM / PAM), QOI, PCX; pure JavaScript, no DOM |
+| `svg` | the browser, through an `<img>` — drawn at the width / height the file asks for, else its viewBox, else 300 × 150; the source comes back as `svgText` |
 
 Writing goes the other way: the browser's own encoder for PNG, JPEG and WebP, `encoders.js`
-for BMP, TIFF, GIF, ICO and DICOM, and OpenJPEG for JPEG 2000. HEIC has no encoder anywhere in
+for BMP, TIFF, GIF, ICO and DICOM, `extra-formats.js` for TGA, PPM, PAM, QOI and PCX, the browser
+again for AVIF where it can write it (a blob of another type is refused), and OpenJPEG for JPEG 2000.
+An SVG is saved as the source it was opened from, or as the picture inside an SVG `<image>`. HEIC has no encoder anywhere in
 reach — HEVC is patent-encumbered — so it is read but never written.
 
 Camera RAW is not demosaiced. Every camera writes a full-size JPEG rendering beside the sensor

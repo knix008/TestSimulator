@@ -41,12 +41,19 @@ case "$choice" in
 esac
 
 if [ -n "${SUDO_USER:-}" ] || [ -n "${PKEXEC_UID:-}" ]; then
-  DATA="$USER_HOME/.config/MyPaint"
+  CONFIG="$USER_HOME/.config"
+  SHARE="$USER_HOME/.local/share"
 else
-  DATA="${XDG_CONFIG_HOME:-$USER_HOME/.config}/MyPaint"
+  CONFIG="${XDG_CONFIG_HOME:-$USER_HOME/.config}"
+  SHARE="${XDG_DATA_HOME:-$USER_HOME/.local/share}"
 fi
+# The Tauri build keeps its settings and window places under the app id; the Electron
+# build kept them in ~/.config/MyPaint.
+DATA="$CONFIG/com.shkwon.mypaint"
+WEBDATA="$SHARE/com.shkwon.mypaint"
+OLDDATA="$CONFIG/MyPaint"
 answer=""
-if [ -d "$DATA" ]; then
+if [ -d "$DATA" ] || [ -d "$WEBDATA" ] || [ -d "$OLDDATA" ]; then
   if [ "$LANG_CHOICE" = "en" ]; then
     text="Saved data was found. Do you want to delete it?"
   else
@@ -64,10 +71,11 @@ if [ -d "$DATA" ]; then
   fi
 fi
 
+# The Electron build lived in /opt/MyPaint.
 if [ -d /opt/MyPaint ]; then
   rm -rf /opt/MyPaint
 fi
 
 case "$answer" in
-  y|Y|yes|YES) rm -rf "$DATA" ;;
+  y|Y|yes|YES) rm -rf "$DATA" "$WEBDATA" "$OLDDATA" ;;
 esac

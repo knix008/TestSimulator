@@ -1,4 +1,4 @@
-/* The desktop build talks through popupHost. A browser window opened from the page
+/* The desktop build talks through popupHost (src/host/tauri-bridge.js). A browser window opened from the page
  * talks to window.opener with the same messages. */
 function applyTheme(css) {
   const style = document.getElementById("themeVars");
@@ -69,7 +69,7 @@ function showHtml(html) {
   root.addEventListener("change", (event) => {
     const popup = root.querySelector(".popup");
     if (!popup || !event.target.closest("[data-field]")) return;
-    const sync = { settings: "settings-sync", print: "print-sync", palette: "palette-sync", canvas: "canvas-sync" };
+    const sync = { settings: "settings-sync", print: "print-sync", palette: "palette-sync", canvas: "canvas-sync", convert: "convert-sync" };
     const name = sync[popup.dataset.kind];
     if (!name) return;
     sendAction(name, collect(root));

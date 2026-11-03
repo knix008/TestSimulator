@@ -51,10 +51,26 @@
     ellipse: '<ellipse cx="12" cy="12" rx="8" ry="6"/>',
     triangle: '<path d="M12 4 21 20H3z"/>',
     text: '<path d="M4.2 4.8h15.6" stroke-width="2.4"/><path d="M12 4.8v14.6" stroke-width="2.4"/><path d="M8 19.4h8"/>',
-    fill: '<path d="M7.2 11.2h8.4l-1 7.4H8.2z"/>' +
-      '<path d="M5.2 11.2h12.2"/>' +
-      '<path d="M8.4 11.2V8.2a2.8 2.8 0 0 1 5.6 0v3"/>' +
-      '<path fill="currentColor" stroke="none" d="M18.2 14.6c.9 1.4 1.4 2.2 1.4 2.9a1.45 1.45 0 0 1-2.9 0c0-.7.5-1.5 1.5-2.9z"/>',
+    /* a paint bucket tipped over, pouring a drop */
+    fill: '<g transform="rotate(-40 10.5 12.5)">' +
+      '<path d="M5.4 9.2h10.2v7.6a2.2 2.2 0 0 1-2.2 2.2H7.6a2.2 2.2 0 0 1-2.2-2.2z"/>' +
+      '<path d="M7.6 9.2V6.8a2.9 2.9 0 0 1 5.8 0v2.4"/>' +
+      '<path d="M5.4 12h10.2" stroke-opacity="0.55"/>' +
+      '</g>' +
+      '<path d="M16.6 9.6c1.9.2 3.1 1.3 3.3 3.1"/>' +
+      '<path fill="currentColor" stroke="none" d="M20 14.2c.9 1.3 1.4 2.1 1.4 2.8a1.4 1.4 0 0 1-2.8 0c0-.7.5-1.5 1.4-2.8z"/>',
+    freeCurve: '<path d="M3.5 17.5c2.2-5.4 4.6-7.2 6.4-4.6s3.3 3.4 5-.6 3.2-6.3 5.6-5.3" stroke-width="1.9"/>' +
+      '<circle cx="3.5" cy="17.5" r="1.2" fill="currentColor" stroke="none"/>' +
+      '<circle cx="20.5" cy="7" r="1.2" fill="currentColor" stroke="none"/>',
+    home: '<path d="M3.5 11.2 12 4l8.5 7.2"/><path d="M5.8 9.6V20h4.6v-5.4h3.2V20h4.6V9.6"/>',
+    ruler: '<rect x="2.8" y="7.4" width="18.4" height="9.2" rx="1.2"/>' +
+      '<path d="M6.4 7.4v3.2M9.8 7.4v2M13.2 7.4v3.2M16.6 7.4v2M20 7.4v3.2"/>',
+    themePalette: '<path d="M12 3a9 9 0 0 0 0 18 2.5 2.5 0 0 0 0-5 2.5 2.5 0 0 1 0-5h4a5 5 0 0 0 5-5 3 3 0 0 0-3-3z"/>' +
+      '<circle cx="7.4" cy="11" r="1.6" fill="#ef4444" stroke="none"/>' +
+      '<circle cx="10.6" cy="7" r="1.6" fill="#f59e0b" stroke="none"/>' +
+      '<circle cx="15.4" cy="7.4" r="1.6" fill="#22c55e" stroke="none"/>' +
+      '<circle cx="7.6" cy="15.6" r="1.6" fill="#3b82f6" stroke="none"/>',
+    svgCode: '<path d="M8 7 3 12l5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 5 10.5 19"/>',
     picker: '<g transform="rotate(-42 12 12)">' +
       '<ellipse cx="12" cy="5" rx="3.3" ry="2.5"/>' +
       '<path d="M9.4 7h5.2l-.7 2H10z"/>' +

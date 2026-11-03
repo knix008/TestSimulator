@@ -1,6 +1,6 @@
 /* Image formats MyPaint can open and write.
  *
- *   Formats.kindOf(name, bytes)        → 'native' | 'tiff' | 'heif' | 'j2k' | 'dicom' | 'raw' | ''
+ *   Formats.kindOf(name, bytes)        → 'native' | 'tiff' | 'heif' | 'j2k' | 'dicom' | 'raw' | 'extra' | 'svg' | ''
  *   Formats.decode(bytes, name, opts)  → Promise<{ width, height, rgba, pages, page, kind, meta }>
  *   Formats.toDataUrl(result)          → a PNG data URL for the decoded pixels
  *   Formats.encode(format, image, opts)→ Promise<{ bytes, mime, ext }>
@@ -10,12 +10,14 @@
  * TIFF (every page, LZW / PackBits / Deflate / JPEG, 8-16 bit) uses UTIF, HEIC / HEIF uses
  * libheif (the file's primary image first, every other image it holds as a further page),
  * JPEG 2000 uses OpenJPEG, DICOM uses the full decoder in dicom.js, and camera RAW files are
- * shown from the full-size JPEG the camera embeds in them.
+ * shown from the full-size JPEG the camera embeds in them. TGA, Netpbm (PBM / PGM / PPM / PAM),
+ * QOI and PCX are read and written by the pure codecs in extra-formats.js; SVG is rasterised by
+ * the browser at the size the file asks for, and its source comes back as svgText.
  */
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./dicom"), require("./encoders"));
-  else root.MyPaintFormats = factory(root.DicomDecoder, root.Encoders);
-})(typeof self !== "undefined" ? self : this, function (D, Encoders) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./dicom"), require("./encoders"), require("./extra-formats"));
+  else root.MyPaintFormats = factory(root.DicomDecoder, root.Encoders, root.MyPaintExtraFormats);
+})(typeof self !== "undefined" ? self : this, function (D, Encoders, Extra) {
   const NATIVE = new Set(["png", "jpg", "jpeg", "jpe", "jfif", "gif", "webp", "bmp", "dib", "ico", "avif", "apng"]);
   const TIFF = new Set(["tif", "tiff", "btf", "tf8"]);
   const HEIF = new Set(["heic", "heif", "hif", "heics", "avci"]);
@@ -30,19 +32,34 @@
     "sr2", "srf", "srw", "x3f",
   ]);
 
-  const ALL = new Set([...NATIVE, ...TIFF, ...HEIF, ...J2K, ...DICOM, ...RAW]);
+  /* TGA, Netpbm, QOI and PCX — the pure codecs in extra-formats.js. */
+  const TGA = new Set(["tga", "icb", "vda", "vst"]);
+  const NETPBM = new Set(["pbm", "pgm", "ppm", "pnm", "pam"]);
+  const QOI = new Set(["qoi"]);
+  const PCX = new Set(["pcx"]);
+  const EXTRA = new Set([...TGA, ...NETPBM, ...QOI, ...PCX]);
+  const SVG = new Set(["svg"]);
+
+  const ALL = new Set([...NATIVE, ...TIFF, ...HEIF, ...J2K, ...DICOM, ...RAW, ...EXTRA, ...SVG]);
 
   const SAVE_FORMATS = [
     { id: "png", ext: "png", mime: "image/png" },
-    { id: "jpeg", ext: "jpg", mime: "image/jpeg" },
-    { id: "webp", ext: "webp", mime: "image/webp" },
+    { id: "jpeg", ext: "jpg", mime: "image/jpeg", lossy: true },
+    { id: "webp", ext: "webp", mime: "image/webp", lossy: true },
     { id: "bmp", ext: "bmp", mime: "image/bmp" },
     { id: "tiff", ext: "tif", mime: "image/tiff" },
     { id: "gif", ext: "gif", mime: "image/gif" },
     { id: "ico", ext: "ico", mime: "image/x-icon" },
-    { id: "jp2", ext: "jp2", mime: "image/jp2" },
-    { id: "j2k", ext: "j2k", mime: "image/x-jp2-codestream" },
+    { id: "jp2", ext: "jp2", mime: "image/jp2", lossy: true },
+    { id: "j2k", ext: "j2k", mime: "image/x-jp2-codestream", lossy: true },
     { id: "dicom", ext: "dcm", mime: "application/dicom" },
+    { id: "tga", ext: "tga", mime: "image/x-tga" },
+    { id: "ppm", ext: "ppm", mime: "image/x-portable-pixmap" },
+    { id: "pam", ext: "pam", mime: "image/x-portable-arbitrarymap" },
+    { id: "qoi", ext: "qoi", mime: "image/qoi" },
+    { id: "pcx", ext: "pcx", mime: "image/x-pcx" },
+    { id: "avif", ext: "avif", mime: "image/avif", lossy: true },
+    { id: "svg", ext: "svg", mime: "image/svg+xml", vector: true },
   ];
 
   function extensionOf(name) {
@@ -59,7 +76,12 @@
 
   function magicKind(bytes) {
     const b = bytes;
-    if (!b || b.length < 12) return "";
+    if (!b || !b.length) return "";
+    // QOI, Netpbm, PCX, a TGA 2.0 footer and SVG text; a Netpbm file can be shorter than 12 bytes.
+    const extra = Extra ? Extra.magic(b) : "";
+    if (extra === "svg") return "svg";
+    if (extra) return "extra";
+    if (b.length < 12) return "";
     if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "native";
     if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "native";
     if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "native";
@@ -89,6 +111,8 @@
     if (HEIF.has(ext)) return "heif";
     if (J2K.has(ext)) return "j2k";
     if (NATIVE.has(ext)) return "native";
+    if (EXTRA.has(ext)) return "extra";
+    if (SVG.has(ext)) return "svg";
     const magic = bytes ? magicKind(bytesOf(bytes)) : "";
     return magic;
   }
@@ -494,9 +518,45 @@
     else if (kind === "j2k") result = await decodeJ2k(bytes);
     else if (kind === "raw") result = await decodeRaw(bytes);
     else if (kind === "dicom") result = await decodeDicom(bytes, opts);
+    else if (kind === "extra") result = decodeExtra(bytes, name);
+    else if (kind === "svg") result = await decodeSvg(bytes);
     else result = Object.assign(await decodeNative(bytes, MIME[extensionOf(name)] || ""), { pages: 1, page: 0 });
     const camera = kind === "raw" || kind === "tiff" || kind === "native" ? exif(bytes) : {};
     return Object.assign({ kind: kind, name: name || "", exif: camera, exifText: describeExif(camera) }, result);
+  }
+
+  /* TGA, Netpbm, QOI, PCX: the extension names the family, the first bytes settle it otherwise. */
+  function decodeExtra(bytes, name) {
+    if (!Extra) throw new Error("The reader for this format is not loaded.");
+    const named = Extra.familyOf(extensionOf(name));
+    const sniffed = named && named !== "svg" ? "" : Extra.magic(bytes);
+    const family = (named && named !== "svg" ? named : sniffed !== "svg" && sniffed) || "tga";
+    const out = Extra.decode(bytes, family);
+    return { width: out.width, height: out.height, rgba: out.rgba, pages: 1, page: 0, family: family };
+  }
+
+  /* SVG: the browser rasterises it at the size the file asks for (width / height, else the
+   * viewBox, else 300 × 150, at most 8192 on the longer side). The source comes back as
+   * svgText so the application can keep it. */
+  async function decodeSvg(bytes) {
+    if (!Extra) throw new Error("The reader for this format is not loaded.");
+    const text = Extra.utf8(bytes);
+    if (!Extra.isSvg(bytes)) throw new Error("This file is not an SVG picture: it has no <svg> element at the top.");
+    const size = Extra.svgSize(text, 8192);
+    const url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml" }));
+    try {
+      const image = new Image();
+      image.decoding = "sync";
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = () => reject(new Error("The SVG picture could not be drawn — it may be malformed."));
+        image.src = url;
+      });
+      const out = rgbaFromDrawable(image, size.width, size.height);
+      return { width: out.width, height: out.height, rgba: out.rgba, pages: 1, page: 0, svgText: text };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
 
   async function decodeDicom(bytes, options) {
@@ -514,10 +574,25 @@
 
   /* ── writing ── */
 
+  const MIME_NAMES = { "image/avif": "AVIF", "image/webp": "WebP", "image/jpeg": "JPEG", "image/png": "PNG" };
+
+  /* A browser that cannot write a type quietly hands back a PNG instead, so the blob's own
+   * type is checked against the one asked for. */
   async function canvasBlob(canvas, mime, quality) {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
-    if (!blob) throw new Error("This system cannot write " + mime + " files.");
+    if (!blob || (blob.type && blob.type !== mime)) throw new Error("This system cannot write " + (MIME_NAMES[mime] || mime) + " files.");
     return new Uint8Array(await blob.arrayBuffer());
+  }
+
+  /* An SVG either keeps the source it was opened from or carries the picture as a PNG. */
+  async function encodeSvg(image, opts) {
+    if (opts.svgText != null) {
+      const text = String(opts.svgText);
+      return typeof TextEncoder !== "undefined" ? new TextEncoder().encode(text) : new Uint8Array(Buffer.from(text, "utf8"));
+    }
+    const png = Encoders && Encoders.png ? Encoders.png({ width: image.width, height: image.height, rgba: image.rgba })
+      : await canvasBlob(image.canvas || toCanvas(image), "image/png");
+    return Extra.svgWrapPng(image.width, image.height, png);
   }
 
   /* JPEG 2000 goes through OpenJPEG, which writes a bare codestream; a .jp2 is that
@@ -561,6 +636,12 @@
     if (spec.id === "dicom") return { bytes: Encoders.dicom({ width: image.width, height: image.height, rgba: image.rgba, name: opts.name }), mime: spec.mime, ext: spec.ext };
     if (spec.id === "j2k") return { bytes: await encodeJ2k(image, opts), mime: spec.mime, ext: spec.ext };
     if (spec.id === "jp2") return { bytes: Encoders.jp2(await encodeJ2k(image, opts)), mime: spec.mime, ext: spec.ext };
+    if (spec.id === "tga") return { bytes: Extra.encodeTga(image, { rle: opts.rle !== false }), mime: spec.mime, ext: spec.ext };
+    if (spec.id === "ppm") return { bytes: Extra.encodePpm(image), mime: spec.mime, ext: spec.ext };
+    if (spec.id === "pam") return { bytes: Extra.encodePam(image), mime: spec.mime, ext: spec.ext };
+    if (spec.id === "qoi") return { bytes: Extra.encodeQoi(image), mime: spec.mime, ext: spec.ext };
+    if (spec.id === "pcx") return { bytes: Extra.encodePcx(image), mime: spec.mime, ext: spec.ext };
+    if (spec.id === "svg") return { bytes: await encodeSvg(image, opts), mime: spec.mime, ext: spec.ext };
     const canvas = image.canvas || toCanvas(image);
     const bytes = await canvasBlob(canvas, spec.mime, opts.quality == null ? 0.92 : opts.quality);
     return { bytes: bytes, mime: spec.mime, ext: spec.ext };
@@ -573,6 +654,12 @@
     J2K: J2K,
     DICOM: DICOM,
     RAW: RAW,
+    TGA: TGA,
+    NETPBM: NETPBM,
+    QOI: QOI,
+    PCX: PCX,
+    EXTRA: EXTRA,
+    SVG: SVG,
     ALL: ALL,
     SAVE_FORMATS: SAVE_FORMATS,
     MIME: MIME,
@@ -587,6 +674,9 @@
     decodeJ2k: decodeJ2k,
     decodeRaw: decodeRaw,
     decodeDicom: decodeDicom,
+    decodeExtra: decodeExtra,
+    decodeSvg: decodeSvg,
+    Extra: Extra,
     decodeNative: decodeNative,
     rawPreviews: rawPreviews,
     readJpegCandidates: readJpegCandidates,

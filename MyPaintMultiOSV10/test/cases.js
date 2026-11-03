@@ -2682,80 +2682,114 @@
     suite("Installer", [
       test("the Windows installer removes the old program and asks about saved data", async () => {
         const script = await text("/build/installer.nsh");
+        assert(script.charCodeAt(0) === 0xfeff, "installer.nsh needs its BOM or NSIS reads the Korean as ANSI");
         assert(script.indexOf("RMDir /r") >= 0);
         assert(script.indexOf("저장된 데이터") >= 0);
         assert(script.indexOf("삭제하시겠습니까") >= 0);
         assert(script.indexOf("Saved data was found") >= 0);
         assert(script.indexOf("Do you want to delete it?") >= 0);
         assert(script.indexOf("document.ico") >= 0);
-        assert(script.indexOf(".mpaint") >= 0);
+        assert(script.indexOf(".mypaint") >= 0);
+        assert(script.indexOf(".mpaint") >= 0, "older drawings still open in MyPaint");
         assert(script.indexOf("MyPaint.Drawing") >= 0);
         assert(script.indexOf("1042") >= 0);
         assert(script.indexOf("MUI_LANGDLL_ALWAYSSHOW") >= 0);
-        assert(script.indexOf("INSTALL_REGISTRY_KEY") >= 0);
         assert(script.indexOf("$APPDATA\\MyPaint") >= 0);
+        assert(script.indexOf("$DeleteAppDataCheckboxState") >= 0, "uninstalling asks about the saved data");
+        ["NSIS_HOOK_PREINSTALL", "NSIS_HOOK_POSTINSTALL", "NSIS_HOOK_POSTUNINSTALL"].forEach((hook) => {
+          assert(script.indexOf("!macro " + hook) >= 0, hook + " is missing");
+        });
+        assert(script.indexOf('"MyPaint 10.0"') >= 0, "the shortcuts are named MyPaint 10.0");
+        assert(script.indexOf('$DESKTOP\\${MP_SHORTCUT}.lnk') >= 0 && script.indexOf('$SMPROGRAMS\\${MP_SHORTCUT}.lnk') >= 0);
+        assert(script.indexOf('RMDir /r "$LOCALAPPDATA\\MyPaint"') < 0, "that folder is the installed program itself");
       }),
-      test("Linux and macOS installers ask before deleting saved data", async () => {
+      test("the Linux installer asks before deleting saved data", async () => {
         const linux = await text("/build/linux-before-install.sh");
-        const mac = await text("/build/pkg-scripts/preinstall");
+        assert(linux.indexOf("\r") < 0, "a shell script with CRLF line ends does not run");
         assert(linux.indexOf("/opt/MyPaint") >= 0);
+        assert(linux.indexOf("com.shkwon.mypaint") >= 0);
         assert(linux.indexOf("저장된 데이터") >= 0 && linux.indexOf("Saved data") >= 0);
         assert(linux.indexOf("Choose the installation language") >= 0);
-        assert(mac.indexOf("MyPaint.app") >= 0);
-        assert(mac.indexOf("삭제하시겠습니까") >= 0);
-        assert(mac.indexOf("Choose the installation language") >= 0);
       }),
-      test("every build option is one electron-builder still accepts", async () => {
+      test("the Tauri configuration names the app, its icons and its installers", async () => {
+        const conf = JSON.parse(await text("/src-tauri/tauri.conf.json"));
         const pkg = JSON.parse(await text("/package.json"));
-        const schema = JSON.parse(await text("/node_modules/app-builder-lib/scheme.json"));
-        const known = (node) => {
-          if (!node) return null;
-          if (node.properties) return Object.keys(node.properties);
-          const ref = node.$ref || (node.anyOf || []).map((item) => item.$ref).find(Boolean);
-          if (!ref) return null;
-          return known(schema.definitions[ref.split("/").pop()]);
-        };
-        const check = (config, node, where) => {
-          const names = known(node);
-          assert(names, where + " is missing from the schema");
-          Object.keys(config).forEach((key) => {
-            assert(names.indexOf(key) >= 0, where + "." + key + " is not an electron-builder option");
-          });
-        };
-        check(pkg.build, schema, "build");
-        ["win", "mac", "linux", "nsis", "deb", "pkg"].forEach((section) => {
-          if (!pkg.build[section]) return;
-          check(pkg.build[section], schema.properties[section], "build." + section);
+        assert(conf.productName === "MyPaint" && conf.mainBinaryName === "MyPaint");
+        assert(conf.identifier === "com.shkwon.mypaint");
+        assert(conf.version === "10.0.0" && pkg.version === "10.0.0");
+        assert(conf.app.withGlobalTauri === true, "the bridge needs window.__TAURI__");
+        assert(conf.app.windows.length === 0, "the host builds its windows itself");
+        assert(conf.build.frontendDist === "../dist/app");
+        assert(conf.build.beforeBuildCommand.indexOf("stage-app.js") >= 0);
+        assert(!conf.build.devUrl, "a debug build must not depend on a dev server");
+        assert(conf.bundle.icon.indexOf("../assets/icon.ico") >= 0 && conf.bundle.icon.indexOf("../assets/icon.icns") >= 0);
+        ["nsis", "deb", "appimage", "dmg"].forEach((target) => assert(conf.bundle.targets.indexOf(target) >= 0, target));
+        const nsis = conf.bundle.windows.nsis;
+        assert(nsis.installerIcon === "../assets/icon.ico");
+        assert(nsis.languages.indexOf("Korean") >= 0 && nsis.languages.indexOf("English") >= 0);
+        assert(nsis.displayLanguageSelector === true);
+        assert(nsis.installerHooks === "../build/installer.nsh");
+        const files = conf.bundle.fileAssociations[0];
+        assert(files.ext.indexOf("mypaint") >= 0 && files.ext.indexOf("mpaint") >= 0);
+        assert(files.name === "MyPaint.Drawing");
+        assert(conf.bundle.resources["../assets/document.ico"] === "document.ico");
+        assert(conf.bundle.linux.deb.preInstallScript === "../build/linux-before-install.sh");
+        assert(pkg.author.email === "knix008@naver.com");
+        assert(!pkg.build && !pkg.main, "the electron-builder settings are gone");
+        assert(!(pkg.devDependencies || {}).electron && !(pkg.devDependencies || {})["electron-builder"]);
+        assert((pkg.devDependencies || {})["@tauri-apps/cli"], "the Tauri CLI builds the installers");
+        assert(pkg.scripts["build:win"].indexOf("tauri build") >= 0 && pkg.scripts["build:win"].indexOf("copy-setup.js") >= 0);
+        assert(pkg.scripts.start.indexOf("dev.js") >= 0, "npm start runs the files on disk");
+        assert(pkg.scripts.test.indexOf("cargo test") >= 0 || pkg.scripts.test.indexOf("test:rust") >= 0);
+      }),
+      test("the host keeps the window contract the Electron build had", async () => {
+        const host = await text("/src-tauri/src/lib.rs");
+        const popups = await text("/src-tauri/src/popups.rs");
+        assert(host.indexOf("TITLE") >= 0 && host.indexOf('"MyPaint 10.0"') >= 0);
+        assert(host.indexOf("MIN_WIDTH: f64 = 1180.0") >= 0 && host.indexOf("MIN_HEIGHT: f64 = 720.0") >= 0, "src/metrics.js minimums");
+        assert(host.indexOf(".decorations(false)") >= 0, "the page draws its own title bar");
+        assert(host.indexOf("background_color") >= 0, "no white flash at start");
+        assert(host.indexOf("on_navigation(allowed_navigation)") >= 0, "a dropped file would replace the window");
+        assert(host.indexOf("prevent_close") >= 0 && host.indexOf("request-close") >= 0);
+        assert(host.indexOf("tauri_plugin_single_instance") >= 0);
+        assert(popups.indexOf(".parent(&main)") >= 0, "menus and popups belong to the main window");
+        assert(popups.indexOf(".resizable(false)") >= 0 && popups.indexOf(".skip_taskbar(true)") >= 0 && popups.indexOf(".transparent(true)") >= 0);
+        ["print-prev", "print-next", "print-sync", "settings-sync", "palette-sync", "canvas-sync", "convert-sync"].forEach((name) => {
+          assert(popups.indexOf('"' + name + '"') >= 0, name + " should keep its popup open");
         });
       }),
-      test("the package uses one icon and both installer languages", async (api) => {
-        const pkg = JSON.parse(await text("/package.json"));
-        assert(pkg.version === "10.0.0");
-        assert(pkg.build.win.icon === "assets/icon.ico");
-        assert(pkg.build.nsis.installerIcon === "assets/icon.ico");
-        assert(pkg.build.nsis.uninstallerIcon === "assets/icon.ico");
-        assert(pkg.build.nsis.installerLanguages.indexOf("ko_KR") >= 0);
-        assert(pkg.build.nsis.installerLanguages.indexOf("en_US") >= 0);
-        assert(pkg.build.nsis.displayLanguageSelector === true);
-        assert(pkg.build.nsis.multiLanguageInstaller === true);
-        assert(pkg.build.fileAssociations[0].ext === "mpaint");
-        assert(pkg.build.fileAssociations[0].icon === "assets/document.ico");
-        assert(pkg.author.email === "knix008@naver.com");
-        assert(pkg.build.linux.target.indexOf("deb") >= 0 && pkg.build.linux.target.indexOf("AppImage") >= 0);
-        assert(pkg.build.mac.target.indexOf("dmg") >= 0);
-        const main = await text("/electron/main.js");
-        assert(main.indexOf("build.title") >= 0);
-        assert(main.indexOf("iconPath") >= 0);
-        assert(main.indexOf("closeChildren") >= 0);
-        assert(main.indexOf("removeMenu") >= 0, "the stock menu would swallow the shortcuts");
-        assert(main.indexOf("will-navigate") >= 0, "a dropped file would replace the window");
-        assert(main.indexOf("parent:") >= 0);
-        assert(main.indexOf("resizable: false") >= 0);
+      test("every page loads the bridge, and the bridge does nothing in a browser", async (api, doc) => {
+        for (const page of ["/index.html", "/popup.html", "/menu.html"]) {
+          const html = await text(page);
+          const bridge = html.indexOf('src="src/host/tauri-bridge.js"');
+          assert(bridge > 0, page + " does not load the bridge");
+          const next = page === "/index.html" ? 'src="src/app.js"' : page === "/popup.html" ? 'src="src/host/popup-client.js"' : 'src="src/host/menu-client.js"';
+          assert(html.indexOf(next) > bridge, page + " must load the bridge first");
+          assert(html.indexOf("electron/") < 0, page + " still points at electron/");
+        }
+        const view = doc.defaultView;
+        assert(!view.__TAURI__ && !view.desktop && !view.popupHost, "the bridge must stay inert without Tauri");
+        const bridge = await text("/src/host/tauri-bridge.js");
+        ["windowCommand", "resizeWindow", "pickFiles", "pickSave", "pickDirectory", "writeFile", "writeBinary",
+          "clipboardWriteImage", "clipboardReadImage", "downloadUrl", "cancelDownload", "readFile", "readBinary",
+          "pathForFile", "listFonts", "openExternal", "print", "openMenu", "openPopup", "closePopup", "refreshPopup",
+          "applyTheme", "openWindow", "forceClose", "onCloseRequest", "onHostAction", "onLaunch", "onDownloadProgress"].forEach((name) => {
+          assert(bridge.indexOf(name + ":") >= 0, "window.desktop." + name + " is missing");
+        });
+        assert(bridge.indexOf('platform: "tauri"') >= 0);
+        const client = await text("/src/host/popup-client.js");
+        assert(client.indexOf('convert: "convert-sync"') >= 0, "the export dialog syncs its fields");
       }),
       test("the web build ships the same files as the desktop build", async () => {
         const script = await text("/scripts/build-web.js");
-        ["index.html", "style", "src", "assets"].forEach((name) => {
+        const stage = await text("/scripts/stage-app.js");
+        ["index.html", "popup.html", "style", "src", "assets", "guide.html", "guide"].forEach((name) => {
           assert(script.indexOf('"' + name + '"') >= 0, name + " is missing from the web build");
+          assert(stage.indexOf('"' + name + '"') >= 0, name + " is missing from the desktop build");
+        });
+        assert(stage.indexOf('"menu.html"') >= 0);
+        ["node_modules", "test", "samples"].forEach((name) => {
+          assert(stage.indexOf('"' + name + '"') < 0, name + " must not be shipped");
         });
       }),
     ]),

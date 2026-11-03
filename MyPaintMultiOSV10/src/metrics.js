@@ -9,7 +9,7 @@
     TITLE: "MyPaint 10.0",
     APP_ID: "com.shkwon.mypaint",
     POPUPS: {
-      settings: { width: 380, height: 298 },
+      settings: { width: 470, height: 330 },
       about: { width: 500, height: 460 },
       error: { width: 420, height: 168 },
       progress: { width: 380, height: 162 },
@@ -20,7 +20,7 @@
       canvas: { width: 380, height: 194 },
       newdoc: { width: 380, height: 164 },
       drop: { width: 420, height: 258 },
-      convert: { width: 400, height: 226 },
+      convert: { width: 420, height: 256 },
       link: { width: 520, height: 194 },
       dicom: { width: 600, height: 554 },
       formats: { width: 480, height: 298 },

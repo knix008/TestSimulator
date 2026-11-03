@@ -13,7 +13,7 @@
   }
 
   const welcome = {
-    name: "welcome.mpaint",
+    name: "welcome.mypaint",
     width: 900,
     height: 560,
     background: "#ffffff",
@@ -31,7 +31,7 @@
   };
 
   const shapes = {
-    name: "shapes.mpaint",
+    name: "shapes.mypaint",
     width: 720,
     height: 480,
     background: "#f8fafc",

@@ -19,6 +19,7 @@
     { id: "line", icon: "line", kind: "line", drag: true },
     { id: "arrow", icon: "arrow", kind: "arrow", drag: true },
     { id: "curve", icon: "curve", kind: "curve", drag: true },
+    { id: "freeCurve", icon: "freeCurve", kind: "freeCurve", drag: true },
     { id: "rect", icon: "rect", kind: "rect", drag: true },
     { id: "roundRect", icon: "roundRect", kind: "roundRect", drag: true },
     { id: "ellipse", icon: "ellipse", kind: "ellipse", drag: true },
@@ -28,7 +29,7 @@
     { id: "picker", icon: "picker", kind: "", drag: false },
   ];
 
-  const SHAPE_KINDS = ["pencil", "brush", "marker", "spray", "eraser", "line", "arrow", "curve", "rect", "roundRect", "ellipse", "triangle", "text", "image"];
+  const SHAPE_KINDS = ["pencil", "brush", "marker", "spray", "eraser", "line", "arrow", "curve", "freeCurve", "rect", "roundRect", "ellipse", "triangle", "text", "image"];
 
   const PALETTE = [
     "#000000", "#7f7f7f", "#880015", "#ed1c24", "#ff7f27", "#fff200",
@@ -51,20 +52,21 @@
   }
 
   function isStroke(kind) {
-    return kind === "pencil" || kind === "brush" || kind === "marker" || kind === "spray" || kind === "eraser";
+    return kind === "pencil" || kind === "brush" || kind === "marker" || kind === "spray" || kind === "eraser" || kind === "freeCurve";
   }
 
   function createDoc(options) {
     const opts = options || {};
     return {
       id: opts.id || uid("doc"),
-      name: opts.name || "untitled.mpaint",
+      name: opts.name || "untitled.mypaint",
       path: opts.path || "",
       width: Math.round(clamp(opts.width || 900, 16, 8192)),
       height: Math.round(clamp(opts.height || 560, 16, 8192)),
       background: opts.background || "#ffffff",
       shapes: Array.isArray(opts.shapes) ? opts.shapes.map(normalizeShape) : [],
       dirty: Boolean(opts.dirty),
+      ...(opts.svg ? { svg: String(opts.svg) } : {}),
     };
   }
 
@@ -97,6 +99,7 @@
       shape.fontStyle = shape.fontStyle || "normal";
       shape.underline = !!shape.underline;
       shape.strike = !!shape.strike;
+      settleRuns(shape, raw && raw.text != null);
     }
     if (shape.kind === "image") shape.src = shape.src || "";
     return shape;
@@ -129,8 +132,11 @@
       return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
     }
     if (shape.kind === "text") {
-      const width = Math.max(shape.w || 0, shape.text.length * shape.fontSize * 0.56);
-      return { x: shape.x, y: shape.y - shape.fontSize, w: width, h: shape.fontSize * 1.3 };
+      const runs = textRuns(shape);
+      const size = runs.reduce((max, run) => Math.max(max, run.fontSize), 0) || shape.fontSize;
+      const span = runs.reduce((sum, run) => sum + measureRun(run), 0);
+      const width = Math.max(shape.w || 0, span);
+      return { x: shape.x, y: shape.y - size, w: width, h: size * 1.3 };
     }
     if (shape.kind === "line" || shape.kind === "arrow") {
       const pad = shape.width / 2 + (shape.kind === "arrow" ? Math.max(10, shape.width * 3.2) : 0);
@@ -278,11 +284,202 @@
     return next;
   }
 
+  /* ── text runs ──
+   * A text shape may hold `runs`: pieces of its text, each with its own font, size, weight,
+   * slant, lines and colour, drawn one after the other on the same baseline. The shape's own
+   * font fields always describe its first run, and `text` is always the runs joined, so code
+   * that only knows plain text keeps working. A shape whose text is changed as plain text
+   * loses its runs; a shape with a single run keeps it in the shape's own fields. */
+  const RUN_KEYS = ["fontFamily", "fontSize", "bold", "italic", "underline", "strike", "color"];
+
+  function styleOfShape(shape) {
+    const style = String(shape.fontStyle || "normal");
+    return {
+      fontFamily: shape.fontFamily || "Segoe UI",
+      fontSize: clamp(shape.fontSize == null ? 24 : shape.fontSize, 6, 400),
+      bold: style.indexOf("bold") >= 0,
+      italic: style.indexOf("italic") >= 0,
+      underline: !!shape.underline,
+      strike: !!shape.strike,
+      color: shape.color || "#000000",
+    };
+  }
+
+  function styleName(style) {
+    if (style.bold && style.italic) return "bold-italic";
+    if (style.bold) return "bold";
+    if (style.italic) return "italic";
+    return "normal";
+  }
+
+  function sameStyle(a, b) {
+    return RUN_KEYS.every((key) => a[key] === b[key]);
+  }
+
+  function normalizeRun(run, base) {
+    const out = { text: String(run && run.text != null ? run.text : "") };
+    RUN_KEYS.forEach((key) => { out[key] = run && run[key] != null ? run[key] : base[key]; });
+    out.fontSize = clamp(out.fontSize, 6, 400);
+    out.bold = !!out.bold;
+    out.italic = !!out.italic;
+    out.underline = !!out.underline;
+    out.strike = !!out.strike;
+    out.fontFamily = String(out.fontFamily || base.fontFamily);
+    out.color = String(out.color || base.color);
+    return out;
+  }
+
+  /* Empty pieces go, and neighbours that look the same become one. */
+  function normalizeRuns(runs, base) {
+    const out = [];
+    (runs || []).forEach((run) => {
+      const clean = normalizeRun(run, base);
+      if (!clean.text) return;
+      const last = out[out.length - 1];
+      if (last && sameStyle(last, clean)) last.text += clean.text;
+      else out.push(clean);
+    });
+    return out;
+  }
+
+  function applyRunStyle(shape, style) {
+    shape.fontFamily = style.fontFamily;
+    shape.fontSize = style.fontSize;
+    shape.fontStyle = styleName(style);
+    shape.underline = !!style.underline;
+    shape.strike = !!style.strike;
+    shape.color = style.color;
+  }
+
+  function settleRuns(shape, textGiven) {
+    if (!Array.isArray(shape.runs)) { delete shape.runs; return shape; }
+    const runs = normalizeRuns(shape.runs, styleOfShape(shape));
+    const joined = runs.map((run) => run.text).join("");
+    if ((textGiven && shape.text !== joined) || runs.length < 2) {
+      if (runs.length === 1 && (!textGiven || shape.text === joined)) applyRunStyle(shape, runs[0]);
+      delete shape.runs;
+      return shape;
+    }
+    shape.runs = runs;
+    shape.text = joined;
+    applyRunStyle(shape, runs[0]);
+    return shape;
+  }
+
+  /* The runs of any text shape: its own, or one made from its fields. */
+  function textRuns(shape) {
+    if (Array.isArray(shape.runs) && shape.runs.length) return shape.runs;
+    return [Object.assign({ text: shape.text || "" }, styleOfShape(shape))];
+  }
+
+  /* Set a text shape from runs (the text editor reads them back from what was typed). */
+  function setTextRuns(shape, runs) {
+    shape.runs = normalizeRuns(runs, styleOfShape(shape));
+    shape.text = shape.runs.map((run) => run.text).join("");
+    return settleRuns(shape, false);
+  }
+
+  /* A style change over characters [start, end) of the runs. */
+  function restyleRuns(runs, start, end, patch, base) {
+    const out = [];
+    let at = 0;
+    (runs || []).forEach((run) => {
+      const from = at;
+      const to = at + run.text.length;
+      at = to;
+      const cutA = Math.max(from, Math.min(to, start));
+      const cutB = Math.max(from, Math.min(to, end));
+      const pieces = [[from, cutA, false], [cutA, cutB, true], [cutB, to, false]];
+      pieces.forEach((piece) => {
+        if (piece[1] <= piece[0]) return;
+        const part = Object.assign({}, run, { text: run.text.slice(piece[0] - from, piece[1] - from) });
+        if (piece[2]) Object.assign(part, patch);
+        out.push(part);
+      });
+    });
+    return normalizeRuns(out, base || out[0] || {});
+  }
+
+  /* The style a character typed at `offset` takes: that of the character before it. */
+  function styleAt(runs, offset, base) {
+    let at = 0;
+    let found = null;
+    (runs || []).forEach((run) => {
+      if (found) return;
+      at += run.text.length;
+      if (offset <= at && run.text.length) found = run;
+    });
+    const pick = found || (runs && runs.length ? runs[runs.length - 1] : null) || base;
+    const style = {};
+    RUN_KEYS.forEach((key) => { style[key] = pick[key]; });
+    return style;
+  }
+
+  function runFont(run) {
+    return (run.italic ? "italic " : "") + (run.bold ? "700 " : "") + run.fontSize + 'px "' + String(run.fontFamily || "Segoe UI").replace(/["\\]/g, "") + '", sans-serif';
+  }
+
+  let measurer = null;
+  function measureRun(run) {
+    try {
+      if (!measurer) {
+        if (typeof OffscreenCanvas === "function") measurer = new OffscreenCanvas(1, 1).getContext("2d");
+        else if (typeof document !== "undefined") measurer = document.createElement("canvas").getContext("2d");
+      }
+      if (measurer) {
+        measurer.font = runFont(run);
+        return measurer.measureText(run.text).width;
+      }
+    } catch (error) { measurer = null; }
+    return run.text.length * run.fontSize * 0.56;
+  }
+
   function fontOf(shape) {
     const style = String(shape.fontStyle || "normal");
     const italic = style.indexOf("italic") >= 0 ? "italic " : "";
     const bold = style.indexOf("bold") >= 0 ? "700 " : "";
     return italic + bold + shape.fontSize + 'px "' + String(shape.fontFamily || "Segoe UI").replace(/["\\]/g, "") + '", sans-serif';
+  }
+
+  /* A free curve goes through the middle of every pair of points it kept, with each point
+   * as the control of a quadratic piece, so the line has no corners however it was drawn. */
+  function smoothPath(ctx, points) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    if (points.length === 1) { ctx.lineTo(points[0].x + 0.01, points[0].y); return; }
+    if (points.length === 2) { ctx.lineTo(points[1].x, points[1].y); return; }
+    for (let i = 1; i < points.length - 1; i += 1) {
+      const midX = (points[i].x + points[i + 1].x) / 2;
+      const midY = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+    }
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x, last.y);
+  }
+
+  /* Ramer-Douglas-Peucker: keep only the points the line bends at, within `tolerance`. */
+  function simplifyPoints(points, tolerance) {
+    const list = points || [];
+    if (list.length < 3) return list.slice();
+    const limit = tolerance == null ? 1.5 : tolerance;
+    const keep = new Uint8Array(list.length);
+    keep[0] = 1;
+    keep[list.length - 1] = 1;
+    const stack = [[0, list.length - 1]];
+    while (stack.length) {
+      const [first, last] = stack.pop();
+      let far = -1;
+      let best = limit;
+      for (let i = first + 1; i < last; i += 1) {
+        const d = distanceToSegment(list[i].x, list[i].y, list[first].x, list[first].y, list[last].x, list[last].y);
+        if (d > best) { best = d; far = i; }
+      }
+      if (far > 0) {
+        keep[far] = 1;
+        stack.push([first, far], [far, last]);
+      }
+    }
+    return list.filter((_, index) => keep[index]);
   }
 
   function drawShape(ctx, shape, doc, images) {
@@ -315,6 +512,12 @@
             ctx.fill();
           }
         });
+        ctx.restore();
+        return;
+      }
+      if (shape.kind === "freeCurve") {
+        smoothPath(ctx, shape.points);
+        ctx.stroke();
         ctx.restore();
         return;
       }
@@ -389,6 +592,28 @@
       ctx.restore();
       return;
     }
+    if (shape.kind === "text" && Array.isArray(shape.runs) && shape.runs.length) {
+      ctx.textBaseline = "alphabetic";
+      let x = shape.x;
+      shape.runs.forEach((run) => {
+        if (!run.text) return;
+        ctx.font = runFont(run);
+        ctx.fillStyle = run.color || shape.color;
+        ctx.fillText(run.text, x, shape.y);
+        const width = ctx.measureText(run.text).width;
+        if (run.underline || run.strike) {
+          ctx.strokeStyle = run.color || shape.color;
+          ctx.lineWidth = Math.max(1, run.fontSize / 14);
+          ctx.beginPath();
+          if (run.underline) { ctx.moveTo(x, shape.y + run.fontSize * 0.15); ctx.lineTo(x + width, shape.y + run.fontSize * 0.15); }
+          if (run.strike) { ctx.moveTo(x, shape.y - run.fontSize * 0.32); ctx.lineTo(x + width, shape.y - run.fontSize * 0.32); }
+          ctx.stroke();
+        }
+        x += width;
+      });
+      ctx.restore();
+      return;
+    }
     if (shape.kind === "text") {
       ctx.fillStyle = shape.color;
       ctx.font = fontOf(shape);
@@ -455,6 +680,7 @@
         height: doc.height,
         background: doc.background,
         shapes: doc.shapes,
+        ...(doc.svg ? { svg: doc.svg } : {}),
       })),
     }, null, 1);
   }
@@ -598,6 +824,17 @@
     FORMAT: FORMAT,
     FORMAT_VERSION: FORMAT_VERSION,
     TOOLS: TOOLS,
+    simplifyPoints: simplifyPoints,
+    RUN_KEYS: RUN_KEYS,
+    styleOfShape: styleOfShape,
+    styleName: styleName,
+    normalizeRuns: normalizeRuns,
+    textRuns: textRuns,
+    setTextRuns: setTextRuns,
+    restyleRuns: restyleRuns,
+    styleAt: styleAt,
+    runFont: runFont,
+    smoothPath: smoothPath,
     SHAPE_KINDS: SHAPE_KINDS,
     PALETTE: PALETTE,
     createDoc: createDoc,

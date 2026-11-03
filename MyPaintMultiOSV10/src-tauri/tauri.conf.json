@@ -1,0 +1,71 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MyPaint",
+  "mainBinaryName": "MyPaint",
+  "version": "10.0.0",
+  "identifier": "com.shkwon.mypaint",
+  "build": {
+    "beforeBuildCommand": "node scripts/stage-app.js",
+    "frontendDist": "../dist/app"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "deb", "appimage", "dmg"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright © 2026 SHKWON (knix008@naver.com)",
+    "license": "MIT",
+    "licenseFile": "../build/license.txt",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Drawing and image editing tool",
+    "longDescription": "MyPaint 10.0: draw with pencil, brush, shapes and text, open pictures in every common format (PNG, JPEG, WebP, TIFF, HEIC, JPEG 2000, camera RAW, DICOM) and save, convert and print them.",
+    "icon": [
+      "../assets/icons/32x32.png",
+      "../assets/icons/128x128.png",
+      "../assets/icons/256x256.png",
+      "../assets/icons/512x512.png",
+      "../assets/icon.icns",
+      "../assets/icon.ico"
+    ],
+    "resources": {
+      "../assets/document.ico": "document.ico",
+      "../assets/document.png": "document.png"
+    },
+    "fileAssociations": [
+      {
+        "ext": ["mypaint", "mpaint"],
+        "name": "MyPaint.Drawing",
+        "description": "MyPaint Drawing",
+        "mimeType": "application/vnd.mypaint.drawing",
+        "role": "Editor"
+      }
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../assets/icon.ico",
+        "installerHooks": "../build/installer.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "preInstallScript": "../build/linux-before-install.sh"
+      }
+    }
+  }
+}
