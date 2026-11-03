@@ -102,8 +102,8 @@ export type Bootstrap = {
 export const api = {
   bootstrap: () => get<Bootstrap>("/api/bootstrap"),
 
-  compareFiles: (left: string, right: string, forceHex = false, format?: FormatId) =>
-    post<{ compare: CompareSummary }>("/api/compare/files", { left, right, forceHex, format })
+  compareFiles: (left: string, right: string, forceHex = false, format?: FormatId, readOnly = false) =>
+    post<{ compare: CompareSummary }>("/api/compare/files", { left, right, forceHex, format, readOnly })
       .then((r) => r.compare),
   compareRemote: (local: string, remote: string, password: string) =>
     post<{ directory: { id: string; result: DirectoryCompareResult } }>(
@@ -158,9 +158,12 @@ export const api = {
     ),
 
   takeRows: (id: string, target: "left" | "right", rows: number[]) =>
-    post<{ compare: CompareSummary }>(`/api/compare/${id}/take`, { target, rows }).then((r) => r.compare),
-  editRow: (id: string, side: "left" | "right", row: number, text: string) =>
+    post<{ compare: CompareSummary; before: string[]; after: string[] }>(`/api/compare/${id}/take`, { target, rows }),
+  /** `text: null` removes the line; text on a blank cell inserts one. */
+  editRow: (id: string, side: "left" | "right", row: number, text: string | null) =>
     post<{ compare: CompareSummary }>(`/api/compare/${id}/edit`, { side, row, text }).then((r) => r.compare),
+  setSideLines: (id: string, side: "left" | "right", lines: string[]) =>
+    post<{ compare: CompareSummary }>(`/api/compare/${id}/side`, { side, lines }).then((r) => r.compare),
 
   openThreeWay: (base: string, local: string, remote: string, merged: string) =>
     post<{ merge: MergeSessionInfo }>("/api/merge/three-way", { base, local, remote, merged }).then((r) => r.merge),

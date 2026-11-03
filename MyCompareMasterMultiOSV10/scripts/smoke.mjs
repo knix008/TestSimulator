@@ -275,6 +275,43 @@ const js = (code, timeout = 20000) => app.main.evaluate(code, timeout);
 const hook = (expression) => js(`(async () => { const h = window.__mcm; return ${expression} })()`);
 const state = () => hook("h.state()");
 
+/* Real input, through the page's own event pipeline rather than element.click(). */
+const center = (selector) => js(`(() => {
+  const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+})()`);
+async function clickAt({ x, y }) {
+  await app.main.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+  await app.main.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+  await app.main.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+}
+async function wheelAt({ x, y }, deltaX, deltaY, modifiers = 0) {
+  await app.main.send("Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX, deltaY, modifiers });
+}
+const KEYS = { Enter: 13, Escape: 27, ArrowUp: 38, ArrowDown: 40, Backspace: 8 };
+async function press(key, extra = {}) {
+  const base = { key, code: key, windowsVirtualKeyCode: KEYS[key] ?? 0, ...extra };
+  await app.main.send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...base });
+  await app.main.send("Input.dispatchKeyEvent", { type: "keyUp", ...base });
+}
+/** Replaces what the focused field holds, as typing would. */
+async function typeOver(text) {
+  await app.main.send("Input.dispatchKeyEvent", {
+    type: "rawKeyDown", key: "a", code: "KeyA", windowsVirtualKeyCode: 65, modifiers: 2, commands: ["selectAll"],
+  });
+  await app.main.send("Input.dispatchKeyEvent", { type: "keyUp", key: "a", code: "KeyA", windowsVirtualKeyCode: 65, modifiers: 2 });
+  await app.main.send("Input.insertText", { text });
+}
+/** A pair of files of the test's own, in the run's scratch folder. */
+function scratchPair(name, left, right) {
+  const dir = path.join(app.settingsDir, "files");
+  fs.mkdirSync(dir, { recursive: true });
+  const pair = [path.join(dir, `${name}-left.txt`), path.join(dir, `${name}-right.txt`)];
+  fs.writeFileSync(pair[0], left, "utf8");
+  fs.writeFileSync(pair[1], right, "utf8");
+  return pair;
+}
+
 async function shot(name, page = app.main) {
   try {
     const png = await Promise.race([page.screenshot(), sleep(6000).then(() => null)]);
@@ -755,7 +792,7 @@ async function run() {
     return `${counts.total} rows, each with an icon and a label`;
   });
 
-  await step("menu", "a menu with nothing to tick does not indent past a tick column", async () => {
+  await step("menu", "only a toggle row leaves room for a tick; every other icon starts at the edge", async () => {
     const measure = async (menu) => {
       await closeMenu();
       await hook(`h.openMenu(${JSON.stringify(menu)})`);
@@ -763,16 +800,22 @@ async function run() {
       return popup.evaluate(`(() => {
         const popup = document.querySelector('.menu-popup');
         const rows = [...popup.querySelectorAll('.menu-row:not(.compact)')];
-        const style = getComputedStyle(popup);
-        const content = popup.getBoundingClientRect().left
-          + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
-        const icons = rows.map((row) => row.querySelector('.menu-icon').getBoundingClientRect().left);
-        const rowStyle = getComputedStyle(rows[0]);
+        const toggles = rows.filter((row) => row.querySelector('.menu-check'));
+        const plain = rows.filter((row) => !row.querySelector('.menu-check'));
+        // From the row's own left edge to its icon: the row's padding and nothing else.
+        const inset = (row) => Math.round(row.querySelector('.menu-icon').getBoundingClientRect().left
+          - row.getBoundingClientRect().left - parseFloat(getComputedStyle(row).paddingLeft));
+        const shortcutGap = rows
+          .filter((row) => (row.querySelector('.menu-shortcut') || {}).textContent)
+          .map((row) => Math.round(row.getBoundingClientRect().right
+            - row.querySelector('.menu-shortcut').getBoundingClientRect().right));
         return {
           rows: rows.length,
-          ticks: popup.querySelectorAll('.menu-row:not(.compact) .menu-check').length,
-          gutter: Math.round(Math.min(...icons) - content - parseFloat(rowStyle.paddingLeft)),
-          spread: Math.round(Math.max(...icons) - Math.min(...icons)),
+          toggles: toggles.length,
+          plainInsets: [...new Set(plain.map(inset))],
+          toggleInsets: [...new Set(toggles.map(inset))],
+          shortcutGaps: [...new Set(shortcutGap)],
+          firstRow: rows[0] ? rows[0].dataset.command : null,
           width: Math.round(popup.getBoundingClientRect().width),
         };
       })()`);
@@ -782,12 +825,14 @@ async function run() {
     const compare = await measure("compare");
     await closeMenu();
 
-    assert(file.ticks === 0, `the File menu reserves ${file.ticks} tick cells it never fills`);
-    assert(file.gutter === 0, `the File menu indents its icons by ${file.gutter}px of nothing`);
-    assert(file.spread === 0, "the File menu's icons are not aligned with each other");
-    assert(compare.ticks === compare.rows, `the Compare menu has ${compare.rows} rows but ${compare.ticks} tick cells`);
-    assert(compare.gutter > 0, "the Compare menu left no room for its ticks");
-    return `file ${file.width}px, no tick column; compare ${compare.width}px, ${compare.gutter}px tick gutter`;
+    assert(file.toggles === 0, `the File menu has ${file.toggles} tick cells it never fills`);
+    assert(file.plainInsets.join() === "0", `the File menu indents its icons by ${file.plainInsets}px`);
+    assert(compare.toggles > 0 && compare.toggles < compare.rows, `the Compare menu: ${compare.toggles} of ${compare.rows} rows have a tick cell`);
+    assert(compare.plainInsets.join() === "0", `the Compare menu indents its plain rows by ${compare.plainInsets}px`);
+    assert(compare.toggleInsets.length === 1 && compare.toggleInsets[0] > 0, `toggle rows: ${compare.toggleInsets}`);
+    assert(compare.shortcutGaps.length <= 1, `the shortcuts are not right-aligned: ${compare.shortcutGaps}`);
+    assert(compare.firstRow === "view.refresh", `Refresh is not first in Compare: ${compare.firstRow}`);
+    return `file ${file.width}px; compare ${compare.width}px, ${compare.toggles} toggles indented ${compare.toggleInsets}px, Refresh first`;
   });
 
   await step("menu", "a menu taller than the window is still shown in full", async () => {
@@ -952,6 +997,122 @@ async function run() {
     assert(box.divider > 10, `the divider is only ${box.divider}px`);
     assert(box.gap > 0, "the halves are not separated");
     return `2 framed halves, ${Math.round(box.divider)}px divider`;
+  });
+
+  await step("compare", "a long line scrolls sideways, both texts together, the line numbers stay", async () => {
+    const long = `start ${"0123456789".repeat(40)} END`;
+    const pair = scratchPair("long", `short\n${long}\nlast\n`, `short\n${long}!\nlast\n`);
+    await hook(`h.open('files', ${JSON.stringify(pair)})`);
+    await waitFor(async () => (await hook("h.query('.diff-hbar')")) === 2, 8000);
+    const measure = () => js(`(() => {
+      const bars = [...document.querySelectorAll('.diff-hbar')];
+      const row = document.querySelector('.diff-row[data-row="1"]');
+      const offset = (side) => {
+        const cell = row.querySelector('.cell-text.' + side);
+        return Math.round(cell.querySelector('.cell-line').getBoundingClientRect().left - cell.getBoundingClientRect().left);
+      };
+      return {
+        range: bars.map((bar) => bar.scrollWidth - bar.clientWidth),
+        positions: bars.map((bar) => Math.round(bar.scrollLeft)),
+        lines: [offset('left'), offset('right')],
+        gutter: Math.round(row.querySelector('.cell-gutter').getBoundingClientRect().left),
+      };
+    })()`);
+    const before = await measure();
+    assert(before.range[0] > 100 && before.range[0] === before.range[1], `scroll range ${before.range}`);
+    // Shift+wheel over the text, as with a mouse.
+    await wheelAt(await center(".diff-scroller"), 0, 300, 8);
+    await waitFor(async () => (await measure()).positions[0] > 0, 4000);
+    const wheeled = await measure();
+    assert(wheeled.positions[0] === wheeled.positions[1], `the bars drifted apart: ${wheeled.positions}`);
+    assert(wheeled.lines[0] === wheeled.lines[1] && wheeled.lines[0] < before.lines[0], `the texts did not move together: ${wheeled.lines}`);
+    assert(wheeled.gutter === before.gutter, "the line numbers moved");
+    // The right-hand bar moves the left-hand text as well.
+    await js(`(() => { const bar = document.querySelectorAll('.diff-hbar')[1]; bar.scrollLeft = bar.scrollWidth; })()`);
+    await waitFor(async () => (await measure()).positions[0] === before.range[0], 4000);
+    const end = await measure();
+    // At the end, the end of the line is on screen in both panes.
+    const visible = await js(`(() => {
+      const row = document.querySelector('.diff-row[data-row="1"]');
+      return ['left', 'right'].map((side) => {
+        const cell = row.querySelector('.cell-text.' + side).getBoundingClientRect();
+        const line = row.querySelector('.cell-text.' + side + ' .cell-line').getBoundingClientRect();
+        return line.right <= cell.right + 1;
+      });
+    })()`);
+    assert(visible.every(Boolean), `the end of the long line is still cut off: ${visible}`);
+    await shot("compare-long-line");
+    return `range ${before.range[0]}px; wheel → ${wheeled.positions[0]}px both; end ${end.positions}`;
+  });
+
+  await step("compare", "a line is edited in place, only that row is compared, and Undo/Redo work", async () => {
+    const pair = scratchPair("edit", "a\nb\nc\nd\n", "a\nB\nc\nd\n");
+    await hook(`h.open('files', ${JSON.stringify(pair)})`);
+    await waitFor(async () => (await hook("h.query('.diff-row[data-row=\"1\"] .cell-text.left.editable')")) === 1, 8000);
+    const rowsBefore = (await state()).tabs.at(-1).rowCount;
+    await clickAt(await center('.diff-row[data-row="1"] .cell-text.left'));
+    await waitFor(async () => js(`document.activeElement?.matches('.diff-row[data-row="1"] input.cell-edit[data-edit="left"]') === true`), 4000);
+    await typeOver("B");
+    await press("Enter");
+    // Enter saves and carries on in the next line of the same pane.
+    await waitFor(async () => js(`document.activeElement?.matches('.diff-row[data-row="2"] input.cell-edit[data-edit="left"]') === true`), 4000);
+    await waitFor(() => fs.readFileSync(pair[0], "utf8") === "a\nB\nc\nd\n", 4000);
+    await waitFor(async () => (await state()).tabs.at(-1).identical === true, 4000);
+    await press("Escape");
+    const after = (await state()).tabs.at(-1);
+    assert(after.rowCount === rowsBefore, `rows ${rowsBefore} → ${after.rowCount}`);
+    const undoEnabled = await js(`!document.querySelector('[data-command="edit.undo"]').disabled`);
+    assert(undoEnabled, "the Undo button stayed disabled after an edit");
+    await hook("h.run('edit.undo')");
+    await waitFor(() => fs.readFileSync(pair[0], "utf8") === "a\nb\nc\nd\n", 4000);
+    await waitFor(async () => (await state()).tabs.at(-1).identical === false, 4000);
+    const redoEnabled = await js(`!document.querySelector('[data-command="edit.redo"]').disabled`);
+    assert(redoEnabled, "the Redo button stayed disabled after an undo");
+    await hook("h.run('edit.redo')");
+    await waitFor(() => fs.readFileSync(pair[0], "utf8") === "a\nB\nc\nd\n", 4000);
+    return "row 1 edited by typing, saved, identical; undo and redo rewrote the file";
+  });
+
+  await step("compare", "typing into a blank cell inserts a line; Backspace on an empty line removes it", async () => {
+    const pair = scratchPair("insert", "one\nthree\n", "one\ntwo\nthree\n");
+    await hook(`h.open('files', ${JSON.stringify(pair)})`);
+    await waitFor(async () => (await hook("h.query('.diff-row.kind-added .cell-text.left.blank')")) === 1, 8000);
+    await clickAt(await center(".diff-row.kind-added .cell-text.left"));
+    await waitFor(async () => js(`document.activeElement?.matches('input.cell-edit') === true`), 4000);
+    await typeOver("two");
+    await press("Escape"); // cancels: nothing written
+    assert(fs.readFileSync(pair[0], "utf8") === "one\nthree\n", "Escape still wrote the line");
+    await clickAt(await center(".diff-row.kind-added .cell-text.left"));
+    await waitFor(async () => js(`document.activeElement?.matches('input.cell-edit') === true`), 4000);
+    await typeOver("two");
+    await press("ArrowUp");
+    await waitFor(() => fs.readFileSync(pair[0], "utf8") === "one\ntwo\nthree\n", 4000);
+    await press("Escape");
+    await waitFor(async () => (await state()).tabs.at(-1).identical === true, 4000);
+    // Now empty that line and press Backspace once more: the line goes.
+    await clickAt(await center('.diff-row[data-row="1"] .cell-text.left'));
+    await waitFor(async () => js(`document.activeElement?.matches('input.cell-edit') === true`), 4000);
+    await typeOver("");
+    await press("Backspace");
+    await waitFor(() => fs.readFileSync(pair[0], "utf8") === "one\nthree\n", 4000);
+    await press("Escape");
+    return "inserted, then removed, each written at once";
+  });
+
+  await step("compare", "a comparison opened by git difftool cannot be edited", async () => {
+    const pair = scratchPair("git", "a\nb\n", "a\nB\n");
+    await hook(`h.open('gitdiff', ${JSON.stringify(pair)})`);
+    await waitFor(async () => (await hook("h.query('.diff-row[data-row=\"1\"]')")) === 1, 8000);
+    const editable = await hook("h.query('.cell-text.editable')");
+    assert(editable === 0, `${editable} cells offer editing`);
+    await clickAt(await center('.diff-row[data-row="1"] .cell-text.left'));
+    await sleep(300);
+    const inputs = await hook("h.query('input.cell-edit')");
+    assert(inputs === 0, "a click still opened an editor");
+    const arrows = await hook("h.query('.apply-button')");
+    assert(arrows === 0, `${arrows} apply arrows offered`);
+    assert(fs.readFileSync(pair[0], "utf8") === "a\nb\n", "the file changed");
+    return "no editable cells, no editor on click, no apply arrows";
   });
 
   await step("compare", "a binary pair falls back to the hex view", async () => {

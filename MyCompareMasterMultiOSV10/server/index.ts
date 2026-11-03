@@ -137,6 +137,7 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
       text(req.body?.right),
       req.body?.forceHex === true,
       isFormatId(req.body?.format) ? req.body.format : undefined,
+      req.body?.readOnly === true,
     );
     res.json({ compare: session.summary() });
   }));
@@ -266,14 +267,25 @@ export function startServer(options: ServerOptions): Promise<StartedServer> {
   server.post("/api/compare/:id/take", wrap((req, res) => {
     const target = req.body?.target === "left" ? "left" : "right";
     const rows = Array.isArray(req.body?.rows) ? req.body.rows.map(Number).filter(Number.isFinite) : [];
-    res.json({ compare: app.takeRows(routeId(req), target, rows).summary() });
+    const outcome = app.takeRows(routeId(req), target, rows);
+    res.json({ compare: outcome.session.summary(), before: outcome.before, after: outcome.after });
   }));
 
+  // `text: null` removes the line; text on a blank cell inserts one.
   server.post("/api/compare/:id/edit", wrap((req, res) => {
     const side = req.body?.side === "right" ? "right" : "left";
+    const value = req.body?.text === null ? null : text(req.body?.text);
     res.json({
-      compare: app.editRow(routeId(req), side, number(req.body?.row, -1), text(req.body?.text)).summary(),
+      compare: app.editRow(routeId(req), side, number(req.body?.row, -1), value).summary(),
     });
+  }));
+
+  // A whole side written back as sent: how taking rows across is undone and redone.
+  server.post("/api/compare/:id/side", wrap((req, res) => {
+    const side = req.body?.side === "right" ? "right" : "left";
+    const lines = Array.isArray(req.body?.lines) ? req.body.lines.map((line: unknown) => String(line)) : null;
+    if (!lines) throw new ApiError("The lines were not sent.", "BAD_REQUEST", 400);
+    res.json({ compare: app.setSideLines(routeId(req), side, lines).summary() });
   }));
 
   /* ---------------------------------------------------------- merge */

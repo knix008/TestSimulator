@@ -74,7 +74,6 @@ export function MenuList({
       ref={containerRef}
       role="menu"
       data-menu={spec.menu}
-      style={{ "--menu-columns": tracks.columns } as CSSProperties}
     >
       {spec.items.map((item, index) => {
         if (item.kind === "separator") return <div className="menu-separator" key={`sep-${index}`} role="separator" />;
@@ -133,10 +132,11 @@ export function MenuList({
             data-command={item.id}
             disabled={item.disabled}
             title={item.hint ? `${item.label} — ${item.hint}` : item.label}
+            style={{ "--menu-columns": tracks.columns(isToggle(item)) } as CSSProperties}
             onMouseEnter={() => setFocused(index)}
             onClick={() => onChoose(item.id)}
           >
-            {tracks.check
+            {isToggle(item)
               ? <span className="menu-check">{item.checked ? <Icon name="check" size={14} /> : null}</span>
               : null}
             <span className="menu-icon">
@@ -182,39 +182,41 @@ export function MenuList({
 /**
  * Which of the row's optional columns this menu actually needs.
  *
- * The rows share one grid so the shortcuts line up down the right-hand edge, but a
- * column every row leaves empty is not alignment — it is a margin. A menu with
- * nothing to tick (File, say) used to indent every label past a tick column anyway,
- * which read as the labels being badly left-aligned; a menu with no shortcuts paid
- * for the spacer that pushes them right. So the tracks are decided once per menu,
- * from its own items, and the cells for the tracks it dropped are not rendered.
+ * A column every row leaves empty is not alignment — it is a margin. A menu with no
+ * shortcuts does not pay for the spacer that pushes them right, so the hint and
+ * shortcut tracks are decided once per menu, from its own items.
  *
- * `checked: false` still counts: an unticked toggle needs the room its tick will
- * take, or the labels would shift sideways the moment it is switched on.
+ * The tick is decided per row: only a toggle has a tick cell. A menu with three
+ * toggles among a dozen commands (Compare, the context menus) used to indent every
+ * icon past an empty tick column. `checked: false` still counts — an unticked toggle
+ * keeps the room its tick will take, so its label does not jump when switched on.
  */
 export function trackLayout(items: MenuItem[]): {
-  columns: string;
-  check: boolean;
+  /** The grid for one row, with or without its tick cell. */
+  columns: (check: boolean) => string;
   spacer: boolean;
   shortcut: boolean;
 } {
   const rows = items.filter((item) => !item.kind || item.kind === "item");
-  const check = rows.some((item) => "checked" in item && item.checked !== undefined);
   const shortcut = rows.some((item) => "shortcut" in item && Boolean(item.shortcut));
   const hint = rows.some((item) => "hint" in item && Boolean(item.hint));
   // The flexible track is both the hint's home and the gap that holds the
   // shortcuts against the right-hand edge, so either one keeps it.
   const spacer = hint || shortcut;
-  const columns = [
-    // Just wide enough for the tick and the 16px row icon: the gutter is a place
-    // for them, not a margin, and every pixel of it is in front of every label.
+  const columns = (check: boolean) => [
+    // Just wide enough for the tick and the 16px row icon.
     check ? "16px" : null,
     "20px",
     "max-content",
     spacer ? "1fr" : null,
     shortcut ? "max-content" : null,
   ].filter(Boolean).join(" ");
-  return { columns, check, spacer, shortcut };
+  return { columns, spacer, shortcut };
+}
+
+/** True for a row that can be ticked, ticked or not. */
+export function isToggle(item: MenuItem): boolean {
+  return "checked" in item && item.checked !== undefined;
 }
 
 function firstEnabled(items: MenuItem[]): number {

@@ -195,6 +195,8 @@ export function useCommands(): {
       label: t("menu.compare"),
       icon: "compareFiles",
       items: toItems([
+        "view.refresh",
+        "-",
         "nav.firstDiff",
         "nav.prevDiff",
         "nav.nextDiff",
@@ -205,7 +207,6 @@ export function useCommands(): {
         "view.differencesOnly",
         "-",
         "view.swap",
-        "view.refresh",
       ]),
     },
     {

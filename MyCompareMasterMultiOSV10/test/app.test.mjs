@@ -13,7 +13,7 @@ import { contrastRatio, deltaE, luminance, mix, parseHex, readableOn, toHex } fr
 import { LANGUAGES, translate, translator } from "../core/i18n.ts";
 import { allPages, formatPageRange, geometry, paginate, parsePageRange, PAPER } from "../core/print.ts";
 import { defaultSettings, MAX_RECENT, recentKey, sanitize } from "../core/settings.ts";
-import { SettingsStore } from "../core/settingsStore.ts";
+import { INSTALL_LANGUAGE_FILE, SettingsStore } from "../core/settingsStore.ts";
 import {
   CUSTOM_THEME_ID,
   DEFAULT_CUSTOM_THEME,
@@ -201,6 +201,28 @@ test("settings › resetting preferences keeps the history", () => {
     assert.equal(store.get().theme, DEFAULT_THEME);
     assert.equal(store.get().zoom, 100);
     assert.equal(store.get().recent.length, 1);
+  } finally {
+    delete process.env.MCM_SETTINGS_DIR;
+  }
+});
+
+test("settings › the language picked in the installer is applied once, on the next start", () => {
+  const directory = fs.mkdtempSync(path.join(scratch, "install-language-"));
+  const marker = path.join(directory, INSTALL_LANGUAGE_FILE);
+  process.env.MCM_SETTINGS_DIR = directory;
+  try {
+    fs.writeFileSync(marker, "en");
+    assert.equal(new SettingsStore().get().language, "en", "a fresh install opens in the installer's language");
+    assert.equal(fs.existsSync(marker), false, "the marker is consumed");
+    new SettingsStore().update({ language: "ko", theme: "nord-dark" });
+    assert.equal(new SettingsStore().get().language, "ko", "a later choice in the app stays");
+    fs.writeFileSync(marker, "﻿en\r\n");
+    const reinstalled = new SettingsStore().get();
+    assert.equal(reinstalled.language, "en", "a reinstall switches the language");
+    assert.equal(reinstalled.theme, "nord-dark", "and keeps the rest");
+    fs.writeFileSync(marker, "fr");
+    assert.equal(new SettingsStore().get().language, "en", "an unknown value is ignored");
+    assert.equal(fs.existsSync(marker), false, "and removed");
   } finally {
     delete process.env.MCM_SETTINGS_DIR;
   }
@@ -623,9 +645,17 @@ test("print › a page set formats back into a range", () => {
 
 /* ------------------------------------------------------------------ cli */
 
-test("cli › git difftool arguments open a file comparison", () => {
-  assert.deepEqual(parseArguments(["--diff", "a.txt", "b.txt"]), { kind: "diff", left: "a.txt", right: "b.txt" });
-  assert.deepEqual(parseArguments(["a.txt", "b.txt"]), { kind: "diff", left: "a.txt", right: "b.txt" });
+test("cli › git difftool arguments open a read-only file comparison", () => {
+  assert.deepEqual(
+    parseArguments(["--diff", "a.txt", "b.txt"], {}),
+    { kind: "diff", left: "a.txt", right: "b.txt", readOnly: true },
+  );
+  // Two files by hand can be edited; the same two from git (its environment) cannot.
+  assert.deepEqual(parseArguments(["a.txt", "b.txt"], {}), { kind: "diff", left: "a.txt", right: "b.txt" });
+  assert.deepEqual(
+    parseArguments(["a.txt", "b.txt"], { GIT_DIFF_PATH_TOTAL: "1", GIT_DIFF_PATH_COUNTER: "1" }),
+    { kind: "diff", left: "a.txt", right: "b.txt", readOnly: true },
+  );
 });
 
 test("cli › git mergetool arguments open a 3-way merge", () => {

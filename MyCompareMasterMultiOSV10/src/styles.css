@@ -1335,6 +1335,45 @@ kbd {
 
 .diff-scroller::-webkit-scrollbar:vertical { width: 0; }
 
+/* The scroller and, under it, the horizontal scrollbars of the two texts. */
+.diff-center {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/*
+ * Laid out like a row (.diff-row / .diff-half), so each bar spans exactly its text
+ * column. A bar only shows when the longest line is wider than that column.
+ */
+.diff-hbars {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--divider-width) minmax(0, 1fr);
+  gap: var(--gap);
+  flex: 0 0 auto;
+  background: var(--panel);
+}
+
+.diff-hbar-half {
+  display: grid;
+  grid-template-columns: var(--gutter-width) minmax(0, 1fr);
+  min-width: 0;
+  border-left: 1px solid transparent;
+  border-right: 1px solid transparent;
+}
+
+.diff-hbar { min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.diff-hbar > div { height: 1px; }
+
+/* A line's text, shifted by the shared sideways offset; the gutter is not inside it. */
+.cell-line {
+  display: inline-block;
+  vertical-align: top;
+  transform: translateX(calc(-1 * var(--scroll-x, 0px)));
+}
+
 .diff-spacer { position: relative; min-width: 100%; }
 .diff-rows { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
 
@@ -1457,7 +1496,10 @@ mark.word.modified { background: var(--word-modified); }
   pointer-events: none;
   font-family: var(--pane-font);
   font-size: calc(var(--pane-font-size) * var(--zoom));
+  font-weight: var(--pane-font-weight);
+  font-style: var(--pane-font-style);
   line-height: 1.5;
+  white-space: pre;
 }
 
 /* The arrows that copy a difference block to the other side. */
@@ -1476,7 +1518,12 @@ mark.word.modified { background: var(--word-modified); }
 }
 
 .diff-row:hover .apply-button { display: inline-flex; }
-.apply-button:hover { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.apply-button:hover:not(:disabled) { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+/* The side it would write to cannot be changed (a git revision, an archive entry). */
+.apply-button:disabled { opacity: 0.3; cursor: default; }
+
+/* A pane that takes typing: a click puts the caret there. */
+.cell-text.editable { cursor: text; }
 
 .diff-banner {
   padding: 5px 12px;
@@ -1939,19 +1986,18 @@ mark.word.modified { background: var(--word-modified); }
 }
 
 /*
- * Up to five columns: tick, icon, label, hint, shortcut. Every row in one menu uses
- * the same track widths, so the shortcuts line up down the right-hand edge of the
- * menu instead of each row packing itself independently — but which of them exist
- * is decided per menu by `trackLayout()` in MenuPopup.tsx and arrives as
- * `--menu-columns`, so a menu with nothing to tick does not indent its labels past
- * an empty tick column. The fallback here is the full set.
+ * Up to five columns: tick, icon, label, hint, shortcut. Which of them a row has is
+ * decided by `trackLayout()` in MenuPopup.tsx and arrives as `--menu-columns`: the
+ * tick only on a toggle, so the other rows start at the edge, and the flexible track
+ * holds every shortcut against the right-hand edge. The fallback is the full set.
  */
 .menu-row {
   display: grid;
   grid-template-columns: var(--menu-columns, 16px 20px max-content 1fr max-content);
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
+  /* Icon and label hug the left edge; the right keeps room after the shortcut. */
+  padding: 5px 10px 5px 6px;
   border: none;
   border-radius: 5px;
   background: transparent;
@@ -1967,7 +2013,7 @@ mark.word.modified { background: var(--word-modified); }
 
 .menu-row.disabled { opacity: 0.4; cursor: default; }
 .menu-check { display: inline-flex; justify-content: center; }
-.menu-icon { display: inline-flex; justify-content: center; }
+.menu-icon { display: inline-flex; justify-content: flex-start; }
 .menu-hint { font-size: 11px; opacity: 0.65; text-align: right; overflow: hidden; text-overflow: ellipsis; }
 .menu-shortcut { font-size: 11px; opacity: 0.75; text-align: right; font-variant-numeric: tabular-nums; }
 .menu-separator { height: 1px; margin: 4px 6px; background: var(--border); }

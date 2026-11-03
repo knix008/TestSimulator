@@ -35,12 +35,17 @@ export function settingsPath(): string {
   return path.join(settingsDirectory(), "settings.json");
 }
 
+/** Written by the Windows installer (src-tauri/windows/hooks.nsh) with the language picked
+ *  on its first page; the next start makes it the app's language and deletes it. */
+export const INSTALL_LANGUAGE_FILE = "install-language";
+
 /** Reads, validates and writes `settings.json`; unknown or invalid values fall back. */
 export class SettingsStore {
   private current: AppSettings;
 
   constructor() {
     this.current = this.read();
+    this.applyInstallLanguage();
   }
 
   get(): AppSettings {
@@ -110,6 +115,22 @@ export class SettingsStore {
       return sanitize({ ...defaultSettings(), ...(JSON.parse(raw) as Partial<AppSettings>) });
     } catch {
       return defaultSettings();
+    }
+  }
+
+  private applyInstallLanguage(): void {
+    const file = path.join(settingsDirectory(), INSTALL_LANGUAGE_FILE);
+    let chosen: string;
+    try {
+      chosen = fs.readFileSync(file, "utf8").replace(/^﻿/, "").trim();
+    } catch {
+      return;
+    }
+    if (chosen === "ko" || chosen === "en") this.update({ language: chosen });
+    try {
+      fs.rmSync(file, { force: true });
+    } catch {
+      /* read-only folder: it is applied again next start, which is harmless */
     }
   }
 

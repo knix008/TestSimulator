@@ -19,6 +19,10 @@
  *
  * With word wrap on the rows stop being a fixed height, so the view loads the document
  * in one go up to a cap and lets the browser lay it out.
+ *
+ * Without word wrap a long line runs past its pane. Both texts then move sideways
+ * together — one offset, a CSS variable on the rows, driven by a horizontal scrollbar
+ * under each pane and by Shift+wheel — while the line numbers and the divider stay put.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BYTES_PER_ROW } from "../../core/binary.js";
@@ -40,6 +44,8 @@ const WRAP_LIMIT = 20_000;
 const CONTEXT = 3;
 /** Ceiling on one fetch; a sparse "differences only" window could otherwise span a lot. */
 const MAX_FETCH = 4000;
+/** Measured to find the width of one column of the pane font. */
+const CHAR_PROBE = "0".repeat(100);
 
 export function DiffView({ tab }: { tab: CompareTab }) {
   const app = useApp();
@@ -55,6 +61,10 @@ export function DiffView({ tab }: { tab: CompareTab }) {
   const summary = tab.summary;
   const scrollerRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLDivElement>(null);
+  const charProbeRef = useRef<HTMLSpanElement>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const leftBarRef = useRef<HTMLDivElement>(null);
+  const rightBarRef = useRef<HTMLDivElement>(null);
 
   /*
    * What this tab last showed. Switching tabs unmounts the view; coming back to the
@@ -69,6 +79,7 @@ export function DiffView({ tab }: { tab: CompareTab }) {
     text: new Map<number, TextRow>(),
     hex: { start: 0, rows: [] as HexRow[] },
     scrollTop: 0,
+    scrollX: 0,
     bookmarks: [] as number[],
   }));
   const same = kept.summary === summary;
@@ -77,9 +88,19 @@ export function DiffView({ tab }: { tab: CompareTab }) {
   const [hex, setHex] = useState<{ start: number; rows: HexRow[] }>(same ? kept.hex : { start: 0, rows: [] });
   kept.window = window_;
   const [rowHeight, setRowHeight] = useState(20);
-  const [editing, setEditing] = useState<{ row: number; side: "left" | "right"; value: string } | null>(null);
+  const [editing, setEditingState] = useState<Editing | null>(null);
+  // Read by the input's own handlers, which may run after a newer edit has started.
+  const editingRef = useRef<Editing | null>(null);
+  const setEditing = useCallback((next: Editing | null) => {
+    editingRef.current = next;
+    setEditingState(next);
+  }, []);
 
-  const editable = summary.mode === "text" && Boolean(summary.left.path) && Boolean(summary.right.path);
+  /*
+   * Which panes take typing. The server says (a text file on disk, not opened by git
+   * difftool); the arrows that copy a block across need the side they write to.
+   */
+  const editable = summary.editable ?? { left: false, right: false };
   const wrap = settings.wordWrap && summary.mode === "text" && summary.rowCount <= WRAP_LIMIT;
 
   /* ---------------------------------------- which rows are on screen */
@@ -113,6 +134,64 @@ export function DiffView({ tab }: { tab: CompareTab }) {
     const measured = probe.getBoundingClientRect().height;
     if (measured > 4 && Math.abs(measured - rowHeight) > 0.5) setRowHeight(measured);
   }, [settings.font.size, settings.font.family, settings.zoom, rowHeight]);
+
+  /* ------------------------------------------- sideways scrolling */
+
+  const sideways = summary.mode === "text" && !wrap;
+
+  /*
+   * How wide the longest line is. The server counts its columns over the whole file,
+   * which a column width turns into pixels; the lines on screen are also measured,
+   * because a proportional font makes the column count only an estimate.
+   */
+  const [lineWidth, setLineWidth] = useState(0);
+  const measuredWidth = useRef({ summary, width: 0 });
+  useLayoutEffect(() => {
+    if (!sideways) return;
+    if (measuredWidth.current.summary !== summary) measuredWidth.current = { summary, width: 0 };
+    const lines = rowsRef.current?.querySelectorAll<HTMLElement>(".cell-line") ?? [];
+    let widest = measuredWidth.current.width;
+    for (const line of lines) widest = Math.max(widest, line.offsetWidth);
+    measuredWidth.current.width = widest;
+    const column = (charProbeRef.current?.getBoundingClientRect().width ?? 0) / CHAR_PROBE.length;
+    const width = Math.ceil(Math.max(widest, summary.widestLine * column));
+    if (Math.abs(width - lineWidth) > 1) setLineWidth(width);
+  });
+
+  /** Moves both texts to `x` pixels in, and both scrollbars with them. */
+  const applyScrollX = useCallback((x: number) => {
+    kept.scrollX = x;
+    rowsRef.current?.style.setProperty("--scroll-x", `${x}px`);
+    for (const bar of [leftBarRef.current, rightBarRef.current]) {
+      if (bar && bar.scrollLeft !== x) bar.scrollLeft = x;
+    }
+  }, [kept]);
+
+  const scrollSideways = useCallback((delta: number) => {
+    const bar = leftBarRef.current;
+    if (!bar) return;
+    bar.scrollLeft += delta; // the bar clamps it to the longest line
+    applyScrollX(bar.scrollLeft);
+  }, [applyScrollX]);
+
+  // Put back where this tab was (or keep where it is) once the bars know their range;
+  // with word wrap or a hex dump there is nothing to move.
+  useLayoutEffect(() => {
+    const bar = leftBarRef.current;
+    if (!sideways || !bar) {
+      rowsRef.current?.style.setProperty("--scroll-x", "0px");
+      return;
+    }
+    bar.scrollLeft = kept.scrollX;
+    applyScrollX(bar.scrollLeft);
+  }, [applyScrollX, kept, lineWidth, sideways]);
+
+  /** The sideways part of a wheel turn: a touchpad's own, or Shift with a mouse wheel. */
+  const wheelSideways = (event: React.WheelEvent) => {
+    if (!sideways) return 0;
+    if (event.shiftKey && event.deltaX === 0) return event.deltaY;
+    return Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : 0;
+  };
 
   /* ------------------------------------------------ window tracking */
 
@@ -296,14 +375,56 @@ export function DiffView({ tab }: { tab: CompareTab }) {
     void app.takeRows(tab, target, blockAround(row));
   }, [app, blockAround, tab]);
 
-  const commitEdit = useCallback(() => {
-    if (!editing) return;
-    const { row, side, value } = editing;
+  /** Starts editing one cell, with the caret at `caret`. */
+  const beginEdit = useCallback((row: number, side: "left" | "right", caret: number) => {
+    const value = text.get(row)?.[side] ?? null;
+    if (!editable[side] || text.get(row) === undefined) return;
+    setEditing({ row, side, value: value ?? "", original: value, caret: Math.min(caret, (value ?? "").length) });
+    app.setCursor(row);
+  }, [app, editable, text, setEditing]);
+
+  /**
+   * Saves the cell being edited, if it changed; only that row is compared again. A
+   * blank cell left empty stays blank — typing into it is what inserts a line.
+   */
+  const commitEdit = useCallback((value?: string | null) => {
+    const current = editingRef.current;
+    if (!current) return;
     setEditing(null);
-    const original = text.get(row)?.[side];
-    if (original === value) return;
-    void app.editCompareRow(tab, side, row, value);
-  }, [app, editing, tab, text]);
+    let next = value === undefined ? current.value : value;
+    if (current.original === null && next === "") next = null;
+    if (next === current.original) return;
+    void app.editCompareRow(tab, current.side, current.row, next, current.original);
+  }, [app, setEditing, tab]);
+
+  /** Saves, then carries on in the line `step` rows away on the same side. */
+  const moveEdit = useCallback((step: number, caret: number, value?: string | null) => {
+    const current = editingRef.current;
+    if (!current) return;
+    commitEdit(value);
+    const position = (visible ? visible.indexOf(current.row) : current.row) + step;
+    if (position < 0 || position >= rowCount) return;
+    beginEdit(realIndex(position), current.side, caret);
+  }, [beginEdit, commitEdit, realIndex, rowCount, visible]);
+
+  const onEditKey = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const caret = input.selectionStart ?? input.value.length;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setEditing(null);
+    } else if (event.key === "Enter" || event.key === "ArrowDown") {
+      event.preventDefault();
+      moveEdit(1, event.key === "Enter" ? 0 : caret);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveEdit(-1, caret);
+    } else if (event.key === "Backspace" && input.value === "" && editingRef.current?.original !== null) {
+      // Backspace in an empty line removes the line, as in any editor.
+      event.preventDefault();
+      moveEdit(-1, Number.MAX_SAFE_INTEGER, null);
+    }
+  }, [moveEdit, setEditing]);
 
   const totalHeight = wrap ? undefined : rowCount * rowHeight;
   const firstVisible = wrap ? 0 : window_.start;
@@ -352,7 +473,7 @@ export function DiffView({ tab }: { tab: CompareTab }) {
       <FindBar
         compareId={summary.id}
         rowCount={summary.rowCount}
-        editable={editable}
+        editable={editable.left || editable.right}
         bookmarks={bookmarks}
         onMatches={setMatches}
         onGo={(row) => {
@@ -374,8 +495,15 @@ export function DiffView({ tab }: { tab: CompareTab }) {
         className="diff-body"
         onWheel={(event) => {
           if (event.ctrlKey) return; // Ctrl+Wheel is the zoom
+          const target = event.target as Element;
+          const sideStep = wheelSideways(event);
+          if (sideStep !== 0) {
+            // A horizontal scrollbar moves itself; the event then only has to sync.
+            if (!target.closest(".diff-hbar")) scrollSideways(sideStep);
+            return;
+          }
           const scroller = scrollerRef.current;
-          if (!scroller || scroller.contains(event.target as Node)) return;
+          if (!scroller || scroller.contains(target)) return;
           scroller.scrollTop += event.deltaY;
         }}
       >
@@ -390,6 +518,7 @@ export function DiffView({ tab }: { tab: CompareTab }) {
           }}
         />
 
+        <div className="diff-center">
         <div className="diff-scroller" ref={scrollerRef}
           onScroll={(event) => {
             kept.scrollTop = event.currentTarget.scrollTop;
@@ -400,7 +529,7 @@ export function DiffView({ tab }: { tab: CompareTab }) {
             className={`diff-spacer${summary.mode === "binary" ? " hex" : ""}`}
             style={{ height: totalHeight }}
           >
-            <div className="diff-rows" style={{ transform: wrap ? undefined : `translateY(${offset}px)` }}>
+            <div className="diff-rows" ref={rowsRef} style={{ transform: wrap ? undefined : `translateY(${offset}px)` }}>
               {summary.mode === "text"
                 ? positions.map((position) => {
                   const index = realIndex(position);
@@ -420,11 +549,18 @@ export function DiffView({ tab }: { tab: CompareTab }) {
                       editing={editing?.row === index ? editing : null}
                       onClick={() => app.setCursor(index)}
                       onApply={apply}
-                      onEdit={(side) => setEditing({ row: index, side, value: row[side] ?? "" })}
-                      onEditChange={(value) => setEditing((current) => (current ? { ...current, value } : null))}
-                      onEditCommit={commitEdit}
-                      onEditCancel={() => setEditing(null)}
-                      labels={{ toLeft: t("line.blockToLeft"), toRight: t("line.blockToRight") }}
+                      onEdit={(side, caret) => beginEdit(index, side, caret)}
+                      onEditChange={(value) => {
+                        const current = editingRef.current;
+                        if (current) setEditing({ ...current, value });
+                      }}
+                      onEditKey={onEditKey}
+                      onEditBlur={(side) => {
+                        // Only the cell still being edited: a move has already saved this one.
+                        const current = editingRef.current;
+                        if (current && current.row === index && current.side === side) commitEdit();
+                      }}
+                      labels={{ toLeft: t("line.blockToLeft"), toRight: t("line.blockToRight"), edit: t("line.edit") }}
                     />
                   );
                 })
@@ -445,6 +581,28 @@ export function DiffView({ tab }: { tab: CompareTab }) {
           </div>
         </div>
 
+        {/* One horizontal scrollbar under each text, laid out on the rows' own grid so
+            it spans exactly the text column. Either one moves both texts. */}
+        {sideways && (
+          <div className="diff-hbars" data-testid="diff-hbars">
+            {(["left", "divider", "right"] as const).map((side) => (side === "divider" ? <span key={side} /> : (
+              <span key={side} className={`diff-hbar-half side-${side}`}>
+                <span />
+                <div
+                  className="diff-hbar"
+                  ref={side === "left" ? leftBarRef : rightBarRef}
+                  data-testid={`diff-hbar-${side}`}
+                  onScroll={(event) => applyScrollX(event.currentTarget.scrollLeft)}
+                >
+                  {/* The line plus the text cell's padding on both sides. */}
+                  <div style={{ width: lineWidth + 16 }} />
+                </div>
+              </span>
+            )))}
+          </div>
+        )}
+        </div>
+
         <DiffScrollBar
           kinds={summary.kinds}
           cursor={tab.cursor}
@@ -461,6 +619,7 @@ export function DiffView({ tab }: { tab: CompareTab }) {
           is for the current font, which is what the virtual list is measured in. */}
       <div className="row-probe" ref={probeRef} aria-hidden="true">
         <span className="cell-text">0</span>
+        <span className="char-probe" ref={charProbeRef}>{CHAR_PROBE}</span>
       </div>
     </div>
   );
@@ -480,8 +639,8 @@ function TextLine({
   onApply,
   onEdit,
   onEditChange,
-  onEditCommit,
-  onEditCancel,
+  onEditKey,
+  onEditBlur,
   labels,
 }: {
   row: TextRow;
@@ -491,15 +650,15 @@ function TextLine({
   found: boolean;
   bookmarked: boolean;
   current: boolean;
-  editable: boolean;
-  editing: { side: "left" | "right"; value: string } | null;
+  editable: { left: boolean; right: boolean };
+  editing: Editing | null;
   onClick: () => void;
   onApply: (row: number, target: "left" | "right") => void;
-  onEdit: (side: "left" | "right") => void;
+  onEdit: (side: "left" | "right", caret: number) => void;
   onEditChange: (value: string) => void;
-  onEditCommit: () => void;
-  onEditCancel: () => void;
-  labels: { toLeft: string; toRight: string };
+  onEditKey: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  onEditBlur: (side: "left" | "right") => void;
+  labels: { toLeft: string; toRight: string; edit: string };
 }) {
   const zebra = index % 2 === 1 ? " zebra" : "";
   const differs = row.kind !== "same";
@@ -513,27 +672,37 @@ function TextLine({
         {editing && editing.side === side ? (
           <input
             className="cell-edit"
-            autoFocus
+            data-edit={side}
+            spellCheck={false}
+            ref={(input) => {
+              // Focused once, with the caret where the click landed.
+              if (!input || input.dataset.ready) return;
+              input.dataset.ready = "1";
+              input.focus();
+              input.setSelectionRange(editing.caret, editing.caret);
+            }}
             value={editing.value}
             onChange={(event) => onEditChange(event.target.value)}
-            onBlur={onEditCommit}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") onEditCommit();
-              if (event.key === "Escape") onEditCancel();
-            }}
+            onBlur={() => onEditBlur(side)}
+            onKeyDown={onEditKey}
           />
         ) : (
           <span
-            className={`cell-text ${side}${value === null ? " blank" : ""}`}
-            onDoubleClick={() => {
-              if (editable && value !== null) onEdit(side);
+            className={`cell-text ${side}${value === null ? " blank" : ""}${editable[side] ? " editable" : ""}`}
+            title={editable[side] ? labels.edit : undefined}
+            onClick={(event) => {
+              if (editable[side]) onEdit(side, caretAt(event.currentTarget, event.clientX, event.clientY));
             }}
           >
-            {cellContent(
-              value,
-              highlight ? spans : undefined,
-              side === "left" ? "removed" : "added",
-              side === "left" ? row.leftTokens : row.rightTokens,
+            {value !== null && (
+              <span className="cell-line">
+                {cellContent(
+                  value,
+                  highlight ? spans : undefined,
+                  side === "left" ? "removed" : "added",
+                  side === "left" ? row.leftTokens : row.rightTokens,
+                )}
+              </span>
             )}
           </span>
         )}
@@ -549,11 +718,12 @@ function TextLine({
     >
       {half("left")}
       <span className="cell-divider">
-        {differs && editable ? (
+        {differs && (editable.left || editable.right) ? (
           <>
             <button
               type="button"
               className="apply-button to-right"
+              disabled={!editable.right}
               title={labels.toRight}
               aria-label={labels.toRight}
               data-apply="right"
@@ -565,6 +735,7 @@ function TextLine({
             <button
               type="button"
               className="apply-button to-left"
+              disabled={!editable.left}
               title={labels.toLeft}
               aria-label={labels.toLeft}
               data-apply="left"
@@ -584,6 +755,25 @@ function TextLine({
 }
 
 const MARKER: Record<string, string> = { same: "", added: "+", removed: "−", modified: "≠" };
+
+/** The cell being edited: `original` is what it held (null for a blank cell). */
+type Editing = { row: number; side: "left" | "right"; value: string; original: string | null; caret: number };
+
+/** Where in a cell's text a click landed, as a character offset. */
+function caretAt(cell: HTMLElement, x: number, y: number): number {
+  const line = cell.querySelector(".cell-line");
+  if (!line) return 0;
+  const length = line.textContent?.length ?? 0;
+  const point = document.caretRangeFromPoint?.(x, y);
+  if (!point || !line.contains(point.startContainer)) {
+    // Beside the text: before it in the padding, or past its end.
+    return x < line.getBoundingClientRect().left ? 0 : length;
+  }
+  const before = document.createRange();
+  before.setStart(line, 0);
+  before.setEnd(point.startContainer, point.startOffset);
+  return before.toString().length;
+}
 
 /**
  * A line's text, coloured two ways at once.

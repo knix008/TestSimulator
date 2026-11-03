@@ -34,7 +34,7 @@ import { detectNewline, readBytes, splitBody, stripBom } from "./textFile.js";
 import { merge as threeWayMerge } from "./threeWay.js";
 
 export type PendingRequest =
-  | { kind: "diff"; left: string; right: string }
+  | { kind: "diff"; left: string; right: string; readOnly?: boolean }
   | { kind: "merge"; base: string; local: string; remote: string; merged: string }
   | { kind: "conflict"; file: string }
   | { kind: "session"; file: string }
@@ -111,11 +111,11 @@ export class CompareMasterApp {
 
   /* ---------------------------------------------------------- files */
 
-  openFiles(leftPath: string, rightPath: string, forceHex = false, format?: FormatId): CompareSession {
+  openFiles(leftPath: string, rightPath: string, forceHex = false, format?: FormatId, readOnly = false): CompareSession {
     const left = fileSide(leftPath);
     const right = fileSide(rightPath);
     const options = { ...this.compareOptions(), forceHex, format };
-    const session = new CompareSession(nextId("cmp"), left, right, options);
+    const session = new CompareSession(nextId("cmp"), left, right, options, readOnly);
     this.compares.set(session.id, session);
     this.remember("files", [left.path as string, right.path as string]);
     return session;
@@ -132,7 +132,7 @@ export class CompareMasterApp {
     const previous = this.compare(id);
     const left = previous.left.path ? fileSide(previous.left.path) : previous.left;
     const right = previous.right.path ? fileSide(previous.right.path) : previous.right;
-    const session = new CompareSession(id, left, right, this.compareOptions());
+    const session = new CompareSession(id, left, right, this.compareOptions(), previous.readOnly);
     this.compares.set(id, session);
     return session;
   }
@@ -298,12 +298,14 @@ export class CompareMasterApp {
 
   /* --------------------------------------------------- side editing */
 
-  /** Writes one side of a file comparison back to disk and recomputes the diff. */
-  private writeSide(id: string, side: "left" | "right", lines: string[]): CompareSession {
-    const session = this.compare(id);
+  /** Writes one side of a file comparison to disk; the caller decides what to recompute. */
+  private writeFile(session: CompareSession, side: "left" | "right", lines: string[]): void {
     const target = side === "left" ? session.left.path : session.right.path;
     if (!target) {
       throw new ApiError("That side is not a file on disk, so it cannot be edited.", "READ_ONLY", 400);
+    }
+    if (session.readOnly) {
+      throw new ApiError("This comparison was opened read-only (git difftool).", "READ_ONLY", 400);
     }
     const newline = session.newlineOf(side);
     try {
@@ -311,12 +313,34 @@ export class CompareMasterApp {
     } catch (error) {
       throw new ApiError(`Could not write ${target}`, "WRITE", 500, String(error));
     }
+  }
+
+  /** Writes one side of a file comparison back to disk and recomputes the diff. */
+  private writeSide(id: string, side: "left" | "right", lines: string[]): CompareSession {
+    this.writeFile(this.compare(id), side, lines);
     return this.reloadCompare(id);
   }
 
-  /** The "copy these rows to the other side" of a two-way comparison. */
-  takeRows(id: string, target: "left" | "right", rows: readonly number[]): CompareSession {
-    return this.writeSide(id, target, this.compare(id).takeRows(target, rows));
+  /**
+   * The "copy these rows to the other side" of a two-way comparison. The target's
+   * lines before and after come back too: they are what Undo and Redo write.
+   */
+  takeRows(id: string, target: "left" | "right", rows: readonly number[]): {
+    session: CompareSession;
+    before: string[];
+    after: string[];
+  } {
+    const before = this.compare(id).sideLines(target);
+    const after = this.compare(id).takeRows(target, rows);
+    return { session: this.writeSide(id, target, after), before, after };
+  }
+
+  /** Puts a whole side back as given — the undo and redo of taking rows across. */
+  setSideLines(id: string, side: "left" | "right", lines: string[]): CompareSession {
+    if (this.compare(id).readOnly) {
+      throw new ApiError("This comparison was opened read-only (git difftool).", "READ_ONLY", 400);
+    }
+    return this.writeSide(id, side, lines);
   }
 
   /** Every row matching a search, over the whole file. */
@@ -337,9 +361,22 @@ export class CompareMasterApp {
     return { session: this.writeSide(id, side, outcome.lines), replaced: outcome.replaced };
   }
 
-  /** Replaces one line of one side — the in-place edit of a compared file. */
-  editRow(id: string, side: "left" | "right", row: number, text: string): CompareSession {
-    return this.writeSide(id, side, this.compare(id).replaceRow(side, row, text));
+  /**
+   * Replaces, inserts (`text` on a blank cell) or removes (`null`) one line of one
+   * side — the in-place edit of a compared file. Only that row is compared again; the
+   * file is written, and the session takes the file's new size and time so the change
+   * watcher does not mistake our own write for someone else's.
+   */
+  editRow(id: string, side: "left" | "right", row: number, text: string | null): CompareSession {
+    const session = this.compare(id);
+    const lines = session.editLine(side, row, text);
+    this.writeFile(session, side, lines);
+    const written = side === "left" ? session.left : session.right;
+    if (written.path) {
+      const stat = fs.statSync(written.path);
+      Object.assign(written, { data: readBytes(written.path), size: stat.size, modified: stat.mtimeMs, missing: false });
+    }
+    return session;
   }
 
   /* --------------------------------------------------------- merges */

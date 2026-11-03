@@ -298,9 +298,27 @@ click.
 <a id="file-edit"></a>
 ### Editing a line in place
 
-**Double-click** a line on either side to edit it where it is. `Enter` writes it to the file,
-`Esc` cancels. Comparisons that show what a file means rather than what it says (table,
-audio, version, registry) cannot be edited.
+**Click** a line in either pane to edit it where it is, with the caret where you clicked.
+
+| Key | Does |
+|---|---|
+| `Enter` | Saves and moves to the line below |
+| `↑` / `↓` | Saves and moves up · down (same column) |
+| `Esc` | Cancels |
+| `Backspace` on an empty line | Removes the line |
+
+**Typing into the blank cell** opposite a line that only the other side has inserts a line
+there. Every commit is written to the file at once, and while editing **only the edited line
+is compared again**, so the rest of the alignment stays put (**Refresh**, `F5`, realigns the
+whole file). Line edits and the `‹` · `›` arrows can all be **undone and redone**
+(`Ctrl+Z` / `Ctrl+Y`, or the toolbar buttons).
+
+Comparisons that show what a file means rather than what it says (table, audio, version,
+registry), and comparisons opened by **git difftool** (a look at two versions), cannot be
+edited.
+
+A long line scrolls sideways with the **horizontal scrollbar** under each pane, or
+`Shift`+wheel. The two panes always move together, and the line numbers stay where they are.
 
 <a id="file-only"></a>
 ### Differences only and ignore options

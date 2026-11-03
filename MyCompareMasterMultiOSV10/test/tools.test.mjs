@@ -11,7 +11,7 @@ import { compareDirectories, maskFilter } from "../core/dirCompare.ts";
 import { allFolders, buildTree, flatRows, flatten, foldersWithDifferences } from "../core/dirTree.ts";
 import { fileIcon } from "../src/fileIcons.ts";
 import { applyOperation, copyEntry, deleteEntry, resolveInside } from "../core/fileOps.ts";
-import { CompareSession } from "../core/compareSession.ts";
+import { CompareSession, widestLine } from "../core/compareSession.ts";
 import { contrastRatio } from "../core/color.ts";
 import { translator } from "../core/i18n.ts";
 import { THEMES, theme as themeOf } from "../core/themes.ts";
@@ -337,6 +337,65 @@ test("edit › replacing one line rebuilds that side", () => {
   const compare = session("one\ntwo\n", "one\ntwo\n");
   assert.deepEqual(compare.replaceRow("left", 1, "TWO"), ["one", "TWO"]);
   assert.deepEqual(compare.sideLines("left"), ["one", "two"], "the session itself is untouched");
+});
+
+test("edit › editing a line compares only that row again", () => {
+  // "b" pairs with "B" as modified; the rows around it must not move.
+  const compare = session("a\nb\nc\n", "a\nB\nc\n");
+  const rows = compare.allRows();
+  const index = rows.findIndex((row) => row.kind === "modified");
+  assert.deepEqual(compare.editLine("left", index, "B"), ["a", "B", "c"]);
+  const after = compare.allRows();
+  assert.equal(after.length, rows.length, "no rows appear or vanish");
+  assert.equal(after[index].kind, "same");
+  assert.equal(compare.summary().modified, 0);
+  assert.deepEqual(compare.summary().diffBlocks, []);
+  assert.equal(compare.editLine("left", index, "b again").length, 3);
+  assert.equal(compare.allRows()[index].kind, "modified");
+});
+
+test("edit › typing in a blank cell inserts a line, and removing it takes it out", () => {
+  const compare = session("one\nthree\n", "one\ntwo\nthree\n");
+  const index = compare.allRows().findIndex((row) => row.kind === "added");
+  assert.deepEqual(compare.editLine("left", index, "two"), ["one", "two", "three"]);
+  let rows = compare.allRows();
+  assert.equal(rows[index].kind, "same");
+  assert.deepEqual(rows.map((row) => row.leftNo), [1, 2, 3], "the lines below are renumbered");
+  assert.deepEqual(compare.editLine("left", index, null), ["one", "three"]);
+  rows = compare.allRows();
+  assert.equal(rows[index].kind, "added");
+  assert.deepEqual(rows.map((row) => row.leftNo), [1, null, 2]);
+});
+
+test("edit › the ignore rules still apply to an edited row", () => {
+  const side = (label, text) => ({
+    label, path: label, data: Buffer.from(text, "utf8"), size: text.length, modified: null, missing: false,
+  });
+  const compare = new CompareSession("ws", side("l.txt", "x\ny\n"), side("r.txt", "x\nY\n"), { ignoreCase: true });
+  assert.equal(compare.editLine("left", 1, "y").length, 2);
+  assert.equal(compare.allRows()[1].kind, "same");
+  assert.equal(compare.editLine("left", 1, "z").length, 2);
+  assert.equal(compare.allRows()[1].kind, "modified");
+});
+
+test("edit › a comparison opened read-only (git difftool) refuses every edit", () => {
+  const side = (label, text) => ({
+    label, path: label, data: Buffer.from(text, "utf8"), size: text.length, modified: null, missing: false,
+  });
+  const compare = new CompareSession("ro", side("l.txt", "a\n"), side("r.txt", "b\n"), {}, true);
+  assert.deepEqual(compare.summary().editable, { left: false, right: false });
+  assert.equal(compare.summary().readOnly, true);
+  assert.throws(() => compare.editLine("left", 0, "c"), /read-only/);
+  assert.throws(() => compare.takeRows("right", [0]), /read-only/);
+  assert.deepEqual(session("a\n", "b\n").summary().editable, { left: true, right: true });
+});
+
+test("summary › the widest line counts tabs as the panes draw them", () => {
+  assert.equal(widestLine(["ab", "abcdef"], ["abc"]), 6);
+  assert.equal(widestLine(["\tx"]), 9);
+  assert.equal(widestLine(["ab\tx"]), 9);
+  assert.equal(widestLine([], []), 0);
+  assert.equal(session("short\n", "a much longer line\n").summary().widestLine, 18);
 });
 
 test("edit › a binary comparison refuses to be edited", () => {

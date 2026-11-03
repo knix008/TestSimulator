@@ -222,6 +222,21 @@ test("installer › the prompt exists in Korean and English", () => {
   assert.ok(nsh.includes("Delete them as well?"), "English data prompt");
 });
 
+test("installer › the language picked on its first page becomes the app's language", () => {
+  const nsh = hooks();
+  // Asked on every interactive install, not only the first one.
+  assert.match(nsh, /^!define MUI_LANGDLL_ALWAYSSHOW\r?$/m);
+  // The file core/settingsStore.ts reads, applies and deletes on the next start.
+  const store = readText("core/settingsStore.ts");
+  const [, file] = store.match(/export const INSTALL_LANGUAGE_FILE = "([^"]+)"/);
+  assert.ok(nsh.includes(`!define MCM_INSTALL_LANGUAGE_FILE "${file}"`));
+  assert.ok(nsh.includes('FileOpen $0 "$APPDATA\\${MCM_DATA_FOLDER}\\${MCM_INSTALL_LANGUAGE_FILE}" w'));
+  assert.ok(nsh.includes('FileWrite $0 "ko"') && nsh.includes('FileWrite $0 "en"'));
+  // An upgrade runs silently and must keep the language the user chose in the app.
+  const postInstall = nsh.slice(nsh.indexOf("!macro NSIS_HOOK_POSTINSTALL"), nsh.indexOf("!macroend"));
+  assert.ok(postInstall.indexOf("${IfNot} ${Silent}") < postInstall.indexOf("FileOpen"));
+});
+
 test("installer › only installers are copied to the project root", () => {
   assert.deepEqual(
     installersIn(["My Compare Master_1.0.0_x64-setup.exe", "uninstall.exe", "notes.txt", "x.msi", "a.AppImage"]),

@@ -215,7 +215,13 @@ export function App() {
   useEffect(() => {
     if (!host.isDesktop()) return;
     return window.mcm?.onOpenRequest((argv) => {
-      void app.openDropped(argv.filter((item) => !item.startsWith("-")));
+      const files = argv.filter((item) => !item.startsWith("-"));
+      // `--diff` is git difftool asking: a read-only comparison of the two versions.
+      if (files.length === 2 && argv.some((item) => item.toLowerCase() === "--diff")) {
+        void app.openFiles(files[0], files[1], false, undefined, true);
+        return;
+      }
+      void app.openDropped(files);
     });
   }, [app]);
 

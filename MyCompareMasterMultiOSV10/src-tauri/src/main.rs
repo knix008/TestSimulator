@@ -494,8 +494,14 @@ fn main() {
     let context = tauri::generate_context!();
     let resources = tauri::utils::platform::resource_dir(context.package_info(), &tauri::Env::default()).ok();
 
+    // `git difftool` waits for this process before it moves on to the next file and
+    // deletes its temporary $LOCAL, and the core tells a git run (read-only) from its
+    // environment. So a git run keeps its own window rather than handing its two paths
+    // to a running copy and exiting at once.
+    let git_diff_run = std::env::var_os("GIT_DIFF_PATH_TOTAL").is_some();
+
     let mut builder = tauri::Builder::default();
-    if !isolated {
+    if !isolated && !git_diff_run {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let Some(main) = main_window(app) else { return };
             let _ = main.unminimize();

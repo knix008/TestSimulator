@@ -10,6 +10,7 @@ import {
   blockStarts,
   computeRows,
   documentFromRows,
+  linesEqual,
   wordSpans,
   type CompareOptions,
   type DiffDocument,
@@ -65,6 +66,12 @@ export type CompareSummary = {
   kinds: string;
   identical: boolean;
   differentBytes: number;
+  /** Columns in the longest line of either side (tabs expanded); 0 for a hex dump. */
+  widestLine: number;
+  /** Which sides can be edited in place: a text file on disk, not opened read-only. */
+  editable: { left: boolean; right: boolean };
+  /** Opened by `git difftool`; carried along when the pair is reopened (swap). */
+  readOnly: boolean;
 };
 
 export type TextRow = DiffRow & {
@@ -85,6 +92,8 @@ export class CompareSession {
   readonly left: CompareSide;
   readonly right: CompareSide;
   readonly options: CompareOptions;
+  /** Opened by `git difftool`: a look at two versions, never a place to change them. */
+  readonly readOnly: boolean;
 
   private readonly leftLines: string[];
   private readonly rightLines: string[];
@@ -100,11 +109,12 @@ export class CompareSession {
   private leftLex: LexState[] | null = null;
   private rightLex: LexState[] | null = null;
 
-  constructor(id: string, left: CompareSide, right: CompareSide, options: CompareOptions = {}) {
+  constructor(id: string, left: CompareSide, right: CompareSide, options: CompareOptions = {}, readOnly = false) {
     this.id = id;
     this.left = left;
     this.right = right;
     this.options = options;
+    this.readOnly = readOnly;
     /*
      * A format reader comes first. An MP3 or an executable is binary and would
      * otherwise be a hex dump; a CSV is text and would otherwise compare as noise.
@@ -207,6 +217,12 @@ export class CompareSession {
       kinds,
       identical: added === 0 && removed === 0 && modified === 0,
       differentBytes: this.binary?.differentBytes ?? 0,
+      widestLine: widestLine(this.leftLines, this.rightLines),
+      editable: {
+        left: this.writable && Boolean(this.left.path),
+        right: this.writable && Boolean(this.right.path),
+      },
+      readOnly: this.readOnly,
     };
   }
 
@@ -387,10 +403,79 @@ export class CompareSession {
   }
 
   /**
+   * One line edited in place, and that row alone compared again.
+   *
+   * The rest of the alignment is left as it is: re-diffing the file on every keystroke
+   * commit would make rows jump while the user is typing in them. `null` removes the
+   * line; text in a blank cell inserts one there. The line numbers below it shift, and
+   * the side's lines come back for the caller to write.
+   */
+  editLine(side: "left" | "right", rowIndex: number, text: string | null): string[] {
+    const document = this.editableDocument();
+    const row = document.rows[rowIndex];
+    if (!row) throw new ApiError("That line is not in the comparison.", "BAD_REQUEST", 400);
+    const lines = side === "left" ? this.leftLines : this.rightLines;
+    const numberKey = side === "left" ? "leftNo" : "rightNo";
+    const number = row[numberKey];
+    const shift = (by: number) => {
+      for (let index = rowIndex + 1; index < document.rows.length; index++) {
+        const value = document.rows[index][numberKey];
+        if (value !== null) document.rows[index][numberKey] = value + by;
+      }
+    };
+
+    if (number !== null && text !== null) {
+      lines[number - 1] = text;
+    } else if (number === null && text !== null) {
+      // The new line goes after the last line of this side above the row.
+      let before = 0;
+      for (let index = rowIndex - 1; index >= 0; index--) {
+        const value = document.rows[index][numberKey];
+        if (value !== null) {
+          before = value;
+          break;
+        }
+      }
+      lines.splice(before, 0, text);
+      row[numberKey] = before + 1;
+      shift(1);
+    } else if (number !== null && text === null) {
+      lines.splice(number - 1, 1);
+      row[numberKey] = null;
+      shift(-1);
+    }
+    row[side] = text;
+    row.kind = this.kindOf(row);
+    Object.assign(document, documentFromRows(document.rows));
+    if (side === "left") this.leftLex = null;
+    else this.rightLex = null;
+    return [...lines];
+  }
+
+  /** What a row is, judged on its own with the comparison's ignore rules. */
+  private kindOf(row: DiffRow): DiffRow["kind"] {
+    if (row.left === null) return row.right === null ? "same" : "added";
+    if (row.right === null) return "removed";
+    if (linesEqual(row.left, row.right, this.options)) return "same";
+    if (!hasSignificanceRules(this.options)) return "modified";
+    const [left] = significantLines([row.left], languageFor(this.left.path ?? this.left.label), this.options);
+    const [right] = significantLines([row.right], languageFor(this.right.path ?? this.right.label), this.options);
+    return linesEqual(left, right, this.options) ? "same" : "modified";
+  }
+
+  /** True when the lines on screen are the file's own and the session may change them. */
+  private get writable(): boolean {
+    return this.mode === "text" && this.format === "text" && !this.readOnly;
+  }
+
+  /**
    * The document, when writing to it is allowed. Refuses when what is on screen is a reading of the file rather than
    * the file. Saving the tags of an MP3 back over the MP3 would destroy it.
    */
   private editableDocument(): DiffDocument {
+    if (this.readOnly) {
+      throw new ApiError("This comparison was opened read-only (git difftool).", "READ_ONLY", 400);
+    }
     if (!this.document) throw new ApiError("A binary comparison cannot be edited.", "BINARY", 400);
     if (this.format !== "text") {
       throw new ApiError(
@@ -415,6 +500,29 @@ export class CompareSession {
   }
 }
 
+/** The tab width the panes draw with (the CSS default, `tab-size: 8`). */
+const TAB_COLUMNS = 8;
+
+/**
+ * How many columns the longest line of either side takes on screen, so the view can
+ * size its horizontal scrollbar for the whole file and not just the rows it has loaded.
+ */
+export function widestLine(...sides: string[][]): number {
+  let widest = 0;
+  for (const lines of sides) {
+    for (const line of lines) {
+      if (line.length <= widest) continue;
+      if (!line.includes("\t")) {
+        widest = line.length;
+        continue;
+      }
+      let columns = 0;
+      for (const char of line) columns = char === "\t" ? columns + TAB_COLUMNS - (columns % TAB_COLUMNS) : columns + 1;
+      widest = Math.max(widest, columns);
+    }
+  }
+  return widest;
+}
 
 /** Plain text has no grammar, so highlighting it would only cost bandwidth. */
 function isPlainId(id: string): boolean {

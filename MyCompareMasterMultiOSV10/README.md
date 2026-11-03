@@ -51,7 +51,9 @@ opened recently.
 
 - **Copy a difference across** in a file comparison: the arrows in the middle column
   write that whole block to the other side.
-- **Edit a line in place** by double-clicking it; the file is written out.
+- **Edit either pane in place**: click a line and type; `Enter` / `↑` / `↓` move on, only
+  the edited line is compared again, the file is written out, and Undo / Redo cover it.
+  A comparison opened by `git difftool` is read-only.
 - **Copy and delete between folders** in a directory comparison, with a confirmation
   before anything is removed.
 - **Differences only** hides the unchanged stretches and keeps three lines of context.

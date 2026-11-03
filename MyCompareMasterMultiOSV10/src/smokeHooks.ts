@@ -82,6 +82,8 @@ export function installSmokeHooks(): void {
       const app = store();
       if (!app) throw new Error("no store");
       if (kind === "files") await app.openFiles(paths[0], paths[1]);
+      // What a `git difftool` launch opens: the same pair, read-only.
+      else if (kind === "gitdiff") await app.openFiles(paths[0], paths[1], false, undefined, true);
       else if (kind === "directories") await app.openDirectories(paths[0], paths[1]);
       else if (kind === "sync") await app.openDirectories(paths[0], paths[1], true);
       else if (kind === "merge") await app.openThreeWay(paths[0], paths[1], paths[2], paths[3]);

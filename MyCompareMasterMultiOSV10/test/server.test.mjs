@@ -448,6 +448,55 @@ test("changes › a file written after it was read is reported until it is read 
   assert.deepEqual(answer.changed, []);
 });
 
+test("editing › a line edit is written, compared on its own and not reported as an outside change", async () => {
+  const left = write("edit/line-l.txt", "a\nb\nc\n");
+  const right = write("edit/line-r.txt", "a\nB\nc\n");
+  const { body } = await api("POST", "/api/compare/files", { left, right });
+  const id = body.compare.id;
+  assert.deepEqual(body.compare.editable, { left: true, right: true });
+  const { body: edited } = await api("POST", `/api/compare/${id}/edit`, { side: "left", row: 1, text: "B" });
+  assert.equal(edited.compare.identical, true);
+  assert.equal(fs.readFileSync(left, "utf8"), "a\nB\nc\n");
+  const { body: answer } = await api("POST", "/api/changes", { compares: [id], directories: [] });
+  assert.deepEqual(answer.changed, [], "our own write is not someone else's change");
+  // Undo of a line edit is the same call with the old text.
+  await api("POST", `/api/compare/${id}/edit`, { side: "left", row: 1, text: "b" });
+  assert.equal(fs.readFileSync(left, "utf8"), "a\nb\nc\n");
+});
+
+test("editing › taking rows across returns the side before and after, and both can be written back", async () => {
+  const left = write("edit/take-l.txt", "one\ntwo\n");
+  const right = write("edit/take-r.txt", "one\nTWO\n");
+  const { body } = await api("POST", "/api/compare/files", { left, right });
+  const id = body.compare.id;
+  const { body: taken } = await api("POST", `/api/compare/${id}/take`, { target: "right", rows: [1] });
+  assert.deepEqual(taken.before, ["one", "TWO"]);
+  assert.deepEqual(taken.after, ["one", "two"]);
+  assert.equal(taken.compare.identical, true);
+  const { body: undone } = await api("POST", `/api/compare/${id}/side`, { side: "right", lines: taken.before });
+  assert.equal(undone.compare.identical, false);
+  assert.equal(fs.readFileSync(right, "utf8"), "one\nTWO\n");
+});
+
+test("editing › a comparison opened for git difftool cannot be changed", async () => {
+  const left = write("edit/ro-l.txt", "a\n");
+  const right = write("edit/ro-r.txt", "b\n");
+  const { body } = await api("POST", "/api/compare/files", { left, right, readOnly: true });
+  const id = body.compare.id;
+  assert.deepEqual(body.compare.editable, { left: false, right: false });
+  for (const [route, payload] of [
+    ["edit", { side: "left", row: 0, text: "x" }],
+    ["take", { target: "left", rows: [0] }],
+    ["side", { side: "left", lines: ["x"] }],
+  ]) {
+    const { status } = await api("POST", `/api/compare/${id}/${route}`, payload);
+    assert.equal(status, 400, route);
+  }
+  assert.equal(fs.readFileSync(left, "utf8"), "a\n");
+  const { body: reloaded } = await api("POST", `/api/compare/${id}/reload`);
+  assert.equal(reloaded.compare.readOnly, true, "a reload keeps it read-only");
+});
+
 test("changes › a file in a compared folder is reported, and a reload settles it", async () => {
   const left = path.join(scratch, "watch-dir", "left");
   const right = path.join(scratch, "watch-dir", "right");

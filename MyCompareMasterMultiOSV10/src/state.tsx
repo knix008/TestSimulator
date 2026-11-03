@@ -179,7 +179,8 @@ export type AppStore = {
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   resetSettings: () => Promise<void>;
 
-  openFiles: (left: string, right: string, forceHex?: boolean, format?: FormatId) => Promise<void>;
+  /** `readOnly` is a comparison git asked for: nothing in it can be edited. */
+  openFiles: (left: string, right: string, forceHex?: boolean, format?: FormatId, readOnly?: boolean) => Promise<void>;
   openDirectories: (left: string, right: string, sync?: boolean) => Promise<void>;
   /** A folder here against one on an FTP server. */
   openRemoteDirectories: (local: string, remote: string, password: string) => Promise<void>;
@@ -206,8 +207,17 @@ export type AppStore = {
   runDirectorySync: (tab: DirectoryTab) => Promise<void>;
   /** Copy rows from one side of a file comparison to the other, and write it out. */
   takeRows: (tab: CompareTab, target: "left" | "right", rows: number[]) => Promise<void>;
-  /** Replace one line of one side and write it out. */
-  editCompareRow: (tab: CompareTab, side: "left" | "right", row: number, text: string) => Promise<void>;
+  /**
+   * Replace (or insert, or with `null` remove) one line of one side and write it out.
+   * `before` is the cell's text until now, which is what Undo puts back.
+   */
+  editCompareRow: (
+    tab: CompareTab,
+    side: "left" | "right",
+    row: number,
+    text: string | null,
+    before: string | null,
+  ) => Promise<void>;
   /** Re-points one side of a file comparison from its own path bar. */
   setCompareSide: (tab: CompareTab, side: "left" | "right", file: string) => Promise<void>;
 
@@ -451,10 +461,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     right: string,
     forceHex = false,
     format?: FormatId,
+    readOnly = false,
   ) => {
     try {
       const summary = await withProgress("progress.readingFiles",
-        () => api.compareFiles(left, right, forceHex, format));
+        () => api.compareFiles(left, right, forceHex, format, readOnly));
       addTab({
         kind: "compare",
         id: newTabId(),
@@ -735,7 +746,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!tab) return;
     if (tab.kind === "compare" && tab.summary.left.path && tab.summary.right.path) {
       closeTab(tab.id);
-      await openFiles(tab.summary.right.path, tab.summary.left.path);
+      await openFiles(tab.summary.right.path, tab.summary.left.path, false, undefined, tab.summary.readOnly);
     } else if (tab.kind === "directory") {
       closeTab(tab.id);
       await openDirectories(tab.result.right, tab.result.left);
@@ -879,32 +890,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [patchTab, report, setStatus, t, withProgress]);
 
+  /*
+   * Writes to a compared file go out one at a time, in the order they were made: a
+   * line committed while the previous one is still being saved must not overtake it,
+   * and an Undo must act on the state the edit before it left behind.
+   */
+  const compareWrites = useRef<Promise<void>>(Promise.resolve());
+  const writeCompare = useCallback((tabId: string, work: () => Promise<CompareSummary>) => {
+    const next = compareWrites.current.then(async () => {
+      try {
+        const summary = await work();
+        patchTab<CompareTab>(tabId, (current) => ({ ...current, summary }));
+        setStatus((t) => summaryText(summary, t));
+      } catch (error) {
+        report(error);
+      }
+    });
+    compareWrites.current = next;
+    return next;
+  }, [patchTab, report, setStatus]);
+
   const takeRows = useCallback(async (tab: CompareTab, target: "left" | "right", rows: number[]) => {
     if (rows.length === 0) return;
-    try {
-      const summary = await withProgress("progress.saving", () => api.takeRows(tab.summary.id, target, rows));
-      patchTab<CompareTab>(tab.id, (current) => ({ ...current, summary }));
-      setStatus((t) => summaryText(summary, t));
-    } catch (error) {
-      report(error);
-    }
-  }, [patchTab, report, t, withProgress]);
+    const id = tab.summary.id;
+    await writeCompare(tab.id, async () => {
+      const outcome = await withProgress("progress.saving", () => api.takeRows(id, target, rows));
+      // The file is rewritten, so Undo puts the whole side back as it was.
+      undo.push({
+        label: t("undo.take"),
+        undo: () => void writeCompare(tab.id, () => api.setSideLines(id, target, outcome.before)),
+        redo: () => void writeCompare(tab.id, () => api.setSideLines(id, target, outcome.after)),
+      });
+      return outcome.compare;
+    });
+  }, [t, undo, withProgress, writeCompare]);
 
   const editCompareRow = useCallback(async (
     tab: CompareTab,
     side: "left" | "right",
     row: number,
-    text_: string,
+    text_: string | null,
+    before: string | null,
   ) => {
-    try {
-      const summary = await withProgress("progress.saving", () =>
-        api.editRow(tab.summary.id, side, row, text_));
-      patchTab<CompareTab>(tab.id, (current) => ({ ...current, summary }));
-      setStatus((t) => summaryText(summary, t));
-    } catch (error) {
-      report(error);
-    }
-  }, [patchTab, report, t, withProgress]);
+    if (text_ === before) return;
+    const id = tab.summary.id;
+    // Only that row is compared again, so its index stays put and Undo can address it.
+    await writeCompare(tab.id, async () => {
+      const summary = await api.editRow(id, side, row, text_);
+      undo.push({
+        label: t("undo.editLine"),
+        undo: () => void writeCompare(tab.id, () => api.editRow(id, side, row, before)),
+        redo: () => void writeCompare(tab.id, () => api.editRow(id, side, row, text_)),
+      });
+      return summary;
+    });
+  }, [t, undo, writeCompare]);
 
   const setCompareSide = useCallback(async (tab: CompareTab, side: "left" | "right", file: string) => {
     const left = side === "left" ? file : tab.summary.left.path ?? tab.summary.left.label;
@@ -1215,7 +1255,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pendingHandled.current = true;
     const request = bootstrap.pending;
     if (!request) return;
-    if (request.kind === "diff") void openFiles(request.left, request.right);
+    if (request.kind === "diff") void openFiles(request.left, request.right, false, undefined, request.readOnly);
     else if (request.kind === "merge") void openThreeWay(request.base, request.local, request.remote, request.merged);
     else if (request.kind === "conflict") void openConflictFile(request.file);
     else if (request.kind === "repository") void openRepository(request.path);
