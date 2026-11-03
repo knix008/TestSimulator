@@ -1,0 +1,57 @@
+// Puts everything the installed app needs to run its core into src-tauri/runtime/,
+// which tauri.conf.json ships as a resource. The installed app then needs no Node.js,
+// npm or node_modules on the machine:
+//
+//   runtime/node(.exe)              the Node runtime this build runs on
+//   runtime/desktop.cjs             server/ + core/ + npm dependencies, one file
+//   runtime/node_modules/node-pty/  the terminal's native module (N-API, so any Node)
+//   runtime/dist/                   the built UI, served by the core to every window
+//
+// Run after `npm run build:ui` and `npm run build:server` (tauri-before-build does).
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const out = path.join(root, "src-tauri", "runtime");
+
+for (const needed of ["dist/index.html", "dist-server/desktop.cjs", "node_modules/node-pty/package.json"]) {
+  if (!fs.existsSync(path.join(root, needed))) {
+    console.error(`[runtime] ${needed} is missing; run npm install and npm run build first`);
+    process.exit(1);
+  }
+}
+
+fs.mkdirSync(out, { recursive: true });
+fs.rmSync(path.join(out, "dist"), { recursive: true, force: true });
+fs.cpSync(path.join(root, "dist"), path.join(out, "dist"), { recursive: true });
+fs.copyFileSync(path.join(root, "dist-server", "desktop.cjs"), path.join(out, "desktop.cjs"));
+
+// node-pty without its sources and build leftovers: lib/ plus the binaries.
+const ptyFrom = path.join(root, "node_modules", "node-pty");
+const ptyTo = path.join(out, "node_modules", "node-pty");
+fs.rmSync(ptyTo, { recursive: true, force: true });
+const PLATFORM = `${process.platform}-${process.arch}`;
+const SKIP = new Set(["src", "deps", "scripts", "typings", "third_party", "node-addon-api", "obj", ".deps"]);
+fs.cpSync(ptyFrom, ptyTo, {
+  recursive: true,
+  filter: (source) => {
+    const rel = path.relative(ptyFrom, source);
+    if (!rel) return true;
+    const parts = rel.split(path.sep);
+    if (parts.some((part) => SKIP.has(part))) return false;
+    if (parts[0] === "prebuilds" && parts[1] && parts[1] !== PLATFORM) return false;
+    return !/\.(pdb|ilk|lib|exp|iobj|ipdb|tlog|obj|map|ts)$/i.test(source);
+  },
+});
+
+// Copy the runtime only when it changed: it is ~90 MB.
+const nodeName = process.platform === "win32" ? "node.exe" : "node";
+const nodeDest = path.join(out, nodeName);
+const source = fs.statSync(process.execPath);
+const existing = fs.existsSync(nodeDest) ? fs.statSync(nodeDest) : null;
+if (!existing || existing.size !== source.size || existing.mtimeMs < source.mtimeMs) {
+  fs.copyFileSync(process.execPath, nodeDest);
+  if (process.platform !== "win32") fs.chmodSync(nodeDest, 0o755);
+}
+console.log(`[runtime] ${path.relative(root, out)} ready (node ${process.version})`);

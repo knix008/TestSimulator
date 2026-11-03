@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-server/
+# The installers `npm run installer` copies to the root for convenience
+My Git Master_*
+*.AppImage
+*.deb
+test-results/
+
+# Tauri: build output, generated schemas, and the staged runtime (node + core + UI)
+src-tauri/target/
+src-tauri/gen/
+src-tauri/runtime/*
+!src-tauri/runtime/.keep
+
+# Logs / caches
+*.log
+*.tmp
+*.bak
+.vite/
+
+# Editors
+.vs/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local / AI tooling (not part of the product)
+.claude/
+.cursor/
+user-settings.json
+
+# Local export / report samples (not part of the product)
+sample-reports/
+**/exports/

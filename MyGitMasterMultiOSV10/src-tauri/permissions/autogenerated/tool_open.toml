@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tool-open"
+description = "Enables the tool_open command without any pre-configured scope."
+commands.allow = ["tool_open"]
+
+[[permission]]
+identifier = "deny-tool-open"
+description = "Denies the tool_open command without any pre-configured scope."
+commands.deny = ["tool_open"]

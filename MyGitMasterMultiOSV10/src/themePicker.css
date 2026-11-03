@@ -1,0 +1,38 @@
+/* Preferences › Theme (src/ThemePicker.tsx): My themes + editor, Dark, Light. */
+.theme-picker-head { display: flex; align-items: center; gap: 6px; font-weight: 650; }
+.theme-picker-head .icon { width: 14px; height: 14px; min-width: 14px; min-height: 14px; flex-basis: 14px; }
+.theme-picker-new,
+.theme-editor-delete {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--button-border);
+  background: var(--button);
+  color: var(--ink);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.theme-picker-new:hover, .theme-editor-delete:hover { background: var(--hover); }
+.theme-picker-empty { font-size: 12px; color: var(--muted); padding: 2px; }
+.theme-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--alt-row);
+}
+.theme-editor-row { display: flex; align-items: flex-end; gap: 10px; }
+.theme-editor-row label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.theme-editor-row input, .theme-editor-row select { padding: 3px 6px; min-width: 0; }
+.theme-editor-row label:first-child { flex: 1 1 auto; }
+.theme-editor-row label:first-child input { width: 100%; }
+.theme-editor-colors { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px 8px; }
+.theme-color { display: flex; align-items: center; gap: 6px; font-size: 11px; min-width: 0; }
+.theme-color input[type="color"] { width: 28px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 3px; background: none; flex: 0 0 28px; }
+.theme-color span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

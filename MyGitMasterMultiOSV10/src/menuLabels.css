@@ -1,0 +1,66 @@
+/*
+ * Menu labels always stay on one line.
+ *
+ * Korean text breaks between any two characters, so a squeezed menu would stack its
+ * label vertically. Every menu-like surface — menubar roots, drop-down and context
+ * menus, the toolbar's "More" list, the theme drop-down, tabs — keeps its labels on a
+ * single line and sizes to its content instead. Pop-up menu windows reuse the same
+ * classes (.menu-pop / .context / .menu-label / .menu-shortcut).
+ */
+.menubar > *,
+.menubar .menu,
+.menubar .menu > button,
+.app-title,
+.app-title > * { flex-shrink: 0; white-space: nowrap; }
+
+.menu-pop,
+.context,
+.git-tool-more {
+  width: max-content;
+  min-width: 200px;
+  max-width: min(560px, calc(100vw - 16px));
+}
+.menu-pop button,
+.context button,
+.git-tool-more button { white-space: nowrap; }
+.menu-pop .menu-label,
+.context .menu-label,
+.menu-pop button > span:not(.menu-glyph),
+.context button > span:not(.menu-glyph) { flex: 1 0 auto; white-space: nowrap; }
+/* A shortcut sits at the right end of the same line. */
+.menu-shortcut { flex: 0 0 auto; margin-left: auto; padding-left: 24px; color: var(--muted); white-space: nowrap; font-size: 12px; }
+/* Recent paths are the one exception: long, so cut with an ellipsis — still one line. */
+.menu-pop .recent-row button:first-child span { flex: 1 1 auto; min-width: 0; }
+
+.prefs-tabs button,
+.theme-option,
+.theme-menu-title,
+.theme-menu-settings,
+.theme-picker-new,
+.theme-picker-head,
+.tool-bar button,
+.section-btn,
+.linkish,
+.dialog header strong,
+.dialog footer button { white-space: nowrap; flex-shrink: 0; }
+.theme-menu-title > span { white-space: nowrap; }
+
+/*
+ * Panel headers (Files, Repository, Commit History, Commit Details, Changed Files,
+ * Diff…) stay on one line: the title gives way first, with "…", but never below a few
+ * characters; its buttons keep their size, the search box shrinks to a minimum. The
+ * full title is in the element's title attribute.
+ */
+.section { flex-wrap: nowrap; min-width: 0; }
+.section > span:not(.fs-path) {
+  flex: 0 1 auto;
+  min-width: 4.5em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.section > button,
+.section > .section-btn,
+.section > .linkish,
+.section > .drive-row { flex-shrink: 0; white-space: nowrap; }
+.section > input.search { flex: 0 1 180px; min-width: 64px; }

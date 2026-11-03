@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pick-program"
+description = "Enables the pick_program command without any pre-configured scope."
+commands.allow = ["pick_program"]
+
+[[permission]]
+identifier = "deny-pick-program"
+description = "Denies the pick_program command without any pre-configured scope."
+commands.deny = ["pick_program"]
