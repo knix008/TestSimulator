@@ -1,0 +1,328 @@
+{
+  "video": "MySimulationMath-Tutorial.mp4",
+  "mime": "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+  "width": 1360,
+  "height": 840,
+  "duration": 746.3,
+  "narration": "Microsoft Heami Desktop",
+  "language": "ko",
+  "theme": "midnight",
+  "recorded": "2026-11-03T00:01:22.277Z",
+  "chapters": [
+    {
+      "id": "start",
+      "title": "시작 화면",
+      "start": 0.1
+    },
+    {
+      "id": "desktop",
+      "title": "화면 구성",
+      "start": 131.7
+    },
+    {
+      "id": "script",
+      "title": "새 스크립트",
+      "start": 234.6
+    },
+    {
+      "id": "command",
+      "title": "명령 창과 작업 공간",
+      "start": 263.2
+    },
+    {
+      "id": "editor",
+      "title": "편집기에서 실행",
+      "start": 312.2
+    },
+    {
+      "id": "figures",
+      "title": "그림 창",
+      "start": 381.6
+    },
+    {
+      "id": "model",
+      "title": "블록 다이어그램",
+      "start": 517.6
+    },
+    {
+      "id": "finish",
+      "title": "설정과 도움말",
+      "start": 674
+    }
+  ],
+  "steps": [
+    {
+      "id": "welcome",
+      "chapter": "start",
+      "title": "MySimulationMath에 오신 것을 환영합니다",
+      "start": 0.1,
+      "narration": 27.8
+    },
+    {
+      "id": "heroDocs",
+      "chapter": "start",
+      "title": "문서와 튜토리얼 단추",
+      "start": 29.2,
+      "narration": 19
+    },
+    {
+      "id": "startNew",
+      "chapter": "start",
+      "title": "새로 만들기",
+      "start": 49.5,
+      "narration": 24.7
+    },
+    {
+      "id": "startRecent",
+      "chapter": "start",
+      "title": "최근 파일",
+      "start": 75.5,
+      "narration": 9.9
+    },
+    {
+      "id": "startHelp",
+      "chapter": "start",
+      "title": "도움말 카드",
+      "start": 86.8,
+      "narration": 13.1
+    },
+    {
+      "id": "startSamples",
+      "chapter": "start",
+      "title": "샘플·예제",
+      "start": 101.6,
+      "narration": 12.7
+    },
+    {
+      "id": "startBackground",
+      "chapter": "start",
+      "title": "움직이는 배경",
+      "start": 115.9,
+      "narration": 13.4
+    },
+    {
+      "id": "desk",
+      "chapter": "desktop",
+      "title": "데스크톱",
+      "start": 131.7,
+      "narration": 17.5
+    },
+    {
+      "id": "ribbon",
+      "chapter": "desktop",
+      "title": "리본 탭",
+      "start": 150.6,
+      "narration": 9.5
+    },
+    {
+      "id": "ribbonHome",
+      "chapter": "desktop",
+      "title": "홈 리본",
+      "start": 161.5,
+      "narration": 16.4
+    },
+    {
+      "id": "folder",
+      "chapter": "desktop",
+      "title": "현재 폴더",
+      "start": 179.3,
+      "narration": 20.2
+    },
+    {
+      "id": "bottomPanel",
+      "chapter": "desktop",
+      "title": "하단 패널",
+      "start": 200.9,
+      "narration": 16.7
+    },
+    {
+      "id": "emptyArea",
+      "chapter": "desktop",
+      "title": "빈 편집 영역",
+      "start": 219.3,
+      "narration": 13.3
+    },
+    {
+      "id": "newScript",
+      "chapter": "script",
+      "title": "새 스크립트",
+      "start": 234.6,
+      "narration": 26.8
+    },
+    {
+      "id": "cmd",
+      "chapter": "command",
+      "title": "명령 창",
+      "start": 263.2,
+      "narration": 19.6
+    },
+    {
+      "id": "workspace",
+      "chapter": "command",
+      "title": "작업 공간",
+      "start": 284.2,
+      "narration": 15.1
+    },
+    {
+      "id": "history",
+      "chapter": "command",
+      "title": "명령 기록",
+      "start": 300.6,
+      "narration": 10
+    },
+    {
+      "id": "editorRibbon",
+      "chapter": "editor",
+      "title": "실행과 디버그",
+      "start": 312.2,
+      "narration": 26.3
+    },
+    {
+      "id": "runScript",
+      "chapter": "editor",
+      "title": "스크립트 실행 결과",
+      "start": 341,
+      "narration": 10.1
+    },
+    {
+      "id": "toModel",
+      "chapter": "editor",
+      "title": "스크립트를 모델로",
+      "start": 352.8,
+      "narration": 26.7
+    },
+    {
+      "id": "figure",
+      "chapter": "figures",
+      "title": "그림 창",
+      "start": 381.6,
+      "narration": 12.7
+    },
+    {
+      "id": "figToolbar",
+      "chapter": "figures",
+      "title": "그림 도구 모음",
+      "start": 396.2,
+      "narration": 23.8
+    },
+    {
+      "id": "figZoom",
+      "chapter": "figures",
+      "title": "확대",
+      "start": 422.7,
+      "narration": 12.8
+    },
+    {
+      "id": "fig3d",
+      "chapter": "figures",
+      "title": "3D 그림과 2D/3D 전환",
+      "start": 438.2,
+      "narration": 15
+    },
+    {
+      "id": "figGrid",
+      "chapter": "figures",
+      "title": "격자와 눈금자",
+      "start": 455.9,
+      "narration": 13.8
+    },
+    {
+      "id": "figEdges",
+      "chapter": "figures",
+      "title": "선 끄기",
+      "start": 472.2,
+      "narration": 12.4
+    },
+    {
+      "id": "figBox",
+      "chapter": "figures",
+      "title": "상자",
+      "start": 487,
+      "narration": 11.9
+    },
+    {
+      "id": "figColorbar",
+      "chapter": "figures",
+      "title": "컬러바 옮기기",
+      "start": 501.1,
+      "narration": 13.9
+    },
+    {
+      "id": "model",
+      "chapter": "model",
+      "title": "블록 다이어그램 편집기",
+      "start": 517.6,
+      "narration": 16.1
+    },
+    {
+      "id": "library",
+      "chapter": "model",
+      "title": "블록 라이브러리",
+      "start": 535.4,
+      "narration": 18.1
+    },
+    {
+      "id": "simToolbar",
+      "chapter": "model",
+      "title": "모델 도구 모음",
+      "start": 555.1,
+      "narration": 26.9
+    },
+    {
+      "id": "simRibbon",
+      "chapter": "model",
+      "title": "시뮬레이션 리본",
+      "start": 583.7,
+      "narration": 11.8
+    },
+    {
+      "id": "eqModel",
+      "chapter": "model",
+      "title": "수식으로 모델 만들기",
+      "start": 597.3,
+      "narration": 20.8
+    },
+    {
+      "id": "ioGraph",
+      "chapter": "model",
+      "title": "입력·출력 그래프",
+      "start": 624,
+      "narration": 25.1
+    },
+    {
+      "id": "toScript",
+      "chapter": "model",
+      "title": "모델을 스크립트로",
+      "start": 650.8,
+      "narration": 21.6
+    },
+    {
+      "id": "settings",
+      "chapter": "finish",
+      "title": "설정",
+      "start": 674,
+      "narration": 19.7
+    },
+    {
+      "id": "theme",
+      "chapter": "finish",
+      "title": "테마와 언어",
+      "start": 694.8,
+      "narration": 9.9
+    },
+    {
+      "id": "helpTab",
+      "chapter": "finish",
+      "title": "도움말 탭",
+      "start": 706.1,
+      "narration": 17.9
+    },
+    {
+      "id": "help",
+      "chapter": "finish",
+      "title": "사용 설명서와 튜토리얼",
+      "start": 725.3,
+      "narration": 19.6
+    }
+  ]
+}

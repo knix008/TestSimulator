@@ -472,12 +472,15 @@ try {
   await waitFor(() => frames.length > 0, 10000, 50);
   const origin = frames[0].time;
   const marks = [];
+  const seeThrough = [];
   const recordStart = Date.now();
   for (let i = 0; i < steps.length; i++) {
     if (i > 0) await cdp.evaluate(`window.__msm.tutorial.go(${i})`);
     await settled();
     const now = await cdp.evaluate('Date.now() / 1000');
     marks.push(Math.max(0, now - origin));
+    // The card is see-through (until hovered) only when it covers its target; a viewer cannot hover.
+    if (await cdp.evaluate("!!document.querySelector('.msm-tour-card.see-through')")) seeThrough.push(steps[i].id);
     process.stdout.write(`\r  ${String(i + 1).padStart(3)}/${steps.length} ${steps[i].id.padEnd(22)} ${holdOf(i).toFixed(1)} s`);
     await sleep(holdOf(i) * 1000);
   }
@@ -487,6 +490,7 @@ try {
   await cdp.evaluate('window.__msm.tutorial.stop()');
   process.stdout.write('\n');
   console.log(`  recorded ${steps.length} step(s) in ${((Date.now() - recordStart) / 1000).toFixed(1)} s, ${frames.length} frames`);
+  if (seeThrough.length) console.warn(`  card see-through (covers its target) in: ${seeThrough.join(', ')}`);
   if (!frames.length) throw new Error('no frames recorded');
 
   // 3. Encoding.

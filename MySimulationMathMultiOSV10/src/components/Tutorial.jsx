@@ -322,7 +322,8 @@ export function Tutorial({ onProgress }) {
   }
 
   // The card goes to the first corner whose rectangle stays 16 px clear of the
-  // target; when every corner would cover it: bottom-right, see-through until hovered.
+  // target, else the first that merely does not overlap it; when every corner
+  // would cover it: bottom-right, see-through until hovered.
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const cw = (cardRef.current && cardRef.current.offsetWidth) || Math.min(460, vw - 24);
@@ -333,12 +334,11 @@ export function Tutorial({ onProgress }) {
     { style: { right: 18, top: 84 }, box: { left: vw - 18 - cw, top: 84 } },
     { style: { left: 18, top: 84 }, box: { left: 18, top: 84 } },
   ];
-  const clear = (c) => {
+  const clear = (c, m) => {
     if (!rect) return true;
-    const m = 16;
     return c.box.left + cw <= rect.left - m || c.box.left >= rect.left + rect.width + m || c.box.top + ch <= rect.top - m || c.box.top >= rect.top + rect.height + m;
   };
-  const free = corners.find(clear);
+  const free = corners.find((c) => clear(c, 16)) || corners.find((c) => clear(c, 0));
   const manual = dragged && dragged.chapter === step.chapter ? dragged : null;
   const placed = manual ? { right: manual.right, bottom: manual.bottom } : (free || corners[0]).style;
   const seeThrough = !manual && !free && !!rect;
