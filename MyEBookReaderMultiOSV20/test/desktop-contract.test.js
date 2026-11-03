@@ -214,4 +214,26 @@ describe('Tauri configuration', () => {
     const guid = `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
     expect(hooks.toString('utf8')).toContain(`Uninstall\\${guid}"`);
   });
+
+  it('clears the file associations an earlier build left pointing at a missing exe', () => {
+    const text = hooks.toString('utf8');
+    const preinstall = text.slice(text.indexOf('!macro NSIS_HOOK_PREINSTALL'));
+    expect(preinstall.slice(0, preinstall.indexOf('!macroend'))).toContain('!insertmacro MP_RemoveLegacyAssociations');
+
+    const legacy = text.slice(text.indexOf('!macro MP_RemoveLegacyAssociations'));
+    const body = legacy.slice(0, legacy.indexOf('!macroend'));
+    const exts = matches(body, /MP_DropLegacyExt "([^"]+)"/g);
+    // Every format the earlier build registered, documents and pictures included.
+    for (const ext of ['.epub', '.pdf', '.md', '.markdown', '.txt', '.html', '.log', '.png', '.jpg', '.dcm', '.dicom', '${MP_LEGACY_LIB_EXT}']) {
+      expect(exts).toContain(ext);
+    }
+    for (const id of ['BOOK', 'PIC', 'LIB']) {
+      expect(body).toContain(`DeleteRegKey HKCU "Software\\Classes\\\${MP_LEGACY_${id}_PROGID}"`);
+    }
+    expect(text).toContain('!define MP_LEGACY_BOOK_PROGID "MyEBookReader.EPUB"');
+    expect(text).toContain('!define MP_LEGACY_PIC_PROGID "MyEBookReader.Picture"');
+    expect(text).toContain('!define MP_LEGACY_LIB_PROGID "MyEBookReader.Library"');
+    // Never one of this build's own ProgIDs.
+    expect(text).not.toMatch(/MP_LEGACY_\w+ "MyEBookReader\.(Book|PDF|Workspace)"/);
+  });
 });

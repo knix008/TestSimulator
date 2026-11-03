@@ -6,6 +6,7 @@
 ;  • a page to choose Desktop / Start Menu shortcuts and whether to make
 ;    MyEBookReader the default reader for e-books (Korean when the installer
 ;    runs in Korean, English otherwise)
+;  • removes the file associations an earlier MyEBookReader build left behind
 ;  • gives the .ebkvw document type its own icon, adds MyEBookReader to the
 ;    "Open with" list for PDF and every e-book type, and registers it under
 ;    Default Programs
@@ -256,11 +257,107 @@ FunctionEnd
   DeleteRegValue HKCU "Software\Classes\${ext}\OpenWithProgids" "${MP_BOOK_PROGID}"
 !macroend
 
+; ── Registrations an earlier MyEBookReader build left behind ──
+; The build installed in %LOCALAPPDATA%\Programs\MyEBookReader (same app id)
+; registered three ProgIDs of its own for every format it read — books,
+; documents and pictures — plus a ".ebkr" library type. Its folder is gone but
+; those keys stayed, still pointing at the missing exe: Windows lists them in
+; "Open with" (for .md, .txt, .png …) with a blank icon, and where one is the
+; extension's default, opening the file fails. This takes them out wherever
+; they are referenced, and only them.
+!define MP_LEGACY_BOOK_PROGID "MyEBookReader.EPUB"
+!define MP_LEGACY_PIC_PROGID "MyEBookReader.Picture"
+!define MP_LEGACY_LIB_PROGID "MyEBookReader.Library"
+!define MP_LEGACY_LIB_PROGID2 "MyEBookReader Library"
+!define MP_LEGACY_LIB_EXT ".ebkr"
+!define MP_FILEEXTS "Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts"
+
+!macro MP_DropLegacyValue key
+  DeleteRegValue HKCU "${key}" "${MP_LEGACY_BOOK_PROGID}"
+  DeleteRegValue HKCU "${key}" "${MP_LEGACY_PIC_PROGID}"
+  DeleteRegValue HKCU "${key}" "${MP_LEGACY_LIB_PROGID}"
+!macroend
+
+; $0 is free here: the hooks run between Tauri's own steps.
+!macro MP_DropLegacyExt ext
+  ReadRegStr $0 HKCU "Software\Classes\${ext}" ""
+  ${If} $0 == "${MP_LEGACY_BOOK_PROGID}"
+  ${OrIf} $0 == "${MP_LEGACY_PIC_PROGID}"
+  ${OrIf} $0 == "${MP_LEGACY_LIB_PROGID}"
+    DeleteRegValue HKCU "Software\Classes\${ext}" ""
+  ${EndIf}
+  !insertmacro MP_DropLegacyValue "Software\Classes\${ext}\OpenWithProgids"
+  !insertmacro MP_DropLegacyValue "${MP_FILEEXTS}\${ext}\OpenWithProgids"
+  ; Default Programs entries that name a removed ProgID.
+  ReadRegStr $0 HKCU "Software\${MP_NAME}\Capabilities\FileAssociations" "${ext}"
+  ${If} $0 == "${MP_LEGACY_BOOK_PROGID}"
+  ${OrIf} $0 == "${MP_LEGACY_PIC_PROGID}"
+  ${OrIf} $0 == "${MP_LEGACY_LIB_PROGID}"
+    DeleteRegValue HKCU "Software\${MP_NAME}\Capabilities\FileAssociations" "${ext}"
+    ; Its "supported type" claim went with it; NSIS_HOOK_POSTINSTALL writes
+    ; back the ones this build really registers.
+    DeleteRegValue HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe\SupportedTypes" "${ext}"
+  ${EndIf}
+!macroend
+
+; Every extension the earlier build registered (its installer.nsh lists).
+!macro MP_RemoveLegacyAssociations
+  !insertmacro MP_DropLegacyExt ".epub"
+  !insertmacro MP_DropLegacyExt ".pdf"
+  !insertmacro MP_DropLegacyExt ".djvu"
+  !insertmacro MP_DropLegacyExt ".djv"
+  !insertmacro MP_DropLegacyExt ".mobi"
+  !insertmacro MP_DropLegacyExt ".prc"
+  !insertmacro MP_DropLegacyExt ".azw"
+  !insertmacro MP_DropLegacyExt ".azw3"
+  !insertmacro MP_DropLegacyExt ".fb2"
+  !insertmacro MP_DropLegacyExt ".cbz"
+  !insertmacro MP_DropLegacyExt ".cbr"
+  !insertmacro MP_DropLegacyExt ".md"
+  !insertmacro MP_DropLegacyExt ".markdown"
+  !insertmacro MP_DropLegacyExt ".mdown"
+  !insertmacro MP_DropLegacyExt ".html"
+  !insertmacro MP_DropLegacyExt ".htm"
+  !insertmacro MP_DropLegacyExt ".xhtml"
+  !insertmacro MP_DropLegacyExt ".txt"
+  !insertmacro MP_DropLegacyExt ".text"
+  !insertmacro MP_DropLegacyExt ".log"
+  !insertmacro MP_DropLegacyExt ".jpg"
+  !insertmacro MP_DropLegacyExt ".jpeg"
+  !insertmacro MP_DropLegacyExt ".jpe"
+  !insertmacro MP_DropLegacyExt ".png"
+  !insertmacro MP_DropLegacyExt ".gif"
+  !insertmacro MP_DropLegacyExt ".webp"
+  !insertmacro MP_DropLegacyExt ".bmp"
+  !insertmacro MP_DropLegacyExt ".avif"
+  !insertmacro MP_DropLegacyExt ".svg"
+  !insertmacro MP_DropLegacyExt ".tif"
+  !insertmacro MP_DropLegacyExt ".tiff"
+  !insertmacro MP_DropLegacyExt ".heic"
+  !insertmacro MP_DropLegacyExt ".heif"
+  !insertmacro MP_DropLegacyExt ".ico"
+  !insertmacro MP_DropLegacyExt ".dcm"
+  !insertmacro MP_DropLegacyExt ".dicom"
+  !insertmacro MP_DropLegacyExt "${MP_LEGACY_LIB_EXT}"
+
+  ; The library type belonged to that build alone.
+  ReadRegStr $0 HKCU "Software\Classes\${MP_LEGACY_LIB_EXT}" "Content Type"
+  ${If} $0 == "application/x-myebookreader-library"
+    DeleteRegKey HKCU "Software\Classes\${MP_LEGACY_LIB_EXT}"
+  ${EndIf}
+  DeleteRegValue HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe\SupportedTypes" "${MP_LEGACY_LIB_EXT}"
+  DeleteRegKey HKCU "Software\Classes\${MP_LEGACY_BOOK_PROGID}"
+  DeleteRegKey HKCU "Software\Classes\${MP_LEGACY_PIC_PROGID}"
+  DeleteRegKey HKCU "Software\Classes\${MP_LEGACY_LIB_PROGID}"
+  DeleteRegKey HKCU "Software\Classes\${MP_LEGACY_LIB_PROGID2}"
+!macroend
+
 !macro NSIS_HOOK_PREINSTALL
   ; An update (/UPDATE) only replaces the program files.
   ${If} $UpdateMode <> 1
     Call MP_RemoveElectron
     Call MP_AskAboutData
+    !insertmacro MP_RemoveLegacyAssociations
   ${EndIf}
 
   ; Only the shortcuts chosen on the page — Tauri's own Start Menu one is off.
