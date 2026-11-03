@@ -179,12 +179,12 @@
       }),
       test("the drawing tools each add one shape", (api) => {
         freshDoc(api);
-        [["brush", "brush"], ["marker", "marker"], ["spray", "spray"], ["eraser", "eraser"], ["line", "line"], ["arrow", "arrow"], ["curve", "curve"], ["rect", "rect"], ["roundRect", "roundRect"], ["ellipse", "ellipse"], ["triangle", "triangle"]].forEach((pair) => {
+        [["brush", "brush"], ["marker", "marker"], ["spray", "spray"], ["eraser", "eraser"], ["line", "line"], ["arrow", "arrow"], ["curve", "curve"], ["freeCurve", "freeCurve"], ["rect", "rect"], ["roundRect", "roundRect"], ["ellipse", "ellipse"], ["triangle", "triangle"]].forEach((pair) => {
           api.setTool(pair[0]);
           const shape = api.draw(20, 20, 120, 90);
           assert(shape && shape.kind === pair[1], pair[0] + " drew " + (shape && shape.kind));
         });
-        assert(api.shapeCount() === 11, String(api.shapeCount()));
+        assert(api.shapeCount() === 12, String(api.shapeCount()));
       }),
       test("the text tool places text that the property panel edits", (api, doc) => {
         freshDoc(api);
@@ -223,6 +223,8 @@
         const shape = api.click(40, 50);
         doc.getElementById("textEditor").value = "가";
         doc.getElementById("textEditor").dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        api.setTool("select");
+        assert(api.getSelection()[0] === shape.id, "the finished text is still picked");
         doc.querySelector('#toolbar [data-action="fontUp"]').click();
         assert(shape.fontSize === start + 2, String(shape.fontSize));
         const family = doc.querySelector("#toolbar .font-pick");
@@ -256,14 +258,13 @@
         doc.getElementById("textEditor").value = "가";
         doc.getElementById("textEditor").dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
         assert(shape.underline === true, "new text underline");
+        api.setTool("select");
         doc.querySelector('#toolbar [data-action="fontBold"]').click();
         doc.querySelector('#toolbar [data-action="fontItalic"]').click();
         doc.querySelector('#toolbar [data-action="fontStrike"]').click();
         assert(shape.fontStyle === "bold-italic", shape.fontStyle);
         assert(shape.strike === true, "strike");
         assert(doc.querySelector('#toolbar [data-action="fontBold"]').classList.contains("on"), "bold on");
-        assert(doc.getElementById("textEditor").style.fontWeight === "700", "editor weight");
-        assert(doc.getElementById("textEditor").style.textDecoration.indexOf("line-through") >= 0, doc.getElementById("textEditor").style.textDecoration);
         doc.querySelector('#toolbar [data-action="fontBold"]').click();
         assert(shape.fontStyle === "italic", shape.fontStyle);
         doc.querySelector('#toolbar [data-action="fontUnderline"]').click();
@@ -840,7 +841,7 @@
     suite("Document", [
       test("the sample drawings open at start", (api) => {
         assert(api.getDocs().length === 2, String(api.getDocs().length));
-        assert(api.getDoc().name === "welcome.mpaint", api.getDoc().name);
+        assert(api.getDoc().name === "welcome.mypaint", api.getDoc().name);
         assert(api.shapeCount() > 4, String(api.shapeCount()));
       }),
       test("saving writes a drawing file and clears the changed flag", async (api) => {
@@ -849,7 +850,7 @@
         assert(api.getDoc().dirty === true);
         await api.saveCurrent(false);
         const saved = api.getLastSaved();
-        assert(saved && saved.format === "mpaint", JSON.stringify(saved));
+        assert(saved && saved.format === "mypaint", JSON.stringify(saved));
         assert(saved.text.indexOf("mypaint-document") >= 0);
         assert(api.getDoc().dirty === false);
       }),
@@ -863,14 +864,15 @@
       test("Open offers every picture MyPaint can read, not just drawings", (api, doc) => {
         const filters = api.openFilters();
         const everything = filters[0];
-        assert(everything.extensions.indexOf("mpaint") >= 0, "the drawing format is missing");
+        assert(everything.extensions.indexOf("mypaint") >= 0, "the drawing format is missing");
+        assert(everything.extensions.indexOf("mpaint") >= 0, "older drawings are missing");
         ["png", "jpg", "tif", "heic", "jp2", "dcm", "cr2", "nef", "arw", "bmp", "ico", "webp"].forEach((ext) => {
           assert(everything.extensions.indexOf(ext) >= 0, "Open does not offer ." + ext);
         });
         assert(everything.extensions.length >= 60, String(everything.extensions.length));
         assert(filters[filters.length - 1].extensions.join("") === "*", "there is no all-files choice");
         const accept = api.acceptAttribute();
-        assert(accept.indexOf(".mpaint") >= 0 && accept.indexOf(".heic") >= 0 && accept.indexOf(".dcm") >= 0, accept.slice(0, 60));
+        assert(accept.indexOf(".mypaint") >= 0 && accept.indexOf(".mpaint") >= 0 && accept.indexOf(".heic") >= 0 && accept.indexOf(".dcm") >= 0, accept.slice(0, 60));
         assert(doc.getElementById("fileOpen").accept === accept, "the open input does not accept pictures");
       }),
       test("the dialog groups are named in the chosen language", (api) => {
@@ -900,7 +902,7 @@
         const before = api.getDocs().length;
         api.run("open");
         assert(api.getDocs().length === before + 1, String(api.getDocs().length));
-        assert(api.getDoc().name === "opened.mpaint", api.getDoc().name);
+        assert(api.getDoc().name === "opened.mypaint", api.getDoc().name);
       }),
       test("a saved drawing can be read back", (api, doc, win) => {
         const raw = api.serialize();
@@ -974,10 +976,10 @@
         assert(loaded.fontSize === 32);
         assert(loaded.strokeWidth === 9);
       }),
-      test("the settings popup has one row per item across four tabs", (api) => {
+      test("the settings popup has one row per item across five tabs", (api) => {
         const popup = api.openPopup("settings");
         const tabs = [...popup.querySelectorAll("[data-tab]")].map((tab) => tab.dataset.tab);
-        assert(tabs.join(",") === "general,font,appearance,workspace", tabs.join(","));
+        assert(tabs.join(",") === "general,font,appearance,workspace,start", tabs.join(","));
         popup.querySelectorAll(".line").forEach((line) => {
           assert(line.offsetHeight <= 34, "a settings row is taller than one line");
         });
@@ -1031,7 +1033,7 @@
       test("the language button shows the other language with its flag", (api, doc) => {
         const button = doc.querySelector('#toolbar [data-action="language"]');
         assert(button.dataset.flag === "uk", button.dataset.flag);
-        assert(button.textContent.indexOf("English") >= 0);
+        assert(button.title.indexOf("English") >= 0, button.title);
         button.click();
         assert(api.getLanguage() === "en");
         const next = doc.querySelector('#toolbar [data-action="language"]');
@@ -1110,7 +1112,7 @@
         const previousWidth = frame.style.width;
         const previousLanguage = api.getSettings().language;
         const hidden = [];
-        frame.style.width = "1000px";
+        frame.style.width = api.metrics.MIN_WIDTH + "px";
         ["ko", "en"].forEach((language) => {
           api.setLanguage(language);
           const view = doc.defaultView;
@@ -1147,7 +1149,7 @@
         doc.getElementById("zoomValue").click();
         assert(api.getZoom() === 100);
       }),
-      test("the grid keeps the same screen spacing at every zoom", (api, doc) => {
+      test("the grid follows the picture at every zoom", (api, doc) => {
         const button = doc.querySelector('#toolbar [data-action="toggleGrid"]');
         const grid = doc.getElementById("canvasGrid");
         assert(button && grid, "the grid control is missing");
@@ -1160,7 +1162,9 @@
         [50, 100, 200, 400].forEach((zoom) => {
           api.setZoom(zoom);
           const parts = getComputedStyle(grid).backgroundSize.split(/[\s,]+/).filter(Boolean);
-          assert(parts.length > 0 && parts.every((part) => part === "32px"), zoom + "% spacing is " + parts.join(" "));
+          const cell = api.getSettings().gridSize * zoom / 100;
+          const expect = [cell * 5, cell * 5, cell * 5, cell * 5, cell, cell, cell, cell].map((n) => n + "px").join(" ");
+          assert(parts.join(" ") === expect, zoom + "% spacing is " + parts.join(" ") + ", not " + expect);
           const box = grid.getBoundingClientRect();
           const image = picture.getBoundingClientRect();
           widths[zoom] = image.width;
@@ -1344,8 +1348,18 @@
         const wide = Object.keys(sizes).filter((kind) => sizes[kind].width > 520);
         assert(wide.join(",") === "print,dicom", wide.join(","));
       }),
-      test("the guide opens in a popup instead of a web link", async (api) => {
+      test("the guide opens its own page in the chosen language", async (api) => {
+        api.setLanguage("en");
+        assert(await api.run("guide") === "guide.html?lang=en", api.getLastGuide());
+        assert(api.getPopup() == null, "the guide is a window of its own, not a popup");
+        assert(api.getLastLink() === "", "the guide is not a web link");
+        api.setLanguage("ko");
+        assert(api.getLastGuide() === "guide.html?lang=en");
         await api.run("guide");
+        assert(api.getLastGuide() === "guide.html?lang=ko", api.getLastGuide());
+      }),
+      test("the short guide still opens in a popup", async (api) => {
+        await api.run("guidePopup");
         const popup = api.getPopup();
         assert(popup.dataset.kind === "guide");
         assert(popup.querySelector(".popup-title").textContent === "사용법 안내");
@@ -1410,7 +1424,7 @@
         assert(api.getDocs().length === 2);
         doc.querySelectorAll("#tabstrip .tab-close")[0].click();
         assert(api.getDocs().length === 1, String(api.getDocs().length));
-        assert(api.getDoc().name === "shapes.mpaint", api.getDoc().name);
+        assert(api.getDoc().name === "shapes.mypaint", api.getDoc().name);
       }),
       test("closing the last tab leaves an empty drawing", (api, doc) => {
         doc.querySelectorAll("#tabstrip .tab-close")[0].click();
@@ -1434,7 +1448,7 @@
         const tabs = doc.querySelectorAll("#tabstrip .tab-name");
         assert(tabs.length === 2);
         tabs[1].click();
-        assert(api.getDoc().name === "shapes.mpaint", api.getDoc().name);
+        assert(api.getDoc().name === "shapes.mypaint", api.getDoc().name);
       }),
     ]),
 
@@ -1907,8 +1921,14 @@
       }),
       test("MyPaint can write every save format", (api, doc, win) => {
         const ids = win.MyPaintFormats.SAVE_FORMATS.map((item) => item.id);
-        assert(ids.join(",") === "png,jpeg,webp,bmp,tiff,gif,ico,jp2,j2k,dicom", ids.join(","));
+        assert(ids.join(",") === "png,jpeg,webp,bmp,tiff,gif,ico,jp2,j2k,dicom,tga,ppm,pam,qoi,pcx,avif,svg", ids.join(","));
         ids.forEach((id) => assert(api.t("format." + id) !== "format." + id, id + " has no label"));
+        const writable = win.MyPaintFormats.writableFormats().map((item) => item.id);
+        ["png", "jpeg", "bmp", "tiff", "gif", "ico", "jp2", "dicom", "qoi", "svg"].forEach((id) => assert(writable.indexOf(id) >= 0, id + " is not offered"));
+        const popup = api.openPopup("save");
+        const offered = [...popup.querySelectorAll('[data-field="format"] option')].map((option) => option.value);
+        assert(offered.join(",") === ["mypaint"].concat(writable).join(","), "the save choices are not what this system can write: " + offered.join(","));
+        api.closePopup();
       }),
     ]),
 
@@ -2263,7 +2283,7 @@
         api.applyCanvas({ width: 48, height: 32, background: "#ffffff" });
         api.setTool("rect");
         api.draw(4, 4, 40, 28);
-        for (const spec of win.MyPaintFormats.SAVE_FORMATS) {
+        for (const spec of win.MyPaintFormats.writableFormats()) {
           const result = await api.convert(spec.id, 90);
           assert(result.format === spec.id, spec.id + " came out as " + result.format);
           assert(result.bytes > 50, spec.id + " wrote only " + result.bytes + " bytes");
@@ -2681,8 +2701,9 @@
 
     suite("Installer", [
       test("the Windows installer removes the old program and asks about saved data", async () => {
+        const raw = await bytesOf("/build/installer.nsh");
+        assert(raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf, "installer.nsh needs its BOM or NSIS reads the Korean as ANSI");
         const script = await text("/build/installer.nsh");
-        assert(script.charCodeAt(0) === 0xfeff, "installer.nsh needs its BOM or NSIS reads the Korean as ANSI");
         assert(script.indexOf("RMDir /r") >= 0);
         assert(script.indexOf("저장된 데이터") >= 0);
         assert(script.indexOf("삭제하시겠습니까") >= 0);
@@ -2901,7 +2922,7 @@
     suite("Panels", [
       test("the left panel holds the tools and colors", (api, doc) => {
         const left = doc.getElementById("leftPanel");
-        assert(left.querySelectorAll(".tool-cell").length === 19, String(left.querySelectorAll(".tool-cell").length));
+        assert(left.querySelectorAll(".tool-cell").length === 20, String(left.querySelectorAll(".tool-cell").length));
         assert(left.querySelectorAll(".swatch-btn").length >= 20);
         left.querySelectorAll(".tool-cell").forEach((cell) => {
           assert(cell.title.length > 0, cell.dataset.action + " has no tooltip");
@@ -2968,10 +2989,14 @@
         width.value = "11";
         width.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
         assert(api.shapes()[0].width === 11, String(api.shapes()[0].width));
-        const color = doc.querySelector('#rightPanel [data-prop="color"]');
-        color.value = "#00ff00";
-        color.dispatchEvent(new doc.defaultView.Event("change", { bubbles: true }));
-        assert(api.shapes()[0].color === "#00ff00");
+        doc.querySelector('#rightPanel [data-color="prop:color"]').click();
+        const chooser = doc.defaultView.MyPaintColorPicker.current();
+        assert(chooser, "the colour chooser did not open");
+        const hex = chooser.querySelector(".cp-hex");
+        hex.value = "#00ff00";
+        hex.dispatchEvent(new doc.defaultView.Event("input", { bubbles: true }));
+        doc.defaultView.MyPaintColorPicker.close(true);
+        assert(api.shapes()[0].color === "#00ff00", api.shapes()[0].color);
       }),
       test("every number in the right panel steps with a button on each side", (api, doc) => {
         freshDoc(api);
@@ -3058,8 +3083,14 @@
         assert(right.classList.contains("collapsed"));
         right.querySelector(".panel-fold").click();
         assert(!doc.getElementById("rightPanel").classList.contains("collapsed"));
-        assert(!doc.querySelector("#toolbar [data-action='toggleLeft']"));
-        assert(!doc.querySelector("#toolbar [data-action='toggleRight']"));
+        const leftToggle = doc.querySelector("#toolbar [data-action='toggleLeft']");
+        const rightToggle = doc.querySelector("#toolbar [data-action='toggleRight']");
+        assert(leftToggle && rightToggle, "the toolbar has no panel toggles");
+        leftToggle.click();
+        assert(doc.getElementById("leftPanel").classList.contains("collapsed"), "the toolbar did not fold the tool panel");
+        assert(doc.querySelector("#toolbar [data-action='toggleLeft']").getAttribute("aria-pressed") === "false");
+        doc.querySelector("#toolbar [data-action='toggleLeft']").click();
+        assert(!doc.getElementById("leftPanel").classList.contains("collapsed"));
       }),
       test("both panels keep one width", (api, doc) => {
         assert(api.metrics.TOOL_PANEL === 200);

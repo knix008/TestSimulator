@@ -45,7 +45,7 @@
   const SAVE_FORMATS = [
     { id: "png", ext: "png", mime: "image/png" },
     { id: "jpeg", ext: "jpg", mime: "image/jpeg", lossy: true },
-    { id: "webp", ext: "webp", mime: "image/webp", lossy: true },
+    { id: "webp", ext: "webp", mime: "image/webp", lossy: true, canvas: true },
     { id: "bmp", ext: "bmp", mime: "image/bmp" },
     { id: "tiff", ext: "tif", mime: "image/tiff" },
     { id: "gif", ext: "gif", mime: "image/gif" },
@@ -58,7 +58,7 @@
     { id: "pam", ext: "pam", mime: "image/x-portable-arbitrarymap" },
     { id: "qoi", ext: "qoi", mime: "image/qoi" },
     { id: "pcx", ext: "pcx", mime: "image/x-pcx" },
-    { id: "avif", ext: "avif", mime: "image/avif", lossy: true },
+    { id: "avif", ext: "avif", mime: "image/avif", lossy: true, canvas: true },
     { id: "svg", ext: "svg", mime: "image/svg+xml", vector: true },
   ];
 
@@ -584,6 +584,33 @@
     return new Uint8Array(await blob.arrayBuffer());
   }
 
+  /* WebP and AVIF are written by the web view itself, and not every engine can: Chromium has no
+   * AVIF encoder and older WebKit has no WebP one. probeWriters() asks once at start-up with a
+   * one-pixel canvas, and writableFormats() leaves out what this system cannot write, so the
+   * save and convert choices never offer a format that would only fail. */
+  const unwritable = new Set();
+
+  async function probeWriters() {
+    if (typeof document === "undefined" || !document.createElement) return [];
+    for (const spec of SAVE_FORMATS.filter((item) => item.canvas)) {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, spec.mime, 0.9));
+        if (!blob || blob.type !== spec.mime) unwritable.add(spec.id);
+        else unwritable.delete(spec.id);
+      } catch (error) {
+        unwritable.add(spec.id);
+      }
+    }
+    return Array.from(unwritable);
+  }
+
+  function writableFormats() {
+    return SAVE_FORMATS.filter((item) => !unwritable.has(item.id));
+  }
+
   /* An SVG either keeps the source it was opened from or carries the picture as a PNG. */
   async function encodeSvg(image, opts) {
     if (opts.svgText != null) {
@@ -662,6 +689,8 @@
     SVG: SVG,
     ALL: ALL,
     SAVE_FORMATS: SAVE_FORMATS,
+    probeWriters: probeWriters,
+    writableFormats: writableFormats,
     MIME: MIME,
     extensionOf: extensionOf,
     magicKind: magicKind,

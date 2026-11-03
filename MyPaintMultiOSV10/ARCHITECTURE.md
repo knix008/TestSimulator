@@ -6,7 +6,8 @@ Written for: someone about to change this code.
 
 The whole application is plain scripts loaded by `index.html`, in dependency order, each one
 a UMD module that works in the browser and under `require()` in Node. There is no bundler and
-no framework, so the same files run as the web build, inside Electron, and inside the tests.
+no framework, so the same files run as the web build, inside the Tauri host, and inside the
+tests.
 
 ```
 index.html
@@ -23,18 +24,36 @@ index.html
   src/icons.js        the SVG icon set and the two flags
   src/store.js        settings and the recent list in localStorage
   src/sample.js       the drawings the program starts with
+  src/extra-formats.js TGA / Netpbm / QOI / PCX readers and writers, SVG sniffing (no DOM)
+  src/colorpicker.js  MyPaint's own colour chooser (the native one outlived its window)
+  src/richtext.js     the contenteditable text editor and its per-character runs
+  src/svgdoc.js       a document written out as SVG elements
   src/app.js          everything with a DOM in it
 ```
 
-`electron/main.js` owns the windows and the file system, `electron/preload.js` is the only
-bridge, and `popup.html` / `menu.html` are the separate windows every popup and menu is drawn
-into so they can leave the main window.
+The desktop host is Tauri 2. `src-tauri/src/lib.rs` owns the windows and the file system and
+exposes them as commands; `src/host/tauri-bridge.js` turns those into `window.desktop` (and
+`window.popupHost` in the child windows), the only bridge the page uses. In a browser there is
+no `window.__TAURI__` and the bridge does nothing, so `app.js` falls back to the web APIs.
+`popup.html` / `menu.html` are the separate windows every popup and menu is drawn into so they
+can leave the main window; `src/host/popup-client.js` and `menu-client.js` run inside them.
+`window_state.rs` remembers where every window was, `launch.rs` hands over files the program
+was started with, `fonts.rs` lists the system fonts and `download.rs` fetches pictures from a
+link.
+
+`npm start` (`scripts/dev.js`) serves the project folder on a free port and runs `tauri dev`
+against it, so every window shows the files as they are on disk. `npm run stage` copies what
+the installer embeds into `dist/app`.
 
 ## The drawing model
 
 A document is `{ id, name, path, width, height, background, shapes[] }`. A shape is one of
-`pencil`, `brush`, `eraser`, `line`, `rect`, `ellipse`, `text`, `image` — strokes carry
-points, the rest carry a box. `paint.js` draws a document into any 2D context, so the canvas
+`pencil`, `brush`, `marker`, `spray`, `eraser`, `freeCurve` (strokes, which carry points),
+`line`, `arrow`, `curve`, `rect`, `roundRect`, `ellipse`, `triangle`, `text`, `image` (which
+carry a box). A text shape may carry `runs`, one style per stretch of characters; the editor
+over the canvas (`richtext.js`) is a contenteditable with one span per run, so a font change
+with nothing selected applies from the caret onward and with characters selected applies to
+exactly those. `paint.js` draws a document into any 2D context, so the canvas
 on screen, the print pages and the exported file all come from one function.
 
 Undo is a JSON snapshot of every document. That is why anything that cannot be serialised —
@@ -55,7 +74,7 @@ the geometry (`makeRegion`, `growRegion`, `regionHas`, `clipRegion`, `regionOutl
 into pixels: cropping rasterises the document through the region's clip path and replaces the
 document with the result, erasing paints the region with the canvas colour, and copying puts
 the cropped pixels on MyPaint's own clipboard as an image shape and on the system clipboard as
-a PNG — through `clipboard.writeImage` in the Electron main process, or the asynchronous
+a PNG — through the host's `clipboard_write_image` command (arboard), or the asynchronous
 clipboard API in a browser — so another program can paste it. Nothing is ever written to the
 system clipboard as text: MyPaint's own shape list would be gibberish anywhere else.
 
@@ -75,10 +94,14 @@ hands it to one reader:
 | `extra` | `extra-formats.js` — TGA, Netpbm (PBM / PGM / PPM / PNM / PAM), QOI, PCX; pure JavaScript, no DOM |
 | `svg` | the browser, through an `<img>` — drawn at the width / height the file asks for, else its viewBox, else 300 × 150; the source comes back as `svgText` |
 
-Writing goes the other way: the browser's own encoder for PNG, JPEG and WebP, `encoders.js`
-for BMP, TIFF, GIF, ICO and DICOM, `extra-formats.js` for TGA, PPM, PAM, QOI and PCX, the browser
-again for AVIF where it can write it (a blob of another type is refused), and OpenJPEG for JPEG 2000.
-An SVG is saved as the source it was opened from, or as the picture inside an SVG `<image>`. HEIC has no encoder anywhere in
+Writing goes the other way: the browser's own encoder for PNG, JPEG, WebP and AVIF,
+`encoders.js` for BMP, TIFF, GIF, ICO and DICOM, `extra-formats.js` for TGA, PPM, PAM, QOI and
+PCX, and OpenJPEG for JPEG 2000. Not every web view can write WebP and AVIF (WebView2 has no
+AVIF encoder, older WebKit no WebP one), so `Formats.probeWriters()` tries each once on a
+one-pixel canvas at start-up and `Formats.writableFormats()` is what the save and convert
+choices list; `SAVE_FORMATS` stays the full list. A blob of another type is still refused, in
+case a probe was wrong. SVG is written by `svgdoc.js`: every shape as an SVG element and a
+picture as an embedded PNG `<image>`. HEIC has no encoder anywhere in
 reach — HEVC is patent-encumbered — so it is read but never written.
 
 Camera RAW is not demosaiced. Every camera writes a full-size JPEG rendering beside the sensor
@@ -108,8 +131,9 @@ drawing model for annotations.
 
 ## Windows that leave the main window
 
-Menus and popups are real operating-system windows (`childWindow` in `electron/main.js`),
-parented to the main window so they close with it. The renderer sends the finished HTML plus
+Menus and popups are real operating-system windows (`src-tauri/src/popups.rs`), owned by the
+main window so they close with it. Each is created hidden once and then only shown and
+hidden, and is shown only after its page reports that it rendered the current HTML. The renderer sends the finished HTML plus
 the theme as CSS variables; the child sends back one action. In the web build a popup is also
 its own window: `window.open("popup.html")` receives the same HTML and posts each action back.
 Menus stay in `#menuLayer` there. The test page (`?test=1`) still mounts popup HTML in
@@ -123,16 +147,17 @@ rather than scrolling — the print preview and the DICOM tag browser both do th
 
 The grid is not part of the picture. `#canvasGrid` sits over the canvas and under the
 selection overlay, with `pointer-events: none`, so drawing and picking still hit the canvas.
-Its lines are a repeating gradient whose step is the CSS variable `--grid-step` (32px). Zoom
-changes the canvas frame's width and height from `--canvas-w`, `--canvas-h` and `--zoom`; it
-does not scale the frame with a transform, so the step stays a distance on screen. White lines
+Its lines are repeating gradients measured on the picture: `--grid-cell` is
+`settings.gridSize` picture pixels times the zoom and `--grid-major`, five cells, is drawn
+stronger, so the grid grows and shrinks with the picture like the rulers do. White lines
 with `mix-blend-mode: difference` stay visible on a light canvas and on a dark photograph.
 `settings.showGrid` is saved with the other settings. The toolbar button and the View menu
 both toggle it.
 
 ## Fitting the window
 
-`metrics.MIN_WIDTH` (1180) is the smallest Electron will make the window. The page itself is
+`metrics.MIN_WIDTH` (1180) is the smallest the host will make the window (`MIN_WIDTH` in
+`lib.rs` must match). The page itself is
 `width: 100%` and does not force a layout wider than the window, so the right-hand toolbar
 buttons are not pushed off the edge when the view is narrower than that, or when the desktop
 window is at its minimum. The buttons do not shrink. The spare space sits between the drawing

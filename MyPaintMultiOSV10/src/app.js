@@ -1546,7 +1546,7 @@
         '<label class="line"><span>' + esc(t("save.dir")) + '</span><input data-field="dir" type="text" value="' + esc(settings.lastSaveDir) + '"></label>' +
         '<label class="line"><span>' + esc(t("save.format")) + '</span><select data-field="format">' +
         optionTag("mypaint", t("save.drawing"), doc && doc.svg ? "svg" : "mypaint") +
-        Formats.SAVE_FORMATS.map((item) => optionTag(item.id, t("format." + item.id) + " (." + item.ext + ")", doc && doc.svg ? "svg" : "mypaint")).join("") +
+        Formats.writableFormats().map((item) => optionTag(item.id, t("format." + item.id) + " (." + item.ext + ")", doc && doc.svg ? "svg" : "mypaint")).join("") +
         "</select></label>" +
         "</div>" + foot(btn("confirm-save", t("action.save"), true) + btn("cancel", t("action.cancel")));
     }
@@ -1603,7 +1603,7 @@
         '<div class="line"><span>' + esc(t("convert.source")) + '</span><b class="grow">' + esc(source ? t("kind." + source.kind) : t("kind.native")) + "</b></div>" +
         '<div class="line"><span>' + esc(t("convert.size")) + '</span><b class="grow">' + (doc ? doc.width + " x " + doc.height : "-") + "</b></div>" +
         '<label class="line"><span>' + esc(t("convert.format")) + '</span><select data-field="format">' +
-        Formats.SAVE_FORMATS.map((item) => optionTag(item.id, t("format." + item.id) + " (." + item.ext + ")", convertState.format)).join("") + "</select></label>" +
+        Formats.writableFormats().map((item) => optionTag(item.id, t("format." + item.id) + " (." + item.ext + ")", convertState.format)).join("") + "</select></label>" +
         '<label class="line quality-line" id="qualityLine"' + (lossyFormat(convertState.format) ? "" : " data-off") + '><span>' + esc(t("convert.quality")) + "</span>" +
         number("quality", convertState.quality, 10, 100) + '<b class="unit" id="qualityPct">%</b></label>' +
         '<div class="line hint" id="qualityHint">' + esc(lossyFormat(convertState.format) ? t("convert.qualityHint") : t("convert.lossless")) + "</div>" +
@@ -3148,7 +3148,7 @@
   }
 
   function saveFilters() {
-    return [{ name: t("open.drawing"), extensions: ["mypaint"] }].concat(Formats.SAVE_FORMATS.map((item) => ({
+    return [{ name: t("open.drawing"), extensions: ["mypaint"] }].concat(Formats.writableFormats().map((item) => ({
       name: t("format." + item.id) + " (." + item.ext + ")",
       extensions: item.id === "jpeg" ? ["jpg", "jpeg"] : item.id === "tiff" ? ["tif", "tiff"] : [item.ext],
     })));
@@ -3270,6 +3270,21 @@
     });
     if (!TEST) downloadBlob("sample.mypaint", blob);
     return lastDownload;
+  }
+
+  /* The user's guide is its own page (guide.html) in a window of its own: a host window in the
+   * desktop build, a named tab in a browser, so asking again brings the same one forward. */
+  let lastGuide = "";
+  async function openGuide(section) {
+    const url = "guide.html?lang=" + encodeURIComponent(settings.language) + (section ? "&section=" + encodeURIComponent(section) : "");
+    lastGuide = url;
+    if (TEST) return url;
+    if (window.desktop && window.desktop.openWindow) {
+      await window.desktop.openWindow({ label: "guide", url: url, title: t("help.guide") + " - MyPaint", width: 1000, height: 760, minWidth: 640, minHeight: 480 });
+    } else {
+      window.open(url, "mypaint-guide");
+    }
+    return url;
   }
 
   async function openLink(url) {
@@ -3452,6 +3467,12 @@
 
   function dicomOf(doc) {
     return extrasOf(doc || current()).dicom || null;
+  }
+
+  /* The drawing as an SVG file: every shape as an SVG element, pictures as embedded PNGs. */
+  function documentSvg(doc) {
+    if (!SvgDoc) throw new Error("SVG writing is not available.");
+    return SvgDoc.fromDoc(doc, images, frameKey(doc));
   }
 
   function frameKey(doc) {
@@ -4780,7 +4801,7 @@
     active = 0;
     selected = [];
     wire();
-    await loadFonts();
+    await Promise.all([loadFonts(), Formats.probeWriters().catch(() => [])]);
     renderAll();
     if (!TEST && Store.normalizeStart(settings.startScreen).show) showStart();
     window.MyPaint = api;
@@ -4801,6 +4822,7 @@
     lastExport = null;
     lastDownload = null;
     lastLink = "";
+    lastGuide = "";
     lastPrint = null;
     progressMarks = [];
     progressDepth = 0;
@@ -4970,6 +4992,7 @@
     runExport: () => exportPng(current(), null),
     getLastDownload: () => lastDownload,
     getLastLink: () => lastLink,
+    getLastGuide: () => lastGuide,
     getLastSaved: () => lastSaved,
     getLastExport: () => lastExport,
     getLastPrint: () => lastPrint,
