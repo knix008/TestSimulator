@@ -302,13 +302,14 @@ export function App() {
       <InlineMenu />
       <InlineDialogs />
       {/* The guided tour, and its first-run offer. Whether it is offered at startup is
-          the "Show at startup" checkbox on both (settings.showTutorial), nothing else. */}
+          the "Show at startup" checkbox on both (settings.showTutorial); the offer only
+          ever appears on the start screen, the tour wherever it is run. */}
       <TutorialTour
         t={app.t}
         showAtStart={app.settings.showTutorial}
         onShowAtStart={(value) => void saveShowTutorial(value)}
       />
-      <TutorialWelcome />
+      <TutorialWelcome visible={onStart} />
     </div>
   );
 }

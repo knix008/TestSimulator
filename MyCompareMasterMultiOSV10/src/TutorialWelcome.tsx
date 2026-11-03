@@ -18,7 +18,12 @@ import "./tutorial.css";
 
 let offeredThisLaunch = false;
 
-export function TutorialWelcome() {
+/**
+ * `visible` is whether the start screen is in front. The card belongs to the start
+ * screen: over a comparison it is hidden, not closed, so going back to the start
+ * screen brings an offer that was never answered back with it.
+ */
+export function TutorialWelcome({ visible }: { visible: boolean }) {
   const app = useApp();
   const { t, settings } = app;
   const [open, setOpen] = useState(() => !offeredThisLaunch && settings.showTutorial && !isTutorialRunning());
@@ -36,7 +41,7 @@ export function TutorialWelcome() {
     return () => window.removeEventListener("mcm-tour-start", close);
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !visible) return null;
 
   return (
     <aside
