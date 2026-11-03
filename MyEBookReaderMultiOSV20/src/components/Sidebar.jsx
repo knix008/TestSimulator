@@ -13,7 +13,16 @@ import { isSameSearchHit } from '../lib/search.js';
 import { commentPreview } from '../lib/comments.js';
 import { outlineActiveId } from '../lib/nav.js';
 import FolderTree from './FolderTree.jsx';
-import { isSameDrive } from '../lib/folders.js';
+import { isSameDrive, folderLabel } from '../lib/folders.js';
+
+/** The folder a file is in ("C:\a\b.jpg" → "C:\a"). */
+function folderOf(p) {
+  const s = String(p || '');
+  const i = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+  if (i <= 0) return s;
+  // "C:\x.jpg" → "C:\", not "C:".
+  return /^[A-Za-z]:$/.test(s.slice(0, i)) ? s.slice(0, i + 1) : s.slice(0, i);
+}
 import { historyList } from '../lib/history.js';
 
 function HeadAction({ title, onClick, disabled, children }) {
@@ -61,7 +70,7 @@ export default function Sidebar({
   highlights = [], highlightsBusy = false, onGoToHighlight, onDeleteHighlights,
   onContextMenuItems, onRevealPath, onCopyText,
   isFavoritePath,
-  folderRoot = '', currentFilePath = '', desktop = false, onPickFolder, onSelectDrive, onOpenFolderFile, loadFolder,
+  folderRoot = '', currentFilePath = '', desktop = false, onPickFolder, onSelectDrive, onOpenFolderFile, onOpenFolderBook, loadFolder,
   drives = [],
 }) {
   const { t } = useTranslation();
@@ -296,17 +305,24 @@ export default function Sidebar({
                 currentPath={currentFilePath}
                 desktop={desktop}
                 onOpenFile={onOpenFolderFile}
+                onOpenFolderBook={onOpenFolderBook}
                 loadFolder={loadFolder}
                 onNodeMenu={(e, node, { isOpen, toggle }) => menu(() => (node.kind === 'dir'
                   ? [
                     { icon: IconFolderOpen, label: isOpen ? t('side.collapse') : t('side.expand'), onClick: toggle },
+                    // A folder of page pictures (a comic, a scanned book) is a book of its own.
+                    onOpenFolderBook ? { icon: IconImage, label: t('side.openPictureBook'), onClick: () => onOpenFolderBook(node.path) } : null,
+                    ...libraryPair({ path: node.path, name: node.name, size: 0 }, !!isFavoritePath?.(node.path)),
                     { separator: true },
                     onRevealPath ? { icon: IconFolder, label: t('ctx.reveal'), onClick: () => onRevealPath(node.path) } : null,
                     onCopyText ? { icon: IconCopy, label: t('ctx.copyPath'), onClick: () => onCopyText(node.path) } : null,
                   ]
                   : [
                     { icon: IconOpen, label: t('ctx.open'), onClick: () => onOpenFolderFile?.(node.path) },
-                    ...libraryPair({ path: node.path, name: node.name, size: node.size }, !!isFavoritePath?.(node.path)),
+                    // A picture is a page of its folder: the folder goes on the shelf.
+                    ...(node.kind === 'image'
+                      ? libraryPair({ path: folderOf(node.path), name: folderLabel(folderOf(node.path)), size: 0 }, !!isFavoritePath?.(folderOf(node.path)))
+                      : libraryPair({ path: node.path, name: node.name, size: node.size }, !!isFavoritePath?.(node.path))),
                     { separator: true },
                     onRevealPath ? { icon: IconFolderOpen, label: t('ctx.reveal'), onClick: () => onRevealPath(node.path) } : null,
                     onCopyText ? { icon: IconCopy, label: t('ctx.copyPath'), onClick: () => onCopyText(node.path) } : null,

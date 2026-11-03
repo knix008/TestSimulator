@@ -4,10 +4,18 @@
 // that merely contain "pdf" or "epub" stay out. A true book name still wins
 // over a mistaken "directory" flag.
 //
-// Plain text, HTML, Markdown and pictures open too (dialog, drag and drop),
-// but a folder of them is not a shelf of books, so the tree leaves them out.
-// Keep in step with TREE_BOOK_EXTENSIONS in src-tauri/src/files.rs.
+// Plain text, HTML and Markdown open too (dialog, drag and drop), but a
+// folder of them is not a shelf of books, so the tree leaves them out.
+// Pictures and ZIP archives are listed: a folder of page pictures, or an
+// archive of them, is how comics and scanned books come — both open as one
+// book. Keep in step with TREE_BOOK_EXTENSIONS in src-tauri/src/files.rs.
 import { BOOK_EXTENSIONS } from './ebook/book.js';
+import { isImageName } from './ebook/imagebook.js';
+
+/** "comic.zip" — an archive the reader extracts and opens as a book. */
+export function isZipName(name) {
+  return /\.zip$/i.test(String(name || '').trim());
+}
 
 export const TREE_BOOK_EXTENSIONS = [
   'pdf', 'epub', 'mobi', 'azw', 'azw3', 'kf8', 'prc', 'djvu', 'djv', 'fb2', 'cbz', 'cbr',
@@ -76,21 +84,40 @@ export function folderLabel(filePath) {
   return parts[parts.length - 1] || s;
 }
 
+// Folders first, then files; numbers in names compare as numbers, so page
+// pictures list as 1, 2 … 10 rather than 1, 10, 2.
 export function sortFolderEntries(entries) {
   return [...(entries || [])].sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
-    return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' });
+    const ad = a.kind === 'dir';
+    const bd = b.kind === 'dir';
+    if (ad !== bd) return ad ? -1 : 1;
+    return String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base', numeric: true });
   });
+}
+
+/**
+ * Whether a path can be a book on the library shelf: a book file, a ZIP
+ * archive or a folder of pictures. Text, Markdown, HTML, single pictures and
+ * workspaces cannot (a picture's folder goes on the shelf instead). A folder
+ * is recognised by not being any of those, so "Vol.01" still counts.
+ */
+export function isShelfPath(p) {
+  const name = String(p || '').split(/[\\/]/).pop();
+  if (!name) return false;
+  if (isBookFileName(name) || isZipName(name)) return true;
+  return !(isImageName(name) || /\.(txt|text|md|markdown|mdown|html?|xhtml|log|ebkvw|pdfvw)$/i.test(name));
 }
 
 // The entry kind for a book is still 'pdf': it is the name the folder tree,
 // the Rust side and saved settings have always used for "a file to open".
+// A ZIP archive is 'zip' and a picture 'image'; both are files, never folders.
 export function classifyEntry(name, hints = {}) {
   const n = String(name || '').trim();
   if (!n || isHiddenName(n)) return null;
   if (isBookFileName(n)) return 'pdf';
   if (hints.kind === 'dir' || hints.isDirectory === true) return 'dir';
-  if (hints.kind === 'pdf' || hints.isFile === true) return isBookFileName(n) ? 'pdf' : null;
+  if (isZipName(n)) return 'zip';
+  if (isImageName(n)) return 'image';
   return null;
 }
 
@@ -102,7 +129,7 @@ export function toFolderEntries(raw) {
     if (!kind) continue;
     const filePath = e.path || name;
     if (kind === 'dir') out.push({ name, path: filePath, kind: 'dir' });
-    else out.push({ name, path: filePath, kind: 'pdf', size: Number(e.size) || 0 });
+    else out.push({ name, path: filePath, kind, size: Number(e.size) || 0 });
   }
   return sortFolderEntries(out);
 }

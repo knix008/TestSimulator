@@ -97,7 +97,7 @@ export function ProgressDialog({ task, onCancel }) {
   const { t } = useTranslation();
   if (!task) return null;
 
-  const { kind, name, done = 0, total = 0, indeterminate } = task;
+  const { kind, name, done = 0, total = 0, indeterminate, unit, files, filesTotal, cancelling } = task;
   const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
   const unknown = indeterminate || total <= 0;
 
@@ -116,14 +116,23 @@ export function ProgressDialog({ task, onCancel }) {
           <div className="prog-meta">
             <span>{unknown ? '' : `${pct}%`}</span>
             <span>
-              {total > 0 ? t('progress.ofBytes', { done: formatBytes(done), total: formatBytes(total) }) : formatBytes(done)}
+              {unit === 'count'
+                ? t('progress.ofItems', { done, total })
+                : (total > 0 ? t('progress.ofBytes', { done: formatBytes(done), total: formatBytes(total) }) : formatBytes(done))}
             </span>
           </div>
+          {filesTotal > 0 ? (
+            <div className="prog-meta prog-files">
+              <span>{t('progress.files', { done: files || 0, total: filesTotal })}</span>
+            </div>
+          ) : null}
         </div>
         {onCancel ? (
           <div className="modal-foot">
             <div className="spacer" />
-            <button className="btn" onClick={onCancel}>{t('progress.cancel')}</button>
+            <button className="btn" onClick={onCancel} disabled={!!cancelling}>
+              {cancelling ? t('progress.cancelling') : t('progress.cancel')}
+            </button>
           </div>
         ) : null}
       </div>

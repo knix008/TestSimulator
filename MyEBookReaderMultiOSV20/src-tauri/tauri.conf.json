@@ -34,7 +34,10 @@
     ],
     "resources": {
       "icons/file.ico": "file.ico",
-      "icons/file.png": "file.png"
+      "icons/file.png": "file.png",
+      "icons/markdown.ico": "markdown.ico",
+      "icons/text.ico": "text.ico",
+      "icons/zip.ico": "zip.ico"
     },
     "fileAssociations": [
       {

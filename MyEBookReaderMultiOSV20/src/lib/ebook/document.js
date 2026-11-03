@@ -9,7 +9,7 @@
 //
 // Reflowable books are paginated once when they open (layout.js); fixed-layout
 // ones (DjVu, comics, pictures) are a page per picture at its own proportions.
-import { openBook, detectFormat, flattenToc } from './book.js';
+import { openBook, openPictureFolderBook, detectFormat, flattenToc } from './book.js';
 import { EbookViewport } from './viewport.js';
 import {
   layoutChapter, isBlankPage, clampFontSize, PAGE_WIDTH, PAGE_HEIGHT, LINK_COLOR, DEFAULT_FONT_SIZE,
@@ -246,6 +246,22 @@ export async function openEbookDocument({
     throw err;
   }
   return makeDocument(book, layout, { fontSize: book.reflowable ? size : null });
+}
+
+/**
+ * A folder of pictures — or the pictures of an extracted archive — as one
+ * document, a page per picture. `pages` is [{ name, bytes }] in reading order.
+ */
+export async function openPictureFolderDocument({ name = '', path = '', pages = [], onProgress, signal } = {}) {
+  const book = openPictureFolderBook({ name, path, pages });
+  let layout;
+  try {
+    layout = await paginatePictures(book, { onProgress, signal });
+  } catch (err) {
+    book.destroy();
+    throw err;
+  }
+  return makeDocument(book, layout, { fontSize: null });
 }
 
 /**

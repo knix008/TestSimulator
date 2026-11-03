@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Icon of a Markdown file (.md / .markdown / .mdown) opened by
+     MyEBookReader, 2026. The same thick, softly lit document sheet as the
+     .ebkvw workspace icon, with the folded corner and the application tile
+     as its emblem, but the upper half carries the Markdown mark — an "M" and
+     a down arrow in a rounded frame — so the format is told at a glance.
+     Light from the top left. -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sheet" x1="0.1" y1="0" x2="0.6" y2="1">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.6"  stop-color="#f4f2ff"/>
+      <stop offset="1"    stop-color="#dcd6fb"/>
+    </linearGradient>
+    <linearGradient id="sheetSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#b3a9e8"/>
+      <stop offset="1"    stop-color="#7a6cc9"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#e4defe"/>
+      <stop offset="1"    stop-color="#b7abf2"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0"    stop-color="#5b6cff"/>
+      <stop offset="0.45" stop-color="#6a3df0"/>
+      <stop offset="1"    stop-color="#3a1596"/>
+    </linearGradient>
+    <radialGradient id="auroraCyan" cx="0.12" cy="0.1" r="0.7">
+      <stop offset="0"    stop-color="#52e3ff" stop-opacity="0.9"/>
+      <stop offset="1"    stop-color="#52e3ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraCoral" cx="0.92" cy="0.95" r="0.7">
+      <stop offset="0"    stop-color="#ff7a6b" stop-opacity="0.95"/>
+      <stop offset="1"    stop-color="#ff5fa2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1"    stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+    <clipPath id="emblem">
+      <rect x="378" y="590" width="268" height="268" rx="70"/>
+    </clipPath>
+  </defs>
+
+  <!-- Shadow, the sheet's side, the sheet -->
+  <path d="M236 150 H600 L800 350 V880 H236 Z" fill="#1d0a5a" opacity="0.35" filter="url(#shadow)" transform="translate(14 30)"/>
+  <path d="M236 150 H600 L800 350 V880 a40 40 0 0 1 -40 40 H276 a40 40 0 0 1 -40 -40 Z" fill="url(#sheetSide)" transform="translate(0 22)"/>
+  <path d="M276 128 H600 L800 328 V880 a40 40 0 0 1 -40 40 H276 a40 40 0 0 1 -40 -40 V168 a40 40 0 0 1 40 -40 Z" fill="url(#sheet)"/>
+
+  <!-- Folded corner and the shade it casts -->
+  <path d="M600 128 L800 328 H640 a40 40 0 0 1 -40 -40 Z" fill="#6a5bc4" opacity="0.25" transform="translate(-10 14)"/>
+  <path d="M600 128 L800 328 H640 a40 40 0 0 1 -40 -40 Z" fill="url(#fold)"/>
+
+  <!-- A heading line clear of the folded corner, then the Markdown mark:
+       a rounded frame, an M and a down arrow -->
+  <rect x="300" y="250" width="200" height="34" rx="17" fill="#6a3df0"/>
+  <rect x="318" y="344" width="400" height="212" rx="40" fill="#ffffff" stroke="#6a3df0" stroke-width="28"/>
+  <path d="M372 500 V400 L432 460 L492 400 V500" fill="none" stroke="#3a1596" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M612 400 V466" stroke="#3a1596" stroke-width="36" stroke-linecap="round"/>
+  <path d="M568 460 H656 L612 512 Z" fill="#3a1596" stroke="#3a1596" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- The application's tile, small, with its page -->
+  <rect x="378" y="604" width="268" height="268" rx="70" fill="#25106b"/>
+  <rect x="378" y="590" width="268" height="268" rx="70" fill="url(#face)"/>
+  <g clip-path="url(#emblem)">
+    <rect x="378" y="590" width="268" height="268" fill="url(#auroraCyan)"/>
+    <rect x="378" y="590" width="268" height="268" fill="url(#auroraCoral)"/>
+    <path d="M378 590 H646 V700 C580 680 450 720 378 690 Z" fill="url(#sheen)"/>
+  </g>
+  <path d="M470 646 H556 a10 10 0 0 1 10 10 V746 L534 798 H470 a10 10 0 0 1 -10 -10 V656 a10 10 0 0 1 10 -10 Z" fill="#ffffff"/>
+  <path d="M566 746 C548 752 540 760 534 798 C550 782 562 770 566 746 Z" fill="#d8d0ff"/>
+  <rect x="476" y="666" width="56" height="10" rx="5" fill="#6a3df0"/>
+  <g fill="#9a90d6">
+    <rect x="476" y="690" width="74" height="7" rx="3.5"/>
+    <rect x="476" y="708" width="74" height="7" rx="3.5"/>
+    <rect x="476" y="726" width="54" height="7" rx="3.5"/>
+  </g>
+</svg>

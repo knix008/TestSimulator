@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Icon of a ZIP archive of pictures (a comic, a scanned book) opened by
+     MyEBookReader, 2026. The same thick, softly lit document sheet as the
+     .ebkvw workspace icon, with the folded corner and the application tile
+     as its emblem; a zipper runs down its left edge and a framed picture
+     (hills under a sun) fills the upper half, so it reads as "an archive of
+     pictures". Light from the top left. -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sheet" x1="0.1" y1="0" x2="0.6" y2="1">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.6"  stop-color="#f4f2ff"/>
+      <stop offset="1"    stop-color="#dcd6fb"/>
+    </linearGradient>
+    <linearGradient id="sheetSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#b3a9e8"/>
+      <stop offset="1"    stop-color="#7a6cc9"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0"    stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#e4defe"/>
+      <stop offset="1"    stop-color="#b7abf2"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0"    stop-color="#5b6cff"/>
+      <stop offset="0.45" stop-color="#6a3df0"/>
+      <stop offset="1"    stop-color="#3a1596"/>
+    </linearGradient>
+    <radialGradient id="auroraCyan" cx="0.12" cy="0.1" r="0.7">
+      <stop offset="0"    stop-color="#52e3ff" stop-opacity="0.9"/>
+      <stop offset="1"    stop-color="#52e3ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auroraCoral" cx="0.92" cy="0.95" r="0.7">
+      <stop offset="0"    stop-color="#ff7a6b" stop-opacity="0.95"/>
+      <stop offset="1"    stop-color="#ff5fa2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="1"    stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+    <clipPath id="emblem">
+      <rect x="378" y="590" width="268" height="268" rx="70"/>
+    </clipPath>
+  </defs>
+
+  <!-- Shadow, the sheet's side, the sheet -->
+  <path d="M236 150 H600 L800 350 V880 H236 Z" fill="#1d0a5a" opacity="0.35" filter="url(#shadow)" transform="translate(14 30)"/>
+  <path d="M236 150 H600 L800 350 V880 a40 40 0 0 1 -40 40 H276 a40 40 0 0 1 -40 -40 Z" fill="url(#sheetSide)" transform="translate(0 22)"/>
+  <path d="M276 128 H600 L800 328 V880 a40 40 0 0 1 -40 40 H276 a40 40 0 0 1 -40 -40 V168 a40 40 0 0 1 40 -40 Z" fill="url(#sheet)"/>
+
+  <!-- Folded corner and the shade it casts -->
+  <path d="M600 128 L800 328 H640 a40 40 0 0 1 -40 -40 Z" fill="#6a5bc4" opacity="0.25" transform="translate(-10 14)"/>
+  <path d="M600 128 L800 328 H640 a40 40 0 0 1 -40 -40 Z" fill="url(#fold)"/>
+
+  <!-- The zipper down the left edge -->
+  <rect x="306" y="150" width="36" height="420" rx="10" fill="#d8d0ff"/>
+  <g fill="#6a3df0">
+    <rect x="296" y="160" width="34" height="22" rx="6"/>
+    <rect x="318" y="204" width="34" height="22" rx="6"/>
+    <rect x="296" y="248" width="34" height="22" rx="6"/>
+    <rect x="318" y="292" width="34" height="22" rx="6"/>
+    <rect x="296" y="336" width="34" height="22" rx="6"/>
+    <rect x="318" y="380" width="34" height="22" rx="6"/>
+    <rect x="296" y="424" width="34" height="22" rx="6"/>
+    <rect x="318" y="468" width="34" height="22" rx="6"/>
+    <rect x="296" y="512" width="34" height="22" rx="6"/>
+  </g>
+  <rect x="300" y="548" width="48" height="40" rx="12" fill="#3a1596"/>
+
+  <!-- A heading line clear of the folded corner, then a framed picture -->
+  <rect x="380" y="250" width="180" height="34" rx="17" fill="#6a3df0"/>
+  <rect x="380" y="344" width="356" height="212" rx="28" fill="#ffffff" stroke="#6a3df0" stroke-width="24"/>
+  <circle cx="660" cy="404" r="30" fill="#ff9a5c"/>
+  <path d="M400 536 L500 432 L566 494 L612 452 L716 536 Z" fill="#7a6cc9"/>
+
+  <!-- The application's tile, small, with its page -->
+  <rect x="378" y="604" width="268" height="268" rx="70" fill="#25106b"/>
+  <rect x="378" y="590" width="268" height="268" rx="70" fill="url(#face)"/>
+  <g clip-path="url(#emblem)">
+    <rect x="378" y="590" width="268" height="268" fill="url(#auroraCyan)"/>
+    <rect x="378" y="590" width="268" height="268" fill="url(#auroraCoral)"/>
+    <path d="M378 590 H646 V700 C580 680 450 720 378 690 Z" fill="url(#sheen)"/>
+  </g>
+  <path d="M470 646 H556 a10 10 0 0 1 10 10 V746 L534 798 H470 a10 10 0 0 1 -10 -10 V656 a10 10 0 0 1 10 -10 Z" fill="#ffffff"/>
+  <path d="M566 746 C548 752 540 760 534 798 C550 782 562 770 566 746 Z" fill="#d8d0ff"/>
+  <rect x="476" y="666" width="56" height="10" rx="5" fill="#6a3df0"/>
+  <g fill="#9a90d6">
+    <rect x="476" y="690" width="74" height="7" rx="3.5"/>
+    <rect x="476" y="708" width="74" height="7" rx="3.5"/>
+    <rect x="476" y="726" width="54" height="7" rx="3.5"/>
+  </g>
+</svg>

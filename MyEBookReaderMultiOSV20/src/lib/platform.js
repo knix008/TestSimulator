@@ -7,7 +7,8 @@
 //
 // Every long-running operation (open / save / download) reports progress so the
 // UI can put a progress dialog in front of the user.
-import { toFolderEntries } from './folders.js';
+import { toFolderEntries, isZipName } from './folders.js';
+import { pictureFilesOf } from './ebook/picturefolder.js';
 import { BOOK_EXTENSIONS } from './ebook/book.js';
 import { WORKSPACE_EXT, LEGACY_WORKSPACE_EXT } from './workspace.js';
 import buildInfo from '../build-info.json';
@@ -20,9 +21,10 @@ const progressHandlers = new Map();
 let taskSeq = 0;
 
 if (isDesktop && api.onProgress) {
-  api.onProgress(({ id, done, total }) => {
+  // Everything but the id goes on: an extraction adds files / filesTotal.
+  api.onProgress(({ id, ...progress }) => {
     const cb = progressHandlers.get(id);
-    if (cb) cb({ done, total });
+    if (cb) cb(progress);
   });
 }
 
@@ -73,6 +75,7 @@ function pickFileWeb(accept, { multiple = false } = {}) {
 // What the web open picker accepts: every book format and the workspace.
 export const WEB_OPEN_ACCEPT = [
   ...BOOK_EXTENSIONS.map((e) => `.${e}`),
+  '.zip',
   `.${WORKSPACE_EXT}`, `.${LEGACY_WORKSPACE_EXT}`,
   'application/pdf', 'application/epub+zip', 'image/vnd.djvu', 'application/x-mobipocket-ebook',
   'application/x-fictionbook+xml', 'application/vnd.comicbook+zip',
@@ -112,6 +115,116 @@ export async function pathExists(p) {
 export async function pickDirectory(defaultDir) {
   if (!isDesktop) return null;
   return api.pickDirectory({ defaultDir });
+}
+
+// ── Folders and ZIP archives of pictures, opened as books ──
+
+/** What a task the reader cancelled (Cancel in the progress window) ends with. */
+export function cancelledError() {
+  const err = new Error('Cancelled');
+  err.name = 'AbortError';
+  return err;
+}
+
+/** True for the end of a task the reader cancelled — not an error to report. */
+export function isCancelled(err) {
+  return err?.name === 'AbortError' || String(err?.message ?? err) === 'Cancelled';
+}
+
+/**
+ * Extracts a ZIP archive into its cache folder (once; reopening reuses it)
+ * and returns that folder. A big archive takes a while: `onProgress` gets
+ * { done, total } in bytes plus { files, filesTotal }, and aborting `signal`
+ * stops the extraction (it then throws cancelledError()).
+ */
+export async function extractZip(archive, { onProgress, signal } = {}) {
+  if (!isDesktop) throw new Error('ZIP archives can only be opened in the desktop app.');
+  if (signal?.aborted) throw cancelledError();
+  const { id, release } = withTask(onProgress);
+  const onAbort = () => { api.cancelTask?.(id).catch(() => {}); };
+  signal?.addEventListener('abort', onAbort);
+  try {
+    return await api.extractZip(archive, id);
+  } catch (err) {
+    if (signal?.aborted || isCancelled(err)) throw cancelledError();
+    throw err;
+  } finally {
+    signal?.removeEventListener('abort', onAbort);
+    release();
+  }
+}
+
+/** What a path is to the reader: 'dir', 'zip' or 'file'; null when it is gone. */
+export async function pathKind(p) {
+  if (!isDesktop || !p) return null;
+  try {
+    const st = await api.stat(p);
+    if (!st) return null;
+    if (st.isDir) return 'dir';
+    return isZipName(p) ? 'zip' : 'file';
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The pictures that make up a folder or archive book, in reading order.
+ * An archive is extracted first (once — reopening reuses it) and every
+ * sub-folder of it counts. A folder counts its own pictures; one that has
+ * none but keeps them in sub-folders (chapters) counts those.
+ * Returns { dir, files: [{ name, path, size }], others: [{ name, path }] } —
+ * `others` are the rest of an archive's files, for one that holds a book
+ * rather than pictures.
+ */
+export async function pictureBookFiles(target, kind, { onProgress, signal } = {}) {
+  if (!isDesktop) throw new Error('Folders and archives can only be opened in the desktop app.');
+  let dir = target;
+  let raw;
+  if (kind === 'zip') {
+    dir = await extractZip(target, { onProgress, signal });
+    raw = await api.listFilesDeep(dir);
+  } else {
+    raw = (await api.readDir(dir)).filter((e) => e.kind !== 'dir');
+    if (!pictureFilesOf(raw).length) raw = await api.listFilesDeep(dir);
+  }
+  const list = Array.isArray(raw) ? raw : [];
+  const files = pictureFilesOf(list);
+  const pictures = new Set(files.map((f) => f.path));
+  return { dir, files, others: list.filter((f) => !pictures.has(f.path)) };
+}
+
+/**
+ * The cover of a folder or ZIP book — its first picture, { name, bytes } —
+ * or null. A ZIP is not extracted for this: only the one picture is read.
+ */
+export async function pictureBookCover(target, kind) {
+  if (!isDesktop) return null;
+  if (kind === 'zip') {
+    const [first] = pictureFilesOf((await api.zipNames(target)).map((name) => ({ name })));
+    return first ? { name: first.name, bytes: await api.zipRead(target, first.name) } : null;
+  }
+  const { files } = await pictureBookFiles(target, kind);
+  if (!files.length) return null;
+  const { data } = await api.readBinary({ filePath: files[0].path });
+  return { name: files[0].name, bytes: data };
+}
+
+/**
+ * Reads the pictures of a book: [{ name, bytes }], with progress counted in
+ * pictures ({ done, total, unit: 'count' }). Aborting `signal` stops it.
+ */
+export async function readPictureBook(files, { onProgress, signal } = {}) {
+  const pages = [];
+  const total = files.length;
+  for (let i = 0; i < total; i += 1) {
+    if (signal?.aborted) throw cancelledError();
+    onProgress?.({ done: i, total, unit: 'count' });
+    // eslint-disable-next-line no-await-in-loop
+    const { data } = await api.readBinary({ filePath: files[i].path });
+    pages.push({ name: files[i].name, bytes: data });
+  }
+  onProgress?.({ done: total, total, unit: 'count' });
+  return pages;
 }
 
 export async function listDirectory(dirPath) {

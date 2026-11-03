@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  IconOpen, IconUrl, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy, IconClip,
+  IconOpen, IconUrl, IconFolderOpen, IconRecent, IconSave, IconSaveAs, IconUndo, IconRedo, IconCopy, IconClip,
   IconSelectAll, IconMarquee, IconHand, IconImage, IconText, IconHighlight, IconBookmark, IconComment,
   IconFirst, IconPrev, IconNext, IconLast, IconZoomIn, IconZoomOut, IconMinus, IconPlus,
   IconRotateLeft, IconRotateRight, IconSidebar, IconRightPanel,
@@ -15,7 +15,7 @@ import { nextTheme, THEME_OPEN_SETTINGS } from '../lib/themes.js';
 import { ThemeMenu } from './ThemePicker.jsx';
 import { otherLang } from '../i18n.js';
 import { api, isDesktop } from '../lib/platform.js';
-import { isBookFileName } from '../lib/folders.js';
+import { isShelfPath } from '../lib/folders.js';
 import { MIN_FONT_SIZE, MAX_FONT_SIZE } from '../lib/ebook/layout.js';
 import { stepPage, PAGE_EFFECTS, nextPageEffect, normalizePageEffect, isPagedLayout, FIT_ZOOM_MODES, zoomModeLabelKey, VIEW_FIT_BUTTONS, fitButtonDisabled } from '../lib/view.js';
 
@@ -654,7 +654,7 @@ export default function Toolbar({
 // The Home button and the File menu, shown at the left of the title bar.
 export function HomeFileButtons({
   settings, doc, homeOpen = false, onHome,
-  onOpen, onOpenUrl, onSave, onSaveAs, onAttachFile, onSaveWorkspace, onSaveWorkspaceAs,
+  onOpen, onOpenFolder, onOpenUrl, onSave, onSaveAs, onAttachFile, onSaveWorkspace, onSaveWorkspaceAs,
   onExportText, onPrint, onOpenRecent, onRemoveRecent, onClearRecent, isFavoritePath, onToggleFavorite,
 }) {
   const { t } = useTranslation();
@@ -668,6 +668,10 @@ export function HomeFileButtons({
         <ul className="dd-list">
           <li><button className="dd-item" onClick={onOpen} title={t('tip.open')}>
             <IconOpen size={15} /><span className="dd-name wide">{t('toolbar.open')}</span><span className="dd-key">Ctrl+O</span></button></li>
+          {onOpenFolder ? (
+            <li><button className="dd-item" onClick={onOpenFolder} title={t('tip.openFolder')}>
+              <IconFolderOpen size={15} /><span className="dd-name wide">{t('toolbar.openFolder')}</span><span className="dd-key">Ctrl+Shift+O</span></button></li>
+          ) : null}
           <li><button className="dd-item" onClick={onOpenUrl} title={t('tip.openUrl')}>
             <IconUrl size={15} /><span className="dd-name wide">{t('toolbar.openUrl')}</span></button></li>
           <li><button className="dd-item" onClick={onSave} disabled={!doc} title={t('tip.save')}>
@@ -716,7 +720,7 @@ export function HomeFileButtons({
                   <span className="dd-name">{f.name}</span>
                   <span className="dd-dir">{f.dir || ''}</span>
                 </button>
-                {onToggleFavorite && isBookFileName(f.path || '') ? (() => {
+                {onToggleFavorite && f.path && isShelfPath(f.path) ? (() => {
                   const on = !!isFavoritePath?.(f.path);
                   const label = on ? t('gallery.unfavorite') : t('gallery.favorite');
                   return (

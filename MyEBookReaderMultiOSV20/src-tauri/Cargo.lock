@@ -2226,6 +2226,8 @@ name = "myebookreader"
 version = "1.0.2"
 dependencies = [
  "arboard",
+ "crc32fast",
+ "flate2",
  "fontdb",
  "image",
  "serde",

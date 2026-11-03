@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconChevron, IconFolder, IconPdf } from './Icons.jsx';
+import { IconChevron, IconFolder, IconPdf, IconImage, IconExtract } from './Icons.jsx';
 import { folderLabel, toFolderEntries } from '../lib/folders.js';
 
-// Folder navigation tree. Expanding a directory lists its subfolders and
-// files whose last extension is exactly "pdf". Parent and child rows are
-// joined by the shared .tree connector lines.
+// Folder navigation tree. Expanding a directory lists its subfolders, its
+// books, ZIP archives and pictures. A folder holding pictures (a comic's
+// pages, a scanned book) gets a first row that opens all of them as one
+// book; clicking one picture does the same, starting at that picture.
+// Parent and child rows are joined by the shared .tree connector lines.
+const KIND_ICON = { pdf: IconPdf, zip: IconExtract, image: IconImage };
+
 export default function FolderTree({
   root,
   currentPath,
   desktop,
   onOpenFile,
+  onOpenFolderBook,
   loadFolder,
   onNodeMenu,
 }) {
@@ -25,8 +30,9 @@ export default function FolderTree({
     try {
       const list = toFolderEntries(await loadFolder(dir));
       setKids((m) => new Map(m).set(dir, list));
-      // Open folders that actually contain PDFs so those files stay visible.
-      if (list.some((n) => n.kind === 'pdf')) {
+      // Open folders that actually contain books so those files stay visible
+      // (not every folder of photos — those open when asked).
+      if (list.some((n) => n.kind === 'pdf' || n.kind === 'zip')) {
         setOpen((prev) => (prev.has(dir) ? prev : new Set(prev).add(dir)));
       }
       if (prefetch) {
@@ -70,14 +76,33 @@ export default function FolderTree({
     });
   };
 
-  const renderLevel = (entries) => (
+  // The "view as a book" row an expanded folder of pictures starts with.
+  const bookRow = (dir, entries) => {
+    const n = (entries || []).filter((e) => e.kind === 'image').length;
+    if (!n || !onOpenFolderBook) return null;
+    return (
+      <li key={`${dir}#book`} className="leaf">
+        <div className={`tree-row file picture-book${currentPath === dir ? ' current' : ''}`}>
+          <span className="tree-toggle placeholder" />
+          <button className="tree-label" type="button" title={t('side.openPictureBookTip')} onClick={() => onOpenFolderBook(dir)}>
+            <span className="tree-kind" aria-hidden="true"><IconImage size={14} /></span>
+            <span className="ol-title">{t('side.pictureBookRow', { n })}</span>
+          </button>
+        </div>
+      </li>
+    );
+  };
+
+  const renderLevel = (entries, dir = null) => (
     <ul className="tree">
+      {dir ? bookRow(dir, entries) : null}
       {(entries || []).map((node) => {
         const isDir = node.kind === 'dir';
         const isOpen = open.has(node.path);
         const childList = kids.get(node.path);
         const loading = busy.has(node.path);
         const current = !isDir && currentPath && node.path === currentPath;
+        const KindIcon = KIND_ICON[node.kind] || IconPdf;
         return (
           <li
             key={node.path}
@@ -107,7 +132,7 @@ export default function FolderTree({
                 }}
               >
                 <span className="tree-kind" aria-hidden="true">
-                  {isDir ? <IconFolder size={14} /> : <IconPdf size={14} />}
+                  {isDir ? <IconFolder size={14} /> : <KindIcon size={14} />}
                 </span>
                 <span className="ol-title">{node.name}</span>
               </button>
@@ -115,7 +140,7 @@ export default function FolderTree({
             {isDir && isOpen ? (
               loading && !childList
                 ? <p className="empty tree-empty">{t('side.folderLoading')}</p>
-                : (childList?.length ? renderLevel(childList) : null)
+                : (childList?.length ? renderLevel(childList, node.path) : null)
             ) : null}
           </li>
         );

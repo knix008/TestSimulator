@@ -4,13 +4,7 @@
 // "page2.jpg" before "page10.jpg", which a plain string sort gets wrong. Pages
 // are decoded on demand — a 500 MB comic opens as fast as its first page.
 import { readZip, readEntry } from './zip.js';
-
-const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|avif)$/i;
-
-const MIME = {
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-  webp: 'image/webp', bmp: 'image/bmp', avif: 'image/avif',
-};
+import { isImageName, pictureResource } from './imagebook.js';
 
 /** "ch2/page10.jpg" sorts after "ch2/page9.jpg" — digits compare as numbers. */
 export function naturalCompare(a, b) {
@@ -37,7 +31,8 @@ export function naturalCompare(a, b) {
 export function openCbz(data, { name = '' } = {}) {
   const zip = readZip(data);
   const pages = zip.entries
-    .filter((entry) => !entry.directory && IMAGE_EXT.test(entry.name) && !/(^|\/)__MACOSX\//i.test(entry.name))
+    .filter((entry) => !entry.directory && isImageName(entry.name)
+      && !/(^|\/)__MACOSX\//i.test(entry.name) && !/(^|\/)\._/.test(entry.name))
     .sort((a, b) => naturalCompare(a.name, b.name));
 
   if (!pages.length) throw new Error('This archive contains no images, so there is nothing to show as a comic.');
@@ -71,8 +66,8 @@ export function openCbz(data, { name = '' } = {}) {
       if (cache.has(path)) return cache.get(path);
       const entry = zip.byName.get(path);
       if (!entry) return null;
-      const ext = path.split('.').pop().toLowerCase();
-      const value = { bytes: readEntry(zip, entry), mime: MIME[ext] || 'image/jpeg' };
+      // Any picture format: ones the browser cannot show are converted here.
+      const value = pictureResource(readEntry(zip, entry), path);
       cache.set(path, value);
       return value;
     },

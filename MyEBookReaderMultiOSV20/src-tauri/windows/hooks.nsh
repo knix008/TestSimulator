@@ -10,6 +10,9 @@
 ;  • gives the .ebkvw document type its own icon, adds MyEBookReader to the
 ;    "Open with" list for PDF and every e-book type, and registers it under
 ;    Default Programs
+;  • offers MyEBookReader for Markdown, plain text and ZIP archives of
+;    pictures (comics), each with its own document icon, without taking
+;    those types' default
 ;
 ; On making MyEBookReader the default for e-books:
 ;   Since Windows 8 the actual default lives in a hash-protected UserChoice key
@@ -53,6 +56,13 @@
 !define MP_WS_PROGID "MyEBookReader.Workspace"
 !define MP_BOOK_PROGID "MyEBookReader.Book"
 !define MP_PDF_PROGID "MyEBookReader.PDF"
+; Markdown, plain text and ZIP archives of pictures (comics): offered in
+; "Open with" and Default Programs, each with its own document icon, never
+; made the default by the installer — editors and the system's own ZIP
+; folder keep those.
+!define MP_MD_PROGID "MyEBookReader.Markdown"
+!define MP_TXT_PROGID "MyEBookReader.Text"
+!define MP_ZIP_PROGID "MyEBookReader.Archive"
 ; electron-builder's per-user uninstall key for appId com.shkwon.myebookreader
 ; (UUIDv5 of the appId). UninstallString is
 ; "%LOCALAPPDATA%\Programs\MyEbooks\Uninstall MyEbooks.exe" /currentuser
@@ -123,7 +133,7 @@ Function MP_PageShortcuts
     Pop $MP_StartMenuBox
     ${NSD_CreateCheckbox} 0 70u 100% 12u "전자책(EPUB·MOBI·AZW·DjVu·FB2·CBZ)의 기본 리더로 설정"
     Pop $MP_DefaultBookBox
-    ${NSD_CreateLabel} 0 88u 100% 48u ".ebkvw (MyEBookReader 작업 파일) 형식이 시스템에 등록되고, PDF와 전자책 파일의 [연결 프로그램] 목록에 추가됩니다.$\r$\n기본 리더로 설정을 선택하면, 이미 다른 프로그램이 기본으로 지정되어 있는 경우 Windows [기본 앱] 설정 창이 열립니다. 마지막 확인은 Windows 정책상 사용자가 직접 해야 합니다."
+    ${NSD_CreateLabel} 0 88u 100% 48u ".ebkvw (MyEBookReader 작업 파일) 형식이 시스템에 등록되고, PDF·전자책·Markdown·텍스트·ZIP(그림 묶음) 파일의 [연결 프로그램] 목록에 추가됩니다.$\r$\n기본 리더로 설정을 선택하면, 이미 다른 프로그램이 기본으로 지정되어 있는 경우 Windows [기본 앱] 설정 창이 열립니다. 마지막 확인은 Windows 정책상 사용자가 직접 해야 합니다."
     Pop $0
   ${Else}
     !insertmacro MP_SetHeader "Shortcuts and File Types" "Choose the shortcuts and file associations to create."
@@ -135,7 +145,7 @@ Function MP_PageShortcuts
     Pop $MP_StartMenuBox
     ${NSD_CreateCheckbox} 0 70u 100% 12u "Set as the default reader for e-books (EPUB, MOBI, AZW, DjVu, FB2, CBZ)"
     Pop $MP_DefaultBookBox
-    ${NSD_CreateLabel} 0 88u 100% 48u "The .ebkvw workspace type will be registered, and MyEBookReader will be added to the 'Open with' list for PDF and e-book files.$\r$\nIf you set it as the default reader and another application is already the default, Windows Settings will open on the 'Default apps' page — Windows requires you to confirm that last step yourself."
+    ${NSD_CreateLabel} 0 88u 100% 48u "The .ebkvw workspace type will be registered, and MyEBookReader will be added to the 'Open with' list for PDF, e-book, Markdown, text and ZIP (pictures) files.$\r$\nIf you set it as the default reader and another application is already the default, Windows Settings will open on the 'Default apps' page — Windows requires you to confirm that last step yourself."
     Pop $0
   ${EndIf}
 
@@ -246,6 +256,33 @@ FunctionEnd
   WriteRegStr HKCU "Software\${MP_NAME}\Capabilities\FileAssociations" "${ext}" "${MP_BOOK_PROGID}"
   ${If} $MP_DefaultBookState == ${BST_CHECKED}
     WriteRegStr HKCU "Software\Classes\${ext}" "" "${MP_BOOK_PROGID}"
+  ${EndIf}
+!macroend
+
+; A document type of ours with its own icon, offered for some extensions.
+!macro MP_WriteDocProgId progid typename icon
+  WriteRegStr HKCU "Software\Classes\${progid}" "" "${typename}"
+  WriteRegStr HKCU "Software\Classes\${progid}" "FriendlyTypeName" "${typename}"
+  WriteRegStr HKCU "Software\Classes\${progid}" "FriendlyAppName" "${MP_NAME}"
+  WriteRegStr HKCU "Software\Classes\${progid}\DefaultIcon" "" "$INSTDIR\${icon},0"
+  WriteRegStr HKCU "Software\Classes\${progid}\shell\open" "" "Open with ${MP_NAME}"
+  WriteRegStr HKCU "Software\Classes\${progid}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
+!macroend
+
+; Offered in "Open with" and listed under Default Programs — not the default.
+!macro MP_OfferExt ext progid
+  WriteRegStr HKCU "Software\Classes\${ext}\OpenWithProgids" "${progid}" ""
+  WriteRegStr HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe\SupportedTypes" "${ext}" ""
+  WriteRegStr HKCU "Software\${MP_NAME}\Capabilities\FileAssociations" "${ext}" "${progid}"
+!macroend
+
+; Taken back on uninstall; the extension is released only if the user had
+; made it ours (in Settings) and the ProgID is about to go.
+!macro MP_WithdrawExt ext progid
+  DeleteRegValue HKCU "Software\Classes\${ext}\OpenWithProgids" "${progid}"
+  ReadRegStr $0 HKCU "Software\Classes\${ext}" ""
+  ${If} $0 == "${progid}"
+    DeleteRegValue HKCU "Software\Classes\${ext}" ""
   ${EndIf}
 !macroend
 
@@ -415,6 +452,17 @@ FunctionEnd
   WriteRegStr HKCU "Software\Classes\${MP_PDF_PROGID}\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
   WriteRegStr HKCU "Software\Classes\.pdf\OpenWithProgids" "${MP_PDF_PROGID}" ""
 
+  ; ── Markdown, text and ZIP archives of pictures: offered, with their own icons ──
+  !insertmacro MP_WriteDocProgId "${MP_MD_PROGID}" "Markdown Document" "markdown.ico"
+  !insertmacro MP_WriteDocProgId "${MP_TXT_PROGID}" "Text Document" "text.ico"
+  !insertmacro MP_WriteDocProgId "${MP_ZIP_PROGID}" "ZIP Archive (pictures)" "zip.ico"
+  !insertmacro MP_OfferExt ".md" "${MP_MD_PROGID}"
+  !insertmacro MP_OfferExt ".markdown" "${MP_MD_PROGID}"
+  !insertmacro MP_OfferExt ".mdown" "${MP_MD_PROGID}"
+  !insertmacro MP_OfferExt ".txt" "${MP_TXT_PROGID}"
+  !insertmacro MP_OfferExt ".text" "${MP_TXT_PROGID}"
+  !insertmacro MP_OfferExt ".zip" "${MP_ZIP_PROGID}"
+
   WriteRegStr HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe" "FriendlyAppName" "${MP_NAME}"
   WriteRegStr HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe\shell\open\command" "" '"$INSTDIR\${MAINBINARYNAME}.exe" "%1"'
   WriteRegStr HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe\SupportedTypes" ".pdf" ""
@@ -465,6 +513,15 @@ FunctionEnd
     DeleteRegKey HKCU "Software\Classes\${MP_WS_PROGID}"
     DeleteRegKey HKCU "Software\Classes\${MP_BOOK_PROGID}"
     DeleteRegKey HKCU "Software\Classes\${MP_PDF_PROGID}"
+    !insertmacro MP_WithdrawExt ".md" "${MP_MD_PROGID}"
+    !insertmacro MP_WithdrawExt ".markdown" "${MP_MD_PROGID}"
+    !insertmacro MP_WithdrawExt ".mdown" "${MP_MD_PROGID}"
+    !insertmacro MP_WithdrawExt ".txt" "${MP_TXT_PROGID}"
+    !insertmacro MP_WithdrawExt ".text" "${MP_TXT_PROGID}"
+    !insertmacro MP_WithdrawExt ".zip" "${MP_ZIP_PROGID}"
+    DeleteRegKey HKCU "Software\Classes\${MP_MD_PROGID}"
+    DeleteRegKey HKCU "Software\Classes\${MP_TXT_PROGID}"
+    DeleteRegKey HKCU "Software\Classes\${MP_ZIP_PROGID}"
     DeleteRegValue HKCU "Software\Classes\${MP_WS_EXT}\OpenWithProgids" "${MP_WS_PROGID}"
     DeleteRegValue HKCU "Software\Classes\.pdf\OpenWithProgids" "${MP_PDF_PROGID}"
     DeleteRegKey HKCU "Software\Classes\${MP_WS_EXT}"

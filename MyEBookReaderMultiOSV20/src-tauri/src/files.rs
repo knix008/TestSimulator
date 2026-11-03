@@ -5,10 +5,11 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 /// Everything the app opens from the command line ("Open with", a double
-/// click): books in every format it reads, and .ebkvw / .pdfvw workspaces.
-const OPENABLE: [&str; 29] = [
-  "pdf", "epub", "mobi", "prc", "pdb", "azw", "azw3", "kf8", "djvu", "djv", "fb2", "cbz", "cbr",
-  "txt", "text", "md", "markdown", "html", "htm", "xhtml",
+/// click): books in every format it reads, ZIP archives of pictures, and
+/// .ebkvw / .pdfvw workspaces.
+const OPENABLE: [&str; 31] = [
+  "pdf", "epub", "mobi", "prc", "pdb", "azw", "azw3", "kf8", "djvu", "djv", "fb2", "cbz", "cbr", "zip",
+  "txt", "text", "md", "markdown", "mdown", "html", "htm", "xhtml",
   "png", "jpg", "jpeg", "gif", "webp", "tif", "tiff", "ebkvw", "pdfvw",
 ];
 
@@ -68,9 +69,12 @@ pub struct Entry {
   pub size: Option<u64>,
 }
 
-/// One level of a folder: sub-folders first, then PDFs, each sorted by name
-/// without regard to case. Hidden (dot) entries and other files are left out.
-/// metadata() follows links, so a link to a PDF lists as a PDF.
+/// One level of a folder: sub-folders first, then files, each sorted by name
+/// without regard to case. Books are kind "pdf" (the name the renderer has
+/// always used for "a book to open"); every other file is kind "file", and
+/// the renderer keeps the ones it can show — pictures and ZIP archives.
+/// Hidden (dot) entries are left out. metadata() follows links, so a link to
+/// a PDF lists as a PDF.
 pub fn read_level(dir: &str) -> Vec<Entry> {
   let root = Path::new(dir);
   if dir.is_empty() || !root.is_dir() {
@@ -90,9 +94,47 @@ pub fn read_level(dir: &str) -> Vec<Entry> {
       out.push(Entry { path, name, kind: "pdf", size: Some(meta.len()) });
     } else if meta.is_dir() {
       out.push(Entry { path, name, kind: "dir", size: None });
+    } else {
+      out.push(Entry { path, name, kind: "file", size: Some(meta.len()) });
     }
   }
   sort_entries(&mut out);
+  out
+}
+
+/// Every file under `dir`, sub-folders included (hidden entries skipped),
+/// each with its path relative to `dir` in `name` ("ch1/001.jpg"), at most `cap`.
+/// Links to folders are not followed, so a loop cannot trap the walk.
+pub fn list_files_deep(dir: &str, cap: usize) -> Vec<Entry> {
+  let root = Path::new(dir);
+  let mut out = Vec::new();
+  if dir.is_empty() || !root.is_dir() {
+    return out;
+  }
+  let mut stack = vec![root.to_path_buf()];
+  while let Some(folder) = stack.pop() {
+    let Ok(read) = std::fs::read_dir(&folder) else { continue };
+    for item in read.flatten() {
+      let name = item.file_name().to_string_lossy().to_string();
+      if name.starts_with('.') {
+        continue;
+      }
+      let Ok(ft) = item.file_type() else { continue };
+      let full = item.path();
+      if ft.is_dir() {
+        stack.push(full);
+      } else if let Ok(meta) = std::fs::metadata(&full) {
+        if !meta.is_file() {
+          continue;
+        }
+        let rel = full.strip_prefix(root).unwrap_or(&full).to_string_lossy().replace('\\', "/");
+        out.push(Entry { path: full.to_string_lossy().to_string(), name: rel, kind: "file", size: Some(meta.len()) });
+        if out.len() >= cap {
+          return out;
+        }
+      }
+    }
+  }
   out
 }
 
@@ -261,12 +303,42 @@ mod tests {
     // Names that only contain "pdf" stay out.
     fs::write(dir.path().join("mypdf.txt"), b"x").unwrap();
     fs::write(dir.path().join("guide.pdfx"), b"x").unwrap();
+    fs::write(dir.path().join(".hidden.jpg"), b"x").unwrap();
     let list = read_level(&dir.path().to_string_lossy());
     let names: Vec<_> = list.iter().map(|e| (e.kind, e.name.as_str())).collect();
-    assert_eq!(names, vec![("dir", "Alpha"), ("dir", "zeta"), ("pdf", "A.PDF"), ("pdf", "b.pdf"), ("pdf", "c.epub")]);
+    // Books are "pdf"; everything else is a plain "file" for the renderer to sort out.
+    assert_eq!(names, vec![
+      ("dir", "Alpha"), ("dir", "zeta"),
+      ("pdf", "A.PDF"), ("pdf", "b.pdf"), ("pdf", "c.epub"),
+      ("file", "guide.pdfx"), ("file", "mypdf.txt"), ("file", "notes.txt"), ("file", "w.ebkvw"),
+    ]);
     assert_eq!(list[3].size, Some(5));
     assert!(read_level("").is_empty());
     assert!(read_level(&dir.path().join("nope").to_string_lossy()).is_empty());
+  }
+
+  #[test]
+  fn lists_files_in_sub_folders() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("ch1")).unwrap();
+    fs::create_dir_all(dir.path().join(".git")).unwrap();
+    fs::write(dir.path().join("cover.jpg"), b"1").unwrap();
+    fs::write(dir.path().join("ch1").join("001.jpg"), b"12").unwrap();
+    fs::write(dir.path().join(".git").join("x.jpg"), b"1").unwrap();
+    let mut names: Vec<_> = list_files_deep(&dir.path().to_string_lossy(), 100).into_iter().map(|e| e.name).collect();
+    names.sort();
+    assert_eq!(names, vec!["ch1/001.jpg", "cover.jpg"]);
+    assert_eq!(list_files_deep(&dir.path().to_string_lossy(), 1).len(), 1);
+    assert!(list_files_deep("", 10).is_empty());
+  }
+
+  #[test]
+  fn opens_zip_archives_from_the_command_line() {
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("comic.zip"), b"PK").unwrap();
+    fs::write(dir.path().join("notes.mdown"), b"# x").unwrap();
+    assert_eq!(openable_from_args(["x", "comic.zip"], dir.path()), Some(dir.path().join("comic.zip")));
+    assert_eq!(openable_from_args(["x", "notes.mdown"], dir.path()), Some(dir.path().join("notes.mdown")));
   }
 
   #[test]

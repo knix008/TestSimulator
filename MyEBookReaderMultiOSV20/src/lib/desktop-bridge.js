@@ -164,6 +164,13 @@ export function createDesktopApi({
     exists: (p) => call('fs_exists', { path: String(p || '') }),
     stat: (p) => call('fs_stat', { path: String(p || '') }),
     readDir: (p) => call('fs_read_dir', { path: String(p || '') }),
+    // A ZIP archive is extracted once into a cache folder; this is that folder.
+    // With an id, progress arrives through onProgress and cancelTask(id) stops it.
+    extractZip: (p, id) => call('fs_extract_zip', { path: String(p || ''), id: id || null }),
+    cancelTask: (id) => call('task_cancel', { id: String(id || '') }),
+    zipNames: (p) => call('fs_zip_names', { path: String(p || '') }),
+    zipRead: async (p, name) => toBytes(await call('fs_zip_read', { path: String(p || ''), name: String(name || '') })),
+    listFilesDeep: (p) => call('fs_list_files_deep', { path: String(p || '') }),
     listDrives: () => call('fs_drives'),
     readBinary: async ({ filePath, id }) => {
       const [buf, st] = await Promise.all([

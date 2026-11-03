@@ -12,6 +12,10 @@
 //     src-tauri/icons/file.icns   (macOS document type)
 //     src-tauri/icons/file.png    (512, Linux/web)
 //
+//   assets/markdown-icon.svg, text-icon.svg, zip-icon.svg → markdown / text /
+//     zip .ico and .png: the icons the installer gives .md, .txt and .zip
+//     files opened with MyEBookReader
+//
 // sharp rasterizes each SVG at every size, then our own ICO/ICNS encoders
 // (src/lib/ico.mjs) wrap the PNGs into the containers. tauri-build embeds
 // icon.ico into the exe at compile time, so the outputs are committed: a fresh
@@ -30,6 +34,12 @@ const outDir = path.join(root, 'src-tauri', 'icons');
 const BUNDLE_PNGS = { '32x32.png': 32, '128x128.png': 128, '128x128@2x.png': 256, 'icon.png': 512 };
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
 const ICNS_SIZES = [16, 32, 64, 128, 256, 512, 1024];
+// assets/<svg> → src-tauri/icons/<base>.ico and .png, for the installer.
+const DOCUMENT_ICONS = [
+  ['markdown-icon.svg', 'markdown'],
+  ['text-icon.svg', 'text'],
+  ['zip-icon.svg', 'zip'],
+];
 
 async function main() {
   const sharp = (await import('sharp')).default;
@@ -79,6 +89,20 @@ async function main() {
     for (const size of ICNS_SIZES) fIcns.push({ size, png: new Uint8Array(await filePng(size)) });
     fs.writeFileSync(path.join(outDir, 'file.icns'), Buffer.from(encodeIcns(fIcns)));
     console.log('[icons] Wrote file.ico / file.icns / file.png (.ebkvw document type)');
+  }
+
+  // ── The other file types the installer registers ─────────
+  // Markdown, plain text and ZIP archives of pictures each get their own
+  // document icon (Windows: the ProgID's DefaultIcon; others: the PNG).
+  for (const [svg, base] of DOCUMENT_ICONS) {
+    const from = path.join(root, 'assets', svg);
+    if (!fs.existsSync(from)) continue;
+    const png = rasterize(from);
+    fs.writeFileSync(path.join(outDir, `${base}.png`), await png(512));
+    const entries = [];
+    for (const size of ICO_SIZES) entries.push({ size, png: new Uint8Array(await png(size)) });
+    fs.writeFileSync(path.join(outDir, `${base}.ico`), Buffer.from(encodeIco(entries)));
+    console.log(`[icons] Wrote ${base}.ico / ${base}.png`);
   }
 
   // Keep the web/UI copies in sync with the sources. (Also done by

@@ -1069,6 +1069,22 @@ const PdfView = forwardRef(function PdfView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageNumber, layout, doc, pageTurn]);
 
+  // A document opened at a page other than 1 (the remembered page, a picture
+  // clicked in the folder panel) is scrolled there before page 1's size — and
+  // so the fit zoom — is known. Once it is, every page changes height and the
+  // same scrollTop shows a later page; land on the page again. Only while the
+  // document is settling (its first second at a known size), so a zoom the
+  // reader makes later keeps their place as before.
+  const settleLanding = useRef({ doc: null, until: 0 });
+  useLayoutEffect(() => {
+    if (!doc || !baseSize || pageTurn) return;
+    const now = Date.now();
+    if (settleLanding.current.doc !== doc) settleLanding.current = { doc, until: now + 1000 };
+    if (now > settleLanding.current.until || pageNumber <= 1) return;
+    scrollToPage(pageNumber);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, baseSize, scale]);
+
   // If a turn, a cancelled paint, or a spacer/slot change left the sheet
   // outside the pane, the viewer is just --page-bg. Pull it back.
   useLayoutEffect(() => {

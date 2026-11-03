@@ -66,6 +66,27 @@ describe('what the icons show', () => {
 describeIcon('application', appSvg);
 describeIcon('document', fileSvg);
 
+// The other types the installer registers: the same sheet and emblem, each
+// with its own mark, so a Markdown file, a text file and a ZIP of pictures
+// are told apart from each other and from the workspace.
+const docSvgs = {
+  markdown: fs.readFileSync(path.join(root, 'assets', 'markdown-icon.svg'), 'utf-8'),
+  text: fs.readFileSync(path.join(root, 'assets', 'text-icon.svg'), 'utf-8'),
+  zip: fs.readFileSync(path.join(root, 'assets', 'zip-icon.svg'), 'utf-8'),
+};
+for (const [name, svg] of Object.entries(docSvgs)) {
+  describeIcon(name, svg);
+  it(`the ${name} icon carries the application emblem and is its own drawing`, () => {
+    expect(svg).toContain('id="emblem"');
+    expect(svg).not.toBe(fileSvg);
+  });
+}
+it('the document icons are all different', () => {
+  expect(new Set([fileSvg, ...Object.values(docSvgs)]).size).toBe(4);
+  expect(docSvgs.markdown).toContain('Markdown mark');
+  expect(docSvgs.zip).toContain('zipper');
+});
+
 describe('the two icons are different', () => {
   it('are not the same drawing', () => {
     expect(appSvg).not.toBe(fileSvg);

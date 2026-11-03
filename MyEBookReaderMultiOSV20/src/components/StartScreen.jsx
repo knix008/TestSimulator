@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  IconOpen, IconUrl, IconGallery, IconLibrary, IconGuide, IconRecent, IconClose, IconSparkles, IconInfo,
+  IconOpen, IconUrl, IconFolderOpen, IconGallery, IconLibrary, IconGuide, IconRecent, IconClose, IconSparkles, IconInfo,
   IconPdf, IconTrash, IconGrid,
 } from './Icons.jsx';
 import {
@@ -23,7 +23,7 @@ const START_BOOKS = 18;
 // library on a shelf, and the moving 3D background with its controls.
 export default function StartScreen({
   settings, onSettings, entries = [], currentPath = '',
-  onOpenFile, onOpenUrl, onOpenEntry, onEntryMenu, onForgetRecent, onForgetAllRecent, onUnfavorite, onClearLibrary, onShowLibrary, onShowGallery, onOpenGuide, onNeedThumb,
+  onOpenFile, onOpenFolder, onOpenUrl, onOpenEntry, onEntryMenu, onForgetRecent, onForgetAllRecent, onUnfavorite, onClearLibrary, onShowLibrary, onShowGallery, onOpenGuide, onNeedThumb,
 }) {
   const { t } = useTranslation();
   const books = useMemo(() => favoritesOf(entries), [entries]);
@@ -179,8 +179,13 @@ export default function StartScreen({
                 <h2>{moveHandle('begin')}<IconOpen size={16} /><span>{t('start.begin')}</span></h2>
                 <div className="start-actions">
                   <button type="button" className="start-link" onClick={onOpenFile}>
-                    <IconOpen size={16} /><span className="name">{t('toolbar.open')}</span><span className="path">.pdf · .epub · .mobi · .azw3 · .djvu · .fb2 · .cbz</span>
+                    <IconOpen size={16} /><span className="name">{t('toolbar.open')}</span><span className="path">.pdf · .epub · .mobi · .azw3 · .djvu · .fb2 · .cbz · .zip · .md · .txt</span>
                   </button>
+                  {onOpenFolder ? (
+                    <button type="button" className="start-link" onClick={onOpenFolder} title={t('tip.openFolder')}>
+                      <IconFolderOpen size={16} /><span className="name">{t('toolbar.openFolder')}</span><span className="path">{t('start.openFolderHint')}</span>
+                    </button>
+                  ) : null}
                   <button type="button" className="start-link" onClick={onOpenUrl}>
                     <IconUrl size={16} /><span className="name">{t('toolbar.openUrl')}</span><span className="path">https://…</span>
                   </button>

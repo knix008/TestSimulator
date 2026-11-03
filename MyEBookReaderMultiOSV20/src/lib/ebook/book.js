@@ -16,6 +16,7 @@ import { openTextBook } from './plaintext.js';
 import { openImageBook, IMAGE_EXTENSIONS, looksLikeImage, isImageName } from './imagebook.js';
 import { looksLikeDjvu } from './djvumagic.js';
 import { looksLikeZip, readZip, readEntry } from './zip.js';
+import { openPictureFolder } from './picturefolder.js';
 
 // Amazon's own formats (.azw, .azw3, .kf8, .prc) are all the MOBI container:
 // a Palm database holding a MOBI 6 book, a KF8 book, or both. .kfx is a
@@ -165,7 +166,8 @@ function wrap(source, { name, path, size }) {
     // A reader that knows more about the file than its extension does can say
     // so — a KF8 book is not the same thing as the MOBI its extension implies.
     formatLabel: source.formatLabel || format.label,
-    reflowable: format.reflowable !== false,
+    // A source not tied to an extension (a folder of pictures) says itself.
+    reflowable: typeof source.reflowable === 'boolean' ? source.reflowable : format.reflowable !== false,
     fileName: name || '',
     filePath: path || '',
     fileSize: size || 0,
@@ -256,6 +258,20 @@ export async function openBook({ data, name = '', path = '', size = 0 } = {}) {
   }
 
   return wrap(source, { name, path, size: size || data.length });
+}
+
+/**
+ * Opens a folder of pictures (or an extracted archive of them) as a book.
+ *
+ * @param {object} options
+ *   - `name`  the folder or archive name (the title)
+ *   - `path`  what the book is known by: the folder, or the archive it came from
+ *   - `pages` [{ name, bytes }] — see pictureFilesOf in ./picturefolder.js
+ */
+export function openPictureFolderBook({ name = '', path = '', pages = [] } = {}) {
+  const source = openPictureFolder({ name, pages });
+  const size = pages.reduce((n, p) => n + (p.bytes?.length || 0), 0);
+  return wrap(source, { name, path, size });
 }
 
 // "book.fb2.zip" is how most FictionBook libraries ship their files: the one

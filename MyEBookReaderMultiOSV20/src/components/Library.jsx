@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useTranslation } from 'react-i18next';
 import {
   IconClose, IconPlus, IconGallery, IconSearch, IconLibrary, IconTiles, IconDetails, IconOutline, IconTrash,
+  IconFolderOpen,
 } from './Icons.jsx';
 import {
   sortGallery, filterGallery, favoritesOf, isCurrent, booksPerShelf, shelvesOf,
@@ -20,7 +21,7 @@ const VIEW_ICONS = { shelf: IconLibrary, list: IconOutline, details: IconDetails
 // its PDF.
 export default function Library({
   entries = [], currentPath = '', bookSize = 220, view = 'shelf',
-  onView, onBookSize, onOpen, onUnfavorite, onRemoveAll, onAdd, onNeedThumb, onClose, onBookMenu, onShowGallery,
+  onView, onBookSize, onOpen, onUnfavorite, onRemoveAll, onAdd, onAddFolder, onNeedThumb, onClose, onBookMenu, onShowGallery,
 }) {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
@@ -270,6 +271,19 @@ export default function Library({
         {onAdd ? (
           <button type="button" className="btn" onClick={onAdd} title={t('library.addTip')}>
             <IconPlus size={15} /> {t('gallery.add')}
+          </button>
+        ) : null}
+        {onAddFolder ? (
+          // Icon only, like the gallery and close buttons beside it: with a
+          // label the header no longer fits on one line at 1280 px.
+          <button
+            type="button"
+            className="btn icon-only"
+            onClick={onAddFolder}
+            title={`${t('library.addFolder')} — ${t('library.addFolderTip')}`}
+            aria-label={t('library.addFolder')}
+          >
+            <IconFolderOpen size={15} />
           </button>
         ) : null}
         {onShowGallery ? (

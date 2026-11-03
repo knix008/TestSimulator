@@ -31,6 +31,7 @@ import {
   isDesktop, api, openFileDialog, readPath, downloadUrl, copyText, copyImage,
   saveText, writeTextTo, writeBinaryTo, saveBinary, pickAnyFile, pickDirectory, listDirectory, listDrives,
   baseName, dirName, pathExists, saveEncoded, openExternal, droppedPaths, showItemInFolder, readClipboardText,
+  pathKind, pictureBookFiles, readPictureBook, pictureBookCover, isCancelled,
 } from './lib/platform.js';
 import { namedActionPage } from './lib/nav.js';
 import {
@@ -64,8 +65,12 @@ import {
 } from './lib/gallery.js';
 import { setThumb, getThumb, deleteThumb } from './lib/thumb-store.js';
 import { listHighlights, splitHighlightDeletes } from './lib/highlights.js';
-import { startFolderCandidates, TREE_BOOK_EXTENSIONS } from './lib/folders.js';
-import { openEbookDocument, renderEbookThumb, pageAfterRelayout } from './lib/ebook/document.js';
+import { startFolderCandidates, TREE_BOOK_EXTENSIONS, folderLabel } from './lib/folders.js';
+import {
+  openEbookDocument, openPictureFolderDocument, renderEbookThumb, pageAfterRelayout,
+} from './lib/ebook/document.js';
+import { isImageName } from './lib/ebook/imagebook.js';
+import { isBookName } from './lib/ebook/book.js';
 import { stepFontSize, clampFontSize } from './lib/ebook/layout.js';
 import Gallery from './components/Gallery.jsx';
 import Library from './components/Library.jsx';
@@ -176,16 +181,22 @@ export default function App() {
   // the work is still running after a moment — opening a small file should feel
   // instant rather than flashing a modal on and off.
   const SHOW_PROGRESS_AFTER = 180;
-  const withProgress = useCallback(async (kind, name, fn) => {
-    const state = { kind, name, done: 0, total: 0, indeterminate: true };
+  // `cancellable`: the progress window gets a Cancel button, which aborts the
+  // signal handed to `fn` as its second argument.
+  const withProgress = useCallback(async (kind, name, fn, { cancellable = false } = {}) => {
+    const controller = cancellable ? new AbortController() : null;
+    const state = {
+      kind, name, done: 0, total: 0, indeterminate: true,
+      cancel: controller ? () => { controller.abort(); setTask((cur) => (cur ? { ...cur, cancelling: true } : cur)); } : null,
+    };
     let shown = false;
     let live = true;
     const timer = setTimeout(() => { if (live) { shown = true; setTask({ ...state }); } }, SHOW_PROGRESS_AFTER);
     try {
       return await fn((p) => {
         Object.assign(state, p, { indeterminate: !(p.total > 0) });
-        if (shown) setTask({ ...state });
-      });
+        if (shown) setTask((cur) => ({ ...state, cancelling: !!cur?.cancelling }));
+      }, controller?.signal);
     } finally {
       live = false;
       clearTimeout(timer);
@@ -397,11 +408,13 @@ export default function App() {
   // `fontSize` lays a reflowable e-book out at that size instead of the saved
   // one; `relayoutFrom` ({ doc, page }) is the same book before that, whose
   // reading position carries over.
-  const openBytes = useCallback(async (payload, { restore, replace = false, fontSize, relayoutFrom } = {}) => {
-    const { data, name, path: filePath, size } = payload;
+  const openBytes = useCallback(async (payload, { restore, replace = false, fontSize, relayoutFrom, startAt } = {}) => {
+    // `pictures`: the pages of a folder or ZIP archive of pictures ([{ name, bytes }]),
+    // opened as one book known by the folder's or the archive's path.
+    const { data, name, path: filePath, size, pictures } = payload;
     try {
       // A .pdfvw workspace points at a PDF: load that, then restore the work.
-      if (isWorkspacePath(name) || isWorkspacePath(filePath || '')) {
+      if (!pictures && (isWorkspacePath(name) || isWorkspacePath(filePath || ''))) {
         const parsed = parseWorkspace(bytesToText(data));
         if (!parsed.pdfPath) {
           throw new Error(`This workspace does not record a PDF path, so the document it belongs to cannot be reopened automatically. Open "${parsed.pdfName || 'the PDF'}" manually, then load this workspace again.`);
@@ -419,7 +432,10 @@ export default function App() {
       // Everything that is not a PDF — EPUB, MOBI / AZW / AZW3, DjVu, FB2,
       // comics, text — is paginated into a document that looks like one.
       let pdf;
-      if (looksLikePdf(data)) {
+      if (pictures) {
+        pdf = await withProgress('paginating', name, (onProgress) =>
+          openPictureFolderDocument({ name, path: filePath || '', pages: pictures, onProgress }));
+      } else if (looksLikePdf(data)) {
         const loadingTask = await withProgress('parsing', name, async (onProgress) => {
           const lt = loadDocument({
             data,
@@ -444,7 +460,8 @@ export default function App() {
         path: filePath || null,
         dir: filePath ? dirName(filePath) : null,
         size: size ?? data.length,
-        data,
+        // A picture book has no single file to re-read or write back.
+        data: pictures ? null : data,
       };
       const key = documentKey(nextFile);
       const existing = !replace ? findTabByFile(tabsRef.current, nextFile) : null;
@@ -539,7 +556,7 @@ export default function App() {
         const remembered = settings.rememberLastPage
           ? settings.recentFiles.find((f) => (f.path || f.name) === (filePath || name))?.page
           : null;
-        startPage = Math.min(Math.max(1, remembered || 1), pdf.numPages);
+        startPage = Math.min(Math.max(1, startAt || remembered || 1), pdf.numPages);
         setPageNumber(startPage);
         setSettings((s) => ({ ...s, zoomMode: OPEN_ZOOM_MODE }));
       }
@@ -634,8 +651,70 @@ export default function App() {
     }
   }, [fail, openBytes, settings.defaultOpenDir, settings.lastDir]);
 
+  // A folder or ZIP archive of pictures — a comic, a scanned book — opens as
+  // one book: an archive is extracted (once) into a temp folder first. It is
+  // known by the folder's or archive's own path, so recent files and the
+  // library keep that, never the temp folder. `start` is the picture to begin at.
+  const openPictureBook = useCallback(async (target, { kind = 'dir', start = '' } = {}) => {
+    if (!target) return;
+    const label = kind === 'zip' ? baseName(target) : folderLabel(target);
+    try {
+      const { dir, files, others } = await withProgress(kind === 'zip' ? 'unzipping' : 'opening', label,
+        (onProgress, signal) => pictureBookFiles(target, kind, { onProgress, signal }), { cancellable: kind === 'zip' });
+      if (!files.length) {
+        // An archive holding a book rather than pictures opens that book.
+        const books = (others || []).filter((f) => isBookName(f.name));
+        if (kind === 'zip' && books.length === 1) {
+          await openByPathRef.current(books[0].path);
+          return;
+        }
+        if (books.length) {
+          setSettings((s) => ({ ...s, folderRoot: dir, sidebar: 'folders' }));
+          toast(t('status.archiveFolder', { name: label }), 'ok');
+          return;
+        }
+        throw new Error(t('error.noPictures', { name: label }));
+      }
+      const startIndex = start ? files.findIndex((f) => f.name === start || baseName(f.path) === start) : -1;
+      // Already open in a tab: go there, to the picture asked for, rather
+      // than reading the whole folder again.
+      const existing = findTabByFile(tabsRef.current, { path: target });
+      if (existing) {
+        const at = startIndex >= 0 ? startIndex + 1 : null;
+        if (existing.id === activeTabIdRef.current) {
+          if (at) goToPageRef.current?.(at);
+        } else {
+          const snap = sessionsRef.current.get(existing.id);
+          if (snap && at) sessionsRef.current.set(existing.id, { ...snap, pageNumber: at });
+          switchToTab(existing.id);
+        }
+        return;
+      }
+      const pages = await withProgress('opening', label,
+        (onProgress, signal) => readPictureBook(files, { onProgress, signal }), { cancellable: true });
+      await openBytes({
+        pictures: pages,
+        name: label,
+        path: target,
+        size: files.reduce((n, f) => n + (Number(f.size) || 0), 0),
+      }, { startAt: startIndex >= 0 ? startIndex + 1 : undefined });
+    } catch (err) {
+      // Cancel in the progress window is the reader's choice, not an error.
+      if (isCancelled(err)) {
+        setStatusMessage(t('status.openCancelled', { name: label }));
+        return;
+      }
+      fail(err, 'read', { file: target });
+    }
+  }, [fail, openBytes, switchToTab, t, toast, withProgress]);
+
   const openByPath = useCallback(async (filePath) => {
     if (!filePath) return;
+    const kind = await pathKind(filePath);
+    if (kind === 'dir' || kind === 'zip') {
+      await openPictureBook(filePath, { kind });
+      return;
+    }
     try {
       const payload = await withProgress('opening', baseName(filePath), (onProgress) =>
         readPath(filePath, { onProgress }));
@@ -643,10 +722,30 @@ export default function App() {
     } catch (err) {
       fail(err, 'read', { file: filePath });
     }
-  }, [fail, openBytes, withProgress]);
+  }, [fail, openBytes, openPictureBook, withProgress]);
 
   const openByPathRef = useRef(openByPath);
   useEffect(() => { openByPathRef.current = openByPath; }, [openByPath]);
+
+  // File menu / start screen "Open folder": a folder of pictures as a book.
+  const openFolderViaDialog = useCallback(async () => {
+    if (!isDesktop) return;
+    try {
+      const picked = await pickDirectory(openDefaultDir(settings));
+      if (picked) await openPictureBook(picked, { kind: 'dir' });
+    } catch (err) {
+      fail(err, 'open');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fail, openPictureBook, settings.defaultOpenDir, settings.lastDir]);
+  const openFolderViaDialogRef = useRef(openFolderViaDialog);
+  useEffect(() => { openFolderViaDialogRef.current = openFolderViaDialog; }, [openFolderViaDialog]);
+
+  // A row of the folder tree: a picture opens its whole folder, at that picture.
+  const openFolderTreeFile = useCallback((p) => {
+    if (isImageName(p)) openPictureBook(dirName(p), { kind: 'dir', start: baseName(p) });
+    else openByPath(p);
+  }, [openByPath, openPictureBook]);
 
   const openFromUrl = useCallback(async (url) => {
     setPrompt({ open: false, kind: 'url', error: '' });
@@ -1404,6 +1503,9 @@ export default function App() {
     if (viewRef.current?.preparePageTurn(clamped, loc || null) === false) return;
     setPageNumber(clamped);
   }, [doc, pageNumber, settings.pageLayout]);
+  // For handlers set up before goToPage (a picture clicked in the folder panel).
+  const goToPageRef = useRef(goToPage);
+  useEffect(() => { goToPageRef.current = goToPage; }, [goToPage]);
 
   const goToBookmark = useCallback((b) => {
     if (!b) return;
@@ -1671,7 +1773,10 @@ export default function App() {
         defaultDir: openDefaultDir(settings),
         multi: true,
         title: t('library.addTitle'),
-        filters: [{ name: 'E-books', extensions: TREE_BOOK_EXTENSIONS }],
+        filters: [
+          { name: 'E-books', extensions: [...TREE_BOOK_EXTENSIONS, 'zip'] },
+          { name: 'ZIP (pictures)', extensions: ['zip'] },
+        ],
       });
       if (!picked) return;
       const paths = Array.isArray(picked) ? picked : [picked];
@@ -1681,6 +1786,23 @@ export default function App() {
         return { ...s, gallery: g };
       });
       toast(t('library.added', { n: paths.length }), 'ok');
+    } catch (err) {
+      fail(err, 'open');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fail, settings.defaultOpenDir, settings.lastDir, t, toast]);
+
+  // A folder of pictures goes on the shelf as the folder itself.
+  const addFolderToLibrary = useCallback(async () => {
+    if (!isDesktop) return;
+    try {
+      const picked = await pickDirectory(openDefaultDir(settings));
+      if (!picked) return;
+      setSettings((s) => ({
+        ...s,
+        gallery: setFavorite(addPaths(s.gallery, [picked]).list, { path: picked, name: folderLabel(picked) }, true),
+      }));
+      toast(t('library.added', { n: 1 }), 'ok');
     } catch (err) {
       fail(err, 'open');
     }
@@ -1722,8 +1844,16 @@ export default function App() {
         let pdf = null;
         try {
           if (await getThumb(p)) continue;
-          const { data } = await readPath(p);
           let thumb;
+          const kind = await pathKind(p);
+          if (kind === 'dir' || kind === 'zip') {
+            // The first picture is the cover; a ZIP is not extracted for it.
+            const cover = await pictureBookCover(p, kind);
+            if (cover) thumb = await renderEbookThumb(cover.bytes, cover.name);
+            if (thumb) await setThumb(p, thumb);
+            continue;
+          }
+          const { data } = await readPath(p);
           if (looksLikePdf(data)) {
             pdf = await loadDocument({ data }).promise;
             thumb = await renderThumb(pdf);
@@ -1765,6 +1895,7 @@ export default function App() {
       const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
       const mod = e.ctrlKey || e.metaKey;
 
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); openFolderViaDialogRef.current(); return; }
       if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); openViaDialog(); return; }
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); savePdf(); return; }
       if (mod && e.key.toLowerCase() === 'w') {
@@ -2068,6 +2199,7 @@ export default function App() {
       onUnfavorite={(e) => toggleFavorite(e, false)}
       onRemoveAll={clearLibrary}
       onAdd={isDesktop ? addToLibrary : undefined}
+      onAddFolder={isDesktop ? addFolderToLibrary : undefined}
       onNeedThumb={requestGalleryThumb}
       onBookMenu={galleryCardMenu}
       onShowGallery={() => setShowGallery(true)}
@@ -2113,6 +2245,7 @@ export default function App() {
               setHomeChoice(!startVisible);
             }}
             onOpen={openViaDialog}
+            onOpenFolder={isDesktop ? openFolderViaDialog : undefined}
             onOpenUrl={() => setPrompt({ open: true, kind: 'url', error: '' })}
             onOpenRecent={openRecent}
             onRemoveRecent={(key) => setSettings((s) => ({ ...s, recentFiles: removeRecentFile(s.recentFiles, key) }))}
@@ -2308,7 +2441,8 @@ export default function App() {
               sidebar: 'folders',
             }));
           }}
-          onOpenFolderFile={openByPath}
+          onOpenFolderFile={openFolderTreeFile}
+          onOpenFolderBook={(dir) => openPictureBook(dir, { kind: 'dir' })}
           loadFolder={listDirectory}
         />
 
@@ -2392,6 +2526,7 @@ export default function App() {
             entries={settings.gallery}
             currentPath={file?.path || ''}
             onOpenFile={openViaDialog}
+            onOpenFolder={isDesktop ? openFolderViaDialog : undefined}
             onOpenUrl={() => setPrompt({ open: true, kind: 'url', error: '' })}
             onOpenEntry={async (e) => { if (await openGalleryEntry(e)) setHomeChoice(null); }}
             onEntryMenu={startEntryMenu}
@@ -2512,7 +2647,7 @@ export default function App() {
         busy={printing}
       />
 
-      <ProgressDialog task={task} />
+      <ProgressDialog task={task} onCancel={task?.cancel || undefined} />
       <ErrorDialog error={error} onClose={() => setError(null)} />
       <Toasts toasts={toasts} onDismiss={(id) => setToasts((list) => list.filter((x) => x.id !== id))} />
       <Tooltip />

@@ -10,6 +10,7 @@
 mod files;
 mod popout;
 mod print;
+mod unzip;
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -46,6 +47,8 @@ struct AppState {
   /// The app theme's kind (dark or light), for the native title bar of the
   /// decorated guide window. `None` until the page has said.
   theme_kind: Mutex<Option<tauri::Theme>>,
+  /// Long tasks (a ZIP being extracted) the reader asked to stop, by task id.
+  cancelled: Mutex<std::collections::HashSet<String>>,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -239,7 +242,82 @@ fn fs_stat(path: String) -> Option<Value> {
     "mtime": mtime,
     "dir": p.parent().map(|d| d.to_string_lossy().to_string()).unwrap_or_default(),
     "name": p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+    "isDir": meta.is_dir(),
   }))
+}
+
+/// Where ZIP archives are extracted to be read: the system temp directory.
+fn zip_cache_root() -> PathBuf {
+  std::env::temp_dir().join(unzip::CACHE_DIR)
+}
+
+/// Extracts a ZIP archive (once — a second open reuses it) and returns the
+/// folder holding its contents. With an `id`, progress goes out as
+/// "task-progress" events (bytes, plus files written out of files held) and
+/// `task_cancel(id)` stops it; a stopped extraction fails with "Cancelled".
+#[tauri::command]
+async fn fs_extract_zip(app: AppHandle, path: String, id: Option<String>) -> Result<String, String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    let archive = Path::new(&path);
+    if !archive.is_file() {
+      return Err(format!("File not found: {path}"));
+    }
+    let mut last = Instant::now() - PROGRESS_EVERY;
+    let mut on_step = |s: &unzip::Step| -> bool {
+      let Some(id) = &id else { return true };
+      let finished = s.files == s.total_files;
+      if !finished && last.elapsed() < PROGRESS_EVERY {
+        return true;
+      }
+      last = Instant::now();
+      if state(&app).cancelled.lock().unwrap().remove(id) {
+        return false;
+      }
+      let _ = app.emit("task-progress", json!({
+        "id": id, "done": s.bytes, "total": s.total_bytes,
+        "files": s.files, "filesTotal": s.total_files,
+      }));
+      true
+    };
+    let out = unzip::extract_cached_with(&zip_cache_root(), archive, &mut on_step);
+    if let Some(id) = &id {
+      state(&app).cancelled.lock().unwrap().remove(id);
+    }
+    out.map(|p| p.to_string_lossy().to_string())
+  })
+  .await
+  .map_err(|e| e.to_string())?
+}
+
+/// The cover of a ZIP of pictures without extracting it: its file names,
+/// then the one file chosen (at most 64 MB), read in memory.
+#[tauri::command]
+async fn fs_zip_names(path: String) -> Result<Vec<String>, String> {
+  tauri::async_runtime::spawn_blocking(move || unzip::file_names(Path::new(&path)))
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn fs_zip_read(path: String, name: String) -> Result<Response, String> {
+  let bytes = tauri::async_runtime::spawn_blocking(move || unzip::read_file(Path::new(&path), &name, 64 << 20))
+    .await
+    .map_err(|e| e.to_string())??;
+  Ok(Response::new(bytes))
+}
+
+/// Asks a long task (fs_extract_zip) to stop at its next step.
+#[tauri::command]
+fn task_cancel(app: AppHandle, id: String) -> bool {
+  !id.is_empty() && state(&app).cancelled.lock().unwrap().insert(id)
+}
+
+/// Every file under `path` (sub-folders included, hidden ones left out), for
+/// collecting the pictures of an extracted archive. Capped, so a mistaken
+/// drive root cannot stall the app.
+#[tauri::command]
+async fn fs_list_files_deep(path: String) -> Vec<files::Entry> {
+  tauri::async_runtime::spawn_blocking(move || files::list_files_deep(&path, 20_000)).await.unwrap_or_default()
 }
 
 #[tauri::command]
@@ -349,17 +427,28 @@ async fn dialog_open_pdf(window: WebviewWindow, opts: DialogOpts) -> Option<Valu
   if opts.filters.is_empty() {
     opts.filters = vec![
       Filter { name: "Books & Workspace".into(), extensions: exts(&[
-        "pdf", "epub", "mobi", "azw", "azw3", "kf8", "prc", "pdb", "djvu", "djv", "fb2", "cbz", "cbr",
-        "txt", "md", "markdown", "html", "htm", "xhtml", "ebkvw", "pdfvw",
+        "pdf", "epub", "mobi", "azw", "azw3", "kf8", "prc", "pdb", "djvu", "djv", "fb2", "cbz", "cbr", "zip",
+        "txt", "text", "md", "markdown", "mdown", "html", "htm", "xhtml", "ebkvw", "pdfvw",
       ]) },
       Filter { name: "PDF".into(), extensions: exts(&["pdf"]) },
       Filter { name: "EPUB".into(), extensions: exts(&["epub"]) },
       Filter { name: "Kindle (MOBI, AZW, AZW3)".into(), extensions: exts(&["mobi", "azw", "azw3", "kf8", "prc", "pdb"]) },
       Filter { name: "DjVu".into(), extensions: exts(&["djvu", "djv"]) },
       Filter { name: "FictionBook (FB2)".into(), extensions: exts(&["fb2"]) },
-      Filter { name: "Comic book (CBZ)".into(), extensions: exts(&["cbz", "cbr"]) },
-      Filter { name: "Text, Markdown, HTML".into(), extensions: exts(&["txt", "md", "markdown", "html", "htm", "xhtml"]) },
-      Filter { name: "Pictures".into(), extensions: exts(&["png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "svg"]) },
+      Filter { name: "Comic book (CBZ, ZIP)".into(), extensions: exts(&["cbz", "cbr", "zip"]) },
+      Filter { name: "Markdown".into(), extensions: exts(&["md", "markdown", "mdown"]) },
+      Filter { name: "Text".into(), extensions: exts(&["txt", "text"]) },
+      Filter { name: "HTML".into(), extensions: exts(&["html", "htm", "xhtml"]) },
+      // Every picture format src/lib/ebook/imagebook.js opens (camera RAW: its preview).
+      Filter { name: "Pictures".into(), extensions: exts(&[
+        "jpg", "jpeg", "jpe", "jfif", "png", "apng", "gif", "webp", "bmp", "dib", "avif", "svg", "ico", "cur",
+        "tif", "tiff", "heic", "heif", "tga", "pcx", "qoi", "psd", "psb", "dds", "hdr", "pbm", "pgm", "ppm",
+        "pnm", "pam", "pfm", "xbm", "xpm", "sgi", "rgb", "wbmp", "ff",
+      ]) },
+      Filter { name: "Camera RAW".into(), extensions: exts(&[
+        "dng", "cr2", "cr3", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef", "srw", "x3f",
+        "erf", "kdc", "dcr", "mrw", "3fr", "mef", "mos", "iiq", "rwl",
+      ]) },
       Filter { name: "MyEBookReader Workspace".into(), extensions: exts(&["ebkvw", "pdfvw"]) },
       Filter { name: "All Files".into(), extensions: exts(&["*"]) },
     ];
@@ -1025,6 +1114,8 @@ pub fn run() {
         *state(app.handle()).pending_open.lock().unwrap() = Some(p.to_string_lossy().to_string());
       }
       build_main_window(app.handle())?;
+      // ZIP archives extracted on earlier days and not opened since.
+      std::thread::spawn(|| unzip::prune(&zip_cache_root(), unzip::KEEP_FOR));
       Ok(())
     })
     .on_window_event(on_window_event)
@@ -1036,6 +1127,11 @@ pub fn run() {
       fs_exists,
       fs_stat,
       fs_read_dir,
+      fs_extract_zip,
+      task_cancel,
+      fs_zip_names,
+      fs_zip_read,
+      fs_list_files_deep,
       fs_drives,
       fs_read_binary,
       fs_read_text,
