@@ -83,6 +83,8 @@ A white Git branch on a rounded square that runs from orange to violet. The inst
 
 The start screen appears when no repository is open and, when **Show the start screen at startup** is on, every time the program starts. The menu bar and the toolbar at the top keep working on the start screen.
 
+![The start screen](images/en/start-screen.png)
+
 <a id="start-toggle"></a>
 ### Start button
 
@@ -118,6 +120,8 @@ Speed and opacity are small **−** / **+** steppers on one line. Speed is how f
 
 On the first start, a tutorial card appears on the start screen. **Start** begins a guided tour that points out each part of the screen in turn, switching between the start screen and the workspace as the steps need.
 
+![The tutorial's welcome card](images/en/tutorial.png)
+
 - The card shows only on the start screen. It disappears when you switch to the workspace and comes back when you return to the start screen.
 - Closing the card or choosing **Later** keeps it away until the next start.
 - Turning off **Show at startup** on the card stops it from appearing by itself. The same setting is in **Preferences → General → Show the tutorial at startup**.
@@ -128,6 +132,7 @@ On the first start, a tutorial card appears on the start screen. **Start** begin
 <a id="layout"></a>
 ## Screen layout
 
+![The main window](images/en/main.png)
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ My Git Master 1.0.0 [Start]  File  Repository  History  Help     ─ □ ×   │
@@ -193,6 +198,8 @@ In this mode Checkout, Git Add, Commit and Push do not work.
 ## Files panel
 
 Next to its title are this computer's drives and **Open Folder**.
+
+![The Files panel with status badges](images/en/files-panel.png)
 
 | Action | Result |
 |--------|--------|
@@ -262,6 +269,8 @@ Remotes and tags can copy their name or SHA.
 
 Each lane is a branch or a merge path. Click a row to change the details and diff on the right. When you look at the log of a single file, the graph is flattened into one line.
 
+![Commit History with the date and time columns](images/en/commit-history.png)
+
 Right-click:
 
 | Menu | Action |
@@ -278,6 +287,12 @@ Right-click:
 ## Commit Details and Diff
 
 The selected commit's author, date, message and its list of changed files.
+
+![Commit details, changed files and the diff](images/en/commit-details.png)
+
+![The right-click menu of a changed file](images/en/context-menu.png)
+
+![The built-in Diff window](images/en/diff-window.png)
 
 - Click a changed file to open its diff.
 - A double-click, or right-click **Built-in Diff Tool**, opens a side-by-side comparison in a separate window.
@@ -310,6 +325,8 @@ Run them from the **Repository** menu or by right-clicking in Files.
 ### Resolving conflicts
 
 When a Pull or Merge stops on a conflict, the file gets a conflict badge in the Files panel. Open it with **Repository → Resolve Conflict...**, **Resolve Conflict** on the toolbar, or by right-clicking the file and choosing **Resolve Conflict...**.
+
+![The built-in Diff & Merge window](images/en/merge-window.png)
 
 The default is the **built-in Diff & Merge**, which opens in a separate window.
 
@@ -380,6 +397,10 @@ The default theme is Light Classic.
 
 The theme list that **▾** opens runs from the top in this order:
 
+![The theme list](images/en/theme-menu.png)
+
+![The main window in a dark theme](images/en/main-dark.png)
+
 1. **My themes** and the **Theme settings** button (a gear), which opens the Theme tab of Preferences.
 2. The 20 **Dark** themes
 3. The 20 **Light** themes
@@ -402,6 +423,14 @@ Make your own themes in **Preferences → Theme**.
 ### Preferences window
 
 Open it with **File → Preferences...** or the gear in the toolbar. Preferences is a window of its own: you can resize it (down to 640×420) and move it outside the main window. The tabs run down the left side, and every change applies at once, with no Save button.
+
+![Preferences › General](images/en/prefs-general.png)
+
+![Preferences › Theme](images/en/prefs-theme.png)
+
+![Preferences › Start screen](images/en/prefs-start.png)
+
+![Preferences › Tools](images/en/prefs-tools.png)
 
 | Tab | Contents |
 |-----|----------|
@@ -430,9 +459,12 @@ On the **Tools** tab:
 
 The terminal tabs in the bottom panel run this computer's shells. They start in the open repository's folder.
 
+![The Log tab](images/en/log.png)
+
 <a id="terminal-tabs"></a>
 ### Terminal tabs
 
+![Two PowerShell terminal tabs with the coloured prompt](images/en/terminal.png)
 | Action | How |
 |--------|-----|
 | New terminal | **+** opens the default shell; **▾** picks one of the installed shells. |
@@ -446,6 +478,10 @@ Tabs are named after the shell plus a number, such as "PowerShell 1". There is e
 ### Prompt
 
 Change how the terminal prompt looks in **Preferences → Prompt / Prompt editor**. Changes show from the next prompt.
+
+![Preferences › Prompt](images/en/prefs-prompt.png)
+
+![Preferences › Prompt editor](images/en/prefs-prompt-editor.png)
 
 - **Preview**: a clean repository, a repository with changes, and a folder outside any repository.
 - **Presets**: click a card to use that prompt.
@@ -471,9 +507,11 @@ The terminal draws the prompt's arrows and path separators itself, so no special
 <a id="menus-toolbar"></a>
 ## Menus and toolbar
 
+![The menu bar](images/en/menubar.png)
 <a id="menu-file"></a>
 ### File
 
+![The File menu](images/en/menu-file.png)
 | Item | Description |
 |------|-------------|
 | **Open...** | A local Git repository. `Ctrl+O` |
@@ -495,6 +533,7 @@ Show All Commits, Export Summary, Export Commit Snapshot.
 <a id="menu-help"></a>
 ### Help
 
+![About](images/en/about.png)
 | Item | Description |
 |------|-------------|
 | **User's Guide** (`F1`) | Opens this guide in a window of its own ([User's guide window](#guide-window)) |
@@ -505,6 +544,8 @@ Show All Commits, Export Summary, Export Commit Snapshot.
 ### Toolbar
 
 Toolbar buttons show a colourful icon only, without a name; hovering shows the name. From the left: Open, Clone, Browse Remote, Print, Refresh, the Git commands (Git Add, Git Reset, Discard, Git Commit, Resolve Conflict, Git Fetch, Git Pull, Git Push, Git Stash, Git Stash Pop, Git Status) and the panel buttons. **Resolve Conflict** is enabled only when there is a conflicted file. While something runs, **Stop** appears. At the right end are theme, language, Preferences (gear) and About.
+
+![The toolbar](images/en/toolbar.png)
 
 The main window never gets narrower than the width at which every toolbar button is visible; that minimum follows the language. In a web browser, a narrow window moves the buttons that don't fit into a **More** list.
 
@@ -527,6 +568,8 @@ When something slow — Clone, Fetch, Pull, Push, Browse Remote — takes longer
 ### User's guide window
 
 Open it with `F1` or **Help → User's Guide**. It is a resizable window of its own.
+
+![The user's guide window](images/en/guide-window.png)
 
 - Click an entry in the contents on the left to jump there; the contents also mark where you are reading.
 - Type words in the search box at the top to highlight where they appear. `Enter` goes to the next match, `Esc` clears the search.

@@ -16,6 +16,8 @@ export type ToolCommand = {
   group: string;
   disabled?: boolean;
   pressed?: boolean;
+  /** Spins the icon while the command runs (Refresh). */
+  spinning?: boolean;
   onClick: () => void;
 };
 
@@ -169,6 +171,8 @@ export function GitToolbar(props: {
           data-measure={measuring ? "" : undefined}
           data-separated={measuring && separated ? "1" : undefined}
           aria-pressed={command.pressed}
+          aria-busy={command.spinning || undefined}
+          data-spinning={command.spinning ? "" : undefined}
           aria-label={command.label}
           disabled={command.disabled}
           title={command.label}
@@ -206,6 +210,8 @@ export function GitToolbar(props: {
                   className={[command.disabled ? "is-disabled" : "", index > 0 && hidden[index - 1].group !== command.group ? "group-start" : ""].filter(Boolean).join(" ") || undefined}
                   aria-disabled={command.disabled || undefined}
                   aria-pressed={command.pressed}
+          aria-busy={command.spinning || undefined}
+          data-spinning={command.spinning ? "" : undefined}
                   onClick={() => {
                     if (command.disabled) return;
                     setOpen(false);

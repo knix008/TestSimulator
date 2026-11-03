@@ -16,6 +16,10 @@ const ko: Record<string, string> = {
   removeRecent: "제거",
   clearRecent: "최근 저장소 모두 지우기",
   refresh: "새로 고침",
+  refreshing: "새로 고치는 중...",
+  refreshDone: "새로 고침 완료",
+  sbCommitCount: "커밋",
+  resizeGrip: "크기 조정",
   checkout: "체크아웃",
   copyName: "이름 복사",
   copyPath: "경로 복사",
@@ -171,7 +175,6 @@ const ko: Record<string, string> = {
   appVersion: "버전",
   buildInfo: "빌드",
   platform: "플랫폼",
-  settingsFile: "설정 파일",
   creator: "제작자",
   authorName: "SHKWON(knix008@naver.com)",
   statusTitle: "Git Status",
@@ -227,6 +230,10 @@ const en: Record<string, string> = {
   removeRecent: "Remove",
   clearRecent: "Clear recent repositories",
   refresh: "Refresh",
+  refreshing: "Refreshing...",
+  refreshDone: "Refreshed",
+  sbCommitCount: "commits",
+  resizeGrip: "Resize",
   checkout: "Checkout",
   copyName: "Copy Name",
   copyPath: "Copy Path",
@@ -382,7 +389,6 @@ const en: Record<string, string> = {
   appVersion: "Version",
   buildInfo: "Build",
   platform: "Platform",
-  settingsFile: "Settings file",
   creator: "Author",
   authorName: "SHKWON(knix008@naver.com)",
   statusTitle: "Git Status",
@@ -434,3 +440,22 @@ export function translate(lang: Lang, key: string): string {
 }
 
 export const TRANSLATION_KEYS = Object.keys(ko);
+
+let byText: Record<Lang, Map<string, string>> | null = null;
+
+/**
+ * What `text`, shown in `from`, reads as in `to` — or undefined when it is not a whole
+ * entry of the table. The window's minimum width uses it to measure the labels in the
+ * language that is not showing.
+ */
+export function retranslate(text: string, from: Lang, to: Lang): string | undefined {
+  if (!byText) {
+    byText = { ko: new Map(), en: new Map() };
+    for (const key of TRANSLATION_KEYS) {
+      if (!byText.ko.has(ko[key])) byText.ko.set(ko[key], key);
+      if (en[key] && !byText.en.has(en[key])) byText.en.set(en[key], key);
+    }
+  }
+  const key = byText[from].get(text);
+  return key ? translate(to, key) : undefined;
+}

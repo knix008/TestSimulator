@@ -10,7 +10,11 @@
  * aligned. (A marker the core replaced in the output stream would look the same at first,
  * but ConPTY would think the cursor sat at column 0 and repaint over the prompt.)
  *
- *   PowerShell / pwsh   `function global:prompt`, via -EncodedCommand; System.Net.WebClient
+ *   PowerShell / pwsh   `function global:prompt`, passed in MGM_PROMPT_HOOK and run with
+ *                       Invoke-Expression; System.Net.WebClient. Not -EncodedCommand:
+ *                       security software blocks an encoded PowerShell started by an
+ *                       unknown program ("Cannot create process, error code: 5"), and not
+ *                       a .ps1 file, which the execution policy may refuse.
  *   bash / Git Bash     a generated --rcfile: the user's own startup files, then
  *                       PROMPT_COMMAND fetches PS1 over bash's /dev/tcp (no curl needed)
  *   zsh                 a generated ZDOTDIR/.zshrc: the user's .zshrc, then precmd via ztcp
@@ -191,7 +195,7 @@ export class PromptServer {
     const env = { MGM_PROMPT_PORT: String(port), MGM_PROMPT_TOKEN: this.token, MGM_PROMPT_SHELL: name };
     if (kind === "powershell") {
       const script = powershellHook(`http://127.0.0.1:${port}/prompt/${this.token}`, name);
-      return { args: ["-NoLogo", "-NoExit", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], env };
+      return { args: ["-NoLogo", "-NoExit", "-Command", "Invoke-Expression $env:MGM_PROMPT_HOOK"], env: { ...env, MGM_PROMPT_HOOK: script } };
     }
     if (kind === "bash") {
       const rcfile = path.join(this.scratch(), "bashrc");

@@ -367,6 +367,12 @@ async fn window_start_drag(window: WebviewWindow) {
     let _ = window.start_dragging();
 }
 
+/// The status bar's corner grip: an OS resize from the bottom-right corner.
+#[tauri::command]
+async fn window_start_resize(window: WebviewWindow) {
+    let _ = window.as_ref().window().start_resize_dragging(tauri_runtime::ResizeDirection::SouthEast);
+}
+
 fn path_text(path: tauri_plugin_dialog::FilePath) -> Option<String> {
     path.into_path().ok().map(|p| p.to_string_lossy().to_string())
 }
@@ -480,6 +486,7 @@ fn main() {
             window_close,
             window_ready,
             window_start_drag,
+            window_start_resize,
             window_background,
             settings_broadcast,
             window_min_size,

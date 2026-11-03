@@ -17,7 +17,8 @@ export const DIALOG_SPECS = {
   // Vertical tabs on the left; the user may resize it, never below its minimum.
   prefs: { width: 900, height: 600, resizable: true, minWidth: 640, minHeight: 420 },
   about: { width: 600, height: 380, fixed: true },
-  error: { width: 660, height: 440, fixed: true },
+  // Sized to its content: a short error is a short window, no gap above the buttons.
+  error: { width: 660, height: 260 },
   // Long operations: shown without taking the keyboard away from the main window.
   progress: { width: 440, height: 210, fixed: true, noFocus: true },
   confirm: { width: 500, height: 210 },

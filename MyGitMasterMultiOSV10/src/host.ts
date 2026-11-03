@@ -111,13 +111,20 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
  * ------------------------------------------------------------------ */
 
 let menuCancel: (() => void) | null = null;
+/** The desktop menu this window has open (its openId from the shell), 0 when none. */
+let menuOpenId = 0;
 
 /**
  * Opens the registered menu `name` (src/popupRegistry.ts) at `anchor` and resolves with
  * the chosen id, or null when it is dismissed.
  */
 export function openMenu(name: string, payload: unknown, anchor: MenuAnchor): Promise<string | null> {
-  closeMenu();
+  // The previous menu (if any) is only cancelled here: on the desktop the shell replaces
+  // it as part of opening the new one. A separate close call could reach the shell after
+  // the open and empty the new menu.
+  const previous = menuCancel;
+  menuCancel = null;
+  previous?.();
   if (!isDesktop()) {
     return new Promise<string | null>((resolve) => {
       let settled = false;
@@ -135,14 +142,21 @@ export function openMenu(name: string, payload: unknown, anchor: MenuAnchor): Pr
 
   return new Promise<string | null>((resolve) => {
     let settled = false;
+    let openId = 0;
+    // Answers for an older menu (dismissed when this one replaced it) arrive with its id.
+    const early: { openId: number; id: string | null }[] = [];
     const finish = (id: string | null) => {
       if (settled) return;
       settled = true;
       off();
-      menuCancel = null;
+      if (menuCancel === cancel) menuCancel = null;
+      if (menuOpenId === openId) menuOpenId = 0;
       resolve(id);
     };
-    const offChosen = bridge().onMenuChosen((commandId) => finish(commandId));
+    const offChosen = bridge().onMenuChosen((answer) => {
+      if (!openId) early.push(answer);
+      else if (answer.openId === openId) finish(answer.id ?? null);
+    });
     // A press anywhere in this window means the user went elsewhere. The menu window
     // normally learns that from losing focus, but the OS does not always give it focus.
     const onPress = () => closeMenu();
@@ -152,15 +166,30 @@ export function openMenu(name: string, payload: unknown, anchor: MenuAnchor): Pr
       window.clearTimeout(timer);
       window.removeEventListener("pointerdown", onPress, true);
     };
-    menuCancel = () => finish(null);
-    bridge().openMenu({ menu: name, payload }, anchor).catch(() => finish(null));
+    const cancel = () => finish(null);
+    menuCancel = cancel;
+    bridge().openMenu({ menu: name, payload }, anchor).then((id) => {
+      if (!id) return finish(null);
+      // Cancelled before the shell answered: close exactly this menu now.
+      if (settled) {
+        bridge().closeMenu(id).catch(() => {});
+        return;
+      }
+      openId = id;
+      if (!settled) menuOpenId = id;
+      const answer = early.find((item) => item.openId === id);
+      if (answer) finish(answer.id ?? null);
+    }, () => finish(null));
   });
 }
 
+/** Closes this window's menu (a click elsewhere, a second click on its button). */
 export function closeMenu(): void {
   const cancel = menuCancel;
+  const openId = menuOpenId;
   menuCancel = null;
-  if (isDesktop()) bridge().closeMenu().catch(() => {});
+  menuOpenId = 0;
+  if (isDesktop() && openId) bridge().closeMenu(openId).catch(() => {});
   if (cancel) cancel();
 }
 

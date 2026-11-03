@@ -10,6 +10,7 @@ import { publishAppearance } from "../core/appearance";
 import { usesBuiltinMerge } from "../core/mergeTool";
 import { applyTheme, nextThemeId, setCustomThemes, themeById, type CustomTheme } from "../core/themes";
 import { FRAME_ALLOWANCE, GitToolbar, rowWidth } from "./GitToolbar";
+import { otherLanguageExtra } from "./languageWidth";
 import { beginProgress, setProgressDetail, useProgress } from "./progress";
 import { Flag, Icon, MenuGlyph, type IconName } from "./icons";
 import { TerminalPanes, TerminalTabStrip } from "./TerminalTabs";
@@ -61,6 +62,9 @@ export function App() {
   const [status, setStatus] = useState("");
   const [progress, setProgress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  /** Bumped on every finished refresh, so the status message flashes even when unchanged. */
+  const [refreshMark, setRefreshMark] = useState(0);
   const [showLeft, setShowLeft] = useState(true);
   const [showRight, setShowRight] = useState(true);
   const [showBottom, setShowBottom] = useState(true);
@@ -179,12 +183,13 @@ export function App() {
     };
   }, []);
 
-  // The menu row's natural width (its labels change with the language).
+  // The menu row's natural width. Its labels change with the language, so it is sized
+  // for the widest language: switching the language never moves the window's minimum.
   useEffect(() => {
     const bar = menubarRef.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
     const update = () => {
-      const width = rowWidth(bar);
+      const width = rowWidth(bar) + otherLanguageExtra(bar, lang);
       if (width === naturalWidths.current.menubar) return;
       naturalWidths.current.menubar = width;
       reportMinimumWidth();
@@ -240,6 +245,7 @@ export function App() {
     setRepo(tick.repo);
     setWork(tick.work);
     api.releases().then((result) => setReleases(result.releases)).catch(() => setReleases([]));
+    return { repo: tick.repo, work: tick.work, commits: history.commits.length };
   }, []);
 
   useEffect(() => {
@@ -319,6 +325,12 @@ export function App() {
     else openExternalMerge(file);
   }, [settings?.externalMergeToolPath, openBuiltinMerge, openExternalMerge]);
 
+  // The diff tool chosen in Settings › Tools; with none chosen (empty) the built-in one.
+  const openDiffTool = useCallback((sha: string, file: string) => {
+    if (usesBuiltinMerge(settings?.externalDiffToolPath)) openBuiltinDiff(sha, file);
+    else openExternalDiff(sha, file);
+  }, [settings?.externalDiffToolPath, openBuiltinDiff, openExternalDiff]);
+
   useEffect(() => {
     if (!selectedSha) {
       setDetail(null);
@@ -391,10 +403,29 @@ export function App() {
     return save ? window.mgm.pickSaveDirectory() : window.mgm.pickDirectory();
   }, []);
 
-  const refresh = useCallback(() => {
-    appendLog(t("refresh"));
-    return reload().catch(fail);
-  }, [appendLog, fail, reload, t]);
+  // A refresh that changes nothing on screen looked like a click that did nothing, so it
+  // says so: the icon spins while it runs, and the result — what changed, how many
+  // commits, how long it took — lands in the status bar (flashing) and in the log.
+  const refresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setStatus(t("refreshing"));
+    appendLog(t("refreshing"));
+    const started = performance.now();
+    try {
+      const result = await reload();
+      const seconds = ((performance.now() - started) / 1000).toFixed(1);
+      const changes = result.repo ? changeText(result.repo, result.work, t) : "";
+      const message = [`${t("refreshDone")} (${seconds}s)`, changes, `${t("sbCommitCount")} ${result.commits}`].filter(Boolean).join(" · ");
+      setStatus(message);
+      appendLog(message);
+      setRefreshMark((mark) => mark + 1);
+    } catch (error) {
+      fail(error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [appendLog, fail, refreshing, reload, t]);
 
   const openPath = useCallback(async (target: string) => {
     await run(t("open"), async () => {
@@ -768,7 +799,7 @@ export function App() {
           { id: "open", group: "repo", icon: "open", label: t("open"), onClick: () => void onOpen() },
           { id: "clone", group: "repo", icon: "clone", label: t("clone"), onClick: () => setDialog({ type: "clone", url: "", destination: "", username: settings?.gitUsername ?? "", password: "" }) },
           { id: "browse", group: "repo", icon: "browse", label: t("browse"), onClick: () => setDialog({ type: "browse", url: "", username: settings?.gitUsername ?? "", password: "" }) },
-          { id: "refresh", group: "repo", icon: "refresh", label: t("refresh"), disabled: !repo || busy, onClick: () => void refresh() },
+          { id: "refresh", group: "repo", icon: "refresh", label: t("refresh"), disabled: !repo || busy, spinning: refreshing, onClick: () => void refresh() },
           { id: "add", group: "work", icon: "plus", label: t("gitAdd"), disabled: !writable || busy, onClick: () => void doAdd(selectedPath ? [selectedPath] : []) },
           { id: "reset", group: "work", icon: "undo", label: t("gitReset"), disabled: !writable || busy, onClick: () => void run(t("gitReset"), async () => (await api.unstage(selectedPath ? [selectedPath] : [])).message) },
           { id: "discard", group: "work", icon: "discard", label: t("discard"), disabled: !writable || busy, onClick: () => void discard(selectedPath ? [selectedPath] : []) },
@@ -874,7 +905,7 @@ export function App() {
                     onDoubleClick={() => {
                       if (entry.directory) return;
                       if (!fsRoot && isConflict(entry)) {
-                        openBuiltinMerge(entry.path);
+                        openMergeTool(entry.path);
                         return;
                       }
                       void api.openPath(entry.path).catch(fail);
@@ -935,7 +966,7 @@ export function App() {
             flat={flat}
             selected={selectedSha}
             query={query}
-            labels={{ graph: t("graph"), message: t("message"), sha: t("sha"), author: t("author"), date: t("date") }}
+            labels={{ graph: t("graph"), message: t("message"), sha: t("sha"), author: t("author"), date: t("date"), time: t("commitTime") }}
             onSelect={(sha) => setSelectedSha(sha)}
             onContext={(event, commit) => showContext(event, [
               { icon: "hash", label: t("copySha"), action: () => void navigator.clipboard.writeText(commit.sha) },
@@ -976,7 +1007,7 @@ export function App() {
                     if (selectedSha) showInAppDiff(selectedSha, file.path);
                   }}
                   onDoubleClick={() => {
-                    if (selectedSha) openBuiltinDiff(selectedSha, file.path);
+                    if (selectedSha) openDiffTool(selectedSha, file.path);
                   }}
                   onContextMenu={(event) => showContext(event, [
                     { icon: "browse", label: t("builtinDiff"), disabled: !selectedSha, action: () => { if (selectedSha) openBuiltinDiff(selectedSha, file.path); } },
@@ -1028,7 +1059,7 @@ export function App() {
         )}
       </div>
       <footer className="statusbar">
-        <StatusCell icon={busy || progress ? "refresh" : "status"} text={progress || (busy ? t("sbWorking") : (status || t("sbReady")))} busy={Boolean(busy || progress)} wide />
+        <StatusCell key={`status${refreshMark}`} flash={refreshMark > 0 && !busy && !progress && !refreshing} icon={busy || progress || refreshing ? "refresh" : "status"} text={progress || (busy ? t("sbWorking") : (status || t("sbReady")))} busy={Boolean(busy || progress || refreshing)} wide />
         <StatusCell icon="commit" text={gitOk ? t("sbGit") : t("sbGitMissing")} warn={!gitOk} title={gitOk ? t("sbGit") : t("gitMissing")} />
         {repo ? (
           <>
@@ -1053,6 +1084,16 @@ export function App() {
           <StatusCell icon={bottomTab === "terminal" ? "terminal" : "list"} text={showBottom ? (bottomTab === "terminal" ? t("terminal") : t("outputLog")) : t("panelBottom")} />
           <StatusCell icon="language" text={lang === "ko" ? "한국어" : "English"} title={t("language")} />
         </span>
+        {/* Desktop only (the browser has its own frame), and not while maximized. */}
+        {window.mgm && !maximized && (
+          <span className="resize-grip" data-resize-grip="" title={t("resizeGrip")} aria-hidden="true">
+            <svg viewBox="0 0 14 14">
+              {[[12, 4], [12, 8], [8, 8], [12, 12], [8, 12], [4, 12]].map(([x, y]) => (
+                <rect key={`${x}-${y}`} x={x - 1.8} y={y - 1.8} width="3.6" height="3.6" rx="0.9" fill="currentColor" />
+              ))}
+            </svg>
+          </span>
+        )}
       </footer>
       <ProgressHost t={t} />
       {settings && (
@@ -1394,9 +1435,9 @@ function progressIconOf(label: string, t: (key: string) => string): IconName {
   return icons.find(([key]) => t(key) === label)?.[1] ?? "refresh";
 }
 
-function StatusCell({ icon, text, title, warn, busy, wide }: { icon: IconName; text: string; title?: string; warn?: boolean; busy?: boolean; wide?: boolean }) {
+function StatusCell({ icon, text, title, warn, busy, wide, flash }: { icon: IconName; text: string; title?: string; warn?: boolean; busy?: boolean; wide?: boolean; flash?: boolean }) {
   if (!text) return null;
-  const tone = warn ? " warn" : busy ? " busy" : "";
+  const tone = warn ? " warn" : busy ? " busy" : flash ? " flash" : "";
   return (
     <span className={`status-cell${wide ? " wide" : ""}${tone}`} title={title || text}>
       <Icon name={icon} />

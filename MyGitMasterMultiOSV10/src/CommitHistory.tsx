@@ -8,8 +8,8 @@ const HEAD = 28;
 const LANE = 16;
 const OVERSCAN = 8;
 const COLUMN_MAX = 960;
-const COLUMN_WIDTH = { message: 240, sha: 84, author: 140, date: 104 };
-const COLUMN_MIN = { message: 80, sha: 56, author: 64, date: 80 };
+const COLUMN_WIDTH = { message: 240, sha: 84, author: 140, date: 104, time: 84 };
+const COLUMN_MIN = { message: 80, sha: 56, author: 64, date: 80, time: 64 };
 
 type HistoryColumn = keyof typeof COLUMN_WIDTH;
 
@@ -22,7 +22,7 @@ const CommitHistoryView = memo(function CommitHistoryView(props: {
   flat: boolean;
   selected: string | null;
   query: string;
-  labels: { graph: string; message: string; sha: string; author: string; date: string };
+  labels: { graph: string; message: string; sha: string; author: string; date: string; time: string };
   onSelect: (sha: string) => void;
   onContext?: (event: ReactMouseEvent, commit: CommitInfo) => void;
 }) {
@@ -44,8 +44,8 @@ const CommitHistoryView = memo(function CommitHistoryView(props: {
   }, [filtered, props.flat]);
   const maxLane = Math.max(0, ...[...graph.values()].map((row) => Math.max(row.lane, ...row.passThrough, ...row.forks, ...row.merges)));
   const graphWidth = Math.max(56, 20 + (maxLane + 1) * LANE);
-  const columns = `${graphWidth}px ${widths.message}px ${widths.sha}px ${widths.author}px ${widths.date}px`;
-  const tableWidth = graphWidth + widths.message + widths.sha + widths.author + widths.date;
+  const columns = `${graphWidth}px ${widths.message}px ${widths.sha}px ${widths.author}px ${widths.date}px ${widths.time}px`;
+  const tableWidth = graphWidth + widths.message + widths.sha + widths.author + widths.date + widths.time;
   const start = Math.max(0, Math.floor(scrollTop / ROW) - OVERSCAN);
   const end = Math.min(filtered.length, Math.ceil((scrollTop + Math.max(0, viewport - HEAD)) / ROW) + OVERSCAN);
   const visible = filtered.slice(start, end);
@@ -71,11 +71,11 @@ const CommitHistoryView = memo(function CommitHistoryView(props: {
     if (fitted.current) return;
     const node = scroller.current;
     if (!node || node.clientWidth < 200) return;
-    const available = node.clientWidth - graphWidth - widths.sha - widths.author - widths.date;
+    const available = node.clientWidth - graphWidth - widths.sha - widths.author - widths.date - widths.time;
     fitted.current = true;
     if (available <= COLUMN_MIN.message) return;
     setWidths((current) => ({ ...current, message: Math.round(Math.min(COLUMN_MAX, available)) }));
-  }, [graphWidth, widths.author, widths.date, widths.sha]);
+  }, [graphWidth, widths.author, widths.date, widths.sha, widths.time]);
 
   const resize = (event: ReactMouseEvent, column: HistoryColumn) => {
     event.preventDefault();
@@ -110,6 +110,7 @@ const CommitHistoryView = memo(function CommitHistoryView(props: {
           <ColumnHeading label={props.labels.sha} onResize={(event) => resize(event, "sha")} />
           <ColumnHeading label={props.labels.author} onResize={(event) => resize(event, "author")} />
           <ColumnHeading label={props.labels.date} onResize={(event) => resize(event, "date")} />
+          <ColumnHeading label={props.labels.time} onResize={(event) => resize(event, "time")} />
         </div>
         <div style={{ height: filtered.length * ROW, position: "relative" }}>
           {visible.map((commit, index) => {
@@ -135,6 +136,8 @@ const CommitHistoryView = memo(function CommitHistoryView(props: {
                 <span className="meta">{commit.sha.slice(0, 7)}</span>
                 <span className="meta" title={commit.authorEmail}>{commit.authorName}</span>
                 <span className="meta">{commit.date.slice(0, 10)}</span>
+                {/* git gives ISO 8601 (%aI): the time as the author wrote it, HH:MM:SS. */}
+                <span className="meta" title={commit.date}>{commit.date.slice(11, 19)}</span>
               </div>
             );
           })}
@@ -145,7 +148,7 @@ const CommitHistoryView = memo(function CommitHistoryView(props: {
   );
 }, (prev, next) => prev.commits === next.commits && prev.flat === next.flat && prev.selected === next.selected && prev.query === next.query
   && prev.labels.graph === next.labels.graph && prev.labels.message === next.labels.message && prev.labels.sha === next.labels.sha
-  && prev.labels.author === next.labels.author && prev.labels.date === next.labels.date);
+  && prev.labels.author === next.labels.author && prev.labels.date === next.labels.date && prev.labels.time === next.labels.time);
 
 function ColumnHeading(props: { label: string; onResize: (event: ReactMouseEvent) => void }) {
   return (
@@ -161,7 +164,7 @@ export function CommitHistory(props: {
   flat: boolean;
   selected: string | null;
   query: string;
-  labels: { graph: string; message: string; sha: string; author: string; date: string };
+  labels: { graph: string; message: string; sha: string; author: string; date: string; time: string };
   onSelect: (sha: string) => void;
   onContext?: (event: ReactMouseEvent, commit: CommitInfo) => void;
 }) {

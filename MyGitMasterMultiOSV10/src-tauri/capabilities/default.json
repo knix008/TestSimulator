@@ -19,6 +19,7 @@
     "allow-window-close",
     "allow-window-ready",
     "allow-window-start-drag",
+    "allow-window-start-resize",
     "allow-pick-directory",
     "allow-pick-program",
     "allow-tool-open",

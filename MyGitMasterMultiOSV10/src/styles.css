@@ -656,7 +656,18 @@ button { cursor: pointer; }
 }
 .side-version { font-family: ui-monospace, Consolas, monospace; color: var(--ink); }
 .side-pane-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
-.side-pane-scroll { overflow: auto; flex: 1; min-height: 0; min-width: 0; }
+/* One grid column as wide as the longest line (never narrower than the pane), so every
+   row — and its add / remove / change colour — reaches the end when scrolled sideways. */
+.side-pane-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr);
+  align-content: start;
+}
+.side-panes.wrap .side-pane-scroll { grid-template-columns: 100%; }
 .change-rail { position: relative; width: 12px; flex: 0 0 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
 .change-mark { position: absolute; left: 2px; right: 2px; min-height: 3px; border: 0; padding: 0; border-radius: 1px; }
 .change-mark.added { background: var(--add-ink); }
@@ -683,8 +694,17 @@ button { cursor: pointer; }
 .side-line.modified { background: var(--hunk-bg); color: var(--hunk-ink); }
 .side-line mark { background: color-mix(in srgb, var(--accent) 35%, transparent); color: inherit; }
 .merge-scroll { overflow: auto; flex: 1; min-height: 0; padding: 8px 12px 16px; display: flex; flex-direction: column; gap: 8px; }
-.code-lines { font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.45; }
-.code-lines > div { display: flex; align-items: center; min-height: 24px; white-space: pre-wrap; padding: 0 8px; border-bottom: 1px solid var(--row-line); }
+/* Same for the merge view: each block is as wide as its longest line and scrolls sideways
+   on its own, so row colours never stop at the first screen. */
+.code-lines {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr);
+  overflow-x: auto;
+}
+.code-lines > div { display: flex; align-items: center; min-height: 24px; white-space: pre; padding: 0 8px; border-bottom: 1px solid var(--row-line); }
 .code-lines > div:nth-child(even) { background: var(--alt-row); }
 .merge-pane.active .code-lines > div { background: var(--accent-soft); }
 .merge-conflict { border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
@@ -797,9 +817,12 @@ button { cursor: pointer; }
   color: var(--ink);
 }
 .dialog textarea { min-height: 90px; resize: vertical; }
+/* As tall as the text (rows, 3–14 lines) and no taller; longer details scroll. A pixel
+   cap, not vh: the error window sizes itself to this box. */
 .error-detail {
-  min-height: 180px;
-  max-height: min(50vh, 420px);
+  min-height: 0;
+  max-height: 320px;
+  resize: none;
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;
   line-height: 1.45;
@@ -853,3 +876,36 @@ button { cursor: pointer; }
 .file-row .twist { width: 14px; flex: 0 0 14px; text-align: center; color: var(--muted); }
 .file-row .name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .path-chip { color: var(--accent); font-weight: 600; }
+
+/* Refresh: the icon spins while it runs, and the finished message flashes once. */
+.git-tool[data-spinning] .icon { animation: mgm-spin 0.8s linear infinite; }
+.status-cell.busy > .icon { animation: mgm-spin 0.8s linear infinite; }
+@keyframes mgm-spin { to { transform: rotate(360deg); } }
+.status-cell.flash { color: var(--ink); animation: mgm-status-flash 1.6s ease-out; }
+@keyframes mgm-status-flash {
+  0%, 25% { background: color-mix(in srgb, var(--accent) 32%, transparent); }
+  100% { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .git-tool[data-spinning] .icon, .status-cell.busy > .icon, .status-cell.flash { animation: none; }
+}
+
+/* The resize grip: the window has no OS frame, so the bottom-right corner says where to
+   grab it — a clearly visible triangle of dots, in the theme's ink rather than a faint line. */
+.resize-grip {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 22px;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0 2px 2px 0;
+  color: var(--grip-color);
+  cursor: nwse-resize;
+  -webkit-app-region: no-drag;
+}
+/* Strong enough to find at a glance: dark grey dots on light themes, light ones on dark. */
+:root { --grip-color: #4b5563; }
+:root[data-mode="dark"] { --grip-color: #cbd5e1; }
+.resize-grip:hover { color: var(--accent); }
+.resize-grip svg { display: block; width: 16px; height: 16px; }

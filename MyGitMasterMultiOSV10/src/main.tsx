@@ -27,6 +27,22 @@ function followThemeBackground(): void {
   update();
 }
 
+/**
+ * Windows other than the main one (Diff / Merge tools, the guide) keep the current
+ * theme: they follow settings published by any window, and read the saved settings
+ * again whenever they come forward — a window reused for a new file or section may
+ * have missed a change.
+ */
+function followSettings(): void {
+  host.onSettingsPublished(paintSettings);
+  const refresh = () => {
+    if (document.visibilityState === "visible") host.loadSettings().then(paintSettings).catch(() => {});
+  };
+  window.addEventListener("focus", refresh);
+  window.addEventListener("hashchange", refresh);
+  document.addEventListener("visibilitychange", refresh);
+}
+
 async function start() {
   const route = popupRoute();
   const root = createRoot(document.getElementById("root")!);
@@ -37,6 +53,7 @@ async function start() {
     document.documentElement.classList.add("popup-root");
     if (route.kind === "menu") document.documentElement.classList.add("menu-root");
     else followThemeBackground();
+    if (route.kind === "guide") followSettings();
     await host.loadSettings().then(paintSettings).catch(() => applyTheme(null));
     root.render(
       <StrictMode>
@@ -54,6 +71,7 @@ async function start() {
     applyTheme(null);
   }
   followThemeBackground();
+  if (readToolRequest()) followSettings();
   root.render(
     <StrictMode>
       {readToolRequest() ? <ToolWindow /> : <><App /><InlinePopups /></>}

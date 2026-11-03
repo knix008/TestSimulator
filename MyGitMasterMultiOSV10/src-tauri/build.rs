@@ -8,6 +8,7 @@ const COMMANDS: &[&str] = &[
     "window_close",
     "window_ready",
     "window_start_drag",
+    "window_start_resize",
     "pick_directory",
     "pick_program",
     "tool_open",

@@ -13,6 +13,7 @@
     "serve": "node dist-server/cli.cjs",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "icons": "node scripts/generate-icons.mjs",
+    "guide:shots": "node scripts/guide-shots.mjs",
     "installer": "node scripts/copy-installer.mjs",
     "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
     "build:ui": "node node_modules/vite/bin/vite.js build",

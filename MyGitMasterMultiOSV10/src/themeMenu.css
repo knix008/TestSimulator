@@ -8,8 +8,9 @@
   flex-direction: column;
   gap: 6px;
   width: max-content;
-  max-height: calc(100vh - 96px);
-  overflow: auto;
+  /* No height limit of its own: it opens in a menu window, which measures this box to
+     size itself (a viewport-based limit made the window measure itself 36px tall), and
+     the window is what gets fitted to the display. */
   color: var(--ink);
 }
 .theme-menu-section { display: flex; flex-direction: column; gap: 2px; }

@@ -241,28 +241,49 @@ pub fn menu_focus_changed(app: &AppHandle, focused: bool) {
     }
 }
 
+/// Hides the menu (Escape, a click elsewhere, the opener closing it) and tells the
+/// window that opened it that nothing was chosen, so its pending openMenu resolves with
+/// null and its button stops looking open.
 pub fn hide_menu(app: &AppHandle) {
-    {
-        let mut inner = popups(app).lock();
-        inner.menu_message = None;
-        inner.menu_opener.clear();
-        inner.menu_shown = None;
+    if let Some((opener, open_id)) = take_menu(app) {
+        let _ = app.emit_to(opener.as_str(), "menu:chosen", json!({ "openId": open_id, "id": Value::Null }));
     }
+}
+
+/// Clears and hides the current menu; the opener and openId it had, if any.
+fn take_menu(app: &AppHandle) -> Option<(String, u64)> {
+    let taken = {
+        let mut inner = popups(app).lock();
+        let open_id = inner.menu_message.as_ref().and_then(|m| m["openId"].as_u64());
+        let opener = std::mem::take(&mut inner.menu_opener);
+        inner.menu_message = None;
+        inner.menu_shown = None;
+        open_id.map(|id| (if opener.is_empty() { "main".to_string() } else { opener }, id))
+    };
     if let Some(win) = app.get_webview_window(MENU) {
         if win.is_visible().unwrap_or(false) {
             let _ = win.hide();
         }
         let _ = app.emit_to(MENU, "menu:payload", Value::Null);
     }
+    taken
+}
+
+/// The openId of the menu being shown (0 when none).
+fn current_menu_id(app: &AppHandle) -> u64 {
+    popups(app).lock().menu_message.as_ref().and_then(|m| m["openId"].as_u64()).unwrap_or(0)
 }
 
 #[tauri::command]
-pub async fn menu_open(app: AppHandle, window: WebviewWindow, payload: Value, anchor: Value) -> Result<bool, String> {
-    let Some(menu) = ensure_menu(&app) else { return Ok(false) };
-    if menu.is_visible().unwrap_or(false) {
+pub async fn menu_open(app: AppHandle, window: WebviewWindow, payload: Value, anchor: Value) -> Result<u64, String> {
+    let Some(menu) = ensure_menu(&app) else { return Ok(0) };
+    // A menu still open is replaced: its opener hears "nothing chosen" for it.
+    if current_menu_id(&app) != 0 {
+        hide_menu(&app);
+    } else if menu.is_visible().unwrap_or(false) {
         let _ = menu.hide();
     }
-    let message = {
+    let (message, open_id) = {
         let mut inner = popups(&app).lock();
         inner.sequence += 1;
         let mut message = payload;
@@ -272,15 +293,20 @@ pub async fn menu_open(app: AppHandle, window: WebviewWindow, payload: Value, an
         }
         inner.menu_message = Some(message.clone());
         inner.menu_opener = window.label().to_string();
-        message
+        (message, inner.sequence)
     };
     let _ = app.emit_to(MENU, "menu:payload", message);
-    Ok(true)
+    Ok(open_id)
 }
 
+/// Closes the menu `open_id` (0: whatever menu is open). A close for a menu that has
+/// already been replaced does nothing — it would otherwise empty the new one.
 #[tauri::command]
-pub async fn menu_close(app: AppHandle) {
-    hide_menu(&app);
+pub async fn menu_close(app: AppHandle, open_id: Option<u64>) {
+    let current = current_menu_id(&app);
+    if current != 0 && open_id.map_or(true, |id| id == 0 || id == current) {
+        hide_menu(&app);
+    }
 }
 
 #[tauri::command]
@@ -290,9 +316,14 @@ pub async fn menu_payload(app: AppHandle) -> Value {
 
 /// Fits the popup to its content and shows it; a dismissed menu stays hidden.
 #[tauri::command]
-pub async fn menu_size(app: AppHandle, width: f64, height: f64) {
+pub async fn menu_size(app: AppHandle, width: f64, height: f64, open_id: Option<u64>) {
     let Some(menu) = app.get_webview_window(MENU) else { return };
     let Some(message) = popups(&app).lock().menu_message.clone() else { return };
+    // Only the menu currently asked for is shown: a size measured for an older payload
+    // would show the window with stale (or no) rows.
+    if open_id.is_some_and(|id| Some(id) != message["openId"].as_u64()) {
+        return;
+    }
     let num = |key: &str| message["anchor"][key].as_f64().unwrap_or(0.0);
     let anchor = Rect { x: num("x"), y: num("y"), width: num("width"), height: num("height") };
     let width = width.ceil().max(180.0);
@@ -308,10 +339,8 @@ pub async fn menu_size(app: AppHandle, width: f64, height: f64) {
 
 #[tauri::command]
 pub async fn menu_choose(app: AppHandle, command_id: String) {
-    let opener = popups(&app).lock().menu_opener.clone();
-    hide_menu(&app);
-    let target = if opener.is_empty() { "main".to_string() } else { opener };
-    let _ = app.emit_to(target.as_str(), "menu:chosen", command_id);
+    let Some((target, open_id)) = take_menu(&app) else { return };
+    let _ = app.emit_to(target.as_str(), "menu:chosen", json!({ "openId": open_id, "id": command_id }));
     if let Some(win) = app.get_webview_window(&target) {
         let _ = win.set_focus();
     }
@@ -711,6 +740,7 @@ pub fn apply_background(app: &AppHandle, hex: &str) {
     let Some(colour) = colour(hex) else { return };
     let mut labels: Vec<String> = popups(app).lock().windows.keys().cloned().collect();
     labels.push(GUIDE.to_string());
+    labels.extend(["tool-diff".to_string(), "tool-merge".to_string()]);
     for label in labels {
         if let Some(win) = app.get_webview_window(&label) {
             let _ = win.set_background_color(Some(colour));

@@ -35,6 +35,44 @@ export function windowsCases(_ctx: FeatureCtx, add: AddCase): void {
     assert(!ko.sections.some((item) => item.title === "목차") && !en.sections.some((item) => item.title === "Contents"), "the contents are not a section");
   });
 
+  add("Guide", "Each guide shows its own language's pictures, and every picture exists", async () => {
+    const pictures = (file: string) => [...read("doc", file).matchAll(/^!\[[^\]]*\]\(([^)]+)\)\s*$/gm)].map((match) => match[1]);
+    const ko = pictures("UsersGuide.md");
+    const en = pictures("UsersGuide.en.md");
+    assert(ko.length >= 20, `the Korean guide has pictures (${ko.length})`);
+    for (const [lang, list] of [["ko", ko], ["en", en]] as const) {
+      for (const src of list) {
+        assert(src.startsWith(`images/${lang}/`), `${lang} guide names ${src}: only images/${lang}/ pictures, never the other language's`);
+        const file = path.join(ROOT, "doc", src);
+        assert(fs.existsSync(file) && fs.readFileSync(file).readUInt32BE(0) === 0x89504e47, `${src} is a PNG in doc/`);
+      }
+    }
+    const names = (list: string[]) => list.map((src) => path.basename(src)).join(",");
+    assert(names(ko) === names(en), "both guides show the same pictures in the same places");
+    const folder = (lang: string) => fs.readdirSync(path.join(ROOT, "doc", "images", lang)).filter((name) => name.endsWith(".png")).sort().join(",");
+    assert(folder("ko") === folder("en"), `doc/images/ko and doc/images/en hold the same pictures: ${folder("ko")} | ${folder("en")}`);
+    assert(!fs.existsSync(path.join(ROOT, "assets", "guide")), "the guide's pictures live in doc/images, not assets/guide");
+  });
+
+  add("Guide", "The guide window finds every picture the documents name, per language", async () => {
+    const source = read("src", "GuideWindow.tsx");
+    assert(source.includes(`import.meta.glob<string>("../doc/images/**/*.png"`), "pictures are bundled from doc/images");
+    // The window's key for a picture: its path relative to doc/, exactly as the Markdown names it.
+    const key = (file: string) => file.replace(/^\.\.\/doc\//, "");
+    assert(source.includes("file.replace(/^\\.\\.\\/doc\\//, \"\")"), "keys are paths relative to doc/");
+    const bundled = new Set(["ko", "en"].flatMap((lang) =>
+      fs.readdirSync(path.join(ROOT, "doc", "images", lang)).map((name) => key(`../doc/images/${lang}/${name}`))));
+    for (const [file, lang] of [["UsersGuide.md", "ko"], ["UsersGuide.en.md", "en"]] as const) {
+      const doc = parseGuide(read("doc", file));
+      const sources = doc.sections.flatMap((section) => section.blocks.flatMap((block) => (block.kind === "image" ? [block.src] : [])));
+      assert(sources.length >= 20, `${file}: the parser sees the pictures (${sources.length})`);
+      for (const src of sources) {
+        assert(bundled.has(src.replace(/^(\.\/)+/, "")), `${file}: ${src} resolves to a bundled picture`);
+        assert(src.includes(`/${lang}/`), `${file}: ${src} is a ${lang} picture`);
+      }
+    }
+  });
+
   add("Guide", "The language button names the language it switches to, with its flag", async () => {
     const guide = read("src", "GuideWindow.tsx");
     assert(guide.includes(`<Flag country={language === "ko" ? "gb" : "kr"} />`), "Korean guide shows the UK flag, English guide the Korean flag");

@@ -31,6 +31,7 @@ import { terminalCases } from "./features/terminal.js";
 import { startCases } from "./features/start.js";
 import { themeCases } from "./features/theme.js";
 import { windowsCases } from "./features/windows.js";
+import { fixesCases } from "./features/fixes.js";
 
 export type TestCase = { group: string; name: string; fn: () => Promise<void> };
 
@@ -54,7 +55,7 @@ const UI_KEYS = [
   "gitCommit", "gitFetch", "gitPull", "gitPush", "gitStash", "gitStashPop", "gitStatus", "showAll",
   "exportSummary", "exportCommit", "about", "checkout", "copyName", "copySha", "copyMessage",
   "openExternal", "copyPath", "copy", "wordWrap", "openFolder", "showLog", "newFile", "newFolder",
-  "delete", "ignore", "unignore", "files", "creator", "authorName", "appVersion", "buildInfo", "platform", "settingsFile", "errorTitle", "copied", "theme", "language",
+  "delete", "ignore", "unignore", "files", "creator", "authorName", "appVersion", "buildInfo", "platform", "errorTitle", "copied", "theme", "language",
   "recent", "removeRecent", "clearRecent",
   "panelLeft", "panelRight", "panelBottom", "outputLog", "logEmpty", "clearLog", "terminal", "terminalShell",
   "prefsGeneral", "prefsTools", "restoreDefaults",
@@ -1261,7 +1262,7 @@ export function cases(ctx: Ctx): TestCase[] {
     }
   });
 
-  for (const feature of [promptCases, terminalCases, startCases, themeCases, windowsCases]) feature(ctx, add);
+  for (const feature of [promptCases, terminalCases, startCases, themeCases, windowsCases, fixesCases]) feature(ctx, add);
   return list;
 }
 

@@ -36,19 +36,23 @@ export function paintSettings(settings: Settings): void {
  * `onPrefs` saves a change and publishes it, so the main window follows a change made
  * in a dialog window.
  */
-export function usePopupSettings(): PopupContext | null {
+export function usePopupSettings(openId = 0): PopupContext | null {
   const [settings, setSettings] = useState<Settings | null>(null);
+  useEffect(() => {
+    const off = host.onSettingsPublished((value) => setSettings(value));
+    return off;
+  }, []);
+  // Read again for every popup this (pooled) window is handed: it may have sat hidden
+  // through theme changes it never heard about, and must open in the current theme.
   useEffect(() => {
     let live = true;
     host.loadSettings().then((value) => {
       if (live) setSettings(value);
     }).catch(() => {});
-    const off = host.onSettingsPublished((value) => setSettings(value));
     return () => {
       live = false;
-      off();
     };
-  }, []);
+  }, [openId]);
   useEffect(() => {
     if (settings) paintSettings(settings);
   }, [settings]);
@@ -71,7 +75,7 @@ type MenuMessage = { menu: string; payload: unknown; openId: number; anchor?: Me
 
 export function MenuWindow() {
   const [message, setMessage] = useState<MenuMessage>(null);
-  const context = usePopupSettings();
+  const context = usePopupSettings(message?.openId ?? 0);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,7 +104,7 @@ export function MenuWindow() {
     const report = () => {
       const width = Math.max(body.scrollWidth, Math.ceil(body.getBoundingClientRect().width));
       const height = Math.max(body.scrollHeight, Math.ceil(body.getBoundingClientRect().height));
-      bridge.menuSize({ width: width + 4, height: height + 4 }).catch(() => {});
+      bridge.menuSize({ width: width + 4, height: height + 4, openId: message.openId }).catch(() => {});
     };
     report();
     // Fonts settle a frame late.
@@ -119,7 +123,7 @@ export function MenuWindow() {
             {...context}
             payload={message.payload}
             choose={(id) => window.mgm?.chooseMenu(id)}
-            dismiss={() => window.mgm?.closeMenu()}
+            dismiss={() => window.mgm?.closeMenu(message.openId)}
           />
         </div>
       </div>
@@ -135,7 +139,7 @@ type DialogMessage = { name: string | null; payload: unknown; openId: number } |
 
 export function DialogWindow() {
   const [message, setMessage] = useState<DialogMessage>(null);
-  const context = usePopupSettings();
+  const context = usePopupSettings(message?.openId ?? 0);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

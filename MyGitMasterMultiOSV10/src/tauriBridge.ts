@@ -67,12 +67,12 @@ function createBridge(): MgmBridge {
     onSettingsChanged: (listener) => onWindowEvent<unknown>("settings:changed", listener),
 
     openMenu: (payload, anchor) => invoke("menu_open", { payload, anchor }),
-    closeMenu: () => invoke("menu_close"),
+    closeMenu: (openId) => invoke("menu_close", { openId: openId ?? null }),
     menuPayload: () => invoke("menu_payload"),
-    menuSize: (size) => invoke("menu_size", { width: size.width, height: size.height }),
+    menuSize: (size) => invoke("menu_size", { width: size.width, height: size.height, openId: size.openId ?? null }),
     chooseMenu: (commandId) => invoke("menu_choose", { commandId }),
     onMenuPayload: (listener) => onWindowEvent<unknown>("menu:payload", listener),
-    onMenuChosen: (listener) => onWindowEvent<string>("menu:chosen", listener),
+    onMenuChosen: (listener) => onWindowEvent<{ openId: number; id: string | null }>("menu:chosen", listener),
 
     openDialog: (name, payload, spec) => invoke("dialog_open", { name, payload: payload ?? null, spec }),
     dialogPayload: () => invoke("dialog_payload"),
@@ -107,6 +107,12 @@ function installDragRegions(canMaximize: boolean): void {
   document.addEventListener("mousedown", (event) => {
     if (event.button !== 0) return;
     const target = event.target as Element | null;
+    // The status bar's corner grip resizes the window (it has no OS frame to grab).
+    if (target?.closest("[data-resize-grip]")) {
+      event.preventDefault();
+      invoke("window_start_resize").catch(() => {});
+      return;
+    }
     if (!target || !target.closest(DRAG_ROWS) || target.closest(NOT_DRAG)) return;
     if (event.detail === 2) {
       if (canMaximize) invoke("window_toggle_maximize").catch(() => {});

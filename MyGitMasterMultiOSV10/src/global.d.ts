@@ -30,13 +30,16 @@ export type MgmBridge = {
   broadcastSettings: (settings: unknown) => Promise<boolean>;
   onSettingsChanged: (listener: (settings: unknown) => void) => () => void;
 
-  openMenu: (payload: unknown, anchor: MenuAnchor) => Promise<boolean>;
-  closeMenu: () => Promise<void>;
+  /** Shows a menu; resolves with its openId (0 when it could not be shown). */
+  openMenu: (payload: unknown, anchor: MenuAnchor) => Promise<number>;
+  /** Closes menu `openId` (omitted: whichever is open); a stale id does nothing. */
+  closeMenu: (openId?: number) => Promise<void>;
   menuPayload: () => Promise<unknown>;
-  menuSize: (size: { width: number; height: number }) => Promise<void>;
+  menuSize: (size: { width: number; height: number; openId?: number }) => Promise<void>;
   chooseMenu: (commandId: string) => Promise<void>;
   onMenuPayload: (listener: (payload: unknown) => void) => () => void;
-  onMenuChosen: (listener: (commandId: string) => void) => () => void;
+  /** The answer for menu `openId`: the chosen id, or null when it was dismissed. */
+  onMenuChosen: (listener: (answer: { openId: number; id: string | null }) => void) => () => void;
 
   openDialog: (name: string, payload: unknown, spec: PopupSpec) => Promise<boolean>;
   dialogPayload: () => Promise<unknown>;

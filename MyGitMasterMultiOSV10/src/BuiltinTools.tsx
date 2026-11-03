@@ -16,7 +16,9 @@ export function SideBySideDiff(props: { path: string; left: string; right: strin
   const syncScroll = (from: HTMLDivElement, to: HTMLDivElement | null) => {
     if (!to || syncing.current) return;
     syncing.current = true;
+    // Both directions: the two sides stay line for line and column for column.
     to.scrollTop = from.scrollTop;
+    to.scrollLeft = from.scrollLeft;
     syncing.current = false;
   };
   const jump = (next: number) => {

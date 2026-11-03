@@ -321,19 +321,13 @@ export function AppDialog({ payload, settings, lang, t, onPrefs, resolve, close 
               <dd>{platformName()}</dd>
               <dt>{t("creator")}</dt>
               <dd className="about-author">{t("authorName")}</dd>
-              {settings.settingsPath && (
-                <>
-                  <dt>{t("settingsFile")}</dt>
-                  <dd>{settings.settingsPath}</dd>
-                </>
-              )}
             </dl>
           </div>
         )}
         {dialog.type === "error" && (
           <>
             {dialog.message && dialog.message !== dialog.detail ? <p className="error-message">{dialog.message}</p> : null}
-            <textarea className="error-detail" readOnly value={dialog.detail} onFocus={(event) => event.currentTarget.select()} />
+            <textarea className="error-detail" readOnly rows={Math.min(14, Math.max(3, dialog.detail.split("\n").length + 1))} value={dialog.detail} onFocus={(event) => event.currentTarget.select()} />
           </>
         )}
         {dialog.type === "export" && <Field label={t("destination")} value={dialog.path} autoFocus onChange={(path) => setDialog({ ...dialog, path })} />}

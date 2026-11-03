@@ -318,18 +318,22 @@ export function GuideWindow({ section: requested }: { section?: string }) {
 }
 
 /*
- * The guide's pictures, if any: every PNG under assets/guide becomes a URL at build
- * time; the Markdown names them relative to the repository root (so GitHub shows them
- * too), which is the key here.
+ * The guide's pictures: every PNG under doc/images becomes a URL at build time. The
+ * Markdown names them relative to itself (images/ko/x.png in UsersGuide.md,
+ * images/en/x.png in UsersGuide.en.md — so the IDE and GitHub show them too), and that
+ * relative path is the key. Each document names its own language's pictures, so the
+ * language button swaps the text and the pictures together; a missing picture shows as
+ * missing, never as the other language's.
  */
 const IMAGE_URLS: Record<string, string> = Object.fromEntries(
   Object.entries(
-    import.meta.glob<string>("../assets/guide/**/*.png", { eager: true, query: "?url", import: "default" }),
-  ).map(([file, url]) => [file.replace(/^(\.\.\/)+/, ""), url]),
+    import.meta.glob<string>("../doc/images/**/*.png", { eager: true, query: "?url", import: "default" }),
+  ).map(([file, url]) => [file.replace(/^\.\.\/doc\//, ""), url]),
 );
 
-function imageUrl(src: string): string | null {
-  return IMAGE_URLS[src.replace(/^(\.\.\/|\.\/|\/)+/, "")] ?? null;
+/** The URL of a picture the guide names (`images/<lang>/x.png`), or null. */
+export function imageUrl(src: string): string | null {
+  return IMAGE_URLS[src.replace(/^(\.\/)+/, "")] ?? null;
 }
 
 type Zoomed = { url: string; alt: string };
