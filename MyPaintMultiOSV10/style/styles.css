@@ -149,6 +149,10 @@ button { cursor: pointer; }
 
 .menu-spacer { flex: 1; min-width: 8px; }
 
+/* The home button left of File: a toggle, drawn pressed while the start screen shows. */
+.menu-root.home-btn { padding: 4px 6px; }
+.menu-root.home-btn.on { background: var(--hover); border-color: var(--accent); }
+
 .menu-root {
   display: flex;
   align-items: center;
@@ -417,76 +421,73 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
   z-index: 20;
   overflow: auto;
   display: flex;
-  padding: 28px 24px;
-  background:
-    radial-gradient(1200px 520px at 50% -10%, var(--accent-soft), transparent 70%),
-    var(--bg);
-  color: var(--ink);
+  padding: 30px;
+  background: var(--bg);
+  color: var(--muted);
 }
 
 .start-screen[hidden] { display: none; }
 
+/* Laid out like MyEBookReader's welcome page: a large icon over the name, one line of
+ * hint, a row of plain buttons with the first one filled, and the recent files under it. */
 .start-inner {
   margin: auto;
-  width: min(760px, 100%);
+  width: min(640px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 22px;
   font-size: var(--start-text, 15px);
   align-items: center;
   text-align: center;
 }
 
-.start-inner[data-align="left"] { align-items: stretch; text-align: left; }
+.start-inner[data-align="left"] { align-items: flex-start; text-align: left; }
 
-.start-head { display: flex; align-items: center; gap: 18px; justify-content: center; }
-.start-inner[data-align="left"] .start-head { justify-content: flex-start; }
-.start-head img { width: 72px; height: 72px; flex: none; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.18)); }
-.start-words { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.start-words h1 { margin: 0; font-size: var(--start-title, 34px); line-height: 1.1; font-weight: 750; letter-spacing: -0.01em; }
-.start-sub { margin: 0; color: var(--muted); }
+.start-head { display: flex; flex-direction: column; align-items: center; }
+.start-inner[data-align="left"] .start-head { align-items: flex-start; }
+.start-head img { width: 120px; height: 120px; flex: none; }
+.start-words { display: flex; flex-direction: column; min-width: 0; }
+.start-words h1 { margin: 12px 0 6px; color: var(--ink); font-size: var(--start-title, 34px); line-height: 1.2; font-weight: 700; }
+.start-sub { margin: 0 auto 18px; max-width: 42em; color: var(--muted); }
+.start-inner[data-align="left"] .start-sub { margin-left: 0; }
 
 .start-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
+.start-inner[data-align="left"] .start-actions { justify-content: flex-start; }
+
 .start-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--panel);
   color: var(--ink);
   font: inherit;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
 }
 
-.start-inner[data-align="left"] .start-btn { justify-content: flex-start; }
-.start-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--hover); }
-.start-btn svg { width: 22px; height: 22px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--accent); }
-.start-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-btn:hover { border-color: var(--accent); }
+.start-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.start-btn svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.start-btn.primary svg { filter: brightness(0) invert(1); }
 
 .start-recent {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
+  margin-top: 26px;
   text-align: left;
-  overflow: hidden;
 }
 
 .start-recent > header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px 8px 14px;
+  padding: 0 4px 6px 6px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -509,7 +510,7 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 .start-link:hover:not(:disabled) { border-color: var(--line); color: #dc2626; }
 .start-link:disabled { opacity: 0.45; }
 
-.start-recent-list { list-style: none; margin: 0; padding: 4px; }
+.start-recent-list { list-style: none; margin: 0; padding: 4px 0; }
 .start-recent-row { display: flex; align-items: stretch; gap: 2px; }
 
 .start-recent-open {
@@ -518,18 +519,18 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 10px;
+  padding: 5px 6px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--ink);
+  color: var(--muted);
   font: inherit;
   text-align: left;
 }
 
-.start-recent-open:hover { background: var(--hover); }
+.start-recent-open:hover { background: var(--hover); color: var(--ink); }
 .start-recent-open svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.6; color: var(--accent); }
-.start-recent-open .name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.start-recent-open .name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .start-recent-open .path { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 0.86em; }
 
 .start-recent-x {
@@ -545,9 +546,9 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 
 .start-recent-x:hover { background: var(--hover); color: #dc2626; }
 .start-recent-x svg, .start-close svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.6; fill: none; stroke-linecap: round; }
-.start-empty { margin: 0; padding: 14px; color: var(--muted); }
+.start-empty { margin: 0; padding: 10px 6px; color: var(--muted); }
 
-.start-show { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.92em; }
+.start-show { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; color: var(--muted); font-size: 0.92em; }
 .start-inner[data-align="left"] .start-show { align-self: flex-start; }
 
 .start-close {
@@ -566,10 +567,6 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 }
 
 .start-close:hover { color: var(--accent); border-color: var(--accent); }
-
-@media (max-width: 760px) {
-  .start-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
 
 .panel {
   width: var(--tool-panel);
@@ -721,15 +718,16 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
   white-space: nowrap;
 }
 
+/* width is set per value in app.js (digitsWidth), so "2px" and "24px" both sit centred */
 .width-now input {
-  width: 2.2em;
+  width: 2ch;
   min-width: 0;
   border: 0;
   padding: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  text-align: right;
+  text-align: center;
   -moz-appearance: textfield;
   appearance: textfield;
 }
@@ -1358,6 +1356,10 @@ div.text-editor [data-rt] { white-space: pre; }
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* tabs with a colour icon before the label (the settings window) */
+.tabs button.tab-ico { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; }
+.tabs button.tab-ico svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 .tabs button:hover { background: var(--hover); }
 .tabs button.on { background: var(--accent-soft); color: var(--accent); font-weight: 650; }

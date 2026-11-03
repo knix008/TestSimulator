@@ -164,6 +164,19 @@ fn enforce_min_size(window: &tauri::Window, size: &tauri::PhysicalSize<u32>) {
     }
 }
 
+/// On a frameless Windows window the OS minimum binds the OUTER rectangle, which still has the
+/// invisible 8 px resize borders on each side. With min_inner_size alone an edge drag stops
+/// 16 px under the page's minimum, enforce_min_size pushes it back, the drag pulls it in
+/// again, and the window shakes. Adding that border to the minimum makes both agree.
+fn bind_min_size(window: &WebviewWindow, min: (f64, f64)) {
+    let (Ok(scale), Ok(outer), Ok(inner)) = (window.scale_factor(), window.outer_size(), window.inner_size()) else { return };
+    let extra_w = outer.width.saturating_sub(inner.width) as f64 / scale;
+    let extra_h = outer.height.saturating_sub(inner.height) as f64 / scale;
+    if extra_w > 0.0 || extra_h > 0.0 {
+        let _ = window.set_min_size(Some(LogicalSize::new(min.0 + extra_w, min.1 + extra_h)));
+    }
+}
+
 /// Builds an app window hidden, in the theme's background, where it was last time.
 fn page_window(app: &AppHandle, label: &str, url: WebviewUrl, title: &str, size: (f64, f64), min: (f64, f64)) -> tauri::Result<WebviewWindow> {
     let store = Arc::clone(&app_state(app).store);
@@ -191,9 +204,13 @@ fn page_window(app: &AppHandle, label: &str, url: WebviewUrl, title: &str, size:
                 let _ = window.show();
                 let _ = window.set_focus();
                 if window.label() == MAIN {
-                    // the menu and popup windows, ready before their first use
+                    // The menu and popup windows, ready before their first use. Built off the
+                    // main thread: building a WebView2 window on it (here, or through
+                    // run_on_main_thread) waits for that same thread, so the new window stays
+                    // about:blank and every command of the app hangs; the page never finishes
+                    // starting and shows an empty menu bar, toolbar and panels.
                     let handle = app.clone();
-                    let _ = app.run_on_main_thread(move || popups::warm(&handle));
+                    std::thread::spawn(move || popups::warm(&handle));
                 }
             }
         });
@@ -201,6 +218,7 @@ fn page_window(app: &AppHandle, label: &str, url: WebviewUrl, title: &str, size:
         builder = builder.background_color(colour);
     }
     let window = builder.build()?;
+    bind_min_size(&window, min);
     app_state(app).min_sizes.lock().unwrap().insert(label.to_string(), min);
     let mut maximized = false;
     if let Some(saved) = store.placement(app, label) {
@@ -243,8 +261,9 @@ pub fn page_label(label: &str) -> Option<String> {
     Some(format!("page-{clean}"))
 }
 
+// async for the same reason as open_menu: it builds a window.
 #[tauri::command]
-fn open_window(app: AppHandle, window: WebviewWindow, options: OpenWindow) -> Result<bool, String> {
+async fn open_window(app: AppHandle, window: WebviewWindow, options: OpenWindow) -> Result<bool, String> {
     let label = page_label(&options.label).ok_or("That window name cannot be used.")?;
     let base = window.url().map_err(err)?;
     let target = base.join(options.url.trim()).map_err(|_| "That page address is not valid.".to_string())?;
@@ -286,13 +305,15 @@ fn close_hooked(app: AppHandle) {
 
 /* ----------------------------------------------------- menus and popups */
 
+// async: either may build the menu or popup window, and a window built inside a sync command
+// (which runs on the main thread) waits for that same thread: blank window, frozen app.
 #[tauri::command]
-fn open_menu(app: AppHandle, window: WebviewWindow, payload: Value) -> bool {
+async fn open_menu(app: AppHandle, window: WebviewWindow, payload: Value) -> bool {
     popups::open_menu(&app, &window, &payload)
 }
 
 #[tauri::command]
-fn open_popup(app: AppHandle, window: WebviewWindow, payload: Value) -> bool {
+async fn open_popup(app: AppHandle, window: WebviewWindow, payload: Value) -> bool {
     popups::open_popup(&app, &window, &payload)
 }
 

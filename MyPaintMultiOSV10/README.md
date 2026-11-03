@@ -91,7 +91,7 @@ tag in the file.
 | `src-tauri/` | the Tauri host: windows, files, popup and menu windows, window places |
 | `src/` | the application: drawing engine, format readers, DICOM decoder, themes, i18n |
 | `src/host/` | the bridge that gives the pages `window.desktop`, and the popup and menu pages' client |
-| `guide.html`, `guide/` | the user's guide window and its pictures |
+| `doc/` | the user's guide: `UsersGuide.md` (Korean), `UsersGuide.en.md` (English), and `images/`, the pictures the guide window (`guide.html`) shows, made by `node scripts/make-guide-images.js` |
 | `src/vendor/` | decoder bundles copied out of node_modules by `npm run vendor` |
 | `style/` | one stylesheet, driven by theme variables |
 | `build/` | installer scripts for Windows, Linux and macOS |

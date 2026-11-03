@@ -2780,11 +2780,18 @@
         });
       }),
       test("every page loads the bridge, and the bridge does nothing in a browser", async (api, doc) => {
-        for (const page of ["/index.html", "/popup.html", "/menu.html"]) {
+        // guide.html too: without window.desktop its title bar hides the close button
+        const after = {
+          "/index.html": 'src="src/app.js"',
+          "/popup.html": 'src="src/host/popup-client.js"',
+          "/menu.html": 'src="src/host/menu-client.js"',
+          "/guide.html": 'src="src/guide.js"',
+        };
+        for (const page of Object.keys(after)) {
           const html = await text(page);
           const bridge = html.indexOf('src="src/host/tauri-bridge.js"');
           assert(bridge > 0, page + " does not load the bridge");
-          const next = page === "/index.html" ? 'src="src/app.js"' : page === "/popup.html" ? 'src="src/host/popup-client.js"' : 'src="src/host/menu-client.js"';
+          const next = after[page];
           assert(html.indexOf(next) > bridge, page + " must load the bridge first");
           assert(html.indexOf("electron/") < 0, page + " still points at electron/");
         }
@@ -2804,7 +2811,7 @@
       test("the web build ships the same files as the desktop build", async () => {
         const script = await text("/scripts/build-web.js");
         const stage = await text("/scripts/stage-app.js");
-        ["index.html", "popup.html", "style", "src", "assets", "guide.html", "guide"].forEach((name) => {
+        ["index.html", "popup.html", "style", "src", "assets", "guide.html", "doc/images"].forEach((name) => {
           assert(script.indexOf('"' + name + '"') >= 0, name + " is missing from the web build");
           assert(stage.indexOf('"' + name + '"') >= 0, name + " is missing from the desktop build");
         });

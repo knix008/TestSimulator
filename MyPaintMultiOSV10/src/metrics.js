@@ -9,7 +9,8 @@
     TITLE: "MyPaint 10.0",
     APP_ID: "com.shkwon.mypaint",
     POPUPS: {
-      settings: { width: 470, height: 330 },
+      // wide enough for the five tabs with their icons in English ("Start screen" is the longest)
+      settings: { width: 520, height: 330 },
       about: { width: 500, height: 460 },
       error: { width: 420, height: 168 },
       progress: { width: 380, height: 162 },

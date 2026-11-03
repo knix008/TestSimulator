@@ -13,6 +13,6 @@ function copy(rel) {
 
 fs.rmSync(dest, { recursive: true, force: true });
 ["index.html", "popup.html", "style", "src", "assets"].forEach(copy);
-// the user guide, when it is there
-["guide.html", "guide"].filter((rel) => fs.existsSync(path.join(root, rel))).forEach(copy);
+// the user guide window and its pictures (not the Markdown guides in doc/), when they are there
+["guide.html", "doc/images"].filter((rel) => fs.existsSync(path.join(root, rel))).forEach(copy);
 console.log("web build:", dest);

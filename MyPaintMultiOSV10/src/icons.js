@@ -65,11 +65,13 @@
     home: '<path d="M3.5 11.2 12 4l8.5 7.2"/><path d="M5.8 9.6V20h4.6v-5.4h3.2V20h4.6V9.6"/>',
     ruler: '<rect x="2.8" y="7.4" width="18.4" height="9.2" rx="1.2"/>' +
       '<path d="M6.4 7.4v3.2M9.8 7.4v2M13.2 7.4v3.2M16.6 7.4v2M20 7.4v3.2"/>',
-    themePalette: '<path d="M12 3a9 9 0 0 0 0 18 2.5 2.5 0 0 0 0-5 2.5 2.5 0 0 1 0-5h4a5 5 0 0 0 5-5 3 3 0 0 0-3-3z"/>' +
-      '<circle cx="7.4" cy="11" r="1.6" fill="#ef4444" stroke="none"/>' +
-      '<circle cx="10.6" cy="7" r="1.6" fill="#f59e0b" stroke="none"/>' +
-      '<circle cx="15.4" cy="7.4" r="1.6" fill="#22c55e" stroke="none"/>' +
-      '<circle cx="7.6" cy="15.6" r="1.6" fill="#3b82f6" stroke="none"/>',
+    /* an artist's palette: a wooden board with the thumb notch at the lower right and four
+     * dabs of paint around the top */
+    themePalette: '<path fill="#fcd9a0" d="M12 3.2c-5 0-9 3.7-9 8.4 0 4.6 3.7 8.2 8.3 8.2 1.4 0 2.3-.8 2.3-1.9 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.9-1.8h2.2c2.8 0 5-2.2 5-4.9 0-4.1-3.9-7.4-8.7-7.4z"/>' +
+      '<circle cx="6.9" cy="11.6" r="1.55" fill="#ef4444" stroke="none"/>' +
+      '<circle cx="9.3" cy="7.5" r="1.55" fill="#f59e0b" stroke="none"/>' +
+      '<circle cx="14.2" cy="7.2" r="1.55" fill="#22c55e" stroke="none"/>' +
+      '<circle cx="17.6" cy="10.4" r="1.55" fill="#3b82f6" stroke="none"/>',
     svgCode: '<path d="M8 7 3 12l5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 5 10.5 19"/>',
     picker: '<g transform="rotate(-42 12 12)">' +
       '<ellipse cx="12" cy="5" rx="3.3" ry="2.5"/>' +
@@ -84,6 +86,8 @@
     stroke: '<path d="M3 17c4-6 8-6 12 0"/><path d="M3 7h18"/>',
     prev: '<path d="M15 6 9 12l6 6"/>',
     next: '<path d="M9 6l6 6-6 6"/>',
+    /* a plain magnifier for the View menu, so it is not taken for zoom in or out */
+    search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/>',
     zoomIn: '<circle cx="11" cy="11" r="6"/><path d="M11 8v6M8 11h6M16 16l4 4"/>',
     zoomOut: '<circle cx="11" cy="11" r="6"/><path d="M8 11h6M16 16l4 4"/>',
     grid: '<rect x="3.5" y="3.5" width="17" height="17" rx="1"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 3.5v17M14.5 3.5v17"/>',
@@ -122,9 +126,38 @@
     warning: '<path d="M12 4 2.5 20h19z"/><path d="M12 10v5"/><path d="M12 18h.01"/>',
   };
 
+  /* Every icon has a colour of its own, the same wherever it appears (toolbar, menu bar,
+   * menus, panels). Mid tones, so they read on the light and the dark themes alike. The
+   * colour goes on the <svg> as an inline `color`, which the strokes and fills take through
+   * currentColor and which wins over the stylesheet's single accent colour. Icons not listed
+   * (the drop-down caret) keep the text colour. */
+  const COLORS = {
+    // files
+    new: "#0ea5e9", open: "#f59e0b", folder: "#f59e0b", file: "#3b82f6", save: "#2563eb", saveAs: "#6366f1",
+    download: "#10b981", print: "#6366f1", link: "#0891b2", exit: "#ef4444", image: "#16a34a", canvas: "#0891b2",
+    // editing
+    undo: "#f97316", redo: "#f97316", cut: "#ef4444", copy: "#8b5cf6", paste: "#d97706", trash: "#dc2626",
+    clear: "#dc2626", crop: "#0d9488", check: "#16a34a", layerUp: "#7c3aed", layerDown: "#7c3aed",
+    // tools
+    select: "#2563eb", marquee: "#0284c7", marqueeEllipse: "#0284c7", lasso: "#0284c7",
+    pencil: "#ca8a04", brush: "#9333ea", marker: "#db2777", spray: "#0d9488", eraser: "#e11d48",
+    line: "#0f766e", arrow: "#ea580c", curve: "#7c3aed", freeCurve: "#c026d3", rect: "#2563eb",
+    roundRect: "#0891b2", ellipse: "#16a34a", triangle: "#d97706", text: "#1d4ed8", fill: "#0284c7",
+    picker: "#9333ea", stroke: "#ea580c", font: "#1d4ed8", opacity: "#0891b2",
+    // view
+    search: "#0284c7", home: "#ea580c", ruler: "#b45309", grid: "#0891b2", shapes: "#7c3aed", zoomIn: "#16a34a", zoomOut: "#16a34a",
+    panelLeft: "#0284c7", panelRight: "#0284c7", prev: "#2563eb", next: "#2563eb", frames: "#7c3aed",
+    play: "#16a34a", stop: "#dc2626", scan: "#0891b2", svgCode: "#c026d3",
+    // program
+    settings: "#0d9488", about: "#2563eb", help: "#0ea5e9", language: "#059669", theme: "#db2777",
+    themePalette: "#a16207", palette: "#db2777", properties: "#7c3aed", wrench: "#ea580c", warning: "#f59e0b",
+  };
+
   function icon(name) {
     const body = PATHS[name] || PATHS.file;
-    return '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">' + body + "</svg>";
+    const colour = COLORS[PATHS[name] ? name : "file"];
+    return '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"' +
+      (colour ? ' class="ico-color" style="color:' + colour + '"' : "") + ">" + body + "</svg>";
   }
 
   function flag(code) {

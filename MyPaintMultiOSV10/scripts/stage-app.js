@@ -7,10 +7,11 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 const dest = path.join(root, "dist", "app");
 
-/* What the app needs at run time. guide.html and guide/ are the user guide pages opened
- * with desktop.openWindow; they are copied when they exist. */
+/* What the app needs at run time. guide.html is the user guide window opened with
+ * desktop.openWindow and doc/images holds its pictures; they are copied when they exist.
+ * Only doc/images: the Markdown guides in doc/ are for reading in the project, not shipped. */
 const FILES = ["index.html", "popup.html", "menu.html", "guide.html"];
-const FOLDERS = ["style", "src", "assets", "guide"];
+const FOLDERS = ["style", "src", "assets", "doc/images"];
 const REQUIRED = ["index.html", "popup.html", "menu.html", "style", "src", "assets"];
 
 function stage() {

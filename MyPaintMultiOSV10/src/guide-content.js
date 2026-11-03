@@ -7,11 +7,11 @@
  *   { list: ["...", ...] }            bullets            { steps: [...] }  numbered steps
  *   { keys: [["Ctrl+S", "..."], ...] } a shortcut table (first column drawn as keys)
  *   { table: { head: [...], rows: [[...], ...] } }
- *   { img: "name", alt: "...", caption: "..." }   guide/images/<name>.png
+ *   { img: "name", alt: "...", caption: "..." }   doc/images/<name>.png
  *   { tip: "..." } / { note: "..." }  a call-out
  * Inside text: **bold**, `code`, and [[Ctrl+S]] for keys.
  * The pictures are made by scripts/make-guide-images.js; an English variant
- * guide/images/<name>-en.png is used when it exists.
+ * doc/images/<name>-en.png is used when it exists.
  */
 (function (root, factory) {
   const api = factory();
@@ -118,7 +118,7 @@
       ko: {
         title: "시작 화면",
         blocks: [
-          "MyPaint를 열면 시작 화면이 나옵니다. 새 그림 만들기, 파일 열기와 함께 **최근 파일** 목록이 있어 하던 작업으로 바로 돌아갈 수 있습니다. 도구 모음의 홈 단추로 언제든 다시 엽니다.",
+          "MyPaint를 열면 시작 화면이 나옵니다. 새 그림 만들기, 파일 열기와 함께 **최근 파일** 목록이 있어 하던 작업으로 바로 돌아갈 수 있습니다. 메뉴 막대의 '파일' 왼쪽에 있는 홈 단추를 누르면 시작 화면이 열리고, 다시 누르면 닫힙니다.",
           { img: "start-screen", alt: "최근 파일 목록이 있는 시작 화면", caption: "시작 화면 — 새로 만들기, 열기, 최근 파일" },
           { list: [
             "최근 파일을 누르면 그 파일을 엽니다.",
@@ -132,7 +132,7 @@
       en: {
         title: "The start screen",
         blocks: [
-          "MyPaint opens on the start screen: create a new drawing, open a file, or pick up where you left off from the **recent files** list. The home button on the toolbar brings it back at any time.",
+          "MyPaint opens on the start screen: create a new drawing, open a file, or pick up where you left off from the **recent files** list. The home button left of File in the menu bar opens it, and a second press closes it.",
           { img: "start-screen", alt: "The start screen with its recent files list", caption: "The start screen — new, open and recent files" },
           { list: [
             "Click a recent file to open it.",

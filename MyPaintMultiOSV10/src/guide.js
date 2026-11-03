@@ -20,7 +20,7 @@
   const FONT_MIN = 12;
   const FONT_MAX = 28;
   const FONT_DEFAULT = 15;
-  const IMAGE_DIR = "guide/images/";
+  const IMAGE_DIR = "doc/images/";
 
   const $ = (id) => document.getElementById(id);
 

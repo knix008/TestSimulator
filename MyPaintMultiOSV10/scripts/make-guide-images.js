@@ -1,4 +1,4 @@
-/* Writes the pictures of the user's guide (guide.html) into guide/images/.
+/* Writes the pictures of the user's guide (guide.html) into doc/images/.
  *
  * It drives the real web app headless: scripts/browser.js starts a static server and Edge or
  * Chrome, index.html?test=1 is loaded at a fixed size, and each shot below runs its setup
@@ -19,11 +19,11 @@ const path = require("path");
 const browser = require("./browser");
 
 const root = browser.root;
-const OUT = path.join(root, "guide", "images");
+const OUT = path.join(root, "doc", "images");
 const VIEW = { width: 1360, height: 860 };
 
 /* ── the shots ──────────────────────────────────────────────────────────────────
- * name   file name under guide/images/ (without .png)
+ * name   file name under doc/images/ (without .png)
  * setup  the body of an async function (api, lang, util) run in the page after a reset;
  *        api = window.MyPaint, lang = "ko" | "en",
  *        util.need(action)       throws when api.hasAction(action) is false

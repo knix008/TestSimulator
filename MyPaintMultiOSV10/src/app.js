@@ -322,7 +322,6 @@
   function toolbarGroups() {
     return [
       ["file", [
-        button("home", "home", t("start.open")),
         button("new", "new", t("file.new")),
         button("open", "open", t("file.open")),
         button("save", "save", t("file.save")),
@@ -481,7 +480,7 @@
         menuItem("canvasSize", "canvas", t("draw.canvasSize")),
         menuItem("clearDrawing", "clear", t("draw.clear")),
       ]) },
-      { id: "view", label: t("menu.view"), icon: "zoomIn", items: [
+      { id: "view", label: t("menu.view"), icon: "search", items: [
         menuItem("zoomIn", "zoomIn", t("view.zoomIn"), "Ctrl++"),
         menuItem("zoomOut", "zoomOut", t("view.zoomOut"), "Ctrl+-"),
         menuItem("zoomReset", "check", t("view.zoomReset"), "Ctrl+0"),
@@ -524,9 +523,27 @@
       "</div>";
   }
 
+  /* The home button left of the File menu: a toggle, pressed while the start screen shows. */
+  function homeButton() {
+    const label = startVisible ? t("start.close") : t("start.open");
+    return '<button type="button" class="menu-root home-btn' + (startVisible ? " on" : "") + '" id="homeButton" data-action="toggleStart"' +
+      ' aria-pressed="' + (startVisible ? "true" : "false") + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon("home") + "</button>";
+  }
+
+  function syncHomeButton() {
+    const btn = $("homeButton");
+    if (!btn) return;
+    const label = startVisible ? t("start.close") : t("start.open");
+    btn.classList.toggle("on", startVisible);
+    btn.setAttribute("aria-pressed", startVisible ? "true" : "false");
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+  }
+
   function renderMenubar() {
     $("menubar").innerHTML =
       '<span class="app-title"><img src="assets/icon.png" width="16" height="16" alt=""><strong id="appTitle">' + esc(BUILD.title) + "</strong></span>" +
+      homeButton() +
       menuDefinitions().map(menuRootButton).join("") +
       '<span class="menu-spacer"></span>' +
       windowControls();
@@ -603,8 +620,8 @@
    * Over the work area when the program starts (if the settings say so) and whenever Home is
    * pressed: the program's name, the ways to begin, and the recent files, each of which can be
    * taken off the list on its own. Its title and text sizes and its alignment are settings. */
-  function startButton(action, icon, label) {
-    return '<button type="button" class="start-btn" data-action="' + action + '" title="' + esc(label) + '">' +
+  function startButton(action, icon, label, primary) {
+    return '<button type="button" class="start-btn' + (primary ? " primary" : "") + '" data-action="' + action + '" title="' + esc(label) + '">' +
       Icons.icon(icon) + "<span>" + esc(label) + "</span></button>";
   }
 
@@ -636,7 +653,7 @@
       '<div class="start-words"><h1 id="startTitle">' + esc(BUILD.title) + "</h1>" +
       '<p class="start-sub">' + esc(t("start.subtitle")) + "</p></div></div>" +
       '<div class="start-actions">' +
-      startButton("new", "new", t("file.new")) +
+      startButton("new", "new", t("file.new"), true) +
       startButton("open", "open", t("file.open")) +
       startButton("openUrl", "link", t("file.openUrl")) +
       startButton("hideStart", "canvas", t("start.continue")) +
@@ -655,6 +672,7 @@
     renderStart();
     const el = $("startScreen");
     if (el) el.hidden = false;
+    syncHomeButton();
     return true;
   }
 
@@ -663,6 +681,7 @@
     startVisible = false;
     const el = $("startScreen");
     if (el) el.hidden = true;
+    syncHomeButton();
     scheduleRulers();
     return true;
   }
@@ -808,6 +827,12 @@
       }).join("") + "</div>";
   }
 
+  /* The size field is exactly as wide as its digits, so the number and its "px" sit in the
+   * middle of the box together instead of the number hugging a fixed-width field's right edge. */
+  function digitsWidth(value) {
+    return Math.max(1, String(value == null ? "" : value).trim().length) + "ch";
+  }
+
   function widthStep() {
     const width = activeSize();
     const label = t(sizingEraser() ? "palette.eraser" : "palette.width");
@@ -816,7 +841,7 @@
     return '<div class="width-step" role="group" aria-label="' + esc(label) + '">' +
       '<button type="button" data-action="strokeDown" title="' + esc(t("palette.thinner")) + '" aria-label="' + esc(t("palette.thinner")) + '"' + down + ">-</button>" +
       '<label class="width-now" title="' + esc(label) + '">' +
-      '<input type="number" min="1" max="96" data-pick="size" value="' + width + '" aria-label="' + esc(label + " " + width + "px") + '">' +
+      '<input type="number" min="1" max="96" data-pick="size" value="' + width + '" style="width:' + digitsWidth(width) + '" aria-label="' + esc(label + " " + width + "px") + '">' +
       '<span class="unit">px</span></label>' +
       '<button type="button" data-action="strokeUp" title="' + esc(t("palette.thicker")) + '" aria-label="' + esc(t("palette.thicker")) + '"' + up + ">+</button>" +
       "</div>";
@@ -1744,8 +1769,8 @@
     return head(t("popup.settings")) +
       '<div class="popup-body">' +
       '<div class="tabs">' +
-      [["general", "settings.general"], ["font", "settings.font"], ["appearance", "settings.appearance"], ["workspace", "settings.workspace"], ["start", "settings.start"]].map((pair) => (
-        '<button type="button" data-tab="' + pair[0] + '"' + (settingsTab === pair[0] ? ' class="on"' : "") + ">" + esc(t(pair[1])) + "</button>"
+      [["general", "settings.general", "settings"], ["font", "settings.font", "font"], ["appearance", "settings.appearance", "themePalette"], ["workspace", "settings.workspace", "canvas"], ["start", "settings.start", "home"]].map((pair) => (
+        '<button type="button" class="tab-ico' + (settingsTab === pair[0] ? " on" : "") + '" data-tab="' + pair[0] + '">' + Icons.icon(pair[2]) + "<span>" + esc(t(pair[1])) + "</span></button>"
       )).join("") + "</div>" +
       '<div data-panel="general"' + (settingsTab === "general" ? "" : " hidden") + ">" +
       '<label class="line"><span>' + esc(t("settings.language")) + '</span><select data-field="language">' + optionTag("ko", t("lang.ko"), settings.language) + optionTag("en", t("lang.en"), settings.language) + "</select></label>" +
@@ -3967,6 +3992,7 @@
       return settings.showRulers;
     },
     home: () => showStart(),
+    toggleStart: () => (startVisible ? !hideStart() : showStart()),
     settingsStart: () => { settingsTab = "start"; return openPopup("settings"); },
     hideStart: () => hideStart(),
     download: () => downloadSample(),
@@ -4399,7 +4425,7 @@
     else if (key === "fillColor") { settings.fillColor = target.value; saveSettings(); renderLeft(); }
     else if (key === "noFill") { settings.fillColor = target.checked ? "" : (settings.fillColor || "#ffffff"); saveSettings(); renderLeft(); }
     else if (key === "strokeWidth") setStrokeWidth(target.value);
-    else if (key === "size") setActiveSize(target.value);
+    else if (key === "size") { target.style.width = digitsWidth(target.value); setActiveSize(target.value); }
   }
 
   function wireResizeGrip() {
@@ -4520,6 +4546,12 @@
       if (control) {
         closeMenu();
         if (window.desktop && window.desktop.windowCommand) window.desktop.windowCommand(control.dataset.window);
+        return;
+      }
+      const action = event.target.closest("[data-action]");
+      if (action) {
+        closeMenu();
+        runAction(action.dataset.action);
         return;
       }
       const btn = event.target.closest("[data-menu]");
@@ -4757,19 +4789,25 @@
       fontCatalog = Fonts.FALLBACK.slice();
       return fontCatalog;
     }
-    try {
-      if (typeof window.queryLocalFonts === "function") {
-        const faces = await window.queryLocalFonts();
-        const names = Fonts.uniqueFamilies(faces.map((face) => face.family));
-        if (names.length) { fontCatalog = names; return fontCatalog; }
-      }
-    } catch (error) { /* permission or unsupported */ }
+    /* The desktop host lists the installed fonts itself. queryLocalFonts() comes second and
+     * only gets a few seconds: in a web view its permission prompt can wait forever, and
+     * boot() waits for this before anything is drawn. */
     if (window.desktop && window.desktop.listFonts) {
       try {
         const names = await window.desktop.listFonts();
         if (names && names.length) { fontCatalog = names; return fontCatalog; }
       } catch (error) { /* fall through */ }
     }
+    try {
+      if (typeof window.queryLocalFonts === "function") {
+        const faces = await Promise.race([
+          window.queryLocalFonts(),
+          new Promise((resolve) => setTimeout(() => resolve([]), 3000)),
+        ]);
+        const names = Fonts.uniqueFamilies(faces.map((face) => face.family));
+        if (names.length) { fontCatalog = names; return fontCatalog; }
+      }
+    } catch (error) { /* permission or unsupported */ }
     fontCatalog = Fonts.FALLBACK.slice();
     return fontCatalog;
   }

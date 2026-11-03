@@ -34,7 +34,7 @@ const TYPES = {
 };
 
 /* Only what the app itself loads; tests, samples and node_modules are not served. */
-const SERVED = new Set(["index.html", "popup.html", "menu.html", "guide.html", "style", "src", "assets", "guide"]);
+const SERVED = new Set(["index.html", "popup.html", "menu.html", "guide.html", "style", "src", "assets", "doc"]);
 
 function canListen(port, host) {
   return new Promise((resolve) => {
