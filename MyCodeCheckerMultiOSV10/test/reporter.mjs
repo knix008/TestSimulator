@@ -178,8 +178,22 @@ function markdownReport({ rows, total, failures, elapsed, startedAt }) {
   const count = total.pass + total.fail + total.skip;
   const at = new Date(startedAt.getTime() - startedAt.getTimezoneOffset() * 60000).toISOString().replace('T', ' ').slice(0, 19);
   const out = [];
+  // Full-width tables in the Markdown preview (VS Code applies inline styles):
+  // short cells stay on one line, the name columns take the rest and wrap.
+  out.push('<style>',
+    'body { max-width: none !important; }',
+    'table { width: 100%; display: table; }',
+    'th, td { white-space: nowrap; }',
+    '.summary td:nth-child(2), .files td:nth-child(2), .files th:nth-child(2) { width: 100%; }',
+    '.area td:nth-child(1), .area th:nth-child(1) { width: 100%; white-space: normal; }',
+    '.tests td:nth-child(3), .tests th:nth-child(3) { width: 100%; white-space: normal; }',
+    '</style>', '');
+  // A table inside <div class="…"> (blank lines around it, so it stays Markdown).
+  const open = (cls) => out.push(`<div class="${cls}">`, '');
+  const close = () => out.push('', '</div>', '');
   out.push('# MyCodeChecker — Test Report', '');
   out.push(`**Result: ${total.fail ? '❌ FAILED' : '✅ PASSED'}** — ${count} tests, ${total.pass} passed, ${total.fail} failed, ${total.skip} skipped (${pctOf(total)} pass rate)`, '');
+  open('summary');
   out.push('| Item | Value |', '|---|---|');
   out.push(`| Run at | ${at} |`);
   out.push(`| Duration | ${fmtTime(elapsed)} |`);
@@ -190,7 +204,8 @@ function markdownReport({ rows, total, failures, elapsed, startedAt }) {
   out.push(`| Skipped | ${total.skip} |`);
   out.push(`| Node.js | ${process.version} |`);
   out.push(`| Platform | ${process.platform} ${process.arch} |`);
-  out.push('| Command | `npm test` (node --test, test/reporter.mjs) |', '');
+  out.push('| Command | `npm test` (node --test, test/reporter.mjs) |');
+  close();
 
   // Per area.
   const areas = new Map();
@@ -202,13 +217,14 @@ function markdownReport({ rows, total, failures, elapsed, startedAt }) {
   }
   out.push('## Results by area', '');
   out.push('> Time is the sum of the test times. Test files run in parallel, so it is more than the duration of the run.', '');
+  open('area');
   out.push('| Area | Files | Tests | Passed | Failed | Skipped | Pass rate | Time | Result |', '|---|---:|---:|---:|---:|---:|---:|---:|:---:|');
   for (const [name] of [...AREAS, ['Other']]) {
     const s = areas.get(name);
     if (!s) continue;
     out.push(`| ${name} | ${s.files} | ${s.pass + s.fail + s.skip} | ${s.pass} | ${s.fail} | ${s.skip} | ${pctOf(s)} | ${fmtTime(s.time)} | ${icon(s)} |`);
   }
-  out.push('');
+  close();
 
   // Failures first, when there are any.
   out.push('## Failures', '');
@@ -219,22 +235,25 @@ function markdownReport({ rows, total, failures, elapsed, startedAt }) {
 
   // Per file.
   out.push('## Results by file', '');
+  open('files');
   out.push('| # | File | Area | Tests | Passed | Failed | Skipped | Time | Result |', '|---:|---|---|---:|---:|---:|---:|---:|:---:|');
   rows.forEach(([file, r], i) => {
     out.push(`| ${i + 1} | \`${file}\` | ${areaOf(file).split(' (')[0]} | ${r.pass + r.fail + r.skip} | ${r.pass} | ${r.fail} | ${r.skip} | ${fmtTime(r.time)} | ${icon(r)} |`);
   });
-  out.push('');
+  close();
 
   // Every test, folded per file.
   out.push('## All tests', '');
   for (const [file, r] of rows) {
     out.push(`<details><summary>${icon(r)} <code>${file}</code> — ${r.pass + r.fail + r.skip} tests, ${r.fail} failed</summary>`, '');
+    open('tests');
     out.push('| # | Status | Test | Time |', '|---:|:---:|---|---:|');
     r.tests.forEach((t, i) => {
       const mark = t.status === 'pass' ? '✅' : t.status === 'fail' ? '❌' : '⚠️';
       out.push(`| ${i + 1} | ${mark} | ${'&nbsp;&nbsp;'.repeat(t.nesting || 0)}${cell(t.name)} | ${fmtTime(t.time)} |`);
     });
-    out.push('', '</details>', '');
+    close();
+    out.push('</details>', '');
   }
   return `${out.join('\n')}\n`;
 }
