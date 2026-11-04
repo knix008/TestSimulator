@@ -1,0 +1,490 @@
+/*
+ * The start screen (StartPage.tsx): a moving background behind a board of
+ * translucent, movable cards. Theme tokens only; every colour follows the theme.
+ */
+
+.start-page {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.start-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.start-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.start-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 14px 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.start-page .grow { flex: 1 1 auto; min-width: 0; }
+.start-page .muted { color: var(--muted); }
+.start-accent { color: var(--accent); flex: 0 0 auto; }
+
+/* ------------------------------------------------------------ buttons */
+
+.start-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 0;
+}
+.start-btn > svg { flex: 0 0 auto; }
+.start-btn > span { overflow: hidden; text-overflow: ellipsis; }
+.start-btn:hover:not(:disabled) { background: var(--hover); border-color: var(--accent); }
+.start-btn:disabled { opacity: 0.45; cursor: default; }
+.start-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.start-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.start-btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 86%, var(--ink)); }
+.start-btn.small { height: 24px; padding: 0 8px; gap: 5px; font-size: 12px; font-weight: normal; }
+
+.start-tools { display: flex; justify-content: flex-end; }
+.start-tools .start-btn { height: 28px; background: color-mix(in srgb, var(--panel) var(--start-card-alpha, 80%), transparent); }
+
+/* -------------------------------------------------------------- board */
+
+.start-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 20px;
+  column-gap: 14px;
+  row-gap: 0;
+  align-items: start;
+}
+
+.start-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  /* Settings › Start screen › Card opacity sets --start-card-alpha on .start-page. */
+  background: color-mix(in srgb, var(--panel) var(--start-card-alpha, 80%), transparent);
+  backdrop-filter: blur(3px);
+  box-shadow: var(--shadow);
+}
+
+.start-card > h2 {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  min-width: 0;
+}
+.start-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.start-card > .card-body { flex: 1 1 auto; min-height: 0; min-width: 0; }
+.start-card.fixed-height > .card-body { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; padding-bottom: 4px; }
+.start-card.drag-origin { opacity: 0.35; filter: saturate(0.6); }
+.start-card.resizing { outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); }
+
+.card-drop-outline {
+  border: 2px dashed var(--accent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.start-ghost {
+  position: absolute !important;
+  z-index: 50;
+  margin: 0;
+  pointer-events: none !important;
+  opacity: 0.6;
+  transform: scale(1.02);
+  transition: none;
+  cursor: grabbing;
+}
+
+.card-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  flex: 0 0 auto;
+}
+.card-handle:hover { color: var(--accent); background: var(--hover); }
+.card-handle:focus-visible { outline: 2px solid var(--accent); }
+.card-handle-float { position: absolute; left: 6px; top: 6px; z-index: 2; }
+
+.card-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 4;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  color: var(--muted);
+  opacity: 0.7;
+  background: linear-gradient(135deg, transparent 0 55%, currentColor 55% 65%, transparent 65% 75%, currentColor 75% 85%, transparent 85%);
+}
+.card-resize:hover { color: var(--accent); opacity: 1; }
+
+/* --------------------------------------------------------------- hero */
+
+.start-card.bare { justify-content: center; padding: 14px 20px; border-radius: 16px; background: color-mix(in srgb, var(--panel) var(--start-card-alpha, 80%), transparent); }
+.start-card-hero > .card-body { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; row-gap: 12px; }
+.start-icon { flex: 0 0 auto; filter: drop-shadow(var(--shadow)); }
+.start-hero-text { flex: 1 1 260px; min-width: 0; }
+.start-hero-text h1 { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 26px; line-height: 1.2; min-width: 0; }
+.start-hero-text h1 > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-hero-text h1 small { font-size: 13px; font-weight: 600; color: var(--accent); flex: 0 0 auto; }
+.start-hero-text p { margin: 4px 0 0; color: var(--muted); line-height: 1.5; }
+.start-hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+.start-hero-actions .start-btn { height: 36px; padding: 0 14px; }
+.start-docs { display: flex; flex-wrap: wrap; gap: 6px; padding-right: 10px; border-right: 1px solid var(--line); }
+
+/* ----------------------------------------------------- session tiles */
+
+.start-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; }
+
+.start-tile {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: center;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.start-tile > svg { grid-row: span 2; }
+.start-tile > b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-tile > small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-tile:hover:not(:disabled) { border-color: var(--accent); background: var(--hover); }
+.start-tile:disabled { opacity: 0.45; cursor: default; }
+.start-tile:focus-visible { outline: 2px solid var(--accent); }
+
+/* -------------------------------------------------------------- recent */
+
+.start-list { display: flex; flex-direction: column; gap: 2px; }
+.start-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.start-row > .icon-button { flex: 0 0 auto; opacity: 0.6; }
+.start-row:hover > .icon-button { opacity: 1; }
+
+.start-link {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 20px minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.start-link .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-link .path { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-link:hover { background: var(--hover); border-color: var(--line); }
+
+.start-empty, .start-note, .start-hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.start-hint { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.start-note { padding: 6px 0 0; line-height: 1.4; }
+.start-empty > svg, .start-note > svg, .start-hint > svg { flex: 0 0 auto; }
+
+/* --------------------------------------------------------------- theme */
+
+.start-card-note { font-size: 12px; font-weight: normal; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.st-theme-groups { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.st-theme-custom-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.st-theme-custom-row > .st-theme-tile { flex: 0 1 220px; }
+.st-theme-custom-row > .start-btn { flex: 0 1 auto; }
+.st-theme-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-width: 0; }
+.st-theme-group { min-width: 0; }
+.st-theme-group > h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+/* The tiles are `.bg-tile`s (startControls.css), so a theme reads like a background. */
+.st-theme-tiles { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.st-theme-custom-row > .st-theme-tile { flex: 0 1 180px; }
+.st-theme-chip {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  width: 22px;
+  height: 14px;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.st-theme-chip > i { display: block; flex: 1 1 0; border-radius: 2px; }
+
+/* ---------------------------------------------------------- background */
+
+.start-ranges { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 18px; margin-top: 10px; }
+.start-range { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.start-range-label { display: flex; align-items: center; gap: 6px; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------- menu bar Start */
+
+.menubar-item.menubar-start.active { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.menubar-item.menubar-start:disabled { opacity: 0.55; cursor: default; }
+
+/* -------------------------------------------------------------- footer */
+
+.start-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) var(--start-card-alpha, 80%), transparent);
+  font-size: 12px;
+}
+.start-foot > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+
+/* ------------------------------------------------- MyGit additions */
+
+.start-page { height: 100%; }
+.start-tools { gap: 8px; }
+.start-startup { cursor: pointer; }
+.start-startup input { margin: 0; accent-color: var(--accent); }
+.start-page .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.start-page .icon-button:hover { background: var(--hover); border-color: var(--line); }
+.start-link { grid-template-columns: 20px minmax(0, auto) minmax(0, 1fr); }
+
+/* The menu bar's Start button, right of the version number: pressed while the start
+   screen shows. */
+.start-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  margin-left: 6px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--button, var(--panel));
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.start-toggle:hover { border-color: var(--accent); background: var(--hover); }
+.start-toggle.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.start-toggle.active .icon { filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.35)); }
+
+/* Preferences › Start screen (settings/StartSettings.tsx). */
+.start-settings { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.start-settings-row { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.start-settings-label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+.start-settings .start-ranges { margin-top: 0; }
+.start-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.start-settings-actions button { display: inline-flex; align-items: center; gap: 6px; }
+.prefs-page .check-line { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.prefs-page .check-line input { margin: 0; accent-color: var(--accent); }
+.app-title .start-toggle span { color: inherit; font-weight: inherit; }
+
+/* Speed and card opacity: both on one compact line. */
+.start-ranges.inline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; margin-top: 8px; }
+.start-range.inline { flex-direction: row; align-items: center; gap: 6px; }
+.start-range.inline .start-range-label { font-size: 12px; }
+.start-settings .start-ranges.inline { margin-top: 0; }
+
+/* The launcher: every action as a colourful tile. */
+.start-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.start-actions .start-tile { padding: 6px 8px; }
+.start-actions .start-tile > b { font-size: 12px; }
+
+/* Shared by the start screen and Settings › Start screen (startControls.tsx). Theme tokens only. */
+
+.range-stepper { display: inline-flex; align-items: center; gap: 6px; min-width: 0; width: 100%; }
+
+.range-step {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.range-step:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.range-step:disabled { opacity: 0.35; cursor: default; }
+
+.range-bar {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  touch-action: none;
+}
+.range-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.range-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--accent); pointer-events: none; }
+.range-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  pointer-events: none;
+}
+
+.range-value {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 6px 0 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.range-value input {
+  width: 3.4em;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.range-value input::-webkit-inner-spin-button,
+.range-value input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.range-value input:focus { outline: none; }
+.range-value:focus-within { border-color: var(--accent); }
+.range-suffix { color: var(--muted); }
+
+.bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 5px; }
+.bg-tile {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bg-tile > svg { flex: 0 0 auto; }
+.bg-tile > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bg-tile:hover { background: var(--hover); border-color: var(--accent); }
+.bg-tile.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.bg-tile:focus-visible { outline: 2px solid var(--accent); }
+
+/* Settings › Start screen: the tile grid scrolls inside its own box, never the window. */
+.settings-start-grid { flex: 0 1 auto; min-height: 0; max-height: 240px; overflow-y: auto; overflow-x: hidden; padding: 2px 4px 2px 0; margin-bottom: 6px; }
+
+/* Compact stepper: one small row, "[−] 100 % [+]". */
+.range-stepper.compact { width: auto; gap: 3px; }
+.range-stepper.compact .range-step { width: 20px; height: 20px; }
+.range-stepper.compact .range-value { height: 20px; padding: 0 4px 0 2px; font-size: 12px; }
+.range-stepper.compact .range-value input { width: 2.6em; font-size: 12px; }
+
+/* Each background's icon in its own colours (backgroundIcons.tsx) on a tinted chip. */
+.bg-icon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; }
+.bg-tile { height: 32px; }
+.bg-tile.on { border: 2px solid var(--accent); padding: 0 8px; background: var(--accent-soft); color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.bg-tile.on .bg-icon { box-shadow: 0 0 0 1px var(--accent); }
+
+/* ---------------------------------------------- My LVGL Studio additions */
+.bg-chip { flex: 0 0 auto; width: 22px; height: 15px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+.bg-tile.on { color: var(--accent-ink); }
+.start-page .icon { width: 16px; height: 16px; }
+.start-page .start-btn.primary .icon { color: inherit; }
+.start-range .range-stepper { width: auto; }
+.start-toggle { margin-right: 4px; }

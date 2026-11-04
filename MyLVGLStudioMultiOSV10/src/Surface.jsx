@@ -22,6 +22,9 @@ function flatten(screen) {
 
 export const Surface = forwardRef(function Surface({ store, activeId, selected, onSelect, mode, zoom, onLog, onMeta, onError }, ref) {
   const project = store.project;
+  // Callbacks change with the language; that must not reload the engine or restart a run.
+  const callbacks = useRef({ onLog, onMeta, onError });
+  callbacks.current = { onLog, onMeta, onError };
   const canvas = useRef(null);
   const engineRef = useRef(null);
   const imageRef = useRef(null);
@@ -58,12 +61,12 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
         engineRef.current = engine;
         setEngineReady(engine);
       },
-      (error) => onError?.(String(error)),
+      (error) => callbacks.current.onError?.(String(error)),
     );
     return () => {
       alive = false;
     };
-  }, [engineVersion, onError]);
+  }, [engineVersion]);
 
   // Design mode redraws with every change; a run starts from the document and then is LVGL's.
   const runProject = useRef(null);
@@ -77,7 +80,7 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
       runProject.current = null;
     }
     engine.load(project, screen.id, { events: running });
-    if (engine.errors.length) onError?.(`engine rejected ${engine.errors.length} operation(s)`);
+    if (engine.errors.length) callbacks.current.onError?.(`engine rejected ${engine.errors.length} operation(s)`);
     paint();
     const next = new Map();
     for (const node of flatten(screen)) {
@@ -85,8 +88,8 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
       if (box) next.set(node.id, box);
     }
     setBoxes(next);
-    onMeta?.({ runtime: engine.runtimeVersion() });
-  }, [engineReady, project, screen, running, paint, onError, onMeta]);
+    callbacks.current.onMeta?.({ runtime: engine.runtimeVersion() });
+  }, [engineReady, project, screen, running, paint]);
 
   // The LVGL clock: timers, animations, input.
   useEffect(() => {
@@ -98,12 +101,12 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
       const elapsed = Math.min(100, Math.max(1, Math.round(now - last)));
       last = now;
       if (engine.tick(elapsed)) paint();
-      if (running) for (const line of engine.drainLog()) onLog?.(line);
+      if (running) for (const line of engine.drainLog()) callbacks.current.onLog?.(line);
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
-  }, [engineReady, running, paint, onLog]);
+  }, [engineReady, running, paint]);
 
   /** Display coordinates of a mouse position. */
   const toDisplay = useCallback((clientX, clientY) => {
@@ -150,6 +153,7 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
   }), [boxes, hit, running, screen, toDisplay]);
 
   const beginMove = (event, node, handle) => {
+    event.preventDefault();
     const box = boxes.get(node.id);
     const start = toDisplay(event.clientX, event.clientY);
     drag.current = {
@@ -278,6 +282,10 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
             data-overlay="design"
             onPointerDown={onPointerDown}
           >
+            {flatten(screen).filter((node) => node.type === "image" && !node.props.src && boxes.get(node.id)).map((node) => {
+              const area = boxes.get(node.id);
+              return <div key={node.id} className="image-placeholder" data-image-placeholder={node.id} style={{ left: area.x * zoom, top: area.y * zoom, width: area.w * zoom, height: area.h * zoom }} />;
+            })}
             {box && selectedNode && (
               <div className="selection" data-selection={selected} style={{ left: box.x * zoom, top: box.y * zoom, width: box.w * zoom, height: box.h * zoom }}>
                 {selectedNode.type !== "screen" && HANDLES.map((handle) => (

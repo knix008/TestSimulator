@@ -2,15 +2,66 @@
 export const DEFAULT_THEME_ID = "light-classic";
 export const THEME_COLOR_KEYS = ["bg", "panel", "ink", "muted", "line", "accent", "soft", "header", "alt", "danger"];
 export const CUSTOM_THEME_PREFIX = "custom-";
-function onAccent(hex) {
+const channels = (hex) => {
   const value = Number.parseInt(hex.slice(1), 16);
-  const red = value >> 16 & 255;
-  const green = value >> 8 & 255;
-  const blue = value & 255;
-  return (red * 299 + green * 587 + blue * 114) / 1e3 > 170 ? "#1a1a1a" : "#ffffff";
+  return [value >> 16 & 255, value >> 8 & 255, value & 255];
+};
+function luminance(hex) {
+  const [r, g, b] = channels(hex).map((c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
-function theme(mode, id, nameKo, nameEn, bg, panel, ink, muted, line, accent, soft, header, alt, danger) {
+/** The WCAG contrast ratio of two colours, 1 to 21. */
+export function contrast(a, b) {
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (high + 0.05) / (low + 0.05);
+}
+const toHex = (rgb) => `#${rgb.map((c) => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
+const mix = (from, to, k) => {
+  const a = channels(from);
+  const b = channels(to);
+  return toHex(a.map((c, i) => c + (b[i] - c) * k));
+};
+/** The first colour on the way from `from` to `to` that passes, or `to` itself. */
+function approach(from, to, passes) {
+  if (passes(from)) return from;
+  for (let k = 0.05; k < 1; k += 0.05) {
+    const candidate = mix(from, to, k);
+    if (passes(candidate)) return candidate;
+  }
+  return to;
+}
+/**
+ * The colour itself when it can be read on every given background; otherwise moved just far
+ * enough towards `fallback` (by default black or white, whichever reads better).
+ */
+export function readable(color, backgrounds, minimum, fallback) {
+  const worst = (candidate) => Math.min(...backgrounds.map((bg) => contrast(candidate, bg)));
+  const target = fallback ?? (worst("#000000") >= worst("#ffffff") ? "#000000" : "#ffffff");
+  return approach(color, target, (candidate) => worst(candidate) >= minimum);
+}
+const onAccent = (accent) => (contrast("#ffffff", accent) >= contrast("#1a1a1a", accent) ? "#ffffff" : "#1a1a1a");
+const MIN_TEXT = 4.5;
+/**
+ * A theme's variables from its colours. The window has one text colour, so a theme whose
+ * surfaces disagree (a user's dark panel under a still-light header) cannot be fixed by the
+ * text alone: any colour in between is unreadable on both. So the text is settled against
+ * the panel, and every other surface that does not suit it moves towards the panel. Secondary
+ * colours then move towards the text, which is known to read on all of them.
+ */
+function theme(mode, id, nameKo, nameEn, rawBg, panel, rawInk, rawMuted, line, accent, rawSoft, rawHeader, rawAlt, rawDanger) {
   const light = mode === "light";
+  const ink = readable(rawInk, [panel], MIN_TEXT);
+  const surface = (color) => approach(color, panel, (candidate) => contrast(ink, candidate) >= MIN_TEXT);
+  const bg = surface(rawBg);
+  const soft = surface(rawSoft);
+  const header = surface(rawHeader);
+  const alt = surface(rawAlt);
+  const chrome = light ? header : bg;
+  const muted = readable(rawMuted, [bg, panel, header, chrome], MIN_TEXT, ink);
+  const danger = readable(rawDanger, [panel], MIN_TEXT, ink);
   return {
     id: `${mode}-${id}`,
     nameKo,
@@ -24,6 +75,7 @@ function theme(mode, id, nameKo, nameEn, bg, panel, ink, muted, line, accent, so
       "--muted": muted,
       "--line": line,
       "--accent": accent,
+      "--accent-ink": readable(accent, [soft, panel], MIN_TEXT, ink),
       "--accent-soft": soft,
       "--header": header,
       "--danger": danger,

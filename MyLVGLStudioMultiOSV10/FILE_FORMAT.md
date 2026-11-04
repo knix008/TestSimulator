@@ -19,6 +19,9 @@ My LVGL Studio 프로젝트 파일 형식 1판입니다. UTF-8 JSON 텍스트이
   "lvgl": "9.6.0",
   "device": { "w": 320, "h": 240 },
   "theme": { "dark": false, "primary": "#2196f3", "secondary": "#f44336" },
+  "images": [
+    { "name": "logo", "file": "assets/images/logo.png", "w": 64, "h": 64 }
+  ],
   "nextId": 3,
   "screens": [
     {
@@ -54,8 +57,21 @@ My LVGL Studio 프로젝트 파일 형식 1판입니다. UTF-8 JSON 텍스트이
 | `lvgl` | 문자열 | 예 | LVGL 버전 `N.N.N`. 8.3 이상의 v8 또는 v9 |
 | `device` | 객체 | 예 | 화면 크기. `w`와 `h`는 1 이상의 정수 |
 | `theme` | 객체 | 예 | LVGL 기본 테마. `dark`(논리값), `primary`와 `secondary`(`#rrggbb`) |
+| `images` | 배열 | 아니요 | 프로젝트의 이미지. 아래 설명 참고 |
 | `nextId` | 정수 | 아니요 | 다음 노드 번호. 없거나 작으면 읽을 때 기존 id보다 크게 고칩니다. |
 | `screens` | 배열 | 예 | 화면 노드. 1개 이상이며 첫 화면이 시작 화면입니다. |
+
+## 이미지
+
+픽셀 데이터는 이 파일에 넣지 않습니다. 각 항목은 프로젝트 폴더에 있는 원본 파일을 가리킵니다.
+
+| 항목 | 형식 | 내용 |
+|---|---|---|
+| `name` | 문자열 | 유일한 이름. 영문자, 숫자, `_`이며 숫자로 시작할 수 없습니다. `ui_img_<name>`이 됩니다. |
+| `file` | 문자열 | 프로젝트 폴더 기준 상대 경로. `/`로 구분하고 폴더 밖을 가리킬 수 없습니다. |
+| `w`, `h` | 정수 | 픽셀 크기 |
+
+이미지 위젯은 `props.src`에 `name`을 씁니다. 파일을 읽지 못한 이미지는 로그에 알리고 프로젝트는 그대로 엽니다.
 
 ## 노드
 
@@ -72,7 +88,7 @@ My LVGL Studio 프로젝트 파일 형식 1판입니다. UTF-8 JSON 텍스트이
 
 ### 위젯 종류
 
-`screen`, `container`, `label`, `button`, `checkbox`, `switch`, `slider`, `bar`, `arc`, `dropdown`, `roller`, `textarea`, `spinner`, `led`
+`screen`, `container`, `label`, `button`, `checkbox`, `switch`, `slider`, `bar`, `arc`, `dropdown`, `roller`, `textarea`, `spinner`, `led`, `image`, `line`, `list`, `table`, `chart`, `tabview`, `keyboard`, `calendar`, `spinbox`, `buttonmatrix`
 
 ### 속성
 
@@ -89,9 +105,19 @@ My LVGL Studio 프로젝트 파일 형식 1판입니다. UTF-8 JSON 텍스트이
 | | `options` | 줄바꿈으로 나눈 문자열 |
 | | `selected`, `min`, `max`, `value`, `ledBright` | 정수 |
 | | `checked` | 논리값 |
-| 스타일 | `bgColor`, `borderColor`, `textColor`, `shadowColor`, `indicatorColor` | `#rrggbb` |
+| | `src` | `images`의 `name` |
+| | `rotation` | 정수(도) |
+| | `scale` | 정수(%) |
+| | `points` | `x,y x,y …` |
+| | `items` | 줄바꿈으로 나눈 문자열. `#`으로 시작하면 제목 |
+| | `cells`, `series`, `map` | 줄은 행 또는 계열, 쉼표는 칸 |
+| | `tabs` | 줄바꿈으로 나눈 문자열 |
+| | `columnWidth`, `digits`, `separator`, `year`, `month`, `day` | 정수 |
+| | `chartType` | `LINE`, `BAR` |
+| | `target` | 키보드가 입력할 `textarea`의 `id` |
+| 스타일 | `bgColor`, `borderColor`, `textColor`, `shadowColor`, `indicatorColor`, `lineColor` | `#rrggbb` |
 | | `bgOpa`, `opa` | 0–255 |
-| | `borderWidth`, `radius`, `pad`, `shadowWidth` | 정수 |
+| | `borderWidth`, `radius`, `pad`, `shadowWidth`, `lineWidth` | 정수 |
 | | `font` | 12, 14, 16, 18, 20, 24, 28, 32, 36, 48 |
 | 동작 | `hidden`, `clickable`, `scrollable`, `disabled` | 논리값 |
 
@@ -114,6 +140,7 @@ My LVGL Studio 프로젝트 파일 형식 1판입니다. UTF-8 JSON 텍스트이
 - `formatVersion`이 앱이 아는 값보다 큰 경우(새 버전의 앱이 필요)
 - 필수 항목이 없거나 형식이 틀린 경우, 지원하지 않는 LVGL 버전인 경우
 - `id`가 중복되거나, 알 수 없는 위젯 종류이거나, 노드 구조 규칙을 어긴 경우
+- 이미지 이름이 잘못되었거나 중복되었거나, 경로가 프로젝트 폴더 밖을 가리키는 경우
 
 알 수 없는 최상위 항목이나 속성이 있어도 거부하지 않습니다.
 

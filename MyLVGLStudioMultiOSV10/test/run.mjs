@@ -198,7 +198,7 @@ await test("Every palette entry is a widget", () => {
   for (const { items } of PALETTE) for (const type of items) assert.ok(WIDGETS[type], type);
 });
 await test("Every property can reach the engine", () => {
-  const extra = new Set(["min", "max"]);
+  const extra = new Set(["min", "max", "src", "target", "year", "month", "day", "digits", "separator"]);
   for (const [type, definition] of Object.entries(WIDGETS)) {
     for (const prop of definition.props) {
       if (extra.has(prop.key) || prop.key in STR_IDS || prop.kind === "size") continue;
@@ -254,8 +254,8 @@ await test("A removed screen's file is not generated", () => {
   removeNode(project, second.id);
   assert.ok(!Object.keys(generateCode(project)).some((file) => file.includes(second.name)));
 });
-await test("Only the screens folder is cleaned on save", () => {
-  assert.deepEqual(GENERATED_DIRS, ["src/ui/screens"]);
+await test("Only the generated code folders are cleaned on save", () => {
+  assert.deepEqual(GENERATED_DIRS, ["src/ui/screens", "src/ui/images"]);
 });
 await test("Screens differing only by case get different files", () => {
   const project = newProject();
@@ -444,7 +444,7 @@ for (const version of BUNDLED_ENGINES) {
   await test("Every pixel of the sample matches the design surface", () => comparePixels(native, home.id, project));
   // Each screen of the everything-project goes first in turn, because ui_init loads the first.
   const everything = everythingProject(version);
-  const names = ["all widgets and properties", "flex and size forms", "every align", "every font"];
+  const names = ["all widgets and properties", "flex and size forms", "every align", "image and data widgets", "every font"];
   for (let index = 0; index < everything.screens.length; index++) {
     await test(`Generated C matches the surface: ${names[index]}`, () => {
       const variant = structuredClone(everything);

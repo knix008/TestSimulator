@@ -1,16 +1,18 @@
 // Prints a project as C for its LVGL version, as a folder structure:
 //   src/ui/...             the screens, for the firmware
 //   src/main.c, config/lv_conf.h, CMakeLists.txt   the desktop simulator
-import { apiFor } from "./versions.js";
-import { ALIGNS, FLEX_FLOWS } from "./schema.js";
+import { apiFor, parseVersion } from "./versions.js";
+import { ALIGNS, CHART_TYPES, FLEX_FLOWS, SERIES_COLORS } from "./schema.js";
+import { imageData } from "./images.js";
 import { cNames, colorValue, emit } from "./emit.js";
 import { FILE_EXTENSION, serializeProject, walk } from "./project.js";
 import lvConf from "./lvConfText.js";
 
 export const UI_DIR = "src/ui";
 export const SCREENS_DIR = "src/ui/screens";
+export const IMAGES_DIR = "src/ui/images";
 /** Only generated code lives here, so files of removed screens can be deleted on save. */
-export const GENERATED_DIRS = [SCREENS_DIR];
+export const GENERATED_DIRS = [SCREENS_DIR, IMAGES_DIR];
 
 const hex = (value) => `0x${value.toString(16).padStart(6, "0")}`;
 
@@ -41,6 +43,16 @@ function createCall(type, parent, api) {
     case "textarea": return `lv_textarea_create(${parent})`;
     case "spinner": return api.spinner(parent);
     case "led": return `lv_led_create(${parent})`;
+    case "image": return `${api.image}(${parent})`;
+    case "line": return `lv_line_create(${parent})`;
+    case "list": return `lv_list_create(${parent})`;
+    case "table": return `lv_table_create(${parent})`;
+    case "chart": return `lv_chart_create(${parent})`;
+    case "tabview": return api.tabview(parent);
+    case "keyboard": return `lv_keyboard_create(${parent})`;
+    case "calendar": return `lv_calendar_create(${parent})`;
+    case "spinbox": return `lv_spinbox_create(${parent})`;
+    case "buttonmatrix": return `${api.matrix}(${parent})`;
     default: throw new Error(`unknown widget ${type}`);
   }
 }
@@ -80,11 +92,18 @@ function intLine(o, prop, value, type, api) {
     case "value":
       if (type === "slider") return `lv_slider_set_value(${o}, ${value}, LV_ANIM_OFF);`;
       if (type === "bar") return `lv_bar_set_value(${o}, ${value}, LV_ANIM_OFF);`;
+      if (type === "spinbox") return `lv_spinbox_set_value(${o}, ${value});`;
       return `lv_arc_set_value(${o}, ${value});`;
     case "selected":
       if (type === "dropdown") return `lv_dropdown_set_selected(${o}, ${value});`;
       return `lv_roller_set_selected(${o}, ${value}, LV_ANIM_OFF);`;
     case "ledBright": return `lv_led_set_brightness(${o}, ${value});`;
+    case "rotation": return `${api.imageRotation}(${o}, ${value});`;
+    case "scale": return `${api.imageScale}(${o}, ${value});`;
+    case "lineColor": return `lv_obj_set_style_line_color(${o}, lv_color_hex(${hex(value)}), 0);`;
+    case "lineWidth": return `lv_obj_set_style_line_width(${o}, ${value}, 0);`;
+    case "columnWidth": return `for(uint32_t c = 0; c < ${api.columnCountGet}(${o}); c++) ${api.columnWidth}(${o}, c, ${value});`;
+    case "chartType": return `lv_chart_set_type(${o}, LV_CHART_TYPE_${CHART_TYPES[value]});`;
     default: throw new Error(`unknown property ${prop}`);
   }
 }
@@ -100,6 +119,51 @@ function setTextCall(name, type, text) {
   }
 }
 
+/** The multi-line properties: one small block of C each. */
+function dataLines(name, prop, value, api) {
+  const lines = value.split("\n");
+  switch (prop) {
+    case "items":
+      return lines.map((line) => (line.startsWith("#") ? `lv_list_add_text(${name}, ${cString(line.slice(1))});` : `${api.list}(${name}, NULL, ${cString(line)});`));
+    case "cells": {
+      const rows = lines.map((line) => line.split(","));
+      const out = [`${api.rowCount}(${name}, ${rows.length});`, `${api.columnCount}(${name}, ${Math.max(...rows.map((row) => row.length))});`];
+      rows.forEach((row, r) => row.forEach((cell, c) => out.push(`lv_table_set_cell_value(${name}, ${r}, ${c}, ${cString(cell)});`)));
+      return out;
+    }
+    case "series": {
+      const rows = lines.map((line) => line.split(",").map((text) => Number.parseInt(text, 10) || 0));
+      const out = [`lv_chart_set_point_count(${name}, ${Math.max(...rows.map((row) => row.length))});`];
+      rows.forEach((row, index) => {
+        out.push("{", `    lv_chart_series_t * series = lv_chart_add_series(${name}, lv_color_hex(${hex(SERIES_COLORS[index % SERIES_COLORS.length])}), LV_CHART_AXIS_PRIMARY_Y);`);
+        for (const point of row) out.push(`    lv_chart_set_next_value(${name}, series, ${point});`);
+        out.push("}");
+      });
+      return out;
+    }
+    case "tabs":
+      return lines.map((line) => `lv_label_set_text(lv_label_create(lv_tabview_add_tab(${name}, ${cString(line)})), ${cString(line)});`);
+    case "map": {
+      const cells = [];
+      lines.forEach((line, index) => {
+        if (index) cells.push('"\\n"');
+        for (const cell of line.split(",")) cells.push(cString(cell));
+      });
+      cells.push('""');
+      return [`static const char * ${name}_map[] = { ${cells.join(", ")} };`, `${api.matrixMap}(${name}, ${name}_map);`];
+    }
+    case "points": {
+      const points = value.split(" ").map((pair) => pair.split(",").map((text) => Number.parseInt(text, 10) || 0));
+      return [
+        `static const ${api.point} ${name}_points[] = { ${points.map(([x, y]) => `{ ${x}, ${y ?? 0} }`).join(", ")} };`,
+        `lv_line_set_points(${name}, ${name}_points, ${points.length});`,
+      ];
+    }
+    default:
+      throw new Error(`unknown data property ${prop}`);
+  }
+}
+
 function strLine(name, type, prop, value) {
   if (prop === "text") return setTextCall(name, type, value);
   if (prop === "placeholder") return `lv_textarea_set_placeholder_text(${name}, ${cString(value)});`;
@@ -109,7 +173,80 @@ function strLine(name, type, prop, value) {
 
 const GENERATED_NOTE = "/* Generated by My LVGL Studio. Changes are overwritten when the project is saved. */";
 
-function generateUi(project) {
+const hexByte = (value) => `0x${value.toString(16).padStart(2, "0")}`;
+
+function hexLines(bytes) {
+  const lines = [];
+  for (let i = 0; i < bytes.length; i += 32) {
+    lines.push(`    ${Array.from(bytes.subarray(i, i + 32), hexByte).join(",")},`);
+  }
+  return lines.join("\n");
+}
+
+/** RGB565 + alpha, the 3-byte form LVGL v8 uses on a 16-bit display. */
+function rgb565Alpha(bgra, swap) {
+  const out = new Uint8Array((bgra.length / 4) * 3);
+  for (let i = 0, o = 0; i < bgra.length; i += 4, o += 3) {
+    const value = ((bgra[i + 2] & 0xf8) << 8) | ((bgra[i + 1] & 0xfc) << 3) | (bgra[i] >> 3);
+    out[o] = swap ? value >> 8 : value & 255;
+    out[o + 1] = swap ? value & 255 : value >> 8;
+    out[o + 2] = bgra[i + 3];
+  }
+  return out;
+}
+
+/** One image as C. v9 always stores ARGB8888; v8's format depends on the colour depth. */
+function imageSource(name, version, { imageData: withData = true } = {}) {
+  const data = imageData(name);
+  const symbol = `ui_img_${name}`;
+  const top = [GENERATED_NOTE, '#include "lvgl.h"', ""];
+  if (!withData) return [...top, `/* ${symbol}: ${data.w}x${data.h}, written as a C array when the project is saved. */`, ""].join("\n");
+  if (parseVersion(version)?.major === 8) {
+    return [
+      ...top,
+      `const LV_ATTRIBUTE_MEM_ALIGN uint8_t ${symbol}_map[] = {`,
+      "#if LV_COLOR_DEPTH == 32",
+      hexLines(data.bgra),
+      "#elif LV_COLOR_DEPTH == 16 && LV_COLOR_16_SWAP == 0",
+      hexLines(rgb565Alpha(data.bgra, false)),
+      "#elif LV_COLOR_DEPTH == 16 && LV_COLOR_16_SWAP != 0",
+      hexLines(rgb565Alpha(data.bgra, true)),
+      "#else",
+      '#error "This image was generated for a colour depth of 16 or 32"',
+      "#endif",
+      "};",
+      "",
+      `const lv_img_dsc_t ${symbol} = {`,
+      "    .header.always_zero = 0,",
+      `    .header.w = ${data.w},`,
+      `    .header.h = ${data.h},`,
+      "    .header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA,",
+      `    .data_size = sizeof(${symbol}_map),`,
+      `    .data = ${symbol}_map,`,
+      "};",
+      "",
+    ].join("\n");
+  }
+  return [
+    ...top,
+    `static const uint8_t ${symbol}_map[] = {`,
+    hexLines(data.bgra),
+    "};",
+    "",
+    `const lv_image_dsc_t ${symbol} = {`,
+    "    .header.magic = LV_IMAGE_HEADER_MAGIC,",
+    "    .header.cf = LV_COLOR_FORMAT_ARGB8888,",
+    `    .header.w = ${data.w},`,
+    `    .header.h = ${data.h},`,
+    `    .header.stride = ${data.w * 4},`,
+    `    .data_size = sizeof(${symbol}_map),`,
+    `    .data = ${symbol}_map,`,
+    "};",
+    "",
+  ].join("\n");
+}
+
+function generateUi(project, options) {
   const api = apiFor(project.lvgl);
   const names = cNames(project);
   const { ops, ids } = emit(project);
@@ -152,6 +289,12 @@ function generateUi(project) {
   ];
   for (const screenId of byScreen.keys()) header.push(`void ${nameOf(screenId)}_create(void);`);
   header.push("");
+  const images = (project.images ?? []).filter((image) => imageData(image.name));
+  if (images.length) {
+    header.push("/* One file per image in images/. */");
+    for (const image of images) header.push(`${api.imageDeclare}(ui_img_${image.name});`);
+    header.push("");
+  }
   walk(project, (node) => {
     header.push(`extern lv_obj_t * ${names.get(node.id)};`);
     if (node.type === "button") header.push(`extern lv_obj_t * ${names.get(node.id)}_label;`);
@@ -207,9 +350,21 @@ function generateUi(project) {
         source.push(`    ${name} = ${createCall(type, parent, api)};`);
         if (type === "button") source.push(`    ${name}_label = lv_label_create(${name});`, `    lv_obj_center(${name}_label);`);
       } else if (op.op === "range") {
-        source.push(`    lv_${type}_set_range(${name}, ${op.min}, ${op.max});`);
+        source.push(type === "chart"
+          ? `    ${api.chartRange}(${name}, LV_CHART_AXIS_PRIMARY_Y, ${op.min}, ${op.max});`
+          : `    lv_${type}_set_range(${name}, ${op.min}, ${op.max});`);
+      } else if (op.op === "str" && ["items", "cells", "series", "tabs", "map", "points"].includes(op.prop)) {
+        for (const line of dataLines(name, op.prop, op.value, api)) source.push(`    ${line}`);
       } else if (op.op === "str") {
         source.push(`    ${strLine(name, type, op.prop, op.value)}`);
+      } else if (op.op === "digits") {
+        source.push(`    lv_spinbox_set_digit_format(${name}, ${op.count}, ${op.separator});`);
+      } else if (op.op === "date") {
+        source.push(`    lv_calendar_set_today_date(${name}, ${op.year}, ${op.month}, ${op.day});`, `    ${api.calendarMonth}(${name}, ${op.year}, ${op.month});`);
+      } else if (op.op === "image") {
+        if (imageData(op.name)) source.push(`    ${api.imageSrc}(${name}, &ui_img_${op.name});`);
+      } else if (op.op === "link") {
+        continue;
       } else {
         source.push(`    ${intLine(name, op.prop, op.value, type, api)}`);
       }
@@ -217,6 +372,9 @@ function generateUi(project) {
     source.push("}", "");
     files[`${SCREENS_DIR}/${nameOf(screenId)}.c`] = source.join("\n");
   }
+
+  /* images/ui_img_<name>.c */
+  for (const image of images) files[`${IMAGES_DIR}/ui_img_${image.name}.c`] = imageSource(image.name, project.lvgl, options);
 
   /* ui.c: the objects and ui_init */
   const theme = project.theme;
@@ -242,6 +400,9 @@ function generateUi(project) {
   );
   for (const screenId of byScreen.keys()) source.push(`    ${nameOf(screenId)}_create();`);
   source.push("");
+  const links = ops.filter((op) => op.op === "link");
+  for (const link of links) source.push(`    lv_keyboard_set_textarea(${nameOf(link.id)}, ${nameOf(link.target)});`);
+  if (links.length) source.push("");
   events.forEach((event, index) => {
     source.push(`    lv_obj_add_event_cb(${nameOf(event.id)}, ui_event_${index}, LV_EVENT_${event.trigger}, NULL);`);
   });
@@ -428,8 +589,8 @@ endif()
 }
 
 /** Every generated file of the project, keyed by its path inside the project folder. */
-export function generateCode(project) {
-  const ui = generateUi(project);
+export function generateCode(project, options = {}) {
+  const ui = generateUi(project, options);
   const sources = ["src/main.c", ...Object.keys(ui).filter((file) => file.endsWith(".c")).sort()];
   return {
     ...ui,

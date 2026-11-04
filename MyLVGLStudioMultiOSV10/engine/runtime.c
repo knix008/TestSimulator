@@ -21,11 +21,38 @@
 #define lv_button_create lv_btn_create
 #define lv_display_set_theme lv_disp_set_theme
 #define lv_display_t lv_disp_t
+#define lv_image_create lv_img_create
+#define lv_image_set_src lv_img_set_src
+#define lv_image_set_rotation lv_img_set_angle
+#define lv_image_set_scale lv_img_set_zoom
+#define lv_buttonmatrix_create lv_btnmatrix_create
+#define lv_buttonmatrix_set_map lv_btnmatrix_set_map
+#define lv_table_set_row_count lv_table_set_row_cnt
+#define lv_table_set_column_count lv_table_set_col_cnt
+#define lv_table_set_column_width lv_table_set_col_width
+#define lv_list_add_button lv_list_add_btn
+#define ml_table_columns lv_table_get_col_cnt
+typedef lv_point_t ml_point_t;
+typedef lv_img_dsc_t ml_image_t;
+#else
+#define ml_table_columns lv_table_get_column_count
+typedef lv_point_precise_t ml_point_t;
+typedef lv_image_dsc_t ml_image_t;
+#endif
+
+/* 9.3 renamed these two. */
+#if LVGL_VERSION_MAJOR == 9 && LVGL_VERSION_MINOR >= 3
+#define ml_chart_range lv_chart_set_axis_range
+#define ml_calendar_month lv_calendar_set_month_shown
+#else
+#define ml_chart_range lv_chart_set_range
+#define ml_calendar_month lv_calendar_set_showed_date
 #endif
 
 #define MAX_OBJECTS 4096
 #define LOG_LINES 32
 #define LOG_WIDTH 256
+#define MAX_IMAGES 256
 
 typedef struct action {
     struct action * next;
@@ -45,6 +72,33 @@ static lv_obj_t * inner_labels[MAX_OBJECTS];
 static int object_types[MAX_OBJECTS];
 static int object_roots[MAX_OBJECTS];
 static action_t * actions;
+static ml_image_t images[MAX_IMAGES];
+
+/* Memory widgets keep pointing at (line points, button maps); freed with the objects. */
+typedef struct kept {
+    struct kept * next;
+    void * data;
+} kept_t;
+static kept_t * kept_blocks;
+
+static void * keep(void * data)
+{
+    kept_t * block = malloc(sizeof(kept_t));
+    block->data = data;
+    block->next = kept_blocks;
+    kept_blocks = block;
+    return data;
+}
+
+static void free_kept(void)
+{
+    while(kept_blocks) {
+        kept_t * next = kept_blocks->next;
+        free(kept_blocks->data);
+        free(kept_blocks);
+        kept_blocks = next;
+    }
+}
 
 static char log_lines[LOG_LINES][LOG_WIDTH];
 static unsigned log_head, log_tail;
@@ -56,15 +110,17 @@ static unsigned input_head, input_tail;
 static int last_x, last_y, last_down;
 
 enum { T_SCREEN = 0, T_CONTAINER, T_LABEL, T_BUTTON, T_CHECKBOX, T_SWITCH, T_SLIDER, T_BAR, T_ARC,
-       T_DROPDOWN, T_ROLLER, T_TEXTAREA, T_SPINNER, T_LED };
+       T_DROPDOWN, T_ROLLER, T_TEXTAREA, T_SPINNER, T_LED, T_IMAGE, T_LINE, T_LIST, T_TABLE, T_CHART,
+       T_TABVIEW, T_KEYBOARD, T_CALENDAR, T_SPINBOX, T_BUTTONMATRIX };
 
 enum { P_X = 1, P_Y, P_WIDTH, P_HEIGHT, P_WIDTH_PCT, P_HEIGHT_PCT, P_WIDTH_CONTENT, P_HEIGHT_CONTENT,
        P_ALIGN, P_HIDDEN, P_CLICKABLE, P_SCROLLABLE, P_CHECKED, P_DISABLED,
        P_BG_COLOR = 20, P_BG_OPA, P_BORDER_COLOR, P_BORDER_WIDTH, P_RADIUS, P_TEXT_COLOR, P_FONT, P_PAD,
        P_SHADOW_WIDTH, P_SHADOW_COLOR, P_OPA, P_GAP, P_INDICATOR_COLOR, P_FLEX_FLOW,
-       P_VALUE = 42, P_SELECTED, P_LED_BRIGHT };
+       P_VALUE = 42, P_SELECTED, P_LED_BRIGHT, P_ROTATION, P_SCALE, P_LINE_COLOR, P_LINE_WIDTH, P_COLUMN_WIDTH,
+       P_CHART_TYPE, P_IMAGE };
 
-enum { S_TEXT = 1, S_PLACEHOLDER, S_OPTIONS };
+enum { S_TEXT = 1, S_PLACEHOLDER, S_OPTIONS, S_ITEMS, S_CELLS, S_SERIES, S_TABS, S_MAP, S_POINTS };
 enum { A_SCREEN = 1, A_SET_TEXT, A_TOGGLE, A_LOG, A_SHOW, A_HIDE };
 enum { TR_CLICKED = 0, TR_PRESSED, TR_RELEASED, TR_VALUE_CHANGED };
 
@@ -139,6 +195,7 @@ void ml_clear(void)
     memset(object_types, 0, sizeof(object_types));
     memset(object_roots, 0, sizeof(object_roots));
     free_actions();
+    free_kept();
     log_head = log_tail = 0;
     input_head = input_tail = 0;
     last_down = 0;
@@ -228,6 +285,20 @@ int ml_create(int id, int type, int parent)
         case T_SPINNER: obj = lv_spinner_create(host, 1000, 60); break;
 #endif
         case T_LED: obj = lv_led_create(host); break;
+        case T_IMAGE: obj = lv_image_create(host); break;
+        case T_LINE: obj = lv_line_create(host); break;
+        case T_LIST: obj = lv_list_create(host); break;
+        case T_TABLE: obj = lv_table_create(host); break;
+        case T_CHART: obj = lv_chart_create(host); break;
+#if LVGL_VERSION_MAJOR >= 9
+        case T_TABVIEW: obj = lv_tabview_create(host); break;
+#else
+        case T_TABVIEW: obj = lv_tabview_create(host, LV_DIR_TOP, 40); break;
+#endif
+        case T_KEYBOARD: obj = lv_keyboard_create(host); break;
+        case T_CALENDAR: obj = lv_calendar_create(host); break;
+        case T_SPINBOX: obj = lv_spinbox_create(host); break;
+        case T_BUTTONMATRIX: obj = lv_buttonmatrix_create(host); break;
         default: return -1;
     }
     objects[id] = obj;
@@ -272,6 +343,8 @@ int ml_range(int id, int min, int max)
         case T_SLIDER: lv_slider_set_range(obj, min, max); return 0;
         case T_BAR: lv_bar_set_range(obj, min, max); return 0;
         case T_ARC: lv_arc_set_range(obj, min, max); return 0;
+        case T_CHART: ml_chart_range(obj, LV_CHART_AXIS_PRIMARY_Y, min, max); return 0;
+        case T_SPINBOX: lv_spinbox_set_range(obj, min, max); return 0;
         default: return -1;
     }
 }
@@ -323,6 +396,7 @@ int ml_set_i(int id, int prop, int value)
                 case T_SLIDER: lv_slider_set_value(obj, value, LV_ANIM_OFF); return 0;
                 case T_BAR: lv_bar_set_value(obj, value, LV_ANIM_OFF); return 0;
                 case T_ARC: lv_arc_set_value(obj, value); return 0;
+                case T_SPINBOX: lv_spinbox_set_value(obj, value); return 0;
                 default: return -1;
             }
         case P_SELECTED:
@@ -332,8 +406,160 @@ int ml_set_i(int id, int prop, int value)
                 default: return -1;
             }
         case P_LED_BRIGHT: lv_led_set_brightness(obj, (uint8_t)value); return 0;
+        case P_ROTATION: lv_image_set_rotation(obj, value); return 0;
+        case P_SCALE: lv_image_set_scale(obj, value); return 0;
+        case P_LINE_COLOR: lv_obj_set_style_line_color(obj, lv_color_hex((uint32_t)value), 0); return 0;
+        case P_LINE_WIDTH: lv_obj_set_style_line_width(obj, value, 0); return 0;
+        case P_COLUMN_WIDTH: {
+            uint32_t columns = ml_table_columns(obj);
+            for(uint32_t c = 0; c < columns; c++) lv_table_set_column_width(obj, c, value);
+            return 0;
+        }
+        case P_CHART_TYPE: lv_chart_set_type(obj, value ? LV_CHART_TYPE_BAR : LV_CHART_TYPE_LINE); return 0;
+        case P_IMAGE:
+            if(value < 0 || value >= MAX_IMAGES) return -1;
+            lv_image_set_src(obj, &images[value]);
+            return 0;
         default: return -1;
     }
+}
+
+static const uint32_t SERIES_COLORS[] = { 0x2196f3, 0xf44336, 0x4caf50, 0xff9800 };
+
+/* A writable copy that lives as long as the objects, for splitting in place. */
+static char * kept_copy(const char * text)
+{
+    return keep(strdup(text));
+}
+
+static int count_char(const char * text, char c)
+{
+    int n = 0;
+    for(; *text; text++) if(*text == c) n++;
+    return n;
+}
+
+static void set_items(lv_obj_t * obj, const char * text)
+{
+    char * copy = strdup(text);
+    for(char * line = copy; line;) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        if(line[0] == '#') lv_list_add_text(obj, line + 1);
+        else lv_list_add_button(obj, NULL, line);
+        line = end ? end + 1 : NULL;
+    }
+    free(copy);
+}
+
+static void set_cells(lv_obj_t * obj, const char * text)
+{
+    char * copy = strdup(text);
+    int rows = count_char(copy, '\n') + 1;
+    int columns = 1;
+    for(char * line = copy; line;) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        int here = count_char(line, ',') + 1;
+        if(here > columns) columns = here;
+        if(end) *end = '\n';
+        line = end ? end + 1 : NULL;
+    }
+    lv_table_set_row_count(obj, rows);
+    lv_table_set_column_count(obj, columns);
+    int row = 0;
+    for(char * line = copy; line; row++) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        int column = 0;
+        for(char * cell = line; cell; column++) {
+            char * comma = strchr(cell, ',');
+            if(comma) *comma = 0;
+            lv_table_set_cell_value(obj, row, column, cell);
+            cell = comma ? comma + 1 : NULL;
+        }
+        line = end ? end + 1 : NULL;
+    }
+    free(copy);
+}
+
+static void set_series(lv_obj_t * obj, const char * text)
+{
+    char * copy = strdup(text);
+    int points = 1;
+    for(char * line = copy; line;) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        int here = count_char(line, ',') + 1;
+        if(here > points) points = here;
+        if(end) *end = '\n';
+        line = end ? end + 1 : NULL;
+    }
+    lv_chart_set_point_count(obj, points);
+    int index = 0;
+    for(char * line = copy; line; index++) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        lv_chart_series_t * series = lv_chart_add_series(obj, lv_color_hex(SERIES_COLORS[index % 4]), LV_CHART_AXIS_PRIMARY_Y);
+        for(char * value = line; value;) {
+            char * comma = strchr(value, ',');
+            if(comma) *comma = 0;
+            lv_chart_set_next_value(obj, series, atoi(value));
+            value = comma ? comma + 1 : NULL;
+        }
+        line = end ? end + 1 : NULL;
+    }
+    free(copy);
+}
+
+static void set_tabs(lv_obj_t * obj, const char * text)
+{
+    char * copy = strdup(text);
+    for(char * line = copy; line;) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        lv_obj_t * page = lv_tabview_add_tab(obj, line);
+        lv_label_set_text(lv_label_create(page), line);
+        line = end ? end + 1 : NULL;
+    }
+    free(copy);
+}
+
+static void set_map(lv_obj_t * obj, const char * text)
+{
+    char * copy = kept_copy(text);
+    int slots = count_char(copy, ',') + count_char(copy, '\n') * 2 + 3;
+    const char ** map = keep(calloc(slots, sizeof(char *)));
+    int at = 0;
+    for(char * line = copy; line;) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        for(char * cell = line; cell;) {
+            char * comma = strchr(cell, ',');
+            if(comma) *comma = 0;
+            map[at++] = cell;
+            cell = comma ? comma + 1 : NULL;
+        }
+        if(end) map[at++] = "\n";
+        line = end ? end + 1 : NULL;
+    }
+    map[at] = "";
+    lv_buttonmatrix_set_map(obj, map);
+}
+
+static void set_points(lv_obj_t * obj, const char * text)
+{
+    int count = count_char(text, ' ') + 1;
+    ml_point_t * points = keep(calloc(count, sizeof(ml_point_t)));
+    const char * cursor = text;
+    for(int i = 0; i < count; i++) {
+        char * after;
+        points[i].x = strtol(cursor, &after, 10);
+        cursor = *after == ',' ? after + 1 : after;
+        points[i].y = strtol(cursor, &after, 10);
+        cursor = *after == ' ' ? after + 1 : after;
+    }
+    lv_line_set_points(obj, points, count);
 }
 
 static int apply_text(int id, const char * text)
@@ -361,8 +587,56 @@ int ml_set_s(int id, int prop, const char * text)
             else if(object_types[id] == T_ROLLER) lv_roller_set_options(obj, text, LV_ROLLER_MODE_NORMAL);
             else return -1;
             return 0;
+        case S_ITEMS: set_items(obj, text); return 0;
+        case S_CELLS: set_cells(obj, text); return 0;
+        case S_SERIES: set_series(obj, text); return 0;
+        case S_TABS: set_tabs(obj, text); return 0;
+        case S_MAP: set_map(obj, text); return 0;
+        case S_POINTS: set_points(obj, text); return 0;
         default: return -1;
     }
+}
+
+/* Registers BGRA pixels, which stay owned by the caller, under an index. */
+int ml_image_load(int index, int width, int height, const uint8_t * pixels)
+{
+    if(index < 0 || index >= MAX_IMAGES) return -1;
+    ml_image_t * image = &images[index];
+    memset(image, 0, sizeof(*image));
+#if LVGL_VERSION_MAJOR >= 9
+    image->header.magic = LV_IMAGE_HEADER_MAGIC;
+    image->header.cf = LV_COLOR_FORMAT_ARGB8888;
+    image->header.stride = width * 4;
+#else
+    image->header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+#endif
+    image->header.w = width;
+    image->header.h = height;
+    image->data_size = (uint32_t)width * height * 4;
+    image->data = pixels;
+    return 0;
+}
+
+int ml_link(int id, int target)
+{
+    if(object_types[id] != T_KEYBOARD || !objects[target]) return -1;
+    lv_keyboard_set_textarea(objects[id], objects[target]);
+    return 0;
+}
+
+int ml_date(int id, int year, int month, int day)
+{
+    if(object_types[id] != T_CALENDAR) return -1;
+    lv_calendar_set_today_date(objects[id], year, month, day);
+    ml_calendar_month(objects[id], year, month);
+    return 0;
+}
+
+int ml_digits(int id, int count, int separator)
+{
+    if(object_types[id] != T_SPINBOX) return -1;
+    lv_spinbox_set_digit_format(objects[id], count, separator);
+    return 0;
 }
 
 /* ----------------------------------------------------------------- events */

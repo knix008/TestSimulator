@@ -121,6 +121,20 @@ async function doubleClick(selector) {
   await mouse("mouseReleased", point.x, point.y, { clickCount: 2 });
   await sleep(120);
 }
+/** The worst text/background contrast among the fields and drop-downs on screen. */
+const CONTRAST_PROBE = `(() => {
+  const rgb = (text) => { const m = text.match(/[\\d.]+/g).map(Number); return { c: m.slice(0, 3), a: m[3] ?? 1 }; };
+  const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const [h, l] = [lum(a), lum(b)].sort((x, y) => y - x); return (h + 0.05) / (l + 0.05); };
+  const background = (e) => { for (let n = e; n; n = n.parentElement) { const b = rgb(getComputedStyle(n).backgroundColor); if (b.a > 0.9) return b.c; } return [255, 255, 255]; };
+  let worst = { ratio: 99, what: "" };
+  const look = (e, color, what) => { const r = ratio(rgb(color).c, background(e)); if (r < worst.ratio) worst = { ratio: r, what }; };
+  for (const e of document.querySelectorAll("input:not([type=color]):not([type=checkbox]), textarea, .icon-select-button, .icon-select-text, [data-menu] > button, .tree-row, .palette-item, .theme-row, .field-label, .panel h3, .attributes h4, .pref-tabs button, .form-grid > span, .theme-color-row > span, .dialog > header strong, .status-cell, .app-title strong, .title-file")) {
+    look(e, getComputedStyle(e).color, e.className || e.tagName);
+    if (e.placeholder) look(e, getComputedStyle(e, "::placeholder").color, "placeholder of " + (e.dataset.field || e.className));
+  }
+  return worst;
+})()`;
 const clickRecent = (file) => js(`Array.from(document.querySelectorAll("[data-recent]")).find((e) => e.dataset.recent === ${JSON.stringify(file)}).click()`);
 const box = (id) => js(`window.__mls.box(${JSON.stringify(id)})`);
 const pixel = (x, y) => js(`(() => { const c = window.__mls.canvas(); const d = c.getContext("2d").getImageData(${x}, ${y}, 1, 1).data; return [d[0], d[1], d[2]]; })()`);
@@ -134,30 +148,39 @@ category("Start screen");
 
 await step("It opens on the start screen with every card", async () => {
   await page.until("document.querySelector('[data-start-screen]')", 15000);
-  for (const card of ["hero", "actions", "recent", "theme", "background", "options"]) {
+  for (const card of ["hero", "actions", "recent", "theme", "background"]) {
     assert.ok(await js(`!!document.querySelector('[data-card="${card}"]')`), card);
   }
   await sleep(400);
   await shot("01-start");
 });
 
-await step("At least 20 backgrounds are offered, each with a thumbnail", async () => {
-  const count = await js("document.querySelectorAll('.card-background [data-background]').length");
+await step("The menu card lists every action as a tile", async () => {
+  for (const action of ["new", "open", "continue", "manager", "settings", "theme", "language", "preferences", "start-settings", "about", "exit"]) {
+    assert.ok(await js(`!!document.querySelector('.start-tile[data-start="${action}"] small')`), action);
+  }
+});
+
+await step("At least 20 backgrounds are offered, each with its own chip", async () => {
+  const count = await js("document.querySelectorAll('[data-card=background] [data-background]').length");
   assert.ok(count >= 20, String(count));
-  const hashes = await js(`Array.from(document.querySelectorAll('.card-background [data-background] canvas')).map((c) => { const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 13) h = (h * 31 + d[i]) | 0; return h; })`);
-  assert.equal(new Set(hashes).size, count, "two thumbnails are the same");
+  const hashes = await js(`Array.from(document.querySelectorAll('[data-card=background] [data-background] canvas')).map((c) => { const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 7) h = (h * 31 + d[i]) | 0; return h; })`);
+  assert.equal(new Set(hashes).size, count, "two chips are the same");
 });
 
 await step("Every background draws and moves on the real canvas", async () => {
-  const kinds = await js("Array.from(document.querySelectorAll('.card-background [data-background]')).map((e) => e.dataset.background)");
+  const kinds = await js("Array.from(document.querySelectorAll('[data-card=background] [data-background]')).map((e) => e.dataset.background)");
   const pictures = new Set();
   for (const kind of kinds) {
-    await js(`document.querySelector('.card-background [data-background="${kind}"]').click()`);
+    await js(`document.querySelector('[data-card=background] [data-background="${kind}"]').click()`);
     await sleep(120);
     assert.equal(await js("window.__mls.start().background"), kind);
     const first = await canvasHash("[data-start-canvas]");
-    await sleep(350);
-    const second = await canvasHash("[data-start-canvas]");
+    let second = first;
+    for (let wait = 0; wait < 10 && second === first; wait++) {
+      await sleep(250);
+      second = await canvasHash("[data-start-canvas]");
+    }
     assert.notEqual(first, second, `${kind} does not move`);
     pictures.add(second);
   }
@@ -165,49 +188,93 @@ await step("Every background draws and moves on the real canvas", async () => {
   await shot("01b-last-background");
 });
 
-await step("Speed 0 stops the background; the stepper changes it", async () => {
+await step("The speed stepper changes the speed; 0 stops the background", async () => {
   const speed = () => js("window.__mls.start().speed");
-  const shown = Number(await js('document.querySelector(\'.card-options [data-field="startSpeed"] input\').value'));
-  await click('.card-options [data-field="startSpeed"] button:last-child');
+  const shown = Number(await js('document.querySelector(\'[data-card=background] [data-field="startSpeed"]\').value'));
+  await click('[data-card="background"] [data-step="startSpeed:up"]');
   await sleep(60);
   assert.equal(await speed(), shown + 10);
-  await typeInto('.card-options [data-field="startSpeed"] input', "0");
+  await typeInto('[data-card="background"] [data-field="startSpeed"]', "0");
+  await js("document.activeElement.blur()");
   await sleep(120);
   assert.equal(await speed(), 0);
   const first = await canvasHash("[data-start-canvas]");
   await sleep(300);
   assert.equal(await canvasHash("[data-start-canvas]"), first);
-  await typeInto('.card-options [data-field="startSpeed"] input', "100");
+  await typeInto('[data-card="background"] [data-field="startSpeed"]', "100");
+  await js("document.activeElement.blur()");
+  await sleep(60);
+  assert.equal(await speed(), 100);
 });
 
 await step("Card opacity changes the cards", async () => {
-  await click('.card-options [data-field="startOpacity"] button:first-child');
+  await click('[data-card="background"] [data-step="startOpacity:down"]');
   await sleep(60);
   assert.equal(await js("window.__mls.start().cardOpacity"), 80);
-  assert.equal(await js("document.querySelector('[data-start-screen]').style.getPropertyValue('--card-opacity')"), "80%");
+  assert.equal(await js("document.querySelector('[data-start-screen]').style.getPropertyValue('--start-card-alpha')"), "80%");
 });
 
-await step("Cards can be moved by dragging their header", async () => {
-  const before = await js("window.__mls.start().order");
-  const from = await center('[data-card-head="options"]');
-  const to = await center('[data-card-head="actions"]');
-  await drag(from, to);
-  await sleep(100);
-  const after = await js("window.__mls.start().order");
-  assert.notDeepEqual(after, before);
-  assert.ok(after.indexOf("options") < after.indexOf("actions"), after.join());
-  assert.equal(new Set(after).size, before.length);
+await step("The auto change tile switches on and off", async () => {
+  await click('[data-card="background"] [data-background-shuffle]');
+  assert.equal(await js("window.__mls.start().shuffle"), true);
+  await click('[data-card="background"] [data-background-shuffle]');
+  assert.equal(await js("window.__mls.start().shuffle"), false);
+});
+
+await step("A card moves by its handle, and auto arrange puts it back", async () => {
+  await js("document.querySelector('.start-scroll').scrollTop = 0");
+  const top = () => js("document.querySelector('[data-card=recent]').offsetTop");
+  const before = await top();
+  const from = await center('[data-card-handle="recent"]');
+  const hero = await center('[data-card="hero"]');
+  await drag(from, { x: from.x, y: hero.y - 60 });
+  await sleep(350);
+  assert.ok(await js("window.__mls.start().layout !== null"), "the layout was not saved");
+  assert.ok((await top()) < before, "the card did not move up");
+  await click('[data-start="arrange"]');
+  await sleep(350);
+  assert.ok(Math.abs((await top()) - before) < 3, "auto arrange did not restore it");
+});
+
+await step("A card can be resized by its corner", async () => {
+  const height = () => js("document.querySelector('[data-card=recent]').getBoundingClientRect().height");
+  const before = await height();
+  const corner = await center('[data-card-resize="recent"]');
+  await drag(corner, { x: corner.x, y: corner.y + 100 });
+  await sleep(300);
+  assert.ok((await height()) > before + 50, "the card did not grow");
+  await click('[data-start="arrange"]');
+  await sleep(300);
 });
 
 await step("A theme on the start screen applies at once", async () => {
-  const count = await js("document.querySelectorAll('[data-start-theme]').length");
-  assert.equal(count, 40);
+  assert.equal(await js("document.querySelectorAll('[data-start-theme]').length"), 40);
   await click('[data-start-theme="dark-midnight"]');
   await sleep(120);
   assert.equal(await js("document.documentElement.dataset.theme"), "dark-midnight");
+  await js("document.querySelector('.start-scroll').scrollTop = 0");
   await shot("01c-start-dark");
   await click('[data-start-theme="light-classic"]');
   await sleep(80);
+});
+
+await step("The language tile switches the language", async () => {
+  await click('[data-start="language"]');
+  await sleep(80);
+  assert.equal(await js("window.__mls.language()"), "en");
+  await click('[data-start="language"]');
+  await sleep(80);
+  assert.equal(await js("window.__mls.language()"), "ko");
+});
+
+await step("The language can change without disturbing the engine", async () => {
+  const engine = () => js("window.__mls.engine().width");
+  const before = await engine();
+  await click('[data-start="language"]');
+  await sleep(150);
+  await click('[data-start="language"]');
+  await sleep(150);
+  assert.equal(await engine(), before);
 });
 
 await step("The Start button leaves and returns to the start screen", async () => {
@@ -257,6 +324,13 @@ await step("Dragging moves it and one undo restores it", async () => {
   assert.equal((await lastWidget()).props.x, widget.props.x);
   await click('[data-command="redo"]');
   assert.equal((await lastWidget()).props.x, moved.props.x);
+});
+
+await step("The browser's own drag never interrupts a drag", async () => {
+  // Selected content is what the browser would start dragging by itself.
+  await js("getSelection().selectAllChildren(document.body)");
+  assert.equal(await js("(() => { const e = new DragEvent('dragstart', { bubbles: true, cancelable: true }); document.body.dispatchEvent(e); return e.defaultPrevented; })()"), true);
+  await js("getSelection().removeAllRanges()");
 });
 
 await step("The resize handle changes the size", async () => {
@@ -406,13 +480,14 @@ category("Editing commands");
 await step("Every palette widget can be added and is drawn", async () => {
   await click(`[data-screen-tab="${(await project()).screens[0].id}"]`);
   const types = await js("Array.from(document.querySelectorAll('[data-palette]')).map((e) => e.dataset.palette)");
-  assert.equal(types.length, 13);
+  assert.equal(types.length, 23);
   for (const type of types) {
     const before = await allNodes();
     await doubleClick(`[data-palette="${type}"]`);
     const added = (await allNodes()).filter((node) => !before.some((old) => old.id === node.id));
     assert.equal(added.length, 1, type);
     assert.equal(added[0].type, type);
+    await sleep(60);
     assert.ok(await box(added[0].id), `${type} has no box`);
     assert.ok(await js(`!!document.querySelector('[data-tree="${added[0].id}"]')`), `${type} is not in the tree`);
   }
@@ -488,6 +563,73 @@ await step("Events: every action can be chosen", async () => {
   assert.equal((await nodeById(button.id)).events.length, 0);
 });
 
+await step("Image: a new widget shows a placeholder, then the imported picture", async () => {
+  await click('[data-command="add-screen"]');
+  await sleep(120);
+  await doubleClick('[data-palette="image"]');
+  const id = await js("window.__mls.selected()");
+  await sleep(100);
+  assert.ok(await js(`!!document.querySelector('[data-image-placeholder="${id}"]')`), "no placeholder");
+  assert.ok(await js('!!document.querySelector(\'[data-command="image-import"]\')'), "no import button");
+  await js(`window.__mls.addTestImage(${JSON.stringify(id)}, "C:\\\\pics\\\\Test Logo.png", 32, 24, 255, 0, 128)`);
+  await sleep(200);
+  const widget = await nodeById(id);
+  assert.equal(widget.props.src, "Test_Logo");
+  assert.ok(!("width" in widget.props));
+  assert.equal(await js(`!!document.querySelector('[data-image-placeholder="${id}"]')`), false);
+  const area = await box(id);
+  assert.deepEqual([area.w, area.h], [32, 24]);
+  assert.deepEqual(await pixel(area.x + 16, area.y + 12), [255, 0, 128]);
+  await shot("10b-image");
+});
+
+await step("Image: rotation and scale are edited in the panel", async () => {
+  const id = await js("window.__mls.selected()");
+  const area = await box(id);
+  await typeInto('.attributes [data-field="scale"] input', "200");
+  await sleep(150);
+  assert.equal((await nodeById(id)).props.scale, 200);
+  const hash = await canvasHash("[data-surface]");
+  await typeInto('.attributes [data-field="rotation"] input', "45");
+  await sleep(150);
+  assert.notEqual(await canvasHash("[data-surface]"), hash);
+  assert.ok(area);
+});
+
+await step("Image: saving writes the original file and its C array", async () => {
+  await click('[data-command="save"]');
+  await sleep(400);
+  const folder = path.join(data, "GuiApp");
+  const png = fs.readFileSync(path.join(folder, "assets", "images", "Test_Logo.png"));
+  assert.deepEqual([...png.subarray(1, 4)], [0x50, 0x4e, 0x47]);
+  assert.match(fs.readFileSync(path.join(folder, "src", "ui", "images", "ui_img_Test_Logo.c"), "utf8"), /0xff/);
+  const saved = JSON.parse(fs.readFileSync(path.join(folder, "GuiApp.mylvgl"), "utf8"));
+  assert.equal(saved.images[0].file, "assets/images/Test_Logo.png");
+});
+
+await step("Image: project settings list it, and can delete it", async () => {
+  await click('[data-command="settings"]');
+  await page.until('document.querySelector(\'[data-image="Test_Logo"]\')', 2000);
+  await shot("10c-settings-images");
+  await click('[data-command="settings-close"]');
+  await click(`[data-screen-tab="${(await project()).screens[0].id}"]`);
+});
+
+await step("Data widgets: their text settings reach the surface", async () => {
+  const nodes = await allNodes();
+  const table = nodes.find((node) => node.type === "table");
+  await click(`[data-tree="${table.id}"]`);
+  await typeInto('.attributes textarea[data-field="cells"]', "Other,Text\nC,3");
+  await sleep(150);
+  assert.equal((await nodeById(table.id)).props.cells, "Other,Text\nC,3");
+  const keyboard = nodes.find((node) => node.type === "keyboard");
+  await click(`[data-tree="${keyboard.id}"]`);
+  const area = nodes.find((node) => node.type === "textarea");
+  await click('.attributes [data-select="target"] .icon-select-button');
+  await click(`.attributes [data-select="target"] [data-value="${area.id}"]`);
+  assert.equal((await nodeById(keyboard.id)).props.target, area.id);
+});
+
 await step("Copy, paste, duplicate and delete work from the keyboard", async () => {
   const count = async () => (await allNodes()).length;
   const start = await count();
@@ -558,7 +700,7 @@ await step("A screen can be renamed and deleted, but not the last one", async ()
   await click(`[data-screen-tab="${last.id}"]`);
   await typeInto('.attributes input[data-field="name"]', "Renamed");
   assert.equal((await project()).screens.at(-1).name, "Renamed");
-  await click(`.screen-tab.active .mini`);
+  await click(".screen-tab.active .mini");
   await sleep(120);
   assert.equal((await project()).screens.length, screens.length - 1);
   await click('[data-command="undo"]');
@@ -601,14 +743,40 @@ await step("Every generated file can be read in the code view", async () => {
 await step("Panels can be resized by their splitters", async () => {
   const width = () => js('document.querySelector(".left-col").getBoundingClientRect().width');
   const before = await width();
-  const splitter = await center(".workspace > .splitter");
+  const splitter = await center('[data-splitter="left"]');
   await drag(splitter, { x: splitter.x + 40, y: splitter.y });
   assert.ok(Math.abs((await width()) - (before + 40)) <= 2);
+  const attributes = () => js('document.querySelector(".right-col").getBoundingClientRect().width');
+  const wide = await attributes();
+  const right = await center('[data-splitter="right"]');
+  await drag(right, { x: right.x - 40, y: right.y });
+  assert.ok(Math.abs((await attributes()) - (wide + 40)) <= 2);
   const height = () => js('document.querySelector(".bottom-panel").getBoundingClientRect().height');
   const lower = await height();
-  const bottom = await center(".splitter.h");
+  const bottom = await center('[data-splitter="bottom"]');
   await drag(bottom, { x: bottom.x, y: bottom.y - 30 });
   assert.ok(Math.abs((await height()) - (lower + 30)) <= 2);
+});
+
+await step("The divider between the palette and the component tree moves", async () => {
+  const palette = () => js('document.querySelector("[data-panel=palette]").getBoundingClientRect().height');
+  const tree = () => js('document.querySelector("[data-panel=tree]").getBoundingClientRect().height');
+  const [paletteBefore, treeBefore] = [await palette(), await tree()];
+  const divider = await center('[data-splitter="palette"]');
+  await drag(divider, { x: divider.x, y: divider.y + 50 });
+  assert.ok(Math.abs((await palette()) - (paletteBefore + 50)) <= 2, "the palette did not grow");
+  assert.ok(Math.abs((await tree()) - (treeBefore - 50)) <= 2, "the tree did not shrink");
+  const moved = await center('[data-splitter="palette"]');
+  await drag(moved, { x: moved.x, y: moved.y - 9999 > 0 ? moved.y - 9999 : 5 });
+  assert.ok((await palette()) >= 60, "the palette can vanish");
+  const again = await center('[data-splitter="palette"]');
+  await drag(again, { x: again.x, y: 2000 });
+  assert.ok((await tree()) >= 60, "the tree can vanish");
+  const back = await center('[data-splitter="palette"]');
+  await drag(back, { x: back.x, y: back.y - (await palette()) + paletteBefore });
+  await sleep(100);
+  const saved = JSON.parse(fs.readFileSync(path.join(data, "settings", "settings.json"), "utf8"));
+  assert.ok(typeof saved.panels.palette === "number", "the position is not saved");
 });
 
 await step("Every menu opens and lists its commands", async () => {
@@ -662,6 +830,8 @@ await step("Settings: every built-in theme applies its colours", async () => {
     assert.equal(await js("window.__mls.themeId()"), id);
     assert.equal(await js("document.documentElement.dataset.theme"), id);
     colours.add(await js("getComputedStyle(document.documentElement).getPropertyValue('--bg') + getComputedStyle(document.documentElement).getPropertyValue('--accent')"));
+    const worst = await js(CONTRAST_PROBE);
+    assert.ok(worst.ratio >= 4.5, `${id}: ${worst.what} has contrast ${worst.ratio.toFixed(2)}`);
   }
   assert.equal(colours.size, ids.length, "two themes look the same");
   await click('[data-pref-theme="light-classic"]');
@@ -676,6 +846,9 @@ await step("Settings: a user theme can be created, edited and used", async () =>
   await typeInto('[data-field="themeName"]', "Studio Night");
   for (const [key, colour] of [["bg", "#101820"], ["panel", "#18242f"], ["ink", "#e8f0f8"], ["accent", "#ff8800"]]) {
     await typeInto(`[data-field="themeColor-${key}"] .color-text`, colour);
+    // At every step of editing, nothing on screen may become unreadable.
+    const during = await js(CONTRAST_PROBE);
+    assert.ok(during.ratio >= 4.5, `after ${key}: ${during.what} has contrast ${during.ratio.toFixed(2)}`);
   }
   await sleep(100);
   const variable = (name) => js(`getComputedStyle(document.documentElement).getPropertyValue('${name}').trim()`);
@@ -686,6 +859,9 @@ await step("Settings: a user theme can be created, edited and used", async () =>
   await sleep(100);
   assert.equal(await js("document.documentElement.dataset.mode"), "dark");
   assert.ok((await js(`document.querySelector('[data-pref-theme="${id}"]').textContent`)).includes("Studio Night"));
+  // Only some colours were changed, so its panel is dark while its header is still light.
+  const worst = await js(CONTRAST_PROBE);
+  assert.ok(worst.ratio >= 4.5, `${worst.what} has contrast ${worst.ratio.toFixed(2)}`);
   await shot("13-custom-theme");
 });
 
@@ -714,10 +890,10 @@ await step("Settings: the start screen tab edits the same values", async () => {
   assert.ok(kinds.length >= 20);
   await click(`[data-pref-page="start"] [data-background="${kinds[3]}"]`);
   assert.equal(await js("window.__mls.start().background"), kinds[3]);
-  await click('[data-pref-page="start"] [data-field="startShuffle"]');
+  await click('[data-pref-page="start"] [data-background-shuffle]');
   assert.equal(await js("window.__mls.start().shuffle"), true);
-  await click('[data-pref-page="start"] [data-field="startShuffle"]');
-  await click('[data-pref-page="start"] [data-field="startOpacity"] button:last-child');
+  await click('[data-pref-page="start"] [data-background-shuffle]');
+  await click('[data-pref-page="start"] [data-step="startOpacity:up"]');
   await shot("14-pref-start");
   await click('[data-command="start-reset"]');
   await sleep(60);
@@ -805,8 +981,9 @@ if (!skipNative) {
 
   await step("Native run works with the LVGL v8 API too", async () => {
     await click('[data-command="native"]');
+    await page.until('Array.from(document.querySelectorAll("[data-log=build] .log-line span")).some((e) => e.textContent.startsWith("Running"))', 480000);
     await click('[data-bottom="log"]');
-    await page.until('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent.startsWith("started: 320x240, LVGL 8.4.0"))', 480000);
+    await page.until('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent.startsWith("started: 320x240, LVGL 8.4.0"))', 15000);
     await shot("15-native-v8");
     await click('[data-command="native"]');
     await page.until('document.querySelector(\'[data-command="native"]\').getAttribute("aria-pressed") === "false"', 10000);

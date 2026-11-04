@@ -4,8 +4,8 @@ import { Icon } from "./icons.jsx";
 import { ColorField, IconSelect, Toggle } from "./controls.jsx";
 import { ConfirmDialog, Dialog } from "./dialogs.jsx";
 import { THEME_COLOR_KEYS, THEMES, themeById } from "./themes.js";
-import { MAX_CUSTOM_THEMES, customThemeFrom, DEFAULT_START_SCREEN } from "./settings.js";
-import { BackgroundGrid, StartOptions } from "./StartScreen.jsx";
+import { MAX_CUSTOM_THEMES, customThemeFrom, DEFAULT_START_SCREEN, effectiveSpeed } from "./settings.js";
+import { BackgroundGrid, StartRanges } from "./StartScreen.jsx";
 
 function ThemeRow({ item, label, selected, onPick }) {
   return (
@@ -36,8 +36,8 @@ function ThemeEditor({ t, theme, onChange, onDelete }) {
   );
 }
 
-export function PreferencesDialog({ t, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
-  const [tab, setTab] = useState("general");
+export function PreferencesDialog({ t, initialTab, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
+  const [tab, setTab] = useState(initialTab ?? "general");
   const [asking, setAsking] = useState(false);
   const label = (item) => (language === "en" ? item.nameEn : item.nameKo);
   const editing = customThemes.find((item) => item.id === themeId);
@@ -104,10 +104,14 @@ export function PreferencesDialog({ t, language, onLanguage, themeId, onTheme, c
           )}
           {tab === "start" && (
             <>
-              <StartOptions t={t} start={start} onChange={onStart} />
-              <button type="button" data-command="start-reset" onClick={() => onStart({ ...DEFAULT_START_SCREEN })}><Icon name="undo" /> {t("start.reset")}</button>
+              <div className="form-grid">
+                <span>{t("start.showOnStartup")}</span>
+                <Toggle id="prefStartShow" checked={start.showOnStartup} onChange={(showOnStartup) => onStart({ showOnStartup })} />
+              </div>
+              <StartRanges t={t} start={start} speed={effectiveSpeed(start.speed, !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)} onChange={onStart} />
+              <button type="button" className="pref-reset" data-command="start-reset" onClick={() => onStart({ ...DEFAULT_START_SCREEN })}><Icon name="undo" /> {t("start.reset")}</button>
               <h4>{t("start.background")}</h4>
-              <BackgroundGrid t={t} value={start.background} themeId={themeId} onChange={(background) => onStart({ background })} />
+              <BackgroundGrid t={t} value={start.background} themeId={themeId} onChange={(background) => onStart({ background })} shuffle={{ on: start.shuffle, onToggle: () => onStart({ shuffle: !start.shuffle }) }} />
             </>
           )}
         </div>

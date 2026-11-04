@@ -582,7 +582,7 @@ const DRAW = {
       for (let i = 0; i < count; i++) {
         const dir = r % 2 ? -1 : 1;
         const size = (30 + rnd(r * 5 + i) * 70) * u;
-        const x = wrap(rnd(r * 9 + i * 3) * w + dir * t * (30 + rnd(r) * 60) * u, w + size * 2) - size;
+        const x = wrap(rnd(r * 9 + i * 3) * w + dir * t * (70 + rnd(r) * 90) * u, w + size * 2) - size;
         ctx.fillStyle = rgba(p.accent, 0.3 + rnd(r + i) * 0.45);
         ctx.fillRect(x, y - 7 * u, size, 14 * u);
       }

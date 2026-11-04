@@ -19,6 +19,7 @@ tauri-plugin-single-instance = "2"
 # LVGL manager: the release list and the source archive.
 ureq = { version = "2", features = ["json"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = "0.22"
 
 [profile.release]
 panic = "abort"

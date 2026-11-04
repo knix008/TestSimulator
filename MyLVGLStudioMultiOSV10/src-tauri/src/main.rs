@@ -13,6 +13,7 @@ mod native;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use base64::Engine as _;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -80,6 +81,13 @@ fn startup_file() -> Option<String> {
     project_argument(&std::env::args().collect::<Vec<_>>())
 }
 
+/// A binary file as base64: an image being imported, or one of a project's images.
+#[tauri::command(async)]
+fn read_base64(path: String) -> Result<String, String> {
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
 #[tauri::command]
 fn read_text(path: String) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| e.to_string())
@@ -128,9 +136,17 @@ fn dir_state(dir: String) -> String {
 /// Saves a project folder. In `generated_dirs`, which hold only generated code, C files that
 /// are no longer part of the project (a removed screen) are deleted.
 #[tauri::command]
-fn write_project(dir: String, files: BTreeMap<String, String>, generated_dirs: Vec<String>) -> Result<(), String> {
+fn write_project(dir: String, files: BTreeMap<String, String>, binaries: BTreeMap<String, String>, generated_dirs: Vec<String>) -> Result<(), String> {
     let root = PathBuf::from(dir);
     write_tree(&root, &files)?;
+    for (name, data) in &binaries {
+        let path = root.join(safe_relative(name)?);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let bytes = base64::engine::general_purpose::STANDARD.decode(data).map_err(|e| e.to_string())?;
+        std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    }
     for generated in generated_dirs {
         let folder = root.join(safe_relative(&generated)?);
         let Ok(entries) = std::fs::read_dir(&folder) else { continue };
@@ -233,6 +249,7 @@ fn main() {
             load_settings,
             save_settings,
             startup_file,
+            read_base64,
             read_text,
             dir_state,
             write_project,

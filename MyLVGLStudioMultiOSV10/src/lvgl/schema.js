@@ -4,6 +4,7 @@
 export const TYPE_IDS = {
   screen: 0, container: 1, label: 2, button: 3, checkbox: 4, switch: 5, slider: 6, bar: 7,
   arc: 8, dropdown: 9, roller: 10, textarea: 11, spinner: 12, led: 13,
+  image: 14, line: 15, list: 16, table: 17, chart: 18, tabview: 19, keyboard: 20, calendar: 21, spinbox: 22, buttonmatrix: 23,
 };
 
 export const PROP_IDS = {
@@ -11,10 +12,10 @@ export const PROP_IDS = {
   align: 9, hidden: 10, clickable: 11, scrollable: 12, checked: 13, disabled: 14,
   bgColor: 20, bgOpa: 21, borderColor: 22, borderWidth: 23, radius: 24, textColor: 25, font: 26, pad: 27,
   shadowWidth: 28, shadowColor: 29, opa: 30, gap: 31, indicatorColor: 32, flexFlow: 33,
-  value: 42, selected: 43, ledBright: 44,
+  value: 42, selected: 43, ledBright: 44, rotation: 45, scale: 46, lineColor: 47, lineWidth: 48, columnWidth: 49, chartType: 50, image: 51,
 };
 
-export const STR_IDS = { text: 1, placeholder: 2, options: 3 };
+export const STR_IDS = { text: 1, placeholder: 2, options: 3, items: 4, cells: 5, series: 6, tabs: 7, map: 8, points: 9 };
 export const TRIGGERS = ["CLICKED", "PRESSED", "RELEASED", "VALUE_CHANGED"];
 export const ACTION_IDS = { screen: 1, setText: 2, toggle: 3, log: 4, show: 5, hide: 6 };
 
@@ -22,6 +23,10 @@ export const ACTION_IDS = { screen: 1, setText: 2, toggle: 3, log: 4, show: 5, h
 export const ALIGNS = ["DEFAULT", "TOP_LEFT", "TOP_MID", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_MID", "BOTTOM_RIGHT", "LEFT_MID", "RIGHT_MID", "CENTER"];
 /** Same order as FLOWS in engine/runtime.c. */
 export const FLEX_FLOWS = ["ROW", "COLUMN", "ROW_WRAP", "COLUMN_WRAP"];
+/** Same order as P_CHART_TYPE in engine/runtime.c. */
+export const CHART_TYPES = ["LINE", "BAR"];
+/** Same order as SERIES_COLORS in engine/runtime.c. */
+export const SERIES_COLORS = [0x2196f3, 0xf44336, 0x4caf50, 0xff9800];
 export const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48];
 
 const POSITION = [
@@ -97,13 +102,52 @@ export const WIDGETS = {
   textarea: widget("textarea", [TEXT, { key: "placeholder", kind: "text", group: "content" }, ...TEXT_STYLE], { width: 180, height: 70, placeholder: "Text" }),
   spinner: widget("spinner", [{ key: "indicatorColor", kind: "color", group: "style" }], { width: 56, height: 56 }),
   led: widget("led", [{ key: "ledBright", kind: "int", min: 0, max: 255, group: "content" }], { width: 26, height: 26, ledBright: 255 }),
+  image: widget("image", [
+    { key: "src", kind: "image", group: "content" },
+    { key: "rotation", kind: "int", min: 0, max: 359, group: "content" },
+    { key: "scale", kind: "int", min: 10, max: 800, group: "content" },
+  ], { width: 80, height: 80 }),
+  line: widget("line", [
+    { key: "points", kind: "text", group: "content" },
+    { key: "lineColor", kind: "color", group: "style" },
+    { key: "lineWidth", kind: "int", min: 1, max: 64, group: "style" },
+  ], { points: "0,0 60,40 120,10", lineWidth: 3 }),
+  list: widget("list", [{ key: "items", kind: "lines", group: "content" }, ...TEXT_STYLE], { width: 160, height: 150, items: "#Section\nItem 1\nItem 2\nItem 3" }),
+  table: widget("table", [
+    { key: "cells", kind: "lines", group: "content" },
+    { key: "columnWidth", kind: "int", min: 20, max: 800, group: "content" },
+    ...TEXT_STYLE,
+  ], { width: 240, height: 120, cells: "Name,Value\nA,1\nB,2", columnWidth: 110 }),
+  chart: widget("chart", [
+    { key: "chartType", kind: "enum", options: CHART_TYPES, group: "content" },
+    { key: "series", kind: "lines", group: "content" },
+    { key: "min", kind: "int", group: "content" },
+    { key: "max", kind: "int", group: "content" },
+  ], { width: 220, height: 130, chartType: "LINE", series: "10,40,30,70,50,90\n60,20,50,30,80,40", min: 0, max: 100 }),
+  tabview: widget("tabview", [{ key: "tabs", kind: "lines", group: "content" }], { width: 240, height: 150, tabs: "Tab 1\nTab 2\nTab 3" }),
+  keyboard: widget("keyboard", [{ key: "target", kind: "target", group: "content" }], { width: "100%", height: "40%", align: "TOP_LEFT" }),
+  calendar: widget("calendar", [
+    { key: "year", kind: "int", min: 1970, max: 2099, group: "content" },
+    { key: "month", kind: "int", min: 1, max: 12, group: "content" },
+    { key: "day", kind: "int", min: 1, max: 31, group: "content" },
+  ], { width: 220, height: 200, year: 2026, month: 1, day: 15 }),
+  spinbox: widget("spinbox", [
+    { key: "min", kind: "int", group: "content" },
+    { key: "max", kind: "int", group: "content" },
+    { key: "value", kind: "int", group: "content" },
+    { key: "digits", kind: "int", min: 1, max: 10, group: "content" },
+    { key: "separator", kind: "int", min: 0, max: 9, group: "content" },
+    ...TEXT_STYLE,
+  ], { width: 110, min: -9999, max: 9999, value: 120, digits: 4, separator: 2 }),
+  buttonmatrix: widget("buttonmatrix", [{ key: "map", kind: "lines", group: "content" }], { width: 200, height: 110, map: "1,2,3\n4,5,6" }),
 };
 
 /** Palette order, Android Studio style: groups of related widgets. */
 export const PALETTE = [
-  { group: "common", items: ["label", "button", "container"] },
-  { group: "input", items: ["textarea", "checkbox", "switch", "slider", "dropdown", "roller"] },
-  { group: "display", items: ["bar", "arc", "spinner", "led"] },
+  { group: "common", items: ["label", "button", "image", "container"] },
+  { group: "input", items: ["textarea", "keyboard", "checkbox", "switch", "slider", "spinbox", "dropdown", "roller", "buttonmatrix"] },
+  { group: "display", items: ["bar", "arc", "spinner", "led", "line", "chart"] },
+  { group: "data", items: ["list", "table", "tabview", "calendar"] },
 ];
 
 export const CONTAINERS = new Set(["screen", "container"]);

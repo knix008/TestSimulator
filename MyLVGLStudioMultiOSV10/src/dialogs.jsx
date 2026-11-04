@@ -5,7 +5,7 @@ import { ColorField, IconSelect, Stepper, Toggle } from "./controls.jsx";
 import { host, isDesktop } from "./host.js";
 import { BUNDLED_ENGINES, DEFAULT_VERSION, KNOWN_VERSIONS, engineFor, sortReleases } from "./lvgl/versions.js";
 import { DEVICES } from "./lvgl/schema.js";
-import { joinPath, validProjectName } from "./lvgl/project.js";
+import { joinPath, removeImageFromProject, validProjectName } from "./lvgl/project.js";
 
 export function Dialog({ title, onClose, children, footer, width = 460, id }) {
   useEffect(() => {
@@ -110,6 +110,18 @@ export function ProjectSettings({ t, store, onClose, onManager, installed }) {
         <Stepper id="deviceW" value={project.device.w} min={32} max={4096} onChange={(w) => edit((draft) => { draft.device.w = w; }, "w")} />
         <span>{t("settings.height")}</span>
         <Stepper id="deviceH" value={project.device.h} min={32} max={4096} onChange={(h) => edit((draft) => { draft.device.h = h; }, "h")} />
+        <span>{t("image.title")}</span>
+        <div className="image-list" data-images="">
+          {(project.images ?? []).length === 0 && <span className="start-empty">{t("image.empty")}</span>}
+          {(project.images ?? []).map((image) => (
+            <div className="image-row" key={image.name} data-image={image.name}>
+              <Icon name="image" />
+              <span title={image.file}>{image.name}</span>
+              <span>{image.w}×{image.h}</span>
+              <button type="button" className="mini" title={t("image.remove")} aria-label={t("image.remove")} data-image-remove={image.name} onClick={() => edit((draft) => removeImageFromProject(draft, image.name))}><Icon name="delete" size={13} /></button>
+            </div>
+          ))}
+        </div>
         <span>{t("settings.dark")}</span>
         <Toggle id="themeDark" checked={project.theme.dark} onChange={(dark) => edit((draft) => { draft.theme.dark = dark; })} />
         <span>{t("settings.primary")}</span>

@@ -1,23 +1,57 @@
 // Feature coverage for npm test: settings, themes, start backgrounds, and every widget,
 // property, trigger and action on every engine.
 import assert from "node:assert/strict";
-import { addNode, addScreen, createNode, newProject } from "../src/lvgl/project.js";
+import { addNode, addScreen, createNode, findNode, imageNameFor, newProject, parseProject, removeImageFromProject, removeNode, safeRelativePath, serializeProject } from "../src/lvgl/project.js";
 import { ACTION_IDS, ALIGNS, DEVICES, FLEX_FLOWS, FONT_SIZES, PALETTE, TRIGGERS, WIDGETS } from "../src/lvgl/schema.js";
 import { emit } from "../src/lvgl/emit.js";
-import { generateCode } from "../src/lvgl/codegen.js";
-import { THEMES, THEME_COLOR_KEYS, buildTheme, customTheme, isThemeId, setCustomThemes, themeById } from "../src/themes.js";
+import { GENERATED_DIRS, generateCode, projectFiles } from "../src/lvgl/codegen.js";
+import { addImage, clearImages, extensionOf, imageData, imageFiles, removeImage } from "../src/lvgl/images.js";
+import { THEMES, THEME_COLOR_KEYS, buildTheme, contrast, customTheme, isThemeId, readable, setCustomThemes, themeById } from "../src/themes.js";
 import { BACKGROUND_KINDS, drawBackground, isBackgroundKind } from "../src/start/backgrounds.js";
 import { translator } from "../src/i18n.js";
 import { ICON_NAMES } from "../src/icons-names.js";
+import { COLS, autoArrange, cardsOf, compact, layoutValue, overlaps, place, rowsFor } from "../src/start/layout.js";
 import {
   DEFAULT_START_SCREEN, MAX_CUSTOM_THEMES, MAX_RECENT, OPACITY_MAX, OPACITY_MIN, SPEED_MAX, START_CARDS,
-  addRecent, customThemeFrom, effectiveSpeed, newCustomThemeId, removeRecent, sanitizeCardOrder,
+  addRecent, customThemeFrom, effectiveSpeed, newCustomThemeId, removeRecent,
   sanitizeCustomThemes, sanitizeRecent, sanitizeSettings, sanitizeStartScreen,
 } from "../src/settings.js";
 
+const TEST_IMAGE = "testimg";
+
+/** A 40x30 picture with a gradient and a see-through corner, so scale and rotation show. */
+export function registerTestImage(project) {
+  const w = 40;
+  const h = 30;
+  const rgba = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const at = (y * w + x) * 4;
+      rgba[at] = 255 - x * 6;
+      rgba[at + 1] = y * 8;
+      rgba[at + 2] = x * 6;
+      rgba[at + 3] = x + y < 8 ? 0 : 255;
+    }
+  }
+  addImage(TEST_IMAGE, { w, h, rgba, base64: "AAAA" });
+  if (!project.images.some((image) => image.name === TEST_IMAGE)) project.images.push({ name: TEST_IMAGE, file: `assets/images/${TEST_IMAGE}.png`, w, h });
+}
+
 /** A value that exercises a property. */
 function valueFor(prop) {
+  if (prop.key === "points") return "0,0 40,30 80,5";
+  if (prop.key === "series") return "10,40,20,80\n50,20,70,30";
+  if (prop.key === "year") return 2026;
+  if (prop.key === "month") return 3;
+  if (prop.key === "day") return 14;
+  if (prop.key === "columnWidth") return 44;
+  if (prop.key === "scale") return 150;
+  if (prop.key === "rotation") return 30;
+  if (prop.key === "digits") return 4;
+  if (prop.key === "separator") return 2;
   switch (prop.kind) {
+    case "image": return TEST_IMAGE;
+    case "target": return undefined;
     case "int": return prop.key === "bgOpa" || prop.key === "opa" ? 180 : prop.key === "selected" ? 1 : 5;
     case "size": return 60;
     case "color": return "#336699";
@@ -33,16 +67,21 @@ export function everythingProject(version) {
   const project = newProject("Everything");
   project.lvgl = version;
   project.device = { w: 800, h: 480 };
+  registerTestImage(project);
   const screen = project.screens[0];
   let x = 4;
   let y = 4;
   for (const [type, definition] of Object.entries(WIDGETS)) {
     if (type === "screen") continue;
     const props = {};
-    for (const prop of definition.props) props[prop.key] = valueFor(prop);
+    for (const prop of definition.props) {
+      const value = valueFor(prop);
+      if (value !== undefined) props[prop.key] = value;
+    }
     Object.assign(props, { x, y, width: 90, height: 70, align: "TOP_LEFT", hidden: false, clickable: true, scrollable: false, disabled: false, opa: 255, min: 0, max: 10, value: 5 });
     // The spinner moves with time, so it is built but stays out of the picture.
     if (type === "spinner") props.hidden = true;
+    // Its text area blinks a cursor, so the keyboard stays unlinked in the picture.
     addNode(project, screen.id, createNode(project, type, props));
     x += 110;
     if (x > 700) {
@@ -55,6 +94,13 @@ export function everythingProject(version) {
   for (const width of [80, "20%", "content"]) addNode(project, forms.id, createNode(project, "button", { width, height: "content", text: `w ${width}` }));
   const aligned = addScreen(project);
   for (const align of ALIGNS) addNode(project, aligned.id, createNode(project, "label", { align, text: align }));
+  const data = addScreen(project);
+  const defaults = ["image", "line", "list", "table", "chart", "tabview", "calendar", "spinbox", "buttonmatrix", "keyboard"];
+  defaults.forEach((type, index) => {
+    const props = { x: (index % 4) * 200, y: Math.floor(index / 4) * 160 };
+    if (type === "image") Object.assign(props, { src: TEST_IMAGE, rotation: 45, scale: 200 });
+    addNode(project, data.id, createNode(project, type, props));
+  });
   const fonts = addScreen(project);
   fonts.props = { flexFlow: "COLUMN", gap: 1, pad: 2 };
   for (const font of FONT_SIZES) addNode(project, fonts.id, createNode(project, "label", { font, text: `Font ${font}` }));
@@ -135,11 +181,10 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.equal(effectiveSpeed(0, true), 0);
       assert.equal(effectiveSpeed(200, false), 200);
     });
-    await test("The card order always holds every card once", () => {
-      assert.deepEqual(sanitizeCardOrder(undefined), START_CARDS);
-      const order = sanitizeCardOrder(["recent", "recent", "gone", "hero"]);
-      assert.deepEqual(order.slice(0, 2), ["recent", "hero"]);
-      assert.deepEqual([...order].sort(), [...START_CARDS].sort());
+    await test("The saved card layout is kept, and nonsense is dropped", () => {
+      assert.equal(sanitizeStartScreen({}).layout, null);
+      assert.equal(sanitizeStartScreen({ layout: [1] }).layout, null);
+      assert.deepEqual(sanitizeStartScreen({ layout: { version: 1, cards: {} } }).layout, { version: 1, cards: {} });
     });
     await test("Recent projects: newest first, no duplicates, limited", () => {
       let list = [];
@@ -185,11 +230,58 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         assert.ok(gap > 0.4, `${item.id}: ${gap.toFixed(2)}`);
       }
     });
+    await test("Text is readable on every surface of every theme", () => {
+      for (const item of THEMES) {
+        const v = item.vars;
+        for (const surface of ["--panel", "--input", "--pop", "--button", "--hover", "--selected", "--header", "--chrome", "--bg"]) {
+          assert.ok(contrast(v["--ink"], v[surface]) >= 4.5, `${item.id}: ink on ${surface} is ${contrast(v["--ink"], v[surface]).toFixed(2)}`);
+        }
+        for (const surface of ["--panel", "--input", "--header", "--chrome", "--bg"]) {
+          assert.ok(contrast(v["--muted"], v[surface]) >= 4.5, `${item.id}: muted on ${surface} is ${contrast(v["--muted"], v[surface]).toFixed(2)}`);
+        }
+        assert.ok(contrast(v["--accent-ink"], v["--selected"]) >= 4.5, `${item.id}: selected text`);
+        assert.ok(contrast(v["--on-accent"], v["--accent"]) >= 3, `${item.id}: text on accent`);
+        assert.ok(contrast(v["--danger"], v["--panel"]) >= 4.5, `${item.id}: danger`);
+      }
+    });
+    await test("A user theme cannot make its text vanish", () => {
+      for (const [mode, surface] of [["dark", "#101010"], ["light", "#f8f8f8"], ["dark", "#808080"]]) {
+        const colors = Object.fromEntries(THEME_COLOR_KEYS.map((key) => [key, surface]));
+        const { vars } = buildTheme(mode, "x", "x", "x", colors);
+        assert.ok(contrast(vars["--ink"], vars["--input"]) >= 4.5, surface);
+        assert.ok(contrast(vars["--muted"], vars["--input"]) >= 4.5, surface);
+        assert.ok(contrast(vars["--accent-ink"], vars["--selected"]) >= 4.5, surface);
+      }
+    });
+    await test("A theme whose surfaces disagree is still readable everywhere", () => {
+      // Exactly what a user gets by editing only some colours of a light theme.
+      const light = Object.fromEntries(THEME_COLOR_KEYS.map((key) => [key, "#eef2f6"]));
+      const { vars } = buildTheme("dark", "x", "x", "x", { ...light, bg: "#101820", panel: "#18242f", ink: "#e8f0f8", muted: "#616a7e", accent: "#ff8800" });
+      assert.equal(vars["--ink"], "#e8f0f8", "good text must not be changed");
+      for (const name of ["--panel", "--input", "--pop", "--button", "--bg", "--header", "--chrome", "--hover", "--selected", "--alt-row"]) {
+        assert.ok(contrast(vars["--ink"], vars[name]) >= 4.5, `ink on ${name}: ${contrast(vars["--ink"], vars[name]).toFixed(2)}`);
+      }
+      for (const name of ["--panel", "--input", "--header", "--chrome", "--bg"]) {
+        assert.ok(contrast(vars["--muted"], vars[name]) >= 4.5, `muted on ${name}: ${contrast(vars["--muted"], vars[name]).toFixed(2)}`);
+      }
+      assert.ok(contrast(vars["--accent-ink"], vars["--selected"]) >= 4.5);
+    });
+    await test("Built-in themes keep their own colours when they already read well", () => {
+      const classic = themeById("light-classic").vars;
+      assert.equal(classic["--panel"], "#ffffff");
+      assert.equal(classic["--accent"], "#2563eb");
+    });
+    await test("A colour that already reads well is left as it is", () => {
+      assert.equal(readable("#000000", ["#ffffff"], 4.5), "#000000");
+      assert.equal(readable("#2563eb", ["#ffffff"], 4.5), "#2563eb");
+      assert.equal(contrast("#000000", "#ffffff").toFixed(0), "21");
+    });
     await test("A user theme is built like a built-in one", () => {
       const colors = Object.fromEntries(THEME_COLOR_KEYS.map((key) => [key, "#112233"]));
       const built = customTheme({ id: "custom-1", name: "Mine", mode: "dark", colors });
       assert.equal(built.id, "custom-1");
       assert.equal(built.vars["--accent"], "#112233");
+      assert.equal(built.vars["--bg"], "#112233");
       assert.deepEqual(Object.keys(built.vars).sort(), Object.keys(buildTheme("dark", "x", "x", "x", colors).vars).sort());
     });
     await test("A user theme is copied from any theme, and gets a new id", () => {
@@ -258,6 +350,140 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       });
     }
 
+    /* ----------------------------------------------------------- card board */
+    category("Start screen board");
+    const SPANS = Object.fromEntries(START_CARDS.map((id) => [id, 3]));
+    const noOverlap = (cards) => {
+      const ids = Object.keys(cards);
+      for (const a of ids) for (const b of ids) if (a !== b) assert.ok(!overlaps(cards[a], cards[b]), `${a} overlaps ${b}`);
+    };
+    await test("The default board holds every card, without overlaps", () => {
+      const cards = cardsOf(null, START_CARDS, SPANS, {}, 6);
+      assert.deepEqual(Object.keys(cards).sort(), [...START_CARDS].sort());
+      noOverlap(cards);
+    });
+    await test("Moving a card pushes the others down, and it stays where it was dropped", () => {
+      const cards = cardsOf(null, START_CARDS, { ...SPANS, recent: 1 }, {}, 6);
+      const moved = place(cards, "recent", { col: 2, row: 0 });
+      assert.equal(moved.recent.col, 2);
+      noOverlap(moved);
+    });
+    await test("Resizing a card never leaves the grid", () => {
+      const cards = cardsOf({ version: 1, cards: { recent: { col: 2, row: 0, w: 9, h: 1 } } }, START_CARDS, SPANS, {}, 6);
+      assert.ok(cards.recent.col + cards.recent.w <= COLS);
+      assert.ok(cards.recent.h >= 2);
+    });
+    await test("Auto arrange and saved layouts survive a round trip", () => {
+      const cards = autoArrange(START_CARDS, SPANS, {}, 6);
+      noOverlap(cards);
+      assert.deepEqual(cardsOf(layoutValue(cards), START_CARDS, SPANS, {}, 6), compact(cards));
+    });
+    await test("A card height is measured in rows, gap included", () => {
+      assert.equal(rowsFor(100), 6);
+      assert.equal(rowsFor(1), 2);
+    });
+
+    /* --------------------------------------------------------------- images */
+    category("Images");
+    await test("Image names are C-safe and unique, whatever the case", () => {
+      const project = newProject();
+      assert.equal(imageNameFor(project, "C:\\pics\\my logo.png"), "my_logo");
+      project.images.push({ name: "my_logo", file: "assets/images/my_logo.png", w: 1, h: 1 });
+      assert.equal(imageNameFor(project, "MY LOGO.jpg"), "MY_LOGO_2");
+      assert.equal(imageNameFor(project, "1.png"), "_1");
+    });
+    await test("Pixels are stored as BGRA, the order LVGL reads", () => {
+      addImage("order", { w: 1, h: 1, rgba: new Uint8ClampedArray([1, 2, 3, 4]) });
+      assert.deepEqual(Array.from(imageData("order").bgra), [3, 2, 1, 4]);
+      removeImage("order");
+      assert.equal(imageData("order"), null);
+    });
+    await test("The file extension is read case-insensitively", () => {
+      assert.equal(extensionOf("A.PNG"), "png");
+      assert.equal(extensionOf("noextension"), "png");
+    });
+    await test("Removing an image clears it from widgets", () => {
+      const project = newProject();
+      project.images.push({ name: "a", file: "assets/images/a.png", w: 1, h: 1 });
+      const node = addNode(project, project.screens[0].id, createNode(project, "image", { src: "a" }));
+      removeImageFromProject(project, "a");
+      assert.equal(project.images.length, 0);
+      assert.ok(!("src" in findNode(project, node.id).props));
+    });
+    await test("Removing a text area clears the keyboards aimed at it", () => {
+      const project = newProject();
+      const area = addNode(project, project.screens[0].id, createNode(project, "textarea"));
+      const keyboard = addNode(project, project.screens[0].id, createNode(project, "keyboard", { target: area.id }));
+      removeNode(project, area.id);
+      assert.ok(!("target" in findNode(project, keyboard.id).props));
+    });
+    await test("Project files check their images", () => {
+      const bad = (images) => {
+        const project = newProject();
+        project.images = images;
+        return serializeProject(project);
+      };
+      assert.throws(() => parseProject(bad([{ name: "a b", file: "assets/a.png" }])), /image name/);
+      assert.throws(() => parseProject(bad([{ name: "a", file: "../evil.png" }])), /image path/);
+      assert.throws(() => parseProject(bad([{ name: "a", file: "C:\\evil.png" }])), /image path/);
+      assert.throws(() => parseProject(bad([{ name: "a", file: "a.png" }, { name: "a", file: "b.png" }])), /duplicate image/);
+      assert.deepEqual(parseProject(JSON.stringify({ ...JSON.parse(bad([])), images: undefined })).images, []);
+    });
+    await test("Only paths inside the project folder are accepted", () => {
+      assert.ok(safeRelativePath("assets/images/a.png"));
+      for (const path of ["../a", "/a", "a/../b", "a\\b", "C:/a", "a//b"]) assert.ok(!safeRelativePath(path), path);
+    });
+    await test("The project folder holds the image file and its C source", () => {
+      const project = newProject();
+      registerTestImage(project);
+      addNode(project, project.screens[0].id, createNode(project, "image", { src: TEST_IMAGE }));
+      assert.deepEqual(imageFiles(project), { "assets/images/testimg.png": "AAAA" });
+      const files = projectFiles(project, "App");
+      const source = files["src/ui/images/ui_img_testimg.c"];
+      assert.match(source, /LV_COLOR_FORMAT_ARGB8888/);
+      assert.match(source, /\.header\.w = 40/);
+      assert.ok(source.split("0x").length > 40 * 30 * 4, "the pixels are missing");
+      assert.match(files["src/ui/ui.h"], /LV_IMAGE_DECLARE\(ui_img_testimg\)/);
+      assert.match(files["src/ui/screens/ui_Screen1.c"], /lv_image_set_src\(ui_image1, &ui_img_testimg\)/);
+      assert.ok(files["CMakeLists.txt"].includes("src/ui/images/ui_img_testimg.c"));
+      assert.ok(GENERATED_DIRS.includes("src/ui/images"));
+    });
+    await test("LVGL v8 gets its own image format, for 32 and 16 bit colour", () => {
+      const project = newProject();
+      project.lvgl = "8.4.0";
+      registerTestImage(project);
+      const source = generateCode(project)["src/ui/images/ui_img_testimg.c"];
+      assert.match(source, /LV_IMG_CF_TRUE_COLOR_ALPHA/);
+      assert.match(source, /LV_COLOR_DEPTH == 32/);
+      assert.match(source, /LV_COLOR_16_SWAP == 0/);
+      assert.match(generateCode(project)["src/ui/ui.h"], /LV_IMG_DECLARE/);
+    });
+    await test("The code view can leave out the pixel data", () => {
+      const project = newProject();
+      registerTestImage(project);
+      const source = generateCode(project, { imageData: false })["src/ui/images/ui_img_testimg.c"];
+      assert.ok(source.length < 400);
+      clearImages();
+      registerTestImage(project);
+    });
+    await test("The API names of the new widgets follow the version", () => {
+      const code = (version) => Object.values(generateCode(everythingProject(version), { imageData: false })).join("\n");
+      const v8 = code("8.4.0");
+      assert.match(v8, /lv_tabview_create\(ui_\w+, LV_DIR_TOP, 40\)/);
+      assert.match(v8, /lv_btnmatrix_create/);
+      assert.match(v8, /lv_list_add_btn/);
+      assert.match(v8, /lv_table_set_row_cnt/);
+      assert.match(v8, /lv_img_set_angle/);
+      const v92 = code("9.2.2");
+      assert.match(v92, /lv_chart_set_range/);
+      assert.match(v92, /lv_calendar_set_showed_date/);
+      assert.match(v92, /lv_buttonmatrix_create/);
+      const v96 = code("9.6.0");
+      assert.match(v96, /lv_chart_set_axis_range/);
+      assert.match(v96, /lv_calendar_set_month_shown/);
+      assert.match(v96, /lv_image_set_rotation/);
+    });
+
     /* -------------------------------------------------------- widget tables */
     category("Widgets and commands");
     await test("Every widget can be placed, except the screen itself", () => {
@@ -310,8 +536,9 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         const project = newProject();
         project.lvgl = version;
         project.device = { w: 320, h: 240 };
+        registerTestImage(project);
         Object.assign(project.screens[0].props, parentProps);
-        const node = addNode(project, project.screens[0].id, createNode(project, type, { x: 30, y: 30, ...props }));
+        const node = addNode(project, project.screens[0].id, createNode(project, type, { x: 30, y: 30, ...(type === "image" ? { src: TEST_IMAGE } : {}), ...props }));
         return { project, node };
       };
       const frameOf = (project) => {
@@ -338,6 +565,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         if (type === "screen") continue;
         await test(`${type}: every property is accepted, and it draws`, () => {
           for (const prop of definition.props) {
+            if (prop.kind === "target") continue;
             const { project } = single(type, { [prop.key]: valueFor(prop) });
             if (prop.key === "min" || prop.key === "max") Object.assign(project.screens[0].children[0].props, { min: 0, max: 10 });
             engine.load(project, project.screens[0].id, { events: true });
@@ -355,7 +583,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
           engine.load(project, project.screens[0].id);
           const box = engine.coords(node.id);
           assert.deepEqual([box.x, box.y], [40, 50]);
-          if (!["label", "checkbox", "roller", "dropdown"].includes(type)) assert.deepEqual([box.w, box.h], [90, 60]);
+          if (!["label", "checkbox", "roller", "dropdown", "spinbox", "line"].includes(type)) assert.deepEqual([box.w, box.h], [90, 60]);
           const base = { width: 90, height: 60, text: "Sample", options: "One\nTwo" };
           assert.ok(differs(type, base, { hidden: true }), "hidden changes nothing");
         });
@@ -390,12 +618,66 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         ["led", { width: 26, height: 26, ledBright: 255 }, "ledBright", { ledBright: 80 }],
         ["container", { width: 180, height: 110 }, "bgColor", { bgColor: "#ffff00" }],
         ["container", { width: 180, height: 110 }, "pad", { pad: 0, borderWidth: 3 }],
+        ["image", {}, "the picture itself", { src: undefined }],
+        ["image", {}, "rotation", { rotation: 30 }],
+        ["image", {}, "scale", { scale: 200 }],
+        ["image", {}, "opa", { opa: 90 }],
+        ["line", { points: "0,0 80,40" }, "points", { points: "0,40 80,0" }],
+        ["line", { points: "0,0 80,40" }, "lineColor", { lineColor: "#ff0000" }],
+        ["line", { points: "0,0 80,40" }, "lineWidth", { lineWidth: 9 }],
+        ["list", { width: 160, height: 150 }, "items", { items: "#Title\nOnly one" }],
+        ["table", { width: 240, height: 120 }, "cells", { cells: "Other,Text\nC,3" }],
+        ["table", { width: 240, height: 120, columnWidth: 60 }, "columnWidth", { columnWidth: 110 }],
+        ["chart", { width: 200, height: 120 }, "series", { series: "90,10,90,10" }],
+        ["chart", { width: 200, height: 120 }, "chartType", { chartType: "BAR" }],
+        ["chart", { width: 200, height: 120, min: 0, max: 100 }, "range", { max: 500 }],
+        ["tabview", { width: 240, height: 150 }, "tabs", { tabs: "First\nSecond" }],
+        ["calendar", { width: 220, height: 200 }, "month", { month: 6 }],
+        ["calendar", { width: 220, height: 200 }, "today", { day: 20 }],
+        ["spinbox", { width: 110 }, "value", { value: 777 }],
+        ["spinbox", { width: 110 }, "digits", { digits: 3, separator: 1 }],
+        ["buttonmatrix", { width: 200, height: 110 }, "map", { map: "A,B\nC" }],
+        ["keyboard", { width: 300, height: 110 }, "size", { height: 90 }],
       ];
       for (const [type, base, name, change] of visible) {
         await test(`${type}: ${name} changes the picture`, () => {
           assert.ok(differs(type, base, change));
         });
       }
+      await test("A keyboard types into its text area when running", () => {
+        const project = newProject();
+        project.lvgl = version;
+        project.device = { w: 480, h: 320 };
+        const area = addNode(project, project.screens[0].id, createNode(project, "textarea", { x: 10, y: 10, width: 200, height: 50 }));
+        const keyboard = addNode(project, project.screens[0].id, createNode(project, "keyboard", { x: 0, y: 0, width: 480, height: 200, align: "BOTTOM_MID", target: area.id }));
+        engine.load(project, project.screens[0].id, { events: true });
+        assert.deepEqual(engine.errors, []);
+        for (let i = 0; i < 10; i++) engine.tick(20);
+        const before = Buffer.from(engine.frame());
+        const box = engine.coords(keyboard.id);
+        press({ x: box.x + 30, y: box.y + 25, w: 10, h: 10 });
+        for (let i = 0; i < 10; i++) engine.tick(20);
+        assert.ok(!before.equals(Buffer.from(engine.frame())));
+      });
+      await test("The image's see-through corner shows the screen behind it", () => {
+        const { project, node } = single("image", { x: 0, y: 0, width: "content", height: "content" });
+        project.screens[0].props = { bgColor: "#00ff00", bgOpa: 255 };
+        engine.load(project, project.screens[0].id);
+        const box = engine.coords(node.id);
+        assert.deepEqual([box.w, box.h], [40, 30]);
+        const frame = engine.frame();
+        const pixel = (x, y) => {
+          const at = (y * engine.width + x) * 4;
+          return [frame[at + 2], frame[at + 1], frame[at]];
+        };
+        assert.deepEqual(pixel(0, 0), [0, 255, 0]);
+        assert.deepEqual(pixel(0, 20), [255, 160, 0]);
+      });
+      await test("An image widget naming a missing image is simply empty", () => {
+        const { project } = single("image", { src: "nothing" });
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+      });
       await test("Width and height accept pixels, percent and content", () => {
         const { project, node } = single("button", { width: "50%", height: "content", text: "Text" });
         engine.load(project, project.screens[0].id);
@@ -473,7 +755,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         }
       });
 
-      const press = (box, { hold = true } = {}) => {
+      function press(box, { hold = true } = {}) {
         const x = box.x + box.w / 2;
         const y = box.y + box.h / 2;
         engine.pointer(x, y, false);
@@ -482,7 +764,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         for (let i = 0; i < 5; i++) engine.tick(20);
         if (hold) engine.pointer(x, y, false);
         for (let i = 0; i < 6; i++) engine.tick(20);
-      };
+      }
       for (const trigger of TRIGGERS) {
         await test(`Trigger ${trigger} fires`, () => {
           const type = trigger === "VALUE_CHANGED" ? "switch" : "button";

@@ -56,6 +56,22 @@ const V8 = {
   display: "lv_disp_t",
   defaultDisplay: "lv_disp_get_default",
   setTheme: "lv_disp_set_theme",
+  image: "lv_img_create",
+  imageSrc: "lv_img_set_src",
+  imageRotation: "lv_img_set_angle",
+  imageScale: "lv_img_set_zoom",
+  imageDeclare: "LV_IMG_DECLARE",
+  point: "lv_point_t",
+  list: "lv_list_add_btn",
+  tabview: (parent) => `lv_tabview_create(${parent}, LV_DIR_TOP, 40)`,
+  rowCount: "lv_table_set_row_cnt",
+  columnCount: "lv_table_set_col_cnt",
+  columnWidth: "lv_table_set_col_width",
+  columnCountGet: "lv_table_get_col_cnt",
+  matrix: "lv_btnmatrix_create",
+  matrixMap: "lv_btnmatrix_set_map",
+  chartRange: "lv_chart_set_range",
+  calendarMonth: "lv_calendar_set_showed_date",
 };
 
 const V9 = {
@@ -67,6 +83,29 @@ const V9 = {
   display: "lv_display_t",
   defaultDisplay: "lv_display_get_default",
   setTheme: "lv_display_set_theme",
+  image: "lv_image_create",
+  imageSrc: "lv_image_set_src",
+  imageRotation: "lv_image_set_rotation",
+  imageScale: "lv_image_set_scale",
+  imageDeclare: "LV_IMAGE_DECLARE",
+  point: "lv_point_precise_t",
+  list: "lv_list_add_button",
+  tabview: (parent) => `lv_tabview_create(${parent})`,
+  rowCount: "lv_table_set_row_count",
+  columnCount: "lv_table_set_column_count",
+  columnWidth: "lv_table_set_column_width",
+  columnCountGet: "lv_table_get_column_count",
+  matrix: "lv_buttonmatrix_create",
+  matrixMap: "lv_buttonmatrix_set_map",
+  chartRange: "lv_chart_set_range",
+  calendarMonth: "lv_calendar_set_showed_date",
 };
 
-export const apiFor = (version) => (parseVersion(version)?.major === 8 ? V8 : V9);
+/** 9.3 renamed two functions. */
+const V93 = { ...V9, chartRange: "lv_chart_set_axis_range", calendarMonth: "lv_calendar_set_month_shown" };
+
+export function apiFor(version) {
+  const v = parseVersion(version);
+  if (v?.major === 8) return V8;
+  return v && v.minor >= 3 ? V93 : V9;
+}

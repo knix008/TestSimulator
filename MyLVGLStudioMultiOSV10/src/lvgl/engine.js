@@ -2,6 +2,7 @@
 // passes pointer input. Runs in the app and, with a different loader, in the Node tests.
 import { ACTION_IDS, PROP_IDS, STR_IDS, TRIGGERS, TYPE_IDS } from "./schema.js";
 import { colorValue, emit } from "./emit.js";
+import { imageData } from "./images.js";
 
 export class Engine {
   constructor(module, version) {
@@ -12,6 +13,22 @@ export class Engine {
     this.ids = new Map();
     this.scratch = module._malloc(16);
     this.errors = [];
+    this.imagePixels = new Map();
+  }
+
+  /** Copies an image's pixels into engine memory once, and registers it under its index. */
+  loadImages(project) {
+    (project.images ?? []).forEach((image, index) => {
+      const data = imageData(image.name);
+      if (!data) return;
+      let pixels = this.imagePixels.get(data.bgra);
+      if (!pixels) {
+        pixels = this.m._malloc(data.bgra.length);
+        this.m.HEAPU8.set(data.bgra, pixels);
+        this.imagePixels.set(data.bgra, pixels);
+      }
+      this.m._ml_image_load(index, data.w, data.h, pixels);
+    });
   }
 
   withString(text, use) {
@@ -34,6 +51,7 @@ export class Engine {
       this.m._ml_clear();
     }
     this.m._ml_theme(project.theme.dark ? 1 : 0, colorValue(project.theme.primary), colorValue(project.theme.secondary));
+    this.loadImages(project);
     const { ops, ids } = emit(project);
     this.ids = ids;
     this.errors = [];
@@ -46,6 +64,12 @@ export class Engine {
         case "range": check(this.m._ml_range(op.id, op.min, op.max), op); break;
         case "int": check(this.m._ml_set_i(op.id, PROP_IDS[op.prop], op.value), op); break;
         case "str": check(this.withString(op.value, (p) => this.m._ml_set_s(op.id, STR_IDS[op.prop], p)), op); break;
+        case "digits": check(this.m._ml_digits(op.id, op.count, op.separator), op); break;
+        case "date": check(this.m._ml_date(op.id, op.year, op.month, op.day), op); break;
+        case "link": check(this.m._ml_link(op.id, op.target), op); break;
+        case "image":
+          if (imageData(op.name)) check(this.m._ml_set_i(op.id, PROP_IDS.image, op.index), op);
+          break;
         case "event":
           if (events) {
             check(this.withString(op.text, (p) => this.m._ml_event(op.id, TRIGGERS.indexOf(op.trigger), ACTION_IDS[op.action], op.target, p)), op);

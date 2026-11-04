@@ -15,7 +15,7 @@ export const OPACITY_MIN = 20;
 export const OPACITY_MAX = 100;
 export const OPACITY_STEP = 5;
 export const SHUFFLE_SECONDS = 20;
-export const START_CARDS = ["hero", "actions", "recent", "theme", "options", "background"];
+export const START_CARDS = ["hero", "actions", "recent", "theme", "background"];
 
 export const DEFAULT_START_SCREEN = {
   showOnStartup: true,
@@ -23,18 +23,12 @@ export const DEFAULT_START_SCREEN = {
   speed: null,
   shuffle: false,
   cardOpacity: 85,
-  order: START_CARDS,
+  layout: null,
 };
 
 const stepped = (value, min, max, step) => Math.max(min, Math.min(max, Math.round(value / step) * step));
 
 export const effectiveSpeed = (speed, reducedMotion) => speed ?? (reducedMotion ? REDUCED_MOTION_SPEED : DEFAULT_SPEED);
-
-/** Every known card exactly once, the saved order first. */
-export function sanitizeCardOrder(value) {
-  const saved = Array.isArray(value) ? value.filter((id, index) => START_CARDS.includes(id) && value.indexOf(id) === index) : [];
-  return [...saved, ...START_CARDS.filter((id) => !saved.includes(id))];
-}
 
 export function sanitizeStartScreen(value) {
   const v = value && typeof value === "object" ? value : {};
@@ -46,7 +40,7 @@ export function sanitizeStartScreen(value) {
     speed: Number.isFinite(speed) ? stepped(speed, SPEED_MIN, SPEED_MAX, SPEED_STEP) : null,
     shuffle: v.shuffle === true,
     cardOpacity: Number.isFinite(opacity) ? stepped(opacity, OPACITY_MIN, OPACITY_MAX, OPACITY_STEP) : DEFAULT_START_SCREEN.cardOpacity,
-    order: sanitizeCardOrder(v.order),
+    layout: v.layout && typeof v.layout === "object" && !Array.isArray(v.layout) ? v.layout : null,
   };
 }
 

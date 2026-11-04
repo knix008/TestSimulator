@@ -14,14 +14,16 @@ import { Surface } from "./Surface.jsx";
 import { Attributes, CodeView, ComponentTree, LogView, Palette } from "./panels.jsx";
 import { AboutDialog, ConfirmDialog, LvglManager, MessageDialog, NewProjectDialog, ProjectSettings } from "./dialogs.jsx";
 import { useProjectStore } from "./store.js";
-import { FILE_EXTENSION, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, removeNode, screenOf } from "./lvgl/project.js";
+import { FILE_EXTENSION, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
 import { CONTAINERS, WIDGETS } from "./lvgl/schema.js";
 import { GENERATED_DIRS, generateCode, projectFiles } from "./lvgl/codegen.js";
+import { addImage, clearImages, decodeImage, extensionOf, imageFiles } from "./lvgl/images.js";
 import { engineFor } from "./lvgl/versions.js";
 
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
 const clock = () => new Date().toTimeString().slice(0, 8);
 const LOG_LIMIT = 2000;
+const MAX_IMAGE_SIZE = 2048;
 
 function Menu({ id, label, open, onOpen, onHover, items }) {
   return (
@@ -99,7 +101,7 @@ export function App({ initialSettings }) {
   const [installed, setInstalled] = useState([]);
   const [runtime, setRuntime] = useState(null);
   const [ghost, setGhost] = useState(null);
-  const [sizes, setSizes] = useState({ left: 250, right: 300, bottom: 170, ...initialSettings.panels });
+  const [sizes, setSizes] = useState({ left: 250, right: 300, bottom: 170, palette: 300, ...initialSettings.panels });
 
   const clipboard = useRef(null);
   const surface = useRef(null);
@@ -182,9 +184,26 @@ export function App({ initialSettings }) {
     if (/os error [23]\b|not found|cannot find/i.test(String(error?.message ?? error))) forgetRecent(file);
   };
 
+  /** Reads a project's image files; one that cannot be read is reported, and the project still opens. */
+  const loadProjectImages = async (document, file) => {
+    clearImages();
+    const separator = file.includes("\\") ? "\\" : "/";
+    const folder = file.slice(0, file.lastIndexOf(separator));
+    for (const image of document.images) {
+      try {
+        const base64 = await host.readBase64(`${folder}${separator}${image.file.split("/").join(separator)}`);
+        addImage(image.name, { ...(await decodeImage(base64, extensionOf(image.file))), base64 });
+      } catch {
+        log(t("image.missing", { file: image.file }), "error");
+      }
+    }
+  };
+
   const openFile = async (file) => {
     try {
-      load(parseProject(await host.readText(file)), file);
+      const document = parseProject(await host.readText(file));
+      await loadProjectImages(document, file);
+      load(document, file);
       log(t("log.opened", { path: file }));
     } catch (error) {
       forgetIfMissing(file, error);
@@ -207,7 +226,7 @@ export function App({ initialSettings }) {
 
   /** Writes the project file and all generated code into the project folder. */
   const writeFolder = async (folder, baseName, document) => {
-    await host.writeProject(folder, projectFiles(document, baseName), GENERATED_DIRS);
+    await host.writeProject(folder, projectFiles(document, baseName), imageFiles(document), GENERATED_DIRS);
     log(t("log.saved", { path: folder }));
   };
 
@@ -218,6 +237,7 @@ export function App({ initialSettings }) {
     const separator = folder.includes("\\") ? "\\" : "/";
     const file = `${folder}${separator}${name}.${FILE_EXTENSION}`;
     const document = saveOnly ? { ...store.get(), name } : { ...newProject(name), lvgl: version, device };
+    if (!saveOnly) clearImages();
     await writeFolder(folder, name, document);
     if (saveOnly) {
       store.update((draft) => {
@@ -250,6 +270,38 @@ export function App({ initialSettings }) {
   };
 
   /* ---------------------------------------------------------- editing */
+
+  /** Imports an image file and shows it in an image widget. */
+  const importImage = async (nodeId) => {
+    try {
+      const file = await host.pickImage();
+      if (!file) return;
+      const extension = extensionOf(file);
+      const base64 = await host.readBase64(file);
+      const decoded = await decodeImage(base64, extension);
+      if (decoded.w > MAX_IMAGE_SIZE || decoded.h > MAX_IMAGE_SIZE) {
+        showError(t("image.tooLarge", { w: decoded.w, h: decoded.h, max: MAX_IMAGE_SIZE }));
+        return;
+      }
+      addImportedImage(nodeId, file, decoded, base64);
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  const addImportedImage = (nodeId, file, decoded, base64) => {
+    const name = imageNameFor(store.get(), file);
+    addImage(name, { ...decoded, base64 });
+    store.update((draft) => {
+      draft.images.push({ name, file: `assets/images/${name}.${extensionOf(file)}`, w: decoded.w, h: decoded.h });
+      const node = findNode(draft, nodeId);
+      if (node) {
+        node.props.src = name;
+        delete node.props.width;
+        delete node.props.height;
+      }
+    });
+  };
 
   const addWidget = useCallback((type, parentId, position) => {
     let id = null;
@@ -495,8 +547,8 @@ export function App({ initialSettings }) {
   const beginSplit = (key, sign) => (start) => {
     start.preventDefault();
     const from = sizes[key];
-    const horizontal = key !== "bottom";
-    const limit = horizontal ? [200, 520] : [80, 480];
+    const horizontal = key === "left" || key === "right";
+    const limit = horizontal ? [200, 520] : key === "palette" ? [60, Math.max(60, (start.currentTarget.parentElement?.clientHeight ?? 300) - 90)] : [80, 480];
     let latest = from;
     const move = (event) => {
       const delta = horizontal ? event.clientX - start.clientX : event.clientY - start.clientY;
@@ -553,7 +605,6 @@ export function App({ initialSettings }) {
   ];
 
   const toolbarGroups = [
-    [c.start],
     [c.new, c.open, c.save],
     [c.undo, c.redo],
     [c.copy, c.paste, c.duplicate, c.delete],
@@ -623,6 +674,16 @@ export function App({ initialSettings }) {
       box: (id) => surface.current?.boxes().get(id) ?? null,
       canvas: () => surface.current?.canvas(),
       zoom: () => zoom,
+      addTestImage: (nodeId, file, w, h, r, g, b) => {
+        const rgba = new Uint8ClampedArray(w * h * 4);
+        for (let i = 0; i < rgba.length; i += 4) rgba.set([r, g, b, 255], i);
+        const canvas = new OffscreenCanvas(w, h);
+        canvas.getContext("2d").putImageData(new ImageData(rgba, w, h), 0, 0);
+        return canvas.convertToBlob({ type: "image/png" }).then(async (blob) => {
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          addImportedImage(nodeId, file, { w, h, rgba }, btoa(String.fromCharCode(...bytes)));
+        });
+      },
       themeId: () => themeId,
       showStart: () => showStart,
       start: () => start,
@@ -631,7 +692,7 @@ export function App({ initialSettings }) {
     };
   });
 
-  const code = useMemo(() => (view === "design" ? null : generateCode(project)), [project, view]);
+  const code = useMemo(() => (view === "design" ? null : generateCode(project, { imageData: false })), [project, view]);
 
   const dragTitlebar = (event) => {
     if (event.button === 0 && !(event.target instanceof Element && event.target.closest("button"))) {
@@ -649,6 +710,11 @@ export function App({ initialSettings }) {
         <span className="app-title">
           <img src={appIcon} alt="" />
           <strong>My LVGL Studio</strong>
+          <span className="app-version">1.0.0</span>
+          <button type="button" className={showStart ? "start-toggle active" : "start-toggle"} data-command="start" title={t("start.title")} aria-pressed={showStart} onClick={c.start.run}>
+            <Icon name="home" size={14} />
+            <span>{t("start.short")}</span>
+          </button>
         </span>
         {menus.map((menu) => (
           <Menu
@@ -723,23 +789,33 @@ export function App({ initialSettings }) {
           onContinue={() => setShowStart(false)}
           onOpenRecent={(file) => openFileRef.current(file)}
           onRemoveRecent={forgetRecent}
+          onClearRecent={() => {
+            setRecent([]);
+            void host.saveSettings({ recent: [] });
+          }}
           onTheme={changeTheme}
-          onPreferences={() => setDialog({ kind: "preferences" })}
+          onPreferences={(tab) => setDialog({ kind: "preferences", tab })}
+          onManager={c.manager.run}
+          onSettings={c.settings.run}
+          onLanguage={() => changeLanguage(language === "en" ? "ko" : "en")}
+          onAbout={c.about.run}
+          onExit={c.exit.run}
         />
       )}
 
       <div className="workspace" style={{ display: showStart ? "none" : undefined, gridTemplateColumns: `${sizes.left}px 5px minmax(0, 1fr) 5px ${sizes.right}px`, gridTemplateRows: `minmax(0, 1fr) 5px ${sizes.bottom}px` }}>
-        <div className="left-col">
-          <section className="panel">
+        <div className="left-col" style={{ gridTemplateRows: `minmax(60px, ${sizes.palette}px) 5px minmax(0, 1fr)` }}>
+          <section className="panel" data-panel="palette">
             <h3>{t("panel.palette")}</h3>
             <Palette t={t} onDragStart={beginPaletteDrag} onAdd={addFromPalette} />
           </section>
-          <section className="panel">
+          <div className="splitter h" data-splitter="palette" onPointerDown={beginSplit("palette", 1)} />
+          <section className="panel" data-panel="tree">
             <h3>{t("panel.tree")}</h3>
             <ComponentTree t={t} screen={activeScreen} selected={selected} onSelect={select} />
           </section>
         </div>
-        <div className="splitter" onPointerDown={beginSplit("left", 1)} />
+        <div className="splitter" data-splitter="left" onPointerDown={beginSplit("left", 1)} />
 
         <div className="center-col">
           <div className="design-bar">
@@ -791,14 +867,14 @@ export function App({ initialSettings }) {
             {code && <CodeView files={code} />}
           </div>
         </div>
-        <div className="splitter" onPointerDown={beginSplit("right", -1)} />
+        <div className="splitter" data-splitter="right" onPointerDown={beginSplit("right", -1)} />
 
         <div className="right-col panel">
           <h3>{t("panel.attributes")}</h3>
-          <Attributes t={t} store={store} selected={selected} readOnly={running} />
+          <Attributes t={t} store={store} selected={selected} readOnly={running} onImportImage={importImage} />
         </div>
 
-        <div className="splitter h span" onPointerDown={beginSplit("bottom", -1)} />
+        <div className="splitter h span" data-splitter="bottom" onPointerDown={beginSplit("bottom", -1)} />
         <div className="bottom-panel span">
           <div className="bottom-tabs">
             <button type="button" data-bottom="log" className={bottomTab === "log" ? "active" : undefined} onClick={() => setBottomTab("log")}><Icon name="log" /> {t("panel.log")}</button>
@@ -835,6 +911,7 @@ export function App({ initialSettings }) {
       {dialog?.kind === "preferences" && (
         <PreferencesDialog
           t={t}
+          initialTab={dialog.tab}
           language={language}
           onLanguage={changeLanguage}
           themeId={themeId}

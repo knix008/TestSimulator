@@ -38,7 +38,9 @@ export const host = {
   startupFile: () => (isDesktop ? invoke("startup_file") : Promise.resolve(null)),
   readText: (path) => (isDesktop ? invoke("read_text", { path }) : desktopOnly()),
   dirState: (dir) => (isDesktop ? invoke("dir_state", { dir }) : desktopOnly()),
-  writeProject: (dir, files, generatedDirs) => (isDesktop ? invoke("write_project", { dir, files, generatedDirs }) : desktopOnly()),
+  writeProject: (dir, files, binaries, generatedDirs) => (isDesktop ? invoke("write_project", { dir, files, binaries, generatedDirs }) : desktopOnly()),
+  pickImage: () => (isDesktop ? open({ filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "bmp", "gif", "webp", "svg"] }] }) : desktopOnly()),
+  readBase64: (path) => (isDesktop ? invoke("read_base64", { path }) : desktopOnly()),
 
   lvglInstalled: () => (isDesktop ? invoke("lvgl_installed") : Promise.resolve([])),
   lvglReleases: () => (isDesktop ? invoke("lvgl_releases") : desktopOnly()),

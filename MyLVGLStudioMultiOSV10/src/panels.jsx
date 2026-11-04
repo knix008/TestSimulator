@@ -63,10 +63,29 @@ function Field({ label, children }) {
   );
 }
 
-function PropInput({ t, node, prop, edit }) {
+function PropInput({ t, node, prop, edit, project, onImportImage }) {
   const value = node.props[prop.key];
   const set = (next) => edit(prop.key, next);
   switch (prop.kind) {
+    case "image":
+      return (
+        <span className="image-field">
+          <IconSelect
+            id="src"
+            value={value ?? ""}
+            options={[{ value: "", label: t("image.none") }, ...(project.images ?? []).map((image) => ({ value: image.name, label: image.name, icon: "image", note: `${image.w}×${image.h}` }))]}
+            onChange={(next) => set(next === "" ? undefined : next)}
+          />
+          <button type="button" className="wide-button" data-command="image-import" onClick={() => onImportImage(node.id)}><Icon name="image" /> {t("image.import")}</button>
+        </span>
+      );
+    case "target": {
+      const options = [{ value: "", label: t("target.none") }];
+      walk(project, (other) => {
+        if (other.type === "textarea") options.push({ value: other.id, label: other.name, icon: "textarea" });
+      });
+      return <IconSelect id="target" value={value ?? ""} options={options} onChange={(next) => set(next === "" ? undefined : next)} />;
+    }
     case "int":
       return <Stepper id={prop.key} value={value} min={prop.min} max={prop.max} blank placeholder={t("attr.theme")} onChange={set} />;
     case "size":
@@ -129,7 +148,7 @@ function EventRow({ t, event, index, project, onChange, onRemove }) {
   );
 }
 
-export function Attributes({ t, store, selected, readOnly }) {
+export function Attributes({ t, store, selected, readOnly, onImportImage }) {
   const project = store.project;
   const node = selected ? findNode(project, selected) : null;
   if (!node) return <div className="panel-body empty-note">{t("attr.none")}</div>;
@@ -169,7 +188,7 @@ export function Attributes({ t, store, selected, readOnly }) {
             <h4>{t(`group.${group}`)}</h4>
             {props.map((prop) => (
               <Field key={prop.key} label={t(`prop.${prop.key}`)}>
-                <PropInput t={t} node={node} prop={prop} edit={edit} />
+                <PropInput t={t} node={node} prop={prop} edit={edit} project={project} onImportImage={onImportImage} />
               </Field>
             ))}
           </section>

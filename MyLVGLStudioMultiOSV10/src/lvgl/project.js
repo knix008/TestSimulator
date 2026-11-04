@@ -14,10 +14,32 @@ export function newProject(name = "Untitled") {
     name,
     lvgl: DEFAULT_VERSION,
     device: { w: DEVICES[0].w, h: DEVICES[0].h },
+    images: [],
     theme: { dark: false, primary: "#2196f3", secondary: "#f44336" },
     nextId: 2,
     screens: [{ id: "n1", type: "screen", name: "Screen1", props: {}, events: [], children: [] }],
   };
+}
+
+/** A path inside the project folder: relative, "/" separators, never leaving the folder. */
+export function safeRelativePath(path) {
+  return /^[^\\:]+$/.test(path) && !path.startsWith("/") && path.split("/").every((part) => part && part !== "." && part !== "..");
+}
+
+/** A new, unique C-safe name for an image, from its file name. */
+export function imageNameFor(project, file) {
+  const base = sanitizeName(file.split(/[\\/]/).pop().replace(/\.[^.]+$/, "")) || "image";
+  const taken = new Set((project.images ?? []).map((image) => image.name.toLowerCase()));
+  if (!taken.has(base.toLowerCase())) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base}_${n}`.toLowerCase())) return `${base}_${n}`;
+}
+
+/** Removes an image, and the source of every image widget that showed it. */
+export function removeImageFromProject(project, name) {
+  project.images = (project.images ?? []).filter((image) => image.name !== name);
+  walk(project, (node) => {
+    if (node.props.src === name) delete node.props.src;
+  });
 }
 
 /** Throws when a node is not what FILE_FORMAT.md describes. */
@@ -59,6 +81,15 @@ export function parseProject(text) {
     throw new Error("invalid project file: bad theme");
   }
   if (!Array.isArray(data.screens) || data.screens.length === 0) throw new Error("invalid project file: no screens");
+  if (data.images === undefined) data.images = [];
+  if (!Array.isArray(data.images)) throw new Error("invalid project file: images is not a list");
+  const imageNames = new Set();
+  for (const image of data.images) {
+    if (typeof image?.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(image.name)) throw new Error("invalid project file: bad image name");
+    if (imageNames.has(image.name)) throw new Error(`invalid project file: duplicate image "${image.name}"`);
+    imageNames.add(image.name);
+    if (typeof image.file !== "string" || !safeRelativePath(image.file)) throw new Error(`invalid project file: bad image path "${image.file}"`);
+  }
   const ids = new Set();
   for (const screen of data.screens) checkNode(screen, ids, true);
   // New ids must never collide, whatever nextId says.
@@ -192,6 +223,7 @@ export function removeNode(project, id) {
   }
   walk(project, (node) => {
     node.events = node.events.filter((event) => !removed.has(event.target));
+    if (removed.has(node.props.target)) delete node.props.target;
   });
   return true;
 }

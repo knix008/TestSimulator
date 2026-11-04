@@ -8,7 +8,7 @@ target_include_directories(engine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${LVGL_
 target_compile_definitions(engine PRIVATE LV_CONF_INCLUDE_SIMPLE)
 target_compile_options(engine PRIVATE -O2 -w)
 
-set(EXPORTS "_malloc,_free,_ml_setup,_ml_clear,_ml_theme,_ml_create,_ml_range,_ml_set_i,_ml_set_s,_ml_event,_ml_next_log,_ml_show,_ml_render,_ml_tick,_ml_pointer,_ml_framebuffer,_ml_coords,_ml_content_origin,_ml_version")
+set(EXPORTS "_malloc,_free,_ml_setup,_ml_clear,_ml_theme,_ml_create,_ml_range,_ml_set_i,_ml_set_s,_ml_event,_ml_next_log,_ml_show,_ml_render,_ml_tick,_ml_pointer,_ml_framebuffer,_ml_coords,_ml_content_origin,_ml_version,_ml_image_load,_ml_link,_ml_date,_ml_digits")
 target_link_options(engine PRIVATE
   -O2
   -sMODULARIZE=1
