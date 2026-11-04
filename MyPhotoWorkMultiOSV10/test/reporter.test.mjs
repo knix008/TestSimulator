@@ -5,13 +5,15 @@ import report, { plainDuration, testLine } from './helpers/reporter.mjs'
 
 const passed = (file, name, ms) => ({ type: 'test:pass', data: { file, name, details: { duration_ms: ms } } })
 
+/** Colour is on in a terminal and off in a pipe: what is checked must not depend on which. */
+// eslint-disable-next-line no-control-regex
+const plain = (text) => text.replace(/\u001b\[[0-9;]*m/g, '')
+
 async function run(events) {
   const chunks = []
   async function* source() { yield* events }
   for await (const chunk of report(source())) chunks.push(chunk)
-  // Colours are off when piped, but a run from a terminal may force them.
-  // eslint-disable-next-line no-control-regex
-  return chunks.join('').replace(/\u001b\[[0-9;]*m/g, '')
+  return plain(chunks.join(''))
 }
 
 test('every test gets a line with its number and time, as it finishes', async () => {
@@ -47,5 +49,5 @@ test('times read well at every scale', () => {
   assert.equal(plainDuration(0.26), '0.3ms')
   assert.equal(plainDuration(45.2), '45ms')
   assert.equal(plainDuration(1500), '1.5s')
-  assert.match(testLine(7, 'x', 1, 'name'), /^\s+7 {2}x\s+1\.0ms {2}name$/)
+  assert.match(plain(testLine(7, 'x', 1, 'name')), /^\s+7 {2}x\s+1\.0ms {2}name$/)
 })
