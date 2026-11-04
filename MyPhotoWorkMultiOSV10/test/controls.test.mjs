@@ -85,20 +85,15 @@ test('every slider in the editor is the one that reports its drag', () => {
 
 test('a typed number commits when it is finished, not on every keystroke', () => {
   const controls = read('src', 'controls.tsx')
-  const field = controls.slice(controls.indexOf('export function NumberField'))
-  assert.match(field, /onChange=\{\(event\) => setTyped\(event\.target\.value\)\}/, 'typing still goes straight through')
-  assert.match(field, /onBlur=\{commit\}/, 'leaving the field does not commit')
-  assert.match(field, /event\.key !== 'Enter'/, 'Enter does not commit')
-
-  const dialogs = read('src', 'dialogs.tsx')
-  const stepper = dialogs.slice(dialogs.indexOf('export function NumberStepper'), dialogs.indexOf('/* ------------------------------------------------------------ curve editor */'))
-  assert.match(stepper, /value=\{typed \?\? value\}/, 'the stepper still redraws on every keystroke')
-  assert.match(stepper, /onBlur=\{commitTyped\}/, 'the stepper does not commit when it is left')
+  const stepper = controls.slice(controls.indexOf('export function NumberStepper'))
+  assert.match(stepper, /onChange=\{\(event\) => setTyped\(event\.target\.value\)\}/, 'typing still goes straight through')
+  assert.match(stepper, /onBlur=\{commit\}/, 'leaving the field does not commit')
+  assert.match(stepper, /event\.key === 'Enter'/, 'Enter does not commit')
   // The buttons are a single step, so they stay immediate.
   assert.match(stepper, /onClick=\{\(\) => nudge\(-1\)\}/, 'the decrease button changed shape')
 })
 
-test('every raw number input in the editor is a NumberField or a stepper', () => {
+test('no raw number input is left in the editor', () => {
   for (const name of ['App.tsx', 'panels.tsx', 'dialogsExtra.tsx']) {
     assert.doesNotMatch(read('src', name), /type="number"/, `${name} has a raw number input`)
   }

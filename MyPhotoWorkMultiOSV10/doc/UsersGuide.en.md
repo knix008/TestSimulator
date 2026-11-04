@@ -56,6 +56,7 @@ Four rows sit above the canvas.
 | Row | What is in it |
 | --- | --- |
 | Title bar | The app icon, the document name and size, and the window buttons |
+| Type tools | Choose the direction with the **Horizontal type** and **Vertical type** buttons on the options bar or the toolbar, then click the picture to type |
 | Menu bar | The Start Screen button at the far left, then every command grouped into menus: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window, Help — then the theme button (click for the next theme, use the arrow to pick one), the language switch, Settings and About |
 | Toolbar | The commands you reach for all the time, as icons — the zoom level sits between the Zoom out and Zoom in buttons — followed by Select subject / Remove background / Generative fill / Harmonize, and the foreground–swap–background colours |
 | Options bar | The current tool and its settings, plus a one-line description of what that tool does |
@@ -466,9 +467,13 @@ You can pick from the same list on the **Settings → Theme** tab.
 
 Make one on the **Settings → Custom** tab. Type a name, choose Dark or Light, then set four colours — accent, background, panel and text — and the remaining colours are worked out from them. Check the preview and click **Save and apply**; it joins the list and takes effect at once. Click a saved theme to edit it again, and delete it with the bin button. Resetting the settings to their defaults leaves the themes you made.
 
+Every number in the program looks the same: **−** and **+** buttons either side, and the value with its unit (px, %, °, ms and so on) in the middle.
+
+The options bar of the Crop tool and of the selection tools has **X, Y, W and H** fields, for setting the exact position and size of the crop box or selection in pixels. The **−** and **+** buttons either side move one pixel, as do the Up and Down arrow keys, and Shift with an arrow moves ten. A typed value applies on Enter or when you leave the field, and a button turns off once the box has met the edge of the picture on that side. A selection made with the lasso or the wand keeps its shape as it moves and resizes. With a crop ratio chosen, typing one side sets the other. Cancel Crop clears the box being drawn, and takes back a crop or straighten just applied.
+
 ### The right panel
 
-Fold it away and bring it back with the small arrow button between the panel and the canvas, with **Window → Collapse or expand the panel**, or with the **Tab** key. Every setting has its icon, name and control on one line.
+The top of the panel shows the icon and name of what is open. Fold it away and bring it back with the arrow button to the right of that name, the button on the toolbar, **Window → Collapse or expand the panel**, or the **Tab** key. Every setting has its icon, name and control on one line.
 
 These come built in. What you save yourself is listed separately below them.
 
@@ -492,7 +497,7 @@ Right-clicking the picture offers Undo, Cut, Copy and Paste, selection, layer an
 
 ### User Guide
 
-This guide you are reading opens in its own window. Open it with **Help → User Guide** (**F1**), the **User Guide** button on the Start Screen, or the **Open the User Guide** button in the **Help → Help** window. At the top of the window you can change the **font**, **font size** and **language**, and those settings are kept the next time you open it. The left side is the table of contents, and it marks where you are reading. The colours follow the program's theme.
+This guide you are reading opens in its own window. Open it with **Help → User Guide** (**F1**), the **User Guide** button on the Start Screen. At the top of the window you can change the **font**, **font size** and **language**, and those settings are kept the next time you open it. The left side is the table of contents, and it marks where you are reading. The colours follow the program's theme.
 
 ### Neural models
 
@@ -502,7 +507,7 @@ A model, once downloaded, is not downloaded again. When the program starts it lo
 
 Settings is a window with tabs. Each tab is divided into titled sections, and the window changes its height to suit the tab you are looking at, so no tab scrolls and none leaves empty space.
 
-- **General** — the language and the number of History steps.
+- **General** — the language (한국어 and English buttons, each with its flag) and the number of History steps.
 - **Start Screen** — whether to show the Start Screen and the tutorial question, and the background, its speed and transparency.
 - **Theme** — 20 Dark and 20 Light themes, four colour swatches on each row. Also shortcuts to Keyboard Shortcuts and the Neural Models window, a button that clears the recent files list, and the WebGPU switch for neural models.
 - **Custom** — the list of your own themes, and editing them.

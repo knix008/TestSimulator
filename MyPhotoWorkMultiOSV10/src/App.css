@@ -419,7 +419,6 @@ button:disabled:hover {
   width: 110px;
 }
 
-.options-bar input[type='number'],
 .options-bar input[type='text'] {
   background: var(--input-bg);
   border: 1px solid var(--border);
@@ -593,6 +592,8 @@ button:disabled:hover {
   overflow-x: hidden;
   overflow-y: auto;
   padding: 14px;
+  /* What the keyboard moves to must not stop under the title, which stays at the top. */
+  scroll-padding-top: 48px;
   /* A thin overlay scrollbar: the default track drew a second vertical line
      beside the window edge. */
   scrollbar-color: var(--border) transparent;
@@ -704,6 +705,120 @@ button:disabled:hover {
 .menu-bar select option {
   background: var(--menu-bg);
   color: var(--text-primary);
+}
+
+.panel select option:checked,
+.dialog select option:checked {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* X, Y, W and H of a crop box or a selection. */
+.options-bar .region-fields {
+  gap: 4px;
+}
+
+/* A row with the numbers on it has to hold them as well, all on one line. */
+.options-bar:has(.region-fields) input[type='range'] {
+  width: 72px;
+}
+
+.options-bar .region-field {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+
+/* The same control, tighter where many sit on one line. */
+.options-bar .number-stepper,
+.panel .number-stepper,
+.kernel-grid .number-stepper {
+  gap: 1px;
+}
+
+.options-bar .number-stepper button,
+.panel .number-stepper button,
+.kernel-grid .number-stepper button {
+  min-height: 26px;
+  min-width: 20px;
+  padding: 2px;
+}
+
+.options-bar .number-stepper {
+  display: inline-flex;
+}
+
+/* Nothing on the options bar gives it a width to fill. */
+.options-bar .number-stepper input {
+  flex: none;
+  min-height: 26px;
+  padding: 2px;
+  width: 56px;
+}
+
+.panel .number-stepper input,
+.kernel-grid .number-stepper input {
+  min-height: 26px;
+  padding: 2px;
+}
+
+/* The options bar's drop-downs (OptionSelect.tsx). */
+.options-bar .option-select {
+  justify-content: space-between;
+  min-width: 96px;
+}
+
+.option-list {
+  background: var(--menu-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  padding: 4px;
+  position: fixed;
+  scrollbar-width: thin;
+  z-index: 200;
+}
+
+.option-list button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  flex: none;
+  font: 600 var(--control-font-size) / 1.25 var(--ui-font);
+  gap: 6px;
+  padding: 5px 8px;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* The row under the pointer is a soft tint; the chosen one is the accent, with text that reads on it. */
+.option-list button.cursor {
+  background: var(--accent-soft);
+}
+
+.option-list button.chosen,
+.option-list button.chosen.cursor {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.option-list .option-tick {
+  flex: none;
+  visibility: hidden;
+}
+
+.option-list button.chosen .option-tick {
+  visibility: visible;
 }
 
 .range-field {
@@ -875,27 +990,15 @@ button:disabled:hover {
   width: 640px;
 }
 
-.help-body {
-  overflow: visible;
-}
-
-.help-body section {
-  margin-bottom: 14px;
-}
-
-.help-body h3 {
-  font-size: 14px;
-  margin: 0 0 4px;
-}
-
 .check-row {
   align-items: center !important;
   display: flex !important;
   gap: 8px;
 }
 
+/* As wide as its own window (dialogSpecs.ts), which is what the row of tabs is sized for. */
 .settings-dialog {
-  width: 600px;
+  width: 780px;
 }
 
 /* One page of settings at a time; the tabs sit above the page they switch. */
@@ -912,7 +1015,7 @@ button:disabled:hover {
   border-bottom: 2px solid transparent;
   border-radius: 0;
   color: var(--muted);
-  padding: 6px 10px;
+  padding: 6px 8px;
 }
 
 .settings-tabs button.active {
@@ -1058,7 +1161,7 @@ button:disabled:hover {
 }
 
 .field-name svg,
-.panel-heading svg {
+.panel-title svg:first-child {
   color: var(--accent);
   flex: none;
 }
@@ -1067,12 +1170,6 @@ button:disabled:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.panel-heading {
-  align-items: center;
-  display: flex;
-  gap: 7px;
 }
 
 /* Built-in presets, two to a row. */
@@ -1100,46 +1197,69 @@ button:disabled:hover {
   white-space: nowrap;
 }
 
-/* Folding the right panel. */
-.workspace.panel-closed {
-  grid-template-columns: 64px minmax(0, 1fr) 14px 0;
+/* The panel's name, and the button that folds it: always in sight while the rest scrolls. */
+.panel-title {
+  align-items: center;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 7px;
+  margin: -14px -14px 10px;
+  padding: 7px 8px 7px 14px;
+  position: sticky;
+  top: -14px;
+  z-index: 2;
 }
 
-.workspace.panel-closed .panel {
-  display: none;
-}
-
-.resize-handle {
-  position: relative;
-}
-
-.workspace.panel-closed .resize-handle {
-  cursor: default;
+.panel .panel-title h2 {
+  flex: 1 1 auto;
+  font-size: 14px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .panel-collapse {
   align-items: center;
-  background: var(--menu-bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text-primary);
-  cursor: pointer;
   display: flex;
-  height: 44px;
+  flex: none;
+  height: 26px;
   justify-content: center;
-  left: 50%;
   min-height: 0;
   padding: 0;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 14px;
-  z-index: 3;
+  width: 26px;
 }
 
-.panel-collapse:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+/* Folded, the panel is a strip that keeps its button and the icon of what is inside. */
+.workspace.panel-closed {
+  grid-template-columns: 64px minmax(0, 1fr) 0 40px;
+}
+
+.workspace.panel-closed .resize-handle {
+  overflow: hidden;
+}
+
+.workspace.panel-closed .panel {
+  overflow: hidden;
+  padding: 0;
+}
+
+.workspace.panel-closed .panel > :not(.panel-title),
+.workspace.panel-closed .panel-title h2 {
+  display: none;
+}
+
+.workspace.panel-closed .panel-title {
+  border-bottom: none;
+  flex-direction: column-reverse;
+  margin: 0;
+  padding: 7px 0;
+}
+
+.resize-handle {
+  position: relative;
 }
 
 /* Built-in patterns and the default swatches. */
@@ -1458,10 +1578,6 @@ button:disabled:hover {
   border-left: 1px solid var(--border);
   margin-left: 4px;
   padding-left: 8px;
-}
-
-.tool-options .transform-actions input[type='number'] {
-  width: 68px;
 }
 
 /* --------------------------------------------------------- curve editor */
@@ -2278,25 +2394,20 @@ button:disabled:hover {
 /* ---------------------------------------------------------- number stepper */
 /* A step button either side of the field: the browser's own spinners are a
    hairline tall and invisible in several of the themes. */
+/* It fills the cell it is in and goes no further. A text field asks for about twenty
+   characters of room, which would push the + button under whatever is beside it. */
 .number-stepper {
   align-items: stretch;
-  display: inline-flex;
+  display: flex;
   gap: 4px;
+  min-width: 0;
 }
 
-.number-stepper input[type='number'] {
-  flex: 1 1 auto;
+.number-stepper input {
+  flex: 1 1 0;
   min-width: 0;
   text-align: center;
-  /* The native spinners are replaced by the buttons. */
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-.number-stepper input[type='number']::-webkit-inner-spin-button,
-.number-stepper input[type='number']::-webkit-outer-spin-button {
-  appearance: none;
-  margin: 0;
+  width: 0;
 }
 
 .number-stepper button {
@@ -2314,6 +2425,33 @@ button:disabled:hover {
 
 .settings-field-name {
   font-weight: 600;
+}
+
+.language-choice {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Two choices, one of them on. */
+.choice-pair button {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  min-width: 0;
+  padding: 3px 8px;
+}
+
+.choice-pair button[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.options-bar .choice-pair {
+  display: inline-flex;
+  gap: 2px;
 }
 
 .settings-field-hint {
@@ -2403,7 +2541,7 @@ button:disabled:hover {
 }
 
 .settings-dialog select,
-.settings-dialog input[type='number'] {
+.settings-dialog .number-stepper input {
   width: 100%;
 }
 
@@ -3060,9 +3198,8 @@ button:disabled:hover {
   grid-template-columns: repeat(5, 1fr);
 }
 
-.kernel-grid input {
+.kernel-grid .number-stepper {
   min-width: 0;
-  text-align: center;
 }
 
 /* Two columns of tools: one column of twenty-five rows had to scroll. */

@@ -101,16 +101,15 @@ test('the guide takes its colours and language from the app', () => {
   assert.match(read('src/App.tsx'), /publishGuideAppearance\(settings\.theme, settings\.language\)/, 'the guide is never told')
 })
 
-test('the guide can be opened from the Help menu, its key, the short help and the start screen', () => {
+test('the guide can be opened from the Help menu, its key and the start screen', () => {
   const guide = commands.find((command) => command.id === 'help.guide')
   assert.equal(guide.menu, 'helpMenu')
   assert.equal(guide.accel, 'F1')
   const app = read('src/App.tsx')
   assert.match(app, /event\.key === 'F1'/, 'F1 does nothing')
   assert.match(app, /case 'help\.guide': void openUserGuide\(language\)/)
-  const help = read('src/dialogs.tsx')
-  const short = help.slice(help.indexOf("case 'helpGuide':"), help.indexOf("case 'about': {"))
-  assert.match(short, /openUserGuide\(language\)/, 'the short help has no button for the guide')
+  assert.ok(!commands.some((command) => command.id === 'help.quick'), 'the Help menu has a row called Help again')
+  assert.doesNotMatch(read('src/start/StartScreen.tsx'), /quickHelp/, 'the start screen has a row called Help again')
   assert.match(read('src/start/StartScreen.tsx'), /onAction\('guide'\)/, 'the start screen has no button for the guide')
   assert.match(shell, /doc\/index\.html\?lang=/, 'the shell does not open the guide page')
 })

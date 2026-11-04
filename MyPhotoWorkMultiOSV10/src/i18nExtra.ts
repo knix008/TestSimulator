@@ -6,8 +6,9 @@
  */
 
 export const koExtra: Record<string, string> = {
+  regionX: '가로 위치', regionY: '세로 위치', regionWidth: '폭', regionHeight: '높이',
   needPath: '먼저 펜 도구로 패스를 만드세요', needFrames: '먼저 타임라인에 프레임을 추가하세요',
-  shapePentagon: '오각형', shapeHexagon: '육각형', shapeOctagon: '팔각형', shapeParallelogram: '평행사변형', shapeTrapezoid: '사다리꼴', shapeDrop: '물방울', shapeCloud: '구름', shapeShield: '방패', shapeStar6: '육각별', presetsBuiltIn: '기본 제공', presetsSaved: '저장한 항목', panelCollapse: '패널 접기', panelExpand: '패널 펼치기', panelToggle: '패널 접기/펼치기',
+  shapePentagon: '오각형', shapeHexagon: '육각형', shapeOctagon: '팔각형', shapeParallelogram: '평행사변형', shapeTrapezoid: '사다리꼴', shapeDrop: '물방울', shapeCloud: '구름', shapeShield: '방패', shapeStar6: '육각별', presetsBuiltIn: '기본 제공', presetsSaved: '저장한 항목', typeHorizontal: '가로 문자', panelCollapse: '패널 접기', panelExpand: '패널 펼치기', panelToggle: '패널 접기/펼치기',
   swatchesDefault: '기본 색상 40개로', patternSamples: '샘플 패턴', patternSamplesHint: '누르면 현재 패턴이 되고, 두 번 누르면 선택 영역이나 레이어를 채웁니다.', patternsDocument: '이 문서의 패턴',
   /* tutorial */
   tutorial: '튜토리얼', tutorialAskTitle: '튜토리얼을 실행할까요?', tutorialAskBody: '실제 화면을 짚어 가며 시작 화면, 메뉴와 도구, 패널, 테마까지 {n}단계로 안내합니다.', tutorialAskHint: '나중에 도움말 메뉴나 시작 화면의 [튜토리얼] 로 언제든 다시 볼 수 있습니다.',
@@ -190,8 +191,9 @@ export const koExtra: Record<string, string> = {
 }
 
 export const enExtra: Record<string, string> = {
+  regionX: 'Left', regionY: 'Top', regionWidth: 'Width', regionHeight: 'Height',
   needPath: 'Make a path with the Pen tool first', needFrames: 'Add a frame to the timeline first',
-  shapePentagon: 'Pentagon', shapeHexagon: 'Hexagon', shapeOctagon: 'Octagon', shapeParallelogram: 'Parallelogram', shapeTrapezoid: 'Trapezoid', shapeDrop: 'Drop', shapeCloud: 'Cloud', shapeShield: 'Shield', shapeStar6: 'Six-point star', presetsBuiltIn: 'Built-in', presetsSaved: 'Saved', panelCollapse: 'Collapse panel', panelExpand: 'Expand panel', panelToggle: 'Collapse or expand the panel',
+  shapePentagon: 'Pentagon', shapeHexagon: 'Hexagon', shapeOctagon: 'Octagon', shapeParallelogram: 'Parallelogram', shapeTrapezoid: 'Trapezoid', shapeDrop: 'Drop', shapeCloud: 'Cloud', shapeShield: 'Shield', shapeStar6: 'Six-point star', presetsBuiltIn: 'Built-in', presetsSaved: 'Saved', typeHorizontal: 'Horizontal type', panelCollapse: 'Collapse panel', panelExpand: 'Expand panel', panelToggle: 'Collapse or expand the panel',
   swatchesDefault: 'Restore the 40 defaults', patternSamples: 'Sample patterns', patternSamplesHint: 'Click to make one the current pattern; double-click to fill the selection or layer with it.', patternsDocument: 'Patterns in this document',
   /* tutorial */
   tutorial: 'Tutorial', tutorialAskTitle: 'Run the tutorial?', tutorialAskBody: 'It points at the real screen through the start screen, the menus and tools, the panels and the themes, in {n} steps.', tutorialAskHint: 'You can run it any time later from the Help menu or [Tutorial] on the start screen.',

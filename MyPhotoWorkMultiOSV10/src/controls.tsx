@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { Minus, Plus } from 'lucide-react'
 import { beginAdjust, endAdjust } from './adjusting'
+import { t } from './i18n'
+import { formatUnitNumber, numberLength, parseUnitNumber, stepUnitNumber } from './lib/numberFormat'
+import type { Language } from './lib/types'
 
 /*
  * The numeric controls, and the one fact the rest of the editor needs about
@@ -80,46 +84,74 @@ export function Slider({ value, min, max, step, disabled, className, title, onCh
   )
 }
 
-type NumberFieldProps = {
+type NumberStepperProps = {
   value: number
   min?: number
   max?: number
   step?: number
+  /** Shown after the value: "px", "%", "°", "ms". A plain count has none. */
+  unit?: string
+  language: Language
+  /** For a field that has no <label> around it. */
+  label?: string
   disabled?: boolean
-  className?: string
-  'aria-label'?: string
+  'data-region'?: string
   onChange: (next: number) => void
 }
 
-export function NumberField({ value, min, max, step, disabled, className, onChange, ...rest }: NumberFieldProps) {
+/**
+ * Every number in the app: a decrease button, the value and its unit centred, and an
+ * increase button. The buttons and the arrow keys answer at once (Shift+arrow goes ten
+ * steps). Typing is held back until Enter or until the field is left.
+ */
+export function NumberStepper({ value, min = -Infinity, max = Infinity, step = 1, unit, language, label, disabled, onChange, ...rest }: NumberStepperProps) {
   const [typed, setTyped] = useState<string | null>(null)
-
-  const commit = () => {
-    if (typed === null) return
-    const next = Number(typed)
+  const send = (next: number) => {
     setTyped(null)
-    if (!Number.isFinite(next)) return
-    const clamped = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, next))
+    const clamped = Math.min(max, Math.max(min, next))
     if (clamped !== value) onChange(clamped)
   }
-
+  const nudge = (count: number) => send(stepUnitNumber(typed === null ? value : parseUnitNumber(typed, unit) ?? value, count, step, min, max))
+  const commit = () => {
+    if (typed === null) return
+    const next = parseUnitNumber(typed, unit)
+    if (next === null) setTyped(null)
+    else send(next)
+  }
+  const named = (key: string) => (label ? `${label} ${t(language, key)}` : t(language, key))
   return (
-    <input
-      {...rest}
-      type="number"
-      className={className}
-      disabled={disabled}
-      min={min}
-      max={max}
-      step={step}
-      value={typed ?? value}
-      onChange={(event) => setTyped(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key !== 'Enter') return
-        event.preventDefault()
-        commit()
-      }}
-      onBlur={commit}
-    />
+    <span className="number-stepper">
+      <button type="button" data-tooltip={t(language, 'decrease')} aria-label={named('decrease')} disabled={disabled || value <= min} onClick={() => nudge(-1)}>
+        <Minus size={14} />
+      </button>
+      <input
+        {...rest}
+        type="text"
+        inputMode="decimal"
+        spellCheck={false}
+        disabled={disabled}
+        aria-label={label}
+        value={typed ?? formatUnitNumber(value, unit, step)}
+        onChange={(event) => setTyped(event.target.value)}
+        // Just the digits are selected, so typing replaces the number and the unit stays.
+        onFocus={(event) => {
+          const field = event.currentTarget
+          requestAnimationFrame(() => field.setSelectionRange(0, numberLength(field.value)))
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            commit()
+          } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault()
+            nudge((event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? 10 : 1))
+          }
+        }}
+        onBlur={commit}
+      />
+      <button type="button" data-tooltip={t(language, 'increase')} aria-label={named('increase')} disabled={disabled || value >= max} onClick={() => nudge(1)}>
+        <Plus size={14} />
+      </button>
+    </span>
   )
 }

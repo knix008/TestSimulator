@@ -196,7 +196,7 @@ test('Settings has a page for the start screen with the same controls as the car
 
 test('a command that goes to work closes the start screen, and help does not', () => {
   const app = read('src/App.tsx')
-  assert.match(app, /if \(id !== 'help\.quick' && id !== 'edit\.preferences' && id !== 'edit\.keyboardShortcuts'\) setStartOn\(false\)/)
+  assert.match(app, /if \(id !== 'edit\.preferences' && id !== 'edit\.keyboardShortcuts'\) setStartOn\(false\)/)
 })
 
 test('the cards use no backdrop filter, which flickers in WebView2 over a moving canvas', () => {

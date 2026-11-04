@@ -9,9 +9,9 @@ import { hasDicomMagic, isDicomSource, readDicom } from '../src/lib/dicom.ts'
 import { decodeImageSource } from '../src/lib/imageIO.ts'
 import { px } from './helpers/pixels.mjs'
 
-/** The CT slice shipped in images/, read straight off disk. */
+/** The CT slice shipped in samples/, read straight off disk. */
 function dicomBytes() {
-  const buffer = readFileSync(fileURLToPath(new URL('../images/test05.dcm', import.meta.url)))
+  const buffer = readFileSync(fileURLToPath(new URL('../samples/test05.dcm', import.meta.url)))
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
 }
 

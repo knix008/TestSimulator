@@ -15,7 +15,7 @@
   border-radius: 8px; color: var(--text-primary); cursor: pointer; display: inline-flex; font: inherit; gap: 7px; height: 32px; padding: 0 12px; white-space: nowrap;
 }
 .start-button:hover { border-color: var(--accent); }
-.start-button.primary { background: var(--accent); border-color: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+.start-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
 
 .start-board { align-items: start; column-gap: 14px; display: grid; grid-auto-rows: 20px; grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; row-gap: 0; }
 .start-card {
@@ -77,7 +77,7 @@
 .bg-kind { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); cursor: pointer; display: flex; font: inherit; font-size: 12px; gap: 6px; min-width: 0; padding: 4px 7px; text-align: left; }
 .bg-kind span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bg-kind:hover { border-color: var(--accent); }
-.bg-kind.on { background: var(--accent); border-color: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+.bg-kind.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
 .start-speed { align-items: center; display: flex; font-size: 12.5px; gap: 6px; margin: 9px 0 3px; }
 .start-speed svg { color: var(--accent); flex: none; }
 .range-stepper { align-items: center; display: grid; gap: 4px; grid-template-columns: 22px minmax(0, 1fr) 22px 46px; }
@@ -117,7 +117,7 @@
 .tutorial-ask .grow, .tutorial-card .grow { flex: 1 1 auto; }
 .tutorial-ask-foot button, .tutorial-foot button { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text-primary); cursor: pointer; display: inline-flex; font: inherit; gap: 5px; height: 30px; padding: 0 11px; }
 .tutorial-foot button:disabled { cursor: default; opacity: 0.4; }
-.tutorial-ask-foot button.primary, .tutorial-foot button.primary { background: var(--accent); border-color: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+.tutorial-ask-foot button.primary, .tutorial-foot button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
 .tutorial-layer { inset: 0; pointer-events: none; position: fixed; z-index: 190; }
 .tutorial-outline { border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.34); position: fixed; transition: left 0.18s, top 0.18s, width 0.18s, height 0.18s; }
 .tutorial-card { background: var(--menu-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45); color: var(--text-primary); padding: 12px 14px; pointer-events: auto; position: fixed; width: 360px; }

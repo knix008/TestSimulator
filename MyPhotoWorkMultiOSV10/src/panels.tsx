@@ -1,12 +1,11 @@
 import { AlignCenter, AlignLeft, AlignRight, Cloud, Droplet, Hexagon, Octagon, Paintbrush, Pentagon, RectangleHorizontal, Shield, Slice, SlidersHorizontal, Sparkle } from 'lucide-react'
 import { iconForTool } from './catalog'
-import { panelIcon } from './panelMeta'
 import { fieldIcon } from './fieldIcons'
 import { BUILTIN_BRUSHES, BUILTIN_SHAPES, BUILTIN_STYLES, BUILTIN_TOOL_PRESETS } from './lib/presets'
 import { PATTERN_SAMPLES, patternSampleId, renderPatternSample, type PatternSample } from './lib/patternSamples'
 import { DEFAULT_SWATCHES } from './lib/swatches'
 import { createElement, useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react'
-import { NumberField, Slider } from './controls'
+import { NumberStepper, Slider } from './controls'
 import {
   ArrowDown, ArrowRight, ArrowUp, Camera, Check, ChevronRight, Circle, Clock, Copy, Diamond, Eye, EyeOff, Film, FlipHorizontal, Frame, Grid3x3, Heart, Layers2, Link, Lock, LockOpen, MessageSquare, Moon, PenTool, Play, Plus, RefreshCw, Save, Scissors, Shapes, Sparkles, Spline, Square, SquareDashed, Star, StickyNote, Trash, Triangle, Type, Video, X, Zap, RotateCcw
 } from 'lucide-react'
@@ -128,10 +127,6 @@ function FieldName({ name, tr }: { name: string; tr: (key: string) => string }) 
   return <span className="field-name">{createElement(fieldIcon(name), { size: 13, 'aria-hidden': true })}<span>{tr(name)}</span></span>
 }
 
-function PanelHeading({ tab, title }: { tab: PanelTab; title: string }) {
-  return <h2 className="panel-heading">{createElement(panelIcon(tab), { size: 15, 'aria-hidden': true })}<span>{title}</span></h2>
-}
-
 /** Draws a canvas from the map into a thumbnail element, redrawn when the frame changes. */
 function Thumb({ canvasesRef, keys, size = 40, frame, className }: { canvasesRef: { current: Map<string, HTMLCanvasElement> }; keys: string[]; size?: number; frame: number; className?: string }) {
   const ref = useRef<HTMLCanvasElement | null>(null)
@@ -171,7 +166,6 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
   const hasFx = (layer: LayerMeta) => Object.entries(layer.effects).some(([key, value]) => value === true && key !== 'enabled')
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('layers')} />
       <div className="layer-list" onDragOver={(event) => event.preventDefault()}>
         {rows.map((layer) => {
           const active = layer.id === doc.activeLayerId
@@ -270,13 +264,12 @@ export function LayersPanel({ ctx }: { ctx: PanelContext }) {
 
 export function PropertiesPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, activeLayer, doc } = ctx
-  if (!activeLayer) return <><PanelHeading tab={ctx.settings.rightTab} title={tr('properties')} /><p className="panel-hint">{tr('noLayerBody')}</p></>
+  if (!activeLayer) return <><p className="panel-hint">{tr('noLayerBody')}</p></>
   const layer = activeLayer
   const adjustment = layer.adjustment
   const fields = adjustment ? adjustmentFields[adjustment.type] : []
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('properties')} />
       <p className="panel-hint">{layer.name} · {tr(layer.kind === 'adjustment' ? 'adjLayer' : layer.kind === 'text' ? 'text' : layer.kind === 'shape' ? 'shape' : layer.kind === 'fill' ? 'fillLayer' : layer.kind === 'group' ? 'layerGroup' : 'layerName')}</p>
       {adjustment && (
         <>
@@ -421,7 +414,6 @@ export function HistoryPanel({ ctx }: { ctx: PanelContext }) {
   const total = historyEntries.length
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('history')} />
       <div className="history-list">
         {ctx.namedSnapshots.map((item) => (
           <div className="history-row snapshot" key={item.id}>
@@ -489,7 +481,6 @@ export function NavigatorPanel({ ctx }: { ctx: PanelContext }) {
   }
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('navigator')} />
       <canvas ref={ref} className="navigator" width={width} height={height} onPointerDown={jump} onPointerMove={(event) => { if (event.buttons) jump(event) }} />
       <label><FieldName name="zoomLevel" tr={tr} />
         <div className="range-field">
@@ -515,7 +506,6 @@ export function ColorPanel({ ctx }: { ctx: PanelContext }) {
   const setHsv = (patch: Partial<typeof hsv>) => { const n = { ...hsv, ...patch }; const c = hsvToRgb(n.h, n.s, n.v); set(rgbToHex(c.r, c.g, c.b)) }
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('colorPanel')} />
       <div className="color-targets">
         <button className={target === 'foreground' ? 'active' : ''} onClick={() => setTarget('foreground')}><span className="swatch-chip" style={{ background: settings.foreground }} /><Square size={13} aria-hidden="true" /><span>{tr('foreground')}</span></button>
         <button className={target === 'background' ? 'active' : ''} onClick={() => setTarget('background')}><span className="swatch-chip" style={{ background: settings.background }} /><Square size={13} aria-hidden="true" /><span>{tr('backgroundColor')}</span></button>
@@ -535,7 +525,6 @@ export function SwatchesPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, settings } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('swatches')} />
       <div className="swatch-grid swatches-eight">
         {settings.swatches.map((color, index) => (
           <button
@@ -564,7 +553,6 @@ export function GradientsPanel({ ctx }: { ctx: PanelContext }) {
   const all: GradientDef[] = [...gradientPresets, ...settings.gradients]
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('gradientsPanel')} />
       <div className="gradient-list">
         {all.map((def) => (
           <button
@@ -602,7 +590,6 @@ export function PatternsPanel({ ctx }: { ctx: PanelContext }) {
   const current = patterns[patterns.length - 1]?.id
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('patternsPanel')} />
       <h3>{tr('patternSamples')} ({PATTERN_SAMPLES.length})</h3>
       <p className="panel-hint">{tr('patternSamplesHint')}</p>
       <div className="pattern-samples">
@@ -641,7 +628,6 @@ export function StylesPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, settings } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('stylesPanel')} />
       <h3>{tr('presetsBuiltIn')} ({BUILTIN_STYLES.length})</h3>
       <div className="preset-tiles">
         {BUILTIN_STYLES.map((style) => (
@@ -680,7 +666,6 @@ export function ShapesPanel({ ctx }: { ctx: PanelContext }) {
   const builtIn = BUILTIN_SHAPES
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('shapesPanel')} />
       <div className="shape-grid">
         {builtIn.map((kind) => (
           <button key={kind} className={`shape-tile${settings.customShapeKind === kind ? ' active' : ''}`} onClick={() => { ctx.setSettings((current) => ({ ...current, customShapeKind: kind })); ctx.setTool('customShape') }}>
@@ -725,7 +710,6 @@ export function BrushesPanel({ ctx }: { ctx: PanelContext }) {
   const [name, setName] = useState('')
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('brushesPanel')} />
       <canvas ref={ref} className="brush-preview" width={260} height={80} />
       <div className="brush-settings">
       <label><FieldName name="size" tr={tr} /><div className="range-field"><Slider min={1} max={400} value={settings.brushSize} onChange={(next) => patch({ brushSize: next })} /><span className="range-value">{settings.brushSize}</span></div></label>
@@ -764,7 +748,6 @@ export function CloneSourcePanel({ ctx }: { ctx: PanelContext }) {
   const { tr, cloneSource, settings } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('cloneSourcePanel')} />
       {cloneSource
         ? <p>{tr('cloneOffset')}: {Math.round(cloneSource.x)}, {Math.round(cloneSource.y)}</p>
         : <p className="panel-hint">{tr('cloneNone')}</p>}
@@ -778,7 +761,6 @@ export function ToolPresetsPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, settings } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('toolPresets')} />
       <h3>{tr('presetsBuiltIn')} ({BUILTIN_TOOL_PRESETS.length})</h3>
       <div className="preset-tiles">
         {BUILTIN_TOOL_PRESETS.map((preset) => (
@@ -810,12 +792,12 @@ function CharacterFields({ ctx, layer }: { ctx: PanelContext; layer: LayerMeta }
     <>
       <label><FieldName name="font" tr={tr} /><input value={text.fontFamily} onChange={(event) => patch({ fontFamily: event.target.value })} /></label>
       <div className="dialog-grid">
-        <label><FieldName name="fontSize" tr={tr} /><NumberField min={4} max={800} value={text.fontSize} onChange={(next) => patch({ fontSize: next })} /></label>
-        <label><FieldName name="leading" tr={tr} /><NumberField min={0.5} max={4} step={0.05} value={text.lineHeight ?? 1.2} onChange={(next) => patch({ lineHeight: next })} /></label>
+        <label><FieldName name="fontSize" tr={tr} /><NumberStepper language={ctx.language} unit="px" min={4} max={800} value={text.fontSize} onChange={(next) => patch({ fontSize: next })} /></label>
+        <label><FieldName name="leading" tr={tr} /><NumberStepper language={ctx.language} unit="×" min={0.5} max={4} step={0.05} value={text.lineHeight ?? 1.2} onChange={(next) => patch({ lineHeight: next })} /></label>
       </div>
       <div className="dialog-grid">
-        <label><FieldName name="tracking" tr={tr} /><NumberField min={-50} max={200} value={text.letterSpacing ?? 0} onChange={(next) => patch({ letterSpacing: next })} /></label>
-        <label><FieldName name="baseline" tr={tr} /><NumberField min={-200} max={200} value={text.baselineShift ?? 0} onChange={(next) => patch({ baselineShift: next })} /></label>
+        <label><FieldName name="tracking" tr={tr} /><NumberStepper language={ctx.language} unit="px" min={-50} max={200} value={text.letterSpacing ?? 0} onChange={(next) => patch({ letterSpacing: next })} /></label>
+        <label><FieldName name="baseline" tr={tr} /><NumberStepper language={ctx.language} unit="px" min={-200} max={200} value={text.baselineShift ?? 0} onChange={(next) => patch({ baselineShift: next })} /></label>
       </div>
       <label><FieldName name="color" tr={tr} /><input type="color" value={text.color} onChange={(event) => patch({ color: event.target.value })} /></label>
       <div className="lock-row">
@@ -838,7 +820,6 @@ export function CharacterPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, activeLayer } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('characterPanel')} />
       {activeLayer?.kind === 'text' && activeLayer.text ? <CharacterFields ctx={ctx} layer={activeLayer} /> : <p className="panel-hint">{tr('noTextLayer')}</p>}
     </>
   )
@@ -846,20 +827,19 @@ export function CharacterPanel({ ctx }: { ctx: PanelContext }) {
 
 export function ParagraphPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, activeLayer } = ctx
-  if (activeLayer?.kind !== 'text' || !activeLayer.text) return <><PanelHeading tab={ctx.settings.rightTab} title={tr('paragraphPanel')} /><p className="panel-hint">{tr('noTextLayer')}</p></>
+  if (activeLayer?.kind !== 'text' || !activeLayer.text) return <><p className="panel-hint">{tr('noTextLayer')}</p></>
   const text = activeLayer.text
   const patch = (next: Partial<TextData>) => ctx.patchText(activeLayer.id, next)
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('paragraphPanel')} />
       <div className="layer-actions">
         {(['left', 'center', 'right'] as const).map((align) => (
           <button key={align} className={text.align === align ? 'active' : ''} onClick={() => patch({ align })}>{createElement({ left: AlignLeft, center: AlignCenter, right: AlignRight }[align], { size: 13, 'aria-hidden': true })}<span>{tr(`align${align.charAt(0).toUpperCase()}${align.slice(1)}`)}</span></button>
         ))}
       </div>
       <div className="dialog-grid">
-        <label><FieldName name="indent" tr={tr} /><NumberField min={0} max={800} value={text.indent ?? 0} onChange={(next) => patch({ indent: next })} /></label>
-        <label><FieldName name="paragraphSpacing" tr={tr} /><NumberField min={0} max={400} value={text.paragraphSpacing ?? 0} onChange={(next) => patch({ paragraphSpacing: next })} /></label>
+        <label><FieldName name="indent" tr={tr} /><NumberStepper language={ctx.language} unit="px" min={0} max={800} value={text.indent ?? 0} onChange={(next) => patch({ indent: next })} /></label>
+        <label><FieldName name="paragraphSpacing" tr={tr} /><NumberStepper language={ctx.language} unit="px" min={0} max={400} value={text.paragraphSpacing ?? 0} onChange={(next) => patch({ paragraphSpacing: next })} /></label>
       </div>
       <label className="check-row"><input type="checkbox" checked={text.vertical} onChange={(event) => patch({ vertical: event.target.checked })} /><FieldName name="vtext" tr={tr} /></label>
     </>
@@ -876,7 +856,6 @@ export function GlyphsPanel({ ctx }: { ctx: PanelContext }) {
   const canInsert = activeLayer?.kind === 'text' && activeLayer.text
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('glyphs')} />
       <p className="panel-hint">{canInsert ? tr('glyphHint') : tr('noTextLayer')}</p>
       <div className="glyph-grid">
         {glyphSets.join('').replace(/\s+/g, '').split('').map((glyph, index) => (
@@ -894,7 +873,6 @@ export function MeasurementLogPanel({ ctx }: { ctx: PanelContext }) {
   const entries = doc.measurements ?? []
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('measurementLog')} />
       {entries.length === 0 && <p className="panel-hint">{tr('noMeasurements')}</p>}
       {entries.map((entry) => (
         <div className="info-block" key={entry.id}>
@@ -919,7 +897,6 @@ export function NotesPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, doc } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('notesPanel')} />
       {doc.notes.length === 0 && <p className="panel-hint">{tr('noNotes')}</p>}
       {doc.notes.map((note) => (
         <div className="info-block note-row" key={note.id}>
@@ -936,7 +913,6 @@ export function PathsPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, doc } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('pathsPanel')} />
       {doc.paths.length === 0 && <p className="panel-hint">{tr('noPaths')}</p>}
       {doc.paths.map((path) => (
         <div className="channel-row" key={path.id}>
@@ -961,7 +937,6 @@ export function ActionsPanel({ ctx }: { ctx: PanelContext }) {
   const [actionName, setActionName] = useState('')
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('actions')} />
       {recording
         ? (
           <>
@@ -993,7 +968,6 @@ export function CompsPanel({ ctx }: { ctx: PanelContext }) {
   const [compName, setCompName] = useState('')
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('layerComps')} />
       <div className="channel-row">
         <input value={compName} placeholder={tr('compName')} onChange={(event) => setCompName(event.target.value)} />
         <button data-tooltip={tr('captureComp')} onClick={() => { ctx.captureComp(compName.trim() || tr('comp')); setCompName('') }}><Camera size={13} /></button>
@@ -1014,7 +988,6 @@ export function TimelinePanel({ ctx }: { ctx: PanelContext }) {
   const { tr, doc, playingFrame } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('timeline')} />
       <div className="channel-row">
         <button data-tooltip={tr('addFrame')} onClick={ctx.captureAnimationFrame}><Plus size={13} /><span>{tr('addFrame')}</span></button>
         <button disabled={(doc.animation ?? []).length < 2} data-tooltip={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')} aria-label={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')} onClick={() => (playingFrame === null ? ctx.startPlayback() : ctx.stopPlayback())}>
@@ -1026,7 +999,7 @@ export function TimelinePanel({ ctx }: { ctx: PanelContext }) {
         : (doc.animation ?? []).map((frame, index) => (
           <div className="frame-row" key={frame.id}>
             <button className={playingFrame === index ? 'active' : ''} onClick={() => ctx.showAnimationFrame(frame.id)}><Film size={13} aria-hidden="true" /><span>{index + 1}</span></button>
-            <NumberField min={20} max={5000} step={20} value={frame.delayMs} onChange={(next) => ctx.patchAnimationFrame(frame.id, { delayMs: next })} />
+            <NumberStepper language={ctx.language} unit="ms" min={20} max={5000} step={20} value={frame.delayMs} onChange={(next) => ctx.patchAnimationFrame(frame.id, { delayMs: next })} />
             <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => ctx.deleteAnimationFrame(frame.id)}><Trash size={13} /></button>
           </div>
         ))}
@@ -1040,7 +1013,6 @@ export function InfoPanel({ ctx }: { ctx: PanelContext }) {
   const { tr, doc, tool, samplerValues } = ctx
   return (
     <>
-      <PanelHeading tab={ctx.settings.rightTab} title={tr('info')} />
       <p>{doc.name} {doc.width}×{doc.height} · {doc.colorMode.toUpperCase()}</p>
       <p>{tr('tool')}: {toolLabel(ctx.language, tool)}</p>
       {samplerValues.map((item) => (

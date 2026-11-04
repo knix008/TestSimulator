@@ -186,7 +186,7 @@ test('the seam that is removed is the one that was costed', () => {
 })
 
 test('skin tones are recognised by hue, not by how saturated they are', () => {
-  // Measured off the photos in images/: a desaturated edit and a plain render.
+  // Measured off the photos in samples/: a desaturated edit and a plain render.
   const skin = [
     [114, 98, 99], [155, 128, 109], [169, 145, 131], [189, 159, 147],
     [241, 194, 168], [198, 134, 107], [120, 82, 62],

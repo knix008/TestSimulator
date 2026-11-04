@@ -178,11 +178,16 @@ test('the right panel folds away and comes back', () => {
   const app = read('src/App.tsx')
   assert.match(app, /settings\.rightCollapsed \? ' panel-closed' : ''/)
   assert.match(app, /className="panel-collapse"/, 'there is no button')
+  const title = app.slice(app.indexOf('<header className="panel-title">'), app.indexOf('</header>', app.indexOf('<header className="panel-title">')))
+  assert.ok(title.indexOf('PanelTabIcon') >= 0 && title.indexOf('PanelTabIcon') < title.indexOf('<h2>') && title.indexOf('<h2>') < title.indexOf('panel-collapse'), 'the title bar is not icon, name, button')
+  assert.equal(findCommand('window.togglePanel').toolbar, true, 'the toolbar has no button for it')
+  assert.match(app, /id === 'window\.togglePanel'\) return !settings\.rightCollapsed/, 'the toolbar button does not show the state')
   assert.match(app, /event\.key === 'Tab' && !typing/, 'Tab would steal the key from a text field')
   assert.ok(findCommand('window.togglePanel'), 'there is no menu row')
   const css = read('src/App.css')
-  assert.match(css, /\.workspace\.panel-closed \{[^}]*grid-template-columns: 64px minmax\(0, 1fr\) 14px 0/)
-  assert.match(css, /\.workspace\.panel-closed \.panel \{[^}]*display: none/)
+  // Folded, the strip stays: the button that brings it back must not fold away with it.
+  assert.match(css, /\.workspace\.panel-closed \{[^}]*grid-template-columns: 64px minmax\(0, 1fr\) 0 40px/)
+  assert.match(css, /\.workspace\.panel-closed \.panel > :not\(\.panel-title\)/)
 })
 
 test('each setting is on one line with an icon of its own', () => {
@@ -197,7 +202,7 @@ test('each setting is on one line with an icon of its own', () => {
 
 test('the hand tool has the open hand, larger than its neighbours', () => {
   assert.match(read('src/catalog.ts'), /\{ id: 'hand', icon: Hand,/)
-  assert.match(read('src/App.tsx'), /<Icon size=\{item\.id === 'hand' \? 20 : 15\} \/>/)
+  assert.match(read('src/App.tsx'), /<Icon size=\{item\.id === 'hand' \? 20 :/)
 })
 
 /* ----------------------------------------------------------- context menu */

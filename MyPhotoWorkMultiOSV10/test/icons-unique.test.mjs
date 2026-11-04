@@ -134,10 +134,10 @@ test('a toolbar button and a tool beside it do not look the same, unless they ar
    * places. Select Subject wore the sparkle of the Spot Healing tool, which is
    * what prompted this.
    *
-   * Four pairs are meant to match: the command and the tool are the same
+   * Five pairs are meant to match: the command and the tool are the same
    * action, and drawing them differently would be the confusing choice.
    */
-  const sameThing = new Set(['image.rotateCW', 'type.horizontal', 'view.zoomIn', 'view.rulers'])
+  const sameThing = new Set(['image.rotateCW', 'type.horizontal', 'type.vertical', 'view.zoomIn', 'view.rulers'])
   const tools = new Map()
   for (const group of toolGroups) for (const tool of group.tools) tools.set(tool.icon, tool.id)
 

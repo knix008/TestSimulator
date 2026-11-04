@@ -1,5 +1,5 @@
 /**
- * Runs the real open/export/print pipeline over the photos in images/.
+ * Runs the real open/export/print pipeline over the photos in samples/.
  *
  *   npm run verify:images
  *
@@ -34,7 +34,7 @@ import { rectSelection } from '../src/lib/selection.ts'
 import { hasPsdMagic, writePsd } from '../src/lib/psd.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const imagesDir = path.join(root, 'images')
+const imagesDir = path.join(root, 'samples')
 // `out/` beside the project, not a temp folder: the point of these files is
 // that somebody can open them later and see for themselves.
 const outDir = process.argv[2] ?? path.join(root, 'out')
@@ -132,7 +132,7 @@ function meanDifference(a, b) {
 
 const files = readdirSync(imagesDir).filter((name) => path.extname(name).toLowerCase() in mimes)
 assert.ok(files.length > 0, `no images to verify in ${imagesDir}`)
-say(`Verifying ${files.length} file(s) from images/ into ${outDir}\n`)
+say(`Verifying ${files.length} file(s) from samples/ into ${outDir}\n`)
 
 for (const file of files) {
   currentSource = file
@@ -360,7 +360,7 @@ writeFileSync(path.join(outDir, 'index.html'), `<!doctype html>
 </head>
 <body>
 <h1>Image verification</h1>
-<p class="lead">${files.length} source image(s) from <code>images/</code>, ${produced.length} files produced, every assertion passed.</p>
+<p class="lead">${files.length} source image(s) from <code>samples/</code>, ${produced.length} files produced, every assertion passed.</p>
 <p class="lead">${startedAt.toISOString()} &middot; see <a href="report.md">report.md</a> and <a href="verify-images.log">verify-images.log</a>.</p>
 ${bySource.map(({ file, items }) => `<h2>${file}</h2>
 <div class="grid">

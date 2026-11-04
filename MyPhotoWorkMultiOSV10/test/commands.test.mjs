@@ -189,5 +189,5 @@ test('the guide is on the Window menu, not a button of its own', () => {
   // Help is a menu of its own, whose first row opens the full guide.
   assert.ok(menuOrder.includes('helpMenu'), 'there is no Help menu')
   const rows = commands.filter((command) => command.menu === 'helpMenu').map((command) => command.id)
-  assert.deepEqual(rows, ['help.guide', 'help.tutorial', 'help.quick', 'help.start', 'help.about'])
+  assert.deepEqual(rows, ['help.guide', 'help.tutorial', 'help.start', 'help.about'])
 })

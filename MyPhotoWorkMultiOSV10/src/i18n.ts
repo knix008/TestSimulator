@@ -648,20 +648,7 @@ const ko: Dictionary = {
   dropShadow: '그림자',
   strokeFx: '스트로크',
   overlayFx: '컬러 오버레이',
-  cloneHint: 'Alt+클릭으로 복제 원본을 지정하세요',
-  helpGuide: '사용 설명서',
-  helpIntro: '문서·레이어·도구·필터를 이 컴퓨터에서 다루는 사진 편집기입니다. 클라우드 생성 모델은 포함되지 않습니다.',
-  helpToolsTitle: '도구',
-  helpToolsBody: '왼쪽에서 이동(V), 선택(M/L/W), 자르기(C), 브러시(B), 지우개(E), 채우기(G), 문자(T), 스포이드(I), 손바닥(H), 확대(Z)를 고릅니다. [ ]로 브러시 크기, X로 전경/배경색을 바꿉니다.',
-  helpFilesTitle: '파일',
-  helpFilesBody: '새로 만들기, 열기, 이미지 가져오기, 저장(.mpw), 내보내기(PNG/JPG 등)를 파일 메뉴에서 실행합니다. 저장하지 않은 변경은 새 문서·열기·닫기 전에 확인합니다.',
-  helpLayersTitle: '레이어',
-  helpLayersBody: '오른쪽 패널에서 레이어를 추가·복제·삭제·병합하고 불투명도와 혼합 모드를 바꿉니다. 눈 아이콘은 표시, 자물쇠는 잠금입니다.',
-  helpAdjustTitle: '이미지와 필터',
-  helpAdjustBody: '이미지 메뉴에서 크기, 회전, 밝기/대비, 색조/채도를 적용합니다. 필터 메뉴에서 흐림, 선명하게, 필터 갤러리를 엽니다. 선택 영역이 있으면 그 픽셀만 바뀝니다.',
-  helpViewTitle: '보기와 설정',
-  helpViewBody: '보기 메뉴에서 확대/축소, 격자, 자를 전환합니다. 툴바의 국기 버튼으로 언어를, 팔레트로 테마를 바꿉니다. 설정과 정보는 도움말 메뉴 또는 툴바 오른쪽에서도 열 수 있습니다.',
-}
+  cloneHint: 'Alt+클릭으로 복제 원본을 지정하세요',}
 
 const en: Dictionary = {
   appName: 'My Photo Work V1.0',
@@ -1308,20 +1295,7 @@ const en: Dictionary = {
   dropShadow: 'Drop shadow',
   strokeFx: 'Stroke',
   overlayFx: 'Color overlay',
-  cloneHint: 'Alt-click to set the clone source',
-  helpGuide: 'User guide',
-  helpIntro: 'A photo editor that keeps documents, layers, tools, and filters on this computer. No cloud generative models are bundled.',
-  helpToolsTitle: 'Tools',
-  helpToolsBody: 'Pick Move (V), selection (M/L/W), Crop (C), Brush (B), Eraser (E), Fill (G), Type (T), Eyedropper (I), Hand (H), or Zoom (Z) on the left. Use [ ] for brush size and X to swap foreground and background.',
-  helpFilesTitle: 'Files',
-  helpFilesBody: 'Use the File menu for New, Open, Place, Save (.mpw), and Export (PNG/JPG and more). Unsaved changes are confirmed before New, Open, or Close.',
-  helpLayersTitle: 'Layers',
-  helpLayersBody: 'The right panel adds, duplicates, deletes, and merges layers, and sets opacity and blend mode. The eye toggles visibility; the lock prevents edits.',
-  helpAdjustTitle: 'Image and filters',
-  helpAdjustBody: 'The Image menu changes size, rotation, brightness/contrast, and hue/saturation. The Filter menu opens blur, sharpen, and the filter gallery. An active selection limits the change to those pixels.',
-  helpViewTitle: 'View and settings',
-  helpViewBody: 'The View menu covers zoom, grid, and rulers. The flag button switches language and the palette picks a theme. Settings and About are also on the Help menu and the right side of the toolbar.',
-}
+  cloneHint: 'Alt-click to set the clone source',}
 
 const toolsKo: Record<Tool, string> = {
   move: '이동', artboard: '아트보드', puppet: '퍼펫 뒤틀기', marquee: '사각형 선택', ellipseMarquee: '원형 선택', rowMarquee: '행 선택', colMarquee: '열 선택',

@@ -87,7 +87,7 @@ test('describeFile picks the reader from the file itself, not its name', () => {
 })
 
 test('a JPEG with no EXIF is reported as having none, not guessed at', () => {
-  const plain = readFileSync(fileURLToPath(new URL('../images/test01.jpg', import.meta.url)))
+  const plain = readFileSync(fileURLToPath(new URL('../samples/test01.jpg', import.meta.url)))
   const buffer = plain.buffer.slice(plain.byteOffset, plain.byteOffset + plain.byteLength)
   assert.deepEqual(describeFile('test01.jpg', 'image/jpeg', buffer), [])
 })

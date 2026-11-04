@@ -1,5 +1,5 @@
 /**
- * Runs every Photoshop-parity feature over the real photos in images/.
+ * Runs every Photoshop-parity feature over the real photos in samples/.
  *
  *   npm run verify:features            (working copies, longest side 512px)
  *   npm run verify:features -- --full  (the photos at their full size)
@@ -97,7 +97,7 @@ import { canExportVideo, canImportVideo } from '../src/lib/video.ts'
 import { hexToRgb } from '../src/lib/color.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const imagesDir = path.join(root, 'images')
+const imagesDir = path.join(root, 'samples')
 const args = process.argv.slice(2)
 const fullSize = args.includes('--full')
 const outDir = args.find((arg) => !arg.startsWith('--')) ?? path.join(root, 'out')
@@ -1616,7 +1616,7 @@ const mimes = {
 }
 const files = readdirSync(imagesDir).filter((name) => path.extname(name).toLowerCase() in mimes)
 assert.ok(files.length > 0, `no images to verify in ${imagesDir}`)
-say(`Verifying ${features.length} features over ${files.length} photo(s) from images/ into ${featuresDir}${fullSize ? ' at full size' : ` (working copies ≤ ${workingSide}px)`}\n`)
+say(`Verifying ${features.length} features over ${files.length} photo(s) from samples/ into ${featuresDir}${fullSize ? ' at full size' : ` (working copies ≤ ${workingSide}px)`}\n`)
 
 const startedAt = new Date()
 /** Every photo opened, so one can be "the other picture" for another. */

@@ -69,7 +69,7 @@ npm run dev
 ## 시험
 
 ```bash
-npm test             # 편집 엔진, 배선, 시작 화면, 테마, 튜토리얼, 설명서
+npm test             # 편집 엔진, 배선, 시작 화면, 테마, 튜토리얼, 설명서 (결과 리포트: out/test-report.md)
 npm run test:rust    # Rust 셸의 단위 시험
 npm run test:e2e     # 실제 실행 파일을 CDP 로 조작 (격리된 데이터 폴더)
 npm run test:ui      # 모든 도구·툴바 버튼·패널 조작부를 실제 입력으로 눌러 효과와 Undo/Redo 확인
@@ -98,7 +98,7 @@ npm run test:ui      # 모든 도구·툴바 버튼·패널 조작부를 실제 
 npm run verify:images
 ```
 
-`images/` 의 사진 하나하나를 열기 → 합성 → 내보내기 → 인쇄 파이프라인에 카메라
+`samples/` 의 사진 하나하나를 열기 → 합성 → 내보내기 → 인쇄 파이프라인에 카메라
 해상도 그대로 태웁니다. HEIC 와 DICOM 한 장도 포함합니다. 가는 동안 스스로
 단정하며 — 0이 아닌 종료 코드는 기능이 깨졌다는 뜻입니다 — 만들어 낸 것을 전부
 **`out/`** 에 남깁니다: 합성 결과, 형식별 내보내기, 투명/불투명 한 쌍, 3D·뒤틀기·
@@ -164,7 +164,7 @@ Windows 설치 프로그램은 먼저 한국어/English 를 고르게 합니다.
 | `doc/` | 사용자 설명서: 원문 `UsersGuide.md`·`UsersGuide.en.md`, 그림 `images/`, 창에 보이는 `index.html`(생성됨) |
 | `scripts/` | 실행 스크립트, 설치본 빌드, 아이콘·빌드 스탬프·설명서 생성기, 설명서 그림 촬영, 실제 창 시험, 실사진 검증 |
 | `test/` | `node --test` 시험 묶음과 DOM/캔버스 시험 장치 |
-| `images/` | 예제 사진. HEIC 한 장과 DICOM 한 장을 포함하며 `npm run verify:images`·`verify:features` 가 씁니다 |
+| `samples/` | 예제 사진. HEIC 한 장과 DICOM 한 장을 포함하며 `npm run verify:images`·`verify:features` 가 씁니다 |
 | `out/` | 그 두 실행이 만들어 낸 것(git 제외): 갤러리, 보고서, 그리고 남긴 파일 전부 |
 
 ## 프로그램 정보

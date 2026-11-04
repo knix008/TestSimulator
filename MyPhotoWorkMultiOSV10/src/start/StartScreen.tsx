@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
-  Aperture, BookOpen, Brush, ChartColumnBig, ChartSpline, CircleDot, CircleHelp, Clapperboard, ClipboardList, Contrast, Dices, Eye, File, FilePlus, FolderOpen,
+  Aperture, BookOpen, Brush, ChartColumnBig, ChartSpline, CircleDot, Clapperboard, ClipboardList, Contrast, Dices, Eye, File, FilePlus, FolderOpen,
   Gauge, GalleryVertical, GraduationCap, Grid2x2, Grid3x3, GripVertical, Hexagon, History, Image as ImageIcon, Info, Keyboard, Layers, LayoutGrid, Lightbulb, Minus, MonitorPlay, Palette, Plus,
   Printer, RectangleHorizontal, Rainbow, Settings2, Smartphone, Sparkles, SquareDashed, Sun, Trash, X, Zap, type LucideIcon,
 } from 'lucide-react'
@@ -28,7 +28,7 @@ const PRESET_GROUPS: { title: string; presets: [string, number, number, LucideIc
   { title: 'startGroupPrint', presets: [['startPresetA4', 2480, 3508, Printer], ['startPresetA3', 3508, 4961, Printer], ['startPresetPostcard', 1748, 1240, ClipboardList]] },
 ]
 
-export type StartAction = 'new' | 'open' | 'guide' | 'tutorial' | 'quickHelp' | 'shortcuts' | 'settings' | 'about' | 'close'
+export type StartAction = 'new' | 'open' | 'guide' | 'tutorial' | 'shortcuts' | 'settings' | 'about' | 'close'
 
 type StartScreenProps = {
   language: Language
@@ -391,7 +391,7 @@ export default function StartScreen(props: StartScreenProps) {
     )),
     help: card('help', 'start-help-card', BookOpen, tr('helpMenu'), (
       <div className="start-help">
-        {([['guide', BookOpen, 'userGuide'], ['tutorial', GraduationCap, 'tutorial'], ['quickHelp', CircleHelp, 'help'], ['shortcuts', Keyboard, 'keyboardShortcuts'], ['settings', Settings2, 'settings'], ['about', Info, 'about']] as [StartAction, LucideIcon, string][]).map(([action, Icon, label]) => (
+        {([['guide', BookOpen, 'userGuide'], ['tutorial', GraduationCap, 'tutorial'], ['shortcuts', Keyboard, 'keyboardShortcuts'], ['settings', Settings2, 'settings'], ['about', Info, 'about']] as [StartAction, LucideIcon, string][]).map(([action, Icon, label]) => (
           <button key={action} type="button" className="start-link compact" data-action={action} onClick={() => onAction(action)}><Icon size={15} /><span className="name">{tr(label)}</span></button>
         ))}
       </div>

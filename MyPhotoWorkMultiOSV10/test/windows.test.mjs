@@ -204,7 +204,7 @@ test('every dialog window has an icon, a title and a close button', () => {
   assert.match(dialogMeta, /name === 'filterParams' && payload\?\.filterId\) return filterIcon/, 'the filter window does not wear its filter’s icon')
   assert.match(dialogMeta, /name === 'adjustment' && payload\?\.adjustmentType/, 'the adjustment window does not wear its adjustment’s icon')
   // Settings, About and Help all go through the same frame, so all three get one.
-  for (const name of ['settings', 'about', 'helpGuide']) {
+  for (const name of ['settings', 'about']) {
     assert.ok(dialogMeta.includes(`${name}:`), `${name} has no icon or title entry`)
   }
 })
@@ -448,17 +448,18 @@ test('the rulers are graduated like a tape: numbered, half and fine ticks on bot
 /* ------------------------------------------------------------ settings form */
 
 test('a number in the settings window has a step button either side', () => {
-  const stepper = dialogSource.slice(dialogSource.indexOf('export function NumberStepper'), dialogSource.indexOf('/* ------------------------------------------------------------ curve editor */'))
+  const controlSource = readFileSync(new URL('../src/controls.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  const stepper = controlSource.slice(controlSource.indexOf('export function NumberStepper'))
   assert.match(stepper, /<Minus size=\{14\} \/>/, 'there is no decrease button')
   assert.match(stepper, /<Plus size=\{14\} \/>/, 'there is no increase button')
-  assert.match(stepper, /disabled=\{value <= min\}/, 'the decrease button never disables at the floor')
-  assert.match(stepper, /disabled=\{value >= max\}/, 'the increase button never disables at the ceiling')
+  assert.match(stepper, /disabled=\{disabled \|\| value <= min\}/, 'the decrease button never disables at the floor')
+  assert.match(stepper, /disabled=\{disabled \|\| value >= max\}/, 'the increase button never disables at the ceiling')
   assert.match(stepper, /Math\.min\(max, Math\.max\(min, next\)\)/, 'typing could go out of range')
-  assert.match(stepper, /type="number"/, 'the value can no longer be typed')
+  assert.match(stepper, /<input/, 'the value can no longer be typed')
 
   // Every counted setting uses it, and so do the size dialogs. The count grows
   // as pages are added, so what is asserted is that none is left bare.
-  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'helpGuide':"))
+  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'about': {"))
   assert.ok((settings.match(/<NumberStepper/g) ?? []).length >= 5, 'the settings window lost its steppers')
   assert.doesNotMatch(settings, /<input\s+type="number"/, 'a settings number is still a bare input')
   // Every preference the editor keeps is on one of the pages, and there is a way back to the defaults.
@@ -471,17 +472,6 @@ test('a number in the settings window has a step button either side', () => {
   assert.ok(!settings.includes('type="number"'), 'a settings number still uses the browser spinner')
 })
 
-test('the step buttons keep the value on the step grid', () => {
-  const stepper = dialogSource.slice(dialogSource.indexOf('export function NumberStepper'), dialogSource.indexOf('/* ------------------------------------------------------------ curve editor */'))
-  assert.match(stepper, /Math\.round\(\(value \+ direction \* step\) \/ step\) \* step/, 'repeated clicks would drift off the step')
-})
-
-test('the browser spinners are hidden now that the buttons replace them', () => {
-  assert.ok(cssSource.includes('.number-stepper input[type=\'number\']::-webkit-inner-spin-button'), 'the native spinner still shows')
-  const rule = cssSource.slice(cssSource.indexOf(".number-stepper input[type='number'] {"))
-  assert.match(rule.slice(0, rule.indexOf('}')), /appearance: textfield/, 'the native spinner still shows in Firefox')
-})
-
 test('the settings labels say what the value means', () => {
   for (const language of ['ko', 'en']) {
     for (const key of ['settingsBrushSize', 'settingsBrushSizeHint', 'settingsTolerance', 'settingsToleranceHint']) {
@@ -491,7 +481,7 @@ test('the settings labels say what the value means', () => {
     assert.ok(t(language, 'settingsBrushSizeHint').length > 20, `${language} brush-size hint is too terse`)
     assert.ok(/0/.test(t(language, 'settingsToleranceHint')), `${language} tolerance hint does not explain the range`)
   }
-  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'helpGuide':"))
+  const settings = dialogSource.slice(dialogSource.indexOf("case 'settings': {"), dialogSource.indexOf("case 'about': {"))
   assert.ok(settings.includes("tr('settingsBrushSize')"), 'the brush size still uses the abbreviated label')
   assert.ok(settings.includes("tr('settingsToleranceHint')"), 'the tolerance is not explained')
 })

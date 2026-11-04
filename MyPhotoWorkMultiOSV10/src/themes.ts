@@ -15,6 +15,16 @@ function rgb(hex: string) {
   return `${Number.parseInt(value.slice(0, 2), 16)}, ${Number.parseInt(value.slice(2, 4), 16)}, ${Number.parseInt(value.slice(4, 6), 16)}`
 }
 
+/** Black or white, whichever reads better on this colour. */
+export function readableOn(hex: string) {
+  const channel = (at: number) => {
+    const value = Number.parseInt(hex.slice(at, at + 2), 16) / 255
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  }
+  const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
+  return 1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.05 ? '#ffffff' : '#0b0f14'
+}
+
 function buildTheme(
   id: string,
   kind: ThemeKind,
@@ -47,6 +57,7 @@ function buildTheme(
     vars: {
       '--accent': palette.accent,
       '--accent-soft': `rgba(${accentRgb}, ${kind === 'dark' ? 0.2 : 0.16})`,
+      '--accent-text': readableOn(palette.accent),
       '--app-bg-a': palette.appA,
       '--app-bg-b': palette.appB,
       '--border': `rgba(${lineRgb}, ${kind === 'dark' ? 0.14 : 0.16})`,

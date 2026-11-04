@@ -18,7 +18,7 @@ src/build-info.json
 /*.AppImage
 /*.deb
 
-# Results of npm run verify:images and verify:features, rebuilt on every run
+# out/test-report.md from npm test, and the results of npm run verify:images and verify:features (over samples/), rebuilt on every run
 out/
 
 # Neural network weights belong in the user's data folder, never in the project

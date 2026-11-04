@@ -25,7 +25,7 @@ export type OptionControl =
   | { kind: 'select'; key: OptionKey; label: string; choices: { value: string; label: string }[] }
   | { kind: 'toggle'; key: OptionKey; label: string }
   /** Non-settings widgets App owns directly (font pickers, path actions…). */
-  | { kind: 'custom'; id: 'font' | 'pathActions' | 'transformActions' | 'cropActions' | 'sliceActions' | 'liquifyActions' | 'gradientPicker' | 'shapeKindPicker' | 'artboardActions' }
+  | { kind: 'custom'; id: 'regionFields' | 'font' | 'pathActions' | 'transformActions' | 'cropActions' | 'sliceActions' | 'liquifyActions' | 'gradientPicker' | 'shapeKindPicker' | 'artboardActions' }
   /** A one-line explanation of the tool's modifier keys. */
   | { kind: 'hint'; label: string }
 
@@ -108,6 +108,7 @@ export const toolOptions: Record<Tool, OptionControl[]> = {
         { value: '16:9', label: 'ratio169' },
       ],
     },
+    { kind: 'custom', id: 'regionFields' },
     { kind: 'custom', id: 'cropActions' },
     { kind: 'hint', label: 'hintCropRatio' },
   ],
@@ -239,7 +240,12 @@ export const toolOptions: Record<Tool, OptionControl[]> = {
 }
 
 export function optionsForTool(tool: Tool): OptionControl[] {
-  return toolOptions[tool] ?? []
+  const row = toolOptions[tool] ?? []
+  // Every tool that selects can have its selection's exact numbers typed.
+  if (!row.some((control) => control.kind === 'select' && control.key === 'selectionMode')) return row
+  const hint = row.findIndex((control) => control.kind === 'hint')
+  const at = hint < 0 ? row.length : hint
+  return [...row.slice(0, at), { kind: 'custom', id: 'regionFields' }, ...row.slice(at)]
 }
 
 /** Every i18n key the options bar can ask for, so a missing label is testable. */

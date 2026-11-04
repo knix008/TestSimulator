@@ -4,7 +4,7 @@ import {
   AlignHorizontalDistributeCenter, AlignHorizontalSpaceAround, AlignJustify, AlignLeft, AlignRight,
   AlignStartHorizontal, AlignStartVertical, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalSpaceAround, Anchor, Aperture, ArrowDownToLine, ArrowLeftToLine,
-  ArrowRightToLine, ArrowUpNarrowWide, ArrowUpToLine, BadgeHelp, BadgeInfo, BadgeMinus, BookOpenText, GraduationCap, House, LifeBuoy, Ban, Barcode, Baseline,
+  ArrowRightToLine, ArrowUpNarrowWide, ArrowUpToLine, BadgeHelp, BadgeInfo, BadgeMinus, BookOpenText, GraduationCap, House, Ban, Barcode, Baseline,
   BetweenHorizontalStart, Binary, Binoculars, Blend, Blocks, Bolt, Book, BookLock, Bookmark, BookMarked,
   BookmarkPlus, BookOpenCheck, Box, Boxes, Brain, BrainCircuit, Brush, BrushCleaning, Calculator, Camera,
   CameraOff, CaseSensitive, ChartColumn, ChartColumnIncreasing, ChartNoAxesColumnIncreasing, ChartSpline,
@@ -36,10 +36,11 @@ import {
   SquareDashedMousePointer, SquareDot, SquareEqual, SquareMinus, SquareOff, SquarePen, SquareRoundCorner,
   SquareSlash, SquareSplitHorizontal, SquareSplitVertical, SquareStack, SquareX, StickyNote, Sun, SunDim,
   SunMedium, SunMoon, Sunrise, Sunset, SunSnow, SwatchBook, SwitchCamera, Table, Table2, TableProperties,
-  Telescope, TextAlignCenter, TextSelect, ToggleLeft, ToolCase, Tornado, Trash, Triangle, TriangleAlert,
+  Telescope, TextAlignCenter, ToggleLeft, ToolCase, Tornado, Trash, Triangle, TriangleAlert,
   Type, TypeOutline, Undo2, Ungroup, Unlink, VenetianMask, Wallpaper, WandSparkles, Waves, WavesArrowUp,
   Waypoints, Wrench, ZoomIn, ZoomOut
 } from 'lucide-react'
+import { TypeHorizontalIcon, TypeVerticalIcon } from './lib/typeIcons'
 import { adjustmentTypes } from './catalog'
 import { filterIcon } from './filterInfo'
 import { extraFilterIds, extraFilters } from './lib/moreFilters'
@@ -346,8 +347,8 @@ export const commands: AppCommand[] = [
   ...adjustmentLayerCommands,
 
   /* -------------------------------------------------------------- type */
-  { id: 'type.horizontal', menu: 'typeMenu', icon: Type, label: 'text', toolbar: true, accel: 'T' },
-  { id: 'type.vertical', menu: 'typeMenu', icon: TextSelect, label: 'vtext', accel: 'Shift+T' },
+  { id: 'type.horizontal', menu: 'typeMenu', icon: TypeHorizontalIcon, label: 'typeHorizontal', toolbar: true, accel: 'T' },
+  { id: 'type.vertical', menu: 'typeMenu', icon: TypeVerticalIcon, label: 'vtext', toolbar: true, accel: 'Shift+T' },
   { id: 'type.enter', menu: 'typeMenu', icon: CornerDownLeft, label: 'enterText' },
   { id: 'type.character', menu: 'typeMenu', icon: CaseSensitive, label: 'characterPanel', separatorBefore: true },
   { id: 'type.paragraph', menu: 'typeMenu', icon: Pilcrow, label: 'paragraphPanel' },
@@ -459,7 +460,7 @@ export const commands: AppCommand[] = [
   { id: 'window.navigator', menu: 'windowMenu', icon: Compass, label: 'navigator' },
   { id: 'window.info', menu: 'windowMenu', icon: CircleHelp, label: 'info', accel: 'F8' },
   { id: 'window.color', menu: 'windowMenu', icon: Palette, label: 'colorPanel', accel: 'F6' },
-  { id: 'window.togglePanel', menu: 'windowMenu', icon: PanelRightClose, label: 'panelToggle', accel: 'Tab', separatorBefore: true },
+  { id: 'window.togglePanel', menu: 'windowMenu', icon: PanelRightClose, label: 'panelToggle', toolbar: true, accel: 'Tab', separatorBefore: true },
   { id: 'window.swatches', menu: 'windowMenu', icon: SwatchBook, label: 'swatches' },
   { id: 'window.gradients', menu: 'windowMenu', icon: RectangleHorizontal, label: 'gradientsPanel' },
   { id: 'window.patterns', menu: 'windowMenu', icon: Wallpaper, label: 'patternsPanel' },
@@ -481,7 +482,6 @@ export const commands: AppCommand[] = [
   /* help */
   { id: 'help.guide', menu: 'helpMenu', icon: BookOpenText, label: 'userGuide', accel: 'F1' },
   { id: 'help.tutorial', menu: 'helpMenu', icon: GraduationCap, label: 'tutorial' },
-  { id: 'help.quick', menu: 'helpMenu', icon: LifeBuoy, label: 'help' },
   { id: 'help.start', menu: 'helpMenu', icon: House, label: 'startScreen', separatorBefore: true },
   { id: 'help.about', menu: 'helpMenu', icon: BadgeInfo, label: 'about', separatorBefore: true },
 ]

@@ -3,7 +3,7 @@
 - 대상: My Photo Work V1.0, 2026-09-21 기준 (2차 실사진 검증 후)
 - 기준: Adobe Photoshop (2024/2025) 툴바 도구 전체 + File/Edit/Image/Layer/Type/Select/Filter/3D/View/Window 메뉴 명령
 - 검증: `npm test` 670개 통과, `npm run lint`·`tsc -b` 오류 없음, `npm run verify:images` 통과, Tauri 앱을 CDP로 구동해 **모든 메뉴 명령(230여 개)과 36개 대화상자 응답을 실행 — 렌더러 오류·오류 창 0건**
-- 실사진 검증: `npm run verify:features` — `images/` 의 사진 5장(JPEG 3, HEIC, DICOM)에 **기능 항목 288개 × 5장 = 1,440회** 실행, 전부 통과. 카탈로그의 도구 66개·메뉴 명령 410개 중 **429개를 픽셀 결과로 확인**, 47개는 창/보기 전용(§8), 미확인 0. 결과 그림은 `out/features/`, 갤러리 `out/features.html`, 항목별 커버리지 표 `out/features.md`.
+- 실사진 검증: `npm run verify:features` — `samples/` 의 사진 5장(JPEG 3, HEIC, DICOM)에 **기능 항목 288개 × 5장 = 1,440회** 실행, 전부 통과. 카탈로그의 도구 66개·메뉴 명령 410개 중 **429개를 픽셀 결과로 확인**, 47개는 창/보기 전용(§8), 미확인 0. 결과 그림은 `out/features/`, 갤러리 `out/features.html`, 항목별 커버리지 표 `out/features.md`.
 
 ## 판정 기호
 

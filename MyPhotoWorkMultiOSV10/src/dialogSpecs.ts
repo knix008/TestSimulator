@@ -15,7 +15,6 @@ export const DIALOG_SPECS: Record<string, DialogSpec> = {
   // A set size: wide enough for the rows to stay on one line, tall enough for its tallest page.
   settings: { width: 780, height: 700, resizable: false, minWidth: 780 },
   about: { width: 560, height: 470, resizable: false },
-  helpGuide: { width: 660, height: 620, resizable: false },
   error: { width: 620, height: 420, minWidth: 420 },
   unsaved: { width: 460, height: 210, resizable: false },
   new: { width: 520, height: 470, minWidth: 420 },

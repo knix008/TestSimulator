@@ -4,6 +4,7 @@
   color-scheme: dark;
   --accent: #6ec8ff;
   --accent-soft: rgba(110, 200, 255, 0.2);
+  --accent-text: #0b0f14;
   --app-bg-a: #0f151b;
   --app-bg-b: #1a2430;
   --border: rgba(227, 240, 245, 0.14);
@@ -47,7 +48,7 @@ body.ko article.en, body.en article.ko, body.ko h1 .en, body.en h1 .ko { display
 .lang-group button { align-items: center; background: none; border: 0; color: inherit; cursor: pointer; display: inline-flex; font: inherit; gap: 6px; padding: 0 11px; white-space: nowrap; }
 .lang-group button + button { border-left: 1px solid var(--border); }
 .lang-group button:hover { background: var(--accent-soft); }
-.lang-group button.on { background: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+.lang-group button.on { background: var(--accent); color: var(--accent-text); font-weight: 600; }
 .flag { border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 2px; display: block; flex: none; }
 .win-buttons { align-self: stretch; display: none; }
 body.desktop .win-buttons { display: flex; }

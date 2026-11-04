@@ -1,5 +1,5 @@
 import { createElement, useEffect, useState, type ReactNode } from 'react'
-import { NumberField, Slider as RangeSlider } from './controls'
+import { NumberStepper, Slider as RangeSlider } from './controls'
 import { filterDescription, filterGroupIcon, filterIcon } from './filterInfo'
 import { useLivePreview } from './usePreview'
 import { formatBytes, modelStore, type ModelProgress } from './lib/models'
@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { t } from './i18n'
 import type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
-import { NumberStepper } from './dialogs'
 import { adjustmentFields, fieldToSlider, sliderToField } from './adjustmentFields'
 import { adjustmentTypes, filterCatalog } from './catalog'
 import { gradientCss, gradientLabel, gradientPresets, type GradientDef, type GradientStop, type OpacityStop } from './lib/gradients'
@@ -320,7 +319,7 @@ function RotateArbitraryDialog({ payload, onResult, onClose }: BodyProps) {
   const [direction, setDirection] = useState<'cw' | 'ccw'>('cw')
   return (
     <>
-      <label>{tr('rotateAngle')}<NumberStepper language={payload.language} min={0} max={360} step={0.5} value={angle} onChange={setAngle} /></label>
+      <label>{tr('rotateAngle')}<NumberStepper language={payload.language} unit="°" min={0} max={360} step={0.5} value={angle} onChange={setAngle} /></label>
       <label>{tr('orientation')}
         <select value={direction} onChange={(event) => setDirection(event.target.value as 'cw' | 'ccw')}>
           <option value="cw">{tr('rotateCW')}</option>
@@ -344,7 +343,7 @@ function NewGuideDialog({ payload, onResult, onClose }: BodyProps) {
           <option value="x">{tr('guideVertical')}</option>
         </select>
       </label>
-      <label>{tr('guidePosition')}<NumberStepper language={payload.language} min={0} max={20000} value={position} onChange={setPosition} /></label>
+      <label>{tr('guidePosition')}<NumberStepper language={payload.language} unit="px" min={0} max={20000} value={position} onChange={setPosition} /></label>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', axis, position })} applyLabel="ok" />
     </>
   )
@@ -361,7 +360,7 @@ function GuideLayoutDialog({ payload, onResult, onClose }: BodyProps) {
         <label>{tr('guideColumns')}<NumberStepper language={payload.language} min={0} max={40} value={columns} onChange={setColumns} /></label>
         <label>{tr('guideRows')}<NumberStepper language={payload.language} min={0} max={40} value={rows} onChange={setRows} /></label>
       </div>
-      <label>{tr('guideGutter')}<NumberStepper language={payload.language} min={0} max={500} value={gutter} onChange={setGutter} /></label>
+      <label>{tr('guideGutter')}<NumberStepper language={payload.language} unit="px" min={0} max={500} value={gutter} onChange={setGutter} /></label>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', columns, rows, gutter })} applyLabel="ok" />
     </>
   )
@@ -378,14 +377,14 @@ function TransformSelectionDialog({ payload, onResult, onClose }: BodyProps) {
   return (
     <>
       <div className="dialog-grid">
-        <label>X<NumberStepper language={payload.language} min={-20000} max={20000} value={x} onChange={setX} /></label>
-        <label>Y<NumberStepper language={payload.language} min={-20000} max={20000} value={y} onChange={setY} /></label>
+        <label>X<NumberStepper language={payload.language} unit="px" min={-20000} max={20000} value={x} onChange={setX} /></label>
+        <label>Y<NumberStepper language={payload.language} unit="px" min={-20000} max={20000} value={y} onChange={setY} /></label>
       </div>
       <div className="dialog-grid">
-        <label>{tr('width')}<NumberStepper language={payload.language} min={1} max={20000} value={width} onChange={setWidth} /></label>
-        <label>{tr('height')}<NumberStepper language={payload.language} min={1} max={20000} value={height} onChange={setHeight} /></label>
+        <label>{tr('width')}<NumberStepper language={payload.language} unit="px" min={1} max={20000} value={width} onChange={setWidth} /></label>
+        <label>{tr('height')}<NumberStepper language={payload.language} unit="px" min={1} max={20000} value={height} onChange={setHeight} /></label>
       </div>
-      <label>{tr('rotateAngle')}<NumberStepper language={payload.language} min={-360} max={360} value={angle} onChange={setAngle} /></label>
+      <label>{tr('rotateAngle')}<NumberStepper language={payload.language} unit="°" min={-360} max={360} value={angle} onChange={setAngle} /></label>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', x, y, width, height, angle })} applyLabel="ok" />
     </>
   )
@@ -516,7 +515,7 @@ function CustomFilterDialog({ payload, onResult, onClose }: BodyProps) {
       <p className="dialog-hint">{tr('kernelLabel')}</p>
       <div className="kernel-grid">
         {kernel.map((value, index) => (
-          <NumberField key={index} value={value} onChange={(next) => setKernel((current) => current.map((v, i) => (i === index ? next : v)))} />
+          <NumberStepper key={index} language={payload.language} label={`${tr('kernelLabel')} ${index + 1}`} value={value} onChange={(next) => setKernel((current) => current.map((v, i) => (i === index ? next : v)))} />
         ))}
       </div>
       <div className="dialog-grid">
@@ -911,7 +910,7 @@ function ExportAsDialog({ payload, onResult, onClose }: BodyProps) {
         </select>
       </label>
       <Slider label={tr('exportQuality')} value={quality} min={10} max={100} onChange={setQuality} />
-      <label>{tr('exportScale')}<NumberStepper language={payload.language} min={5} max={800} step={5} value={scale} onChange={setScale} /></label>
+      <label>{tr('exportScale')}<NumberStepper language={payload.language} unit="%" min={5} max={800} step={5} value={scale} onChange={setScale} /></label>
       <label className="check-row"><input type="checkbox" checked={transparent} onChange={(event) => setTransparent(event.target.checked)} />{tr('exportTransparent')}</label>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', format, quality: quality / 100, scale: scale / 100, transparent })} applyLabel="export" />
     </>
@@ -955,7 +954,7 @@ function KeyboardShortcutsDialog({ payload, onResult, onClose }: BodyProps) {
         {(payload.shortcuts ?? []).map((item) => (
           <label key={item.tool} className="shortcut-row">
             <span>{toolLabel(payload.language, item.tool as Tool)}</span>
-            <input maxLength={1} value={map[item.tool] ?? ''} onChange={(event) => setMap((current) => ({ ...current, [item.tool]: event.target.value.toLowerCase() }))} />
+            <input maxLength={1} value={map[item.tool] ?? ''} onFocus={(event) => { const field = event.currentTarget; requestAnimationFrame(() => field.select()) }} onChange={(event) => setMap((current) => ({ ...current, [item.tool]: event.target.value.toLowerCase() }))} />
             {conflict(item.tool, map[item.tool] ?? '') && <em>{tr('keyConflict')}</em>}
           </label>
         ))}
@@ -973,7 +972,7 @@ function ContactSheetDialog({ payload, onResult, onClose }: BodyProps) {
     <>
       <div className="dialog-grid">
         <label>{tr('columnsLabel')}<NumberStepper language={payload.language} min={1} max={12} value={columns} onChange={setColumns} /></label>
-        <label>{tr('thumbSize')}<NumberStepper language={payload.language} min={32} max={1024} step={32} value={thumb} onChange={setThumb} /></label>
+        <label>{tr('thumbSize')}<NumberStepper language={payload.language} unit="px" min={32} max={1024} step={32} value={thumb} onChange={setThumb} /></label>
       </div>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', columns, thumb })} applyLabel="ok" />
     </>
@@ -987,8 +986,8 @@ function FitImageDialog({ payload, onResult, onClose }: BodyProps) {
   return (
     <>
       <div className="dialog-grid">
-        <label>{tr('fitWidth')}<NumberStepper language={payload.language} min={1} max={20000} step={16} value={width} onChange={setWidth} /></label>
-        <label>{tr('fitHeight')}<NumberStepper language={payload.language} min={1} max={20000} step={16} value={height} onChange={setHeight} /></label>
+        <label>{tr('fitWidth')}<NumberStepper language={payload.language} unit="px" min={1} max={20000} step={16} value={width} onChange={setWidth} /></label>
+        <label>{tr('fitHeight')}<NumberStepper language={payload.language} unit="px" min={1} max={20000} step={16} value={height} onChange={setHeight} /></label>
       </div>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', width, height })} applyLabel="ok" />
     </>
@@ -1025,7 +1024,7 @@ function ImageProcessorDialog({ payload, onResult, onClose }: BodyProps) {
           {exportFormats.map((item) => <option key={item} value={item}>{item.toUpperCase()}</option>)}
         </select>
       </label>
-      <label>{tr('fitWidth')}<NumberStepper language={payload.language} min={16} max={20000} step={16} value={maxSide} onChange={setMaxSide} /></label>
+      <label>{tr('fitWidth')}<NumberStepper language={payload.language} unit="px" min={16} max={20000} step={16} value={maxSide} onChange={setMaxSide} /></label>
       <Actions tr={tr} onClose={onClose} onApply={() => onResult({ action: 'apply', format, maxSide })} applyLabel="ok" />
     </>
   )
@@ -1088,8 +1087,8 @@ function PerspectiveWarpDialog({ payload, onResult, onClose }: BodyProps) {
       <p className="dialog-hint">{tr('perspectiveCorners')}</p>
       {labels.map((label, index) => (
         <div className="dialog-grid" key={label}>
-          <label>{`${tr(label)} X`}<NumberStepper language={payload.language} min={-2000} max={2000} step={5} value={corners[index].x} onChange={(value) => setCorner(index, 'x', value)} /></label>
-          <label>{`${tr(label)} Y`}<NumberStepper language={payload.language} min={-2000} max={2000} step={5} value={corners[index].y} onChange={(value) => setCorner(index, 'y', value)} /></label>
+          <label>{`${tr(label)} X`}<NumberStepper language={payload.language} unit="px" min={-2000} max={2000} step={5} value={corners[index].x} onChange={(value) => setCorner(index, 'x', value)} /></label>
+          <label>{`${tr(label)} Y`}<NumberStepper language={payload.language} unit="px" min={-2000} max={2000} step={5} value={corners[index].y} onChange={(value) => setCorner(index, 'y', value)} /></label>
         </div>
       ))}
       <PreviewToggle tr={tr} value={preview} onChange={setPreview} />

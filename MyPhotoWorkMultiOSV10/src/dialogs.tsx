@@ -1,13 +1,13 @@
 import { createElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  BookOpenText, BrainCircuit, Check, Copy, Download, House, Keyboard, Layers2, LayoutGrid, Minus, Palette, Plus, Printer, RefreshCw, RotateCcw, Save, Sparkles, Tag, Trash, X,
+  BrainCircuit, Check, Copy, Download, House, Keyboard, Layers2, LayoutGrid, Palette, Printer, RefreshCw, RotateCcw, Save, Sparkles, Tag, Trash, X,
 } from 'lucide-react'
-import { Slider } from './controls'
-import { openUserGuide } from './host/userGuide'
+import { NumberStepper, Slider } from './controls'
 import { DEFAULT_START_BACKGROUND } from './lib/startSettings'
 import { BackgroundControls, BackgroundKinds } from './start/StartScreen'
 import { dialogDescription } from './dialogInfo'
 import { t } from './i18n'
+import { FlagEn, FlagKo } from './LanguageFlags'
 import { copyText } from './lib/errors'
 import type { MetaSection } from './lib/metadata'
 import { aboutFacts } from './aboutInfo'
@@ -84,87 +84,6 @@ export function DialogFrame({
       )}
       <div className="dialog-content">{children}</div>
     </div>
-  )
-}
-
-/* --------------------------------------------------------- number stepper */
-
-/**
- * A number field with a step button either side.
- *
- * Typing still works — the buttons are there so a value can be nudged without
- * aiming at the browser's own hairline spinners, which are easy to miss and
- * invisible in some themes.
- */
-export function NumberStepper({
-  value,
-  min,
-  max,
-  step = 1,
-  language,
-  onChange,
-}: {
-  value: number
-  min: number
-  max: number
-  step?: number
-  language: Language
-  onChange: (next: number) => void
-}) {
-  const [typed, setTyped] = useState<string | null>(null)
-  const clamp = (next: number) => Math.min(max, Math.max(min, next))
-  // Rounded to the step so repeated clicks cannot drift off the grid.
-  const nudge = (direction: 1 | -1) => {
-    setTyped(null)
-    onChange(clamp(Math.round((value + direction * step) / step) * step))
-  }
-  const commitTyped = () => {
-    if (typed === null) return
-    const next = Number(typed)
-    setTyped(null)
-    if (Number.isFinite(next) && clamp(next) !== value) onChange(clamp(next))
-  }
-
-  return (
-    <span className="number-stepper">
-      <button
-        type="button"
-        data-tooltip={t(language, 'decrease')}
-        aria-label={t(language, 'decrease')}
-        disabled={value <= min}
-        onClick={() => nudge(-1)}
-      >
-        <Minus size={14} />
-      </button>
-      {/*
-        The buttons either side are a single step and answer at once. Typing is
-        held back until Enter or until the field is left, so entering "120" does
-        not redraw the picture at 1, then 12, then 120.
-      */}
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={typed ?? value}
-        onChange={(event) => setTyped(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') return
-          event.preventDefault()
-          commitTyped()
-        }}
-        onBlur={commitTyped}
-      />
-      <button
-        type="button"
-        data-tooltip={t(language, 'increase')}
-        aria-label={t(language, 'increase')}
-        disabled={value >= max}
-        onClick={() => nudge(1)}
-      >
-        <Plus size={14} />
-      </button>
-    </span>
   )
 }
 
@@ -341,7 +260,7 @@ export function DialogBody({
   const [warpH, setWarpH] = useState(0)
   const [warpV, setWarpV] = useState(0)
   const [type, setType] = useState(() => ({
-    fontSize: payload.textData?.fontSize ?? 48,
+    fontSize: payload.textData?.fontSize ?? payload.fontSize ?? 48,
     lineHeight: payload.textData?.lineHeight ?? 1.2,
     letterSpacing: payload.textData?.letterSpacing ?? 0,
     indent: payload.textData?.indent ?? 0,
@@ -405,8 +324,8 @@ export function DialogBody({
             </select>
           </label>
           <div className="dialog-grid">
-            <label>{tr('width')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
-            <label>{tr('height')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
+            <label>{tr('width')}<NumberStepper language={language} unit="px" min={1} max={20000} step={10} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
+            <label>{tr('height')}<NumberStepper language={language} unit="px" min={1} max={20000} step={10} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
           </div>
           <label>{tr('background')}
             <select value={background} onChange={(event) => setBackground(event.target.value)}>
@@ -438,8 +357,8 @@ export function DialogBody({
       return (
         <>
           <div className="dialog-grid">
-            <label>{tr('skewH')}<NumberStepper language={language} min={-400} max={400} value={skewH} onChange={setSkewH} /></label>
-            <label>{tr('skewV')}<NumberStepper language={language} min={-400} max={400} value={skewV} onChange={setSkewV} /></label>
+            <label>{tr('skewH')}<NumberStepper language={language} unit="px" min={-400} max={400} value={skewH} onChange={setSkewH} /></label>
+            <label>{tr('skewV')}<NumberStepper language={language} unit="px" min={-400} max={400} value={skewV} onChange={setSkewV} /></label>
           </div>
           <p className="dialog-hint">{tr('skewHint')}</p>
           <div className="dialog-actions">
@@ -475,8 +394,8 @@ export function DialogBody({
         <>
           {labels.map((label, index) => (
             <div className="dialog-grid" key={label}>
-              <label>{`${tr(label)} X`}<NumberStepper language={language} min={-500} max={500} value={corner(index, 'x')} onChange={(value) => setCorner(index, 'x', value)} /></label>
-              <label>{`${tr(label)} Y`}<NumberStepper language={language} min={-500} max={500} value={corner(index, 'y')} onChange={(value) => setCorner(index, 'y', value)} /></label>
+              <label>{`${tr(label)} X`}<NumberStepper language={language} unit="px" min={-500} max={500} value={corner(index, 'x')} onChange={(value) => setCorner(index, 'x', value)} /></label>
+              <label>{`${tr(label)} Y`}<NumberStepper language={language} unit="px" min={-500} max={500} value={corner(index, 'y')} onChange={(value) => setCorner(index, 'y', value)} /></label>
             </div>
           ))}
           <div className="dialog-actions">
@@ -510,8 +429,8 @@ export function DialogBody({
       return (
         <>
           <div className="dialog-grid">
-            <label>{tr('width')}<NumberStepper language={language} min={8} max={8000} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
-            <label>{tr('height')}<NumberStepper language={language} min={8} max={8000} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
+            <label>{tr('width')}<NumberStepper language={language} unit="px" min={8} max={8000} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
+            <label>{tr('height')}<NumberStepper language={language} unit="px" min={8} max={8000} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
           </div>
           <label className="check-row">
             <input type="checkbox" checked={protectSkin} onChange={(event) => setProtectSkin(event.target.checked)} />
@@ -696,7 +615,7 @@ export function DialogBody({
       return (
         <>
           <div className="dialog-grid">
-            <label>{tr('strokeWidth')}<NumberStepper language={language} min={1} max={64} value={strokeWidth} onChange={setStrokeWidth} /></label>
+            <label>{tr('strokeWidth')}<NumberStepper language={language} unit="px" min={1} max={64} value={strokeWidth} onChange={setStrokeWidth} /></label>
             <label>{tr('strokeWhere')}
               <select value={strokeWhere} onChange={(event) => setStrokeWhere(event.target.value as typeof strokeWhere)}>
                 <option value="inside">{tr('strokeInside')}</option>
@@ -719,7 +638,7 @@ export function DialogBody({
       return (
         <>
           <label>{tr('radius')}
-            <NumberStepper language={language} min={1} max={200} value={adjust.radius} onChange={(radius) => setAdjust((current) => ({ ...current, radius }))} />
+            <NumberStepper language={language} unit="px" min={1} max={200} value={adjust.radius} onChange={(radius) => setAdjust((current) => ({ ...current, radius }))} />
           </label>
           <div className="dialog-actions">
             <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
@@ -1038,8 +957,8 @@ export function DialogBody({
       return (
         <>
           <div className="dialog-grid">
-            <label>{tr('width')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
-            <label>{tr('height')}<NumberStepper language={language} min={1} max={20000} step={10} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
+            <label>{tr('width')}<NumberStepper language={language} unit="px" min={1} max={20000} step={10} value={adjust.width} onChange={(width) => setAdjust((c) => ({ ...c, width }))} /></label>
+            <label>{tr('height')}<NumberStepper language={language} unit="px" min={1} max={20000} step={10} value={adjust.height} onChange={(height) => setAdjust((c) => ({ ...c, height }))} /></label>
           </div>
           <div className="dialog-actions">
             <button onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('cancel')}</span></button>
@@ -1057,15 +976,15 @@ export function DialogBody({
             <textarea rows={3} value={text} onChange={(event) => setText(event.target.value)} />
           </label>
           <div className="dialog-grid">
-            <label>{tr('fontSize')}<NumberStepper language={language} min={6} max={400} value={type.fontSize} onChange={(fontSize) => setType((c) => ({ ...c, fontSize }))} /></label>
-            <label>{tr('lineHeight')}<NumberStepper language={language} min={50} max={300} step={5} value={Math.round(type.lineHeight * 100)} onChange={(value) => setType((c) => ({ ...c, lineHeight: value / 100 }))} /></label>
+            <label>{tr('fontSize')}<NumberStepper language={language} unit="px" min={6} max={400} value={type.fontSize} onChange={(fontSize) => setType((c) => ({ ...c, fontSize }))} /></label>
+            <label>{tr('lineHeight')}<NumberStepper language={language} unit="%" min={50} max={300} step={5} value={Math.round(type.lineHeight * 100)} onChange={(value) => setType((c) => ({ ...c, lineHeight: value / 100 }))} /></label>
           </div>
           <div className="dialog-grid">
-            <label>{tr('letterSpacing')}<NumberStepper language={language} min={-20} max={80} value={type.letterSpacing} onChange={(letterSpacing) => setType((c) => ({ ...c, letterSpacing }))} /></label>
-            <label>{tr('indent')}<NumberStepper language={language} min={0} max={400} value={type.indent} onChange={(indent) => setType((c) => ({ ...c, indent }))} /></label>
+            <label>{tr('letterSpacing')}<NumberStepper language={language} unit="px" min={-20} max={80} value={type.letterSpacing} onChange={(letterSpacing) => setType((c) => ({ ...c, letterSpacing }))} /></label>
+            <label>{tr('indent')}<NumberStepper language={language} unit="px" min={0} max={400} value={type.indent} onChange={(indent) => setType((c) => ({ ...c, indent }))} /></label>
           </div>
           <div className="dialog-grid">
-            <label>{tr('paragraphSpacing')}<NumberStepper language={language} min={0} max={200} value={type.paragraphSpacing} onChange={(paragraphSpacing) => setType((c) => ({ ...c, paragraphSpacing }))} /></label>
+            <label>{tr('paragraphSpacing')}<NumberStepper language={language} unit="px" min={0} max={200} value={type.paragraphSpacing} onChange={(paragraphSpacing) => setType((c) => ({ ...c, paragraphSpacing }))} /></label>
             <label>{tr('align')}
               <select value={type.align} onChange={(event) => setType((c) => ({ ...c, align: event.target.value as 'left' | 'center' | 'right' }))}>
                 <option value="left">{tr('alignLeft')}</option>
@@ -1170,12 +1089,16 @@ export function DialogBody({
                 <section className="settings-section">
                   <h3>{tr('settingsSectionApp')}</h3>
                   <div className="dialog-grid">
-                    <label>{t(settings.language, 'language')}
-                      <select value={settings.language} onChange={(event) => patchSettings({ language: event.target.value as Language })}>
-                        <option value="ko">한국어</option>
-                        <option value="en">English</option>
-                      </select>
-                    </label>
+                    <div className="settings-field">
+                      <span className="settings-field-name">{t(settings.language, 'language')}</span>
+                      <div className="language-choice choice-pair" role="group" aria-label={t(settings.language, 'language')}>
+                        {([{ code: 'ko', Flag: FlagKo, name: '한국어' }, { code: 'en', Flag: FlagEn, name: 'English' }] as const).map(({ code, Flag, name }) => (
+                          <button type="button" key={code} data-language={code} aria-pressed={settings.language === code} onClick={() => patchSettings({ language: code })}>
+                            <Flag size={20} /><span>{name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <label className="settings-field">
                       <span className="settings-field-name">{tr('historyStates')}</span>
                       <NumberStepper language={settings.language} min={5} max={500} step={5} value={settings.historyStates} onChange={(historyStates) => patchSettings({ historyStates })} />
@@ -1285,7 +1208,7 @@ export function DialogBody({
                     </label>
                     <label className="settings-field">
                       <span className="settings-field-name">{tr('panelWidth')}</span>
-                      <NumberStepper language={settings.language} min={260} max={560} step={10} value={settings.rightWidth} onChange={(rightWidth) => patchSettings({ rightWidth })} />
+                      <NumberStepper language={settings.language} unit="px" min={260} max={560} step={10} value={settings.rightWidth} onChange={(rightWidth) => patchSettings({ rightWidth })} />
                     </label>
                   </div>
                   <div className="dialog-grid settings-checks">
@@ -1311,7 +1234,7 @@ export function DialogBody({
                     </label>
                     <label className="settings-field">
                       <span className="settings-field-name">{tr('featherOpt')}</span>
-                      <NumberStepper language={settings.language} min={0} max={100} value={settings.marqueeFeather} onChange={(marqueeFeather) => patchSettings({ marqueeFeather })} />
+                      <NumberStepper language={settings.language} unit="px" min={0} max={100} value={settings.marqueeFeather} onChange={(marqueeFeather) => patchSettings({ marqueeFeather })} />
                     </label>
                   </div>
                   <div className="dialog-grid settings-checks">
@@ -1350,7 +1273,7 @@ export function DialogBody({
                   <h3>{tr('settingsSectionBrushDefaults')}</h3>
                   <label className="settings-range settings-range-stepper" data-tooltip={tr('settingsBrushSizeHint')}>
                     <span>{tr('settingsBrushSize')}</span>
-                    <NumberStepper language={settings.language} min={1} max={400} value={settings.brushSize} onChange={(brushSize) => patchSettings({ brushSize })} />
+                    <NumberStepper language={settings.language} unit="px" min={1} max={400} value={settings.brushSize} onChange={(brushSize) => patchSettings({ brushSize })} />
                   </label>
                   {percent('brushHardness', 'hardness', 0, 100)}
                   {percent('brushOpacity', 'opacity', 1, 100)}
@@ -1530,25 +1453,6 @@ export function DialogBody({
         </>
       )
     }
-
-    case 'helpGuide':
-      return (
-        <>
-          <div className="help-body">
-            <p>{tr('helpIntro')}</p>
-            {(['Tools', 'Files', 'Layers', 'Adjust', 'View'] as const).map((section) => (
-              <section key={section}>
-                <h3>{tr(`help${section}Title`)}</h3>
-                <p>{tr(`help${section}Body`)}</p>
-              </section>
-            ))}
-          </div>
-          <div className="dialog-actions">
-            <button data-action="open-guide" onClick={() => void openUserGuide(language)}><BookOpenText size={14} aria-hidden="true" /><span>{tr('userGuideOpen')}</span></button>
-            <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
-          </div>
-        </>
-      )
 
     case 'about': {
       const facts = aboutFacts(language)

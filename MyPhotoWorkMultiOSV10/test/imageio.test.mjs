@@ -321,9 +321,9 @@ test('a v1 project without the newer regions restores them empty', async () => {
 
 /* ------------------------------------------------------------------ HEIF */
 
-/** The sample photo shipped in images/, decoded straight from disk. */
+/** The sample photo shipped in samples/, decoded straight from disk. */
 function heicBytes() {
-  const buffer = readFileSync(fileURLToPath(new URL('../images/test04.heic', import.meta.url)))
+  const buffer = readFileSync(fileURLToPath(new URL('../samples/test04.heic', import.meta.url)))
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
 }
 

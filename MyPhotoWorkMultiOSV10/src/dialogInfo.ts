@@ -24,8 +24,6 @@ const entries: Record<string, Entry> = {
   print: { ko: '용지 방향과 여백을 정하고 미리 보고 인쇄합니다.', en: 'Sets the paper up, shows the page and prints it.' },
   openRecent: { ko: '최근에 연 파일을 다시 엽니다.', en: 'Reopens a file you had open recently.' },
   imageInfo: { ko: '파일·문서·픽셀·촬영 정보를 한자리에 모아 보여줍니다.', en: 'Gathers what the file, the document, the pixels and the camera have to say.' },
-  about: { ko: '판번호와 빌드 정보를 보여주고 한 번에 복사합니다.', en: 'The version and build details, copied in one click.' },
-  helpGuide: { ko: '도구와 명령의 사용법을 설명합니다.', en: 'Explains the tools and what the commands do.' },
   unsaved: { ko: '저장하지 않은 변경이 있습니다. 저장할지 버릴지 고릅니다.', en: 'There are unsaved changes: keep them or let them go.' },
   error: { ko: '무엇이 잘못됐는지와 보고에 쓸 세부 정보를 보여줍니다.', en: 'What went wrong, with the details a bug report needs.' },
   namePrompt: { ko: '저장할 항목에 붙일 이름을 입력합니다.', en: 'Asks what to call the thing you are about to save.' },
@@ -107,6 +105,8 @@ const entries: Record<string, Entry> = {
   keyboardShortcuts: { ko: '도구를 고르는 한 글자 단축키를 바꿉니다.', en: 'Rebinds the single-letter keys that pick the tools.' },
   removeBg: { ko: '피사체를 남기고 배경을 지웁니다. 어떤 방식으로 찾을지 고를 수 있고, 없는 모델은 여기서 바로 내려받습니다.', en: 'Cuts the subject out and clears the background; choose how it is found, and fetch the model here if it is missing.' },
   modelSetup: { ko: '더 정확한 결과를 위해 내려받아 둘 모델을 안내합니다. 받지 않아도 내장 알고리즘으로 동작합니다.', en: 'The models worth having for better results. Everything still works without them, on the built-in algorithms.' },
+  about: { ko: '판번호와 빌드 정보를 보여주고 한 번에 복사합니다.', en: 'The version and build details, copied in one click.' },
+
   settings: { ko: '언어·테마·도구 기본값·내보내기·엔진 값을 정합니다.', en: 'Language, theme, tool defaults, export and the engine’s own numbers.' },
 }
 

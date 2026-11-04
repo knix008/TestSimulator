@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import {
-  Aperture, Blend, Book, BookOpen, Box, Camera, Compass, Crop, Download, Droplets, Eraser, FilePlus, Film, Frame, Grid3x3, History, Info, Keyboard, Layers2, LayoutGrid, Magnet, Move, PaintBucket, Palette, Pencil, Printer, Ratio, Ruler, Scan, Search, Settings2, SlidersHorizontal, Sparkles, Spline, Square, SquareDashed, StickyNote, Sun, Sunrise, TriangleAlert, Type,
+  Aperture, Blend, Book, Box, Camera, Compass, Crop, Download, Droplets, Eraser, FilePlus, Film, Frame, Grid3x3, History, Info, Keyboard, Layers2, LayoutGrid, Magnet, Move, PaintBucket, Palette, Pencil, Printer, Ratio, Ruler, Scan, Search, Settings2, SlidersHorizontal, Sparkles, Spline, Square, SquareDashed, StickyNote, Sun, Sunrise, TriangleAlert, Type,
 } from 'lucide-react'
 import { t } from './i18n'
 import { adjustmentIcons } from './commands'
@@ -14,7 +14,7 @@ import type { GradientDef } from './lib/gradients'
 
 export type DialogName =
   | 'new' | 'export' | 'brightness' | 'hue' | 'blur' | 'sharpen' | 'cameraRaw' | 'curves' | 'levels'
-  | 'filterGallery' | 'imageSize' | 'canvasSize' | 'text' | 'unsaved' | 'settings' | 'helpGuide'
+  | 'filterGallery' | 'imageSize' | 'canvasSize' | 'text' | 'unsaved' | 'settings'
   | 'about' | 'error' | 'feather' | 'print' | 'imageInfo'
   | 'fill' | 'stroke' | 'selectModify' | 'colorRange' | 'saveSelection' | 'loadSelection'
   | 'skew' | 'distort' | 'perspective' | 'warp' | 'contentScale' | 'colorProfile' | 'threeD'
@@ -59,6 +59,8 @@ export type DialogPayload = {
   patterns?: { id: string; name: string }[]
   /** The type layer being edited, so the window opens on its own settings. */
   textData?: TextData
+  /** The size on the options bar, for new type. */
+  fontSize?: number
   /** The working space now in force, and any profile the file carried. */
   profile?: { current: string; embedded?: string }
   /** The 3D settings of the layer being edited. */
@@ -120,7 +122,6 @@ const DIALOG_ICONS: Record<DialogName, ComponentType<{ size?: number }>> = {
   text: Type,
   unsaved: TriangleAlert,
   settings: Settings2,
-  helpGuide: BookOpen,
   about: Info,
   error: TriangleAlert,
   feather: Crop,
@@ -201,7 +202,6 @@ const DIALOG_TITLE_KEYS: Record<DialogName, string> = {
   text: 'text',
   unsaved: 'unsavedTitle',
   settings: 'settings',
-  helpGuide: 'helpGuide',
   about: 'about',
   error: 'error',
   feather: 'feather',

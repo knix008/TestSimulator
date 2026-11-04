@@ -556,3 +556,67 @@ export function colorRangeSelection(canvas: HTMLCanvasElement, color: { r: numbe
   }
   return maskSelection(next, width, height)
 }
+
+export type RegionBox = { x: number; y: number; width: number; height: number }
+
+/**
+ * A box with some of its numbers typed in, kept inside the picture. Moved past an edge it
+ * keeps its size; `ratio` (width / height) holds while either side changes, including when
+ * the picture's edge stops it.
+ */
+export function patchRegion(box: RegionBox, patch: Partial<RegionBox>, limit: { width: number; height: number }, ratio?: number | null): RegionBox {
+  // A side typed on its own grows from where the box is; a move carries the box along.
+  const roomX = patch.x === undefined ? limit.width - box.x : limit.width
+  const roomY = patch.y === undefined ? limit.height - box.y : limit.height
+  let width = Math.max(1, Math.min(roomX, Math.round(patch.width ?? box.width)))
+  let height = Math.max(1, Math.min(roomY, Math.round(patch.height ?? box.height)))
+  if (ratio && ratio > 0 && (patch.width !== undefined || patch.height !== undefined)) {
+    if (patch.height !== undefined && patch.width === undefined) width = height * ratio
+    else height = width / ratio
+    // Whichever side the edge of the picture stops, the other follows.
+    const scale = Math.min(1, roomX / width, roomY / height)
+    width = Math.max(1, Math.round(width * scale))
+    height = Math.max(1, Math.round(height * scale))
+  }
+  const x = Math.max(0, Math.min(limit.width - width, Math.round(patch.x ?? box.x)))
+  const y = Math.max(0, Math.min(limit.height - height, Math.round(patch.y ?? box.y)))
+  return { x, y, width, height }
+}
+
+/** How far each number can go while the box stays inside the picture, at the size it is. */
+export function regionRange(box: RegionBox, limit: { width: number; height: number }): Record<keyof RegionBox, { min: number; max: number }> {
+  return {
+    x: { min: 0, max: Math.max(0, limit.width - box.width) },
+    y: { min: 0, max: Math.max(0, limit.height - box.height) },
+    width: { min: 1, max: Math.max(1, limit.width - box.x) },
+    height: { min: 1, max: Math.max(1, limit.height - box.y) },
+  }
+}
+
+/**
+ * The box around what is actually selected. A free-form selection's own numbers often say
+ * the whole picture (a feathered marquee, a lasso, the wand), so its mask is what is read.
+ */
+export function selectionBox(selection: Selection, limit: { width: number; height: number }): RegionBox {
+  if (selection.kind !== 'mask' || !selection.mask) return { x: selection.x, y: selection.y, width: selection.width, height: selection.height }
+  const box = maskBounds(selection.mask, limit.width, limit.height)
+  return { ...box, width: Math.max(1, box.width), height: Math.max(1, box.height) }
+}
+
+/** A selection at new numbers. A free-form one is resampled, so its shape moves and scales too. */
+export function resizeSelection(selection: Selection, patch: Partial<RegionBox>, limit: { width: number; height: number }): Selection {
+  const from = selectionBox(selection, limit)
+  const next = patchRegion(from, patch, limit)
+  if (selection.kind !== 'mask' || !selection.mask) return { ...selection, ...next }
+  const mask = new Uint8Array(limit.width * limit.height)
+  const scaleX = from.width / next.width
+  const scaleY = from.height / next.height
+  for (let y = 0; y < next.height; y += 1) {
+    const fromY = Math.min(limit.height - 1, Math.floor(from.y + (y + 0.5) * scaleY))
+    for (let x = 0; x < next.width; x += 1) {
+      const fromX = Math.min(limit.width - 1, Math.floor(from.x + (x + 0.5) * scaleX))
+      mask[(next.y + y) * limit.width + next.x + x] = selection.mask[fromY * limit.width + fromX]
+    }
+  }
+  return { ...selection, ...next, mask }
+}

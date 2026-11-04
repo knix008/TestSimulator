@@ -2,7 +2,7 @@ import { createElement, Fragment, useCallback, useEffect, useMemo, useReducer, u
 import { createPortal } from 'react-dom'
 import { BUSY_AFTER_MS, BusyOverlay, type BusyJob } from './Busy'
 import { resolveSubjectMethod } from './subjectMethods'
-import { NumberField, Slider } from './controls'
+import { NumberStepper, Slider } from './controls'
 import {
   ArrowLeftRight, Blend, Check, ChevronDown, ChevronLeft, ChevronRight, Crop, FileImage, FlipHorizontal, FlipVertical, Frame, House, Info, Minus, PaintBucket, Palette, PenTool, Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, Wand, X,
 } from 'lucide-react'
@@ -56,6 +56,12 @@ import { SAMPLE_HEIGHT, SAMPLE_WIDTH, renderSample, type SampleImage } from './l
 import StartScreen, { type StartAction } from './start/StartScreen'
 import { TutorialAsk, TutorialTour } from './tutorial/Tutorial'
 import { ContextMenu } from './ContextMenu'
+import { OptionSelect } from './OptionSelect'
+import { RegionFields } from './RegionFields'
+import { patchRegion, resizeSelection, selectionBox } from './lib/selection'
+import { FlagEn, FlagKo } from './LanguageFlags'
+import { TypeHorizontalIcon, TypeVerticalIcon } from './lib/typeIcons'
+import { textLayerAt } from './lib/textHit'
 import type { ContextKind } from './contextRows'
 import { patternSampleId, renderPatternSample, type PatternSample } from './lib/patternSamples'
 import type { TutorialStep } from './tutorial/steps'
@@ -195,41 +201,6 @@ function MenuDrop({
       {children}
     </div>,
     document.body,
-  )
-}
-
-function FlagKo({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="2" y="5" width="20" height="14" rx="1.5" fill="#fff" />
-      <g fill="none" stroke="#111" strokeWidth="0.9" strokeLinecap="butt">
-        <g transform="translate(5.8 8.6) rotate(-56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
-        <g transform="translate(18.2 8.6) rotate(56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
-        <g transform="translate(5.8 15.4) rotate(56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
-        <g transform="translate(18.2 15.4) rotate(-56)"><path d="M-1.6-1h3.2M-1.6 0h3.2M-1.6 1h3.2" /></g>
-      </g>
-      <g transform="rotate(-34 12 12)">
-        <circle cx="12" cy="12" r="3.8" fill="#0047a0" />
-        <path d="M8.2 12a3.8 3.8 0 0 1 7.6 0a1.9 1.9 0 0 1-3.8 0a1.9 1.9 0 0 0-3.8 0z" fill="#cd2e3a" />
-      </g>
-      <rect x="2" y="5" width="20" height="14" rx="1.5" fill="none" stroke="currentColor" strokeOpacity="0.35" />
-    </svg>
-  )
-}
-
-function FlagEn({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <clipPath id="mpw-flag-en-clip"><rect x="2" y="5" width="20" height="14" rx="1.5" /></clipPath>
-      <g clipPath="url(#mpw-flag-en-clip)">
-        <rect x="2" y="5" width="20" height="14" fill="#012169" />
-        <path d="M2 5l20 14M22 5L2 19" stroke="#fff" strokeWidth="3.4" />
-        <path d="M2 5l20 14M22 5L2 19" stroke="#c8102e" strokeWidth="1.2" />
-        <path d="M12 5v14M2 12h20" stroke="#fff" strokeWidth="4.6" />
-        <path d="M12 5v14M2 12h20" stroke="#c8102e" strokeWidth="2.6" />
-      </g>
-      <rect x="2" y="5" width="20" height="14" rx="1.5" fill="none" stroke="currentColor" strokeOpacity="0.35" />
-    </svg>
   )
 }
 
@@ -473,6 +444,8 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState<null | 'new' | 'open' | 'close' | 'quit' | 'closeAll' | 'start'>(null)
   const [error, setError] = useState<ErrorDetails | null>(null)
   const [crop, setCrop] = useState<Selection | null>(null)
+  /** The history depth just after a crop or a straighten, so Cancel can take that back too. */
+  const [cropDone, setCropDone] = useState<number | null>(null)
   const [textValue, setTextValue] = useState('Photo')
   const [fontFamily, setFontFamily] = useState('Segoe UI')
   const [fontSize, setFontSize] = useState(48)
@@ -557,6 +530,8 @@ export default function App() {
   const adjustRef = useRef({ brightness: 0, contrast: 0, hue: 0, saturation: 0, lightness: 0, radius: 4, amount: 60, width: 1280, height: 720 })
   const textValueRef = useRef('Photo')
   const textPointRef = useRef<Point>({ x: 40, y: 40 })
+  /** The text window was opened by clicking an empty place, so its result is a new layer. */
+  const newTextRef = useRef(false)
   const errorRef = useRef<ErrorDetails | null>(null)
   const dirtyRef = useRef(false)
   const runPendingRef = useRef<((choice: UnsavedChoice) => Promise<void>) | null>(null)
@@ -1510,6 +1485,7 @@ export default function App() {
       return
     }
     snapshot(tr('crop'))
+    setCropDone(undoRef.current.length)
     const x = Math.max(0, Math.floor(box.x))
     const y = Math.max(0, Math.floor(box.y))
     const width = Math.min(current.width - x, Math.round(box.width))
@@ -2549,7 +2525,15 @@ export default function App() {
     }
     if (currentTool === 'text' || currentTool === 'vtext' || currentTool === 'textMask') {
       setTextPoint(point)
-      openDialog('text')
+      // On existing type, edit it. Anywhere else is new type, in the direction chosen.
+      const hit = currentTool === 'textMask' ? null : textLayerAt(doc, canvasesRef.current, point)
+      newTextRef.current = !hit
+      if (hit) {
+        updateDoc((current) => ({ ...current, activeLayerId: hit.id }))
+        openDialog('text', { textData: hit.text, text: hit.text?.text })
+      } else {
+        openDialog('text', { textData: undefined, fontSize })
+      }
       return
     }
 
@@ -3044,6 +3028,7 @@ export default function App() {
       if (drag.mode === 'straighten') {
         const angle = (Math.atan2(drag.last.y - drag.start.y, drag.last.x - drag.start.x) * 180) / Math.PI
         if (Math.abs(angle) > 0.2 && Math.abs(angle) < 45) {
+          window.setTimeout(() => setCropDone(undoRef.current.length), 0)
           remapAllCanvases((source) => rotateArbitrary(source, -angle, current.width, current.height), current.width, current.height, tr('straightenHint'))
         }
       }
@@ -4727,7 +4712,7 @@ export default function App() {
       case 'help.tutorial': setMenu(null); setTutorialOn(true); return
       case 'help.about': openDialog('about'); return
     }
-    if (id !== 'help.quick' && id !== 'edit.preferences' && id !== 'edit.keyboardShortcuts') setStartOn(false)
+    if (id !== 'edit.preferences' && id !== 'edit.keyboardShortcuts') setStartOn(false)
     noteCommand(id)
     const command = commands.find((item) => item.id === id)
     historyLabelRef.current = command ? tr(command.label) : id
@@ -5005,11 +4990,11 @@ export default function App() {
       /* type */
       case 'type.horizontal': setTool('text'); return
       case 'type.vertical': setTool('vtext'); return
-      case 'type.enter': openDialog('text'); return
+      case 'type.enter': newTextRef.current = false; openDialog('text'); return
       case 'type.character': setSettings((c) => ({ ...c, rightTab: 'character' })); return
       case 'type.paragraph': setSettings((c) => ({ ...c, rightTab: 'paragraph' })); return
       case 'type.glyphs': setSettings((c) => ({ ...c, rightTab: 'glyphs' })); return
-      case 'type.warp': openDialog('text'); return
+      case 'type.warp': newTextRef.current = false; openDialog('text'); return
       case 'type.orientation': {
         const layer = activeTextLayer()
         if (layer) { snapshot(); patchText(layer.id, { vertical: !layer.text!.vertical }) }
@@ -5167,7 +5152,6 @@ export default function App() {
       case 'window.timeline': setSettings((c) => ({ ...c, rightTab: 'timeline' })); return
       case 'window.measurementLog': setSettings((c) => ({ ...c, rightTab: 'measurementLog' })); return
       case 'window.notes': setSettings((c) => ({ ...c, rightTab: 'notes' })); return
-      case 'help.quick': openDialog('helpGuide'); return
 
       default:
         setStatus('ready')
@@ -5190,6 +5174,7 @@ export default function App() {
   }
 
   const isCommandActive = (id: string) => {
+    if (id === 'window.togglePanel') return !settings.rightCollapsed
     if (id.startsWith('window.')) {
       const tab = id.slice('window.'.length)
       const map: Record<string, PanelTab> = { adjust: 'adjust', comps: 'comps', brushSettings: 'brushes', color: 'color' }
@@ -5197,6 +5182,8 @@ export default function App() {
       return panelTabs.includes(wanted as PanelTab) && settings.rightTab === wanted
     }
     switch (id) {
+      case 'type.horizontal': return tool === 'text'
+      case 'type.vertical': return tool === 'vtext'
       case 'view.grid': return settings.showGrid
       case 'view.rulers': return settings.showRulers
       case 'view.quickMask': return quickMask
@@ -5726,13 +5713,14 @@ export default function App() {
         const value = String(result.text ?? '')
         setTextValue(value)
         snapshot(tr('text'))
-        const active = current.layers.find((layer) => layer.id === current.activeLayerId)
+        const active = newTextRef.current ? undefined : current.layers.find((layer) => layer.id === current.activeLayerId)
+        newTextRef.current = false
         const editing = active?.kind === 'text' ? active.text : undefined
         const data: TextData = {
           text: value,
           x: editing?.x ?? textPointRef.current.x,
           y: editing?.y ?? textPointRef.current.y,
-          fontFamily,
+          fontFamily: editing?.fontFamily ?? fontFamily,
           fontSize: Number(result.fontSize ?? fontSize),
           color: editing?.color ?? settingsRef.current.foreground,
           bold: Boolean(result.bold),
@@ -6000,7 +5988,7 @@ export default function App() {
         if (key === 'f8') runCommandRef.current('window.info')
         if (key === 'f9') runCommandRef.current('window.actions')
       }
-      if (key === 'enter' && crop) {
+      if (key === 'enter' && crop && !typing) {
         event.preventDefault()
         applyCrop(crop)
       }
@@ -6008,7 +5996,7 @@ export default function App() {
         event.preventDefault()
         beginTransform()
       }
-      if (key === 'enter') {
+      if (key === 'enter' && !typing) {
         if (liquifyRef.current && toolRef.current === 'liquify') {
           event.preventDefault()
           endLiquify(true)
@@ -6190,6 +6178,16 @@ export default function App() {
       ctx.drawImage(tint, 0, 0)
     } else {
       drawSelectionOverlay(ctx, crop ?? selection, documentModel.width, documentModel.height, dash)
+      if (crop && tool === 'crop') {
+        // What will be cut away goes dark, so a crop box cannot be taken for a selection.
+        ctx.save()
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+        ctx.beginPath()
+        ctx.rect(0, 0, documentModel.width, documentModel.height)
+        ctx.rect(crop.x, crop.y, crop.width, crop.height)
+        ctx.fill('evenodd')
+        ctx.restore()
+      }
     }
     if (settings.extras) {
       drawRegionOverlay(ctx, settings.showSlices ? documentModel.slices : [], documentModel.frames, documentModel.measure, zoom)
@@ -6371,7 +6369,7 @@ export default function App() {
         accent: style.getPropertyValue('--accent') || '#38bdf8',
       }, unitScale(settings.rulerUnits))
     }
-  }, [activePathId, crop, cropCorners, dash, doc, draftPath, frame, pan.x, pan.y, pins, polyPoints, selection, settings, settings.showGrid, settings.showRulers, shapeDraft, stageSize, transformBox, viewAngle])
+  }, [activePathId, tool, crop, cropCorners, dash, doc, draftPath, frame, pan.x, pan.y, pins, polyPoints, selection, settings, settings.showGrid, settings.showRulers, shapeDraft, stageSize, transformBox, viewAngle])
 
   const channelPreviews = [
     { key: 'rgb', label: 'channelRgb' },
@@ -6451,6 +6449,8 @@ export default function App() {
   })
 
   const desktop = Boolean(window.hostWindowApi)
+  // Reading a mask is the whole picture's worth of work, and the ants redraw constantly.
+  const selectionNumbers = useMemo(() => (selection ? selectionBox(selection, { width: docRef.current.width, height: docRef.current.height }) : null), [selection])
 
   /*
    * The red lines on the rulers follow the pointer. They are moved directly rather
@@ -6549,7 +6549,6 @@ export default function App() {
       case 'open': setStartOn(false); runCommand('file.open'); return
       case 'guide': runCommand('help.guide'); return
       case 'tutorial': runCommand('help.tutorial'); return
-      case 'quickHelp': runCommand('help.quick'); return
       case 'shortcuts': runCommand('edit.keyboardShortcuts'); return
       case 'settings': openDialog('settings'); return
       case 'about': openDialog('about'); return
@@ -6582,9 +6581,11 @@ export default function App() {
       closeDialogs: () => { window.hostDialogApi?.closeAll() },
       layerCanvas: () => canvasesRef.current.get(docRef.current.activeLayerId) ?? null, select: (next: Selection | null) => setSelection(next), bump,
       // What scripts/audit-ui.mjs compares before and after each control.
-      state: () => ({ tool, settings: settingsRef.current, doc: docRef.current, selection: selectionRef.current, pan, activeSliceId, undo: undoRef.current.length, redo: redoRef.current.length }),
+      state: () => ({ tool, settings: settingsRef.current, doc: docRef.current, selection: selectionRef.current, pan, activeSliceId, undo: undoRef.current.length, redo: redoRef.current.length, passing: { crop, cropCorners, pins, polyPoints, draftPath, transformBox, startOn, tutorialOn, colorPick } }),
       composite: () => compositeDocument(docRef.current, canvasesRef.current),
-      open: (name: string, dataUrl: string) => { setStartOn(false); return openFiles([{ name, mime: 'image/png', dataUrl }], 'open') },
+      open: (name: string, dataUrl: string) => { slotsRef.current.clear(); setStartOn(false); setTutorialOn(false); setDirty(false); return openFiles([{ name, mime: 'image/png', dataUrl }], 'open') },
+      showStart: () => setStartOn(true),
+      setSettings: (patch: Partial<AppSettings>) => setSettings((value) => ({ ...value, ...patch })),
     }
   })
 
@@ -6633,7 +6634,6 @@ export default function App() {
 
   const channelsPanel = (
     <>
-      <h2>{tr('channels')}</h2>
       <h3>{tr('colorChannels')}</h3>
       <div className="channel-grid">
         {channelPreviews.map((item) => (
@@ -6662,7 +6662,6 @@ export default function App() {
 
   const adjustPanel = (
     <>
-      <h2>{tr('adjustments')}</h2>
       {adjustmentTypes.map((type) => (
         <button key={type} data-tooltip={tr(type)} onClick={() => addAdjustment(type)}>
           <span>{tr(type)}</span>
@@ -6912,7 +6911,7 @@ export default function App() {
               return (
                 <label key={control.key} data-tooltip={tr(control.label)}>
                   {tr(control.label)}
-                  <NumberField min={control.min} max={control.max} value={settings[control.key] as number} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next }))} />
+                  <NumberStepper language={language} min={control.min} max={control.max} value={settings[control.key] as number} onChange={(next) => setSettings((c) => ({ ...c, [control.key]: next }))} />
                 </label>
               )
             }
@@ -6928,20 +6927,29 @@ export default function App() {
               return (
                 <label key={control.key} data-tooltip={tr(control.label)}>
                   {tr(control.label)}
-                  <select
+                  <OptionSelect
+                    label={tr(control.label)}
                     value={String(settings[control.key])}
-                    onChange={(event) => setSettings((c) => ({ ...c, [control.key]: control.key === 'eyedropperSample' ? Number(event.target.value) : event.target.value }))}
-                  >
-                    {control.choices.map((choice) => <option key={choice.value} value={choice.value}>{tr(choice.label)}</option>)}
-                  </select>
+                    choices={control.choices.map((choice) => ({ value: choice.value, label: tr(choice.label) }))}
+                    onChange={(next) => setSettings((c) => ({ ...c, [control.key]: control.key === 'eyedropperSample' ? Number(next) : next }))}
+                  />
                 </label>
               )
             }
             if (control.id === 'font') {
               return (
                 <span key="font" className="option-pair">
+                  {(tool === 'text' || tool === 'vtext') && (
+                    <span className="choice-pair" role="group" aria-label={tr('typeOrientation')}>
+                      {([['text', TypeHorizontalIcon], ['vtext', TypeVerticalIcon]] as const).map(([id, DirectionIcon]) => (
+                        <button type="button" key={id} data-type-direction={id} aria-pressed={tool === id} data-tooltip={toolLabel(language, id)} onClick={() => setTool(id)}>
+                          <DirectionIcon size={16} /><span>{toolLabel(language, id)}</span>
+                        </button>
+                      ))}
+                    </span>
+                  )}
                   <label>{tr('font')}<input type="text" value={fontFamily} onChange={(event) => setFontFamily(event.target.value)} /></label>
-                  <label>{tr('fontSize')}<NumberField min={8} max={400} value={fontSize} onChange={(next) => setFontSize(next)} /></label>
+                  <label>{tr('fontSize')}<NumberStepper language={language} unit="px" min={8} max={400} value={fontSize} onChange={(next) => setFontSize(next)} /></label>
                 </span>
               )
             }
@@ -6955,12 +6963,52 @@ export default function App() {
                 </span>
               )
             }
+            if (control.id === 'regionFields') {
+              const limit = { width: doc.width, height: doc.height }
+              if (tool === 'crop') {
+                const ratio = cropRatios[settings.cropRatio]
+                return (
+                  <RegionFields
+                    key="regionFields"
+                    name={tr('crop')}
+                    language={language}
+                    tr={tr}
+                    limit={limit}
+                    box={crop ?? { x: 0, y: 0, ...limit }}
+                    onChange={(patch) => setCrop({ kind: 'rect', ...patchRegion(crop ?? { x: 0, y: 0, ...limit }, patch, limit, ratio === 0 ? doc.width / doc.height : ratio) })}
+                  />
+                )
+              }
+              return (
+                <RegionFields
+                  key="regionFields"
+                  name={tr('selection')}
+                  language={language}
+                  tr={tr}
+                  limit={limit}
+                  box={selectionNumbers ?? { x: 0, y: 0, ...limit }}
+                  onChange={(patch) => setSelection(resizeSelection(selection ?? { kind: tool === 'ellipseMarquee' ? 'ellipse' : 'rect', x: 0, y: 0, ...limit }, patch, limit))}
+                />
+              )
+            }
             if (control.id === 'cropActions') {
               const ready = tool === 'perspectiveCrop' ? cropCorners.length === 4 : Boolean(crop)
               return (
                 <span key="cropActions" className="option-pair">
                   <button data-tooltip={tr('applyCropAction')} disabled={!ready} onClick={() => (tool === 'perspectiveCrop' ? applyPerspectiveCrop() : crop && applyCrop(crop))}><Crop size={15} /><span>{tr('applyCropAction')}</span></button>
-                  <button data-tooltip={tr('cancelCrop')} onClick={() => { setCrop(null); setCropCorners([]); vanishingRef.current = false }}><X size={15} /><span>{tr('cancelCrop')}</span></button>
+                  <button
+                    data-action="cancel-crop"
+                    data-tooltip={tr('cancelCrop')}
+                    disabled={!crop && cropCorners.length === 0 && cropDone !== historyMeta.undo.length}
+                    onClick={() => {
+                      // A box still being drawn goes away; one already applied is undone.
+                      if (!crop && cropCorners.length === 0 && cropDone === historyMeta.undo.length) undo()
+                      setCropDone(null)
+                      setCrop(null)
+                      setCropCorners([])
+                      vanishingRef.current = false
+                    }}
+                  ><X size={15} /><span>{tr('cancelCrop')}</span></button>
                 </span>
               )
             }
@@ -6986,9 +7034,7 @@ export default function App() {
               return (
                 <label key="gradientPicker" data-tooltip={tr('gradientPreset')}>
                   {tr('gradientPreset')}
-                  <select value={settings.gradientId} onChange={(event) => setSettings((c) => ({ ...c, gradientId: event.target.value }))}>
-                    {all.map((item) => <option key={item.id} value={item.id}>{gradientLabel(item, language)}</option>)}
-                  </select>
+                  <OptionSelect label={tr('gradientPreset')} value={settings.gradientId} choices={all.map((item) => ({ value: item.id, label: gradientLabel(item, language) }))} onChange={(gradientId) => setSettings((c) => ({ ...c, gradientId }))} />
                   <button data-tooltip={tr('gradientEditor')} aria-label={tr('gradientEditor')} onClick={() => openDialog('gradientEditor', { gradient: all.find((item) => item.id === settings.gradientId) })}><Blend size={14} /></button>
                 </label>
               )
@@ -6997,10 +7043,15 @@ export default function App() {
               return (
                 <label key="shapeKindPicker" data-tooltip={tr('customShapeKind')}>
                   {tr('customShapeKind')}
-                  <select value={settings.customShapeKind} onChange={(event) => setSettings((c) => ({ ...c, customShapeKind: event.target.value }))}>
-                    {BUILTIN_SHAPES.map((kind) => <option key={kind} value={kind}>{tr(`shape${kind.charAt(0).toUpperCase()}${kind.slice(1)}`)}</option>)}
-                    {settings.customShapes.map((shape) => <option key={shape.id} value={shape.id}>{shape.name}</option>)}
-                  </select>
+                  <OptionSelect
+                    label={tr('customShapeKind')}
+                    value={settings.customShapeKind}
+                    choices={[
+                      ...BUILTIN_SHAPES.map((kind) => ({ value: kind as string, label: tr(`shape${kind.charAt(0).toUpperCase()}${kind.slice(1)}`) })),
+                      ...settings.customShapes.map((shape) => ({ value: shape.id, label: shape.name })),
+                    ]}
+                    onChange={(customShapeKind) => setSettings((c) => ({ ...c, customShapeKind }))}
+                  />
                 </label>
               )
             }
@@ -7016,9 +7067,9 @@ export default function App() {
           })}
           {transformBox && (
             <span className="option-pair transform-actions">
-              <label>{tr('transformW')}<NumberField value={Math.round(transformBox.width)} onChange={(next) => setTransformBox((box) => (box ? { ...box, width: next } : box))} /></label>
-              <label>{tr('transformH')}<NumberField value={Math.round(transformBox.height)} onChange={(next) => setTransformBox((box) => (box ? { ...box, height: next } : box))} /></label>
-              <label>{tr('transformAngle')}<NumberField value={Math.round(transformBox.angle)} onChange={(next) => setTransformBox((box) => (box ? { ...box, angle: next } : box))} /></label>
+              <label>{tr('transformW')}<NumberStepper language={language} unit="px" min={1} value={Math.round(transformBox.width)} onChange={(next) => setTransformBox((box) => (box ? { ...box, width: next } : box))} /></label>
+              <label>{tr('transformH')}<NumberStepper language={language} unit="px" min={1} value={Math.round(transformBox.height)} onChange={(next) => setTransformBox((box) => (box ? { ...box, height: next } : box))} /></label>
+              <label>{tr('transformAngle')}<NumberStepper language={language} unit="°" min={-360} max={360} value={Math.round(transformBox.angle)} onChange={(next) => setTransformBox((box) => (box ? { ...box, angle: next } : box))} /></label>
               <button data-tooltip={tr('flipH')} onClick={() => setTransformBox((box) => (box ? { ...box, flipX: !box.flipX } : box))}><FlipHorizontal size={15} /></button>
               <button data-tooltip={tr('flipV')} onClick={() => setTransformBox((box) => (box ? { ...box, flipY: !box.flipY } : box))}><FlipVertical size={15} /></button>
               <button className="primary" data-tooltip={tr('applyTransformAction')} onClick={commitTransform}><Sparkles size={15} /><span>{tr('applyTransformAction')}</span></button>
@@ -7031,7 +7082,7 @@ export default function App() {
       <div className={`workspace${settings.rightCollapsed ? ' panel-closed' : ''}`}>
         <aside className="tool-strip">
           {toolGroups.map((group) => {
-            const current = groupTool[group.id] ?? group.tools[0].id
+            const current = group.tools.some((entry) => entry.id === tool) ? tool : groupTool[group.id] ?? group.tools[0].id
             const item = group.tools.find((entry) => entry.id === current) ?? group.tools[0]
             const Icon = item.icon
             return (
@@ -7050,7 +7101,7 @@ export default function App() {
                   }
                 }}
               >
-                <Icon size={item.id === 'hand' ? 20 : 15} />
+                <Icon size={item.id === 'hand' ? 20 : group.id === 'type' ? 18 : 15} />
               </button>
             )
           })}
@@ -7096,20 +7147,23 @@ export default function App() {
             window.addEventListener('pointerup', up)
           }}
         >
-          <button
-            className="panel-collapse"
-            data-action="toggle-panel"
-            data-tooltip={tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')}
-            aria-label={tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')}
-            aria-expanded={!settings.rightCollapsed}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => setSettings((c) => ({ ...c, rightCollapsed: !c.rightCollapsed }))}
-          >
-            {settings.rightCollapsed ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
-          </button>
         </div>
 
         <aside className="panel">
+          <header className="panel-title">
+            <PanelTabIcon tab={settings.rightTab} />
+            <h2>{tr(panelLabelKey(settings.rightTab))}</h2>
+            <button
+              className="panel-collapse"
+              data-action="toggle-panel"
+              data-tooltip={tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')}
+              aria-label={tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')}
+              aria-expanded={!settings.rightCollapsed}
+              onClick={() => setSettings((c) => ({ ...c, rightCollapsed: !c.rightCollapsed }))}
+            >
+              {settings.rightCollapsed ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
+            </button>
+          </header>
           <div className="panel-tabs">
             {panelTabs.map((tab) => (
               <button

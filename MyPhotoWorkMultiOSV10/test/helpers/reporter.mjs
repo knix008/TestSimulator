@@ -5,8 +5,10 @@
  *
  * Colour follows the usual rules: on for a terminal, off when piped or when
  * NO_COLOR is set, forced on by FORCE_COLOR.
+ *
+ * The same results are written to out/test-report.md (or to MPW_TEST_REPORT).
  */
-import { readdirSync } from 'node:fs'
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -68,6 +70,77 @@ function bar(ms, worst) {
   // Never red: this bar is about time, and red means a test failed.
   if (ms >= 100) return yellow(glyph)
   return blue(glyph)
+}
+
+const REPORT_MESSAGE_LIMIT = 2000
+
+/** Text for a table cell: a pipe or a line break would end the cell early. */
+const cell = (text) => String(text).replace(/\s*\r?\n\s*/g, ' ').replace(/\|/g, '\\|')
+
+/** A failure message in a code block. One assertion can quote a whole source file. */
+function messageBlock(message) {
+  const text = String(message)
+  const shown = text.length > REPORT_MESSAGE_LIMIT ? `${text.slice(0, REPORT_MESSAGE_LIMIT)}\n… (${text.length - REPORT_MESSAGE_LIMIT}자 생략)` : text
+  const fence = '`'.repeat(Math.max(3, ...[...shown.matchAll(/`+/g)].map((match) => match[0].length + 1)))
+  return `${fence}text\n${shown}\n${fence}`
+}
+
+/** The run as a Markdown document. `rows` is [file name, { tests, pass, fail, skip, ms }]. */
+export function markdownReport({ rows, failures, seconds, when, node }) {
+  const count = (key) => rows.reduce((n, [, row]) => n + row[key], 0)
+  const [pass, fail, skip] = [count('pass'), count('fail'), count('skip')]
+  const total = pass + fail + skip
+  const mark = { pass: '✅', fail: '❌', skip: '⏭️' }
+  const lines = ['# 테스트 결과', '']
+  if (!total) lines.push('> ❌ **실행된 테스트가 없습니다**')
+  else lines.push(fail ? `> ❌ **${total}개 중 ${fail}개 실패**` : `> ✅ **${total}개 모두 통과**`)
+  lines.push('', '| 항목 | 값 |', '| --- | --- |')
+  lines.push(`| 실행 시각 | ${when} |`, `| 통과 | ${pass} |`, `| 실패 | ${fail} |`, `| 건너뜀 | ${skip} |`, `| 파일 | ${rows.length} |`, `| 걸린 시간 | ${seconds}초 |`, `| Node | ${node} |`, '')
+
+  if (failures.length) {
+    lines.push(`## 실패 (${failures.length})`, '')
+    for (const failure of failures) {
+      lines.push(`### ${failure.where} — ${cell(failure.name)}`, '', messageBlock(failure.message), '')
+      const at = String(failure.stack ?? '').split('\n').find((line) => line.includes('.test.mjs'))
+      if (at) lines.push(`위치: \`${at.trim()}\``, '')
+    }
+  }
+
+  lines.push('## 파일별 결과', '', '| 파일 | 테스트 | 통과 | 실패 | 건너뜀 | 시간 |', '| --- | ---: | ---: | ---: | ---: | ---: |')
+  for (const [name, row] of rows) lines.push(`| ${row.fail ? '❌' : '✅'} ${name} | ${row.tests.length} | ${row.pass} | ${row.fail} | ${row.skip} | ${plainDuration(row.ms)} |`)
+  lines.push(`| **합계** | **${total}** | **${pass}** | **${fail}** | **${skip}** | |`, '')
+
+  const slowest = rows.flatMap(([name, row]) => row.tests.map((item) => ({ ...item, file: name }))).sort((a, b) => b.ms - a.ms).slice(0, 10)
+  if (slowest.length) {
+    lines.push('## 가장 느린 테스트', '', '| 시간 | 파일 | 테스트 |', '| ---: | --- | --- |')
+    for (const item of slowest) lines.push(`| ${plainDuration(item.ms)} | ${item.file} | ${cell(item.name)} |`)
+    lines.push('')
+  }
+
+  lines.push('## 전체 테스트', '')
+  for (const [name, row] of rows) {
+    lines.push(`### ${name}`, '', '| 결과 | 시간 | 테스트 |', '| --- | ---: | --- |')
+    for (const item of row.tests) lines.push(`| ${mark[item.state]} | ${plainDuration(item.ms)} | ${cell(item.name)} |`)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+/**
+ * Writes the report, and says where. Only for the run itself: a test that calls the
+ * reporter runs in a child process, and must not replace the real report with its own.
+ * A report that cannot be written is said so, and never decides the result of the run.
+ */
+function writeReport(details) {
+  if (process.env.NODE_TEST_CONTEXT) return null
+  const target = process.env.MPW_TEST_REPORT || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'out', 'test-report.md')
+  try {
+    mkdirSync(path.dirname(target), { recursive: true })
+    writeFileSync(target, markdownReport(details), 'utf8')
+    return { target }
+  } catch (error) {
+    return { error: error.message }
+  }
 }
 
 export default async function* report(source) {
@@ -170,6 +243,10 @@ export default async function* report(source) {
       out.push('')
     }
   }
+
+  const written = writeReport({ rows, failures, seconds, when: new Date().toLocaleString('sv'), node: process.version })
+  if (written?.target) out.push(`  ${'Report'.padEnd(14)}${path.relative(process.cwd(), written.target)}`, '')
+  if (written?.error) out.push(`  ${'Report'.padEnd(14)}${yellow(`not written: ${written.error}`)}`, '')
 
   out.push(HEAVY, '')
   yield out.join('\n')
