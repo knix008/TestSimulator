@@ -1,0 +1,92 @@
+// Korean and English strings.
+const KO = {
+  "menu.file": "파일", "menu.edit": "편집", "menu.view": "보기", "menu.run": "실행", "menu.tools": "도구", "menu.help": "도움말",
+  "cmd.new": "새 프로젝트…", "cmd.open": "열기…", "cmd.save": "저장", "cmd.saveAs": "다른 이름으로 저장…", "cmd.exit": "끝내기",
+  "cmd.preferences": "환경 설정…", "pref.general": "일반",
+  "start.title": "시작 화면", "start.actions": "시작하기", "start.continue": "빈 프로젝트로 계속", "start.recent": "최근 프로젝트", "start.noRecent": "최근에 연 프로젝트가 없습니다.", "start.removeRecent": "목록에서 제거", "start.background": "배경", "start.options": "시작 화면 옵션", "start.speed": "배경 속도 (%)", "start.opacity": "카드 불투명도 (%)", "start.shuffle": "{seconds}초마다 배경 변경", "start.showOnStartup": "시작할 때 표시", "start.reset": "기본값으로",
+  "theme.mine": "내 테마", "theme.custom": "내 테마", "theme.add": "현재 테마로 새 테마 만들기", "theme.name": "이름", "theme.mode": "종류", "theme.delete": "테마 삭제", "theme.deleteAsk": "테마 '{name}'을(를) 삭제할까요?", "theme.hint": "내 테마를 선택하면 여기서 색을 편집할 수 있습니다.",
+  "themeColor.bg": "창 배경", "themeColor.panel": "패널", "themeColor.ink": "글자", "themeColor.muted": "보조 글자", "themeColor.line": "선", "themeColor.accent": "강조", "themeColor.soft": "강조 배경", "themeColor.header": "머리글", "themeColor.alt": "교차 행", "themeColor.danger": "위험",
+  "bg.circuit": "회로 기판", "bg.widgets": "위젯", "bg.ledMatrix": "LED 매트릭스", "bg.oscilloscope": "오실로스코프", "bg.gauges": "게이지", "bg.sliders": "슬라이더", "bg.spinners": "스피너", "bg.blueprint": "설계 격자", "bg.hexDump": "메모리 덤프", "bg.sevenSegment": "7세그먼트", "bg.radar": "레이더", "bg.terrain": "3D 지형", "bg.tunnel": "3D 터널", "bg.chips": "3D 칩", "bg.starfield": "3D 별", "bg.lattice": "3D 격자", "bg.binaryRain": "이진수 비", "bg.constellation": "별자리", "bg.touchRipples": "터치 물결", "bg.aurora": "오로라", "bg.hexGrid": "육각 격자", "bg.bubbles": "거품", "bg.spectrum": "스펙트럼", "bg.dataBus": "데이터 버스",
+  "project.create": "만들기", "project.location": "위치", "project.browse": "찾아보기…", "project.folder": "프로젝트 폴더", "project.badName": "폴더 이름으로 쓸 수 없는 이름입니다.", "project.exists": "이 폴더가 이미 있고 비어 있지 않습니다: {path}",
+  "cmd.undo": "실행 취소", "cmd.redo": "다시 실행", "cmd.copy": "복사", "cmd.paste": "붙여넣기", "cmd.duplicate": "복제", "cmd.delete": "삭제",
+  "cmd.forward": "앞으로 가져오기", "cmd.backward": "뒤로 보내기",
+  "cmd.run": "실행 (앱 안에서)", "cmd.stop": "중지", "cmd.nativeRun": "네이티브 실행 (빌드 후 별도 창)", "cmd.nativeStop": "네이티브 실행 중지",
+  "cmd.settings": "프로젝트 설정…", "cmd.manager": "LVGL 관리자…", "cmd.about": "정보…", "cmd.theme": "테마", "cmd.language": "언어",
+  "cmd.zoomIn": "확대", "cmd.zoomOut": "축소", "cmd.zoomFit": "화면에 맞춤", "cmd.minimize": "최소화", "cmd.maximize": "최대화", "cmd.close": "닫기",
+  "panel.palette": "팔레트", "panel.tree": "구성 요소 트리", "panel.attributes": "속성", "panel.log": "로그", "panel.build": "빌드",
+  "view.design": "디자인", "view.split": "분할", "view.code": "코드",
+  "palette.common": "기본", "palette.input": "입력", "palette.display": "표시",
+  "widget.screen": "화면", "widget.container": "컨테이너", "widget.label": "레이블", "widget.button": "버튼", "widget.checkbox": "체크박스", "widget.switch": "스위치", "widget.slider": "슬라이더", "widget.bar": "진행 막대", "widget.arc": "원호", "widget.dropdown": "드롭다운", "widget.roller": "롤러", "widget.textarea": "텍스트 입력", "widget.spinner": "스피너", "widget.led": "LED",
+  "group.identity": "일반", "group.layout": "배치", "group.content": "내용", "group.style": "스타일", "group.flags": "동작", "group.events": "이벤트",
+  "prop.name": "이름", "prop.x": "X", "prop.y": "Y", "prop.width": "너비", "prop.height": "높이", "prop.align": "정렬", "prop.flexFlow": "Flex 방향", "prop.gap": "간격",
+  "prop.text": "텍스트", "prop.placeholder": "안내 문구", "prop.options": "항목 (줄마다 하나)", "prop.selected": "선택 번호", "prop.checked": "선택됨", "prop.min": "최솟값", "prop.max": "최댓값", "prop.value": "값", "prop.ledBright": "밝기",
+  "prop.bgColor": "배경색", "prop.bgOpa": "배경 불투명도", "prop.borderColor": "테두리색", "prop.borderWidth": "테두리 두께", "prop.radius": "모서리", "prop.pad": "안쪽 여백", "prop.shadowWidth": "그림자 크기", "prop.shadowColor": "그림자색", "prop.opa": "불투명도", "prop.textColor": "글자색", "prop.font": "글꼴 크기", "prop.indicatorColor": "표시부 색",
+  "prop.hidden": "숨김", "prop.clickable": "클릭 가능", "prop.scrollable": "스크롤 가능", "prop.disabled": "비활성",
+  "attr.none": "위젯을 선택하세요", "attr.theme": "테마 기본값", "attr.clear": "지우기", "attr.sizeHint": "숫자, 50%, content",
+  "event.add": "이벤트 추가", "event.remove": "이벤트 삭제", "event.target": "대상", "event.message": "내용",
+  "trigger.CLICKED": "클릭", "trigger.PRESSED": "누름", "trigger.RELEASED": "뗌", "trigger.VALUE_CHANGED": "값 변경",
+  "action.screen": "화면 전환", "action.setText": "텍스트 변경", "action.toggle": "표시 전환", "action.show": "표시", "action.hide": "숨기기", "action.log": "로그 출력",
+  "screen.add": "화면 추가", "screen.remove": "화면 삭제",
+  "device.cyd": "320×240 가로", "device.portrait": "240×320 세로", "device.hvga": "480×320", "device.wvga": "800×480", "device.wsvga": "1024×600", "device.square": "480×480 정사각", "device.custom": "사용자 지정",
+  "status.design": "디자인", "status.run": "실행 중", "status.native": "네이티브 실행 중", "status.building": "빌드 중", "status.modified": "수정됨", "status.saved": "저장됨",
+  "status.engineClose": "엔진 {engine}으로 표시 중 (프로젝트 {version})",
+  "settings.title": "프로젝트 설정", "settings.name": "프로젝트 이름", "settings.version": "LVGL 버전", "settings.manage": "LVGL 관리자…", "settings.device": "화면 크기", "settings.width": "너비", "settings.height": "높이", "settings.dark": "어두운 LVGL 테마", "settings.primary": "기본 색", "settings.secondary": "보조 색", "settings.engineNote": "이 버전은 내장 엔진이 없어 설계 화면은 엔진 {engine}으로 그립니다. 네이티브 실행과 코드 생성은 {version} 그대로입니다.",
+  "version.installed": "설치됨", "version.notInstalled": "설치 안 됨", "version.engine": "내장 엔진",
+  "manager.title": "LVGL 관리자", "manager.intro": "네이티브 실행에는 LVGL 소스가 필요합니다. 필요한 버전만 내려받으세요. 화면 설계와 앱 내 실행은 소스 없이 내장 엔진으로 동작합니다.", "manager.version": "버전", "manager.state": "상태", "manager.size": "크기", "manager.install": "설치", "manager.remove": "삭제", "manager.removeAsk": "LVGL {version}과 이 버전의 빌드 결과를 삭제할까요?", "manager.downloading": "내려받는 중 {percent}", "manager.extracting": "압축 푸는 중", "manager.offline": "GitHub에서 목록을 읽지 못해 알려진 버전만 표시합니다.", "manager.tools": "빌드 도구", "manager.toolMissing": "없음", "manager.sdlFound": "있음",
+  "native.needInstall": "프로젝트의 LVGL {version}이 설치되어 있지 않습니다. 지금 내려받을까요?", "native.needTools": "네이티브 실행에 필요한 도구가 없습니다: {tools}", "native.desktopOnly": "데스크톱 앱에서만 사용할 수 있습니다.",
+  "dialog.ok": "확인", "dialog.cancel": "취소", "dialog.close": "닫기", "dialog.confirm": "확인", "dialog.unsaved": "저장하지 않은 변경 사항을 버릴까요?", "dialog.error": "오류",
+  "about.title": "My LVGL Studio", "about.text": "LVGL 화면을 그래픽으로 설계하고 실행하며 C 코드를 생성합니다.",
+  "log.saved": "저장함: {path}", "log.opened": "열림: {path}", "log.runStart": "앱 내 실행 시작", "log.runStop": "앱 내 실행 중지", "theme.light": "밝은 테마", "theme.dark": "어두운 테마",
+};
+
+const EN = {
+  "menu.file": "File", "menu.edit": "Edit", "menu.view": "View", "menu.run": "Run", "menu.tools": "Tools", "menu.help": "Help",
+  "cmd.new": "New Project…", "cmd.open": "Open…", "cmd.save": "Save", "cmd.saveAs": "Save As…", "cmd.exit": "Exit",
+  "cmd.preferences": "Preferences…", "pref.general": "General",
+  "start.title": "Start Screen", "start.actions": "Get started", "start.continue": "Continue with an empty project", "start.recent": "Recent projects", "start.noRecent": "No recent projects yet.", "start.removeRecent": "Remove from list", "start.background": "Background", "start.options": "Start screen options", "start.speed": "Background speed (%)", "start.opacity": "Card opacity (%)", "start.shuffle": "Change background every {seconds} s", "start.showOnStartup": "Show at startup", "start.reset": "Restore defaults",
+  "theme.mine": "My themes", "theme.custom": "My theme", "theme.add": "New theme from the current one", "theme.name": "Name", "theme.mode": "Kind", "theme.delete": "Delete Theme", "theme.deleteAsk": "Delete the theme '{name}'?", "theme.hint": "Select one of your themes to edit its colours here.",
+  "themeColor.bg": "Window background", "themeColor.panel": "Panel", "themeColor.ink": "Text", "themeColor.muted": "Secondary text", "themeColor.line": "Lines", "themeColor.accent": "Accent", "themeColor.soft": "Accent background", "themeColor.header": "Header", "themeColor.alt": "Alternate row", "themeColor.danger": "Danger",
+  "bg.circuit": "Circuit Board", "bg.widgets": "Widgets", "bg.ledMatrix": "LED Matrix", "bg.oscilloscope": "Oscilloscope", "bg.gauges": "Gauges", "bg.sliders": "Sliders", "bg.spinners": "Spinners", "bg.blueprint": "Blueprint", "bg.hexDump": "Memory Dump", "bg.sevenSegment": "Seven Segment", "bg.radar": "Radar", "bg.terrain": "3D Terrain", "bg.tunnel": "3D Tunnel", "bg.chips": "3D Chips", "bg.starfield": "3D Stars", "bg.lattice": "3D Lattice", "bg.binaryRain": "Binary Rain", "bg.constellation": "Constellation", "bg.touchRipples": "Touch Ripples", "bg.aurora": "Aurora", "bg.hexGrid": "Hex Grid", "bg.bubbles": "Bubbles", "bg.spectrum": "Spectrum", "bg.dataBus": "Data Bus",
+  "project.create": "Create", "project.location": "Location", "project.browse": "Browse…", "project.folder": "Project folder", "project.badName": "This name cannot be used as a folder name.", "project.exists": "This folder already exists and is not empty: {path}",
+  "cmd.undo": "Undo", "cmd.redo": "Redo", "cmd.copy": "Copy", "cmd.paste": "Paste", "cmd.duplicate": "Duplicate", "cmd.delete": "Delete",
+  "cmd.forward": "Bring Forward", "cmd.backward": "Send Backward",
+  "cmd.run": "Run (inside the app)", "cmd.stop": "Stop", "cmd.nativeRun": "Native Run (build, separate window)", "cmd.nativeStop": "Stop Native Run",
+  "cmd.settings": "Project Settings…", "cmd.manager": "LVGL Manager…", "cmd.about": "About…", "cmd.theme": "Theme", "cmd.language": "Language",
+  "cmd.zoomIn": "Zoom In", "cmd.zoomOut": "Zoom Out", "cmd.zoomFit": "Fit to View", "cmd.minimize": "Minimize", "cmd.maximize": "Maximize", "cmd.close": "Close",
+  "panel.palette": "Palette", "panel.tree": "Component Tree", "panel.attributes": "Attributes", "panel.log": "Log", "panel.build": "Build",
+  "view.design": "Design", "view.split": "Split", "view.code": "Code",
+  "palette.common": "Common", "palette.input": "Input", "palette.display": "Display",
+  "widget.screen": "Screen", "widget.container": "Container", "widget.label": "Label", "widget.button": "Button", "widget.checkbox": "Checkbox", "widget.switch": "Switch", "widget.slider": "Slider", "widget.bar": "Bar", "widget.arc": "Arc", "widget.dropdown": "Dropdown", "widget.roller": "Roller", "widget.textarea": "Text Area", "widget.spinner": "Spinner", "widget.led": "LED",
+  "group.identity": "General", "group.layout": "Layout", "group.content": "Content", "group.style": "Style", "group.flags": "Behaviour", "group.events": "Events",
+  "prop.name": "Name", "prop.x": "X", "prop.y": "Y", "prop.width": "Width", "prop.height": "Height", "prop.align": "Align", "prop.flexFlow": "Flex flow", "prop.gap": "Gap",
+  "prop.text": "Text", "prop.placeholder": "Placeholder", "prop.options": "Options (one per line)", "prop.selected": "Selected index", "prop.checked": "Checked", "prop.min": "Minimum", "prop.max": "Maximum", "prop.value": "Value", "prop.ledBright": "Brightness",
+  "prop.bgColor": "Background", "prop.bgOpa": "Background opacity", "prop.borderColor": "Border colour", "prop.borderWidth": "Border width", "prop.radius": "Radius", "prop.pad": "Padding", "prop.shadowWidth": "Shadow width", "prop.shadowColor": "Shadow colour", "prop.opa": "Opacity", "prop.textColor": "Text colour", "prop.font": "Font size", "prop.indicatorColor": "Indicator colour",
+  "prop.hidden": "Hidden", "prop.clickable": "Clickable", "prop.scrollable": "Scrollable", "prop.disabled": "Disabled",
+  "attr.none": "Select a widget", "attr.theme": "Theme default", "attr.clear": "Clear", "attr.sizeHint": "number, 50%, content",
+  "event.add": "Add Event", "event.remove": "Remove Event", "event.target": "Target", "event.message": "Message",
+  "trigger.CLICKED": "Clicked", "trigger.PRESSED": "Pressed", "trigger.RELEASED": "Released", "trigger.VALUE_CHANGED": "Value changed",
+  "action.screen": "Load screen", "action.setText": "Set text", "action.toggle": "Toggle visible", "action.show": "Show", "action.hide": "Hide", "action.log": "Write to log",
+  "screen.add": "Add Screen", "screen.remove": "Delete Screen",
+  "device.cyd": "320×240 landscape", "device.portrait": "240×320 portrait", "device.hvga": "480×320", "device.wvga": "800×480", "device.wsvga": "1024×600", "device.square": "480×480 square", "device.custom": "Custom",
+  "status.design": "Design", "status.run": "Running", "status.native": "Native run", "status.building": "Building", "status.modified": "Modified", "status.saved": "Saved",
+  "status.engineClose": "Drawn with engine {engine} (project {version})",
+  "settings.title": "Project Settings", "settings.name": "Project name", "settings.version": "LVGL version", "settings.manage": "LVGL Manager…", "settings.device": "Screen size", "settings.width": "Width", "settings.height": "Height", "settings.dark": "Dark LVGL theme", "settings.primary": "Primary colour", "settings.secondary": "Secondary colour", "settings.engineNote": "This version has no built-in engine, so the design surface is drawn with engine {engine}. Native runs and generated code use {version} itself.",
+  "version.installed": "Installed", "version.notInstalled": "Not installed", "version.engine": "Built-in engine",
+  "manager.title": "LVGL Manager", "manager.intro": "Native runs need the LVGL sources. Download only the versions you need. Designing and running inside the app work without them, on the built-in engines.", "manager.version": "Version", "manager.state": "State", "manager.size": "Size", "manager.install": "Install", "manager.remove": "Remove", "manager.removeAsk": "Remove LVGL {version} and its build output?", "manager.downloading": "Downloading {percent}", "manager.extracting": "Extracting", "manager.offline": "The list could not be read from GitHub; showing known versions only.", "manager.tools": "Build tools", "manager.toolMissing": "missing", "manager.sdlFound": "found",
+  "native.needInstall": "The project's LVGL {version} is not installed. Download it now?", "native.needTools": "Native runs need tools that are missing: {tools}", "native.desktopOnly": "Available in the desktop app only.",
+  "dialog.ok": "OK", "dialog.cancel": "Cancel", "dialog.close": "Close", "dialog.confirm": "Confirm", "dialog.unsaved": "Discard unsaved changes?", "dialog.error": "Error",
+  "about.title": "My LVGL Studio", "about.text": "Designs LVGL screens graphically, runs them, and generates C code.",
+  "log.saved": "Saved: {path}", "log.opened": "Opened: {path}", "log.runStart": "Run started inside the app", "log.runStop": "Run stopped", "theme.light": "Light themes", "theme.dark": "Dark themes",
+};
+
+const TABLES = { ko: KO, en: EN };
+
+export function translator(language) {
+  const table = TABLES[language] ?? KO;
+  return (key, values) => {
+    const text = table[key] ?? key;
+    return values ? text.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "") : text;
+  };
+}
+
+export const STRING_TABLES = TABLES;

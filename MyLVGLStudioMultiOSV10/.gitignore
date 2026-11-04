@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# LVGL sources, fetched by `npm run fetch:lvgl` to build engines (the app downloads its own)
+third_party/
+
+# Build output
+dist/
+build/
+test-results/
+*.AppImage
+*.deb
+My LVGL Studio_*
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Logs / caches
+*.log
+*.tmp
+.vite/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
+.claude/

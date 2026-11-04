@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My LVGL Studio",
+  "mainBinaryName": "MyLVGLStudio",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.mylvglstudio",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeBuildCommand": "npm run build:ui"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "DeveloperTool",
+    "fileAssociations": [
+      {
+        "ext": ["mylvgl"],
+        "name": "My LVGL Studio Project",
+        "description": "My LVGL Studio Project",
+        "role": "Editor",
+        "mimeType": "application/vnd.mylvgl+json"
+      }
+    ],
+    "shortDescription": "Graphic screen designer and runner for LVGL",
+    "longDescription": "My LVGL Studio designs LVGL screens on a surface drawn by LVGL itself, runs them inside the app or as a native desktop program, and generates C code for the chosen LVGL version.",
+    "icon": [
+      "../assets/icons/32x32.png",
+      "../assets/icons/128x128.png",
+      "../assets/icons/128x128@2x.png",
+      "../assets/icon.png",
+      "../assets/icon.icns",
+      "../assets/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../assets/icon.ico"
+      }
+    },
+    "macOS": { "minimumSystemVersion": "10.15" },
+    "linux": { "deb": { "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"] } }
+  }
+}

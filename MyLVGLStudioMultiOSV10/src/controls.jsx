@@ -1,0 +1,143 @@
+// Shared inputs: the icon drop-down (native <select> cannot show icons), the −/+ number
+// stepper, colour field and on/off switch.
+import { useEffect, useRef, useState } from "react";
+import { Icon } from "./icons.jsx";
+
+const LIST_MAX_HEIGHT = 240;
+
+/** The list opens below its button, or above when the window has more room there. */
+function listPlacement(button, count) {
+  const rect = button.getBoundingClientRect();
+  const wanted = Math.min(LIST_MAX_HEIGHT, count * 30 + 10);
+  const below = window.innerHeight - rect.bottom - 6;
+  const above = rect.top - 6;
+  const style = { position: "fixed", left: rect.left, minWidth: rect.width, width: "max-content", maxWidth: Math.max(rect.width, 320), right: "auto" };
+  if (below >= wanted || below >= above) return { ...style, top: rect.bottom + 2, bottom: "auto", maxHeight: Math.min(LIST_MAX_HEIGHT, below) };
+  return { ...style, top: "auto", bottom: window.innerHeight - rect.top + 2, maxHeight: Math.min(LIST_MAX_HEIGHT, above) };
+}
+
+export function IconSelect({ value, options, onChange, title, id }) {
+  const [open, setOpen] = useState(false);
+  const host = useRef(null);
+  const button = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (event) => {
+      if (!host.current?.contains(event.target)) setOpen(false);
+    };
+    // Its place was worked out from the button, so it cannot follow a scrolling panel.
+    const closeOnScroll = (event) => {
+      if (!host.current?.contains(event.target)) setOpen(false);
+    };
+    const closeNow = () => setOpen(false);
+    window.addEventListener("pointerdown", close, true);
+    window.addEventListener("scroll", closeOnScroll, true);
+    window.addEventListener("resize", closeNow);
+    return () => {
+      window.removeEventListener("pointerdown", close, true);
+      window.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("resize", closeNow);
+    };
+  }, [open]);
+  const selected = options.find((option) => option.value === value);
+  return (
+    <div className="icon-select" ref={host} data-select={id}>
+      <button type="button" ref={button} className="icon-select-button" title={title} aria-expanded={open} onClick={() => setOpen((state) => !state)}>
+        {selected?.icon && <Icon name={selected.icon} />}
+        <span className="icon-select-text">{selected?.label ?? String(value ?? "")}</span>
+        <Icon name="caret" size={12} />
+      </button>
+      {open && (
+        <div className="menu-pop icon-select-list" role="listbox" style={listPlacement(button.current, options.length)}>
+          {options.map((option) => (
+            <button
+              type="button"
+              key={String(option.value)}
+              role="option"
+              aria-selected={option.value === value}
+              data-value={String(option.value)}
+              className={option.value === value ? "selected" : undefined}
+              onClick={() => {
+                setOpen(false);
+                onChange(option.value);
+              }}
+            >
+              {option.icon && <Icon name={option.icon} />}
+              <span className="menu-label">{option.label}</span>
+              {option.note && <span className="menu-note">{option.note}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A number between −/+ buttons, value centred. Empty means "not set" when `blank` allows it. */
+export function Stepper({ value, onChange, min, max, step = 1, placeholder, blank = false, id }) {
+  const clamp = (number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, number));
+  const nudge = (direction) => {
+    const base = Number(value);
+    onChange(clamp((Number.isFinite(base) ? base : (min ?? 0)) + direction * step));
+  };
+  return (
+    <div className="stepper" data-field={id}>
+      <button type="button" tabIndex={-1} aria-label="-" onClick={() => nudge(-1)}>−</button>
+      <input
+        value={value ?? ""}
+        placeholder={placeholder}
+        inputMode="numeric"
+        onChange={(event) => {
+          const text = event.target.value.trim();
+          if (text === "") {
+            if (blank) onChange(undefined);
+            return;
+          }
+          const number = Number.parseInt(text, 10);
+          if (Number.isFinite(number)) onChange(clamp(number));
+        }}
+      />
+      <button type="button" tabIndex={-1} aria-label="+" onClick={() => nudge(1)}>+</button>
+    </div>
+  );
+}
+
+export function ColorField({ value, onChange, placeholder, clearLabel, id }) {
+  return (
+    <div className="color-field" data-field={id}>
+      <label className={value ? "swatch" : "swatch empty"} style={value ? { background: value } : undefined}>
+        <input type="color" value={value ?? "#808080"} onChange={(event) => onChange(event.target.value)} />
+      </label>
+      <input
+        className="color-text"
+        value={value ?? ""}
+        placeholder={placeholder}
+        onChange={(event) => {
+          const text = event.target.value.trim();
+          if (text === "") onChange(undefined);
+          else if (/^#[0-9a-fA-F]{6}$/.test(text)) onChange(text.toLowerCase());
+        }}
+      />
+      {clearLabel && value && (
+        <button type="button" className="mini" title={clearLabel} aria-label={clearLabel} onClick={() => onChange(undefined)}>
+          <Icon name="close" size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function Toggle({ checked, onChange, id }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      data-field={id}
+      aria-checked={!!checked}
+      className={checked ? "toggle on" : "toggle"}
+      onClick={() => onChange(!checked)}
+    >
+      <i />
+    </button>
+  );
+}
