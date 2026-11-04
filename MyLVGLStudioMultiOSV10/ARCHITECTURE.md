@@ -63,15 +63,16 @@ App
 ├─ 도구 모음            ToolButton, 테마와 언어 팝업
 ├─ StartScreen           배경 캔버스 + 카드 (작업 영역과 번갈아 표시)
 ├─ 작업 영역
-│  ├─ 왼쪽              Palette, ComponentTree
+│  ├─ 왼쪽              Palette
 │  ├─ 가운데            화면 탭, 버전 표시, 확대·축소, 디자인/분할/코드 전환
 │  │  ├─ Surface        캔버스(LVGL 프레임) + 오버레이(선택, 핸들, 포인터)
-│  │  └─ CodeView       생성 코드(읽기 전용)
-│  ├─ 오른쪽            Attributes (속성, 이벤트)
-│  └─ 아래              LogView (로그, 빌드)
+│  │  ├─ CodeView       생성 코드(읽기 전용)
+│  │  └─ LogView        로그, 빌드 (가운데 열 아래)
+│  └─ 오른쪽            ComponentTree, Attributes (속성, 이벤트)
 ├─ 상태 표시줄          모드, 파일, LVGL 버전, 화면 크기, 선택 항목, 크기 조절 손잡이
 └─ 대화상자             NewProjectDialog, ProjectSettings, LvglManager, PreferencesDialog,
                         ConfirmDialog, MessageDialog, AboutDialog
+└─ ContextMenu          오른쪽 버튼 메뉴. 브라우저 기본 메뉴를 대체
 ```
 
 ### 주요 동작 흐름
@@ -188,6 +189,10 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 
 `lvgl.rs`는 임시 폴더에 푼 뒤 마지막에 이름을 바꿔 설치하므로, 중단된 설치가 설치 완료로 보이지 않습니다. 버전 문자열은 폴더 이름과 URL이 되므로 `N.N.N` 형식만 받습니다. 압축 항목은 `enclosed_name()`으로 검사해 대상 폴더 밖에 쓰지 못하게 합니다. LVGL 9.6부터 공개 헤더가 `include/lvgl/`로 옮겨졌으므로 `src`와 함께 `include`도 설치합니다.
 
+## 실행 창
+
+F5는 `run` 라벨의 별도 Tauri 창을 엽니다. 메인 창이 문서와 이미지 원본을 `run_open`으로 Rust에 맡기면, 실행 창(`RunWindow.jsx`)이 `run_payload`로 받아 자체 엔진 인스턴스에서 돌립니다. 메인 창의 설계 화면과 상태를 공유하지 않으므로 실행 중에도 편집할 수 있습니다. 로그는 `run-log` 이벤트로, 창 닫힘은 `run-closed` 이벤트로 메인 창에 전달합니다. 브라우저(`dev:web`)에서는 별도 창이 없어 설계 화면 안에서 실행합니다.
+
 ## 끌기 처리
 
 끌기는 모두 `window`의 포인터 이벤트로 처리합니다. 끌리는 요소는 움직이고 다시 그려지기 때문입니다. 브라우저의 기본 드래그가 시작되면 `pointercancel`로 끌기가 끊기므로 `dragstart`를 앱 전체에서 막습니다. `Surface`의 콜백은 ref로 보관합니다. 언어가 바뀌어 콜백이 달라져도 엔진을 다시 불러오거나 실행을 다시 시작하지 않게 하기 위해서입니다.
@@ -209,6 +214,17 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 - **묶기:** 같은 필드의 연속 입력은 `coalesce` 키로, 끌기 동작은 gesture로 한 단계로 묶습니다.
 - **좌표:** 선택과 히트 테스트는 엔진이 계산한 실제 좌표(`ml_coords`)를 사용하므로 Flex 배치에서도 맞습니다.
 
+## 버전별 위젯
+
+`schema.js`의 위젯에 `since`와 `until`을 둘 수 있습니다. `availableIn()`이 콘트롤 패널과 컨텍스트 메뉴의 표시를 결정합니다. 프로젝트의 버전을 바꿔 없는 위젯이 생기면 문서에는 남기고 `emit()`이 제외하므로, 버전을 되돌리면 복구됩니다.
+
+| 위젯 | 버전 |
+|---|---|
+| Color Wheel, Meter | v8만 |
+| Scale, Barcode | v9.0 이상 |
+| Arc Label | v9.4 이상 |
+| 그 외 33종 (Grid 포함) | 공통 |
+
 ## 이미지
 
 픽셀은 문서에 넣지 않습니다. 문서(`project.images`)는 이름과 경로만 갖고, 원본과 디코드한 픽셀은 `src/lvgl/images.js`의 저장소에 둡니다. 편집할 때마다 문서 전체를 복사하는 Undo 기록을 작게 유지하기 위한 구조입니다.
@@ -217,6 +233,10 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 - **설계 화면:** 엔진이 BGRA 픽셀을 WebAssembly 메모리에 한 번 복사한 뒤 설명자(`ml_image_load`)를 만듭니다.
 - **코드:** v9는 ARGB8888 `lv_image_dsc_t`, v8은 색 깊이별 데이터를 담은 `lv_img_dsc_t`를 생성합니다. 코드 보기에서는 픽셀 배열을 생략합니다.
 - **저장:** 원본은 `assets/images/`, C 배열은 `src/ui/images/`에 씁니다.
+
+## 숫자 입력
+
+수치 입력은 모두 `controls.jsx`의 `Stepper`와 `SizeField`, 시작 화면 옵션은 `RangeStepper`를 씁니다. 입력란을 내용 폭에 맞추므로 값과 단위가 함께 가운데 정렬됩니다.
 
 ## 시작 화면과 테마
 
@@ -232,7 +252,7 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 | 명령 | 범위 |
 |---|---|
 | `npm test` | 문서 모델, 파일 형식, 설정, 테마, 배경, 코드 생성기, 내장 엔진별로 모든 위젯·속성·트리거·동작, 생성 C와 엔진의 픽셀 일치 |
-| `npm run test:gui` | 격리된 데이터 폴더와 WebView2 프로필로 실제 앱을 띄워 조작: 시작 화면, 설계, 저장, 실행, 환경 설정, 재시작 후 복원, LVGL 설치와 네이티브 실행 |
+| `npm run test:gui` | 별도 빌드 폴더(`target/e2e`), 격리된 데이터 폴더와 WebView2 프로필로 실제 앱을 띄워 조작(`MLS_SETTINGS_DIR`가 있으면 단일 인스턴스를 적용하지 않음): 시작 화면, 설계, 저장, 실행, 환경 설정, 재시작 후 복원, LVGL 설치와 네이티브 실행 |
 
 픽셀 비교는 같은 프로젝트를 WebAssembly 엔진과 gcc 빌드로 각각 그려 모든 픽셀의 색을 비교합니다. 모든 위젯과 속성, 크기 형식, 정렬, 글꼴을 쓴 프로젝트(`test/features.mjs`)까지 대상입니다. 시간에 따라 변하는 스피너는 숨겨서 비교합니다.
 

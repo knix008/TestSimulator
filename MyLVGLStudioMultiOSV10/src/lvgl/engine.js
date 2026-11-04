@@ -60,7 +60,14 @@ export class Engine {
     };
     for (const op of ops) {
       switch (op.op) {
-        case "create": check(this.m._ml_create(op.id, TYPE_IDS[op.type], op.parent), op); break;
+        case "create":
+          if (op.type === "qrcode") this.m._ml_qr_size(Number(op.node.props.qrSize) || 100);
+          check(this.m._ml_create(op.id, TYPE_IDS[op.type], op.parent), op);
+          break;
+        case "canvas": check(this.m._ml_canvas(op.id, op.w, op.h, op.color), op); break;
+        case "frames": check(this.withString(op.value, (p) => this.m._ml_set_s(op.id, STR_IDS.frames, p)), op); break;
+        case "grid": check(this.withString(op.columns, (c) => this.withString(op.rows, (r) => this.m._ml_grid(op.id, c, r))), op); break;
+        case "cell": check(this.m._ml_cell(op.id, op.column, op.columnSpan, op.row, op.rowSpan), op); break;
         case "range": check(this.m._ml_range(op.id, op.min, op.max), op); break;
         case "int": check(this.m._ml_set_i(op.id, PROP_IDS[op.prop], op.value), op); break;
         case "str": check(this.withString(op.value, (p) => this.m._ml_set_s(op.id, STR_IDS[op.prop], p)), op); break;

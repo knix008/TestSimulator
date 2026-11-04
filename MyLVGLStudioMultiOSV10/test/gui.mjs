@@ -2,7 +2,7 @@
 // data folder and WebView2 profile. Screenshots go to test-results/gui/.
 //   --no-native    skips downloading LVGL and the native build
 //   --exe <path>   the exe to test (default: the debug build)
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -17,7 +17,7 @@ const argument = (name) => {
   const at = process.argv.indexOf(name);
   return at >= 0 ? process.argv[at + 1] : null;
 };
-const exe = argument("--exe") ?? path.join(root, "src-tauri", "target", "debug", process.platform === "win32" ? "MyLVGLStudio.exe" : "MyLVGLStudio");
+const exe = argument("--exe") ?? path.join(root, "src-tauri", "target", "e2e", "debug", process.platform === "win32" ? "MyLVGLStudio.exe" : "MyLVGLStudio");
 const skipNative = process.argv.includes("--no-native");
 const shots = path.join(root, "test-results", "gui");
 fs.rmSync(shots, { recursive: true, force: true });
@@ -27,9 +27,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const data = fs.mkdtempSync(path.join(os.tmpdir(), "mls-gui-"));
 let app = null;
 let page = null;
+let debugPort = 0;
 
 async function launch(args = []) {
   const port = await freePort(9360);
+  debugPort = port;
   app = spawn(exe, args, {
     stdio: "ignore",
     env: {
@@ -66,7 +68,13 @@ await launch();
 
 const js = (expression) => page.evaluate(expression);
 const shot = async (name) => fs.writeFileSync(path.join(shots, `${name}.png`), await page.screenshot());
-const center = (selector) => js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; e.scrollIntoView({ block: "nearest", inline: "nearest" }); const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+const center = async (selector) => {
+  const point = await locate(selector);
+  // A scroll reaches hit testing a frame later than it reaches the page.
+  await sleep(50);
+  return point;
+};
+const locate = (selector) => js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; e.scrollIntoView({ block: "nearest", inline: "nearest" }); const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
 const mouse = (type, x, y, extra = {}) => page.send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1, ...extra });
 async function clickAt(x, y) {
   await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, buttons: 0 });
@@ -140,6 +148,7 @@ const box = (id) => js(`window.__mls.box(${JSON.stringify(id)})`);
 const pixel = (x, y) => js(`(() => { const c = window.__mls.canvas(); const d = c.getContext("2d").getImageData(${x}, ${y}, 1, 1).data; return [d[0], d[1], d[2]]; })()`);
 const logText = () => js(`Array.from(document.querySelectorAll('[data-log] .log-line span')).map((e) => e.textContent).join("\\n")`);
 async function choose(field, value) {
+  await sleep(120);
   await click(`[data-select="${field}"] .icon-select-button`);
   await click(`[data-select="${field}"] [data-value="${value}"]`);
 }
@@ -212,6 +221,26 @@ await step("Card opacity changes the cards", async () => {
   await sleep(60);
   assert.equal(await js("window.__mls.start().cardOpacity"), 80);
   assert.equal(await js("document.querySelector('[data-start-screen]').style.getPropertyValue('--start-card-alpha')"), "80%");
+  await click('[data-card="background"] [data-step="startOpacity:up"]');
+});
+
+await step("Speed and opacity: a slide bar right of the minus button, the value centred", async () => {
+  for (const name of ["startSpeed", "startOpacity"]) {
+    const order = await js(`Array.from(document.querySelector('[data-card=background] [data-range="${name}"]').children).map((e) => e.className)`);
+    assert.deepEqual(order, ["range-step", "range-bar", "range-value", "range-step"], name);
+    assert.equal(await js(`getComputedStyle(document.querySelector('[data-card=background] [data-field="${name}"]')).textAlign`), "center", name);
+  }
+  const bar = await js(`(() => { const e = document.querySelector('[data-card=background] [data-range-bar="startOpacity"]'); e.scrollIntoView({ block: "nearest" }); const r = e.getBoundingClientRect(); return { left: r.left, width: r.width, y: r.top + r.height / 2 }; })()`);
+  assert.ok(bar.width >= 60, `the bar is only ${bar.width} wide`);
+  await drag({ x: bar.left + bar.width * 0.5, y: bar.y }, { x: bar.left + bar.width + 30, y: bar.y });
+  await sleep(80);
+  assert.equal(await js("window.__mls.start().cardOpacity"), 100);
+  for (let i = 0; i < 4; i++) {
+    await click('[data-card="background"] [data-step="startOpacity:down"]');
+    await sleep(60);
+  }
+  assert.equal(await js("window.__mls.start().cardOpacity"), 80);
+  await shot("01e-ranges");
 });
 
 await step("The auto change tile switches on and off", async () => {
@@ -357,7 +386,7 @@ await step("The attributes panel edits text and colour on the surface", async ()
 });
 
 await step("Code view shows the generated C", async () => {
-  await click('[data-view="split"]');
+  await click('[data-command="code"]');
   await sleep(100);
   await click('[data-code-tab="src/ui/screens/ui_Screen1.c"]');
   await sleep(50);
@@ -365,7 +394,7 @@ await step("Code view shows the generated C", async () => {
   assert.match(code, /lv_button_create/);
   assert.match(code, /"Start"/);
   await shot("04-split");
-  await click('[data-view="design"]');
+  await click('[data-command="code"]');
 });
 
 category("Project folder");
@@ -382,6 +411,7 @@ await step("Saving creates the project folder with structured code", async () =>
   const saved = JSON.parse(fs.readFileSync(path.join(folder, "GuiApp.mylvgl"), "utf8"));
   assert.equal(saved.format, "mylvgl");
   assert.equal(saved.name, "GuiApp");
+  assert.ok((await js("window.__mls.recent()")).some((file) => file.endsWith("GuiApp.mylvgl")), "a saved project must join the recent list at once");
   for (const file of ["CMakeLists.txt", "config/lv_conf.h", "src/main.c", "src/ui/ui.c", "src/ui/ui.h", "src/ui/ui_events.c", "src/ui/ui_events.h", "src/ui/screens/ui_Screen1.c"]) {
     assert.ok(fs.existsSync(path.join(folder, file)), file);
   }
@@ -430,13 +460,13 @@ await step("Project settings switch the LVGL version and the engine", async () =
   const button = await lastWidget();
   const redrawn = await box(button.id);
   assert.deepEqual(await pixel(redrawn.x + 6, redrawn.y + Math.floor(redrawn.h / 2)), [255, 0, 0]);
-  await click('[data-view="split"]');
+  await click('[data-command="code"]');
   await sleep(50);
   await click('[data-code-tab="src/ui/screens/ui_Screen1.c"]');
   await sleep(50);
   const code = await js(`document.querySelector("[data-code]")?.textContent ?? ""`);
   assert.match(code, /lv_btn_create/);
-  await click('[data-view="design"]');
+  await click('[data-command="code"]');
   await click('[data-command="version-chip"]');
   await sleep(80);
   await choose("lvglVersion", "9.5.0");
@@ -446,23 +476,54 @@ await step("Project settings switch the LVGL version and the engine", async () =
   await click('[data-command="settings-close"]');
 });
 
-await step("Run mode: clicking the button runs its action", async () => {
+await step("Run opens a separate window; clicking its button runs the action", async () => {
   await click(`[data-tree="${(await lastWidget()).id}"]`);
   await click('[data-command="event-add"]');
   await sleep(80);
   await typeInto('[data-field="eventText"]', "hello from lvgl");
   await click('[data-command="run"]');
-  await page.until('document.querySelector("[data-overlay=run]")', 3000);
-  await sleep(200);
-  const widget = await lastWidget();
-  const area = await box(widget.id);
-  const point = await displayPoint(area.x + area.w / 2, area.y + area.h / 2);
-  await clickAt(point.x, point.y);
-  await sleep(200);
-  await page.until('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent === "hello from lvgl")', 3000);
-  await shot("06-running");
+  const target = await waitForTarget(debugPort, (item) => item.url.includes("run=1"), 15000);
+  const runPage = await connect(target);
+  await runPage.send("Page.enable");
+  await runPage.until("window.__mlsRun && window.__mlsRun.ready()", 15000);
+  await sleep(300);
+  assert.ok(await runPage.evaluate("!!document.querySelector('.run-title img')"), "the run window has no icon");
+  assert.ok(await runPage.evaluate("!!document.querySelector('[data-run-title]').textContent"), "the run window has no title");
+  assert.ok(await runPage.evaluate("document.querySelector('.app-version').textContent.includes('LVGL 9.6.0')"));
+  assert.ok(await js("!!document.querySelector('[data-overlay=design]')"), "the main window must keep the design surface");
+  // Stop is a filled red square, in both windows.
+  const stopStyle = (where) => where.evaluate(`(() => { const s = document.querySelector('.icon[data-icon="stop"]'); const r = s.querySelector('rect'); return { color: getComputedStyle(s).color, fill: getComputedStyle(r).fill }; })()`);
+  for (const where of [page, runPage]) {
+    const style = await stopStyle(where);
+    assert.equal(style.color, "rgb(220, 38, 38)");
+    assert.equal(style.fill, "rgb(220, 38, 38)");
+  }
+  fs.writeFileSync(path.join(shots, "06-run-window.png"), await runPage.screenshot());
+  await shot("06b-main-while-running");
+  const area = await box((await lastWidget()).id);
+  const at = await runPage.evaluate(`(() => { const r = window.__mlsRun.canvas().getBoundingClientRect(); const s = r.width / window.__mlsRun.canvas().width; return { x: r.left + ${area.x + area.w / 2} * s, y: r.top + ${area.y + area.h / 2} * s }; })()`);
+  await runPage.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y, buttons: 0 });
+  await runPage.send("Input.dispatchMouseEvent", { type: "mousePressed", x: at.x, y: at.y, button: "left", buttons: 1, clickCount: 1 });
+  await sleep(120);
+  await runPage.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: at.x, y: at.y, button: "left", buttons: 0, clickCount: 1 });
+  await page.until('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent === "hello from lvgl")', 5000);
+  assert.equal(await js("window.__mls.runOpen()"), true);
+  runPage.close();
   await click('[data-command="run"]');
-  await page.until('document.querySelector("[data-overlay=design]")', 3000);
+  await page.until("window.__mls.runOpen() === false", 5000);
+  await sleep(300);
+  const left = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
+  assert.ok(!left.some((item) => item.url.includes("run=1")), "the run window is still there");
+});
+
+await step("The run window's own stop button ends the run", async () => {
+  await click('[data-command="run"]');
+  const target = await waitForTarget(debugPort, (item) => item.url.includes("run=1"), 15000);
+  const runPage = await connect(target);
+  await runPage.until("window.__mlsRun && window.__mlsRun.ready()", 15000);
+  await runPage.evaluate('document.querySelector(\'[data-command="run-stop"]\').click()').catch(() => {});
+  runPage.close();
+  await page.until("window.__mls.runOpen() === false", 5000);
 });
 
 await step("A second screen can be added and switched to", async () => {
@@ -480,7 +541,7 @@ category("Editing commands");
 await step("Every palette widget can be added and is drawn", async () => {
   await click(`[data-screen-tab="${(await project()).screens[0].id}"]`);
   const types = await js("Array.from(document.querySelectorAll('[data-palette]')).map((e) => e.dataset.palette)");
-  assert.equal(types.length, 23);
+  assert.equal(types.length, 36);
   for (const type of types) {
     const before = await allNodes();
     await doubleClick(`[data-palette="${type}"]`);
@@ -506,12 +567,19 @@ await step("Every attribute kind edits the document", async () => {
   const id = await js("window.__mls.selected()");
   await typeInto('.attributes input[data-field="name"]', "title");
   assert.equal((await nodeById(id)).name, "title");
-  await typeInto('.attributes input[data-field="width"]', "50%");
+  await typeInto('.attributes [data-field="width"] input', "50%");
   assert.equal((await nodeById(id)).props.width, "50%");
-  await typeInto('.attributes input[data-field="width"]', "content");
+  assert.equal(await js(`document.querySelector('.attributes [data-field="width"] [data-unit]').textContent`), "%");
+  await click('.attributes [data-field="width"] button:last-child');
+  assert.equal((await nodeById(id)).props.width, "51%");
+  await typeInto('.attributes [data-field="width"] input', "content");
   assert.equal((await nodeById(id)).props.width, "content");
-  await typeInto('.attributes input[data-field="width"]', "120");
+  await typeInto('.attributes [data-field="width"] input', "120");
   assert.equal((await nodeById(id)).props.width, 120);
+  assert.equal(await js(`document.querySelector('.attributes [data-field="width"] [data-unit]').textContent`), "px");
+  await click('.attributes [data-field="width"] button:first-child');
+  assert.equal((await nodeById(id)).props.width, 119);
+  await typeInto('.attributes [data-field="width"] input', "120");
   await typeInto('.attributes [data-field="x"] input', "33");
   assert.equal((await nodeById(id)).props.x, 33);
   await click('.attributes [data-field="y"] button:last-child');
@@ -709,27 +777,231 @@ await step("A screen can be renamed and deleted, but not the last one", async ()
 
 await step("Zoom in, out and fit change the surface", async () => {
   const zoom = () => js("window.__mls.zoom()");
-  await click(".zoom-box .mini:nth-of-type(2)");
+  await click('[data-command="zoomIn"]');
   const larger = await zoom();
-  await click(".zoom-box .mini:first-of-type");
+  await click('[data-command="zoomOut"]');
   assert.ok((await zoom()) < larger);
-  await click(".zoom-box .mini:last-of-type");
+  await click('[data-command="zoomFit"]');
   const fitted = await zoom();
   const size = await js("(() => { const r = window.__mls.canvas().getBoundingClientRect(); const v = document.querySelector('.viewport').getBoundingClientRect(); return { fits: r.width <= v.width && r.height <= v.height }; })()");
   assert.ok(fitted > 0 && size.fits);
 });
 
-await step("Design, split and code views switch", async () => {
-  for (const [view, surface, code] of [["code", false, true], ["split", true, true], ["design", true, false]]) {
-    await click(`[data-view="${view}"]`);
-    await sleep(80);
-    assert.equal(await js("getComputedStyle(document.querySelector('.viewport')).display !== 'none'"), surface, view);
-    assert.equal(await js("!!document.querySelector('[data-code]')"), code, view);
+await step("The code button is a toggle on the toolbar; the tab row holds only tabs", async () => {
+  const pressed = () => js(`document.querySelector('[data-command="code"]').getAttribute("aria-pressed")`);
+  assert.equal(await js("!!document.querySelector('.toolbar [data-command=code]')"), true);
+  assert.equal(await js("!!document.querySelector('.toolbar [data-command=version-chip]') && !!document.querySelector('.toolbar [data-zoom]')"), true);
+  assert.equal(await js("!!document.querySelector('.design-bar [data-command=version-chip], .design-bar [data-zoom], .design-bar [data-command=code]')"), false);
+  assert.equal(await pressed(), "false");
+  assert.equal(await js("!!document.querySelector('[data-code]')"), false);
+  await click('[data-command="code"]');
+  await sleep(80);
+  assert.equal(await pressed(), "true");
+  assert.equal(await js("!!document.querySelector('[data-code]')"), true);
+  assert.equal(await js("getComputedStyle(document.querySelector('.viewport')).display !== 'none'"), true);
+  await click('[data-command="code"]');
+  await sleep(80);
+  assert.equal(await pressed(), "false");
+  assert.equal(await js("!!document.querySelector('[data-code]')"), false);
+});
+
+await step("Tabs: < and > at the far right walk through the screens, and they scroll", async () => {
+  const nav = await js(`(() => { const bar = document.querySelector(".design-bar").getBoundingClientRect(); const next = document.querySelector('[data-command="tab-next"]').getBoundingClientRect(); return bar.right - next.right; })()`);
+  assert.ok(nav < 20, "the buttons are not at the far right");
+  const start = (await project()).screens.length;
+  for (let i = 0; i < 24; i++) {
+    await click('[data-command="add-screen"]');
+    await sleep(30);
   }
+  const active = () => js("document.querySelector('.screen-tab.active [data-screen-tab]').dataset.screenTab");
+  const visible = () => js(`(() => { const a = document.querySelector(".screen-tab.active").getBoundingClientRect(); const b = document.querySelector(".screen-tabs").getBoundingClientRect(); return a.left >= b.left - 1 && a.right <= b.right + 1; })()`);
+  await sleep(100);
+  assert.ok(await visible(), "the new tab is out of view");
+  assert.equal(await js(`document.querySelector('[data-command="tab-next"]').disabled`), true, "next on the last tab");
+  await shot("10j-many-tabs");
+  for (let i = 0; i < 3; i++) await click('[data-command="tab-prev"]');
+  await sleep(80);
+  assert.ok(await visible());
+  const screens = (await project()).screens;
+  assert.equal(await active(), screens.at(-4).id);
+  await click('[data-command="tab-next"]');
+  assert.equal(await active(), screens.at(-3).id);
+  await click(`[data-screen-tab="${screens[0].id}"]`);
+  await sleep(80);
+  assert.equal(await js(`document.querySelector('[data-command="tab-prev"]').disabled`), true, "previous on the first tab");
+  for (let i = 0; i < 24; i++) {
+    await click('[data-command="undo"]');
+    await sleep(15);
+  }
+  assert.equal((await project()).screens.length, start);
+  await click(`[data-screen-tab="${(await project()).screens[0].id}"]`);
+});
+
+await step("Buttons, menus and panel buttons follow the state of the program", async () => {
+  const disabled = (id) => js(`document.querySelector('.toolbar [data-command="${id}"]').disabled`);
+  const screen = (await project()).screens[0];
+  await click(`[data-tree="${screen.id}"]`);
+  await sleep(40);
+  for (const id of ["copy", "duplicate", "forward", "backward"]) assert.equal(await disabled(id), true, `${id} on a screen`);
+  const first = screen.children[0].id;
+  await click(`[data-tree="${first}"]`);
+  await sleep(40);
+  assert.equal(await disabled("copy"), false, "copy on a widget");
+  assert.equal(await disabled("backward"), true, "the first widget cannot go back");
+  assert.equal(await disabled("forward"), false, "the first widget can come forward");
+  const last = screen.children.at(-1).id;
+  await click(`[data-tree="${last}"]`);
+  await sleep(40);
+  assert.equal(await disabled("forward"), true, "the last widget cannot come forward");
+  await click('[data-command="save"]');
+  await sleep(300);
+  assert.equal(await disabled("save"), true, "nothing to save");
+  await pressKey("ArrowRight", "ArrowRight", 39);
+  assert.equal(await disabled("save"), false, "a change can be saved");
+  await click('[data-command="undo"]');
+  assert.equal(await disabled("redo"), false, "redo after undo");
+  await click('[data-command="redo"]');
+  assert.equal(await disabled("redo"), true, "nothing to redo");
+  // In the menus too.
+  await click('[data-menu="edit"] > button');
+  assert.equal(await js(`document.querySelector('[data-menu="edit"] [data-command="redo"]').classList.contains("is-disabled")`), true);
+  await click('[data-menu="edit"] > button');
+  // The zoom buttons stop at the ends.
+  for (let i = 0; i < 8; i++) if (!(await js(`document.querySelector('[data-command="zoomIn"]').disabled`))) await click('[data-command="zoomIn"]');
+  assert.equal(await js(`document.querySelector('[data-command="zoomIn"]').disabled`), true, "zoom in at the largest");
+  await click('[data-command="zoomFit"]');
+  // On the start screen, everything about editing rests.
+  await click('[data-command="start"]');
+  await sleep(100);
+  for (const id of ["copy", "delete", "undo", "run", "native", "code", "panelLeft", "panelRight", "panelBottom", "rulers", "zoomIn", "zoomOut", "zoomFit"]) {
+    assert.equal(await disabled(id), true, `${id} on the start screen`);
+  }
+  for (const id of ["new", "open", "preferences", "manager", "about"]) {
+    assert.equal(await js(`document.querySelector('.toolbar [data-command="${id}"]').disabled`), false, `${id} on the start screen`);
+  }
+  await click('[data-command="start"]');
+  await sleep(100);
+  assert.equal(await disabled("run"), false);
+});
+
+await step("The right-click menu adds any control, and where it was clicked", async () => {
+  const count = async () => (await allNodes()).length;
+  const before = await count();
+  const beforeIds = new Set((await allNodes()).map((node) => node.id));
+  const screenId = (await project()).screens[0].id;
+  await click(`[data-screen-tab="${screenId}"]`);
+  const at = await displayPoint(250, 200);
+  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: at.x, y: at.y, button: "right", buttons: 2, clickCount: 1 });
+  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: at.x, y: at.y, button: "right", buttons: 0, clickCount: 1 });
+  await sleep(100);
+  await click('[data-context="add-control"]');
+  await sleep(60);
+  const groups = await js(`Array.from(document.querySelectorAll('[data-context^="add-group-"]')).map((e) => e.dataset.context)`);
+  assert.deepEqual(groups, ["add-group-common", "add-group-layout", "add-group-input", "add-group-display"]);
+  await click('[data-context="add-group-display"]');
+  await sleep(60);
+  assert.equal(await js(`Array.from(document.querySelectorAll('.context-sub [data-context]')).filter((e) => !e.querySelector('.icon')).length`), 0, "an item has no icon");
+  const inside = await js(`Array.from(document.querySelectorAll('.context-sub')).every((m) => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; })`);
+  assert.ok(inside, "a list leaves the window");
+  assert.equal(await js(`!!document.querySelector('[data-context="add-meter"]')`), false, "meter does not exist in LVGL 9");
+  await shot("10k-context-add");
+  await click('[data-context="add-scale"]');
+  await sleep(120);
+  assert.equal(await count(), before + 1);
+  const added = (await allNodes()).find((node) => node.type === "scale" && !beforeIds.has(node.id));
+  assert.ok(added, "no scale");
+  const inScreen = (await project()).screens[0].children.some((child) => child.id === added.id) || (await allNodes()).some((node) => node.children.some((child) => child.id === added.id));
+  assert.ok(inScreen);
+  await click('[data-command="undo"]');
+});
+
+await step("The panel shows the controls of each LVGL version, Grid included", async () => {
+  const palette = () => js("Array.from(document.querySelectorAll('[data-palette]')).map((e) => e.dataset.palette)");
+  const names = await palette();
+  assert.equal(names.length, 36);
+  for (const type of ["grid", "scale", "barcode", "arclabel"]) assert.ok(names.includes(type), type);
+  assert.ok(!names.includes("meter") && !names.includes("colorwheel"));
+  await click('[data-command="version-chip"]');
+  await choose("lvglVersion", "8.4.0");
+  await sleep(100);
+  await click('[data-command="settings-close"]');
+  const old = await palette();
+  assert.equal(old.length, 35);
+  for (const type of ["grid", "meter", "colorwheel"]) assert.ok(old.includes(type), type);
+  assert.ok(!old.includes("scale") && !old.includes("arclabel") && !old.includes("barcode"));
+  await page.until('window.__mls.engine().runtimeVersion() === "8.4.0"', 15000);
+  await click('[data-command="version-chip"]');
+  await choose("lvglVersion", "9.6.0");
+  await sleep(100);
+  await click('[data-command="settings-close"]');
+  await page.until('window.__mls.engine().runtimeVersion() === "9.6.0"', 15000);
+});
+
+await step("Grid: its children get cell settings in the attributes", async () => {
+  await click(`[data-screen-tab="${(await project()).screens[0].id}"]`);
+  await click('[data-command="add-screen"]');
+  await sleep(100);
+  await doubleClick('[data-palette="grid"]');
+  await sleep(80);
+  const grid = await js("window.__mls.selected()");
+  assert.equal(await js(`document.querySelector('.attributes [data-field="gridColumns"]').value`), "1fr,1fr");
+  await doubleClick('[data-palette="button"]');
+  await sleep(100);
+  const child = await js("window.__mls.selected()");
+  assert.equal((await nodeById(grid)).children[0].id, child);
+  assert.ok(await js(`!!document.querySelector('.attributes [data-field="gridCol"]')`), "no cell settings");
+  await typeInto('.attributes [data-field="gridCol"] input', "1");
+  await sleep(120);
+  const cell = await box(child);
+  const whole = await box(grid);
+  assert.ok(cell.x > whole.x + whole.w / 3, "the widget did not move to the second column");
+  await shot("10l-grid");
+  await click(".screen-tab.active .mini");
+  await sleep(100);
+  await click(`[data-screen-tab="${(await project()).screens[0].id}"]`);
+});
+
+await step("The compiler can be installed from the LVGL manager, after showing the commands", async () => {
+  const plan = await js("window.__TAURI_INTERNALS__.invoke('tools_plan')");
+  assert.ok(plan.length >= 1, "no plan");
+  const text = plan.join("\n");
+  for (const word of ["gcc", "cmake", "ninja", "SDL2"]) assert.match(text, new RegExp(word, "i"), word);
+  assert.doesNotMatch(text, /nodejs|emscripten|python/i, "a package that would change the PC's Node or Python");
+  await click('[data-command="manager"]');
+  await page.until('document.querySelector("[data-action=install-tools]")', 15000);
+  assert.equal(await js('document.querySelector("[data-action=install-tools]").disabled'), true, "everything is installed here, so nothing to do");
+  await click('[data-dialog="manager"] footer button');
+});
+
+await step("The theme menu: my themes and settings on top, Dark and Light side by side", async () => {
+  await click('[data-command="theme"]');
+  await sleep(80);
+  const shape = await js(`(() => { const top = document.querySelector("[data-theme-group=top]").getBoundingClientRect(); const dark = document.querySelector("[data-theme-column=dark]").getBoundingClientRect(); const light = document.querySelector("[data-theme-column=light]").getBoundingClientRect(); const pop = document.querySelector(".theme-pop"); return { topFirst: top.bottom <= dark.top + 1, sideBySide: Math.abs(dark.top - light.top) <= 1 && dark.right <= light.left + 1, darkLeft: dark.left < light.left, dark: document.querySelectorAll("[data-theme-column=dark] [data-theme-id]").length, light: document.querySelectorAll("[data-theme-column=light] [data-theme-id]").length, scrolls: pop.scrollHeight - pop.clientHeight }; })()`);
+  assert.deepEqual(shape, { topFirst: true, sideBySide: true, darkLeft: true, dark: 20, light: 20, scrolls: 0 });
+  assert.ok(await js('!!document.querySelector("[data-theme-group=top] [data-command=theme-settings] .icon")'));
+  await shot("10m-theme-menu");
+  await click('[data-theme-group="top"] [data-command="theme-settings"]');
+  await page.until('document.querySelector("[data-dialog=preferences] [data-pref-page=theme]")', 3000);
+  await click('[data-command="preferences-close"]');
+});
+
+await step("About: icon on the left, description on the right, items in straight columns", async () => {
+  await click('[data-command="about"]');
+  await page.until('document.querySelector("[data-dialog=about]")', 2000);
+  const shape = await js(`(() => { const icon = document.querySelector(".about-icon").getBoundingClientRect(); const copy = document.querySelector(".about-copy").getBoundingClientRect(); const meta = document.querySelector(".about-meta").getBoundingClientRect(); const dd = Array.from(document.querySelectorAll(".about-meta dd")).map((e) => Math.round(e.getBoundingClientRect().left)); const dt = Array.from(document.querySelectorAll(".about-meta dt")).map((e) => Math.round(e.getBoundingClientRect().left)); return { iconLeft: icon.right <= copy.left, below: meta.top >= icon.bottom, ddColumns: new Set(dd).size, dtColumns: new Set(dt).size, rows: dd.length, text: document.querySelector(".about-meta").textContent, icon: document.querySelector(".about-icon").naturalWidth }; })()`);
+  assert.ok(shape.iconLeft && shape.below, JSON.stringify(shape));
+  assert.equal(shape.ddColumns, 1, "values are not in one column");
+  assert.equal(shape.dtColumns, 1, "labels are not in one column");
+  assert.ok(shape.rows >= 8);
+  assert.ok(shape.icon > 0, "the icon did not load");
+  assert.ok(shape.text.includes("SHKWON(knix008@naver.com)"), "no author");
+  assert.match(shape.text, /\d{4}-\d{2}-\d{2} \d{2}:\d{2}/, "no build information");
+  await shot("10n-about");
+  await click('[data-dialog="about"] footer button');
 });
 
 await step("Every generated file can be read in the code view", async () => {
-  await click('[data-view="code"]');
+  await click('[data-command="code"]');
   await sleep(60);
   const tabs = await js("Array.from(document.querySelectorAll('[data-code-tab]')).map((e) => e.dataset.codeTab)");
   for (const name of ["CMakeLists.txt", "config/lv_conf.h", "src/main.c", "src/ui/ui.c", "src/ui/ui.h", "src/ui/ui_events.c", "src/ui/ui_events.h"]) assert.ok(tabs.includes(name), name);
@@ -737,7 +1009,7 @@ await step("Every generated file can be read in the code view", async () => {
     await click(`[data-code-tab="${name}"]`);
     assert.ok((await js('document.querySelector("[data-code]").textContent')).length > 10, name);
   }
-  await click('[data-view="design"]');
+  await click('[data-command="code"]');
 });
 
 await step("Panels can be resized by their splitters", async () => {
@@ -758,33 +1030,221 @@ await step("Panels can be resized by their splitters", async () => {
   assert.ok(Math.abs((await height()) - (lower + 30)) <= 2);
 });
 
-await step("The divider between the palette and the component tree moves", async () => {
-  const palette = () => js('document.querySelector("[data-panel=palette]").getBoundingClientRect().height');
-  const tree = () => js('document.querySelector("[data-panel=tree]").getBoundingClientRect().height');
-  const [paletteBefore, treeBefore] = [await palette(), await tree()];
-  const divider = await center('[data-splitter="palette"]');
+await step("The component tree is above the attributes on the right, with a divider that moves", async () => {
+  const rect = (name) => js(`(() => { const r = document.querySelector("[data-panel=${name}]").getBoundingClientRect(); return { left: r.left, top: r.top, bottom: r.bottom, height: r.height }; })()`);
+  const [treeBox, attributesBox, paletteBox] = [await rect("tree"), await rect("attributes"), await rect("palette")];
+  assert.ok(treeBox.left > paletteBox.left + 400, "the tree is not on the right");
+  assert.ok(treeBox.bottom <= attributesBox.top, "the tree is not above the attributes");
+  assert.ok(Math.abs(treeBox.left - attributesBox.left) <= 1, "the two panels are not in one column");
+  const divider = await center('[data-splitter="tree"]');
   await drag(divider, { x: divider.x, y: divider.y + 50 });
-  assert.ok(Math.abs((await palette()) - (paletteBefore + 50)) <= 2, "the palette did not grow");
-  assert.ok(Math.abs((await tree()) - (treeBefore - 50)) <= 2, "the tree did not shrink");
-  const moved = await center('[data-splitter="palette"]');
-  await drag(moved, { x: moved.x, y: moved.y - 9999 > 0 ? moved.y - 9999 : 5 });
-  assert.ok((await palette()) >= 60, "the palette can vanish");
-  const again = await center('[data-splitter="palette"]');
+  assert.ok(Math.abs((await rect("tree")).height - (treeBox.height + 50)) <= 2, "the tree did not grow");
+  assert.ok(Math.abs((await rect("attributes")).height - (attributesBox.height - 50)) <= 2, "the attributes did not shrink");
+  const moved = await center('[data-splitter="tree"]');
+  await drag(moved, { x: moved.x, y: 5 });
+  assert.ok((await rect("tree")).height >= 60, "the tree can vanish");
+  const again = await center('[data-splitter="tree"]');
   await drag(again, { x: again.x, y: 2000 });
-  assert.ok((await tree()) >= 60, "the tree can vanish");
-  const back = await center('[data-splitter="palette"]');
-  await drag(back, { x: back.x, y: back.y - (await palette()) + paletteBefore });
+  assert.ok((await rect("attributes")).height >= 60, "the attributes can vanish");
+  const back = await center('[data-splitter="tree"]');
+  await drag(back, { x: back.x, y: treeBox.bottom });
   await sleep(100);
+  await shot("10d-right-panel");
   const saved = JSON.parse(fs.readFileSync(path.join(data, "settings", "settings.json"), "utf8"));
-  assert.ok(typeof saved.panels.palette === "number", "the position is not saved");
+  assert.ok(typeof saved.panels.tree === "number", "the position is not saved");
 });
 
 await step("Every menu opens and lists its commands", async () => {
   for (const [menu, command] of [["file", "new"], ["edit", "undo"], ["view", "zoomFit"], ["run", "native"], ["tools", "manager"], ["help", "about"]]) {
+    assert.ok(await js(`!!document.querySelector('[data-menu="${menu}"] > button .icon')`), `${menu} has no icon on the menu bar`);
     await click(`[data-menu="${menu}"] > button`);
     assert.ok(await js(`!!document.querySelector('[data-menu="${menu}"] [data-command="${command}"]')`), menu);
+    assert.equal(await js(`Array.from(document.querySelectorAll('[data-menu="${menu}"] [role=menuitem]')).filter((e) => !e.querySelector('.icon')).length`), 0, `${menu} has an item without an icon`);
     await click(`[data-menu="${menu}"] > button`);
   }
+});
+
+await step("Every number shows − value unit +, centred", async () => {
+  const button = (await allNodes()).find((node) => node.type === "button");
+  await click(`[data-tree="${button.id}"]`);
+  await typeInto('.attributes [data-field="x"] input', "33");
+  await typeInto('.attributes [data-field="borderWidth"] input', "2");
+  const bad = await js(`Array.from(document.querySelectorAll(".attributes .stepper")).map((s) => { const kids = Array.from(s.children); const input = s.querySelector("input"); const unit = s.querySelector("[data-unit]"); const box = s.querySelector(".stepper-value").getBoundingClientRect(); const items = [input, unit].filter(Boolean).map((e) => e.getBoundingClientRect()); const left = Math.min(...items.map((r) => r.left)); const right = Math.max(...items.map((r) => r.right)); return { field: s.dataset.field, order: kids.length === 3 && kids[0].tagName === "BUTTON" && kids[2].tagName === "BUTTON", hasValue: !!input.value, unit: unit && unit.textContent, centred: Math.abs((left + right) / 2 - (box.left + box.right) / 2) <= 2, align: getComputedStyle(input).textAlign }; }).filter((f) => !f.order || f.align !== "center" || (f.hasValue && (!f.unit || !f.centred)))`);
+  assert.deepEqual(bad, []);
+  assert.equal(await js(`document.querySelector('.attributes [data-field="x"] [data-unit]').textContent`), "px");
+});
+
+await step("Rulers: the button shows pixel rulers that follow the zoom", async () => {
+  const on = () => js("!!document.querySelector('[data-rulers]')");
+  if (!(await on())) await click('[data-command="rulers"]');
+  await sleep(80);
+  assert.ok(await on(), "no rulers");
+  assert.equal(await js("document.querySelector('.ruler-corner').textContent"), "px");
+  const check = await js(`(() => { const x = document.querySelector('[data-ruler=x]').getBoundingClientRect(); const y = document.querySelector('[data-ruler=y]').getBoundingClientRect(); const c = window.__mls.canvas().getBoundingClientRect(); return { dx: x.left - c.left, dy: y.top - c.top, w: x.width - c.width, h: y.height - c.height, first: document.querySelector('[data-ruler=x] text').textContent }; })()`);
+  assert.ok(Math.abs(check.dx) <= 1 && Math.abs(check.dy) <= 1, `the rulers do not start at the screen: ${JSON.stringify(check)}`);
+  assert.ok(Math.abs(check.w) <= 2 && Math.abs(check.h) <= 2, `the rulers are not as long as the screen: ${JSON.stringify(check)}`);
+  assert.equal(check.first, "0");
+  const before = await js("document.querySelector('[data-ruler=x]').getBoundingClientRect().width");
+  await click('[data-command="zoomOut"]');
+  await sleep(80);
+  assert.ok((await js("document.querySelector('[data-ruler=x]').getBoundingClientRect().width")) < before, "the ruler ignores the zoom");
+  await shot("10g-rulers");
+  await click('[data-command="zoomFit"]');
+  await click('[data-command="rulers"]');
+  await sleep(80);
+  assert.equal(await on(), false, "the rulers do not turn off");
+  await click('[data-command="rulers"]');
+});
+
+await step("Panels: title bars fold them, and the toolbar folds left, right and bottom", async () => {
+  for (const panel of ["left", "tree", "attributes"]) assert.ok(await js(`!!document.querySelector('[data-panel-title="${panel}"] .icon')`), panel);
+  assert.equal(await js('document.querySelector("[data-panel-title=left]").textContent'), "콘트롤");
+  const width = (selector) => js(`document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect().width`);
+  const collapsed = () => js("window.__mls.collapsed()");
+  await click('[data-collapse="left"]');
+  await sleep(80);
+  assert.ok((await width(".left-col")) <= 31, "the left panel did not fold");
+  await shot("10h-panels-folded");
+  await click('[data-expand="left"]');
+  await sleep(80);
+  assert.ok((await width(".left-col")) > 100, "the left panel did not unfold");
+  for (const [command, key] of [["panelLeft", "left"], ["panelRight", "right"], ["panelBottom", "bottom"]]) {
+    assert.equal(await js(`document.querySelector('[data-command="${command}"]').getAttribute("aria-pressed")`), "true", command);
+    await click(`[data-command="${command}"]`);
+    await sleep(80);
+    assert.equal((await collapsed())[key], true, command);
+    assert.equal(await js(`document.querySelector('[data-command="${command}"]').getAttribute("aria-pressed")`), "false", command);
+  }
+  assert.ok((await width(".right-col")) <= 31);
+  assert.ok((await js('document.querySelector(".bottom-panel").getBoundingClientRect().height')) <= 30);
+  assert.ok((await width(".viewport")) > 1000, "the surface did not take the room");
+  await shot("10i-all-folded");
+  for (const command of ["panelLeft", "panelRight", "panelBottom"]) {
+    await click(`[data-command="${command}"]`);
+    await sleep(60);
+  }
+  const height = (name) => js(`document.querySelector("[data-panel=${name}]").getBoundingClientRect().height`);
+  const full = await height("attributes");
+  await click('[data-collapse="tree"]');
+  await sleep(80);
+  assert.ok((await height("tree")) < 40, "the tree did not fold");
+  assert.ok((await height("attributes")) > full, "the attributes did not take the room");
+  await click('[data-collapse="tree"]');
+  await click('[data-collapse="attributes"]');
+  await sleep(80);
+  assert.ok((await height("attributes")) < 40, "the attributes did not fold");
+  await click('[data-collapse="attributes"]');
+  await click('[data-collapse="bottom"]');
+  await sleep(60);
+  assert.equal((await collapsed()).bottom, true);
+  await click('[data-collapse="bottom"]');
+  await sleep(60);
+  const saved = JSON.parse(fs.readFileSync(path.join(data, "settings", "settings.json"), "utf8"));
+  assert.equal(saved.collapsed.bottom, false);
+});
+
+await step("Preferences uses the gear icon, unlike project settings", async () => {
+  assert.equal(await js(`document.querySelector('[data-command="preferences"] .icon').dataset.icon`), "settings");
+  assert.ok(await js(`document.querySelector('[data-command="preferences"] .icon path').getAttribute("d").length > 200`), "not the gear drawing");
+  assert.equal(await js(`document.querySelector('[data-command="settings"] .icon').dataset.icon`), "project");
+});
+
+await step("Every right-click menu has an icon on every item", async () => {
+  const open = async (selector) => {
+    const point = await center(selector);
+    assert.ok(point, `no element ${selector}`);
+    await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "right", buttons: 2, clickCount: 1 });
+    await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "right", buttons: 0, clickCount: 1 });
+    await sleep(120);
+    const shown = await js(`(() => { const m = document.querySelector("[data-context-menu]"); if (!m) return null; const r = m.getBoundingClientRect(); return { items: Array.from(m.querySelectorAll("[data-context]")).map((e) => e.dataset.context), withoutIcon: Array.from(m.querySelectorAll("[data-context]")).filter((e) => !e.querySelector(".icon")).length, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
+    assert.ok(shown, `no menu on ${selector}`);
+    assert.equal(shown.withoutIcon, 0, `${selector}: an item has no icon`);
+    assert.ok(shown.inside, `${selector}: the menu leaves the window`);
+    return shown.items;
+  };
+  const close = async () => {
+    await page.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await page.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+    await sleep(80);
+  };
+  const widget = (await project()).screens[0].children[0];
+  assert.ok((await open(`[data-tree="${widget.id}"]`)).includes("cut"));
+  assert.equal(await js("window.__mls.selected()"), widget.id, "the tree row was not selected");
+  await shot("10e-context-menu");
+  await close();
+  assert.equal(await js('!!document.querySelector("[data-context-menu]")'), false, "Escape did not close it");
+  assert.ok((await open('[data-overlay="design"]')).includes("zoomFit"));
+  await close();
+  assert.ok((await open(".screen-tab")).includes("screen-add"));
+  await close();
+  assert.ok((await open('[data-palette="label"]')).includes("palette-add"));
+  await close();
+  assert.ok((await open('.attributes input[data-field="name"]')).includes("text-paste"));
+  await close();
+  assert.ok((await open(".log-list")).includes("log-clear"));
+  await close();
+  assert.ok((await open(".statusbar")).includes("preferences"));
+  await close();
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 5, buttons: 0 });
+});
+
+await step("The palette's right-click menu adds the widget", async () => {
+  const count = (await allNodes()).length;
+  const point = await center('[data-palette="led"]');
+  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "right", buttons: 2, clickCount: 1 });
+  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "right", buttons: 0, clickCount: 1 });
+  await sleep(100);
+  await click('[data-context="palette-add"]');
+  assert.equal((await allNodes()).length, count + 1);
+  await click('[data-command="undo"]');
+});
+
+await step("Cut removes the widget and paste brings it back", async () => {
+  const widget = (await project()).screens[0].children.at(-1);
+  await click(`[data-tree="${widget.id}"]`);
+  const count = (await allNodes()).length;
+  await pressKey("x", "KeyX", 88, 2);
+  assert.equal((await allNodes()).length, count - 1);
+  await pressKey("v", "KeyV", 86, 2);
+  assert.equal((await allNodes()).length, count);
+});
+
+await step("The side panels reach the status bar; the log sits under the surface only", async () => {
+  const rect = (selector) => js(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; })()`);
+  const [left, right, bottom, center_, status] = [await rect(".left-col"), await rect(".right-col"), await rect(".bottom-panel"), await rect(".center-col"), await rect(".statusbar")];
+  assert.ok(Math.abs(left.bottom - status.top) <= 1, `left panel ends at ${left.bottom}, status bar at ${status.top}`);
+  assert.ok(Math.abs(right.bottom - status.top) <= 1, `right panel ends at ${right.bottom}, status bar at ${status.top}`);
+  assert.ok(bottom.left >= left.right, "the log runs under the left panel");
+  assert.ok(bottom.right <= right.left, "the log runs under the right panel");
+  assert.ok(Math.abs(bottom.left - center_.left) <= 1 && Math.abs(bottom.right - center_.right) <= 1, "the log is not as wide as the centre");
+  await shot("10f-layout");
+});
+
+await step("Every window shows its icon and title", async () => {
+  const check = async (dialog) => {
+    await page.until(`document.querySelector('[data-dialog="${dialog}"]')`, 3000);
+    const title = await js(`(() => { const t = document.querySelector('[data-dialog="${dialog}"] [data-dialog-title]'); return t ? { icon: !!t.querySelector('.icon'), text: t.textContent.trim() } : null; })()`);
+    assert.ok(title?.icon, `${dialog} has no icon`);
+    assert.ok(title?.text, `${dialog} has no title`);
+  };
+  await click('[data-command="about"]');
+  await check("about");
+  await click('[data-dialog="about"] footer button');
+  await click('[data-command="settings"]');
+  await check("settings");
+  await click('[data-command="settings-close"]');
+  await click('[data-command="preferences"]');
+  await check("preferences");
+  await click('[data-command="preferences-close"]');
+  await click('[data-menu="file"] > button');
+  await click('[data-menu="file"] [data-command="saveAs"]');
+  await check("new-project");
+  await click('[data-dialog="new-project"] footer button:last-child');
+  await click('[data-command="manager"]');
+  await check("manager");
+  await click('[data-dialog="manager"] footer button');
+  assert.ok(await js("!!document.querySelector('.app-title img') && !!document.querySelector('.app-title strong').textContent"), "the main window has no icon and title");
+  for (const panel of ["palette", "tree", "attributes"]) assert.ok(await js(`!!document.querySelector('[data-panel="${panel}"] h3 .icon')`), panel);
 });
 
 await step("About and project settings open and close", async () => {
@@ -859,6 +1319,8 @@ await step("Settings: a user theme can be created, edited and used", async () =>
   await sleep(100);
   assert.equal(await js("document.documentElement.dataset.mode"), "dark");
   assert.ok((await js(`document.querySelector('[data-pref-theme="${id}"]').textContent`)).includes("Studio Night"));
+  const scrolls = await js(`(() => { const p = document.querySelector(".pref-page"); return p.scrollHeight - p.clientHeight; })()`);
+  assert.equal(scrolls, 0, "the theme tab scrolls with the editor open");
   // Only some colours were changed, so its panel is dark while its header is still light.
   const worst = await js(CONTRAST_PROBE);
   assert.ok(worst.ratio >= 4.5, `${worst.what} has contrast ${worst.ratio.toFixed(2)}`);
@@ -884,6 +1346,31 @@ await step("Settings: a second user theme can be made, then deleted after asking
 });
 
 await step("Settings: the start screen tab edits the same values", async () => {
+  await click('[data-pref-tab="start"]');
+  await sleep(100);
+  // The same controls as on the start screen: − bar value +, the value centred.
+  for (const name of ["startSpeed", "startOpacity"]) {
+    const order = await js(`Array.from(document.querySelector('[data-pref-page=start] [data-range="${name}"]').children).map((e) => e.className)`);
+    assert.deepEqual(order, ["range-step", "range-bar", "range-value", "range-step"], name);
+    assert.equal(await js(`getComputedStyle(document.querySelector('[data-pref-page=start] [data-field="${name}"]')).textAlign`), "center", name);
+    assert.ok(await js(`document.querySelector('[data-pref-page=start] [data-step="${name}:up"]').getBoundingClientRect().width`) <= 26, "the buttons are stretched");
+  }
+  const speedBar = await js(`(() => { const r = document.querySelector('[data-pref-page=start] [data-range-bar="startSpeed"]').getBoundingClientRect(); return { left: r.left, width: r.width, y: r.top + r.height / 2 }; })()`);
+  assert.ok(speedBar.width >= 60, "the bar is too short");
+  await drag({ x: speedBar.left + speedBar.width / 2, y: speedBar.y }, { x: speedBar.left + speedBar.width + 20, y: speedBar.y });
+  await sleep(80);
+  assert.equal(await js("window.__mls.start().speed"), 300);
+  await click('[data-pref-page="start"] [data-step="startSpeed:down"]');
+  await sleep(60);
+  assert.equal(await js("window.__mls.start().speed"), 290);
+  const noScroll = () => js(`(() => { const p = document.querySelector(".pref-page"); const b = document.querySelector(".dialog-body:has(.pref-layout)"); return { page: p.scrollHeight - p.clientHeight, pageWide: p.scrollWidth - p.clientWidth, body: b.scrollHeight - b.clientHeight }; })()`);
+  assert.deepEqual(await noScroll(), { page: 0, pageWide: 0, body: 0 }, "the start tab scrolls");
+  await click('[data-pref-tab="theme"]');
+  await sleep(100);
+  assert.deepEqual(await noScroll(), { page: 0, pageWide: 0, body: 0 }, "the theme tab scrolls");
+  await click('[data-pref-tab="general"]');
+  await sleep(100);
+  assert.deepEqual(await noScroll(), { page: 0, pageWide: 0, body: 0 }, "the general tab scrolls");
   await click('[data-pref-tab="start"]');
   await sleep(100);
   const kinds = await js("Array.from(document.querySelectorAll('[data-pref-page=start] [data-background]')).map((e) => e.dataset.background)");
@@ -921,16 +1408,66 @@ await step("A dark theme and English change the whole window", async () => {
   await click('.theme-pop [data-theme-id="dark-midnight"]');
   await sleep(100);
   assert.equal(await js("document.documentElement.dataset.mode"), "dark");
+  assert.equal(await js("window.__mls.language()"), "ko");
+  assert.ok(await js("!!document.querySelector('[data-command=language] [data-flag=gb]')"), "Korean mode must offer the British flag");
   await click('[data-command="language"]');
-  await click('[data-language="en"]');
   await sleep(100);
   assert.equal(await js(`document.querySelector('[data-menu="file"] button').textContent`), "File");
+  assert.ok(await js("!!document.querySelector('[data-command=language] [data-flag=kr]')"), "English mode must offer the Korean flag");
+  await click('[data-command="language"]');
+  await sleep(100);
+  assert.equal(await js("window.__mls.language()"), "ko");
+  await click('[data-command="language"]');
+  await sleep(100);
   await shot("07-dark-english");
 });
 
-await step("Nothing is cut off at the minimum window width", async () => {
+await step("At the minimum width nothing on the menu row or toolbar hides, in both languages", async () => {
+  const check = () => js(`(() => {
+    const bad = [];
+    for (const e of document.querySelectorAll(".menubar button, .menubar .app-title, .toolbar button, .toolbar [data-zoom]")) {
+      if (e.closest(".menu-pop")) continue;
+      const r = e.getBoundingClientRect();
+      if (r.width === 0 || r.left < -0.5 || r.right > innerWidth + 0.5) bad.push(e.dataset.command || e.textContent || e.className);
+    }
+    const tools = Array.from(document.querySelectorAll(".toolbar > *")).map((e) => e.getBoundingClientRect());
+    for (let i = 1; i < tools.length; i++) if (tools[i].left < tools[i - 1].right - 0.5) bad.push("toolbar groups overlap at " + i);
+    const menus = Array.from(document.querySelectorAll(".app-title, .menu, .window-controls")).map((e) => e.getBoundingClientRect());
+    for (let i = 1; i < menus.length; i++) if (menus[i].left < menus[i - 1].right - 0.5) bad.push("menu row overlaps at " + i);
+    return { width: innerWidth, minimum: window.__mls.minimumWidth(), bad, scroll: document.documentElement.scrollWidth - innerWidth };
+  })()`);
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 900, height: 800, deviceScaleFactor: 1, mobile: false });
+  try {
+    for (let round = 0; round < 2; round++) {
+      await sleep(250);
+      const minimum = await js("window.__mls.minimumWidth()");
+      assert.ok(minimum >= 800 && minimum < 1800, String(minimum));
+      await page.send("Emulation.setDeviceMetricsOverride", { width: minimum, height: 800, deviceScaleFactor: 1, mobile: false });
+      await sleep(250);
+      const seen = await check();
+      assert.deepEqual(seen.bad, [], `at ${seen.width}px (language round ${round})`);
+      await shot(`12b-minimum-width-${round}`);
+      await click('[data-command="language"]');
+      await sleep(150);
+    }
+  } finally {
+    await page.send("Emulation.clearDeviceMetricsOverride");
+  }
+  await sleep(200);
+});
+
+await step("The window itself refuses to get narrower than that, even from another program", { skip: process.platform !== "win32" }, async () => {
+  const minimum = await js("window.__mls.minimumWidth()");
+  // No mouse input: a size set by another program, which Windows does not check against the minimum.
+  const script = `Add-Type -Name W -Namespace N -MemberDefinition '[DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int ht, bool r);'; $p = Get-Process -Id ${app.pid}; [N.W]::MoveWindow($p.MainWindowHandle, 50, 50, 300, 200, $true) | Out-Null`;
+  execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { stdio: "pipe" });
+  await sleep(600);
+  const width = await js("innerWidth");
+  const height = await js("innerHeight");
+  assert.ok(width + 1 >= minimum, `the window became ${width}px wide; the minimum is ${minimum}px`);
+  assert.ok(height + 1 >= 640, `the window became ${height}px tall`);
   const overflow = await js(`(() => { const bar = document.querySelector(".toolbar"); return bar.scrollWidth - bar.clientWidth; })()`);
-  assert.ok(overflow <= 0, `toolbar overflows by ${overflow}`);
+  assert.ok(overflow <= 0, `the toolbar overflows by ${overflow}`);
 });
 
 if (!skipNative) {
@@ -1017,8 +1554,7 @@ await step("Settings are saved: all of them return after a restart", async () =>
   await js(`document.querySelector('[data-theme-group=custom] [data-pref-theme]').click()`);
   await sleep(80);
   await click('[data-command="preferences-close"]');
-  await click('[data-command="language"]');
-  await click('[data-language="en"]');
+  if ((await js("window.__mls.language()")) !== "en") await click('[data-command="language"]');
   await sleep(100);
   const before = await js("({ theme: window.__mls.themeId(), start: window.__mls.start(), recent: window.__mls.recent(), language: window.__mls.language() })");
   await restart();

@@ -24,12 +24,14 @@ function ThemeEditor({ t, theme, onChange, onDelete }) {
         <input className="text-input" data-field="themeName" value={theme.name} onChange={(event) => onChange({ name: event.target.value })} />
         <span>{t("theme.mode")}</span>
         <IconSelect id="themeMode" value={theme.mode} options={[{ value: "light", label: t("theme.light"), icon: "theme" }, { value: "dark", label: t("theme.dark"), icon: "theme" }]} onChange={(mode) => onChange({ mode })} />
-        {THEME_COLOR_KEYS.map((key) => (
-          <div className="theme-color-row" key={key}>
-            <span>{t(`themeColor.${key}`)}</span>
-            <ColorField id={`themeColor-${key}`} value={theme.colors[key]} onChange={(color) => color && onChange({ colors: { ...theme.colors, [key]: color } })} />
-          </div>
-        ))}
+        <div className="theme-colors">
+          {THEME_COLOR_KEYS.map((key) => (
+            <div className="theme-color-row" key={key}>
+              <span title={t(`themeColor.${key}`)}>{t(`themeColor.${key}`)}</span>
+              <ColorField id={`themeColor-${key}`} value={theme.colors[key]} onChange={(color) => color && onChange({ colors: { ...theme.colors, [key]: color } })} />
+            </div>
+          ))}
+        </div>
       </div>
       <button type="button" data-command="theme-delete" onClick={onDelete}><Icon name="delete" /> {t("theme.delete")}</button>
     </div>
@@ -64,7 +66,7 @@ export function PreferencesDialog({ t, initialTab, language, onLanguage, themeId
   ];
 
   return (
-    <Dialog title={t("cmd.preferences").replace("…", "")} onClose={onClose} id="preferences" width={780} footer={<button type="button" className="primary" data-command="preferences-close" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("cmd.preferences").replace("…", "")} icon="settings" onClose={onClose} id="preferences" width={960} footer={<button type="button" className="primary" data-command="preferences-close" onClick={onClose}>{t("dialog.close")}</button>}>
       <div className="pref-layout">
         <nav className="pref-tabs">
           {tabs.map((item) => (
@@ -94,9 +96,11 @@ export function PreferencesDialog({ t, initialTab, language, onLanguage, themeId
               </div>
               <section className="my-themes" data-theme-group="custom">
                 <h4>{t("theme.mine")}</h4>
-                {customThemes.map((item) => (
-                  <ThemeRow key={item.id} item={{ ...item, swatch: [item.colors.bg, item.colors.panel, item.colors.accent] }} label={item.name} selected={item.id === themeId} onPick={onTheme} />
-                ))}
+                <div className="my-themes-list">
+                  {customThemes.map((item) => (
+                    <ThemeRow key={item.id} item={{ ...item, swatch: [item.colors.bg, item.colors.panel, item.colors.accent] }} label={item.name} selected={item.id === themeId} onPick={onTheme} />
+                  ))}
+                </div>
                 <button type="button" data-command="theme-add" disabled={customThemes.length >= MAX_CUSTOM_THEMES} onClick={addTheme}><Icon name="add" /> {t("theme.add")}</button>
                 {editing ? <ThemeEditor t={t} theme={editing} onChange={editTheme} onDelete={() => setAsking(true)} /> : <p className="dialog-note">{t("theme.hint")}</p>}
               </section>

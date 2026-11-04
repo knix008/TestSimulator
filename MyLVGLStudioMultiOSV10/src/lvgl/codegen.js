@@ -2,7 +2,7 @@
 //   src/ui/...             the screens, for the firmware
 //   src/main.c, config/lv_conf.h, CMakeLists.txt   the desktop simulator
 import { apiFor, parseVersion } from "./versions.js";
-import { ALIGNS, CHART_TYPES, FLEX_FLOWS, SERIES_COLORS } from "./schema.js";
+import { ALIGNS, CHART_TYPES, FLEX_FLOWS, SCALE_MODES, SERIES_COLORS } from "./schema.js";
 import { imageData } from "./images.js";
 import { cNames, colorValue, emit } from "./emit.js";
 import { FILE_EXTENSION, serializeProject, walk } from "./project.js";
@@ -27,8 +27,47 @@ export function cString(text) {
   return `"${body}"`;
 }
 
-function createCall(type, parent, api) {
+/** What a widget needs right after it is created. */
+function createExtras(name, node, api) {
+  if (node.type === "win") return [`lv_obj_t * ${name}_label = lv_label_create(lv_win_get_content(${name}));`];
+  if (node.type === "arclabel") return [`lv_arclabel_set_angle_start(${name}, 180);`, `lv_arclabel_set_angle_size(${name}, 270);`, `lv_arclabel_set_radius(${name}, LV_PCT(100));`];
+  if (node.type === "scale") return [`lv_scale_set_label_show(${name}, true);`];
+  if (node.type === "qrcode" && api.major >= 9) return [`lv_qrcode_set_size(${name}, ${Number(node.props.qrSize) || 100});`];
+  if (node.type === "meter") {
+    return [
+      `lv_meter_scale_t * ${name}_scale = lv_meter_add_scale(${name});`,
+      `lv_meter_set_scale_ticks(${name}, ${name}_scale, 41, 2, 10, lv_palette_main(LV_PALETTE_GREY));`,
+      `lv_meter_set_scale_major_ticks(${name}, ${name}_scale, 8, 4, 15, lv_color_black(), 10);`,
+      `lv_meter_indicator_t * ${name}_needle = lv_meter_add_needle_line(${name}, ${name}_scale, 4, lv_palette_main(LV_PALETTE_RED), -10);`,
+    ];
+  }
+  return [];
+}
+
+function gridTrack(track) {
+  const text = track.trim();
+  if (text === "content") return "LV_GRID_CONTENT";
+  if (text.endsWith("fr")) return `LV_GRID_FR(${Number.parseInt(text, 10) || 1})`;
+  return String(Number.parseInt(text, 10) || 0);
+}
+
+function createCall(type, parent, api, node) {
   switch (type) {
+    case "imagebutton": return `${api.imageButton}(${parent})`;
+    case "animimage": return `lv_animimg_create(${parent})`;
+    case "canvas": return `lv_canvas_create(${parent})`;
+    case "tileview": return `lv_tileview_create(${parent})`;
+    case "menu": return `lv_menu_create(${parent})`;
+    case "span": return `lv_spangroup_create(${parent})`;
+    case "grid": return `lv_obj_create(${parent})`;
+    case "colorwheel": return `lv_colorwheel_create(${parent}, true)`;
+    case "meter": return `lv_meter_create(${parent})`;
+    case "scale": return `lv_scale_create(${parent})`;
+    case "barcode": return `lv_barcode_create(${parent})`;
+    case "arclabel": return `lv_arclabel_create(${parent})`;
+    case "win": return api.major >= 9 ? `lv_win_create(${parent})` : `lv_win_create(${parent}, 40)`;
+    case "msgbox": return api.major >= 9 ? `lv_msgbox_create(${parent})` : `lv_msgbox_create(${parent}, " ", " ", (const char * []){ "" }, false)`;
+    case "qrcode": return api.major >= 9 ? `lv_qrcode_create(${parent})` : `lv_qrcode_create(${parent}, ${Number(node.props.qrSize) || 100}, lv_color_black(), lv_color_white())`;
     case "screen": return "lv_obj_create(NULL)";
     case "container": return `lv_obj_create(${parent})`;
     case "label": return `lv_label_create(${parent})`;
@@ -93,6 +132,7 @@ function intLine(o, prop, value, type, api) {
       if (type === "slider") return `lv_slider_set_value(${o}, ${value}, LV_ANIM_OFF);`;
       if (type === "bar") return `lv_bar_set_value(${o}, ${value}, LV_ANIM_OFF);`;
       if (type === "spinbox") return `lv_spinbox_set_value(${o}, ${value});`;
+      if (type === "meter") return `lv_meter_set_indicator_value(${o}, ${o}_needle, ${value});`;
       return `lv_arc_set_value(${o}, ${value});`;
     case "selected":
       if (type === "dropdown") return `lv_dropdown_set_selected(${o}, ${value});`;
@@ -103,14 +143,23 @@ function intLine(o, prop, value, type, api) {
     case "lineColor": return `lv_obj_set_style_line_color(${o}, lv_color_hex(${hex(value)}), 0);`;
     case "lineWidth": return `lv_obj_set_style_line_width(${o}, ${value}, 0);`;
     case "columnWidth": return `for(uint32_t c = 0; c < ${api.columnCountGet}(${o}); c++) ${api.columnWidth}(${o}, c, ${value});`;
+    case "scaleMode": return `lv_scale_set_mode(${o}, LV_SCALE_MODE_${SCALE_MODES[value]});`;
+    case "totalTicks": return `lv_scale_set_total_tick_count(${o}, ${value});`;
+    case "majorEvery": return `lv_scale_set_major_tick_every(${o}, ${value});`;
+    case "duration": return `lv_animimg_set_duration(${o}, ${value}); lv_animimg_set_repeat_count(${o}, LV_ANIM_REPEAT_INFINITE); lv_animimg_start(${o});`;
     case "chartType": return `lv_chart_set_type(${o}, LV_CHART_TYPE_${CHART_TYPES[value]});`;
     default: throw new Error(`unknown property ${prop}`);
   }
 }
 
-function setTextCall(name, type, text) {
+function setTextCall(name, type, text, api) {
   const literal = cString(text);
   switch (type) {
+    case "win": return `lv_label_set_text(${name}_label, ${literal});`;
+    case "qrcode": return `lv_qrcode_update(${name}, ${literal}, strlen(${literal}));`;
+    case "barcode": return `lv_obj_update_layout(${name}); lv_barcode_update(${name}, ${literal});`;
+    case "arclabel": return `lv_arclabel_set_text(${name}, ${literal});`;
+    case "msgbox": return api.major >= 9 ? `lv_msgbox_add_text(${name}, ${literal});` : `lv_label_set_text(lv_msgbox_get_text(${name}), ${literal});`;
     case "label": return `lv_label_set_text(${name}, ${literal});`;
     case "button": return `lv_label_set_text(${name}_label, ${literal});`;
     case "checkbox": return `lv_checkbox_set_text(${name}, ${literal});`;
@@ -141,6 +190,18 @@ function dataLines(name, prop, value, api) {
       });
       return out;
     }
+    case "tiles":
+      return lines.map((line, index) => `lv_label_set_text(lv_label_create(lv_tileview_add_tile(${name}, ${index}, 0, LV_DIR_HOR)), ${cString(line)});`);
+    case "menuItems":
+      return [
+        "{",
+        `    lv_obj_t * page = lv_menu_page_create(${name}, NULL);`,
+        ...lines.map((line) => `    lv_label_set_text(lv_label_create(lv_menu_cont_create(page)), ${cString(line)});`),
+        `    lv_menu_set_page(${name}, page);`,
+        "}",
+      ];
+    case "spans":
+      return lines.map((line) => `lv_span_set_text(${api.spanNew}(${name}), ${cString(line)});`);
     case "tabs":
       return lines.map((line) => `lv_label_set_text(lv_label_create(lv_tabview_add_tab(${name}, ${cString(line)})), ${cString(line)});`);
     case "map": {
@@ -164,8 +225,17 @@ function dataLines(name, prop, value, api) {
   }
 }
 
-function strLine(name, type, prop, value) {
-  if (prop === "text") return setTextCall(name, type, value);
+function strLine(name, type, prop, value, api) {
+  if (prop === "text") return setTextCall(name, type, value, api);
+  if (prop === "title") {
+    if (type === "win") return `lv_win_add_title(${name}, ${cString(value)});`;
+    return api.major >= 9 ? `lv_msgbox_add_title(${name}, ${cString(value)});` : `lv_label_set_text(lv_msgbox_get_title(${name}), ${cString(value)});`;
+  }
+  if (prop === "buttons") {
+    const cells = value.split(",");
+    if (api.major >= 9) return cells.map((cell) => `lv_msgbox_add_footer_button(${name}, ${cString(cell)});`).join(" ");
+    return `static const char * ${name}_buttons[] = { ${cells.map(cString).join(", ")}, "" }; lv_btnmatrix_set_map(lv_msgbox_get_btns(${name}), ${name}_buttons); lv_obj_set_size(lv_msgbox_get_btns(${name}), ${cells.length} * (2 * LV_DPI_DEF / 3), lv_font_get_line_height(lv_obj_get_style_text_font(lv_msgbox_get_btns(${name}), LV_PART_ITEMS)) + LV_DPI_DEF / 10);`;
+  }
   if (prop === "placeholder") return `lv_textarea_set_placeholder_text(${name}, ${cString(value)});`;
   if (type === "dropdown") return `lv_dropdown_set_options(${name}, ${cString(value)});`;
   return `lv_roller_set_options(${name}, ${cString(value)}, LV_ROLLER_MODE_NORMAL);`;
@@ -323,7 +393,7 @@ function generateUi(project, options) {
     eventSource.push(`void ui_event_${index}(lv_event_t * e)`, "{", "    LV_UNUSED(e);");
     switch (event.action) {
       case "screen": eventSource.push(`    ${api.screenLoad}(${target});`); break;
-      case "setText": eventSource.push(`    ${setTextCall(target, typeOf(event.target), event.text)}`); break;
+      case "setText": eventSource.push(`    ${setTextCall(target, typeOf(event.target), event.text, api)}`); break;
       case "toggle":
         eventSource.push(
           `    if(lv_obj_has_flag(${target}, LV_OBJ_FLAG_HIDDEN)) ${api.removeFlag}(${target}, LV_OBJ_FLAG_HIDDEN);`,
@@ -341,28 +411,57 @@ function generateUi(project, options) {
 
   /* screens/ui_<name>.c */
   for (const [screenId, list] of byScreen) {
-    const source = [GENERATED_NOTE, '#include "ui.h"', "", `void ${nameOf(screenId)}_create(void)`, "{"];
+    const source = [GENERATED_NOTE, '#include "ui.h"', "#include <string.h>", "", `void ${nameOf(screenId)}_create(void)`, "{"];
     for (const op of list) {
       const name = nameOf(op.id);
       const type = typeOf(op.id);
       if (op.op === "create") {
         const parent = op.parent >= 0 ? nameOf(op.parent) : "NULL";
-        source.push(`    ${name} = ${createCall(type, parent, api)};`);
+        source.push(`    ${name} = ${createCall(type, parent, api, op.node)};`);
+        for (const line of createExtras(name, op.node, api)) source.push(`    ${line}`);
         if (type === "button") source.push(`    ${name}_label = lv_label_create(${name});`, `    lv_obj_center(${name}_label);`);
       } else if (op.op === "range") {
-        source.push(type === "chart"
-          ? `    ${api.chartRange}(${name}, LV_CHART_AXIS_PRIMARY_Y, ${op.min}, ${op.max});`
-          : `    lv_${type}_set_range(${name}, ${op.min}, ${op.max});`);
-      } else if (op.op === "str" && ["items", "cells", "series", "tabs", "map", "points"].includes(op.prop)) {
+        if (type === "chart") source.push(`    ${api.chartRange}(${name}, LV_CHART_AXIS_PRIMARY_Y, ${op.min}, ${op.max});`);
+        else if (type === "meter") source.push(`    lv_meter_set_scale_range(${name}, ${name}_scale, ${op.min}, ${op.max}, 270, 135);`);
+        else source.push(`    lv_${type}_set_range(${name}, ${op.min}, ${op.max});`);
+      } else if (op.op === "canvas") {
+        source.push(
+          `    static uint8_t ${name}_buffer[${op.w * op.h * 4}];`,
+          `    lv_canvas_set_buffer(${name}, ${name}_buffer, ${op.w}, ${op.h}, ${api.canvasFormat});`,
+          `    lv_canvas_fill_bg(${name}, lv_color_hex(${hex(op.color)}), LV_OPA_COVER);`,
+        );
+      } else if (op.op === "grid") {
+        const tracks = (text) => [...text.split(",").map(gridTrack), "LV_GRID_TEMPLATE_LAST"].join(", ");
+        source.push(
+          `    static const ${api.track} ${name}_columns[] = { ${tracks(op.columns)} };`,
+          `    static const ${api.track} ${name}_rows[] = { ${tracks(op.rows)} };`,
+          `    lv_obj_set_grid_dsc_array(${name}, ${name}_columns, ${name}_rows);`,
+        );
+      } else if (op.op === "cell") {
+        source.push(`    lv_obj_set_grid_cell(${name}, LV_GRID_ALIGN_STRETCH, ${op.column}, ${op.columnSpan}, LV_GRID_ALIGN_STRETCH, ${op.row}, ${op.rowSpan});`);
+      } else if (op.op === "frames") {
+        const present = op.names.filter((image) => imageData(image));
+        if (present.length) {
+          source.push(
+            `    static const void * ${name}_frames[] = { ${present.map((image) => `&ui_img_${image}`).join(", ")} };`,
+            `    ${api.imageSet}(${name}, ${name}_frames[0]);`,
+            `    lv_animimg_set_src(${name}, ${name}_frames, ${present.length});`,
+          );
+        }
+      } else if (op.op === "str" && ["items", "cells", "series", "tabs", "map", "points", "tiles", "menuItems", "spans"].includes(op.prop)) {
         for (const line of dataLines(name, op.prop, op.value, api)) source.push(`    ${line}`);
       } else if (op.op === "str") {
-        source.push(`    ${strLine(name, type, op.prop, op.value)}`);
+        source.push(`    ${strLine(name, type, op.prop, op.value, api)}`);
       } else if (op.op === "digits") {
         source.push(`    lv_spinbox_set_digit_format(${name}, ${op.count}, ${op.separator});`);
       } else if (op.op === "date") {
         source.push(`    lv_calendar_set_today_date(${name}, ${op.year}, ${op.month}, ${op.day});`, `    ${api.calendarMonth}(${name}, ${op.year}, ${op.month});`);
       } else if (op.op === "image") {
-        if (imageData(op.name)) source.push(`    ${api.imageSrc}(${name}, &ui_img_${op.name});`);
+        if (imageData(op.name)) {
+          source.push(type === "imagebutton"
+            ? `    ${api.imageButtonSet}(${name}, ${api.imageButtonState}, NULL, &ui_img_${op.name}, NULL);`
+            : `    ${api.imageSrc}(${name}, &ui_img_${op.name});`);
+        }
       } else if (op.op === "link") {
         continue;
       } else {

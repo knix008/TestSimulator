@@ -1,14 +1,27 @@
 // The side and bottom panels: palette, component tree, attributes, code and log.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./icons.jsx";
-import { ColorField, IconSelect, Stepper, Toggle } from "./controls.jsx";
-import { ACTION_IDS, PALETTE, TRIGGERS, WIDGETS } from "./lvgl/schema.js";
-import { findNode, sanitizeName, setProp, walk } from "./lvgl/project.js";
+import { ColorField, IconSelect, SizeField, Stepper, Toggle } from "./controls.jsx";
+import { ACTION_IDS, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn } from "./lvgl/schema.js";
+import { findNode, findParent, sanitizeName, setProp, walk } from "./lvgl/project.js";
 
-export function Palette({ t, onDragStart, onAdd }) {
+/** A panel's title bar: icon, title, and the button that folds the panel. */
+export function PanelTitle({ icon, title, id, collapsed, collapseIcon, expandIcon, t, onToggle }) {
+  return (
+    <h3 data-panel-title={id}>
+      <Icon name={icon} />
+      <span className="panel-title-text">{title}</span>
+      <button type="button" className="mini" data-collapse={id} aria-label={t(collapsed ? "panel.expand" : "panel.collapse")} title={t(collapsed ? "panel.expand" : "panel.collapse")} onClick={onToggle}>
+        <Icon name={collapsed ? expandIcon : collapseIcon} size={14} />
+      </button>
+    </h3>
+  );
+}
+
+export function Palette({ t, version, disabled, onDragStart, onAdd }) {
   return (
     <div className="panel-body palette">
-      {PALETTE.map(({ group, items }) => (
+      {PALETTE.map(({ group, items: all }) => ({ group, items: all.filter((type) => availableIn(type, version)) })).map(({ group, items }) => (
         <section key={group}>
           <h4>{t(`palette.${group}`)}</h4>
           <div className="palette-grid">
@@ -18,6 +31,7 @@ export function Palette({ t, onDragStart, onAdd }) {
                 key={type}
                 data-palette={type}
                 className="palette-item"
+                disabled={disabled}
                 title={t(`widget.${type}`)}
                 onPointerDown={(event) => event.button === 0 && onDragStart(type, event)}
                 onDoubleClick={() => onAdd(type)}
@@ -56,11 +70,26 @@ export function ComponentTree({ t, screen, selected, onSelect }) {
 
 function Field({ label, children }) {
   return (
-    <label className="field">
+    <div className="field">
       <span className="field-label">{label}</span>
       <span className="field-input">{children}</span>
-    </label>
+    </div>
   );
+}
+
+const PIXEL_PROPS = new Set(["x", "y", "borderWidth", "radius", "pad", "shadowWidth", "gap", "lineWidth", "columnWidth", "canvasW", "canvasH", "qrSize"]);
+
+/** The unit a number is shown with. */
+function unitOf(t, key) {
+  if (PIXEL_PROPS.has(key)) return "px";
+  if (key === "rotation") return "°";
+  if (key === "scale") return "%";
+  if (key === "bgOpa" || key === "opa" || key === "ledBright") return "/255";
+  if (key === "selected" || key === "separator" || key.startsWith("grid")) return "#";
+  if (key === "duration") return "ms";
+  if (key === "totalTicks" || key === "majorEvery") return t("unit.ticks");
+  if (["year", "month", "day", "digits"].includes(key)) return t(`unit.${key}`);
+  return t("unit.value");
 }
 
 function PropInput({ t, node, prop, edit, project, onImportImage }) {
@@ -87,20 +116,9 @@ function PropInput({ t, node, prop, edit, project, onImportImage }) {
       return <IconSelect id="target" value={value ?? ""} options={options} onChange={(next) => set(next === "" ? undefined : next)} />;
     }
     case "int":
-      return <Stepper id={prop.key} value={value} min={prop.min} max={prop.max} blank placeholder={t("attr.theme")} onChange={set} />;
+      return <Stepper id={prop.key} unit={unitOf(t, prop.key)} value={value} min={prop.min} max={prop.max} blank placeholder={t("attr.theme")} onChange={set} />;
     case "size":
-      return (
-        <input
-          className="text-input"
-          data-field={prop.key}
-          value={value ?? ""}
-          placeholder={t("attr.sizeHint")}
-          onChange={(event) => {
-            const text = event.target.value.trim();
-            set(/^\d+$/.test(text) ? Number(text) : text);
-          }}
-        />
-      );
+      return <SizeField id={prop.key} value={value} placeholder={t("attr.sizeHint")} onChange={set} />;
     case "color":
       return <ColorField id={prop.key} value={value} placeholder={t("attr.theme")} clearLabel={t("attr.clear")} onChange={set} />;
     case "bool":
@@ -110,7 +128,7 @@ function PropInput({ t, node, prop, edit, project, onImportImage }) {
         <IconSelect
           id={prop.key}
           value={value ?? ""}
-          options={[{ value: "", label: t("attr.theme") }, ...prop.options.map((option) => ({ value: option, label: String(option) }))]}
+          options={[{ value: "", label: t("attr.theme") }, ...prop.options.map((option) => ({ value: option, label: prop.key === "font" ? `${option} px` : String(option) }))]}
           onChange={(next) => set(next === "" ? undefined : next)}
         />
       );
@@ -152,7 +170,9 @@ export function Attributes({ t, store, selected, readOnly, onImportImage }) {
   const project = store.project;
   const node = selected ? findNode(project, selected) : null;
   if (!node) return <div className="panel-body empty-note">{t("attr.none")}</div>;
-  const definition = WIDGETS[node.type];
+  const inGrid = findParent(project, node.id)?.type === "grid";
+  const available = availableIn(node.type, project.lvgl);
+  const definition = inGrid ? { ...WIDGETS[node.type], props: [...WIDGETS[node.type].props, ...GRID_CELL_PROPS] } : WIDGETS[node.type];
   const edit = (key, value) => {
     store.update((draft) => {
       setProp(findNode(draft, node.id), key, value);
@@ -164,6 +184,7 @@ export function Attributes({ t, store, selected, readOnly, onImportImage }) {
   }, { coalesce });
   return (
     <div className={readOnly ? "panel-body attributes read-only" : "panel-body attributes"}>
+      {!available && <p className="form-note" data-note="unavailable">{t("widget.unavailable")}</p>}
       <section>
         <h4>{t("group.identity")}</h4>
         <Field label={t("prop.name")}>

@@ -164,11 +164,19 @@ fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &
     }
 
     emit_line(app, "build", "Building...");
-    let mut compile = command("cmake");
-    compile.arg("--build").arg(&build);
-    let code = run_step(app, state, compile, "build")?;
+    let compile = || {
+        let mut cmd = command("cmake");
+        cmd.arg("--build").arg(&build);
+        cmd
+    };
+    let mut code = run_step(app, state, compile(), "build")?;
     if state.stopped.load(Ordering::SeqCst) {
         return Ok("stopped");
+    }
+    // Windows can briefly hold ninja's log right after the last build.
+    if code != Some(0) {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        code = run_step(app, state, compile(), "build")?;
     }
     if code != Some(0) {
         return Err("build failed".into());
@@ -183,6 +191,77 @@ fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &
     }
     emit_line(app, "build", &format!("Exited with code {}", code.unwrap_or(-1)));
     Ok("exited")
+}
+
+const MSYS_PACKAGES: [&str; 4] = ["gcc", "cmake", "ninja", "SDL2"];
+
+fn pacman() -> Option<PathBuf> {
+    ["C:\\msys64\\usr\\bin\\pacman.exe", "C:\\Msys64\\usr\\bin\\pacman.exe"].iter().map(PathBuf::from).find(|path| path.is_file())
+}
+
+/// The commands that install the build tools on this system, shown before anything runs.
+/// Only these four packages are named: they pull in no second Node or Python tool chain.
+fn install_plan() -> Vec<Vec<String>> {
+    let text = |items: &[&str]| items.iter().map(|item| item.to_string()).collect::<Vec<_>>();
+    if cfg!(windows) {
+        let mut plan = Vec::new();
+        let pacman_path = match pacman() {
+            Some(path) => path.to_string_lossy().to_string(),
+            None => {
+                plan.push(text(&["winget", "install", "--id", "MSYS2.MSYS2", "-e", "--silent", "--accept-source-agreements", "--accept-package-agreements"]));
+                "C:\\msys64\\usr\\bin\\pacman.exe".to_string()
+            }
+        };
+        let mut step = vec![pacman_path, "-S".to_string(), "--needed".to_string(), "--noconfirm".to_string()];
+        step.extend(MSYS_PACKAGES.iter().map(|name| format!("mingw-w64-ucrt-x86_64-{name}")));
+        plan.push(step);
+        plan
+    } else if cfg!(target_os = "macos") {
+        vec![text(&["xcode-select", "--install"]), text(&["brew", "install", "cmake", "ninja", "sdl2"])]
+    } else {
+        vec![text(&["pkexec", "apt-get", "install", "-y", "build-essential", "cmake", "ninja-build", "libsdl2-dev"])]
+    }
+}
+
+#[tauri::command]
+pub fn tools_plan() -> Vec<String> {
+    install_plan().iter().map(|step| step.join(" ")).collect()
+}
+
+/// Runs the plan in the background; output comes as native-log, the end as tools-exit.
+#[tauri::command]
+pub fn tools_install(app: AppHandle, state: tauri::State<NativeState>) -> Result<(), String> {
+    if state.running.swap(true, Ordering::SeqCst) {
+        return Err("already running".into());
+    }
+    state.stopped.store(false, Ordering::SeqCst);
+    let handles = NativeHandles { child: state.child.clone(), stopped: state.stopped.clone() };
+    let running = state.running.clone();
+    std::thread::spawn(move || {
+        let mut result = Ok(());
+        for step in install_plan() {
+            emit_line(&app, "build", &format!("> {}", step.join(" ")));
+            let mut cmd = command(&step[0]);
+            cmd.args(&step[1..]);
+            match run_step(&app, &handles, cmd, "build") {
+                Ok(Some(0)) => {}
+                Ok(code) => {
+                    result = Err(format!("{} ended with code {}", step[0], code.unwrap_or(-1)));
+                    break;
+                }
+                Err(message) => {
+                    result = Err(format!("{}: {message}", step[0]));
+                    break;
+                }
+            }
+        }
+        running.store(false, Ordering::SeqCst);
+        if let Err(message) = &result {
+            emit_line(&app, "error", message);
+        }
+        let _ = app.emit("tools-exit", json!({ "ok": result.is_ok(), "error": result.err() }));
+    });
+    Ok(())
 }
 
 /// Starts in the background and returns at once; the page follows the events.

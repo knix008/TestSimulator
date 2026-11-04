@@ -1,34 +1,43 @@
-// The studio window, laid out like Android Studio's layout editor: palette and component tree
-// on the left, the design surface with Design / Split / Code in the middle, attributes on the
-// right, log and build output below. Chrome and themes follow My Git Master.
+// The studio window, laid out like Android Studio's layout editor: the palette on the left, the
+// design surface with Design / Split / Code in the middle, the component tree above the attributes
+// on the right, log and build output below. Chrome and themes follow My Git Master.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import appIcon from "../assets/icons/32x32.png";
-import { Icon } from "./icons.jsx";
+import appIconLarge from "../assets/icons/128x128.png";
+import { Flag, Icon } from "./icons.jsx";
+import { ContextMenu, readOnlyTextItems, textFieldItems } from "./ContextMenu.jsx";
 import { host, isDesktop } from "./host.js";
 import { translator } from "./i18n.js";
-import { allThemes, applyTheme, setCustomThemes, THEMES, themeById } from "./themes.js";
+import { applyTheme, setCustomThemes, THEMES, themeById } from "./themes.js";
 import { addRecent, removeRecent, sanitizeStartScreen } from "./settings.js";
 import { StartScreen } from "./StartScreen.jsx";
 import { PreferencesDialog } from "./Preferences.jsx";
 import { Surface } from "./Surface.jsx";
-import { Attributes, CodeView, ComponentTree, LogView, Palette } from "./panels.jsx";
+import { Attributes, CodeView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
 import { AboutDialog, ConfirmDialog, LvglManager, MessageDialog, NewProjectDialog, ProjectSettings } from "./dialogs.jsx";
 import { useProjectStore } from "./store.js";
 import { FILE_EXTENSION, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
-import { CONTAINERS, WIDGETS } from "./lvgl/schema.js";
+import { CONTAINERS, PALETTE, WIDGETS, availableIn } from "./lvgl/schema.js";
 import { GENERATED_DIRS, generateCode, projectFiles } from "./lvgl/codegen.js";
-import { addImage, clearImages, decodeImage, extensionOf, imageFiles } from "./lvgl/images.js";
+import { addImage, clearImages, decodeImage, extensionOf, imageData, imageFiles } from "./lvgl/images.js";
 import { engineFor } from "./lvgl/versions.js";
 
+const MENU_ICONS = { file: "open", edit: "paste", view: "eye", run: "run", tools: "settings", help: "about" };
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
 const clock = () => new Date().toTimeString().slice(0, 8);
 const LOG_LIMIT = 2000;
+const RUN_TITLE_HEIGHT = 32;
+/** Room for the window's own edge, and for rounding at 125 % and 150 % scaling. */
+const WINDOW_EDGE = 8;
+const MIN_WINDOW_HEIGHT = 640;
+/** A small display gets a larger run window, so it can be seen and its title bar still fits. */
+const runScale = (w) => (w < 200 ? 3 : w < 360 ? 2 : 1);
 const MAX_IMAGE_SIZE = 2048;
 
-function Menu({ id, label, open, onOpen, onHover, items }) {
+function Menu({ id, icon, label, open, onOpen, onHover, items }) {
   return (
     <div className="menu" data-menu={id}>
-      <button type="button" className={open ? "active" : undefined} onClick={() => onOpen(open ? null : id)} onPointerEnter={() => onHover(id)}>{label}</button>
+      <button type="button" className={open ? "active" : undefined} onClick={() => onOpen(open ? null : id)} onPointerEnter={() => onHover(id)}><Icon name={icon} size={14} /><span>{label}</span></button>
       {open && (
         <div className="menu-pop" role="menu">
           {items.map((item, index) => (item === "-" ? (
@@ -92,7 +101,12 @@ export function App({ initialSettings }) {
   const [view, setView] = useState("design"); // design | split | code
   const [zoom, setZoom] = useState(2);
   const [openMenu, setOpenMenu] = useState(null);
-  const [popup, setPopup] = useState(null); // theme | language
+  const [popup, setPopup] = useState(null); // theme
+  const [runOpen, setRunOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState({ left: false, right: false, bottom: false, tree: false, attributes: false, ...initialSettings.collapsed });
+  const [rulers, setRulers] = useState(initialSettings.rulers !== false);
+  const [contextMenu, setContextMenu] = useState(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const [dialog, setDialog] = useState(null);
   const [bottomTab, setBottomTab] = useState("log");
   const [logLines, setLogLines] = useState([]);
@@ -101,18 +115,26 @@ export function App({ initialSettings }) {
   const [installed, setInstalled] = useState([]);
   const [runtime, setRuntime] = useState(null);
   const [ghost, setGhost] = useState(null);
-  const [sizes, setSizes] = useState({ left: 250, right: 300, bottom: 170, palette: 300, ...initialSettings.panels });
+  const [sizes, setSizes] = useState({ left: 250, right: 300, bottom: 170, tree: 240, ...initialSettings.panels });
 
   const clipboard = useRef(null);
+  const minimumWidth = useRef(0);
+  const [hasClipboard, setHasClipboard] = useState(false);
+  const screenTabs = useRef(null);
   const surface = useRef(null);
   const viewport = useRef(null);
 
   const activeScreen = project.screens.find((screen) => screen.id === activeId) ?? project.screens[0];
+  const activeIndex = project.screens.indexOf(activeScreen);
   const selectedNode = selected ? findNode(project, selected) : null;
   const engineInfo = engineFor(project.lvgl);
   const running = mode === "run";
 
   useEffect(() => void applyTheme(themeId), [themeId]);
+  // The active tab stays in view however many screens there are.
+  useEffect(() => {
+    screenTabs.current?.querySelector(".screen-tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeId, project.screens.length]);
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
@@ -263,6 +285,7 @@ export function App({ initialSettings }) {
       const baseName = parts.pop().replace(/\.[^.]+$/, "");
       await writeFolder(parts.join(path.includes("\\") ? "\\" : "/"), baseName, store.get());
       store.markSaved();
+      rememberRecent(path);
     } catch (error) {
       showError(error);
     }
@@ -351,7 +374,9 @@ export function App({ initialSettings }) {
   };
 
   const cmdCopy = () => {
-    if (isWidget) clipboard.current = structuredClone(selectedNode);
+    if (!isWidget) return;
+    clipboard.current = structuredClone(selectedNode);
+    setHasClipboard(true);
   };
 
   const pasteNode = (source) => {
@@ -424,7 +449,59 @@ export function App({ initialSettings }) {
 
   /* ---------------------------------------------------------- running */
 
+  const togglePanel = useCallback((key) => {
+    setCollapsed((state) => {
+      const next = { ...state, [key]: !state[key] };
+      void host.saveSettings({ collapsed: next });
+      return next;
+    });
+  }, []);
+
+  const toggleRulers = () => {
+    setRulers((value) => {
+      void host.saveSettings({ rulers: !value });
+      return !value;
+    });
+  };
+
+  /** Desktop: the project runs in a window of its own, on a copy of the document. */
+  const toggleRunWindow = async () => {
+    if (runOpen) {
+      await host.runClose();
+      return;
+    }
+    const document = store.get();
+    const images = (document.images ?? []).flatMap((image) => {
+      const data = imageData(image.name);
+      return data?.base64 ? [{ name: image.name, file: image.file, base64: data.base64 }] : [];
+    });
+    const scale = runScale(document.device.w);
+    try {
+      await host.runOpen({ project: document, images }, Math.max(320, document.device.w * scale), document.device.h * scale + RUN_TITLE_HEIGHT);
+      setRunOpen(true);
+      log(t("log.runStart"));
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  useEffect(() => {
+    const offLog = host.on("run-log", (line) => log(line));
+    const offClosed = host.on("run-closed", () => {
+      setRunOpen(false);
+      log(t("log.runStop"));
+    });
+    return () => {
+      offLog();
+      offClosed();
+    };
+  }, [log, t]);
+
   const toggleRun = () => {
+    if (isDesktop) {
+      void toggleRunWindow();
+      return;
+    }
     setMode((value) => {
       log(t(value === "run" ? "log.runStop" : "log.runStart"));
       return value === "run" ? "design" : "run";
@@ -477,7 +554,12 @@ export function App({ initialSettings }) {
     const missing = ["gcc", "cmake", "ninja"].filter((tool) => !tools[tool]);
     if (!tools.sdl) missing.push("SDL2");
     if (missing.length) {
-      showError(t("native.needTools", { tools: missing.join(", ") }));
+      setDialog({
+        kind: "confirm",
+        message: t("native.needTools", { tools: missing.join(", ") }),
+        yesLabel: t("cmd.manager").replace("…", ""),
+        onYes: () => setDialog({ kind: "manager" }),
+      });
       return;
     }
     const list = (await host.lvglInstalled()).map((item) => item.version);
@@ -548,7 +630,7 @@ export function App({ initialSettings }) {
     start.preventDefault();
     const from = sizes[key];
     const horizontal = key === "left" || key === "right";
-    const limit = horizontal ? [200, 520] : key === "palette" ? [60, Math.max(60, (start.currentTarget.parentElement?.clientHeight ?? 300) - 90)] : [80, 480];
+    const limit = horizontal ? [200, 520] : key === "tree" ? [60, Math.max(60, (start.currentTarget.parentElement?.clientHeight ?? 300) - 90)] : [80, 480];
     let latest = from;
     const move = (event) => {
       const delta = horizontal ? event.clientX - start.clientX : event.clientY - start.clientY;
@@ -569,36 +651,58 @@ export function App({ initialSettings }) {
 
   /* ---------------------------------------------------------- commands */
 
+  const designing = !showStart;
+  const editing = designing && !running;
+  const siblings = isWidget ? findParent(project, selected)?.children ?? [] : [];
+  const siblingIndex = siblings.findIndex((child) => child.id === selected);
+  const zoomStep = (direction) => (direction > 0 ? ZOOMS.find((value) => value > zoom) : [...ZOOMS].reverse().find((value) => value < zoom));
+
   const c = {
     new: { id: "new", icon: "new", label: t("cmd.new"), keys: "Ctrl+N", run: cmdNew },
     open: { id: "open", icon: "open", label: t("cmd.open"), keys: "Ctrl+O", run: cmdOpen },
-    save: { id: "save", icon: "save", label: t("cmd.save"), keys: "Ctrl+S", run: cmdSave },
+    save: { id: "save", icon: "save", label: t("cmd.save"), keys: "Ctrl+S", disabled: !store.dirty && !!path, run: cmdSave },
     saveAs: { id: "saveAs", icon: "save", label: t("cmd.saveAs"), keys: "Ctrl+Shift+S", run: cmdSaveAs },
-    undo: { id: "undo", icon: "undo", label: t("cmd.undo"), keys: "Ctrl+Z", disabled: !store.canUndo || running, run: store.undo },
-    redo: { id: "redo", icon: "redo", label: t("cmd.redo"), keys: "Ctrl+Y", disabled: !store.canRedo || running, run: store.redo },
-    copy: { id: "copy", icon: "copy", label: t("cmd.copy"), keys: "Ctrl+C", disabled: !isWidget || running, run: cmdCopy },
-    paste: { id: "paste", icon: "paste", label: t("cmd.paste"), keys: "Ctrl+V", disabled: running, run: cmdPaste },
-    duplicate: { id: "duplicate", icon: "duplicate", label: t("cmd.duplicate"), keys: "Ctrl+D", disabled: !isWidget || running, run: cmdDuplicate },
-    delete: { id: "delete", icon: "delete", label: t("cmd.delete"), keys: "Del", disabled: running || !selectedNode || (!isWidget && project.screens.length < 2), run: cmdDelete },
-    forward: { id: "forward", icon: "forward", label: t("cmd.forward"), disabled: !isWidget || running, run: () => reorder(1) },
-    backward: { id: "backward", icon: "backward", label: t("cmd.backward"), disabled: !isWidget || running, run: () => reorder(-1) },
-    run: { id: "run", icon: running ? "stop" : "run", label: t(running ? "cmd.stop" : "cmd.run"), keys: "F5", pressed: running, run: toggleRun },
-    native: { id: "native", icon: native === "idle" ? "native" : "stop", label: t(native === "idle" ? "cmd.nativeRun" : "cmd.nativeStop"), keys: "Shift+F5", pressed: native !== "idle", run: cmdNative },
-    settings: { id: "settings", icon: "settings", label: t("cmd.settings"), run: () => setDialog({ kind: "settings" }) },
+    undo: { id: "undo", icon: "undo", label: t("cmd.undo"), keys: "Ctrl+Z", disabled: !store.canUndo || !editing, run: store.undo },
+    redo: { id: "redo", icon: "redo", label: t("cmd.redo"), keys: "Ctrl+Y", disabled: !store.canRedo || !editing, run: store.redo },
+    cut: {
+      id: "cut",
+      icon: "cut",
+      label: t("cmd.cut"),
+      keys: "Ctrl+X",
+      disabled: !isWidget || !editing,
+      run: () => {
+        cmdCopy();
+        cmdDelete();
+      },
+    },
+    copy: { id: "copy", icon: "copy", label: t("cmd.copy"), keys: "Ctrl+C", disabled: !isWidget || !editing, run: cmdCopy },
+    paste: { id: "paste", icon: "paste", label: t("cmd.paste"), keys: "Ctrl+V", disabled: !hasClipboard || !editing, run: cmdPaste },
+    duplicate: { id: "duplicate", icon: "duplicate", label: t("cmd.duplicate"), keys: "Ctrl+D", disabled: !isWidget || !editing, run: cmdDuplicate },
+    delete: { id: "delete", icon: "delete", label: t("cmd.delete"), keys: "Del", disabled: !editing || !selectedNode || (!isWidget && project.screens.length < 2), run: cmdDelete },
+    forward: { id: "forward", icon: "forward", label: t("cmd.forward"), disabled: !isWidget || !editing || siblingIndex >= siblings.length - 1, run: () => reorder(1) },
+    backward: { id: "backward", icon: "backward", label: t("cmd.backward"), disabled: !isWidget || !editing || siblingIndex <= 0, run: () => reorder(-1) },
+    run: { id: "run", icon: running || runOpen ? "stop" : "run", label: t(running || runOpen ? "cmd.stop" : "cmd.run"), keys: "F5", disabled: !designing && !runOpen, pressed: running || runOpen, run: toggleRun },
+    code: { id: "code", icon: "code", label: t("view.code"), disabled: !designing, pressed: view !== "design", run: () => setView((value) => (value === "design" ? "split" : "design")) },
+    panelLeft: { id: "panelLeft", icon: "panelLeft", label: t("panel.toggleLeft"), disabled: !designing, pressed: !collapsed.left, run: () => togglePanel("left") },
+    panelRight: { id: "panelRight", icon: "panelRight", label: t("panel.toggleRight"), disabled: !designing, pressed: !collapsed.right, run: () => togglePanel("right") },
+    panelBottom: { id: "panelBottom", icon: "panelBottom", label: t("panel.toggleBottom"), disabled: !designing, pressed: !collapsed.bottom, run: () => togglePanel("bottom") },
+    rulers: { id: "rulers", icon: "ruler", label: t("cmd.rulers"), disabled: !designing, pressed: rulers, run: toggleRulers },
+    native: { id: "native", icon: native === "idle" ? "native" : "stop", label: t(native === "idle" ? "cmd.nativeRun" : "cmd.nativeStop"), keys: "Shift+F5", disabled: !designing && native === "idle", pressed: native !== "idle", run: cmdNative },
+    settings: { id: "settings", icon: "project", label: t("cmd.settings"), run: () => setDialog({ kind: "settings" }) },
     manager: { id: "manager", icon: "manager", label: t("cmd.manager"), run: () => setDialog({ kind: "manager" }) },
     about: { id: "about", icon: "about", label: t("cmd.about"), run: () => setDialog({ kind: "about" }) },
     start: { id: "start", icon: "home", label: t("start.title"), pressed: showStart, run: () => setShowStart((value) => !value) },
     preferences: { id: "preferences", icon: "settings", label: t("cmd.preferences"), run: () => setDialog({ kind: "preferences" }) },
     exit: { id: "exit", icon: "close", label: t("cmd.exit"), run: () => guardUnsaved(() => host.close()) },
-    zoomIn: { id: "zoomIn", icon: "zoomIn", label: t("cmd.zoomIn"), run: () => stepZoom(1) },
-    zoomOut: { id: "zoomOut", icon: "zoomOut", label: t("cmd.zoomOut"), run: () => stepZoom(-1) },
-    zoomFit: { id: "zoomFit", icon: "zoomFit", label: t("cmd.zoomFit"), run: fitZoom },
+    zoomIn: { id: "zoomIn", icon: "zoomIn", label: t("cmd.zoomIn"), disabled: !designing || !zoomStep(1), run: () => stepZoom(1) },
+    zoomOut: { id: "zoomOut", icon: "zoomOut", label: t("cmd.zoomOut"), disabled: !designing || !zoomStep(-1), run: () => stepZoom(-1) },
+    zoomFit: { id: "zoomFit", icon: "zoomFit", label: t("cmd.zoomFit"), disabled: !designing, run: fitZoom },
   };
 
   const menus = [
     { id: "file", items: [c.new, c.open, "-", c.save, c.saveAs, "-", c.exit] },
-    { id: "edit", items: [c.undo, c.redo, "-", c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward] },
-    { id: "view", items: [c.start, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
+    { id: "edit", items: [c.undo, c.redo, "-", c.cut, c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward] },
+    { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
     { id: "run", items: [c.run, c.native] },
     { id: "tools", items: [c.settings, c.manager, "-", c.preferences] },
     { id: "help", items: [c.about] },
@@ -609,9 +713,108 @@ export function App({ initialSettings }) {
     [c.undo, c.redo],
     [c.copy, c.paste, c.duplicate, c.delete],
     [c.backward, c.forward],
-    [c.run, c.native],
+    [c.run, c.native, c.code],
     [c.settings, c.manager],
+    [c.panelLeft, c.panelBottom, c.panelRight, c.rulers],
   ];
+
+  // The window can never be narrower than its menu row and toolbar: nothing there hides or clips.
+  const measureMinimum = useCallback(() => {
+    const row = (selector, skip) => {
+      const element = document.querySelector(selector);
+      if (!element) return 0;
+      const style = getComputedStyle(element);
+      const kids = Array.from(element.children).filter((child) => !skip?.(child) && getComputedStyle(child).display !== "none");
+      const widths = kids.reduce((sum, child) => {
+        const own = getComputedStyle(child);
+        return sum + child.getBoundingClientRect().width + (Number.parseFloat(own.marginRight) || 0) + (child.classList.contains("toolbar-end") || child.classList.contains("window-controls") ? 0 : Number.parseFloat(own.marginLeft) || 0);
+      }, 0);
+      return widths + (Number.parseFloat(style.columnGap) || 0) * Math.max(0, kids.length - 1) + (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+    };
+    // The file name may shorten, so only a little of it counts.
+    const needed = Math.ceil(Math.max(row(".menubar", (child) => child.classList.contains("title-file")) + 60, row(".toolbar")) + WINDOW_EDGE);
+    document.documentElement.style.setProperty("--app-min-width", `${needed}px`);
+    minimumWidth.current = needed;
+    void host.setMinimumSize(needed, MIN_WINDOW_HEIGHT);
+  }, []);
+
+  useEffect(() => {
+    measureMinimum();
+    // Web fonts change every width once they arrive.
+    document.fonts?.ready.then(measureMinimum);
+    const observer = new ResizeObserver(measureMinimum);
+    for (const selector of [".toolbar-info", ".toolbar-end", ".app-title", ".tool-group"]) {
+      for (const element of document.querySelectorAll(selector)) observer.observe(element);
+    }
+    return () => observer.disconnect();
+  }, [language, measureMinimum]);
+
+  /** What a right click offers, by what is under the pointer. */
+  const contextItems = (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return null;
+    const field = target.closest("input:not([type=color]):not([type=checkbox]), textarea");
+    if (field) return textFieldItems(t, field);
+    const logView = target.closest("[data-log]");
+    if (logView) {
+      const clear = () => (logView.dataset.log === "build" ? setBuildLines([]) : setLogLines([]));
+      return readOnlyTextItems(t, logView, ["-", { id: "log-clear", icon: "delete", label: t("cmd.clearLog"), run: clear }]);
+    }
+    const code = target.closest("[data-code]");
+    if (code) return readOnlyTextItems(t, code);
+    if (target.closest("[data-overlay=run]")) return [c.run, c.native];
+    // Every control of this LVGL version, grouped as in the panel.
+    const addControls = (place) => ({
+      id: "add-control",
+      icon: "add",
+      label: t("cmd.addControl"),
+      disabled: !editing,
+      children: PALETTE.map(({ group, items }) => ({ group, items: items.filter((type) => availableIn(type, project.lvgl)) })).map(({ group, items }) => ({
+        id: `add-group-${group}`,
+        icon: WIDGETS[items[0]].icon,
+        label: t(`palette.${group}`),
+        children: items.map((type) => ({ id: `add-${type}`, icon: WIDGETS[type].icon, label: t(`widget.${type}`), run: () => place(type) })),
+      })),
+    });
+    const editItems = [c.cut, c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward, "-", c.undo, c.redo];
+    const row = target.closest("[data-tree]");
+    if (row) {
+      select(row.dataset.tree);
+      const node = findNode(project, row.dataset.tree);
+      const parentId = node && CONTAINERS.has(node.type) ? node.id : findParent(project, row.dataset.tree)?.id ?? activeScreen.id;
+      return [addControls((type) => addWidget(type, parentId, { x: 10, y: 10 })), "-", ...editItems];
+    }
+    if (target.closest("[data-overlay=design]")) {
+      const node = surface.current?.hitAt(event.clientX, event.clientY);
+      if (node) select(node.id);
+      const drop = surface.current?.dropTarget(event.clientX, event.clientY);
+      const place = (type) => (drop ? addWidget(type, drop.parentId, { x: drop.x, y: drop.y }) : addFromPalette(type));
+      return [addControls(place), "-", ...editItems, "-", c.zoomIn, c.zoomOut, c.zoomFit, "-", c.code, c.run, c.settings];
+    }
+    const tab = target.closest(".screen-tab");
+    if (tab) {
+      const id = tab.querySelector("[data-screen-tab]")?.dataset.screenTab;
+      if (id) select(id);
+      return [
+        { id: "screen-add", icon: "add", label: t("screen.add"), disabled: running, run: cmdAddScreen },
+        { id: "screen-remove", icon: "delete", label: t("screen.remove"), disabled: running || project.screens.length < 2, run: () => removeScreen(id) },
+      ];
+    }
+    const paletteItem = target.closest("[data-palette]");
+    if (paletteItem) {
+      const type = paletteItem.dataset.palette;
+      return [{ id: "palette-add", icon: WIDGETS[type].icon, label: `${t("cmd.addWidget")}: ${t(`widget.${type}`)}`, disabled: running, run: () => addFromPalette(type) }];
+    }
+    if (target.closest("[data-dialog]")) return null;
+    return [c.new, c.open, c.save, "-", c.start, c.settings, c.manager, c.preferences, "-", c.about];
+  };
+
+  // A right click on the design bar or the panel background also offers the controls.
+  const onContextMenu = (event) => {
+    event.preventDefault();
+    const items = contextItems(event);
+    setContextMenu(items ? { x: event.clientX, y: event.clientY, items } : null);
+  };
 
   // The latest commands, for the keyboard handler below.
   const commands = useRef(c);
@@ -635,6 +838,7 @@ export function App({ initialSettings }) {
         if (typing) return undefined;
         if (letter === "z") return fire(event.shiftKey ? cmd.redo : cmd.undo);
         if (letter === "y") return fire(cmd.redo);
+        if (letter === "x") return fire(cmd.cut);
         if (letter === "c") return fire(cmd.copy);
         if (letter === "v") return fire(cmd.paste);
         if (letter === "d") return fire(cmd.duplicate);
@@ -688,6 +892,10 @@ export function App({ initialSettings }) {
       showStart: () => showStart,
       start: () => start,
       recent: () => recent,
+      minimumWidth: () => minimumWidth.current,
+      runOpen: () => runOpen,
+      collapsed: () => collapsed,
+      contextMenu: () => contextMenu,
       language: () => language,
     };
   });
@@ -702,10 +910,10 @@ export function App({ initialSettings }) {
   };
 
   const fileName = path ? path.split(/[\\/]/).pop() : project.name;
-  const status = native === "building" ? t("status.building") : native === "running" ? t("status.native") : running ? t("status.run") : t("status.design");
+  const status = runOpen ? t("status.run") : native === "building" ? t("status.building") : native === "running" ? t("status.native") : running ? t("status.run") : t("status.design");
 
   return (
-    <div className="app">
+    <div className="app" onContextMenu={onContextMenu}>
       <div className="menubar" onPointerDown={dragTitlebar}>
         <span className="app-title">
           <img src={appIcon} alt="" />
@@ -720,6 +928,7 @@ export function App({ initialSettings }) {
           <Menu
             key={menu.id}
             id={menu.id}
+            icon={MENU_ICONS[menu.id]}
             label={t(`menu.${menu.id}`)}
             open={openMenu === menu.id}
             onOpen={setOpenMenu}
@@ -742,34 +951,54 @@ export function App({ initialSettings }) {
             {group.map((command) => <ToolButton key={command.id} command={command} />)}
           </span>
         ))}
+        <span className="tool-group toolbar-info">
+          <i className="tool-sep" />
+          <button type="button" className="version-chip" data-command="version-chip" title={t("settings.version")} onClick={() => setDialog({ kind: "settings" })}>
+            <Icon name="manager" size={14} /> LVGL {project.lvgl}
+          </button>
+          <span className="zoom-box">
+            <button type="button" className="mini" data-command="zoomOut" disabled={c.zoomOut.disabled} aria-label={c.zoomOut.label} title={c.zoomOut.label} onClick={c.zoomOut.run}><Icon name="zoomOut" size={14} /></button>
+            <span data-zoom="">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="mini" data-command="zoomIn" disabled={c.zoomIn.disabled} aria-label={c.zoomIn.label} title={c.zoomIn.label} onClick={c.zoomIn.run}><Icon name="zoomIn" size={14} /></button>
+            <button type="button" className="mini" data-command="zoomFit" disabled={c.zoomFit.disabled} aria-label={c.zoomFit.label} title={c.zoomFit.label} onClick={c.zoomFit.run}><Icon name="zoomFit" size={14} /></button>
+          </span>
+        </span>
         <div className="toolbar-end">
           <div className="popup-host">
             <button type="button" className={popup === "theme" ? "tool active" : "tool"} data-command="theme" aria-label={t("cmd.theme")} title={t("cmd.theme")} onClick={() => setPopup(popup === "theme" ? null : "theme")}><Icon name="theme" /></button>
             {popup === "theme" && (
               <div className="menu-pop theme-pop" role="menu">
-                {["light", "dark"].map((themeMode) => (
-                  <section key={themeMode}>
-                    <h4>{t(`theme.${themeMode}`)}</h4>
-                    {allThemes().filter((item) => item.mode === themeMode).map((item) => (
-                      <button type="button" key={item.id} role="menuitem" data-theme-id={item.id} className={item.id === themeId ? "selected" : undefined} onClick={() => changeTheme(item.id)}>
-                        <span className="swatches">{item.swatch.map((color, index) => <i key={index} style={{ background: color }} />)}</span>
-                        <span className="menu-label">{language === "en" ? item.nameEn : item.nameKo}</span>
-                      </button>
-                    ))}
-                  </section>
-                ))}
+                <div className="theme-pop-top" data-theme-group="top">
+                  {customThemes.map((item) => (
+                    <button type="button" key={item.id} role="menuitem" data-theme-id={item.id} className={item.id === themeId ? "selected" : undefined} onClick={() => changeTheme(item.id)}>
+                      <span className="swatches">{[item.colors.bg, item.colors.panel, item.colors.accent].map((color, index) => <i key={index} style={{ background: color }} />)}</span>
+                      <span className="menu-label">{item.name}</span>
+                    </button>
+                  ))}
+                  <button type="button" role="menuitem" data-command="theme-settings" onClick={() => { setPopup(null); setDialog({ kind: "preferences", tab: "theme" }); }}>
+                    <Icon name="settings" />
+                    <span className="menu-label">{t("start.themeSettings")}</span>
+                  </button>
+                </div>
+                <div className="theme-pop-columns">
+                  {["dark", "light"].map((themeMode) => (
+                    <section key={themeMode} data-theme-column={themeMode}>
+                      <h4>{t(`theme.${themeMode}`)}</h4>
+                      {THEMES.filter((item) => item.mode === themeMode).map((item) => (
+                        <button type="button" key={item.id} role="menuitem" data-theme-id={item.id} className={item.id === themeId ? "selected" : undefined} onClick={() => changeTheme(item.id)}>
+                          <span className="swatches">{item.swatch.map((color, index) => <i key={index} style={{ background: color }} />)}</span>
+                          <span className="menu-label">{language === "en" ? item.nameEn : item.nameKo}</span>
+                        </button>
+                      ))}
+                    </section>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-          <div className="popup-host">
-            <button type="button" className={popup === "language" ? "tool active" : "tool"} data-command="language" aria-label={t("cmd.language")} title={t("cmd.language")} onClick={() => setPopup(popup === "language" ? null : "language")}><Icon name="language" /></button>
-            {popup === "language" && (
-              <div className="menu-pop language-pop" role="menu">
-                <button type="button" role="menuitem" data-language="ko" className={language === "ko" ? "selected" : undefined} onClick={() => changeLanguage("ko")}><span className="lang-glyph">ㅎㆍㄴ</span><span className="menu-label">한국어</span></button>
-                <button type="button" role="menuitem" data-language="en" className={language === "en" ? "selected" : undefined} onClick={() => changeLanguage("en")}><span className="lang-glyph">Aa</span><span className="menu-label">English</span></button>
-              </div>
-            )}
-          </div>
+          <button type="button" className="tool" data-command="language" aria-label={language === "en" ? "한국어" : "English"} title={language === "en" ? "한국어" : "English"} onClick={() => changeLanguage(language === "en" ? "ko" : "en")}>
+            <Flag country={language === "en" ? "kr" : "gb"} />
+          </button>
           <ToolButton command={c.preferences} />
           <ToolButton command={c.about} />
         </div>
@@ -803,23 +1032,27 @@ export function App({ initialSettings }) {
         />
       )}
 
-      <div className="workspace" style={{ display: showStart ? "none" : undefined, gridTemplateColumns: `${sizes.left}px 5px minmax(0, 1fr) 5px ${sizes.right}px`, gridTemplateRows: `minmax(0, 1fr) 5px ${sizes.bottom}px` }}>
-        <div className="left-col" style={{ gridTemplateRows: `minmax(60px, ${sizes.palette}px) 5px minmax(0, 1fr)` }}>
-          <section className="panel" data-panel="palette">
-            <h3>{t("panel.palette")}</h3>
-            <Palette t={t} onDragStart={beginPaletteDrag} onAdd={addFromPalette} />
-          </section>
-          <div className="splitter h" data-splitter="palette" onPointerDown={beginSplit("palette", 1)} />
-          <section className="panel" data-panel="tree">
-            <h3>{t("panel.tree")}</h3>
-            <ComponentTree t={t} screen={activeScreen} selected={selected} onSelect={select} />
-          </section>
+      <div className="workspace" style={{ display: showStart ? "none" : undefined, gridTemplateColumns: `${collapsed.left ? 30 : sizes.left}px ${collapsed.left ? 0 : 5}px minmax(0, 1fr) ${collapsed.right ? 0 : 5}px ${collapsed.right ? 30 : sizes.right}px`, gridTemplateRows: "minmax(0, 1fr)" }}>
+        <div className="left-col">
+          {collapsed.left ? (
+            <button type="button" className="panel-strip" data-expand="left" title={t("panel.expand")} aria-label={t("panel.expand")} onClick={() => togglePanel("left")}>
+              <Icon name="collapseRight" size={14} />
+              <Icon name="grid" />
+              <span>{t("panel.palette")}</span>
+            </button>
+          ) : (
+            <section className="panel" data-panel="palette">
+              <PanelTitle t={t} id="left" icon="grid" title={t("panel.palette")} collapseIcon="collapseLeft" expandIcon="collapseRight" onToggle={() => togglePanel("left")} />
+              <Palette t={t} version={project.lvgl} disabled={!editing} onDragStart={beginPaletteDrag} onAdd={addFromPalette} />
+            </section>
+          )}
         </div>
-        <div className="splitter" data-splitter="left" onPointerDown={beginSplit("left", 1)} />
+        <div className="splitter" data-splitter="left" style={collapsed.left ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("left", 1)} />
 
-        <div className="center-col">
+        <div className="center-col" style={{ gridTemplateRows: `minmax(0, 1fr) ${collapsed.bottom ? 0 : 5}px ${collapsed.bottom ? 29 : sizes.bottom}px` }}>
+          <div className="center-top">
           <div className="design-bar">
-            <div className="screen-tabs">
+            <div className="screen-tabs" ref={screenTabs}>
               {project.screens.map((screen) => (
                 <span className={screen.id === activeScreen.id ? "screen-tab active" : "screen-tab"} key={screen.id}>
                   <button type="button" data-screen-tab={screen.id} onClick={() => select(screen.id)}>
@@ -830,24 +1063,12 @@ export function App({ initialSettings }) {
                   )}
                 </span>
               ))}
-              <button type="button" className="mini" data-command="add-screen" disabled={running} aria-label={t("screen.add")} title={t("screen.add")} onClick={cmdAddScreen}><Icon name="add" size={14} /></button>
             </div>
-            <div className="design-tools">
-              <button type="button" className="version-chip" data-command="version-chip" title={t("settings.version")} onClick={() => setDialog({ kind: "settings" })}>
-                <Icon name="manager" size={14} /> LVGL {project.lvgl}
-              </button>
-              <span className="zoom-box">
-                <button type="button" className="mini" aria-label={c.zoomOut.label} title={c.zoomOut.label} onClick={c.zoomOut.run}><Icon name="zoomOut" size={14} /></button>
-                <span data-zoom="">{Math.round(zoom * 100)}%</span>
-                <button type="button" className="mini" aria-label={c.zoomIn.label} title={c.zoomIn.label} onClick={c.zoomIn.run}><Icon name="zoomIn" size={14} /></button>
-                <button type="button" className="mini" aria-label={c.zoomFit.label} title={c.zoomFit.label} onClick={c.zoomFit.run}><Icon name="zoomFit" size={14} /></button>
-              </span>
-              <span className="view-switch">
-                {["design", "split", "code"].map((item) => (
-                  <button type="button" key={item} data-view={item} className={view === item ? "active" : undefined} aria-label={t(`view.${item}`)} title={t(`view.${item}`)} onClick={() => setView(item)}><Icon name={item} /></button>
-                ))}
-              </span>
-            </div>
+            <button type="button" className="mini" data-command="add-screen" disabled={running} aria-label={t("screen.add")} title={t("screen.add")} onClick={cmdAddScreen}><Icon name="add" size={14} /></button>
+            <span className="tab-nav">
+              <button type="button" className="mini" data-command="tab-prev" disabled={activeIndex <= 0} aria-label={t("screen.prev")} title={t("screen.prev")} onClick={() => select(project.screens[activeIndex - 1].id)}><Icon name="collapseLeft" size={14} /></button>
+              <button type="button" className="mini" data-command="tab-next" disabled={activeIndex >= project.screens.length - 1} aria-label={t("screen.next")} title={t("screen.next")} onClick={() => select(project.screens[activeIndex + 1].id)}><Icon name="collapseRight" size={14} /></button>
+            </span>
           </div>
           <div className={`design-area view-${view}`}>
             <div className="viewport" ref={viewport} style={view === "code" ? { display: "none" } : undefined}>
@@ -859,6 +1080,7 @@ export function App({ initialSettings }) {
                 onSelect={select}
                 mode={mode}
                 zoom={zoom}
+                rulers={rulers}
                 onLog={log}
                 onMeta={useCallback((meta) => setRuntime(meta.runtime), [])}
                 onError={showError}
@@ -866,22 +1088,43 @@ export function App({ initialSettings }) {
             </div>
             {code && <CodeView files={code} />}
           </div>
-        </div>
-        <div className="splitter" data-splitter="right" onPointerDown={beginSplit("right", -1)} />
-
-        <div className="right-col panel">
-          <h3>{t("panel.attributes")}</h3>
-          <Attributes t={t} store={store} selected={selected} readOnly={running} onImportImage={importImage} />
-        </div>
-
-        <div className="splitter h span" data-splitter="bottom" onPointerDown={beginSplit("bottom", -1)} />
-        <div className="bottom-panel span">
-          <div className="bottom-tabs">
-            <button type="button" data-bottom="log" className={bottomTab === "log" ? "active" : undefined} onClick={() => setBottomTab("log")}><Icon name="log" /> {t("panel.log")}</button>
-            <button type="button" data-bottom="build" className={bottomTab === "build" ? "active" : undefined} onClick={() => setBottomTab("build")}><Icon name="build" /> {t("panel.build")}</button>
           </div>
-          {bottomTab === "log" ? <LogView id="log" lines={logLines} /> : <LogView id="build" lines={buildLines} />}
+          <div className="splitter h" data-splitter="bottom" style={collapsed.bottom ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("bottom", -1)} />
+          <div className="bottom-panel">
+            <div className="bottom-tabs">
+              <button type="button" data-bottom="log" className={bottomTab === "log" ? "active" : undefined} onClick={() => setBottomTab("log")}><Icon name="log" /> {t("panel.log")}</button>
+              <button type="button" data-bottom="build" className={bottomTab === "build" ? "active" : undefined} onClick={() => setBottomTab("build")}><Icon name="build" /> {t("panel.build")}</button>
+              <button type="button" className="mini bottom-collapse" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "collapseUp" : "collapseDown"} size={14} /></button>
+            </div>
+            {collapsed.bottom ? null : bottomTab === "log" ? <LogView id="log" lines={logLines} /> : <LogView id="build" lines={buildLines} />}
+          </div>
         </div>
+        <div className="splitter" data-splitter="right" style={collapsed.right ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("right", -1)} />
+
+        {collapsed.right ? (
+          <div className="right-col">
+            <button type="button" className="panel-strip" data-expand="right" title={t("panel.expand")} aria-label={t("panel.expand")} onClick={() => togglePanel("right")}>
+              <Icon name="collapseLeft" size={14} />
+              <Icon name="list" />
+              <span>{t("panel.tree")}</span>
+              <Icon name="attributes" />
+              <span>{t("panel.attributes")}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="right-col" style={{ gridTemplateRows: collapsed.tree && collapsed.attributes ? "auto 0 auto" : collapsed.tree ? "auto 0 minmax(0, 1fr)" : collapsed.attributes ? "minmax(0, 1fr) 0 auto" : `minmax(60px, ${sizes.tree}px) 5px minmax(0, 1fr)` }}>
+            <section className="panel" data-panel="tree">
+              <PanelTitle t={t} id="tree" icon="list" title={t("panel.tree")} collapsed={collapsed.tree} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("tree")} />
+              {!collapsed.tree && <ComponentTree t={t} screen={activeScreen} selected={selected} onSelect={select} />}
+            </section>
+            <div className="splitter h" data-splitter="tree" style={collapsed.tree || collapsed.attributes ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("tree", 1)} />
+            <section className="panel" data-panel="attributes">
+              <PanelTitle t={t} id="attributes" icon="attributes" title={t("panel.attributes")} collapsed={collapsed.attributes} collapseIcon="collapseUp" expandIcon="collapseDown" onToggle={() => togglePanel("attributes")} />
+              {!collapsed.attributes && <Attributes t={t} store={store} selected={selected} readOnly={running} onImportImage={importImage} />}
+            </section>
+          </div>
+        )}
+
       </div>
 
       <div className="statusbar">
@@ -901,6 +1144,8 @@ export function App({ initialSettings }) {
           )}
         </span>
       </div>
+
+      {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} items={contextMenu.items} onClose={closeContextMenu} />}
 
       {ghost && (
         <div className="drag-ghost" data-ghost="" style={{ left: ghost.x + 8, top: ghost.y + 8 }}>
@@ -940,7 +1185,7 @@ export function App({ initialSettings }) {
       {dialog?.kind === "manager" && (
         <LvglManager t={t} autoInstall={dialog.autoInstall} onInstalledChange={setInstalled} onClose={() => setDialog(dialog.back ? { kind: dialog.back } : null)} />
       )}
-      {dialog?.kind === "about" && <AboutDialog t={t} runtime={runtime} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "about" && <AboutDialog t={t} runtime={runtime} iconSource={appIconLarge} onClose={() => setDialog(null)} />}
       {dialog?.kind === "message" && <MessageDialog t={t} title={dialog.title} message={dialog.message} onClose={() => setDialog(null)} />}
       {dialog?.kind === "confirm" && (
         <ConfirmDialog

@@ -42,6 +42,10 @@ export default `/*
 #define LV_FONT_MONTSERRAT_48 1
 #define LV_FONT_DEFAULT &lv_font_montserrat_14
 
+#define LV_USE_QRCODE 1
+#define LV_USE_BARCODE 1
+#define LV_USE_ARCLABEL 1
+
 #define LV_BUILD_EXAMPLES 0
 #define LV_BUILD_DEMOS 0
 

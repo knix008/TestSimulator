@@ -63,3 +63,6 @@ button:disabled .icon[data-tone],
 button.primary .icon[data-tone],
 .toolbar button.active .icon[data-tone] { color: inherit; }
 button.primary .icon[data-duo] > :first-child { fill: none; }
+
+/* Stop is always a red square, also on a pressed toolbar button. */
+.toolbar button.active .icon[data-icon="stop"], .icon[data-icon="stop"] { color: #dc2626; }

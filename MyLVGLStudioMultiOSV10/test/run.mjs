@@ -198,7 +198,7 @@ await test("Every palette entry is a widget", () => {
   for (const { items } of PALETTE) for (const type of items) assert.ok(WIDGETS[type], type);
 });
 await test("Every property can reach the engine", () => {
-  const extra = new Set(["min", "max", "src", "target", "year", "month", "day", "digits", "separator"]);
+  const extra = new Set(["min", "max", "src", "target", "year", "month", "day", "digits", "separator", "canvasW", "canvasH", "canvasColor", "qrSize", "gridColumns", "gridRows"]);
   for (const [type, definition] of Object.entries(WIDGETS)) {
     for (const prop of definition.props) {
       if (extra.has(prop.key) || prop.key in STR_IDS || prop.kind === "size") continue;
@@ -389,6 +389,19 @@ await registerFeatureTests({ category, test, engines, versions: BUNDLED_ENGINES 
 const toolPath = process.platform === "win32" && fs.existsSync("C:/Msys64/ucrt64/bin") ? `C:\\Msys64\\ucrt64\\bin;${process.env.PATH}` : process.env.PATH;
 const env = { ...process.env, PATH: toolPath, Path: toolPath };
 
+/** A virus scanner can hold a file that was just written for a moment (EBUSY). */
+function writeRetrying(file, text) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.writeFileSync(file, text);
+      return;
+    } catch (error) {
+      if (attempt >= 8 || !["EBUSY", "EPERM"].includes(error.code)) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+    }
+  }
+}
+
 function nativeFrame(version, project) {
   const dir = path.join(root, "build", "parity", version);
   const source = path.join(dir, "project");
@@ -396,10 +409,17 @@ function nativeFrame(version, project) {
   for (const [name, text] of Object.entries(generateCode(project))) {
     const file = path.join(source, name);
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== text) fs.writeFileSync(file, text);
+    if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== text) writeRetrying(file, text);
   }
   const lvgl = path.join(root, "third_party", `lvgl-${version}`).replaceAll("\\", "/");
-  execFileSync("cmake", ["-S", source, "-B", build, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_C_COMPILER=gcc", "-DML_HEADLESS=ON", `-DLVGL_DIR=${lvgl}`], { env, stdio: "pipe" });
+  const configure = () => execFileSync("cmake", ["-S", source, "-B", build, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_C_COMPILER=gcc", "-DML_HEADLESS=ON", `-DLVGL_DIR=${lvgl}`], { env, stdio: "pipe" });
+  try {
+    configure();
+  } catch {
+    // Windows can briefly hold ninja's log after the last build ("failed recompaction").
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+    configure();
+  }
   execFileSync("cmake", ["--build", build], { env, stdio: "pipe", maxBuffer: 1 << 28 });
   const output = path.join(dir, "frame.bin");
   execFileSync(path.join(build, process.platform === "win32" ? "app.exe" : "app"), [output], { env, stdio: "pipe" });
@@ -444,7 +464,7 @@ for (const version of BUNDLED_ENGINES) {
   await test("Every pixel of the sample matches the design surface", () => comparePixels(native, home.id, project));
   // Each screen of the everything-project goes first in turn, because ui_init loads the first.
   const everything = everythingProject(version);
-  const names = ["all widgets and properties", "flex and size forms", "every align", "image and data widgets", "every font"];
+  const names = ["all widgets and properties", "flex and size forms", "every align", "image and data widgets", "grid", "every font"];
   for (let index = 0; index < everything.screens.length; index++) {
     await test(`Generated C matches the surface: ${names[index]}`, () => {
       const variant = structuredClone(everything);

@@ -43,7 +43,7 @@ export function IconSelect({ value, options, onChange, title, id }) {
   return (
     <div className="icon-select" ref={host} data-select={id}>
       <button type="button" ref={button} className="icon-select-button" title={title} aria-expanded={open} onClick={() => setOpen((state) => !state)}>
-        {selected?.icon && <Icon name={selected.icon} />}
+        <Icon name={selected?.icon ?? "caretRight"} />
         <span className="icon-select-text">{selected?.label ?? String(value ?? "")}</span>
         <Icon name="caret" size={12} />
       </button>
@@ -62,7 +62,7 @@ export function IconSelect({ value, options, onChange, title, id }) {
                 onChange(option.value);
               }}
             >
-              {option.icon && <Icon name={option.icon} />}
+              <Icon name={option.icon ?? "caretRight"} />
               <span className="menu-label">{option.label}</span>
               {option.note && <span className="menu-note">{option.note}</span>}
             </button>
@@ -73,8 +73,11 @@ export function IconSelect({ value, options, onChange, title, id }) {
   );
 }
 
-/** A number between −/+ buttons, value centred. Empty means "not set" when `blank` allows it. */
-export function Stepper({ value, onChange, min, max, step = 1, placeholder, blank = false, id }) {
+/** A text box exactly as wide as what it holds, so the value and its unit centre together. */
+const fitWidth = (text) => ({ width: `${Math.max(1, String(text ?? "").length) + 1}ch` });
+
+/** − [value unit] +, the value and its unit centred. Empty means "not set" when `blank` allows it. */
+export function Stepper({ value, onChange, min, max, step = 1, placeholder, blank = false, id, unit }) {
   const clamp = (number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, number));
   const nudge = (direction) => {
     const base = Number(value);
@@ -83,20 +86,57 @@ export function Stepper({ value, onChange, min, max, step = 1, placeholder, blan
   return (
     <div className="stepper" data-field={id}>
       <button type="button" tabIndex={-1} aria-label="-" onClick={() => nudge(-1)}>−</button>
-      <input
-        value={value ?? ""}
-        placeholder={placeholder}
-        inputMode="numeric"
-        onChange={(event) => {
-          const text = event.target.value.trim();
-          if (text === "") {
-            if (blank) onChange(undefined);
-            return;
-          }
-          const number = Number.parseInt(text, 10);
-          if (Number.isFinite(number)) onChange(clamp(number));
-        }}
-      />
+      <span className="stepper-value">
+        <input
+          value={value ?? ""}
+          placeholder={placeholder}
+          inputMode="numeric"
+          style={value === undefined || value === null || value === "" ? { width: "100%" } : fitWidth(value)}
+          onChange={(event) => {
+            const text = event.target.value.trim();
+            if (text === "") {
+              if (blank) onChange(undefined);
+              return;
+            }
+            const number = Number.parseInt(text, 10);
+            if (Number.isFinite(number)) onChange(clamp(number));
+          }}
+        />
+        {unit && value !== undefined && value !== null && value !== "" && <span className="stepper-unit" data-unit="">{unit}</span>}
+      </span>
+      <button type="button" tabIndex={-1} aria-label="+" onClick={() => nudge(1)}>+</button>
+    </div>
+  );
+}
+
+/** A size: pixels, a percentage, or "content". The buttons step the number, keeping its form. */
+export function SizeField({ value, onChange, placeholder, id }) {
+  const text = value === undefined || value === null ? "" : String(value);
+  const percent = text.endsWith("%");
+  const number = Number.parseInt(text, 10);
+  const isNumber = Number.isFinite(number);
+  const unit = percent ? "%" : isNumber ? "px" : "";
+  const shown = percent ? text.slice(0, -1) : text;
+  const nudge = (direction) => {
+    const next = Math.max(percent ? 0 : 1, (isNumber ? number : percent ? 0 : 100) + direction);
+    onChange(percent ? `${next}%` : next);
+  };
+  return (
+    <div className="stepper" data-field={id}>
+      <button type="button" tabIndex={-1} aria-label="-" onClick={() => nudge(-1)}>−</button>
+      <span className="stepper-value">
+        <input
+          value={shown}
+          placeholder={placeholder}
+          style={shown === "" ? { width: "100%" } : fitWidth(shown)}
+          onChange={(event) => {
+            const typed = event.target.value.trim();
+            if (/^\d+$/.test(typed)) onChange(percent ? `${typed}%` : Number(typed));
+            else onChange(typed);
+          }}
+        />
+        {unit && <span className="stepper-unit" data-unit="">{unit}</span>}
+      </span>
       <button type="button" tabIndex={-1} aria-label="+" onClick={() => nudge(1)}>+</button>
     </div>
   );

@@ -1,8 +1,8 @@
 // Everything that reaches the desktop. In a plain browser (npm run dev:web) settings stay in
 // localStorage and the native features report that they need the desktop app.
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { emit, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { documentDir } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FILE_EXTENSION } from "./lvgl/project.js";
@@ -48,8 +48,15 @@ export const host = {
   lvglRemove: (version) => (isDesktop ? invoke("lvgl_remove", { version }) : desktopOnly()),
 
   nativeCheck: () => (isDesktop ? invoke("native_check") : Promise.resolve({})),
+  toolsPlan: () => (isDesktop ? invoke("tools_plan") : Promise.resolve([])),
+  toolsInstall: () => (isDesktop ? invoke("tools_install") : desktopOnly()),
   nativeRun: (version, files) => (isDesktop ? invoke("native_run", { version, files }) : desktopOnly()),
   nativeStop: () => (isDesktop ? invoke("native_stop") : Promise.resolve()),
+
+  runOpen: (payload, width, height) => (isDesktop ? invoke("run_open", { payload, width, height }) : desktopOnly()),
+  runPayload: () => invoke("run_payload"),
+  runClose: () => (isDesktop ? invoke("run_close") : Promise.resolve()),
+  emit: (name, payload) => (isDesktop ? emit(name, payload) : Promise.resolve()),
 
   /** Subscribes to a backend event; returns the function that unsubscribes. */
   on: (name, handler) => {
@@ -63,5 +70,5 @@ export const host = {
   close: () => isDesktop && getCurrentWindow().close(),
   startDrag: () => isDesktop && getCurrentWindow().startDragging(),
   startResize: () => isDesktop && getCurrentWindow().startResizeDragging("SouthEast"),
-  setMinWidth: (width, height) => isDesktop && getCurrentWindow().setMinSize(new LogicalSize(width, height)),
+  setMinimumSize: (width, height) => (isDesktop ? invoke("window_min_size", { width, height }) : Promise.resolve()),
 };

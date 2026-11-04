@@ -7,6 +7,7 @@
  * The numeric ids below are mirrored by PROP_IDS, STR_IDS, TYPE_IDS, TRIGGER_IDS and
  * ACTION_IDS in src/lvgl/schema.js.
  */
+#define LV_USE_PRIVATE_API 1 /* 9.6 keeps the image cache functions behind this. */
 #include "lvgl.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,20 +32,30 @@
 #define lv_table_set_column_count lv_table_set_col_cnt
 #define lv_table_set_column_width lv_table_set_col_width
 #define lv_list_add_button lv_list_add_btn
+#define lv_imagebutton_create lv_imgbtn_create
+#define lv_imagebutton_set_src lv_imgbtn_set_src
+#define LV_IMAGEBUTTON_STATE_RELEASED LV_IMGBTN_STATE_RELEASED
 #define ml_table_columns lv_table_get_col_cnt
+typedef lv_coord_t ml_track_t;
 typedef lv_point_t ml_point_t;
 typedef lv_img_dsc_t ml_image_t;
 #else
 #define ml_table_columns lv_table_get_column_count
+typedef int32_t ml_track_t;
 typedef lv_point_precise_t ml_point_t;
 typedef lv_image_dsc_t ml_image_t;
 #endif
+
+/* Arc Label arrived in 9.4. */
+#define ML_HAS_ARCLABEL (LVGL_VERSION_MAJOR == 9 && LVGL_VERSION_MINOR >= 4)
 
 /* 9.3 renamed these two. */
 #if LVGL_VERSION_MAJOR == 9 && LVGL_VERSION_MINOR >= 3
 #define ml_chart_range lv_chart_set_axis_range
 #define ml_calendar_month lv_calendar_set_month_shown
+#define ml_span_new lv_spangroup_add_span
 #else
+#define ml_span_new lv_spangroup_new_span
 #define ml_chart_range lv_chart_set_range
 #define ml_calendar_month lv_calendar_set_showed_date
 #endif
@@ -73,6 +84,11 @@ static int object_types[MAX_OBJECTS];
 static int object_roots[MAX_OBJECTS];
 static action_t * actions;
 static ml_image_t images[MAX_IMAGES];
+static int next_qr_size = 100;
+#if LVGL_VERSION_MAJOR < 9
+static lv_meter_scale_t * meter_scales[MAX_OBJECTS];
+static lv_meter_indicator_t * meter_needles[MAX_OBJECTS];
+#endif
 
 /* Memory widgets keep pointing at (line points, button maps); freed with the objects. */
 typedef struct kept {
@@ -111,16 +127,17 @@ static int last_x, last_y, last_down;
 
 enum { T_SCREEN = 0, T_CONTAINER, T_LABEL, T_BUTTON, T_CHECKBOX, T_SWITCH, T_SLIDER, T_BAR, T_ARC,
        T_DROPDOWN, T_ROLLER, T_TEXTAREA, T_SPINNER, T_LED, T_IMAGE, T_LINE, T_LIST, T_TABLE, T_CHART,
-       T_TABVIEW, T_KEYBOARD, T_CALENDAR, T_SPINBOX, T_BUTTONMATRIX };
+       T_TABVIEW, T_KEYBOARD, T_CALENDAR, T_SPINBOX, T_BUTTONMATRIX, T_IMAGEBUTTON, T_ANIMIMAGE, T_CANVAS, T_MSGBOX,
+       T_WIN, T_TILEVIEW, T_MENU, T_SPAN, T_COLORWHEEL, T_METER, T_SCALE, T_QRCODE, T_BARCODE, T_ARCLABEL, T_GRID };
 
 enum { P_X = 1, P_Y, P_WIDTH, P_HEIGHT, P_WIDTH_PCT, P_HEIGHT_PCT, P_WIDTH_CONTENT, P_HEIGHT_CONTENT,
        P_ALIGN, P_HIDDEN, P_CLICKABLE, P_SCROLLABLE, P_CHECKED, P_DISABLED,
        P_BG_COLOR = 20, P_BG_OPA, P_BORDER_COLOR, P_BORDER_WIDTH, P_RADIUS, P_TEXT_COLOR, P_FONT, P_PAD,
        P_SHADOW_WIDTH, P_SHADOW_COLOR, P_OPA, P_GAP, P_INDICATOR_COLOR, P_FLEX_FLOW,
        P_VALUE = 42, P_SELECTED, P_LED_BRIGHT, P_ROTATION, P_SCALE, P_LINE_COLOR, P_LINE_WIDTH, P_COLUMN_WIDTH,
-       P_CHART_TYPE, P_IMAGE };
+       P_CHART_TYPE, P_IMAGE, P_SCALE_MODE, P_TOTAL_TICKS, P_MAJOR_EVERY, P_DURATION };
 
-enum { S_TEXT = 1, S_PLACEHOLDER, S_OPTIONS, S_ITEMS, S_CELLS, S_SERIES, S_TABS, S_MAP, S_POINTS };
+enum { S_TEXT = 1, S_PLACEHOLDER, S_OPTIONS, S_ITEMS, S_CELLS, S_SERIES, S_TABS, S_MAP, S_POINTS, S_TITLE, S_BUTTONS, S_TILES, S_MENU_ITEMS, S_SPANS, S_FRAMES };
 enum { A_SCREEN = 1, A_SET_TEXT, A_TOGGLE, A_LOG, A_SHOW, A_HIDE };
 enum { TR_CLICKED = 0, TR_PRESSED, TR_RELEASED, TR_VALUE_CHANGED };
 
@@ -195,6 +212,13 @@ void ml_clear(void)
     memset(object_types, 0, sizeof(object_types));
     memset(object_roots, 0, sizeof(object_roots));
     free_actions();
+    /* LVGL remembers decoded pictures by address, and these buffers are about to be freed. */
+#if LVGL_VERSION_MAJOR >= 9
+    lv_image_cache_drop(NULL);
+    lv_image_header_cache_drop(NULL);
+#else
+    lv_img_cache_invalidate_src(NULL);
+#endif
     free_kept();
     log_head = log_tail = 0;
     input_head = input_tail = 0;
@@ -299,6 +323,56 @@ int ml_create(int id, int type, int parent)
         case T_CALENDAR: obj = lv_calendar_create(host); break;
         case T_SPINBOX: obj = lv_spinbox_create(host); break;
         case T_BUTTONMATRIX: obj = lv_buttonmatrix_create(host); break;
+        case T_IMAGEBUTTON: obj = lv_imagebutton_create(host); break;
+        case T_ANIMIMAGE: obj = lv_animimg_create(host); break;
+        case T_CANVAS: obj = lv_canvas_create(host); break;
+        case T_TILEVIEW: obj = lv_tileview_create(host); break;
+        case T_MENU: obj = lv_menu_create(host); break;
+        case T_SPAN: obj = lv_spangroup_create(host); break;
+        case T_GRID: obj = lv_obj_create(host); break;
+#if LVGL_VERSION_MAJOR >= 9
+        case T_MSGBOX: obj = lv_msgbox_create(host); break;
+        case T_WIN:
+            obj = lv_win_create(host);
+            inner_labels[id] = lv_label_create(lv_win_get_content(obj));
+            break;
+        case T_SCALE:
+            obj = lv_scale_create(host);
+            lv_scale_set_label_show(obj, true);
+            break;
+        case T_QRCODE:
+            obj = lv_qrcode_create(host);
+            lv_qrcode_set_size(obj, next_qr_size);
+            break;
+        case T_BARCODE: obj = lv_barcode_create(host); break;
+#if ML_HAS_ARCLABEL
+        case T_ARCLABEL:
+            obj = lv_arclabel_create(host);
+            lv_arclabel_set_angle_start(obj, 180);
+            lv_arclabel_set_angle_size(obj, 270);
+            lv_arclabel_set_radius(obj, LV_PCT(100));
+            break;
+#endif
+#else
+        case T_MSGBOX: {
+            static const char * no_buttons[] = { "" };
+            obj = lv_msgbox_create(host, " ", " ", no_buttons, false);
+            break;
+        }
+        case T_WIN:
+            obj = lv_win_create(host, 40);
+            inner_labels[id] = lv_label_create(lv_win_get_content(obj));
+            break;
+        case T_COLORWHEEL: obj = lv_colorwheel_create(host, true); break;
+        case T_METER:
+            obj = lv_meter_create(host);
+            meter_scales[id] = lv_meter_add_scale(obj);
+            lv_meter_set_scale_ticks(obj, meter_scales[id], 41, 2, 10, lv_palette_main(LV_PALETTE_GREY));
+            lv_meter_set_scale_major_ticks(obj, meter_scales[id], 8, 4, 15, lv_color_black(), 10);
+            meter_needles[id] = lv_meter_add_needle_line(obj, meter_scales[id], 4, lv_palette_main(LV_PALETTE_RED), -10);
+            break;
+        case T_QRCODE: obj = lv_qrcode_create(host, next_qr_size, lv_color_black(), lv_color_white()); break;
+#endif
         default: return -1;
     }
     objects[id] = obj;
@@ -345,6 +419,11 @@ int ml_range(int id, int min, int max)
         case T_ARC: lv_arc_set_range(obj, min, max); return 0;
         case T_CHART: ml_chart_range(obj, LV_CHART_AXIS_PRIMARY_Y, min, max); return 0;
         case T_SPINBOX: lv_spinbox_set_range(obj, min, max); return 0;
+#if LVGL_VERSION_MAJOR >= 9
+        case T_SCALE: lv_scale_set_range(obj, min, max); return 0;
+#else
+        case T_METER: lv_meter_set_scale_range(obj, meter_scales[id], min, max, 270, 135); return 0;
+#endif
         default: return -1;
     }
 }
@@ -397,6 +476,9 @@ int ml_set_i(int id, int prop, int value)
                 case T_BAR: lv_bar_set_value(obj, value, LV_ANIM_OFF); return 0;
                 case T_ARC: lv_arc_set_value(obj, value); return 0;
                 case T_SPINBOX: lv_spinbox_set_value(obj, value); return 0;
+#if LVGL_VERSION_MAJOR < 9
+                case T_METER: lv_meter_set_indicator_value(obj, meter_needles[id], value); return 0;
+#endif
                 default: return -1;
             }
         case P_SELECTED:
@@ -418,7 +500,18 @@ int ml_set_i(int id, int prop, int value)
         case P_CHART_TYPE: lv_chart_set_type(obj, value ? LV_CHART_TYPE_BAR : LV_CHART_TYPE_LINE); return 0;
         case P_IMAGE:
             if(value < 0 || value >= MAX_IMAGES) return -1;
-            lv_image_set_src(obj, &images[value]);
+            if(object_types[id] == T_IMAGEBUTTON) lv_imagebutton_set_src(obj, LV_IMAGEBUTTON_STATE_RELEASED, NULL, &images[value], NULL);
+            else lv_image_set_src(obj, &images[value]);
+            return 0;
+#if LVGL_VERSION_MAJOR >= 9
+        case P_SCALE_MODE: lv_scale_set_mode(obj, value ? LV_SCALE_MODE_ROUND_INNER : LV_SCALE_MODE_HORIZONTAL_BOTTOM); return 0;
+        case P_TOTAL_TICKS: lv_scale_set_total_tick_count(obj, value); return 0;
+        case P_MAJOR_EVERY: lv_scale_set_major_tick_every(obj, value); return 0;
+#endif
+        case P_DURATION:
+            lv_animimg_set_duration(obj, value);
+            lv_animimg_set_repeat_count(obj, LV_ANIM_REPEAT_INFINITE);
+            lv_animimg_start(obj);
             return 0;
         default: return -1;
     }
@@ -562,6 +655,54 @@ static void set_points(lv_obj_t * obj, const char * text)
     lv_line_set_points(obj, points, count);
 }
 
+static void set_lines(lv_obj_t * obj, const char * text, void (*add)(lv_obj_t *, const char *, int))
+{
+    char * copy = strdup(text);
+    int index = 0;
+    for(char * line = copy; line; index++) {
+        char * end = strchr(line, '\n');
+        if(end) *end = 0;
+        add(obj, line, index);
+        line = end ? end + 1 : NULL;
+    }
+    free(copy);
+}
+
+static void add_tile(lv_obj_t * obj, const char * line, int index)
+{
+    lv_label_set_text(lv_label_create(lv_tileview_add_tile(obj, index, 0, LV_DIR_HOR)), line);
+}
+
+static lv_obj_t * menu_page;
+
+static void add_menu_item(lv_obj_t * obj, const char * line, int index)
+{
+    LV_UNUSED(obj);
+    LV_UNUSED(index);
+    lv_label_set_text(lv_label_create(lv_menu_cont_create(menu_page)), line);
+}
+
+static void add_span(lv_obj_t * obj, const char * line, int index)
+{
+    LV_UNUSED(index);
+    lv_span_set_text(ml_span_new(obj), line);
+}
+
+/* Comma separated image indexes; the first shows until the animation starts. */
+static void set_frames(lv_obj_t * obj, const char * text)
+{
+    int count = count_char(text, ',') + 1;
+    const void ** frames = keep(calloc(count, sizeof(void *)));
+    const char * cursor = text;
+    for(int i = 0; i < count; i++) {
+        char * after;
+        frames[i] = &images[strtol(cursor, &after, 10)];
+        cursor = *after == ',' ? after + 1 : after;
+    }
+    lv_image_set_src(obj, frames[0]);
+    lv_animimg_set_src(obj, frames, count);
+}
+
 static int apply_text(int id, const char * text)
 {
     lv_obj_t * obj = objects[id];
@@ -571,6 +712,20 @@ static int apply_text(int id, const char * text)
         case T_BUTTON: lv_label_set_text(inner_labels[id], text); return 0;
         case T_CHECKBOX: lv_checkbox_set_text(obj, text); return 0;
         case T_TEXTAREA: lv_textarea_set_text(obj, text); return 0;
+        case T_WIN: lv_label_set_text(inner_labels[id], text); return 0;
+        case T_QRCODE: lv_qrcode_update(obj, text, strlen(text)); return 0;
+#if LVGL_VERSION_MAJOR >= 9
+        case T_MSGBOX: lv_msgbox_add_text(obj, text); return 0;
+        case T_BARCODE:
+            lv_obj_update_layout(obj);
+            lv_barcode_update(obj, text);
+            return 0;
+#if ML_HAS_ARCLABEL
+        case T_ARCLABEL: lv_arclabel_set_text(obj, text); return 0;
+#endif
+#else
+        case T_MSGBOX: lv_label_set_text(lv_msgbox_get_text(obj), text); return 0;
+#endif
         default: return -1;
     }
 }
@@ -593,6 +748,50 @@ int ml_set_s(int id, int prop, const char * text)
         case S_TABS: set_tabs(obj, text); return 0;
         case S_MAP: set_map(obj, text); return 0;
         case S_POINTS: set_points(obj, text); return 0;
+        case S_TILES: set_lines(obj, text, add_tile); return 0;
+        case S_MENU_ITEMS:
+            menu_page = lv_menu_page_create(obj, NULL);
+            set_lines(obj, text, add_menu_item);
+            lv_menu_set_page(obj, menu_page);
+            return 0;
+        case S_SPANS: set_lines(obj, text, add_span); return 0;
+        case S_FRAMES: set_frames(obj, text); return 0;
+        case S_TITLE:
+            if(object_types[id] == T_WIN) lv_win_add_title(obj, text);
+#if LVGL_VERSION_MAJOR >= 9
+            else lv_msgbox_add_title(obj, text);
+#else
+            else lv_label_set_text(lv_msgbox_get_title(obj), text);
+#endif
+            return 0;
+        case S_BUTTONS: {
+#if LVGL_VERSION_MAJOR >= 9
+            char * copy = strdup(text);
+            for(char * cell = copy; cell;) {
+                char * comma = strchr(cell, ',');
+                if(comma) *comma = 0;
+                lv_msgbox_add_footer_button(obj, cell);
+                cell = comma ? comma + 1 : NULL;
+            }
+            free(copy);
+#else
+            char * copy = kept_copy(text);
+            const char ** map = keep(calloc(count_char(copy, ',') + 2, sizeof(char *)));
+            int at = 0;
+            for(char * cell = copy; cell;) {
+                char * comma = strchr(cell, ',');
+                if(comma) *comma = 0;
+                map[at++] = cell;
+                cell = comma ? comma + 1 : NULL;
+            }
+            map[at] = "";
+            /* The size lv_msgbox_create gives its buttons, which it set for none at all. */
+            lv_obj_t * buttons = lv_msgbox_get_btns(obj);
+            lv_btnmatrix_set_map(buttons, map);
+            lv_obj_set_size(buttons, at * (2 * LV_DPI_DEF / 3), lv_font_get_line_height(lv_obj_get_style_text_font(buttons, LV_PART_ITEMS)) + LV_DPI_DEF / 10);
+#endif
+            return 0;
+        }
         default: return -1;
     }
 }
@@ -629,6 +828,63 @@ int ml_date(int id, int year, int month, int day)
     if(object_types[id] != T_CALENDAR) return -1;
     lv_calendar_set_today_date(objects[id], year, month, day);
     ml_calendar_month(objects[id], year, month);
+    return 0;
+}
+
+void ml_qr_size(int size)
+{
+    next_qr_size = size;
+}
+
+int ml_canvas(int id, int width, int height, int color)
+{
+    if(object_types[id] != T_CANVAS) return -1;
+    void * buffer = keep(calloc((size_t)width * height, 4));
+#if LVGL_VERSION_MAJOR >= 9
+    lv_canvas_set_buffer(objects[id], buffer, width, height, LV_COLOR_FORMAT_ARGB8888);
+#else
+    lv_canvas_set_buffer(objects[id], buffer, width, height, LV_IMG_CF_TRUE_COLOR_ALPHA);
+#endif
+    lv_canvas_fill_bg(objects[id], lv_color_hex((uint32_t)color), LV_OPA_COVER);
+    return 0;
+}
+
+/* Tracks are comma separated: 80, 2fr or content. */
+static ml_track_t * grid_tracks(const char * text)
+{
+    int count = count_char(text, ',') + 1;
+    ml_track_t * tracks = keep(calloc(count + 1, sizeof(ml_track_t)));
+    const char * cursor = text;
+    for(int i = 0; i < count; i++) {
+        char * after;
+        long number = strtol(cursor, &after, 10);
+        if(strncmp(after, "fr", 2) == 0) {
+            long parts = number > 0 ? number : 1;
+            tracks[i] = LV_GRID_FR(parts);
+            after += 2;
+        }
+        else if(strncmp(cursor, "content", 7) == 0) {
+            tracks[i] = LV_GRID_CONTENT;
+            after = (char *)cursor + 7;
+        }
+        else tracks[i] = (ml_track_t)number;
+        cursor = *after == ',' ? after + 1 : after;
+    }
+    tracks[count] = LV_GRID_TEMPLATE_LAST;
+    return tracks;
+}
+
+int ml_grid(int id, const char * columns, const char * rows)
+{
+    if(object_types[id] != T_GRID) return -1;
+    lv_obj_set_grid_dsc_array(objects[id], grid_tracks(columns), grid_tracks(rows));
+    return 0;
+}
+
+int ml_cell(int id, int column, int column_span, int row, int row_span)
+{
+    if(!objects[id]) return -1;
+    lv_obj_set_grid_cell(objects[id], LV_GRID_ALIGN_STRETCH, column, column_span, LV_GRID_ALIGN_STRETCH, row, row_span);
     return 0;
 }
 

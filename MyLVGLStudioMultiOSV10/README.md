@@ -7,11 +7,11 @@ LVGL 애플리케이션의 화면을 그래픽으로 설계하고, 바로 실행
 ## 주요 기능
 
 - **화면 설계:** 팔레트에서 끌어다 놓기, 이동과 크기 조절, 구성 요소 트리, 속성 패널, 여러 화면, Undo/Redo
-- **위젯 23종:** 레이블, 버튼, 이미지, 컨테이너, 텍스트 입력, 키보드, 체크박스, 스위치, 슬라이더, 스핀 박스, 드롭다운, 롤러, 버튼 매트릭스, 진행 막대, 원호, 스피너, LED, 선, 차트, 리스트, 표, 탭 뷰, 달력
+- **콘트롤:** 프로젝트의 LVGL 버전에 있는 위젯을 모두 표시 (v8.4 35종, v9.2 35종, v9.6 36종). Grid 레이아웃 포함
 - **이미지:** PNG, JPG, BMP, GIF, WebP, SVG 가져오기, 회전과 배율. 원본은 프로젝트에 보관하고 LVGL 버전에 맞는 C 배열로 생성
 - **이벤트:** 코드 없이 화면 전환, 텍스트 변경, 표시 전환, 로그 출력을 연결
 - **두 가지 실행 방식**
-  - 앱 안에서 실행(F5): 컴파일러와 LVGL 소스 없이 바로 동작
+  - 실행 화면(F5): 분리된 창에서 바로 동작. 컴파일러와 LVGL 소스가 필요 없음
   - 네이티브 실행(Shift+F5): 생성한 C 코드를 gcc와 SDL2로 빌드해 별도 창에서 실행
 - **LVGL 버전 선택:** 프로젝트 설정에서 v8.3 이상과 v9 중에서 고르며, 생성 코드가 해당 버전의 API를 따름
 - **LVGL 관리자:** 필요한 버전의 소스만 GitHub에서 내려받아 설치하거나 삭제
@@ -61,7 +61,7 @@ npm start
 | 작업 | 필요한 도구 |
 |---|---|
 | 앱 개발과 실행 | Node.js 20.19 이상, Rust, Tauri 2 플랫폼 의존성 |
-| 네이티브 실행 | gcc, CMake, Ninja, SDL2 |
+| 네이티브 실행 | gcc, CMake, Ninja, SDL2 (LVGL 관리자의 **컴파일러 설치**로 설치 가능) |
 | WebAssembly 엔진 다시 빌드 | Emscripten, CMake, Ninja |
 
 Windows에서는 MSYS2 UCRT64로 네이티브 실행 도구를 설치할 수 있습니다.
@@ -80,7 +80,7 @@ MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이
 | `npm run dev:web` | 브라우저에서 화면만 실행(저장과 네이티브 기능 제외) |
 | `npm test` | 문서 모델, 설정, 테마, 배경, 코드 생성기, 모든 위젯·속성·이벤트, 생성 코드와 엔진의 픽셀 비교 |
 | `npm test -- --no-native` | gcc 빌드를 뺀 테스트 |
-| `npm run test:gui` | 실제 앱을 띄워 모든 화면을 조작하는 GUI 테스트 (`-- --no-native`로 다운로드와 네이티브 빌드 제외) |
+| `npm run test:gui` | 앱을 `src-tauri/target/e2e`에 빌드한 뒤 모든 화면을 조작하는 GUI 테스트. `npm start` 창을 띄운 채 실행할 수 있습니다. |
 | `npm run fetch:lvgl` | 엔진 빌드용 LVGL 소스를 `third_party/`에 받기 |
 | `npm run build:engine` | WebAssembly 엔진을 빌드해 `public/engine/`에 저장 |
 | `npm run icons` | 앱 아이콘 생성 |
@@ -91,7 +91,7 @@ MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이
 - 한글 글꼴은 아직 없습니다. 내장 Montserrat에는 한글이 없어서 한글 텍스트가 LVGL 화면에 표시되지 않습니다.
 - 사용자 C 코드 연결은 아직 없습니다.
 - 탭 뷰의 탭 안에 위젯을 배치하는 기능은 아직 없습니다. 탭에는 이름만 표시됩니다.
-- 메시지 상자, 눈금(scale/meter)처럼 v8과 v9의 API가 크게 다른 위젯은 아직 넣지 않았습니다.
+- 외부 라이브러리나 장치가 필요한 위젯(Lottie, rlottie, GIF, FFmpeg, GStreamer, 3D Texture)과 입력기(Pinyin)는 넣지 않았습니다.
 - 앱 안에서 실행할 때 PC 키보드 입력은 LVGL로 전달되지 않습니다. 텍스트 입력에는 키보드 위젯을 사용합니다.
 - 메뉴와 대화상자는 아직 My Git Master처럼 별도 OS 창이 아니라 창 안에 표시됩니다.
 - macOS와 Linux용 코드는 포함되어 있지만 Windows에서만 개발했으며 다른 OS에서는 아직 검증하지 않았습니다.

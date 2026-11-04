@@ -7,7 +7,7 @@ import { BUNDLED_ENGINES, DEFAULT_VERSION, KNOWN_VERSIONS, engineFor, sortReleas
 import { DEVICES } from "./lvgl/schema.js";
 import { joinPath, removeImageFromProject, validProjectName } from "./lvgl/project.js";
 
-export function Dialog({ title, onClose, children, footer, width = 460, id }) {
+export function Dialog({ title, icon, onClose, children, footer, width = 460, id }) {
   useEffect(() => {
     const key = (event) => {
       if (event.key === "Escape") onClose();
@@ -19,7 +19,7 @@ export function Dialog({ title, onClose, children, footer, width = 460, id }) {
     <div className="overlay-dim" role="dialog" aria-modal="true" aria-label={title} data-dialog={id}>
       <div className="dialog" style={{ width }}>
         <header>
-          <strong>{title}</strong>
+          <strong className="dialog-title" data-dialog-title=""><Icon name={icon} /><span>{title}</span></strong>
           <button type="button" className="mini" aria-label="×" onClick={onClose}><Icon name="close" size={14} /></button>
         </header>
         <div className="dialog-body">{children}</div>
@@ -33,6 +33,7 @@ export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel }) {
   return (
     <Dialog
       title={title ?? t("dialog.confirm")}
+      icon="about"
       onClose={onNo}
       id="confirm"
       width={420}
@@ -50,17 +51,49 @@ export function ConfirmDialog({ t, title, message, onYes, onNo, yesLabel }) {
 
 export function MessageDialog({ t, title, message, onClose }) {
   return (
-    <Dialog title={title} onClose={onClose} id="message" width={420} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.ok")}</button>}>
+    <Dialog title={title} icon="about" onClose={onClose} id="message" width={420} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.ok")}</button>}>
       <p className="dialog-message">{message}</p>
     </Dialog>
   );
 }
 
-export function AboutDialog({ t, onClose, runtime }) {
+function platformName() {
+  const text = navigator.userAgent;
+  if (/Windows/i.test(text)) return "Windows";
+  if (/Mac OS/i.test(text)) return "macOS";
+  if (/Linux/i.test(text)) return "Linux";
+  return navigator.platform || "-";
+}
+
+export function AboutDialog({ t, onClose, runtime, iconSource }) {
+  const rows = [
+    ["about.version", __APP_VERSION__],
+    ["about.build", `${__BUILD_INFO__.date}${__BUILD_INFO__.commit ? ` (${__BUILD_INFO__.commit})` : ""}`],
+    ["about.engine", runtime ? `LVGL ${runtime}` : "-"],
+    ["about.versions", t("about.versionsValue", { engines: BUNDLED_ENGINES.join(", ") })],
+    ["about.format", ".mylvgl"],
+    ["about.tech", "Tauri 2, React, WebAssembly"],
+    ["about.platform", platformName()],
+    ["about.creator", "SHKWON(knix008@naver.com)"],
+    ["about.license", "MIT. LVGL © LVGL Kft, MIT"],
+  ];
   return (
-    <Dialog title={t("about.title")} onClose={onClose} id="about" width={400} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
-      <p className="dialog-message">{t("about.text")}</p>
-      <p className="dialog-note">Version 1.0.0 · LVGL engine {runtime ?? "-"}<br />LVGL © LVGL Kft, MIT License</p>
+    <Dialog title={t("about.window")} icon="about" onClose={onClose} id="about" width={520} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
+      <div className="about-body">
+        <img className="about-icon" src={iconSource} alt="" />
+        <div className="about-copy">
+          <p className="about-name"><strong>My LVGL Studio</strong><span>{__APP_VERSION__}</span></p>
+          <p>{t("about.text")}</p>
+        </div>
+        <dl className="about-meta">
+          {rows.map(([key, value]) => (
+            <div key={key} style={{ display: "contents" }} data-about={key}>
+              <dt>{t(key)}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
     </Dialog>
   );
 }
@@ -86,7 +119,7 @@ export function ProjectSettings({ t, store, onClose, onManager, installed }) {
     { value: "custom", label: t("device.custom"), icon: "device" },
   ], [t]);
   return (
-    <Dialog title={t("settings.title")} onClose={onClose} id="settings" width={500} footer={<button type="button" className="primary" data-command="settings-close" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("settings.title")} icon="project" onClose={onClose} id="settings" width={500} footer={<button type="button" className="primary" data-command="settings-close" onClick={onClose}>{t("dialog.close")}</button>}>
       <div className="form-grid">
         <span>{t("settings.name")}</span>
         <input className="text-input" data-field="projectName" value={project.name} onChange={(event) => edit((draft) => { draft.name = event.target.value; }, "name")} />
@@ -107,9 +140,9 @@ export function ProjectSettings({ t, store, onClose, onManager, installed }) {
           }}
         />
         <span>{t("settings.width")}</span>
-        <Stepper id="deviceW" value={project.device.w} min={32} max={4096} onChange={(w) => edit((draft) => { draft.device.w = w; }, "w")} />
+        <Stepper id="deviceW" unit="px" value={project.device.w} min={32} max={4096} onChange={(w) => edit((draft) => { draft.device.w = w; }, "w")} />
         <span>{t("settings.height")}</span>
-        <Stepper id="deviceH" value={project.device.h} min={32} max={4096} onChange={(h) => edit((draft) => { draft.device.h = h; }, "h")} />
+        <Stepper id="deviceH" unit="px" value={project.device.h} min={32} max={4096} onChange={(h) => edit((draft) => { draft.device.h = h; }, "h")} />
         <span>{t("image.title")}</span>
         <div className="image-list" data-images="">
           {(project.images ?? []).length === 0 && <span className="start-empty">{t("image.empty")}</span>}
@@ -166,6 +199,7 @@ export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, in
   return (
     <Dialog
       title={t(saveOnly ? "cmd.saveAs" : "cmd.new")}
+      icon={saveOnly ? "save" : "new"}
       onClose={onClose}
       id="new-project"
       width={540}
@@ -211,6 +245,36 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
   const [errors, setErrors] = useState({});
   const [tools, setTools] = useState(null);
   const [asking, setAsking] = useState(null);
+  const [toolPlan, setToolPlan] = useState(null);
+  const [installingTools, setInstallingTools] = useState(false);
+  const [toolOutput, setToolOutput] = useState("");
+
+  useEffect(() => {
+    const offLog = host.on("native-log", ({ line }) => setToolOutput(line));
+    const offExit = host.on("tools-exit", ({ ok, error }) => {
+      setInstallingTools(false);
+      setToolOutput(ok ? t("manager.toolsDone") : error);
+      host.nativeCheck().then(setTools);
+    });
+    return () => {
+      offLog();
+      offExit();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const askInstallTools = async () => setToolPlan(await host.toolsPlan());
+  const installTools = async () => {
+    setToolPlan(null);
+    setInstallingTools(true);
+    setToolOutput("");
+    try {
+      await host.toolsInstall();
+    } catch (error) {
+      setInstallingTools(false);
+      setToolOutput(String(error));
+    }
+  };
 
   const refresh = async () => {
     const list = await host.lvglInstalled();
@@ -270,7 +334,7 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
   const versions = useMemo(() => sortReleases([...(releases ?? KNOWN_VERSIONS), ...installed.map((item) => item.version), ...BUNDLED_ENGINES]), [releases, installed]);
 
   return (
-    <Dialog title={t("manager.title")} onClose={onClose} id="manager" width={640} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
+    <Dialog title={t("manager.title")} icon="manager" onClose={onClose} id="manager" width={640} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
       <p className="dialog-note">{t("manager.intro")}</p>
       {!isDesktop && <p className="form-note">{t("native.desktopOnly")}</p>}
       {offline && <p className="form-note" data-note="offline">{t("manager.offline")}</p>}
@@ -309,6 +373,14 @@ export function LvglManager({ t, onClose, onInstalledChange, autoInstall }) {
           <span className={tools.sdl ? "ok" : "bad"}>SDL2: {tools.sdl ? t("manager.sdlFound") : t("manager.toolMissing")}</span>
         </div>
       )}
+      {tools && (
+        <div className="tools-row">
+          <span className="dialog-note" style={{ margin: 0 }}>{t(tools.gcc && tools.cmake && tools.ninja && tools.sdl ? "manager.toolsReady" : "manager.toolsMissing")}</span>
+          <button type="button" data-action="install-tools" disabled={!isDesktop || installingTools || !!(tools.gcc && tools.cmake && tools.ninja && tools.sdl)} onClick={askInstallTools}><Icon name="build" /> {t("manager.installTools")}</button>
+        </div>
+      )}
+      {toolOutput && <p className="tools-output" data-tools-output="" title={toolOutput}>{toolOutput}</p>}
+      {toolPlan && <ConfirmDialog t={t} message={`${t("manager.toolsAsk")}\n\n${toolPlan.join("\n")}`} yesLabel={t("manager.installTools")} onYes={installTools} onNo={() => setToolPlan(null)} />}
       {asking && <ConfirmDialog t={t} message={t("manager.removeAsk", { version: asking })} yesLabel={t("manager.remove")} onYes={() => remove(asking)} onNo={() => setAsking(null)} />}
     </Dialog>
   );

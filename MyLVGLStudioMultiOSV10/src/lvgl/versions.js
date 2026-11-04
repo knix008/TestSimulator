@@ -72,6 +72,14 @@ const V8 = {
   matrixMap: "lv_btnmatrix_set_map",
   chartRange: "lv_chart_set_range",
   calendarMonth: "lv_calendar_set_showed_date",
+  major: 8,
+  imageButton: "lv_imgbtn_create",
+  imageButtonSet: "lv_imgbtn_set_src",
+  imageButtonState: "LV_IMGBTN_STATE_RELEASED",
+  imageSet: "lv_img_set_src",
+  canvasFormat: "LV_IMG_CF_TRUE_COLOR_ALPHA",
+  track: "lv_coord_t",
+  spanNew: "lv_spangroup_new_span",
 };
 
 const V9 = {
@@ -99,10 +107,18 @@ const V9 = {
   matrixMap: "lv_buttonmatrix_set_map",
   chartRange: "lv_chart_set_range",
   calendarMonth: "lv_calendar_set_showed_date",
+  major: 9,
+  imageButton: "lv_imagebutton_create",
+  imageButtonSet: "lv_imagebutton_set_src",
+  imageButtonState: "LV_IMAGEBUTTON_STATE_RELEASED",
+  imageSet: "lv_image_set_src",
+  canvasFormat: "LV_COLOR_FORMAT_ARGB8888",
+  track: "int32_t",
+  spanNew: "lv_spangroup_new_span",
 };
 
-/** 9.3 renamed two functions. */
-const V93 = { ...V9, chartRange: "lv_chart_set_axis_range", calendarMonth: "lv_calendar_set_month_shown" };
+/** 9.3 renamed these. */
+const V93 = { ...V9, chartRange: "lv_chart_set_axis_range", calendarMonth: "lv_calendar_set_month_shown", spanNew: "lv_spangroup_add_span" };
 
 export function apiFor(version) {
   const v = parseVersion(version);

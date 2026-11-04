@@ -75,7 +75,12 @@ export function createReporter({ title, reportFile, onFailure } = {}) {
     console.log(`  ${c.dim(text)}`);
   }
 
-  async function test(name, body) {
+  async function test(name, options, maybeBody) {
+    const body = maybeBody ?? options;
+    if (maybeBody && options.skip) {
+      console.log(`      ${c.dim("-")}  ${c.dim(fit(name, NAME_WIDTH))} ${c.dim(padStart("skipped", TIME_WIDTH))}`);
+      return;
+    }
     if (!current) category("Tests");
     index++;
     const number = c.dim(padStart(index, 4));

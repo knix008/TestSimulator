@@ -5,6 +5,7 @@ import { engineFor } from "./lvgl/versions.js";
 import { loadEngine } from "./lvgl/engine.js";
 import { CONTAINERS } from "./lvgl/schema.js";
 import { findNode, findParent, isInside, moveNode, setProp } from "./lvgl/project.js";
+import { Ruler } from "./Ruler.jsx";
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const MIN_SIZE = 4;
@@ -20,7 +21,7 @@ function flatten(screen) {
   return list;
 }
 
-export const Surface = forwardRef(function Surface({ store, activeId, selected, onSelect, mode, zoom, onLog, onMeta, onError }, ref) {
+export const Surface = forwardRef(function Surface({ store, activeId, selected, onSelect, mode, zoom, rulers, onLog, onMeta, onError }, ref) {
   const project = store.project;
   // Callbacks change with the language; that must not reload the engine or restart a run.
   const callbacks = useRef({ onLog, onMeta, onError });
@@ -143,6 +144,13 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
       const origin = engine.contentOrigin(parent.id);
       return { parentId: parent.id, x: Math.round(x - origin.x), y: Math.round(y - origin.y) };
     },
+    /** The widget under a point of the window, for the right-click menu. */
+    hitAt(clientX, clientY) {
+      if (!canvas.current || running) return null;
+      const { x, y } = toDisplay(clientX, clientY);
+      const node = hit(x, y);
+      return node?.type === "screen" ? null : node;
+    },
     center() {
       const engine = engineRef.current;
       return engine ? { x: Math.round(engine.width / 2), y: Math.round(engine.height / 2) } : { x: 0, y: 0 };
@@ -263,7 +271,7 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
   const width = project.device.w * zoom;
   const height = project.device.h * zoom;
 
-  return (
+  const device = (
     <div className={running ? "device running" : "device"} style={{ width: width + 16, height: height + 16 }}>
       <div className="device-screen" style={{ width, height }}>
         <canvas ref={canvas} data-surface="" style={{ width, height, imageRendering: zoom > 1 ? "pixelated" : "auto" }} />
@@ -282,7 +290,7 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
             data-overlay="design"
             onPointerDown={onPointerDown}
           >
-            {flatten(screen).filter((node) => node.type === "image" && !node.props.src && boxes.get(node.id)).map((node) => {
+            {flatten(screen).filter((node) => (node.type === "image" || node.type === "imagebutton") && !node.props.src && boxes.get(node.id)).map((node) => {
               const area = boxes.get(node.id);
               return <div key={node.id} className="image-placeholder" data-image-placeholder={node.id} style={{ left: area.x * zoom, top: area.y * zoom, width: area.w * zoom, height: area.h * zoom }} />;
             })}
@@ -304,6 +312,15 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
           </div>
         )}
       </div>
+    </div>
+  );
+  if (!rulers) return device;
+  return (
+    <div className="ruled" data-rulers="">
+      <span className="ruler-corner">px</span>
+      <div className="ruler-top"><Ruler axis="x" length={project.device.w} zoom={zoom} /></div>
+      <div className="ruler-left"><Ruler axis="y" length={project.device.h} zoom={zoom} /></div>
+      {device}
     </div>
   );
 });

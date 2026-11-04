@@ -2,13 +2,14 @@
 // property, trigger and action on every engine.
 import assert from "node:assert/strict";
 import { addNode, addScreen, createNode, findNode, imageNameFor, newProject, parseProject, removeImageFromProject, removeNode, safeRelativePath, serializeProject } from "../src/lvgl/project.js";
-import { ACTION_IDS, ALIGNS, DEVICES, FLEX_FLOWS, FONT_SIZES, PALETTE, TRIGGERS, WIDGETS } from "../src/lvgl/schema.js";
+import { ACTION_IDS, ALIGNS, DEVICES, FLEX_FLOWS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn } from "../src/lvgl/schema.js";
 import { emit } from "../src/lvgl/emit.js";
 import { GENERATED_DIRS, generateCode, projectFiles } from "../src/lvgl/codegen.js";
 import { addImage, clearImages, extensionOf, imageData, imageFiles, removeImage } from "../src/lvgl/images.js";
 import { THEMES, THEME_COLOR_KEYS, buildTheme, contrast, customTheme, isThemeId, readable, setCustomThemes, themeById } from "../src/themes.js";
 import { BACKGROUND_KINDS, drawBackground, isBackgroundKind } from "../src/start/backgrounds.js";
 import { translator } from "../src/i18n.js";
+import { parseVersion } from "../src/lvgl/versions.js";
 import { ICON_NAMES } from "../src/icons-names.js";
 import { COLS, autoArrange, cardsOf, compact, layoutValue, overlaps, place, rowsFor } from "../src/start/layout.js";
 import {
@@ -39,6 +40,16 @@ export function registerTestImage(project) {
 
 /** A value that exercises a property. */
 function valueFor(prop) {
+  if (prop.key === "frames") return TEST_IMAGE;
+  if (prop.key === "duration") return 1000;
+  if (prop.key === "canvasW") return 40;
+  if (prop.key === "canvasH") return 30;
+  if (prop.key === "qrSize") return 60;
+  if (prop.key === "gridColumns") return "1fr,40,content";
+  if (prop.key === "gridRows") return "1fr,2fr";
+  if (prop.key === "totalTicks") return 11;
+  if (prop.key === "majorEvery") return 5;
+  if (prop.key === "buttons") return "Yes,No";
   if (prop.key === "points") return "0,0 40,30 80,5";
   if (prop.key === "series") return "10,40,20,80\n50,20,70,30";
   if (prop.key === "year") return 2026;
@@ -72,7 +83,7 @@ export function everythingProject(version) {
   let x = 4;
   let y = 4;
   for (const [type, definition] of Object.entries(WIDGETS)) {
-    if (type === "screen") continue;
+    if (type === "screen" || !availableIn(type, version)) continue;
     const props = {};
     for (const prop of definition.props) {
       const value = valueFor(prop);
@@ -101,6 +112,9 @@ export function everythingProject(version) {
     if (type === "image") Object.assign(props, { src: TEST_IMAGE, rotation: 45, scale: 200 });
     addNode(project, data.id, createNode(project, type, props));
   });
+  const grid = addScreen(project);
+  const table = addNode(project, grid.id, createNode(project, "grid", { x: 10, y: 10, width: 400, height: 300, gridColumns: "1fr,2fr,80", gridRows: "1fr,content,1fr" }));
+  for (const props of [{}, {}, {}, { gridCol: 2, gridRow: 2 }, { gridCol: 0, gridRow: 1, gridColSpan: 2 }]) addNode(project, table.id, createNode(project, "button", { text: "Cell", ...props }));
   const fonts = addScreen(project);
   fonts.props = { flexFlow: "COLUMN", gap: 1, pad: 2 };
   for (const font of FONT_SIZES) addNode(project, fonts.id, createNode(project, "label", { font, text: `Font ${font}` }));
@@ -486,6 +500,22 @@ export function registerFeatureTests({ category, test, engines, versions }) {
 
     /* -------------------------------------------------------- widget tables */
     category("Widgets and commands");
+    await test("The palette shows what each LVGL version has", () => {
+      const names = (version) => PALETTE.flatMap(({ items }) => items).filter((type) => availableIn(type, version));
+      assert.ok(names("8.4.0").includes("meter") && names("8.4.0").includes("colorwheel"));
+      assert.ok(!names("8.4.0").includes("scale") && !names("8.4.0").includes("barcode") && !names("8.4.0").includes("arclabel"));
+      assert.ok(names("9.2.2").includes("scale") && names("9.2.2").includes("barcode"));
+      assert.ok(!names("9.2.2").includes("meter") && !names("9.2.2").includes("colorwheel") && !names("9.2.2").includes("arclabel"));
+      assert.ok(names("9.3.0").includes("scale") && !names("9.3.0").includes("arclabel"));
+      assert.ok(names("9.4.0").includes("arclabel") && names("9.6.0").includes("arclabel"));
+      assert.equal(names("8.4.0").length, 35);
+      assert.equal(names("9.2.2").length, 35);
+      assert.equal(names("9.6.0").length, 36);
+      for (const version of ["8.4.0", "9.6.0"]) assert.ok(names(version).includes("grid"), "Grid");
+    });
+    await test("Grid cell properties have labels", () => {
+      for (const prop of GRID_CELL_PROPS) assert.notEqual(translator("ko")(`prop.${prop.key}`), `prop.${prop.key}`);
+    });
     await test("Every widget can be placed, except the screen itself", () => {
       const placed = PALETTE.flatMap(({ items }) => items).sort();
       assert.deepEqual(placed, Object.keys(WIDGETS).filter((type) => type !== "screen").sort());
@@ -499,6 +529,14 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         for (const trigger of TRIGGERS) assert.notEqual(t(`trigger.${trigger}`), `trigger.${trigger}`);
         for (const action of Object.keys(ACTION_IDS)) assert.notEqual(t(`action.${action}`), `action.${action}`);
       }
+    });
+    await test("Every widget is named as LVGL names it, in both languages", () => {
+      const names = { container: "Base Object", dropdown: "Drop-Down List", textarea: "Text Area", tabview: "Tabview", spinbox: "Spinbox", buttonmatrix: "Button Matrix", led: "LED" };
+      for (const language of ["ko", "en"]) {
+        const t = translator(language);
+        for (const [type, name] of Object.entries(names)) assert.equal(t(`widget.${type}`), name);
+      }
+      assert.equal(translator("ko")("panel.palette"), "콘트롤");
     });
     await test("Every device has a label and a sensible size", () => {
       const t = translator("en");
@@ -538,7 +576,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         project.device = { w: 320, h: 240 };
         registerTestImage(project);
         Object.assign(project.screens[0].props, parentProps);
-        const node = addNode(project, project.screens[0].id, createNode(project, type, { x: 30, y: 30, ...(type === "image" ? { src: TEST_IMAGE } : {}), ...props }));
+        const node = addNode(project, project.screens[0].id, createNode(project, type, { x: 30, y: 30, ...(type === "image" || type === "imagebutton" ? { src: TEST_IMAGE } : {}), ...(type === "animimage" ? { frames: TEST_IMAGE } : {}), ...props }));
         return { project, node };
       };
       const frameOf = (project) => {
@@ -562,7 +600,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         }
       });
       for (const [type, definition] of Object.entries(WIDGETS)) {
-        if (type === "screen") continue;
+        if (type === "screen" || !availableIn(type, version)) continue;
         await test(`${type}: every property is accepted, and it draws`, () => {
           for (const prop of definition.props) {
             if (prop.kind === "target") continue;
@@ -583,7 +621,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
           engine.load(project, project.screens[0].id);
           const box = engine.coords(node.id);
           assert.deepEqual([box.x, box.y], [40, 50]);
-          if (!["label", "checkbox", "roller", "dropdown", "spinbox", "line"].includes(type)) assert.deepEqual([box.w, box.h], [90, 60]);
+          if (!["label", "checkbox", "roller", "dropdown", "spinbox", "line", "canvas", "qrcode", "msgbox", "imagebutton", "animimage", "span", "meter"].includes(type)) assert.deepEqual([box.w, box.h], [90, 60]);
           const base = { width: 90, height: 60, text: "Sample", options: "One\nTwo" };
           assert.ok(differs(type, base, { hidden: true }), "hidden changes nothing");
         });
@@ -638,12 +676,73 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         ["spinbox", { width: 110 }, "digits", { digits: 3, separator: 1 }],
         ["buttonmatrix", { width: 200, height: 110 }, "map", { map: "A,B\nC" }],
         ["keyboard", { width: 300, height: 110 }, "size", { height: 90 }],
+        ["imagebutton", { src: TEST_IMAGE }, "the picture itself", { src: undefined }],
+        ["animimage", { frames: TEST_IMAGE }, "the frames", { frames: "" }],
+        ["canvas", {}, "canvasColor", { canvasColor: "#ff0000" }],
+        ["canvas", {}, "size", { canvasW: 60 }],
+        ["msgbox", {}, "title", { title: "Other" }],
+        ["msgbox", {}, "text", { text: "Other" }],
+        ["msgbox", {}, "buttons", { buttons: "Yes,No,Maybe" }],
+        ["win", {}, "title", { title: "Other" }],
+        ["win", {}, "text", { text: "Other" }],
+        ["tileview", {}, "tiles", { tiles: "Other" }],
+        ["menu", {}, "items", { menuItems: "Other" }],
+        ["span", {}, "spans", { spans: "Other text" }],
+        ["colorwheel", {}, "size", { width: 90, height: 90 }],
+        ["meter", {}, "value", { value: 90 }],
+        ["meter", {}, "range", { max: 500 }],
+        ["scale", {}, "range", { max: 500 }],
+        ["scale", {}, "ticks", { totalTicks: 7, majorEvery: 3 }],
+        ["scale", { width: 150, height: 150 }, "scaleMode", { scaleMode: "ROUND_INNER" }],
+        ["qrcode", {}, "text", { text: "other" }],
+        ["qrcode", {}, "qrSize", { qrSize: 60 }],
+        ["barcode", {}, "text", { text: "OTHER" }],
+        ["arclabel", {}, "text", { text: "Other" }],
+        ["grid", {}, "size", { width: 120 }],
       ];
       for (const [type, base, name, change] of visible) {
+        if (!availableIn(type, version)) continue;
         await test(`${type}: ${name} changes the picture`, () => {
           assert.ok(differs(type, base, change));
         });
       }
+      await test("Grid: children take their cells, with spans and fixed tracks", () => {
+        const project = newProject();
+        project.lvgl = version;
+        project.device = { w: 480, h: 320 };
+        const grid = addNode(project, project.screens[0].id, createNode(project, "grid", { x: 0, y: 0, width: 400, height: 300, pad: 0, gap: 0, borderWidth: 0, gridColumns: "100,1fr", gridRows: "50,1fr" }));
+        const first = addNode(project, grid.id, createNode(project, "button", { text: "a" }));
+        const second = addNode(project, grid.id, createNode(project, "button", { text: "b" }));
+        const wide = addNode(project, grid.id, createNode(project, "button", { text: "c", gridCol: 0, gridRow: 1, gridColSpan: 2 }));
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+        const [a, b, c] = [engine.coords(first.id), engine.coords(second.id), engine.coords(wide.id)];
+        assert.deepEqual([a.x, a.y, a.w, a.h], [0, 0, 100, 50]);
+        assert.deepEqual([b.x, b.y, b.w, b.h], [100, 0, 300, 50]);
+        assert.deepEqual([c.x, c.y, c.w, c.h], [0, 50, 400, 250]);
+      });
+      await test("Grid: content and fr tracks are understood", () => {
+        const project = newProject();
+        project.lvgl = version;
+        project.device = { w: 480, h: 320 };
+        const grid = addNode(project, project.screens[0].id, createNode(project, "grid", { width: 400, height: 300, pad: 0, gap: 0, borderWidth: 0, gridColumns: "content,1fr,3fr", gridRows: "1fr" }));
+        const nodes = ["Hello", "x", "y"].map((text) => addNode(project, grid.id, createNode(project, "label", { text })));
+        engine.load(project, project.screens[0].id);
+        assert.deepEqual(engine.errors, []);
+        const [hello, x, y] = nodes.map((node) => engine.coords(node.id));
+        assert.ok(hello.w > 10 && hello.w < 80, String(hello.w));
+        assert.ok(Math.abs(y.w - x.w * 3) <= 3, `${x.w} and ${y.w}`);
+      });
+      await test("A widget of another LVGL version is left out, not an error", () => {
+        const project = newProject();
+        project.lvgl = version;
+        const other = parseVersion(version).major === 8 ? "scale" : "meter";
+        const node = addNode(project, project.screens[0].id, createNode(project, other, {}));
+        engine.load(project, project.screens[0].id, { events: true });
+        assert.deepEqual(engine.errors, []);
+        assert.equal(engine.coords(node.id), null);
+        assert.ok(!Object.values(generateCode(project)).join("").includes(parseVersion(version).major === 8 ? "lv_scale_create" : "lv_meter_create"));
+      });
       await test("A keyboard types into its text area when running", () => {
         const project = newProject();
         project.lvgl = version;

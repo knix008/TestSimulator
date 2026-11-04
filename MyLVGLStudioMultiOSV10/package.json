@@ -19,7 +19,8 @@
     "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",
     "build:linux": "node node_modules/@tauri-apps/cli/tauri.js build --bundles appimage,deb && node scripts/copy-installer.mjs",
     "test": "node test/run.mjs",
-    "test:gui": "node test/gui.mjs"
+    "build:e2e": "node scripts/build-e2e.mjs",
+    "test:gui": "node scripts/build-e2e.mjs && node test/gui.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

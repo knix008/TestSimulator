@@ -12,12 +12,14 @@ mod native;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use base64::Engine as _;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const MAIN: &str = "main";
+const RUN: &str = "run";
 const SETTINGS_FOLDER: &str = "MyLVGLStudio";
 const MIN_WIDTH: f64 = 1000.0;
 const MIN_HEIGHT: f64 = 640.0;
@@ -117,7 +119,16 @@ pub fn write_tree(root: &Path, files: &BTreeMap<String, String>) -> Result<(), S
         if std::fs::read_to_string(&path).map(|old| old == *text).unwrap_or(false) {
             continue;
         }
-        std::fs::write(&path, text).map_err(|e| e.to_string())?;
+        // A virus scanner can hold a file that was just written for a moment.
+        let mut result = std::fs::write(&path, text);
+        for _ in 0..4 {
+            if result.is_ok() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(250));
+            result = std::fs::write(&path, text);
+        }
+        result.map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -160,13 +171,84 @@ fn write_project(dir: String, files: BTreeMap<String, String>, binaries: BTreeMa
     Ok(())
 }
 
-/// The page has applied its theme: the window can appear without a flash of the wrong colour.
+/// The page has applied its theme: its window can appear without a flash of the wrong colour.
 #[tauri::command]
-fn window_ready(app: AppHandle) {
-    if let Some(window) = app.get_webview_window(MAIN) {
-        let _ = window.show();
-        let _ = window.set_focus();
+fn window_ready(window: tauri::WebviewWindow) {
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+/// The smallest size the page measured for its menu row and toolbar, logical pixels.
+struct MinSize(Mutex<(f64, f64)>);
+
+/// Windows applies a window's minimum only to sizing with the mouse. A size set any other way
+/// (another program, a saved size, a DPI change) can still be smaller and clip the toolbar.
+fn enforce_min_size(window: &tauri::Window) {
+    if window.is_maximized().unwrap_or(false) || window.is_minimized().unwrap_or(false) {
+        return;
     }
+    let Some(state) = window.try_state::<MinSize>() else { return };
+    let (width, height) = *state.0.lock().unwrap_or_else(|e| e.into_inner());
+    let (Ok(scale), Ok(size)) = (window.scale_factor(), window.inner_size()) else { return };
+    let size = size.to_logical::<f64>(scale);
+    if size.width + 0.5 < width || size.height + 0.5 < height {
+        let _ = window.set_size(tauri::LogicalSize::new(size.width.max(width), size.height.max(height)));
+    }
+}
+
+#[tauri::command]
+fn window_min_size(window: tauri::Window, state: tauri::State<MinSize>, width: f64, height: f64) {
+    *state.0.lock().unwrap_or_else(|e| e.into_inner()) = (width, height);
+    let _ = window.set_min_size(Some(tauri::LogicalSize::new(width, height)));
+    enforce_min_size(&window);
+}
+
+/// What the run window runs: a copy of the project when Run was pressed.
+#[derive(Default)]
+struct RunState(Mutex<Value>);
+
+#[tauri::command(async)]
+fn run_open(app: AppHandle, state: tauri::State<RunState>, payload: Value, width: f64, height: f64) -> Result<(), String> {
+    *state.0.lock().unwrap_or_else(|e| e.into_inner()) = payload;
+    if let Some(window) = app.get_webview_window(RUN) {
+        let _ = window.set_size(tauri::LogicalSize::new(width, height));
+        let _ = window.set_focus();
+        let _ = window.emit("run-reload", ());
+        return Ok(());
+    }
+    let window = WebviewWindowBuilder::new(&app, RUN, WebviewUrl::App("index.html?run=1".into()))
+        .title("My LVGL Studio")
+        .inner_size(width, height)
+        .min_inner_size(320.0, 120.0)
+        .decorations(false)
+        .shadow(true)
+        .visible(false)
+        .build()
+        .map_err(|e| e.to_string())?;
+    show_later(window);
+    Ok(())
+}
+
+#[tauri::command]
+fn run_payload(state: tauri::State<RunState>) -> Value {
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+#[tauri::command]
+fn run_close(app: AppHandle) {
+    if let Some(window) = app.get_webview_window(RUN) {
+        let _ = window.close();
+    }
+}
+
+/// Whatever happens in the page, a window does not stay invisible.
+fn show_later(window: tauri::WebviewWindow) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        if !window.is_visible().unwrap_or(true) {
+            let _ = window.show();
+        }
+    });
 }
 
 fn remember_window(window: &tauri::Window) {
@@ -212,20 +294,15 @@ fn open_main_window(app: &AppHandle) -> Result<(), String> {
     if let (Some(x), Some(y)) = (num("x"), num("y")) {
         builder = builder.position(x, y);
     }
-    let window = builder.build().map_err(|e| e.to_string())?;
-    // Whatever happens in the page, the window does not stay invisible.
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(5));
-        if !window.is_visible().unwrap_or(true) {
-            let _ = window.show();
-        }
-    });
+    show_later(builder.build().map_err(|e| e.to_string())?);
     Ok(())
 }
 
 fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+    let mut builder = tauri::Builder::default();
+    // A run with its own data folder (the GUI tests) is a separate instance, not a second start.
+    if std::env::var_os("MLS_SETTINGS_DIR").is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(window) = app.get_webview_window(MAIN) {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
@@ -233,17 +310,29 @@ fn main() {
             if let Some(file) = project_argument(&args) {
                 let _ = app.emit("open-file", file);
             }
-        }))
+        }));
+    }
+    builder
         .plugin(tauri_plugin_dialog::init())
         .manage(native::NativeState::default())
+        .manage(RunState::default())
+        .manage(MinSize(Mutex::new((MIN_WIDTH, MIN_HEIGHT))))
         .setup(|app| {
             open_main_window(app.handle()).map_err(|e| e.into())
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { .. } if window.label() == MAIN => {
                 remember_window(window);
                 native::stop_all(window.app_handle());
+                if let Some(run) = window.app_handle().get_webview_window(RUN) {
+                    let _ = run.destroy();
+                }
             }
+            tauri::WindowEvent::Resized(_) if window.label() == MAIN => enforce_min_size(window),
+            tauri::WindowEvent::Destroyed if window.label() == RUN => {
+                let _ = window.app_handle().emit("run-closed", ());
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             load_settings,
@@ -254,6 +343,10 @@ fn main() {
             dir_state,
             write_project,
             window_ready,
+            window_min_size,
+            run_open,
+            run_payload,
+            run_close,
             lvgl::lvgl_installed,
             lvgl::lvgl_releases,
             lvgl::lvgl_install,
@@ -261,6 +354,8 @@ fn main() {
             native::native_check,
             native::native_run,
             native::native_stop,
+            native::tools_plan,
+            native::tools_install,
         ])
         .run(tauri::generate_context!())
         .expect("the application failed to start");

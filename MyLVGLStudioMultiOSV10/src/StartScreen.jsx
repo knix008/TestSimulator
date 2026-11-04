@@ -2,7 +2,7 @@
 // translucent cards that can be moved and resized, with launcher tiles and one-line pickers.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import appIcon from "../assets/icons/128x128.png";
-import { Icon } from "./icons.jsx";
+import { Flag, Icon } from "./icons.jsx";
 import { THEMES, themeById } from "./themes.js";
 import { BACKGROUND_KINDS, drawBackground, themePalette } from "./start/backgrounds.js";
 import { COLS, GAP, ROW, autoArrange, cardsOf, compact, layoutKey, layoutValue, place, rowsFor } from "./start/layout.js";
@@ -84,11 +84,46 @@ export function BackgroundGrid({ t, value, themeId, onChange, shuffle }) {
   );
 }
 
-/** [−] value [+], one compact row. */
+/** [−] [slider bar] [value, centred] [+]. */
 export function RangeStepper({ name, label, value, min, max, step, suffix, onChange }) {
   const clamp = (next) => Math.max(min, Math.min(max, Math.round(next / step) * step));
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
+  const bar = useRef(null);
+  const fraction = Math.max(0, Math.min(1, (value - min) / (max - min || 1)));
+  const fromPointer = (clientX) => {
+    const rect = bar.current.getBoundingClientRect();
+    return clamp(min + ((clientX - rect.left) / (rect.width || 1)) * (max - min));
+  };
+  const beginDrag = (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.focus();
+    let last = fromPointer(event.clientX);
+    if (last !== value) onChange(last);
+    const move = (moved) => {
+      const next = fromPointer(moved.clientX);
+      if (next !== last) {
+        last = next;
+        onChange(next);
+      }
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
+  const onBarKey = (event) => {
+    const delta = event.key === "ArrowRight" || event.key === "ArrowUp" ? step : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -step : 0;
+    if (!delta) return;
+    event.preventDefault();
+    onChange(clamp(value + delta));
+  };
   const commit = () => {
     const parsed = Number(draft);
     if (draft.trim() !== "" && Number.isFinite(parsed)) {
@@ -100,8 +135,12 @@ export function RangeStepper({ name, label, value, min, max, step, suffix, onCha
     }
   };
   return (
-    <span className="range-stepper compact" data-range={name}>
+    <span className="range-stepper" data-range={name}>
       <button type="button" className="range-step" data-step={`${name}:down`} title={`${label} −`} aria-label={`${label} −`} disabled={value <= min} onClick={() => onChange(clamp(value - step))}>−</button>
+      <div ref={bar} className="range-bar" data-range-bar={name} role="slider" tabIndex={0} aria-label={label} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} title={`${label}: ${value}${suffix ?? ""}`} onPointerDown={beginDrag} onKeyDown={onBarKey}>
+        <span className="range-fill" style={{ width: `${fraction * 100}%` }} />
+        <span className="range-thumb" style={{ left: `${fraction * 100}%` }} />
+      </div>
       <span className="range-value">
         <input type="number" data-field={name} min={min} max={max} step={step} value={draft} aria-label={label} onChange={(event) => setDraft(event.target.value)} onBlur={commit} onKeyDown={(event) => event.key === "Enter" && commit()} />
         {suffix && <span className="range-suffix">{suffix}</span>}
@@ -115,14 +154,14 @@ export function RangeStepper({ name, label, value, min, max, step, suffix, onCha
 export function StartRanges({ t, start, speed, onChange }) {
   return (
     <div className="start-ranges inline">
-      <label className="start-range inline">
+      <div className="start-range inline">
         <span className="start-range-label"><Icon name="clock" size={14} />{t("start.speed")}</span>
         <RangeStepper name="startSpeed" label={t("start.speed")} min={SPEED_MIN} max={SPEED_MAX} step={SPEED_STEP} suffix="%" value={speed} onChange={(next) => onChange({ speed: next })} />
-      </label>
-      <label className="start-range inline">
+      </div>
+      <div className="start-range inline">
         <span className="start-range-label"><Icon name="eye" size={14} />{t("start.opacity")}</span>
         <RangeStepper name="startOpacity" label={t("start.opacity")} min={OPACITY_MIN} max={OPACITY_MAX} step={OPACITY_STEP} suffix="%" value={start.cardOpacity} onChange={(next) => onChange({ cardOpacity: next })} />
-      </label>
+      </div>
     </div>
   );
 }
@@ -376,9 +415,9 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
     { id: "open", icon: "open", label: t("cmd.open"), tip: t("start.tipOpen"), run: onOpen },
     { id: "continue", icon: "design", label: t("start.continue"), tip: t("start.tipContinue"), run: onContinue },
     { id: "manager", icon: "manager", label: t("cmd.manager"), tip: t("start.tipManager"), run: onManager },
-    { id: "settings", icon: "settings", label: t("cmd.settings"), tip: t("start.tipSettings"), run: onSettings },
+    { id: "settings", icon: "project", label: t("cmd.settings"), tip: t("start.tipSettings"), run: onSettings },
     { id: "theme", icon: "theme", label: t("start.themeSettings"), tip: t("start.tipTheme"), run: () => onPreferences("theme") },
-    { id: "language", icon: "language", label: en ? "한국어" : "English", tip: t("start.tipLanguage"), run: onLanguage },
+    { id: "language", icon: "language", flag: en ? "kr" : "gb", label: en ? "한국어" : "English", tip: t("start.tipLanguage"), run: onLanguage },
     { id: "preferences", icon: "settings", label: t("cmd.preferences"), tip: t("start.tipPreferences"), run: () => onPreferences() },
     { id: "start-settings", icon: "home", label: t("start.settings"), tip: t("start.tipStart"), run: () => onPreferences("start") },
     { id: "about", icon: "about", label: t("cmd.about"), tip: t("start.tipAbout"), run: onAbout },
@@ -406,7 +445,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
       <div className="start-actions">
         {actions.map((action) => (
           <button type="button" key={action.id} className="start-tile" data-start={action.id} title={action.tip} onClick={action.run}>
-            <Icon name={action.icon} size={20} />
+            {action.flag ? <Flag country={action.flag} /> : <Icon name={action.icon} size={20} />}
             <b>{action.label}</b>
             <small>{action.tip}</small>
           </button>
