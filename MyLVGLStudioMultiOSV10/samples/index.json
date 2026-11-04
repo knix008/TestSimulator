@@ -1,0 +1,290 @@
+[
+  {
+    "id": "HomeControl",
+    "icon": "home",
+    "file": "HomeControl/HomeControl.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "스마트 홈 제어",
+      "Arc, 슬라이더, 스위치와 화면 전환 이벤트"
+    ],
+    "en": [
+      "Smart Home Control",
+      "Arc, slider, switch, and screen change events"
+    ]
+  },
+  {
+    "id": "LoginForm",
+    "icon": "lock",
+    "file": "LoginForm/LoginForm.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "로그인 입력",
+      "Text Area와 연결된 Keyboard"
+    ],
+    "en": [
+      "Login Form",
+      "Text Areas with a linked Keyboard"
+    ]
+  },
+  {
+    "id": "DataDashboard",
+    "icon": "chart",
+    "file": "DataDashboard/DataDashboard.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "데이터 대시보드",
+      "Chart, Table, Bar, Arc (800×480)"
+    ],
+    "en": [
+      "Data Dashboard",
+      "Chart, Table, Bar, Arc (800×480)"
+    ]
+  },
+  {
+    "id": "GridLayout",
+    "icon": "gridIcon",
+    "file": "GridLayout/GridLayout.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "Grid 레이아웃",
+      "Grid로 만든 계산기 자판"
+    ],
+    "en": [
+      "Grid Layout",
+      "A calculator keypad made with Grid"
+    ]
+  },
+  {
+    "id": "ImageGallery",
+    "icon": "image",
+    "file": "ImageGallery/ImageGallery.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "이미지 갤러리",
+      "Image, Image Button, Animation Image"
+    ],
+    "en": [
+      "Image Gallery",
+      "Image, Image Button, Animation Image"
+    ]
+  },
+  {
+    "id": "SettingsTabs",
+    "icon": "tabview",
+    "file": "SettingsTabs/SettingsTabs.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "설정 화면",
+      "Tabview, List, Spinbox, Button Matrix"
+    ],
+    "en": [
+      "Settings Screen",
+      "Tabview, List, Spinbox, Button Matrix"
+    ]
+  },
+  {
+    "id": "MediaPlayer",
+    "icon": "music",
+    "file": "MediaPlayer/MediaPlayer.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "음악 플레이어",
+      "표지 이미지, 슬라이더, 재생 버튼 이벤트"
+    ],
+    "en": [
+      "Music Player",
+      "Cover image, slider, and play button events"
+    ]
+  },
+  {
+    "id": "WeatherStation",
+    "icon": "sun",
+    "file": "WeatherStation/WeatherStation.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "날씨 스테이션",
+      "큰 글꼴, 선 Chart, 예보 Table"
+    ],
+    "en": [
+      "Weather Station",
+      "Large fonts, line Chart, forecast Table"
+    ]
+  },
+  {
+    "id": "CarDashboard",
+    "icon": "car",
+    "file": "CarDashboard/CarDashboard.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "자동차 계기판",
+      "Arc 속도계와 경고등 (800×480)"
+    ],
+    "en": [
+      "Car Dashboard",
+      "Arc gauges and warning lights (800×480)"
+    ]
+  },
+  {
+    "id": "FactoryPanel",
+    "icon": "factory",
+    "file": "FactoryPanel/FactoryPanel.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "공장 제어 패널",
+      "Grid 안의 카드, 상태 Bar, 정지 버튼"
+    ],
+    "en": [
+      "Factory Panel",
+      "Cards in a Grid, status bars, stop button"
+    ]
+  },
+  {
+    "id": "CalendarPlanner",
+    "icon": "calendar",
+    "file": "CalendarPlanner/CalendarPlanner.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "일정 플래너",
+      "Calendar와 일정 List"
+    ],
+    "en": [
+      "Calendar Planner",
+      "Calendar with an agenda List"
+    ]
+  },
+  {
+    "id": "SmartWatch",
+    "icon": "watch",
+    "file": "SmartWatch/SmartWatch.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 240,
+      "h": 240
+    },
+    "ko": [
+      "스마트워치",
+      "작은 화면(240×240)의 시계 화면"
+    ],
+    "en": [
+      "Smart Watch",
+      "A watch face on a small display (240×240)"
+    ]
+  },
+  {
+    "id": "AppWindows",
+    "icon": "win",
+    "file": "AppWindows/AppWindows.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 800,
+      "h": 480
+    },
+    "ko": [
+      "창과 메뉴",
+      "Window, Menu, Tile View, Message Box"
+    ],
+    "en": [
+      "Windows and Menus",
+      "Window, Menu, Tile View, Message Box"
+    ]
+  },
+  {
+    "id": "Typography",
+    "icon": "span",
+    "file": "Typography/Typography.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "글자와 그림",
+      "Spangroup, Canvas, Line, 글꼴 크기"
+    ],
+    "en": [
+      "Text and Drawing",
+      "Spangroup, Canvas, Line, font sizes"
+    ]
+  },
+  {
+    "id": "ModernScale",
+    "icon": "scale",
+    "file": "ModernScale/ModernScale.mylvgl",
+    "lvgl": "9.6.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "LVGL 9 계기판",
+      "Scale, Barcode, QR Code, Arc Label"
+    ],
+    "en": [
+      "LVGL 9 Instruments",
+      "Scale, Barcode, QR Code, Arc Label"
+    ]
+  },
+  {
+    "id": "LegacyMeter",
+    "icon": "meter",
+    "file": "LegacyMeter/LegacyMeter.mylvgl",
+    "lvgl": "8.4.0",
+    "device": {
+      "w": 480,
+      "h": 320
+    },
+    "ko": [
+      "LVGL 8 계기판",
+      "Meter, Color Wheel (LVGL 8.4)"
+    ],
+    "en": [
+      "LVGL 8 Gauges",
+      "Meter, Color Wheel (LVGL 8.4)"
+    ]
+  }
+]

@@ -1,0 +1,164 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "CarDashboard",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#ef5350",
+    "secondary": "#66bb6a"
+  },
+  "nextId": 11,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Cluster",
+      "props": {
+        "bgColor": "#101418",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 300,
+            "height": 300,
+            "min": 0,
+            "max": 240,
+            "value": 96,
+            "x": 40,
+            "y": 70
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "96",
+            "x": 146,
+            "y": 186,
+            "font": 48,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "km/h",
+            "x": 156,
+            "y": 244,
+            "font": 16,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "arc",
+          "name": "arc2",
+          "props": {
+            "width": 300,
+            "height": 300,
+            "min": 0,
+            "max": 8,
+            "value": 3,
+            "x": 460,
+            "y": 70
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "3",
+            "x": 590,
+            "y": 186,
+            "font": 48,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "label",
+          "name": "label4",
+          "props": {
+            "text": "x1000 rpm",
+            "x": 572,
+            "y": 244,
+            "font": 14,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n8",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 200,
+            "height": 18,
+            "min": 0,
+            "max": 100,
+            "value": 62,
+            "x": 300,
+            "y": 420,
+            "indicatorColor": "#66bb6a"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n9",
+          "type": "led",
+          "name": "led1",
+          "props": {
+            "width": 24,
+            "height": 24,
+            "ledBright": 255,
+            "x": 372,
+            "y": 40
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n10",
+          "type": "led",
+          "name": "led2",
+          "props": {
+            "width": 24,
+            "height": 24,
+            "ledBright": 120,
+            "x": 408,
+            "y": 40
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

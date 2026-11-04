@@ -1,0 +1,87 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "SettingsTabs",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 6,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Settings",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "tabview",
+          "name": "tabview1",
+          "props": {
+            "width": "100%",
+            "height": 150,
+            "tabs": "Network\nDisplay\nSound",
+            "x": 0,
+            "y": 0
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "list",
+          "name": "list1",
+          "props": {
+            "width": 220,
+            "height": 154,
+            "items": "#Network\nWi-Fi\nBluetooth\n#System\nUpdate",
+            "x": 8,
+            "y": 158
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "spinbox",
+          "name": "spinbox1",
+          "props": {
+            "width": 130,
+            "min": 0,
+            "max": 9999,
+            "value": 1200,
+            "digits": 4,
+            "separator": 0,
+            "x": 240,
+            "y": 158
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "buttonmatrix",
+          "name": "buttonmatrix1",
+          "props": {
+            "width": 232,
+            "height": 98,
+            "map": "Save,Reset\nCancel",
+            "x": 240,
+            "y": 214
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

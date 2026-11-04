@@ -1,6 +1,7 @@
 // Feature coverage for npm test: settings, themes, start backgrounds, and every widget,
 // property, trigger and action on every engine.
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { addNode, addScreen, createNode, findNode, imageNameFor, newProject, parseProject, removeImageFromProject, removeNode, safeRelativePath, serializeProject } from "../src/lvgl/project.js";
 import { ACTION_IDS, ALIGNS, DEVICES, FLEX_FLOWS, FONT_SIZES, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn } from "../src/lvgl/schema.js";
 import { emit } from "../src/lvgl/emit.js";
@@ -14,7 +15,7 @@ import { ICON_NAMES } from "../src/icons-names.js";
 import { COLS, autoArrange, cardsOf, compact, layoutValue, overlaps, place, rowsFor } from "../src/start/layout.js";
 import {
   DEFAULT_START_SCREEN, MAX_CUSTOM_THEMES, MAX_RECENT, OPACITY_MAX, OPACITY_MIN, SPEED_MAX, START_CARDS,
-  addRecent, customThemeFrom, effectiveSpeed, newCustomThemeId, removeRecent,
+  addRecent, customThemeFrom, effectiveSpeed, newCustomThemeId, removeRecent, sanitizeGeneral,
   sanitizeCustomThemes, sanitizeRecent, sanitizeSettings, sanitizeStartScreen,
 } from "../src/settings.js";
 
@@ -167,6 +168,11 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.deepEqual(settings.window, { width: 900 });
       assert.deepEqual(settings.panels, { left: 300 });
       assert.equal(settings.projectsDir, "C:\\p");
+    });
+    await test("General settings are made valid", () => {
+      assert.deepEqual(sanitizeGeneral(undefined), { reopenLast: false, newVersion: "9.6.0", newDevice: "cyd", snap: 1 });
+      assert.deepEqual(sanitizeGeneral({ reopenLast: "yes", newVersion: "7.0.0", newDevice: "nope", snap: 900 }), { reopenLast: false, newVersion: "9.6.0", newDevice: "cyd", snap: 50 });
+      assert.deepEqual(sanitizeGeneral({ reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 }), { reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 8 });
     });
     await test("A saved user theme stays selected", () => {
       const settings = sanitizeSettings({ theme: "custom-1", customThemes: [{ id: "custom-1", name: "A", mode: "dark", colors: {} }] });
@@ -496,6 +502,58 @@ export function registerFeatureTests({ category, test, engines, versions }) {
       assert.match(v96, /lv_chart_set_axis_range/);
       assert.match(v96, /lv_calendar_set_month_shown/);
       assert.match(v96, /lv_image_set_rotation/);
+    });
+
+    /* -------------------------------------------------------------- samples */
+    category("Sample projects");
+    const sampleIndex = JSON.parse(fs.readFileSync(new URL("../samples/index.json", import.meta.url), "utf8"));
+    await test("There are several samples, each named in both languages", () => {
+      assert.ok(sampleIndex.length >= 6, String(sampleIndex.length));
+      for (const sample of sampleIndex) {
+        assert.ok(sample.ko[0] && sample.ko[1] && sample.en[0] && sample.en[1], sample.id);
+      }
+    });
+    await test("The samples show every LVGL family", () => {
+      const families = new Set(sampleIndex.map((sample) => sample.lvgl.split(".")[0]));
+      assert.deepEqual([...families].sort(), ["8", "9"]);
+    });
+    for (const sample of sampleIndex) {
+      await test(`Sample ${sample.id}: valid, complete, no LVGL inside, and it draws`, async () => {
+        const folder = new URL(`../samples/${sample.id}/`, import.meta.url);
+        const project = parseProject(fs.readFileSync(new URL(`${sample.id}.mylvgl`, folder), "utf8"));
+        assert.equal(project.lvgl, sample.lvgl);
+        for (const file of ["CMakeLists.txt", "config/lv_conf.h", "src/main.c", "src/ui/ui.c", "src/ui/ui.h"]) assert.ok(fs.existsSync(new URL(file, folder)), file);
+        assert.ok(!fs.existsSync(new URL("lvgl", folder)), "LVGL must not be included");
+        clearImages();
+        for (const image of project.images) {
+          const bytes = fs.readFileSync(new URL(image.file, folder));
+          assert.deepEqual([...bytes.subarray(1, 4)], [0x50, 0x4e, 0x47], image.file);
+          const rgba = new Uint8ClampedArray(image.w * image.h * 4).fill(200);
+          addImage(image.name, { w: image.w, h: image.h, rgba, base64: bytes.toString("base64") });
+          assert.ok(fs.existsSync(new URL(`src/ui/images/ui_img_${image.name}.c`, folder)), image.name);
+        }
+        const engine = engines.get(sample.lvgl);
+        if (!engine) return;
+        for (const screen of project.screens) {
+          engine.load(project, screen.id, { events: true });
+          assert.deepEqual(engine.errors, [], screen.name);
+        }
+        for (const node of project.screens[0].children) assert.ok(availableIn(node.type, project.lvgl), node.type);
+        clearImages();
+      });
+    }
+    await test("The samples are up to date with the generator", async () => {
+      const { SAMPLES } = await import("../scripts/generate-samples.mjs");
+      assert.deepEqual(SAMPLES.map((sample) => sample.id), sampleIndex.map((sample) => sample.id));
+      for (const sample of SAMPLES) {
+        clearImages();
+        const expected = projectFiles(sample.build(), sample.id);
+        for (const [name, text] of Object.entries(expected)) {
+          const saved = fs.readFileSync(new URL(`../samples/${sample.id}/${name}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
+          assert.equal(saved, text, `${sample.id}/${name}: run npm run samples`);
+        }
+      }
+      clearImages();
     });
 
     /* -------------------------------------------------------- widget tables */

@@ -1,0 +1,85 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "CalendarPlanner",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 6,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Planner",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "calendar",
+          "name": "calendar1",
+          "props": {
+            "width": 460,
+            "height": 448,
+            "year": 2026,
+            "month": 11,
+            "day": 4,
+            "x": 16,
+            "y": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Today",
+            "x": 496,
+            "y": 18,
+            "font": 24
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "list",
+          "name": "list1",
+          "props": {
+            "width": 288,
+            "height": 280,
+            "items": "#Morning\nTeam meeting\nDesign review\n#Afternoon\nFirmware test",
+            "x": 496,
+            "y": 60
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "button",
+          "name": "button1",
+          "props": {
+            "width": 288,
+            "height": 56,
+            "text": "Add event",
+            "x": 496,
+            "y": 356
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

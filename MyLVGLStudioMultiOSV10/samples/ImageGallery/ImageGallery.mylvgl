@@ -1,0 +1,145 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "ImageGallery",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [
+    {
+      "name": "fan_a",
+      "file": "assets/images/fan_a.png",
+      "w": 64,
+      "h": 64
+    },
+    {
+      "name": "fan_b",
+      "file": "assets/images/fan_b.png",
+      "w": 64,
+      "h": 64
+    },
+    {
+      "name": "fan_c",
+      "file": "assets/images/fan_c.png",
+      "w": 64,
+      "h": 64
+    }
+  ],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 9,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Gallery",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Images",
+            "x": 16,
+            "y": 10,
+            "font": 20
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "image",
+          "name": "image1",
+          "props": {
+            "width": "content",
+            "height": "content",
+            "x": 16,
+            "y": 50,
+            "src": "fan_a"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "image",
+          "name": "image2",
+          "props": {
+            "width": "content",
+            "height": "content",
+            "x": 110,
+            "y": 50,
+            "src": "fan_b",
+            "rotation": 30
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "image",
+          "name": "image3",
+          "props": {
+            "width": "content",
+            "height": "content",
+            "x": 220,
+            "y": 70,
+            "src": "fan_c",
+            "scale": 150
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "imagebutton",
+          "name": "imagebutton1",
+          "props": {
+            "width": 64,
+            "height": 64,
+            "x": 16,
+            "y": 150,
+            "src": "fan_b"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "animimage",
+          "name": "animimage1",
+          "props": {
+            "width": 64,
+            "height": 64,
+            "duration": 900,
+            "x": 110,
+            "y": 150,
+            "frames": "fan_a\nfan_b\nfan_c"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n8",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "Animation Image repeats these three pictures.",
+            "x": 16,
+            "y": 230
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

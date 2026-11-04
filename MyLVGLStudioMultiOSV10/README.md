@@ -97,6 +97,10 @@ MSYS2의 Emscripten 패키지는 Node도 함께 설치합니다. `ucrt64\bin`이
 - macOS와 Linux용 코드는 포함되어 있지만 Windows에서만 개발했으며 다른 OS에서는 아직 검증하지 않았습니다.
 - 실제 보드에 올리는 빌드와 플래싱은 포함하지 않습니다.
 
+## 샘플
+
+[samples/](samples/)에 여러 종류의 샘플 프로젝트가 있습니다. 시작 화면이나 **파일 > 샘플 프로젝트**에서 복사본으로 엽니다. LVGL 소스는 들어 있지 않으며, 해당 버전이 설치되어 있지 않으면 열 때 내려받을지 묻습니다. `npm run samples`로 다시 생성합니다.
+
 ## 문서
 
 - [UsersGuide.md](UsersGuide.md): 사용 설명서

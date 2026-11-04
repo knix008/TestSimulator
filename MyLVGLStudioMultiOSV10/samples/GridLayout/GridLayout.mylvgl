@@ -1,0 +1,286 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "GridLayout",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 20,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Calculator",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "grid",
+          "name": "grid1",
+          "props": {
+            "width": "100%",
+            "height": "100%",
+            "gridColumns": "1fr,1fr,1fr,1fr",
+            "gridRows": "2fr,1fr,1fr,1fr,1fr",
+            "x": 0,
+            "y": 0,
+            "pad": 6,
+            "gap": 6
+          },
+          "events": [],
+          "children": [
+            {
+              "id": "n3",
+              "type": "textarea",
+              "name": "textarea1",
+              "props": {
+                "width": 180,
+                "height": 70,
+                "placeholder": "Text",
+                "text": "0",
+                "gridCol": 0,
+                "gridRow": 0,
+                "gridColSpan": 4
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n4",
+              "type": "button",
+              "name": "button1",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "7",
+                "gridCol": 0,
+                "gridRow": 1
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n5",
+              "type": "button",
+              "name": "button2",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "8",
+                "gridCol": 1,
+                "gridRow": 1
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n6",
+              "type": "button",
+              "name": "button3",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "9",
+                "gridCol": 2,
+                "gridRow": 1
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n7",
+              "type": "button",
+              "name": "button4",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "/",
+                "gridCol": 3,
+                "gridRow": 1
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n8",
+              "type": "button",
+              "name": "button5",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "4",
+                "gridCol": 0,
+                "gridRow": 2
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n9",
+              "type": "button",
+              "name": "button6",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "5",
+                "gridCol": 1,
+                "gridRow": 2
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n10",
+              "type": "button",
+              "name": "button7",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "6",
+                "gridCol": 2,
+                "gridRow": 2
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n11",
+              "type": "button",
+              "name": "button8",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "x",
+                "gridCol": 3,
+                "gridRow": 2
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n12",
+              "type": "button",
+              "name": "button9",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "1",
+                "gridCol": 0,
+                "gridRow": 3
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n13",
+              "type": "button",
+              "name": "button10",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "2",
+                "gridCol": 1,
+                "gridRow": 3
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n14",
+              "type": "button",
+              "name": "button11",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "3",
+                "gridCol": 2,
+                "gridRow": 3
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n15",
+              "type": "button",
+              "name": "button12",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "-",
+                "gridCol": 3,
+                "gridRow": 3
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n16",
+              "type": "button",
+              "name": "button13",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "0",
+                "gridCol": 0,
+                "gridRow": 4
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n17",
+              "type": "button",
+              "name": "button14",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": ".",
+                "gridCol": 1,
+                "gridRow": 4
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n18",
+              "type": "button",
+              "name": "button15",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "=",
+                "gridCol": 2,
+                "gridRow": 4
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n19",
+              "type": "button",
+              "name": "button16",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "+",
+                "gridCol": 3,
+                "gridRow": 4
+              },
+              "events": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

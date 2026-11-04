@@ -1,0 +1,118 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "ModernScale",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 8,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Instruments",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Widgets of LVGL 9",
+            "x": 16,
+            "y": 10,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "scale",
+          "name": "scale1",
+          "props": {
+            "width": 200,
+            "height": 200,
+            "scaleMode": "ROUND_INNER",
+            "min": 0,
+            "max": 100,
+            "totalTicks": 31,
+            "majorEvery": 5,
+            "x": 16,
+            "y": 44
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "scale",
+          "name": "scale2",
+          "props": {
+            "width": 220,
+            "height": 60,
+            "scaleMode": "HORIZONTAL_BOTTOM",
+            "min": 0,
+            "max": 100,
+            "totalTicks": 21,
+            "majorEvery": 5,
+            "x": 240,
+            "y": 44
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "barcode",
+          "name": "barcode1",
+          "props": {
+            "width": 220,
+            "height": 60,
+            "text": "LVGL-9",
+            "x": 240,
+            "y": 120
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "qrcode",
+          "name": "qrcode1",
+          "props": {
+            "qrSize": 110,
+            "text": "https://lvgl.io",
+            "x": 300,
+            "y": 196
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "arclabel",
+          "name": "arclabel1",
+          "props": {
+            "width": 130,
+            "height": 130,
+            "text": "Arc Label",
+            "x": 16,
+            "y": 180
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

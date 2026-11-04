@@ -1,10 +1,12 @@
 // The settings window: general options, themes (with the user's own) and the start screen.
 import { useState } from "react";
 import { Icon } from "./icons.jsx";
-import { ColorField, IconSelect, Toggle } from "./controls.jsx";
-import { ConfirmDialog, Dialog } from "./dialogs.jsx";
+import { ColorField, IconSelect, Stepper, Toggle } from "./controls.jsx";
+import { ConfirmDialog, Dialog, versionChoices } from "./dialogs.jsx";
+import { host } from "./host.js";
+import { DEVICES } from "./lvgl/schema.js";
 import { THEME_COLOR_KEYS, THEMES, themeById } from "./themes.js";
-import { MAX_CUSTOM_THEMES, customThemeFrom, DEFAULT_START_SCREEN, effectiveSpeed } from "./settings.js";
+import { MAX_CUSTOM_THEMES, SNAP_MAX, SNAP_MIN, customThemeFrom, DEFAULT_START_SCREEN, effectiveSpeed } from "./settings.js";
 import { BackgroundGrid, StartRanges } from "./StartScreen.jsx";
 
 function ThemeRow({ item, label, selected, onPick }) {
@@ -38,7 +40,7 @@ function ThemeEditor({ t, theme, onChange, onDelete }) {
   );
 }
 
-export function PreferencesDialog({ t, initialTab, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
+export function PreferencesDialog({ t, initialTab, general, onGeneral, projectsDir, onProjectsDir, rulers, onRulers, recentCount, onClearRecent, language, onLanguage, themeId, onTheme, customThemes, onCustomThemes, start, onStart, onClose }) {
   const [tab, setTab] = useState(initialTab ?? "general");
   const [asking, setAsking] = useState(false);
   const label = (item) => (language === "en" ? item.nameEn : item.nameKo);
@@ -75,11 +77,51 @@ export function PreferencesDialog({ t, initialTab, language, onLanguage, themeId
         </nav>
         <div className="pref-page" data-pref-page={tab}>
           {tab === "general" && (
-            <div className="form-grid">
-              <span>{t("cmd.language")}</span>
-              <IconSelect id="prefLanguage" value={language} options={[{ value: "ko", label: "한국어", icon: "language" }, { value: "en", label: "English", icon: "language" }]} onChange={onLanguage} />
-              <span>{t("start.showOnStartup")}</span>
-              <Toggle id="prefShowStart" checked={start.showOnStartup} onChange={(showOnStartup) => onStart({ showOnStartup })} />
+            <div className="pref-general">
+              <section>
+                <h4><Icon name="language" size={14} /> {t("pref.startup")}</h4>
+                <div className="form-grid">
+                  <span>{t("cmd.language")}</span>
+                  <IconSelect id="prefLanguage" value={language} options={[{ value: "ko", label: "한국어", icon: "language" }, { value: "en", label: "English", icon: "language" }]} onChange={onLanguage} />
+                  <span>{t("start.showOnStartup")}</span>
+                  <Toggle id="prefShowStart" checked={start.showOnStartup} onChange={(showOnStartup) => onStart({ showOnStartup })} />
+                  <span>{t("pref.reopenLast")}</span>
+                  <Toggle id="prefReopen" checked={general.reopenLast} onChange={(reopenLast) => onGeneral({ reopenLast })} />
+                </div>
+              </section>
+              <section>
+                <h4><Icon name="new" size={14} /> {t("pref.newProject")}</h4>
+                <div className="form-grid">
+                  <span>{t("settings.version")}</span>
+                  <IconSelect id="prefNewVersion" value={general.newVersion} options={versionChoices(t, [], general.newVersion)} onChange={(newVersion) => onGeneral({ newVersion })} />
+                  <span>{t("settings.device")}</span>
+                  <IconSelect id="prefNewDevice" value={general.newDevice} options={DEVICES.map((device) => ({ value: device.id, label: t(`device.${device.id}`), icon: "device" }))} onChange={(newDevice) => onGeneral({ newDevice })} />
+                  <span>{t("project.location")}</span>
+                  <div className="row">
+                    <input className="text-input" data-field="prefLocation" value={projectsDir} placeholder={t("pref.locationHint")} onChange={(event) => onProjectsDir(event.target.value)} />
+                    <button type="button" data-command="pref-browse" onClick={async () => {
+                      const chosen = await host.pickFolder(projectsDir).catch(() => null);
+                      if (chosen) onProjectsDir(chosen);
+                    }}><Icon name="open" /> {t("project.browse")}</button>
+                  </div>
+                </div>
+              </section>
+              <section>
+                <h4><Icon name="design" size={14} /> {t("pref.editor")}</h4>
+                <div className="form-grid">
+                  <span>{t("cmd.rulers")}</span>
+                  <Toggle id="prefRulers" checked={rulers} onChange={onRulers} />
+                  <span>{t("pref.snap")}</span>
+                  <Stepper id="prefSnap" unit="px" value={general.snap} min={SNAP_MIN} max={SNAP_MAX} onChange={(snap) => onGeneral({ snap })} />
+                </div>
+              </section>
+              <section>
+                <h4><Icon name="clock" size={14} /> {t("start.recent")}</h4>
+                <div className="pref-row">
+                  <span>{t("pref.recentCount", { count: recentCount })}</span>
+                  <button type="button" data-command="pref-clear-recent" disabled={recentCount === 0} onClick={onClearRecent}><Icon name="delete" /> {t("start.clearRecent")}</button>
+                </div>
+              </section>
             </div>
           )}
           {tab === "theme" && (
@@ -113,7 +155,10 @@ export function PreferencesDialog({ t, initialTab, language, onLanguage, themeId
                 <Toggle id="prefStartShow" checked={start.showOnStartup} onChange={(showOnStartup) => onStart({ showOnStartup })} />
               </div>
               <StartRanges t={t} start={start} speed={effectiveSpeed(start.speed, !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)} onChange={onStart} />
-              <button type="button" className="pref-reset" data-command="start-reset" onClick={() => onStart({ ...DEFAULT_START_SCREEN })}><Icon name="undo" /> {t("start.reset")}</button>
+              <div className="pref-row pref-reset">
+                <button type="button" data-command="start-layout-reset" disabled={!start.layout} onClick={() => onStart({ layout: null })}><Icon name="grid" /> {t("start.arrange")}</button>
+                <button type="button" data-command="start-reset" onClick={() => onStart({ ...DEFAULT_START_SCREEN })}><Icon name="undo" /> {t("start.reset")}</button>
+              </div>
               <h4>{t("start.background")}</h4>
               <BackgroundGrid t={t} value={start.background} themeId={themeId} onChange={(background) => onStart({ background })} shuffle={{ on: start.shuffle, onToggle: () => onStart({ shuffle: !start.shuffle }) }} />
             </>

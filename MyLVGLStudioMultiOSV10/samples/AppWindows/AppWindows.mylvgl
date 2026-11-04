@@ -1,0 +1,87 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "AppWindows",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 6,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Desktop",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "win",
+          "name": "win1",
+          "props": {
+            "width": 370,
+            "height": 220,
+            "title": "Status",
+            "text": "All services are running.",
+            "x": 16,
+            "y": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "menu",
+          "name": "menu1",
+          "props": {
+            "width": 384,
+            "height": 220,
+            "menuItems": "Network\nDisplay\nSound\nAbout",
+            "x": 400,
+            "y": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "tileview",
+          "name": "tileview1",
+          "props": {
+            "width": 370,
+            "height": 214,
+            "tiles": "Swipe me\nSecond tile\nThird tile",
+            "x": 16,
+            "y": 250
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "msgbox",
+          "name": "msgbox1",
+          "props": {
+            "width": 360,
+            "align": "TOP_LEFT",
+            "title": "Update",
+            "text": "A new version is ready.",
+            "buttons": "Install,Later",
+            "x": 410,
+            "y": 270
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

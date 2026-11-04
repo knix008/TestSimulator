@@ -1,0 +1,122 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "DataDashboard",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 8,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Dashboard",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Production today",
+            "x": 16,
+            "y": 10,
+            "font": 24
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "chart",
+          "name": "chart1",
+          "props": {
+            "width": 480,
+            "height": 240,
+            "chartType": "LINE",
+            "series": "20,35,30,55,70,65,80,75\n10,15,25,20,30,45,40,50",
+            "min": 0,
+            "max": 100,
+            "x": 16,
+            "y": 50
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "chart",
+          "name": "chart2",
+          "props": {
+            "width": 274,
+            "height": 240,
+            "chartType": "BAR",
+            "series": "40,75,55,90,30",
+            "min": 0,
+            "max": 100,
+            "x": 510,
+            "y": 50
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "table",
+          "name": "table1",
+          "props": {
+            "width": 480,
+            "height": 170,
+            "cells": "Line,Output,State\nA,1204,Running\nB,987,Running\nC,0,Stopped",
+            "columnWidth": 150,
+            "x": 16,
+            "y": 300
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 274,
+            "height": 22,
+            "min": 0,
+            "max": 100,
+            "value": 72,
+            "x": 510,
+            "y": 310
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n7",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 120,
+            "height": 120,
+            "min": 0,
+            "max": 100,
+            "value": 40,
+            "x": 590,
+            "y": 345
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

@@ -5,7 +5,6 @@ import { engineFor } from "./lvgl/versions.js";
 import { loadEngine } from "./lvgl/engine.js";
 import { CONTAINERS } from "./lvgl/schema.js";
 import { findNode, findParent, isInside, moveNode, setProp } from "./lvgl/project.js";
-import { Ruler } from "./Ruler.jsx";
 
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const MIN_SIZE = 4;
@@ -21,7 +20,7 @@ function flatten(screen) {
   return list;
 }
 
-export const Surface = forwardRef(function Surface({ store, activeId, selected, onSelect, mode, zoom, rulers, onLog, onMeta, onError }, ref) {
+export const Surface = forwardRef(function Surface({ store, activeId, selected, onSelect, mode, zoom, snap = 1, onLog, onMeta, onError }, ref) {
   const project = store.project;
   // Callbacks change with the language; that must not reload the engine or restart a run.
   const callbacks = useRef({ onLog, onMeta, onError });
@@ -74,6 +73,8 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
   useEffect(() => {
     const engine = engineReady;
     if (!engine) return;
+    // Right after a version change the next engine is still loading; this one lacks its widgets.
+    if (engine.version !== engineVersion) return;
     if (running) {
       if (runProject.current) return;
       runProject.current = project;
@@ -90,7 +91,7 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
     }
     setBoxes(next);
     callbacks.current.onMeta?.({ runtime: engine.runtimeVersion() });
-  }, [engineReady, project, screen, running, paint]);
+  }, [engineReady, engineVersion, project, screen, running, paint]);
 
   // The LVGL clock: timers, animations, input.
   useEffect(() => {
@@ -205,18 +206,19 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
     const dx = Math.round(x - state.start.x);
     const dy = Math.round(y - state.start.y);
     if (!state.moved && Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+    const snapped = (value) => (snap > 1 ? Math.round(value / snap) * snap : value);
     state.moved = true;
     store.update((draft) => {
       const node = findNode(draft, state.id);
       if (!node) return false;
       if (!state.handle) {
-        setProp(node, "x", state.x + dx);
-        setProp(node, "y", state.y + dy);
+        setProp(node, "x", snapped(state.x + dx));
+        setProp(node, "y", snapped(state.y + dy));
         return undefined;
       }
       const h = state.handle;
-      if (h.includes("e")) node.props.width = Math.max(MIN_SIZE, state.box.w + dx);
-      if (h.includes("s")) node.props.height = Math.max(MIN_SIZE, state.box.h + dy);
+      if (h.includes("e")) node.props.width = Math.max(MIN_SIZE, snapped(state.box.w + dx));
+      if (h.includes("s")) node.props.height = Math.max(MIN_SIZE, snapped(state.box.h + dy));
       if (h.includes("w")) {
         const width = Math.max(MIN_SIZE, state.box.w - dx);
         node.props.width = width;
@@ -314,13 +316,5 @@ export const Surface = forwardRef(function Surface({ store, activeId, selected, 
       </div>
     </div>
   );
-  if (!rulers) return device;
-  return (
-    <div className="ruled" data-rulers="">
-      <span className="ruler-corner">px</span>
-      <div className="ruler-top"><Ruler axis="x" length={project.device.w} zoom={zoom} /></div>
-      <div className="ruler-left"><Ruler axis="y" length={project.device.h} zoom={zoom} /></div>
-      {device}
-    </div>
-  );
+  return device;
 });

@@ -14,6 +14,7 @@
     "fetch:lvgl": "node scripts/fetch-lvgl.mjs",
     "build:engine": "node scripts/build-engine.mjs",
     "icons": "node scripts/generate-icons.mjs",
+    "samples": "node scripts/generate-samples.mjs",
     "tauri": "node node_modules/@tauri-apps/cli/tauri.js",
     "build:win": "node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis && node scripts/copy-installer.mjs",
     "build:mac": "node node_modules/@tauri-apps/cli/tauri.js build --bundles dmg && node scripts/copy-installer.mjs",

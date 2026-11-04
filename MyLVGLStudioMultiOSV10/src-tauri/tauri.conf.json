@@ -19,6 +19,7 @@
     "publisher": "SHKWON",
     "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
     "category": "DeveloperTool",
+    "resources": { "../samples/": "samples/" },
     "fileAssociations": [
       {
         "ext": ["mylvgl"],

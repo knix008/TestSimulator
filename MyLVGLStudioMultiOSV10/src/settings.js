@@ -2,6 +2,8 @@
 // from settings.json can be made valid here and the rules can be tested without the UI.
 import { CUSTOM_THEME_PREFIX, THEME_COLOR_KEYS, isThemeId, themeById, themeColors } from "./themes.js";
 import { BACKGROUND_KINDS, isBackgroundKind } from "./start/backgrounds.js";
+import { DEFAULT_VERSION, isSupported } from "./lvgl/versions.js";
+import { DEVICES } from "./lvgl/schema.js";
 
 export const MAX_CUSTOM_THEMES = 24;
 export const MAX_RECENT = 12;
@@ -15,7 +17,23 @@ export const OPACITY_MIN = 20;
 export const OPACITY_MAX = 100;
 export const OPACITY_STEP = 5;
 export const SHUFFLE_SECONDS = 20;
-export const START_CARDS = ["hero", "actions", "recent", "theme", "background"];
+export const START_CARDS = ["hero", "actions", "recent", "samples", "theme", "background"];
+
+export const SNAP_MIN = 1;
+export const SNAP_MAX = 50;
+export const DEFAULT_GENERAL = { reopenLast: false, newVersion: DEFAULT_VERSION, newDevice: DEVICES[0].id, snap: 1 };
+
+/** The General tab: what a new project starts with, and how the editor behaves. */
+export function sanitizeGeneral(value) {
+  const v = value && typeof value === "object" ? value : {};
+  const snap = Math.round(Number(v.snap));
+  return {
+    reopenLast: v.reopenLast === true,
+    newVersion: isSupported(v.newVersion) ? String(v.newVersion) : DEFAULT_GENERAL.newVersion,
+    newDevice: DEVICES.some((device) => device.id === v.newDevice) ? v.newDevice : DEFAULT_GENERAL.newDevice,
+    snap: Number.isFinite(snap) ? Math.max(SNAP_MIN, Math.min(SNAP_MAX, snap)) : DEFAULT_GENERAL.snap,
+  };
+}
 
 export const DEFAULT_START_SCREEN = {
   showOnStartup: true,
@@ -114,5 +132,6 @@ export function sanitizeSettings(value) {
     customThemes,
     startScreen: sanitizeStartScreen(v.startScreen),
     recent: sanitizeRecent(v.recent),
+    general: sanitizeGeneral(v.general),
   };
 }

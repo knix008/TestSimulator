@@ -178,6 +178,18 @@ fn window_ready(window: tauri::WebviewWindow) {
     let _ = window.set_focus();
 }
 
+/// The sample projects shipped with the app, and the folder they are in.
+#[tauri::command(async)]
+fn samples_list(app: AppHandle) -> Result<Value, String> {
+    let resources = app.path().resource_dir().map_err(|e| e.to_string())?;
+    // Windows gives a "\\\\?\\" path here, which is fine for Rust but not for joining by hand.
+    let text = resources.to_string_lossy().to_string();
+    let dir = PathBuf::from(text.strip_prefix("\\\\?\\").unwrap_or(&text)).join("samples");
+    let list = std::fs::read_to_string(dir.join("index.json")).map_err(|e| e.to_string())?;
+    let items: Value = serde_json::from_str(list.trim_start_matches('\u{feff}')).map_err(|e| e.to_string())?;
+    Ok(json!({ "dir": dir.to_string_lossy(), "items": items }))
+}
+
 /// The smallest size the page measured for its menu row and toolbar, logical pixels.
 struct MinSize(Mutex<(f64, f64)>);
 
@@ -354,6 +366,8 @@ fn main() {
             native::native_check,
             native::native_run,
             native::native_stop,
+            native::native_clean,
+            samples_list,
             native::tools_plan,
             native::tools_install,
         ])

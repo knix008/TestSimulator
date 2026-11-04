@@ -1,0 +1,103 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "WeatherStation",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#29b6f6",
+    "secondary": "#ffca28"
+  },
+  "nextId": 7,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Weather",
+      "props": {
+        "bgColor": "#e3f2fd",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Seoul",
+            "x": 20,
+            "y": 14,
+            "font": 28
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "18 C",
+            "x": 20,
+            "y": 56,
+            "font": 48,
+            "textColor": "#0277bd"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "Partly cloudy",
+            "x": 20,
+            "y": 116,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "chart",
+          "name": "chart1",
+          "props": {
+            "width": 264,
+            "height": 130,
+            "chartType": "LINE",
+            "series": "14,15,17,18,18,17,15,14",
+            "min": 0,
+            "max": 100,
+            "x": 200,
+            "y": 16
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "table",
+          "name": "table1",
+          "props": {
+            "width": 444,
+            "height": 140,
+            "cells": "Day,High,Low\nMon,19,11\nTue,21,12\nWed,17,10",
+            "columnWidth": 148,
+            "x": 20,
+            "y": 160
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

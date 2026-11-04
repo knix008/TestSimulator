@@ -1,0 +1,87 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "SmartWatch",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 240,
+    "h": 240
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#66bb6a",
+    "secondary": "#ff7043"
+  },
+  "nextId": 6,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Face",
+      "props": {
+        "bgColor": "#000000",
+        "bgOpa": 255
+      },
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 220,
+            "height": 220,
+            "min": 0,
+            "max": 100,
+            "value": 68,
+            "align": "CENTER"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "10:24",
+            "align": "CENTER",
+            "y": -14,
+            "font": 36,
+            "textColor": "#ffffff"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "6,840 steps",
+            "align": "CENTER",
+            "y": 26,
+            "textColor": "#a5d6a7"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "led",
+          "name": "led1",
+          "props": {
+            "width": 12,
+            "height": 12,
+            "ledBright": 255,
+            "align": "BOTTOM_MID",
+            "y": -34
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

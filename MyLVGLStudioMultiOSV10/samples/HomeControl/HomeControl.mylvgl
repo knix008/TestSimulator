@@ -1,0 +1,228 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "HomeControl",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": true,
+    "primary": "#26a69a",
+    "secondary": "#ffa726"
+  },
+  "nextId": 16,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Home",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Living room",
+            "x": 16,
+            "y": 10,
+            "font": 20
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "arc",
+          "name": "arc1",
+          "props": {
+            "width": 170,
+            "height": 170,
+            "min": 10,
+            "max": 35,
+            "value": 22,
+            "x": 16,
+            "y": 50
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "22 C",
+            "x": 72,
+            "y": 118,
+            "font": 28
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "container",
+          "name": "container1",
+          "props": {
+            "width": 264,
+            "height": 170,
+            "x": 200,
+            "y": 50,
+            "flexFlow": "COLUMN",
+            "gap": 8,
+            "pad": 12
+          },
+          "events": [],
+          "children": [
+            {
+              "id": "n6",
+              "type": "checkbox",
+              "name": "checkbox1",
+              "props": {
+                "text": "Ceiling light",
+                "checked": true
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n7",
+              "type": "checkbox",
+              "name": "checkbox2",
+              "props": {
+                "text": "Floor lamp"
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n8",
+              "type": "slider",
+              "name": "slider1",
+              "props": {
+                "width": "100%",
+                "height": 12,
+                "min": 0,
+                "max": 100,
+                "value": 65
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n9",
+              "type": "switch",
+              "name": "switch1",
+              "props": {
+                "width": 56,
+                "height": 28,
+                "checked": true
+              },
+              "events": [],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "n10",
+          "type": "button",
+          "name": "button1",
+          "props": {
+            "width": 140,
+            "height": 60,
+            "text": "Schedule",
+            "x": 16,
+            "y": 240
+          },
+          "events": [
+            {
+              "trigger": "CLICKED",
+              "action": "screen",
+              "target": "n12"
+            }
+          ],
+          "children": []
+        },
+        {
+          "id": "n11",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "All systems normal",
+            "x": 180,
+            "y": 262
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "n12",
+      "type": "screen",
+      "name": "Schedule",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n13",
+          "type": "roller",
+          "name": "roller1",
+          "props": {
+            "options": "06:00\n07:00\n08:00\n09:00",
+            "align": "CENTER",
+            "x": -80,
+            "selected": 1
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n14",
+          "type": "dropdown",
+          "name": "dropdown1",
+          "props": {
+            "width": 150,
+            "options": "Weekdays\nWeekend\nEvery day",
+            "align": "CENTER",
+            "x": 90,
+            "y": -40
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n15",
+          "type": "button",
+          "name": "button2",
+          "props": {
+            "width": 130,
+            "height": 48,
+            "text": "Back",
+            "align": "BOTTOM_MID",
+            "y": -14
+          },
+          "events": [
+            {
+              "trigger": "CLICKED",
+              "action": "setText",
+              "target": "n11",
+              "text": "Schedule saved"
+            },
+            {
+              "trigger": "CLICKED",
+              "action": "screen",
+              "target": "n1"
+            }
+          ],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

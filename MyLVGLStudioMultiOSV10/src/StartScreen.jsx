@@ -4,12 +4,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import appIcon from "../assets/icons/128x128.png";
 import { Flag, Icon } from "./icons.jsx";
 import { THEMES, themeById } from "./themes.js";
+import { useSamples } from "./dialogs.jsx";
 import { BACKGROUND_KINDS, drawBackground, themePalette } from "./start/backgrounds.js";
 import { COLS, GAP, ROW, autoArrange, cardsOf, compact, layoutKey, layoutValue, place, rowsFor } from "./start/layout.js";
 import { OPACITY_MAX, OPACITY_MIN, OPACITY_STEP, SHUFFLE_SECONDS, SPEED_MAX, SPEED_MIN, SPEED_STEP, START_CARDS, effectiveSpeed } from "./settings.js";
 
 const FRAME_MS = 1000 / 30;
-const DEFAULT_SPAN = { hero: 3, actions: 3, recent: 3, theme: 3, background: 3 };
+const DEFAULT_SPAN = { hero: 3, actions: 3, recent: 3, samples: 3, theme: 3, background: 3 };
 
 function useReducedMotion() {
   const query = "(prefers-reduced-motion: reduce)";
@@ -169,7 +170,7 @@ export function StartRanges({ t, start, speed, onChange }) {
 const nameOf = (file) => file.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
 const parentOf = (file) => file.split(/[\\/]/).slice(0, -1).join("/");
 
-export function StartScreen({ t, language, themeId, customThemes, start, recent, onStart, onNew, onOpen, onContinue, onOpenRecent, onRemoveRecent, onClearRecent, onTheme, onPreferences, onManager, onSettings, onLanguage, onAbout, onExit }) {
+export function StartScreen({ t, language, themeId, customThemes, start, recent, onStart, onNew, onOpen, onContinue, onOpenRecent, onOpenSample, onSamples, onRemoveRecent, onClearRecent, onTheme, onPreferences, onManager, onSettings, onLanguage, onAbout, onExit }) {
   const en = language === "en";
   const reduced = useReducedMotion();
   const speed = effectiveSpeed(start.speed, reduced);
@@ -414,6 +415,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
     { id: "new", icon: "new", label: t("cmd.new"), tip: t("start.tipNew"), run: onNew },
     { id: "open", icon: "open", label: t("cmd.open"), tip: t("start.tipOpen"), run: onOpen },
     { id: "continue", icon: "design", label: t("start.continue"), tip: t("start.tipContinue"), run: onContinue },
+    { id: "samples", icon: "samples", label: t("cmd.samples"), tip: t("start.tipSamples"), run: onSamples },
     { id: "manager", icon: "manager", label: t("cmd.manager"), tip: t("start.tipManager"), run: onManager },
     { id: "settings", icon: "project", label: t("cmd.settings"), tip: t("start.tipSettings"), run: onSettings },
     { id: "theme", icon: "theme", label: t("start.themeSettings"), tip: t("start.tipTheme"), run: () => onPreferences("theme") },
@@ -426,7 +428,20 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
 
   /* -------------------------------------------------------------- cards */
 
+  const samples = useSamples();
   const cards = {
+    samples: card("samples", "samples", t("start.samples"), (
+      <div className="sample-tiles">
+        {samples.items.length === 0 && <div className="start-empty"><Icon name="about" size={14} /><span>{t("samples.empty")}</span></div>}
+        {samples.items.map((sample) => (
+          <button type="button" key={sample.id} className="start-tile" data-sample={sample.id} title={`${sample[language]?.[1]} · LVGL ${sample.lvgl}`} onClick={() => onOpenSample(sample, samples.dir)}>
+            <Icon name={sample.icon} size={20} />
+            <b>{sample[language]?.[0] ?? sample.id}</b>
+            <small>{sample[language]?.[1]}</small>
+          </button>
+        ))}
+      </div>
+    )),
     hero: card("hero", "home", "", (
       <>
         <img className="start-icon" src={appIcon} width={76} height={76} alt="" />
@@ -437,6 +452,7 @@ export function StartScreen({ t, language, themeId, customThemes, start, recent,
         <div className="start-hero-actions">
           <button type="button" className="start-btn primary" data-start="hero-new" onClick={onNew}><Icon name="new" /><span>{t("cmd.new")}</span></button>
           <button type="button" className="start-btn" data-start="hero-open" onClick={onOpen}><Icon name="open" /><span>{t("cmd.open")}</span></button>
+          <button type="button" className="start-btn" data-start="hero-samples" onClick={onSamples}><Icon name="samples" /><span>{t("cmd.samples")}</span></button>
         </div>
       </>
     ), null, true),

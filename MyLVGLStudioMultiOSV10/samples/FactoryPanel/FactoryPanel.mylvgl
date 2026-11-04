@@ -1,0 +1,239 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "FactoryPanel",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 800,
+    "h": 480
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 17,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Panel",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "grid",
+          "name": "grid1",
+          "props": {
+            "width": "100%",
+            "height": "100%",
+            "gridColumns": "1fr,1fr,1fr",
+            "gridRows": "1fr,1fr",
+            "x": 0,
+            "y": 0,
+            "pad": 10,
+            "gap": 10
+          },
+          "events": [],
+          "children": [
+            {
+              "id": "n3",
+              "type": "container",
+              "name": "container1",
+              "props": {
+                "width": 180,
+                "height": 110,
+                "flexFlow": "COLUMN",
+                "gap": 8,
+                "pad": 10
+              },
+              "events": [],
+              "children": [
+                {
+                  "id": "n4",
+                  "type": "label",
+                  "name": "label1",
+                  "props": {
+                    "text": "Pump",
+                    "font": 18
+                  },
+                  "events": [],
+                  "children": []
+                },
+                {
+                  "id": "n5",
+                  "type": "bar",
+                  "name": "bar1",
+                  "props": {
+                    "width": "100%",
+                    "height": 16,
+                    "min": 0,
+                    "max": 100,
+                    "value": 72
+                  },
+                  "events": [],
+                  "children": []
+                },
+                {
+                  "id": "n6",
+                  "type": "switch",
+                  "name": "switch1",
+                  "props": {
+                    "width": 56,
+                    "height": 28,
+                    "checked": true
+                  },
+                  "events": [],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "n7",
+              "type": "container",
+              "name": "container2",
+              "props": {
+                "width": 180,
+                "height": 110,
+                "flexFlow": "COLUMN",
+                "gap": 8,
+                "pad": 10
+              },
+              "events": [],
+              "children": [
+                {
+                  "id": "n8",
+                  "type": "label",
+                  "name": "label2",
+                  "props": {
+                    "text": "Valve",
+                    "font": 18
+                  },
+                  "events": [],
+                  "children": []
+                },
+                {
+                  "id": "n9",
+                  "type": "bar",
+                  "name": "bar2",
+                  "props": {
+                    "width": "100%",
+                    "height": 16,
+                    "min": 0,
+                    "max": 100,
+                    "value": 40
+                  },
+                  "events": [],
+                  "children": []
+                },
+                {
+                  "id": "n10",
+                  "type": "switch",
+                  "name": "switch2",
+                  "props": {
+                    "width": 56,
+                    "height": 28,
+                    "checked": false
+                  },
+                  "events": [],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "n11",
+              "type": "container",
+              "name": "container3",
+              "props": {
+                "width": 180,
+                "height": 110,
+                "flexFlow": "COLUMN",
+                "gap": 8,
+                "pad": 10
+              },
+              "events": [],
+              "children": [
+                {
+                  "id": "n12",
+                  "type": "label",
+                  "name": "label3",
+                  "props": {
+                    "text": "Motor",
+                    "font": 18
+                  },
+                  "events": [],
+                  "children": []
+                },
+                {
+                  "id": "n13",
+                  "type": "bar",
+                  "name": "bar3",
+                  "props": {
+                    "width": "100%",
+                    "height": 16,
+                    "min": 0,
+                    "max": 100,
+                    "value": 88
+                  },
+                  "events": [],
+                  "children": []
+                },
+                {
+                  "id": "n14",
+                  "type": "switch",
+                  "name": "switch3",
+                  "props": {
+                    "width": 56,
+                    "height": 28,
+                    "checked": true
+                  },
+                  "events": [],
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "n15",
+              "type": "list",
+              "name": "events",
+              "props": {
+                "width": 160,
+                "height": 150,
+                "items": "#Events\nPump started\nValve at 40 %\nMotor warm",
+                "gridCol": 0,
+                "gridRow": 1,
+                "gridColSpan": 2
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n16",
+              "type": "button",
+              "name": "button1",
+              "props": {
+                "width": 110,
+                "height": 44,
+                "text": "Stop all",
+                "gridCol": 2,
+                "gridRow": 1,
+                "bgColor": "#d32f2f",
+                "font": 20
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "log",
+                  "text": "Stop all pressed"
+                }
+              ],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

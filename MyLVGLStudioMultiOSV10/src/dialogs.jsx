@@ -98,8 +98,35 @@ export function AboutDialog({ t, onClose, runtime, iconSource }) {
   );
 }
 
+/** The samples shipped with the app: their list and where they are. */
+export function useSamples() {
+  const [samples, setSamples] = useState({ dir: "", items: [] });
+  useEffect(() => {
+    host.samplesList().then(setSamples).catch(() => {});
+  }, []);
+  return samples;
+}
+
+export function SamplesDialog({ t, language, onOpen, onClose }) {
+  const { dir, items } = useSamples();
+  return (
+    <Dialog title={t("samples.title")} icon="samples" onClose={onClose} id="samples" width={560} footer={<button type="button" className="primary" onClick={onClose}>{t("dialog.close")}</button>}>
+      {items.length === 0 && <p className="dialog-note">{t("samples.empty")}</p>}
+      <div className="samples-list">
+        {items.map((sample) => (
+          <button type="button" key={sample.id} data-sample={sample.id} title={`LVGL ${sample.lvgl}`} onClick={() => onOpen(sample, dir)}>
+            <Icon name={sample.icon} />
+            <b>{sample[language]?.[0] ?? sample.id}</b>
+            <small>{sample[language]?.[1]} · LVGL {sample.lvgl}</small>
+          </button>
+        ))}
+      </div>
+    </Dialog>
+  );
+}
+
 /** Versions a project can choose: what is bundled, installed or known, newest first. */
-function versionChoices(t, installed, current) {
+export function versionChoices(t, installed, current) {
   const set = sortReleases([...BUNDLED_ENGINES, ...KNOWN_VERSIONS, ...installed, current]);
   return set.map((value) => {
     const notes = [];
@@ -170,11 +197,11 @@ export function ProjectSettings({ t, store, onClose, onManager, installed }) {
  * New Project, and the first save of a project: name and location decide the project folder.
  * `saveOnly` hides the choices the open project has already made.
  */
-export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, installed, onCreate, onClose }) {
+export function NewProjectDialog({ t, saveOnly, initialName, initialLocation, initialVersion, initialDevice, installed, onCreate, onClose }) {
   const [name, setName] = useState(initialName);
   const [location, setLocation] = useState(initialLocation);
-  const [version, setVersion] = useState(DEFAULT_VERSION);
-  const [deviceId, setDeviceId] = useState(DEVICES[0].id);
+  const [version, setVersion] = useState(initialVersion ?? DEFAULT_VERSION);
+  const [deviceId, setDeviceId] = useState(initialDevice ?? DEVICES[0].id);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const nameOk = validProjectName(name);

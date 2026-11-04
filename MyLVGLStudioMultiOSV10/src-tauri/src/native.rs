@@ -193,6 +193,20 @@ fn build_and_run(app: &AppHandle, state: &NativeHandles, version: &str, files: &
     Ok("exited")
 }
 
+/// Deletes a version's native build; only the next run has to compile LVGL again.
+#[tauri::command(async)]
+pub fn native_clean(state: tauri::State<NativeState>, version: String) -> Result<(), String> {
+    if state.running.load(Ordering::SeqCst) {
+        return Err("a native run is in progress".into());
+    }
+    crate::lvgl::version_dir(&version)?; // checks the form of the version: it becomes a folder name
+    let dir = crate::data_dir().join("native").join(&version);
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 const MSYS_PACKAGES: [&str; 4] = ["gcc", "cmake", "ninja", "SDL2"];
 
 fn pacman() -> Option<PathBuf> {

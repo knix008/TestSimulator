@@ -9,12 +9,13 @@ import { ContextMenu, readOnlyTextItems, textFieldItems } from "./ContextMenu.js
 import { host, isDesktop } from "./host.js";
 import { translator } from "./i18n.js";
 import { applyTheme, setCustomThemes, THEMES, themeById } from "./themes.js";
-import { addRecent, removeRecent, sanitizeStartScreen } from "./settings.js";
+import { addRecent, removeRecent, sanitizeGeneral, sanitizeStartScreen } from "./settings.js";
 import { StartScreen } from "./StartScreen.jsx";
 import { PreferencesDialog } from "./Preferences.jsx";
 import { Surface } from "./Surface.jsx";
+import { RULER_SIZE, Ruler } from "./Ruler.jsx";
 import { Attributes, CodeView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
-import { AboutDialog, ConfirmDialog, LvglManager, MessageDialog, NewProjectDialog, ProjectSettings } from "./dialogs.jsx";
+import { AboutDialog, ConfirmDialog, LvglManager, MessageDialog, NewProjectDialog, ProjectSettings, SamplesDialog } from "./dialogs.jsx";
 import { useProjectStore } from "./store.js";
 import { FILE_EXTENSION, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
 import { CONTAINERS, PALETTE, WIDGETS, availableIn } from "./lvgl/schema.js";
@@ -105,6 +106,11 @@ export function App({ initialSettings }) {
   const [runOpen, setRunOpen] = useState(false);
   const [collapsed, setCollapsed] = useState({ left: false, right: false, bottom: false, tree: false, attributes: false, ...initialSettings.collapsed });
   const [rulers, setRulers] = useState(initialSettings.rulers !== false);
+  const [rulerView, setRulerView] = useState({ width: 0, height: 0, x: 0, y: 0 });
+  const rulerMarkerX = useRef(null);
+  const rulerMarkerY = useRef(null);
+  const [general, setGeneral] = useState(initialSettings.general);
+  const [projectsDir, setProjectsDir] = useState(initialSettings.projectsDir ?? "");
   const [contextMenu, setContextMenu] = useState(null);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const [dialog, setDialog] = useState(null);
@@ -160,6 +166,63 @@ export function App({ initialSettings }) {
     if (owner) setActiveId(owner.id);
   }, [store]);
 
+  // The rulers stay at the edges of the design area; their zero follows the device screen.
+  const measureRulers = useCallback(() => {
+    const element = viewport.current;
+    const screen = surface.current?.canvas();
+    if (!element || !screen) return;
+    const area = element.getBoundingClientRect();
+    const rect = screen.getBoundingClientRect();
+    const next = { width: Math.round(area.width), height: Math.round(area.height), x: rect.left - area.left, y: rect.top - area.top };
+    setRulerView((state) => (state.width === next.width && state.height === next.height && Math.abs(state.x - next.x) < 0.5 && Math.abs(state.y - next.y) < 0.5 ? state : next));
+  }, []);
+  useEffect(() => {
+    const element = viewport.current;
+    if (!element) return undefined;
+    measureRulers();
+    const observer = new ResizeObserver(measureRulers);
+    observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
+    element.addEventListener("scroll", measureRulers, { passive: true });
+    return () => {
+      observer.disconnect();
+      element.removeEventListener("scroll", measureRulers);
+    };
+  }, [measureRulers, rulers, showStart]);
+  useEffect(() => {
+    measureRulers();
+  }, [measureRulers, zoom, project.device.w, project.device.h, collapsed, view, sizes]);
+
+  /** The pointer on the rulers: moved directly, a frame must not depend on a render. */
+  const movePointerLine = (event) => {
+    const element = viewport.current;
+    if (!element || !rulerMarkerX.current) return;
+    const area = element.getBoundingClientRect();
+    rulerMarkerX.current.style.transform = `translateX(${event.clientX - area.left}px)`;
+    rulerMarkerY.current.style.transform = `translateY(${event.clientY - area.top}px)`;
+    rulerMarkerX.current.style.visibility = "visible";
+    rulerMarkerY.current.style.visibility = "visible";
+  };
+  const hidePointerLine = () => {
+    if (!rulerMarkerX.current) return;
+    rulerMarkerX.current.style.visibility = "hidden";
+    rulerMarkerY.current.style.visibility = "hidden";
+  };
+
+  const changeGeneral = useCallback((patch) => {
+    setGeneral((state) => {
+      const next = sanitizeGeneral({ ...state, ...patch });
+      void host.saveSettings({ general: next });
+      return next;
+    });
+  }, []);
+
+  const changeProjectsDir = useCallback((value) => {
+    setProjectsDir(value);
+    initialSettings.projectsDir = value;
+    void host.saveSettings({ projectsDir: value });
+  }, [initialSettings]);
+
   /* ---------------------------------------------------------- document */
 
   const guardUnsaved = (next) => {
@@ -195,7 +258,7 @@ export function App({ initialSettings }) {
 
   /** Opens the dialog that decides a project folder. */
   const askProjectFolder = async (saveOnly) => {
-    const location = initialSettings.projectsDir || (await host.defaultLocation().catch(() => "")) || "";
+    const location = projectsDir || (await host.defaultLocation().catch(() => "")) || "";
     setDialog({ kind: "project", saveOnly, location, name: saveOnly ? store.get().name : "MyLVGLProject" });
   };
 
@@ -233,6 +296,33 @@ export function App({ initialSettings }) {
     }
   };
 
+  /**
+   * Opens a sample as an unsaved copy, so its folder stays as shipped. When its LVGL version is
+   * not installed, only now is the user asked: designing and running do not need it.
+   */
+  const openSample = (sample, directory) => guardUnsaved(async () => {
+    try {
+      const separator = directory.includes("\\") ? "\\" : "/";
+      const file = `${directory}${separator}${sample.file.split("/").join(separator)}`;
+      const document = parseProject(await host.readText(file));
+      await loadProjectImages(document, file);
+      load(document, null);
+      log(t("log.sampleOpened", { name: sample.id }));
+      const list = (await host.lvglInstalled()).map((item) => item.version);
+      setInstalled(list);
+      if (!list.includes(document.lvgl)) {
+        setDialog({
+          kind: "confirm",
+          message: t("samples.needLvgl", { version: document.lvgl }),
+          yesLabel: t("manager.install"),
+          onYes: () => setDialog({ kind: "manager", autoInstall: document.lvgl }),
+        });
+      }
+    } catch (error) {
+      showError(error);
+    }
+  });
+
   const cmdOpen = () => guardUnsaved(async () => {
     const file = await host.openProjectDialog().catch(showError);
     if (file) await openFile(file);
@@ -242,7 +332,10 @@ export function App({ initialSettings }) {
   const openFileRef = useRef(null);
   openFileRef.current = (file) => guardUnsaved(() => openFile(file));
   useEffect(() => {
-    void host.startupFile().then((file) => file && openFileRef.current(file));
+    void host.startupFile().then((file) => {
+      const target = file ?? (initialSettings.general.reopenLast ? initialSettings.recent[0] : null);
+      if (target) openFileRef.current(target);
+    });
     return host.on("open-file", (file) => openFileRef.current(file));
   }, []);
 
@@ -271,8 +364,7 @@ export function App({ initialSettings }) {
     } else {
       load(document, file);
     }
-    initialSettings.projectsDir = location;
-    void host.saveSettings({ projectsDir: location });
+    changeProjectsDir(location);
     setDialog(null);
   };
 
@@ -682,6 +774,27 @@ export function App({ initialSettings }) {
     forward: { id: "forward", icon: "forward", label: t("cmd.forward"), disabled: !isWidget || !editing || siblingIndex >= siblings.length - 1, run: () => reorder(1) },
     backward: { id: "backward", icon: "backward", label: t("cmd.backward"), disabled: !isWidget || !editing || siblingIndex <= 0, run: () => reorder(-1) },
     run: { id: "run", icon: running || runOpen ? "stop" : "run", label: t(running || runOpen ? "cmd.stop" : "cmd.run"), keys: "F5", disabled: !designing && !runOpen, pressed: running || runOpen, run: toggleRun },
+    cleanBuild: {
+      id: "cleanBuild",
+      icon: "delete",
+      label: t("cmd.cleanBuild", { version: project.lvgl }),
+      disabled: native !== "idle" || !isDesktop,
+      run: () => setDialog({
+        kind: "confirm",
+        message: t("cmd.cleanBuildAsk", { version: project.lvgl }),
+        yesLabel: t("cmd.delete"),
+        onYes: async () => {
+          try {
+            await host.nativeClean(project.lvgl);
+            setBuildLines([]);
+            log(t("log.buildCleaned", { version: project.lvgl }));
+          } catch (error) {
+            showError(error);
+          }
+        },
+      }),
+    },
+    samples: { id: "samples", icon: "samples", label: t("cmd.samples"), run: () => setDialog({ kind: "samples" }) },
     code: { id: "code", icon: "code", label: t("view.code"), disabled: !designing, pressed: view !== "design", run: () => setView((value) => (value === "design" ? "split" : "design")) },
     panelLeft: { id: "panelLeft", icon: "panelLeft", label: t("panel.toggleLeft"), disabled: !designing, pressed: !collapsed.left, run: () => togglePanel("left") },
     panelRight: { id: "panelRight", icon: "panelRight", label: t("panel.toggleRight"), disabled: !designing, pressed: !collapsed.right, run: () => togglePanel("right") },
@@ -700,10 +813,10 @@ export function App({ initialSettings }) {
   };
 
   const menus = [
-    { id: "file", items: [c.new, c.open, "-", c.save, c.saveAs, "-", c.exit] },
+    { id: "file", items: [c.new, c.open, c.samples, "-", c.save, c.saveAs, "-", c.exit] },
     { id: "edit", items: [c.undo, c.redo, "-", c.cut, c.copy, c.paste, c.duplicate, c.delete, "-", c.forward, c.backward] },
     { id: "view", items: [c.start, "-", c.panelLeft, c.panelBottom, c.panelRight, c.rulers, c.code, "-", c.zoomIn, c.zoomOut, c.zoomFit] },
-    { id: "run", items: [c.run, c.native] },
+    { id: "run", items: [c.run, c.native, "-", c.cleanBuild] },
     { id: "tools", items: [c.settings, c.manager, "-", c.preferences] },
     { id: "help", items: [c.about] },
   ];
@@ -806,7 +919,7 @@ export function App({ initialSettings }) {
       return [{ id: "palette-add", icon: WIDGETS[type].icon, label: `${t("cmd.addWidget")}: ${t(`widget.${type}`)}`, disabled: running, run: () => addFromPalette(type) }];
     }
     if (target.closest("[data-dialog]")) return null;
-    return [c.new, c.open, c.save, "-", c.start, c.settings, c.manager, c.preferences, "-", c.about];
+    return [c.new, c.open, c.samples, c.save, "-", c.start, c.settings, c.manager, c.preferences, "-", c.about];
   };
 
   // A right click on the design bar or the panel background also offers the controls.
@@ -892,7 +1005,12 @@ export function App({ initialSettings }) {
       showStart: () => showStart,
       start: () => start,
       recent: () => recent,
+      general: () => general,
       minimumWidth: () => minimumWidth.current,
+      resetForTest: () => {
+        load(newProject(), null);
+        setShowStart(true);
+      },
       runOpen: () => runOpen,
       collapsed: () => collapsed,
       contextMenu: () => contextMenu,
@@ -936,7 +1054,7 @@ export function App({ initialSettings }) {
             items={menu.items}
           />
         ))}
-        <span className="title-file">{fileName}{store.dirty ? " •" : ""}</span>
+        {!showStart && <span className="title-file" data-title-file="">{fileName}{store.dirty ? " •" : ""}</span>}
         <div className="window-controls">
           <button type="button" aria-label={t("cmd.minimize")} title={t("cmd.minimize")} onClick={host.minimize}><svg viewBox="0 0 10 10"><path d="M0 5h10" /></svg></button>
           <button type="button" aria-label={t("cmd.maximize")} title={t("cmd.maximize")} onClick={host.toggleMaximize}><svg viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" /></svg></button>
@@ -1017,6 +1135,8 @@ export function App({ initialSettings }) {
           onOpen={cmdOpen}
           onContinue={() => setShowStart(false)}
           onOpenRecent={(file) => openFileRef.current(file)}
+          onOpenSample={openSample}
+          onSamples={c.samples.run}
           onRemoveRecent={forgetRecent}
           onClearRecent={() => {
             setRecent([]);
@@ -1071,7 +1191,15 @@ export function App({ initialSettings }) {
             </span>
           </div>
           <div className={`design-area view-${view}`}>
-            <div className="viewport" ref={viewport} style={view === "code" ? { display: "none" } : undefined}>
+            <div className={rulers ? "ruled-view rulers-on" : "ruled-view"} data-rulers={rulers ? "" : undefined} style={rulers ? { gridTemplateColumns: `${RULER_SIZE}px minmax(0, 1fr)`, gridTemplateRows: `${RULER_SIZE}px minmax(0, 1fr)` } : undefined}>
+            {rulers && (
+              <>
+                <span className="ruler-corner">px</span>
+                <Ruler ref={rulerMarkerX} axis="x" length={rulerView.width} origin={rulerView.x} zoom={zoom} />
+                <Ruler ref={rulerMarkerY} axis="y" length={rulerView.height} origin={rulerView.y} zoom={zoom} />
+              </>
+            )}
+            <div className="viewport" ref={viewport} onPointerMove={movePointerLine} onPointerLeave={hidePointerLine}>
               <Surface
                 ref={surface}
                 store={store}
@@ -1080,11 +1208,12 @@ export function App({ initialSettings }) {
                 onSelect={select}
                 mode={mode}
                 zoom={zoom}
-                rulers={rulers}
                 onLog={log}
                 onMeta={useCallback((meta) => setRuntime(meta.runtime), [])}
                 onError={showError}
+                snap={general.snap}
               />
+            </div>
             </div>
             {code && <CodeView files={code} />}
           </div>
@@ -1094,7 +1223,11 @@ export function App({ initialSettings }) {
             <div className="bottom-tabs">
               <button type="button" data-bottom="log" className={bottomTab === "log" ? "active" : undefined} onClick={() => setBottomTab("log")}><Icon name="log" /> {t("panel.log")}</button>
               <button type="button" data-bottom="build" className={bottomTab === "build" ? "active" : undefined} onClick={() => setBottomTab("build")}><Icon name="build" /> {t("panel.build")}</button>
-              <button type="button" className="mini bottom-collapse" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "collapseUp" : "collapseDown"} size={14} /></button>
+              <span className="bottom-actions">
+                <button type="button" className="mini" data-command="clear-output" disabled={(bottomTab === "log" ? logLines : buildLines).length === 0} title={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} aria-label={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} onClick={() => (bottomTab === "log" ? setLogLines([]) : setBuildLines([]))}><Icon name="clearOutput" size={14} /></button>
+                <button type="button" className="mini" data-command="clean-build" disabled={c.cleanBuild.disabled} title={c.cleanBuild.label} aria-label={c.cleanBuild.label} onClick={c.cleanBuild.run}><Icon name="delete" size={14} /></button>
+              </span>
+              <button type="button" className="mini" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "collapseUp" : "collapseDown"} size={14} /></button>
             </div>
             {collapsed.bottom ? null : bottomTab === "log" ? <LogView id="log" lines={logLines} /> : <LogView id="build" lines={buildLines} />}
           </div>
@@ -1129,17 +1262,23 @@ export function App({ initialSettings }) {
 
       <div className="statusbar">
         <span className="status-cell" data-status="mode"><Icon name={running || native !== "idle" ? "run" : "design"} /><span>{status}</span></span>
-        <span className="status-cell" data-status="file"><span>{fileName} · {t(store.dirty ? "status.modified" : "status.saved")}</span></span>
-        <span className={engineInfo.exact ? "status-cell" : "status-cell warn"} data-status="engine">
-          <Icon name="manager" />
-          <span>{engineInfo.exact ? `LVGL ${project.lvgl}` : t("status.engineClose", { engine: engineInfo.engine, version: project.lvgl })}</span>
-        </span>
-        <span className="status-cell" data-status="device"><Icon name="device" /><span>{project.device.w}×{project.device.h}</span></span>
-        {selectedNode && <span className="status-cell" data-status="selection"><Icon name={WIDGETS[selectedNode.type].icon} /><span>{selectedNode.name}</span></span>}
+        {!showStart && (
+          <>
+            <span className="status-cell" data-status="file"><span>{fileName} · {t(store.dirty ? "status.modified" : "status.saved")}</span></span>
+            <span className={engineInfo.exact ? "status-cell" : "status-cell warn"} data-status="engine">
+              <Icon name="manager" />
+              <span>{engineInfo.exact ? `LVGL ${project.lvgl}` : t("status.engineClose", { engine: engineInfo.engine, version: project.lvgl })}</span>
+            </span>
+            <span className="status-cell" data-status="device"><Icon name="device" /><span>{project.device.w}×{project.device.h}</span></span>
+            {selectedNode && <span className="status-cell" data-status="selection"><Icon name={WIDGETS[selectedNode.type].icon} /><span>{selectedNode.name}</span></span>}
+          </>
+        )}
         <span className="status-end">
           {isDesktop && (
             <button type="button" className="grip" aria-label="resize" onPointerDown={(event) => { event.preventDefault(); host.startResize(); }}>
-              <svg viewBox="0 0 12 12"><path d="M11 3 3 11M11 7l-4 4M11 10.5l-.5.5" /></svg>
+              <svg viewBox="0 0 12 12" data-grip="">
+                {[[10, 2], [6, 6], [10, 6], [2, 10], [6, 10], [10, 10]].map(([x, y]) => <circle key={`${x},${y}`} cx={x} cy={y} r="1.15" />)}
+              </svg>
             </button>
           )}
         </span>
@@ -1153,10 +1292,32 @@ export function App({ initialSettings }) {
         </div>
       )}
 
+      {dialog?.kind === "samples" && (
+        <SamplesDialog
+          t={t}
+          language={language}
+          onOpen={(sample, directory) => {
+            setDialog(null);
+            openSample(sample, directory);
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog?.kind === "preferences" && (
         <PreferencesDialog
           t={t}
           initialTab={dialog.tab}
+          general={general}
+          onGeneral={changeGeneral}
+          projectsDir={projectsDir}
+          onProjectsDir={changeProjectsDir}
+          rulers={rulers}
+          onRulers={toggleRulers}
+          recentCount={recent.length}
+          onClearRecent={() => {
+            setRecent([]);
+            void host.saveSettings({ recent: [] });
+          }}
           language={language}
           onLanguage={changeLanguage}
           themeId={themeId}
@@ -1174,6 +1335,8 @@ export function App({ initialSettings }) {
           saveOnly={dialog.saveOnly}
           initialName={dialog.name}
           initialLocation={dialog.location}
+          initialVersion={general.newVersion}
+          initialDevice={general.newDevice}
           installed={installed}
           onCreate={(choice) => createProjectFolder(choice, dialog.saveOnly)}
           onClose={() => setDialog(null)}

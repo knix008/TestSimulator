@@ -157,10 +157,13 @@ category("Start screen");
 
 await step("It opens on the start screen with every card", async () => {
   await page.until("document.querySelector('[data-start-screen]')", 15000);
-  for (const card of ["hero", "actions", "recent", "theme", "background"]) {
+  for (const card of ["hero", "actions", "recent", "samples", "theme", "background"]) {
     assert.ok(await js(`!!document.querySelector('[data-card="${card}"]')`), card);
   }
   await sleep(400);
+  assert.equal(await js("!!document.querySelector('[data-title-file], [data-status=file], [data-status=device], [data-status=selection]')"), false, "the empty project must not show on the start screen");
+  assert.ok(!(await js("document.querySelector('.app').textContent")).includes("Untitled"), "Untitled is visible on the start screen");
+  assert.equal(await js("document.querySelectorAll('[data-grip] circle').length"), 6, "the grip is a triangle of six dots");
   await shot("01-start");
 });
 
@@ -231,7 +234,7 @@ await step("Speed and opacity: a slide bar right of the minus button, the value 
     assert.equal(await js(`getComputedStyle(document.querySelector('[data-card=background] [data-field="${name}"]')).textAlign`), "center", name);
   }
   const bar = await js(`(() => { const e = document.querySelector('[data-card=background] [data-range-bar="startOpacity"]'); e.scrollIntoView({ block: "nearest" }); const r = e.getBoundingClientRect(); return { left: r.left, width: r.width, y: r.top + r.height / 2 }; })()`);
-  assert.ok(bar.width >= 60, `the bar is only ${bar.width} wide`);
+  assert.ok(bar.width >= 60 && bar.width <= 130, `the bar should be short: ${bar.width}`);
   await drag({ x: bar.left + bar.width * 0.5, y: bar.y }, { x: bar.left + bar.width + 30, y: bar.y });
   await sleep(80);
   assert.equal(await js("window.__mls.start().cardOpacity"), 100);
@@ -315,7 +318,61 @@ await step("The Start button leaves and returns to the start screen", async () =
   assert.equal(await js("window.__mls.showStart()"), true);
 });
 
+await step("A sample opens as an unsaved copy, and only then asks about LVGL", async () => {
+  assert.ok((await js("document.querySelectorAll('[data-card=samples] [data-sample]').length")) >= 6, "too few samples");
+  assert.equal(await js("Array.from(document.querySelectorAll('[data-card=samples] [data-sample]')).filter((e) => !e.querySelector('.icon')).length"), 0, "a sample has no icon");
+  const hues = await js("new Set(Array.from(document.querySelectorAll('[data-card=samples] [data-sample] .icon')).map((e) => e.dataset.tone)).size");
+  assert.ok(hues >= 5, `the samples should be colourful: ${hues} colours`);
+  const kinds = await js("new Set(Array.from(document.querySelectorAll('[data-card=samples] [data-sample] .icon')).map((e) => e.dataset.icon)).size");
+  assert.equal(kinds, await js("document.querySelectorAll('[data-card=samples] [data-sample]').length"), "every sample has its own icon");
+  assert.ok(await js("!!document.querySelector('[data-start=samples]') && !!document.querySelector('[data-start=hero-samples]')"), "no sample button");
+  await click('[data-start="hero-samples"]');
+  await page.until('document.querySelector("[data-dialog=samples]")', 3000);
+  await shot("01e2-samples-dialog");
+  await click('[data-dialog="samples"] footer button');
+  await click('[data-card="samples"] [data-sample="LegacyMeter"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 8000);
+  assert.match(await js('document.querySelector("[data-dialog=confirm]").textContent'), /8\.4\.0/);
+  await shot("01f-sample-asks");
+  await click('[data-command="confirm-no"]');
+  await sleep(200);
+  assert.equal(await js("window.__mls.showStart()"), false);
+  assert.equal((await project()).name, "LegacyMeter");
+  assert.equal((await project()).lvgl, "8.4.0");
+  await page.until('window.__mls.engine() && window.__mls.engine().runtimeVersion() === "8.4.0"', 15000);
+  await sleep(200);
+  assert.ok(await js('document.querySelector("[data-tree]") !== null'));
+  assert.equal(await js("window.__mls.recent().length"), 0, "a sample copy is not a recent project");
+  await shot("01g-sample-open");
+});
+
+await step("A sample with images draws them", async () => {
+  await click('[data-menu="file"] > button');
+  await click('[data-menu="file"] [data-command="samples"]');
+  await page.until('document.querySelector("[data-dialog=samples]")', 3000);
+  assert.ok(await js('!!document.querySelector("[data-dialog=samples] [data-dialog-title] .icon")'));
+  await click('[data-dialog="samples"] [data-sample="ImageGallery"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 8000);
+  await click('[data-command="confirm-no"]');
+  await page.until('window.__mls.project().name === "ImageGallery" && window.__mls.engine().runtimeVersion() === "9.6.0"', 15000);
+  await sleep(250);
+  const image = (await project()).screens[0].children.find((node) => node.type === "image");
+  const area = await box(image.id);
+  assert.deepEqual([area.w, area.h], [64, 64]);
+  const painted = await js(`(() => { const d = window.__mls.canvas().getContext("2d").getImageData(${area.x}, ${area.y}, ${area.w}, ${area.h}).data; let coloured = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 60) coloured++; return coloured; })()`);
+  assert.ok(painted > 200, `no picture: ${painted} coloured pixels`);
+  await shot("01h-sample-images");
+  await click('[data-command="start"]');
+  await sleep(100);
+});
+
 await step("Continue opens the empty project in the designer", async () => {
+  // A fresh project for the tests below; the sample was left unchanged, so nothing asks.
+  await click('[data-start="new"]');
+  await page.until('document.querySelector("[data-dialog=new-project]")', 3000);
+  await click('[data-dialog="new-project"] footer button:last-child');
+  await js("window.__mls.resetForTest()");
+  await sleep(100);
   await click('[data-start="continue"]');
   await sleep(250);
   assert.equal(await js("!!document.querySelector('[data-start-screen]')"), false);
@@ -1074,26 +1131,60 @@ await step("Every number shows − value unit +, centred", async () => {
   assert.equal(await js(`document.querySelector('.attributes [data-field="x"] [data-unit]').textContent`), "px");
 });
 
-await step("Rulers: the button shows pixel rulers that follow the zoom", async () => {
-  const on = () => js("!!document.querySelector('[data-rulers]')");
+await step("Rulers sit on the edges of the canvas; zero follows the screen; a red line follows the mouse", async () => {
+  const on = () => js("!!document.querySelector('[data-ruler=x]')");
   if (!(await on())) await click('[data-command="rulers"]');
-  await sleep(80);
-  assert.ok(await on(), "no rulers");
+  await sleep(120);
+  const measure = () => js(`(() => {
+    const view = document.querySelector(".viewport").getBoundingClientRect();
+    const x = document.querySelector("[data-ruler=x]").getBoundingClientRect();
+    const y = document.querySelector("[data-ruler=y]").getBoundingClientRect();
+    const screen = window.__mls.canvas().getBoundingClientRect();
+    const zeroX = document.querySelector("[data-ruler=x] [data-zero]");
+    const zeroY = document.querySelector("[data-ruler=y] [data-zero]");
+    return { xGap: x.left - view.left, xLength: x.width - view.width, xTop: view.top - x.bottom, yGap: y.top - view.top, yLength: y.height - view.height, yLeft: view.left - y.right, zeroX: zeroX ? x.left + Number(zeroX.getAttribute("x1")) - screen.left : null, zeroY: zeroY ? y.top + Number(zeroY.getAttribute("y1")) - screen.top : null, screenGap: screen.left - x.left };
+  })()`);
+  const check = await measure();
+  for (const key of ["xGap", "xLength", "yGap", "yLength"]) assert.ok(Math.abs(check[key]) <= 1, `${key}: ${JSON.stringify(check)}`);
+  assert.ok(check.xTop >= -1 && check.xTop <= 1 && check.yLeft >= -1 && check.yLeft <= 1, `not on the edge: ${JSON.stringify(check)}`);
+  assert.ok(check.screenGap > 20, `the ruler is stuck to the screen: ${JSON.stringify(check)}`);
+  assert.ok(Math.abs(check.zeroX) <= 1 && Math.abs(check.zeroY) <= 1, `zero is not at the screen: ${JSON.stringify(check)}`);
   assert.equal(await js("document.querySelector('.ruler-corner').textContent"), "px");
-  const check = await js(`(() => { const x = document.querySelector('[data-ruler=x]').getBoundingClientRect(); const y = document.querySelector('[data-ruler=y]').getBoundingClientRect(); const c = window.__mls.canvas().getBoundingClientRect(); return { dx: x.left - c.left, dy: y.top - c.top, w: x.width - c.width, h: y.height - c.height, first: document.querySelector('[data-ruler=x] text').textContent }; })()`);
-  assert.ok(Math.abs(check.dx) <= 1 && Math.abs(check.dy) <= 1, `the rulers do not start at the screen: ${JSON.stringify(check)}`);
-  assert.ok(Math.abs(check.w) <= 2 && Math.abs(check.h) <= 2, `the rulers are not as long as the screen: ${JSON.stringify(check)}`);
-  assert.equal(check.first, "0");
-  const before = await js("document.querySelector('[data-ruler=x]').getBoundingClientRect().width");
-  await click('[data-command="zoomOut"]');
+  // The pointer's position, in red, on both rulers.
+  const marker = (axis) => js(`(() => { const m = document.querySelector('[data-ruler-marker="${axis}"]'); const r = m.getBoundingClientRect(); const c = getComputedStyle(m); return { x: r.left, y: r.top, visible: c.visibility, color: c.backgroundColor }; })()`);
+  const point = await displayPoint(120, 90);
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x, y: point.y, buttons: 0 });
   await sleep(80);
-  assert.ok((await js("document.querySelector('[data-ruler=x]').getBoundingClientRect().width")) < before, "the ruler ignores the zoom");
+  const [mx, my] = [await marker("x"), await marker("y")];
+  assert.equal(mx.visible, "visible");
+  assert.equal(mx.color, "rgb(229, 57, 53)");
+  assert.ok(Math.abs(mx.x - point.x) <= 1.5, `x line at ${mx.x}, pointer at ${point.x}`);
+  assert.ok(Math.abs(my.y - point.y) <= 1.5, `y line at ${my.y}, pointer at ${point.y}`);
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5, y: 5, buttons: 0 });
+  await sleep(60);
+  assert.equal((await marker("x")).visible, "hidden", "the line stays after the pointer left");
   await shot("10g-rulers");
+  // Zoom and scrolling move the zero, not the rulers.
+  await click('[data-command="zoomIn"]');
+  await click('[data-command="zoomIn"]');
+  await sleep(150);
+  const zoomed = await measure();
+  assert.ok(Math.abs(zoomed.xGap) <= 1 && Math.abs(zoomed.zeroX ?? 0) <= 1.5, JSON.stringify(zoomed));
+  await js('document.querySelector(".viewport").scrollLeft = 60');
+  await sleep(150);
+  const scrolled = await measure();
+  assert.ok(Math.abs(scrolled.xGap) <= 1, "the ruler scrolled away");
   await click('[data-command="zoomFit"]');
   await click('[data-command="rulers"]');
-  await sleep(80);
+  await sleep(100);
   assert.equal(await on(), false, "the rulers do not turn off");
   await click('[data-command="rulers"]');
+});
+
+await step("Every toolbar icon is in colour, also when pressed", async () => {
+  const grey = await js(`Array.from(document.querySelectorAll(".toolbar .icon")).map((e) => { const [r, g, b] = getComputedStyle(e).color.match(/\\d+/g).map(Number); return { icon: e.dataset.icon, spread: Math.max(r, g, b) - Math.min(r, g, b) }; }).filter((item) => item.spread < 40).map((item) => item.icon)`);
+  assert.deepEqual(grey, []);
+  assert.equal(await js(`document.querySelector('[data-command="rulers"]').getAttribute("aria-pressed")`), "true");
 });
 
 await step("Panels: title bars fold them, and the toolbar folds left, right and bottom", async () => {
@@ -1134,9 +1225,11 @@ await step("Panels: title bars fold them, and the toolbar folds left, right and 
   await sleep(80);
   assert.ok((await height("attributes")) < 40, "the attributes did not fold");
   await click('[data-collapse="attributes"]');
+  await sleep(200);
+  await js(`window.__ev = []; for (const n of ['pointerdown','pointerup','click']) window.addEventListener(n, (e) => window.__ev.push(n + ' ' + Math.round(e.clientX) + ',' + Math.round(e.clientY) + ' ' + (e.target.dataset?.collapse || e.target.className?.baseVal || e.target.className || e.target.tagName)), true);`);
   await click('[data-collapse="bottom"]');
-  await sleep(60);
-  assert.equal((await collapsed()).bottom, true);
+  await sleep(120);
+  assert.equal((await collapsed()).bottom, true, JSON.stringify(await js("window.__ev")));
   await click('[data-collapse="bottom"]');
   await sleep(60);
   const saved = JSON.parse(fs.readFileSync(path.join(data, "settings", "settings.json"), "utf8"));
@@ -1153,11 +1246,13 @@ await step("Every right-click menu has an icon on every item", async () => {
   const open = async (selector) => {
     const point = await center(selector);
     assert.ok(point, `no element ${selector}`);
+    await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x, y: point.y, buttons: 0 });
     await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "right", buttons: 2, clickCount: 1 });
+    await sleep(40);
     await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "right", buttons: 0, clickCount: 1 });
-    await sleep(120);
+    await sleep(200);
     const shown = await js(`(() => { const m = document.querySelector("[data-context-menu]"); if (!m) return null; const r = m.getBoundingClientRect(); return { items: Array.from(m.querySelectorAll("[data-context]")).map((e) => e.dataset.context), withoutIcon: Array.from(m.querySelectorAll("[data-context]")).filter((e) => !e.querySelector(".icon")).length, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
-    assert.ok(shown, `no menu on ${selector}`);
+    assert.ok(shown, `no menu on ${selector}: ${JSON.stringify(await js("window.__ev ?? []"))} ${JSON.stringify(await js("window.__mls.contextMenu() ? 'state yes' : 'state no'"))}`);
     assert.equal(shown.withoutIcon, 0, `${selector}: an item has no icon`);
     assert.ok(shown.inside, `${selector}: the menu leaves the window`);
     return shown.items;
@@ -1218,6 +1313,31 @@ await step("The side panels reach the status bar; the log sits under the surface
   assert.ok(bottom.right <= right.left, "the log runs under the right panel");
   assert.ok(Math.abs(bottom.left - center_.left) <= 1 && Math.abs(bottom.right - center_.right) <= 1, "the log is not as wide as the centre");
   await shot("10f-layout");
+});
+
+await step("Bottom panel: clearing the output, and deleting build results after asking", async () => {
+  const lines = () => js("document.querySelectorAll('[data-log] .log-line').length");
+  await click('[data-bottom="log"]');
+  await sleep(40);
+  assert.ok((await lines()) > 0, "the log should hold something by now");
+  await click('[data-command="clear-output"]');
+  await sleep(60);
+  assert.equal(await lines(), 0);
+  assert.equal(await js(`document.querySelector('[data-command="clear-output"]').disabled`), true, "nothing left to clear");
+  await click('[data-bottom="build"]');
+  await sleep(40);
+  assert.equal(await js(`document.querySelector('[data-command="clear-output"]').disabled`), true, "the build output is empty");
+  await click('[data-command="clean-build"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 2000);
+  assert.match(await js('document.querySelector("[data-dialog=confirm]").textContent'), /9\.6\.0/);
+  await click('[data-command="confirm-no"]');
+  await click('[data-command="clean-build"]');
+  await page.until('document.querySelector("[data-dialog=confirm]")', 2000);
+  await click('[data-command="confirm-yes"]');
+  await sleep(200);
+  await click('[data-bottom="log"]');
+  await sleep(40);
+  assert.ok(await js('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent.includes("9.6.0"))'), "nothing reported");
 });
 
 await step("Every window shows its icon and title", async () => {
@@ -1387,6 +1507,48 @@ await step("Settings: the start screen tab edits the same values", async () => {
   assert.equal(await js("window.__mls.start().cardOpacity"), 85);
   assert.equal(await js("window.__mls.start().background"), "circuit");
   await click(`[data-pref-page="start"] [data-background="${kinds[5]}"]`);
+});
+
+await step("Settings: the General tab has real settings, and they work", async () => {
+  await click('[data-pref-tab="general"]');
+  await sleep(80);
+  for (const field of ["prefShowStart", "prefReopen", "prefLocation", "prefRulers", "prefSnap"]) assert.ok(await js(`!!document.querySelector('[data-field="${field}"]')`), field);
+  for (const select of ["prefLanguage", "prefNewVersion", "prefNewDevice"]) assert.ok(await js(`!!document.querySelector('[data-select="${select}"]')`), select);
+  await shot("14b-pref-general");
+  const overflow = await js(`(() => { const p = document.querySelector(".pref-page"); return p.scrollHeight - p.clientHeight; })()`);
+  assert.equal(overflow, 0, "the general tab scrolls");
+  await choose("prefNewVersion", "8.4.0");
+  await choose("prefNewDevice", "wvga");
+  await typeInto('[data-field="prefSnap"] input', "10");
+  await click('[data-field="prefReopen"]');
+  assert.deepEqual(await js("window.__mls.general()"), { reopenLast: true, newVersion: "8.4.0", newDevice: "wvga", snap: 10 });
+  await click('[data-field="prefReopen"]');
+  await click('[data-command="preferences-close"]');
+  // New projects start with these defaults.
+  await click('[data-menu="file"] > button');
+  await click('[data-menu="file"] [data-command="saveAs"]');
+  await click('[data-dialog="new-project"] footer button:last-child');
+  const widget = (await project()).screens[0].children.find((node) => node.type === "led");
+  await click(`[data-tree="${widget.id}"]`);
+  await sleep(100);
+  const area = await box(widget.id);
+  const before = await displayPoint(area.x + area.w / 2, area.y + area.h / 2);
+  await drag(before, { x: before.x + 33, y: before.y + 47 });
+  await sleep(100);
+  const moved = await nodeById(widget.id);
+  assert.equal(moved.props.x % 10, 0, `x ${moved.props.x} is not on the 10 px step`);
+  assert.equal(moved.props.y % 10, 0, `y ${moved.props.y} is not on the 10 px step`);
+  await click('[data-command="undo"]');
+  await click('[data-command="preferences"]');
+  await click('[data-pref-tab="general"]');
+  await sleep(60);
+  await typeInto('[data-field="prefSnap"] input', "1");
+  await choose("prefNewVersion", "9.6.0");
+  await choose("prefNewDevice", "cyd");
+  // The start screen's settings are here as well, with the layout reset.
+  await click('[data-pref-tab="start"]');
+  await sleep(80);
+  assert.ok(await js('!!document.querySelector("[data-command=start-layout-reset]") && !!document.querySelector("[data-field=prefStartShow]") && !!document.querySelector("[data-pref-page=start] [data-background-shuffle]")'));
 });
 
 await step("Settings: the language tab changes the whole window", async () => {

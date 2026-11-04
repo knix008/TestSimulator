@@ -1,0 +1,196 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "MediaPlayer",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [
+    {
+      "name": "cover",
+      "file": "assets/images/cover.png",
+      "w": 64,
+      "h": 64
+    }
+  ],
+  "theme": {
+    "dark": true,
+    "primary": "#ab47bc",
+    "secondary": "#26c6da"
+  },
+  "nextId": 12,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Player",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "image",
+          "name": "image1",
+          "props": {
+            "width": "content",
+            "height": "content",
+            "x": 24,
+            "y": 28,
+            "src": "cover",
+            "scale": 200
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Night Drive",
+            "x": 170,
+            "y": 36,
+            "font": 24
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label2",
+          "props": {
+            "text": "The Sample Band",
+            "x": 170,
+            "y": 72
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "slider",
+          "name": "slider1",
+          "props": {
+            "width": 280,
+            "height": 8,
+            "min": 0,
+            "max": 100,
+            "value": 35,
+            "x": 170,
+            "y": 110
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n6",
+          "type": "container",
+          "name": "container1",
+          "props": {
+            "width": 310,
+            "height": 70,
+            "x": 150,
+            "y": 140,
+            "flexFlow": "ROW",
+            "gap": 10,
+            "pad": 8,
+            "bgOpa": 0,
+            "borderWidth": 0
+          },
+          "events": [],
+          "children": [
+            {
+              "id": "n8",
+              "type": "button",
+              "name": "button1",
+              "props": {
+                "width": 88,
+                "height": 50,
+                "text": "Prev"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n7",
+                  "text": "Previous"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n9",
+              "type": "button",
+              "name": "button2",
+              "props": {
+                "width": 88,
+                "height": 50,
+                "text": "Play"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n7",
+                  "text": "Playing"
+                }
+              ],
+              "children": []
+            },
+            {
+              "id": "n10",
+              "type": "button",
+              "name": "button3",
+              "props": {
+                "width": 88,
+                "height": 50,
+                "text": "Next"
+              },
+              "events": [
+                {
+                  "trigger": "CLICKED",
+                  "action": "setText",
+                  "target": "n7",
+                  "text": "Next"
+                }
+              ],
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "n7",
+          "type": "label",
+          "name": "label3",
+          "props": {
+            "text": "Paused",
+            "x": 24,
+            "y": 240
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n11",
+          "type": "bar",
+          "name": "bar1",
+          "props": {
+            "width": 432,
+            "height": 12,
+            "min": 0,
+            "max": 100,
+            "value": 70,
+            "x": 24,
+            "y": 276,
+            "indicatorColor": "#26c6da"
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

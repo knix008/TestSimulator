@@ -1,0 +1,120 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "Typography",
+  "lvgl": "9.6.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 9,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Text",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "span",
+          "name": "span1",
+          "props": {
+            "width": 448,
+            "height": 50,
+            "spans": "Spangroup puts \ndifferent spans \nin one paragraph.",
+            "x": 16,
+            "y": 12
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "canvas",
+          "name": "canvas1",
+          "props": {
+            "canvasW": 140,
+            "canvasH": 90,
+            "canvasColor": "#ffe082",
+            "x": 16,
+            "y": 70
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "line",
+          "name": "line1",
+          "props": {
+            "points": "0,80 70,10 140,70 280,0",
+            "lineWidth": 4,
+            "x": 176,
+            "y": 70,
+            "lineColor": "#e53935"
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n5",
+          "type": "container",
+          "name": "container1",
+          "props": {
+            "width": 448,
+            "height": 136,
+            "x": 16,
+            "y": 172,
+            "flexFlow": "COLUMN",
+            "gap": 2,
+            "pad": 8
+          },
+          "events": [],
+          "children": [
+            {
+              "id": "n6",
+              "type": "label",
+              "name": "label1",
+              "props": {
+                "text": "Montserrat 14",
+                "font": 14
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n7",
+              "type": "label",
+              "name": "label2",
+              "props": {
+                "text": "Montserrat 18",
+                "font": 18
+              },
+              "events": [],
+              "children": []
+            },
+            {
+              "id": "n8",
+              "type": "label",
+              "name": "label3",
+              "props": {
+                "text": "Montserrat 24",
+                "font": 24
+              },
+              "events": [],
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

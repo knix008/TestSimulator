@@ -486,11 +486,15 @@
 .bg-tile.on { color: var(--accent-ink); }
 .start-page .icon { width: 16px; height: 16px; }
 .start-page .start-btn.primary .icon { color: inherit; }
-.start-ranges.inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 24px; }
+.start-ranges.inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; }
 .start-range.inline { min-width: 0; }
 .start-range.inline .start-range-label { flex: 0 0 auto; }
-.start-range.inline .range-stepper { flex: 1 1 auto; width: auto; min-width: 0; }
+.start-range.inline .range-stepper { flex: 0 0 auto; width: auto; min-width: 0; }
+.start-range.inline .range-bar { flex: 0 0 110px; min-width: 110px; }
 .range-value { justify-content: center; padding: 0 6px; }
 .range-value input { width: 2.8em; text-align: center; }
+.sample-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.sample-tiles .start-tile { padding: 6px 8px; }
+.sample-tiles .start-tile > b { font-size: 12px; }
 .start-tile > .flag-slot { grid-row: span 2; justify-self: center; }
 .start-toggle { margin-right: 4px; }

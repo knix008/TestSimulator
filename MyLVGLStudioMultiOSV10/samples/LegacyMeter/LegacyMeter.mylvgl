@@ -1,0 +1,70 @@
+{
+  "format": "mylvgl",
+  "formatVersion": 1,
+  "name": "LegacyMeter",
+  "lvgl": "8.4.0",
+  "device": {
+    "w": 480,
+    "h": 320
+  },
+  "images": [],
+  "theme": {
+    "dark": false,
+    "primary": "#2196f3",
+    "secondary": "#f44336"
+  },
+  "nextId": 5,
+  "screens": [
+    {
+      "id": "n1",
+      "type": "screen",
+      "name": "Gauges",
+      "props": {},
+      "events": [],
+      "children": [
+        {
+          "id": "n2",
+          "type": "meter",
+          "name": "meter1",
+          "props": {
+            "width": 220,
+            "height": 220,
+            "min": 0,
+            "max": 200,
+            "value": 120,
+            "x": 16,
+            "y": 40
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n3",
+          "type": "colorwheel",
+          "name": "colorwheel1",
+          "props": {
+            "width": 190,
+            "height": 190,
+            "x": 260,
+            "y": 60
+          },
+          "events": [],
+          "children": []
+        },
+        {
+          "id": "n4",
+          "type": "label",
+          "name": "label1",
+          "props": {
+            "text": "Meter and Color Wheel exist only in LVGL 8",
+            "x": 16,
+            "y": 10,
+            "font": 16
+          },
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}
