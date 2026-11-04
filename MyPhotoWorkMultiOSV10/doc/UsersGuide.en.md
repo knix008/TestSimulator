@@ -56,7 +56,7 @@ Four rows sit above the canvas.
 | Row | What is in it |
 | --- | --- |
 | Title bar | The app icon, the document name and size, and the window buttons |
-| Type tools | Choose the direction with the **Horizontal type** and **Vertical type** buttons on the options bar or the toolbar, then click the picture to type |
+| Type tools | Choose the direction with the **Horizontal type** and **Vertical type** buttons on the options bar or the toolbar, then click the picture to type. A click on an empty spot starts a new type layer, and a click on existing type edits it |
 | Menu bar | The Start Screen button at the far left, then every command grouped into menus: File, Edit, Image, Layer, Type, Select, Filter, 3D, View, Window, Help — then the theme button (click for the next theme, use the arrow to pick one), the language switch, Settings and About |
 | Toolbar | The commands you reach for all the time, as icons — the zoom level sits between the Zoom out and Zoom in buttons — followed by Select subject / Remove background / Generative fill / Harmonize, and the foreground–swap–background colours |
 | Options bar | The current tool and its settings, plus a one-line description of what that tool does |

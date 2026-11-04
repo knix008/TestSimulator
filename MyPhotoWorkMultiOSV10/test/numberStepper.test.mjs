@@ -6,6 +6,8 @@ import { formatUnitNumber, numberLength, parseUnitNumber, stepUnitNumber } from 
 
 const read = (relative) => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const SOURCES = ['src/App.tsx', 'src/panels.tsx', 'src/dialogs.tsx', 'src/dialogsExtra.tsx', 'src/RegionFields.tsx']
+// The rule for exactly this selector: from the start of a line, or '.number-stepper input' also finds '.options-bar .number-stepper input'.
+const cssRule = (css, selector) => { const at = css.indexOf(`\n${selector} {`); assert.ok(at >= 0, selector); return css.slice(at, css.indexOf('}', at)) }
 
 test('a value is shown with its unit, the way that unit is written', () => {
   assert.equal(formatUnitNumber(120, 'px'), '120 px')
@@ -52,8 +54,7 @@ test('the control is a value between its two buttons', () => {
   assert.match(stepper, /disabled=\{disabled \|\| value >= max\}/)
   assert.match(stepper, /formatUnitNumber\(value, unit, step\)/, 'the value has no unit')
   const css = read('src/App.css')
-  const rule = css.slice(css.indexOf('.number-stepper input {'))
-  assert.match(rule.slice(0, rule.indexOf('}')), /text-align: center/)
+  assert.match(cssRule(css, '.number-stepper input'), /text-align: center/)
   assert.doesNotMatch(css, /input\[type='number'\]/, 'a style is left for a kind of field that no longer exists')
 })
 
@@ -90,7 +91,7 @@ test('the control keeps to its cell, so its + cannot slide under the next one', 
   // A text field asks for about twenty characters of room. With that as its starting width
   // the + button went under the − beside it, and pressing + turned the other number down.
   const css = read('src/App.css')
-  const rule = (selector) => { const at = css.indexOf(`${selector} {`); assert.ok(at >= 0, selector); return css.slice(at, css.indexOf('}', at)) }
+  const rule = (selector) => cssRule(css, selector)
   assert.match(rule('.number-stepper input'), /flex: 1 1 0/)
   assert.match(rule('.number-stepper input'), /width: 0/)
   assert.match(rule('.number-stepper'), /min-width: 0/)
