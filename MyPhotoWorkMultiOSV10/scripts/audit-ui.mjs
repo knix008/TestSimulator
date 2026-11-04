@@ -21,9 +21,20 @@ const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'mpw-audit-'))
 
 /** Needing something this run does not set up, or doing nothing by design. Each says why. */
 const EXPECTED_NO_EFFECT = {
-  'tool:rotateView': 'turns the view, which this run does not read',
-  'tool:note': 'opens its window on a click, not a drag',
-  'toolbar:view.actualPixels': 'already at that zoom when it is pressed',
+  'tool:rotateView': 'turns the view, which is a CSS transform this run does not read',
+  'toolbar:Open': 'a browser opens its file picker, which nothing can answer headless (test:e2e covers the desktop bridge)',
+  'toolbar:Print': 'a browser opens its print dialog, which nothing can answer headless',
+  'panel:Layers / Bring forward': 'the active layer is already on top',
+  'panel:Layers+bottom layer / Send backward': 'the active layer is already at the bottom',
+  'panel:History / Duplicate layer': 'the row of the state already on screen',
+  'panel:History+edits / Invert': 'the row of the state already on screen',
+  'panel:Color / Foreground': 'already the colour being edited',
+  'panel:Properties+smart / Replace Smart Object Conte': 'a browser opens its file picker, which nothing can answer headless',
+  'panel:Paragraph+type / Align Left Edges': 'the text is already left-aligned',
+  'panel:Paths+path / Path 1 3': 'the path just made is already the active one',
+  'panel:Timeline+frames / 1': 'the two frames are the same picture, so showing one changes nothing',
+  'panel:Timeline+frames / 2': 'the two frames are the same picture, so showing one changes nothing',
+  'panel:Layer comps+comp / Comp': 'the comp was just captured from this very state',
 }
 
 const vitePort = await freePort(5173)
@@ -92,12 +103,15 @@ try {
       dialog: dialogEl ? (dialogEl.querySelector('h2')?.textContent ?? 'dialog') : '',
       menu: document.querySelector('.context-menu, .menu-drop') ? 'menu' : '',
       undo: s.undo, redo: s.redo,
-      panelText: hash(document.querySelector('.panel-body')?.innerText ?? ''),
+      panelText: hash(document.querySelector('.panel-body')?.innerHTML.replace(/data:image[^"]*/g, '') ?? ''),
+      slice: s.activeSliceId,
+      popover: document.querySelector('.color-popover')?.outerHTML.length ?? 0,
+      history: s.undo + '/' + s.redo,
       status: document.querySelector('.status-bar')?.innerText ?? '',
     });
   })()`
   const probe = async () => JSON.parse(await page.evaluate(PROBE))
-  const differences = (a, b) => ['pixels', 'layers', 'doc', 'selection', 'settings', 'tool', 'view', 'dialog', 'menu', 'panelText', 'status'].filter((key) => a[key] !== b[key])
+  const differences = (a, b) => ['pixels', 'layers', 'doc', 'selection', 'settings', 'tool', 'view', 'dialog', 'menu', 'panelText', 'status', 'slice', 'popover'].filter((key) => a[key] !== b[key])
 
   const closeWindows = async () => {
     for (let tries = 0; tries < 4; tries += 1) {
@@ -107,6 +121,8 @@ try {
     }
     await key('Escape')
     await page.evaluate("document.querySelector('.status-bar')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))")
+    await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 700, y: 942, button: 'left', buttons: 1, clickCount: 1 })
+    await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 700, y: 942, button: 'left', clickCount: 1 })
   }
   const key = async (name, modifiers = 0, code = name) => {
     const vk = name.length === 1 ? name.toUpperCase().charCodeAt(0) : { Escape: 27, Enter: 13 }[name] ?? 0
@@ -114,7 +130,6 @@ try {
     await page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: name, code, modifiers, windowsVirtualKeyCode: vk })
   }
   const CTRL = 2
-  const SHIFT = 8
   const undoKey = () => key('z', CTRL, 'KeyZ')
   const redoKey = () => key('y', CTRL, 'KeyY')
 
@@ -230,7 +245,8 @@ try {
       } else if (tool === 'pathSelect' || tool === 'directSelect') {
         await drag(box, [400, 200], [460, 260])
       } else if (tool === 'sliceSelect') {
-        await click(box, [300, 300])
+        // A slice is active once drawn, so what shows the tool working is clicking off it.
+        await click(box, [650, 500])
       } else if (tool === 'puppet') {
         await drag(box, [500, 300], [560, 380])
         await key('Enter', 0, 'Enter')
@@ -269,9 +285,15 @@ try {
       await freshDocument()
       // Something to undo, and a selection, for the buttons that want them.
       await page.evaluate("window.__mpw.select({ x: 200, y: 150, width: 300, height: 200 })")
-      await page.evaluate("window.__mpw.run('layer.new')")
-      await sleep(80)
-      if (button.name === 'Redo') { await undoKey(); await sleep(80) }
+      await page.evaluate("window.__mpw.run('image.invert')")
+      await sleep(120)
+      if (button.name === 'Redo') {
+        await undoKey()
+        await sleep(200)
+        console.log('    history before Redo:', (await probe()).history)
+      }
+      if (button.name === 'Delete layer' || button.name === 'Merge down') { await page.evaluate("window.__mpw.run('layer.duplicate')"); await sleep(80) }
+      if (button.name === 'Fit on screen') { await page.evaluate("window.__mpw.run('view.zoomIn')"); await sleep(80) }
       const before = await probe()
       const state = await page.evaluate(`(() => { const b = document.querySelectorAll('.tool-bar button')[${button.i}]; if (b.disabled) return 'disabled'; b.click(); return 'clicked' })()`)
       await sleep(350)
@@ -291,16 +313,63 @@ try {
   if (wants('panel')) {
     console.log('\nRight panel: every control on every tab')
     const tabs = JSON.parse(await page.evaluate("JSON.stringify([...document.querySelectorAll('.panel-tabs button')].map((b) => b.getAttribute('data-tooltip')))"))
-    for (let tabIndex = 0; tabIndex < tabs.length; tabIndex += 1) {
+    // Each tab plain, then again with what its other controls appear for.
+    const button = (text) => `[...document.querySelectorAll('.panel-body button')].find((b) => (b.getAttribute('data-tooltip') || b.innerText || '').includes(${JSON.stringify(text)}))?.click()`
+    const run = (id) => page.evaluate(`window.__mpw.run(${JSON.stringify(id)})`)
+    const typeLayer = async () => {
+      await page.evaluate("window.__mpw.tool('text')")
+      const box = await stageBox()
+      await drag(box, [100, 100], [500, 200])
+      await sleep(150)
+      await page.evaluate("(() => { const area = document.querySelector('.dialog textarea, .dialog input[type=text]'); if (area) { Object.getOwnPropertyDescriptor(area.constructor.prototype, 'value').set.call(area, 'Audit'); area.dispatchEvent(new Event('input', { bubbles: true })) } document.querySelector('.dialog .primary')?.click() })()")
+      await sleep(150)
+    }
+    const shapeLayer = async () => {
+      await page.evaluate("window.__mpw.tool('rect')")
+      await drag(await stageBox(), [100, 100], [300, 250])
+      await sleep(100)
+    }
+    const pathMade = async () => {
+      await page.evaluate("window.__mpw.tool('pen')")
+      const box = await stageBox()
+      for (const at of [[200, 200], [400, 200], [400, 400]]) await click(box, at)
+      await key('Enter', 0, 'Enter')
+      await sleep(80)
+    }
+    const scenes = [
+      ...tabs.map((tab) => ({ tab, name: '', setup: () => run('layer.duplicate') })),
+      { tab: 'Layers', name: 'bottom layer', setup: async () => { await run('layer.duplicate'); await sleep(40); await run('layer.sendBackward') } },
+      { tab: 'Properties', name: 'adjustment', setup: () => run('adjLayer.brightness') },
+      { tab: 'Properties', name: 'curves', setup: () => run('adjLayer.curves') },
+      { tab: 'Properties', name: 'shape', setup: shapeLayer },
+      { tab: 'Properties', name: 'type', setup: typeLayer },
+      { tab: 'Properties', name: 'mask', setup: () => run('layer.mask') },
+      { tab: 'Properties', name: 'smart', setup: () => run('layer.toSmart') },
+      { tab: 'Character', name: 'type', setup: typeLayer },
+      { tab: 'Paragraph', name: 'type', setup: typeLayer },
+      { tab: 'Glyphs', name: 'type', setup: typeLayer },
+      { tab: 'Paths', name: 'path', setup: pathMade },
+      { tab: 'Shapes', name: 'path', setup: pathMade },
+      { tab: 'History', name: 'edits', setup: async () => { await run('image.invert'); await sleep(40); await run('image.flipH'); await sleep(40); await undoKey() } },
+      { tab: 'Timeline', name: 'frames', setup: async () => { await run('window.timeline'); await sleep(60); await page.evaluate(button('Add frame')); await sleep(40); await page.evaluate(button('Add frame')) } },
+      { tab: 'Layer comps', name: 'comp', setup: async () => { await run('window.comps'); await sleep(60); await page.evaluate("document.querySelector('.panel-body .channel-row button')?.click()") } },
+      { tab: 'Notes', name: 'note', setup: async () => { await page.evaluate("window.__mpw.tool('note')"); await click(await stageBox(), [200, 200]); await sleep(120); await closeWindows() } },
+      { tab: 'Actions', name: 'recording', setup: async () => { await run('window.actions'); await sleep(60); await page.evaluate(button('Start')) } },
+      { tab: 'Channels', name: 'saved', setup: async () => { await run('select.save'); await sleep(100); await page.evaluate("document.querySelector('.dialog .primary')?.click()") ; await sleep(80) } },
+    ]
+    const prepare = async (scene) => { await scene.setup(); await sleep(70) }
+    for (const scene of scenes) {
+      const tabIndex = tabs.indexOf(scene.tab)
+      if (tabIndex < 0) { console.log(`  no tab named ${scene.tab}`); continue }
       const openTab = async () => {
         await page.evaluate(`document.querySelectorAll('.panel-tabs button')[${tabIndex}].click()`)
         await sleep(70)
       }
       await freshDocument()
-      await page.evaluate("window.__mpw.run('layer.new')")
+      await prepare(scene)
       await openTab()
       const controls = JSON.parse(await page.evaluate(`JSON.stringify([...document.querySelectorAll('.panel-body button, .panel-body input, .panel-body select')].map((el, i) => ({ i, tag: el.tagName, type: el.type, name: el.getAttribute('aria-label') || el.getAttribute('data-tooltip') || el.closest('label')?.innerText?.split('\\n')[0] || el.innerText || el.placeholder || el.value || '?', disabled: el.disabled })))`))
-      console.log(`  ${tabs[tabIndex]} (${controls.length})`)
+      console.log(`  ${scene.tab}${scene.name ? ` with ${scene.name}` : ''} (${controls.length})`)
       // The long lists are the same control many times: a sample of each is enough.
       const repeated = controls.length > 60
       for (const control of controls) {
@@ -309,7 +378,7 @@ try {
         const t0 = performance.now()
         await freshDocument()
         await page.evaluate("window.__mpw.select({ x: 200, y: 150, width: 300, height: 200 })")
-        await page.evaluate("window.__mpw.run('layer.new')")
+        await prepare(scene)
         await openTab()
         const before = await probe()
         const action = await page.evaluate(`(() => {
@@ -319,7 +388,7 @@ try {
           if (el.tagName === 'BUTTON') { el.click(); return 'click' }
           if (el.tagName === 'SELECT') { const next = [...el.options].find((o) => o.value !== el.value); if (!next) return 'one'; set(HTMLSelectElement.prototype, next.value); return 'select' }
           if (el.type === 'checkbox') { el.click(); return 'check' }
-          if (el.type === 'range') { const mid = (Number(el.max) + Number(el.min)) / 2; const value = Number(el.value) === mid ? Number(el.min) : mid; set(HTMLInputElement.prototype, String(value)); return 'range' }
+          if (el.type === 'range') { const mid = (Number(el.max) + Number(el.min)) / 2; const value = Math.abs(Number(el.value) - mid) < 2 ? Number(el.max) : mid; set(HTMLInputElement.prototype, String(value)); return 'range' }
           if (el.type === 'color') { set(HTMLInputElement.prototype, el.value === '#123456' ? '#654321' : '#123456'); return 'color' }
           if (el.type === 'number' || el.type === 'text' || !el.type) { const value = el.type === 'number' ? String(Number(el.value || 0) + 1) : '#123456'; set(HTMLInputElement.prototype, value); el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); el.blur(); return 'text' }
           return 'other';
@@ -329,7 +398,7 @@ try {
         const changed = differences(before, after)
         const thrown = pop()
         let problem = thrown.length ? `page error: ${thrown[0]}` : null
-        const label = `${tabs[tabIndex]} / ${String(control.name).replace(/\s+/g, ' ').slice(0, 26)}`
+        const label = `${scene.tab}${scene.name ? `+${scene.name}` : ''} / ${String(control.name).replace(/\s+/g, ' ').slice(0, 26)}`
         const textField = action === 'text' && /placeholder/.test(control.name)
         if (!problem && !changed.length && action !== 'gone' && action !== 'one' && !textField && !EXPECTED_NO_EFFECT[`panel:${label}`]) problem = `${action} changed nothing`
         report('panel', label, changed, performance.now() - t0, problem)

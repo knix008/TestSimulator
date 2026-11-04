@@ -466,6 +466,30 @@ You can pick from the same list on the **Settings → Theme** tab.
 
 Make one on the **Settings → Custom** tab. Type a name, choose Dark or Light, then set four colours — accent, background, panel and text — and the remaining colours are worked out from them. Check the preview and click **Save and apply**; it joins the list and takes effect at once. Click a saved theme to edit it again, and delete it with the bin button. Resetting the settings to their defaults leaves the themes you made.
 
+### The right panel
+
+Fold it away and bring it back with the small arrow button between the panel and the canvas, with **Window → Collapse or expand the panel**, or with the **Tab** key. Every setting has its icon, name and control on one line.
+
+These come built in. What you save yourself is listed separately below them.
+
+| Panel | Built in |
+| --- | --- |
+| Swatches | 40 colors (vivid, deep, pastel, pale pastel, neutrals and earth) |
+| Gradients | 43 |
+| Patterns | 40. Click one to make it the current pattern; double-click to fill the selection or layer with it |
+| Styles | 22 |
+| Shapes | 20 |
+| Brushes | 24 |
+| Tool presets | 22 |
+
+![The patterns in the right panel](images/en/panel-patterns.png)
+
+### The right mouse button
+
+Right-clicking the picture offers Undo, Cut, Copy and Paste, selection, layer and view commands. With a selection, the commands for it come first. A row of the Layers panel offers commands for that layer.
+
+![The right-click menu on the picture](images/en/context-menu.png)
+
 ### User Guide
 
 This guide you are reading opens in its own window. Open it with **Help → User Guide** (**F1**), the **User Guide** button on the Start Screen, or the **Open the User Guide** button in the **Help → Help** window. At the top of the window you can change the **font**, **font size** and **language**, and those settings are kept the next time you open it. The left side is the table of contents, and it marks where you are reading. The colours follow the program's theme.

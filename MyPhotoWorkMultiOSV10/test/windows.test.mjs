@@ -47,15 +47,10 @@ test('every dialog has a window size, and the settings window is a preferences w
     assert.ok(specs[name].width >= 320, `${name} is too narrow`)
     assert.ok(specs[name].height >= 180, `${name} is too short`)
   }
-  // The settings are on tabs: a window wide enough for two controls side by
-  // side, and every page laid out to fit — the window takes the height of the
-  // page it is showing, like every other dialog, so the short pages are not
-  // padded out to the tallest one. A page never scrolls: a setting below the
-  // fold is a setting nobody finds.
-  assert.ok(specs.settings.width >= 560, 'the settings window should be wide enough for two controls side by side')
-  assert.ok(specs.settings.width <= 700, 'the settings window has grown back into a scroll of everything')
-  assert.equal(specs.settings.resizable, true, 'the settings window cannot be resized')
-  assert.doesNotMatch(cssSource, /\.dialog-window > \.dialog\.settings-dialog \{[^}]*height: 100vh/, 'the settings window is pinned to one height, so the short pages sit in dead space')
+  // One set size whichever tab is showing: rows stay on one line, and a page never scrolls,
+  // because a setting below the fold is a setting nobody finds.
+  assert.ok(specs.settings.width >= 700, 'the settings window is too narrow for its rows')
+  assert.equal(specs.settings.resizable, false, 'the settings window is a fixed size')
   assert.doesNotMatch(cssSource, /\.settings-page \{[^}]*overflow-y: auto/, 'the settings page scrolls again instead of being split')
   assert.match(cssSource, /\.dialog-window \.settings-dialog \.dialog-content \{[^}]*overflow: hidden/, 'the content would keep growing the window')
 })

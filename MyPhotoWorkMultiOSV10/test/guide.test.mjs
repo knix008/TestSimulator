@@ -44,6 +44,10 @@ test('the font and language settings are at the top of the page', () => {
   assert.ok(head.includes('data-lang="ko"') && head.includes('data-lang="en"'))
   assert.ok(page.indexOf('<header class="doc-head">') < page.indexOf('<main>'), 'the settings are not above the text')
   assert.doesNotMatch(head, /<select/, 'a native list cannot show the fonts in their own faces')
+  // The language buttons carry flags: Korea's and the United Kingdom's.
+  assert.equal((head.match(/class="flag"/g) ?? []).length, 2, 'the language buttons have no flags')
+  assert.match(head, /fill="#cd2e3a"/, 'no Taegeuk on the Korean flag')
+  assert.match(head, /fill="#012169"/, 'no blue field on the British flag')
 })
 
 test('the guide remembers the font, the size and the language, and follows the app', () => {

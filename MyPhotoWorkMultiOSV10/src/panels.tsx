@@ -698,7 +698,7 @@ export function ShapesPanel({ ctx }: { ctx: PanelContext }) {
       </div>
       {settings.customShapes.length === 0 && <p className="panel-hint">{tr('noShapes')}</p>}
       <div className="layer-actions">
-        <button onClick={ctx.defineShapeFromPath}><Plus size={13} /><span>{tr('defineShape')}</span></button>
+        <button disabled={!ctx.activePathId && ctx.doc.paths.length === 0} onClick={ctx.defineShapeFromPath}><Plus size={13} /><span>{tr('defineShape')}</span></button>
       </div>
     </>
   )
@@ -948,7 +948,7 @@ export function PathsPanel({ ctx }: { ctx: PanelContext }) {
       ))}
       <div className="layer-actions">
         <button onClick={() => ctx.runCommand('type.workPath')}><Spline size={13} aria-hidden="true" /><span>{tr('createWorkPath')}</span></button>
-        <button onClick={() => ctx.runCommand('layer.vectorMask')}><Scissors size={13} aria-hidden="true" /><span>{tr('vectorMask')}</span></button>
+        <button disabled={ctx.doc.paths.length === 0} onClick={() => ctx.runCommand('layer.vectorMask')}><Scissors size={13} aria-hidden="true" /><span>{tr('vectorMask')}</span></button>
       </div>
     </>
   )
@@ -1017,7 +1017,7 @@ export function TimelinePanel({ ctx }: { ctx: PanelContext }) {
       <PanelHeading tab={ctx.settings.rightTab} title={tr('timeline')} />
       <div className="channel-row">
         <button data-tooltip={tr('addFrame')} onClick={ctx.captureAnimationFrame}><Plus size={13} /><span>{tr('addFrame')}</span></button>
-        <button data-tooltip={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')} aria-label={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')} onClick={() => (playingFrame === null ? ctx.startPlayback() : ctx.stopPlayback())}>
+        <button disabled={(doc.animation ?? []).length < 2} data-tooltip={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')} aria-label={playingFrame === null ? tr('playAnimation') : tr('stopAnimation')} onClick={() => (playingFrame === null ? ctx.startPlayback() : ctx.stopPlayback())}>
           {playingFrame === null ? <Play size={13} /> : <Square size={13} />}
         </button>
       </div>
@@ -1030,8 +1030,8 @@ export function TimelinePanel({ ctx }: { ctx: PanelContext }) {
             <button data-tooltip={tr('deleteLayer')} aria-label={tr('deleteLayer')} onClick={() => ctx.deleteAnimationFrame(frame.id)}><Trash size={13} /></button>
           </div>
         ))}
-      <button data-tooltip={tr('exportGif')} onClick={ctx.exportAnimatedGif}><Film size={13} aria-hidden="true" /><span>{tr('exportGif')}</span></button>
-      <button data-tooltip={tr('exportVideo')} onClick={ctx.exportVideo}><Video size={13} aria-hidden="true" /><span>{tr('exportVideo')}</span></button>
+      <button disabled={(doc.animation ?? []).length === 0} data-tooltip={tr('exportGif')} onClick={ctx.exportAnimatedGif}><Film size={13} aria-hidden="true" /><span>{tr('exportGif')}</span></button>
+      <button disabled={(doc.animation ?? []).length === 0} data-tooltip={tr('exportVideo')} onClick={ctx.exportVideo}><Video size={13} aria-hidden="true" /><span>{tr('exportVideo')}</span></button>
     </>
   )
 }

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 // The tool strip: brush, pencil, eraser, gradient, type, clone, heal, smudge,
 // dodge/burn, sponge, red-eye and colour replace.
 import test from 'node:test'
@@ -257,4 +258,12 @@ test('smudge drags pixels in the direction of the stroke', () => {
   smudge(layer, { x: 18, y: 20 }, { x: 26, y: 20 }, 12, null)
   assert.ok(meanDiff(layer, before) > 0, 'the smudge changed pixels')
   assert.ok(px(layer, 24, 20)[0] > 0, 'red was pulled across the seam')
+})
+
+test('a fully hard dab leaves a mark in a real browser', () => {
+  // Skia, which these tests draw with, paints a radial gradient whose two circles are the
+  // same; the canvas standard says to paint nothing, and browsers do. So the pencil and
+  // every 100% hard brush drew nothing in the app while all of this passed.
+  const source = readFileSync(new URL('../src/lib/tools.ts', import.meta.url), 'utf8')
+  assert.match(source, /const inner = Math\.min\(radius \* hardness, radius \* 0\.98\)/, 'the inner radius can reach the outer one again')
 })

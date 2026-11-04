@@ -44,7 +44,7 @@ test('the panel tabs draw their icon and keep the full name for the tooltip', ()
 
 test('every built-in shape has an icon, a name in both languages and an outline to draw', () => {
   const panels = read('src', 'panels.tsx')
-  const list = panels.match(/const builtIn = \[([^\]]*)\]/)
+  const list = read('src', 'lib', 'presets.ts').match(/BUILTIN_SHAPES = \[([^\]]*)\]/)
   assert.ok(list, 'the built-in shape list is gone')
   const kinds = [...list[1].matchAll(/'(\w+)'/g)].map((item) => item[1])
   assert.ok(kinds.length >= 10, `only ${kinds.length} built-in shapes`)

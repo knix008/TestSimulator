@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 // Undo/redo snapshots. The property that matters is isolation: a snapshot must
 // not share any mutable object with the live document, or undo shows the edit.
 import test from 'node:test'
@@ -185,4 +186,14 @@ test('cloneDocument deep-copies a layer curve and levels payload', () => {
 test('a null measure clones as null rather than throwing', () => {
   const { document } = richDocument()
   assert.equal(cloneDocument(document).measure, null)
+})
+
+test('Undo and Redo tell the buttons the history moved', () => {
+  // Without this Redo stayed greyed out after an Undo, because the buttons read a copy of
+  // the history that only refreshed on the next edit.
+  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  for (const name of ['undo', 'redo']) {
+    const body = app.slice(app.indexOf(`const ${name} = useCallback`), app.indexOf('}, [bump, markDirty])', app.indexOf(`const ${name} = useCallback`)))
+    assert.match(body, /bump\(\)/, `${name} does not refresh the buttons`)
+  }
 })

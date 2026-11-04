@@ -359,6 +359,12 @@ VOI LUT(창 중심과 폭. 파일이 말하지 않으면 데이터에서 구합�
 
 **테마** 는 `src/themes.ts` 의 Dark 20·Light 20 입니다. 새 테마는 강조색·배경·패널·글자 네 가지 색에서 `deriveTheme` 으로 나머지 토큰을 계산하고, 사용자 정의 테마도 같은 함수를 지납니다. 메뉴와 대화상자는 창마다 JS 문맥이 따로이므로 사용자 정의 테마는 `mpw-custom-themes` localStorage 키로 공유합니다.
 
+**기본 제공 항목** 은 코드에 있는 데이터입니다: `lib/swatches.ts`, `lib/gradients.ts`, `lib/patternSamples.ts`(타일을 코드로 그림), `lib/presets.ts`. 저장한 항목과 달리 설정에 들어가지 않으므로 사라지지 않고, 패턴은 고를 때 문서의 패턴으로 복사되어 패턴 도장·칠·칠 레이어가 그대로 씁니다.
+
+**마우스 오른쪽 단추 메뉴** 의 행은 `src/contextRows.ts` 의 명령 id 목록이고 `runCommand` 를 지납니다. 데스크톱에서는 다리가 WebView2 자체 메뉴를 막되 입력란은 남깁니다.
+
+**점검** `npm run test:ui`(`scripts/audit-ui.mjs`)는 headless Edge 에서 실제 입력으로 모든 도구를 끌고, 툴바 단추와 패널 조작부를 누르고, 무엇이 바뀌었는지(픽셀, 레이어, 선택, 설정, 창, 보기) 비교합니다. 픽셀이 바뀌면 Undo 로 돌아가고 Redo 로 돌아와야 합니다. 효과가 없는 것은 이유를 적은 예외 목록에 있어야 합니다. 시험 장치의 Skia 와 브라우저가 다르게 동작하는 부분(같은 두 원의 원형 그라디언트: Skia 는 칠하고 브라우저는 안 칠함, 경도 100% 브러시가 그려지지 않던 원인)은 여기서만 드러납니다.
+
 **사용자 설명서** 는 `doc/` 의 평범한 페이지입니다. 개발 서버는 `/doc/` 로 제공하고 빌드는 `dist/doc/` 로 복사합니다(`vite.config.ts` 의 `userGuide`). React 앱과 무관하며, 앱은 테마와 언어를 `mpw-doc-appearance` 키에 남기고 설명서는 `storage` 이벤트로 받습니다. 글꼴·크기·언어는 설명서 자신이 기억합니다.
 
 `npm run verify:images` 는 `images/` 의 모든 파일을 실제 열기 → 합성 → 내보내기 → 투명 →

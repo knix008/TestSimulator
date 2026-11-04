@@ -139,6 +139,20 @@ try {
   fs.writeFileSync(path.join(shots, 'settings-start.png'), await settings.screenshot())
   const overflow = await settings.evaluate('document.documentElement.scrollHeight - window.innerHeight')
   check('the settings page fits its window', overflow <= 1, `${overflow}px over`)
+  // One size on every tab, nothing scrolling.
+  const tabSizes = new Set()
+  let scrolling = 0
+  for (let index = 0; index < 11; index += 1) {
+    await settings.evaluate(`document.querySelectorAll('.settings-tabs button')[${index}].click()`)
+    await sleep(120)
+    tabSizes.add(await settings.evaluate('window.innerWidth + "x" + window.innerHeight'))
+    scrolling += await settings.evaluate("[...document.querySelectorAll('.settings-page, .dialog-content')].filter((el) => el.scrollHeight > el.clientHeight + 1).length + (document.documentElement.scrollHeight > innerHeight + 1 ? 1 : 0)")
+  }
+  check('the settings window keeps one size on every tab', tabSizes.size === 1, [...tabSizes].join(', '))
+  check('no settings tab needs a scrollbar', scrolling === 0, `${scrolling} overflowing`)
+  await settings.evaluate("document.querySelectorAll('.settings-tabs button')[1].click()")
+  await sleep(150)
+  fs.writeFileSync(path.join(shots, 'settings-start.png'), await settings.screenshot())
   await settings.evaluate("document.querySelector('.dialog-close').click()")
   settings.close()
 
@@ -206,6 +220,77 @@ try {
   check('the rulers mark the pointer in red', marks.x === '300px' && marks.y === '180px' && marks.colour === 'rgb(255, 32, 32)', JSON.stringify(marks))
   await sleep(200)
   fs.writeFileSync(path.join(shots, 'ruler.png'), await main.screenshot())
+
+  // Undo and Redo, with real keys and the real buttons, on the viewport's own pixels.
+  const viewHash = "(() => { const c = document.querySelector('.canvas-stage canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 5381; for (let i = 0; i < d.length; i += 8) h = (h * 33 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) >>> 0; return h })()"
+  const keyPress = async (key, modifiers = 0) => {
+    const vk = key.toUpperCase().charCodeAt(0)
+    await main.send('Input.dispatchKeyEvent', { type: 'keyDown', key, code: `Key${key.toUpperCase()}`, modifiers, windowsVirtualKeyCode: vk, ...(modifiers ? {} : { text: key }) })
+    await main.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code: `Key${key.toUpperCase()}`, modifiers, windowsVirtualKeyCode: vk })
+    await sleep(200)
+  }
+  const stageNow = JSON.parse(await main.evaluate("JSON.stringify((() => { const r = document.querySelector('.canvas-stage').getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } })())"))
+  const strokeAcross = async () => {
+    const [x0, y0, x1, y1] = [stageNow.x + 200, stageNow.y + 200, stageNow.x + 420, stageNow.y + 320]
+    await main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 })
+    await main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1 })
+    for (let k = 1; k <= 6; k += 1) await main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + ((x1 - x0) * k) / 6, y: y0 + ((y1 - y0) * k) / 6, button: 'left', buttons: 1 })
+    await main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', buttons: 0, clickCount: 1 })
+    await sleep(250)
+  }
+  await keyPress('b')
+  await main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 })
+  await sleep(200)
+  const clean = await main.evaluate(viewHash)
+  await strokeAcross()
+  await main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 })
+  await sleep(200)
+  const painted = await main.evaluate(viewHash)
+  check('the Brush paints', painted !== clean)
+  await keyPress('z', 2)
+  check('Ctrl+Z takes the stroke away', (await main.evaluate(viewHash)) === clean)
+  check('the Redo button is usable after an Undo', await main.evaluate("[...document.querySelectorAll('.tool-bar button')].some((b) => b.getAttribute('aria-label') && /Redo|다시 실행/.test(b.getAttribute('aria-label')) && !b.disabled)"))
+  await keyPress('y', 2)
+  check('Ctrl+Y brings it back', (await main.evaluate(viewHash)) === painted)
+  await main.evaluate("[...document.querySelectorAll('.tool-bar button')].find((b) => /Undo|실행 취소/.test(b.getAttribute('aria-label') ?? '')).click()")
+  await sleep(250)
+  check('the Undo button takes it away', (await main.evaluate(viewHash)) === clean)
+  await main.evaluate("[...document.querySelectorAll('.tool-bar button')].find((b) => /Redo|다시 실행/.test(b.getAttribute('aria-label') ?? '')).click()")
+  await sleep(250)
+  check('the Redo button brings it back', (await main.evaluate(viewHash)) === painted)
+
+  // The pencil is 100% hard, which once drew nothing at all.
+  await keyPress('z', 2)
+  await main.evaluate("window.dispatchEvent(new Event('focus'))")
+  await main.evaluate("(() => { const b = [...document.querySelectorAll('.tool-strip button')].find((x) => /브러시|Brush/.test(x.getAttribute('data-tooltip') ?? '')); b.click(); b.click() })()")
+  await sleep(200)
+  await strokeAcross()
+  await main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 })
+  await sleep(200)
+  check('the next tool in the Brush group draws too', (await main.evaluate(viewHash)) !== clean, await main.evaluate("document.querySelector('.current-tool')?.innerText ?? ''"))
+  await keyPress('z', 2)
+
+  // The right-click menu.
+  await main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: stageNow.x + 300, y: stageNow.y + 200, button: 'right', buttons: 2, clickCount: 1 })
+  await main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: stageNow.x + 300, y: stageNow.y + 200, button: 'right', buttons: 0, clickCount: 1 })
+  await main.until("document.querySelector('.context-menu')")
+  const contextInfo = JSON.parse(await main.evaluate("JSON.stringify((() => { const m = document.querySelector('.context-menu'); const r = m.getBoundingClientRect(); return { rows: m.querySelectorAll('[data-command]').length, inside: r.bottom <= innerHeight && r.right <= innerWidth, overflow: m.scrollHeight - m.clientHeight } })())"))
+  check('the right-click menu opens inside the window', contextInfo.rows >= 15 && contextInfo.inside && contextInfo.overflow <= 1, JSON.stringify(contextInfo))
+  fs.writeFileSync(path.join(shots, 'context-menu.png'), await main.screenshot())
+  await main.evaluate("document.querySelector('.context-menu [data-command=\"select.all\"]').click()")
+  await sleep(200)
+  check('a row of it runs its command', await main.evaluate("!document.querySelector('.context-menu')"))
+  await main.evaluate("document.querySelector('.menu-bar').click()")
+
+  // The right panel folds away and comes back, and the canvas takes the room.
+  const stageWidth = () => main.evaluate("document.querySelector('.canvas-stage').getBoundingClientRect().width")
+  const wide = await stageWidth()
+  await main.evaluate("document.querySelector('[data-action=\"toggle-panel\"]').click()")
+  await sleep(200)
+  check('the panel folds away', (await main.evaluate("getComputedStyle(document.querySelector('.panel')).display")) === 'none' && (await stageWidth()) > wide + 100)
+  await main.evaluate("document.querySelector('[data-action=\"toggle-panel\"]').click()")
+  await sleep(200)
+  check('the panel comes back', (await main.evaluate("getComputedStyle(document.querySelector('.panel')).display")) !== 'none' && Math.abs((await stageWidth()) - wide) < 2)
 
   // The pointer follows the tool, over the picture and not beside it.
   const box = JSON.parse(await main.evaluate("JSON.stringify((() => { const r = document.querySelector('.canvas-stage').getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } })())"))

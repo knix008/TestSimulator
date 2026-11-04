@@ -19,7 +19,9 @@ export type BrushShape = {
 
 function stamp(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, hardness: number, color: string, opacity: number, shape?: BrushShape) {
   const radius = Math.max(0.5, size / 2)
-  const inner = radius * hardness
+  // Never quite the full radius: a browser paints nothing at all for a radial gradient
+  // whose two circles are the same, so a fully hard dab would leave no mark.
+  const inner = Math.min(radius * hardness, radius * 0.98)
   const { r, g, b } = hexToRgb(color)
   const roundness = clamp(shape?.roundness ?? 1, 0.05, 1)
   const angle = ((shape?.angle ?? 0) * Math.PI) / 180

@@ -55,7 +55,7 @@ try {
       fs.writeFileSync(path.join(out, `${name}.png`), data)
       console.log(`  ${language}/${name}.png`)
     }
-    const settings = { language, theme: 'dark', modelsPrompted: true, startBackground: { kind: 'bokeh', speed: 100, transparency: 0, shuffleSec: 0, random: false, layout: null } }
+    const settings = { language, theme: 'dark', modelsPrompted: true, foreground: '#e53935', startBackground: { kind: 'bokeh', speed: 100, transparency: 0, shuffleSec: 0, random: false, layout: null } }
     await page.send('Page.navigate', { url: base })
     await page.until("document.readyState === 'complete'")
     await page.evaluate(`localStorage.clear(); localStorage.setItem('my-photo-work-v1-settings', ${JSON.stringify(JSON.stringify(settings))})`)
@@ -107,6 +107,19 @@ try {
     await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 })
     await page.evaluate("window.__mpw.run('view.grid')")
     await sleep(150)
+
+    // The patterns panel, and the right-click menu.
+    await page.evaluate("window.__mpw.run('window.patterns')")
+    await sleep(350)
+    save('panel-patterns', await clip(page, '.panel'))
+    await page.evaluate("window.__mpw.run('window.layers')")
+    await sleep(100)
+    await page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: stage.x + 200, y: stage.y + 120, button: 'right', buttons: 2, clickCount: 1 })
+    await page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: stage.x + 200, y: stage.y + 120, button: 'right', buttons: 0, clickCount: 1 })
+    await sleep(250)
+    save('context-menu', await page.screenshot())
+    await page.evaluate("document.querySelector('.status-bar').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }))")
+    await sleep(100)
 
     // A menu with a submenu open; the hover that opens it would also raise a tooltip.
     await page.evaluate("document.head.appendChild(Object.assign(document.createElement('style'), { textContent: '.app-tooltip { display: none !important; }' }))")

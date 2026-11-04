@@ -1397,7 +1397,8 @@ export default function App() {
     moveOriginRef.current.clear()
     setDoc(previous.document)
     markDirty()
-  }, [markDirty])
+    bump()
+  }, [bump, markDirty])
 
   const redo = useCallback(() => {
     const next = redoRef.current.pop()
@@ -1409,7 +1410,8 @@ export default function App() {
     moveOriginRef.current.clear()
     setDoc(next.document)
     markDirty()
-  }, [markDirty])
+    bump()
+  }, [bump, markDirty])
 
   /** Jumps to a row of the History panel: index counts undo states, then the current one, then redo states. */
   const jumpHistory = useCallback((index: number) => {
@@ -3586,7 +3588,7 @@ export default function App() {
   /** Vector Mask: the active path becomes the layer's mask. */
   const vectorMaskFromPath = () => {
     const current = docRef.current
-    if (!activePath || !activeLayer) return
+    if (!activePath || !activeLayer) { note('needPath'); return }
     snapshot(tr('vectorMask'))
     const sel = pathToSelection(activePath, current.width, current.height)
     canvasesRef.current.set(`${activeLayer.id}:mask`, maskCanvasFromSelection(sel, current.width, current.height))
@@ -3808,7 +3810,7 @@ export default function App() {
 
   const exportAnimatedGif = async () => {
     const frames = animationFrameCanvases()
-    if (!frames.length) return
+    if (!frames.length) { note('needFrames'); return }
     try {
       const dataUrl = gifDataUrl(frames)
       const fileName = `${docRef.current?.name || tr('untitled')}.gif`
@@ -3858,7 +3860,7 @@ export default function App() {
 
   const exportVideo = async () => {
     const frames = animationFrameCanvases()
-    if (!frames.length) return
+    if (!frames.length) { note('needFrames'); return }
     try {
       setStatus('working')
       const blob = await runBusy(tr('exportVideo'), () => recordFrames(frames))
@@ -3911,7 +3913,7 @@ export default function App() {
   }
 
   const defineShapeFromPath = () => {
-    if (!activePath) return
+    if (!activePath) { note('needPath'); return }
     const { outline } = normaliseOutline(activePath)
     const shape = { id: createId('shape'), name: activePath.name, outline, closed: true }
     setSettings((current) => ({ ...current, customShapes: [...current.customShapes, shape], customShapeKind: shape.id }))
@@ -6580,7 +6582,7 @@ export default function App() {
       closeDialogs: () => { window.hostDialogApi?.closeAll() },
       layerCanvas: () => canvasesRef.current.get(docRef.current.activeLayerId) ?? null, select: (next: Selection | null) => setSelection(next), bump,
       // What scripts/audit-ui.mjs compares before and after each control.
-      state: () => ({ tool, settings: settingsRef.current, doc: docRef.current, selection: selectionRef.current, pan, undo: undoRef.current.length, redo: redoRef.current.length }),
+      state: () => ({ tool, settings: settingsRef.current, doc: docRef.current, selection: selectionRef.current, pan, activeSliceId, undo: undoRef.current.length, redo: redoRef.current.length }),
       composite: () => compositeDocument(docRef.current, canvasesRef.current),
       open: (name: string, dataUrl: string) => { setStartOn(false); return openFiles([{ name, mime: 'image/png', dataUrl }], 'open') },
     }
