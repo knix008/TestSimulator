@@ -14,6 +14,11 @@
   const ColorPicker = window.MyPaintColorPicker;
   const RichText = window.MyPaintRichText;
   const SvgDoc = window.MyPaintSvgDoc;
+  const SVG_REDRAW_MS = 150;    // the source is drawn again when typing pauses this long
+  const StartScreen = window.MyPaintStartScreen;
+  const Effects = window.MyPaintEffects;
+  const ColorWheel = window.MyPaintColorWheel;
+  const Range = window.MyPaintRange;
   const TEST = new URLSearchParams(location.search).get("test") === "1";
   const GUIDE_URL = "https://localhost/mypaint/USERSGUIDE.md";
   /* .mypaint is the drawing format; files saved by earlier versions as .mpaint still open. */
@@ -49,11 +54,21 @@
   let printState = Object.assign({}, Store.defaults().print, settings.print, { pageIndex: 0 });
   let draft = null;
   let dragState = null;
+  let lastCanvasDrop = null;
+  let pixelAnchor = null;       // the first pixel of a pixel selection being dragged
+  let popupGen = 0;             // numbers the popup commands, so the host can drop a late one
+  let pendingDropMore = [];     // the other pictures of one drop: the one answer covers them all
+  let pendingDropAt = null;     // where on the picture they were dropped, if on the picture
+  let pressAdds = false;        // Shift or Ctrl was held at this press: it adds to the selection
   let pointer = { x: 0, y: 0 };
   let pointerSeen = false;
   let textEditing = null;
   let textSession = null;
   let textFieldUndo = false;
+  let svgEditUndo = null;       // the document whose source box has pushed its undo step for this stay
+  let svgTimer = null;          // the redraw waiting for typing to pause
+  let svgToken = 0;             // only the newest redraw of the source may land
+  let svgPending = Promise.resolve(null);
   let textFocusToken = 0;
   let editorCaret = null;       // where the caret was when the text editor lost focus
   let lastTextRestyle = null;
@@ -72,6 +87,9 @@
   let band = null;
   let lastMenu = null;          // the menu last opened, so taking a recent file off reopens it
   let startVisible = false;     // the start screen is over the work area
+  let exportUndoTaken = false;
+  let fxWheelTarget = "border.color"; // which effect colour the round chooser sets
+  let startView = null;         // its view (start-screen.js), made the first time it shows
   const images = {};
   const extras = new Map();
 
@@ -156,6 +174,18 @@
     return '"' + clean + '", sans-serif';
   }
 
+  /* The grid is measured on the picture, so zooming scales a 5 x 5 block with the drawing. When a
+   * cell grows to GRID_MAX_CELL on the screen it becomes the next 5 x 5 block, split into five
+   * again; when it shrinks below GRID_MIN_CELL, five cells become one. Each step keeps the lines
+   * of the coarser grid where they were. */
+  function gridSpacing(size, zoom) {
+    let cell = size * zoom;
+    while (cell >= metrics.GRID_MAX_CELL) cell /= 5;
+    while (cell < metrics.GRID_MIN_CELL) cell *= 5;
+    const exact = (value) => Number(value.toFixed(3));
+    return { cell: exact(cell), major: exact(cell * 5) };
+  }
+
   function applyVisual() {
     const theme = Themes.byId(settings.theme, settings.custom);
     const root = document.documentElement;
@@ -170,14 +200,14 @@
     root.style.setProperty("--editor-weight", String(settings.fontStyle).indexOf("bold") >= 0 ? "700" : "400");
     root.style.setProperty("--editor-style", String(settings.fontStyle).indexOf("italic") >= 0 ? "italic" : "normal");
     root.style.setProperty("--zoom", String(scale()));
-    // the grid is measured on the picture: a cell is gridSize picture pixels and every fifth
-    // line is a major one, so zooming scales the whole 5 x 5 block with the drawing
-    root.style.setProperty("--grid-cell", (settings.gridSize * scale()) + "px");
-    root.style.setProperty("--grid-major", (settings.gridSize * 5 * scale()) + "px");
+    const grid = gridSpacing(settings.gridSize, scale());
+    root.style.setProperty("--grid-cell", grid.cell + "px");
+    root.style.setProperty("--grid-major", grid.major + "px");
     root.style.setProperty("--canvas-w", (doc ? doc.width : 900) + "px");
     root.style.setProperty("--canvas-h", (doc ? doc.height : 560) + "px");
     root.style.setProperty("--workspace-image-opacity", String((settings.backgroundOpacity || 0) / 100));
     document.title = BUILD.title;
+    if (startVisible) startScreen().syncTheme();
     const title = $("appTitle");
     if (title) title.textContent = BUILD.title;
   }
@@ -208,6 +238,11 @@
     docs = data.docs.map((doc) => Paint.createDoc(doc));
     active = data.active;
     selected = data.selected || [];
+    forgetSvgEdits();
+    // a frame lives outside the snapshot: one whose source came back is drawn again
+    docs.forEach((doc) => {
+      if (doc.svg && extrasOf(doc).svgDrawn !== doc.svg) drawSvgFrame(doc);
+    });
     renderAll();
   }
 
@@ -258,6 +293,11 @@
     const caret = caretFontStyle();
     if (caret) return Boolean(caret[kind]);
     const shapes = activeTextShapes();
+    if (shapes.length) {
+      // a selected text with mixed parts: lit only when all of it has the style
+      const runs = Paint.textRuns(shapes[0]);
+      if (runs.length) return runs.every((run) => Boolean(run[kind]));
+    }
     const style = String(shapes.length ? shapes[0].fontStyle : settings.fontStyle);
     if (kind === "bold") return style.indexOf("bold") >= 0;
     if (kind === "italic") return style.indexOf("italic") >= 0;
@@ -338,6 +378,11 @@
         button("paste", "paste", t("edit.paste")),
         button("deleteShape", "trash", t("edit.delete")),
         button("cropRegion", "crop", t("edit.crop")),
+        button("selectAll", "select", t("edit.selectAll")),
+      ]],
+      ["order", [
+        button("bringForward", "layerUp", t("draw.bringForward")),
+        button("sendBackward", "layerDown", t("draw.sendBackward")),
       ]],
       ["zoom", [
         button("zoomOut", "zoomOut", t("view.zoomOut")),
@@ -357,7 +402,62 @@
     ];
   }
 
+  /* The toolbar's tooltip: at once, on the whole of a button, a disabled one too. The browser's
+   * own waits about a second and is given up when the toolbar is drawn again, so the title moves
+   * to data-tip. Found by position, because a disabled button takes no pointer events itself. */
+  let toolTipEl = null;
+  let toolTipOwner = null;
+  let toolTipPoint = null;   // where the pointer rests over the toolbar
+  let toolTipFollow = null;
+
+  function hideToolTip() {
+    if (toolTipEl) toolTipEl.hidden = true;
+    toolTipOwner = null;
+  }
+
+  function showToolTip(owner) {
+    if (owner === toolTipOwner) return;
+    if (!toolTipEl) {
+      toolTipEl = document.createElement("div");
+      toolTipEl.className = "quick-tip";
+      toolTipEl.setAttribute("role", "tooltip");
+      document.body.appendChild(toolTipEl);
+    }
+    toolTipOwner = owner;
+    toolTipEl.textContent = owner.dataset.tip;
+    toolTipEl.hidden = false;
+    const box = owner.getBoundingClientRect();
+    const width = toolTipEl.offsetWidth;
+    toolTipEl.style.left = Math.max(4, Math.min(window.innerWidth - width - 4, box.left + box.width / 2 - width / 2)) + "px";
+    toolTipEl.style.top = (box.bottom + 6) + "px";
+  }
+
+  function wireToolTips() {
+    const bar = $("toolbar");
+    const follow = (event) => {
+      toolTipPoint = { clientX: event.clientX, clientY: event.clientY };
+      const owner = [...bar.querySelectorAll("[title], [data-tip]")].find((node) => {
+        const box = node.getBoundingClientRect();
+        return event.clientX >= box.left && event.clientX < box.right && event.clientY >= box.top && event.clientY < box.bottom;
+      });
+      if (!owner) { hideToolTip(); return; }
+      if (owner.title) {
+        owner.dataset.tip = owner.title;
+        owner.removeAttribute("title");
+      }
+      showToolTip(owner);
+    };
+    bar.addEventListener("pointerover", follow);
+    bar.addEventListener("pointermove", follow);
+    toolTipFollow = follow;
+    const away = () => { toolTipPoint = null; hideToolTip(); };
+    bar.addEventListener("pointerleave", away);
+    bar.addEventListener("pointerdown", away);
+    window.addEventListener("blur", away);
+  }
+
   function renderToolbar() {
+    hideToolTip();
     const groups = toolbarGroups().map((group) => (
       '<span class="tool-group" data-group="' + group[0] + '">' + group[1].join("") + "</span>"
     ));
@@ -367,9 +467,80 @@
     syncGrid();
     syncShapes();
     syncPanels();
+    if (toolTipPoint && toolTipFollow) toolTipFollow(toolTipPoint);
+  }
+
+  /* The separators beside the panels: dragging one resizes its panel. The largest two panels
+   * together still leave the stage room in the smallest window. */
+  const panelLeast = (side) => (side === "right" ? metrics.PROP_PANEL : metrics.TOOL_PANEL);
+
+  function panelWidth(side) {
+    const value = Number(settings.layout && settings.layout[side]);
+    return Math.max(panelLeast(side), Math.min(metrics.PANEL_MAX, Number.isFinite(value) ? value : panelLeast(side)));
+  }
+
+  function syncSplitters() {
+    const root = document.documentElement;
+    root.style.setProperty("--tool-panel", panelWidth("left") + "px");
+    root.style.setProperty("--prop-panel", panelWidth("right") + "px");
+    [["splitLeft", "left", settings.showLeft], ["splitRight", "right", settings.showRight]].forEach((row) => {
+      const node = $(row[0]);
+      if (!node) return;
+      node.classList.toggle("hidden", !row[2]);
+      node.title = t("panel.resize");
+      node.setAttribute("aria-label", t("panel.resize"));
+      node.setAttribute("aria-valuemin", String(panelLeast(row[1])));
+      node.setAttribute("aria-valuemax", String(metrics.PANEL_MAX));
+      node.setAttribute("aria-valuenow", String(panelWidth(row[1])));
+    });
+  }
+
+  function setPanelWidth(side, width) {
+    settings.layout = Object.assign({}, settings.layout);
+    settings.layout[side] = Math.round(Math.max(panelLeast(side), Math.min(metrics.PANEL_MAX, width)));
+    syncSplitters();
+    scheduleRulers();
+    return settings.layout[side];
+  }
+
+  function wireSplitter(id, side) {
+    const node = $(id);
+    if (!node) return;
+    const grow = side === "left" ? 1 : -1;
+    node.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = panelWidth(side);
+      node.classList.add("dragging");
+      const move = (ev) => setPanelWidth(side, startWidth + (ev.clientX - startX) * grow);
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        node.classList.remove("dragging");
+        saveSettings();
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    });
+    node.addEventListener("dblclick", () => {
+      setPanelWidth(side, panelLeast(side));
+      saveSettings();
+    });
+    node.addEventListener("keydown", (event) => {
+      const delta = event.key === "ArrowRight" ? 10 : event.key === "ArrowLeft" ? -10 : 0;
+      if (!delta) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPanelWidth(side, panelWidth(side) + delta * grow);
+      saveSettings();
+    });
   }
 
   function syncPanels() {
+    syncSplitters();
     [["toggleLeft", settings.showLeft], ["toggleRight", settings.showRight], ["toggleRulers", settings.showRulers]].forEach((pair) => {
       document.querySelectorAll('#toolbar [data-action="' + pair[0] + '"]').forEach((el) => {
         el.classList.toggle("on", Boolean(pair[1]));
@@ -446,7 +617,6 @@
   function menuDefinitions() {
     return [
       { id: "file", label: t("menu.file"), icon: "file", items: [
-        menuItem("home", "home", t("start.open")),
         menuItem("new", "new", t("file.new"), "Ctrl+N"),
         menuItem("open", "open", t("file.open"), "Ctrl+O"),
         menuItem("openUrl", "link", t("file.openUrl")),
@@ -471,7 +641,7 @@
         menuItem("cropRegion", "crop", t("edit.crop"), "", !region),
         menuItem("eraseRegion", "marquee", t("edit.eraseRegion"), "", !region),
       ] },
-      { id: "draw", label: t("menu.draw"), icon: "palette", items: Paint.TOOLS.map((tool) => (
+      { id: "draw", label: t("menu.draw"), icon: "draw", items: Paint.TOOLS.filter((tool) => !tool.panelOnly).map((tool) => (
         menuItem("tool:" + tool.id, tool.icon, t("tool." + tool.id))
       )).concat([
         menuItem("palette", "palette", t("draw.palette")),
@@ -492,7 +662,6 @@
         menuItem("home", "home", t("start.open")),
       ] },
       { id: "tools", label: t("menu.tools"), icon: "wrench", items: [
-        menuItem("formats", "image", t("popup.formats")),
         menuItem("dicomInfo", "scan", t("dicom.info"), "", !dicomOf()),
         menuItem("dicomCine", "play", t("dicom.play"), "", !dicomOf()),
         menuItem("download", "download", t("tools.download")),
@@ -501,6 +670,7 @@
       ] },
       { id: "help", label: t("menu.help"), icon: "help", items: [
         menuItem("guide", "help", t("help.guide")),
+        menuItem("formats", "image", t("popup.formats")),
         menuItem("about", "about", t("help.about")),
       ] },
     ];
@@ -527,7 +697,7 @@
   function homeButton() {
     const label = startVisible ? t("start.close") : t("start.open");
     return '<button type="button" class="menu-root home-btn' + (startVisible ? " on" : "") + '" id="homeButton" data-action="toggleStart"' +
-      ' aria-pressed="' + (startVisible ? "true" : "false") + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon("home") + "</button>";
+      ' aria-pressed="' + (startVisible ? "true" : "false") + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + Icons.icon("home") + "<span>" + esc(t("start.label")) + "</span></button>";
   }
 
   function syncHomeButton() {
@@ -571,6 +741,29 @@
     fill: "crosshair",
   };
 
+  const loadingImages = new Set();
+
+  function loadMissingImages(doc) {
+    doc.shapes.forEach((shape) => {
+      if (shape.kind !== "image" || images[shape.src] || loadingImages.has(shape.src) || String(shape.src).indexOf("data:") !== 0) return;
+      loadingImages.add(shape.src);
+      const src = shape.src;
+      const picture = new Image();
+      picture.src = src;
+      picture.decode().then(() => { images[src] = picture; loadingImages.delete(src); renderBoard(); }).catch(() => { loadingImages.delete(src); });
+    });
+  }
+
+  /* The grid sits under the board, on the picture's background, in a colour that shows on it. */
+  function syncGridLayer(doc) {
+    const grid = $("canvasGrid");
+    if (!grid) return;
+    grid.style.backgroundColor = doc.background;
+    const hex = /^#[0-9a-f]{6}$/i.test(doc.background) ? doc.background : "#ffffff";
+    const light = parseInt(hex.slice(1, 3), 16) * 0.299 + parseInt(hex.slice(3, 5), 16) * 0.587 + parseInt(hex.slice(5, 7), 16) * 0.114 > 128;
+    grid.style.setProperty("--grid-ink", light ? "0, 0, 0" : "255, 255, 255");
+  }
+
   function renderBoard() {
     const doc = current();
     const board = $("board");
@@ -580,6 +773,9 @@
     if (board.height !== doc.height) board.height = doc.height;
     document.documentElement.style.setProperty("--canvas-w", doc.width + "px");
     document.documentElement.style.setProperty("--canvas-h", doc.height + "px");
+    syncEffects();
+    loadMissingImages(doc);
+    syncGridLayer(doc);
     const ctx = board.getContext("2d");
     let shapes = doc.shapes;
     if (textEditing) shapes = shapes.filter((shape) => shape.id !== textEditing);
@@ -587,10 +783,60 @@
       preview: draft,
       images: images,
       shapes: shapes,
+      // the grid lies between the background and the shapes: the board leaves the background to it
+      noBackground: Boolean(settings.showGrid),
     });
     renderOverlay();
     layoutTextEditor();
     scheduleRulers();
+  }
+
+  /* The eight handles of the one selected shape; several selected move together, without them. */
+  const RESIZE_HANDLES = [["nw", 0, 0], ["n", 0.5, 0], ["ne", 1, 0], ["e", 1, 0.5], ["se", 1, 1], ["s", 0.5, 1], ["sw", 0, 1], ["w", 0, 0.5]];
+
+  function shapeHandles(shape, box, factor) {
+    if (selected.length !== 1 || textEditing === shape.id) return "";
+    return RESIZE_HANDLES.map((row) => (
+      '<i class="shape-handle" data-handle="' + row[0] + '" style="left:' + ((box.x + box.w * row[1]) * factor) + "px;top:" + ((box.y + box.h * row[2]) * factor) + 'px"></i>'
+    )).join("");
+  }
+
+  /* A handle is dragged from the shape as it was, so the drag never accumulates rounding. One
+   * drag is one undo step, and a press that does not move leaves no step behind. */
+  function wireShapeHandles() {
+    $("canvasOverlay").addEventListener("pointerdown", (event) => {
+      const grip = event.target.closest && event.target.closest(".shape-handle");
+      if (!grip || event.button !== 0) return;
+      const shape = firstSelected();
+      if (!shape) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const handle = grip.dataset.handle;
+      const origin = JSON.stringify(shape);
+      const box = Paint.bounds(shape);
+      let moved = false;
+      const move = (ev) => {
+        const point = toDocPoint(ev.clientX, ev.clientY);
+        if (!moved) { pushUndo(); moved = true; }
+        const copy = JSON.parse(origin);
+        Paint.resizeShape(copy, handle, Paint.resizedBox(box, handle, point.x, point.y));
+        Object.keys(copy).forEach((key) => { shape[key] = copy[key]; });
+        markDirty();
+        renderBoard();
+        renderOverlay();
+        renderRight();
+        renderStatus();
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        if (moved) renderAll();
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    });
   }
 
   function renderOverlay() {
@@ -601,7 +847,7 @@
     const shapes = selectedShapes().map((shape) => {
       const box = Paint.bounds(shape);
       return '<div class="marquee" style="left:' + (box.x * factor) + "px;top:" + (box.y * factor) +
-        "px;width:" + Math.max(2, box.w * factor) + "px;height:" + Math.max(2, box.h * factor) + 'px"></div>';
+        "px;width:" + Math.max(2, box.w * factor) + "px;height:" + Math.max(2, box.h * factor) + 'px"></div>' + shapeHandles(shape, box, factor);
     }).join("");
     const outline = region ? Paint.regionOutline(region, factor) : "";
     const box = band ? Paint.normalizeRect(band) : null;
@@ -618,60 +864,52 @@
 
   /* ── start screen ──
    * Over the work area when the program starts (if the settings say so) and whenever Home is
-   * pressed: the program's name, the ways to begin, and the recent files, each of which can be
-   * taken off the list on its own. Its title and text sizes and its alignment are settings. */
-  function startButton(action, icon, label, primary) {
-    return '<button type="button" class="start-btn' + (primary ? " primary" : "") + '" data-action="' + action + '" title="' + esc(label) + '">' +
-      Icons.icon(icon) + "<span>" + esc(label) + "</span></button>";
+   * pressed. The view lives in start-screen.js; this is what it needs from the program. */
+  function startPrefs() {
+    return Store.normalizeStart(settings.startScreen);
+  }
+
+  function startScreen() {
+    if (startView) return startView;
+    startView = StartScreen.create({
+      el: $("startScreen"),
+      t: t,
+      esc: esc,
+      icon: Icons.icon,
+      build: BUILD,
+      prefs: startPrefs,
+      savePrefs: saveStartPrefs,
+      run: runAction,
+      recent: () => (settings.recent || []).slice(0, Store.MAX_RECENT),
+      docs: () => docs,
+      activeIndex: () => active,
+      isDrawing: (name) => DRAWING_EXT.test(name),
+      themes: () => Themes.THEMES,
+      customTheme: () => Themes.byId("custom", settings.custom),
+      themeId: () => settings.theme,
+      themeName: (item) => Themes.nameOf(item, settings.language),
+    });
+    return startView;
+  }
+
+  /* A change made on the start screen: nothing is rebuilt, and an open Settings window follows. */
+  function saveStartPrefs(patch) {
+    settings.startScreen = Store.normalizeStart(Object.assign({}, settings.startScreen, patch));
+    saveSettings();
+    if (startVisible) startScreen().syncPrefs();
+    if (popupKind === "settings") refreshSettingsPopup();
+    return settings.startScreen;
   }
 
   function renderStart() {
-    const el = $("startScreen");
-    if (!el) return null;
-    const conf = Store.normalizeStart(settings.startScreen);
-    const recent = (settings.recent || []).slice(0, Store.MAX_RECENT);
-    const rows = recent.map((row) => (
-      '<li class="start-recent-row">' +
-      '<button type="button" class="start-recent-open" data-action="recent:' + esc(row.id) + '" title="' + esc(row.path || row.name) + '">' +
-      Icons.icon(DRAWING_EXT.test(row.name) ? "file" : "image") +
-      '<span class="name">' + esc(row.name) + '</span><span class="path">' + esc(Store.directoryOf(row.path) || "") + "</span></button>" +
-      '<button type="button" class="start-recent-x" data-action="recentRemove:' + esc(row.id) + '" title="' + esc(t("recent.remove")) + '" aria-label="' + esc(t("recent.remove") + " " + row.name) + '">' +
-      '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button></li>'
-    )).join("");
-    const recentBlock = conf.showRecent
-      ? '<section class="start-recent" aria-labelledby="startRecentTitle">' +
-        '<header><h2 id="startRecentTitle">' + Icons.icon("folder") + "<span>" + esc(t("file.recent")) + "</span></h2>" +
-        '<button type="button" class="start-link" data-action="clearRecent"' + (recent.length ? "" : " disabled") + ">" + Icons.icon("trash") + "<span>" + esc(t("action.deleteAll")) + "</span></button></header>" +
-        (rows ? '<ul class="start-recent-list">' + rows + "</ul>" : '<p class="start-empty">' + esc(t("recent.empty")) + "</p>") +
-        "</section>"
-      : "";
-    el.innerHTML =
-      '<button type="button" class="start-close" data-action="hideStart" title="' + esc(t("start.close")) + '" aria-label="' + esc(t("start.close")) + '">' +
-      '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2 2 8"/></svg></button>' +
-      '<div class="start-inner" data-align="' + conf.align + '" style="--start-title:' + conf.titleSize + "px;--start-text:" + conf.textSize + 'px">' +
-      '<div class="start-head"><img src="assets/icon.png" alt="" width="72" height="72">' +
-      '<div class="start-words"><h1 id="startTitle">' + esc(BUILD.title) + "</h1>" +
-      '<p class="start-sub">' + esc(t("start.subtitle")) + "</p></div></div>" +
-      '<div class="start-actions">' +
-      startButton("new", "new", t("file.new"), true) +
-      startButton("open", "open", t("file.open")) +
-      startButton("openUrl", "link", t("file.openUrl")) +
-      startButton("hideStart", "canvas", t("start.continue")) +
-      startButton("guide", "help", t("help.guide")) +
-      startButton("settingsStart", "settings", t("start.settings")) +
-      "</div>" + recentBlock +
-      '<label class="start-show"><input type="checkbox" data-start="show"' + (conf.show ? " checked" : "") + "> " + esc(t("start.showAtStart")) + "</label>" +
-      "</div>";
-    return el;
+    if (startVisible) startScreen().render();
   }
 
   function showStart() {
     if (textEditing) finishTextEditor();
     closeMenu();
     startVisible = true;
-    renderStart();
-    const el = $("startScreen");
-    if (el) el.hidden = false;
+    startScreen().show();
     syncHomeButton();
     return true;
   }
@@ -679,8 +917,7 @@
   function hideStart() {
     if (!startVisible) return false;
     startVisible = false;
-    const el = $("startScreen");
-    if (el) el.hidden = true;
+    startScreen().hide();
     syncHomeButton();
     scheduleRulers();
     return true;
@@ -692,6 +929,7 @@
    * crowd, and is cut into fifths like the grid. A mark follows the pointer. */
   const RULER_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000];
   const RULER_SIZE = 20;
+  const RULER_MARK = "#ef4444";
   let rulerFrame = 0;
 
   function rulerStep(zoom) {
@@ -714,7 +952,6 @@
     const css = getComputedStyle(document.documentElement);
     const ink = (css.getPropertyValue("--muted") || "#667085").trim();
     const line = (css.getPropertyValue("--line") || "#d0d5dd").trim();
-    const accent = (css.getPropertyValue("--accent") || "#2563eb").trim();
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
     ctx.strokeStyle = line;
@@ -755,7 +992,7 @@
     ctx.stroke();
     if (mark != null) {
       const at = Math.round(origin + mark * zoom) + 0.5;
-      ctx.strokeStyle = accent;
+      ctx.strokeStyle = RULER_MARK;
       ctx.beginPath();
       if (vertical) { ctx.moveTo(0, at); ctx.lineTo(RULER_SIZE, at); }
       else { ctx.moveTo(at, 0); ctx.lineTo(at, RULER_SIZE); }
@@ -789,20 +1026,28 @@
     const open = side === "left" ? settings.showLeft : settings.showRight;
     const action = side === "left" ? "toggleLeft" : "toggleRight";
     const label = open ? t("panel.fold") : t("panel.unfold");
-    const points = side === "left"
-      ? (open ? "14 6 8 12 14 18" : "10 6 16 12 10 18")
-      : (open ? "10 6 16 12 10 18" : "14 6 8 12 14 18");
+    const stripe = side === "left" ? 9 : 15;
+    const inward = side === "left" ? (open ? "M16.5 8.5 13 12l3.500 3.500" : "M13 8.500 16.500 12 13 15.500") : (open ? "M7.500 8.500 11 12l-3.500 3.500" : "M11 8.500 7.500 12l3.500 3.500");
+    const shade = open ? '<rect class="fold-shade" x="' + (side === "left" ? 3 : 15) + '" y="4.500" width="6" height="15" fill="#38bdf8"/>' : "";
     return '<div class="panel-bar">' + Icons.icon(iconName) + "<span>" + esc(t(titleKey)) + "</span>" +
       '<button type="button" class="panel-fold" data-action="' + action + '" title="' + esc(label) + '" aria-label="' + esc(label) + '" aria-expanded="' + (open ? "true" : "false") + '">' +
-      '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M' + points + '"/></svg></button></div>';
+      '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' + shade + '<rect x="3" y="4.500" width="18" height="15" rx="2" stroke="#2563eb"/><path d="M' + stripe + ' 4.500v15" stroke="#2563eb"/><path class="fold-arrow" d="' + inward + '" stroke="#f97316"/></svg></button></div>';
   }
 
   function sizingEraser() {
     return settings.tool === "eraser";
   }
 
+  /* The shapes the line width goes to: picked as for a colour; a text or a picture has no line. */
+  function widthTargets() {
+    return colorTargets().filter((shape) => shape.kind !== "text" && shape.kind !== "image" && shape.kind !== "eraser");
+  }
+
+  /* With a shape picked, the width control shows that shape's line. */
   function activeSize() {
-    return sizingEraser() ? settings.eraserSize : settings.strokeWidth;
+    if (sizingEraser()) return settings.eraserSize;
+    const picked = widthTargets();
+    return picked.length ? picked[0].width : settings.strokeWidth;
   }
 
   function widthMark(width) {
@@ -857,7 +1102,7 @@
     const swatches = Paint.PALETTE.map((color) => (
       '<button type="button" class="swatch-btn' + (settings.color === color ? " on" : "") + '" data-action="color:' + color + '" style="background:' + color + '" title="' + esc(color) + '" aria-label="' + esc(color) + '"></button>'
     )).join("");
-    const shapeRows = (doc ? doc.shapes : []).slice().reverse().map((shape) => (
+    const shapeRows = (doc ? doc.shapes.filter((shape) => !shape.svgFrame) : []).slice().reverse().map((shape) => (
       '<div class="shape-item' + (selected.indexOf(shape.id) >= 0 ? " active" : "") + '">' +
       '<button type="button" class="shape-pick" data-action="shape:' + esc(shape.id) + '" title="' + esc(t("kind." + shape.kind)) + '">' +
       Icons.icon(shape.kind) +
@@ -897,9 +1142,14 @@
     const shape = firstSelected();
     if (target === "pick:color") return settings.color;
     if (target === "pick:fillColor") return settings.fillColor || "";
+    if (target === "pixel:color") return regionColor();
     if (target === "prop:background") return doc ? doc.background : "#ffffff";
     if (target === "prop:color") return shape ? shape.color : "";
     if (target === "prop:fill") return shape ? shape.fill || "" : "";
+    if (target.indexOf("fx:") === 0) {
+      const parts = target.slice(3).split(".");
+      return effectsOf(fxOwners(doc)[0])[parts[0]][parts[1]];
+    }
     return "";
   }
 
@@ -913,13 +1163,38 @@
   function writeColor(target, color, session) {
     const doc = current();
     const shape = firstSelected();
-    if (target === "pick:color") { if (color) settings.color = color; return; }
-    if (target === "pick:fillColor") { settings.fillColor = color || ""; return; }
+    if (target === "pick:color") {
+      if (color) {
+        settings.color = color;
+        if (region && !selected.length) paintRegion(color, session);
+        else recolorSelection("color", color, session);
+      }
+      return;
+    }
+    if (target.indexOf("fx:") === 0) {
+      if (!doc || !color) return;
+      if (!session.undo) { fxBegin(doc); session.undo = true; }
+      fxOwners(doc).forEach((owner) => writeEffect(owner, target.slice(3), color));
+      effectsChanged(doc);
+      syncFxWheel(false);
+      return;
+    }
+    if (target === "pick:fillColor") { settings.fillColor = color || ""; recolorSelection("fill", color || "", session); return; }
+    if (target === "pixel:color") { paintRegion(color, session); return; }
     if (target.indexOf("prop:") !== 0 || !doc) return;
     if (!session.undo) { pushUndo(); session.undo = true; }
     const key = target.slice(5);
     if (key === "background") { if (color) doc.background = color; }
-    else if (shape) shape[key] = key === "fill" ? (color || "") : (color || shape[key]);
+    else if (shape) {
+      selectedShapes().forEach((item) => {
+        if (key === "fill") { if (Paint.isFillable(item.kind)) item.fill = color || ""; return; }
+        if (!color) return;
+        item.color = color;
+        if (item.kind === "text" && Array.isArray(item.runs)) {
+          Paint.setTextRuns(item, Paint.restyleRuns(Paint.textRuns(item), 0, item.text.length, { color: color }, Paint.styleOfShape(item)));
+        }
+      });
+    }
     markDirty();
     renderBoard();
   }
@@ -983,6 +1258,182 @@
     input.value = String(Math.min(high, Math.max(low, (Number(input.value) || 0) + delta)));
     input.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
+  }
+
+  /* ── the source of an SVG document ──
+   * doc.svg is always a source that drew. What is being typed stays in extras as svgDraft until it
+   * draws, so saving in the middle of a mistake still writes a good file. The picture is the
+   * svgFrame image shape, whose pixels come from doc.svg and stay out of the saved drawing. */
+
+  function svgFacts(doc) {
+    const info = SvgDoc.inspect(doc.svg);
+    return {
+      size: doc.width + " × " + doc.height,
+      viewBox: info.viewBox ? info.viewBox.join(" ") : t("status.none"),
+      total: String(info.total || 0),
+    };
+  }
+
+  function svgSection(doc) {
+    if (!doc || !doc.svg || !SvgDoc) return "";
+    const facts = svgFacts(doc);
+    const fact = (key, id, value) => '<div class="line"><span>' + esc(t(key)) + '</span><b class="grow" id="' + id + '">' + esc(value) + "</b></div>";
+    const error = extrasOf(doc).svgError;
+    return '<h2 class="fx-title">' + Icons.icon("image") + "<span>" + esc(t("svg.title")) + "</span></h2>" +
+      '<div class="props svg-section">' +
+      fact("svg.size", "svgSize", facts.size) +
+      fact("svg.viewBox", "svgViewBox", facts.viewBox) +
+      fact("svg.elements", "svgElements", facts.total) +
+      '<div class="svg-error" id="svgError" role="alert"' + (error ? "" : " hidden") + ">" + esc(error ? t("svg.error") + " " + error : "") + "</div>" +
+      '<textarea id="svgSource" class="svg-source" spellcheck="false" wrap="off" aria-label="' + esc(t("svg.title")) + '"></textarea>' +
+      "</div>";
+  }
+
+  /* The facts and the error change in place, so the box being typed in is left alone. */
+  function showSvgState(doc) {
+    if (doc !== current() || !$("svgSource")) return;
+    const facts = svgFacts(doc);
+    $("svgSize").textContent = facts.size;
+    $("svgViewBox").textContent = facts.viewBox;
+    $("svgElements").textContent = facts.total;
+    const error = extrasOf(doc).svgError;
+    $("svgError").hidden = !error;
+    $("svgError").textContent = error ? t("svg.error") + " " + error : "";
+  }
+
+  function svgFrameOf(doc) {
+    return doc.shapes.find((shape) => shape.svgFrame) || null;
+  }
+
+  function forgetSvgEdits() {
+    if (svgTimer) clearTimeout(svgTimer);
+    svgTimer = null;
+    svgToken += 1;
+    svgEditUndo = null;
+    docs.forEach((doc) => {
+      const item = extras.get(doc.id);
+      if (item) { delete item.svgDraft; delete item.svgError; }
+    });
+  }
+
+  /* Draws doc.svg into the frame; the board shows it as soon as it is there. */
+  async function drawSvgFrame(doc) {
+    const text = doc.svg;
+    const canvas = await SvgDoc.rasterize(text, doc.width, doc.height);
+    if (doc.svg !== text || docs.indexOf(doc) < 0) return false;
+    images[frameKey(doc)] = canvas;
+    extrasOf(doc).svgDrawn = text;
+    if (doc === current()) renderBoard();
+    return true;
+  }
+
+  /* A drawing that was saved or kept with its source: the document has a new id, so its frame
+   * shape is pointed at the new key and drawn from the source. */
+  function attachSvgFrame(doc) {
+    if (!doc.svg || !SvgDoc) return;
+    let frame = svgFrameOf(doc);
+    if (!frame) {
+      frame = Paint.makeShape("image", { x: 0, y: 0, w: doc.width, h: doc.height, width: 1, svgFrame: true });
+      doc.shapes.unshift(frame);
+    }
+    frame.src = frameKey(doc);
+    drawSvgFrame(doc).catch(showError);
+  }
+
+  /* The canvas size was changed from outside the source: the source follows, and the picture
+   * scales with it through its viewBox. */
+  function svgFollowCanvas(doc) {
+    if (!doc.svg || !SvgDoc) return;
+    doc.svg = SvgDoc.setSize(doc.svg, doc.width, doc.height);
+    const frame = svgFrameOf(doc);
+    if (frame) { frame.w = doc.width; frame.h = doc.height; }
+    delete extrasOf(doc).svgDraft;
+    delete extrasOf(doc).svgError;
+    drawSvgFrame(doc).catch(showError);
+  }
+
+  /* The picture stopped being its source (cropped, erased, cleared): it is plain pixels now. */
+  function dropSvgSource(doc) {
+    if (!doc.svg) return;
+    delete doc.svg;
+    const item = extrasOf(doc);
+    delete item.svgDraft;
+    delete item.svgError;
+    delete item.svgDrawn;
+  }
+
+  async function applySvgSource(doc) {
+    const item = extrasOf(doc);
+    const text = item.svgDraft;
+    if (text == null || !doc.svg) return false;
+    const token = ++svgToken;
+    if (text === doc.svg) {
+      delete item.svgDraft;
+      delete item.svgError;
+      showSvgState(doc);
+      return true;
+    }
+    const info = SvgDoc.inspect(text);
+    let canvas = null;
+    let problem = info.ok ? "" : info.error;
+    if (info.ok) {
+      try {
+        canvas = await SvgDoc.rasterize(text, info.width, info.height);
+      } catch (error) {
+        problem = error.message;
+      }
+    }
+    if (token !== svgToken) return false;
+    if (problem) {
+      item.svgError = problem;
+      showSvgState(doc);
+      return false;
+    }
+    if (svgEditUndo !== doc.id || document.activeElement !== $("svgSource")) {
+      pushUndo();
+      svgEditUndo = doc.id;
+    }
+    const resized = doc.width !== info.width || doc.height !== info.height;
+    doc.svg = text;
+    doc.width = info.width;
+    doc.height = info.height;
+    const frame = svgFrameOf(doc);
+    if (frame) { frame.w = info.width; frame.h = info.height; }
+    images[frameKey(doc)] = canvas;
+    item.svgDrawn = text;
+    delete item.svgDraft;
+    delete item.svgError;
+    doc.dirty = true;
+    persistSession();
+    if (resized && doc === current()) renderAll();
+    else {
+      renderBoard();
+      renderTabs();
+      renderStatus();
+    }
+    showSvgState(doc);
+    return true;
+  }
+
+  function onSvgInput(target) {
+    const doc = current();
+    if (!doc || !doc.svg) return;
+    extrasOf(doc).svgDraft = target.value;
+    if (svgTimer) clearTimeout(svgTimer);
+    svgTimer = setTimeout(() => {
+      svgTimer = null;
+      svgPending = applySvgSource(doc).catch(showError);
+    }, SVG_REDRAW_MS);
+  }
+
+  function flushSvg() {
+    if (svgTimer) {
+      clearTimeout(svgTimer);
+      svgTimer = null;
+      const doc = current();
+      if (doc) svgPending = applySvgSource(doc).catch(showError);
+    }
+    return svgPending;
   }
 
   function pictureSection(doc) {
@@ -1054,6 +1505,395 @@
     return "<h2>" + esc(t("dicom.title")) + '</h2><div class="props">' + rows.join("") + "</div>";
   }
 
+  /* ── effects ──
+   * Values kept with the document, never in its pixels (effects.js): the board previews them,
+   * and a picture format gets them burnt in when it is saved. */
+  function effectsOf(doc) {
+    return Effects.normalize(doc && doc.effects);
+  }
+
+  /* What the effects apply to: the selected shapes and text, or else the whole picture. */
+  function fxOwners(doc) {
+    const shapes = selectedShapes();
+    return shapes.length ? shapes : (doc ? [doc] : []);
+  }
+
+  /* An area picked with a marquee becomes a picture of its own, in place, so an effect changes that
+   * part only and the drawing under it stays as it was. */
+  function liftRegion(doc) {
+    if (!region || selected.length) return;
+    const cut = regionCanvas();
+    if (!cut) return;
+    const src = cut.canvas.toDataURL("image/png");
+    images[src] = cut.canvas;
+    const shape = Paint.addShape(doc, Paint.makeShape("image", { src: src, x: Math.round(cut.box.x), y: Math.round(cut.box.y), w: cut.canvas.width, h: cut.canvas.height, width: 1, lifted: true }));
+    selected = [shape.id];
+    region = null;
+    renderOverlay();
+  }
+
+  /* What a reset covers: the selection; or the shapes an area touches, never the whole picture when
+   * only a part of it is picked; or, with nothing selected, the picture's own effects. */
+  function fxResetTargets(doc) {
+    const shapes = selectedShapes();
+    if (shapes.length) return shapes;
+    if (!doc) return [];
+    if (region) {
+      const box = Paint.regionBounds(region);
+      return doc.shapes.filter((shape) => shape.effects && !Paint.isBackdrop(shape) && Paint.boxesOverlap(Paint.bounds(shape), box));
+    }
+    return [doc];
+  }
+
+  const hasEffects = (owner) => !Effects.isPlain(effectsOf(owner));
+
+  /* The undo step and the area, before a change: one call for one change. */
+  function fxBegin(doc) {
+    pushUndo();
+    liftRegion(doc);
+  }
+
+  function fxSection(doc) {
+    const fx = effectsOf(fxOwners(doc)[0]);
+    const scope = selectedShapes().length ? "fx.scope.shape" : (region ? "fx.scope.region" : "fx.scope.doc");
+    const L = Effects.LIMITS;
+    const spin = (name, value, range, step, key) => propLine(t(key), propSpin("fx", name, value, range[0], range[1], step, t(key)));
+    const sub = (icon, key) => '<div class="fx-sub">' + Icons.icon(icon) + "<span>" + esc(t(key)) + "</span></div>";
+    const looks = Effects.LOOK_IDS.map((id) => (
+      '<button type="button" class="fx-look' + (fx.look === id ? " on" : "") + '" data-action="fxLook:' + id + '" aria-pressed="' + (fx.look === id ? "true" : "false") + '" title="' + esc(t("fx.look." + id)) + '">' +
+      '<i class="fx-chip" style="filter:' + Effects.lookFilter(id) + '"></i><span>' + esc(t("fx.look." + id)) + "</span></button>"
+    )).join("");
+    const check = (name, on, key) => '<label class="line prop-line fx-check"><input data-fx="' + name + '" type="checkbox"' + (on ? " checked" : "") + "><span>" + esc(t(key)) + "</span></label>";
+    return '<h2 class="fx-title">' + Icons.icon("effects") + "<span>" + esc(t("right.effects")) + "</span></h2>" +
+      '<div class="props fx-section">' +
+      '<div class="fx-scope" data-scope="' + scope.slice(9) + '">' + esc(t(scope)) + "</div>" +
+      '<div class="line"><button type="button" class="action grow" data-action="fxReset"' + (fxResetTargets(doc).some(hasEffects) ? "" : " disabled") + ">" + Icons.icon("undo") + "<span>" + esc(t("fx.reset")) + "</span></button></div>" +
+      '<div class="fx-looks">' + looks + "</div>" +
+      spin("brightness", fx.brightness, L.brightness, 5, "fx.brightness") +
+      spin("contrast", fx.contrast, L.contrast, 5, "fx.contrast") +
+      spin("saturate", fx.saturate, L.saturate, 5, "fx.saturate") +
+      spin("blur", fx.blur, L.blur, 1, "fx.blur") +
+      sub("themePalette", "fx.wheel") +
+      fxWheelBlock(fx) +
+      sub("rect", "fx.border") +
+      spin("border.top", fx.border.top, L.border, 1, "fx.top") +
+      spin("border.bottom", fx.border.bottom, L.border, 1, "fx.bottom") +
+      spin("border.left", fx.border.left, L.border, 1, "fx.left") +
+      spin("border.right", fx.border.right, L.border, 1, "fx.right") +
+      colorLine(t("fx.color"), colorButton("fx:border.color", fx.border.color, t("fx.border") + " " + t("fx.color"))) +
+      sub("layerDown", "fx.shadow") +
+      check("shadow.on", fx.shadow.on, "fx.shadowOn") +
+      spin("shadow.x", fx.shadow.x, L.offset, 1, "fx.x") +
+      spin("shadow.y", fx.shadow.y, L.offset, 1, "fx.y") +
+      spin("shadow.blur", fx.shadow.blur, L.shadowBlur, 1, "fx.shadowBlur") +
+      spin("shadow.opacity", fx.shadow.opacity, L.opacity, 5, "fx.opacity") +
+      colorLine(t("fx.color"), colorButton("fx:shadow.color", fx.shadow.color, t("fx.shadow") + " " + t("fx.color"))) +
+      colorLine(t("fx.backdrop"), colorButton("fx:shadow.backdrop", fx.shadow.backdrop, t("fx.backdrop"))) +
+      check("shadow.transparent", fx.shadow.transparent, "fx.transparent") +
+      "</div>";
+  }
+
+  const FX_WHEEL_SIZE = 148;
+  const FX_WHEEL_TARGETS = [["border.color", "fx.border"], ["shadow.color", "fx.shadow"], ["shadow.backdrop", "fx.backdrop"]];
+
+  function fxColor(fx, name) {
+    const parts = name.split(".");
+    return fx[parts[0]][parts[1]];
+  }
+
+  function fxWheelBlock(fx) {
+    const hsv = ColorWheel.hexToHsv(fxColor(fx, fxWheelTarget));
+    const tabs = FX_WHEEL_TARGETS.map((row) => (
+      '<button type="button" class="fx-target' + (fxWheelTarget === row[0] ? " on" : "") + '" data-action="fxWheel:' + row[0] + '" aria-pressed="' + (fxWheelTarget === row[0] ? "true" : "false") + '">' + esc(t(row[1])) + "</button>"
+    )).join("");
+    return '<div class="fx-targets">' + tabs + "</div>" +
+      '<div class="fx-wheel" id="fxWheel"><canvas id="fxWheelDisc" width="' + FX_WHEEL_SIZE + '" height="' + FX_WHEEL_SIZE + '" title="' + esc(t("fx.wheel")) + '"></canvas><i class="fx-wheel-mark" id="fxWheelMark"></i></div>' +
+      propLine(t("fx.value"), propSpin("fxwheel", "value", Math.round(hsv.v * 100), 0, 100, 5, t("fx.value")));
+  }
+
+  /* The disc is drawn once after the panel is built; a drag moves only the mark and the swatch. */
+  function syncFxWheel(paintDisc) {
+    const disc = $("fxWheelDisc");
+    const mark = $("fxWheelMark");
+    if (!disc || !mark) return;
+    if (paintDisc) ColorWheel.paint(disc);
+    const fx = effectsOf(fxOwners(current())[0]);
+    const hex = fxColor(fx, fxWheelTarget);
+    const at = ColorWheel.position(ColorWheel.hexToHsv(hex), FX_WHEEL_SIZE);
+    mark.style.left = at.x + "px";
+    mark.style.top = at.y + "px";
+    mark.style.background = hex;
+    const swatch = $("rightPanel").querySelector('[data-color="fx:' + fxWheelTarget + '"]');
+    if (swatch) {
+      swatch.style.setProperty("--swatch", hex);
+      swatch.querySelector(".hex").textContent = hex;
+    }
+  }
+
+  function setFxWheelColor(hsv) {
+    const doc = current();
+    if (!doc) return;
+    fxOwners(doc).forEach((owner) => writeEffect(owner, fxWheelTarget, ColorWheel.hsvToHex(hsv.h, hsv.s, hsv.v)));
+    effectsChanged(doc);
+    syncFxWheel(false);
+  }
+
+  /* One drag is one undo step. A colour with no value would not change at all, so picking on the
+   * disc brings a black one up to full value. */
+  function onFxWheelDown(event) {
+    if (event.button !== 0 || event.target.id !== "fxWheelDisc") return;
+    const disc = event.target;
+    const box = disc.getBoundingClientRect();
+    const first = ColorWheel.pick(event.clientX - box.left, event.clientY - box.top, box.width, false);
+    if (!first) return;
+    event.preventDefault();
+    const doc = current();
+    if (!doc) return;
+    fxBegin(doc);
+    const was = ColorWheel.hexToHsv(fxColor(effectsOf(fxOwners(doc)[0]), fxWheelTarget));
+    const value = was.v > 0 ? was.v : 1;
+    const apply = (spot) => setFxWheelColor({ h: spot.h, s: spot.s, v: value });
+    apply(first);
+    const move = (ev) => {
+      const now = disc.getBoundingClientRect();
+      apply(ColorWheel.pick(ev.clientX - now.left, ev.clientY - now.top, now.width, true));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      renderRight();
+      if (popupKind === "convert") refreshPopupDocument("convert");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  }
+
+  /* Writes one value, "border.top" style; the undo step is the caller's. */
+  function writeEffect(doc, name, value) {
+    const fx = effectsOf(doc);
+    const parts = name.split(".");
+    if (parts.length === 2) fx[parts[0]][parts[1]] = value;
+    else fx[name] = value;
+    doc.effects = Effects.normalize(fx);
+  }
+
+  /* The preview: a CSS filter on the board, and behind it a layer for the border and the shadow.
+   * The stage makes room around the picture so the whole frame can be scrolled to. */
+  function syncEffects() {
+    const doc = current();
+    const board = $("board");
+    const layer = $("canvasEffect");
+    const frame = $("canvasFrame");
+    const stage = $("stage");
+    if (!doc || !board || !layer || !frame || !stage) return;
+    const fx = effectsOf(doc);
+    const zoom = scale();
+    board.style.filter = Effects.cssFilter(fx, zoom);
+    const framed = Effects.hasFrame(fx);
+    layer.hidden = !framed;
+    frame.classList.toggle("fx-framed", framed);
+    if (!framed) { stage.style.padding = ""; return; }
+    layer.style.top = -fx.border.top * zoom + "px";
+    layer.style.left = -fx.border.left * zoom + "px";
+    layer.style.right = -fx.border.right * zoom + "px";
+    layer.style.bottom = -fx.border.bottom * zoom + "px";
+    layer.style.background = fx.border.color;
+    layer.style.boxShadow = fx.shadow.on ? (fx.shadow.x * zoom) + "px " + (fx.shadow.y * zoom) + "px " + (fx.shadow.blur * zoom) + "px " + Effects.shadowColour(fx) : "none";
+    const reach = Effects.extents(fx);
+    stage.style.padding = [reach.top, reach.right, reach.bottom, reach.left].map((value) => (20 + value * zoom) + "px").join(" ");
+  }
+
+  function effectsChanged(doc) {
+    doc.dirty = true;
+    persistSession();
+    renderBoard();
+    renderTabs();
+    renderStatus();
+    scheduleRulers();
+  }
+
+  function onEffectChange(event) {
+    const target = event.target;
+    if (target.dataset && target.dataset.fxwheel) {
+      const owner = current();
+      if (!owner) return;
+      fxBegin(owner);
+      const hsv = ColorWheel.hexToHsv(fxColor(effectsOf(fxOwners(owner)[0]), fxWheelTarget));
+      const value = Math.max(0, Math.min(100, Number(target.value) || 0)) / 100;
+      setFxWheelColor({ h: hsv.h, s: hsv.s, v: value });
+      renderRight();
+      return;
+    }
+    if (!target.dataset || !target.dataset.fx) return;
+    const doc = current();
+    if (!doc) return;
+    fxBegin(doc);
+    fxOwners(doc).forEach((owner) => writeEffect(owner, target.dataset.fx, target.type === "checkbox" ? target.checked : target.value));
+    effectsChanged(doc);
+    // the typed value may have been limited; the rebuilt panel shows the one in force
+    renderRight();
+    if (popupKind === "convert") refreshPopupDocument("convert");
+  }
+
+  function setEffectLook(id) {
+    const doc = current();
+    if (!doc) return null;
+    fxBegin(doc);
+    fxOwners(doc).forEach((owner) => writeEffect(owner, "look", id));
+    effectsChanged(doc);
+    renderRight();
+    return effectsOf(fxOwners(doc)[0]);
+  }
+
+  function resetEffects() {
+    const doc = current();
+    if (!doc) return null;
+    const targets = fxResetTargets(doc).filter(hasEffects);
+    if (!targets.length) return effectsOf(fxOwners(doc)[0]);
+    pushUndo();
+    targets.forEach((owner) => {
+      delete owner.effects;
+      // a piece lifted out of the picture only for its effect has no more reason to be there
+      if (owner.lifted) {
+        doc.shapes = doc.shapes.filter((shape) => shape !== owner);
+        selected = selected.filter((id) => id !== owner.id);
+      }
+    });
+    effectsChanged(doc);
+    renderRight();
+    if (popupKind === "convert") refreshPopupDocument("convert");
+    return effectsOf(doc);
+  }
+
+  /* The border and shadow part of the export dialog: the same values as the panel. */
+  function exportEffectFields(number) {
+    const fx = effectsOf(current());
+    const L = Effects.LIMITS;
+    const cell = (key, control) => '<div class="line"><span>' + esc(t(key)) + "</span>" + control + "</div>";
+    const colorCell = (key, field, value) => '<label class="line"><span>' + esc(t(key)) + '</span><input data-field="' + field + '" type="color" value="' + esc(value) + '"></label>';
+    const box = (key, field, on) => '<label class="line fx-box"><input data-field="' + field + '" type="checkbox"' + (on ? " checked" : "") + "> " + esc(t(key)) + "</label>";
+    return '<p class="fx-form-title">' + esc(t("fx.border")) + '</p><div class="fx-form">' +
+      cell("fx.top", number("fxBorderTop", fx.border.top, L.border[0], L.border[1])) +
+      cell("fx.bottom", number("fxBorderBottom", fx.border.bottom, L.border[0], L.border[1])) +
+      cell("fx.left", number("fxBorderLeft", fx.border.left, L.border[0], L.border[1])) +
+      cell("fx.right", number("fxBorderRight", fx.border.right, L.border[0], L.border[1])) +
+      colorCell("fx.color", "fxBorderColor", fx.border.color) +
+      '</div><p class="fx-form-title">' + esc(t("fx.shadow")) + '</p><div class="fx-form">' +
+      box("fx.shadowOn", "fxShadowOn", fx.shadow.on) +
+      box("fx.transparent", "fxShadowTransparent", fx.shadow.transparent) +
+      cell("fx.x", number("fxShadowX", fx.shadow.x, L.offset[0], L.offset[1])) +
+      cell("fx.y", number("fxShadowY", fx.shadow.y, L.offset[0], L.offset[1])) +
+      cell("fx.shadowBlur", number("fxShadowBlur", fx.shadow.blur, L.shadowBlur[0], L.shadowBlur[1])) +
+      cell("fx.opacity", number("fxShadowOpacity", fx.shadow.opacity, L.opacity[0], L.opacity[1])) +
+      colorCell("fx.color", "fxShadowColor", fx.shadow.color) +
+      colorCell("fx.backdrop", "fxShadowBackdrop", fx.shadow.backdrop) +
+      '</div><div class="line hint fx-note">' + esc(t("fx.note")) + "</div>";
+  }
+
+  const EXPORT_FIELDS = {
+    fxBorderTop: "border.top", fxBorderBottom: "border.bottom", fxBorderLeft: "border.left", fxBorderRight: "border.right", fxBorderColor: "border.color",
+    fxShadowOn: "shadow.on", fxShadowTransparent: "shadow.transparent", fxShadowX: "shadow.x", fxShadowY: "shadow.y", fxShadowBlur: "shadow.blur",
+    fxShadowOpacity: "shadow.opacity", fxShadowColor: "shadow.color", fxShadowBackdrop: "shadow.backdrop",
+  };
+
+  /* One undo step for one visit to the dialog, however many fields change. */
+  function applyExportEffects(fields) {
+    const doc = current();
+    if (!doc) return;
+    const before = JSON.stringify(effectsOf(doc));
+    const fx = effectsOf(doc);
+    Object.keys(EXPORT_FIELDS).forEach((field) => {
+      if (!(field in fields)) return;
+      const parts = EXPORT_FIELDS[field].split(".");
+      fx[parts[0]][parts[1]] = fields[field];
+    });
+    const next = Effects.normalize(fx);
+    if (JSON.stringify(next) === before) return;
+    if (!exportUndoTaken) { pushUndo(); exportUndoTaken = true; }
+    doc.effects = next;
+    effectsChanged(doc);
+    renderRight();
+  }
+
+  /* What a picture format writes. */
+  const NO_TRANSPARENCY = ["jpeg", "bmp", "jp2", "j2k", "dicom", "ppm", "pcx"];
+  function exportCanvas(doc, format) {
+    return Effects.apply(renderCanvas(doc), doc.effects, { flatten: NO_TRANSPARENCY.indexOf(format) >= 0 });
+  }
+
+  /* The small pictures on the buttons of a line's looks. */
+  const HEAD_GLYPHS = {
+    none: '<path d="M2 7H26"/>',
+    triangle: '<path d="M2 7H15"/><path d="M14 2 26 7 14 12z" fill="currentColor"/>',
+    open: '<path d="M2 7H25M16 2 25 7 16 12"/>',
+    diamond: '<path d="M2 7H12"/><path d="M12 7 19 2 26 7 19 12z" fill="currentColor"/>',
+    circle: '<path d="M2 7H17"/><circle cx="21" cy="7" r="4.5" fill="currentColor"/>',
+    bar: '<path d="M2 7H24"/><path d="M25 2V12" stroke-width="2.6"/>',
+  };
+  const lineGlyph = (body) => '<svg viewBox="0 0 28 14" aria-hidden="true">' + body + "</svg>";
+  const LOOK_GLYPHS = {
+    lineCap: {
+      round: '<path d="M8 7H20" stroke-width="7" stroke-linecap="round"/>',
+      butt: '<path d="M8 7H20" stroke-width="7" stroke-linecap="butt"/>',
+      square: '<path d="M8 7H20" stroke-width="7" stroke-linecap="square"/>',
+    },
+    lineDash: {
+      solid: '<path d="M2 7H26" stroke-width="2.4"/>',
+      dashed: '<path d="M2 7H26" stroke-width="2.4" stroke-dasharray="6 3.4"/>',
+      dotted: '<path d="M2 7H26" stroke-width="2.4" stroke-dasharray="0.1 4.4" stroke-linecap="round"/>',
+      dashdot: '<path d="M2 7H26" stroke-width="2.4" stroke-dasharray="7 3 1.5 3"/>',
+    },
+    lineJoin: {
+      round: '<path d="M7 12V3H22" stroke-width="3.6" stroke-linejoin="round"/>',
+      miter: '<path d="M7 12V3H22" stroke-width="3.6" stroke-linejoin="miter"/>',
+      bevel: '<path d="M7 12V3H22" stroke-width="3.6" stroke-linejoin="bevel"/>',
+    },
+  };
+
+  function lookTiles(label, key, ids, current, glyphOf, nameOf) {
+    return '<div class="line prop-line prop-looks"><span>' + esc(label) + '</span><span class="prop-tiles" role="radiogroup" aria-label="' + esc(label) + '">' +
+      ids.map((id) => (
+        '<button type="button" role="radio" class="prop-tile' + (id === current ? " on" : "") + '" data-action="propLook:' + key + ":" + id + '" aria-checked="' + (id === current ? "true" : "false") + '" title="' + esc(nameOf(id)) + '" aria-label="' + esc(nameOf(id)) + '">' + glyphOf(id) + "</button>"
+      )).join("") + "</span></div>";
+  }
+
+  function lineLookRows(shape) {
+    const looks = Paint.lineOptions(shape.kind);
+    const rows = [];
+    if (looks.heads) {
+      const start = (id) => lineGlyph('<g transform="rotate(180 14 7)">' + HEAD_GLYPHS[id] + "</g>");
+      const end = (id) => lineGlyph(HEAD_GLYPHS[id]);
+      const name = (id) => t("head." + id);
+      rows.push(lookTiles(t("prop.arrowStart"), "arrowStart", Paint.ARROW_HEADS, shape.arrowStart || "none", start, name));
+      rows.push(lookTiles(t("prop.arrowEnd"), "arrowEnd", Paint.ARROW_HEADS, shape.arrowEnd || "triangle", end, name));
+      rows.push(propLine(t("prop.headSize"), propSpin("prop", "headSize", shape.headSize == null ? 100 : shape.headSize, 50, 300, 10, t("prop.headSize"))));
+    }
+    if (looks.cap) rows.push(lookTiles(t("prop.lineCap"), "lineCap", Paint.LINE_CAPS, shape.lineCap || "round", (id) => lineGlyph(LOOK_GLYPHS.lineCap[id]), (id) => t("cap." + id)));
+    if (looks.dash) rows.push(lookTiles(t("prop.lineDash"), "lineDash", Paint.LINE_DASHES, shape.lineDash || "solid", (id) => lineGlyph(LOOK_GLYPHS.lineDash[id]), (id) => t("dash." + id)));
+    if (looks.join && !looks.cap) rows.push(lookTiles(t("prop.lineJoin"), "lineJoin", Paint.LINE_JOINS, shape.lineJoin || "round", (id) => lineGlyph(LOOK_GLYPHS.lineJoin[id]), (id) => t("join." + id)));
+    return rows;
+  }
+
+  /* One look, to every selected shape that has it. */
+  function setLineLook(key, value) {
+    const has = { lineCap: "cap", lineDash: "dash", lineJoin: "join", arrowStart: "heads", arrowEnd: "heads" }[key];
+    const targets = selectedShapes().filter((shape) => Paint.lineOptions(shape.kind)[has]);
+    if (!targets.length) return null;
+    pushUndo();
+    targets.forEach((shape) => {
+      shape[key] = value;
+      // on an open line one choice decides both its ends and where it bends
+      if (key === "lineCap") shape.lineJoin = value === "round" ? "round" : "miter";
+    });
+    markDirty();
+    renderBoard();
+    renderRight();
+    renderTabs();
+    return value;
+  }
+
   function renderRight() {
     const doc = current();
     $("rightPanel").classList.toggle("collapsed", !settings.showRight);
@@ -1062,11 +1902,12 @@
     if (shape) {
       rows.push('<div class="line"><span>' + esc(t("prop.kind")) + '</span><b class="grow">' + esc(t("kind." + shape.kind)) + "</b></div>");
       rows.push(colorLine(t("prop.color"), colorButton("prop:color", shape.color, t("prop.color"))));
-      if (shape.kind === "rect" || shape.kind === "roundRect" || shape.kind === "ellipse" || shape.kind === "triangle") {
+      if (Paint.isFillable(shape.kind)) {
         rows.push(colorLine(t("prop.fill"), colorButton("prop:fill", shape.fill, t("prop.fill"), true)));
       }
       rows.push(propLine(t("prop.width"), propSpin("prop", "width", shape.width, 1, 96, 1, t("prop.width"))));
       rows.push(propLine(t("prop.opacity"), propSpin("prop", "opacity", shape.opacity, 0, 100, 5, t("prop.opacity"))));
+      lineLookRows(shape).forEach((row) => rows.push(row));
       if (shape.kind === "text") {
         rows.push(propLine(t("prop.text"), '<input data-prop="text" type="text" value="' + esc(shape.text) + '" title="' + esc(t("prop.text")) + '">'));
         rows.push(propLine(t("prop.font"), '<select data-prop="fontFamily" title="' + esc(t("prop.font")) + '">' + fontCatalog.map((name) => optionTag(name, name, shape.fontFamily)).join("") + "</select>"));
@@ -1080,8 +1921,8 @@
         rows.push(propLine(t("prop.y"), propSpin("prop", "y", Math.round(shape.y), null, null, 1, t("prop.y"))));
       }
       const size = Paint.sizeOf(shape);
-      rows.push('<div class="line"><span>' + esc(t("prop.w")) + '</span><b class="grow">' + size.width + "</b></div>");
-      rows.push('<div class="line"><span>' + esc(t("prop.h")) + '</span><b class="grow">' + size.height + "</b></div>");
+      rows.push(propLine(t("prop.w"), propSpin("prop", "shapeW", size.width, 1, 8192, 1, t("prop.w"))));
+      rows.push(propLine(t("prop.h"), propSpin("prop", "shapeH", size.height, 1, 8192, 1, t("prop.h"))));
       const measure = measurementOf(shape);
       if (measure && measure.kind === "length") {
         rows.push('<div class="line"><span>' + esc(t("dicom.length")) + '</span><b class="grow" id="measureLength">' +
@@ -1101,19 +1942,42 @@
       rows.push(colorLine(t("prop.background"), colorButton("prop:background", doc ? doc.background : "#ffffff", t("prop.background"))));
       rows.push(propLine(t("canvas.width"), propSpin("prop", "canvasWidth", doc ? doc.width : 0, 16, 8192, 10, t("canvas.width"))));
       rows.push(propLine(t("canvas.height"), propSpin("prop", "canvasHeight", doc ? doc.height : 0, 16, 8192, 10, t("canvas.height"))));
-      rows.push('<div class="line"><span>' + esc(t("prop.shapes")) + '</span><b class="grow">' + (doc ? doc.shapes.length : 0) + "</b></div>");
+      rows.push('<div class="line"><span>' + esc(t("prop.shapes")) + '</span><b class="grow">' + (doc ? doc.shapes.filter((shape) => !shape.svgFrame).length : 0) + "</b></div>");
       if (region) {
         const box = Paint.regionBounds(region);
         rows.push('<div class="line"><span>' + esc(t("status.selection")) + '</span><b class="grow" id="regionKind">' + esc(t("region." + region.kind)) + "</b></div>");
         rows.push('<div class="line"><span>' + esc(t("region.size")) + '</span><b class="grow" id="regionSize">' + Math.round(box.w) + " x " + Math.round(box.h) + "</b></div>");
+        if (box.w >= 1 && box.h >= 1) rows.push(colorLine(t("pixel.color"), colorButton("pixel:color", regionColor(), t("pixel.color"))));
         rows.push('<div class="line"><button type="button" class="action grow" data-action="cropRegion">' + esc(t("edit.crop")) + "</button></div>");
         rows.push('<div class="line"><button type="button" class="action grow" data-action="eraseRegion">' + esc(t("edit.eraseRegion")) + "</button></div>");
       } else {
         rows.push('<div class="line"><span>' + esc(t("status.selection")) + '</span><b class="grow">' + esc(t("status.none")) + "</b></div>");
       }
     }
-    $("rightPanel").innerHTML = panelBar("right", "right.props", "properties") + '<div class="props">' + rows.join("") + "</div>" +
-      pictureSection(doc) + dicomSection(doc);
+    const scrolled = $("rightPanel").querySelector(".right-scroll");
+    const top = scrolled ? scrolled.scrollTop : 0;
+    const oldBox = $("svgSource");
+    const boxState = oldBox && document.activeElement === oldBox
+      ? { start: oldBox.selectionStart, end: oldBox.selectionEnd, top: oldBox.scrollTop, left: oldBox.scrollLeft }
+      : null;
+    $("rightPanel").innerHTML = panelBar("right", "right.props", "properties") + '<div class="right-scroll"><div class="props">' + rows.join("") + "</div>" +
+      svgSection(doc) + fxSection(doc) + pictureSection(doc) + dicomSection(doc) + "</div>";
+    $("rightPanel").querySelector(".right-scroll").scrollTop = top;
+    const box = $("svgSource");
+    if (box) {
+      // through .value: as HTML a first line break would be lost, and it needs no escaping
+      const draft = extrasOf(doc).svgDraft;
+      box.value = draft != null ? draft : doc.svg;
+      if (boxState) {
+        box.focus({ preventScroll: true });
+        box.setSelectionRange(boxState.start, boxState.end);
+        box.scrollTop = boxState.top;
+        box.scrollLeft = boxState.left;
+      }
+    }
+    // every change of selection comes through here: the font buttons show what is selected now
+    syncFontControls();
+    syncFxWheel(true);
     const shapeNode = firstSelected();
     if (shapeNode && shapeNode.kind === "text") {
       const family = $("rightPanel").querySelector('[data-prop="fontFamily"]');
@@ -1132,7 +1996,7 @@
       ["stState", t("status.ready")],
       ["stFile", doc ? doc.name : "-"],
       ["stTool", t("status.tool") + " " + t("tool." + settings.tool)],
-      ["stShapes", t("status.shapes") + " " + (doc ? doc.shapes.length : 0)],
+      ["stShapes", t("status.shapes") + " " + (doc ? doc.shapes.filter((shape) => !shape.svgFrame).length : 0)],
       ["stSelection", t("status.selection") + " " + (region ? t("region." + region.kind) : shape ? t("kind." + shape.kind) : t("status.none"))],
       ["stSize", t("status.size") + " " + (doc ? doc.width + "x" + doc.height : "-")],
       ["stFormat", t("status.format") + " " + (source ? t("kind." + source.kind) : t("kind.native"))],
@@ -1217,7 +2081,7 @@
       '<i class="swatch" style="background:' + esc(item.vars["--bg"]) + ";border-color:" + esc(item.vars["--accent"]) + '"></i>' +
       '<span class="label">' + esc(Themes.nameOf(item, settings.language)) + "</span></button>"
     )).join("");
-    const col = (mode, label) => '<div class="theme-col"><div class="theme-col-head">' + esc(label) + "</div>" + column(mode) + "</div>";
+    const col = (mode, label) => '<div class="theme-col"><div class="theme-col-head">' + Icons.icon(mode === "dark" ? "moon" : "sun") + "<span>" + esc(label) + "</span></div>" + column(mode) + "</div>";
     return '<div class="theme-cols">' + col("dark", t("theme.dark")) + col("light", t("theme.light")) + "</div>" +
       '<button type="button" class="menu-item theme-custom' + (settings.theme === "custom" ? " on" : "") + '" data-action="themeCustom">' +
       '<span class="ico">' + Icons.icon("image") + "</span>" +
@@ -1449,7 +2313,7 @@
       ctx.fillStyle = page.doc.background;
       ctx.fillRect(page.source.x, page.source.y, page.source.w, page.source.h);
     }
-    page.doc.shapes.forEach((shape) => Paint.drawShape(ctx, shape, page.doc, images));
+    page.doc.shapes.forEach((shape) => Paint.drawWithEffects(ctx, shape, page.doc, images));
     ctx.restore();
 
     if (margin.top + margin.right + margin.bottom + margin.left > 0) {
@@ -1482,8 +2346,42 @@
     });
   }
 
+  /* What a document prints as. Effects of the whole picture can make it larger, so such a document
+   * prints as one picture of the finished size, and the pages are split from that. A view is kept
+   * until the document changes, since every change of a print setting asks for the pages again. */
+  const printViews = new Map();
+
+  function printView(doc) {
+    if (Effects.isPlain(Effects.normalize(doc.effects))) return doc;
+    const showBackground = printState.printBackground !== false;
+    const key = showBackground + JSON.stringify(doc, (name, value) => (name === "src" ? String(value).length : value));
+    const frame = images[frameKey(doc)] || null;
+    const kept = printViews.get(doc.id);
+    if (kept && kept.key === key && kept.frame === frame) return kept.view;
+    const source = document.createElement("canvas");
+    source.width = doc.width;
+    source.height = doc.height;
+    Paint.render(source.getContext("2d"), doc, { images: images, noBackground: !showBackground });
+    const fx = Effects.normalize(doc.effects);
+    if (!showBackground) fx.shadow.transparent = true;
+    const canvas = Effects.apply(source, fx, { clearBehind: !showBackground });
+    const src = "print:" + doc.id;
+    images[src] = canvas;
+    const view = {
+      id: doc.id,
+      name: doc.name,
+      width: canvas.width,
+      height: canvas.height,
+      // the backdrop is in the picture already, and a clear one leaves the paper showing
+      background: "transparent",
+      shapes: [Paint.makeShape("image", { src: src, x: 0, y: 0, w: canvas.width, h: canvas.height, width: 1 })],
+    };
+    printViews.set(doc.id, { key: key, frame: frame, view: view });
+    return view;
+  }
+
   function pagesForPrint() {
-    return Print.selectPages(docs, {
+    return Print.selectPages(docs.map(printView), {
       scope: printState.scope,
       currentIndex: active,
       paper: printState.paper,
@@ -1494,7 +2392,27 @@
     });
   }
 
+  /* What each dialog button shows beside its label. Added in one place so no dialog can leave a
+   * button out: an arrow button is its icon alone. */
+  const POPUP_BUTTON_ICONS = {
+    "apply-canvas": "check", "apply-convert": "download", "apply-custom": "check", "apply-drop": "check", "apply-palette": "check", "apply-settings": "check",
+    "bg-choose": "folder", "bg-clear": "trash", "cancel": "clear", "clear-dirs": "trash", "clear-recent": "trash", "close": "exit",
+    "confirm-save": "save", "copy-error": "copy", "create-new": "new", "discard": "trash", "do-print": "print", "fetch-url": "download",
+    "print-next": "next", "print-prev": "prev", "remove-dir": "trash", "remove-recent": "trash", "save-close": "save",
+    "start-arrange": "grid", "start-preview": "home", "start-reset": "undo", "stop-progress": "stop", "tag-next": "next", "tag-prev": "prev",
+  };
+
+  function withButtonIcons(html) {
+    return html.replace(/(<button type="button" class="action[^"]*" data-popup-action="([a-z0-9-]+)"[^>]*>)(&lt;|&gt;)?/g, (whole, open, action) => (
+      POPUP_BUTTON_ICONS[action] ? open + Icons.icon(POPUP_BUTTON_ICONS[action]) : whole
+    ));
+  }
+
   function popupHTML(kind) {
+    return withButtonIcons(popupMarkup(kind));
+  }
+
+  function popupMarkup(kind) {
     const head = (title) => (
       '<header class="popup-titlebar"><strong><span class="popup-ico">' + Icons.icon(popupIcon(kind)) + "</span>" +
       '<span class="popup-title">' + esc(title) + "</span></strong>" +
@@ -1615,9 +2533,9 @@
         '<div class="popup-body">' +
         '<div class="line">' + esc(t("drop.message")) + "</div>" +
         '<div class="line"><span>' + esc(t("image.kind")) + '</span><b class="grow" id="dropKind">' + esc(format) + "</b></div>" +
-        '<label class="line"><input type="radio" name="role" data-field="role" value="drawing" checked> ' + esc(t("drop.asDrawing")) + "</label>" +
-        '<label class="line"><input type="radio" name="role" value="image"> ' + esc(t("drop.asImage")) + "</label>" +
-        '<label class="line"><input type="radio" name="role" value="background"> ' + esc(t("drop.asBackground")) + "</label>" +
+        '<label class="line"><input type="radio" name="role" data-field="role" value="drawing"' + (pendingDropAt ? "" : " checked") + "> " + esc(t("drop.asDrawing")) + "</label>" +
+        '<label class="line"><input type="radio" name="role" data-field="role" value="image"' + (pendingDropAt ? " checked" : "") + "> " + esc(t("drop.asImage")) + "</label>" +
+        '<label class="line"><input type="radio" name="role" data-field="role" value="background"> ' + esc(t("drop.asBackground")) + "</label>" +
         "</div>" + foot(btn("apply-drop", t("action.ok"), true) + btn("cancel", t("action.cancel")));
     }
     if (kind === "convert") {
@@ -1632,6 +2550,7 @@
         '<label class="line quality-line" id="qualityLine"' + (lossyFormat(convertState.format) ? "" : " data-off") + '><span>' + esc(t("convert.quality")) + "</span>" +
         number("quality", convertState.quality, 10, 100) + '<b class="unit" id="qualityPct">%</b></label>' +
         '<div class="line hint" id="qualityHint">' + esc(lossyFormat(convertState.format) ? t("convert.qualityHint") : t("convert.lossless")) + "</div>" +
+        exportEffectFields(number) +
         "</div>" + foot(btn("apply-convert", t("convert.run"), true) + btn("cancel", t("action.cancel")));
     }
     if (kind === "formats") {
@@ -1804,20 +2723,31 @@
       '<label class="line"><span>' + esc(t("settings.lastSave")) + '</span><input data-field="lastSaveDir" type="text" readonly value="' + esc(settings.lastSaveDir) + '"></label>' +
       '<label class="line"><span>' + esc(t("settings.gridSize")) + "</span>" + number("gridSize", settings.gridSize, 2, 200) + '<b class="unit">px</b></label>' +
       "</div>" +
-      startSettingsPanel(number) +
+      startSettingsPanel() +
       "</div>" + foot(btn("apply-settings", t("action.apply"), true) + btn("cancel", t("action.cancel")));
   }
 
-  function startSettingsPanel(number) {
-    const conf = Store.normalizeStart(settings.startScreen);
+  /* Everything about the start screen, shared live with the start screen itself. */
+  function startSettingsPanel() {
+    const conf = startPrefs();
+    const reduced = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const range = (field, label, limits, value) => (
+      '<div class="line"><span>' + esc(label) + "</span>" +
+      Range.html({ field: field, label: esc(label), min: limits.min, max: limits.max, step: limits.step, suffix: "%", value: value }) + "</div>"
+    );
+    const button = (action, icon, label) => '<button type="button" class="action" data-popup-action="' + action + '">' + esc(label) + "</button>";
     return '<div data-panel="start"' + (settingsTab === "start" ? "" : " hidden") + ">" +
+      '<p class="settings-start-title">' + esc(t("start.set.background")) + "</p>" +
+      '<div class="bg-grid settings-start-grid" role="radiogroup" aria-label="' + esc(t("start.set.background")) + '">' +
+      Store.START_BACKGROUNDS.map((kind) => StartScreen.backgroundTile(kind, kind === conf.background,
+        'data-popup-action="start-bg" data-id="' + kind + '"', { t: t, esc: esc, icon: Icons.icon })).join("") + "</div>" +
+      range("startSpeed", t("start.set.speed"), Store.START_SPEED, Store.effectiveStartSpeed(conf, reduced)) +
+      range("startOpacity", t("start.cardOpacity"), Store.START_OPACITY, conf.cardOpacity) +
+      '<label class="line"><input data-field="startShuffle" type="checkbox"' + (conf.shuffleSec > 0 ? " checked" : "") + "> " + esc(t("start.set.shuffle").replace("{0}", Store.START_SHUFFLE_SECONDS)) + "</label>" +
       '<label class="line"><input data-field="startShow" type="checkbox"' + (conf.show ? " checked" : "") + "> " + esc(t("start.showAtStart")) + "</label>" +
-      '<label class="line"><span>' + esc(t("start.titleSize")) + "</span>" + number("startTitleSize", conf.titleSize, 20, 64) + '<b class="unit">px</b></label>' +
-      '<label class="line"><span>' + esc(t("start.textSize")) + "</span>" + number("startTextSize", conf.textSize, 11, 24) + '<b class="unit">px</b></label>' +
-      '<label class="line"><span>' + esc(t("start.align")) + '</span><select data-field="startAlign">' +
-      optionTag("center", t("start.alignCenter"), conf.align) + optionTag("left", t("start.alignLeft"), conf.align) + "</select></label>" +
-      '<label class="line"><input data-field="startRecent" type="checkbox"' + (conf.showRecent ? " checked" : "") + "> " + esc(t("start.showRecent")) + "</label>" +
-      '<div class="line"><span class="grow">' + esc(t("start.preview")) + '</span><button type="button" class="action" data-popup-action="start-preview">' + esc(t("start.open")) + "</button></div>" +
+      '<div class="line"><span>' + esc(t("start.set.layout")) + '</span><span class="start-layout-buttons">' +
+      button("start-arrange", "grid", t("start.set.arrange")) + button("start-reset", "clear", t("start.set.reset")) + button("start-preview", "home", t("start.set.open")) +
+      "</span></div>" +
       "</div>";
   }
 
@@ -1847,7 +2777,7 @@
     popupEl = null;
     popupKind = "";
     popupHtml = "";
-    if (window.desktop && window.desktop.closePopup && !TEST) window.desktop.closePopup();
+    if (window.desktop && window.desktop.closePopup && !TEST) window.desktop.closePopup(++popupGen);
     if (popupWindow && !popupWindow.closed) popupWindow.close();
     popupWindow = null;
   }
@@ -1874,6 +2804,7 @@
   }
 
   function openPopup(kind, anchor) {
+    if (kind === "convert") exportUndoTaken = false;
     if (kind === "print") printState = Object.assign({}, Store.defaults().print, settings.print, { pageIndex: 0 });
     const spec = popupSpec(kind);
     const place = anchor || {
@@ -1883,6 +2814,7 @@
     popupKind = kind;
     if (window.desktop && window.desktop.openPopup && !TEST) {
       window.desktop.openPopup({
+        gen: ++popupGen,
         kind: kind,
         title: popupTitle(kind),
         width: spec.width,
@@ -2196,11 +3128,11 @@
     if (patch.fontFamily) out.fontFamily = settings.fontFamily;
     if (patch.fontSize != null) out.fontSize = settings.fontSize;
     if (patch.fontStyle) {
-      out.bold = String(settings.fontStyle).indexOf("bold") >= 0;
-      out.italic = String(settings.fontStyle).indexOf("italic") >= 0;
+      out.bold = String(patch.fontStyle).indexOf("bold") >= 0;
+      out.italic = String(patch.fontStyle).indexOf("italic") >= 0;
     }
-    if (patch.underline != null) out.underline = settings.fontUnderline;
-    if (patch.strike != null) out.strike = settings.fontStrike;
+    if (patch.underline != null) out.underline = !!patch.underline;
+    if (patch.strike != null) out.strike = !!patch.strike;
     if (patch.color) out.color = patch.color;
     return out;
   }
@@ -2211,9 +3143,13 @@
     const shapes = activeTextShapes();
     if (patch.fontFamily) settings.fontFamily = patch.fontFamily;
     if (patch.fontSize != null) settings.fontSize = clamp(patch.fontSize, 6, 400);
-    if (patch.fontStyle) settings.fontStyle = patch.fontStyle;
-    if (patch.underline != null) settings.fontUnderline = !!patch.underline;
-    if (patch.strike != null) settings.fontStrike = !!patch.strike;
+    // the face and marks given to a text belong to that text; only with no text in hand do they
+    // set what the next text starts with, or one italic word would make every later text italic
+    if (!editing && !shapes.length) {
+      if (patch.fontStyle) settings.fontStyle = patch.fontStyle;
+      if (patch.underline != null) settings.fontUnderline = !!patch.underline;
+      if (patch.strike != null) settings.fontStrike = !!patch.strike;
+    }
     const change = runPatch(patch);
     if (editing && editor && !editor.hidden && RichText) {
       const base = Paint.styleOfShape(editing);
@@ -2239,9 +3175,9 @@
       shapes.forEach((shape) => {
         if (patch.fontFamily) shape.fontFamily = settings.fontFamily;
         if (patch.fontSize != null) shape.fontSize = settings.fontSize;
-        if (patch.fontStyle) shape.fontStyle = settings.fontStyle;
-        if (patch.underline != null) shape.underline = settings.fontUnderline;
-        if (patch.strike != null) shape.strike = settings.fontStrike;
+        if (patch.fontStyle) shape.fontStyle = patch.fontStyle;
+        if (patch.underline != null) shape.underline = !!patch.underline;
+        if (patch.strike != null) shape.strike = !!patch.strike;
         if (Array.isArray(shape.runs)) shape.runs = Paint.restyleRuns(shape.runs, 0, shape.text.length, change, Paint.styleOfShape(shape));
         Paint.normalizeShape(shape);
       });
@@ -2255,11 +3191,30 @@
     return { family: settings.fontFamily, size: activeFontSize() };
   }
 
+  /* Toggles from what the button shows: while typing that is the style at the caret, not the
+   * text's own, so a second press turns it off and the other face is kept. */
   function toggleFontFace(kind) {
-    const shapes = activeTextShapes();
-    const style = String(shapes.length ? shapes[0].fontStyle : settings.fontStyle);
-    const bold = kind === "bold" ? style.indexOf("bold") < 0 : style.indexOf("bold") >= 0;
-    const italic = kind === "italic" ? style.indexOf("italic") < 0 : style.indexOf("italic") >= 0;
+    const whole = activeTextShapes();
+    if (!editingShape() && whole.length) {
+      // the whole text is selected: this one face goes to all of it, and every other style stays
+      const value = !fontFlag(kind);
+      pushUndo();
+      whole.forEach((shape) => {
+        const runs = Paint.textRuns(shape);
+        const change = {};
+        change[kind] = value;
+        Paint.setTextRuns(shape, Paint.restyleRuns(runs, 0, shape.text.length, change, Paint.styleOfShape(shape)));
+      });
+      markDirty();
+      saveSettings();
+      applyVisual();
+      renderBoard();
+      renderRight();
+      renderToolbar();
+      return null;
+    }
+    const bold = kind === "bold" ? !fontFlag("bold") : fontFlag("bold");
+    const italic = kind === "italic" ? !fontFlag("italic") : fontFlag("italic");
     let next = "normal";
     if (bold && italic) next = "bold-italic";
     else if (bold) next = "bold";
@@ -2320,8 +3275,111 @@
     return settings.tool;
   }
 
+  /* A colour chosen with something selected goes to it. While a drawing tool is in hand the shape
+   * just drawn counts as selected too, but a colour picked then is for the next one, or picking
+   * a colour would repaint the last stroke. A selected text is always meant: it was finished. */
+  function colorTargets() {
+    const shapes = selectedShapes();
+    if (settings.tool === "select") return shapes;
+    return shapes.filter((shape) => shape.kind === "text");
+  }
+
+  /* Changed pixels live on a see-through picture over the drawing, one for each run of changes, so
+   * the shapes under them stay shapes. The last shape carries on if it is such a layer. */
+  function paintRegion(color, session) {
+    const doc = current();
+    if (!doc || !region || !color) return false;
+    const box = Paint.regionBounds(region);
+    if (box.w < 1 || box.h < 1) return false;
+    if (!session || !session.undo) {
+      pushUndo();
+      if (session) session.undo = true;
+    }
+    const last = doc.shapes[doc.shapes.length - 1];
+    const layer = last && last.pixelLayer && last.w === doc.width && last.h === doc.height ? last : null;
+    const canvas = document.createElement("canvas");
+    canvas.width = doc.width;
+    canvas.height = doc.height;
+    const ctx = canvas.getContext("2d");
+    if (layer && images[layer.src]) ctx.drawImage(images[layer.src], 0, 0);
+    ctx.save();
+    Paint.clipRegion(ctx, region);
+    ctx.fillStyle = color;
+    ctx.fillRect(box.x, box.y, box.w, box.h);
+    ctx.restore();
+    const src = canvas.toDataURL("image/png");
+    images[src] = canvas;
+    if (layer) {
+      delete images[layer.src]; // an undo that needs it again reads it back from its own src
+      layer.src = src;
+    } else {
+      Paint.addShape(doc, Paint.makeShape("image", { src: src, x: 0, y: 0, w: doc.width, h: doc.height, width: 1, pixelLayer: true }));
+    }
+    markDirty();
+    renderBoard();
+    renderTabs();
+    return true;
+  }
+
+  /* The colour at the middle of the picked pixels, as it looks now. */
+  function regionColor() {
+    const doc = current();
+    if (!doc || !region) return "#000000";
+    const box = Paint.regionBounds(region);
+    const x = Math.max(0, Math.min(doc.width - 1, Math.floor(box.x + box.w / 2)));
+    const y = Math.max(0, Math.min(doc.height - 1, Math.floor(box.y + box.h / 2)));
+    const data = renderCanvas(doc).getContext("2d", { willReadFrequently: true }).getImageData(x, y, 1, 1).data;
+    return "#" + [data[0], data[1], data[2]].map((n) => n.toString(16).padStart(2, "0")).join("");
+  }
+
+  /* One pixel per click, whatever the zoom; a drag takes every pixel it touches, both ends included. */
+  function setPixelRegion(x, y) {
+    const doc = current();
+    const inside = (value, size) => Math.max(0, Math.min(size - 1, Math.floor(value)));
+    const px = inside(x, doc.width);
+    const py = inside(y, doc.height);
+    region.x = Math.min(pixelAnchor.x, px);
+    region.y = Math.min(pixelAnchor.y, py);
+    region.w = Math.abs(px - pixelAnchor.x) + 1;
+    region.h = Math.abs(py - pixelAnchor.y) + 1;
+  }
+
+  /* key is color or fill. The undo step is taken once per session, so one visit to a chooser is
+   * one undo. Returns whether anything was changed. */
+  function recolorSelection(key, value, session) {
+    const targets = colorTargets().filter((shape) => (key === "fill" ? Paint.isFillable(shape.kind) : shape.kind !== "image" && shape.kind !== "eraser"));
+    if (!targets.length) return false;
+    if (!session || !session.undo) {
+      pushUndo();
+      if (session) session.undo = true;
+    }
+    targets.forEach((shape) => {
+      if (key === "fill") { shape.fill = value || ""; return; }
+      if (!value) return;
+      shape.color = value;
+      if (shape.kind === "text" && Array.isArray(shape.runs)) {
+        // each part may carry its own colour, which would otherwise hide the change
+        Paint.setTextRuns(shape, Paint.restyleRuns(Paint.textRuns(shape), 0, shape.text.length, { color: value }, Paint.styleOfShape(shape)));
+      }
+    });
+    markDirty();
+    renderBoard();
+    renderTabs();
+    return true;
+  }
+
   function setColor(color) {
     settings.color = color;
+    if (editingShape()) {
+      // while typing: from the caret, or on the selected characters
+      applyTextFont({ color: color });
+    } else if (region && !selected.length) {
+      paintRegion(color);
+      renderRight();
+    } else if (recolorSelection("color", color)) {
+      renderRight();
+      renderLeft();
+    }
     saveSettings();
     renderLeft();
     renderStatus();
@@ -2330,6 +3388,15 @@
 
   function setStrokeWidth(value) {
     settings.strokeWidth = clamp(value, 1, 96);
+    const picked = widthTargets();
+    if (picked.length) {
+      pushUndo();
+      picked.forEach((shape) => { shape.width = settings.strokeWidth; });
+      markDirty();
+      renderBoard();
+      renderRight();
+      renderTabs();
+    }
     saveSettings();
     renderLeft();
     return settings.strokeWidth;
@@ -2618,6 +3685,10 @@
     const marquee = (Paint.TOOLS.find((item) => item.id === tool) || {}).region;
     if (marquee) {
       region = Paint.makeRegion(marquee, x, y);
+      if ((Paint.TOOLS.find((item) => item.id === tool) || {}).pixel) {
+        pixelAnchor = { x: Math.max(0, Math.min(doc.width - 1, Math.floor(x))), y: Math.max(0, Math.min(doc.height - 1, Math.floor(y))) };
+        setPixelRegion(x, y);
+      }
       regionDrag = true;
       selected = [];
       renderOverlay();
@@ -2626,13 +3697,29 @@
     }
     if (tool === "select") {
       const hit = Paint.hitTest(doc, x, y);
-      selected = hit ? [hit.id] : [];
-      if (hit) {
-        pushUndo();
-        dragState = { id: hit.id, ids: selected.slice(), lastX: x, lastY: y, moved: false };
+      // several selected: a press anywhere in one of their boxes takes hold of them all,
+      // which is also how a thin line in the group is not missed
+      const held = selected.length > 1 && selectedShapes().find((shape) => {
+        const box = Paint.bounds(shape);
+        return x >= box.x && y >= box.y && x <= box.x + box.w && y <= box.y + box.h;
+      });
+      let settleOn = null;
+      if (pressAdds) {
+        if (hit && selected.indexOf(hit.id) >= 0) selected = selected.filter((id) => id !== hit.id);
+        else if (hit) selected = selected.concat([hit.id]);
+      } else if (held) {
+        // a click that does not drag narrows the group to the shape under it, or lets go of it
+        settleOn = hit ? hit.id : "none";
       } else {
+        selected = hit ? [hit.id] : [];
+      }
+      const grabbed = pressAdds ? (hit && selected.indexOf(hit.id) >= 0 ? hit : null) : (held || hit);
+      if (grabbed) {
+        pushUndo();
+        dragState = { id: grabbed.id, ids: selected.slice(), lastX: x, lastY: y, moved: false, settleOn: settleOn };
+      } else if (!hit) {
         // nothing under the pointer, so the drag draws a box around what to pick
-        band = { x: x, y: y, w: 0, h: 0 };
+        band = { x: x, y: y, w: 0, h: 0, adds: pressAdds };
       }
       renderOverlay();
       renderLeft();
@@ -2679,7 +3766,8 @@
       return band;
     }
     if (regionDrag && region && !draft) {
-      Paint.growRegion(region, x, y);
+      if (pixelAnchor) setPixelRegion(x, y);
+      else Paint.growRegion(region, x, y);
       renderOverlay();
       renderStatus();
       return region;
@@ -2706,9 +3794,12 @@
         band.h = y - band.y;
       }
       const box = Paint.normalizeRect(band);
+      const adds = band.adds;
       band = null;
       if (box.w >= 2 || box.h >= 2) {
-        selected = doc.shapes.filter((shape) => Paint.boxesOverlap(Paint.bounds(shape), box)).map((shape) => shape.id);
+        // only what is wholly inside: a neighbour the box merely touches is not meant
+        const inside = doc.shapes.filter((shape) => !Paint.isBackdrop(shape) && Paint.boxContains(box, shape)).map((shape) => shape.id);
+        selected = adds ? selected.concat(inside.filter((id) => selected.indexOf(id) < 0)) : inside;
       }
       renderOverlay();
       renderLeft();
@@ -2722,16 +3813,22 @@
       if (!state.moved) {
         undoStack.pop();
         updateHistoryButtons();
+        if (state.settleOn) selected = state.settleOn === "none" ? [] : [state.settleOn];
       }
       renderTabs();
       renderAll();
       return state;
     }
     if (regionDrag && region && !draft) {
-      if (x != null && y != null) Paint.growRegion(region, x, y);
+      if (x != null && y != null) {
+        if (pixelAnchor) setPixelRegion(x, y);
+        else Paint.growRegion(region, x, y);
+      }
       regionDrag = false;
       const box = Paint.regionBounds(region);
-      if (box.w < 2 && box.h < 2) region = null;
+      // a slip of the mouse is no area, but one pixel is what the pixel tool is for
+      if (!pixelAnchor && box.w < 2 && box.h < 2) region = null;
+      pixelAnchor = null;
       renderOverlay();
       renderRight();
       renderStatus();
@@ -2782,6 +3879,7 @@
   }
 
   function replaceWithCanvas(doc, canvas) {
+    dropSvgSource(doc);
     images[frameKey(doc)] = canvas;
     doc.width = canvas.width;
     doc.height = canvas.height;
@@ -2969,7 +4067,7 @@
 
   function doSelectAll() {
     const doc = current();
-    selected = doc ? doc.shapes.map((shape) => shape.id) : [];
+    selected = doc ? doc.shapes.filter((shape) => !Paint.isBackdrop(shape)).map((shape) => shape.id) : [];
     renderOverlay();
     renderLeft();
     renderRight();
@@ -3022,6 +4120,7 @@
     const doc = current();
     if (!doc) return 0;
     pushUndo();
+    dropSvgSource(doc);
     Paint.clearDoc(doc);
     selected = [];
     markDirty();
@@ -3045,6 +4144,7 @@
     doc.width = clamp(fields.width, 16, 8192);
     doc.height = clamp(fields.height, 16, 8192);
     if (fields.background) doc.background = fields.background;
+    svgFollowCanvas(doc);
     markDirty();
     renderAll();
     return { width: doc.width, height: doc.height, background: doc.background };
@@ -3131,17 +4231,20 @@
     return image;
   }
 
-  async function placeImage(dataUrl, name) {
+  /* at: centre the image there, keeping it on the picture; otherwise it goes in the top left. */
+  async function placeImage(dataUrl, name, at) {
     const doc = current();
     const image = await imageFromSource(dataUrl);
     const factor = Math.min(1, doc.width / image.width, doc.height / image.height);
+    const w = Math.round(image.width * factor);
+    const h = Math.round(image.height * factor);
     pushUndo();
     const shape = Paint.addShape(doc, Paint.makeShape("image", {
       src: dataUrl,
-      x: 0,
-      y: 0,
-      w: Math.round(image.width * factor),
-      h: Math.round(image.height * factor),
+      x: at ? Math.round(clamp(at.x - w / 2, 0, Math.max(0, doc.width - w))) : 0,
+      y: at ? Math.round(clamp(at.y - h / 2, 0, Math.max(0, doc.height - h))) : 0,
+      w: w,
+      h: h,
       width: 1,
     }));
     selected = [shape.id];
@@ -3159,6 +4262,7 @@
     first.path = path || "";
     parsed.documents.slice(1).forEach((doc) => docs.push(doc));
     addDoc(first, Boolean(path));
+    parsed.documents.forEach(attachSvgFrame);
     return parsed.documents.length;
   }
 
@@ -3216,6 +4320,8 @@
     const copy = Paint.createDoc(doc);
     copy.shapes = doc.shapes.map((shape) => {
       if (shape.kind !== "image" || String(shape.src).indexOf("frame:") !== 0) return shape;
+      // the source draws this one again when the file is opened
+      if (shape.svgFrame && doc.svg) return Object.assign(Paint.cloneShape(shape), { src: "" });
       const canvas = images[shape.src];
       const clone = Paint.cloneShape(shape);
       clone.src = canvas ? canvas.toDataURL("image/png") : "";
@@ -3259,11 +4365,12 @@
   async function exportPng(doc, filePath) {
     const target = doc || current();
     const path = filePath || (target.name.replace(/\.[^.]+$/, "") + ".png");
-    const url = canvasDataUrl(target);
+    const picture = exportCanvas(target, "png");
+    const url = picture.toDataURL("image/png");
     const base64 = url.slice(url.indexOf(",") + 1);
     await withProgress(t("progress.exporting"), base64.length, async (report) => {
       await report(45);
-      lastExport = { path: path, bytes: base64.length, format: "png" };
+      lastExport = { path: path, bytes: base64.length, format: "png", width: picture.width, height: picture.height };
       await report(90);
     });
     Store.rememberDirectory(settings, "save", path);
@@ -3340,7 +4447,7 @@
       }
       ctx.save();
       ctx.translate(-page.source.x, -page.source.y);
-      page.doc.shapes.forEach((shape) => Paint.drawShape(ctx, shape, page.doc, images));
+      page.doc.shapes.forEach((shape) => Paint.drawWithEffects(ctx, shape, page.doc, images));
       ctx.restore();
       const naturalWidth = page.source.w / Print.MM_TO_PX;
       const naturalHeight = page.source.h / Print.MM_TO_PX;
@@ -3408,14 +4515,15 @@
     });
   }
 
-  async function handleDroppedFiles(files) {
+  /* point: where on the picture it was dropped, when it was dropped on the picture. */
+  async function handleDroppedFiles(files, point) {
     const list = Array.from(files || []);
     if (!list.length) return null;
+    const pictures = [];
     for (const file of list) {
       const entry = await readFileEntry(file);
       if (entry.kind === "picture") {
-        pendingDrop = entry;
-        openPopup("drop");
+        pictures.push(entry);
         continue;
       }
       if (Paint.looksLikeDrawing(entry.text)) {
@@ -3426,29 +4534,50 @@
       }
       throw new Error("The file " + entry.name + " is not a MyPaint drawing or a picture MyPaint can read.");
     }
+    if (pictures.length) {
+      pendingDrop = pictures[0];
+      pendingDropMore = pictures.slice(1);
+      pendingDropAt = point || null;
+      openPopup("drop");
+    }
     return pendingDrop;
   }
 
+  /* The one answer goes to every picture of the drop. Put into the picture, they go where they were
+   * dropped, stepping down and to the right so none hides another, selected and ready to be moved. */
   async function applyDropRole(role) {
     if (!pendingDrop) return null;
-    const entry = pendingDrop;
+    const entries = [pendingDrop].concat(pendingDropMore);
+    const point = pendingDropAt;
     pendingDrop = null;
-    const bytes = entry.bytes || new Uint8Array(0);
+    pendingDropMore = [];
+    pendingDropAt = null;
     if (role === "background") {
-      const result = await decodeBytes(bytes, entry.name, { kind: entry.format });
+      const entry = entries[0];
+      const result = await decodeBytes(entry.bytes || new Uint8Array(0), entry.name, { kind: entry.format });
       const blob = await (await fetch(Formats.toDataUrl(result))).blob();
       return setBackgroundBlob(blob, entry.name);
     }
     if (role === "image") {
-      const result = await decodeBytes(bytes, entry.name, { kind: entry.format });
-      const doc = current();
-      const url = Formats.toDataUrl(result);
-      Store.rememberDirectory(settings, "open", "drop/" + entry.name);
+      if (textEditing) finishTextEditor();
+      hideStart();
+      const placed = [];
+      for (const entry of entries) {
+        const result = await decodeBytes(entry.bytes || new Uint8Array(0), entry.name, { kind: entry.format });
+        const step = placed.length * 24;
+        placed.push(await placeImage(Formats.toDataUrl(result), entry.name, point ? { x: point.x + step, y: point.y + step } : null));
+      }
+      settings.tool = "select";
+      selected = placed.map((shape) => shape.id);
       saveSettings();
-      return placeImage(url, entry.name);
+      renderAll();
+      return placed[0];
     }
-    const doc = await openPicture(bytes, entry.name, "");
-    Store.rememberDirectory(settings, "open", "drop/" + entry.name);
+    let doc = null;
+    for (const entry of entries) {
+      doc = await openPicture(entry.bytes || new Uint8Array(0), entry.name, "");
+      Store.rememberDirectory(settings, "open", "drop/" + entry.name);
+    }
     saveSettings();
     return doc;
   }
@@ -3526,11 +4655,16 @@
       background: "#ffffff",
     });
     images[frameKey(doc)] = Formats.toCanvas(result);
-    Paint.addShape(doc, Paint.makeShape("image", {
+    const hasSource = result.svgText != null && Boolean(SvgDoc);
+    Paint.addShape(doc, Paint.makeShape("image", Object.assign({
       src: frameKey(doc), x: 0, y: 0, w: result.width, h: result.height, width: 1,
-    }));
+    }, hasSource ? { svgFrame: true } : {})));
     doc.dirty = false;
     const item = extrasOf(doc);
+    if (hasSource) {
+      doc.svg = String(result.svgText);
+      item.svgDrawn = doc.svg;
+    }
     item.source = {
       kind: result.kind,
       name: name,
@@ -3762,7 +4896,7 @@
       const mm = spacing ? Math.hypot(shape.w * spacing[1], shape.h * spacing[0]) : 0;
       return { kind: "length", px: px, mm: mm };
     }
-    if (shape.kind === "rect" || shape.kind === "roundRect" || shape.kind === "ellipse" || shape.kind === "triangle") {
+    if (Paint.isFillable(shape.kind)) {
       const box = Paint.normalizeRect(shape);
       const stats = image.stats({ x: box.x, y: box.y, w: box.w, h: box.h, shape: shape.kind === "ellipse" ? "ellipse" : "rect" });
       return stats ? Object.assign({ kind: "roi" }, stats) : null;
@@ -3811,7 +4945,7 @@
    * a document that came from an SVG file. */
   async function convertDoc(doc, format, quality, filePath) {
     const spec = Formats.SAVE_FORMATS.find((item) => item.id === format) || Formats.SAVE_FORMATS[0];
-    const canvas = renderCanvas(doc);
+    const canvas = spec.vector ? renderCanvas(doc) : exportCanvas(doc, spec.id);
     const picture = { width: canvas.width, height: canvas.height, rgba: canvasPixels(canvas), canvas: canvas };
     const out = await withProgress(t("progress.exporting"), canvas.width * canvas.height * 4, async (report) => {
       await report(40);
@@ -3956,6 +5090,7 @@
       settings.showGrid = !settings.showGrid;
       saveSettings();
       syncGrid();
+      renderBoard();
       return settings.showGrid;
     },
     toggleShapes: () => {
@@ -4027,7 +5162,34 @@
     try {
       if (action.startsWith("recent:")) { closeMenu(); hideStart(); return openRecent(action.slice(7)); }
       if (action.startsWith("recentRemove:")) return removeRecentEntry(action.slice(13), true);
-      if (action.startsWith("tool:")) { closeMenu(); return setTool(action.slice(5)); }
+      if (action.startsWith("propLook:")) {
+        const parts = action.split(":");
+        return setLineLook(parts[1], parts[2]);
+      }
+      if (action.startsWith("fxLook:")) return setEffectLook(action.slice(7));
+      if (action.startsWith("fxWheel:")) { fxWheelTarget = action.slice(8); renderRight(); return fxWheelTarget; }
+      if (action === "fxReset") return resetEffects();
+      if (action.startsWith("startDocClose:")) return closeTab(Number(action.slice(14)));
+      if (action.startsWith("startDoc:")) {
+        active = Number(action.slice(9));
+        selected = [];
+        hideStart();
+        renderAll();
+        return active;
+      }
+      if (action.startsWith("tool:")) {
+        closeMenu();
+        if (action === "tool:select") {
+          // a fresh start: nothing stays picked from before, shapes or an area
+          if (textEditing) finishTextEditor();
+          selected = [];
+          region = null;
+          renderOverlay();
+          renderRight();
+          renderLeft();
+        }
+        return setTool(action.slice(5));
+      }
       if (action.startsWith("color:")) { closeMenu(); return setColor(action.slice(6)); }
       if (action.startsWith("width:")) { closeMenu(); return setActiveSize(Number(action.slice(6))); }
       if (action.startsWith("removeShape:")) { closeMenu(); return removeShapeById(action.slice(12)); }
@@ -4089,6 +5251,8 @@
 
   function selectShape(id) {
     selected = [id];
+    if (textEditing) finishTextEditor();
+    settings.tool = "select";
     renderOverlay();
     renderLeft();
     renderRight();
@@ -4113,10 +5277,9 @@
     if (fields.gridSize != null && fields.gridSize !== "") settings.gridSize = clamp(fields.gridSize, 2, 200);
     const start = {};
     if ("startShow" in fields) start.show = Boolean(fields.startShow);
-    if (fields.startTitleSize != null && fields.startTitleSize !== "") start.titleSize = Number(fields.startTitleSize);
-    if (fields.startTextSize != null && fields.startTextSize !== "") start.textSize = Number(fields.startTextSize);
-    if (fields.startAlign) start.align = fields.startAlign;
-    if ("startRecent" in fields) start.showRecent = Boolean(fields.startRecent);
+    if (fields.startSpeed != null && fields.startSpeed !== "") start.speed = Number(fields.startSpeed);
+    if (fields.startOpacity != null && fields.startOpacity !== "") start.cardOpacity = Number(fields.startOpacity);
+    if ("startShuffle" in fields) start.shuffleSec = fields.startShuffle ? Store.START_SHUFFLE_SECONDS : 0;
     settings.startScreen = Store.normalizeStart(Object.assign({}, settings.startScreen, start));
     saveSettings();
     renderAll();
@@ -4132,7 +5295,7 @@
     if (kind === "settings") settingsTab = tab || settingsTab;
     const html = popupDocument(kind);
     if (window.desktop && window.desktop.refreshPopup && !TEST) {
-      window.desktop.refreshPopup(html);
+      window.desktop.refreshPopup(html, popupGen);
       return;
     }
     if (popupWindow && !popupWindow.closed && !TEST) {
@@ -4216,7 +5379,7 @@
       return settings.custom;
     }
     if (action === "apply-drop") {
-      applyDropRole(fields.role || "drawing").catch(showError);
+      lastCanvasDrop = applyDropRole(fields.role || "drawing").catch(showError);
       closePopup();
       return fields.role;
     }
@@ -4229,10 +5392,12 @@
       const before = convertState.format;
       convertState.format = fields.format || convertState.format;
       if (fields.quality) convertState.quality = clamp(fields.quality, 10, 100);
+      applyExportEffects(fields);
       if (before !== convertState.format) syncConvertPopup();
       return convertState;
     }
     if (action === "apply-convert") {
+      applyExportEffects(fields);
       convertState.format = fields.format || convertState.format;
       if (fields.quality) convertState.quality = clamp(fields.quality, 10, 100);
       const spec = Formats.SAVE_FORMATS.find((item) => item.id === convertState.format) || Formats.SAVE_FORMATS[0];
@@ -4304,6 +5469,16 @@
       refreshSettingsPopup("workspace");
       return settings.recentDirs;
     }
+    if (action === "settings-tab") { settingsTab = fields.id || settingsTab; return settingsTab; }
+    if (action === "start-bg") {
+      return saveStartPrefs({ background: (fieldOverride && fieldOverride.id) || (source && source.dataset && source.dataset.id) });
+    }
+    if (action === "start-arrange") {
+      if (startVisible) startScreen().arrange();
+      else saveStartPrefs({ layout: null });
+      return settings.startScreen;
+    }
+    if (action === "start-reset") return saveStartPrefs(Store.defaults().startScreen);
     if (action === "start-preview") {
       applySettingsForm(fields, true);
       closePopup();
@@ -4381,6 +5556,26 @@
       renderAll();
       return;
     }
+    if (shape && key === "headSize") {
+      pushUndo();
+      selectedShapes().forEach((item) => {
+        if (item.kind === "arrow") item.headSize = clamp(target.value, 50, 300);
+      });
+      markDirty();
+      renderAll();
+      return;
+    }
+    if (shape && (key === "shapeW" || key === "shapeH")) {
+      // the top left corner stays; a text takes the size as a font size
+      const box = Paint.bounds(shape);
+      const value = clamp(target.value, 1, 8192);
+      pushUndo();
+      if (key === "shapeW") Paint.resizeShape(shape, "e", { x: box.x, y: box.y, w: value, h: box.h });
+      else Paint.resizeShape(shape, "s", { x: box.x, y: box.y, w: box.w, h: value });
+      markDirty();
+      renderAll();
+      return;
+    }
     pushUndo();
     if (shape) {
       if (key === "width" || key === "opacity" || key === "fontSize" || key === "x" || key === "y") shape[key] = Number(target.value);
@@ -4394,6 +5589,7 @@
     else if (key === "background") doc.background = target.value;
     else if (key === "canvasWidth") doc.width = clamp(target.value, 16, 8192);
     else if (key === "canvasHeight") doc.height = clamp(target.value, 16, 8192);
+    if (key === "canvasWidth" || key === "canvasHeight") svgFollowCanvas(doc);
     markDirty();
     renderAll();
   }
@@ -4423,7 +5619,7 @@
     const key = target.dataset.pick;
     if (key === "color") setColor(target.value);
     else if (key === "fillColor") { settings.fillColor = target.value; saveSettings(); renderLeft(); }
-    else if (key === "noFill") { settings.fillColor = target.checked ? "" : (settings.fillColor || "#ffffff"); saveSettings(); renderLeft(); }
+    else if (key === "noFill") { settings.fillColor = target.checked ? "" : (settings.fillColor || "#ffffff"); recolorSelection("fill", settings.fillColor); saveSettings(); renderLeft(); }
     else if (key === "strokeWidth") setStrokeWidth(target.value);
     else if (key === "size") { target.style.width = digitsWidth(target.value); setActiveSize(target.value); }
   }
@@ -4461,7 +5657,9 @@
       event.preventDefault();
       try { board.setPointerCapture(event.pointerId); } catch (error) { /* synthetic pointer */ }
       const point = toDocPoint(event.clientX, event.clientY);
+      pressAdds = event.shiftKey || event.ctrlKey || event.metaKey;
       beginDraw(point.x, point.y);
+      pressAdds = false;
     });
     board.addEventListener("pointermove", (event) => {
       const point = toDocPoint(event.clientX, event.clientY);
@@ -4537,6 +5735,9 @@
     $("toolbar").addEventListener("mousedown", (event) => {
       if (textEditing && event.target.closest(".font-bar button")) event.preventDefault();
     });
+    $("leftPanel").addEventListener("mousedown", (event) => {
+      if (textEditing && event.target.closest(".swatch-btn")) event.preventDefault();
+    });
     $("toolbar").addEventListener("change", (event) => {
       const pick = event.target.closest("[data-font='family']");
       if (pick) applyTextFont({ fontFamily: pick.value });
@@ -4569,6 +5770,10 @@
     $("leftPanel").addEventListener("input", onPaletteChange);
     $("rightPanel").addEventListener("input", (event) => {
       const target = event.target;
+      if (target.id === "svgSource") {
+        onSvgInput(target);
+        return;
+      }
       if (!target.dataset || target.dataset.prop !== "text") return;
       const shape = firstSelected();
       if (!shape || shape.kind !== "text") return;
@@ -4587,8 +5792,14 @@
       markDirty();
       renderBoard();
     });
+    // one undo step per stay in the source box
+    $("rightPanel").addEventListener("focusout", (event) => {
+      if (event.target.id === "svgSource") svgEditUndo = null;
+    });
     $("rightPanel").addEventListener("change", onPropertyChange);
     $("rightPanel").addEventListener("change", onDicomChange);
+    $("rightPanel").addEventListener("change", onEffectChange);
+    $("rightPanel").addEventListener("pointerdown", onFxWheelDown);
     $("rightPanel").addEventListener("click", (event) => {
       const step = event.target.closest("[data-step]");
       if (step) {
@@ -4605,6 +5816,7 @@
       const btn = event.target.closest("[data-action]");
       if (btn && !btn.disabled) runAction(btn.dataset.action);
     });
+    Range.bind($("popupLayer"));
     $("popupLayer").addEventListener("click", (event) => {
       if (event.target.id === "popupLayer") { closePopup(); return; }
       const tab = event.target.closest("[data-tab]");
@@ -4642,18 +5854,10 @@
       selected = [];
       renderAll();
     });
-    $("startScreen").addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-action]");
-      if (!btn || btn.disabled) return;
-      // New and Open ask first, so the start screen stays until a document is really made
-      runAction(btn.dataset.action);
-    });
-    $("startScreen").addEventListener("change", (event) => {
-      const box = event.target.closest("[data-start]");
-      if (!box) return;
-      settings.startScreen = Store.normalizeStart(Object.assign({}, settings.startScreen, { show: box.checked }));
-      saveSettings();
-    });
+    wireToolTips();
+    wireSplitter("splitLeft", "left");
+    wireSplitter("splitRight", "right");
+    wireShapeHandles();
     $("tabPrev").addEventListener("click", () => { $("tabstrip").scrollLeft -= 140; });
     $("tabNext").addEventListener("click", () => { $("tabstrip").scrollLeft += 140; });
     $("stage").addEventListener("contextmenu", (event) => {
@@ -4696,6 +5900,8 @@
       }
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const key = shortcutLetter(event);
+      // typing in the source: undo is the box's own, one keystroke at a time
+      if (event.target.id === "svgSource" && (key === "z" || key === "y")) return;
       if (!key && event.code !== "Equal" && event.code !== "Minus" && event.code !== "Digit0" && event.code !== "NumpadAdd" && event.code !== "NumpadSubtract" && event.code !== "Numpad0") return;
       if (key === "c") { if (!inField) doCopy(); }
       else if (key === "v") { if (!inField) { event.preventDefault(); doPaste(); } }
@@ -4726,7 +5932,11 @@
     window.addEventListener("drop", (event) => {
       acceptDrop(event);
       const files = event.dataTransfer && event.dataTransfer.files;
-      if (files && files.length) handleDroppedFiles(files).catch(showError);
+      if (!files || !files.length) return;
+      // dropped on the work area, the question already has "into this picture" chosen, for that spot
+      const onStage = event.target && event.target.closest && event.target.closest("#stage");
+      const point = onStage && !startVisible && current() ? toDocPoint(event.clientX, event.clientY) : null;
+      handleDroppedFiles(files, point).catch(showError);
     }, true);
     document.addEventListener("mousedown", (event) => {
       if (menuEl && !menuEl.contains(event.target) && !event.target.closest("[data-menu]") && !event.target.closest("#toolbar [data-action]")) closeMenu();
@@ -4840,6 +6050,7 @@
     selected = [];
     wire();
     await Promise.all([loadFonts(), Formats.probeWriters().catch(() => [])]);
+    docs.forEach(attachSvgFrame);
     renderAll();
     if (!TEST && Store.normalizeStart(settings.startScreen).show) showStart();
     window.MyPaint = api;
@@ -4847,6 +6058,7 @@
   }
 
   async function resetForTests() {
+    hideStart();
     closeMenu();
     closePopup();
     settings = Store.defaults();
@@ -4899,6 +6111,15 @@
   }
 
   const api = {
+    startScreen: () => startScreen(),
+    canvasDropDone: () => lastCanvasDrop,
+    getSelected: () => selected.slice(),
+    markRulers: (x, y) => { pointer = { x: x, y: y }; pointerSeen = true; return renderRulers(); },
+    saveStartPrefs: saveStartPrefs,
+    getStartBackgrounds: () => Store.START_BACKGROUNDS.slice(),
+    showStart: showStart,
+    hideStart: hideStart,
+    startVisible: () => startVisible,
     ready: false,
     build: BUILD,
     metrics: metrics,
@@ -4918,7 +6139,7 @@
     getSettings: () => Object.assign({}, settings),
     saveSettings: saveSettings,
     loadSettings: () => { settings = Store.load(localStorage); applyVisual(); renderAll(); return api.getSettings(); },
-    setPanelWidth: (side) => (side === "right" ? metrics.PROP_PANEL : metrics.TOOL_PANEL),
+    setPanelWidth: setPanelWidth,
     rememberDirectory: (kind, filePath) => { Store.rememberDirectory(settings, kind, filePath); saveSettings(); return kind === "save" ? settings.lastSaveDir : settings.lastOpenDir; },
     run: runAction,
     menuDefinitions: menuDefinitions,
@@ -4937,6 +6158,13 @@
     isClosed: () => appClosed,
     reopen: () => { appClosed = false; },
     getDoc: () => current(),
+    flushSvg: flushSvg,
+    pagesForPrint: pagesForPrint,
+    images: () => images,
+    renderCanvas: renderCanvas,
+    setPrintState: (values) => Object.assign(printState, values),
+    finishSave: finishSave,
+    documentSvg: () => documentSvg(current()),
     getDocs: () => docs.slice(),
     setTool: setTool,
     getTool: () => settings.tool,

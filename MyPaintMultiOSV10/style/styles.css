@@ -41,7 +41,7 @@
   --zoom: 1;
   --grid-step: 32px;
   --tool-panel: 200px;
-  --prop-panel: 200px;
+  --prop-panel: 240px;
   --panel-rail: 28px;
   --canvas-w: 900px;
   --canvas-h: 560px;
@@ -150,7 +150,6 @@ button { cursor: pointer; }
 .menu-spacer { flex: 1; min-width: 8px; }
 
 /* The home button left of File: a toggle, drawn pressed while the start screen shows. */
-.menu-root.home-btn { padding: 4px 6px; }
 .menu-root.home-btn.on { background: var(--hover); border-color: var(--accent); }
 
 .menu-root {
@@ -350,6 +349,23 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 }
 
 .tool-btn:disabled, .tabnav:disabled, .menu-item:disabled { opacity: 0.45; cursor: default; }
+/* so the toolbar hears the pointer over it, for the tooltip */
+#toolbar .tool-btn:disabled { pointer-events: none; }
+
+.quick-tip {
+  position: fixed;
+  z-index: 10000;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+}
+
+.quick-tip[hidden] { display: none; }
 
 .zoom-readout {
   width: 44px;
@@ -414,160 +430,6 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 
 .body { flex: 1; min-height: 0; display: flex; position: relative; }
 
-/* ── start screen ── over the panels and the stage, under the toolbar and the menus */
-.start-screen {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  overflow: auto;
-  display: flex;
-  padding: 30px;
-  background: var(--bg);
-  color: var(--muted);
-}
-
-.start-screen[hidden] { display: none; }
-
-/* Laid out like MyEBookReader's welcome page: a large icon over the name, one line of
- * hint, a row of plain buttons with the first one filled, and the recent files under it. */
-.start-inner {
-  margin: auto;
-  width: min(640px, 100%);
-  display: flex;
-  flex-direction: column;
-  font-size: var(--start-text, 15px);
-  align-items: center;
-  text-align: center;
-}
-
-.start-inner[data-align="left"] { align-items: flex-start; text-align: left; }
-
-.start-head { display: flex; flex-direction: column; align-items: center; }
-.start-inner[data-align="left"] .start-head { align-items: flex-start; }
-.start-head img { width: 120px; height: 120px; flex: none; }
-.start-words { display: flex; flex-direction: column; min-width: 0; }
-.start-words h1 { margin: 12px 0 6px; color: var(--ink); font-size: var(--start-title, 34px); line-height: 1.2; font-weight: 700; }
-.start-sub { margin: 0 auto 18px; max-width: 42em; color: var(--muted); }
-.start-inner[data-align="left"] .start-sub { margin-left: 0; }
-
-.start-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-.start-inner[data-align="left"] .start-actions { justify-content: flex-start; }
-
-.start-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  color: var(--ink);
-  font: inherit;
-  white-space: nowrap;
-}
-
-.start-btn:hover { border-color: var(--accent); }
-.start-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
-.start-btn svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.start-btn.primary svg { filter: brightness(0) invert(1); }
-
-.start-recent {
-  width: 100%;
-  margin-top: 26px;
-  text-align: left;
-}
-
-.start-recent > header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 4px 6px 6px;
-  border-bottom: 1px solid var(--line);
-}
-
-.start-recent h2 { margin: 0; flex: 1; display: flex; align-items: center; gap: 8px; font-size: 1em; font-weight: 650; }
-.start-recent h2 svg, .start-link svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--accent); }
-
-.start-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.9em;
-  padding: 3px 8px;
-}
-
-.start-link:hover:not(:disabled) { border-color: var(--line); color: #dc2626; }
-.start-link:disabled { opacity: 0.45; }
-
-.start-recent-list { list-style: none; margin: 0; padding: 4px 0; }
-.start-recent-row { display: flex; align-items: stretch; gap: 2px; }
-
-.start-recent-open {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 6px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  text-align: left;
-}
-
-.start-recent-open:hover { background: var(--hover); color: var(--ink); }
-.start-recent-open svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.6; color: var(--accent); }
-.start-recent-open .name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.start-recent-open .path { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 0.86em; }
-
-.start-recent-x {
-  flex: 0 0 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-}
-
-.start-recent-x:hover { background: var(--hover); color: #dc2626; }
-.start-recent-x svg, .start-close svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 1.6; fill: none; stroke-linecap: round; }
-.start-empty { margin: 0; padding: 10px 6px; color: var(--muted); }
-
-.start-show { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; color: var(--muted); font-size: 0.92em; }
-.start-inner[data-align="left"] .start-show { align-self: flex-start; }
-
-.start-close {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel);
-  color: var(--muted);
-}
-
-.start-close:hover { color: var(--accent); border-color: var(--accent); }
-
 .panel {
   width: var(--tool-panel);
   flex: none;
@@ -580,6 +442,138 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 }
 
 .panel.right { width: var(--prop-panel); border-right: 0; border-left: 1px solid var(--line); }
+
+/* The properties, the effects and a picture's own sections scroll as one. */
+.right-scroll { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; }
+.right-scroll > .props { overflow: visible; flex: none; }
+.svg-source {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  min-width: 0;
+  height: 240px;
+  margin: 4px 8px;
+  padding: 6px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--input);
+  color: inherit;
+  font: 12px/1.45 Consolas, "Cascadia Mono", Menlo, monospace;
+  white-space: pre;
+  overflow: auto;
+}
+.svg-error {
+  margin: 2px 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid #dc2626;
+  color: #dc2626;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.svg-error[hidden] { display: none; }
+.panel.collapsed .right-scroll { display: none; }
+
+.prop-tiles { display: flex; flex: 1 1 auto; gap: 2px; min-width: 0; overflow: visible; }
+.prop-tile {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 24px;
+  padding: 0 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--button);
+  color: var(--ink);
+}
+.prop-tile svg { width: 100%; max-width: 28px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.prop-tile:hover { background: var(--hover); border-color: var(--accent); }
+.prop-tile.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.fx-title { flex: none; }
+.props .fx-section .action svg, .fx-section .action svg { width: 14px; height: 14px; margin-right: 5px; flex: none; }
+.fx-scope { margin: 0 8px 4px; padding: 2px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 650; text-align: center; }
+.fx-scope[data-scope="doc"] { background: var(--hover); color: var(--muted); }
+.fx-targets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 2px 8px 4px; }
+.fx-target {
+  min-width: 0;
+  height: 24px;
+  padding: 0 2px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--button);
+  color: var(--ink);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fx-target:hover { background: var(--hover); border-color: var(--accent); }
+.fx-target.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 650; }
+.fx-wheel { position: relative; flex: none; width: 148px; height: 148px; margin: 2px auto 4px; }
+.fx-wheel canvas { display: block; width: 148px; height: 148px; border-radius: 50%; cursor: crosshair; touch-action: none; }
+.fx-wheel-mark {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.fx-looks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 0 6px 4px; }
+.fx-look {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 3px 1px 2px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--button);
+  color: var(--ink);
+  font-size: 10.5px;
+}
+.fx-look > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-look:hover { background: var(--hover); border-color: var(--accent); }
+.fx-look.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 650; }
+.fx-chip {
+  display: block;
+  width: 28px;
+  height: 18px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #ef4444 0%, #f59e0b 30%, #22c55e 55%, #3b82f6 80%, #a855f7 100%);
+}
+.fx-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 8px 2px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 650;
+}
+.fx-sub svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.props .fx-check { gap: 6px; }
+.props .fx-check input { flex: none; width: auto; height: auto; }
+.props .fx-check > span:first-child { min-width: 0; }
+.props .fx-check > span { color: var(--ink); }
+.props .action:disabled { opacity: 0.45; }
+
+/* The border and shadow of the export dialog: two columns of short rows. */
+.popup .fx-form-title { margin: 6px 0 2px; padding-bottom: 2px; border-bottom: 1px solid var(--line); font-weight: 650; }
+.popup .fx-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; }
+.popup .fx-form .line > span:first-child { min-width: 56px; }
+.popup .fx-form input[type="color"] { flex: 1; min-width: 0; height: 24px; padding: 0 2px; }
+.popup .fx-box input { flex: none; }
+.popup .fx-note { white-space: normal; height: auto; max-height: none; line-height: 1.35; margin-top: 4px; }
 .panel.collapsed { width: var(--panel-rail); }
 .panel.hidden { display: none; }
 
@@ -633,7 +627,9 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 }
 
 .panel-fold:hover { background: var(--hover); color: var(--accent); }
-.panel-fold svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.panel-fold svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.panel-fold svg .fold-shade { stroke: none; opacity: 0.45; }
+.panel-fold svg .fold-arrow { stroke-width: 2.2; }
 
 .panel.collapsed > :not(.panel-bar) { display: none !important; }
 .panel.collapsed .panel-bar {
@@ -740,7 +736,8 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 
 .width-now .unit { font-size: 11px; opacity: 0.92; }
 
-.splitter { background: var(--line); flex: none; align-self: stretch; }
+.splitter { background: var(--line); flex: none; align-self: stretch; touch-action: none; }
+.splitter:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 .splitter.v { width: 4px; min-width: 4px; cursor: col-resize; }
 .splitter.h { height: 4px; min-height: 4px; cursor: row-resize; }
 .splitter:hover, .splitter.dragging { background: var(--accent); }
@@ -775,7 +772,7 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 4px;
   padding: 6px;
   flex: none;
@@ -1032,6 +1029,7 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 
 .canvas-frame {
   position: relative;
+  isolation: isolate; /* so the effect layer sits above the stage and below the board */
   flex: none;
   /* margin, not flex centering: a picture smaller than the stage sits in the middle,
      and a larger one can still be scrolled to its top-left corner */
@@ -1043,30 +1041,33 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
   background: #ffffff;
 }
 
-#board { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+/* The border and the shadow in preview; the picture covers its middle. */
+.canvas-effect { position: absolute; z-index: -1; pointer-events: none; }
+.canvas-effect[hidden] { display: none; }
+.canvas-frame.fx-framed { box-shadow: none; border-color: transparent; }
+
+#board { position: relative; z-index: 1; display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 
 .stage.panning { cursor: grabbing; }
 
-/* The grid is measured on the picture: --grid-cell is gridSize picture pixels times the zoom,
-   and every fifth line (--grid-major) is drawn stronger, so a 5 x 5 block of cells grows and
-   shrinks with the drawing. */
+/* The grid is measured on the picture (gridSpacing in app.js), and lies under the board: over the
+   background, under every shape and picture. Every fifth line (--grid-major) is a little stronger.
+   --grid-ink follows the background, dark on a light one and light on a dark one. */
 .canvas-grid {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, #fff 1px, transparent 1px),
-    linear-gradient(to bottom, #fff 1px, transparent 1px),
-    linear-gradient(to right, rgba(255, 255, 255, 0.5) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+    linear-gradient(to right, rgba(var(--grid-ink, 0, 0, 0), 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(var(--grid-ink, 0, 0, 0), 0.14) 1px, transparent 1px),
+    linear-gradient(to right, rgba(var(--grid-ink, 0, 0, 0), 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(var(--grid-ink, 0, 0, 0), 0.06) 1px, transparent 1px);
   background-size:
     var(--grid-major) var(--grid-major),
     var(--grid-major) var(--grid-major),
     var(--grid-cell) var(--grid-cell),
     var(--grid-cell) var(--grid-cell);
-  mix-blend-mode: difference;
-  opacity: 0.6;
 }
 
 /* Rulers: a 20px strip on top and on the left of the stage, with a corner square. Hidden,
@@ -1128,6 +1129,8 @@ svg.flag { display: block; width: 18px; height: 12px; flex: 0 0 18px; box-shadow
 .text-editor:focus { outline: none; }
 div.text-editor { display: block; width: max-content; height: auto; cursor: text; }
 div.text-editor [data-rt] { white-space: pre; }
+/* display: block above would otherwise keep a finished editor on screen, taking clicks and keys */
+.text-editor[hidden] { display: none !important; }
 
 .canvas-overlay .region {
   position: absolute;
@@ -1145,6 +1148,23 @@ div.text-editor [data-rt] { white-space: pre; }
   stroke-width: 1;
   stroke-dasharray: 5 4;
 }
+
+.shape-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  background: #ffffff;
+  box-sizing: border-box;
+  pointer-events: auto;
+  touch-action: none;
+}
+.shape-handle[data-handle="nw"], .shape-handle[data-handle="se"] { cursor: nwse-resize; }
+.shape-handle[data-handle="ne"], .shape-handle[data-handle="sw"] { cursor: nesw-resize; }
+.shape-handle[data-handle="n"], .shape-handle[data-handle="s"] { cursor: ns-resize; }
+.shape-handle[data-handle="e"], .shape-handle[data-handle="w"] { cursor: ew-resize; }
 
 .canvas-overlay .marquee {
   position: absolute;
@@ -1240,15 +1260,21 @@ div.text-editor [data-rt] { white-space: pre; }
 .theme-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 4px; }
 .theme-col { min-width: 0; display: flex; flex-direction: column; }
 
+/* a title over its column, not one more row of the list */
 .theme-col-head {
-  height: 24px;
+  height: 30px;
   display: flex;
   align-items: center;
-  padding: 0 8px;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--muted);
+  gap: 6px;
+  margin: 0 4px 4px;
+  padding: 0 6px;
+  border-bottom: 2px solid var(--accent);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
+.theme-col-head svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .theme-menu .menu-item { height: 24px; gap: 8px; }
 .theme-menu .menu-item.on { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
@@ -1425,6 +1451,9 @@ button.line.on { background: var(--accent-soft); color: var(--accent); }
   white-space: nowrap;
 }
 
+.popup button.action { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.popup button.action svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.popup button.action.primary svg { filter: brightness(0) invert(1); }
 .popup button.action:hover { background: var(--hover); border-color: var(--accent); }
 .popup button.action.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 

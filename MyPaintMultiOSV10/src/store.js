@@ -6,6 +6,15 @@
   const KEY = "mypaint.settings.v1";
   const SESSION_KEY = "mypaint.session.v1";
   const MAX_RECENT = 10;
+  const START_BACKGROUNDS = [
+    "brushStrokes", "paintSplash", "paletteRing", "pencils", "gallery",
+    "pixelField", "colorWheel", "sprayCloud", "solids", "gridPaper",
+    "bezier", "layers", "inkDrops", "swatches", "scanSlices",
+    "constellation", "ripples", "aurora", "hexGrid", "bubbles",
+  ];
+  const START_SPEED = { min: 0, max: 300, step: 10, normal: 100, reduced: 40 };
+  const START_OPACITY = { min: 20, max: 100, step: 5 };
+  const START_SHUFFLE_SECONDS = 20;
 
   function defaults() {
     return {
@@ -16,6 +25,7 @@
       fontStyle: "normal",
       fontUnderline: false,
       fontStrike: false,
+      fontDefaultsClean: true,
       zoom: 100,
       showGrid: false,
       gridSize: 10,
@@ -23,10 +33,11 @@
       showShapes: true,
       startScreen: {
         show: true,
-        titleSize: 34,
-        textSize: 15,
-        align: "center",
-        showRecent: true,
+        background: START_BACKGROUNDS[0],
+        speed: null,
+        shuffleSec: 0,
+        cardOpacity: 80,
+        layout: null,
       },
       recentColors: [],
       backgroundOpacity: 35,
@@ -49,7 +60,7 @@
       lastSaveDir: "",
       recent: [],
       custom: null,
-      layout: { left: 200, right: 200 },
+      layout: { left: 200, right: 240 },
       print: {
         scope: "current",
         paper: "A4",
@@ -76,18 +87,33 @@
     return Math.min(max, Math.max(min, number));
   }
 
-  /* The start screen: whether it shows when the program starts, the size of its title and of
-   * its text, how its content lines up, and whether it lists the recent files. */
+  const stepped = (value, range) => Math.max(range.min, Math.min(range.max, Math.round(value / range.step) * range.step));
+
+  /* The start screen: whether it shows when the program starts, which moving background, how
+   * fast (percent of normal; null is the default for the motion setting), how often it changes
+   * by itself (seconds, 0 is off), how opaque the cards over it are, and where the cards sit
+   * (see start-layout.js; null is the default arrangement). */
   function normalizeStart(raw) {
     const base = defaults().startScreen;
     const value = Object.assign({}, base, raw || {});
+    const speed = value.speed === null || value.speed === undefined || value.speed === "" ? NaN : Number(value.speed);
+    const opacity = Number(value.cardOpacity);
+    const shuffle = Number(value.shuffleSec);
     return {
       show: value.show !== false,
-      titleSize: Math.round(clamp(value.titleSize, 20, 64)),
-      textSize: Math.round(clamp(value.textSize, 11, 24)),
-      align: value.align === "left" ? "left" : "center",
-      showRecent: value.showRecent !== false,
+      background: START_BACKGROUNDS.indexOf(value.background) >= 0 ? value.background : base.background,
+      speed: Number.isFinite(speed) ? stepped(speed, START_SPEED) : null,
+      shuffleSec: Number.isFinite(shuffle) && shuffle > 0 ? Math.min(600, Math.max(5, Math.round(shuffle))) : 0,
+      cardOpacity: Number.isFinite(opacity) ? stepped(opacity, START_OPACITY) : base.cardOpacity,
+      layout: value.layout && typeof value.layout === "object" && !Array.isArray(value.layout) ? value.layout : null,
     };
+  }
+
+  /* The speed actually used: the saved one, or the default for the motion setting. Reduced
+   * motion only slows the default, never stops it: Windows reports it whenever its animation
+   * effects are off. */
+  function effectiveStartSpeed(start, reducedMotion) {
+    return start.speed === null || start.speed === undefined ? (reducedMotion ? START_SPEED.reduced : START_SPEED.normal) : start.speed;
   }
 
   function load(storage) {
@@ -102,6 +128,13 @@
       next.print = Object.assign(base.print, data.print || {});
       next.layout = Object.assign(base.layout, data.layout || {});
       next.startScreen = normalizeStart(Object.assign(base.startScreen, data.startScreen || {}));
+      // Text styling used to leak into these, so a saved italic may never have been asked for.
+      if (!data.fontDefaultsClean) {
+        next.fontStyle = "normal";
+        next.fontUnderline = false;
+        next.fontStrike = false;
+        next.fontDefaultsClean = true;
+      }
       next.gridSize = clamp(next.gridSize, 2, 200);
       next.showRulers = Boolean(next.showRulers);
       next.recentColors = Array.isArray(data.recentColors) ? data.recentColors.filter((c) => /^#[0-9a-f]{6}$/i.test(c)).slice(0, 12) : [];
@@ -204,5 +237,10 @@
     directoryOf: directoryOf,
     rememberDirectory: rememberDirectory,
     normalizeStart: normalizeStart,
+    effectiveStartSpeed: effectiveStartSpeed,
+    START_BACKGROUNDS: START_BACKGROUNDS,
+    START_SPEED: START_SPEED,
+    START_OPACITY: START_OPACITY,
+    START_SHUFFLE_SECONDS: START_SHUFFLE_SECONDS,
   };
 });

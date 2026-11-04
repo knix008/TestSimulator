@@ -961,6 +961,1429 @@
       }),
     ]),
 
+    suite("Start screen", [
+      test("it has twenty backgrounds, and the themes in a light and a dark column", (api, doc, win) => {
+        api.showStart();
+        const tiles = [...doc.querySelectorAll("#startScreen [data-start-bg]")];
+        assert(tiles.length === 20, String(tiles.length));
+        assert(new Set(tiles.map((node) => node.dataset.startBg)).size === 20, "a background is listed twice");
+        tiles.forEach((node) => assert(node.querySelector("svg") && node.textContent.length > 0, node.dataset.startBg));
+        assert(doc.querySelectorAll('[data-theme-kind="light"] [data-theme-id]').length === 20, "light themes");
+        assert(doc.querySelectorAll('[data-theme-kind="dark"] [data-theme-id]').length === 20, "dark themes");
+        assert(doc.querySelector('.st-theme-custom-row [data-theme-id="custom"]'), "the custom theme comes first");
+        ["hero", "begin", "recent", "docs", "theme", "background"].forEach((id) => {
+          assert(doc.querySelector('#startScreen [data-card="' + id + '"]'), id);
+        });
+        assert(win.getComputedStyle(doc.querySelector("#startScreen .start-board")).display === "grid");
+      }),
+      test("every background has a name and a hint in both languages", (api, doc, win) => {
+        const i18n = win.MyPaintI18n;
+        win.MyPaintStore.START_BACKGROUNDS.forEach((kind) => {
+          ["ko", "en"].forEach((lang) => {
+            const name = i18n.translate(lang, "start.bg." + kind);
+            const hint = i18n.translate(lang, "start.bg." + kind + ".hint");
+            assert(name && name !== "start.bg." + kind, lang + " " + kind);
+            assert(hint && hint !== "start.bg." + kind + ".hint", lang + " " + kind + " hint");
+          });
+        });
+      }),
+      test("every scene draws on a light and on a dark theme", (api) => {
+        api.showStart();
+        const view = api.startScreen().background();
+        ["light-classic", "dark-midnight"].forEach((theme) => {
+          api.setTheme(theme);
+          api.getStartBackgrounds().forEach((kind) => {
+            view.setKind(kind);
+            view.time = 12.5;
+            view.draw();
+            view.time = 40;
+            view.draw();
+          });
+        });
+      }),
+      test("the background runs only while the start screen shows", async (api) => {
+        api.showStart();
+        const view = api.startScreen().background();
+        assert(view.isRunning, "not running");
+        const before = view.frames;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        assert(view.frames > before, "no frames in 300 ms");
+        api.hideStart();
+        assert(!view.isRunning, "still running behind the work area");
+      }),
+      test("a background tile, the shuffle and the opacity stepper change the settings", (api, doc) => {
+        api.showStart();
+        doc.querySelector('#startScreen [data-start-bg="inkDrops"]').click();
+        assert(api.getSettings().startScreen.background === "inkDrops");
+        assert(doc.querySelector('#startScreen [data-start-bg="inkDrops"]').classList.contains("on"));
+        assert(api.startScreen().background().kind === "inkDrops");
+        doc.querySelector("#startScreen [data-start-shuffle]").click();
+        assert(api.getSettings().startScreen.shuffleSec === 20);
+        doc.querySelector("#startScreen [data-start-shuffle]").click();
+        assert(api.getSettings().startScreen.shuffleSec === 0);
+        const range = doc.querySelector('#startScreen [data-range="startCardOpacity"]');
+        range.querySelector('[data-range-step="1"]').click();
+        assert(api.getSettings().startScreen.cardOpacity === 85, String(api.getSettings().startScreen.cardOpacity));
+        assert(doc.getElementById("startScreen").style.getPropertyValue("--start-card-alpha") === "85%");
+        assert(doc.querySelector('#startScreen [data-card="hero"]'), "the cards were not rebuilt away");
+      }),
+      test("speed and opacity are one line each, with the value in the middle of its box", (api, doc, win) => {
+        api.setLanguage("en");
+        api.showStart();
+        const rows = doc.querySelectorAll("#startScreen .start-range");
+        assert(rows.length === 2, String(rows.length));
+        rows.forEach((row) => {
+          const label = row.querySelector(".start-range-label").getBoundingClientRect();
+          const bar = row.querySelector(".range-bar").getBoundingClientRect();
+          assert(bar.left >= label.right, "the bar is not beside its name");
+          assert(Math.abs((label.top + label.bottom) / 2 - (bar.top + bar.bottom) / 2) <= 2, "the bar is not on the line of its name");
+          assert(row.offsetHeight <= 28, "taller than one line: " + row.offsetHeight);
+          assert(Math.round(bar.width) === 165, "the bar is " + bar.width + " px long");
+          const input = row.querySelector(".range-value input");
+          assert(win.getComputedStyle(input).textAlign === "center", win.getComputedStyle(input).textAlign);
+          const box = row.querySelector(".range-value").getBoundingClientRect();
+          const inside = input.getBoundingClientRect();
+          const suffix = row.querySelector(".range-suffix").getBoundingClientRect();
+          assert(Math.abs((inside.left + suffix.right) / 2 - (box.left + box.right) / 2) <= 2, "the value is off centre");
+        });
+        assert(!doc.querySelector("#startScreen .start-note"), "the note takes a line of its own");
+      }),
+      test("the home button says Start beside its icon, in both languages", (api, doc) => {
+        const read = () => doc.getElementById("homeButton").querySelector("span").textContent;
+        assert(read() === "시작", read());
+        api.setLanguage("en");
+        assert(read() === "Start", read());
+        const button = doc.getElementById("homeButton");
+        assert(button.querySelector("svg").getBoundingClientRect().right <= button.querySelector("span").getBoundingClientRect().left, "the label is not to the right of the icon");
+        api.showStart();
+        assert(doc.getElementById("homeButton").classList.contains("on"));
+        assert(doc.getElementById("homeButton").querySelector("span").textContent === "Start", "the toggle keeps its label");
+      }),
+      test("the Draw menu and the theme button have glyphs of their own, drawn from circles and straight lines", (api, doc, win) => {
+        const icons = win.MyPaintIcons;
+        assert(doc.querySelector('[data-menu="draw"] svg').outerHTML === doc.createRange().createContextualFragment(icons.icon("draw")).firstChild.outerHTML, "the Draw menu has another icon");
+        const wheel = icons.icon("themePalette");
+        assert((wheel.match(/<circle/g) || []).length === 6 && wheel.indexOf("<path") < 0, wheel);
+        assert(icons.icon("palette").indexOf("<path") < 0, "the palette is a round disc");
+        assert(icons.icon("draw") !== icons.icon("palette") && icons.icon("draw") !== icons.icon("pencil"));
+      }),
+      test("a speed of zero keeps the last frame", (api, doc) => {
+        api.showStart();
+        const input = doc.querySelector('#startScreen [data-field="startCardSpeed"]');
+        input.value = "0";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(api.getSettings().startScreen.speed === 0);
+        assert(!api.startScreen().background().isRunning, "still animating at speed zero");
+      }),
+      test("a theme tile changes the theme and marks itself", (api, doc) => {
+        api.showStart();
+        doc.querySelector('#startScreen [data-theme-id="dark-navy"]').click();
+        assert(api.getSettings().theme === "dark-navy");
+        assert(doc.querySelector('#startScreen [data-theme-id="dark-navy"]').classList.contains("on"));
+        assert(!doc.querySelector('#startScreen [data-theme-id="light-classic"]').classList.contains("on"));
+      }),
+      test("the open drawings card goes to the drawing", (api, doc) => {
+        api.showStart();
+        const rows = doc.querySelectorAll('#startScreen [data-card="docs"] [data-action^="startDoc:"]');
+        assert(rows.length >= 1, String(rows.length));
+        rows[rows.length - 1].click();
+        assert(!api.startVisible(), "the start screen stayed");
+      }),
+      test("moving a card keeps every card apart, and survives a reload", (api, doc, win) => {
+        api.showStart();
+        const Layout = win.MyPaintStartLayout;
+        const view = api.startScreen();
+        const cells = view.cells();
+        const moved = Layout.place(cells, "docs", { col: 0, row: 0 });
+        api.saveStartPrefs({ layout: Layout.layoutValue(moved) });
+        const after = view.cells();
+        assert(after.docs.col === 0 && after.docs.row === 0, JSON.stringify(after.docs));
+        const ids = Object.keys(after);
+        ids.forEach((a) => ids.forEach((b) => {
+          assert(a === b || !Layout.overlaps(after[a], after[b]), a + " on " + b);
+        }));
+        assert(api.loadSettings().startScreen.layout.cards.docs.row === 0, "not saved");
+        view.arrange();
+        assert(view.cells().hero.row === 0, "auto arrange puts the hero back on top");
+      }),
+      test("a card is dragged by its handle, and resized by its corner", (api, doc, win) => {
+        api.showStart();
+        const pointer = (node, type, x, y) => node.dispatchEvent(new win.PointerEvent(type, { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: x, clientY: y }));
+        const view = api.startScreen();
+        const handle = doc.querySelector('[data-card-handle="docs"]');
+        const from = handle.getBoundingClientRect();
+        const to = doc.querySelector('[data-card="recent"]').getBoundingClientRect();
+        assert(view.cells().docs.col === 2, JSON.stringify(view.cells().docs));
+        pointer(handle, "pointerdown", from.left + 5, from.top + 5);
+        assert(doc.querySelector(".start-ghost"), "no ghost follows the pointer");
+        pointer(win, "pointermove", to.left + 12, to.top + 12);
+        assert(doc.querySelector(".card-drop-outline"), "no outline shows where it will land");
+        pointer(win, "pointerup", to.left + 12, to.top + 12);
+        assert(!doc.querySelector(".start-ghost, .card-drop-outline"), "the drag left something behind");
+        assert(view.cells().docs.col === 0, JSON.stringify(view.cells().docs));
+        assert(api.loadSettings().startScreen.layout.cards.docs.col === 0, "the move was not saved");
+        api.showStart();
+        const corner = doc.querySelector('[data-card-resize="hero"]');
+        const box = corner.getBoundingClientRect();
+        const wide = doc.querySelector('[data-card="hero"]').offsetWidth;
+        pointer(corner, "pointerdown", box.left, box.top);
+        pointer(win, "pointermove", box.left - wide / 2, box.top);
+        pointer(win, "pointerup", box.left - wide / 2, box.top);
+        const hero = api.startScreen().cells().hero;
+        assert(hero.w < 3 && hero.fit === false, JSON.stringify(hero));
+        const row = doc.querySelector('[data-card="hero"]');
+        row.querySelector("[data-card-resize]").dispatchEvent(new win.MouseEvent("dblclick", { bubbles: true }));
+        assert(api.startScreen().cells().hero.fit === true, "a double click fits the content again");
+      }),
+      test("the board layout is safe with anything stored", (api, doc, win) => {
+        const Layout = win.MyPaintStartLayout;
+        const ids = ["a", "b"];
+        const span = { a: 3, b: 1 };
+        const bad = Layout.cardsOf({ version: 1, cards: { a: { col: 99, row: -4, w: 9, h: "x" } } }, ids, span);
+        assert(bad.a.col === 0 && bad.a.w === 3 && bad.a.row === 0, JSON.stringify(bad.a));
+        assert(bad.b && bad.b.row >= bad.a.h, "a card the layout does not know goes below");
+        const other = Layout.cardsOf({ version: 99, cards: {} }, ids, span);
+        assert(other.a.w === 3, "an unknown version falls back to the default");
+        const swapped = Layout.swapVertical(Layout.autoArrange(ids, span), "b", -1);
+        assert(swapped.b.row === 0, JSON.stringify(swapped));
+      }),
+      test("old and damaged start settings are made valid", (api, doc, win) => {
+        const Store = win.MyPaintStore;
+        const old = Store.normalizeStart({ show: false, titleSize: 40, align: "left", showRecent: false });
+        assert(old.show === false);
+        assert(!("titleSize" in old) && !("align" in old) && !("showRecent" in old), JSON.stringify(old));
+        const bad = Store.normalizeStart({ background: "gone", speed: 999, cardOpacity: 3, shuffleSec: -1, layout: [] });
+        assert(bad.background === Store.START_BACKGROUNDS[0], bad.background);
+        assert(bad.speed === 300 && bad.cardOpacity === 20 && bad.shuffleSec === 0 && bad.layout === null, JSON.stringify(bad));
+        assert(Store.normalizeStart({}).speed === null, "no saved speed means the default for the motion setting");
+        assert(Store.effectiveStartSpeed({ speed: null }, true) === 40 && Store.effectiveStartSpeed({ speed: null }, false) === 100);
+        assert(Store.effectiveStartSpeed({ speed: 0 }, false) === 0, "zero is a speed");
+      }),
+      test("Settings > Start screen edits the same values", (api, doc) => {
+        const popup = api.openPopup("settings");
+        popup.querySelector('[data-tab="start"]').click();
+        const tiles = popup.querySelectorAll("[data-background]");
+        assert(tiles.length === 20, String(tiles.length));
+        doc.querySelector('#popupLayer [data-id="layers"]').click();
+        assert(api.getSettings().startScreen.background === "layers");
+        assert(doc.querySelector('#popupLayer [data-id="layers"]').classList.contains("on"), "the tile follows");
+        const panel = doc.querySelector('#popupLayer [data-panel="start"]');
+        assert(!panel.hidden, "the dialog went back to another tab");
+        panel.querySelector('[data-range="startOpacity"] [data-range-step="-1"]').click();
+        assert(api.getSettings().startScreen.cardOpacity === 75, String(api.getSettings().startScreen.cardOpacity));
+        const box = panel.querySelector('[data-field="startShuffle"]');
+        box.checked = true;
+        box.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(api.getSettings().startScreen.shuffleSec === 20);
+        panel.querySelector('[data-popup-action="start-reset"]').click();
+        const reset = api.getSettings().startScreen;
+        assert(reset.background === "brushStrokes" && reset.cardOpacity === 80 && reset.shuffleSec === 0 && reset.speed === null, JSON.stringify(reset));
+      }),
+    ]),
+
+    suite("Text styles", [
+      test("a finished text editor is really gone from the screen", async (api, doc, win) => {
+        freshDoc(api);
+        api.setTool("text");
+        api.draw(100, 100, 100, 100);
+        const editor = doc.getElementById("textEditor");
+        assert(editor && !editor.hidden && editor.offsetWidth > 0, "the editor did not open");
+        api.finishText ? api.finishText() : api.setTool("select");
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        assert(editor.hidden, "the editor is still open");
+        assert(win.getComputedStyle(editor).display === "none", "a hidden editor still shows and takes clicks: " + win.getComputedStyle(editor).display);
+      }),
+      test("the whole text selected: a face goes to all of it and the rest stays", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const shape = engine.makeShape("text", { x: 50, y: 80, text: "abcd", fontSize: 24, runs: [{ text: "ab", fontSize: 24 }, { text: "cd", fontSize: 24, italic: true }] });
+        api.getDoc().shapes.push(shape);
+        api.selectShape(shape.id);
+        const lit = (name) => doc.querySelector('#toolbar [data-action="' + name + '"]').classList.contains("on");
+        const now = () => engine.textRuns(api.shapes()[0]);
+        assert(!lit("fontItalic"), "mixed text is not all italic");
+        api.run("fontBold");
+        assert(now().every((run) => run.bold), JSON.stringify(now()));
+        assert(now().some((run) => run.italic) && now().some((run) => !run.italic), "bold wiped the italics: " + JSON.stringify(now()));
+        assert(lit("fontBold"), "bold did not light");
+        api.run("fontBold");
+        assert(now().every((run) => !run.bold), JSON.stringify(now()));
+        api.run("fontItalic");
+        assert(now().every((run) => run.italic) && lit("fontItalic"), JSON.stringify(now()));
+        api.run("fontItalic");
+        assert(now().every((run) => !run.italic) && !lit("fontItalic"), JSON.stringify(now()));
+      }),
+      test("selecting a text makes the font buttons show that text", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const plain = engine.makeShape("text", { x: 50, y: 80, text: "plain", fontSize: 24 });
+        const slanted = engine.makeShape("text", { x: 50, y: 180, text: "slanted", fontSize: 24, fontStyle: "italic" });
+        api.getDoc().shapes.push(plain, slanted);
+        const lit = () => doc.querySelector('#toolbar [data-action="fontItalic"]').classList.contains("on");
+        api.selectShape(slanted.id);
+        assert(lit(), "the italic text should light the button");
+        api.selectShape(plain.id);
+        assert(!lit(), "the upright text should not");
+      }),
+      test("over selected characters the buttons show those characters", async (api, doc, win) => {
+        const editor = doc.createElement("div");
+        doc.body.appendChild(editor);
+        const Rich = win.MyPaintRichText;
+        const base = win.PaintEngine.styleOfShape(win.PaintEngine.makeShape("text", {}));
+        Rich.render(editor, [{ text: "abcd" }, { text: "ef", italic: true }], base, 1);
+        editor.contentEditable = "true";
+        editor.focus();
+        Rich.select(editor, 4, 6);
+        assert(Rich.caretStyle(editor, base).italic === true, "a selection reads its own first character");
+        Rich.select(editor, 4, 4);
+        assert(Rich.caretStyle(editor, base).italic === false, "a caret reads the character before it");
+        editor.remove();
+      }),
+      test("while typing, a face turns on and off at the caret and keeps the other face", async (api, doc) => {
+        freshDoc(api);
+        api.setTool("text");
+        api.draw(100, 100, 100, 100);
+        const editor = doc.getElementById("textEditor");
+        editor.focus();
+        doc.execCommand("insertText", false, "ab");
+        const press = (name) => api.run(name);
+        const lit = (name) => doc.querySelector('#toolbar [data-action="' + name + '"]').classList.contains("on");
+        const caretSpan = () => { const n = doc.getSelection().getRangeAt(0).startContainer; return n.nodeType === 3 ? n.parentNode : n; };
+        await press("fontItalic");
+        assert(lit("fontItalic"), "italic did not light");
+        assert(doc.defaultView.getComputedStyle(caretSpan()).fontStyle === "italic", "the caret is not in italic");
+        await press("fontBold");
+        assert(lit("fontItalic") && lit("fontBold"), "bold dropped italic");
+        assert(caretSpan().dataset.italic === "1" && caretSpan().dataset.bold === "1", caretSpan().outerHTML);
+        await press("fontBold");
+        await press("fontItalic");
+        assert(!lit("fontItalic") && !lit("fontBold"), "a second press did not turn them off");
+        assert(caretSpan().dataset.italic === "0", "the caret stayed italic");
+        await press("fontItalic");
+        doc.execCommand("insertText", false, "c");
+        await press("fontItalic");
+        doc.execCommand("insertText", false, "d");
+        const spans = [...editor.querySelectorAll("[data-rt]")].map((s) => s.textContent.replace(/​/g, "") + s.dataset.italic).filter((t) => t.length > 1);
+        assert(spans.join(",") === "ab0,c1,d0", spans.join(","));
+        api.setTool("select");
+      }),
+    ]),
+
+    suite("Reported together", [
+      test("italic given to a text does not become the default for the next text", (api, doc) => {
+        freshDoc(api);
+        api.setTool("text");
+        api.draw(100, 100, 100, 100);
+        const editor = doc.getElementById("textEditor");
+        editor.focus();
+        doc.execCommand("insertText", false, "ab");
+        api.run("fontItalic");
+        doc.execCommand("insertText", false, "c");
+        assert(api.getSettings().fontStyle === "normal", "typing in italic changed the default: " + api.getSettings().fontStyle);
+        api.setTool("select");
+        const finished = api.shapes().slice(-1)[0];
+        api.selectShape(finished.id);
+        api.run("fontBold");
+        assert(api.getSettings().fontStyle === "normal", "a selected text changed the default: " + api.getSettings().fontStyle);
+        api.setTool("text");
+        api.deselect();
+        api.draw(100, 300, 100, 300);
+        const next = api.shapes().slice(-1)[0];
+        assert(next.fontStyle === "normal", String(next.fontStyle));
+        api.setTool("select");
+        api.deselect();
+        api.run("fontItalic");
+        assert(api.getSettings().fontStyle === "italic", "with no text in hand the button sets the default");
+        api.run("fontItalic");
+      }),
+      test("an italic saved by the old leak is cleared once, and one chosen after stays", (api, doc, win) => {
+        const Store = win.MyPaintStore;
+        const fake = (data) => ({ getItem: () => JSON.stringify(data) });
+        assert(Store.load(fake({ fontStyle: "italic", fontUnderline: true })).fontStyle === "normal", "the leak stays");
+        const chosen = Store.load(fake({ fontStyle: "italic", fontDefaultsClean: true }));
+        assert(chosen.fontStyle === "italic", "a chosen default was cleared");
+      }),
+      test("the Select button lets go of shapes and an area; an empty click in a group lets go too", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const a = engine.makeShape("rect", { x: 40, y: 40, w: 300, h: 200, width: 2 });
+        const b = engine.makeShape("line", { x: 40, y: 300, w: 300, h: 0, width: 2 });
+        api.getDoc().shapes.push(a, b);
+        const select = () => doc.querySelector('#leftPanel [data-action="tool:select"]').click();
+        api.setTool("select");
+        api.selectShape(a.id);
+        select();
+        assert(api.getSelected().length === 0, "the shape stayed selected");
+        assert(doc.querySelectorAll("#canvasOverlay .marquee").length === 0, "its box stayed");
+        api.setTool("selectRect");
+        api.draw(10, 10, 100, 100);
+        assert(api.getRegion(), "no area");
+        select();
+        assert(!api.getRegion(), "the area stayed selected");
+        api.setTool("select");
+        api.draw(5, 5, 400, 400);
+        assert(api.getSelected().length === 2);
+        const board = doc.getElementById("board");
+        const r = board.getBoundingClientRect();
+        api.selectAll();
+        const at = { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: r.left + 190, clientY: r.top + 301 };
+        board.dispatchEvent(new win.PointerEvent("pointerdown", at));
+        board.dispatchEvent(new win.PointerEvent("pointerup", at));
+        assert(api.getSelected().length === 1, "a click on one narrows to it: " + api.getSelected().length);
+      }),
+      test("effects with something selected go to it alone", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const a = engine.makeShape("rect", { x: 40, y: 40, w: 100, h: 80, width: 2, color: "#ff0000", fill: "#ff0000" });
+        const b = engine.makeShape("rect", { x: 300, y: 40, w: 100, h: 80, width: 2, color: "#ff0000", fill: "#ff0000" });
+        api.getDoc().shapes.push(a, b);
+        api.setTool("select");
+        api.selectShape(a.id);
+        const panel = () => doc.getElementById("rightPanel");
+        assert(panel().querySelector(".fx-scope").dataset.scope === "shape", panel().querySelector(".fx-scope").dataset.scope);
+        panel().querySelector('[data-action="fxLook:grayscale"]').click();
+        assert(api.shapes()[0].effects.look === "grayscale", "the shape took no effect");
+        assert(!api.shapes()[1].effects, "the other shape took it");
+        assert(!api.getDoc().effects, "the whole picture took it");
+        assert(doc.getElementById("board").style.filter === "", "the whole picture is filtered");
+        const read = (x, y) => [...doc.getElementById("board").getContext("2d").getImageData(x, y, 1, 1).data];
+        const first = read(90, 80);
+        assert(first[0] === first[1] && first[1] === first[2], "the selected one is not gray: " + first);
+        const second = read(350, 80);
+        assert(second[0] > 200 && second[1] < 60, "the other one changed: " + second);
+        const input = panel().querySelector('[data-fx="border.left"]');
+        input.value = "10";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(api.shapes()[0].effects.border.left === 10 && !api.shapes()[1].effects);
+        api.undo();
+        api.undo();
+        assert(!api.shapes()[0].effects || win.MyPaintEffects.isPlain(win.MyPaintEffects.normalize(api.shapes()[0].effects)), "undo did not take them back");
+        api.deselect();
+        assert(panel().querySelector(".fx-scope").dataset.scope === "doc", "with nothing selected it is the whole picture");
+        panel().querySelector('[data-action="fxLook:sepia"]').click();
+        assert(api.getDoc().effects.look === "sepia", "the whole picture took nothing");
+      }),
+      test("several selected all take an effect; a shape\'s effect survives a save", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        api.getDoc().shapes.push(engine.makeShape("rect", { x: 40, y: 40, w: 100, h: 80, width: 2 }), engine.makeShape("text", { x: 200, y: 80, text: "Hi", fontSize: 24 }));
+        api.setTool("select");
+        api.draw(5, 5, 400, 300);
+        doc.querySelector('#rightPanel [data-action="fxLook:invert"]').click();
+        api.shapes().forEach((shape) => assert(shape.effects.look === "invert", shape.kind));
+        const copy = engine.parse(engine.serialize([api.getDoc()])).documents[0];
+        assert(copy.shapes[0].effects.look === "invert", "the file lost it");
+      }),
+      test("an area picked with a marquee takes the effect in that part only", (api, doc) => {
+        freshDoc(api);
+        api.getDoc().background = "#ff0000";
+        api.setTool("selectRect");
+        api.draw(100, 100, 200, 180);
+        const panel = doc.getElementById("rightPanel");
+        assert(panel.querySelector(".fx-scope").dataset.scope === "region", panel.querySelector(".fx-scope").dataset.scope);
+        const count = api.shapes().length;
+        panel.querySelector('[data-action="fxLook:grayscale"]').click();
+        assert(api.shapes().length === count + 1, "the area did not become its own picture");
+        const piece = api.shapes().slice(-1)[0];
+        assert(piece.kind === "image" && piece.effects.look === "grayscale" && !api.getDoc().effects, JSON.stringify(piece.effects));
+        assert(!api.getRegion(), "the area stayed");
+        const read = (x, y) => [...doc.getElementById("board").getContext("2d").getImageData(x, y, 1, 1).data];
+        const inside = read(150, 140);
+        assert(inside[0] === inside[1], "inside is not gray: " + inside);
+        const outside = read(300, 300);
+        assert(outside[0] > 200 && outside[1] < 60, "outside changed: " + outside);
+        api.undo();
+        assert(api.shapes().length === count, "one undo takes it all back");
+      }),
+    ]),
+
+    suite("Dropping on the picture", [
+      test("dropped on the work area it asks first, with putting it in already chosen", async (api, doc, win) => {
+        freshDoc(api);
+        api.setZoom(100);
+        api.setTool("pencil");
+        doc.getElementById("stage").scrollTo(0, 0);
+        const bytes = await api.makePng(100, 60, "#00ff00");
+        const transfer = new win.DataTransfer();
+        transfer.items.add(new win.File([bytes], "photo.png", { type: "image/png" }));
+        transfer.items.add(new win.File([bytes], "second.png", { type: "image/png" }));
+        const board = doc.getElementById("board");
+        const r = board.getBoundingClientRect();
+        board.dispatchEvent(new win.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: r.left + 300, clientY: r.top + 200 }));
+        for (let i = 0; i < 40 && !api.getPopup(); i += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+        const popup = api.getPopup();
+        assert(popup && popup.dataset.kind === "drop", "it did not ask");
+        assert(api.shapes().filter((shape) => shape.kind === "image").length === 0, "it went in before the answer");
+        assert(popup.querySelector('input[value="image"]').checked, "putting it in should be chosen");
+        assert(popup.querySelector('input[value="drawing"]'), "a new picture must be offered");
+        popup.querySelector('[data-popup-action="apply-drop"]').click();
+        await api.canvasDropDone();
+        assert(api.getPopup() == null, "a window stayed open");
+        const images = api.shapes().filter((shape) => shape.kind === "image");
+        assert(images.length === 2, String(images.length));
+        assert(images[0].x === 250 && images[0].y === 170 && images[0].w === 100 && images[0].h === 60, JSON.stringify(images[0]));
+        assert(images[1].x === 274 && images[1].y === 194, "the second should step away: " + images[1].x);
+        assert(api.getSelected().length === 2, "the dropped pictures should be selected");
+        assert(api.getSettings().tool === "select", "they should be ready to move");
+        api.undo();
+        assert(api.shapes().filter((shape) => shape.kind === "image").length === 1, "undo takes back one picture");
+      }),
+      test("every answer can reach the program from a dialog in its own window", async (api, doc) => {
+        await api.dropBytes(await api.makePng(10, 10, "#ff0000"), "a.png");
+        // popup-client.js collects [data-field] only: a radio without it is an answer that never arrives
+        const radios = [...api.getPopup().querySelectorAll('input[name="role"]')];
+        assert(radios.length === 3, String(radios.length));
+        radios.forEach((radio) => assert(radio.dataset.field === "role", radio.value + " would be lost"));
+        api.closePopup();
+      }),
+      test("answering a new picture opens a tab and leaves this one alone", async (api, doc, win) => {
+        freshDoc(api);
+        const before = api.getDoc();
+        const count = before.shapes.length;
+        const bytes = await api.makePng(100, 60, "#00ff00");
+        const transfer = new win.DataTransfer();
+        transfer.items.add(new win.File([bytes], "photo.png", { type: "image/png" }));
+        doc.getElementById("board").dispatchEvent(new win.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: 400, clientY: 300 }));
+        for (let i = 0; i < 40 && !api.getPopup(); i += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+        const popup = api.getPopup();
+        popup.querySelector('input[value="drawing"]').checked = true;
+        popup.querySelector('[data-popup-action="apply-drop"]').click();
+        await api.canvasDropDone();
+        assert(api.getDoc() !== before && api.getDoc().name === "photo.png", api.getDoc().name);
+        assert(before.shapes.length === count, "the first picture changed");
+      }),
+      test("cancelling the question changes nothing, and elsewhere a new picture comes first", async (api, doc, win) => {
+        freshDoc(api);
+        const bytes = await api.makePng(20, 20, "#00ff00");
+        const drop = async (node) => {
+          const transfer = new win.DataTransfer();
+          transfer.items.add(new win.File([bytes], "photo.png", { type: "image/png" }));
+          node.dispatchEvent(new win.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: 400, clientY: 300 }));
+          for (let i = 0; i < 40 && !api.getPopup(); i += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+          return api.getPopup();
+        };
+        let popup = await drop(doc.getElementById("leftPanel"));
+        assert(popup.querySelector('input[value="drawing"]').checked, "off the picture a new picture comes first");
+        popup.querySelector('[data-popup-action="cancel"]').click();
+        assert(api.shapes().filter((shape) => shape.kind === "image").length === 0, "nothing goes in without an answer");
+        popup = await drop(doc.getElementById("board"));
+        assert(popup.querySelector('input[value="image"]').checked);
+        api.closePopup();
+      }),
+      test("near the edge a picture stays on the page, and is sized to fit", async (api, doc, win) => {
+        freshDoc(api);
+        api.setZoom(100);
+        doc.getElementById("stage").scrollTo(0, 0);
+        const d = api.getDoc();
+        const big = await api.makePng(d.width * 2, d.height * 2, "#0000ff");
+        const small = await api.makePng(50, 50, "#ff0000");
+        const board = doc.getElementById("board");
+        const r = board.getBoundingClientRect();
+        const drop = async (bytes, name, x, y) => {
+          const transfer = new win.DataTransfer();
+          transfer.items.add(new win.File([bytes], name, { type: "image/png" }));
+          board.dispatchEvent(new win.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer, clientX: r.left + x, clientY: r.top + y }));
+          for (let i = 0; i < 100 && !(api.getPopup() && api.getPopup().dataset.kind === "drop"); i += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+          api.getPopup().querySelector('[data-popup-action="apply-drop"]').click();
+          await api.canvasDropDone();
+          return api.shapes().slice(-1)[0];
+        };
+        const corner = await drop(small, "a.png", 2, 2);
+        assert(corner.x === 0 && corner.y === 0, JSON.stringify([corner.x, corner.y]));
+        const fitted = await drop(big, "b.png", 300, 200);
+        assert(fitted.w <= d.width && fitted.h <= d.height && fitted.x === 0 && fitted.y === 0, JSON.stringify([fitted.x, fitted.y, fitted.w, fitted.h]));
+      }),
+    ]),
+
+    suite("Line looks", [
+      test("each kind offers the looks it has", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        ["line", "arrow", "curve", "freeCurve", "pencil"].forEach((kind) => assert(engine.lineOptions(kind).cap && engine.lineOptions(kind).dash, kind));
+        assert(engine.lineOptions("arrow").heads && !engine.lineOptions("line").heads);
+        assert(engine.lineOptions("rect").dash && engine.lineOptions("rect").join && !engine.lineOptions("rect").cap);
+        assert(!engine.lineOptions("ellipse").join, "an ellipse has no corners");
+        assert(!engine.lineOptions("text").dash && !engine.lineOptions("image").dash);
+        freshDoc(api);
+        const curve = engine.makeShape("curve", { x: 40, y: 40, w: 100, h: 80, width: 4 });
+        const free = engine.makeShape("freeCurve", { width: 4, points: [{ x: 200, y: 40 }, { x: 260, y: 100 }, { x: 300, y: 40 }] });
+        api.getDoc().shapes.push(curve, free);
+        [curve, free].forEach((shape) => {
+          api.selectShape(shape.id);
+          assert(doc.querySelector('#rightPanel [data-action="propLook:lineCap:square"]'), shape.kind + " has no line end");
+          assert(doc.querySelector('#rightPanel [data-action="propLook:lineDash:dashed"]'), shape.kind + " has no line style");
+          doc.querySelector('#rightPanel [data-action="propLook:lineCap:butt"]').click();
+        });
+        assert(api.shapes()[0].lineCap === "butt" && api.shapes()[1].lineCap === "butt", JSON.stringify(api.shapes().map((shape) => shape.lineCap)));
+      }),
+      test("the line ends differ as they should, on a line, a curve and a free curve", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const painted = (shape, x, y) => {
+          const canvas = doc.createElement("canvas");
+          canvas.width = 300;
+          canvas.height = 200;
+          engine.render(canvas.getContext("2d"), { width: 300, height: 200, background: "#ffffff", shapes: [shape] }, {});
+          return canvas.getContext("2d").getImageData(x, y, 1, 1).data[1] < 128;
+        };
+        const line = (cap) => engine.makeShape("line", { x: 50, y: 100, w: 200, h: 0, width: 20, color: "#000000", lineCap: cap });
+        assert(!painted(line("butt"), 255, 100), "a flat end stops at the end");
+        assert(painted(line("square"), 255, 100), "a square end goes on");
+        assert(painted(line("square"), 258, 108), "and keeps its corners");
+        assert(painted(line("round"), 255, 100) && !painted(line("round"), 258, 108), "a round end loses its corners");
+        const free = (cap) => engine.makeShape("freeCurve", { width: 20, color: "#000000", lineCap: cap, points: [{ x: 50, y: 100 }, { x: 150, y: 100 }, { x: 250, y: 100 }] });
+        assert(!painted(free("butt"), 255, 100) && painted(free("square"), 255, 100), "a free curve");
+        const curve = (cap) => engine.makeShape("curve", { x: 50, y: 20, w: 200, h: 100, width: 20, color: "#000000", lineCap: cap });
+        assert(!painted(curve("butt"), 50, 12) && painted(curve("square"), 50, 12), "a curve");
+      }),
+      test("a line, a curve and a free curve have one row for round or angular", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const list = [
+          engine.makeShape("line", { x: 40, y: 40, w: 200, h: 0, width: 8 }),
+          engine.makeShape("curve", { x: 40, y: 80, w: 200, h: 80, width: 8 }),
+          engine.makeShape("freeCurve", { width: 8, points: [{ x: 300, y: 40 }, { x: 360, y: 120 }, { x: 420, y: 40 }] }),
+          engine.makeShape("pencil", { width: 8, points: [{ x: 300, y: 200 }, { x: 360, y: 280 }, { x: 420, y: 200 }] }),
+        ];
+        list.forEach((shape) => api.getDoc().shapes.push(shape));
+        const labels = () => [...doc.querySelectorAll("#rightPanel .prop-looks > span:first-child")].map((node) => node.textContent);
+        list.forEach((shape, index) => {
+          api.selectShape(shape.id);
+          const shown = labels();
+          assert(shown.filter((name) => name === api.t("prop.lineCap")).length === 1, shape.kind + ": " + shown.join());
+          assert(shown.indexOf(api.t("prop.lineJoin")) < 0 || api.t("prop.lineJoin") === api.t("prop.lineCap"), shape.kind + " has two rows: " + shown.join());
+          assert(!doc.querySelector('#rightPanel [data-action^="propLook:arrowEnd"]'), shape.kind + " offers arrow heads");
+          assert(!doc.querySelector('#rightPanel [data-action^="propLook:lineJoin"]'), shape.kind + " has a second corners row");
+          doc.querySelector('#rightPanel [data-action="propLook:lineCap:butt"]').click();
+          const now = api.shapes()[index];
+          assert(now.lineCap === "butt" && now.lineJoin === "miter", shape.kind + " " + now.lineCap + " " + now.lineJoin);
+          doc.querySelector('#rightPanel [data-action="propLook:lineCap:round"]').click();
+          const back = api.shapes()[index];
+          assert(back.lineCap === "round" && back.lineJoin === "round", shape.kind + " round again");
+        });
+      }),
+      test("an angular free line is sharp where it bends, a round one is not", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const painted = (lineJoin, lineCap) => {
+          const canvas = doc.createElement("canvas");
+          canvas.width = 200;
+          canvas.height = 200;
+          const shape = engine.makeShape("line", { x: 0, y: 0, w: 1, h: 1, width: 20, color: "#000000" });
+          const free = engine.makeShape("pencil", { width: 20, color: "#000000", lineJoin: lineJoin, lineCap: lineCap, points: [{ x: 40, y: 150 }, { x: 100, y: 50 }, { x: 160, y: 150 }] });
+          engine.render(canvas.getContext("2d"), { width: 200, height: 200, background: "#ffffff", shapes: [free] }, {});
+          void shape;
+          return canvas.getContext("2d").getImageData(100, 34, 1, 1).data[1] < 128;
+        };
+        assert(painted("miter", "butt"), "the point of the bend should be there");
+        assert(!painted("round", "round"), "a round bend has no point");
+      }),
+      test("the dashes leave gaps, in proportion to the line", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const row = (dash) => {
+          const canvas = doc.createElement("canvas");
+          canvas.width = 300;
+          canvas.height = 40;
+          engine.render(canvas.getContext("2d"), { width: 300, height: 40, background: "#ffffff", shapes: [engine.makeShape("line", { x: 10, y: 20, w: 280, h: 0, width: 4, color: "#000000", lineCap: "butt", lineDash: dash })] }, {});
+          const data = canvas.getContext("2d").getImageData(10, 20, 280, 1).data;
+          let on = 0;
+          for (let i = 0; i < data.length; i += 4) if (data[i] < 128) on += 1;
+          return on / 280;
+        };
+        assert(row("solid") > 0.98, String(row("solid")));
+        assert(row("dashed") > 0.5 && row("dashed") < 0.75, String(row("dashed")));
+        assert(row("dotted") > 0.3 && row("dotted") < 0.5, String(row("dotted")));
+        assert(row("dashdot") > 0.45 && row("dashdot") < 0.7, String(row("dashdot")));
+        const big = engine.dashPattern({ lineDash: "dashed", width: 10 });
+        assert(big[0] === 40, "the dashes follow the width: " + big);
+      }),
+      test("every arrow head keeps to its tip, and nothing sticks out", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        engine.ARROW_HEADS.forEach((end) => {
+          engine.ARROW_HEADS.forEach((start) => {
+            const shape = engine.makeShape("arrow", { x: 60, y: 100, w: 280, h: 0, width: 12, color: "#000000", arrowEnd: end, arrowStart: start });
+            const canvas = doc.createElement("canvas");
+            canvas.width = 400;
+            canvas.height = 200;
+            engine.render(canvas.getContext("2d"), { width: 400, height: 200, background: "#ffffff", shapes: [shape] }, {});
+            const ctx = canvas.getContext("2d");
+            const reach = end === "none" ? 7 : 1;
+            for (let x = 340 + reach + 1; x < 370; x += 1) assert(ctx.getImageData(x, 100, 1, 1).data[1] === 255, start + "/" + end + " past the tip at " + x);
+            assert(ctx.getImageData(200, 100, 1, 1).data[1] === 0, start + "/" + end + " has no shaft");
+            const box = engine.bounds(shape);
+            const parts = engine.arrowParts(shape);
+            parts.heads.forEach((head) => {
+              (head.fill || head.open || []).forEach((point) => assert(point.x >= box.x && point.x <= box.x + box.w && point.y >= box.y && point.y <= box.y + box.h, end + " head leaves its box"));
+            });
+          });
+        });
+        const svg = win.MyPaintSvgDoc.shapeToSvg(engine.makeShape("arrow", { x: 10, y: 10, w: 200, h: 0, width: 6, arrowEnd: "circle", arrowStart: "open", lineDash: "dashed" }), {});
+        assert(svg.indexOf("<circle") >= 0 && svg.indexOf("<polyline") >= 0 && svg.indexOf("stroke-dasharray") >= 0, svg);
+      }),
+      test("the arrow properties change the arrow, with one undo each; size too", (api, doc, win) => {
+        freshDoc(api);
+        const shape = win.PaintEngine.makeShape("arrow", { x: 40, y: 100, w: 300, h: 0, width: 8 });
+        api.getDoc().shapes.push(shape);
+        api.selectShape(shape.id);
+        const press = (key, value) => doc.querySelector('#rightPanel [data-action="propLook:' + key + ":" + value + '"]').click();
+        assert(doc.querySelector('#rightPanel [data-action="propLook:arrowEnd:triangle"]').classList.contains("on"), "the default is not shown");
+        press("arrowEnd", "open");
+        assert(api.shapes()[0].arrowEnd === "open");
+        assert(doc.querySelector('#rightPanel [data-action="propLook:arrowEnd:open"]').classList.contains("on"));
+        press("arrowStart", "circle");
+        assert(api.shapes()[0].arrowStart === "circle");
+        const size = doc.querySelector('#rightPanel [data-prop="headSize"]');
+        size.value = "200";
+        size.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(api.shapes()[0].headSize === 200, String(api.shapes()[0].headSize));
+        api.undo();
+        api.undo();
+        assert(!api.shapes()[0].arrowStart, "undo");
+        const copy = win.PaintEngine.parse(win.PaintEngine.serialize([api.getDoc()])).documents[0];
+        assert(copy.shapes[0].arrowEnd === "open", "the file keeps it");
+      }),
+      test("a box picks what is wholly inside, not a neighbour it touches", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const arrow = engine.makeShape("arrow", { x: 100, y: 100, w: 200, h: 100, width: 4 });
+        const text = engine.makeShape("text", { x: 250, y: 215, text: "Label here", fontSize: 24, fontFamily: "Arial" });
+        api.getDoc().shapes.push(arrow, text);
+        api.setTool("select");
+        api.draw(90, 90, 310, 210);
+        assert(api.getSelected().join() === arrow.id, "the text came along: " + api.getSelected().length);
+        api.draw(0, 0, 800, 500);
+        assert(api.getSelected().length === 2, "both inside: " + api.getSelected().length);
+        api.draw(150, 50, 400, 150);
+        assert(api.getSelected().length === 0, "only touched, nothing picked: " + api.getSelected().length);
+      }),
+    ]),
+
+    suite("Arrows", [
+      test("nothing of the line sticks out past the point", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const canvas = doc.createElement("canvas");
+        canvas.width = 400;
+        canvas.height = 200;
+        const shape = engine.makeShape("arrow", { x: 40, y: 100, w: 300, h: 0, width: 24, color: "#ff0000" });
+        engine.render(canvas.getContext("2d"), { width: 400, height: 200, background: "#ffffff", shapes: [shape] }, {});
+        const read = (x, y) => [...canvas.getContext("2d").getImageData(x, y, 1, 1).data];
+        for (let x = 341; x < 360; x += 1) assert(read(x, 100)[1] === 255, "past the point at x=" + x + ": " + read(x, 100));
+        assert(read(336, 100)[1] === 0, "the point is not there: " + read(336, 100));
+        // beside the point, where the old round end of the line used to bulge
+        assert(read(338, 108)[1] === 255, "the line shows beside the point: " + read(338, 108));
+        assert(read(150, 100)[1] === 0 && read(150, 111)[1] === 0, "the shaft: " + read(150, 111));
+        assert(read(150, 114)[1] === 255, "the shaft is too wide: " + read(150, 114));
+      }),
+      test("a see-through arrow has no darker overlap", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const canvas = doc.createElement("canvas");
+        canvas.width = 400;
+        canvas.height = 200;
+        const shape = engine.makeShape("arrow", { x: 40, y: 100, w: 300, h: 0, width: 16, color: "#000000", opacity: 50 });
+        engine.render(canvas.getContext("2d"), { width: 400, height: 200, background: "#ffffff", shapes: [shape] }, {});
+        const read = (x) => canvas.getContext("2d").getImageData(x, 100, 1, 1).data[0];
+        const shaft = read(100);
+        for (let x = 60; x < 330; x += 5) assert(Math.abs(read(x) - shaft) <= 1, "x=" + x + " is " + read(x) + ", the shaft is " + shaft);
+      }),
+      test("in any direction, at any length, the point is where it was drawn to", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        [[100, 0], [-100, 0], [0, 100], [80, -60], [5, 5], [3, 0]].forEach((pair) => {
+          const shape = engine.makeShape("arrow", { x: 200, y: 200, w: pair[0], h: pair[1], width: 6 });
+          const points = engine.arrowOutline(shape);
+          assert(points[0].x === 200 + pair[0] && points[0].y === 200 + pair[1], JSON.stringify(points[0]));
+          const box = engine.bounds(shape);
+          points.forEach((point) => {
+            assert(point.x >= box.x - 0.01 && point.x <= box.x + box.w + 0.01 && point.y >= box.y - 0.01 && point.y <= box.y + box.h + 0.01, pair + " leaves its box: " + JSON.stringify(point));
+          });
+        });
+        assert(engine.arrowOutline(engine.makeShape("arrow", { x: 10, y: 10, w: 0, h: 0, width: 6 })).length === 0, "no length, no arrow");
+      }),
+      test("a saved SVG has the same single outline", (api, doc, win) => {
+        const shape = win.PaintEngine.makeShape("arrow", { x: 40, y: 100, w: 300, h: 0, width: 24, color: "#ff0000" });
+        const svg = win.MyPaintSvgDoc.shapeToSvg(shape, {});
+        assert(svg.indexOf("<line") < 0 && (svg.match(/<polygon/g) || []).length === 1, svg);
+        const line = win.MyPaintSvgDoc.shapeToSvg(win.PaintEngine.makeShape("line", { x: 40, y: 100, w: 300, h: 0, width: 4 }), {});
+        assert(line.indexOf("<line") >= 0, "a plain line stays a line: " + line);
+      }),
+    ]),
+
+    suite("Line width and size of the selection", [
+      test("the width control changes every selected shape, as one undo", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        api.getDoc().shapes.push(
+          engine.makeShape("rect", { x: 40, y: 40, w: 100, h: 80, width: 2 }),
+          engine.makeShape("line", { x: 200, y: 60, w: 100, h: 0, width: 3 }),
+          engine.makeShape("text", { x: 40, y: 200, text: "Hi", fontSize: 24, width: 2 }),
+        );
+        api.setTool("select");
+        api.draw(5, 5, 500, 300);
+        assert(api.getSelected().length === 3);
+        doc.querySelector('#leftPanel [data-action="width:12"]').click();
+        assert(api.shapes()[0].width === 12 && api.shapes()[1].width === 12, JSON.stringify(api.shapes().map((shape) => shape.width)));
+        assert(api.shapes()[2].width === 2, "a text has no line to change");
+        api.undo();
+        assert(api.shapes()[0].width === 2 && api.shapes()[1].width === 3, "one undo takes it all back");
+      }),
+      test("the width control shows the selected shape, and steps from it", (api, doc, win) => {
+        freshDoc(api);
+        const rect = win.PaintEngine.makeShape("rect", { x: 40, y: 40, w: 100, h: 80, width: 7 });
+        api.getDoc().shapes.push(rect);
+        api.selectShape(rect.id);
+        const value = () => doc.querySelector('#leftPanel [data-pick="size"]').value;
+        assert(value() === "7", value());
+        api.run("strokeUp");
+        assert(api.shapes()[0].width === 8 && value() === "8", api.shapes()[0].width + " / " + value());
+        const input = doc.querySelector('#leftPanel [data-pick="size"]');
+        input.value = "20";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(api.shapes()[0].width === 20, String(api.shapes()[0].width));
+        const read = (x, y) => [...doc.getElementById("board").getContext("2d").getImageData(x, y, 1, 1).data];
+        assert(read(45, 80)[3] === 255 && read(45, 80)[0] < 80, "the picture does not show the thick line: " + read(45, 80));
+      }),
+      test("with a drawing tool in hand the width is for the next shape", (api) => {
+        freshDoc(api);
+        api.setTool("pencil");
+        api.setStrokeWidth(2);
+        api.draw(20, 20, 120, 90);
+        api.setStrokeWidth(9);
+        assert(api.shapes()[0].width === 2, "the last stroke changed");
+        const next = api.draw(30, 30, 130, 100);
+        assert(next.width === 9, String(next.width));
+      }),
+      test("width and height in the panel set the size of the shape", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const rect = engine.makeShape("rect", { x: 40, y: 40, w: 100, h: 80, width: 2 });
+        api.getDoc().shapes.push(rect);
+        api.selectShape(rect.id);
+        const set = (name, value) => {
+          const input = doc.querySelector('#rightPanel [data-prop="' + name + '"]');
+          assert(input, name + " is not editable");
+          input.value = String(value);
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        const before = engine.bounds(api.shapes()[0]);
+        set("shapeW", 300);
+        let box = engine.bounds(api.shapes()[0]);
+        assert(Math.abs(box.w - 300) < 1 && Math.abs(box.x - before.x) < 1 && Math.abs(box.h - before.h) < 1, JSON.stringify(box));
+        set("shapeH", 150);
+        box = engine.bounds(api.shapes()[0]);
+        assert(Math.abs(box.h - 150) < 1 && Math.abs(box.y - before.y) < 1, JSON.stringify(box));
+        api.undo();
+        assert(Math.abs(engine.bounds(api.shapes()[0]).h - before.h) < 1, "undo");
+        const text = engine.makeShape("text", { x: 40, y: 300, text: "Hello", fontSize: 40, fontFamily: "Arial" });
+        api.getDoc().shapes.push(text);
+        api.selectShape(text.id);
+        const old = engine.bounds(api.shapes()[1]);
+        set("shapeH", Math.round(old.h * 2));
+        assert(api.shapes()[1].fontSize === 80, "a text takes it as a font size: " + api.shapes()[1].fontSize);
+      }),
+    ]),
+
+    suite("Grid and reset", [
+      test("the grid lies under shapes and pictures, on the background", (api, doc, win) => {
+        freshDoc(api);
+        api.getDoc().background = "#ffffff";
+        api.getDoc().shapes.push(win.PaintEngine.makeShape("rect", { x: 100, y: 100, w: 200, h: 200, width: 2, color: "#ff0000", fill: "#ff0000" }));
+        const board = doc.getElementById("board");
+        const grid = doc.getElementById("canvasGrid");
+        if (grid.hidden) doc.querySelector('#toolbar [data-action="toggleGrid"]').click();
+        const css = win.getComputedStyle;
+        assert(Number(css(grid).zIndex) < Number(css(board).zIndex), "the grid is in front: " + css(grid).zIndex + " / " + css(board).zIndex);
+        assert(css(grid).mixBlendMode === "normal", css(grid).mixBlendMode);
+        assert(grid.style.backgroundColor === "rgb(255, 255, 255)", "the background moved to the grid: " + grid.style.backgroundColor);
+        const read = (x, y) => [...board.getContext("2d").getImageData(x, y, 1, 1).data];
+        assert(read(10, 10)[3] === 0, "the board should let the grid show: " + read(10, 10));
+        assert(read(200, 200)[3] === 255 && read(200, 200)[0] === 255 && read(200, 200)[1] === 0, "the shape is on the board: " + read(200, 200));
+        doc.querySelector('#toolbar [data-action="toggleGrid"]').click();
+        assert(read(10, 10)[3] === 255, "with no grid the board has its background");
+      }),
+      test("the grid never goes into a saved picture", async (api, doc, win) => {
+        freshDoc(api);
+        api.getDoc().background = "#336699";
+        doc.querySelector('#toolbar [data-action="toggleGrid"]').click();
+        assert(doc.getElementById("canvasGrid").style.getPropertyValue("--grid-ink").indexOf("255") >= 0, "on a dark background the lines are light");
+        const canvas = doc.createElement("canvas");
+        canvas.width = 20;
+        canvas.height = 20;
+        const d = api.getDoc();
+        win.PaintEngine.render(canvas.getContext("2d"), { width: 20, height: 20, background: d.background, shapes: [] }, {});
+        assert(canvas.getContext("2d").getImageData(5, 5, 1, 1).data[3] === 255, "a saved picture keeps its background");
+        doc.querySelector('#toolbar [data-action="toggleGrid"]').click();
+      }),
+      test("reset clears the selected shape alone, and is undone", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const a = engine.makeShape("rect", { x: 40, y: 40, w: 80, h: 60, width: 2, effects: { look: "sepia" } });
+        const b = engine.makeShape("rect", { x: 300, y: 40, w: 80, h: 60, width: 2, effects: { look: "invert" } });
+        api.getDoc().shapes.push(a, b);
+        api.getDoc().effects = { look: "grayscale" };
+        api.setTool("select");
+        api.selectShape(a.id);
+        const reset = () => doc.querySelector('#rightPanel [data-action="fxReset"]');
+        assert(!reset().disabled, "reset is off with effects to clear");
+        const fx = doc.querySelector("#rightPanel .fx-section");
+        assert(fx.firstElementChild.classList.contains("fx-scope") && fx.children[1].querySelector('[data-action="fxReset"]'), "reset belongs right under the scope");
+        reset().click();
+        assert(!api.shapes()[0].effects, "the shape kept its effects");
+        assert(api.shapes()[1].effects.look === "invert", "the other shape lost its");
+        assert(api.getDoc().effects.look === "grayscale", "the picture lost its");
+        assert(reset().disabled, "nothing left to clear here");
+        api.undo();
+        assert(api.shapes()[0].effects.look === "sepia", "undo did not bring it back");
+      }),
+      test("with several selected it clears those; with nothing selected, the picture", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        api.getDoc().shapes.push(engine.makeShape("rect", { x: 40, y: 40, w: 80, h: 60, width: 2, effects: { look: "sepia" } }), engine.makeShape("rect", { x: 300, y: 40, w: 80, h: 60, width: 2, effects: { blur: 3 } }));
+        api.getDoc().effects = { look: "grayscale" };
+        api.setTool("select");
+        api.draw(5, 5, 500, 300);
+        doc.querySelector('#rightPanel [data-action="fxReset"]').click();
+        api.shapes().forEach((shape) => assert(!shape.effects, shape.id));
+        assert(api.getDoc().effects.look === "grayscale", "the picture is not part of the selection");
+        api.deselect();
+        doc.querySelector('#rightPanel [data-action="fxReset"]').click();
+        assert(!api.getDoc().effects, "with nothing selected it clears the picture");
+      }),
+      test("an area picked: the shapes it touches, never the whole picture; a lifted piece goes away", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        api.getDoc().background = "#ff0000";
+        api.getDoc().effects = { look: "grayscale" };
+        const near = engine.makeShape("rect", { x: 40, y: 40, w: 80, h: 60, width: 2, effects: { look: "sepia" } });
+        const far = engine.makeShape("rect", { x: 500, y: 300, w: 80, h: 60, width: 2, effects: { look: "invert" } });
+        api.getDoc().shapes.push(near, far);
+        api.setTool("selectRect");
+        api.draw(30, 30, 150, 150);
+        doc.querySelector('#rightPanel [data-action="fxReset"]').click();
+        assert(!api.shapes()[0].effects, "the shape in the area kept its effect");
+        assert(api.shapes()[1].effects.look === "invert", "a shape outside the area lost its");
+        assert(api.getDoc().effects.look === "grayscale", "picking an area must not clear the whole picture");
+        const count = api.shapes().length;
+        api.setTool("selectRect");
+        api.draw(200, 200, 300, 280);
+        doc.querySelector('#rightPanel [data-action="fxLook:invert"]').click();
+        assert(api.shapes().length === count + 1, "the area was not lifted");
+        doc.querySelector('#rightPanel [data-action="fxReset"]').click();
+        assert(api.shapes().length === count, "the lifted piece stayed");
+      }),
+    ]),
+
+    suite("Pixels", [
+      test("a click picks one pixel, a drag every pixel it touches", (api, doc) => {
+        freshDoc(api);
+        api.setTool("selectPixel");
+        api.draw(10.7, 20.2, 10.7, 20.2);
+        let r = api.regionBounds();
+        assert(r.x === 10 && r.y === 20 && r.w === 1 && r.h === 1, JSON.stringify(r));
+        assert(doc.querySelector('#rightPanel [data-color="pixel:color"]'), "the panel offers no pixel colour");
+        assert(doc.getElementById("regionSize").textContent === "1 x 1", doc.getElementById("regionSize").textContent);
+        api.draw(14.5, 9.5, 11.2, 12.9);
+        r = api.regionBounds();
+        assert(r.x === 11 && r.y === 9 && r.w === 4 && r.h === 4, "both ends count: " + JSON.stringify(r));
+        api.draw(-30, -30, -20, -20);
+        r = api.regionBounds();
+        assert(r.x === 0 && r.y === 0 && r.w === 1 && r.h === 1, "it stays on the picture: " + JSON.stringify(r));
+      }),
+      test("a colour changes the picked pixels and no others, and is one undo", (api, doc) => {
+        freshDoc(api);
+        api.getDoc().background = "#ffffff";
+        api.setTool("selectPixel");
+        api.draw(50.5, 60.5, 50.5, 60.5);
+        const count = api.shapes().length;
+        doc.querySelector('#leftPanel [data-action="color:#ed1c24"]').click();
+        const read = (x, y) => [...doc.getElementById("board").getContext("2d").getImageData(x, y, 1, 1).data];
+        const hit = read(50, 60);
+        assert(hit[0] === 237 && hit[1] === 28 && hit[2] === 36, "the pixel: " + hit);
+        [[49, 60], [51, 60], [50, 59], [50, 61]].forEach((p) => {
+          const near = read(p[0], p[1]);
+          assert(near[0] === 255 && near[1] === 255, "a neighbour changed at " + p + ": " + near);
+        });
+        assert(api.regionBounds().w === 1, "the pick stays for the next change");
+        doc.querySelector('#leftPanel [data-action="color:#22b14c"]').click();
+        assert(read(50, 60)[1] === 177, "a second colour: " + read(50, 60));
+        assert(api.shapes().length === count + 1, "changes in a row share one layer: " + api.shapes().length);
+        api.undo();
+        api.undo();
+        assert(api.shapes().length === count, "undo");
+        assert(read(50, 60)[1] === 255, "undo left the pixel: " + read(50, 60));
+      }),
+      test("the layer of pixels is not picked up, and goes out in a saved picture", async (api, doc, win) => {
+        freshDoc(api);
+        api.getDoc().background = "#ffffff";
+        const rect = win.PaintEngine.makeShape("rect", { x: 200, y: 200, w: 80, h: 60, width: 2 });
+        api.getDoc().shapes.push(rect);
+        api.setTool("selectPixel");
+        api.draw(30.5, 30.5, 40.5, 40.5);
+        api.setColor("#3f48cc");
+        api.setTool("select");
+        api.draw(30, 30, 30, 30);
+        assert(api.getSelected().length === 0, "a click on changed pixels picked the layer");
+        api.draw(5, 5, 600, 500);
+        assert(api.getSelected().join() === rect.id, "the box picked the layer: " + api.getSelected().length);
+        const copy = win.PaintEngine.parse(win.PaintEngine.serialize([api.getDoc()])).documents[0];
+        assert(copy.shapes.some((shape) => shape.pixelLayer && shape.src.indexOf("data:image/png") === 0), "the file lost the pixels");
+      }),
+      test("a shape selected takes the colour even with an old area about", (api, doc, win) => {
+        freshDoc(api);
+        const rect = win.PaintEngine.makeShape("rect", { x: 200, y: 200, w: 80, h: 60, width: 2 });
+        api.getDoc().shapes.push(rect);
+        api.selectShape(rect.id);
+        const count = api.shapes().length;
+        doc.querySelector('#leftPanel [data-action="color:#ed1c24"]').click();
+        assert(api.shapes()[0].color === "#ed1c24" && api.shapes().length === count, "no layer for a shape");
+      }),
+      test("the other area tools change their pixels too", (api, doc) => {
+        freshDoc(api);
+        api.getDoc().background = "#ffffff";
+        api.setTool("selectEllipse");
+        api.draw(100, 100, 200, 180);
+        doc.querySelector('#leftPanel [data-action="color:#ed1c24"]').click();
+        const read = (x, y) => [...doc.getElementById("board").getContext("2d").getImageData(x, y, 1, 1).data];
+        assert(read(150, 140)[1] === 28, "inside: " + read(150, 140));
+        assert(read(101, 101)[1] === 255, "outside the ellipse: " + read(101, 101));
+      }),
+    ]),
+
+    suite("Colour of the selection", [
+      test("a palette colour goes to the selected shape and text, as one undo step each", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const rect = engine.makeShape("rect", { x: 40, y: 40, w: 80, h: 60, width: 2, color: "#000000" });
+        const text = engine.makeShape("text", { x: 200, y: 80, text: "abcd", fontSize: 24, color: "#000000", runs: [{ text: "ab", color: "#111111" }, { text: "cd", color: "#222222" }] });
+        api.getDoc().shapes.push(rect, text);
+        const palette = (hex) => doc.querySelector('#leftPanel [data-action="color:' + hex + '"]').click();
+        const textColor = api.shapes()[1].color;
+        api.selectShape(rect.id);
+        palette("#ed1c24");
+        assert(api.shapes()[0].color === "#ed1c24", api.shapes()[0].color);
+        assert(api.shapes()[1].color === textColor, "the other shape changed");
+        api.undo();
+        assert(api.shapes()[0].color === "#000000", "undo did not take it back");
+        api.selectShape(api.shapes()[1].id);
+        palette("#22b14c");
+        engine.textRuns(api.shapes()[1]).forEach((run) => assert(run.color === "#22b14c", JSON.stringify(run)));
+      }),
+      test("every selected shape takes the colour; the fill only goes where it can", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const rect = engine.makeShape("rect", { x: 40, y: 40, w: 80, h: 60, width: 2 });
+        const line = engine.makeShape("line", { x: 40, y: 160, w: 100, h: 0, width: 2 });
+        const text = engine.makeShape("text", { x: 200, y: 80, text: "Hi", fontSize: 24 });
+        api.getDoc().shapes.push(rect, line, text);
+        api.setTool("select");
+        api.draw(5, 5, 400, 300);
+        assert(api.getSelected().length === 3, String(api.getSelected().length));
+        doc.querySelector('#leftPanel [data-action="color:#3f48cc"]').click();
+        api.shapes().forEach((shape) => assert(shape.color === "#3f48cc", shape.kind + " " + shape.color));
+        const box = doc.querySelector('#leftPanel [data-pick="noFill"]');
+        box.checked = false;
+        box.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(api.shapes()[0].fill !== "", "the rectangle took no fill");
+        assert(!api.shapes()[1].fill, "a line has no fill");
+      }),
+      test("a colour picked with a drawing tool in hand is for the next shape", (api, doc) => {
+        freshDoc(api);
+        api.setTool("pencil");
+        api.setColor("#000000");
+        api.draw(20, 20, 120, 90);
+        doc.querySelector('#leftPanel [data-action="color:#ed1c24"]').click();
+        assert(api.shapes()[0].color === "#000000", "picking a colour repainted the last stroke");
+        const next = api.draw(30, 30, 130, 100);
+        assert(next.color === "#ed1c24", next.color);
+      }),
+      test("while typing, a colour goes to the caret and typing goes on", async (api, doc, win) => {
+        freshDoc(api);
+        api.setTool("text");
+        api.setColor("#000000");
+        api.draw(100, 100, 100, 100);
+        const editor = doc.getElementById("textEditor");
+        editor.focus();
+        doc.execCommand("insertText", false, "ab");
+        doc.querySelector('#leftPanel [data-action="color:#ed1c24"]').click();
+        assert(!editor.hidden, "the colour ended the typing");
+        doc.execCommand("insertText", false, "c");
+        const spans = [...editor.querySelectorAll("[data-rt]")].map((node) => node.textContent.replace(/\u200B/g, "") + node.dataset.color).filter((row) => !row.startsWith("#"));
+        assert(spans.join(",") === "ab#000000,c#ed1c24", spans.join(","));
+        api.setTool("select");
+      }),
+    ]),
+
+    suite("Moving several", [
+      test("shapes and text picked with a box move together, as one undo step", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const shapes = [
+          engine.makeShape("rect", { x: 40, y: 40, w: 80, h: 60, width: 2 }),
+          engine.makeShape("text", { x: 180, y: 90, text: "Hello", fontSize: 24 }),
+          engine.makeShape("line", { x: 40, y: 160, w: 200, h: 10, width: 2 }),
+          engine.makeShape("pencil", { width: 2, points: [{ x: 40, y: 200 }, { x: 120, y: 230 }] }),
+        ];
+        shapes.forEach((shape) => api.getDoc().shapes.push(shape));
+        api.setTool("select");
+        const box = (i) => engine.bounds(api.shapes()[i]);
+        const before = [0, 1, 2, 3].map(box);
+        api.draw(10, 10, 400, 300);
+        assert(api.getSelected().length === 4, "the box picked " + api.getSelected().length);
+        // by the text, then by an empty part of the line's box
+        api.draw(190, 80, 230, 110);
+        assert(api.getSelected().length === 4, "dragging one dropped the others");
+        const after = [0, 1, 2, 3].map(box);
+        after.forEach((row, i) => {
+          assert(Math.abs(row.x - before[i].x - 40) < 1 && Math.abs(row.y - before[i].y - 30) < 1, i + ": " + JSON.stringify([before[i], row]));
+        });
+        api.undo();
+        const back = box(1);
+        assert(Math.abs(back.x - before[1].x) < 1, "one drag is one undo step");
+      }),
+      test("Shift adds and removes, and a click without a drag narrows the group", (api, doc, win) => {
+        freshDoc(api);
+        const engine = win.PaintEngine;
+        const a = engine.makeShape("rect", { x: 40, y: 40, w: 80, h: 60, width: 2 });
+        const b = engine.makeShape("text", { x: 200, y: 80, text: "Hi", fontSize: 24 });
+        const c = engine.makeShape("ellipse", { x: 40, y: 200, w: 80, h: 60, width: 2 });
+        [a, b, c].forEach((shape) => api.getDoc().shapes.push(shape));
+        api.setTool("select");
+        const board = doc.getElementById("board");
+        const press = (x, y, shift) => {
+          const r = board.getBoundingClientRect();
+          const at = { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: r.left + x, clientY: r.top + y, shiftKey: Boolean(shift) };
+          board.dispatchEvent(new win.PointerEvent("pointerdown", at));
+          board.dispatchEvent(new win.PointerEvent("pointerup", at));
+        };
+        press(60, 60);
+        assert(api.getSelected().join() === a.id, api.getSelected().join());
+        press(210, 72, true);
+        assert(api.getSelected().length === 2 && api.getSelected().indexOf(b.id) >= 0, "Shift did not add the text");
+        press(60, 220, true);
+        assert(api.getSelected().length === 3, "Shift did not add the third");
+        press(60, 60, true);
+        assert(api.getSelected().length === 2 && api.getSelected().indexOf(a.id) < 0, "Shift did not take it back out");
+        press(60, 220);
+        assert(api.getSelected().join() === c.id, "a plain click should narrow to the shape: " + api.getSelected().join());
+        assert(doc.querySelectorAll("#canvasOverlay .shape-handle").length === 8, "one shape has its handles");
+        press(600, 500);
+        assert(api.getSelected().length === 0, "a click on nothing clears the selection");
+      }),
+    ]),
+
+    suite("More shapes", [
+      test("each new tool draws its own closed outline, filled and exported", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const kinds = ["diamond", "rightTriangle", "pentagon", "hexagon", "star", "heart", "blockArrow", "cross", "bubble", "cloud"];
+        kinds.forEach((kind) => {
+          freshDoc(api);
+          assert(doc.querySelector('#leftPanel [data-action="tool:' + kind + '"] svg'), kind + " has no tool button");
+          assert(api.t("tool." + kind) !== "tool." + kind && api.t("kind." + kind) !== "kind." + kind, kind + " has no name");
+          api.setTool(kind);
+          const shape = api.draw(40, 40, 240, 200);
+          assert(shape && shape.kind === kind, kind + " drew " + (shape && shape.kind));
+          const outline = engine.outlinePoints(shape);
+          assert(outline.length >= 3, kind);
+          outline.forEach((point) => {
+            assert(point.x >= 39 && point.x <= 241 && point.y >= 39 && point.y <= 201, kind + " leaves its box: " + JSON.stringify(point));
+          });
+          assert(engine.isFillable(kind), kind + " takes no fill");
+          const svg = win.MyPaintSvgDoc.shapeToSvg ? win.MyPaintSvgDoc.shapeToSvg(shape, {}) : "<polygon";
+          assert(svg.indexOf("<polygon") >= 0, kind + " is missing from an SVG: " + svg);
+        });
+      }),
+      test("a filled star is painted inside and its corners are not", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const canvas = doc.createElement("canvas");
+        canvas.width = 100;
+        canvas.height = 100;
+        const shape = engine.makeShape("star", { x: 0, y: 0, w: 100, h: 100, color: "#ff0000", fill: "#ff0000", width: 1 });
+        engine.render(canvas.getContext("2d"), { width: 100, height: 100, background: "#ffffff", shapes: [shape] }, {});
+        const read = (x, y) => [...canvas.getContext("2d").getImageData(x, y, 1, 1).data];
+        assert(read(50, 55)[1] === 0, "the middle is not filled: " + read(50, 55));
+        assert(read(2, 2)[1] === 255, "the corner is painted: " + read(2, 2));
+      }),
+      test("the new shapes resize like the others, and the Draw menu still fits", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const heart = engine.makeShape("heart", { x: 10, y: 10, w: 100, h: 80, width: 2 });
+        const box = engine.bounds(heart);
+        engine.resizeShape(heart, "se", { x: box.x, y: box.y, w: box.w + 100, h: box.h });
+        assert(Math.abs(heart.w - 200) < 1, String(heart.w));
+        doc.querySelector('#menubar [data-menu="draw"]').click();
+        const actions = [...doc.querySelectorAll("#menuLayer [data-action]")].map((node) => node.dataset.action);
+        api.closeMenu();
+        assert(actions.indexOf("tool:rect") >= 0 && actions.indexOf("tool:star") < 0, actions.join(","));
+      }),
+    ]),
+
+    suite("Moving and resizing", [
+      test("a selected shape has eight handles, and a handle resizes it from the opposite side", (api, doc, win) => {
+        freshDoc(api);
+        api.setTool("rect");
+        api.draw(100, 100, 200, 180);
+        const shape = api.shapes()[0];
+        api.selectShape(shape.id);
+        const handles = doc.querySelectorAll("#canvasOverlay .shape-handle");
+        assert(handles.length === 8, String(handles.length));
+        const pointer = (node, type, x, y) => node.dispatchEvent(new win.PointerEvent(type, { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: x, clientY: y }));
+        const board = doc.getElementById("board").getBoundingClientRect();
+        const drag = (name, x, y) => {
+          const grip = doc.querySelector('#canvasOverlay [data-handle="' + name + '"]');
+          pointer(grip, "pointerdown", 0, 0);
+          pointer(win, "pointermove", board.left + x, board.top + y);
+          pointer(win, "pointerup", board.left + x, board.top + y);
+        };
+        const before = win.PaintEngine.bounds(api.shapes()[0]);
+        drag("se", before.x + before.w + 50, before.y + before.h + 30);
+        const after = win.PaintEngine.bounds(api.shapes()[0]);
+        assert(Math.abs(after.w - before.w - 50) < 1 && Math.abs(after.h - before.h - 30) < 1, JSON.stringify(after));
+        assert(Math.abs(after.x - before.x) < 1 && Math.abs(after.y - before.y) < 1, "the opposite corner moved");
+        api.undo();
+        const back = win.PaintEngine.bounds(api.shapes()[0]);
+        assert(Math.abs(back.w - before.w) < 1, "one drag is one undo step");
+        api.selectShape(api.shapes()[0].id);
+        drag("nw", before.x - 20, before.y - 10);
+        const grown = win.PaintEngine.bounds(api.shapes()[0]);
+        assert(Math.abs(grown.x - (before.x - 20)) < 1 && Math.abs(grown.x + grown.w - (before.x + before.w)) < 1, JSON.stringify(grown));
+        drag("e", grown.x - 500, 0);
+        const least = win.PaintEngine.bounds(api.shapes()[0]);
+        assert(least.w >= 4 && Math.abs(least.x - grown.x) < 1, "a shape turned inside out: " + JSON.stringify(least));
+      }),
+      test("text is resized by its handles and moved with the select tool", (api, doc, win) => {
+        freshDoc(api);
+        const made = api.addShape ? null : null;
+        const engine = win.PaintEngine;
+        const text = engine.makeShape("text", { x: 100, y: 200, text: "Hello", fontSize: 40, fontFamily: "Arial", color: "#000000" });
+        const box = engine.bounds(text);
+        engine.resizeShape(text, "se", engine.resizedBox(box, "se", box.x + box.w * 2, box.y + box.h * 2));
+        assert(text.fontSize === 80, String(text.fontSize));
+        const big = engine.bounds(text);
+        assert(Math.abs(big.x - box.x) < 1 && Math.abs(big.y - box.y) < 1, "the top left corner should stay: " + JSON.stringify(big));
+        const left = engine.makeShape("text", { x: 100, y: 200, text: "Hello", fontSize: 40, fontFamily: "Arial" });
+        const leftBox = engine.bounds(left);
+        engine.resizeShape(left, "nw", engine.resizedBox(leftBox, "nw", leftBox.x + leftBox.w / 2, leftBox.y + leftBox.h / 2));
+        const small = engine.bounds(left);
+        assert(left.fontSize === 20, String(left.fontSize));
+        assert(Math.abs(small.x + small.w - leftBox.x - leftBox.w) < 1 && Math.abs(small.y + small.h - leftBox.y - leftBox.h) < 1, "the bottom right corner should stay");
+        const rich = engine.makeShape("text", { x: 0, y: 50, text: "ab", fontSize: 20, runs: [{ text: "a", fontSize: 20 }, { text: "b", fontSize: 30 }] });
+        const richBox = engine.bounds(rich);
+        engine.resizeShape(rich, "s", engine.resizedBox(richBox, "s", 0, richBox.y + richBox.h * 2));
+        assert(rich.runs[0].fontSize === 40 * rich.fontSize / 40 && rich.runs[1].fontSize > 30, JSON.stringify(rich.runs));
+        assert(made === null);
+      }),
+      test("strokes and lines keep their ends in step, and a selected list row can be moved", (api, doc, win) => {
+        const engine = win.PaintEngine;
+        const stroke = engine.makeShape("pencil", { width: 4, points: [{ x: 10, y: 10 }, { x: 110, y: 60 }] });
+        const box = engine.bounds(stroke);
+        engine.resizeShape(stroke, "se", { x: box.x, y: box.y, w: box.w + 100, h: box.h + 50 });
+        const last = stroke.points[stroke.points.length - 1];
+        assert(Math.abs(last.x - 210) < 1 && Math.abs(last.y - 110) < 1, JSON.stringify(last));
+        const line = engine.makeShape("line", { x: 100, y: 100, w: -50, h: 40, width: 2 });
+        const lineBox = engine.bounds(line);
+        engine.resizeShape(line, "e", { x: lineBox.x, y: lineBox.y, w: lineBox.w + 50, h: lineBox.h });
+        assert(Math.abs(line.x - 150) < 1 && Math.abs(line.x + line.w - 50) < 1, "the line swapped ends: " + JSON.stringify(line));
+        freshDoc(api);
+        api.setTool("rect");
+        api.draw(100, 100, 200, 180);
+        api.setTool("pencil");
+        api.selectShape(api.shapes()[0].id);
+        assert(api.getSettings().tool === "select", "picking a shape should let it be dragged");
+      }),
+    ]),
+
+    suite("Effects", [
+      test("the effects sit under the properties in the right panel", (api, doc) => {
+        const panel = doc.getElementById("rightPanel");
+        const props = panel.querySelector(".props");
+        const title = panel.querySelector(".fx-title");
+        assert(title && title.getBoundingClientRect().top >= props.getBoundingClientRect().bottom - 1, "the effects are not under the properties");
+        assert(panel.querySelectorAll(".fx-look").length === 8, String(panel.querySelectorAll(".fx-look").length));
+        ["brightness", "contrast", "saturate", "blur", "border.top", "border.bottom", "border.left", "border.right", "shadow.x", "shadow.y", "shadow.blur", "shadow.opacity"].forEach((name) => {
+          const input = panel.querySelector('[data-fx="' + name + '"]');
+          assert(input, name);
+          assert(panel.querySelector('[data-step^="fx:' + name + ':"]'), name + " has no stepper");
+        });
+      }),
+      test("a look is previewed, undone and kept in the drawing file", (api, doc, win) => {
+        const panel = doc.getElementById("rightPanel");
+        panel.querySelector('[data-action="fxLook:sepia"]').click();
+        assert(doc.getElementById("board").style.filter.indexOf("sepia") >= 0, doc.getElementById("board").style.filter);
+        assert(api.getDoc().effects.look === "sepia");
+        assert(api.getDoc().dirty === true, "the drawing should count as changed");
+        const copy = win.PaintEngine.parse(win.PaintEngine.serialize([api.getDoc()])).documents[0];
+        assert(copy.effects && copy.effects.look === "sepia", "the file lost the effects");
+        api.undo();
+        assert(win.MyPaintEffects.normalize(api.getDoc().effects).look === "none", "undo did not take it back");
+        assert(doc.getElementById("board").style.filter === "", doc.getElementById("board").style.filter);
+      }),
+      test("the border and the shadow change the size of the saved picture", async (api, doc) => {
+        const size = api.getDoc();
+        const w = size.width;
+        const h = size.height;
+        const panel = () => doc.getElementById("rightPanel");
+        const set = (name, value) => {
+          const input = panel().querySelector('[data-fx="' + name + '"]');
+          input.value = String(value);
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        set("border.top", 10);
+        set("border.bottom", 20);
+        set("border.left", 30);
+        set("border.right", 40);
+        let result = await api.convert("png", 92);
+        assert(result.width === w + 70 && result.height === h + 30, result.width + "x" + result.height);
+        const layer = doc.getElementById("canvasEffect");
+        assert(!layer.hidden && layer.style.left === "-30px" && layer.style.bottom === "-20px", layer.style.cssText);
+        panel().querySelector('[data-fx="shadow.on"]').click();
+        assert(api.getDoc().effects.shadow.on === true);
+        result = await api.convert("png", 92);
+        assert(result.width === w + 70 + 32 && result.height === h + 30 + 32, result.width + "x" + result.height);
+        panel().querySelector('[data-action="fxReset"]').click();
+        result = await api.convert("png", 92);
+        assert(result.width === w && result.height === h, "reset left the frame");
+        assert(layer.hidden, "the preview stayed");
+      }),
+      test("the export dialog sets each side of the border and the shadow", (api, doc) => {
+        const popup = api.openPopup("convert");
+        const set = (name, value) => {
+          const input = popup.querySelector('[data-field="' + name + '"]');
+          assert(input, name);
+          if (input.type === "checkbox") input.checked = value;
+          else input.value = String(value);
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        set("fxBorderTop", 4);
+        set("fxBorderBottom", 5);
+        set("fxBorderLeft", 6);
+        set("fxBorderRight", 7);
+        set("fxBorderColor", "#112233");
+        set("fxShadowOn", true);
+        set("fxShadowX", -3);
+        set("fxShadowY", 9);
+        set("fxShadowBlur", 11);
+        set("fxShadowOpacity", 70);
+        set("fxShadowColor", "#445566");
+        set("fxShadowTransparent", true);
+        const fx = api.getDoc().effects;
+        assert(fx.border.top === 4 && fx.border.bottom === 5 && fx.border.left === 6 && fx.border.right === 7 && fx.border.color === "#112233", JSON.stringify(fx.border));
+        assert(fx.shadow.on && fx.shadow.x === -3 && fx.shadow.y === 9 && fx.shadow.blur === 11 && fx.shadow.opacity === 70 && fx.shadow.color === "#445566" && fx.shadow.transparent, JSON.stringify(fx.shadow));
+        assert(doc.querySelector('#rightPanel [data-fx="border.top"]').value === "4", "the panel does not follow the dialog");
+        api.closePopup();
+        api.undo();
+        const back = api.getDoc().effects;
+        assert(!back || !back.border.top, "one visit to the dialog is one undo");
+      }),
+      test("the pixels of a saved picture have the effects in them", (api, doc, win) => {
+        const Fx = win.MyPaintEffects;
+        const source = doc.createElement("canvas");
+        source.width = 20;
+        source.height = 20;
+        const g = source.getContext("2d");
+        g.fillStyle = "#c81e1e";
+        g.fillRect(0, 0, 20, 20);
+        assert(Fx.apply(source, {}) === source, "no effects must not copy the picture");
+        const read = (canvas, x, y) => [...canvas.getContext("2d").getImageData(x, y, 1, 1).data];
+        const gray = read(Fx.apply(source, { look: "grayscale" }), 10, 10);
+        assert(gray[0] === gray[1] && gray[1] === gray[2], gray.join(","));
+        const inverted = read(Fx.apply(source, { look: "invert" }), 10, 10);
+        assert(Math.abs(inverted[0] - 55) <= 1 && Math.abs(inverted[1] - 225) <= 1, inverted.join(","));
+        const framed = Fx.apply(source, { border: { top: 2, bottom: 3, left: 4, right: 5, color: "#0000ff" } });
+        assert(framed.width === 29 && framed.height === 25, framed.width + "x" + framed.height);
+        assert(read(framed, 1, 10)[2] === 255 && read(framed, 28, 10)[2] === 255 && read(framed, 10, 0)[2] === 255 && read(framed, 10, 24)[2] === 255, "the band is not on all four sides");
+        assert(read(framed, 4, 2)[0] === 200, "the picture is not inside the band");
+        const shadow = { on: true, x: 6, y: 6, blur: 0, opacity: 100, color: "#000000", backdrop: "#ffffff" };
+        const shaded = Fx.apply(source, { shadow: shadow });
+        assert(shaded.width === 26 && shaded.height === 26, shaded.width + "x" + shaded.height);
+        assert(read(shaded, 24, 24)[0] === 0, "no shadow past the corner: " + read(shaded, 24, 24));
+        assert(read(shaded, 24, 2)[0] === 255, "the backdrop is missing: " + read(shaded, 24, 2));
+        const clear = Object.assign({}, shadow, { transparent: true });
+        assert(read(Fx.apply(source, { shadow: clear }), 24, 2)[3] === 0, "the backdrop should be clear");
+        assert(read(Fx.apply(source, { shadow: clear }, { flatten: true }), 24, 2)[3] === 255, "a format without transparency gets the backdrop");
+        const blurred = doc.createElement("canvas");
+        blurred.width = 30;
+        blurred.height = 10;
+        const b = blurred.getContext("2d");
+        b.fillStyle = "#000";
+        b.fillRect(0, 0, 30, 10);
+        b.fillStyle = "#fff";
+        b.fillRect(15, 0, 15, 10);
+        const soft = read(Fx.apply(blurred, { blur: 3 }), 14, 5);
+        assert(soft[0] > 40 && soft[0] < 215, "the blur did nothing: " + soft.join(","));
+      }),
+      test("the colour chooser starts from the effect's colour and writes it", (api, doc, win) => {
+        const button = doc.querySelector('#rightPanel [data-color="fx:border.color"]');
+        assert(button, "no border colour button");
+        button.click();
+        const hex = doc.querySelector(".cp-hex, .color-picker input[type=\"text\"], [data-cp-hex]");
+        assert(hex && hex.value.toLowerCase() === "#ffffff", hex ? hex.value : "no hex field");
+        hex.value = "#123456";
+        hex.dispatchEvent(new Event("input", { bubbles: true }));
+        hex.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(api.getDoc().effects.border.color === "#123456", JSON.stringify(api.getDoc().effects));
+        doc.body.dispatchEvent(new win.PointerEvent("pointerdown", { bubbles: true, button: 0 }));
+        assert(!doc.querySelector(".cp-hex"), "the chooser stayed open");
+      }),
+      test("the round colour wheel sets the border, shadow and backdrop colours", (api, doc, win) => {
+        const panel = () => doc.getElementById("rightPanel");
+        const pointer = (node, type, x, y) => node.dispatchEvent(new win.PointerEvent(type, { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: x, clientY: y }));
+        const disc = () => doc.getElementById("fxWheelDisc");
+        assert(disc() && disc().getContext("2d").getImageData(74, 74, 1, 1).data[3] === 255, "the disc is not painted");
+        assert(disc().getContext("2d").getImageData(1, 1, 1, 1).data[3] === 0, "the disc is not round");
+        const depth = api.undoDepth ? api.undoDepth() : null;
+        let box = disc().getBoundingClientRect();
+        // the white default sits in the middle; the right edge is pure red
+        pointer(disc(), "pointerdown", box.right - 1, box.top + box.height / 2);
+        assert(/^#ff0[0-9a-f]0[0-9a-f]$/.test(api.getDoc().effects.border.color), api.getDoc().effects.border.color);
+        const canvasWhileDragging = disc();
+        pointer(win, "pointermove", box.left + box.width / 2, box.bottom - 1);
+        assert(disc() === canvasWhileDragging, "the panel was rebuilt under the drag");
+        const swatch = panel().querySelector('[data-color="fx:border.color"] .hex').textContent;
+        assert(swatch === api.getDoc().effects.border.color, swatch);
+        pointer(win, "pointerup", box.left + box.width / 2, box.bottom - 1);
+        if (depth !== null) assert(api.undoDepth() === depth + 1, "one drag is one undo step");
+        // a black shadow still takes a colour
+        panel().querySelector('[data-action="fxWheel:shadow.color"]').click();
+        assert(panel().querySelector('[data-action="fxWheel:shadow.color"]').classList.contains("on"));
+        box = disc().getBoundingClientRect();
+        pointer(disc(), "pointerdown", box.right - 1, box.top + box.height / 2);
+        pointer(win, "pointerup", box.right - 1, box.top + box.height / 2);
+        assert(/^#ff/.test(api.getDoc().effects.shadow.color), api.getDoc().effects.shadow.color);
+        // the value control darkens it
+        const value = panel().querySelector('[data-fxwheel="value"]');
+        value.value = "50";
+        value.dispatchEvent(new Event("change", { bubbles: true }));
+        assert(/^#80/.test(api.getDoc().effects.shadow.color), api.getDoc().effects.shadow.color);
+        assert(panel().querySelector('[data-fxwheel="value"]').value === "50");
+        // outside the disc nothing happens
+        const before = JSON.stringify(api.getDoc().effects);
+        box = disc().getBoundingClientRect();
+        pointer(disc(), "pointerdown", box.left + 1, box.top + 1);
+        assert(JSON.stringify(api.getDoc().effects) === before, "a corner of the square picked a colour");
+        const W = win.MyPaintColorWheel;
+        ["#ff0000", "#00ff00", "#123456", "#ffffff", "#000000"].forEach((hex) => {
+          const c = W.hexToHsv(hex);
+          assert(W.hsvToHex(c.h, c.s, c.v) === hex, hex + " came back as " + W.hsvToHex(c.h, c.s, c.v));
+        });
+      }),
+      test("the fold buttons of both panels are in colour", (api, doc) => {
+        ["leftPanel", "rightPanel"].forEach((id) => {
+          const html = doc.querySelector("#" + id + " .panel-fold").innerHTML;
+          assert(html.indexOf("#2563eb") >= 0 && html.indexOf("#f97316") >= 0, id + ": " + html);
+        });
+      }),
+      test("Supported formats is in the Help menu, not Tools", (api, doc) => {
+        const items = (name) => {
+          doc.querySelector('#menubar [data-menu="' + name + '"]').click();
+          const list = [...doc.querySelectorAll("#menuLayer [data-action]")].map((node) => node.dataset.action);
+          api.closeMenu();
+          return list;
+        };
+        assert(items("help").indexOf("formats") >= 0, "not in Help");
+        assert(items("tools").indexOf("formats") < 0, "still in Tools");
+      }),
+      test("damaged effects are made valid", (api, doc, win) => {
+        const fx = win.MyPaintEffects.normalize({ look: "gone", brightness: 999, blur: -4, border: { top: "x", left: 9999, color: "red" }, shadow: { x: 1000, opacity: 500 } });
+        assert(fx.look === "none" && fx.brightness === 200 && fx.blur === 0, JSON.stringify(fx));
+        assert(fx.border.top === 0 && fx.border.left === 500 && fx.border.color === "#ffffff", JSON.stringify(fx.border));
+        assert(fx.shadow.x === 200 && fx.shadow.opacity === 100, JSON.stringify(fx.shadow));
+      }),
+    ]),
+
     suite("Settings", [
       test("settings survive a reload", (api) => {
         api.setLanguage("en");
@@ -1101,6 +2524,98 @@
           assert(button.querySelector("svg") || button.id === "zoomValue" || button.id === "fontSizeValue" || button.classList.contains("font-step") || button.classList.contains("font-style") || button.classList.contains("lang-btn"), (button.dataset.action || "") + " has no icon");
         });
       }),
+      test("the tooltip shows at once on the whole of a button, a disabled one too", (api, doc, win) => {
+        const bar = doc.getElementById("toolbar");
+        const tip = () => doc.querySelector(".quick-tip");
+        const move = (x, y) => bar.dispatchEvent(new win.PointerEvent("pointermove", { bubbles: true, clientX: x, clientY: y }));
+        const save = bar.querySelector('[data-action="save"]');
+        const box = save.getBoundingClientRect();
+        [[box.left + 1, box.top + 1], [box.right - 1, box.bottom - 1], [box.left + box.width / 2, box.top + box.height / 2]].forEach((point) => {
+          move(point[0], point[1]);
+          assert(tip() && !tip().hidden && tip().textContent === api.t("file.save"), "no tooltip at " + point.join(","));
+          bar.dispatchEvent(new win.PointerEvent("pointerleave"));
+          assert(tip().hidden, "the tooltip stayed");
+        });
+        assert(!save.hasAttribute("title"), "the browser would show its own tooltip as well");
+        const undo = bar.querySelector('[data-action="undo"]');
+        assert(undo.disabled, "a fresh start has nothing to undo");
+        const off = undo.getBoundingClientRect();
+        move(off.left + 3, off.top + 3);
+        assert(!tip().hidden && tip().textContent === api.t("edit.undo"), "a disabled button has no tooltip");
+        assert(tip().getBoundingClientRect().top >= off.bottom, "the tooltip covers the button");
+        bar.dispatchEvent(new win.PointerEvent("pointerleave"));
+      }),
+      test("the tooltip survives the toolbar being drawn again, but not a press", (api, doc, win) => {
+        const bar = doc.getElementById("toolbar");
+        const tip = () => doc.querySelector(".quick-tip");
+        const box = bar.querySelector('[data-action="save"]').getBoundingClientRect();
+        const at = { bubbles: true, clientX: box.left + 5, clientY: box.top + 5 };
+        bar.dispatchEvent(new win.PointerEvent("pointermove", at));
+        api.setLanguage("en");
+        assert(!tip().hidden && tip().textContent === api.t("file.save"), "the tooltip was lost: " + tip().textContent);
+        bar.dispatchEvent(new win.PointerEvent("pointerdown", at));
+        assert(tip().hidden, "a press hides it");
+        api.setLanguage("ko");
+        assert(tip().hidden, "it came back after the press");
+      }),
+      test("the toolbar offers select all and the stacking order", (api, doc) => {
+        ["selectAll", "bringForward", "sendBackward"].forEach((name) => {
+          const node = doc.querySelector('#toolbar [data-action="' + name + '"]');
+          assert(node && node.querySelector("svg"), name);
+        });
+      }),
+      test("a separator stands beside each panel and resizes it", (api, doc, win) => {
+        const pointer = (node, type, x) => node.dispatchEvent(new win.PointerEvent(type, { bubbles: true, cancelable: true, button: 0, buttons: 1, clientX: x, clientY: 200 }));
+        const left = doc.getElementById("leftPanel");
+        const right = doc.getElementById("rightPanel");
+        const a = doc.getElementById("splitLeft");
+        const b = doc.getElementById("splitRight");
+        assert(a.offsetWidth === 4 && b.offsetWidth === 4, "the separators do not show");
+        assert(a.previousElementSibling === left && b.nextElementSibling === right, "a separator is not beside its panel");
+        assert(a.title.length > 0 && a.getAttribute("role") === "separator");
+        const start = left.offsetWidth;
+        const x = a.getBoundingClientRect().left;
+        pointer(a, "pointerdown", x);
+        assert(a.classList.contains("dragging"));
+        pointer(win, "pointermove", x + 60);
+        pointer(win, "pointerup", x + 60);
+        assert(left.offsetWidth === start + 60, left.offsetWidth + " from " + start);
+        assert(api.loadSettings().layout.left === start + 60, "the width was not saved");
+        const rightStart = right.offsetWidth;
+        const bx = doc.getElementById("splitRight").getBoundingClientRect().left;
+        pointer(doc.getElementById("splitRight"), "pointerdown", bx);
+        pointer(win, "pointermove", bx - 40);
+        pointer(win, "pointerup", bx - 40);
+        assert(right.offsetWidth === rightStart + 40, "dragging left widens the right panel: " + right.offsetWidth);
+        const again = doc.getElementById("splitLeft");
+        pointer(again, "pointerdown", again.getBoundingClientRect().left);
+        pointer(win, "pointermove", -2000);
+        pointer(win, "pointerup", -2000);
+        assert(left.offsetWidth === api.metrics.TOOL_PANEL, "a panel went below its minimum: " + left.offsetWidth);
+        again.dispatchEvent(new win.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+        assert(left.offsetWidth === api.metrics.TOOL_PANEL + 10, "the arrow key did nothing");
+        again.dispatchEvent(new win.MouseEvent("dblclick", { bubbles: true }));
+        assert(left.offsetWidth === api.metrics.TOOL_PANEL, "a double click restores the smallest");
+        assert(api.setPanelWidth("right", 9999) === api.metrics.PANEL_MAX, "no upper limit");
+        api.run("toggleLeft");
+        assert(doc.getElementById("splitLeft").offsetWidth === 0, "no separator beside a folded panel");
+        api.run("toggleLeft");
+      }),
+      test("the File menu leaves the start screen to the Start button", (api, doc) => {
+        doc.querySelector('#menubar [data-menu="file"]').click();
+        const list = [...doc.querySelectorAll("#menuLayer [data-action]")].map((node) => node.dataset.action);
+        api.closeMenu();
+        assert(list.indexOf("home") < 0, "still in the File menu");
+        assert(doc.querySelector('#menubar [data-action="toggleStart"]'), "no Start button");
+      }),
+      test("the theme list's Dark and Light read as titles", (api, doc, win) => {
+        api.run("themeMenu");
+        const head = doc.querySelector("#menuLayer .theme-col-head");
+        assert(head && head.querySelector("svg"), "no icon");
+        const style = win.getComputedStyle(head);
+        assert(Number(style.fontWeight) >= 700 && parseFloat(style.borderBottomWidth) >= 2, style.fontWeight + " " + style.borderBottomWidth);
+        api.closeMenu();
+      }),
       test("the toolbar fits inside the smallest window", (api, doc) => {
         const bar = doc.getElementById("toolbar");
         const children = [...bar.children];
@@ -1159,10 +2674,12 @@
         assert(button.getAttribute("aria-pressed") === "true");
         const picture = doc.getElementById("board");
         const widths = {};
-        [50, 100, 200, 400].forEach((zoom) => {
+        // a 10 px grid: split again from 300 %, joined below 60 %
+        const cells = { 25: 12.5, 50: 25, 60: 6, 100: 10, 200: 20, 290: 29, 300: 6, 400: 8 };
+        [25, 50, 60, 100, 200, 290, 300, 400].forEach((zoom) => {
           api.setZoom(zoom);
           const parts = getComputedStyle(grid).backgroundSize.split(/[\s,]+/).filter(Boolean);
-          const cell = api.getSettings().gridSize * zoom / 100;
+          const cell = cells[zoom];
           const expect = [cell * 5, cell * 5, cell * 5, cell * 5, cell, cell, cell, cell].map((n) => n + "px").join(" ");
           assert(parts.join(" ") === expect, zoom + "% spacing is " + parts.join(" ") + ", not " + expect);
           const box = grid.getBoundingClientRect();
@@ -1175,6 +2692,37 @@
         assert(grid.hidden === true, "the grid did not turn off");
         assert(button.classList.contains("on") === false);
         assert(button.getAttribute("aria-pressed") === "false");
+      }),
+      test("the grid is quiet, and its coarser lines stay put when it splits", (api, doc, win) => {
+        const grid = doc.getElementById("canvasGrid");
+        const style = win.getComputedStyle(grid);
+        const alphas = (style.backgroundImage.match(/rgba\(\d+, \d+, \d+, ([0-9.]+)\)/g) || []).map((row) => Number(row.split(",")[3].replace(")", "")));
+        const lines = alphas.filter((alpha) => alpha > 0);
+        assert(lines.length === 4 && lines[0] <= 0.3 && lines[2] <= 0.15 && lines[2] < lines[0], style.backgroundImage);
+        const size = () => win.getComputedStyle(grid).backgroundSize.split(/[\s,]+/).filter(Boolean).map(parseFloat);
+        api.setZoom(290);
+        const before = size();
+        api.setZoom(300);
+        const after = size();
+        assert(after[0] === 30 && after[4] === 6, after.join(","));
+        assert(before[4] === 29 && before[0] === 145, before.join(","));
+      }),
+      test("the ruler marks the pointer in red", (api, doc) => {
+        api.run("toggleRulers");
+        // an earlier zoom may have left the stage scrolled, with this point out of the ruler's view
+        doc.getElementById("stage").scrollLeft = 0;
+        doc.getElementById("stage").scrollTop = 0;
+        api.markRulers(40, 30);
+        const redPixels = (id) => {
+          const canvas = doc.getElementById(id);
+          const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+          let count = 0;
+          for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] < 110 && data[i + 2] < 110 && data[i + 3] > 200) count += 1;
+          return count;
+        };
+        assert(redPixels("rulerH") > 0, "no red mark on the top ruler");
+        assert(redPixels("rulerV") > 0, "no red mark on the side ruler");
+        api.run("toggleRulers");
       }),
       test("the shape list button hides the list and leaves the drawing", (api, doc) => {
         freshDoc(api);
@@ -1334,6 +2882,19 @@
           });
           el.querySelectorAll(".line").forEach((line) => {
             assert(line.offsetHeight <= 34, kind + " line " + line.textContent);
+          });
+          api.closePopup();
+        });
+      }),
+      test("every button of every dialog has a coloured icon", (api) => {
+        Object.keys(api.metrics.POPUPS).forEach((kind) => {
+          const popup = api.openPopup(kind);
+          const buttons = [...popup.querySelectorAll("button.action")];
+          buttons.forEach((button) => {
+            const name = kind + " " + (button.dataset.popupAction || button.textContent);
+            const icon = button.querySelector("svg");
+            assert(icon, name + " has no icon");
+            assert(icon.classList.contains("ico-color"), name + " has an icon without colour");
           });
           api.closePopup();
         });
@@ -1932,6 +3493,306 @@
       }),
     ]),
 
+    suite("Effects in print and SVG", (() => {
+      const RED = "#ff0000";
+      const redDoc = (api, win) => {
+        freshDoc(api);
+        const current = api.getDoc();
+        current.width = 200;
+        current.height = 100;
+        current.background = RED;
+        current.shapes.length = 0;
+        return current;
+      };
+      const pixelOf = (canvas, x, y) => {
+        const data = canvas.getContext("2d").getImageData(x, y, 1, 1).data;
+        return [data[0], data[1], data[2], data[3]];
+      };
+      const gray = (value) => Math.abs(value[0] - value[1]) <= 2 && Math.abs(value[1] - value[2]) <= 2;
+      const near = (a, b, slack) => a.every((value, index) => Math.abs(value - b[index]) <= (slack || 3));
+      const drawnSvg = (api, win) => {
+        const text = api.documentSvg();
+        const size = win.MyPaintSvgDoc.inspect(text);
+        assert(size.ok, size.error);
+        return win.MyPaintSvgDoc.rasterize(text, size.width, size.height).then((canvas) => ({ text: text, canvas: canvas }));
+      };
+      const printed = (api, win, doc) => {
+        const pages = api.pagesForPrint();
+        const page = pages[0];
+        const canvas = doc.createElement("canvas");
+        canvas.width = page.source.w;
+        canvas.height = page.source.h;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = page.doc.background;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        page.doc.shapes.forEach((shape) => win.PaintEngine.drawWithEffects(ctx, shape, page.doc, api.images()));
+        return { page: page, canvas: canvas, pages: pages };
+      };
+      return [
+        test("the print preview has a look on a shape", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.background = "#ffffff";
+          const shape = win.PaintEngine.makeShape("rect", { x: 20, y: 20, w: 100, h: 60, color: RED, fill: RED, width: 2, effects: { look: "grayscale" } });
+          current.shapes.push(shape);
+          const out = printed(api, win, doc);
+          const value = pixelOf(out.canvas, 60, 50);
+          assert(gray(value) && value[0] < 200, value.join());
+        }),
+        test("printing a whole picture has its look, border and shadow, at the finished size", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.effects = { look: "grayscale", border: { top: 10, bottom: 10, left: 10, right: 10, color: "#0000ff" } };
+          const out = printed(api, win, doc);
+          assert(out.page.doc.width === 220 && out.page.doc.height === 120, out.page.doc.width + "x" + out.page.doc.height);
+          assert(near(pixelOf(out.canvas, 3, 3), [0, 0, 255, 255]), pixelOf(out.canvas, 3, 3).join());
+          assert(gray(pixelOf(out.canvas, 110, 60)), pixelOf(out.canvas, 110, 60).join());
+          const same = Array.from(win.MyPaintEffects.apply(api.renderCanvas(current), current.effects, {}).getContext("2d").getImageData(110, 60, 1, 1).data);
+          assert(near(pixelOf(out.canvas, 110, 60), same), same.join());
+        }),
+        test("a document without effects prints as itself", async (api, win) => {
+          freshDoc(api);
+          assert(api.pagesForPrint()[0].doc === api.getDoc(), "no copy is needed");
+          void win;
+        }),
+        test("leaving the background out also leaves out the shadow's backdrop", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.effects = { shadow: { on: true, x: 0, y: 0, blur: 0, opacity: 100, color: "#000000", backdrop: "#00ff00" }, border: { top: 8, bottom: 8, left: 8, right: 8, color: "#0000ff" } };
+          api.setPrintState({ printBackground: true });
+          const withBack = printed(api, win, doc);
+          assert(pixelOf(withBack.canvas, 12, 12)[0] > 200, "the picture's colour");
+          api.setPrintState({ printBackground: false });
+          const without = printed(api, win, doc);
+          assert(pixelOf(without.canvas, 12, 12)[3] === 0, pixelOf(without.canvas, 12, 12).join());
+          api.setPrintState({ printBackground: true });
+        }),
+        test("the view is drawn again when the document changes", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.effects = { look: "grayscale" };
+          const first = api.pagesForPrint()[0].doc;
+          assert(api.pagesForPrint()[0].doc === first, "asked again with nothing changed, it is kept");
+          current.effects = { look: "invert" };
+          const second = printed(api, win, doc);
+          assert(second.page.doc !== first);
+          assert(near(pixelOf(second.canvas, 100, 50), [0, 255, 255, 255]), pixelOf(second.canvas, 100, 50).join());
+        }),
+        test("the SVG of a shape with a look draws as the picture does", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.background = "#ffffff";
+          current.shapes.push(win.PaintEngine.makeShape("rect", { x: 20, y: 20, w: 100, h: 60, color: RED, fill: RED, width: 2, effects: { look: "invert" } }));
+          const out = await drawnSvg(api, win);
+          assert(out.text.indexOf("<feColorMatrix") > 0 && out.text.indexOf("<rect") > 0, out.text);
+          assert(near(pixelOf(out.canvas, 60, 50), pixelOf(api.renderCanvas(current), 60, 50)), pixelOf(out.canvas, 60, 50).join());
+        }),
+        test("a straight line keeps its effects in the SVG", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.background = "#ffffff";
+          current.shapes.push(win.PaintEngine.makeShape("line", { x: 20, y: 50, w: 160, h: 0, color: RED, width: 8, effects: { look: "invert" } }));
+          const out = await drawnSvg(api, win);
+          assert(near(pixelOf(out.canvas, 100, 50), [0, 255, 255, 255], 8), pixelOf(out.canvas, 100, 50).join());
+        }),
+        test("a shape's border and shadow are in the SVG", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.background = "#ffffff";
+          current.shapes.push(win.PaintEngine.makeShape("rect", { x: 40, y: 30, w: 80, h: 40, color: RED, fill: RED, width: 2, effects: { border: { top: 6, bottom: 6, left: 6, right: 6, color: "#0000ff" }, shadow: { on: true, x: 20, y: 0, blur: 0, opacity: 100, color: "#00ff00" } } }));
+          const out = await drawnSvg(api, win);
+          const box = win.PaintEngine.bounds(current.shapes[0]);
+          const bandX = Math.round(box.x - 3);
+          assert(near(pixelOf(out.canvas, bandX, 50), [0, 0, 255, 255], 8), pixelOf(out.canvas, bandX, 50).join());
+          const shadowX = Math.round(box.x + box.w + 6 + 10);
+          assert(near(pixelOf(out.canvas, shadowX, 50), [0, 255, 0, 255], 8), pixelOf(out.canvas, shadowX, 50).join());
+        }),
+        test("the SVG of a whole picture grows by the frame, and matches the exported picture", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.effects = { look: "grayscale", border: { top: 10, bottom: 20, left: 30, right: 40, color: "#0000ff" } };
+          const out = await drawnSvg(api, win);
+          assert(out.canvas.width === 270 && out.canvas.height === 130, out.canvas.width + "x" + out.canvas.height);
+          assert(near(pixelOf(out.canvas, 5, 60), [0, 0, 255, 255]), pixelOf(out.canvas, 5, 60).join());
+          const picture = win.MyPaintEffects.apply(api.renderCanvas(current), current.effects, {});
+          assert(near(pixelOf(out.canvas, 130, 60), pixelOf(picture, 130, 60)), pixelOf(out.canvas, 130, 60).join() + " / " + pixelOf(picture, 130, 60).join());
+        }),
+        test("a backdrop and a shadow of a whole picture are in the SVG", async (api, doc, win) => {
+          const current = redDoc(api, win);
+          current.effects = { shadow: { on: true, x: 20, y: 0, blur: 0, opacity: 100, color: "#00ff00", backdrop: "#ffff00" } };
+          const out = await drawnSvg(api, win);
+          assert(out.canvas.width === 220, String(out.canvas.width));
+          assert(near(pixelOf(out.canvas, 210, 50), [0, 255, 0, 255], 8), pixelOf(out.canvas, 210, 50).join());
+          assert(near(pixelOf(out.canvas, 100, 50), [255, 0, 0, 255]), pixelOf(out.canvas, 100, 50).join());
+        }),
+        test("an SVG document with whole-picture effects wraps its source", async (api, doc, win) => {
+          const source = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100"><rect width="200" height="100" fill="#ff0000"/></svg>';
+          await api.openFiles([{ name: "logo.svg", text: source, type: "image/svg+xml" }]);
+          assert(api.documentSvg() === source, "without effects it stays word for word");
+          api.getDoc().effects = { look: "grayscale", border: { top: 10, bottom: 10, left: 10, right: 10, color: "#0000ff" } };
+          const out = await drawnSvg(api, win);
+          assert(out.canvas.width === 220 && out.canvas.height === 120, out.canvas.width + "x" + out.canvas.height);
+          assert(gray(pixelOf(out.canvas, 110, 60)), pixelOf(out.canvas, 110, 60).join());
+          assert(near(pixelOf(out.canvas, 4, 60), [0, 0, 255, 255]), pixelOf(out.canvas, 4, 60).join());
+          assert(api.getDoc().svg === source, "the source being edited does not change");
+        }),
+        test("every kind of shape writes well-formed SVG, with and without effects", async (api, doc, win) => {
+          const engine = win.PaintEngine;
+          const kinds = ["line", "arrow", "curve", "rect", "roundRect", "ellipse", "triangle", "diamond", "rightTriangle", "pentagon", "hexagon", "star", "heart", "blockArrow", "cross", "bubble", "cloud", "text"];
+          const strokes = ["pencil", "brush", "marker", "spray", "eraser", "freeCurve"];
+          [undefined, { look: "sepia", blur: 2, shadow: { on: true }, border: { top: 2 } }].forEach((effects) => {
+            const current = redDoc(api, win);
+            kinds.forEach((kind) => current.shapes.push(engine.makeShape(kind, { x: 20, y: 20, w: 100, h: 60, width: 3, text: "Aa", effects: effects })));
+            strokes.forEach((kind) => current.shapes.push(engine.makeShape(kind, { width: 3, points: [{ x: 10, y: 10 }, { x: 40, y: 50 }, { x: 80, y: 20 }], effects: effects })));
+            const info = win.MyPaintSvgDoc.inspect(api.documentSvg());
+            assert(info.ok, info.error);
+          });
+        }),
+        test("a filter name in a source is not used again", async (api, doc, win) => {
+          const source = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><defs><filter id="mypaint-fx-1"/></defs></svg>';
+          await api.openFiles([{ name: "again.svg", text: source, type: "image/svg+xml" }]);
+          api.getDoc().shapes.push(win.PaintEngine.makeShape("rect", { x: 20, y: 20, w: 100, h: 60, color: RED, width: 2, effects: { look: "invert" } }));
+          const ids = api.documentSvg().match(/filter id="[^"]+"/g);
+          assert(new Set(ids).size === ids.length, ids.join());
+        }),
+      ];
+    })()),
+    suite("SVG source", (() => {
+      const SOURCE = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100"><rect width="200" height="100" fill="#ff0000"/></svg>';
+      const BLUE = SOURCE.replace("#ff0000", "#0000ff");
+      const open = (api, text) => api.openFiles([{ name: "logo.svg", text: text || SOURCE, type: "image/svg+xml" }]);
+      const type = async (api, doc, win, text) => {
+        const box = doc.getElementById("svgSource");
+        box.value = text;
+        box.dispatchEvent(new win.Event("input", { bubbles: true }));
+        await api.flushSvg();
+      };
+      const pixel = (api, doc, x, y) => {
+        const data = doc.getElementById("board").getContext("2d").getImageData(Math.round(x * api.getZoom() / 100), Math.round(y * api.getZoom() / 100), 1, 1).data;
+        return [data[0], data[1], data[2]];
+      };
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 80));
+      return [
+        test("an SVG opens with its source in the right panel, word for word", async (api, doc) => {
+          await open(api);
+          const box = doc.getElementById("svgSource");
+          assert(box && box.tagName === "TEXTAREA", "no source box");
+          assert(box.value === SOURCE, box.value);
+          assert(api.getDoc().svg === SOURCE);
+          assert(doc.getElementById("svgSize").textContent.indexOf("200") === 0, doc.getElementById("svgSize").textContent);
+          assert(doc.getElementById("svgViewBox").textContent === "0 0 200 100");
+          assert(doc.getElementById("sourceKind").textContent === "SVG", doc.getElementById("sourceKind").textContent);
+          assert(api.getDoc().dirty === false, "opening is not a change");
+        }),
+        test("other pictures have no source box", async (api, doc) => {
+          await api.resetForTests();
+          assert(!doc.getElementById("svgSource"));
+        }),
+        test("editing the source draws the picture again", async (api, doc, win) => {
+          await open(api);
+          await settle();
+          assert(pixel(api, doc, 50, 50).join() === "255,0,0", pixel(api, doc, 50, 50).join());
+          await type(api, doc, win, BLUE);
+          await settle();
+          assert(pixel(api, doc, 50, 50).join() === "0,0,255", pixel(api, doc, 50, 50).join());
+          assert(api.getDoc().svg === BLUE);
+          assert(api.getDoc().dirty === true, "the edit is a change");
+        }),
+        test("the box keeps its focus and text while it redraws", async (api, doc, win) => {
+          await open(api);
+          const box = doc.getElementById("svgSource");
+          box.focus();
+          await type(api, doc, win, BLUE.replace('width="200" height="100" viewBox', 'width="300" height="150" viewBox'));
+          const now = doc.getElementById("svgSource");
+          assert(api.getDoc().width === 300 && api.getDoc().height === 150, api.getDoc().width + "x" + api.getDoc().height);
+          assert(doc.activeElement === now, "the box lost the focus");
+          assert(now.value.indexOf('width="300"') > 0);
+          assert(doc.getElementById("svgSize").textContent.indexOf("300") === 0);
+        }),
+        test("a mistake is reported and the last good picture and source stay", async (api, doc, win) => {
+          await open(api);
+          await settle();
+          const broken = SOURCE.replace("</svg>", "");
+          await type(api, doc, win, broken);
+          await settle();
+          const error = doc.getElementById("svgError");
+          assert(!error.hidden && error.textContent.indexOf(api.t("svg.error")) === 0, error.textContent);
+          assert(doc.getElementById("svgSource").value === broken, "the text being typed must stay");
+          assert(api.getDoc().svg === SOURCE, "the source that drew must stay");
+          assert(pixel(api, doc, 50, 50).join() === "255,0,0");
+          assert(api.documentSvg() === SOURCE, "saving now writes the good source");
+          await type(api, doc, win, BLUE);
+          assert(doc.getElementById("svgError").hidden, "fixed, so the message goes");
+        }),
+        test("undo brings the source and the picture back", async (api, doc, win) => {
+          await open(api);
+          await settle();
+          await type(api, doc, win, BLUE);
+          await settle();
+          await api.run("undo");
+          await settle();
+          assert(api.getDoc().svg === SOURCE, api.getDoc().svg);
+          assert(doc.getElementById("svgSource").value === SOURCE);
+          assert(pixel(api, doc, 50, 50).join() === "255,0,0", pixel(api, doc, 50, 50).join());
+          await api.run("redo");
+          await settle();
+          assert(pixel(api, doc, 50, 50).join() === "0,0,255");
+        }),
+        test("the picture is not a shape to pick, and shapes drawn on it are", async (api, doc) => {
+          await open(api);
+          api.setTool("rect");
+          const shape = api.draw(20, 20, 80, 80);
+          api.setTool("select");
+          await api.run("selectAll");
+          assert(api.getSelected().length === 1 && api.getSelected()[0] === shape.id, api.getSelected().join());
+          assert(doc.querySelectorAll(".shape-list [data-action^='pick'], .shape-list > *").length === 1, "the list should hold only the drawn shape");
+        }),
+        test("saving writes the source, with drawn shapes after it", async (api) => {
+          await open(api);
+          assert(api.documentSvg() === SOURCE, "untouched, it is word for word");
+          api.setTool("rect");
+          api.draw(20, 20, 80, 80);
+          const out = api.documentSvg();
+          assert(out.indexOf('fill="#ff0000"') > 0 && out.indexOf('id="mypaint-shapes"') > 0, out);
+          assert(out.indexOf("<image") < 0, "the picture must not be embedded as well");
+          assert(out.lastIndexOf("</svg>") > out.indexOf("mypaint-shapes"));
+          const saved = await api.run("save");
+          assert(saved !== undefined);
+          assert(api.getLastSaved().format === "svg", JSON.stringify(api.getLastSaved()));
+          assert(api.getDoc().dirty === false);
+        }),
+        test("a .mypaint file brings the source back, drawn again", async (api, doc) => {
+          await open(api);
+          const saved = await api.finishSave(api.getDoc(), "logo.mypaint", "mypaint");
+          assert(saved.text.indexOf('"svgFrame": true') > 0, "the frame is marked");
+          assert(saved.text.indexOf("data:image") < 0, "the pixels the source can draw stay out of the file");
+          await api.openFiles([{ name: "again.mypaint", text: saved.text, type: "text/plain" }]);
+          await settle();
+          assert(api.getDoc().name === "again.mypaint");
+          assert(api.getDoc().svg === SOURCE);
+          assert(doc.getElementById("svgSource").value === SOURCE);
+          assert(pixel(api, doc, 50, 50).join() === "255,0,0", pixel(api, doc, 50, 50).join());
+        }),
+
+        test("a new canvas size scales the picture and the source follows", async (api, doc, win) => {
+          await open(api);
+          await settle();
+          const field = doc.querySelector('#rightPanel [data-prop="canvasWidth"]');
+          assert(field, "no width field");
+          field.value = "400";
+          field.dispatchEvent(new win.Event("change", { bubbles: true }));
+          await settle();
+          assert(api.getDoc().svg.indexOf('width="400"') > 0, api.getDoc().svg);
+          assert(doc.getElementById("svgSource").value === api.getDoc().svg);
+          assert(pixel(api, doc, 200, 50).join() === "255,0,0", pixel(api, doc, 200, 50).join());
+        }),
+        test("cropping makes it plain pixels, and undo returns the source", async (api, doc) => {
+          await open(api);
+          await settle();
+          api.setTool("selectRect");
+          api.draw(10, 10, 60, 40);
+          api.cropRegion();
+          assert(!api.getDoc().svg, "the crop is no longer its source");
+          assert(!doc.getElementById("svgSource"));
+          await api.run("undo");
+          await settle();
+          assert(api.getDoc().svg === SOURCE);
+          assert(pixel(api, doc, 150, 80).join() === "255,0,0", pixel(api, doc, 150, 80).join());
+        }),
+      ];
+    })()),
     suite("Pictures", [
       test("a PNG opens as its own drawing", async (api, doc, win) => {
         const png = await picture(win, 40, 24, "#1166cc", "image/png");
@@ -2761,13 +4622,17 @@
         assert((pkg.devDependencies || {})["@tauri-apps/cli"], "the Tauri CLI builds the installers");
         assert(pkg.scripts["build:win"].indexOf("tauri build") >= 0 && pkg.scripts["build:win"].indexOf("copy-setup.js") >= 0);
         assert(pkg.scripts.start.indexOf("dev.js") >= 0, "npm start runs the files on disk");
-        assert(pkg.scripts.test.indexOf("cargo test") >= 0 || pkg.scripts.test.indexOf("test:rust") >= 0);
+        assert(pkg.scripts.test.indexOf("run-tests.js") >= 0, pkg.scripts.test);
+        const runner = await text("/scripts/run-tests.js");
+        ["vendor.js", "make-fixtures.js", "test.js", "stage-app.js", "\"cargo\""].forEach((step) => {
+          assert(runner.indexOf(step) >= 0, "npm test does not run " + step);
+        });
       }),
       test("the host keeps the window contract the Electron build had", async () => {
         const host = await text("/src-tauri/src/lib.rs");
         const popups = await text("/src-tauri/src/popups.rs");
         assert(host.indexOf("TITLE") >= 0 && host.indexOf('"MyPaint 10.0"') >= 0);
-        assert(host.indexOf("MIN_WIDTH: f64 = 1180.0") >= 0 && host.indexOf("MIN_HEIGHT: f64 = 720.0") >= 0, "src/metrics.js minimums");
+        assert(host.indexOf("MIN_WIDTH: f64 = 1210.0") >= 0 && host.indexOf("MIN_HEIGHT: f64 = 720.0") >= 0, "src/metrics.js minimums");
         assert(host.indexOf(".decorations(false)") >= 0, "the page draws its own title bar");
         assert(host.indexOf("background_color") >= 0, "no white flash at start");
         assert(host.indexOf("on_navigation(allowed_navigation)") >= 0, "a dropped file would replace the window");
@@ -2919,7 +4784,7 @@
         assert(grip.title === "Resize window");
       }),
       test("the minimum width matches the toolbar constant", (api, doc) => {
-        assert(api.metrics.MIN_WIDTH === 1180);
+        assert(api.metrics.MIN_WIDTH === 1210);
         const shell = doc.getElementById("shell");
         const view = doc.defaultView;
         assert(shell.getBoundingClientRect().width <= view.innerWidth + 1, "the window cuts off the app");
@@ -2929,8 +4794,8 @@
     suite("Panels", [
       test("the left panel holds the tools and colors", (api, doc) => {
         const left = doc.getElementById("leftPanel");
-        assert(left.querySelectorAll(".tool-cell").length === 20, String(left.querySelectorAll(".tool-cell").length));
-        assert(left.querySelectorAll(".swatch-btn").length >= 20);
+        assert(left.querySelectorAll(".tool-cell").length === 31, String(left.querySelectorAll(".tool-cell").length));
+        assert(left.querySelectorAll(".swatch-btn").length === 40, String(left.querySelectorAll(".swatch-btn").length));
         left.querySelectorAll(".tool-cell").forEach((cell) => {
           assert(cell.title.length > 0, cell.dataset.action + " has no tooltip");
           assert(cell.querySelector("svg"), cell.dataset.action + " has no icon");
@@ -3099,16 +4964,14 @@
         doc.querySelector("#toolbar [data-action='toggleLeft']").click();
         assert(!doc.getElementById("leftPanel").classList.contains("collapsed"));
       }),
-      test("both panels keep one width", (api, doc) => {
-        assert(api.metrics.TOOL_PANEL === 200);
-        assert(api.metrics.PROP_PANEL === 200);
-        const leftBefore = doc.getElementById("leftPanel").offsetWidth;
-        const rightBefore = doc.getElementById("rightPanel").offsetWidth;
-        assert(api.setPanelWidth("left", 40) === api.metrics.TOOL_PANEL, "the tool panel changed width");
-        assert(api.setPanelWidth("right", 40) === api.metrics.PROP_PANEL, "the property panel changed width");
-        assert(doc.getElementById("leftPanel").offsetWidth === leftBefore, "the tool panel moved");
-        assert(doc.getElementById("rightPanel").offsetWidth === rightBefore, "the property panel moved");
-        assert(!doc.getElementById("splitLeft") && !doc.getElementById("splitRight"));
+      test("the right panel has the larger minimum, and an old saved width comes up to it", (api, doc, win) => {
+        assert(api.metrics.TOOL_PANEL === 200 && api.metrics.PROP_PANEL === 240);
+        assert(doc.getElementById("rightPanel").offsetWidth === 240, String(doc.getElementById("rightPanel").offsetWidth));
+        assert(api.setPanelWidth("right", 10) === 240, "the right panel went below its minimum");
+        assert(api.setPanelWidth("left", 10) === 200, "the left panel went below its minimum");
+        win.localStorage.setItem("mypaint.settings.v1", JSON.stringify(Object.assign({}, api.getSettings(), { layout: { left: 200, right: 200 } })));
+        api.loadSettings();
+        assert(doc.getElementById("rightPanel").offsetWidth === 240, "a width saved before stayed small");
       }),
       test("the tools, shape list and properties titles carry an icon", (api, doc) => {
         const tools = doc.querySelector("#leftPanel .panel-bar");
@@ -3129,7 +4992,7 @@
             api.setPanelWidth("left", 10);
             api.setPanelWidth("right", 10);
             [doc.getElementById("leftPanel"), doc.getElementById("rightPanel")].forEach((panel) => {
-              assert(panel.clientWidth <= api.metrics.PANEL_MIN + 1, "the panel did not shrink to its minimum");
+              assert(panel.clientWidth <= (panel.id === "rightPanel" ? api.metrics.PROP_PANEL : api.metrics.TOOL_PANEL) + 1, "the panel did not shrink to its minimum");
               panel.querySelectorAll("h2, .line > span:first-child, .color-row span, .shape-item span").forEach((label) => {
                 if (label.offsetParent === null) return;
                 const name = where + " " + lang + " " + label.textContent.trim();

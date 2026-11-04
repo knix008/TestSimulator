@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 const browser = require("./browser");
+const report = require("./test-report");
 
 const root = browser.root;
 const { startServer, stopProcess, removeProfile, waitForDebugger, connect, pageSocket } = browser;
@@ -17,11 +18,6 @@ function parseDuration(text) {
   return 0;
 }
 
-function formatSummaryDuration(ms) {
-  if (ms < 1000) return Math.round(ms) + " ms";
-  return (ms / 1000).toFixed(2) + " s";
-}
-
 async function readResult(cdp) {
   const response = await cdp.send("Runtime.evaluate", {
     expression: `(() => {
@@ -35,6 +31,7 @@ async function readResult(cdp) {
         total: document.getElementById("countTotal")?.textContent || "0",
         time: document.getElementById("countTime")?.textContent || "",
         clock: document.getElementById("clock")?.textContent || "",
+        planned: (window.TEST_SUITES || []).map((suite) => ({ name: suite.name, count: suite.tests.length })),
         cases: [...document.querySelectorAll(".suite")].flatMap((suite) => {
           const group = suite.querySelector("h3")?.textContent || "";
           return [...suite.querySelectorAll(".case")].map((row) => ({
@@ -77,79 +74,83 @@ async function main() {
     await cdp.ready;
     await cdp.send("Runtime.enable");
     const started = Date.now();
-    let last = "";
+    const live = process.stdout.isTTY;
+    let printed = 0;
+    let group = "";
+    let status = "";
     let result;
+    const clearStatus = () => {
+      if (status) process.stdout.write("\r\x1b[2K");
+      status = "";
+    };
+    console.log(paint("1", "TESTS"));
     while (Date.now() - started < 120000) {
       await new Promise((resolve) => setTimeout(resolve, 80));
       try { result = await readResult(cdp); } catch (error) { continue; }
       if (!result || !result.ready) continue;
-      const running = (result.cases || []).find((item) => item.status === "run");
-      const line = running ? "Running  " + running.group + " · " + running.name + "   " + result.clock : result.label + "   " + result.clock;
-      if (line !== last) {
-        process.stdout.write("\r" + paint("36", line.padEnd(Math.max(last.length, line.length), " ")));
-        last = line;
+      const cases = result.cases || [];
+      const total = result.planned.reduce((sum, row) => sum + row.count, 0) || cases.length;
+      // in the order they ran, up to the first one still going
+      while (printed < cases.length && (cases[printed].status === "pass" || cases[printed].status === "fail")) {
+        clearStatus();
+        const item = cases[printed];
+        if (item.group !== group) {
+          group = item.group;
+          const plan = result.planned.find((row) => row.name === group);
+          const count = plan ? plan.count : cases.filter((row) => row.group === group).length;
+          console.log("\n  " + paint("1", group) + "  " + paint("2", "(" + count + ")"));
+        }
+        printed += 1;
+        const counter = paint("2", ("[" + String(printed).padStart(String(total).length) + "/" + total + "]"));
+        const mark = item.status === "pass" ? paint("32", "\u2714") : paint("31", "\u2718");
+        const detail = item.error ? "\n" + paint("31", "      " + item.error) : "";
+        console.log("  " + counter + " " + mark + " " + paint("2", (item.dur || "-").padStart(8)) + "  " + item.name + detail);
       }
-      const finished = (result.cases || []).filter((item) => item.status === "pass" || item.status === "fail").length;
+      if (live) {
+        const running = cases.find((item) => item.status === "run");
+        const line = running ? "  ... " + running.group + " \u00b7 " + running.name : "";
+        const width = (process.stdout.columns || 100) - 1;
+        const shown = line.length > width ? line.slice(0, width - 1) + "\u2026" : line;
+        if (shown !== status) {
+          process.stdout.write("\r\x1b[2K" + paint("36", shown));
+          status = shown;
+        }
+      }
+    const finished = (result.cases || []).filter((item) => item.status === "pass" || item.status === "fail").length;
       if (result.done && Number(result.total) > 0 && finished >= Number(result.total)) break;
     }
-    process.stdout.write("\n\n");
-    if (!result || !result.done) {
+    clearStatus();
+    console.log("");
+    if (!result || !result.done || !Number(result.total)) {
       console.error(paint("31", "Tests did not finish in time."));
       process.exitCode = 1;
       return;
     }
     const finished = (result.cases || []).filter((item) => item.status === "pass" || item.status === "fail");
-    const suites = [];
-    finished.forEach((item) => { if (!suites.includes(item.group)) suites.push(item.group); });
-    console.log(paint("1", "DETAILS"));
-    console.log(paint("2", "  " + "#".padEnd(4) + "Status".padEnd(10) + "Duration".padEnd(12) + "Case"));
-    console.log(paint("2", "  " + "-".repeat(72)));
-    let lastGroup = "";
-    finished.forEach((item, index) => {
-      if (item.group !== lastGroup) {
-        const count = finished.filter((row) => row.group === item.group).length;
-        console.log("");
-        console.log("  " + paint("1", item.group) + "  " + paint("2", "(" + count + ")"));
-        lastGroup = item.group;
-      }
-      const status = item.status === "pass" ? paint("32", "Passed".padEnd(10)) : paint("31", "Failed".padEnd(10));
-      const detail = item.error ? "  " + paint("31", item.error) : "";
-      console.log("  " + String(index + 1).padStart(2, "0") + "  " + status + (item.dur || "-").padEnd(12) + item.name + detail);
-    });
-    console.log("");
-    console.log(paint("1", "SUMMARY"));
-    console.log(paint("2", "  " + "-".repeat(28)));
-    const summaryRows = [
-      ["Total", result.total],
-      ["Passed", result.pass],
-      ["Failed", result.fail],
-      ["Duration", result.time],
-      ["Suites", String(suites.length)],
-    ];
-    summaryRows.forEach((row) => {
-      const color = row[0] === "Failed" ? (row[1] === "0" ? "32" : "31") : row[0] === "Passed" ? "32" : "33";
-      console.log("  " + row[0].padEnd(10) + "  " + paint(color, String(row[1]).padStart(8)));
-    });
-    console.log("");
-    const summaryWidth = 28 + 8 + 8 + 12;
-    console.log(paint("2", "  " + "Suite".padEnd(28) + "Passed".padStart(8) + "Failed".padStart(8) + "Duration".padStart(12)));
-    console.log(paint("2", "  " + "-".repeat(summaryWidth)));
-    let passedAll = 0;
-    let failedAll = 0;
-    let msAll = 0;
-    suites.forEach((group) => {
+    const groups = [];
+    finished.forEach((item) => { if (!groups.includes(item.group)) groups.push(item.group); });
+    const suites = groups.map((group) => {
       const rows = finished.filter((item) => item.group === group);
-      const passed = rows.filter((item) => item.status === "pass").length;
-      const failed = rows.filter((item) => item.status === "fail").length;
-      const ms = rows.reduce((sum, item) => sum + parseDuration(item.dur), 0);
-      passedAll += passed;
-      failedAll += failed;
-      msAll += ms;
-      console.log("  " + group.padEnd(28) + paint("32", String(passed).padStart(8)) + paint(failed ? "31" : "32", String(failed).padStart(8)) + formatSummaryDuration(ms).padStart(12));
+      return {
+        name: group,
+        passed: rows.filter((item) => item.status === "pass").length,
+        failed: rows.filter((item) => item.status === "fail").length,
+        ms: rows.reduce((sum, item) => sum + parseDuration(item.dur), 0),
+      };
     });
-    console.log(paint("2", "  " + "-".repeat(summaryWidth)));
-    console.log("  " + paint("1", "Total".padEnd(28)) + paint("32", String(passedAll).padStart(8)) + paint(failedAll ? "31" : "32", String(failedAll).padStart(8)) + formatSummaryDuration(msAll).padStart(12));
-    console.log("");
+    const failures = finished.filter((item) => item.status === "fail").map((item) => ({ group: item.group, name: item.name, error: item.error }));
+    const passed = suites.reduce((sum, row) => sum + row.passed, 0);
+    const failed = suites.reduce((sum, row) => sum + row.failed, 0);
+    // npm test (run-tests.js) shows this in the summary of the whole run; run alone, it is the summary
+    if (process.env.MYPAINT_TEST_REPORT) {
+      fs.writeFileSync(process.env.MYPAINT_TEST_REPORT, JSON.stringify({ passed: passed, failed: failed, suites: suites, failures: failures }));
+    } else {
+      report.print({
+        stages: [{ name: "Web tests", status: failed ? "fail" : "ok", passed: passed, failed: failed, ms: Date.now() - started }],
+        suites: suites,
+        failures: failures,
+      });
+    }
     if (result.fail !== "0") process.exitCode = 1;
   } finally {
     if (cdp) cdp.close();

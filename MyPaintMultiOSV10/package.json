@@ -13,7 +13,7 @@
     "start": "node scripts/dev.js",
     "tauri": "tauri",
     "stage": "node scripts/stage-app.js",
-    "test": "node scripts/vendor.js && node scripts/make-fixtures.js && node scripts/test.js && npm run test:rust",
+    "test": "node scripts/run-tests.js",
     "test:rust": "node scripts/stage-app.js && cargo test --manifest-path src-tauri/Cargo.toml",
     "build:web": "node scripts/build-web.js",
     "build:win": "tauri build --bundles nsis && node scripts/copy-setup.js",

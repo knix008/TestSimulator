@@ -47,23 +47,49 @@ npm run samples      # writes samples/ — one picture per format it reads
 npm run samples:heic # fetches the HEIC samples, the only ones that cannot be generated
 ```
 
-The run writes the generated test pictures, starts a local server, drives the real
-application in headless Edge or Chrome, and prints the result per suite with a summary.
-It then runs the Rust host's own tests (`npm run test:rust`).
+`npm test` (`scripts/run-tests.js`) writes the generated test pictures, starts a local server,
+drives the real application in headless Edge or Chrome, and prints each test as it finishes. It
+then stages the application, runs the Rust host's own tests (`npm run test:rust`), and ends with
+one colour summary of every stage (`scripts/test-report.js`). A stage that ran no tests counts
+as a failure.
 
 ## What it does
 
-Drawing: pencil, brush, marker, spray, eraser, line, arrow, curve, free curve, rectangle,
-rounded rectangle, ellipse, triangle, rich text (font, size, bold, italic, underline and
-strikethrough per character), fill and colour picker, with
-a selection tool that moves shapes, a shape list, layer order, undo and redo, clipboard,
-Ctrl+wheel zoom, rulers, and a grid over the picture. The grid is turned on from the toolbar;
-its cells are measured on the picture, so they grow and shrink with the zoom, and every fifth
-line is drawn stronger. Shrinking the window to its minimum still
-leaves every toolbar button visible. There is also a context menu, drag and drop from
-outside, printing with a preview, a background image for the workspace, 41 themes, and a
-settings window that remembers everything for the next run. Help → How to use opens the
-user's guide (`guide.html`) in a window of its own.
+Drawing: 31 tools — pencil, brush, marker, spray, eraser, line, arrow, curve, free curve,
+rectangle, rounded rectangle, ellipse, triangle, diamond, right triangle, pentagon, hexagon,
+star, heart, block arrow, cross, speech bubble, cloud, rich text (font, size, bold, italic,
+underline and strikethrough per character, or on the whole text), fill, colour picker, and five
+selection tools — with a 40-colour palette, a shape list, layer order, undo and redo, clipboard,
+Ctrl+wheel zoom, rulers and a grid. The grid lies under everything else; its cells are measured
+on the picture and split or join by five as the zoom changes, so a cell stays between 6 and 30
+pixels on screen.
+
+Selection: eight handles resize a shape or text, a box picks the shapes wholly inside it,
+Shift or Ctrl adds and removes, and a group moves together. Colour and width choices apply to
+what is selected. Lines take round or angular corners and four line styles; arrows take a head
+at each end in six forms and a head size.
+
+Pixels: the pixel select tool picks single pixels, and any picked area can be painted in one
+colour on a layer of its own, leaving the shapes underneath untouched.
+
+Effects: eight looks, brightness, contrast, saturation, blur, a border per side and a shadow,
+set with a round colour chooser. They apply to the selected shapes, the picked area, or the
+whole picture, and reset the same way. The export window sets the picture's border and shadow too.
+They reach exported pictures, printing, and SVG, where they are SVG filters and shapes stay vectors.
+
+SVG: opening an `.svg` file shows its source in the right panel. Editing the text redraws the
+picture, a mistake is reported while the last good picture stays, and Save writes the source back
+with any shapes drawn on top after it.
+
+Start screen: movable, resizable cards over twenty animated 3D backgrounds, with auto arrange,
+shuffle, motion speed and card opacity.
+
+Dropping a picture from outside always asks whether to open it as a new drawing, put it in the
+one being edited, or use it as the window background. Both side panels have a separator that
+sets their width. Shrinking the window to its minimum still leaves every toolbar button visible.
+There is also a context menu, printing with a preview, a background image for the workspace,
+41 themes, and a settings window that remembers everything for the next run. Help → How to use
+opens the user's guide (`guide.html`) in a window of its own.
 
 Pictures also come from a link: paste an address and MyPaint downloads it, showing how much
 has arrived and letting you stop part way.
@@ -93,7 +119,7 @@ tag in the file.
 | `src/host/` | the bridge that gives the pages `window.desktop`, and the popup and menu pages' client |
 | `doc/` | the user's guide: `UsersGuide.md` (Korean), `UsersGuide.en.md` (English), and `images/`, the pictures the guide window (`guide.html`) shows, made by `node scripts/make-guide-images.js` |
 | `src/vendor/` | decoder bundles copied out of node_modules by `npm run vendor` |
-| `style/` | one stylesheet, driven by theme variables |
+| `style/` | `styles.css` and the start screen's `start.css`, driven by theme variables |
 | `build/` | installer scripts for Windows, Linux and macOS |
 | `scripts/` | icons, fixtures, vendor, web build, test runner |
 | `test/` | the test suites and the pictures they open |

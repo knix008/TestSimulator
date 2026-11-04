@@ -44,8 +44,10 @@
     const dom = new DOMParser().parseFromString(String(text || ""), "image/svg+xml");
     const bad = dom.getElementsByTagName("parsererror")[0];
     if (bad) {
+      // the browser wraps the one useful sentence in text meant for a page it would display
       const message = (bad.textContent || "").replace(/\s+/g, " ").trim();
-      return { error: message.slice(0, 220) || "The SVG is not well formed." };
+      const found = /error on line .*?(?=Below is a rendering|$)/i.exec(message);
+      return { error: (found ? found[0].trim() : message).slice(0, 220) || "The SVG is not well formed." };
     }
     const svg = dom.documentElement;
     if (!svg || svg.localName !== "svg") return { error: "The text has no <svg> element at its top." };
@@ -100,6 +102,9 @@
     const parsed = parseDom(text);
     if (parsed.error) return text;
     const svg = parsed.svg;
+    // the size it already has leaves the source exactly as it was written
+    const now = sizeOf(svg);
+    if (now.width === Math.round(width) && now.height === Math.round(height)) return text;
     if (!svg.getAttribute("viewBox")) {
       const old = sizeOf(svg);
       svg.setAttribute("viewBox", "0 0 " + old.width + " " + old.height);
@@ -142,8 +147,17 @@
 
   /* ── shapes as SVG ── */
 
+  /* The line's looks, where this kind of shape has them. */
+  function lineLookAttrs(shape, width) {
+    const looks = Paint ? Paint.lineOptions(shape.kind) : {};
+    const cap = looks.cap && shape.lineCap ? shape.lineCap : "round";
+    const join = looks.join && shape.lineJoin ? shape.lineJoin : "round";
+    const dash = looks.dash && Paint ? Paint.dashPattern(shape, width) : [];
+    return ' stroke-linecap="' + esc(cap) + '" stroke-linejoin="' + esc(join) + '"' + (dash.length ? ' stroke-dasharray="' + dash.map(num).join(" ") + '"' : "");
+  }
+
   function strokeAttrs(shape, width, color) {
-    return ' fill="none" stroke="' + esc(color || shape.color) + '" stroke-width="' + num(width) + '" stroke-linecap="round" stroke-linejoin="round"';
+    return ' fill="none" stroke="' + esc(color || shape.color) + '" stroke-width="' + num(width) + '"' + lineLookAttrs(shape, width);
   }
 
   function opacityAttr(shape, extra) {
@@ -222,24 +236,31 @@
       const caps = kind === "eraser" ? ' stroke-linecap="square" stroke-linejoin="miter"' : "";
       return '<path d="' + pointsPath(shape.points) + '"' + strokeAttrs(shape, width, color).replace(' stroke-linecap="round" stroke-linejoin="round"', caps || ' stroke-linecap="round" stroke-linejoin="round"') + opacityAttr(shape, extra) + "/>";
     }
-    if (kind === "line" || kind === "arrow") {
+    if (kind === "arrow" && Paint && !Paint.arrowIsPlain(shape)) {
+      const parts = Paint.arrowParts(shape);
+      let out = parts.shaft ? '<line x1="' + num(parts.shaft.x1) + '" y1="' + num(parts.shaft.y1) + '" x2="' + num(parts.shaft.x2) + '" y2="' + num(parts.shaft.y2) + '"' + strokeAttrs(shape, shape.width) + "/>" : "";
+      const list = (points) => points.map((point) => num(point.x) + "," + num(point.y)).join(" ");
+      parts.heads.forEach((head) => {
+        if (head.circle) out += '<circle cx="' + num(head.circle.x) + '" cy="' + num(head.circle.y) + '" r="' + num(head.circle.r) + '" fill="' + esc(shape.color) + '"/>';
+        else if (head.fill) out += '<polygon points="' + list(head.fill) + '" fill="' + esc(shape.color) + '"/>';
+        else out += '<polyline points="' + list(head.open) + '" fill="none" stroke="' + esc(shape.color) + '" stroke-width="' + num(shape.width) + '" stroke-linejoin="miter" stroke-miterlimit="10"/>';
+      });
+      return "<g" + opacityAttr(shape) + ">" + out + "</g>";
+    }
+    if (kind === "arrow" && Paint && Paint.arrowOutline) {
+      const points = Paint.arrowOutline(shape).map((point) => num(point.x) + "," + num(point.y)).join(" ");
+      return "<g" + opacityAttr(shape) + '><polygon points="' + points + '" fill="' + esc(shape.color) + '"/></g>';
+    }
+    if (kind === "line") {
       const x2 = shape.x + shape.w;
       const y2 = shape.y + shape.h;
-      let out = '<line x1="' + num(shape.x) + '" y1="' + num(shape.y) + '" x2="' + num(x2) + '" y2="' + num(y2) + '"' + strokeAttrs(shape, shape.width) + "/>";
-      if (kind === "arrow") {
-        const angle = Math.atan2(y2 - shape.y, x2 - shape.x);
-        const head = Math.max(10, shape.width * 3.2);
-        const a = [x2 - head * Math.cos(angle - 0.42), y2 - head * Math.sin(angle - 0.42)];
-        const b = [x2 - head * Math.cos(angle + 0.42), y2 - head * Math.sin(angle + 0.42)];
-        out += '<polygon points="' + num(x2) + "," + num(y2) + " " + num(a[0]) + "," + num(a[1]) + " " + num(b[0]) + "," + num(b[1]) + '" fill="' + esc(shape.color) + '"/>';
-      }
-      return "<g" + opacityAttr(shape) + ">" + out + "</g>";
+      return "<g" + opacityAttr(shape) + '><line x1="' + num(shape.x) + '" y1="' + num(shape.y) + '" x2="' + num(x2) + '" y2="' + num(y2) + '"' + strokeAttrs(shape, shape.width) + "/></g>";
     }
     if (kind === "curve") {
       return '<path d="M' + num(shape.x) + " " + num(shape.y) + "Q" + num(shape.x) + " " + num(shape.y + shape.h) + " " + num(shape.x + shape.w) + " " + num(shape.y + shape.h) + '"' + strokeAttrs(shape, shape.width) + opacityAttr(shape) + "/>";
     }
     const box = Paint ? Paint.normalizeRect(shape) : { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
-    const paint = ' fill="' + esc(shape.fill || "none") + '" stroke="' + esc(shape.color) + '" stroke-width="' + num(shape.width) + '"' + opacityAttr(shape);
+    const paint = ' fill="' + esc(shape.fill || "none") + '" stroke="' + esc(shape.color) + '" stroke-width="' + num(shape.width) + '"' + lineLookAttrs(shape, shape.width) + opacityAttr(shape);
     if (kind === "rect" || kind === "roundRect") {
       const radius = kind === "roundRect" ? Math.min(box.w, box.h) * 0.22 : 0;
       return '<rect x="' + num(box.x) + '" y="' + num(box.y) + '" width="' + num(box.w) + '" height="' + num(box.h) + '"' + (radius ? ' rx="' + num(radius) + '"' : "") + paint + "/>";
@@ -247,8 +268,12 @@
     if (kind === "ellipse") {
       return '<ellipse cx="' + num(box.x + box.w / 2) + '" cy="' + num(box.y + box.h / 2) + '" rx="' + num(box.w / 2) + '" ry="' + num(box.h / 2) + '"' + paint + "/>";
     }
+    const outline = Paint && Paint.outlinePoints ? Paint.outlinePoints(shape) : null;
+    if (outline) {
+      return '<polygon points="' + outline.map((point) => num(point.x) + "," + num(point.y)).join(" ") + '"' + paint + "/>";
+    }
     if (kind === "triangle") {
-      return '<polygon points="' + num(box.x + box.w / 2) + "," + num(box.y) + " " + num(box.x + box.w) + "," + num(box.y + box.h) + " " + num(box.x) + "," + num(box.y + box.h) + '"' + paint + ' stroke-linejoin="round"/>';
+      return '<polygon points="' + num(box.x + box.w / 2) + "," + num(box.y) + " " + num(box.x + box.w) + "," + num(box.y + box.h) + " " + num(box.x) + "," + num(box.y + box.h) + '"' + paint + "/>";
     }
     if (kind === "text") return textToSvg(shape);
     if (kind === "image") {
@@ -259,11 +284,141 @@
     return "";
   }
 
+  /* ── effects as SVG filters ──
+   * The same operations as effects.js, as filter primitives so the file stays vectors and other
+   * programs can read it. sRGB, because that is the space the canvas does its arithmetic in, and
+   * canvas shadowBlur is twice the standard deviation. */
+
+  const Fx = () => (typeof globalThis !== "undefined" ? globalThis.MyPaintEffects : null) || null;
+
+  function colourPrimitives(fx) {
+    const effects = Fx();
+    const parts = effects.operations(fx).map((op) => {
+      const m = effects.matrixOf(op);
+      const values = [m[0], m[1], m[2], 0, m[3], m[4], m[5], m[6], 0, m[7], m[8], m[9], m[10], 0, m[11], 0, 0, 0, 1, 0];
+      return '<feColorMatrix type="matrix" values="' + values.map((value) => Number(value.toFixed(5))).join(" ") + '"/>';
+    });
+    if (fx.blur) parts.push('<feGaussianBlur stdDeviation="' + num(fx.blur) + '"/>');
+    return parts.join("");
+  }
+
+  function shadowPrimitive(fx) {
+    return '<feDropShadow dx="' + num(fx.shadow.x) + '" dy="' + num(fx.shadow.y) + '" stdDeviation="' + num(fx.shadow.blur / 2) +
+      '" flood-color="' + esc(fx.shadow.color) + '" flood-opacity="' + num(fx.shadow.opacity / 100) + '"/>';
+  }
+
+  /* The region is given in the drawing's own units: a straight line has an empty box of its own,
+   * and a filter measured on it would draw nothing. */
+  function filterDef(id, box, primitives) {
+    return '<filter id="' + id + '" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB" x="' + num(box.x) + '" y="' + num(box.y) +
+      '" width="' + num(box.w) + '" height="' + num(box.h) + '">' + primitives + "</filter>";
+  }
+
+  function grown(box, reach) {
+    return { x: box.x - reach, y: box.y - reach, w: box.w + reach * 2, h: box.h + reach * 2 };
+  }
+
+  /* A shape with its effects, as Effects.applyLayer draws it: colours on the shape, the border a
+   * band around its box behind it, and the shadow from the border if it has one, else the shape. */
+  function shapeWithEffects(shape, doc, images, nextId) {
+    const out = shapeToSvg(shape, doc, images);
+    const effects = Fx();
+    if (!out || !shape.effects || !effects || shape.kind === "eraser") return out;
+    const fx = effects.normalize(shape.effects);
+    if (effects.isPlain(fx)) return out;
+    const box = Paint.bounds(shape);
+    const reach = effects.extents(fx);
+    const room = grown(box, Math.max(reach.top, reach.bottom, reach.left, reach.right) + fx.blur * 3 + fx.shadow.blur * 2 + (shape.width || 0) + 4);
+    const colours = colourPrimitives(fx);
+    const border = effects.hasBorder(fx);
+    const defs = [];
+    let band = "";
+    let picture = colours;
+    if (fx.shadow.on && !border) picture += shadowPrimitive(fx);
+    if (border) {
+      let attr = "";
+      if (fx.shadow.on) {
+        const id = nextId();
+        defs.push(filterDef(id, room, shadowPrimitive(fx)));
+        attr = ' filter="url(#' + id + ')"';
+      }
+      band = '<rect x="' + num(box.x - fx.border.left) + '" y="' + num(box.y - fx.border.top) + '" width="' + num(box.w + fx.border.left + fx.border.right) +
+        '" height="' + num(box.h + fx.border.top + fx.border.bottom) + '" fill="' + esc(fx.border.color) + '"' + attr + "/>";
+    }
+    let body = out;
+    if (picture) {
+      const id = nextId();
+      defs.push(filterDef(id, room, picture));
+      body = '<g filter="url(#' + id + ')">' + out + "</g>";
+    }
+    return "<g>" + (defs.length ? "<defs>" + defs.join("") + "</defs>" : "") + band + body + "</g>";
+  }
+
+  /* The whole picture with its effects, as Effects.apply draws it: backdrop, the framed rectangle
+   * with its shadow, then the clipped picture with its colours. The file grows by the frame. */
+  function framedDoc(doc, inner, fx, nextId) {
+    const effects = Fx();
+    const reach = effects.extents(fx);
+    const size = effects.outputSize(doc.width, doc.height, fx);
+    const whole = { x: -reach.left, y: -reach.top, w: size.width, h: size.height };
+    const page = { x: 0, y: 0, w: doc.width, h: doc.height };
+    const clipId = nextId();
+    const defs = ['<clipPath id="' + clipId + '"><rect width="' + doc.width + '" height="' + doc.height + '"/></clipPath>'];
+    const parts = [];
+    if (fx.shadow.on && !fx.shadow.transparent) {
+      parts.push('<rect x="' + num(whole.x) + '" y="' + num(whole.y) + '" width="' + num(whole.w) + '" height="' + num(whole.h) + '" fill="' + esc(fx.shadow.backdrop) + '"/>');
+    }
+    if (effects.hasFrame(fx)) {
+      let attr = "";
+      if (fx.shadow.on) {
+        const id = nextId();
+        defs.push(filterDef(id, whole, shadowPrimitive(fx)));
+        attr = ' filter="url(#' + id + ')"';
+      }
+      parts.push('<rect x="' + num(-fx.border.left) + '" y="' + num(-fx.border.top) + '" width="' + num(doc.width + fx.border.left + fx.border.right) +
+        '" height="' + num(doc.height + fx.border.top + fx.border.bottom) + '" fill="' + esc(fx.border.color) + '"' + attr + "/>");
+    }
+    const colours = colourPrimitives(fx);
+    let picture = inner;
+    if (colours) {
+      const id = nextId();
+      defs.push(filterDef(id, page, colours));
+      picture = '<g filter="url(#' + id + ')">\n' + inner + "\n</g>";
+    }
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<svg xmlns="' + NS + '" width="' + size.width + '" height="' + size.height + '" viewBox="' + num(whole.x) + " " + num(whole.y) + " " + size.width + " " + size.height + '">\n' +
+      "<defs>" + defs.join("") + "</defs>\n" + parts.join("\n") + (parts.length ? "\n" : "") +
+      '<g clip-path="url(#' + clipId + ')">\n' + picture + "\n</g>\n</svg>\n";
+  }
+
+  /* A source as a part of a larger file: its root keeps its own viewBox and takes the size given. */
+  function nestedSource(text, width, height) {
+    const parsed = parseDom(text);
+    if (parsed.error) return "";
+    parsed.svg.setAttribute("x", "0");
+    parsed.svg.setAttribute("y", "0");
+    parsed.svg.setAttribute("width", String(width));
+    parsed.svg.setAttribute("height", String(height));
+    return new XMLSerializer().serializeToString(parsed.svg);
+  }
+
   /* The whole document. An SVG document starts from its own source (re-sized to the document)
-   * and leaves out the frame its pixels were drawn into; the shapes drawn on it follow. */
+   * and leaves out the frame its pixels were drawn into; the shapes drawn on it follow. Effects of
+   * the whole picture wrap all of that, and without them an untouched source stays word for word. */
   function fromDoc(doc, images, frameKey) {
-    const shapes = (doc.shapes || []).filter((shape) => !(doc.svg && shape.kind === "image" && shape.src === frameKey));
-    const drawn = shapes.map((shape) => shapeToSvg(shape, doc, images)).filter(Boolean).join("\n  ");
+    let count = doc.svg ? (doc.svg.match(/mypaint-fx-/g) || []).length : 0;
+    const nextId = () => { count += 1; return "mypaint-fx-" + count; };
+    const shapes = (doc.shapes || []).filter((shape) => !(doc.svg && shape.kind === "image" && (shape.svgFrame || shape.src === frameKey)));
+    const drawn = shapes.map((shape) => shapeWithEffects(shape, doc, images, nextId)).filter(Boolean).join("\n  ");
+    const effects = Fx();
+    const fx = effects ? effects.normalize(doc.effects) : null;
+    const framed = Boolean(fx && !effects.isPlain(fx));
+    const backgroundRect = '<rect width="' + doc.width + '" height="' + doc.height + '" fill="' + esc(doc.background) + '"/>';
+    if (framed) {
+      const group = drawn ? '\n<g id="mypaint-shapes">\n  ' + drawn + "\n</g>" : "";
+      const inner = backgroundRect + (doc.svg ? "\n" + nestedSource(doc.svg, doc.width, doc.height) : "") + group;
+      return framedDoc(doc, inner, fx, nextId);
+    }
     if (doc.svg) {
       const sized = setSize(doc.svg, doc.width, doc.height);
       if (!drawn) return sized;
@@ -273,7 +428,7 @@
     }
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<svg xmlns="' + NS + '" width="' + doc.width + '" height="' + doc.height + '" viewBox="0 0 ' + doc.width + " " + doc.height + '">\n' +
-      '  <rect width="100%" height="100%" fill="' + esc(doc.background) + '"/>\n' +
+      "  " + backgroundRect + "\n" +
       (drawn ? "  " + drawn + "\n" : "") + "</svg>\n";
   }
 

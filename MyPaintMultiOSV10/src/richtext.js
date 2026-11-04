@@ -165,7 +165,8 @@
       const span = ownerSpan(node, el);
       if (span && clean(span.textContent) === "") return spanStyle(span, base);
       const at = selection(el);
-      return Paint.styleAt(runs, at ? at.start : Infinity, base);
+      // over a selection, the style of its first character; at a caret, of the one before it
+      return Paint.styleAt(runs, at ? (at.end > at.start ? at.start + 1 : at.start) : Infinity, base);
     }
     const pending = Array.from(el.querySelectorAll("[data-rt]")).filter((item) => clean(item.textContent) === "").pop();
     if (pending) return spanStyle(pending, base);

@@ -39,6 +39,7 @@ function showHtml(html) {
   if (title && title.textContent) document.title = title.textContent;
   if (bound) return;
   bound = true;
+  MyPaintRange.bind(root);
   root.addEventListener("click", (event) => {
     const spin = event.target.closest("[data-spin]");
     if (spin) {
@@ -57,6 +58,9 @@ function showHtml(html) {
     if (tab && root.contains(tab)) {
       root.querySelectorAll("[data-tab]").forEach((node) => node.classList.toggle("on", node === tab));
       root.querySelectorAll("[data-panel]").forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
+      // the program rebuilds this dialog when the start screen changes a setting: it keeps the tab
+      const open = root.querySelector(".popup");
+      if (open && open.dataset.kind === "settings") sendAction("settings-tab", { id: tab.dataset.tab });
       return;
     }
     const button = event.target.closest("[data-popup-action]");

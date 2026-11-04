@@ -61,6 +61,63 @@ const SHOTS = [
     clip: "#rightPanel",
   },
   {
+    name: "selection-handles",
+    setup: `
+      api.clearDrawing();
+      api.setTool("ellipse");
+      api.setColor("#16a34a");
+      api.draw(520, 150, 760, 330);
+      api.setTool("rect");
+      api.setColor("#2563eb");
+      api.setStrokeWidth(4);
+      const shape = api.draw(170, 130, 440, 330);
+      api.setTool("select");
+      api.selectShape(shape.id);`,
+    clip: "#stage",
+  },
+  {
+    name: "line-looks",
+    setup: `
+      api.clearDrawing();
+      api.setTool("arrow");
+      api.setColor("#ea580c");
+      api.setStrokeWidth(6);
+      const shape = api.draw(170, 170, 620, 330);
+      api.setTool("select");
+      api.selectShape(shape.id);`,
+    clip: "#rightPanel",
+  },
+  {
+    name: "effects-panel",
+    setup: `
+      api.clearDrawing();
+      api.setTool("rect");
+      api.setColor("#2563eb");
+      const shape = api.draw(170, 130, 440, 330);
+      api.setTool("select");
+      api.selectShape(shape.id);
+      await util.settle();
+      const scroller = document.querySelector("#rightPanel .right-scroll");
+      const section = scroller.querySelector(".fx-section");
+      scroller.scrollTop += section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;`,
+    clip: "#rightPanel",
+  },
+  {
+    name: "svg-edit",
+    setup: `
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320">\\n' +
+        '  <rect x="20" y="20" width="440" height="280" rx="24"\\n    fill="#e0f2fe" stroke="#0369a1" stroke-width="6"/>\\n' +
+        '  <circle cx="150" cy="160" r="80" fill="#f59e0b"/>\\n' +
+        '  <path d="M260 240 L340 80 L420 240 Z" fill="#16a34a"/>\\n' +
+        '  <text x="240" y="290" font-family="Segoe UI"\\n    font-size="28" text-anchor="middle"\\n    fill="#0f172a">MyPaint</text>\\n</svg>\\n';
+      await api.openFiles([{ name: "logo.svg", text: svg, type: "image/svg+xml" }]);
+      await util.wait(400);
+      if (!document.getElementById("svgSource")) throw new Error("no SVG source box in the right panel");
+      await util.settle();
+      document.querySelector("#rightPanel .right-scroll").scrollTop = 100;`,
+    clip: null,
+  },
+  {
     name: "drawing-shapes",
     setup: `
       api.clearDrawing();
@@ -147,20 +204,6 @@ const SHOTS = [
       ].reverse().forEach((row, index) => api.addRecent({ id: "guide-" + index, name: row[0], path: row[1] }));
       api.run("home");
       await util.wait(250);`,
-    clip: null,
-  },
-  {
-    name: "svg-edit",
-    setup: `
-      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320">' +
-        '<rect x="20" y="20" width="440" height="280" rx="24" fill="#e0f2fe" stroke="#0369a1" stroke-width="6"/>' +
-        '<circle cx="150" cy="160" r="80" fill="#f59e0b"/>' +
-        '<path d="M260 240 L340 80 L420 240 Z" fill="#16a34a"/>' +
-        '<text x="240" y="290" font-family="Segoe UI" font-size="28" text-anchor="middle" fill="#0f172a">MyPaint SVG</text></svg>';
-      await api.openFiles([{ name: "logo.svg", text: svg, type: "image/svg+xml" }]);
-      await util.wait(400);
-      const text = document.querySelector("#rightPanel textarea");
-      if (!text) throw new Error("no SVG source box in the right panel");`,
     clip: null,
   },
 ];

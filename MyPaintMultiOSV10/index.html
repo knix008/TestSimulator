@@ -6,6 +6,7 @@
   <title>MyPaint 10.0</title>
   <link rel="icon" href="assets/icon.png">
   <link rel="stylesheet" href="style/styles.css">
+  <link rel="stylesheet" href="style/start.css">
 </head>
 <body>
   <div id="shell">
@@ -15,6 +16,7 @@
       <div id="toolbar" class="toolbar" role="toolbar"></div>
       <div class="body">
         <aside id="leftPanel" class="panel left"></aside>
+        <div id="splitLeft" class="splitter v" role="separator" aria-orientation="vertical" tabindex="0"></div>
         <div class="center">
           <div class="tabbar">
             <div id="tabstrip" class="tabstrip"></div>
@@ -29,6 +31,7 @@
             <canvas class="ruler ruler-v" id="rulerV" aria-hidden="true"></canvas>
             <div class="stage" id="stage">
               <div class="canvas-frame" id="canvasFrame">
+                <div class="canvas-effect" id="canvasEffect" hidden aria-hidden="true"></div>
                 <canvas id="board" width="900" height="560"></canvas>
                 <div class="canvas-grid" id="canvasGrid" hidden aria-hidden="true"></div>
                 <div class="canvas-overlay" id="canvasOverlay" aria-hidden="true"></div>
@@ -36,6 +39,7 @@
             </div>
           </div>
         </div>
+        <div id="splitRight" class="splitter v" role="separator" aria-orientation="vertical" tabindex="0"></div>
         <aside id="rightPanel" class="panel right"></aside>
         <section id="startScreen" class="start-screen" hidden aria-labelledby="startTitle"></section>
       </div>
@@ -62,6 +66,8 @@
   <script src="src/formats.js"></script>
   <script src="src/fonts.js"></script>
   <script src="src/print.js"></script>
+  <script src="src/effects.js"></script>
+  <script src="src/color-wheel.js"></script>
   <script src="src/themes.js"></script>
   <script src="src/i18n.js"></script>
   <script src="src/icons.js"></script>
@@ -70,6 +76,10 @@
   <script src="src/colorpicker.js"></script>
   <script src="src/richtext.js"></script>
   <script src="src/svgdoc.js"></script>
+  <script src="src/start-layout.js"></script>
+  <script src="src/range-stepper.js"></script>
+  <script src="src/start-background.js"></script>
+  <script src="src/start-screen.js"></script>
   <script src="src/host/tauri-bridge.js"></script>
   <script src="src/app.js"></script>
 </body>

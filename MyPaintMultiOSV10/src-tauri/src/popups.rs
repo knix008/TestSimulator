@@ -28,6 +28,10 @@ pub const KEEP_POPUP: &[&str] = &[
     "print-next",
     "print-sync",
     "settings-sync",
+    "settings-tab",
+    "start-bg",
+    "start-arrange",
+    "start-reset",
     "palette-sync",
     "canvas-sync",
     "convert-sync",
@@ -46,6 +50,9 @@ struct Child {
 
 #[derive(Default)]
 struct Inner {
+    /// The newest popup command seen. open_popup runs on a worker and close_popup on the main
+    /// thread, so they can arrive out of order: a late close must not cancel the dialog after it.
+    popup_gen: u64,
     menu: Child,
     popup: Child,
     sequence: u64,
@@ -64,6 +71,17 @@ pub struct Html {
 }
 
 impl Inner {
+    /// Whether a popup command is still current; commands that carry no number always are.
+    fn accept(&mut self, gen: Option<u64>) -> bool {
+        match gen {
+            Some(number) if number < self.popup_gen => false,
+            Some(number) => {
+                self.popup_gen = number;
+                true
+            }
+            None => true,
+        }
+    }
     fn child(&mut self, label: &str) -> Option<&mut Child> {
         match label {
             MENU => Some(&mut self.menu),
@@ -210,7 +228,12 @@ fn open(app: &AppHandle, caller: &WebviewWindow, label: &str, payload: &Value, c
     let Some(win) = ensure(app, label) else { return false };
     let rect = screen_point(caller, payload, centered);
     let message = {
+        // Deciding and recording are one step under one lock: a close that came in between them
+        // would otherwise be undone by this open marking the window as waiting to be shown.
         let mut inner = state(app);
+        if label == POPUP && !inner.accept(payload.get("gen").and_then(Value::as_u64)) {
+            return true;
+        }
         inner.sequence += 1;
         let seq = inner.sequence;
         let child = inner.child(label).expect("menu or popup");
@@ -239,9 +262,18 @@ pub fn open_popup(app: &AppHandle, caller: &WebviewWindow, payload: &Value) -> b
     open(app, caller, POPUP, payload, !anchored)
 }
 
-pub fn refresh_popup(app: &AppHandle, html: String) {
+pub fn close_popup(app: &AppHandle, gen: Option<u64>) {
+    if state(app).accept(gen) {
+        hide_then(app, POPUP, true);
+    }
+}
+
+pub fn refresh_popup(app: &AppHandle, html: String, gen: Option<u64>) {
     let message = {
         let mut inner = state(app);
+        if !inner.accept(gen) {
+            return;
+        }
         let child = &mut inner.popup;
         child.html = html.clone();
         Html { html, seq: child.seq }
@@ -262,18 +294,30 @@ pub fn hide_then(app: &AppHandle, label: &str, refocus: bool) {
         child.pending_show = false;
         child.shown_at.take().is_some()
     };
-    if let Some(win) = app.get_webview_window(label) {
-        if win.is_visible().unwrap_or(false) {
+    // Showing and hiding take turns on the main thread, and each looks at what is wanted when its
+    // turn comes. Otherwise a quick job closes first and the show still on its way lands after it,
+    // which leaves a progress window on screen for good.
+    let handle = app.clone();
+    let name = label.to_string();
+    let _ = app.run_on_main_thread(move || {
+        let wanted = {
+            let mut inner = state(&handle);
+            inner.child(&name).is_some_and(|child| child.pending_show || child.shown_at.is_some())
+        };
+        if wanted {
+            return; // opened again since
+        }
+        if let Some(win) = handle.get_webview_window(&name) {
             let _ = win.hide();
         }
-    }
-    if was_shown && refocus {
-        if let Some(main) = app.get_webview_window(MAIN) {
-            if main.is_visible().unwrap_or(false) && !main.is_minimized().unwrap_or(false) {
-                let _ = main.set_focus();
+        if was_shown && refocus {
+            if let Some(main) = handle.get_webview_window(MAIN) {
+                if main.is_visible().unwrap_or(false) && !main.is_minimized().unwrap_or(false) {
+                    let _ = main.set_focus();
+                }
             }
         }
-    }
+    });
 }
 
 /// What a child window loaded late should show.
@@ -299,8 +343,22 @@ pub fn rendered(app: &AppHandle, window: &WebviewWindow, seq: u64) {
         }
     };
     if show {
-        let _ = window.show();
-        let _ = window.set_focus();
+        let handle = app.clone();
+        let win = window.clone();
+        let _ = app.run_on_main_thread(move || {
+            let wanted = state(&handle).child(win.label()).is_some_and(|child| child.shown_at.is_some());
+            if !wanted {
+                return; // closed since
+            }
+            let _ = win.show();
+            // at the end of a drag another program is in front, and Windows will not hand over the
+            // focus: without this a dialog can open behind it, which looks like nothing happened
+            if win.label() == POPUP {
+                let _ = win.set_always_on_top(true);
+                let _ = win.set_always_on_top(false);
+            }
+            let _ = win.set_focus();
+        });
     }
 }
 
@@ -375,6 +433,16 @@ mod tests {
         assert_eq!(fit_to_screen(100.0, 200.0, 320.0, 1200.0, AREA), (100.0, 0.0));
         let second = Rect { x: -1280.0, y: 0.0, width: 1280.0, height: 1000.0 };
         assert_eq!(fit_to_screen(-1400.0, 10.0, 200.0, 100.0, second), (-1280.0, 10.0));
+    }
+
+    #[test]
+    fn a_late_popup_command_does_not_undo_a_newer_one() {
+        let mut inner = Inner::default();
+        assert!(inner.accept(Some(3)), "the dialog opens");
+        assert!(!inner.accept(Some(2)), "the close sent before it comes too late");
+        assert!(inner.accept(Some(3)), "its own refresh still counts");
+        assert!(inner.accept(Some(4)), "and so does what comes after");
+        assert!(inner.accept(None), "a command with no number always counts");
     }
 
     #[test]

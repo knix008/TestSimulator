@@ -23,7 +23,7 @@ use window_state::Store;
 
 pub const TITLE: &str = "MyPaint 10.0";
 /// src/metrics.js MIN_WIDTH / MIN_HEIGHT.
-pub const MIN_WIDTH: f64 = 1180.0;
+pub const MIN_WIDTH: f64 = 1210.0;
 pub const MIN_HEIGHT: f64 = 720.0;
 const START_WIDTH: f64 = 1360.0;
 const START_HEIGHT: f64 = 860.0;
@@ -318,13 +318,13 @@ async fn open_popup(app: AppHandle, window: WebviewWindow, payload: Value) -> bo
 }
 
 #[tauri::command]
-fn close_popup(app: AppHandle) {
-    popups::hide_then(&app, POPUP, true);
+fn close_popup(app: AppHandle, gen: Option<u64>) {
+    popups::close_popup(&app, gen);
 }
 
 #[tauri::command]
-fn refresh_popup(app: AppHandle, html: String) {
-    popups::refresh_popup(&app, html);
+fn refresh_popup(app: AppHandle, html: String, gen: Option<u64>) {
+    popups::refresh_popup(&app, html, gen);
 }
 
 #[tauri::command]
