@@ -76,12 +76,32 @@ const center = async (selector) => {
 };
 const locate = (selector) => js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; e.scrollIntoView({ block: "nearest", inline: "nearest" }); const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
 const mouse = (type, x, y, extra = {}) => page.send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1, ...extra });
+const WATCH_INPUT = `window.__input ??= (() => { const s = { down: 0, up: 0 }; addEventListener("pointerdown", () => s.down++, true); addEventListener("pointerup", () => s.up++, true); return s; })()`;
+/** Sends a press. The input channel can drop one before it reaches the page; only that is retried. */
+async function press(x, y, extra = {}) {
+  await js(WATCH_INPUT);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const before = await js("window.__input.down");
+    await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, buttons: 0 });
+    await sleep(attempt * 120);
+    await mouse("mousePressed", x, y, extra);
+    await sleep(60);
+    if ((await js("window.__input.down")) > before) return;
+  }
+  throw new Error(`the window never received a press at ${x},${y}`);
+}
+async function release(x, y, extra = {}) {
+  const before = await js("window.__input.up");
+  await mouse("mouseReleased", x, y, extra);
+  await sleep(60);
+  if ((await js("window.__input.up")) === before) {
+    await mouse("mouseReleased", x, y, extra);
+    await sleep(60);
+  }
+}
 async function clickAt(x, y) {
-  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, buttons: 0 });
-  await mouse("mousePressed", x, y);
-  await sleep(60);
-  await mouse("mouseReleased", x, y);
-  await sleep(60);
+  await press(x, y);
+  await release(x, y);
 }
 async function click(selector) {
   const point = await center(selector);
@@ -89,21 +109,26 @@ async function click(selector) {
   await clickAt(point.x, point.y);
 }
 async function drag(from, to) {
-  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: from.x, y: from.y, buttons: 0 });
-  await mouse("mousePressed", from.x, from.y);
+  await press(from.x, from.y);
   const steps = 6;
   for (let i = 1; i <= steps; i++) {
     await mouse("mouseMoved", from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps);
     await sleep(25);
   }
-  await mouse("mouseReleased", to.x, to.y);
-  await sleep(100);
+  await release(to.x, to.y);
+  await sleep(50);
 }
 async function typeInto(selector, text) {
   await js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.focus(); const set = Object.getOwnPropertyDescriptor(e instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, "value").set; set.call(e, ${JSON.stringify(text)}); e.dispatchEvent(new Event("input", { bubbles: true })); })()`);
   await sleep(80);
 }
 const project = () => js("window.__mls.project()");
+async function pickVersion(version) {
+  await click('[data-command="version-chip"]');
+  await page.until('document.querySelector("[data-version-menu]")', 2000);
+  await click(`[data-version="${version}"]`);
+  await sleep(100);
+}
 const lastWidget = async () => {
   const p = await project();
   return p.screens[0].children.at(-1);
@@ -524,7 +549,7 @@ await step("Project settings switch the LVGL version and the engine", async () =
   const code = await js(`document.querySelector("[data-code]")?.textContent ?? ""`);
   assert.match(code, /lv_btn_create/);
   await click('[data-command="code"]');
-  await click('[data-command="version-chip"]');
+  await click('[data-command="settings"]');
   await sleep(80);
   await choose("lvglVersion", "9.5.0");
   await page.until('document.querySelector("[data-note=engine]")', 3000);
@@ -862,6 +887,105 @@ await step("The code button is a toggle on the toolbar; the tab row holds only t
   assert.equal(await js("!!document.querySelector('[data-code]')"), false);
 });
 
+await step("The version button on the toolbar changes LVGL: controls, code and engine follow", async () => {
+  await pickVersion("9.2.2");
+  await page.until('window.__mls.engine().runtimeVersion() === "9.2.2"', 15000);
+  assert.equal((await project()).lvgl, "9.2.2");
+  assert.match(await js("document.querySelector('[data-command=version-chip]').textContent"), /9\.2\.2/);
+  await click('[data-command="version-chip"]');
+  await page.until('document.querySelector("[data-version-menu]")', 2000);
+  const menu = await js(`(() => { const m = document.querySelector("[data-version-menu]").getBoundingClientRect(); return { items: document.querySelectorAll("[data-version]").length, selected: document.querySelector("[data-version].selected").dataset.version, inside: m.left >= 0 && m.right <= innerWidth && m.bottom <= innerHeight }; })()`);
+  assert.equal(menu.selected, "9.2.2");
+  assert.ok(menu.items >= 6 && menu.inside, JSON.stringify(menu));
+  await shot("10k-version-menu");
+  await click('[data-version="8.4.0"]');
+  await page.until('window.__mls.engine().runtimeVersion() === "8.4.0"', 15000);
+  const palette = () => js("Array.from(document.querySelectorAll('[data-palette]')).map((e) => e.dataset.palette)");
+  assert.ok((await palette()).includes("meter"), "the controls did not follow");
+  await click('[data-command="code"]');
+  await sleep(80);
+  await click('[data-code-tab="src/ui/screens/ui_Screen1.c"]');
+  await sleep(50);
+  assert.match(await js('document.querySelector("[data-code]").textContent'), /lv_btn_create|lv_obj_create/);
+  await pickVersion("9.6.0");
+  await page.until('window.__mls.engine().runtimeVersion() === "9.6.0"', 15000);
+  await sleep(80);
+  assert.doesNotMatch(await js('document.querySelector("[data-code]").textContent'), /lv_btn_create/, "the code did not follow");
+  await click('[data-command="code"]');
+  assert.ok(!(await palette()).includes("meter"));
+});
+
+await step("Problems: a list in the bottom panel; a row leads to the control and to its code", async () => {
+  const start = (await project()).screens[0].children.length;
+  await click('[data-screen-tab="' + (await project()).screens[0].id + '"]');
+  await doubleClick('[data-palette="image"]');
+  await sleep(120);
+  const image = (await project()).screens[0].children.at(-1);
+  await doubleClick('[data-palette="scale"]');
+  await sleep(120);
+  const scale = (await project()).screens[0].children.at(-1);
+  await click('[data-bottom="problems"]');
+  await sleep(80);
+  const row = (code, id) => `[data-problem="${code}"]${id ? "" : ""}`;
+  assert.ok(await js(`window.__mls.problems().some((p) => p.code === "imageEmpty" && p.node === "${image.id}")`));
+  assert.ok((await js("Number(document.querySelector('[data-problem-count]')?.textContent ?? 0)")) > 0, "no count on the tab");
+  assert.equal(await js("document.querySelectorAll('.problem-head [role=columnheader]').length"), 4);
+  await shot("10l-problems");
+  // Choosing a row selects the control; the button shows its code.
+  await click('[data-screen-tab="' + (await project()).screens[0].id + '"]');
+  await click(`[data-tree="${scale.id}"]`);
+  const rowFor = `Array.from(document.querySelectorAll('[data-problem="imageEmpty"]'))`;
+  await click(row("imageEmpty"));
+  await sleep(100);
+  assert.equal(await js("window.__mls.selected()"), (await js(`window.__mls.problems().find((p) => p.code === "imageEmpty").node`)));
+  assert.equal(await js(`${rowFor}[0].getAttribute("aria-selected")`), "true");
+  await click(`[data-problem="imageEmpty"] [data-problem-code]`);
+  await sleep(150);
+  const focus = await js("window.__mls.codeFocus()");
+  assert.ok(focus && /ui_Screen1\.c$/.test(focus.file), JSON.stringify(focus));
+  const shown = await js(`(() => { const pre = document.querySelector("[data-code]"); const mark = document.querySelector("[data-code-focus]"); const a = pre.getBoundingClientRect(); const b = mark.getBoundingClientRect(); return { line: Number(mark.dataset.codeFocus), text: pre.textContent.split("\\n")[Number(mark.dataset.codeFocus) - 1], inside: b.top >= a.top && b.bottom <= a.bottom }; })()`);
+  assert.ok(shown.inside, "the marked line is out of view");
+  const imageName = await js(`window.__mls.problems().find((p) => p.code === "imageEmpty").nodeName`);
+  assert.ok(shown.text.includes(`ui_${imageName}`), JSON.stringify(shown));
+  await shot("10m-problem-code");
+  await click('[data-command="code"]');
+  // A control the version lacks: an error, shown as soon as the version changes, without code.
+  await pickVersion("8.4.0");
+  await page.until('document.querySelector("[data-problem=widgetVersion]")', 3000);
+  assert.equal(await js("document.querySelector('[data-bottom=problems]').classList.contains('active')"), true, "the tab did not open by itself");
+  assert.equal(await js("document.querySelector('[data-problem-count]').hasAttribute('data-errors')"), true);
+  assert.equal(await js("document.querySelector('[data-problem=widgetVersion] [data-problem-code]').disabled"), true);
+  await click('[data-problem="widgetVersion"] [data-problem-control]');
+  await sleep(100);
+  assert.equal(await js("window.__mls.selected()"), scale.id);
+  await pickVersion("9.6.0");
+  await page.until('window.__mls.engine().runtimeVersion() === "9.6.0"', 15000);
+  await click(`[data-tree="${scale.id}"]`);
+  await click('[data-command="delete"]');
+  await click(`[data-tree="${image.id}"]`);
+  await click('[data-command="delete"]');
+  await sleep(80);
+  assert.equal((await project()).screens[0].children.length, start);
+  await click('[data-bottom="log"]');
+});
+
+await step("Every button has a tooltip", async () => {
+  const check = (scope) => js(`(() => { const missing = []; for (const b of document.querySelectorAll(${JSON.stringify(scope)})) { if (!b.getClientRects().length) continue; b.dispatchEvent(new PointerEvent("pointerover", { bubbles: true })); const text = (b.title || "").trim(); if (!text || text === "-" || text === "+" || text === "×" || text === "−") missing.push(b.outerHTML.slice(0, 90)); } return missing; })()`);
+  assert.deepEqual(await check("button"), []);
+  assert.match(await js('document.querySelector("[data-palette=button]").title'), /\S+: /);
+  await click('[data-command="preferences"]');
+  await page.until('document.querySelector("[data-dialog=preferences]")', 2000);
+  for (const tab of ["general", "theme", "start"]) {
+    await click(`[data-pref-tab="${tab}"]`);
+    await sleep(60);
+    assert.deepEqual(await check("[data-dialog=preferences] button"), [], tab);
+  }
+  await click('[data-pref-tab="general"]');
+  await sleep(40);
+  assert.match(await js("(() => { const b = document.querySelector('[data-field=prefSnap] button'); b.dispatchEvent(new PointerEvent('pointerover', { bubbles: true })); return b.title; })()"), /감소|Decrease/);
+  await click('[data-command="preferences-close"]');
+});
+
 await step("Tabs: < and > at the far right walk through the screens, and they scroll", async () => {
   const nav = await js(`(() => { const bar = document.querySelector(".design-bar").getBoundingClientRect(); const next = document.querySelector('[data-command="tab-next"]').getBoundingClientRect(); return bar.right - next.right; })()`);
   assert.ok(nav < 20, "the buttons are not at the far right");
@@ -978,19 +1102,13 @@ await step("The panel shows the controls of each LVGL version, Grid included", a
   assert.equal(names.length, 36);
   for (const type of ["grid", "scale", "barcode", "arclabel"]) assert.ok(names.includes(type), type);
   assert.ok(!names.includes("meter") && !names.includes("colorwheel"));
-  await click('[data-command="version-chip"]');
-  await choose("lvglVersion", "8.4.0");
-  await sleep(100);
-  await click('[data-command="settings-close"]');
+  await pickVersion("8.4.0");
   const old = await palette();
   assert.equal(old.length, 35);
   for (const type of ["grid", "meter", "colorwheel"]) assert.ok(old.includes(type), type);
   assert.ok(!old.includes("scale") && !old.includes("arclabel") && !old.includes("barcode"));
   await page.until('window.__mls.engine().runtimeVersion() === "8.4.0"', 15000);
-  await click('[data-command="version-chip"]');
-  await choose("lvglVersion", "9.6.0");
-  await sleep(100);
-  await click('[data-command="settings-close"]');
+  await pickVersion("9.6.0");
   await page.until('window.__mls.engine().runtimeVersion() === "9.6.0"', 15000);
 });
 
@@ -1226,10 +1344,9 @@ await step("Panels: title bars fold them, and the toolbar folds left, right and 
   assert.ok((await height("attributes")) < 40, "the attributes did not fold");
   await click('[data-collapse="attributes"]');
   await sleep(200);
-  await js(`window.__ev = []; for (const n of ['pointerdown','pointerup','click']) window.addEventListener(n, (e) => window.__ev.push(n + ' ' + Math.round(e.clientX) + ',' + Math.round(e.clientY) + ' ' + (e.target.dataset?.collapse || e.target.className?.baseVal || e.target.className || e.target.tagName)), true);`);
   await click('[data-collapse="bottom"]');
   await sleep(120);
-  assert.equal((await collapsed()).bottom, true, JSON.stringify(await js("window.__ev")));
+  assert.equal((await collapsed()).bottom, true);
   await click('[data-collapse="bottom"]');
   await sleep(60);
   const saved = JSON.parse(fs.readFileSync(path.join(data, "settings", "settings.json"), "utf8"));
@@ -1246,13 +1363,11 @@ await step("Every right-click menu has an icon on every item", async () => {
   const open = async (selector) => {
     const point = await center(selector);
     assert.ok(point, `no element ${selector}`);
-    await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x, y: point.y, buttons: 0 });
-    await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "right", buttons: 2, clickCount: 1 });
-    await sleep(40);
-    await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "right", buttons: 0, clickCount: 1 });
-    await sleep(200);
+    await press(point.x, point.y, { button: "right", buttons: 2 });
+    await release(point.x, point.y, { button: "right" });
+    await sleep(140);
     const shown = await js(`(() => { const m = document.querySelector("[data-context-menu]"); if (!m) return null; const r = m.getBoundingClientRect(); return { items: Array.from(m.querySelectorAll("[data-context]")).map((e) => e.dataset.context), withoutIcon: Array.from(m.querySelectorAll("[data-context]")).filter((e) => !e.querySelector(".icon")).length, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
-    assert.ok(shown, `no menu on ${selector}: ${JSON.stringify(await js("window.__ev ?? []"))} ${JSON.stringify(await js("window.__mls.contextMenu() ? 'state yes' : 'state no'"))}`);
+    assert.ok(shown, `no menu on ${selector}: ${JSON.stringify(await js("window.__mls.contextMenu() ? 'state yes' : 'state no'"))}`);
     assert.equal(shown.withoutIcon, 0, `${selector}: an item has no icon`);
     assert.ok(shown.inside, `${selector}: the menu leaves the window`);
     return shown.items;
@@ -1340,6 +1455,21 @@ await step("Bottom panel: clearing the output, and deleting build results after 
   assert.ok(await js('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent.includes("9.6.0"))'), "nothing reported");
 });
 
+await step("Start screen cards have a faint border in every theme", async () => {
+  const faint = await js(`(async () => {
+    const el = document.createElement("div");
+    el.className = "start-card";
+    el.style.cssText = "position:fixed;left:-500px;top:0;width:50px;height:50px";
+    document.body.append(el);
+    const alpha = getComputedStyle(el).borderTopColor;
+    el.remove();
+    return alpha;
+  })()`);
+  const parts = faint.match(/[\d.]+/g).map(Number);
+  const opacity = faint.startsWith("color(") ? parts.at(-1) : parts.length > 3 ? parts[3] : 1;
+  assert.ok(opacity <= 0.4, `the card border is strong: ${faint}`);
+});
+
 await step("Every window shows its icon and title", async () => {
   const check = async (dialog) => {
     await page.until(`document.querySelector('[data-dialog="${dialog}"]')`, 3000);
@@ -1372,7 +1502,7 @@ await step("About and project settings open and close", async () => {
   await page.until('document.querySelector("[data-dialog=about]")', 2000);
   assert.match(await js('document.querySelector("[data-dialog=about]").textContent'), /9\.6\.0/);
   await click('[data-dialog="about"] footer button');
-  await click('[data-command="version-chip"]');
+  await click('[data-command="settings"]');
   await page.until('document.querySelector("[data-dialog=settings]")', 2000);
   await typeInto('[data-field="projectName"]', "Renamed Project");
   assert.equal((await project()).name, "Renamed Project");

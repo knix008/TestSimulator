@@ -1,3 +1,4 @@
+import { findProblems, locateInCode, parseBuildProblems } from "../src/lvgl/problems.js";
 // Feature coverage for npm test: settings, themes, start backgrounds, and every widget,
 // property, trigger and action on every engine.
 import assert from "node:assert/strict";
@@ -557,6 +558,140 @@ export function registerFeatureTests({ category, test, engines, versions }) {
     });
 
     /* -------------------------------------------------------- widget tables */
+    category("Problems");
+    await test("Samples have no errors in their own LVGL version", () => {
+      for (const file of sampleFiles()) {
+        const sample = parseProject(fs.readFileSync(file, "utf8"));
+        const errors = findProblems(sample).filter((problem) => problem.severity === "error");
+        assert.deepEqual(errors.map((problem) => problem.key), [], file);
+      }
+    });
+    const problemProject = () => {
+      const p = newProject("P");
+      p.lvgl = "9.6.0";
+      return p;
+    };
+    const place = (p, type, props = {}, parent = p.screens[0].id, name) => {
+      const node = createNode(p, type, props);
+      if (name) node.name = name;
+      addNode(p, parent, node);
+      return node;
+    };
+    const codes = (list, code) => list.filter((problem) => problem.code === code);
+    await test("A clean project has no problems", () => {
+      const p = problemProject();
+      place(p, "button", { x: 10, y: 10, width: 50, height: 30, align: "TOP_LEFT" });
+      assert.deepEqual(findProblems(p), []);
+    });
+    await test("A control missing from the version is an error without code", () => {
+      const p = problemProject();
+      const meter = place(p, "meter");
+      const [found] = codes(findProblems(p), "widgetVersion");
+      assert.equal(found.severity, "error");
+      assert.equal(found.node, meter.id);
+      assert.equal(found.hasCode, false);
+      p.lvgl = "8.4.0";
+      assert.deepEqual(codes(findProblems(p), "widgetVersion"), []);
+    });
+    await test("Images: none chosen, and one that is gone", () => {
+      const p = problemProject();
+      place(p, "image", { width: 20, height: 20, x: 0, y: 0 });
+      const gone = place(p, "image", { src: "gone", x: 30, y: 0, width: 20, height: 20 });
+      const list = findProblems(p);
+      assert.equal(codes(list, "imageEmpty").length, 1);
+      assert.equal(codes(list, "imageMissing")[0].node, gone.id);
+      assert.equal(codes(list, "imageMissing")[0].severity, "error");
+    });
+    await test("Events: a lost target, and one this version lacks", () => {
+      const p = problemProject();
+      const button = place(p, "button", { x: 0, y: 0, width: 20, height: 20 });
+      button.events.push({ trigger: "CLICKED", action: "hide", target: "nothing", text: "" });
+      button.events.push({ trigger: "CLICKED", action: "log", target: "", text: "fine" });
+      assert.equal(codes(findProblems(p), "eventTarget").length, 1);
+      const meter = place(p, "meter");
+      button.events[0].target = meter.id;
+      assert.equal(codes(findProblems(p), "eventTarget").length, 0);
+      assert.equal(codes(findProblems(p), "eventTargetVersion").length, 1);
+    });
+    await test("Conflicts: names, grid cells and overlapping controls", () => {
+      const p = problemProject();
+      place(p, "led", { x: 0, y: 0, width: 20, height: 20 }, undefined, "Same");
+      const twin = place(p, "led", { x: 15, y: 15, width: 20, height: 20 }, undefined, "same");
+      const list = findProblems(p);
+      assert.equal(codes(list, "nameClash")[0].node, twin.id);
+      assert.equal(codes(list, "nameClash")[0].params.generated, "ui_same_2");
+      assert.equal(codes(list, "overlap")[0].node, twin.id);
+      // One inside the other is a design, not a conflict.
+      const q = problemProject();
+      place(q, "container", { x: 0, y: 0, width: 100, height: 100 });
+      place(q, "label", { x: 10, y: 10, width: 20, height: 20 });
+      assert.deepEqual(codes(findProblems(q), "overlap"), []);
+      const g = problemProject();
+      const grid = place(g, "grid", { gridColumns: "1fr,1fr", gridRows: "1fr", x: 0, y: 0, width: 100, height: 100 });
+      place(g, "led", { gridCol: 0, gridRow: 0 }, grid.id);
+      place(g, "led", { gridCol: 0, gridRow: 0 }, grid.id);
+      place(g, "led", { gridCol: 5, gridRow: 0 }, grid.id);
+      const cells = findProblems(g);
+      assert.equal(codes(cells, "gridOverlap").length, 1);
+      assert.equal(codes(cells, "gridCell").length, 1);
+    });
+    await test("Positions: off the screen, partly off, and flowing children are left alone", () => {
+      const p = problemProject();
+      place(p, "led", { x: 1000, y: 0, width: 20, height: 20 });
+      place(p, "led", { x: p.device.w - 5, y: 0, width: 20, height: 20 });
+      place(p, "led", { x: -10, y: -10, width: 20, height: 20, align: "BOTTOM_RIGHT" });
+      const list = findProblems(p);
+      assert.equal(codes(list, "offScreen").length, 1);
+      assert.equal(codes(list, "partlyOff").length, 1);
+      const q = problemProject();
+      const box = place(q, "container", { x: 0, y: 0, width: 100, height: 100, flexFlow: "ROW" });
+      place(q, "led", { x: 0, y: 0, width: 50, height: 50 }, box.id);
+      place(q, "led", { x: 10, y: 10, width: 50, height: 50 }, box.id);
+      assert.deepEqual(codes(findProblems(q), "overlap"), []);
+    });
+    await test("Ranges, and errors sort first", () => {
+      const p = problemProject();
+      place(p, "slider", { min: 10, max: 5, x: 0, y: 0, width: 50, height: 10 });
+      place(p, "slider", { min: 0, max: 5, value: 9, x: 0, y: 20, width: 50, height: 10 });
+      place(p, "meter");
+      const list = findProblems(p);
+      assert.equal(codes(list, "range").length, 1);
+      assert.equal(codes(list, "valueRange").length, 1);
+      assert.equal(list[0].severity, "error");
+    });
+    await test("The LVGL version's engine and download are reported", () => {
+      const p = problemProject();
+      assert.deepEqual(findProblems(p, { installed: ["9.6.0"] }), []);
+      const [missing] = findProblems(p, { installed: [] });
+      assert.equal(missing.code, "notInstalled");
+      assert.equal(missing.manager, true);
+      p.lvgl = "9.5.0";
+      assert.equal(findProblems(p)[0].code, "engineClose");
+    });
+    await test("Compiler output: own files lead to code, others do not", () => {
+      const list = parseBuildProblems([
+        "C:\\work\\build\\src\\ui\\screens\\ui_Screen1.c:12:5: error: 'lv_foo' undeclared",
+        "D:/x/src/main.c:3:1: warning: unused variable",
+        "D:/x/third_party/lvgl/src/core/lv_obj.c:9:2: error: boom",
+        "D:/x/third_party/lvgl/src/core/lv_obj.c:9:2: warning: ignored",
+        "ld.exe: ui.c.obj: undefined reference to `ui_events`",
+        "CMake Error at CMakeLists.txt:3 (project):",
+        "[12/40] Building C object",
+        "D:/x/src/main.c:3:1: warning: unused variable",
+      ]);
+      assert.equal(list.length, 5);
+      assert.deepEqual([list[0].file, list[0].line, list[0].severity, list[0].hasCode], ["src/ui/screens/ui_Screen1.c", 12, "error", true]);
+      assert.deepEqual([list[1].file, list[1].severity], ["src/main.c", "warning"]);
+      assert.deepEqual([list[2].file, list[2].where, list[2].hasCode], [null, "lv_obj.c:9", false]);
+    });
+    await test("A control is found in the generated code", () => {
+      const files = { "src/ui/ui.c": "lv_obj_t *ui_a;\n", "src/ui/screens/ui_S.c": "// x\nui_a = lv_label_create(p);\n" };
+      assert.deepEqual(locateInCode(files, "ui_a"), { file: "src/ui/screens/ui_S.c", line: 2 });
+      assert.deepEqual(locateInCode({ "x.c": "\n\nuse(ui_b);" }, "ui_b"), { file: "x.c", line: 3 });
+      assert.equal(locateInCode(files, "ui_none"), null);
+      assert.equal(locateInCode(files, "ui_ab"), null);
+    });
+
     category("Widgets and commands");
     await test("The palette shows what each LVGL version has", () => {
       const names = (version) => PALETTE.flatMap(({ items }) => items).filter((type) => availableIn(type, version));

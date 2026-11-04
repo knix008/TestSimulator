@@ -14,7 +14,10 @@ import { StartScreen } from "./StartScreen.jsx";
 import { PreferencesDialog } from "./Preferences.jsx";
 import { Surface } from "./Surface.jsx";
 import { RULER_SIZE, Ruler } from "./Ruler.jsx";
-import { Attributes, CodeView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
+import { findProblems, locateInCode, parseBuildProblems } from "./lvgl/problems.js";
+import { cNames } from "./lvgl/emit.js";
+import { setTipTranslator } from "./tooltips.js";
+import { Attributes, CodeView, ProblemsView, ComponentTree, LogView, Palette, PanelTitle } from "./panels.jsx";
 import { AboutDialog, ConfirmDialog, LvglManager, MessageDialog, NewProjectDialog, ProjectSettings, SamplesDialog } from "./dialogs.jsx";
 import { useProjectStore } from "./store.js";
 import { FILE_EXTENSION, addNode, addScreen, cloneNode, createNode, findNode, findParent, newProject, parseProject, imageNameFor, removeNode, screenOf } from "./lvgl/project.js";
@@ -22,6 +25,7 @@ import { CONTAINERS, PALETTE, WIDGETS, availableIn } from "./lvgl/schema.js";
 import { GENERATED_DIRS, generateCode, projectFiles } from "./lvgl/codegen.js";
 import { addImage, clearImages, decodeImage, extensionOf, imageData, imageFiles } from "./lvgl/images.js";
 import { engineFor } from "./lvgl/versions.js";
+import { versionChoices } from "./dialogs.jsx";
 
 const MENU_ICONS = { file: "open", edit: "paste", view: "eye", run: "run", tools: "settings", help: "about" };
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2, 3, 4];
@@ -94,6 +98,7 @@ export function App({ initialSettings }) {
   const [recent, setRecent] = useState(initialSettings.recent);
   const [showStart, setShowStart] = useState(initialSettings.startScreen.showOnStartup);
   const t = useMemo(() => translator(language), [language]);
+  setTipTranslator(t);
 
   const [activeId, setActiveId] = useState(project.screens[0].id);
   const [selected, setSelected] = useState(project.screens[0].id);
@@ -115,6 +120,8 @@ export function App({ initialSettings }) {
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const [dialog, setDialog] = useState(null);
   const [bottomTab, setBottomTab] = useState("log");
+  const [chosenProblem, setChosenProblem] = useState(null);
+  const [codeFocus, setCodeFocus] = useState(null);
   const [logLines, setLogLines] = useState([]);
   const [buildLines, setBuildLines] = useState([]);
   const [native, setNative] = useState("idle"); // idle | building | running
@@ -601,6 +608,40 @@ export function App({ initialSettings }) {
     setView((value) => (value === "code" ? "design" : value));
   };
 
+  /** Changing the version redraws with its engine; the controls and the code follow the project. */
+  const changeVersion = (version) => {
+    setPopup(null);
+    if (version === store.get().lvgl) return;
+    store.update((draft) => {
+      draft.lvgl = version;
+    });
+    log(t("log.versionChanged", { version }));
+    if (findProblems(store.get(), { installed }).some((problem) => problem.severity === "error")) {
+      setBottomTab("problems");
+      setCollapsed((state) => ({ ...state, bottom: false }));
+    }
+  };
+
+  const goToCode = (problem) => {
+    const current = store.get();
+    const focus = problem.file
+      ? { file: problem.file, line: problem.line }
+      : locateInCode(generateCode(current, { imageData: false }), cNames(current).get(problem.node) ?? "");
+    if (!focus) return;
+    setCodeFocus({ ...focus, at: Date.now() });
+    setView((value) => (value === "design" ? "split" : value));
+  };
+
+  const chooseProblem = (problem) => {
+    setChosenProblem(problem.key);
+    if (problem.node) {
+      select(problem.node);
+      if (view !== "design" && problem.hasCode) goToCode(problem);
+    } else if (problem.file) {
+      goToCode(problem);
+    }
+  };
+
   const addBuildLine = useCallback((text, kind) => {
     setBuildLines((lines) => [...lines, { time: clock(), text, kind }].slice(-LOG_LIMIT));
   }, []);
@@ -1006,6 +1047,8 @@ export function App({ initialSettings }) {
       start: () => start,
       recent: () => recent,
       general: () => general,
+      problems: () => problems,
+      codeFocus: () => codeFocus,
       minimumWidth: () => minimumWidth.current,
       resetForTest: () => {
         load(newProject(), null);
@@ -1019,6 +1062,9 @@ export function App({ initialSettings }) {
   });
 
   const code = useMemo(() => (view === "design" ? null : generateCode(project, { imageData: false })), [project, view]);
+  const problems = useMemo(() => [...parseBuildProblems(buildLines.map((line) => line.text)), ...findProblems(project, { installed })], [project, installed, buildLines]);
+  const problemCounts = { error: 0, warning: 0, info: 0 };
+  for (const problem of problems) problemCounts[problem.severity]++;
 
   const dragTitlebar = (event) => {
     if (event.button === 0 && !(event.target instanceof Element && event.target.closest("button"))) {
@@ -1071,9 +1117,27 @@ export function App({ initialSettings }) {
         ))}
         <span className="tool-group toolbar-info">
           <i className="tool-sep" />
-          <button type="button" className="version-chip" data-command="version-chip" title={t("settings.version")} onClick={() => setDialog({ kind: "settings" })}>
-            <Icon name="manager" size={14} /> LVGL {project.lvgl}
-          </button>
+          <div className="popup-host">
+            <button type="button" className={popup === "version" ? "version-chip active" : "version-chip"} data-command="version-chip" disabled={!designing} aria-haspopup="menu" aria-expanded={popup === "version"} title={t("version.change")} onClick={() => setPopup(popup === "version" ? null : "version")}>
+              <Icon name="manager" size={14} /> LVGL {project.lvgl} <Icon name="caret" size={12} />
+            </button>
+            {popup === "version" && (
+              <div className="menu-pop version-pop" role="menu" data-version-menu="">
+                {versionChoices(t, installed, project.lvgl).map((item) => (
+                  <button type="button" key={item.value} role="menuitem" data-version={item.value} title={t("version.switchTo", { version: item.value })} className={item.value === project.lvgl ? "selected" : undefined} onClick={() => changeVersion(item.value)}>
+                    <Icon name={item.value === project.lvgl ? "check" : "manager"} />
+                    <span className="menu-label">{item.label}</span>
+                    <span className="menu-note">{item.note}</span>
+                  </button>
+                ))}
+                <div className="sep" />
+                <button type="button" role="menuitem" data-command="version-manager" onClick={() => { setPopup(null); setDialog({ kind: "manager" }); }}>
+                  <Icon name="manager" />
+                  <span className="menu-label">{t("cmd.manager")}</span>
+                </button>
+              </div>
+            )}
+          </div>
           <span className="zoom-box">
             <button type="button" className="mini" data-command="zoomOut" disabled={c.zoomOut.disabled} aria-label={c.zoomOut.label} title={c.zoomOut.label} onClick={c.zoomOut.run}><Icon name="zoomOut" size={14} /></button>
             <span data-zoom="">{Math.round(zoom * 100)}%</span>
@@ -1215,7 +1279,7 @@ export function App({ initialSettings }) {
               />
             </div>
             </div>
-            {code && <CodeView files={code} />}
+            {code && <CodeView files={code} focus={codeFocus} />}
           </div>
           </div>
           <div className="splitter h" data-splitter="bottom" style={collapsed.bottom ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("bottom", -1)} />
@@ -1223,13 +1287,19 @@ export function App({ initialSettings }) {
             <div className="bottom-tabs">
               <button type="button" data-bottom="log" className={bottomTab === "log" ? "active" : undefined} onClick={() => setBottomTab("log")}><Icon name="log" /> {t("panel.log")}</button>
               <button type="button" data-bottom="build" className={bottomTab === "build" ? "active" : undefined} onClick={() => setBottomTab("build")}><Icon name="build" /> {t("panel.build")}</button>
+              <button type="button" data-bottom="problems" className={bottomTab === "problems" ? "active" : undefined} title={t("problem.tabTip")} onClick={() => setBottomTab("problems")}>
+                <Icon name="problems" /> {t("panel.problems")}
+                {problemCounts.error + problemCounts.warning > 0 && <b className="problem-count" data-problem-count="" data-errors={problemCounts.error ? "" : undefined}>{problemCounts.error + problemCounts.warning}</b>}
+              </button>
               <span className="bottom-actions">
-                <button type="button" className="mini" data-command="clear-output" disabled={(bottomTab === "log" ? logLines : buildLines).length === 0} title={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} aria-label={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} onClick={() => (bottomTab === "log" ? setLogLines([]) : setBuildLines([]))}><Icon name="clearOutput" size={14} /></button>
+                <button type="button" className="mini" data-command="clear-output" disabled={bottomTab === "problems" || (bottomTab === "log" ? logLines : buildLines).length === 0} title={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} aria-label={t(bottomTab === "log" ? "cmd.clearLog" : "cmd.clearBuild")} onClick={() => (bottomTab === "log" ? setLogLines([]) : setBuildLines([]))}><Icon name="clearOutput" size={14} /></button>
                 <button type="button" className="mini" data-command="clean-build" disabled={c.cleanBuild.disabled} title={c.cleanBuild.label} aria-label={c.cleanBuild.label} onClick={c.cleanBuild.run}><Icon name="delete" size={14} /></button>
               </span>
               <button type="button" className="mini" data-collapse="bottom" title={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} aria-label={t(collapsed.bottom ? "panel.expand" : "panel.collapse")} onClick={() => togglePanel("bottom")}><Icon name={collapsed.bottom ? "collapseUp" : "collapseDown"} size={14} /></button>
             </div>
-            {collapsed.bottom ? null : bottomTab === "log" ? <LogView id="log" lines={logLines} /> : <LogView id="build" lines={buildLines} />}
+            {collapsed.bottom ? null : bottomTab === "problems" ? (
+              <ProblemsView t={t} problems={problems} chosen={chosenProblem} onChoose={chooseProblem} onControl={(problem) => { setChosenProblem(problem.key); select(problem.node); }} onCode={(problem) => { setChosenProblem(problem.key); if (problem.node) select(problem.node); goToCode(problem); }} onManager={() => setDialog({ kind: "manager" })} />
+            ) : bottomTab === "log" ? <LogView id="log" lines={logLines} /> : <LogView id="build" lines={buildLines} />}
           </div>
         </div>
         <div className="splitter" data-splitter="right" style={collapsed.right ? { visibility: "hidden" } : undefined} onPointerDown={beginSplit("right", -1)} />
@@ -1343,7 +1413,7 @@ export function App({ initialSettings }) {
         />
       )}
       {dialog?.kind === "settings" && (
-        <ProjectSettings t={t} store={store} installed={installed} onClose={() => setDialog(null)} onManager={() => setDialog({ kind: "manager", back: "settings" })} />
+        <ProjectSettings t={t} store={store} installed={installed} onVersion={changeVersion} onClose={() => setDialog(null)} onManager={() => setDialog({ kind: "manager", back: "settings" })} />
       )}
       {dialog?.kind === "manager" && (
         <LvglManager t={t} autoInstall={dialog.autoInstall} onInstalledChange={setInstalled} onClose={() => setDialog(dialog.back ? { kind: dialog.back } : null)} />

@@ -1,5 +1,5 @@
 // The side and bottom panels: palette, component tree, attributes, code and log.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { Icon } from "./icons.jsx";
 import { ColorField, IconSelect, SizeField, Stepper, Toggle } from "./controls.jsx";
 import { ACTION_IDS, GRID_CELL_PROPS, PALETTE, TRIGGERS, WIDGETS, availableIn } from "./lvgl/schema.js";
@@ -32,7 +32,7 @@ export function Palette({ t, version, disabled, onDragStart, onAdd }) {
                 data-palette={type}
                 className="palette-item"
                 disabled={disabled}
-                title={t(`widget.${type}`)}
+                title={t("palette.tip", { name: t(`widget.${type}`) })}
                 onPointerDown={(event) => event.button === 0 && onDragStart(type, event)}
                 onDoubleClick={() => onAdd(type)}
               >
@@ -256,11 +256,23 @@ function classOf(token) {
 }
 
 /** Read-only generated code with light syntax colours. */
-export function CodeView({ files }) {
+export function CodeView({ files, focus }) {
   const names = Object.keys(files);
   const [chosen, setName] = useState("src/ui/ui.c");
   const name = names.includes(chosen) ? chosen : names[0];
   const parts = useMemo(() => (files[name] ?? "").split(TOKEN), [files, name]);
+  const pre = useRef(null);
+  const [lineHeight, setLineHeight] = useState(17.4);
+  useEffect(() => {
+    if (focus) setName(focus.file);
+  }, [focus]);
+  const focusLine = focus && focus.file === name ? focus.line : null;
+  useLayoutEffect(() => {
+    if (!pre.current || !focusLine) return;
+    const height = Number.parseFloat(getComputedStyle(pre.current).lineHeight) || 17.4;
+    setLineHeight(height);
+    pre.current.scrollTop = Math.max(0, (focusLine - 1) * height - pre.current.clientHeight / 2);
+  }, [focus, focusLine]);
   return (
     <div className="code-view">
       <div className="code-tabs">
@@ -268,9 +280,58 @@ export function CodeView({ files }) {
           <button type="button" key={item} data-code-tab={item} title={item} className={item === name ? "active" : undefined} onClick={() => setName(item)}>{item.split("/").pop()}</button>
         ))}
       </div>
-      <pre data-code="">
+      <pre data-code="" ref={pre}>
+        {focusLine && <i className="code-focus" data-code-focus={focusLine} style={{ top: 8 + (focusLine - 1) * lineHeight, height: lineHeight }} />}
         {parts.map((part, index) => (index % 2 ? <span key={index} className={classOf(part)}>{part}</span> : part))}
       </pre>
+    </div>
+  );
+}
+
+const SEVERITY_ICON = { error: "error", warning: "warning", info: "info" };
+
+/** The problems, as a list: choosing one goes to its control or to its code. */
+export function ProblemsView({ t, problems, chosen, onChoose, onControl, onCode, onManager }) {
+  if (!problems.length) {
+    return <div className="problems-empty" data-problems="" data-empty=""><Icon name="check" /> {t("problem.none")}</div>;
+  }
+  return (
+    <div className="problems" data-problems="" role="table">
+      <div className="problem-head" role="row">
+        <span role="columnheader">{t("problem.severity")}</span>
+        <span role="columnheader">{t("problem.message")}</span>
+        <span role="columnheader">{t("problem.where")}</span>
+        <span role="columnheader">{t("problem.go")}</span>
+      </div>
+      <div className="problem-rows">
+        {problems.map((problem) => (
+          <div
+            key={problem.key}
+            role="row"
+            tabIndex={0}
+            data-problem={problem.code}
+            data-severity={problem.severity}
+            aria-selected={problem.key === chosen}
+            className={problem.key === chosen ? "problem-row selected" : "problem-row"}
+            onClick={() => onChoose(problem)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onChoose(problem);
+            }}
+          >
+            <span className="problem-severity" title={t(`problem.${problem.severity}`)}><Icon name={SEVERITY_ICON[problem.severity]} size={14} /> {t(`problem.${problem.severity}`)}</span>
+            <span className="problem-message" title={t(`problem.${problem.code}`, problem.params)}>{t(`problem.${problem.code}`, problem.params)}</span>
+            <span className="problem-where" title={problem.where ?? problem.nodeName}>
+              {problem.node && <Icon name={WIDGETS[problem.type].icon} size={14} />}
+              {problem.where ?? (problem.node ? `${problem.screen} › ${problem.nodeName}` : "")}
+            </span>
+            <span className="problem-go">
+              {problem.node && <button type="button" className="mini" data-problem-control="" title={t("problem.toControl")} aria-label={t("problem.toControl")} onClick={(event) => { event.stopPropagation(); onControl(problem); }}><Icon name="design" size={14} /></button>}
+              {(problem.node || problem.file) && <button type="button" className="mini" data-problem-code="" disabled={!problem.hasCode} title={t(problem.hasCode ? "problem.toCode" : "problem.noCode")} aria-label={t("problem.toCode")} onClick={(event) => { event.stopPropagation(); onCode(problem); }}><Icon name="code" size={14} /></button>}
+              {problem.manager && <button type="button" className="mini" data-problem-manager="" title={t("cmd.manager")} aria-label={t("cmd.manager")} onClick={(event) => { event.stopPropagation(); onManager(); }}><Icon name="manager" size={14} /></button>}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

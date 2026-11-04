@@ -136,7 +136,7 @@ export function versionChoices(t, installed, current) {
   });
 }
 
-export function ProjectSettings({ t, store, onClose, onManager, installed }) {
+export function ProjectSettings({ t, store, onClose, onManager, onVersion, installed }) {
   const project = store.project;
   const edit = (change, coalesce) => store.update(change, { coalesce: coalesce ? `settings:${coalesce}` : null });
   const engine = engineFor(project.lvgl);
@@ -152,7 +152,7 @@ export function ProjectSettings({ t, store, onClose, onManager, installed }) {
         <input className="text-input" data-field="projectName" value={project.name} onChange={(event) => edit((draft) => { draft.name = event.target.value; }, "name")} />
         <span>{t("settings.version")}</span>
         <div className="row">
-          <IconSelect id="lvglVersion" value={project.lvgl} options={versionChoices(t, installed, project.lvgl)} onChange={(version) => edit((draft) => { draft.lvgl = version; })} />
+          <IconSelect id="lvglVersion" value={project.lvgl} options={versionChoices(t, installed, project.lvgl)} onChange={onVersion} />
           <button type="button" data-command="open-manager" onClick={onManager}><Icon name="manager" /> {t("settings.manage")}</button>
         </div>
         {!engine.exact && <p className="form-note" data-note="engine">{t("settings.engineNote", { engine: engine.engine, version: project.lvgl })}</p>}

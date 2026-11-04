@@ -84,7 +84,8 @@
   min-width: 0;
   overflow: hidden;
   padding: 10px 14px 12px;
-  border: 1px solid var(--line);
+  /* Faint in every theme: a theme's strong line colour must not outline the cards. */
+  border: 1px solid color-mix(in srgb, var(--line) 30%, transparent);
   border-radius: 14px;
   /* Settings › Start screen › Card opacity sets --start-card-alpha on .start-page. */
   background: color-mix(in srgb, var(--panel) var(--start-card-alpha, 80%), transparent);
