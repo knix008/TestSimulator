@@ -6,7 +6,7 @@ import type { Language } from './lib/types'
 /** Everything the About window lists, in the order it is shown. */
 export function aboutFacts(language: Language): { label: string; value: string }[] {
   const tr = (key: string) => t(language, key)
-  const versions = typeof window !== 'undefined' ? window.electronAppApi?.versions() : undefined
+  const versions = typeof window !== 'undefined' ? window.hostAppApi?.versions() : undefined
   const formatted = (() => {
     try {
       return new Date(buildInfo.buildTime).toLocaleString(language === 'ko' ? 'ko-KR' : 'en-GB')
@@ -27,7 +27,7 @@ export function aboutFacts(language: Language): { label: string; value: string }
   facts.push({
     label: tr('aboutRuntime'),
     value: versions
-      ? `Electron ${versions.electron} · Chromium ${versions.chrome} · Node ${versions.node}`
+      ? `Tauri ${versions.tauri} · WebView ${versions.webview}`
       : tr('aboutBrowser'),
   })
   facts.push({ label: tr('aboutBuiltWith'), value: `React ${buildInfo.react} · Vite ${buildInfo.vite}` })

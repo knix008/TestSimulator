@@ -12,7 +12,7 @@ const read = (relative) => readFileSync(fileURLToPath(new URL(relative, root)), 
 const appSource = read('src/App.tsx')
 const cssSource = read('src/App.css')
 const dialogSource = read('src/dialogs.tsx')
-const mainProcess = read('electron/main.cjs')
+const shell = read('src-tauri/src/lib.rs')
 
 /* --------------------------------------------------------- the toolbar row */
 
@@ -55,10 +55,9 @@ test('the toolbar is one line that never scrolls', () => {
 test('the window cannot be made narrower than the toolbar row needs', () => {
   // Measured at 1257px with every command, task action and colour
   // control at the tightened spacing; the minimum leaves a little room.
-  assert.match(mainProcess, /const minimumWindowSize = \{ width: 1280, height: 700 \}/, 'no minimum is declared')
-  assert.match(mainProcess, /minWidth: minimumWindowSize\.width/, 'the minimum width is not applied')
-  assert.match(mainProcess, /minHeight: minimumWindowSize\.height/, 'the minimum height is not applied')
-  const minWidth = Number(mainProcess.match(/minimumWindowSize = \{ width: (\d+)/)[1])
+  assert.match(shell, /const MIN_HEIGHT: f64 = 700\.0/, 'no minimum is declared')
+  assert.match(shell, /\.min_inner_size\(MIN_WIDTH, MIN_HEIGHT\)/, 'the minimum is not applied')
+  const minWidth = Number(shell.match(/const MIN_WIDTH: f64 = (\d+)/)[1])
   assert.ok(minWidth >= 1257, `${minWidth} is narrower than the toolbar needs`)
   assert.match(readFileSync(fileURLToPath(new URL('../src/index.css', import.meta.url)), 'utf8'), new RegExp(`min-width: ${minWidth}px`), 'the page minimum disagrees with the window minimum')
 })
@@ -84,9 +83,14 @@ test('a resize marker is drawn in the bottom-right corner', () => {
   assert.match(block, /position: fixed/, 'the marker does not sit in the corner')
   assert.match(block, /right: 0/)
   assert.match(block, /bottom: 0/)
-  // It must not swallow the drag: the OS owns the corner.
-  assert.match(block, /pointer-events: none/, 'the marker would block the real resize handle')
-  assert.ok(cssSource.includes('.resize-grip::after'), 'nothing is actually drawn')
+  // The page starts the resize itself, so the marker must take the pointer.
+  assert.doesNotMatch(block, /pointer-events: none/, 'a press on the marker would not reach the page')
+  assert.match(read('src/host/tauriBridge.ts'), /closest\('\.resize-grip'\)[\s\S]*?startResizeDragging\('SouthEast'\)/, 'the marker starts no resize')
+  // Six dots in a triangle against the corner: rows of three, two and one.
+  const dots = cssSource.slice(cssSource.indexOf('.resize-grip::after {'))
+  const drawn = dots.slice(0, dots.indexOf('}'))
+  assert.match(drawn, /border-radius: 50%/, 'the marker is not made of dots')
+  assert.match(drawn, /box-shadow: -4px 0, -8px 0, 0 -4px, -4px -4px, 0 -8px;/, 'the dots do not form a triangle')
 })
 
 /* ------------------------------------------------------------ about window */
@@ -94,7 +98,7 @@ test('a resize marker is drawn in the bottom-right corner', () => {
 test('the build info is generated and carries what a bug report needs', () => {
   assert.ok(existsSync(fileURLToPath(new URL('src/build-info.json', root))), 'run npm run build:info')
   const info = JSON.parse(read('src/build-info.json'))
-  for (const key of ['name', 'version', 'description', 'author', 'buildTime', 'node', 'electron', 'react', 'vite']) {
+  for (const key of ['name', 'version', 'description', 'author', 'buildTime', 'node', 'tauri', 'react', 'vite']) {
     assert.ok(info[key], `build-info.json has no ${key}`)
   }
   assert.match(info.version, /^\d+\.\d+\.\d+$/)
@@ -104,7 +108,9 @@ test('the build info is generated and carries what a bug report needs', () => {
 test('the build info is refreshed before every build', () => {
   const pkg = JSON.parse(read('package.json'))
   assert.match(pkg.scripts.build, /build:info/, 'a build could ship a stale build stamp')
-  assert.match(pkg.scripts.dev, /build:info/, 'the dev server would show a stale build stamp')
+  for (const launcher of ['dev', 'start']) {
+    assert.match(read(`scripts/${launcher}.mjs`), /generate-build-info\.cjs/, `npm ${launcher} would show a stale build stamp`)
+  }
   assert.equal(pkg.scripts['build:info'], 'node scripts/generate-build-info.cjs')
 })
 
@@ -129,12 +135,12 @@ test('the About window lists version, build, author and runtime', () => {
 })
 
 test('the About window falls back gracefully outside the desktop shell', () => {
-  // In the browser build there is no Electron to report versions for.
+  // In the browser build there is no shell to report versions for.
   const facts = aboutFacts('en')
   const runtime = facts.find((fact) => fact.label === t('en', 'aboutRuntime'))
   assert.ok(runtime, 'no runtime row')
   assert.equal(runtime.value, t('en', 'aboutBrowser'), 'the browser build should say so rather than showing blanks')
-  assert.ok(!facts.some((fact) => fact.label === t('en', 'aboutPlatform')), 'the platform row needs Electron')
+  assert.ok(!facts.some((fact) => fact.label === t('en', 'aboutPlatform')), 'the platform row needs the shell')
 })
 
 test('the About window puts the description beside the icon, with the facts below', () => {
@@ -156,7 +162,7 @@ test('every About fact can be copied in one go', () => {
 })
 
 test('the About and Settings windows are wide enough not to scroll', () => {
-  const specs = readFileSync(fileURLToPath(new URL('electron/childwindows.cjs', root)), 'utf8')
+  const specs = readFileSync(fileURLToPath(new URL('src/dialogSpecs.ts', root)), 'utf8')
   const about = Number(specs.match(/about: \{ width: (\d+)/)[1])
   assert.ok(about >= 520, `the About window is only ${about}px wide, which squeezes the fact rows`)
   for (const name of ['about', 'settings']) {

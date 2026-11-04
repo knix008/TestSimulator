@@ -16,6 +16,30 @@ export type GradientDef = {
   name: string
   stops: GradientStop[]
   opacityStops: OpacityStop[]
+  /** The Korean name of a built-in one. */
+  ko?: string
+}
+
+/** Evenly spaced colours, solid all the way. */
+function ramp(id: string, en: string, ko: string, colours: string[]): GradientDef {
+  return {
+    id,
+    name: en,
+    ko,
+    stops: colours.map((color, index) => ({ position: index / (colours.length - 1), color })),
+    opacityStops: [{ position: 0, opacity: 1 }, { position: 1, opacity: 1 }],
+  }
+}
+
+const KOREAN_NAMES: Record<string, string> = {
+  fgBg: '전경색에서 배경색으로', fgTransparent: '전경색에서 투명으로', blackWhite: '검정에서 흰색으로', spectrum: '스펙트럼',
+  sunset: '노을', ocean: '바다', chromeRamp: '크롬', copper: '구리',
+}
+
+/** A preset's name in the language on screen; a gradient the user made keeps the name they gave it. */
+export function gradientLabel(def: GradientDef, language: string) {
+  if (language !== 'ko') return def.name
+  return def.ko ?? KOREAN_NAMES[def.id] ?? def.name
 }
 
 export const gradientPresets: GradientDef[] = [
@@ -27,6 +51,41 @@ export const gradientPresets: GradientDef[] = [
   { id: 'ocean', name: 'Ocean', stops: [{ position: 0, color: '#0c4a6e' }, { position: 0.5, color: '#0ea5e9' }, { position: 1, color: '#e0f2fe' }], opacityStops: [{ position: 0, opacity: 1 }, { position: 1, opacity: 1 }] },
   { id: 'chromeRamp', name: 'Chrome', stops: [{ position: 0, color: '#e5e7eb' }, { position: 0.5, color: '#4b5563' }, { position: 0.55, color: '#f9fafb' }, { position: 1, color: '#9ca3af' }], opacityStops: [{ position: 0, opacity: 1 }, { position: 1, opacity: 1 }] },
   { id: 'copper', name: 'Copper', stops: [{ position: 0, color: '#78350f' }, { position: 0.5, color: '#fbbf24' }, { position: 1, color: '#78350f' }], opacityStops: [{ position: 0, opacity: 1 }, { position: 1, opacity: 1 }] },
+  ramp('sunrise', 'Sunrise', '일출', ['#2c3e70', '#b5527e', '#f6a06a', '#ffe9a8']),
+  ramp('dusk', 'Dusk', '해 질 녘', ['#0f0c29', '#302b63', '#7b4397', '#dc2430']),
+  ramp('dawn', 'Dawn', '새벽', ['#355c7d', '#6c5b7b', '#c06c84', '#f8b195']),
+  ramp('skyBlue', 'Clear sky', '맑은 하늘', ['#1e6fd9', '#6db3f2', '#d6ecff']),
+  ramp('nightSky', 'Night sky', '밤하늘', ['#02040f', '#0b1f4b', '#274b8c']),
+  ramp('aurora', 'Aurora', '오로라', ['#04151f', '#0f8a6d', '#57e39a', '#7a3fd1']),
+  ramp('lagoon', 'Lagoon', '석호', ['#004e64', '#00a5a5', '#7ae7c7']),
+  ramp('deepSea', 'Deep sea', '심해', ['#000428', '#004e92']),
+  ramp('forest', 'Forest', '숲', ['#0b3d1e', '#2e7d32', '#a5d66b']),
+  ramp('moss', 'Moss', '이끼', ['#2f3e1f', '#6b8e23', '#c9d68a']),
+  ramp('spring', 'Spring', '봄', ['#ffd1dc', '#fff4b8', '#bff0c0']),
+  ramp('autumn', 'Autumn', '가을', ['#5a1e0a', '#c1440e', '#f2a31b', '#f9dc5c']),
+  ramp('desert', 'Desert', '사막', ['#7a4b24', '#d39a5c', '#f6e3b4']),
+  ramp('earth', 'Earth', '대지', ['#2b1a0e', '#6f4e37', '#c2a27a']),
+  ramp('fire', 'Fire', '불꽃', ['#1a0000', '#b81d13', '#f47b20', '#ffe066']),
+  ramp('lava', 'Lava', '용암', ['#000000', '#7a0000', '#ff4500']),
+  ramp('ice', 'Ice', '얼음', ['#0b3c5d', '#7cc6e8', '#f0fbff']),
+  ramp('mint', 'Mint', '민트', ['#0f9b8e', '#a8efd7']),
+  ramp('peach', 'Peach', '복숭아', ['#ff9a8b', '#ffd3a5']),
+  ramp('rose', 'Rose', '장미', ['#7a0c33', '#e8467c', '#ffc1d6']),
+  ramp('lavender', 'Lavender', '라벤더', ['#5b4b9a', '#b8a4e3', '#efe7fb']),
+  ramp('grape', 'Grape', '포도', ['#2e0a4f', '#7b2cbf', '#c77dff']),
+  ramp('candy', 'Candy', '사탕', ['#ff9ad5', '#ffe08a', '#8ee3f5']),
+  ramp('pastelRainbow', 'Pastel rainbow', '파스텔 무지개', ['#ffb3ba', '#ffdfba', '#fff5ba', '#baffc9', '#bae7ff', '#d9baff']),
+  ramp('neon', 'Neon', '네온', ['#ff00cc', '#3333ff', '#00ffcc']),
+  ramp('electric', 'Electric', '전기', ['#000046', '#1cb5e0']),
+  ramp('gold', 'Gold', '금', ['#6b4e00', '#f5d76e', '#fff4c2', '#b8860b']),
+  ramp('silver', 'Silver', '은', ['#5f6368', '#e8eaed', '#9aa0a6', '#f8f9fa']),
+  ramp('bronze', 'Bronze', '청동', ['#3e2312', '#a9713a', '#e0b080', '#6b3f1d']),
+  ramp('steel', 'Steel', '강철', ['#232b33', '#74828f', '#c9d3db']),
+  ramp('sepia', 'Sepia', '세피아', ['#2a1a0c', '#8a6239', '#efe0c4']),
+  ramp('duotoneTeal', 'Teal and orange', '청록과 주황', ['#0b5563', '#f2f2f2', '#e8772e']),
+  ramp('infrared', 'Infrared', '적외선', ['#10002b', '#c9184a', '#ffd60a', '#ffffff']),
+  ramp('thermal', 'Thermal', '열화상', ['#000080', '#00ffff', '#00ff00', '#ffff00', '#ff0000']),
+  ramp('grayscale', 'Gray steps', '회색 단계', ['#1a1a1a', '#666666', '#b3b3b3', '#f2f2f2']),
 ]
 
 /** Swaps the 'foreground'/'background' placeholders for real colours. */

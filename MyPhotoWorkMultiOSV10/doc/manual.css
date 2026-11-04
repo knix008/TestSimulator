@@ -1,0 +1,92 @@
+/* My Photo Work: the user guide. The colour tokens are the app's own (src/themes.ts);
+   opened from the app, manual.js replaces them with the theme on screen. */
+:root {
+  color-scheme: dark;
+  --accent: #6ec8ff;
+  --accent-soft: rgba(110, 200, 255, 0.2);
+  --app-bg-a: #0f151b;
+  --app-bg-b: #1a2430;
+  --border: rgba(227, 240, 245, 0.14);
+  --control-bg: rgba(255, 255, 255, 0.06);
+  --menu-bg: #192027;
+  --text-muted: #a8b8b6;
+  --text-primary: #eef6fa;
+  --toolbar-bg: rgba(14, 20, 26, 0.94);
+  --doc-font: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --doc-size: 15px;
+  --head-h: 52px;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+html { min-width: 800px; }
+body { background: var(--app-bg-a); color: var(--text-primary); font: 14px/1.6 var(--doc-font); overflow: hidden; }
+body.ko article.en, body.en article.ko, body.ko h1 .en, body.en h1 .ko { display: none; }
+
+/* The header: the title, then font, text size and language, then the window buttons. */
+.doc-head { align-items: center; background: var(--toolbar-bg); border-bottom: 1px solid var(--border); display: flex; font-size: 13px; gap: 16px; height: var(--head-h); padding-left: 16px; position: relative; user-select: none; z-index: 5; }
+.doc-head h1 { align-items: center; display: flex; font-size: 15px; font-weight: 650; gap: 9px; margin: 0; white-space: nowrap; }
+.doc-head h1 img { height: 22px; width: 22px; }
+.doc-head .spacer { align-self: stretch; flex: 1; }
+.tools { align-items: center; display: flex; gap: 10px; }
+.font-pick { position: relative; }
+.font-pick > button, .size, .lang-group { background: var(--menu-bg); border: 1px solid var(--border); border-radius: 7px; color: inherit; height: 30px; }
+.font-pick > button { align-items: center; cursor: pointer; display: inline-flex; font: inherit; gap: 7px; justify-content: space-between; min-width: 172px; padding: 0 9px; }
+.font-pick > button svg:first-child { color: var(--accent); flex: none; }
+.font-pick > button span { flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.font-pick > button:hover { border-color: var(--accent); }
+.font-list { background: var(--menu-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; left: 0; max-height: 70vh; min-width: 100%; overflow-y: auto; padding: 4px; position: absolute; top: 34px; white-space: nowrap; }
+.font-list[hidden] { display: none; }
+.font-list button { background: none; border: 0; border-radius: 5px; color: inherit; cursor: pointer; font-size: 13.5px; padding: 5px 10px; text-align: left; }
+.font-list button:hover { background: var(--accent-soft); }
+.font-list button[aria-selected='true'] { color: var(--accent); font-weight: 600; }
+.size, .lang-group { align-items: stretch; display: inline-flex; overflow: hidden; }
+.size button { align-items: center; background: none; border: 0; color: inherit; cursor: pointer; display: grid; padding: 0; place-items: center; width: 30px; }
+.size button:hover:not(:disabled) { background: var(--accent-soft); }
+.size button:disabled { cursor: default; opacity: 0.35; }
+.size output { align-items: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); display: flex; font-variant-numeric: tabular-nums; justify-content: center; min-width: 52px; }
+.lang-group button { align-items: center; background: none; border: 0; color: inherit; cursor: pointer; display: inline-flex; font: inherit; gap: 6px; padding: 0 11px; white-space: nowrap; }
+.lang-group button + button { border-left: 1px solid var(--border); }
+.lang-group button:hover { background: var(--accent-soft); }
+.lang-group button.on { background: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+.flag { border: 1px solid rgba(128, 128, 128, 0.45); border-radius: 2px; display: block; flex: none; }
+.win-buttons { align-self: stretch; display: none; }
+body.desktop .win-buttons { display: flex; }
+.win-btn { background: none; border: 0; color: inherit; cursor: pointer; display: grid; place-items: center; width: 46px; }
+.win-btn:hover { background: var(--accent-soft); }
+.win-btn.close:hover { background: #e81123; color: #fff; }
+
+/* The contents on the left, the text on the right. */
+.layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); height: calc(100vh - var(--head-h)); }
+#side { background: var(--menu-bg); border-right: 1px solid var(--border); font-size: calc(var(--doc-size) - 1.5px); overflow-y: auto; padding: 12px 8px 28px; scrollbar-width: thin; }
+#side ol { list-style: none; margin: 0; padding: 0; }
+#side ol ol { border-left: 1px solid var(--border); margin: 2px 0 6px 12px; padding-left: 10px; }
+#side a { border-radius: 6px; color: inherit; display: block; line-height: 1.35; padding: 0.35em 10px; text-decoration: none; }
+#side ol ol a { color: var(--text-muted); padding: 0.25em 8px; }
+#side a:hover { background: var(--accent-soft); }
+#side a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+#content { overflow-y: auto; scrollbar-width: thin; }
+main { font-size: var(--doc-size); margin: 0 auto; max-width: 960px; padding: 22px 26px 80px; }
+section { background: var(--menu-bg); border: 1px solid var(--border); border-radius: 10px; margin: 0 0 24px; padding: 18px 22px 10px; scroll-margin-top: 12px; }
+section h2 { font-size: 1.4em; margin: 0 0 10px; }
+section h3 { font-size: 1.12em; margin: 20px 0 6px; scroll-margin-top: 12px; }
+section h4 { font-size: 1em; margin: 14px 0 4px; }
+p { margin: 0 0 10px; }
+ul, ol { margin: 0 0 12px; padding-left: 1.4em; }
+li { margin: 3px 0; }
+code { background: var(--control-bg); border-radius: 4px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; padding: 0.05em 0.35em; }
+pre { background: var(--app-bg-a); border: 1px solid var(--border); border-radius: 8px; margin: 0 0 12px; overflow-x: auto; padding: 10px 12px; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 3px solid var(--accent); color: var(--text-muted); margin: 0 0 12px; padding: 2px 12px; }
+.table { margin: 0 0 14px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--control-bg); font-weight: 600; }
+figure { margin: 8px 0 16px; }
+figure img { border: 1px solid var(--border); border-radius: 8px; display: block; height: auto; max-width: 100%; }
+figcaption { color: var(--text-muted); font-size: 0.88em; margin-top: 5px; }
+a { color: var(--accent); }
+
+/* The window's resize marker: dots in a triangle, as in the app. */
+.grip { bottom: 0; cursor: nwse-resize; display: none; height: 18px; position: fixed; right: 0; width: 18px; z-index: 6; }
+body.desktop .grip { display: block; }
+.grip::after { background: currentColor; border-radius: 50%; bottom: 3px; box-shadow: -4px 0, -8px 0, 0 -4px, -4px -4px, 0 -8px; color: var(--text-muted); content: ''; height: 2px; position: absolute; right: 3px; width: 2px; }

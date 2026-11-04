@@ -28,7 +28,7 @@ const info = {
   branch: git('rev-parse', '--abbrev-ref', 'HEAD'),
   // The toolchain the bundle was produced with.
   node: process.versions.node,
-  electron: pkg.devDependencies?.electron?.replace(/^[^\d]*/, '') ?? '',
+  tauri: pkg.dependencies?.['@tauri-apps/api']?.replace(/^[^\d]*/, '') ?? '',
   react: pkg.dependencies?.react?.replace(/^[^\d]*/, '') ?? '',
   vite: pkg.devDependencies?.vite?.replace(/^[^\d]*/, '') ?? '',
 }

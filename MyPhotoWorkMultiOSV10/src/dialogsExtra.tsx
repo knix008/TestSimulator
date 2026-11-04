@@ -13,7 +13,7 @@ import type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
 import { NumberStepper } from './dialogs'
 import { adjustmentFields, fieldToSlider, sliderToField } from './adjustmentFields'
 import { adjustmentTypes, filterCatalog } from './catalog'
-import { gradientCss, gradientPresets, type GradientDef, type GradientStop, type OpacityStop } from './lib/gradients'
+import { gradientCss, gradientLabel, gradientPresets, type GradientDef, type GradientStop, type OpacityStop } from './lib/gradients'
 import { blendModes, defaultAdjustment, defaultEffects, exportFormats, type Adjustment, type BlendMode, type ExportFormat, type Language, type LayerEffects, type Tool } from './lib/types'
 import { blendLabel, toolLabel } from './i18n'
 
@@ -714,7 +714,7 @@ function GradientEditorDialog({ payload, onResult, onClose }: BodyProps) {
       <label>{tr('gradientPreset')}
         <select value="" onChange={(event) => { const preset = presets.find((item) => item.id === event.target.value); if (preset) setDef({ ...preset, id: def.id, stops: preset.stops.map((s) => ({ ...s })), opacityStops: preset.opacityStops.map((s) => ({ ...s })) }) }}>
           <option value="">—</option>
-          {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+          {presets.map((preset) => <option key={preset.id} value={preset.id}>{gradientLabel(preset, payload.language)}</option>)}
         </select>
       </label>
       <div className="gradient-preview" style={{ background: gradientCss(def, fg, bg) }} />
@@ -781,7 +781,7 @@ function NeuralDialog({ payload, onResult, onClose }: BodyProps) {
  * The Neural Models window: every model the app can use, its size, licence
  * and whether it is on this machine, with a download (and its progress) or a
  * delete button. The store itself lives in `lib/models.ts`; this window only
- * asks it, so it works both in its own Electron window and in the page.
+ * asks it, so it works both in its own desktop window and in the page.
  */
 function NeuralModelsDialog({ payload, onResult, onClose }: BodyProps) {
   const tr = (key: string) => t(payload.language, key)

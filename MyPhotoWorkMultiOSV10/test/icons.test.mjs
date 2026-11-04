@@ -8,46 +8,37 @@ import { fileURLToPath } from 'node:url'
 const root = new URL('..', import.meta.url)
 const at = (relative) => fileURLToPath(new URL(relative, root))
 const pkg = JSON.parse(readFileSync(at('package.json'), 'utf8'))
+const conf = JSON.parse(readFileSync(at('src-tauri/tauri.conf.json'), 'utf8'))
+const inTauri = (relative) => fileURLToPath(new URL(relative.replace(/^\.\.\//, ''), root))
 const script = readFileSync(at('scripts/create-icons.cjs'), 'utf8')
 
 test('every icon path the build config names actually exists', () => {
-  const paths = [
-    pkg.build.win.icon,
-    pkg.build.mac.icon,
-    pkg.build.nsis.installerIcon,
-    pkg.build.nsis.uninstallerIcon,
-    pkg.build.nsis.installerHeaderIcon,
-  ]
+  const nsis = conf.bundle.windows.nsis
+  const paths = [...conf.bundle.icon, nsis.installerIcon, nsis.uninstallerIcon]
   for (const relative of paths) {
-    assert.ok(relative, 'an icon path is missing from package.json')
-    assert.ok(existsSync(at(relative)), `${relative} does not exist — run npm run build:icons`)
-    assert.ok(statSync(at(relative)).size > 1000, `${relative} is suspiciously small`)
+    assert.ok(existsSync(inTauri(relative)), `${relative} does not exist — run npm run build:icons`)
+    assert.ok(statSync(inTauri(relative)).size > 1000, `${relative} is suspiciously small`)
   }
-  assert.ok(existsSync(at(pkg.build.linux.icon)), 'the Linux icon directory is missing')
+  for (const needed of ['.ico', '.icns', '.png']) {
+    assert.ok(conf.bundle.icon.some((name) => name.endsWith(needed)), `no ${needed} icon for the bundler`)
+  }
 })
 
 test('the executable, the installer and the uninstaller share one .ico', () => {
   // The Start menu entry and the desktop shortcut both point at the exe, so
   // pinning these three is what makes all four match.
-  const ico = pkg.build.win.icon
-  assert.equal(pkg.build.nsis.installerIcon, ico)
-  assert.equal(pkg.build.nsis.uninstallerIcon, ico)
-  assert.equal(pkg.build.nsis.installerHeaderIcon, ico)
+  const ico = conf.bundle.icon.find((name) => name.endsWith('.ico'))
+  assert.equal(conf.bundle.windows.nsis.installerIcon, ico)
+  assert.equal(conf.bundle.windows.nsis.uninstallerIcon, ico)
 })
 
-test('the window icon Electron uses at runtime is the same file', () => {
-  const main = readFileSync(at('electron/main.cjs'), 'utf8')
-  assert.match(main, /build', process\.platform === 'win32' \? 'icon\.ico' : 'icon\.png'/, 'the window uses some other icon')
-  assert.match(main, /icon: runtimeIcon/, 'the main window sets no icon')
-  const child = readFileSync(at('electron/childwindows.cjs'), 'utf8')
-  assert.match(child, /'icon\.ico' : 'icon\.png'/, 'popup windows use some other icon')
-})
 
-test('the taskbar groups the app with its shortcut', () => {
-  // Without a matching AppUserModelID, Windows shows a second, generic entry.
-  const main = readFileSync(at('electron/main.cjs'), 'utf8')
-  assert.match(main, /app\.setAppUserModelId\(appId\)/, 'no AppUserModelID is set')
-  assert.equal(pkg.build.appId, 'com.shkwon.myphotoworkmultios')
+test('the identifier is kept and the macOS icon is well formed', () => {
+  assert.equal(conf.identifier, 'com.shkwon.myphotoworkmultios')
+  // An .icns is a list of PNGs under its own small header.
+  const icns = readFileSync(at('build/icon.icns'))
+  assert.equal(icns.subarray(0, 4).toString('ascii'), 'icns')
+  assert.equal(icns.readUInt32BE(4), icns.length, 'the .icns header has the wrong size')
 })
 
 test('the .ico carries the sizes Windows picks between', () => {
@@ -72,7 +63,6 @@ test('every icon is rendered from the one SVG', () => {
   assert.match(script, /fs\.writeFileSync\(path\.join\(buildDir, 'icon\.ico'\), ico\)/, 'the .ico is not written')
   assert.match(script, /fs\.writeFileSync\(path\.join\(buildDir, 'icon\.png'\), png512\)/, 'the png is not written')
   // The in-app title bar and the browser tab use the same artwork.
-  assert.match(script, /favicon\.svg/, 'the favicon is not kept in step')
 })
 
 test('the Linux icon set covers the standard sizes', () => {
@@ -82,15 +72,9 @@ test('the Linux icon set covers the standard sizes', () => {
   }
 })
 
-test('the generated icons are all packaged', () => {
-  const files = pkg.build.files
-  for (const entry of ['build/icon.ico', 'build/icon.png', 'build/icons/**/*']) {
-    assert.ok(files.includes(entry), `${entry} is not in build.files, so it would be left out`)
-  }
-})
 
 test('the installer builds the icons before packaging', () => {
-  for (const target of ['dist', 'dist:win', 'dist:mac', 'dist:linux']) {
+  for (const target of ['build:win', 'build:mac', 'build:linux']) {
     assert.match(pkg.scripts[target], /build:icons/, `${target} could package a stale icon`)
   }
 })

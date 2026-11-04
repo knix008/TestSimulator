@@ -3,24 +3,34 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { firstTick, rulerSize, tickStep, visibleRange } from '../src/lib/view.ts'
+import { GRID_DIVISIONS, GRID_MAX_PX, GRID_MIN_PX, firstTick, gridStep, rulerMarks, rulerSize, tickStep, visibleRange } from '../src/lib/view.ts'
 import { t } from '../src/i18n.ts'
 import { commandsInMenu, menuColumns, menuEntries, menuOrder } from '../src/commands.ts'
+import { DIALOG_SPECS } from '../src/dialogSpecs.ts'
 
 const root = new URL('..', import.meta.url)
 // Normalised to LF, so a CRLF checkout on Windows reads the same as the repository.
 const read = (relative) => readFileSync(fileURLToPath(new URL(relative, root)), 'utf8').replace(/\r\n/g, '\n')
-const require = createRequire(import.meta.url)
 
 const appSource = read('src/App.tsx')
 const dialogSource = read('src/dialogs.tsx')
 const dialogMeta = read('src/dialogMeta.ts')
 const cssSource = read('src/App.css')
-const mainProcess = read('electron/main.cjs')
-const preload = read('electron/preload.cjs')
-const childWindows = read('electron/childwindows.cjs')
+const shell = read('src-tauri/src/lib.rs')
+const bridge = read('src/host/tauriBridge.ts')
+const popups = read('src-tauri/src/popups.rs')
+const printing = read('src-tauri/src/print.rs')
+/** One Rust function, from its `fn` to the next one. */
+const rustFn = (name) => {
+  const start = popups.indexOf(`fn ${name}(`)
+  assert.ok(start >= 0, `there is no fn ${name}`)
+  const next = popups.indexOf('\nfn ', start + 3)
+  const nextPub = popups.indexOf('\npub fn ', start + 3)
+  const nextAsync = popups.indexOf('#[tauri::command]', start + 3)
+  const ends = [next, nextPub, nextAsync].filter((at) => at > 0)
+  return popups.slice(start, ends.length ? Math.min(...ends) : undefined)
+}
 
 /** The dialog names the renderer can ask for. */
 function dialogNames() {
@@ -31,7 +41,7 @@ function dialogNames() {
 /* ------------------------------------------------------- window management */
 
 test('every dialog has a window size, and the settings window is a preferences window', () => {
-  const specs = require(fileURLToPath(new URL('electron/childwindows.cjs', root))).DIALOG_SPECS
+  const specs = DIALOG_SPECS
   for (const name of dialogNames()) {
     assert.ok(specs[name], `no window size for the "${name}" dialog`)
     assert.ok(specs[name].width >= 320, `${name} is too narrow`)
@@ -70,70 +80,70 @@ test('a popup window grows to the page it shows, and nothing inside it is squash
 })
 
 test('a dialog window is owned by the main window and is movable', () => {
-  // The window is built before it knows which dialog it will hold, so the
-  // parent is attached when it is handed its identity rather than at creation.
-  assert.match(childWindows, /win\.setParentWindow\(parent\)/, 'dialogs are not parented to the main window')
-  assert.match(childWindows, /movable: true/, 'dialogs must be movable')
-  assert.match(childWindows, /frame: false/, 'dialogs draw their own title bar')
+  // Owned, so it stays above the app and goes with it, yet can be moved anywhere.
+  const build = rustFn('create_dialog')
+  assert.match(build, /builder\.parent\(&main\)/, 'dialogs are not owned by the main window')
+  assert.match(build, /\.decorations\(false\)/, 'dialogs draw their own title bar')
+  assert.match(bridge, /\.dialog-title-bar/, 'a dialog cannot be moved by its title bar')
+  assert.match(bridge, /startDragging\(\)/, 'nothing starts the move')
 })
 
 test('a dismissed dialog is pooled rather than destroyed', () => {
-  const recycle = childWindows.slice(childWindows.indexOf('function recycleDialogWindow'), childWindows.indexOf('function closeDialogWindow'))
+  const recycle = rustFn('recycle')
   assert.match(recycle, /win\.hide\(\)/, 'a dismissed dialog is not hidden')
-  assert.match(recycle, /spareDialogs\.push\(win\)/, 'the window is not returned to the pool')
-  assert.match(recycle, /shuttingDown \|\| spareDialogs\.length >= SPARE_LIMIT/, 'the pool can grow without limit')
-  const close = childWindows.slice(childWindows.indexOf('function closeDialogWindow'), childWindows.indexOf('function closeAllDialogWindows'))
-  assert.match(close, /recycleDialogWindow\(win\)/, 'closing a dialog still destroys its window')
+  assert.match(recycle, /spares\.push/, 'the window is not returned to the pool')
+  assert.match(recycle, /inner\.shutting_down \|\| inner\.spares\.len\(\) >= SPARE_LIMIT/, 'the pool can grow without limit')
+  assert.match(popups, /pub fn on_close_requested[\s\S]*?recycle\(app, label\)/, 'closing a dialog still destroys its window')
 })
 
 test('a popup window takes its identity from the main process, not its url', () => {
-  assert.match(childWindows, /load\(win, 'dialog='\)/, 'the dialog window still names itself in its route')
-  assert.match(childWindows, /load\(win, 'menu='\)/, 'the menu window still names itself in its route')
-  const open = childWindows.slice(childWindows.indexOf('function openDialogWindow'), childWindows.indexOf('function sizeDialogWindow'))
-  assert.match(open, /takeSpareDialog\(\)/, 'an opening dialog does not draw on the warm pool')
-  assert.match(open, /webContents\.send\('dialog:payload', message\)/, 'the window is never told which dialog it is')
-  assert.match(open, /warmDialogPool\(\)/, 'the pool is never refilled')
+  assert.match(popups, /route\("dialog="\)/, 'the dialog window still names itself in its route')
+  assert.match(popups, /route\("menu="\)/, 'the menu window still names itself in its route')
+  const open = rustFn('dialog_open')
+  assert.match(open, /take_spare\(&app\)/, 'an opening dialog does not draw on the warm pool')
+  assert.match(open, /emit_to\(label\.as_str\(\), "dialog:payload", message\)/, 'the window is never told which dialog it is')
+  assert.match(open, /warm_later\(&app\)/, 'the pool is never refilled')
   // Reusing a renderer means the previous dialog's form state is still there.
   const host = read('src/DialogHost.tsx')
   assert.match(host, /key=\{message\?\.openId \?\? 0\}/, 'a reopened dialog would keep the last one’s answers')
 })
 
 test('the popup renderers are started before the first click', () => {
-  assert.match(childWindows, /function warmChildWindows/, 'nothing warms the popups')
-  const warm = childWindows.slice(childWindows.indexOf('function warmChildWindows'))
-  assert.match(warm, /ensureMenuWindow\(\)/, 'the menu popup is not warmed')
-  assert.match(warm, /warmDialogPool\(\)/, 'the dialog pool is not warmed')
-  assert.match(mainProcess, /childWindows\.warmChildWindows\(\)/, 'the main process never warms the popups')
-  assert.match(mainProcess, /once\('did-finish-load'/, 'warming would compete with the editor’s own start-up')
+  const warm = rustFn('warm')
+  assert.match(warm, /ensure_menu\(app\)/, 'the menu popup is not warmed')
+  assert.match(warm, /create_dialog\(app\)/, 'the dialog pool is not warmed')
+  assert.match(shell, /popups::warm\(&handle\)/, 'the shell never warms the popups')
+  // After the page says it has painted, so it does not compete with the editor's start-up.
+  assert.match(shell, /fn show_main[\s\S]*?popups::warm/, 'warming would compete with the editor’s own start-up')
 })
 
 test('opening a dialog twice reuses and raises the one window', () => {
-  const open = childWindows.slice(childWindows.indexOf('function openDialogWindow'), childWindows.indexOf('function closeDialogWindow'))
-  assert.match(open, /const existing = dialogWindows\.get\(name\)/, 'no lookup for an already-open window')
-  for (const call of ['existing.show()', 'existing.focus()', 'existing.moveTop()']) {
+  const open = rustFn('dialog_open')
+  assert.match(open, /by_name\.get\(&name\)/, 'no lookup for an already-open window')
+  for (const call of ['win.show()', 'win.set_focus()', 'win.unminimize()']) {
     assert.ok(open.includes(call), `an existing window is not raised (${call})`)
   }
-  assert.match(open, /return true/, 'the reuse path must not fall through and create a second window')
+  assert.match(open, /return Ok\(true\)/, 'the reuse path must not fall through and create a second window')
 })
 
 test('closing the app tears every popup down', () => {
-  assert.match(mainProcess, /childWindows\.closeAllChildWindows\(\)/, 'popups are never closed with the app')
-  assert.match(mainProcess, /app\.on\('before-quit'/, 'nothing closes the popups on quit')
-  assert.match(mainProcess, /mainWindow\.on\('closed', \(\) => childWindows\.closeAllChildWindows\(\)\)/,
-    'popups survive the main window closing')
+  assert.match(shell, /fn quit[\s\S]*?popups::close_all\(app\)/, 'popups are never closed with the app')
+  assert.match(shell, /WindowEvent::Destroyed[\s\S]*?quit\(app\)/, 'popups survive the main window closing')
   // Dismissing dialogs pools them; only the app going away really destroys one.
-  const teardown = childWindows.slice(childWindows.indexOf('function closeAllChildWindows'), childWindows.indexOf('function warmChildWindows'))
-  assert.match(teardown, /shuttingDown = true/, 'popups would still be recycled while the app quits')
+  const teardown = rustFn('close_all')
+  assert.match(teardown, /shutting_down = true/, 'popups would still be recycled while the app quits')
   assert.match(teardown, /win\.destroy\(\)/, 'dialog windows are not destroyed')
-  assert.match(teardown, /spareDialogs/, 'the warm pool would outlive the app')
+  assert.match(teardown, /spares\.clear\(\)/, 'the warm pool would outlive the app')
 })
 
-test('the preload exposes the menu and dialog bridges', () => {
-  for (const api of ['electronMenuApi', 'electronDialogApi']) {
-    assert.ok(preload.includes(api), `${api} is not exposed`)
+
+test('the bridge exposes the menu and dialog APIs', () => {
+  for (const api of ['hostMenuApi', 'hostDialogApi']) {
+    assert.ok(bridge.includes(`window.${api}`), `${api} is not exposed`)
   }
-  for (const channel of ['menu:open', 'menu:choose', 'menu:size', 'dialog:open', 'dialog:close', 'dialog:result']) {
-    assert.ok(preload.includes(channel), `the ${channel} channel is missing`)
+  for (const command of ['menu_open', 'menu_choose', 'menu_size', 'dialog_open', 'dialog_close', 'dialog_result']) {
+    assert.ok(bridge.includes(`'${command}'`), `the page never calls ${command}`)
+    assert.ok(shell.includes(`popups::${command}`), `the shell does not register ${command}`)
   }
 })
 
@@ -144,37 +154,36 @@ test('the bundle routes the popup windows by hash', () => {
   assert.match(main, /params\.has\('menu'\)/, 'no menu route')
   assert.match(main, /params\.has\('dialog'\)/, 'no dialog route')
   assert.ok(main.includes('<MenuHost') && main.includes('<DialogHost'), 'the hosts are not mounted')
-  assert.match(childWindows, /'menu='/, 'the menu window loads no route')
-  assert.match(childWindows, /'dialog='/, 'the dialog window loads no route')
+  assert.match(popups, /"menu="/, 'the menu window loads no route')
+  assert.match(popups, /"dialog="/, 'the dialog window loads no route')
 })
 
 /* ------------------------------------------------------------ menu popups */
 
 test('the menu popup is its own always-on-top window, not a child of the app', () => {
-  const build = childWindows.slice(childWindows.indexOf('function ensureMenuWindow'), childWindows.indexOf('/** Dismisses the menu'))
-  assert.match(build, /alwaysOnTop: true/, 'the menu would fall behind the app')
-  assert.ok(!/^\s*parent:/m.test(build), 'a parented window is clamped inside the app, which is the clipping we are escaping')
-  assert.match(build, /win\.on\('blur'/, 'the menu never dismisses itself')
+  const build = rustFn('ensure_menu')
+  assert.match(build, /\.always_on_top\(true\)/, 'the menu would fall behind the app')
+  assert.ok(!build.includes('.parent('), 'a parented window is clamped inside the app, which is the clipping we are escaping')
+  assert.match(shell, /popups::menu_focus_changed/, 'the menu never dismisses itself')
 })
 
 test('one menu window serves every dropdown', () => {
-  const ensure = childWindows.slice(childWindows.indexOf('function ensureMenuWindow'), childWindows.indexOf('/** Dismisses the menu'))
-  assert.match(ensure, /if \(menuWindow && !menuWindow\.win\.isDestroyed\(\)\)/, 'a window is built per dropdown again')
-  const hide = childWindows.slice(childWindows.indexOf('function hideMenuWindow'), childWindows.indexOf('function closeMenuWindow'))
+  assert.match(rustFn('ensure_menu'), /app\.get_webview_window\(MENU\)/, 'a window is built per dropdown again')
+  const hide = rustFn('hide_menu')
   assert.match(hide, /win\.hide\(\)/, 'dismissing a menu destroys its renderer')
-  assert.match(hide, /send\('menu:payload', null\)/, 'the next menu would flash the last one’s rows')
-  const open = childWindows.slice(childWindows.indexOf('function openMenuWindow'), childWindows.indexOf('/** Fits the popup'))
-  assert.match(open, /ensureMenuWindow\(\)/, 'the dropdown does not reuse the menu window')
-  assert.match(open, /send\('menu:payload', message\)/, 'the window is never told which menu it is')
+  assert.match(hide, /"menu:payload", Value::Null/, 'the next menu would flash the last one’s rows')
+  const open = rustFn('menu_open')
+  assert.match(open, /ensure_menu\(&app\)/, 'the dropdown does not reuse the menu window')
+  assert.match(open, /"menu:payload", message/, 'the window is never told which menu it is')
   const host = read('src/MenuHost.tsx')
-  assert.match(host, /electronMenuApi\?\.onPayload/, 'the menu popup cannot be re-targeted')
+  assert.match(host, /hostMenuApi\?\.onPayload/, 'the menu popup cannot be re-targeted')
 })
 
 test('the menu window is sized from the measured content and kept on screen', () => {
-  const size = childWindows.slice(childWindows.indexOf('function sizeMenuWindow'), childWindows.indexOf('/* ---------------------------------------------------------------- dialogs */'))
-  assert.match(size, /win\.setBounds/, 'the popup is never resized to its content')
-  assert.match(size, /workArea/, 'the popup is not kept on the display')
-  assert.ok(size.includes('anchor.y - anchor.height - height'), 'the popup never flips above the anchor')
+  const size = rustFn('menu_size')
+  assert.match(size, /set_bounds\(/, 'the popup is never resized to its content')
+  assert.match(size, /work_area_at\(/, 'the popup is not kept on the display')
+  assert.ok(popups.includes('anchor.y - anchor.height - height'), 'the popup never flips above the anchor')
 
   const host = read('src/MenuHost.tsx')
   assert.match(host, /reportSize/, 'the popup never reports its size')
@@ -230,7 +239,7 @@ test('every dialog is opened through openDialog, never by setting state directly
   const stray = [...appSource.replace(opener, '').matchAll(/setDialog\('(\w+)'\)/g)].map((match) => match[1])
   assert.deepEqual(stray, [], `these dialogs bypass the window opener: ${stray.join(', ')}`)
   assert.match(appSource, /const openDialog = useCallback\(\(name: DialogName, extra\?: Partial<DialogPayload>\)/, 'there is no single dialog opener')
-  assert.match(appSource, /window\.electronDialogApi\.open\(name, payload\)/, 'openDialog never opens a window')
+  assert.match(appSource, /window\.hostDialogApi\.open\(name, payload\)/, 'openDialog never opens a window')
   // The seeds, plus whatever a shared window needs to know which command opened it.
   assert.match(appSource, /const payload = \{ \.\.\.dialogPayload\(name\), \.\.\.extra \}/, 'the popup is opened without its seeds')
 })
@@ -275,6 +284,35 @@ test('visibleRange and firstTick frame the ticks that are on screen', () => {
   assert.equal(firstTick(span.from, 50), 100)
   assert.equal(firstTick(span.from, 75), 75, 'the first tick sits at or before the visible start')
   assert.equal(firstTick(-30, 50), -50, 'negative coordinates round down, not toward zero')
+})
+
+test('the grid is 5x5: fine cells of a readable size, and a heavy line every fifth', () => {
+  assert.equal(GRID_DIVISIONS, 5)
+  for (const zoom of [0.05, 0.1, 0.25, 0.5, 1, 2, 3.3, 8]) {
+    const pixels = gridStep(zoom) * zoom
+    assert.ok(pixels >= GRID_MIN_PX && pixels < GRID_MAX_PX, `a cell is ${pixels}px on screen at zoom ${zoom}`)
+  }
+  assert.equal(gridStep(1), 10)
+  assert.equal(gridStep(0.2), 50, 'zooming out multiplies the step by five, so the lines stay on the same 5x5 lattice')
+  assert.equal(gridStep(5), 2)
+  assert.ok(Number.isFinite(gridStep(0)), 'a zero zoom must not hang the loop')
+  assert.match(appSource, /index % GRID_DIVISIONS === 0/, 'every fifth line is not told apart')
+  assert.match(appSource, /const step = gridStep\(zoom\)/, 'the viewport does not use the 5x5 step')
+})
+
+test('a red line on each ruler follows the pointer', () => {
+  assert.deepEqual(rulerMarks(100, 200, { width: 800, height: 600 }), { x: 100, y: 200, showX: true, showY: true })
+  assert.equal(rulerMarks(-1, 5, { width: 800, height: 600 }), null, 'past the edge there is nothing to mark')
+  assert.equal(rulerMarks(800, 5, { width: 800, height: 600 }), null)
+  // Over a ruler itself, that ruler's own corner shows no mark along the other one.
+  assert.deepEqual(rulerMarks(5, 200, { width: 800, height: 600 }), { x: 5, y: 200, showX: false, showY: true })
+  const rule = (name) => cssSource.slice(cssSource.indexOf(name), cssSource.indexOf('}', cssSource.indexOf(name)))
+  assert.match(rule('.ruler-mark {'), /background: #ff2020/, 'the mark is not red')
+  assert.match(rule('.ruler-mark {'), /pointer-events: none/, 'the mark would take the clicks meant for the canvas')
+  assert.match(rule('.ruler-mark-x {'), new RegExp(`height: ${rulerSize}px`), 'the mark is not as tall as the ruler')
+  assert.match(rule('.ruler-mark-y {'), new RegExp(`width: ${rulerSize}px`), 'the mark is not as wide as the ruler')
+  assert.match(appSource, /onPointerMoveCapture=\{moveRulerMarks\}/, 'the marks do not follow the pointer')
+  assert.match(appSource, /settings\.showRulers && <div ref=\{rulerMarkXRef\}/, 'the marks would show with the rulers off')
 })
 
 test('the grid and the rulers are painted on the viewport, not behind it', () => {
@@ -325,7 +363,7 @@ test('a popup that cannot open as a window still appears in page', () => {
 
 test('a menu that cannot open as a window still drops down in page', () => {
   const opener = appSource.slice(appSource.indexOf('const openMenuWindow = async'), appSource.indexOf('/* --------------------------------------------------- external drag & drop */'))
-  assert.match(opener, /return await window\.electronMenuApi\.open/, 'the open result is not awaited')
+  assert.match(opener, /return await window\.hostMenuApi\.open/, 'the open result is not awaited')
   assert.match(opener, /catch \{\s*return false/, 'a rejected open is not reported')
 
   const button = appSource.slice(appSource.indexOf('// A real window first'), appSource.indexOf('<MenuIcon size={15} />'))
@@ -368,17 +406,16 @@ test('a popup window is sized to the dialog it contains', () => {
   assert.match(host, /reportSize/, 'the dialog never reports its size')
   assert.match(host, /ResizeObserver/, 'the dialog does not re-measure when it changes')
   assert.match(host, /chrome \+ content\.scrollHeight/, 'the measurement ignores content that scrolls')
-  assert.match(childWindows, /ipcMain\.handle\('dialog:size'/, 'the main process does not resize the window')
+  assert.match(shell, /popups::dialog_size/, 'the shell does not resize the window')
 })
 
 test('the fit can grow a fixed-size window and stays on the display', () => {
-  const fit = childWindows.slice(childWindows.indexOf('function sizeDialogWindow'), childWindows.indexOf('function closeDialogWindow'))
-  // Windows pins a non-resizable window to its creation size, so setBounds is
-  // ignored while growing unless the flag is lifted for the call.
-  assert.match(fit, /win\.setResizable\(true\)/, 'a fixed window could never grow to fit')
-  assert.match(fit, /win\.setResizable\(false\)/, 'the window must stay fixed afterwards')
-  assert.match(fit, /area\.height - 40/, 'a tall dialog could grow off the screen')
-  assert.match(fit, /win\.setBounds/, 'nothing is resized')
+  const fit = rustFn('dialog_size')
+  // Windows pins a non-resizable window to its size, so the flag is lifted for the call.
+  assert.match(fit, /set_resizable\(true\)/, 'a fixed window could never grow to fit')
+  assert.match(fit, /set_resizable\(false\)/, 'the window must stay fixed afterwards')
+  assert.match(fit, /area\.height - 40\.0/, 'a tall dialog could grow off the screen')
+  assert.match(fit, /set_bounds\(/, 'nothing is resized')
 })
 
 test('the dialog keeps a natural height so the window can shrink to it', () => {
@@ -500,16 +537,14 @@ test('every popup host asks for the stylesheet itself', () => {
   }
 })
 
-test('the bundle is served on its own scheme with the isolation headers, by relative path', () => {
+test('the bundle has the isolation headers and loads by relative path', () => {
   const config = read('vite.config.ts')
-  assert.match(config, /base: '\.\/'/, 'an absolute base would make the split chunks unreachable under app://')
-  assert.match(childWindows, /protocol\.registerSchemesAsPrivileged\(\[\s*\{ scheme: 'app', privileges: \{ standard: true, secure: true/, 'the app scheme is not registered as standard and secure')
-  assert.match(childWindows, /Cross-Origin-Embedder-Policy', 'credentialless'/, 'the bundle responses carry no embedder policy')
-  assert.match(childWindows, /return `app:\/\/\$\{BUNDLE_HOST\}\/index\.html/, 'the windows do not load from the app scheme')
-  const main = read('electron/main.cjs')
-  assert.match(main, /childWindows\.registerBundleScheme\(\)/, 'the scheme is not registered before the app is ready')
-  assert.match(main, /childWindows\.serveBundle\(\)/, 'the scheme is never served')
-  assert.ok(!/loadFile\(bundle\)/.test(main), 'the main window still loads the bundle from file://')
+  assert.match(config, /base: '\.\/'/, 'an absolute base would make the split chunks unreachable in the app')
+  // SharedArrayBuffer, which ONNX Runtime needs for more than one core, wants these.
+  const conf = JSON.parse(read('src-tauri/tauri.conf.json'))
+  assert.equal(conf.app.security.headers['Cross-Origin-Opener-Policy'], 'same-origin', 'the packaged page is not isolated')
+  assert.equal(conf.app.security.headers['Cross-Origin-Embedder-Policy'], 'credentialless', 'the packaged page is not isolated')
+  assert.match(config, /'Cross-Origin-Embedder-Policy': 'credentialless'/, 'the dev server page is not isolated')
 })
 
 /* ------------------------------------------- long menus, print, zoom, out */
@@ -551,7 +586,7 @@ test('a menu folds its sections into submenus, so the top level stays short', ()
 })
 
 test('the print window is fixed, fits its content and never scrolls', () => {
-  const spec = require('../electron/childwindows.cjs').DIALOG_SPECS.print
+  const spec = DIALOG_SPECS.print
   assert.equal(spec.resizable, false, 'the print window must not be resizable')
   assert.ok(spec.height >= 700, 'the print window is too short to hold the sheet and the buttons')
   assert.match(cssSource, /\.print-dialog \.dialog-content \{\s*overflow: hidden;/,
@@ -564,13 +599,11 @@ test('the print window is fixed, fits its content and never scrolls', () => {
 })
 
 test('the print window selects the printer the system calls default', () => {
-  // Chromium's own list carries no `isDefault`, so the OS is asked directly.
-  assert.match(mainProcess, /function defaultPrinterName/, 'nothing asks the OS which printer is default')
-  assert.match(mainProcess, /CurrentVersion.+Windows/s, 'the Windows default printer is never read')
-  assert.match(mainProcess, /'lpstat'/, 'the CUPS default printer is never read')
-  const handler = mainProcess.slice(mainProcess.indexOf("ipcMain.handle('print:printers'"), mainProcess.indexOf("ipcMain.handle('print:job'"))
-  assert.match(handler, /defaultPrinterName\(\)/, 'the printer list is not told which one is default')
-  assert.match(handler, /printer\.name === preferred/, 'the OS answer is never matched against the list')
+  // The OS is asked directly, on each platform.
+  assert.match(printing, /GetDefaultPrinterW/, 'the Windows default printer is never read')
+  assert.match(printing, /"lpstat"/, 'the CUPS default printer is never read')
+  assert.match(printing, /is_default: name == default/, 'the OS answer is never matched against the list')
+  assert.match(bridge, /isDefault: printer\.isDefault/, 'the page is not told which one is default')
   assert.match(dialogSource, /payload\.printers\?\.find\(\(item\) => item\.isDefault\)\?\.name/,
     'the print window does not preselect the default printer')
 })

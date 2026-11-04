@@ -186,10 +186,8 @@ test('Settings and About are the only buttons in the menu bar cluster', () => {
 })
 
 test('the guide is on the Window menu, not a button of its own', () => {
-  assert.ok(!menuOrder.includes('help'), 'help should not be one of the dropdown menus')
-  const guide = commands.find((command) => command.id === 'window.guide')
-  assert.ok(guide, 'nothing opens the guide any more')
-  assert.equal(guide.menu, 'windowMenu', 'the guide should be reachable from the Window menu')
-  assert.equal(guide.label, 'help', 'the guide row should read as Help')
-  assert.ok(appSource.includes("openDialog('helpGuide')"), 'the guide command does not open the guide')
+  // Help is a menu of its own, whose first row opens the full guide.
+  assert.ok(menuOrder.includes('helpMenu'), 'there is no Help menu')
+  const rows = commands.filter((command) => command.menu === 'helpMenu').map((command) => command.id)
+  assert.deepEqual(rows, ['help.guide', 'help.tutorial', 'help.quick', 'help.start', 'help.about'])
 })

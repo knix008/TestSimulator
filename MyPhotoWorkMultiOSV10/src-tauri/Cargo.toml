@@ -1,0 +1,39 @@
+[package]
+name = "myphotowork"
+version = "1.0.0"
+description = "My Photo Work - Tauri shell around the photo editor"
+authors = ["SHKWON <knix008@naver.com>"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.83"
+
+[lib]
+name = "myphotowork_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
+base64 = "0.22"
+# The neural network weights are fetched from the shell: a page cannot read a
+# cross-origin download's progress and the file has to land on disk anyway.
+ureq = "2"
+
+# Printing (src/print.rs): WebView2 Print / PrintToPdf and the printer list.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Graphics_Printing", "Win32_Security"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 16
+lto = false
+opt-level = 2
+strip = true
+incremental = true

@@ -394,6 +394,58 @@ export function traceShape(ctx: CanvasRenderingContext2D, shape: ShapeData) {
     ctx.lineTo(x + w * 0.88, y + h * 0.4)
     ctx.lineTo(x + w * 0.54, y + h * 0.4)
     ctx.closePath()
+  } else if (shape.kind === 'pentagon' || shape.kind === 'hexagon' || shape.kind === 'octagon') {
+    const sides = shape.kind === 'pentagon' ? 5 : shape.kind === 'hexagon' ? 6 : 8
+    for (let k = 0; k < sides; k += 1) {
+      const angle = -Math.PI / 2 + (k * Math.PI * 2) / sides
+      const px = x + w / 2 + (Math.cos(angle) * w) / 2
+      const py = y + h / 2 + (Math.sin(angle) * h) / 2
+      if (k) ctx.lineTo(px, py)
+      else ctx.moveTo(px, py)
+    }
+    ctx.closePath()
+  } else if (shape.kind === 'parallelogram') {
+    ctx.moveTo(x + w * 0.25, y)
+    ctx.lineTo(x + w, y)
+    ctx.lineTo(x + w * 0.75, y + h)
+    ctx.lineTo(x, y + h)
+    ctx.closePath()
+  } else if (shape.kind === 'trapezoid') {
+    ctx.moveTo(x + w * 0.22, y)
+    ctx.lineTo(x + w * 0.78, y)
+    ctx.lineTo(x + w, y + h)
+    ctx.lineTo(x, y + h)
+    ctx.closePath()
+  } else if (shape.kind === 'drop') {
+    ctx.moveTo(x + w / 2, y)
+    ctx.bezierCurveTo(x + w * 0.62, y + h * 0.26, x + w, y + h * 0.42, x + w, y + h * 0.66)
+    ctx.bezierCurveTo(x + w, y + h * 0.86, x + w * 0.76, y + h, x + w / 2, y + h)
+    ctx.bezierCurveTo(x + w * 0.24, y + h, x, y + h * 0.86, x, y + h * 0.66)
+    ctx.bezierCurveTo(x, y + h * 0.42, x + w * 0.38, y + h * 0.26, x + w / 2, y)
+    ctx.closePath()
+  } else if (shape.kind === 'cloud') {
+    ctx.moveTo(x + w * 0.24, y + h * 0.9)
+    ctx.bezierCurveTo(x, y + h * 0.9, x - w * 0.02, y + h * 0.5, x + w * 0.2, y + h * 0.46)
+    ctx.bezierCurveTo(x + w * 0.18, y + h * 0.14, x + w * 0.5, y + h * 0.02, x + w * 0.6, y + h * 0.32)
+    ctx.bezierCurveTo(x + w * 0.82, y + h * 0.2, x + w * 0.94, y + h * 0.42, x + w * 0.84, y + h * 0.54)
+    ctx.bezierCurveTo(x + w * 1.04, y + h * 0.58, x + w * 1.02, y + h * 0.9, x + w * 0.78, y + h * 0.9)
+    ctx.closePath()
+  } else if (shape.kind === 'shield') {
+    ctx.moveTo(x + w / 2, y)
+    ctx.lineTo(x + w, y + h * 0.14)
+    ctx.bezierCurveTo(x + w, y + h * 0.6, x + w * 0.8, y + h * 0.84, x + w / 2, y + h)
+    ctx.bezierCurveTo(x + w * 0.2, y + h * 0.84, x, y + h * 0.6, x, y + h * 0.14)
+    ctx.closePath()
+  } else if (shape.kind === 'star6') {
+    for (let k = 0; k < 12; k += 1) {
+      const angle = -Math.PI / 2 + (k * Math.PI) / 6
+      const reach = k % 2 ? 0.29 : 0.5
+      const px = x + w / 2 + Math.cos(angle) * w * reach
+      const py = y + h / 2 + Math.sin(angle) * h * reach
+      if (k) ctx.lineTo(px, py)
+      else ctx.moveTo(px, py)
+    }
+    ctx.closePath()
   } else if (shape.kind === 'plus') {
     const a = w / 3
     const b = h / 3

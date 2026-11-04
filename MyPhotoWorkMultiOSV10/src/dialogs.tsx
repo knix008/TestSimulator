@@ -1,8 +1,11 @@
 import { createElement, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  BrainCircuit, Check, Copy, Download, Keyboard, Layers2, Minus, Plus, Printer, RefreshCw, RotateCcw, Save, Sparkles, Tag, Trash, X,
+  BookOpenText, BrainCircuit, Check, Copy, Download, House, Keyboard, Layers2, LayoutGrid, Minus, Palette, Plus, Printer, RefreshCw, RotateCcw, Save, Sparkles, Tag, Trash, X,
 } from 'lucide-react'
 import { Slider } from './controls'
+import { openUserGuide } from './host/userGuide'
+import { DEFAULT_START_BACKGROUND } from './lib/startSettings'
+import { BackgroundControls, BackgroundKinds } from './start/StartScreen'
 import { dialogDescription } from './dialogInfo'
 import { t } from './i18n'
 import { copyText } from './lib/errors'
@@ -11,7 +14,8 @@ import { aboutFacts } from './aboutInfo'
 import { dialogIcon, dialogTitle, previewDialogs, type DialogName, type DialogPayload, type DialogResult } from './dialogMeta'
 import { ExtraDialogBody } from './dialogsExtra'
 import { useLivePreview } from './usePreview'
-import { themeLabel, themes } from './themes'
+import { CustomThemeEditor } from './CustomThemeEditor'
+import { customThemeDefinition, darkThemes, lightThemes, type ThemeDefinition } from './themes'
 import { curveLut, addCurvePoint, removeCurvePoint } from './lib/curves'
 import { supportsTransparency } from './lib/imageIO'
 import { colorFamilies, defaultChannelMix, defaultInkShift, type ChannelMix, type ColorFamily, type InkShift } from './lib/colorTools'
@@ -23,7 +27,7 @@ export type { DialogName, DialogPayload, DialogResult } from './dialogMeta'
 
 /**
  * Every popup body lives here so the same component serves both renderings: a
- * real OS window under Electron (src/DialogHost.tsx) and an in-page panel in the
+ * real OS window on the desktop (src/DialogHost.tsx) and an in-page panel in the
  * browser build, where there is no second window to open.
  */
 
@@ -332,7 +336,7 @@ export function DialogBody({
   const [warpBend, setWarpBend] = useState(40)
   const [profileId, setProfileId] = useState(payload.profile?.current ?? 'srgb')
   const [brushName, setBrushName] = useState('')
-  const [settingsTab, setSettingsTab] = useState<'general' | 'theme' | 'view' | 'tools' | 'brush' | 'export' | 'engine' | 'selection' | 'sky'>('general')
+  const [settingsTab, setSettingsTab] = useState<'general' | 'start' | 'theme' | 'customTheme' | 'view' | 'tools' | 'brush' | 'export' | 'engine' | 'selection' | 'sky'>(payload?.settingsTab ?? 'general')
   const [solid, setSolid] = useState<ThreeDData>(() => payload.threeD ?? defaultThreeD())
   const [warpH, setWarpH] = useState(0)
   const [warpV, setWarpV] = useState(0)
@@ -1121,7 +1125,7 @@ export function DialogBody({
       // One page of settings at a time, the way a preferences window reads:
       // the tabs pick a page, the page scrolls if it must, and the reset and
       // close buttons stay put underneath.
-      const tabs = ['general', 'theme', 'view', 'tools', 'brush', 'export', 'engine', 'selection', 'sky'] as const
+      const tabs = ['general', 'start', 'theme', 'customTheme', 'view', 'tools', 'brush', 'export', 'engine', 'selection', 'sky'] as const
       const check = (key: keyof AppSettings, label: string) => (
         <label className="check-row" key={String(key)}>
           <input type="checkbox" checked={Boolean(settings[key])} onChange={(event) => patchSettings({ [key]: event.target.checked } as Partial<AppSettings>)} />
@@ -1139,7 +1143,7 @@ export function DialogBody({
         // Everything the window shows goes back to its default; what the user
         // has made (brushes, gradients, swatches, shapes, presets, styles,
         // workspaces, actions) and the recent files list are kept.
-        const kept: (keyof AppSettings)[] = ['language', 'brushes', 'gradients', 'swatches', 'customShapes', 'toolPresets', 'styles', 'workspaces', 'actions', 'recentFiles', 'rightTab', 'zoom', 'foreground', 'background', 'paintTarget']
+        const kept: (keyof AppSettings)[] = ['customThemes', 'language', 'brushes', 'gradients', 'swatches', 'customShapes', 'toolPresets', 'styles', 'workspaces', 'actions', 'recentFiles', 'rightTab', 'zoom', 'foreground', 'background', 'paintTarget']
         const patch: Partial<AppSettings> = {}
         for (const key of Object.keys(defaultSettings) as (keyof AppSettings)[]) {
           if (!kept.includes(key)) (patch as Record<string, unknown>)[key] = defaultSettings[key]
@@ -1161,7 +1165,7 @@ export function DialogBody({
           </div>
 
           <div className="settings-page">
-            {settingsTab === 'general' && (
+            <div className={`settings-page-cell${settingsTab === 'general' ? ' on' : ''}`}>
               <>
                 <section className="settings-section">
                   <h3>{tr('settingsSectionApp')}</h3>
@@ -1180,29 +1184,57 @@ export function DialogBody({
                   <p className="settings-field-hint">{tr('snapshotHint')}</p>
                 </section>
               </>
-            )}
+            </div>
+
+            <div className={`settings-page-cell${settingsTab === 'customTheme' ? ' on' : ''}`}><CustomThemeEditor language={settings.language} settings={settings} patchSettings={patchSettings} /></div>
+
+            <div className={`settings-page-cell${settingsTab === 'start' ? ' on' : ''}`}>
+              <section className="settings-section">
+                <h3>{tr('startScreen')}</h3>
+                {check('showStartOnLaunch', 'startShowOnLaunch')}
+                {check('tutorialAskOnLaunch', 'tutorialAskSetting')}
+                <h3>{tr('startBackground')}</h3>
+                <BackgroundKinds language={language} background={settings.startBackground} onChange={(next) => patchSettings({ startBackground: { ...settings.startBackground, ...next } })} />
+                <div className="settings-bg-controls">
+                  <BackgroundControls language={language} background={settings.startBackground} onChange={(next) => patchSettings({ startBackground: { ...settings.startBackground, ...next } })} />
+                </div>
+                <div className="dialog-actions settings-start-actions">
+                  <button onClick={() => patchSettings({ startBackground: { ...DEFAULT_START_BACKGROUND, layout: settings.startBackground.layout } })}><RotateCcw size={13} aria-hidden="true" /><span>{tr('startResetBackground')}</span></button>
+                  <button onClick={() => patchSettings({ startBackground: { ...settings.startBackground, layout: null } })}><LayoutGrid size={13} aria-hidden="true" /><span>{tr('startResetLayout')}</span></button>
+                  <button onClick={() => onResult({ action: 'showStart' })}><House size={13} aria-hidden="true" /><span>{tr('startOpenNow')}</span></button>
+                </div>
+              </section>
+            </div>
 
             {/*
               Twenty themes are a page of their own. Sharing one with the
               language and the history settings put the last section 7px past
               the bottom of a window that does not scroll.
             */}
-            {settingsTab === 'theme' && (
+            <div className={`settings-page-cell${settingsTab === 'theme' ? ' on' : ''}`}>
               <>
                 <section className="settings-section">
-                  <h3>{tr('theme')}</h3>
-                  <div className="settings-themes">
-                    {themes.map((item) => (
-                      <button
-                        key={item.id}
-                        className={settings.theme === item.id ? 'active' : ''}
-                        data-tooltip={themeLabel(settings.language, item.id)}
-                        onClick={() => patchSettings({ theme: item.id })}
-                      >
-                        <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${item.appA}, ${item.accent})` }} />
-                        <span>{themeLabel(settings.language, item.id)}</span>
-                      </button>
-                    ))}
+                  {([['customThemes', settings.customThemes.map(customThemeDefinition)], ['themeDark', darkThemes], ['themeLight', lightThemes]] as [string, ThemeDefinition[]][]).filter(([, list]) => list.length > 0).map(([title, list]) => (
+                    <div key={title} className="settings-theme-group">
+                      <h4>{tr(title)} ({list.length})</h4>
+                      <div className="settings-themes">
+                        {list.map((item) => (
+                          <button
+                            key={item.id}
+                            className={settings.theme === item.id ? 'active' : ''}
+                            data-theme-id={item.id}
+                            data-tooltip={item.names[settings.language]}
+                            onClick={() => patchSettings({ theme: item.id })}
+                          >
+                            <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${item.appA}, ${item.accent})` }} />
+                            <span>{item.names[settings.language]}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="settings-buttons">
+                    <button onClick={() => setSettingsTab('customTheme')}><Palette size={13} aria-hidden="true" /><span>{tr('customThemes')}</span></button>
                   </div>
                 </section>
                 <section className="settings-section">
@@ -1215,9 +1247,9 @@ export function DialogBody({
                   {check('neuralWebgpu', 'modelUseWebgpu')}
                 </section>
               </>
-            )}
+            </div>
 
-            {settingsTab === 'view' && (
+            <div className={`settings-page-cell${settingsTab === 'view' ? ' on' : ''}`}>
               <>
                 <section className="settings-section">
                   <h3>{tr('settingsSectionShow')}</h3>
@@ -1262,9 +1294,9 @@ export function DialogBody({
                   </div>
                 </section>
               </>
-            )}
+            </div>
 
-            {settingsTab === 'tools' && (
+            <div className={`settings-page-cell${settingsTab === 'tools' ? ' on' : ''}`}>
               <>
                 <section className="settings-section">
                   <h3>{tr('settingsSectionSelection')}</h3>
@@ -1310,15 +1342,14 @@ export function DialogBody({
                   </div>
                 </section>
               </>
-            )}
+            </div>
 
-            {settingsTab === 'brush' && (
+            <div className={`settings-page-cell${settingsTab === 'brush' ? ' on' : ''}`}>
               <>
                 <section className="settings-section">
                   <h3>{tr('settingsSectionBrushDefaults')}</h3>
-                  <label className="settings-field">
-                    <span className="settings-field-name">{tr('settingsBrushSize')}</span>
-                    <span className="settings-field-hint">{tr('settingsBrushSizeHint')}</span>
+                  <label className="settings-range settings-range-stepper" data-tooltip={tr('settingsBrushSizeHint')}>
+                    <span>{tr('settingsBrushSize')}</span>
                     <NumberStepper language={settings.language} min={1} max={400} value={settings.brushSize} onChange={(brushSize) => patchSettings({ brushSize })} />
                   </label>
                   {percent('brushHardness', 'hardness', 0, 100)}
@@ -1385,9 +1416,9 @@ export function DialogBody({
                     ))}
                 </section>
               </>
-            )}
+            </div>
 
-            {settingsTab === 'export' && (
+            <div className={`settings-page-cell${settingsTab === 'export' ? ' on' : ''}`}>
               <section className="settings-section">
                 <h3>{tr('settingsTabExport')}</h3>
                 <div className="dialog-grid">
@@ -1407,9 +1438,9 @@ export function DialogBody({
                   </label>
                 </div>
               </section>
-            )}
+            </div>
 
-            {settingsTab === 'engine' && (
+            <div className={`settings-page-cell${settingsTab === 'engine' ? ' on' : ''}`}>
               <>
                 <p className="settings-field-hint">{tr('engineIntro')}</p>
                 <section className="settings-section">
@@ -1427,14 +1458,14 @@ export function DialogBody({
                   <p className="settings-field-hint">{tr('fillRoundsHint')}</p>
                 </section>
               </>
-            )}
+            </div>
 
             {/*
               The selection engine is a page of its own. On one page with the
               fill settings it ran 176px past the window, and this window is a
               set size that does not scroll.
             */}
-            {settingsTab === 'selection' && (
+            <div className={`settings-page-cell${settingsTab === 'selection' ? ' on' : ''}`}>
               <>
                 <p className="settings-field-hint">{tr('engineIntro')}</p>
                 <section className="settings-section">
@@ -1463,10 +1494,10 @@ export function DialogBody({
                   <p className="settings-field-hint">{tr('subjectKeepRatioHint')}</p>
                 </section>
               </>
-            )}
+            </div>
 
             {/* The sky gates are a page of their own; with the subject settings they ran 38px past the window. */}
-            {settingsTab === 'sky' && (
+            <div className={`settings-page-cell${settingsTab === 'sky' ? ' on' : ''}`}>
               <>
                 <p className="settings-field-hint">{tr('engineIntro')}</p>
                 <section className="settings-section">
@@ -1489,7 +1520,7 @@ export function DialogBody({
                   <p className="settings-field-hint">{tr('skyHint')}</p>
                 </section>
               </>
-            )}
+            </div>
           </div>
 
           <div className="dialog-actions settings-actions">
@@ -1513,6 +1544,7 @@ export function DialogBody({
             ))}
           </div>
           <div className="dialog-actions">
+            <button data-action="open-guide" onClick={() => void openUserGuide(language)}><BookOpenText size={14} aria-hidden="true" /><span>{tr('userGuideOpen')}</span></button>
             <button className="primary" onClick={onClose}><X size={14} aria-hidden="true" /><span>{tr('close')}</span></button>
           </div>
         </>

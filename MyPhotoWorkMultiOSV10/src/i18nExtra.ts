@@ -6,6 +6,28 @@
  */
 
 export const koExtra: Record<string, string> = {
+  shapePentagon: '오각형', shapeHexagon: '육각형', shapeOctagon: '팔각형', shapeParallelogram: '평행사변형', shapeTrapezoid: '사다리꼴', shapeDrop: '물방울', shapeCloud: '구름', shapeShield: '방패', shapeStar6: '육각별', presetsBuiltIn: '기본 제공', presetsSaved: '저장한 항목', panelCollapse: '패널 접기', panelExpand: '패널 펼치기', panelToggle: '패널 접기/펼치기',
+  swatchesDefault: '기본 색상 40개로', patternSamples: '샘플 패턴', patternSamplesHint: '누르면 현재 패턴이 되고, 두 번 누르면 선택 영역이나 레이어를 채웁니다.', patternsDocument: '이 문서의 패턴',
+  /* tutorial */
+  tutorial: '튜토리얼', tutorialAskTitle: '튜토리얼을 실행할까요?', tutorialAskBody: '실제 화면을 짚어 가며 시작 화면, 메뉴와 도구, 패널, 테마까지 {n}단계로 안내합니다.', tutorialAskHint: '나중에 도움말 메뉴나 시작 화면의 [튜토리얼] 로 언제든 다시 볼 수 있습니다.',
+  tutorialAskAgain: '다음에도 이 창 보이기', tutorialLater: '나중에', tutorialRun: '실행', tutorialPrev: '이전', tutorialNext: '다음', tutorialDone: '완료', tutorialAskSetting: '프로그램을 시작할 때 튜토리얼 실행 여부 묻기',
+  /* themes */
+  settingsTabCustomTheme: '사용자 정의', customThemes: '사용자 정의 테마', themeSettings: '테마 설정', themeDark: 'Dark', themeLight: 'Light',
+  customNew: '새 테마', customSave: '저장하고 적용', customDelete: '삭제', customEmpty: '아직 만든 테마가 없습니다. 아래에서 색을 고르고 저장하세요.', customName: '이름', customKind: '종류',
+  customAccent: '강조색', customBackground: '배경', customPanel: '패널', customText: '글자', customPreview: '미리보기', customPreviewButton: '단추', customDefaultName: '내 테마', customYours: '저장한 테마', customEdit: '테마 편집',
+  /* start screen, help */
+  helpMenu: '도움말', userGuide: '사용자 설명서', userGuideOpen: '사용자 설명서 열기', startScreen: '시작 화면', settingsTabStart: '시작 화면',
+  startTagline: '레이어 기반 사진 편집기. 사진을 열거나 새 문서를 만들어 시작하세요.', startNewDocument: '새 문서', startRecent: '최근 파일', startBackground: '배경',
+  startSamples: '샘플 그림', startSpeed: '속도', startTransparency: '투명도', startShuffle: '섞기', startShuffleEvery: '자동으로 바꾸는 간격', startShuffleTip: '20초마다 다른 배경으로 바꿉니다', startSeconds: '초',
+  startRandom: '시작할 때 배경을 무작위로', startShowOnLaunch: '프로그램을 시작할 때 시작 화면 보이기', startArrange: '자동 정렬', startClose: '시작 화면 닫기', startMoveCard: '카드 이동', startResizeCard: '크기 조절',
+  startResetBackground: '배경 기본값', startResetLayout: '카드 배치 초기화', startOpenNow: '지금 시작 화면 보기',
+  startGroupPhoto: '사진', startGroupScreen: '화면', startGroupPrint: '인쇄', startPresetPhoto: '사진 3:2', startPresetSquare: '정사각형', startPresetPortrait: '세로 4:5', startPresetHd: 'Full HD', startPreset4k: '4K UHD', startPresetIcon: '아이콘', startPresetA4: 'A4 300dpi', startPresetA3: 'A3 300dpi', startPresetPostcard: '엽서 300dpi',
+  anim_bokeh: '빛망울', anim_bokeh_d: '초점이 흐려진 빛이 천천히 떠다닙니다', anim_aperture: '조리개', anim_aperture_d: '렌즈 조리개가 열리고 닫힙니다', anim_filmStrip: '필름 띠', anim_filmStrip_d: '필름이 프레임 단위로 지나갑니다',
+  anim_histogram: '히스토그램', anim_histogram_d: 'RGB 세 채널의 히스토그램이 움직입니다', anim_toneCurve: '톤 커브', anim_toneCurve_d: '격자 위의 커브가 조정됩니다', anim_colorWheel: '색상환', anim_colorWheel_d: '색상환의 고리들이 돕니다',
+  anim_layerStack: '레이어 더미', anim_layerStack_d: '쌓인 레이어가 벌어졌다 모입니다', anim_halftone: '망점', anim_halftone_d: '망점이 커졌다 작아집니다', anim_mosaic: '모자이크', anim_mosaic_d: '색의 흐름이 픽셀 타일로 나뉩니다',
+  anim_lightLeak: '빛샘', anim_lightLeak_d: '필름 가장자리로 따뜻한 빛이 샙니다', anim_lensFlare: '렌즈 플레어', anim_lensFlare_d: '광원이 지나가며 고스트를 남깁니다', anim_brushStrokes: '붓질', anim_brushStrokes_d: '붓질이 차례로 칠해지고 사라집니다',
+  anim_rgbChannels: 'RGB 합성', anim_rgbChannels_d: '빨강·초록·파랑 원이 겹치며 돕니다', anim_filmGrain: '필름 입자', anim_filmGrain_d: '입자 위로 스캔 띠가 지나갑니다', anim_contactSheet: '밀착 인화', anim_contactSheet_d: '썸네일 묶음이 흘러가며 한 장씩 골라집니다',
+  anim_marchingAnts: '선택 윤곽', anim_marchingAnts_d: '선택 영역의 점선이 행진합니다', anim_gradientMesh: '그레이디언트 메시', anim_gradientMesh_d: '테마 색이 서로 번져 흐릅니다', anim_kaleidoscope: '만화경', anim_kaleidoscope_d: '조각들이 열두 쪽으로 대칭을 이룹니다',
   /* file */
   openSmart: '고급 개체로 열기', openRecent: '최근 파일 열기', closeAll: '모두 닫기', saveCopy: '사본 저장', savePsd: 'PSD로 저장',
   revert: '되돌리기', exportAs: '내보내기 형식', quickExport: 'PNG로 빠른 내보내기', layersToFiles: '레이어를 파일로', artboardsToFiles: '아트보드를 파일로',
@@ -167,6 +189,28 @@ export const koExtra: Record<string, string> = {
 }
 
 export const enExtra: Record<string, string> = {
+  shapePentagon: 'Pentagon', shapeHexagon: 'Hexagon', shapeOctagon: 'Octagon', shapeParallelogram: 'Parallelogram', shapeTrapezoid: 'Trapezoid', shapeDrop: 'Drop', shapeCloud: 'Cloud', shapeShield: 'Shield', shapeStar6: 'Six-point star', presetsBuiltIn: 'Built-in', presetsSaved: 'Saved', panelCollapse: 'Collapse panel', panelExpand: 'Expand panel', panelToggle: 'Collapse or expand the panel',
+  swatchesDefault: 'Restore the 40 defaults', patternSamples: 'Sample patterns', patternSamplesHint: 'Click to make one the current pattern; double-click to fill the selection or layer with it.', patternsDocument: 'Patterns in this document',
+  /* tutorial */
+  tutorial: 'Tutorial', tutorialAskTitle: 'Run the tutorial?', tutorialAskBody: 'It points at the real screen through the start screen, the menus and tools, the panels and the themes, in {n} steps.', tutorialAskHint: 'You can run it any time later from the Help menu or [Tutorial] on the start screen.',
+  tutorialAskAgain: 'Show this window next time', tutorialLater: 'Later', tutorialRun: 'Run', tutorialPrev: 'Previous', tutorialNext: 'Next', tutorialDone: 'Done', tutorialAskSetting: 'Ask whether to run the tutorial when the program starts',
+  /* themes */
+  settingsTabCustomTheme: 'Custom', customThemes: 'Custom themes', themeSettings: 'Theme settings', themeDark: 'Dark', themeLight: 'Light',
+  customNew: 'New theme', customSave: 'Save and apply', customDelete: 'Delete', customEmpty: 'No themes made yet. Pick the colours below and save.', customName: 'Name', customKind: 'Kind',
+  customAccent: 'Accent', customBackground: 'Background', customPanel: 'Panel', customText: 'Text', customPreview: 'Preview', customPreviewButton: 'Button', customDefaultName: 'My theme', customYours: 'Saved themes', customEdit: 'Edit theme',
+  /* start screen, help */
+  helpMenu: 'Help', userGuide: 'User Guide', userGuideOpen: 'Open the User Guide', startScreen: 'Start Screen', settingsTabStart: 'Start Screen',
+  startTagline: 'A layer-based photo editor. Open a photo or make a new document to begin.', startNewDocument: 'New document', startRecent: 'Recent files', startBackground: 'Background',
+  startSamples: 'Sample pictures', startSpeed: 'Speed', startTransparency: 'Transparency', startShuffle: 'Shuffle', startShuffleEvery: 'Change automatically every', startShuffleTip: 'Changes to another background every 20 seconds', startSeconds: 's',
+  startRandom: 'Pick a random background at start', startShowOnLaunch: 'Show the start screen when the program starts', startArrange: 'Auto arrange', startClose: 'Close start screen', startMoveCard: 'Move card', startResizeCard: 'Resize',
+  startResetBackground: 'Default background', startResetLayout: 'Reset card layout', startOpenNow: 'Show the start screen now',
+  startGroupPhoto: 'Photo', startGroupScreen: 'Screen', startGroupPrint: 'Print', startPresetPhoto: 'Photo 3:2', startPresetSquare: 'Square', startPresetPortrait: 'Portrait 4:5', startPresetHd: 'Full HD', startPreset4k: '4K UHD', startPresetIcon: 'Icon', startPresetA4: 'A4 300dpi', startPresetA3: 'A3 300dpi', startPresetPostcard: 'Postcard 300dpi',
+  anim_bokeh: 'Bokeh', anim_bokeh_d: 'Out-of-focus lights drift slowly', anim_aperture: 'Aperture', anim_aperture_d: 'A lens iris opens and closes', anim_filmStrip: 'Film strip', anim_filmStrip_d: 'Film runs past frame by frame',
+  anim_histogram: 'Histogram', anim_histogram_d: 'The three RGB channels of a histogram move', anim_toneCurve: 'Tone curve', anim_toneCurve_d: 'A curve is adjusted over its grid', anim_colorWheel: 'Color wheel', anim_colorWheel_d: 'The rings of a hue wheel turn',
+  anim_layerStack: 'Layer stack', anim_layerStack_d: 'Stacked layers spread apart and close', anim_halftone: 'Halftone', anim_halftone_d: 'Screen dots swell and shrink', anim_mosaic: 'Mosaic', anim_mosaic_d: 'A color field breaks into pixel tiles',
+  anim_lightLeak: 'Light leak', anim_lightLeak_d: 'Warm light leaks in at the film edge', anim_lensFlare: 'Lens flare', anim_lensFlare_d: 'A light passes, leaving ghosts behind', anim_brushStrokes: 'Brush strokes', anim_brushStrokes_d: 'Strokes are painted one by one and fade',
+  anim_rgbChannels: 'RGB channels', anim_rgbChannels_d: 'Red, green and blue discs overlap and orbit', anim_filmGrain: 'Film grain', anim_filmGrain_d: 'A scan band passes over the grain', anim_contactSheet: 'Contact sheet', anim_contactSheet_d: 'Thumbnails scroll by, one picked at a time',
+  anim_marchingAnts: 'Marching ants', anim_marchingAnts_d: 'The dotted edges of selections march', anim_gradientMesh: 'Gradient mesh', anim_gradientMesh_d: 'The theme colors flow into each other', anim_kaleidoscope: 'Kaleidoscope', anim_kaleidoscope_d: 'Shards in twelve mirrored wedges',
   /* file */
   openSmart: 'Open as Smart Object', openRecent: 'Open Recent', closeAll: 'Close All', saveCopy: 'Save a Copy', savePsd: 'Save as PSD',
   revert: 'Revert', exportAs: 'Export As', quickExport: 'Quick Export as PNG', layersToFiles: 'Layers to Files', artboardsToFiles: 'Artboards to Files',

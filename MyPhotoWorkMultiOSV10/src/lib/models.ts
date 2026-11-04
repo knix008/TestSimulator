@@ -1,7 +1,7 @@
 import { modelSpec, modelSpecs } from './neural'
 
 /**
- * Where the network weights live. Under Electron the main process keeps them
+ * Where the network weights live. Under the desktop shell the Rust side keeps them
  * as files in the user's data folder and streams the download with progress;
  * in the browser build the Cache API holds them. Either way a model is
  * fetched once, on the user's say-so from the Neural Models window, and read
@@ -19,7 +19,7 @@ export type ModelStore = {
   onProgress(listener: (progress: ModelProgress) => void): () => void
 }
 
-type ElectronModelApi = {
+type HostModelApi = {
   list(): Promise<string[]>
   read(id: string): Promise<ArrayBuffer>
   download(id: string, url: string, bytes: number): Promise<{ ok: boolean; message?: string }>
@@ -27,8 +27,8 @@ type ElectronModelApi = {
   onProgress(listener: (progress: ModelProgress) => void): () => void
 }
 
-function electronApi(): ElectronModelApi | null {
-  return ((window as unknown as { electronModelApi?: ElectronModelApi }).electronModelApi) ?? null
+function hostApi(): HostModelApi | null {
+  return ((window as unknown as { hostModelApi?: HostModelApi }).hostModelApi) ?? null
 }
 
 /* --------------------------------------------------------------- browser */
@@ -56,6 +56,12 @@ const browserStore: ModelStore = {
   async download(id) {
     const spec = modelSpec(id)
     if (!spec) throw new Error(`unknown model ${id}`)
+    // Already here: what was downloaded once is not fetched again.
+    const held = await (await caches.open(CACHE)).match(keyFor(id))
+    if (held) {
+      emit({ id, received: spec.bytes, total: spec.bytes, done: true })
+      return
+    }
     const response = await fetch(spec.url)
     if (!response.ok || !response.body) throw new Error(`${response.status} ${response.statusText}`)
     const total = Number(response.headers.get('content-length')) || spec.bytes
@@ -87,9 +93,9 @@ function keyFor(id: string) {
   return `${window.location.origin}/models/${id}.onnx`
 }
 
-/* ---------------------------------------------------------------- electron */
+/* -------------------------------------------------------------- desktop */
 
-function electronStore(api: ElectronModelApi): ModelStore {
+function hostStore(api: HostModelApi): ModelStore {
   return {
     list: () => api.list(),
     read: (id) => api.read(id),
@@ -104,10 +110,10 @@ function electronStore(api: ElectronModelApi): ModelStore {
   }
 }
 
-/** The store for this build: the Electron one when its bridge is present. */
+/** The store for this build: the desktop one when its bridge is present. */
 export function modelStore(): ModelStore {
-  const api = electronApi()
-  return api ? electronStore(api) : browserStore
+  const api = hostApi()
+  return api ? hostStore(api) : browserStore
 }
 
 /** Bytes as a short human figure, for the models window. */

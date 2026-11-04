@@ -66,6 +66,35 @@ function buildTheme(
   }
 }
 
+/** The four colours a theme is made from; the other tokens follow from them. */
+export type ThemeColors = { accent: string; background: string; panel: string; text: string }
+
+function blend(a: string, b: string, amount: number) {
+  const channels = (hex: string) => [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16))
+  const [from, to] = [channels(a), channels(b)]
+  return `#${from.map((value, index) => Math.round(value + (to[index] - value) * amount).toString(16).padStart(2, '0')).join('')}`
+}
+
+function deriveTheme(id: string, kind: ThemeKind, names: { ko: string; en: string }, colors: ThemeColors) {
+  const { accent, background, panel, text } = colors
+  const dark = kind === 'dark'
+  return buildTheme(id, kind, names, {
+    accent,
+    appA: background,
+    appB: blend(background, accent, dark ? 0.12 : 0.14),
+    toolbar: `rgba(${rgb(blend(background, panel, 0.5))}, 0.96)`,
+    panel: `rgba(${rgb(panel)}, 0.96)`,
+    menu: panel,
+    control: `rgba(${rgb(accent)}, ${dark ? 0.13 : 0.1})`,
+    input: dark ? 'rgba(0, 0, 0, 0.28)' : '#ffffff',
+    text,
+    muted: blend(text, background, dark ? 0.36 : 0.42),
+    stage: blend(background, '#000000', dark ? 0.22 : 0.1),
+    checkA: dark ? blend(background, text, 0.1) : '#ffffff',
+    checkB: dark ? blend(background, text, 0.04) : blend(background, '#000000', 0.12),
+  })
+}
+
 export const themes: ThemeDefinition[] = [
   buildTheme('dark', 'dark', { ko: '다크', en: 'Dark' }, {
     accent: '#6ec8ff', appA: '#0f151b', appB: '#1a2430', toolbar: 'rgba(14, 20, 26, 0.94)', panel: 'rgba(16, 23, 29, 0.94)',
@@ -167,16 +196,87 @@ export const themes: ThemeDefinition[] = [
     menu: '#fff7fa', control: 'rgba(219, 39, 119, 0.1)', input: '#ffffff', text: '#3b1024', muted: '#8d5a70',
     stage: '#efd4e0', checkA: '#ffffff', checkB: '#ebc9d8',
   }),
+  deriveTheme('abyss', 'dark', { ko: '어비스', en: 'Abyss' }, { accent: '#4fb3ff', background: '#05090f', panel: '#0f1824', text: '#dfeaf5' }),
+  deriveTheme('plum', 'dark', { ko: '플럼', en: 'Plum' }, { accent: '#d48cff', background: '#150c1c', panel: '#251634', text: '#f1e6fa' }),
+  deriveTheme('moss', 'dark', { ko: '모스', en: 'Moss' }, { accent: '#b5c85a', background: '#10130a', panel: '#1f2614', text: '#edf0dd' }),
+  deriveTheme('cobalt', 'dark', { ko: '코발트', en: 'Cobalt' }, { accent: '#5c8dff', background: '#0a1230', panel: '#14204a', text: '#e4eaff' }),
+  deriveTheme('crimson', 'dark', { ko: '크림슨', en: 'Crimson' }, { accent: '#ff5c6c', background: '#180a0d', panel: '#2c1218', text: '#fbe6e8' }),
+  deriveTheme('teal', 'dark', { ko: '틸', en: 'Teal' }, { accent: '#3fd8b8', background: '#08171a', panel: '#102a2d', text: '#def6f1' }),
+  deriveTheme('bronze', 'dark', { ko: '브론즈', en: 'Bronze' }, { accent: '#d9a05b', background: '#17110a', panel: '#2a2013', text: '#f5ecde' }),
+  deriveTheme('paper', 'light', { ko: '페이퍼', en: 'Paper' }, { accent: '#3b6fd6', background: '#f6f6f3', panel: '#ffffff', text: '#1d2126' }),
+  deriveTheme('sky', 'light', { ko: '스카이', en: 'Sky' }, { accent: '#0284c7', background: '#e8f4fb', panel: '#ffffff', text: '#0f2a3b' }),
+  deriveTheme('peach', 'light', { ko: '피치', en: 'Peach' }, { accent: '#ea580c', background: '#fdf0e7', panel: '#fffaf6', text: '#3a1f10' }),
+  deriveTheme('lemon', 'light', { ko: '레몬', en: 'Lemon' }, { accent: '#a16207', background: '#fbf7dc', panel: '#fffdf0', text: '#332b0a' }),
+  deriveTheme('sage', 'light', { ko: '세이지', en: 'Sage' }, { accent: '#4d7c4f', background: '#eef2e8', panel: '#fbfdf8', text: '#1d2a1c' }),
+  deriveTheme('rosewater', 'light', { ko: '로즈워터', en: 'Rosewater' }, { accent: '#c0456a', background: '#faeef0', panel: '#fffafb', text: '#351821' }),
+  deriveTheme('lilac', 'light', { ko: '라일락', en: 'Lilac' }, { accent: '#9333ea', background: '#f4ecfb', panel: '#fdfaff', text: '#2a1740' }),
+  deriveTheme('cloud', 'light', { ko: '클라우드', en: 'Cloud' }, { accent: '#475569', background: '#edf0f4', panel: '#fbfcfd', text: '#1e2733' }),
+  deriveTheme('ivory', 'light', { ko: '아이보리', en: 'Ivory' }, { accent: '#8a6d2f', background: '#f8f4e8', panel: '#fffdf6', text: '#2c2615' }),
+  deriveTheme('aqua', 'light', { ko: '아쿠아', en: 'Aqua' }, { accent: '#0891b2', background: '#e6f8fa', panel: '#fbffff', text: '#0e2c33' }),
+  deriveTheme('blush', 'light', { ko: '블러시', en: 'Blush' }, { accent: '#e11d48', background: '#fdeef1', panel: '#fffafb', text: '#3a1019' }),
+  deriveTheme('linen', 'light', { ko: '리넨', en: 'Linen' }, { accent: '#9a5b3a', background: '#f5efe8', panel: '#fdfaf6', text: '#2e2118' }),
+  deriveTheme('pearl', 'light', { ko: '펄', en: 'Pearl' }, { accent: '#5b5bd6', background: '#f1f1f6', panel: '#ffffff', text: '#20202e' }),
 ]
+
+export const darkThemes = themes.filter((theme) => theme.kind === 'dark')
+export const lightThemes = themes.filter((theme) => theme.kind === 'light')
+
+/* --------------------------------------------------------- custom themes */
+
+/** A theme the user made. Its id always starts with CUSTOM_PREFIX. */
+export type CustomTheme = ThemeColors & { id: string; name: string; kind: ThemeKind }
+
+export const CUSTOM_PREFIX = 'custom-'
+const CUSTOM_KEY = 'mpw-custom-themes'
+const HEX = /^#[0-9a-f]{6}$/i
+
+/** Storage can hold anything: what is not a usable theme is dropped. */
+export function normalizeCustomThemes(value: unknown): CustomTheme[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    const theme = item as Partial<CustomTheme> | null
+    if (!theme || typeof theme.id !== 'string' || !theme.id.startsWith(CUSTOM_PREFIX) || typeof theme.name !== 'string') return []
+    if (![theme.accent, theme.background, theme.panel, theme.text].every((colour) => HEX.test(String(colour)))) return []
+    return [{ id: theme.id, name: theme.name, kind: theme.kind === 'light' ? 'light' as const : 'dark' as const, accent: theme.accent as string, background: theme.background as string, panel: theme.panel as string, text: theme.text as string }]
+  })
+}
+
+export function customThemeDefinition(theme: CustomTheme) {
+  return deriveTheme(theme.id, theme.kind, { ko: theme.name, en: theme.name }, theme)
+}
+
+/**
+ * The menu and dialog windows have JavaScript contexts of their own, so the custom
+ * themes are kept where every window of the origin can read them.
+ */
+export function registerCustomThemes(list: CustomTheme[]) {
+  try {
+    window.localStorage.setItem(CUSTOM_KEY, JSON.stringify(list))
+  } catch { /* private mode: only this window knows them */ }
+  memory = list
+}
+
+let memory: CustomTheme[] = []
+
+export function customThemes(): CustomTheme[] {
+  try {
+    return normalizeCustomThemes(JSON.parse(window.localStorage.getItem(CUSTOM_KEY) ?? 'null'))
+  } catch {
+    return memory
+  }
+}
 
 export type Theme = (typeof themes)[number]['id']
 
 export function isTheme(value: unknown): value is Theme {
-  return typeof value === 'string' && themes.some((theme) => theme.id === value)
+  return typeof value === 'string' && (value.startsWith(CUSTOM_PREFIX) || themes.some((theme) => theme.id === value))
 }
 
 export function getTheme(id: string) {
-  return themes.find((theme) => theme.id === id) ?? themes[0]
+  const builtIn = themes.find((theme) => theme.id === id)
+  if (builtIn) return builtIn
+  const custom = id.startsWith(CUSTOM_PREFIX) ? customThemes().find((theme) => theme.id === id) : undefined
+  return custom ? customThemeDefinition(custom) : themes[0]
 }
 
 export function themeLabel(language: 'ko' | 'en', id: string) {
@@ -191,4 +291,34 @@ export function applyTheme(id: string) {
   for (const [key, value] of Object.entries(theme.vars)) {
     root.style.setProperty(key, value)
   }
+}
+
+/** Hex colours only: a token such as a translucent panel is flattened onto white or black. */
+function toHex(value: string | undefined, fallback: string) {
+  const text = String(value ?? '')
+  if (/^#[0-9a-f]{6}$/i.test(text)) return text
+  const match = /^rgba?\(([^)]+)\)/i.exec(text)
+  if (!match) return fallback
+  return `#${match[1].split(',').slice(0, 3).map((part) => Math.round(Number.parseFloat(part)).toString(16).padStart(2, '0')).join('')}`
+}
+
+/** A new theme starts from the look on screen, which is usually close to what is wanted. */
+export function draftFrom(themeId: string, name: string): CustomTheme {
+  const theme = getTheme(themeId)
+  return {
+    id: '',
+    name,
+    kind: theme.kind,
+    accent: toHex(theme.accent, '#6ec8ff'),
+    background: toHex(theme.appA, '#0f151b'),
+    panel: toHex(theme.vars['--menu-bg'], '#192027'),
+    text: toHex(theme.vars['--text-primary'], '#eef6fa'),
+  }
+}
+
+/** Puts `draft` in the list (a new id if it has none), or replaces the one with its id. */
+export function saveCustomTheme(list: CustomTheme[], draft: CustomTheme, makeId: () => string) {
+  const theme = { ...draft, id: draft.id || `${CUSTOM_PREFIX}${makeId()}`, name: draft.name.trim() || 'Custom' }
+  const next = list.some((item) => item.id === theme.id) ? list.map((item) => (item.id === theme.id ? theme : item)) : [...list, theme]
+  return { list: next, theme }
 }

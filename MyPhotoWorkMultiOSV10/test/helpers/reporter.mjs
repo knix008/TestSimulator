@@ -1,14 +1,14 @@
 /*
- * A reporter for `node --test` that says what was checked and how it went.
- *
- * Node runs the test files in a pool, so their events interleave; results are
- * collected and printed grouped by file at the end. A failure is also printed
- * the moment it happens, so a long run surfaces trouble without waiting.
+ * A reporter for `node --test` that says what is being checked as it goes: a running
+ * number, the mark, the time and the name of each test, in columns, under the name of
+ * its file with that file's place in the run. The summary comes last.
  *
  * Colour follows the usual rules: on for a terminal, off when piped or when
  * NO_COLOR is set, forced on by FORCE_COLOR.
  */
+import { readdirSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const colour = process.env.FORCE_COLOR
   ? true
@@ -29,7 +29,20 @@ const RULE = '─'.repeat(78)
 const HEAVY = '═'.repeat(78)
 
 /** `ms` as a short string: 1.2s, 410ms. */
-const plainDuration = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`)
+export const plainDuration = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : ms >= 10 ? `${Math.round(ms)}ms` : `${ms.toFixed(1)}ms`)
+
+/** One test's line: the columns line up whatever the number and the time are. */
+export function testLine(number, mark, ms, name, width = 8) {
+  return `    ${String(number).padStart(4)}  ${mark}  ${duration(ms, width)}  ${name}`
+}
+
+const TEST_FILES = (() => {
+  try {
+    return readdirSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..')).filter((name) => name.endsWith('.test.mjs')).length
+  } catch {
+    return 0
+  }
+})()
 
 /*
  * Red is failure and nothing else.
@@ -69,28 +82,42 @@ export default async function* report(source) {
     return files.get(key)
   }
 
+  let number = 0
+  let shown = null
+  yield `\n  ${grey('   no  ok      time  test')}\n`
   for await (const event of source) {
     const data = event.data ?? {}
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
     const row = bucket(data.file)
     const ms = data.details?.duration_ms ?? 0
     row.ms += ms
+    const fileName = data.file ? path.basename(data.file) : '(unknown)'
+    // A heading each time the run moves to another file.
+    if (fileName !== shown) {
+      shown = fileName
+      yield `\n  ${grey(`[${String(files.size).padStart(2)}/${TEST_FILES || '?'}]`)} ${blue(bold(fileName))}\n`
+    }
+    number += 1
     if (event.type === 'test:pass') {
       if (data.skip || data.todo) {
         row.skip += 1
         row.tests.push({ name: data.name, state: 'skip', ms })
+        yield `${testLine(number, yellow('○'), ms, grey(data.name))}\n`
         continue
       }
       row.pass += 1
       row.tests.push({ name: data.name, state: 'pass', ms })
+      yield `${testLine(number, green('✔'), ms, data.name)}\n`
       continue
     }
     row.fail += 1
     row.tests.push({ name: data.name, state: 'fail', ms })
+    yield `${testLine(number, red('✘'), ms, red(data.name))}\n`
     const where = data.file ? path.basename(data.file) : '(unknown)'
     const error = data.details?.error
     const cause = error?.cause ?? error
-    const message = cause?.message ?? String(cause ?? 'failed')
+    // A cause with no prototype cannot be turned into a string: it must not end the run.
+    const message = cause?.message ?? (typeof cause === 'string' ? cause : 'failed')
     failures.push({ where, name: data.name, message, stack: cause?.stack ?? '' })
     yield `\n  ${onRed(' FAIL ')} ${bold(where)}  ${data.name}\n         ${red(message.split('\n')[0])}\n`
   }
@@ -105,19 +132,6 @@ export default async function* report(source) {
   const slowest = rows.slice().sort(([, a], [, b]) => b.ms - a.ms)[0]
 
   const out = ['']
-
-  /* --------------------------------------------------- what each file checked */
-  out.push(bold('  WHAT WAS CHECKED'), grey(`  ${RULE}`), '')
-  for (const [name, row] of rows) {
-    const badge = row.fail ? red(`${row.fail} failed`) : green('all passed')
-    out.push(`  ${blue(bold(name))} ${grey('·')} ${row.tests.length} checks ${grey('·')} ${badge} ${duration(row.ms)}`)
-    for (const item of row.tests) {
-      const mark = item.state === 'pass' ? green('✔') : item.state === 'fail' ? red('✘') : yellow('○')
-      const text = item.state === 'fail' ? red(item.name) : item.state === 'skip' ? grey(item.name) : item.name
-      out.push(`    ${mark} ${text}${item.ms >= 100 ? ` ${duration(item.ms)}` : ''}`)
-    }
-    out.push('')
-  }
 
   /* ---------------------------------------------------------------- summary */
   out.push(HEAVY)

@@ -1,6 +1,7 @@
 import { StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { installTauriBridge } from './host/tauriBridge.ts'
 import { App, DialogHost, MenuHost } from './routes.ts'
 import type { MenuId } from './commands.ts'
 
@@ -13,6 +14,9 @@ import type { MenuId } from './commands.ts'
  * popup window is handed that over IPC, so one warm window can serve any of
  * them and none of them has to wait for a renderer to start.
  */
+// Before anything renders: the components read window.hostFileApi and the others.
+installTauriBridge()
+
 function routeFromHash() {
   const hash = window.location.hash.replace(/^#/, '')
   const params = new URLSearchParams(hash)

@@ -1,4 +1,6 @@
-import type { Theme as ThemeId } from '../themes'
+import { DEFAULT_START_BACKGROUND, type StartBackground } from './startSettings'
+import { DEFAULT_SWATCHES } from './swatches'
+import type { CustomTheme, Theme as ThemeId } from '../themes'
 import type { SourceInfo } from './metadata'
 
 export type Language = 'ko' | 'en'
@@ -28,7 +30,7 @@ export type AdjustmentType =
   | 'equalize'
 
 export type GradientKind = 'linear' | 'radial' | 'angle' | 'reflected' | 'diamond'
-export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'polygon' | 'line' | 'star' | 'heart' | 'arrow' | 'triangle' | 'diamond' | 'cross' | 'chevron' | 'speech' | 'moon' | 'lightning' | 'plus' | 'custom'
+export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'polygon' | 'line' | 'star' | 'heart' | 'arrow' | 'triangle' | 'diamond' | 'cross' | 'chevron' | 'speech' | 'moon' | 'lightning' | 'plus' | 'pentagon' | 'hexagon' | 'octagon' | 'parallelogram' | 'trapezoid' | 'drop' | 'cloud' | 'shield' | 'star6' | 'custom'
 export type FillKind = 'solid' | 'gradient' | 'pattern'
 
 export type Tool =
@@ -570,6 +572,16 @@ export type CustomShapeDef = { id: string; name: string; outline: PathNode[]; cl
 export type Workspace = { id: string; name: string; rightTab: PanelTab; rightWidth: number; showRulers: boolean; showGrid: boolean }
 
 export type AppSettings = {
+  /** Themes the user made; they appear above the built-in ones. */
+  customThemes: CustomTheme[]
+  /** Ask at launch whether to run the tutorial. */
+  tutorialAskOnLaunch: boolean
+  /** The right panel is folded away. */
+  rightCollapsed: boolean
+  /** Open on the start screen. */
+  showStartOnLaunch: boolean
+  /** The start screen's background and card layout. */
+  startBackground: StartBackground
   language: Language
   theme: Theme
   zoom: number
@@ -834,6 +846,11 @@ export const rightPanelMinWidth = 280
 export const rightPanelMaxWidth = 480
 
 export const defaultSettings: AppSettings = {
+  customThemes: [],
+  tutorialAskOnLaunch: true,
+  rightCollapsed: false,
+  showStartOnLaunch: true,
+  startBackground: DEFAULT_START_BACKGROUND,
   language: 'ko',
   theme: 'dark',
   zoom: 1,
@@ -877,7 +894,7 @@ export const defaultSettings: AppSettings = {
   gradientReverse: false,
   gradientDither: false,
   gradients: [],
-  swatches: ['#000000', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#64748b', '#78350f'],
+  swatches: DEFAULT_SWATCHES,
   customShapeKind: 'star',
   customShapes: [],
   historyStates: 50,

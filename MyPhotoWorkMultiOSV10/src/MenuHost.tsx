@@ -40,13 +40,13 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
 
   useEffect(() => {
     let cancelled = false
-    void window.electronMenuApi?.payload().then((value) => {
+    void window.hostMenuApi?.payload().then((value) => {
       if (!cancelled) setPayload((value ?? null) as MenuPayload | null)
     })
     // One popup window serves every dropdown, rather than one being created and
     // destroyed per click; it is told which menu to show, and `null` when the
     // menu is dismissed so the next one never flashes the last one's rows.
-    const off = window.electronMenuApi?.onPayload((next) => {
+    const off = window.hostMenuApi?.onPayload((next) => {
       if (!cancelled) setPayload((next ?? null) as MenuPayload | null)
     })
     return () => { cancelled = true; off?.() }
@@ -63,7 +63,7 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
     if (!node || !payload) return
     const report = () => {
       const box = node.getBoundingClientRect()
-      void window.electronMenuApi?.reportSize({ width: Math.ceil(box.width), height: Math.ceil(box.height) })
+      void window.hostMenuApi?.reportSize({ width: Math.ceil(box.width), height: Math.ceil(box.height) })
     }
     report()
     const observer = new ResizeObserver(report)
@@ -73,11 +73,11 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') void window.electronMenuApi?.close()
+      if (event.key === 'Escape') void window.hostMenuApi?.close()
     }
     const send = (error: unknown) => {
       const report = buildErrorReport(error, { action: `menu:${menu}`, source: `menu:${menu}` })
-      void window.electronDialogApi?.reportError({ source: report.title, message: report.message, details: report.details })
+      void window.hostDialogApi?.reportError({ source: report.title, message: report.message, details: report.details })
     }
     const onError = (event: ErrorEvent) => send(event.error ?? event.message)
     const onRejection = (event: PromiseRejectionEvent) => send(event.reason)
@@ -112,8 +112,8 @@ export default function MenuHost({ menu }: { menu: MenuId }) {
         sectionLabel={(section) => t(language, section)}
         isActive={(id) => payload.active.includes(id)}
         isDisabled={(id) => (payload.disabled ?? []).includes(id)}
-        onChoose={(id) => void window.electronMenuApi?.choose(id)}
-        onForget={(id) => void window.electronMenuApi?.choose(`${RECENT_FORGET_PREFIX}${id.slice(RECENT_PREFIX.length)}`)}
+        onChoose={(id) => void window.hostMenuApi?.choose(id)}
+        onForget={(id) => void window.hostMenuApi?.choose(`${RECENT_FORGET_PREFIX}${id.slice(RECENT_PREFIX.length)}`)}
         forgetLabel={t(language, 'forgetRecent')}
       />
     </div>

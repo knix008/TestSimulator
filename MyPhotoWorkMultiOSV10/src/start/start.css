@@ -1,0 +1,134 @@
+/* The start screen. It covers the toolbars and the workspace, between the menu bar and
+   the status bar. No backdrop-filter on the cards: WebView2 flickers over a moving
+   canvas with it, and the translucent colour alone reads as well. */
+.start-host { bottom: 28px; left: 0; position: absolute; right: 0; top: 78px; z-index: 25; }
+.start-screen { background: var(--app-bg-a); inset: 0; overflow: hidden; position: absolute; }
+.start-bg { display: block; height: 100%; inset: 0; position: absolute; width: 100%; }
+.start-scroll { inset: 0; overflow: auto; position: absolute; scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
+.start-inner { display: flex; flex-direction: column; gap: 12px; margin: 0 auto; max-width: 1240px; padding: 18px 26px 16px; }
+.start-screen .grow { flex: 1 1 auto; }
+.start-screen .muted { color: var(--text-muted); }
+
+.start-tools { display: flex; gap: 8px; justify-content: flex-end; }
+.start-button {
+  align-items: center; background: color-mix(in srgb, var(--menu-bg) 88%, transparent); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-primary); cursor: pointer; display: inline-flex; font: inherit; gap: 7px; height: 32px; padding: 0 12px; white-space: nowrap;
+}
+.start-button:hover { border-color: var(--accent); }
+.start-button.primary { background: var(--accent); border-color: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+
+.start-board { align-items: start; column-gap: 14px; display: grid; grid-auto-rows: 20px; grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; row-gap: 0; }
+.start-card {
+  background: color-mix(in srgb, var(--menu-bg) 80%, transparent); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); color: var(--text-primary); display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 11px 14px; position: relative;
+}
+.start-card.drag-origin { filter: saturate(0.6); opacity: 0.35; }
+.start-card.resizing { outline: 1px solid var(--accent); }
+.start-card.fixed-height > .card-body { overflow: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.start-ghost { box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42); opacity: 0.9; }
+.start-card h2 { align-items: center; display: flex; flex: none; font-size: 14px; gap: 7px; margin: 0 0 8px; }
+.start-card .card-icon { color: var(--accent); flex: none; }
+.card-body { flex: 1 1 auto; min-height: 0; min-width: 0; }
+.card-handle { align-items: center; background: none; border: 0; border-radius: 4px; color: var(--text-muted); cursor: grab; display: inline-flex; flex: none; height: 20px; justify-content: center; padding: 0; width: 18px; }
+.card-handle:hover, .card-handle:focus-visible { background: var(--accent-soft); color: var(--text-primary); }
+.card-handle-float { left: 8px; position: absolute; top: 10px; }
+.card-resize { bottom: 0; cursor: nwse-resize; height: 14px; position: absolute; right: 0; width: 14px; }
+.card-resize::after { border-bottom: 2px solid var(--text-muted); border-right: 2px solid var(--text-muted); bottom: 3px; content: ''; height: 6px; opacity: 0; position: absolute; right: 3px; width: 6px; }
+.start-card:hover .card-resize::after { opacity: 0.8; }
+.card-drop-outline { border: 2px dashed var(--accent); border-radius: 14px; pointer-events: none; }
+
+.start-hero { padding-left: 30px; }
+.start-hero > .card-body { align-items: center; display: flex; flex-wrap: wrap; gap: 18px; row-gap: 10px; }
+.start-icon { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); height: 64px; width: 64px; }
+.start-title { flex: 1 1 260px; min-width: 0; }
+.start-title h1 { font-size: 1.7em; margin: 0; }
+.start-title h1 small { color: var(--accent); font-size: 0.5em; }
+.start-title p { color: var(--text-muted); line-height: 1.5; margin: 3px 0 0; }
+.start-hero-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-left: auto; }
+
+.preset-groups { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.preset-group { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.preset-group-title { color: var(--text-muted); font-size: 12px; margin: 0; }
+.preset-tile {
+  align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); column-gap: 8px; cursor: pointer;
+  display: grid; font: inherit; grid-template-columns: 20px minmax(0, 1fr); padding: 6px 9px; text-align: left;
+}
+.preset-tile:hover { border-color: var(--accent); }
+.preset-tile svg { color: var(--accent); grid-row: 1 / span 2; }
+.preset-tile b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-tile small { color: var(--text-muted); font-size: 11px; }
+
+.start-list { display: flex; flex-direction: column; gap: 2px; }
+.start-row { align-items: center; display: flex; gap: 4px; min-width: 0; }
+.start-link { align-items: center; background: none; border: 0; border-radius: 7px; color: var(--text-primary); cursor: pointer; display: grid; flex: 1 1 auto; font: inherit; gap: 7px; grid-template-columns: 18px auto minmax(0, 1fr); min-width: 0; padding: 5px 7px; text-align: left; }
+.start-link:hover:not(:disabled) { background: var(--accent-soft); }
+.start-link:disabled { cursor: default; opacity: 0.6; }
+.start-link svg { color: var(--accent); }
+.start-link.compact { grid-template-columns: 18px minmax(0, 1fr); }
+.start-link .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-link .path { color: var(--text-muted); font-size: 0.82em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.start-empty { align-items: center; color: var(--text-muted); display: flex; font-size: 0.9em; gap: 6px; padding: 8px; }
+.icon-only { align-items: center; background: none; border: 0; border-radius: 5px; color: var(--text-muted); cursor: pointer; display: inline-flex; flex: none; height: 22px; justify-content: center; padding: 0; width: 22px; }
+.icon-only:hover { background: var(--accent-soft); color: var(--text-primary); }
+.small-button { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); cursor: pointer; display: inline-flex; font: inherit; font-size: 12px; font-weight: 400; gap: 4px; height: 22px; padding: 0 8px; }
+.start-help { display: grid; gap: 2px 8px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+
+.bg-kinds { display: grid; gap: 4px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bg-kind { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); cursor: pointer; display: flex; font: inherit; font-size: 12px; gap: 6px; min-width: 0; padding: 4px 7px; text-align: left; }
+.bg-kind span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bg-kind:hover { border-color: var(--accent); }
+.bg-kind.on { background: var(--accent); border-color: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+.start-speed { align-items: center; display: flex; font-size: 12.5px; gap: 6px; margin: 9px 0 3px; }
+.start-speed svg { color: var(--accent); flex: none; }
+.range-stepper { align-items: center; display: grid; gap: 4px; grid-template-columns: 22px minmax(0, 1fr) 22px 46px; }
+.range-stepper button { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); cursor: pointer; display: inline-flex; height: 22px; justify-content: center; padding: 0; width: 22px; }
+.range-stepper button:disabled { cursor: default; opacity: 0.4; }
+.range-stepper input { accent-color: var(--accent); margin: 0; min-width: 0; width: 100%; }
+.range-stepper output { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.start-check { align-items: center; cursor: pointer; display: flex; font-size: 12.5px; gap: 6px; margin-top: 9px; }
+.start-check input { accent-color: var(--accent); margin: 0; }
+
+.sample-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.sample-tile { background: var(--control-bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text-primary); cursor: pointer; display: flex; flex-direction: column; font: inherit; gap: 3px; min-width: 0; padding: 6px; text-align: left; }
+.sample-tile:hover { border-color: var(--accent); }
+.sample-thumb { aspect-ratio: 3 / 2; border-radius: 6px; display: block; width: 100%; }
+.sample-tile b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sample-tile small { color: var(--text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.start-foot { align-items: center; background: color-mix(in srgb, var(--menu-bg) 84%, transparent); border-radius: 10px; display: flex; font-size: 12.5px; gap: 10px; padding: 6px 14px; }
+.start-foot .start-check { margin: 0; }
+
+/* The same background controls in Settings > Start Screen. */
+.settings-page .bg-kinds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.settings-page .start-speed { font-size: 13px; }
+.menu-bar .start-toggle.active { color: var(--accent); }
+
+/* The tutorial: the popup at launch, and the tour's outline and card. */
+.tutorial-ask-back { align-items: center; background: rgba(0, 0, 0, 0.4); display: flex; inset: 0; justify-content: center; position: fixed; z-index: 200; }
+.tutorial-ask { background: var(--menu-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45); color: var(--text-primary); max-width: 92vw; padding: 18px 20px 14px; width: 520px; }
+.tutorial-ask-body { display: flex; gap: 16px; }
+.tutorial-ask-body > svg { color: var(--accent); flex: none; }
+.tutorial-ask h3 { font-size: 16px; margin: 0 0 6px; }
+.tutorial-ask p { line-height: 1.5; margin: 0 0 6px; }
+.tutorial-ask-hint { color: var(--text-muted); font-size: 12.5px; }
+.tutorial-ask-foot, .tutorial-foot { align-items: center; display: flex; gap: 8px; margin-top: 10px; }
+.tutorial-ask-foot label { align-items: center; display: flex; font-size: 12.5px; gap: 6px; }
+.tutorial-ask-foot input { accent-color: var(--accent); margin: 0; }
+.tutorial-ask .grow, .tutorial-card .grow { flex: 1 1 auto; }
+.tutorial-ask-foot button, .tutorial-foot button { align-items: center; background: var(--control-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text-primary); cursor: pointer; display: inline-flex; font: inherit; gap: 5px; height: 30px; padding: 0 11px; }
+.tutorial-foot button:disabled { cursor: default; opacity: 0.4; }
+.tutorial-ask-foot button.primary, .tutorial-foot button.primary { background: var(--accent); border-color: var(--accent); color: var(--app-bg-a); font-weight: 600; }
+.tutorial-layer { inset: 0; pointer-events: none; position: fixed; z-index: 190; }
+.tutorial-outline { border: 2px solid var(--accent); border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.34); position: fixed; transition: left 0.18s, top 0.18s, width 0.18s, height 0.18s; }
+.tutorial-card { background: var(--menu-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45); color: var(--text-primary); padding: 12px 14px; pointer-events: auto; position: fixed; width: 360px; }
+.tutorial-head { align-items: center; display: flex; gap: 7px; }
+.tutorial-head svg:first-child { color: var(--accent); }
+.tutorial-card p { font-size: 13px; line-height: 1.5; margin: 8px 0; min-height: 58px; }
+.tutorial-x { align-items: center; background: none; border: 0; border-radius: 5px; color: var(--text-muted); cursor: pointer; display: inline-flex; height: 22px; justify-content: center; padding: 0; width: 22px; }
+.tutorial-progress { background: var(--control-bg); border-radius: 2px; height: 4px; overflow: hidden; }
+.tutorial-progress span { background: var(--accent); display: block; height: 100%; }
+.tutorial-count { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* Dialog buttons carry padding that would squeeze the icon out of a button this small. */
+.settings-page .range-stepper button { min-height: 22px; min-width: 22px; padding: 0; }
+.range-stepper button svg { flex: none; }

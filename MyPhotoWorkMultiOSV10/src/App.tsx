@@ -1,10 +1,10 @@
-import { createElement, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentType, type PointerEvent as ReactPointerEvent } from 'react'
+import { createElement, Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { BUSY_AFTER_MS, BusyOverlay, type BusyJob } from './Busy'
 import { resolveSubjectMethod } from './subjectMethods'
 import { NumberField, Slider } from './controls'
 import {
-  ArrowLeftRight, Blend, Check, ChevronDown, Copy, Crop, FileImage, FlipHorizontal, FlipVertical, Frame, Info, Minus, PaintBucket, Palette, PenTool, Plus, Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, Wand, X,
+  ArrowLeftRight, Blend, Check, ChevronDown, ChevronLeft, ChevronRight, Crop, FileImage, FlipHorizontal, FlipVertical, Frame, House, Info, Minus, PaintBucket, Palette, PenTool, Scissors, Settings2, Sparkles, Square, SquareDashed, Trash, Wand, X,
 } from 'lucide-react'
 import { t, toolLabel } from './i18n'
 import { aspectRatio, formatBytes, formatName, imageStatistics, type MetaRow, type MetaSection } from './lib/metadata'
@@ -34,7 +34,7 @@ import { modelStore } from './lib/models'
 import { bestModelFor, depthBlur, modelSpecs, runDepth, runInpaint, runSky, runSubject, runUpscale, type ModelSpec, type ModelTask, type Runner } from './lib/neural'
 import { decontaminateEdge, objectSelectRect, refineMask, selectFocusArea, selectSky, selectSubjectAuto, tidySubjectMask } from './lib/segment'
 import { applyImage, applyLut, autoContrast, autoTone, calculations, desaturate, fadeTo, hdrToning, lutById, lutChoices, matchColor, parseCube, registerLut, rotateArbitrary, rotatedSize } from './lib/adjustExtra'
-import { gradientPresets, paintGradientDef, resolveGradient, type GradientDef } from './lib/gradients'
+import { gradientLabel, gradientPresets, paintGradientDef, resolveGradient, type GradientDef } from './lib/gradients'
 import { extraFilters } from './lib/moreFilters'
 import { alignOffsets, autoAlignLayers, autoBlendLayers, bitmapMode, checkSpelling, contactSheet, defringe, distributeOffsets, duotone, fitImage, gamutWarning, indexedColor, layerBounds, mergeToHdr, normaliseOutline, photomerge, proofCmyk, removeMatte, rotateLayerCanvas, shiftCanvas, traceCanvasToPaths } from './lib/documentOps'
 import { writePsd } from './lib/psd'
@@ -43,14 +43,24 @@ import { applyCurves, applyLevels, autoLevels } from './lib/curves'
 import { applyTransform, dragTransform, drawTransformOverlay, flipCanvas, hitTestTransform, identityTransform } from './lib/transform'
 import { clipToFrame, contentMove, createFrame, createSlice, cropToRect, drawRegionOverlay, measureInfo, patchSelection, perspectiveCrop, perspectiveSize, rectAt, snapToEdge } from './lib/regions'
 import { optionsForTool } from './toolOptions'
-import { firstTick, rulerSize, tickStep, visibleRange } from './lib/view'
+import { pointerLook } from './lib/toolCursor'
+import { BUILTIN_SHAPES, BUILTIN_STYLES, BUILTIN_TOOL_PRESETS } from './lib/presets'
+import { GRID_DIVISIONS, firstTick, gridStep, rulerMarks, rulerSize, tickStep, visibleRange } from './lib/view'
 import { buildErrorReport } from './lib/errors'
 import { commands, commandsInMenu, fileMenuWithRecents, findCommand, menuIcons, menuOrder, RECENT_FORGET_PREFIX, RECENT_PREFIX, toolbarGroups, type AppCommand, type MenuId as CommandMenuId } from './commands'
 import { MenuTree } from './MenuTree'
 import { DialogBody, DialogFrame, type DialogName, type DialogPayload, type DialogResult } from './dialogs'
 import { keepsWindowOpen } from './dialogMeta'
+import { openUserGuide, publishGuideAppearance } from './host/userGuide'
+import { SAMPLE_HEIGHT, SAMPLE_WIDTH, renderSample, type SampleImage } from './lib/sampleImages'
+import StartScreen, { type StartAction } from './start/StartScreen'
+import { TutorialAsk, TutorialTour } from './tutorial/Tutorial'
+import { ContextMenu } from './ContextMenu'
+import type { ContextKind } from './contextRows'
+import { patternSampleId, renderPatternSample, type PatternSample } from './lib/patternSamples'
+import type { TutorialStep } from './tutorial/steps'
 import { defaultAdjustment, defaultCurves, defaultEffects, defaultSettings, panelTabs, shapeKindForTool, type Adjustment, type AdjustmentType, type AppSettings, type BlendMode, type ErrorDetails, type ExportFormat, type CurveData, type Language, type LayerEffects, type LevelsData, type PageOrientation, type PanelTab, type PathShape, type PhotoDocument, type Point, type Selection, type SliceRect, type ActionScript, type ActionStep, type AnimationFrame, type LayerComp, type LayerMeta, type SmartFilter, type TextData, type TextWarpStyle, type ThreeDData, type Tool, type TransformBox, type TransformHandle, type UnsavedChoice } from './lib/types'
-import { applyTheme, themeLabel, themes } from './themes'
+import { applyTheme, customThemeDefinition, darkThemes, lightThemes, registerCustomThemes, themeLabel, themes, type ThemeDefinition } from './themes'
 import { DocumentTabs, PanelSwitch, type PanelContext } from './panels'
 import { panelIcon, panelLabelKey, panelShortKey } from './panelMeta'
 import './App.css'
@@ -141,28 +151,6 @@ function ColorPopover({ color, x, y, onChange, onClose }: { color: string; x: nu
       <button onClick={onClose}>Close</button>
     </div>,
     document.body,
-  )
-}
-
-function MenuItem({
-  icon: Icon,
-  label,
-  onClick,
-  active,
-  accel,
-}: {
-  icon: ComponentType<{ size?: number }>
-  label: string
-  onClick: () => void
-  active?: boolean
-  accel?: string
-}) {
-  return (
-    <button className={active ? 'active' : ''} data-tooltip={label} onClick={onClick}>
-      <Icon size={16} />
-      <span>{label}</span>
-      {accel && <kbd>{accel}</kbd>}
-    </button>
   )
 }
 
@@ -456,6 +444,11 @@ const PanelTabIcon = ({ tab }: { tab: PanelTab }) => createElement(panelIcon(tab
 export default function App() {
   const startup = useMemo(() => createBlankDocument('Untitled', 1280, 720, 'transparent', 'Layer'), [])
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
+  // The start screen covers the workspace; the editor underneath stays as it was.
+  const [startOn, setStartOn] = useState(() => settings.showStartOnLaunch)
+  // Asked once per launch, for as long as the box in the popup stays ticked.
+  const [tutorialAsk, setTutorialAsk] = useState(() => settings.tutorialAskOnLaunch)
+  const [tutorialOn, setTutorialOn] = useState(false)
   const [doc, setDoc] = useState<PhotoDocument>(startup.document)
   const canvasesRef = useRef(startup.canvases)
   const [frame, setFrame] = useState(0)
@@ -477,7 +470,7 @@ export default function App() {
   const [savedNote, setSavedNote] = useState(false)
   const [pan, setPan] = useState({ x: 72, y: 56 })
   const [dialog, setDialog] = useState<Dialog>(null)
-  const [pendingAction, setPendingAction] = useState<null | 'new' | 'open' | 'close' | 'quit' | 'closeAll'>(null)
+  const [pendingAction, setPendingAction] = useState<null | 'new' | 'open' | 'close' | 'quit' | 'closeAll' | 'start'>(null)
   const [error, setError] = useState<ErrorDetails | null>(null)
   const [crop, setCrop] = useState<Selection | null>(null)
   const [textValue, setTextValue] = useState('Photo')
@@ -485,7 +478,7 @@ export default function App() {
   const [fontSize, setFontSize] = useState(48)
   const [textPoint, setTextPoint] = useState<Point>({ x: 40, y: 40 })
   const [adjust, setAdjust] = useState({ brightness: 0, contrast: 0, hue: 0, saturation: 0, lightness: 0, radius: 4, amount: 60, width: 1280, height: 720 })
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; kind: ContextKind } | null>(null)
   const [colorPick, setColorPick] = useState<{ target: 'fg' | 'bg'; x: number; y: number } | null>(null)
   const [dash, setDash] = useState(0)
   const [groupTool, setGroupTool] = useState<Record<string, Tool>>(() => Object.fromEntries(toolGroups.map((group) => [group.id, group.tools[0].id])))
@@ -513,6 +506,11 @@ export default function App() {
   const tooltipTimer = useRef(0)
   const viewRef = useRef<HTMLCanvasElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
+  const rulerMarkXRef = useRef<HTMLDivElement | null>(null)
+  const rulerMarkYRef = useRef<HTMLDivElement | null>(null)
+  const brushRingRef = useRef<HTMLDivElement | null>(null)
+  /** Where the pointer last was over the stage, in window coordinates. */
+  const stagePointerRef = useRef<{ x: number; y: number; pressed: boolean; alt: boolean } | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const placeRef = useRef<HTMLInputElement | null>(null)
   const videoRef = useRef<HTMLInputElement | null>(null)
@@ -562,6 +560,8 @@ export default function App() {
   const errorRef = useRef<ErrorDetails | null>(null)
   const dirtyRef = useRef(false)
   const runPendingRef = useRef<((choice: UnsavedChoice) => Promise<void>) | null>(null)
+  /** What a start screen preset does once any unsaved work has been dealt with. */
+  const startPendingRef = useRef<(() => void) | null>(null)
 
   /* ---- state added for Photoshop parity ---- */
   /** The label the next snapshot is filed under in the History panel. */
@@ -653,7 +653,7 @@ export default function App() {
 
   /* ------------------------------------------------------ popup windows */
 
-  const windowedDialogs = Boolean(window.electronDialogApi)
+  const windowedDialogs = Boolean(window.hostDialogApi)
 
   const layerChoices = useCallback(() => {
     const current = docRef.current
@@ -707,8 +707,8 @@ export default function App() {
       return
     }
     const payload = { ...dialogPayload(name), ...extra }
-    if (window.electronDialogApi) {
-      window.electronDialogApi.open(name, payload).then((opened) => {
+    if (window.hostDialogApi) {
+      window.hostDialogApi.open(name, payload).then((opened) => {
         if (!opened) {
           setInPagePayload(payload)
           setDialog(name)
@@ -728,14 +728,15 @@ export default function App() {
 
 
   const closeAllDialogs = useCallback(() => {
-    if (window.electronDialogApi) {
-      void window.electronDialogApi.closeAll()
+    if (window.hostDialogApi) {
+      void window.hostDialogApi.closeAll()
       return
     }
     setDialog(null)
   }, [])
 
   useEffect(() => {
+    registerCustomThemes(settings.customThemes)
     applyTheme(settings.theme)
     saveSettings(settings)
   }, [settings])
@@ -863,7 +864,7 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => window.electronDialogApi?.onError?.(({ source, message, details }) => {
+  useEffect(() => window.hostDialogApi?.onError?.(({ source, message, details }) => {
     const report = { title: t(settingsRef.current.language, 'errorInWindow'), message, details }
     setError(report)
     errorRef.current = report
@@ -1170,8 +1171,8 @@ export default function App() {
   }, [fitZoom, note, openInNewSlot, remember, replaceDocument, showError, snapshot, tr, updateDoc])
 
   const pickFiles = useCallback(async (mode: 'open' | 'place' | 'smart' | 'linked') => {
-    if (window.electronFileApi) {
-      const result = await window.electronFileApi.openFiles({ defaultPath: settingsRef.current.lastDirectory || undefined })
+    if (window.hostFileApi) {
+      const result = await window.hostFileApi.openFiles({ defaultPath: settingsRef.current.lastDirectory || undefined })
       if (!result.canceled) {
         await openFiles(result.files, mode)
       }
@@ -1199,8 +1200,8 @@ export default function App() {
       }
       return out
     }
-    if (window.electronFileApi) {
-      const result = await window.electronFileApi.openFiles({ defaultPath: settingsRef.current.lastDirectory || undefined })
+    if (window.hostFileApi) {
+      const result = await window.hostFileApi.openFiles({ defaultPath: settingsRef.current.lastDirectory || undefined })
       if (result.canceled) return []
       return decode(result.files)
     }
@@ -1218,8 +1219,8 @@ export default function App() {
   }, [])
 
   const readPath = useCallback(async (path: string) => {
-    if (!window.electronFileApi?.readFile) return
-    const result = await window.electronFileApi.readFile({ filePath: path })
+    if (!window.hostFileApi?.readFile) return
+    const result = await window.hostFileApi.readFile({ filePath: path })
     if (result.canceled || !result.files.length) {
       showError(tr('open'), result.message ?? tr('openFailed'), new Error(result.message ?? path))
       return
@@ -1248,11 +1249,11 @@ export default function App() {
       }
       const project = JSON.stringify(serializeProject(doc, canvasesRef.current), null, 2)
       const fileName = `${doc.name || tr('untitled')}.mpw`
-      if (window.electronFileApi) {
+      if (window.hostFileApi) {
         if (!saveAs && !copy && doc.filePath && /\.mpw$/i.test(doc.filePath)) {
-          await window.electronFileApi.writeFile({ filePath: doc.filePath, text: project })
+          await window.hostFileApi.writeFile({ filePath: doc.filePath, text: project })
         } else {
-          const result = await window.electronFileApi.saveFile({
+          const result = await window.hostFileApi.saveFile({
             defaultDirectory: settingsRef.current.lastDirectory || undefined,
             fileName,
             filters: [{ name: 'Photo Work Project', extensions: ['mpw'] }],
@@ -1299,8 +1300,8 @@ export default function App() {
       for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
       const dataUrl = `data:image/vnd.adobe.photoshop;base64,${btoa(binary)}`
       const fileName = `${current.name || tr('untitled')}.psd`
-      if (window.electronFileApi) {
-        const result = await window.electronFileApi.saveFile({ defaultDirectory: settingsRef.current.lastDirectory || undefined, fileName, filters: [{ name: 'Photoshop', extensions: ['psd'] }], dataUrl })
+      if (window.hostFileApi) {
+        const result = await window.hostFileApi.saveFile({ defaultDirectory: settingsRef.current.lastDirectory || undefined, fileName, filters: [{ name: 'Photoshop', extensions: ['psd'] }], dataUrl })
         if (result.canceled) return
         remember(result.filePath)
       } else {
@@ -1316,8 +1317,8 @@ export default function App() {
   const saveCanvasAs = useCallback(async (canvas: HTMLCanvasElement, baseName: string, format: ExportFormat, quality?: number, transparent?: boolean) => {
     const dataUrl = await encodeExport(canvas, format, quality, transparent ?? settingsRef.current.exportTransparent, docRef.current.depth ?? 8)
     const fileName = `${baseName}.${extensionFor(format)}`
-    if (window.electronFileApi) {
-      const result = await window.electronFileApi.saveFile({ defaultDirectory: settingsRef.current.lastDirectory || undefined, fileName, filters: [{ name: format.toUpperCase(), extensions: [extensionFor(format)] }], dataUrl })
+    if (window.hostFileApi) {
+      const result = await window.hostFileApi.saveFile({ defaultDirectory: settingsRef.current.lastDirectory || undefined, fileName, filters: [{ name: format.toUpperCase(), extensions: [extensionFor(format)] }], dataUrl })
       return !result.canceled
     }
     downloadDataUrl(dataUrl, fileName)
@@ -1349,8 +1350,8 @@ export default function App() {
       const composite = flattenOnto(compositeDocument(current, canvasesRef.current))
       const title = current.name || tr('untitled')
       const html = printableDocument(canvasToDataUrl(composite), title, orientation)
-      if (window.electronPrintApi) {
-        const result = await window.electronPrintApi.print({ html, deviceName, landscape: orientation === 'landscape', copies })
+      if (window.hostPrintApi) {
+        const result = await window.hostPrintApi.print({ html, deviceName, landscape: orientation === 'landscape', copies })
         if (!result.ok) {
           throw new Error(result.message ?? tr('printFailed'))
         }
@@ -1366,7 +1367,7 @@ export default function App() {
 
   useEffect(() => {
     let live = true
-    void window.electronPrintApi?.printers().then((list) => {
+    void window.hostPrintApi?.printers().then((list) => {
       if (live) printersRef.current = list
     }).catch(() => {})
     return () => { live = false }
@@ -1713,7 +1714,7 @@ export default function App() {
     let outline: PathShape['nodes'] | undefined
     if (currentTool === 'customShape') {
       const chosen = options.customShapeKind
-      if (['star', 'heart', 'arrow', 'triangle'].includes(chosen)) kind = chosen as typeof kind
+      if ((BUILTIN_SHAPES as readonly string[]).includes(chosen)) kind = chosen as typeof kind
       else {
         const custom = options.customShapes.find((item) => item.id === chosen)
         if (custom) { kind = 'custom'; outline = custom.outline }
@@ -2015,6 +2016,8 @@ export default function App() {
       void modelsAvailable().then((downloaded) => {
         if (cancelled || settingsRef.current.modelsPrompted) return
         setSettings((current) => ({ ...current, modelsPrompted: true }))
+        // Models already on this machine mean the question has been answered.
+        if (downloaded.length > 0) return
         openDialogRef.current('modelSetup', {
           models: { downloaded, webgpu: false, useWebgpu: settingsRef.current.neuralWebgpu, threads: 1 },
         })
@@ -3291,7 +3294,7 @@ export default function App() {
   }
 
   const runBatch = useCallback(async (action: ActionScript) => {
-    const picker = window.electronFileApi
+    const picker = window.hostFileApi
     if (!picker) {
       showError(tr('batch'), tr('batchDesktopOnly'), new Error(tr('batchDesktopOnly')))
       return
@@ -3593,7 +3596,7 @@ export default function App() {
   /* ----------------------------------------------------------- layer styles */
 
   const applyStylePreset = useCallback((id: string) => {
-    const style = settingsRef.current.styles.find((item) => item.id === id)
+    const style = settingsRef.current.styles.find((item) => item.id === id) ?? BUILTIN_STYLES.find((item) => item.id === id)
     if (!style) return
     snapshot(tr('applyStyle'))
     patchActive({ effects: { ...defaultEffects(), ...style.effects } })
@@ -3809,8 +3812,8 @@ export default function App() {
     try {
       const dataUrl = gifDataUrl(frames)
       const fileName = `${docRef.current?.name || tr('untitled')}.gif`
-      if (window.electronFileApi) {
-        await window.electronFileApi.saveFile({ fileName, filters: [{ name: 'GIF', extensions: ['gif'] }], dataUrl })
+      if (window.hostFileApi) {
+        await window.hostFileApi.saveFile({ fileName, filters: [{ name: 'GIF', extensions: ['gif'] }], dataUrl })
       } else {
         downloadDataUrl(dataUrl, fileName)
       }
@@ -3866,8 +3869,8 @@ export default function App() {
         reader.readAsDataURL(blob)
       })
       const fileName = `${docRef.current?.name || tr('untitled')}.webm`
-      if (window.electronFileApi) {
-        await window.electronFileApi.saveFile({ fileName, filters: [{ name: 'WebM', extensions: ['webm'] }], dataUrl })
+      if (window.hostFileApi) {
+        await window.hostFileApi.saveFile({ fileName, filters: [{ name: 'WebM', extensions: ['webm'] }], dataUrl })
       } else {
         downloadDataUrl(dataUrl, fileName)
       }
@@ -4161,7 +4164,7 @@ export default function App() {
     refreshDocList()
   }, [closeDocument, openDialog, refreshDocList, switchDocument])
 
-  const guardUnsaved = useCallback((action: 'new' | 'open' | 'close' | 'quit' | 'closeAll') => {
+  const guardUnsaved = useCallback((action: 'new' | 'open' | 'close' | 'quit' | 'closeAll' | 'start') => {
     if (dirty) {
       setPendingAction(action)
       openDialog('unsaved')
@@ -4183,6 +4186,7 @@ export default function App() {
       }
     }
     const action = pendingAction
+    if (action === 'start') startPendingRef.current?.()
     setDialog(null)
     setPendingAction(null)
     if (action === 'new') openDialog('new')
@@ -4193,7 +4197,7 @@ export default function App() {
       closeDocument()
     }
     if (action === 'quit') {
-      await window.electronWindowApi?.forceClose()
+      await window.hostWindowApi?.forceClose()
     }
   }
 
@@ -4201,13 +4205,18 @@ export default function App() {
     runPendingRef.current = runPending
   })
 
+  // The shell keeps the window hidden until there is something to show.
+  useEffect(() => { void window.hostWindowApi?.ready() }, [])
+
+  useEffect(() => { publishGuideAppearance(settings.theme, settings.language) }, [settings.theme, settings.language])
+
   useEffect(() => {
-    return window.electronWindowApi?.onCloseRequest(() => {
+    return window.hostWindowApi?.onCloseRequest(() => {
       if (dirty) {
         setPendingAction('quit')
         openDialog('unsaved')
       } else {
-        void window.electronWindowApi?.forceClose()
+        void window.hostWindowApi?.forceClose()
       }
     })
   }, [dirty, openDialog])
@@ -4243,7 +4252,7 @@ export default function App() {
   }, [bump])
 
   // A window closed without applying: whatever it was previewing goes away.
-  useEffect(() => window.electronDialogApi?.onClosed?.((name) => {
+  useEffect(() => window.hostDialogApi?.onClosed?.((name) => {
     clearPreview()
     if (name === 'layerStyle' && styleBackupRef.current) {
       const backup = styleBackupRef.current
@@ -4689,7 +4698,7 @@ export default function App() {
   }, [])
 
   const toolPresetApply = useCallback((id: string) => {
-    const preset = settingsRef.current.toolPresets.find((item) => item.id === id)
+    const preset = settingsRef.current.toolPresets.find((item) => item.id === id) ?? BUILTIN_TOOL_PRESETS.find((item) => item.id === id)
     if (!preset) return
     setSettings((current) => ({ ...current, ...(preset.values as Partial<AppSettings>) }))
     setTool(preset.tool)
@@ -4708,6 +4717,15 @@ export default function App() {
    * identically wherever it is invoked from and `commands.ts` stays pure data.
    */
   const runCommand = (id: string) => {
+    // Help and settings can be read over the start screen; anything else is work.
+    switch (id) {
+      case 'help.guide': void openUserGuide(language); return
+      case 'help.start': setMenu(null); setStartOn((on) => !on); return
+      case 'window.togglePanel': setSettings((c) => ({ ...c, rightCollapsed: !c.rightCollapsed })); return
+      case 'help.tutorial': setMenu(null); setTutorialOn(true); return
+      case 'help.about': openDialog('about'); return
+    }
+    if (id !== 'help.quick' && id !== 'edit.preferences' && id !== 'edit.keyboardShortcuts') setStartOn(false)
     noteCommand(id)
     const command = commands.find((item) => item.id === id)
     historyLabelRef.current = command ? tr(command.label) : id
@@ -4781,12 +4799,12 @@ export default function App() {
       case 'file.statistics': openDialog('statistics'); return
       case 'file.fileInfo': openDialog('imageInfo'); return
       case 'file.print':
-        if (window.electronPrintApi) openDialog('print')
+        if (window.hostPrintApi) openDialog('print')
         else void printDocument(naturalOrientation(current))
         return
       case 'file.printOne': void printDocument(naturalOrientation(current), undefined, 1); return
       case 'file.exit':
-        if (guardUnsaved('quit')) void window.electronWindowApi?.forceClose()
+        if (guardUnsaved('quit')) void window.hostWindowApi?.forceClose()
         return
 
       /* edit */
@@ -5147,7 +5165,7 @@ export default function App() {
       case 'window.timeline': setSettings((c) => ({ ...c, rightTab: 'timeline' })); return
       case 'window.measurementLog': setSettings((c) => ({ ...c, rightTab: 'measurementLog' })); return
       case 'window.notes': setSettings((c) => ({ ...c, rightTab: 'notes' })); return
-      case 'window.guide': openDialog('helpGuide'); return
+      case 'help.quick': openDialog('helpGuide'); return
 
       default:
         setStatus('ready')
@@ -5381,6 +5399,10 @@ export default function App() {
       setSettings((value) => ({ ...value, ...(result.patch as Partial<AppSettings>) }))
       return
     }
+    if (name === 'settings' && result.action === 'showStart') {
+      setStartOn(true)
+      return
+    }
     // The settings window's shortcuts to the other preference windows.
     if (name === 'settings' && result.action === 'open') {
       if (result.dialog === 'neuralModels') void openModels()
@@ -5526,7 +5548,7 @@ export default function App() {
       case 'lut':
         if (result.action === 'layer') addAdjustment('colorLookup', { adjustment: { ...defaultAdjustment('colorLookup'), lutId: String(result.lutId), lutStrength: Number(result.strength ?? 1) } })
         if (result.action === 'load') {
-          if (window.electronFileApi) void pickFiles('open')
+          if (window.hostFileApi) void pickFiles('open')
           else lutFileRef.current?.click()
         }
         return
@@ -5767,16 +5789,16 @@ export default function App() {
     commandLabelRef.current = commandLabel
   })
 
-  useEffect(() => window.electronDialogApi?.onResult(({ name, result }) => {
+  useEffect(() => window.hostDialogApi?.onResult(({ name, result }) => {
     applyDialogResultRef.current(name as DialogName, result as DialogResult)
   }), [])
 
-  useEffect(() => window.electronMenuApi?.onChosen((commandId) => {
+  useEffect(() => window.hostMenuApi?.onChosen((commandId) => {
     runCommandRef.current(commandId)
   }), [])
 
   const openMenuWindow = async (id: CommandMenuId, anchor: HTMLElement | null) => {
-    if (!window.electronMenuApi || !anchor) return false
+    if (!window.hostMenuApi || !anchor) return false
     const box = anchor.getBoundingClientRect()
     const active = commands.filter((command) => isCommandActive(command.id)).map((command) => command.id)
     const disabled = commands.filter((command) => isCommandDisabled(command.id)).map((command) => command.id)
@@ -5786,7 +5808,7 @@ export default function App() {
       if (label !== tr(command.label)) overrides[command.id] = label
     }
     try {
-      return await window.electronMenuApi.open(
+      return await window.hostMenuApi.open(
         { menu: id, language, theme: settings.theme, active, disabled, overrides, recentFiles: settings.recentFiles },
         { x: window.screenX + box.left, y: window.screenY + box.bottom + 2, width: box.width, height: box.height },
       )
@@ -5856,7 +5878,7 @@ export default function App() {
       if (accel && key === 'p' && !event.shiftKey) {
         event.preventDefault()
         if (!doc) return
-        if (window.electronPrintApi) openDialog('print')
+        if (window.hostPrintApi) openDialog('print')
         else void printDocument(naturalOrientation(compositeDocument(doc, canvasesRef.current)))
       }
       if (accel && key === 'n') {
@@ -5912,6 +5934,14 @@ export default function App() {
       if (accel && key === ';' && !typing) {
         event.preventDefault()
         runCommandRef.current(event.altKey ? 'view.lockGuides' : event.shiftKey ? 'view.snap' : 'view.showGuides')
+      }
+      if (event.key === 'F1') {
+        event.preventDefault()
+        runCommandRef.current('help.guide')
+      }
+      if (event.key === 'Tab' && !typing) {
+        event.preventDefault()
+        runCommandRef.current('window.togglePanel')
       }
       if (accel && key === "'" && !typing) {
         event.preventDefault()
@@ -6304,22 +6334,30 @@ export default function App() {
     ctx.restore()
 
     if (settings.showGrid) {
-      const step = tickStep(zoom, 48)
+      // 5x5: five fine cells to a side, then a heavy line.
+      const step = gridStep(zoom)
       ctx.save()
       ctx.strokeStyle = style.getPropertyValue('--grid-line') || 'rgba(255,255,255,0.12)'
       ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let value = 0; value <= documentModel.width; value += step) {
-        const x = Math.round(left + value * zoom) + 0.5
-        ctx.moveTo(x, top)
-        ctx.lineTo(x, top + dh)
+      for (const heavy of [false, true]) {
+        ctx.globalAlpha = heavy ? 1 : 0.55
+        ctx.beginPath()
+        for (let index = 0; index * step <= documentModel.width; index += 1) {
+          if ((index % GRID_DIVISIONS === 0) !== heavy) continue
+          const x = Math.round(left + index * step * zoom) + 0.5
+          ctx.moveTo(x, top)
+          ctx.lineTo(x, top + dh)
+        }
+        for (let index = 0; index * step <= documentModel.height; index += 1) {
+          if ((index % GRID_DIVISIONS === 0) !== heavy) continue
+          const y = Math.round(top + index * step * zoom) + 0.5
+          ctx.moveTo(left, y)
+          ctx.lineTo(left + dw, y)
+        }
+        ctx.stroke()
+        // Stroked twice, so the heavy line shows against any picture.
+        if (heavy) ctx.stroke()
       }
-      for (let value = 0; value <= documentModel.height; value += step) {
-        const y = Math.round(top + value * zoom) + 0.5
-        ctx.moveTo(left, y)
-        ctx.lineTo(left + dw, y)
-      }
-      ctx.stroke()
       ctx.restore()
     }
 
@@ -6410,7 +6448,127 @@ export default function App() {
     return { ...current, theme: themes[(index + 1) % themes.length].id }
   })
 
-  const desktop = Boolean(window.electronWindowApi)
+  const desktop = Boolean(window.hostWindowApi)
+
+  /*
+   * The red lines on the rulers follow the pointer. They are moved directly rather
+   * than through state or the viewport: redrawing the picture on every mouse move
+   * would slow painting down for the sake of two thin lines.
+   */
+  const moveRulerMarks = (event: React.PointerEvent<HTMLDivElement>) => {
+    const box = event.currentTarget.getBoundingClientRect()
+    stagePointerRef.current = { x: event.clientX, y: event.clientY, pressed: event.buttons !== 0, alt: event.altKey }
+    paintPointer()
+    const marks = rulerMarks(event.clientX - box.left, event.clientY - box.top, box)
+    const [markX, markY] = [rulerMarkXRef.current, rulerMarkYRef.current]
+    if (!markX || !markY) return
+    markX.style.display = marks?.showX ? 'block' : 'none'
+    markY.style.display = marks?.showY ? 'block' : 'none'
+    if (marks) {
+      markX.style.left = `${marks.x}px`
+      markY.style.top = `${marks.y}px`
+    }
+  }
+  const hideRulerMarks = () => {
+    for (const mark of [rulerMarkXRef.current, rulerMarkYRef.current]) if (mark) mark.style.display = 'none'
+    stagePointerRef.current = null
+    paintPointer()
+  }
+
+  /*
+   * The pointer over the picture follows the tool (lib/toolCursor.ts). Set on the
+   * element directly for the same reason as the marks above, and again whenever what
+   * it depends on changes under a pointer that is holding still: a tool's key, [ and ],
+   * or the wheel.
+   */
+  const paintPointer = () => {
+    const [canvas, stage, ring] = [viewRef.current, stageRef.current, brushRingRef.current]
+    if (!canvas || !stage) return
+    const pointer = stagePointerRef.current
+    if (!pointer) {
+      if (ring) ring.style.display = 'none'
+      return
+    }
+    const box = stage.getBoundingClientRect()
+    const point = screenToDoc(pointer.x, pointer.y)
+    const look = pointerLook({
+      tool,
+      inImage: point.x >= 0 && point.y >= 0 && point.x < doc.width && point.y < doc.height,
+      onRuler: settings.showRulers && (pointer.x - box.left < rulerSize || pointer.y - box.top < rulerSize),
+      pressed: pointer.pressed,
+      alt: pointer.alt,
+      zoom: settings.zoom,
+      brushSize: settings.brushSize,
+    })
+    canvas.style.cursor = look.cursor
+    if (ring) {
+      ring.style.display = look.ring > 0 ? 'block' : 'none'
+      ring.style.left = `${pointer.x - box.left}px`
+      ring.style.top = `${pointer.y - box.top}px`
+      ring.style.width = ring.style.height = `${look.ring}px`
+    }
+  }
+  const paintPointerRef = useRef(paintPointer)
+  useEffect(() => {
+    paintPointerRef.current = paintPointer
+    paintPointer()
+  })
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Alt' || !stagePointerRef.current) return
+      stagePointerRef.current.alt = event.type === 'keydown'
+      paintPointerRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('keyup', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKey)
+    }
+  }, [])
+
+  /* -------------------------------------------------------------- tutorial */
+
+  const tutorialShow = useCallback((step: TutorialStep) => setStartOn(step.screen === 'start'), [])
+  const tutorialClose = useCallback(() => setTutorialOn(false), [])
+  const tutorialAnswer = useCallback((run: boolean, askAgain: boolean) => {
+    setSettings((value) => ({ ...value, tutorialAskOnLaunch: askAgain }))
+    setTutorialAsk(false)
+    setTutorialOn(run)
+  }, [])
+  const tutorialRun = useCallback((askAgain: boolean) => tutorialAnswer(true, askAgain), [tutorialAnswer])
+  const tutorialLater = useCallback((askAgain: boolean) => tutorialAnswer(false, askAgain), [tutorialAnswer])
+
+  /* ---------------------------------------------------------- start screen */
+
+  const startAction = (action: StartAction) => {
+    switch (action) {
+      case 'new': setStartOn(false); runCommand('file.new'); return
+      case 'open': setStartOn(false); runCommand('file.open'); return
+      case 'guide': runCommand('help.guide'); return
+      case 'tutorial': runCommand('help.tutorial'); return
+      case 'quickHelp': runCommand('help.quick'); return
+      case 'shortcuts': runCommand('edit.keyboardShortcuts'); return
+      case 'settings': openDialog('settings'); return
+      case 'about': openDialog('about'); return
+      case 'close': setStartOn(false)
+    }
+  }
+  /** Goes through the unsaved-work check, as File > New does. */
+  const startPreset = (width: number, height: number) => {
+    const create = () => {
+      setStartOn(false)
+      createDocument(tr('untitled'), width, height, 'white')
+    }
+    startPendingRef.current = create
+    if (guardUnsaved('start')) create()
+  }
+  /** Opens like any other file: in a document of its own. */
+  const startSample = (sample: SampleImage) => {
+    setStartOn(false)
+    const dataUrl = renderSample(sample, SAMPLE_WIDTH, SAMPLE_HEIGHT).toDataURL('image/png')
+    void openFiles([{ name: `${sample.name[language]}.png`, mime: 'image/png', dataUrl }], 'open')
+  }
   // A development hook for driving the editor from a test harness: never in a build.
   useEffect(() => {
     if (!import.meta.env.DEV) return
@@ -6419,12 +6577,32 @@ export default function App() {
       run: (id: string) => runCommandRef.current(id), dialog: (name: DialogName, result: DialogResult) => applyDialogResultRef.current(name, result), tool: (id: Tool) => setTool(id),
       // Opens a window by name, so a script can walk through all of them and photograph each.
       openDialog: (name: DialogName, extra?: Partial<DialogPayload>) => openDialogRef.current(name, extra),
-      closeDialogs: () => { window.electronDialogApi?.closeAll() },
+      closeDialogs: () => { window.hostDialogApi?.closeAll() },
       layerCanvas: () => canvasesRef.current.get(docRef.current.activeLayerId) ?? null, select: (next: Selection | null) => setSelection(next), bump,
+      // What scripts/audit-ui.mjs compares before and after each control.
+      state: () => ({ tool, settings: settingsRef.current, doc: docRef.current, selection: selectionRef.current, pan, undo: undoRef.current.length, redo: redoRef.current.length }),
+      composite: () => compositeDocument(docRef.current, canvasesRef.current),
+      open: (name: string, dataUrl: string) => { setStartOn(false); return openFiles([{ name, mime: 'image/png', dataUrl }], 'open') },
     }
   })
 
+  /** Copies a built-in pattern into the document, as its current pattern (the last one). */
+  const choosePatternSample = (sample: PatternSample) => {
+    const id = patternSampleId(sample.id)
+    if (!canvasesRef.current.has(patternKey(id))) canvasesRef.current.set(patternKey(id), renderPatternSample(sample))
+    const tile = canvasesRef.current.get(patternKey(id)) as HTMLCanvasElement
+    const pattern = definePattern(id, sample.name[language], tile)
+    updateDoc((document) => ({ ...document, patterns: [...(document.patterns ?? []).filter((item) => item.id !== id), pattern] }))
+    return id
+  }
+
   const panelContext: PanelContext = {
+    choosePatternSample,
+    fillWithPatternSample: (sample) => fillSelection(settings.foreground, 1, choosePatternSample(sample)),
+    openLayerMenu: (layerId, x, y) => {
+      setDoc((current) => (current ? { ...current, activeLayerId: layerId } : current))
+      setContextMenu({ x, y, kind: 'layer' })
+    },
     tr, language, doc, settings, canvasesRef, frame, activeLayer, selection, tool, pan, stageSize,
     setSettings, updateDoc,
     setActiveLayer: (id) => setDoc((current) => (current ? { ...current, activeLayerId: id } : current)),
@@ -6519,18 +6697,19 @@ export default function App() {
         </div>
         {desktop && (
           <div className="window-controls">
-            <button aria-label={tr('minimize')} onClick={() => void window.electronWindowApi?.minimize()}><Minus size={16} /></button>
-            <button aria-label={tr('maximize')} onClick={() => void window.electronWindowApi?.toggleMaximize()}><Square size={14} /></button>
-            <button className="window-close" aria-label={tr('closeWindow')} onClick={() => void window.electronWindowApi?.close()}><X size={16} /></button>
+            <button aria-label={tr('minimize')} onClick={() => void window.hostWindowApi?.minimize()}><Minus size={16} /></button>
+            <button aria-label={tr('maximize')} onClick={() => void window.hostWindowApi?.toggleMaximize()}><Square size={14} /></button>
+            <button className="window-close" aria-label={tr('closeWindow')} onClick={() => void window.hostWindowApi?.close()}><X size={16} /></button>
           </div>
         )}
       </header>
 
       <nav className="menu-bar">
+        <button className={`start-toggle${startOn ? ' active' : ''}`} data-tooltip={tr('startScreen')} aria-pressed={startOn} onClick={() => setStartOn((on) => !on)}><House size={15} /><span>{tr('startScreen')}</span></button>
         {menuOrder.map((id) => {
           const MenuIcon = menuIcons[id]
           return (
-            <div className="menu-group" key={id}>
+            <div className="menu-group" key={id} data-menu={id}>
               <button
                 className={menu === id ? 'active' : ''}
                 data-tooltip={tr(id)}
@@ -6539,7 +6718,7 @@ export default function App() {
                   hideTooltip()
                   if (menu === id) {
                     setMenu(null)
-                    void window.electronMenuApi?.close()
+                    void window.hostMenuApi?.close()
                     return
                   }
                   // A real window first, so a long menu can overhang the app;
@@ -6594,16 +6773,28 @@ export default function App() {
           </button>
           {menu === 'theme' && (
             <MenuDrop className="theme-menu" align="end" anchor={menuAnchor}>
-              {themes.map((item) => (
-                <button
-                  key={item.id}
-                  className={settings.theme === item.id ? 'active' : ''}
-                  data-tooltip={themeLabel(language, item.id)}
-                  onClick={() => { setSettings((current) => ({ ...current, theme: item.id })); setMenu(null) }}
-                >
-                  <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${item.appA}, ${item.accent})` }} />
-                  <span>{themeLabel(language, item.id)}</span>
-                </button>
+              {/* The two ways to change the list itself come first. */}
+              <div className="theme-menu-actions">
+                <button data-action="custom-theme" onClick={() => { setMenu(null); openDialog('settings', { settingsTab: 'customTheme' }) }}><Palette size={14} /><span>{tr('customThemes')}</span></button>
+                <button data-action="theme-settings" onClick={() => { setMenu(null); openDialog('settings', { settingsTab: 'theme' }) }}><Settings2 size={14} /><span>{tr('themeSettings')}</span></button>
+              </div>
+              {([['customThemes', settings.customThemes.map(customThemeDefinition)], ['themeDark', darkThemes], ['themeLight', lightThemes]] as [string, ThemeDefinition[]][]).filter(([, list]) => list.length > 0).map(([title, list]) => (
+                <section key={title} className="theme-menu-section" data-theme-group={title}>
+                  <h4>{tr(title)} <small>{list.length}</small></h4>
+                  <div className="theme-menu-list" style={{ gridTemplateRows: `repeat(${Math.ceil(list.length / 2)}, auto)` }}>
+                    {list.map((item) => (
+                      <button
+                        key={item.id}
+                        className={settings.theme === item.id ? 'active' : ''}
+                        data-theme-id={item.id}
+                        onClick={() => { setSettings((current) => ({ ...current, theme: item.id })); setMenu(null) }}
+                      >
+                        <span className="theme-swatch" style={{ background: `linear-gradient(135deg, ${item.appA}, ${item.accent})` }} />
+                        <span>{item.names[language]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
               ))}
             </MenuDrop>
           )}
@@ -6616,7 +6807,7 @@ export default function App() {
         >
           {language === 'ko' ? <FlagEn size={18} /> : <FlagKo size={18} />}
         </button>
-        <button data-tooltip={tr('settings')} onClick={() => openDialog('settings')}><Settings2 size={15} /><span>{tr('settings')}</span></button>
+        <button data-action="settings" data-tooltip={tr('settings')} onClick={() => openDialog('settings')}><Settings2 size={15} /><span>{tr('settings')}</span></button>
         <button data-tooltip={tr('about')} onClick={() => openDialog('about')}><Info size={15} /><span>{tr('about')}</span></button>
       </nav>
 
@@ -6794,7 +6985,7 @@ export default function App() {
                 <label key="gradientPicker" data-tooltip={tr('gradientPreset')}>
                   {tr('gradientPreset')}
                   <select value={settings.gradientId} onChange={(event) => setSettings((c) => ({ ...c, gradientId: event.target.value }))}>
-                    {all.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    {all.map((item) => <option key={item.id} value={item.id}>{gradientLabel(item, language)}</option>)}
                   </select>
                   <button data-tooltip={tr('gradientEditor')} aria-label={tr('gradientEditor')} onClick={() => openDialog('gradientEditor', { gradient: all.find((item) => item.id === settings.gradientId) })}><Blend size={14} /></button>
                 </label>
@@ -6805,7 +6996,7 @@ export default function App() {
                 <label key="shapeKindPicker" data-tooltip={tr('customShapeKind')}>
                   {tr('customShapeKind')}
                   <select value={settings.customShapeKind} onChange={(event) => setSettings((c) => ({ ...c, customShapeKind: event.target.value }))}>
-                    {['star', 'heart', 'arrow', 'triangle'].map((kind) => <option key={kind} value={kind}>{tr(`shape${kind.charAt(0).toUpperCase()}${kind.slice(1)}`)}</option>)}
+                    {BUILTIN_SHAPES.map((kind) => <option key={kind} value={kind}>{tr(`shape${kind.charAt(0).toUpperCase()}${kind.slice(1)}`)}</option>)}
                     {settings.customShapes.map((shape) => <option key={shape.id} value={shape.id}>{shape.name}</option>)}
                   </select>
                 </label>
@@ -6835,7 +7026,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="workspace">
+      <div className={`workspace${settings.rightCollapsed ? ' panel-closed' : ''}`}>
         <aside className="tool-strip">
           {toolGroups.map((group) => {
             const current = groupTool[group.id] ?? group.tools[0].id
@@ -6857,7 +7048,7 @@ export default function App() {
                   }
                 }}
               >
-                <Icon size={15} />
+                <Icon size={item.id === 'hand' ? 20 : 15} />
               </button>
             )
           })}
@@ -6872,7 +7063,7 @@ export default function App() {
 
         <div className="stage-column">
           <DocumentTabs ctx={panelContext} />
-          <div ref={stageRef} className="canvas-stage" onContextMenu={(event) => { event.preventDefault(); setContextMenu({ x: event.clientX, y: event.clientY }) }}>
+          <div ref={stageRef} className="canvas-stage" onPointerMoveCapture={moveRulerMarks} onPointerDownCapture={moveRulerMarks} onPointerUpCapture={moveRulerMarks} onPointerLeave={hideRulerMarks} onContextMenu={(event) => { event.preventDefault(); setContextMenu({ x: event.clientX, y: event.clientY, kind: 'canvas' }) }}>
             <canvas
               ref={viewRef}
               onPointerDown={handlePointerDown}
@@ -6881,6 +7072,9 @@ export default function App() {
               onPointerCancel={handlePointerUp}
               onWheel={handleWheel}
             />
+            <div ref={brushRingRef} className="brush-ring" aria-hidden="true" />
+            {settings.showRulers && <div ref={rulerMarkXRef} className="ruler-mark ruler-mark-x" aria-hidden="true" />}
+            {settings.showRulers && <div ref={rulerMarkYRef} className="ruler-mark ruler-mark-y" aria-hidden="true" />}
           </div>
         </div>
 
@@ -6899,7 +7093,19 @@ export default function App() {
             window.addEventListener('pointermove', move)
             window.addEventListener('pointerup', up)
           }}
-        />
+        >
+          <button
+            className="panel-collapse"
+            data-action="toggle-panel"
+            data-tooltip={tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')}
+            aria-label={tr(settings.rightCollapsed ? 'panelExpand' : 'panelCollapse')}
+            aria-expanded={!settings.rightCollapsed}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => setSettings((c) => ({ ...c, rightCollapsed: !c.rightCollapsed }))}
+          >
+            {settings.rightCollapsed ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
+          </button>
+        </div>
 
         <aside className="panel">
           <div className="panel-tabs">
@@ -6941,13 +7147,16 @@ export default function App() {
       )}
 
       {contextMenu && (
-        <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={(event) => event.stopPropagation()}>
-          <MenuItem icon={Plus} label={tr('newLayer')} onClick={() => { addLayer(); setContextMenu(null) }} />
-          <MenuItem icon={Copy} label={tr('duplicateLayer')} onClick={() => { duplicateLayer(); setContextMenu(null) }} />
-          <MenuItem icon={Trash} label={tr('deleteLayer')} onClick={() => { deleteLayer(); setContextMenu(null) }} />
-          <MenuItem icon={Sparkles} label={tr('layerStyle')} onClick={() => { runCommand('layer.style'); setContextMenu(null) }} />
-          <MenuItem icon={Square} label={tr('deselect')} onClick={() => { setSelection(null); setContextMenu(null) }} />
-        </div>
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          kind={contextMenu.kind}
+          hasSelection={Boolean(selection)}
+          label={(id) => { const command = findCommand(id); return command ? commandLabel(command) : id }}
+          isDisabled={isCommandDisabled}
+          isActive={isCommandActive}
+          onChoose={(id) => { setContextMenu(null); runCommand(id) }}
+        />
       )}
 
       {colorPick && (
@@ -6982,6 +7191,30 @@ export default function App() {
           )}
         </DialogFrame>
       )}
+
+      {startOn && (
+        <div className="start-host">
+            <StartScreen
+              language={language}
+              theme={settings.theme}
+              background={settings.startBackground}
+              showOnLaunch={settings.showStartOnLaunch}
+              recentFiles={settings.recentFiles}
+              canOpenPaths={Boolean(window.hostFileApi)}
+              onAction={startAction}
+              onPreset={startPreset}
+              onSample={startSample}
+              onRecentOpen={(path) => { setStartOn(false); void readPath(path) }}
+              onRecentRemove={(path) => setSettings((value) => ({ ...value, recentFiles: value.recentFiles.filter((item) => item !== path) }))}
+              onRecentClear={() => setSettings((value) => ({ ...value, recentFiles: [] }))}
+              onBackground={(startBackground) => setSettings((value) => ({ ...value, startBackground }))}
+              onShowOnLaunch={(showStartOnLaunch) => setSettings((value) => ({ ...value, showStartOnLaunch }))}
+            />
+        </div>
+      )}
+
+      {tutorialAsk && <TutorialAsk language={language} ask={settings.tutorialAskOnLaunch} onRun={tutorialRun} onLater={tutorialLater} />}
+      {tutorialOn && <TutorialTour language={language} onShow={tutorialShow} onClose={tutorialClose} />}
 
       {desktop && <div className="resize-grip" aria-hidden="true" />}
 

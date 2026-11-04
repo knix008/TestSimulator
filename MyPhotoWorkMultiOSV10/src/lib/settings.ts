@@ -1,5 +1,7 @@
 import { clamp } from './color'
-import { isTheme } from '../themes'
+import { isTheme, normalizeCustomThemes } from '../themes'
+import { normalizeStartBackground } from './startSettings'
+import { migrateSwatches } from './swatches'
 import { defaultSettings, exportFormats, panelTabs, rightPanelMaxWidth, rightPanelMinWidth, type ActionScript, type AppSettings, type BrushPreset } from './types'
 
 const settingsStorageKey = 'my-photo-work-v1-settings'
@@ -64,6 +66,8 @@ export function loadSettings(): AppSettings {
       next[key] = value
     }
     const settings = next as AppSettings
+    settings.startBackground = normalizeStartBackground(parsed.startBackground)
+    settings.customThemes = normalizeCustomThemes(parsed.customThemes)
     settings.language = parsed.language === 'ko' || parsed.language === 'en' ? parsed.language : defaultSettings.language
     settings.theme = isTheme(parsed.theme) ? parsed.theme : defaultSettings.theme
     settings.exportFormat = parsed.exportFormat && exportFormats.includes(parsed.exportFormat) ? parsed.exportFormat : defaultSettings.exportFormat
@@ -90,7 +94,7 @@ export function loadSettings(): AppSettings {
     settings.gradientKind = ['linear', 'radial', 'angle', 'reflected', 'diamond'].includes(String(parsed.gradientKind)) ? parsed.gradientKind! : 'linear'
     settings.rightTab = panelTabs.includes(parsed.rightTab as AppSettings['rightTab']) ? parsed.rightTab! : 'layers'
     settings.selectionMode = ['new', 'add', 'subtract', 'intersect'].includes(String(parsed.selectionMode)) ? parsed.selectionMode! : 'new'
-    settings.swatches = settings.swatches.filter((item) => typeof item === 'string')
+    settings.swatches = migrateSwatches(settings.swatches.filter((item) => typeof item === 'string'))
     settings.recentFiles = settings.recentFiles.filter((item) => typeof item === 'string').slice(0, 20)
     settings.shortcuts = typeof parsed.shortcuts === 'object' && parsed.shortcuts ? parsed.shortcuts : {}
     settings.paintTarget = 'layer'

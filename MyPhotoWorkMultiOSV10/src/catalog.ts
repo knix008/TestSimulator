@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from 'react'
 import {
   AlignVerticalJustifyStart, Blend, Bone, BringToFront, Brush, ChevronUp, Circle, CircleDashed, CircleOff,
-  Columns3, Crop, Crosshair, Droplet, Droplets, Eraser, Eye, Flame, Frame, Grab, Grid2x2, Hand,
+  Columns3, Crop, Crosshair, Droplet, Droplets, Eraser, Eye, Flame, Frame, Fingerprint, Grid2x2, Hand,
   Hash, HeartPulse, Hexagon, Highlighter, History, Lasso, Magnet, Minus, MousePointer2, MousePointerClick,
   Move3d, PaintBucket, Paintbrush, Pen, PenTool, Pencil, Pipette, Proportions, Puzzle, RectangleHorizontal,
   Replace, RotateCw, Rows2, Rows3, Ruler, Scissors, Sparkles, Spline, Square, SquareDashedMousePointer,
@@ -35,13 +35,13 @@ export const toolGroups: ToolGroup[] = [
   { id: 'history', tools: [{ id: 'historyBrush', icon: History, key: 'Y' }, { id: 'artHistory', icon: Brush, key: 'Y' }] },
   { id: 'erase', tools: [{ id: 'eraser', icon: Eraser, key: 'E' }, { id: 'bgEraser', icon: SquareX, key: 'E' }, { id: 'magicEraser', icon: Zap, key: 'E' }] },
   { id: 'fill', tools: [{ id: 'gradient', icon: Rows2, key: 'G' }, { id: 'fill', icon: PaintBucket, key: 'G' }] },
-  { id: 'focus', tools: [{ id: 'blurTool', icon: Droplet, key: '' }, { id: 'sharpenTool', icon: ChevronUp, key: '' }, { id: 'smudge', icon: Hand, key: '' }, { id: 'liquify', icon: Waves, key: '' }] },
+  { id: 'focus', tools: [{ id: 'blurTool', icon: Droplet, key: '' }, { id: 'sharpenTool', icon: ChevronUp, key: '' }, { id: 'smudge', icon: Fingerprint, key: '' }, { id: 'liquify', icon: Waves, key: '' }] },
   { id: 'tone', tools: [{ id: 'dodge', icon: Sun, key: 'O' }, { id: 'burn', icon: Flame, key: 'O' }, { id: 'sponge', icon: Droplets, key: 'O' }] },
   { id: 'pen', tools: [{ id: 'pen', icon: PenTool, key: 'P' }, { id: 'freeformPen', icon: Pen, key: 'P' }, { id: 'curvaturePen', icon: Spline, key: 'P' }] },
   { id: 'path', tools: [{ id: 'pathSelect', icon: MousePointerClick, key: 'A' }, { id: 'directSelect', icon: Waypoints, key: 'A' }] },
   { id: 'type', tools: [{ id: 'text', icon: Type, key: 'T' }, { id: 'vtext', icon: AlignVerticalJustifyStart, key: 'T' }, { id: 'textMask', icon: TextSelect, key: 'T' }] },
   { id: 'shape', tools: [{ id: 'rect', icon: RectangleHorizontal, key: 'U' }, { id: 'roundRect', icon: Squircle, key: 'U' }, { id: 'ellipse', icon: CircleDashed, key: 'U' }, { id: 'polygon', icon: Hexagon, key: 'U' }, { id: 'line', icon: Minus, key: 'U' }, { id: 'customShape', icon: Star, key: 'U' }] },
-  { id: 'nav', tools: [{ id: 'hand', icon: Grab, key: 'H' }, { id: 'rotateView', icon: RotateCw, key: 'R' }, { id: 'zoom', icon: ZoomIn, key: 'Z' }] },
+  { id: 'nav', tools: [{ id: 'hand', icon: Hand, key: 'H' }, { id: 'rotateView', icon: RotateCw, key: 'R' }, { id: 'zoom', icon: ZoomIn, key: 'Z' }] },
 ]
 
 export const adjustmentTypes: AdjustmentType[] = [

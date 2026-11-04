@@ -16,7 +16,7 @@ type DialogMessage = {
 /**
  * A dialog running in its own OS window.
  *
- * The window is opened by the main window through `electronDialogApi.open`,
+ * The window is opened by the main window through `hostDialogApi.open`,
  * which guarantees one window per dialog name and raises an existing one rather
  * than making a second. Results travel back over IPC; closing is always allowed
  * from the frame's own X button.
@@ -39,11 +39,11 @@ export default function DialogHost({ name: routeName }: { name: string }) {
       setMessage(value)
       setTheme(undefined)
     }
-    void window.electronDialogApi?.payload().then((value) => {
+    void window.hostDialogApi?.payload().then((value) => {
       if (!cancelled && value) arrive(value as DialogMessage)
     })
     // A reopened window is handed a fresh message instead of being recreated.
-    const off = window.electronDialogApi?.onPayload((next) => arrive(next as DialogMessage))
+    const off = window.hostDialogApi?.onPayload((next) => arrive(next as DialogMessage))
     return () => { cancelled = true; off?.() }
   }, [])
 
@@ -52,7 +52,7 @@ export default function DialogHost({ name: routeName }: { name: string }) {
     if (next) applyTheme(next)
   }, [payload?.theme, theme])
 
-  const close = () => void window.electronDialogApi?.close()
+  const close = () => void window.hostDialogApi?.close()
 
   /**
    * Fits the window to the dialog. The fixed sizes could not track the content,
@@ -69,12 +69,12 @@ export default function DialogHost({ name: routeName }: { name: string }) {
       // chrome — title bar, padding, gaps — plus the content's full height.
       const content = node.querySelector('.dialog-content') as HTMLElement | null
       if (!content) {
-        void window.electronDialogApi?.reportSize?.({ width: 0, height: Math.ceil(node.scrollHeight) })
+        void window.hostDialogApi?.reportSize?.({ width: 0, height: Math.ceil(node.scrollHeight) })
         return
       }
       const chrome = Math.max(0, node.getBoundingClientRect().height - content.getBoundingClientRect().height)
       // Only the height is reported; the width is a design decision per dialog.
-      void window.electronDialogApi?.reportSize?.({ width: 0, height: Math.ceil(chrome + content.scrollHeight) })
+      void window.hostDialogApi?.reportSize?.({ width: 0, height: Math.ceil(chrome + content.scrollHeight) })
     }
     report()
     const observer = new ResizeObserver(report)
@@ -114,7 +114,7 @@ export default function DialogHost({ name: routeName }: { name: string }) {
   useEffect(() => {
     const send = (error: unknown) => {
       const report = buildErrorReport(error, { action: name, source: `dialog:${name}` })
-      void window.electronDialogApi?.reportError({ source: report.title, message: report.message, details: report.details })
+      void window.hostDialogApi?.reportError({ source: report.title, message: report.message, details: report.details })
     }
     const onError = (event: ErrorEvent) => send(event.error ?? event.message)
     const onRejection = (event: PromiseRejectionEvent) => send(event.reason)
@@ -131,7 +131,7 @@ export default function DialogHost({ name: routeName }: { name: string }) {
   }
 
   const send = (result: DialogResult) => {
-    void window.electronDialogApi?.send(name, result)
+    void window.hostDialogApi?.send(name, result)
     // Live edits (settings, previews, the filter gallery) keep the window open.
     if (!keepsWindowOpen(result.action)) {
       close()

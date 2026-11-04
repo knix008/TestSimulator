@@ -1,4 +1,7 @@
+@import './start/start.css';
+
 .app-shell {
+  position: relative;
   height: 100vh;
   min-height: 0;
   color: var(--text-primary);
@@ -14,7 +17,6 @@
 .menu-bar,
 .tool-bar,
 .options-bar {
-  -webkit-app-region: drag;
   align-items: center;
   background: var(--toolbar-bg);
   border-bottom: 1px solid var(--border);
@@ -46,7 +48,6 @@
 }
 
 .options-bar {
-  -webkit-app-region: no-drag;
   gap: 12px;
   /* A tool with many controls scrolls sideways at the minimum width. */
   overflow-x: auto;
@@ -72,7 +73,6 @@
 .options-bar input,
 .panel button,
 .dialog button {
-  -webkit-app-region: no-drag;
   align-items: center;
   background: var(--control-bg);
   border: 1px solid var(--border);
@@ -161,7 +161,6 @@ button:disabled:hover {
 }
 
 .menu-drop {
-  -webkit-app-region: no-drag;
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -189,7 +188,6 @@ button:disabled:hover {
 
 .menu-drop button,
 .context-menu button {
-  -webkit-app-region: no-drag;
   appearance: none;
   align-items: center;
   background: transparent;
@@ -232,9 +230,136 @@ button:disabled:hover {
 }
 
 .theme-menu {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: block;
   min-width: 420px;
-  overflow: visible;
+  /* Forty themes and the buttons above them fit the smallest window; many custom
+     themes scroll rather than run off it. */
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  padding: 8px;
+  scrollbar-width: thin;
+}
+
+.theme-menu-actions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 6px;
+}
+
+.theme-menu-actions button {
+  justify-content: center;
+}
+
+.theme-menu-section + .theme-menu-section {
+  border-top: 1px solid var(--border);
+  margin-top: 5px;
+  padding-top: 3px;
+}
+
+.theme-menu-section h4 {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 2px 4px 3px;
+}
+
+.theme-menu-section h4 small {
+  font-weight: 400;
+}
+
+/* Two columns read downwards: the first ten in the left one. */
+.theme-menu-list {
+  display: grid;
+  gap: 1px 6px;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+
+.theme-menu-list button {
+  min-height: 0;
+  padding: 3px 7px;
+}
+
+/* ------------------------------------------------------------ custom themes */
+.settings-theme-group + .settings-theme-group {
+  margin-top: 8px;
+}
+
+.settings-theme-group h4 {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.custom-theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.custom-theme-row {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.custom-theme-row .custom-theme-name {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.custom-theme-row .custom-theme-name.active {
+  border-color: var(--accent);
+}
+
+.custom-theme-editor {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.custom-theme-editor label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.custom-theme-editor input[type='color'] {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  height: 26px;
+  padding: 1px;
+  width: 56px;
+}
+
+.custom-theme-preview {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  font-size: 12px;
+  grid-column: 1 / -1;
+  grid-template-columns: 120px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.custom-theme-preview .preview-side {
+  padding: 8px 10px;
+}
+
+.custom-theme-preview .preview-main {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.custom-theme-preview .preview-button {
+  border-radius: 5px;
+  padding: 3px 10px;
 }
 
 .theme-swatch {
@@ -251,14 +376,12 @@ button:disabled:hover {
 }
 
 .menu-spacer {
-  -webkit-app-region: drag;
   align-self: stretch;
   flex: 1 1 auto;
   min-width: 24px;
 }
 
 .window-controls {
-  -webkit-app-region: no-drag;
   display: flex;
   gap: 4px;
 }
@@ -422,6 +545,39 @@ button:disabled:hover {
   display: block;
   height: 100%;
   width: 100%;
+}
+
+/* The size a painting tool works at. Two rings, to show on light and dark alike. */
+.brush-ring {
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75);
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+/* Where the pointer is, read off the rulers. As long as a ruler is wide (view.ts rulerSize). */
+.ruler-mark {
+  background: #ff2020;
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.ruler-mark-x {
+  height: 20px;
+  top: 0;
+  width: 1px;
+}
+
+.ruler-mark-y {
+  height: 1px;
+  left: 0;
+  width: 20px;
 }
 
 .resize-handle {
@@ -783,6 +939,20 @@ button:disabled:hover {
   align-content: start;
 }
 
+/* All the pages lie in one cell, so it is as tall as the tallest and no tab moves anything. */
+.settings-page-cell {
+  align-content: start;
+  display: grid;
+  gap: 14px;
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+}
+
+.settings-page-cell.on {
+  visibility: visible;
+}
+
 .settings-section {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -825,6 +995,218 @@ button:disabled:hover {
 
 .settings-range .range-value {
   text-align: right;
+}
+
+.settings-range-stepper {
+  grid-template-columns: 96px minmax(0, 220px);
+}
+
+/* The start screen's speed, transparency and interval: label and control on one row. */
+.settings-bg-controls {
+  align-items: center;
+  column-gap: 12px;
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  row-gap: 6px;
+}
+
+.settings-bg-controls .start-speed {
+  margin: 0;
+}
+
+.settings-bg-controls .start-check {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+/* The Brushes panel: each setting on a line of its own. */
+.brush-settings {
+  display: grid;
+  gap: 4px;
+}
+
+/* Every setting in the right panel: icon and name, then its control, on one line. */
+.panel-body label:not(.check-row) {
+  align-items: center;
+  gap: 6px;
+  grid-template-columns: 92px minmax(0, 1fr);
+  margin-bottom: 5px;
+}
+
+.panel-body .range-field {
+  grid-template-columns: minmax(0, 1fr) 38px;
+  margin: 0;
+  min-width: 0;
+}
+
+.panel-body .dialog-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.panel-body label > input:not([type='checkbox']),
+.panel-body label > select {
+  min-width: 0;
+  width: 100%;
+}
+
+.field-name {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field-name svg,
+.panel-heading svg {
+  color: var(--accent);
+  flex: none;
+}
+
+.field-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-heading {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+/* Built-in presets, two to a row. */
+.preset-tiles {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 6px;
+}
+
+.preset-tiles button {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  gap: 5px;
+  justify-content: flex-start;
+  min-height: 0;
+  min-width: 0;
+  padding: 4px 6px;
+}
+
+.preset-tiles button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Folding the right panel. */
+.workspace.panel-closed {
+  grid-template-columns: 64px minmax(0, 1fr) 14px 0;
+}
+
+.workspace.panel-closed .panel {
+  display: none;
+}
+
+.resize-handle {
+  position: relative;
+}
+
+.workspace.panel-closed .resize-handle {
+  cursor: default;
+}
+
+.panel-collapse {
+  align-items: center;
+  background: var(--menu-bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  left: 50%;
+  min-height: 0;
+  padding: 0;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  z-index: 3;
+}
+
+.panel-collapse:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Built-in patterns and the default swatches. */
+.swatch-grid.swatches-eight {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+
+.pattern-samples {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pattern-sample {
+  align-items: stretch;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: 10.5px;
+  gap: 2px;
+  min-height: 0;
+  min-width: 0;
+  padding: 3px;
+}
+
+.pattern-sample:hover,
+.pattern-sample.active {
+  border-color: var(--accent);
+}
+
+.pattern-sample i {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  display: block;
+}
+
+.pattern-sample span {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The right-click menu. */
+.context-separator {
+  background: var(--border);
+  height: 1px;
+  margin: 2px 4px;
+}
+
+.context-menu button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.context-menu button > span {
+  flex: 1 1 auto;
+}
+
+.context-menu kbd {
+  color: var(--text-muted);
+  font: 11px var(--ui-font);
+  margin-left: 16px;
 }
 
 .settings-buttons {
@@ -884,12 +1266,20 @@ button:disabled:hover {
   border-radius: 8px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
   display: grid;
-  gap: 4px;
-  min-width: 180px;
-  overflow: visible;
-  padding: 8px;
+  gap: 0;
+  max-height: calc(100vh - 16px);
+  min-width: 220px;
+  overflow-y: auto;
+  padding: 6px;
   position: fixed;
-  z-index: 20;
+  scrollbar-width: thin;
+  z-index: 60;
+}
+
+.context-menu button {
+  min-height: 0;
+  padding: 3px 8px;
+  width: 100%;
 }
 
 .color-popover {
@@ -1470,7 +1860,6 @@ button:disabled:hover {
 .tool-bar {
   /* Only the title bar drags the window now, so a miss between two buttons
      does not pick the whole window up. `.menu-spacer` re-opens a drag zone. */
-  -webkit-app-region: no-drag;
 }
 
 .menu-bar {
@@ -1546,7 +1935,7 @@ button:disabled:hover {
 }
 
 /* ================================================== popup / dialog windows */
-/* A dialog runs in its own OS window under Electron and in place in the
+/* A dialog runs in its own OS window on the desktop and in place in the
    browser build, so the same markup has to work both ways. */
 
 .dialog-window {
@@ -1613,7 +2002,6 @@ button:disabled:hover {
 
 /* The window's own title strip: icon, name, close. Also the drag handle. */
 .dialog-title-bar {
-  -webkit-app-region: drag;
   align-items: center;
   background: var(--toolbar-bg);
   border-bottom: 1px solid var(--border);
@@ -1635,7 +2023,6 @@ button:disabled:hover {
 }
 
 .dialog-close {
-  -webkit-app-region: no-drag;
   align-items: center;
   background: transparent;
   border: 1px solid transparent;
@@ -1979,26 +2366,26 @@ button:disabled:hover {
 .resize-grip {
   bottom: 0;
   height: 18px;
-  /* The OS owns the corner; this only draws it. */
-  pointer-events: none;
+  /* The shell starts the resize from a press here (src/host/tauriBridge.ts). */
+  cursor: nwse-resize;
   position: fixed;
   right: 0;
   width: 18px;
   z-index: 80;
 }
 
-/* Three diagonal ridges in the text colour, the classic grip, cut to the
-   corner's triangle so they read as a handle and not as a box. */
+/* Six dots in a triangle against the corner: one dot and its shadows, in the text colour. */
 .resize-grip::after {
-  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--text-muted) 3px 5px);
-  bottom: 2px;
-  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  background: currentColor;
+  border-radius: 50%;
+  bottom: 3px;
+  box-shadow: -4px 0, -8px 0, 0 -4px, -4px -4px, 0 -8px;
+  color: var(--text-muted);
   content: '';
-  height: 14px;
-  opacity: 0.9;
+  height: 2px;
   position: absolute;
-  right: 2px;
-  width: 14px;
+  right: 3px;
+  width: 2px;
 }
 
 /* ------------------------------------------------- settings window layout */

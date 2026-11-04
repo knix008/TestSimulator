@@ -362,7 +362,7 @@ test('decodeImageSource routes HEIC through libheif, by name or by mime type', a
   assert.equal(byName.kind, 'canvas')
   assert.equal(byName.canvas.width, 1280)
 
-  // Electron hands the renderer a data URL rather than the bytes.
+  // The desktop shell hands the renderer a data URL rather than the bytes.
   const base64 = Buffer.from(arrayBuffer).toString('base64')
   const byMime = await decodeImageSource({ name: 'download', mime: 'image/heic', dataUrl: `data:image/heic;base64,${base64}` })
   assert.equal(byMime.canvas.height, 720)

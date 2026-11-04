@@ -97,7 +97,7 @@ const mimes = {
   '.dcm': 'application/dicom', '.dicom': 'application/dicom',
 }
 
-/** The item shape the Electron main process hands the renderer on File ▸ Open. */
+/** The item shape the desktop shell hands the renderer on File ▸ Open. */
 function openItem(file) {
   const buffer = readFileSync(path.join(imagesDir, file))
   const mime = mimes[path.extname(file).toLowerCase()] ?? 'application/octet-stream'

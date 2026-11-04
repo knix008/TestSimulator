@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "My Photo Work",
+  "mainBinaryName": "MyPhotoWork",
+  "version": "1.0.0",
+  "identifier": "com.shkwon.myphotoworkmultios",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null,
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "credentialless"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "appimage", "deb"],
+    "publisher": "SHKWON",
+    "copyright": "Copyright (c) SHKWON (knix008@naver.com)",
+    "category": "Photography",
+    "shortDescription": "Layer-based raster photo editor",
+    "longDescription": "My Photo Work is a layer-based raster photo editor with selections, adjustments, filters, on-device neural tools, PSD and DICOM support.",
+    "icon": [
+      "../build/icons/32x32/icon.png",
+      "../build/icons/128x128/icon.png",
+      "../build/icons/256x256/icon.png",
+      "../build/icon.png",
+      "../build/icon.icns",
+      "../build/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "languages": ["Korean", "English"],
+        "installMode": "currentUser",
+        "installerIcon": "../build/icon.ico",
+        "uninstallerIcon": "../build/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+      }
+    }
+  }
+}

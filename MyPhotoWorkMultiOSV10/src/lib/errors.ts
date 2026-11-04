@@ -61,7 +61,7 @@ function environmentLines(): string[] {
   }
   if (typeof window !== 'undefined') {
     lines.push(`Window: ${window.innerWidth}x${window.innerHeight}`)
-    lines.push(`Shell: ${window.electronWindowApi ? 'desktop' : 'browser'}`)
+    lines.push(`Shell: ${window.hostWindowApi ? 'desktop' : 'browser'}`)
   }
   return lines
 }

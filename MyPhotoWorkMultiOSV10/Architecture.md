@@ -1,6 +1,6 @@
 # 구조
 
-My Photo Work V1.0 은 멀티 플랫폼 래스터 사진 편집기입니다. 같은 React 앱이 브라우저(Vite)에서도, 데스크톱 껍데기(Electron) 안에서도 그대로 돕니다.
+My Photo Work V1.0 은 멀티 플랫폼 래스터 사진 편집기입니다. 같은 React 앱이 브라우저(Vite)에서도, 데스크톱 껍데기(Tauri) 안에서도 그대로 돕니다.
 
 ## 기술 스택
 
@@ -8,7 +8,7 @@ My Photo Work V1.0 은 멀티 플랫폼 래스터 사진 편집기입니다. 같
 | ---------- | ------------------------------------------------------ |
 | UI         | React 19 + TypeScript                                  |
 | 번들러     | Vite 8                                                 |
-| 데스크톱   | Electron 43 (`electron/main.cjs`), electron-builder 로 포장 |
+| 데스크톱   | Tauri 2 (`src-tauri/`, Rust), `tauri build` 로 포장 |
 | 아이콘     | lucide-react                                           |
 | TIFF 코덱  | `utif`                                                 |
 | HEIC/HEIF 코덱 | `libheif-js` (WASM, 디코딩 전용, 필요할 때 불러옴) |
@@ -34,12 +34,12 @@ My Photo Work V1.0 은 멀티 플랫폼 래스터 사진 편집기입니다. 같
 내용이 스크롤합니다.
 
 팝업은 앱 창 안에서 그려지지 않습니다. 메뉴 드롭다운 하나하나, 대화상자 하나하나가 같은 번들을
-해시 경로(`#menu=` / `#dialog=`)로 불러오는 자식 `BrowserWindow` 입니다. 테두리 없는 창은 자기
+해시 경로(`#menu=` / `#dialog=`)로 불러오는 자기 Tauri 창 입니다. 테두리 없는 창은 자기
 HTML 을 잘라 버리기 때문입니다 — 레이어 메뉴는 마흔 줄쯤 되어 다른 방법으로는 보여 줄 수 없고,
-페이지 안의 대화상자는 옆으로 치울 수 없습니다. `electron/childwindows.cjs` 가 이들을 관리합니다.
+페이지 안의 대화상자는 옆으로 치울 수 없습니다. `src-tauri/src/popups.rs` 가 이들을 관리합니다.
 대화상자 이름당 창 하나, 다시 열면 있던 창을 앞으로, 모든 팝업은 메인 창과 함께 사라집니다.
 
-**그 경로에는 이름이 없고, 팝업이 빠르게 열리는 이유가 전부 거기에 있습니다.** `BrowserWindow`
+**그 경로에는 이름이 없고, 팝업이 빠르게 열리는 이유가 전부 거기에 있습니다.** 창
 를 만드는 일은 싸지만 그 뒤의 렌더러를 띄우는 일은 그렇지 않습니다 — 번들을 파싱하고, React 가
 마운트하고, 팝업 청크를 받아 옵니다. 그 값을 클릭마다 치르는 것이 팝업을 느리게 만들었고,
 대화상자를 닫으면 창을 없애 버렸으니 같은 대화상자를 두 번째로 여는 값이 첫 번째와 정확히
@@ -88,12 +88,29 @@ index.html
         ├─ src/subjectMethods.ts → 배경 제거가 어느 분할기를 쓸 것인가
         ├─ src/aboutInfo.ts   → 정보 창이 나열하는 사실들
         └─ src/lib/*
-electron/main.cjs           → 창, 네이티브 열기/저장, 닫기 확인
-electron/childwindows.cjs   → 메뉴 팝업과 대화상자를 별도 창으로
-electron/preload.cjs        → contextBridge 로 여는 파일/창/메뉴/대화상자 API
+src/host/tauriBridge.ts     → window.hostFileApi 등: 페이지가 아는 유일한 껍데기 API
+src/host/userGuide.ts       → 설명서 창 열기, 테마·언어 전달(localStorage)
+src/dialogSpecs.ts          → 대화상자별 창 크기 (열 때 껍데기로 보냄)
+src/start/StartScreen.tsx   → 시작 화면과, 설정 창이 함께 쓰는 배경 조작부
+src/lib/startBackground.ts  → 움직이는 배경 18종 (캔버스)
+src/lib/startLayout.ts      → 카드 배치 (3열 격자, 위로 모으기)
+src/lib/startSettings.ts    → 배경 설정의 기본값과 정규화
+src/lib/sampleImages.ts     → 코드로 그리는 샘플 그림
+src/tutorial/               → 튜토리얼 팝업, 안내 카드, 단계 목록
+src/CustomThemeEditor.tsx   → 설정 창의 사용자 정의 테마 편집
+src-tauri/src/lib.rs        → 메인 창, 위치 기억, 닫기 확인, 설명서 창, 명령 등록
+src-tauri/src/popups.rs     → 메뉴 팝업과 대화상자를 별도 창으로
+src-tauri/src/files.rs      → 네이티브 열기/저장
+src-tauri/src/models.rs     → 신경망 가중치 목록·읽기·내려받기
+src-tauri/src/print.rs      → WebView2 인쇄·PDF, 프린터 목록
 scripts/create-icons.cjs        → public/app-icon.svg → 모든 플랫폼의 아이콘
 scripts/generate-build-info.cjs → 정보 창을 위한 src/build-info.json
-scripts/electron-dev.mjs        → Vite 를 띄운 뒤 Electron
+scripts/start.mjs               → 빈 포트에 Vite 를 띄운 뒤 tauri dev
+scripts/dev.mjs                 → 브라우저용 Vite
+scripts/platform-build.mjs      → tauri build 후 설치 파일을 루트로 복사
+scripts/build-guide.mjs         → doc/UsersGuide*.md → doc/index.html
+scripts/guide-shots.mjs         → 설명서 그림 촬영 (headless Edge)
+scripts/e2e.mjs                 → 실제 실행 파일을 CDP 로 시험
 ```
 
 `src/MenuTree.tsx` 는 두 호스트가 함께 그리는 단 하나의 드롭다운입니다. `commands.ts` 의
@@ -187,20 +204,15 @@ JSX 변환 없이 import 할 수 있습니다.
 — 보안 컨텍스트가 아닙니다 — 불려 오던 시절의 흔적으로, 그곳에는 `navigator.clipboard` 가
 없었습니다. 안전하지 않은 출처에서 제공되는 브라우저 빌드를 위해 그대로 둡니다.
 
-### 번들 스킴
+### 교차 출처 격리
 
-포장된 상태에서 창들은 `dist/index.html` 파일이 아니라 `app://bundle/index.html`(팝업이면 해시
-경로를 붙여)을 불러옵니다. `childwindows.cjs` 가 앱이 준비되기 전에 `app` 스킴을 표준이자
-안전한 것으로 등록하고 `protocol.handle` 로 `dist/` 를 제공하면서, 파일이 실을 수 없는
-`Cross-Origin-Opener-Policy` 와 `Cross-Origin-Embedder-Policy: credentialless` 헤더를 붙입니다.
-그래야 페이지가 교차 출처 격리 상태가 되어 `SharedArrayBuffer` 가 존재하고 ONNX Runtime 이
-모든 코어에서 모델을 돌립니다. 개발 서버의 페이지에는 `webRequest` 훅이 같은 헤더를 줍니다
-(이미 있으면 손대지 않습니다. 헤더가 둘이면 Chromium 이 거부하는 목록이 되기 때문입니다).
-Vite 의 `base` 는 `./` 그대로여서 나뉜 청크가 어느 출처에서도 풀립니다.
+`SharedArrayBuffer` 가 있어야 ONNX Runtime 이 모든 코어에서 모델을 돌립니다. 포장된 앱은 `tauri.conf.json` 의 `app.security.headers` 로, 개발 서버와 `vite preview` 는 `vite.config.ts` 의 `headers` 로 `Cross-Origin-Opener-Policy: same-origin` 과 `Cross-Origin-Embedder-Policy: credentialless` 를 보냅니다. Vite 의 `base` 는 `./` 그대로여서 나뉜 청크가 어느 출처에서도 풀립니다.
+
+주의: 이 헤더 때문에 페이지는 커밋될 때 다른 프로세스로 옮겨 갑니다. 그보다 먼저 붙은 CDP 연결은 죽은 `about:blank` 에 남으므로 `scripts/e2e.mjs` 는 메뉴 막대가 보일 때까지 다시 연결합니다.
 
 ## 생성되는 파일
 
-둘 다 커밋하지 않으며, `npm test` 와 모든 `build`·`dist:*` 스크립트가 다시 만듭니다.
+둘 다 커밋하지 않으며, `npm test` 와 모든 `build` 스크립트가 다시 만듭니다.
 
 | 파일 | 만드는 것 | 왜 |
 | ---- | ------- | --- |
@@ -315,34 +327,39 @@ VOI LUT(창 중심과 폭. 파일이 말하지 않으면 데이터에서 구합�
 `transparentFormats`(PNG, WebP, AVIF, GIF, TIFF)에 있는 형식에서만 파일까지 닿고, 그 밖의
 것은 — JPEG 는 언제나 — `flattenOnto` 를 지나 흰 바탕에 놓입니다. `printableDocument` 가
 페이지를 만듭니다 — `@page` 여백 안, 흰 용지 위에 놓인 평평한 이미지 — 그다음은 껍데기에
-달렸습니다. Electron 에서는 인쇄 창이 이미 프린터와 방향과 매수를 물었으므로 `print:job` 이
-그 마크업을 숨긴 창에 실어 `webContents.print({ silent: true })` 를 부릅니다. 창 하나, 같은
-질문을 다시 하는 두 번째 대화상자는 없습니다. 브라우저에서는 시스템 대화상자 말고는 프린터에
+달렸습니다. Windows 의 데스크톱에서는 인쇄 창이 이미 프린터와 방향과 매수를 물었으므로 `print_html` 이
+그 마크업을 숨긴 창에 실어 WebView2 의 `Print` 를 부릅니다(파일로 쓰는 프린터면 앱의 저장 대화상자와 `PrintToPdf` 로). 창 하나, 같은
+질문을 다시 하는 두 번째 대화상자는 없습니다. 브라우저와 macOS·Linux 에서는 시스템 대화상자 말고는 프린터에
 닿을 길이 없으므로 `printDataUrl` 이 같은 마크업을 화면 밖 iframe 에 넘기고 `print()` 를
 부릅니다 — 편집기가 아니라 이미지만 인쇄됩니다.
 
-Electron 에서는 `files:open` / `files:save` / `files:write` 가 네이티브 대화상자를 씁니다.
+데스크톱에서는 `files_open` / `files_save` / `files_write` 가 네이티브 대화상자를 씁니다.
 브라우저에서는 `<input type=file>` 과 Blob 내려받기가 그 자리를 대신합니다. 고치던 문서를
 닫으면 먼저 저장할지 묻습니다(`window:close-request`).
 
 ## 데스크톱 껍데기
 
-`electron/main.cjs` 가 테두리 없는 창을 만들고 `contextBridge` 프리로드로 IPC 를 엽니다.
-최소 크기는 툴바 줄이 정합니다. 모든 명령과 상황별 작업과 색상 조작부를 한 줄에 놓고 결코
-스크롤하지 않으므로, 손이 닿지 않는 단추가 생길 수 없습니다.
+`src-tauri/src/lib.rs` 가 테두리 없는 메인 창을 코드로 만듭니다. 창은 숨긴 채로 뜨고 페이지가 `window_ready` 를 부를 때 보입니다(8초 안에 소식이 없으면 그래도 보입니다). 위치와 크기는 데이터 폴더의 `window.json` 에 남깁니다. 최소 크기는 툴바 줄이 정합니다. 모든 명령과 상황별 작업과 색상 조작부를 한 줄에 놓고 스크롤하지 않으므로, 손이 닿지 않는 단추가 생길 수 없습니다.
 
-메인 창도 팝업도 포장되지 않았을 때는 개발 서버를 먼저 찾되 빌드된 번들로 되돌아갑니다.
-그러지 않으면 Vite 가 내려간 사이에 연 팝업만 빈 화면으로 뜨고, 먼저 시작한 메인 창은 멀쩡해
-보이는 일이 생깁니다.
+페이지는 Tauri 를 직접 부르지 않습니다. `src/host/tauriBridge.ts` 가 `window.hostFileApi`, `hostDialogApi` 같은 객체를 채우고, 브라우저에서는 이들이 없으므로 같은 코드가 대체 경로를 탑니다. 페이지가 렌더되기 전에 설치됩니다. 창 끌기는 `-webkit-app-region` 이 WebView2·WebKit 에서 동작하지 않으므로 다리가 `mousedown` 으로 `startDragging` 을 부릅니다. 오른쪽 아래 점 삼각형은 `startResizeDragging` 을 부릅니다. 파일 끌어다 놓기는 페이지가 처리하므로 모든 창에 `disable_drag_drop_handler` 를 씁니다.
 
-인쇄는 곧바로 프린터로 갑니다. 인쇄 창이 이미 프린터와 방향과 매수를 물었으므로 두 번째
-시스템 대화상자는 같은 것을 또 묻기만 할 뿐입니다. 기본 프린터는 OS 에서 읽습니다 — Windows
-레지스트리의 `Device` 값, 또는 CUPS 의 `lpstat -d`. Chromium 의 `getPrintersAsync()` 는
-`name`, `displayName`, `description`, `options` 만 돌려주고 `isDefault` 는 아예 없어서,
-그러지 않으면 창이 OS 가 먼저 나열한 프린터를 골라 놓습니다.
+닫기: 메인 창의 `CloseRequested` 는 막고 페이지로 `window:close-request` 를 보냅니다. 저장하지 않은 작업을 처리한 페이지가 `window_force_close` 를 부르면 위치를 저장하고 팝업과 설명서 창을 없앤 뒤 끝납니다.
 
-포장은 electron-builder(NSIS / DMG+ZIP / AppImage+DEB+RPM)로 하며, 실행 파일·설치 관리자·
-제거 관리자·두 바로 가기가 모두 생성된 `build/icon.ico` 하나에 못박혀 있습니다.
+데이터 폴더는 `%APPDATA%\My Photo Work V1.0`(macOS 는 Application Support, Linux 는 `~/.config`)로, Electron 판과 같아서 내려받은 모델을 그대로 씁니다. `models.rs` 는 Electron 개발판 폴더(`… V1.0 Dev`)도 함께 찾고, 이미 있는 모델을 내려받으라는 요청은 네트워크에 가지 않고 끝냅니다. 첫 실행 안내(`modelSetup`)는 모델이 하나도 없을 때만 뜹니다. `MPW_DATA_DIR` 은 이 폴더를 옮기며, 설정되면 단일 인스턴스 플러그인도 끕니다(시험 실행이 설치본에 넘어가지 않도록).
+
+인쇄는 곧바로 프린터로 갑니다. 인쇄 창이 이미 프린터와 방향과 매수를 물었으므로 두 번째 시스템 대화상자는 같은 것을 또 묻기만 할 뿐입니다. 프린터 목록과 기본 프린터는 Windows 의 `EnumPrintersW`·`GetDefaultPrinterW`, 또는 CUPS 의 `lpstat` 에서 읽습니다.
+
+포장은 `tauri build`(NSIS / DMG / AppImage·DEB)로 하며, 실행 파일·설치 관리자·제거 관리자·바로 가기가 모두 `scripts/create-icons.cjs` 가 만든 `build/icon.ico` 하나에 못박혀 있습니다.
+
+## 시작 화면, 튜토리얼, 테마, 설명서
+
+**시작 화면** 은 `App.tsx` 의 `startOn` 상태입니다. 툴바와 작업 영역 위를 덮을 뿐이어서 문서와 캔버스는 그대로 남습니다. 일을 시작하는 명령을 실행하면 닫힙니다. 설정은 `settings.startBackground`(`normalizeStartBackground` 가 검사)와 `showStartOnLaunch` 이고, 설정 창의 시작 화면 탭은 같은 `BackgroundKinds`·`BackgroundControls` 를 씁니다. 배경 카드에 `backdrop-filter` 를 쓰지 않습니다. 움직이는 캔버스 위에서 WebView2 가 깜빡입니다.
+
+**튜토리얼** 은 `settings.tutorialAskOnLaunch` 가 켜져 있으면 실행마다 한 번 묻습니다. 단계는 `src/tutorial/steps.ts` 의 표로, 각 단계가 어느 화면(`start`/`editor`)에서 무엇을 짚는지 선언합니다.
+
+**테마** 는 `src/themes.ts` 의 Dark 20·Light 20 입니다. 새 테마는 강조색·배경·패널·글자 네 가지 색에서 `deriveTheme` 으로 나머지 토큰을 계산하고, 사용자 정의 테마도 같은 함수를 지납니다. 메뉴와 대화상자는 창마다 JS 문맥이 따로이므로 사용자 정의 테마는 `mpw-custom-themes` localStorage 키로 공유합니다.
+
+**사용자 설명서** 는 `doc/` 의 평범한 페이지입니다. 개발 서버는 `/doc/` 로 제공하고 빌드는 `dist/doc/` 로 복사합니다(`vite.config.ts` 의 `userGuide`). React 앱과 무관하며, 앱은 테마와 언어를 `mpw-doc-appearance` 키에 남기고 설명서는 `storage` 이벤트로 받습니다. 글꼴·크기·언어는 설명서 자신이 기억합니다.
 
 `npm run verify:images` 는 `images/` 의 모든 파일을 실제 열기 → 합성 → 내보내기 → 투명 →
 3D/뒤틀기/심 카빙/GIF/16비트/패턴 → 인쇄 파이프라인에 태우며 가는 동안 단정하고, 만들어 낸
@@ -382,6 +399,8 @@ Electron 에서는 `files:open` / `files:save` / `files:write` 가 네이티브 
 않습니다. 그 덕에 이 보호가 낄 자리가 아닌 곳에는 끼지 않습니다.
 
 ## 시험
+
+`npm run test:rust` 는 Rust 셸의 단위 시험, `npm run test:e2e` 는 실제 실행 파일을 임시 데이터 폴더와 WebView2 프로필로 띄워 CDP 로 조작합니다. 대화상자가 자기 창으로 열리는 일, 설명서 창, 닫기는 거기서만 검증됩니다.
 
 `npm test` 가 `test/*.test.mjs` 를 `node --test` 로 돌립니다. 번들러도 브라우저도 끼지
 않습니다. `test/helpers/setup.mjs` 가 `--import` 로 불려 와 어떤 시험 파일이 평가되기 전에

@@ -1,76 +1,39 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
+# Dependencies
+node_modules/
 
 # Build output
-release
-*.tsbuildinfo
+dist/
+src-tauri/target/
+src-tauri/gen/
 
-# Vite's pre-bundled dependency cache. It normally lives inside node_modules,
-# but `cacheDir` can move it, and a stale one is worth deleting rather than
-# committing: leftover Electron processes holding it open made the optimiser
-# fail with EPERM, and the window came up blank while the source was fine.
-.vite/
-
-# Results of `npm run verify:images` and `npm run verify:features` (the real
-# photos in images/ taken through the whole open -> edit -> export -> print
-# pipeline, and every tool and command run over the same photos). Rebuilt from
-# scratch every run; open out/index.html and out/features.html locally.
-out/
-
-# Generated before every build, never edited by hand.
-#   src/build-info.json   <- scripts/generate-build-info.cjs (changes every build)
-#   build/                <- scripts/create-icons.cjs, rendered from public/app-icon.svg
-# The whole of build/ is that script's output — icon.ico, icon.png and the
-# Linux icon set — so the directory is ignored rather than the three names it
-# happens to hold today. `npm test` regenerates both first, so a fresh clone
-# still passes.
-src/build-info.json
+# Generated before every build or test run
+#   build/               scripts/create-icons.cjs, from public/app-icon.svg
+#   src/build-info.json  scripts/generate-build-info.cjs
 build/
+src/build-info.json
 
-# Packaged installers copied to the project root by scripts/copy-installers.cjs,
-# and the delta file electron-builder writes beside the Windows one.
+# Installers copied to the project root by scripts/platform-build.mjs
 /*.exe
 /*.dmg
 /*.AppImage
 /*.deb
-/*.rpm
-/*.zip
-/*.blockmap
 
-# Scratch output from the packaging and screenshot helpers
-screenshots/
-*.tmp
-# Neural network weights are fetched into the user's data folder at run time
-# (Edit > Neural Models), never into the project; a stray copy must not be
-# committed, nor the scratch scripts the live checks are driven with.
+# Results of npm run verify:images and verify:features, rebuilt on every run
+out/
+
+# Neural network weights belong in the user's data folder, never in the project
 *.onnx
-*.part.onnx
-*.tmp.mjs
 
-# Nothing here needs a secret, so a .env file is a mistake rather than a
-# configuration. `*.local` above only catches `.env.local`.
+# Logs and local settings
+*.log
+*.local
 .env
 .env.*
 !.env.example
 
-# Editor directories and files
+# Editors and the OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?

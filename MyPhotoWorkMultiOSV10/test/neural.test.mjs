@@ -186,8 +186,26 @@ test('the runtime is reached only by dynamic import, and the app never downloads
   assert.ok(!/modelStore\(\)\.download/.test(app), 'the editor downloads without asking')
   const dialogs = readFileSync(fileURLToPath(new URL('../src/dialogsExtra.tsx', import.meta.url)), 'utf8')
   assert.match(dialogs, /modelStore\(\)\.download\(id\)/, 'the Neural Models window has no download button')
-  const main = readFileSync(fileURLToPath(new URL('../electron/main.cjs', import.meta.url)), 'utf8')
-  assert.match(main, /ipcMain\.handle\('models:download'/, 'the main process cannot fetch weights')
+  const main = readFileSync(fileURLToPath(new URL('../src-tauri/src/models.rs', import.meta.url)), 'utf8')
+  assert.match(main, /pub async fn models_download/, 'the shell cannot fetch weights')
   assert.match(main, /\.part\.onnx/, 'a half-downloaded model could be mistaken for a whole one')
-  assert.match(main, /if \(!\/\^\[a-zA-Z0-9_-\]\+\$\/\.test\(String\(id\)\)\) throw/, 'a model id is not validated before it becomes a path')
+  assert.match(main, /if !valid_id\(id\)/, 'a model id is not validated before it becomes a path')
+})
+
+test('a model that is already on the machine is reused, not fetched again', () => {
+  const read = (relative) => readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8').replace(/\r\n/g, '\n')
+  const main = read('../src-tauri/src/models.rs')
+  // The desktop store answers before it would touch the network.
+  const download = main.slice(main.indexOf('pub async fn models_download'))
+  assert.ok(download.indexOf('find_model(&model_roots(), &id)') < download.indexOf('ureq') || !download.includes('ureq'), 'the download does not look first')
+  assert.match(download, /"done": true[\s\S]*?"ok": true/, 'the waiting window is never told it is done')
+  // Folders the earlier builds used still count.
+  assert.match(main, /crate::LEGACY_DEV_FOLDER/, 'the folder of the source build is not searched')
+  assert.match(read('../src-tauri/src/lib.rs'), /const DATA_FOLDER: &str = "My Photo Work V1\.0"/, 'the installed build\'s folder has changed, stranding its models')
+  // The browser store does the same.
+  const store = read('../src/lib/models.ts')
+  assert.match(store, /const held = await \(await caches\.open\(CACHE\)\)\.match\(keyFor\(id\)\)/, 'the browser store fetches regardless')
+  // And the first-run offer stays away once there is any model.
+  const app = read('../src/App.tsx')
+  assert.match(app, /if \(downloaded\.length > 0\) return\s+openDialogRef\.current\('modelSetup'/, 'the offer is made even with models present')
 })

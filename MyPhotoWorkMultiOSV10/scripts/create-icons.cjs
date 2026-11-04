@@ -15,7 +15,6 @@ const svgPath = path.join(publicDir, 'app-icon.svg')
 const svg = fs.existsSync(svgPath) ? fs.readFileSync(svgPath, 'utf8') : defaultSvg
 
 fs.writeFileSync(svgPath, svg)
-fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svg)
 
 function renderPng(size) {
   const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: size }, font: { loadSystemFonts: true } })
@@ -30,9 +29,24 @@ const icoSizes = [16, 24, 32, 48, 64, 128, 256]
 
 const png512 = renderPng(512)
 const png256 = renderPng(256)
-// `icon.png` is what electron-builder hands macOS and what Electron shows at
-// runtime on anything that is not Windows; 512 is the size macOS wants.
+// The bundler's largest PNG; 512 is the size macOS wants.
 fs.writeFileSync(path.join(buildDir, 'icon.png'), png512)
+
+/** An .icns is a list of PNGs: 4 bytes of type, 4 of length (big-endian), then the file. */
+function icns(entries) {
+  const chunks = entries.map(([type, png]) => {
+    const head = Buffer.alloc(8)
+    head.write(type, 0, 'ascii')
+    head.writeUInt32BE(png.length + 8, 4)
+    return Buffer.concat([head, png])
+  })
+  const body = Buffer.concat(chunks)
+  const head = Buffer.alloc(8)
+  head.write('icns', 0, 'ascii')
+  head.writeUInt32BE(body.length + 8, 4)
+  return Buffer.concat([head, body])
+}
+fs.writeFileSync(path.join(buildDir, 'icon.icns'), icns([['ic07', renderPng(128)], ['ic08', png256], ['ic09', png512]]))
 
 for (const size of linuxSizes) {
   const dir = path.join(buildDir, 'icons', `${size}x${size}`)

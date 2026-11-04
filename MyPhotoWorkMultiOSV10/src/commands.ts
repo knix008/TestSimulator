@@ -4,7 +4,7 @@ import {
   AlignHorizontalDistributeCenter, AlignHorizontalSpaceAround, AlignJustify, AlignLeft, AlignRight,
   AlignStartHorizontal, AlignStartVertical, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart, AlignVerticalSpaceAround, Anchor, Aperture, ArrowDownToLine, ArrowLeftToLine,
-  ArrowRightToLine, ArrowUpNarrowWide, ArrowUpToLine, BadgeHelp, BadgeMinus, Ban, Barcode, Baseline,
+  ArrowRightToLine, ArrowUpNarrowWide, ArrowUpToLine, BadgeHelp, BadgeInfo, BadgeMinus, BookOpenText, GraduationCap, House, LifeBuoy, Ban, Barcode, Baseline,
   BetweenHorizontalStart, Binary, Binoculars, Blend, Blocks, Bolt, Book, BookLock, Bookmark, BookMarked,
   BookmarkPlus, BookOpenCheck, Box, Boxes, Brain, BrainCircuit, Brush, BrushCleaning, Calculator, Camera,
   CameraOff, CaseSensitive, ChartColumn, ChartColumnIncreasing, ChartNoAxesColumnIncreasing, ChartSpline,
@@ -55,7 +55,7 @@ import { extraFilterIds, extraFilters } from './lib/moreFilters'
 
 export type MenuId =
   | 'file' | 'edit' | 'image' | 'layer' | 'typeMenu' | 'selectMenu'
-  | 'filter' | 'threeD' | 'view' | 'windowMenu'
+  | 'filter' | 'threeD' | 'view' | 'windowMenu' | 'helpMenu'
 
 export type IconComponent = ComponentType<{ size?: number }>
 
@@ -78,7 +78,7 @@ export type AppCommand = {
 }
 
 export const menuOrder: MenuId[] = [
-  'file', 'edit', 'image', 'layer', 'typeMenu', 'selectMenu', 'filter', 'threeD', 'view', 'windowMenu',
+  'file', 'edit', 'image', 'layer', 'typeMenu', 'selectMenu', 'filter', 'threeD', 'view', 'windowMenu', 'helpMenu',
 ]
 
 export const menuIcons: Record<MenuId, IconComponent> = {
@@ -92,6 +92,7 @@ export const menuIcons: Record<MenuId, IconComponent> = {
   threeD: Box,
   view: Eye,
   windowMenu: LayoutGrid,
+  helpMenu: BadgeHelp,
 }
 
 /** An icon per adjustment, so the Layer menu's twenty-one rows are told apart. */
@@ -458,6 +459,7 @@ export const commands: AppCommand[] = [
   { id: 'window.navigator', menu: 'windowMenu', icon: Compass, label: 'navigator' },
   { id: 'window.info', menu: 'windowMenu', icon: CircleHelp, label: 'info', accel: 'F8' },
   { id: 'window.color', menu: 'windowMenu', icon: Palette, label: 'colorPanel', accel: 'F6' },
+  { id: 'window.togglePanel', menu: 'windowMenu', icon: PanelRight, label: 'panelToggle', accel: 'Tab', separatorBefore: true },
   { id: 'window.swatches', menu: 'windowMenu', icon: SwatchBook, label: 'swatches' },
   { id: 'window.gradients', menu: 'windowMenu', icon: RectangleHorizontal, label: 'gradientsPanel' },
   { id: 'window.patterns', menu: 'windowMenu', icon: Wallpaper, label: 'patternsPanel' },
@@ -475,8 +477,13 @@ export const commands: AppCommand[] = [
   { id: 'window.timeline', menu: 'windowMenu', icon: Film, label: 'timeline' },
   { id: 'window.measurementLog', menu: 'windowMenu', icon: Logs, label: 'measurementLog' },
   { id: 'window.notes', menu: 'windowMenu', icon: StickyNote, label: 'notesPanel' },
-  // The guide used to be a button of its own in the top bar; it lives here now.
-  { id: 'window.guide', menu: 'windowMenu', icon: BadgeHelp, label: 'help', separatorBefore: true },
+
+  /* help */
+  { id: 'help.guide', menu: 'helpMenu', icon: BookOpenText, label: 'userGuide', accel: 'F1' },
+  { id: 'help.tutorial', menu: 'helpMenu', icon: GraduationCap, label: 'tutorial' },
+  { id: 'help.quick', menu: 'helpMenu', icon: LifeBuoy, label: 'help' },
+  { id: 'help.start', menu: 'helpMenu', icon: House, label: 'startScreen', separatorBefore: true },
+  { id: 'help.about', menu: 'helpMenu', icon: BadgeInfo, label: 'about', separatorBefore: true },
 ]
 
 export function commandsInMenu(menu: MenuId) {

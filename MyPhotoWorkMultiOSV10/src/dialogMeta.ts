@@ -31,6 +31,8 @@ export type DialogName =
 export type DialogResult = { action: string; [key: string]: unknown }
 
 export type DialogPayload = {
+  /** Which page of the settings window to open on. */
+  settingsTab?: 'theme' | 'customTheme'
   language: Language
   theme: string
   /** Seeds for the editors, supplied by App. */

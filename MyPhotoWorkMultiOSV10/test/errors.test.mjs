@@ -190,11 +190,11 @@ test('a failure inside a popup window is forwarded to the main window', () => {
   for (const file of ['src/DialogHost.tsx', 'src/MenuHost.tsx']) {
     const source = read(file)
     assert.match(source, /window\.addEventListener\('error', onError\)/, `${file} swallows its errors`)
-    assert.match(source, /electronDialogApi\?\.reportError/, `${file} never forwards them`)
+    assert.match(source, /hostDialogApi\?\.reportError/, `${file} never forwards them`)
   }
-  assert.match(read('electron/preload.cjs'), /reportError: \(report\) => ipcRenderer\.invoke\('dialog:error'/, 'no error channel')
-  assert.match(read('electron/childwindows.cjs'), /ipcMain\.handle\('dialog:error'/, 'the main process does not route it')
-  assert.match(appSource, /electronDialogApi\?\.onError/, 'the main window never listens')
+  assert.match(read('src/host/tauriBridge.ts'), /reportError: \(report\) => invoke\('dialog_error'/, 'no error channel')
+  assert.match(read('src-tauri/src/popups.rs'), /pub async fn dialog_error[\s\S]*?"dialog:error"/, 'the shell does not route it')
+  assert.match(appSource, /hostDialogApi\?\.onError/, 'the main window never listens')
 })
 
 test('the error popup shows the full detail and can copy it', () => {

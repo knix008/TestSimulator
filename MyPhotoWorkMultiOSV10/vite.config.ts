@@ -1,5 +1,10 @@
+import { cpSync, createReadStream, existsSync, statSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url))
 
 /**
  * OpenCV ships Emscripten's glue, which reaches for `fs`, `path` and `crypto`
@@ -26,21 +31,53 @@ export function opencvNodeBuiltins(): Plugin {
   }
 }
 
+const docTypes: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml' }
+
+/**
+ * The illustrated user guide lives in doc/ as plain files, because it is a document
+ * as well as a window of the app. The dev server serves that folder at /doc/; the
+ * build copies it to dist/doc/, leaving out the Markdown it is generated from.
+ */
+export function userGuide(): Plugin {
+  const docDir = path.join(projectRoot, 'doc')
+  return {
+    name: 'user-guide',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = decodeURIComponent((req.url ?? '').split('?')[0])
+        if (pathname !== '/doc' && !pathname.startsWith('/doc/')) return next()
+        const relative = pathname === '/doc' || pathname === '/doc/' ? 'index.html' : pathname.slice('/doc/'.length)
+        const file = path.normalize(path.join(docDir, relative))
+        if (!file.startsWith(docDir) || !existsSync(file) || !statSync(file).isFile()) return next()
+        res.setHeader('Content-Type', docTypes[path.extname(file)] ?? 'application/octet-stream')
+        createReadStream(file).pipe(res)
+      })
+    },
+    closeBundle() {
+      cpSync(docDir, path.join(projectRoot, 'dist', 'doc'), { recursive: true, filter: (source) => !source.endsWith('.md') })
+    },
+  }
+}
+
+// What lets the renderer use SharedArrayBuffer, which ONNX Runtime needs to run a
+// model on more than one core. The packaged app gets the same from tauri.conf.json;
+// `credentialless` keeps ordinary cross-origin images loadable.
+const isolation = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'credentialless' }
+
 export default defineConfig({
   base: './',
-  plugins: [react(), opencvNodeBuiltins()],
+  plugins: [react(), opencvNodeBuiltins(), userGuide()],
   // ONNX Runtime ships its WebAssembly glue pre-built and self-referencing;
   // Vite's dependency pre-bundling rewrites it into something that throws
   // inside the wasm callbacks, so it is served as it is.
   optimizeDeps: { exclude: ['onnxruntime-web'] },
   server: {
-    // The dev server watches the project, and on Windows a watched directory
-    // cannot be renamed: electron-builder's `release/win-unpacked.tmp` →
-    // `win-unpacked` rename fails with EPERM while `npm run dev` is up. The
-    // packaging output, the verification output and the icons are not source,
-    // so they are left out of the watch.
-    watch: { ignored: ['**/release/**', '**/out/**', '**/dist/**', '**/build/**'] },
+    headers: isolation,
+    // The Rust shell, the build output, the verification output, the icons and the
+    // guide are not the page's source, so they are left out of the watch.
+    watch: { ignored: ['**/src-tauri/**', '**/out/**', '**/dist/**', '**/build/**', '**/doc/**'] },
   },
+  preview: { headers: isolation },
   build: {
     /*
      * Two dependencies ship as single large files, and the warning's own

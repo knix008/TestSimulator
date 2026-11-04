@@ -5,7 +5,7 @@ import type { Runner, Tensor } from './neural'
 
 /**
  * ONNX Runtime, loaded on first use. The models run on WebAssembly across
- * every core (the Electron shell makes the page cross-origin isolated, which
+ * every core (the desktop shell makes the page cross-origin isolated, which
  * is what threads need); WebGPU is opt-in, because the JSEP backend still
  * fails on some models and machines, and when it does the session is rebuilt
  * on the CPU. Sessions are kept once created, since building one from 200MB
