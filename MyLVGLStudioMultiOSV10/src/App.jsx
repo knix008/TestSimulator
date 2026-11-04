@@ -1119,7 +1119,7 @@ export function App({ initialSettings }) {
           <i className="tool-sep" />
           <div className="popup-host">
             <button type="button" className={popup === "version" ? "version-chip active" : "version-chip"} data-command="version-chip" disabled={!designing} aria-haspopup="menu" aria-expanded={popup === "version"} title={t("version.change")} onClick={() => setPopup(popup === "version" ? null : "version")}>
-              <Icon name="manager" size={14} /> LVGL {project.lvgl} <Icon name="caret" size={12} />
+              <Icon name="manager" size={14} /> LVGL {project.lvgl} <Icon name="dropDown" size={12} />
             </button>
             {popup === "version" && (
               <div className="menu-pop version-pop" role="menu" data-version-menu="">

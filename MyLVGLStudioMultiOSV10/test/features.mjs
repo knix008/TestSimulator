@@ -559,7 +559,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
 
     /* -------------------------------------------------------- widget tables */
     category("Problems");
-    await test("Samples have no errors in their own LVGL version", () => {
+    await test("Samples have no problems in their own LVGL version", () => {
       const folder = new URL("../samples/", import.meta.url);
       const index = JSON.parse(fs.readFileSync(new URL("index.json", folder), "utf8"));
       assert.ok(index.length >= 16);
@@ -568,6 +568,7 @@ export function registerFeatureTests({ category, test, engines, versions }) {
         const sample = parseProject(fs.readFileSync(file, "utf8"));
         const errors = findProblems(sample).filter((problem) => problem.severity === "error");
         assert.deepEqual(errors.map((problem) => problem.key), [], item.file);
+        assert.deepEqual(findProblems(sample).map((problem) => problem.key), [], item.file);
       }
     });
     const problemProject = () => {

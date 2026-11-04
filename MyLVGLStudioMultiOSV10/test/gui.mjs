@@ -77,27 +77,38 @@ const center = async (selector) => {
 const locate = (selector) => js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; e.scrollIntoView({ block: "nearest", inline: "nearest" }); const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
 const mouse = (type, x, y, extra = {}) => page.send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1, ...extra });
 const WATCH_INPUT = `window.__input ??= (() => { const s = { down: 0, up: 0 }; addEventListener("pointerdown", () => s.down++, true); addEventListener("pointerup", () => s.up++, true); return s; })()`;
+/** True once the counter passed `before`: a busy page can take a while to see an event. */
+async function received(counter, before, ms = 1500) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if ((await js(`window.__input.${counter}`)) > before) return true;
+    await sleep(25);
+  }
+  return false;
+}
 /** Sends a press. The input channel can drop one before it reaches the page; only that is retried. */
 async function press(x, y, extra = {}) {
   await js(WATCH_INPUT);
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     const before = await js("window.__input.down");
     await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, buttons: 0 });
     await sleep(attempt * 120);
     await mouse("mousePressed", x, y, extra);
-    await sleep(60);
-    if ((await js("window.__input.down")) > before) return;
+    if (await received("down", before)) {
+      await sleep(40);
+      return;
+    }
   }
   throw new Error(`the window never received a press at ${x},${y}`);
 }
 async function release(x, y, extra = {}) {
   const before = await js("window.__input.up");
   await mouse("mouseReleased", x, y, extra);
-  await sleep(60);
-  if ((await js("window.__input.up")) === before) {
+  if (!(await received("up", before))) {
     await mouse("mouseReleased", x, y, extra);
-    await sleep(60);
+    await received("up", before);
   }
+  await sleep(40);
 }
 async function clickAt(x, y) {
   await press(x, y);
@@ -147,11 +158,10 @@ const canvasHash = (selector) => js(`(() => { const c = document.querySelector($
 async function doubleClick(selector) {
   const point = await center(selector);
   assert.ok(point, `no element ${selector}`);
-  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x, y: point.y, buttons: 0 });
-  await mouse("mousePressed", point.x, point.y, { clickCount: 1 });
-  await mouse("mouseReleased", point.x, point.y, { clickCount: 1 });
-  await mouse("mousePressed", point.x, point.y, { clickCount: 2 });
-  await mouse("mouseReleased", point.x, point.y, { clickCount: 2 });
+  await press(point.x, point.y, { clickCount: 1 });
+  await release(point.x, point.y, { clickCount: 1 });
+  await press(point.x, point.y, { clickCount: 2 });
+  await release(point.x, point.y, { clickCount: 2 });
   await sleep(120);
 }
 /** The worst text/background contrast among the fields and drop-downs on screen. */
@@ -670,6 +680,7 @@ await step("Every attribute kind edits the document", async () => {
   await click('.attributes [data-select="align"] .icon-select-button');
   await click('.attributes [data-select="align"] [data-value="CENTER"]');
   assert.equal((await nodeById(id)).props.align, "CENTER");
+  await sleep(150);
   await click('.attributes [data-select="align"] .icon-select-button');
   await click('.attributes [data-select="align"] [data-value=""]');
   assert.ok(!("align" in (await nodeById(id)).props));
@@ -957,7 +968,7 @@ await step("Problems: a list in the bottom panel; a row leads to the control and
   assert.equal(await js("document.querySelector('[data-problem=widgetVersion] [data-problem-code]').disabled"), true);
   await click('[data-problem="widgetVersion"] [data-problem-control]');
   await sleep(100);
-  assert.equal(await js("window.__mls.selected()"), scale.id);
+  assert.equal(await js("window.__mls.selected()"), await js('window.__mls.problems().find((p) => p.code === "widgetVersion").node'));
   await pickVersion("9.6.0");
   await page.until('window.__mls.engine().runtimeVersion() === "9.6.0"', 15000);
   await click(`[data-tree="${scale.id}"]`);
@@ -1391,6 +1402,8 @@ await step("Every right-click menu has an icon on every item", async () => {
   await close();
   assert.ok((await open('.attributes input[data-field="name"]')).includes("text-paste"));
   await close();
+  await click('[data-bottom="log"]');
+  await sleep(60);
   assert.ok((await open(".log-list")).includes("log-clear"));
   await close();
   assert.ok((await open(".statusbar")).includes("preferences"));
@@ -1811,8 +1824,18 @@ if (!skipNative) {
   await step("Native run works with the LVGL v8 API too", async () => {
     await click('[data-command="native"]');
     await page.until('Array.from(document.querySelectorAll("[data-log=build] .log-line span")).some((e) => e.textContent.startsWith("Running"))', 480000);
+    const buildText = await js('Array.from(document.querySelectorAll("[data-log=build] .log-line span")).map((e) => e.textContent).join("\\n")');
+    fs.writeFileSync(path.join(root, "build", "native-v8.log"), buildText);
+    fs.writeFileSync(path.join(root, "build", "native-v8.json"), JSON.stringify(await project()));
     await click('[data-bottom="log"]');
-    await page.until('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent.startsWith("started: 320x240, LVGL 8.4.0"))', 15000);
+    await page.until('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).some((e) => e.textContent.startsWith("started: 320x240, LVGL 8.4.0"))', 15000).catch(async (error) => {
+      fs.appendFileSync(path.join(root, "build", "native-v8.log"), "\n--- log\n" + await js('Array.from(document.querySelectorAll("[data-log=log] .log-line span")).map((e) => e.textContent).join("\\n")'));
+      await sleep(400);
+      await click('[data-bottom="build"]');
+      await sleep(200);
+      fs.appendFileSync(path.join(root, "build", "native-v8.log"), "\n--- build later\n" + await js('Array.from(document.querySelectorAll("[data-log=build] .log-line span")).map((e) => e.textContent).join("\\n")'));
+      throw error;
+    });
     await shot("15-native-v8");
     await click('[data-command="native"]');
     await page.until('document.querySelector(\'[data-command="native"]\').getAttribute("aria-pressed") === "false"', 10000);

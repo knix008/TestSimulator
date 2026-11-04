@@ -10,7 +10,10 @@ export function setTipTranslator(t) {
 }
 
 export function tipFor(element) {
-  const text = (element.getAttribute("aria-label") || element.textContent || "").replace(/\s+/g, " ").trim();
+  // A switch has no words of its own: it is named by the label beside it.
+  const beside = element.closest(".field")?.querySelector(".field-label") ?? element.previousElementSibling;
+  const own = element.getAttribute("aria-label") || element.textContent || "";
+  const text = (own.trim() ? own : beside?.textContent ?? "").replace(/\s+/g, " ").trim();
   return SYMBOLS[text] ? translate(SYMBOLS[text]) : text;
 }
 

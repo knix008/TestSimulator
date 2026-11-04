@@ -13,8 +13,8 @@ void ui_Instruments_create(void)
     ui_scale1 = lv_scale_create(ui_Instruments);
     lv_scale_set_label_show(ui_scale1, true);
     lv_scale_set_range(ui_scale1, 0, 100);
-    lv_obj_set_width(ui_scale1, 200);
-    lv_obj_set_height(ui_scale1, 200);
+    lv_obj_set_width(ui_scale1, 130);
+    lv_obj_set_height(ui_scale1, 130);
     lv_obj_set_x(ui_scale1, 16);
     lv_obj_set_y(ui_scale1, 44);
     lv_scale_set_mode(ui_scale1, LV_SCALE_MODE_ROUND_INNER);

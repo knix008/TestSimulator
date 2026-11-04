@@ -41,6 +41,7 @@ export const PATHS = {
   error: [["red", '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>']],
   info: [["blue", '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>']],
   check: [["green", '<path d="m5 12 5 5 9-10"/>']],
+  dropDown: [["blue", '<path d="m7 10 5 5 5-5"/>']],
   caret: [["slate", '<path d="m7 10 5 5 5-5"/>']],
   caretRight: [["slate", '<path d="m10 7 5 5-5 5"/>']],
   design: [["blue", '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 9v11"/>']],

@@ -136,6 +136,8 @@ Shift+F5 → native_check (도구 확인) → lvgl_installed (없으면 LVGL 관
 | 경로 | 내용 |
 |---|---|
 | `src/lvgl/schema.js` | 위젯과 속성 표. 속성 패널, 엔진, 생성기가 함께 읽습니다. |
+| `src/lvgl/problems.js` | 문서와 컴파일러 출력에서 문제점 목록을 만드는 순수 함수(`findProblems`, `parseBuildProblems`), 콘트롤의 코드 위치 찾기(`locateInCode`). |
+| `src/tooltips.js` | `title`을 직접 주지 않은 버튼에 이름을 툴팁으로 붙입니다. 포인터가 올라올 때 계산해 현재 언어를 따릅니다. |
 | `src/lvgl/project.js` | 문서, `.mylvgl` 읽기와 검증, 순수 연산(추가, 삭제, 이동, 복제). UI에 의존하지 않습니다. |
 | `src/lvgl/emit.js` | 문서를 연산 목록으로 변환 |
 | `src/lvgl/engine.js` | WebAssembly 엔진 구동. 앱과 Node 테스트에서 함께 사용합니다. |

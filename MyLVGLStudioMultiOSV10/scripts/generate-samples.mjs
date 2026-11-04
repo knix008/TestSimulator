@@ -178,7 +178,7 @@ function modernScale() {
   const screen = project.screens[0];
   screen.name = "Instruments";
   add(project, screen, "label", { x: 16, y: 10, text: "Widgets of LVGL 9", font: 16 });
-  add(project, screen, "scale", { x: 16, y: 44, width: 200, height: 200, scaleMode: "ROUND_INNER", totalTicks: 31, majorEvery: 5 });
+  add(project, screen, "scale", { x: 16, y: 44, width: 130, height: 130, scaleMode: "ROUND_INNER", totalTicks: 31, majorEvery: 5 });
   add(project, screen, "scale", { x: 240, y: 44, width: 220, height: 60, totalTicks: 21, majorEvery: 5 });
   add(project, screen, "barcode", { x: 240, y: 120, width: 220, height: 60, text: "LVGL-9" });
   add(project, screen, "qrcode", { x: 300, y: 196, qrSize: 110, text: "https://lvgl.io" });

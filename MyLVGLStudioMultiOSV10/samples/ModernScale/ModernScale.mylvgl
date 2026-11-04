@@ -40,8 +40,8 @@
           "type": "scale",
           "name": "scale1",
           "props": {
-            "width": 200,
-            "height": 200,
+            "width": 130,
+            "height": 130,
             "scaleMode": "ROUND_INNER",
             "min": 0,
             "max": 100,
